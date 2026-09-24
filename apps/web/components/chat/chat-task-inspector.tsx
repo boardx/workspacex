@@ -12,7 +12,7 @@ import {
 } from "@/components/chat/chat-composer-attachments";
 import { AgentPlanPanel, type PlanTodo } from "@/components/chat/agent-plan-panel";
 import { ThreadKnowledgeTab, useThreadKnowledge } from "@/components/chat/knowledge/thread-knowledge-tab";
-import { onOpenKnowledgePanel } from "@/lib/knowledge-graph-events";
+import { onOpenClaimSources, onOpenKnowledgePanel } from "@/lib/knowledge-graph-events";
 import {
   INSPECTOR_TABS,
   nextInspectorTab,
@@ -324,6 +324,11 @@ export function ChatTaskInspector(props: ChatTaskInspectorProps): JSX.Element {
   React.useEffect(() => {
     if (!showKnowledge) return undefined;
     return onOpenKnowledgePanel(() => selectTab("memory"));
+  }, [showKnowledge, selectTab]);
+  // F13：回答下点引用 chip → 同样切到「记忆」页签；抽屉由面板自己取走待打开的那条来打开。
+  React.useEffect(() => {
+    if (!showKnowledge) return undefined;
+    return onOpenClaimSources(() => selectTab("memory"));
   }, [showKnowledge, selectTab]);
 
   /**

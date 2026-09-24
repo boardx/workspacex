@@ -29,13 +29,11 @@ import {
   type KgScope,
   type KgVisibility,
   type KgTurnMemory,
+  type KgRecalledMemory,
   type KgMemoryCard,
   type KgConflictPrompt,
 } from "@repo/contracts/chat-knowledge-graph";
-import { RetrievalChannel as RetrievalChannelSchema } from "@repo/contracts/context-pack";
 import type { ThreadKnowledge, ClaimSources, PromotionResults, PromotionNominations } from "@/lib/knowledge-graph-api";
-
-type RetrievalChannel = z.infer<typeof RetrievalChannelSchema>;
 
 /* 契约输出形状（从操作 schema 派生，不手写第二份） */
 export type { ThreadKnowledge, ClaimSources, PromotionResults, PromotionNominations };
@@ -362,6 +360,8 @@ export const turnMemoryWithConflict: TurnMemory = {
   ],
   pending: false,
   prompt: { type: "conflict", conflict: conflictPromptNormal },
+  recalled: [],
+  recallDegraded: false,
 };
 
 /** U-1：本轮记下 3 条，带一张「记住」确认卡 */
@@ -374,6 +374,8 @@ export const turnMemoryWithRememberCard: TurnMemory = {
   ],
   pending: false,
   prompt: { type: "memory_card", card: memoryCardRememberOpen },
+  recalled: [],
+  recallDegraded: false,
 };
 
 /** U-1：只记下、没有主动卡片（最安静的一轮） */
@@ -385,6 +387,8 @@ export const turnMemoryCapturedOnly: TurnMemory = {
   ],
   pending: false,
   prompt: null,
+  recalled: [],
+  recallDegraded: false,
 };
 
 /** U-1：仍在整理中 —— 界面显示「正在记…」，不阻塞正文 */
@@ -393,6 +397,8 @@ export const turnMemoryPending: TurnMemory = {
   captured: [],
   pending: true,
   prompt: null,
+  recalled: [],
+  recallDegraded: false,
 };
 
 /* ── 「你记得关于 X 的什么」回答（uc-18-6 C）：按「你确认过 / AI 记下的」分两组 ── */
@@ -425,118 +431,70 @@ export const recallAnswerGroups: RecallGroup[] = [
   },
 ];
 
-/* ── 回答下方：引用 + 「为什么用到它」（UC-KG-2 / context-pack 通道） ──────────── */
+/* ── 回答下方：引用 + 「为什么用到它」（uc-18-2 R8 / uc-18-4 R3-6）──────────────
+ * 形状即契约 `KgRecalledMemory`（`getTurnMemory.recalled`），按召回名次排列。
+ * `score` 是原始 RRF 分（约 0.01–0.03），界面不展示。 */
 
-/** 展示层：一条召回项。channels 用契约枚举；graphPath 是从 KgEdge/KgObject/KgClaim 组合出的
- *  可读路径字符串（图路径字段是签核待裁项 D-KG-2，见 contracts/chat-knowledge-graph/ui.md 缺口 G-1）。 */
-export interface RecalledCitation {
-  readonly citationId: string;
-  readonly label: string;
-  readonly sourceRef: string;
-  readonly sourceKind: "chat_message" | "attachment";
-  readonly channels: RetrievalChannel[];
-  readonly score: number;
-  /** FilterAction 留痕的展示名（lead=线索/paired=成对…）；取自 filter-action 单源 */
-  readonly reasonLabels: string[];
-  /** 图路径的可读渲染（由边组合，不是新契约字段） */
-  readonly graphPath: string | null;
-  /** 命中的是「AI 记下的」（未确认）时标注（uc-18-2 A2） */
-  readonly unconfirmed: boolean;
-  /** 命中的是你长期记忆里的一条（uc-18-4 R3-6）；有值时界面显示「来自你 {日期} 的对话」 */
-  readonly fromPersonalDate: string | null;
-}
-
-export const answerCitationsNormal: RecalledCitation[] = [
+/** 正常：三条引用——走了关联路径的决定、全文 + 关联命中的硬约束、一条「AI 记下的」 */
+export const recalledMemoriesNormal: KgRecalledMemory[] = [
   {
-    citationId: "cite-1",
-    label: "张三决定 v2 下周一上线",
-    sourceRef: "msg-8801",
-    sourceKind: "chat_message",
-    channels: ["graph", "vector", "fts"],
-    score: 0.91,
-    reasonLabels: ["线索", "召回"],
-    graphPath: "张三 → 决定 → v2 上线",
-    unconfirmed: false,
-    fromPersonalDate: null,
+    claimId: "clm-decision-launch",
+    statement: "张三决定 v2 版本下周一（9/29）上线。",
+    triState: "confirmed",
+    scope: "chat_session",
+    saidAt: "2026-09-22T02:10:00Z",
+    channels: ["graph", "fts"],
+    retrievalReasons: ["lead", "recall"],
+    score: 0.0325,
+    graphPath: [{ from: "张三决定 v2 版本下周一（9/29）上线。", relation: "decided_by", to: "张三" }],
   },
   {
-    citationId: "cite-2",
-    label: "客户 A 要求本季度交付",
-    sourceRef: "att-1042",
-    sourceKind: "attachment",
-    channels: ["vector", "claim"],
-    score: 0.82,
-    reasonLabels: ["召回", "成对"],
-    graphPath: "客户 A → 硬性要求 → v2 上线",
-    unconfirmed: false,
-    fromPersonalDate: null,
+    claimId: "clm-fact-custa",
+    statement: "客户 A 要求 v2 必须在本季度内交付。",
+    triState: "confirmed",
+    scope: "chat_session",
+    saidAt: "2026-09-22T02:14:00Z",
+    channels: ["fts", "graph"],
+    retrievalReasons: ["recall", "lead"],
+    score: 0.0294,
+    graphPath: [{ from: "客户 A 要求 v2 必须在本季度内交付。", relation: "hard_constraint", to: "张三决定 v2 版本下周一（9/29）上线。" }],
   },
   {
-    citationId: "cite-3",
-    label: "李四负责迁移演练（AI 记下的）",
-    sourceRef: "msg-8842",
-    sourceKind: "chat_message",
+    claimId: "clm-todo-migrate",
+    statement: "李四负责在上线前完成数据迁移演练。",
+    triState: "pending",
+    scope: "chat_session",
+    saidAt: "2026-09-23T09:12:00Z",
     channels: ["fts"],
-    score: 0.61,
-    reasonLabels: ["召回"],
+    retrievalReasons: ["recall"],
+    score: 0.0161,
     graphPath: null,
-    unconfirmed: true,
-    fromPersonalDate: null,
   },
 ];
 
-/** 跨会话召回：新会话里带「来自你 9/20 的对话」标签（uc-18-4 V1） */
-export const answerCitationsPersonal: RecalledCitation[] = [
+/** 跨会话召回：新会话里命中你长期记忆里的一条，带「来自你 9/20 的对话」（uc-18-4 V1） */
+export const recalledMemoriesPersonal: KgRecalledMemory[] = [
   {
-    citationId: "cite-p1",
-    label: "客户 A 要求 v2 本季度交付",
-    sourceRef: "msg-8801",
-    sourceKind: "chat_message",
-    channels: ["vector", "graph"],
-    score: 0.88,
-    reasonLabels: ["召回", "线索"],
-    graphPath: "客户 A → 硬性要求 → v2",
-    unconfirmed: false,
-    fromPersonalDate: "9/20",
+    claimId: "clm-personal-custa",
+    statement: "客户 A 要求 v2 本季度交付。",
+    triState: "confirmed",
+    scope: "personal",
+    // 9/20 下午（UTC+8），界面按本地时区显示月/日
+    saidAt: "2026-09-20T06:30:00Z",
+    channels: ["fts", "graph"],
+    retrievalReasons: ["recall", "lead"],
+    score: 0.0312,
+    graphPath: [{ from: "客户 A 要求 v2 本季度交付。", relation: "about", to: "客户 A" }],
   },
 ];
 
-/** 通道健康：哪几路降级不可用（uc-18-2 E1/E2 的可见提示来源）。
- *  ⚠ 这是 UI 侧的占位表达，见 README 缺口清单。 */
-export interface ChannelHealth {
-  readonly channel: RetrievalChannel;
-  readonly available: boolean;
-}
+/** 关联查询（图）本轮没能执行：只有全文命中，没有关系路径，`recallDegraded = true`（uc-18-2 E1） */
+export const recalledMemoriesGraphDown: KgRecalledMemory[] = recalledMemoriesNormal.map((m) => ({
+  ...m,
+  channels: m.channels.filter((c) => c !== "graph"),
+  retrievalReasons: m.retrievalReasons.filter((r) => r !== "lead"),
+  graphPath: null,
+}));
 
-export const channelHealthAllOk: ChannelHealth[] = [
-  { channel: "fts", available: true },
-  { channel: "vector", available: true },
-  { channel: "graph", available: true },
-  { channel: "claim", available: true },
-  { channel: "metadata", available: true },
-];
-
-export const channelHealthGraphDown: ChannelHealth[] = channelHealthAllOk.map((c) =>
-  c.channel === "graph" ? { ...c, available: false } : c,
-);
-
-export const channelHealthVectorDown: ChannelHealth[] = channelHealthAllOk.map((c) =>
-  c.channel === "vector" ? { ...c, available: false } : c,
-);
-
-/** 关联查询是否可用（图 / 向量任一路降级都算「查不全」）。文案是用词表第五节的固定说法。 */
-export function relatedQueryDegraded(health: ChannelHealth[]): boolean {
-  return health.some((c) => (c.channel === "graph" || c.channel === "vector") && !c.available);
-}
-
-/** 「查不全」的固定文案（用词表：图检索 / 向量检索不可用 → 这句人话）。前端不另写第二份。 */
-export const KG_RELATED_QUERY_DEGRADED_ZH =
-  "这次没能查全你的记忆（关联查询暂不可用），回答可能不完整";
-
-export const RETRIEVAL_CHANNEL_LABEL_ZH: Record<RetrievalChannel, string> = {
-  fts: "全文",
-  vector: "相似",
-  graph: "关联",
-  metadata: "元数据",
-  claim: "记下的",
-};
+/* 召回通道用词与「查不全」固定说法：定义在非 mock 模块（产品路由也要用），这里只 re-export。 */
+export { RETRIEVAL_CHANNEL_LABEL_ZH, KG_RELATED_QUERY_DEGRADED_ZH } from "@/lib/knowledge-graph-recall";

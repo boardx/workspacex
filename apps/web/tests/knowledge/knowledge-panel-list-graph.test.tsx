@@ -100,7 +100,7 @@ const SOURCES: ClaimSources = knowledgeGraph.getClaimSources.out.parse({
 
 function turn(overrides: Partial<TurnMemory> = {}): TurnMemory {
   return knowledgeGraph.getTurnMemory.out.parse({
-    messageId: "msg-9", captured: [], pending: false, prompt: null, ...overrides,
+    messageId: "msg-9", captured: [], pending: false, prompt: null, recalled: [], recallDegraded: false, ...overrides,
   });
 }
 

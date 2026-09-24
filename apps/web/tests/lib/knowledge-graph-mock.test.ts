@@ -10,14 +10,14 @@ import {
   KG_RELATED_QUERY_DEGRADED_ZH,
   RETRIEVAL_CHANNEL_LABEL_ZH,
   KG_BANNED_USER_FACING_WORDS,
-  relatedQueryDegraded,
-  channelHealthGraphDown,
-  channelHealthVectorDown,
-  channelHealthAllOk,
+  recalledMemoriesNormal,
+  recalledMemoriesPersonal,
+  recalledMemoriesGraphDown,
   promotionResultsMixed,
 } from "@/lib/mock/knowledge-graph";
-import { claimTriState, KG_TRI_STATE_LABEL_ZH } from "@repo/contracts/chat-knowledge-graph";
+import { claimTriState, KG_TRI_STATE_LABEL_ZH, KgRecalledMemory } from "@repo/contracts/chat-knowledge-graph";
 import type { KgClaim } from "@repo/contracts/chat-knowledge-graph";
+import { KG_RELATION_LABEL_ZH } from "@/lib/knowledge-graph-recall";
 
 /**
  * 守护记忆面板的纯投影函数 + 「说人话」用词表（06-user-experience.md 第五节 / E6）。
@@ -82,11 +82,13 @@ describe("U-3 记入长期记忆", () => {
   });
 });
 
-describe("关联/相似查询降级", () => {
-  it("图或向量任一路不可用即判『查不全』，文案固定", () => {
-    expect(relatedQueryDegraded(channelHealthAllOk)).toBe(false);
-    expect(relatedQueryDegraded(channelHealthGraphDown)).toBe(true);
-    expect(relatedQueryDegraded(channelHealthVectorDown)).toBe(true);
+describe("回答用到的记忆（F13）mock 即契约形状", () => {
+  it("三组 recalled 都能过契约 KgRecalledMemory，图不可用那组没有关联通道与路径", () => {
+    for (const m of [...recalledMemoriesNormal, ...recalledMemoriesPersonal, ...recalledMemoriesGraphDown]) {
+      expect(() => KgRecalledMemory.parse(m)).not.toThrow();
+    }
+    expect(recalledMemoriesPersonal.every((m) => m.scope === "personal")).toBe(true);
+    expect(recalledMemoriesGraphDown.some((m) => m.channels.includes("graph") || m.graphPath !== null)).toBe(false);
     expect(KG_RELATED_QUERY_DEGRADED_ZH).toContain("没能查全你的记忆");
   });
 });
@@ -99,6 +101,7 @@ describe("E6 说人话：界面文案不含内部术语", () => {
     ...Object.values(KG_OBJECT_KIND_LABEL_ZH),
     ...Object.values(RETRIEVAL_CHANNEL_LABEL_ZH),
     KG_RELATED_QUERY_DEGRADED_ZH,
+    ...Object.values(KG_RELATION_LABEL_ZH),
   ];
 
   it("所有对用户展示的标签都不出现禁用词", () => {

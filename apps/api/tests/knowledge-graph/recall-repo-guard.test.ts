@@ -30,8 +30,8 @@ const callersOf = (re: RegExp) => walk(join(API, "src"))
 
 describe("F08 会话记忆召回读取的豁免前提", () => {
   it("(a) 只出现六张租户表（外加只回 id 的 kg_graph_neighbors）；不用逗号连接、不从子查询取行", () => {
-    const tables = new Set([...code.matchAll(/(?<!FOR\s)\b(?:FROM|JOIN|UPDATE|INTO)\s+([a-z_]+)/gi)].map((m) => m[1]!.toLowerCase()));
-    for (const t of [...TENANT, "kg_graph_neighbors"]) tables.delete(t);
+    const tables = new Set([...code.matchAll(/(?<!FOR\s)(?<!DO\s)\b(?:FROM|JOIN|UPDATE|INTO)\s+([a-z_]+)/gi)].map((m) => m[1]!.toLowerCase()));
+    for (const t of [...TENANT, "kg_graph_neighbors", "kg_turn_recalls"]) tables.delete(t);
     expect([...tables]).toEqual([]);
     expect(code).not.toMatch(/\b(?:FROM|JOIN)\s+[a-z_]+(?:\s+(?:AS\s+)?[a-z]\w*)?\s*,/i);
     expect(code).not.toMatch(/\b(?:FROM|JOIN)\s*\(/i);
@@ -98,10 +98,10 @@ describe("F08 会话记忆召回读取的豁免前提", () => {
     expect(exec).toMatch(/knowledgeMemoryFor\(deps\.knowledge, \{ orgId, userId: run\.requesterUserId, threadId: run\.threadId, query: run\.inputText, runId: run\.runId \}/);
   });
 
-  it("(e) 类成员只有端口要求的两个方法——不能悄悄多出一个读全组织的方法（不论 async / 修饰符 / 箭头属性 / getter / 缩进）", () => {
+  it("(e) 类成员只有端口要求的三个方法——不能悄悄多出一个读全组织的方法（不论 async / 修饰符 / 箭头属性 / getter / 缩进）", () => {
     const members = [...code.matchAll(/^\s{2}(?:(?:public|private|protected|readonly|static)\s+)*(?:async\s+)?(\w+)\s*[(=:<]/gm)]
       .map((m) => m[1]).filter((n) => n !== "constructor").sort();
-    expect(members).toEqual(["candidates", "graphNeighbors"]);
+    expect(members).toEqual(["candidates", "graphNeighbors", "recordTurn"]);
     expect(code).not.toMatch(/^[ \t]+(?:get|set|static)[ \t]+\w+\s*\(/m);
     expect(code).not.toMatch(/^[ \t]{3,}(?:public|private|protected|async)[ \t]+\w+\s*\(/m);
   });
@@ -109,5 +109,11 @@ describe("F08 会话记忆召回读取的豁免前提", () => {
   it("(e2) 模块顶层只有 stripKind、两个 SQL 片段常量和这个类——不能在类外另挂一个读正文的函数", () => {
     const topLevel = code.split("\n").filter((l) => /^\S/.test(l) && !/^(?:import\b|\}|\)|export\s+type\b|type\b)/.test(l));
     expect(topLevel.map((l) => /^(?:export\s+)?(?:const|class)\s+(\w+)/.exec(l)?.[1] ?? l)).toEqual(["stripKind", "LIVE", "CLAIM_COLUMNS", "PgKnowledgeRecall"]);
+  });
+
+  it("(f) kg_turn_recalls 只写不读：一条 INSERT … ON CONFLICT (run_id)，写的是调用方给的这一个 run", () => {
+    expect(code.match(/kg_turn_recalls/g)).toHaveLength(1);
+    expect(code).toMatch(/INSERT INTO kg_turn_recalls \(run_id, org_id, thread_id, requester_user_id, items, graph_degraded\)/);
+    expect(code).not.toMatch(/FROM kg_turn_recalls|JOIN kg_turn_recalls|UPDATE kg_turn_recalls/);
   });
 });

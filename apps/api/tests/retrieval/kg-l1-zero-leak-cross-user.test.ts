@@ -82,6 +82,7 @@ describe("F12: L1 零越权", () => {
 
   it("图路把所有者的 L1 id 递给成员，也回候选集求交丢掉", async () => {
     const leaky: KnowledgeRecallPort = {
+      recordTurn: async () => undefined,
       candidates: (...a) => port.candidates(...a),
       graphNeighbors: async (o, seeds) => [
         ...(await port.graphNeighbors(o, seeds)),
