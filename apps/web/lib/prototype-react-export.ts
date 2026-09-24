@@ -69,11 +69,27 @@ interface Ctx {
   readonly links: ReadonlyMap<string, number>;
   /** 某一项的跳转（tabs / 底部导航 / 列表的第 i 项）：键是 `${id}#${i}`。 */
   readonly itemLinks: ReadonlyMap<string, number>;
+  /**
+   * 深度 S4（#3988）：给这一页登记一个 `useState`，返回状态变量名（setter 是 `set` + 首字母大写）。
+   * tabs / 底部导航的「当前项」、chip 的「选中」都是真状态——导出的代码点得动，不是一张截图。
+   */
+  readonly state: (initial: string) => string;
 }
 
 const str = (s: string): string => `{${JSON.stringify(s)}}`;
 const cls = (...c: readonly (string | false | undefined)[]): string => `className="${c.filter(Boolean).join(" ")}"`;
 const pad = (depth: number): string => "  ".repeat(depth);
+
+const setter = (v: string): string => `set${v[0]!.toUpperCase()}${v.slice(1)}`;
+
+/** 第 i 项点下去：先切到这一项，有跳转再跳。 */
+function selectItem(n: Node, i: number, v: string, ctx: Ctx): string {
+  const to = n.id === undefined ? undefined : ctx.itemLinks.get(`${n.id}#${i}`);
+  return ` onClick={() => { ${setter(v)}(${i});${to === undefined ? "" : ` go(${to});`} }}`;
+}
+
+/** 状态驱动的类名：`className={cond ? "a" : "b"}`。 */
+const clsIf = (cond: string, on: string, off: string): string => `className={${cond} ? ${JSON.stringify(on)} : ${JSON.stringify(off)}}`;
 
 function go(n: Node, ctx: Ctx): string {
   const to = n.id === undefined ? undefined : ctx.links.get(n.id);
@@ -211,8 +227,9 @@ function node(n: Node, depth: number, ctx: Ctx): string {
       return `${pad(depth)}<div aria-hidden ${cls(ctx.space(n.props?.size ?? "md"))} />`;
     case "tabs": {
       const p = n.props;
+      const v = ctx.state(String(p.active ?? 0));
       return el(depth, "div", `role="tablist" ${cls("flex gap-1 border-b", pal.border)}`, p.items.map((it, i) =>
-        `${pad(d)}<button type="button" role="tab" aria-selected={${i === (p.active ?? 0)}} ${cls("px-3 py-2 text-sm", i === (p.active ?? 0) ? "border-b-2 border-[hsl(var(--primary))] font-medium" : pal.muted)}${goItem(n, i, ctx)}>${str(it)}</button>`));
+        `${pad(d)}<button type="button" role="tab" aria-selected={${v} === ${i}} ${clsIf(`${v} === ${i}`, "px-3 py-2 text-sm border-b-2 border-[hsl(var(--primary))] font-medium", `px-3 py-2 text-sm ${pal.muted}`)}${selectItem(n, i, v, ctx)}>${str(it)}</button>`));
     }
     case "badge":
       return el(depth, "span", cls("inline-flex w-fit items-center rounded-full px-2 py-0.5 text-xs font-medium", BADGE_TONE[n.props.tone ?? "neutral"]), str(n.props.label));
@@ -222,8 +239,9 @@ function node(n: Node, depth: number, ctx: Ctx): string {
     }
     case "bottomnav": {
       const p = n.props;
+      const v = ctx.state(String(p.active ?? 0));
       return el(depth, "nav", `aria-label="底部导航" ${cls("mt-auto flex justify-around border-t py-2", pal.border)}`, p.items.map((it, i) =>
-        `${pad(d)}<button type="button" ${cls("px-2 py-1 text-xs", i === (p.active ?? 0) ? "font-medium text-[hsl(var(--primary))]" : pal.muted)}${goItem(n, i, ctx)}>${str(it)}</button>`));
+        `${pad(d)}<button type="button" aria-current={${v} === ${i} ? "page" : undefined} ${clsIf(`${v} === ${i}`, "px-2 py-1 text-xs font-medium text-[hsl(var(--primary))]", `px-2 py-1 text-xs ${pal.muted}`)}${selectItem(n, i, v, ctx)}>${str(it)}</button>`));
     }
     case "switch":
       return el(depth, "label", cls("flex items-center justify-between gap-3 text-sm"), [
@@ -235,8 +253,10 @@ function node(n: Node, depth: number, ctx: Ctx): string {
         `${pad(d)}<input type="checkbox" defaultChecked={${n.props.checked === true}} className="h-4 w-4 accent-[hsl(var(--primary))]" />`,
         `${pad(d)}<span>${str(n.props.label)}</span>`,
       ]);
-    case "chip":
-      return el(depth, "button", `type="button" aria-pressed={${n.props.selected === true}} ${cls("rounded-full border px-3 py-1 text-xs", n.props.selected === true ? PRIMARY : pal.border)}`, str(n.props.label));
+    case "chip": {
+      const v = ctx.state(String(n.props.selected === true));
+      return el(depth, "button", `type="button" aria-pressed={${v}} ${clsIf(v, `rounded-full border px-3 py-1 text-xs ${PRIMARY}`, `rounded-full border px-3 py-1 text-xs ${pal.border}`)} onClick={() => ${setter(v)}((x) => !x)}`, str(n.props.label));
+    }
     case "progress": {
       const p = n.props;
       return el(depth, "div", cls("flex flex-col gap-1"), [
@@ -356,12 +376,19 @@ export function buildPrototypeReactTsx(
     const links = new Map(all.filter((l) => l.item === undefined).map((l) => [l.from, l.to] as const));
     const itemLinks = new Map(all.filter((l) => l.item !== undefined).map((l) => [`${l.from}#${l.item}`, l.to] as const));
     const root = project.prototype[i] ?? null;
+    const hooks: string[] = [];
+    const state = (initial: string): string => {
+      const v = `s${hooks.length + 1}`;
+      hooks.push(`  const [${v}, ${setter(v)}] = useState(${initial});`);
+      return v;
+    };
     const body = root === null
       ? `      <p className="p-6 text-sm">{${JSON.stringify(`「${frame}」这一页还没画出来`)}}</p>`
-      : node(root, 3, { pal, links, itemLinks, ...s });
+      : node(root, 3, { pal, links, itemLinks, state, ...s });
     return [
       `/** 第 ${i + 1} 页：${frame.replace(/\*\//g, "* /")} */`,
       `function Screen${i + 1}({ go }: { go: Go }) {`,
+      ...hooks,
       `  void go;`,
       `  return (`,
       `    <div className="relative flex min-h-[640px] flex-col">`,

@@ -446,3 +446,20 @@ test.describe("深度 S3 批注讨论（#3988）", () => {
     await ctx.close();
   });
 });
+
+test.describe("深度 S4 导出的代码能交互（#3988）", () => {
+  test("导出的 .tsx 里 tabs 是真状态：useState 登记、点下去 setter 切到那一项、选中态读状态", async ({ page }) => {
+    await routeDrafts(page, { empty: false });
+    await routeInbox(page, { empty: false });
+    await routeDesignWorkbench(page, { extraProjects: [R7_PROJECT] });
+    await page.goto("/preview/feedback-design-loop?scene=detail-eval&case=R7");
+    await page.getByTestId("design-detail").waitFor();
+    await page.getByTestId("design-detail-export").click();
+    const [d] = await Promise.all([page.waitForEvent("download"), page.getByTestId("design-detail-export-code").click()]);
+    const tsx = readFileSync(await d.path(), "utf8");
+    // R7 的 tabs「详情 / 规格」active=0：登记成 useState(0)，第二项点下去 setS1(1)，选中态是 s1 === 1。
+    expect(tsx).toMatch(/const \[s1, setS1\] = useState\(0\);/);
+    expect(tsx).toContain("onClick={() => { setS1(1); }}");
+    expect(tsx).toContain("aria-selected={s1 === 1}");
+  });
+});

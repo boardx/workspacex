@@ -101,6 +101,31 @@ describe("buildPrototypeReactTsx", () => {
     expect(screen.getByText("历史会话页")).toBeTruthy();
   });
 
+  it("深度 S4：导出的代码点得动——tabs 切换选中、底部导航当前项跟着变、chip 能切换", () => {
+    // 这一页的 tabs / 底部导航不连别的页：点下去只换「当前项」，看得出是真状态而不是换了页。
+    const one = {
+      ...project, frames: ["详情"], frameLinks: [[]],
+      prototype: [{ type: "stack", children: [
+        { id: "t", type: "tabs", props: { items: ["详情", "规格", "评价"], active: 0 } },
+        { type: "chip", props: { label: "热门", selected: true } },
+        { id: "bn", type: "bottomnav", props: { items: ["首页", "我的"], active: 0 } },
+      ] } as N],
+    };
+    render(React.createElement(load(buildPrototypeReactTsx(one))));
+    fireEvent.click(screen.getByRole("tab", { name: "规格" }));
+    expect(screen.getByRole("tab", { name: "规格" }).getAttribute("aria-selected")).toBe("true");
+    expect(screen.getByRole("tab", { name: "详情" }).getAttribute("aria-selected")).toBe("false");
+    const nav = within(screen.getByRole("navigation", { name: "底部导航" }));
+    expect(nav.getByRole("button", { name: "首页" }).getAttribute("aria-current")).toBe("page");
+    fireEvent.click(nav.getByRole("button", { name: "我的" }));
+    expect(nav.getByRole("button", { name: "我的" }).getAttribute("aria-current")).toBe("page");
+    expect(nav.getByRole("button", { name: "首页" }).getAttribute("aria-current")).toBeNull();
+    const chip = screen.getByRole("button", { name: "热门" });
+    expect(chip.getAttribute("aria-pressed")).toBe("true");
+    fireEvent.click(chip);
+    expect(chip.getAttribute("aria-pressed")).toBe("false");
+  });
+
   it("闭集全覆盖：契约里每种原语都在上面的样例里出现过（新增原语 ⇒ 这里提醒补样例）", () => {
     const seen = new Set<string>();
     const walk = (n: N) => { seen.add(n.type); if (designPrototype.isPrototypeContainer(n)) n.children.forEach(walk); };
