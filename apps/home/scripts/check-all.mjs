@@ -20,6 +20,8 @@ const checks = [
   ['copy typography', 'check-copy.mjs'],
   ['link integrity', 'check-links.mjs'],
   ['stated facts', 'check-sequence.mjs'],
+  ['citations from the register', 'check-citations.mjs'],
+  ['citation gate can fail', 'check-citations.mjs', '--self-test'],
   ['engine compatibility', 'check-compat.mjs'],
   ['deploy files', 'check-deploy.mjs'],
   ['documentation', 'check-docs.mjs'],
