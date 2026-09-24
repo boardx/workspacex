@@ -1,6 +1,7 @@
 import { research as C } from "@repo/contracts";
 import type { z } from "zod";
 import type { ResearchRuntime } from "./guided-runtime-ports";
+import { reportQuestions } from "./guided-report-evidence";
 
 type Coverage = z.infer<typeof C.GuidedResearchCoverageItem>;
 type ClaimEvidence = z.infer<typeof C.GuidedResearchClaimEvidenceView>;
@@ -20,26 +21,48 @@ function average(values: Array<number | null>): number | null {
   const known = values.filter((value): value is number => value !== null);
   return known.length ? rounded(known.reduce((sum, value) => sum + value, 0) / known.length) : null;
 }
+function detectedEvidenceConflicts(runtime: ResearchRuntime): Conflict[] {
+  const grouped = new Map<string, NonNullable<ResearchRuntime["questionEvidence"]>>();
+  for (const item of runtime.questionEvidence ?? []) grouped.set(item.questionId, [...(grouped.get(item.questionId) ?? []), item]);
+  const conflicts: Conflict[] = [];
+  for (const [questionId, evidence] of grouped) {
+    const direct = evidence.filter((item) => item.relevance === "direct");
+    for (let left = 0; left < direct.length; left++) for (let right = left + 1; right < direct.length; right++) {
+      if (direct[left]!.sourceId === direct[right]!.sourceId) continue;
+      const a = [...direct[left]!.quote.matchAll(/\b\d+(?:\.\d+)?%/g)].map((match) => match[0]);
+      const b = [...direct[right]!.quote.matchAll(/\b\d+(?:\.\d+)?%/g)].map((match) => match[0]);
+      if (!a.length || !b.length || a.some((value) => b.includes(value))) continue;
+      conflicts.push(C.GuidedResearchEvidenceConflict.parse({ id: `detected:${questionId}:${left}:${right}`,
+        claimIds: [questionId, questionId], sourceIds: [direct[left]!.sourceId, direct[right]!.sourceId],
+        severity: "moderate", status: "open", resolution: null }));
+    }
+  }
+  return conflicts;
+}
 
 export function projectResearchTrust(runtime: ResearchRuntime): GuidedResearchTrustProjection {
   const sourceById = new Map(runtime.sources.map((source) => [source.id, source]));
-  const reportBySection = new Map(runtime.report?.sections.map((section) => [section.sectionId, section]) ?? []);
-  const coverage = runtime.outline.filter((section) => section.enabled).flatMap((section) => section.questions.map((question, questionIndex) => {
-    const evidenceIds = (reportBySection.get(section.id)?.sourceIds ?? []).filter((id) => sourceById.has(id));
-    const warned = runtime.reportEvidenceWarnings?.some((warning) => warning.questionIds.includes(`${section.id}:q${questionIndex + 1}`)) ?? false;
-    return C.GuidedResearchCoverageItem.parse({ sectionId: section.id, questionId: `${section.id}:q${questionIndex + 1}`,
+  const enabledOutline = runtime.outline.filter((section) => section.enabled);
+  const questions = enabledOutline.length ? reportQuestions(enabledOutline) : [];
+  const coverage = questions.map((question) => {
+    const evidence = (runtime.questionEvidence ?? []).filter((item) => item.questionId === question.id && sourceById.has(item.sourceId));
+    const evidenceIds = [...new Set(evidence.map((item) => item.sourceId))];
+    const warned = runtime.reportEvidenceWarnings?.some((warning) => warning.questionIds.includes(question.id)) ?? false;
+    return C.GuidedResearchCoverageItem.parse({ sectionId: question.sectionId, questionId: question.id,
       status: evidenceIds.length === 0 ? "missing" : warned ? "weak" : "answered", evidenceIds,
-      reasons: evidenceIds.length === 0 ? ["没有可定位的已接受来源"] : warned ? ["证据校验存在警告"] : ["报告章节包含可定位来源"] });
-  }));
-  const claimEvidence = (runtime.report?.sections ?? []).flatMap((section) => section.sourceIds.flatMap((sourceId, index) => {
-    const source = sourceById.get(sourceId);
+      reasons: evidenceIds.length === 0 ? ["没有可定位的逐问题证据"] : warned ? ["证据校验存在警告"] : ["问题具有可定位原文"] });
+  });
+  const claimEvidence = (runtime.questionEvidence ?? []).flatMap((evidence, index) => {
+    const source = sourceById.get(evidence.sourceId);
     if (!source) return [];
     if (!source.document) return [];
-    return [C.GuidedResearchClaimEvidenceView.parse({ claimId: `${section.sectionId}:claim:${index + 1}`, evidenceId: sourceId,
-      quote: source.document.text.slice(0, 2000), sourceId, retrievedAt: source.document.retrievedAt,
-      confidence: "high", traceIds: source.taskIds ?? [source.taskId] })];
-  }));
-  const conflicts = (runtime.conflicts ?? []).map((conflict) => C.GuidedResearchEvidenceConflict.parse(conflict));
+    if (!source.document.text.includes(evidence.quote)) return [];
+    return [C.GuidedResearchClaimEvidenceView.parse({ claimId: evidence.questionId, evidenceId: `${evidence.questionId}:${index + 1}`,
+      quote: evidence.quote, sourceId: evidence.sourceId, retrievedAt: source.document.retrievedAt,
+      confidence: evidence.relevance === "direct" ? "high" : "medium", traceIds: source.taskIds ?? [source.taskId] })];
+  });
+  const conflicts = [...new Map([...(runtime.conflicts ?? []), ...detectedEvidenceConflicts(runtime)]
+    .map((conflict) => [conflict.id, C.GuidedResearchEvidenceConflict.parse(conflict)])).values()];
   const answered = coverage.filter((item) => item.status === "answered").length;
   const citationCoverage = coverage.length ? rounded(answered / coverage.length * 100) : null;
   const accepted = runtime.sources.filter((source) => source.decision === "accepted");

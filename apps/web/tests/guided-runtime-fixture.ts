@@ -7,6 +7,9 @@ export function runtimeFixture(node: GuidedResearchRuntime["currentNode"] = "bri
     outline: [{ id: "o1", title: "政策章节", questions: ["有哪些准入要求？"], enabled: true, order: 0 }],
     tasks: [{ id: "t1", sectionId: "o1", query: "storage grid policy", status: "succeeded", attempts: 1, errorCode: null }],
     sources: [{ id: "source1", taskId: "t1", title: "Official policy", url: "https://example.org/policy", content: "Retrieved evidence", retrievedAt: "2026-09-05", decision: "accepted" }],
+    intent: { decision: "评估进入策略", audience: "决策团队", timeframe: { from: "2026-01", to: "2026-12" }, deliverable: "研究报告", successCriteria: ["关键结论都有来源"] },
+    planRevision: 1,
+    sourcePolicy: { mode: "prioritize", domains: ["example.org"], internalSourceIds: [], revision: 1 },
     report: node === "report" ? { title: "政策研究报告", summary: "有来源支持的摘要", sections: [{ sectionId: "o1", body: "有来源支持的结论", sourceIds: ["source1"] }] } : null,
     completed: false, busy: false, leaseUntil: null, errorCode: null, generatedNodes: nodes.slice(0,nodes.indexOf(node)+1), messages: [], proposal: null, modelCalls: [],
   };

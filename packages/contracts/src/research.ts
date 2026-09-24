@@ -1012,6 +1012,10 @@ export const GuidedResearchClaimEvidenceView = z.object({
   sourceId: z.string().min(1), retrievedAt: z.string(), confidence: z.enum(["low", "medium", "high"]).nullable(),
   traceIds: z.array(z.string().min(1)),
 }).strict();
+export const GuidedResearchQuestionEvidence = z.object({
+  questionId: z.string().min(1), sectionId: z.string().min(1), sourceId: z.string().min(1),
+  quote: z.string().trim().min(1).max(2000), relevance: z.enum(["direct", "context"]),
+}).strict();
 export const GuidedResearchEvidenceConflict = z.object({
   id: z.string().min(1), claimIds: z.array(z.string().min(1)).min(2), sourceIds: z.array(z.string().min(1)).min(2),
   severity: z.enum(["moderate", "severe"]), status: z.enum(["open", "resolved"]),
@@ -1050,6 +1054,7 @@ export const GuidedResearchRuntime = z.object({
   activity: z.array(GuidedResearchActivityEvent).max(1000).optional(),
   coverage: z.array(GuidedResearchCoverageItem).max(1000).optional(),
   claimEvidence: z.array(GuidedResearchClaimEvidenceView).max(2000).optional(),
+  questionEvidence: z.array(GuidedResearchQuestionEvidence).max(4000).optional(),
   conflicts: z.array(GuidedResearchEvidenceConflict).max(500).optional(),
   qualityScore: GuidedResearchQualityScore.optional(),
   publicationReadiness: GuidedResearchPublicationReadiness.optional(),
@@ -1078,7 +1083,8 @@ export const GuidedResearchRuntimeCommand = z.object({
   allowPartialResearch: z.boolean().optional(),
 }).strict().refine((command) => command.allowPartialResearch === undefined || (command.node === "research" && ["confirm", "complete"].includes(command.action)), "partial research requires explicit research completion").refine((command) => !command.draft || command.node === command.draft.node, "draft must target the requested node")
   .refine((command) => !["pause", "resume", "refine_scope", "refine_source_policy"].includes(command.action)
-    || (command.node === "research" && command.expectedRevision !== undefined && Boolean(command.idempotencyKey)), "steering commands require research node, expected revision and idempotency key")
+    || ((command.action === "refine_scope" ? ["outline", "research"].includes(command.node) : command.node === "research")
+      && command.expectedRevision !== undefined && Boolean(command.idempotencyKey)), "steering commands require an editable plan node, expected revision and idempotency key")
   .refine((command) => command.action !== "refine_source_policy" || Boolean(command.sourcePolicy), "source policy refinement requires a source policy")
   .refine((command) => {
     if (command.action === "add_source" || command.action === "remove_source") {

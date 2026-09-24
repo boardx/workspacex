@@ -20,6 +20,7 @@ function fixture() {
     sources: [{ id: "src1", taskId: "t1", title: "Official", url: "https://example.com/report", content: "Primary evidence text", retrievedAt: "2026-09-24T00:00:00.000Z", decision: "accepted" as const,
       document: { url: "https://example.com/report", retrievedAt: "2026-09-24T00:00:00.000Z", text: "Primary evidence text", contentHash: "a".repeat(64), contentKind: "html" as const, truncated: false } }],
     report: { title: "Report", summary: "Summary", sections: [{ sectionId: "s1", body: "Supported statement [[source:src1]]", sourceIds: ["src1"] }] },
+    questionEvidence: [{ questionId: "chapter:0/question:0", sectionId: "s1", sourceId: "src1", quote: "Primary evidence text", relevance: "direct" as const }],
   };
 }
 
@@ -33,15 +34,23 @@ describe("research trust projection", () => {
 
   it("keeps unsupported core questions limited", () => {
     const state = fixture();
-    state.report.sections[0]!.sourceIds = [];
+    state.questionEvidence = [];
     const result = projectResearchTrust(state);
     expect(result.coverage[0]?.status).toBe("missing");
     expect(result.publicationReadiness.blockers).toContain("核心问题覆盖不足");
   });
 
+  it("does not copy one chapter citation onto every question", () => {
+    const state = fixture();
+    state.outline[0]!.questions.push("What remains unknown?");
+    const result = projectResearchTrust(state);
+    expect(result.coverage.map((item) => item.status)).toEqual(["answered", "missing"]);
+    expect(result.publicationReadiness.status).toBe("limited");
+  });
+
   it("keeps a mixed supported and unsupported key claim limited", () => {
     const state = fixture();
-    state.reportEvidenceWarnings = [{ batchIndex: 0, sourceIds: ["src1"], questionIds: ["s1:q1"], reason: "invalid_model_evidence" }];
+    state.reportEvidenceWarnings = [{ batchIndex: 0, sourceIds: ["src1"], questionIds: ["chapter:0/question:0"], reason: "invalid_model_evidence" }];
     const result = projectResearchTrust(state);
     expect(result.coverage[0]?.status).toBe("weak");
     expect(result.publicationReadiness.blockers).toContain("关键结论缺少来源");

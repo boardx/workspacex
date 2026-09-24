@@ -67,4 +67,14 @@ describe("guided research trust contracts", () => {
     });
     expect(parsed.action).toBe("pause");
   });
+
+  it("allows scope confirmation on the outline before search starts", () => {
+    const parsed = research.GuidedResearchRuntimeCommand.parse({
+      sessionId: "session-1", node: "outline", action: "refine_scope", requestId: "scope-1",
+      expectedVersion: 1, expectedRevision: 0, idempotencyKey: "scope-key",
+      intent: { decision: "Choose", audience: "Board", timeframe: { from: "2024", to: "2026" }, deliverable: "Report", successCriteria: ["Traceable evidence"] },
+      sourcePolicy: { mode: "restrict", domains: ["example.com"], internalSourceIds: [], revision: 1 },
+    });
+    expect(parsed.node).toBe("outline");
+  });
 });

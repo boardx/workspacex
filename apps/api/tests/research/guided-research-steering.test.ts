@@ -23,6 +23,18 @@ function researchRuntime(): ResearchRuntime {
 }
 
 describe("guided research steering", () => {
+  it("enforces restrict domains and biases prioritized searches", async () => {
+    const { searchWithSourcePolicy } = await import("../../src/application/research/guided-runtime-service");
+    const search = { search: async (query: string) => [
+      { title: query, url: "https://allowed.example/report", content: "ok" },
+      { title: query, url: "https://blocked.example/report", content: "no" },
+    ] };
+    const restricted = await searchWithSourcePolicy(search, "market", { mode: "restrict", domains: ["allowed.example"], internalSourceIds: [], revision: 1 });
+    expect(restricted).toHaveLength(1);
+    expect(restricted[0]?.url).toContain("allowed.example");
+    const prioritized = await searchWithSourcePolicy(search, "market", { mode: "prioritize", domains: ["allowed.example"], internalSourceIds: [], revision: 1 });
+    expect(prioritized[0]?.title).toContain("site:allowed.example");
+  });
   it("rejects stale revisions without mutating state", () => {
     const state = { ...initialRuntime(session), planRevision: 2 };
     expect(() => applyResearchSteering(state, command("pause", 1), "2026-09-24T00:00:00.000Z"))

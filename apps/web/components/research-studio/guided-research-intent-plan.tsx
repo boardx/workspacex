@@ -16,6 +16,8 @@ export function GuidedResearchIntentPlan({ initialIntent, initialPolicy, revisio
   const [criteria, setCriteria] = React.useState(initialIntent?.successCriteria.join("\n") ?? "");
   const [audience, setAudience] = React.useState(initialIntent?.audience ?? "");
   const [deliverable, setDeliverable] = React.useState(initialIntent?.deliverable ?? "研究报告");
+  const [timeFrom, setTimeFrom] = React.useState(initialIntent?.timeframe.from ?? "");
+  const [timeTo, setTimeTo] = React.useState(initialIntent?.timeframe.to ?? "");
   const [mode, setMode] = React.useState<Policy["mode"]>(initialPolicy?.mode ?? "prioritize");
   const [domains, setDomains] = React.useState(initialPolicy?.domains.join(", ") ?? "");
   const successCriteria = criteria.split("\n").map((item) => item.trim()).filter(Boolean);
@@ -25,6 +27,8 @@ export function GuidedResearchIntentPlan({ initialIntent, initialPolicy, revisio
       <label className="grid gap-1 text-sm">决策对象<Input value={decision} onChange={(event) => setDecision(event.target.value)} /></label>
       <label className="grid gap-1 text-sm">目标受众<Input value={audience} onChange={(event) => setAudience(event.target.value)} /></label>
       <label className="grid gap-1 text-sm">交付物<Input value={deliverable} onChange={(event) => setDeliverable(event.target.value)} /></label>
+      <label className="grid gap-1 text-sm">时间范围起点<Input aria-label="时间范围起点" value={timeFrom} onChange={(event) => setTimeFrom(event.target.value)} placeholder="例如 2024-01" /></label>
+      <label className="grid gap-1 text-sm">时间范围终点<Input aria-label="时间范围终点" value={timeTo} onChange={(event) => setTimeTo(event.target.value)} placeholder="例如 2026-09" /></label>
       <label className="grid gap-1 text-sm md:col-span-2">成功标准<Textarea value={criteria} onChange={(event) => setCriteria(event.target.value)} placeholder="每行一条" /></label>
       <fieldset className="grid gap-2 md:col-span-2" data-testid="research-source-policy">
         <legend className="text-sm font-medium">来源范围</legend>
@@ -34,7 +38,7 @@ export function GuidedResearchIntentPlan({ initialIntent, initialPolicy, revisio
       <div data-testid="research-plan-editor" className="rounded-md border p-3 text-sm text-muted-foreground md:col-span-2">计划确认后生成版本 {revision + 1}；后续调整会保留旧版本。</div>
       <Button className="md:col-span-2" disabled={disabled || !decision.trim() || successCriteria.length === 0} onClick={() => onConfirm({
         expectedRevision: revision,
-        intent: { decision: decision.trim(), audience: audience.trim(), timeframe: {}, deliverable: deliverable.trim(), successCriteria },
+        intent: { decision: decision.trim(), audience: audience.trim(), timeframe: { ...(timeFrom.trim() ? { from: timeFrom.trim() } : {}), ...(timeTo.trim() ? { to: timeTo.trim() } : {}) }, deliverable: deliverable.trim(), successCriteria },
         sourcePolicy: { mode, domains: domains.split(",").map((item) => item.trim()).filter(Boolean), internalSourceIds: [], revision: (initialPolicy?.revision ?? 0) + 1 },
       })}>确认研究边界</Button>
     </CardContent>
