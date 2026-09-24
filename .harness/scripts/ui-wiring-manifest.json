@@ -583,6 +583,10 @@
       "useCases": [],
       "note": "MiroDirectImport is the application use case; its filename ends in -import and is conservatively classified as a port by the wiring scanner. The controller injects that use case and enforces the global principal boundary (#4115)."
     },
+    "WhiteboardMuralController": {
+      "useCases": [],
+      "note": "MuralDirectImport is the application use case; its filename ends in -import and is conservatively classified as a port by the wiring scanner. The controller injects that use case and enforces the global principal boundary (#4118)."
+    },
     "WhiteboardRoomController": {
       "useCases": [
         "whiteboard/room-access"
@@ -725,6 +729,7 @@
         "whiteboard",
         "whiteboard-import",
         "whiteboard-miro",
+        "whiteboard-mural",
         "whiteboard-transfer"
       ],
       "controllers": [
@@ -771,7 +776,8 @@
         "SkillTrialRunController",
         "ToolPermissionGrantController",
         "WhiteboardController",
-        "WhiteboardMiroController"
+        "WhiteboardMiroController",
+        "WhiteboardMuralController"
       ]
     },
     "/chat/[threadId]": {
@@ -813,6 +819,7 @@
         "whiteboard",
         "whiteboard-import",
         "whiteboard-miro",
+        "whiteboard-mural",
         "whiteboard-transfer"
       ],
       "controllers": [
@@ -859,7 +866,8 @@
         "SkillTrialRunController",
         "ToolPermissionGrantController",
         "WhiteboardController",
-        "WhiteboardMiroController"
+        "WhiteboardMiroController",
+        "WhiteboardMuralController"
       ]
     },
     "/chat/copilotkit-preview": {
@@ -897,6 +905,7 @@
         "whiteboard",
         "whiteboard-import",
         "whiteboard-miro",
+        "whiteboard-mural",
         "whiteboard-transfer"
       ],
       "controllers": [
@@ -929,7 +938,8 @@
         "SkillReviewController",
         "SkillTrialRunController",
         "WhiteboardController",
-        "WhiteboardMiroController"
+        "WhiteboardMiroController",
+        "WhiteboardMuralController"
       ]
     },
     "/chat/copilotkit-v2/[threadId]": {
@@ -963,6 +973,7 @@
         "whiteboard",
         "whiteboard-import",
         "whiteboard-miro",
+        "whiteboard-mural",
         "whiteboard-transfer"
       ],
       "controllers": [
@@ -995,7 +1006,8 @@
         "SkillReviewController",
         "SkillTrialRunController",
         "WhiteboardController",
-        "WhiteboardMiroController"
+        "WhiteboardMiroController",
+        "WhiteboardMuralController"
       ]
     },
     "/chat/landing": {
@@ -1044,6 +1056,7 @@
         "whiteboard",
         "whiteboard-import",
         "whiteboard-miro",
+        "whiteboard-mural",
         "whiteboard-transfer"
       ],
       "controllers": [
@@ -1090,7 +1103,8 @@
         "SkillTrialRunController",
         "ToolPermissionGrantController",
         "WhiteboardController",
-        "WhiteboardMiroController"
+        "WhiteboardMiroController",
+        "WhiteboardMuralController"
       ]
     },
     "/chat/live": {
@@ -1729,6 +1743,7 @@
         "whiteboard",
         "whiteboard-import",
         "whiteboard-miro",
+        "whiteboard-mural",
         "whiteboard-transfer"
       ],
       "controllers": [
@@ -1759,7 +1774,8 @@
         "PublicDesignShareController",
         "ToolPermissionGrantController",
         "WhiteboardController",
-        "WhiteboardMiroController"
+        "WhiteboardMiroController",
+        "WhiteboardMuralController"
       ]
     },
     "/studio/board/[boardId]": {
@@ -1792,6 +1808,7 @@
         "whiteboard",
         "whiteboard-import",
         "whiteboard-miro",
+        "whiteboard-mural",
         "whiteboard-room",
         "whiteboard-transfer",
         "whiteboard-workshop"
@@ -1825,6 +1842,7 @@
         "ToolPermissionGrantController",
         "WhiteboardController",
         "WhiteboardMiroController",
+        "WhiteboardMuralController",
         "WhiteboardRoomController",
         "WhiteboardWorkshopController"
       ]
@@ -1839,11 +1857,32 @@
         "whiteboard",
         "whiteboard-import",
         "whiteboard-miro",
+        "whiteboard-mural",
         "whiteboard-transfer"
       ],
       "controllers": [
         "WhiteboardController",
-        "WhiteboardMiroController"
+        "WhiteboardMiroController",
+        "WhiteboardMuralController"
+      ]
+    },
+    "/studio/board/mural/callback": {
+      "kind": "wired",
+      "screen": "apps/web/app/studio/board/mural/callback/page.tsx",
+      "adapters": [
+        "apps/web/lib/live-whiteboard.ts"
+      ],
+      "contracts": [
+        "whiteboard",
+        "whiteboard-import",
+        "whiteboard-miro",
+        "whiteboard-mural",
+        "whiteboard-transfer"
+      ],
+      "controllers": [
+        "WhiteboardController",
+        "WhiteboardMiroController",
+        "WhiteboardMuralController"
       ]
     },
     "/studio/board/room": {
