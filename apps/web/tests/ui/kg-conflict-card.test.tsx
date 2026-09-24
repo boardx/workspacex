@@ -13,7 +13,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { knowledgeGraph, type KgConflictPrompt, type KgHumanAction } from "@repo/contracts/chat-knowledge-graph";
 import { SESSION_TOKEN_STORAGE_KEY } from "@/lib/api-client";
-import { ConflictPromptCard } from "@/components/chat/knowledge/conflict-prompt-card";
+import { ConflictPromptCard, ConflictPromptGoneError } from "@/components/chat/knowledge/conflict-prompt-card";
 import { TurnMemoryLine } from "@/components/chat/knowledge/turn-memory-line";
 import { onKnowledgeReload, publishKnowledgeSnapshot } from "@/lib/knowledge-graph-events";
 
@@ -81,6 +81,15 @@ describe("ConflictPromptCard", () => {
     fireEvent.click(screen.getByTestId("kg-conflict-ignore"));
     expect(await screen.findByTestId("kg-conflict-resolved")).toHaveTextContent("好的，这处不再提醒");
     expect(document.body.textContent).not.toContain("KG_");
+  });
+
+  it("onResolve 抛「卡已不在」⇒ 收成一行说明（不是错误态、没有按钮）", async () => {
+    const onResolve = vi.fn().mockRejectedValue(new ConflictPromptGoneError("这条提醒已经不在了。"));
+    render(<ConflictPromptCard prompt={PROMPT} canResolve onResolve={onResolve} />);
+    fireEvent.click(screen.getByTestId("kg-conflict-ignore"));
+    expect(await screen.findByTestId("kg-conflict-gone")).toHaveTextContent("这条提醒已经不在了。");
+    expect(screen.queryByTestId("kg-conflict-error")).not.toBeInTheDocument();
+    expect(screen.queryAllByRole("button")).toEqual([]);
   });
 
   it("处理中：按钮都不可点，不会连发两次", async () => {
@@ -192,7 +201,6 @@ describe("TurnMemoryLine：本轮的矛盾提醒卡", () => {
   });
 
   it.each([
-    [404, "KG_PROMPT_NOT_FOUND", "这条提醒已经不在了。"],
     [409, "KG_REVISION_CHANGED", "内容已变化"],
     [403, "KG_NOT_OWNER", "只有对话的创建者可以修改这里的记忆。"],
   ])("服务端拒绝（%s %s）⇒ 卡片上是人话，内部码不上屏", async (status, code, text) => {
@@ -203,6 +211,17 @@ describe("TurnMemoryLine：本轮的矛盾提醒卡", () => {
     expect(await screen.findByTestId("kg-conflict-error")).toHaveTextContent(text);
     expect(document.body.textContent).not.toContain("KG_");
     expect(screen.queryByTestId("kg-conflict-resolved")).not.toBeInTheDocument();
+  });
+
+  it("卡已经不在了（别的标签页处理过 / 一条被改掉，KG_PROMPT_NOT_FOUND）⇒ 收成一行说明，不再留按钮", async () => {
+    owner();
+    server.onAction = () => failure(404, "KG_PROMPT_NOT_FOUND");
+    render(<TurnMemoryLine threadId={THREAD} messageId="msg-9" />);
+    fireEvent.click(await screen.findByTestId("kg-conflict-keep-new"));
+    expect(await screen.findByTestId("kg-conflict-gone")).toHaveTextContent("这条提醒已经不在了。");
+    expect(screen.queryByTestId("kg-conflict-card")).not.toBeInTheDocument();
+    expect(screen.queryAllByRole("button")).toEqual([]);
+    expect(document.body.textContent).not.toContain("KG_");
   });
 
   it("非所有者：卡片只读，没有按钮；不发任何写请求", async () => {

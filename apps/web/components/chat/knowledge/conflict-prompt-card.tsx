@@ -13,6 +13,17 @@ export interface ConflictConditions {
   readonly older: string;
 }
 
+/**
+ * 这张卡在服务端已经不在了（别的标签页处理过、其中一条被改掉——`KG_PROMPT_NOT_FOUND`）。
+ * `onResolve` 抛它 ⇒ 卡片收起成一行说明，不再留着点不动的按钮。`message` 是给人看的话。
+ */
+export class ConflictPromptGoneError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "ConflictPromptGoneError";
+  }
+}
+
 /** 契约 `conditions.newer / older` 的上限。 */
 const CONDITION_MAX = 200;
 
@@ -36,6 +47,7 @@ function shortDate(iso: string): string {
  * - 三个出口：以新的为准 / 两条都留（各写一句适用条件）/ 忽略（同一对不再提醒）。
  *   `onResolve` 真正执行（`applyHumanAction{resolveConflict}`）；失败时它抛出的 Error 带的是给人看的话
  *   （`describeHumanActionFailure`），卡片原样显示、按钮恢复，可以再试。成功后卡片收成一行结果。
+ *   抛 `ConflictPromptGoneError`（卡已经不在了）⇒ 收成一行说明，不再给按钮。
  * - `canResolve = false`（不是对话创建者，R5）：只显示提醒文字，不给按钮。
  */
 export function ConflictPromptCard({
@@ -50,6 +62,7 @@ export function ConflictPromptCard({
   const [resolved, setResolved] = React.useState<ConflictResolution | null>(null);
   const [busy, setBusy] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
+  const [gone, setGone] = React.useState<string | null>(null);
   const [showBoth, setShowBoth] = React.useState(false);
   const [newerCond, setNewerCond] = React.useState("");
   const [olderCond, setOlderCond] = React.useState("");
@@ -62,6 +75,10 @@ export function ConflictPromptCard({
       await onResolve(resolution, conditions);
       setResolved(resolution);
     } catch (e) {
+      if (e instanceof ConflictPromptGoneError) {
+        setGone(e.message);
+        return;
+      }
       setError(e instanceof Error && e.message !== "" ? e.message : "没能保存这次选择，请稍后重试。");
     } finally {
       setBusy(false);
@@ -73,6 +90,14 @@ export function ConflictPromptCard({
       <p className="mt-2 flex items-center gap-1.5 text-10 text-muted-foreground" data-testid="kg-conflict-resolved">
         <Check aria-hidden className="h-3 w-3 text-success" />
         {RESOLVED_NOTE[resolved]}
+      </p>
+    );
+  }
+
+  if (gone !== null) {
+    return (
+      <p role="status" className="mt-2 text-10 text-muted-foreground" data-testid="kg-conflict-gone">
+        {gone}
       </p>
     );
   }

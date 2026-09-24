@@ -36,7 +36,7 @@ const T = {
   multi: "thr-f16-multi", guard: "thr-f16-guard", guard2: "thr-f16-guard2", race: "thr-f16-race",
   shared: "thr-f16-shared", p1: "thr-f16-p1", p2: "thr-f16-p2", sharedP: "thr-f16-shared-p",
   fNewer: "thr-f16-forget-newer", fOlder: "thr-f16-forget-older", rNewer: "thr-f16-revise-newer", rOlder: "thr-f16-revise-older",
-  del: "thr-f16-delete", chain: "thr-f16-chain", held: "thr-f16-held", stale: "thr-f16-stale", mc: "thr-f16-marked",
+  del: "thr-f16-delete", chain: "thr-f16-chain", two: "thr-f16-two", l1a: "thr-f16-l1a", l1b: "thr-f16-l1b", held: "thr-f16-held", stale: "thr-f16-stale", mc: "thr-f16-marked",
 };
 
 const reply = (entity: string, ...claims: (readonly [string, "decision" | "fact"])[]) => JSON.stringify({
@@ -49,6 +49,7 @@ const MODEL = loopbackModel([
   ["项目A 上线改到 10/1", reply("项目A", ["项目A 上线改到 10/1", "decision"])],
   ["项目A 上线改到 10/5", reply("项目A", ["项目A 上线改到 10/5", "decision"])],
   ["项目A 预算定为 50 万", reply("项目A", ["项目A 预算定为 50 万", "decision"])],
+  ["项目A 定在 9/28 上线", reply("项目A", ["项目A 9/28 上线", "decision"])],
   ["项目P 定在 9/29 发布", reply("项目P", ["项目P 9/29 发布", "decision"])],
   ["项目P 发布改到 10/1", reply("项目P", ["项目P 发布改到 10/1", "decision"])],
 ]);
@@ -70,7 +71,7 @@ beforeAll(async () => {
     await addProjectMember(ORG, `${ORG}-p`, u, "facilitator", null);
   }
   for (const id of [T.keepNew, T.keepBoth, T.ignore, T.neg, T.multi, T.guard, T.guard2, T.race, T.p1, T.p2,
-    T.fNewer, T.fOlder, T.rNewer, T.rOlder, T.del, T.chain, T.held, T.stale, T.mc]) {
+    T.fNewer, T.fOlder, T.rNewer, T.rOlder, T.del, T.chain, T.two, T.l1a, T.l1b, T.held, T.stale, T.mc]) {
     await addChatThread({ orgId: ORG, id, projectId: null, visibilityScope: "private", createdBy: "u-owner" });
   }
   for (const id of [T.shared, T.sharedP]) {
@@ -431,6 +432,24 @@ describe("F16: 一对里有一条在别处变了 ⇒ 冲突结束，另一条可
     await confirmable(T.del, older.id);
   });
 
+  it("新条同时和两条旧的冲突：只结束一对时它仍在冲突里；两对都结束了才放回来", async () => {
+    // 两条都先说、再一起确认（先确认一条再说另一条，第二条就会和第一条冲突）
+    await say(T.two, "项目A 定在 9/29 上线");
+    await say(T.two, "项目A 定在 9/28 上线");
+    await act(T.two, { type: "confirmClaim", claimId: (await claimBy(T.two, "项目A 9/29 上线")).id });
+    await act(T.two, { type: "confirmClaim", claimId: (await claimBy(T.two, "项目A 9/28 上线")).id });
+    await say(T.two, "项目A 上线改到 10/1");
+    const newer = await claimBy(T.two, "项目A 上线改到 10/1");
+    const prompts = await promptsOf(T.two);
+    expect(prompts.map((p) => p.newer_claim_id)).toEqual([newer.id, newer.id]);
+    await act(T.two, { type: "revokeClaim", claimId: prompts[0]!.older_claim_id });
+    expect((await row(newer.id)).status).toBe("contested");
+    expect((await promptsOf(T.two)).map((p) => p.status)).toEqual(["closed_by_change", "open"]);
+    await act(T.two, { type: "revokeClaim", claimId: prompts[1]!.older_claim_id });
+    expect((await row(newer.id)).status).toBe("proposed");
+    await confirmable(T.two, newer.id);
+  });
+
   it("共用旧条：先忽略「10/1」，再对「10/5」以新的为准 ⇒ 忽略的那张也结束，「10/1」回到「AI 记下的」、可以确认", async () => {
     const first = await conflictIn(T.chain);
     await resolve(T.chain, first.prompt.promptId, "ignore");
@@ -439,8 +458,17 @@ describe("F16: 一对里有一条在别处变了 ⇒ 冲突结束，另一条可
     const t = await turn(T.chain, ans);
     if (t.prompt?.type !== "conflict") throw new Error("expected a second card");
     expect(t.prompt.conflict.olderClaim.id).toBe(first.older.id);
-    const out = await resolve(T.chain, t.prompt.conflict.promptId, "keep_new");
-    expect(out.revision).toBe((await read(T.chain)).revision);
+    // 直调数据库函数：它自己返回的版本号也要把连带结束的那张卡算进去（不只靠应用层重数）
+    const before = (await read(T.chain)).revision;
+    const out = await asApp(ORG, async (c) => {
+      await c.query("SELECT set_config('app.current_user_id', 'u-owner', true)");
+      return (await c.query<{ r: { revision: number } }>("SELECT kg_resolve_conflict($1::jsonb) AS r", [JSON.stringify({
+        action_id: newKgId("act"), thread_id: T.chain, based_on_revision: before,
+        action: { type: "resolveConflict", promptId: t.prompt!.type === "conflict" ? t.prompt!.conflict.promptId : "", resolution: "keep_new" },
+      })])).rows[0]!.r;
+    });
+    expect(Number(out.revision)).toBe((await read(T.chain)).revision);
+    expect(Number(out.revision)).toBe(before + 2);
     await closedByChange(T.chain, first.prompt.promptId);
     expect((await read(T.chain)).claims.find((c) => c.id === first.newer.id)).toMatchObject({ status: "proposed", triState: "pending" });
     await confirmable(T.chain, first.newer.id);
@@ -660,7 +688,7 @@ describe("F16: 守卫", () => {
   });
 
   it("读卡时两条都得还活着（不只靠触发器）：绕过触发器把一条失效 ⇒ 这一轮不出卡", async () => {
-    const { older, newer, ans } = await conflictIn(T.stale);
+    const { older, newer, ans, prompt } = await conflictIn(T.stale);
     const bypass = (id: string, dead: boolean) => asOwner(async (c) => {
       await c.query("SET session_replication_role = replica");
       await c.query(dead
@@ -669,6 +697,8 @@ describe("F16: 守卫", () => {
     });
     await bypass(older.id, true);
     expect((await turn(T.stale, ans)).prompt).toBeNull();
+    // 处理函数同样自己再判一次两条都活着（卡此刻仍是 open）
+    await expect(resolve(T.stale, prompt.promptId, "keep_both")).rejects.toMatchObject({ code: "KG_PROMPT_NOT_FOUND" });
     await bypass(older.id, false);
     expect((await turn(T.stale, ans)).prompt?.type).toBe("conflict");
     await bypass(newer.id, true);
@@ -686,5 +716,30 @@ describe("F16: 判定用的读写口只调两个数据库函数", () => {
     ]);
     expect(code).not.toMatch(/\b(?:FROM|JOIN|UPDATE|INTO)\s+[a-z_]+/i);
     expect(code).not.toMatch(/withoutTenant/);
+  });
+});
+
+/* 放在最后：它往所有者的长期记忆里写了「项目A …」，前面各个个人线程的判定会拿它来比。 */
+describe("F16: 以新的为准时，长期记忆里旧说法的副本一起失效（哪怕它还有别的来源）", () => {
+  it("旧条的 L1 副本合并过两个会话的来源 ⇒ 以新的为准后副本也失效，长期记忆里只剩新说法", async () => {
+    const promote = (threadId: string, claimId: string) => promoteToPersonal(
+      { ...deps, promotion: new PgPromotion(db), newId: newKgId }, { userId: "u-owner", orgId: ORG_ID, threadId, claimIds: [claimId] });
+    await say(T.l1b, "项目A 定在 9/29 上线");
+    expect((await promote(T.l1b, (await claimBy(T.l1b, "项目A 9/29 上线")).id)).results[0]?.outcome).toBe("promoted");
+    await say(T.l1a, "项目A 定在 9/29 上线");
+    const src = await claimBy(T.l1a, "项目A 9/29 上线");
+    expect((await promote(T.l1a, src.id)).results[0]?.outcome).toBe("merged_into_existing");
+    const [copy] = await sql<{ id: string }>(
+      "SELECT id FROM claims WHERE org_id = $1 AND scope_kind = 'personal' AND scope_id = 'u-owner' AND statement = '项目A 9/29 上线' AND revoked_at IS NULL", [ORG]);
+    await say(T.l1a, "项目A 上线改到 10/1");
+    const ans = await answer(T.l1a);
+    const t = await turn(T.l1a, ans);
+    if (t.prompt?.type !== "conflict") throw new Error("expected a card");
+    expect(t.prompt.conflict.olderClaim.id).toBe(src.id);   // 会话里的原条，不是它的 L1 副本
+    await resolve(T.l1a, t.prompt.conflict.promptId, "keep_new");
+    expect(await row(copy!.id)).toMatchObject({ status: "superseded", revoked: true, revocation_reason: "conflict_keep_new" });
+    const live = await sql<{ statement: string }>(
+      "SELECT statement FROM claims WHERE org_id = $1 AND scope_kind = 'personal' AND scope_id = 'u-owner' AND statement LIKE '项目A%' AND revoked_at IS NULL", [ORG]);
+    expect(live.map((x) => x.statement)).toEqual(["项目A 上线改到 10/1"]);
   });
 });
