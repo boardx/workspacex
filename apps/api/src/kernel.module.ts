@@ -8,6 +8,9 @@ import { WHITEBOARD_TRANSFER_STORE } from './application/whiteboard/transfer-por
 import { PgWhiteboardTransferStore } from './infrastructure/whiteboard/pg-whiteboard-transfer-store';
 import { boardStorageProviders } from './infrastructure/whiteboard/board-storage.providers';
 import { BOARD_BLOB_CODEC, BOARD_BLOB_STORE, type BoardBlobCodec, type BoardBlobStore } from './application/whiteboard/blob-ports';
+import { BOARD_CONTENT_MIGRATION_REPOSITORY, type BoardContentMigrationRepository } from './application/whiteboard/content-migration-ports';
+import { MigrateBoardContent } from './application/whiteboard/migrate-board-content';
+import { PgBoardContentMigrationRepository } from './infrastructure/whiteboard/pg-board-content-migration';
 import { SurveyAttachmentRateLimitGuard, SURVEY_ATTACHMENT_RATE_LIMITER, SURVEY_ATTACHMENT_REQUESTS_PER_MINUTE } from "./interface/guards/survey-attachment-rate-limit.guard";
 import { SurveyUploadCapabilityGuard, SurveyAttachmentController } from "./interface/controllers/survey-attachment.controller";
 import { PgSurveyAttachmentRepository } from "./infrastructure/survey/pg-survey-attachment-repository";
@@ -2887,6 +2890,16 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
       provide: WHITEBOARD_TRANSFER_STORE,
       useFactory: (db: DatabasePort, collaboration: PgWhiteboardCollaborationStore, validator: WorkerWhiteboardUpdateValidator) => new PgWhiteboardTransferStore(db, collaboration, validator),
       inject: [DATABASE_PORT, WHITEBOARD_COLLABORATION_STORE, WHITEBOARD_UPDATE_VALIDATOR],
+    },
+    {
+      provide: BOARD_CONTENT_MIGRATION_REPOSITORY,
+      useFactory: (db: DatabasePort) => new PgBoardContentMigrationRepository(db),
+      inject: [DATABASE_PORT],
+    },
+    {
+      provide: MigrateBoardContent,
+      useFactory: (repository: BoardContentMigrationRepository, blobs: BoardBlobStore, codec: BoardBlobCodec) => new MigrateBoardContent(repository, blobs, codec, Number(process.env.WORKSPACEX_BOARD_CONTENT_KEY_VERSION ?? 1)),
+      inject: [BOARD_CONTENT_MIGRATION_REPOSITORY, BOARD_BLOB_STORE, BOARD_BLOB_CODEC],
     },
     {
       provide: DESIGN_PROJECT_REPOSITORY,

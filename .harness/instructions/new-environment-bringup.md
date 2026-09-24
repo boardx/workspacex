@@ -28,7 +28,7 @@ PUBLIC_DOMAIN=<域名> DEPLOY_KEY_PATH=<部署私钥路径> RUNNER_USER=<CI runn
 | 它装了什么 | 怎么确认真的成了 |
 |---|---|
 | app 用户 + 部署密钥 + clone | `sudo -u <app> git -C /opt/workspacex/app fetch origin main` 不报错 |
-| `/opt/workspacex/deploy.env`（缺的键逐个补齐，已有值不动） | `grep -c '^DIAG_DB_PASSWORD=' /opt/workspacex/deploy.env` = 1 |
+| `/opt/workspacex/deploy.env`（缺的键逐个补齐，已有值不动） | `grep -c '^DIAG_DB_PASSWORD=' /opt/workspacex/deploy.env` = 1，且 `WORKSPACEX_BOARD_ROLLBACK_WINDOW_MS` 为正整数 |
 | systemd unit + Caddy | `systemctl is-enabled workspacex-api workspacex-web` |
 | 特权脚本副本 + sudoers 两条 | `cat /etc/sudoers.d/workspacex-deploy`，两行都在 |
 
