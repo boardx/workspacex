@@ -1,5 +1,5 @@
 'use client';
-import { useEffect, useRef, useState, type PointerEvent } from 'react';
+import { useEffect, useRef, useState, type PointerEvent, type ReactNode } from 'react';
 import * as Y from 'yjs';
 import type { WhiteboardConnectionState } from '@/lib/whiteboard-provider';
 import { copyObjects, expandSelection, readObjects, selectionRoots, type WhiteboardObject, type WhiteboardCommand } from '@repo/whiteboard-core';
@@ -10,11 +10,11 @@ import { useWhiteboardDocument, textSplice } from './use-whiteboard-document';
 import { WhiteboardRenderer } from './whiteboard-renderer';
 type Point = { x: number; y: number };
 type Gesture = { mode: 'move' | 'box' | 'draw' | 'pan'; start: Point; current: Point; ids: string[]; points: Point[]; offset: Point };
-export interface CollaborativeEditorProps { doc: Y.Doc; readOnly: boolean; title: string; status: string; onTitleChange?: (title: string) => void; onBack?: () => void; onSelectionChange?: (ids: string[]) => void; onAwareness?: (cursor: Point | null, ids: string[]) => void; peers?: WhiteboardConnectionState['peers']; currentUserId?: string }
+export interface CollaborativeEditorProps { doc: Y.Doc; readOnly: boolean; title: string; status: string; onTitleChange?: (title: string) => void; onBack?: () => void; onSelectionChange?: (ids: string[]) => void; onAwareness?: (cursor: Point | null, ids: string[]) => void; peers?: WhiteboardConnectionState['peers']; currentUserId?: string; workshop?: ReactNode }
 function make(kind: WhiteboardObject['kind'], x: number, y: number): WhiteboardObject {
   return { id: crypto.randomUUID(), schemaVersion: 1, kind, geometry: { x, y, width: kind === 'frame' ? 600 : 180, height: kind === 'frame' ? 400 : 140, rotation: 0 }, text: kind === 'frame' ? '讨论区' : kind === 'drawing' ? '' : '写下一个想法', style: {}, parentId: null, orderKey: '' };
 }
-export function CollaborativeEditor({ doc, readOnly, title, status, onTitleChange, onBack, onSelectionChange, onAwareness, peers = [], currentUserId }: CollaborativeEditorProps) {
+export function CollaborativeEditor({ doc, readOnly, title, status, onTitleChange, onBack, onSelectionChange, onAwareness, peers = [], currentUserId, workshop }: CollaborativeEditorProps) {
   const model = useWhiteboardDocument(doc, readOnly);
   const [selected, setSelected] = useState<string[]>([]), [tool, setTool] = useState<'select'|'connect'|'draw'|'pan'>('select');
   const [zoom, setZoom] = useState(1), [offset, setOffset] = useState<Point>({ x: 0, y: 0 });
@@ -107,6 +107,7 @@ export function CollaborativeEditor({ doc, readOnly, title, status, onTitleChang
           {gesture?.mode==='box' && <div className="pointer-events-none absolute border border-primary bg-muted opacity-50" style={{left:Math.min(gesture.start.x,gesture.current.x),top:Math.min(gesture.start.y,gesture.current.y),width:Math.abs(gesture.current.x-gesture.start.x),height:Math.abs(gesture.current.y-gesture.start.y)}}/>}
         </div>
       </div>
+    {workshop && <div className="absolute right-3 top-3 max-w-[calc(100%-1.5rem)]">{workshop}</div>}
     {object && <aside className="absolute bottom-3 right-3 w-56 rounded-container border border-border bg-card p-3"><label className="text-13">对象文字<Textarea key={object.id} aria-label="对象文字" disabled={readOnly} value={draft ?? object.text} onChange={e=>changeText(e.target.value)} onCompositionStart={()=>{composition.current={id:object.id,before:object.text};setDraft(object.text);}} onCompositionEnd={e=>{const pending=composition.current;composition.current=null;suppressCompositionChange.current=e.currentTarget.value;const current=readObjects(doc).find(o=>o.id===pending?.id);if(current && current.text===pending?.before){execute([{type:'text',id:current.id,...textSplice(current.text,e.currentTarget.value)}]);setDraft(null);}else {setConflictedDraft(e.currentTarget.value);setDraft(null);setNotice('输入期间对象已由其他人修改。已保留此次输入草稿，请核对后重新输入。');}}}/></label>{conflictedDraft !== null && <label className="text-12">未应用的输入草稿<Textarea aria-label="未应用的输入草稿" readOnly value={conflictedDraft}/><Button onClick={()=>setConflictedDraft(null)}>关闭草稿</Button></label>}<p className="mt-2 text-11 text-muted-foreground">Shift 点击多选；Group 与 Frame 会带动全部嵌套内容。</p></aside>}
     </div><p role="status" className="min-h-6 border-t border-border px-3 text-12">{notice || `${selected.length} 个已选对象`}</p>
   </section>;
