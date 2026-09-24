@@ -47,6 +47,22 @@ it('ignores a viewport response older than the last applied revision',async()=>{
   await waitFor(()=>expect(canvas.firstElementChild).toHaveAttribute('style',expect.stringContaining('scale(1.5)')));
   await new Promise(resolve=>setTimeout(resolve,1_700));expect(canvas.firstElementChild).toHaveAttribute('style',expect.stringContaining('scale(1.5)'));
 });
+it('aborts a stale offline read on wake and converges 1.1 → 1.2 → 1.3 despite duplicate retries',async()=>{
+  const session='11111111-1111-4111-8111-111111111111',board='22222222-2222-4222-8222-222222222222';
+  sessionStorage.setItem('wsx.board.room.active',JSON.stringify({grant:grant(session,board,'恢复会议'),boardId:board,follow:true}));
+  const viewport=(zoom:number,revision:number)=>({...roomState(board,'恢复会议',''),viewport:{x:0,y:0,zoom,revision}});
+  readRoom.mockResolvedValueOnce(viewport(1.1,1)).mockImplementationOnce((_session:unknown,_credential:unknown,signal?:AbortSignal)=>new Promise((_resolve,reject)=>{
+    signal?.addEventListener('abort',()=>reject(new DOMException('superseded','AbortError')),{once:true});
+  })).mockResolvedValueOnce(viewport(1.2,2)).mockResolvedValueOnce(viewport(1.1,1)).mockResolvedValue(viewport(1.3,3));
+  render(<RoomDisplay/>);const canvas=await screen.findByTestId('board-live-surface');await waitFor(()=>expect(canvas.firstElementChild).toHaveAttribute('style',expect.stringContaining('scale(1.1)')));
+  await waitFor(()=>expect(readRoom).toHaveBeenCalledTimes(2),{timeout:2_500});
+  window.dispatchEvent(new Event('online'));window.dispatchEvent(new Event('online'));
+  await waitFor(()=>expect(canvas.firstElementChild).toHaveAttribute('style',expect.stringContaining('scale(1.2)')),{timeout:1_000});
+  window.dispatchEvent(new Event('online'));await waitFor(()=>expect(readRoom).toHaveBeenCalledTimes(4));
+  expect(canvas.firstElementChild).toHaveAttribute('style',expect.stringContaining('scale(1.2)'));
+  window.dispatchEvent(new Event('online'));await waitFor(()=>expect(canvas.firstElementChild).toHaveAttribute('style',expect.stringContaining('scale(1.3)')),{timeout:1_000});
+  expect(Number(screen.getByTestId('room-display-active').getAttribute('data-room-viewport-revision'))).toBe(3);
+});
 it('rejects and clears a malformed stored room grant instead of retrying it',async()=>{
   const session='11111111-1111-4111-8111-111111111111',board='22222222-2222-4222-8222-222222222222';
   sessionStorage.setItem('wsx.board.room.active',JSON.stringify({grant:{...grant(session,board,'损坏凭据'),token:'x'},boardId:board,follow:true}));

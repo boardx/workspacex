@@ -59,13 +59,24 @@ it('does not let a late principal-A publish failure clear principal-B room stora
   expect(JSON.parse(sessionStorage.getItem('wsx.board.presenter.active')!).sessionId).toBe(sessionB);
 });
 
-it('lets only the latest same-session viewport operation handle an authoritative failure',async()=>{
+it('serializes viewport publishes and coalesces an in-flight 1.1 → 1.2 → 1.3 burst to the latest transform',async()=>{
+  let resolveFirst:()=>void=()=>undefined;const first=new Promise<void>(resolve=>{resolveFirst=resolve;});mocks.publishViewport.mockReturnValueOnce(first).mockResolvedValueOnce({x:3,y:4,zoom:1.3,revision:2});
+  render(<LiveBoard boardId={receipt.boardId}/>);await waitFor(()=>expect(mocks.roomOnSession).not.toBeNull());act(()=>mocks.callback?.(base));
+  const sessionId='11111111-1111-4111-8111-111111111111';sessionStorage.setItem('wsx.board.presenter.active',JSON.stringify({boardId:receipt.boardId,orgId:'org-one',userId:'user-1',sessionId}));act(()=>mocks.roomOnSession?.(sessionId));await waitFor(()=>expect(mocks.viewport).not.toBeNull());
+  act(()=>mocks.viewport?.({x:1,y:2,zoom:1.1}));await waitFor(()=>expect(mocks.publishViewport).toHaveBeenCalledTimes(1));
+  act(()=>mocks.viewport?.({x:2,y:3,zoom:1.2}));await new Promise(resolve=>setTimeout(resolve,140));act(()=>mocks.viewport?.({x:3,y:4,zoom:1.3}));await new Promise(resolve=>setTimeout(resolve,140));
+  expect(mocks.publishViewport).toHaveBeenCalledTimes(1);
+  await act(async()=>{resolveFirst();await first;});await waitFor(()=>expect(mocks.publishViewport).toHaveBeenCalledTimes(2));
+  expect(mocks.publishViewport).toHaveBeenLastCalledWith(receipt.boardId,sessionId,{x:3,y:4,zoom:1.3});
+});
+
+it('retries the latest queued viewport before treating an older authoritative failure as final',async()=>{
   let rejectFirst:(reason:unknown)=>void=()=>undefined,rejectSecond:(reason:unknown)=>void=()=>undefined;
   const first=new Promise((_resolve,reject)=>{rejectFirst=reject;}),second=new Promise((_resolve,reject)=>{rejectSecond=reject;});mocks.publishViewport.mockReturnValueOnce(first).mockReturnValueOnce(second);
   render(<LiveBoard boardId={receipt.boardId}/>);await waitFor(()=>expect(mocks.roomOnSession).not.toBeNull());act(()=>mocks.callback?.(base));
   const sessionId='11111111-1111-4111-8111-111111111111';sessionStorage.setItem('wsx.board.presenter.active',JSON.stringify({boardId:receipt.boardId,orgId:'org-one',userId:'user-1',sessionId}));act(()=>mocks.roomOnSession?.(sessionId));await waitFor(()=>expect(mocks.viewport).not.toBeNull());
-  act(()=>mocks.viewport?.({x:1,y:2,zoom:1.1}));await waitFor(()=>expect(mocks.publishViewport).toHaveBeenCalledTimes(1));act(()=>mocks.viewport?.({x:3,y:4,zoom:1.2}));await waitFor(()=>expect(mocks.publishViewport).toHaveBeenCalledTimes(2));
-  rejectFirst(new ApiError(404,null,null));await act(async()=>{await first.catch(()=>undefined);});expect(JSON.parse(sessionStorage.getItem('wsx.board.presenter.active')!).sessionId).toBe(sessionId);
+  act(()=>mocks.viewport?.({x:1,y:2,zoom:1.1}));await waitFor(()=>expect(mocks.publishViewport).toHaveBeenCalledTimes(1));act(()=>mocks.viewport?.({x:3,y:4,zoom:1.3}));await new Promise(resolve=>setTimeout(resolve,140));
+  rejectFirst(new ApiError(404,null,null));await act(async()=>{await first.catch(()=>undefined);});await waitFor(()=>expect(mocks.publishViewport).toHaveBeenCalledTimes(2));expect(JSON.parse(sessionStorage.getItem('wsx.board.presenter.active')!).sessionId).toBe(sessionId);
   rejectSecond(new ApiError(404,null,null));await act(async()=>{await second.catch(()=>undefined);});await waitFor(()=>expect(sessionStorage.getItem('wsx.board.presenter.active')).toBeNull());
 });
 
