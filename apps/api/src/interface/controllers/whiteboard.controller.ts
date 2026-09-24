@@ -1,5 +1,5 @@
-import { Body, ConflictException, Controller, Delete, ForbiddenException, Get, HttpException, Inject, NotFoundException, Param, ParseUUIDPipe, Patch, Post, Put, Query } from '@nestjs/common';
-import { whiteboard as C, whiteboardImport as I } from '@repo/contracts';
+import { BadRequestException, Body, ConflictException, Controller, Delete, ForbiddenException, Get, HttpException, Inject, NotFoundException, Param, ParseUUIDPipe, Patch, Post, Put, Query, StreamableFile } from '@nestjs/common';
+import { whiteboard as C, whiteboardImport as I, whiteboardTransfer as T } from '@repo/contracts';
 import { whiteboardDiscussion as D } from '@repo/contracts';
 import { WHITEBOARD_REPOSITORY, type WhiteboardRepository, type CreateBoard, type UpdateBoard, type Member } from '../../application/whiteboard/ports';
 import { WHITEBOARD_DISCUSSION, type WhiteboardDiscussion } from '../../application/whiteboard/discussion-ports';
@@ -10,6 +10,15 @@ import { DECISION_ID_FACTORY, IDENTITY_REPOSITORY, type DecisionIdFactory, type 
 import { assertPrincipal, type Principal } from '../../domain/principal';
 import { CurrentPrincipal } from '../current-principal.decorator';
 import { ZodBodyPipe } from '../pipes/zod-body.pipe';
+import { WHITEBOARD_TRANSFER_STORE, WhiteboardTransferError, type WhiteboardTransferStore } from '../../application/whiteboard/transfer-ports';
+
+function transferFailure(error: unknown): never {
+  if (!(error instanceof WhiteboardTransferError)) throw error;
+  if (error.code === 'NOT_FOUND') throw new NotFoundException();
+  if (error.code === 'FORBIDDEN' || error.code === 'ARCHIVED') throw new ForbiddenException('Whiteboard operation is not allowed');
+  if (error.code === 'IDEMPOTENCY_CONFLICT') throw new ConflictException('Request identifier was already used');
+  throw new BadRequestException('Portable board package is invalid');
+}
 
 /** PrincipalGuard applies globally. Inaccessible boards have the same response as missing boards. */
 @Controller('whiteboards')
@@ -21,6 +30,7 @@ export class WhiteboardController {
     @Inject(CHAT_REPOSITORY) private readonly chat: ChatRepository,
     @Inject(IDENTITY_REPOSITORY) private readonly identity: IdentityRepository,
     @Inject(DECISION_ID_FACTORY) private readonly decisionIds: DecisionIdFactory,
+    @Inject(WHITEBOARD_TRANSFER_STORE) private readonly transfer: WhiteboardTransferStore,
   ) {}
   @Get()
   async list(@CurrentPrincipal() p: Principal) { assertPrincipal(p); return { items: await this.repo.list(p) }; }
@@ -84,4 +94,19 @@ export class WhiteboardController {
   @Patch(':boardId/threads/:threadId') async resolveThread(@CurrentPrincipal() p:Principal,@Param('boardId',new ParseUUIDPipe()) boardId:string,@Param('threadId',new ParseUUIDPipe()) threadId:string,@Body(new ZodBodyPipe(D.ResolveThread)) input:unknown){assertPrincipal(p);return this.found(await this.discussion.resolve(p,boardId,threadId,D.ResolveThread.parse(input)));}
   @Post(':boardId/threads/:threadId/task') async createTask(@CurrentPrincipal() p:Principal,@Param('boardId',new ParseUUIDPipe()) boardId:string,@Param('threadId',new ParseUUIDPipe()) threadId:string,@Body(new ZodBodyPipe(D.UpsertTask)) input:unknown){assertPrincipal(p);return this.discussionWrite(this.discussion.createTask(p,boardId,threadId,D.UpsertTask.parse(input)));}
   @Patch(':boardId/tasks/:taskId') async updateTask(@CurrentPrincipal() p:Principal,@Param('boardId',new ParseUUIDPipe()) boardId:string,@Param('taskId',new ParseUUIDPipe()) taskId:string,@Body(new ZodBodyPipe(D.UpdateTask)) input:unknown){assertPrincipal(p);return this.found(await this.discussion.updateTask(p,boardId,taskId,D.UpdateTask.parse(input)));}
+  @Get(':boardId/export')
+  async exportBoard(@CurrentPrincipal() p: Principal, @Param('boardId', new ParseUUIDPipe()) id: string) {
+    assertPrincipal(p); try {
+      const bundle=await this.transfer.exportBoard(p,id);
+      return new StreamableFile(Buffer.from(JSON.stringify(bundle)), { type:'application/json; charset=utf-8', disposition:'attachment; filename="board.workspacex-board.json"' });
+    } catch (error) { transferFailure(error); }
+  }
+  @Post('imports/preview')
+  async previewImport(@CurrentPrincipal() p: Principal, @Body(new ZodBodyPipe(T.ImportBoardInput)) input: T.ImportBoardInput) {
+    assertPrincipal(p); try { return await this.transfer.previewImport(p,input); } catch (error) { transferFailure(error); }
+  }
+  @Post('imports')
+  async importBoard(@CurrentPrincipal() p: Principal, @Body(new ZodBodyPipe(T.ImportBoardInput)) input: T.ImportBoardInput) {
+    assertPrincipal(p); try { return await this.transfer.importBoard(p,input); } catch (error) { transferFailure(error); }
+  }
 }
