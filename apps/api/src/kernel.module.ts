@@ -18,6 +18,12 @@ import { PgMiroCredentialRepository } from './infrastructure/whiteboard/pg-miro-
 import { EnvironmentMiroCredentialCipher } from './infrastructure/whiteboard/miro-credential-cipher';
 import { EnvironmentMiroApiClient } from './infrastructure/whiteboard/miro-api-client';
 import { WhiteboardMiroController } from './interface/controllers/whiteboard-miro.controller';
+import { WHITEBOARD_MURAL_IMPORT } from './application/whiteboard/mural-ports';
+import { MuralDirectImport } from './application/whiteboard/mural-direct-import';
+import { PgMuralCredentialRepository } from './infrastructure/whiteboard/pg-mural-credential-repository';
+import { EnvironmentMuralCredentialCipher } from './infrastructure/whiteboard/mural-credential-cipher';
+import { EnvironmentMuralApiClient } from './infrastructure/whiteboard/mural-api-client';
+import { WhiteboardMuralController } from './interface/controllers/whiteboard-mural.controller';
 import { WHITEBOARD_ROOM_REPOSITORY } from './application/whiteboard/room-ports';
 import { PgWhiteboardRoomRepository } from './infrastructure/whiteboard/pg-room-repository';
 import { whiteboardRoomSecret } from './infrastructure/whiteboard/room-secret';
@@ -1072,6 +1078,7 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
     DesignWorkbenchController,
     WhiteboardController,
     WhiteboardMiroController,
+    WhiteboardMuralController,
     WhiteboardRoomController,
     WhiteboardWorkshopController,
     WhiteboardOperationsController,
@@ -2920,6 +2927,13 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
       provide: WHITEBOARD_MIRO_IMPORT,
       useFactory: (db: DatabasePort, transfer: PgWhiteboardTransferStore) => new MiroDirectImport(
         new PgMiroCredentialRepository(db), new EnvironmentMiroCredentialCipher(), new EnvironmentMiroApiClient(), transfer,
+      ),
+      inject: [DATABASE_PORT, WHITEBOARD_TRANSFER_STORE],
+    },
+    {
+      provide: WHITEBOARD_MURAL_IMPORT,
+      useFactory: (db: DatabasePort, transfer: PgWhiteboardTransferStore) => new MuralDirectImport(
+        new PgMuralCredentialRepository(db), new EnvironmentMuralCredentialCipher(), new EnvironmentMuralApiClient(), transfer,
       ),
       inject: [DATABASE_PORT, WHITEBOARD_TRANSFER_STORE],
     },

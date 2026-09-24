@@ -2,10 +2,10 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { convertExternalBoardSnapshot } from '@repo/whiteboard-core';
-import { whiteboardMigration as M, whiteboardMiro as MR, whiteboardTransfer as T } from '@repo/contracts';
+import { whiteboardMigration as M, whiteboardMiro as MI, whiteboardMural as MU, whiteboardTransfer as T } from '@repo/contracts';
 import {
-  disconnectMiro, exportBoardPackage, getMiroConnection, importBoardPackage,
-  listMiroBoards, previewBoardImport, previewMiroBoard, startMiroOAuth,
+  disconnectMiro, disconnectMural, exportBoardPackage, getMiroConnection, getMuralConnection, importBoardPackage,
+  listMiroBoards, listMuralWorkspaces, listWorkspaceMurals, previewBoardImport, previewMiroBoard, previewMural, startMiroOAuth, startMuralOAuth,
 } from '@/lib/live-whiteboard';
 import { ApiError } from '@/lib/api-client';
 import { Button } from '@/components/ui/button';
@@ -30,6 +30,16 @@ function safeMiroError(error: unknown) {
   if (code === 'ITEM_LIMIT_EXCEEDED' || code === 'PAYLOAD_TOO_LARGE') return '这块 Miro Board 超过直接导入上限，请先减少对象数量。';
   if (code === 'REPEATED_CURSOR' || code === 'REMOTE_SCHEMA_CHANGED') return 'Miro 返回了无法继续分页的数据，请稍后重试或联系管理员。';
   return 'Miro 导入失败，请重试。';
+}
+
+function safeMuralError(error: unknown) {
+  const code = error instanceof ApiError ? error.reasonCode : null;
+  if (code === 'NOT_CONNECTED' || code === 'REMOTE_UNAUTHORIZED') return 'Mural 连接已失效，请重新连接后再试。';
+  if (code === 'REMOTE_RATE_LIMITED') return 'Mural 正在限流，请稍后重试。';
+  if (code === 'REMOTE_TIMEOUT' || code === 'REMOTE_UNAVAILABLE') return '暂时无法连接 Mural，请检查网络后重试。';
+  if (code === 'WIDGET_LIMIT_EXCEEDED' || code === 'PAYLOAD_TOO_LARGE') return '这块 Mural 超过直接导入上限，请先减少对象数量。';
+  if (code === 'REPEATED_CURSOR' || code === 'REMOTE_SCHEMA_CHANGED') return 'Mural 返回了无法继续分页的数据，请稍后重试或联系管理员。';
+  return 'Mural 导入失败，请重试。';
 }
 
 function providerName(provider: 'miro' | 'mural') {
@@ -73,10 +83,15 @@ export function BoardTransferControls({ boardId, onImported, oauthNavigate = url
   const [preview, setPreview] = useState<ImportPreview | null>(null);
   const [error, setError] = useState('');
   const [transferring, setTransferring] = useState(false);
-  const [source, setSource] = useState<'file' | 'miro'>('file');
-  const [miroConnection, setMiroConnection] = useState<MR.MiroConnection | null>(null);
-  const [miroPage, setMiroPage] = useState<MR.ListMiroBoardsResult | null>(null);
+  const [source, setSource] = useState<'file' | 'miro' | 'mural'>('file');
+  const [miroConnection, setMiroConnection] = useState<MI.MiroConnection | null>(null);
+  const [miroPage, setMiroPage] = useState<MI.ListMiroBoardsResult | null>(null);
   const [miroLoading, setMiroLoading] = useState(false);
+  const [muralConnection, setMuralConnection] = useState<MU.MuralConnection | null>(null);
+  const [workspacePage, setWorkspacePage] = useState<MU.ListMuralWorkspacesResult | null>(null);
+  const [selectedWorkspace, setSelectedWorkspace] = useState<MU.MuralWorkspace | null>(null);
+  const [muralPage, setMuralPage] = useState<MU.ListWorkspaceMuralsResult | null>(null);
+  const [muralLoading, setMuralLoading] = useState(false);
   const consumedOAuthReturn = useRef(false);
 
   const download = async () => {
@@ -151,7 +166,7 @@ export function BoardTransferControls({ boardId, onImported, oauthNavigate = url
       const connection = await getMiroConnection();
       setMiroConnection(connection);
       setMiroPage(connection.connected
-        ? await listMiroBoards({ offset, limit: MR.MIRO_DIRECT_IMPORT.boardPageLimit })
+        ? await listMiroBoards({ offset, limit: MI.MIRO_DIRECT_IMPORT.boardPageLimit })
         : null);
     } catch (loadError) {
       setError(safeMiroError(loadError));
@@ -202,15 +217,62 @@ export function BoardTransferControls({ boardId, onImported, oauthNavigate = url
     }
   };
 
+  const loadMural = useCallback(async () => {
+    setSource('mural'); setOpen(true); setError(''); setPreview(null); setInput(null); setSelectedWorkspace(null); setMuralPage(null); setMuralLoading(true);
+    try {
+      const connection = await getMuralConnection(); setMuralConnection(connection);
+      setWorkspacePage(connection.connected ? await listMuralWorkspaces({ limit: MU.MURAL_DIRECT_IMPORT.pageLimit }) : null);
+    } catch (error) { setError(safeMuralError(error)); } finally { setMuralLoading(false); }
+  }, []);
+  const loadMoreWorkspaces = async () => {
+    if (!workspacePage?.next) return; setMuralLoading(true);
+    try {
+      const page = await listMuralWorkspaces({ next: workspacePage.next, limit: MU.MURAL_DIRECT_IMPORT.pageLimit });
+      setWorkspacePage({ items: [...workspacePage.items, ...page.items], next: page.next });
+    } catch (error) { setError(safeMuralError(error)); } finally { setMuralLoading(false); }
+  };
+  const chooseWorkspace = async (workspace: MU.MuralWorkspace) => {
+    setSelectedWorkspace(workspace); setMuralPage(null); setMuralLoading(true);
+    try { setMuralPage(await listWorkspaceMurals({ workspaceId: workspace.id, limit: MU.MURAL_DIRECT_IMPORT.pageLimit })); }
+    catch (error) { setError(safeMuralError(error)); } finally { setMuralLoading(false); }
+  };
+  const loadMoreMurals = async () => {
+    if (!selectedWorkspace || !muralPage?.next) return; setMuralLoading(true);
+    try {
+      const page = await listWorkspaceMurals({ workspaceId: selectedWorkspace.id, next: muralPage.next, limit: MU.MURAL_DIRECT_IMPORT.pageLimit });
+      setMuralPage({ items: [...muralPage.items, ...page.items], next: page.next });
+    } catch (error) { setError(safeMuralError(error)); } finally { setMuralLoading(false); }
+  };
+  const connectMural = async () => {
+    setMuralLoading(true); setError('');
+    try { oauthNavigate((await startMuralOAuth({ returnTo: window.location.pathname })).authorizationUrl); }
+    catch (error) { setError(safeMuralError(error)); setMuralLoading(false); }
+  };
+  const chooseMural = async (muralId: string) => {
+    setMuralLoading(true); setError('');
+    try {
+      const result = await previewMural({ muralId, packageBoardId: crypto.randomUUID() });
+      setInput(result.input); setPreview({ server: result.preview, external: result.external });
+    } catch (error) { setError(safeMuralError(error)); } finally { setMuralLoading(false); }
+  };
+  const revokeMural = async () => {
+    setMuralLoading(true); setError('');
+    try {
+      await disconnectMural(); setMuralConnection({ connected: false, scopes: [], connectedAt: null });
+      setWorkspacePage(null); setSelectedWorkspace(null); setMuralPage(null); setPreview(null); setInput(null);
+    } catch (error) { setError(safeMuralError(error)); } finally { setMuralLoading(false); }
+  };
+
   useEffect(() => {
     if (consumedOAuthReturn.current) return;
     const url = new URL(window.location.href);
-    if (url.searchParams.get('miro') !== 'connected') return;
+    const provider=url.searchParams.get('miro')==='connected'?'miro':url.searchParams.get('mural')==='connected'?'mural':null;
+    if (!provider) return;
     consumedOAuthReturn.current = true;
-    url.searchParams.delete('miro');
+    url.searchParams.delete(provider);
     window.history.replaceState(window.history.state, '', `${url.pathname}${url.search}${url.hash}`);
-    void loadMiro();
-  }, [loadMiro]);
+    void (provider==='miro'?loadMiro():loadMural());
+  }, [loadMiro, loadMural]);
 
   const confirmImport = async () => {
     if (!input) return;
@@ -247,13 +309,16 @@ export function BoardTransferControls({ boardId, onImported, oauthNavigate = url
       <Button data-testid="board-import-miro" size="sm" variant="outline" onClick={() => void loadMiro()}>
         从 Miro 导入
       </Button>
+      <Button data-testid="board-import-mural" size="sm" variant="outline" onClick={() => void loadMural()}>
+        从 Mural 导入
+      </Button>
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent>
           <DialogTitle>导入为新的白板副本</DialogTitle>
           {error ? (
             <>
               <DialogDescription role="alert">{error}</DialogDescription>
-              {source === 'miro' ? <Button variant="outline" onClick={() => void loadMiro()}>重试</Button> : null}
+              {source === 'miro' ? <Button variant="outline" onClick={() => void loadMiro()}>重试</Button> : source === 'mural' ? <Button variant="outline" onClick={() => void loadMural()}>重试</Button> : null}
             </>
           ) : preview ? (
             <>
@@ -303,14 +368,14 @@ export function BoardTransferControls({ boardId, onImported, oauthNavigate = url
                     <Button
                       variant="outline"
                       disabled={!miroPage || miroPage.offset === 0}
-                      onClick={() => void loadMiro(Math.max(0, (miroPage?.offset ?? 0) - MR.MIRO_DIRECT_IMPORT.boardPageLimit))}
+                      onClick={() => void loadMiro(Math.max(0, (miroPage?.offset ?? 0) - MI.MIRO_DIRECT_IMPORT.boardPageLimit))}
                     >
                       上一页
                     </Button>
                     <Button
                       variant="outline"
                       disabled={!miroPage?.hasMore}
-                      onClick={() => void loadMiro((miroPage?.offset ?? 0) + MR.MIRO_DIRECT_IMPORT.boardPageLimit)}
+                      onClick={() => void loadMiro((miroPage?.offset ?? 0) + MI.MIRO_DIRECT_IMPORT.boardPageLimit)}
                     >
                       下一页
                     </Button>
@@ -323,6 +388,49 @@ export function BoardTransferControls({ boardId, onImported, oauthNavigate = url
                 <>
                   <DialogDescription>连接 Miro 后，可用只读的 boards:read 权限选择并导入你能访问的 Board。</DialogDescription>
                   <Button data-testid="miro-connect" onClick={() => void connectMiro()}>连接 Miro</Button>
+                </>
+              )}
+            </section>
+          ) : source === 'mural' ? (
+            <section data-testid="mural-import-picker" className="space-y-3">
+              {muralLoading ? (
+                <DialogDescription role="status">正在读取 Mural…</DialogDescription>
+              ) : muralConnection?.connected ? (
+                <>
+                  <DialogDescription>已用 workspaces:read 与 murals:read 只读权限连接 Mural。先选择 Workspace，再选择 active Mural 生成迁移预览。</DialogDescription>
+                  {!selectedWorkspace ? (
+                    <>
+                      <div className="max-h-72 space-y-2 overflow-auto">
+                        {workspacePage?.items.length ? workspacePage.items.map(workspace => (
+                          <button key={workspace.id} data-testid={`mural-workspace-${workspace.id}`} className="flex w-full items-center justify-between rounded-control border border-border p-3 text-left" onClick={() => void chooseWorkspace(workspace)}>
+                            <span>{workspace.name}</span><span className="text-muted-foreground">选择</span>
+                          </button>
+                        )) : <p className="text-13 text-muted-foreground">没有可访问的 Workspace。</p>}
+                      </div>
+                      {workspacePage?.next ? <Button variant="outline" onClick={() => void loadMoreWorkspaces()}>加载更多 Workspace</Button> : null}
+                    </>
+                  ) : (
+                    <>
+                      <div className="flex items-center justify-between">
+                        <p className="text-13 font-medium">{selectedWorkspace.name}</p>
+                        <Button variant="outline" onClick={() => { setSelectedWorkspace(null); setMuralPage(null); }}>更换 Workspace</Button>
+                      </div>
+                      <div className="max-h-72 space-y-2 overflow-auto">
+                        {muralPage?.items.length ? muralPage.items.map(mural => (
+                          <button key={mural.id} data-testid={`mural-board-${mural.id}`} className="flex w-full items-center justify-between rounded-control border border-border p-3 text-left" onClick={() => void chooseMural(mural.id)}>
+                            <span>{mural.name}</span><span className="text-muted-foreground">预览</span>
+                          </button>
+                        )) : <p className="text-13 text-muted-foreground">没有 active Mural。</p>}
+                      </div>
+                      {muralPage?.next ? <Button variant="outline" onClick={() => void loadMoreMurals()}>加载更多 Mural</Button> : null}
+                    </>
+                  )}
+                  <Button data-testid="mural-disconnect" variant="outline" onClick={() => void revokeMural()}>断开 Mural</Button>
+                </>
+              ) : (
+                <>
+                  <DialogDescription>连接 Mural 后，只读访问 Workspace 与 active Mural；不会修改 Mural 内容。</DialogDescription>
+                  <Button data-testid="mural-connect" onClick={() => void connectMural()}>连接 Mural</Button>
                 </>
               )}
             </section>
