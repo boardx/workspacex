@@ -1,6 +1,9 @@
 import { WHITEBOARD_COLLABORATION_STORE, WHITEBOARD_UPDATE_VALIDATOR } from './application/whiteboard/collaboration-ports';
 import { PgWhiteboardCollaborationStore } from './infrastructure/whiteboard/pg-collaboration-store';
 import { WorkerWhiteboardUpdateValidator } from './infrastructure/whiteboard/update-validator';
+import { WHITEBOARD_WORKSHOP } from './application/whiteboard/workshop-ports';
+import { PgWorkshopRepository } from './infrastructure/whiteboard/pg-workshop-repository';
+import { WhiteboardWorkshopController } from './interface/controllers/whiteboard-workshop.controller';
 import { WHITEBOARD_OBSERVABILITY, type WhiteboardObservability } from './application/whiteboard/observability';
 import { ProcessWhiteboardObservability } from './infrastructure/whiteboard/observability';
 import { WhiteboardController } from './interface/controllers/whiteboard.controller';
@@ -1061,6 +1064,7 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
     DesignWorkbenchController,
     WhiteboardController,
     WhiteboardRoomController,
+    WhiteboardWorkshopController,
     WhiteboardOperationsController,
     PublicDesignShareController,
     SystemMailController,
@@ -2882,6 +2886,11 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
       provide: WHITEBOARD_UPDATE_VALIDATOR,
       useFactory: (metrics: WhiteboardObservability) => new WorkerWhiteboardUpdateValidator(undefined, metrics),
       inject: [WHITEBOARD_OBSERVABILITY],
+    },
+    {
+      provide: WHITEBOARD_WORKSHOP,
+      useFactory: (db: DatabasePort) => new PgWorkshopRepository(db),
+      inject: [DATABASE_PORT],
     },
     {
       provide: WHITEBOARD_COLLABORATION_STORE,

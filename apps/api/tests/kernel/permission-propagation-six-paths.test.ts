@@ -1262,15 +1262,16 @@ describe("lint-permission-paths: counter-proof", () => {
     // revocation stay behind Board owner/editor authorization; one-time join,
     // cross-tenant hiding, presenter membership rechecks and brute-force limits
     // are pinned by real HTTP/PostgreSQL acceptance.
-    // Re-measured: lint reports allowlisted=103, minus 8 audited boundary rules = 95.
+    // #3968 adds exactly one workshop repository (95 -> 96).
+    // Re-measured: lint reports allowlisted=104, minus 8 audited boundary rules = 96.
     // Board owner/member roles are not an ACL ObjectRef; default org-wide ACL
-    // fallback would expose private boards. The exception is bounded to three
-    // tables and actor/owner SQL predicates by the resource and collaboration
-    // repository guards, including mutation counterexamples. Real PostgreSQL,
+    // fallback would expose private boards. The exceptions are bounded to named
+    // tables and actor/owner SQL predicates by the resource, collaboration and
+    // workshop repository guards, including mutation counterexamples. Real PostgreSQL,
     // HTTP and WebSocket evidence covers nonmembers, cross-tenant identity,
     // viewer/editor writes, revocation, restart recovery and authentication.
     // Remove an increment and its allowlist entry if those protections disappear.
-    expect(total - boundaryAudit.rules.length).toBeLessThanOrEqual(95);
+    expect(total - boundaryAudit.rules.length).toBeLessThanOrEqual(96);
 
     const src = readFileSync(
       fileURLToPath(new URL("../../scripts/lint-permission-paths.mjs", import.meta.url)),
