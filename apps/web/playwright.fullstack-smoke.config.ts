@@ -354,6 +354,7 @@ export default defineConfig({
         // users. Reuses the seeded admin/lead/consultant identities through the fixture
         // fallback in the spec; it creates and archives its own private Board.
         "whiteboard-live.spec.ts",
+        "whiteboard-live-a11y.spec.ts",
       ],
       grepInvert: EMPTY_DB_TAG_RE,
     },

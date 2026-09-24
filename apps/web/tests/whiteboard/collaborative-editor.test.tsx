@@ -104,3 +104,59 @@ it('follows a presenter viewport while keeping room controls read-only', () => {
   expect(screen.getByTestId('board-add-sticky')).toBeDisabled();
   doc.destroy();
 });
+
+it('completes spatial selection, multi-select, movement and connection from the canvas keyboard entry', () => {
+  const doc=createWhiteboardDocument(), geometry={x:10,y:20,width:100,height:80,rotation:0};
+  executeCommands(doc,[
+    {type:'create',object:{id:'left',schemaVersion:1,kind:'sticky',geometry,text:'左侧想法',style:{},parentId:null,orderKey:'a'}},
+    {type:'create',object:{id:'right',schemaVersion:1,kind:'sticky',geometry:{...geometry,x:240},text:'右侧想法',style:{},parentId:null,orderKey:'b'}},
+  ],'seed');
+  render(<CollaborativeEditor doc={doc} readOnly={false} title="白板" status="已同步"/>);
+  expect(screen.getByRole('toolbar',{name:'白板工具'})).toBeVisible();
+  expect(screen.getAllByRole('status')).toHaveLength(1);
+  const canvas=screen.getByTestId('board-live-surface');
+  canvas.focus(); fireEvent.focus(canvas);
+  expect(canvas).toHaveFocus();
+  expect(canvas).toHaveAttribute('aria-activedescendant','board-a11y-object-left');
+  fireEvent.keyDown(canvas,{key:'Enter'});
+  expect(screen.getByTestId('board-object-left')).toHaveAttribute('aria-pressed','true');
+  fireEvent.keyDown(canvas,{key:'ArrowRight'});
+  expect(canvas).toHaveAttribute('aria-activedescendant','board-a11y-object-right');
+  fireEvent.keyDown(canvas,{key:' ',shiftKey:true});
+  expect(screen.getByTestId('board-object-right')).toHaveAttribute('aria-pressed','true');
+  fireEvent.keyDown(canvas,{key:'ArrowDown',ctrlKey:true,shiftKey:true});
+  expect(readObjects(doc).find(item=>item.id==='left')?.geometry.y).toBe(30);
+  expect(readObjects(doc).find(item=>item.id==='right')?.geometry.y).toBe(30);
+  expect(screen.getByTestId('board-live-announcer')).toHaveTextContent('已移动 2 个对象');
+
+  fireEvent.click(screen.getByText('连接',{exact:true}));
+  fireEvent.keyDown(canvas,{key:'ArrowLeft'}); fireEvent.keyDown(canvas,{key:' '});
+  fireEvent.keyDown(canvas,{key:'ArrowRight'}); fireEvent.keyDown(canvas,{key:' '});
+  expect(readObjects(doc).find(item=>item.kind==='connector')?.connector).toEqual({from:'left',to:'right'});
+  expect(screen.getByTestId('board-live-announcer')).toHaveTextContent('左侧想法');
+  expect(screen.getByTestId('board-live-announcer')).toHaveTextContent('右侧想法');
+  doc.destroy();
+});
+
+it('keeps the canvas focused after keyboard cancellation and deletion, and lets viewers navigate without mutation', () => {
+  const doc=createWhiteboardDocument();
+  executeCommands(doc,[{type:'create',object:{id:'note',schemaVersion:1,kind:'sticky',geometry:{x:0,y:0,width:100,height:80,rotation:0},text:'只读对象',style:{},parentId:null,orderKey:'a'}}],'seed');
+  const {rerender}=render(<CollaborativeEditor doc={doc} readOnly={false} title="白板" status="已同步"/>);
+  const canvas=screen.getByTestId('board-live-surface'); canvas.focus(); fireEvent.focus(canvas);
+  fireEvent.keyDown(canvas,{key:' '}); fireEvent.keyDown(canvas,{key:'Enter'});
+  expect(screen.getByLabelText('对象文字')).toHaveFocus(); fireEvent.keyDown(screen.getByLabelText('对象文字'),{key:'Escape'});
+  expect(canvas).toHaveFocus();
+  fireEvent.click(screen.getByText('连接',{exact:true})); fireEvent.keyDown(canvas,{key:'Escape'});
+  expect(canvas).toHaveFocus(); expect(screen.getByTestId('board-live-announcer')).toHaveTextContent('已取消连接');
+  fireEvent.keyDown(canvas,{key:' '}); fireEvent.keyDown(canvas,{key:'Delete'});
+  expect(readObjects(doc)).toEqual([]); expect(canvas).toHaveFocus();
+  rerender(<CollaborativeEditor doc={doc} readOnly title="白板" status="已同步"/>);
+  act(()=>executeCommands(doc,[{type:'create',object:{id:'viewer-note',schemaVersion:1,kind:'sticky',geometry:{x:5,y:5,width:100,height:80,rotation:0},text:'查看对象',style:{},parentId:null,orderKey:'b'}}],'remote'));
+  const viewerCanvas=screen.getByTestId('board-live-surface'); viewerCanvas.focus(); fireEvent.focus(viewerCanvas);
+  fireEvent.keyDown(viewerCanvas,{key:' '});
+  const before=readObjects(doc)[0]!.geometry.x;
+  fireEvent.keyDown(viewerCanvas,{key:'ArrowRight',ctrlKey:true});
+  expect(readObjects(doc)[0]!.geometry.x).toBe(before);
+  expect(screen.getByTestId('board-live-announcer')).toHaveTextContent('只读');
+  doc.destroy();
+});

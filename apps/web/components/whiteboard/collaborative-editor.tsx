@@ -1,5 +1,5 @@
 'use client';
-import { useEffect, useRef, useState, type PointerEvent, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type KeyboardEvent, type PointerEvent, type ReactNode } from 'react';
 import * as Y from 'yjs';
 import type { WhiteboardConnectionState } from '@/lib/whiteboard-provider';
 import { copyObjects, expandSelection, readObjects, selectionRoots, type WhiteboardObject, type WhiteboardCommand } from '@repo/whiteboard-core';
@@ -8,6 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { useWhiteboardDocument, textSplice } from './use-whiteboard-document';
 import { WhiteboardRenderer } from './whiteboard-renderer';
+import { boardObjectLabel, nextBoardObject, type BoardDirection } from '@/lib/whiteboard-keyboard';
 type Point = { x: number; y: number };
 type Gesture = { mode: 'move' | 'box' | 'draw' | 'pan'; start: Point; current: Point; ids: string[]; points: Point[]; offset: Point };
 export interface CollaborativeEditorProps { doc: Y.Doc; readOnly: boolean; title: string; status: string; onTitleChange?: (title: string) => void; onBack?: () => void; onSelectionChange?: (ids: string[]) => void; onAwareness?: (cursor: Point | null, ids: string[]) => void; peers?: WhiteboardConnectionState['peers']; currentUserId?: string; followViewport?: {x:number;y:number;zoom:number;revision:number}|null; onViewportChange?: (viewport:{x:number;y:number;zoom:number})=>void; workshop?: ReactNode }
@@ -20,7 +21,8 @@ export function CollaborativeEditor({ doc, readOnly, title, status, onTitleChang
   const [zoom, setZoom] = useState(1), [offset, setOffset] = useState<Point>({ x: 0, y: 0 });
   const [viewportSize, setViewportSize] = useState({ width: 1280, height: 720 });
   const [notice, setNotice] = useState(''), [gesture, setGesture] = useState<Gesture | null>(null);
-  const surface = useRef<HTMLDivElement>(null), clipboard = useRef<WhiteboardObject[]>([]);
+  const [activeId, setActiveId] = useState<string | null>(null);
+  const surface = useRef<HTMLDivElement>(null), textEditor = useRef<HTMLTextAreaElement>(null), clipboard = useRef<WhiteboardObject[]>([]);
   const suppressCompositionChange = useRef<string | null>(null);
   const [conflictedDraft, setConflictedDraft] = useState<string | null>(null);
   const composition = useRef<{ id: string; before: string } | null>(null), [draft, setDraft] = useState<string | null>(null);
@@ -29,13 +31,76 @@ export function CollaborativeEditor({ doc, readOnly, title, status, onTitleChang
   useEffect(()=>{onViewportChange?.({x:offset.x,y:offset.y,zoom});},[offset.x,offset.y,zoom,onViewportChange]);
   useEffect(() => { onSelectionChange?.(selected); onAwareness?.(cursor.current, selected); }, [selected, onSelectionChange, onAwareness]);
   useEffect(() => {
+    if (activeId && !model.objects.some(item => item.id === activeId && item.kind !== 'connector')) setActiveId(null);
+  }, [activeId, model.objects]);
+  useEffect(() => {
     const element = surface.current; if (!element) return;
     const measure = () => setViewportSize({ width: Math.max(1, element.clientWidth), height: Math.max(1, element.clientHeight) });
     measure(); if (typeof ResizeObserver === 'undefined') return;
     const observer = new ResizeObserver(measure); observer.observe(element); return () => observer.disconnect();
   }, []);
   const object = model.objects.find(o => selected.length === 1 && o.id === selected[0]);
-  function execute(commands: WhiteboardCommand[]) { if (readOnly) return; try { model.execute(commands); setNotice(''); } catch { setNotice('操作未应用：请检查对象是否仍存在或内容是否超出限制。'); } }
+  function execute(commands: WhiteboardCommand[]) { if (readOnly) { setNotice('当前白板为只读，未应用修改。'); return false; } try { model.execute(commands); setNotice(''); return true; } catch { setNotice('操作未应用：请检查对象是否仍存在或内容是否超出限制。'); return false; } }
+  const focusCanvas = () => requestAnimationFrame(() => surface.current?.focus({ preventScroll: true }));
+  const named = (id: string | null) => boardObjectLabel(model.objects.find(item => item.id === id));
+  function choose(id: string, additive = false) {
+    setActiveId(id);
+    if (tool === 'connect') {
+      if (readOnly) { setNotice('当前白板为只读，不能建立连接。'); return; }
+      if (selected.length === 1 && selected[0] !== id) {
+        const from = selected[0]!, connection = make('connector', 0, 0);
+        connection.text = ''; connection.connector = { from, to: id };
+        if (execute([{ type: 'create', object: connection }])) setNotice(`已建立连接：${named(from)} 到 ${named(id)}`);
+        setTool('select'); setSelected([]); return;
+      }
+      setSelected([id]); setNotice(`连接起点：${named(id)}。请选择终点。`); return;
+    }
+    const next = additive ? selected.includes(id) ? selected.filter(value => value !== id) : [...selected, id] : [id];
+    setSelected(next); setNotice(`${named(id)}，${next.length} 个已选对象`);
+  }
+  function undo() {
+    if (readOnly) { setNotice('当前白板为只读，不能撤销。'); return; }
+    const result = model.undo();
+    setNotice(result === 'creation-requires-explicit-delete' ? '创建对象请使用删除；为保护其他人的修改，不撤销对象创建。' : result === 'empty' ? '没有可撤销的本地修改。' : '已撤销本地修改');
+    focusCanvas();
+  }
+  function deleteSelection() {
+    if (readOnly || !selected.length) { if (readOnly) setNotice('当前白板为只读，不能删除。'); return; }
+    const remaining = model.objects.filter(item => item.kind !== 'connector' && !selected.includes(item.id));
+    const next = nextBoardObject(remaining, null, 'ArrowRight');
+    if (execute(selected.map(id => ({ type: 'delete' as const, id })))) setNotice(`已删除 ${selected.length} 个对象`);
+    setSelected([]); setActiveId(next?.id ?? null); focusCanvas();
+  }
+  function canvasKeyDown(event: KeyboardEvent<HTMLDivElement>) {
+    if (event.nativeEvent.isComposing) return;
+    const direction = ['ArrowUp','ArrowDown','ArrowLeft','ArrowRight'].includes(event.key) ? event.key as BoardDirection : null;
+    if (direction && (event.ctrlKey || event.metaKey)) {
+      event.preventDefault();
+      if (readOnly) { setNotice('当前白板为只读，不能移动对象。'); return; }
+      if (!selected.length) { setNotice('请先选择要移动的对象。'); return; }
+      const step = event.shiftKey ? 10 : 1;
+      const delta = { x: direction === 'ArrowRight' ? step : direction === 'ArrowLeft' ? -step : 0, y: direction === 'ArrowDown' ? step : direction === 'ArrowUp' ? -step : 0 };
+      if (execute(selectionRoots(doc, selected).map(id => ({ type: 'translate' as const, id, delta })))) setNotice(`已移动 ${selected.length} 个对象：水平 ${delta.x}，垂直 ${delta.y}`);
+      return;
+    }
+    if (direction) {
+      event.preventDefault(); const next = nextBoardObject(displayed, activeId, direction);
+      if (next) { setActiveId(next.id); setNotice(`当前对象：${boardObjectLabel(next)}`); }
+      else setNotice('画布中没有可导航对象。');
+      return;
+    }
+    if (event.key === 'Enter' && activeId && selected.length === 1 && selected[0] === activeId && object && !readOnly && !['connector','drawing'].includes(object.kind)) {
+      event.preventDefault(); textEditor.current?.focus(); setNotice(`正在编辑${named(activeId)}`); return;
+    }
+    if ((event.key === ' ' || event.key === 'Enter') && activeId) { event.preventDefault(); choose(activeId, event.shiftKey && event.key === ' '); return; }
+    if (event.key === 'Escape' && tool === 'connect') { event.preventDefault(); setTool('select'); setSelected([]); setNotice('已取消连接'); focusCanvas(); return; }
+    if (event.key === 'Delete' || event.key === 'Backspace') { event.preventDefault(); deleteSelection(); return; }
+    if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'z') { event.preventDefault(); undo(); return; }
+    if ((event.ctrlKey || event.metaKey) && ['+','=','-'].includes(event.key)) {
+      event.preventDefault(); const delta = event.key === '-' ? -.1 : .1;
+      setZoom(value => { const next = Math.max(.2, Math.min(2, value + delta)); setNotice(`缩放 ${Math.round(next * 100)}%`); return next; });
+    }
+  }
   function point(e: PointerEvent): Point { const rect = surface.current!.getBoundingClientRect(); return { x: (e.clientX - rect.left - offset.x) / zoom, y: (e.clientY - rect.top - offset.y) / zoom }; }
   function wrapSelection(kind: 'group' | 'frame') {
     if (readOnly) return;
@@ -51,11 +116,13 @@ export function CollaborativeEditor({ doc, readOnly, title, status, onTitleChang
   function down(e: PointerEvent, id?: string) {
     if (e.button !== 0) return; e.stopPropagation();
     const p = point(e);
+    if (id) setActiveId(id);
     if (tool === 'connect' && !readOnly && id) {
-      if (selected.length === 1 && selected[0] !== id) { const connection = make('connector', 0, 0); connection.text = ''; connection.connector = { from: selected[0]!, to: id }; execute([{ type: 'create', object: connection }]); setTool('select'); setSelected([]); } else setSelected([id]); return;
+      if (selected.length === 1 && selected[0] !== id) { const from=selected[0]!, connection = make('connector', 0, 0); connection.text = ''; connection.connector = { from, to: id }; execute([{ type: 'create', object: connection }]); setNotice(`已建立连接：${named(from)} 到 ${named(id)}`); setTool('select'); setSelected([]); } else { setSelected([id]); setNotice(`连接起点：${named(id)}。请选择终点。`); } return;
     }
     const ids = id ? e.shiftKey ? selected.includes(id) ? selected.filter(v => v !== id) : [...selected, id] : selected.includes(id) ? selected : [id] : [];
     if (tool !== 'pan') setSelected(ids);
+    if (id && tool !== 'pan') setNotice(`${named(id)}，${ids.length} 个已选对象`);
     if (id && readOnly && tool !== 'pan') return;
     e.currentTarget.setPointerCapture(e.pointerId);
     setGesture({ mode: tool === 'pan' ? 'pan' : tool === 'draw' && !readOnly ? 'draw' : id ? 'move' : 'box', start: p, current: p, ids, points: [p], offset });
@@ -84,23 +151,23 @@ export function CollaborativeEditor({ doc, readOnly, title, status, onTitleChang
   const displayed = model.objects.map(o => gesture?.mode === 'move' && movingIds.has(o.id) ? { ...o, geometry: { ...o.geometry, x: o.geometry.x + gesture.current.x - gesture.start.x, y: o.geometry.y + gesture.current.y - gesture.start.y } } : o);
   const viewport = { x: -offset.x / zoom, y: -offset.y / zoom, width: viewportSize.width / zoom, height: viewportSize.height / zoom };
   return <section data-testid="collaborative-editor" className="flex h-full min-h-0 flex-col bg-background text-background-foreground">
-    <header className="flex flex-wrap items-center gap-2 border-b border-border p-3">{onBack && <Button onClick={onBack}>返回白板</Button>}<Input aria-label="白板名称" className="max-w-64" value={title} disabled={readOnly || !onTitleChange} onChange={e => { if (!readOnly) onTitleChange?.(e.target.value); }} /><span role="status" className="text-12">{status}{readOnly ? ' · 只读' : ''}</span></header>
-    <div className="flex flex-wrap gap-1 border-b border-border p-2">
-      <Button onClick={() => setTool('select')} aria-pressed={tool==='select'}>选择</Button><Button onClick={() => setTool('pan')} aria-pressed={tool==='pan'}>平移</Button>
-      {(['sticky','text','rectangle','ellipse'] as const).map((kind,i) => <Button key={kind} data-testid={`board-add-${kind}`} disabled={readOnly} onClick={() => { const o=make(kind,(100-offset.x)/zoom,(100-offset.y)/zoom); execute([{type:'create',object:o}]); setSelected([o.id]); }}>{['便利贴','文字','矩形','椭圆'][i]}</Button>)}
+    <header className="flex flex-wrap items-center gap-2 border-b border-border p-3">{onBack && <Button onClick={onBack}>返回白板</Button>}<Input aria-label="白板名称" className="max-w-64" value={title} disabled={readOnly || !onTitleChange} onChange={e => { if (!readOnly) onTitleChange?.(e.target.value); }} /><span className="text-12">{status}{readOnly ? ' · 只读' : ''}</span></header>
+    <div role="toolbar" aria-label="白板工具" className="flex flex-wrap gap-1 border-b border-border p-2">
+      <Button onClick={() => { setTool('select'); setNotice('已切换到选择工具'); }} aria-pressed={tool==='select'}>选择</Button><Button onClick={() => { setTool('pan'); setNotice('已切换到平移工具'); }} aria-pressed={tool==='pan'}>平移</Button>
+      {(['sticky','text','rectangle','ellipse'] as const).map((kind,i) => <Button key={kind} data-testid={`board-add-${kind}`} disabled={readOnly} onClick={() => { const o=make(kind,(100-offset.x)/zoom,(100-offset.y)/zoom); if(execute([{type:'create',object:o}])){setSelected([o.id]);setActiveId(o.id);setNotice(`已创建${boardObjectLabel(o)}`);focusCanvas();} }}>{['便利贴','文字','矩形','椭圆'][i]}</Button>)}
       <Button data-testid="board-group" disabled={readOnly || selectionRoots(doc, selected).length < 2} onClick={() => wrapSelection('group')}>Group</Button>
       <Button data-testid="board-ungroup" disabled={readOnly || !selected.some(id => model.objects.some(item => item.id === id && ['frame','group'].includes(item.kind)))} onClick={() => { execute(selected.flatMap(id => model.objects.some(item => item.id === id && ['frame','group'].includes(item.kind)) ? [{ type: 'ungroup' as const, id }] : [])); setSelected([]); }}>Ungroup</Button>
       <Button data-testid="board-add-frame" disabled={readOnly} onClick={() => wrapSelection('frame')}>创建 Frame</Button>
-      <Button disabled={readOnly} onClick={() => { setTool('connect'); setSelected([]); setNotice('依次选择两个对象建立连接'); }}>连接</Button><Button disabled={readOnly} onClick={() => setTool('draw')}>画笔</Button>
-      <Button disabled={readOnly} onClick={() => { const result=model.undo(); setNotice(result==='creation-requires-explicit-delete'?'创建对象请使用删除；为保护其他人的修改，不撤销对象创建。':result==='empty'?'没有可撤销的本地修改。':'已撤销本地修改'); }}>撤销</Button><Button disabled={readOnly} onClick={() => { model.redo(); }}>重做</Button>
+      <Button disabled={readOnly} aria-pressed={tool==='connect'} onClick={() => { setTool('connect'); setSelected([]); setNotice('连接工具：请选择起点对象'); focusCanvas(); }}>连接</Button><Button disabled={readOnly} aria-pressed={tool==='draw'} onClick={() => { setTool('draw'); setNotice('已切换到画笔工具'); }}>画笔</Button>
+      <Button disabled={readOnly} onClick={undo}>撤销</Button><Button disabled={readOnly} onClick={() => { const applied=model.redo(); setNotice(applied?'已重做本地修改':'没有可重做的本地修改。'); }}>重做</Button>
       <Button disabled={!selected.length} onClick={() => { clipboard.current=copyObjects(doc,selected,()=>crypto.randomUUID()); setNotice('已复制到当前白板剪贴板'); }}>复制</Button><Button disabled={readOnly} onClick={() => { const ids=new Map(clipboard.current.map(o=>[o.id,crypto.randomUUID()])); const copied=clipboard.current.map(o=>({...o,id:ids.get(o.id)!,parentId:o.parentId?ids.get(o.parentId)??null:null,connector:o.connector?{from:ids.get(o.connector.from)!,to:ids.get(o.connector.to)!}:undefined,geometry:{...o.geometry,x:o.geometry.x+30,y:o.geometry.y+30}})); execute(copied.map(object=>({type:'create',object}))); setSelected(copied.map(o=>o.id)); }}>粘贴</Button>
-      <Button disabled={readOnly || !selected.length} onClick={() => { execute(selected.map(id=>({type:'delete',id}))); setSelected([]); }}>删除选中</Button>
-      <Button onClick={()=>setZoom(z=>Math.max(.2,z-.1))}>缩小</Button><span className="p-2 text-12">{Math.round(zoom*100)}%</span><Button onClick={()=>setZoom(z=>Math.min(2,z+.1))}>放大</Button>
+      <Button disabled={readOnly || !selected.length} onClick={deleteSelection}>删除选中</Button>
+      <Button onClick={()=>setZoom(z=>{const next=Math.max(.2,z-.1);setNotice(`缩放 ${Math.round(next*100)}%`);return next;})}>缩小</Button><span aria-hidden="true" className="p-2 text-12">{Math.round(zoom*100)}%</span><Button onClick={()=>setZoom(z=>{const next=Math.min(2,z+.1);setNotice(`缩放 ${Math.round(next*100)}%`);return next;})}>放大</Button>
     </div>
     <div className="relative min-h-0 flex-1 overflow-hidden">
-      <div ref={surface} data-testid="board-live-surface" className="absolute inset-0 touch-none overflow-hidden bg-panel-alt" onPointerDown={e=>down(e)} onPointerMove={move} onPointerLeave={() => { cursor.current=null; onAwareness?.(null,selected); }} onPointerUp={finish} onPointerCancel={()=>setGesture(null)}>
+      <div ref={surface} tabIndex={0} role="application" aria-label="白板画布。使用方向键导航对象，Enter 或空格选择，Shift 加空格多选，Control 或 Command 加方向键移动。" aria-activedescendant={activeId ? `board-a11y-object-${activeId}` : undefined} data-testid="board-live-surface" className="absolute inset-0 touch-none overflow-hidden bg-panel-alt focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring" onFocus={() => { const next=nextBoardObject(displayed,activeId,'ArrowRight');if(next&&!activeId){setActiveId(next.id);setNotice(`当前对象：${boardObjectLabel(next)}`);} }} onKeyDown={canvasKeyDown} onPointerDown={e=>down(e)} onPointerMove={move} onPointerLeave={() => { cursor.current=null; onAwareness?.(null,selected); }} onPointerUp={finish} onPointerCancel={()=>setGesture(null)}>
         <div className="absolute inset-0 origin-top-left" style={{transform:`translate(${offset.x}px,${offset.y}px) scale(${zoom})`}}>
-          <WhiteboardRenderer objects={displayed} selected={selected} viewport={viewport} onPointerDown={down}/>
+          <WhiteboardRenderer objects={displayed} selected={selected} activeId={activeId} viewport={viewport} onPointerDown={down}/>
           {peers.filter(peer=>peer.actorId!==currentUserId).map(peer=><div key={peer.actorId} className="pointer-events-none">
             {peer.selected.map(id=>{const selectedObject=model.objects.find(item=>item.id===id);if(!selectedObject)return null;const g=selectedObject.geometry;return <div key={id} data-testid={`peer-selection-${peer.actorId}-${id}`} className="absolute rounded-control border-2 border-dashed border-primary" style={{left:g.x,top:g.y,width:g.width,height:g.height,transform:`rotate(${g.rotation}deg)`}}/>;})}
             {peer.cursor&&<div data-testid={`peer-cursor-${peer.actorId}`} className="absolute text-primary" style={{left:peer.cursor.x,top:peer.cursor.y}}><span aria-hidden="true">↖</span><span className="rounded-control bg-primary px-1 text-11 text-primary-foreground">{peer.actorId}</span></div>}
@@ -110,7 +177,7 @@ export function CollaborativeEditor({ doc, readOnly, title, status, onTitleChang
         </div>
       </div>
     {workshop && <div className="absolute right-3 top-3 max-w-[calc(100%-1.5rem)]">{workshop}</div>}
-    {object && <aside className="absolute bottom-3 right-3 w-56 rounded-container border border-border bg-card p-3"><label className="text-13">对象文字<Textarea key={object.id} aria-label="对象文字" disabled={readOnly} value={draft ?? object.text} onChange={e=>changeText(e.target.value)} onCompositionStart={()=>{composition.current={id:object.id,before:object.text};setDraft(object.text);}} onCompositionEnd={e=>{const pending=composition.current;composition.current=null;suppressCompositionChange.current=e.currentTarget.value;const current=readObjects(doc).find(o=>o.id===pending?.id);if(current && current.text===pending?.before){execute([{type:'text',id:current.id,...textSplice(current.text,e.currentTarget.value)}]);setDraft(null);}else {setConflictedDraft(e.currentTarget.value);setDraft(null);setNotice('输入期间对象已由其他人修改。已保留此次输入草稿，请核对后重新输入。');}}}/></label>{conflictedDraft !== null && <label className="text-12">未应用的输入草稿<Textarea aria-label="未应用的输入草稿" readOnly value={conflictedDraft}/><Button onClick={()=>setConflictedDraft(null)}>关闭草稿</Button></label>}<p className="mt-2 text-11 text-muted-foreground">Shift 点击多选；Group 与 Frame 会带动全部嵌套内容。</p></aside>}
-    </div><p role="status" className="min-h-6 border-t border-border px-3 text-12">{notice || `${selected.length} 个已选对象`}</p>
+    {object && <aside className="absolute bottom-3 right-3 w-56 rounded-container border border-border bg-card p-3"><label className="text-13">对象文字<Textarea ref={textEditor} key={object.id} aria-label="对象文字" disabled={readOnly} value={draft ?? object.text} onKeyDown={event=>{if(event.key==='Escape'){event.preventDefault();surface.current?.focus({preventScroll:true});}}} onChange={e=>changeText(e.target.value)} onCompositionStart={()=>{composition.current={id:object.id,before:object.text};setDraft(object.text);}} onCompositionEnd={e=>{const pending=composition.current;composition.current=null;suppressCompositionChange.current=e.currentTarget.value;const current=readObjects(doc).find(o=>o.id===pending?.id);if(current && current.text===pending?.before){execute([{type:'text',id:current.id,...textSplice(current.text,e.currentTarget.value)}]);setDraft(null);}else {setConflictedDraft(e.currentTarget.value);setDraft(null);setNotice('输入期间对象已由其他人修改。已保留此次输入草稿，请核对后重新输入。');}}}/></label>{conflictedDraft !== null && <label className="text-12">未应用的输入草稿<Textarea aria-label="未应用的输入草稿" readOnly value={conflictedDraft}/><Button onClick={()=>setConflictedDraft(null)}>关闭草稿</Button></label>}<p className="mt-2 text-11 text-muted-foreground">Shift+Space 或 Shift 点击多选；Esc 返回画布。</p></aside>}
+    </div><p role="status" aria-live="polite" aria-atomic="true" aria-label={`${status}。${notice || `${selected.length} 个已选对象`}`} data-testid="board-live-announcer" className="min-h-6 border-t border-border px-3 text-12">{notice || `${selected.length} 个已选对象`}</p>
   </section>;
 }
