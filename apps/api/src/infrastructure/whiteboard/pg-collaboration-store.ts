@@ -42,7 +42,9 @@ export class PgWhiteboardCollaborationStore implements WhiteboardCollaborationSt
     if (write) {
       const control = await session.query<{ frozen: boolean }>(`SELECT frozen FROM whiteboard_workshop_controls WHERE org_id=$1 AND board_id=$2`, [p.orgId, boardId]);
       if (control.rows[0]?.frozen && parsed.data !== 'owner') {
-        const membership = await session.query<{ org_role: string }>(`SELECT org_role FROM org_memberships WHERE org_id=$1 AND user_id=$2`, [p.orgId, p.userId]);
+        // Keep the admin decision valid until this write commits. Role changes lock this
+        // same row before UPDATE, so downgrade and Board mutation have one serial order.
+        const membership = await session.query<{ org_role: string }>(`SELECT org_role FROM org_memberships WHERE org_id=$1 AND user_id=$2 FOR UPDATE`, [p.orgId, p.userId]);
         if (membership.rows[0]?.org_role !== 'admin') throw new Fault('WORKSHOP_FROZEN');
       }
     }

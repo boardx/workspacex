@@ -54,6 +54,7 @@ function audit(code: string): string[] {
   if (!/write && parsed\.data === 'viewer'/.test(access) || !/write && row\.archived/.test(access)) errors.push('write role/archive gate');
   if (!/write\)[\s\S]*FROM whiteboard_workshop_controls WHERE org_id=\$1 AND board_id=\$2/.test(access)
     || !/control\.rows\[0\]\?\.frozen && parsed\.data !== 'owner'/.test(access)
+    || !/FROM org_memberships WHERE org_id=\$1 AND user_id=\$2 FOR UPDATE/.test(access)
     || !/membership\.rows\[0\]\?\.org_role !== 'admin'/.test(access)
     || !/throw new Fault\('WORKSHOP_FROZEN'\)/.test(access)) errors.push('workshop freeze gate');
 
@@ -86,6 +87,11 @@ describe('whiteboard collaboration repository permission exemption', () => {
   });
   it('rejects removal of the server-authoritative workshop freeze gate', () => {
     const mutated = source.replace("if (control.rows[0]?.frozen && parsed.data !== 'owner')", "if (false)");
+    expect(mutated).not.toBe(source);
+    expect(audit(mutated)).toContain('workshop freeze gate');
+  });
+  it('rejects an admin decision that is not serialized with role changes', () => {
+    const mutated = source.replace('FROM org_memberships WHERE org_id=$1 AND user_id=$2 FOR UPDATE', 'FROM org_memberships WHERE org_id=$1 AND user_id=$2');
     expect(mutated).not.toBe(source);
     expect(audit(mutated)).toContain('workshop freeze gate');
   });

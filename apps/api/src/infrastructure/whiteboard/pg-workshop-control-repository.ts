@@ -21,7 +21,10 @@ export class PgWorkshopControlRepository implements WorkshopControlRepository {
     const board = result.rows[0];
     if (!board || (board.owner_id !== p.userId && board.role === null)) throw new Fault('NOT_FOUND');
     if (!control || board.owner_id === p.userId) return;
-    const membership = await session.query<{ org_role: string }>(`SELECT org_role FROM org_memberships WHERE org_id=$1 AND user_id=$2`, [p.orgId, p.userId]);
+    // Serialize the admin exception with role changes. Both paths lock this target
+    // membership row; this transaction already owns the Board lock and role changes
+    // never acquire Board locks, so the order cannot form a lock cycle.
+    const membership = await session.query<{ org_role: string }>(`SELECT org_role FROM org_memberships WHERE org_id=$1 AND user_id=$2 FOR UPDATE`, [p.orgId, p.userId]);
     if (membership.rows[0]?.org_role !== 'admin') throw new Fault('FORBIDDEN');
   }
 
