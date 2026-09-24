@@ -90,6 +90,10 @@ jobs:
           pnpm build
           pnpm run pages:build
 
+      - name: Assert public-layer host configured (D13)
+        working-directory: apps/devportal
+        run: node scripts/assert-public-host.mjs
+
       - name: Deploy, production smoke, and automatic rollback
         working-directory: apps/devportal
         env:

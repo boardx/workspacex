@@ -5,10 +5,11 @@
 // 审批 SLA 兑现记录｜「加入这个项目」CTA → UC-04 三步向导。
 // ⚠️ 全部 mock（lib/mock/p30.ts）。D3：公开层页面不依赖 Access 注入 header 的任何假设——
 // 本组件无身份读取、无 cookie/header 分支，任何人打开看到的都一样。
+// D13（公开层拆域）：加入向导要读会话、调 /api/portal/join，属于协作层——本组件不再内嵌
+// 它，CTA 只是一个指向协作主机 /join/:slug 的链接（joinHref 由页面按 lib/public-host 拼出）。
 import { useState } from "react";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { JoinWizard } from "@/components/p30/join-wizard";
+import { buttonVariants } from "@/components/ui/button";
 import { EmptyState, IdentityChip, LoadingSkeleton, PrototypeHeader, useMockLoading } from "@/components/p30/shared";
 import { MOCK_PUBLIC_PROJECT } from "@/lib/mock/p30";
 
@@ -59,10 +60,9 @@ function AvatarTile({ label, kind }: { label: string; kind: "human" | "agent" })
   );
 }
 
-export function ProjectHome({ slug }: { slug: string }) {
+export function ProjectHome({ slug, joinHref }: { slug: string; joinHref: string }) {
   const loading = useMockLoading();
   const [emptyDemo, setEmptyDemo] = useState(false);
-  const [joinOpen, setJoinOpen] = useState(false);
   const p = MOCK_PUBLIC_PROJECT;
 
   return (
@@ -84,9 +84,9 @@ export function ProjectHome({ slug }: { slug: string }) {
           {/* 设计稿：招募页 tagline 走 Newsreader 斜体叙事声线 */}
           <p className="mt-1.5 font-serif text-17 font-semibold italic">{p.tagline}</p>
         </div>
-        <Button data-testid="join-cta" size="lg" onClick={() => setJoinOpen(true)}>
+        <a data-testid="join-cta" href={joinHref} className={buttonVariants({ size: "lg" })}>
           加入这个项目 →
-        </Button>
+        </a>
       </div>
 
       {loading ? (
@@ -228,14 +228,12 @@ export function ProjectHome({ slug }: { slug: string }) {
           {/* 底部再给一次 CTA */}
           <div className="flex flex-col items-center gap-2 rounded-12 border border-dashed border-border py-8 text-center">
             <p className="text-13 text-muted-foreground">看对眼了？三步加入：GitHub 登录 → 选角色/模块 → 提交等审批（SLA 透明）。</p>
-            <Button data-testid="join-cta-bottom" onClick={() => setJoinOpen(true)}>
+            <a data-testid="join-cta-bottom" href={joinHref} className={buttonVariants()}>
               加入这个项目 →
-            </Button>
+            </a>
           </div>
         </>
       )}
-
-      {joinOpen && <JoinWizard projectSlug={slug} projectName={p.name} onClose={() => setJoinOpen(false)} />}
     </div>
   );
 }
