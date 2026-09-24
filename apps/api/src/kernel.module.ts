@@ -1,3 +1,6 @@
+import { WHITEBOARD_COLLABORATION_STORE, WHITEBOARD_UPDATE_VALIDATOR } from './application/whiteboard/collaboration-ports';
+import { PgWhiteboardCollaborationStore } from './infrastructure/whiteboard/pg-collaboration-store';
+import { WorkerWhiteboardUpdateValidator } from './infrastructure/whiteboard/update-validator';
 import { WhiteboardController } from './interface/controllers/whiteboard.controller';
 import { WHITEBOARD_REPOSITORY } from './application/whiteboard/ports';
 import { PgWhiteboardRepository } from './infrastructure/whiteboard/pg-whiteboard-repository';
@@ -2862,6 +2865,15 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
       inject: [DATABASE_PORT],
     },
     // UC-17.8 B4.3：设计项目仓储按组织构造（`forOrg`），同 `FEEDBACK_DRAFT_REPOSITORY` 的理由。
+    {
+      provide: WHITEBOARD_UPDATE_VALIDATOR,
+      useFactory: () => new WorkerWhiteboardUpdateValidator(),
+    },
+    {
+      provide: WHITEBOARD_COLLABORATION_STORE,
+      useFactory: (db: DatabasePort) => new PgWhiteboardCollaborationStore(db),
+      inject: [DATABASE_PORT],
+    },
     {
       provide: WHITEBOARD_REPOSITORY,
       useFactory: (db: DatabasePort) => new PgWhiteboardRepository(db),

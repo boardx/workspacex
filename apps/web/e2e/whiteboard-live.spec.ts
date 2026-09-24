@@ -1,0 +1,56 @@
+import { randomUUID } from 'node:crypto';
+import { expect, test, type Page, type APIRequestContext } from '@playwright/test';
+import { SESSION_TOKEN_STORAGE_KEY } from '../lib/api-client';
+
+/** Real services only: no route interception, business mocks or injected test principals. */
+test.describe.configure({ mode: 'serial', timeout: 120_000 });
+function required(name: string): string { const value=process.env[name]; if(!value)throw new Error(`Missing real whiteboard E2E fixture: ${name}; see e2e/whiteboard-live-fixture.md`);return value; }
+async function login(page: Page, actor: 'OWNER'|'EDITOR'|'VIEWER') {
+  await page.goto('/login');
+  await page.getByTestId('login-email').fill(required(`WHITEBOARD_${actor}_EMAIL`));
+  await page.getByTestId('login-password').fill(required(`WHITEBOARD_${actor}_PASSWORD`));
+  await page.getByTestId('login-submit').click();await expect(page).toHaveURL(/\/projects$/, {timeout:30_000});
+  const token=await page.evaluate(key=>localStorage.getItem(key),SESSION_TOKEN_STORAGE_KEY);
+  expect(token,'real login issued session token').toBeTruthy();return token!;
+}
+async function request(api: APIRequestContext, token: string, method: string, path: string, data?: unknown) {
+  const response=await api.fetch(`${required('WHITEBOARD_API_URL').replace(/\/$/,'')}${path}`,{method,headers:{Authorization:`Bearer ${token}`},data});
+  expect(response.ok(),`${method} ${path} returned ${response.status()}`).toBe(true);return response;
+}
+async function synced(page:Page){await expect(page.getByTestId('collaborative-editor')).toBeVisible({timeout:30_000});await expect(page.getByText(/^已同步(?: · 只读)?$/)).toBeVisible({timeout:30_000});}
+
+test('independent users collaborate, persist, enforce viewer permissions and clear revoked view',async({browser,request:api,baseURL})=>{
+  const ownerContext=await browser.newContext({baseURL}),editorContext=await browser.newContext({baseURL}),viewerContext=await browser.newContext({baseURL});
+  const owner=await ownerContext.newPage(),editor=await editorContext.newPage(),viewer=await viewerContext.newPage();
+  let boardId:string|undefined,ownerToken:string|undefined;
+  try{
+    ownerToken=await login(owner,'OWNER');await login(editor,'EDITOR');await login(viewer,'VIEWER');
+    const created=await request(api,ownerToken,'POST','/whiteboards',{requestId:randomUUID(),name:`Live collaboration ${randomUUID()}`});
+    boardId=(await created.json() as {id:string}).id;
+    await request(api,ownerToken,'PUT',`/whiteboards/${boardId}/members`,{userId:required('WHITEBOARD_EDITOR_USER_ID'),role:'editor'});
+    await request(api,ownerToken,'PUT',`/whiteboards/${boardId}/members`,{userId:required('WHITEBOARD_VIEWER_USER_ID'),role:'viewer'});
+    for(const page of [owner,editor,viewer]){await page.goto(`/studio/board/${boardId}`);await synced(page);}
+    for(const width of [375,768,1280]){
+      await owner.setViewportSize({width,height:900});
+      await expect(owner.getByTestId('shell-rail')).toHaveCount(0);
+      await expect(owner.getByTestId('shell-mobile-tabs')).toHaveCount(0);
+      const box=await owner.getByTestId('shell-main').boundingBox();expect(box?.x).toBe(0);expect(box?.width).toBe(width);expect(box?.height).toBe(900);
+    }
+    await owner.getByTestId('board-add-sticky').click();
+    await owner.getByLabel('对象文字',{exact:true}).fill('团队中文协作便签');await synced(owner);
+    const editorNote=editor.getByRole('button',{name:'图形：团队中文协作便签',exact:true});await expect(editorNote).toBeVisible({timeout:20_000});
+    await editorNote.click();await editor.getByLabel('对象文字',{exact:true}).fill('另一位成员的中文修改');await synced(editor);
+    await expect(owner.getByRole('button',{name:'图形：另一位成员的中文修改',exact:true})).toBeVisible({timeout:20_000});
+    await owner.reload();await synced(owner);await expect(owner.getByRole('button',{name:'图形：另一位成员的中文修改',exact:true})).toBeVisible();
+    await expect(viewer.getByRole('button',{name:'图形：另一位成员的中文修改',exact:true})).toBeVisible({timeout:20_000});
+    await expect(viewer.getByTestId('board-add-sticky')).toBeDisabled();
+    await viewer.getByRole('button',{name:'图形：另一位成员的中文修改',exact:true}).click();await expect(viewer.getByLabel('对象文字',{exact:true})).toBeDisabled();
+    await request(api,ownerToken,'DELETE',`/whiteboards/${boardId}/members/${encodeURIComponent(required('WHITEBOARD_EDITOR_USER_ID'))}`);
+    await expect(editor.getByTestId('denied')).toBeVisible({timeout:30_000});
+    await expect(editor.getByTestId('collaborative-editor')).toHaveCount(0);
+    await expect(editor.getByRole('button',{name:'图形：另一位成员的中文修改',exact:true})).toHaveCount(0);
+  }finally{
+    try { if(boardId&&ownerToken)await request(api,ownerToken,'PATCH',`/whiteboards/${boardId}`,{archived:true}); }
+    finally { await Promise.all([ownerContext.close(),editorContext.close(),viewerContext.close()]); }
+  }
+});
