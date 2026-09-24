@@ -1,9 +1,10 @@
+import type { ReactNode } from "react";
 import { researchStageLabels } from "./guided-research-runtime-progress";
 import { researchReportDocument } from "@/lib/research-report-document";
 import { GuidedResearchReportDocument } from "./guided-research-report-document";
 import { researchReportPreview } from "@/lib/research-report-preview";
 import type { GuidedResearchRuntime } from "@/lib/guided-research-api";
-export function GuidedResearchReportPreview({ state, interrupted = false, onRegenerate }: { state: GuidedResearchRuntime; interrupted?: boolean; onRegenerate?: () => void }) {
+export function GuidedResearchReportPreview({ state, interrupted = false, moreActions, onRegenerate }: { state: GuidedResearchRuntime; interrupted?: boolean; moreActions?: ReactNode; onRegenerate?: () => void }) {
   const preview = researchReportPreview(state.reportStream?.text ?? "");
   const saved = state.reportCheckpoint?.chapters ?? [];
   const sections = [...saved, ...preview.sections.filter((section) => !saved.some((chapter) => chapter.sectionId === section.sectionId))];
@@ -15,7 +16,7 @@ export function GuidedResearchReportPreview({ state, interrupted = false, onRege
     <p className="text-12 text-muted-foreground" data-testid="research-report-validation-status">{state.reportCheckpoint ? `已保存 ${saved.length} / ${state.outline.filter((section) => section.enabled).length} 个章节。` : `已显示 ${sections.length} 个章节，保存状态正在同步。`}章节核验状态见生成过程；报告尚未完成，仍需综合与最终校验。</p>
     {!state.reportTimeline?.length && state.progress && <p className="text-12 font-medium">当前阶段：{researchStageLabels[state.progress.stage]}</p>}
     {Boolean(document.unresolvedReferences) && <p role="status" className="text-12 text-muted-foreground" data-testid="research-preview-citations-pending">{document.unresolvedReferences} 处内容引用待核对，完成校验后才会纳入正式报告。</p>}
-    <GuidedResearchReportDocument document={document} provisional onRegenerate={onRegenerate} regenerateDisabled={state.busy && !interrupted} />
+    <GuidedResearchReportDocument document={document} provisional moreActions={moreActions} onRegenerate={onRegenerate} regenerateDisabled={state.busy && !interrupted} />
     {!preview.title && !preview.summary && !sections.some((section) => section.body) && <p className="text-12 text-muted-foreground">正在组织报告内容…</p>}
   </section>;
 }
