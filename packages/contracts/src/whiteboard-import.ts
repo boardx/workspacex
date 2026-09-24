@@ -12,7 +12,11 @@ export const DiagramImportBundle = z.object({
     edges: z.array(z.object({ id, source: id, target: id, label: z.string().optional(), kind: z.string(), sourceLabel: z.string().optional(), targetLabel: z.string().optional(), order: z.number().optional(), seqY: z.number().finite().optional(), data: record.optional() }).strict()).max(199),
   }).strict(),
 }).strict();
-export type DiagramImportBundle = z.infer<typeof DiagramImportBundle>;
+// Keep a type-only name separate from the runtime schema. Consumers that also
+// compose the contracts namespace can then import the inferred payload without
+// TypeScript resolving the merged schema symbol as a value.
+export type DiagramImportBundleData = z.infer<typeof DiagramImportBundle>;
+export type DiagramImportBundle = DiagramImportBundleData;
 export const DiagramImportLossCode = z.enum(['SOURCE_DIAGNOSTIC','SHAPE_APPROXIMATION','SPECIALIZED_EDITING_UNAVAILABLE','ZERO_SIZE_EXPANDED','CONNECTOR_SEMANTICS_APPROXIMATED','PLUGIN_STYLE_NOT_RENDERED']);
 export type DiagramImportLossCode = z.infer<typeof DiagramImportLossCode>;
 export const ImportDiagramInput = z.object({ requestId: z.string().uuid(), acceptedLosses: z.array(DiagramImportLossCode).max(6), sourceRef: DiagramSourceRef, bundle: DiagramImportBundle }).strict();

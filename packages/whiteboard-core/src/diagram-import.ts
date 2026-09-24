@@ -1,5 +1,5 @@
 import type {
-  DiagramImportBundle as DiagramImportContract,
+  DiagramImportBundleData as DiagramImportContract,
   DiagramImportLossCode,
 } from '@repo/contracts/whiteboard-import';
 import { WhiteboardObject, WhiteboardCommandBatch, WhiteboardObjectId, WHITEBOARD_LIMITS, type WhiteboardCommand } from '@repo/contracts/whiteboard-document';
