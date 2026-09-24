@@ -46,8 +46,10 @@ describe('whiteboard content heads migration', () => {
 
   it('enforces the all-or-none published manifest metadata tuple', async () => {
     await expect(db.exec(`UPDATE whiteboard_content_heads SET storage_kind='blob_primary' WHERE org_id='org-a'`)).rejects.toThrow();
-    await db.exec(`UPDATE whiteboard_content_heads SET storage_kind='blob_primary',content_state='active',manifest_key='tenants/a/manifest',manifest_digest='${'a'.repeat(64)}',manifest_size_bytes=123,tenant_key_version=1,schema_version=1,protocol_version=1 WHERE org_id='org-a'`);
+    await expect(db.exec(`UPDATE whiteboard_content_heads SET storage_kind='blob_primary',content_state='active',manifest_key='tenants/a/manifest',manifest_digest='${'a'.repeat(64)}',manifest_size_bytes=123,tenant_key_version=1,schema_version=1,protocol_version=1 WHERE org_id='org-a'`)).rejects.toThrow();
+    await db.exec(`UPDATE whiteboard_content_heads SET storage_kind='blob_primary',content_state='active',manifest_key='tenants/a/manifest',manifest_digest='${'a'.repeat(64)}',manifest_plain_digest='${'b'.repeat(64)}',manifest_size_bytes=123,tenant_key_version=1,schema_version=1,protocol_version=1 WHERE org_id='org-a'`);
     await expect(db.exec(`UPDATE whiteboard_content_heads SET manifest_digest='short' WHERE org_id='org-a'`)).rejects.toThrow();
+    await expect(db.exec(`UPDATE whiteboard_content_heads SET manifest_plain_digest=NULL WHERE org_id='org-a'`)).rejects.toThrow();
   });
 
   it('installs forced tenant RLS and hides the other tenant from app_rw', async () => {
