@@ -6,7 +6,7 @@
 
 | 任务 | 格式 | 结果 | 耗时 | 详情 |
 |---|---|---|---|---|
-| ① 研究→PPT（人类原例） | pptx | ❌ | 225s | 没有产出 .pptx（现有：空） |
-| ② 周报→Word | docx | ❌ | 80s | 没有产出 .docx（现有：空） |
-| ③ 预算表→Excel | xlsx | ❌ | 90s | 没有产出 .xlsx（现有：空） |
-| ④ 说明书→PDF | pdf | ❌ | 94s | 没有产出 .pdf（现有：空）；沙箱报错：const { PDFDocument } = require('pdf-lib'); const fontkit = require('@pdf-lib/fontkit'); const fs = require('fs'); (async () => { const doc = await PDFDocument.create(); doc.registerFontkit(fontkit); const fontPath = process.env.SKILL_SANDBOX_CJK_FONT; if (!fo |
+| ① 研究→PPT（人类原例） | pptx | ❌ | 524s | 没有产出 .pptx（现有：空） |
+| ② 周报→Word | docx | ❌ | 582s | 没有产出 .docx（现有：空） |
+| ③ 预算表→Excel | xlsx | ❌ | 82s | 没有产出 .xlsx（现有：空） |
+| ④ 说明书→PDF | pdf | ❌ | 86s | 没有产出 .pdf（现有：空）；沙箱报错：const { PDFDocument } = require('pdf-lib'); const fontkit = require('@pdf-lib/fontkit'); const fs = require('fs'); (async () => { const doc = await PDFDocument.create(); doc.registerFontkit(fontkit); const fontPath = process.env.SKILL_SANDBOX_CJK_FONT; if (!fo |

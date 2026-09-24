@@ -177,6 +177,7 @@ test("真实模型：十种计划任务全部产出可打开的 Office 文件", 
        * （「code · 25 行 复制 显示代码」）加后面的界面文字——十行报错长得一模一样，
        * 一条都不能拿来定位。判据抓错层，比没抓更浪费时间。
        */
+      const onScreen = await page.locator("main").innerText().catch(() => "");
       for (const toggle of await page.getByText("显示代码", { exact: true }).all()) {
         await toggle.click().catch(() => {});
       }
@@ -186,6 +187,13 @@ test("真实模型：十种计划任务全部产出可打开的 Office 文件", 
        * 那说明模型其实写对了，但对定位执行失败毫无用处。
        * 这里只取**看起来像报错**的那几段：带 Error / 栈帧 / 退出码的。
        */
+      /*
+       * ⚠ 先分清**环境**与**产品**。2026-09-25 有一轮四个任务全部 2 秒失败、
+       * 报告里写的是「没有产出 .pptx」——而真相是 `ENOTFOUND`，模型压根连不上。
+       * 两者在表里长得一模一样，会把一次网络抖动记成产品缺陷。
+       * 屏幕上出现模型/传输失败的字样时，这一行标成「环境」，不计进产品成功率的分子分母讨论。
+       */
+      const envFailure = /模型调用失败|连不上|ENOTFOUND|transport|服务未配置或不可用/.test(onScreen);
       const blocks = await page.locator("main pre").allTextContents().catch(() => []);
       const stderr = blocks
         .map((b) => b.trim())
@@ -193,7 +201,8 @@ test("真实模型：十种计划任务全部产出可打开的 Office 文件", 
         .join(" ⏎ ");
       rows.push({
         name: task.name, ext: task.ext, ok: false, ms: Date.now() - started,
-        detail: `${(error instanceof Error ? error.message : String(error)).split("\n")[0]?.slice(0, 120) ?? ""}`
+        detail: `${envFailure ? "⚠ 环境（模型不可达/未配置）：" : ""}`
+          + `${(error instanceof Error ? error.message : String(error)).split("\n")[0]?.slice(0, 120) ?? ""}`
           + (stderr === "" ? "" : `；沙箱报错：${stderr.replace(/\s+/g, " ").slice(0, 260)}`),
       });
     }

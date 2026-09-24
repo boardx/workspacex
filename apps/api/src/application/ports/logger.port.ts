@@ -27,8 +27,23 @@ export const LOGGER_PORT = Symbol("LoggerPort");
  * `PgErrorLogWriter` (via `AllExceptionsFilter`) record the identical shape instead of each
  * re-deriving it -- the same fact stated twice is how the two sinks drift apart.
  */
-export function errorDetailOf(err: unknown): { name: string; message: string; stack: string | undefined } | { raw: string } {
-  return err instanceof Error ? { name: err.name, message: err.message, stack: err.stack } : { raw: String(err) };
+export function errorDetailOf(
+  err: unknown,
+): { name: string; message: string; stack: string | undefined } | { raw: string } | Record<string, unknown> {
+  if (err instanceof Error) return { name: err.name, message: err.message, stack: err.stack };
+  /*
+   * ⚠ 普通对象**原样透出**，不要 `String(err)`（2026-09-25 真实模型实测）。
+   *
+   * 这里此前只分两路：Error 或 `String(err)`。而应用层的失败详情常常是一个结构化对象
+   * （`{ attempt, exitCode, stderrExcerpt }`），`String(它)` 就是 `"[object Object]"`——
+   * 落库的 detail 变成 `{ raw: "[object Object]" }`，19 次脚本报错**一条 stderr 都没留下**。
+   *
+   * 这是同一条链上的第二个丢信息点（第一个在 `structuredErrorLog`，见其头注）。
+   * 透出之后由两个 sink 各自的 `redactErrorDetail` 逐字段脱敏+截断——
+   * 那个函数本来就是按「普通对象的字符串字段」设计的，这里不做第二遍处理。
+   */
+  if (err !== null && typeof err === "object" && !Array.isArray(err)) return err as Record<string, unknown>;
+  return { raw: String(err) };
 }
 
 /**

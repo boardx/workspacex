@@ -17,7 +17,7 @@
  * 现在只有 `structuredErrorLog` 一份，下面逐条钉住它的优先级。
  */
 import { describe, expect, it, vi } from "vitest";
-import { structuredErrorLog } from "../../src/application/ports/logger.port";
+import { errorDetailOf, structuredErrorLog } from "../../src/application/ports/logger.port";
 
 function capture() {
   const calls: { msg: string; fields: Record<string, unknown> }[] = [];
@@ -65,5 +65,33 @@ describe("structuredErrorLog", () => {
     log("a", { x: 1 });
     log("b", { x: 2 });
     expect(calls.map((c) => c.fields.traceId)).toEqual(["t1", "t2"]);
+  });
+});
+
+/**
+ * 同一条链上的**第二个**丢信息点。
+ *
+ * `structuredErrorLog` 把结构化字段放进 `err` 之后，两个 sink 都要经 `errorDetailOf`。
+ * 它此前只分两路：Error 或 `String(err)`——普通对象于是变成 `"[object Object]"`。
+ * 2026-09-25 实测：修完第一处之后日志里是 `{"raw":"[object Object]"}`，
+ * 19 次脚本报错**仍然**一条 stderr 都没有。修一处不够，这条链上每一段都要检。
+ */
+describe("errorDetailOf", () => {
+  it("普通对象原样透出，不被 String() 压成 [object Object]", () => {
+    const detail = errorDetailOf({ attempt: 2, exitCode: 1, stderrExcerpt: "TypeError: boom" });
+    expect((detail as Record<string, unknown>).stderrExcerpt).toBe("TypeError: boom");
+    expect(JSON.stringify(detail)).not.toContain("[object Object]");
+  });
+
+  it("Error 仍然取 name/message/stack（既有行为不变）", () => {
+    const detail = errorDetailOf(new TypeError("boom")) as { name: string; message: string };
+    expect(detail.name).toBe("TypeError");
+    expect(detail.message).toBe("boom");
+  });
+
+  it("原始值与数组仍走 raw——它们没有可保留的字段结构", () => {
+    expect(errorDetailOf("plain")).toEqual({ raw: "plain" });
+    expect(errorDetailOf(42)).toEqual({ raw: "42" });
+    expect(errorDetailOf([1, 2])).toEqual({ raw: "1,2" });
   });
 });
