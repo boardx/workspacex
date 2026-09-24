@@ -409,6 +409,22 @@ describe("回答下「撤销」：逐条忘掉本轮记下的", () => {
     }, UI_DEADLINE);
   });
 
+  it("面板快照已过期（这一轮的抽取让版本号前进了）：第一次点「撤销」就成功，用的是点击时现取的版本号", async () => {
+    withTurnMemory();
+    // 服务端按真实语义拒绝旧版本号
+    server.onAction = (b) => (b.basedOnRevision !== server.revision ? failure(409, "KG_REVISION_CHANGED") : undefined);
+    render(<><Harness /><TurnMemoryLine threadId={THREAD} messageId="msg-1" /></>);
+    await screen.findByTestId("kg-list");            // 面板在 revision 7 时读的
+    server.revision = 9;                              // 之后这一轮的抽取落表，版本号前进
+    fireEvent.click(await screen.findByTestId("kg-turn-captured-undo"));
+    await screen.findByTestId("kg-turn-captured-undone");
+    expect(server.actions).toEqual([
+      { basedOnRevision: 9, action: { type: "revokeClaim", claimId: "c-fact" } },
+      { basedOnRevision: 10, action: { type: "revokeClaim", claimId: "c-todo" } },
+    ]);
+    expect(screen.queryByTestId("kg-turn-undo-error")).not.toBeInTheDocument();
+  });
+
   it("已经在面板里忘掉的那条（KG_CLAIM_NOT_FOUND）不算失败", async () => {
     withTurnMemory();
     server.onAction = (b) => (b.action.type === "revokeClaim" && b.action.claimId === "c-fact" ? failure(404, "KG_CLAIM_NOT_FOUND") : undefined);

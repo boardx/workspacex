@@ -5,6 +5,7 @@ import { AnswerMemoryLine } from "./answer-memory-line";
 import { AnswerKnowledgeFooter } from "./answer-knowledge-footer";
 import {
   applyHumanAction,
+  fetchThreadKnowledge,
   fetchTurnMemory,
   knowledgeGraphErrorCode,
   type TurnMemory,
@@ -42,13 +43,14 @@ export function TurnMemoryLine({ threadId, messageId }: { threadId: string; mess
   const [turn, setTurn] = React.useState<TurnMemory | null>(null);
   const snapshot = useKnowledgeSnapshot(threadId);
   const canUndo = snapshot?.canEdit === true;
-  const baseRevision = snapshot?.revision ?? null;
   const captured = turn?.captured;
 
   const undo = React.useCallback(async (): Promise<void> => {
-    if (baseRevision === null || !captured) return;
-    let revision = baseRevision;
+    if (!captured) return;
     try {
+      // 版本号在点击时现取：面板快照是打开会话时读的，这一轮的抽取本身就会让版本号前进，
+      // 拿快照里的旧版本号去撤销，第一次必然撞 KG_REVISION_CHANGED。
+      let revision = (await fetchThreadKnowledge(threadId)).revision;
       for (const c of captured) {
         try {
           revision = (await applyHumanAction(threadId, revision, { type: "revokeClaim", claimId: c.claimId })).revision;
@@ -61,7 +63,7 @@ export function TurnMemoryLine({ threadId, messageId }: { threadId: string; mess
       throw new Error(describeHumanActionFailure(e));
     }
     requestKnowledgeReload(threadId);
-  }, [threadId, baseRevision, captured]);
+  }, [threadId, captured]);
 
   React.useEffect(() => {
     let cancelled = false;
