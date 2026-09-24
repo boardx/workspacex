@@ -196,6 +196,7 @@ test("research persists all five model-backed steps through the real UI, API and
   await page.getByRole("button", { name: "更多操作", exact: true }).click();
   await expect(page.getByRole("menuitem", { name: "下载 Word", exact: true })).toBeVisible();
   await page.screenshot({ path: testInfo.outputPath("research-quality-complete-draft.png"), fullPage: true });
+  await page.keyboard.press("Escape");
   const openedSessionUrl = page.url();
   await page.getByRole("button", { name: "返回", exact: true }).click();
   await expect(page.getByTestId("research-home-page")).toBeVisible();
