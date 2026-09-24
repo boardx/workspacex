@@ -16,7 +16,7 @@ import type { LoggerPort } from "../../src/application/ports/logger.port";
 import { toOrgId, type OrgId } from "../../src/domain/org-id";
 import { appConfig } from "../../src/infrastructure/db/pg-config";
 import { PgDatabase } from "../../src/infrastructure/db/pg-database";
-import { graphParity } from "../../src/infrastructure/knowledge-graph/kg-graph-rebuild";
+import { graphParity, rebuildOrgGraph } from "../../src/infrastructure/knowledge-graph/kg-graph-rebuild";
 import { KgProjectionWorker } from "../../src/infrastructure/knowledge-graph/kg-projection-worker";
 import { PgGraphProjection } from "../../src/infrastructure/knowledge-graph/pg-graph-projection";
 import { PgOntologyStore } from "../../src/infrastructure/knowledge-graph/pg-ontology-store";
@@ -126,6 +126,7 @@ describe("F04: 投影 worker", () => {
       pendingOrgs: () => projection.pendingOrgs(),
       projectPending: (org: OrgId, limit: number) =>
         org === ORG_A ? Promise.reject(new Error("cypher query failed: simulated AGE outage")) : projection.projectPending(org, limit),
+      deadCount: () => projection.deadCount(),
     };
     errors.length = 0;
     const r = await projectPendingGraph(broken, logger);
@@ -144,6 +145,7 @@ describe("F04: 投影 worker", () => {
     const noAge: GraphProjectionPort = {
       pendingOrgs: async () => [toOrgId(ORG_A), toOrgId(ORG_B)],
       projectPending: () => Promise.reject(new Error("KG_GRAPH_UNAVAILABLE: Apache AGE is not installed in this database")),
+      deadCount: async () => 0,
     };
     const infos: string[] = [];
     errors.length = 0;
@@ -237,6 +239,59 @@ describe("F04 评审补强", () => {
     await resetOrgs(ORG_B);
     const left = await asOwner((c) => c.query("SELECT 1 FROM ag_catalog.ag_graph WHERE name = $1", [graph]));
     expect(left.rows).toHaveLength(0);
+  });
+});
+
+describe("F04 第三轮评审补强", () => {
+  it("顶点死掉（结论撤销，DETACH DELETE 顺带删掉它指向片段的边）⇒ 孤立的片段顶点也被清掉", async () => {
+    const b = modelBatch(ORG_A, segA);
+    const edge = { id: `${b.edges[0]!.id}-seg3`, srcKind: "claim" as const, srcId: b.claims[0]!.id, dstKind: "segment" as const, dstId: segA, relation: "derived_from" as const };
+    await applyOntologyBatch(store, toOrgId(ORG_A), null, { ...b, edges: [...b.edges, edge] });
+    await projectPendingGraph(projection, logger);
+    await asOwner((c) => c.query("UPDATE claims SET revoked_at = now(), revocation_reason = 'source_deleted' WHERE id = $1", [b.claims[0]!.id]));
+    await projectPendingGraph(projection, logger);
+    expect(await parity(ORG_A)).toEqual({ missingInGraph: [], extraInGraph: [] });
+  });
+
+  it("死信增加时 worker 报一次错；瞬时锁冲突不计入重试次数", async () => {
+    const b = modelBatch(ORG_A, segA);
+    await applyOntologyBatch(store, toOrgId(ORG_A), null, b);
+    // 执行器校验过的数据投影不会失败，所以直接把一个目标的失败次数推到上限，模拟「反复失败后进死信」。
+    await asOwner((c) => c.query("UPDATE kg_projection_outbox SET attempts = kg_projection_max_attempts() WHERE org_id = $1 AND target_id = $2", [ORG_A, b.claims[0]!.id]));
+    const logged: string[] = [];
+    const worker = new KgProjectionWorker(projection, { info: () => undefined, error: (m) => { logged.push(m); } });
+    const r = await worker.runOnce();
+    expect(r!.dead).toBeGreaterThanOrEqual(1);
+    expect(logged).toContain("kg projection targets exceeded retry limit");
+    await worker.runOnce();
+    expect(logged.filter((m) => m === "kg projection targets exceeded retry limit")).toHaveLength(1);  // 不每轮刷
+    const dead = await asApp(ORG_A, (c) => c.query("SELECT target_id FROM kg_projection_dead WHERE target_id = $1", [b.claims[0]!.id]));
+    expect(dead.rows).toHaveLength(1);
+    // graph:rebuild 清掉死信并补齐
+    await asOwner((c) => rebuildOrgGraph(c, ORG_A));
+    expect(await parity(ORG_A)).toEqual({ missingInGraph: [], extraInGraph: [] });
+  });
+
+  it("重建先拿图锁再建快照：worker 正在投影时，重建等它提交后才开始，结果包含 worker 刚处理的变动", async () => {
+    const b = modelBatch(ORG_A, segA);
+    await applyOntologyBatch(store, toOrgId(ORG_A), null, b);
+    const worker = new pg.Client(appConfig());
+    await worker.connect();
+    await worker.query("BEGIN");
+    await worker.query("SELECT set_config('app.current_org', $1, true)", [ORG_A]);
+    await worker.query("SELECT kg_project_pending(50)");  // 持有图锁、已投影并删除 outbox 行、未提交
+    let rebuilt = false;
+    const rebuilding = asOwner((c) => rebuildOrgGraph(c, ORG_A)).then((r) => { rebuilt = true; return r; });
+    await new Promise((res) => setTimeout(res, 300));
+    expect(rebuilt).toBe(false);  // 在等 worker 的锁
+    await worker.query("COMMIT");
+    await worker.end();
+    const r = await rebuilding;
+    expect(r.parity).toEqual({ missingInGraph: [], extraInGraph: [] });
+    expect(await parity(ORG_A)).toEqual({ missingInGraph: [], extraInGraph: [] });
+    const snap = await asOwner(async (c) => { await c.query("BEGIN"); await c.query("SELECT set_config('app.current_org',$1,true)", [ORG_A]);
+      const x = (await c.query<{ x: string }>("SELECT x FROM kg_graph_snapshot() x")).rows.map((y) => y.x); await c.query("COMMIT"); return x; });
+    expect(snap).toContain(`V|claim:${b.claims[0]!.id}`);
   });
 });
 

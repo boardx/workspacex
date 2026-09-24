@@ -8,13 +8,19 @@ import type { LoggerPort } from "../ports/logger.port";
 import type { OrgId } from "../../domain/org-id";
 import type { GraphProjectionPort } from "./ports";
 
-export const KG_PROJECTION_BATCH = 500;
+/**
+ * 每个 org 每轮最多处理的待投影行。每个目标一个子事务，超过 64 个会溢出 PG 的子事务缓存（性能陡降），
+ * 所以取 50。
+ */
+export const KG_PROJECTION_BATCH = 50;
 
 export interface ProjectionTickResult {
   readonly projected: number;
   readonly failedOrgs: readonly OrgId[];
   /** 数据库里根本没有 AGE（桌面版 PGlite、或 CN 镜像未更新 #4081）。不是故障，是部署形态。 */
   readonly graphUnavailable: boolean;
+  /** 超过重试上限、不再自动投影的目标数（全局）。 */
+  readonly dead: number;
 }
 
 const isGraphUnavailable = (err: unknown) => err instanceof Error && err.message.includes("KG_GRAPH_UNAVAILABLE");
@@ -37,5 +43,6 @@ export async function projectPendingGraph(port: GraphProjectionPort, logger: Log
       logger.error("kg graph projection failed", { traceId: "kg-projection", orgId, err });
     }
   }
-  return { projected, failedOrgs, graphUnavailable };
+  const dead = graphUnavailable ? 0 : await port.deadCount();
+  return { projected, failedOrgs, graphUnavailable, dead };
 }

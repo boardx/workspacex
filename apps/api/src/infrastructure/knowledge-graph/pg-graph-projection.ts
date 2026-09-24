@@ -19,4 +19,9 @@ export class PgGraphProjection implements GraphProjectionPort {
     const r = await this.db.withTenant(orgId, (s) => s.query<{ n: number }>("SELECT kg_project_pending($1) AS n", [limit]));
     return Number(r.rows[0]!.n);
   }
+
+  async deadCount(): Promise<number> {
+    const r = await this.db.withoutTenant((s) => s.query<{ n: string }>("SELECT kg_projection_dead_count()::text AS n"));
+    return Number(r.rows[0]!.n);
+  }
 }

@@ -18,6 +18,7 @@ export class KgProjectionWorker implements OnModuleInit, OnModuleDestroy {
   private timer: ReturnType<typeof setInterval> | null = null;
   private running = false;
   private pausedUntil = 0;
+  private lastDead = 0;
 
   constructor(
     @Inject(GRAPH_PROJECTION_PORT) private readonly port: GraphProjectionPort,
@@ -39,6 +40,13 @@ export class KgProjectionWorker implements OnModuleInit, OnModuleDestroy {
     try {
       const r = await projectPendingGraph(this.port, this.logger);
       if (r.graphUnavailable) this.pausedUntil = Date.now() + KG_PROJECTION_UNAVAILABLE_BACKOFF_MS;
+      // 死信增加 ⇒ 报一次错（不每轮刷）：这些目标在图里缺席，直到重写或 graph:rebuild。
+      if (r.dead > this.lastDead) {
+        this.logger.error("kg projection targets exceeded retry limit", {
+          traceId: "kg-projection", dead: r.dead, err: new Error("see kg_projection_dead; run graph:rebuild"),
+        });
+      }
+      this.lastDead = r.dead;
       return r;
     } finally {
       this.running = false;
