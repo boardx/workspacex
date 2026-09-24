@@ -50,12 +50,24 @@ describe("guided research trust console", () => {
       coverage: [{ sectionId: "s1", questionId: "q1", status: "weak", evidenceIds: ["src1"], reasons: ["证据不足"] }],
       claimEvidence: [{ claimId: "c1", evidenceId: "e1", quote: "原文", sourceId: "src1", retrievedAt: "2026-09-24T00:00:00Z", confidence: "medium", traceIds: ["t1"] }],
       conflicts: [{ id: "x1", claimIds: ["c1", "c2"], sourceIds: ["src1", "src2"], severity: "severe", status: "open", resolution: null }],
-    }} pending={false} onSteer={vi.fn()} />);
+    }} pending={false} onSteer={vi.fn()} onResolveConflict={vi.fn()} />);
     for (const id of ["research-activity-trace", "research-steering-controls", "research-coverage-matrix", "research-claim-evidence", "research-conflict-view"]) {
       expect(screen.getByTestId(id)).toBeInTheDocument();
     }
     expect(screen.getByText("证据不足")).toBeInTheDocument();
     expect(screen.getByText("原文")).toBeInTheDocument();
+  });
+
+  it("requires an explicit human conflict decision and sends the selected source", () => {
+    const onResolveConflict = vi.fn();
+    render(<GuidedResearchTrustConsole runtime={{
+      planRevision: 1, controlStatus: "running", activity: [], coverage: [], claimEvidence: [],
+      conflicts: [{ id: "x1", claimIds: ["c1", "c2"], sourceIds: ["src1", "src2"], severity: "severe", status: "open", resolution: null }],
+    }} pending={false} onSteer={vi.fn()} onResolveConflict={onResolveConflict} />);
+    expect(screen.getByRole("button", { name: "保留为不确定" })).toBeEnabled();
+    expect(screen.getByRole("button", { name: "采用 src1" })).toBeEnabled();
+    fireEvent.click(screen.getByRole("button", { name: "采用 src1" }));
+    expect(onResolveConflict).toHaveBeenCalledWith({ conflictId: "x1", action: "prefer_source", sourceId: "src1" });
   });
 
   it("renders replayed activity once in server sequence order", () => {
@@ -64,12 +76,12 @@ describe("guided research trust console", () => {
       { id: "e2", sequence: 2, stage: "reading", taskId: null, summary: "第二步", occurredAt: "2026-09-24T00:01:00Z", status: "succeeded" },
       { id: "e1", sequence: 1, stage: "searching", taskId: null, summary: "第一步", occurredAt: "2026-09-24T00:00:00Z", status: "succeeded" },
       { id: "e2", sequence: 2, stage: "reading", taskId: null, summary: "第二步", occurredAt: "2026-09-24T00:01:00Z", status: "succeeded" },
-    ] }} pending={false} onSteer={vi.fn()} />);
+    ] }} pending={false} onSteer={vi.fn()} onResolveConflict={vi.fn()} />);
     expect(screen.getByTestId("research-activity-trace").textContent).toMatch(/第一步.*第二步/);
     expect(Array.from(screen.getByTestId("research-activity-trace").querySelectorAll("li")).filter((item) => item.textContent?.includes("第二步"))).toHaveLength(1);
     rerender(<GuidedResearchTrustConsole runtime={{ ...base, activity: [
       { id: "e3", sequence: 3, stage: "writing", taskId: null, summary: "第三步", occurredAt: "2026-09-24T00:02:00Z", status: "started" },
-    ] }} pending={false} onSteer={vi.fn()} />);
+    ] }} pending={false} onSteer={vi.fn()} onResolveConflict={vi.fn()} />);
     expect(screen.getByTestId("research-activity-trace").textContent).toMatch(/第一步.*第二步.*第三步/);
   });
 });

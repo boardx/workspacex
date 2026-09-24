@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { research as C } from "@repo/contracts";
-import { initialRuntime } from "../../src/application/research/guided-runtime-service";
+import { applyResearchSteering, initialRuntime } from "../../src/application/research/guided-runtime-service";
 import { projectResearchTrust } from "../../src/application/research/guided-research-trust";
 
 const session = C.GuidedResearchSession.parse({
@@ -62,6 +62,18 @@ describe("research trust projection", () => {
     const result = projectResearchTrust(state);
     expect(result.publicationReadiness).toMatchObject({ status: "limited" });
     expect(result.publicationReadiness.blockers).toContain("存在未解决的严重冲突");
+  });
+
+  it("records an explicit human conflict decision and lets the readiness gate reopen", () => {
+    const state = fixture();
+    state.conflicts = [{ id: "conflict-1", claimIds: ["c1", "c2"], sourceIds: ["src1", "src2"], severity: "severe", status: "open", resolution: null }];
+    applyResearchSteering(state, C.GuidedResearchRuntimeCommand.parse({
+      sessionId: state.sessionId, node: "research", action: "resolve_conflict", requestId: "resolve-1", expectedVersion: state.planRevision ?? 0,
+      expectedRevision: state.planRevision ?? 0, idempotencyKey: "human-resolution-1", conflictId: "conflict-1", sourceId: "src1",
+      conflictResolutionAction: "prefer_source", conflictResolution: "人工选择采用来源 src1",
+    }));
+    expect(state.conflicts[0]).toMatchObject({ status: "resolved", resolutionAction: "prefer_source", resolvedSourceId: "src1" });
+    expect(projectResearchTrust(state).publicationReadiness.blockers).not.toContain("存在未解决的严重冲突");
   });
 
   it("uses null rather than zero when quality has no denominator", () => {

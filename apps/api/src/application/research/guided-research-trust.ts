@@ -61,7 +61,8 @@ export function projectResearchTrust(runtime: ResearchRuntime): GuidedResearchTr
       quote: evidence.quote, sourceId: evidence.sourceId, retrievedAt: source.document.retrievedAt,
       confidence: evidence.relevance === "direct" ? "high" : "medium", traceIds: source.taskIds ?? [source.taskId] })];
   });
-  const conflicts = [...new Map([...(runtime.conflicts ?? []), ...detectedEvidenceConflicts(runtime)]
+  // An explicit human resolution has priority over a mechanically re-detected pair.
+  const conflicts = [...new Map([...detectedEvidenceConflicts(runtime), ...(runtime.conflicts ?? [])]
     .map((conflict) => [conflict.id, C.GuidedResearchEvidenceConflict.parse(conflict)])).values()];
   const answered = coverage.filter((item) => item.status === "answered").length;
   const citationCoverage = coverage.length ? rounded(answered / coverage.length * 100) : null;
