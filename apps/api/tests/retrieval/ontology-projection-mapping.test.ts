@@ -10,7 +10,7 @@ import {
 } from "../../scripts/lib/dev-process-projection";
 
 const MIGRATION = fileURLToPath(
-  new URL("../../migrations/20260924160000_d12_ontology_dev_process_projection.sql", import.meta.url),
+  new URL("../../migrations/20260924190000_d4_d11_ontology_nodes_projection.sql", import.meta.url),
 );
 
 const log = [

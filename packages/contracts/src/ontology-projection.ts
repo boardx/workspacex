@@ -33,7 +33,11 @@ export const DEV_PROCESS_NODE_KINDS = [
   "evidence",
 ] as const;
 
-export const OntologyNodeKind = z.enum([...PRODUCT_NODE_KINDS, ...DEV_PROCESS_NODE_KINDS]);
+/** D4：仓库里的方法论文档（`.harness/instructions`）与模块经验（`mod-*` SKILL.md 踩坑段）。
+ *  ADR 用已有的 `decision` kind。 */
+export const KNOWLEDGE_NODE_KINDS = ["methodology", "lesson"] as const;
+
+export const OntologyNodeKind = z.enum([...PRODUCT_NODE_KINDS, ...DEV_PROCESS_NODE_KINDS, ...KNOWLEDGE_NODE_KINDS]);
 export type OntologyNodeKind = z.infer<typeof OntologyNodeKind>;
 
 /**
@@ -51,8 +55,8 @@ export const DevProcessRelation = z.enum([
 ]);
 export type DevProcessRelation = z.infer<typeof DevProcessRelation>;
 
-/** 投影来源。目前只有仓库一个权威源。 */
-export const ProjectionSource = z.enum(["repo"]);
+/** 投影来源：仓库（D12 开发过程 + D4 知识）与车队遥测（D11 客户实例，权威在 D10 边缘投影）。 */
+export const ProjectionSource = z.enum(["repo", "telemetry"]);
 export type ProjectionSource = z.infer<typeof ProjectionSource>;
 
 export const OntologyNodeRef = z.object({ kind: OntologyNodeKind, id: z.string().min(1) }).strict();
@@ -68,3 +72,39 @@ export const ProjectionEdge = z
   })
   .strict();
 export type ProjectionEdge = z.infer<typeof ProjectionEdge>;
+
+/**
+ * D4 / D11 —— `ontology_nodes` 投影行（迁移 20260924190000）。`key` 是图里的节点 id（边的
+ * src_id/dst_id 引用它，如 `ADR-012`、64 位实例哈希）；`id` 是由 (org, kind, key) 内容哈希得到
+ * 的行主键；`contentHash` 是正文哈希，重跑时据此判断是否需要更新。
+ */
+export const ProjectionNode = z
+  .object({
+    id: z.string().min(1),
+    kind: OntologyNodeKind,
+    key: z.string().min(1),
+    title: z.string().min(1),
+    body: z.string(),
+    sourcePath: z.string().nullable(),
+    contentHash: z.string().regex(/^[0-9a-f]{64}$/),
+    projectionSource: ProjectionSource,
+  })
+  .strict();
+export type ProjectionNode = z.infer<typeof ProjectionNode>;
+
+/**
+ * D11 —— 六跳路径检索结果：客户实例 → 发布 → PR → 缺陷 → 决策 → 证据。
+ * 前四跳沿 running / contains / fixes 走；决策与证据挂在同一个 PR 上（decided_by / verified_by）。
+ * 缺的跳是 null（诚实地说图里还没有），不是省略。
+ */
+export const SixHopPath = z
+  .object({
+    customerInstance: z.string(),
+    release: z.string(),
+    pullRequest: z.string(),
+    defect: z.string().nullable(),
+    decision: z.string().nullable(),
+    evidence: z.string().nullable(),
+  })
+  .strict();
+export type SixHopPath = z.infer<typeof SixHopPath>;

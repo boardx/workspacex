@@ -24,6 +24,8 @@ import {
   type RepoSnapshot,
 } from "./lib/dev-process-projection";
 import type { ontologyProjection } from "@repo/contracts";
+import { buildDecisionEdges, buildKnowledgeNodes } from "./lib/knowledge-projection";
+import { readRepoDocs } from "./import-platform-knowledge";
 
 const REPO_ROOT = fileURLToPath(new URL("../../../", import.meta.url));
 
@@ -49,11 +51,25 @@ export function readRepoSnapshot(): RepoSnapshot {
   return { commits, releases, features };
 }
 
+/**
+ * 仓库权威的全部投影边：D12 开发过程边 + D4 的 `pull_request -decided_by-> decision`。
+ * 两者同属 projection_source = 'repo'，必须作为一整套一起替换，否则一方会删掉另一方。
+ */
+export function buildRepoEdgeSet(orgId: string, snap = readRepoSnapshot()): ontologyProjection.ProjectionEdge[] {
+  const decisions = new Set(
+    buildKnowledgeNodes(orgId, readRepoDocs()).filter((n) => n.kind === "decision").map((n) => n.key),
+  );
+  const all = [...buildProjectionEdges(orgId, snap), ...buildDecisionEdges(orgId, snap.commits, decisions)];
+  return [...new Map(all.map((e) => [e.id, e])).values()].sort((a, b) => a.id.localeCompare(b.id));
+}
+
 export async function applyProjection(
   client: pg.Client,
   orgId: string,
   edges: readonly ontologyProjection.ProjectionEdge[],
+  source: ontologyProjection.ProjectionSource = "repo",
 ): Promise<{ upserted: number; removed: number }> {
+  if (edges.some((e) => e.projectionSource !== source)) throw new Error(`edge set mixes projection sources (expected ${source})`);
   await client.query("BEGIN");
   try {
     await client.query("SELECT set_config('workspacex.projection_sync', 'on', true)");
@@ -70,8 +86,8 @@ export async function applyProjection(
     }
     const removed = await client.query(
       `DELETE FROM ontology_edges
-        WHERE org_id = $1 AND projection_source = 'repo' AND NOT (id = ANY($2::text[]))`,
-      [orgId, edges.map((e) => e.id)],
+        WHERE org_id = $1 AND projection_source = $3 AND NOT (id = ANY($2::text[]))`,
+      [orgId, edges.map((e) => e.id), source],
     );
     await client.query("COMMIT");
     return { upserted, removed: removed.rowCount ?? 0 };
@@ -85,7 +101,7 @@ if (isCliEntry(import.meta.url)) {
   const args = process.argv.slice(2);
   const orgIdx = args.indexOf("--org");
   const orgId = orgIdx >= 0 ? args[orgIdx + 1]! : "org-platform";
-  const edges = buildProjectionEdges(orgId, readRepoSnapshot());
+  const edges = buildRepoEdgeSet(orgId);
   const byRelation: Record<string, number> = {};
   for (const e of edges) byRelation[e.relation] = (byRelation[e.relation] ?? 0) + 1;
   if (args.includes("--dry-run")) {
