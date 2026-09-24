@@ -35,8 +35,21 @@ export function prepareWhiteboardUpdate(authority: Y.Doc, update: Uint8Array): U
       }
       if (item.get('kind') !== next.get('kind') || item.get('schemaVersion') !== next.get('schemaVersion')) throw new Error('IMMUTABLE_FIELD_CHANGED');
     }
+    for (const struct of decoded.structs) {
+      if (!(struct instanceof Y.Item)) continue;
+      const integrated = Y.getItem(candidate.store, struct.id);
+      // A losing concurrent false value is hidden by the final map projection;
+      // reject it as well instead of admitting non-monotonic tombstone history.
+      if (integrated instanceof Y.Item && integrated.parent === tombstones(candidate) && struct.content.getContent().some(value => value !== true)) throw new Error('TOMBSTONE_CHANGED');
+    }
     for (const [id] of tombstones(authority)) {
-      if (tombstones(candidate).get(id) !== true || !sameItem(tombstones(authority)._map.get(id), tombstones(candidate)._map.get(id))) throw new Error('TOMBSTONE_CHANGED');
+      const before = tombstones(authority)._map.get(id), after = tombstones(candidate)._map.get(id);
+      // Two peers can independently delete the same live object. Their true items
+      // compete under Y.Map ordering; a changed winning struct is not resurrection.
+      // A fresh concurrent set has no observed predecessor. Delete-then-recreate
+      // after observing an existing tombstone retains that predecessor in origin.
+      const concurrentTrue = after && after.origin === null && after.rightOrigin === null;
+      if (tombstones(candidate).get(id) !== true || (!sameItem(before, after) && !concurrentTrue)) throw new Error('TOMBSTONE_CHANGED');
     }
     validateDocument(candidate);
     if (Y.encodeStateAsUpdate(candidate).byteLength > WHITEBOARD_UPDATE_LIMITS.documentBytes) throw new Error('DOCUMENT_LIMIT_EXCEEDED');
