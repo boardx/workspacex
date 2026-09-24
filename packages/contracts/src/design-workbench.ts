@@ -759,7 +759,7 @@ export const DesignWorkbenchError = z.enum([
   "COMMENT_NOT_FOUND",
   /** 深度 S2：删批注的人既不是作者也不是项目 owner。改状态（解决 / 重新打开）不受此限——那是讨论本身。 */
   "NOT_COMMENT_AUTHOR",
-  /** 深度 S2：这个项目的批注已经到上限（`DESIGN_COMMENT_MAX_PER_PROJECT`），先删掉一些已解决的。 */
+  /** 深度 S2：这个项目的批注已经到上限（`DESIGN_COMMENT_MAX_PER_PROJECT`），先删掉一些已解决的；S3 起一条批注的回复到上限（`DESIGN_COMMENT_MAX_REPLIES`）也用它。 */
   "COMMENT_LIMIT_REACHED",
   /**
    * 迭代 22：分享链接打不开——令牌不对、项目已取消发布、或项目被删了。
@@ -826,6 +826,8 @@ export type PrototypeVariant = z.infer<typeof PrototypeVariant>;
  */
 export const DESIGN_COMMENT_MAX_CHARS = 300;
 export const DESIGN_COMMENT_MAX_PER_PROJECT = 200;
+/** 深度 S3：一条批注下最多几条回复——讨论长到这个数，该当面聊或开一条新批注了。 */
+export const DESIGN_COMMENT_MAX_REPLIES = 50;
 export const DesignCommentReply = z
   .object({
     id: z.string(),
@@ -845,12 +847,13 @@ export const DesignComment = z
     /** 写批注那一刻这个节点叫什么——节点被删了，列表里仍认得出说的是谁。 */
     label: z.string().max(200),
     text: z.string().min(1).max(DESIGN_COMMENT_MAX_CHARS),
-    /** 已解决（交给 AI 改了，或有人手动标记）。 */
+    /** 已解决（交给 AI 改了，或有人手动标记）。可以重新打开。 */
     resolved: z.boolean(),
     authorId: z.string(),
     authorName: z.string().nullable(),
     createdAt: z.string(),
-    replies: z.array(DesignCommentReply),
+    /** 深度 S3：这条批注下的讨论，按先后排。 */
+    replies: z.array(DesignCommentReply).max(DESIGN_COMMENT_MAX_REPLIES),
   })
   .strict();
 export type DesignComment = z.infer<typeof DesignComment>;
@@ -1205,6 +1208,14 @@ export const operations = {
     in: z.object({ projectId: z.string(), commentId: z.string(), resolved: z.boolean() }).strict(),
     out: z.object({ comment: DesignComment }).strict(),
     err: ["PROJECT_NOT_FOUND", "COMMENT_NOT_FOUND", "DEPENDENCY_UNAVAILABLE"] as const,
+  },
+  /** 深度 S3：给一条批注回一句。全组织可写（同批注）；回复只追加，不改不删。回整条批注（含全部回复）。 */
+  createDesignCommentReply: {
+    method: "POST",
+    path: "/pm-designs/:projectId/comments/:commentId/replies",
+    in: z.object({ projectId: z.string(), commentId: z.string(), text: z.string().trim().min(1).max(DESIGN_COMMENT_MAX_CHARS) }).strict(),
+    out: z.object({ comment: DesignComment }).strict(),
+    err: ["PROJECT_NOT_FOUND", "COMMENT_NOT_FOUND", "COMMENT_LIMIT_REACHED", "DEPENDENCY_UNAVAILABLE"] as const,
   },
   deleteDesignComment: {
     method: "DELETE",

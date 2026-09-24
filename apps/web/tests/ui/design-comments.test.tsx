@@ -2,7 +2,7 @@
  * 对标 R8（#3933）—— 钉在元素上的批注。
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { act, cleanup, fireEvent, render, renderHook, screen, waitFor } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, renderHook, screen, waitFor, within } from "@testing-library/react";
 
 const apiRequest = vi.fn();
 vi.mock("@/lib/api-client", async () => {
@@ -13,6 +13,7 @@ vi.mock("next/navigation", () => ({ usePathname: () => "/d", useRouter: () => ({
 
 import * as React from "react";
 import { composeCommentsMessage, loadLegacyComments, useDesignComments, type DesignComment } from "@/lib/design-comments";
+import { CommentList } from "@/components/design-loop/comments-panel";
 import { DesignDetailScreen } from "@/components/design-loop/detail-screen";
 import type { DesignProject } from "@/lib/live-design-workbench";
 
@@ -159,5 +160,33 @@ describe("批注模式（详情页）", () => {
     fail = false;
     fireEvent.click(screen.getByTestId("design-comments-send"));
     await waitFor(() => expect(screen.getByTestId("design-comment-item").getAttribute("data-resolved")).toBe("true"));
+  });
+});
+
+describe("深度 S3 批注讨论（#3988）", () => {
+  const base = { frame: 0, sending: false, onRemove: vi.fn(), onSend: vi.fn(), onClearResolved: vi.fn(), onFocus: vi.fn() };
+
+  it("回复：点「回复」出输入框，回车发出；存上了才清空收起，没存上留着字", async () => {
+    const onReply = vi.fn().mockResolvedValueOnce(false).mockResolvedValueOnce(true);
+    render(<CommentList {...base} comments={[c({ replies: [{ id: "r1", text: "同意", authorId: "u2", authorName: "同事", createdAt: "2026-09-24T00:00:00.000Z" }] })]} onReply={onReply} onSetResolved={vi.fn()} />);
+    expect(screen.getByTestId("design-comment-item").textContent).toContain("同事：同意");
+    fireEvent.click(screen.getByTestId("design-comment-reply"));
+    const input = screen.getByTestId("design-comment-reply-input");
+    fireEvent.change(input, { target: { value: "用主色" } });
+    fireEvent.keyDown(input, { key: "Enter" });
+    await waitFor(() => expect(onReply).toHaveBeenCalledWith("c1", "用主色"));
+    expect((screen.getByTestId("design-comment-reply-input") as HTMLInputElement).value).toBe("用主色");
+    fireEvent.click(screen.getByTestId("design-comment-reply-save"));
+    await waitFor(() => expect(screen.queryByTestId("design-comment-reply-input")).toBeNull());
+  });
+
+  it("未解决的给「标记解决」，已解决的给「重新打开」；已解决的排在后面、不占编号", () => {
+    const onSetResolved = vi.fn();
+    render(<CommentList {...base} comments={[c({ id: "a", resolved: true, text: "旧的" }), c({ id: "b", text: "新的" })]} onReply={vi.fn()} onSetResolved={onSetResolved} />);
+    const items = screen.getAllByTestId("design-comment-item");
+    expect(items.map((i) => i.getAttribute("data-resolved"))).toEqual([null, "true"]);
+    fireEvent.click(within(items[0]!).getByTestId("design-comment-resolve"));
+    fireEvent.click(within(items[1]!).getByTestId("design-comment-reopen"));
+    expect(onSetResolved.mock.calls).toEqual([["b", true], ["a", false]]);
   });
 });

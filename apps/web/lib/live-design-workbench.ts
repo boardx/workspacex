@@ -310,6 +310,9 @@ export async function createDesignComment(
 export async function setDesignCommentResolved(projectId: string, commentId: string, resolved: boolean): Promise<{ comment: DesignComment }> {
   return apiRequest<{ comment: DesignComment }>(commentPath(projectId, commentId), { method: "PATCH", body: { resolved } });
 }
+export async function replyToDesignComment(projectId: string, commentId: string, text: string): Promise<{ comment: DesignComment }> {
+  return apiRequest<{ comment: DesignComment }>(`${commentPath(projectId, commentId)}/replies`, { method: "POST", body: { text } });
+}
 export async function deleteDesignComment(projectId: string, commentId: string): Promise<void> {
   await apiRequest<Record<string, never>>(commentPath(projectId, commentId), { method: "DELETE" });
 }

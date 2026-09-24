@@ -14,7 +14,7 @@ import { designAiCollab, designPrototype, designWorkbench } from "@repo/contract
 import type { RefImageRepository, RefImageRow } from "../../application/design-workbench/ref-images";
 import type { ShareSnapshot } from "../../application/design-workbench/share-snapshot";
 import type { DesignRefImageRepositoryFactory } from "../../application/design-workbench/ref-image-ports";
-import type { DesignCommentRepository, DesignCommentRepositoryFactory, DesignCommentRow } from "../../application/design-workbench/design-comments";
+import type { DesignCommentReplyRow, DesignCommentRepository, DesignCommentRepositoryFactory, DesignCommentRow } from "../../application/design-workbench/design-comments";
 import type {
   CreateOrGetByLinkedFeedbackResult,
   DesignProjectChatTurn,
@@ -969,11 +969,42 @@ class ScopedPgDesignProjectRepository implements DesignProjectRepository, RefIma
       return rows.length > 0;
     });
   }
+
+  /* ── 深度 S3：回复。只追加（库里对 app_rw 只授 SELECT/INSERT），按 org + project 收窄。 ── */
+
+  async listReplies(projectId: string, commentId?: string): Promise<readonly DesignCommentReplyRow[]> {
+    return this.db.withTenant(toOrgId(this.orgId), async (s: TenantSession) => {
+      const { rows } = await s.query<ReplyDbRow>(
+        `SELECT id, comment_id, author_id, body, created_at
+           FROM design_project_comment_replies
+          WHERE org_id = $1 AND project_id = $2 AND ($3::text IS NULL OR comment_id = $3)
+          ORDER BY created_at ASC, id ASC`,
+        [this.orgId, projectId, commentId ?? null],
+      );
+      return rows.map(toReplyRow);
+    });
+  }
+
+  async insertReply(row: { readonly id: string; readonly projectId: string; readonly commentId: string; readonly authorId: string; readonly text: string }): Promise<DesignCommentReplyRow> {
+    return this.db.withTenant(toOrgId(this.orgId), async (s: TenantSession) => {
+      const { rows } = await s.query<ReplyDbRow>(
+        `INSERT INTO design_project_comment_replies (id, org_id, project_id, comment_id, author_id, body)
+         VALUES ($1,$2,$3,$4,$5,$6)
+         RETURNING id, comment_id, author_id, body, created_at`,
+        [row.id, this.orgId, row.projectId, row.commentId, row.authorId, row.text],
+      );
+      return toReplyRow(rows[0]!);
+    });
+  }
 }
 
 interface CommentDbRow {
   id: string; project_id: string; author_id: string; node_id: string; frame_index: number;
   label: string; body: string; resolved: boolean; created_at: string | Date;
+}
+interface ReplyDbRow { id: string; comment_id: string; author_id: string; body: string; created_at: string | Date }
+function toReplyRow(r: ReplyDbRow): DesignCommentReplyRow {
+  return { id: r.id, commentId: r.comment_id, authorId: r.author_id, text: r.body, createdAt: new Date(r.created_at).toISOString() };
 }
 function toCommentRow(r: CommentDbRow): DesignCommentRow {
   return {

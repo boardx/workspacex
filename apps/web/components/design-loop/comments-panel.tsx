@@ -2,9 +2,12 @@
 /**
  * 对标 R8（#3933）—— 批注的两块界面：给选中元素写一句（`CommentComposer`），
  * 和「这一版的批注」列表 + 一次交给 AI（`CommentList`）。状态与合成消息在 `lib/design-comments`。
+ *
+ * 深度 S3（#3988）：每条批注是一段**讨论**——可以回一句、手动标记解决、再重新打开。
+ * 解决了的不删：图钉消失、这条沉到「已解决」下面，讨论记录照旧可读（`CommentItem`）。
  */
 import * as React from "react";
-import { Check, MessageSquarePlus, Send, Trash2 } from "lucide-react";
+import { Check, CornerDownRight, MessageSquarePlus, RotateCcw, Send, Trash2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { DESIGN_COMMENT_MAX_CHARS, type DesignComment } from "@/lib/design-comments";
 
@@ -38,7 +41,7 @@ export function CommentComposer({ label, onSave, onCancel }: {
   );
 }
 
-export function CommentList({ comments, frame, sending, error, onRemove, onSend, onClearResolved, onFocus }: {
+export function CommentList({ comments, frame, sending, error, onRemove, onSend, onClearResolved, onFocus, onReply, onSetResolved }: {
   readonly comments: readonly DesignComment[];
   /** 深度 S2：批注存在服务端，读写都可能失败——失败要说出来，不装作存上了。 */
   readonly error?: string | null;
@@ -49,42 +52,113 @@ export function CommentList({ comments, frame, sending, error, onRemove, onSend,
   readonly onSend: () => void;
   readonly onClearResolved: () => void;
   readonly onFocus: (c: DesignComment) => void;
+  /** 深度 S3：回一句。返回是否真的存上了（没存上就留着输入框里的字）。 */
+  readonly onReply: (id: string, text: string) => Promise<boolean>;
+  /** 深度 S3：手动标记解决 / 重新打开。 */
+  readonly onSetResolved: (id: string, resolved: boolean) => void;
 }): React.ReactElement {
   const open = comments.filter((c) => !c.resolved);
   const done = comments.filter((c) => c.resolved);
   return (
     <div className="flex min-h-0 flex-col gap-2 p-3" data-testid="design-comments">
       <p className="text-10 font-medium text-muted-foreground">
-        批注（{open.length} 条待改{done.length > 0 ? `，${done.length} 条已交给 AI` : ""}）
+        批注（{open.length} 条待改{done.length > 0 ? `，${done.length} 条已解决` : ""}）
       </p>
       {error != null && <p role="alert" className="rounded-control bg-destructive/10 px-2 py-1 text-10 text-destructive" data-testid="design-comments-error">{error}</p>}
       {comments.length === 0 && <p className="text-11 text-muted-foreground">点画布上的任何一块，给它写一句意见。写完几条，一次交给 AI 改。</p>}
       <ol className="flex min-h-0 flex-col gap-1.5 overflow-y-auto">
-        {comments.map((c) => (
-          <li key={c.id} data-testid="design-comment-item" data-resolved={c.resolved ? "true" : undefined}
-            className={cn("flex items-start gap-2 rounded-control border border-border p-2 text-11", c.resolved && "text-muted-foreground")}>
-            <span aria-hidden className={cn("mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded-full text-9 font-semibold", c.resolved ? "bg-success/20 text-success" : "bg-primary text-primary-foreground")}>
-              {c.resolved ? <Check className="h-2.5 w-2.5" /> : open.indexOf(c) + 1}
-            </span>
-            <button type="button" onClick={() => onFocus(c)} className="min-w-0 flex-1 text-left">
-              <span className="block truncate text-10 text-muted-foreground">{c.frameIndex !== frame ? `第 ${c.frameIndex + 1} 页 · ` : ""}{c.label}</span>
-              <span className={cn("block break-words", c.resolved && "line-through")}>{c.text}</span>
-            </button>
-            {!c.resolved && (
-              <button type="button" onClick={() => onRemove(c.id)} aria-label="删掉这条批注" className="shrink-0 text-muted-foreground transition-colors duration-fast hover:text-card-foreground">
-                <Trash2 aria-hidden className="h-3 w-3" />
-              </button>
-            )}
-          </li>
+        {[...open, ...done].map((c) => (
+          <CommentItem key={c.id} comment={c} number={c.resolved ? null : open.indexOf(c) + 1} frame={frame}
+            onFocus={onFocus} onRemove={onRemove} onReply={onReply} onSetResolved={onSetResolved} />
         ))}
       </ol>
       <div className="flex items-center justify-between gap-2">
-        {done.length > 0 ? <button type="button" onClick={onClearResolved} className="text-10 text-muted-foreground underline-offset-2 transition-colors duration-fast hover:text-card-foreground hover:underline">清掉已交的</button> : <span />}
+        {done.length > 0 ? <button type="button" onClick={onClearResolved} className="text-10 text-muted-foreground underline-offset-2 transition-colors duration-fast hover:text-card-foreground hover:underline">清掉已解决的</button> : <span />}
         <button type="button" onClick={onSend} disabled={open.length === 0 || sending} data-testid="design-comments-send"
           className="inline-flex items-center gap-1 rounded-control bg-primary px-2.5 py-1 text-11 font-medium text-primary-foreground disabled:bg-disabled disabled:text-disabled-foreground">
           <Send aria-hidden className="h-3 w-3" /> {open.length > 0 ? `把这 ${open.length} 条交给 AI 改` : "交给 AI 改"}
         </button>
       </div>
     </div>
+  );
+}
+
+/** 深度 S3：一条批注 = 原话 + 讨论 + 回一句 / 解决 / 重新打开。 */
+function CommentItem({ comment: c, number, frame, onFocus, onRemove, onReply, onSetResolved }: {
+  readonly comment: DesignComment;
+  readonly number: number | null;
+  readonly frame: number;
+  readonly onFocus: (c: DesignComment) => void;
+  readonly onRemove: (id: string) => void;
+  readonly onReply: (id: string, text: string) => Promise<boolean>;
+  readonly onSetResolved: (id: string, resolved: boolean) => void;
+}): React.ReactElement {
+  const [replying, setReplying] = React.useState(false);
+  const [draft, setDraft] = React.useState("");
+  const [saving, setSaving] = React.useState(false);
+  const save = async () => {
+    const text = draft.trim();
+    if (text === "" || saving) return;
+    setSaving(true);
+    const ok = await onReply(c.id, text);
+    setSaving(false);
+    if (ok) { setDraft(""); setReplying(false); }
+  };
+  const action = "inline-flex items-center gap-0.5 rounded-control px-1 py-0.5 text-10 text-muted-foreground transition-colors duration-fast hover:bg-panel hover:text-card-foreground";
+  return (
+    <li data-testid="design-comment-item" data-resolved={c.resolved ? "true" : undefined}
+      className={cn("flex flex-col gap-1 rounded-control border border-border p-2 text-11", c.resolved && "text-muted-foreground")}>
+      <div className="flex items-start gap-2">
+        <span aria-hidden className={cn("mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded-full text-9 font-semibold", c.resolved ? "bg-success/20 text-success" : "bg-primary text-primary-foreground")}>
+          {c.resolved ? <Check className="h-2.5 w-2.5" /> : number}
+        </span>
+        <button type="button" onClick={() => onFocus(c)} className="min-w-0 flex-1 text-left">
+          <span className="block truncate text-10 text-muted-foreground">{c.frameIndex !== frame ? `第 ${c.frameIndex + 1} 页 · ` : ""}{c.label}{c.authorName !== null ? ` · ${c.authorName}` : ""}</span>
+          <span className={cn("block break-words", c.resolved && "line-through")}>{c.text}</span>
+        </button>
+        {!c.resolved && (
+          <button type="button" onClick={() => onRemove(c.id)} aria-label="删掉这条批注" className="shrink-0 text-muted-foreground transition-colors duration-fast hover:text-card-foreground">
+            <Trash2 aria-hidden className="h-3 w-3" />
+          </button>
+        )}
+      </div>
+      {c.replies.length > 0 && (
+        <ol className="ml-6 flex flex-col gap-0.5 border-l border-border pl-2" aria-label="讨论">
+          {c.replies.map((r) => (
+            <li key={r.id} className="break-words text-10" data-testid="design-comment-reply-item">
+              <span className="font-medium text-card-foreground">{r.authorName ?? "有人"}</span>：{r.text}
+            </li>
+          ))}
+        </ol>
+      )}
+      {replying && (
+        <div className="ml-6 flex items-center gap-1">
+          <input
+            autoFocus value={draft} maxLength={DESIGN_COMMENT_MAX_CHARS} onChange={(e) => setDraft(e.target.value)}
+            onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); void save(); } if (e.key === "Escape") setReplying(false); }}
+            placeholder="回一句（回车发出）" aria-label="回复内容" data-testid="design-comment-reply-input"
+            className="min-w-0 flex-1 rounded-control border border-input bg-background px-1.5 py-0.5 text-10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          />
+          <button type="button" onClick={() => void save()} disabled={draft.trim() === "" || saving} data-testid="design-comment-reply-save"
+            className="rounded-control bg-primary px-1.5 py-0.5 text-10 text-primary-foreground disabled:bg-disabled disabled:text-disabled-foreground">发出</button>
+        </div>
+      )}
+      <div className="ml-6 flex items-center gap-1">
+        {!replying && (
+          <button type="button" onClick={() => setReplying(true)} data-testid="design-comment-reply" className={action}>
+            <CornerDownRight aria-hidden className="h-2.5 w-2.5" /> 回复
+          </button>
+        )}
+        {c.resolved ? (
+          <button type="button" onClick={() => onSetResolved(c.id, false)} data-testid="design-comment-reopen" className={action}>
+            <RotateCcw aria-hidden className="h-2.5 w-2.5" /> 重新打开
+          </button>
+        ) : (
+          <button type="button" onClick={() => onSetResolved(c.id, true)} data-testid="design-comment-resolve" className={action}>
+            <Check aria-hidden className="h-2.5 w-2.5" /> 标记解决
+          </button>
+        )}
+      </div>
+    </li>
   );
 }

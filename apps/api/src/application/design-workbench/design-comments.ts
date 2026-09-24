@@ -29,6 +29,14 @@ export interface DesignCommentRow {
   readonly createdAt: string;
 }
 
+export interface DesignCommentReplyRow {
+  readonly id: string;
+  readonly commentId: string;
+  readonly authorId: string;
+  readonly text: string;
+  readonly createdAt: string;
+}
+
 export interface DesignCommentRepository {
   listComments(projectId: string): Promise<readonly DesignCommentRow[]>;
   countComments(projectId: string): Promise<number>;
@@ -37,6 +45,9 @@ export interface DesignCommentRepository {
   setCommentResolved(projectId: string, commentId: string, resolved: boolean): Promise<DesignCommentRow | null>;
   getComment(projectId: string, commentId: string): Promise<DesignCommentRow | null>;
   deleteComment(projectId: string, commentId: string): Promise<boolean>;
+  /** 深度 S3：这个项目全部批注下的回复（一次取回，按先后排）；`commentId` 给了就只取那一条的。 */
+  listReplies(projectId: string, commentId?: string): Promise<readonly DesignCommentReplyRow[]>;
+  insertReply(row: { readonly id: string; readonly projectId: string; readonly commentId: string; readonly authorId: string; readonly text: string }): Promise<DesignCommentReplyRow>;
 }
 
 export interface DesignCommentRepositoryFactory {
@@ -58,12 +69,21 @@ async function requireProject(deps: DesignCommentDeps, projectId: string) {
   return project;
 }
 
-async function project(deps: DesignCommentDeps, rows: readonly DesignCommentRow[]): Promise<designWorkbench.DesignComment[]> {
-  const names = await ownerNamesFor(deps, rows.map((r) => r.authorId));
+async function project(deps: DesignCommentDeps, rows: readonly DesignCommentRow[], replies: readonly DesignCommentReplyRow[]): Promise<designWorkbench.DesignComment[]> {
+  const names = await ownerNamesFor(deps, [...rows.map((r) => r.authorId), ...replies.map((r) => r.authorId)]);
   return rows.map((r) => ({
     id: r.id, nodeId: r.nodeId, frameIndex: r.frameIndex, label: r.label, text: r.text, resolved: r.resolved,
-    authorId: r.authorId, authorName: names.get(r.authorId) ?? null, createdAt: r.createdAt, replies: [],
+    authorId: r.authorId, authorName: names.get(r.authorId) ?? null, createdAt: r.createdAt,
+    replies: replies.filter((x) => x.commentId === r.id).map((x) => ({
+      id: x.id, text: x.text, authorId: x.authorId, authorName: names.get(x.authorId) ?? null, createdAt: x.createdAt,
+    })),
   }));
+}
+
+/** 一条批注连同它的回复投影成契约形状（写动作之后回给前端的那一份）。 */
+async function one(deps: DesignCommentDeps, projectId: string, row: DesignCommentRow): Promise<designWorkbench.DesignComment> {
+  const [comment] = await project(deps, [row], await deps.comments.listReplies(projectId, row.id));
+  return comment!;
 }
 
 export async function listDesignComments(
@@ -71,7 +91,8 @@ export async function listDesignComments(
   input: { readonly projectId: string },
 ): Promise<{ readonly items: readonly designWorkbench.DesignComment[] }> {
   await requireProject(deps, input.projectId);
-  return { items: await project(deps, await deps.comments.listComments(input.projectId)) };
+  const [rows, replies] = await Promise.all([deps.comments.listComments(input.projectId), deps.comments.listReplies(input.projectId)]);
+  return { items: await project(deps, rows, replies) };
 }
 
 export async function createDesignComment(
@@ -87,8 +108,7 @@ export async function createDesignComment(
     id: deps.newId(), projectId: input.projectId, authorId: input.authorId,
     nodeId: input.nodeId, frameIndex: input.frameIndex, label: input.label.slice(0, 200), text: input.text.trim(),
   });
-  const [comment] = await project(deps, [row]);
-  return { comment: comment! };
+  return { comment: await one(deps, input.projectId, row) };
 }
 
 export async function updateDesignComment(
@@ -98,8 +118,22 @@ export async function updateDesignComment(
   await requireProject(deps, input.projectId);
   const row = await deps.comments.setCommentResolved(input.projectId, input.commentId, input.resolved);
   if (row === null) throw new DesignCommentNotFoundError();
-  const [comment] = await project(deps, [row]);
-  return { comment: comment! };
+  return { comment: await one(deps, input.projectId, row) };
+}
+
+/** 深度 S3：回一句。全组织可写；批注不存在（或不属于这个项目）⇒ COMMENT_NOT_FOUND；到上限 ⇒ COMMENT_LIMIT_REACHED。 */
+export async function createDesignCommentReply(
+  deps: DesignCommentDeps,
+  input: { readonly projectId: string; readonly commentId: string; readonly authorId: string; readonly text: string },
+): Promise<{ readonly comment: designWorkbench.DesignComment }> {
+  await requireProject(deps, input.projectId);
+  const row = await deps.comments.getComment(input.projectId, input.commentId);
+  if (row === null) throw new DesignCommentNotFoundError();
+  if ((await deps.comments.listReplies(input.projectId, input.commentId)).length >= designWorkbench.DESIGN_COMMENT_MAX_REPLIES) {
+    throw new DesignCommentLimitError();
+  }
+  await deps.comments.insertReply({ id: deps.newId(), projectId: input.projectId, commentId: input.commentId, authorId: input.authorId, text: input.text.trim() });
+  return { comment: await one(deps, input.projectId, row) };
 }
 
 export async function deleteDesignComment(

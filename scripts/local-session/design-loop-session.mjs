@@ -380,6 +380,41 @@ await step("S17", "批注存在服务端：钉一条，换一个全新的浏览�
   return { detail: `另一个浏览器（空存储）打开同一个项目，看到「${text}」和它的钉（真 PGlite 上的 design_project_comments）`, shot: s };
 });
 
+await step("S18", "批注讨论：回一句、标记解决再重新打开、删掉批注连同回复（深度 S3，#3988）", async () => {
+  // 真栈才测得到：回复表只授 SELECT/INSERT，删批注靠外键级联带走回复——这一步证明级联在真库上走得通。
+  await page.goto(`${BASE}/studio/design-workbench`);
+  await page.locator('[data-testid^="project-open-"]').first().click();
+  await page.getByTestId("design-detail").waitFor();
+  await page.getByTestId("design-detail-view-single").click();
+  await page.getByTestId("design-detail-mode-comment").click();
+  const text = `真栈讨论 ${Date.now().toString(36)}`;
+  await page.getByTestId("design-detail-phone").locator("[data-node-id]").nth(1).click();
+  await page.getByTestId("design-comment-input").fill(text);
+  await page.getByTestId("design-comment-save").click();
+  const item = page.getByTestId("design-comment-item").filter({ hasText: text });
+  await item.getByTestId("design-comment-reply").click();
+  await item.getByTestId("design-comment-reply-input").fill("同意，按这个改");
+  await item.getByTestId("design-comment-reply-save").click();
+  await item.getByText("同意，按这个改").waitFor();
+  await item.getByTestId("design-comment-resolve").click();
+  await page.getByTestId("design-comment-item").filter({ hasText: text }).getByTestId("design-comment-reopen").waitFor();
+  await page.getByTestId("design-comment-item").filter({ hasText: text }).getByTestId("design-comment-reopen").click();
+  await page.reload();
+  await page.getByTestId("design-detail").waitFor();
+  await page.getByTestId("design-detail-view-single").click();
+  await page.getByTestId("design-detail-mode-comment").click();
+  const again = page.getByTestId("design-comment-item").filter({ hasText: text });
+  await again.getByText("同意，按这个改").waitFor({ timeout: 20_000 });
+  const resolved = await again.getAttribute("data-resolved");
+  const s = await shot("s18-comment-thread.png");
+  if (resolved !== null) throw new Error("重新打开后刷新，这条仍是已解决（状态没落库？）");
+  await again.getByRole("button", { name: "删掉这条批注" }).click();
+  await page.getByTestId("design-comment-item").filter({ hasText: text }).waitFor({ state: "detached" });
+  const err = await page.getByTestId("design-comments-error").count();
+  if (err > 0) throw new Error(`删批注报错：${await page.getByTestId("design-comments-error").textContent()}`);
+  return { detail: "回复刷新后还在、重新打开的状态落了库；删掉带回复的批注成功（真库外键级联，回复表不授 DELETE）", shot: s };
+});
+
 await browser.close();
 if (standin !== null) await standin.close();
 

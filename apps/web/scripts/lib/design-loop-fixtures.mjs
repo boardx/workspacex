@@ -633,6 +633,16 @@ export async function routeDesignWorkbench(page, { empty = false, slow = false, 
     list.push(c);
     return json(route, { comment: c }, 201);
   });
+  // 深度 S3：回复（只追加），回整条批注。
+  await page.route((url) => /^\/pm-designs\/[^/]+\/comments\/[^/]+\/replies$/.test(new URL(url).pathname), (route) => {
+    const parts = new URL(route.request().url()).pathname.split("/");
+    const list = commentsOf(decodeURIComponent(parts[2]));
+    const i = list.findIndex((c) => c.id === decodeURIComponent(parts[4]));
+    if (i < 0) return json(route, { reasonCode: "COMMENT_NOT_FOUND" }, 404);
+    const text = String((route.request().postDataJSON() ?? {}).text ?? "").trim();
+    list[i] = { ...list[i], replies: [...list[i].replies, { id: `rp-${++commentSeq}`, text, authorId: "u-pm-1", authorName: "产品 · 周宁", createdAt: NOW }] };
+    return json(route, { comment: list[i] }, 201);
+  });
   await page.route((url) => /^\/pm-designs\/[^/]+\/comments\/[^/]+$/.test(new URL(url).pathname), (route) => {
     const parts = new URL(route.request().url()).pathname.split("/");
     const list = commentsOf(decodeURIComponent(parts[2]));

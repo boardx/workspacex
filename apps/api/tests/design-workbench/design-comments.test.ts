@@ -8,6 +8,7 @@ import {
   DesignCommentNotFoundError,
   NotCommentAuthorError,
   createDesignComment,
+  createDesignCommentReply,
   deleteDesignComment,
   listDesignComments,
   updateDesignComment,
@@ -62,5 +63,29 @@ describe("深度 S2 批注", () => {
     await expect(listDesignComments(deps, { projectId: "nope" })).rejects.toBeInstanceOf(DesignProjectNotFoundError);
     for (let i = 0; i < C.DESIGN_COMMENT_MAX_PER_PROJECT; i++) comments.rows.push({ id: `x${i}`, projectId: "dp-1", authorId: "a", nodeId: "n1", frameIndex: 0, label: "", text: "t", resolved: false, createdAt: "2026-09-24T00:00:00.000Z" });
     await expect(createDesignComment(deps, input("colleague"))).rejects.toBeInstanceOf(DesignCommentLimitError);
+  });
+
+  it("深度 S3 回复：谁都能回，挂在那条批注下按先后排；列表带着回复；解决后回复还在", async () => {
+    const { deps } = setup();
+    const a = (await createDesignComment(deps, input("owner"))).comment;
+    const b = (await createDesignComment(deps, input("owner", "另一条"))).comment;
+    await createDesignCommentReply(deps, { projectId: "dp-1", commentId: a.id, authorId: "colleague", text: " 同意，用主色 " });
+    const { comment } = await createDesignCommentReply(deps, { projectId: "dp-1", commentId: a.id, authorId: "owner", text: "好" });
+    expect(comment.replies.map((r) => [r.text, r.authorName])).toEqual([["同意，用主色", "名字-colleague"], ["好", "名字-owner"]]);
+    const { items } = await listDesignComments(deps, { projectId: "dp-1" });
+    expect(items.find((c) => c.id === a.id)!.replies).toHaveLength(2);
+    expect(items.find((c) => c.id === b.id)!.replies).toEqual([]);
+    expect((await updateDesignComment(deps, { projectId: "dp-1", commentId: a.id, resolved: true })).comment.replies).toHaveLength(2);
+    expect(C.operations.createDesignCommentReply.out.parse({ comment })).toBeTruthy();
+  });
+
+  it("深度 S3 回复：批注不存在 ⇒ COMMENT_NOT_FOUND；到上限 ⇒ COMMENT_LIMIT_REACHED；删批注回复一起走", async () => {
+    const { deps, comments } = setup();
+    await expect(createDesignCommentReply(deps, { projectId: "dp-1", commentId: "nope", authorId: "u", text: "x" })).rejects.toBeInstanceOf(DesignCommentNotFoundError);
+    const a = (await createDesignComment(deps, input("owner"))).comment;
+    for (let i = 0; i < C.DESIGN_COMMENT_MAX_REPLIES; i++) await createDesignCommentReply(deps, { projectId: "dp-1", commentId: a.id, authorId: "u", text: `r${i}` });
+    await expect(createDesignCommentReply(deps, { projectId: "dp-1", commentId: a.id, authorId: "u", text: "one more" })).rejects.toBeInstanceOf(DesignCommentLimitError);
+    await deleteDesignComment(deps, { projectId: "dp-1", commentId: a.id, viewerId: "owner" });
+    expect(comments.replies).toHaveLength(0);
   });
 });

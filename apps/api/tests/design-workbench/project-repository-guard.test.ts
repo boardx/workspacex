@@ -92,6 +92,8 @@ describe("设计项目仓储的豁免前提：写按 owner+org 收窄,读只按 
       "design_project_chat_messages",
       // 深度 S2（#3988）：批注——并进本类的理由同参考图（见文件头注）；收窄由下面「批注」几条断言钉住。
       "design_project_comments",
+      // 深度 S3：批注下的回复（只追加）。
+      "design_project_comment_replies",
       // 迭代 13：`SELECT_COLUMNS` 里聚参考图元信息的子查询——它按 `org_id = design_projects.org_id`
       // 收窄（下一条断言钉住），可见性跟随所属项目。
       "design_project_ref_images",
@@ -165,7 +167,7 @@ describe("设计项目仓储的豁免前提：写按 owner+org 收窄,读只按 
   });
 
   it("每条批注语句都按 org + project 收窄；**刻意不带** owner / author 谓词（谁能删在用例层判）", () => {
-    const cm = statements.filter((sql) => /\bdesign_project_comments\b/i.test(sql));
+    const cm = statements.filter((sql) => /\bdesign_project_comment(s|_replies)\b/i.test(sql));
     for (const sql of cm) {
       expect(sql, sql).toMatch(/org_id/i);
       expect(sql, sql).toMatch(/project_id/i);
@@ -174,5 +176,11 @@ describe("设计项目仓储的豁免前提：写按 owner+org 收窄,读只按 
     }
     // UPDATE / DELETE 还要按 id 收窄，不许按项目整批改。
     for (const sql of cm.filter((x) => /^\s*(UPDATE|DELETE)/i.test(x))) expect(sql, sql).toMatch(/\bid\s*=\s*\$/i);
+  });
+
+  it("深度 S3：回复只有 SELECT 与 INSERT（只追加，不改不删——删批注靠外键级联带走）", () => {
+    const rp = statements.filter((sql) => /\bdesign_project_comment_replies\b/i.test(sql));
+    expect(rp.length).toBeGreaterThanOrEqual(2);
+    expect(rp.every((sql) => /^\s*(SELECT|INSERT)/i.test(sql))).toBe(true);
   });
 });

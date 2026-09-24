@@ -96,6 +96,7 @@ export function DetailSidePanel({
               <CommentList
                 comments={comments.comments} frame={frame} sending={sending} error={comments.error}
                 onRemove={comments.remove} onClearResolved={comments.clearResolved}
+                onReply={comments.reply} onSetResolved={(id, resolved) => void comments.setResolved(id, resolved)}
                 onFocus={(c) => { setFrame(c.frameIndex); }}
                 onSend={() => {
                   const open = comments.comments.filter((c) => !c.resolved);

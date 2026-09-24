@@ -181,7 +181,7 @@ test.describe("V2 批注讨论", () => {
     const replies = listen(page, /^\/pm-designs\/eval-E02\/comments\/[^/]+\/replies$/, "POST");
     await pin(page, await commentMode(page), "e02-buy", "按钮再醒目一点");
     const item = page.getByTestId("design-comment-item").first();
-    await item.getByTestId("design-comment-reply").click({ timeout: 3000 }); // testid-gate: absent 深度评测的目标接口，实现它的那一轮删掉本标注（#3988）
+    await item.getByTestId("design-comment-reply").click({ timeout: 3000 });
     await item.getByTestId("design-comment-reply-input").fill("同意，用主色");
     await item.getByTestId("design-comment-reply-save").click();
     await expect(item).toContainText("同意，用主色");
@@ -194,7 +194,7 @@ test.describe("V2 批注讨论", () => {
     const phone = await commentMode(page);
     await pin(page, phone, "e02-buy", "按钮再醒目一点");
     await expect(phone.getByTestId("design-comment-pin")).toHaveCount(1);
-    await page.getByTestId("design-comment-item").first().getByTestId("design-comment-resolve").click({ timeout: 3000 }); // testid-gate: absent 深度评测的目标接口，实现它的那一轮删掉本标注（#3988）
+    await page.getByTestId("design-comment-item").first().getByTestId("design-comment-resolve").click({ timeout: 3000 });
     await expect(phone.getByTestId("design-comment-pin")).toHaveCount(0);
     await expect.poll(() => patches.at(-1)?.body).toMatchObject({ resolved: true });
   });
@@ -203,9 +203,9 @@ test.describe("V2 批注讨论", () => {
     await openCase(page, "E02", { store: newCommentStore() });
     const phone = await commentMode(page);
     await pin(page, phone, "e02-buy", "按钮再醒目一点");
-    await page.getByTestId("design-comment-item").first().getByTestId("design-comment-resolve").click({ timeout: 3000 }); // testid-gate: absent 深度评测的目标接口，实现它的那一轮删掉本标注（#3988）
+    await page.getByTestId("design-comment-item").first().getByTestId("design-comment-resolve").click({ timeout: 3000 });
     await expect(phone.getByTestId("design-comment-pin")).toHaveCount(0);
-    await page.getByTestId("design-comment-item").first().getByTestId("design-comment-reopen").click({ timeout: 3000 }); // testid-gate: absent 深度评测的目标接口，实现它的那一轮删掉本标注（#3988）
+    await page.getByTestId("design-comment-item").first().getByTestId("design-comment-reopen").click({ timeout: 3000 });
     await expect(phone.getByTestId("design-comment-pin")).toHaveCount(1);
   });
 });

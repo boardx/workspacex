@@ -58,6 +58,7 @@ import {
   DesignCommentNotFoundError,
   NotCommentAuthorError,
   createDesignComment,
+  createDesignCommentReply,
   deleteDesignComment,
   listDesignComments,
   updateDesignComment,
@@ -152,6 +153,8 @@ export const CREATE_DESIGN_COMMENT_SCHEMA = C.operations.createDesignComment.in.
 type CreateDesignCommentBody = ReturnType<typeof CREATE_DESIGN_COMMENT_SCHEMA.parse>;
 export const UPDATE_DESIGN_COMMENT_SCHEMA = C.operations.updateDesignComment.in.omit({ projectId: true, commentId: true });
 type UpdateDesignCommentBody = ReturnType<typeof UPDATE_DESIGN_COMMENT_SCHEMA.parse>;
+export const CREATE_DESIGN_COMMENT_REPLY_SCHEMA = C.operations.createDesignCommentReply.in.omit({ projectId: true, commentId: true });
+type CreateDesignCommentReplyBody = ReturnType<typeof CREATE_DESIGN_COMMENT_REPLY_SCHEMA.parse>;
 export const PUSH_TO_INBOX_SCHEMA = C.operations.pushToInbox.in.omit({ projectId: true });
 export const PUBLISH_PROJECT_SCHEMA = C.operations.publishProject.in.omit({ projectId: true });
 type PublishProjectBody = ReturnType<typeof PUBLISH_PROJECT_SCHEMA.parse>;
@@ -508,6 +511,21 @@ export class DesignWorkbenchController {
     assertPrincipal(principal);
     try {
       return await updateDesignComment(this.commentDeps(principal), { projectId, commentId, resolved: body.resolved });
+    } catch (e) {
+      throw mapProjectError(e) ?? e;
+    }
+  }
+
+  @Post("/pm-designs/:projectId/comments/:commentId/replies")
+  async replyToComment(
+    @CurrentPrincipal() principal: Principal,
+    @Param("projectId") projectId: string,
+    @Param("commentId") commentId: string,
+    @Body(new ZodBodyPipe(CREATE_DESIGN_COMMENT_REPLY_SCHEMA)) body: CreateDesignCommentReplyBody,
+  ) {
+    assertPrincipal(principal);
+    try {
+      return await createDesignCommentReply(this.commentDeps(principal), { projectId, commentId, authorId: principal.userId, text: body.text });
     } catch (e) {
       throw mapProjectError(e) ?? e;
     }

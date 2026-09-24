@@ -21,6 +21,7 @@ import {
   createDesignComment,
   deleteDesignComment,
   listDesignComments,
+  replyToDesignComment,
   setDesignCommentResolved,
   type DesignComment,
 } from "@/lib/live-design-workbench";
@@ -129,6 +130,10 @@ export function useDesignComments(projectId: string | null) {
     }),
     setResolved: (id: string, resolved: boolean) => projectId === null ? Promise.resolve(false) : guard(resolved ? "标记解决" : "重新打开", async () => {
       replace((await setDesignCommentResolved(projectId, id, resolved)).comment);
+    }),
+    /** 深度 S3：回一句——服务端回整条批注（含全部回复），整条换掉。 */
+    reply: (id: string, text: string) => projectId === null ? Promise.resolve(false) : guard("发出这条回复", async () => {
+      replace((await replyToDesignComment(projectId, id, text.slice(0, DESIGN_COMMENT_MAX_CHARS))).comment);
     }),
     /** 交给 AI 改完之后逐条标已解决。 */
     resolve: (ids: readonly string[]) => projectId === null ? Promise.resolve(false) : guard("把批注标成已交给 AI", async () => {

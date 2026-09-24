@@ -407,3 +407,42 @@ test.describe("深度 S2 批注存在服务端（#3988）", () => {
     await ctx.close();
   });
 });
+
+test.describe("深度 S3 批注讨论（#3988）", () => {
+  test("回一句 ⇒ 挂在批注下、服务端存上；标记解决 ⇒ 钉消失；重新打开 ⇒ 钉回来；换个浏览器看得到这段讨论", async ({ page, browser }) => {
+    const store = newCommentStore();
+    const open = async (p: Page) => {
+      await routeDrafts(p, { empty: false });
+      await routeInbox(p, { empty: false });
+      await routeDesignWorkbench(p, { extraProjects: [R7_PROJECT] });
+      await routeEvalComments(p, store);
+      await p.goto("/preview/feedback-design-loop?scene=detail-eval&case=R7");
+      await p.getByTestId("design-detail").waitFor();
+      await p.getByTestId("design-detail-view-single").click();
+      await p.getByTestId("design-detail-mode-comment").click();
+      return p.getByTestId("design-detail-phone");
+    };
+    const phone = await open(page);
+    await phone.locator('[data-node-id="r7-agree"]').click();
+    await page.getByTestId("design-comment-input").fill("默认不要勾上");
+    await page.getByTestId("design-comment-save").click();
+    const item = page.getByTestId("design-comment-item").first();
+    await item.getByTestId("design-comment-reply").click();
+    await item.getByTestId("design-comment-reply-input").fill("同意，合规要求");
+    await item.getByTestId("design-comment-reply-save").click();
+    await expect(item).toContainText("同意，合规要求");
+    expect(store.get("eval-R7")?.[0]?.replies.map((r) => r.text)).toEqual(["同意，合规要求"]);
+
+    await expect(phone.getByTestId("design-comment-pin")).toHaveCount(1);
+    await item.getByTestId("design-comment-resolve").click();
+    await expect(phone.getByTestId("design-comment-pin")).toHaveCount(0);
+    await page.getByTestId("design-comment-item").first().getByTestId("design-comment-reopen").click();
+    await expect(phone.getByTestId("design-comment-pin")).toHaveCount(1);
+
+    const ctx = await browser.newContext({ viewport: { width: 1440, height: 900 } });
+    const other = await ctx.newPage();
+    await open(other);
+    await expect(other.getByTestId("design-comment-item").first()).toContainText("同意，合规要求");
+    await ctx.close();
+  });
+});
