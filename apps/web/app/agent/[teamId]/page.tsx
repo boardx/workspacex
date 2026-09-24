@@ -17,17 +17,16 @@ import { POST_INVESTMENT_AGENT } from "@/lib/post-investment/agent-directory";
  * 每个 team 一条真实路由（2026-09-15 人类直接要求「每个 team 的 card 点击都要对应有一个 route」）。
  * 地址栏可分享、可刷新、可直达。
  *
- * ⚠ Team3（前沿赛道技术路线研判）已于 2026-09-22 按人类指令**下线**：路由落回本文件
- *   末尾的通用占位卡，前后端实现（`components/agent/team3-chat.tsx`、研判面板、
- *   `research-workflow` 整层、补种脚本）已删除。保留的是那条线顺手修好的通用能力
- *   （mermaid 标签换行、制品版本历史/差异、deploy.sh 加固），它们与 team3 无耦合。
- *   设计档案与验收证据也一并删除——那份 instructions 是私有的分析方法，不留副本。
- *   库里已种下的 agent 行由 `apps/api/scripts/purge-team3-agent.ts` 清除。
+ * ⚠ Team3 曾挂过一个 ad-hoc Agent，已按人类指令**整体下线**：路由落回本文件末尾的
+ *   通用占位卡，前后端实现、契约、建表迁移与全部设计文档均已删除——那份 instructions
+ *   是私有的分析方法，仓库里不留副本。保留的只是那条线顺手修好的通用能力
+ *   （mermaid 标签换行、制品版本历史/差异、deploy.sh 加固），它们与那个 Agent 无耦合。
+ *   已部署环境里种下的 agent 行由 `apps/api/scripts/purge-ad-hoc-agent.ts` 清除。
  *
  * ⚠ Team1 = 上会材料智能审阅助手（ad-hoc MVP 第六版）：同 team4 的就地挂壳——
  *   进页面解析/发布 Agent、建或复用个人线程并入编、把「上会审阅」平台内置 Skill 挂进
  *   线程，然后**就地**挂 `/chat` 用的同一个 `CopilotKitV2Shell`，并把 agentId 作为
- *   `initialAgentId` 交给选择 provider（第五版"中转 replace 进 /chat"与 team3/team4
+ *   `initialAgentId` 交给选择 provider（第五版"中转 replace 进 /chat"与 team4
  *   第一版同源地错：agent 没被选中，回答的是通用助手，挂载的 Skill 一行都没进
  *   system prompt）。之后传材料/追问/两轮确认/Excel 结果文件全部用 chat 自己的能力。
  *   详情见 `docs/agents/team1-ic-review-mvp.md`。
