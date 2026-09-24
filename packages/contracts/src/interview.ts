@@ -453,7 +453,7 @@ export const DigitalInterviewReportFinding = z.object({
   goalIds: z.array(z.string().min(1)).refine(
     (goalIds) => new Set(goalIds).size === goalIds.length,
     "goalIds must be unique",
-  ),
+  ).default([]),
   exploratory: z.literal(true),
 }).strict();
 

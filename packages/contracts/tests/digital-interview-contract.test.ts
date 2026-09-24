@@ -3,6 +3,7 @@ import {
   DigitalInterviewDraftInput,
   DigitalInterviewModeratorPolicy,
   DigitalInterviewResearchBrief,
+  DigitalInterviewReportFinding,
   DigitalInterviewStatus,
   DigitalInterviewWorkflowView,
   DigitalReportTransportEvent,
@@ -160,6 +161,15 @@ describe("数字专家访谈契约", () => {
       "running", "report_pending", "completed", "failed",
     ]);
     expect(DigitalInterviewStatus.safeParse("scheduled").success).toBe(false);
+  });
+
+  it("旧报告发现缺少目标映射时兼容为空数组", () => {
+    const finding = DigitalInterviewReportFinding.parse({
+      findingId: "finding-legacy", title: "旧发现", summary: "历史报告仍可恢复",
+      expertId: "expert-1", questionId: "question-1", sourceAnswerId: "expert-1:question-1",
+      exploratory: true,
+    });
+    expect(finding.goalIds).toEqual([]);
   });
 
   it("报告传输事件只携带一次轻量快照和可追加增量，严格拒绝完整 workflow 字段", () => {
