@@ -5,6 +5,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 let db: PGlite;
 const board = '0199aabb-ccdd-7eef-8abc-0123456789ab';
 const migration = new URL('../../migrations/20260924000800_whiteboard_content_heads.sql', import.meta.url);
+const runtimeMigration = new URL('../../migrations/20260924000900_whiteboard_blob_primary.sql', import.meta.url);
 
 beforeEach(async () => {
   db = await PGlite.create();
@@ -15,14 +16,20 @@ beforeEach(async () => {
       board_id uuid NOT NULL,
       epoch integer NOT NULL DEFAULT 1,
       seq bigint NOT NULL DEFAULT 0,
-      snapshot bytea NOT NULL,
+      snapshot bytea NOT NULL CHECK (octet_length(snapshot) <= 33554432),
       PRIMARY KEY(org_id,board_id)
+    );
+    CREATE TABLE whiteboard_updates (
+      org_id text NOT NULL, board_id uuid NOT NULL, epoch integer NOT NULL, seq bigint NOT NULL,
+      update bytea NOT NULL CHECK (octet_length(update) <= 1048576),
+      PRIMARY KEY(org_id,board_id,epoch,seq)
     );
     INSERT INTO whiteboard_documents(org_id,board_id,epoch,seq,snapshot) VALUES
       ('org-a','${board}',3,7,decode('00010200ff','hex')),
       ('org-b','${board}',4,8,decode('aabbcc','hex'));
   `);
   await db.exec(await readFile(migration, 'utf8'));
+  await db.exec(await readFile(runtimeMigration, 'utf8'));
 });
 afterEach(async () => { await db.close(); });
 
@@ -55,7 +62,16 @@ describe('whiteboard content heads migration', () => {
 
   it('is replayable without modifying legacy content', async () => {
     await db.exec(await readFile(migration, 'utf8'));
+    await db.exec(await readFile(runtimeMigration, 'utf8'));
     const rows = await db.query<{ count: string; digest: string }>(`SELECT count(*)::text count,string_agg(encode(snapshot,'hex'),',' ORDER BY org_id) digest FROM whiteboard_documents`);
     expect(rows.rows).toEqual([{ count: '2', digest: '00010200ff,aabbcc' }]);
+  });
+
+  it('allows blob-primary rows to remove content bytes while retaining byte limits for legacy rows', async () => {
+    await db.exec(`INSERT INTO whiteboard_updates(org_id,board_id,epoch,seq,update) VALUES('org-a','${board}',3,1,decode('0102','hex'))`);
+    await db.exec(`UPDATE whiteboard_documents SET snapshot=NULL WHERE org_id='org-a'; UPDATE whiteboard_updates SET update=NULL WHERE org_id='org-a'`);
+    const rows = await db.query<{ snapshot: Uint8Array | null; update: Uint8Array | null }>(`SELECT d.snapshot,u.update FROM whiteboard_documents d JOIN whiteboard_updates u USING(org_id,board_id) WHERE d.org_id='org-a'`);
+    expect(rows.rows).toEqual([{ snapshot: null, update: null }]);
+    await expect(db.exec(`UPDATE whiteboard_updates SET update=decode(repeat('aa',1048577),'hex') WHERE org_id='org-a'`)).rejects.toThrow();
   });
 });
