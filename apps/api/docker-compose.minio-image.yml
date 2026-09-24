@@ -1,0 +1,16 @@
+# Single source of truth for the MinIO image used by every repository-owned compose stack.
+#
+# Status is deliberately still awaiting-controlled-mirror: issue #4100 found no already
+# published, anonymously pullable boardx mirror whose digest could be verified. Run the
+# mirror-minio-controlled-registry workflow with a separately verified upstream digest, make
+# the resulting GHCR package public, then apply the generated lock patch. Never hand-write a
+# digest here.
+x-workspacex-minio-image:
+  source_repository: quay.io/minio/minio
+  release_tag: RELEASE.2024-09-13T20-26-02Z
+  target_repository: ghcr.io/boardx/workspacex-minio
+  status: awaiting-controlled-mirror
+
+services:
+  minio-image:
+    image: quay.io/minio/minio:RELEASE.2024-09-13T20-26-02Z

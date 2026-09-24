@@ -1,0 +1,113 @@
+name: mirror-minio-controlled-registry
+
+on:
+  workflow_dispatch:
+    inputs:
+      operation:
+        description: "Mirror first; after an org owner makes the package public, verify and generate the lock patch"
+        required: true
+        type: choice
+        options:
+          - mirror
+          - verify-public-and-render-lock
+      source_digest:
+        description: "Separately verified upstream manifest digest (sha256:64 lowercase hex)"
+        required: true
+        type: string
+
+permissions:
+  contents: read
+  packages: write
+
+concurrency:
+  group: workspacex-minio-registry-promotion
+  cancel-in-progress: false
+
+jobs:
+  promote:
+    runs-on: ubuntu-latest
+    environment: minio-registry-promotion
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: pnpm/action-setup@v4.4.0
+      - uses: actions/setup-node@v5
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+
+      - name: Validate repository image contract and input digest
+        id: image
+        shell: bash
+        env:
+          SOURCE_DIGEST: ${{ inputs.source_digest }}
+        run: |
+          set -euo pipefail
+          [[ "${SOURCE_DIGEST}" =~ ^sha256:[a-f0-9]{64}$ ]] || {
+            echo "::error::source_digest must be exact lowercase sha256"; exit 1;
+          }
+          node .harness/scripts/minio-controlled-image.mjs validate
+          node --input-type=module <<'NODE'
+          import { appendFileSync, readFileSync } from 'node:fs';
+          import { parse } from 'yaml';
+          const doc = parse(readFileSync('apps/api/docker-compose.minio-image.yml', 'utf8'));
+          const m = doc['x-workspacex-minio-image'];
+          appendFileSync(process.env.GITHUB_OUTPUT,
+            `source=${m.source_repository}\ntag=${m.release_tag}\ntarget=${m.target_repository}\n`);
+          NODE
+
+      - name: Install registry transport
+        shell: bash
+        run: sudo apt-get update && sudo apt-get install --yes skopeo
+
+      - name: Authenticate to the BoardX-controlled registry
+        if: inputs.operation == 'mirror'
+        shell: bash
+        run: printf '%s' "${{ secrets.GITHUB_TOKEN }}" | skopeo login ghcr.io --username "${GITHUB_ACTOR}" --password-stdin
+
+      - name: Copy the exact upstream manifest and all platforms without changing digests
+        if: inputs.operation == 'mirror'
+        shell: bash
+        env:
+          SOURCE: ${{ steps.image.outputs.source }}
+          TARGET: ${{ steps.image.outputs.target }}
+          TAG: ${{ steps.image.outputs.tag }}
+          DIGEST: ${{ inputs.source_digest }}
+        run: |
+          set -euo pipefail
+          skopeo inspect --raw "docker://${SOURCE}@${DIGEST}" > /tmp/minio-source-manifest.json
+          test "sha256:$(sha256sum /tmp/minio-source-manifest.json | cut -d' ' -f1)" = "${DIGEST}"
+          skopeo copy --all --preserve-digests \
+            "docker://${SOURCE}@${DIGEST}" "docker://${TARGET}:${TAG}"
+          skopeo inspect --raw --creds "${GITHUB_ACTOR}:${{ secrets.GITHUB_TOKEN }}" \
+            "docker://${TARGET}@${DIGEST}" > /tmp/minio-target-manifest.json
+          test "sha256:$(sha256sum /tmp/minio-target-manifest.json | cut -d' ' -f1)" = "${DIGEST}"
+          echo "Mirror copied and authenticated digest verified. An organization package owner must now make ${TARGET} public."
+          echo "Then rerun this workflow with verify-public-and-render-lock and the same digest."
+
+      - name: Prove anonymous pull and generate the immutable lock patch
+        if: inputs.operation == 'verify-public-and-render-lock'
+        shell: bash
+        env:
+          TARGET: ${{ steps.image.outputs.target }}
+          DIGEST: ${{ inputs.source_digest }}
+        run: |
+          set -euo pipefail
+          skopeo inspect --raw "docker://${TARGET}@${DIGEST}" > /tmp/minio-public-manifest.json
+          test "sha256:$(sha256sum /tmp/minio-public-manifest.json | cut -d' ' -f1)" = "${DIGEST}"
+          node .harness/scripts/minio-controlled-image.mjs lock "${DIGEST}"
+          node .harness/scripts/minio-controlled-image.mjs validate --require-locked
+          git diff --check
+          git diff --binary -- apps/api/docker-compose.minio-image.yml > minio-image-lock.patch
+          test -s minio-image-lock.patch
+
+      - name: Upload reviewable lock patch
+        if: inputs.operation == 'verify-public-and-render-lock'
+        uses: actions/upload-artifact@v6
+        with:
+          name: minio-image-lock-${{ github.run_id }}-${{ github.run_attempt }}
+          path: minio-image-lock.patch
+          if-no-files-found: error
+          retention-days: 14
