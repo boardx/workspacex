@@ -24,6 +24,7 @@ const checks = [
   ['deploy files', 'check-deploy.mjs'],
   ['documentation', 'check-docs.mjs'],
   ['css bundle up to date', 'build-css.mjs', '--check'],
+  ['js bundle up to date', 'build-js.mjs', '--check'],
   ['zh page up to date', 'build-i18n.mjs', '--check'],
   ['brand mark up to date', 'build-brand.mjs', '--check'],
   ['generated assets up to date', 'check-assets.mjs'],
@@ -35,6 +36,8 @@ const checks = [
 const browserChecks = [
   ['browser behaviour', '../tests/browser.test.mjs'],
   ['performance budget', '../tests/perf.test.mjs'],
+  /* Safari's engine. Skips itself where WebKit is not installed; CI has it. */
+  ['webkit (Safari)', '../tests/webkit.test.mjs'],
   /* The acceptance set: fifty measured cases, scored per language, the lower
      of the two is the score. Nine out of ten is the bar the owner set. */
   ['acceptance eval ≥ 9/10', '../tests/eval/eval.mjs', '--min', '9'],

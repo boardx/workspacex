@@ -1581,3 +1581,23 @@ Score on this machine: **9.93** (en 9.96, zh 9.93). Round 65 recorded 9.95 on
 the previous one; the difference is the Chinese desktop LCP case (692 ms median
 here), i.e. the machine, and it would be dishonest to present the two numbers
 as a trend.
+
+### Round 67 — the list of what was left (76 cases; 10.00 and 9.96 on two runs)
+
+After round 66 the owner asked what problems remained, got eight, and asked
+for all of them to be solved. Five are solved in code; two could not be
+tested from this machine and are now tested by CI instead; one is not an
+engineering decision. Two full runs of the set scored 10.00 and 9.96; the only
+difference is the Chinese desktop-LCP case (620 ms and 776 ms medians), which
+moves with this machine's load rather than with the site.
+
+| # | What was left | What was done |
+|---|-----|-----|
+| 1 | **Seventeen requests on first load; nine were JavaScript**, loaded as a module graph three round trips deep (main → diagrams → strings). | `build-js.mjs` joins the modules into one `site.js`, the way `build-css` already did for the stylesheets — zero-dependency, `--check`ed, and it refuses what it cannot join safely (a cycle, an unsupported import, one top-level name in two modules). **17 → 9 requests; 148.5 → 137 KB**; the Chinese slow-3G first paint on this (slower) machine 3028–3212 → **2836–2944 ms**. The degradation suite could no longer break a single module by blocking its file, so it now makes the diagrams section of the bundle throw at runtime and requires every other boot step to run — a stricter test than before, which only proved the CSS failsafe. |
+| 2 | **The Chinese margin against the 3200 ms budget** — round 66 fixed the font-stack cost, and #1 took the rest. | ~300 ms of headroom on a machine where the previous code missed the budget. |
+| 3 | **Chinese headings in two weights on Linux** — synthesis is off on `/zh/` on purpose (faked bold Han blots at 30 px), so where the Chinese face has one weight, Han was regular beside Outfit 700 "AI". | Chinese headings take the Chinese face for their latin too, as Chinese sites set them: the pair always match — PingFang Semibold on a Mac, one weight on Linux. The Chinese group is now one token, `--font-cjk`, used by every stack; `check-css` expands it. |
+| 4 | **Copy that persuades**, which no case can measure. | A third independent reviewer, briefed as a bilingual copy editor, returned 15 rewrites without changing a single claim: the hero line, the harness lead, the lead for people who receive results, the use-case checklist, and nine Chinese passages that read translated (被-passives, long 的-chains, calques like 和这件事分开的是). All applied; two English ones then trimmed again because the set flagged them (five centred lines on a phone; a 47-word lead). |
+| 5 | **iOS Safari never tested** — this machine has Chromium only. | `tests/webkit.test.mjs`: both languages, iPhone and Mac-sized, in WebKit — script errors, diagrams drawn, sideways scroll, nothing left invisible after scrolling, the menu by tap. Skips where WebKit is absent; `home-gates` now installs WebKit and uploads full-page screenshots as the `home-webkit-screenshots` artifact, so anyone can look at the page as Safari draws it. Its first real run is CI's. |
+| 6 | **The `/privacy` loop fix was inferred, not observed.** | `scripts/live-check.mjs` requests the deployed site, follows every redirect by hand (a loop is a named failure), checks every sitemap URL answers without a hop and that `_headers` is applied. `.github/workflows/home-live.yml` runs it daily and on demand. Verified locally against the test server. |
+| 7 | **Android never tested.** | Not solved, and saying so: CI has no Android, and Chromium's device emulation does not emulate Android's font set, which is exactly the part in question. |
+| 8 | **No LICENSE.** | The owner's decision, not an engineering one — asked, and the owner chose **Apache-2.0**. `LICENSE` at the repository root is the canonical apache.org text, copied byte-for-byte from an installed package rather than typed. The page stopped saying there is none (`check-sequence` required it, both languages): the FAQ answers "Yes", the exit commitment's first line is in force as a right, and what still is not true — no release, no one-command setup — still says so. `check-sequence` now also requires the licence the page names to be the one in the file (proved red by swapping in an MIT text). |

@@ -26,8 +26,8 @@ it("exports real OOXML with Chinese text, tables, superscript citations and sour
 });
 it("prints only the report document and cleans up the isolated frame", () => {
   render(<GuidedResearchReportDocument document={doc} provisional limitations="检索失败运行说明" validationNotice={<p>QUALITY_GATE_FAILED</p>} />);
-  fireEvent.click(screen.getByText("导出报告"));
-  fireEvent.click(screen.getByRole("button", { name: "导出 PDF" }));
+  fireEvent.pointerDown(screen.getByRole("button", { name: "更多操作" }), { button: 0, ctrlKey: false });
+  fireEvent.click(screen.getByRole("menuitem", { name: "导出 PDF" }));
   const frame = document.querySelector("iframe")!;
   expect(frame.contentDocument!.title).toBe("欧洲储能报告");
   expect(frame.contentDocument!.body.textContent).toContain("欧洲储能报告");

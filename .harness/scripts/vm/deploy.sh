@@ -415,10 +415,10 @@ step "4d. deep-research agent 补种（同一条裁决延伸到第二个系统 a
 sudo -u "$RUN_AS" env $(grep -v '^#' "$ENV_FILE" | grep -v '^$' | xargs) \
   pnpm --filter api exec tsx scripts/backfill-deep-research-agent.ts
 
-# 4d2（team3 ad-hoc agent 补种）已于 2026-09-22 随 team3 下线删除。当初把它做成
+# 曾有一步 4d2（另一个 ad-hoc agent 的补种），已随该功能下线删除。当初把它做成
 # 「一个脚本 + 部署期一次调用」而不是焊进共享的注册控制器，为的就是此刻：摘掉这一步
-# 即可，不动任何共享代码。已种进库里的那条 agent 记录不会被本次部署删除——它只是
-# 不再被补种；要清干净得手工 DELETE，见下方 PR 说明。
+# 即可，不动任何共享代码。已种进库里的 agent 记录不会被部署删除——它只是不再被补种；
+# 要清干净跑 `apps/api/scripts/purge-ad-hoc-agent.ts`。
 
 # 4d3（team2 ad-hoc agent 补种）已于 2026-09-24 随投后评级 Agent 下线删除（#4012）。
 # 已种进库里的 agent 行由 `apps/api/scripts/purge-postinvest-agents.ts` 清除。

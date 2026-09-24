@@ -106,23 +106,18 @@
   --han-punct: ;
 
 
-  --font-display: var(--han-punct) "Outfit", "Outfit Fallback",
-                  "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei",
+
+  --font-cjk:     "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei",
                   "Noto Sans CJK SC", "Source Han Sans SC", "Noto Sans SC", "Heiti SC",
-                  "WenQuanYi Micro Hei", "WenQuanYi Zen Hei",
+                  "WenQuanYi Micro Hei", "WenQuanYi Zen Hei";
+  --font-display: var(--han-punct) "Outfit", "Outfit Fallback", var(--font-cjk),
                   ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
-  --font-body:    var(--han-punct) "Inter", "Inter Fallback",
-                  "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei",
-                  "Noto Sans CJK SC", "Source Han Sans SC", "Noto Sans SC", "Heiti SC",
-                  "WenQuanYi Micro Hei", "WenQuanYi Zen Hei",
+  --font-body:    var(--han-punct) "Inter", "Inter Fallback", var(--font-cjk),
                   ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
 
 
   --font-mono:    var(--han-punct) ui-monospace, SFMono-Regular, "SF Mono", Menlo,
-                  "Cascadia Mono", Consolas, "DejaVu Sans Mono", "Liberation Mono",
-                  "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei",
-                  "Noto Sans CJK SC", "Source Han Sans SC", "Noto Sans SC", "Heiti SC",
-                  "WenQuanYi Micro Hei", "WenQuanYi Zen Hei",
+                  "Cascadia Mono", Consolas, "DejaVu Sans Mono", "Liberation Mono", var(--font-cjk),
                   monospace;
 
 
@@ -310,6 +305,8 @@ body { text-wrap: pretty; }
 :lang(zh) [data-phrase] { word-break: keep-all; }
 
 :lang(zh) { font-synthesis: none; }
+
+:lang(zh) :is(h1, h2, h3) { font-family: var(--han-punct) var(--font-cjk), var(--font-display); }
 
 p, li, summary, .card__body, .rail__body { overflow-wrap: break-word; }
 

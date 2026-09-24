@@ -5,7 +5,7 @@
  *
  * 2026-09-24 人类指令：两者下线，库里的 agent 与 Skill 记录要删干净——它们的
  * instructions / SKILL.md 是私有的 agent 技术，不留残骸。做法与
- * `purge-team3-agent.ts` 同构（同一套理由，这里不重复长论证，只说差异）。
+ * `purge-ad-hoc-agent.ts` 同构（同一套理由，这里不重复长论证，只说差异）。
  *
  * ## 定位方式（差异点）
  *
@@ -23,7 +23,7 @@
  *
  * ## 默认不删：用户的对话内容
  *
- * 同 team3：默认只摘入编行与挂载行，线程与消息保留；`--purge-threads` 才连同
+ * 同 `purge-ad-hoc-agent.ts`：默认只摘入编行与挂载行，线程与消息保留；`--purge-threads` 才连同
  * 入编过这两个 agent 的线程一起删（不可逆）。
  *
  * ## 用法
@@ -90,7 +90,7 @@ async function countWhere(client: pg.ClientBase, table: string, column: string, 
 export async function purgePostinvestAgents(
   opts: { apply: boolean; purgeThreads: boolean } = { apply: false, purgeThreads: false },
 ): Promise<PurgeReport> {
-  // migration 角色绕过 RLS，跨全部组织清（同 purge-team3-agent.ts）。
+  // migration 角色绕过 RLS，跨全部组织清（同 purge-ad-hoc-agent.ts）。
   const pool = new pg.Pool({ ...migrationConfig(), max: 2 });
   const client = await pool.connect();
   try {

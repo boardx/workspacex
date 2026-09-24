@@ -55,6 +55,7 @@ CHROMIUM_PATH=/path/to/chrome node scripts/check-all.mjs
 | `check-sequence.mjs` | a section eyebrow whose number disagrees with the document order, in either language, or the privacy page's prose changing without its "Last updated" date |
 | `check-deploy.mjs` | `_headers` malformed, missing a site-wide header or a CSP directive, `script-src` gaining `'unsafe-inline'`, a rule matching no file, or `security.txt` expired, expiring within 30 days, or dated more than a year out |
 | `build-css.mjs --check` | `site.css` out of date with its sources |
+| `build-js.mjs --check` | `site.js` out of date with its modules, or a module the bundler cannot join safely (a cycle, an unsupported import, one top-level name declared in two modules) |
 | `build-i18n.mjs --check` | a generated page, `sitemap.xml` or `robots.txt` out of date with its sources |
 | `build-brand.mjs --check` | a manifest out of date with its page's title and description or the token block |
 | `check-assets.mjs` | a generated binary — either social card, the logo, the favicon, the touch icon, the aurora — older than the sources it came from, including the product's own logo and icon in `apps/web/public` |
@@ -62,6 +63,7 @@ CHROMIUM_PATH=/path/to/chrome node scripts/check-all.mjs
 | `check-all.mjs` | **a `check-*.mjs` that exists and nothing runs** |
 | `tests/browser.test.mjs` | axe violations, unreachable controls, layout breaking at any of 11 widths, the interactions, the no-JS path, the Chinese page, the pre-Safari-14 path, a selected state invisible in forced colors, a handler or observer accumulating across re-wires, a missing or unenforced security header |
 | `tests/perf.test.mjs` | transfer, LCP, CLS or frame time over budget, in **both** languages |
+| `tests/webkit.test.mjs` | in **Safari's engine** (WebKit), both languages, on an iPhone and a Mac-sized window: a script error, a diagram not drawn, sideways scroll, content left invisible after scrolling, or a menu that does not open and close. Saves full-page screenshots to `test-results/webkit/`, which CI uploads. Skips itself where WebKit is not installed |
 | `tests/eval/eval.mjs` | the acceptance score below **9 / 10** in either language — see *Acceptance eval* below |
 
 `tests/browser.test.mjs` is one row in that table and twenty-three suites in
@@ -86,6 +88,16 @@ only for twenty rounds and the Chinese page is a separately generated document:
 | accumulation | a handler, observer or node that survives a re-wire and stacks up |
 | forced colors | a selected state indistinguishable from an unselected one in Windows high contrast |
 | compatibility ×2 | a `MediaQueryList` without `addEventListener` |
+
+### The deployed site
+
+```bash
+node scripts/live-check.mjs      # asks production: pages, redirects (loops), headers, sitemap
+```
+
+Not part of `check-all` — it needs the network and a deployment. It runs daily
+and on demand in `.github/workflows/home-live.yml`. The repository can say
+what `_redirects` and `_headers` intend; only the host can say what happens.
 
 ### Acceptance eval
 
@@ -172,6 +184,7 @@ assets/css/sections.css    per-section layout
 assets/css/motion.css      reveals, hero, sticky scenes, reduced-motion contract
 assets/css/diagrams.css    SVG styling
 assets/css/print.css       the printed page
+assets/js/site.js          the shipped script (GENERATED from the modules below by build-js)
 assets/js/main.js          wiring
 assets/js/mq.js            reads the --bp-* tokens so JS and CSS share one number
 assets/js/compare.js       the before / after switch
@@ -257,6 +270,7 @@ committed — but all three are checked, so a stale one cannot ship.
 
 ```bash
 node scripts/build-css.mjs      # assets/css/*.css  -> assets/css/site.css
+node scripts/build-js.mjs       # assets/js/*.js (from main.js) -> assets/js/site.js
 node scripts/build-i18n.mjs     # index/privacy + zh.js -> zh/*.html, sitemap.xml, robots.txt
 node scripts/build-brand.mjs    # page titles + base.css -> manifests
 node scripts/build-og.mjs       # og-card.html + logo.webp -> assets/img/og*.jpg (needs playwright)
