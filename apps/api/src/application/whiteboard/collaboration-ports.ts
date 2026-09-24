@@ -4,7 +4,7 @@ import type { TenantSession } from '../ports/database.port';
 import type { Principal } from '../../domain/principal';
 export const WHITEBOARD_UPDATE_VALIDATOR = Symbol('WhiteboardUpdateValidator');
 export const WHITEBOARD_COLLABORATION_STORE = Symbol('WhiteboardCollaborationStore');
-export type CollaborationErrorCode = 'NOT_FOUND' | 'FORBIDDEN' | 'ARCHIVED' | 'STALE_EPOCH' | 'IDEMPOTENCY_CONFLICT' | 'RATE_LIMITED' | 'VALIDATION_FAILED' | 'VALIDATOR_UNAVAILABLE';
+export type CollaborationErrorCode = 'NOT_FOUND' | 'FORBIDDEN' | 'ARCHIVED' | 'WORKSHOP_FROZEN' | 'STALE_EPOCH' | 'IDEMPOTENCY_CONFLICT' | 'RATE_LIMITED' | 'VALIDATION_FAILED' | 'VALIDATOR_UNAVAILABLE';
 export class WhiteboardCollaborationError extends Error {
   constructor(readonly code: CollaborationErrorCode) { super(code); this.name = 'WhiteboardCollaborationError'; }
 }

@@ -41,7 +41,7 @@ function inspect(code: string): { methods: Map<string, string>; tables: Set<stri
 function audit(code: string): string[] {
   const { methods, tables, sql } = inspect(code);
   const errors: string[] = [];
-  const allowedTables = new Set(['whiteboards', 'whiteboard_members', 'whiteboard_documents', 'whiteboard_updates']);
+  const allowedTables = new Set(['whiteboards', 'whiteboard_members', 'whiteboard_documents', 'whiteboard_updates', 'whiteboard_workshop_controls', 'org_memberships']);
   if (tables.size !== allowedTables.size || [...tables].some(table => !allowedTables.has(table))) errors.push('table scope');
   if (sql.some(query => /\b(?:FROM|JOIN|INTO|UPDATE)\s+whiteboard_/i.test(query) && !/\borg_id\b/i.test(query))) errors.push('tenant SQL scope');
   if (/\bwithoutTenant\s*\(/.test(code)) errors.push('withoutTenant');
@@ -52,6 +52,10 @@ function audit(code: string): string[] {
   if (!/FROM whiteboard_members WHERE org_id=\$1 AND board_id=\$2 AND user_id=\$3/.test(access)) errors.push('member actor scope');
   if (!/\[p\.orgId, boardId, p\.userId\]/.test(access)) errors.push('member actor binding');
   if (!/write && parsed\.data === 'viewer'/.test(access) || !/write && row\.archived/.test(access)) errors.push('write role/archive gate');
+  if (!/write\)[\s\S]*FROM whiteboard_workshop_controls WHERE org_id=\$1 AND board_id=\$2/.test(access)
+    || !/control\.rows\[0\]\?\.frozen && parsed\.data !== 'owner'/.test(access)
+    || !/membership\.rows\[0\]\?\.org_role !== 'admin'/.test(access)
+    || !/throw new Fault\('WORKSHOP_FROZEN'\)/.test(access)) errors.push('workshop freeze gate');
 
   for (const name of ['head', 'load', 'writeCommands', 'commit']) {
     if (!(methods.get(name) ?? '').includes('this.db.withTenant(p.orgId,')) errors.push(`${name}: tenant transaction`);
@@ -79,6 +83,11 @@ describe('whiteboard collaboration repository permission exemption', () => {
     const mutated = source.replace('await this.access(session, p, boardId, true);', '/* authorization removed */');
     expect(mutated).not.toBe(source);
     expect(audit(mutated)).toContain('commit: authorize before mutation');
+  });
+  it('rejects removal of the server-authoritative workshop freeze gate', () => {
+    const mutated = source.replace("if (control.rows[0]?.frozen && parsed.data !== 'owner')", "if (false)");
+    expect(mutated).not.toBe(source);
+    expect(audit(mutated)).toContain('workshop freeze gate');
   });
   it('rejects an idempotency lookup no longer scoped to the actor', () => {
     const mutated = source.replace('AND actor_id=$4 AND update_id=$5', 'AND update_id=$5');
