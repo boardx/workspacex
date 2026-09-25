@@ -35,7 +35,7 @@ import { BoardFabricPreview } from "@/components/whiteboard/fabric-preview/board
 describe("Board Fabric V0.1 preview", () => {
   beforeEach(() => { canvasState.instances = 0; canvasState.activeObjectId = null; canvasState.objects.length = 0; });
 
-  it("mounts a real Fabric canvas projection instead of DOM whiteboard objects", () => {
+  it("mounts the Fabric projection boundary instead of DOM whiteboard objects", () => {
     const { container } = render(<BoardFabricPreview />);
     expect(screen.getByTestId("board-fabric-canvas").tagName).toBe("CANVAS");
     expect(canvasState.instances).toBe(1);

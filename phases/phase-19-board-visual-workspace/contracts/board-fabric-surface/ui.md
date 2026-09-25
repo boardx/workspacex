@@ -18,7 +18,7 @@
 | 正式入口 | `/studio/board/:boardId` | 从 Y.Doc 增量投影正式 Board；只保留 Fabric 主对象表面 | S01 实现目标 |
 | Fabric 表面 | `BoardFabricSurface`（正式实现应落到 `components/whiteboard/fabric/`） | renderer lifecycle、viewport、object registry、selection | 预览版已有；生产 adapter 未接 |
 | React 外壳 | 顶栏、左工具栏、浮动工具条、属性面板、底部 viewport 控件 | 产品操作与反馈，不进入 canvas 对象树 | 已有视觉方向 |
-| 可访问镜像 | React DOM 对象大纲 | 与同一 object id、selection、revision 同步的键盘/读屏入口 | 预览版已有列表；双向 command 未接 |
+| 可访问镜像 | React DOM 对象大纲 | 与同一 object id、selection、revision 同步的键盘/读屏入口 | 预览版已可从 DOM 条目选中 Fabric 对象；完整 command/读屏语义未接 |
 
 正式入口必须全屏占据 Studio 内容区，不出现旧预览的页内卡片边界。对象主视觉、命中、
 选择框、缩放与旋转控点均由 Fabric 绘制；React DOM 只承载外壳与无障碍语义，不能把
@@ -78,7 +78,7 @@
 1. 目前只有默认态截图；loading、empty、invalid、dep-failed、denied、success 六态均未出图。
 2. 当前预览对象来自本地数组；尚不能证明 Y.Doc → Fabric 增量 projection、回声抑制或双浏览器一致性。
 3. `undo`、`redo` 与分享按钮只是可见外壳，当前没有正式行为；人类不应按截图把它们签成已完成。
-4. 预览中的对象大纲能选择条目，但尚未证明完整键盘移动、读屏播报、焦点恢复与远端删除兜底。
+4. 预览中的对象大纲已与 Fabric active object 双向使用同一 id，但尚未证明完整键盘移动、读屏播报、焦点恢复与远端删除兜底。
 5. 正式 `/studio/board/:boardId` 还未替换旧 DOM/SVG 主渲染路径；只有正式路由真实浏览器证据可关闭该缺口。
 
 这些缺口是 `design-signoff.md` 保持 `pending` 的直接原因。补齐材料后应更新本文件与截图目录，
