@@ -42,6 +42,7 @@ export const OWNERSHIP = {
   "packages/dev-mode-accounts": { class: "oss", why: "apps/api 与 apps/web 的开发夹具，归属随它们" },
   "packages/cloud-deploy": { class: "oss", why: "自托管客户要用的部署、TLS、备份与发布工具（D23，2026-09-24 人类决策）；其中阿里云专属部分待改成通用写法" },
   "packages/fabric-markdown": { class: "undecided", why: "vendored 上游分支，仓库里没有记录上游许可证（npm 上也查不到）；需人核实上游许可后保留其声明" },
+  "packages/whiteboard-core": { class: "undecided", why: "作者在 README 里明确写了「package remains private until repository license/release policy is settled」，归属待人决定" },
 };
 
 /** 仓库里每个带 package.json 的工作区目录，连同它的归属。 */
