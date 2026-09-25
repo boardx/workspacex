@@ -59,6 +59,14 @@ describe("RealtimeTranscriptionWorkspace", () => {
     expect(screen.getByTestId("rec-live-edit")).toBeDisabled();
   });
 
+  it("distinguishes an interim confirmation from recoverable slow delivery", () => {
+    render(<RealtimeTranscriptionWorkspace session={{ ...SESSION, status: "recording" }} onBack={vi.fn()}
+      streamState="recording" flowState="slow" interimSegment="实时草稿" onStart={vi.fn()} onStop={vi.fn()} />);
+    expect(screen.getByTestId("rec-live-interim")).toHaveTextContent("自然停顿 800ms 后确认保存");
+    expect(screen.getByText("音频仍在传输或确认中")).toBeVisible();
+    expect(screen.getByTestId("rec-live-toggle")).toBeEnabled();
+  });
+
   it("shows the selected microphone and real input level, and locks selection while recording", () => {
     const onSelectDevice = vi.fn();
     const { rerender } = render(<RealtimeTranscriptionWorkspace session={SESSION} onBack={vi.fn()}
