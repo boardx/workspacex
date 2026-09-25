@@ -70,7 +70,10 @@ test("a completed report separates the decision brief and replaces an empty evid
   const completed = { ...view, status: "completed", currentStep: "report", topic: "采购决策链路", version: 13,
     reportId: "report-completed", reportGeneration: null, report: { reportId: "report-completed", title: "采购决策研究报告",
       executiveSummary: "先验证采购否决权，再决定进入路径。", markdown: "# 采购决策研究报告\n\n## 研究发现\n\n采购否决权仍需验证。",
-      findings: [], generatedAt: "2026-09-25T00:00:00.000Z" } };
+      findings: [], generatedAt: "2026-09-25T00:00:00.000Z" },
+    studyEvidenceMode: "simulated",
+    reportEvidenceEligibility: { eligibility: "blocked_missing_participant_evidence",
+      message: "需要真实受访者证据后才能批准。", action: "添加并复核真实受访者回答" } };
   await page.addInitScript(() => {
     localStorage.setItem("wsx.sessionToken", "e2e-token");
     localStorage.setItem("wsx.session", JSON.stringify({ version: 1, userId: "user-e2e", orgs: ["org-e2e"], currentOrgId: "org-e2e", expiresAt: "2099-01-01T00:00:00.000Z" }));
