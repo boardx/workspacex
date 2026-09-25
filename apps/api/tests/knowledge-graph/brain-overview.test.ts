@@ -70,7 +70,7 @@ beforeAll(async () => {
   await resetOrgs(ORG, ORG_B);
   const fx = await seedOrg({ orgId: ORG, projectId: `${ORG}-p` });
   const fxB = await seedOrg({ orgId: ORG_B, projectId: `${ORG_B}-p` });
-  await enableExtraction();
+  await enableExtraction(ORG, ORG_B);
   for (const u of ["u-owner", "u-other"]) {
     await addOrgMember(ORG, u, "consultant", fx.teams.energy!);
     await addProjectMember(ORG, `${ORG}-p`, u, "facilitator", null);
@@ -87,9 +87,9 @@ beforeAll(async () => {
   db = new PgDatabase(appConfig());
   deps = {
     repo: new PgIdentityRepository(db), ids: new CountingDecisionIdFactory(), chat: new PgChatRepository(db),
-    knowledge: new PgKnowledgeRead(db), promotion: new PgPromotion(db), newId: newKgId,
+    knowledge: new PgKnowledgeRead(db, true), promotion: new PgPromotion(db), newId: newKgId,
   };
-  ctl = new KnowledgeGraphController(deps.repo, deps.ids, deps.chat, deps.knowledge, new PgHumanAction(db), deps.promotion);
+  ctl = new KnowledgeGraphController(deps.repo, deps.ids, deps.chat, deps.knowledge, new PgHumanAction(db), deps.promotion, {} as never, {} as never);
   const { model } = loopbackModel([["上线", REPLY], ["乙方", REPLY_B]]);
   for (const t of [MINE, MINE_OLD, SHARED, THEIRS]) {
     await addChatMessage({ orgId: ORG, id: `m-${t}`, threadId: t, body: BODY, authorId: t === THEIRS ? "u-other" : "u-owner" });
@@ -230,7 +230,7 @@ describe("读口的 SQL 过滤本身就够（不靠 RLS）", () => {
     withoutTenant: (fn) => asOwner((c) => fn({ query: async (q, p) => c.query(q, p ? [...p] : undefined) as never })),
     close: async () => {},
   };
-  const raw = new PgKnowledgeRead(ownerDb);
+  const raw = new PgKnowledgeRead(ownerDb, true);
   const open = <T>(g: Guarded<T>): T => {
     const d = discloseDecided(g, { allowed: true, reasonCode: null, decisionId: "test", orgLayer: { role: "consultant", teamId: null, passed: true }, projectLayer: null, scopeLayer: { scope: "org-wide", passed: true } } as never);
     if (!isDisclosed(d)) throw new Error("not disclosed");

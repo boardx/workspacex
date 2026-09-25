@@ -52,7 +52,7 @@ beforeAll(async () => {
   await migrateOnce();
   await resetOrgs(ORG);
   const fx = await seedOrg({ orgId: ORG, projectId: `${ORG}-p` });
-  await enableExtraction();
+  await enableExtraction(ORG);
   for (const u of ["u-owner", "u-member"]) {
     await addOrgMember(ORG, u, "consultant", fx.teams.energy!);
     await addProjectMember(ORG, `${ORG}-p`, u, "facilitator", null);
@@ -62,7 +62,7 @@ beforeAll(async () => {
   db = new PgDatabase(appConfig());
   deps = {
     repo: new PgIdentityRepository(db), ids: new CountingDecisionIdFactory(), chat: new PgChatRepository(db),
-    knowledge: new PgKnowledgeRead(db), actions: new PgHumanAction(db), newId: newKgId,
+    knowledge: new PgKnowledgeRead(db, true), actions: new PgHumanAction(db), newId: newKgId,
   };
   const { model } = loopbackModel([["上线", FOUR]]);
   for (const t of [MINE, SHARED]) {
@@ -94,7 +94,7 @@ describe("F10: 结论动作", () => {
     const c = await claimBy("测试环境不稳定");
     await expect(applyHumanAction(deps, { ...owner, threadId: MINE, basedOnRevision: k.revision - 1, action: { type: "confirmClaim", claimId: c.id } }))
       .rejects.toMatchObject({ code: "KG_REVISION_CHANGED" });
-    const ctl = new KnowledgeGraphController(deps.repo, deps.ids, deps.chat, deps.knowledge, deps.actions, {} as never);
+    const ctl = new KnowledgeGraphController(deps.repo, deps.ids, deps.chat, deps.knowledge, deps.actions, {} as never, {} as never, {} as never);
     await expect(ctl.humanAction({ userId: "u-owner", orgId: ORG } as never, MINE, { basedOnRevision: k.revision - 1, action: { type: "confirmClaim", claimId: c.id } }))
       .rejects.toBeInstanceOf(ConflictException);
   });
@@ -175,7 +175,7 @@ describe("F10: 权限与作用域", () => {
         action_id: "act-direct", thread_id: SHARED, based_on_revision: k.revision, action: { type: "confirmClaim", claimId: c.id },
       })]);
     })).rejects.toThrow(/KG_NOT_OWNER/);
-    const ctl = new KnowledgeGraphController(deps.repo, deps.ids, deps.chat, deps.knowledge, deps.actions, {} as never);
+    const ctl = new KnowledgeGraphController(deps.repo, deps.ids, deps.chat, deps.knowledge, deps.actions, {} as never, {} as never, {} as never);
     await expect(ctl.humanAction({ userId: "u-member", orgId: ORG } as never, SHARED, { basedOnRevision: k.revision, action: { type: "confirmClaim", claimId: c.id } }))
       .rejects.toBeInstanceOf(ForbiddenException);
   });
@@ -196,7 +196,7 @@ describe("F10: 权限与作用域", () => {
   });
 
   it("看不见的会话（别人的个人会话）⇒ 与「不存在」同一个出口：同一个码、同一个 404 响应体", async () => {
-    const ctl = new KnowledgeGraphController(deps.repo, deps.ids, deps.chat, deps.knowledge, deps.actions, {} as never);
+    const ctl = new KnowledgeGraphController(deps.repo, deps.ids, deps.chat, deps.knowledge, deps.actions, {} as never, {} as never, {} as never);
     const body = { basedOnRevision: 1, action: { type: "confirmClaim" as const, claimId: "c-x" } };
     const outcome = async (threadId: string) => {
       try { await ctl.humanAction({ userId: "u-member", orgId: ORG } as never, threadId, body); return "allowed"; } catch (e) {

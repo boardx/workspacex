@@ -77,7 +77,7 @@ beforeAll(async () => {
   await migrateOnce();
   await resetOrgs(ORG);
   const fx = await seedOrg({ orgId: ORG, projectId: `${ORG}-p` });
-  await enableExtraction();
+  await enableExtraction(ORG);
   for (const u of ["u-owner", "u-member"]) {
     await addOrgMember(ORG, u, "consultant", fx.teams.energy!);
     await addProjectMember(ORG, `${ORG}-p`, u, "facilitator", null);
@@ -90,9 +90,9 @@ beforeAll(async () => {
   cards = new PgMemoryCard(db);
   deps = {
     repo: new PgIdentityRepository(db), ids: new CountingDecisionIdFactory(), chat: new PgChatRepository(db),
-    knowledge: new PgKnowledgeRead(db), cards, newId: newKgId,
+    knowledge: new PgKnowledgeRead(db, true), cards, newId: newKgId,
   };
-  ctl = new KnowledgeGraphController(deps.repo, deps.ids, deps.chat, deps.knowledge, new PgHumanAction(db), new PgPromotion(db), cards);
+  ctl = new KnowledgeGraphController(deps.repo, deps.ids, deps.chat, deps.knowledge, new PgHumanAction(db), new PgPromotion(db), {} as never, {} as never, cards);
   xdeps = extractionDeps(db, MODEL.model, ORG);
 });
 afterAll(async () => { await db.close(); });
