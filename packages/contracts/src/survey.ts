@@ -43,6 +43,29 @@ import {
 export * from "./survey-question-types";
 export const SurveyResponseQualitySchema = z.enum(["normal", "review"]);
 export const SurveyResponseAnalysisSchema = z.enum(["included", "excluded"]);
+export const SurveyResponseAnalysisHistoryEntrySchema = z
+  .object({
+    analysis: SurveyResponseAnalysisSchema,
+    reason: z.string().min(1).max(1000).optional(),
+    actor: z.string().min(1),
+    changedAt: z.string().datetime(),
+  })
+  .superRefine((entry, ctx) => {
+    if (entry.analysis === "excluded" && !entry.reason) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["reason"],
+        message: "排除分析记录需要说明原因",
+      });
+    }
+    if (entry.analysis === "included" && entry.reason !== undefined) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["reason"],
+        message: "重新纳入记录不能携带排除原因",
+      });
+    }
+  });
 export const SurveyChartTypeSchema = z.enum([
   "gap-matrix",
   "capability-table",
@@ -66,13 +89,31 @@ export const SurveyResponseSchema = z.object({
   role: z.string().min(1),
   companySize: z.string().min(1),
   quality: SurveyResponseQualitySchema,
-  analysis: SurveyResponseAnalysisSchema.default("included"),
+  // Legacy persisted responses predate analysis governance. The service
+  // normalizes an omitted value to included before returning or compiling.
+  analysis: SurveyResponseAnalysisSchema.optional(),
   exclusionReason: z.string().min(1).max(1000).optional(),
+  analysisHistory: z.array(SurveyResponseAnalysisHistoryEntrySchema).optional(),
   submittedAt: z.string().datetime(),
   durationSeconds: z.number().int().nonnegative(),
   answers: z.array(
     z.object({ questionId: z.string().min(1), value: SurveyAnswerValueSchema }),
   ),
+}).superRefine((response, ctx) => {
+  if (response.analysis === "excluded" && !response.exclusionReason) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ["exclusionReason"],
+      message: "排除分析需要说明原因",
+    });
+  }
+  if (response.analysis === "included" && response.exclusionReason !== undefined) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ["exclusionReason"],
+      message: "仅排除分析时可填写原因",
+    });
+  }
 });
 
 export const SurveyWorkflowSchema = z

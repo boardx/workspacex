@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { SurveyService, SurveyError, type SurveyRepository, type SurveyRecord } from '../../src/application/survey/survey-service';
 import { toOrgId } from '../../src/domain/org-id';
 import { SurveyDraftInputSchema } from '@repo/contracts/survey-runtime';
+import { SurveyResponseSchema } from '@repo/contracts/survey';
 import type { SurveyDraftInput, SurveySubmissionInput } from '@repo/contracts/survey-runtime';
 function setup(){
   const rows=new Map<string,SurveyRecord>();
@@ -30,15 +31,28 @@ describe('persistent survey lifecycle',()=>{
     for(let i=0;i<6;i++)await s.submit(m.publication!.token,{...answer,submissionId:`group-request-${i}`,answers:[{questionId:'q1',value:'2'},{questionId:'group',value:i<5?'A':'B'}]});
     m=await s.get(org,'owner',m.id);m=await s.report(org,'owner',m.id,m.version);expect(m.report!.issues).toEqual([]);expect(m.report!.warnings?.length).toBeGreaterThan(0);expect(m.report!.sections[0]!.blocks[0]!.rows.map(r=>r.group)).toEqual(['A']);
   });
-  it('keeps an excluded response but removes it from the default report with its audit reason',async()=>{
-    const {service:s}=setup();let m=await s.create(org,'owner',draft);m=await s.publish(org,'owner',m.id,m.version);
+  it('keeps an excluded response out of every report sample and preserves an immutable audit trail',async()=>{
+    const allSamplesDraft={...draft,template:{...draft.template,sections:[{...draft.template.sections[0]!,blocks:[{...draft.template.sections[0]!.blocks[0]!,samplePolicy:'all' as const}]}]}};
+    const {service:s}=setup();let m=await s.create(org,'owner',allSamplesDraft);m=await s.publish(org,'owner',m.id,m.version);
     const receipt=await s.submit(m.publication!.token,answer);m=await s.get(org,'owner',m.id);
     const governed=await (s as SurveyService & { excludeFromAnalysis(org:ReturnType<typeof toOrgId>,actor:string,id:string,version:number,responseId:string,reason:string):Promise<typeof m> }).excludeFromAnalysis(org,'owner',m.id,m.version,receipt.responseId,'测试答卷，不纳入正式分析');
     expect(governed.responses[0]).toMatchObject({quality:'normal',analysis:'excluded',exclusionReason:'测试答卷，不纳入正式分析'});
+    expect(governed.version).toBe(m.version+1);
     await expect(s.report(org,'owner',governed.id,governed.version)).rejects.toThrow('invalid_report');
     const restored=await (s as SurveyService & { includeInAnalysis(org:ReturnType<typeof toOrgId>,actor:string,id:string,version:number,responseId:string):Promise<typeof m> }).includeInAnalysis(org,'owner',governed.id,governed.version,receipt.responseId);
     expect(restored.responses[0]).toMatchObject({analysis:'included'});
     expect(restored.responses[0]!.exclusionReason).toBeUndefined();
+    expect(restored.responses[0]!.analysisHistory).toMatchObject([
+      {analysis:'excluded',reason:'测试答卷，不纳入正式分析',actor:'owner'},
+      {analysis:'included',actor:'owner'},
+    ]);
+    await expect((s as SurveyService & { excludeFromAnalysis(org:ReturnType<typeof toOrgId>,actor:string,id:string,version:number,responseId:string,reason:string):Promise<typeof m> }).excludeFromAnalysis(org,'owner',m.id,governed.version,receipt.responseId,'陈旧写入')).rejects.toThrow('version_conflict');
+  });
+  it('requires a reason whenever a response is excluded from analysis',()=>{
+    expect(SurveyResponseSchema.safeParse({
+      id:'response-1',role:'未填写',companySize:'未填写',quality:'normal',analysis:'excluded',
+      submittedAt:'2026-09-20T00:00:00.000Z',durationSeconds:1,answers:[],
+    }).success).toBe(false);
   });
   it('denies expired and closed links and rejects empty reports',async()=>{const {service:s,advance}=setup();let m=await s.create(org,'owner',draft);await expect(s.report(org,'owner',m.id,m.version)).rejects.toThrow('invalid_report');m=await s.publish(org,'owner',m.id,m.version);advance();await expect(s.publicGet(m.publication!.token)).rejects.toThrow('expired');await expect(s.submit(m.publication!.token,answer)).rejects.toThrow('expired');m=await s.close(org,'owner',m.id,m.version);await expect(s.publicGet(m.publication!.token)).rejects.toThrow('closed');});
 });

@@ -123,7 +123,10 @@ export class SurveyService {
           ? "collecting"
           : "draft";
     model.anonymity ??= "anonymous";
-    for (const response of model.responses) response.analysis ??= "included";
+    for (const response of model.responses) {
+      response.analysis ??= "included";
+      response.analysisHistory ??= [];
+    }
     return model;
   }
   private transact<T>(
@@ -380,10 +383,19 @@ export class SurveyService {
       const response = record.model.responses.find((item) => item.id === responseId);
       if (!response) throw new SurveyError("not_found");
       if (response.analysis !== "excluded" || response.exclusionReason !== exclusionReason) {
+        const changedAt = this.now().toISOString();
         response.analysis = "excluded";
         response.exclusionReason = exclusionReason;
+        response.analysisHistory ??= [];
+        response.analysisHistory.push({
+          analysis: "excluded",
+          reason: exclusionReason,
+          actor,
+          changedAt,
+        });
         record.model.answerRevision++;
-        record.model.updatedAt = this.now().toISOString();
+        record.model.version++;
+        record.model.updatedAt = changedAt;
       }
       return record.model;
     });
@@ -400,10 +412,18 @@ export class SurveyService {
       const response = record.model.responses.find((item) => item.id === responseId);
       if (!response) throw new SurveyError("not_found");
       if (response.analysis !== "included" || response.exclusionReason !== undefined) {
+        const changedAt = this.now().toISOString();
         response.analysis = "included";
         delete response.exclusionReason;
+        response.analysisHistory ??= [];
+        response.analysisHistory.push({
+          analysis: "included",
+          actor,
+          changedAt,
+        });
         record.model.answerRevision++;
-        record.model.updatedAt = this.now().toISOString();
+        record.model.version++;
+        record.model.updatedAt = changedAt;
       }
       return record.model;
     });
@@ -517,6 +537,7 @@ export class SurveyService {
           id: responseId,
           quality: "normal",
           analysis: "included",
+          analysisHistory: [],
           submittedAt: this.now().toISOString(),
           role: input.role,
           companySize: input.companySize,

@@ -23,8 +23,8 @@ it('missing login does not send anonymous file requests',async()=>{
  token.mockReturnValue('');open();fireEvent.click(screen.getByRole('button',{name:'下载附件 1'}));expect(await screen.findByRole('alert')).toHaveTextContent('请先登录');expect(fetcher).not.toHaveBeenCalled();
 });
 it('shows an auditable analysis exclusion and lets the researcher restore the response',()=>{
- const onAnalysis=vi.fn();render(<LiveResponseList surveyId="survey" responses={[{...response,analysis:'excluded' as const,exclusionReason:'重复的测试提交'}]} questions={[question]} busy={false} onReview={()=>undefined} onAnalysis={onAnalysis}/>);
+ const onAnalysis=vi.fn();render(<LiveResponseList surveyId="survey" responses={[{...response,analysis:'excluded' as const,exclusionReason:'重复的测试提交',analysisHistory:[{analysis:'excluded' as const,reason:'重复的测试提交',actor:'owner',changedAt:'2026-09-21T00:00:00.000Z'}]}]} questions={[question]} busy={false} onReview={()=>undefined} onAnalysis={onAnalysis}/>);
  expect(screen.getByText(/已排除分析 1/)).toBeInTheDocument();fireEvent.click(screen.getByRole('button',{name:'查看完整答卷'}));
- expect(screen.getByText('排除原因：重复的测试提交')).toBeInTheDocument();fireEvent.click(screen.getByRole('button',{name:'重新纳入分析'}));
+ expect(screen.getByText('排除原因：重复的测试提交')).toBeInTheDocument();expect(screen.getByRole('region',{name:'分析治理记录'})).toHaveTextContent('已排除：重复的测试提交 · owner');fireEvent.click(screen.getByRole('button',{name:'重新纳入分析'}));
  expect(onAnalysis).toHaveBeenCalledWith('response','included');
 });

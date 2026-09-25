@@ -167,6 +167,24 @@ export function LiveResponseList({
               <Input aria-label="排除分析原因" value={exclusionReason} onChange={(event) => setExclusionReason(event.target.value)} placeholder="例如：测试性或重复提交" />
             </label>
           ) : null}
+          {(item.analysisHistory?.length ?? 0) > 0 && (
+            <section aria-label="分析治理记录" className="mt-3 rounded-md bg-muted p-3 text-12">
+              <h3 className="font-medium">分析治理记录</h3>
+              <ol className="mt-1 space-y-1 text-muted-foreground">
+                {item.analysisHistory!.map((entry, index) => (
+                  <li key={`${entry.changedAt}-${index}`}>
+                    {entry.analysis === "excluded"
+                      ? `已排除：${entry.reason}`
+                      : "已重新纳入分析"}
+                    {" · "}
+                    {entry.actor}
+                    {" · "}
+                    {new Date(entry.changedAt).toLocaleString("zh-CN")}
+                  </li>
+                ))}
+              </ol>
+            </section>
+          )}
           {downloadError && <p role="alert" className="mt-3 text-12 text-destructive">{downloadError}</p>}
           <ol className="mt-4 space-y-4">
             {questions.filter(q => !isSurveyPageElement(q)).map((q, i) => {
