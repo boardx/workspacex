@@ -215,7 +215,29 @@ export async function up(opts: UpOptions): Promise<RunningStack> {
         // dropped from the Mac bundle (#3749 R10) every first start pulled 2.6 GB over the
         // network to get something the machine would then decline to use (实测 2026-09-22,
         // 用户的首次启动卡在「检查本地模型」7 分钟).
-        for (const model of [c.chatModel, c.embeddingModel]) {
+        /*
+          ⚠ 拉取清单**必须从选型函数派生**，不能自己维护一份「需要哪些模型」。
+
+          上面那段注释记的是这一类的第一次：元模型从 Mac 包里去掉之后，每次首次启动都拉
+          2.6 GB 去换一个机器随后会拒绝使用的东西。当时的修法是把它从清单里删掉——
+          症状治了，根因没治：清单仍然是第二处关于「需要什么」的声明。
+
+          2026-09-24 同一个坑又踩一次：GGUF 从 mac-arm64 包里去掉（体积优先的人类决策）之后，
+          包里只有 `qwen3.5:4b-mlx`，而这里按 `c.chatModel`（= `qwen3.5:4b`）判断「没有」，
+          于是**开始从网上下载 3.2 GB**——把「模型随包、零网络首次运行」整个决策的目的抹掉了。
+          实测日志：`[ollama] 拉取 qwen3.5:4b 10%（0.3/3.2 GB）`。
+
+          现在先跑 `preferredChatModel`：它知道 Apple Silicon 上 `-mlx` 变体能满足需求。
+          两份判断合成一处，这个坑不会有第三次。
+        */
+        const presentForPull = await listModels(ollamaUrl);
+        const effectiveChat = preferredChatModel({
+          configured: c.chatModel,
+          memoryGb: totalmem() / 1024 ** 3,
+          present: presentForPull,
+        });
+        if (effectiveChat !== c.chatModel) log(`[ollama] ${effectiveChat} 已随包，不再拉取 ${c.chatModel}`);
+        for (const model of [effectiveChat, c.embeddingModel]) {
           const have = await hasModel(ollamaUrl, model);
           if (have) { log(`[ollama] model present: ${model}`); continue; }
           log(`[ollama] pulling ${model} (first start only; several GB for the chat model)`);
@@ -231,20 +253,36 @@ export async function up(opts: UpOptions): Promise<RunningStack> {
     //   在 up() 结束时统一产出——否则同一件事会在 doctor 与这里各写一遍，
     //   且两份的措辞迟早不一样。
 
-    // 「标签在列表里」≠「模型能回话」。见 model-preflight.ts 的文件头：能过 /api/tags
-    // 却调不动的情形不少，而它们全都要等用户发出第一条消息才暴露。
-    // 跳过探测时（测试/离线）退回「找到了二进制」这条较弱的证据，而不是谎报不可用。
-    let chatModelAnswers = ollamaBin !== null;
+    /*
+      「标签在列表里」≠「模型能回话」。见 model-preflight.ts 的文件头：能过 /api/tags
+      却调不动的情形不少，而它们全都要等用户发出第一条消息才暴露。
+
+      ⚠ **但这次验证不能挡住界面**（#3872 R15）。它发的是一次真实的 chat completion，
+        于是把 4 GB 权重整个加载进内存——实测在这台机器上要 **18 秒**，而整个
+        正常启动才 26 秒。R7 把语音（27%）和技能沙箱（17%）挪出了关键路径，
+        独独漏了这一项，而它比那两个加起来还贵。
+
+        延后之后它同时变成**后台预热**：界面几秒就出来，用户读完首屏、打字、
+        发出第一条消息，这段时间正好用来把权重装进内存。失败走和崩溃同一条
+        健康通道（说人话、带影响），不是在日志里躺着。
+
+      跳过探测时（测试/离线）退回「找到了二进制」这条较弱的证据，而不是谎报不可用。
+    */
+    const chatModelAnswers = ollamaBin !== null;
     if (ollamaUrl !== null && opts.probeModels !== false) {
       const modelBase = `${ollamaUrl}/v1`;
-      log(`[model] 正在验证 ${c.chatModel} 能否回话（首次加载权重可能要一分钟）`);
-      const chat = await probeChatModel({ baseUrl: modelBase, apiKey: "ollama-local", model: c.chatModel });
-      chatModelAnswers = chat.ok;
-      if (chat.ok) log(`[model] ${c.chatModel} 就绪，首个 token 往返 ${chat.elapsedMs} ms`);
-      else warnings.push(`${chat.detail ?? ""}——聊天暂时不可用，其余功能不受影响`);
-
-      const embed = await probeEmbeddingModel({ baseUrl: modelBase, apiKey: "ollama-local", model: c.embeddingModel });
-      if (!embed.ok) warnings.push(`${embed.detail ?? ""}——检索与记忆会退化，聊天不受影响`);
+      log(`[model] 正在后台装载 ${c.chatModel}（不挡界面；首次加载权重可能要一分钟）`);
+      deferredReady.push({
+        name: "model",
+        wait: (async () => {
+          const chat = await probeChatModel({ baseUrl: modelBase, apiKey: "ollama-local", model: c.chatModel });
+          if (!chat.ok) throw new Error(chat.detail ?? `${c.chatModel} 没有回话`);
+          log(`[model] ${c.chatModel} 就绪，首个 token 往返 ${chat.elapsedMs} ms`);
+          const embed = await probeEmbeddingModel({ baseUrl: modelBase, apiKey: "ollama-local", model: c.embeddingModel });
+          // 检索/记忆退化不该让整条「模型」判失败——聊天仍然可用，如实记一笔。
+          if (!embed.ok) log(`[model] ⚠ ${embed.detail ?? ""}——检索与记忆会退化，聊天不受影响`);
+        })(),
+      });
     }
 
     // Every service we spawn must own its port: a stale process there would answer our
@@ -272,7 +310,21 @@ export async function up(opts: UpOptions): Promise<RunningStack> {
             log(`[ollama] ${chosen} failed to load on this machine; falling back to ${fallback}`);
             c = { ...c, chatModel: fallback };
           } else {
-            warnings.push(`随包的 ${chosen} 在这台机器上加载失败，且库里没有非 MLX 版可回落`);
+            /*
+              这条路径在 2026-09-24 之后是**唯一**的失败出口：人类决策体积优先，
+              mac-arm64 产物不再随包带 GGUF 退路（见 fetch-models.sh 的注释）。
+              所以这句话不能只是一行日志——它是那台机器上的用户**唯一**会看到的解释。
+              三段：发生了什么／还有什么能用／现在能做什么。
+            */
+            warnings.push(
+              `聊天暂时不可用：这台机器无法加载本地模型 ${chosen}。\n`
+              + "常见原因是显存/内存不够（本地模型需要约 4 GB 可用），"
+              + "或者运行在没有 GPU 直通的虚拟机里。\n"
+              + "其余功能不受影响——项目、画布、转写、备份都照常。\n"
+              + "要恢复聊天：关掉占内存的其他程序后重启应用；"
+              + "或者在这台机器上装 Ollama 并拉一个更小的模型（应用会优先用已在的那个）；"
+              + "或者连接 WorkspaceX 云。",
+            );
           }
         } else {
           log(`[ollama] ${chosen} loaded (MLX runner)`);
@@ -391,8 +443,16 @@ export async function up(opts: UpOptions): Promise<RunningStack> {
     // 起来之后再崩的服务由监督接管（见本函数末尾接上监督的那一段）。
     // ⚠ 这里**不要**再单独挂一份 `m.exited` 监听：那会和监督各说各话，
     //   而同一件事实声明在两处是本仓的头号病。
-    // ⚠ 传的是「模型真的回了话」，不是「找到了 Ollama 二进制」。后者是 doctor 在没起栈时
-    //   能拿到的最好证据；到了这里我们有更强的证据，就该用更强的那个。
+    /*
+      ⚠ 这里传的是「找到了 Ollama 二进制」这条**较弱**的证据。
+
+        R15 之前传的是「模型真的回了话」——那条更强，但代价是在关键路径上等 18 秒
+        把权重装进内存。现在装载延后了，`up()` 返回的时刻还没有那条更强的证据，
+        于是如实用弱的那条。真正的结果随后由延后项经健康通道报出来
+        （失败时 SERVICE_IMPACT.model 会说清影响）。
+
+        **不要**在这里等延后项来凑那条强证据——那等于把 18 秒又加回来。
+    */
     const capabilities = localCapabilities(c, {
       chatModel: chatModelAnswers,
       // 随包 python / 随包转写模型的部署里，「有没有」不等于 `.venv` 或数据目录里有没有——

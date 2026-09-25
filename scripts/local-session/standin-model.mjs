@@ -33,6 +33,8 @@ export const SCREENS = [
     root: { type: "stack", id: "home-root", props: { gap: "md", padding: "md" }, children: [
       { type: "navbar", id: "home-nav", props: { title: "会员商城" } },
       { type: "hero", id: "home-hero", props: { title: "本周会员价", subtitle: "精选 12 款，限时 7 天" } },
+      // 深度 S10（#3988）：一张占位图，会话 S19 往里上传真图。
+      { type: "image", id: "home-banner", props: { alt: "本周主推商品", ratio: "video", kind: "photo" } },
       { type: "text", id: "home-intro", props: { content: "老会员下单再减 10 元，今晚 24 点前有效。" } },
       { type: "list", id: "home-list", props: { items: ["有机牛奶 · ¥39", "全麦面包 · ¥16", "冷萃咖啡 · ¥28"] } },
       { type: "button", id: "home-cta", props: { label: "立即下单", variant: "primary", full: true } },

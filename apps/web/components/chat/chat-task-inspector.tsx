@@ -1,6 +1,6 @@
 "use client";
 import * as React from "react";
-import { ListChecks, FolderOpen, Package, Settings2, Users, PanelRightClose, PanelRightOpen } from "lucide-react";
+import { ListChecks, FolderOpen, Package, Settings2, Users, Brain, PanelRightClose, PanelRightOpen } from "lucide-react";
 import { PanelResizeHandle } from "@/components/shell/panel-resize-handle";
 import { PANEL_WIDTH_DEFAULT, readPanelWidth, writePanelWidth } from "@/lib/chat-workbench/panel-width";
 import { cn } from "@/lib/utils";
@@ -11,6 +11,10 @@ import {
   ChatMaterialsDropOverlay, useFileDropSurface, type ChatMaterialsUploadPort,
 } from "@/components/chat/chat-composer-attachments";
 import { AgentPlanPanel, type PlanTodo } from "@/components/chat/agent-plan-panel";
+import { ThreadKnowledgeTab, useThreadKnowledge } from "@/components/chat/knowledge/thread-knowledge-tab";
+import { onOpenClaimSources, onOpenKnowledgePanel, requestOpenClaimSources } from "@/lib/knowledge-graph-events";
+import { readChatMemoryRequest } from "@/lib/chat-memory-link";
+import { useFocusMessageFromUrl } from "@/lib/chat-message-focus";
 import {
   INSPECTOR_TABS,
   nextInspectorTab,
@@ -144,6 +148,11 @@ export interface ChatTaskInspectorProps {
    * ——不是"渲染了一个空白页签"。
    */
   readonly roster?: RosterPanelProps;
+  /**
+   * phase-18 F09 —— 「记忆」页签（会话知识面板，`getThreadKnowledge`）。只有真实 `/chat` 壳传 `true`；
+   * 旧轨道两屏不传，页签不渲染、也不发请求。
+   */
+  readonly showKnowledge?: boolean;
 }
 
 const TAB_META: Record<InspectorTab, { label: string; Icon: typeof ListChecks }> = {
@@ -151,6 +160,7 @@ const TAB_META: Record<InspectorTab, { label: string; Icon: typeof ListChecks }>
   materials: { label: "材料", Icon: FolderOpen },
   artifacts: { label: "产物", Icon: Package },
   roster: { label: "编制", Icon: Users },
+  memory: { label: "记忆", Icon: Brain },
   "run-details": { label: "运行详情", Icon: Settings2 },
 };
 
@@ -160,7 +170,7 @@ export function ChatTaskInspector(props: ChatTaskInspectorProps): JSX.Element {
     hasSelection, threadId, artifacts, materials, loading,
     artifactsError, materialsError, onRetry, onOpenArtifact, pendingMaterialsCount,
     planTodos, isRunning, runPhaseLabel, runStartedAt, roster,
-    attachUploadPort = null, uploadDisabledReason = null,
+    attachUploadPort = null, uploadDisabledReason = null, showKnowledge = false,
   } = props;
 
   /** ⚠ 计时器只在真的有一轮在跑时才起（同 `copilotkit-v2-run-progress.ts` 的纪律）：
@@ -296,16 +306,54 @@ export function ChatTaskInspector(props: ChatTaskInspectorProps): JSX.Element {
   }), [openInPanelTab]);
 
 
-  // roster 是可选能力：调用方没传（旧轨道两屏）就不占页签栏一个位置。
-  const visibleTabs = INSPECTOR_TABS.filter((tab) => tab !== "roster" || roster !== undefined);
+
+  // roster / memory 是可选能力：调用方没传（旧轨道两屏）就不占页签栏一个位置。
+  const visibleTabs = INSPECTOR_TABS.filter(
+    (tab) => (tab !== "roster" || roster !== undefined) && (tab !== "memory" || showKnowledge),
+  );
   React.useEffect(() => {
-    if (activeTab === "roster" && roster === undefined) setActiveTab("progress");
-  }, [activeTab, roster]);
+    if ((activeTab === "roster" && roster === undefined) || (activeTab === "memory" && !showKnowledge)) {
+      setActiveTab("progress");
+    }
+  }, [activeTab, roster, showKnowledge]);
+
+  /*
+   * phase-18 F09 —— 「记忆」页签的数据（`getThreadKnowledge`）。选中线程后在 effect 里取一次
+   * （不阻塞首帧），角标显示 `claims.length`；每次点开页签再刷新一次，看到的是最新整理结果。
+   */
+  const knowledge = useThreadKnowledge(showKnowledge ? threadId : null);
+  // F15：记忆来源抽屉「跳到原消息」打开别的对话时带 `?focusMessage=`：消息加载出来后高亮它。
+  useFocusMessageFromUrl(showKnowledge ? threadId : null);
+  const knowledgeCount = knowledge.status === "ready" && knowledge.data !== null ? knowledge.data.claims.length : null;
+  const reloadKnowledge = knowledge.reload;
 
   const selectTab = React.useCallback((tab: InspectorTab) => {
     setActiveTab(tab);
     setOverride("expanded");
-  }, []);
+    if (tab === "memory") reloadKnowledge();
+  }, [reloadKnowledge]);
+
+  // 回答下「已记下 N 条 · 查看」→ 切到「记忆」页签并展开右栏（见 `lib/knowledge-graph-events.ts`）。
+  React.useEffect(() => {
+    if (!showKnowledge) return undefined;
+    return onOpenKnowledgePanel(() => selectTab("memory"));
+  }, [showKnowledge, selectTab]);
+  // F13：回答下点引用 chip → 同样切到「记忆」页签；抽屉由面板自己取走待打开的那条来打开。
+  React.useEffect(() => {
+    if (!showKnowledge) return undefined;
+    return onOpenClaimSources(() => selectTab("memory"));
+  }, [showKnowledge, selectTab]);
+  // 大脑页的「去对话里看」（`lib/chat-memory-link.ts`）：带 `?memory=` 打开对话 ⇒ 切到「记忆」页签，
+  // 带着某一条的 id 时再打开它的来源抽屉。每个对话只接一次，之后切页签不会被链接拽回来。
+  const memoryLinkHandled = React.useRef<string | null>(null);
+  React.useEffect(() => {
+    if (!showKnowledge || threadId === null || memoryLinkHandled.current === threadId) return;
+    memoryLinkHandled.current = threadId;
+    const request = readChatMemoryRequest(window.location.search);
+    if (request === null) return;
+    if (request.claimId !== null) requestOpenClaimSources(request.claimId);
+    else selectTab("memory");
+  }, [showKnowledge, threadId, selectTab]);
 
   /**
    * issue #3347 —— 整条右栏都是落区，不只是「材料」页签的那块内容区。
@@ -421,7 +469,7 @@ export function ChatTaskInspector(props: ChatTaskInspectorProps): JSX.Element {
               data-testid={`chat-task-workbench-inspector-tab-${tab}`}
               onClick={() => selectTab(tab)}
               className={cn(
-                "flex h-8 shrink-0 items-center justify-center gap-1.5 rounded-md text-11 transition-colors duration-fast",
+                "relative flex h-8 shrink-0 items-center justify-center gap-1.5 rounded-md text-11 transition-colors duration-fast",
                 // 2026-09-03 人类反馈（真栈截图）「右边的 tab，样式不对」—— 原来是
                 // `ring-2 ring-ring`（`--ring` 近黑，同 `--primary`），页签本身已经用
                 // `bg-muted` 标出选中态，焦点环再叠一圈实心近黑矩形，在小尺寸页签上
@@ -437,6 +485,15 @@ export function ChatTaskInspector(props: ChatTaskInspectorProps): JSX.Element {
             >
               <Icon aria-hidden className="h-4 w-4 shrink-0" />
               {selected ? <span className="truncate">{label}</span> : null}
+              {tab === "memory" && knowledgeCount !== null && knowledgeCount > 0 ? (
+                <span
+                  className="pointer-events-none absolute -right-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-pill border border-border-subtle bg-card px-1 text-9 font-medium tabular-nums text-muted-foreground"
+                  data-testid="chat-task-workbench-inspector-tab-memory-count"
+                  aria-label={`${String(knowledgeCount)} 条记忆`}
+                >
+                  {knowledgeCount}
+                </span>
+              ) : null}
             </button>
           );
         })}
@@ -535,6 +592,8 @@ export function ChatTaskInspector(props: ChatTaskInspectorProps): JSX.Element {
             </>
           ) : activeTab === "roster" && roster !== undefined ? (
             <RosterPanel {...roster} />
+          ) : activeTab === "memory" && showKnowledge ? (
+            <ThreadKnowledgeTab state={knowledge} />
           ) : (
             <RunDetailsTab
               threadId={threadId}

@@ -834,6 +834,9 @@ const guidedWorkflowErrors = [
   "RESEARCH_CONTENT_REFERENCE_INVALID",
   "RESEARCH_TASK_NOT_RETRYABLE",
   "RESEARCH_WORKFLOW_BUSY",
+  "RESEARCH_WORKFLOW_PAUSED",
+  "RESEARCH_REVISION_CONFLICT",
+  "RESEARCH_SOURCE_ACCESS_DENIED",
   "RESEARCH_MODEL_GENERATION_REQUIRED",
   "RESEARCH_TASKS_INCOMPLETE",
   "RESEARCH_SOURCES_REQUIRED",
@@ -979,6 +982,61 @@ export const GuidedResearchReportTimelineStep = z.object({
   attempts: z.number().int().nonnegative(), completed: z.number().int().nonnegative().optional(), total: z.number().int().nonnegative().optional(),
   startedAt: z.string().optional(), finishedAt: z.string().optional(), reasonCode: z.string().optional(),
 }).strict();
+
+export const GuidedResearchIntent = z.object({
+  decision: z.string().trim().min(1).max(2000),
+  audience: z.string().trim().max(500),
+  timeframe: z.object({
+    from: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).refine((value) => Number.isFinite(Date.parse(value)) && new Date(value).toISOString().slice(0, 10) === value, "invalid calendar date").optional(),
+    to: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).refine((value) => Number.isFinite(Date.parse(value)) && new Date(value).toISOString().slice(0, 10) === value, "invalid calendar date").optional(),
+  }).strict().refine((value) => !value.from || !value.to || value.from <= value.to, "timeframe.from must not be after timeframe.to"),
+  deliverable: z.string().trim().max(1000),
+  successCriteria: z.array(z.string().trim().min(1).max(1000)).min(1).max(20),
+}).strict();
+export const GuidedResearchSourcePolicy = z.object({
+  mode: z.enum(["restrict", "prioritize", "open"]),
+  domains: z.array(z.string().trim().min(1).max(253)).max(50),
+  internalSourceIds: z.array(z.string().min(1)).max(100),
+  revision: z.number().int().nonnegative(),
+}).strict().refine((value) => value.mode !== "restrict" || value.domains.length > 0, "restrict mode requires at least one domain");
+export const GuidedResearchActivityEvent = z.object({
+  id: z.string().min(1), sequence: z.number().int().nonnegative(),
+  stage: z.enum(["planning", "searching", "reading", "validating", "writing"]),
+  taskId: z.string().min(1).nullable(), summary: z.string().trim().min(1).max(1000),
+  occurredAt: z.string(), status: z.enum(["started", "succeeded", "failed", "paused"]),
+}).strict();
+export const GuidedResearchCoverageItem = z.object({
+  sectionId: z.string().min(1), questionId: z.string().min(1),
+  status: z.enum(["answered", "weak", "missing"]), evidenceIds: z.array(z.string().min(1)),
+  reasons: z.array(z.string().trim().min(1).max(1000)).max(20),
+}).strict();
+export const GuidedResearchClaimEvidenceView = z.object({
+  claimId: z.string().min(1), evidenceId: z.string().min(1), quote: z.string().trim().min(1).max(2000),
+  sourceId: z.string().min(1), retrievedAt: z.string(), confidence: z.enum(["low", "medium", "high"]).nullable(),
+  traceIds: z.array(z.string().min(1)),
+}).strict();
+export const GuidedResearchQuestionEvidence = z.object({
+  questionId: z.string().min(1), sectionId: z.string().min(1), sourceId: z.string().min(1),
+  quote: z.string().trim().min(1).max(2000), relevance: z.enum(["direct", "context"]),
+}).strict();
+export const GuidedResearchEvidenceConflict = z.object({
+  id: z.string().min(1), claimIds: z.array(z.string().min(1)).min(2), sourceIds: z.array(z.string().min(1)).min(2),
+  severity: z.enum(["moderate", "severe"]), status: z.enum(["open", "resolved"]),
+  resolution: z.string().trim().min(1).max(2000).nullable(),
+  resolutionAction: z.enum(["retain_uncertainty", "prefer_source"]).nullable().optional(),
+  resolvedSourceId: z.string().min(1).nullable().optional(),
+}).strict();
+const NullableResearchScore = z.number().min(0).max(100).nullable();
+export const GuidedResearchQualityScore = z.object({
+  citationCoverage: NullableResearchScore, authority: NullableResearchScore,
+  recency: NullableResearchScore, crossValidation: NullableResearchScore,
+  openGapCount: z.number().int().nonnegative(), overall: NullableResearchScore,
+  explanations: z.array(z.string().trim().min(1).max(1000)).max(20),
+}).strict();
+export const GuidedResearchPublicationReadiness = z.object({
+  status: z.enum(["ready", "limited"]), blockers: z.array(z.string().min(1)).max(50),
+  warnings: z.array(z.string().min(1)).max(50), evaluatedAt: z.string().optional(),
+}).strict();
 export const GuidedResearchRuntime = z.object({
   sessionId: z.string(), version: z.number().int().nonnegative(), revision: z.number().int().positive(),
   currentNode: ResearchNode, availableNodes: z.array(ResearchNode),
@@ -995,6 +1053,16 @@ export const GuidedResearchRuntime = z.object({
   reportQualityWarnings: z.array(GuidedResearchQualityWarning).max(30).optional(),
   reportPrevious: GuidedResearchPreviousReport.nullable().optional(),
   reportEvidenceWarnings: z.array(GuidedResearchEvidenceWarning).max(256).optional(),
+  intent: GuidedResearchIntent.optional(), planRevision: z.number().int().nonnegative().optional(),
+  sourcePolicy: GuidedResearchSourcePolicy.optional(),
+  controlStatus: z.enum(["running", "paused"]).optional(),
+  activity: z.array(GuidedResearchActivityEvent).max(1000).optional(),
+  coverage: z.array(GuidedResearchCoverageItem).max(1000).optional(),
+  claimEvidence: z.array(GuidedResearchClaimEvidenceView).max(2000).optional(),
+  questionEvidence: z.array(GuidedResearchQuestionEvidence).max(4000).optional(),
+  conflicts: z.array(GuidedResearchEvidenceConflict).max(500).optional(),
+  qualityScore: GuidedResearchQualityScore.optional(),
+  publicationReadiness: GuidedResearchPublicationReadiness.optional(),
   legacyCheckpoint: GuidedResearchSession.nullable().optional(),
   completed: z.boolean(), busy: z.boolean(), leaseUntil: z.string().nullable(), errorCode: z.string().nullable(),
   generatedNodes: z.array(ResearchNode),
@@ -1004,8 +1072,10 @@ export const GuidedResearchRuntime = z.object({
 }).strict();
 export const GuidedResearchRuntimeCommand = z.object({
   sessionId: z.string().min(1), node: ResearchNode,
-  action: z.enum(["save", "generate", "confirm", "start", "retry", "complete", "message", "apply", "add_source", "remove_source"]),
+  action: z.enum(["save", "generate", "confirm", "start", "retry", "complete", "message", "apply", "add_source", "remove_source", "pause", "resume", "refine_scope", "refine_source_policy", "resolve_conflict"]),
   requestId: z.string().min(1).max(200), expectedVersion: z.number().int().nonnegative(),
+  expectedRevision: z.number().int().nonnegative().optional(), idempotencyKey: z.string().min(1).max(200).optional(),
+  intent: GuidedResearchIntent.optional(), sourcePolicy: GuidedResearchSourcePolicy.optional(),
   draft: GuidedResearchRuntimeDraft.optional(), message: z.string().trim().min(1).max(10000).optional(),
   proposalId: z.string().min(1).optional(),
   sourceUrl: z.string().trim().max(1000).url().refine((value) => {
@@ -1015,14 +1085,23 @@ export const GuidedResearchRuntimeCommand = z.object({
     } catch { return false; }
   }).optional(),
   sourceId: z.string().min(1).optional(),
+  conflictId: z.string().min(1).optional(),
+  conflictResolutionAction: z.enum(["retain_uncertainty", "prefer_source"]).optional(),
+  conflictResolution: z.string().trim().min(1).max(2000).optional(),
   allowPartialResearch: z.boolean().optional(),
 }).strict().refine((command) => command.allowPartialResearch === undefined || (command.node === "research" && ["confirm", "complete"].includes(command.action)), "partial research requires explicit research completion").refine((command) => !command.draft || command.node === command.draft.node, "draft must target the requested node")
+  .refine((command) => !["pause", "resume", "refine_scope", "refine_source_policy", "resolve_conflict"].includes(command.action)
+    || ((command.action === "refine_scope" ? ["outline", "research"].includes(command.node) : command.node === "research")
+      && command.expectedRevision !== undefined && Boolean(command.idempotencyKey)), "steering commands require an editable plan node, expected revision and idempotency key")
+  .refine((command) => command.action !== "refine_source_policy" || Boolean(command.sourcePolicy), "source policy refinement requires a source policy")
+  .refine((command) => command.action !== "resolve_conflict" || (command.node === "research" && Boolean(command.conflictId) && Boolean(command.conflictResolutionAction) && Boolean(command.conflictResolution)
+    && (command.conflictResolutionAction === "prefer_source" ? Boolean(command.sourceId) : !command.sourceId)), "conflict resolution requires an explicit valid decision")
   .refine((command) => {
     if (command.action === "add_source" || command.action === "remove_source") {
       return command.node === "research" && !command.draft && !command.message && !command.proposalId
         && (command.action === "add_source" ? Boolean(command.sourceUrl) && !command.sourceId : Boolean(command.sourceId) && !command.sourceUrl);
     }
-    return !command.sourceUrl && !command.sourceId;
+    return !command.sourceUrl && (command.action === "resolve_conflict" || !command.sourceId);
   }, "source commands require the research node and exactly one source reference");
 
 // Progress responses never include source excerpts, messages, history or whole report bodies.
@@ -1030,6 +1109,8 @@ export const GuidedResearchRuntimeProgress = GuidedResearchRuntime.pick({
   sessionId: true, version: true, revision: true, currentNode: true, availableNodes: true,
   busy: true, leaseUntil: true, errorCode: true, completed: true, progress: true,
   reportTimeline: true, reportPartial: true, reportSourceAliases: true, reportQualityWarnings: true,
+  planRevision: true, sourcePolicy: true, controlStatus: true, activity: true, coverage: true, conflicts: true,
+  qualityScore: true, publicationReadiness: true,
 }).extend({
   stream: z.object({ requestId: z.string(), sequence: z.number().int().nonnegative(),
     offset: z.number().int().nonnegative(), delta: z.string().max(1048576),

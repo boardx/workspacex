@@ -74,7 +74,8 @@ it("previews report content and requires applying it before completing research"
   await screen.findByTestId("research-report");
   expect(screen.getByTestId("research-report")).toHaveTextContent("对话修订后的摘要");
   expect(screen.getByRole("button", { name: "完成研究" })).toBeDisabled();
-  fireEvent.click(screen.getByRole("button", { name: "修改报告" }));
+  fireEvent.pointerDown(screen.getByRole("button", { name: "更多操作" }), { button: 0, ctrlKey: false });
+  fireEvent.click(await screen.findByRole("menuitem", { name: "修改报告" }));
   fireEvent.click(screen.getByRole("button", { name: "应用建议" }));
   await waitFor(() => expect(executeResearchRuntime).toHaveBeenCalledWith(expect.objectContaining({ action: "apply", proposalId: "report" })));
 });

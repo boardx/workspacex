@@ -30,6 +30,7 @@
       "plan-control": "/preview/plan-control"
     },
     "allowRoutes": [
+      "/preview/chat-knowledge-graph",
       "/agent",
       "/studio/survey",
       "/brain",
@@ -81,7 +82,8 @@
       "/studio/survey",
       "/tasks",
       "/tpl",
-      "/studio/board"
+      "/studio/board",
+      "/preview/chat-knowledge-graph"
     ]
   },
   "phase-14-agent-kernel-unification": {
@@ -116,7 +118,40 @@
       "/studio/survey",
       "/tasks",
       "/tpl",
-      "/studio/board"
+      "/studio/board",
+      "/preview/chat-knowledge-graph"
+    ]
+  },
+  "phase-18-org-brain-knowledge-graph": {
+    "//": "一束目前只有签核用静态原型屏 /preview/chat-knowledge-graph（ui-prototyper 交付），落地实现后并入 /chat 会话右侧栏「知识」tab——届时本行改指向 /chat。",
+    "bundleRoutes": {
+      "chat-knowledge-graph": "/preview/chat-knowledge-graph"
+    },
+    "allowRoutes": [
+      "/admin",
+      "/agent",
+      "/asset-governance",
+      "/brain",
+      "/canvas",
+      "/chat",
+      "/itv",
+      "/org-admin/preview",
+      "/platform-admin",
+      "/preview/agent-interrupts",
+      "/preview/agent-kernel",
+      "/preview/agent-runtime",
+      "/preview/plan-control",
+      "/projects",
+      "/projects/demo/files",
+      "/rec",
+      "/research",
+      "/skill",
+      "/studio/board",
+      "/studio/design-workbench",
+      "/studio/feedback-drafts",
+      "/studio/survey",
+      "/tasks",
+      "/tpl"
     ]
   }
 }

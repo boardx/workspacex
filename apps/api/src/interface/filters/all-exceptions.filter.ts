@@ -35,6 +35,7 @@ import {
   files,
   identity,
   interview,
+  knowledgeGraph,
   orgAdmin,
   personalRealtimeTranscription,
   planControl,
@@ -43,6 +44,7 @@ import {
   research,
   recording,
   skills,
+  survey,
   wave2Runtime,
 } from "@repo/contracts";
 import type { Response } from "express";
@@ -526,7 +528,17 @@ function permissionReasonOf(exception: HttpException): { reasonCode?: string; cu
    * 结构化的 `patchReason` 接上（见 `prototypePatchRejectionOf`）。仍是闭集：枚举外的字符串到不了客户端。
    */
   const designWorkbenchError = designWorkbench.DesignWorkbenchError.safeParse(raw);
-  return designWorkbenchError.success ? { reasonCode: designWorkbenchError.data } : {};
+  if (designWorkbenchError.success) return { reasonCode: designWorkbenchError.data };
+
+  /**
+   * Phase 18：`knowledgeGraph.KgErrorCode`——会话记忆 / 个人空间的闭集。之前没登记，契约许诺的
+   * `KG_REVISION_CHANGED`（409）、`KG_NOT_OWNER`（403）、`KG_CONTESTED_NEEDS_RESOLUTION` 等到客户端
+   * 都只剩光秃秃的 `conflict` / `forbidden`，前端 `knowledge-graph-failure.ts` 按码给的人话永远用不上
+   * （F14 端到端发现）。不可见与不存在仍是同一个出口：控制器对两者抛同一个码，这里只是原样放行。
+   * 仍是闭集：枚举外的 `KG_*` 字符串到不了客户端。
+   */
+  const knowledgeGraphError = knowledgeGraph.KgErrorCode.safeParse(raw);
+  return knowledgeGraphError.success ? { reasonCode: knowledgeGraphError.data } : {};
 }
 
 /**
@@ -632,6 +644,7 @@ export class AllExceptionsFilter implements ExceptionFilter {
         error: CODE_BY_STATUS[status] ?? "internal_error",
         traceId,
         ...permissionReasonOf(exception),
+        ...surveyErrorOf(exception),
         ...researchConflictDetailOf(exception),
         ...artifactErrorOf(exception),
         ...prototypePatchRejectionOf(exception),
@@ -649,4 +662,21 @@ export class AllExceptionsFilter implements ExceptionFilter {
     this.debugTrace?.record({ traceId, kind: "exception.unhandled", level: "error", msg: "unhandled exception", data: errorDetailOf(exception) });
     res.status(HttpStatus.INTERNAL_SERVER_ERROR).json({ error: "internal_error", traceId });
   }
+}
+
+function surveyErrorOf(exception: HttpException): {
+  reasonCode?: string;
+  blockers?: unknown;
+} {
+  const body = exception.getResponse();
+  if (typeof body !== "object" || body === null) return {};
+  const raw = body as { reasonCode?: unknown; blockers?: unknown };
+  const reason = survey.SurveyCommandErrorCodeSchema.safeParse(raw.reasonCode);
+  if (!reason.success) return {};
+  if (reason.data !== "SURVEY_PUBLISH_BLOCKED")
+    return { reasonCode: reason.data };
+  const blockers = survey.SurveyPublishBlockerSchema.array().safeParse(raw.blockers);
+  return blockers.success
+    ? { reasonCode: reason.data, blockers: blockers.data }
+    : { reasonCode: reason.data };
 }

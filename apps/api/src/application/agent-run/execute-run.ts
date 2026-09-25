@@ -1,3 +1,5 @@
+import type { KnowledgeRecallPort, MemoryCardPort } from "../knowledge-graph/ports";
+import { turnKnowledgeContext } from "../knowledge-graph/recall-knowledge";
 import { withAttachmentNotice } from "./attachment-notice";
 export { withAttachmentNotice } from "./attachment-notice";
 import { dependenciesForRuntimeProfile } from "./runtime-profile-routing";
@@ -291,6 +293,14 @@ export interface ExecuteAgentRunDeps {
    * 缺省不注入 ⇒ 行为与 F155 之前逐字节相同（history 不多一条伪消息）。
    */
   readonly files?: FileRetrievalPort;
+  /**
+   * Phase 18 F08 —— 会话知识召回（uc-18-2）。**可选**，与 `files` 同一条既有理由：既有测试与不需要
+   * 记忆的执行路径不必都改，生产合成（`kernel.module.ts` → `AgentRunExecutor`）必定注入。
+   * 缺省不注入 ⇒ history 与 F08 之前逐字节相同。
+   */
+  readonly knowledge?: KnowledgeRecallPort;
+  /** Phase 18 F17 「记住 / 忘掉」只开确认卡（I-17）。可选，同 `knowledge`；两者都注入才生效。 */
+  readonly memoryCards?: MemoryCardPort;
   /**
    * F157 —— 可审计上下文快照写入口。**可选**，与 `usage`/`files` 同一条既有理由：既有测试
    * 与不需要被审计的执行路径（`trial-run-agent` 一类）不必都改，生产合成
@@ -903,6 +913,11 @@ async function executeClaimed(
       // 的答案（同 delta §3.3 的既有纪律），快照如实记这是「查了没查成」而不是「查了没结果」。
     }
   }
+
+  // Phase 18 F08 / F17 —— 会话记忆（uc-18-2）与「记住 / 忘掉」卡片说明（uc-18-6），放在 history 最前；
+  // 读不到 / 开不了卡只记日志，绝不 fail run（降级纪律见 recall-knowledge.ts turnKnowledgeContext）。
+  const notes = deps.knowledge ? await turnKnowledgeContext(deps.knowledge, deps.memoryCards, { orgId, run }, deps.log) : [];
+  history = [...notes.map((content) => ({ role: "assistant" as const, content })), ...history];
 
   // V9-b 前置 A（#970）：把附件元数据折进模型可见的 content——历史每轮 + 当前触发消息。
   // 触发消息（run.inputText）的附件走 run.inputAttachments（它不在 history 里，单独带，

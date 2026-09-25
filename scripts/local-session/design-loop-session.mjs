@@ -292,6 +292,159 @@ await step("S14", "提反馈弹窗点「语音」：本机没开通转写时不�
   return { detail: `「${text.slice(0, 40)}…」；「重试」按钮 ${String(retries)} 个`, shot: s };
 });
 
+await step("S15", "运营收件箱打得开：系统异常一路读不到时只丢那一路（#3921）", async () => {
+  // 本地版的 PGlite 不区分数据库角色，系统异常那一路必然读不到；原来整个收件箱跟着 500。
+  await page.goto(`${BASE}/platform-admin/inbox`);
+  const dead = page.getByTestId("dep-failed");
+  const alive = page.locator('[data-testid="inbox-kind-exception"]');
+  await Promise.race([dead.waitFor({ timeout: 120_000 }), alive.waitFor({ timeout: 120_000 })]).catch(() => {});
+  const s = await shot("s15-inbox.png");
+  if ((await dead.count()) > 0 && (await alive.count()) === 0) throw new Error("整个收件箱读不到（一路失败拖垮了全部）");
+  const unavailable = (await page.getByTestId("inbox-exception-unavailable-hint").count()) > 0;
+  const withheld = (await page.getByTestId("inbox-exception-withheld-hint").count()) > 0;
+  // 按不下去的那一格不许挂数字：服务端这时给的 0 是「没有算」，挂着就读成「系统零异常」
+  // （第一次实测截图抓到的）。
+  const chipText = (await alive.innerText()).trim();
+  if ((unavailable || withheld) && /\d/.test(chipText)) throw new Error(`「系统异常」那一格读不到却挂着数字：「${chipText}」`);
+  return {
+    detail: unavailable ? "收件箱正常打开；系统异常那一格如实说「这次没读到」（本地版预期）"
+      : withheld ? "收件箱正常打开；系统异常仅平台运维可见"
+      : "收件箱正常打开；系统异常一路也读到了",
+    shot: s,
+  };
+});
+
+await step("S16", "品牌色与字体：输入 #FF5A1F、选衬线体，刷新后还在（对标 R1，#3933）", async () => {
+  // 真栈才测得到的一段：新加的 `tokens` 列与仓储按键合并的 SQL 走的是真 PGlite，不是夹具。
+  await page.goto(`${BASE}/studio/design-workbench`);
+  await page.locator('[data-testid^="project-open-"]').first().click();
+  await page.getByTestId("design-detail").waitFor();
+  await page.getByTestId("design-detail-appearance").click();
+  const input = page.getByTestId("design-detail-brand-color");
+  await input.fill("#FF5A1F");
+  await input.press("Enter");
+  await page.getByTestId("design-detail-font-serif").click();
+  await page.waitForTimeout(1500);
+  await page.reload();
+  await page.getByTestId("design-detail").waitFor();
+  const phone = page.getByTestId("design-detail-phone").first();
+  await phone.waitFor();
+  const brand = await phone.getAttribute("data-brand");
+  const font = await phone.getAttribute("data-font");
+  const s = await shot("s16-brand-font.png");
+  if (brand !== "#FF5A1F") throw new Error(`刷新后品牌色是「${String(brand)}」，不是 #FF5A1F（没落库？）`);
+  if (font !== "serif") throw new Error(`刷新后字体是「${String(font)}」，不是衬线体`);
+  // 收尾：换回默认，免得后面重跑这份会话时起点不同。
+  await page.getByTestId("design-detail-appearance").click();
+  await page.getByTestId("design-detail-brand-clear").click();
+  await page.getByTestId("design-detail-font-sans").click();
+  await page.waitForTimeout(800);
+  return { detail: "刷新后画布根仍是 #FF5A1F + 衬线体（真 PGlite 上的 tokens 列）", shot: s };
+});
+
+await step("S17", "批注存在服务端：钉一条，换一个全新的浏览器（空存储）打开同一个项目还看得到（深度 S2，#3988）", async () => {
+  // 真栈才测得到的一段：新表 design_project_comments 的迁移、RLS + GRANT、仓储 SQL 走的是真 PGlite。
+  await page.goto(`${BASE}/studio/design-workbench`);
+  await page.locator('[data-testid^="project-open-"]').first().click();
+  await page.getByTestId("design-detail").waitFor();
+  await page.getByTestId("design-detail-view-single").click();
+  await page.getByTestId("design-detail-mode-comment").click();
+  const text = `真栈批注 ${Date.now().toString(36)}`;
+  await page.getByTestId("design-detail-phone").locator("[data-node-id]").nth(1).click();
+  await page.getByTestId("design-comment-input").fill(text);
+  await page.getByTestId("design-comment-save").click();
+  await page.getByTestId("design-comment-item").filter({ hasText: text }).waitFor();
+
+  const fresh = await browser.newContext({ viewport: { width: 1440, height: 900 }, locale: "zh-CN", timezoneId: "Asia/Shanghai" });
+  const other = await fresh.newPage();
+  other.setDefaultTimeout(120_000);
+  await other.goto(`${BASE}/login`);
+  await other.getByTestId("login-email").fill("me@local.workspacex");
+  await other.getByTestId("login-password").fill(password);
+  await other.getByTestId("login-submit").click();
+  await other.waitForURL((u) => !u.pathname.startsWith("/login"));
+  await other.goto(`${BASE}/studio/design-workbench`);
+  await other.locator('[data-testid^="project-open-"]').first().click();
+  await other.getByTestId("design-detail").waitFor();
+  await other.getByTestId("design-detail-view-single").click();
+  await other.getByTestId("design-detail-mode-comment").click();
+  const item = other.getByTestId("design-comment-item").filter({ hasText: text });
+  await item.waitFor({ timeout: 20_000 });
+  const pins = await other.getByTestId("design-comment-pin").count();
+  const s = await shot("s17-comment-other-browser.png", other);
+  await fresh.close();
+  if (pins < 1) throw new Error("另一个浏览器里看得到批注，但画布上没有钉");
+  // 收尾：删掉这条，免得重跑时越积越多。
+  await page.getByTestId("design-comment-item").filter({ hasText: text }).getByRole("button", { name: "删掉这条批注" }).click();
+  await page.getByTestId("design-comment-item").filter({ hasText: text }).waitFor({ state: "detached" });
+  return { detail: `另一个浏览器（空存储）打开同一个项目，看到「${text}」和它的钉（真 PGlite 上的 design_project_comments）`, shot: s };
+});
+
+await step("S18", "批注讨论：回一句、标记解决再重新打开、删掉批注连同回复（深度 S3，#3988）", async () => {
+  // 真栈才测得到：回复表只授 SELECT/INSERT，删批注靠外键级联带走回复——这一步证明级联在真库上走得通。
+  await page.goto(`${BASE}/studio/design-workbench`);
+  await page.locator('[data-testid^="project-open-"]').first().click();
+  await page.getByTestId("design-detail").waitFor();
+  await page.getByTestId("design-detail-view-single").click();
+  await page.getByTestId("design-detail-mode-comment").click();
+  const text = `真栈讨论 ${Date.now().toString(36)}`;
+  await page.getByTestId("design-detail-phone").locator("[data-node-id]").nth(1).click();
+  await page.getByTestId("design-comment-input").fill(text);
+  await page.getByTestId("design-comment-save").click();
+  const item = page.getByTestId("design-comment-item").filter({ hasText: text });
+  await item.getByTestId("design-comment-reply").click();
+  await item.getByTestId("design-comment-reply-input").fill("同意，按这个改");
+  await item.getByTestId("design-comment-reply-save").click();
+  await item.getByText("同意，按这个改").waitFor();
+  await item.getByTestId("design-comment-resolve").click();
+  await page.getByTestId("design-comment-item").filter({ hasText: text }).getByTestId("design-comment-reopen").waitFor();
+  await page.getByTestId("design-comment-item").filter({ hasText: text }).getByTestId("design-comment-reopen").click();
+  await page.reload();
+  await page.getByTestId("design-detail").waitFor();
+  await page.getByTestId("design-detail-view-single").click();
+  await page.getByTestId("design-detail-mode-comment").click();
+  const again = page.getByTestId("design-comment-item").filter({ hasText: text });
+  await again.getByText("同意，按这个改").waitFor({ timeout: 20_000 });
+  const resolved = await again.getAttribute("data-resolved");
+  const s = await shot("s18-comment-thread.png");
+  if (resolved !== null) throw new Error("重新打开后刷新，这条仍是已解决（状态没落库？）");
+  await again.getByRole("button", { name: "删掉这条批注" }).click();
+  await page.getByTestId("design-comment-item").filter({ hasText: text }).waitFor({ state: "detached" });
+  const err = await page.getByTestId("design-comments-error").count();
+  if (err > 0) throw new Error(`删批注报错：${await page.getByTestId("design-comments-error").textContent()}`);
+  return { detail: "回复刷新后还在、重新打开的状态落了库；删掉带回复的批注成功（真库外键级联，回复表不授 DELETE）", shot: s };
+});
+
+await step("S19", "真实图片：往占位图里上传一张 2400×1800 的照片，刷新后还在（深度 S10，#3988）", async () => {
+  // 真栈才测得到：缩压后的 data URL 要装进**真 API** 的请求体上限（100 KiB），并经 PGlite 的 jsonb 落库再读回。
+  await page.goto(`${BASE}/studio/design-workbench`);
+  await page.locator('[data-testid^="project-open-"]').first().click();
+  await page.getByTestId("design-detail").waitFor();
+  await page.getByTestId("design-detail-view-single").click();
+  const phone = page.getByTestId("design-detail-phone");
+  const slot = phone.locator('[data-proto="image"]').first();
+  if ((await slot.count()) === 0) throw new Error("第一个项目的当前页上没有 image 节点（替身模型的首页应当有一张）");
+  await slot.click();
+  const big = await page.evaluate(() => {
+    const c = document.createElement("canvas"); c.width = 2400; c.height = 1800;
+    const g = c.getContext("2d"); const d = g.createImageData(2400, 1800);
+    for (let i = 0; i < d.data.length; i++) d.data[i] = (i * 2654435761) % 251;
+    g.putImageData(d, 0, 0);
+    return c.toDataURL("image/png").split(",")[1];
+  });
+  await page.getByTestId("design-inspector-image-file").setInputFiles({ name: "photo.png", mimeType: "image/png", buffer: Buffer.from(big, "base64") });
+  await phone.locator('[data-proto="image"] img').first().waitFor({ timeout: 30_000 });
+  await page.reload();
+  await page.getByTestId("design-detail").waitFor();
+  await page.getByTestId("design-detail-view-single").click();
+  const img = page.getByTestId("design-detail-phone").locator('[data-proto="image"] img').first();
+  await img.waitFor({ timeout: 20_000 });
+  const info = await img.evaluate((el) => ({ w: el.naturalWidth, len: el.getAttribute("src")?.length ?? 0 }));
+  const s = await shot("s19-real-image.png");
+  if (info.w === 0) throw new Error("刷新后 <img> 在，但图没解码出来");
+  return { detail: `原图 PNG ${Math.round(big.length / 1024)} KB（base64）→ 存下的 JPEG data URL ${Math.round(info.len / 1024)} KB、宽 ${info.w}px；刷新后仍在（真 API 请求体 + PGlite）`, shot: s };
+});
+
 await browser.close();
 if (standin !== null) await standin.close();
 

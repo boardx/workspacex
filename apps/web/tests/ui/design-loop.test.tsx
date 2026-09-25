@@ -151,7 +151,7 @@ function exceptionItem(over: Partial<InboxItem> = {}): InboxItem {
   };
 }
 
-function mockInbox(items: InboxItem[], sources: { exception: "included" | "withheld" } = { exception: "included" }) {
+function mockInbox(items: InboxItem[], sources: { exception: "included" | "withheld" | "unavailable" } = { exception: "included" }) {
   apiRequest.mockImplementation(async (path: string, opts?: { method?: string; body?: Record<string, unknown> }) => {
     if (path === "/inbox") return { items, nextCursor: null, sources };
     if (path === "/inbox/counts") return { ...baseCounts, sources };
@@ -396,6 +396,29 @@ describe("⑥ 系统异常 withheld：Chip 禁用并提示仅平台运维可见"
     expect(screen.getByTestId("inbox-exception-withheld-hint")).toBeTruthy();
     fireEvent.click(chip);
     expect((chip as HTMLButtonElement).getAttribute("aria-pressed")).toBe("false");
+  });
+});
+
+/*
+ * #3921（2026-09-23 本地真栈实测 + 人类裁决）：系统异常这一路**读失败**。
+ * 本地版原来整个收件箱 500、屏上叫人「稍后重试」；现在其余两路照常，只有这一格说读不到。
+ */
+describe("系统异常这一路读失败（unavailable）：只丢这一路，也不说成「仅平台运维可见」", () => {
+  it("反馈照常显示；系统异常 Chip 禁用；提示说「这次没读到」，不是「仅平台运维可见」", async () => {
+    mockInbox([feedbackItem()], { exception: "unavailable" });
+    render(<DesignLoopInboxScreen state="default" />);
+    // ⭐ 反证锚点：前端不认 unavailable（只认 withheld）⇒ 后三条红——Chip 可以点，点下去是一片空，
+    //   用户以为系统零异常。
+    expect(await screen.findByTestId("inbox-card-B-1")).toBeTruthy();
+    const chip = await screen.findByTestId("inbox-kind-exception");
+    expect((chip as HTMLButtonElement).disabled).toBe(true);
+    expect(screen.getByTestId("inbox-exception-unavailable-hint").textContent).toContain("这次没读到");
+    // 两种原因不许混着说：这不是权限问题。
+    expect(screen.queryByTestId("inbox-exception-withheld-hint")).toBeNull();
+    // ⭐ 反证锚点（本地真栈截图抓到的）：禁用的那一格还挂着服务端给的 0 ⇒ 读起来是「系统零异常」；
+    //   图标用锁 ⇒ 说成了权限问题。这两条各自转红。
+    expect(chip.textContent).not.toMatch(/\d/);
+    expect(within(chip).getByTestId("inbox-kind-exception-unavailable-icon")).toBeTruthy();
   });
 });
 
@@ -975,6 +998,7 @@ function project(over: Partial<DesignProject> = {}): DesignProject {
   return {
     theme: "dark",
   accent: "neutral",
+    tokens: { brand: null, font: "sans", radius: "default", density: "default" },
     tags: [],
     refImages: [],
     share: null,

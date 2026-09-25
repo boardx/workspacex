@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import {
   SURVEY_LIST, SURVEY_STATUS_LABEL, SURVEY_STATUS_ACTION, SURVEY_SCOPES, SURVEY_TAGS,
   surveyStatusCounts, missingRoster,
-  type SurveyStatus, type SurveyScope, type SurveyTag,
+  type MockSurveyStatus, type SurveyScope, type SurveyTag,
 } from "@/lib/mock/survey";
 
 /**
@@ -15,7 +15,7 @@ import {
  * （UC-12.1 R7.4）；状态快捷筛选四态计数须与列表实际分布一致（UC-12.2 R7.6）。
  * 点选切换当前问卷（本地高亮，不落库）。
  */
-const STATUS_TONE: Record<SurveyStatus, "primary" | "warning" | "neutral" | "outline"> = {
+const STATUS_TONE: Record<MockSurveyStatus, "primary" | "warning" | "neutral" | "outline"> = {
   collecting: "warning", pending_send: "outline", draft: "neutral", closed: "primary",
 };
 
@@ -23,7 +23,7 @@ export function SurveyList({ activeId = "sv-1" }: { activeId?: string }) {
   const [active, setActive] = React.useState(activeId);
   const [scope, setScope] = React.useState<SurveyScope>("project");
   const [tag, setTag] = React.useState<SurveyTag>("all");
-  const [statusFilter, setStatusFilter] = React.useState<"all" | SurveyStatus>("all");
+  const [statusFilter, setStatusFilter] = React.useState<"all" | MockSurveyStatus>("all");
   const counts = surveyStatusCounts();
   const missing = missingRoster();
 
@@ -72,7 +72,7 @@ export function SurveyList({ activeId = "sv-1" }: { activeId?: string }) {
         >
           全部 {SURVEY_LIST.length}
         </button>
-        {(Object.keys(SURVEY_STATUS_LABEL) as SurveyStatus[]).map((st) => (
+        {(Object.keys(SURVEY_STATUS_LABEL) as MockSurveyStatus[]).map((st) => (
           <button
             key={st} type="button" onClick={() => setStatusFilter(st)} data-testid={`survey-status-filter-${st}`}
             className={"rounded-full border px-2.5 py-1 text-10 " + (statusFilter === st ? "border-inverse bg-inverse text-inverse-foreground" : "border-border-subtle text-muted-foreground")}

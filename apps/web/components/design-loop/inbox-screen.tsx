@@ -1,6 +1,6 @@
 "use client";
 import * as React from "react";
-import { LayoutList, Columns3, Search, ShieldAlert, PlugZap, Lock, Eye, ChevronUp, ChevronDown, Archive, Tag, X } from "lucide-react";
+import { LayoutList, Columns3, Search, ShieldAlert, PlugZap, Lock, CloudOff, Eye, ChevronUp, ChevronDown, Archive, Tag, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
@@ -319,6 +319,14 @@ export function DesignLoopInboxScreen({
   const items = load.kind === "ready" ? load.items : [];
   const sources = load.kind === "ready" ? load.sources : null;
   const exceptionWithheld = sources?.exception === "withheld" || counts?.sources.exception === "withheld";
+  /**
+   * 契约 `unavailable`（#3921）：**查了但这一路读失败了**——既不是「不让看」，也不是「零异常」。
+   * 本地版的 PGlite 不区分数据库角色，系统异常这一路必然读不到；原来整个收件箱跟着一起 500。
+   * 现在其余两路照常显示，只有这一格说读不到，而且不说「仅平台运维可见」（那是另一回事）。
+   */
+  const exceptionUnavailable = !exceptionWithheld && (sources?.exception === "unavailable" || counts?.sources.exception === "unavailable");
+  /** 这一格按不下去：不让看，或这一路没读到。两种原因说两句不同的话（见下）。 */
+  const exceptionBlocked = exceptionWithheld || exceptionUnavailable;
   // 服务端已按 `excludeKind` 排除，这里再滤一次只是兜底（旧后端 / mock 不认该参数时不漏）。
   const visibleItems = hidingExceptions ? items.filter((i) => i.kind !== "exception") : items;
   /** 「全部」= 反馈 + 设计方案；隐藏系统异常时徽标数也不含异常，否则 167 vs 1 张卡对不上。 */
@@ -776,10 +784,10 @@ export function DesignLoopInboxScreen({
         </div>
         <div className="flex flex-wrap items-center gap-1" role="group" aria-label="类型筛选">
           {KIND_FILTERS.map((f) => {
-            const disabled = f === "exception" && exceptionWithheld === true;
+            const disabled = f === "exception" && exceptionBlocked;
             const count = f === "all" ? allCount : counts === null ? null : counts.byKind[f];
             return (
-              <span key={f} className="relative inline-flex" title={disabled ? "仅平台运维可见" : undefined}>
+              <span key={f} className="relative inline-flex" title={disabled ? (exceptionWithheld ? "仅平台运维可见" : "系统异常这一路这次没读到") : undefined}>
                 <button
                   type="button"
                   aria-pressed={kindFilter === f}
@@ -795,9 +803,20 @@ export function DesignLoopInboxScreen({
                         : "border-border bg-card text-card-foreground hover:bg-muted",
                   )}
                 >
-                  {disabled && <Lock aria-hidden className="h-3 w-3" />}
+                  {/*
+                    * 锁只给「不让看」（withheld）。「这一路没读到」（unavailable）不是权限问题，
+                    * 用锁等于把两种原因说成一种——用一个「断开」的图标。
+                    */}
+                  {disabled && (exceptionWithheld
+                    ? <Lock aria-hidden className="h-3 w-3" />
+                    : <CloudOff aria-hidden className="h-3 w-3" data-testid="inbox-kind-exception-unavailable-icon" />)}
                   {f === "all" ? "全部" : INBOX_KIND_LABEL[f]}
-                  {count !== null && !archivedView && <span className="text-10 opacity-70">{count}</span>}
+                  {/*
+                    * 按不下去的那一格**不显示数字**：服务端这时给的 0 是「没有算」，不是「零条」。
+                    * 旁边写着「这一路没读到」，这里却挂一个 0，读起来就是「系统零异常」——
+                    * 契约头注明确不许的那种误读（`InboxSources`）。
+                    */}
+                  {count !== null && !archivedView && !disabled && <span className="text-10 opacity-70">{count}</span>}
                 </button>
               </span>
             );
@@ -807,9 +826,14 @@ export function DesignLoopInboxScreen({
               系统异常仅平台运维可见
             </span>
           )}
+          {exceptionUnavailable && (
+            <span className="text-10 text-muted-foreground" data-testid="inbox-exception-unavailable-hint">
+              系统异常这一路这次没读到；反馈和设计方案不受影响
+            </span>
+          )}
           {/* issue #2752 ①——「全部」视图默认滤掉系统异常，这个开关是唯一的显式切回入口。
               只在 kindFilter === "all" 时有意义：单独选中「系统异常」chip 已经是另一种「切换查看」。 */}
-          {kindFilter === "all" && exceptionWithheld !== true && !archivedView && (
+          {kindFilter === "all" && !exceptionBlocked && !archivedView && (
             <button
               type="button"
               aria-pressed={showExceptionsInAll}

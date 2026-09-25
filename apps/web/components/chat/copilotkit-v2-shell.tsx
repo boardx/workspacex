@@ -1366,6 +1366,8 @@ export function CopilotKitV2Shell({
         runPhaseLabel={runState.phaseLabel}
         runStartedAt={runState.startedAt}
         recoveryDiagnostic={runState.recoveryDiagnostic}
+        /* phase-18 F09 —— 右栏「记忆」页签（会话知识面板）。与编制同一条规则：选中了线程才开。 */
+        showKnowledge={selectedThreadId !== null}
         /* 2026-08-29——CK-P7 编制搬进右栏「编制」页签（见上面移除左栏 `RosterPanel`
            那处的头注）。只在选中了一条线程时传，未选中时整个 prop 是 `undefined`，
            `ChatTaskInspector` 因此完全不渲染这个页签——与此前"未选中线程时左栏

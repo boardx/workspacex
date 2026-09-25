@@ -94,18 +94,19 @@ export const THRESHOLDS = {
       "（原型示例「连续 4 分 20 秒」的整数化，默认 240 秒且可配，研究方法负责人可上调）",
   } satisfies ResolvedThreshold<number>,
 
-  /* ── N-2：召回质量基线 ────────────────────────────────────────── */
+  /* ── N-2：召回质量基线（**已裁决**，故 known: true；phase-18 S0-4）────────── */
   vectorRecallBaseline: {
-    known: false,
+    known: true,
+    value: 0.9,
     rule:
       "带权限过滤的 pgvector 召回，其 recall 不得低于基线；低于即判失败，" +
       "**不得静默放行**（放行等于把「召回够不够」这件事变成没人负责）",
-    owner: "产品",
-    blocksWhat:
-      "它是上线门槛却没有门槛值。F10 五路召回可以先实现，" +
-      "但「召回质量达标」这条验收在数值给出前无法判定",
-    ref: "design-coherence N-2 / context-pack 缺口 3",
-  },
+    source:
+      "phase-18 requirements/05-signoff-plan.md S0-4「带权限过滤的向量召回率 ≥ 0.9」" +
+      "（人类 2026-09-24 聊天确认，「跑出基线后可调」）；uc-18-2 R9；" +
+      "原待定项出处 design-coherence N-2 / context-pack 缺口 3。" +
+      "门控：apps/api/tests/retrieval/kg-hnsw-permission-recall.test.ts（phase-18 F05）",
+  } satisfies ResolvedThreshold<number>,
 
   /* ── N-3：token 预算的五路配额 ────────────────────────────────── */
   retrievalChannelQuota: {

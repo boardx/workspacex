@@ -11,7 +11,9 @@ import {
   applyDigitalInterviewSkillProposal,
   confirmDigitalInterviewExperts,
   confirmDigitalInterviewQuestions,
-  confirmDigitalInterviewTopic,
+  confirmDigitalInterviewBrief,
+  decideDigitalInterviewReadiness,
+  reviewDigitalInterviewReport,
   generateDigitalInterviewReportStream,
   loadDigitalInterviewWorkflow,
   observeDigitalInterviewReportStream,
@@ -21,6 +23,8 @@ import {
   type DigitalInterviewWorkflowView,
   type DigitalExpertCatalogRow,
   type DigitalInterviewSkillDraftContext,
+  type DigitalInterviewResearchBrief,
+  type DigitalInterviewModeratorPolicy,
 } from "@/lib/interview-api";
 import { MOCK_DIGITAL_EXPERTS, findMockDigitalExpert, toDigitalExpertCatalogRow } from "@/lib/mock/digital-expert-personas";
 import { ExpertPickerDialog } from "./expert-picker-dialog";
@@ -28,6 +32,10 @@ import { InterviewSkillAssistant, PersistentInterviewSkillAssistant } from "./in
 import { InterviewReportMarkdown } from "./interview-report-markdown";
 import { exportInterviewReportPdf, exportInterviewReportWord, reportMarkdownBody } from "@/lib/interview-report-export";
 import { reconcileMockInterviewQuestions, updateMockDigitalInterviewDraft, type MockDigitalInterviewDraft, type MockInterviewStep, type MockSkillSuggestion } from "@/lib/mock/digital-interview-drafts";
+import { DigitalInterviewResearchBriefEditor } from "./digital-interview-research-brief";
+import { DigitalInterviewQualityPanel } from "./digital-interview-quality-panel";
+import { DigitalInterviewReadiness } from "./digital-interview-readiness";
+import { DigitalInterviewEvidenceReview } from "./digital-interview-evidence-review";
 
 const STEPS = ["主题", "专家", "问题", "访谈", "报告"] as const;
 
@@ -95,14 +103,21 @@ const LIVE_STEPS: readonly { readonly id: DigitalInterviewStep; readonly label: 
   { id: "topic", label: "主题" }, { id: "experts", label: "专家" }, { id: "questions", label: "问题" }, { id: "runs", label: "访谈" }, { id: "report", label: "报告" },
 ];
 
-type LiveBuffers = { readonly topic: string; readonly expertIds: readonly string[]; readonly questions: readonly DigitalInterviewQuestion[] };
+type LiveBuffers = { readonly topic: string; readonly researchBrief: DigitalInterviewResearchBrief;
+  readonly expertIds: readonly string[]; readonly questions: readonly DigitalInterviewQuestion[];
+  readonly moderatorPolicy: DigitalInterviewModeratorPolicy };
 type PendingNavigation = { readonly step?: DigitalInterviewStep; readonly href?: string } | null;
 
 function buffersFrom(view: DigitalInterviewWorkflowView): LiveBuffers {
   return {
     topic: view.topic ?? "",
+    researchBrief: view.researchBrief ?? { decision: view.topic ?? view.name,
+      learningGoals: [{ goalId: "goal-1", statement: view.topic ?? view.name }],
+      targetRoles: ["目标用户"], outOfScope: [], successCriteria: ["形成可追溯的决策依据"] },
     expertIds: view.selectedExpertIds.length ? view.selectedExpertIds : view.expertCandidates.map((expert) => expert.expertId),
     questions: view.questions.length ? view.questions : view.questionCandidates,
+    moderatorPolicy: view.moderatorPolicy ?? { probingDepth: "balanced", clarifyAmbiguity: true,
+      seekCounterexamples: true, redirectOffTopic: true, stopWhenGoalSatisfied: true, maxFollowUpsPerQuestion: 2 },
   };
 }
 
@@ -244,10 +259,10 @@ export function PersistentDigitalInterviewWorkflow({ initialView }: { readonly i
   async function confirmTopic() {
     const topic = buffers.topic.trim();
     if (!topic) return;
-    const payload = { topic, expectedVersion: view.version };
+    const payload = { topic, researchBrief: buffers.researchBrief, expectedVersion: view.version };
     const operation = "confirm-topic";
     try {
-      const next = await confirmDigitalInterviewTopic({ interviewId: view.interviewId, ...payload, requestId: requestIdFor(operation, payload) });
+      const next = await confirmDigitalInterviewBrief({ interviewId: view.interviewId, ...payload, requestId: requestIdFor(operation, payload) });
       replaceAfterConfirmation(next, operation);
     } catch (cause) { showError(cause); }
   }
@@ -268,11 +283,34 @@ export function PersistentDigitalInterviewWorkflow({ initialView }: { readonly i
 
   async function confirmQuestions() {
     if (!buffers.questions.length || buffers.questions.some((question) => !question.text.trim() || !question.purpose.trim())) return;
-    const payload = { questions: buffers.questions, expectedVersion: view.version };
+    const payload = { questions: buffers.questions, moderatorPolicy: buffers.moderatorPolicy, expectedVersion: view.version };
     const operation = "confirm-questions";
     try {
       const next = await confirmDigitalInterviewQuestions({ interviewId: view.interviewId, ...payload, requestId: requestIdFor(operation, payload) });
       replaceAfterConfirmation(next, operation);
+    } catch (cause) { showError(cause); }
+  }
+
+  async function startReady(status: "ready" | "warning_accepted", rationale: string | null) {
+    if (!view.quality.readiness) return;
+    const payload = { assessmentRuleVersion: view.quality.readiness.ruleVersion, status, rationale,
+      expectedVersion: view.version };
+    const operation = "decide-readiness";
+    try {
+      const next = await decideDigitalInterviewReadiness({ interviewId: view.interviewId, ...payload,
+        requestId: requestIdFor(operation, payload) });
+      replaceAfterConfirmation(next, operation);
+    } catch (cause) { showError(cause); }
+  }
+
+  async function reviewReport(status: "approved" | "changes_requested", note: string | null) {
+    if (!view.report) return;
+    const payload = { reportId: view.report.reportId, status, note, expectedVersion: view.version };
+    const operation = "review-report";
+    try {
+      const next = await reviewDigitalInterviewReport({ interviewId: view.interviewId, ...payload,
+        requestId: requestIdFor(operation, payload) });
+      retainView(next, operation);
     } catch (cause) { showError(cause); }
   }
 
@@ -336,16 +374,23 @@ export function PersistentDigitalInterviewWorkflow({ initialView }: { readonly i
       <div className="mt-4 flex flex-wrap gap-3 text-xs text-muted-foreground"><span data-testid="itv-workflow-status">{view.status}</span><span data-testid="itv-workflow-version">版本 {view.version}</span>{view.topic && <span data-testid="itv-persisted-topic">已确认主题：{view.topic}</span>}</div>
       <ol className="mt-7 grid gap-2 sm:grid-cols-5">{LIVE_STEPS.map((step, index) => <li key={step.id}><button data-testid={`itv-workflow-step-${index + 1}`} type="button" aria-current={active === step.id ? "step" : undefined} onClick={() => requestNavigation({ step: step.id })} className={active === step.id ? "w-full rounded-lg bg-primary p-3 text-left text-xs font-medium text-primary-foreground" : "w-full rounded-lg border border-border p-3 text-left text-xs text-muted-foreground"}>0{index + 1} {step.label}</button></li>)}</ol>
       {error && <p role="alert" className="mt-4 rounded-lg border border-destructive/20 bg-destructive/5 p-3 text-sm text-destructive">操作未完成：{error}。请重试，当前草稿已保留。</p>}
-      {view.report && view.reportGeneration?.status === "failed" && <p role="alert" className="mt-4 rounded-lg border border-destructive/20 bg-destructive/5 p-3 text-sm text-destructive">报告重新生成失败，已保留上一份报告。请重试。</p>}
+      {view.report && view.reportGeneration?.status === "failed" && <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-destructive/20 bg-destructive/5 p-3">
+        <p role="alert" className="text-sm text-destructive">报告重新生成失败，已保留上一份报告。请重试。</p>
+        <Button data-testid="itv-retry-preserved-report" type="button" variant="outline" onClick={() => requestConfirmation("report")}>重新生成报告</Button>
+      </div>}
       <fieldset disabled={confirming || reportPending} className="mt-8 min-w-0 rounded-2xl border border-border bg-card p-6 shadow-sm lg:p-8">
-        {active === "topic" && <LiveTopicStep topic={buffers.topic} onChange={(topic) => { setBuffers((current) => ({ ...current, topic })); setDirty(true); }} onConfirm={() => requestConfirmation("topic")} />}
+        {active === "topic" && <DigitalInterviewResearchBriefEditor topic={buffers.topic} brief={buffers.researchBrief}
+          onTopicChange={(topic) => { setBuffers((current) => ({ ...current, topic })); setDirty(true); }}
+          onChange={(researchBrief) => { setBuffers((current) => ({ ...current, researchBrief })); setDirty(true); }}
+          onConfirm={() => requestConfirmation("topic")} />}
         {active === "experts" && <LiveExpertStep expertIds={buffers.expertIds} candidates={view.expertCandidates} onChange={(expertIds) => { setBuffers((current) => ({ ...current, expertIds })); setDirty(true); }} onConfirm={() => requestConfirmation("experts")} />}
-        {active === "questions" && <LiveQuestionStep expertIds={buffers.expertIds} candidates={view.expertCandidates} questions={buffers.questions} onChange={(questions) => { setBuffers((current) => ({ ...current, questions })); setDirty(true); }} onConfirm={() => requestConfirmation("questions")} />}
+        {active === "questions" && <><LiveQuestionStep expertIds={buffers.expertIds} candidates={view.expertCandidates} questions={buffers.questions} learningGoals={buffers.researchBrief.learningGoals} moderatorPolicy={buffers.moderatorPolicy} onPolicyChange={(moderatorPolicy) => { setBuffers((current) => ({ ...current, moderatorPolicy })); setDirty(true); }} onChange={(questions) => { setBuffers((current) => ({ ...current, questions })); setDirty(true); }} onConfirm={() => requestConfirmation("questions")} />
+          <div className="mt-5"><DigitalInterviewQualityPanel quality={view.quality} />{view.questionVersionId && view.quality.readiness && <DigitalInterviewReadiness quality={view.quality} pending={confirming} onDecide={(status, rationale) => void startReady(status, rationale)} />}</div></>}
         {active === "runs" && <LiveRunStep runs={view.expertRuns} reportPending={reportPending} onGenerateReport={() => requestConfirmation("report")} />}
-        {active === "report" && (view.report ? <LiveReportStep report={view.report} onViewSource={(expertId, questionId) => {
+        {active === "report" && (view.report ? <><LiveReportStep report={view.report} onViewSource={(expertId, questionId) => {
           setActiveStep("runs");
           window.setTimeout(() => document.getElementById(`answer-${expertId}-${questionId}`)?.scrollIntoView({ block: "center" }), 0);
-        }} /> : view.reportGeneration ? <LiveReportGenerationStep generation={view.reportGeneration} />
+        }} /><DigitalInterviewEvidenceReview view={view} pending={confirming} onReview={(status, note) => void reviewReport(status, note)} /></> : view.reportGeneration ? <LiveReportGenerationStep generation={view.reportGeneration} onRetry={() => requestConfirmation("report")} />
           : <LiveReadOnlyStep title="访谈报告" text="请先确认访谈回答并生成报告。" />)}
       </fieldset>
     </div></main>
@@ -403,9 +448,11 @@ function DetailList({ testId, label, values }: { readonly testId: string; readon
   return <div data-testid={testId}><p className="text-xs font-medium text-muted-foreground">{label}</p><ul className="mt-1 list-disc space-y-1 pl-5 leading-6">{values.map((value) => <li key={value}>{value}</li>)}</ul></div>;
 }
 
-function LiveQuestionStep({ expertIds, candidates, questions, onChange, onConfirm }: { readonly expertIds: readonly string[]; readonly candidates: readonly DigitalExpertCatalogRow[]; readonly questions: readonly DigitalInterviewQuestion[]; readonly onChange: (questions: readonly DigitalInterviewQuestion[]) => void; readonly onConfirm: () => void }) {
-  const addQuestion = (expertId: string) => onChange([...questions, { questionId: `manual-${crypto.randomUUID()}`, expertId, order: questions.length + 1, text: "", purpose: "手动问题" }]);
-  return <div><h2 className="text-xl font-semibold">确认针对性问题</h2><div className="mt-4 space-y-4">{expertIds.map((expertId) => <section data-testid="itv-question-group" key={expertId} className="rounded-xl border border-border p-4"><h3 className="font-semibold">{candidates.find((candidate) => candidate.expertId === expertId)?.displayName ?? expertId}</h3>{questions.filter((question) => question.expertId === expertId).map((question) => <textarea key={question.questionId} rows={2} data-testid="itv-question-input" value={question.text} onChange={(event) => onChange(questions.map((candidate) => candidate.questionId === question.questionId ? { ...candidate, text: event.target.value } : candidate))} className="mt-3 w-full resize-y rounded-lg border border-input bg-background px-3 py-2 text-sm" />)}<Button type="button" variant="outline" size="sm" className="mt-3" onClick={() => addQuestion(expertId)}><Plus className="size-4" aria-hidden />添加问题</Button></section>)}</div><Button data-testid="itv-confirm-questions" className="mt-5" variant="primary" disabled={!questions.length || questions.some((question) => !question.text.trim())} onClick={onConfirm}>确认问题并进入访谈</Button></div>;
+function LiveQuestionStep({ expertIds, candidates, questions, learningGoals, moderatorPolicy, onPolicyChange, onChange, onConfirm }: { readonly expertIds: readonly string[]; readonly candidates: readonly DigitalExpertCatalogRow[]; readonly questions: readonly DigitalInterviewQuestion[]; readonly learningGoals: readonly { readonly goalId: string; readonly statement: string }[]; readonly moderatorPolicy: DigitalInterviewModeratorPolicy; readonly onPolicyChange: (policy: DigitalInterviewModeratorPolicy) => void; readonly onChange: (questions: readonly DigitalInterviewQuestion[]) => void; readonly onConfirm: () => void }) {
+  const addQuestion = (expertId: string) => onChange([...questions, { questionId: `manual-${crypto.randomUUID()}`, expertId, order: questions.length + 1, text: "", purpose: "手动问题", section: "core", goalIds: learningGoals[0] ? [learningGoals[0].goalId] : [] }]);
+  return <div><h2 className="text-xl font-semibold">设计访谈提纲</h2><p className="mt-2 text-sm text-muted-foreground">按热身、核心、反例和收尾组织；每题都应绑定学习目标。</p><div className="mt-4 space-y-4">{expertIds.map((expertId) => <section data-testid="itv-question-group" key={expertId} className="rounded-xl border border-border p-4"><h3 className="font-semibold">{candidates.find((candidate) => candidate.expertId === expertId)?.displayName ?? expertId}</h3>{questions.filter((question) => question.expertId === expertId).map((question) => <div key={question.questionId} className="mt-3 rounded-lg bg-muted/30 p-3"><div className="flex flex-wrap items-center gap-2"><select aria-label="问题分区" value={question.section} onChange={(event) => onChange(questions.map((candidate) => candidate.questionId === question.questionId ? { ...candidate, section: event.target.value as DigitalInterviewQuestion["section"] } : candidate))} className="rounded-md border border-input bg-background px-2 py-1 text-xs"><option value="warmup">热身</option><option value="core">核心</option><option value="counterexample">反例</option><option value="closing">收尾</option></select><select aria-label="学习目标" value={question.goalIds[0] ?? ""} onChange={(event) => onChange(questions.map((candidate) => candidate.questionId === question.questionId ? { ...candidate, goalIds: event.target.value ? [event.target.value] : [] } : candidate))} className="max-w-xs rounded-md border border-input bg-background px-2 py-1 text-xs"><option value="">选择学习目标</option>{learningGoals.map((goal) => <option key={goal.goalId} value={goal.goalId}>{goal.statement}</option>)}</select></div><textarea rows={2} data-testid="itv-question-input" value={question.text} onChange={(event) => onChange(questions.map((candidate) => candidate.questionId === question.questionId ? { ...candidate, text: event.target.value } : candidate))} className="mt-2 w-full resize-y rounded-lg border border-input bg-background px-3 py-2 text-sm" /></div>)}<Button type="button" variant="outline" size="sm" className="mt-3" onClick={() => addQuestion(expertId)}><Plus className="size-4" aria-hidden />添加问题</Button></section>)}</div>
+    <section className="mt-5 rounded-xl border border-border p-4"><h3 className="font-semibold">主持策略</h3><div className="mt-3 grid gap-3 text-sm md:grid-cols-2"><label>追问深度<select className="ml-2 rounded-md border border-input bg-background px-2 py-1" value={moderatorPolicy.probingDepth} onChange={(e) => onPolicyChange({ ...moderatorPolicy, probingDepth: e.target.value as DigitalInterviewModeratorPolicy["probingDepth"] })}><option value="light">轻</option><option value="balanced">平衡</option><option value="deep">深入</option></select></label><label>每题最多追问 <input className="ml-2 w-16 rounded-md border border-input px-2 py-1" type="number" min={0} max={10} value={moderatorPolicy.maxFollowUpsPerQuestion} onChange={(e) => onPolicyChange({ ...moderatorPolicy, maxFollowUpsPerQuestion: Number(e.target.value) })} /></label>{(["clarifyAmbiguity", "seekCounterexamples", "redirectOffTopic", "stopWhenGoalSatisfied"] as const).map((key) => <label key={key} className="flex items-center gap-2"><input type="checkbox" checked={moderatorPolicy[key]} onChange={(e) => onPolicyChange({ ...moderatorPolicy, [key]: e.target.checked })} />{{ clarifyAmbiguity: "澄清歧义", seekCounterexamples: "主动寻找反例", redirectOffTopic: "偏题时拉回", stopWhenGoalSatisfied: "目标满足后停止" }[key]}</label>)}</div></section>
+    <Button data-testid="itv-confirm-questions" className="mt-5" variant="primary" disabled={!questions.length || questions.some((question) => !question.text.trim() || !question.purpose.trim() || !question.goalIds.length)} onClick={onConfirm}>确认提纲并检查就绪度</Button></div>;
 }
 
 function LiveReadOnlyStep({ title, text }: { readonly title: string; readonly text: string }) { return <div><h2 className="text-xl font-semibold">{title}</h2><p className="mt-2 text-sm text-muted-foreground">{text}</p></div>; }
@@ -419,7 +466,13 @@ function LiveReportStep({ report, onViewSource }: { readonly report: NonNullable
   return <div id="itv-report-print-root" data-testid="itv-report"><div className="flex flex-wrap items-start justify-between gap-4"><div><h2 className="text-xl font-semibold">{report.title}</h2><p className="mt-3 leading-7 text-muted-foreground">{report.executiveSummary}</p></div><div className="flex flex-wrap gap-2 print:hidden"><Button data-testid="itv-report-export-word" type="button" variant="outline" onClick={() => void exportInterviewReportWord(report)}><FileText className="size-4" aria-hidden />导出 Word</Button><Button data-testid="itv-report-export-pdf" type="button" variant="outline" onClick={() => exportInterviewReportPdf("itv-report-print-root")}><Download className="size-4" aria-hidden />导出 PDF</Button></div></div><InterviewReportMarkdown markdown={reportMarkdownBody(report.title, report.markdown)} testId="itv-report-markdown" /><div className="mt-8 space-y-3"><h3 className="font-semibold">来源发现</h3>{report.findings.map((finding) => <article key={finding.findingId} className="rounded-lg border border-border p-4"><strong>{finding.title}</strong><p className="mt-2 text-sm leading-6 text-muted-foreground">{finding.summary}</p><button type="button" className="mt-3 text-xs font-medium text-primary print:hidden" onClick={() => onViewSource(finding.expertId, finding.questionId)}>查看原始回答</button></article>)}</div></div>;
 }
 
-function LiveReportGenerationStep({ generation }: { readonly generation: NonNullable<DigitalInterviewWorkflowView["reportGeneration"]> }) {
+function LiveReportGenerationStep({ generation, onRetry }: {
+  readonly generation: NonNullable<DigitalInterviewWorkflowView["reportGeneration"]>;
+  readonly onRetry: () => void;
+}) {
+  const failureMessage = generation.errorCode === "AI_GENERATION_UNAVAILABLE"
+    ? "模型服务暂时不可用或返回内容不完整。"
+    : "报告服务暂时不可用。";
   return <div data-testid="itv-report-generation">
     <div className="flex flex-wrap items-center justify-between gap-3">
       <h2 className="text-xl font-semibold">{generation.title ?? "正在生成访谈报告"}</h2>
@@ -432,7 +485,11 @@ function LiveReportGenerationStep({ generation }: { readonly generation: NonNull
       ? <InterviewReportMarkdown markdown={generation.markdown} testId="itv-report-stream-markdown" />
       : generation.status === "running" && <p className="mt-5 text-sm text-muted-foreground">模型正在整理第一段内容…</p>}
     {generation.findings.length > 0 && <div className="mt-8 space-y-3"><h3 className="font-semibold">已生成的来源发现</h3>{generation.findings.map((finding) => <article key={finding.findingId} className="rounded-lg border border-border p-4"><strong>{finding.title}</strong><p className="mt-2 text-sm leading-6 text-muted-foreground">{finding.summary}</p><p className="mt-3 text-xs text-muted-foreground">探索性发现 · 待真人验证</p></article>)}</div>}
-    {generation.status === "failed" && <p role="alert" className="mt-5 rounded-lg border border-destructive/20 bg-destructive/5 p-3 text-sm text-destructive">报告生成失败：{generation.errorCode ?? "DEPENDENCY_UNAVAILABLE"}。已生成内容和失败状态已保存，刷新后不会丢失。</p>}
+    {generation.status === "failed" && <div className="mt-5 rounded-lg border border-destructive/20 bg-destructive/5 p-4">
+      <p role="alert" className="text-sm text-destructive">{failureMessage} 已生成内容和失败状态已保存，刷新后不会丢失。</p>
+      <p className="mt-2 text-xs text-muted-foreground">错误代码：{generation.errorCode ?? "DEPENDENCY_UNAVAILABLE"}</p>
+      <Button data-testid="itv-retry-report" type="button" variant="outline" className="mt-3" onClick={onRetry}>重新生成报告</Button>
+    </div>}
   </div>;
 }
 

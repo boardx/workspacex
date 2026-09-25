@@ -19,10 +19,12 @@
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
+import { parse } from "yaml";
 
 const DEPLOY = resolve(import.meta.dirname, "deploy.sh");
 const COMPOSE = resolve(import.meta.dirname, "../../../apps/api/docker-compose.deploy.yml");
 const DEV_COMPOSE = resolve(import.meta.dirname, "../../../apps/api/docker-compose.dev.yml");
+const MINIO_IMAGE_COMPOSE = resolve(import.meta.dirname, "../../../apps/api/docker-compose.minio-image.yml");
 
 const deployText = readFileSync(DEPLOY, "utf8");
 const provisionText = readFileSync(resolve(import.meta.dirname, "provision.sh"), "utf8");
@@ -36,15 +38,15 @@ function composeUpLine(text: string): string {
 }
 
 describe("部署链必须把沙箱镜像重建成当前源码那一版", () => {
-  it("MinIO dev/deploy 使用同一个可用的 Quay 发布镜像", () => {
-    const image = (path: string) => {
-      const compose = readFileSync(path, "utf8");
-      const block = compose.slice(compose.indexOf("  minio:"), compose.indexOf("\n  redis:", compose.indexOf("  minio:")));
-      return block.match(/^    image: (\S+)$/m)?.[1];
-    };
-    const expected = "quay.io/minio/minio:RELEASE.2024-09-13T20-26-02Z";
-    expect(image(COMPOSE)).toBe(expected);
-    expect(image(DEV_COMPOSE)).toBe(expected);
+  it("MinIO dev/deploy 只引用同一个镜像事实源", () => {
+    const shared = parse(readFileSync(MINIO_IMAGE_COMPOSE, "utf8"));
+    expect(shared.services["minio-image"].image).toBeTruthy();
+    expect(["awaiting-controlled-mirror", "locked"]).toContain(shared["x-workspacex-minio-image"].status);
+    for (const path of [COMPOSE, DEV_COMPOSE]) {
+      const minio = parse(readFileSync(path, "utf8")).services.minio;
+      expect(minio.image).toBeUndefined();
+      expect(minio.extends).toEqual({ file: "docker-compose.minio-image.yml", service: "minio-image" });
+    }
   });
 
   it("① compose up 带 --build（否则镜像一旦存在就永远不再更新）", () => {

@@ -36,7 +36,7 @@ const screenTree = (label: string): designPrototype.PrototypeNode => ({
 
 function project(over: Partial<DesignProject> = {}): DesignProject {
   return {
-    id: "p1", name: "外卖下单", template: "mobile", theme: "dark", accent: "blue",
+    id: "p1", name: "外卖下单", template: "mobile", theme: "dark", accent: "blue", tokens: { brand: null, font: "sans", radius: "default", density: "default" },
     tags: [], refImages: [], share: null,
     problem: "内部立项背景", criteria: ["三步内下单"],
     frames: ["首页", "下单"], prototype: [screenTree("首页"), screenTree("下单")],
@@ -130,7 +130,7 @@ describe("分享链接地址", () => {
 
 function shared(over: Partial<SharedDesign> = {}): SharedDesign {
   return {
-    name: "外卖下单", template: "mobile", theme: "dark", accent: "blue",
+    name: "外卖下单", template: "mobile", theme: "dark", accent: "blue", tokens: { brand: null, font: "sans", radius: "default", density: "default" },
     frames: ["首页", "下单"], prototype: [screenTree("首页"), screenTree("下单")],
     frameNotes: ["首屏即可下单", ""],
     frameLinks: [[{ from: "btn-首页", to: 1 }], []],

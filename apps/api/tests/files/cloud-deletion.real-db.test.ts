@@ -85,7 +85,8 @@ it("serves real deletion HTTP routes with project authorization and the real gra
     expect(status.status).toBe(200); const progress = await status.json() as { status: string; receiptId: string | null; cascadeResults: { result: string }[] };
     expect(progress).toMatchObject({ status: "running", receiptId: null });
     expect(progress.cascadeResults).toHaveLength(6); expect(progress.cascadeResults.every(item => item.result === "ok")).toBe(true);
-    expect((await asApp(ORG, session => session.query("SELECT id FROM ontology_edges WHERE org_id=$1 AND id=$2", [ORG, "cloud-http-edge-3427"]))).rows).toHaveLength(0);
+    // Phase 18 F07：边软失效（行保留、status=invalidated），不再硬删（uc-18-5 R3-3 / R7-2）。
+    expect((await asApp(ORG, session => session.query("SELECT status FROM ontology_edges WHERE org_id=$1 AND id=$2", [ORG, "cloud-http-edge-3427"]))).rows).toEqual([{ status: "invalidated" }]);
     expect((await call(`/deletion-tasks/${created.taskId}`, "member")).status).toBe(403);
     expect((await call(`/deletion-tasks/${created.taskId}`, "other-tenant")).status).toBe(403);
     expect((await call(`/deletion-tasks/${created.taskId}/receipt`, "facilitator")).status).toBe(403);
@@ -105,8 +106,9 @@ it("invalidates both directions of graph edges and rejects foreign/mixed version
   await expect(cascade.invalidateOntologyEdges(ORG, { artifactId: id, versionIds: [`${id}-v1`, `${unrelated}-v1`] })).rejects.toThrow("ontology_version_scope_mismatch");
   const result = await cascade.invalidateOntologyEdges(ORG, { artifactId: id, versionIds: [`${id}-v1`] });
   expect([...result.invalidatedEdgeIds].sort()).toEqual(["cloud-edge-in-3427", "cloud-edge-out-3427"]);
-  expect((await asApp(ORG, session => session.query("SELECT id FROM ontology_edges WHERE org_id=$1 AND id=$2", [ORG, "cloud-edge-keep-3427"]))).rows).toHaveLength(1);
-  expect(await cascade.invalidateOntologyEdges(ORG, { artifactId: id, versionIds: [`${id}-v1`] })).toEqual({ invalidatedEdgeIds: [] });
+  expect((await asApp(ORG, session => session.query("SELECT status FROM ontology_edges WHERE org_id=$1 AND id=$2", [ORG, "cloud-edge-keep-3427"]))).rows).toEqual([{ status: "active" }]);
+  // 软失效：再调一次返回同一组 id（端口幂等），而不是空集
+  expect(await cascade.invalidateOntologyEdges(ORG, { artifactId: id, versionIds: [`${id}-v1`] })).toEqual({ invalidatedEdgeIds: ["cloud-edge-in-3427", "cloud-edge-out-3427"] });
 });
 
 it("purges eligible real file bytes, persists receipt transactionally, survives restart and respects holds", async () => {

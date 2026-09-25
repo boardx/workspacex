@@ -27,6 +27,7 @@ export type ProjectTemplate = z.infer<typeof designWorkbench.ProjectTemplate>;
 export type PrototypeAccent = z.infer<typeof designWorkbench.PrototypeAccent>;
 export type DesignProjectChatTurn = z.infer<typeof designWorkbench.DesignProjectChatTurn>;
 export type DesignProject = z.infer<typeof designWorkbench.DesignProject>;
+export type DesignTokens = z.infer<typeof designWorkbench.DesignTokens>;
 export type CreateProjectOut = z.infer<typeof designWorkbench.operations.createProject.out>;
 export type ListMyProjectsOut = z.infer<typeof designWorkbench.operations.listMyProjects.out>;
 export type UpdateProjectOut = z.infer<typeof designWorkbench.operations.updateProject.out>;
@@ -120,6 +121,8 @@ export async function updateProject(
     readonly theme?: "light" | "dark";
     /** 迭代 17：强调色档位。省略 = 不动（不是"改回 neutral"）。 */
     readonly accent?: PrototypeAccent;
+    /** 对标 R1：设计 token，按键合并（`brand: null` = 清掉品牌色）。 */
+    readonly tokens?: Partial<DesignTokens>;
     /** 迭代 13（delta §4）：**整份替换**标签。 */
     readonly tags?: readonly string[];
   },
@@ -281,6 +284,39 @@ export async function patchPrototype(projectId: string, ops: readonly PrototypeP
   return apiRequest<PatchPrototypeOut>(versionPath(designWorkbench.operations.patchPrototype.path, projectId), {
     method: "POST", body: { ops, ...(summary !== undefined ? { summary } : {}) },
   });
+}
+
+/* ── 对标 R9：同一页的几个方案（不写库；挑中后走 patchPrototype 的 replace） ── */
+export type ProposeVariantsOut = z.infer<typeof designWorkbench.operations.proposeVariants.out>;
+/** 深度 S9：`ask` 带上要几个、对方案的一句要求（都可省：服务端有缺省）。 */
+export async function proposeVariants(projectId: string, screen: number, ask: { readonly count?: number; readonly instruction?: string } = {}): Promise<ProposeVariantsOut> {
+  return apiRequest<ProposeVariantsOut>(versionPath(designWorkbench.operations.proposeVariants.path, projectId), {
+    method: "POST",
+    body: { screen, ...(ask.count !== undefined ? { count: ask.count } : {}), ...(ask.instruction !== undefined && ask.instruction !== "" ? { instruction: ask.instruction } : {}) },
+  });
+}
+
+/* ── 深度 S2：批注存在服务端（全组织可读可写，删除限作者或 owner） ── */
+export type DesignComment = z.infer<typeof designWorkbench.DesignComment>;
+const commentPath = (projectId: string, commentId?: string): string =>
+  `/pm-designs/${encodeURIComponent(projectId)}/comments${commentId === undefined ? "" : `/${encodeURIComponent(commentId)}`}`;
+export async function listDesignComments(projectId: string): Promise<{ items: DesignComment[] }> {
+  return apiRequest<{ items: DesignComment[] }>(commentPath(projectId));
+}
+export async function createDesignComment(
+  projectId: string,
+  c: { nodeId: string; frameIndex: number; label: string; text: string },
+): Promise<{ comment: DesignComment }> {
+  return apiRequest<{ comment: DesignComment }>(commentPath(projectId), { method: "POST", body: c });
+}
+export async function setDesignCommentResolved(projectId: string, commentId: string, resolved: boolean): Promise<{ comment: DesignComment }> {
+  return apiRequest<{ comment: DesignComment }>(commentPath(projectId, commentId), { method: "PATCH", body: { resolved } });
+}
+export async function replyToDesignComment(projectId: string, commentId: string, text: string): Promise<{ comment: DesignComment }> {
+  return apiRequest<{ comment: DesignComment }>(`${commentPath(projectId, commentId)}/replies`, { method: "POST", body: { text } });
+}
+export async function deleteDesignComment(projectId: string, commentId: string): Promise<void> {
+  await apiRequest<Record<string, never>>(commentPath(projectId, commentId), { method: "DELETE" });
 }
 
 /** 迭代 2：画布选中态用——契约里的路径查找与短标签，前端不另写遍历。 */

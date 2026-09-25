@@ -84,7 +84,7 @@ export default {
    * 影响其它任何路由或依赖包的 CSS 处理。`@copilotkit/react-ui/styles.css`
    * （`globals.css` 已引入的那份，见其头注）是完全独立的另一个包/文件，不受影响。
    */
-  webpack(config, { webpack }) {
+  webpack(config, { webpack, isServer }) {
     /**
      * #2926: `@copilotkit/runtime/v2` currently depends on
      * `@ai-sdk/google-vertex@3.x`, whose latest compatible
@@ -114,6 +114,20 @@ export default {
         join(__dirname, "lib/empty-copilotkit-v2-styles.css"),
       ),
     );
+    /**
+     * 深度 S8（#3988）：幻灯片导出在浏览器里用 pptxgenjs。它的 ES 构建在**只有 node 才走**的
+     * 写文件分支里 `import("node:fs")` / `import("node:https")`；包自己的 `browser` 字段已经把
+     * `fs` / `https` 映射成 false，但 webpack 先拒掉了 `node:` 这个 scheme，映射没机会生效，
+     * 整个 Next 构建就挂了。这里只对 pptxgenjs 发出的这两个请求去掉 `node:` 前缀、只在客户端
+     * 构建里——之后交给包自己的 `browser` 映射，别的依赖、服务端构建都不受影响。
+     */
+    if (!isServer) {
+      config.plugins.push(
+        new webpack.NormalModuleReplacementPlugin(/^node:(fs|https)$/, (resource) => {
+          if (/[\\/]pptxgenjs[\\/]/.test(resource.context ?? "")) resource.request = resource.request.slice("node:".length);
+        }),
+      );
+    }
     return config;
   },
   /**
@@ -322,11 +336,6 @@ export default {
       // `getInboxCounts`（`/inbox/counts`）——同一个坑的复现，理由同上面 `/feedback` 那条。
       { source: `${prefix}/inbox`, destination: `${apiOrigin}/inbox` },
       { source: `${prefix}/inbox/:path*`, destination: `${apiOrigin}/inbox/:path*` },
-      // issue #3676（投后评级 ad-hoc MVP）：`PostinvestRatingController` 只挂了一条
-      // `POST /postinvest-ratings/score`，没有裸路径，但仍需要 `:path*` 转发规则，
-      // 否则会被 Next 接住返回 404 HTML（前端拿到 `Unexpected token '<'`）——
-      // 同一个坑的复现，理由同上面 `/inbox` 那条。
-      { source: `${prefix}/postinvest-ratings/:path*`, destination: `${apiOrigin}/postinvest-ratings/:path*` },
       // UC-17.8 B4.3（PM 设计工作台）：`design-workbench.ts` 挂了裸 `/pm-designs`
       // 与 `/pm-designs/:projectId` 等——同一个坑的复现，理由同上面 `/inbox` 那条。
       { source: `${prefix}/pm-designs`, destination: `${apiOrigin}/pm-designs` },
@@ -406,6 +415,8 @@ export default {
       // 实测就是这么红了一次（步骤 8b，2026-08-05）。
       { source: `${prefix}/agent-runs/:path*`, destination: `${apiOrigin}/agent-runs/:path*` },
       { source: `${prefix}/agent-artifacts/:path*`, destination: `${apiOrigin}/agent-artifacts/:path*` },
+      // Phase 18 F09：会话知识面板 / 来源抽屉 / 每轮「已记下 N 条」读 API（漏了同上：404 HTML）。
+      { source: `${prefix}/knowledge-graph/:path*`, destination: `${apiOrigin}/knowledge-graph/:path*` },
       // #3282: the E2E notification center must reach the API collection and read action.
       { source: `${prefix}/schedule-notifications`, destination: `${apiOrigin}/schedule-notifications` },
       { source: `${prefix}/schedule-notifications/:path*`, destination: `${apiOrigin}/schedule-notifications/:path*` },

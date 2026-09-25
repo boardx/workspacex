@@ -366,7 +366,20 @@ describe("lint-permission-paths: counter-proof", () => {
     const draft = SurveyDraftInputSchema.parse({
       title: "Owner-only survey",
       questions: [{ id: "q", order: 1, chapterId: "s", type: "single", title: "Choice", required: true, options: ["yes", "no"] }],
-      template: { id: "private-template", title: SECRET, sections: [] },
+      template: {
+        id: "private-template",
+        title: SECRET,
+        sections: [{
+          id: "private-section",
+          title: "Private results",
+          blocks: [{
+            id: "private-block",
+            title: "Distribution",
+            type: "bar",
+            questionIds: ["q"],
+          }],
+        }],
+      },
     });
     let model = await service.create(orgId, "u-energy", draft);
     expect((await service.list(orgId, "u-energy")).map(row => row.id)).toContain(model.id);
@@ -1256,7 +1269,37 @@ describe("lint-permission-paths: counter-proof", () => {
     // expired/closed publication, claim rollback and claimed-file cleanup safety.
     // No ACL ObjectRef exists for a survey response. Remove this increment with
     // the exception if its capability/owner gates or those tests disappear.
-    expect(total - boundaryAudit.rules.length).toBeLessThanOrEqual(92);
+    // #4068 (D9) adds the instance telemetry health counter: two aggregate-only
+    // count(*) reads, no ObjectRef/actor. tests/telemetry/telemetry-no-content-tables.test.ts
+    // pins the whitelist, count-only SQL and personal-local join. Remove with that test.
+    // E3 adds pg-first-value-facts.ts (first-write-wins fact insert + SECURITY DEFINER
+    // report function that drops personal-local and never returns org ids), pinned by
+    // tests/first-value/first-value-repo-guard.test.ts. Remove with that test.
+    // Phase 18 F06 adds the knowledge-extraction pipeline read (pg-kg-extraction.ts):
+    // a system worker that feeds a chat message to the extraction model and writes the
+    // result back into the SAME thread's scope -- nothing is disclosed to a requester.
+    // Its shape is pinned by tests/knowledge-graph/extraction-repo-guard.test.ts.
+    // Remove this increment with the exception if that guard test disappears.
+    // Phase 18 F08 adds the per-turn knowledge recall read (pg-knowledge-recall.ts): same
+    // shape as the L3 pg-file-retrieval.ts entry -- the executor reads the run's OWN thread
+    // knowledge into the model context only. Pinned by tests/knowledge-graph/recall-repo-guard.test.ts.
+    // #3926 adds exactly one private whiteboard metadata repository (96 -> 97).
+    // Board owner/member roles are not an ACL ObjectRef; default org-wide ACL
+    // fallback would expose private boards. The exception is bounded to three
+    // tables and actor/owner SQL predicates by resource-repository-guard.test.ts,
+    // including mutation counterexamples. Real PostgreSQL + HTTP evidence is the
+    // 11 passing tests in whiteboard/resource-{lifecycle,http}.test.ts: nonmember,
+    // cross-tenant identity, viewer/editor administration, revocation and auth guard.
+    // Remove this increment and its allowlist entry if those protections disappear.
+    // issue #4178 adds pg-kg-org-extraction-settings.ts (97 -> 98): the org-level
+    // memory-extraction toggle. `kg_org_extraction_settings` carries one boolean per
+    // org, no conversation content, no ObjectRef to guard() against; the real write
+    // decision (org admin only) is enforced one layer up, in
+    // knowledge-graph.controller.ts's setExtractionSetting, before setEnabled is
+    // ever called -- same shape as the #3068 and E3 entries above. Pinned by
+    // tests/knowledge-graph/org-extraction-settings-repo-guard.test.ts. Remove this
+    // increment with the exception if that guard test disappears.
+    expect(total - boundaryAudit.rules.length).toBeLessThanOrEqual(98);
 
     const src = readFileSync(
       fileURLToPath(new URL("../../scripts/lint-permission-paths.mjs", import.meta.url)),

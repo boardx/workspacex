@@ -23,6 +23,8 @@ import type { UiState } from "@/lib/ui-state";
 import { openBoardxRealtimeAsr, type BoardxRealtimeAsrHandle } from "@/lib/BoardxRealtimeAsrClient";
 import { LiveRecordingError } from "@/lib/live-recording";
 import type { RealtimeAsrFinalEvent, RealtimeAsrStreamState } from "@/lib/realtime-asr.types";
+import type { RealtimeAsrFlowState } from "@/lib/realtime-asr-flow";
+import { useAudioInputDevices } from "@/lib/use-audio-input-devices";
 import type { TranscriptionHistoryItem } from "@/lib/mock/realtime-transcriptions";
 import { CreateTranscriptionDialog, type NewTranscriptionDraft } from "./create-transcription-dialog";
 import { DeleteTranscriptionDialog } from "./delete-transcription-dialog";
@@ -62,8 +64,11 @@ export function TranscriptionHistory({ uiState }: { uiState: UiState }) {
   const [notice, setNotice] = React.useState<string | null>(null);
   const [activeSession, setActiveSession] = React.useState<PersonalTranscriptionDetail | null>(null);
   const [streamState, setStreamState] = React.useState<RealtimeAsrStreamState>("idle");
+  const [flowState, setFlowState] = React.useState<RealtimeAsrFlowState>("normal");
   const [interimSegment, setInterimSegment] = React.useState("");
   const [streamError, setStreamError] = React.useState<string | null>(null);
+  const [inputLevel, setInputLevel] = React.useState(0);
+  const micDevices = useAudioInputDevices();
   const streamRef = React.useRef<BoardxRealtimeAsrHandle | null>(null);
   const stoppingRef = React.useRef(false);
   const receivedFinalIdsRef = React.useRef(new Set<string>());
@@ -152,11 +157,14 @@ export function TranscriptionHistory({ uiState }: { uiState: UiState }) {
     if (!activeSession || streamRef.current || stoppingRef.current || streamState === "connecting") return;
     setStreamError(null);
     setInterimSegment("");
+    setFlowState("normal");
+    setInputLevel(0);
     receivedFinalIdsRef.current.clear();
     setStreamState("connecting");
     try {
       streamRef.current = await openBoardxRealtimeAsr(activeSession.sessionId, {
         sessionToken,
+        deviceId: micDevices.selectedDeviceId ?? undefined,
         handlers: {
           onState: (state) => setStreamState(stoppingRef.current && state === "idle" ? "stopping" : state),
           onInterim: setInterimSegment,
@@ -166,7 +174,10 @@ export function TranscriptionHistory({ uiState }: { uiState: UiState }) {
             setInterimSegment("");
             setActiveSession((current) => appendFinalEvent(current, event));
           },
+          onLevel: setInputLevel,
+          onFlow: (event) => setFlowState(event.state),
           onError: (reason) => {
+            setInputLevel(0);
             setStreamError(streamErrorText(reason));
             streamRef.current = null;
           },
@@ -200,6 +211,7 @@ export function TranscriptionHistory({ uiState }: { uiState: UiState }) {
     stoppingRef.current = true;
     setStreamError(null);
     setStreamState("stopping");
+    setInputLevel(0);
     try {
       await handle.stop();
     } catch (error) {
@@ -254,7 +266,9 @@ export function TranscriptionHistory({ uiState }: { uiState: UiState }) {
 
   if (activeSession) {
     return <RealtimeTranscriptionWorkspace session={activeSession} streamState={streamState}
-      interimSegment={interimSegment} errorMessage={streamError}
+      interimSegment={interimSegment} flowState={flowState} errorMessage={streamError}
+      inputLevel={inputLevel} devices={micDevices.devices} selectedDeviceId={micDevices.selectedDeviceId}
+      onSelectDevice={micDevices.select}
       onStart={() => void startRealtimeTranscription()} onStop={() => void stopRealtimeTranscription()}
       onSaveContent={saveContent}
       onBack={() => { if (!streamRef.current && !stoppingRef.current) setActiveSession(null); }} />;

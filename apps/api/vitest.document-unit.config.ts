@@ -9,6 +9,7 @@ export default defineConfig({
       'tests/agent-runtime/standard-document-tools.test.ts',
       'tests/agent-runtime/chat-skill-script-execution.test.ts',
       'tests/chat/anydoc-attachment-to-markdown.test.ts',
+      'tests/itv/digital-interview-research-quality.test.ts',
     ],
     environment:'node',
   },

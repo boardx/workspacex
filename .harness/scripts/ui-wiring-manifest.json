@@ -7,7 +7,7 @@
     "人类字段（note/reason/ratchet.maxMockRoutes/previewPrefixes/nonApiAdapters）才是手写的。"
   ],
   "ratchet": {
-    "maxMockRoutes": 36,
+    "maxMockRoutes": 35,
     "frozenAt": "2026-09-21",
     "issue": 397,
     "note": "冻结上限 = 落地当天实测的 mock 驱动产品路由条数。要抬高它，就得在 PR 里显式改这个数字——一次可 grep 的回退，而不是悄悄多一条。"
@@ -32,10 +32,6 @@
     {
       "prefix": "/chat/copilotkit-preview",
       "reason": "#654 阶段 1a 的独立预览路由，刻意不挂在 /chat 生产入口下。"
-    },
-    {
-      "prefix": "/studio/board",
-      "reason": "#3902 UI-first Board interaction preview: visible unsaved notice, no board backend. Remove this classification when the signed whiteboard API is wired; do not classify session APIs as board persistence."
     }
   ],
   "nonApiAdapters": [
@@ -576,6 +572,21 @@
       "useCases": [
         "agent-run/tool-permission-grants"
       ]
+    },
+    "WhiteboardController": {
+      "useCases": [],
+      "note": "Resource metadata CRUD: direct typed repository port; tenant and owner/member predicates are enforced atomically in PgWhiteboardRepository, validated by real PostgreSQL and HTTP negative tests (#3926). Content collaboration is a separate use case."
+    },
+    "KnowledgeGraphController": {
+      "useCases": [
+        "chat/resolve-visibility",
+        "knowledge-graph/act-on-memory-card",
+        "knowledge-graph/apply-human-action",
+        "knowledge-graph/ids",
+        "knowledge-graph/promote-to-personal",
+        "knowledge-graph/read-personal-knowledge",
+        "knowledge-graph/read-thread-knowledge"
+      ]
     }
   },
   "routes": {
@@ -650,10 +661,59 @@
       "screen": "apps/web/app/(entry)/auth/verify-email/page.tsx"
     },
     "/brain": {
-      "kind": "mock",
+      "kind": "wired",
       "screen": "apps/web/app/brain/page.tsx",
-      "mocks": [
-        "apps/web/lib/mock/brain.ts"
+      "adapters": [
+        "apps/web/lib/live-asr-draft.ts",
+        "apps/web/lib/live-chat.ts",
+        "apps/web/lib/live-feedback.ts",
+        "apps/web/lib/live-org-admin.ts",
+        "apps/web/lib/live-platform-access.ts",
+        "apps/web/lib/live-projects.ts",
+        "apps/web/lib/live-recording.ts"
+      ],
+      "contracts": [
+        "agent-defaults",
+        "artifact",
+        "chat",
+        "chat-file-upload",
+        "chat-knowledge-graph",
+        "design-workbench",
+        "feedback-loop",
+        "identity",
+        "org-admin",
+        "plan-permissions",
+        "platform-members",
+        "project"
+      ],
+      "controllers": [
+        "AgentRunController",
+        "ArtifactBindingController",
+        "ArtifactReferenceController",
+        "CapabilityController",
+        "ChatAttachmentController",
+        "ChatController",
+        "ChatFollowUpSuggestionsController",
+        "CheckinBoardController",
+        "CopilotkitAguiController",
+        "DesignWorkbenchController",
+        "DeviceSessionController",
+        "DocumentGenerationAutoApproveController",
+        "EvidenceWithdrawalController",
+        "FeedbackController",
+        "IdentityController",
+        "KernelProbeController",
+        "KnowledgeGraphController",
+        "LocalExportController",
+        "LocalOrgController",
+        "OrgAdminManagementController",
+        "OrgAdminScopeController",
+        "OrgInviteController",
+        "OrgInviteLinkController",
+        "PlatformAccessController",
+        "ProjectController",
+        "PublicDesignShareController",
+        "ToolPermissionGrantController"
       ]
     },
     "/canvas": {
@@ -695,6 +755,7 @@
         "canvas",
         "chat",
         "chat-file-upload",
+        "chat-knowledge-graph",
         "design-workbench",
         "feedback-loop",
         "files",
@@ -733,6 +794,7 @@
         "FilesRetentionController",
         "IdentityController",
         "KernelProbeController",
+        "KnowledgeGraphController",
         "LocalExportController",
         "LocalOrgController",
         "MessageRatingController",
@@ -776,6 +838,7 @@
         "canvas",
         "chat",
         "chat-file-upload",
+        "chat-knowledge-graph",
         "design-workbench",
         "feedback-loop",
         "files",
@@ -814,6 +877,7 @@
         "FilesRetentionController",
         "IdentityController",
         "KernelProbeController",
+        "KnowledgeGraphController",
         "LocalExportController",
         "LocalOrgController",
         "MessageRatingController",
@@ -986,6 +1050,7 @@
         "canvas",
         "chat",
         "chat-file-upload",
+        "chat-knowledge-graph",
         "design-workbench",
         "feedback-loop",
         "files",
@@ -1024,6 +1089,7 @@
         "FilesRetentionController",
         "IdentityController",
         "KernelProbeController",
+        "KnowledgeGraphController",
         "LocalExportController",
         "LocalOrgController",
         "MessageRatingController",
@@ -1294,6 +1360,7 @@
         "artifact",
         "chat",
         "chat-file-upload",
+        "chat-knowledge-graph",
         "design-workbench",
         "feedback-loop",
         "identity",
@@ -1320,6 +1387,7 @@
         "FeedbackController",
         "IdentityController",
         "KernelProbeController",
+        "KnowledgeGraphController",
         "LocalExportController",
         "LocalOrgController",
         "OrgAdminManagementController",
@@ -1423,6 +1491,10 @@
       "kind": "preview",
       "screen": "apps/web/app/preview/chat-file-upload/page.tsx"
     },
+    "/preview/chat-knowledge-graph": {
+      "kind": "preview",
+      "screen": "apps/web/app/preview/chat-knowledge-graph/page.tsx"
+    },
     "/preview/chat-viz": {
       "kind": "preview",
       "screen": "apps/web/app/preview/chat-viz/page.tsx"
@@ -1469,6 +1541,7 @@
         "artifact",
         "chat",
         "chat-file-upload",
+        "chat-knowledge-graph",
         "design-workbench",
         "feedback-loop",
         "identity",
@@ -1494,6 +1567,7 @@
         "FeedbackController",
         "IdentityController",
         "KernelProbeController",
+        "KnowledgeGraphController",
         "LocalExportController",
         "LocalOrgController",
         "OrgAdminManagementController",
@@ -1556,6 +1630,7 @@
         "artifact",
         "chat",
         "chat-file-upload",
+        "chat-knowledge-graph",
         "design-workbench",
         "feedback-loop",
         "identity",
@@ -1581,6 +1656,7 @@
         "FeedbackController",
         "IdentityController",
         "KernelProbeController",
+        "KnowledgeGraphController",
         "LocalExportController",
         "LocalOrgController",
         "OrgAdminManagementController",
@@ -1651,8 +1727,63 @@
       ]
     },
     "/studio/board": {
-      "kind": "preview",
-      "screen": "apps/web/app/studio/board/page.tsx"
+      "kind": "wired",
+      "screen": "apps/web/app/studio/board/page.tsx",
+      "adapters": [
+        "apps/web/lib/live-asr-draft.ts",
+        "apps/web/lib/live-chat.ts",
+        "apps/web/lib/live-feedback.ts",
+        "apps/web/lib/live-org-admin.ts",
+        "apps/web/lib/live-platform-access.ts",
+        "apps/web/lib/live-projects.ts",
+        "apps/web/lib/live-recording.ts",
+        "apps/web/lib/live-whiteboard.ts"
+      ],
+      "contracts": [
+        "agent-defaults",
+        "artifact",
+        "chat",
+        "chat-file-upload",
+        "chat-knowledge-graph",
+        "design-workbench",
+        "feedback-loop",
+        "identity",
+        "org-admin",
+        "plan-permissions",
+        "platform-members",
+        "project",
+        "whiteboard"
+      ],
+      "controllers": [
+        "AgentRunController",
+        "ArtifactBindingController",
+        "ArtifactReferenceController",
+        "CapabilityController",
+        "ChatAttachmentController",
+        "ChatController",
+        "ChatFollowUpSuggestionsController",
+        "CheckinBoardController",
+        "CopilotkitAguiController",
+        "DesignWorkbenchController",
+        "DeviceSessionController",
+        "DocumentGenerationAutoApproveController",
+        "EvidenceWithdrawalController",
+        "FeedbackController",
+        "IdentityController",
+        "KernelProbeController",
+        "KnowledgeGraphController",
+        "LocalExportController",
+        "LocalOrgController",
+        "OrgAdminManagementController",
+        "OrgAdminScopeController",
+        "OrgInviteController",
+        "OrgInviteLinkController",
+        "PlatformAccessController",
+        "ProjectController",
+        "PublicDesignShareController",
+        "ToolPermissionGrantController",
+        "WhiteboardController"
+      ]
     },
     "/studio/design-workbench": {
       "kind": "wired",
@@ -1673,6 +1804,7 @@
         "artifact",
         "chat",
         "chat-file-upload",
+        "chat-knowledge-graph",
         "design-ai-collab",
         "design-prototype",
         "design-workbench",
@@ -1702,6 +1834,7 @@
         "IdentityController",
         "InboxController",
         "KernelProbeController",
+        "KnowledgeGraphController",
         "LocalExportController",
         "LocalOrgController",
         "OrgAdminManagementController",
@@ -1758,6 +1891,7 @@
         "artifact",
         "chat",
         "chat-file-upload",
+        "chat-knowledge-graph",
         "design-workbench",
         "feedback-loop",
         "identity",
@@ -1783,6 +1917,7 @@
         "FeedbackController",
         "IdentityController",
         "KernelProbeController",
+        "KnowledgeGraphController",
         "LocalExportController",
         "LocalOrgController",
         "OrgAdminManagementController",
@@ -1831,6 +1966,7 @@
         "artifact",
         "chat",
         "chat-file-upload",
+        "chat-knowledge-graph",
         "design-workbench",
         "feedback-loop",
         "identity",
@@ -1856,6 +1992,7 @@
         "FeedbackController",
         "IdentityController",
         "KernelProbeController",
+        "KnowledgeGraphController",
         "LocalExportController",
         "LocalOrgController",
         "OrgAdminManagementController",
@@ -1885,6 +2022,7 @@
         "artifact",
         "chat",
         "chat-file-upload",
+        "chat-knowledge-graph",
         "design-workbench",
         "feedback-loop",
         "identity",
@@ -1910,6 +2048,7 @@
         "FeedbackController",
         "IdentityController",
         "KernelProbeController",
+        "KnowledgeGraphController",
         "LocalExportController",
         "LocalOrgController",
         "OrgAdminManagementController",
@@ -1939,6 +2078,7 @@
         "artifact",
         "chat",
         "chat-file-upload",
+        "chat-knowledge-graph",
         "design-workbench",
         "feedback-loop",
         "identity",
@@ -1964,6 +2104,7 @@
         "FeedbackController",
         "IdentityController",
         "KernelProbeController",
+        "KnowledgeGraphController",
         "LocalExportController",
         "LocalOrgController",
         "OrgAdminManagementController",
@@ -1993,6 +2134,7 @@
         "artifact",
         "chat",
         "chat-file-upload",
+        "chat-knowledge-graph",
         "design-workbench",
         "feedback-loop",
         "identity",
@@ -2018,6 +2160,7 @@
         "FeedbackController",
         "IdentityController",
         "KernelProbeController",
+        "KnowledgeGraphController",
         "LocalExportController",
         "LocalOrgController",
         "OrgAdminManagementController",

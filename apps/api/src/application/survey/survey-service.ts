@@ -16,7 +16,16 @@ import type {
   SurveyRuntime,
   SurveySubmissionInput,
 } from "@repo/contracts/survey-runtime";
+import type {
+  SurveyAnonymity,
+  SurveyPublishBlocker,
+} from "@repo/contracts/survey";
 import type { OrgId } from "../../domain/org-id";
+import { evaluateSurveyForPublish } from "../../domain/survey/publish-gate";
+import {
+  InvalidSurveyTransitionError,
+  transitionSurveyStatus,
+} from "../../domain/survey/state-machine";
 
 export interface SurveyRecord {
   ownerId: string;
@@ -63,12 +72,40 @@ export class SurveyError extends Error {
       | "invalid_answers"
       | "submission_conflict"
       | "invalid_report"
-      | "capacity_reached",
+      | "capacity_reached"
+      | "invalid_transition"
+      | "publish_blocked"
+      | "anonymity_immutable"
+      | "status_command_required",
   ) {
     super(code);
   }
 }
+export class SurveyPublishBlockedError extends SurveyError {
+  constructor(readonly blockers: SurveyPublishBlocker[]) {
+    super("publish_blocked");
+  }
+}
 const hash = (value: string) => createHash("sha256").update(value).digest();
+const withoutCertification = (question: SurveyDraftInput["questions"][number]) => ({
+  ...question,
+  ...(question.provenance
+    ? { provenance: { ...question.provenance, certifiedAt: undefined } }
+    : {}),
+});
+const preserveTrustedCertification = (
+  questions: SurveyDraftInput["questions"],
+  previous: SurveyDraftInput["questions"] = [],
+) => questions.map((question) => {
+  const prior = previous.find((item) => item.id === question.id);
+  const certifiedAt = prior?.provenance?.certifiedAt &&
+    isDeepStrictEqual(withoutCertification(prior), withoutCertification(question))
+    ? prior.provenance.certifiedAt
+    : undefined;
+  return question.provenance
+    ? { ...question, provenance: { ...question.provenance, certifiedAt } }
+    : question;
+});
 export class SurveyService {
   constructor(
     private readonly repo: SurveyRepository,
@@ -79,6 +116,13 @@ export class SurveyService {
     // provenance stays null so an old snapshot is conservatively shown as stale.
     model.answerRevision ??= 0;
     model.reportBasisAnswerRevision ??= null;
+    model.status ??=
+      model.publication?.status === "closed"
+        ? "closed"
+        : model.publication
+          ? "collecting"
+          : "draft";
+    model.anonymity ??= "anonymous";
     return model;
   }
   private transact<T>(
@@ -99,11 +143,19 @@ export class SurveyService {
       this.revisions(model),
     );
   }
-  async create(orgId: OrgId, actor: string, input: SurveyDraftInput) {
+  async create(
+    orgId: OrgId,
+    actor: string,
+    input: SurveyDraftInput,
+    anonymity: SurveyAnonymity = "anonymous",
+  ) {
     const model: SurveyRuntime = {
       ...input,
+      questions: preserveTrustedCertification(input.questions),
       id: randomUUID(),
       version: 1,
+      status: "draft",
+      anonymity,
       answerRevision: 0,
       updatedAt: this.now().toISOString(),
       responses: [],
@@ -151,13 +203,104 @@ export class SurveyService {
     id: string,
     version: number,
     input: SurveyDraftInput,
+    forbidden: {
+      anonymity?: SurveyAnonymity;
+      status?: SurveyRuntime["status"];
+    } = {},
   ) {
     return this.change(orgId, actor, id, version, (m) => {
+      if (forbidden.anonymity !== undefined)
+        throw new SurveyError("anonymity_immutable");
+      if (forbidden.status !== undefined)
+        throw new SurveyError("status_command_required");
       if (m.publication && !isDeepStrictEqual(m.questions, input.questions))
         throw new SurveyError("closed");
+      const contentChanged =
+        m.title !== input.title ||
+        !isDeepStrictEqual(m.questions, input.questions) ||
+        !isDeepStrictEqual(m.template, input.template);
+      if (m.status === "ready" && contentChanged) {
+        m.status = transitionSurveyStatus(m.status, "withdraw");
+      }
       m.title = input.title;
-      m.questions = input.questions;
+      m.questions = preserveTrustedCertification(input.questions, m.questions);
       m.template = input.template;
+    });
+  }
+  prepare(
+    orgId: OrgId,
+    actor: string,
+    id: string,
+    version: number,
+  ) {
+    return this.change(orgId, actor, id, version, (model) => {
+      const blockers = evaluateSurveyForPublish(model);
+      if (blockers.length) throw new SurveyPublishBlockedError(blockers);
+      if (validateSurveyQuestions(model.questions).length)
+        throw new SurveyError("invalid_survey");
+      try {
+        model.status = transitionSurveyStatus(model.status, "prepare");
+      } catch (error) {
+        if (error instanceof InvalidSurveyTransitionError)
+          throw new SurveyError("invalid_transition");
+        throw error;
+      }
+    });
+  }
+  withdraw(orgId: OrgId, actor: string, id: string, version: number) {
+    return this.change(orgId, actor, id, version, (model) => {
+      try {
+        model.status = transitionSurveyStatus(model.status, "withdraw");
+      } catch (error) {
+        if (error instanceof InvalidSurveyTransitionError)
+          throw new SurveyError("invalid_transition");
+        throw error;
+      }
+    });
+  }
+  private startPublication(
+    orgId: OrgId,
+    model: SurveyRuntime,
+    expiresAt?: string,
+  ) {
+    const end = expiresAt
+      ? new Date(expiresAt)
+      : new Date(this.now().getTime() + 30 * 86400000);
+    if (end.getTime() <= this.now().getTime())
+      throw new SurveyError("expired");
+    const token = `${Buffer.from(JSON.stringify([orgId, model.id])).toString("base64url")}.${randomBytes(32).toString("base64url")}`;
+    model.publication = {
+      token,
+      status: "collecting",
+      questions: structuredClone(model.questions),
+      version: model.version,
+      expiresAt: end.toISOString(),
+    };
+  }
+  startCollection(
+    orgId: OrgId,
+    actor: string,
+    id: string,
+    version: number,
+    expiresAt?: string,
+  ) {
+    return this.change(orgId, actor, id, version, (model) => {
+      try {
+        const collectingStatus = transitionSurveyStatus(
+          model.status,
+          "startCollection",
+        );
+        const blockers = evaluateSurveyForPublish(model);
+        if (blockers.length) throw new SurveyPublishBlockedError(blockers);
+        if (validateSurveyQuestions(model.questions).length)
+          throw new SurveyError("invalid_survey");
+        model.status = collectingStatus;
+      } catch (error) {
+        if (error instanceof InvalidSurveyTransitionError)
+          throw new SurveyError("invalid_transition");
+        throw error;
+      }
+      this.startPublication(orgId, model, expiresAt);
     });
   }
   publish(
@@ -169,32 +312,31 @@ export class SurveyService {
   ) {
     return this.change(orgId, actor, id, version, (m) => {
       if (m.publication) throw new SurveyError("closed");
-      if (
-        !m.questions.some(
-          (q) => !["description", "page_break"].includes(q.type),
-        ) ||
-        validateSurveyQuestions(m.questions).length
-      )
+      const blockers = evaluateSurveyForPublish(m);
+      if (blockers.length) throw new SurveyPublishBlockedError(blockers);
+      if (validateSurveyQuestions(m.questions).length)
         throw new SurveyError("invalid_survey");
-      const end = expiresAt
-        ? new Date(expiresAt)
-        : new Date(this.now().getTime() + 30 * 86400000);
-      if (end.getTime() <= this.now().getTime())
-        throw new SurveyError("expired");
-      // Locator is untrusted routing only: the 256-bit secret is checked before any disclosure.
-      const token = `${Buffer.from(JSON.stringify([orgId, m.id])).toString("base64url")}.${randomBytes(32).toString("base64url")}`;
-      m.publication = {
-        token,
-        status: "collecting",
-        questions: structuredClone(m.questions),
-        version: m.version,
-        expiresAt: end.toISOString(),
-      };
+      try {
+        const ready = transitionSurveyStatus(m.status, "prepare");
+        m.status = transitionSurveyStatus(ready, "startCollection");
+      } catch (error) {
+        if (error instanceof InvalidSurveyTransitionError)
+          throw new SurveyError("invalid_transition");
+        throw error;
+      }
+      this.startPublication(orgId, m, expiresAt);
     });
   }
   close(orgId: OrgId, actor: string, id: string, version: number) {
     return this.change(orgId, actor, id, version, (m) => {
       if (!m.publication) throw new SurveyError("closed");
+      try {
+        m.status = transitionSurveyStatus(m.status, "close");
+      } catch (error) {
+        if (error instanceof InvalidSurveyTransitionError)
+          throw new SurveyError("invalid_transition");
+        throw error;
+      }
       m.publication.status = "closed";
     });
   }

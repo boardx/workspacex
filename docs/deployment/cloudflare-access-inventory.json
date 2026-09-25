@@ -1,0 +1,54 @@
+{
+  "$comment": [
+    "Cloudflare Access 仓库侧清单（backlog D6 的仓库半边 / D7）。由 .harness/scripts/lint-cf-access.mjs 机械核对。",
+    "边缘的权威在 Cloudflare 控制台（Zero Trust → Access → Applications）；本文件是「仓库期望」，两边不一致即事故。",
+    "每个带 wrangler.toml 的 apps/* 必须在 apps 里登记（protected 或 public）——新加应用不登记即红，默认落在严格的一侧。",
+    "protected 应用必须：依赖并 import @repo/coord-access（唯一校验实现）、wrangler.toml [vars] 声明 aud_var 与 team_var（占位值可，运行时 fail-closed）。"
+  ],
+  "reconcile": [
+    "1. 控制台 Zero Trust → Access → Applications：逐个核对下面 behind_access=true 的 host+path 都有对应 Access 应用覆盖，且策略只放行预期身份（邮箱域 / GitHub 组织）。",
+    "2. 取每个应用的 Application Audience (AUD) Tag，填进对应 wrangler.toml 的 aud_var（替换占位值 / 空串）；团队域名填 team_var。",
+    "3. 核对 behind_access=false 的路径：确认控制台里**没有**覆盖它们的 Access 应用，或有 Bypass 策略（例如 ops-telemetry 的 /v1/report 是机器上报，不能要求交互登录）。",
+    "4. 控制台里存在但本文件没有的 Access 应用 → 要么补登记，要么在控制台删除；不留孤儿。",
+    "5. 部署后冒烟：对每个 protected 应用，不带 Cf-Access-Jwt-Assertion 直连源站（*.workers.dev / *.pages.dev）应得 401/403/503 或未登录态，绝不能拿到数据。"
+  ],
+  "apps": {
+    "apps/devportal": {
+      "access": "protected",
+      "aud_var": "CF_ACCESS_AUD",
+      "team_var": "CF_ACCESS_TEAM_DOMAIN",
+      "console_application": "develop.boardx.us",
+      "hosts": [
+        { "host": "develop.boardx.us", "paths": ["/*"], "behind_access": true, "note": "Access 是 OAuth 之外的回退身份通道；未配 AUD 时 Access 通道 fail-closed，OAuth 不受影响" },
+        { "host": "$DEVPORTAL_PUBLIC_HOST", "paths": ["/explore/*", "/projects/*", "/u/*", "/a/*"], "behind_access": false, "note": "公开层独立主机名（D13），不得挂 Access" },
+        { "host": "*.pages.dev", "paths": ["/*"], "behind_access": false, "note": "直连不经 Access——这正是应用必须自己验签的原因" }
+      ]
+    },
+    "apps/ops-console": {
+      "access": "protected",
+      "aud_var": "ACCESS_AUD",
+      "team_var": "ACCESS_TEAM_DOMAIN",
+      "console_application": "TBD（人类建 Access 应用与自定义域后填）",
+      "hosts": [
+        { "host": "TBD", "paths": ["/api/ops/*"], "behind_access": true, "note": "workers_dev = false；/api/ops/healthz 在 Worker 内不验 JWT，但边缘仍应在 Access 后" }
+      ]
+    },
+    "apps/ops-telemetry": {
+      "access": "protected",
+      "aud_var": "ACCESS_AUD",
+      "team_var": "ACCESS_TEAM_DOMAIN",
+      "console_application": "TBD（人类建 Access 应用后填）",
+      "hosts": [
+        { "host": "TBD", "paths": ["/fleet", "/api/*"], "behind_access": true },
+        { "host": "TBD", "paths": ["/v1/report"], "behind_access": false, "note": "客户实例出站上报，必须 Bypass / 不在 Access 应用覆盖范围内" }
+      ]
+    },
+    "apps/coord-gateway": {
+      "access": "public",
+      "reason": "GitHub webhook 与 agent API 不能要求交互式登录；鉴权靠 webhook 签名与 COORD_* token（src/auth.ts）",
+      "hosts": [
+        { "host": "workspacex-coord-gateway.boardx.workers.dev", "paths": ["/*"], "behind_access": false }
+      ]
+    }
+  }
+}

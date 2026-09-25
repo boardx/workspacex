@@ -1,3 +1,6 @@
+import { WhiteboardController } from './interface/controllers/whiteboard.controller';
+import { WHITEBOARD_REPOSITORY } from './application/whiteboard/ports';
+import { PgWhiteboardRepository } from './infrastructure/whiteboard/pg-whiteboard-repository';
 import { SurveyAttachmentRateLimitGuard, SURVEY_ATTACHMENT_RATE_LIMITER, SURVEY_ATTACHMENT_REQUESTS_PER_MINUTE } from "./interface/guards/survey-attachment-rate-limit.guard";
 import { SurveyUploadCapabilityGuard, SurveyAttachmentController } from "./interface/controllers/survey-attachment.controller";
 import { PgSurveyAttachmentRepository } from "./infrastructure/survey/pg-survey-attachment-repository";
@@ -107,6 +110,7 @@ import { ModelGuidedResearchCheckpointGenerator } from "./application/research/m
 import { GUIDED_RUNTIME_STORE, GUIDED_SEARCH_PORT, GUIDED_RUNTIME_SERVICE, type GuidedRuntimeStore, type GuidedSearchPort } from "./application/research/guided-runtime-ports";
 import { GuidedRuntimeService } from "./application/research/guided-runtime-service";
 import { PgGuidedRuntimeStore } from "./infrastructure/research/pg-guided-runtime-store";
+import { PgGuidedInternalSourceAccess } from "./infrastructure/research/pg-guided-internal-source-access";
 import { GoogleGuidedSearch } from "./infrastructure/research/google-guided-search";
 /**
  * Composition root -- deliberately NOT part of any layer.
@@ -197,8 +201,8 @@ import { IdentityController } from "./interface/controllers/identity.controller"
 // by a use case, because it patches `net.Socket.prototype.connect` for the whole process --
 // that is a deployment decision, and the composition root is where deployment decisions live.
 import { LocalOrgController } from "./interface/controllers/local-org.controller";
-import { EGRESS_GUARD, EXPORT_TRANSPORT, LOCAL_MODEL_RUNTIME } from "./application/identity/local-org-ports";
-import { ProcessEgressGuard } from "./infrastructure/egress/local-egress-guard";
+import { EGRESS_GUARD, EGRESS_LEDGER, EXPORT_TRANSPORT, LOCAL_MODEL_RUNTIME } from "./application/identity/local-org-ports";
+import { ProcessEgressGuard, ProcessEgressLedger } from "./infrastructure/egress/local-egress-guard";
 import { HttpLocalModelRuntime } from "./infrastructure/identity/http-local-model-runtime";
 // F17: 隐私承诺的唯一豁口。
 import { LocalExportController } from "./interface/controllers/local-export.controller";
@@ -492,7 +496,6 @@ import { AcceptMessageArtifactRunLauncher } from "./infrastructure/artifacts-ste
 import { THREAD_MESSAGE_QUEUE, ThreadMessageQueue } from "./infrastructure/chat-queue/thread-message-queue";
 import { ThreadMessageQueueController } from "./interface/controllers/thread-message-queue.controller";
 import { NotificationsController } from "./interface/controllers/notifications.controller";
-import { PostinvestRatingController } from "./interface/controllers/postinvest-rating.controller";
 import { NOTIFICATION_CENTER, type NotificationPublisher } from "./application/notifications/notification-center";
 import { PgNotificationCenter } from "./infrastructure/notifications/pg-notification-center";
 import { NotifyingRunEventBus } from "./infrastructure/notifications/notifying-run-event-bus";
@@ -550,6 +553,8 @@ import { SET_AGENT_ROLE_LABEL_REPOSITORY } from "./application/agent/set-agent-r
 import { ENSURE_DEFAULT_AGENT_REPOSITORY } from "./application/agent/ensure-default-agent";
 import { ENSURE_DEEP_RESEARCH_AGENT_REPOSITORY } from "./application/agent/ensure-deep-research-agent";
 import { ENSURE_IMAGE_GEN_AGENT_REPOSITORY } from "./application/agent/ensure-image-gen-agent";
+import { SAMPLE_PROJECT_SEEDER } from "./application/project/sample-project/ensure-sample-project";
+import { createSampleProjectSeeder } from "./infrastructure/project/sample-project-seeder";
 import { PgDefaultAgentRepository } from "./infrastructure/agent/pg-default-agent-repository";
 import { PgDeepResearchAgentRepository } from "./infrastructure/agent/pg-deep-research-agent-repository";
 import { PgImageGenAgentRepository } from "./infrastructure/agent/pg-image-gen-agent-repository";
@@ -582,6 +587,7 @@ import { DesignWorkbenchController, PublicDesignShareController } from "./interf
 import { DESIGN_PROJECT_REPOSITORY } from "./application/design-workbench/project-ports";
 import { PgDesignProjectRepository } from "./infrastructure/design-workbench/pg-design-project-repository";
 import { DESIGN_REF_IMAGE_REPOSITORY } from "./application/design-workbench/ref-image-ports";
+import { DESIGN_COMMENT_REPOSITORY } from "./application/design-workbench/design-comments";
 import { SystemMailController } from "./interface/controllers/system-mail.controller";
 // issue #2645：运营状态屏的服务中断时长/可用性可视化。
 import { SystemUptimeController } from "./interface/controllers/system-uptime.controller";
@@ -590,6 +596,37 @@ import { HttpServiceUptimeProbe } from "./infrastructure/system/http-service-upt
 import { PgServiceUptimeRepository } from "./infrastructure/system/pg-service-uptime-repository";
 import { ConfiguredServiceUptimeTarget, SERVICE_UPTIME_CONFIG, serviceUptimeConfig, type ServiceUptimeConfig } from "./infrastructure/system/service-uptime-config";
 import { ServiceUptimePollWorker } from "./infrastructure/system/service-uptime-poll-worker";
+import { SystemTelemetryController } from "./interface/controllers/system-telemetry.controller";
+import { CrmContactController } from "./interface/controllers/crm-contact.controller";
+import { CRM_CONTACT_REPOSITORY } from "./application/crm/crm-contact-ports";
+import { PgCrmContactRepository } from "./infrastructure/crm/pg-crm-contact-repository";
+import { TELEMETRY_FACTS_SOURCE, TELEMETRY_STATE_REPOSITORY, TELEMETRY_TRANSPORT } from "./application/telemetry/telemetry-ports";
+import { TELEMETRY_CONFIG, readTelemetryConfig } from "./infrastructure/telemetry/telemetry-config";
+import { PgTelemetryStateRepository } from "./infrastructure/telemetry/pg-telemetry-state-repository";
+import { PgTelemetryFacts } from "./infrastructure/telemetry/pg-telemetry-facts";
+import { HttpTelemetryTransport } from "./infrastructure/telemetry/http-telemetry-transport";
+import { TelemetryReportWorker } from "./infrastructure/telemetry/telemetry-report-worker";
+import {
+  FIRST_VALUE_FACT_STORE, FIRST_VALUE_RECORDER, FirstValueRecorder, type FirstValueFactStore,
+} from "./application/first-value/first-value-recorder";
+import { PgFirstValueFacts } from "./infrastructure/first-value/pg-first-value-facts";
+import { FirstValueController } from "./interface/controllers/first-value.controller";
+import { GRAPH_PROJECTION_PORT, KG_CONFLICT_PORT, KG_EXTRACTION_QUEUE_PORT, KG_EXTRACTION_SOURCE_PORT, KG_ORG_EXTRACTION_SETTINGS_PORT, HUMAN_ACTION_PORT, KNOWLEDGE_EXTRACTOR_PORT, KNOWLEDGE_READ_PORT, MEMORY_CARD_PORT, ONTOLOGY_STORE_PORT, PROMOTION_PORT } from "./application/knowledge-graph/ports";
+import { PgPromotion } from "./infrastructure/knowledge-graph/pg-promotion";
+import { PgHumanAction } from "./infrastructure/knowledge-graph/pg-human-action";
+import { KnowledgeGraphController } from "./interface/controllers/knowledge-graph.controller";
+import { PgKnowledgeRead } from "./infrastructure/knowledge-graph/pg-knowledge-read";
+import { PgKgOrgExtractionSettings } from "./infrastructure/knowledge-graph/pg-kg-org-extraction-settings";
+import { KgExtractionWorker } from "./infrastructure/knowledge-graph/kg-extraction-worker";
+import { KG_EXTRACTION_MODEL_CONFIG, readKgExtractionModelConfig, type KgExtractionModelConfig } from "./infrastructure/knowledge-graph/kg-extraction-model-config";
+import { ModelKnowledgeExtractor } from "./infrastructure/knowledge-graph/model-knowledge-extractor";
+import { PgKgExtraction } from "./infrastructure/knowledge-graph/pg-kg-extraction";
+import { PgKgConflict } from "./infrastructure/knowledge-graph/pg-kg-conflict";
+import { PgMemoryCard } from "./infrastructure/knowledge-graph/pg-memory-card";
+import { KgProjectionWorker } from "./infrastructure/knowledge-graph/kg-projection-worker";
+import { PgGraphProjection } from "./infrastructure/knowledge-graph/pg-graph-projection";
+import { PgOntologyStore } from "./infrastructure/knowledge-graph/pg-ontology-store";
+import { PgKnowledgeRecall } from "./infrastructure/knowledge-graph/pg-knowledge-recall";
 // 2026-08-30：反馈"转开发"建 GitHub issue + 任意分诊转移发状态变更邮件的两个 egress seam。
 // 见 `application/feedback/notification-ports.ts` 与
 // `application/notifications/transactional-mail-ports.ts` 头注（ADR-108）。
@@ -962,6 +999,7 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
 
 @Module({
   controllers: [
+    KnowledgeGraphController,
     SurveyController, PublicSurveyController, SurveyAttachmentController,
     HealthController,
     KernelProbeController,
@@ -1027,7 +1065,6 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
     ThreadMessageQueueController,
     NotificationsController,
     // issue #3676 -- 投后财务项目评级 Agent ad-hoc MVP 的唯一 HTTP 入口（纯计算，无 DI 端口）。
-    PostinvestRatingController,
     // issue #2664/#2666 -- deep-agent-service 的 spawn_async_task 回调入口 + 前端轮询查询。
     SubtaskRunController,
     CopilotkitAguiController,
@@ -1046,9 +1083,13 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
     SystemDebugTraceController,
     InboxController,
     DesignWorkbenchController,
+    WhiteboardController,
     PublicDesignShareController,
     SystemMailController,
     SystemUptimeController,
+    SystemTelemetryController,
+    FirstValueController,
+    CrmContactController,
     SkillReviewController,
     SkillMountController,
     ModelController,
@@ -1137,6 +1178,8 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
     // Constructing it installs the patch. Eager, not lazy: a guard that installs itself on
     // first use is a guard that is absent for everything that happened before first use.
     { provide: EGRESS_GUARD, useFactory: () => new ProcessEgressGuard() },
+    // E4: what the user sees as 「本次启动出网 N 次」 -- read from the same patched chokepoint.
+    { provide: EGRESS_LEDGER, useFactory: () => new ProcessEgressLedger(readDeploymentEdition()) },
     { provide: LOCAL_MODEL_RUNTIME, useFactory: () => new HttpLocalModelRuntime() },
     {
       provide: IDENTITY_REPOSITORY,
@@ -1441,6 +1484,12 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
       provide: ENSURE_IMAGE_GEN_AGENT_REPOSITORY,
       useFactory: (db: DatabasePort) => new PgImageGenAgentRepository(db),
       inject: [DATABASE_PORT],
+    },
+    // backlog E2：内置脱敏示例项目（组织创建时种一次，存量组织由 backfill-sample-projects.ts 补）。
+    {
+      provide: SAMPLE_PROJECT_SEEDER,
+      useFactory: (db: DatabasePort, store: ObjectStore) => createSampleProjectSeeder(db, store),
+      inject: [DATABASE_PORT, OBJECT_STORE],
     },
     {
       provide: AGENT_SKILL_PINS_REPOSITORY,
@@ -1974,6 +2023,7 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
         events: RunEventBusPort, toolPermissionGrants: ToolPermissionGrantStore,
         interjections: InterjectionStore, artifactContinuations: ArtifactContinuationReader, nativeSessions: NativeSessionOwner | null, nativeOutputs: NativeOutputStaging | null,
         carryOver: InterjectionCarryOverDelivery,
+        firstValue: FirstValueRecorder,
       ) =>
         new AgentRunExecutor(
           runs, model, logger, process.env.KERNEL_AGENT_RUN_AUTOSTART !== "0", usage,
@@ -2019,13 +2069,19 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
           // 必定注入」——「这个部署会不会把用户补的那句话真的送出去」由这一行决定，
           // 不是运行期的偶然。
           carryOver,
+          // Phase 18 F08：会话知识召回（uc-18-2），同上面每一个一样由合成期决定。
+          new PgKnowledgeRecall(db),
+          // Phase 18 F17：对话里「记住 / 忘掉」只开确认卡（uc-18-6 A / B），同上。
+          new PgMemoryCard(db),
+          // E3：回答引用写进 `chat_citations`（走既有 PgChatRepository 的租户内写口）+ 价值时刻。
+          { citations: new PgChatRepository(db), firstValue },
         ),
       inject: [
         AGENT_RUN_STORE, MODEL_CALL_PORT, LOGGER_PORT, TOKEN_USAGE_METER, DATABASE_PORT,
         IDENTITY_REPOSITORY, CANVAS_TEMPLATE_REPOSITORY, DECISION_ID_FACTORY, OBJECT_STORE,
         SKILL_SANDBOX_PORT, RUN_EVENT_BUS, TOOL_PERMISSION_GRANT_STORE,
         INTERJECTION_STORE, ARTIFACT_CONTINUATION_READER, NATIVE_SESSION_OWNER, NATIVE_OUTPUT_STAGING,
-        INTERJECTION_CARRY_OVER_DELIVERY,
+        INTERJECTION_CARRY_OVER_DELIVERY, FIRST_VALUE_RECORDER,
       ],
     },
     // issue #3405 —— 带入投递的唯一实现。走 chat 受理的唯一入口 `acceptHumanMessage`，
@@ -2365,7 +2421,7 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
     { provide: GUIDED_RUNTIME_STORE, useFactory: (db: DatabasePort) => new PgGuidedRuntimeStore(db), inject: [DATABASE_PORT] },
     { provide: GUIDED_SEARCH_PORT, useFactory: () => new GoogleGuidedSearch() },
     { provide: GUIDED_RUNTIME_SERVICE,
-      useFactory: (store: GuidedRuntimeStore, model: ModelCallPort, search: GuidedSearchPort) => {
+      useFactory: (store: GuidedRuntimeStore, model: ModelCallPort, search: GuidedSearchPort, db: DatabasePort, identities: IdentityRepository, decisions: DecisionIdFactory) => {
         const config = readModelProviderConfig();
         // Report streaming is a research capability, independent of chat's rollout flag.
         const configured = new ConfiguredModelProvider({ ...config, streamEnabled: true });
@@ -2375,9 +2431,9 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
             ? configured.completeStream!(input, onDelta)
             : model.completeStream ? model.completeStream(input, onDelta) : model.complete(input),
         };
-        return new GuidedRuntimeService(store, model, search, undefined, reportModel);
+        return new GuidedRuntimeService(store, model, search, undefined, reportModel, new PgGuidedInternalSourceAccess(db, identities, decisions));
       },
-      inject: [GUIDED_RUNTIME_STORE, MODEL_CALL_PORT, GUIDED_SEARCH_PORT] },
+      inject: [GUIDED_RUNTIME_STORE, MODEL_CALL_PORT, GUIDED_SEARCH_PORT, DATABASE_PORT, IDENTITY_REPOSITORY, DECISION_ID_FACTORY] },
     {
       provide: GUIDED_RESEARCH_SESSION_REPOSITORY,
       useFactory: (db: DatabasePort) => new PgGuidedResearchSessionRepository(db),
@@ -2859,6 +2915,11 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
     },
     // UC-17.8 B4.3：设计项目仓储按组织构造（`forOrg`），同 `FEEDBACK_DRAFT_REPOSITORY` 的理由。
     {
+      provide: WHITEBOARD_REPOSITORY,
+      useFactory: (db: DatabasePort) => new PgWhiteboardRepository(db),
+      inject: [DATABASE_PORT],
+    },
+    {
       provide: DESIGN_PROJECT_REPOSITORY,
       useFactory: (db: DatabasePort) => new PgDesignProjectRepository(db),
       inject: [DATABASE_PORT],
@@ -2867,6 +2928,12 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
     // 可见性完全跟随项目）。端口在应用层仍是两个窄接口，用例只依赖它需要的那一个。
     {
       provide: DESIGN_REF_IMAGE_REPOSITORY,
+      useFactory: (db: DatabasePort) => new PgDesignProjectRepository(db),
+      inject: [DATABASE_PORT],
+    },
+    // 深度 S2（#3988）：批注——同一个类（见 pg-design-project-repository.ts 头注），第三个窄端口。
+    {
+      provide: DESIGN_COMMENT_REPOSITORY,
       useFactory: (db: DatabasePort) => new PgDesignProjectRepository(db),
       inject: [DATABASE_PORT],
     },
@@ -2914,6 +2981,49 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
       inject: [SERVICE_UPTIME_CONFIG],
     },
     ServiceUptimePollWorker,
+    // D9：客户实例侧运行信号上报（出站、可关、可查看最近一次原样报告）。
+    { provide: TELEMETRY_CONFIG, useFactory: () => readTelemetryConfig() },
+    { provide: TELEMETRY_STATE_REPOSITORY, useFactory: (db: DatabasePort) => new PgTelemetryStateRepository(db), inject: [DATABASE_PORT] },
+    { provide: CRM_CONTACT_REPOSITORY, useFactory: (db: DatabasePort) => new PgCrmContactRepository(db), inject: [DATABASE_PORT] },
+    { provide: TELEMETRY_FACTS_SOURCE, useFactory: (db: DatabasePort) => new PgTelemetryFacts(db), inject: [DATABASE_PORT] },
+    { provide: TELEMETRY_TRANSPORT, useFactory: () => new HttpTelemetryTransport() },
+    // E3：第一个价值时刻本地事实（先写者胜；记录 fire-and-forget，失败只记日志）。
+    { provide: FIRST_VALUE_FACT_STORE, useFactory: (db: DatabasePort) => new PgFirstValueFacts(db), inject: [DATABASE_PORT] },
+    {
+      provide: FIRST_VALUE_RECORDER,
+      useFactory: (store: FirstValueFactStore, logger: LoggerPort) => new FirstValueRecorder(store, logger),
+      inject: [FIRST_VALUE_FACT_STORE, LOGGER_PORT],
+    },
+    TelemetryReportWorker,
+    // Phase 18（ADR-114）：本体唯一写入口（F03）+ AGE 投影 worker（F04，outbox → 各 org 的图）。
+    { provide: ONTOLOGY_STORE_PORT, useFactory: (db: DatabasePort) => new PgOntologyStore(db), inject: [DATABASE_PORT] },
+    { provide: GRAPH_PROJECTION_PORT, useFactory: (db: DatabasePort) => new PgGraphProjection(db), inject: [DATABASE_PORT] },
+    KgProjectionWorker,
+    // F06：会话消息 → 知识抽取（模型只提出，经执行器落表）。
+    { provide: KG_EXTRACTION_MODEL_CONFIG, useFactory: () => readKgExtractionModelConfig() },
+    { provide: KG_EXTRACTION_QUEUE_PORT, useFactory: (db: DatabasePort) => new PgKgExtraction(db), inject: [DATABASE_PORT] },
+    { provide: KG_EXTRACTION_SOURCE_PORT, useExisting: KG_EXTRACTION_QUEUE_PORT },
+    { provide: KG_CONFLICT_PORT, useFactory: (db: DatabasePort) => new PgKgConflict(db), inject: [DATABASE_PORT] },
+    {
+      provide: KNOWLEDGE_EXTRACTOR_PORT,
+      useFactory: (model: ModelCallPort, config: KgExtractionModelConfig, logger: LoggerPort) => new ModelKnowledgeExtractor(model, config, logger),
+      inject: [MODEL_CALL_PORT, KG_EXTRACTION_MODEL_CONFIG, LOGGER_PORT],
+    },
+    KgExtractionWorker,
+    // F09：知识面板 / 来源抽屉 / 每轮记忆行的读口。issue #4178：多带部署能力位，算 `extractionActive`。
+    {
+      provide: KNOWLEDGE_READ_PORT,
+      useFactory: (db: DatabasePort, config: KgExtractionModelConfig) => new PgKnowledgeRead(db, config.enabled),
+      inject: [DATABASE_PORT, KG_EXTRACTION_MODEL_CONFIG],
+    },
+    // issue #4178：记忆抽取的组织开关（读任何成员，写仅组织 admin，判据在 controller）。
+    { provide: KG_ORG_EXTRACTION_SETTINGS_PORT, useFactory: (db: DatabasePort) => new PgKgOrgExtractionSettings(db), inject: [DATABASE_PORT] },
+    // F10：人工编辑动作（只经 kg_apply_human_action 落表）。
+    { provide: HUMAN_ACTION_PORT, useFactory: (db: DatabasePort) => new PgHumanAction(db), inject: [DATABASE_PORT] },
+    // F11：晋升到个人空间（只经 kg_promote_claim 落表）。
+    { provide: PROMOTION_PORT, useFactory: (db: DatabasePort) => new PgPromotion(db), inject: [DATABASE_PORT] },
+    // F17：「记住 / 忘掉」确认卡（只经 kg_open_memory_card / kg_act_on_memory_card 落表）。
+    { provide: MEMORY_CARD_PORT, useFactory: (db: DatabasePort) => new PgMemoryCard(db), inject: [DATABASE_PORT] },
     {
       provide: SKILL_SECURITY_AUDIT,
       useFactory: (logger: LoggerPort) => new LoggingSkillSecurityAudit(logger),

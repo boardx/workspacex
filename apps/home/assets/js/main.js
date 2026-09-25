@@ -53,7 +53,71 @@ const boot = () => {
   }, { passive: true });
   step('loop scene', wireLoopScene);
   step('language hint', initLangHint);
+  step('demo', armDemo);
 };
+
+/* -------------------------------------------------------------------------
+   The scripted demo, loaded on the reader's first move
+   -------------------------------------------------------------------------
+   It sits just below the hero, so "when it nears the viewport" alone would
+   fetch it during the first load on any screen taller than the hero — which
+   is most desktops — and every visitor would pay for it whether they looked
+   or not. So nothing is fetched until the reader does something (scrolls,
+   taps, presses a key), and from then on the module is fetched a screen
+   before the section arrives.
+
+   Fetching is not mounting. The live demo is several hundred pixels taller
+   than its placeholder, and the first version mounted it the moment it came
+   near — including in the middle of a smooth scroll passing THROUGH it, from
+   a nav link or a /#panel-edu landing. Everything below grew mid-flight and
+   the scroll arrived hundreds of pixels short (the eval's deep-link and
+   current-section cases caught it). So it is swapped in only once scrolling
+   has stopped with the section on screen: the reader is looking at it, and
+   nothing they were heading for moves.
+
+   `import()` is left alone by build-js, so this resolves to assets/js/demo.js
+   beside the bundle. */
+function armDemo() {
+  const host = document.querySelector('[data-demo]');
+  if (!host) return;
+  const EVENTS = ['scroll', 'pointerdown', 'keydown', 'touchstart'];
+  let mod = null; let fetching = false; let done = false; let idle = 0;
+
+  const onScreen = () => {
+    const r = host.getBoundingClientRect();
+    return r.bottom > 0 && r.top < window.innerHeight;
+  };
+  const tryMount = () => {
+    if (done || !mod || !onScreen()) return;
+    done = true;
+    window.removeEventListener('scroll', onScroll);
+    mod.initDemo(host);
+  };
+  const onScroll = () => { clearTimeout(idle); idle = setTimeout(tryMount, 160); };
+  const fetchIt = () => {
+    if (fetching) return;
+    fetching = true;
+    import('./demo.js')
+      .then((m) => { mod = m; onScroll(); })
+      .catch((error) => console.error('[home] demo failed:', error));
+  };
+  const arm = () => {
+    EVENTS.forEach((e) => window.removeEventListener(e, arm));
+    window.addEventListener('scroll', onScroll, { passive: true });
+    if (!('IntersectionObserver' in window)) { fetchIt(); return; }
+    const io = new IntersectionObserver((entries) => {
+      if (!entries.some((e) => e.isIntersecting)) return;
+      io.disconnect();
+      fetchIt();
+    }, { rootMargin: '0px 0px 100% 0px' });
+    io.observe(host);
+  };
+  EVENTS.forEach((e) => window.addEventListener(e, arm, { passive: true }));
+  /* /#demo-workforce names a scenario, not an element, so the browser has
+     nothing to scroll to. Go to the section; the scroll arms the loader, and
+     demo.js reads the fragment when it mounts. */
+  if (/^#demo-/.test(location.hash)) document.getElementById('demo')?.scrollIntoView({ block: 'start' });
+}
 
 /* -------------------------------------------------------------------------
    The loop scene: scroll drives the ring, and the ring drives the rail

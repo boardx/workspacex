@@ -59,7 +59,7 @@ function EvidencePanel({ cardId }: { cardId: string }) {
         <li>反对：补贴退坡后套利窗口存在收窄风险</li>
       </ul>
       <Button size="xs" variant="outline" asChild data-testid={`tasks-evidence-brain-${cardId}`}>
-        <Link href="/brain">在组织大脑看完整 Context Pack ▸</Link>
+        <Link href="/brain">在组织大脑看我的记忆 ▸</Link>
       </Button>
     </div>
   );

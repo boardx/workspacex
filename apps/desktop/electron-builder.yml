@@ -42,6 +42,66 @@ extraResources:
       - "!apps/web/.next-*/**"
       # The dev venv hard-codes build-machine paths; the DMG ships resources/python instead (bundle-python.sh).
       - "!apps/deep-agent-service/.venv/**"
+
+      # ── 只在开发/打包时用到、运行时一行都不加载的大件（#3872 R16）────────────
+      #
+      # 实测 2026-09-23：bundle/node_modules 3.5 GB，里面躺着 1.57 GB 这样的东西。
+      # 判据不是「看着像开发依赖」，而是逐条核过运行时到底加不加载：
+      #
+      #   electron 708 MB          应用本身就是 Electron（Contents/Frameworks 里那份）；
+      #                            bundle 里的运行时代码没有任何一处 import electron。
+      #   app-builder-bin 207 MB   electron-builder 自己的二进制。打完包就没用了。
+      #   workerd ×3 版本 303 MB   wrangler 的运行时，给 apps/coord-gateway 用。
+      #   @cloudflare/workerd-* 289 MB  同上（平台专用二进制，三个版本各一份）。
+      #                            `up()` 启动的是 api / web / skill-sandbox /
+      #                            asr-gateway / deep-agent / ollama —— 没有 coord-gateway，
+      #                            而 packages/local-runtime 里对 wrangler/workerd 零引用。
+      #   typescript 64 MB         运行时用 tsx（esbuild），不做类型检查。
+      #
+      # ⚠ 剪包是**危险操作**：少了一个运行时真的要的包，症状是应用起不来或某个功能
+      #   静默失效。所以这一组每加一条都要重新打包并**真的把应用跑起来**验证，
+      #   而不是「看着不像运行时依赖」就删。验证方式见 evidence 里 R16 那一节。
+      - "!node_modules/.pnpm/electron@*/**"
+      - "!node_modules/.pnpm/app-builder-bin@*/**"
+      - "!node_modules/.pnpm/workerd@*/**"
+      - "!node_modules/.pnpm/@cloudflare+workerd-*/**"
+      - "!node_modules/.pnpm/typescript@*/**"
+
+      # ── 文件**个数**（不是字节）：那 38 秒首启税的嫌疑变量（#3872 R17）────────
+      #
+      # 实测：整个 .app 158,721 个文件，其中 135,449 在 bundle/node_modules/.pnpm。
+      # R16 剪掉 1.5 GB 却只减了 548 个文件（0.3%），而首启税 37.4s → 38.7s 没动
+      # ——所以那个实验**没有测过**文件数这条假设。这一组专门测它。
+      #
+      # ⚠ asar 在这里不适用：它只打包 `files`（Resources/app，431 个文件），
+      #   bundle 走 extraResources，asar 一个文件都不碰。查过才知道。
+      #
+      # 刻意**不删**两类：
+      #   LICENSE*（1,599 个）  再分发 MIT/BSD 依赖要保留版权声明，这是许可证要求
+      #   __pycache__（4,105 个）应用目录只读，删了 Python 每次启动重新编译，可能更慢
+      - "!**/*.map"
+      - "!**/*.d.ts"
+      - "!**/*.md"
+      - "!**/node_modules/**/test/**"
+      - "!**/node_modules/**/tests/**"
+      - "!**/node_modules/**/__tests__/**"
+
+      # ── 只在构建期用到的 web 依赖（#3872 R18）──────────────────────────────
+      #
+      # 生产构建之后这些包在运行时不再被解析。每一条都实测过，不是「看着像」：
+      #
+      #   monaco-editor 98 MB   next.config.mjs 在求值期把 min/vs 拷到 public/monaco-editor，
+      #                         而那份拷贝已经在包里（24 MB）。拷贝两侧都有 existsSync 护栏
+      #                         （源没了跳过、目标在了跳过），所以删掉源不会让 next start 崩。
+      #   @next+swc-* 110 MB    实测：把它移开后 `next start` 照样起得来（生产产物不再编译）。
+      #   mermaid 83 / echarts 54 / lucide-react 43 MB
+      #                         客户端库，生产构建已打进 .next/static；
+      #                         `.next/server` 里对这四个包**零引用**（grep 实测）。
+      - "!node_modules/.pnpm/monaco-editor@*/**"
+      - "!node_modules/.pnpm/@next+swc-*/**"
+      - "!node_modules/.pnpm/mermaid@*/**"
+      - "!node_modules/.pnpm/echarts@*/**"
+      - "!node_modules/.pnpm/lucide-react@*/**"
   - from: build/logo.png
     to: logo.png
   # commit short SHA + build time, shown on the startup page next to the version (#3749)

@@ -58,4 +58,39 @@ describe("RealtimeTranscriptionWorkspace", () => {
     expect(screen.getByTestId("rec-live-toggle")).toBeDisabled();
     expect(screen.getByTestId("rec-live-edit")).toBeDisabled();
   });
+
+  it("distinguishes an interim confirmation from recoverable slow delivery", () => {
+    render(<RealtimeTranscriptionWorkspace session={{ ...SESSION, status: "recording" }} onBack={vi.fn()}
+      streamState="recording" flowState="slow" interimSegment="实时草稿" onStart={vi.fn()} onStop={vi.fn()} />);
+    expect(screen.getByTestId("rec-live-interim")).toHaveTextContent("自然停顿 800ms 后确认保存");
+    expect(screen.getByText("音频仍在传输或确认中")).toBeVisible();
+    expect(screen.getByTestId("rec-live-toggle")).toBeEnabled();
+  });
+
+  it("does not show a stale slow advisory after capture is idle", () => {
+    render(<RealtimeTranscriptionWorkspace session={SESSION} onBack={vi.fn()}
+      streamState="idle" flowState="slow" onStart={vi.fn()} onStop={vi.fn()} />);
+    expect(screen.queryByText("音频仍在传输或确认中")).not.toBeInTheDocument();
+  });
+
+  it("shows the selected microphone and real input level, and locks selection while recording", () => {
+    const onSelectDevice = vi.fn();
+    const { rerender } = render(<RealtimeTranscriptionWorkspace session={SESSION} onBack={vi.fn()}
+      streamState="idle" inputLevel={0} devices={[{ deviceId: "mic-1", label: "会议室麦克风" }]}
+      selectedDeviceId="mic-1" onSelectDevice={onSelectDevice} onStart={vi.fn()} onStop={vi.fn()} />);
+
+    expect(screen.getByTestId("rec-mic-device-select")).toHaveTextContent("会议室麦克风");
+    expect(screen.getByTestId("rec-live-toggle").parentElement).toHaveClass("flex-wrap");
+    expect(screen.getByTestId("rec-live-input-level")).toHaveAttribute("aria-valuenow", "0");
+    fireEvent.click(screen.getByTestId("rec-mic-device-select"));
+    expect(screen.getByTestId("rec-mic-device-listbox")).toHaveClass("top-8");
+    fireEvent.click(screen.getByTestId("rec-mic-device-option-default"));
+    expect(onSelectDevice).toHaveBeenCalledWith(null);
+
+    rerender(<RealtimeTranscriptionWorkspace session={{ ...SESSION, status: "recording" }} onBack={vi.fn()}
+      streamState="recording" inputLevel={0.65} devices={[{ deviceId: "mic-1", label: "会议室麦克风" }]}
+      selectedDeviceId="mic-1" onSelectDevice={onSelectDevice} onStart={vi.fn()} onStop={vi.fn()} />);
+    expect(screen.getByTestId("rec-mic-device-select")).toBeDisabled();
+    expect(screen.getByTestId("rec-live-input-level")).toHaveAttribute("aria-valuenow", "65");
+  });
 });

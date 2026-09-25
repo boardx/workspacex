@@ -21,6 +21,7 @@ import { CAPABILITY_AVAILABILITY_LABEL, LOCAL_EGRESS_FACTS } from "@repo/contrac
 import { DEPLOYMENT_EDITION_LABEL, useEdition, useMissingCapabilities } from "@/lib/edition";
 import { cn } from "@/lib/utils";
 import { EditionSwitch } from "./edition-switch";
+import { EgressLedgerIndicator } from "./egress-ledger-indicator";
 
 export function EditionBanner({ className }: { className?: string }): React.ReactElement | null {
   const edition = useEdition();
@@ -48,6 +49,8 @@ export function EditionBanner({ className }: { className?: string }): React.Reac
           （详见契约 `LOCAL_EGRESS_FACTS` 的头注）。一条假承诺比没有承诺更糟。
         */}
         <span className="text-11">模型与数据都在这台电脑上；只有你让它读网页或搜索时才会出网</span>
+        {/* E4：上面那句是声明，这一格是实测——API 进程在连接咽喉上数到的出网次数。 */}
+        <EgressLedgerIndicator />
         <button
           type="button"
           data-testid="edition-banner-toggle"

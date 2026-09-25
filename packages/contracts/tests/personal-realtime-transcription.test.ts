@@ -116,6 +116,14 @@ describe("personal realtime transcription contract", () => {
     expect(C.RealtimeAsrServerEvent.safeParse({ type: "completed" }).success).toBe(false);
   });
 
+  it("accepts only strict upstream flow advisory events", () => {
+    const flow = { type: "flow", captureId: "capture-1", state: "slow", source: "upstream", queuedMs: 400 };
+    expect(C.RealtimeAsrServerEvent.safeParse(flow).success).toBe(true);
+    expect(C.RealtimeAsrServerEvent.safeParse({ ...flow, detail: "must not leak" }).success).toBe(false);
+    expect(C.RealtimeAsrServerEvent.safeParse({ ...flow, state: "stalled" }).success).toBe(false);
+    expect(C.RealtimeAsrServerEvent.safeParse({ ...flow, source: "browser" }).success).toBe(false);
+  });
+
   it("keeps interim distinct from the persisted body", () => {
     expect(
       C.RealtimeAsrServerEvent.safeParse({

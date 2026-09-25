@@ -33,6 +33,7 @@ import { createHash } from "node:crypto";
 import type { OrgId } from "../../domain/org-id";
 import type { AgentRunClock, AgentRunStore, PendingWriteback } from "./ports";
 import type { RunEventBusPort } from "./run-event-bus";
+import { persistAssistantCitations, type PersistAssistantCitationsDeps } from "../chat/persist-assistant-citations";
 
 /**
  * The bounded retry budget (§6).
@@ -56,6 +57,12 @@ export interface WritebackDeps {
    * commits, not earlier.
    */
   readonly events?: RunEventBusPort;
+  /**
+   * E3 —— 回答引用的写入侧（`chat_citations`）与价值时刻记录。可选：不注入 ⇒ 写回逐字节同前。
+   * 引用写入发生在消息事务提交**之后**、且失败只记日志：引用落不下来不能让已经写好的回答
+   * 变成失败（重试会重放同一批引用，写入本身幂等）。
+   */
+  readonly citations?: PersistAssistantCitationsDeps;
   /** Server-side only. The database's own words go here and never into a response. */
   readonly log: (message: string, detail: Record<string, unknown>) => void;
 }
@@ -80,7 +87,7 @@ async function writeBackOne(
 ): Promise<void> {
   const startedAt = deps.clock.now();
   try {
-    await deps.runs.commitWriteback(orgId, {
+    const { messageId } = await deps.runs.commitWriteback(orgId, {
       runId: pending.runId,
       threadId: pending.threadId,
       inputMessageId: pending.inputMessageId,
@@ -92,6 +99,15 @@ async function writeBackOne(
       // #1624：沙箱产出的文件与消息同事务挂上。缺省/空 ⇒ 不插附件行，写回逐字节同前。
       files: pending.files,
     });
+    if (deps.citations && pending.citations && pending.citations.length > 0) {
+      try {
+        await persistAssistantCitations(deps.citations, { orgId, messageId, citations: pending.citations });
+      } catch (e) {
+        deps.log("assistant citation persistence failed", {
+          runId: pending.runId, detail: e instanceof Error ? e.message : "unknown",
+        });
+      }
+    }
     publishStatusChange(deps, orgId, pending.runId, "succeeded");
     return;
   } catch (e) {

@@ -33,7 +33,7 @@ test("research persists all five model-backed steps through the real UI, API and
   await expect(page.getByTestId("research-skill-messages")).toContainText("请检查研究方向");
   for (const expectedTitle of ["研究方向", "报告大纲"]) {
     await expect(page.getByRole("heading", { name: expectedTitle, exact: true })).toBeVisible();
-    await expect(page.getByRole("button", { name: "确认并继续", exact: true })).toBeEnabled();
+    if (expectedTitle !== "报告大纲") await expect(page.getByRole("button", { name: "确认并继续", exact: true })).toBeEnabled();
     if (expectedTitle === "报告大纲") {
       const chapter = page.getByRole("region", { name: "报告章节 1", exact: true });
       await chapter.locator("summary").click();
@@ -47,6 +47,16 @@ test("research persists all five model-backed steps through the real UI, API and
       await chapter.locator("summary").click();
       await expect(chapter.getByLabel("章节目标", { exact: true })).toHaveValue("核实政策适用范围与实施约束");
       await page.screenshot({ path: testInfo.outputPath("research-outline-details.png"), fullPage: true });
+      await page.getByLabel("决策对象").fill("决定储能市场进入策略");
+      await page.getByLabel("目标受众").fill("投资委员会");
+      await page.getByLabel("成功标准").fill("每个核心问题都有可定位原文\n严重冲突必须解决");
+      await page.getByLabel("时间范围起点").fill("2024-01-01");
+      await page.getByLabel("时间范围终点").fill("2026-09-30");
+      await page.getByText("仅限指定站点", { exact: true }).click();
+      await page.getByRole("textbox", { name: "指定站点" }).fill("127.0.0.1");
+      await page.getByRole("button", { name: "确认研究边界" }).click();
+      await expect(page.getByTestId("research-intent-card")).toHaveCount(0);
+      await expect(page.getByRole("button", { name: "确认并继续", exact: true })).toBeEnabled();
     }
     if (expectedTitle === "研究方向") {
       await page.screenshot({ path: testInfo.outputPath("research-directions.png"), fullPage: true });
@@ -58,6 +68,13 @@ test("research persists all five model-backed steps through the real UI, API and
     await page.getByRole("button", { name: "确认并继续", exact: true }).click();
   }
   await expect(page.getByRole("link", { name: "Research E2E policy evidence" })).toBeVisible();
+  await expect(page.getByTestId("research-activity-trace")).toContainText("检索与来源筛选完成");
+  await page.getByRole("button", { name: "暂停研究" }).click();
+  await expect(page.getByTestId("research-activity-trace")).toContainText("研究已暂停");
+  await page.reload();
+  await expect(page.getByRole("button", { name: "继续研究" })).toBeEnabled();
+  await page.getByRole("button", { name: "继续研究" }).click();
+  await expect(page.getByTestId("research-activity-trace")).toContainText("研究已继续");
   await expect(page.getByRole("link", { name: "Research E2E unrelated vehicle inventory" })).toHaveCount(0);
   await expect(page.getByText("已筛选", { exact: true })).toHaveCount(0);
   await expect(page.getByTestId("research-search-summary")).toHaveCount(0);
@@ -117,6 +134,13 @@ test("research persists all five model-backed steps through the real UI, API and
   expect(runtime.modelCalls.filter((call: { node: string; status: string }) => call.node === "report" && call.status === "failed")).toHaveLength(1);
   expect(runtime.errorCode).toBeNull();
   expect(runtime.reportEvidenceWarnings).toEqual([]);
+  expect(runtime.intent).toMatchObject({ decision: "决定储能市场进入策略", timeframe: { from: "2024-01-01", to: "2026-09-30" } });
+  expect(runtime.sourcePolicy).toMatchObject({ mode: "restrict", domains: ["127.0.0.1"] });
+  expect(runtime.questionEvidence.length).toBeGreaterThan(0);
+  expect(runtime.coverage.every((item: { status: string }) => item.status === "answered")).toBe(true);
+  expect(runtime.claimEvidence.length).toBeGreaterThan(0);
+  expect(runtime.publicationReadiness.status).toBe("ready");
+  expect(runtime.activity.map((item: { stage: string }) => item.stage)).toEqual(expect.arrayContaining(["planning", "searching", "reading", "writing", "validating"]));
   expect(runtime.reportTimeline.map((step: { stage: string }) => step.stage)).toEqual(["evidence", "chapter", "review", "chapter", "review", "synthesis", "validation"]);
   expect(runtime.reportTimeline.every((step: { status: string }) => step.status === "completed")).toBe(true);
   expect(runtime.reportTimeline.find((step: { stage: string }) => step.stage === "evidence").attempts).toBe(2);
@@ -138,11 +162,20 @@ test("research persists all five model-backed steps through the real UI, API and
   await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
   await page.screenshot({ path: testInfo.outputPath("research-report-chapters-mobile.png"), fullPage: true });
   await page.setViewportSize({ width: 1280, height: 900 });
-  await page.getByText("导出报告", { exact: true }).click();
+  const reportActions = page.getByTestId("research-report-actions");
+  await expect(reportActions.getByRole("button", { name: "完成研究", exact: true })).toBeVisible();
+  await expect(reportActions.getByRole("button", { name: "更多操作", exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: "导出报告", exact: true })).toHaveCount(0);
+  await page.getByRole("button", { name: "更多操作", exact: true }).click();
+  await expect(page.getByRole("menuitem", { name: "重新生成报告", exact: true })).toBeVisible();
+  await page.screenshot({ path: testInfo.outputPath("research-report-action-menu.png"), fullPage: true });
   const downloadPromise = page.waitForEvent("download");
-  await page.getByRole("button", { name: "下载 Word", exact: true }).click();
+  await page.getByRole("menuitem", { name: "下载 Word", exact: true }).click();
   expect((await downloadPromise).suggestedFilename()).toMatch(/\.docx$/);
-  await expect(page.getByRole("button", { name: "导出 PDF", exact: true })).toBeVisible();
+  await page.getByRole("button", { name: "更多操作", exact: true }).click();
+  await expect(page.getByRole("menuitem", { name: "导出 PDF", exact: true })).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(page.getByRole("menuitem", { name: "导出 PDF", exact: true })).toHaveCount(0);
   await expect(page.getByTestId("research-report-timeline")).toHaveCount(0);
   await expect(page.getByTestId("research-report-document")).toBeVisible();
   await page.getByRole("button", { name: "完成研究", exact: true }).click();
@@ -150,7 +183,8 @@ test("research persists all five model-backed steps through the real UI, API and
   await page.screenshot({ path: testInfo.outputPath("research-completed.png"), fullPage: true });
   // A conversational regeneration must use the real report generation pipeline.
   const regenerated = page.waitForResponse((response) => response.url().endsWith("/runtime/commands/stream") && response.request().postDataJSON()?.action === "message");
-  await page.getByRole("button", { name: "修改报告", exact: true }).click();
+  await page.getByRole("button", { name: "更多操作", exact: true }).click();
+  await page.getByRole("menuitem", { name: "修改报告", exact: true }).click();
   await page.getByRole("textbox", { name: "研究对话" }).fill("重新生成报告");
   await page.getByRole("button", { name: "发送研究消息" }).click();
   expect((await regenerated).headers()["content-type"]).toContain("text/event-stream");
@@ -184,13 +218,24 @@ test("research persists all five model-backed steps through the real UI, API and
   await expect(page.getByTestId("research-report-preview-text")).not.toContainText("草稿");
   await expect(page.getByTestId("research-quality-draft").getByTestId("research-report-chapter")).toHaveCount(2);
   await expect(page.getByRole("button", { name: "完成研究", exact: true })).toHaveCount(0);
-  await page.getByText("导出报告", { exact: true }).click();
-  await expect(page.getByRole("button", { name: "下载 Word", exact: true })).toBeVisible();
+  await page.getByRole("button", { name: "更多操作", exact: true }).click();
+  await expect(page.getByRole("menuitem", { name: "下载 Word", exact: true })).toBeVisible();
   await page.screenshot({ path: testInfo.outputPath("research-quality-complete-draft.png"), fullPage: true });
+  await page.keyboard.press("Escape");
   const openedSessionUrl = page.url();
   await page.getByRole("button", { name: "返回", exact: true }).click();
   await expect(page.getByTestId("research-home-page")).toBeVisible();
   await expect(page).toHaveURL(/\/research$/);
+  const activeSummary = page.getByRole("button", { name: /进行中 \d+ 项研究/ });
+  await activeSummary.click();
+  await expect(activeSummary).toHaveAttribute("aria-pressed", "true");
+  await expect(page.getByRole("heading", { name: "研究全链路验证", exact: true })).toBeVisible();
+  await page.getByTestId("research-history-search").fill("不存在的研究");
+  await expect(page.getByTestId("research-history-empty")).toContainText("当前状态筛选与搜索条件下没有研究");
+  await page.getByRole("button", { name: "清除状态筛选", exact: true }).click();
+  await expect(page.getByRole("button", { name: "清除状态筛选", exact: true })).toHaveCount(0);
+  await page.getByTestId("research-history-search").fill("");
+  await page.screenshot({ path: testInfo.outputPath("research-home-status-filter.png"), fullPage: true });
   await page.reload();
   await expect(page.getByTestId("research-home-page")).toBeVisible();
   await page.goto(openedSessionUrl);

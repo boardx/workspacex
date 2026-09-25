@@ -37,6 +37,9 @@ const ERROR_TEXT: Record<designWorkbench.DesignWorkbenchError, string> = {
   DESIGN_ISSUE_CREATION_FAILED: "创建开发任务失败，稍后再试一次",
   SHARE_NOT_FOUND: "这条分享链接已经失效",
   NOTHING_TO_PUBLISH: "还没有画出来的页，没什么可发布的",
+  COMMENT_NOT_FOUND: "这条批注找不到了，可能已经被删掉",
+  NOT_COMMENT_AUTHOR: "这条批注不是你写的，只有写它的人或项目的创建者能删",
+  COMMENT_LIMIT_REACHED: "这个项目的批注太多了，先清掉一些已解决的",
 };
 
 /**

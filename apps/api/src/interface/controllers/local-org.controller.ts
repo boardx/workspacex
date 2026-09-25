@@ -39,10 +39,13 @@ import {
 } from "../../application/identity/capability-ports";
 import {
   EGRESS_GUARD,
+  EGRESS_LEDGER,
   LOCAL_MODEL_RUNTIME,
   type EgressGuard,
+  type EgressLedgerReader,
   type LocalModelRuntime,
 } from "../../application/identity/local-org-ports";
+import { EgressLedgerNotServedError, getEgressLedger } from "../../application/identity/egress-ledger";
 import {
   IDENTITY_REPOSITORY,
   type IdentityRepository,
@@ -64,6 +67,7 @@ export class LocalOrgController {
     @Inject(CAPABILITY_REPOSITORY) private readonly capabilities: CapabilityRepository,
     @Inject(LOCAL_MODEL_RUNTIME) private readonly runtime: LocalModelRuntime,
     @Inject(EGRESS_GUARD) private readonly egress: EgressGuard,
+    @Inject(EGRESS_LEDGER) private readonly ledger: EgressLedgerReader,
   ) {}
 
   private get deps(): LocalModelDeps {
@@ -90,6 +94,21 @@ export class LocalOrgController {
       if (e instanceof NoOrgMembershipError || e instanceof LocalOrgOnlyError) {
         throw new NotFoundException();
       }
+      throw e;
+    }
+  }
+
+  /**
+   * E4 -- the ledger behind the local edition's 「本次启动出网 N 次」. Process-level, so no
+   * orgId. 404 outside the local edition (see `getEgressLedger`).
+   */
+  @Get("/identity/local-org/egress-ledger")
+  egressLedger(@CurrentPrincipal() principal: Principal) {
+    assertPrincipal(principal);
+    try {
+      return getEgressLedger(this.ledger);
+    } catch (e) {
+      if (e instanceof EgressLedgerNotServedError) throw new NotFoundException();
       throw e;
     }
   }

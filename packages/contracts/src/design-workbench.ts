@@ -257,6 +257,138 @@ export const PROTOTYPE_ACCENTS: Readonly<
   slate:  { light: { primary: "215 25% 30%", foreground: "0 0% 100%" }, dark: { primary: "213 27% 76%", foreground: "217 33% 12%" } },
 };
 
+/* ─────────── 对标 R1（#3933）：设计 token——任意品牌色与字体 ─────────── */
+
+/**
+ * 品牌色：`#RRGGBB`。
+ *
+ * ## 为什么在八档强调色之外还要放开一个任意色
+ *
+ * 强调色档位（`PrototypeAccent`）的理由是「只有这几档，原语才看起来像一个产品」——那条对
+ * **原语的尺寸与圆角**成立，对**品牌色**不成立：一家餐厅说「我们的橙是 #FF5A1F」，给他一个
+ * 最接近的 amber，就是没听他说话。Claude Design 能按团队的品牌出稿，这是对标评测 D1 里
+ * 最直观的一段差距。
+ *
+ * 放开的代价是**对比度**：任意色上压什么字不再是人挑的。所以前景色不收用户输入，由
+ * `brandAccentTokens` 在白字与近黑字里挑对比度高的那个（机械门控见契约测试，≥ 4.5）。
+ * 底色**逐字**用品牌色本身——品牌色被悄悄调暗一档，比字不好读更让品牌方难受；
+ * 真读不清的中间色（两边都 < 4.5）也照用，按钮字换成对比度更高的那个，不改底色。
+ */
+export const BrandColor = z.string().regex(/^#[0-9A-Fa-f]{6}$/, "brand must be #RRGGBB");
+export type BrandColor = z.infer<typeof BrandColor>;
+
+/**
+ * 字体档位。与强调色同一条纪律：**档位名进库，实际字体栈在 `PROTOTYPE_FONT_STACKS`**——
+ * 存字体名等于把设计系统抄进数据库。四档覆盖常见的品牌气质：现代（sans）、有质感（serif）、
+ * 亲和（rounded）、极客（mono）。
+ */
+export const PrototypeFont = z.enum(["sans", "serif", "rounded", "mono"]);
+export type PrototypeFont = z.infer<typeof PrototypeFont>;
+
+/**
+ * 每档字体的 CSS 字体栈——**只此一处**，画布、导出的 HTML、分享页都读它。
+ * 中文字体放在西文字体之后：西文字符先命中西文字体，中文落到对应气质的中文字体。
+ * `sans` 是 `inherit`：跟随产品本身的字体（这个字段出现之前的行为，老项目一个像素都不变）。
+ */
+export const PROTOTYPE_FONT_STACKS: Readonly<Record<PrototypeFont, string>> = {
+  sans: "inherit",
+  serif: '"Noto Serif SC", "Source Han Serif SC", "Songti SC", Georgia, "Times New Roman", serif',
+  rounded: '"Nunito", "Varela Round", "PingFang SC", "Microsoft YaHei", system-ui, sans-serif',
+  mono: '"JetBrains Mono", Menlo, Consolas, "Courier New", monospace',
+};
+
+/**
+ * 对标 R2（#3933）：**项目级**圆角档位——一处改、整套原型的按钮/卡片/输入框一起变。
+ *
+ * 与节点自己的 `radius`（none/sm/md/lg/full）是两层：节点说「我是小圆角还是大圆角」（层级），
+ * 项目说「这套产品整体是直角、常规还是圆润」（气质）。画布按两者组合取类名，
+ * 仍然只落在 `rounded-control / rounded-card / rounded-container` 这几档上（lint-design U11）。
+ */
+export const PrototypeRadiusScale = z.enum(["sharp", "default", "round"]);
+export type PrototypeRadiusScale = z.infer<typeof PrototypeRadiusScale>;
+
+/**
+ * 对标 R2：项目级信息密度——整套原型的间距与内边距整体收紧或放宽一档。
+ * 同上，节点的 `gap`/`padding` 是层级，这里是气质；画布把两者组合成 Tailwind 的间距档位。
+ */
+export const PrototypeDensity = z.enum(["compact", "default", "comfortable"]);
+export type PrototypeDensity = z.infer<typeof PrototypeDensity>;
+
+/**
+ * 项目级设计 token。**一个对象、一列**（`design_projects.tokens jsonb`）：以后加圆角、密度
+ * 是往这里加键，不是每加一项开一列、在十个地方各接一次线。
+ * 缺省值 = 这个字段出现之前的行为（`brand: null` 不覆盖强调色，`font: sans` 跟随产品字体）。
+ */
+export const DesignTokens = z
+  .object({
+    /** `null` = 不用品牌色，沿用 `accent` 档位。给了 ⇒ 覆盖 `accent`。 */
+    brand: BrandColor.nullable().default(null),
+    font: PrototypeFont.default("sans"),
+    /** 对标 R2：缺省 `default` = 这个键出现之前的圆角，逐像素不变。 */
+    radius: PrototypeRadiusScale.default("default"),
+    /** 对标 R2：缺省 `default` = 这个键出现之前的间距，逐像素不变。 */
+    density: PrototypeDensity.default("default"),
+  })
+  .strict();
+export type DesignTokens = z.infer<typeof DesignTokens>;
+export const DEFAULT_DESIGN_TOKENS: DesignTokens = { brand: null, font: "sans", radius: "default", density: "default" };
+
+function hexToRgb(hex: string): readonly [number, number, number] {
+  const n = Number.parseInt(hex.slice(1), 16);
+  return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
+}
+
+/** WCAG 相对亮度。 */
+function relativeLuminance([r, g, b]: readonly [number, number, number]): number {
+  const lin = (c: number) => { const x = c / 255; return x <= 0.03928 ? x / 12.92 : ((x + 0.055) / 1.055) ** 2.4; };
+  return 0.2126 * lin(r) + 0.7152 * lin(g) + 0.0722 * lin(b);
+}
+
+/** 两色（`#RRGGBB`）的 WCAG 对比度。契约测试用它守住品牌色上的字。 */
+export function contrastRatio(a: string, b: string): number {
+  const [la, lb] = [relativeLuminance(hexToRgb(a)), relativeLuminance(hexToRgb(b))];
+  return (Math.max(la, lb) + 0.05) / (Math.min(la, lb) + 0.05);
+}
+
+function rgbToHslTriple([r, g, b]: readonly [number, number, number]): string {
+  const [rr, gg, bb] = [r / 255, g / 255, b / 255];
+  const max = Math.max(rr, gg, bb);
+  const min = Math.min(rr, gg, bb);
+  const l = (max + min) / 2;
+  let h = 0;
+  let sat = 0;
+  if (max !== min) {
+    const d = max - min;
+    sat = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+    h = max === rr ? (gg - bb) / d + (gg < bb ? 6 : 0) : max === gg ? (bb - rr) / d + 2 : (rr - gg) / d + 4;
+    h /= 6;
+  }
+  // 保留一位小数：取整会让 #FF5A1F 这类色回转后差一个色阶（评测按 rgb 精确比对）。
+  const r1 = (x: number) => Math.round(x * 10) / 10;
+  return `${r1(h * 360)} ${r1(sat * 100)}% ${r1(l * 100)}%`;
+}
+
+/**
+ * 品牌色上的两种字：白与纯黑。
+ *
+ * ⚠ 暗的那一个必须是**纯黑**，不是产品里常用的近黑：任意色上「白与黑挑对比度高的那个」
+ *   的最坏情况是亮度 ≈ 0.18 的中间色，纯黑时两边都是 ≈ 4.58（过 AA），近黑 #111317 时
+ *   最坏只有 ≈ 4.3——那一小段中间色上的按钮字会读不清。契约测试扫全色域守着这条。
+ */
+export const BRAND_FOREGROUND_LIGHT = "#FFFFFF";
+export const BRAND_FOREGROUND_DARK = "#000000";
+
+/**
+ * 品牌色 ⇒ 与强调色同形的 token（HSL 三元组），画布照样写进 `--primary` / `--primary-foreground`。
+ * 明暗两套画布用**同一个**品牌色（品牌就是品牌）；字色在白与近黑里挑对比度高的那个。
+ */
+export function brandAccentTokens(brand: BrandColor): PrototypeAccentTokens {
+  const onLight = contrastRatio(brand, BRAND_FOREGROUND_LIGHT);
+  const onDark = contrastRatio(brand, BRAND_FOREGROUND_DARK);
+  const fg = onLight >= onDark ? BRAND_FOREGROUND_LIGHT : BRAND_FOREGROUND_DARK;
+  return { primary: rgbToHslTriple(hexToRgb(brand)), foreground: rgbToHslTriple(hexToRgb(fg)) };
+}
+
 /* ─────────── 迭代 13：从已有对话导入（design-delta `design-chat-inputs` §2） ─────────── */
 
 /**
@@ -475,6 +607,11 @@ export const DesignProject = z
      * 所以老项目读出来一个像素都不会变。
      */
     accent: PrototypeAccent.default("neutral"),
+    /**
+     * 对标 R1（#3933）：项目级设计 token（品牌色、字体）。老行没有这一列 ⇒ 全是缺省值，
+     * 与这个字段出现之前的渲染逐像素相同。导出的 HTML / 分享页跟随它。
+     */
+    tokens: DesignTokens.default(DEFAULT_DESIGN_TOKENS),
     /** 迭代 13（delta §4）：项目标签，用于首页过滤。老行没有这一列 ⇒ 空数组。 */
     tags: DesignProjectTags.default([]),
     /**
@@ -546,6 +683,8 @@ export const SharedDesign = z
     template: ProjectTemplate,
     theme: z.enum(["light", "dark"]),
     accent: PrototypeAccent,
+    /** 对标 R1：品牌色与字体是原型长相的一部分，访客看到的必须和设计者看到的一样。 */
+    tokens: DesignTokens,
     frames: z.array(z.string()),
     /** 与 `DesignProject.prototype` 同形：单项 `null` = 这一页规划了但没画出来。 */
     prototype: z.array(PrototypeNode.nullable()),
@@ -616,6 +755,12 @@ export const DesignWorkbenchError = z.enum([
   "DESIGN_ISSUE_IN_PROGRESS",
   /** 2026-09-05——GitHub 那一侧建失败（超时/鉴权/限流）。fail closed：库里不会留下半个 issue。 */
   "DESIGN_ISSUE_CREATION_FAILED",
+  /** 深度 S2：批注不存在，或不属于这个项目。 */
+  "COMMENT_NOT_FOUND",
+  /** 深度 S2：删批注的人既不是作者也不是项目 owner。改状态（解决 / 重新打开）不受此限——那是讨论本身。 */
+  "NOT_COMMENT_AUTHOR",
+  /** 深度 S2：这个项目的批注已经到上限（`DESIGN_COMMENT_MAX_PER_PROJECT`），先删掉一些已解决的；S3 起一条批注的回复到上限（`DESIGN_COMMENT_MAX_REPLIES`）也用它。 */
+  "COMMENT_LIMIT_REACHED",
   /**
    * 迭代 22：分享链接打不开——令牌不对、项目已取消发布、或项目被删了。
    *
@@ -659,6 +804,61 @@ export type PrototypeVersionSummary = z.infer<typeof PrototypeVersionSummary>;
 // 版本快照同样可能含未生成的页（拍快照那一刻就缺）——与 `DesignProject.prototype` 同形。
 export const PrototypeVersion = PrototypeVersionSummary.extend({ prototype: z.array(PrototypeNode.nullable()) }).strict();
 export type PrototypeVersion = z.infer<typeof PrototypeVersion>;
+
+/**
+ * 对标 R9（#3954）：同一页的**候选方案**。`root` 是一整棵页树（过 `PrototypeNode` 契约）；
+ * 候选**不落库**——人挑中一个之后，前端用既有 `replace` patch 把它换进去，于是版本历史与
+ * 撤销走的是同一条路，不另开一套「方案」存储。
+ */
+export const PROTOTYPE_VARIANTS_MIN = 2;
+export const PROTOTYPE_VARIANTS_MAX = 4;
+/** 深度 S9（#3988）：不说要几个时出几个——服务端的缺省与界面上「要几个」的初值同一个数。 */
+export const PROTOTYPE_VARIANTS_DEFAULT = 3;
+export const PrototypeVariant = z.object({ summary: z.string().min(1).max(120), root: PrototypeNode }).strict();
+export type PrototypeVariant = z.infer<typeof PrototypeVariant>;
+
+/* ─────────── 深度 S2（#3988）：批注存在服务端 ─────────── */
+
+/**
+ * 钉在原型某个节点上的一句批注。R8 时它只存在浏览器里（`lib/design-comments.ts` 头注写了为什么）；
+ * 换台电脑、清一次缓存、同事打开同一个项目，批注都看不见——而批注本来就是给别人（AI 或同事）看的。
+ *
+ * 可见性**跟随项目**（全组织可读），写权限也向全组织开放：批注的意义就是让不是 owner 的人也能说话。
+ * 删除只允许作者本人或项目 owner（用例层判）。
+ */
+export const DESIGN_COMMENT_MAX_CHARS = 300;
+export const DESIGN_COMMENT_MAX_PER_PROJECT = 200;
+/** 深度 S3：一条批注下最多几条回复——讨论长到这个数，该当面聊或开一条新批注了。 */
+export const DESIGN_COMMENT_MAX_REPLIES = 50;
+export const DesignCommentReply = z
+  .object({
+    id: z.string(),
+    text: z.string().min(1).max(DESIGN_COMMENT_MAX_CHARS),
+    authorId: z.string(),
+    authorName: z.string().nullable(),
+    createdAt: z.string(),
+  })
+  .strict();
+export type DesignCommentReply = z.infer<typeof DesignCommentReply>;
+export const DesignComment = z
+  .object({
+    id: z.string(),
+    /** 钉在哪个节点上（项目内唯一的节点 id）。节点后来被删了，批注照旧在，只是画布上没有钉。 */
+    nodeId: PrototypeNodeId,
+    frameIndex: z.number().int().min(0).max(PROTOTYPE_MAX_SCREENS - 1),
+    /** 写批注那一刻这个节点叫什么——节点被删了，列表里仍认得出说的是谁。 */
+    label: z.string().max(200),
+    text: z.string().min(1).max(DESIGN_COMMENT_MAX_CHARS),
+    /** 已解决（交给 AI 改了，或有人手动标记）。可以重新打开。 */
+    resolved: z.boolean(),
+    authorId: z.string(),
+    authorName: z.string().nullable(),
+    createdAt: z.string(),
+    /** 深度 S3：这条批注下的讨论，按先后排。 */
+    replies: z.array(DesignCommentReply).max(DESIGN_COMMENT_MAX_REPLIES),
+  })
+  .strict();
+export type DesignComment = z.infer<typeof DesignComment>;
 
 /* ─────────────────────────── 操作 ─────────────────────────── */
 
@@ -848,6 +1048,11 @@ export const operations = {
         /** 迭代 17：强调色档位。省略 = 不动（不是"改回 neutral"）。 */
         accent: PrototypeAccent.optional(),
         /**
+         * 对标 R1：设计 token，**按键合并**——只给 `{ font: "serif" }` 不会把品牌色清掉。
+         * 清掉品牌色要显式给 `brand: null`。
+         */
+        tokens: DesignTokens.partial().strict().optional(),
+        /**
          * 迭代 13（delta §4）：标签是**整份替换**，不是增删两个动作。
          * 一个 8 个上限的短列表，PATCH 一整份比 add/remove 两条路径少一半状态，
          * 也没有"同时加又删"的顺序问题。
@@ -950,6 +1155,76 @@ export const operations = {
     in: z.object({ projectId: z.string(), ops: DesignPrototypePatch, summary: z.string().max(200).optional() }).strict(),
     out: z.object({ project: DesignProject }).strict(),
     err: ["PROJECT_NOT_FOUND", "NOT_PROJECT_OWNER", "PROTOTYPE_PATCH_REJECTED", "DEPENDENCY_UNAVAILABLE"] as const,
+  },
+
+  /**
+   * 对标 R9（#3954）：让模型对第 `screen` 页出 `count` 个**结构不同**的方案。仅 owner；**不写库**。
+   * 模型给的每棵树都过契约，不合法的丢掉；合法的不足 `PROTOTYPE_VARIANTS_MIN` 个 ⇒ 503
+   * `DEPENDENCY_UNAVAILABLE`——不拿当前页改几个字冒充「方案」。这一页没画出来 ⇒ `PROTOTYPE_PATCH_REJECTED`。
+   */
+  proposeVariants: {
+    method: "POST",
+    path: "/pm-designs/:projectId/variants",
+    in: z
+      .object({
+        projectId: z.string(),
+        screen: z.number().int().min(0).max(PROTOTYPE_MAX_SCREENS - 1),
+        count: z.number().int().min(PROTOTYPE_VARIANTS_MIN).max(PROTOTYPE_VARIANTS_MAX).optional(),
+        instruction: z.string().max(500).optional(),
+      })
+      .strict(),
+    out: z.object({ variants: z.array(PrototypeVariant).min(PROTOTYPE_VARIANTS_MIN).max(PROTOTYPE_VARIANTS_MAX) }).strict(),
+    err: ["PROJECT_NOT_FOUND", "NOT_PROJECT_OWNER", "PROTOTYPE_PATCH_REJECTED", "DEPENDENCY_UNAVAILABLE"] as const,
+  },
+
+  /**
+   * 深度 S2（#3988）：批注。**全组织可读可写**（同项目可见性）——批注就是让不是 owner 的人也能说话；
+   * 删除只允许作者或项目 owner。列表按写下的先后排。
+   */
+  listDesignComments: {
+    method: "GET",
+    path: "/pm-designs/:projectId/comments",
+    in: z.object({ projectId: z.string() }).strict(),
+    out: z.object({ items: z.array(DesignComment) }).strict(),
+    err: ["PROJECT_NOT_FOUND", "DEPENDENCY_UNAVAILABLE"] as const,
+  },
+  createDesignComment: {
+    method: "POST",
+    path: "/pm-designs/:projectId/comments",
+    in: z
+      .object({
+        projectId: z.string(),
+        nodeId: PrototypeNodeId,
+        frameIndex: z.number().int().min(0).max(PROTOTYPE_MAX_SCREENS - 1),
+        label: z.string().max(200),
+        text: z.string().trim().min(1).max(DESIGN_COMMENT_MAX_CHARS),
+      })
+      .strict(),
+    out: z.object({ comment: DesignComment }).strict(),
+    err: ["PROJECT_NOT_FOUND", "COMMENT_LIMIT_REACHED", "DEPENDENCY_UNAVAILABLE"] as const,
+  },
+  /** 解决 / 重新打开。交给 AI 改完的那几条也走这里（前端在发送成功后逐条标记）。 */
+  updateDesignComment: {
+    method: "PATCH",
+    path: "/pm-designs/:projectId/comments/:commentId",
+    in: z.object({ projectId: z.string(), commentId: z.string(), resolved: z.boolean() }).strict(),
+    out: z.object({ comment: DesignComment }).strict(),
+    err: ["PROJECT_NOT_FOUND", "COMMENT_NOT_FOUND", "DEPENDENCY_UNAVAILABLE"] as const,
+  },
+  /** 深度 S3：给一条批注回一句。全组织可写（同批注）；回复只追加，不改不删。回整条批注（含全部回复）。 */
+  createDesignCommentReply: {
+    method: "POST",
+    path: "/pm-designs/:projectId/comments/:commentId/replies",
+    in: z.object({ projectId: z.string(), commentId: z.string(), text: z.string().trim().min(1).max(DESIGN_COMMENT_MAX_CHARS) }).strict(),
+    out: z.object({ comment: DesignComment }).strict(),
+    err: ["PROJECT_NOT_FOUND", "COMMENT_NOT_FOUND", "COMMENT_LIMIT_REACHED", "DEPENDENCY_UNAVAILABLE"] as const,
+  },
+  deleteDesignComment: {
+    method: "DELETE",
+    path: "/pm-designs/:projectId/comments/:commentId",
+    in: z.object({ projectId: z.string(), commentId: z.string() }).strict(),
+    out: z.object({}).strict(),
+    err: ["PROJECT_NOT_FOUND", "COMMENT_NOT_FOUND", "NOT_COMMENT_AUTHOR", "DEPENDENCY_UNAVAILABLE"] as const,
   },
 
   /** 删项目。硬删——仅 owner；未推送/已推送均可删（需求未对已推送项目的删除设限）。 */

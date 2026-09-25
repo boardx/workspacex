@@ -70,7 +70,9 @@ test("用户可从模板完整走通创建、发布、答题、查看答卷和�
   await expect(page.getByRole("button", { name: "预览完整报告" })).toBeVisible();
 
   await page.getByRole("button", { name: "3. 发布回收" }).click();
-  await page.getByRole("button", { name: "发布问卷" }).click();
+  await page.getByRole("button", { name: "检查发布条件" }).click();
+  await expect(page.getByText("发布准备已完成")).toBeVisible();
+  await page.getByRole("button", { name: "开始回收" }).click();
   await expect(page.getByText(/正在回收 · 0 份答卷/)).toBeVisible();
   const publicUrl = await page.getByLabel("答题链接").inputValue();
   expect(publicUrl).toMatch(/\/surveys\/[A-Za-z0-9._-]+$/);

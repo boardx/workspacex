@@ -14,7 +14,8 @@ import type { ModelCallPort } from "../agent-run/ports";
 import type { GuidedResearchSession } from "./guided-session-ports";
 import { guidedModelConfig } from "./guided-model-config";
 import { extractJson } from "./guided-structured-json";
-import { ResearchRuntimeError, type GuidedRuntimeStore, type GuidedSearchPort, type ResearchRuntime, type RuntimeActor, type RuntimeCommand, type RuntimeDraft } from "./guided-runtime-ports";
+import { ResearchRuntimeError, type GuidedInternalSourceAccessPort, type GuidedRuntimeStore, type GuidedSearchPort, type ResearchRuntime, type RuntimeActor, type RuntimeCommand, type RuntimeDraft } from "./guided-runtime-ports";
+import { projectResearchTrust } from "./guided-research-trust";
 const nodes = C.ResearchNode.options;
 type Node = z.infer<typeof C.ResearchNode>;
 const shapes: Record<Node, string> = {
@@ -45,6 +46,77 @@ function acceptPendingSources(state: ResearchRuntime) {
 function fingerprint(value: unknown): string {
   return createHash("sha256").update(JSON.stringify(value, (_key, item) => item && typeof item === "object" && !Array.isArray(item)
     ? Object.fromEntries(Object.entries(item).sort(([a], [b]) => a.localeCompare(b))) : item)).digest("hex");
+}
+const steeringActions = new Set<RuntimeCommand["action"]>(["pause", "resume", "refine_scope", "refine_source_policy", "resolve_conflict"]);
+export function assertInternalSourceAccess(requested: readonly string[], authorized: readonly string[]): void {
+  const allowed = new Set(authorized);
+  if (requested.some((id) => !allowed.has(id))) throw new ResearchRuntimeError("RESEARCH_SOURCE_ACCESS_DENIED");
+}
+type SourcePolicy = NonNullable<ResearchRuntime["sourcePolicy"]>;
+function normalizedPolicyHost(value: string): string {
+  const host = value.trim().toLowerCase().replace(/^https?:\/\//, "").split("/")[0]!.replace(/^www\./, "");
+  if (!host || !/^[a-z0-9.-]+$/.test(host) || host.includes("..")) throw new ResearchRuntimeError("RESEARCH_SOURCE_URL_INVALID");
+  return host;
+}
+export async function searchWithSourcePolicy(search: GuidedSearchPort, query: string, policy?: SourcePolicy) {
+  if (!policy || policy.mode === "open") return search.search(query);
+  if (policy.mode === "restrict" && !policy.domains.length) throw new ResearchRuntimeError("RESEARCH_SOURCE_POLICY_INVALID");
+  if (!policy.domains.length) return search.search(query);
+  const domains = policy.domains.map(normalizedPolicyHost);
+  const scopedQuery = `${query} (${domains.map((domain) => `site:${domain}`).join(" OR ")})`;
+  const hits = await search.search(scopedQuery);
+  if (policy.mode === "prioritize") {
+    const fallback = await search.search(query);
+    const combined = new Map<string, (typeof hits)[number]>();
+    for (const hit of [...hits, ...fallback]) {
+      const url = normalizedSourceUrl(hit.url);
+      if (!combined.has(url)) combined.set(url, hit);
+    }
+    return [...combined.values()];
+  }
+  return hits.filter((hit) => {
+    const host = new URL(hit.url).hostname.toLowerCase().replace(/^www\./, "");
+    return domains.some((domain) => host === domain || host.endsWith(`.${domain}`));
+  });
+}
+function appendActivity(state: ResearchRuntime, stage: NonNullable<ResearchRuntime["activity"]>[number]["stage"], summary: string, status: NonNullable<ResearchRuntime["activity"]>[number]["status"], taskId: string | null = null): void {
+  const activity = state.activity ?? (state.activity = []);
+  activity.push({ id: randomUUID(), sequence: activity.length ? Math.max(...activity.map((event) => event.sequence)) + 1 : 1,
+    stage, taskId, summary, occurredAt: new Date().toISOString(), status });
+  if (activity.length > 1000) activity.splice(0, activity.length - 1000);
+}
+export function applyResearchSteering(state: ResearchRuntime, command: RuntimeCommand, occurredAt = new Date().toISOString()): void {
+  if (!steeringActions.has(command.action) || command.expectedRevision === undefined || !command.idempotencyKey) {
+    throw new ResearchRuntimeError("RESEARCH_NODE_STATE_INVALID");
+  }
+  if (state.activity?.some((event) => event.id === command.idempotencyKey)) return;
+  if ((state.planRevision ?? 0) !== command.expectedRevision) throw new ResearchRuntimeError("RESEARCH_REVISION_CONFLICT");
+  if (command.action === "pause") state.controlStatus = "paused";
+  if (command.action === "resume") state.controlStatus = "running";
+  if (command.action === "refine_source_policy" && command.sourcePolicy) state.sourcePolicy = command.sourcePolicy;
+  if (command.action === "refine_scope" && command.intent) {
+    invalidate(state, "research");
+    state.tasks = [];
+    state.sources = [];
+    state.researchPlan = null;
+    state.intent = command.intent;
+    if (command.sourcePolicy) state.sourcePolicy = command.sourcePolicy;
+  }
+  if (command.action === "resolve_conflict") {
+    const conflict = state.conflicts?.find((item) => item.id === command.conflictId);
+    if (!conflict || conflict.status !== "open" || !command.conflictResolutionAction || !command.conflictResolution) throw new ResearchRuntimeError("RESEARCH_NODE_STATE_INVALID");
+    if (command.conflictResolutionAction === "prefer_source" && (!command.sourceId || !conflict.sourceIds.includes(command.sourceId))) throw new ResearchRuntimeError("RESEARCH_NODE_STATE_INVALID");
+    conflict.status = "resolved";
+    conflict.resolutionAction = command.conflictResolutionAction;
+    conflict.resolvedSourceId = command.conflictResolutionAction === "prefer_source" ? command.sourceId! : null;
+    conflict.resolution = command.conflictResolution;
+  }
+  state.planRevision = (state.planRevision ?? 0) + 1;
+  const activity = state.activity ?? (state.activity = []);
+  activity.push({ id: command.idempotencyKey, sequence: activity.length ? Math.max(...activity.map((event) => event.sequence)) + 1 : 1,
+    stage: "planning", taskId: null,
+    summary: command.action === "pause" ? "研究已暂停" : command.action === "resume" ? "研究已继续" : command.action === "refine_scope" ? "研究范围已更新" : command.action === "resolve_conflict" ? "冲突已由人工裁决" : "来源策略已更新",
+    occurredAt, status: command.action === "pause" ? "paused" : "succeeded" });
 }
 export function initialRuntime(session: GuidedResearchSession): ResearchRuntime {
   const legacy = Boolean(session.directions.versions.length || session.outline.versions.length || session.sourceCount || session.status === "completed");
@@ -90,7 +162,7 @@ function invalidate(state: ResearchRuntime, node: Node) {
   if (index < 1) state.directions = [];
   if (index < 2) state.outline = [];
   if (index < 3) { state.tasks = []; state.sources = []; state.researchPlan = null; }
-  if (index < 4) { state.report = null; state.reportDraft = null; state.reportQualityWarnings = []; state.reportStream = null; state.reportPartial = false; state.reportEvidenceWarnings = []; state.reportCheckpoint = null; state.reportSourceAliases = []; state.reportTimeline = []; state.progress = null; }
+  if (index < 4) { state.report = null; state.reportDraft = null; state.reportQualityWarnings = []; state.reportStream = null; state.reportPartial = false; state.reportEvidenceWarnings = []; state.questionEvidence = []; state.reportCheckpoint = null; state.reportSourceAliases = []; state.reportTimeline = []; state.progress = null; }
 }
 function applyDraft(state: ResearchRuntime, draft: RuntimeDraft) {
   if (draft.node === "report" && state.reportQualityWarnings?.length) throw new ResearchRuntimeError("RESEARCH_REPORT_QUALITY_INSUFFICIENT");
@@ -107,28 +179,50 @@ function applyDraft(state: ResearchRuntime, draft: RuntimeDraft) {
 }
 export class GuidedRuntimeService {
   constructor(private readonly store: GuidedRuntimeStore, private readonly model: ModelCallPort, private readonly search: GuidedSearchPort,
-    private readonly modelConfig = guidedModelConfig(), private readonly reportModel: ModelCallPort = model) {}
+    private readonly modelConfig = guidedModelConfig(), private readonly reportModel: ModelCallPort = model,
+    private readonly internalSourceAccess?: GuidedInternalSourceAccessPort) {}
   get(actor: RuntimeActor, session: GuidedResearchSession) {
     if (actor.sessionId !== session.sessionId) throw new ResearchRuntimeError("RESEARCH_NOT_FOUND");
     return this.store.read(actor, initialRuntime(session));
   }
   async execute(actor: RuntimeActor, session: GuidedResearchSession, command: RuntimeCommand, observer?: RuntimeObserver): Promise<ResearchRuntime> {
     if (actor.sessionId !== command.sessionId || session.sessionId !== command.sessionId) throw new ResearchRuntimeError("RESEARCH_NOT_FOUND");
-    await this.get(actor, session);
+    if (["pause", "resume", "resolve_conflict"].includes(command.action) && this.store.steer) {
+      const steered = await this.store.steer(actor, command, fingerprint(command));
+      observer?.({ type: "result", state: structuredClone(steered) });
+      return steered;
+    }
+    const current = await this.get(actor, session);
+    const requestedInternalSources = command.sourcePolicy?.internalSourceIds ?? current.sourcePolicy?.internalSourceIds ?? [];
+    let internalSources: Awaited<ReturnType<GuidedInternalSourceAccessPort["loadAuthorizedSources"]>> = [];
+    if (requestedInternalSources.length) {
+      const authorized = await this.internalSourceAccess?.authorizedSourceIds(actor, requestedInternalSources) ?? [];
+      assertInternalSourceAccess(requestedInternalSources, authorized);
+      internalSources = await this.internalSourceAccess!.loadAuthorizedSources(actor, requestedInternalSources);
+    }
     const { state, replay } = await this.store.claim(actor, command, fingerprint(command));
     const observe: RuntimeObserver = (event) => { try { observer?.(event); } catch { /* A disconnected observer cannot cancel durable work. */ } };
     if (replay) { observe({ type: "snapshot", state: structuredClone(state) }); observe({ type: "result", state: structuredClone(state) }); return state; }
-    const persist: RuntimePersistence = Object.assign(() => {
+    const persist: RuntimePersistence = Object.assign(async () => {
       state.leaseUntil = new Date(Date.now() + 600000).toISOString();
-      return this.store.write(actor, command.requestId, state, false);
+      const written = await this.store.write(actor, command.requestId, state, false);
+      if (written && written.controlStatus === "paused" && state.controlStatus !== "paused") {
+        Object.assign(state, written);
+        throw new ResearchRuntimeError("RESEARCH_WORKFLOW_PAUSED");
+      }
     }, { requestId: command.requestId, observe });
     try {
-      await this.perform(state, command, persist);
+      await this.perform(state, command, persist, internalSources);
       state.progress = null;
+      Object.assign(state, projectResearchTrust(state));
     } catch (error) {
+      if (error instanceof ResearchRuntimeError && error.reasonCode === "RESEARCH_WORKFLOW_PAUSED") {
+        state.progress = null;
+      } else {
       failActiveReportTimeline(state, error instanceof ResearchRuntimeError ? error.reasonCode : "RESEARCH_WORKFLOW_UNAVAILABLE");
       if (state.reportStream) state.reportStream.status = "failed";
       state.errorCode = error instanceof ResearchRuntimeError ? error.reasonCode : "RESEARCH_WORKFLOW_UNAVAILABLE";
+      }
     }
     state.busy = false;
     state.leaseUntil = null;
@@ -172,15 +266,19 @@ export class GuidedRuntimeService {
   private async generate(state: ResearchRuntime, node: Node, persist: RuntimePersistence, instruction?: string, resume = false) {
     if (node === "research") { await this.plan(state, persist); return; }
     if (node === "report") {
+      appendActivity(state, "reading", "读取并验证已接受来源", "started");
+      await persist();
       const allowPartial = Boolean(state.reportPartial);
       await this.reviewSources(state, persist);
       await this.readSourceDocuments(state, persist, { retryTransient: resume });
+      appendActivity(state, "reading", "来源读取与可用性验证完成", "succeeded");
       state.reportPartial = allowPartial;
       acceptPendingSources(state); this.requireResearchBasis(state, allowPartial);
       state.currentNode = "report"; state.availableNodes = [...nodes];
       await persist();
     }
     if (node === "report" && !state.sources.some((source) => source.decision === "accepted")) throw new ResearchRuntimeError("RESEARCH_SOURCES_REQUIRED");
+    if (node === "report") { appendActivity(state, "writing", "开始基于逐问题证据撰写报告", "started"); await persist(); }
     const value = node === "report" ? await generateReportChapters(state, this.reportModel, this.modelConfig, persist, instruction, resume) : await this.completeJson(state, node, `Generate the ${node} step. Output exactly ${shapes[node]}. ${researchDesignInstruction(node)} For reports cover every enabled outline section exactly once; cite only provided accepted source IDs in sourceIds; do not put URLs or bracket citation markers in prose; state evidence limitations. When reportPartial is true, explicitly identify failed-query coverage gaps from evidenceGaps and do not claim exhaustive research.`, { ...this.context(state), instruction }, persist, (generated) => {
       const candidate = C.GuidedResearchRuntimeDraft.safeParse({ node, value: generated });
       if (!candidate.success) throw new ResearchRuntimeError("RESEARCH_NODE_STATE_INVALID");
@@ -200,6 +298,7 @@ export class GuidedRuntimeService {
     }
     applyDraft(state, draft.data);
     if (node === "report") state.reportStream = null;
+    if (node === "report") appendActivity(state, "validating", "报告证据与发布条件验证完成", "succeeded");
     if (!state.generatedNodes.includes(node)) state.generatedNodes.push(node);
   }
   private async readSourceDocuments(state: ResearchRuntime, persist: RuntimePersistence, options: { retryTransient?: boolean } = {}) {
@@ -222,6 +321,7 @@ export class GuidedRuntimeService {
     if (accepted.length && !accepted.some((source) => source.document)) throw new ResearchRuntimeError("RESEARCH_DOCUMENTS_UNREADABLE");
   }
   private async plan(state: ResearchRuntime, persist: RuntimePersistence) {
+    appendActivity(state, "planning", "生成可执行研究计划", "started");
     state.progress = { stage: "planning", completed: 0, total: 1 };
     await persist();
     const result = await generateResearchPlan(this.context(state), state.outline.filter((item) => item.enabled).map((item) => item.id),
@@ -230,6 +330,7 @@ export class GuidedRuntimeService {
     state.sources = [];
     state.researchPlan = { overview: result.overview, optimizedQuestion: result.optimizedQuestion };
     state.tasks = result.tasks.map((task) => ({ ...task, id: randomUUID(), status: "pending", attempts: 0, errorCode: null }));
+    appendActivity(state, "planning", "研究计划已生成", "succeeded");
     if (!state.generatedNodes.includes("research")) state.generatedNodes.push("research");
     await persist();
   }
@@ -255,7 +356,27 @@ export class GuidedRuntimeService {
     }
     return null;
   }
-  private async executeSearch(state: ResearchRuntime, persist: RuntimePersistence) {
+  private async addInternalSources(state: ResearchRuntime, sources: Awaited<ReturnType<GuidedInternalSourceAccessPort["loadAuthorizedSources"]>>, persist: RuntimePersistence) {
+    const requested = state.sourcePolicy?.internalSourceIds ?? [];
+    if (!requested.length) return;
+    if (!sources.length) throw new ResearchRuntimeError("RESEARCH_DOCUMENTS_UNREADABLE");
+    const taskIds = state.tasks.map((task) => task.id);
+    const taskId = taskIds[0];
+    if (!taskId) throw new ResearchRuntimeError("RESEARCH_TASKS_INCOMPLETE");
+    for (const source of sources) {
+      const url = `https://internal.workspacex.local/artifacts/${encodeURIComponent(source.id)}`;
+      if (state.sources.some((item) => item.url === url)) continue;
+      const text = source.content.slice(0, 60000);
+      state.sources.push(C.GuidedResearchSource.parse({
+        id: `internal:${source.id}`, taskId, taskIds, title: source.title, url,
+        content: text.slice(0, 30000), retrievedAt: source.retrievedAt, decision: "accepted",
+        document: { url, retrievedAt: source.retrievedAt, text, contentHash: source.contentHash, contentKind: "text", truncated: source.content.length > text.length },
+      }));
+    }
+    await persist();
+  }
+  private async executeSearch(state: ResearchRuntime, persist: RuntimePersistence, internalSources: Awaited<ReturnType<GuidedInternalSourceAccessPort["loadAuthorizedSources"]>> = []) {
+    appendActivity(state, "searching", "按来源策略开始检索", "started");
     // A previous command may have finalized after a progress write failed. This
     // explicit search entry also covers approved start/retry proposals.
     for (const task of state.tasks) {
@@ -265,7 +386,16 @@ export class GuidedRuntimeService {
       }
     }
     if (!state.tasks.length) await this.plan(state, persist);
+    await this.addInternalSources(state, internalSources, persist);
     await this.reviewSources(state, persist);
+    for (const task of state.tasks) {
+      const coveredByInternalSource = state.sources.some((source) => source.url.startsWith("https://internal.workspacex.local/")
+        && source.decision !== "excluded" && sourceTaskIds(source).includes(task.id));
+      if (coveredByInternalSource && task.status !== "succeeded") {
+        task.status = "succeeded";
+        task.errorCode = null;
+      }
+    }
     const remaining = state.tasks.filter((task) => task.status !== "succeeded");
     const updateProgress = () => { state.progress = { stage: "searching", completed: state.tasks.filter((task) => task.status === "succeeded" || task.status === "failed").length, total: state.tasks.length }; };
     const errorCode = (error: unknown) => {
@@ -287,7 +417,7 @@ export class GuidedRuntimeService {
       });
       updateProgress(); await persist();
       // Only provider calls run concurrently; all state writes are serialized.
-      const results = await Promise.allSettled(records.map((record) => record ? this.search.search(record.query) : Promise.resolve(null)));
+      const results = await Promise.allSettled(records.map((record) => record ? searchWithSourcePolicy(this.search, record.query, state.sourcePolicy) : Promise.resolve(null)));
       for (const [index, task] of batch.entries()) {
         let recoverable = false;
         const record = records[index];
@@ -314,7 +444,7 @@ export class GuidedRuntimeService {
           updateProgress(); await persist();
           recoverable = false;
           try {
-            const hits = await this.search.search(query);
+            const hits = await searchWithSourcePolicy(this.search, query, state.sourcePolicy);
             task.errorCode = await this.acceptSearchResults(state, task, hits, persist);
             recoverable = isRecoverableSearchFailure(task.errorCode);
           } catch (error) { task.errorCode = errorCode(error); }
@@ -343,7 +473,7 @@ export class GuidedRuntimeService {
         task.searchAttempts.push(attempt);
         await persist();
         try {
-          const errorCode = await this.acceptSearchResults(state, task, await this.search.search(query), persist);
+          const errorCode = await this.acceptSearchResults(state, task, await searchWithSourcePolicy(this.search, query, state.sourcePolicy), persist);
           attempt.status = errorCode ? "failed" : "succeeded";
           attempt.errorCode = errorCode;
         } catch (error) {
@@ -354,6 +484,7 @@ export class GuidedRuntimeService {
       }
     }
     if (state.tasks.some((task) => task.status === "failed")) throw new ResearchRuntimeError("RESEARCH_SEARCH_PARTIAL_FAILURE");
+    appendActivity(state, "searching", "检索与来源筛选完成", "succeeded");
   }
   private async reviewSources(state: ResearchRuntime, persist: RuntimePersistence) {
     const sources = await screenResearchSources(state, state.sources,
@@ -416,8 +547,11 @@ export class GuidedRuntimeService {
       || (!allowPartial && state.tasks.some((task) => task.status !== "succeeded"))) throw new ResearchRuntimeError("RESEARCH_TASKS_INCOMPLETE");
     if (!state.sources.some((source) => source.decision === "accepted")) throw new ResearchRuntimeError("RESEARCH_SOURCES_REQUIRED");
   }
-  private async perform(state: ResearchRuntime, command: RuntimeCommand, persist: RuntimePersistence) {
+  private async perform(state: ResearchRuntime, command: RuntimeCommand, persist: RuntimePersistence,
+    internalSources: Awaited<ReturnType<GuidedInternalSourceAccessPort["loadAuthorizedSources"]>> = []) {
     const { node, action } = command;
+    if (steeringActions.has(action)) { applyResearchSteering(state, command); return; }
+    if (state.controlStatus === "paused" && node === "research" && ["start", "retry", "generate"].includes(action)) throw new ResearchRuntimeError("RESEARCH_WORKFLOW_PAUSED");
     if (command.allowPartialResearch !== undefined && (node !== "research" || !["confirm", "complete"].includes(action))) throw new ResearchRuntimeError("RESEARCH_NODE_STATE_INVALID");
     if (command.draft && command.draft.node !== node) throw new ResearchRuntimeError("RESEARCH_NODE_MISMATCH");
     if (action === "add_source" || action === "remove_source") { await this.editSource(state, command); return; }
@@ -431,7 +565,7 @@ export class GuidedRuntimeService {
       if (proposal.action && proposal.action !== "save") {
         state.proposal = null;
         if (["confirm", "complete"].includes(proposal.action) && !state.generatedNodes.includes(node)) state.generatedNodes.push(node);
-        await this.perform(state, { ...command, action: proposal.action, draft: proposal.draft }, persist);
+        await this.perform(state, { ...command, action: proposal.action, draft: proposal.draft }, persist, internalSources);
       } else {
         applyDraft(state, proposal.draft);
         if (!state.generatedNodes.includes(node)) state.generatedNodes.push(node);
@@ -451,7 +585,7 @@ export class GuidedRuntimeService {
         state.proposal = null;
         // Reuse durable generation and its source/quality gates. Never apply a
         // chat editor draft before regenerating: saved output must be retained.
-        await this.perform(state, { ...command, action: "generate", draft: undefined }, persist);
+        await this.perform(state, { ...command, action: "generate", draft: undefined }, persist, internalSources);
         state.messages.push({ id: randomUUID(), node, role: "assistant", text: "已重新生成报告内容。", createdAt: new Date().toISOString() });
         return;
       }
@@ -472,7 +606,7 @@ export class GuidedRuntimeService {
     if ((action === "start" || action === "retry") && node === "research") {
       // Explicit refresh retries missing reading metadata without resetting successful searches.
       if (action === "start") for (const source of state.sources) if (!source.presentation && !source.addedByUser && source.decision !== "excluded") delete source.relevanceBasis;
-      await this.executeSearch(state, persist); return;
+      await this.executeSearch(state, persist, internalSources); return;
     }
     if (action === "confirm" || action === "complete") {
       if (node !== state.currentNode && !command.draft) throw new ResearchRuntimeError("RESEARCH_NODE_MISMATCH");
@@ -493,7 +627,7 @@ export class GuidedRuntimeService {
       state.currentNode = next; state.availableNodes = nodes.slice(0, nodes.indexOf(next) + 1);
       // Persist the destination before external work so refresh and failures stay on that step.
       await persist();
-      if (next === "research") await this.executeSearch(state, persist);
+      if (next === "research") await this.executeSearch(state, persist, internalSources);
       else await this.generate(state, next, persist);
       return;
     }

@@ -25,13 +25,13 @@ const cssFiles = list('assets/css', '.css');
 const consumers = html + js;
 
 /* Values a stylesheet legitimately reads but only JS ever writes. */
-const JS_WRITTEN = new Set(['--i', '--e', '--p', '--c', '--dscale', '--scene-track', '--read']);
+const JS_WRITTEN = new Set(['--hint-h', '--i', '--e', '--p', '--c', '--dscale', '--scene-track', '--read']);
 
 const classes = new Map();
 let css = '';
 for (const file of cssFiles) {
   /* Strip comments and url() payloads before looking for class names:
-     `url("../img/aurora.jpg")` otherwise reads as a class called `.jpg`. */
+     `url("../img/aurora.webp")` otherwise reads as a class called `.jpg`. */
   const body = read(file)
     .replace(/\/\*[\s\S]*?\*\//g, '')
     .replace(/url\([^)]*\)/g, 'url()');
@@ -136,9 +136,13 @@ const CJK_PLATFORMS = [
   ['Linux / Android', ['Noto Sans CJK SC', 'Source Han Sans SC']],
 ];
 const cjkGaps = [];
+/* The stacks name the Chinese group through var(--font-cjk); expand it, so
+   the check reads what the browser resolves, not the indirection. */
+const cjkGroup = (css.match(/^\s*--font-cjk:\s*([^;]+);/m) || [])[1] || '';
 for (const m of css.matchAll(/^\s*(--font-(?:display|body|mono)):\s*([^;]+);/gm)) {
+  const stack = m[2].replace(/var\(--font-cjk\)/g, cjkGroup);
   for (const [platform, families] of CJK_PLATFORMS) {
-    if (!families.some((f) => m[2].includes(`"${f}"`))) {
+    if (!families.some((f) => stack.includes(`"${f}"`))) {
       cjkGaps.push(`${m[1]}: nothing for ${platform} — expected one of ${families.join(', ')}`);
     }
   }
@@ -177,6 +181,20 @@ for (const file of cssFiles.filter((f) => !f.endsWith('site.css') && !f.endsWith
   });
 }
 report(':hover outside @media (hover: hover) — it sticks after a tap on a phone', hoverLeaks);
+/* --- weights the fonts no longer carry -----------------------------------
+   build-fonts.mjs cut Inter's weight axis to 400–700, because nothing used
+   the rest. A rule asking for 300 or 800 would silently render the nearest
+   weight in range — so the range is read out of fonts.css and enforced. */
+const [wMin, wMax] = (/font-family: 'Inter';[\s\S]*?font-weight:\s*(\d+)\s+(\d+)/.exec(read('assets/css/fonts.css')) || [0, 1, 1000]).slice(1).map(Number);
+const weightLeaks = [];
+for (const file of cssFiles.filter((f) => !f.endsWith('site.css') && !f.endsWith('fonts.css'))) {
+  read(file).replace(/\/\*[\s\S]*?\*\//g, '').split('\n').forEach((line, i) => {
+    for (const m of line.matchAll(/font-weight:\s*(\d+)/g)) {
+      if (+m[1] < wMin || +m[1] > wMax) weightLeaks.push(`${basename(file)}:${i + 1}: font-weight: ${m[1]} (the fonts carry ${wMin}–${wMax})`);
+    }
+  });
+}
+report('font weights outside what build-fonts.mjs keeps', weightLeaks);
 report('breakpoint tokens that govern nothing', bpLeaks);
 report('brand colours written literally outside the token block', brandLeaks);
 report('values set outside the radius / type scales', offScale);

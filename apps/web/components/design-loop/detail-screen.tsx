@@ -1,20 +1,24 @@
 "use client";
 import * as React from "react";
-import { ArrowLeft, Send, Check, CheckCircle2, Upload, Loader2, PlugZap, Crosshair, X, History, LayoutGrid, Smartphone, MessageSquareText, Play, Import, Plus, Copy, Trash2, Undo2, Share2, Layers, Pencil } from "lucide-react";
+import { ArrowLeft, Send, Check, Upload, Loader2, PlugZap, Crosshair, X, Import, Share2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 import { ApiError } from "@/lib/api-client";
 import { LinkBadge } from "./badges";
-import { PrototypeCanvas, deviceOf, DEVICE_PRESETS, presetById, rotated, fitScaleScrollable } from "./prototype-canvas";
-import { PrototypeHistoryPanel } from "./prototype-history";
-import { PrototypeLayers } from "./prototype-layers";
+import { DetailSpec, DetailTab, PushConfirm, PushSuccess } from "./detail-parts";
+import { DetailChatLog } from "./detail-chat-log";
+import { CanvasToolbar } from "./detail-canvas-toolbar";
+import { DetailSidePanel } from "./detail-side-panel";
+import { PrototypeCanvas, deviceOf, DEVICE_PRESETS, presetById, rotated, fitScaleScrollable, CANVAS_LABEL_H } from "./prototype-canvas";
+import { PresentMode } from "./present-mode";
 import { duplicateOps, moveOps, navigate, stripIds } from "@/lib/prototype-node-actions";
+import { useDesignComments } from "@/lib/design-comments";
+import { VariantsPanel, type VariantsAsk, type VariantsState } from "./variants-panel";
 import { changedNodeIds } from "@/lib/prototype-diff";
 import { RefImageStrip } from "./ref-image-strip";
 import { ImportThreadDialog } from "./import-thread-dialog";
 import { PrototypeBoard } from "./prototype-board";
-import { PrototypeInspector } from "./prototype-inspector";
 import { PrototypeExportMenu } from "./prototype-export";
 import { ShareDialog } from "./share-dialog";
 import { CanvasAppearance } from "./canvas-appearance";
@@ -23,6 +27,7 @@ import {
   uploadRefImage,
   deleteRefImage,
   patchPrototype,
+  proposeVariants,
   listPrototypeVersions,
   restorePrototypeVersion,
   type PrototypePatchOp,
@@ -31,7 +36,6 @@ import {
   pushToInbox as apiPushToInbox,
   publishProject as apiPublishProject,
   unpublishProject as apiUnpublishProject,
-  DESIGN_WORKBENCH_CHAT_INTRO,
   DESIGN_WORKBENCH_STARTERS,
   findPrototypeNodePath,
   prototypeNodeLabel,
@@ -41,6 +45,7 @@ import {
   type PrototypeLink,
   type PrototypeVersion,
   type PrototypeAccent,
+  type DesignTokens,
   PROJECT_TEMPLATE_LABEL,
   type ProjectTemplate,
   type DesignShareScope,
@@ -50,27 +55,7 @@ import { describeFailure } from "@/lib/design-failure";
 import { humanTime } from "@/lib/human-time";
 
 
-/**
- * 2026-09-07：退路原因 → 人话。键集合来自契约闭集 `DesignChatFallbackReason`（穷举，
- * 漏一个编译不过），不另抄一份，也不透传服务端异常细节。
- */
-const FALLBACK_REASON_TEXT: Record<DesignChatFallbackReason, string> = {
-  MODEL_NOT_CONFIGURED: "这个部署还没配置 AI 模型，画布生成用不了——需要运维在部署配置里补上模型 provider。",
-  MODEL_CALL_FAILED: "调用 AI 模型失败（网络或鉴权）。可以重试一次；一直失败就让运维看部署日志。",
-  MODEL_TIMEOUT: "这次画的东西太大，AI 没能在时限内画完。试试少要几页、或把要求说得更具体一点再发一次。",
-  MODEL_EMPTY_OUTPUT: "AI 模型这次返回了空结果。换个说法再试一次通常就好了。",
-  MODEL_BAD_JSON: "AI 这次的输出不是有效的格式，画布没有更新。换个说法再试一次通常就好了。",
-  MODEL_OUTPUT_TRUNCATED: "AI 这次没说完就被长度截断了。已经画好的页留着了——没画完的那页可以单独重试，或者把要求拆小一点。",
-  MODEL_NO_REPLY_TEXT: "AI 模型这次没给出可用的回复文本；如果画布有变化，那部分已经生效。",
-};
 
-/** B5.2：`reply.applied` 的展示文案——键集合来自契约枚举，不另抄一份。 */
-const WRITEBACK_LABEL: Record<DesignWritebackField, string> = {
-  problem: "背景",
-  criteria: "验收标准",
-  frames: "画布页",
-  prototype: "原型画布",
-};
 
 /**
  * 迭代 16（#3773 R2）：生成期间多久读一次项目。
@@ -108,27 +93,10 @@ const ACCENT_SWATCH: Record<Exclude<PrototypeAccent, "neutral">, string> = Objec
   Object.entries(designWorkbench.PROTOTYPE_ACCENTS).map(([k, v]) => [k, v.dark.primary]),
 ) as Record<Exclude<PrototypeAccent, "neutral">, string>;
 
-/**
- * 迭代 16（#3773 R8）：哪些退路原因值得给一个「再试一次」。
- *
- * ⚠ `MODEL_NOT_CONFIGURED` **不在**这里：这个部署根本没配模型，重试一百次也一样，
- *   给一个必然失败的按钮是在骗人。那一条的下一步是找运维，文案里已经说了。
- * `MODEL_NO_REPLY_TEXT` 也不在：写回可能已经生效了，重发同一句会再改一遍。
- */
-/**
- * 迭代 20：「少画几页再试」按几页。
- *
- * 3 是骨架轮页数区间（3–6）的下限——再少就不是"这个产品长什么样"而是一张孤立的屏了。
- * 这个数会作为 `maxScreens` 交上去，由服务端**截断执行**，不是一句提示。
- */
-const FEWER_PAGES_CAP = 3;
 
 /** 迭代 30：一句话的字数上限。取自契约单源，不在这里抄第二个 4000。 */
 const MAX_CHARS = designWorkbench.DESIGN_TEXT_MAX_CHARS;
 
-const RETRYABLE_FALLBACK: ReadonlySet<DesignChatFallbackReason> = new Set([
-  "MODEL_CALL_FAILED", "MODEL_TIMEOUT", "MODEL_EMPTY_OUTPUT", "MODEL_BAD_JSON", "MODEL_OUTPUT_TRUNCATED",
-]);
 
 const TEMPLATE_LABEL = PROJECT_TEMPLATE_LABEL;
 
@@ -214,6 +182,10 @@ export function DesignDetailScreen({
   const [selectedId, setSelectedId] = React.useState<string | null>(null);
   /** 迭代 3：版本历史面板开关 + 正在预览的旧版本（画布临时显示它的树，不写库）。 */
   const [historyOpen, setHistoryOpen] = React.useState(false);
+  /** 深度 S6：右栏的「代码」面板。 */
+  const [codeOpen, setCodeOpen] = React.useState(false);
+  /** 深度 S7：演示模式。 */
+  const [presenting, setPresenting] = React.useState(false);
   /** 迭代 4：画布视图——「画板」把所有页并排铺开可平移缩放（默认），「单页」只看当前页。 */
   const [viewMode, setViewMode] = React.useState<"board" | "single">(
     () => (typeof window !== "undefined" && window.innerWidth < 768 ? "single" : "board"),
@@ -222,7 +194,9 @@ export function DesignDetailScreen({
    * 迭代 11（design-delta `prototype-navigation`，待签核）：编辑 / 预览。预览下点有跳转的节点 = 换页，
    * 没跳转的节点点了没反应也不选中；属性面板与焦点 chip 收起（预览不是编辑）。
    */
-  const [canvasMode, setCanvasMode] = React.useState<"edit" | "preview">("edit");
+  /** 对标 R8：第三种模式「批注」——点节点 = 给它写一句，不是去改它（不出属性面板、不接快捷键）。 */
+  const [canvasMode, setCanvasMode] = React.useState<"edit" | "preview" | "comment">("edit");
+  const comments = useDesignComments(projectId);
   /*
    * 迭代 26：**窄屏默认单页**。
    *
@@ -363,10 +337,10 @@ export function DesignDetailScreen({
    * 单页舞台是 `overflow-auto` 的——所以高度不够时按宽度缩、让人竖着滚，
    * 而不是缩成一张读不了字的缩略图（手机上实测 0.29，见 `fitScaleScrollable` 头注）。
    */
-  const scale = fitScaleScrollable({ w: Math.max(0, stage.w - 32), h: Math.max(0, stage.h - 32) }, { w: lensSize.w, h: lensSize.h + 40 });
+  const scale = fitScaleScrollable({ w: Math.max(0, stage.w - 32), h: Math.max(0, stage.h - 32) }, { w: lensSize.w, h: lensSize.h + CANVAS_LABEL_H });
   // 迭代 2：选中节点在当前树里的路径；节点被上一轮删掉/整页重生成后找不到 ⇒ 视为未选中（不留悬空引用）。
   const focus = React.useMemo(
-    () => (project !== null && selectedId !== null && canvasMode === "edit" ? findPrototypeNodePath(project.prototype, selectedId) : null),
+    () => (project !== null && selectedId !== null && canvasMode !== "preview" ? findPrototypeNodePath(project.prototype, selectedId) : null),
     [project, selectedId, canvasMode],
   );
   /** 迭代 11：每页出发的跳转表（服务端接线前可能没有 ⇒ 空）。 */
@@ -388,16 +362,56 @@ export function DesignDetailScreen({
    * 三处不各写一遍"复制是什么意思"（op 怎么算见 `lib/prototype-node-actions`）。
    * 走的是与模型写回同一条 `patchPrototype`（I-11）。
    */
-  const runNodeOps = async (ops: readonly PrototypePatchOp[] | null, summary: string) => {
-    if (project === null || ops === null || ops.length === 0) return;
+  const runNodeOps = async (ops: readonly PrototypePatchOp[] | null, summary: string): Promise<boolean> => {
+    if (project === null || ops === null || ops.length === 0) return false;
     try {
       const out = await patchPrototype(project.id, [...ops], summary);
       setLoad({ kind: "ready", project: out.project });
+      return true;
     } catch (err) {
       setChatError(`没能${summary}（${describeFailure(err)}）`);
       window.setTimeout(() => setChatError(null), 3000);
+      return false;
     }
   };
+
+  /**
+   * 对标 R9（#3954）：同一页的几个方案。挑中 ⇒ 一条 `replace` 把这一页的根换掉（I-11），
+   * 所以它是版本历史里普通的一条，撤销能回到原来那页。换页 ⇒ 候选作废（它们是那一页的方案）。
+   */
+  const [variants, setVariants] = React.useState<VariantsState | null>(null);
+  const [pickingVariant, setPickingVariant] = React.useState(false);
+  React.useEffect(() => { setVariants(null); }, [frame]);
+  const variantScreen = project === null ? 0 : Math.min(frame, Math.max(0, project.frames.length - 1));
+  const askVariants = async (ask: VariantsAsk = {}) => {
+    if (project === null) return;
+    setVariants({ kind: "loading" });
+    try {
+      const out = await proposeVariants(project.id, variantScreen, ask);
+      setVariants({ kind: "ready", items: out.variants });
+    } catch (err) {
+      setVariants({ kind: "error", message: `没能出方案（${describeFailure(err)}）` });
+    }
+  };
+  const pickVariant = async (i: number) => {
+    const item = variants?.kind === "ready" ? variants.items[i] : undefined;
+    const rootId = project?.prototype[variantScreen]?.id;
+    if (item === undefined || rootId === undefined) return;
+    setPickingVariant(true);
+    // 去 id：模型给的树可能带着与别的页重复的 id，服务端会补新的。
+    const ok = await runNodeOps([{ op: "replace", id: rootId, node: stripIds(item.root) }], `换成方案：${item.summary}`.slice(0, 120));
+    setPickingVariant(false);
+    if (ok) { setVariants(null); setSelectedId(null); }
+  };
+
+  /** 对标 R8：当前页上还没交给 AI 的批注，编号与右栏列表一致。 */
+  const commentPins = React.useMemo(() => {
+    const open = comments.comments.filter((c) => !c.resolved);
+    return open.flatMap((c, i) => (c.frameIndex === frame ? [{ nodeId: c.nodeId, n: i + 1, resolved: false }] : []));
+  }, [comments.comments, frame]);
+
+  /** 对标 R7：画布上双击改字——同一条 setProps（I-11），撤销照样能撤。 */
+  const inlineEdit = (id: string, key: string, value: string) => void runNodeOps([{ op: "setProps", id, props: { [key]: value } }], "改这段文字");
 
   /**
    * 迭代 16：页级动作。契约的 `addScreen`/`removeScreen` 从迭代 12 起就在，
@@ -433,17 +447,50 @@ export function DesignDetailScreen({
    * 复用既有的 `restorePrototypeVersion`，不另造一条回滚路径。
    */
   const [undoing, setUndoing] = React.useState(false);
+  /**
+   * 对标 R7（#3933）：重做 = 撤掉刚才那次撤销。栈里放的是**撤销之前那一版**的 id；恢复它就是重做。
+   * 撤销/重做之外的任何改动（对话、属性面板、画布上改字、拖拽）都会让栈失效——在那之后「重做」
+   * 会把别人的新改动一起盖掉。判据是 `updatedAt`：撤销/重做自己写回时记下它，别的写回一来就对不上。
+   */
+  const [redoStack, setRedoStack] = React.useState<readonly string[]>([]);
+  const ownStamp = React.useRef<string | null>(null);
+  React.useEffect(() => {
+    if (project !== null && project.updatedAt !== ownStamp.current) setRedoStack([]);
+  }, [project?.updatedAt]); // eslint-disable-line react-hooks/exhaustive-deps
+  const restoreAs = async (versionId: string) => {
+    if (project === null) return null;
+    const out = await restorePrototypeVersion(project.id, versionId);
+    ownStamp.current = out.project.updatedAt;
+    setLoad({ kind: "ready", project: out.project });
+    setSelectedId(null);
+    return out;
+  };
+  const redo = async () => {
+    const id = redoStack.at(-1);
+    if (id === undefined || project === null) return;
+    setUndoing(true);
+    try {
+      await restoreAs(id);
+      setRedoStack((st) => st.slice(0, -1));
+    } catch (err) {
+      setChatError(`没能重做（${describeFailure(err)}）`);
+      window.setTimeout(() => setChatError(null), 3000);
+    } finally {
+      setUndoing(false);
+    }
+  };
   const undoLast = async () => {
     if (project === null) return;
     setUndoing(true);
     try {
       const { items: versions } = await listPrototypeVersions(project.id);
       // 版本按 seq 升序；"上一版"是倒数第二个——最后一个就是现在这份。
-      const target = [...versions].sort((a, b) => a.seq - b.seq).at(-2);
+      const sorted = [...versions].sort((a, b) => a.seq - b.seq);
+      const target = sorted.at(-2);
       if (target === undefined) { setChatError("没有可回退的版本了。"); window.setTimeout(() => setChatError(null), 3000); return; }
-      const out = await restorePrototypeVersion(project.id, target.id);
-      setLoad({ kind: "ready", project: out.project });
-      setSelectedId(null);
+      const current = sorted.at(-1)!;
+      await restoreAs(target.id);
+      setRedoStack((st) => [...st, current.id]);
     } catch (err) {
       setChatError(`没能撤销（${describeFailure(err)}）`);
       window.setTimeout(() => setChatError(null), 3000);
@@ -475,15 +522,35 @@ export function DesignDetailScreen({
    * 它是项目的属性（导出的 HTML 也跟着它），不是看的人的偏好，所以落库而不是存在本地。
    */
   const changeAccent = async (accent: PrototypeAccent) => {
-    if (project === null || project.accent === accent) return;
+    // 对标 R1：用着品牌色时点档位 = 换回档位（清掉品牌色），否则品牌色压着、点了看不出任何变化。
+    const clearBrand = project !== null && project.tokens.brand !== null;
+    if (project === null || (project.accent === accent && !clearBrand)) return;
     const before = project;
-    setLoad({ kind: "ready", project: { ...project, accent } });
+    setLoad({ kind: "ready", project: { ...project, accent, ...(clearBrand ? { tokens: { ...project.tokens, brand: null } } : {}) } });
     try {
-      const out = await updateProject(project.id, { accent });
+      const out = await updateProject(project.id, { accent, ...(clearBrand ? { tokens: { brand: null } } : {}) });
       setLoad({ kind: "ready", project: out.project });
     } catch {
       setLoad({ kind: "ready", project: before });
       setChatError("没能切换强调色，稍后再试。");
+      window.setTimeout(() => setChatError(null), 3000);
+    }
+  };
+
+  /**
+   * 对标 R1（#3933）：改**设计 token**（品牌色、字体）。同一条 `updateProject` 路径、同一套乐观更新；
+   * 契约按键合并，这里只发变了的那几个键。
+   */
+  const changeTokens = async (patch: Partial<DesignTokens>) => {
+    if (project === null) return;
+    const before = project;
+    setLoad({ kind: "ready", project: { ...project, tokens: { ...project.tokens, ...patch } } });
+    try {
+      const out = await updateProject(project.id, { tokens: patch });
+      setLoad({ kind: "ready", project: out.project });
+    } catch {
+      setLoad({ kind: "ready", project: before });
+      setChatError("没能改外观，稍后再试。");
       window.setTimeout(() => setChatError(null), 3000);
     }
   };
@@ -532,6 +599,12 @@ export function DesignDetailScreen({
         return;
       }
       if (canvasMode !== "edit") return;
+      // 对标 R7：⌘Z 撤销、⌘⇧Z 重做（与 Figma 一致）。不需要选中节点。
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "z") {
+        e.preventDefault();
+        void (e.shiftKey ? redo() : undoLast());
+        return;
+      }
       if (e.key === "Escape") { setSelectedId(null); return; }
       if (selectedId === null || project === null) return;
       const tree = project.prototype;
@@ -616,9 +689,10 @@ export function DesignDetailScreen({
     return <PushSuccess project={pushed.project} code={pushed.code} onOpenInbox={onOpenInbox} onNextDesign={onNextDesign} />;
   }
 
-  const send = async (override?: string, maxScreens?: number) => {
+  /** 对标 R8：返回这一轮是否真的发成功了——批注据此才标「已交给 AI」。 */
+  const send = async (override?: string, maxScreens?: number): Promise<boolean> => {
     const value = (override ?? text).trim();
-    if (value === "") return;
+    if (value === "") return false;
     const controller = new AbortController();
     abortRef.current = controller;
     setSending(true);
@@ -648,7 +722,7 @@ export function DesignDetailScreen({
       const { project: updated, reply } = await apiAppendProjectChat(
         project.id,
         value,
-        focus !== null ? selectedId ?? undefined : undefined,
+        focus !== null && canvasMode === "edit" ? selectedId ?? undefined : undefined,
         controller.signal,
         // 迭代 13：项目当前的**全部**参考图随每一轮发出去——它是"贴在墙上的参考"，
         // 不是某一句话的附件（理由见 `ref-image-strip.tsx` 头注）。
@@ -674,6 +748,7 @@ export function DesignDetailScreen({
       // 不能靠「id 字符串还找得到」判断身份延续——一律清掉。patch 保留 id，选中延续。
       if (reply.applied.includes("frames")) setSelectedId(null);
       setText("");
+      return true;
     } catch (err) {
       if (controller.signal.aborted) {
         // 用户自己取消的：不是错误，草稿原样留在输入框。⚠ 服务端那次调用可能仍会完成并落库——
@@ -698,6 +773,7 @@ export function DesignDetailScreen({
         setRetryText(value);
         setChatError(`没能发送（${describeFailure(err)}），已保留草稿`);
       }
+      return false;
     } finally {
       stopPoll();
       window.clearInterval(tick);
@@ -755,6 +831,19 @@ export function DesignDetailScreen({
       setPushBusy(false);
     }
   };
+
+  // 深度 S7：演示时整屏只有这一页——编辑器不是盖住，是**不在屏上**（盖住的东西读屏器照样读得到）。
+  // 状态都在这个组件里，退出演示回来一切照旧，停在演示最后翻到的那一页。
+  if (presenting) {
+    return (
+      <div className="dark">
+        <PresentMode
+          project={project} startFrame={frame} device={lens} landscape={landscape} links={project.frameLinks ?? []}
+          onExit={(f) => { setPresenting(false); setFrame(f); }}
+        />
+      </div>
+    );
+  }
 
   return (
     <div className="dark flex h-dvh flex-col bg-background text-background-foreground" data-testid="design-detail">
@@ -832,161 +921,16 @@ export function DesignDetailScreen({
               <Import aria-hidden className="h-3 w-3" /> 从对话导入
             </button>
           </div>
-          <div ref={chatRef} className="flex flex-1 flex-col gap-2 overflow-y-auto p-3" data-testid="design-detail-chat">
-            {project.chat.length === 0 && (
-              <div className="flex max-w-[90%] flex-col gap-2 self-start">
-                <div className="rounded-card bg-card px-2.5 py-1.5 text-12 text-card-foreground">{DESIGN_WORKBENCH_CHAT_INTRO}</div>
-              </div>
-            )}
-            {/*
-              * 迭代 30：起手模板原来锁在 `chat.length === 0` 里——也就是说，**只要说过一句话**，
-              * 哪怕那句是「你好」、哪怕那一轮失败了一页没画出来，三条示例就永远消失。
-              * 第一次来的人最可能干的事恰恰是先随便说一句。真正的条件是「还没画出来东西」，
-              * 这个条件原本就写在里层（`prototype.length === 0`），只是被外层那道门挡住了。
-              */}
-            {/*
-              * ⚠ 迭代 30 的修法在真浏览器上撞到了一条既有约定（`design-prototype-loop.spec.ts`
-              *   「空项目：起手模板 → 发送 → …」）：点了一条起手模板、AI 回过话并给出
-              *   **它自己的下一步建议**之后，那三条通用示例就该让位——两排 chip 叠在一起，
-              *   更贴题的那一排反而被淹掉。
-              *
-              *   所以条件不是「说过话就收起」（那正是迭代 30 要修的 bug：随口一句「你好」
-              *   把示例永久关掉），而是「还没画出东西 **且** 还没有更贴题的建议」。
-              */}
-            {project.prototype.length === 0 && suggestions.length === 0 && (
-              <div className="flex max-w-[90%] flex-col gap-2 self-start">
-                {project.chat.length > 0 && (
-                  <p className="text-10 text-muted-foreground" data-testid="design-detail-starters-again">
-                    还没画出东西？直接点一条试试：
-                  </p>
-                )}
-                <div className="flex flex-wrap gap-1.5" data-testid="design-detail-starters">
-                    {DESIGN_WORKBENCH_STARTERS.map((s) => (
-                      <button key={s.label} type="button" onClick={() => void send(s.prompt)} disabled={sending}
-                        className="rounded-full border border-border px-2.5 py-1 text-11 text-muted-foreground transition-colors duration-fast hover:border-primary hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:bg-disabled disabled:text-disabled-foreground"
-                        data-testid={`design-detail-starter-${s.label}`}>
-                        {s.label}
-                      </button>
-                    ))}
-                </div>
-              </div>
-            )}
-            {project.chat.map((turn, i) => (
-              <div
-                key={i}
-                data-testid={`design-detail-turn-${turn.role}`}
-                className={cn(
-                  /*
-                   * 迭代 30：`whitespace-pre-wrap`。输入框的 placeholder 一直写着
-                   * 「Shift+Enter 换行」，而气泡把换行全折成了一行——教了一个手势，
-                   * 又把它的结果吞掉。粘一段分行的需求进来时尤其明显。
-                   */
-                  "max-w-[90%] whitespace-pre-wrap rounded-card px-2.5 py-1.5 text-12",
-                  turn.role === "user" ? "self-end bg-primary text-primary-foreground" : "self-start bg-card text-card-foreground",
-                )}
-              >
-                {turn.text}
-                {/* 迭代 13（delta §2）：`source: "system"` 不是一次模型回合，是服务端留下的痕迹。
-                    标成「系统」而不是「未生成」——后者的含义是"模型本该说话却没说成"，这里模型压根没被叫过。 */}
-                {turn.role === "ai" && turn.source === "system" && (
-                  <span className="ml-1.5 rounded-control border border-border px-1 text-10 text-muted-foreground" title="这条不是 AI 说的，是系统在这里留下的一条记录（比如你从别处导入了一段对话）" data-testid="design-detail-turn-system">
-                    系统
-                  </span>
-                )}
-                {/* B5.2：模型不可用时服务端退回固定回执并标 source=fallback——如实显示，不装成模型说的 */}
-                {turn.role === "ai" && turn.source === "fallback" && (
-                  <span className="ml-1.5 rounded-control border border-border px-1 text-10 text-muted-foreground" title="这一轮 AI 没能给出画布，下面那句话说了原因；这条回执是系统写的，不是 AI 的答复" data-testid="design-detail-turn-fallback">
-                    未生成
-                  </span>
-                )}
-                {/* 2026-09-07：退路原因（闭集 → 人话），只挂最后一条，说清该重试还是该找运维 */}
-                {turn.role === "ai" && i === project.chat.length - 1 && fallbackReason !== null && (
-                  <div className="mt-1 flex flex-wrap items-center gap-1.5 text-10 text-muted-foreground">
-                    <p data-testid="design-detail-fallback-reason">{FALLBACK_REASON_TEXT[fallbackReason]}</p>
-                    {/*
-                      * 迭代 16（#3773 R8）：退路里**该重试的那几种**给一个「再试一次」。
-                      *
-                      * 在这之前这里只有一句解释，而屏上唯一的重试入口挂在"没能发送"那条
-                      * 错误条带上——也就是说：网络层失败给了重试，**模型层失败反而没有**，
-                      * 而后者才是用户真正会撞上的那一类（超时、被截断、输出不是 JSON）。
-                      * 用户当时能做的只有把刚才那句话再手打一遍。
-                      *
-                      * 「没配模型」不给重试：它不是"再来一次就好"的事，重试一百次也一样，
-                      * 那句话已经说了该找运维。给一个必然失败的按钮是在骗人。
-                      */}
-                    {/*
-                      * 迭代 20：超时的那句话一直写着「试试少要几页」，而用户**没有任何
-                      * 控制页数的手段**——页数由骨架轮自己定，界面上没有旋钮，
-                      * 说「只画 3 页」也只是一句模型可以不听的话。又一句做不到的许诺。
-                      * 现在这个按钮把那句话变成一个真的动作：`maxScreens` 是服务端
-                      * 强制截断的上限，不是提示。
-                      * 只在**超时**时给——别的退路原因（输出不是 JSON、没配模型）
-                      * 与页数无关，给了只会把人往错的方向引。
-                      */}
-                    {fallbackReason === "MODEL_TIMEOUT" && lastUserText !== null && !sending && (
-                      <button
-                        type="button"
-                        onClick={() => void send(lastUserText, FEWER_PAGES_CAP)}
-                        className="rounded-control border border-border px-1.5 py-0.5 transition-colors duration-fast hover:border-primary hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                        data-testid="design-detail-fewer-pages"
-                      >
-                        只画 {FEWER_PAGES_CAP} 页再试
-                      </button>
-                    )}
-                    {RETRYABLE_FALLBACK.has(fallbackReason) && lastUserText !== null && !sending && (
-                      <button
-                        type="button"
-                        onClick={() => void send(lastUserText)}
-                        className="rounded-control border border-border px-1.5 py-0.5 transition-colors duration-fast hover:border-primary hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                        data-testid="design-detail-fallback-retry"
-                      >
-                        再试一次
-                      </button>
-                    )}
-                  </div>
-                )}
-                {/*
-                  * 迭代 30：每条气泡说一句「什么时候」。这条对话就是这个项目的全部来龙去脉，
-                  * 隔一天回来接着做时，「哪些是今天说的」只能靠猜。`at` 契约里一直有，
-                  * 只是从来没显示过。时间格式走 `humanTime` 这一份，不另写。
-                  */}
-                <span className={cn("ml-1.5 align-baseline text-10", turn.role === "user" ? "text-primary-foreground/70" : "text-muted-foreground")} data-testid={`design-detail-turn-at-${String(i)}`}>{humanTime(turn.at)}</span>
-                {/*
-                  * 迭代 30：用户那一侧的「再说一遍这句」。原来只有模型退路那一类给了重试，
-                  * 而「这轮画得不对，我想用同一句话再要一次」是普通人最常想做的事——
-                  * 他能做的只有把刚才那句手打一遍。
-                  */}
-                {turn.role === "user" && !sending && (
-                  <button
-                    type="button"
-                    onClick={() => void send(turn.text)}
-                    className={cn("ml-1.5 rounded-control px-1 text-10 underline underline-offset-2 transition-colors duration-fast focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring", turn.role === "user" ? "text-primary-foreground/80 hover:text-primary-foreground" : "text-muted-foreground hover:text-background-foreground")}
-                    data-testid={`design-detail-resend-${String(i)}`}
-                  >
-                    再发一次
-                  </button>
-                )}
-                {/* B5.2：这轮回复写回了哪些字段（服务端 `reply.applied`），只挂在最后一条 AI 气泡下 */}
-                {turn.role === "ai" && i === project.chat.length - 1 && lastApplied.length > 0 && (
-                  <div className="mt-1 text-10 text-muted-foreground" data-testid="design-detail-chat-applied">
-                    已更新：{lastApplied.map((f) => WRITEBACK_LABEL[f]).join(" / ")}
-                  </div>
-                )}
-              </div>
-            ))}
-            {/* 迭代 9：下一步建议 chips——只跟最后一条 AI 气泡，发下一句时清掉 */}
-            {suggestions.length > 0 && !sending && (
-              <div className="flex max-w-[90%] flex-wrap gap-1.5 self-start" data-testid="design-detail-suggestions">
-                {suggestions.map((s) => (
-                  <button key={s} type="button" onClick={() => void send(s)}
-                    className="rounded-full border border-primary/40 bg-primary/10 px-2.5 py-1 text-11 text-primary transition-colors duration-fast hover:bg-primary/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                    data-testid="design-detail-suggestion">
-                    {s}
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
+          <DetailChatLog
+            ref={chatRef}
+            project={project}
+            suggestions={suggestions}
+            sending={sending}
+            fallbackReason={fallbackReason}
+            lastUserText={lastUserText}
+            lastApplied={lastApplied}
+            onSend={(t, maxScreens) => void send(t, maxScreens)}
+          />
           {sending && (
             <div className="mx-3 mb-1 flex items-center gap-1.5 text-11 text-muted-foreground" data-testid="design-detail-generating" role="status">
               <Loader2 aria-hidden className="h-3 w-3 animate-spin" />
@@ -1037,8 +981,8 @@ export function DesignDetailScreen({
               setLoad({ kind: "ready", project: out.project });
             }}
           />
-          {/* 迭代 2：焦点 chip——告诉用户「这句话会针对它」，可一键清除 */}
-          {focus !== null && (
+          {/* 迭代 2：焦点 chip——告诉用户「这句话会针对它」，可一键清除。批注模式下选中是「给它写批注」，不是对话焦点。 */}
+          {focus !== null && canvasMode === "edit" && (
             <div className="mx-3 mb-1 flex items-center gap-1.5 text-11 text-muted-foreground" data-testid="design-detail-focus">
               <Crosshair aria-hidden className="h-3 w-3 text-primary" />
               <span className="truncate">
@@ -1123,182 +1067,41 @@ export function DesignDetailScreen({
 
           {tab === "canvas" ? (
             <div className="flex min-h-0 flex-1 flex-col" data-testid="design-detail-canvas">
-              {/*
-                * 迭代 24：`flex-wrap` —— 放不下就换行，而不是把整个页面撑出横向滚动。
-                * 宽屏一行照旧放得下，所以这一条对桌面是零改动。
-                */}
-              <div className="flex flex-wrap items-center gap-1 border-b border-border px-4 py-2">
-                {/*
-                  * 迭代 24：页签自己横向滚，不把工具条撑宽。此前在 375 档页签被 flex 压到
-                  * 每字一行（「历」「史」「会」「话」竖着排），而整条工具条仍然溢出——
-                  * 两个毛病同一个根：一行里塞了太多东西，却既不许滚也不许换行。
-                  */}
-                <div
-                  className="flex min-w-0 max-w-full items-center gap-1 overflow-x-auto"
-                  data-allow-x-scroll="页签多时自己横向滚动，不撑宽工具条"
-                  data-testid="design-detail-frames"
-                >
-                {(preview ?? project).frames.map((f, i) => (
-                  <button
-                    key={f}
-                    type="button"
-                    onClick={() => setFrame(i)}
-                    // 迭代 11：这排页签是一组互斥的"当前页"选择，读屏得知道哪一个是选中的
-                    // （同顶栏视图/模式切换的既有做法）。e2e 也据此断言预览模式真的换了页。
-                    aria-pressed={frame === i}
-                    data-testid={`design-detail-frame-${i}`}
-                    className={cn(
-                      "shrink-0 whitespace-nowrap rounded-control px-2 py-1 text-11 transition-colors duration-fast focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-                      frame === i ? "bg-card text-card-foreground" : "text-muted-foreground hover:bg-card/60",
-                    )}
-                    onDoubleClick={() => {
-                      // 双击页签改名：就地编辑，不弹窗——改一个词不值得一个 Dialog。
-                      if (i !== frame || canvasMode !== "edit") return;
-                      const name = window.prompt("页面名字", f);
-                      if (name !== null) renamePage(name);
-                    }}
-                    title={i === frame && canvasMode === "edit" ? "双击改名" : undefined}
-                  >
-                    {f}
-                  </button>
-                ))}
-                {/*
-                  * 迭代 16：页管理。契约的 addScreen/removeScreen 从迭代 12 起就在，
-                  * 但从来没有 UI 够得着——模型能加删页，用户不能。
-                  */}
-                {canvasMode === "edit" && preview === null && (
-                  <>
-                    {/*
-                      * 迭代 26：页签与「改名/加页/复制/删页」之间加一道分隔线。
-                      * 它们此前只隔着 4px，而最后一颗是**删这一页**——在手机上手指宽度
-                      * 远大于那个间距，点最后一个页签与删掉它只差几个像素。
-                      */}
-                    <span className="mx-1 h-4 w-px shrink-0 bg-border" aria-hidden />
-                    <span className="flex shrink-0 items-center gap-0.5" data-testid="design-detail-pages">
-                    {/*
-                      * 迭代 25：改名此前**只有双击页签**一条路（还用 `window.prompt`）。
-                      * 手机上没有双击这回事，而这排按钮在哪都点得到——改名与加/复制/删同级，
-                      * 本来就该并排。
-                      */}
-                    <button
-                      type="button"
-                      onClick={() => {
-                        const current = (preview ?? project).frames[frame] ?? "";
-                        const name = window.prompt("页面名字", current);
-                        if (name !== null) renamePage(name);
-                      }}
-                      title="给这一页改名"
-                      data-testid="design-detail-page-rename"
-                      className="rounded-control px-1 py-1 text-muted-foreground transition-colors duration-fast hover:bg-card hover:text-background-foreground"
-                    >
-                      <Pencil aria-hidden className="h-3 w-3" />
-                    </button>
-                    <button type="button" onClick={addPage} title="加一页" data-testid="design-detail-page-add"
-                      className="rounded-control px-1 py-1 text-muted-foreground transition-colors duration-fast hover:bg-card hover:text-background-foreground">
-                      <Plus aria-hidden className="h-3 w-3" />
-                    </button>
-                    <button type="button" onClick={duplicatePage} title="复制这一页" data-testid="design-detail-page-duplicate"
-                      className="rounded-control px-1 py-1 text-muted-foreground transition-colors duration-fast hover:bg-card hover:text-background-foreground">
-                      <Copy aria-hidden className="h-3 w-3" />
-                    </button>
-                    <button type="button" onClick={removePage} disabled={pageCount <= 1} title={pageCount <= 1 ? "只剩一页了，删不得" : "删掉这一页"}
-                      data-testid="design-detail-page-remove"
-                      className="rounded-control px-1 py-1 text-muted-foreground transition-colors duration-fast hover:bg-card hover:text-destructive disabled:bg-disabled disabled:text-disabled-foreground">
-                      <Trash2 aria-hidden className="h-3 w-3" />
-                    </button>
-                  </span>
-                  </>
-                )}
-                </div>
-                <div className="ml-auto inline-flex rounded-control border border-border p-0.5" role="group" aria-label="画布视图">
-                  <button type="button" onClick={() => setViewMode("board")} aria-pressed={viewMode === "board"} data-testid="design-detail-view-board" title="画板：所有页并排，可平移缩放"
-                    className={cn("inline-flex items-center gap-1 rounded-control px-1.5 py-0.5 text-10 transition-colors duration-fast", viewMode === "board" ? "bg-card text-card-foreground" : "text-muted-foreground hover:bg-card/60")}>
-                    <LayoutGrid aria-hidden className="h-3 w-3" /> 画板
-                  </button>
-                  <button type="button" onClick={() => setViewMode("single")} aria-pressed={viewMode === "single"} data-testid="design-detail-view-single" title="单页：只看当前页"
-                    className={cn("inline-flex items-center gap-1 rounded-control px-1.5 py-0.5 text-10 transition-colors duration-fast", viewMode === "single" ? "bg-card text-card-foreground" : "text-muted-foreground hover:bg-card/60")}>
-                    <Smartphone aria-hidden className="h-3 w-3" /> 单页
-                  </button>
-                </div>
-                {/* 迭代 11：编辑 / 预览。预览点有跳转的节点 = 换页；进预览时清掉选中，退出再选。 */}
-                <div className="inline-flex rounded-control border border-border p-0.5" role="group" aria-label="画布模式">
-                  <button type="button" onClick={() => { setCanvasMode("edit"); setBackStack([]); }} aria-pressed={canvasMode === "edit"} data-testid="design-detail-mode-edit" title="编辑：点节点选中它去改"
-                    className={cn("inline-flex items-center gap-1 rounded-control px-1.5 py-0.5 text-10 transition-colors duration-fast", canvasMode === "edit" ? "bg-card text-card-foreground" : "text-muted-foreground hover:bg-card/60")}>
-                    <Crosshair aria-hidden className="h-3 w-3" /> 编辑
-                  </button>
-                  <button type="button" onClick={() => { setCanvasMode("preview"); setSelectedId(null); setBackStack([]); }} aria-pressed={canvasMode === "preview"} data-testid="design-detail-mode-preview" title="预览：点有跳转的按钮，像用真的 App 一样走一遍"
-                    className={cn("inline-flex items-center gap-1 rounded-control px-1.5 py-0.5 text-10 transition-colors duration-fast", canvasMode === "preview" ? "bg-card text-card-foreground" : "text-muted-foreground hover:bg-card/60")}>
-                    <Play aria-hidden className="h-3 w-3" /> 预览
-                  </button>
-                </div>
-                {/*
-                  * 迭代 24：明暗 / 强调色 / 设备三组收进一个「外观」面板。
-                  *
-                  * 它们的共同点是**设一次就不再动**，而此前它们在工具条上平铺了十几个控件，
-                  * 其中八个是没有名字的彩色圆点——第一次来做原型的人最显眼看到的就是它们，
-                  * 既不知道那是什么，也不知道该不该动。收起来之后，常态工具条只剩每天真用得上的
-                  * 那几个；点开之后每一节有中文小标题，圆点第一次有了名字。
-                  *
-                  * 顺带把 375 档那 460px 的横向滚动消掉（见 `canvas-appearance.tsx` 头注）。
-                  */}
-                <CanvasAppearance
-                  theme={project.theme}
-                  onTheme={(t) => void changeTheme(t)}
-                  accent={project.accent}
-                  accentOptions={ACCENT_OPTIONS}
-                  accentLabel={ACCENT_LABEL}
-                  accentSwatch={ACCENT_SWATCH}
-                  onAccent={(a) => void changeAccent(a)}
-                  devices={DEVICE_PRESETS}
-                  deviceId={lens.id}
-                  onDevice={setDeviceId}
-                  landscape={landscape}
-                  onLandscape={() => setLandscape((v) => !v)}
-                  rotatable={lens.rotatable}
-                />
-                {/* 迭代 24：窄屏才有的「图层」开关——md 及以上那一栏一直在，不需要这个按钮。 */}
-                <button
-                  type="button"
-                  onClick={() => setSideOpen((v) => !v)}
-                  aria-pressed={sideOpen}
-                  data-testid="design-detail-side-toggle"
-                  title="图层与属性"
-                  className={cn(
-                    "inline-flex items-center gap-1 rounded-control px-2 py-1 text-11 transition-colors duration-fast md:hidden",
-                    sideOpen ? "bg-card text-card-foreground" : "text-muted-foreground hover:bg-card/60",
-                  )}
-                >
-                  <Layers aria-hidden className="h-3 w-3" /> 图层
-                </button>
-                {/* 迭代 16：一键撤销。此前要开历史面板、找条目、点恢复——三步。 */}
-                <button
-                  type="button"
-                  onClick={() => void undoLast()}
-                  disabled={undoing || preview !== null}
-                  data-testid="design-detail-undo"
-                  title="回到上一版"
-                  className="inline-flex items-center gap-1 rounded-control px-2 py-1 text-11 text-muted-foreground transition-colors duration-fast hover:bg-card/60 disabled:bg-disabled disabled:text-disabled-foreground"
-                >
-                  {undoing ? <Loader2 aria-hidden className="h-3 w-3 animate-spin" /> : <Undo2 aria-hidden className="h-3 w-3" />} 撤销
-                </button>
-                <button
-                  type="button"
-                  // 迭代 24：点「历史」就是要看历史——窄屏下顺手把收起的那一栏打开，
-                  // 否则按钮按下去 `aria-pressed` 变了而屏上什么也没发生。
-                  onClick={() => { setHistoryOpen((o) => !o); if (historyOpen) setPreview(null); else setSideOpen(true); }}
-                  aria-pressed={historyOpen}
-                  // 迭代 25：旁边就是「撤销」，而两者的差别对第一次来的人完全不明显。
-                  // 撤销那颗已经写了「回到上一版」，这颗一直没有说明。
-                  title="看所有版本，可以恢复到任意一版"
-                  data-testid="design-detail-history-toggle"
-                  className={cn(
-                    "inline-flex items-center gap-1 rounded-control px-2 py-1 text-11 transition-colors duration-fast focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-                    historyOpen ? "bg-card text-card-foreground" : "text-muted-foreground hover:bg-card/60",
-                  )}
-                >
-                  <History aria-hidden className="h-3 w-3" /> 历史
-                </button>
-              </div>
+              <CanvasToolbar
+                project={project} preview={preview} frame={frame} setFrame={setFrame}
+                canvasMode={canvasMode} setCanvasMode={setCanvasMode} viewMode={viewMode} setViewMode={setViewMode}
+                setBackStack={setBackStack} setSelectedId={setSelectedId} sideOpen={sideOpen} setSideOpen={setSideOpen}
+                renamePage={renamePage} addPage={addPage} duplicatePage={duplicatePage} removePage={removePage} pageCount={pageCount}
+                comments={comments} undoLast={undoLast} undoing={undoing} redo={redo} redoStack={redoStack}
+                askVariants={askVariants} sending={sending} variants={variants} variantScreen={variantScreen}
+                historyOpen={historyOpen} setHistoryOpen={setHistoryOpen} setPreview={setPreview} codeOpen={codeOpen} setCodeOpen={setCodeOpen}
+                onPresent={() => { setPreview(null); setPresenting(true); }}
+                appearance={
+                  <CanvasAppearance
+                    theme={project.theme}
+                    onTheme={(t) => void changeTheme(t)}
+                    accent={project.accent}
+                    accentOptions={ACCENT_OPTIONS}
+                    accentLabel={ACCENT_LABEL}
+                    accentSwatch={ACCENT_SWATCH}
+                    onAccent={(a) => void changeAccent(a)}
+                    brand={project.tokens.brand}
+                    onBrand={(brand) => void changeTokens({ brand })}
+                    font={project.tokens.font}
+                    onFont={(font) => void changeTokens({ font })}
+                    radius={project.tokens.radius}
+                    onRadius={(radius) => void changeTokens({ radius })}
+                    density={project.tokens.density}
+                    onDensity={(density) => void changeTokens({ density })}
+                    devices={DEVICE_PRESETS}
+                    deviceId={lens.id}
+                    onDevice={setDeviceId}
+                    landscape={landscape}
+                    onLandscape={() => setLandscape((v) => !v)}
+                    rotatable={lens.rotatable}
+                  />
+                }
+              />
               <div className="relative flex min-h-0 flex-1">
                 {/*
                   * 迭代 24：单页视图改成**填满可用空间的一列**，不再是 `grid place-items-center + overflow-auto`。
@@ -1378,6 +1181,21 @@ export function DesignDetailScreen({
                         </div>
                       </div>
                     </div>
+                  ) : variants !== null && preview === null ? (
+                    <VariantsPanel
+                      state={variants}
+                      frameLabel={project.frames[variantScreen] ?? ""}
+                      current={project.prototype[variantScreen] ?? null}
+                      device={lens}
+                      landscape={landscape}
+                      accent={project.accent}
+                      tokens={project.tokens}
+                      theme={project.theme}
+                      picking={pickingVariant}
+                      onPick={(i) => void pickVariant(i)}
+                      onClose={() => setVariants(null)}
+                      onRegenerate={(ask) => void askVariants(ask)}
+                    />
                   ) : viewMode === "board" ? (
                     <PrototypeBoard
                       frames={(preview ?? project).frames}
@@ -1386,14 +1204,17 @@ export function DesignDetailScreen({
                       onFocusFrame={setFrame}
                       selectedId={preview === null && focus !== null ? selectedId : null}
                       onSelect={preview === null ? setSelectedId : null}
+                      onInlineEdit={preview === null && canvasMode === "edit" ? inlineEdit : null}
                       device={lens}
                       landscape={landscape}
                       links={frameLinks}
-                      mode={canvasMode}
+                      mode={canvasMode === "preview" ? "preview" : "edit"}
+                      pins={canvasMode === "comment" ? commentPins : undefined}
                       theme={project.theme}
                       drawing={preview === null && sending}
                       changed={preview === null ? changed : undefined}
                       accent={project.accent}
+                      tokens={project.tokens}
                       wireframe={project.template === "wireframe"}
                       onNavigate={navigateTo}
                     />
@@ -1421,6 +1242,7 @@ export function DesignDetailScreen({
                       root={(preview ?? project).prototype[Math.min(frame, (preview ?? project).frames.length - 1)] ?? null}
                       selectedId={preview === null && focus !== null && focus.frameIndex === frame ? selectedId : null}
                       onSelect={preview === null ? setSelectedId : null}
+                      onInlineEdit={preview === null && canvasMode === "edit" ? inlineEdit : null}
                       device={lens}
                       landscape={landscape}
                       /**
@@ -1444,6 +1266,7 @@ export function DesignDetailScreen({
                       }
                       changed={preview === null ? changed : undefined}
                       accent={project.accent}
+                      tokens={project.tokens}
                       wireframe={project.template === "wireframe"}
                       onRegenerate={preview !== null || sending ? null : () => {
                         // 补画走**普通对话**，不新开接口——与建议 chip「补画「X」」同一条路。
@@ -1452,7 +1275,8 @@ export function DesignDetailScreen({
                       }}
                       frameIndex={Math.min(frame, (preview ?? project).frames.length - 1)}
                       theme={project.theme}
-                      mode={canvasMode}
+                      mode={canvasMode === "preview" ? "preview" : "edit"}
+                      pins={canvasMode === "comment" ? commentPins : undefined}
                       links={frameLinks[Math.min(frame, (preview ?? project).frames.length - 1)]}
                       onNavigate={navigateTo}
                     />
@@ -1461,112 +1285,16 @@ export function DesignDetailScreen({
                     </div>
                   )}
                 </div>
-                {/* 迭代 5：右栏——选中节点时顶部是属性面板（预览态不显示），下方按需是版本历史 */}
-                {/* md 以下：右栏盖在画布上（absolute），不把 375px 撑出横向溢出（B6.5 同一纪律）；md 及以上并排 */}
-                {/* 迭代 15：编辑态下侧栏常驻（图层面板），不再只有选中时才出现 */}
-                {(historyOpen || (preview === null && canvasMode === "edit") || (focus !== null && preview === null)) && (
-                  /*
-                   * 迭代 24：窄屏下这块**默认收起**。
-                   *
-                   * 它此前是 `absolute inset-y-0 right-0 w-64 max-w-[85%]`，而显示条件基本等于
-                   * 「编辑态」——也就是默认状态。结果：在手机上打开一个设计，画布被这块盖掉 85%，
-                   * 而且**原型里的任何东西都点不到**（点击落在面板上）。里面装的又恰好是
-                   * 「纵向布局 / 横向布局 / 卡片」这类只有做过设计的人才懂的词。
-                   *
-                   * 所以窄屏改成"要看才打开"，由工具条上的「图层」按钮开关；md 及以上**一个像素都不变**
-                   * （那里它是并排的一栏，不挡任何东西）。
-                   */
-                  <div
-                    className={cn(
-                      "absolute inset-y-0 right-0 z-10 w-64 max-w-[85%] shrink-0 flex-col border-l border-border bg-card/95 md:static md:flex md:max-w-none md:bg-card/40",
-                      sideOpen ? "flex" : "hidden",
-                    )}
-                    data-testid="design-detail-side"
-                  >
-                    {/*
-                      * 迭代 15：图层面板。一个 stack 套 stack 在画板上分不出层级，
-                      * 想选中"外面那个容器"只能反复试点——摊平成可点的一列是最直接的解法。
-                      * 预览态不显示：那时候没有"选中"这回事。
-                      */}
-                    {preview === null && canvasMode === "edit" && (
-                      <PrototypeLayers
-                        root={project.prototype[Math.min(frame, project.frames.length - 1)] ?? null}
-                        selectedId={selectedId}
-                        onSelect={setSelectedId}
-                      />
-                    )}
-                    {focus !== null && preview === null && (
-                      <PrototypeInspector
-                        projectId={project.id}
-                        prototype={project.prototype}
-                        onNodeOps={runNodeOps}
-                        node={focus.path[focus.path.length - 1]!}
-                        path={focus.path}
-                        onSaved={(p) => setLoad({ kind: "ready", project: p })}
-                        onDeleted={(p) => { setLoad({ kind: "ready", project: p }); setSelectedId(null); }}
-                        frames={project.frames}
-                        frameIndex={focus.frameIndex}
-                        links={frameLinks[focus.frameIndex] ?? []}
-                        onSetLinks={(links) => setPageLinks(focus.frameIndex, links)}
-                      />
-                    )}
-                    {historyOpen && (
-                      <PrototypeHistoryPanel
-                        projectId={project.id}
-                        revision={project.updatedAt}
-                        isOwner
-                        previewId={preview?.id ?? null}
-                        onPreview={setPreview}
-                        onRestored={(p) => { setLoad({ kind: "ready", project: p }); setFrame(0); setSelectedId(null); }}
-                      />
-                    )}
-                  </div>
-                )}
+                <DetailSidePanel
+                  historyOpen={historyOpen} codeOpen={codeOpen} preview={preview} canvasMode={canvasMode} focus={focus} sideOpen={sideOpen}
+                  project={project} frame={frame} setFrame={setFrame} selectedId={selectedId} setSelectedId={setSelectedId}
+                  runNodeOps={runNodeOps} comments={comments} sending={sending} send={send} setLoad={setLoad}
+                  frameLinks={frameLinks} setPageLinks={setPageLinks} setPreview={setPreview}
+                />
               </div>
             </div>
           ) : (
-            <div className="flex-1 overflow-y-auto p-6" data-testid="design-detail-spec">
-              <section className="mb-6">
-                <h3 className="text-14 font-semibold">问题与目标</h3>
-                <p className="mt-1.5 whitespace-pre-wrap text-13 text-muted-foreground">
-                  {project.problem || "还没填背景。在对话里说清楚要解决的问题，我会补到这里。"}
-                </p>
-                {project.linkedFeedbackId !== null && (
-                  <p className="mt-2 text-12">
-                    关联反馈：<span className="font-mono">{project.linkedFeedbackId}</span>
-                  </p>
-                )}
-              </section>
-              <section>
-                <h3 className="text-14 font-semibold">验收标准</h3>
-                <ul className="mt-1.5 flex flex-col gap-1.5">
-                  {project.criteria.map((c, i) => (
-                    <li key={i} className="flex items-start gap-2 text-13">
-                      <Check aria-hidden className="mt-0.5 h-3.5 w-3.5 shrink-0 text-success" />
-                      <span>{c}</span>
-                    </li>
-                  ))}
-                </ul>
-              </section>
-              {/* 迭代 8：每页交互说明（模型随整页写回给出；没有就不显示这一节） */}
-              {project.frameNotes.some((n) => n.trim() !== "") && (
-                <section className="mt-6" data-testid="design-detail-notes">
-                  <h3 className="text-14 font-semibold">各页交互说明</h3>
-                  <ol className="mt-1.5 flex flex-col gap-2">
-                    {project.frames.map((f, i) => {
-                      const note = (project.frameNotes[i] ?? "").trim();
-                      if (note === "") return null;
-                      return (
-                        <li key={i} className="flex items-start gap-2 text-13" data-testid={`design-detail-note-${i}`}>
-                          <MessageSquareText aria-hidden className="mt-0.5 h-3.5 w-3.5 shrink-0 text-primary" />
-                          <span><span className="font-medium">{f}</span>：<span className="text-muted-foreground">{note}</span></span>
-                        </li>
-                      );
-                    })}
-                  </ol>
-                </section>
-              )}
-            </div>
+            <DetailSpec project={project} />
           )}
         </div>
       </div>
@@ -1623,84 +1351,6 @@ export function DesignDetailScreen({
           onConfirm={(note) => void confirmPush(note)}
         />
       )}
-    </div>
-  );
-}
-
-function DetailTab({ active, onClick, children, testid }: { active: boolean; onClick: () => void; children: React.ReactNode; testid: string }) {
-  return (
-    <button
-      type="button"
-      role="tab"
-      aria-selected={active}
-      onClick={onClick}
-      data-testid={testid}
-      className={cn(
-        "rounded-t-control px-3 py-1.5 text-12 transition-colors duration-fast focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-        active ? "border-b-2 border-primary font-medium text-background-foreground" : "border-b-2 border-transparent text-muted-foreground hover:text-background-foreground",
-      )}
-    >
-      {children}
-    </button>
-  );
-}
-
-function PushConfirm({
-  project, busy, error, onClose, onConfirm,
-}: {
-  project: DesignProject;
-  busy: boolean;
-  error: string | null;
-  onClose: () => void;
-  onConfirm: (note: string) => void;
-}) {
-  const [note, setNote] = React.useState("");
-  return (
-    <div className="dark fixed inset-0 z-50 flex items-center justify-center p-4" data-testid="design-push-confirm">
-      <div className="absolute inset-0 bg-inverse/50" onClick={onClose} aria-hidden />
-      <div role="dialog" aria-modal="true" aria-label="推送到收件箱" className="relative flex w-full max-w-md flex-col gap-3 rounded-card border border-border bg-card p-5 text-card-foreground shadow-lg">
-        <h3 className="text-16 font-semibold">推送「{project.name}」到收件箱</h3>
-        <p className="text-12 text-muted-foreground">
-          推送后会在运营收件箱生成一条「设计方案」条目（待处理），供工程排期。
-          {project.linkedFeedbackId !== null && " 来源反馈会被标注「已生成」。"}
-        </p>
-        <div className="flex flex-col gap-1">
-          <label htmlFor="push-note" className="text-11 font-medium text-muted-foreground">给工程的说明（可选）</label>
-          <Textarea id="push-note" value={note} onChange={(e) => setNote(e.target.value)} rows={3} disabled={busy} placeholder="需要工程特别注意的边界、依赖、验收口径" data-testid="design-push-note" />
-        </div>
-        {error !== null && (
-          <p className="text-11 text-destructive" data-testid="design-push-error" role="alert">{error}</p>
-        )}
-        <div className="flex justify-end gap-2">
-          <Button variant="ghost" size="sm" onClick={onClose} disabled={busy}>取消</Button>
-          <Button variant="primary" size="sm" onClick={() => onConfirm(note)} disabled={busy} data-testid="design-push-confirm-submit">
-            {busy && <Loader2 aria-hidden className="h-3.5 w-3.5 animate-spin" />}
-            确认推送
-          </Button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function PushSuccess({ project, code, onOpenInbox, onNextDesign }: { project: DesignProject; code: string; onOpenInbox?: () => void; onNextDesign?: () => void }) {
-  return (
-    <div className="dark flex h-dvh flex-col items-center justify-center gap-4 bg-background p-16 text-center text-background-foreground" data-testid="design-push-success">
-      <CheckCircle2 aria-hidden className="h-14 w-14 text-success" />
-      <div>
-        <p className="text-20 font-semibold">已推送到收件箱</p>
-        <p className="mt-1 text-13 text-muted-foreground">
-          方案 <span className="font-mono">{code}</span> · {project.name}
-          {project.linkedFeedbackId !== null && <> · 已与来源反馈互相关联</>}
-        </p>
-      </div>
-      <p className="max-w-sm text-12 text-muted-foreground">
-        运营会在收件箱看到这条待处理的设计方案，排期后进入开发。你可以继续设计下一个，或去收件箱确认。
-      </p>
-      <div className="flex gap-2">
-        <Button variant="outline" size="sm" onClick={onNextDesign} data-testid="design-success-next">继续设计下一个</Button>
-        <Button variant="primary" size="sm" onClick={onOpenInbox} data-testid="design-success-inbox">查看收件箱</Button>
-      </div>
     </div>
   );
 }

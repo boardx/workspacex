@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useRef, useState, type PointerEvent } from 'react';
 import { ArrowRight, Circle, Frame, Hand, Minus, MousePointer2, Plus, Redo2, Square, StickyNote, Trash2, Type, Undo2 } from 'lucide-react';
+import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -85,7 +86,7 @@ export function WhiteboardScreen({ state = 'default' }: { state?: UiState }) {
   if (state === 'loading') return <div data-testid="loading" role="status" className="m-6 h-64 animate-pulse rounded-container bg-muted p-6">正在打开白板…</div>;
   if (state === 'denied' || state === 'dep-failed') return <section data-testid={RESERVED_STATE_TESTID[state]} role="alert" className="m-auto max-w-lg p-8"><h1 className="mb-3 text-20 font-semibold">{state === 'denied' ? '你还没有这块白板的访问权限' : '暂时无法连接白板'}</h1><p className="text-14 text-muted-foreground">{state === 'denied' ? '请联系白板所有者获取访问权限。' : '请检查网络后重新打开。这是失败状态示例，内容未保存。'}</p></section>;
   return <section data-testid="whiteboard-screen" className="relative flex h-full min-h-0 flex-1 flex-col overflow-hidden bg-background text-background-foreground">
-    <header className="flex flex-wrap items-center gap-3 border-b border-border bg-card px-4 py-3"><span className="flex items-center gap-2 text-16 font-semibold"><StickyNote className="h-5 w-5 text-primary" />Board</span><Input data-testid="whiteboard-title" aria-label="白板名称" className="max-w-64 border-transparent font-medium" value={title} onChange={(e) => setTitle(e.target.value)} /><span className="ml-auto text-12 text-muted-foreground">{doc.objects.length} 个对象</span><Button className="lg:hidden" data-testid="whiteboard-panel-toggle" variant="outline" onClick={() => { setPanelOpen((v) => !v); setSelected(null); }}>对象</Button><Button data-testid="whiteboard-fit" variant="outline" onClick={fit}>适应内容</Button></header>
+    <header className="flex flex-wrap items-center gap-3 border-b border-border bg-card px-4 py-3"><Link href="/projects" data-testid="whiteboard-exit" className="rounded-control px-2 py-1 text-12 text-muted-foreground transition-colors hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring">返回工作区</Link><span className="flex items-center gap-2 text-16 font-semibold"><StickyNote className="h-5 w-5 text-primary" />Board</span><Input data-testid="whiteboard-title" aria-label="白板名称" className="max-w-64 border-transparent font-medium" value={title} onChange={(e) => setTitle(e.target.value)} /><span className="ml-auto text-12 text-muted-foreground">{doc.objects.length} 个对象</span><Button className="lg:hidden" data-testid="whiteboard-panel-toggle" variant="outline" onClick={() => { setPanelOpen((v) => !v); setSelected(null); }}>对象</Button><Button data-testid="whiteboard-fit" variant="outline" onClick={fit}>适应内容</Button></header>
     <p data-testid="whiteboard-preview-notice" className="border-b border-border bg-warning-tint px-4 py-2 text-12 text-warning-tint-foreground">交互预览 · 改动未保存，刷新会重置。多人协作、Chat 导入和工作坊服务尚未接入。</p>
     {state === 'invalid' && <p data-testid="err-form" role="alert" className="bg-destructive p-3 text-destructive-foreground">无法插入：图表尚未生成完整，请等待生成完成。</p>}
     {state === 'success' && <p data-testid="saved" role="status" className="bg-muted p-3 text-13">成功状态示例：操作已应用到本地预览，尚未写入服务端。</p>}

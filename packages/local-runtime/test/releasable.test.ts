@@ -65,3 +65,43 @@ describe("能不能发布", () => {
     expect(v.notes.join("")).toMatch(/一起规划|下一个阻塞/);
   });
 });
+
+/**
+ * 由准备脚本生成、不入库的目录缺了，也是不能发布（#3872 R16）。
+ *
+ * 实测：干净 worktree 打出来的包没有 `apps/skill-sandbox/preinstalled`，
+ * 于是 pptx / docx / xlsx / pdf 那一类 skill 全部以 MODULE_NOT_FOUND 失败，
+ * 而**唯一的症状要等用户真去生成一个文档才出现**。
+ */
+describe("准备脚本的产物缺失", () => {
+  // spctl 真实输出的形状是「<路径>: accepted」——判据要的是那个冒号（我第一版夹具写成
+  // 裸 "accepted"，测试红了，是夹具错不是代码错）。
+  const signed = {
+    identityIsNull: false,
+    codesignOutput: "Signature=Developer ID Application: Example (ABCDE12345)",
+    spctlOutput: "/Applications/WorkspaceX.app: accepted\nsource=Developer ID",
+  };
+
+  it("缺一个就不能发布，并指名是哪个目录", () => {
+    const v = releaseVerdict({ ...signed, missingPreparedDirs: ["Contents/Resources/bundle/apps/skill-sandbox/preinstalled"] });
+    expect(v.releasable).toBe(false);
+    expect(v.blockers.join("\n")).toContain("skill-sandbox/preinstalled");
+  });
+
+  it("**说的是对用户的后果，不是内部名词**", () => {
+    const v = releaseVerdict({ ...signed, missingPreparedDirs: ["Contents/Resources/python"] });
+    const text = v.blockers.join("\n");
+    expect(text).toContain("静默失效");
+    expect(text).not.toMatch(/MODULE_NOT_FOUND|ENOENT|exit code/);
+  });
+
+  it("缺多个就每个各说一条——合成一句「有些东西缺了」等于没说", () => {
+    const v = releaseVerdict({ ...signed, missingPreparedDirs: ["a", "b", "c"] });
+    expect(v.blockers.filter((b) => b.includes("准备脚本")).length).toBe(3);
+  });
+
+  it("都在时这一项不拦路", () => {
+    expect(releaseVerdict({ ...signed, missingPreparedDirs: [] }).releasable).toBe(true);
+    expect(releaseVerdict(signed).releasable).toBe(true);   // 字段不传也不能变成阻塞
+  });
+});

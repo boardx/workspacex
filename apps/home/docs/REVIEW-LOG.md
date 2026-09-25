@@ -1377,3 +1377,421 @@ at the logo to use: the product's own, which `apps/web` already ships as
 | 2 | The logo is **cut from the app's own file, not redrawn**. `build-logo.mjs` finds the painted pixels in the 2051×874 source, crops away the transparent padding and scales to 2× the displayed 30px. `check-assets` fingerprints the source, so if the app's logo changes the site fails until it is re-cut. |
 | 3 | An image retires three workarounds the gradient text wordmark needed: invisible text where `background-clip: text` is unsupported, no name at all in forced colours, and nothing on paper. |
 | 4 | **The performance gate rejected the first cut.** A 3× PNG was 28 KB: page weight went to 185 KB against a 180 KB budget, and the Chinese page's slow-3G first paint to 3236 ms against 3200. Re-cut as 2× WebP: **7 KB**, both budgets met. The Chinese slow-3G figure is now 3092 ms — inside the budget, but close enough that the next addition to that page should be weighed against it. |
+
+---
+
+## Rounds 56–65 — an acceptance set, and a number to meet
+
+The owner asked for ten more rounds, five problems each, until the site scores
+**9 out of 10 in English and in Chinese**, judged by an evaluation set rather
+than by the person who made the changes.
+
+**The set** is `tests/eval/eval.mjs`: fifty cases in ten dimensions (first
+screen, navigation, accessibility, performance, mobile, bilingual, brand,
+search and sharing, conversion, readability), one point per dimension, every
+case run against both `/` and `/zh/`. **The score is the lower language.**
+Each round's card is appended to `docs/eval/history.json`. Once the score
+passed 9 the set became a gate: `check-all` runs it with `--min 9`.
+
+The baseline on main was **8.22** (en 8.60, zh 8.22).
+
+### Round 56 — 8.22 → 9.74
+
+| # | Problem the set found | Fix |
+|---|-----|-----|
+| 1 | **Twenty-one strings shipped in English on `/zh/`**: the unit-of-work steps ("a business result, not a transcript" under the heading 结果), its four properties, the workspace mock's notes and evidence. The translations existed. `build-i18n` scraped `zh.js` with a line-anchored regex that saw only the *first* key on each line; every gate read the dictionary by importing it, so every gate said the keys were there. Two readers of one file, and the gate asked the right one. | The builder imports the dictionary. `check-i18n` now also reads the **built** page and fails on any key whose element does not carry its translation — proved red on the old builder with exactly these 21. |
+| 2 | **Three of four nav links never lit up.** The scrollspy picked the section with the highest `intersectionRatio`; a 3000 px section never owns much of its own area, and ratios are only re-reported at threshold crossings. | Current section = the last one whose top has passed a line a third of the way down the screen, recomputed per animation frame on scroll. |
+| 3 | **Switching language dropped your place**: halfway down Architecture, 中文 took you to the top of a 15 000 px page. | The same current-section answer is written into the other language's link as a fragment. Both pages share every section id, so it lands on the same section. |
+| 4 | **No Organization in the structured data** that a search engine would pick up as the publisher: it was nested inside the application, pointing at the old icon. | An `@graph` with a top-level Organization (name, url, logo, email) referenced by the application. |
+| 5 | **The tab, the home-screen icon and the social card still showed the site's own four-petal mark** — a second icon for the product, next to the product logo the owner chose in round 55. | All three are now cut from the web app's own files: the favicon and touch icon from `apps/web/public/apple-icon.png` (the touch icon on the page colour, because iOS fills transparency with black), the card carries `logo.webp`. `brand.mjs` and `favicon.svg` are gone. `check-assets` fingerprints the app's files, so a new product icon fails the build until the site is re-cut. The first favicon was 64 px and cost 5 KB of first load; it is 32 px, as the app ships it. |
+
+The set's own bug, found the same round: the two scroll cases waited a fixed
+300–450 ms, and a smooth scroll across the page takes longer. They read the
+page mid-flight and scored the working scrollspy at 1/4. They now wait until
+the scroll position stops changing.
+
+### Round 57 — 9.74 → 9.90
+
+| # | Problem | Fix |
+|---|-----|-----|
+| 1 | **Five titled sections were reachable from nowhere** — not the nav, not the footer: the problem, the three scales, the unit of work, the horizons and the closing call to action. On a 15 000 px page, a section with no link to it is found by scrolling or not at all. | A fourth footer column, *The argument* / 论点, plus *Three scales* under Product and *Get started* under Company. `#questions` stays reached from the nav's "Early access" tag only: `check-links` refused a second name for it, correctly. |
+| 2 | **Four FAQ answers were walls** of 92–116 words (two on `/zh/` at 184 and 225 characters), in a small grey face. | Each split at its turn — what is true today, then what is not — into two paragraphs. |
+| 3 | **Section leads that were not leads.** *Open* had two lead-size paragraphs, the second 81 words; *Unit* and *Open* led with 46 and 51. A lead is read in a glance or not at all. | Both leads cut under 45 words / 90 characters; the second *Open* paragraph is body copy now (`.section__more`). |
+| 4 | **Eighteen labels were still 11px on an English phone** — the mock's notes and evidence, the horizon labels, the scroll cue. Round 54 raised Han to 12 and latin only to 11. | 12px for both on coarse pointers. The mobile suite's floor is now 12 in both languages (was 11 for latin), so it would have been red. |
+| 5 | **The unit-of-work steps went to one column below 480 px**: six full-width cards, ~700 px of scrolling for twelve words. | Two columns down to 320 px, with tighter padding. Checked at 320 in English, where the sublines are longest. |
+
+Two corrections to the set itself: `mob.linelen` counted a screen-reader-only
+paragraph (positioned off-screen on purpose) as touching the edge, and
+`read.scan` did not count a grid of `<article>` cards with sub-headings as
+skimmable. Neither changed the site.
+
+Considered and not done: folding `print.css` into the bundle would take the
+request count from 17 to 16 and move its bytes onto the render-blocking path.
+A `media="print"` sheet never blocks rendering, so that trades a real cost for
+a better number.
+
+### Round 58 — 9.90 → 9.94, and the set grows to 54 cases
+
+The set was near its ceiling, so an **independent reviewer** (a separate agent,
+no access to this round's reasoning) went through every section in both
+languages at 1280, 390 and 320 px and returned 25 ranked problems. Rounds
+58–63 work through them; each one a script can see became a case, proved red
+on the code before the fix.
+
+| # | Problem | Fix |
+|---|-----|-----|
+| 1 | **Inter shipped its whole 100–900 weight axis**; the page uses 400–700. Two-thirds of a 48 KB font downloaded by every visitor and never drawn. | `build-fonts.mjs` pins the axis to 400–700 (still variable): **48 → 34 KB**, first load 166 → 153 KB. Upstream files kept in `scripts/fonts-src/`, fingerprinted. `check-css` now fails a `font-weight` outside the kept range — proved red with a 300. Outfit left alone: the same cut makes it *larger*. |
+| 2 | The "also in 中文" offer — the switch a visitor who missed the real one actually taps — **still dropped your place**. | It carries the current section too. New case `nav.hint.keeps.place`: 0 on the old code, 1 now. |
+| 3 | **A quarter of the Chinese page's headings were the wrong size.** `:lang(zh) h3` (specificity 0,1,1) outranked every component's own heading class, so card titles, case headings and the footer labels set at 12–16 px in English rendered at 25 px on `/zh/` — the footer read as four giant grey titles. | The per-language heading sizes are wrapped in `:where()`. New case `bi.samedesign` compares every heading's size across the two pages: **0.76 before, 1.00 after.** |
+| 4 | **With reduced motion the trust diagram contradicted its caption**: the still frame was the success path ("passed", token on Evidence) directly above "the run above shows a failing check being caught and reversed". | The still frame is the caught failure — token on Verify, gate marked failed, rollback lit. New case `a11y.reduced.story`. |
+| 5 | **The loop's inactive labels were 2.8:1** — `--fg-dim` faded to 62% — on 13 px text. axe does not look inside SVG, so no gate said so. | The fade is gone; emphasis is carried by the fill and the dot. New case `a11y.svgcontrast` computes the effective colour of every diagram label through its opacity chain: **0.76 → 1.00**. |
+
+### Round 59 — line breaking, both languages (56 cases)
+
+| # | Problem | Fix |
+|---|-----|-----|
+| 1 | **Seven of fourteen Chinese section headings broke inside a word**: 三个尺 / 度, 就 / 是, 查 / 得出来, 能不能上 / 线. Correct for running text — Chinese breaks between any two characters — and wrong in a display heading. | `build-i18n` runs ICU's word segmenter (`Intl.Segmenter`, in Node) over every h2/h3 on `/zh/`, plus a short list of product terms ICU splits (智能体, 闭环…), and puts a zero-width space at each word boundary; `word-break: keep-all` makes those the only breaks. New case `read.wordsplit` checks every heading line break against the **browser's** segmenter, not the build's: **0.00 before, 1.00 after.** |
+| 2 | The first version used `<wbr>` and **the performance gate rejected it**: 228 of them took the Chinese page's slow-3G first paint from ~3050 to 3200–3500 ms. The same breaks as U+200B cost nothing measurable (bisected: same bytes gzipped, 3056 ms). | Zero-width spaces, headings only. `check-i18n` and the eval strip them before comparing text. |
+| 3 | **Lone last lines on a phone** — 错。, 跑。, 记 / 录 — in the loop steps, the proof rules and the unit steps. `text-wrap: pretty` was set on `<p>` only, and that text lives in spans and list items. | Set on `body` (it is inherited; headings keep `balance`). New case `read.orphan`: 0.60 → 1.00 in Chinese. |
+| 4 | **The Chinese dash —— rendered as two separate short dashes**, and “ ” as narrow latin quotes: Outfit, Inter and their Arial fallbacks all contain those code points, so they won over the Chinese font. | A `local()`-only face, *Han Punctuation*, covering exactly U+2014, U+2018–201D and U+2026 from the reader's Chinese system font, first in every `/zh/` stack via `--han-punct` (empty on English). No download. Confirmed with DevTools' platform-font report (WenQuanYi on this machine). |
+| 5 | English: a heading line opened with a dash ("…the proof / — in the same place"), and a card title split "Unit of / work". | Non-breaking spaces. `read.wordsplit` also fails any heading line that starts with a dash. |
+
+### Round 60 — one name per thing (58 cases)
+
+| # | Problem | Fix |
+|---|-----|-----|
+| 1 | **One destination, three names.** The sign-up URL was *Launch* in the nav, *Launch Workspace* in the hero and *Sign up and start* at the close (进入 / 进入工作空间 / 注册，开始用); the footer's *Get started* went to the closing section, not the app. A reader cannot tell three labels are one door. | *Start free* / 免费开始 everywhere; the footer link is *Where to start* / 从哪里开始. New case `conv.onelabel`: 0 → 1. The verb case now accepts a leading 免费, because Chinese puts the adverb first. |
+| 2 | **A button that opened a mail client without saying so**: "Bring us work that can be checked" was a `mailto:`. | "Email us a task — hello@boardx.us". New case `conv.mailto`: 0 → 1. |
+| 3 | **The roadmap contradicted the proof section**: horizons listed "a first contribution" as available now, twenty lines below "Contributing is not open yet". | Now says only the security disclosure channel exists, and contributing opens with a guide and a fast setup — which is what `check-sequence` already requires the proof section to say. |
+| 4 | **Two spellings.** licence, programme, labelled, modelled, behaviour beside organization, center, color. And the Chinese names for one place differed between nav, footer and eyebrow (有什么 / 里面有什么; 会走到哪里 / 接下来去哪), and the tagline was worded two ways. | American throughout; `check-copy` fails a British form (proved red: 7). Chinese labels aligned. **The sweep itself broke something**: it renamed all fourteen `aria-labelledby` to `aria-labeledby`, and every diagram and tab panel lost its accessible name. axe caught it; `check-html` did not, so it now rejects any `aria-*` attribute the spec does not define (proved red). |
+| 5 | **Four English sentences that only the writer could parse**: "There is a written way down", "Go and find the egress guard", "Seats are a way in, not the meter", and "the organizations being assessed" with nobody said to be assessing them. | Rewritten in plain terms; the Chinese equivalents of the last two with them. |
+
+Investigated and not fixed: the Chinese page paints ~650 ms after the English
+one on the slow-3G profile, with its stylesheet arriving at the same moment —
+main-thread layout of Han text at 4× CPU. `content-visibility` would recover it
+and was already measured and rejected in an earlier round for breaking the no-JS path
+(the reason is in `layout.css`); page-wide `text-wrap: pretty` was bisected and
+is not the cause. It sits at ~3000–3150 ms against 3200.
+
+### Round 61 — the Chinese page says it in Chinese (61 cases)
+
+| # | Problem | Fix |
+|---|-----|-----|
+| 1 | **Twenty-four English words left in the Chinese copy**: harness ×9, playbook ×3, feature/passing ×4, release ×2, prompt, deck, commit, "Agent Harness", "Context Engine", "agent 车队状态". The page said 智能体 in one sentence and agent in the next. | 执行护栏 (glossed once as 执行护栏（harness）for readers who know the term), 审查手册, 功能项 / 通过, 正式发布版本, 提示词, 演示文稿, 提交记录, 上下文引擎, 智能体集群状态 — including the architecture diagram's layer label. New case `bi.jargon` counts English common nouns in the visible Chinese text (brands, acronyms, issue/PR/CI and a parenthetical gloss excepted): **0.00 → 1.00.** |
+| 2 | **Two quotation styles on one page**: 10 “ ” and 22 「 」. | “ ” throughout (mainland usage, GB/T 15834), which since round 59 render in the Chinese face. `check-copy` rejects corner brackets; new case `bi.quotes`: 0 → 1. |
+| 3 | **Translationese.** 我工作 / 我们一起工作 / 组织在工作 as three card titles; 开放是一个楔子 (楔子 reads as a novel's prologue); 四个人加四个智能体的一场协作，仍然是一场; 这是在哪一层上下的注; the scroll cue 向下. | 个人 / 团队 / 组织; 开放是突破口，而不是入场券; the others rewritten as a Chinese writer would put them. |
+| 4 | **The tagline was worded three ways in English and two in Chinese** — hero and title, footer, social-card alt text (…for human and AI collaboration / …for human + AI collaboration / …for Human + AI). | One wording per language. New case `bi.tagline`: 0 → 1 in both. |
+| 5 | The trust diagram's failure label in Chinese used a spaced single dash (未通过 — 已撤回), which is latin punctuation. | 未通过，已撤回. |
+
+Not changed, deliberately: the section eyebrows keep "01 — 转变". That dash is a
+separator in a numbered mono label, the same design element as in English, and
+`check-sequence` parses it; it is not prose punctuation.
+
+### Round 62 — the pictures say what the words say (65 cases)
+
+| # | Problem | Fix |
+|---|-----|-----|
+| 1 | **The workspace mock's connector ran behind both cards it joined**: every link left sideways, so Decision → Draft (a card directly below) went out of Decision's left edge, back under both cards, into Draft's right edge. On a phone it was worse — the desktop percentages stacked the three notes *on top of each other*. And a third bug under both: the lines were measured at load with the cards still offset by their reveal animation, so they were drawn to where each card was about to leave. | A target below its source is joined bottom edge to top edge; on a phone the question pins right and the three stack with air between them; lines are measured from layout boxes (`offset*`), which transforms do not move. New case `read.connectors` samples each path at 1280 and 390: 0 → 1. |
+| 2 | **The loop used a colour its legend did not name**: Create and Learn are drawn in the shared pink, and the legend listed Human, Agent team and Evidence only. | A fourth legend entry, *Together* / 共同. New case `read.legend` resolves every node's fill and every swatch: 0 → 1. |
+| 3 | **Two diagram labels floated on a phone**: "context lost" sat above the first box, reading as its caption; the trust diagram's outcome ("passed" / "failed — reversed") sat above Authorize. | "context lost" sits beside the first break mark; the outcome reads after the last gate, as the flow's result. New case `read.labels`: 0 → 1. |
+| 4 | **The architecture diagram dropped its key on a phone.** "Moves fast / must stay stable" brackets were skipped below the narrow breakpoint, leaving the heading's claim with nothing in the picture to point at. | A tag in the corner of each group's first layer. New case `read.archkey`: 0 → 1. The reviewer also suggested extending the stable bracket to L1; not done — the heading says the *middle* must not move, and infrastructure is the replaceable bottom. |
+| 5 | **The closing section's glow ended in a hard horizontal line** where the four doors' opaque cells began, and the doors were 96 px narrower than every other section's column. | Full column width; cells at 86% opacity via `color-mix`, with an opaque fallback declared first for engines without it. Checked by eye at 1280 — no case, because "a gradient ends softly" is not something this set can measure honestly. |
+
+### Round 63 — 9.94 → 9.96, and a regression of my own (68 cases)
+
+| # | Problem | Fix |
+|---|-----|-----|
+| 1 | **The hero badge was a two-line paragraph on a phone** — centred, inside a pill, its dot pinned to the corner. | One step down the type scale below 480 px: one line at 360 px and up. New case `fold.chip.phone`. |
+| 2 | **Centred text five lines deep on a phone**: the closing section's intro, and the English hero subline. Every line of a centred block starts somewhere different; past three or four lines the eye cannot find the next one. | Both rewritten shorter (the Chinese closing intro with it). New case `mob.centered`: no centred block past four lines at 390 — it found the hero subline, which the reviewer had not. |
+| 3 | **The hero backdrop was the heaviest image on the first screen**: a 23 KB JPEG of a blurred gradient. | WebP at 0.92: **15 KB**. 0.8 was 7 KB and showed blocks in the gradient side by side, so it was not taken. First load now **146.5 KB** (en) / **149.9 KB** (zh), from 166 / 169 at the start of these rounds. |
+| 4 | **Two roadmap items were garbled — by round 60 and 61's own edits.** The scripted replace stopped at the first `</b>` inside the list item, so it swapped the bold lead and left the old sentence behind it: a stray `</b>`, then the old text repeated after the new. The browser repaired the markup silently. A second independent reviewer found it. | Restored. `check-html` now fails a line whose inline tags do not balance (proved red: 2), and a new case `read.norepeat` fails any element that says the same sentence twice (0 on the broken copy). |
+| 5 | That reviewer returned fifteen more problems — keyboard access to the phone menu, deep links to a use case landing past the heading, tab selection and the URL disagreeing, the language hint covering focused elements, the GitHub link unreachable on tablets, and more. | Rounds 64–65. |
+
+### Round 64 — what a keyboard, a link and a tablet run into (73 cases)
+
+All five from the second independent review; each is now a case, and each case
+was run against the code before the fix: **0, 0.50, 0, 0 and 0.83–0.86**.
+
+| # | Problem | Fix |
+|---|-----|-----|
+| 1 | **The phone menu was unusable from a keyboard.** The panel precedes the burger in the DOM, so after opening it Tab went on to the hero and the links were reachable only backwards; Escape dropped focus on `<body>`. | Opening moves focus to the first link, Tab cycles between the panel and the burger while it is open, Escape closes it and returns focus to the burger. Case `nav.menu.keyboard`. |
+| 2 | **A link to one use case landed past its heading.** `/#panel-edu` loaded with the Education case selected and the section heading 286 px above the screen: `cases.js` scrolled to the heading, then the browser performed its own jump to the fragment and won. | The jump to the heading is repeated after `load`. Case `nav.deeplink`. |
+| 3 | **The selected use case and the address disagreed.** Clicking a tab rewrote the fragment; arrow keys did not — so a reload or a copied link brought back the previous discipline. And the language switch dropped the case entirely. | Selection writes the fragment on click and on keys; the language switch and the language offer carry `#panel-…` when you are in that section. Case `nav.tabsurl`. |
+| 4 | **The language offer covered what you were on.** On a phone it sat over the focused element at 12–15 of 87 Tab stops and hid the footer's last line for good; dismissing it dropped focus on `<body>`. | While shown, the page reserves its height (`scroll-padding-bottom` and body padding, from `--hint-h`); dismissing moves focus to the language switch it stood in for. Case `a11y.hintcover`: 0 of 87 covered. |
+| 5 | **GitHub was unreachable from the navigation on tablets.** Between 761 and 1160 px the bar hides its GitHub link and the burger appears, but the actions only move into the panel below 760 px — the menu had no GitHub entry. | A GitHub item in the panel for exactly that range. Case `nav.tablet.github`. |
+
+### Round 65 — the rest of the second review (75 cases)
+
+| # | Problem | Fix |
+|---|-----|-----|
+| 1 | **The pinned loop scene did not fit a laptop.** The rail of six steps with their explanations needs ~680 px; the pin on a 1280×720 or 1024×768 screen has 656–704, so the scene's top sat under the nav and its legend below the screen — unreachable while pinned. At 900×600 the top was 72 px above the viewport. | Below 52rem of height the rail shows the explanation of the *current* step only (keyed on `aria-current="false"`, which only the running scene writes — without JavaScript, with reduced motion, or stacked, every explanation shows). New case `read.pinfit` at both laptop sizes: 0 → 1. Unpinning on short screens was the other option; it would have taken the page's set piece away from the most common laptop screens. |
+| 2 | **Printing kept one use case out of six** and one architecture detail out of five — the rest are `hidden` behind controls — and printed the Today / With WorkspaceX switch beside the empty band its diagram left. The 404 page had no print sheet at all (near-white text on paper) and no font preload, so its headline rendered in the fallback. | Every panel, detail and caption prints, each detail labelled with its layer; the controls do not. The 404 page gets both. New case `a11y.print`: 0 → 1. |
+| 3 | **The Chinese privacy page's two email addresses were plain text**, links on the English one: `data-i18n` writes text, and the English elements contained an `<a>`. | `data-i18n-html` for those three paragraphs. `check-i18n` now fails any text key placed on an element containing markup (found exactly these three). `check-copy` stopped counting `href="…"` inside Chinese markup as a straight quote. |
+| 4 | **The nav listed Use cases before Trust**; the page has them the other way round. | Swapped. |
+| 5 | **Five places where the page disagreed with itself**: "Marketplace & settlement" under *Sold* while the roadmap says it has not started; the free-tier answer pointing at "the three columns above" when one of them is "never yours to buy"; the open-core intent listing a different set from the *Open* column; the Harness layer labelled "Tools" beside prose saying tools are what gets replaced; the workspace mock saying "4 agents working" over three agents and you, and the Chinese note pointing to a column "on the right" that sits below the canvas on a phone. | Marketplace marked *(later)*; the answer points at the *Sold* column; the FAQ refers to the *Open* column instead of keeping a second list; "Tool use"; "3 agents"; 证据那一列. The first label rewrite ("Tool calls") overflowed the 320 px diagram and the responsive suite caught it. |
+
+Not done, and why: the second review also noted that crossing the 700 px
+breakpoint rebuilds the architecture explorer and resets the chosen layer, and
+suspected a redirect loop between `_redirects` (`/privacy` → `/privacy.html`)
+and the host's own `.html` stripping. The first is minor and needs a state
+carry-over across rebuilds; the second could not be checked from here (the
+live site is not reachable through this machine's proxy) — `curl -I
+https://workspacex.boardx.us/privacy` will settle it.
+
+## Rounds 56–65 in one table
+
+| | en | zh | score |
+|---|---|---|---|
+| baseline (main) | 8.60 | 8.22 | **8.22** |
+| 56 | 9.74 | 9.76 | 9.74 |
+| 57 | 9.91 | 9.90 | 9.90 |
+| 58 | 9.95 | 9.94 | 9.94 |
+| 59–62 | 9.95 | 9.94 | 9.94 |
+| 63–64 | 9.97 | 9.96 | 9.96 |
+| 65 | 9.96 | 9.95 | **9.95** |
+
+The number stopped moving at round 58 for a reason worth stating: from there
+on, each round's problems came from two independent reviews, not from the
+set, and each became a new case that the site *failed* before the fix and
+passed after. The set went from 50 cases to 75 while the score held — which is
+what a score that is measuring something looks like. What it still does not
+measure: whether the argument persuades, and iOS Safari (this machine has no
+WebKit).
+
+### Round 66 — what the host does, and what the fonts cost (76 cases)
+
+Run on a new, slower container: the committed round-65 code measured the
+Chinese page's slow-3G first paint at **3416–4048 ms** here, against a
+3200 ms budget it had met by ~100 ms on the previous machine. The thin
+margin this log kept noting turned out to be a real problem, not a figure.
+
+| # | Problem | Fix |
+|---|-----|-----|
+| 1 | **`/privacy` redirected forever** (both languages). Cloudflare Pages already serves `/privacy` from `privacy.html` and 308-redirects `/privacy.html` back to `/privacy`; `_redirects` sent `/privacy` to `/privacy.html`. The live host is not reachable from this machine (the egress policy refuses it), so this rests on the host's documented behavior, not on a request. | Both rules removed. `check-links` fails any `_redirects` rule of the shape `/x → /x.html` (proved red: 2). |
+| 2 | **Every reference to the privacy page pointed at a redirect**: its canonical, hreflang, `og:url`, sitemap entries, the footer link and the language switch all named `…/privacy.html`, which Pages answers with a 308. A canonical that redirects is the one URL a search engine should never have to follow. | The URLs Pages serves: `/privacy`, `/zh/privacy`. `check-links` resolves extensionless paths the way the host does and fails a link to a `.html` form other than `index`/`404` (proved red: 16); the test server serves pretty URLs too. |
+| 3 | **The architecture explorer forgot your choice on rotate.** Crossing the 700 px breakpoint rebuilds the diagram, which reset it to L3 and dropped focus on `<body>`. | The chosen layer is kept across rebuilds and focus returns to the same row. New case `nav.arch.keeps`: 0 → 1. |
+| 4 | **Why `/zh/` paints late — found, and mostly fixed.** Traced: the first layout of the Chinese page took ~1.2–1.5 s at 4× CPU against ~0.6 s for English. Bisecting the stylesheet: every run of Han text walks the font stack until a family has the glyph, and the Chinese group sat *after* the latin face, its fallback and four system-UI names; each family passed costs a lookup. Moving the Chinese group directly after the latin face and its metric fallback: layout ~1.1 s → ~0.76 s here (where only WenQuanYi, last in the group, exists), and ~0.49 s when the present face is first in the group, as PingFang is on a Mac. Slow-3G first paint here: 3416–4048 → **3028–3212 ms**. Latin text is unaffected wherever the metric fallback resolves. | Stacks reordered in `base.css` (one declaration, both languages); WenQuanYi added for Linux desktops without Noto. **And a bug the reorder exposed**: `ui-monospace`, SF Mono and Menlo exist only on Apple systems, so on Windows and Linux every mono label fell through to the first CJK face with latin glyphs — Microsoft YaHei on Windows, before this round too. Real monospaced faces (Cascadia Mono, Consolas, DejaVu Sans Mono, Liberation Mono) now come first. |
+| 5 | **The social card's headline had never been set in the brand face.** Every card this generator produced — main included — showed the headline in Arial: the faces are `font-display: optional`, the card page loaded them cold, and they missed the block period. | `build-og` loads once to fetch the faces and renders on a second load, and refuses to write a card if they did not load. The Chinese card sets its headline in one weight: rendered here, the Han face has one weight and `/zh/` forbids faked bold, so "AI" in Outfit 700 sat beside regular Han. |
+
+The set itself: its performance cases now take the median of three cold loads.
+One load measured the same page's desktop LCP anywhere between 400 and 1056 ms
+on this machine — 0.05 of score from noise alone.
+
+Score on this machine: **9.93** (en 9.96, zh 9.93). Round 65 recorded 9.95 on
+the previous one; the difference is the Chinese desktop LCP case (692 ms median
+here), i.e. the machine, and it would be dishonest to present the two numbers
+as a trend.
+
+### Round 67 — the list of what was left (76 cases; 10.00 and 9.96 on two runs)
+
+After round 66 the owner asked what problems remained, got eight, and asked
+for all of them to be solved. Five are solved in code; two could not be
+tested from this machine and are now tested by CI instead; one is not an
+engineering decision. Two full runs of the set scored 10.00 and 9.96; the only
+difference is the Chinese desktop-LCP case (620 ms and 776 ms medians), which
+moves with this machine's load rather than with the site.
+
+| # | What was left | What was done |
+|---|-----|-----|
+| 1 | **Seventeen requests on first load; nine were JavaScript**, loaded as a module graph three round trips deep (main → diagrams → strings). | `build-js.mjs` joins the modules into one `site.js`, the way `build-css` already did for the stylesheets — zero-dependency, `--check`ed, and it refuses what it cannot join safely (a cycle, an unsupported import, one top-level name in two modules). **17 → 9 requests; 148.5 → 137 KB**; the Chinese slow-3G first paint on this (slower) machine 3028–3212 → **2836–2944 ms**. The degradation suite could no longer break a single module by blocking its file, so it now makes the diagrams section of the bundle throw at runtime and requires every other boot step to run — a stricter test than before, which only proved the CSS failsafe. |
+| 2 | **The Chinese margin against the 3200 ms budget** — round 66 fixed the font-stack cost, and #1 took the rest. | ~300 ms of headroom on a machine where the previous code missed the budget. |
+| 3 | **Chinese headings in two weights on Linux** — synthesis is off on `/zh/` on purpose (faked bold Han blots at 30 px), so where the Chinese face has one weight, Han was regular beside Outfit 700 "AI". | Chinese headings take the Chinese face for their latin too, as Chinese sites set them: the pair always match — PingFang Semibold on a Mac, one weight on Linux. The Chinese group is now one token, `--font-cjk`, used by every stack; `check-css` expands it. |
+| 4 | **Copy that persuades**, which no case can measure. | A third independent reviewer, briefed as a bilingual copy editor, returned 15 rewrites without changing a single claim: the hero line, the harness lead, the lead for people who receive results, the use-case checklist, and nine Chinese passages that read translated (被-passives, long 的-chains, calques like 和这件事分开的是). All applied; two English ones then trimmed again because the set flagged them (five centred lines on a phone; a 47-word lead). |
+| 5 | **iOS Safari never tested** — this machine has Chromium only. | `tests/webkit.test.mjs`: both languages, iPhone and Mac-sized, in WebKit — script errors, diagrams drawn, sideways scroll, nothing left invisible after scrolling, the menu by tap. Skips where WebKit is absent; `home-gates` now installs WebKit and uploads full-page screenshots as the `home-webkit-screenshots` artifact, so anyone can look at the page as Safari draws it. Its first real run is CI's. |
+| 6 | **The `/privacy` loop fix was inferred, not observed.** | `scripts/live-check.mjs` requests the deployed site, follows every redirect by hand (a loop is a named failure), checks every sitemap URL answers without a hop and that `_headers` is applied. `.github/workflows/home-live.yml` runs it daily and on demand. Verified locally against the test server. |
+| 7 | **Android never tested.** | Not solved, and saying so: CI has no Android, and Chromium's device emulation does not emulate Android's font set, which is exactly the part in question. |
+| 8 | **No LICENSE.** | The owner's decision, not an engineering one — asked, and the owner chose **Apache-2.0**. `LICENSE` at the repository root is the canonical apache.org text, copied byte-for-byte from an installed package rather than typed. The page stopped saying there is none (`check-sequence` required it, both languages): the FAQ answers "Yes", the exit commitment's first line is in force as a right, and what still is not true — no release, no one-command setup — still says so. `check-sequence` now also requires the licence the page names to be the one in the file (proved red by swapping in an MIT text). |
+
+### Round 68 — let the visitor do the work before signing up (77 cases; 9.99)
+
+The owner asked how the homepage could let someone *feel* WorkspaceX without
+signing up, so the value is visible before the first step is asked for, and
+named the scenarios it had to cover: design thinking, innovation, AI
+transformation strategy, and the path to an AI-native enterprise.
+
+What was built is a **scripted demo** directly below the hero (`#demo`,
+`assets/js/demo.js`). Pick a scenario; the task and five sources are on the
+left; "Start the agents" plays four agents working it, lighting the sources
+each step reads; the answer arrives as claims, each naming its sources; "Doubt
+this" opens the check — the verdict and the quoted sources — and the reviewer
+has already struck through the one claim nothing supports (a market size with
+no source, a refund automation the policy forbids, a management cut that is
+leadership's call). It ends at the same "Start free" as the hero. It is
+labeled, above the stage in both languages, as sample material replayed in
+the browser: no model runs and nothing is sent. A live guest mode in the app
+is the second phase, and is not this.
+
+| # | Decision or problem | What was done |
+|---|-----|-----|
+| 1 | **The first-load budget should not pay for a demo nobody opens.** It sits right below the hero, so "near the viewport" is true at load on most desktops. | Nothing is fetched until the reader does something (scroll, tap, key); the module then loads a screen early. Not in `site.js` — `import()` from the bundle. First load unchanged: 9 requests, ~139 KB. |
+| 2 | **Mounting mid-scroll moved the page.** The first version swapped the demo in the moment it came near — including while a smooth scroll from a nav link or `/#panel-edu` passed *through* it. It is several hundred pixels taller than its placeholder, so every such scroll landed short: the eval's deep-link, current-section and language-offer cases dropped to 0–0.75. | Fetching is not mounting: the demo is swapped in only when scrolling has stopped with the section on screen. All three back to 1.00. |
+| 3 | **Every claim's check rendered open.** `.demo__check { display: grid }` beat the `hidden` attribute. Found by looking at the rendered page. | `.demo [hidden] { display: none }`; the suite asserts every check starts closed — proved red by removing the rule (16 failures). |
+| 4 | **A `<noscript>` in `<body>` is text when scripting is on.** The eval's jargon count read its markup as words (`class`, `data-i`, `noscript`). | A paragraph hidden by the `.js` class boot sets. |
+| 5 | **A label under a lit source fell to 4.16:1** (axe, in the new suite). | Brighter ink on the lit state. |
+| 6 | **The two languages of a scenario could drift** — a claim verified in one and withdrawn in the other, a citation to a source that does not exist, a scenario with nothing withdrawn (which is the whole point). | `check-i18n` reads `demo.js` and fails on any of these, on untranslated Chinese, straight quotes in English, a sign-up label different from the hero's, and a static scenario list different from the one drawn. Proved red by flipping one Chinese claim (4 failures). |
+| 7 | **CI: headings left invisible after scrolling** (degradation [en] in Chromium; zh on an iPhone in WebKit), and 42 "leaked" nodes in the accumulation suite. The nodes were the demo mounting during that suite's own scrolling. The headings were older than the demo: sweeping a reading-pace scroll with one pause per position left a heading blank on the *base* commit too (`#unit`, 60 ms steps) — a fast scroll carries an element past the viewport without a frame in which it intersects, and the observer never fires. Content growing above the reader (the demo arriving) made it likelier. | `motion.js` sweeps once when scrolling settles: anything still waiting that is on screen or already passed is revealed. The motion suite now jumps top-to-bottom in one instant scroll and requires everything passed to end visible — proved red without the sweep (32 left at opacity 0). The accumulation suite mounts the demo before its baseline. |
+| 8 | **The jargon case counted a licence as a noun.** `/zh/` names "Apache-2.0" four times since round 67 and scored 0.60 on the base commit for it. | License and language names (`Apache`, `JavaScript`) listed as names, and the trailing hyphen the pattern captured is trimmed. |
+
+New: `tests/demo.test.mjs` (in `check-all`: both languages, reduced motion and
+a phone with motion, axe on the mounted demo), and the eval case `conv.demo`
+(the demo is labeled, runs, shows a withdrawal, and ends at sign-up). Score
+**9.99** (en 10.00, zh 9.99); the one miss is the Chinese desktop-LCP case,
+the same machine noise as rounds 66–67.
+
+### Round 69 — nineteen passes over the scenarios, read by five outside readers (10.00)
+
+The owner asked for the scenarios to be worked over nineteen times from a
+senior strategy consultant's seat — to move the reader, not only inform — and
+for three more: the most representative, most urgent transformations of the
+AI era. Chosen: **workforce & skills** (every employee's question), **sales
+win rate** (every CEO's question), **customer operations** (where the volume
+of AI-changeable work is largest). The owner's four stay: design thinking,
+innovation, AI transformation strategy, AI-native path.
+
+Five readers were briefed as people, not as reviewers, and read the copy
+cold, in two rounds: a Chinese mid-market founder, a strategy partner, a
+people leader and a frontline claims processor (one reader holding both),
+then a skeptical US CFO and two Chinese executives (HR, sales). None edited
+anything; every change below is a response to something one of them said,
+or to a measurement.
+
+| # | Pass | What changed |
+|---|-----|-----|
+| 1 | Three scenarios | workforce, sales win rate, customer operations — each 5 sources, 4 agents, 4 claims, one withdrawn |
+| 2 | Who you are | Each scenario opens on a situation card — a role and what is at stake this week — before the task |
+| 3 | Answer first | A one-line answer above the claims that support it |
+| 4 | The temptation | The withdrawn claim is the one a real executive would reach for, and the reviewer step names it that way |
+| 5 | So what | A closing line on what you can now do, per scenario |
+| 6 | One verdict | "Withdrawn" was said twice per withdrawn claim |
+| 7 | Numbers have sources | `check-i18n`: every number in an answer must appear in that scenario's sources or in arithmetic written out beside it; a withdrawn claim's own number is exempt — that is why it was withdrawn. Found four gaps on first run; proved red with an invented figure |
+| 8 | Linkable | `/#demo-workforce` opens that scenario; choosing one rewrites the fragment without history; the language switch carries it |
+| 9 | Review, round 1 | Chinese founder, strategy partner, people leader + employee |
+| 10 | Rigor | 46% × 71% ≈ 33% (a ceiling) instead of "nearly half"; "240 hours today", not "saved"; unsourced "volume is still rising" removed; "demand is proven" narrowed to "customers asked for it" |
+| 11 | Honesty | The fear sized as the sources size it (a third of hours, not half); "move people" → "open a path"; the pilot is "evidence, not a promise"; no villain CEO |
+| 12 | Better traps | "Buy an AI license for everyone" and "give every function a small budget" replace two strawmen |
+| 13 | Chinese, localized | 元 not 美元; 老板, 运营副总; 商机, 进线; tabs and agents named the way a Chinese office names them |
+| 14 | The intro | The title said "real work" above a note saying the material is sample — a skeptic noticed in five seconds. Now: *Every answer shows its source. Watch one get withdrawn.* |
+| 15 | Order | Workforce opens: the one moment where the machine protects a person from a spreadsheet ("34% of hours is not 34% of people") |
+| 16 | After the answer | "Run this on your own …" per scenario, and where documents can live (from the FAQ, not new promises); the withdrawal reason set in ink, not red |
+| 17 | Phone | Seven tabs wrapped to five rows (277 px): one sideways row now. The run button sat a thousand pixels below its task: the situation, task and button now head the panel. Both asserted by the demo suite |
+| 18 | Review, round 2 | A CFO's audit found a dozen claims saying more than their sources — correlation as cause, a reason citing a source the claim did not, "nobody asked" inferred from silence — all narrowed; ~45 Chinese phrases rewritten; the reviewer is now said to be an agent whose withdrawals go to a person (the site's own "needs a person to decide") |
+| 19 | Verify | All 19 checks; eval 10.00 in both languages; first load unchanged (9 requests, ~139 KB) |
+
+Left for the owner, not done: the CFO asked for a finance or healthcare
+scenario and for one claim that ends "not enough evidence" rather than a
+verdict (every scenario ending three-kept, one-withdrawn can look staged);
+the strategy partner proposed AI governance / shadow AI as the missing urgent
+scenario; two Chinese readers asked where data is hosted before they would
+press the button — the page can say what deployment allows, but not what the
+free tier's hosting is.
+
+### Round 70 — three more scenarios, chosen from what the readers said was missing (10.00)
+
+The owner asked for three more and left the choice open. Each fills a gap a
+round-69 reader named:
+
+| Scenario | Who asked for it | The withdrawn claim |
+|---|---|---|
+| **AI governance** — a client contract pasted into a public chatbot; 1,140 of 1,500 accounts already use public tools | the strategy partner ("the scenario that sells traceability best") | "Ban public AI tools" — a peer that did found use moved to personal phones, out of any record |
+| **AI return on investment** — $1.2M spent (900 万元 on the Chinese page), every vendor dashboard says "great" | the CFO ("nothing here is about me") | "AI saved us 14,000 hours" — prompts × an assumed six minutes: activity, not time returned |
+| **Frontline expertise** — eleven senior technicians retiring; the manuals hold 35% of the fixes | the Chinese founder ("no manufacturing, no services") | "Replace them with an AI trained on the manuals" — it would know the part that was never the problem |
+
+Ten scenarios in all. The order puts the three most personal first
+(workforce, sales, governance), then money (ROI, strategy), then operations.
+All three passed the number-provenance gate on first run. Desktop tabs stay
+at two rows; on a phone the row scrolls and follows the selected tab.
+
+**CI: the degradation failure, named.** Three red runs of "got 1" were
+explained by the diagnostic added in round 69: `.cta__actions` in
+`#contact` — `is-in true, opacity 0.42`, at scrollY 21 218 of 21 640. It
+had been revealed and was half way through its fade: the page scrolls
+smoothly, so the loop's last `scrollTo` was still travelling when the 900 ms
+wait began, and the longer page (the demo) made the last leg longer. A test
+timing fault, not hidden content. The degradation and WebKit suites now wait
+for the scroll to stop before timing the fade.
+
+### Round 71 — five passes from the consultancies' research, read by the people it describes (10.00)
+
+The owner asked for the demo to be reworked from what the large consultancies
+report about AI adoption pain, in five passes, designed around the target
+readers.
+
+**The research, and its limit.** Three researchers covered McKinsey, BCG,
+Bain; Deloitte, Accenture, PwC, KPMG, EY; and Gartner, Forrester, MIT, HBR,
+Microsoft and the Chinese institutes. The session's network policy blocked
+every consultancy's own site — only microsoft.com opened, and even that
+reached us through a summarizing model — so **no figure from any report was
+verified, and none is on the page.** The findings shaped the design only.
+They are recorded in `docs/demo-personas.md`, each with the page it must be
+checked against before it could ever be cited, beside seven personas drawn
+from them.
+
+What the research agreed on, across firms: money spent with nothing on the
+P&L and ROI that cannot be computed; pilots that never reach production;
+people using AI in secret, output nobody checks, and mistakes that ship;
+tools adding little without redesigned work; headcount savings that did not
+happen and managers more anxious than the frontline; work turning into
+supervising AI.
+
+| # | Pass | What changed |
+|---|-----|-----|
+| 1 | Research → pains | "AI transformation strategy" now takes the most-cited pain the set lacked: pilots that never leave the lab (23 started, 2 live). The cards name a reader and their 2 a.m. question instead of a topic — ten cards, 5×2 on desktop, one sliding row on a phone. |
+| 2 | Four persona walkthroughs | A Chinese owner and CFO; a COO and CFO; a head of people, a frontline technician and a middle manager; a general counsel, a service head and a sales head. About forty edits: "Verified" became "Matches its sources" (a citation is not truth); headlines that contradicted their sources fixed ("nothing was measured" — four were); the pilot trap became the tempting one ("scale the pilot that worked"); the technicians are asked to teach, not mined; the middle manager became the owner of the process change; the owner's card moved to third. |
+| 3 | The moment | At the end of a run the withdrawn claim's check opens by itself — it was behind a second click — and if the reader has not scrolled, the answer is brought to them (on a phone it landed a screen and a half below the button). |
+| 4 | Act on it | The page said "the call is yours" and offered no call. The withdrawn claim now asks for one: keep it out, or put it back over the reviewer's objection (the strike lifts, the claim turns amber, the objection stays). "Copy as a note" gives the reader the answer, the sources, their decision and the sample-material label to take into the room. |
+| 5 | Cold read and close | Two fresh readers found a dozen remaining overreaches (the sales and service stakes carried numbers no source held; "pause the rest" would have paused the two live pilots; "1,140 people" were 1,140 accounts) and one bug: after "Put it back", the label and the status line still said withdrawn. All fixed; the screen now follows the decision. The number gate now checks the stakes line too — the gap those two numbers came through (proved red by removing them from their source). |
+
+Score **10.00** in both languages; first load unchanged (9 requests, ~140 KB).
+
+### Round 72 — a way in for the consultancies' data, and nothing on the page until it is read
+
+The owner asked to find a way to get the consultancies' data. The proxy's
+own documentation settles what is not a way: a host the organization's
+egress policy refuses is reported, not routed around. mckinsey.com, bcg.com
+and bain.com still return 403, so mirrors, archives and third-party readers
+of the same pages are out.
+
+What is a way: the owner allows the domains in the environment's network
+settings, or downloads the reports and hands over the files. Both end in the
+same place, so this round built that place, and made it impossible to skip:
+
+| Piece | What it does |
+|---|---|
+| `scripts/add-source.py` | Reads a report file (PDF via pypdf, or a saved page), finds each sentence to quote word for word — forgiving only what extraction breaks: ligatures, curly quotes, a hyphen split across a line — and records its page and the file's SHA-256 in `docs/sources/index.json`. On a miss it prints the closest passage and writes nothing. `--verify` re-reads a file against the register. Tested on a generated PDF: a sentence split across a line break and one with a curly apostrophe were found; changing 37 to 39 was refused; a file one byte different failed the hash. |
+| `docs/sources/index.json` | The register: firm, title, date, https URL, hash, and quotes with pages. The reports themselves and their full text are not committed (`docs/sources/raw/` is ignored): the repository is open source and the reports are not ours to republish. |
+| `scripts/check-citations.mjs` (in `check-all`) | A quote on the page must be in the register verbatim, with the register's firm, title, date, URL and page; the same in both languages, with a Chinese translation marked as one. `--self-test` proves nine rules can fail, and runs in `check-all` too. |
+| The demo | A scenario with a registered finding shows "What the research says" beneath the situation: the sentence as printed, a translation on /zh/, the source linked with its page. None today — so the browser suite proves the rendering on a fixture injected in transit. |
+
+`docs/sources/README.md` has the two-minute procedure and the eight reports
+to fetch first, each matched to the scenario it would sit beside.
+
+**Then: other channels.** The owner asked for the data through other
+channels. Mirrors, archives and third-party copies of the blocked pages stay
+out — they are the blocked content by another road. A *different* primary
+source, published by its own authors on a host the policy allows, is not.
+Tested: arXiv, NBER, SSRN, the OECD, the IMF, the BLS, the journals and the
+scholarly indexes are all blocked too. One primary source on AI and work was
+reachable, and reachable raw — no summarizing model in between:
+
+- **Anthropic Economic Index report: Cadences** (26 June 2026). Three
+  sentences registered through `add-source.py`, each found in the page's own
+  text, the file's hash recorded:
+  - *Workforce*: "More than a third of respondents said it was likely or very
+    likely that responsibilities would significantly change … 10% rated
+    losing their own jobs as likely or very likely." — tasks change before
+    jobs, as the scenario argues.
+  - *Frontline expertise*: people with 15+ years of experience put the share
+    of their tasks AI can do about 10 points lower than those in their first
+    year.
+  - *AI-native path (CEO)*: "large majorities of people report productivity
+    gains in speed, scope, and quality of their work (86%, 82%, and 69%,
+    respectively)" — the gains individuals report, which the CEO cannot find
+    in the company's results.
+
+Two things said plainly on the page and here. It is a survey of Claude
+users, and the report itself says its respondents skew toward knowledge
+workers — every quote carries that note, and the gate now requires a note on
+whom a finding describes. And Anthropic makes the model that did this work:
+the owner decides whether a finding from that source belongs on the page.
+The consultancies' reports remain the goal; the register takes them the day
+their files arrive.

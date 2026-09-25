@@ -82,7 +82,7 @@ export async function aggregateInboxSources(
   deps: InboxAggregateDeps,
   input: InboxAggregateInput,
 ): Promise<InboxAggregateResult> {
-  const sources: InboxSourcesView = { exception: deps.errorLog !== undefined ? "included" : "withheld" };
+  let sources: InboxSourcesView = { exception: deps.errorLog !== undefined ? "included" : "withheld" };
 
   const t0 = Date.now();
   const feedbackItems = await listFeedback(deps.feedback, {
@@ -92,7 +92,21 @@ export async function aggregateInboxSources(
     viewerTeamId: input.viewerTeamId,
   });
   const t1 = Date.now();
-  const exceptions = deps.errorLog !== undefined ? await fetchAllExceptions(deps.errorLog) : { items: [], capHit: false };
+  /*
+   * 一路失败只丢那一路（#3921，人类裁决：契约加 `unavailable`）。
+   * 本地版的 PGlite 不区分数据库角色，系统异常这一路走的诊断角色必然被拒——原来这里直接抛，
+   * 整个收件箱 500，反馈与设计方案两路跟着一起没了。现在：这一路读失败 ⇒ 标 `unavailable`、
+   * 条目为空，其余两路照常。**不吞**：记一条 `error`，值班按 traceId 找得到原因。
+   */
+  let exceptions: { items: readonly ErrorLogListItem[]; capHit: boolean } = { items: [], capHit: false };
+  if (deps.errorLog !== undefined) {
+    try {
+      exceptions = await fetchAllExceptions(deps.errorLog);
+    } catch (err) {
+      sources = { exception: "unavailable" };
+      deps.logger?.error("inbox: exception source unavailable", { traceId: deps.traceId ?? FALLBACK_TRACE_ID, err });
+    }
+  }
   const t2 = Date.now();
   const designRows = await deps.design.projects.listForOrg();
   const designItems = await loadOwnerNamesAndProject(deps.design, designRows);

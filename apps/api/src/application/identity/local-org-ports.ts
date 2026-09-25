@@ -139,3 +139,26 @@ export interface ExportTransport {
 }
 
 export const EXPORT_TRANSPORT = Symbol("ExportTransport");
+
+/* ─────────────────────── E4: the egress ledger the user sees ─────────────────────── */
+
+export type EgressLedgerKind = "onRequest" | "refused" | "export" | "unexpected";
+
+/**
+ * The process-level egress ledger (contract: `@repo/contracts/deployment` `EgressLedger`).
+ *
+ * A port, not a direct import of the guard module, for the usual reason -- and one more: the
+ * interface layer must not be able to construct its own counter. The only implementation
+ * reads the same patched `net.Socket.prototype.connect` that enforces the promise.
+ */
+export interface EgressLedgerReader {
+  /** Which edition this process runs as. The ledger is only served for `local`. */
+  edition(): "cloud" | "local";
+  snapshot(): {
+    readonly since: string;
+    readonly counts: Readonly<Record<EgressLedgerKind, number>>;
+    readonly recent: readonly { readonly kind: EgressLedgerKind; readonly target: string; readonly at: string }[];
+  };
+}
+
+export const EGRESS_LEDGER = Symbol("EgressLedger");

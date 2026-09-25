@@ -55,6 +55,24 @@ import {
 
 const DEFAULT_ASR_TURN_SILENCE_MS = 400;
 const DEFAULT_RECORDING_TURN_SILENCE_MS = 800;
+const MAX_UPSTREAM_AUDIO_BACKLOG_BYTES = 48_000;
+const UPSTREAM_AUDIO_BYTES_PER_SECOND = MAX_UPSTREAM_AUDIO_BACKLOG_BYTES;
+const UPSTREAM_SLOW_BACKLOG_MS = 400;
+const UPSTREAM_RECOVERY_BACKLOG_MS = 200;
+
+export function realtimeAudioBacklogExceeded(bufferedBytes: number, nextPayloadBytes: number): boolean {
+  return bufferedBytes + nextPayloadBytes > MAX_UPSTREAM_AUDIO_BACKLOG_BYTES;
+}
+
+export function upstreamAudioFlowState(
+  previous: "normal" | "slow",
+  bufferedBytes: number,
+): { readonly state: "normal" | "slow"; readonly queuedMs: number } {
+  const queuedMs = Math.round(bufferedBytes * 1_000 / UPSTREAM_AUDIO_BYTES_PER_SECOND);
+  if (previous === "normal" && queuedMs >= UPSTREAM_SLOW_BACKLOG_MS) return { state: "slow", queuedMs };
+  if (previous === "slow" && queuedMs <= UPSTREAM_RECOVERY_BACKLOG_MS) return { state: "normal", queuedMs };
+  return { state: previous, queuedMs };
+}
 
 interface ProviderConfig {
   readonly provider: string;
@@ -114,6 +132,7 @@ function readConfig(): ProviderConfig | null {
  */
 const PROVIDER_UNAVAILABLE = "ASR_PROVIDER_UNAVAILABLE";
 const AUDIO_FORMAT_REJECTED = "AUDIO_FORMAT_REJECTED";
+const AUDIO_BACKPRESSURE = "AUDIO_BACKPRESSURE";
 
 /**
  * issue #2637 ③ —— 上游对「commit 一个已经空了/太短的缓冲区」的标准应答，只在
@@ -275,7 +294,14 @@ export class ConfiguredRealtimeAsrProvider implements AsrProviderPort {
     // that always follows it.
     let finishRequested = false;
     let errorReported = false;
-    const reportError = (reason: typeof PROVIDER_UNAVAILABLE | typeof AUDIO_FORMAT_REJECTED, detail: string): void => {
+    let upstreamFlow: "normal" | "slow" = "normal";
+    const observeFlow = (bufferedBytes: number) => {
+      const next = upstreamAudioFlowState(upstreamFlow, bufferedBytes);
+      if (next.state === upstreamFlow) return;
+      upstreamFlow = next.state;
+      try { handlers.onFlow?.({ state: next.state, source: "upstream", queuedMs: next.queuedMs }); } catch { /* observers cannot interrupt ASR */ }
+    };
+    const reportError = (reason: typeof PROVIDER_UNAVAILABLE | typeof AUDIO_FORMAT_REJECTED | typeof AUDIO_BACKPRESSURE, detail: string): void => {
       errorReported = true;
       handlers.onError(reason, detail);
     };
@@ -364,11 +390,19 @@ export class ConfiguredRealtimeAsrProvider implements AsrProviderPort {
     return {
       pushAudio(frame) {
         if (closed || socket.readyState !== WebSocket.OPEN) return;
-        socket.send(JSON.stringify({
+        const payload = JSON.stringify({
           type: "input_audio_buffer.append",
           ...(manual ? {event_id: randomUUID()} : {}),
           audio: Buffer.from(frame).toString("base64"),
-        }));
+        });
+        if (realtimeAudioBacklogExceeded(socket.bufferedAmount, Buffer.byteLength(payload))) {
+          reportError(AUDIO_BACKPRESSURE, "upstream audio send buffer exceeded one second");
+          closed = true;
+          socket.terminate();
+          return;
+        }
+        observeFlow(socket.bufferedAmount);
+        socket.send(payload);
       },
       commit() {
         if (closed || socket.readyState !== WebSocket.OPEN) return;

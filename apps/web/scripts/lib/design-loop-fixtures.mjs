@@ -430,14 +430,17 @@ function applyFixturePatch(screens, inserts) {
  * 拦 `/pm-designs*`：列表 / 建 / 改 / 删 / 追加对话 / 推送。
  * `slow`：`listMyProjects` 故意挂起不 resolve，用于截「加载中」骨架屏（真实请求在飞）。
  */
-export async function routeDesignWorkbench(page, { empty = false, slow = false, failList = false } = {}) {
+export async function routeDesignWorkbench(page, { empty = false, slow = false, failList = false, extraProjects = [] } = {}) {
   const json = (route, body, status = 200) =>
     route.fulfill({ status, contentType: "application/json", body: JSON.stringify(body) });
   // ⚠ `prototype` 必须深拷贝：chat/patch 两条路都会**改这棵树**，浅拷贝会把改动写回模块级
   //   `DESIGN_PROJECTS`，让同一个 Node 进程里后拍的每一张图都带上前一张的改动（rev-uiux
   //   三评 D4 判 0 的根因：v1 预览画布上出现了比当前版本还多的控件）。
-  const projects = empty ? [] : DESIGN_PROJECTS.map((p) => ({
-    ...p, chat: [...p.chat], prototype: structuredClone(p.prototype), frameNotes: [...p.frameNotes],
+  // `extraProjects`：对标评测（`e2e/parity-eval/`）的金标准项目，接在样本项目后面，走同一套路由。
+  // `tokens`：真实 API 读侧恒给（契约 `DesignTokens` 带缺省值），夹具同样补齐——样本里给了的键覆盖缺省值。
+  const projects = empty ? [] : [...DESIGN_PROJECTS, ...extraProjects].map((p) => ({
+    ...p, tokens: { brand: null, font: "sans", radius: "default", density: "default", ...(p.tokens ?? {}) },
+    chat: [...p.chat], prototype: structuredClone(p.prototype), frameNotes: [...p.frameNotes],
     ...(p.frameLinks !== undefined ? { frameLinks: structuredClone(p.frameLinks) } : {}),
   }));
   // 版本日志是 append-only 的快照，写入那一刻拍下当时的树——不从活树事后倒推。
@@ -465,7 +468,7 @@ export async function routeDesignWorkbench(page, { empty = false, slow = false, 
         pushed: false, pushedAt: null, linkedFeedbackId: body.linkedFeedbackId ?? null, chat: [],
         // 迭代 13：契约保证这三个字段恒在（有 default），夹具也必须给——少了它们前端会在
     // `refImages.map` / `tags.length` 上直接炸，而那是夹具的问题不是产品的问题。
-    theme: "dark", tags: [], refImages: [], share: null,
+    theme: "dark", tags: [], refImages: [], share: null, tokens: { brand: null, font: "sans", radius: "default", density: "default" },
     // 迭代 24：契约里这两个同生同灭且**必给**（`DesignProject.githubIssueUrl` 头注）。
     githubIssueUrl: null, githubIssueNumber: null,
     ownerId: "u-pm-1", ownerName: "苏木 · PM",
@@ -483,7 +486,10 @@ export async function routeDesignWorkbench(page, { empty = false, slow = false, 
     if (req.method() === "PATCH") {
       if (!project) return json(route, { reasonCode: "PROJECT_NOT_FOUND" }, 404);
       const body = req.postDataJSON() ?? {};
-      Object.assign(project, body, { updatedAt: NOW });
+      // 同真实 API：`tokens` 按键合并（只给 font 不会清掉 brand）。
+      const { tokens, ...rest } = body;
+      Object.assign(project, rest, { updatedAt: NOW });
+      if (tokens !== undefined) project.tokens = { ...project.tokens, ...tokens };
       return json(route, { project });
     }
     if (req.method() === "DELETE") {
@@ -575,7 +581,10 @@ export async function routeDesignWorkbench(page, { empty = false, slow = false, 
     const project = projects.find((p) => p.id === id);
     if (!project) return json(route, { reasonCode: "PROJECT_NOT_FOUND" }, 404);
     for (const op of route.request().postDataJSON()?.ops ?? []) {
-      const node = op.nodeId ? findFixtureNode(project.prototype, op.nodeId) : null;
+      // 契约 `PrototypePatchOp` 的节点寻址键是 `id`。这里原来读的是 `nodeId`（一个不存在的键）⇒
+      // setProps 在夹具里**从来没生效过**；既有 e2e 只断言了请求体，所以一直没人发现。
+      const nodeId = op.id ?? op.nodeId;
+      const node = nodeId ? findFixtureNode(project.prototype, nodeId) : null;
       if (node && op.op === "setProps") {
         node.props = { ...node.props, ...op.props };
         for (const [k, v] of Object.entries(op.props ?? {})) if (v === null) delete node.props[k];
@@ -608,4 +617,41 @@ export async function routeDesignWorkbench(page, { empty = false, slow = false, 
     project.pushedAt = NOW;
     return json(route, { project, inboxCode: "D-3" });
   });
+  // 对标评测要在同一份活数据上挂自己的路由（用真实契约函数应用 patch），所以把它交出去。
+  /*
+   * 深度 S2（#3988）：批注存在服务端。这里是一份按项目分的内存表，语义同真实接口（全组织可读可写、
+   * 列表按先后排）。评测的 `depth-api.ts` 在它之后注册、会覆盖它（Playwright 后注册的先匹配）。
+   */
+  const comments = new Map();
+  const commentsOf = (id) => { if (!comments.has(id)) comments.set(id, []); return comments.get(id); };
+  let commentSeq = 0;
+  await page.route((url) => /^\/pm-designs\/[^/]+\/comments$/.test(new URL(url).pathname), (route) => {
+    const list = commentsOf(decodeURIComponent(new URL(route.request().url()).pathname.split("/")[2]));
+    if (route.request().method() === "GET") return json(route, { items: list });
+    const b = route.request().postDataJSON() ?? {};
+    const c = { id: `cm-${++commentSeq}`, nodeId: b.nodeId, frameIndex: b.frameIndex, label: b.label ?? "", text: b.text, resolved: false, authorId: "u-pm-1", authorName: "产品 · 周宁", createdAt: NOW, replies: [] };
+    list.push(c);
+    return json(route, { comment: c }, 201);
+  });
+  // 深度 S3：回复（只追加），回整条批注。
+  await page.route((url) => /^\/pm-designs\/[^/]+\/comments\/[^/]+\/replies$/.test(new URL(url).pathname), (route) => {
+    const parts = new URL(route.request().url()).pathname.split("/");
+    const list = commentsOf(decodeURIComponent(parts[2]));
+    const i = list.findIndex((c) => c.id === decodeURIComponent(parts[4]));
+    if (i < 0) return json(route, { reasonCode: "COMMENT_NOT_FOUND" }, 404);
+    const text = String((route.request().postDataJSON() ?? {}).text ?? "").trim();
+    list[i] = { ...list[i], replies: [...list[i].replies, { id: `rp-${++commentSeq}`, text, authorId: "u-pm-1", authorName: "产品 · 周宁", createdAt: NOW }] };
+    return json(route, { comment: list[i] }, 201);
+  });
+  await page.route((url) => /^\/pm-designs\/[^/]+\/comments\/[^/]+$/.test(new URL(url).pathname), (route) => {
+    const parts = new URL(route.request().url()).pathname.split("/");
+    const list = commentsOf(decodeURIComponent(parts[2]));
+    const i = list.findIndex((c) => c.id === decodeURIComponent(parts[4]));
+    if (i < 0) return json(route, { reasonCode: "COMMENT_NOT_FOUND" }, 404);
+    if (route.request().method() === "DELETE") { list.splice(i, 1); return json(route, {}); }
+    list[i] = { ...list[i], resolved: Boolean((route.request().postDataJSON() ?? {}).resolved) };
+    return json(route, { comment: list[i] });
+  });
+
+  return projects;
 }
