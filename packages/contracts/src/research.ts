@@ -1023,6 +1023,8 @@ export const GuidedResearchEvidenceConflict = z.object({
   id: z.string().min(1), claimIds: z.array(z.string().min(1)).min(2), sourceIds: z.array(z.string().min(1)).min(2),
   severity: z.enum(["moderate", "severe"]), status: z.enum(["open", "resolved"]),
   resolution: z.string().trim().min(1).max(2000).nullable(),
+  resolutionAction: z.enum(["retain_uncertainty", "prefer_source"]).nullable().optional(),
+  resolvedSourceId: z.string().min(1).nullable().optional(),
 }).strict();
 const NullableResearchScore = z.number().min(0).max(100).nullable();
 export const GuidedResearchQualityScore = z.object({
@@ -1070,7 +1072,7 @@ export const GuidedResearchRuntime = z.object({
 }).strict();
 export const GuidedResearchRuntimeCommand = z.object({
   sessionId: z.string().min(1), node: ResearchNode,
-  action: z.enum(["save", "generate", "confirm", "start", "retry", "complete", "message", "apply", "add_source", "remove_source", "pause", "resume", "refine_scope", "refine_source_policy"]),
+  action: z.enum(["save", "generate", "confirm", "start", "retry", "complete", "message", "apply", "add_source", "remove_source", "pause", "resume", "refine_scope", "refine_source_policy", "resolve_conflict"]),
   requestId: z.string().min(1).max(200), expectedVersion: z.number().int().nonnegative(),
   expectedRevision: z.number().int().nonnegative().optional(), idempotencyKey: z.string().min(1).max(200).optional(),
   intent: GuidedResearchIntent.optional(), sourcePolicy: GuidedResearchSourcePolicy.optional(),
@@ -1083,18 +1085,23 @@ export const GuidedResearchRuntimeCommand = z.object({
     } catch { return false; }
   }).optional(),
   sourceId: z.string().min(1).optional(),
+  conflictId: z.string().min(1).optional(),
+  conflictResolutionAction: z.enum(["retain_uncertainty", "prefer_source"]).optional(),
+  conflictResolution: z.string().trim().min(1).max(2000).optional(),
   allowPartialResearch: z.boolean().optional(),
 }).strict().refine((command) => command.allowPartialResearch === undefined || (command.node === "research" && ["confirm", "complete"].includes(command.action)), "partial research requires explicit research completion").refine((command) => !command.draft || command.node === command.draft.node, "draft must target the requested node")
-  .refine((command) => !["pause", "resume", "refine_scope", "refine_source_policy"].includes(command.action)
+  .refine((command) => !["pause", "resume", "refine_scope", "refine_source_policy", "resolve_conflict"].includes(command.action)
     || ((command.action === "refine_scope" ? ["outline", "research"].includes(command.node) : command.node === "research")
       && command.expectedRevision !== undefined && Boolean(command.idempotencyKey)), "steering commands require an editable plan node, expected revision and idempotency key")
   .refine((command) => command.action !== "refine_source_policy" || Boolean(command.sourcePolicy), "source policy refinement requires a source policy")
+  .refine((command) => command.action !== "resolve_conflict" || (command.node === "research" && Boolean(command.conflictId) && Boolean(command.conflictResolutionAction) && Boolean(command.conflictResolution)
+    && (command.conflictResolutionAction === "prefer_source" ? Boolean(command.sourceId) : !command.sourceId)), "conflict resolution requires an explicit valid decision")
   .refine((command) => {
     if (command.action === "add_source" || command.action === "remove_source") {
       return command.node === "research" && !command.draft && !command.message && !command.proposalId
         && (command.action === "add_source" ? Boolean(command.sourceUrl) && !command.sourceId : Boolean(command.sourceId) && !command.sourceUrl);
     }
-    return !command.sourceUrl && !command.sourceId;
+    return !command.sourceUrl && (command.action === "resolve_conflict" || !command.sourceId);
   }, "source commands require the research node and exactly one source reference");
 
 // Progress responses never include source excerpts, messages, history or whole report bodies.

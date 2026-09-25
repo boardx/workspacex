@@ -1,5 +1,6 @@
 import { research as C } from "@repo/contracts";
 import type { z } from "zod";
+import { createHash } from "node:crypto";
 import type { ResearchRuntime } from "./guided-runtime-ports";
 import { reportQuestions } from "./guided-report-evidence";
 
@@ -22,6 +23,7 @@ function average(values: Array<number | null>): number | null {
   return known.length ? rounded(known.reduce((sum, value) => sum + value, 0) / known.length) : null;
 }
 function detectedEvidenceConflicts(runtime: ResearchRuntime): Conflict[] {
+  const sourceById = new Map(runtime.sources.map((source) => [source.id, source]));
   const grouped = new Map<string, NonNullable<ResearchRuntime["questionEvidence"]>>();
   for (const item of runtime.questionEvidence ?? []) grouped.set(item.questionId, [...(grouped.get(item.questionId) ?? []), item]);
   const conflicts: Conflict[] = [];
@@ -32,7 +34,12 @@ function detectedEvidenceConflicts(runtime: ResearchRuntime): Conflict[] {
       const a = [...direct[left]!.quote.matchAll(/\b\d+(?:\.\d+)?%/g)].map((match) => match[0]);
       const b = [...direct[right]!.quote.matchAll(/\b\d+(?:\.\d+)?%/g)].map((match) => match[0]);
       if (!a.length || !b.length || a.some((value) => b.includes(value))) continue;
-      conflicts.push(C.GuidedResearchEvidenceConflict.parse({ id: `detected:${questionId}:${left}:${right}`,
+      const identities = [direct[left]!, direct[right]!].map((item) => {
+        const source = sourceById.get(item.sourceId);
+        return `${item.sourceId}:${source?.document?.contentHash ?? "unknown"}`;
+      }).sort();
+      const identity = createHash("sha256").update(`${questionId}|${identities.join("|")}`).digest("hex").slice(0, 24);
+      conflicts.push(C.GuidedResearchEvidenceConflict.parse({ id: `detected:${identity}`,
         claimIds: [questionId, questionId], sourceIds: [direct[left]!.sourceId, direct[right]!.sourceId],
         severity: "moderate", status: "open", resolution: null }));
     }
@@ -61,7 +68,8 @@ export function projectResearchTrust(runtime: ResearchRuntime): GuidedResearchTr
       quote: evidence.quote, sourceId: evidence.sourceId, retrievedAt: source.document.retrievedAt,
       confidence: evidence.relevance === "direct" ? "high" : "medium", traceIds: source.taskIds ?? [source.taskId] })];
   });
-  const conflicts = [...new Map([...(runtime.conflicts ?? []), ...detectedEvidenceConflicts(runtime)]
+  // An explicit human resolution has priority over a mechanically re-detected pair.
+  const conflicts = [...new Map([...detectedEvidenceConflicts(runtime), ...(runtime.conflicts ?? [])]
     .map((conflict) => [conflict.id, C.GuidedResearchEvidenceConflict.parse(conflict)])).values()];
   const answered = coverage.filter((item) => item.status === "answered").length;
   const citationCoverage = coverage.length ? rounded(answered / coverage.length * 100) : null;
