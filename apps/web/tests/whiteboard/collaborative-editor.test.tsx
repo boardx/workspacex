@@ -34,6 +34,19 @@ it('read-only disables mutation controls and does not alter the document', () =>
   fireEvent.click(screen.getByTestId('board-add-sticky'));
   expect(readObjects(doc)).toEqual([]); doc.destroy();
 });
+it('keeps platform pinch enabled and removes the inspector from focus order while an auxiliary panel is open', () => {
+  const doc=createWhiteboardDocument();
+  executeCommands(doc,[{type:'create',object:{id:'note',schemaVersion:1,kind:'sticky',geometry:{x:0,y:0,width:100,height:80,rotation:0},text:'便签',style:{},parentId:null,orderKey:'a'}}],'seed');
+  const {rerender}=render(<CollaborativeEditor doc={doc} readOnly={false} title="白板" status="已同步"/>);
+  const surface=screen.getByTestId('board-live-surface');
+  expect(surface).toHaveClass('touch-auto');expect(surface).not.toHaveClass('touch-none');
+  surface.focus();fireEvent.focus(surface);fireEvent.keyDown(surface,{key:'Enter'});fireEvent.keyDown(surface,{key:'Enter'});
+  expect(screen.getByLabelText('对象文字')).toBeVisible();
+  rerender(<CollaborativeEditor doc={doc} readOnly={false} title="白板" status="已同步" auxiliaryPanelOpen workshop={<button>面板控件</button>}/>);
+  expect(screen.queryByTestId('board-object-inspector')).not.toBeInTheDocument();
+  expect(screen.getByRole('button',{name:'面板控件'})).toBeVisible();
+  doc.destroy();
+});
 it('groups a multi-selection, wraps it in a frame and ungroups without losing objects', () => {
   HTMLElement.prototype.setPointerCapture = () => {};
   const doc = createWhiteboardDocument(), geometry = {x:10,y:20,width:100,height:80,rotation:0};

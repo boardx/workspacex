@@ -145,7 +145,7 @@ export function BoardTransferControls({ boardId, onImported }: { boardId: string
     }}>导入副本</Button>
     <input ref={importInput} aria-label="导入白板副本文件" data-testid="board-import-file" className="hidden" tabIndex={-1} type="file" accept="application/json,.json" onChange={event => void chooseImport(event.target.files?.[0])}/>
     <Dialog open={open} onOpenChange={setOpen}>
-      <DialogContent onCloseAutoFocus={event=>{event.preventDefault();returnFocus.current?.focus();}}>
+      <DialogContent className="max-h-[calc(100dvh-2rem)] w-[calc(100%-2rem)] overflow-y-auto motion-reduce:transition-none" onCloseAutoFocus={event=>{event.preventDefault();returnFocus.current?.focus();}}>
         <DialogTitle>导入为新的白板副本</DialogTitle>
         {error ? <DialogDescription role="alert">{error}</DialogDescription> : preview ? <>
           {external ? <section data-testid="vendor-import-preview" className="space-y-2">

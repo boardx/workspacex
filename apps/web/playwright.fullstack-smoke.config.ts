@@ -355,6 +355,7 @@ export default defineConfig({
         // fallback in the spec; it creates and archives its own private Board.
         "whiteboard-live.spec.ts",
         "whiteboard-live-a11y.spec.ts",
+        "whiteboard-live-reflow.spec.ts",
       ],
       grepInvert: EMPTY_DB_TAG_RE,
     },
