@@ -207,17 +207,28 @@ export interface MaybeRunSkillScriptInput {
  * ⚠ 待批工具名只进异常的 `detail`（服务端日志），不进用户文案：那是内核的内部工具名。
  */
 /**
- * 同一个键上的重复写入：**同内容**是重试的正常形状，**不同内容**才是真撞键。
+ * 同一个键上的重复写入：**这一个键的形状**（`runId` + 文件名）天然只可能来自同一次
+ * call_skill 意图的重复交付，不是两份互不相干的产物抢同一个名字——所以撞键本身
+ * 就该当作幂等重试，不该按字节比对来决定放不放行。
  *
- * 2026-09-25 原生 deep-agent 链路实测：`call_skill` 工具调用被编排层重试
- * （成因待查——很可能是网络往返超时后的自动重试），沙箱第二次真的又跑出同一份
- * 文件，`putOnce` 的 never-overwrite 却把这次**成功的重试**判成失败，
- * 整个 run 以 `UNKNOWN_EXECUTION_ERROR` 死掉——而文件其实已经在第一次就写成功了。
- * legacy call_skill 路径从没有过这层重试，这个坑只在原生链路上才踩得到。
+ * 2026-09-25 原生 deep-agent 链路实测两轮才把这件事看全：
  *
- * 这里按内容摘要判断：一致 ⇒ 当作已经写过，直接放行；不一致 ⇒ 保留原有的硬失败——
- * 同一个 runId 里两份不同内容抢同一个文件名，仍然是需要说清楚的真实冲突，不能悄悄
- * 只留下先到的那一份。
+ * ① 第一轮：`call_skill` 被编排层重试，沙箱第二次又跑出"同一份"文件，`putOnce` 的
+ *    never-overwrite 把这次**成功的重试**判成失败，run 以 `UNKNOWN_EXECUTION_ERROR`
+ *    死掉。第一版修法是"读回来比对字节，一致才放行"。
+ * ② 第二轮：那个修法看着对，实测**仍然**崩在同一个错误上——反证用同一段 pptxgenjs
+ *    脚本连跑两次，产物字节从第 11 个字符就不同（OOXML 的 core.xml 里带创建/修改
+ *    时间戳）。也就是说 pptx/docx/xlsx 这类格式**永远不会**字节相同，"比对字节"这
+ *    道门槛实际上从没放行过一次，所有原生链路上的 Office 撞键都照旧硬失败。
+ *
+ * 结论：字节比对在这个场景下是个假门槛——它精确地卡住了它本该放行的那一类情况。
+ * 真正该问的问题不是"两次产物是不是一模一样"，而是"这个键的形状是不是只可能来自
+ * 同一次意图"：`agent-run-outputs/${runId}/${fileName}` 里 runId 天然只属于这一次
+ * chat run，同一轮内两次写向同一个文件名，唯一合理的解释就是重试或修订，不是两个
+ * 互不相干的产物撞名——那种情况从设计上就不会发生（不同产物不会自己选中同一个
+ * 文件名）。所以这里**不再比对内容**，撞键即视为幂等：保留先到的那一份，放行。
+ * 用户体感是"文件在"，不是"哪一次尝试的文件"——多次尝试里只要有一次真的成功过，
+ * run 就该算成功。
  */
 async function putOnceIdempotent(
   objects: ObjectStore,
@@ -229,11 +240,6 @@ async function putOnceIdempotent(
     await objects.putOnce(key, bytes, mime);
   } catch (error) {
     if (!(error instanceof ObjectExistsError)) throw error;
-    const existing = await objects.get(key);
-    if (existing !== null && existing.length === bytes.length && Buffer.compare(Buffer.from(existing), Buffer.from(bytes)) === 0) {
-      return;
-    }
-    throw error;
   }
 }
 
