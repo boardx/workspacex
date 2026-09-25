@@ -16,6 +16,7 @@ const PENALTY: Record<SurveyPublishBlocker["code"], number> = {
   QUESTION_OPTIONS_EMPTY: 25,
   MAPPING_INCOMPLETE: 20,
   LEADING_QUESTION: 20,
+  LOGIC_INVALID: 30,
 };
 
 const LABEL: Record<SurveyPublishBlocker["code"], string> = {
@@ -23,6 +24,7 @@ const LABEL: Record<SurveyPublishBlocker["code"], string> = {
   QUESTION_OPTIONS_EMPTY: "为选项题补充可选择的答案",
   MAPPING_INCOMPLETE: "将题目映射到报告章节",
   LEADING_QUESTION: "改用中性的题目措辞",
+  LOGIC_INVALID: "修复条件显示或跳转规则",
 };
 
 export function assessPublishReadiness({

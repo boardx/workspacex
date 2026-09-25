@@ -2,7 +2,10 @@ import type {
   SurveyPublishBlocker,
   SurveyWorkflowQuestion,
 } from "@repo/contracts/survey";
-import { isSurveyPageElement } from "@repo/contracts/survey-question-types";
+import {
+  isSurveyPageElement,
+  validateSurveyQuestionLogic,
+} from "@repo/contracts/survey-question-types";
 import type { SurveyReportTemplate } from "@repo/contracts/survey-report";
 
 export type SurveyPublishGateInput = {
@@ -88,6 +91,21 @@ export function evaluateSurveyForPublish(
         side: "question",
         subjectId: question.id,
         missingFields: ["title"],
+      });
+  }
+
+  for (const [index, question] of input.questions.entries()) {
+    const diagnostics = validateSurveyQuestionLogic(
+      question,
+      index,
+      input.questions,
+    );
+    if (diagnostics.length)
+      blockers.push({
+        code: "LOGIC_INVALID",
+        side: "question",
+        subjectId: question.id,
+        missingFields: diagnostics,
       });
   }
 

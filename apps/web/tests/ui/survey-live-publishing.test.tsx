@@ -66,15 +66,17 @@ describe("live survey trusted publishing", () => {
       { code: "QUESTION_OPTIONS_EMPTY", side: "question", subjectId: "q-choice", missingFields: ["options"] },
       { code: "MAPPING_INCOMPLETE", side: "section", subjectId: "s1", missingFields: ["questionIds"] },
       { code: "LEADING_QUESTION", side: "question", subjectId: "q-leading", missingFields: ["neutralWording"] },
+      { code: "LOGIC_INVALID", side: "question", subjectId: "q1", missingFields: ["显示条件只能引用前面有效的题目"] },
     ];
     client.request.mockResolvedValueOnce(runtime()).mockRejectedValueOnce(new client.BlockedError(blockers));
     render(<LiveSurveyWorkspace surveyId="survey-1" initialStep="publish" />);
     fireEvent.click(await screen.findByRole("button", { name: "检查发布条件" }));
-    expect(await screen.findByText("发现 4 项发布阻断")).toBeInTheDocument();
+    expect(await screen.findByText("发现 5 项发布阻断")).toBeInTheDocument();
     expect(screen.getByText(/问卷至少需要一道题/)).toBeInTheDocument();
     expect(screen.getByText(/选项题必须包含有效选项/)).toBeInTheDocument();
     expect(screen.getByText(/报告章节尚未覆盖对应题目/)).toBeInTheDocument();
     expect(screen.getByText(/题目措辞可能带有诱导性/)).toBeInTheDocument();
+    expect(screen.getByText(/条件显示或跳转规则无效/)).toBeInTheDocument();
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
     expect(screen.queryByText("发布准备已完成")).not.toBeInTheDocument();
     expect(client.request).toHaveBeenLastCalledWith("/surveys/survey-1/prepare", { method: "POST", body: { expectedVersion: 4 } }, expect.anything());
@@ -102,6 +104,32 @@ describe("live survey trusted publishing", () => {
     expect(screen.getByTestId("survey-publish-readiness")).toHaveTextContent("预计完成率 75%");
     fireEvent.click(screen.getByRole("button", { name: "定位并修复：为选项题补充可选择的答案" }));
     expect(screen.getByRole("button", { name: /1\. 设计问卷/ })).toHaveAttribute("class", expect.stringContaining("border-primary"));
+  });
+
+  it("shows the logic diagnostic and focuses its question for repair", async () => {
+    const blockers: SurveyPublishBlocker[] = [
+      {
+        code: "LOGIC_INVALID",
+        side: "question",
+        subjectId: "q2",
+        missingFields: ["显示条件只能引用前面有效的题目"],
+      },
+    ];
+    client.request
+      .mockResolvedValueOnce(
+        runtime({
+          questions: [
+            runtime().questions[0]!,
+            { id: "q2", title: "补充原因", type: "short", chapterId: "general", order: 2, required: true, options: [] },
+          ],
+        }),
+      )
+      .mockRejectedValueOnce(new client.BlockedError(blockers));
+    render(<LiveSurveyWorkspace surveyId="survey-1" initialStep="publish" />);
+    fireEvent.click(await screen.findByRole("button", { name: "检查发布条件" }));
+    expect(await screen.findByText("显示条件只能引用前面有效的题目")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "定位并修复：修复条件显示或跳转规则" }));
+    expect(screen.getByRole("button", { name: "2. 补充原因" })).toHaveAttribute("aria-current", "true");
   });
 
   it("routes a question mapping blocker to the report-template editor", async () => {

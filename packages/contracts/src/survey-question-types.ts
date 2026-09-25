@@ -648,52 +648,65 @@ export function validateSurveyQuestions(
     validateSurveyQuestion(q).map((error) => `${q.title}：${error}`),
   );
   if (!unique(questions.map((q) => q.id))) errors.push("题目 ID 必须唯一");
-  questions.forEach((q, index) => {
-    for (const rule of q.config?.visibleWhen ?? []) {
-      const previous = questions.findIndex(
-        (item) => item.id === rule.questionId,
-      );
-      if (
-        previous < 0 ||
-        previous >= index ||
-        isSurveyPageElement(questions[previous]!)
-      ) {
-        errors.push(`${q.title}：显示条件只能引用前面有效的题目`);
-        continue;
-      }
-      const trigger = questions[previous]!;
-      if (
-        trigger.type.startsWith("matrix_") ||
-        [
-          "multiple_text",
-          "address",
-          "allocation",
-          "file",
-          "signature",
-        ].includes(trigger.type)
-      )
-        errors.push(`${q.title}：显示条件不支持引用结构化字段或附件`);
-      const choices = surveyChoices(trigger);
-      if (
-        choices.length &&
-        !choices.some(
-          (choice) => choice.id === rule.value || choice.label === rule.value,
-        ) &&
-        !(trigger.config?.other && rule.value === SURVEY_OTHER_OPTION_ID)
-      )
-        errors.push(`${q.title}：显示条件引用不存在的选项`);
+  questions.forEach((q, index) =>
+    errors.push(
+      ...validateSurveyQuestionLogic(q, index, questions).map(
+        (error) => `${q.title}：${error}`,
+      ),
+    ),
+  );
+  return errors;
+}
+export function validateSurveyQuestionLogic(
+  q: SurveyWorkflowQuestion,
+  index: number,
+  questions: SurveyWorkflowQuestion[],
+): string[] {
+  const errors: string[] = [];
+  for (const rule of q.config?.visibleWhen ?? []) {
+    const previous = questions.findIndex(
+      (item) => item.id === rule.questionId,
+    );
+    if (
+      previous < 0 ||
+      previous >= index ||
+      isSurveyPageElement(questions[previous]!)
+    ) {
+      errors.push("显示条件只能引用前面有效的题目");
+      continue;
     }
-    if (!unique((q.config?.jumpTo ?? []).map((jump) => jump.optionId)))
-      errors.push(`${q.title}：每个选项只能配置一个跳转目标`);
-    for (const jump of q.config?.jumpTo ?? []) {
-      const target = questions.findIndex((item) => item.id === jump.targetId);
-      if (
-        !surveyChoices(q).some((choice) => choice.id === jump.optionId) ||
-        target <= index
-      )
-        errors.push(`${q.title}：跳转需有效选项及后续目标`);
-    }
-  });
+    const trigger = questions[previous]!;
+    if (
+      trigger.type.startsWith("matrix_") ||
+      [
+        "multiple_text",
+        "address",
+        "allocation",
+        "file",
+        "signature",
+      ].includes(trigger.type)
+    )
+      errors.push("显示条件不支持引用结构化字段或附件");
+    const choices = surveyChoices(trigger);
+    if (
+      choices.length &&
+      !choices.some(
+        (choice) => choice.id === rule.value || choice.label === rule.value,
+      ) &&
+      !(trigger.config?.other && rule.value === SURVEY_OTHER_OPTION_ID)
+    )
+      errors.push("显示条件引用不存在的选项");
+  }
+  if (!unique((q.config?.jumpTo ?? []).map((jump) => jump.optionId)))
+    errors.push("每个选项只能配置一个跳转目标");
+  for (const jump of q.config?.jumpTo ?? []) {
+    const target = questions.findIndex((item) => item.id === jump.targetId);
+    if (
+      !surveyChoices(q).some((choice) => choice.id === jump.optionId) ||
+      target <= index
+    )
+      errors.push("跳转需有效选项及后续目标");
+  }
   return errors;
 }
 export function visibleSurveyQuestions(

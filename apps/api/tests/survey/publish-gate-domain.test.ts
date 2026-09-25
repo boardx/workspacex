@@ -103,6 +103,50 @@ describe("survey publish gate", () => {
     ]);
   });
 
+  it("reports a broken conditional rule against the question that needs repair", () => {
+    const blockers = evaluateSurveyForPublish({
+      questions: [
+        question({ id: "q-1", title: "是否继续", type: "single", options: ["是", "否"] }),
+        {
+          ...question({ id: "q-2", title: "补充原因", type: "open" }),
+          config: {
+            visibleWhen: [
+              { questionId: "missing", operator: "equals", value: "是" },
+            ],
+          },
+        },
+      ],
+      template: {
+        id: "report-1",
+        title: "报告",
+        sections: [
+          {
+            id: "section-1",
+            title: "结果",
+            blocks: [
+              {
+                id: "block-1",
+                title: "回答",
+                type: "table",
+                questionIds: ["q-1", "q-2"],
+                statistic: "responses",
+                samplePolicy: "valid",
+                minGroupSize: 5,
+              },
+            ],
+          },
+        ],
+      },
+    });
+
+    expect(blockers).toContainEqual({
+      code: "LOGIC_INVALID",
+      side: "question",
+      subjectId: "q-2",
+      missingFields: ["显示条件只能引用前面有效的题目"],
+    });
+  });
+
   it("rejects a report section whose blocks do not consume any survey question", () => {
     const blockers = evaluateSurveyForPublish({
       questions: [

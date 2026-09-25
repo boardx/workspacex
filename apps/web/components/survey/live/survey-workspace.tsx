@@ -39,6 +39,7 @@ const BLOCKER_MESSAGES: Record<SurveyPublishBlocker["code"], string> = {
   QUESTION_OPTIONS_EMPTY: "选项题必须包含有效选项",
   MAPPING_INCOMPLETE: "报告章节尚未覆盖对应题目",
   LEADING_QUESTION: "题目措辞可能带有诱导性",
+  LOGIC_INVALID: "条件显示或跳转规则无效",
 };
 function emptyDraft(): SurveyDraftInput {
   return {
@@ -279,6 +280,7 @@ export function LiveSurveyWorkspace({
             <SurveyQuestionEditor
               questions={draft.questions}
               locked={!!runtime?.publication}
+              selectedQuestionId={repairQuestionId}
               onChange={(questions) => setDraft({ ...draft, questions })}
             />
           </>)}
@@ -325,6 +327,11 @@ export function LiveSurveyWorkspace({
                           <li key={`${blocker.code}:${blocker.side}:${blocker.subjectId}`}>
                             <strong>{BLOCKER_MESSAGES[blocker.code]}</strong>
                             <span className="ml-2 text-muted-foreground">{blocker.side} · {blocker.subjectId}</span>
+                            {blocker.missingFields.map((field) => (
+                              <span key={field} className="ml-2 text-muted-foreground">
+                                {field}
+                              </span>
+                            ))}
                             <Button
                               type="button"
                               size="sm"
@@ -333,11 +340,13 @@ export function LiveSurveyWorkspace({
                               aria-label={`定位并修复：${blocker.label}`}
                               onClick={() => {
                                 const templateRepair = blocker.code === "MAPPING_INCOMPLETE" || blocker.side === "section";
+                                const targetQuestionId = blocker.side === "question" &&
+                                  (blocker.code === "MAPPING_INCOMPLETE" || blocker.code === "LOGIC_INVALID")
+                                  ? blocker.subjectId
+                                  : undefined;
                                 selectStep(
                                   templateRepair ? "template" : "design",
-                                  blocker.code === "MAPPING_INCOMPLETE" && blocker.side === "question"
-                                    ? blocker.subjectId
-                                    : undefined,
+                                  targetQuestionId,
                                 );
                               }}
                             >

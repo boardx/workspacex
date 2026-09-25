@@ -20,11 +20,13 @@ export function SurveyQuestionEditor({
   onChange,
   locked = false,
   overviewFirst = false,
+  selectedQuestionId,
 }: {
   questions: SurveyWorkflowQuestion[];
   onChange: (questions: SurveyWorkflowQuestion[]) => void;
   locked?: boolean;
   overviewFirst?: boolean;
+  selectedQuestionId?: string | null;
 }) {
   const [id, setId] = React.useState(questions[0]?.id);
   const [picking, setPicking] = React.useState(false);
@@ -41,6 +43,10 @@ export function SurveyQuestionEditor({
   const [answers, setAnswers] = React.useState<
     Record<string, SurveyAnswerValue>
   >({});
+  React.useEffect(() => {
+    if (selectedQuestionId && questions.some((q) => q.id === selectedQuestionId))
+      setId(selectedQuestionId);
+  }, [questions, selectedQuestionId]);
   const question = questions.find((q) => q.id === id) ?? questions[0];
   const index = questions.findIndex((q) => q.id === question?.id);
   const change = (all: SurveyWorkflowQuestion[]) =>
