@@ -1,7 +1,7 @@
 ---
 bundle: board-fabric-surface
 phase: "19"
-covers: [F01, F02, F03]
+covers: [BV01, BV02, BV03]
 status: pending
 confirmed_by: ""
 confirmed_at: ""
@@ -13,9 +13,9 @@ confirmed_at: ""
 
 | feature | 能力边界 |
 |---|---|
-| F01 | 全屏 Fabric surface lifecycle、viewport、选择与正式路由替换 |
-| F02 | Yjs/whiteboard-core → Fabric/DOM 的按 id 增量 projection registry |
-| F03 | Fabric event → Board command、projection echo suppression 与 accessibility mirror |
+| BV01 | 全屏 Fabric surface lifecycle、viewport、选择与正式路由替换 |
+| BV02 | Yjs/whiteboard-core → Fabric/DOM 的按 id 增量 projection registry |
+| BV03 | Fabric event → Board command、projection echo suppression 与 accessibility mirror |
 
 依据：`requirements/01-fabric-surface.md` R1–R12、
 `requirements/08-performance-accessibility.md` R3/R7/R8，以及 ADR-115。

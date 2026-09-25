@@ -15,7 +15,7 @@ confirmed_at: ""
 
 | 束 | feature | 核心不变量 | 主要交叉边界 |
 |---|---|---|---|
-| `board-fabric-surface` | F01 F02 F03 | Yjs canonical、Fabric 增量 projection、object id 单源、echo suppression、DOM a11y mirror | whiteboard metadata、phase-01 canvas/DiagramModel、未来 storage/collaboration/AI/import |
+| `board-fabric-surface` | BV01 BV02 BV03 | Yjs canonical、Fabric 增量 projection、object id 单源、echo suppression、DOM a11y mirror | whiteboard metadata、phase-01 canvas/DiagramModel、未来 storage/collaboration/AI/import |
 
 ## XC-01 · Board 身份与事实源只有一套
 
@@ -56,7 +56,7 @@ confirmed_at: ""
 
 ## 待人类裁决
 
-1. 是否接受 F01–F03 先冻结 renderer/protocol 边界，再由后续对象、协作、AI、storage 束扩展同一 command。
+1. 是否接受 BV01–BV03 先冻结 renderer/protocol 边界，再由后续对象、协作、AI、storage 束扩展同一 command。
 2. 七态与完整 accessibility 材料是否必须在首次签核前全部补齐；本文件建议“必须”，避免 happy-path 原型被误当实现契约。
 3. S01 是否需要公开 Board operation HTTP API；本文件建议“不需要”，只保留 metadata HTTP + Yjs collaboration protocol，公开 API 放到后续专束签核。
 4. 正式迁移是否允许短期双 renderer 对照；若允许，必须限定为同一 Y.Doc 的投影且正式用户只看到 Fabric。
