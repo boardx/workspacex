@@ -62,3 +62,27 @@ export function newerViewport(current:RoomViewport|null,next:RoomViewport|null) 
   if(!next)return current;
   return !current || next.revision>current.revision ? next : current;
 }
+
+export type LocalViewport = { x:number; y:number; zoom:number };
+
+// A board owner's own pan/zoom is otherwise plain in-memory React state (see
+// CollaborativeEditor), so a page reload - or simply navigating back into the board -
+// silently resets it to the default (zoom 1, offset 0,0). When that owner is presenting
+// to a meeting-room display, the reset gets published as a real viewport change and
+// clobbers whatever zoom/pan level the room was actually showing a moment earlier.
+// Persisting the owner's last known viewport per board lets a remounted editor restore
+// it instead of starting from a default that nobody actually asked for.
+function viewportKey(boardId:string){return `wsx.board.viewport.${boardId}`;}
+
+export function persistBoardViewport(boardId:string,viewport:LocalViewport) {
+  write(viewportKey(boardId),JSON.stringify(viewport));
+}
+
+export function restoreBoardViewport(boardId:string): LocalViewport|null {
+  try {
+    const raw=storage()?.getItem(viewportKey(boardId)); if(!raw)return null;
+    const value=JSON.parse(raw) as Partial<LocalViewport>;
+    if(typeof value.x!=='number'||typeof value.y!=='number'||typeof value.zoom!=='number')return null;
+    return {x:value.x,y:value.y,zoom:value.zoom};
+  } catch { return null; }
+}
