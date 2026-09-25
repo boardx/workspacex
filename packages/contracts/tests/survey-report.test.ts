@@ -10,6 +10,13 @@ describe("deterministic survey reports", () => {
     expect(compile({}, [response("2"), response("4"), response("5", "review"), response("99"), response("Infinity"), response(["3"]) ]).rows).toEqual([{ label: "q", value: 3, count: 2 }]);
     expect(compile({ samplePolicy: "all" }, [response("2"), response("4", "review")]).rows[0]!.value).toBe(3);
   });
+  it("publishes an auditable report sample basis and never re-includes excluded responses", () => {
+    const excluded = { ...response("4"), analysis: "excluded" as const, exclusionReason: "测试答卷" };
+    const report = compileSurveyReport(template({ samplePolicy: "all" }), [question()], [response("2"), response("3", "review"), excluded]);
+    expect(report.sampleSummary).toEqual({ total: 3, pendingReview: 1, excluded: 1, included: 2 });
+    expect(report.sections[0]!.blocks[0]!.sampleSize).toBe(2);
+    expect(report.sections[0]!.blocks[0]!.rows[0]).toMatchObject({ value: 2.5, count: 2 });
+  });
   it("counts each selected option once per person without coercing choices to numbers", () => {
     expect(compile({ statistic: "distribution" }, [response(["A", "A", "B"]), response(["B", "bad"])], [question("q", "multi", ["A", "B", "C"])]).rows).toEqual([{ label: "q · A", value: 1, count: 1 }, { label: "q · B", value: 2, count: 2 }, { label: "q · C", value: 0, count: 0 }]);
     expect(compile({}, [response("1")], [question("q", "single", ["1", "2"])]).issues.length).toBeGreaterThan(0);

@@ -4,8 +4,8 @@ import { render, screen } from '@testing-library/react';
 import type { survey } from '@repo/contracts';
 import { SurveyReportDocument } from '@/components/survey/report/report-document';
 import { printSurveyReport, buildSurveyReportWord } from '@/components/survey/report/report-export';
-const block = (type: survey.CompiledSurveyBlock['type']): survey.CompiledSurveyBlock => ({id:type,title:type,caption:`${type} 图注`,type,questionIds:[],statistic:'mean',samplePolicy:'valid',minGroupSize:5,rows:[{label:'实际数据',value:3,count:7,target:5,gap:-2}],issues:[]});
-const report: survey.CompiledSurveyReport = {id:'report',title:'调研结论',issues:[],sections:[{id:'first',title:'首章',analysis:[{title:'章节发现',evidence:'仅反映该受访者反馈',action:'核对具体经历',blockIds:['bar']}],blocks:[{...block('text'),text:'<script>不能执行</script>'},block('bar'),block('radar'),block('line'),block('gap'),block('page-break')]},{id:'last',title:'末章',blocks:[{...block('table'),rows:[],issues:['样本不足']},{...block('table'),id:'answers',title:'开放回答',statistic:'responses',rows:[],answerTexts:[{label:'实际建议',value:'请改善检索体验\n保留资料来源'}]}]}]};
+const block = (type: survey.CompiledSurveyBlock['type']): survey.CompiledSurveyBlock => ({id:type,title:type,caption:`${type} 图注`,type,questionIds:[],statistic:'mean',samplePolicy:'valid',sampleSize:7,minGroupSize:5,rows:[{label:'实际数据',value:3,count:7,target:5,gap:-2}],issues:[]});
+const report: survey.CompiledSurveyReport = {id:'report',title:'调研结论',issues:[],sampleSummary:{total:9,pendingReview:2,excluded:1,included:8},sections:[{id:'first',title:'首章',analysis:[{title:'章节发现',evidence:'仅反映该受访者反馈',action:'核对具体经历',blockIds:['bar']}],blocks:[{...block('text'),text:'<script>不能执行</script>'},block('bar'),block('radar'),block('line'),block('gap'),block('page-break')]},{id:'last',title:'末章',blocks:[{...block('table'),rows:[],issues:['样本不足']},{...block('table'),id:'answers',title:'开放回答',statistic:'responses',rows:[],answerTexts:[{label:'实际建议',value:'请改善检索体验\n保留资料来源'}]}]}]};
 describe('survey report document',()=>{
  beforeEach(()=>{ vi.stubGlobal('ResizeObserver', class { observe() {} disconnect() {} }); });
  it('renders captions exactly once on every content type and retains them in print',async()=>{
@@ -48,6 +48,11 @@ describe('survey report document',()=>{
   expect(screen.getByText('样本不足')).toBeTruthy();
   expect(screen.getByText('仅反映该受访者反馈')).toBeTruthy();
   expect(container.querySelector('[data-page-break]')).toBeTruthy();
+ });
+ it('makes the report and block sample bases explicit',()=>{
+  render(<SurveyReportDocument report={report}/>);
+  expect(screen.getByTestId('survey-report-sample-summary')).toHaveTextContent('总答卷 9 · 待复核 2 · 已排除 1 · 纳入分析 8');
+  expect(screen.getByTestId('survey-report-block-sample-bar')).toHaveTextContent('仅正常质量答卷 · 实际样本量 7');
  });
  it('exports a genuine Word archive with every chapter',async()=>{
   const blob=await buildSurveyReportWord({...report,sections:report.sections.map(s=>({...s,blocks:s.blocks.filter(b=>!['bar','radar','line'].includes(b.type))}))});
