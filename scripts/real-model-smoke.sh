@@ -35,7 +35,7 @@ cleanup() {
   local code=$?
   echo ""
   echo "[real-model-smoke] 收尾：释放本轮起的资源"
-  for pidfile in /tmp/e2e-api.pid /tmp/e2e-sandbox.pid; do
+  for pidfile in /tmp/e2e-api.pid /tmp/e2e-sandbox.pid /tmp/e2e-deep-agent.pid; do
     if [ -f "$pidfile" ]; then
       kill "$(cat "$pidfile")" 2>/dev/null || true
       rm -f "$pidfile"
@@ -89,5 +89,8 @@ fi
 echo "[real-model-smoke] ④ 收后端日志（脱敏后进证据包）"
 pnpm --filter web exec tsx e2e/support/scrub-file.ts /tmp/e2e-api.log "${EVIDENCE_DIR}/60-api.log" 4000 || true
 pnpm --filter web exec tsx e2e/support/scrub-file.ts /tmp/e2e-sandbox.log "${EVIDENCE_DIR}/61-skill-sandbox.log" 2000 || true
+# 原生 deep-agent 链路的日志。没有它就说不清这一轮到底走的哪条链——
+# 而「走的哪条链」正是本地绿能不能推出生产绿的全部依据。
+pnpm --filter web exec tsx e2e/support/scrub-file.ts /tmp/e2e-deep-agent.log "${EVIDENCE_DIR}/62-deep-agent.log" 3000 || true
 
 exit $SPEC_EXIT

@@ -65,7 +65,7 @@ import type { SandboxInputFile } from "@repo/skill-sandbox/input-files";
  *   用户要把这个 .pptx 留成项目产物，仍然走既有的显式落地操作。
  */
 import { outputFileMime } from "./output-file-mime";
-import type { ObjectStore } from "../artifact/ports";
+import { ObjectExistsError, type ObjectStore } from "../artifact/ports";
 import { ModelCallError, ModelCallInterruptedError, type ModelCallCompletion, type RunOutputFile } from "./ports";
 import {
   MAX_SCRIPT_ATTEMPTS,
@@ -206,6 +206,37 @@ export interface MaybeRunSkillScriptInput {
  *
  * ⚠ 待批工具名只进异常的 `detail`（服务端日志），不进用户文案：那是内核的内部工具名。
  */
+/**
+ * 同一个键上的重复写入：**同内容**是重试的正常形状，**不同内容**才是真撞键。
+ *
+ * 2026-09-25 原生 deep-agent 链路实测：`call_skill` 工具调用被编排层重试
+ * （成因待查——很可能是网络往返超时后的自动重试），沙箱第二次真的又跑出同一份
+ * 文件，`putOnce` 的 never-overwrite 却把这次**成功的重试**判成失败，
+ * 整个 run 以 `UNKNOWN_EXECUTION_ERROR` 死掉——而文件其实已经在第一次就写成功了。
+ * legacy call_skill 路径从没有过这层重试，这个坑只在原生链路上才踩得到。
+ *
+ * 这里按内容摘要判断：一致 ⇒ 当作已经写过，直接放行；不一致 ⇒ 保留原有的硬失败——
+ * 同一个 runId 里两份不同内容抢同一个文件名，仍然是需要说清楚的真实冲突，不能悄悄
+ * 只留下先到的那一份。
+ */
+async function putOnceIdempotent(
+  objects: ObjectStore,
+  key: string,
+  bytes: Uint8Array,
+  mime: string,
+): Promise<void> {
+  try {
+    await objects.putOnce(key, bytes, mime);
+  } catch (error) {
+    if (!(error instanceof ObjectExistsError)) throw error;
+    const existing = await objects.get(key);
+    if (existing !== null && existing.length === bytes.length && Buffer.compare(Buffer.from(existing), Buffer.from(bytes)) === 0) {
+      return;
+    }
+    throw error;
+  }
+}
+
 export function retryScriptSource(
   retry: Pick<ModelCallCompletion, "text" | "scriptCandidates" | "interrupted">,
 ): string {
@@ -289,7 +320,7 @@ export async function maybeRunSkillScript(
         : `agent-run-outputs/${input.runId}/${file.name}`;
       const mime = outputFileMime(file.name);
       await assertCurrentRunLease();
-      await objects.putOnce(key, bytes, mime);
+      await putOnceIdempotent(objects, key, bytes, mime);
       files.push({ name: file.name, mime, sizeBytes: bytes.length, objectKey: key });
     }
 

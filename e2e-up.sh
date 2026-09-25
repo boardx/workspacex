@@ -16,6 +16,11 @@ set -euo pipefail
 cd "$(dirname "$0")"
 REPO_ROOT="$(pwd)"
 
+# 哪条链路：原生 deep-agent-service，还是 legacy call_skill/run_script。
+# 提到最前面声明——下面「起沙箱之后、种子之前」要按它钉 fixture agent 的 provider，
+# 早于「起 deep-agent 进程」那个判定块本身。
+DEEP_AGENT_CHAIN="${E2E_DEEP_AGENT_CHAIN:-native}"
+
 # shellcheck source=scripts/real-model-env.sh
 source "${REPO_ROOT}/scripts/real-model-env.sh"
 real_model_load_env_file "$REPO_ROOT"
@@ -59,7 +64,16 @@ fi
 echo "技能沙箱就绪：127.0.0.1:${SB}"
 pnpm --filter web exec tsx e2e/dump-fixture-env.ts > /tmp/e2e-fixture.sh
 source /tmp/e2e-fixture.sh
-export FULLSTACK_E2E_AGENT_MODEL_PROVIDER=dashscope
+# 原生链路时把 fixture agent 钉在 "deep-agent" provider（`DEEP_AGENT_PROVIDER_NAME`）
+# 上，否则即便 deep-agent-service 起来了、RoutingModelCallPort 也不会把 run 路由过去
+# ——2026-09-25 头一轮忘了这一步，服务起了、健康检查过了、但全程零请求（origin log
+# 里 request 计数为 0），十任务照旧走 legacy call_skill。判据从来不是"服务在跑"，
+# 是"run 快照里 pin 的 modelProvider 是不是这一个"。
+FULLSTACK_E2E_AGENT_MODEL_PROVIDER="dashscope"
+if [ "$DEEP_AGENT_CHAIN" = "native" ]; then
+  FULLSTACK_E2E_AGENT_MODEL_PROVIDER="deep-agent"
+fi
+export FULLSTACK_E2E_AGENT_MODEL_PROVIDER
 export FULLSTACK_E2E_AGENT_MODEL_ID="$DASHSCOPE_MODEL"
 echo "ADMIN=$FULLSTACK_E2E_ADMIN_EMAIL"
 echo "ORG=$FULLSTACK_E2E_ORG_ID"
@@ -74,10 +88,64 @@ if ! pnpm --filter @repo/api exec tsx scripts/seed-fullstack-smoke.ts > /tmp/e2e
   tail -30 /tmp/e2e-seed.log
   exit 1
 fi
-# KERNEL_DEEP_AGENT_BASE_URL 是**可选透传**：本机跑着 deep-agent-service 容器时
-# （devapp 上是 127.0.0.1:2025）这条链路才跟线上一致；没起它时不伪造一个地址——
-# `DeepAgentModelProvider` 会以 MODEL_PROVIDER_NOT_CONFIGURED 诚实失败，而不是
-# 悄悄换一条别的路径然后把结果说成"线上同款"。证据包会记下这次到底走的是哪条。
+# ── deep-agent-service（原生链路）──────────────────────────────────────────────
+#
+# 2026-09-25 之前这里什么都不起，于是本条 lane 跑的是 legacy `call_skill`/`run_script`
+# 路径，**不是** devapp 的原生 deep-agent 链——「本地 10/10」证明不了生产 10/10。
+# 现在默认起真的那一个：它只是一个 uvicorn 应用（同 Dockerfile 的 CMD），
+# 唯一的硬依赖是 checkpoint 库，而隔离外壳已经给了我们一套独享 postgres。
+#
+# ⚠ 刻意**不静默降级**。venv 不在就红退并给出安装命令：
+#   「这台机器恰好没装 Python 依赖」和「这条链路根本没被测到」在日志里长得一模一样，
+#   而后者正是我们花了三天才发现的那类问题。要跑 legacy 请显式
+#   `E2E_DEEP_AGENT_CHAIN=legacy`，这样证据里写着的就是你真的选了它。
+# API 与 deep-agent 之间的内部密钥：两边必须同一个值，所以在这里生成一次。
+DEEP_AGENT_INTERNAL_KEY="${DEEP_AGENT_SERVICE_INTERNAL_KEY:-e2e-internal-key-not-a-secret}"DEEP_AGENT_BASE_URL=""
+if [ "$DEEP_AGENT_CHAIN" = "native" ]; then
+  DA_UVICORN="${REPO_ROOT}/apps/deep-agent-service/.venv/bin/uvicorn"
+  if [ ! -x "$DA_UVICORN" ]; then
+    echo "✗ 要跑原生 deep-agent 链，但 apps/deep-agent-service/.venv 不存在。" >&2
+    echo "  装一下：(cd apps/deep-agent-service && uv sync)" >&2
+    echo "  或显式降级：E2E_DEEP_AGENT_CHAIN=legacy（证据里会记下这次走的是 legacy）" >&2
+    exit 1
+  fi
+  DA_PORT="$WORKSPACEX_DEEP_AGENT_PROVIDER_PORT"
+  DA_DSN="postgresql://postgres:postgres_dev@${PGHOST}:${PGPORT}/${PGDATABASE}"
+  ( cd "${REPO_ROOT}/apps/deep-agent-service" && \
+    PYTHONPATH="${REPO_ROOT}/apps/deep-agent-service/src" \
+    DEEP_AGENT_CHECKPOINT_DB="$DA_DSN" \
+    DATABASE_URI="$DA_DSN" \
+    DEEP_AGENT_OTEL_DISABLED=1 \
+    DEEP_AGENT_SERVICE_INTERNAL_KEY="$DEEP_AGENT_INTERNAL_KEY" \
+    NATIVE_SESSION_SERVICE_BASE_URL="http://127.0.0.1:${WORKSPACEX_API_PORT}" \
+    NATIVE_SESSION_SERVICE_KEY="$DEEP_AGENT_INTERNAL_KEY" \
+    KERNEL_MODEL_BASE_URL="$DASHSCOPE_BASE_URL" \
+    KERNEL_MODEL_API_KEY="$DASHSCOPE_API_KEY" \
+    KERNEL_DEEP_AGENT_MODEL_ID="$DASHSCOPE_MODEL" \
+    "$DA_UVICORN" deep_agent_service.http_app:app \
+      --host 127.0.0.1 --port "$DA_PORT" --workers 1 ) > /tmp/e2e-deep-agent.log 2>&1 &
+  echo $! > /tmp/e2e-deep-agent.pid
+  # 判据是 /healthz 真的应答——不是「进程还活着」。启动期它会建表、连库、装图，
+  # 失败时 uvicorn 会打完 traceback 才退，所以顺带把末尾贴出来。
+  DA_READY=0
+  for _ in $(seq 1 60); do
+    if curl -sf -m 3 "http://127.0.0.1:${DA_PORT}/healthz" >/dev/null 2>&1; then DA_READY=1; break; fi
+    if ! kill -0 "$(cat /tmp/e2e-deep-agent.pid)" 2>/dev/null; then break; fi
+    sleep 2
+  done
+  if [ "$DA_READY" != "1" ]; then
+    echo "✗ deep-agent-service 没能在 127.0.0.1:${DA_PORT} 起来——日志末尾：" >&2
+    tail -30 /tmp/e2e-deep-agent.log >&2 || true
+    exit 1
+  fi
+  DEEP_AGENT_BASE_URL="http://127.0.0.1:${DA_PORT}"
+  echo "deep-agent 就绪（原生链路）：${DEEP_AGENT_BASE_URL}"
+else
+  echo "⚠ deep-agent 链路：legacy（显式选择）。本轮走 call_skill/run_script，不是线上同款。"
+fi
+
+KERNEL_DEEP_AGENT_BASE_URL="$DEEP_AGENT_BASE_URL" \
+DEEP_AGENT_SERVICE_INTERNAL_KEY="$DEEP_AGENT_INTERNAL_KEY" \
 KERNEL_MODEL_PROVIDER=dashscope \
 KERNEL_MODEL_BASE_URL="$DASHSCOPE_BASE_URL" \
 KERNEL_MODEL_API_KEY="$DASHSCOPE_API_KEY" \
