@@ -118,3 +118,10 @@ phases:
     status: not_started
     depends_on: []
     has_ui: true
+  - id: "19"
+    slug: board-visual-workspace
+    name: board-visual-workspace
+    goal: "使用 Fabric.js 主渲染器和 Yjs/whiteboard-core 单一事实源，交付面向人和 AI 的协作视觉工作空间，并达到 Mural 对标 9/10 的可验证体验。"
+    status: not_started
+    depends_on: []
+    has_ui: true
