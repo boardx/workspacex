@@ -14,6 +14,7 @@ const view: DigitalInterviewWorkflowView = {
   currentStep: "experts", revisionId: "r1", topicVersionId: "t1", expertSnapshotVersionId: null, questionVersionId: null,
   expertCandidates: [expert, { ...expert, expertId: "static-1", role: "教育数据治理专家", bio: "擅长学生数据隐私与算法公平性审查。" }],
   questions: [], questionCandidates: [], skillThreadId: "s1", skillMessages: [], skillProposals: [], expertRuns: [],
+  studyEvidenceMode: "simulated", reportReview: { eligibility: "blocked_missing_participant_evidence", message: "需要真实受访者证据后才能批准。", action: "添加并复核真实受访者回答" },
 };
 describe("访谈专家角色卡片", () => {
   it("distinguishes controls when two experts share the same role", () => {
