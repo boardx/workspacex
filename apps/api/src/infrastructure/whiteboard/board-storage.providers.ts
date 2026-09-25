@@ -3,7 +3,7 @@ import { isAbsolute, join, resolve, sep } from 'node:path';
 import type { Provider } from '@nestjs/common';
 import { BOARD_BLOB_CODEC, BOARD_BLOB_PURGE_STORE, BOARD_BLOB_STORE, type BoardBlobCodec, type BoardBlobDescriptor, type BoardBlobIdentity, type BoardBlobPurgeStore, type BoardBlobStore } from '../../application/whiteboard/blob-ports';
 import { objectStoreRoot } from '../storage/object-store-root';
-import type { VersionedBoardMasterKeySource } from './aes-gcm-board-blob-codec';
+import { AesGcmBoardBlobCodec, EnvBoardTenantKeyResolver, type VersionedBoardMasterKeySource } from './aes-gcm-board-blob-codec';
 import { assertFilesystemBoardBlobRuntime } from './board-blob-runtime';
 import { createBoardStorageSelection, type BoardStorageSelection, type HostedBoardClientFactory } from './board-storage-selection';
 import { FsBoardBlobStore } from './fs-board-blob-store';
