@@ -11,6 +11,8 @@ from __future__ import annotations
 
 from typing import Any
 
+import pytest
+
 from deep_agent_service.tools import build_tools
 
 
@@ -522,3 +524,36 @@ def test_confirm_task_intent_approve_is_discriminated_by_request_id_not_understa
 
     assert approved.startswith("用户已确认对任务的理解：")
     assert edited.startswith("用户修改了对任务的理解为：")
+
+
+def test_call_skill_accepts_known_wrong_keys_from_the_model() -> None:
+    """2026-09-25 真实模型十任务 Office 矩阵实测：DashScope 模型对 call_skill 发来的
+    实际 kwargs 是 `{'skill': ..., 'args': ...}`，不是工具签名要求的
+    `skill_stable_name`/`task`。LangChain 默认按签名生成严格 schema，键名不对就在
+    进入函数体前被 pydantic 拒掉——模型看不懂那条报错，原样重试，同一个任务反复撞
+    同一堵墙直到整轮跑满时间预算（真实观测：五个任务里五个超时）。
+
+    这里只认已经实测撞见过的这组别名，不是放宽成"任意形状都收"。
+    """
+    model = FakeChatModel("画好了")
+    _, call_skill, *_ = build_tools(model)
+
+    result = call_skill.invoke(
+        _tool_call({"skill": "diagram-maker", "args": "画一个流程图"}), config=SKILL_CONFIG,
+    )
+
+    assert result.content == "画好了"
+    assert model.received_messages != []
+
+
+def test_call_skill_still_rejects_a_genuinely_unrecognised_shape() -> None:
+    """反证：别名映射不是"什么都收"。一个既不是已知正确键名、也不是已知别名的形状，
+    仍然要在进入函数体之前就被拒掉——这条钉住"容错"没有滑向"照单全收"。"""
+    model = FakeChatModel("should not be used")
+    _, call_skill, *_ = build_tools(model)
+
+    with pytest.raises(Exception):
+        call_skill.invoke(
+            _tool_call({"which_skill": "diagram-maker", "what_to_do": "画一个流程图"}), config=SKILL_CONFIG,
+        )
+    assert model.received_messages == []
