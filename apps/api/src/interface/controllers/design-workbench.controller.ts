@@ -53,12 +53,32 @@ import { updateProject } from "../../application/design-workbench/update-project
 import { appendProjectChat } from "../../application/design-workbench/append-project-chat";
 import { PrototypePatchRejectedError, patchPrototype } from "../../application/design-workbench/patch-prototype";
 import {
+  DESIGN_COMMENT_REPOSITORY,
+  DesignCommentLimitError,
+  DesignCommentNotFoundError,
+  NotCommentAuthorError,
+  createDesignComment,
+  createDesignCommentReply,
+  deleteDesignComment,
+  listDesignComments,
+  updateDesignComment,
+  type DesignCommentRepositoryFactory,
+} from "../../application/design-workbench/design-comments";
+import { DesignVariantsUnavailableError, ModelDesignVariantProposer, proposeVariants } from "../../application/design-workbench/design-variants";
+import {
   PrototypeVersionNotFoundError,
   getPrototypeVersion,
   listPrototypeVersions,
   restorePrototypeVersion,
 } from "../../application/design-workbench/prototype-versions";
 import { deleteProject } from "../../application/design-workbench/delete-project";
+import {
+  NothingToPublishError,
+  ShareNotFoundError,
+  getSharedDesign,
+  publishProject,
+  unpublishProject,
+} from "../../application/design-workbench/share-project";
 import { pushToInbox } from "../../application/design-workbench/push-to-inbox";
 import {
   createDesignGithubIssue,
@@ -115,6 +135,7 @@ import { toOrgId } from "../../domain/org-id";
 import type { Principal } from "../../domain/principal";
 import { assertPrincipal } from "../../domain/principal";
 import { CurrentPrincipal } from "../current-principal.decorator";
+import { Public } from "../public.decorator";
 import { ZodBodyPipe } from "../pipes/zod-body.pipe";
 
 export const CREATE_PROJECT_SCHEMA = C.operations.createProject.in;
@@ -126,7 +147,17 @@ export const IMPORT_THREAD_SCHEMA = C.operations.importThread.in.omit({ projectI
 type ImportThreadBody = ReturnType<typeof IMPORT_THREAD_SCHEMA.parse>;
 export const PATCH_PROTOTYPE_SCHEMA = C.operations.patchPrototype.in.omit({ projectId: true });
 type PatchPrototypeBody = ReturnType<typeof PATCH_PROTOTYPE_SCHEMA.parse>;
+export const PROPOSE_VARIANTS_SCHEMA = C.operations.proposeVariants.in.omit({ projectId: true });
+type ProposeVariantsBody = ReturnType<typeof PROPOSE_VARIANTS_SCHEMA.parse>;
+export const CREATE_DESIGN_COMMENT_SCHEMA = C.operations.createDesignComment.in.omit({ projectId: true });
+type CreateDesignCommentBody = ReturnType<typeof CREATE_DESIGN_COMMENT_SCHEMA.parse>;
+export const UPDATE_DESIGN_COMMENT_SCHEMA = C.operations.updateDesignComment.in.omit({ projectId: true, commentId: true });
+type UpdateDesignCommentBody = ReturnType<typeof UPDATE_DESIGN_COMMENT_SCHEMA.parse>;
+export const CREATE_DESIGN_COMMENT_REPLY_SCHEMA = C.operations.createDesignCommentReply.in.omit({ projectId: true, commentId: true });
+type CreateDesignCommentReplyBody = ReturnType<typeof CREATE_DESIGN_COMMENT_REPLY_SCHEMA.parse>;
 export const PUSH_TO_INBOX_SCHEMA = C.operations.pushToInbox.in.omit({ projectId: true });
+export const PUBLISH_PROJECT_SCHEMA = C.operations.publishProject.in.omit({ projectId: true });
+type PublishProjectBody = ReturnType<typeof PUBLISH_PROJECT_SCHEMA.parse>;
 export const CREATE_DESIGN_GITHUB_ISSUE_SCHEMA = C.operations.createDesignGithubIssue.in.omit({ projectId: true });
 type CreateDesignGithubIssueBody = ReturnType<typeof CREATE_DESIGN_GITHUB_ISSUE_SCHEMA.parse>;
 
@@ -158,6 +189,14 @@ function mapProjectError(e: unknown): Error | null {
   if (e instanceof DesignThreadSummaryUnavailableError) {
     return new ServiceUnavailableException({ reasonCode: "DEPENDENCY_UNAVAILABLE" });
   }
+  // 深度 S2：批注的三个码（契约 DesignWorkbenchError 闭集里登记过，过滤器放行）。
+  if (e instanceof DesignCommentNotFoundError) return new NotFoundException({ reasonCode: "COMMENT_NOT_FOUND" });
+  if (e instanceof NotCommentAuthorError) return new ForbiddenException({ reasonCode: "NOT_COMMENT_AUTHOR" });
+  if (e instanceof DesignCommentLimitError) return new ConflictException({ reasonCode: "COMMENT_LIMIT_REACHED" });
+  // 对标 R9：模型没给出够数的合法方案 ⇒ 同一个 503，不新增错误码。
+  if (e instanceof DesignVariantsUnavailableError) {
+    return new ServiceUnavailableException({ reasonCode: "DEPENDENCY_UNAVAILABLE" });
+  }
   // 2026-09-05「转开发」——四个错误码的 HTTP 语义：
   //   · 未推送 = 请求本身在当前状态下不合法（前置条件不满足）⇒ 409，不是 422：
   //     输入形状没问题，是这个方案还不到能转开发的时候。
@@ -167,6 +206,14 @@ function mapProjectError(e: unknown): Error | null {
   if (e instanceof DesignProjectNotPushedError) return new ConflictException({ reasonCode: "PROJECT_NOT_PUSHED" });
   if (e instanceof DesignIssueAlreadyExistsError) return new ConflictException({ reasonCode: "DESIGN_ISSUE_ALREADY_EXISTS" });
   if (e instanceof DesignIssueInProgressError) return new ConflictException({ reasonCode: "DESIGN_ISSUE_IN_PROGRESS" });
+  /*
+   * 迭代 22：
+   *   · 一页都没画出来就发布 = 请求在当前状态下不合法（前置条件不满足）⇒ 409，
+   *     同 `PROJECT_NOT_PUSHED` 的理由：输入形状没问题，是这一刻做这件事没有意义。
+   *   · 分享链接打不开 ⇒ **裸 404 带一个码**，且不区分"令牌不对 / 已取消发布 / 项目没了"。
+   */
+  if (e instanceof NothingToPublishError) return new ConflictException({ reasonCode: "NOTHING_TO_PUBLISH" });
+  if (e instanceof ShareNotFoundError) return new NotFoundException({ reasonCode: "SHARE_NOT_FOUND" });
   if (e instanceof DesignIssueCreationFailedError) {
     return new ServiceUnavailableException({ reasonCode: "DESIGN_ISSUE_CREATION_FAILED" });
   }
@@ -194,7 +241,13 @@ export class DesignWorkbenchController {
     @Inject(CHAT_REPOSITORY) private readonly chat: ChatRepository,
     @Inject(IDENTITY_REPOSITORY) private readonly identity: IdentityRepository,
     @Inject(DECISION_ID_FACTORY) private readonly decisionIds: DecisionIdFactory,
+    // 深度 S2：批注仓储（与项目仓储同一个类，窄端口）。
+    @Inject(DESIGN_COMMENT_REPOSITORY) private readonly commentRepo: DesignCommentRepositoryFactory,
   ) {}
+
+  private commentDeps(principal: Principal) {
+    return { ...this.deps(principal), comments: this.commentRepo.forOrg(principal.orgId), newId: () => randomUUID() };
+  }
 
   private designChat(): ModelDesignChatReplier {
     return new ModelDesignChatReplier({
@@ -253,9 +306,9 @@ export class DesignWorkbenchController {
           problem: body.problem,
           linkedFeedbackId: body.linkedFeedbackId,
           intake: body.intake,
-          successQuestions: (body.intake ?? []).map((a) => a.question),
           tags: body.tags,
           theme: body.theme,
+          accent: body.accent,
         },
       );
     } catch (e) {
@@ -297,6 +350,8 @@ export class DesignWorkbenchController {
         template: body.template,
         problem: body.problem,
         theme: body.theme,
+        accent: body.accent,
+        tokens: body.tokens,
         tags: body.tags,
       });
     } catch (e) {
@@ -327,6 +382,8 @@ export class DesignWorkbenchController {
         {
           projectId, ownerId: principal.userId, text: body.text,
           ...(body.focusNodeId !== undefined ? { focusNodeId: body.focusNodeId } : {}),
+          // 迭代 20：这一轮的页数上限（服务端截断执行，不是提示）。
+          ...(body.maxScreens !== undefined ? { maxScreens: body.maxScreens } : {}),
           ...(refImages.length > 0 ? { refImages } : {}),
         },
       );
@@ -364,6 +421,9 @@ export class DesignWorkbenchController {
           ownerId: principal.userId,
           threadId: body.threadId,
           ...(body.problem !== undefined ? { problem: body.problem } : {}),
+          // 迭代 16（#3773 R3）：确认阶段一并写入用户改过的验收标准。给了才传——
+          // 省略的语义是「不动」，不是「清空」。
+          ...(body.criteria !== undefined ? { criteria: body.criteria } : {}),
         },
       );
     } catch (e) {
@@ -382,6 +442,104 @@ export class DesignWorkbenchController {
     assertPrincipal(principal);
     try {
       return await patchPrototype(this.deps(principal), { projectId, ownerId: principal.userId, ops: body.ops, ...(body.summary !== undefined ? { summary: body.summary } : {}) });
+    } catch (e) {
+      throw mapProjectError(e) ?? e;
+    }
+  }
+
+  /* ── 对标 R9：同一页的几个方案（不写库，挑中后前端走 patch） ── */
+
+  @Post("/pm-designs/:projectId/variants")
+  async proposeVariants(
+    @CurrentPrincipal() principal: Principal,
+    @Param("projectId") projectId: string,
+    @Body(new ZodBodyPipe(PROPOSE_VARIANTS_SCHEMA)) body: ProposeVariantsBody,
+  ) {
+    assertPrincipal(principal);
+    try {
+      const ai = new ModelDesignVariantProposer({
+        model: this.modelCall,
+        chatModel: this.chatModel,
+        log: (message, detail) => this.logger.info(message, { ...detail, traceId: "design-workbench-variants" }),
+      });
+      return await proposeVariants(
+        { ...this.deps(principal), ai },
+        {
+          projectId, ownerId: principal.userId, screen: body.screen,
+          ...(body.count !== undefined ? { count: body.count } : {}),
+          ...(body.instruction !== undefined ? { instruction: body.instruction } : {}),
+        },
+      );
+    } catch (e) {
+      throw mapProjectError(e) ?? e;
+    }
+  }
+
+  /* ── 深度 S2：批注（全组织可读可写，删除限作者或 owner） ── */
+
+  @Get("/pm-designs/:projectId/comments")
+  async listComments(@CurrentPrincipal() principal: Principal, @Param("projectId") projectId: string) {
+    assertPrincipal(principal);
+    try {
+      return await listDesignComments(this.commentDeps(principal), { projectId });
+    } catch (e) {
+      throw mapProjectError(e) ?? e;
+    }
+  }
+
+  @Post("/pm-designs/:projectId/comments")
+  async createComment(
+    @CurrentPrincipal() principal: Principal,
+    @Param("projectId") projectId: string,
+    @Body(new ZodBodyPipe(CREATE_DESIGN_COMMENT_SCHEMA)) body: CreateDesignCommentBody,
+  ) {
+    assertPrincipal(principal);
+    try {
+      return await createDesignComment(this.commentDeps(principal), { projectId, authorId: principal.userId, ...body });
+    } catch (e) {
+      throw mapProjectError(e) ?? e;
+    }
+  }
+
+  @Patch("/pm-designs/:projectId/comments/:commentId")
+  async updateComment(
+    @CurrentPrincipal() principal: Principal,
+    @Param("projectId") projectId: string,
+    @Param("commentId") commentId: string,
+    @Body(new ZodBodyPipe(UPDATE_DESIGN_COMMENT_SCHEMA)) body: UpdateDesignCommentBody,
+  ) {
+    assertPrincipal(principal);
+    try {
+      return await updateDesignComment(this.commentDeps(principal), { projectId, commentId, resolved: body.resolved });
+    } catch (e) {
+      throw mapProjectError(e) ?? e;
+    }
+  }
+
+  @Post("/pm-designs/:projectId/comments/:commentId/replies")
+  async replyToComment(
+    @CurrentPrincipal() principal: Principal,
+    @Param("projectId") projectId: string,
+    @Param("commentId") commentId: string,
+    @Body(new ZodBodyPipe(CREATE_DESIGN_COMMENT_REPLY_SCHEMA)) body: CreateDesignCommentReplyBody,
+  ) {
+    assertPrincipal(principal);
+    try {
+      return await createDesignCommentReply(this.commentDeps(principal), { projectId, commentId, authorId: principal.userId, text: body.text });
+    } catch (e) {
+      throw mapProjectError(e) ?? e;
+    }
+  }
+
+  @Delete("/pm-designs/:projectId/comments/:commentId")
+  async deleteComment(
+    @CurrentPrincipal() principal: Principal,
+    @Param("projectId") projectId: string,
+    @Param("commentId") commentId: string,
+  ) {
+    assertPrincipal(principal);
+    try {
+      return await deleteDesignComment(this.commentDeps(principal), { projectId, commentId, viewerId: principal.userId });
     } catch (e) {
       throw mapProjectError(e) ?? e;
     }
@@ -487,7 +645,7 @@ export class DesignWorkbenchController {
         declaredContentType: contentType,
         bytes: new Uint8Array(file.buffer),
       });
-      return { image, project: await loadProjectView(this.deps(principal), projectId) };
+      return { image, project: await loadProjectView(this.deps(principal), projectId, principal.userId) };
     } catch (e) {
       if (e instanceof RefImageRejectedError) {
         throw new BadRequestException({ reasonCode: "REF_IMAGE_REJECTED", rejectReason: e.reason });
@@ -524,6 +682,68 @@ export class DesignWorkbenchController {
       return await createDesignGithubIssue(
         { ...this.deps(principal), logger: this.logger, githubIssues: this.githubIssues },
         { projectId, ownerId: principal.userId, draft: body.draft },
+      );
+    } catch (e) {
+      throw mapProjectError(e) ?? e;
+    }
+  }
+  /* ─────────── 迭代 22：发布与分享 ─────────── */
+
+  /**
+   * 发布 / 重新发布。同一条链接（令牌首次生成后沿用），快照更新到这一刻。
+   * ⚠ 路由声明在 `DELETE /pm-designs/:projectId` 之后无所谓——方法不同、路径更长，不会被吃掉。
+   */
+  @Post("/pm-designs/:projectId/share")
+  async publishShare(
+    @CurrentPrincipal() principal: Principal,
+    @Param("projectId") projectId: string,
+    @Body(new ZodBodyPipe(PUBLISH_PROJECT_SCHEMA)) body: PublishProjectBody,
+  ) {
+    assertPrincipal(principal);
+    try {
+      return await publishProject(this.deps(principal), {
+        projectId,
+        ownerId: principal.userId,
+        ...(body.scope === undefined ? {} : { scope: body.scope }),
+      });
+    } catch (e) {
+      throw mapProjectError(e) ?? e;
+    }
+  }
+
+  /** 取消发布——链接立刻失效。幂等：没发布过也是 200。 */
+  @Delete("/pm-designs/:projectId/share")
+  async unpublishShare(@CurrentPrincipal() principal: Principal, @Param("projectId") projectId: string) {
+    assertPrincipal(principal);
+    try {
+      return await unpublishProject(this.deps(principal), { projectId, ownerId: principal.userId });
+    } catch (e) {
+      throw mapProjectError(e) ?? e;
+    }
+  }
+}
+
+/**
+ * 迭代 22 —— 免登录的分享页读接口。**独立 controller**，同 `PublicSurveyController` 的形状：
+ * 把"不带 principal 的那条路径"放在它自己的类里，而不是给一个到处 `assertPrincipal` 的
+ * controller 开一个 `@Public()` 的口子——后者意味着以后读这个文件的人要逐个方法确认
+ * "这条到底要不要登录"。
+ */
+@Controller()
+export class PublicDesignShareController {
+  constructor(
+    @Inject(DESIGN_PROJECT_REPOSITORY) private readonly projects: DesignProjectRepositoryFactory,
+    @Inject(FEEDBACK_SUBMITTER_DIRECTORY) private readonly submitterDirectory: FeedbackSubmitterDirectory,
+    @Inject(LOGGER_PORT) private readonly logger: LoggerPort,
+  ) {}
+
+  @Public()
+  @Get("/public/design-shares/:token")
+  async get(@Param("token") token: string) {
+    try {
+      return await getSharedDesign(
+        { projects: this.projects, submitters: this.submitterDirectory, logger: this.logger },
+        token,
       );
     } catch (e) {
       throw mapProjectError(e) ?? e;

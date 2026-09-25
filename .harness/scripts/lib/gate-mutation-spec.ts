@@ -233,12 +233,28 @@ export function trackNewFile(rel: string, content: string): Mutation["apply"] {
 const UI_SHOT = "phases/phase-01-run-a-project/ui-preview/chat-v2/uc-8-3-landing-default.png";
 const NAV = "apps/web/lib/navigation.ts";
 const REWRITE_ALLOWLIST = ".harness/state/rewrite-coverage-allowlist.json";
+const REWRITE_SHADOW_ALLOWLIST = ".harness/state/rewrite-shadow-allowlist.json";
+const NEXT_CONFIG = "apps/web/next.config.mjs";
+const CONTRACT_ROUTE_ALLOWLIST = ".harness/state/contract-route-coverage-allowlist.json";
 const CONTRACT_TS = "packages/contracts/src/skills.ts";
+// #473 的门守的是「注释说契约里没有 X」，它的变异要打在一个真实存在的 operation 上，
+// 所以锚的是 chat 束的契约文件（`createMessage` 在里面）。
+const CONTRACT_CHAT_TS = "packages/contracts/src/chat.ts";
 const FL_01 = "phases/phase-01-run-a-project/feature_list.json";
 // `harness archive-passing` 会把已 passing 的 feature（含它的 verification 字符串）
 // 从 FL_01 搬进这个归档文件——探针要打的 device-session-30d 那条随时可能已经搬家，
 // 见下面 replaceOnceAcross。
 const FL_01_ARCHIVE = "phases/phase-01-run-a-project/feature_list.archive.json";
+// contract-state-names 门守的两处下游：TW-P0-3 的 spec 与它的判据文档。
+const STATE_NAME_SPEC = "apps/web/e2e/chat-task-workbench-workflow-states.spec.ts";
+const STATE_NAME_DOC = ".harness/instructions/chat-task-workbench-acceptance.md";
+
+const KERNEL_MODULE = "apps/api/src/kernel.module.ts";
+const UI_WIRING_MANIFEST = ".harness/scripts/ui-wiring-manifest.json";
+// e2e-testid-gate 打的是「源码里删掉一个 testid，而锚着它的 spec 没跟进」——
+// 这个声明点是全仓唯一一处（`copilotkit-v2-thread-persistence.spec.ts` 等多条
+// spec 锚着它），改掉它必须当场红。
+const V2_MESSAGES_DECL = "apps/web/components/chat/copilotkit-v2-panel-body.tsx";
 
 const cli = (...rest: string[]) => ["tsx", ".harness/scripts/cli.ts", ...rest] as const;
 const node = (script: string) => ["node", script] as const;
@@ -292,6 +308,77 @@ export const GATE_SPECS: readonly GateSpec[] = [
     ],
   },
   {
+    // #610：同一个脚本的**反方向**。正方向的变异动的是「API 路由够不够得到」，
+    // 这两条动的是「rewrite 会不会把前端页面代理走」——两个方向各自会不会空转，
+    // 要各自被变异证一次，不能靠上面那条替它背书。
+    gate: "rewrite-shadow",
+    run: tsx(".harness/scripts/lint-rewrite-coverage.mjs"),
+    guards: (_r, io) => io.exists(REWRITE_SHADOW_ALLOWLIST) && io.exists(NEXT_CONFIG),
+    mutations: [
+      {
+        name: "把 /admin 的逐条 rewrite 放宽回通配（#610 原始现场）",
+        // 这正是 #595 段 3 写出来过、在旧门下全绿的那一条：它把整片
+        // app/admin/[module] 前端页面代理去 API。
+        apply: replaceOnce(
+          NEXT_CONFIG,
+          "{ source: `${prefix}/admin/skills/:path*`, destination: `${apiOrigin}/admin/skills/:path*` },",
+          "{ source: `${prefix}/admin/:path*`, destination: `${apiOrigin}/admin/:path*` },",
+        ),
+      },
+      {
+        name: "删掉反向棘轮里一条今天仍然成立的遮蔽登记",
+        // 名单只能变短**且必须诚实**：删掉一条还遮着的登记，那条遮蔽就变成新增，必须红。
+        apply: replaceOnce(REWRITE_SHADOW_ALLOWLIST, '"route": "/surveys/[token]"', '"route": "/surveys/[token-probe-bogus]"'),
+      },
+    ],
+  },
+  {
+    gate: "contract-route-ratchet",
+    run: tsx(".harness/scripts/lint-contract-route-coverage.mjs"),
+    guards: (_r, io) => io.exists(CONTRACT_ROUTE_ALLOWLIST),
+    mutations: [
+      {
+        name: "往棘轮 allowlist 里加一条不该有的豁免",
+        // 棘轮「只能变短」：`agent-runtime` 束今天在判定范围内，给它加一条并不存在的
+        // operation，必须当场判成陈旧而红。选它而不是随便一个束名是有讲究的——
+        // 束不在判定范围时该条目会被判成**休眠**（保留、不红），那时这条变异就会
+        // 静默失效，而探针会把它读成「门漏过」。见 lib/contract-route-ratchet.ts 头注。
+        apply: replaceOnce(
+          CONTRACT_ROUTE_ALLOWLIST,
+          '"agent-runtime:applyRedispatch",',
+          '"agent-runtime:applyRedispatch",\n    "agent-runtime:probeBogusOperation",',
+        ),
+      },
+      {
+        name: "从棘轮 allowlist 里删掉一条仍然缺着的豁免",
+        // 反方向：名单少一条 ⇒ 那条缺口变成「新增」⇒ 必须红。
+        // 两条变异合起来才说明这道门在判**差集**，而不是只会数名单长度。
+        apply: replaceOnce(CONTRACT_ROUTE_ALLOWLIST, '    "agent-runtime:applyRedispatch",\n', ""),
+      },
+    ],
+  },
+  {
+    gate: "ui-wiring",
+    // #397 的跨层接线门。两条变异分别打它守的两件事：
+    //   ① "controller 真的挂进了路由表" —— 摘掉一个注册项，屏就再也够不到后端；
+    //   ② "mock 棘轮只减不增" —— 新增一条 mock 驱动的产品路由。
+    run: tsx(".harness/scripts/lint-ui-wiring.mjs"),
+    guards: (_r, io) => io.exists(UI_WIRING_MANIFEST),
+    mutations: [
+      {
+        name: "把已接线路由的 controller 从 kernel controllers[] 里摘掉",
+        apply: replaceOnce(KERNEL_MODULE, "\n    IdentityController,", ""),
+      },
+      {
+        name: "新增一条 mock 驱动的产品路由（棘轮只减不增）",
+        apply: trackNewFile(
+          "apps/web/app/probe-bogus/page.tsx",
+          'import { ADMIN_NAV } from "@/lib/mock/admin";\n\nexport default function ProbeBogusPage() {\n  return <div>{ADMIN_NAV.length}</div>;\n}\n',
+        ),
+      },
+    ],
+  },
+  {
     gate: "third-artifact",
     run: node(".harness/scripts/lint-third-artifact.mjs"),
     guards: (_r, io) => io.exists(CONTRACT_TS),
@@ -318,6 +405,56 @@ export const GATE_SPECS: readonly GateSpec[] = [
           "pnpm --filter api exec vitest run tests/auth/device-session-30d.test.ts",
           "echo probe-bogus-verification",
         ),
+      },
+    ],
+  },
+  {
+    gate: "contract-state-names",
+    // #3140：契约签核之后，spec 与验收文档里的态名没有任何东西保证跟得上契约枚举。
+    // 两条变异对应 2026-09-08 当天真实发生过的两种漂移方向：代码侧改错名、文档侧改错名。
+    run: node(".harness/scripts/lint-contract-state-names.mjs"),
+    guards: (_r, io) => io.exists(STATE_NAME_SPEC) && io.exists(STATE_NAME_DOC),
+    mutations: [
+      {
+        name: "把 spec 里的态名改成枚举外的值",
+        apply: replaceOnce(STATE_NAME_SPEC, '"data-phase", "done"', '"data-phase", "completed"'),
+      },
+      {
+        name: "把验收文档态机链里的一段改成契约文案外的写法",
+        apply: replaceOnce(STATE_NAME_DOC, "执行 → 审批 → 完成", "执行 → 等待审批 → 完成"),
+      },
+    ],
+  },
+  {
+    gate: "contract-negative-assertion",
+    // issue #473：源码注释里「契约里没有 X」这类否定性断言，机械核对 X 是不是契约里的
+    // 一个 operation。守的正是「写下时为真、契约后来变了、注释没跟着改」这条漂移——
+    // 2026-08-04 它让 coord-main 建了不必要的 issue #461、派了不必要的高优先级任务
+    // 并重排了两条链的优先级。
+    run: tsx(".harness/scripts/lint-contract-negative-assertion.mjs"),
+    guards: (_r, io) => io.exists(CONTRACT_CHAT_TS),
+    mutations: [
+      {
+        name: "写一句「契约里没有 `createMessage`」（#473 现场那句谎话的形状）",
+        // 这就是 #473 红线 2 要求的那条反证，固化成探针：`createMessage` 由 PR #429
+        // 加进 `packages/contracts/src/chat.ts`，所以这句断言从落笔起就是假的，门必须红。
+        // 必须带反引号：本门只核对「被否定的那个东西被反引号点名」的断言，散文断言归
+        // 预算管（同 mod-chat SKILL.md 那条变异忘了反引号、得出"漏过"假结论的教训）。
+        apply: appendLine(
+          "apps/web/lib/live-chat.ts",
+          "// 变异探针：契约里没有 `createMessage` 这个写端口。",
+        ),
+      },
+    ],
+  },
+  {
+    gate: "e2e-testid-gate",
+    run: node(".harness/scripts/lint-e2e-testid-gate.mjs"),
+    guards: (_r, io) => io.exists(V2_MESSAGES_DECL),
+    mutations: [
+      {
+        name: "源码里改掉一个 e2e 还锚着的 testid（模拟 #2128 的「删东西」）",
+        apply: replaceOnce(V2_MESSAGES_DECL, 'data-testid="copilotkit-v2-messages"', 'data-testid="copilotkit-v2-messages-probe-renamed"'),
       },
     ],
   },

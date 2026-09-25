@@ -41,7 +41,7 @@
 | **Skill 沙箱** | 真实隔离靠 Docker（network none / read-only / seccomp）；镜像内含 LibreOffice / tesseract / ffmpeg / Python 科学栈 | 桌面版走**子进程模式**（沙箱 `src/main.ts` 直接以受限子进程跑，L0 隔离，复用 `loopback-skill-sandbox.ts` 的接线）；LibreOffice/tesseract/ffmpeg 作为**可选扩展包**后装 |
 | **工具调用在 Python 侧** | TS 适配器已移除 tools，工具循环全在 deep-agent-service | 桌面包**必须带** Python 运行时（python-build-standalone + uv 同步的 site-packages）；否则聊天有回复但没有任何工具/skill |
 | **Docker 假设** | `KERNEL_SKILL_SANDBOX_SOCKET`（unix socket）、browser-runtime、MCP 执行器都假设容器 | Windows 走 `KERNEL_SKILL_SANDBOX_BASE_URL`（TCP 回环）；browser-runtime / 远程 MCP 第一版**明确不可用**（UI 上灰掉，不是静默失败） |
-| **供应商形态的能力** | 视觉抽取（DashScope 原生接口）、ASR（DashScope WebSocket）、图片生成（Bailian/OpenAI）、web_search（`web-search.boardx.us`） | 第一版全部标为"本地版不可用 / 连接云端后可用"；后续用 whisper.cpp（ASR）、qwen3.5:4b 自带视觉（agent-run 路径已是 OpenAI 兼容）逐项本地化 |
+| **供应商形态的能力** | 视觉抽取（DashScope 原生接口）、ASR（DashScope WebSocket）、图片生成（Bailian/OpenAI）、web_search（`web-search.boardx.us`） | 第一版全部标为"本地版不可用 / 连接云端后可用"；后续用 whisper.cpp（ASR）、qwen3.5:4b 自带视觉（agent-run 路径已是 OpenAI 兼容）逐项本地化。**2026-09-21 起这张表不再是这件事的事实源**：机器可读的清单在 `packages/local-runtime/src/capabilities.ts`，与 `parity.ts` 双向咬合、带测试；本表只留作当初的设计说明 |
 
 ### 1.3 已被上一份计划验证过的方向
 

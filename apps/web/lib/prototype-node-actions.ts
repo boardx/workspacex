@@ -95,3 +95,30 @@ export function navigate(
   const step = dir === "prev" ? -1 : 1;
   return at.siblings[at.index + step]?.id ?? null;
 }
+
+/**
+ * 对标 R7（#3933）—— 图层面板里**拖到某一行上**：被拖的节点挪到那一行的前面（同一个父容器里）。
+ *
+ * 与 `moveOps` 同一种实现（remove + insert，保留原 id），区别只在「目标位置」可以跨父容器。
+ * 返回 `null` 的几种情况（调用方据此不发请求）：
+ *   · 找不到任一节点、被拖的是根（一页只有一个根，挪不走）、目标是根（根前面没有位置）；
+ *   · 目标在被拖节点**自己的子树里**——把容器拖进自己肚子里会让它从树上消失；
+ *   · 挪完位置不变（拖到紧跟在后面那个兄弟上 = 原地）。
+ * 下标按**删除之后**的数组算：同一父容器里、原位置在目标前面 ⇒ 目标下标减一（同 `moveOps` 那条）。
+ */
+export function dropBeforeOps(
+  prototype: readonly (PrototypeNode | null)[],
+  draggedId: string,
+  targetId: string,
+): readonly PrototypePatchOp[] | null {
+  if (draggedId === targetId) return null;
+  const from = locate(prototype, draggedId);
+  const to = locate(prototype, targetId);
+  if (from === null || to === null || from.parent?.id === undefined || to.parent?.id === undefined || from.index < 0 || to.index < 0) return null;
+  const targetPath = designPrototype.findPrototypeNodePath(prototype, targetId);
+  if (targetPath !== null && targetPath.path.some((n) => n.id === draggedId)) return null;
+  const sameParent = from.parent.id === to.parent.id;
+  const index = sameParent && from.index < to.index ? to.index - 1 : to.index;
+  if (sameParent && index === from.index) return null;
+  return [{ op: "remove", id: draggedId }, { op: "insert", parentId: to.parent.id, index, node: from.node }];
+}

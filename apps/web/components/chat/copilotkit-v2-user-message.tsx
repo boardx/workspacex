@@ -4,6 +4,12 @@ import * as React from "react";
 import { CopilotChatUserMessage } from "@copilotkit/react-core/v2";
 import { MessageAttachments } from "@/components/chat/chat-composer-attachments";
 import type { ChatAttachment } from "@/lib/live-chat";
+import {
+  useCopilotKitV2MessageActions,
+  CopilotKitV2RememberMessageButton,
+} from "@/components/chat/copilotkit-v2-message-actions";
+import { MESSAGE_ANCHOR_ATTR } from "@/lib/chat-message-focus";
+import { ExtractionFeedbackChip } from "@/components/chat/knowledge/extraction-feedback-chip";
 
 /**
  * issue #2787（review #2787 结论，回指 issue #728 同类根因）—— `userMessage` slot
@@ -73,6 +79,12 @@ interface UserMessageAttachmentsValue {
    * 由填这张表的一方（`copilotkit-v2-panel-body.tsx`）负责两个键都指向同一批行。
    */
   readonly byMessageId: ReadonlyMap<string, readonly ChatAttachment[]>;
+  /**
+   * issue #4180 —— 本会话真的发出去过的用户消息（视图 id，即乐观插入时的 `clientMessageId`）。
+   * 「刚被抽取出新知识」的反馈条只对这些消息轮询，不对 hydration 回读的整段历史轮询
+   * （见 `copilotkit-v2-panel-body.tsx` `sentMessageIds` 的头注）。
+   */
+  readonly sentThisSession: ReadonlySet<string>;
 }
 
 export const UserMessageAttachmentsCtx =
@@ -82,17 +94,36 @@ export const UserMessageAttachmentsCtx =
 const CurrentUserMessageAttachmentsCtx =
   React.createContext<{ threadId: string; items: readonly ChatAttachment[] } | null>(null);
 
+/**
+ * phase-18 F15 —— 这一条消息落库后的真实 id（还没落库 ⇒ 视图 id）。正文上挂成 `data-kg-message-id`，
+ * 记忆来源抽屉的「跳到原消息」据此找到它、滚到眼前并高亮（`lib/chat-message-focus.ts`）。
+ */
+const CurrentUserMessageIdCtx = React.createContext<string | null>(null);
+
+/**
+ * issue #4180 —— 当前这条用户消息，够不够格挂「刚被抽取出新知识」的反馈条：够格 = 本会话
+ * 真的发出去过（见 `UserMessageAttachmentsValue.sentThisSession`）。`null` = 不挂
+ * （没有 provider，或这条是历史回读，不是本会话发的）。
+ */
+const CurrentUserMessageExtractionCtx =
+  React.createContext<{ threadId: string; messageId: string } | null>(null);
+
 function V2UserMessageRenderer({
   content,
 }: React.ComponentProps<typeof CopilotChatUserMessage.MessageRenderer>): JSX.Element {
   const attachments = React.useContext(CurrentUserMessageAttachmentsCtx);
+  const messageId = React.useContext(CurrentUserMessageIdCtx);
+  const extraction = React.useContext(CurrentUserMessageExtractionCtx);
   return (
-    <div className="flex flex-col gap-1">
+    <div className="flex flex-col gap-1" {...(messageId === null ? {} : { [MESSAGE_ANCHOR_ATTR]: messageId })}>
       <div data-testid="chat-user-message-text" className="whitespace-pre-wrap text-13 text-secondary-foreground">
         {content}
       </div>
       {attachments !== null && attachments.items.length > 0 ? (
         <MessageAttachments attachments={attachments.items} threadId={attachments.threadId} />
+      ) : null}
+      {extraction !== null ? (
+        <ExtractionFeedbackChip threadId={extraction.threadId} messageId={extraction.messageId} />
       ) : null}
     </div>
   );
@@ -103,6 +134,7 @@ function V2UserMessageImpl(
 ): JSX.Element {
   const ctx = React.useContext(UserMessageAttachmentsCtx);
   const items = ctx?.byMessageId.get(props.message.id);
+  const persistedId = useCopilotKitV2MessageActions()?.identity.resolvePersisted(props.message.id) ?? props.message.id;
   // provider 不产生任何 DOM 节点——气泡外壳仍然只有框架渲染的那一个
   // （`copilotkit-v2.css` 锚定的 `data-testid="copilot-user-message"`），
   // 不会因为这次接线多出一层包装盒子。
@@ -112,10 +144,28 @@ function V2UserMessageImpl(
       : { threadId: ctx.threadId, items }),
     [items, ctx],
   );
+  // issue #4179 —— 「记住这句」正文取自框架给的这条消息本身，与 assistant 侧
+  // `copilotkit-v2-assistant-message.tsx` 取 `text` 的同一条纪律（`content` 的
+  // 静态类型是 `string | 数组`，只有纯字符串这一支有对应的可发送正文）。
+  const text = typeof props.message.content === "string" ? props.message.content : "";
+  // issue #4180 —— 只有本会话真的发出去过的消息（`sentThisSession` 按视图 id 记，即
+  // `clientMessageId`）才挂反馈条；historical 回读的消息 ctx 里查不到，`extraction` 为 null。
+  const extraction = React.useMemo(
+    () => (ctx !== null && ctx.sentThisSession.has(props.message.id) ? { threadId: ctx.threadId, messageId: persistedId } : null),
+    [ctx, props.message.id, persistedId],
+  );
   return (
-    <CurrentUserMessageAttachmentsCtx.Provider value={current}>
-      <CopilotChatUserMessage {...props} messageRenderer={V2UserMessageRenderer} />
-    </CurrentUserMessageAttachmentsCtx.Provider>
+    <CurrentUserMessageIdCtx.Provider value={persistedId}>
+      <CurrentUserMessageExtractionCtx.Provider value={extraction}>
+        <CurrentUserMessageAttachmentsCtx.Provider value={current}>
+          <CopilotChatUserMessage
+            {...props}
+            messageRenderer={V2UserMessageRenderer}
+            additionalToolbarItems={<CopilotKitV2RememberMessageButton text={text} />}
+          />
+        </CurrentUserMessageAttachmentsCtx.Provider>
+      </CurrentUserMessageExtractionCtx.Provider>
+    </CurrentUserMessageIdCtx.Provider>
   );
 }
 

@@ -1,0 +1,417 @@
+/* ==========================================================================
+   base.css — design tokens, reset, typography
+   WorkspaceX home. Zero-dependency static site.
+   ========================================================================== */
+
+:root {
+  /* ---- surface ---------------------------------------------------------- */
+  --bg:          #08070b;
+  --bg-sink:     #050408;
+  --surface:     rgba(255, 255, 255, 0.035);
+  --surface-2:   rgba(255, 255, 255, 0.06);
+  --hairline:    rgba(255, 255, 255, 0.09);
+  --hairline-2:  rgba(255, 255, 255, 0.16);
+
+  /* ---- ink -------------------------------------------------------------- */
+  --fg:          #f6f4f9;
+  --fg-soft:     #b9b3c6;   /* 9.88:1 */
+  --fg-dim:      #8b8499;   /* 5.60:1 */
+  --fg-faint:    #837d93;   /* 5.09:1 on --bg. #635d72 was 3.19 and failed AA. */
+
+  /* ---- accent ----------------------------------------------------------- */
+  /* Declared as channels so everything that needs the brand colour AT AN
+     ALPHA composes it from the same numbers. Twenty-one translucent glows,
+     borders and shadows used to restate these triplets by hand, which meant a
+     palette change was a twenty-one-place hunt and missing one left the old
+     pink glowing beside the new. `rgb(R G B / A)` is supported far more
+     widely than color-mix — Safari 12.1, Chrome 65, Firefox 52. */
+  --c-1-rgb:     255 148 69;   /* orange  */
+  --c-2-rgb:     255 63 127;   /* pink    */
+  --c-3-rgb:     240 42 168;   /* magenta */
+  --c-1:         rgb(var(--c-1-rgb));
+  --c-2:         rgb(var(--c-2-rgb));
+  --c-3:         rgb(var(--c-3-rgb));
+  --grad:        linear-gradient(100deg, var(--c-1), var(--c-2) 52%, var(--c-3));
+  /* Text placed ON the gradient. White fails AA over the orange stop (2.19:1);
+     this near-black clears 5.25:1 over every stop, so the brand colour keeps
+     its saturation instead of being muddied to make white work. Recomputed
+     when the palette moved to the logo's orange/pink/magenta: the old ink was
+     chosen against a violet third stop and only cleared 4.99:1. */
+  --on-grad:     #12080d;
+
+  /* semantic accents used by diagrams so hues carry meaning, not decoration */
+  --c-human:     #ffb23d;
+  --c-ai:        #7ab8ff;
+  --c-evidence:  #4ade9a;
+  --c-fail:      #ff5d5d;
+
+  /* ---- type ------------------------------------------------------------- */
+  /* The `… Fallback` faces are metric-matched stand-ins declared in fonts.css;
+     they hold the exact line boxes the real faces will occupy, so the swap
+     changes letterforms without moving anything. */
+  /* The CJK tail is not decoration. Both real faces are latin-only, so every
+     Han character on the Chinese page is resolved by this list — and it named
+     PingFang (macOS/iOS), Hiragino Sans GB (older macOS) and "Noto Sans SC",
+     which is the WEB font's name. It named nothing that ships on Windows and
+     nothing under the name Linux and Android actually install. A Chinese
+     reader on Windows therefore fell through to `sans-serif`, which on a
+     Chinese Windows is SimSun — a SERIF face, in a design that has none.
+     Microsoft YaHei and Noto Sans CJK SC also carry a real Bold, which is the
+     other half of round 35: synthesis was switched off to stop Han glyphs
+     blotting, and the way to get weight back is to name a font that has it. */
+  /* ---- tracking ----------------------------------------------------------
+     Every letter-spacing on this site is a Latin convention: wide tracking on
+     small uppercase labels, tight tracking on display type. Neither is right
+     for Han — spaced labels read as loose and gappy, tightened headings make
+     dense glyphs touch. Rather than a :lang(zh) override per selector (there
+     were three, covering three of twenty-five rules), every rule multiplies
+     by one of these, and the Chinese page redefines them once. English
+     computes to exactly the values it had. */
+  --track-open:  1;
+  --track-tight: 1;
+  /* Empty on English; on /zh/ it prefixes every stack with the face that
+     draws Chinese punctuation (fonts.css). The comma is part of the value. */
+  --han-punct: ;
+
+  /* ORDER MATTERS, for speed. Every run of Han text walks this list until a
+     family has the glyph, and every family it passes costs a lookup. With the
+     Chinese faces at the end, each run tried the latin face, its fallback,
+     and four system-UI names first — on the slow-3G profile /zh/'s first
+     layout took ~1 s against ~0.6 s for English, and the page sat 50 ms from
+     its budget. The Chinese group now follows the latin face and its metric
+     fallback directly. Latin text is unaffected wherever the fallback resolves
+     (Arial, Helvetica or Liberation Sans — every desktop): it stops at one of
+     those two. Where none does (Android), latin reaches the Chinese group,
+     whose names Android does not expose, and lands on system-ui as before. Measured on a Chinese font that is present and first in the
+     group (as PingFang is on a Mac): that layout halves. WenQuanYi closes the
+     group for Linux desktops without Noto. */
+  /* The Chinese faces, declared once and used by all three stacks below and
+     by the Chinese headings. */
+  --font-cjk:     "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei",
+                  "Noto Sans CJK SC", "Source Han Sans SC", "Noto Sans SC", "Heiti SC",
+                  "WenQuanYi Micro Hei", "WenQuanYi Zen Hei";
+  --font-display: var(--han-punct) "Outfit", "Outfit Fallback", var(--font-cjk),
+                  ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-body:    var(--han-punct) "Inter", "Inter Fallback", var(--font-cjk),
+                  ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  /* The mono stack needs the same CJK tail. Every eyebrow, label and status
+     line on /zh/ is set in it — sixty-odd elements — and with no Han face
+     named, the browser picked one for "generic monospace", which on a Mac is
+     often not the face the body text uses and sometimes has Japanese glyph
+     shapes. Round 39 fixed this for display and body and missed this stack;
+     its gate only looked at those two. */
+  /* The monospaced faces for Windows and Linux come BEFORE the Chinese group:
+     ui-monospace, SF Mono and Menlo exist only on Apple systems, so elsewhere
+     latin labels fell through to the first Chinese face with latin glyphs —
+     Microsoft YaHei on Windows, WenQuanYi or Noto CJK on Linux — and every
+     eyebrow and status line on the English page was set in a CJK font's
+     proportional latin. */
+  --font-mono:    var(--han-punct) ui-monospace, SFMono-Regular, "SF Mono", Menlo,
+                  "Cascadia Mono", Consolas, "DejaVu Sans Mono", "Liberation Mono", var(--font-cjk),
+                  monospace;
+
+  /* ---- radius scale ------------------------------------------------------
+     Twelve different radii had accumulated — 22, 12, 11, 10, 9, 8, 6, 3, 2,
+     1.5 px — because every new component picked its own. Four surfaces sizes
+     plus the two shapes is a system; twelve is improvisation that slowly
+     pulls the page out of true. */
+  --r-nub:   2px;    /* the few-pixel marks: bullets, swatches, bars */
+  --r-xs:    6px;    /* chips, tags, inline marks            */
+  --r-sm:    10px;   /* buttons, small panels                */
+  --r-md:    14px;   /* notes, tiles, list rows              */
+  --r-lg:    22px;   /* cards, stages, the large surfaces    */
+  --r-pill:  999px;
+  --r-round: 50%;
+
+  /* ---- space scale -------------------------------------------------------
+     Gaps were being chosen at 0.25 / 0.3 / 0.4 / 0.5 / 0.55 / 0.6 / 0.75 /
+     1 / 1.5rem. Same problem, same fix: a scale you can only step along. */
+  --s-1: 0.25rem;
+  --s-2: 0.5rem;
+  --s-3: 0.75rem;
+  --s-4: 1rem;
+  --s-5: 1.5rem;
+  --s-6: 2rem;
+
+  /* fluid scale — clamp(min, preferred, max) */
+  /* The FLOOR of a clamp is the part that breaks under a text-size
+     preference: 2.5rem is 40 px normally and 80 px at 200%, which is wider
+     than a 390 px phone once a long word lands on it. min() makes the floor
+     viewport-aware, so the type still grows with the reader's setting but
+     can never outgrow the screen it is on. */
+  --t-hero:   clamp(min(2.5rem, 12vw), 6vw, 5rem);
+  --t-h2:     clamp(min(2rem, 10vw), 4.4vw, 3.75rem);
+  --t-h3:     clamp(1.35rem, 2.1vw, 1.9rem);
+  --t-lead:   clamp(1.05rem, 1.55vw, 1.4rem);
+  --t-body:   clamp(0.975rem, 1.1vw, 1.0625rem);
+  --t-small:  0.875rem;
+  --t-micro:  0.75rem;
+
+  /* The steps between --t-micro and --t-h3 that components kept inventing:
+     seventeen distinct literal sizes existed outside this scale. */
+  --t-nano:   0.625rem;    /* 10px — mono labels, over-line captions */
+  --t-tiny:   0.6875rem;   /* 11px — dense metadata                  */
+  --t-xs:     0.8125rem;   /* 13px                                   */
+  --t-md:     0.9375rem;   /* 15px — control labels, list titles     */
+  --t-base:   1rem;
+  --t-lg:     1.125rem;
+  --t-xl:     1.25rem;
+  /* Relative on purpose: inline code should track whatever text surrounds it,
+     not a fixed step. Declared so it is a decision rather than a stray literal. */
+  --t-inline-code: 0.9em;
+
+  /* ---- space ------------------------------------------------------------ */
+  /* Same clamp-floor trap as the type scale: 1.25rem is 20 px normally and
+     40 px at a 200% text setting, so a phone lost 80 px to margins alone and
+     the content box ended up wider than the screen. The floor is capped
+     against the viewport. */
+  --gutter:      clamp(min(1.25rem, 5vw), 4vw, 3rem);
+  /* Breakpoints. The media queries below must spell these values out — a
+     custom property cannot appear in an @media condition — but JavaScript
+     CAN read them, and used to carry its own px copies of the same three
+     numbers. In rem they moved with the reader's text size while the JS ones
+     did not, so at a 200% setting the CSS stacked a scene the script still
+     thought was wide. check-css.mjs fails if a --bp-* value has no matching
+     query. */
+  --bp-narrow:   43.75rem;    /* diagrams switch to their narrow variants */
+  --bp-stack:    47.5rem;     /* the nav rail stacks                      */
+  --bp-scene:    53.75rem;    /* the pinned scene gives up and stacks     */
+
+  --measure:     72rem;       /* max content width            */
+  --measure-text: 44rem;      /* max width for reading prose  */
+  --section-y:   clamp(5.5rem, 11vw, 10rem);
+
+  /* ---- motion ----------------------------------------------------------- */
+  --ease-out:  cubic-bezier(0.16, 1, 0.3, 1);      /* apple-ish settle */
+  --ease-io:   cubic-bezier(0.65, 0, 0.35, 1);
+  --dur-fast:  180ms;
+  --dur:       520ms;
+  --dur-slow:  620ms;
+
+  --nav-h:     64px;
+}
+
+/* ---- reset --------------------------------------------------------------- */
+*, *::before, *::after { box-sizing: border-box; }
+* { margin: 0; }
+
+html {
+  /* Tells the engine this is a dark page: the scrollbars, the form controls it
+     draws itself, and the flash of background before paint all follow. Without
+     it Safari and Firefox render a white scrollbar track against a near-black
+     page, which is the single most common "looks broken" report on dark sites. */
+  color-scheme: dark;
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+  scroll-behavior: smooth;
+  /* anchored sections must clear the fixed nav */
+  scroll-padding-top: calc(var(--nav-h) + 12px);
+}
+
+body {
+  background: var(--bg);
+  color: var(--fg);
+  font-family: var(--font-body);
+  font-size: var(--t-body);
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+  /* `clip` rather than `hidden`: hidden turns the body into a scroll container,
+     which breaks position: sticky inside it and interferes with scroll
+     anchoring. This is a backstop — anything that actually overflows is a bug
+     to fix at the source. */
+  overflow-x: clip;
+
+  /* Safari only learned `clip` in 16.4. Below that the declaration is dropped
+     and nothing constrains the page at all, so fall back to the older
+     behaviour there rather than to none. */
+  -webkit-tap-highlight-color: rgb(var(--c-2-rgb) / 0.22);
+}
+@supports not (overflow: clip) {
+  body { overflow-x: hidden; }
+}
+
+img, svg, video, canvas { display: block; max-width: 100%; }
+button, input, select, textarea { font: inherit; color: inherit; }
+button { background: none; border: 0; cursor: pointer; }
+a { color: inherit; text-decoration: none; }
+
+/* ---- headings ------------------------------------------------------------ */
+h1, h2, h3, h4 {
+  font-family: var(--font-display);
+  font-weight: 600;
+  line-height: 1.06;
+  letter-spacing: calc(-0.028em * var(--track-tight));
+  text-wrap: balance;
+}
+/* A single long word at a doubled font size overflows rather than wrapping,
+   and `overflow-x: clip` then makes it unreachable rather than merely ugly. */
+h1, h2, h3 { overflow-wrap: break-word; }
+h1 { font-size: var(--t-hero); letter-spacing: calc(-0.04em * var(--track-tight)); }
+h2 { font-size: var(--t-h2); }
+h3 { font-size: var(--t-h3); letter-spacing: calc(-0.02em * var(--track-tight)); line-height: 1.2; }
+
+/* CJK does not want negative tracking — it collides. */
+:lang(zh) body, :lang(zh) p { line-height: 1.75; }
+
+/* Han glyphs fill their em box; latin letters do not. At an identical pixel
+   size a Chinese headline therefore reads noticeably heavier and larger than
+   the English one it replaces, and the two languages stop looking like the
+   same design. Scaling the display sizes back restores the match.
+   Wrapped in :where() so they weigh no more than the plain `h2 {}` they
+   replace. At (0,1,1) they outranked every component's own heading class, so
+   on /zh/ card titles, footer labels and case headings set at 12–16px in
+   English all rendered at the 25px section size — a quarter of the page's
+   headings, found by the eval comparing the two languages. */
+:where(:lang(zh)) h1 { font-size: calc(var(--t-hero) * 0.86); line-height: 1.16; }
+:where(:lang(zh)) h2 { font-size: calc(var(--t-h2)   * 0.9);  line-height: 1.24; }
+:where(:lang(zh)) h3 { font-size: calc(var(--t-h3)   * 0.94); }
+
+/* Pretty wrapping was set on <p> only, and half the page's running text is
+   not in one: the loop's step bodies, the proof rules, the FAQ summaries are
+   spans and list items. On a phone they ended on a lone 错。or 跑。 It is
+   inherited, so it goes on the body; headings keep their own `balance`. */
+body { text-wrap: pretty; }
+
+/* ---- utility ------------------------------------------------------------- */
+.grad-text {
+  background: var(--grad);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+.visually-hidden {
+  position: absolute; width: 1px; height: 1px;
+  padding: 0; margin: -1px; overflow: hidden;
+  clip-path: inset(50%); white-space: nowrap; border: 0;
+}
+
+.skip-link {
+  position: absolute; left: 50%; top: 8px;
+  transform: translate(-50%, -140%);
+  z-index: 200;
+  padding: 0.625rem 1.125rem;
+  border-radius: var(--r-pill);
+  background: var(--fg); color: var(--bg-sink);
+  font-weight: 600; font-size: var(--t-small);
+  transition: transform var(--dur-fast) var(--ease-out);
+}
+.skip-link:focus-visible { transform: translate(-50%, 0); }
+
+/* A single, consistent focus ring. Never remove it. */
+:focus-visible {
+  outline: 2px solid var(--c-2);
+  outline-offset: 3px;
+  border-radius: var(--r-xs);
+}
+
+/* ---- forced / high contrast ---------------------------------------------- */
+/* Readers who ask for more contrast get flat surfaces and hard borders: the
+   translucent panels this design leans on are the first thing to fail them. */
+@media (prefers-contrast: more) {
+  :root {
+    --fg-soft:    #ded9e6;
+    --fg-dim:     #c3bdd0;
+    --fg-faint:   #a9a2b8;
+    --hairline:   rgba(255, 255, 255, 0.28);
+    --hairline-2: rgba(255, 255, 255, 0.45);
+    --surface:    rgba(255, 255, 255, 0.09);
+    --surface-2:  rgba(255, 255, 255, 0.14);
+  }
+}
+
+/* ---- scrollbars ----------------------------------------------------------
+   `color-scheme` above gets most of the way there. These two rules are the
+   remaining engine-specific bits: Firefox reads `scrollbar-color`, WebKit and
+   Blink only style the pseudo-elements. */
+* { scrollbar-color: #322d3d var(--bg); scrollbar-width: thin; }
+::-webkit-scrollbar { width: 11px; height: 11px; }
+::-webkit-scrollbar-track { background: var(--bg); }
+::-webkit-scrollbar-thumb {
+  background: #322d3d;
+  border-radius: var(--r-pill);
+  border: 3px solid var(--bg);
+}
+@media (hover: hover) { ::-webkit-scrollbar-thumb:hover { background: #453e54; } }
+
+/* ---- selection ----------------------------------------------------------- */
+::selection { background: rgb(var(--c-2-rgb) / 0.3); color: #fff; }
+
+/* ==========================================================================
+   Text shaping details
+   ========================================================================== */
+
+/* Chinese line breaking: `strict` keeps closing brackets, small kana and the
+   like from starting a line, which `normal` permits. Chinese has no spaces, so
+   `word-break: normal` is what allows breaks between Han characters at all. */
+:lang(zh) body,
+:lang(zh) p,
+:lang(zh) li,
+:lang(zh) h1, :lang(zh) h2, :lang(zh) h3 {
+  line-break: strict;
+  word-break: normal;
+  overflow-wrap: break-word;
+}
+
+/* Headings and short labels on /zh/ break only between words: build-i18n
+   marks them [data-phrase] and puts a <wbr> at every word boundary. */
+:lang(zh) [data-phrase] { word-break: keep-all; }
+
+/* No faked bold on Han. The display face is latin-only, so Chinese falls
+   through to whatever CJK font the machine has — and when that font ships only
+   a Regular weight, the engine manufactures 600 by stroking the glyphs. On
+   latin that is merely ugly; on a dense Han glyph at 30px it fills the
+   counters and the character turns into a blot with a dark halo, which is
+   exactly how the loop diagram's centre title rendered here.
+   Not every reader sees it: macOS, Windows and Android all ship a bold CJK
+   face. Linux frequently does not — and this product's pitch is "read the
+   repository", so that is not an audience to round off.
+   This is strictly safe: it disables SYNTHESIS, never the use of a real bold
+   face, so nothing changes for anyone who has one. */
+:lang(zh) { font-synthesis: none; }
+
+/* ...and the other half of that trade. With synthesis off, where the Chinese
+   face has one weight (most Linux desktops), a Chinese heading rendered its
+   Han regular and its latin — "AI", "WorkspaceX" — in Outfit 700: two weights
+   inside four characters. Chinese headings take the Chinese face for their
+   latin too, the way Chinese sites set them, so the pair always match: both
+   PingFang Semibold on a Mac, both the one weight there is on Linux. */
+:lang(zh) :is(h1, h2, h3) { font-family: var(--han-punct) var(--font-cjk), var(--font-display); }
+
+/* A long unbroken token — a URL, a compound identifier — cannot be hyphenated
+   in a narrow column and will otherwise push the whole layout sideways. */
+p, li, summary, .card__body, .rail__body { overflow-wrap: break-word; }
+
+/* Numerals in the mono indices are read as a column; proportional figures make
+   that column ragged. */
+.card__index, .rail__num, .unit__n, .eyebrow, .tag, .surface__path {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Quotation marks and the leading dash of a list hang into the margin where
+   the engine supports it, which is what stops a typeset paragraph looking
+   indented by accident. Safari only today; harmless elsewhere. */
+p, .lead, .keyline { hanging-punctuation: first last; }
+
+/* Han: labels keep a trace of their spacing, display type loses its
+   tightening entirely. Inherited, so an element marked lang="zh-Hans" on the
+   English page — the language switch — gets it too, which is correct. */
+:lang(zh) { --track-open: 0.3; --track-tight: 0; --han-punct: "Han Punctuation",; }
+
+
+/* ---- the smallest type on a phone ------------------------------------------
+   Ten mono label styles sat at 10–11px. At arm's length on a phone that is
+   below what Apple and Material both treat as the floor for readable text,
+   and for Han it is worse: a dense glyph at 10px loses strokes and turns into
+   a smudge. Raised on coarse pointers for everyone, and on /zh/ everywhere,
+   because the problem there is the script, not the device. The /zh/ page had
+   exactly one such fix already — for the use-case field labels — and the
+   other nine styles had none. Round 57 closed the last gap: latin labels
+   were raised only to 11px on a phone, and a 10px-designed label at 11 is
+   still the smallest thing a thumb-distance reader meets. 12 for both. */
+@media (pointer: coarse) {
+  :root { --t-nano: 0.75rem; --t-tiny: 0.75rem; }
+}
+:lang(zh) { --t-nano: 0.75rem; --t-tiny: 0.75rem; }

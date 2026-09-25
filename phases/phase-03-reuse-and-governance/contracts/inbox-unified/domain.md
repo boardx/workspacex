@@ -43,6 +43,10 @@
 2. **系统异常那一半**：请求者必须是平台超管（`isRequestorPlatformOperator`）。不是超管
    ⇒ **不报错，只是不含**：`sources.exception: "withheld"`，`byKind.exception = 0`。
    `withheld` = 那一半根本没被查询，不是查了为空。
+   **是超管、但这一半这次没读到**（诊断库角色不可达等，本地版 PGlite 不区分登录角色时必然如此）
+   ⇒ 同样**不报错**：`sources.exception: "unavailable"`，`byKind.exception = 0`，反馈与设计方案
+   两路照常返回，失败记一条带 `traceId` 的错误日志（#3921，2026-09-23 人类裁决：加契约状态，
+   不在本地版里绕过）。`unavailable` = 查了但没拿到，不是没权限、也不是查了为空。
 3. 反馈正文 / 提交人显示名沿用 `feedback-loop` 的 D3 门控（`body === null` ⟺ 无权看，
    不是正文为空）；`q` 只搜 `title` 与 `code`，**不搜正文**——按无权看的内容过滤会泄露
    「有没有」。

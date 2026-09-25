@@ -32,18 +32,36 @@ export function flattenNodes(root: PrototypeNode | null): readonly { readonly no
   return out;
 }
 
+/** 对标 R7：拖拽时在 dataTransfer 里放的类型——只认自己面板拖出来的行，别的东西拖进来不响应。 */
+const DRAG_TYPE = "application/x-wsx-layer";
+
 export function PrototypeLayers({
-  root, selectedId, onSelect,
+  root, selectedId, onSelect, onMove,
 }: {
   readonly root: PrototypeNode | null;
   readonly selectedId: string | null;
   readonly onSelect: (id: string) => void;
+  /**
+   * 对标 R7（#3933）：把 `dragged` 拖到 `target` 那一行上 ⇒ 挪到它前面。op 怎么算见
+   * `dropBeforeOps`（非法的拖放在那里返回 null，这里不重复判）。上移/下移按钮仍在属性面板里，
+   * 那是键盘与读屏器用户的路。
+   */
+  readonly onMove?: (dragged: string, target: string) => void;
 }) {
   const rows = React.useMemo(() => flattenNodes(root), [root]);
+  const [dragging, setDragging] = React.useState<string | null>(null);
+  const [over, setOver] = React.useState<string | null>(null);
   if (rows.length === 0) return null;
   return (
     <div className="flex min-h-0 flex-col border-b border-border" data-testid="design-layers">
-      <p className="px-3 pb-1 pt-2 text-10 font-medium uppercase tracking-wide text-muted-foreground">图层</p>
+      {/*
+        * 迭代 32：「图层」是做设计的人的词。这一栏对普通人的作用是"这一页由哪些块组成"，
+        * 顺带说一句共几块——原来连有多少都得自己数。中文小标题上的 uppercase 同样去掉
+        * （中文没有大小写，留下的只有被拉开的字距）。
+        */}
+      <p className="px-3 pb-1 pt-2 text-10 font-medium text-muted-foreground" data-testid="design-layers-title">
+        页面结构（{rows.length} 块）
+      </p>
       <div className="min-h-0 flex-1 overflow-y-auto pb-2">
         {rows.map(({ node, depth }) => {
           const id = node.id;
@@ -52,6 +70,18 @@ export function PrototypeLayers({
             <button
               key={id ?? `${depth}-${designPrototype.prototypeNodeLabel(node)}`}
               type="button"
+              // 根（depth 0）挪不走，不给拖。
+              draggable={onMove !== undefined && id !== undefined && depth > 0}
+              onDragStart={(e) => { if (id === undefined) return; e.dataTransfer.setData(DRAG_TYPE, id); e.dataTransfer.effectAllowed = "move"; setDragging(id); }}
+              onDragEnd={() => { setDragging(null); setOver(null); }}
+              onDragOver={(e) => { if (onMove === undefined || id === undefined || depth === 0 || !e.dataTransfer.types.includes(DRAG_TYPE)) return; e.preventDefault(); e.dataTransfer.dropEffect = "move"; setOver(id); }}
+              onDragLeave={() => setOver((o) => (o === id ? null : o))}
+              onDrop={(e) => {
+                const from = e.dataTransfer.getData(DRAG_TYPE);
+                setDragging(null); setOver(null);
+                if (onMove !== undefined && id !== undefined && from !== "" && from !== id) { e.preventDefault(); onMove(from, id); }
+              }}
+              data-dragging={dragging === id ? "true" : undefined}
               // 没有 id 的节点（服务端还没补上）点了也选不中——直接禁用，
               // 比点了没反应诚实。
               disabled={id === undefined}
@@ -63,6 +93,9 @@ export function PrototypeLayers({
                 "flex w-full items-center gap-1 truncate py-0.5 pr-2 text-left text-10 transition-colors duration-fast",
                 on ? "bg-primary/15 text-background-foreground" : "text-muted-foreground hover:bg-card",
                 id === undefined && "opacity-50",
+                dragging === id && "opacity-40",
+                // 落点提示：一条横线画在目标行的上沿——「放在它前面」。
+                over === id && dragging !== id && "shadow-[inset_0_2px_0_0_hsl(var(--primary))]",
               )}
               style={{ paddingLeft: 12 + depth * 10 }}
             >

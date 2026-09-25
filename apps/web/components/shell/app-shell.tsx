@@ -1,5 +1,8 @@
 "use client";
 
+import { SIDE_PANEL_VISIBLE, SIDE_PANEL_VISIBLE_FLEX } from "@/lib/shell/side-panel-visibility";
+import { PanelResizeHandle } from "@/components/shell/panel-resize-handle";
+import { defaultPanelWidth, readPanelWidth, writePanelWidth } from "@/lib/chat-workbench/panel-width";
 import * as React from "react";
 import { useRouter } from "next/navigation";
 import { X } from "lucide-react";
@@ -7,6 +10,8 @@ import { IconRail } from "./icon-rail";
 import { TopBar } from "./top-bar";
 import { MobileTabs } from "./mobile-tabs";
 import { isLocalOrg, MOCK_ORGS, type Identity, type ProjectRole } from "@/lib/identity";
+import { EditionBanner } from "./edition-banner";
+import { MAIN_CONTENT_ID, SkipToContent } from "./skip-to-content";
 import { organizationLabel } from "@/lib/org-display";
 import { cn } from "@/lib/utils";
 import { useOptionalSession, type SessionContextValue } from "@/components/session/session-provider";
@@ -14,6 +19,12 @@ import { Button } from "@/components/ui/button";
 import { FeedbackProvider } from "@/components/feedback/feedback-provider";
 import { SHELL_RIGHT_PANEL_TOGGLE_EVENT } from "@/lib/shell-panel-events";
 import { sanitizeReturnTo } from "@/lib/return-to";
+import { buildOrgSwitchUrl, forgetOrgSwitch, rememberOrgSwitch, takeOrgSwitchLanding, type OrgSwitchLanding } from "@/lib/org-switch";
+import { ShellBusyProvider, useShellBusyCount } from "@/lib/shell-busy";
+import {
+  OrgSwitchConfirm, OrgSwitchFailed, OrgSwitchLanded, OrgSwitchProgress,
+  shouldConfirmOrgSwitch, type PendingOrgSwitch,
+} from "./org-switch-feedback";
 
 /**
  * 三栏骨架 —— 尺寸来自原型实测：
@@ -38,7 +49,7 @@ import { sanitizeReturnTo } from "@/lib/return-to";
  *   录音/agent run」的真实信号，所以不再在这一层渲染任何等价内容，也不留占位符。
  */
 export function AppShell({
-  identity, previewRole, left, right, children, hideRoleSwitcher, hideTopBar,
+  identity, previewRole, left, right, children, hideRoleSwitcher, hideTopBar, fullscreen,
 }: {
   /** Legacy prototype screens may still provide an explicit projection; authenticated routes omit it. */
   identity?: Identity;
@@ -50,25 +61,33 @@ export function AppShell({
   hideRoleSwitcher?: boolean;
   /** 沉浸式工作台可隐藏横向顶栏，仅保留全局图标栏。 */
   hideTopBar?: boolean;
+  /** Canvas workspace: retain session gating while removing navigation chrome. */
+  fullscreen?: boolean;
 }) {
   const session = useOptionalSession();
+  // `ShellBusyProvider` 包在最外：壳层要读的那个数字由 `children` 里正在跑的那一方登记
+  // （`useReportShellBusy`），所以 Provider 必须同时罩住壳层自己和 children。
   if (identity) {
     return (
-      <ShellChrome identity={identity} previewRole={previewRole} left={left} right={right} hideRoleSwitcher={hideRoleSwitcher} hideTopBar={hideTopBar}>
-        {children}
-      </ShellChrome>
+      <ShellBusyProvider>
+        <ShellChrome identity={identity} previewRole={previewRole} left={left} right={right} hideRoleSwitcher={hideRoleSwitcher} hideTopBar={hideTopBar} fullscreen={fullscreen}>
+          {children}
+        </ShellChrome>
+      </ShellBusyProvider>
     );
   }
   if (!session) throw new Error("Authenticated AppShell requires SessionProvider");
   return (
-    <SessionAppShell session={session} previewRole={previewRole} left={left} right={right} hideRoleSwitcher={hideRoleSwitcher} hideTopBar={hideTopBar}>
-      {children}
-    </SessionAppShell>
+    <ShellBusyProvider>
+      <SessionAppShell session={session} previewRole={previewRole} left={left} right={right} hideRoleSwitcher={hideRoleSwitcher} hideTopBar={hideTopBar} fullscreen={fullscreen}>
+        {children}
+      </SessionAppShell>
+    </ShellBusyProvider>
   );
 }
 
 function SessionAppShell({
-  session, previewRole, left, right, children, hideRoleSwitcher, hideTopBar,
+  session, previewRole, left, right, children, hideRoleSwitcher, hideTopBar, fullscreen,
 }: {
   session: SessionContextValue;
   previewRole: ProjectRole | null;
@@ -77,6 +96,8 @@ function SessionAppShell({
   children: React.ReactNode;
   hideRoleSwitcher?: boolean;
   hideTopBar?: boolean;
+  /** Canvas workspace: retain session gating while removing navigation chrome. */
+  fullscreen?: boolean;
 }) {
   const router = useRouter();
 
@@ -122,6 +143,7 @@ function SessionAppShell({
       right={right}
       hideRoleSwitcher={hideRoleSwitcher}
       hideTopBar={hideTopBar}
+      fullscreen={fullscreen}
       organizations={organizations}
       onSwitchOrganization={async (orgId) => {
         await session.switchOrganization(orgId);
@@ -145,8 +167,14 @@ function SessionState({ testId, children }: { testId: string; children: React.Re
   );
 }
 
-function ShellChrome({
-  identity, previewRole, left, right, children, hideRoleSwitcher, hideTopBar,
+/**
+ * 导出仅为了让切换体感的测试能按**生产那条路的形状**驱动它：
+ * 生产走的是 `SessionAppShell` → `ShellChrome` 并带上 `onSwitchOrganization`，
+ * 而 `AppShell` 自己不接这个 prop。拿 `AppShell` + mock 回落去测，测到的是
+ * `window.location.assign` 那条原型分支，不是用户真正走的那条。
+ */
+export function ShellChrome({
+  identity, previewRole, left, right, children, hideRoleSwitcher, hideTopBar, fullscreen,
   organizations, onSwitchOrganization, onLogout,
 }: {
   identity: Identity;
@@ -156,6 +184,8 @@ function ShellChrome({
   children: React.ReactNode;
   hideRoleSwitcher?: boolean;
   hideTopBar?: boolean;
+  /** Canvas workspace: retain session gating while removing navigation chrome. */
+  fullscreen?: boolean;
   organizations?: ReadonlyArray<{ id: string; label: string }>;
   onSwitchOrganization?: (orgId: string) => Promise<void>;
   onLogout?: () => void;
@@ -168,20 +198,94 @@ function ShellChrome({
     () => organizations ?? MOCK_ORGS.map((o) => ({ id: o.id, label: isLocalOrg(o) ? `🔒 ${o.name}（本地）` : o.name })),
     [organizations],
   );
-  const handleSwitchOrganization = React.useCallback((orgId: string) => {
+  /**
+   * 切换的三段体感。**顺序是刻意的**：先问（只在有活在跑时），再遮（盖住旧组织的
+   * 内容并说正在切到哪），最后在新页面上确认落地。
+   *
+   * 落地标记在 await **之前**写、失败时撤回——不是之后写。`onSwitchOrganization`
+   * 内部成功后立刻 `router.replace`，await 一返回新页面就可能已经在挂载了，
+   * 那时候再写标记就是跟新 AppShell 的读抢时序。
+   */
+  const busyCount = useShellBusyCount();
+  const [pendingSwitch, setPendingSwitch] = React.useState<PendingOrgSwitch | null>(null);
+  const [switchingTo, setSwitchingTo] = React.useState<string | null>(null);
+  const [failed, setFailed] = React.useState<PendingOrgSwitch | null>(null);
+  const [landing, setLanding] = React.useState<OrgSwitchLanding | null>(null);
+
+  /**
+   * `prev ?? ` 不是防御性写法，是修一个真 bug。React 严格模式（dev）把 effect 跑两次：
+   * 第一次 `takeOrgSwitchLanding()` 读走并清掉标记、置位；第二次读到 null，
+   * 直接 `setLanding(null)` 就把刚拿到的落地信息**覆盖掉了**——实测现象是切换完成、
+   * 标记确实被消费了，而那条「已切换到 X」从来没出现过。jsdom 测试看不见这个：
+   * RTL 默认不套 StrictMode。
+   *
+   * 为什么不改成「模块级缓存，同一次页面加载返回同一个答案」：换路由时 AppShell 会
+   * 真的重新挂载，那时候该读到 null（不该再弹一次），缓存会让它重弹。
+   * 严格模式的双调用保留 state，真重挂载不保留——`prev ?? ` 正好区分这两件事。
+   *
+   * 为什么依赖 `identity.org.id` 而不是空数组：用户**本来就在 `/projects`** 时
+   * `router.replace("/projects")` 不换页、也不重挂载 AppShell，只挂载时读一次的写法
+   * 在这条路上永远读不到——那条确认会一直躺在 sessionStorage 里，等之后某次不相干的
+   * 跳转才弹出来，变成一条过时的假消息。组织 id 变的那一刻，才是「你现在在 X」成立的时刻。
+   */
+  const lastOrgIdRef = React.useRef<string | null>(null);
+  React.useEffect(() => {
+    const orgId = identity.org.id;
+    const orgChanged = lastOrgIdRef.current !== null && lastOrgIdRef.current !== orgId;
+    lastOrgIdRef.current = orgId;
+    // 组织真的变了 ⇒ 重新读一次（这一刻才是「你现在在 X」成立的时刻）；
+    // 否则是首次挂载 ⇒ `prev ??` 保护严格模式的双调用（见上）。
+    setLanding((prev) => (orgChanged ? takeOrgSwitchLanding() ?? prev : prev ?? takeOrgSwitchLanding()));
+  }, [identity.org.id]);
+
+  const currentOrgLabel = React.useMemo(
+    () => effectiveOrganizations.find((o) => o.id === identity.org.id)?.label ?? identity.org.name ?? "",
+    [effectiveOrganizations, identity.org.id, identity.org.name],
+  );
+
+  const runSwitch = React.useCallback((target: PendingOrgSwitch) => {
+    setPendingSwitch(null);
+    setFailed(null);
     if (onSwitchOrganization) {
       setSwitching(true);
-      void onSwitchOrganization(orgId)
-        .catch(() => undefined)
+      setSwitchingTo(target.toLabel);
+      rememberOrgSwitch({
+        toLabel: target.toLabel,
+        fromLabel: target.fromLabel,
+        runsLeftBehind: target.runsInFlight,
+      });
+      void onSwitchOrganization(target.orgId)
+        .catch(() => {
+          forgetOrgSwitch();   // 切换没成，别让下一次跳转弹出一条「已切换到 X」的假消息
+          setSwitchingTo(null);
+          setFailed(target);   // 静默失败 = 用户只会再点一次；说出来并给一次重试
+        })
         .finally(() => setSwitching(false));
       return;
     }
-    // O-12：切换组织 = 清空全部项目级上下文，权限按新组织重新求值
-    const url = new URL(window.location.href);
-    url.searchParams.set("org", orgId);
-    ["project", "stage", "pack"].forEach((k) => url.searchParams.delete(k));
-    window.location.assign(url.toString());
+    // 原型页（无 session）回落：O-12 —— 切组织 = 清空全部项目级上下文，权限重新求值。
+    setSwitchingTo(target.toLabel);
+    rememberOrgSwitch({
+      toLabel: target.toLabel,
+      fromLabel: target.fromLabel,
+      runsLeftBehind: target.runsInFlight,
+    });
+    window.location.assign(buildOrgSwitchUrl(window.location.href, target.orgId));
   }, [onSwitchOrganization]);
+
+  const handleSwitchOrganization = React.useCallback((orgId: string) => {
+    const target: PendingOrgSwitch = {
+      orgId,
+      toLabel: effectiveOrganizations.find((o) => o.id === orgId)?.label ?? orgId,
+      fromLabel: currentOrgLabel,
+      runsInFlight: busyCount,
+    };
+    if (shouldConfirmOrgSwitch(target.runsInFlight)) {
+      setPendingSwitch(target);
+      return;
+    }
+    runSwitch(target);
+  }, [busyCount, currentOrgLabel, effectiveOrganizations, runSwitch]);
 
   /*
    * FB-2：反馈弹层的唯一实例挂在壳层，因为它的三个入口分属三处
@@ -195,9 +299,26 @@ function ShellChrome({
   /**
    * UIUX-CK-1（人类实测 3 分的第一条实锤，2026-08-23）：左右栏此前固定宽度、
    * 不可收起——右栏在 xl 以下整个消失，xl 以上永远占位。加收起/展开 toggle，
+   * ⚠ 2026-09-23 更正：这段原话读起来像「xl 以下消失」也一并修了，**其实没有**——
+   * 当时加的 toggle 自身也是 `xl:flex`，修掉的只有「xl 以上永远占位」那一半。
+   * 断点现在收敛到 `lib/shell/side-panel-visibility.ts` 一处（lg），见该文件头注。
    * 状态记忆在 localStorage（每人自己的工作习惯，不是服务端事实，不入库）。
    * 读取放 effect：SSR 无 localStorage，初始渲染两端必须一致，否则 hydration 警告。
    */
+  /**
+   * 左右栏的**宽度**（R1 给了 chat 右栏，这轮推到全局壳）。
+   *
+   * 初值取各自原先写死的那个值（272 / 316，见 `PANEL_DEFAULT_WIDTH`），**SSR 与客户端
+   * 首帧必须算出同一个数**，所以持久值在 effect 里读，不在 useState 初始化里读——
+   * 与下面折叠态那两个用的是同一条理由。
+   */
+  const [leftWidth, setLeftWidth] = React.useState(() => defaultPanelWidth("shell-left"));
+  const [rightWidth, setRightWidth] = React.useState(() => defaultPanelWidth("shell-right"));
+  React.useEffect(() => {
+    setLeftWidth(readPanelWidth("shell-left", window.localStorage, window.innerWidth));
+    setRightWidth(readPanelWidth("shell-right", window.localStorage, window.innerWidth));
+  }, []);
+
   const [leftCollapsed, setLeftCollapsed] = React.useState(false);
   const [rightCollapsed, setRightCollapsed] = React.useState(false);
   React.useEffect(() => {
@@ -228,8 +349,14 @@ function ShellChrome({
 
   return (
     <FeedbackProvider>
-    <div data-testid="app-shell" className="flex h-dvh w-full overflow-hidden bg-background">
-      <div className="hidden md:flex">
+    <div data-testid="app-shell" className="relative flex h-dvh w-full overflow-hidden bg-background">
+      {/*
+        键盘用户的第一条快捷路，必须是壳层里第一个可聚焦的东西。
+        实测真实安装版：可聚焦元素 124 个，消息输入框排在第 113 位——
+        键盘用户要按 113 次 Tab 才能开始打字。见该组件头注。
+      */}
+      <SkipToContent />
+      {!fullscreen && <div className="hidden md:flex">
         <IconRail
           identity={identity}
           organizations={effectiveOrganizations}
@@ -238,9 +365,14 @@ function ShellChrome({
           avatarInitial={identity.displayName.slice(0, 1)}
           onLogout={onLogout}
         />
-      </div>
+      </div>}
       <div className="flex min-w-0 flex-1 flex-col">
-        {!hideTopBar && (
+        {/*
+          2026-09-22 —— 版次标识条。「不受 `hideTopBar` 影响」：藏顶栏的页面（如全屏画布）
+          普通 hideTopBar 保留版次信息；fullscreen 为用户明确要求的全窗口画布，隐藏全部导航占位。
+        */}
+        {!fullscreen && <EditionBanner />}
+        {!fullscreen && !hideTopBar && (
           <TopBar
             identity={identity}
             previewRole={previewRole}
@@ -254,14 +386,26 @@ function ShellChrome({
           {left && !leftCollapsed && (
             <aside
               data-testid="shell-left-panel"
-              className="relative hidden w-panel shrink-0 overflow-y-auto border-r border-border bg-panel md:block"
+              /* `w-panel` 换成内联宽度：默认值仍是同一个 272，只是现在它可动。 */
+              style={{ width: `${String(leftWidth)}px` }}
+              className="relative hidden shrink-0 overflow-y-auto border-r border-border bg-panel md:block"
             >
+              <PanelResizeHandle
+                edge="right"
+                label="调整左栏宽度"
+                testId="shell-left-resize"
+                width={leftWidth}
+                onWidthChange={(next: number) => {
+                  setLeftWidth(next);
+                  writePanelWidth("shell-left", next, window.localStorage);
+                }}
+              />
               <button
                 type="button"
                 aria-label="收起左栏"
                 data-testid="shell-left-collapse"
                 onClick={() => togglePanel("left")}
-                className="absolute right-1 top-1 z-10 hidden h-6 w-6 items-center justify-center rounded text-muted-foreground transition-colors hover:bg-muted hover:text-foreground md:flex"
+                className="absolute right-1 top-1 z-10 hidden h-6 w-6 items-center justify-center rounded text-muted-foreground transition-colors hover:bg-muted hover:text-background-foreground md:flex"
               >
                 ‹
               </button>
@@ -274,19 +418,31 @@ function ShellChrome({
               aria-label="展开左栏"
               data-testid="shell-left-expand"
               onClick={() => togglePanel("left")}
-              className="hidden w-5 shrink-0 items-center justify-center border-r border-border bg-panel text-muted-foreground transition-colors hover:bg-muted hover:text-foreground md:flex"
+              className="hidden w-5 shrink-0 items-center justify-center border-r border-border bg-panel text-muted-foreground transition-colors hover:bg-muted hover:text-background-foreground md:flex"
             >
               ›
             </button>
           )}
-          <main data-testid="shell-main" className="min-w-0 flex-1 overflow-y-auto bg-card">
+          {/* id 来自 `skip-to-content.tsx`，是跳转链接的落点。那份 id 只声明在那一处。 */}
+          <main id={MAIN_CONTENT_ID} data-testid="shell-main" className="min-w-0 flex-1 overflow-y-auto bg-card">
             {children}
           </main>
           {right && !rightCollapsed && (
             <aside
               data-testid="shell-right-panel"
-              className={cn("relative hidden w-panel-alt shrink-0 overflow-y-auto border-l border-border bg-panel-alt xl:block")}
+              style={{ width: `${String(rightWidth)}px` }}
+              className={cn("relative hidden shrink-0 overflow-y-auto border-l border-border bg-panel-alt", SIDE_PANEL_VISIBLE)}
             >
+              <PanelResizeHandle
+                edge="left"
+                label="调整右栏宽度"
+                testId="shell-right-resize"
+                width={rightWidth}
+                onWidthChange={(next: number) => {
+                  setRightWidth(next);
+                  writePanelWidth("shell-right", next, window.localStorage);
+                }}
+              />
               {/*
                 D9（chat-main-fidelity-rubric.md）—— 此前这颗按钮画在 `left-1 top-1`，
                 与 `ChatArtifactsPanel` 头部左侧的「产物」包裹图标（`Package` + 文字）
@@ -300,7 +456,7 @@ function ShellChrome({
                 aria-label="收起右栏"
                 data-testid="shell-right-collapse"
                 onClick={() => togglePanel("right")}
-                className="absolute right-1 top-1 z-10 hidden h-6 w-6 items-center justify-center rounded border border-border bg-panel-alt text-muted-foreground shadow-sm transition-colors hover:bg-muted hover:text-foreground xl:flex"
+                className={cn("absolute right-1 top-1 z-10 hidden h-6 w-6 items-center justify-center rounded border border-border bg-panel-alt text-muted-foreground shadow-sm transition-colors hover:bg-muted hover:text-background-foreground", SIDE_PANEL_VISIBLE_FLEX)}
               >
                 <X aria-hidden className="h-3.5 w-3.5" />
               </button>
@@ -313,14 +469,41 @@ function ShellChrome({
               aria-label="展开右栏"
               data-testid="shell-right-expand"
               onClick={() => togglePanel("right")}
-              className="hidden w-5 shrink-0 items-center justify-center border-l border-border bg-panel-alt text-muted-foreground transition-colors hover:bg-muted hover:text-foreground xl:flex"
+              className={cn("hidden w-5 shrink-0 items-center justify-center border-l border-border bg-panel-alt text-muted-foreground transition-colors hover:bg-muted hover:text-background-foreground", SIDE_PANEL_VISIBLE_FLEX)}
             >
               ‹
             </button>
           )}
         </div>
-        <MobileTabs />
+        {!fullscreen && <MobileTabs />}
       </div>
+      {/*
+        切换的三段体感挂在壳层最外层，不挂在组织菜单里：菜单一点就关，
+        而这三样东西要在菜单消失之后、跨越一次换页继续说话。
+      */}
+      {pendingSwitch !== null && (
+        <OrgSwitchConfirm
+          pending={pendingSwitch}
+          onConfirm={() => runSwitch(pendingSwitch)}
+          onCancel={() => setPendingSwitch(null)}
+        />
+      )}
+      {switching && switchingTo !== null && <OrgSwitchProgress toLabel={switchingTo} />}
+      {failed !== null && !switching && (
+        <OrgSwitchFailed
+          toLabel={failed.toLabel}
+          onRetry={() => runSwitch({ ...failed, runsInFlight: busyCount })}
+          onDismiss={() => setFailed(null)}
+        />
+      )}
+      {landing !== null && (
+        <OrgSwitchLanded
+          toLabel={landing.toLabel}
+          fromLabel={landing.fromLabel}
+          runsLeftBehind={landing.runsLeftBehind}
+          onDismiss={() => setLanding(null)}
+        />
+      )}
     </div>
     </FeedbackProvider>
   );

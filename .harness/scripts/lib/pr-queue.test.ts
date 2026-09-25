@@ -9,10 +9,12 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { REPO_ROOT } from "./paths";
+import { evaluateMergeGate } from "./merge-gate";
 import {
   PR_QUEUE_STATES,
   REQUIRED_CHECKS,
   classifyPr,
+  hasIndependentApproval,
   statusContextToCheck,
   mergeAuthorization,
   parseClosesIssues,
@@ -21,6 +23,7 @@ import {
   classifyApprovals,
   postMergeGaps,
   resolveCoordMode,
+  type FormalReview,
   type PrFacts,
 } from "./pr-queue";
 
@@ -53,16 +56,22 @@ describe("#451 PR 队列状态机", () => {
 
   // ── 八条必需反证（issue #451「Required fail-closed regressions」）──────────
   //
-  // 2026-08-16（APPROVE_CHECK_SUSPENDED=true，见该常量定义处）："verdict label
-  // 必须锚定当前 head 的 approve 背书"这条判断暂停，只进 advisories 不进
-  // blockers。反证 1/7 因此分成两半断言：state 不再是 MERGE_BLOCKED，但
-  // advisories 里必须仍然出现对应理由——判断逻辑还在算，只是结论不拦人。
-  it("反证 1：review 锚在旧 SHA——暂停期不再 MERGE_BLOCKED，但 advisories 仍报出旧 SHA", () => {
+  // 2026-08-16（APPROVE_CHECK_SUSPENDED=true，见该常量定义处）：独立 approve 这条
+  // 判断暂停，只进 advisories 不进 blockers。反证 1/7 因此分成两半断言：state 不再
+  // 因此变成 MERGE_BLOCKED，但 advisories 里必须仍然出现对应理由——判断逻辑还在算，
+  // 只是结论不拦人。
+  //
+  // #1441：独立 approve 判据改成"原生 APPROVE 或 review:*-ok 标签，二者取一"之后，
+  // 基线里的 `review:feature-ok` 标签**本身就满足**这一条。涉及 approve 信号的反证
+  // 因此必须**显式隔离 labels**（比照 merge-gate.test.ts 反证 1/3/6/7 的做法），
+  // 否则测的是"标签路径短路了"，而不是"漂移/自审被算出来了"——那种用例是空转的。
+  it("反证 1：review 锚在旧 SHA + 没有标签兜底——暂停期不再拦人，但 advisories 仍报出旧 SHA", () => {
     const got = classifyPr({
       ...greenFacts(),
+      verdictLabels: [], // 隔离标签路径：否则 -ok 标签单独就满足独立 approve，漂移根本不会被算
       formalReviews: [{ author: "rev-feature", state: "APPROVED", commit: OLD }],
     });
-    expect(got.state).toBe("READY_TO_MERGE"); // 其余条件都满足，条件 5 这一半暂停不拦
+    expect(got.state).toBe("READY_TO_MERGE"); // 其余条件都满足，这条暂停不拦
     expect(got.advisories.join("\n")).toContain(OLD);
   });
 
@@ -115,29 +124,83 @@ describe("#451 PR 队列状态机", () => {
     expect(got.reasons.join("\n")).not.toContain("追溯不到任何 issue");
   });
 
-  it("反证 7：作者自审——approve 者与 PR 作者是同一人", () => {
-    // 自审检查（条件 5 前半：selfApprovals.length > 0 → blocked）没有被暂停——
-    // 只有"verdict label 缺独立 approve 背书"那半条（条件 5 后半）暂停了，两者
-    // 是不同的判断，别混为一谈。
+  it("反证 7：作者自审 + 没有标签兜底——自审仍然 MERGE_BLOCKED（这条没有被暂停）", () => {
+    // 自审检查（`selfApprovals.length > 0` → blocked）是**独立的一条**，没有被
+    // APPROVE_CHECK_SUSPENDED 暂停，也不被 #1441 的判据改动影响。这里同样隔离
+    // 标签，让"独立 approve 不成立"这件事真的被算出来。
     const got = classifyPr({
       ...greenFacts(),
+      verdictLabels: [],
       formalReviews: [{ author: "worker-agent", state: "APPROVED", commit: HEAD }],
     });
     expect(got.state).toBe("MERGE_BLOCKED");
     expect(got.reasons.join("\n")).toContain("自审");
-    // 自审不得顺带把"有人 approve 过"这件事洗白：条件 5 后半虽然暂停不拦，
-    // 但判断逻辑还在算，advisories 里必须仍然报出"没有锚定当前 head"。
-    expect(got.advisories.join("\n")).toContain("没有锚定当前 head");
+    // 自审不得顺带把"有人 approve 过"这件事洗白：独立 approve 判据虽然暂停不拦，
+    // 但判断逻辑还在算，advisories 里必须如实报出"两条路都不满足"。
+    expect(got.advisories.join("\n")).toContain("也没有 `review:*-ok` 标签");
   });
 
-  // ── 2026-08-16 新行为：实测本仓最近 100 个已合并 PR 里 0 个有原生 APPROVE ──
-  it("实测驱动：只有 review:feature-ok 标签、完全没有 formalReviews 也能到 READY_TO_MERGE", () => {
-    // 直接对应实测证据：如果这条不通过，pr-queue 就会像暂停前一样，对本仓
-    // 实际发生过的每一个 PR 都判非 READY_TO_MERGE，不管它有没有真的走过 review。
+  it("#1441：带 -ok 标签时作者自审**仍然**拦人——标签路径不得洗白自审", () => {
+    // 与 merge-gate 的刻意差异：merge-gate 的自审分支在条件 3 内部，被标签短路；
+    // pr-queue 的自审是独立的 blocked 条目，任何标签都顶不掉。这是 pr-queue 作为
+    // 完整状态机比 merge-gate 更严的地方，用例把它钉住，免得哪天被"对齐"掉。
+    const got = classifyPr({
+      ...greenFacts(),
+      verdictLabels: ["review:feature-ok"],
+      formalReviews: [{ author: "worker-agent", state: "APPROVED", commit: HEAD }],
+    });
+    expect(got.state).toBe("MERGE_BLOCKED");
+    expect(got.reasons.join("\n")).toContain("自审");
+  });
+
+  // ── #1441：独立 approve = 原生 APPROVE 或 review:*-ok 标签，二者取一 ──────────
+  //    实测依据：本仓最近 100 个已合并 PR 里 0 个有原生 APPROVE，全仓也搜不到任何
+  //    脚本调用过 `gh pr review`——"必须有原生 APPROVE 背书"这条判据在本仓没有
+  //    对应的真实信号源，留着只会让每个 PR 都带一条永远为真的"缺背书"结论。
+  it("反证（#1441 主线）：只有 review:feature-ok 标签、完全没有 formalReviews → READY_TO_MERGE 且不产生任何 approve 信号", () => {
     const got = classifyPr({ ...greenFacts(), formalReviews: [] });
     expect(got.state).toBe("READY_TO_MERGE");
-    // 判断逻辑仍然算出"标签缺 approve 背书"，只是挪进 advisories 不拦人。
-    expect(got.advisories.join("\n")).toContain("没有锚定当前 head");
+    expect(got.blockers).toEqual([]);
+    // 关键：标签**单独**就满足独立 approve，不再产生"缺原生 APPROVE 背书"的结论。
+    // 改判据之前这里会是 "[已暂停，仅记录] verdict label ... 没有锚定当前 head ..."。
+    expect(got.advisories).toEqual([]);
+  });
+
+  it("反证（#1441）：review:e2e-ok 同样能单独满足，不只 feature-ok 一种 OK 档", () => {
+    const got = classifyPr({ ...greenFacts(), verdictLabels: ["review:e2e-ok"], formalReviews: [] });
+    expect(got.state).toBe("READY_TO_MERGE");
+    expect(got.advisories).toEqual([]);
+  });
+
+  it("反证（#1441）：标签路径不做 head 漂移检查——已知的弱化点，用例钉住而不是意外发现", () => {
+    // GitHub label 不记快照 SHA，接受标签路径就等于放弃"绑定当前 head"这层保护。
+    // 这是 merge-gate.ts 已经做过并记录在案的权衡（见其文件头 2026-08-16 说明），
+    // 本 issue 直接抄一致结论，不重新论证。标签本身也能被任何有写权限的人/agent
+    // 自己打——同样是这个权衡的一部分。
+    const got = classifyPr({
+      ...greenFacts(),
+      verdictLabels: ["review:feature-ok"],
+      formalReviews: [{ author: "rev-feature", state: "APPROVED", commit: OLD }],
+    });
+    expect(got.state).toBe("READY_TO_MERGE");
+    expect(got.advisories).toEqual([]);
+  });
+
+  it("反证（#1441）：两条路都不满足时，判断逻辑仍然算出来——暂停只是不拦人，不是不算", () => {
+    const got = classifyPr({ ...greenFacts(), verdictLabels: [], formalReviews: [] });
+    expect(got.advisories.join("\n")).toContain("既没有独立 APPROVE review，也没有 `review:*-ok` 标签");
+    expect(got.blockers).toEqual([]); // APPROVE_CHECK_SUSPENDED=true：只记录
+  });
+
+  it("反证（#1441）：COMMENT / CHANGES_REQUESTED 都不算 APPROVE，顶不掉缺失的标签", () => {
+    for (const state of ["COMMENTED", "DISMISSED"]) {
+      const got = classifyPr({
+        ...greenFacts(),
+        verdictLabels: [],
+        formalReviews: [{ author: "rev-feature", state, commit: HEAD }],
+      });
+      expect(got.advisories.join("\n"), state).toContain("既没有独立 APPROVE review");
+    }
   });
 
   it("反证 8：无人值守 heartbeat 即便面对 READY_TO_MERGE 也一律拒绝合并", () => {
@@ -320,6 +383,63 @@ describe("ADR-107 阶段二 a：与 merge-gate 共享的判据（防两处分叉
     expect(facts.independentCurrentSha.map((r) => r.author)).toEqual(["rev-a"]);
     expect(facts.selfApprovals.map((r) => r.author)).toEqual(["worker-agent"]);
     expect(facts.staleApprovals.map((r) => r.author)).toEqual(["rev-b"]);
+  });
+
+  // ── #1441：独立 approve 判据是**一份**，两个模块都用它 ─────────────────────
+  it("hasIndependentApproval：原生 APPROVE 或 review:*-ok 标签，二者取一", () => {
+    const cases: Array<{ reviews: FormalReview[]; labels: string[]; expected: boolean }> = [
+      { reviews: [{ author: "rev-a", state: "APPROVED", commit: HEAD }], labels: [], expected: true },
+      { reviews: [], labels: ["review:feature-ok"], expected: true },
+      { reviews: [], labels: ["review:e2e-ok"], expected: true },
+      { reviews: [{ author: "rev-a", state: "APPROVED", commit: OLD }], labels: ["review:feature-ok"], expected: true },
+      { reviews: [], labels: ["review:changes"], expected: false },
+      { reviews: [], labels: [], expected: false },
+      { reviews: [{ author: "rev-a", state: "APPROVED", commit: OLD }], labels: [], expected: false },
+      { reviews: [{ author: "worker-agent", state: "APPROVED", commit: HEAD }], labels: [], expected: false },
+      { reviews: [{ author: "rev-a", state: "COMMENTED", commit: HEAD }], labels: [], expected: false },
+    ];
+    for (const c of cases) {
+      const got = hasIndependentApproval(classifyApprovals(c.reviews, "worker-agent", HEAD), c.labels);
+      expect(got, JSON.stringify(c)).toBe(c.expected);
+    }
+  });
+
+  it("#1441 窗口期闭合：同一份事实，pr-queue 与 merge-gate 对「独立 approve」结论一致", () => {
+    // issue #1441「风险」那节：merge-gate 先改、pr-queue 未改时，同一个 PR 会被
+    // 一个判"满足"、另一个判"没有背书"。这条用例把两个模块的结论直接对撞，
+    // 窗口期一旦重开当场红。
+    const matrix: Array<{ reviews: FormalReview[]; labels: string[] }> = [
+      { reviews: [], labels: ["review:feature-ok"] },
+      { reviews: [], labels: ["review:e2e-ok"] },
+      { reviews: [{ author: "rev-a", state: "APPROVED", commit: HEAD }], labels: [] },
+      { reviews: [{ author: "rev-a", state: "APPROVED", commit: OLD }], labels: ["review:feature-ok"] },
+      { reviews: [{ author: "rev-a", state: "APPROVED", commit: OLD }], labels: [] },
+      { reviews: [], labels: [] },
+      { reviews: [{ author: "rev-a", state: "COMMENTED", commit: HEAD }], labels: [] },
+    ];
+    for (const c of matrix) {
+      const shared = hasIndependentApproval(classifyApprovals(c.reviews, "worker-agent", HEAD), c.labels);
+
+      const queue = classifyPr({ ...greenFacts(), verdictLabels: c.labels, formalReviews: c.reviews });
+      const queueSaysMissing = [...queue.reasons, ...queue.advisories]
+        .some((r) => r.includes("既没有独立 APPROVE review"));
+
+      const gate = evaluateMergeGate({
+        number: 1441,
+        author: "worker-agent",
+        headSha: HEAD,
+        body: "Closes #1441",
+        labels: c.labels,
+        reviews: c.reviews,
+      });
+      // merge-gate 条件 3 有三种措辞（自审 / 旧 SHA 漂移 / 两者皆无），条件 2
+      // 的"没有任何 review:* verdict label"不算——只认条件 3 的那三种。
+      const gateSaysMissing = [...gate.reasons, ...gate.advisories]
+        .some((r) => ["作者自审", "已漂移", "没有独立 APPROVE review"].some((k) => r.includes(k)));
+
+      expect(queueSaysMissing, `pr-queue ${JSON.stringify(c)}`).toBe(!shared);
+      expect(gateSaysMissing, `merge-gate ${JSON.stringify(c)}`).toBe(!shared);
+    }
   });
 });
 

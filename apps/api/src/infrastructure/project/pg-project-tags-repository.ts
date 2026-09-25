@@ -13,9 +13,25 @@
 import type { DatabasePort } from "../../application/ports/database.port";
 import type { ProjectTagsRepository, UpdateProjectTagsOutcome } from "../../application/project/ports";
 import type { OrgId } from "../../domain/org-id";
+import type { SampleProjectLookup } from "../../application/project/sample-project/ensure-sample-project";
 
-export class PgProjectTagsRepository implements ProjectTagsRepository {
+export class PgProjectTagsRepository implements ProjectTagsRepository, SampleProjectLookup {
   constructor(private readonly db: DatabasePort) {}
+
+  /**
+   * backlog E2：`ensureSampleProject` 的幂等判据。只回一个 id（不回名字/内容），且只被
+   * 系统种子路径调用（组织创建时 + 补种脚本），不是面向用户的读出口——同文件那条
+   * 豁免的「不披露任何人的内容」论证不变。表仍恰好是 `project_tags`。
+   */
+  async findProjectIdByTag(orgId: OrgId, tag: string): Promise<string | null> {
+    return this.db.withTenant(orgId, async (s) => {
+      const r = await s.query<{ project_id: string }>(
+        `SELECT project_id FROM project_tags WHERE org_id = $1 AND tag = $2 ORDER BY created_at ASC LIMIT 1`,
+        [orgId, tag],
+      );
+      return r.rows[0]?.project_id ?? null;
+    });
+  }
 
   async updateTags(orgId: OrgId, projectId: string, tags: readonly string[]): Promise<UpdateProjectTagsOutcome> {
     return this.db.withTenant(orgId, async (s) => {

@@ -177,3 +177,37 @@ describe("ChatAttachmentPreviewModal", () => {
     expect(await screen.findByTestId("chat-attachment-preview-text")).toHaveTextContent("周报助手");
   });
 });
+
+describe("消息气泡上的图片附件内联显示（2026-09-19 人类实测反馈：「是图片的话，需要展示出来图片」）", () => {
+  it("图片附件取到字节后渲染成缩略图 <img>，点击打开同一个预览弹窗", async () => {
+    useAuthedImageSrcMock.mockReturnValue({ src: "blob:mock-thumb", failed: false });
+    const att = makeAttachment({ id: "att-shot", filename: "截屏2026-09-19 07.49.35.png", mime: "image/png" });
+    render(<MessageAttachments attachments={[att]} threadId="thread-1" />);
+
+    const img = await screen.findByTestId("chat-message-attachment-image-att-shot") as HTMLImageElement;
+    expect(img.getAttribute("src")).toBe("blob:mock-thumb");
+    expect(img.getAttribute("alt")).toBe("截屏2026-09-19 07.49.35.png");
+    // 字节走与预览弹窗同一条受鉴权路由，不是裸 <img src> 直指后端。
+    expect(useAuthedImageSrcMock).toHaveBeenCalledWith(expect.stringContaining("/chat/threads/thread-1/attachments/att-shot/content"));
+
+    fireEvent.click(screen.getByTestId("chat-message-attachment-att-shot"));
+    expect(await screen.findByTestId("chat-attachment-preview-image")).toBeInTheDocument();
+  });
+
+  it("图片字节取不到（失败 / 未就绪）时回落到原来的文件卡片，不留裂图", () => {
+    useAuthedImageSrcMock.mockReturnValue({ src: null, failed: true });
+    const att = makeAttachment({ id: "att-broken", filename: "坏图.png", mime: "image/png" });
+    render(<MessageAttachments attachments={[att]} threadId="thread-1" />);
+    expect(screen.queryByTestId("chat-message-attachment-image-att-broken")).toBeNull();
+    expect(screen.getByTestId("chat-message-attachment-att-broken").textContent).toContain("坏图.png");
+  });
+
+  it("非图片附件仍是文件卡片，不去取字节", () => {
+    useAuthedImageSrcMock.mockClear();
+    const att = makeAttachment({ id: "att-pdf", filename: "上会材料.pdf", mime: "application/pdf" });
+    render(<MessageAttachments attachments={[att]} threadId="thread-1" />);
+    expect(screen.queryByTestId("chat-message-attachment-image-att-pdf")).toBeNull();
+    expect(screen.getByTestId("chat-message-attachment-att-pdf").textContent).toContain("上会材料.pdf");
+    expect(useAuthedImageSrcMock).not.toHaveBeenCalled();
+  });
+});

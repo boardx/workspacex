@@ -1,0 +1,423 @@
+{
+  "phase": "18",
+  "features": [
+    {
+      "id": "F01",
+      "priority": 1,
+      "area": "kg-infra",
+      "capability": "CAP-DATA",
+      "title": "Postgres 镜像内置 Apache AGE + pgvector，compose/CI 切换，CREATE EXTENSION age 迁移，按 org 建图",
+      "user_visible_behavior": "本地 compose 与 CI 起来的 Postgres 同时启用了 age 与 vector 两个扩展；每个组织首次使用知识图谱时，其专属 AGE 图（graph）被自动创建，运维可在 DB 里查到 `CREATE EXTENSION age` 已执行且 `ag_graph` 中存在该 org 的图。",
+      "status": "not_started",
+      "sprint": null,
+      "owner": null,
+      "spec_ref": "uc-18-1-会话知识入图.md#R3",
+      "depends_on": [],
+      "points": 5,
+      "wave": 1,
+      "design_ref": "docs/adr/ADR-114-apache-age-ontology-graph-projection.md",
+      "verification": [
+        "pnpm --filter api exec vitest run tests/db/age-pgvector-extensions.test.ts",
+        "pnpm --filter api exec vitest run tests/db/age-per-org-graph.test.ts"
+      ],
+      "evidence": "",
+      "notes": "KG-M1 基座(a)。依据等级：[Backlog]（文档+ADR-114 要求，运行态尚无 AGE 镜像，需先落地基础设施，不可直接开工上层）。全 phase 地基，排最前。第一个测试断言两扩展在测试库都可用；第二个断言按 org 幂等建图。整批基建（F01-F05）所属契约束 chat-knowledge-graph 需人类签核 design-signoff 后方可 claim。"
+    },
+    {
+      "id": "F02",
+      "priority": 2,
+      "area": "kg-schema",
+      "capability": "CAP-DATA",
+      "title": "本体 canonical 表与 RLS：ontology_objects / ontology_actions / object_embeddings / claims 扩列 / ontology_edges 扩展",
+      "user_visible_behavior": "迁移后数据库里存在 ontology_objects、ontology_actions、object_embeddings 三张新表，claims 表新增 confidence/valid_from/valid_to/created_by/reviewed_by/supersedes_claim_id/claim_kind/scope_kind/scope_id/revoked_at/rejected_at/decision_state(nullable) 列，ontology_edges 扩展出 kind(含 claim/object/chat_message)、status(active/invalidated)、created_by、provenance_event_id、scope；所有本体表带 scope_kind/scope_id 并受 RLS 保护，跨 org / 跨用户读取被拒。",
+      "status": "not_started",
+      "sprint": null,
+      "owner": null,
+      "spec_ref": "uc-18-1-会话知识入图.md#R7",
+      "depends_on": [
+        "F01"
+      ],
+      "points": 8,
+      "wave": 1,
+      "design_ref": "packages/contracts/src/chat-knowledge-graph.ts",
+      "verification": [
+        "pnpm --filter api exec vitest run tests/db/ontology-schema-migrations.test.ts",
+        "pnpm --filter api exec vitest run tests/db/ontology-rls.test.ts"
+      ],
+      "evidence": "",
+      "notes": "KG-M1 基座(b)。依据等级：[Backlog]（S0-5 已定枚举、契约 knowledge-graph.ts 已定形状，但表尚未存在）。schema 测试断言表/列/枚举约束存在；RLS 测试断言跨 scope 读取为空（S2 零越权的存储层地基）。"
+    },
+    {
+      "id": "F03",
+      "priority": 3,
+      "area": "kg-executor",
+      "capability": "CAP-API",
+      "title": "ontology_actions 执行器：强制不变量（模型不直写、模型最高 proposed、必须挂证据、作用域仅 chat_session/personal）",
+      "user_visible_behavior": "任何写入本体表都必须经 ontology_actions 执行器；模型身份直接 INSERT claims 被拒（KG_ACTOR_NOT_HUMAN / RLS），模型产出的结论 status 最高只能到 proposed，无证据锚点的结论被拒不落表，scope 为 project/org/platform 的写入返回 KG_SCOPE_NOT_ENABLED，被拒动作记 rejected 及原因可在审计里查。",
+      "status": "not_started",
+      "sprint": null,
+      "owner": null,
+      "spec_ref": "00-overview.md#R4",
+      "depends_on": [
+        "F02"
+      ],
+      "points": 5,
+      "wave": 1,
+      "design_ref": "packages/contracts/src/chat-knowledge-graph.ts",
+      "verification": [
+        "pnpm --filter api exec vitest run tests/knowledge-graph/ontology-actions-executor.test.ts",
+        "pnpm --filter api exec vitest run tests/knowledge-graph/executor-invariants.test.ts"
+      ],
+      "evidence": "",
+      "notes": "KG-M1 基座(c)，对应 uc-18-1 R7 与 00-overview R4 硬边界一/四。依据等级：[Backlog]。执行器是硬边界的落地点（模型不直写、evidence 必需、scope 白名单）；不变量测试逐条覆盖 R7-3/R7-4 与 KG_SCOPE_NOT_ENABLED。uc-18-1 V3 由此验证。"
+    },
+    {
+      "id": "F04",
+      "priority": 4,
+      "area": "kg-projection",
+      "capability": "CAP-DATA",
+      "title": "AGE 投影 worker（outbox 驱动）+ graph:rebuild 脚本 + CTE 对拍一致性",
+      "user_visible_behavior": "canonical 表写入后，投影 worker 经 outbox 幂等 upsert 到该 org 的 AGE 图；停掉 AGE 时 canonical 仍能落库、消息仍能发，恢复后运行 graph:rebuild 使 AGE 与 canonical 完全一致（用纯 SQL/CTE 从 canonical 重算的结果与 AGE 图查询结果逐行对拍相等）。",
+      "status": "not_started",
+      "sprint": null,
+      "owner": null,
+      "spec_ref": "uc-18-1-会话知识入图.md#R3",
+      "depends_on": [
+        "F03"
+      ],
+      "points": 5,
+      "wave": 1,
+      "design_ref": "docs/adr/ADR-114-apache-age-ontology-graph-projection.md",
+      "verification": [
+        "pnpm --filter api exec vitest run tests/knowledge-graph/age-projection-worker.test.ts",
+        "pnpm --filter api exec vitest run tests/knowledge-graph/graph-rebuild-cte-parity.test.ts"
+      ],
+      "evidence": "",
+      "notes": "KG-M1 基座(d)，uc-18-1 R11③ / V4。依据等级：[Backlog]。CTE 对拍测试是「AGE 是可重建投影」这条硬边界（00-overview R4-2）的机械证据；worker 测试断言幂等 upsert + AGE 挂掉不阻塞 canonical。"
+    },
+    {
+      "id": "F05",
+      "priority": 5,
+      "area": "kg-retrieval",
+      "capability": "CAP-DATA",
+      "title": "HNSW 向量索引 + 带权限过滤的召回率门槛测试",
+      "user_visible_behavior": "object_embeddings 与 segment_embeddings 建立 HNSW 索引，向量召回在 RLS 权限过滤后仍达到既定召回率门槛（改造现有 pgvector-permission-recall 测试集），跨 scope 的向量结果被过滤掉恒为零。",
+      "status": "not_started",
+      "sprint": null,
+      "owner": null,
+      "spec_ref": "uc-18-2-会话内图谱与向量召回.md#R9",
+      "depends_on": [
+        "F02"
+      ],
+      "points": 3,
+      "wave": 1,
+      "design_ref": "docs/adr/ADR-114-apache-age-ontology-graph-projection.md",
+      "verification": [
+        "pnpm --filter api exec vitest run tests/retrieval/kg-hnsw-permission-recall.test.ts"
+      ],
+      "evidence": "",
+      "notes": "KG-M1 基座(e)，uc-18-1 R11④ / uc-18-2 R9。依据等级：[Backlog]，且门槛数值（召回率 ≥ 0.9）在 S0-4 标注为「跑出基线后可调」——测试先锚「结构性断言：跨 scope 恒零 + 召回率不低于当前基线」，绝对阈值待 S0-4 复核，属依据不足项，见回复清单。"
+    },
+    {
+      "id": "F06",
+      "priority": 6,
+      "area": "kg-extraction",
+      "capability": "CAP-API",
+      "title": "抽取 Agent + 实体解析：会话消息/附件 → 实体/结论/关系/证据，幂等入图",
+      "user_visible_behavior": "发一条含「张三决定下周一上线 v2」的消息，30 秒内本会话出现实体「张三」「v2」与一条 decision 结论，结论挂着回指该消息的证据锚点；同一消息重复触发三次，实体/结论/边的行数不变（幂等键=源 id + pipeline 版本）；纯寒暄消息不产生候选也不报错。",
+      "status": "not_started",
+      "sprint": null,
+      "owner": null,
+      "spec_ref": "uc-18-1-会话知识入图.md#R3",
+      "depends_on": [
+        "F03",
+        "F04",
+        "F05"
+      ],
+      "points": 8,
+      "wave": 2,
+      "design_ref": "packages/contracts/src/chat-knowledge-graph.ts",
+      "verification": [
+        "pnpm --filter api exec vitest run tests/knowledge-graph/extraction-agent.test.ts",
+        "pnpm --filter api exec vitest run tests/knowledge-graph/entity-resolution-idempotent.test.ts"
+      ],
+      "evidence": "",
+      "notes": "KG-M2，uc-18-1 R3/R11② / V1+V2。依据等级：[Backlog]。抽取测试用回环模型断言实体+结论+证据锚点产出；幂等测试断言重复处理行数差为 0（S3）。"
+    },
+    {
+      "id": "F07",
+      "priority": 7,
+      "area": "kg-lifecycle",
+      "capability": "CAP-API",
+      "title": "invalidateOntologyEdges 真实现 + 删除失效级联（消息/附件/会话/结论）",
+      "user_visible_behavior": "删除一条消息后 5 分钟内，仅由它支撑的结论 revoked_at 非空且 revocation_reason=source_deleted、相关 ontology_edges status=invalidated、AGE 中不再有该边、召回为空；一条结论有两个来源、删掉其中一个则结论仍在、证据数由 2 变 1；停掉 AGE 再删除，召回立即为空（canonical 过滤优先），AGE 恢复后自动清理；files 束的出站端口 invalidateOntologyEdges 返回 invalidatedEdgeIds 且为软失效。",
+      "status": "not_started",
+      "sprint": null,
+      "owner": null,
+      "spec_ref": "uc-18-5-删除与失效传播.md#R3",
+      "depends_on": [
+        "F02",
+        "F04"
+      ],
+      "points": 8,
+      "wave": 2,
+      "design_ref": "packages/contracts/src/chat-knowledge-graph.ts",
+      "verification": [
+        "pnpm --filter api exec vitest run tests/knowledge-graph/invalidate-ontology-edges.test.ts",
+        "pnpm --filter api exec vitest run tests/knowledge-graph/delete-cascade-invalidation.test.ts",
+        "pnpm --filter @repo/contracts exec vitest run tests/knowledge-graph/invalidate-edges-contract.test.ts"
+      ],
+      "evidence": "",
+      "notes": "KG-M2，uc-18-5 R3/R11 全部 / V1-V4。依据等级：[Backlog]，承接 uc-22-4 的桩 invalidateOntologyEdges。SLA 5 分钟引用 uc-22-4 同一数值（不另写）。契约测试断言端口签名与软失效语义一致；级联测试覆盖「仅由被删源支撑 vs 仍有其他证据」两分支（S4）。L1 副本失效在 F12 落地后由 F14 端到端补验。"
+    },
+    {
+      "id": "F08",
+      "priority": 8,
+      "area": "kg-retrieval",
+      "capability": "CAP-API",
+      "title": "L3 混合召回接入 AGE 图路 + graphSeeds + 向量，Context Pack 带 retrievalReasons/omissions",
+      "user_visible_behavior": "会话里提「上线 v2 是谁定的、为什么」时，Planner 对问题做实体解析得到 graphSeeds，在 AGE 上做 k 跳邻域（只返回 id，回 canonical 按 RLS 读内容），与向量/FTS/metadata/claim 五路 RRF 融合；图路只加分不单独决定结果（关掉图路结果集仍合理）；每条 item 带 retrievalReasons 与可定位锚点，AGE 或向量不可用时进入 Context Pack 的 omissions（不静默降级）。",
+      "status": "not_started",
+      "sprint": null,
+      "owner": null,
+      "spec_ref": "uc-18-2-会话内图谱与向量召回.md#R3",
+      "depends_on": [
+        "F04",
+        "F05",
+        "F06"
+      ],
+      "points": 8,
+      "wave": 3,
+      "design_ref": "packages/contracts/src/context-pack.ts",
+      "verification": [
+        "pnpm --filter api exec vitest run tests/retrieval/kg-hybrid-graph-channel.test.ts",
+        "pnpm --filter api exec vitest run tests/retrieval/kg-context-pack-reasons-omissions.test.ts"
+      ],
+      "evidence": "",
+      "notes": "KG-M3，uc-18-2 R3/R11①②④ / V3。依据等级：[Backlog]，扩 chat-context-engine 束 L3 召回来源、不改 L1/L2/ModelCallPort。图路对拍测试断言关掉图路结果仍合理（R7-2）；omissions 测试断言 AGE/向量不可用被显式记录（S6/R4-E1/E2）。"
+    },
+    {
+      "id": "F09",
+      "priority": 9,
+      "area": "kg-web",
+      "capability": "CAP-WEB",
+      "title": "本会话知识面板读取 API + 列表/图视图接线（uc-18-3 读）",
+      "user_visible_behavior": "会话右侧栏「知识」tab 打开后，getThreadKnowledge 返回的结论按类型分组、带三态徽标（待确认/已确认/冲突）与来源计数，可在列表(kg-view-list)与图(kg-view-graph, @xyflow/react)间切换；点结论打开来源抽屉(kg-source-drawer)看证据与 provenance；空/加载/错误/只读/超限等状态按七态规范渲染，超 200 节点折叠为簇。 面板头部常驻可见范围「仅你可见 / 会话成员可见」（U-6，kg-visibility）；回答下方单行「已记下 N 条 · 查看 · 撤销」（U-1，getTurnMemory，kg-turn-captured）；界面文案不出现 06-user-experience R5 禁用词。",
+      "status": "not_started",
+      "sprint": null,
+      "owner": null,
+      "spec_ref": "uc-18-3-本会话知识图谱视图.md#R3",
+      "depends_on": [
+        "F06"
+      ],
+      "points": 5,
+      "wave": 3,
+      "design_ref": "apps/web/app/preview/chat-knowledge-graph/page.tsx",
+      "verification": [
+        "pnpm --filter api exec vitest run tests/knowledge-graph/get-thread-knowledge-api.test.ts",
+        "pnpm --filter web exec vitest run tests/knowledge/knowledge-panel-list-graph.test.tsx"
+      ],
+      "evidence": "",
+      "notes": "KG-M3，uc-18-3 R3/R8/R11①③。依据等级：[原型]（UI 已由 ui-prototyper 建成，apps/web/components/chat/knowledge/*，testid 前缀 kg-），API 与接线为 [Backlog]。UI 断言锚已存在的 testid（kg-panel/kg-view-list/kg-view-graph/kg-source-drawer/kg-graph-oversize），故可写 UI 层断言。"
+    },
+    {
+      "id": "F10",
+      "priority": 10,
+      "area": "kg-web",
+      "capability": "CAP-WEB",
+      "title": "人工编辑动作 API + UI（确认/改写/删除/标冲突/合并/拆分/改名）",
+      "user_visible_behavior": "会话所有者在知识面板对结论执行确认（proposed→accepted，reviewed_by 为本人）、改写（supersede 旧结论）、删除（superseded+revoked_at，列表消失但审计与 DB 行仍在）、标冲突（两条→contested），对实体执行合并/拆分/改名，界面 2 秒内反映且 AGE 同步；非所有者看不到编辑菜单(kg-claim-edit-menu 不渲染)且直接调 API 得 KG_NOT_OWNER；对 contested 点确认得 KG_CONTESTED_NEEDS_RESOLUTION；并发编辑后到者得 KG_REVISION_CHANGED。 每行一键「对 / 不对」与列表头「全部确认」（U-2，confirmClaims 批量，kg-row-yes-*/kg-confirm-all）。",
+      "status": "not_started",
+      "sprint": null,
+      "owner": null,
+      "spec_ref": "uc-18-3-本会话知识图谱视图.md#R7",
+      "depends_on": [
+        "F09",
+        "F03"
+      ],
+      "points": 5,
+      "wave": 3,
+      "design_ref": "apps/web/app/preview/chat-knowledge-graph/page.tsx",
+      "verification": [
+        "pnpm --filter api exec vitest run tests/knowledge-graph/apply-human-action-api.test.ts",
+        "pnpm --filter web exec vitest run tests/knowledge/claim-edit-menu-actions.test.tsx"
+      ],
+      "evidence": "",
+      "notes": "KG-M3，uc-18-3 R3/R7/R11② / V1-V4。依据等级：[原型] UI + [Backlog] 后端。API 测试覆盖七种 KgHumanAction 与 KG_NOT_OWNER/KG_ACTOR_NOT_HUMAN/KG_CONTESTED_NEEDS_RESOLUTION/KG_REVISION_CHANGED；删除断言软失效（DB 行仍在）。"
+    },
+    {
+      "id": "F11",
+      "priority": 11,
+      "area": "kg-promotion",
+      "capability": "CAP-API",
+      "title": "晋升到个人空间 + AI 提名（复制 + derived_from 连边，逐条部分成功）",
+      "user_visible_behavior": "会话所有者在个人线程里多选 accepted 结论点「存入个人空间」，系统逐条去重（向量+实体重合）后在 L1 新建结论（created_by=human）并用 derived_from 边连回 L0，返回逐条结果（promoted/merged/coexisting/needs_choice/rejected）；晋升 proposed 结论得 KG_PROMOTE_REQUIRES_ACCEPTED，非个人线程入口不渲染且 API 得 KG_SCOPE_NOT_PERSONAL，证据源已删得 KG_EVIDENCE_REVOKED，超 50 条得 KG_PROMOTE_BATCH_TOO_LARGE；AI 提名仅列候选(listPromotionNominations)，须人勾选后才执行。",
+      "status": "not_started",
+      "sprint": null,
+      "owner": null,
+      "spec_ref": "uc-18-4-晋升到个人空间并跨会话召回.md#R3",
+      "depends_on": [
+        "F10"
+      ],
+      "points": 5,
+      "wave": 4,
+      "design_ref": "packages/contracts/src/chat-knowledge-graph.ts",
+      "verification": [
+        "pnpm --filter api exec vitest run tests/knowledge-graph/promote-to-personal.test.ts",
+        "pnpm --filter api exec vitest run tests/knowledge-graph/promotion-nominations.test.ts"
+      ],
+      "evidence": "",
+      "notes": "KG-M4，uc-18-4 R3/R4/R11①③ / V3。依据等级：[Backlog]。S0-2=A：个人空间=同一用户全部个人线程（无项目、private），不新建容器。晋升=复制+连边不移动（R7-1）；部分成功不整批回滚（R4-E4）。"
+    },
+    {
+      "id": "F12",
+      "priority": 12,
+      "area": "kg-retrieval",
+      "capability": "CAP-API",
+      "title": "L1 跨会话召回：新会话可召回本人个人空间已晋升知识",
+      "user_visible_behavior": "会话 A 确认并晋升「客户 A 要求 v2 下周一上线」后，同一个人空间的新会话 B 问「客户 A 有什么要求」能召回该结论并标「来自个人空间知识」，引用可点回会话 A 原消息；召回范围恒为 actor 可见会话(L0)∪本人个人空间已晋升内容(L1)，永不跨用户/跨组织（另一用户问同样问题零召回）；会话其他成员提问只得 L0、看不到所有者的 L1。",
+      "status": "not_started",
+      "sprint": null,
+      "owner": null,
+      "spec_ref": "uc-18-4-晋升到个人空间并跨会话召回.md#R3",
+      "depends_on": [
+        "F11",
+        "F08"
+      ],
+      "points": 5,
+      "wave": 4,
+      "design_ref": "packages/contracts/src/context-pack.ts",
+      "verification": [
+        "pnpm --filter api exec vitest run tests/retrieval/kg-l1-cross-session-recall.test.ts",
+        "pnpm --filter api exec vitest run tests/retrieval/kg-l1-zero-leak-cross-user.test.ts"
+      ],
+      "evidence": "",
+      "notes": "KG-M4，uc-18-4 R3-6/R5/R11② / V1+V2。依据等级：[Backlog]，是对已签 delta「个人对话只召回本线程附件」的放宽（S0-3 人类已同意）。零越权测试断言跨用户/跨组织召回恒为空（S2），权限判定只在 PG RLS 一处。"
+    },
+    {
+      "id": "F13",
+      "priority": 13,
+      "area": "kg-web",
+      "capability": "CAP-WEB",
+      "title": "AI 提名卡片 + 晋升结果 UI + 「来自个人空间知识」标签",
+      "user_visible_behavior": "会话结束/空闲时出现「值得记住」提名卡片(kg-nomination-card)，用户勾选后点晋升(kg-nomination-promote/kg-promote-submit)；晋升后展示逐条结果列表(kg-promotion-results，成功/已合并/并存/被拒原因)；新会话回答里召回的 L1 内容带「来自个人空间知识」标签；非个人线程时晋升入口(kg-promote-enter)不渲染。",
+      "status": "not_started",
+      "sprint": null,
+      "owner": null,
+      "spec_ref": "uc-18-4-晋升到个人空间并跨会话召回.md#R8",
+      "depends_on": [
+        "F11"
+      ],
+      "points": 3,
+      "wave": 4,
+      "design_ref": "apps/web/app/preview/chat-knowledge-graph/page.tsx",
+      "verification": [
+        "pnpm --filter web exec vitest run tests/knowledge/nomination-card-promote.test.tsx",
+        "pnpm --filter web exec vitest run tests/knowledge/promotion-result-list.test.tsx"
+      ],
+      "evidence": "",
+      "notes": "KG-M4，uc-18-4 R8/R11③。依据等级：[原型] UI 已建（nomination-card.tsx / promotion-result-list.tsx），后端接线 [Backlog]。UI 断言锚已存在 testid（kg-nomination-card/kg-nomination-promote/kg-promote-submit/kg-promotion-results）。"
+    },
+    {
+      "id": "F14",
+      "priority": 14,
+      "area": "kg-e2e",
+      "capability": "CAP-API",
+      "title": "北极星端到端验收：会话内 hybrid 召回带引用 + 跨会话晋升召回 + 零越权",
+      "user_visible_behavior": "端到端复现北极星「上次聊过的事，这次 AI 记得且说得出出处」：uc-18-2 V1（会话内问「上线 v2 是谁定的、为什么」召回张三与客户 A、两处引用可点回原消息）+ uc-18-4 V1（跨会话从个人空间召回并标来源）全绿；同一路径下的零越权测试（另一用户/另一组织召回恒空，S2=0）与删除失效（删原消息后 5 分钟内不再召回，S4）一并通过。",
+      "status": "not_started",
+      "sprint": null,
+      "owner": null,
+      "spec_ref": "uc-18-2-会话内图谱与向量召回.md#R12",
+      "depends_on": [
+        "F07",
+        "F12",
+        "F13"
+      ],
+      "points": 5,
+      "wave": 4,
+      "design_ref": "phases/phase-18-org-brain-knowledge-graph/requirements/00-overview.md",
+      "verification": [
+        "pnpm --filter api exec vitest run tests/knowledge-graph/e2e-north-star-recall.test.ts",
+        "pnpm --filter api exec vitest run tests/knowledge-graph/e2e-zero-leak.test.ts"
+      ],
+      "evidence": "",
+      "notes": "北极星端到端（uc-18-2 V1 + uc-18-4 V1 + S2 零越权 + S4 删除失效）。依据等级：[Backlog]，聚合验收，依赖 F07/F12/F13 全部落地。不重复计点：这里只做端到端串联断言，各单点行为已在对应 feature 计过点。"
+    },
+    {
+      "status": "not_started",
+      "sprint": null,
+      "owner": null,
+      "capability": "CAP-WEB",
+      "evidence": "",
+      "design_ref": "phases/phase-18-org-brain-knowledge-graph/requirements/06-user-experience.md",
+      "id": "F15",
+      "priority": 15,
+      "area": "kg-ux",
+      "title": "记忆体验评测集（E1–E10）：R0 冻结 + 逐轮迭代到 ≥ 9.0",
+      "user_visible_behavior": "apps/web/e2e/kg-experience-eval/ 下冻结 E1–E10 十维检查（真浏览器、用户看得见的结果：零负担跨会话被记起、20 题回忆答对率、关系题 hybrid 优于纯向量、引用可点回原话、纠错 ≤2 次点击、无禁用词、矛盾提醒、每轮至多 1 张主动卡、可见范围说明与越权 403、开启记忆首字延迟差 ≤100ms）；score 脚本出 R<n>.md/json 到 evidence/kg-experience-eval/；最新一轮总分 ≥ 9.0 才算完成。",
+      "spec_ref": "06-user-experience.md#R4",
+      "depends_on": [
+        "F14",
+        "F16",
+        "F17"
+      ],
+      "points": 5,
+      "wave": 5,
+      "verification": [
+        "pnpm --filter web exec vitest run tests/kg-experience/score-gate.test.ts"
+      ],
+      "notes": "阶段退出门（人类 2026-09-24「体验达到 9 分」）。R0 在 F02–F09 合入后即可跑出基线；本 feature 只在最新一轮 ≥ 9.0 时可 verify。评测冻结规则沿用 evidence/design-parity-eval/README.md。依据等级：[Backlog]+[原型]。"
+    },
+    {
+      "status": "not_started",
+      "sprint": null,
+      "owner": null,
+      "capability": "CAP-WEB",
+      "evidence": "",
+      "design_ref": "phases/phase-18-org-brain-knowledge-graph/requirements/06-user-experience.md",
+      "id": "F16",
+      "priority": 16,
+      "area": "kg-ux",
+      "title": "矛盾提醒：与「你确认过」冲突时当轮回答下出提醒卡（以新的为准 / 两条都留 / 忽略）",
+      "user_visible_behavior": "入图发现新结论与已确认结论冲突时两条转 contested，当轮回答下出现 kg-conflict-card（「这和你 {日期} 说的『…』不一致」）；三个出口经 applyHumanAction{resolveConflict} 生效：以新的为准→旧条 superseded，两条都留→各记适用条件并结束冲突，忽略→同一对不再提醒；一轮至多一张主动卡。",
+      "spec_ref": "uc-18-6-对话里记住忘掉与矛盾提醒.md#R3",
+      "depends_on": [
+        "F06",
+        "F10"
+      ],
+      "points": 4,
+      "wave": 3,
+      "verification": [
+        "pnpm --filter api exec vitest run tests/knowledge-graph/conflict-prompt.test.ts",
+        "pnpm --filter web exec vitest run tests/ui/kg-conflict-card.test.tsx"
+      ],
+      "notes": "U-5。依据等级：[原型]（UI 卡片已在 /preview/chat-knowledge-graph）+[Backlog]（冲突判定）。"
+    },
+    {
+      "status": "not_started",
+      "sprint": null,
+      "owner": null,
+      "capability": "CAP-WEB",
+      "evidence": "",
+      "design_ref": "phases/phase-18-org-brain-knowledge-graph/requirements/06-user-experience.md",
+      "id": "F17",
+      "priority": 17,
+      "area": "kg-ux",
+      "title": "对话里「记住 / 忘掉」：Agent 只出确认卡，人点一下生效",
+      "user_visible_behavior": "用户说「记住：…」→ 回答内出 kg-card-remember（可改字），点「记住」经 actOnMemoryCard 以本人身份确认并记到长期记忆，新个人会话可召回；说「忘掉 …」→ kg-card-forget 逐条默认全选，点「忘掉」后下一轮不再召回；Agent 身份直调 actOnMemoryCard 得 KG_ACTOR_NOT_HUMAN；卡片过期得 KG_CARD_STALE；意图不确定不出卡。",
+      "spec_ref": "uc-18-6-对话里记住忘掉与矛盾提醒.md#R3",
+      "depends_on": [
+        "F10",
+        "F11"
+      ],
+      "points": 4,
+      "wave": 4,
+      "verification": [
+        "pnpm --filter api exec vitest run tests/knowledge-graph/memory-card.test.ts",
+        "pnpm --filter web exec vitest run tests/ui/kg-memory-card.test.tsx"
+      ],
+      "notes": "U-4。依据等级：[原型]+[Backlog]。意图识别误触发率 ≤2% 由 F15 的 E8 检查量。"
+    }
+  ]
+}

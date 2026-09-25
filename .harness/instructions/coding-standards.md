@@ -6,6 +6,7 @@
 - 命名:文件 kebab-case,类型 PascalCase,变量/函数 camelCase。
 - 文件规模:业务源文件原则上不超过 2000 行。页面只负责路由装配和数据编排;子界面、领域类型、纯函数、请求适配器和复杂状态分别拆到独立模块。超过 2000 行必须在同一变更中拆分,或记录临时豁免、负责人和移除期限。
 - 每个包必须提供:`build`、`test`、`lint`、`typecheck` 四个 turbo 任务。
+- 依赖版本约束**不许**用 `pnpm.overrides` 的 `parent>child` 选择器（由 `pnpm run lint:pnpm-override-selector` 机械拦截）：它对 peerDependency 解析不可靠，会静默装错版本。改用「在消费方声明直接依赖并钉死版本」。理由与修法的单一事实源是 `.harness/scripts/lib/pnpm-override-selector.ts` 顶部注释，这里不复述。
 - 提交前跑哪一档验证，见 [ADR-106](../../docs/adr/ADR-106-verify-base-affected.md)（单一权威源，别在这里另立一份）：
   日常小改动用 `pnpm -w run verify:quick`（affected typecheck/lint/test），碰
   `.harness/**` 用 `pnpm -w run verify:harness`，push 前想跑全量或不确定选哪档用

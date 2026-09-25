@@ -72,6 +72,13 @@ export const RealtimeAsrServerEvent = z.discriminatedUnion("type", [
     endMs: z.number().int().nonnegative(),
   }).strict(),
   z.object({ type: z.literal("stopping"), captureId: z.string() }).strict(),
+  z.object({
+    type: z.literal("flow"),
+    captureId: z.string(),
+    state: z.enum(["normal", "slow"]),
+    source: z.literal("upstream"),
+    queuedMs: z.number().int().nonnegative(),
+  }).strict(),
   z.object({ type: z.literal("completed"), captureId: z.string() }).strict(),
   z.object({
     type: z.literal("error"),

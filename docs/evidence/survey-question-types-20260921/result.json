@@ -1,0 +1,166 @@
+{
+  "surveyId": "332598b7-14cf-4190-918d-134e2f3b277f",
+  "responseId": "9d13d366-26ca-493f-960b-d6e614e8ab2d",
+  "types": {
+    "single": {
+      "persisted": true,
+      "value": "browser-single-option-1"
+    },
+    "multi": {
+      "persisted": true,
+      "value": [
+        "browser-multi-option-1"
+      ]
+    },
+    "dropdown": {
+      "persisted": true,
+      "value": "browser-dropdown-option-1"
+    },
+    "image_single": {
+      "persisted": true,
+      "value": "browser-image_single-option-1"
+    },
+    "image_multi": {
+      "persisted": true,
+      "value": [
+        "browser-image_multi-option-1"
+      ]
+    },
+    "short": {
+      "persisted": true,
+      "value": "真实单行回答"
+    },
+    "open": {
+      "persisted": true,
+      "value": "真实多行回答\n保留换行与内容。"
+    },
+    "multiple_text": {
+      "persisted": true,
+      "value": {
+        "browser-multiple_text-field-1": "字段一实际内容",
+        "browser-multiple_text-field-2": "字段二实际内容"
+      }
+    },
+    "number": {
+      "persisted": true,
+      "value": "12"
+    },
+    "date": {
+      "persisted": true,
+      "value": "2026-09-21"
+    },
+    "time": {
+      "persisted": true,
+      "value": "09:30"
+    },
+    "datetime": {
+      "persisted": true,
+      "value": "2026-09-21T09:30"
+    },
+    "email": {
+      "persisted": true,
+      "value": "browser@example.com"
+    },
+    "phone": {
+      "persisted": true,
+      "value": "13800138000"
+    },
+    "address": {
+      "persisted": true,
+      "value": {
+        "browser-address-city": "城市实际内容",
+        "browser-address-detail": "详细地址实际内容",
+        "browser-address-province": "省/地区实际内容"
+      }
+    },
+    "cascade": {
+      "persisted": true,
+      "value": [
+        "区域一",
+        "城市一"
+      ]
+    },
+    "scale": {
+      "persisted": true,
+      "value": "browser-scale-option-1"
+    },
+    "rating": {
+      "persisted": true,
+      "value": "3"
+    },
+    "nps": {
+      "persisted": true,
+      "value": "2"
+    },
+    "slider": {
+      "persisted": true,
+      "value": "100"
+    },
+    "matrix_single": {
+      "persisted": true,
+      "value": {
+        "browser-matrix_single-row-1": "browser-matrix_single-option-1",
+        "browser-matrix_single-row-2": "browser-matrix_single-option-1"
+      }
+    },
+    "matrix_multi": {
+      "persisted": true,
+      "value": {
+        "browser-matrix_multi-row-1": [
+          "browser-matrix_multi-option-1"
+        ],
+        "browser-matrix_multi-row-2": [
+          "browser-matrix_multi-option-1"
+        ]
+      }
+    },
+    "matrix_scale": {
+      "persisted": true,
+      "value": {
+        "browser-matrix_scale-row-1": "browser-matrix_scale-option-1",
+        "browser-matrix_scale-row-2": "browser-matrix_scale-option-1"
+      }
+    },
+    "matrix_input": {
+      "persisted": true,
+      "value": {
+        "browser-matrix_input-row-1": "项目一真实答案",
+        "browser-matrix_input-row-2": "项目二真实答案"
+      }
+    },
+    "matrix_dropdown": {
+      "persisted": true,
+      "value": {
+        "browser-matrix_dropdown-row-1": "browser-matrix_dropdown-option-1",
+        "browser-matrix_dropdown-row-2": "browser-matrix_dropdown-option-1"
+      }
+    },
+    "ranking": {
+      "persisted": true,
+      "value": [
+        "browser-ranking-option-2",
+        "browser-ranking-option-1"
+      ]
+    },
+    "allocation": {
+      "persisted": true,
+      "value": {
+        "browser-allocation-option-1": "40",
+        "browser-allocation-option-2": "60"
+      }
+    },
+    "file": {
+      "persisted": true,
+      "value": [
+        "47d4e7ea-a1a2-4c7e-804c-ab6c75b10e26"
+      ]
+    },
+    "signature": {
+      "persisted": true,
+      "value": [
+        "ebe7f992-d9ee-4b25-b72a-7a13b0ee0e26"
+      ]
+    }
+  },
+  "evidence": "Real Chromium anonymous UI → HTTP → isolated PostgreSQL; real upload/download bytes; no mocked routes"
+}

@@ -2,6 +2,8 @@
 name: meeting-preparation
 description: 准备会议背景、议程、预读材料与决策问题时使用；不发送会议邀请。
 license: See LICENSE.txt
+capability_id: WX-S008
+version: 1.1.1
 ---
 
 # 会议准备

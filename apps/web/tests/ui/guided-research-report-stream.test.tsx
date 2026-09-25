@@ -98,6 +98,14 @@ describe("research report stream UI", () => {
     expect(screen.getByTestId("research-report-preview")).toHaveTextContent("尚未完成");
     expect(screen.queryByTestId("research-report")).not.toBeInTheDocument();
   });
+  it("keeps a single More actions menu while recovering an empty report preview", async () => {
+    vi.mocked(getResearchRuntime).mockResolvedValue({ ...streaming(), busy: false, leaseUntil: null, errorCode: "RESEARCH_REPORT_QUALITY_REJECTED", reportStream: { requestId: "request", sequence: 1, text: "", status: "failed" }, reportCheckpoint: { basis: "retry", chapters: [] } });
+    render(<GuidedResearchLive sessionId={initial.sessionId} onBack={vi.fn()} />);
+    expect(await screen.findByText("尚无报告正文，已保存进度可继续生成。")).toBeInTheDocument();
+    expect(screen.getAllByRole("button", { name: "更多操作" })).toHaveLength(1);
+    fireEvent.pointerDown(screen.getByRole("button", { name: "更多操作" }), { button: 0, ctrlKey: false });
+    expect(await screen.findByRole("menuitem", { name: "修改报告" })).toBeInTheDocument();
+  });
 });
 
 it("polls lightweight progress, loads terminal state once and stops", async () => {
@@ -135,6 +143,8 @@ it("observes report conversation generation without classifying user intent in t
     return new Promise(() => undefined);
   });
   render(<GuidedResearchLive sessionId={initial.sessionId} onBack={vi.fn()} />);
+  fireEvent.pointerDown(await screen.findByRole("button", { name: "更多操作" }), { button: 0, ctrlKey: false });
+  fireEvent.click(await screen.findByRole("menuitem", { name: "修改报告" }));
   const input = await screen.findByRole("textbox", { name: "研究对话" });
   expect(screen.getByTestId("research-report-document")).toHaveTextContent("旧报告");
   fireEvent.change(input, { target: { value: "重新生成报告" } });

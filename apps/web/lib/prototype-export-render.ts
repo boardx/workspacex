@@ -14,7 +14,7 @@ import { PrototypeCanvas, deviceOf } from "@/components/design-loop/prototype-ca
 import type { DesignProject } from "@/lib/live-design-workbench";
 
 export async function renderScreensToMarkup(
-  project: Pick<DesignProject, "frames" | "prototype" | "template" | "theme"> & { readonly frameLinks?: readonly (readonly { from: string; item?: number; to: number }[])[] },
+  project: Pick<DesignProject, "frames" | "prototype" | "template" | "theme" | "accent" | "tokens"> & { readonly frameLinks?: readonly (readonly { from: string; item?: number; to: number }[])[] },
 ): Promise<readonly { readonly markup: string }[]> {
   const { renderToStaticMarkup } = await import("react-dom/server");
   const device = deviceOf(project.template);
@@ -23,12 +23,27 @@ export async function renderScreensToMarkup(
       React.createElement(PrototypeCanvas, {
         label,
         root: project.prototype[i] ?? null,
+        /*
+         * 迭代 37：**这一页没画出来时，导出件此前对读者说「在对话里说一句你要做什么，我就画出来」**。
+         * 那是画布空项目态的话——而这是一个交给别人的自包含文件，里面根本没有对话框。
+         * 收件人对着一句做不到的指示，既不知道这页是漏了还是坏了。
+         *
+         * 分享页（访客那一侧）早就按 `ungenerated` 如实说「这一页没画出来。其余页不受影响。」，
+         * 导出这一侧一直没跟上——同一件事在一处修了、另一处留在原地。
+         */
+        ungenerated: project.prototype.length > 0 && (project.prototype[i] ?? null) === null,
         device,
         frameIndex: i,
         // 导出产物里没有"选中去改"这回事：用预览语义渲染，且不接任何回调。
         mode: "preview" as const,
         // 迭代 13：跟随**原型的** theme，不是导出时后台碰巧是什么色（delta §5.2，V69）。
         theme: project.theme,
+        // 迭代 17/19：导出产物跟随**原型自己的**视觉设定——强调色与低保真都要带上，
+        // 否则导出的 HTML 与屏上看到的是两份东西（同 theme 的既有纪律 V69）。
+        accent: project.accent,
+        // 对标 R1：品牌色与字体同样跟着走（评测 D2.c5）。
+        tokens: project.tokens,
+        wireframe: project.template === "wireframe",
         links: project.frameLinks?.[i] ?? [],
       }),
     ),

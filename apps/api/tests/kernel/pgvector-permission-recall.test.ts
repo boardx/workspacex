@@ -47,18 +47,19 @@ import { toOrgId } from "../../src/domain/org-id";
  * only), one through `disclose()`. Every entitled document in arm 1 must be in arm 2. No
  * threshold is needed, and this is the sentence F10's acceptance is written in.
  *
- * **NOT judgeable:** whether the channel's absolute recall clears the shipping bar.
- * `THRESHOLDS.vectorRecallBaseline` is registered `{ known: false }` -- the product has not
- * given the number. `judgeRecall()` therefore throws, and the test below asserts that it
- * throws. That assertion IS the rule ("低于基线即判失败，不得静默放行"): with no baseline there
- * is no pass, and a default would have manufactured one.
+ * **Judged elsewhere, at scale:** whether the channel's absolute recall clears the shipping bar.
+ * `THRESHOLDS.vectorRecallBaseline` was `{ known: false }` here (and `judgeRecall()` was asserted
+ * to throw) until phase-18 S0-4 gave the number. This twelve-row set is too small to measure a
+ * rate on; the rate is gated by `tests/retrieval/kg-hnsw-permission-recall.test.ts` (F05) over
+ * thousands of rows through the HNSW index. What this file keeps asserting is that the number
+ * lives only in the registry.
  *
- * **NOT exercised at all:** the ANN-index-then-filter behaviour the failure is actually about.
- * There is no HNSW/IVFFlat index, because an ANN index needs a fixed dimension and a dimension
- * is a property of an embedding model that phase-00 has not chosen (migration 0009). The vector
- * channel is an exact scan today, in which the failure mode cannot occur. The last test in this
- * file asserts the index's ABSENCE, so the day one is added, this suite goes red and has to be
- * re-armed rather than continuing to pass while measuring a configuration that no longer holds.
+ * **Re-armed (F05):** this file used to assert the ABSENCE of an ANN index, so that the day
+ * one appeared it would go red instead of measuring a configuration that no longer held. That
+ * day is phase-18 F05: every registered model now gets a partial HNSW expression index
+ * (migration `20260924270000_kg_f05_hnsw_vector_index.sql`) and the vector channel reads
+ * through it. The last block now asserts the index's PRESENCE and shape, and points at the F05
+ * gate for the ANN-then-filter failure itself.
  */
 
 const ORG = "org-f10-recall";
@@ -266,30 +267,47 @@ describe("recall measurement itself", () => {
   });
 });
 
-describe("⚠ the shipping bar cannot be judged -- N-2 is undecided", () => {
-  it("`vectorRecallBaseline` is registered as unknown, with an owner and a stated blockage", () => {
+describe("the shipping bar -- N-2, resolved by phase-18 S0-4", () => {
+  it("`vectorRecallBaseline` is resolved in the registry, with a source that names the decision", () => {
     const t = TH.THRESHOLDS.vectorRecallBaseline;
-    expect(t.known).toBe(false);
-    expect(t.owner).toBe("产品");
+    expect(t.known).toBe(true);
+    if (!t.known) return;
+    expect(t.source).toContain("S0-4");
     expect(t.rule).toContain("不得静默放行");
-    expect(TH.pendingThresholds().map((p) => p.name)).toContain("vectorRecallBaseline");
+    expect(TH.pendingThresholds().map((p) => p.name)).not.toContain("vectorRecallBaseline");
   });
 
-  it("judging a measured recall THROWS rather than returning a pass", async () => {
-    // This is the rule made executable, not a gap being papered over. With no baseline there is
-    // no pass, and a default would have manufactured a measured-looking result -- which this
-    // project has already had happen once (an invented sampleSize and a fabricated 口径表 v3).
+  it("judging compares against the REGISTRY value -- below fails, at-or-above passes, no measurement is refused", async () => {
+    const baseline = TH.requireValue<number>(TH.THRESHOLDS.vectorRecallBaseline, "vectorRecallBaseline");
+    expect(judgeRecall(baseline)).toEqual({ pass: true, baseline });
+    expect(judgeRecall(1)).toEqual({ pass: true, baseline });
+    // Below the bar is a FAIL verdict, not an exception to be caught and ignored.
+    expect(judgeRecall(baseline - 0.01).pass).toBe(false);
+    expect(judgeRecall(0).pass).toBe(false);
+    // "No measurement" is never a verdict: recall over an empty ground truth is null, and
+    // coercions of it must not reach the comparison.
+    expect(() => judgeRecall(Number.NaN)).toThrow(RangeError);
+    expect(() => judgeRecall(1.5)).toThrow(RangeError);
+
+    // The twelve-row set here is real input to the judge -- not a rate worth shipping on (see
+    // the header), but it must at least be a measurement the judge accepts.
     const c = compareRecall({
       entitled: entitledFor("u-out"),
       unfilteredHits: await unfilteredArm(QUERIES[0].vector, CORPUS.length),
       filteredHits: await filteredArm("u-out", QUERIES[0].vector, CORPUS.length),
     });
-    expect(() => judgeRecall(c.filtered!)).toThrow(/尚未裁决/);
-    // The error names who owes the number and what it blocks -- an error that only says
-    // "undecided" sends the reader nowhere.
-    expect(() => judgeRecall(1)).toThrow(/产品/);
-    // ⚠ Even a PERFECT measurement cannot be declared a pass. That is the point: silence would
-    // be indistinguishable from having cleared a bar nobody set.
+    expect(judgeRecall(c.filtered!).pass).toBe(true);
+  });
+
+  it("un-resolving the entry restores the throw -- the registry is the only source", () => {
+    // Counter-proof for the resolution itself: `requireValue` still refuses a pending entry, so
+    // setting the registry back to `known: false` cannot quietly keep a pass alive.
+    expect(() =>
+      TH.requireValue<number>(
+        { known: false, rule: "counter-proof rule text, long enough", owner: "产品", blocksWhat: "x", ref: "y" },
+        "vectorRecallBaseline",
+      ),
+    ).toThrow(/尚未裁决/);
   });
 
   it("no business code has quietly written a recall baseline in", () => {
@@ -329,29 +347,23 @@ describe("⚠ the shipping bar cannot be judged -- N-2 is undecided", () => {
   });
 });
 
-describe("⚠ the ANN failure mode is not exercised, and its absence is asserted", () => {
-  it("there is no approximate index on the embedding column", async () => {
-    // ⚠ This assertion exists to EXPIRE. An HNSW/IVFFlat index is what makes "recall top-k
-    // then filter" possible, i.e. what makes R9's silent under-recall real. Until one exists
-    // the vector channel is an exact scan and the comparison above cannot fail for that
-    // reason -- so stating it here is the difference between "the gate is green" and "the gate
-    // is green because the risk is not present yet".
-    //
-    // When an embedding model is chosen, `embedding` gains a fixed dimension, an ANN index
-    // appears, this test goes red, and the recall set has to be re-armed against the real
-    // configuration. That is the intended trigger, not a nuisance.
+describe("the ANN index (re-armed by phase-18 F05)", () => {
+  it("the registered model has exactly one HNSW index per embedding table, at its registered dimension", async () => {
+    // This used to assert the index's ABSENCE, so that its arrival would force a re-arm. F05 is
+    // that arrival: the ANN-then-filter failure is now real, and it is gated -- at a scale where
+    // a rate means something -- by `tests/retrieval/kg-hnsw-permission-recall.test.ts`.
     const idx = await asOwner((c) =>
-      c.query<{ indexdef: string }>(
-        `SELECT indexdef FROM pg_indexes WHERE tablename = 'segment_embeddings'`,
+      c.query<{ tablename: string; indexdef: string }>(
+        `SELECT tablename, indexdef FROM pg_indexes
+          WHERE tablename IN ('segment_embeddings', 'object_embeddings') AND indexdef ~* 'USING (hnsw|ivfflat)'
+            AND indexdef LIKE '%' || $1 || '%' AND indexdef LIKE '%' || $2 || '%'`,
+        [`model = '${MODEL.model}'::text`, `model_version = '${MODEL.modelVersion}'::text`],
       ),
     );
-    // Non-vacuity first: the query has to be finding indexes at all, or "no ANN index" would
-    // be true of a table this query cannot see.
-    expect(idx.rows.length, "pg_indexes returned nothing -- this assertion would be vacuous")
-      .toBeGreaterThan(0);
-    const ann = idx.rows.map((r) => r.indexdef).filter((d) => /USING\s+(hnsw|ivfflat)/i.test(d));
-    expect(ann, "an ANN index now exists -- re-arm the recall test set against it (R9/V12)")
-      .toEqual([]);
+    expect(idx.rows.map((r) => r.tablename).sort()).toEqual(["object_embeddings", "segment_embeddings"]);
+    for (const r of idx.rows) {
+      expect(r.indexdef).toMatch(/USING hnsw \(\(\(?embedding\)?::vector\(4\)\) vector_cosine_ops\)/);
+    }
   });
 
   it("the embedding column has no fixed dimension, and the registry enforces one instead", async () => {

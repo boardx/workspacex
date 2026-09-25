@@ -7,6 +7,7 @@
   "//5": "allowRoutes：导航里**故意存在、但不属于 phase-01 任何束**的路由——它们是别的能力域/阶段（问卷→phase-02 12-survey、大脑→phase-03 14-brain、任务→phase-02 11-board）或组织治理总览（后台）。反向判定放行它们；**不在此列且不是束路由的导航项 = 红**（多半是又冒出来的旧骨架屏，如 /studio/interview /studio/prototype）。⚠ 2026-07-30：**研究已从本列移出**，改为 bundleRoutes 的 research（第 12 束）——D-20 早已裁定研究 Studio 立项，是 phase-01 的束，不是「别的阶段」。见 phases/phase-01-run-a-project/requirements/SCOPE-DELTA-2026-07-30.md。",
   "//5c": "2026-07-31（ui-prototyper）：research 现行路由改为 /research —— 研究 Studio 的 UI 先行原型（UC-24.1…24.5）已建在顶层 /research，navigation.ts 的「研究」一级导航已重指到它、ucRefs 换成 24-research 五份。这条绿从此是**真的**（束路由渲染的就是束的屏）。⚠ Q-2（阻塞级·未裁）的最终 IA 归并——Context Pack 是迁进研究详情的一个标签（方案 A），还是两个「研究」并列（方案 C）——仍待人类；Context Pack 页面暂留在 /studio/research 直达（已不在导航里）。见 ui-preview/research/README.md 与 OPEN-QUESTIONS.md Q-2。",
   "//6": "断言的是**性质不是数量**（COORDINATOR-LOOP 纪律第 9 条）：不写「导航项必须恰好 N 个」。新增一个正当能力域只需在 bundleRoutes 或 allowRoutes 里显式登记一行，而不是撞死一个移动靶。",
+  "//7": "linkExemptRoutes（判定⑥，issue #319）：束路由**子树下**、故意只能敲 URL 进、因此允许全仓零链接引用的页面。键 = 路由，值 = **为什么**（不许空，空理由报红）。⚠ 它是**棘轮**：登记了却已经被链接上 / 已经变成 redirect 桩 / 页面没了的条目会报「豁免已过期」，只能变短。两类豁免是**机械判定的、不必登记在这里**：(a) 模块里只有 redirect()/permanentRedirect() 的重定向桩（/itv/new、/project、/studio/interview）；(b) next.config.mjs 的 redirects() 已声明为 source 的路由（/chat/copilotkit-v2 及其 :threadId）。",
   "phase-01-run-a-project": {
     "bundleRoutes": {
       "chat": "/chat",
@@ -19,7 +20,7 @@
       "personal-realtime-transcription": "/rec",
       "canvas": "/canvas",
       "skills": "/skill",
-  "curated-capability-packs": "/skill",
+      "curated-capability-packs": "/skill",
       "agent-runtime": "/preview/agent-runtime",
       "org-admin": "/org-admin/preview",
       "asset-governance": "/asset-governance",
@@ -29,6 +30,7 @@
       "plan-control": "/preview/plan-control"
     },
     "allowRoutes": [
+      "/preview/chat-knowledge-graph",
       "/agent",
       "/studio/survey",
       "/brain",
@@ -37,8 +39,17 @@
       "/platform-admin",
       "/preview/agent-kernel",
       "/studio/design-workbench",
-      "/studio/feedback-drafts"
-    ]
+      "/studio/feedback-drafts",
+      "/studio/board"
+    ],
+    "linkExemptRoutes": {
+      "//": "这五条都是**故意**开成「只能敲 URL 进」的独立路由，各自的 page.tsx 头注写了原委，不是漏接入口。它们该不该长出正式入口是产品/IA 的裁决，不在门控里替人类做——但登记在这里，至少它们是**被点过名的**，不再是无人知晓的孤儿。",
+      "/chat/live": "F368：对话束第一条真实端到端路径（真 HTTP + 真 Postgres）。/chat 是已签核的 mock 原型屏，硬接会逼着现在就给一堆展示字段编出处，所以另开干净路由验证链路——沿用 F122 开 /project/live 的先例。并回 /chat 之前不进导航、也不该有 CTA。",
+      "/itv/live": "#356：访谈束同型的真实端到端路径，只接 interview-scope.controller.ts 真实暴露的两条读路由；/itv 保持不动（lib/mock/itv.ts 近 900 行展示字段无后端支撑）。同 /chat/live。",
+      "/chat/landing": "UC-8.3 对话产出落地屏，UI 先行原型（七态 ?state= / 视角 ?as=），是**签核材料**而非生产入口；并进 /chat 之前只由评审敲 URL 看。",
+      "/chat/preset": "UC-8.4 预设对话与技能屏，同 /chat/landing——UI 先行签核材料、七态预览用，尚未并进 /chat 生产入口。",
+      "/chat/copilotkit-preview": "#654 阶段 1a：CopilotKit 适配器的独立预览路由，故意不挂在 /chat 生产入口下（见该 page.tsx 与组件头注）。灰度评估用，不该有正式入口。"
+    }
   },
   "phase-03-reuse-and-governance": {
     "//": "UC-17.8 B6.2。四束里只有 design-workbench 有一级导航直达（2026-09-04 人类裁决进 STUDIO）；feedback-loop / inbox-unified 两束的现行屏挂在平台后台二级（lib/mock/admin.ts 的 AdminNav，/platform-admin/{feedback,inbox}），navigation.ts 里的入口是「平台后台」/platform-admin（1 跳）——同 //3 「断言束的入口在导航里即可」的先例，束路由写入口而不是二级屏。是否给收件箱加一级导航是 IA 裁决，不在门控里替人类决定。⚠ 2026-09-05（人类直接反馈）：design-workbench 的 STUDIO 一级入口改指向独立路由 /studio/design-workbench（不带平台后台的 AdminNav 宽侧栏）——两个受众不同的入口不该共用同一套 chrome；`/platform-admin/design-workbench`（后台面，AdminNav 全屏）本身不下线，仍是 `ADMIN_NAV` 的落点，只是不再是 STUDIO 一级导航指向的那个 URL。⚠ 2026-09-10（issue #3339 人类反馈）：feedback-drafts 同理改指向独立路由 /studio/feedback-drafts——草稿本就是 owner 私有（契约头注），不该只能从平台后台进；`/platform-admin/feedback-drafts` 本身不下线，仍是后台运维查看全部草稿的落点。",
@@ -70,7 +81,9 @@
       "/skill",
       "/studio/survey",
       "/tasks",
-      "/tpl"
+      "/tpl",
+      "/studio/board",
+      "/preview/chat-knowledge-graph"
     ]
   },
   "phase-14-agent-kernel-unification": {
@@ -100,6 +113,40 @@
       "/rec",
       "/research",
       "/skill",
+      "/studio/design-workbench",
+      "/studio/feedback-drafts",
+      "/studio/survey",
+      "/tasks",
+      "/tpl",
+      "/studio/board",
+      "/preview/chat-knowledge-graph"
+    ]
+  },
+  "phase-18-org-brain-knowledge-graph": {
+    "//": "一束目前只有签核用静态原型屏 /preview/chat-knowledge-graph（ui-prototyper 交付），落地实现后并入 /chat 会话右侧栏「知识」tab——届时本行改指向 /chat。",
+    "bundleRoutes": {
+      "chat-knowledge-graph": "/preview/chat-knowledge-graph"
+    },
+    "allowRoutes": [
+      "/admin",
+      "/agent",
+      "/asset-governance",
+      "/brain",
+      "/canvas",
+      "/chat",
+      "/itv",
+      "/org-admin/preview",
+      "/platform-admin",
+      "/preview/agent-interrupts",
+      "/preview/agent-kernel",
+      "/preview/agent-runtime",
+      "/preview/plan-control",
+      "/projects",
+      "/projects/demo/files",
+      "/rec",
+      "/research",
+      "/skill",
+      "/studio/board",
       "/studio/design-workbench",
       "/studio/feedback-drafts",
       "/studio/survey",

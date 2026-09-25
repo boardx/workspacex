@@ -36,7 +36,7 @@ import {
 } from "./application/recording/session-lifecycle-ports";
 import { PERSONAL_TRANSCRIPTION_REPOSITORY } from "./application/recording/personal-transcription-ports";
 import { ASR_USAGE_METER, REALTIME_ASR_TICKET_STORE } from "./application/recording/personal-realtime-asr";
-import { ensureIcReviewSkillSeeded, ensurePlatformSkillCatalogSeeded, ensurePostInvestmentSkillSeeded } from "./infrastructure/skill/ensure-platform-skill-catalog";
+import { ensureIcReviewSkillSeeded, ensurePlatformSkillCatalogSeeded } from "./infrastructure/skill/ensure-platform-skill-catalog";
 import { DATABASE_PORT } from "./application/ports/database.port";
 import { sweepExpiredErrorLogs } from "./infrastructure/logging/pg-error-log-writer";
 import { sweepOrphanedRuns } from "./infrastructure/agent-run/sweep-orphaned-runs";
@@ -199,7 +199,11 @@ if (isProcessEntry()) {
   const app = await createApp();
   app.enableShutdownHooks(["SIGTERM", "SIGINT"]);
   const port = Number(process.env.PORT ?? 3200);
-  await app.listen(port);
+  // KERNEL_LISTEN_HOST: WorkspaceX Local pins the API to 127.0.0.1 -- a single-user desktop must
+  // not expose its session tokens to the LAN (the DMG showed up as `*:3200`, 2026-09-17).
+  // Unset = today's behaviour (all interfaces) for every server deployment.
+  const listenHost = process.env.KERNEL_LISTEN_HOST?.trim();
+  if (listenHost) await app.listen(port, listenHost); else await app.listen(port);
   attachStreamingSurfaces(app);
   process.stdout.write(`api listening on ${port}\n`);
 
@@ -221,56 +225,52 @@ if (isProcessEntry()) {
    * 「从不 throw」，这里仍然只记日志、不让这段自愈逻辑的失败拖累已经成功启动的
    * 服务——一次数据库抖动不该把「skill 目录暂时没种上」变成「API 打不开」。
    */
-  const seed = await ensurePlatformSkillCatalogSeeded();
-  if (seed.ok) {
-    const { org, skills, standardPacks } = seed.report;
-    process.stdout.write(
-      `platform skill catalog: org ${org.orgCreated ? "created" : "already existed"}, ` +
-      `skills created=[${skills.created.join(",")}] alreadyExisted=[${skills.alreadyExisted.join(",")}]\n`,
-    );
+  // WorkspaceX Local seeds the platform catalog in its owner phase and serves as `app_rw`;
+  // running the self-heal there only produces RLS/FK errors (42501 / 23503) on every boot
+  // with nothing to heal. KERNEL_PLATFORM_SKILL_SELFHEAL=off skips it; unset = unchanged.
+  if (process.env.KERNEL_PLATFORM_SKILL_SELFHEAL === "off") {
+    process.stdout.write("platform skill catalog self-heal: skipped (KERNEL_PLATFORM_SKILL_SELFHEAL=off)\n");
+  } else {
+    const seed = await ensurePlatformSkillCatalogSeeded();
+    if (seed.ok) {
+      const { org, skills, standardPacks } = seed.report;
+      process.stdout.write(
+        `platform skill catalog: org ${org.orgCreated ? "created" : "already existed"}, ` +
+        `skills created=[${skills.created.join(",")}] alreadyExisted=[${skills.alreadyExisted.join(",")}]\n`,
+      );
+      /**
+       * 单包隔离（`ensureStandardSkillPacksSeeded`）让一个包的失败不再掀翻其余八个，
+       * 但那也意味着它**不再冒泡到 `seed.ok === false`**。若这里不显式把失败的包打
+       * 出来，「九个包全挂」就会被换成「一个包静默消失」——后者更难查，不是更好。
+       * 隔离爆炸半径的前提是失败仍然看得见。
+       */
+      const failedPacks = standardPacks.filter((pack) => !pack.ok);
+      for (const pack of failedPacks) {
+        console.error(
+          `standard skill pack seed failed (will retry on next boot): ${pack.packId}@${pack.packVersion}`,
+          pack.error,
+        );
+      }
+    } else {
+      console.error("platform skill catalog self-heal failed (will retry on next boot):", seed.error);
+    }
+
     /**
-     * 单包隔离（`ensureStandardSkillPacksSeeded`）让一个包的失败不再掀翻其余八个，
-     * 但那也意味着它**不再冒泡到 `seed.ok === false`**。若这里不显式把失败的包打
-     * 出来，「九个包全挂」就会被换成「一个包静默消失」——后者更难查，不是更好。
-     * 隔离爆炸半径的前提是失败仍然看得见。
+     * team1（上会材料智能审阅助手）的临时内置 Skill——同一条自愈节奏，但**单独调用**
+     * 而不是并进上面那次：这个 ad-hoc Agent 用完要整体删除，单独一次调用删起来是
+     * 删这一段，不用去动四个永久官方 skill 的编排。函数本体住在
+     * `ensure-platform-skill-catalog.ts` 末尾（为什么不能独立成文件，见那里的段首
+     * 注释：`lint-permission-paths` 豁免清单有 ratchet）。同样从不 throw。
      */
-    const failedPacks = standardPacks.filter((pack) => !pack.ok);
-    for (const pack of failedPacks) {
-      console.error(
-        `standard skill pack seed failed (will retry on next boot): ${pack.packId}@${pack.packVersion}`,
-        pack.error,
+    const icReviewSeed = await ensureIcReviewSkillSeeded().catch((error: unknown) => {
+      console.error("ic-review skill self-heal failed (will retry on next boot):", error);
+      return null;
+    });
+    if (icReviewSeed) {
+      process.stdout.write(
+        `ic-review skill: ${icReviewSeed.created ? "created" : "already existed"}\n`,
       );
     }
-  } else {
-    console.error("platform skill catalog self-heal failed (will retry on next boot):", seed.error);
-  }
-
-  /**
-   * team1（上会材料智能审阅助手）的临时内置 Skill——同一条自愈节奏，但**单独调用**
-   * 而不是并进上面那次：这个 ad-hoc Agent 用完要整体删除，单独一次调用删起来是
-   * 删这一段，不用去动四个永久官方 skill 的编排。函数本体住在
-   * `ensure-platform-skill-catalog.ts` 末尾（为什么不能独立成文件，见那里的段首
-   * 注释：`lint-permission-paths` 豁免清单有 ratchet）。同样从不 throw。
-   */
-  const icReviewSeed = await ensureIcReviewSkillSeeded().catch((error: unknown) => {
-    console.error("ic-review skill self-heal failed (will retry on next boot):", error);
-    return null;
-  });
-  if (icReviewSeed) {
-    process.stdout.write(
-      `ic-review skill: ${icReviewSeed.created ? "created" : "already existed"}\n`,
-    );
-  }
-
-  /** team4（投后管理报告）的内置 Skill——同上，同一段自愈逻辑的第二个 spec。 */
-  const postInvestmentSeed = await ensurePostInvestmentSkillSeeded().catch((error: unknown) => {
-    console.error("post-investment skill self-heal failed (will retry on next boot):", error);
-    return null;
-  });
-  if (postInvestmentSeed) {
-    process.stdout.write(
-      `post-investment skill: ${postInvestmentSeed.created ? "created" : "already existed"}\n`,
-    );
   }
 
   /**

@@ -59,6 +59,7 @@ export * as aguiRunError from "./agui-run-error";
 
 /* ── TW-P0-3 计划编辑与执行控制（F972）─────────────────────────────── */
 export * as planControl from "./plan-control";
+export * as knowledgeGraph from "./chat-knowledge-graph";
 
 /* ── phase-02 看板（F01）任务对象统一五态 ─────────────────────────────── */
 export * as board from "./board";
@@ -99,18 +100,20 @@ export * as standardBrowserTools from "./standard-browser-tools";
 /** Live atomic Skill package editing, user-approved five-hour test release (#3249). */
 export * as skillFileEdit from "./skill-file-edit";
 
-/** `/agent/team4` 投后管理报告 Agent（ad-hoc 临时 Agent）的判据阈值、派生公式与自检
- *  算例的单一事实源；方法论正文与后端参照实现都从这里派生。见
- *  `docs/agents/team4-post-investment-report-mvp.md`。不进任何 phase feature_list。 */
-export * as postInvestmentRules from "./post-investment-rules";
+/** 客户实例运行信号上报契约（超级实例 S2；2026-09-24 人类签核 D27，周期每天一次 D28）。 */
+export * as instanceTelemetry from "./instance-telemetry";
 
-/* ── phase-16 契约束（postinvest-rating-agent，2026-09-15 建，
- *   design-signoff.md status: pending，待人类签核）──────────────────────── */
-export * as postinvestRating from "./postinvest-rating";
-/* 评分规则手册（S1/S2/S3 档位表 / 权重 / 分级带 / 降级触发）的单一事实源：
- * 后端 `scoring.ts` 与前端任务书都从这里读，避免"改了实现忘了改提示词"（ADR-020）。
- * R7-1 的最终归宿是 F01 的 skill 包，包建起来后本文件搬家、不再抄第二份。 */
-export * as postinvestRatingRules from "./postinvest-rating-rules";
+/** 第一个价值时刻事件目录（E1；2026-09-24 签核 D33，漏斗计数并入 S2 usage 分节）。 */
+export * as firstValueEvents from "./first-value-events";
 
-/* ── Team3 研判工作流（ad-hoc）：活动图的等价形式——阶段状态机 + 三道人工硬门 ───────── */
-export * as researchWorkflow from "./research-workflow";
+/** D12 组织大脑图节点 kind / 开发过程投影边（super-instance-design §2）。 */
+export * as ontologyProjection from "./ontology-projection";
+
+/** backlog E6: Skill 目录三入口（按场景）——唯一事实源。 */
+export * as skillEntryPoints from "./skill-entry-points";
+
+/** backlog D3：CRM 联系人个人信息只在境内源站（边缘只存不透明 leadId）。 */
+export * as crmContacts from "./crm-contacts";
+
+/** Board 资源生命周期、成员角色与租户边界契约（#3926）。 */
+export * as whiteboard from "./whiteboard";

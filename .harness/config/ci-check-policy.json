@@ -14,7 +14,8 @@
       "native-document-chain",
       "native-runtime-lane",
       "gates-runtime",
-      "prototype-audit"
+      "prototype-audit",
+      "design-loop-e2e"
     ]
   },
   "allowedMergeMethods": [

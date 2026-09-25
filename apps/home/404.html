@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Not found · 页面不存在 — WorkspaceX</title>
+<meta name="robots" content="noindex">
+<meta name="theme-color" content="#08070b">
+<!-- iOS ignores the manifest's short_name; without this the home-screen
+     label is the <title>, truncated to something like "WorkspaceX — Th". -->
+<meta name="apple-mobile-web-app-title" content="WorkspaceX">
+<link rel="icon" href="/assets/img/favicon.png" type="image/png" sizes="32x32">
+<link rel="apple-touch-icon" href="/assets/img/apple-touch-icon.png">
+<link rel="manifest" href="/assets/site.webmanifest">
+<link rel="stylesheet" href="/assets/css/site.css">
+<!-- The headline is set in the display face, and with font-display: optional
+     an un-preloaded face never makes it in time: the 404's h1 rendered in the
+     fallback. And with no print sheet it printed near-white text on paper. -->
+<link rel="preload" href="/assets/fonts/outfit-latin.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="/assets/css/print.css" media="print">
+<style>
+  /* Both languages at once, on purpose: an error page cannot know which one
+     the visitor came for, and redirecting them to guess would be worse. */
+  .nf { min-height: 100svh; display: grid; place-content: center; text-align: center;
+        gap: var(--s-5); padding: var(--gutter); max-width: 34rem; margin-inline: auto; }
+  .nf__code { font-family: var(--font-mono); font-size: var(--t-micro);
+              letter-spacing: .2em; color: var(--fg-faint); }
+  .nf__zh { color: var(--fg-soft); }
+  /* A second <h1> in another language is still a second <h1>; this is the same
+     statement, not a second document outline. */
+  .nf__zhtitle { font-family: var(--font-display); font-size: var(--t-h3);
+                 font-weight: 600; letter-spacing: -.01em; color: var(--fg); }
+  .nf__rule { height: 1px; background: var(--hairline); }
+  .nf__actions { display: flex; flex-wrap: wrap; gap: var(--s-3); justify-content: center; }
+</style>
+</head>
+<body>
+  <main class="nf">
+    <span class="nf__code">404</span>
+    <h1>This page does not exist.</h1>
+    <p class="lead">The link may be out of date, or the page may have moved.</p>
+    <div class="nf__rule" role="presentation"></div>
+    <div lang="zh-Hans" class="nf__zh">
+      <p class="nf__zhtitle">这个页面不存在。</p>
+      <p class="lead" style="margin-top:var(--s-2)">链接可能已经过期，或者页面已经移动。</p>
+    </div>
+    <div class="nf__actions">
+      <a class="btn btn--primary btn--lg" href="/">Homepage</a>
+      <a class="btn btn--ghost btn--lg" href="/zh/" lang="zh-Hans">中文首页</a>
+    </div>
+  </main>
+</body>
+</html>

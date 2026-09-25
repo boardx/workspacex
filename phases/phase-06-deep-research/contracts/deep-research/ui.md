@@ -15,3 +15,11 @@
 5. [05-report-outline.png](../../ui-preview/deep-research/05-report-outline.png) — Step 3 确认报告大纲
 6. [06-web-search.png](../../ui-preview/deep-research/06-web-search.png) — Step 4 资料研究与 Web Search
 7. [07-final-report.png](../../ui-preview/deep-research/07-final-report.png) — Step 5 查看研究报告与来源引用
+
+## R6 增量签核材料（待人类确认）
+
+- 预览入口：开发环境 `/research?preview=effort-budget`
+- 状态入口：追加 `&state=default|loading|empty|invalid|dep-failed|denied|success`
+- 稳定锚点：`research-effort-budget`、`research-effort-fast|std|deep`、`research-budget-save`、`research-budget-summary`
+- 待补充截图材料：投入档位选择、预算锁定后恢复、七态总览（当前仅完成真实浏览器验收，尚未纳入截图签核集）
+- 核对重点：档位差异是否足够可判断；锁定与恢复语义是否清楚；硬上限是否明确表示为“调用前停止并保留结果”；旧会话未知用量不得伪装成 0。

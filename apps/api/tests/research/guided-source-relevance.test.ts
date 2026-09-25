@@ -32,6 +32,16 @@ function complete() {
 }
 
 describe("automatic research source relevance", () => {
+  it("persists Chinese presentation without rewriting original evidence", async () => {
+    const presentation = { title: "电竞商业模式", summary: "说明赛事赞助和版权收入。" };
+    const result = await screenResearchSources(runtime(), [direct], async (_system, input, validate) => {
+      const output = evaluation(input as Input);
+      const localized = { evaluations: output.evaluations.map((entry) => ({ ...entry, presentation })) };
+      validate(localized); return localized;
+    });
+    expect(result[0]).toMatchObject({ title: direct.title, content: direct.content, url: direct.url, presentation });
+    expect(direct).not.toHaveProperty("presentation");
+  });
   it("screens mixed results using the full-stack HTTP provider double's scoped response", async () => {
     const result = await screenResearchSources(runtime(), [direct, { ...car, content: "Controlled unrelated vehicle inventory: Acura cars available for sale." }], async (system, context, validate) => {
       const value = JSON.parse(guidedResearchReply(`You are a research assistant. ${system}`, JSON.stringify(context))!);

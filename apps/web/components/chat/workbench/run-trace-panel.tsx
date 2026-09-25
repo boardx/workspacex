@@ -5,6 +5,9 @@ import { RunProgressButterfly } from "@/components/chat/run-progress-butterfly";
 import type { ExecutionEvent } from "@repo/contracts/execution-journal";
 import { traceEntries, groupTraceRows, type TraceEntry } from "@/lib/chat-workbench/run-trace";
 import { toolLabel, toolObject, isEmptyToolResult } from "@/lib/chat-workbench/tool-label";
+import { toolUrl } from "@/lib/chat-workbench/external-url";
+import { requestOpenInRightPanel } from "@/lib/chat-workbench/panel-document";
+import { RunTraceLivePreview } from "./run-trace-live-preview";
 import { SubtaskRunLivePanel } from "@/components/chat/subtask-run-live-panel";
 import { RunTraceLiveStrip } from "@/components/chat/workbench/run-trace-live-strip";
 import { MarkdownProseBlock } from "@/components/chat/markdown-prose";
@@ -79,6 +82,36 @@ function toolGroupLabel(tool: string, count: number): string {
  * `getAnimations()` 的 `playState` + 隔 20 帧的 transform 两帧比对 + 命中测试。
  */
 /** A disclosure never changes the lifetime of the event subscription. */
+/**
+ * 「原始地址」——这次调用打开的那一页，可点。
+ *
+ * 地址来自「模型写的工具参数」，正文那层 `rehype-sanitize` 管不到这条新路径，
+ * 由 `externalHttpUrl` 只放行 http/https；判不过就**整行不画**，而不是画一条
+ * 点了没用（或更糟：点了会执行 javascript:）的链接。
+ */
+function SourceUrlLine({ args }: { readonly args: unknown }): React.JSX.Element | null {
+  const url = toolUrl(args);
+  if (url === null) return null;
+  return (
+    <p className="min-w-0">
+      <span className="mr-2 text-11 text-muted-foreground">原始地址</span>
+      <a
+        data-testid="run-trace-entry-source-url"
+        href={url}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="break-all text-11 text-primary underline underline-offset-2"
+      >{url}</a>
+    </p>
+  );
+}
+
+/**
+ * 短于这个长度的结果不给「在右栏打开」——一行输出搬进右栏只是多绕一步，
+ * 而多一颗没用的按钮会让真正需要它的那几条淹掉。
+ */
+const RESULT_PANEL_MIN_CHARS = 200;
+
 export function RunTracePanel({ runId, events, running = false, expanded: controlledExpanded, onExpandedChange, renderTool }: {
   runId: string; events: readonly ExecutionEvent[]; running?: boolean; expanded?: boolean; onExpandedChange?: (expanded: boolean) => void; renderTool?: (entry: TraceEntry) => React.ReactNode;
 }): JSX.Element | null {
@@ -98,6 +131,12 @@ export function RunTracePanel({ runId, events, running = false, expanded: contro
     return () => window.clearInterval(timer);
   }, [active]);
   if (!events.length) return null;
+  /*
+   * 2026-09-22 —— 「屏幕上有没有别的东西可读」= 这一轮有没有产出过正文。两种正文事件都算：
+   * 流式增量与终稿。只判 `final_message` 不够——正文流到一半时它还没来，而那时屏幕上已经
+   * 有字在长出来，再摆一块预览就是添乱。给下面折叠区**外面**那块最近几步预览用。
+   */
+  const hasAssistantText = events.some((event) => event.kind === "text_delta" || event.kind === "final_message");
   const started = events.find((event) => event.kind === "status" && event.status === "running") ?? events[0]!;
   const start = Date.parse(started.emittedAt);
   const end = active ? now : Date.parse(events[events.length - 1]!.emittedAt);
@@ -114,7 +153,8 @@ export function RunTracePanel({ runId, events, running = false, expanded: contro
    * 的那两句。`active` 期间恒定不变的事实（历时 / 计数 / 有没有失败过）留在后半段。
    */
   const head = active ? null : failed ? `${label} · 有失败步骤` : label;
-  const tail = `${active && failed ? "有失败步骤 · " : ""}历时 ${elapsed} · 工具 ${String(tools)} 次 · 技能活动 ${String(skills)} 项`;
+  // 「技能活动」只数技能脚本执行；为 0 时对用户没有信息量（人类反馈 2026-09-17），不显示。
+  const tail = `${active && failed ? "有失败步骤 · " : ""}历时 ${elapsed} · 工具 ${String(tools)} 次${skills > 0 ? ` · 技能活动 ${String(skills)} 项` : ""}`;
   return <section data-testid="run-trace-panel" data-run-id={runId} className="my-3 min-w-0 text-13 text-muted-foreground">
     <button type="button" aria-expanded={expanded} aria-controls={id} onClick={() => setExpanded(!expanded)}
       data-testid="run-trace-toggle" className="flex max-w-full items-center gap-2 rounded-control px-2 py-1.5 text-left transition-colors duration-fast hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
@@ -130,6 +170,12 @@ export function RunTracePanel({ runId, events, running = false, expanded: contro
       </span>
       <ChevronRight aria-hidden className={`h-3.5 w-3.5 shrink-0 transition-transform duration-fast ${expanded ? "rotate-90" : ""}`} />
     </button>
+    {/*
+      折叠区「外面」——与活性条、后台任务面板同一条先例（见 `RunTraceLivePreview` 头注：
+      改默认展开值的那一版被 `fullstack-smoke` 按设计拦下来了）。展开与否一个字没改；
+      这块只在「还活着 + 这一轮还没有任何正文 + 已经 ≥2 个动作」时出现，正文一来就消失。
+    */}
+    {!expanded && <RunTraceLivePreview entries={entries} active={active} hasAssistantText={hasAssistantText} />}
     <div id={id} hidden={!expanded} role="region" aria-label="任务执行过程" data-testid="run-trace-body" className="ml-3 border-l border-border-subtle pl-4">
       <ol className="space-y-3 py-3">
         {rows.map((row) => row.kind === "tool-group"
@@ -193,6 +239,13 @@ export function RunTracePanel({ runId, events, running = false, expanded: contro
                   不透明的 bg-card 后画盖掉——人类在 devapp 上看到的「fetch_url 卡片盖住
                   上面那一行」。几何门控见 e2e/chat-trace-disclosure-geometry.spec.ts。 */}
               <div className="mt-1.5 space-y-2 pl-4">
+                {/* 2026-09-23 人类交办点名了「浏览网页」。此前 fetch_url / browser_navigate
+                    抓回来的只剩正文文本：折叠行上只有域名（`toolObject` 刻意截到 host），
+                    完整地址埋在「技术细节」里那段 JSON 的第二层折叠下，而且不可点——
+                    用户想核对「这段结论是从哪一页来的」，得展开两层再用眼睛在 JSON 里找。
+                    ⚠ 地址来自「模型写的工具参数」，正文那层 rehype-sanitize 管不到这条路径，
+                    由 `externalHttpUrl` 只放行 http/https；判不过就不画链接（见该文件头注）。 */}
+                <SourceUrlLine args={entry.args} />
                 {entry.text === "task" && entry.progressText ? <p data-testid="run-trace-task-facts" className="whitespace-pre-wrap break-words">{entry.progressText}</p> : null}
                 {entry.activityStage ? null : renderTool?.(entry)}
                 {(entry.attemptIds?.length ?? 0) > 1 ? <p>调用在 {entry.attemptIds!.length} 次运行尝试中有记录，合并展示一次。</p> : null}
@@ -209,7 +262,29 @@ export function RunTracePanel({ runId, events, running = false, expanded: contro
                 {entry.result !== undefined && isEmptyToolResult(entry.result)
                   ? <p data-testid="run-trace-entry-empty-result">这一步没有返回内容。</p> : null}
                 {typeof entry.result === "string" && !isEmptyToolResult(entry.result)
-                  ? <div><span>结果</span><pre className="max-h-64 overflow-auto whitespace-pre-wrap break-words rounded-control bg-muted p-2 text-11">{entry.result}</pre></div> : null}
+                  ? <div>
+                      <span>结果</span>
+                      {/* 2026-09-23（R11）—— 人类原话「在右边可以打开结果，浏览网页」。
+                          抓回来的网页正文在这个 max-h-64 的格子里是没法读的，更别说
+                          边读边追问。给一条出口：送进右栏，跟产物共用同一条页签。
+                          只对「够长」的结果给：一行输出搬进右栏纯属多绕一步。 */}
+                      {entry.result.length >= RESULT_PANEL_MIN_CHARS ? (
+                        <button
+                          type="button"
+                          data-testid="run-trace-entry-open-in-panel"
+                          className="ml-2 rounded px-1 text-11 text-primary underline underline-offset-2 transition-colors duration-fast hover:bg-muted"
+                          onClick={() => {
+                            requestOpenInRightPanel({
+                              id: entry.id,
+                              title: eventLabel(entry),
+                              text: entry.result as string,
+                              url: toolUrl(entry.args),
+                            });
+                          }}
+                        >在右栏打开</button>
+                      ) : null}
+                      <pre className="max-h-64 overflow-auto whitespace-pre-wrap break-words rounded-control bg-muted p-2 text-11">{entry.result}</pre>
+                    </div> : null}
                 {entry.args !== undefined || (entry.result !== undefined && typeof entry.result !== "string" && !isEmptyToolResult(entry.result))
                   ? <details data-testid="run-trace-entry-raw">
                       <summary className="cursor-pointer text-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">技术细节</summary>

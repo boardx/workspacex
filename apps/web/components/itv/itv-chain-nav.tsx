@@ -59,7 +59,7 @@ export function ItvChainNav({
             href={`?screen=${sc.id}&scope=${scope}&view=${view}&state=${state}`}
             className={cn(
               "group flex flex-col gap-0.5 rounded-md px-2 py-1.5 transition-colors duration-200",
-              screen === sc.id ? "bg-primary text-primary-foreground" : "text-foreground hover:bg-muted",
+              screen === sc.id ? "bg-primary text-primary-foreground" : "text-background-foreground hover:bg-muted",
             )}
           >
             <span className="flex items-center gap-1.5 text-12 font-medium">

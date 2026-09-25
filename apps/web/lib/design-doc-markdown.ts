@@ -7,11 +7,34 @@
  * 树的原始 JSON 由 `DesignProject.prototype` 本身承载，不在文档里再复制一份。
  */
 import { designPrototype } from "@repo/contracts";
-import type { DesignProject, PrototypeNode } from "./live-design-workbench";
+import { exportFileStem, type Romanize } from "./export-file-name";
+import { localDateStamp, localTimeStamp } from "./prototype-export-html";
+import { PROJECT_TEMPLATE_LABEL, type DesignProject, type PrototypeNode } from "./live-design-workbench";
 
 const { isPrototypeContainer } = designPrototype;
 
-const TEMPLATE_LABEL: Record<DesignProject["template"], string> = { mobile: "移动端设计", ui: "UI 原型", wireframe: "线框图" };
+/**
+ * 迭代 38 —— 大纲里的枚举取值说人话。
+ *
+ * 这份文档自己的注释写着「文档的读者是人」（迭代 11 为跳转清单写的），而同一份文档里
+ * 一直印着 `文本（title）`、`按钮「发送」（primary）`、`图片（photo）`、`（图标 cart）`——
+ * 那是 schema 的字面量。第 5 轮已经为属性面板建好了单源 `prototypeOptionLabel`
+ * （契约里，且有覆盖率门控），这里直接用，不另抄一份中文。
+ */
+const opt = (type: string, key: string, value: string | undefined): string | undefined =>
+  value === undefined ? undefined : designPrototype.prototypeOptionLabel(type, key, value);
+
+/**
+ * 迭代 38：这是模板名的**第三份**副本。第 10 轮把工作台首页与详情页那两份收敛成了
+ * `PROJECT_TEMPLATE_LABEL`，却漏了交付文档这一处——收敛做了一半，比没做更容易让人以为做完了。
+ */
+const TEMPLATE_LABEL = PROJECT_TEMPLATE_LABEL;
+
+/** 迭代 21：强调色档位 → 人话。闭集来自契约，漏一档编译不过。 */
+const ACCENT_LABEL: Record<DesignProject["accent"], string> = {
+  neutral: "无（中性灰）", blue: "靛蓝", violet: "紫", teal: "青",
+  green: "绿", amber: "琥珀", rose: "玫红", slate: "石板灰",
+};
 
 /** 一个节点在大纲里的一行文字：类型 + 最能代表它的文案。 */
 export function describeNode(n: PrototypeNode): string {
@@ -19,11 +42,33 @@ export function describeNode(n: PrototypeNode): string {
     case "stack": return `布局（${n.props?.direction === "row" ? "横向" : "纵向"}${n.props?.fill === true ? "，填满" : ""}）`;
     case "card": return n.props?.title !== undefined ? `卡片「${n.props.title}」` : "卡片";
     case "navbar": return `导航栏「${n.props.title}」${n.props.left !== undefined ? `，左：${n.props.left}` : ""}${n.props.right !== undefined ? `，右：${n.props.right}` : ""}`;
-    case "text": return `文本${n.props.variant !== undefined ? `（${n.props.variant}）` : ""}：${n.props.content}`;
-    case "button": return `按钮「${n.props.label}」${n.props.variant !== undefined ? `（${n.props.variant}）` : ""}`;
+    case "text": return `文本${n.props.variant !== undefined ? `（${opt("text", "variant", n.props.variant)!}）` : ""}：${n.props.content}`;
+    // 迭代 21：图标是**设计决定**，工程照着实现时要知道按哪个图标。此前 describeNode
+    // 不提它，于是这条信息在交付文档里凭空消失。
+    case "button": return `按钮「${n.props.label}」${n.props.icon !== undefined ? `（图标：${opt("button", "icon", n.props.icon)!}）` : ""}${n.props.variant !== undefined ? `（${opt("button", "variant", n.props.variant)!}）` : ""}`;
     case "input": return `输入框${n.props.label !== undefined ? `「${n.props.label}」` : ""}${n.props.placeholder !== undefined ? `，占位：${n.props.placeholder}` : ""}${n.props.multiline === true ? "，多行" : ""}`;
-    case "image": return `图片：${n.props.alt}`;
-    case "list": return `列表：${n.props.items.join(" / ")}`;
+    case "image": return `图片（${opt("image", "kind", n.props.kind ?? "photo")!}）：${n.props.alt}`;
+    /**
+     * 迭代 21 —— 列表行的**副标题与右侧值不能丢**。
+     *
+     * 前面几轮给 `list` 加了 `detail`（副标题）/ `trailing`（右侧值）/ `icons`，画布渲染
+     * 了、导出的 HTML 渲染了，而这份交付文档只写 `items`——于是「店名 / 三件商品 / ¥128」
+     * 到了工程手里只剩「店名」。工程照着文档实现，根本不知道那两列存在。
+     *
+     * 这是我自己在前几轮造成的洞，而且是本仓反复点名的那一类：**一处加了数据，
+     * 下游少了一处跟进，界面上有、交付物里没有**。所以三段式在这里也写成三段式。
+     */
+    case "list": {
+      const rows = n.props.items.map((item, i) => {
+        const detail = n.props.detail?.[i]?.trim();
+        const trailing = n.props.trailing?.[i]?.trim();
+        const icon = n.props.leading === "icon" && n.props.icons?.[i] !== undefined ? `[${opt("list", "icons", n.props.icons[i]!) ?? n.props.icons[i]!}] ` : "";
+        return icon + item
+          + (detail !== undefined && detail !== "" ? `（${detail}）` : "")
+          + (trailing !== undefined && trailing !== "" ? ` → ${trailing}` : "");
+      });
+      return `列表：${rows.join(" / ")}`;
+    }
     case "divider": return "分隔线";
     case "spacer": return "留白";
     case "tabs": return `标签页：${n.props.items.map((t, i) => (i === (n.props.active ?? 0) ? `[${t}]` : t)).join(" / ")}`;
@@ -36,6 +81,16 @@ export function describeNode(n: PrototypeNode): string {
     case "progress": return `进度 ${n.props.value}%${n.props.label !== undefined ? `：${n.props.label}` : ""}`;
     case "stat": return `指标「${n.props.label}」= ${n.props.value}${n.props.delta !== undefined ? `（${n.props.delta}）` : ""}`;
     case "hero": return `头图「${n.props.title}」${n.props.subtitle !== undefined ? `：${n.props.subtitle}` : ""}${n.props.cta !== undefined ? `，按钮「${n.props.cta}」` : ""}`;
+    // 对标 R3：表格与图表把**数据**写进文档，工程拿到的是样例数据而不是「这里有张表」。
+    case "table": return `表格（${n.props.columns.join(" / ")}）：${n.props.rows.length} 行${n.props.rows[0] !== undefined ? `，首行「${n.props.rows[0].join(" / ")}」` : ""}`;
+    case "chart": return `${n.props.kind === "line" ? "折线图" : "柱状图"}${n.props.title !== undefined ? `「${n.props.title}」` : ""}：${n.props.labels.slice(0, n.props.values.length).map((l, i) => `${l} ${String(n.props.values[i])}${n.props.unit ?? ""}`).join("，")}`;
+    // 对标 R4：表单项把选项写全，叠层说清是哪种（工程据此决定是 Dialog 还是 Sheet）。
+    // 对标 R5
+    case "section": return `分区（${n.props?.tone === "muted" ? "浅灰底" : n.props?.tone === "primary" ? "主色底" : n.props?.tone === "inverse" ? "反色底" : "无底色"}）`;
+    case "footer": return `页脚「${n.props.brand}」${n.props.links !== undefined && n.props.links.length > 0 ? `：${n.props.links.join(" / ")}` : ""}${n.props.note !== undefined ? `；${n.props.note}` : ""}`;
+    case "select": return `下拉${n.props.label !== undefined ? `「${n.props.label}」` : ""}：${n.props.options.join(" / ")}${n.props.value !== undefined ? `（当前：${n.props.value}）` : ""}`;
+    case "radio": return `单选${n.props.label !== undefined ? `「${n.props.label}」` : ""}：${n.props.options.map((o, i) => (i === n.props.selected ? `●${o}` : o)).join(" / ")}`;
+    case "overlay": return `${n.props?.kind === "sheet" ? "底部弹层" : n.props?.kind === "toast" ? "轻提示" : "弹窗"}${n.props?.title !== undefined ? `「${n.props.title}」` : ""}`;
     case "grid": return `网格（${n.props?.columns ?? 2} 列）`;
   }
 }
@@ -49,11 +104,20 @@ export function outlinePrototype(root: PrototypeNode, depth = 0, out: string[] =
 export function buildDesignDocMarkdown(project: DesignProject, now: Date = new Date()): string {
   const lines: string[] = [];
   lines.push(`# ${project.name}`, "");
-  lines.push(`- 模板：${TEMPLATE_LABEL[project.template]}`);
+  /*
+   * 迭代 21：**视觉设定进文档**。模板（含保真度）、明暗、强调色都是工程要照着实现的
+   * 设计决定；此前文档只写模板名，拿到文档的人不知道这稿是按哪个主色定的。
+   */
+  lines.push(`- 模板：${TEMPLATE_LABEL[project.template]}${project.template === "wireframe" ? "（低保真线框图：不靠颜色传达信息）" : ""}`);
+  lines.push(`- 视觉：${project.theme === "light" ? "浅色" : "深色"} · 强调色 ${ACCENT_LABEL[project.accent] ?? project.accent}`);
   lines.push(`- 负责人：${project.ownerName ?? "（未知）"}`);
   if (project.linkedFeedbackId !== null) lines.push(`- 来源反馈：${project.linkedFeedbackId}`);
   if (project.githubIssueUrl !== null) lines.push(`- 开发 issue：${project.githubIssueUrl}`);
-  lines.push(`- 导出时间：${now.toISOString()}`, "");
+  /*
+   * 迭代 38：原来是 `now.toISOString()`——文档里印着 `2026-09-07T12:00:00.000Z`。
+   * 这是给人读的交付文档，而那串东西既不是读者所在时区的时间，也不像个时间。
+   */
+  lines.push(`- 导出时间：${localTimeStamp(now)}`, "");
   lines.push("## 问题与目标", "", project.problem.trim() === "" ? "（还没写）" : project.problem, "");
   lines.push("## 验收标准", "");
   if (project.criteria.length === 0) lines.push("（还没有）");
@@ -91,7 +155,8 @@ export function buildDesignDocMarkdown(project: DesignProject, now: Date = new D
   if (project.chat.length === 0) lines.push("（没有对话）");
   else {
     lines.push(`共 ${aiTurns} 轮。`, "");
-    for (const t of project.chat) lines.push(`- ${t.role === "user" ? "PM" : "AI"}：${t.text.replace(/\s+/g, " ").trim()}`);
+    // 迭代 38：提需求的人未必是 PM——这一整轮迭代的前提就是「不做设计的人也能做原型」。
+    for (const t of project.chat) lines.push(`- ${t.role === "user" ? "提需求的人" : "AI"}：${t.text.replace(/\s+/g, " ").trim()}`);
   }
   lines.push("");
   return lines.join("\n");
@@ -102,9 +167,13 @@ export function buildDesignDocMarkdown(project: DesignProject, now: Date = new D
  * 迭代 10 e2e 实测：Chromium 对 `download` 属性里的非 ASCII 名会退回默认的「download」，中文名等于没名。
  * 中文项目名 ⇒ `design-<日期>`；文件内容里项目名仍是原文。
  */
-export function designDocFileName(project: DesignProject, now: Date = new Date()): string {
-  const safe = project.name.replace(/[^A-Za-z0-9_-]+/g, "-").replace(/^-+|-+$/g, "") || "design";
-  return `${safe}-${now.toISOString().slice(0, 10)}.md`;
+export function designDocFileName(project: DesignProject, now: Date = new Date(), romanize?: Romanize | null): string {
+  const safe = exportFileStem(project.name, "design", romanize);
+  /*
+   * 迭代 38：**第 14 轮只修了 HTML 那一处**，同一个 UTC 日期 bug 就在隔壁这一行里。
+   * 东八区凌晨导出，文档文件名写的是昨天。单源在 `prototype-export-html.ts`。
+   */
+  return `${safe}-${localDateStamp(now)}.md`;
 }
 
 /**
@@ -122,6 +191,6 @@ export function buildPrototypeSpecJson(project: DesignProject): string {
   return JSON.stringify({ version: 1, project: { id: project.id, name: project.name, template: project.template }, screens }, null, 2);
 }
 
-export function prototypeSpecFileName(project: DesignProject, now: Date = new Date()): string {
-  return designDocFileName(project, now).replace(/\.md$/, ".prototype.json");
+export function prototypeSpecFileName(project: DesignProject, now: Date = new Date(), romanize?: Romanize | null): string {
+  return designDocFileName(project, now, romanize).replace(/\.md$/, ".prototype.json");
 }

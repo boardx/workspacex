@@ -1,0 +1,22 @@
+{
+  "name": "WorkspaceX — The Open Operating Workspace for Human + AI",
+  "short_name": "WorkspaceX",
+  "description": "WorkspaceX is the operating layer that connects context, agents, action, evidence and memory — so intent becomes work, and work leaves proof.",
+  "lang": "en",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#08070b",
+  "theme_color": "#08070b",
+  "icons": [
+    {
+      "src": "img/favicon.png",
+      "sizes": "32x32",
+      "type": "image/png"
+    },
+    {
+      "src": "img/apple-touch-icon.png",
+      "sizes": "180x180",
+      "type": "image/png"
+    }
+  ]
+}

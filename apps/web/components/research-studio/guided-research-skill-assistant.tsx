@@ -38,6 +38,10 @@ export function GuidedResearchSkillAssistant({
   const [input, setInput] = React.useState("");
   const [sending, setSending] = React.useState(false);
   const [sendError, setSendError] = React.useState(false);
+  // ⚠ 这行字以前写死「由 qwen3.7-plus 生成建议」。模型 id 是部署配置（见
+  //   application/research/guided-model-config.ts），在 WorkspaceX Local 上就是
+  //   qwen3.5:4b——写死等于在界面上对用户说一句不成立的话。响应里本来就带 modelId。
+  const [modelId, setModelId] = React.useState<string | null>(null);
   const [skillState, setSkillState] = React.useState<ResearchSkillState>(() => loadResearchSkillState(sessionKey, step));
 
   React.useEffect(() => {
@@ -73,6 +77,7 @@ export function GuidedResearchSkillAssistant({
         message: prompt,
         draft: apiDraft(),
       });
+      setModelId(response.modelId);
       const proposal = response.proposal;
       const suggestion = proposal.node === "brief"
         ? { step: "brief" as const, prompt, text: response.assistantMessage, value: proposal.value }
@@ -150,7 +155,7 @@ export function GuidedResearchSkillAssistant({
       <p className="mt-2 text-12 leading-5 text-muted-foreground">通过对话优化当前步骤；建议只有点击应用后才会修改内容。</p>
       <div className="mt-4 flex flex-wrap gap-2">
         {QUICK_PROMPTS[step].map((prompt) => (
-          <button key={prompt} type="button" disabled={sending} onClick={() => void send(prompt)} className="rounded-full border border-border px-3 py-1 text-12 text-muted-foreground transition-colors hover:text-foreground disabled:bg-disabled disabled:text-disabled-foreground">
+          <button key={prompt} type="button" disabled={sending} onClick={() => void send(prompt)} className="rounded-full border border-border px-3 py-1 text-12 text-muted-foreground transition-colors hover:text-background-foreground disabled:bg-disabled disabled:text-disabled-foreground">
             {prompt}
           </button>
         ))}
@@ -158,7 +163,7 @@ export function GuidedResearchSkillAssistant({
       {sendError && <p className="mt-2 text-11 text-destructive" role="alert">模型暂时不可用，内容没有被 Mock 替代。请重试。</p>}
       <div data-testid="research-skill-messages" className="mt-4 min-h-32 flex-1 space-y-3 overflow-y-auto pr-1">
         {skillState.messages.map((message) => (
-          <div key={message.id} className={message.role === "user" ? "ml-6 rounded-lg bg-primary px-3 py-2 text-12 text-primary-foreground" : "mr-3 rounded-lg bg-muted px-3 py-2 text-12 leading-5 text-foreground"}>
+          <div key={message.id} className={message.role === "user" ? "ml-6 rounded-lg bg-primary px-3 py-2 text-12 text-primary-foreground" : "mr-3 rounded-lg bg-muted px-3 py-2 text-12 leading-5 text-background-foreground"}>
             {message.text}
           </div>
         ))}
@@ -182,7 +187,7 @@ export function GuidedResearchSkillAssistant({
         />
         <Button data-testid="research-skill-send" type="button" variant="primary" size="icon" aria-label="发送建议" disabled={!input.trim() || sending} onClick={() => void send()}>{sending ? <Loader2 aria-hidden className="size-4 animate-spin" /> : <Send aria-hidden className="size-4" />}</Button>
       </div>
-      <p className="mt-3 text-11 text-muted-foreground">由 qwen3.7-plus 生成建议；应用前不会修改研究内容。</p>
+      <p className="mt-3 text-11 text-muted-foreground">{modelId === null ? "建议由模型生成；应用前不会修改研究内容。" : `由 ${modelId} 生成建议；应用前不会修改研究内容。`}</p>
     </section>
   );
 }

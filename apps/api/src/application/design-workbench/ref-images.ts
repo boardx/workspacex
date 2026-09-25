@@ -113,7 +113,7 @@ export async function deleteRefImage(
   // 回收是另一件事（孤儿对象清理），在这里顺手删会让"删元信息成功、删对象失败"变成
   // 一个半完成的操作。
   await deps.refImages.remove(input.projectId, input.imageId);
-  return { project: await loadProjectView(deps, input.projectId) };
+  return { project: await loadProjectView(deps, input.projectId, input.ownerId) };
 }
 
 /**

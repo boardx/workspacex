@@ -10,7 +10,8 @@ import { SELF, env } from "cloudflare:test";
 import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 import { createGitHubAppAuth } from "@repo/coord-projection";
 import {
-  deriveSlug,
+  canonicalRepoId,
+  deriveProjectSlug,
   handleOnboard,
   listInstallationRepos,
   reposFromInstallationPayload,
@@ -70,7 +71,12 @@ describe("安装即注册（installation/installation_repositories webhook → �
     );
     expect(r.status).toBe(202);
     const body = await r.json<{ ok: boolean; registered: { slug: string; registered: boolean }[] }>();
-    expect(body.registered.map((x) => x.slug).sort()).toEqual(["ledgerly", "pixel-forge"]);
+    // slug 由 owner+repo 派生（#377），断言处复用同一个派生函数，不另抄一份字面量。
+    const expected = [
+      await deriveProjectSlug("usamshen", "pixel-forge"),
+      await deriveProjectSlug("usamshen", "ledgerly"),
+    ].sort();
+    expect(body.registered.map((x) => x.slug).sort()).toEqual(expected);
 
     const list = await (
       await SELF.fetch("https://gw.test/api/coord/directory/projects", {
@@ -78,8 +84,7 @@ describe("安装即注册（installation/installation_repositories webhook → �
       })
     ).json<{ projects: { slug: string }[] }>();
     const slugs = list.projects.map((p) => p.slug);
-    expect(slugs).toContain("pixel-forge");
-    expect(slugs).toContain("ledgerly");
+    for (const slug of expected) expect(slugs).toContain(slug);
   });
 
   it("installation_repositories(added)：repositories_added 增量注册；重复安装幂等（409 不视为失败）", async () => {
@@ -90,7 +95,8 @@ describe("安装即注册（installation/installation_repositories webhook → �
     );
     expect(r1.status).toBe(202);
     const body1 = await r1.json<{ registered: { slug: string; registered: boolean }[] }>();
-    expect(body1.registered).toEqual([{ slug: "crm-core", registered: true }]);
+    const crmSlug = await deriveProjectSlug("acme-inc", "crm-core");
+    expect(body1.registered).toEqual([{ slug: crmSlug, registered: true }]);
 
     // 同一仓再次投递（幂等）：slug 已占用 → registered:false，仍是 202 而非错误
     const r2 = await postWebhook(
@@ -100,7 +106,7 @@ describe("安装即注册（installation/installation_repositories webhook → �
     );
     expect(r2.status).toBe(202);
     const body2 = await r2.json<{ registered: { slug: string; registered: boolean }[] }>();
-    expect(body2.registered).toEqual([{ slug: "crm-core", registered: false }]);
+    expect(body2.registered).toEqual([{ slug: crmSlug, registered: false }]);
   });
 
   it("非 created/added 动作（如 deleted）→ ack 但不注册（registered 空数组）", async () => {
@@ -121,11 +127,49 @@ describe("安装即注册（installation/installation_repositories webhook → �
   });
 });
 
+// directory 侧的硬约束（packages/coord-directory/src/schema.ts + directory.ts:322）：
+// 不满足就是 422 invalid_slug，任何派生结果都必须过这一关。
+const DIRECTORY_SLUG_RE = /^[a-z0-9][a-z0-9-]{1,62}$/;
+
 describe("slug 派生", () => {
-  it("小写化 + 非法字符折叠为连字符 + 裁两端", () => {
-    expect(deriveSlug("Pixel_Forge")).toBe("pixel-forge");
-    expect(deriveSlug("crm.core!!")).toBe("crm-core");
-    expect(deriveSlug("--edge--")).toBe("edge");
+  it("可读前缀：小写化 + 非法字符折叠为连字符 + 裁两端，owner 在前", async () => {
+    expect(await deriveProjectSlug("usamshen", "Pixel_Forge")).toMatch(/^usamshen-pixel-forge-[0-9a-f]{16}$/);
+    expect(await deriveProjectSlug("acme-inc", "crm.core!!")).toMatch(/^acme-inc-crm-core-[0-9a-f]{16}$/);
+    expect(await deriveProjectSlug("--edge--", "--repo--")).toMatch(/^edge-repo-[0-9a-f]{16}$/);
+  });
+
+  it("同一个 owner/repo 永远得到同一个 slug（稳定，可重复投递）；大小写不影响", async () => {
+    const a = await deriveProjectSlug("usamshen", "pixel-forge");
+    expect(await deriveProjectSlug("usamshen", "pixel-forge")).toBe(a);
+    expect(await deriveProjectSlug("UsamShen", "Pixel-Forge")).toBe(a);
+    expect(canonicalRepoId("UsamShen", "Pixel-Forge")).toBe("usamshen/pixel-forge");
+  });
+
+  it("#377 反证：不同 owner 的同名仓派生出不同 slug", async () => {
+    expect(await deriveProjectSlug("owner-a", "demo")).not.toBe(await deriveProjectSlug("owner-b", "demo"));
+  });
+
+  it("前缀折叠不导致撞号：a-b/c 与 a/b-c 可读前缀相同，摘要仍把它们分开", async () => {
+    const x = await deriveProjectSlug("a-b", "c");
+    const y = await deriveProjectSlug("a", "b-c");
+    expect(x.replace(/-[0-9a-f]{16}$/, "")).toBe(y.replace(/-[0-9a-f]{16}$/, "")); // 前缀确实撞了
+    expect(x).not.toBe(y); // 但 slug 没撞
+  });
+
+  it("超长 owner/repo 被截断后仍满足 directory 的 SLUG_RE，且彼此不撞", async () => {
+    const owner = "o".repeat(39); // GitHub owner 上限
+    const long1 = await deriveProjectSlug(owner, "r".repeat(100));
+    const long2 = await deriveProjectSlug(owner, "r".repeat(101));
+    expect(long1.length).toBeLessThanOrEqual(63);
+    expect(long1).toMatch(DIRECTORY_SLUG_RE);
+    expect(long2).toMatch(DIRECTORY_SLUG_RE);
+    expect(long1).not.toBe(long2); // 截断点之后的差异由摘要兜住
+  });
+
+  it("全是非法字符时兜底 \"repo\" 前缀，仍是合法 slug", async () => {
+    const slug = await deriveProjectSlug("!!!", "???");
+    expect(slug).toMatch(/^repo-[0-9a-f]{16}$/);
+    expect(slug).toMatch(DIRECTORY_SLUG_RE);
   });
 });
 
@@ -192,8 +236,13 @@ describe("listInstallationRepos：真实仓库列表 + collaborator permission �
 
     const repos = await listInstallationRepos(auth, 9001, "usamshen", fetchImpl);
     expect(repos).toHaveLength(2);
-    expect(repos.find((r) => r.slug === "pixel-forge")!.is_admin).toBe(true);
-    expect(repos.find((r) => r.slug === "crm-core")!.is_admin).toBe(false);
+    // 按 full_name 定位（身份），再单独断言 slug 与派生函数一致——不再拿 slug 当主键找行。
+    const pixel = repos.find((r) => r.full_name === "usamshen/pixel-forge")!;
+    const crm = repos.find((r) => r.full_name === "acme-inc/crm-core")!;
+    expect(pixel.is_admin).toBe(true);
+    expect(crm.is_admin).toBe(false);
+    expect(pixel.slug).toBe(await deriveProjectSlug("usamshen", "pixel-forge"));
+    expect(crm.slug).toBe(await deriveProjectSlug("acme-inc", "crm-core"));
   });
 
   // IDOR 回归（#776 review）：请求者与仓库零 collaborator 关系的仓库必须整条从
@@ -448,11 +497,54 @@ describe("REST 面 IDOR 回归（installation_id 属己但 repo 属他 / 零归�
     });
     const r = await handleOnboard(req, testGatewayEnv(), new URL(req.url));
     expect(r.status).toBe(200);
-    expect(await r.json()).toMatchObject({ project: { slug: "finalize-visibility-check", registered: true } });
+    const finalizeSlug = await deriveProjectSlug("usamshen", "finalize-visibility-check");
+    expect(await r.json()).toMatchObject({ project: { slug: finalizeSlug, registered: true } });
 
     const project = ((await (
       await SELF.fetch("https://gw.test/api/coord/directory/projects", { headers: { authorization: "Bearer test-api-token" } })
-    ).json<{ projects: { slug: string; visibility: string }[] }>()).projects).find((p) => p.slug === "finalize-visibility-check");
+    ).json<{ projects: { slug: string; visibility: string }[] }>()).projects).find((p) => p.slug === finalizeSlug);
     expect(project?.visibility).toBe("private"); // 以 GitHub 真实值为准，不是客户端谎报的 false
+  });
+});
+
+// ---------- #377：跨 owner 同名仓不得撞号 ----------
+//
+// 反证背景：slug 曾只由 repo 短名派生，而 directory 的 projects.slug 是**全局唯一索引**
+// （schema.ts `uq_projects_slug`）。于是 owner-a/demo 与 owner-b/demo 必然算出同一个
+// slug，第二个仓注册时撞 409；而 registerProject 把 409 当「幂等，已在册」吞掉，
+// 于是 owner-b/demo 被静默并进 owner-a/demo 的项目行——跨租户身份混淆，不是重复注册。
+describe("跨 owner 同名仓 slug 不撞号（#377）", () => {
+  it("两个 owner 的同名仓各自注册成独立项目，第二个不被 409 吞成「已在册」", async () => {
+    const a = await postWebhook(
+      "installation_repositories",
+      { action: "added", installation: { id: 9377 }, repositories_added: [{ full_name: "owner-a/demo", name: "demo", private: false }] },
+      "dlv-377-a",
+    );
+    expect(a.status).toBe(202);
+    const bodyA = await a.json<{ registered: { slug: string; registered: boolean }[] }>();
+
+    const b = await postWebhook(
+      "installation_repositories",
+      { action: "added", installation: { id: 9378 }, repositories_added: [{ full_name: "owner-b/demo", name: "demo", private: false }] },
+      "dlv-377-b",
+    );
+    expect(b.status).toBe(202);
+    const bodyB = await b.json<{ registered: { slug: string; registered: boolean }[] }>();
+
+    // 两个不同 owner 的同名仓：slug 必须不同
+    expect(bodyA.registered[0]!.slug).not.toBe(bodyB.registered[0]!.slug);
+    // 且第二个是真的新注册，而不是撞 409 被当成「已在册」
+    expect(bodyA.registered[0]!.registered).toBe(true);
+    expect(bodyB.registered[0]!.registered).toBe(true);
+
+    // 目录里确实是两条独立项目，各自 name 指回自己的 full_name
+    const list = await (
+      await SELF.fetch("https://gw.test/api/coord/directory/projects", {
+        headers: { authorization: "Bearer test-api-token" },
+      })
+    ).json<{ projects: { slug: string; name: string }[] }>();
+    const demos = list.projects.filter((p) => p.name === "owner-a/demo" || p.name === "owner-b/demo");
+    expect(demos.map((p) => p.name).sort()).toEqual(["owner-a/demo", "owner-b/demo"]);
+    expect(new Set(demos.map((p) => p.slug)).size).toBe(2);
   });
 });

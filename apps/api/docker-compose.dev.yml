@@ -28,9 +28,15 @@
 
 services:
   postgres:
-    # pgvector is needed from the start: F10's hybrid retrieval depends on it, and adding
-    # the extension later means a second base image and a second set of migrations.
-    image: pgvector/pgvector:pg16
+    # pgvector (F10 hybrid retrieval) + Apache AGE (ADR-114, the org-brain graph
+    # projection), built from ./docker/postgres-age. The image tag carries both versions
+    # so a stale local image is visible in `docker images`, not a silent mismatch.
+    # `localhost/` + `pull_policy: build`: this image is only ever built from the Dockerfile
+    # next to it, never pulled. A bare `workspacex/...` name made compose try Docker Hub
+    # first, and that namespace is not ours -- whoever registered it would supply our DB.
+    image: localhost/workspacex-postgres-age:pg16-age1.6.0
+    pull_policy: build
+    build: ./docker/postgres-age
     environment:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres_dev
@@ -64,10 +70,11 @@ services:
       - /var/lib/postgresql/data
 
   minio:
-    # issue #3457 —— Docker Hub 的 `minio/minio` 仓库已下架（"repository does not
-    # exist"，本机与 CI 都实测复现，main 18:53Z 之后才开始红，非本仓改动引入）。
-    # MinIO 官方把公开镜像收敛到了 quay.io，同一 tag 已本机验证 `docker pull` 成功。
-    image: quay.io/minio/minio:RELEASE.2024-09-13T20-26-02Z
+    # Image ownership and immutable-lock state live in one file shared with deploy compose.
+    # See issue #4100 and docker-compose.minio-image.yml; do not copy an image ref here.
+    extends:
+      file: docker-compose.minio-image.yml
+      service: minio-image
     command: server /data --console-address ":59001"
     environment:
       MINIO_ROOT_USER: minio_dev

@@ -47,11 +47,11 @@
 
 | 状态 | 含义 | 谁该动 |
 |---|---|---|
-| `MERGE_BLOCKED` | 门禁本身出了问题：verdict 自相矛盾、required check 是 `SKIPPED`/`NEUTRAL`/`CANCELLED`（门空转）、`mergeStateStatus` 为 `DIRTY`/`BLOCKED`/`UNKNOWN`、缺 `Closes #N`、作者自审、verdict 没有当前 head SHA 的独立 approve 背书 | coord-main（不是 worker） |
+| `MERGE_BLOCKED` | 门禁本身出了问题：verdict 自相矛盾、required check 是 `SKIPPED`/`NEUTRAL`/`CANCELLED`（门空转）、`mergeStateStatus` 为 `DIRTY`/`BLOCKED`/`UNKNOWN`、缺 `Closes #N`、作者自审 | coord-main（不是 worker） |
 | `WAITING_WORKER` | Draft，或 `BEHIND` 需要 rebase | worker |
 | `CHANGES_REQUIRED` | 带 `review:changes`，或当前 head 上有 CHANGES_REQUESTED，或 required check `FAILURE`/`TIMED_OUT` | worker |
 | `WAITING_CI` | required check 还没有结论；**或一条 required check 都拿不到**（问不到不等于绿） | 等，超时按 Deadline 表分诊 |
-| `WAITING_REVIEW` | 没有 `review:*-ok`，或 head 漂移后需要重派 exact-SHA review | coord-main 派 reviewer |
+| `WAITING_REVIEW` | 没有 `review:*-ok` 标签；或独立 approve 两条路都不满足——既没有锚定当前 head 的原生 APPROVE，也没有 `review:*-ok` 标签（#1441：二者取一即可，判据在 `lib/pr-queue.ts` 的 `hasIndependentApproval`） | coord-main 派 reviewer |
 | `READY_TO_MERGE` | 全部机械门禁绿 | 见下方"两种执行模式" |
 
 判定优先级即上表顺序（第一个命中的决定状态），但 `reasons` 会列出**全部**命中项——
@@ -148,15 +148,21 @@ merge commit **用 `git merge-base --is-ancestor` 实测在 `origin/main` 上**�
 - **Andon 停线**：main typecheck/verify 红 = coord-main 在 #323 发 `andon-stop`，
   全线暂停 rebase/merge，修复后 `andon-clear`。
 - **SLA**（超时动作机械执行，见提案表格）：新 PR 同周期内必得首个 review 结论；
-  CHANGES 返工 1 周期；`in_progress` 的 D1 claim 用 `ttl_seconds=10800` 由 sweeper
+  CHANGES 返工 1 周期；`in_progress` 的 coord-gateway claim 用 `ttl_seconds=10800` 由 sweeper
   机械过期回收；低风险 PR（纯文档/元数据）review+merge ≤ 30 分钟。
 - **热点申报**：动 `.harness/state/hotspots.md` 所列文件的 PR 必须在 cycle-plan
   申报；同周期撞热点由 coord-main 排序。
 - **健康表**：`pnpm harness cycle-report`（只读）聚合当前周期承诺/超时/flow time。
+- **门控**（#534）：`pnpm harness tick` 每个 loop 判一次——**持协调类活跃租约、却没发上
+  一个周期的 cycle-result ⇒ 退出码非 0**。此前这条义务只有提示（tick 每轮逐字印
+  「结束前必须发 cycle-result」）没有门，coord-chat-e2e 与 coord-main 一连十几个周期
+  一条没发、包括当事人自己在内无人发现。判据（判哪个周期、谁背义务、宽限期）与
+  「问不到 ≠ 没发」的前置失败区分**只写在** `.harness/scripts/lib/cycle-result-gate.ts`，
+  本文不复述——同一事实不得声明在两处。
 
 ## 铁律（任何层都不可违反）
 1. **verdict 权威**：`review:*-ok` 只能由 coordinator 编排的 reviewer 产出。发现来路不明的 verdict → 摘除 + 留言，以可核验事实（git ls-tree、命令退出码）重裁。
-2. **coordinator 唯一**：唯一性由 coord-service (D1) 的 `role:coord-main` claim 裁定（2026-07-08 起，ADR-009；此前的 `coordination:lease` issue 心跳机制已退役，见下方生命周期章节）；接管协调前先向存量协调会话广播；双 coordinator 结论冲突时，以可核验事实为准，并立即收敛为单 coordinator。
+2. **coordinator 唯一**：唯一性由 coord-gateway 的 `role:coord-main` claim 裁定（2026-07-08 起 ADR-009，服务选型 2026-07-18 起 ADR-017；此前的 `coordination:lease` issue 心跳机制已退役，见下方生命周期章节）；接管协调前先向存量协调会话广播；双 coordinator 结论冲突时，以可核验事实为准，并立即收敛为单 coordinator。
 3. **合并独占**：只有 coordinator 执行合并；review 全绿 + CI 绿 + up-to-date 缺一不可（CI 因基础设施不可用时，合并冻结并升级人类，不得以"本地验过"绕行）。
 4. **证据实测**：任何"已验证/已入库"声称都用 `git ls-tree` / `git show` / 退出码实测，不信任 diff 注释、progress 叙述或打分。
 5. **共享主 checkout 隔离**：任何要落地写文件/提交的会话（含 coordinator 自己）一律
@@ -168,13 +174,14 @@ merge commit **用 `git merge-base --is-ancestor` 实测在 `origin/main` 上**�
    明确时限的通牒，再据此回收/升级——不能只是内部判断"再等等"或"已经提醒过了"就不再
    跟进。这条对 coord-main 和全体 module-coordinator 一视同仁，没有"层级更高就可以裸等"
    这回事（人类反馈直接触发，2026-07-07）。
-7. **coord-service 是唯一协调权威（2026-07-08 起，取代本条旧文）**：`lock-*`/
-   `module-lock-*` 必须配置 `COORD_SERVICE_URL`/`COORD_SERVICE_TOKEN` 才能使用，
-   未配置直接报错——不存在降级回 GitHub 的路径（GitHub 协调面已整体退役）。
-   权威（D1）联系不上时 acquire fail-closed 拒绝执行，`--force` 仅限人类授权的
-   抢占仪式。见 ADR-009（`docs/adr/
-   ADR-009-github-coordination-plane-retirement.md`）；本条 2026-07-08 之前的
-   opt-in 版本见 ADR-006（保留为历史决策记录）。
+7. **coord-gateway 是唯一协调权威（2026-07-18 起，ADR-017 取代本条旧文）**：`lock-*`/
+   `module-lock-*` 的凭据接线与自检只写在 `agent-bootstrap.md` 第 3 步，本 SOP 不复述；
+   未接线直接报错——不存在降级回 GitHub 的路径（GitHub 协调面已整体退役）。
+   权威联系不上时 acquire fail-closed 拒绝执行，`--force` 仅限人类授权的抢占仪式。
+   见 ADR-017（`docs/adr/ADR-017-coord-gateway-repohub-cutover.md`）与
+   ADR-009（`docs/adr/ADR-009-github-coordination-plane-retirement.md`）；
+   ADR-006 的 opt-in 版本与 `COORD_SERVICE_URL`/`COORD_SERVICE_TOKEN` 已退役，
+   配了也不会被读取，保留为历史决策记录。
 8. **破坏性清理操作需要显式人类/coord-main 授权，任何会话都不能仅凭自己判断"逻辑
    可靠"就执行**：`pnpm harness sweep-docker --apply`（删容器+卷）、以及其它任何
    对共享基础设施做删除/回收类操作的命令，一律先跑不带 `--apply` 的只读巡检、把
@@ -192,7 +199,7 @@ merge commit **用 `git merge-base --is-ancestor` 实测在 `origin/main` 上**�
    （active-features.json）不是审计对象，in-repo 的 PROGRESS.md 才是。
 
 10. **统一时钟 + loop 纪律（2026-07-16 起，ADR-014）**：协调决策一律以
-   coord-service `GET /time` 为准（现在几点/当前哪个周期/租约还新鲜吗），**不信本机
+   coord-gateway `GET /api/coord/time` 为准（现在几点/当前哪个周期/租约还新鲜吗），**不信本机
    `date`**——机器时钟漂移会让你误判租约新鲜度与周期边界，`harness tick` 会在漂移
    >60s 时告警。**每个层级都必须有 loop**：coord-main 5 分钟、module-coordinator
    15 分钟、sub-agent/worker 15 分钟，每个 loop 跑 `pnpm harness tick`（权威时钟+
@@ -200,8 +207,8 @@ merge commit **用 `git merge-base --is-ancestor` 实测在 `origin/main` 上**�
    ——只有后者没有前者，就是"coord-architecture 租约静默过期 8 小时"的成因。
    席位按 ttl 正常过期是**诚实信号**，不得调大 ttl 或替人代跑心跳来掩盖失联。
 
-11. **协调权威（coord-service）绝不手动部署（2026-07-17 起）**：coord-service 有了
-   CD（deploy-coord-service.yml）——改它的代码一律走 PR 合 main 触发自动部署，
+11. **协调权威（coord-gateway）绝不手动部署（2026-07-17 起）**：coord-gateway 有了
+   CD（deploy-coord-gateway.yml）——改它的代码一律走 PR 合 main 触发自动部署，
    **不再 `wrangler deploy`**。手动部署会 last-write-wins 互相覆盖（#629 覆盖 #614
    的 tasks 路由、线上收件箱静默消失，andon #272/#290）。CD 冒烟带部署漂移探针
    （/time 存在 + /tasks 返 401 而非 404），漂移当场红。这条对 devportal/devapp
@@ -276,9 +283,9 @@ merge commit **用 `git merge-base --is-ancestor` 实测在 `origin/main` 上**�
 ## 生命周期（启动/退位/抢占）
 coordinator 是**单例角色**，由会话通过启动仪式认领，不是常驻 subagent。
 完整仪式见 `.agents/skills/coordinator/SKILL.md`（唯一性握手 → 认领广播 → 冷启动读总线 →
-挂监控 → SOP 循环）。要点（**2026-07-08 起按 ADR-009 切换到 coord-service**）：
-- **唯一性来源**：D1 的 `role:coord-main` claim（`pnpm harness lock-acquire --session
-  <id>`，需要 `COORD_SERVICE_URL`/`COORD_SERVICE_TOKEN` 凭据）。认领是服务端
+挂监控 → SOP 循环）。要点（**2026-07-18 起按 ADR-017 切换到 coord-gateway**）：
+- **唯一性来源**：coord-gateway 的 `role:coord-main` claim（`pnpm harness lock-acquire
+  --session <id>`；凭据接线见 `agent-bootstrap.md` 第 3 步）。认领是服务端
   `uq_active_claim` 唯一索引上的原子 INSERT——两个会话抢，恰好一个成功。
   ~~label 为 `coordination:lease` 的专用 issue + heartbeat 评论~~ 已退役，存量
   issue 保留为历史记录。
@@ -288,9 +295,9 @@ coordinator 是**单例角色**，由会话通过启动仪式认领，不是常�
   是诚实信号不是故障**（会话没在 tick = 没在履职），下个 tick 自愈；不要为了席位
   显示连续而调大 ttl 或代跑别人的心跳（人类裁定，2026-07-08）。
 - **抢占**：`lock-status` 显示权威持有者与心跳年龄；持有者心跳过期后 acquire 即可
-  接任（sweeper 已回收）或 `--force`（人类授权仪式）。冲突以 D1 claim 为准。
+  接任（sweeper 已回收）或 `--force`（人类授权仪式）。冲突以 coord-gateway 的 claim 为准。
 - **退位**：`pnpm harness lock-release` + 交接要点写进总线（issue 评论仍是人类可读
-  叙述层）——租约状态在 D1，叙述在总线，都不在会话记忆里。
+  叙述层）——租约状态在 coord-gateway，叙述在总线，都不在会话记忆里。
 
 ## 二级架构:module-coordinator(2026-07-04 起)
 

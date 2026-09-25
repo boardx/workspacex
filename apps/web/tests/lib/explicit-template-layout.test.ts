@@ -26,7 +26,7 @@ import {
   type ExplicitLayoutSectionInput,
   type SectionGeometryMmInput,
 } from "@/lib/canvas/explicit-template-layout";
-import { A0_FRAME, ENGINE_STICKY, GRID_TOP, renderStickyCapacity } from "@/lib/canvas/auto-template-layout";
+import { A0_FRAME, ENGINE_STICKY, GRID_TOP, GUTTER, renderStickyCapacity } from "@/lib/canvas/auto-template-layout";
 import { registerTemplate, templateToModel } from "@repo/fabric-markdown";
 
 function section(
@@ -1066,5 +1066,61 @@ describe("classifyNoteSize —— Design.pdf §5「尺寸判定」四档，边�
     [70, "standard"], [82, "standard"], [83, "oversized"],
   ] as const)("%dmm → %s", (mm, expected) => {
     expect(classifyNoteSize(mm)).toBe(expected);
+  });
+});
+
+/**
+ * issue #3358 第 8 项「网格密度」的**行**那一半。
+ *
+ * ⚠ 反证的是一条很具体的缺陷：行数曾经是 `explicit-template-layout.ts` 的模块常量
+ *   `GRID_ROWS = 8`，两条几何（px 与 mm）都拿它当除数。于是一张存着 `gridRows: 16`
+ *   的模板，`layout.row/h` 是相对 16 行网格的坐标，几何却按 8 行算——同一份坐标在
+ *   纸面上指向别的位置，正是契约里那两栏本来要防的「几何悄悄漂掉」。
+ *   改动前这几条连编译都过不去（函数根本不接这个参数）。
+ */
+describe("issue #3358：网格行数是参数，不是模块常量", () => {
+  it("computeExplicitLayout：16 行制下每格高度正好是 8 行制的一半上下——行数真的参与了除法", () => {
+    const at8 = computeExplicitLayout([section("a", 1, 1, 1, 1)], 12, 8);
+    const at16 = computeExplicitLayout([section("a", 1, 1, 1, 1)], 12, 16);
+    // 格高 = (可用高 - (行数-1)×间距) / 行数。行数 8→16 时：
+    // cellH(16) = cellH(8)/2 - GUTTER/2（多出来的 8 道间距分摊到 16 格上）。
+    expect(at16.cells[0]!.h).toBeCloseTo(at8.cells[0]!.h / 2 - GUTTER / 2, 6);
+    // 网格制式随产物带出来，调用方不必自己再记一份。
+    expect(at16.gridRows).toBe(16);
+  });
+
+  it("computeExplicitLayout：16 行制下跨满 16 行的区块，与 8 行制下跨满 8 行的区块占同一块纸面", () => {
+    const full8 = computeExplicitLayout([section("a", 1, 1, 12, 8)], 12, 8).cells[0]!;
+    const full16 = computeExplicitLayout([section("a", 1, 1, 12, 16)], 12, 16).cells[0]!;
+    expect(full16.h).toBeCloseTo(full8.h, 6);
+    expect(full16.y).toBeCloseTo(full8.y, 6);
+  });
+
+  it("computeExplicitLayout：省略行数 = 8 行，老调用方逐字节同解", () => {
+    const omitted = computeExplicitLayout([section("a", 2, 3, 4, 2)], 12);
+    const explicit8 = computeExplicitLayout([section("a", 2, 3, 4, 2)], 12, 8);
+    expect(omitted).toEqual(explicit8);
+  });
+
+  it("sectionGeometryMm：hMm 的除数是这张模板的行数——16 行制下 h=2 与 8 行制下 h=1 等高", () => {
+    const at8 = sectionGeometryMm({ w: 6, h: 1, cols: 5, gridCols: 12, gridRows: 8 });
+    const at16 = sectionGeometryMm({ w: 6, h: 2, cols: 5, gridCols: 12, gridRows: 16 });
+    expect(at16.hMm).toBeCloseTo(at8.hMm, 6);
+    // 改动前 16 行制下的 h=2 会被按 8 行算成**两倍**高——那正是要反证的漂移。
+    const drifted = sectionGeometryMm({ w: 6, h: 2, cols: 5, gridCols: 12, gridRows: 8 });
+    expect(drifted.hMm).toBeGreaterThan(at16.hMm);
+  });
+
+  it("sectionGeometryMm：省略行数 = 8 行，老调用方逐字节同解", () => {
+    expect(sectionGeometryMm({ w: 6, h: 3, cols: 5, gridCols: 12 }))
+      .toEqual(sectionGeometryMm({ w: 6, h: 3, cols: 5, gridCols: 12, gridRows: 8 }));
+  });
+
+  it("buildExplicitTemplateSpec：把 gridRows 透传给几何换算，不是自己吃一个默认 8", () => {
+    const build = (gridRows: 8 | 16, h: number) => buildExplicitTemplateSpec({
+      key: `k-${gridRows}`, displayName: "T", gridCols: 12, gridRows,
+      sections: [section("a", 1, 1, 6, h)],
+    }).layout.cells[0]!;
+    expect(build(16, 2).h).toBeCloseTo(build(8, 1).h, 6);
   });
 });

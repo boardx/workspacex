@@ -72,15 +72,15 @@ function DispatcherPanel({ readOnly, onNew }: { readOnly: boolean; onNew: () => 
     <div className="flex flex-col gap-4">
       {/* 三条「原型已答」——替代 v1 的三张「待裁决」卡 */}
       <section className="rounded-lg border border-border bg-panel p-3" data-testid="chat-preset-answered">
-        <p className="mb-2 flex items-center gap-1.5 text-11 font-medium text-foreground">
+        <p className="mb-2 flex items-center gap-1.5 text-11 font-medium text-background-foreground">
           <CheckCircle2 aria-hidden className="h-3.5 w-3.5 text-primary" />
           权限模型：原型已答（v1 曾把这三条摆成「待裁决」，实为已有答案）
         </p>
         <div className="grid gap-2 md:grid-cols-3">
           {PRESET_ANSWERED.map((a) => (
             <div key={a.id} className="rounded-md border border-border-subtle bg-card p-2.5" data-testid={`chat-preset-answered-${a.id}`}>
-              <p className="text-11 font-medium text-foreground">{a.q}</p>
-              <p className="mt-1 text-11 text-foreground">{a.answer}</p>
+              <p className="text-11 font-medium text-background-foreground">{a.q}</p>
+              <p className="mt-1 text-11 text-background-foreground">{a.answer}</p>
               <p className="mt-1.5 text-10 text-muted-foreground">出处：{a.evidence}</p>
             </div>
           ))}
@@ -129,7 +129,7 @@ function PresetRow({ preset }: { preset: Preset }) {
   return (
     <TableRow className="border-b border-border-subtle align-top last:border-0" data-testid={`chat-preset-row-${preset.id}`}>
       <TableCell className="px-3 py-2.5">
-        <div className="font-medium text-foreground">{preset.name}</div>
+        <div className="font-medium text-background-foreground">{preset.name}</div>
         <div className="mt-0.5 text-10 text-muted-foreground">{preset.note}</div>
       </TableCell>
       <TableCell className="px-3 py-2.5">
@@ -137,7 +137,7 @@ function PresetRow({ preset }: { preset: Preset }) {
           {preset.skills.map((s) => (
             <span
               key={s.name}
-              className="inline-flex items-center gap-0.5 rounded border border-border px-1.5 py-0.5 text-10 text-foreground"
+              className="inline-flex items-center gap-0.5 rounded border border-border px-1.5 py-0.5 text-10 text-background-foreground"
               data-testid={`chat-preset-skill-${preset.id}-${s.name}`}
               title={s.scope === "group" ? `仅『${s.scopeGroup}』可见` : "全组织可用"}
             >
@@ -178,7 +178,7 @@ function ConsumerPanel() {
           <div key={p.id} className="flex items-center gap-2 rounded-md border border-border bg-card p-2.5" data-testid={`chat-preset-consumer-item-${p.id}`}>
             <Badge tone="primary">引导师预设</Badge>
             <div className="min-w-0 flex-1">
-              <div className="text-11 font-medium text-foreground">{p.name}</div>
+              <div className="text-11 font-medium text-background-foreground">{p.name}</div>
               <div className="text-10 text-muted-foreground">{p.note}</div>
             </div>
             <Button size="xs" variant="outline" onClick={() => window.alert(`演示：点开「${p.name}」，开始你和 agent 的私有对话`)} data-testid={`chat-preset-open-${p.id}`}>点开即用</Button>
@@ -240,7 +240,7 @@ function PresetEditorOverlay({ onClose }: { onClose: () => void }) {
                 >
                   <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded bg-muted text-9 font-semibold text-muted-foreground">{s.ab}</span>
                   <span className="min-w-0">
-                    <span className="block text-11 font-medium text-foreground">{s.name}</span>
+                    <span className="block text-11 font-medium text-background-foreground">{s.name}</span>
                     <span className="block text-9 text-muted-foreground">{s.note}</span>
                   </span>
                 </button>
@@ -252,7 +252,7 @@ function PresetEditorOverlay({ onClose }: { onClose: () => void }) {
             <input
               data-testid="chat-preset-editor-name"
               defaultValue={start}
-              className="w-full rounded-md border border-border bg-card px-2.5 py-1.5 text-11 text-foreground outline-none focus:border-primary focus-visible:ring-2 focus-visible:ring-ring"
+              className="w-full rounded-md border border-border bg-card px-2.5 py-1.5 text-11 text-background-foreground outline-none focus:border-primary focus-visible:ring-2 focus-visible:ring-ring"
             />
           </Field>
 
@@ -260,7 +260,7 @@ function PresetEditorOverlay({ onClose }: { onClose: () => void }) {
           <Field label={e.skillsNote}>
             <div className="flex flex-wrap gap-1.5" data-testid="chat-preset-editor-skills">
               {e.presetSkills.map((s) => (
-                <span key={s} className="inline-flex items-center gap-1 rounded border border-border px-1.5 py-0.5 text-10 text-foreground">
+                <span key={s} className="inline-flex items-center gap-1 rounded border border-border px-1.5 py-0.5 text-10 text-background-foreground">
                   {s} <X aria-hidden className="h-2.5 w-2.5 text-muted-foreground" />
                 </span>
               ))}

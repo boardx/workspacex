@@ -1,0 +1,345 @@
+/* ==========================================================================
+   layout.css — shell, nav, section rhythm, footer
+   ========================================================================== */
+
+/* ---- containers ---------------------------------------------------------- */
+.wrap {
+  width: 100%;
+  /* A grid or flex item defaults to min-width: auto, which means it refuses
+     to shrink below its own content — so at a large text size the wrap grew
+     to 486 px inside a 390 px section and pushed the hero off the screen,
+     where `overflow-x: clip` made it unreachable rather than just ugly. */
+  min-width: 0;
+  max-width: var(--measure);
+  margin-inline: auto;
+  padding-inline: var(--gutter);
+}
+.wrap--text { max-width: var(--measure-text); }
+
+.section {
+  position: relative;
+  padding-block: var(--section-y);
+  /* a hairline that fades at both ends — softer than a full rule */
+  border-top: 1px solid transparent;
+  border-image: linear-gradient(90deg, transparent, var(--hairline) 25%, var(--hairline) 75%, transparent) 1;
+}
+.section:first-of-type { border-top: 0; }
+
+.section__head { max-width: 48rem; margin-bottom: clamp(2.5rem, 5vw, 4.5rem); }
+
+.eyebrow {
+  display: inline-flex; align-items: center; gap: var(--s-2);
+  font-family: var(--font-mono);
+  font-size: var(--t-micro);
+  letter-spacing: calc(0.16em * var(--track-open));
+  text-transform: uppercase;
+  color: var(--fg-dim);
+  margin-bottom: 1.125rem;
+}
+.eyebrow::before {
+  content: ""; width: 1.5rem; height: 1px;
+  background: var(--grad);
+}
+
+.lead {
+  font-size: var(--t-lead);
+  color: var(--fg-soft);
+  margin-top: 1.25rem;
+  max-width: 40rem;
+}
+/* A section head gets one lead. A second paragraph of argument set at lead
+   size was 81 words of large type — read as a wall, not a glance. */
+.section__more {
+  color: var(--fg-dim);
+  margin-top: 1rem;
+  max-width: 40rem;
+}
+
+/* ==========================================================================
+   Navigation
+   ========================================================================== */
+.nav {
+  position: fixed; inset: 0 0 auto 0; z-index: 100;
+  min-height: var(--nav-h);
+  display: flex; align-items: center;
+  transition: background var(--dur) var(--ease-out),
+              border-color var(--dur) var(--ease-out),
+              backdrop-filter var(--dur) var(--ease-out);
+  border-bottom: 1px solid transparent;
+}
+/* Solid only once scrolled — the hero keeps its full bleed. */
+.nav[data-stuck="true"] {
+  /* 0.72 let headline text read straight through the bar. The blur alone does
+     not rescue 5rem type sliding underneath it. */
+  background: rgba(8, 7, 11, 0.86);
+  backdrop-filter: saturate(150%) blur(18px);
+  -webkit-backdrop-filter: saturate(150%) blur(18px);
+  border-bottom-color: var(--hairline);
+}
+/* Firefox before 103, and anything with the effect disabled, gets no blur at
+   all — there the translucency is the whole problem, so go opaque. */
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .nav[data-stuck="true"] { background: #08070b; }
+}
+
+/* The bar is allowed to run wider than the content measure. Constrained to
+   72rem, seven nav items plus the actions did not fit between roughly 1100 and
+   1330 px: `.nav__actions` ended at x=1318 inside a 1280 px viewport and the
+   primary button was clipped away entirely — silently, because `overflow-x:
+   clip` on the body removes the scrollbar that would have shown it. */
+.nav__inner {
+  width: 100%; max-width: 84rem;
+  margin-inline: auto; padding-inline: var(--gutter);
+  display: flex; align-items: center; gap: 1.25rem;
+  min-width: 0;
+}
+.nav__links { min-width: 0; }
+
+.brand { display: flex; align-items: center; gap: 0.625rem; min-width: 0; }
+/* The lockup is a flex row of its own. Without this it was an inline anchor
+   that shrank under nav pressure and wrapped the wordmark BELOW the mark at
+   1280px — shipped that way, because "does the nav overflow" and "is the
+   lockup intact" are different questions and only the first was being asked. */
+.brand__home { display: flex; align-items: center; gap: 0.5rem; min-width: 0; }
+/* The product's own logo, cut from apps/web/public/workspacex-logo.png by
+   scripts/build-logo.mjs — not redrawn, so it cannot drift from the one the
+   app ships. An image also retires three workarounds the old gradient
+   wordmark needed: invisible text where background-clip is unsupported, no
+   name at all in forced colours, and nothing on paper. A picture of the name
+   survives all three. The link around it carries the accessible name, so the
+   image itself is decorative (alt=""). */
+.brand__logo { display: block; height: 30px; width: auto; flex-shrink: 0; }
+.brand__tag {
+  font-family: var(--font-mono);
+  font-size: var(--t-nano); letter-spacing: calc(0.12em * var(--track-open)); text-transform: uppercase;
+  white-space: nowrap;   /* "Early access" was wrapping to two lines and
+                            stretching the whole brand block */
+  padding: 0.2rem 0.45rem; border-radius: var(--r-pill);
+  color: var(--c-2);
+  border: 1px solid rgb(var(--c-2-rgb) / 0.35);
+  background: rgb(var(--c-2-rgb) / 0.08);
+  transition: background var(--dur-fast) var(--ease-out), border-color var(--dur-fast) var(--ease-out);
+}
+/* It is a link now: it answers the question it raises, rather than asserting
+   a stage and leaving the visitor to guess what it means. */
+@media (hover: hover) { a.brand__tag:hover { background: rgb(var(--c-2-rgb) / 0.18); border-color: rgb(var(--c-2-rgb) / 0.6); } }
+
+/* Wrapping never happens at a normal text size — the row has room. At 200%
+   it does, and a second line of links with a taller bar loses nothing, where
+   clipping or overflowing both lose a link. rem media queries cannot help
+   here: inside a media condition rem resolves against the INITIAL font size,
+   not the current one, so a text-only zoom moves no breakpoint at all. */
+.nav__links { display: flex; align-items: center; flex-wrap: wrap;
+              gap: var(--s-1); margin-inline: auto; }
+.nav__link {
+  position: relative;
+  /* 0.75rem here left the eighth link sitting 51 px underneath the language
+     switch — inside the viewport, so the old "is the nav clipped" check was
+     green while the nav was unreadable. Eight links times 4 px a side is the
+     64 px that buys it back. */
+  padding: 0.45rem 0.5rem; border-radius: var(--r-xs);
+  font-size: var(--t-small); color: var(--fg-soft);
+  transition: color var(--dur-fast) var(--ease-out);
+  white-space: nowrap;
+}
+@media (hover: hover) { .nav__link:hover { color: var(--fg); } }
+.nav__link[aria-current="true"] { color: var(--fg); }
+.nav__link[aria-current="true"]::after {
+  content: ""; position: absolute; left: 0.75rem; right: 0.75rem; bottom: 0.15rem;
+  height: 2px; border-radius: var(--r-nub); background: var(--grad);
+}
+
+.nav__actions {
+  min-width: 0; display: flex; align-items: center; gap: var(--s-2); flex-shrink: 0; }
+
+/* language toggle — a real segmented control, not two links */
+.langswitch {
+  display: inline-flex; align-items: center;
+  padding: 2px; border-radius: var(--r-pill);
+  border: 1px solid var(--hairline); background: var(--surface);
+}
+@media (hover: hover) { .langswitch__btn:hover { color: var(--fg); } }
+.langswitch__btn {
+  padding: 0.3rem 0.7rem; border-radius: var(--r-pill);
+  font-size: var(--t-micro); font-weight: 600; letter-spacing: calc(0.02em * var(--track-open));
+  color: var(--fg-dim);
+  transition: color var(--dur-fast) var(--ease-out),
+              background var(--dur-fast) var(--ease-out);
+}
+.langswitch__btn[aria-current="true"] {
+  color: var(--on-grad);
+  background: var(--grad);
+}
+
+.nav__ghost {
+  display: inline-flex; align-items: center; gap: var(--s-2);
+  padding: 0.45rem 0.7rem; border-radius: var(--r-sm);
+  font-size: var(--t-small); color: var(--fg-soft);
+  transition: color var(--dur-fast) var(--ease-out),
+              background var(--dur-fast) var(--ease-out);
+}
+@media (hover: hover) { .nav__ghost:hover { color: var(--fg); background: var(--surface); } }
+
+/* mobile menu button */
+.nav__burger {
+  display: none;
+  width: 40px; height: 40px; border-radius: var(--r-sm);
+  align-items: center; justify-content: center;
+  border: 1px solid var(--hairline); background: var(--surface);
+}
+.nav__burger span {
+  display: block; width: 16px; height: 1.5px; background: var(--fg);
+  position: relative; transition: transform var(--dur-fast) var(--ease-out);
+}
+.nav__burger span::before,
+.nav__burger span::after {
+  content: ""; position: absolute; left: 0; width: 16px; height: 1.5px; background: var(--fg);
+  transition: transform var(--dur-fast) var(--ease-out), opacity var(--dur-fast) linear;
+}
+.nav__burger span::before { top: -5px; }
+.nav__burger span::after  { top: 5px; }
+.nav__burger[aria-expanded="true"] span { transform: rotate(45deg); }
+.nav__burger[aria-expanded="true"] span::before { transform: translateY(5px) rotate(-90deg); }
+.nav__burger[aria-expanded="true"] span::after  { opacity: 0; }
+
+/* Between the widest the inline nav can be and the burger breakpoint, buy
+   room by tightening rather than by letting anything clip. */
+@media (max-width: 82.5rem) {
+  /* At its fullest the bar carries brand, tag, eight links, the language
+     switch, GitHub and the primary button. `.nav__links` has min-width: 0,
+     so under pressure it shrinks BELOW its content and the last link slides
+     out of its own box and under the language switch — nothing clipped at
+     the viewport, so the check that only asked about the viewport was green.
+     (A second rule added above this one did nothing: this block is later in
+     the bundle at equal specificity and quietly won.) */
+  .nav__link { padding-inline: 0.35rem; font-size: var(--t-xs); }
+  .nav__inner { gap: 0.9rem; }
+  .nav__ghost { padding-inline: 0.55rem; }
+}
+
+/* Raised from 1040 px: at 1100 the row fit only by a 20 px margin, which is
+   not a margin once a translation makes a label one character longer. */
+@media (max-width: 72.5rem) {
+  .nav__burger { display: inline-flex; }
+  .nav__links {
+    position: fixed; inset: var(--nav-h) 0 auto 0;
+    flex-direction: column; align-items: stretch; gap: 0;
+    padding: 0.75rem var(--gutter) 1.25rem;
+    background: rgba(8, 7, 11, 0.96);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border-bottom: 1px solid var(--hairline);
+    margin-inline: 0;
+    /* collapsed by default on small screens */
+    display: none;
+  }
+  .nav__links[data-open="true"] { display: flex; }
+  .nav__link { padding: 0.85rem 0.25rem; font-size: var(--t-base); }
+  .nav__link[aria-current="true"]::after { left: 0.25rem; right: auto; width: 1.5rem; bottom: 0.45rem; }
+  .nav__inner { justify-content: space-between; }
+  .nav__ghost--signin { display: none; }
+}
+.nav__link--gh { display: none; }
+@media (max-width: 72.5rem) and (min-width: 47.5001rem) {
+  .nav__links[data-open="true"] .nav__link--gh { display: flex; }
+}
+@media (max-width: 35.0rem) {
+  .brand__tag { display: none; }
+}
+
+/* Touch targets. 0.45rem of padding gives a ~32px tall link — fine for a mouse,
+   too small for a thumb. WCAG 2.5.8 asks for 24px, Apple and Google both say
+   44px; on coarse pointers we take the larger number. */
+@media (pointer: coarse) {
+  .nav__link       { min-height: 44px; display: flex; align-items: center; }
+  .nav__ghost      { min-height: 44px; }
+  .langswitch__btn { min-height: 40px; display: inline-flex; align-items: center; }
+  .footer__col a   { display: inline-block; padding-block: 0.35rem; }
+}
+
+/* ==========================================================================
+   Footer
+   ========================================================================== */
+.footer {
+  padding-block: clamp(3.5rem, 7vw, 5.5rem) 3rem;
+  border-top: 1px solid var(--hairline);
+  background: var(--bg-sink);
+}
+/* NOT content-visibility: auto on the sections.
+   Measured, it is a real win — the Chinese desktop LCP fell from 380 ms to
+   244 ms and its slow-3G paint from 2652 ms to 2116 ms, which is where the
+   cost of laying out a 20 000 px document actually lands. It was reverted
+   because the degradation gate rejected it, and the gate was right: without
+   JavaScript only 517 of 900+ words were extractable, and 21 elements stayed
+   invisible when a module failed, because a section that is not rendered
+   never reveals. This page's fail-visible guarantee is worth more than 80 ms
+   of a paint that is already 240 ms against a 900 ms budget.
+   Written down so the next person measures the same win and stops here. */
+
+.footer__grid {
+  display: grid;
+  /* The rem MINIMUMS are what break under a text-size preference: 14rem and
+     four 8rem columns are 46rem of floor — 608 px normally, 1216 px at 200%,
+     wider than the page. minmax(0, …) removes the floor entirely; capping it
+     with min() is not enough, because a track is never smaller than its
+     content's min-content unless the floor is zero. The proportions are
+     carried by the fr units, which is where they belonged. */
+  grid-template-columns: minmax(0, 1.4fr) repeat(4, minmax(0, 1fr));
+  gap: clamp(1.75rem, 4vw, 3rem);
+}
+.footer__h {
+  font-size: var(--t-micro); font-family: var(--font-mono);
+  letter-spacing: calc(0.14em * var(--track-open)); text-transform: uppercase;
+  color: var(--fg-faint); margin-bottom: var(--s-4); font-weight: 500;
+}
+.footer__col { min-width: 0; overflow-wrap: break-word; }
+.footer__col ul { list-style: none; padding: 0; display: grid; gap: var(--s-2); }
+.footer__col a { font-size: var(--t-small); color: var(--fg-soft); }
+@media (hover: hover) { .footer__col a:hover { color: var(--fg); } }
+.footer__blurb { font-size: var(--t-small); color: var(--fg-dim); max-width: 22rem; margin-top: 0.875rem; }
+.footer__bottom {
+  margin-top: clamp(2.5rem, 5vw, 4rem); padding-top: var(--s-5);
+  border-top: 1px solid var(--hairline);
+  display: flex; flex-wrap: wrap; gap: 1rem 1.5rem;
+  align-items: center; justify-content: space-between;
+  font-size: var(--t-micro); color: var(--fg-faint);
+}
+@media (max-width: 47.5rem) {
+  .footer__grid { grid-template-columns: repeat(2, 1fr); }
+  .footer__col--brand { grid-column: 1 / -1; }
+}
+
+/* ---- nav actions relocated into the menu panel on narrow screens ---------- */
+.nav__panelactions { display: none; }
+@media (max-width: 47.5rem) {
+  /* Hidden while they are still children of the bar. The relocation into the
+     panel happens in JS, after first paint, so without this the bar renders
+     ~87px tall with the actions wrapped and then snaps to 40px — measured as
+     the page's only layout shift on a phone (CLS 0.0174). Declaring the end
+     state in CSS means the bar is never wrong, even for one frame. */
+  .nav__actions > [data-mobile-move] { display: none; }
+
+  .nav__panelactions {
+    display: grid; gap: var(--s-3);
+    padding-top: var(--s-4); margin-top: var(--s-2);
+    border-top: 1px solid var(--hairline);
+  }
+  .nav__panelactions .langswitch { justify-self: start; }
+  .nav__panelactions .nav__ghost--signin { display: inline-flex; justify-self: start; }
+  .nav__panelactions .btn--primary { justify-content: center; }
+  /* the bar keeps only what a thumb needs at a glance */
+  .nav__inner { gap: var(--s-3); }
+}
+
+/* ---- reading progress ----------------------------------------------------- */
+.nav__progress {
+  position: absolute; inset: auto 0 0 0; height: 2px;
+  background: transparent; pointer-events: none;
+}
+.nav__progress i {
+  display: block; height: 100%; width: 100%;
+  background: var(--grad);
+  transform: scaleX(var(--read, 0)); transform-origin: left;
+  /* No transition: it is driven per frame from scroll position, and easing it
+     makes it lag the content it is describing. */
+}

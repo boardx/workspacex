@@ -56,7 +56,7 @@ export function EmailVerification() {
     completed: { testId: "email-verification-success", icon: <CheckCircle2 className="h-6 w-6 text-success" aria-hidden />, title: "邮箱已验证", body: "现在可以返回 WorkspaceX 登录。" },
     invalid: { testId: "email-verification-invalid", icon: <CircleAlert className="h-6 w-6 text-warning" aria-hidden />, title: "验证链接不可用", body: "链接可能已过期。请重新申请验证邮件。" },
     "session-failed": { testId: "email-verification-session-failed", icon: <CircleAlert className="h-6 w-6 text-warning" aria-hidden />, title: "邮箱已验证，登录未完成", body: "请前往登录页，使用注册时的邮箱和密码登录。" },
-    unavailable: { testId: "email-verification-unavailable", icon: <CircleAlert className="h-6 w-6 text-danger" aria-hidden />, title: "暂时无法验证", body: "暂时无法完成。邮箱可能已验证，请尝试登录，或从邮件重新打开验证链接。" },
+    unavailable: { testId: "email-verification-unavailable", icon: <CircleAlert className="h-6 w-6 text-destructive" aria-hidden />, title: "暂时无法验证", body: "暂时无法完成。邮箱可能已验证，请尝试登录，或从邮件重新打开验证链接。" },
   }[state];
 
   return (

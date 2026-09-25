@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # init.sh — 一键 bootstrap:安装依赖 + 基础验证 + 安装 git hooks + 打印启动命令
-# 改下面三个变量为你项目的真实命令即可。
+# 下面三个变量（INSTALL_CMD / FULL_VERIFY_CMD / START_CMD）就是本仓的真实命令。
 #
 # 默认路径（ADR-106 batch-1/6，#1276）：只跑依赖安装 + 生成物检查 + 快速健康检查，
 # 不再默认跑全仓 verify:base:raw（分钟级）——每次新开 worktree 都要付这个成本，
@@ -16,7 +16,10 @@ done
 
 INSTALL_CMD="pnpm install"
 FULL_VERIFY_CMD="pnpm exec tsx .harness/scripts/with-test-isolation.ts -- pnpm -w run verify:base:raw"   # --full 时跑:类型检查 + lint + 单测（全仓）
-START_CMD=""   # 模板无应用层；接入你的 app 后改成真实启动命令（如 pnpm -w run dev）
+# 本仓的应用层（apps/web + apps/api）是真实存在的，不是模板占位：两个都是 turbo 的
+# persistent `dev` 任务，一条命令并行起。依赖服务（postgres/redis/minio）不在这里起
+# ——见下面 RUN_INFRA=1 与 `pnpm --filter @repo/api dev:deps`。
+START_CMD="pnpm turbo run dev --filter=web --filter=@repo/api"
 
 echo "==> 工作目录: $(pwd)"
 
@@ -275,15 +278,14 @@ else
   echo "==> 快速路径通过（跳过全仓验证）。需要完整证明时运行：./init.sh --full"
 fi
 
-if [ -n "${START_CMD}" ]; then
-  echo "==> 启动命令: ${START_CMD}"
-  if [ "${RUN_START_COMMAND:-0}" = "1" ]; then
-    echo "==> RUN_START_COMMAND=1,直接启动"
-    eval "${START_CMD}"
-  fi
-else
-  echo "==> 初始化完成。下一步（README『十分钟接入』）："
-  echo "    1. 填 .harness/instructions/project/PROJECT.md 与 .harness/config/github-sync.yaml"
-  echo "    2. pnpm harness new-phase --id 01 --name <名字> --goal \"<目标>\""
-  echo "    3. 把原始需求写进 phases/phase-01-*/requirements/ 后让 agent 读 AGENTS.md 开工"
+echo "==> 初始化完成。应用层入口（本仓真实存在的三个面）："
+echo "    • Web     apps/web            pnpm --filter web dev                  → http://localhost:3000"
+echo "    • API     apps/api            pnpm --filter @repo/api dev            → http://localhost:3200"
+echo "    • 网关    apps/coord-gateway  pnpm --filter @repo/coord-gateway dev  （wrangler dev --local）"
+echo "==> 启动 Web + API: ${START_CMD}"
+echo "    依赖服务（postgres/redis/minio）另起：RUN_INFRA=1 ./init.sh，或 pnpm --filter @repo/api dev:deps"
+echo "    取活从统一队列开始：pnpm harness readiness（见 AGENTS.md『开工流程』）"
+if [ "${RUN_START_COMMAND:-0}" = "1" ]; then
+  echo "==> RUN_START_COMMAND=1,直接启动"
+  eval "${START_CMD}"
 fi

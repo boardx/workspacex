@@ -322,8 +322,8 @@ export class ScopedPgSkillContractRepository
       // PLATFORM_ORG_ID` 的行里，任何组织都要能在自己的目录里看到它们，不需要
       // 逐个导入（RLS 侧的对应放行是 `skill_versions_platform_read` 等四条
       // `_platform_read` 策略）。
-      const wave2Rows = await s.query<{ id: string; name: string; current_version_id: string | null }>(
-        `SELECT sk.id, sk.name,
+      const wave2Rows = await s.query<{ id: string; name: string; org_id: string; stable_name: string | null; current_version_id: string | null }>(
+        `SELECT sk.id, sk.name, sk.org_id, sk.stable_name,
                 (SELECT sv.id FROM skill_versions sv
                   WHERE sv.skill_id = sk.id AND sv.org_id = sk.org_id AND sv.published
                   ORDER BY sv.created_at DESC LIMIT 1) AS current_version_id
@@ -333,7 +333,7 @@ export class ScopedPgSkillContractRepository
         [orgId, PLATFORM_ORG_ID],
       );
       const fromContracts = contractRows.rows.map((raw) => toGuarded(toRow(raw)));
-      const fromWave2 = wave2Rows.rows.map((raw) => toGuarded(toRow({
+      const fromWave2 = wave2Rows.rows.map((raw) => toGuarded({ ...toRow({
         id: raw.id,
         name: raw.name,
         // G6（2026-08-14）：这一行此前写着「后台暂不支持在这里编辑详情」——那句话
@@ -354,7 +354,10 @@ export class ScopedPgSkillContractRepository
         current_version_id: raw.current_version_id,
         // G5：wave2（`skills` 表）行没有声明式契约表单，恒 `[]`——见 contract.md §2。
         tags: [],
-      })));
+      }),
+      // backlog E6：只有平台行带 stable_name，前端据此按 `skill-entry-points.ts` 分入口。
+      platformStableName: raw.org_id === PLATFORM_ORG_ID ? raw.stable_name : null,
+      }));
       return [...fromContracts, ...fromWave2];
     });
   }

@@ -8,13 +8,13 @@ import { Input } from "@/components/ui/input";
 
 export type HistorySort = "recent" | "oldest";
 
-export function StudioHistoryHeader({ business, description, count, createTestId, countTestId, onCreate }: {
-  business: string; description: string; count?: number; createTestId: string; countTestId?: string; onCreate: () => void;
+export function StudioHistoryHeader({ business, title, description, count, createTestId, countTestId, onCreate }: {
+  business: string; title?: string; description: string; count?: number; createTestId: string; countTestId?: string; onCreate: () => void;
 }) {
   return <header className="flex flex-col gap-5 md:flex-row md:items-start md:justify-between">
     <div className="min-w-0 space-y-2">
       <p className="text-11 font-medium text-muted-foreground">Studio / {business}</p>
-      <div className="flex items-center gap-2"><h1 className="text-24 font-semibold tracking-tight">历史{business}</h1>{count !== undefined && <span data-testid={countTestId} className="text-18 text-muted-foreground">· {count}</span>}</div>
+      <div className="flex items-center gap-2"><h1 className="text-24 font-semibold tracking-tight">{title ?? `历史${business}`}</h1>{count !== undefined && <span data-testid={countTestId} className="text-18 text-muted-foreground">· {count}</span>}</div>
       <p className="max-w-2xl text-12 leading-relaxed text-muted-foreground">{description}</p>
     </div>
     <Button type="button" variant="primary" size="lg" data-testid={createTestId} onClick={onCreate}><Plus className="size-4" aria-hidden />新建{business}</Button>

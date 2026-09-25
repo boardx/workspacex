@@ -21,6 +21,7 @@ import { ORG_ROLE_LABEL, type OrgRole } from "@/lib/identity";
 import { auth as authContract } from "@repo/contracts";
 import { SharedInviteLinksSection, type SharedLinkReveal } from "@/components/org-admin/shared-invite-links";
 import { StandingToolGrantsSection } from "@/components/org-admin/standing-tool-grants";
+import { KnowledgeExtractionToggleSection } from "@/components/org-admin/knowledge-extraction-toggle";
 import { cn } from "@/lib/utils";
 import {
   listOrgMembers, listOrgInvites,
@@ -151,8 +152,9 @@ export function OrgInvitesScreen() {
 
 /** `/org-admin/profile` —— 组织资料，与 `/admin`（总览）平级；仅组织 admin 能读到内容。 */
 export function OrgProfileScreen() {
-  const { session } = useSession();
+  const { session, identity } = useSession();
   const orgId = session?.currentOrgId ?? null;
+  const isAdmin = identity?.orgRole === "admin";
   return (
     <OrgAdminShell active="org-profile" icon={Settings} title="组织资料">
       {orgId ? <OrgProfileTab orgId={orgId} /> : <LoadingSkeleton rows={4} />}
@@ -160,6 +162,9 @@ export function OrgProfileScreen() {
           拒绝以撤销"（那个弹层再也不会出现）。这里是那句文案现在指向的真实入口；
           放在组织资料屏而不是新开导航项的理由见该组件头注。 */}
       <StandingToolGrantsSection />
+      {/* issue #4178 —— 记忆抽取从部署启动参数改成组织落库、admin 可来回切换；
+          同样挂在组织资料屏（见该组件头注）。 */}
+      <KnowledgeExtractionToggleSection isAdmin={isAdmin} />
     </OrgAdminShell>
   );
 }
@@ -407,8 +412,16 @@ export function MembersTab({ orgId, isAdmin }: { orgId: string; isAdmin: boolean
 
   return (
     <div className="flex flex-col gap-3 pt-3">
-      <p className="text-11 text-muted-foreground">
-        组织内的成员。任何组织成员均可查看这份名单{isAdmin ? "；管理员可在此直接调整每个人的组织角色。" : "。"}
+      {/*
+        只有一个人的时候，多人版的说明是错的（#3872 R1 实测）。
+        本地版装完就是一个人：名单上只有自己，而这段却写着「任何组织成员均可查看这份名单；
+        管理员可在此直接调整每个人的组织角色」——「每个人」指的是他自己。
+        写给一群人的话用在一个人身上，读起来像这个产品不知道自己被装在哪。
+      */}
+      <p className="text-11 text-muted-foreground" data-testid="org-admin-members-intro">
+        {out !== null && out.members.length === 1
+          ? "这个工作区目前只有你一个人。邀请其他人之后，他们会出现在这里。"
+          : <>组织内的成员。任何组织成员均可查看这份名单{isAdmin ? "；管理员可在此直接调整每个人的组织角色。" : "。"}</>}
       </p>
       {roleBanner ? (
         <div

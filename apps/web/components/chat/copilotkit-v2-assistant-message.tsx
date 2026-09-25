@@ -18,6 +18,7 @@ import {
   CopilotKitV2MessageLandingPanel,
 } from "@/components/chat/copilotkit-v2-message-actions";
 import { ProducedFileInlineCard } from "@/components/chat/produced-file-inline-card";
+import { TurnMemoryLine } from "@/components/chat/knowledge/turn-memory-line";
 import type { ActiveFile } from "@/lib/agui-file-events";
 
 /**
@@ -356,6 +357,12 @@ function V2AssistantMessageImpl(
           ))}
         </div>
       ) : null}
+      {/* phase-18 F09 / U-1 —— 回答下「已记下 N 条 · 查看 · 撤销」。只在这条回答已落库
+          （`persistedMessageId` 解析出来 = 正文已说完）且有线程时挂载；取数在组件内异步做，
+          不阻塞本条消息渲染，没记下东西时它自己什么都不画。 */}
+      {persistedMessageId !== null && artifactThreadId ? (
+        <TurnMemoryLine threadId={artifactThreadId} messageId={persistedMessageId} />
+      ) : null}
     </div>
   );
 }
@@ -490,7 +497,7 @@ export function FollowUpSuggestions({
             type="button"
             data-testid={chip.id}
             disabled={disabled || chip.disabled}
-            className="px-3 py-1 text-12 text-foreground transition-colors duration-fast hover:bg-muted active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground"
+            className="px-3 py-1 text-12 text-background-foreground transition-colors duration-fast hover:bg-muted active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground"
             onClick={chip.onSelect}
           >
             {chip.label}
@@ -501,7 +508,7 @@ export function FollowUpSuggestions({
               data-testid={`${chip.id}-dismiss`}
               aria-label="关闭这条建议"
               disabled={disabled}
-              className="flex items-center border-l border-border px-1.5 text-muted-foreground transition-colors duration-fast hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground"
+              className="flex items-center border-l border-border px-1.5 text-muted-foreground transition-colors duration-fast hover:bg-muted hover:text-background-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground"
               onClick={chip.onDismiss}
             >
               <X aria-hidden className="h-3 w-3" />
@@ -515,7 +522,7 @@ export function FollowUpSuggestions({
           type="button"
           data-testid={`copilotkit-v2-suggestion-${i}`}
           disabled={disabled || s.isLoading}
-          className="rounded-full border border-border px-3 py-1 text-12 text-foreground transition-colors duration-fast hover:bg-muted active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground"
+          className="rounded-full border border-border px-3 py-1 text-12 text-background-foreground transition-colors duration-fast hover:bg-muted active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground"
           onClick={() => onSelect(s.message)}
         >
           {s.title || s.message}

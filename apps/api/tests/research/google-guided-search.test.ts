@@ -1,3 +1,4 @@
+import { deflateSync } from "node:zlib";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { GoogleGuidedSearch } from "../../src/infrastructure/research/google-guided-search";
 
@@ -60,5 +61,51 @@ describe("BoardX Google guided research search", () => {
     const hits = await new GoogleGuidedSearch(provider({ results: Array.from({ length: 10 }, () => ({ ...hit, snippet: "x".repeat(31000) })) })).search("policy");
     expect(hits).toHaveLength(5);
     expect(hits[0]?.content).toHaveLength(30000);
+  });
+  it("reads the linked document separately from the search excerpt", async () => {
+    const fetcher = vi.fn<typeof fetch>().mockResolvedValue(new Response("<html><body>Full policy text</body></html>", { headers: { "content-type": "text/html" } }));
+    await expect(new GoogleGuidedSearch(fetcher).read!(hit.url)).resolves.toMatchObject({ text: "Full policy text", contentKind: "html", truncated: false });
+    expect(fetcher.mock.calls[0]![1]).toMatchObject({ redirect: "error" });
+  });
+  it("blocks private and metadata destinations before fetching documents", async () => {
+    const fetcher = vi.fn<typeof fetch>();
+    await expect(new GoogleGuidedSearch(fetcher).read!("http://169.254.169.254/latest/meta-data"))
+      .rejects.toMatchObject({ reasonCode: "RESEARCH_DOCUMENT_BLOCKED" });
+    expect(fetcher).not.toHaveBeenCalled();
+  });
+  it("allows the isolated loopback search fixture to read its own evidence document", async () => {
+    const fetcher = vi.fn<typeof fetch>().mockResolvedValue(new Response("Controlled local evidence", { headers: { "content-type": "text/plain" } }));
+    await expect(new GoogleGuidedSearch(fetcher, "http://127.0.0.1:9999/search").read!("http://127.0.0.1:9999/research-evidence"))
+      .resolves.toMatchObject({ text: "Controlled local evidence", contentKind: "text" });
+    expect(fetcher).toHaveBeenCalledOnce();
+  });
+  it("does not extend loopback fixture trust to other local origins", async () => {
+    const fetcher = vi.fn<typeof fetch>();
+    await expect(new GoogleGuidedSearch(fetcher, "http://127.0.0.1:9999/search").read!("http://127.0.0.1:10000/research-evidence"))
+      .rejects.toMatchObject({ reasonCode: "RESEARCH_DOCUMENT_BLOCKED" });
+    expect(fetcher).not.toHaveBeenCalled();
+  });
+  it("stops reading as soon as a document exceeds the byte limit", async () => {
+    let pulled = 0;
+    const stream = new ReadableStream<Uint8Array>({
+      pull(controller) {
+        pulled += 1;
+        controller.enqueue(new Uint8Array(600_000));
+        if (pulled > 3) controller.close();
+      },
+    });
+    const fetcher = vi.fn<typeof fetch>().mockResolvedValue(new Response(stream, { headers: { "content-type": "text/plain" } }));
+    await expect(new GoogleGuidedSearch(fetcher).read!(hit.url)).rejects.toMatchObject({ reasonCode: "RESEARCH_DOCUMENT_TOO_LARGE" });
+    expect(pulled).toBe(3);
+  });
+  it("extracts PDF text from compressed content streams", async () => {
+    const body = deflateSync(Buffer.from("BT /F1 12 Tf (Authoritative PDF evidence) Tj ET", "latin1")).toString("latin1");
+    const pdf = `%PDF-1.4\n1 0 obj << /Length ${body.length} /Filter /FlateDecode >> stream\n${body}\nendstream endobj\n%%EOF`;
+    const fetcher = vi.fn<typeof fetch>().mockResolvedValue(new Response(Buffer.from(pdf, "latin1"), { headers: { "content-type": "application/pdf" } }));
+    await expect(new GoogleGuidedSearch(fetcher).read!(hit.url)).resolves.toMatchObject({ text: "Authoritative PDF evidence", contentKind: "pdf" });
+  });
+  it("rejects PDFs whose text cannot be extracted", async () => {
+    const fetcher = vi.fn<typeof fetch>().mockResolvedValue(new Response(Buffer.from("%PDF-1.4 binary-only", "latin1"), { headers: { "content-type": "application/pdf" } }));
+    await expect(new GoogleGuidedSearch(fetcher).read!(hit.url)).rejects.toMatchObject({ reasonCode: "RESEARCH_DOCUMENT_EMPTY" });
   });
 });

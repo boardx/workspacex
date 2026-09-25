@@ -83,7 +83,7 @@ export function ProfileScreen() {
           <BrainCircuit aria-hidden className="h-5 w-5 text-muted-foreground" />
           <div className="flex flex-1 flex-col">
             <span className="text-13 font-medium">我的 Brain</span>
-            <span className="text-10 text-muted-foreground">组织记忆 / Context Pack</span>
+            <span className="text-10 text-muted-foreground">长期记忆 / 对话里记下的</span>
           </div>
           <ChevronRight aria-hidden className="h-4 w-4 text-muted-foreground" />
         </Link>

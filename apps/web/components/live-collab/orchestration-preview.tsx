@@ -88,7 +88,12 @@ function MockBanner() {
     >
       <FlaskConical aria-hidden className="mt-0.5 h-4 w-4 shrink-0 text-warning" />
       <p className="text-11 leading-relaxed text-muted-foreground">
-        <span className="font-semibold text-warning-foreground">UI 先行原型 · 纯 MOCK 数据 · 未接后端。</span>{" "}
+        {/*
+          2026-09-22 实测（`scripts/audit-text-contrast.mjs`）：这一句原本是 `text-warning-foreground`，
+          该 token 在浅色主题里是纯白，打在这条横幅的浅底上对比度只有 1.1——
+          也就是说「这些数据是假的」这句警告本身看不见。改用成对的 tint 档。
+        */}
+        <span className="font-semibold text-warning-tint-foreground">UI 先行原型 · 纯 MOCK 数据 · 未接后端。</span>{" "}
         这是 Phase 10「现场协作编排」设计签核第 ① 件（UI）材料：可点、可切七态、可切视角。
         标 <Badge tone="outline" className="mx-0.5">待补契约</Badge> 的展示位在仓库里没有字段供数，
         标 <Badge tone="outline" className="mx-0.5">待签核</Badge> 的口径需人类裁定——都不是可编造的真数据。
@@ -189,7 +194,12 @@ function StageBar({ role }: { role: ProjectRole }) {
       <div className="flex items-center gap-3 rounded-t-lg bg-inverse px-4 py-3 text-inverse-foreground">
         <span aria-hidden className="h-1.5 w-1.5 shrink-0 animate-pulse rounded-full bg-destructive" />
         <div className="min-w-0 flex-1">
-          <div className="text-10 uppercase tracking-wide text-muted-foreground">
+          {/*
+            2026-09-22 实测：这一行在 `bg-inverse`（近黑 #141417）的条上，却用 `text-muted-foreground`
+            （#5F5F67）——只有 2.91:1。父级已经给了 `text-inverse-foreground`，这里是「覆盖」掉它；
+            要弱化就用同一族的透明度档（本文件别处已在用 `text-inverse-foreground/80`）。
+          */}
+          <div className="text-10 uppercase tracking-wide text-inverse-foreground/70">
             环节 {b.ordinal}/{b.total}
           </div>
           <div className="truncate text-14 font-medium" data-testid="lc-stage-title">{b.title}</div>

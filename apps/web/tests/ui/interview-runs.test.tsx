@@ -11,6 +11,8 @@ import { PersistentDigitalInterviewWorkflow } from "@/components/itv/digital-int
 type View = z.infer<typeof interview.DigitalInterviewWorkflowView>;
 
 const view: View = {
+  researchBrief: null, moderatorPolicy: null, reportReview: null,
+  quality: { previewStatus: "unavailable", briefIssues: [], expertCoverage: [], questionFindings: [], readiness: null, readinessDecision: null, evidenceCoverage: [] },
   interviewId: "itv-f05", name: "江西足球", tags: ["足球"], topic: "江西足球的崛起",
   status: "running", sourceQuickInterviewId: null, selectedExpertIds: ["expert-a", "expert-b"],
   reportId: null, version: 12, scope: { kind: "none", projectId: null, researchProjectId: null },
@@ -24,7 +26,7 @@ const view: View = {
     { expertId: "expert-b", displayName: "产业专家", status: "failed", completedQuestions: 0,
       totalQuestions: 1, answers: [], errorCode: "MODEL_CALL_FAILED", updatedAt: "2026-08-30T00:00:01.000Z" },
   ],
-  studyEvidenceMode: "simulated", reportReview: { eligibility: "blocked_missing_participant_evidence", message: "需要真实受访者证据后才能批准。", action: "添加并复核真实受访者回答" },
+  studyEvidenceMode: "simulated", reportEvidenceEligibility: { eligibility: "blocked_missing_participant_evidence", message: "需要真实受访者证据后才能批准。", action: "添加并复核真实受访者回答" },
 };
 
 describe("F05 expert run recovery UI", () => {

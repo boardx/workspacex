@@ -15,6 +15,29 @@ Developer Portal 的 Cloudflare 原生部署。**自包含项目**：
 - 门禁：Cloudflare Access（GitHub 登录），`lib/access.ts` 对 `Cf-Access-Jwt-Assertion`
   验签（团队证书端点）；**pages.dev 直连无 Access 上下文 → API 一律 401**
 
+## 公开层拆域（D13 / backlog F1）
+
+公开层（`/explore`、`/projects/:slug`、`/u/:handle`、`/a/:handle/:agent`）与协作层同一份构建，
+按**请求主机名**分流；规则的唯一事实源是 `lib/public-host.ts`，`middleware.ts` 只调用它：
+
+| 请求 | 公开主机（`DEVPORTAL_PUBLIC_HOST`） | 协作主机（现 develop.boardx.us） |
+|---|---|---|
+| 公开页 | 直通，零鉴权、零身份读取 | 308 → 公开主机同路径 |
+| `/me` `/p/*` `/onboard` | **404** | 要求会话（无 → 302 OAuth 登录） |
+| `/portal` `/platform` `/api/*` `/join/*` 及其它 | **404** | 不碰（治理面由 Access 把门） |
+
+- 公开主机名**只在** `wrangler.toml [vars] DEVPORTAL_PUBLIC_HOST` 声明；代码不写死域名。
+  占位值 `__SET_DEVPORTAL_PUBLIC_HOST__` = 尚未拆域：运行时行为与拆域前一致，但 CD 在部署前
+  由 `scripts/assert-public-host.mjs` **大声失败**（`deploy-devportal.yml` 的 D13 步骤）。
+- 「加入这个项目」向导（读会话、调 `/api/portal/join`）属于协作层，已从公开页弹窗搬到
+  协作主机 `/join/:slug`；公开页只放一个链接，主机来自 `DEVPORTAL_COLLAB_HOST`。
+- 门控：`tests/public-host-routing.test.ts`（真实 middleware：公开主机够不到协作路由、协作主机
+  仍门控）；`tests/public-layer-static.test.ts`（公开页 import 闭包禁身份读取、禁协作层数据
+  模块 `lib/coord-gateway` 等、禁调 `/api/*`）。
+- **人类待办**：① 选定公开域名并填入 `DEVPORTAL_PUBLIC_HOST`；② DNS + Pages → devportal →
+  Custom domains 绑定该域名；③ Cloudflare Zero Trust 里**不**给该主机名挂 Access 应用
+  （协作域的 Access 应用保持不变）。
+
 ## 部署
 
 配置的唯一事实源 = 本目录 `wrangler.toml`（nodejs_compat、非敏感 vars）。

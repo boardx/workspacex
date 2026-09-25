@@ -1,10 +1,13 @@
 /**
  * F102 — 议程环节绑定模板与 skill + 现场实例化。
  *
- * 本文件只管两条可断言的不变量：
+ * 本文件只管三条可断言的不变量：
  *   I-6：同一 `agendaSegmentId` 的模板绑定数 ≤ 2（`SEGMENT_TEMPLATE_LIMIT`）。
  *   I-5 新增绑定半条：已归档（或未发布）模板不可被**新增**绑定（复用 F101 的
  *        `canCreateNewBinding`，不重写第二份判定）。
+ *   #1468：议程环节的 skill 白名单**恒等于**它的绑定集合——名字查不到的绑定退回
+ *        `skillKey` 显示，不丢行（`projectSegmentSkillWhitelist`，理由见该函数注释）。
+ *        「同一环节同一 skillKey 只有一条绑定」由唯一约束判，见该迁移文件头。
  *
  * ## 「现场实例化」的反向断言（本 feature 的核心）
  *
@@ -22,6 +25,8 @@
  * `createInstance` / `readFrozenTemplateRef`——第二份冻结实现是本仓明确要收敛掉的
  * 「同一事实两处声明」。
  */
+import type { z } from "zod";
+import { canvas as C } from "@repo/contracts";
 import { canCreateNewBinding, type TemplateStatus } from "./template-lifecycle";
 import { createInstance, readFrozenTemplateRef } from "./instance-version-freeze";
 
@@ -100,4 +105,70 @@ export function instantiateForSegment(params: {
     const ref = readFrozenTemplateRef(record);
     return { instanceId, groupId, templateKey: ref.templateKey, templateVersion: ref.templateVersion };
   });
+}
+
+/* ─────────────────────────── skill 绑定（#1468）─────────────────────────── */
+
+/**
+ * `SegmentSkillBinding` 实体（domain.md：「skill 绑定同构：`agendaSegmentId` × `skillKey` ×
+ * `runMode`」）。
+ *
+ * ⚠ 与 `SegmentTemplateBinding` **同构但不同实体**：没有「绑定时冻结的版本号」，也不受
+ *   I-6 的「同一环节最多两个」约束——那条上限的出处（`usecases.md` uc-7-1 R7 的双列表格）
+ *   只说模板。给 skill 也安一个上限，就是替产品发明一条没人签过的不变量。
+ */
+export interface SegmentSkillBinding {
+  readonly bindingId: string;
+  readonly skillKey: string;
+  readonly runMode: SegmentSkillRunMode;
+}
+
+/** 契约 `SkillRunMode` 的类型侧，**不另抄一份字面量**（第二份枚举是本仓明令收敛的形状）。 */
+export type SegmentSkillRunMode = z.infer<typeof C.SkillRunMode>;
+
+/** 白名单里的一条，字段与契约 `listSegmentSkills.out.skills[]` 逐字对应。 */
+export interface SegmentSkillListing {
+  readonly skillKey: string;
+  readonly displayName: string;
+  readonly runMode: SegmentSkillRunMode;
+  readonly lastRunAt: string | null;
+}
+
+/**
+ * 绑定行 → 左栏第三区白名单（`listSegmentSkills.out.skills`）。
+ *
+ * ## 这里只有一条判定，而它是一条**不丢行**的判定
+ *
+ * 绑定表对 `skills` **没有外键**（理由见 `20260921140000_canvas_segment_skill_bindings.sql`
+ * 文件头：契约的 `bindSkillToSegment.err` 里没有 `SKILL_NOT_FOUND`，加外键就是造一种
+ * 回不出码的拒绝）。于是一条绑定可能指向一个今天查不到名字的 `skillKey`——它被禁用、
+ * 被硬删、或者本来就是先绑后建。契约的 `out` 里没有「这个 skill 还在不在」这一栏，
+ * 所以只有两种可能的处置：
+ *
+ * · **把这行从白名单里去掉** ⇒ 白名单与「绑定是否存在」这个事实开始分叉。
+ *   `runSegmentSkill` 判的是绑定（I-32「未绑定即拒绝」），不是名字查不查得到：
+ *   于是会出现一个**列表里没有、却能跑**的 skill，而且没有任何东西会报警。
+ * · **保留这行，名字退回 `skillKey` 本身** ⇒ 白名单恒等于绑定集合，界面上显示的是一个
+ *   不那么好看但真实的名字。
+ *
+ * ⇒ 取后者。`displayName` 是给人看的字符串，不是判定依据；而「少一行」会让两处对同一
+ *   事实（这个环节绑了哪些 skill）的回答不一致——本仓五次漂移里反复出现的正是这个形状。
+ */
+export function projectSegmentSkillWhitelist(
+  rows: readonly {
+    readonly skillKey: string;
+    readonly displayName: string | null;
+    readonly runMode: SegmentSkillRunMode;
+    readonly lastRunAt: string | null;
+  }[],
+): readonly SegmentSkillListing[] {
+  return rows.map((row) => ({
+    skillKey: row.skillKey,
+    // ⚠ `?? row.skillKey` 而不是 `|| row.skillKey`：空字符串是 `skills.name` 的
+    //   CHECK 挡掉的东西（`length(name) > 0`），真出现在这里说明查询串错了列，
+    //   用 `||` 会把那种错误静默伪装成「这个 skill 没名字」。
+    displayName: row.displayName ?? row.skillKey,
+    runMode: row.runMode,
+    lastRunAt: row.lastRunAt,
+  }));
 }

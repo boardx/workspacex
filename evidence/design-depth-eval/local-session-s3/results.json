@@ -1,0 +1,154 @@
+{
+  "sha": "03318b4c",
+  "modelMode": "standin",
+  "results": [
+    {
+      "id": "S01",
+      "title": "用本地账号登录",
+      "ok": true,
+      "detail": "登录后落地 /projects",
+      "shot": null,
+      "ms": 17037
+    },
+    {
+      "id": "S02",
+      "title": "打开设计工作台（真栈 listMyProjects）",
+      "ok": true,
+      "detail": "已有项目",
+      "shot": "s02-workbench.png",
+      "ms": 3626
+    },
+    {
+      "id": "S03",
+      "title": "新建「会员下单」并自动开画",
+      "ok": true,
+      "detail": "画出 2 页：首页 / 下单",
+      "shot": "s03-drawn.png",
+      "ms": 5990
+    },
+    {
+      "id": "S04",
+      "title": "详情页底栏「更新于」说人话，不是机器日期",
+      "ok": true,
+      "detail": "底栏：「本地用户 · 更新于 刚刚」",
+      "shot": null,
+      "ms": 5
+    },
+    {
+      "id": "S05",
+      "title": "导出可点击原型：中文项目名转拼音（#3887）",
+      "ok": true,
+      "detail": "hui-yuan-xia-dan-prototype-2026-09-24.html",
+      "shot": null,
+      "ms": 426
+    },
+    {
+      "id": "S06",
+      "title": "导出设计文档 / 原型规格：同一套拼音规则",
+      "ok": true,
+      "detail": "hui-yuan-xia-dan-2026-09-24.md · hui-yuan-xia-dan-2026-09-24.prototype.json",
+      "shot": null,
+      "ms": 206
+    },
+    {
+      "id": "S07",
+      "title": "导出当前页截图：页名「首页」也转拼音",
+      "ok": true,
+      "detail": "hui-yuan-xia-dan-shou-ye.png",
+      "shot": null,
+      "ms": 742
+    },
+    {
+      "id": "S08",
+      "title": "属性面板：改了没按应用就点别处 ⇒ 自动应用、说出来、刷新后还在（#3882 R19）",
+      "ok": true,
+      "detail": "提示「上一个节点（按钮「立即下单」）的改动已经帮你应用了；不想要的话用画布上方…」；刷新后仍是「马上下单」",
+      "shot": "s08-auto-applied.png",
+      "ms": 2513
+    },
+    {
+      "id": "S09",
+      "title": "分享：发布拿到链接；访客（无登录）打开只读页",
+      "ok": true,
+      "detail": "访客（手机宽度、未登录）看到「会员下单」",
+      "shot": "s09-guest-mobile.png",
+      "ms": 3213
+    },
+    {
+      "id": "S10",
+      "title": "取消发布先确认；「算了」不收回，确认后访客打不开（#3882 R20）",
+      "ok": true,
+      "detail": "收回后访客看到「这条分享链接打不开：可能已经被取消分享，也可能链接不完整…」",
+      "shot": "s10-unpublish-confirm.png",
+      "ms": 1477
+    },
+    {
+      "id": "S11",
+      "title": "工作台：删除项目先确认，「算了」不删；卡片时间是人话（#3882 R18）",
+      "ok": true,
+      "detail": "卡片写「改于 刚刚」；点「算了」后项目还在",
+      "shot": "s11-delete-confirm.png",
+      "ms": 2155
+    },
+    {
+      "id": "S12",
+      "title": "悬停反馈：访谈页未选中的页签悬停变成正文色（#3894）",
+      "ok": true,
+      "detail": "idle rgb(95, 95, 103) → hover rgb(20, 20, 23)",
+      "shot": null,
+      "ms": 3732
+    },
+    {
+      "id": "S13",
+      "title": "手机宽度（375）打开设计详情：画布读得了字，不是一张缩略图",
+      "ok": true,
+      "detail": "画布缩放 0.87（读得了字；装不下的部分竖着滚）",
+      "shot": "s13-phone-detail.png",
+      "ms": 7747
+    },
+    {
+      "id": "S14",
+      "title": "提反馈弹窗点「语音」：本机没开通转写时不给死路「重试」、说明不被截断",
+      "ok": true,
+      "detail": "「这里还没开通语音输入当前环境尚未配置语音转写服务，暂时无法使用语音输入，请手动输…」；「重试」按钮 0 个",
+      "shot": "s14-voice-not-configured.png",
+      "ms": 1499
+    },
+    {
+      "id": "S15",
+      "title": "运营收件箱打得开：系统异常一路读不到时只丢那一路（#3921）",
+      "ok": true,
+      "detail": "收件箱正常打开；系统异常那一格如实说「这次没读到」（本地版预期）",
+      "shot": "s15-inbox.png",
+      "ms": 9330
+    },
+    {
+      "id": "S16",
+      "title": "品牌色与字体：输入 #FF5A1F、选衬线体，刷新后还在（对标 R1，#3933）",
+      "ok": true,
+      "detail": "刷新后画布根仍是 #FF5A1F + 衬线体（真 PGlite 上的 tokens 列）",
+      "shot": "s16-brand-font.png",
+      "ms": 8410
+    },
+    {
+      "id": "S17",
+      "title": "批注存在服务端：钉一条，换一个全新的浏览器（空存储）打开同一个项目还看得到（深度 S2，#3988）",
+      "ok": true,
+      "detail": "另一个浏览器（空存储）打开同一个项目，看到「真栈批注 muf0f1kw」和它的钉（真 PGlite 上的 design_project_comments）",
+      "shot": "s17-comment-other-browser.png",
+      "ms": 9751
+    },
+    {
+      "id": "S18",
+      "title": "批注讨论：回一句、标记解决再重新打开、删掉批注连同回复（深度 S3，#3988）",
+      "ok": true,
+      "detail": "回复刷新后还在、重新打开的状态落了库；删掉带回复的批注成功（真库外键级联，回复表不授 DELETE）",
+      "shot": "s18-comment-thread.png",
+      "ms": 5887
+    }
+  ],
+  "findings": [],
+  "consoleErrors": [
+    "Failed to fetch RSC payload for http://127.0.0.1:3100/projects. Falling back to browser navigation. TypeError: Failed to fetch\n    at fetchServerResponse (webpack-internal:///(app-pages-browser)/../.."
+  ]
+}

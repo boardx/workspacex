@@ -54,10 +54,17 @@ class MemoryLedger:
         return next((run for run in reversed(list(self.runs.values())) if run["thread_id"] == thread_id), None)
 
     async def append_event(self, run_id: str, event: str, data: Any):
-        rows = self.run_events[run_id]
-        rows.append({"sequence": len(rows) + 1, "event": event, "data": data})
+        await self.append_events(run_id, [(event, data)])
 
-    async def events(self, run_id: str): return list(self.run_events.get(run_id, []))
+    async def append_events(self, run_id: str, items: list[tuple[str, Any]]):
+        rows = self.run_events[run_id]
+        for event, data in items:
+            rows.append({"sequence": len(rows) + 1, "event": event, "data": data})
+
+    async def events(self, run_id: str, after: int = 0):
+        return [row for row in self.run_events.get(run_id, []) if row["sequence"] > after]
+
+    async def prune_events(self) -> int: return 0
 
 
 @dataclass

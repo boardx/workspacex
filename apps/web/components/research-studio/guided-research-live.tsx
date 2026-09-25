@@ -5,6 +5,7 @@ import { ApiError } from "@/lib/api-client";
 import { research as C } from "@repo/contracts";
 import { Loader2, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { GuidedResearchConversation } from "./guided-research-conversation";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent } from "@/components/ui/card";
@@ -14,11 +15,18 @@ import { GuidedResearchReportDocument } from "./guided-research-report-document"
 import { GuidedResearchReportHistory, GuidedResearchEvidenceWarning } from "./guided-research-report-history";
 import { GuidedResearchQualityDraft } from "./guided-research-quality-draft";
 import { GuidedResearchReportPreview } from "./guided-research-report-preview";
+import { researchReportPreview } from "@/lib/research-report-preview";
 import { ResearchDirectionsEditor, ResearchOutlineEditor, ResearchDesignPreview } from "./guided-research-design-editor";
 import { GuidedResearchRuntimeProgress, GuidedResearchPlanDetails } from "./guided-research-runtime-progress";
 import { GuidedResearchSources } from "./guided-research-sources";
+import { GuidedResearchIntentPlan } from "./guided-research-intent-plan";
+import { GuidedResearchTrustConsole } from "./guided-research-trust-console";
+import { GuidedResearchReadiness, researchCompletionLabel, researchLimitations } from "./guided-research-readiness";
 import { GuidedResearchStepLayout } from "./guided-research-step-layout";
 import { getResearchRuntime, getResearchRuntimeProgress, mergeResearchProgress, executeResearchRuntime, type GuidedResearchRuntime as Runtime, type GuidedResearchRuntimeCommand as Command, type GuidedResearchRuntimeDraft as Draft } from "@/lib/guided-research-api";
+function trustCommandId(prefix: string): string {
+  return `${prefix}-${crypto.randomUUID()}`;
+}
 function newestSnapshot(incoming: Runtime, current: Runtime | null): Runtime {
   if (current?.sessionId === incoming.sessionId && current.version === incoming.version && current.reportStream && incoming.busy && (!incoming.reportStream || (current.reportStream.requestId === incoming.reportStream.requestId && current.reportStream.sequence > incoming.reportStream.sequence))) return current;
   return current && current.sessionId === incoming.sessionId && (current.version > incoming.version || (current.version === incoming.version && !current.busy && incoming.busy)) ? current : incoming;
@@ -41,6 +49,9 @@ const errors: Record<string, string> = {
   RESEARCH_EVIDENCE_BUDGET_EXCEEDED: "大纲问题或来源内容超出本次分析容量，请精简后重试。",
   RESEARCH_REPORT_QUALITY_INSUFFICIENT: "报告修订后仍未通过证据与分析质量检查，请完善大纲或补充来源后重试。",
   RESEARCH_GRAPH_VERSION_CONFLICT: "研究内容已更新，本次操作未提交。请核对最新进度后继续。",
+  RESEARCH_REVISION_CONFLICT: "研究边界已在其他页面更新，请核对最新版本后重试。",
+  RESEARCH_SOURCE_ACCESS_DENIED: "所选内部资料不在当前授权范围内。",
+  RESEARCH_WORKFLOW_PAUSED: "研究已暂停，请继续后再执行检索。",
   RESEARCH_WORKFLOW_UNAVAILABLE: "模型服务暂时不可用，请稍后重试；持续失败请联系管理员检查模型配置。",
   RESEARCH_NODE_MISMATCH: "研究步骤已变化，请查看最新进度后继续。",
   RESEARCH_IDEMPOTENCY_REPLAY_MISMATCH: "请求状态发生冲突，请核对最新进度后重新操作。",
@@ -77,8 +88,10 @@ export function GuidedResearchLive({ sessionId, onBack, initialNode }: { session
   const [node, setNode] = React.useState<Command["node"]>("brief");
   const [draft, setDraft] = React.useState<Draft | null>(null);
   const [message, setMessage] = React.useState("");
+  const [reportAssistantOpen, setReportAssistantOpen] = React.useState(false);
   const [loadingNode, setLoadingNode] = React.useState<Command["node"] | null>(null);
   const [pending, setPending] = React.useState(false);
+  const [steeringPending, setSteeringPending] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
   const [loadAttempt, setLoadAttempt] = React.useState(0);
   const [recovery, setRecovery] = React.useState<Recovery | null>(null);
@@ -158,6 +171,35 @@ export function GuidedResearchLive({ sessionId, onBack, initialNode }: { session
   }, [pending, state?.busy, state?.version, expired, sessionId]);
   const processing = pending || Boolean(state?.busy && !expired);
   const busy = processing || Boolean(recovery);
+  async function steer(action: "pause" | "resume") {
+    if (!state || steeringPending) return;
+    setSteeringPending(true); setError(null);
+    try {
+      const next = await executeResearchRuntime({
+        sessionId, node: state.currentNode, action, requestId: crypto.randomUUID(), expectedVersion: state.version,
+        expectedRevision: state.planRevision ?? 0, idempotencyKey: trustCommandId(action),
+      });
+      snapshotRef.current = next; setState(next);
+    } catch (cause) {
+      setError(requestError(cause));
+    } finally {
+      setSteeringPending(false);
+    }
+  }
+  async function resolveConflict(decision: { conflictId: string; action: "retain_uncertainty" | "prefer_source"; sourceId?: string; rationale: string }) {
+    if (!state || steeringPending) return;
+    setSteeringPending(true); setError(null);
+    try {
+      const next = await executeResearchRuntime({
+        sessionId, node: "research", action: "resolve_conflict", requestId: crypto.randomUUID(), expectedVersion: state.version,
+        expectedRevision: state.planRevision ?? 0, idempotencyKey: trustCommandId("resolve-conflict"), conflictId: decision.conflictId,
+        conflictResolutionAction: decision.action, sourceId: decision.sourceId,
+        conflictResolution: decision.rationale,
+      });
+      snapshotRef.current = next; setState(next);
+    } catch (cause) { setError(requestError(cause)); }
+    finally { setSteeringPending(false); }
+  }
   async function run(action: Command["action"], extra: Partial<Command> = {}) {
     if (!state || busy) return;
     const generation = sessionGeneration.current;
@@ -265,52 +307,69 @@ export function GuidedResearchLive({ sessionId, onBack, initialNode }: { session
   const reportVisible = (loadingNode ?? node) === "report";
   const waiting = Boolean(loadingNode || (!pending && state.busy && !expired && !recovery));
   const readingReport = reportVisible && !waiting && Boolean(displayReport || state.reportDraft);
+  const resumeReport = Boolean(state.errorCode || expired || state.reportDraft);
+  const streamPreview = researchReportPreview(state.reportStream?.text ?? "");
+  const hasRenderableReportPreview = Boolean(streamPreview.summary || streamPreview.introduction || streamPreview.conclusion || streamPreview.sections.some((section) => section.body) || state.reportCheckpoint?.chapters.some((chapter) => chapter.body));
+  const showReportRecoveryActions = !waiting && !readingReport && resumeReport && !hasRenderableReportPreview;
+  const reportPrimaryAction = !waiting && (resumeReport
+    ? <Button variant="primary" disabled={busy} data-testid="research-report-primary-action" onClick={() => void run("retry")}>生成完整报告</Button>
+    : state.report && !state.completed
+      ? <Button variant="primary" disabled={busy || Boolean(proposal)} data-testid="research-report-primary-action" onClick={() => void run("complete", { draft: { node: "report", value: displayReport! } })}>完成研究</Button>
+      : !state.report
+        ? <Button variant="primary" disabled={busy} data-testid="research-report-primary-action" onClick={() => void run("generate")}>生成报告</Button>
+        : null);
+  const reportAssistantMenuAction = <DropdownMenuItem onSelect={() => setReportAssistantOpen((open) => !open)}>{reportAssistantOpen ? "收起助手" : "修改报告"}</DropdownMenuItem>;
+  const reportActions = <div className="flex flex-wrap items-center justify-between gap-3"><h1 className="text-24 font-semibold">研究报告{state.completed ? " · 已完成" : ""}</h1>{reportPrimaryAction}{showReportRecoveryActions && <DropdownMenu><DropdownMenuTrigger asChild><Button variant="outline" aria-label="更多操作">更多操作</Button></DropdownMenuTrigger><DropdownMenuContent align="end">{reportAssistantMenuAction}<DropdownMenuSeparator /><DropdownMenuItem disabled={busy} onSelect={() => void run("generate")}>重新生成报告</DropdownMenuItem></DropdownMenuContent></DropdownMenu>}</div>;
   return <div className="max-w-none space-y-4" data-layout="signed-desktop" data-testid={`research-flow-${node === "research" ? "search" : node}`}>
     <ResearchProgress node={loadingNode ?? node} availableNodes={state.availableNodes} busy={busy} completed={state.completed} onNavigate={navigate} onBack={onBack} />
-    <GuidedResearchStepLayout assistant={<GuidedResearchConversation node={node} messages={state.messages} message={message} onMessageChange={setMessage} busy={busy} processing={processing}
+    <GuidedResearchStepLayout reading={reportVisible} assistantOpen={reportAssistantOpen} onAssistantOpenChange={setReportAssistantOpen} assistant={<GuidedResearchConversation node={node} messages={state.messages} message={message} onMessageChange={setMessage} busy={busy} processing={processing}
       onSend={(text) => { if (text.trim()) void run("message", { message: text.trim(), ...(draft ? { draft } : {}) }); }}
       proposal={proposal} proposalEdited={proposalEdited} onApply={() => void run("apply", { proposalId: proposal?.id })}
       preview={proposal ? <ProposalPreview draft={proposal.draft} /> : null} />}>
       <div className="space-y-5">
-        {proposal && !waiting && <p role="status" className="rounded-lg border border-primary/30 bg-muted/30 px-4 py-3 text-12" data-testid="research-conversation-draft">右侧已同步对话生成的「{labels[node]}」草稿，尚未应用。你可以继续在左侧提出修改，核对后请先在左侧应用建议，再确认并继续。{proposalEdited && " 右侧另有手动修改，请继续对话形成新建议后应用。"}</p>}
-    {recovery && <details className="rounded-lg border border-border bg-muted/30 px-4 py-3 text-12" data-testid="research-recovery"><summary className="cursor-pointer font-medium">需要核对研究进度{recovery.draft ? " · 草稿已保留" : ""}</summary><div className="mt-3 space-y-3">
-      <p role="status" className="text-12">{recovery.synchronized ? "已读取最新研究进度。请核对后继续，系统不会自动重复提交。" : "尚未确认最新研究进度，请先重新连接。"}{recovery.draft && " 你的未提交草稿已保留在当前页面。"}</p>
-      {recovery.draft && <details className="text-12"><summary>查看保留的草稿</summary><ProposalPreview draft={recovery.draft} /></details>}
+        {proposal && !waiting && <p role="status" className="rounded-lg border border-primary/30 bg-muted/30 px-4 py-3 text-12" data-testid="research-conversation-draft">右侧已同步对话生成的「{labels[node]}」待应用内容，尚未应用。你可以继续在左侧提出修改，核对后请先在左侧应用建议，再确认并继续。{proposalEdited && " 右侧另有手动修改，请继续对话形成新建议后应用。"}</p>}
+    {recovery && <details className="rounded-lg border border-border bg-muted/30 px-4 py-3 text-12" data-testid="research-recovery"><summary className="cursor-pointer font-medium">需要核对研究进度{recovery.draft ? " · 待应用内容已保留" : ""}</summary><div className="mt-3 space-y-3">
+      <p role="status" className="text-12">{recovery.synchronized ? "已读取最新研究进度。请核对后继续，系统不会自动重复提交。" : "尚未确认最新研究进度，请先重新连接。"}{recovery.draft && " 你的未提交待应用内容已保留在当前页面。"}</p>
+      {recovery.draft && <details className="text-12"><summary>查看保留的待应用内容</summary><ProposalPreview draft={recovery.draft} /></details>}
       {latestRecoveryDraft && <details className="text-12"><summary>查看服务端最新内容</summary><ProposalPreview draft={latestRecoveryDraft} /></details>}
       <div className="flex flex-wrap gap-2">
         <Button variant="outline" disabled={pending} onClick={() => void recoverProgress(sessionId)}>重新读取进度</Button>
         <Button disabled={!recovery.synchronized || processing} onClick={() => finishRecovery(false)}>使用最新进度</Button>
-        {recovery.draft && <Button variant="outline" disabled={!recovery.synchronized || processing || !state.availableNodes.includes(recovery.node)} onClick={() => finishRecovery(true)}>继续编辑保留的草稿</Button>}
+        {recovery.draft && <Button variant="outline" disabled={!recovery.synchronized || processing || !state.availableNodes.includes(recovery.node)} onClick={() => finishRecovery(true)}>{node === "report" ? "继续编辑保留的内容" : "继续编辑保留的草稿"}</Button>}
       </div>
     </div></details>}
     {(error || (node === state.currentNode && state.errorCode)) && <p role="alert" className="rounded-md border border-destructive p-3 text-12 text-destructive">{error ?? errors[state.errorCode!] ?? "上次处理失败，请重试。"}</p>}
-    {!readingReport && state.legacyCheckpoint && <details className="rounded-lg border border-border bg-muted/30 px-4 py-3 text-12 text-muted-foreground"><summary>历史记录已保留 · 查看迁移说明</summary><p className="mt-2">原会话状态：{state.legacyCheckpoint.status === "completed" ? "已完成" : "进行中"}。原方向与大纲已导入；旧版检索和报告没有可验证的来源记录，需要重新检索后生成报告。</p><p>原研究主题：{state.legacyCheckpoint.brief.topic}</p><ul>{state.legacyCheckpoint.directions.versions.at(-1)?.items.map((item) => <li key={item.id}>{item.title}：{item.description}</li>)}</ul><ul>{state.legacyCheckpoint.outline.versions.at(-1)?.items.map((item) => <li key={item.id}>{item.title}：{item.questions.join("；")}</li>)}</ul></details>}
+    {!readingReport && node !== "research" && state.legacyCheckpoint && <details className="rounded-lg border border-border bg-muted/30 px-4 py-3 text-12 text-muted-foreground"><summary>历史记录已保留 · 查看迁移说明</summary><p className="mt-2">原会话状态：{state.legacyCheckpoint.status === "completed" ? "已完成" : "进行中"}。原方向与大纲已导入；旧版检索和报告没有可验证的来源记录，需要重新检索后生成报告。</p><p>原研究主题：{state.legacyCheckpoint.brief.topic}</p><ul>{state.legacyCheckpoint.directions.versions.at(-1)?.items.map((item) => <li key={item.id}>{item.title}：{item.description}</li>)}</ul><ul>{state.legacyCheckpoint.outline.versions.at(-1)?.items.map((item) => <li key={item.id}>{item.title}：{item.questions.join("；")}</li>)}</ul></details>}
     {expired && !error && !state.errorCode && <p role="alert" className="text-12 text-destructive">上次执行已中断。已保存的结果仍可用，请重试。</p>}
-        {reportVisible && <div className="flex flex-wrap items-center justify-between gap-3"><h1 className="text-24 font-semibold">研究报告{state.completed ? " · 已完成" : ""}</h1>{!waiting && <Button variant="outline" disabled={busy} onClick={() => void run(state.errorCode || expired || state.reportDraft ? "retry" : "generate")}>{state.errorCode || expired || state.reportDraft ? "生成完整报告" : state.report ? "重新生成报告" : "生成报告"}</Button>}{!waiting && (state.errorCode || expired || state.reportDraft) && <details className="text-12"><summary className="cursor-pointer text-muted-foreground">更多操作</summary><Button variant="ghost" disabled={busy} onClick={() => void run("generate")}>重新生成报告</Button></details>}</div>}
-        {!readingReport && (reportVisible && state.reportTimeline?.length ? <GuidedResearchReportTimeline state={state} interrupted={expired} /> : <GuidedResearchRuntimeProgress state={state} />)}
+        {reportVisible && !readingReport && reportActions}
+        {!readingReport && (loadingNode ?? node) !== "research" && (reportVisible && state.reportTimeline?.length ? <GuidedResearchReportTimeline state={state} interrupted={expired} /> : <GuidedResearchRuntimeProgress state={state} />)}
         {reportVisible && !readingReport && <GuidedResearchEvidenceWarning state={state} />}
         {reportVisible && <GuidedResearchReportHistory state={state} />}
         {reportVisible && !readingReport && state.reportPartial && <p className="rounded-md border border-border bg-muted/30 p-3 text-12" data-testid="research-report-evidence-gap">本报告基于已有来源生成，部分检索任务未成功，相关证据可能存在缺口。</p>}
-        {reportVisible && !displayReport && <GuidedResearchQualityDraft state={state} />}
-        {reportVisible && !state.report && !state.reportDraft && (state.reportStream || (!state.report && state.reportCheckpoint)) && <GuidedResearchReportPreview state={state} interrupted={expired} />}
-        {waiting && (loadingNode ?? node) === "research" && <GuidedResearchPlanDetails state={state} errors={errors} />}
-        {waiting ? (reportVisible && (state.reportTimeline?.length || state.reportStream || (!state.report && state.reportCheckpoint)) ? null : <ResearchLoading node={loadingNode ?? node} />) : <>
-        {node !== "report" && <div className="flex flex-wrap items-center justify-between gap-3"><h1 className="text-24 font-semibold">{labels[node]}</h1><Button variant="outline" disabled={busy || Boolean(draft && !validDraft)} onClick={() => void run("generate", validDraft && draft ? { draft } : {})}><Sparkles className="size-4" aria-hidden />{node === "research" ? "重新生成研究计划" : "重新生成本步骤"}</Button></div>}
+        {reportVisible && !displayReport && <GuidedResearchQualityDraft state={state} actions={reportPrimaryAction} moreActions={reportAssistantMenuAction} onRegenerate={() => void run("generate")} />}
+        {reportVisible && !state.report && !state.reportDraft && (state.reportStream || (!state.report && state.reportCheckpoint)) && <GuidedResearchReportPreview state={state} interrupted={expired} moreActions={showReportRecoveryActions ? undefined : reportAssistantMenuAction} onRegenerate={() => void run("generate")} />}
+        {waiting && (loadingNode ?? node) === "research" && <><GuidedResearchRuntimeProgress state={state} /><GuidedResearchSources sources={displaySources} disabled={true} onAdd={(sourceUrl) => run("add_source", { sourceUrl })} onRemove={() => undefined} /><details><summary>查看搜索详情</summary><GuidedResearchPlanDetails state={state} errors={errors} /></details></>}
+        {waiting ? ((loadingNode ?? node) === "research" && state.progress || reportVisible && (state.reportTimeline?.length || state.reportStream || (!state.report && state.reportCheckpoint)) ? null : <ResearchLoading node={loadingNode ?? node} />) : <>
+        {node !== "report" && node !== "research" && <div className="flex flex-wrap items-center justify-between gap-3"><h1 className="text-24 font-semibold">{labels[node]}</h1><Button variant="outline" disabled={busy || Boolean(draft && !validDraft)} onClick={() => void run("generate", validDraft && draft ? { draft } : {})}><Sparkles className="size-4" aria-hidden />重新生成本步骤</Button></div>}
         {state.currentNode !== node && <p className="text-12 text-muted-foreground">重新确认此步骤会使后续研究结果失效，并按当前内容重新生成。</p>}
         {processing && !(reportVisible && state.reportTimeline?.length) && <p role="status" className="flex items-center gap-2 text-12 text-muted-foreground"><Loader2 className="size-4 animate-spin" aria-hidden />正在处理，进度会自动保存…</p>}
+        {node === "outline" && !state.intent && <GuidedResearchIntentPlan initialIntent={state.intent} initialPolicy={state.sourcePolicy} revision={state.planRevision ?? 0} disabled={busy} onConfirm={({ intent, sourcePolicy, expectedRevision }) => void run("refine_scope", { intent, sourcePolicy, expectedRevision, idempotencyKey: trustCommandId("scope") })} />}
         {draft?.node === "brief" && <Card><CardContent className="space-y-3 p-4">{(["topic", "goal", "timeRange", "region", "focus"] as const).map((field) => <label key={field} className="block text-12">{{ topic: "研究主题", goal: "研究目标", timeRange: "时间范围", region: "研究区域", focus: "重点关注" }[field]}<Textarea disabled={busy} value={draft.value[field]} onChange={(event) => setDraft({ ...draft, value: { ...draft.value, [field]: event.target.value } })} /></label>)}</CardContent></Card>}
         {draft?.node === "directions" && <ResearchDirectionsEditor draft={draft} disabled={busy} onChange={setDraft} />}
         {draft?.node === "outline" && <ResearchOutlineEditor draft={draft} disabled={busy} onChange={setDraft} />}
         {node === "research" && <>
-          <div className="flex gap-2"><Button variant="primary" disabled={busy} onClick={() => void run("start")}>开始真实检索</Button><Button variant="outline" disabled={busy || !state.tasks.some((task) => task.status === "failed" || (expired && task.status === "running"))} onClick={() => void run("retry")}>重试失败任务</Button></div>
-          <Card data-testid="research-search-summary"><CardContent className="space-y-2 p-4"><h2 className="font-semibold">研究检索进度</h2><p className="text-12">已完成 {state.tasks.filter((task) => task.status === "succeeded").length} / {state.tasks.length} 项任务</p><p className="text-12 text-muted-foreground" data-testid="research-current-query">{state.tasks.find((task) => task.status === "running" || task.status === "pending")?.query ?? (state.tasks.length ? "本轮检索已结束" : "请先生成研究计划或开始检索")}</p></CardContent></Card>
-          <GuidedResearchPlanDetails state={state} errors={errors} />
+          {!state.intent && <p role="status" className="rounded-md border p-3 text-sm">请返回报告大纲步骤确认研究边界后再开始检索。</p>}
+          <GuidedResearchTrustConsole runtime={state} pending={steeringPending} onSteer={(action) => void steer(action)} onResolveConflict={(decision) => void resolveConflict(decision)} />
+          <div className="flex gap-2">{(!state.tasks.length || state.tasks.some((task) => task.status !== "succeeded") || state.sources.some((source) => source.decision !== "excluded" && !source.addedByUser && !source.presentation)) && <Button variant="primary" disabled={busy} onClick={() => void run("start")}>{state.tasks.length && state.tasks.every((task) => task.status === "succeeded") ? "更新资料" : state.sources.length ? "继续搜索" : "搜索资料"}</Button>}{state.tasks.some((task) => task.status === "failed" || (expired && task.status === "running")) && <Button variant="outline" disabled={busy} onClick={() => void run("retry")}>重试失败任务</Button>}</div>
           <GuidedResearchSources sources={displaySources} disabled={busy || Boolean(proposal)} onAdd={(sourceUrl) => run("add_source", { sourceUrl })} onRemove={(sourceId) => void run("remove_source", { sourceId })} />
+          <details className="text-12 text-muted-foreground"><summary className="cursor-pointer">查看搜索详情</summary><div className="mt-3"><GuidedResearchPlanDetails state={state} errors={errors} /></div></details>
         </>}
-        {node === "report" && displayReport && <div className="space-y-4" data-testid="research-report" data-layout="full-width-report"><GuidedResearchReportDocument document={researchReportDocument(displayReport, state.sources, state.outline)} /></div>}
+        {node === "report" && displayReport && <div className="space-y-4" data-testid="research-report" data-layout="full-width-report">
+          {state.qualityScore && state.publicationReadiness && <GuidedResearchReadiness quality={state.qualityScore} readiness={state.publicationReadiness} />}
+          <GuidedResearchReportDocument document={researchReportDocument(displayReport, state.sources, state.outline)} title={`研究报告${state.completed ? ` · ${researchCompletionLabel(state.completed, state.publicationReadiness)}` : ""}`} limitations={researchLimitations(state.completed, state.publicationReadiness)} actions={reportPrimaryAction} moreActions={reportAssistantMenuAction} onRegenerate={() => void run("generate")} regenerateDisabled={busy || Boolean(proposal)} />
+        </div>}
         {researchBlocked && <p role="status" className="text-12 text-muted-foreground">{researchPending ? "检索仍在进行，任务结束后可生成报告。" : "请完成检索并保留至少一个真实来源后生成报告。"}</p>}
-        {node !== "report" && <div className="sticky bottom-0 flex justify-end gap-2 border-t border-border bg-card/95 py-4"><Button variant="outline" disabled={busy || Boolean(proposal) || !validDraft} onClick={() => draft && void run("save", { draft })}>保存草稿</Button><Button variant="primary" disabled={busy || Boolean(proposal) || !validDraft || researchBlocked} onClick={() => void run(node === "research" ? "complete" : "confirm", { ...(draft ? { draft } : {}), ...(partialResearch ? { allowPartialResearch: true } : {}) })}>{partialResearch ? "基于已有来源生成报告" : "确认并继续"}</Button></div>}
-        {node === "report" && state.report && !state.completed && <div className="flex justify-end"><Button variant="primary" disabled={busy || Boolean(proposal)} onClick={() => void run("complete", { draft: { node: "report", value: displayReport! } })}>完成研究</Button></div>}
+        {node !== "report" && <div className="sticky bottom-0 flex justify-end gap-2 border-t border-border bg-card/95 py-4"><Button variant="outline" disabled={busy || Boolean(proposal) || !validDraft} onClick={() => draft && void run("save", { draft })}>保存草稿</Button><Button variant="primary" disabled={busy || Boolean(proposal) || !validDraft || researchBlocked || (node === "outline" && !state.intent)} onClick={() => void run(node === "research" ? "complete" : "confirm", { ...(draft ? { draft } : {}), ...(partialResearch ? { allowPartialResearch: true } : {}) })}>{partialResearch ? "基于已有来源生成报告" : "确认并继续"}</Button></div>}
         </>}
       </div>
     </GuidedResearchStepLayout>

@@ -47,9 +47,19 @@ harness-auditor 的固定承重测试，在干净仓库上逐层加码伪造一�
 - 一致 → 通过
 
 **历史存量走显式豁免名单** `.harness/state/evidence-legacy.json`：门控上线前已 passing
-的 9 个 feature 缺指纹判 WARN。名单**只减不增**，跑 `--backfill-evidence` 补出真实日志
-后即从名单删除。不用「按日期/commit 自动豁免」是因为那会让豁免面隐式膨胀——显式名单
-是可数、在 diff 里显眼的技术债。
+的 feature 缺指纹判 WARN。不用「按日期/commit 自动豁免」是因为那会让豁免面隐式膨胀——
+显式名单是可数、在 diff 里显眼的技术债。
+
+**2026-09-21（#391）补上反向一致性门。** 名单落地时「只减不增」只写在 `_why` 的人话里，
+没有任何脚本执行它，于是三件事同时发生了：9 条豁免里 6 条对应的日志早已补上指纹却在名单里
+躺了近两个月；往 `grandfathered` 里塞一条新 key，`doctor` 照样 exit 0；条目没有理由也没有
+期限，可以无限期躺着。判据与 schema 现在只声明在 `.harness/scripts/lib/evidence-legacy.ts`
+一处，`doctor` 三项机械判红：
+
+- **陈旧**：条目对应的 feature 已不在「passing + 日志缺指纹」集合里 ⇒ FAIL，必须删掉
+- **长大**：`grandfathered` 必须是 `_baseline`（门控落地那一刻的冻结快照）的子集；
+  要加新条目就得改 `_baseline`，那是一次在 diff 里显眼、必须过 review 的显式动作
+- **无声长期化**：每条必须写明 `reason` 与 `review_by`，过期 ⇒ FAIL，续期得有人再签一次字
 
 **二、`doctor` 进 `pull_request` 门控。**
 `harness-verify.yml` 增加 `pnpm harness doctor`（**不带 `--strict`**：strict 会把「passing

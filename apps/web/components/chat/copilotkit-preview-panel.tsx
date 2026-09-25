@@ -220,7 +220,7 @@ export function CopilotKitPreviewPanel(): JSX.Element {
         <button
           data-testid="copilotkit-preview-send"
           type="button"
-          className="rounded border border-border px-3 py-1 text-sm text-foreground transition-colors duration-fast hover:bg-muted active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground"
+          className="rounded border border-border px-3 py-1 text-sm text-background-foreground transition-colors duration-fast hover:bg-muted active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground"
           disabled={busy}
           onClick={() => void send()}
         >

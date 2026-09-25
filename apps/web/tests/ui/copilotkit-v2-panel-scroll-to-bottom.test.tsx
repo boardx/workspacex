@@ -109,6 +109,11 @@ describe("CopilotKitV2Panel 消息区跳到最新（issue #2071）", () => {
   it("贴底时不显示悬浮按钮；往上翻离开底部后按钮出现，点击后回到底部且状态复位", async () => {
     mount();
     const container = await waitFor(() => screen.getByTestId("copilotkit-v2-messages"));
+    // 按钮的渲染条件是 `!isAtBottom && !historyLoading && projectedMessages.length > 0`
+    // （见 copilotkit-v2-panel-body.tsx）。本地历史瞬间就绪，CI 的高负载 runner 上不是：
+    // 不等这个前置条件就滚，按钮不出现，断言超时（2026-09-21 verify-affected 实测红，
+    // 本地连跑 5 次全绿）。等到消息真的渲染出来，才谈得上「往上翻」。
+    await screen.findByTestId("chat-user-message-text");
     // 初始 isAtBottom=true（组件默认值），此时不该有按钮。
     expect(screen.queryByTestId("copilotkit-v2-scroll-to-bottom")).toBeNull();
 
@@ -142,6 +147,9 @@ describe("CopilotKitV2Panel 消息区跳到最新（issue #2071）", () => {
   it("按钮不在滚动容器内部（否则会跟着内容一起滚走，停在某条消息中间）", async () => {
     mount();
     const container = await waitFor(() => screen.getByTestId("copilotkit-v2-messages"));
+    // 同本文件第一条：按钮的渲染条件含 `!historyLoading && projectedMessages.length > 0`，
+    // 高负载 runner 上历史不是瞬间就绪，不等它就滚，按钮永远不出现（见文件头注释）。
+    await screen.findByTestId("chat-user-message-text");
     stubLayout(container, { scrollHeight: 2000, scrollTop: 0, clientHeight: 500 });
     fireEvent.scroll(container);
     const button = await screen.findByTestId("copilotkit-v2-scroll-to-bottom");
@@ -165,6 +173,9 @@ describe("CopilotKitV2Panel 消息区跳到最新（issue #2071）", () => {
   it("程序化标记仍置位时，用户滚轮引发的滚动不得被吞掉（#3145：流式期间往上翻会被拽回底部）", async () => {
     mount();
     const container = await waitFor(() => screen.getByTestId("copilotkit-v2-messages"));
+    // 同本文件第一条：按钮的渲染条件含 `!historyLoading && projectedMessages.length > 0`，
+    // 高负载 runner 上历史不是瞬间就绪，不等它就滚，按钮永远不出现（见文件头注释）。
+    await screen.findByTestId("chat-user-message-text");
     stubLayout(container, { scrollHeight: 2000, scrollTop: 0, clientHeight: 500 });
     fireEvent.scroll(container);
     await screen.findByTestId("copilotkit-v2-scroll-to-bottom");
@@ -188,6 +199,9 @@ describe("CopilotKitV2Panel 消息区跳到最新（issue #2071）", () => {
   it("程序化滚动（点按钮/自动跟随）途中的 scroll 事件不把贴底态翻回去；用户滚轮介入后才算离开底部", async () => {
     mount();
     const container = await waitFor(() => screen.getByTestId("copilotkit-v2-messages"));
+    // 同本文件第一条：按钮的渲染条件含 `!historyLoading && projectedMessages.length > 0`，
+    // 高负载 runner 上历史不是瞬间就绪，不等它就滚，按钮永远不出现（见文件头注释）。
+    await screen.findByTestId("chat-user-message-text");
     stubLayout(container, { scrollHeight: 2000, scrollTop: 0, clientHeight: 500 });
     fireEvent.scroll(container);
     await screen.findByTestId("copilotkit-v2-scroll-to-bottom");
@@ -213,6 +227,9 @@ describe("CopilotKitV2Panel 消息区跳到最新（issue #2071）", () => {
   it("拖滚动条（pointerdown，不是 wheel）中断程序化滚动 ⇒ 之后离开底部的 scroll 被如实采纳", async () => {
     mount();
     const container = await waitFor(() => screen.getByTestId("copilotkit-v2-messages"));
+    // 同本文件第一条：按钮的渲染条件含 `!historyLoading && projectedMessages.length > 0`，
+    // 高负载 runner 上历史不是瞬间就绪，不等它就滚，按钮永远不出现（见文件头注释）。
+    await screen.findByTestId("chat-user-message-text");
     stubLayout(container, { scrollHeight: 2000, scrollTop: 0, clientHeight: 500 });
     fireEvent.scroll(container);
     await screen.findByTestId("copilotkit-v2-scroll-to-bottom");
@@ -231,6 +248,9 @@ describe("CopilotKitV2Panel 消息区跳到最新（issue #2071）", () => {
     try {
       mount();
       const container = await waitFor(() => screen.getByTestId("copilotkit-v2-messages"));
+      // 同本文件第一条：按钮的渲染条件含 `!historyLoading && projectedMessages.length > 0`，
+      // 高负载 runner 上历史不是瞬间就绪，不等它就滚，按钮永远不出现（见文件头注释）。
+      await screen.findByTestId("chat-user-message-text");
       stubLayout(container, { scrollHeight: 2000, scrollTop: 0, clientHeight: 500 });
       fireEvent.scroll(container);
       await screen.findByTestId("copilotkit-v2-scroll-to-bottom");
@@ -251,6 +271,9 @@ describe("CopilotKitV2Panel 消息区跳到最新（issue #2071）", () => {
   it("scrollend 事件解除标记（支持该事件的浏览器不必等超时）", async () => {
     mount();
     const container = await waitFor(() => screen.getByTestId("copilotkit-v2-messages"));
+    // 同本文件第一条：按钮的渲染条件含 `!historyLoading && projectedMessages.length > 0`，
+    // 高负载 runner 上历史不是瞬间就绪，不等它就滚，按钮永远不出现（见文件头注释）。
+    await screen.findByTestId("chat-user-message-text");
     stubLayout(container, { scrollHeight: 2000, scrollTop: 0, clientHeight: 500 });
     fireEvent.scroll(container);
     await screen.findByTestId("copilotkit-v2-scroll-to-bottom");
@@ -266,6 +289,9 @@ describe("CopilotKitV2Panel 消息区跳到最新（issue #2071）", () => {
   it("Ctrl+End 跳到最新：往上翻后按快捷键，等价于点击按钮", async () => {
     mount();
     const container = await waitFor(() => screen.getByTestId("copilotkit-v2-messages"));
+    // 同本文件第一条：按钮的渲染条件含 `!historyLoading && projectedMessages.length > 0`，
+    // 高负载 runner 上历史不是瞬间就绪，不等它就滚，按钮永远不出现（见文件头注释）。
+    await screen.findByTestId("chat-user-message-text");
     const scrollToSpy = stubLayout(container, { scrollHeight: 2000, scrollTop: 0, clientHeight: 500 });
     fireEvent.scroll(container);
     await screen.findByTestId("copilotkit-v2-scroll-to-bottom");
@@ -278,6 +304,9 @@ describe("CopilotKitV2Panel 消息区跳到最新（issue #2071）", () => {
   it("普通 End（无修饰键）不触发跳转——不能吞掉输入框里「移到行尾」的原生行为", async () => {
     mount();
     const container = await waitFor(() => screen.getByTestId("copilotkit-v2-messages"));
+    // 同本文件第一条：按钮的渲染条件含 `!historyLoading && projectedMessages.length > 0`，
+    // 高负载 runner 上历史不是瞬间就绪，不等它就滚，按钮永远不出现（见文件头注释）。
+    await screen.findByTestId("chat-user-message-text");
     const scrollToSpy = stubLayout(container, { scrollHeight: 2000, scrollTop: 0, clientHeight: 500 });
     fireEvent.scroll(container);
     await screen.findByTestId("copilotkit-v2-scroll-to-bottom");

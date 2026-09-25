@@ -20,7 +20,7 @@ export function DigitalExpertDetail({ expertId }: { expertId: string }) {
       <div className="mx-auto w-full max-w-5xl px-6 py-8 lg:px-10 lg:py-10">
         <Link
           href="/itv?tab=experts"
-          className="inline-flex items-center gap-2 text-sm text-muted-foreground transition-colors hover:text-foreground"
+          className="inline-flex items-center gap-2 text-sm text-muted-foreground transition-colors hover:text-background-foreground"
         >
           <ArrowLeft className="size-4" aria-hidden /> 返回专家列表
         </Link>

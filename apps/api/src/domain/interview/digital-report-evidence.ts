@@ -1,7 +1,7 @@
 import type { z } from "zod";
 import { interview } from "@repo/contracts";
 
-type Review = z.infer<typeof interview.DigitalInterviewReportReview>;
+type Review = z.infer<typeof interview.DigitalInterviewReportEvidenceEligibility>;
 type Mode = z.infer<typeof interview.StudyEvidenceMode>;
 
 export function deriveApprovalEligibility(input: {

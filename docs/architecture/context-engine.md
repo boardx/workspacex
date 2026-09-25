@@ -309,7 +309,7 @@ type ContextPack = {
 | Redis 缓存+队列 | 「可丢失」与摄取不可丢失矛盾 | **缓存与队列拆开**；MVP 用 **PG outbox + job table**，规模扩大后换 NATS JetStream / Kafka / 托管持久队列 |
 | LangGraph | 容易被误用为文件摄取或通用任务队列 | **只用于深度研究、人工确认、多阶段生成**；摄取流水线用持久任务系统 |
 | LangGraph interrupt | 原文偏向 `interrupt_before/after` | 改用**动态 `interrupt()`** 做 HITL；节点恢复时**副作用必须幂等** |
-| Apache AGE 默认启用 | 部署兼容性与托管支持风险高 | **阶段一不启用**：先用 `ontology_edges + recursive CTE`；确有复杂路径性能需求再上。若坚持 AGE，必须锁定兼容 PG 版本并维护自建镜像 |
+| Apache AGE 默认启用 | 部署兼容性与托管支持风险高 | ~~阶段一不启用~~ → **已由 ADR-114（2026-09-24）改为启用**：锁 PG 版本 + 自建镜像；AGE 只做可重建投影、每 org 一张图、查询只返回 id；不可用显式报错不降级 |
 | graph-first 固定策略 | 新内容未实体链接时漏召回 | 改为**基于 Query 类型的并行 hybrid retrieval** |
 | pgvector | 无 embedding 版本、维度迁移与权限过滤策略 | embedding 表**按 model/version 分区**；双写迁移；建立**带权限过滤的 recall 测试** |
 | CopilotKit + AG-UI | 只解决 UI 事件协议，不解决任务持久化/幂等/背压/权限 | 继续用，但**仅作 presentation protocol**；**服务端 run/event 才是权威** |
@@ -329,7 +329,7 @@ type ContextPack = {
 |---|---|
 | **P1 证据底座** | Artifact/Version/Segment/Anchor/ACL/Provenance；S3 版本化+哈希+授权；PG outbox + 持久摄取任务；PDF/Office/Chat/Survey 四类 adapter；全文搜索 |
 | **P2 多模态与混合检索** | OCR/ASR/图片区域锚点；pgvector + embedding version；lexical+vector+metadata 融合；Context Pack API；**每个回答必须有可打开的原始引用** |
-| **P3 知识与图谱** | Entity/Claim/ClaimEvidence；人工审核工作台；accepted/contested/superseded 生命周期；关系表递归查询，**用真实性能数据决定是否启用 AGE** |
+| **P3 知识与图谱** | Entity/Claim/ClaimEvidence；人工审核工作台；accepted/contested/superseded 生命周期；关系表 canonical + **AGE 图投影（ADR-114）**；落地顺序改为 chat session 先行，见 `PROP-ORG-BRAIN-KG-001` |
 | **P4 Agent 工作流** | 深度研究/工作坊总结/研究综合用 LangGraph；每个 run 保存计划、工具调用、checkpoint、Context Pack；高影响操作用动态 interrupt 审批；AG-UI 负责实时呈现与恢复 |
 | **P5 组织大脑** | 跨项目 Claim 聚合；决策沿革、矛盾发现、知识有效期；用户反馈反哺检索排序但**不直接修改事实**；retention、删除传播与知识失效 |
 

@@ -95,7 +95,7 @@ export function ActiveFilePanel(
             className={cn(
               "flex shrink-0 items-center gap-1 rounded px-2 py-1 text-11 transition-colors duration-fast",
               file.uri === selected.uri
-                ? "bg-muted text-foreground"
+                ? "bg-muted text-background-foreground"
                 : "text-muted-foreground hover:bg-muted/60",
             )}
             onClick={() => setSelectedUri(file.uri)}
@@ -133,7 +133,7 @@ function ActiveFileContent({ file, threadId }: { file: ActiveFile; threadId: str
     );
   }
   return (
-    <pre className="whitespace-pre-wrap break-words font-mono text-11 text-foreground" data-testid="active-file-plaintext">
+    <pre className="whitespace-pre-wrap break-words font-mono text-11 text-background-foreground" data-testid="active-file-plaintext">
       {file.content}
     </pre>
   );

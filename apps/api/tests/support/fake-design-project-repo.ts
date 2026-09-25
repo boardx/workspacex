@@ -14,7 +14,9 @@ import type {
   PushToInboxResult,
 } from "../../src/application/design-workbench/project-ports";
 // 页那一组字段的合并规则只有一份（见 `update` 里的 ⚠）。
-import { mergeScreens, prototypeOf } from "../../src/infrastructure/design-workbench/pg-design-project-repository";
+import { mergeScreens, mergeTokens, prototypeOf, toTokens } from "../../src/infrastructure/design-workbench/pg-design-project-repository";
+import type { ShareSnapshot } from "../../src/application/design-workbench/share-snapshot";
+import type { DesignCommentReplyRow, DesignCommentRepository, DesignCommentRow } from "../../src/application/design-workbench/design-comments";
 
 export class FakeDesignProjectRepo implements DesignProjectRepository {
   readonly rows = new Map<string, DesignProjectRow>();
@@ -141,6 +143,9 @@ export class FakeDesignProjectRepo implements DesignProjectRepository {
       // 迭代 13：主题与标签都是整份替换（同 pg 仓储的 COALESCE 语义：不给 ⇒ 保持原值）。
       ...(patch.theme !== undefined ? { theme: patch.theme } : {}),
       ...(patch.tags !== undefined ? { tags: [...patch.tags] } : {}),
+      ...(patch.accent !== undefined ? { accent: patch.accent } : {}),
+      // 对标 R1：同 pg 仓储，按键合并走同一个 `mergeTokens`。
+      ...(patch.tokens !== undefined ? { tokens: mergeTokens(toTokens(r.tokens), patch.tokens) } : {}),
       updatedAt: this.stamp(),
     };
     this.rows.set(projectId, next);
@@ -239,6 +244,40 @@ export class FakeDesignProjectRepo implements DesignProjectRepository {
     this.rows.set(projectId, next);
     return next;
   }
+
+  /*
+   * 迭代 22：发布/取消发布。两处细节刻意与真实仓储逐字对齐，否则单测会在一个
+   * 生产里不存在的行为上变绿：
+   *   ① 令牌 `COALESCE`——已发布的行**沿用旧令牌**，不因为重新发布就换一条链接；
+   *   ② 两条都**不动 `updatedAt`**（发布没有改动设计本身，列表排序不该被它顶起来）。
+   */
+  async publishShare(
+    projectId: string,
+    ownerId: string,
+    share: { readonly token: string; readonly scope: "prototype" | "full"; readonly snapshot: ShareSnapshot },
+  ): Promise<DesignProjectRow | null> {
+    const row = this.rows.get(projectId);
+    if (row === undefined || row.ownerId !== ownerId) return null;
+    const next: DesignProjectRow = {
+      ...row,
+      share: {
+        token: row.share?.token ?? share.token,
+        scope: share.scope,
+        publishedAt: this.stamp(),
+        snapshot: share.snapshot,
+      },
+    };
+    this.rows.set(projectId, next);
+    return next;
+  }
+
+  async unpublishShare(projectId: string, ownerId: string): Promise<DesignProjectRow | null> {
+    const row = this.rows.get(projectId);
+    if (row === undefined || row.ownerId !== ownerId) return null;
+    const { share: _dropped, ...rest } = row;
+    this.rows.set(projectId, rest);
+    return rest;
+  }
 }
 
 export function designProjectRow(over: Partial<DesignProjectRow> = {}): DesignProjectRow {
@@ -265,4 +304,41 @@ export function designProjectRow(over: Partial<DesignProjectRow> = {}): DesignPr
     updatedAt: "2026-09-04T00:00:00.000Z",
     ...over,
   };
+}
+
+/** 深度 S2（#3988）：批注的内存 fake。只按 project 收窄，同真实仓储（谁能删在用例层判）。 */
+export class FakeDesignCommentRepo implements DesignCommentRepository {
+  readonly rows: DesignCommentRow[] = [];
+  private seq = 0;
+  async listComments(projectId: string) { return this.rows.filter((r) => r.projectId === projectId); }
+  async countComments(projectId: string) { return this.rows.filter((r) => r.projectId === projectId).length; }
+  async getComment(projectId: string, id: string) { return this.rows.find((r) => r.projectId === projectId && r.id === id) ?? null; }
+  async insertComment(row: Omit<DesignCommentRow, "createdAt" | "resolved">) {
+    const full: DesignCommentRow = { ...row, resolved: false, createdAt: new Date(Date.UTC(2026, 8, 24, 0, 0, ++this.seq)).toISOString() };
+    this.rows.push(full);
+    return full;
+  }
+  async setCommentResolved(projectId: string, id: string, resolved: boolean) {
+    const i = this.rows.findIndex((r) => r.projectId === projectId && r.id === id);
+    if (i < 0) return null;
+    this.rows[i] = { ...this.rows[i]!, resolved };
+    return this.rows[i]!;
+  }
+  async deleteComment(projectId: string, id: string) {
+    const i = this.rows.findIndex((r) => r.projectId === projectId && r.id === id);
+    if (i < 0) return false;
+    this.rows.splice(i, 1);
+    // 同真实库的 ON DELETE CASCADE：批注删了，回复一起走。
+    for (let k = this.replies.length - 1; k >= 0; k--) if (this.replies[k]!.commentId === id) this.replies.splice(k, 1);
+    return true;
+  }
+  readonly replies: (DesignCommentReplyRow & { projectId: string })[] = [];
+  async listReplies(projectId: string, commentId?: string) {
+    return this.replies.filter((r) => r.projectId === projectId && (commentId === undefined || r.commentId === commentId));
+  }
+  async insertReply(row: { id: string; projectId: string; commentId: string; authorId: string; text: string }) {
+    const full = { id: row.id, projectId: row.projectId, commentId: row.commentId, authorId: row.authorId, text: row.text, createdAt: new Date(Date.UTC(2026, 8, 24, 1, 0, ++this.seq)).toISOString() };
+    this.replies.push(full);
+    return full;
+  }
 }

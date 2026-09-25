@@ -1,0 +1,103 @@
+# home-gates.yml —— `apps/home`（营销站）自己的门控。
+#
+# ⚠ 2026-09-22 发现：在这个文件之前，**没有任何 workflow 引用过 `apps/home`**。
+# 那个目录里的每一道静态门、每一个浏览器套件都被证明过会红（每轮都先写探针把它弄红
+# 再修），但它们只在有人记得 `cd apps/home && node scripts/check-all.mjs` 时才跑。
+# 整个站点带着一排绿勾合进了 main，那些 check 没有一个看过它。
+#
+# 这里不写门与套件的数量：权威是 `apps/home/scripts/check-all.mjs` 的清单和
+# `tests/browser.test.mjs` 的 reporter，`check-docs.mjs` 负责让 README 与它们一致。
+# 本文件第一版在这行写了「10 道静态门和 15 个浏览器套件」，一轮之后就是 15 和 21——
+# 同一事实声明在第三处，必然漂移。
+#
+# 这正是本仓 AGENTS.md 自己那条在最外层的复现：「没有脚本的规范条目视为未落地」——
+# 这里是「没有 CI 调用的脚本视为未落地」。不接 CI 的门控是装饰品。
+#
+# 为什么 `apps/home` 没有 package.json（因而不在 turbo / pnpm workspace 里）：
+# 这是刻意的。它是零依赖的静态站（纯 HTML/CSS/ES module），不进 `apps/*` 的
+# workspace glob 就不会动根 lockfile、不会往 `verify:base` 里加任务。代价就是
+# 它也不会被任何既有 workflow 顺带跑到——所以要有这一份。
+name: home-gates
+
+on:
+  pull_request:
+    paths:
+      - 'apps/home/**'
+      - '.github/workflows/home-gates.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'apps/home/**'
+      - '.github/workflows/home-gates.yml'
+  workflow_dispatch:
+
+concurrency:
+  group: home-gates-${{ github.ref }}
+  cancel-in-progress: true
+
+# 外部 action 的版本钉在 `.harness/scripts/workflow-actions-node24.test.ts` 的
+# 审计清单里（Node 24 运行时）。本文件第一版写的是 `@v4`，`verify-control-plane`
+# 当场把它判红——本仓自己的控制平面门控抓住了新加进来的 workflow。
+jobs:
+  # 静态门：零依赖，秒级。先跑，红了就没必要开浏览器。
+  static:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version-file: .nvmrc
+          # setup-node@v5 turns package-manager caching on by default, sees the
+          # repo's pnpm workspace and then fails with "Unable to locate
+          # executable file: pnpm". The other workflows install pnpm first and
+          # ask for `cache: pnpm`; this one has nothing to cache — apps/home is
+          # dependency-free on purpose, which is the whole reason it has no
+          # package.json. So: off.
+          package-manager-cache: false
+      - name: static gates
+        working-directory: apps/home
+        run: node scripts/check-all.mjs --static-only
+
+  # 浏览器套件 + 性能预算。playwright 与 axe-core 是开发工具，不是本站的依赖，
+  # 所以在这里 `--no-save` 装，不写进任何 manifest。
+  browser:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    needs: static
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version-file: .nvmrc
+          # setup-node@v5 turns package-manager caching on by default, sees the
+          # repo's pnpm workspace and then fails with "Unable to locate
+          # executable file: pnpm". The other workflows install pnpm first and
+          # ask for `cache: pnpm`; this one has nothing to cache — apps/home is
+          # dependency-free on purpose, which is the whole reason it has no
+          # package.json. So: off.
+          package-manager-cache: false
+      - name: install the dev-only browser tools
+        working-directory: apps/home
+        # 在一个自带 package.json 的临时目录里装，再把包软链进来：仓库根的
+        # package.json 里有 `workspace:*` 协议，npm 解析不了，直接在 apps/home
+        # 里 `npm i` 会 EUNSUPPORTEDPROTOCOL。
+        run: |
+          mkdir -p /tmp/pw && cd /tmp/pw
+          echo '{"name":"pw-host","private":true}' > package.json
+          npm i --no-save playwright axe-core
+          npx playwright install --with-deps chromium webkit
+          cd "$GITHUB_WORKSPACE/apps/home"
+          mkdir -p node_modules
+          for p in playwright playwright-core axe-core; do ln -sfn /tmp/pw/node_modules/$p node_modules/$p; done
+      - name: browser suites and performance budget
+        working-directory: apps/home
+        run: node scripts/check-all.mjs
+      # The page as Safari draws it, for anyone reviewing without an iPhone.
+      - name: upload WebKit screenshots
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: home-webkit-screenshots
+          path: apps/home/test-results/webkit/
+          if-no-files-found: ignore

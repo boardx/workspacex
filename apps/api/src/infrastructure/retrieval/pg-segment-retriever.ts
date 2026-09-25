@@ -42,6 +42,7 @@ import type {
   SegmentRetriever,
 } from "../../application/retrieval/ports";
 import { guard, type Guarded } from "../../application/security/permission-filter";
+import { annOrder, annThenExact, exactOrder, prepareAnn, type VectorSearchEvent } from "./hnsw-ann";
 
 /** Columns every channel selects, so one mapper serves all five. */
 const COLUMNS = `
@@ -104,7 +105,15 @@ const CANDIDATE_SET = `
   AND ($2::text IS NULL OR st.project_id = $2 OR st.layer <> 'project')`;
 
 export class PgSegmentRetriever implements SegmentRetriever {
-  constructor(private readonly db: DatabasePort) {}
+  /**
+   * `observe` receives which path each vector query took (index alone, or index + exact
+   * completion). Optional: nothing in the composition root needs it today; the F05 recall gate
+   * uses it to prove the rate it measures is the INDEX's rate, not the completion's.
+   */
+  constructor(
+    private readonly db: DatabasePort,
+    private readonly observe?: (e: VectorSearchEvent) => void,
+  ) {}
 
   /** Exact index row, still guarded by its original artifact; used for version-pinned reads. */
   async byId(orgId: ChannelQuery['orgId'],segmentId:string):Promise<Guarded<CandidateRow>|null>{
@@ -134,14 +143,15 @@ export class PgSegmentRetriever implements SegmentRetriever {
   }
 
   /**
-   * pgvector nearest neighbours.
+   * pgvector nearest neighbours, through the model's HNSW index (phase-18 F05).
    *
-   * ⚠ EXACT scan: there is no ANN index (migration 0009 explains why -- no embedding model has
-   * been chosen, so any fixed dimension would be invented). The permission predicate and the
-   * distance ordering therefore run over the same set, which is exactly the configuration in
-   * which "approximate recall then filter" cannot lose an entitled row. When an ANN index
-   * arrives, this stops being true and `pgvector-permission-recall.test.ts` goes red -- that
-   * test asserts the absence of the index for this reason.
+   * The index recalls first and the candidate-set predicate / RLS filter second -- the R9
+   * failure. `hnsw-ann.ts` explains the three countermeasures (window sized to k, iterative scan
+   * on pgvector >= 0.8, exact completion when the index path comes back short); the recall rate
+   * after filtering is gated by `tests/retrieval/kg-hnsw-permission-recall.test.ts`.
+   *
+   * The index query orders by distance ONLY: a secondary key would stop the planner reading the
+   * order straight off the index. The exact completion keeps the deterministic tie-break.
    */
   async vector(
     q: ChannelQuery,
@@ -150,21 +160,34 @@ export class PgSegmentRetriever implements SegmentRetriever {
   ): Promise<readonly Guarded<CandidateRow>[]> {
     if (embedding.length === 0) return [];
     // pgvector's text input format. Built here rather than passed as an array so the cast is
-    // explicit and a dimension mismatch fails at the query with pgvector's own message.
+    // explicit.
     const vec = `[${embedding.join(",")}]`;
     return this.db.withTenant(q.orgId, async (s) => {
-      const r = await s.query<Row>(
-        `SELECT ${COLUMNS}, 1 - (se.embedding <=> $3::vector) AS channel_score
-           FROM segment_text st
-           JOIN segment_embeddings se
-             ON se.segment_id = st.segment_id
-            AND se.org_id = st.org_id
-            AND se.model = $4 AND se.model_version = $5
-          WHERE ${CANDIDATE_SET}
-          ORDER BY se.embedding <=> $3::vector, st.segment_id
-          LIMIT $6`,
-        [q.orgId, q.projectId, vec, model.model, model.modelVersion, q.limit],
+      const ann = await prepareAnn(s, model, embedding, q.limit);
+      // Unregistered model: the foreign key means no embedding row can exist for it.
+      if (ann === null) return [];
+      const run = async (order: string, tieBreak: string) =>
+        (await s.query<Row>(
+          `SELECT ${COLUMNS}, 1 - (${order}) AS channel_score
+             FROM segment_text st
+             JOIN segment_embeddings se
+               ON se.segment_id = st.segment_id
+              AND se.org_id = st.org_id
+              AND se.model = $4 AND se.model_version = $5
+            WHERE ${CANDIDATE_SET}
+            ORDER BY ${order}${tieBreak}
+            LIMIT $6`,
+          [q.orgId, q.projectId, vec, model.model, model.modelVersion, q.limit],
+        )).rows;
+      const r = await annThenExact(
+        q.limit,
+        () => run(annOrder("se.embedding", "$3", ann.dims), ""),
+        () => run(exactOrder("se.embedding", "$3"), ", st.segment_id"),
       );
+      this.observe?.({
+        path: r.path, annRows: r.annRows, rows: r.rows.length, limit: q.limit,
+        efSearch: ann.efSearch, iterativeScan: ann.iterativeScan,
+      });
       return r.rows.map(toGuarded);
     });
   }
@@ -194,7 +217,7 @@ export class PgSegmentRetriever implements SegmentRetriever {
              SELECT e.dst_kind, e.dst_id, reached.depth + 1
                FROM ontology_edges e
                JOIN reached ON e.src_kind = reached.kind AND e.src_id = reached.id
-              WHERE e.org_id = $1 AND reached.depth < 2
+              WHERE e.org_id = $1 AND e.status = 'active' AND reached.depth < 2
          )
          SELECT ${COLUMNS}, 1.0 AS channel_score
            FROM segment_text st
@@ -265,6 +288,9 @@ export class PgSegmentRetriever implements SegmentRetriever {
            LEFT JOIN claim_segments cs ON cs.claim_id = c.id AND cs.org_id = c.org_id
           WHERE c.org_id = $1
             AND ($2::text IS NULL OR c.project_id = $2 OR c.project_id IS NULL)
+            -- Phase 18：带作用域的结论（从某个会话 / 某人个人空间抽出来的）只在它自己的作用域里召回
+            -- （F08 的会话记忆），不进这条按项目检索的通道——它们 project_id 为空，不挡就会匹配每个项目。
+            AND c.scope_kind IS NULL
             AND c.tsv @@ wsx_tsquery($3)
           GROUP BY c.id, c.statement, c.status
           ORDER BY c.id

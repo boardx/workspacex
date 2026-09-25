@@ -39,7 +39,7 @@ description: >
   落在自己 `areas` 的条目，不是别的 agent 直接给你派活。
 - **你给谁派活**：自己模块下的 worker（分派 issue）；review 结论产出后**转交**
   coord-main（不是"派活"给它，是把决策权交回它）。
-- **依赖的下游服务**：coord-service(D1) 的 `module:<name>` 租约（唯一性/心跳）、
+- **依赖的下游服务**：coord-gateway 的 `module:<name>` 租约（唯一性/心跳；ADR-017）、
   `registry.yaml`（确认自己的 `id`/`areas`，也是别人识别"这个模块有没有专人管"的
   唯一权威）、`.agents/skills/mod-<模块名>/SKILL.md`（模块活知识库，开工前必读）。
 - **你失效时如何被感知与恢复**：同 coord-main 的机制——`module-lock-status` 显示心跳

@@ -23,6 +23,8 @@ import type { UiState } from "@/lib/ui-state";
 import { openBoardxRealtimeAsr, type BoardxRealtimeAsrHandle } from "@/lib/BoardxRealtimeAsrClient";
 import { LiveRecordingError } from "@/lib/live-recording";
 import type { RealtimeAsrFinalEvent, RealtimeAsrStreamState } from "@/lib/realtime-asr.types";
+import type { RealtimeAsrFlowState } from "@/lib/realtime-asr-flow";
+import { useAudioInputDevices } from "@/lib/use-audio-input-devices";
 import type { TranscriptionHistoryItem } from "@/lib/mock/realtime-transcriptions";
 import { CreateTranscriptionDialog, type NewTranscriptionDraft } from "./create-transcription-dialog";
 import { DeleteTranscriptionDialog } from "./delete-transcription-dialog";
@@ -33,7 +35,20 @@ type ActiveTag = string | undefined;
 
 export function TranscriptionHistory({ uiState }: { uiState: UiState }) {
   const sessionContext = useOptionalSession();
-  const sessionToken = sessionContext?.session?.sessionToken;
+  /**
+   * #1057 —— bearer 只有一条来源：真实 SessionProvider 的会话。
+   *
+   * 这里此前落到 `undefined`，而 `apiRequest` 把 `undefined` 定义为"调用方没表态"，
+   * 于是回落去读 `localStorage` 的 `wsx.sessionToken`（见 `api-client.ts` 的
+   * `opts.sessionToken !== undefined ? … : getStoredSessionToken()`）。结果是：真实会话
+   * 已经没有身份了，这一屏仍然带着上一位用户留下的陈旧 token 去问 API——页面看起来是
+   * 登录态，直到 `POST /recording/realtime-asr/sessions` 才报一个通用错误。
+   *
+   * `?? null` 把"没有会话"表达成显式的**不带 bearer**（fail-closed），与全仓其他真实
+   * 会话消费点一致（`chat-read-screen` / `copilotkit-v2-shell` / `rail-notifications`
+   * 都是 `session?.sessionToken ?? null`）。同一事实不得有第二处来源。
+   */
+  const sessionToken = sessionContext?.session?.sessionToken ?? null;
   const [items, setItems] = React.useState<readonly TranscriptionHistoryItem[]>([]);
   const [loading, setLoading] = React.useState(true);
   const [loadError, setLoadError] = React.useState<string | null>(null);
@@ -49,8 +64,11 @@ export function TranscriptionHistory({ uiState }: { uiState: UiState }) {
   const [notice, setNotice] = React.useState<string | null>(null);
   const [activeSession, setActiveSession] = React.useState<PersonalTranscriptionDetail | null>(null);
   const [streamState, setStreamState] = React.useState<RealtimeAsrStreamState>("idle");
+  const [flowState, setFlowState] = React.useState<RealtimeAsrFlowState>("normal");
   const [interimSegment, setInterimSegment] = React.useState("");
   const [streamError, setStreamError] = React.useState<string | null>(null);
+  const [inputLevel, setInputLevel] = React.useState(0);
+  const micDevices = useAudioInputDevices();
   const streamRef = React.useRef<BoardxRealtimeAsrHandle | null>(null);
   const stoppingRef = React.useRef(false);
   const receivedFinalIdsRef = React.useRef(new Set<string>());
@@ -139,11 +157,14 @@ export function TranscriptionHistory({ uiState }: { uiState: UiState }) {
     if (!activeSession || streamRef.current || stoppingRef.current || streamState === "connecting") return;
     setStreamError(null);
     setInterimSegment("");
+    setFlowState("normal");
+    setInputLevel(0);
     receivedFinalIdsRef.current.clear();
     setStreamState("connecting");
     try {
       streamRef.current = await openBoardxRealtimeAsr(activeSession.sessionId, {
         sessionToken,
+        deviceId: micDevices.selectedDeviceId ?? undefined,
         handlers: {
           onState: (state) => setStreamState(stoppingRef.current && state === "idle" ? "stopping" : state),
           onInterim: setInterimSegment,
@@ -153,7 +174,10 @@ export function TranscriptionHistory({ uiState }: { uiState: UiState }) {
             setInterimSegment("");
             setActiveSession((current) => appendFinalEvent(current, event));
           },
+          onLevel: setInputLevel,
+          onFlow: (event) => setFlowState(event.state),
           onError: (reason) => {
+            setInputLevel(0);
             setStreamError(streamErrorText(reason));
             streamRef.current = null;
           },
@@ -187,6 +211,7 @@ export function TranscriptionHistory({ uiState }: { uiState: UiState }) {
     stoppingRef.current = true;
     setStreamError(null);
     setStreamState("stopping");
+    setInputLevel(0);
     try {
       await handle.stop();
     } catch (error) {
@@ -241,7 +266,9 @@ export function TranscriptionHistory({ uiState }: { uiState: UiState }) {
 
   if (activeSession) {
     return <RealtimeTranscriptionWorkspace session={activeSession} streamState={streamState}
-      interimSegment={interimSegment} errorMessage={streamError}
+      interimSegment={interimSegment} flowState={flowState} errorMessage={streamError}
+      inputLevel={inputLevel} devices={micDevices.devices} selectedDeviceId={micDevices.selectedDeviceId}
+      onSelectDevice={micDevices.select}
       onStart={() => void startRealtimeTranscription()} onStop={() => void stopRealtimeTranscription()}
       onSaveContent={saveContent}
       onBack={() => { if (!streamRef.current && !stoppingRef.current) setActiveSession(null); }} />;

@@ -1,7 +1,7 @@
 // 路由分层中间件（p30-F02，D3 阶段 2 灰度）——本文件是「谁需要登录」的唯一事实源。
 //
 //   公开层   /explore /projects/:slug /u/:handle /a/:handle/:agent
-//            —— 不在 matcher 内，零鉴权零身份读取（tests/public-layer-static.test.ts
+//            —— decideRoute 判为公开后直接放行，零鉴权零身份读取（tests/public-layer-static.test.ts
 //            以静态断言防回退：公开层组件禁 import lib/access.ts、禁读 cookie/headers）。
 //   工作区   /p/:slug/* 与个人层 /me* —— 要求会话（OAuth session cookie 优先，
 //            Access JWT 兼容回退，灰度期双栈）；无会话 → 302 到 OAuth 登录，
@@ -13,17 +13,35 @@
 //            —— 本中间件不触碰；Access 收缩到治理面由人类在 CF dashboard 操作
 //            （阶段 2 的「删」侧不在代码内，原子灰度：本 PR 只加不删）。
 //
+// 公开层拆域（D13 / backlog F1）：主机名路由决策在 lib/public-host.ts（唯一事实源），
+//   公开主机（env DEVPORTAL_PUBLIC_HOST）→ 只放行公开页与静态资源，其余（/p /me /portal
+//   /platform /api/* …）一律 404，**先于任何会话读取**——公开主机上永不触碰身份；
+//   协作主机 → 公开页 308 搬到公开主机，工作区/个人层/接入向导照旧要会话，治理面照旧交给 Access。
+//   env 未配置（占位值）= 尚未拆域：行为与拆域前完全一致；部署由 scripts/assert-public-host.mjs 拦下。
+//
 // #588 不回退：API 的 401 仍由 lib/portal-fetch.ts 触发整页重认证；此处仅管页面导航。
 import { NextResponse, type NextRequest } from "next/server";
 import { resolveSession } from "@/lib/session";
 import { lastStopCookieHeader, projectStopFromPath } from "@/lib/last-stop";
+import { configuredPublicHost, decideRoute } from "@/lib/public-host";
 
 export const config = {
-  // 工作区 + 个人层 + 接入向导。公开层与治理面绝不进入本 matcher（改动须同步顶部注释与静态断言）。
-  matcher: ["/me", "/me/:path*", "/p/:path*", "/onboard"],
+  // D13 起覆盖全部路由（静态构建资源除外）：主机名路由必须看到每个请求才能在公开主机上 404
+  // 协作层。「谁需要会话」不再由 matcher 表达，而由 lib/public-host.ts 的 decideRoute 表达。
+  matcher: ["/((?!_next/static|_next/image).*)"],
 };
 
 export async function middleware(request: NextRequest): Promise<NextResponse> {
+  const decision = decideRoute({
+    host: request.headers.get("host"),
+    pathname: request.nextUrl.pathname,
+    search: request.nextUrl.search,
+    publicHost: configuredPublicHost(process.env["DEVPORTAL_PUBLIC_HOST"]),
+  });
+  if (decision.kind === "public-pass" || decision.kind === "pass") return NextResponse.next();
+  if (decision.kind === "public-not-found") return new NextResponse("Not Found", { status: 404 });
+  if (decision.kind === "redirect-public") return NextResponse.redirect(decision.location, 308);
+
   const session = await resolveSession(request.headers);
   if (session) {
     const response = NextResponse.next();

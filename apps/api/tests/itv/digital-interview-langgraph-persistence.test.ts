@@ -2,6 +2,7 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import type { DigitalInterviewEffects } from "../../src/application/interview/workflow/digital-interview-effects.port";
 import type { ModelCallPort } from "../../src/application/agent-run/ports";
 import { DIGITAL_REPORT_REQUIRED_HEADINGS } from "../../src/application/interview/workflow/digital-report-stream";
+import { listDigitalInterviews } from "../../src/application/interview/list-digital-interviews";
 import { PgDigitalInterviewRepository } from "../../src/infrastructure/interview/pg-digital-interview-repository";
 import { PgDigitalInterviewEffects } from "../../src/infrastructure/interview/workflow/pg-digital-interview-effects";
 import {
@@ -711,8 +712,67 @@ describe("F04 PostgresSaver and exactly-once business persistence", () => {
     await recreated.checkpointer.end();
   });
 
+  it("completes a formal report when the model returns usable prose without the strict template", async () => {
+    const proseOnlyModel: ModelCallPort = {
+      complete: async (input) => {
+        const context = JSON.parse(input.user) as { operation?: string; questions?: Array<{ questionId: string }> };
+        if (context.operation === "generate_interview_experts" || context.operation === "generate_interview_questions") {
+          return model.complete(input);
+        }
+        return { text: JSON.stringify({ answers: (context.questions ?? []).map((question) => ({
+          questionId: question.questionId, answer: "基层训练、赛事衔接和长期资金需要同步设计，否则人才链路会断。",
+        })) }) };
+      },
+      completeStream: async (input, onDelta) => {
+        const context = JSON.parse(input.user) as { operation?: string };
+        if (context.operation !== "generate_interview_report") return proseOnlyModel.complete(input);
+        const events = [
+          { type: "meta", title: "江西足球协同发展决策研究", executiveSummary: "已有回答显示青训、赛事和资金机制需要一体化验证。" },
+          { type: "section", markdown: "专家认为基层训练、赛事衔接和长期资金是同一条链路上的约束，必须用试点继续验证。" },
+        ];
+        const text = events.map((event) => JSON.stringify(event)).join("\n");
+        await onDelta(text);
+        return { text };
+      },
+    };
+    const setup = createRuntime(proseOnlyModel);
+    const created = await setup.runtime.createDraft({ orgId: ORG, actorId: USER, name: "正式报告兜底", tags: ["报告"],
+      scope: { kind: "none", projectId: null, researchProjectId: null }, requestId: "create-report-prose" });
+    const topic = await setup.runtime.confirmTopic({ orgId: ORG, actorId: USER, interviewId: created.interviewId,
+      topic: "江西足球协同发展路径", expectedVersion: 1, requestId: "topic-report-prose" });
+    const experts = await setup.runtime.confirmExperts({ orgId: ORG, actorId: USER, interviewId: created.interviewId,
+      expertIds: [topic.expertCandidates[0]!.expertId], addedExperts: [], expectedVersion: topic.version,
+      requestId: "experts-report-prose" });
+    await setup.runtime.confirmQuestions({ orgId: ORG, actorId: USER, interviewId: created.interviewId,
+      questions: experts.questionCandidates, expectedVersion: experts.version, requestId: "questions-report-prose" });
+    let ready = await setup.runtime.get({ orgId: ORG, actorId: USER, interviewId: created.interviewId });
+    for (let attempt = 0; attempt < 30 && ready.expertRuns.some((run) => run.status === "running"); attempt += 1) {
+      await new Promise((resolve) => setTimeout(resolve, 20));
+      ready = await setup.runtime.get({ orgId: ORG, actorId: USER, interviewId: created.interviewId });
+    }
+
+    const completed = await setup.runtime.generateReport({ orgId: ORG, actorId: USER, interviewId: created.interviewId,
+      expectedVersion: ready.version, requestId: "generate-report-prose" });
+
+    expect(completed).toMatchObject({ status: "completed", reportGeneration: null,
+      report: { title: "江西足球协同发展决策研究", findings: expect.arrayContaining([
+        expect.objectContaining({ exploratory: true, sourceAnswerId: expect.stringContaining(":") }),
+      ]) } });
+    expect(completed.report!.markdown).toMatch(/^专家认为基层训练、赛事衔接和长期资金是同一条链路上的约束/);
+    expect(completed.report!.markdown).toContain("当前只有一位专家的有效回答，不能判断跨角色共识或分歧");
+    for (const heading of DIGITAL_REPORT_REQUIRED_HEADINGS) expect(completed.report!.markdown).toContain(heading);
+    expect(completed.report!.findings).toHaveLength(3);
+    await setup.checkpointer.end();
+  });
+
   it("reuses the failed report row when report generation is retried", async () => {
     let reportAttempts = 0;
+    let failRegeneration: "provider" | "validation" | null = null;
+    let pauseNext = false;
+    let resumeOld: () => void = () => undefined;
+    let startedOld: () => void = () => undefined;
+    const oldStarted = new Promise<void>((resolve) => { startedOld = resolve; });
+    const oldPaused = new Promise<void>((resolve) => { resumeOld = resolve; });
     const retryingModel: ModelCallPort = {
       complete: async (input) => {
         const context = JSON.parse(input.user) as { operation?: string; questions?: Array<{ questionId: string }> };
@@ -730,6 +790,17 @@ describe("F04 PostgresSaver and exactly-once business persistence", () => {
         };
         if (context.operation !== "generate_interview_report") return retryingModel.complete(input);
         reportAttempts += 1;
+        if (pauseNext) {
+          pauseNext = false;
+          await onDelta(`${JSON.stringify({ type: "meta", title: "被中断的新报告", executiveSummary: "未完成" })}\n`);
+          startedOld();
+          await oldPaused;
+        }
+        if (failRegeneration) {
+          await onDelta(`${JSON.stringify({ type: "meta", title: "未完成的新报告", executiveSummary: "未完成" })}\n`);
+          if (failRegeneration === "provider") throw new Error("regeneration disconnected");
+          return { text: "" };
+        }
         if (reportAttempts === 1) throw new Error("provider stream disconnected");
         const expert = context.experts![0]!;
         const events = [
@@ -776,6 +847,68 @@ describe("F04 PostgresSaver and exactly-once business persistence", () => {
       [ORG, created.interviewId],
     ));
     expect(reportRows.rows[0]?.count).toBe("1");
+    const regenerated = await setup.runtime.generateReport({ orgId: ORG, actorId: USER, interviewId: created.interviewId,
+      expectedVersion: retried.version, requestId: "generate-report-again" });
+    expect(regenerated).toMatchObject({ status: "completed", report: { reportId: retried.report!.reportId } });
+    expect(regenerated.version).toBeGreaterThan(retried.version);
+    expect(reportAttempts).toBe(3);
+    await expect(setup.runtime.generateReport({ orgId: ORG, actorId: USER, interviewId: created.interviewId,
+      expectedVersion: retried.version, requestId: "generate-stale-report" }))
+      .rejects.toMatchObject({ code: "CONCURRENT_MODIFICATION" });
+    expect(reportAttempts).toBe(3);
+    let latest = regenerated;
+    for (const failure of ["provider", "validation", "finalization"] as const) {
+      failRegeneration = failure === "finalization" ? null : failure;
+      let bumped = false;
+      await expect(setup.runtime.generateReport({ orgId: ORG, actorId: USER, interviewId: created.interviewId,
+        expectedVersion: latest.version, requestId: `regenerate-fail-${failure}` }, async (progress) => {
+        if (failure === "finalization" && !bumped && progress.reportGeneration?.markdown) {
+          bumped = true;
+          await asApp(ORG, (session) => session.query(
+            "UPDATE interview_sessions SET version=version+1 WHERE org_id=$1 AND id=$2", [ORG,created.interviewId]));
+        }
+      })).rejects.toMatchObject({ code: failure === "provider" ? "DEPENDENCY_UNAVAILABLE"
+        : failure === "validation" ? "AI_GENERATION_UNAVAILABLE" : "CONCURRENT_MODIFICATION" });
+      latest = await setup.runtime.get({ orgId: ORG, actorId: USER, interviewId: created.interviewId });
+      expect(latest).toMatchObject({ status: "completed", reportGeneration: { status: "failed" }, report: regenerated.report });
+    }
+    // A suspended worker models process death: no catch-based restoration runs.
+    failRegeneration = null;
+    pauseNext = true;
+    const oldAttempt = setup.runtime.generateReport({ orgId: ORG, actorId: USER, interviewId: created.interviewId,
+      expectedVersion: latest.version, requestId: "regenerate-interrupted" }).catch((error: unknown) => error);
+    await oldStarted;
+    const active = await setup.runtime.get({ orgId: ORG, actorId: USER, interviewId: created.interviewId });
+    const durable = await asApp(ORG, (session) => session.query<{ previous_report: unknown }>(
+      "SELECT previous_report FROM digital_interview_reports WHERE org_id=$1 AND interview_id=$2", [ORG,created.interviewId]));
+    expect(durable.rows[0]?.previous_report).toEqual(regenerated.report);
+    await expect(setup.runtime.generateReport({ orgId: ORG, actorId: USER, interviewId: created.interviewId,
+      expectedVersion: active.version, requestId: "regenerate-too-soon" })).rejects.toMatchObject({ code: "CONCURRENT_MODIFICATION" });
+    await asApp(ORG, (session) => session.query(
+      "UPDATE digital_interview_reports SET updated_at=now()-interval '6 minutes' WHERE org_id=$1 AND interview_id=$2", [ORG,created.interviewId]));
+    const expired = await setup.runtime.get({ orgId: ORG, actorId: USER, interviewId: created.interviewId });
+    expect(expired).toMatchObject({ status: "completed", report: regenerated.report,
+      reportGeneration: { status: "failed", errorCode: "DEPENDENCY_UNAVAILABLE" } });
+    const historyDeps = { repo: new PgDigitalInterviewRepository(db), scope: new PgInterviewScopeRepository(db), decisions: new UuidDecisionIdFactory() };
+    const history = await listDigitalInterviews(historyDeps, { orgId: ORG, viewerUserId: USER });
+    expect(history.items.find((entry) => entry.interviewId === created.interviewId)?.status).toBe("completed");
+    const completedHistory = await listDigitalInterviews(historyDeps, { orgId: ORG, viewerUserId: USER, status: "completed" });
+    expect(completedHistory.items.some((entry) => entry.interviewId === created.interviewId)).toBe(true);
+    const pendingHistory = await listDigitalInterviews(historyDeps, { orgId: ORG, viewerUserId: USER, status: "report_pending" });
+    expect(pendingHistory.items.some((entry) => entry.interviewId === created.interviewId)).toBe(false);
+    await expect(setup.runtime.generateReport({ orgId: ORG, actorId: USER, interviewId: created.interviewId,
+      expectedVersion: expired.version, requestId: "regenerate-interrupted" })).rejects.toMatchObject({ code: "CONCURRENT_MODIFICATION" });
+    failRegeneration = "provider";
+    await expect(setup.runtime.generateReport({ orgId: ORG, actorId: USER, interviewId: created.interviewId,
+      expectedVersion: expired.version, requestId: "regenerate-recovery-fails" })).rejects.toMatchObject({ code: "DEPENDENCY_UNAVAILABLE" });
+    const recovered = await setup.runtime.get({ orgId: ORG, actorId: USER, interviewId: created.interviewId });
+    expect(recovered.report).toEqual(regenerated.report);
+    failRegeneration = null;
+    const replacement = await setup.runtime.generateReport({ orgId: ORG, actorId: USER, interviewId: created.interviewId,
+      expectedVersion: recovered.version, requestId: "regenerate-after-interruption" });
+    resumeOld();
+    expect(await oldAttempt).toMatchObject({ code: "CONCURRENT_MODIFICATION" });
+    expect(await setup.runtime.get({ orgId: ORG, actorId: USER, interviewId: created.interviewId })).toEqual(replacement);
     await setup.checkpointer.end();
   });
 });

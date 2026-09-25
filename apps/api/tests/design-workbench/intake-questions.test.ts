@@ -84,8 +84,10 @@ describe("V62 模型不可用 ⇒ 退回通用问卷并标记 fallback，新建�
 
 describe("V64 问答落地成 problem / criteria，不新增第四种事实源", () => {
   const answers = [
-    { question: "会员分几档？", answer: "两档：普通与金卡" },
-    { question: "几步下完一单？", answer: "三步之内" },
+    // 迭代 17：答案自己带维度——「谁会用」「要解决什么」是背景，只有 success 那一维是验收口径。
+    { question: "谁会用这个东西？", answer: "门店店员", dimension: "who" as const },
+    { question: "会员分几档？", answer: "两档：普通与金卡", dimension: "constraint" as const },
+    { question: "几步下完一单？", answer: "三步之内", dimension: "success" as const },
   ];
 
   it("brief 与答案拼进 problem；答案原文可见", () => {
@@ -95,16 +97,36 @@ describe("V64 问答落地成 problem / criteria，不新增第四种事实源",
     expect(p).toContain("会员分几档？");
   });
 
+  /**
+   * 迭代 17 —— 这条用例**以前是绿的，而生产是错的**。
+   *
+   * 它原来长这样：`foldIntakeIntoCriteria(answers, ["几步下完一单？"])`，也就是
+   * **用例自己手工构造了那张「成功维问题清单」**；而生产代码里 controller 传的是
+   * `body.intake.map(a => a.question)`——全部问题。函数对、用例对、接线错，
+   * 门控恰好测不到接线。
+   *
+   * 现在判据来自答案**自己带的 `dimension`**，调用方没有"传错一张清单"的机会，
+   * 这条用例也就真的在测生产会走的那条路。
+   */
   it("只有「成功长什么样」那一维的答案进 criteria，其余是背景不是验收条目", () => {
-    const c = foldIntakeIntoCriteria(answers, ["几步下完一单？"]);
+    const c = foldIntakeIntoCriteria(answers);
     expect(c.slice(0, 3)).toEqual([...C.DESIGN_PROJECT_INITIAL_CRITERIA]);
     expect(c).toContain("三步之内");
     // ⭐ 反证锚点：把所有答案都塞进 criteria ⇒ 这条红（背景会污染验收标准）
     expect(c).not.toContain("两档：普通与金卡");
+    expect(c).not.toContain("门店店员");
+  });
+
+  it("没带 dimension 的答案（老客户端）**不算**成功维——宁可少几条，也不要把背景当验收口径", () => {
+    const legacy = [
+      { question: "会员分几档？", answer: "两档：普通与金卡" },
+      { question: "几步下完一单？", answer: "三步之内" },
+    ];
+    expect(foldIntakeIntoCriteria(legacy)).toEqual([...C.DESIGN_PROJECT_INITIAL_CRITERIA]);
   });
 
   it("没有答案时 criteria 就是默认三条，problem 不多出空行", () => {
-    expect(foldIntakeIntoCriteria([], [])).toEqual([...C.DESIGN_PROJECT_INITIAL_CRITERIA]);
+    expect(foldIntakeIntoCriteria([])).toEqual([...C.DESIGN_PROJECT_INITIAL_CRITERIA]);
     expect(foldIntakeIntoProblem("只写了一句", [])).toBe("只写了一句");
   });
 

@@ -84,7 +84,7 @@ export default {
    * 影响其它任何路由或依赖包的 CSS 处理。`@copilotkit/react-ui/styles.css`
    * （`globals.css` 已引入的那份，见其头注）是完全独立的另一个包/文件，不受影响。
    */
-  webpack(config, { webpack }) {
+  webpack(config, { webpack, isServer }) {
     /**
      * #2926: `@copilotkit/runtime/v2` currently depends on
      * `@ai-sdk/google-vertex@3.x`, whose latest compatible
@@ -114,6 +114,20 @@ export default {
         join(__dirname, "lib/empty-copilotkit-v2-styles.css"),
       ),
     );
+    /**
+     * 深度 S8（#3988）：幻灯片导出在浏览器里用 pptxgenjs。它的 ES 构建在**只有 node 才走**的
+     * 写文件分支里 `import("node:fs")` / `import("node:https")`；包自己的 `browser` 字段已经把
+     * `fs` / `https` 映射成 false，但 webpack 先拒掉了 `node:` 这个 scheme，映射没机会生效，
+     * 整个 Next 构建就挂了。这里只对 pptxgenjs 发出的这两个请求去掉 `node:` 前缀、只在客户端
+     * 构建里——之后交给包自己的 `browser` 映射，别的依赖、服务端构建都不受影响。
+     */
+    if (!isServer) {
+      config.plugins.push(
+        new webpack.NormalModuleReplacementPlugin(/^node:(fs|https)$/, (resource) => {
+          if (/[\\/]pptxgenjs[\\/]/.test(resource.context ?? "")) resource.request = resource.request.slice("node:".length);
+        }),
+      );
+    }
     return config;
   },
   /**
@@ -165,6 +179,8 @@ export default {
     // Browser E2E gates must traverse the real API; the test-only same-origin proxy
     // 跨端口 CORS 配置扩张成产品运行时改动。正式 `/chat` 页面本身不被改写。
     const afterFiles = [
+      { source: `${prefix}/surveys/:path*`, destination: `${apiOrigin}/surveys/:path*` },
+      { source: `${prefix}/public/surveys/:path*`, destination: `${apiOrigin}/public/surveys/:path*` },
       { source: `${prefix}/auth/:path*`, destination: `${apiOrigin}/auth/:path*` },
       { source: `${prefix}/identity/:path*`, destination: `${apiOrigin}/identity/:path*` },
       // F965：审计检索唯一面 `GET /provenance`（identity 与 artifact 两束共写、
@@ -184,6 +200,30 @@ export default {
       // POST 新建（两个方法一条路径），`:path*` 匹配不到没有后缀的那一条 ——
       // 与上面 `/capabilities` 逐字同一个坑，所以同样写两条。
       { source: `${prefix}/canvas/templates`, destination: `${apiOrigin}/canvas/templates` },
+      /**
+       * issue #3492：`/canvas/:path*` 是通配，它同样会吃掉 `app/canvas/[screen]/page.tsx`
+       * 这个**前端动态路由**——afterFiles rewrites 在动态路由**之前**匹配，于是
+       * `/canvas/template-admin` 被代理到 API，整页刷新拿到 `{"error":"not_found"}`
+       * 的 **JSON 文档**而不是页面（实测 25022 端口，`Content-Type: application/json`）。
+       * **这是 #2021（`/chat/:path*` 吃掉 `/chat/copilotkit-v2/[threadId]`）的同型第二次**，
+       * 那条注释就在本文件下面，写着同样的成因。
+       *
+       * 这次不走 #2021 的解法（把通配收窄成 API 命名空间枚举）：`/canvas/` 下的 API
+       * 命名空间今天有 9 个（templates / instances / agenda-segments / ai-rounds / claims /
+       * conflicts / orgs / projects / whitespace-rules，契约 `canvas.operations` 实测），
+       * 枚举表会漏——#2090 就是 `/chat/${ns}` 那张枚举表漏掉 `asr-draft` 栽的。
+       * 改为**放行前端屏**：屏是有限且封闭的一张表（`lib/canvas-screens.ts` 的
+       * `CANVAS_SCREENS`，`[screen]` 路由认不出就 `notFound()`），新增 API 路由不需要
+       * 动这里。放行规则的 `destination` 是内部路径，afterFiles rewrite 自带
+       * `check: true`，命中后立刻解析到 `app/canvas/[screen]/page.tsx`。
+       *
+       * ⚠ 必须排在通配**之前**：afterFiles 按声明顺序匹配，通配先命中就直接代理走了。
+       * ⚠ 这张屏清单与 `CANVAS_SCREENS` 的一致性由
+       *   `tests/canvas-screen-rewrite.test.ts` 机械核对（少放行一个屏就红），
+       *   不靠谁记得两边一起改。
+       */
+      ...["template-admin", "template-editor", "segment-binding", "editor", "ai-draft", "backflow"]
+        .map((screen) => ({ source: `${prefix}/canvas/${screen}`, destination: `/canvas/${screen}` })),
       { source: `${prefix}/canvas/:path*`, destination: `${apiOrigin}/canvas/:path*` },
       // F173（#991 BP-01）：蓝本的读与写。`/blueprints` 自己既是 GET 列表也是
       // POST 新建 —— 与上面 `/capabilities`、`/canvas/templates`、`/skills` 逐字
@@ -296,15 +336,14 @@ export default {
       // `getInboxCounts`（`/inbox/counts`）——同一个坑的复现，理由同上面 `/feedback` 那条。
       { source: `${prefix}/inbox`, destination: `${apiOrigin}/inbox` },
       { source: `${prefix}/inbox/:path*`, destination: `${apiOrigin}/inbox/:path*` },
-      // issue #3676（投后评级 ad-hoc MVP）：`PostinvestRatingController` 只挂了一条
-      // `POST /postinvest-ratings/score`，没有裸路径，但仍需要 `:path*` 转发规则，
-      // 否则会被 Next 接住返回 404 HTML（前端拿到 `Unexpected token '<'`）——
-      // 同一个坑的复现，理由同上面 `/inbox` 那条。
-      { source: `${prefix}/postinvest-ratings/:path*`, destination: `${apiOrigin}/postinvest-ratings/:path*` },
       // UC-17.8 B4.3（PM 设计工作台）：`design-workbench.ts` 挂了裸 `/pm-designs`
       // 与 `/pm-designs/:projectId` 等——同一个坑的复现，理由同上面 `/inbox` 那条。
       { source: `${prefix}/pm-designs`, destination: `${apiOrigin}/pm-designs` },
       { source: `${prefix}/pm-designs/:path*`, destination: `${apiOrigin}/pm-designs/:path*` },
+      // 迭代 22（发布与分享）：分享链接是给**没登录的人**点的，同 `/public/surveys` 那条。
+      // 少了它，分享页在同源代理的部署上拿到的是 Next 自己的 404 HTML——而症状是
+      // `Unexpected token '<'`，看起来像前端解析 bug（api-client 里那段注释说的就是这个）。
+      { source: `${prefix}/public/design-shares/:path*`, destination: `${apiOrigin}/public/design-shares/:path*` },
       { source: `${prefix}/model-calls`, destination: `${apiOrigin}/model-calls` },
       { source: `${prefix}/model-calls/:path*`, destination: `${apiOrigin}/model-calls/:path*` },
       // issue #2664（异步子任务派发）：`subtask-run.controller.ts` 挂了
@@ -376,6 +415,8 @@ export default {
       // 实测就是这么红了一次（步骤 8b，2026-08-05）。
       { source: `${prefix}/agent-runs/:path*`, destination: `${apiOrigin}/agent-runs/:path*` },
       { source: `${prefix}/agent-artifacts/:path*`, destination: `${apiOrigin}/agent-artifacts/:path*` },
+      // Phase 18 F09：会话知识面板 / 来源抽屉 / 每轮「已记下 N 条」读 API（漏了同上：404 HTML）。
+      { source: `${prefix}/knowledge-graph/:path*`, destination: `${apiOrigin}/knowledge-graph/:path*` },
       // #3282: the E2E notification center must reach the API collection and read action.
       { source: `${prefix}/schedule-notifications`, destination: `${apiOrigin}/schedule-notifications` },
       { source: `${prefix}/schedule-notifications/:path*`, destination: `${apiOrigin}/schedule-notifications/:path*` },
@@ -470,6 +511,16 @@ export default {
       // `GET /system/error-logs`、`POST /system/client-error-reports`。没有裸 `/system` 路由，
       // 同 `plan-control` 先例只补 `:path*`。
       { source: `${prefix}/system/:path*`, destination: `${apiOrigin}/system/:path*` },
+      // 2026-09-20（权限 review）：平台级成员管理与「我有没有平台运营准入」的自查
+      // （`platform-member.controller.ts` / `platform-access.controller.ts`，都是空前缀）：
+      // `GET /platform/members`、`PATCH /platform/members/:userId/organizations/:orgId/role`、
+      // `POST|DELETE /platform/members/:userId/platform-admin`、`GET /platform/access`。
+      // ⚠ 这条**此前一直缺**：`/platform/members` 走同源代理时被 Next 自己接住返回 404 HTML，
+      //   `PlatformMembersScreen` 那屏因此在 fullstack e2e 里从没真的打通过。
+      //   `lint-rewrite-coverage` 没抓到它，是因为这些 controller 的路径来自契约常量
+      //   （`C.operations.x.path`）而不是字面量字符串，扫描器看不见——这条的补法照
+      //   `/system` 的先例：没有裸 `/platform` 路由，只补 `:path*`。
+      { source: `${prefix}/platform/:path*`, destination: `${apiOrigin}/platform/:path*` },
     ];
     return { beforeFiles: chatV2BranchRewrites, afterFiles };
   },

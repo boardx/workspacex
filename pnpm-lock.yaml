@@ -4,8 +4,10 @@ settings:
   autoInstallPeers: true
   excludeLinksFromLockfile: false
 
-overrides:
-  '@langchain/langgraph-checkpoint-postgres>@langchain/langgraph-checkpoint': 0.1.1
+patchedDependencies:
+  '@cloudflare/next-on-pages@1.13.12':
+    hash: vxkajos7bv46okupovvfunoezq
+    path: patches/@cloudflare__next-on-pages@1.13.12.patch
 
 importers:
 
@@ -266,6 +268,18 @@ importers:
 
   apps/devportal:
     dependencies:
+      '@fontsource-variable/inter':
+        specifier: 5.2.5
+        version: 5.2.5
+      '@fontsource-variable/jetbrains-mono':
+        specifier: 5.3.0
+        version: 5.3.0
+      '@fontsource-variable/newsreader':
+        specifier: 5.2.5
+        version: 5.2.5
+      '@repo/coord-access':
+        specifier: workspace:*
+        version: link:../../packages/coord-access
       class-variance-authority:
         specifier: ^0.7.1
         version: 0.7.1
@@ -299,7 +313,7 @@ importers:
     devDependencies:
       '@cloudflare/next-on-pages':
         specifier: 1.13.12
-        version: 1.13.12(vercel@47.0.4(encoding@0.1.13)(rollup@4.62.2))(wrangler@4.118.0)
+        version: 1.13.12(patch_hash=vxkajos7bv46okupovvfunoezq)(vercel@47.0.4(encoding@0.1.13)(rollup@4.62.2))(wrangler@4.118.0)
       '@playwright/test':
         specifier: ^1.47.0
         version: 1.62.0
@@ -358,6 +372,65 @@ importers:
       vitest:
         specifier: ^2.0.0
         version: 2.1.9(@edge-runtime/vm@3.2.0)(@types/node@22.20.1)(jsdom@30.0.1(canvas@3.2.3))(terser@5.50.0)
+
+  apps/ops-console:
+    dependencies:
+      '@repo/contracts':
+        specifier: workspace:*
+        version: link:../../packages/contracts
+      '@repo/coord-access':
+        specifier: workspace:*
+        version: link:../../packages/coord-access
+      zod:
+        specifier: 3.25.76
+        version: 3.25.76
+    devDependencies:
+      '@cloudflare/vitest-pool-workers':
+        specifier: ^0.12.0
+        version: 0.12.21(@cloudflare/workers-types@4.20260702.1)(@vitest/runner@2.1.9)(@vitest/snapshot@2.1.9)(vitest@2.1.9(@edge-runtime/vm@3.2.0)(@types/node@22.20.1)(jsdom@30.0.1(canvas@3.2.3))(terser@5.50.0))
+      '@cloudflare/workers-types':
+        specifier: ^4.20241127.0
+        version: 4.20260702.1
+      '@types/node':
+        specifier: '*'
+        version: 22.20.1
+      typescript:
+        specifier: '*'
+        version: 5.9.3
+      vitest:
+        specifier: ^2.0.0
+        version: 2.1.9(@edge-runtime/vm@3.2.0)(@types/node@22.20.1)(jsdom@30.0.1(canvas@3.2.3))(terser@5.50.0)
+      wrangler:
+        specifier: ^4.0.0
+        version: 4.118.0(@cloudflare/workers-types@4.20260702.1)
+
+  apps/ops-telemetry:
+    dependencies:
+      '@repo/contracts':
+        specifier: workspace:*
+        version: link:../../packages/contracts
+      '@repo/coord-access':
+        specifier: workspace:*
+        version: link:../../packages/coord-access
+    devDependencies:
+      '@cloudflare/vitest-pool-workers':
+        specifier: ^0.12.0
+        version: 0.12.21(@cloudflare/workers-types@4.20260702.1)(@vitest/runner@2.1.9)(@vitest/snapshot@2.1.9)(vitest@2.1.9(@edge-runtime/vm@3.2.0)(@types/node@22.20.1)(jsdom@30.0.1(canvas@3.2.3))(terser@5.50.0))
+      '@cloudflare/workers-types':
+        specifier: ^4.20241127.0
+        version: 4.20260702.1
+      '@types/node':
+        specifier: '*'
+        version: 22.20.1
+      typescript:
+        specifier: '*'
+        version: 5.9.3
+      vitest:
+        specifier: ^2.0.0
+        version: 2.1.9(@edge-runtime/vm@3.2.0)(@types/node@22.20.1)(jsdom@30.0.1(canvas@3.2.3))(terser@5.50.0)
+      wrangler:
+        specifier: ^4.0.0
+        version: 4.118.0(@cloudflare/workers-types@4.20260702.1)
 
   apps/skill-sandbox:
     dependencies:
@@ -467,6 +540,9 @@ importers:
       docx:
         specifier: ^9.7.1
         version: 9.7.1
+      echarts:
+        specifier: 5.6.0
+        version: 5.6.0
       fabric:
         specifier: 7.4.0
         version: 7.4.0
@@ -488,9 +564,15 @@ importers:
       next:
         specifier: 14.2.15
         version: 14.2.15(@opentelemetry/api@1.9.1)(@playwright/test@1.62.0)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
+      pinyin-pro:
+        specifier: 3.29.4
+        version: 3.29.4
       pptx-preview:
         specifier: 1.0.7
         version: 1.0.7
+      pptxgenjs:
+        specifier: ^4.0.1
+        version: 4.0.1
       react:
         specifier: 18.3.1
         version: 18.3.1
@@ -614,6 +696,18 @@ importers:
       zod-to-json-schema:
         specifier: ^3.25.2
         version: 3.25.2(zod@3.25.76)
+
+  packages/coord-access:
+    devDependencies:
+      '@types/node':
+        specifier: '*'
+        version: 22.20.1
+      typescript:
+        specifier: '*'
+        version: 5.9.3
+      vitest:
+        specifier: '*'
+        version: 2.1.9(@edge-runtime/vm@3.2.0)(@types/node@22.20.1)(jsdom@30.0.1(canvas@3.2.3))(terser@5.50.0)
 
   packages/coord-brain:
     devDependencies:
@@ -2168,8 +2262,14 @@ packages:
   '@fontsource-variable/bitter@5.3.0':
     resolution: {integrity: sha512-TNGusdX+fjWE2b8pTG7kH1A615DbjjSj8/PwVm+iyiFiLFtioHXt6eH5jIFE2kmiA3Ogp03jEyZDsukotzC+4Q==}
 
+  '@fontsource-variable/inter@5.2.5':
+    resolution: {integrity: sha512-TrWffUAFOnT8zroE9YmGybagoOgM/HjRqMQ8k9R0vVgXlnUh/vnpbGPAS/Caz1KIlOPnPGh6fvJbb7DHbFCncA==}
+
   '@fontsource-variable/jetbrains-mono@5.3.0':
     resolution: {integrity: sha512-F32xpS2NsGYoQi2ADSkKTgpJj7ozajsGgDJ8woTnqjmIB+dxDIqImjl4pXZVEExu8UFZ2ndhmX18EBS/hdz3Lw==}
+
+  '@fontsource-variable/newsreader@5.2.5':
+    resolution: {integrity: sha512-np9DoNqpVNfYfRvDSQZhk8+5qyvFyUaE8hhCVVBQJq3m8uJKCxLsZoQI3jB5Ef6pNk1mPH4y0q+amquAzyvSyQ==}
 
   '@fontsource-variable/noto-sans-sc@5.3.0':
     resolution: {integrity: sha512-lNar1dF7Ik/lHNPo/7JWG0TolXY29LtsqYgMvEysooZ5bsO9uH4shJmRrwyJ3PjyTPljhpMJEK0jDuLSU4vJ1w==}
@@ -2603,7 +2703,7 @@ packages:
     engines: {node: '>=18'}
     peerDependencies:
       '@langchain/core': '>=0.2.31 <0.4.0 || ^1.0.0-alpha'
-      '@langchain/langgraph-checkpoint': 0.1.1
+      '@langchain/langgraph-checkpoint': ^0.1.0
 
   '@langchain/langgraph-checkpoint@0.1.1':
     resolution: {integrity: sha512-h2bP0RUikQZu0Um1ZUPErQLXyhzroJqKRbRcxYRTAh49oNlsfeq4A3K4YEDRbGGuyPZI/Jiqwhks1wZwY73AZw==}
@@ -8183,6 +8283,9 @@ packages:
     resolution: {integrity: sha512-8OEwKp5juEvb/MjpIc4hjqfgCNysrS94RIOMXYvpYCdm/jglrKEiAYmiumbmGhCvs+IcInsphYDFwqrjr7398w==}
     hasBin: true
 
+  pinyin-pro@3.29.4:
+    resolution: {integrity: sha512-SPXpDT2cHEy+d26V1RXYMlVzXN42hotFAak1fzyWPi4o2dKXb61UqD4pzxDJHwk6gbv8vQ6EfErd+hYX0Qhzug==}
+
   pirates@4.0.7:
     resolution: {integrity: sha512-TfySrs/5nm8fQJDcBDuUng3VOUKsd7S+zqvbOTiGXHfxX4wK31ard+hoNuvkicM/2YFzlpDgABOevKSsB4G/FA==}
     engines: {node: '>= 6'}
@@ -10446,7 +10549,7 @@ snapshots:
 
   '@cloudflare/kv-asset-handler@0.5.0': {}
 
-  '@cloudflare/next-on-pages@1.13.12(vercel@47.0.4(encoding@0.1.13)(rollup@4.62.2))(wrangler@4.118.0)':
+  '@cloudflare/next-on-pages@1.13.12(patch_hash=vxkajos7bv46okupovvfunoezq)(vercel@47.0.4(encoding@0.1.13)(rollup@4.62.2))(wrangler@4.118.0)':
     dependencies:
       acorn: 8.17.0
       ast-types: 0.14.2
@@ -11486,7 +11589,11 @@ snapshots:
 
   '@fontsource-variable/bitter@5.3.0': {}
 
+  '@fontsource-variable/inter@5.2.5': {}
+
   '@fontsource-variable/jetbrains-mono@5.3.0': {}
+
+  '@fontsource-variable/newsreader@5.2.5': {}
 
   '@fontsource-variable/noto-sans-sc@5.3.0': {}
 
@@ -11764,7 +11871,7 @@ snapshots:
 
   '@img/sharp-wasm32@0.34.5':
     dependencies:
-      '@emnapi/runtime': 1.10.0
+      '@emnapi/runtime': 1.11.3
     optional: true
 
   '@img/sharp-wasm32@0.35.2':
@@ -13584,6 +13691,14 @@ snapshots:
       magic-string: 0.30.21
     optionalDependencies:
       vite: 5.4.21(@types/node@22.20.1)(terser@5.50.0)
+
+  '@vitest/mocker@2.1.9(vite@5.4.21(@types/node@25.9.5)(terser@5.50.0))':
+    dependencies:
+      '@vitest/spy': 2.1.9
+      estree-walker: 3.0.3
+      magic-string: 0.30.21
+    optionalDependencies:
+      vite: 5.4.21(@types/node@25.9.5)(terser@5.50.0)
 
   '@vitest/pretty-format@2.1.9':
     dependencies:
@@ -18562,6 +18677,8 @@ snapshots:
       sonic-boom: 4.2.1
       thread-stream: 3.2.0
 
+  pinyin-pro@3.29.4: {}
+
   pirates@4.0.7: {}
 
   pkce-challenge@5.0.1: {}
@@ -20642,7 +20759,7 @@ snapshots:
   vitest@2.1.9(@edge-runtime/vm@3.2.0)(@types/node@25.9.5)(jsdom@26.1.0(canvas@3.2.3))(terser@5.50.0):
     dependencies:
       '@vitest/expect': 2.1.9
-      '@vitest/mocker': 2.1.9(vite@5.4.21(@types/node@22.20.1)(terser@5.50.0))
+      '@vitest/mocker': 2.1.9(vite@5.4.21(@types/node@25.9.5)(terser@5.50.0))
       '@vitest/pretty-format': 2.1.9
       '@vitest/runner': 2.1.9
       '@vitest/snapshot': 2.1.9
@@ -20679,7 +20796,7 @@ snapshots:
   vitest@2.1.9(@edge-runtime/vm@3.2.0)(@types/node@25.9.5)(jsdom@30.0.1(canvas@3.2.3))(terser@5.50.0):
     dependencies:
       '@vitest/expect': 2.1.9
-      '@vitest/mocker': 2.1.9(vite@5.4.21(@types/node@22.20.1)(terser@5.50.0))
+      '@vitest/mocker': 2.1.9(vite@5.4.21(@types/node@25.9.5)(terser@5.50.0))
       '@vitest/pretty-format': 2.1.9
       '@vitest/runner': 2.1.9
       '@vitest/snapshot': 2.1.9

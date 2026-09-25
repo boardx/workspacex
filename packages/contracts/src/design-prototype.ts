@@ -43,6 +43,12 @@ export const PrototypeNodeType = z.enum([
   "stack", "card", "navbar", "text", "button", "input", "image", "list", "divider", "spacer", "tabs", "badge", "avatar",
   // 迭代 6 扩充：底部导航 / 开关 / 复选 / 筛选 chip / 进度 / 指标 / hero 头图 / 网格容器
   "bottomnav", "switch", "checkbox", "chip", "progress", "stat", "hero", "grid",
+  // 对标 R3（#3933）：带数据的表格与图表——看板、报表类需求的另一半
+  "table", "chart",
+  // 对标 R4（#3933）：下拉、单选、叠层（弹窗 / 底部弹层 / 轻提示）——表单与确认流程画得出来
+  "select", "radio", "overlay",
+  // 对标 R5（#3933）：官网落地页的分区与页脚
+  "section", "footer",
 ]);
 export type PrototypeNodeType = z.infer<typeof PrototypeNodeType>;
 
@@ -66,6 +72,56 @@ const Size = z.enum(["sm", "md", "lg"]);
 const Label = z.string().min(1).max(200);
 const Items = z.array(Label).min(1).max(30);
 
+
+/* ─────────────────── 迭代 16（#3773 R4）：图标闭集 ─────────────────── */
+
+/**
+ * 原语可用的图标名——**闭集**，与颜色/圆角同一条纪律（只有这几档）。
+ *
+ * ## 为什么加它
+ *
+ * 在这之前这套原语**一个图标都表达不了**：按钮、列表项、底部导航全是纯文字。
+ * 真实 App 界面的图标密度很高，全文字的产物一眼就是线框图而不是界面——这正是
+ * 「和 claude design 有巨大差距」最直观的一段。
+ *
+ * 更糟的是画布为了补这个缺，把底部导航的图标做成了**按位置轮转**
+ * （`NAV_ICONS[i % 5]`）：一个叫「消息」的标签页会拿到齿轮图标。那不是"没有图标"，
+ * 是"图标在撒谎"，比没有更坏。
+ *
+ * ## 为什么是闭集而不是自由字符串
+ *
+ * 同 `Radius` / `Scale` 的理由：给了自由字符串，模型会输出画布渲染不了的名字，
+ * 而渲染表是 `Record<PrototypeIcon, …>` 穷举——闭集让"模型给了个没有的图标"
+ * 在契约层就被挡住，而不是在屏上变成一个空洞。
+ *
+ * ⚠ 加图标要**同时**改 `apps/web/components/design-loop/prototype-canvas.tsx` 的
+ *   `ICONS` 表（那边穷举，漏了编译不过）。
+ */
+export const PrototypeIcon = z.enum([
+  // 导航与结构
+  "home", "search", "menu", "more", "settings", "filter", "grid", "list", "back", "forward",
+  // 人与社交
+  "user", "users", "bell", "message", "send", "share", "heart", "star",
+  // 内容与文件
+  "image", "camera", "file", "folder", "bookmark", "tag", "link", "download", "upload",
+  // 动作
+  "plus", "edit", "trash", "check", "close", "refresh", "play", "pause", "lock", "eye",
+  // 商务与数据
+  "cart", "card", "chart", "calendar", "clock", "location", "mail", "phone", "info", "warning",
+]);
+export type PrototypeIcon = z.infer<typeof PrototypeIcon>;
+
+/**
+ * `image` 画的是**什么**——语义占位，不是真图。
+ *
+ * 在这之前 `image` 只有 `alt` + `ratio`，一律渲染成一个灰块加一个图片图标。
+ * 一张商品图、一张地图、一条折线图在屏上长得一模一样，而真实界面里它们撑起的
+ * 视觉分量完全不同。给了语义，画布就能画出各自的**形状**（地图有路网、图表有折线、
+ * 头像是圆的），一眼能看出这块是什么。
+ */
+export const PrototypeImageKind = z.enum(["photo", "illustration", "avatar", "map", "chart", "logo", "video"]);
+export type PrototypeImageKind = z.infer<typeof PrototypeImageKind>;
+
 const StackProps = z.object({
   direction: z.enum(["row", "column"]).optional(),
   gap: Scale.optional(),
@@ -84,6 +140,8 @@ const TextProps = z.object({
 }).strict();
 const ButtonProps = z.object({
   label: Label,
+  /** 迭代 16（#3773 R4）：按钮左侧的图标。缺省 = 纯文字按钮（大多数按钮本来就不该有图标）。 */
+  icon: PrototypeIcon.optional(),
   variant: z.enum(["primary", "secondary", "ghost", "danger"]).optional(),
   full: z.boolean().optional(),
   size: Size.optional(),
@@ -95,8 +153,47 @@ const InputProps = z.object({
   value: z.string().max(500).optional(),
   multiline: z.boolean().optional(),
 }).strict();
-const ImageProps = z.object({ alt: Label, ratio: z.enum(["square", "video", "wide", "portrait"]).optional() }).strict();
-const ListProps = z.object({ items: Items, leading: z.enum(["none", "dot", "check", "avatar"]).optional() }).strict();
+/**
+ * 深度 S10（#3988）：image 节点可以带一张**用户上传的真图**（`src`）。
+ *
+ * 只收 data URL（png / jpeg / webp / gif）：原型就是一份自包含的 JSON——导出的 .tsx、单文件 HTML、
+ * 分享快照都直接带着它走，不依赖某个要登录才读得到的图片地址。上限卡在一次 patch 请求装得下
+ * （API 默认请求体 100 KiB）：客户端先缩图、压质量，压不到这么小就说出来，不硬塞。
+ *
+ * `src` **只由用户上传写入**：发给模型之前摘掉（`withoutImageSources`，一张图就能吃掉整个上下文），
+ * 模型写回之后按节点 id 补回（`restoreImageSources`）——模型没碰过的图不会因为一轮对话消失。
+ */
+export const PROTOTYPE_IMAGE_SRC_MAX_CHARS = 80_000;
+export const PROTOTYPE_IMAGE_SRC_PATTERN = /^data:image\/(?:png|jpeg|webp|gif);base64,[A-Za-z0-9+/]+={0,2}$/;
+const ImageProps = z.object({
+  alt: Label,
+  ratio: z.enum(["square", "video", "wide", "portrait"]).optional(),
+  /** 迭代 16（#3773 R4）：这块图画的是什么（语义占位）。缺省 = `photo`。 */
+  kind: PrototypeImageKind.optional(),
+  src: z.string().max(PROTOTYPE_IMAGE_SRC_MAX_CHARS).regex(PROTOTYPE_IMAGE_SRC_PATTERN).optional(),
+}).strict();
+/**
+ * 迭代 16（#3773 R4）—— 列表行升级成**真实的列表行**。
+ *
+ * 在这之前 `items` 是一串字符串，渲染成一行截断的小字。而真实界面里的列表行
+ * 几乎都是「主标题 + 一行副标题 + 右侧一个值」（订单：店名 / 三件商品 / ¥128；
+ * 会话：联系人 / 最后一句话 / 时间）。少了这一层，凡是有列表的页都比真实界面薄一截。
+ *
+ * ⚠ **不改 `items` 的形状**（仍是字符串数组）。换成对象数组会让所有已存的原型失效，
+ *   而这里要的只是"多两列可选信息"。`detail` / `trailing` / `icons` 与 `items`
+ *   **逐位对应**，短了后面几行就没有那一列，长了多出来的忽略——不要求等长，
+ *   等长约束会让模型为了补一个空字符串而把整条写回作废。
+ */
+const ListProps = z.object({
+  items: Items,
+  leading: z.enum(["none", "dot", "check", "avatar", "icon"]).optional(),
+  /** 每行第二行的副标题，与 `items` 逐位对应。 */
+  detail: z.array(z.string().max(200)).max(30).optional(),
+  /** 每行右侧的值（金额、时间、数量……），与 `items` 逐位对应。 */
+  trailing: z.array(z.string().max(60)).max(30).optional(),
+  /** `leading: "icon"` 时每行的图标，与 `items` 逐位对应；缺这一位就退回圆点。 */
+  icons: z.array(PrototypeIcon).max(30).optional(),
+}).strict();
 const SpacerProps = z.object({ size: Scale.optional() }).strict();
 /** `active` 必须指向 `items` 里真实存在的一项（Codex：越界会渲染成「没有选中项」）。 */
 const indexWithin = <T extends { items: readonly string[]; active?: number }>(p: T): boolean => p.active === undefined || p.active < p.items.length;
@@ -104,7 +201,18 @@ const TabsPropsBase = z.object({ items: Items, active: z.number().int().min(0).o
 const TabsProps = TabsPropsBase.refine(indexWithin, { message: "active must index an existing item", path: ["active"] });
 const BadgeProps = z.object({ label: Label, tone: z.enum(["neutral", "info", "success", "warning", "danger"]).optional() }).strict();
 const AvatarProps = z.object({ name: Label, size: Size.optional() }).strict();
-const BottomNavPropsBase = z.object({ items: z.array(Label).min(2).max(6), active: z.number().int().min(0).optional() }).strict();
+const BottomNavPropsBase = z.object({
+  items: z.array(Label).min(2).max(6),
+  active: z.number().int().min(0).optional(),
+  /**
+   * 迭代 16（#3773 R4）：每一项的图标，与 `items` 逐位对应。
+   *
+   * 不给的那几位由画布**按标签名猜**（「消息」→ message），猜不到才退回一个中性图标。
+   * 在这之前画布是按**位置**轮转 `[Home, Search, Bell, User, Settings]`——
+   * 一个叫「消息」的标签页会拿到齿轮图标。那不是没有图标，是图标在撒谎。
+   */
+  icons: z.array(PrototypeIcon).max(6).optional(),
+}).strict();
 const BottomNavProps = BottomNavPropsBase.refine(indexWithin, { message: "active must index an existing item", path: ["active"] });
 const SwitchProps = z.object({ label: Label, on: z.boolean().optional() }).strict();
 const CheckboxProps = z.object({ label: Label, checked: z.boolean().optional() }).strict();
@@ -113,6 +221,82 @@ const ProgressProps = z.object({ value: z.number().min(0).max(100), label: Label
 const StatProps = z.object({ label: Label, value: Label, delta: Label.optional(), tone: z.enum(["neutral", "success", "danger"]).optional() }).strict();
 const HeroProps = z.object({ title: Label, subtitle: z.string().max(400).optional(), cta: Label.optional() }).strict();
 const GridProps = z.object({ columns: z.union([z.literal(2), z.literal(3)]).optional(), gap: Scale.optional() }).strict();
+
+/*
+ * 对标 R3（#3933）—— 表格与图表。
+ *
+ * 在这之前「销售看板」「订单管理」「健身周报」这类需求**一半画不出来**：`image` 的 `kind: chart`
+ * 只是一个画着折线的灰块，而表格根本没有。一个看板的全部信息都在那两块里。
+ *
+ * 形状照 `list` 的纪律：**不要求等长**。表格某行比表头短 ⇒ 缺的格子空着；图表 labels 与
+ * values 不等长 ⇒ 画较短的那一组。等长约束会让模型为了补一个空格而把整条写回作废。
+ * 上限（8 列 × 50 行、24 个数据点）是「原型里画得下」的量，不是真实数据量。
+ */
+export const PROTOTYPE_TABLE_MAX_COLUMNS = 8;
+export const PROTOTYPE_TABLE_MAX_ROWS = 50;
+export const PROTOTYPE_CHART_MAX_POINTS = 24;
+const TableProps = z.object({
+  columns: z.array(Label).min(1).max(PROTOTYPE_TABLE_MAX_COLUMNS),
+  /** 每行一组单元格，与 `columns` 逐位对应。 */
+  rows: z.array(z.array(z.string().max(120)).max(PROTOTYPE_TABLE_MAX_COLUMNS)).max(PROTOTYPE_TABLE_MAX_ROWS),
+  /** 斑马纹（隔行底色），行多时好读。 */
+  striped: z.boolean().optional(),
+}).strict();
+/*
+ * 对标 R4（#3933）—— 表单的最后两块与叠层。
+ *
+ * 在这之前「选城市」「选性别」只能用 input 假装，「确定注销？」只能另画一整页灰底——
+ * 一个普通人描述的流程里最常见的两种东西画不出来。
+ *
+ * `overlay` 是**容器**（有 children）：弹窗里放什么由模型/人决定，不是再造一套弹窗专用的属性。
+ * 画布把它盖在整屏上（带遮罩），所以它通常是页根的最后一个孩子；「弹窗打开时的样子」是单独一页。
+ */
+const SelectProps = z.object({
+  label: Label.optional(),
+  options: Items,
+  /** 当前选中的那一项的文字；不在 `options` 里也照样显示（原型阶段不较这个真）。 */
+  value: z.string().max(200).optional(),
+  placeholder: Label.optional(),
+}).strict();
+const RadioPropsBase = z.object({
+  label: Label.optional(),
+  options: z.array(Label).min(2).max(8),
+  /** 选中第几项（0 起）；缺省 = 都没选。 */
+  selected: z.number().int().min(0).optional(),
+}).strict();
+const RadioProps = RadioPropsBase.refine((p) => p.selected === undefined || p.selected < p.options.length, { message: "selected must index an existing option", path: ["selected"] });
+const OverlayProps = z.object({
+  kind: z.enum(["modal", "sheet", "toast"]).optional(),
+  title: Label.optional(),
+}).strict();
+
+/*
+ * 对标 R5（#3933）—— 落地页。
+ *
+ * 「给我们的产品做个官网首页」画出来一直像一个很长的 App 屏：没有「分区」这个概念（每一屏的
+ * 底色带与留白），也没有页脚。`section` 是通栏的**容器**，`tone` 给出区与区之间的底色节奏；
+ * `footer` 是叶子——页脚的结构（品牌、几列链接、版权）足够固定，不值得让模型每次都拼一遍。
+ */
+const SectionProps = z.object({
+  tone: z.enum(["default", "muted", "primary", "inverse"]).optional(),
+  padding: Scale.optional(),
+  align: z.enum(["start", "center"]).optional(),
+}).strict();
+const FooterProps = z.object({
+  brand: Label,
+  links: z.array(Label).max(12).optional(),
+  note: z.string().max(200).optional(),
+}).strict();
+
+const ChartProps = z.object({
+  kind: z.enum(["bar", "line"]).optional(),
+  title: Label.optional(),
+  labels: z.array(z.string().min(1).max(40)).min(1).max(PROTOTYPE_CHART_MAX_POINTS),
+  /** 与 `labels` 逐位对应的数值（可以是 0 或负数；画布按区间归一化）。 */
+  values: z.array(z.number().finite()).min(1).max(PROTOTYPE_CHART_MAX_POINTS),
+  /** 数值的单位（「万元」「分钟」），标在图上。 */
+  unit: z.string().max(12).optional(),
+}).strict();
 
 /** 叶子节点：无 `children`。 */
 const Leaf = z.discriminatedUnion("type", [
@@ -134,16 +318,23 @@ const Leaf = z.discriminatedUnion("type", [
   z.object({ id: Id, type: z.literal("progress"), props: ProgressProps }).strict(),
   z.object({ id: Id, type: z.literal("stat"), props: StatProps }).strict(),
   z.object({ id: Id, type: z.literal("hero"), props: HeroProps }).strict(),
+  z.object({ id: Id, type: z.literal("table"), props: TableProps }).strict(),
+  z.object({ id: Id, type: z.literal("chart"), props: ChartProps }).strict(),
+  z.object({ id: Id, type: z.literal("select"), props: SelectProps }).strict(),
+  z.object({ id: Id, type: z.literal("radio"), props: RadioProps }).strict(),
+  z.object({ id: Id, type: z.literal("footer"), props: FooterProps }).strict(),
 ]);
 
 export type PrototypeNode =
   | z.infer<typeof Leaf>
   | { readonly id?: PrototypeNodeId; readonly type: "stack"; readonly props?: z.infer<typeof StackProps>; readonly children: readonly PrototypeNode[] }
   | { readonly id?: PrototypeNodeId; readonly type: "card"; readonly props?: z.infer<typeof CardProps>; readonly children: readonly PrototypeNode[] }
-  | { readonly id?: PrototypeNodeId; readonly type: "grid"; readonly props?: z.infer<typeof GridProps>; readonly children: readonly PrototypeNode[] };
+  | { readonly id?: PrototypeNodeId; readonly type: "grid"; readonly props?: z.infer<typeof GridProps>; readonly children: readonly PrototypeNode[] }
+  | { readonly id?: PrototypeNodeId; readonly type: "overlay"; readonly props?: z.infer<typeof OverlayProps>; readonly children: readonly PrototypeNode[] }
+  | { readonly id?: PrototypeNodeId; readonly type: "section"; readonly props?: z.infer<typeof SectionProps>; readonly children: readonly PrototypeNode[] };
 
 /** 容器类型闭集（有 `children`）。所有遍历只认它，加容器只改这里 + `PrototypeNode` 的 union。 */
-export const PROTOTYPE_CONTAINER_TYPES = ["stack", "card", "grid"] as const;
+export const PROTOTYPE_CONTAINER_TYPES = ["stack", "card", "grid", "overlay", "section"] as const;
 export type PrototypeContainer = Extract<PrototypeNode, { children: readonly PrototypeNode[] }>;
 export function isPrototypeContainer(n: PrototypeNode): n is PrototypeContainer {
   return (PROTOTYPE_CONTAINER_TYPES as readonly string[]).includes(n.type);
@@ -159,6 +350,8 @@ export const PrototypeNode: z.ZodType<PrototypeNode> = z.lazy(() =>
     z.object({ id: Id, type: z.literal("stack"), props: StackProps.optional(), children: z.array(PrototypeNode).max(PROTOTYPE_MAX_NODES) }).strict(),
     z.object({ id: Id, type: z.literal("card"), props: CardProps.optional(), children: z.array(PrototypeNode).max(PROTOTYPE_MAX_NODES) }).strict(),
     z.object({ id: Id, type: z.literal("grid"), props: GridProps.optional(), children: z.array(PrototypeNode).max(PROTOTYPE_MAX_NODES) }).strict(),
+    z.object({ id: Id, type: z.literal("overlay"), props: OverlayProps.optional(), children: z.array(PrototypeNode).max(PROTOTYPE_MAX_NODES) }).strict(),
+    z.object({ id: Id, type: z.literal("section"), props: SectionProps.optional(), children: z.array(PrototypeNode).max(PROTOTYPE_MAX_NODES) }).strict(),
   ]),
 );
 
@@ -245,10 +438,16 @@ export const PROTOTYPE_PROPS_SCHEMAS = {
   stack: StackProps, card: CardProps, navbar: NavbarProps, text: TextProps, button: ButtonProps, input: InputProps,
   image: ImageProps, list: ListProps, divider: null, spacer: SpacerProps, tabs: TabsPropsBase, badge: BadgeProps, avatar: AvatarProps,
   bottomnav: BottomNavPropsBase, switch: SwitchProps, checkbox: CheckboxProps, chip: ChipProps, progress: ProgressProps,
-  stat: StatProps, hero: HeroProps, grid: GridProps,
+  stat: StatProps, hero: HeroProps, grid: GridProps, table: TableProps, chart: ChartProps,
+  select: SelectProps, radio: RadioPropsBase, overlay: OverlayProps, section: SectionProps, footer: FooterProps,
 } as const satisfies Record<PrototypeNodeType, z.ZodObject<z.ZodRawShape> | null>;
 
-export type PrototypeFieldKind = "text" | "multiline" | "lines" | "bool" | "number" | "enum";
+/**
+ * 对标 R3：`rows`（表格数据：一行一行，格子之间用 `|` 隔开）与 `numbers`（一串数，一行一个或逗号隔开）
+ * 是给表格/图表的两种编辑形态——二维数组与数字数组塞不进既有的几种。
+ */
+/** `image`：深度 S10——上传一张图（属性面板里是文件选择，不是输入框）。 */
+export type PrototypeFieldKind = "text" | "multiline" | "lines" | "bool" | "number" | "enum" | "rows" | "numbers" | "image";
 
 /**
  * 迭代 13（delta §6）—— 字段分两组：**内容**（写什么）与**视觉**（长什么样）。
@@ -271,10 +470,24 @@ export type PrototypeFieldGroup = "content" | "visual";
 const VISUAL_FIELD_KEYS: ReadonlySet<string> = new Set([
   "gap", "padding", "align", "direction", "fill", "variant", "tone", "ratio",
   "leading", "size", "radius", "full", "muted", "columns",
+  // 迭代 16（#3773 R4）：单个图标与"这块图画的是什么"是视觉档位。
+  // ⚠ `icons`（复数）**不在这里**：它与 `items` 逐位对应，是**每一行各自的内容**，
+  //   不是一个可以整体拨的档位——放进视觉组会让属性面板把它和圆角摆在一起，
+  //   而用户改它的时候想的是"第三行是什么图标"。
+  "icon", "kind",
+  // 对标 R3：斑马纹是长相，不是内容。
+  "striped",
 ]);
 
-export const prototypeFieldGroup = (key: string): PrototypeFieldGroup =>
-  VISUAL_FIELD_KEYS.has(key) ? "visual" : "content";
+/**
+ * 对标 R3：**同名不同义**的例外，按「类型.键」登记（同 `PROTOTYPE_OPTION_LABELS` 的 `stack.align`）。
+ * `grid.columns` 是列数档位（视觉），`table.columns` 是表头文字（内容）——按键名一刀切会把表头
+ * 塞进折叠的视觉区里，和圆角摆在一起。
+ */
+const FIELD_GROUP_OVERRIDES: Readonly<Record<string, PrototypeFieldGroup>> = { "table.columns": "content" };
+
+export const prototypeFieldGroup = (key: string, type?: string): PrototypeFieldGroup =>
+  (type !== undefined ? FIELD_GROUP_OVERRIDES[`${type}.${key}`] : undefined) ?? (VISUAL_FIELD_KEYS.has(key) ? "visual" : "content");
 
 export interface PrototypeField {
   readonly key: string;
@@ -322,18 +535,32 @@ export const PROTOTYPE_FIELDS: Record<PrototypeNodeType, readonly PrototypeField
     F("muted", "弱化", "bool"), F("align", "对齐", "enum", TextProps.shape.align.unwrap().options),
   ],
   button: [
-    F("label", "文案", "text"), F("variant", "样式", "enum", ButtonProps.shape.variant.unwrap().options),
+    F("label", "文案", "text"), F("icon", "图标", "enum", PrototypeIcon.options),
+    F("variant", "样式", "enum", ButtonProps.shape.variant.unwrap().options),
     F("full", "通栏", "bool"), F("size", "尺寸", "enum", Size.options), F("radius", "圆角", "enum", Radius.options),
   ],
   input: [F("placeholder", "占位文字", "text"), F("label", "标签", "text"), F("value", "已填内容", "text"), F("multiline", "多行", "bool")],
-  image: [F("alt", "说明", "text"), F("ratio", "比例", "enum", ImageProps.shape.ratio.unwrap().options)],
-  list: [F("items", "条目（一行一项）", "lines"), F("leading", "前缀", "enum", ListProps.shape.leading.unwrap().options)],
+  image: [
+    F("alt", "说明", "text"), F("kind", "画的是什么", "enum", PrototypeImageKind.options),
+    F("ratio", "比例", "enum", ImageProps.shape.ratio.unwrap().options),
+    F("src", "图片", "image"),
+  ],
+  list: [
+    F("items", "条目（一行一项）", "lines"),
+    F("detail", "副标题（一行一项，与条目对应）", "lines"),
+    F("trailing", "右侧值（一行一项，与条目对应）", "lines"),
+    F("leading", "前缀", "enum", ListProps.shape.leading.unwrap().options),
+    F("icons", "每行图标（一行一项）", "lines"),
+  ],
   divider: [],
   spacer: [F("size", "高度", "enum", SCALE_OPTIONS)],
   tabs: [F("items", "标签（一行一项）", "lines"), F("active", "当前项（从 0 起）", "number")],
   badge: [F("label", "文案", "text"), F("tone", "色调", "enum", BadgeProps.shape.tone.unwrap().options)],
   avatar: [F("name", "名字", "text"), F("size", "尺寸", "enum", Size.options)],
-  bottomnav: [F("items", "项（一行一项，2–6）", "lines"), F("active", "当前项（从 0 起）", "number")],
+  bottomnav: [
+    F("items", "项（一行一项，2–6）", "lines"), F("icons", "每项图标（一行一项）", "lines"),
+    F("active", "当前项（从 0 起）", "number"),
+  ],
   switch: [F("label", "文案", "text"), F("on", "打开", "bool")],
   checkbox: [F("label", "文案", "text"), F("checked", "已选", "bool")],
   chip: [F("label", "文案", "text"), F("selected", "选中", "bool")],
@@ -341,7 +568,81 @@ export const PROTOTYPE_FIELDS: Record<PrototypeNodeType, readonly PrototypeField
   stat: [F("label", "指标名", "text"), F("value", "数值", "text"), F("delta", "变化", "text"), F("tone", "色调", "enum", StatProps.shape.tone.unwrap().options)],
   hero: [F("title", "标题", "text"), F("subtitle", "副标题", "multiline"), F("cta", "按钮文案", "text")],
   grid: [FNum("columns", "列数", ["2", "3"]), F("gap", "间距", "enum", SCALE_OPTIONS)],
+  table: [
+    { ...F("columns", "表头（一行一列）", "lines"), group: prototypeFieldGroup("columns", "table") },
+    F("rows", "数据（一行一条，格子用 | 隔开）", "rows"),
+    F("striped", "斑马纹", "bool"),
+  ],
+  chart: [
+    F("title", "标题", "text"), F("kind", "图表类型", "enum", ChartProps.shape.kind.unwrap().options),
+    F("labels", "横轴（一行一项）", "lines"), F("values", "数值（一行一个，与横轴对应）", "numbers"),
+    F("unit", "单位", "text"),
+  ],
+  select: [F("label", "标题", "text"), F("options", "选项（一行一项）", "lines"), F("value", "当前值", "text"), F("placeholder", "占位提示", "text")],
+  radio: [F("label", "标题", "text"), F("options", "选项（一行一项，2–8）", "lines"), F("selected", "选中第几项（从 0 起）", "number")],
+  overlay: [F("kind", "叠层样式", "enum", OverlayProps.shape.kind.unwrap().options), F("title", "标题", "text")],
+  section: [
+    F("tone", "底色", "enum", SectionProps.shape.tone.unwrap().options), F("padding", "内边距", "enum", SCALE_OPTIONS),
+    F("align", "对齐", "enum", SectionProps.shape.align.unwrap().options),
+  ],
+  footer: [F("brand", "品牌名", "text"), F("links", "链接（一行一项）", "lines"), F("note", "底部小字", "text")],
 };
+
+/**
+ * 迭代 28 —— 枚举取值 → 中文档位。
+ *
+ * `PROTOTYPE_FIELDS` 的 `options` 直接取自 zod `.options`，也就是 schema 里的英文字面量。
+ * 属性面板原样把它们渲染进下拉，于是一个不写代码的人在「样式」里看到的是
+ * `primary / secondary / ghost / danger`，在「图标」里看到的是 50 个英文单词。
+ * 标签是给人看的东西，得和取值分开。
+ *
+ * 查表顺序：`"<节点类型>.<字段 key>"` → `"<字段 key>"` → 原样返回。
+ * 带类型的那一层只为**同名不同义**的字段存在（目前只有 `align`：stack 上是交叉轴、
+ * text 上是文字对齐）；其余一律走字段级，避免同一句话抄 20 遍。
+ *
+ * ⚠ 覆盖率由契约测试机械核对：`PROTOTYPE_FIELDS` 里任何一个 enum option 查不到中文
+ *   都判失败——新增枚举值却忘了给话，会在测试里当场红，而不是悄悄漏一个英文到界面上。
+ */
+export const PROTOTYPE_OPTION_LABELS: Readonly<Record<string, Readonly<Record<string, string>>>> = {
+  direction: { row: "横着排", column: "竖着排" },
+  gap: { none: "不留", sm: "小", md: "中", lg: "大" },
+  padding: { none: "不留", sm: "小", md: "中", lg: "大" },
+  size: { none: "不留", sm: "小", md: "中", lg: "大" },
+  radius: { none: "直角", sm: "小圆角", md: "中圆角", lg: "大圆角", full: "全圆" },
+  align: { start: "靠左", center: "居中", end: "靠右", between: "两端撑开" },
+  "stack.align": { start: "贴着起点", center: "居中", end: "贴着末尾", between: "两端撑开" },
+  variant: {
+    title: "大标题", subtitle: "小标题", body: "正文", caption: "小字注释", label: "字段标签",
+    primary: "主按钮", secondary: "次按钮", ghost: "透明按钮", danger: "危险操作",
+  },
+  kind: { photo: "照片", illustration: "插画", avatar: "头像", map: "地图", chart: "图表", logo: "标志", video: "视频" },
+  // 对标 R3：同名不同义——图表的 `kind` 是柱状/折线，不是图片那几种。
+  "chart.kind": { bar: "柱状图", line: "折线图" },
+  // 对标 R4
+  "overlay.kind": { modal: "居中弹窗", sheet: "底部弹层", toast: "轻提示" },
+  // 对标 R5：分区底色是同名不同义的 `tone`（徽标的 tone 是语义色）。
+  "section.tone": { default: "无底色", muted: "浅灰底", primary: "主色底", inverse: "反色底" },
+  ratio: { square: "正方形", video: "宽屏 16:9", wide: "横幅", portrait: "竖图" },
+  leading: { none: "不加", dot: "圆点", check: "勾选框", avatar: "头像", icon: "图标" },
+  tone: { neutral: "中性灰", info: "信息蓝", success: "成功绿", warning: "提醒黄", danger: "危险红" },
+  columns: { "2": "2 列", "3": "3 列" },
+  icon: {
+    home: "首页", search: "搜索", menu: "菜单", more: "更多", settings: "设置",
+    filter: "筛选", grid: "宫格", list: "列表", back: "返回", forward: "前进",
+    user: "个人", users: "多人", bell: "通知", message: "消息", send: "发送",
+    share: "分享", heart: "喜欢", star: "收藏星",
+    image: "图片", camera: "相机", file: "文件", folder: "文件夹", bookmark: "书签",
+    tag: "标签", link: "链接", download: "下载", upload: "上传",
+    plus: "加号", edit: "编辑", trash: "删除", check: "对勾", close: "关闭",
+    refresh: "刷新", play: "播放", pause: "暂停", lock: "锁", eye: "眼睛",
+    cart: "购物车", card: "银行卡", chart: "图表", calendar: "日历", clock: "时钟",
+    location: "定位", mail: "邮件", phone: "电话", info: "信息", warning: "警告",
+  },
+};
+
+/** 取一个枚举值的中文档位；没登记就原样返回（契约测试保证 `PROTOTYPE_FIELDS` 里不会有这种漏网的）。 */
+export const prototypeOptionLabel = (type: string, fieldKey: string, value: string): string =>
+  PROTOTYPE_OPTION_LABELS[`${type}.${fieldKey}`]?.[value] ?? PROTOTYPE_OPTION_LABELS[fieldKey]?.[value] ?? value;
 
 /* ─────────────────────────── 迭代 1：增量修改（patch） ─────────────────────────── */
 
@@ -723,13 +1024,35 @@ export function prototypeNodeLabel(n: PrototypeNode): string {
     case "stat": return `指标「${n.props.label}」`;
     case "hero": return `头图「${n.props.title}」`;
     case "grid": return `网格（${n.props?.columns ?? 2} 列）`;
+    case "table": return `表格（${n.props.columns.length} 列 × ${n.props.rows.length} 行）`;
+    case "section": return `分区（${n.children.length} 块）`;
+    case "footer": return `页脚「${n.props.brand}」`;
+    case "select": return `下拉「${n.props.label ?? n.props.value ?? n.props.placeholder ?? n.props.options[0] ?? ""}」`;
+    case "radio": return `单选（${n.props.options.join("/")}）`;
+    case "overlay": return `${n.props?.kind === "sheet" ? "底部弹层" : n.props?.kind === "toast" ? "轻提示" : "弹窗"}${n.props?.title !== undefined ? `「${n.props.title}」` : ""}`;
+    case "chart": return n.props.title !== undefined ? `图表「${n.props.title}」` : `${n.props.kind === "line" ? "折线图" : "柱状图"}（${n.props.values.length} 个点）`;
   }
 }
+
+/**
+ * 类型本身的中文名（属性面板标题栏右边那一格）。
+ *
+ * `prototypeNodeLabel` 给的是「这一个节点」的名字（带内容），这里要的是「这是哪一种东西」——
+ * 两件事，所以是两个函数，但都在这一份文件里，不许在前端再抄一张表。
+ * 原来那一格直接印 `node.type`（`bottomnav` / `chip`），对着屏幕的人不是写代码的人。
+ */
+export const PROTOTYPE_NODE_TYPE_LABEL: Readonly<Record<PrototypeNodeType, string>> = {
+  stack: "布局", card: "卡片", navbar: "导航栏", text: "文本", button: "按钮", input: "输入框",
+  image: "图片", list: "列表", divider: "分隔线", spacer: "留白", tabs: "标签页", badge: "标记",
+  avatar: "头像", bottomnav: "底部导航", switch: "开关", checkbox: "复选", chip: "筛选",
+  progress: "进度", stat: "指标", hero: "头图", grid: "网格", table: "表格", chart: "图表",
+  select: "下拉", radio: "单选", overlay: "叠层", section: "分区", footer: "页脚",
+};
 
 /* ─────────────────────────── 迭代 7：常见格式错误自动纠偏 ─────────────────────────── */
 
 /** 只有这些「类型.键」是数字：`stat.value` / `input.value` 是字符串，全局按键名转会把合法节点转坏（Codex P1）。 */
-const NUMERIC_PROPS: Record<string, readonly string[]> = { progress: ["value"], tabs: ["active"], bottomnav: ["active"], grid: ["columns"] };
+const NUMERIC_PROPS: Record<string, readonly string[]> = { progress: ["value"], tabs: ["active"], bottomnav: ["active"], grid: ["columns"], radio: ["selected"] };
 
 /**
  * 在过契约**之前**对模型给的原始树做几种机械纠偏——都是「意思对了、格式差一点」的错，
@@ -784,16 +1107,46 @@ export const PROTOTYPE_PATCH_GUIDE =
  * 给模型看的原语说明——**唯一**一份，`DESIGN_CHAT_SYSTEM_PROMPT` 拼它，不另抄。
  * 与上面各 `*Props` 同步维护；契约测试 `design-prototype.test.ts` 检查每个类型名都出现在这段文字里。
  */
+/**
+ * 迭代 16（#3773 R4）：图标名册——**只声明一次**。
+ *
+ * `icon` / `icons` 出现在 button、list、bottomnav 三处。把 46 个名字在三段里各抄一遍，
+ * 正是本仓那条「同一事实不得声明在两处」的反面；而且它会把这段说明的信噪比压垮。
+ * 所以名册单独一句，三处各自只说"有这么个键"。契约测试 `design-prototype.test.ts`
+ * 认这个形态：闭集的取值写在**自己那一段**或**这份名册**里都算数，但名册必须列全。
+ */
+export const PROTOTYPE_ICON_ROSTER =
+  `图标名（button.icon / list.icons / bottomnav.icons 共用这一份名册）只能取这些：${PrototypeIcon.options.join("/")}。`;
+
 export const PROTOTYPE_SCHEMA_GUIDE =
-  "节点形如 {\"type\":..., \"props\":{...}, \"children\":[...]}（只有 stack/card/grid 有 children）。类型与 props：" +
+  `节点形如 {"type":..., "props":{...}, "children":[...]}（只有 ${PROTOTYPE_CONTAINER_TYPES.join("/")} 有 children）。类型与 props：` +
   "stack{direction:row|column, gap/padding:none|sm|md|lg, align:start|center|end|between, fill:bool}；" +
   "card{title?, radius:none|sm|md|lg|full, padding:none|sm|md|lg}；navbar{title, left?, right?}；text{content, variant:title|subtitle|body|caption|label, muted?, align:start|center|end}；" +
-  "button{label, variant:primary|secondary|ghost|danger, full?, size:sm|md|lg, radius:none|sm|md|lg|full}；input{placeholder?, label?, value?, multiline?}；" +
-  "image{alt, ratio:square|video|wide|portrait}；list{items:[..], leading:none|dot|check|avatar}；divider{}；" +
+  "button{label, icon?, variant:primary|secondary|ghost|danger, full?, size:sm|md|lg, radius:none|sm|md|lg|full}；input{placeholder?, label?, value?, multiline?}；" +
+  "image{alt, kind:photo|illustration|avatar|map|chart|logo|video, ratio:square|video|wide|portrait, src?（只由用户上传，你不要写；给你看的树里已经摘掉）}；" +
+  "list{items:[..], detail?:[..副标题，与 items 逐位对应], trailing?:[..右侧值，与 items 逐位对应], leading:none|dot|check|avatar|icon, icons?:[..每行图标]}；divider{}；" +
   "spacer{size:none|sm|md|lg}；tabs{items:[..], active?}；badge{label, tone:neutral|info|success|warning|danger}；avatar{name, size:sm|md|lg}；" +
-  "bottomnav{items:[2–6 项], active?}（放页面最底部）；switch{label, on?}；checkbox{label, checked?}；chip{label, selected?}（常放 row stack 里）；" +
+  "bottomnav{items:[2–6 项], icons?:[与 items 逐位对应], active?}（放页面最底部）；switch{label, on?}；checkbox{label, checked?}；chip{label, selected?}（常放 row stack 里）；" +
   "progress{value:0–100, label?}；stat{label, value, delta?, tone:neutral|success|danger}（KPI 卡）；hero{title, subtitle?, cta?}（头图区）；" +
-  "grid{columns:2|3, gap:none|sm|md|lg}（有 children 的网格容器，放 stat/card 等）。" +
+  "grid{columns:2|3, gap:none|sm|md|lg}（有 children 的网格容器，放 stat/card 等）；" +
+  // 对标 R3（#3933）：看板/报表的另一半。不教模型用它们，它只会退回 image(kind:chart) 那个灰块。
+  `table{columns:[表头], rows:[[一行的格子,..],..], striped?}（订单、成员这类明细，≤ ${PROTOTYPE_TABLE_MAX_COLUMNS} 列 × ${PROTOTYPE_TABLE_MAX_ROWS} 行，写真实的样例数据）；` +
+  `chart{kind:bar|line, title?, labels:[横轴], values:[与 labels 逐位对应的数], unit?}（趋势用 line、对比用 bar，≤ ${PROTOTYPE_CHART_MAX_POINTS} 个点；数值要像真的，不要全是整十）；` +
+  // 对标 R4（#3933）：表单与确认流程的最后几块。
+  "select{label?, options:[..], value?, placeholder?}（从几项里选一个：城市、类别）；radio{label?, options:[2–8 项], selected?}（互斥的少数几项：性别、配送方式）；" +
+  "overlay{kind:modal|sheet|toast, title?}（有 children 的叠层，盖在整屏上带遮罩：二次确认用 modal、从底部选东西用 sheet、操作结果提示用 toast；" +
+  "放在页根的最后一个孩子；「弹窗打开时的样子」单独做一页，别和正常态挤在一页）；" +
+  // 对标 R5（#3933）：官网 / 落地页。不教的话「官网首页」会被画成一张很长的 App 屏。
+  "section{tone:default|muted|primary|inverse, padding:none|sm|md|lg, align:start|center}（通栏分区容器，落地页由若干 section 上下叠成，相邻两区换底色做节奏；此时页根 stack 的 padding 设 none）；" +
+  "footer{brand, links?:[..], note?}（官网页脚，放页根最后）。" +
+  // 迭代 16（#3773 R4）：图标是闭集，写在这里让模型知道它能用哪些——
+  // 不列出来，模型要么不用（全文字界面，一眼是线框图），要么编一个渲染不了的名字。
+  PROTOTYPE_ICON_ROSTER +
+  "什么时候用图标：底部导航**每一项都要给**（不给会按标签名猜，猜不到就是一个中性图标）；" +
+  "列表行在能一眼分辨类别时用（leading:\"icon\" + icons）；按钮只在动作有公认图标时用（加号、搜索、分享），" +
+  "不要每个按钮都挂一个——那是装饰不是信息。" +
+  "列表行尽量写成真实的三段式：items 是主标题，detail 是那一行的补充（「三件商品」「刚刚」），" +
+  "trailing 是右侧的值（金额、时间、数量）。只有一列字的列表比真实界面薄一截。" +
   `每页根节点通常是 stack(column)。每页 ≤ ${PROTOTYPE_MAX_NODES} 节点、深度 ≤ ${PROTOTYPE_MAX_DEPTH}，不要给出这里没有的 type 或 props。` +
   `每页可带 notes（≤ ${PROTOTYPE_NOTES_MAX} 字）：这页做什么、主要交互、空态/加载/错误怎么处理——给工程看的交互说明，会进设计文档。` +
   // 迭代 11：不教模型连线，"可点击原型"就只剩人手一条条连——那正是人类要的相反面。
@@ -802,3 +1155,43 @@ export const PROTOTYPE_SCHEMA_GUIDE =
   "to 是**页序号**（0 起，按你给出的页顺序），不是页标签。" +
   "想连线就**自己给那个节点写 id**——id 允许你写，不写的由服务端补，那样你就指不到它。" +
   "指向不存在的页、自己指自己、指向本页没有的节点：那一条会被丢掉，其余照常生效，不影响这一页。";
+
+/* ───────────── 深度 S10（#3988）：上传的图不进模型、模型写回不丢图 ───────────── */
+
+function mapImages(n: PrototypeNode, f: (img: Extract<PrototypeNode, { type: "image" }>) => PrototypeNode): PrototypeNode {
+  if (n.type === "image") return f(n);
+  if (isPrototypeContainer(n)) return { ...n, children: n.children.map((c) => mapImages(c, f)) } as PrototypeNode;
+  return n;
+}
+
+/** 摘掉每个 image 的 `src`（发给模型之前）。没有图的树原样返回同一个对象。 */
+export function withoutImageSources<T extends PrototypeNode | null>(root: T): T {
+  if (root === null || !JSON.stringify(root).includes('"src"')) return root;
+  return mapImages(root, (img) => {
+    if (img.props.src === undefined) return img;
+    const { src: _src, ...props } = img.props;
+    return { ...img, props };
+  }) as T;
+}
+
+/**
+ * 模型写回之后按**节点 id** 补回图：新树里同 id 的 image 没带 `src`、旧树里它有 ⇒ 补上。
+ * 模型删掉了那个节点 / 换了 id ⇒ 图跟着节点走了，不硬塞回别处。
+ */
+export function restoreImageSources<T extends PrototypeNode | null | undefined>(
+  previous: readonly (PrototypeNode | null)[],
+  next: T,
+): T {
+  if (next === null || next === undefined) return next;
+  const srcById = new Map<string, string>();
+  const collect = (n: PrototypeNode): void => {
+    if (n.type === "image" && n.id !== undefined && n.props.src !== undefined) srcById.set(n.id, n.props.src);
+    if (isPrototypeContainer(n)) n.children.forEach(collect);
+  };
+  for (const r of previous) if (r !== null) collect(r);
+  if (srcById.size === 0) return next;
+  return mapImages(next, (img) => {
+    const src = img.id === undefined ? undefined : srcById.get(img.id);
+    return src === undefined || img.props.src !== undefined ? img : { ...img, props: { ...img.props, src } };
+  }) as T;
+}

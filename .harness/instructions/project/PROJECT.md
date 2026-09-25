@@ -27,14 +27,32 @@ env/secret 变更必须与部署原子（同 PR 或先加后删）。
 | 2024 | `open_deep_research` 容器（deep-research agent 上游，先占用） | 该容器自身的 run 配置 |
 | 2025 | `workspacex-deep-agent` 容器宿主侧（deep-agent-service，容器内 2024） | `/opt/workspacex/deploy.env` 的 `KERNEL_DEEP_AGENT_BASE_URL`（deploy.sh 第 4h 步由 `deep_agent_resolve_host_port` 反解端口，唯一声明处） |
 
-## 协调服务（可选——未配置时全套退化为单 agent 模式，依然可用）
-- 基址：`<https://….workers.dev，或留空>`（环境变量 `COORD_SERVICE_URL`）
+## 协调服务 coord-gateway（未接线时协调类命令 fail-closed 报错，不静默降级）
+- 基址：`<https://….workers.dev，或留空>`（`COORD_GATEWAY_URL`；配套 `COORD_API_TOKEN`
+  + `COORD_REPO`。接线命令与自检见 `.harness/instructions/agent-bootstrap.md` 第 3 步）
 - 协议契约见 `docs/coordination-protocol.md`；客户端在 `packages/coord-protocol`
-- 未接线时：`pnpm harness tick` 会明确提示"只读时钟模式/跳过租约"，不静默假装
+- 未接线时：`pnpm harness tick` / `pnpm harness cycle-report` 明确报错并非零退出——
+  问不到权威就不出报告，不按本地时钟硬猜（issue #381）
+- 旧 coord-service 的 `COORD_SERVICE_URL`/`COORD_SERVICE_TOKEN` 已退役（ADR-017），
+  配了也不会被读取
 
 ## 凭据（只列路径，值永不入 git/聊天/issue）
 - 本机缓存目录：`.harness/state/.cache/`（已 gitignore）
 - CI：repo secrets `<清单>`
+
+## 词汇单一事实源（2026-09-23 定）
+
+同一事实不得声明在两处——名字也一样。下面两组各自只有一个正确叫法，
+由 `.harness/scripts/lint-vocabulary.mjs` 机械核对。
+
+| 用这个 | 指什么 | 不要混的 |
+|---|---|---|
+| **技能包** | 商业与分发单元。仓库既有词汇：`ensure-standard-skill-packs.ts`、`skills/`、`SKILL.md`、`capability_id`、`skill-sandbox` | **MAAU 画布**（`maau-canvas`，WX-S021）是设计方法，不是分发单元，保留原名 |
+| **平台大脑** | 平台层面的记忆：跨所有客户实例的运行事实，加上工作、创新与学习的全部积累（ADR、sprint 历史、方法论、经验、GTM 与案例知识）。不卖、不交付。此前叫团队记忆（范围说小了） | **组织大脑**是产品概念（`brain-promotion`、`batchConfirmAndWriteBackToBrain`），指客户把产出物沉淀进本组织知识库 |
+
+代码标识符（`@repo/maau-*`、`capability_id`、目录名）**允许滞后**——
+标识符不是叫法，改它波及 40 个代码文件，要改另开 issue。
+迭代记录（`*-iterations*.md`）是逐轮追加的历史，**整份豁免**：它记录当时说了什么，改写它等于抹痕迹。
 
 ## 模块清单（对应 .agents/skills/mod-*）
 mod-chat（聊天/对话） / mod-agent-skill-runtime（Agent/Skill 运行时与契约） /

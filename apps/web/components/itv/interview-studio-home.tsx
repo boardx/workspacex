@@ -221,7 +221,7 @@ function TabButton({ active, testId, onClick, children }: {
       onClick={onClick}
       className={cn("-mb-px border-b-2 px-1 pb-4 text-sm transition-colors", active
         ? "border-background-foreground font-semibold text-background-foreground"
-        : "border-transparent text-muted-foreground hover:text-foreground")}
+        : "border-transparent text-muted-foreground hover:text-background-foreground")}
     >{children}</button>
   );
 }
@@ -236,7 +236,7 @@ function FilterButton({ active, onClick, children }: {
   return (
     <button type="button" onClick={onClick} className={cn(
       "h-7 rounded-md border px-2.5 text-12 font-medium transition-colors",
-      active ? "border-primary bg-primary text-primary-foreground" : "border-border bg-background text-muted-foreground hover:text-foreground",
+      active ? "border-primary bg-primary text-primary-foreground" : "border-border bg-background text-muted-foreground hover:text-background-foreground",
     )}>{children}</button>
   );
 }
@@ -294,9 +294,9 @@ function ExpertContent({ state, preview = false }: { state: LoadState<DigitalExp
               <p className="mt-1 text-xs text-muted-foreground">{expert.role}</p>
             </div>
           </div>
-          <div className="mt-5 rounded-lg bg-muted/60 p-3 text-xs text-muted-foreground">
+          {expert.materialContextPackId && <div className="mt-5 rounded-lg bg-muted/60 p-3 text-xs text-muted-foreground">
             <span className="font-medium text-background-foreground">材料边界：</span>{expert.materialBoundary}
-          </div>
+          </div>}
           <div className="mt-5 flex items-center gap-3">
             <Link data-testid={`itv-quick-${expert.expertId}`} href={`/itv/quick/new?expertId=${encodeURIComponent(expert.expertId)}`} className="inline-flex h-9 items-center rounded-lg bg-primary px-4 text-xs font-medium text-primary-foreground shadow-sm transition-colors hover:bg-primary/90">
               快捷访谈

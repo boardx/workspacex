@@ -5,6 +5,7 @@ import { Package, RefreshCw } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ChatPanelSkeleton } from "@/components/chat/chat-panel-skeleton";
+import { stripCanvasFenceIdentity } from "@/lib/canvas/canvas-fence-identity";
 import type { ListThreadArtifactsOut } from "@/lib/live-chat";
 
 /**
@@ -44,7 +45,7 @@ export function ChatArtifactsPanel({
     <div className="flex flex-col" data-testid="chat-artifacts-panel">
       <div className="flex items-center gap-2 border-b border-border-subtle p-3">
         <Package aria-hidden className="h-4 w-4 text-muted-foreground" />
-        <h2 className="text-12 font-medium" data-testid="chat-task-workbench-artifact-preview">产物预览{artifacts ? `（${artifacts.items.length}）` : ""}</h2>
+        <h2 className="text-12 font-medium" data-testid="chat-artifacts-panel-title">产物预览{artifacts ? `（${artifacts.items.length}）` : ""}</h2>
       </div>
       {/* 未选线程与加载中是互斥状态，同一时刻只显一态（UI 评分 b10-entry 截图：两态并存）。
           文案不带「真实」——那是区别于 mock 的开发者词汇，不该出现在用户可见文案里。 */}
@@ -68,7 +69,7 @@ export function ChatArtifactsPanel({
         </div>
       ) : null}
       {artifacts ? (
-        <div className="flex flex-col gap-2 p-3" data-testid="chat-task-workbench-artifact-sources">
+        <div className="flex flex-col gap-2 p-3" data-testid="chat-artifacts-list">
           {artifacts.items.length === 0 ? (
             <p className="text-12 text-muted-foreground" data-testid="chat-artifacts-empty">
               这条线程还没有落地的产物。
@@ -78,7 +79,11 @@ export function ChatArtifactsPanel({
             const body = (
               <>
                 <div className="flex items-center justify-between gap-2">
-                  <p className="min-w-0 flex-1 truncate text-11 font-medium">{item.title}</p>
+                  {/* 画布落地标题末尾带一段围栏身份（issue #3252）——那是读回归属用的
+                      内部关联键，不该出现在用户看的产物清单里。非画布产物原样显示。 */}
+                  <p className="min-w-0 flex-1 truncate text-11 font-medium">
+                    {stripCanvasFenceIdentity(item.title)}
+                  </p>
                   <Badge tone={item.mode === "pinned" ? "primary" : "neutral"}>{ARTIFACT_MODE_TEXT[item.mode]}</Badge>
                 </div>
                 <p className="mt-1 text-10 text-muted-foreground">

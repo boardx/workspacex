@@ -68,6 +68,7 @@ from typing_extensions import NotRequired
 from deepagents import FilesystemMiddleware, RubricMiddleware
 from deepagents.middleware.rubric import RubricState
 from deepagents.backends.protocol import BackendProtocol
+from deep_agent_service.tool_budget import ToolBudgetMiddleware, excluded_tool_names
 
 # DA-08（#1749，rubric D8②）：单个工具输出超过这个 token 数就驱逐到虚拟文件系统，
 # 正文只留文件引用（实测行为：ToolMessage 被替换为
@@ -1277,6 +1278,11 @@ def build_middleware(model: BaseChatModel, *, backend: BackendProtocol | None = 
         # DA-09（#2051，D7③退出前自检）：放在最后——它的 after_agent 是「本来要
         # 结束时」的最后一道拦截，语义上就属于队尾。
         *build_precompletion_middleware(model),
+        # LAST on purpose: every tool-injecting middleware above has already run, so this
+        # sees the full set the model would be shown (#3749 R1). Unset env ⇒ not appended.
+        # Mounted whenever the deployment excludes tools OR the caller may exclude them per
+        # run (`configurable.excluded_tools`); a request with neither passes through untouched.
+        ToolBudgetMiddleware(excluded=excluded_tool_names()),
     ]
 
 

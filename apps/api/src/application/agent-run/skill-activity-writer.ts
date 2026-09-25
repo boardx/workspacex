@@ -17,6 +17,33 @@ export function createSkillActivityWriter(
 }
 
 /**
+ * 2026-09-22 —— 写一条**缺页标记**（`skill_activity_gap`）。
+ *
+ * 与 `createSkillActivityWriter` 的纪律相反：那条写不进去要抛（事实丢了就是账本缺页，
+ * 而那正是它要证明的东西）；这条**本身就是**「有东西没收到」的记录，为它再失败一次只会
+ * 把一条本来被救回来的 run 重新判死。所以吞掉写失败并 log。
+ */
+export function createSkillActivityGapWriter(
+  store: Pick<AgentRunStore, "appendExecutionEvent">,
+  orgId: OrgId,
+  runId: string,
+  attemptId: string,
+  log: (message: string, fields: Record<string, unknown>) => void,
+): (note: string) => Promise<void> {
+  return async note => {
+    try {
+      await store.appendExecutionEvent?.(orgId, runId, { kind: "skill_activity_gap", attemptId, note });
+      log("skill activity gap recorded", { runId, code: "SKILL_ACTIVITY_GAP" });
+    } catch (error) {
+      log("skill activity gap append failed", {
+        runId, code: "SKILL_ACTIVITY_GAP_APPEND_FAILED",
+        detail: error instanceof Error ? error.message : String(error),
+      });
+    }
+  };
+}
+
+/**
  * issue #3322 —— 把 kernel 报上来的一条工具内进展写进账本。
  *
  * ## `toolCallId` 必须用**账本自己的命名**，不是 kernel 给的那个

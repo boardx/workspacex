@@ -1,0 +1,14 @@
+[
+  {
+    "body": "cycle-plan cycle:2026-08-04T21Z by:coord-chat-e2e\ncommit: 继续 F32；回归 lane 收敛\nhotspot: 无",
+    "createdAt": "2026-08-04T21:04:38Z"
+  },
+  {
+    "body": "cycle-result cycle:2026-08-04T21:00Z by:coord-chat-e2e\ndone: F32 的 spec 合入（PR #530）\nmiss: 回归 lane 没收敛完\nflow: 2.1h\n\ncycle-plan cycle:2026-08-05T00Z by:coord-chat-e2e\ncommit: 收敛回归 lane",
+    "createdAt": "2026-08-05T00:03:12Z"
+  },
+  {
+    "body": "cycle-result cycle:2026-08-04T21Z by:coord-architecture\ndone: ADR-023 的一致性复核\nmiss: 无\nflow: 0.8h",
+    "createdAt": "2026-08-04T23:55:20Z"
+  }
+]

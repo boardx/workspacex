@@ -2,9 +2,9 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Replace the survey production-path mock with a persistent, organization-scoped state machine and server-enforced publish gate, then prove both blocked and successful publication in a real browser before opening a PR to `main`.
+**Goal:** Migrate the existing persistent, organization-scoped survey runtime to an explicit four-state publishing model with a server-enforced publish gate, then prove both blocked and successful publication in a real browser before opening a PR to `main`.
 
-**Architecture:** Extend the existing survey contract, add a pure domain state machine and publish-gate evaluator, orchestrate them through application ports, persist with the repository's PostgreSQL adapter pattern, expose Nest controllers, and consume the resulting API from the existing five-step survey UI. Test fixtures may retain the mock builder, but production routes must load and mutate the service-owned aggregate.
+**Architecture:** Extend, rather than replace, the live stack already formed by `survey-runtime.ts`, `SurveyService`, `PgSurveyRepository`, `SurveyController`, `survey_workspaces`, `LiveSurveyWorkspace`, and `survey-complete-flow.spec.ts`. Add a pure transition/gate layer underneath the existing service; migrate the JSON aggregate and HTTP commands without losing publication tokens, responses, attachments, reports, or templates. The existing controller, repository, live workspace, and end-to-end journey remain the integration points and regression anchors.
 
 **Tech Stack:** TypeScript, Zod, NestJS, PostgreSQL migrations, React 18, Next.js 14, Vitest, Testing Library, Playwright.
 
@@ -13,8 +13,9 @@
 ## Global Constraints
 
 - Do not begin product-code implementation until the Phase 09 Survey bundle has human-confirmed UI, use-case, and API-contract signoff and phase coherence passes.
-- Reuse `packages/contracts/src/survey.ts`, the existing principal/org boundary, `apps/web/lib/api-client.ts`, and the existing five-step route.
+- Reuse `packages/contracts/src/survey-runtime.ts`, `apps/api/src/application/survey/survey-service.ts`, `apps/api/src/infrastructure/survey/pg-survey-repository.ts`, the existing principal/org boundary, `apps/web/lib/survey/runtime-client.ts`, and the existing five-step live workspace.
 - Do not create a second survey, identity, authorization, or artifact model.
+- Preserve current publication tokens, submissions, attachment claims, reports, report provenance, and template-library behavior throughout the migration.
 - `draft | ready | collecting | closed` is the only status set; `ready → draft` is the only backward transition.
 - `anonymity` is immutable after creation; `status` is never writable through generic PATCH.
 - Publish validation returns all blockers in stable order and applies to direct HTTP requests.
@@ -33,16 +34,16 @@
 
 ---
 
-### Task 1: Lock the shared survey contract
+### Task 1: Extend the live survey runtime contract
 
 **Files:**
-- Modify: `packages/contracts/src/survey.ts`
-- Modify: `packages/contracts/src/index.ts`
-- Create: `packages/contracts/tests/survey.test.ts`
+- Modify: `packages/contracts/src/survey-runtime.ts`
+- Modify: `packages/contracts/src/survey.ts` only for shared blocker/status value objects
+- Modify: `packages/contracts/tests/survey.test.ts`
 
 **Interfaces:**
-- Consumes: existing `SurveyWorkflowQuestionSchema`, `SurveyReportSectionSchema`, and `SurveyWorkflowSchema`.
-- Produces: `SurveyAnonymitySchema`, `SurveyVersionSchema`, `SurveyPublishBlockerSchema`, `SurveyCommandResultSchema`, and `survey.operations` request/response schemas.
+- Consumes: existing `SurveyDraftInputSchema`, `SurveySaveInputSchema`, `SurveyRuntimeSchema`, publication snapshot, responses, report provenance, and question/report schemas.
+- Produces: additive status, anonymity, blocker, and command-envelope schemas that parse old persisted JSON with explicit defaults while retaining every existing runtime field.
 
 - [ ] **Step 1: Write failing contract tests**
 
@@ -51,10 +52,13 @@ import { describe, expect, it } from "vitest";
 import { survey } from "../src";
 
 describe("survey publishing contract", () => {
-  it("rejects status and anonymity in generic patch", () => {
-    expect(survey.operations.updateSurvey.in.safeParse({
-      surveyId: "sv-1", expectedVersion: 1, status: "ready", anonymity: "identified",
-    }).success).toBe(false);
+  it("retains forbidden save fields for the application conflict check", () => {
+    const parsed = SurveySaveCommandSchema.parse({
+      expectedVersion: 1,
+      draft: validDraft,
+      anonymity: "identified",
+    });
+    expect(parsed.anonymity).toBe("identified");
   });
 
   it("accepts structured blockers with stable identities", () => {
@@ -71,11 +75,11 @@ describe("survey publishing contract", () => {
 
 Run: `pnpm --filter @repo/contracts exec vitest run tests/survey.test.ts`
 
-Expected: FAIL because the command schemas and `operations` do not exist.
+Expected: FAIL because the additive status, anonymity, blocker, and command-envelope schemas do not exist.
 
 - [ ] **Step 3: Add strict schemas and operation metadata**
 
-Implement strict Zod schemas for creation, read, editable draft content, prepare, withdraw, start-collection, and close. Command requests include `surveyId` and `expectedVersion`; command responses include the current survey projection, numeric version, and blockers. Keep error and blocker codes as enums, not free text.
+Implement additive Zod schemas for creation, read, editable draft content, prepare, withdraw, start-collection, and close. Keep `SurveyDraftInputSchema` compatible with the existing editor, introduce a create envelope that fixes anonymity once, and define a save transport envelope that explicitly retains optional forbidden `anonymity`/`status` keys so the application layer can return the promised `409` instead of having the parser erase them or convert them into an unrelated `400`. Command responses include the complete existing runtime projection plus blockers. Keep error and blocker codes as enums, not free text.
 
 ```ts
 export const SurveyAnonymitySchema = z.enum(["anonymous", "identified"]);
@@ -99,7 +103,7 @@ Expected: PASS.
 - [ ] **Step 5: Commit the contract slice**
 
 ```bash
-git add packages/contracts/src/survey.ts packages/contracts/src/index.ts packages/contracts/tests/survey.test.ts
+git add packages/contracts/src/survey-runtime.ts packages/contracts/src/survey.ts packages/contracts/tests/survey.test.ts
 git commit -m "feat(survey): define trusted publishing contract"
 ```
 
@@ -154,78 +158,76 @@ git add apps/api/src/domain/survey apps/api/tests/survey/state-machine-four.test
 git commit -m "feat(survey): enforce publishing state machine"
 ```
 
-### Task 3: Persist organization-scoped surveys with optimistic concurrency
+### Task 3: Migrate the existing organization-scoped aggregate
 
 **Files:**
-- Create: `apps/api/migrations/20260924090000_survey_publishing_foundation.sql`
-- Create: `apps/api/src/application/survey/ports.ts`
-- Create: `apps/api/src/infrastructure/survey/pg-survey-repository.ts`
-- Create: `apps/api/tests/support/survey-db.ts`
+- Modify: `apps/api/migrations/20260920010000_survey_workspaces.sql` only if a forward-compatible database constraint can be added safely; otherwise add one new forward migration
+- Modify: `apps/api/src/application/survey/survey-service.ts`
+- Modify: `apps/api/src/infrastructure/survey/pg-survey-repository.ts`
+- Modify: `apps/api/tests/survey/survey-persistence.test.ts`
+- Modify: `apps/api/tests/survey/survey-runtime.test.ts`
 - Create: `apps/api/tests/survey/survey-repository-concurrency.test.ts`
 
 **Interfaces:**
-- Consumes: `StoredSurvey`, `SurveyRepository`, `UpdateSurveyCommand` declared in `ports.ts`; `DATABASE_PORT` tenant sessions.
-- Produces: `SURVEY_REPOSITORY`, `PgSurveyRepository.create`, `findVisibleById`, `updateDraft`, and `transition` with expected-version checks.
+- Consumes: the existing `SurveyRecord`, `SurveyRepository`, `SurveyService.change`, `survey_workspaces.document`, publication token/snapshot, receipts, responses, reports, and attachment transaction hook.
+- Produces: backward-compatible aggregate hydration plus compare-and-swap state transitions inside the existing `transact` boundary; no parallel repository or table.
 
 - [ ] **Step 1: Write failing repository integration tests**
 
-Cover creation at version 1, tenant isolation, compare-and-swap transition, stale version rejection, and duplicate delivery. Assert the database row remains unchanged after every rejected update.
+Pin the existing persistence behavior first: creation at version 1, owner and tenant isolation, publication token/snapshot retention, responses/receipts/report retention, attachment claim support, and current save/publish/close flows. Then add compare-and-swap transition, stale version rejection, legacy-document hydration, and duplicate delivery cases. Assert the complete JSON document remains unchanged after every rejected update.
 
 ```ts
-await repo.transition({ orgId, surveyId, expectedVersion: 1, from: "draft", to: "ready" });
-await expect(repo.transition({ orgId, surveyId, expectedVersion: 1, from: "draft", to: "ready" }))
-  .rejects.toThrow(SurveyVersionConflictError);
-expect((await repo.findVisibleById(orgId, actorId, surveyId))?.version).toBe(2);
+await service.prepare(orgId, actorId, surveyId, 1);
+await expect(service.prepare(orgId, actorId, surveyId, 1))
+  .rejects.toMatchObject({ code: "version_conflict" });
+expect((await service.get(orgId, actorId, surveyId)).version).toBe(2);
 ```
 
 - [ ] **Step 2: Run repository tests and confirm RED**
 
 Run: `pnpm --filter api exec vitest run tests/survey/survey-repository-concurrency.test.ts`
 
-Expected: FAIL because the migration and repository are absent.
+Expected: existing persistence regressions PASS; the new concurrency/migration assertions FAIL because the four-state fields and transition path are absent.
 
-- [ ] **Step 3: Add the migration and ports**
+- [ ] **Step 3: Add an additive aggregate migration**
 
-Create organization-scoped survey and content storage with database checks for status/anonymity, a positive version, timestamps, and indexes beginning with `organization_id`. Do not add response tables.
+Keep `survey_workspaces` as the only aggregate table. Add a forward migration only for constraints/indexes that cannot live safely in the JSON schema. Hydrate legacy documents that have `publication: null` as `draft` and published documents as `collecting` or `closed`; add default anonymity without deleting any existing field. Do not add replacement response, attachment, report, or template tables.
 
-- [ ] **Step 4: Implement the PostgreSQL adapter**
+- [ ] **Step 4: Extend the existing service/repository transaction**
 
-Use `db.withTenant(orgId, ...)`. Updates include organization, survey ID, expected version, and expected status in the SQL predicate. Distinguish not-visible from version conflict without exposing another tenant's row.
+Continue using `db.withTenant(orgId, ...)` and the existing row lock in `PgSurveyRepository.transact`. Perform the gate and transition against the locked `SurveyRecord`, retain the complete document, and write once only when it changes. Owner/tenant invisibility must keep returning the same `not_found`; stale versions return `version_conflict` without disclosing another tenant's row.
 
 - [ ] **Step 5: Run migration, repository tests, and migration checks**
 
-Run: `pnpm --filter api migrate:check && pnpm --filter api exec vitest run tests/survey/survey-repository-concurrency.test.ts`
+Run: `pnpm --filter api migrate:check && pnpm --filter api exec vitest run tests/survey/survey-persistence.test.ts tests/survey/survey-runtime.test.ts tests/survey/survey-repository-concurrency.test.ts`
 
 Expected: PASS.
 
 - [ ] **Step 6: Commit the persistence slice**
 
 ```bash
-git add apps/api/migrations apps/api/src/application/survey/ports.ts apps/api/src/infrastructure/survey apps/api/tests/support/survey-db.ts apps/api/tests/survey/survey-repository-concurrency.test.ts
-git commit -m "feat(survey): persist versioned publishing state"
+git add apps/api/migrations apps/api/src/application/survey/survey-service.ts apps/api/src/infrastructure/survey/pg-survey-repository.ts apps/api/tests/survey
+git commit -m "feat(survey): migrate live aggregate publishing state"
 ```
 
-### Task 4: Expose server-enforced survey commands
+### Task 4: Extend the existing server-enforced survey commands
 
 **Files:**
-- Create: `apps/api/src/application/survey/errors.ts`
-- Create: `apps/api/src/application/survey/create-survey.ts`
-- Create: `apps/api/src/application/survey/get-survey.ts`
-- Create: `apps/api/src/application/survey/update-survey.ts`
-- Create: `apps/api/src/application/survey/prepare-survey.ts`
-- Create: `apps/api/src/application/survey/transition-survey.ts`
-- Create: `apps/api/src/interface/controllers/survey.controller.ts`
-- Modify: `apps/api/src/kernel.module.ts`
+- Modify: `apps/api/src/application/survey/survey-service.ts`
+- Modify: `apps/api/src/interface/controllers/survey.controller.ts`
+- Modify: `apps/api/src/kernel.module.ts` only if an additional existing binding is required
+- Modify: `apps/api/tests/survey/survey-http.test.ts`
+- Modify: `apps/api/tests/survey/survey-runtime.test.ts`
 - Create: `apps/api/tests/survey/anonymity-immutable.test.ts`
 - Create: `apps/api/tests/survey/publish-gate-server-enforced.test.ts`
 
 **Interfaces:**
-- Consumes: `SurveyRepository`, domain transition/gate functions, current `Principal`, and contract operations.
-- Produces: authenticated HTTP operations under `/surveys` with stable 400/404/409/422/500 semantics.
+- Consumes: the existing `SurveyService`, `SurveyRepository`, domain transition/gate functions, `CurrentPrincipal`, and live `/surveys` controller.
+- Produces: additive authenticated commands under `/surveys` with stable 400/404/409/422/500 semantics while preserving create/get/save/delete/publish/close/review/report and public submission routes.
 
 - [ ] **Step 1: Write failing HTTP tests for anonymity and enumeration safety**
 
-Send both anonymity-direction PATCH attempts and assert `409 ANONYMITY_IMMUTABLE`. Request another organization's survey and a random ID, and assert status and response bytes are identical.
+Send both anonymity-direction save attempts and assert `409 ANONYMITY_IMMUTABLE`. The transport schema must retain `anonymity` through parsing, and `SurveyService` must reject it before mutation. Request another organization's survey and a random ID, and assert status and response bytes are identical. Keep the existing HTTP suite green to pin every pre-F04 route.
 
 - [ ] **Step 2: Write failing direct-publish tests**
 
@@ -235,79 +237,79 @@ Call `POST /surveys/:id/prepare` without visiting the UI. Assert multiple blocke
 
 Run: `pnpm --filter api exec vitest run tests/survey/state-machine-four.test.ts tests/survey/anonymity-immutable.test.ts tests/survey/publish-gate-server-enforced.test.ts`
 
-Expected: FAIL at missing application/controller wiring.
+Expected: existing survey HTTP/runtime regressions PASS; the new assertions FAIL because the existing service/controller do not yet expose prepare/withdraw or immutable-anonymity conflict semantics.
 
 - [ ] **Step 4: Implement application use cases**
 
-Keep business rules out of the controller. `prepareSurvey` loads the aggregate in a tenant transaction, evaluates all blockers, and performs compare-and-swap only when empty. Generic update rejects the presence of `anonymity` or `status` before repository mutation.
+Keep business rules out of the controller. Extend `SurveyService` so prepare loads the existing aggregate in its tenant transaction, evaluates all blockers, and changes status only when empty. The controller parses a transport envelope that preserves optional forbidden `anonymity`/`status` keys; the service maps their presence to `ANONYMITY_IMMUTABLE`/`STATUS_COMMAND_REQUIRED` before repository mutation. Do not make the Zod layer reject or strip those keys if the promised HTTP result is `409`.
 
 - [ ] **Step 5: Implement the controller and composition-root wiring**
 
-Validate bodies with contract schemas and `ZodBodyPipe`; derive org/user from `CurrentPrincipal`; map typed errors centrally. Register `SurveyController` and bind `SURVEY_REPOSITORY` to `PgSurveyRepository` in `kernel.module.ts`.
+Continue using the controller's existing contract parsing and `CurrentPrincipal` boundary; map new typed errors in the existing `run()` adapter. Extend the already-registered `SurveyController` and existing `SURVEY_REPOSITORY` binding—do not register a second controller, service, or repository.
 
 - [ ] **Step 6: Run API verification, typecheck, lint, and mutation checks**
 
-Run: `pnpm --filter api exec vitest run tests/survey/state-machine-four.test.ts tests/survey/anonymity-immutable.test.ts tests/survey/publish-gate-server-enforced.test.ts && pnpm --filter api typecheck && pnpm --filter api lint`
+Run: `pnpm --filter api exec vitest run tests/survey/survey-http.test.ts tests/survey/survey-runtime.test.ts tests/survey/state-machine-four.test.ts tests/survey/anonymity-immutable.test.ts tests/survey/publish-gate-server-enforced.test.ts && pnpm --filter api typecheck && pnpm --filter api lint`
 
 Expected: PASS. Then temporarily expect ready for a blocked request and confirm the test fails; restore and rerun.
 
 - [ ] **Step 7: Commit the HTTP slice**
 
 ```bash
-git add apps/api/src/application/survey apps/api/src/interface/controllers/survey.controller.ts apps/api/src/kernel.module.ts apps/api/tests/survey
+git add apps/api/src/application/survey/survey-service.ts apps/api/src/interface/controllers/survey.controller.ts apps/api/src/kernel.module.ts apps/api/tests/survey
 git commit -m "feat(survey): enforce publish gate over HTTP"
 ```
 
-### Task 5: Replace the production UI mock with the live survey API
+### Task 5: Migrate the existing live survey workspace
 
 **Files:**
-- Create: `apps/web/lib/survey/survey-api.ts`
-- Create: `apps/web/lib/survey/use-survey-workflow.ts`
-- Modify: `apps/web/components/survey/workflow/survey-workflow-shell.tsx`
-- Modify: `apps/web/components/survey/workflow/publish-recovery-step.tsx`
+- Modify: `apps/web/lib/survey/runtime-client.ts`
+- Modify: `apps/web/components/survey/live/survey-workspace.tsx`
 - Modify: `apps/web/app/studio/survey/[surveyId]/page.tsx`
 - Create: `apps/web/tests/ui/survey-live-publishing.test.tsx`
-- Modify: `apps/web/tests/ui/survey-workflow-shell.test.tsx`
+- Modify: `apps/web/tests/ui/survey-live-workspace.test.tsx`
+- Modify: `apps/web/e2e/survey-complete-flow.spec.ts`
 
 **Interfaces:**
-- Consumes: `apiRequest` from `apps/web/lib/api-client.ts` and the Task 1 operation schemas.
-- Produces: `getSurvey`, `updateSurvey`, `prepareSurvey`, `withdrawSurvey`, `startSurveyCollection`, `closeSurvey`, plus a hook exposing explicit loading/error/blocker/conflict states.
+- Consumes: the existing `surveyRequest`, `LiveSurveyWorkspace`, `SurveyRuntimeSchema`, and live create/save/publish/close/report/response flow.
+- Produces: additive prepare/withdraw/start-collection states and explicit loading/error/blocker/conflict rendering without replacing the current workspace or dropping its response/report/template behavior.
 
 - [ ] **Step 1: Write failing UI tests for real-client state**
 
-Mock the network boundary, not `createSurveyWorkflowMock()`. Assert initial loading, full blocker rendering after `422`, no optimistic ready badge, retryable system error after `500`, and ready state only after a successful parsed response.
+Extend `survey-live-workspace.test.tsx` and add focused publishing cases at the existing network boundary. Assert initial loading, all blockers after `422`, no optimistic ready badge, retryable system error after `500`, and ready state only after a successful parsed response. Pin the current save, publish link, response review, report, and unsaved-navigation behavior before changing the workspace.
 
 - [ ] **Step 2: Run UI tests and confirm RED**
 
 Run: `pnpm --filter web exec vitest run tests/ui/survey-live-publishing.test.tsx tests/ui/survey-workflow-shell.test.tsx`
 
-Expected: FAIL because the live client/hook do not exist.
+Expected: existing live-workspace regressions PASS; the new four-state publishing assertions FAIL because the live workspace does not yet expose prepare/withdraw/start-collection.
 
-- [ ] **Step 3: Implement the schema-validating API client**
+- [ ] **Step 3: Extend the schema-validating runtime client**
 
-Use `apiRequest` and parse every response with the corresponding contract output schema. Convert `422` into typed blockers, `409` into typed conflict, and all other failures into a retryable system error. Do not infer status locally.
+Extend `surveyRequest` and parse every response with the corresponding contract output schema. Convert `422` into typed blockers, `409` into typed conflict, and all other failures into a retryable system error. Preserve existing error behavior for public submissions and uploads. Do not infer status locally.
 
 - [ ] **Step 4: Integrate the hook and publish step**
 
-Production survey IDs load through the hook. Keep explicit fixture injection for unit tests and preview-only states. Render business blockers separately from system errors and preserve local editing on version conflict.
+Production survey IDs already load through `LiveSurveyWorkspace`; extend that component rather than routing to `SurveyWorkflowShell` or a new hook. Render business blockers separately from system errors, preserve local editing on version conflict, and keep the existing live responses/report/template path intact.
 
 - [ ] **Step 5: Run survey UI regression and design lint**
 
-Run: `pnpm --filter web exec vitest run tests/survey/survey-mock-structure.test.ts tests/ui/survey-app-shell.test.tsx tests/ui/survey-create-dialog.test.tsx tests/ui/survey-creation-draft.test.ts tests/ui/survey-resource-library.test.tsx tests/ui/survey-route-layout.test.tsx tests/ui/survey-template-editor-shell.test.tsx tests/ui/survey-workflow-model.test.ts tests/ui/survey-workflow-shell.test.tsx tests/ui/survey-live-publishing.test.tsx && pnpm --filter web typecheck && pnpm --filter web lint:design`
+Run: `pnpm --filter web exec vitest run tests/ui/survey-live-workspace.test.tsx tests/ui/survey-public-form.test.tsx tests/ui/survey-template-workspace-live.test.tsx tests/ui/survey-unsaved-navigation.test.tsx tests/ui/survey-live-publishing.test.tsx && pnpm --filter web typecheck && pnpm --filter web lint:design`
 
 Expected: PASS.
 
 - [ ] **Step 6: Commit the web slice**
 
 ```bash
-git add apps/web/lib/survey apps/web/components/survey/workflow apps/web/app/studio/survey apps/web/tests/ui
-git commit -m "feat(survey): connect publishing workflow to API"
+git add apps/web/lib/survey/runtime-client.ts apps/web/components/survey/live/survey-workspace.tsx apps/web/app/studio/survey apps/web/tests/ui apps/web/e2e/survey-complete-flow.spec.ts
+git commit -m "feat(survey): migrate live publishing workflow"
 ```
 
 ### Task 6: Prove the real user journey and prepare the PR
 
 **Files:**
-- Create: `apps/web/e2e/survey-trusted-publishing.spec.ts`
+- Modify: `apps/web/e2e/survey-complete-flow.spec.ts`
+- Create: `apps/web/e2e/survey-trusted-publishing.spec.ts` only if the focused blocked/ready journey cannot remain readable in the existing complete-flow spec
 - Create: `phases/phase-09-survey/sprints/sprint-01/evidence/F04-browser.png`
 - Modify: `phases/phase-09-survey/sprints/sprint-01/progress.md`
 - Modify: `phases/phase-09-survey/sprints/sprint-01/session-handoff.md`
@@ -319,7 +321,7 @@ git commit -m "feat(survey): connect publishing workflow to API"
 
 - [ ] **Step 1: Write the failing Playwright journey**
 
-The test creates an anonymous draft, opens the publish step, proves multiple blockers are visible and the status remains draft, repairs the question/section problems, prepares successfully, starts collection, reloads the page, and proves collecting persisted. It also attempts a direct HTTP anonymity change and expects rejection.
+First keep the existing `survey-complete-flow.spec.ts` journey green. Extend it, or add one focused companion spec, to create an anonymous draft, open the publish step, prove multiple blockers are visible and the status remains draft, repair the question/section problems, prepare successfully, start collection, reload, and prove collecting persisted. It also attempts a direct HTTP anonymity change and expects rejection.
 
 - [ ] **Step 2: Run the journey and confirm RED before the final integration is complete**
 
@@ -333,7 +335,7 @@ Use the repository's documented dev/full-stack commands and a task-owned compose
 
 - [ ] **Step 4: Run automated Playwright verification**
 
-Run: `pnpm --filter web exec playwright test e2e/survey-trusted-publishing.spec.ts --config playwright.fullstack-smoke.config.ts`
+Run: `pnpm --filter web exec playwright test e2e/survey-complete-flow.spec.ts e2e/survey-trusted-publishing.spec.ts --config playwright.fullstack-smoke.config.ts` (omit the companion path if the focused journey was folded into `survey-complete-flow.spec.ts`).
 
 Expected: PASS with trace/screenshot output showing both the blocked and successful publication states.
 

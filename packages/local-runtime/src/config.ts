@@ -12,6 +12,7 @@
  */
 import { randomBytes } from "node:crypto";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { arch, platform } from "node:os";
 import { join } from "node:path";
 
 export interface LocalPorts {
@@ -39,6 +40,61 @@ export const DEFAULT_ASR_MODEL = "sherpa-onnx-streaming-zipformer-bilingual-zh-e
 
 /** Ollama tag. Carries tools / vision / thinking; ~2.5-3 GB at Q4_K_M. */
 export const DEFAULT_CHAT_MODEL = "qwen3.5:4b";
+/** Bigger sibling picked automatically when the machine can carry it (#3749 B2.3). */
+export const UPGRADED_CHAT_MODEL = "qwen3.5:9b";
+export const CHAT_MODEL_UPGRADE_MIN_MEMORY_GB = 16;
+/** Meta tasks (thread title, follow-up suggestions, feedback structuring) run on this (#3749 B2.2). */
+export const DEFAULT_META_MODEL = "qwen3.5:2b";
+// NOTE: not bundled for Mac. On 16 GB it swaps in and out with the chat model (2 s each way,
+// measured), so `preferredMetaModel` only reaches for it at ≥24 GB; a machine that wants it
+// pulls it once. `fetch-models.sh MODELS=…` decides what ships.
+/** Below this the 2B and the chat model cannot both stay resident: every swap costs ~2 s (16 GB Mac, 2026-09-20). */
+export const META_MODEL_MIN_MEMORY_GB = 24;
+
+/**
+ * The small model only pays off when it stays loaded next to the chat model. Measured on a
+ * 16 GB Mac: follow-up on the 2B 3.3 s + a 2 s swap each way, on the already-loaded 4B 3.9-4.3 s
+ * with no swap -- so under 24 GB the meta tasks run on the chat model.
+ */
+export function preferredMetaModel(input: { readonly configured: string; readonly chatModel: string; readonly memoryGb: number; readonly present: readonly string[] }): string {
+  if (input.configured === input.chatModel) return input.chatModel;
+  if (input.memoryGb < META_MODEL_MIN_MEMORY_GB) return input.chatModel;
+  return input.present.includes(input.configured) ? input.configured : input.chatModel;
+}
+
+/**
+ * Which chat model to serve.
+ *
+ * Two independent preferences, applied in this order:
+ *
+ * 1. **Size**: the default 4B becomes the 9B when the machine has ≥16 GB and the 9B is
+ *    already in the store (never downloaded on the user's behalf; `fetch-models.sh MODELS=…`
+ *    decides what ships).
+ * 2. **Runner**: on Apple Silicon an `-mlx` build of the chosen model, when present, replaces
+ *    it. Measured 2026-09-22 on the same prompt, same machine, warm: first token 3 984 →
+ *    2 106 ms, generation unchanged at ~30 tok/s. Prefill dominates every local request, so
+ *    this is a real cut, and it costs nothing at generation time.
+ */
+export function preferredChatModel(input: {
+  readonly configured: string;
+  readonly memoryGb: number;
+  readonly present: readonly string[];
+  readonly appleSilicon?: boolean;
+}): string {
+  let chosen = input.configured;
+  if (chosen === DEFAULT_CHAT_MODEL && input.memoryGb >= CHAT_MODEL_UPGRADE_MIN_MEMORY_GB && input.present.includes(UPGRADED_CHAT_MODEL)) {
+    chosen = UPGRADED_CHAT_MODEL;
+  }
+  const appleSilicon = input.appleSilicon ?? (platform() === "darwin" && arch() === "arm64");
+  if (appleSilicon && !chosen.endsWith(MLX_SUFFIX)) {
+    const mlx = `${chosen}${MLX_SUFFIX}`;
+    if (input.present.includes(mlx)) return mlx;
+  }
+  return chosen;
+}
+
+/** Ollama tag suffix for the MLX runner build (Apple Silicon only). */
+export const MLX_SUFFIX = "-mlx";
 /** Ollama embedding model used by the deep-agent retrieval endpoints (`/v1/embeddings`). */
 export const DEFAULT_EMBEDDING_MODEL = "qwen3-embedding:0.6b";
 
@@ -65,6 +121,7 @@ export interface LocalConfig {
   readonly dataDir: string;
   readonly ports: LocalPorts;
   readonly chatModel: string;
+  readonly metaModel: string;
   readonly embeddingModel: string;
   readonly secrets: LocalSecrets;
 }
@@ -74,6 +131,7 @@ export interface ResolveOptions {
   readonly dataDir: string;
   readonly ports?: Partial<LocalPorts>;
   readonly chatModel?: string;
+  readonly metaModel?: string;
   readonly embeddingModel?: string;
 }
 
@@ -116,6 +174,7 @@ export function resolveLocalConfig(opts: ResolveOptions): LocalConfig {
     dataDir: opts.dataDir,
     ports: { ...DEFAULT_PORTS, ...(opts.ports ?? {}) },
     chatModel: opts.chatModel ?? DEFAULT_CHAT_MODEL,
+    metaModel: opts.metaModel ?? DEFAULT_META_MODEL,
     embeddingModel: opts.embeddingModel ?? DEFAULT_EMBEDDING_MODEL,
     secrets: loadOrCreateSecrets(opts.dataDir),
   };
@@ -123,17 +182,21 @@ export function resolveLocalConfig(opts: ResolveOptions): LocalConfig {
 
 type Env = Record<string, string>;
 
+type PathsOf = Pick<LocalConfig, "repoRoot" | "dataDir">;
+
 export const paths = {
-  pgData: (c: LocalConfig) => join(c.dataDir, "pgdata"),
-  objects: (c: LocalConfig) => join(c.dataDir, "objects"),
-  sessions: (c: LocalConfig) => join(c.dataDir, "sessions.json"),
-  models: (c: LocalConfig) => join(c.dataDir, "models"),
-  logs: (c: LocalConfig) => join(c.dataDir, "logs"),
-  sandboxIn: (c: LocalConfig) => join(c.dataDir, "sandbox", "in"),
-  sandboxOut: (c: LocalConfig) => join(c.dataDir, "sandbox", "out"),
-  seedState: (c: LocalConfig) => join(c.dataDir, "seed-state.json"),
-  deepAgentVenv: (c: LocalConfig) => join(c.repoRoot, "apps", "deep-agent-service", ".venv"),
-  asrModelDir: (c: LocalConfig) => join(c.dataDir, "asr-models", DEFAULT_ASR_MODEL),
+  pgData: (c: PathsOf) => join(c.dataDir, "pgdata"),
+  objects: (c: PathsOf) => join(c.dataDir, "objects"),
+  sessions: (c: PathsOf) => join(c.dataDir, "sessions.json"),
+  models: (c: PathsOf) => join(c.dataDir, "models"),
+  logs: (c: PathsOf) => join(c.dataDir, "logs"),
+  sandboxIn: (c: PathsOf) => join(c.dataDir, "sandbox", "in"),
+  sandboxOut: (c: PathsOf) => join(c.dataDir, "sandbox", "out"),
+  seedState: (c: PathsOf) => join(c.dataDir, "seed-state.json"),
+  deepAgentVenv: (c: PathsOf) => join(c.repoRoot, "apps", "deep-agent-service", ".venv"),
+  asrModelDir: (c: PathsOf) => join(c.dataDir, "asr-models", DEFAULT_ASR_MODEL),
+  /** The signed skill starter packs shipped in the repo/bundle (`skills/starter-packs/<pack>/<version>.json`). */
+  skillStarterPacks: (c: PathsOf) => join(c.repoRoot, "skills", "starter-packs"),
 };
 
 /** Only handed to the API when the model is on disk; otherwise ASR stays "not configured". */
@@ -146,12 +209,24 @@ export function asrEnv(c: LocalConfig): Env {
   };
 }
 
-export function asrGatewayEnv(c: LocalConfig): Env {
+/**
+ * Where the streaming ASR model lives: the data dir (fetch-asr-model.sh) wins, else the copy
+ * shipped in the bundle (scripts/local-bundle/bundle-asr-model.sh, human decision 2026-09-17:
+ * the ASR model goes into the DMG too). The gateway only reads it, so the bundle copy is used
+ * in place -- nothing to import.
+ */
+export function resolveAsrModelDir(c: LocalConfig, bundleAsrModelsDir?: string): string | null {
+  const candidates = [paths.asrModelDir(c), ...(bundleAsrModelsDir ? [join(bundleAsrModelsDir, DEFAULT_ASR_MODEL)] : [])];
+  for (const dir of candidates) if (existsSync(join(dir, "tokens.txt"))) return dir;
+  return null;
+}
+
+export function asrGatewayEnv(c: LocalConfig, modelDir: string = paths.asrModelDir(c)): Env {
   return {
     LOCAL_ASR_HOST: "127.0.0.1",
     LOCAL_ASR_PORT: String(c.ports.asr),
     LOCAL_ASR_ENGINE: "sherpa",
-    LOCAL_ASR_MODEL_DIR: paths.asrModelDir(c),
+    LOCAL_ASR_MODEL_DIR: modelDir,
   };
 }
 
@@ -185,7 +260,33 @@ export function modelEnv(c: LocalConfig): Env {
     KERNEL_MODEL_VISION_IDS: c.chatModel,
     // A 4B model with thinking on is several times slower; the API already knows how to
     // send `enable_thinking:false` for ids in this list.
-    KERNEL_MODEL_THINKING_DISABLE_IDS: c.chatModel,
+    KERNEL_MODEL_THINKING_DISABLE_IDS: `${c.chatModel},${c.metaModel}`,
+    // Ollama >= 0.34: `reasoning_effort: "none"` on /v1 switches Qwen3.5 thinking off
+    // (the bailian `enable_thinking` field is not sent to Ollama). Measured: one-liner 12 s -> 1.2 s.
+    KERNEL_MODEL_REASONING_EFFORT: "none",
+    // Stream tokens from the provider (#3749 B1.6): first characters reach the UI while the
+    // model is still writing; total time is unchanged.
+    KERNEL_MODEL_STREAM_ENABLED: "1",
+    KERNEL_DEEP_AGENT_STREAM_ENABLED: "1",
+    // Only the canvas templates the message names go into the system prompt (#3749 B1.2).
+    KERNEL_CANVAS_GUIDANCE_MODE: "matched",
+    // single-session PGlite: a connect legitimately queues behind a long COMMIT (12 s measured in the
+    // eval lane); the cloud default 5 s turned that into HTTP 500 on a status poll (#3749)
+    PGCONNECT_TIMEOUT_MS: "30000",
+    // JSON sites (追问建议 / 反馈结构化 / 研究大纲) decode against a schema (#3749 B1.4).
+    KERNEL_MODEL_JSON_SCHEMA: "1",
+    // meta tasks on the small model (#3749 B2.2); thinking off applies to it too
+    KERNEL_THREAD_TITLE_MODEL_ENABLED: "1",
+    KERNEL_THREAD_TITLE_MODEL_ID: c.metaModel,
+    KERNEL_FOLLOWUP_SUGGESTIONS_MODEL_ID: c.metaModel,
+    KERNEL_FEEDBACK_STRUCTURE_MODEL_ID: c.metaModel,
+    // skill catalog: only the skills relevant to the message (#3749 B3)
+    KERNEL_SKILL_CATALOG_MODE: "matched",
+    KERNEL_SKILL_CATALOG_MAX: "8",
+    // rerank with the embedding model instead of a chat-model call per retrieval (#3749 B2.1)
+    KERNEL_RERANK_MODE: "embedding",
+    // Guided Research directions/outline call the contract-pinned cloud id otherwise (#3749 B1.5).
+    KERNEL_GUIDED_RESEARCH_MODEL_ID: c.chatModel,
     KERNEL_MODEL_BAILIAN_EXTENSIONS: "0",
     KERNEL_EMBEDDING_MODEL_ID: c.embeddingModel,
     KERNEL_EMBEDDING_MODEL_VERSION: "local-1",
@@ -193,6 +294,7 @@ export function modelEnv(c: LocalConfig): Env {
     KERNEL_RERANK_MODEL_VERSION: "local-1",
     // personal-local organizations (F16) probe this native Ollama endpoint; must be loopback.
     LOCAL_RUNTIME_ENDPOINT: base,
+    LOCAL_RUNTIME_MODEL_ID: c.chatModel,
   };
 }
 
@@ -201,7 +303,25 @@ export function apiEnv(c: LocalConfig): Env {
     ...databaseEnv(c),
     ...modelEnv(c),
     PORT: String(c.ports.api),
+    KERNEL_LISTEN_HOST: "127.0.0.1",
+    /**
+     * 2026-09-22 —— 版次标记。**唯一**声明处是契约 `@repo/contracts/deployment`
+     * （`DEPLOYMENT_EDITION_ENV` / `parseDeploymentEdition`）；这里只是把「这份部署是本机
+     * 装的」这个事实告诉后端。后端据它决定故障纪律与能力差异，前端据它整屏换外观。
+     * 不设这个变量的部署一律按 `cloud` 处理，行为逐字节不变。
+     *
+     * ⚠ 这里写的是**字面量**而不是 import 契约常量：这个包刻意不依赖 `@repo/contracts`
+     * （它要能在桌面包里独立跑起来编排，见本包 package.json 的依赖表）。字面量与契约的
+     * 一致性由 `test/deployment-edition-env.test.ts` 机械核对——不是靠人记得改两处。
+     */
+    WORKSPACEX_EDITION: "local",
+    // the platform catalog is seeded in the owner phase (seeds.ts); the API-side self-heal
+    // would only hit RLS as app_rw and print 42501/23503 stacks on every boot
+    KERNEL_PLATFORM_SKILL_SELFHEAL: "off",
     NODE_ENV: "development",
+    // A local 4B model with skill calls needs well over the cloud default of 5 min per run
+    // (three-lenses canvas hit the 300 s deadline on a Mac, 2026-09-17).
+    KERNEL_DEEP_AGENT_TIMEOUT_MS: "900000",
     // The API loads <repo>/.env.local in development; a developer's cloud settings there
     // (native-session socket, Bailian keys) would silently override the local shape.
     KERNEL_SKIP_LOCAL_ENV_FILE: "1",
@@ -211,6 +331,13 @@ export function apiEnv(c: LocalConfig): Env {
     NATIVE_SESSION_BINDING_KEY: "",
     KERNEL_NATIVE_RUNTIME: "0",
     KERNEL_QUIET: "0",
+    // ⚠ 这两个开关在 API 里默认**关**，理由是「新模型调用行为按部署显式开」（灰度纪律，
+    //   见 configured-model-provider.ts 的 `completeStream is OFF by default`）。对云端那是
+    //   对的；对本地版不是：这里跑的是 5–10 tok/s 的 4B 模型，不开流式，用户点完发送要
+    //   对着空白等一分钟才见到第一个字。同一条默认值在两种部署形态下的代价不是一个量级，
+    //   所以本地版显式把它打开——这正是「按部署显式开」这句话的意思。
+    KERNEL_MODEL_STREAM_ENABLED: "1",
+    KERNEL_DEEP_AGENT_STREAM_ENABLED: "1",
     APP_PUBLIC_URL: `http://127.0.0.1:${c.ports.web}`,
     KERNEL_CORS_ORIGINS: webOrigins(c).join(","),
     // no Redis on this machine (issue #3716)
@@ -223,6 +350,18 @@ export function apiEnv(c: LocalConfig): Env {
     EMAIL_VERIFICATION_SECRET: c.secrets.emailVerificationSecret,
     PLATFORM_SUPERUSER_EMAILS: LOCAL_ADMIN_EMAIL,
     // skill sandbox: TCP loopback child process (L0 isolation, see PROP §3.5)
+    // Without a root the pack source returns NOT_FOUND for every pack and never falls back
+    // (`FileSkillStarterPackSource`, domain I-10), so an unset root does not degrade the
+    // import surface -- it removes it. The cloud deployer sets this; the local build is its
+    // own deployer, and the packs ship inside the very bundle this points into.
+    SKILL_STARTER_PACK_ROOT: paths.skillStarterPacks(c),
+    // The isolated download origin is a security boundary, not a deployment detail
+    // (`isolated-download-url-builder.ts`): uploaded HTML/SVG must not execute on the origin
+    // that owns the session. `*.localhost` resolves to 127.0.0.1 in every current browser, so
+    // a distinct HOST on the API's own port keeps that property with nothing to install. It is
+    // set rather than left to the default because the default hard-codes port 3200 and would
+    // point at nothing as soon as `--ports api=` moves the API.
+    WORKSPACEX_DOWNLOAD_ORIGIN: `http://downloads.localhost:${c.ports.api}`,
     KERNEL_SKILL_SANDBOX_BASE_URL: `http://127.0.0.1:${c.ports.sandbox}`,
     SKILL_SANDBOX_INPUT_DIR: paths.sandboxIn(c),
     SKILL_SANDBOX_OUT_DIR: paths.sandboxOut(c),
@@ -236,12 +375,23 @@ export function apiEnv(c: LocalConfig): Env {
   };
 }
 
+/** Flat, real module tree for skill scripts (scripts/local-bundle/prepare-sandbox-modules.sh); null when not prepared. */
+export function sandboxModulesDir(c: LocalConfig): string | null {
+  const dir = join(c.repoRoot, "apps", "skill-sandbox", "preinstalled", "node_modules");
+  return existsSync(join(dir, "pptxgenjs")) ? dir : null;
+}
+
 export function sandboxEnv(c: LocalConfig): Env {
+  const modules = sandboxModulesDir(c);
   return {
     SKILL_SANDBOX_HOST: "127.0.0.1",
     SKILL_SANDBOX_PORT: String(c.ports.sandbox),
     SKILL_SANDBOX_INPUT_DIR: paths.sandboxIn(c),
     SKILL_SANDBOX_OUT_DIR: paths.sandboxOut(c),
+    // Without this every require('pptxgenjs') inside a skill script is MODULE_NOT_FOUND
+    // (the sandbox runs scripts in a tmp dir, not in the workspace). See the header of
+    // scripts/local-bundle/prepare-sandbox-modules.sh.
+    ...(modules ? { SKILL_SANDBOX_MODULES_DIR: modules } : {}),
   };
 }
 
@@ -251,10 +401,76 @@ export function deepAgentEnv(c: LocalConfig): Env {
     ...modelEnv(c),
     DATABASE_URI: uri,
     DEEP_AGENT_CHECKPOINT_DB: uri,
+    // single-session backend: a connect can legitimately queue behind a busy neighbour
+    DEEP_AGENT_PG_CONNECT_TIMEOUT_SECONDS: "30",
+    DEEP_AGENT_PG_CONNECT_RETRIES: "2",
+    // single-user desktop + 4B model: no confirm/params/option interrupts, produce directly
+    DEEP_AGENT_HITL_CLARIFICATION: "off",
+    /**
+     * #3749 R1：工具 schema 是本地提示的最大单项。实测一次画布请求 25 519 字符里
+     * 17 347 是 15 个工具的 schema（记录代理取证，2026-09-22），4 098 token 的提示
+     * 光预填充就 14.6 s。这六个在桌面单人场景基本不被调用：grep / glob / delete /
+     * edit_file 针对的是 deepagents 的虚拟文件系统，task 派子代理对 4B 太重，
+     * spawn_async_task 是后台长任务。保留 ls / read_file / write_file（文档理解类
+     * skill 读上传件走它）、write_todos（规划中间件依赖）、call_skill、
+     * list_org_skills、fetch_url、web_search。
+     */
+    DEEP_AGENT_EXCLUDED_TOOLS: "grep,glob,delete,edit_file,task,spawn_async_task",
+    // #3749 R5：一页网页最多进模型 6 000 字符（约 2 400 token）。契约允许 60 000，
+    // 那是本地 8 192 token 上下文的三倍——一次抓取就把它自己所服务的对话挤掉。
+    DEEP_AGENT_WEB_TEXT_CHARS: "6000",
+    // 工具结果超过这个 token 数就从历史里驱逐（库默认 8 000 ≈ 整个本地上下文）
+    KERNEL_DEEP_AGENT_TOOL_EVICT_TOKENS: "2500",
     DEEP_AGENT_SERVICE_INTERNAL_KEY: c.secrets.deepAgentInternalKey,
     DEEP_AGENT_OTEL_DISABLED: "1",
     PYTHONPATH: join(c.repoRoot, "apps", "deep-agent-service", "src"),
   };
+}
+
+/** How the deep-agent process is launched: the relocatable bundled Python, or the dev venv. */
+export interface DeepAgentLaunch {
+  readonly source: "bundled-python" | "venv";
+  readonly command: string;
+  readonly args: readonly string[];
+  readonly env: Env;
+}
+
+const UVICORN_ARGS = (c: LocalConfig): string[] =>
+  ["deep_agent_service.http_app:app", "--host", "127.0.0.1", "--port", String(c.ports.deepAgent), "--workers", "1"];
+
+/**
+ * Bundled runtime first (scripts/local-bundle/bundle-python.sh: `cpython/` + `site/`, no venv,
+ * no absolute paths -- the only shape that works on a Mac other than the build machine,
+ * #3716), the developer's `.venv` second, `null` when neither exists (chat still works, tools
+ * and skills do not). `exists` is injectable so the choice is unit-testable without a disk.
+ */
+export function resolveDeepAgentLaunch(
+  c: LocalConfig,
+  bundlePythonDir: string | undefined,
+  exists: (p: string) => boolean = existsSync,
+): DeepAgentLaunch | null {
+  const win = platform() === "win32";
+  if (bundlePythonDir) {
+    const python = join(bundlePythonDir, "cpython", win ? "python.exe" : join("bin", "python3"));
+    if (exists(python)) {
+      const site = join(bundlePythonDir, "site");
+      const base = deepAgentEnv(c);
+      return {
+        source: "bundled-python",
+        command: python,
+        args: ["-m", "uvicorn", ...UVICORN_ARGS(c)],
+        env: {
+          ...base,
+          PYTHONPATH: [site, base.PYTHONPATH].join(win ? ";" : ":"),
+          // never pick up ~/.local/lib/python*/site-packages of whoever runs the app
+          PYTHONNOUSERSITE: "1",
+        },
+      };
+    }
+  }
+  const uvicorn = join(paths.deepAgentVenv(c), win ? "Scripts" : "bin", win ? "uvicorn.exe" : "uvicorn");
+  if (exists(uvicorn)) return { source: "venv", command: uvicorn, args: UVICORN_ARGS(c), env: deepAgentEnv(c) };
+  return null;
 }
 
 /**
@@ -263,13 +479,22 @@ export function deepAgentEnv(c: LocalConfig): Env {
  * for exactly the origins the web app is served on (`KERNEL_CORS_ORIGINS`, see apiEnv), so
  * both `localhost` and `127.0.0.1` tabs work. Bearer tokens, no cookies.
  */
-export function webEnv(c: LocalConfig): Env {
+export function webEnv(c: LocalConfig, env: NodeJS.ProcessEnv = process.env): Env {
   const api = `http://127.0.0.1:${c.ports.api}`;
+  /*
+   * 2026-09-22 —— 「切到在线正式系统」要有个地址才走得通。本仓里**没有**已知的生产域名，
+   * 所以这里只做**透传**：宿主环境设了 `WORKSPACEX_CLOUD_URL` 就带给 web，没设就不带，
+   * 界面如实说这份安装包没配（`components/shell/edition-switch.tsx`）。
+   * 编一个域名塞进来，就是给用户一个会把他送去错误地方的按钮。
+   */
+  const cloudUrl = (env.WORKSPACEX_CLOUD_URL ?? "").trim();
   return {
     PORT: String(c.ports.web),
     NEXT_PUBLIC_API_URL: api,
     NEXT_PUBLIC_API_WS_URL: api,
     NEXT_TELEMETRY_DISABLED: "1",
+    WORKSPACEX_EDITION: "local",
+    ...(cloudUrl === "" ? {} : { WORKSPACEX_CLOUD_URL: cloudUrl }),
   };
 }
 
@@ -278,10 +503,39 @@ export function webOrigins(c: LocalConfig): string[] {
   return [`http://127.0.0.1:${c.ports.web}`, `http://localhost:${c.ports.web}`];
 }
 
+/** Context window handed to the Ollama server we start ourselves (#3749 B1.1). */
+export const OLLAMA_CONTEXT_LENGTH = 8192;
+
+/** 见 `ollamaEnv` 里同名字段的长注：这是一次有实测支撑的权衡，不是随手填的默认值。 */
+export const OLLAMA_KEEP_ALIVE = "30m";
+
 export function ollamaEnv(c: LocalConfig): Env {
   return {
     OLLAMA_HOST: `127.0.0.1:${c.ports.ollama}`,
     OLLAMA_MODELS: paths.models(c),
+    // Ollama's default slot is 4096 tokens and it truncates SILENTLY: a persona canvas measured
+    // 2050 prompt + 1837 output = 3887 (Mac实测 2026-09-18). 8k costs ~0.5 GB more KV cache on a 4B.
+    OLLAMA_CONTEXT_LENGTH: String(OLLAMA_CONTEXT_LENGTH),
+    /**
+     * 空闲多久卸载模型。**24h 换成 30m，是一次有实测支撑的重新权衡（#3872 R1）。**
+     *
+     * 24h 当初是为了压首 token 延迟。代价直到 2026-09-23 才被量出来：模型运行器
+     * **每次请求涨约 70 MB 且不回落**（同机同模型连发 6 次，phys_footprint 从
+     * 3.95 GB 单调涨到 4.36 GB），而 24 小时保活意味着这份占用一整天不释放。
+     * 在一台已连续使用的 16 GB 机器上实测到该进程 **9,729 MB——整机的 61%**。
+     *
+     * 缩短的代价同日实测：模型已卸时首个响应 **2.1–2.4 s**，在内存时 **0.6 s**。
+     * 也就是说离开一会儿再回来多等约 1.8 秒，换回好几个 GB。
+     * 这个代价远低于同类应用的常态（Ollama 默认 5 分钟卸载，回来第一句卡 3–11 s），
+     * 因为我们用的是 MLX 构建 + 本地 SSD。
+     *
+     * 为什么是 30 分钟而不是 5 分钟：一次工作会话里连续用不该反复付冷加载；
+     * 去吃个饭回来付一次 2 秒是划算的。
+     *
+     * ⚠ 保活不解决「涨」本身，只是给它一个上界。会话内的增长要另外处置。
+     */
+    OLLAMA_KEEP_ALIVE: OLLAMA_KEEP_ALIVE,
+    OLLAMA_NUM_PARALLEL: "1",
   };
 }
 

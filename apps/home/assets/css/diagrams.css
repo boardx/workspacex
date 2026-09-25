@@ -1,0 +1,207 @@
+/* ==========================================================================
+   diagrams.css — styling for the SVG the JS draws
+   Text inside SVG does not inherit the page font stack reliably, so every
+   label class sets it explicitly.
+   ========================================================================== */
+
+/* `--dscale` is published per-svg by diagrams.js: viewBox width / rendered
+   width. Multiplying by it makes each size a REAL rendered pixel size, so a
+   label reads the same whether its diagram is 320 units wide or 1000. */
+.d-label {
+  font-family: var(--font-body);
+  font-size: calc(13px * var(--dscale, 1));
+  fill: var(--fg-soft);
+  letter-spacing: calc(0.01em * var(--track-open));
+}
+.d-label--lg    { font-size: calc(15px * var(--dscale, 1)); font-family: var(--font-display); font-weight: 600; fill: var(--fg); }
+.d-label--xs    { font-size: calc(11.5px * var(--dscale, 1)); }
+.d-label--dim   { fill: var(--fg-dim); }
+.d-label--faint { fill: var(--fg-faint); font-family: var(--font-mono); font-size: calc(11px * var(--dscale, 1)); }
+.d-label--fail  { fill: var(--c-fail); }
+/* NOT #fff. This class exists for labels sitting ON the brand gradient, and
+   white measures 2.19:1 over the orange stop — the very reason --on-grad was
+   computed in the first place, for buttons. The diagram that paints text on
+   the same gradient never got it, and axe cannot see it: it does not evaluate
+   SVG text over a gradient fill, so this passed every accessibility run. */
+.d-label--on    { fill: var(--on-grad); font-weight: 600; }
+
+/* ---- hero chain ---------------------------------------------------------- */
+.d-chain { width: 100%; height: auto; overflow: visible; }
+.d-chain__node {
+  opacity: 0;
+  animation: d-pop 700ms var(--ease-out) forwards;
+  animation-delay: calc(600ms + var(--i) * 110ms);
+}
+@keyframes d-pop { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+.d-chain__core { filter: drop-shadow(0 0 6px rgb(var(--c-2-rgb) / .6)); }
+.d-chain__pulse { filter: drop-shadow(0 0 7px rgba(255,255,255,.85)); opacity: .9; }
+
+/* ---- shift axis ---------------------------------------------------------- */
+.d-axis { width: 100%; height: 92px; overflow: visible; }
+.d-axis__fill {
+  stroke-dasharray: 1000; stroke-dashoffset: 1000;
+  transition: stroke-dashoffset 1.8s var(--ease-out);
+}
+.is-in .d-axis__fill, [data-reveal].is-in .d-axis__fill { stroke-dashoffset: 0; }
+
+/* ---- broken chain -------------------------------------------------------- */
+.d-break { width: 100%; height: auto; overflow: visible; }
+.d-break__spark {
+  animation: d-evaporate 2.6s var(--ease-io) infinite;
+  animation-delay: calc(var(--i) * 420ms + var(--p) * 260ms);
+  opacity: 0;
+}
+@keyframes d-evaporate {
+  0%   { opacity: 0;   transform: translateY(0)    scale(1); }
+  22%  { opacity: .85; }
+  100% { opacity: 0;   transform: translateY(-26px) scale(.4); }
+}
+
+/* ---- the loop ------------------------------------------------------------ */
+.d-loop { width: 100%; max-width: 520px; height: auto; margin-inline: auto; overflow: visible; }
+.d-loop__arc { transition: stroke-dashoffset 120ms linear; }
+/* `--e` (0 → 1) is written per node every frame by the scrubbed renderer.
+   Everything below is a function of it, so the ring responds continuously to
+   scroll instead of snapping at stage boundaries. Scaling via transform (with
+   transform-box: fill-box) rather than the `r` geometry property, which is not
+   safely animatable across engines. */
+.d-loop__dot {
+  transform-box: fill-box;
+  transform-origin: center;
+  transform: scale(calc(1 + 0.55 * var(--e, 0)));
+  opacity: calc(0.45 + 0.55 * var(--e, 0));
+}
+.d-loop__ring {
+  stroke: rgba(255, 255, 255, calc(0.16 + 0.26 * var(--e, 0)));
+}
+/* The inactive labels were faded to 62% on top of --fg-dim: about 2.8:1 on
+   the page, under the 4.5 a 13px label needs. axe does not look inside SVG,
+   so nothing said so. The emphasis is carried by the fill (dim → full) and
+   the dot; the label itself stays readable. */
+.d-loop__node .d-label { fill: var(--fg-dim); }
+.d-loop__node[data-active="true"] .d-label { fill: var(--fg); }
+.d-loop__centre { animation: d-centre 420ms var(--ease-out); }
+@keyframes d-centre {
+  from { opacity: 0; transform: translateY(5px); }
+  to   { opacity: 1; transform: none; }
+}
+.d-loop__title {
+  font-family: var(--font-display); font-size: calc(30px * var(--dscale, 1));
+  font-weight: 600; letter-spacing: calc(-0.02em * var(--track-tight));
+}
+
+/* ---- architecture -------------------------------------------------------- */
+.d-arch { width: 100%; height: auto; overflow: visible; }
+.d-arch__plate {
+  fill: rgba(255,255,255,.035);
+  stroke: rgba(255,255,255,.12);
+  transition: fill var(--dur) var(--ease-out), stroke var(--dur) var(--ease-out);
+}
+.d-arch__row[data-tone="core"] .d-arch__plate {
+  fill: rgb(var(--c-2-rgb) / .055);
+  stroke: rgb(var(--c-2-rgb) / .24);
+}
+.d-arch__row {
+  opacity: 0; transform: translateY(14px);
+  transition: opacity var(--dur) var(--ease-out), transform var(--dur) var(--ease-out);
+  transition-delay: calc(var(--i) * 110ms);
+}
+[data-reveal].is-in .d-arch__row { opacity: 1; transform: none; }
+.d-arch__bracket.is-fast { color: var(--fg-faint); }
+.d-arch__bracket.is-core { color: var(--c-2); }
+
+/* ---- harness ------------------------------------------------------------- */
+.d-harness { width: 100%; height: auto; overflow: visible; }
+.d-harness__plate { transition: stroke var(--dur-fast) linear, fill var(--dur-fast) linear; }
+.d-harness__gate[data-state="fail"] .d-harness__plate {
+  stroke: var(--c-fail); fill: rgba(255,93,93,.09);
+}
+.d-harness__token { filter: drop-shadow(0 0 9px rgb(var(--c-2-rgb) / .75)); }
+.d-harness__rollback { opacity: .25; transition: opacity var(--dur-fast) linear; }
+.d-harness__rollback[data-on="true"] { opacity: .9; }
+
+/* ---- graph --------------------------------------------------------------- */
+.d-graph { width: 100%; height: auto; overflow: visible; }
+.d-graph__edge {
+  stroke-dasharray: 260; stroke-dashoffset: 260;
+  transition: stroke-dashoffset 900ms var(--ease-out);
+  transition-delay: calc(var(--i) * 90ms);
+}
+.d-graph__node {
+  opacity: 0; transition: opacity 500ms var(--ease-out);
+  transition-delay: calc(240ms + var(--i) * 90ms);
+}
+.trust__graph.is-in .d-graph__edge,
+[data-reveal].is-in .d-graph__edge { stroke-dashoffset: 0; }
+.trust__graph.is-in .d-graph__node,
+[data-reveal].is-in .d-graph__node { opacity: 1; }
+
+@media (prefers-reduced-motion: reduce) {
+  .d-chain__node, .d-graph__node { opacity: 1 !important; animation: none !important; }
+  .d-graph__edge { stroke-dashoffset: 0 !important; }
+  .d-axis__fill  { stroke-dashoffset: 0 !important; }
+  .d-break__spark { display: none; }
+}
+
+/* ---- narrow variants ------------------------------------------------------ */
+@media (max-width: 43.75rem) {
+  /* The vertical diagrams are tall and slim; cap their width so they do not
+     stretch edge to edge and leave the labels floating in the margin. */
+  .d-chain, .d-break, .d-harness, .d-graph { max-width: 340px; margin-inline: auto; }
+  .d-axis { width: 100%; height: auto; max-width: 320px; margin-inline: auto; }
+  .d-arch { max-width: 360px; margin-inline: auto; }
+  .d-loop { max-width: min(100%, 340px); }
+  /* the ring's outer labels need the room the desktop layout takes for granted */
+  .d-loop .d-label--lg { font-size: calc(13px * var(--dscale, 1)); }
+}
+
+/* ==========================================================================
+   Reserved space
+   Diagrams are built by JS, so their hosts are empty at first paint and the
+   page reflows when the SVG lands — measured as the page's only layout shift
+   (0.031, in the hero). Declaring each host's aspect up front removes it:
+   the box is the right size before anything is drawn into it.
+   ========================================================================== */
+[data-diagram="chain"]   { aspect-ratio: 1000 / 150; }
+[data-diagram="axis"]    { aspect-ratio: 1000 / 92;  }
+[data-diagram="break"]   { min-height: 150px; }
+[data-diagram="harness"] { min-height: 210px; }
+[data-diagram="arch"]    { aspect-ratio: 760 / 430; }
+[data-diagram="graph"]   { aspect-ratio: 540 / 270; }
+[data-diagram="loop"]    { aspect-ratio: 1 / 1; }
+
+@media (max-width: 43.75rem) {
+  [data-diagram="chain"]   { aspect-ratio: 330 / 340; }
+  [data-diagram="axis"]    { aspect-ratio: 320 / 240; }
+  [data-diagram="break"]   { min-height: 404px; }
+  [data-diagram="harness"] { min-height: 350px; }
+  [data-diagram="arch"]    { aspect-ratio: 340 / 370; }
+  [data-diagram="graph"]   { aspect-ratio: 320 / 350; }
+}
+@media (max-width: 53.75rem) {
+  /* the ring sits above the rail instead of beside it, and the reserved
+     square would otherwise eat most of a phone screen */
+  [data-diagram="loop"] { aspect-ratio: 1 / 1; max-width: 340px; margin-inline: auto; }
+}
+
+/* ---- architecture: selectable layers -------------------------------------- */
+.d-arch__row[data-layer] { cursor: pointer; }
+/* Two indicators on purpose. The plate stroke is the one that reads well
+   inside the drawing; the outline is the one that survives engines where
+   focus styling on an SVG child is unreliable. Suppressing either leaves
+   keyboard users guessing on some browser. */
+.d-arch__row[data-layer]:focus-visible .d-arch__plate {
+  stroke: var(--c-2); stroke-width: 2;
+}
+.d-arch__row[data-selected="true"] .d-arch__plate {
+  fill: rgb(var(--c-2-rgb) / 0.12);
+  stroke: rgb(var(--c-2-rgb) / 0.55);
+}
+/* Layers a change at the selected layer would reach. The point of the whole
+   interaction is how few light up when you pick the model layer. */
+.d-arch__row[data-impacted="true"] .d-arch__plate {
+  fill: rgb(var(--c-1-rgb) / 0.07);
+  stroke: rgb(var(--c-1-rgb) / 0.3);
+  stroke-dasharray: 4 3;
+}
+@media (hover: hover) { .d-arch__row[data-layer]:hover .d-arch__plate { stroke: rgba(255, 255, 255, 0.34); } }

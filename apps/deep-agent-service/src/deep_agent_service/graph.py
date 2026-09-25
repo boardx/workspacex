@@ -160,10 +160,42 @@ _model = build_chat_model()
 # 每一项对应哪个 rubric 维度，见 harness.py 模块注释——那里是单一事实源，这里不复述。
 # checkpointer 为 None 时（平台托管环境）create_deep_agent 收到 None 与 0.7.6
 # 之前的行为逐字一致（参数默认值就是 None，实测签名确认）。
+# WorkspaceX Local (DEEP_AGENT_HITL_CLARIFICATION=off): the HITL tools are not mounted (tools.py),
+# and the prompt must stop telling the model to confirm before acting -- otherwise a small model
+# writes the clarification as plain text instead and still never produces the result.
+LOCAL_DIRECT_EXECUTION_NOTE = (
+    "\n\n本部署是单人本地版：不要用文字向用户确认假设、追问参数或摆方案让用户选。直接采用合理的默认"
+    "假设完成任务（画布、画像、文档都直接产出），并在结果末尾用一两句公开你采用的关键假设。"
+    "产出画布时，```canvas 围栏第一行的『模板: <key>』必须逐字使用画布指引里列出的模板 key"
+    "（例如用户画像就是 persona），不要自造或翻译 key。"
+    "只有用户要画布/模板（画像、SWOT、商业模式画布这类）时才产出 canvas 围栏；读网页、写文档、"
+    "回答问题、闲聊都用普通文字回答，不要套画布。"
+    "用户消息里出现 http(s) 链接时，先调用 fetch_url 工具读取该页面正文，再基于正文回答；"
+    "需要查资料时调用 web_search。『沙箱没有网络』只是指 run_script，fetch_url / web_search "
+    "是有网络的，不要回答『我无法访问 URL』。"
+)
+
+
+def effective_system_prompt() -> str:
+    """The cloud prompt verbatim, or — when this deployment mounts fewer tools — the same
+    prompt with every sentence about an absent tool removed, plus the local note (#3749 R3).
+
+    Advertising a tool the model cannot call costs prefill on every turn AND makes the prompt
+    self-contradictory; both were measured on the local build (see `prompt_pruning`).
+    """
+    from .prompt_pruning import absent_tools, prune_absent_tool_sentences
+    from .tools import hitl_clarification_disabled
+
+    if not hitl_clarification_disabled():
+        return SYSTEM_PROMPT
+    absent = absent_tools(hitl_disabled=True, browser_mounted=False)
+    return prune_absent_tool_sentences(SYSTEM_PROMPT, absent) + LOCAL_DIRECT_EXECUTION_NOTE
+
+
 graph = create_deep_agent(
     model=_model,
     tools=build_tools(_model),
-    system_prompt=SYSTEM_PROMPT,
+    system_prompt=effective_system_prompt(),
     middleware=build_middleware(_model),
     checkpointer=build_checkpointer(),
     interrupt_on=build_interrupt_on(),
