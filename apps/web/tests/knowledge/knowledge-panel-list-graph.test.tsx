@@ -81,6 +81,7 @@ function knowledge(overrides: Partial<ThreadKnowledge> = {}): ThreadKnowledge {
     canEdit: true,
     canPromote: false,
     visibility: "owner_only",
+    extractionActive: true,
     ...overrides,
   });
 }
@@ -206,6 +207,28 @@ describe("记忆面板（真实数据）", () => {
 
     expect(screen.getByTestId("kg-panel-title")).toHaveTextContent("记忆（4）");
     expect(screen.getByTestId("kg-visibility")).toHaveTextContent("仅你可见");
+  });
+
+  /**
+   * issue #4178 —— 队列恒空不等于「已整理到最新」：抽取没开（`extractionActive: false`，
+   * 部署没配置模型 或 本组织没打开）时队列也恒空，此前面板会一直显示「已整理到最新」，
+   * 那是假象。改后应显示「自动记忆未开启」，且绝不出现「已整理到最新」这句话。
+   */
+  it("抽取未开启：不显示「已整理到最新」，改显示「自动记忆未开启」", async () => {
+    stubNetwork(() => json(knowledge({ extractionActive: false })));
+    render(<Harness threadId={THREAD} />);
+    await screen.findByTestId("kg-list");
+    expect(screen.getByTestId("kg-ingestion-inactive")).toHaveTextContent("自动记忆未开启");
+    expect(screen.queryByTestId("kg-ingestion-idle")).not.toBeInTheDocument();
+    expect(screen.queryByText("已整理到最新")).not.toBeInTheDocument();
+  });
+
+  it("抽取已开启且队列已空：显示「已整理到最新」", async () => {
+    stubNetwork(() => json(knowledge({ extractionActive: true })));
+    render(<Harness threadId={THREAD} />);
+    await screen.findByTestId("kg-list");
+    expect(screen.getByTestId("kg-ingestion-idle")).toHaveTextContent("已整理到最新");
+    expect(screen.queryByTestId("kg-ingestion-inactive")).not.toBeInTheDocument();
   });
 
   it("会话成员可见的线程：头部写「会话成员可见」", async () => {

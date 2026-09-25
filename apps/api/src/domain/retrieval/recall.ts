@@ -11,24 +11,22 @@
  * saying "the AI didn't see the file I uploaded". R9 calls this a silent failure and says it is
  * more dangerous than an error, which is right.
  *
- * ## Two questions, and only one of them is answerable today
+ * ## Two questions
  *
- * **(a) Did the permission filter lose anything it should not have?** Answerable now, with no
+ * **(a) Did the permission filter lose anything it should not have?** Answerable with no
  * threshold at all: take the documents the requester IS entitled to, run the query with and
  * without the permission predicate, and assert the filtered arm lost none of them.
  * `entitledRecallLoss` is that, and it is exactly the sentence in F10's acceptance --
  * "不出现『有权访问却召不回』".
  *
- * **(b) Is the channel's absolute recall good enough to ship?** NOT answerable. That needs a
- * baseline, the baseline is `THRESHOLDS.vectorRecallBaseline`, and it is registered
- * `{ known: false }` because the product has not given it.
- *
- * `judgeRecall` therefore THROWS rather than returning a verdict. That is the registered rule
- * made executable -- "低于基线即判失败，**不得静默放行**" -- and the throw is the only
- * implementation of it that is honest: there is no baseline, so there is no pass. A default
- * would have manufactured one, and this project has already had an incident of precisely that
- * shape (an invented `sampleSize=18` and a "口径表 v3" that produced the appearance of a
- * measured, passing result).
+ * **(b) Is the channel's absolute recall good enough to ship?** Judged against
+ * `THRESHOLDS.vectorRecallBaseline`. It was registered `{ known: false }` until phase-18 S0-4
+ * gave the number (2026-09-24); until then `judgeRecall` threw rather than return a verdict,
+ * because a default would have manufactured a pass (this project has had exactly that incident:
+ * an invented `sampleSize=18` and a "口径表 v3"). The number still lives ONLY in the registry;
+ * `requireValue` is still the only way to read it, so un-resolving it restores the throw.
+ * The gate that measures against it is `tests/retrieval/kg-hnsw-permission-recall.test.ts`
+ * (F05: recall through the HNSW index, after RLS and the scope predicate).
  */
 import { thresholds as TH } from "@repo/contracts";
 
@@ -107,15 +105,16 @@ export function assertNoEntitledRecallLoss(c: RecallComparison): void {
 /**
  * Judge measured recall against the shipping baseline.
  *
- * ⚠ ALWAYS THROWS today, and that is the correct behaviour, not a stub. See the header:
- * `vectorRecallBaseline` is undecided, the rule says a recall below it FAILS and must not be
- * let through silently, and the only way to honour both is to refuse to return a verdict.
- * `requireValue` produces the message naming who owes the number and what it blocks.
- *
- * Callers must not catch this and continue. A test may assert that it throws -- that assertion
- * IS the rule.
+ * The baseline is read through `requireValue`, so if the registry entry is ever set back to
+ * `{ known: false }` this throws again (naming who owes the number) instead of passing. A
+ * measurement that is not a finite number in [0, 1] -- e.g. recall over an empty ground truth,
+ * which `recall()` reports as `null` -- is refused rather than compared: `NaN >= 0.9` is false
+ * today, but "no measurement" must never be one refactor away from "passed".
  */
 export function judgeRecall(measured: number): { pass: boolean; baseline: number } {
+  if (!Number.isFinite(measured) || measured < 0 || measured > 1) {
+    throw new RangeError(`recall measurement must be a number in [0, 1], got ${String(measured)}`);
+  }
   const baseline = TH.requireValue<number>(
     TH.THRESHOLDS.vectorRecallBaseline as never,
     "vectorRecallBaseline",

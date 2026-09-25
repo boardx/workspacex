@@ -303,6 +303,18 @@ export const KgTurnMemory = z.object({
 export type KgTurnMemory = z.infer<typeof KgTurnMemory>;
 
 /**
+ * issue #4180 —— 这条消息（用户自己发的那条）刚被抽取出的、还活着的结论：发送下方
+ * 「已记下：{claim 摘要} · 撤销」的信号源。与 `KgTurnMemory.captured` 不是一件事——那个键在
+ * **回答**下方、按「回答 + 它前面紧邻的用户消息」这一整轮算；这个键在**发送的那条消息自己**
+ * 下方，只认这一条消息自己的证据（不做「向前找最近一条人类消息」的扩展匹配）。没有新结论（含
+ * 抽取关闭 / 未配置、还没抽完、抽出的东西已撤销或被取代）⇒ 空数组，不是错误。
+ */
+export const KgMessageExtraction = z.object({
+  claims: z.array(z.object({ claimId: z.string(), statement: z.string() }).strict()),
+}).strict();
+export type KgMessageExtraction = z.infer<typeof KgMessageExtraction>;
+
+/**
  * 「大脑」页（/brain）的一行会话记忆概况：本人的一个会话里记下了多少、有多少待确认 / 有矛盾。
  * 只有计数与会话标题，不带结论正文——正文照旧从 `getThreadKnowledge` 读（同一道可见性判定）。
  */
@@ -360,6 +372,9 @@ export const KgErrorCode = z.enum([
   "KG_CARD_NOT_FOUND",
   "KG_CARD_STALE",
   "KG_PROMPT_NOT_FOUND",
+  /** issue #4178 —— `setKnowledgeExtractionSetting` 仅组织 admin，同 `plan-permissions`
+   *  `StandingToolGrantError.NOT_ORG_ADMIN` 同一判据（`org_memberships.orgRole !== 'admin'`）。 */
+  "KG_NOT_ORG_ADMIN",
 ]);
 export type KgErrorCode = z.infer<typeof KgErrorCode>;
 
@@ -378,6 +393,26 @@ export const KG_PROMOTE_MAX_BATCH = 50;
 
 /** 图视图单次最多渲染节点数（uc-18-3 R3-1），超出折叠为簇 */
 export const KG_GRAPH_VIEW_MAX_NODES = 200;
+
+/**
+ * issue #4178 —— 记忆抽取的组织开关。两个布尔分别回答两件不同的事，UI 好分别提示：
+ * - `deploymentCapable`：这次部署有没有配置抽取用的模型 provider（`KgExtractionModelConfig.
+ *   enabled` 的现值）——部署级、只读、不受本束任何写操作影响。
+ * - `orgEnabled`：本组织有没有打开（`kg_org_extraction_settings.enabled`）——组织级、
+ *   admin 可写、默认 false。
+ * 两者都为真，新消息才会被排进抽取队列（`kg_enqueue_extraction` 的两道闸门）。
+ */
+export const KgExtractionSetting = z.object({
+  deploymentCapable: z.boolean(),
+  orgEnabled: z.boolean(),
+}).strict();
+export type KgExtractionSetting = z.infer<typeof KgExtractionSetting>;
+
+/** `setKnowledgeExtractionSetting` 的入参：只有目标值，组织从调用者当前会话取，不接受调用方指定别的组织。 */
+export const SetKnowledgeExtractionSettingInput = z.object({
+  enabled: z.boolean(),
+}).strict();
+export type SetKnowledgeExtractionSettingInput = z.infer<typeof SetKnowledgeExtractionSettingInput>;
 
 /* ────────────────────────────────────────────────────────────────────── *
  * 四、API 操作（usecases.md UC-KG-1 … UC-KG-7）
@@ -401,6 +436,13 @@ export const knowledgeGraph = {
       canPromote: z.boolean(),
       /** U-6：面板头部常驻的可见范围说明 —— 仅你可见 / 会话成员可见 */
       visibility: KgVisibility,
+      /**
+       * issue #4178 —— 这个会话所在组织，此刻是否真的在抽取新消息：部署具备能力
+       * （`KgExtractionModelConfig.enabled`）AND 该组织打开了（`kg_org_extraction_settings`）。
+       * 面板的 `IngestionStatus` 靠它区分「队列空 = 已整理到最新」与「队列恒空是因为抽取压根没开」——
+       * 后者此前会误报「已整理到最新」（关闭状态下的假象，见 `kg-extraction-worker.ts` 头注更正）。
+       */
+      extractionActive: z.boolean(),
     }).strict(),
     err: ["KG_THREAD_NOT_FOUND", "KG_NOT_VISIBLE"] as const,
   },
@@ -498,6 +540,17 @@ export const knowledgeGraph = {
     err: ["KG_THREAD_NOT_FOUND", "KG_NOT_VISIBLE"] as const,
   },
 
+  /**
+   * issue #4180：这条消息（发送方自己的）是否刚被抽取出新结论。前端只在这条消息是本会话
+   * 真的发出去的那条时才轮询（不对整段历史消息各自常驻轮询）。
+   */
+  getMessageExtraction: {
+    method: "GET", path: "/knowledge-graph/threads/:threadId/messages/:messageId/extraction",
+    in: z.object({ threadId: z.string(), messageId: z.string() }).strict(),
+    out: KgMessageExtraction,
+    err: ["KG_THREAD_NOT_FOUND", "KG_NOT_VISIBLE"] as const,
+  },
+
   /** UC-KG-12：对「记住 / 忘掉」确认卡做决定（人的动作；Agent 身份拒绝） */
   actOnMemoryCard: {
     method: "POST", path: "/knowledge-graph/cards/:cardId",
@@ -543,5 +596,25 @@ export const knowledgeGraph = {
       personalOrigins: z.array(KgPersonalClaimOrigin),
     }).strict(),
     err: [] as const,
+  },
+
+  /**
+   * issue #4178 —— 记忆抽取的组织开关（从部署启动参数 + 全库单例，改成按组织落库、
+   * admin 可来回切换）。读写拆两个操作，同 #3068 `listStandingToolGrants` /
+   * `revokeStandingToolGrant` 的读写分权理由：读是「这个组织现在抽不抽」这件事本身，
+   * 任何组织成员都该看得到（不是要按内容披露的租户数据）；写改变全组织行为，仅 admin。
+   */
+  getKnowledgeExtractionSetting: {
+    method: "GET", path: "/knowledge-graph/extraction-setting",
+    in: z.object({}).strict(),
+    out: KgExtractionSetting,
+    err: [] as const,
+  },
+  /** 仅组织 admin；判据同 `plan-permissions.StandingToolGrantError.NOT_ORG_ADMIN`。 */
+  setKnowledgeExtractionSetting: {
+    method: "PUT", path: "/knowledge-graph/extraction-setting",
+    in: SetKnowledgeExtractionSettingInput,
+    out: KgExtractionSetting,
+    err: ["KG_NOT_ORG_ADMIN"] as const,
   },
 } as const;

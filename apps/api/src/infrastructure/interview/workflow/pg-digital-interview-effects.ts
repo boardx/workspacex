@@ -21,6 +21,7 @@ import {
 import type { DatabasePort, TenantSession } from "../../../application/ports/database.port";
 import { guard, type Guarded } from "../../../application/security/permission-filter";
 import { scopeIsCoherent } from "../../../domain/interview/scope";
+import { assertFindingSources, deriveApprovalEligibility } from "../../../domain/interview/digital-report-evidence";
 import { canApproveReport } from "../../../domain/interview/research-quality";
 import { toOrgId, type OrgId } from "../../../domain/org-id";
 import { readDigitalInterviewWorkflow } from "../pg-digital-interview-repository";
@@ -975,8 +976,9 @@ export class PgDigitalInterviewEffects implements DigitalInterviewEffects {
     const reportFindings: Array<{ title: string; summary: string; expertId: string; questionId: string }> = [];
     const findingSources = new Set<string>();
     const persistEvent = async (event: ParsedDigitalReportStreamEvent): Promise<void> => {
-      if (event.type === "finding" && !validSources.has(`${event.expertId}:${event.questionId}`)) {
-        throw new DigitalInterviewWorkflowError("DIGITAL_REPORT_SOURCE_INVALID");
+      if (event.type === "finding") {
+        try { assertFindingSources(snapshot.completed, [event]); }
+        catch { throw new DigitalInterviewWorkflowError("DIGITAL_REPORT_SOURCE_INVALID"); }
       }
       const progress = await this.db.withTenant(input.orgId, async (session) => {
         // Reuse the write transaction's complete actor-visibility predicate, not merely
@@ -1007,6 +1009,13 @@ export class PgDigitalInterviewEffects implements DigitalInterviewEffects {
             findingId: this.ids.next("itv-finding"), title: event.title, summary: event.summary,
             expertId: event.expertId, questionId: event.questionId,
             sourceAnswerId: `${event.expertId}:${event.questionId}`, exploratory: true as const,
+            evidenceStatus: "exploratory" as const,
+            evidenceRefs: [{
+              sourceKind: "digital_expert" as const, sourceAnswerId: `${event.expertId}:${event.questionId}`,
+              expertId: event.expertId, participantId: null, questionId: event.questionId,
+              revisionId: snapshot.workflow.revisionId,
+            }],
+            counterEvidenceCount: 0,
             goalIds: goalIdsBySource.get(`${event.expertId}:${event.questionId}`) ?? [],
           };
           await session.query(
@@ -1133,11 +1142,17 @@ export class PgDigitalInterviewEffects implements DigitalInterviewEffects {
         );
         if (!shape.rows.length) throw new DigitalInterviewWorkflowError("CONCURRENT_MODIFICATION");
         if (!shape.rows[0]?.valid) throw new DigitalInterviewWorkflowError("AI_GENERATION_UNAVAILABLE");
+        const workflowBeforeCompletion = await this.requireWorkflow(session, input.orgId, input.interviewId);
+        const review = deriveApprovalEligibility({
+          mode: workflowBeforeCompletion.studyEvidenceMode,
+          findings: workflowBeforeCompletion.reportGeneration?.findings ?? [],
+          hasUnreviewedQualityFlag: false,
+        });
         await session.query(
           `UPDATE digital_interview_reports
-              SET generation_status='completed',error_code=NULL,previous_report=NULL,generated_at=now(),updated_at=now()
+              SET generation_status='completed',error_code=NULL,review_state=$3::jsonb,previous_report=NULL,generated_at=now(),updated_at=now()
             WHERE org_id=$1 AND report_id=$2`,
-          [input.orgId, reportId],
+          [input.orgId, reportId, JSON.stringify(review)],
         );
         await session.query(
           `UPDATE interview_sessions SET report_id=$3,digital_status='completed',version=version+1,updated_at=now()

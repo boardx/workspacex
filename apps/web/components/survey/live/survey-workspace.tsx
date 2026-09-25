@@ -26,6 +26,7 @@ import {
 import { SurveyQuestionEditor } from "./question-editor";
 import { SurveyTemplateActions } from "../library/template-actions";
 import { LiveResponseList } from "./response-list";
+import { assessPublishReadiness } from "@/lib/survey/publish-readiness";
 const STEPS = [
   ["design", "设计问卷"],
   ["template", "报告模板"],
@@ -63,6 +64,7 @@ export function LiveSurveyWorkspace({
   const [blockers, setBlockers] = React.useState<SurveyPublishBlocker[]>([]);
   const [notice, setNotice] = React.useState("");
   const [step, setStep] = React.useState(initialStep);
+  const [repairQuestionId, setRepairQuestionId] = React.useState<string | null>(null);
   const [expires, setExpires] = React.useState("");
   const reportRef = React.useRef<HTMLDivElement>(null);
   const lock = React.useRef(false);
@@ -176,6 +178,15 @@ export function LiveSurveyWorkspace({
         )
       : null;
   }, [draft, runtime?.responses]);
+  const readiness = React.useMemo(
+    () => assessPublishReadiness({ questions: draft?.questions ?? [], blockers }),
+    [draft?.questions, blockers],
+  );
+  const selectStep = (next: string, targetQuestionId?: string) => {
+    setStep(next);
+    setRepairQuestionId(targetQuestionId ?? null);
+    window.history.replaceState(null, "", `?step=${next}`);
+  };
   return (
     <main className="min-w-0 bg-background">
       <header className="flex flex-wrap items-center gap-3 border-b border-border bg-card p-4">
@@ -231,10 +242,7 @@ export function LiveSurveyWorkspace({
           <button
             type="button"
             key={id}
-            onClick={() => {
-              setStep(id);
-              window.history.replaceState(null, "", `?step=${id}`);
-            }}
+            onClick={() => selectStep(id)}
             className={`min-w-28 flex-1 border-b-2 px-4 py-4 text-12 ${step === id ? "border-primary bg-accent font-semibold" : "border-transparent"}`}
           >
             {i + 1}. {label}
@@ -276,6 +284,14 @@ export function LiveSurveyWorkspace({
           </>)}
           {step === "template" && (<>
             <SurveyTemplateActions kind="report" draft={draft} onApply={setDraft} disabled={busy} />
+            {repairQuestionId && (
+              <p
+                data-testid="survey-mapping-repair-target"
+                className="border-b border-warning/40 bg-warning/5 px-5 py-3 text-12"
+              >
+                待映射题目：{draft.questions.find((question) => question.id === repairQuestionId)?.title ?? repairQuestionId}。请在报告内容块中选择这道题。
+              </p>
+            )}
             <FlexibleReportEditor
               template={draft.template}
               onChange={(template) => setDraft({ ...draft, template })}
@@ -299,11 +315,34 @@ export function LiveSurveyWorkspace({
                   {blockers.length > 0 && (
                     <section aria-label="发布阻断项" className="rounded-md border border-warning/40 bg-warning/5 p-4">
                       <h2 className="text-14 font-semibold">发现 {blockers.length} 项发布阻断</h2>
+                      <div data-testid="survey-publish-readiness" className="mt-3 grid gap-2 rounded-md border border-border bg-card p-3 text-12 sm:grid-cols-3">
+                        <p><span className="text-muted-foreground">质量评分 </span>{readiness.qualityScore ?? "未知"}{readiness.qualityScore !== null && " / 100"}</p>
+                        <p><span className="text-muted-foreground">预计填写时间 </span>{readiness.estimatedSeconds === null ? "未知" : `${Math.ceil(readiness.estimatedSeconds / 60)} 分钟`}</p>
+                        <p><span className="text-muted-foreground">预计完成率 </span>{readiness.predictedCompletionRate === null ? "未知" : `${readiness.predictedCompletionRate}%`}</p>
+                      </div>
                       <ul className="mt-3 space-y-2 text-12">
-                        {blockers.map((blocker) => (
+                        {readiness.recommendations.map((blocker) => (
                           <li key={`${blocker.code}:${blocker.side}:${blocker.subjectId}`}>
                             <strong>{BLOCKER_MESSAGES[blocker.code]}</strong>
                             <span className="ml-2 text-muted-foreground">{blocker.side} · {blocker.subjectId}</span>
+                            <Button
+                              type="button"
+                              size="sm"
+                              variant="outline"
+                              className="ml-2"
+                              aria-label={`定位并修复：${blocker.label}`}
+                              onClick={() => {
+                                const templateRepair = blocker.code === "MAPPING_INCOMPLETE" || blocker.side === "section";
+                                selectStep(
+                                  templateRepair ? "template" : "design",
+                                  blocker.code === "MAPPING_INCOMPLETE" && blocker.side === "question"
+                                    ? blocker.subjectId
+                                    : undefined,
+                                );
+                              }}
+                            >
+                              定位并修复
+                            </Button>
                           </li>
                         ))}
                       </ul>

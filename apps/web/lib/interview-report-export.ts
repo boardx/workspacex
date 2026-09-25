@@ -1,6 +1,13 @@
 import type { DigitalInterviewWorkflowView } from "./interview-api";
 
 type Report = NonNullable<DigitalInterviewWorkflowView["report"]>;
+type EvidenceMode = DigitalInterviewWorkflowView["studyEvidenceMode"];
+type ReportEvidenceEligibility = DigitalInterviewWorkflowView["reportEvidenceEligibility"];
+
+/** Same label mapping the report UI shows — single source so an export can't drift from the screen. */
+export function evidenceModeLabel(mode: EvidenceMode): string {
+  return mode === "simulated" ? "模拟探索" : mode === "mixed" ? "混合证据" : "真实访谈";
+}
 
 function download(blob: Blob, filename: string): void {
   const url = URL.createObjectURL(blob);
@@ -35,10 +42,17 @@ function markdownParagraphs(markdown: string): Array<{ readonly text: string; re
 }
 
 /** Produces a real OOXML .docx rather than an HTML file renamed to .doc. */
-export async function buildInterviewReportWordBlob(report: Report): Promise<Blob> {
+export async function buildInterviewReportWordBlob(
+  report: Report,
+  boundary: { readonly evidenceMode: EvidenceMode; readonly review: ReportEvidenceEligibility },
+): Promise<Blob> {
   const { AlignmentType, Document, Footer, HeadingLevel, Packer, PageNumber, Paragraph, TextRun } = await import("docx");
   const children = [
     new Paragraph({ heading: HeadingLevel.TITLE, children: [new TextRun({ text: report.title, bold: true })] }),
+    new Paragraph({ children: [new TextRun({ text: evidenceModeLabel(boundary.evidenceMode), bold: true })] }),
+    new Paragraph({ heading: HeadingLevel.HEADING_2, children: [new TextRun({ text: "决策摘要" })] }),
+    new Paragraph({ children: [new TextRun({ text: boundary.review.message })] }),
+    new Paragraph({ children: [new TextRun({ text: `下一步：${boundary.review.action ?? "可提交人工批准"}` })] }),
     new Paragraph({ children: [new TextRun({ text: report.executiveSummary, italics: true })] }),
     ...markdownParagraphs(reportMarkdownBody(report.title, report.markdown)).map((item) => new Paragraph({
       ...(item.heading ? { heading: [HeadingLevel.HEADING_1, HeadingLevel.HEADING_2, HeadingLevel.HEADING_3][item.heading - 1] } : {}),
@@ -65,8 +79,11 @@ export async function buildInterviewReportWordBlob(report: Report): Promise<Blob
   }));
 }
 
-export async function exportInterviewReportWord(report: Report): Promise<void> {
-  const blob = await buildInterviewReportWordBlob(report);
+export async function exportInterviewReportWord(
+  report: Report,
+  boundary: { readonly evidenceMode: EvidenceMode; readonly review: ReportEvidenceEligibility },
+): Promise<void> {
+  const blob = await buildInterviewReportWordBlob(report, boundary);
   download(blob, `${safeFilename(report.title)}.docx`);
 }
 

@@ -3,6 +3,7 @@
 import * as React from "react";
 import { Brain, List, Share2, RefreshCw, Loader2, AlertTriangle, Eye, Lock } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { KnowledgeList, KnowledgeEmpty } from "./knowledge-list";
 import { KnowledgeGraphView } from "./knowledge-graph-view";
@@ -12,7 +13,7 @@ import { NominationCard } from "./nomination-card";
 import { usePromotionFlow, visibleNominations, type PromoteFn } from "./use-promotion-flow";
 import { countByTriState } from "@/lib/knowledge-graph-view";
 import { describeHumanActionFailure } from "@/lib/knowledge-graph-failure";
-import { onOpenClaimSources, takePendingClaimSources } from "@/lib/knowledge-graph-events";
+import { onOpenClaimSources, requestRememberStatement, takePendingClaimSources } from "@/lib/knowledge-graph-events";
 import {
   knowledgeGraphErrorCode,
   type ClaimSources,
@@ -62,7 +63,8 @@ export function threadKnowledgeErrorText(code: string | null | undefined): strin
 function claimSourcesErrorText(e: unknown): string {
   const code = knowledgeGraphErrorCode(e);
   if (code === "KG_NOT_VISIBLE") return "你没有权限查看这一条的来源。";
-  if (code === "KG_CLAIM_NOT_FOUND") return "这一条已经不在了。";
+  // 看不见与不存在对外同一个出口（I-3：不泄露别人的记忆是否存在），所以两种可能都照实说。
+  if (code === "KG_CLAIM_NOT_FOUND") return "这一条已经不在了，或你无权查看。";
   return "没能读到这一条的来源，请稍后重试。";
 }
 
@@ -83,6 +85,7 @@ export function KnowledgePanel({
   writeActions,
   nominations = null,
   initialPromotionResult = null,
+  onJumpToSource,
 }: {
   status: PanelStatus;
   data: ThreadKnowledge | null;
@@ -94,6 +97,8 @@ export function KnowledgePanel({
   /** F11：AI 提名（`listPromotionNominations`）。只在能记到长期记忆时画，且只提名不执行。 */
   nominations?: PromotionNominations | null;
   initialPromotionResult?: PromotionResults | null;
+  /** 来源抽屉的「跳到原消息」（F15 / E4）：真实 `/chat` 传，把那条消息滚到眼前并高亮；不传 = 签核预览，只回调不导航。 */
+  onJumpToSource?: (input: { claim: KgClaim; sourceKind: string; sourceRef: string }) => void;
 }) {
   const [view, setView] = React.useState<PanelView>(initialView);
   const [selectMode, setSelectMode] = React.useState(false);
@@ -101,6 +106,13 @@ export function KnowledgePanel({
   const [nominationsDismissed, setNominationsDismissed] = React.useState(false);
 
   const drawer = useClaimSourcesDrawer(loadSources);
+  const drawerClaim = drawer.data?.claim ?? null;
+  const jumpTo = React.useMemo(
+    () => (onJumpToSource === undefined || drawerClaim === null
+      ? undefined
+      : (sourceKind: string, sourceRef: string) => onJumpToSource({ claim: drawerClaim, sourceKind, sourceRef })),
+    [onJumpToSource, drawerClaim],
+  );
   const [actionError, setActionError] = React.useState<string | null>(null);
 
   /** 执行一个编辑动作；成功返回 true（对话框据此关闭），失败把人话挂在面板顶部并返回 false。 */
@@ -215,6 +227,9 @@ export function KnowledgePanel({
             <Badge tone="danger">{KG_TRI_STATE_LABEL_ZH.conflict} {counts.conflict}</Badge>
           </div>
         ) : null}
+
+        {/* issue #4179（F17 手动入口 ②）—— 手打一句话，走同一条「记住」确认卡路径 */}
+        {editable ? <RememberQuickAdd /> : null}
 
         {/* 记到长期记忆入口（仅个人线程 canPromote） */}
         {data && canPromote && data.claims.length > 0 ? (
@@ -370,6 +385,7 @@ export function KnowledgePanel({
         error={drawer.error}
         onRetry={drawer.retry}
         onClose={drawer.close}
+        onJumpTo={jumpTo}
       />
     </div>
   );
@@ -434,9 +450,89 @@ function useClaimSourcesDrawer(loadSources: ((claimId: string) => Promise<ClaimS
   return { isOpen: claim !== null, data, loading, error, open: load, close, retry };
 }
 
+/**
+ * issue #4179（F17 手动入口 ②）—— 面板「+ 记一条」：手打一句话，走 F17 已有的「记住」确认卡
+ * 路径（`cards.open(..., { kind: "remember", statement })`），**不新增契约操作**。
+ *
+ * 这里只 `requestRememberStatement`（`lib/knowledge-graph-events.ts`）——真正把它送进
+ * `detectMemoryIntent` → `cards.open` 的是订阅方 `copilotkit-v2-panel-body.tsx` 的 `send()`
+ * （加「记住：」前缀，当一条新消息发出去）。提交后清空输入框、收起表单；回答下方随后出现的是
+ * **确认卡**，不是直接写入——是否真的记住仍要用户在那张卡上再点一次「记住」（F17 既有规矩，
+ * 这条手动入口不绕过它）。
+ */
+function RememberQuickAdd(): JSX.Element {
+  const [open, setOpen] = React.useState(false);
+  const [text, setText] = React.useState("");
+
+  if (!open) {
+    return (
+      <Button size="xs" variant="outline" data-testid="kg-remember-quick-add-open" onClick={() => setOpen(true)}>
+        + 记一条
+      </Button>
+    );
+  }
+
+  const submit = () => {
+    const trimmed = text.trim();
+    if (trimmed === "") return;
+    requestRememberStatement(trimmed);
+    setText("");
+    setOpen(false);
+  };
+
+  return (
+    <form
+      className="flex items-center gap-1.5"
+      data-testid="kg-remember-quick-add-form"
+      onSubmit={(e) => { e.preventDefault(); submit(); }}
+    >
+      <Input
+        autoFocus
+        type="text"
+        value={text}
+        onChange={(e) => setText(e.target.value)}
+        placeholder="要记住的一句话…"
+        aria-label="要记住的一句话"
+        data-testid="kg-remember-quick-add-input"
+        className="h-7 flex-1 text-11"
+      />
+      <Button
+        size="xs"
+        type="submit"
+        disabled={text.trim().length === 0}
+        data-testid="kg-remember-quick-add-submit"
+      >
+        记住
+      </Button>
+      <Button
+        size="xs"
+        type="button"
+        variant="ghost"
+        data-testid="kg-remember-quick-add-cancel"
+        onClick={() => { setText(""); setOpen(false); }}
+      >
+        取消
+      </Button>
+    </form>
+  );
+}
+
+/**
+ * issue #4178 —— 队列恒空不等于「已整理到最新」：抽取压根没开（部署没配置模型，或本组织
+ * 没打开，见契约 `extractionActive`）时，队列永远是空的，此前这里会一直显示「已整理到最新」——
+ * 那是队列恒空造成的假象，不是真的整理完了。抽取没开时改说「自动记忆未开启」，与忙碌 /
+ * 失败两态用不同的 `data-testid` 区分（面板测试与本函数逐条断言）。
+ */
 function IngestionStatus({ data, onReindex }: { data: ThreadKnowledge; onReindex?: () => void }) {
   const { queued, running, failed } = data.ingestion;
   const busy = queued + running > 0;
+  if (!data.extractionActive) {
+    return (
+      <p className="text-10 text-muted-foreground" data-testid="kg-ingestion-inactive">
+        自动记忆未开启
+      </p>
+    );
+  }
   if (!busy && failed === 0) {
     return (
       <p className="text-10 text-muted-foreground" data-testid="kg-ingestion-idle">

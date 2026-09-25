@@ -17,7 +17,9 @@
  *   · listMessages / createMessage（Wave 2 durable message + queued AgentRun acceptance）
  *   · listThreadArtifacts / landAsArtifact（右栏产物列表 + 落地为草稿产物，#708）
  *
- * ⚠ 契约里还有 `getThreadMessagesFile`、`expandToolCallChain`、`locateCitation`、
+ *   · openCitation（E3：点开引用即调 `locateCitation`，fire-and-forget，服务端据此记价值漏斗）
+ *
+ * ⚠ 契约里还有 `getThreadMessagesFile`、`expandToolCallChain`、
  *   `adminAuditRead`、approval-request/background-task 几条——同样是真实
  *   Postgres/Provenance 支撑，但不在本次「核心聊天路径」范围内，故未封装，
  *   见 issue #368 的核实报告。
@@ -720,4 +722,19 @@ export function describeMessageFailure(failure: unknown, action: string): string
     return `${action}失败：${failure.reasonCode ?? "UNKNOWN"}（HTTP ${failure.status}）。`;
   }
   return failure instanceof Error ? `${action}失败：${failure.message}` : `${action}失败，请稍后重试。`;
+}
+
+/**
+ * E3 —— 用户点开一条引用：调 `locateCitation`（服务端判组织/线程可见性后记
+ * `citation_opened`）。**best-effort fire-and-forget**：永不抛、永不需要 await，
+ * 失败不影响界面上的就地展开。
+ */
+export function openCitation(citationId: string): void {
+  try {
+    void apiRequest(
+      chat.operations.locateCitation.path.replace(":citationId", encodeURIComponent(citationId)),
+    ).catch(() => undefined);
+  } catch {
+    /* 埋点失败不冒泡 */
+  }
 }

@@ -10,8 +10,8 @@
 import { contextPack as CP, knowledgeGraph as KG } from "@repo/contracts";
 import type { DatabasePort, TenantSession } from "../../application/ports/database.port";
 import type {
-  ClaimSourcesData, KnowledgeReadPort, KnowledgeThreadRef, PersonalClaimOriginRow, PersonalKnowledgeData,
-  ThreadKnowledgeCounts, ThreadKnowledgeData, TurnMemoryData,
+  ClaimSourcesData, KnowledgeReadPort, KnowledgeThreadRef, MessageExtractionData, PersonalClaimOriginRow,
+  PersonalKnowledgeData, ThreadKnowledgeCounts, ThreadKnowledgeData, TurnMemoryData,
 } from "../../application/knowledge-graph/ports";
 import { guard, type Guarded } from "../../application/security/permission-filter";
 import type { OrgId } from "../../domain/org-id";
@@ -70,7 +70,13 @@ function toClaim(r: ClaimRow): KgClaim | null {
 }
 
 export class PgKnowledgeRead implements KnowledgeReadPort {
-  constructor(private readonly db: DatabasePort) {}
+  /**
+   * issue #4178 —— `deploymentCapable` 是 `KgExtractionModelConfig.enabled` 的现值（部署有没有
+   * 配置抽取用的模型），构造时定住：这是进程启动参数，不会在一次请求的生命周期里变。
+   * `extractionActive`（本会话所在组织现在是不是真的在抽）还要再查一次 `kg_org_extraction_settings`——
+   * 那张表随时可能被组织 admin 切换，不能只看部署能力这一半。
+   */
+  constructor(private readonly db: DatabasePort, private readonly deploymentCapable: boolean) {}
 
   private inTenant<T>(orgId: OrgId, userId: string, fn: (s: TenantSession) => Promise<T>): Promise<T> {
     return this.db.withTenant(orgId, async (s) => {
@@ -122,6 +128,15 @@ export class PgKnowledgeRead implements KnowledgeReadPort {
       );
       const failed = queue.rows.filter((q) => q.attempts >= KG_EXTRACTION_MAX_ATTEMPTS);
       const active = queue.rows.filter((q) => q.attempts < KG_EXTRACTION_MAX_ATTEMPTS);
+      // issue #4178：这个会话所在组织现在是不是真的在抽——部署具备能力 AND 该组织打开了
+      // （`kg_org_extraction_settings`，没有行 = 默认关）。与触发器 `kg_enqueue_extraction`
+      // 的两道闸门同一条件，供面板区分「队列空 = 已整理到最新」与「压根没开」。
+      const orgSetting = this.deploymentCapable
+        ? await s.query<{ enabled: boolean }>(
+            "SELECT enabled FROM kg_org_extraction_settings WHERE org_id = $1", [orgId],
+          )
+        : null;
+      const extractionActive = orgSetting !== null && (orgSetting.rows[0]?.enabled ?? false);
       return {
         revision: Number(revision.rows[0]!.n),
         objects: objects.rows.map((o) => ({
@@ -141,6 +156,7 @@ export class PgKnowledgeRead implements KnowledgeReadPort {
           failed: failed.length,
           failures: failed.map((q) => ({ sourceKind: "chat_message" as const, sourceRef: q.message_id, reason: "retries_exhausted" as const })),
         },
+        extractionActive,
       };
     });
     return guard(threadRef(thread), data);
@@ -258,6 +274,35 @@ export class PgKnowledgeRead implements KnowledgeReadPort {
         prompt: conflict !== null ? { type: "conflict" as const, conflict } : card !== null ? { type: "memory_card" as const, card } : null,
         ...recall,
       };
+    });
+    return guard(threadRef(thread), data);
+  }
+
+  /**
+   * issue #4180 —— 这条消息自己刚被抽取出的、还活着的结论。只认这一条消息自己的证据
+   * （`claim_message_evidence.message_id` 精确相等，`stance = 'supporting'`），不像
+   * `turnMemory` 那样向前扩展到「最近一条人类消息」——这里问的就是这一条消息本身产生了什么。
+   *
+   * 隔离：`EXISTS` 子句要求 `messageId` 真的属于 `(orgId, threadId)`——伪造 / 跨会话的
+   * messageId（哪怕字面上等于别的会话某条真实消息的 id）查不到这一行，`claims` 恒为空；
+   * `scope_kind = 'chat_session' AND scope_id = $2` 还额外保证了即使跳过这层
+   * 也只会看见挂在**这个**会话下的结论，不会读到别的会话的结论内容——两层防御，同
+   * `claimSources`/`turnMemory` 对「消息必须先查得到才有下文」的既有纪律。
+   */
+  async messageExtraction(orgId: OrgId, userId: string, thread: KnowledgeThreadRef, messageId: string): Promise<Guarded<MessageExtractionData>> {
+    const data = await this.inTenant(orgId, userId, async (s): Promise<MessageExtractionData> => {
+      // 不用 DISTINCT：join 键 (claim_id, message_id, stance) 恰是 claim_message_evidence 的主键，
+      // 一条 claim 对同一条消息、同一个 stance 至多一行证据，天然不会重复。
+      const r = await s.query<{ id: string; statement: string }>(
+        `SELECT c.id, c.statement FROM claims c
+           JOIN claim_message_evidence m ON m.claim_id = c.id AND m.org_id = c.org_id
+          WHERE c.org_id = $1 AND c.scope_kind = 'chat_session' AND c.scope_id = $2 AND ${LIVE_CLAIM}
+            AND m.stance = 'supporting' AND m.message_id = $3
+            AND EXISTS (SELECT 1 FROM chat_messages cm WHERE cm.org_id = $1 AND cm.thread_id = $2 AND cm.id = $3)
+          ORDER BY c.created_at, c.id`,
+        [orgId, thread.threadId, messageId],
+      );
+      return { claims: r.rows.map((x) => ({ claimId: x.id, statement: x.statement })) };
     });
     return guard(threadRef(thread), data);
   }
@@ -514,7 +559,12 @@ async function readTurnRecall(
   );
   const row = r.rows[0];
   if (row === undefined) return { recalled: [], recallDegraded: false };
-  const visible = `((c.scope_kind = 'chat_session' AND c.scope_id = $3) OR (c.scope_kind = 'personal' AND c.scope_id = $4))`;
+  // F15：本人个人对话里的这一轮，还可能用到本人**其他个人对话**里记下的（召回候选同一条件，见 pg-knowledge-recall.ts）。
+  const ownPersonal = `EXISTS (SELECT 1 FROM chat_threads here, chat_threads t
+      WHERE here.org_id = c.org_id AND here.id = $3 AND here.project_id IS NULL AND here.created_by = $4
+        AND t.org_id = c.org_id AND t.id = c.scope_id AND t.project_id IS NULL AND t.created_by = $4 AND NOT t.archived)`;
+  const visible = `((c.scope_kind = 'chat_session' AND c.scope_id = $3) OR (c.scope_kind = 'personal' AND c.scope_id = $4)
+    OR (c.scope_kind = 'chat_session' AND ${ownPersonal}))`;
   const claimKeys = new Set(row.items.map((i) => i.claimId));
   const objectKeys = new Set<string>();
   for (const i of row.items) for (const h of i.graphPath ?? []) for (const k of [h.src, h.dst]) {
@@ -522,7 +572,9 @@ async function readTurnRecall(
     if (kind === "claim") claimKeys.add(id); else if (kind === "object") objectKeys.add(id);
   }
   const claims = await s.query<{ id: string; statement: string; status: string; scope_kind: "chat_session" | "personal"; said_at: Date | null }>(
-    `SELECT c.id, c.statement, c.status, c.scope_kind,
+    // 别的个人对话里记下的，对这一轮来说是「来自你之前的对话」：按个人空间报（界面据此标「来自你 {日期} 的对话」）。
+    `SELECT c.id, c.statement, c.status,
+            CASE WHEN c.scope_kind = 'chat_session' AND c.scope_id <> $3 THEN 'personal' ELSE c.scope_kind END AS scope_kind,
             (SELECT min(m.created_at) FROM claim_message_evidence e JOIN chat_messages m ON m.id = e.message_id AND m.org_id = e.org_id
               WHERE e.claim_id = c.id AND e.stance = 'supporting') AS said_at
        FROM claims c

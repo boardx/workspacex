@@ -37,7 +37,7 @@ export function SurveyQuestionEditor({
   }>();
   const [preview, setPreview] = React.useState(false);
   const [editing, setEditing] = React.useState(!overviewFirst);
-  const [mobile, setMobile] = React.useState(false);
+  const [previewDevice, setPreviewDevice] = React.useState<"desktop" | "tablet" | "mobile">("desktop");
   const [answers, setAnswers] = React.useState<
     Record<string, SurveyAnswerValue>
   >({});
@@ -45,8 +45,13 @@ export function SurveyQuestionEditor({
   const index = questions.findIndex((q) => q.id === question?.id);
   const change = (all: SurveyWorkflowQuestion[]) =>
     onChange(all.map((q, i) => ({ ...q, order: i + 1 })));
-  const update = (next: SurveyWorkflowQuestion) =>
-    change(questions.map((q) => (q.id === question?.id ? next : q)));
+  const update = (next: SurveyWorkflowQuestion) => {
+    const changed = JSON.stringify(next) !== JSON.stringify(question);
+    const provenance = changed && next.provenance?.certifiedAt
+      ? { ...next.provenance, certifiedAt: undefined }
+      : next.provenance;
+    change(questions.map((q) => (q.id === question?.id ? { ...next, ...(provenance ? { provenance } : {}) } : q)));
+  };
   function add(type: SurveyQuestionType) {
     const next = createSurveyQuestion(
       type,
@@ -68,6 +73,7 @@ export function SurveyQuestionEditor({
         ? false
         : question.required,
       config: { ...next.config, description: question.config?.description },
+      provenance: question.provenance,
     });
     setPendingType(undefined);
   }
@@ -315,6 +321,12 @@ export function SurveyQuestionEditor({
               disabled={locked}
               className="min-w-0 space-y-5 rounded-lg border border-border bg-card p-5"
             >
+              {question.provenance && (
+                <p data-testid="question-provenance" className="text-12 text-muted-foreground">
+                  {question.provenance.source === "question-library" ? "题库来源" : question.provenance.source === "template" ? "模板来源" : "手动创建"}
+                  {" · "}{question.provenance.certifiedAt ? "已认证" : "需重新认证"}
+                </p>
+              )}
               <label className="block text-12">
                 问题内容
                 <Textarea
@@ -440,6 +452,9 @@ export function SurveyQuestionEditor({
                       ...structuredClone(question),
                       id: crypto.randomUUID(),
                       title: `${question.title}（副本）`,
+                      provenance: question.provenance
+                        ? { ...question.provenance, certifiedAt: undefined }
+                        : undefined,
                     };
                     const next = [...questions];
                     next.splice(index + 1, 0, copy);
@@ -471,25 +486,18 @@ export function SurveyQuestionEditor({
         {preview && !overviewFirst && (
           <aside aria-label="实时预览" className="min-w-0 space-y-4">
             <div className="flex gap-2">
-              <Button
-                type="button"
-                variant={!mobile ? "primary" : "outline"}
-                aria-pressed={!mobile}
-                onClick={() => setMobile(false)}
-              >
+              <Button type="button" variant={previewDevice === "desktop" ? "primary" : "outline"} aria-pressed={previewDevice === "desktop"} onClick={() => setPreviewDevice("desktop")}>
                 桌面预览
               </Button>
-              <Button
-                type="button"
-                variant={mobile ? "primary" : "outline"}
-                aria-pressed={mobile}
-                onClick={() => setMobile(true)}
-              >
+              <Button type="button" variant={previewDevice === "tablet" ? "primary" : "outline"} aria-pressed={previewDevice === "tablet"} onClick={() => setPreviewDevice("tablet")}>
+                平板预览
+              </Button>
+              <Button type="button" variant={previewDevice === "mobile" ? "primary" : "outline"} aria-pressed={previewDevice === "mobile"} onClick={() => setPreviewDevice("mobile")}>
                 手机预览
               </Button>
             </div>
             <div
-              className={`mx-auto space-y-7 rounded-lg border border-border bg-card p-4 ${mobile ? "max-w-sm" : "w-full"}`}
+              className={`mx-auto space-y-7 rounded-lg border border-border bg-card p-4 ${previewDevice === "mobile" ? "max-w-sm" : previewDevice === "tablet" ? "max-w-2xl" : "w-full"}`}
             >
               {visibleSurveyQuestions(questions, answers).map((q) => (
                 <SurveyQuestionRenderer

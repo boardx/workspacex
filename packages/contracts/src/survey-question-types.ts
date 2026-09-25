@@ -125,6 +125,13 @@ export const SurveyWorkflowQuestionSchema = z.object({
   required: z.boolean(),
   options: z.array(z.string().min(1)).default([]),
   config: SurveyQuestionConfigSchema.optional(),
+  provenance: z
+    .object({
+      source: z.enum(["question-library", "template", "manual"]),
+      sourceId: z.string().min(1).max(200).optional(),
+      certifiedAt: z.string().datetime().optional(),
+    })
+    .optional(),
 });
 export type SurveyWorkflowQuestion = z.infer<
   typeof SurveyWorkflowQuestionSchema
@@ -229,6 +236,7 @@ export function createSurveyQuestion(
     title: SURVEY_QUESTION_TYPES.find((item) => item.type === type)!.label,
     required: !["description", "page_break"].includes(type),
     options: [],
+    provenance: { source: "manual" },
   };
   const c: NonNullable<SurveyWorkflowQuestion["config"]> = {};
   if (choiceTypes.has(type)) {

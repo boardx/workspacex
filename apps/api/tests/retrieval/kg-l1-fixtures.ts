@@ -48,7 +48,7 @@ export async function seedL1Org(db: DatabasePort, org: string): Promise<L1Org> {
   await migrateOnce();
   await resetOrgs(org);
   const fx = await seedOrg({ orgId: org, projectId: `${org}-p` });
-  await enableExtraction();
+  await enableExtraction(org);
   for (const u of ["u-owner", "u-member", "u-other"]) await addOrgMember(org, u, "consultant", fx.teams.energy!);
   for (const u of ["u-owner", "u-member"]) await addProjectMember(org, `${org}-p`, u, "facilitator", null);
   const ids = { A: `${org}-A`, B: `${org}-B`, S: `${org}-S`, MEMBER: `${org}-member`, OTHER: `${org}-other` };
@@ -63,7 +63,7 @@ export async function seedL1Org(db: DatabasePort, org: string): Promise<L1Org> {
 
   const readDeps: PromotionDeps = {
     repo: new PgIdentityRepository(db), ids: new CountingDecisionIdFactory(), chat: new PgChatRepository(db),
-    knowledge: new PgKnowledgeRead(db), promotion: new PgPromotion(db), newId: newKgId,
+    knowledge: new PgKnowledgeRead(db, true), promotion: new PgPromotion(db), newId: newKgId,
   };
   const orgId = toOrgId(org);
   const k = await getThreadKnowledge(readDeps, { userId: "u-owner", orgId, threadId: ids.A });

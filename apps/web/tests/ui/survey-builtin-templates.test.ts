@@ -260,7 +260,12 @@ describe("built-in survey content", () => {
     expect(getBuiltinSurveyTemplate(first[0]!.id, "question")).toBeUndefined();
     expect(getBuiltinSurveyTemplate("unknown", "report")).toBeUndefined();
     const mock = createSurveyWorkflowMock();
-    expect(mock.questions).toEqual(getSurveyReferenceQuestions());
+    expect(mock.questions).toEqual(
+      getSurveyReferenceQuestions().map((question) => ({
+        ...question,
+        provenance: { source: "question-library", sourceId: question.id },
+      })),
+    );
     expect(mock.reportTemplate.sections).toEqual(
       getSurveyReferenceReportSections(),
     );

@@ -21,6 +21,7 @@
  *   调用方现在恒传空串（不分团队）——见 `org-admin-screen.tsx` 里 `NO_TEAM` 的注释。
  */
 import { identity, orgAdmin, planPermissions } from "@repo/contracts";
+import { knowledgeGraph } from "@repo/contracts/chat-knowledge-graph";
 import type { z } from "zod";
 import { apiRequest, apiUrl, ApiError, extractReasonCode, getStoredSessionToken } from "./api-client";
 
@@ -463,4 +464,20 @@ export async function revokeStandingToolGrant(grantId: string): Promise<{ grantI
     path(planPermissions.operations.revokeStandingToolGrant.path, { grantId }),
     { method: "DELETE" },
   );
+}
+
+/* ── issue #4178：记忆抽取的组织开关，读任何成员可调，写仅组织 admin ─────────────── */
+
+export type KnowledgeExtractionSettingOut = z.infer<typeof knowledgeGraph.getKnowledgeExtractionSetting.out>;
+
+/** 任何组织成员可读：`deploymentCapable`（部署有没有配置抽取用的模型）与 `orgEnabled`（本组织有没有打开）。 */
+export async function getKnowledgeExtractionSetting(): Promise<KnowledgeExtractionSettingOut> {
+  return apiRequest<KnowledgeExtractionSettingOut>(
+    knowledgeGraph.getKnowledgeExtractionSetting.path, { method: "GET" });
+}
+
+/** 仅组织 admin；非 admin 收到真实 403（`KG_NOT_ORG_ADMIN`），不隐藏入口。 */
+export async function setKnowledgeExtractionSetting(enabled: boolean): Promise<KnowledgeExtractionSettingOut> {
+  return apiRequest<KnowledgeExtractionSettingOut>(
+    knowledgeGraph.setKnowledgeExtractionSetting.path, { method: "PUT", body: { enabled } });
 }

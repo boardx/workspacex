@@ -18,6 +18,8 @@ import {
 /**
  * 列表视图（uc-18-3 R3-1）：记下的按类型分组，三态徽标、来源、证据数。
  * - U-2：每条一键「对 / 不对」；「不对」就地展开「改写 / 忘掉这条」；批量「全部确认」在面板头部。
+ *   06-UX R3-4「纠正或忘掉最多 2 次点击」：「不对」本身就是确认——行内「忘掉这条」点了直接忘掉，不再弹二次确认框
+ *   （F15 评测 E5.c1 量出来是 3 次）；`…` 菜单里的「忘掉这条」仍先确认（那条路径前面没有「不对」这一步）。
  * - 多选（`selectable` + selected）供「记到长期记忆」（uc-18-4，只有 canPromote 时开）；
  *   单条的「记到我的长期记忆」在 `…` 菜单里，经 `onPromote`（不传 = 不画）。
  * - 完整编辑菜单（合并/拆分/改名等）仍在 `…` 菜单里，只对 canEdit 渲染。
@@ -132,7 +134,7 @@ export function KnowledgeList({
                         不对
                       </Button>
                       {openWrong[c.id] ? (
-                        <span className="flex items-center gap-1.5" data-testid={`kg-row-wrong-options-${c.id}`}>
+                        <span className="flex flex-wrap items-center gap-1.5" data-testid={`kg-row-wrong-options-${c.id}`}>
                           <Button size="xs" variant="ghost" data-testid={`kg-row-revise-${c.id}`} onClick={() => setDialog({ kind: "revise", claim: c })}>
                             <Pencil aria-hidden className="mr-1 h-3 w-3" />
                             改写
@@ -142,11 +144,15 @@ export function KnowledgeList({
                             variant="ghost"
                             className="text-destructive"
                             data-testid={`kg-row-forget-${c.id}`}
-                            onClick={() => setDialog({ kind: "revoke", claim: c })}
+                            onClick={() => { void onApply?.({ type: "revokeClaim", claimId: c.id }); }}
                           >
                             <Trash2 aria-hidden className="mr-1 h-3 w-3" />
                             忘掉这条
                           </Button>
+                          {/* 行内忘掉不再弹确认框（06-UX R3-4 ≤ 2 次点击），确认框里那句后果改成就地说清楚 */}
+                          <span className="basis-full text-10 text-muted-foreground" data-testid={`kg-row-forget-note-${c.id}`}>
+                            忘掉后之后的回答不再用它；记到长期记忆里的那份也会一起忘掉。
+                          </span>
                         </span>
                       ) : null}
                     </div>

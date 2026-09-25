@@ -186,6 +186,20 @@ export function GuidedResearchLive({ sessionId, onBack, initialNode }: { session
       setSteeringPending(false);
     }
   }
+  async function resolveConflict(decision: { conflictId: string; action: "retain_uncertainty" | "prefer_source"; sourceId?: string; rationale: string }) {
+    if (!state || steeringPending) return;
+    setSteeringPending(true); setError(null);
+    try {
+      const next = await executeResearchRuntime({
+        sessionId, node: "research", action: "resolve_conflict", requestId: crypto.randomUUID(), expectedVersion: state.version,
+        expectedRevision: state.planRevision ?? 0, idempotencyKey: trustCommandId("resolve-conflict"), conflictId: decision.conflictId,
+        conflictResolutionAction: decision.action, sourceId: decision.sourceId,
+        conflictResolution: decision.rationale,
+      });
+      snapshotRef.current = next; setState(next);
+    } catch (cause) { setError(requestError(cause)); }
+    finally { setSteeringPending(false); }
+  }
   async function run(action: Command["action"], extra: Partial<Command> = {}) {
     if (!state || busy) return;
     const generation = sessionGeneration.current;
@@ -345,7 +359,7 @@ export function GuidedResearchLive({ sessionId, onBack, initialNode }: { session
         {draft?.node === "outline" && <ResearchOutlineEditor draft={draft} disabled={busy} onChange={setDraft} />}
         {node === "research" && <>
           {!state.intent && <p role="status" className="rounded-md border p-3 text-sm">请返回报告大纲步骤确认研究边界后再开始检索。</p>}
-          <GuidedResearchTrustConsole runtime={state} pending={steeringPending} onSteer={(action) => void steer(action)} />
+          <GuidedResearchTrustConsole runtime={state} pending={steeringPending} onSteer={(action) => void steer(action)} onResolveConflict={(decision) => void resolveConflict(decision)} />
           <div className="flex gap-2">{(!state.tasks.length || state.tasks.some((task) => task.status !== "succeeded") || state.sources.some((source) => source.decision !== "excluded" && !source.addedByUser && !source.presentation)) && <Button variant="primary" disabled={busy} onClick={() => void run("start")}>{state.tasks.length && state.tasks.every((task) => task.status === "succeeded") ? "更新资料" : state.sources.length ? "继续搜索" : "搜索资料"}</Button>}{state.tasks.some((task) => task.status === "failed" || (expired && task.status === "running")) && <Button variant="outline" disabled={busy} onClick={() => void run("retry")}>重试失败任务</Button>}</div>
           <GuidedResearchSources sources={displaySources} disabled={busy || Boolean(proposal)} onAdd={(sourceUrl) => run("add_source", { sourceUrl })} onRemove={(sourceId) => void run("remove_source", { sourceId })} />
           <details className="text-12 text-muted-foreground"><summary className="cursor-pointer">查看搜索详情</summary><div className="mt-3"><GuidedResearchPlanDetails state={state} errors={errors} /></div></details>

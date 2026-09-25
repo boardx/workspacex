@@ -87,6 +87,25 @@ export class SurveyPublishBlockedError extends SurveyError {
   }
 }
 const hash = (value: string) => createHash("sha256").update(value).digest();
+const withoutCertification = (question: SurveyDraftInput["questions"][number]) => ({
+  ...question,
+  ...(question.provenance
+    ? { provenance: { ...question.provenance, certifiedAt: undefined } }
+    : {}),
+});
+const preserveTrustedCertification = (
+  questions: SurveyDraftInput["questions"],
+  previous: SurveyDraftInput["questions"] = [],
+) => questions.map((question) => {
+  const prior = previous.find((item) => item.id === question.id);
+  const certifiedAt = prior?.provenance?.certifiedAt &&
+    isDeepStrictEqual(withoutCertification(prior), withoutCertification(question))
+    ? prior.provenance.certifiedAt
+    : undefined;
+  return question.provenance
+    ? { ...question, provenance: { ...question.provenance, certifiedAt } }
+    : question;
+});
 export class SurveyService {
   constructor(
     private readonly repo: SurveyRepository,
@@ -132,6 +151,7 @@ export class SurveyService {
   ) {
     const model: SurveyRuntime = {
       ...input,
+      questions: preserveTrustedCertification(input.questions),
       id: randomUUID(),
       version: 1,
       status: "draft",
@@ -203,7 +223,7 @@ export class SurveyService {
         m.status = transitionSurveyStatus(m.status, "withdraw");
       }
       m.title = input.title;
-      m.questions = input.questions;
+      m.questions = preserveTrustedCertification(input.questions, m.questions);
       m.template = input.template;
     });
   }

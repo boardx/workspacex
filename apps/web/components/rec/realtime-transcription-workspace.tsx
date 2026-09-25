@@ -10,6 +10,7 @@ import { Card } from "@/components/ui/card";
 import { MicDevicePicker } from "@/components/chat/chat-composer-pickers";
 import type { AudioInputDevice } from "@/lib/live-recording";
 import type { RealtimeAsrStreamState } from "@/lib/realtime-asr.types";
+import type { RealtimeAsrFlowState } from "@/lib/realtime-asr-flow";
 
 type PersonalTranscriptionDetail = z.infer<typeof C.PersonalTranscriptionDetail>;
 type PersonalTranscriptionStatus = z.infer<typeof C.PersonalTranscriptionStatus>;
@@ -25,6 +26,7 @@ export function RealtimeTranscriptionWorkspace({
   onBack,
   streamState = "idle",
   interimSegment = "",
+  flowState = "normal",
   errorMessage,
   onStart,
   onStop,
@@ -38,6 +40,7 @@ export function RealtimeTranscriptionWorkspace({
   onBack: () => void;
   streamState?: RealtimeAsrStreamState;
   interimSegment?: string;
+  flowState?: RealtimeAsrFlowState;
   errorMessage?: string | null;
   onStart: () => void;
   onStop: () => void;
@@ -113,7 +116,7 @@ export function RealtimeTranscriptionWorkspace({
             </div>
             <div className="flex items-center gap-2 text-12 text-muted-foreground">
               <Radio aria-hidden className={`h-4 w-4 ${recording ? "text-success" : ""}`} />
-              {streamState === "connecting" ? "正在连接" : streamState === "stopping" ? "正在等待尾部结果" : recording ? "正在接收音频" : session.status === "failed" ? "上次转录失败，可重新开始" : session.content ? "当前页面已有文字，可继续追加" : "尚未开始"}
+              {streamState === "connecting" ? "正在连接" : streamState === "stopping" ? "正在等待尾部结果" : recording && flowState === "slow" ? "音频仍在传输或确认中" : recording ? "正在接收音频" : session.status === "failed" ? "上次转录失败，可重新开始" : session.content ? "当前页面已有文字，可继续追加" : "尚未开始"}
             </div>
             <Button
               data-testid="rec-live-toggle"
@@ -164,7 +167,7 @@ export function RealtimeTranscriptionWorkspace({
             <div className="mt-5 rounded-lg bg-card p-1">
               <p data-testid="rec-live-content" className="whitespace-pre-wrap text-14 leading-8">{session.content}
                 {session.content && interimSegment ? " " : ""}
-                {interimSegment && <span data-testid="rec-live-interim" className="text-muted-foreground">{interimSegment}</span>}
+                {interimSegment && <span data-testid="rec-live-interim" className="text-muted-foreground">{interimSegment}<span className="ml-2 text-11">实时草稿，约在自然停顿 800ms 后确认保存</span></span>}
               </p>
             </div>
           ) : (

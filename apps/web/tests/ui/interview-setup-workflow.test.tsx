@@ -83,6 +83,8 @@ const topicPendingInterview: LiveInterview = {
   skillMessages: [],
   skillProposals: [],
   expertRuns: [],
+  studyEvidenceMode: "simulated",
+  reportEvidenceEligibility: { eligibility: "blocked_missing_participant_evidence", message: "需要真实受访者证据后才能批准。", action: "添加并复核真实受访者回答" },
 };
 
 const persistedInterview: PersistedLiveInterview = {

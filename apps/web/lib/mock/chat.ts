@@ -136,6 +136,8 @@ export type CitationAnchorKind = z.infer<typeof C.CitationAnchorKind>;
  * 这里是**渲染后的展示视图**（带序号、出处全称、已解析的锚点）。两者不同层，故名字上分开。
  */
 export interface CitationView {
+  /** 持久化引用的 id（`chat_citations.citation_id`）；mock 数据没有。有 id 时点开会上报 E3。 */
+  citationId?: string;
   index: number;
   /** 出处全称 */
   sourceFullName: string;

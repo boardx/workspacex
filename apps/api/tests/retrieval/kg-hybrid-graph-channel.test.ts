@@ -22,7 +22,8 @@ const recall = (query: string, p: KnowledgeRecallPort = port, threadId = T1) =>
 
 beforeAll(async () => {
   db = new PgDatabase(appConfig());
-  await seedRecallOrg(db, ORG, [T1, T2]);
+  // T2 挂在项目下：它不在 u-owner 的个人空间里，「别的会话不会漏进来」才有意义（F15 起本人其他个人对话也会被召回）。
+  await seedRecallOrg(db, ORG, [T1, T2], "u-owner", { projectThreads: [T2] });
   port = new PgKnowledgeRecall(db);
 });
 afterAll(async () => { await db.close(); });

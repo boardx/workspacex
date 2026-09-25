@@ -89,6 +89,25 @@ describe("personal realtime ASR gateway", () => {
     client.ws.close();
   });
 
+  it("relays recoverable upstream flow without failing the capture", async () => {
+    let handlers: AsrSessionHandlers | undefined;
+    const provider: AsrProviderPort = {
+      isConfigured: () => true,
+      open: async nextHandlers => {
+        handlers = nextHandlers;
+        return sessionStub(() => undefined);
+      },
+    };
+    const client = await connect({ provider, repository: repositoryStub(), usage: usageMeter([]) });
+    client.ws.send(JSON.stringify({ type: "start" }));
+    expect(await client.next()).toMatchObject({ type: "ready" });
+    handlers?.onFlow?.({ state: "slow", source: "upstream", queuedMs: 400 });
+    expect(await client.next()).toEqual({ type: "flow", captureId: CAPTURE, state: "slow", source: "upstream", queuedMs: 400 });
+    handlers?.onFlow?.({ state: "normal", source: "upstream", queuedMs: 100 });
+    expect(await client.next()).toMatchObject({ type: "flow", state: "normal", queuedMs: 100 });
+    client.ws.close();
+  });
+
   it("preserves FINISH_TIMEOUT when the shared provider cannot settle the final segment", async () => {
     const provider: AsrProviderPort = {
       isConfigured: () => true,

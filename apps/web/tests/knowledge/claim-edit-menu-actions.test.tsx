@@ -59,7 +59,7 @@ function readModel(): ThreadKnowledge {
   return knowledgeGraph.getThreadKnowledge.out.parse({
     scope: SCOPE, revision: server.revision, objects: server.objects, claims: server.claims, edges: [],
     ingestion: { queued: 0, running: 0, failed: 0, failures: [] },
-    canEdit: server.canEdit, canPromote: true, visibility: "owner_only",
+    canEdit: server.canEdit, canPromote: true, visibility: "owner_only", extractionActive: true,
   });
 }
 
@@ -203,16 +203,32 @@ describe("所有者的编辑动作：请求体对、成功后 2 秒内界面跟�
     expect(screen.queryByTestId("kg-revise-dialog-c-fact")).not.toBeInTheDocument();
   });
 
-  it("「不对」→「忘掉这条」：二次确认后 revokeClaim；这一条从列表消失", async () => {
+  it("「不对」→「忘掉这条」：两次点击直接 revokeClaim（06-UX R3-4 ≤ 2 次点击），不再弹确认框；这一条从列表消失", async () => {
     await renderPanel();
     fireEvent.click(screen.getByTestId("kg-row-no-c-fact"));
+    expect(server.actions).toHaveLength(0); // 「不对」只是展开选项
+    // 没有确认框，后果就地写清楚：长期记忆里的那份也会一起忘掉
+    expect(screen.getByTestId("kg-row-forget-note-c-fact")).toHaveTextContent("记到长期记忆里的那份也会一起忘掉");
     fireEvent.click(screen.getByTestId("kg-row-forget-c-fact"));
-    const dialog = await screen.findByTestId("kg-delete-confirm-c-fact");
-    expect(within(dialog).getByTestId("kg-delete-impact-c-fact")).toHaveTextContent("客户 B 需要中文界面。");
-    expect(server.actions).toHaveLength(0); // 打开确认框本身不发请求
-    fireEvent.click(within(dialog).getByTestId("kg-delete-confirm-btn-c-fact"));
+    expect(screen.queryByTestId("kg-delete-confirm-c-fact")).not.toBeInTheDocument();
     await waitFor(() => expect(lastAction()?.action).toEqual({ type: "revokeClaim", claimId: "c-fact" }));
     await waitFor(() => expect(screen.queryByTestId("kg-claim-c-fact")).not.toBeInTheDocument(), UI_DEADLINE);
+  });
+
+  it("改写框里回车就保存（Shift+回车换行）：reviseClaim 带新说法", async () => {
+    await renderPanel();
+    fireEvent.click(screen.getByTestId("kg-row-no-c-fact"));
+    fireEvent.click(screen.getByTestId("kg-row-revise-c-fact"));
+    const dialog = await screen.findByTestId("kg-revise-dialog-c-fact");
+    const input = within(dialog).getByTestId("kg-revise-input-c-fact");
+    fireEvent.change(input, { target: { value: "客户 B 需要英文界面。" } });
+    fireEvent.keyDown(input, { key: "Enter", shiftKey: true });
+    expect(server.actions).toHaveLength(0);
+    fireEvent.keyDown(input, { key: "Enter" });
+    await waitFor(() => expect(lastAction()?.action).toEqual({
+      type: "reviseClaim", claimId: "c-fact", statement: "客户 B 需要英文界面。",
+    }));
+    await waitFor(() => expect(screen.queryByTestId("kg-revise-dialog-c-fact")).not.toBeInTheDocument(), UI_DEADLINE);
   });
 
   it("菜单「忘掉这条」同样先确认；取消不发请求", async () => {

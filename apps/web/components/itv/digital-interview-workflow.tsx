@@ -30,7 +30,7 @@ import { MOCK_DIGITAL_EXPERTS, findMockDigitalExpert, toDigitalExpertCatalogRow 
 import { ExpertPickerDialog } from "./expert-picker-dialog";
 import { InterviewSkillAssistant, PersistentInterviewSkillAssistant } from "./interview-skill-assistant";
 import { InterviewReportMarkdown } from "./interview-report-markdown";
-import { exportInterviewReportPdf, exportInterviewReportWord, reportMarkdownBody } from "@/lib/interview-report-export";
+import { evidenceModeLabel, exportInterviewReportPdf, exportInterviewReportWord, reportMarkdownBody } from "@/lib/interview-report-export";
 import { reconcileMockInterviewQuestions, updateMockDigitalInterviewDraft, type MockDigitalInterviewDraft, type MockInterviewStep, type MockSkillSuggestion } from "@/lib/mock/digital-interview-drafts";
 import { DigitalInterviewResearchBriefEditor } from "./digital-interview-research-brief";
 import { DigitalInterviewQualityPanel } from "./digital-interview-quality-panel";
@@ -387,7 +387,7 @@ export function PersistentDigitalInterviewWorkflow({ initialView }: { readonly i
         {active === "questions" && <><LiveQuestionStep expertIds={buffers.expertIds} candidates={view.expertCandidates} questions={buffers.questions} learningGoals={buffers.researchBrief.learningGoals} moderatorPolicy={buffers.moderatorPolicy} onPolicyChange={(moderatorPolicy) => { setBuffers((current) => ({ ...current, moderatorPolicy })); setDirty(true); }} onChange={(questions) => { setBuffers((current) => ({ ...current, questions })); setDirty(true); }} onConfirm={() => requestConfirmation("questions")} />
           <div className="mt-5"><DigitalInterviewQualityPanel quality={view.quality} />{view.questionVersionId && view.quality.readiness && <DigitalInterviewReadiness quality={view.quality} pending={confirming} onDecide={(status, rationale) => void startReady(status, rationale)} />}</div></>}
         {active === "runs" && <LiveRunStep runs={view.expertRuns} reportPending={reportPending} onGenerateReport={() => requestConfirmation("report")} />}
-        {active === "report" && (view.report ? <><LiveReportStep report={view.report} onViewSource={(expertId, questionId) => {
+        {active === "report" && (view.report ? <><LiveReportStep report={view.report} evidenceMode={view.studyEvidenceMode} review={view.reportEvidenceEligibility} onViewSource={(expertId, questionId) => {
           setActiveStep("runs");
           window.setTimeout(() => document.getElementById(`answer-${expertId}-${questionId}`)?.scrollIntoView({ block: "center" }), 0);
         }} /><DigitalInterviewEvidenceReview view={view} pending={confirming} onReview={(status, note) => void reviewReport(status, note)} /></> : view.reportGeneration ? <LiveReportGenerationStep generation={view.reportGeneration} onRetry={() => requestConfirmation("report")} />
@@ -462,14 +462,21 @@ function LiveRunStep({ runs, reportPending, onGenerateReport }: { readonly runs:
   return <div data-testid="itv-expert-runs"><h2 className="text-xl font-semibold">执行批量访谈</h2><p className="mt-2 text-sm text-muted-foreground">每位专家独立运行；刷新或离开页面后会从服务端恢复。</p><div className="mt-5 space-y-4">{runs.map((run) => <article key={run.expertId} data-testid="itv-expert-run" className="rounded-xl border border-border p-4"><div className="flex items-center justify-between gap-3"><h3 className="font-semibold">{run.displayName}</h3><span className="text-xs text-muted-foreground">{run.status === "completed" ? "已完成" : run.status === "failed" ? "失败" : "进行中"} · {run.completedQuestions}/{run.totalQuestions}</span></div>{run.errorCode && <p role="alert" className="mt-3 text-sm text-destructive">{run.errorCode}</p>}<div className="mt-3 space-y-3">{run.answers.map((answer) => <section id={`answer-${run.expertId}-${answer.questionId}`} key={answer.questionId} className="scroll-mt-6 rounded-lg bg-muted/50 p-3"><p className="text-sm font-medium">{answer.question}</p><p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-muted-foreground">{answer.answer}</p></section>)}</div></article>)}</div>{runs.length === 0 && <p data-testid="itv-runs-empty" className="mt-5 text-sm text-muted-foreground">访谈任务正在创建，请稍后刷新。</p>}<Button data-testid="itv-confirm-answers-generate-report" className="mt-6" variant="primary" size="lg" disabled={!ready || reportPending} onClick={onGenerateReport}>{reportPending ? "正在生成报告…" : "确认访谈回答并生成报告"}</Button></div>;
 }
 
-function LiveReportStep({ report, onViewSource }: { readonly report: NonNullable<DigitalInterviewWorkflowView["report"]>; readonly onViewSource: (expertId: string, questionId: string) => void }) {
+function LiveReportStep({ report, evidenceMode, review, onViewSource }: { readonly report: NonNullable<DigitalInterviewWorkflowView["report"]>; readonly evidenceMode: DigitalInterviewWorkflowView["studyEvidenceMode"]; readonly review: DigitalInterviewWorkflowView["reportEvidenceEligibility"]; readonly onViewSource: (expertId: string, questionId: string) => void }) {
+  const label = evidenceModeLabel(evidenceMode);
   return <article id="itv-report-print-root" data-testid="itv-report" className="report-document">
     <header className="border-b border-border pb-6">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div className="max-w-3xl"><p className="text-xs font-medium text-primary">访谈决策报告</p><h2 className="mt-2 text-2xl font-semibold tracking-tight">{report.title}</h2></div>
-        <div className="flex flex-wrap gap-2 print:hidden"><Button data-testid="itv-report-export-word" type="button" variant="outline" onClick={() => void exportInterviewReportWord(report)}><FileText className="size-4" aria-hidden />导出 Word</Button><Button data-testid="itv-report-export-pdf" type="button" variant="outline" onClick={() => exportInterviewReportPdf("itv-report-print-root")}><Download className="size-4" aria-hidden />导出 PDF</Button></div>
+        <div className="flex flex-wrap gap-2 print:hidden"><Button data-testid="itv-report-export-word" type="button" variant="outline" onClick={() => void exportInterviewReportWord(report, { evidenceMode, review })}><FileText className="size-4" aria-hidden />导出 Word</Button><Button data-testid="itv-report-export-pdf" type="button" variant="outline" onClick={() => exportInterviewReportPdf("itv-report-print-root")}><Download className="size-4" aria-hidden />导出 PDF</Button></div>
       </div>
-      <section data-testid="itv-report-decision-brief" className="mt-5 border-l-2 border-primary/70 pl-4"><h3 className="text-sm font-semibold">决策摘要</h3><p className="mt-2 leading-7 text-muted-foreground">{report.executiveSummary}</p></section>
+      <section data-testid="itv-report-decision-brief" className="mt-5 border-l-2 border-primary/70 pl-4">
+        <p data-testid="itv-study-evidence-label" className="text-xs font-medium text-muted-foreground">{label}</p>
+        <h3 className="mt-2 text-sm font-semibold">决策摘要</h3>
+        <p className="mt-2 leading-7 text-muted-foreground">{report.executiveSummary}</p>
+        <p className="mt-2 text-sm">{review.message}</p>
+        <p className="mt-1 text-sm text-muted-foreground">下一步：{review.action ?? "可提交人工批准"}</p>
+      </section>
     </header>
     <section className="mt-7"><h3 className="text-base font-semibold">研究发现</h3><InterviewReportMarkdown markdown={reportMarkdownBody(report.title, report.markdown)} testId="itv-report-markdown" /></section>
     {report.findings.length > 0 && <section className="mt-8"><div className="flex items-baseline justify-between gap-3"><h3 className="text-base font-semibold">来源发现</h3><p className="text-xs text-muted-foreground">每项发现均可回溯至访谈回答</p></div><div className="mt-3 space-y-3">{report.findings.map((finding, index) => <article key={finding.findingId} className="break-inside-avoid rounded-xl border border-border bg-muted/20 p-4"><p className="text-xs font-medium text-primary">发现 {index + 1}</p><strong className="mt-1 block">{finding.title}</strong><p className="mt-2 text-sm leading-6 text-muted-foreground">{finding.summary}</p><button type="button" className="mt-3 text-xs font-medium text-primary print:hidden" onClick={() => onViewSource(finding.expertId, finding.questionId)}>查看原始回答</button></article>)}</div></section>}

@@ -60,7 +60,7 @@ function knowledge(): ThreadKnowledge {
   return knowledgeGraph.getThreadKnowledge.out.parse({
     scope: SCOPE, revision: 4, objects: [], claims: CLAIMS, edges: [],
     ingestion: { queued: 0, running: 0, failed: 0, failures: [] },
-    canEdit: true, canPromote: true, visibility: "owner_only",
+    canEdit: true, canPromote: true, visibility: "owner_only", extractionActive: true,
   });
 }
 

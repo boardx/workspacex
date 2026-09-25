@@ -14,6 +14,7 @@ import { AgentPlanPanel, type PlanTodo } from "@/components/chat/agent-plan-pane
 import { ThreadKnowledgeTab, useThreadKnowledge } from "@/components/chat/knowledge/thread-knowledge-tab";
 import { onOpenClaimSources, onOpenKnowledgePanel, requestOpenClaimSources } from "@/lib/knowledge-graph-events";
 import { readChatMemoryRequest } from "@/lib/chat-memory-link";
+import { useFocusMessageFromUrl } from "@/lib/chat-message-focus";
 import {
   INSPECTOR_TABS,
   nextInspectorTab,
@@ -312,6 +313,8 @@ export function ChatTaskInspector(props: ChatTaskInspectorProps): JSX.Element {
    * （不阻塞首帧），角标显示 `claims.length`；每次点开页签再刷新一次，看到的是最新整理结果。
    */
   const knowledge = useThreadKnowledge(showKnowledge ? threadId : null);
+  // F15：记忆来源抽屉「跳到原消息」打开别的对话时带 `?focusMessage=`：消息加载出来后高亮它。
+  useFocusMessageFromUrl(showKnowledge ? threadId : null);
   const knowledgeCount = knowledge.status === "ready" && knowledge.data !== null ? knowledge.data.claims.length : null;
   const reloadKnowledge = knowledge.reload;
 

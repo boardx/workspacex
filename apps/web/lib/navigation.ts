@@ -82,28 +82,6 @@ export interface NavSegment {
 }
 
 /**
- * 「海创汇」入口的**名字**（2026-09-15 人类直接要求：Nav App 名从「智能体」改成这个）。
- *
- * ⚠ 放在这里而不是 `lib/mock/agent-previews.ts`：`tests/session/*-route-no-mock.test.ts`
- *   有一份「残留 mock 边台账」，导航是真实路由图的一部分，不许挂到 `lib/mock/` 上——
- *   从那里 import 会让台账多一条边而变红。示例 team 数据仍留在 mock 文件里（它本来
- *   就是示例），页面从这里取名字、从 mock 取数据，名字仍然只有这一份。
- */
-export const AGENTS_NAV_LABEL = "海创汇";
-
-/**
- * 「海创汇」入口的可见性（2026-09-15 人类直接要求：只有 Workspace 的组织才显示这个标签）。
- *
- * ⚠ 这是**展示过滤，不是权限**（UC-0.3 R5：前端隐藏即安全是禁止的）。路由 `/agent`
- *   本身仍然可直达，它只是一组只读示例卡片；真实能力门控在服务端。
- */
-export const AGENTS_NAV_ORG_NAME = "Workspace";
-
-export function isAgentsNavVisibleForOrg(orgName: string | null | undefined): boolean {
-  return (orgName ?? "").trim().toLowerCase() === AGENTS_NAV_ORG_NAME.toLowerCase();
-}
-
-/**
  * 一级导航的**可见性判据**（2026-09-20 人类直接要求：「只有平台管理员可以看到平台管理
  * 菜单，至于组织管理员才可以看到组织管理后台」）。
  *
@@ -116,7 +94,7 @@ export function isAgentsNavVisibleForOrg(orgName: string | null | undefined): bo
  *   下一个入口（顶栏、移动端抽屉、命令面板）必然漂移（AGENTS.md：同一事实不得声明在两处）。
  */
 export interface NavViewer {
-  /** 当前组织名——「海创汇」入口的既有判据。 */
+  /** 当前组织名。 */
   orgName: string | null | undefined;
   /** 当前登录者在当前组织里的组织角色；`null` = 还没解析出来（保守按非 admin 处理）。 */
   orgRole?: string | null;
@@ -131,7 +109,6 @@ export interface NavViewer {
 
 /** 受可见性约束的一级入口；未列出的入口对所有人一视同仁。 */
 const SCOPED_NAV_KEYS: Record<string, (viewer: NavViewer) => boolean> = {
-  agents: (v) => isAgentsNavVisibleForOrg(v.orgName),
   // 「组织后台」= 本组织的总览/成员配额/本地组织，面向组织管理员。
   admin: (v) => v.orgRole === "admin",
   // 「平台后台」= 全平台账号与运营，面向平台运维（平台超管或平台管理员），与组织角色无关。
@@ -195,13 +172,6 @@ export const NAV_SEGMENTS: NavSegment[] = [
       { key: "research", label: "研究", href: "/research", icon: Search, ucRefs: ["24-research/uc-24-1", "24-research/uc-24-2", "24-research/uc-24-3", "24-research/uc-24-4", "24-research/uc-24-5", "24-research/uc-24-6"] },
       // 束: interview —— 重指到 v2 现行屏 /itv（label/icon 不变，像素不变；旧 /studio/interview 已重定向）
       { key: "interview", label: "访谈", href: "/itv", icon: Mic, ucRefs: ["06-itv/uc-6-1", "06-itv/uc-6-3"] },
-      // #3602：用户明确新增的展示入口；后台 agent-runtime 管理入口保持独立。
-      // 2026-09-15 人类直接要求：标签改为「海创汇」（文案单一事实源在
-      // `lib/mock/agent-previews.ts` 的 `AGENTS_NAV_LABEL`，页面与导航共用同一个常量），
-      // 且**只对 Workspace 组织显示**——可见性判定在 `isAgentsNavVisibleForOrg`（本文件下方），
-      // 由 `components/shell/icon-rail.tsx` 在渲染时过滤。条目本身留在 NAV_SEGMENTS 里，
-      // 不做成"第二份导航表"：同一入口只声明一次，可见性是它的一个属性，不是另一张表。
-      { key: "agents", label: AGENTS_NAV_LABEL, href: "/agent", icon: Bot, ucRefs: [] },
       // 束: recording —— 现场录音转写，此前只能敲 /rec
       { key: "recording", label: "录音", href: "/rec", icon: AudioLines, ucRefs: ["05-rec/uc-5-1", "05-rec/uc-5-2"] },
       { key: "survey", label: "问卷", href: "/studio/survey", icon: ClipboardList, ucRefs: ["12-survey/uc-12-1"] },
@@ -405,7 +375,6 @@ export const NAV_SEGMENTS: NavSegment[] = [
 ];
 
 /* ────────────────────────────────────────────────────────────────────────────
- * #3602 更新：历史规则约束后台管理入口；用户现授权独立的 /agent 展示页进入 STUDIO。
  * 2026-08-06 · issue #593 · 信息架构复位（一级 ↔ 二级）
  *
  * 病：一级导航里跟「对话」平级地挂着 蓝本 / 技能 / 智能体 / 成员 / 资产。

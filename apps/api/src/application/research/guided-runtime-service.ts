@@ -47,7 +47,7 @@ function fingerprint(value: unknown): string {
   return createHash("sha256").update(JSON.stringify(value, (_key, item) => item && typeof item === "object" && !Array.isArray(item)
     ? Object.fromEntries(Object.entries(item).sort(([a], [b]) => a.localeCompare(b))) : item)).digest("hex");
 }
-const steeringActions = new Set<RuntimeCommand["action"]>(["pause", "resume", "refine_scope", "refine_source_policy"]);
+const steeringActions = new Set<RuntimeCommand["action"]>(["pause", "resume", "refine_scope", "refine_source_policy", "resolve_conflict"]);
 export function assertInternalSourceAccess(requested: readonly string[], authorized: readonly string[]): void {
   const allowed = new Set(authorized);
   if (requested.some((id) => !allowed.has(id))) throw new ResearchRuntimeError("RESEARCH_SOURCE_ACCESS_DENIED");
@@ -102,11 +102,20 @@ export function applyResearchSteering(state: ResearchRuntime, command: RuntimeCo
     state.intent = command.intent;
     if (command.sourcePolicy) state.sourcePolicy = command.sourcePolicy;
   }
+  if (command.action === "resolve_conflict") {
+    const conflict = state.conflicts?.find((item) => item.id === command.conflictId);
+    if (!conflict || conflict.status !== "open" || !command.conflictResolutionAction || !command.conflictResolution) throw new ResearchRuntimeError("RESEARCH_NODE_STATE_INVALID");
+    if (command.conflictResolutionAction === "prefer_source" && (!command.sourceId || !conflict.sourceIds.includes(command.sourceId))) throw new ResearchRuntimeError("RESEARCH_NODE_STATE_INVALID");
+    conflict.status = "resolved";
+    conflict.resolutionAction = command.conflictResolutionAction;
+    conflict.resolvedSourceId = command.conflictResolutionAction === "prefer_source" ? command.sourceId! : null;
+    conflict.resolution = command.conflictResolution;
+  }
   state.planRevision = (state.planRevision ?? 0) + 1;
   const activity = state.activity ?? (state.activity = []);
   activity.push({ id: command.idempotencyKey, sequence: activity.length ? Math.max(...activity.map((event) => event.sequence)) + 1 : 1,
     stage: "planning", taskId: null,
-    summary: command.action === "pause" ? "研究已暂停" : command.action === "resume" ? "研究已继续" : command.action === "refine_scope" ? "研究范围已更新" : "来源策略已更新",
+    summary: command.action === "pause" ? "研究已暂停" : command.action === "resume" ? "研究已继续" : command.action === "refine_scope" ? "研究范围已更新" : command.action === "resolve_conflict" ? "冲突已由人工裁决" : "来源策略已更新",
     occurredAt, status: command.action === "pause" ? "paused" : "succeeded" });
 }
 export function initialRuntime(session: GuidedResearchSession): ResearchRuntime {
@@ -178,7 +187,7 @@ export class GuidedRuntimeService {
   }
   async execute(actor: RuntimeActor, session: GuidedResearchSession, command: RuntimeCommand, observer?: RuntimeObserver): Promise<ResearchRuntime> {
     if (actor.sessionId !== command.sessionId || session.sessionId !== command.sessionId) throw new ResearchRuntimeError("RESEARCH_NOT_FOUND");
-    if (["pause", "resume"].includes(command.action) && this.store.steer) {
+    if (["pause", "resume", "resolve_conflict"].includes(command.action) && this.store.steer) {
       const steered = await this.store.steer(actor, command, fingerprint(command));
       observer?.({ type: "result", state: structuredClone(steered) });
       return steered;

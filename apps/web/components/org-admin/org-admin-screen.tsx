@@ -21,6 +21,7 @@ import { ORG_ROLE_LABEL, type OrgRole } from "@/lib/identity";
 import { auth as authContract } from "@repo/contracts";
 import { SharedInviteLinksSection, type SharedLinkReveal } from "@/components/org-admin/shared-invite-links";
 import { StandingToolGrantsSection } from "@/components/org-admin/standing-tool-grants";
+import { KnowledgeExtractionToggleSection } from "@/components/org-admin/knowledge-extraction-toggle";
 import { cn } from "@/lib/utils";
 import {
   listOrgMembers, listOrgInvites,
@@ -151,8 +152,9 @@ export function OrgInvitesScreen() {
 
 /** `/org-admin/profile` —— 组织资料，与 `/admin`（总览）平级；仅组织 admin 能读到内容。 */
 export function OrgProfileScreen() {
-  const { session } = useSession();
+  const { session, identity } = useSession();
   const orgId = session?.currentOrgId ?? null;
+  const isAdmin = identity?.orgRole === "admin";
   return (
     <OrgAdminShell active="org-profile" icon={Settings} title="组织资料">
       {orgId ? <OrgProfileTab orgId={orgId} /> : <LoadingSkeleton rows={4} />}
@@ -160,6 +162,9 @@ export function OrgProfileScreen() {
           拒绝以撤销"（那个弹层再也不会出现）。这里是那句文案现在指向的真实入口；
           放在组织资料屏而不是新开导航项的理由见该组件头注。 */}
       <StandingToolGrantsSection />
+      {/* issue #4178 —— 记忆抽取从部署启动参数改成组织落库、admin 可来回切换；
+          同样挂在组织资料屏（见该组件头注）。 */}
+      <KnowledgeExtractionToggleSection isAdmin={isAdmin} />
     </OrgAdminShell>
   );
 }

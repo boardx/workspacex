@@ -23,14 +23,21 @@ export const LAUNCH = JSON.stringify({
   ],
 });
 
-export async function seedRecallOrg(db: DatabasePort, org: string, threads: readonly string[], owner = "u-owner"): Promise<void> {
+/**
+ * `projectThreads`：这些会话挂在项目下（不是本人的个人对话）。F15 起本人的**其他个人对话**也在召回范围里
+ * （个人空间 = 同一用户全部个人线程），要验「别的会话不会漏进来」，那个别的会话就得真的不在这个人的个人空间里。
+ */
+export async function seedRecallOrg(
+  db: DatabasePort, org: string, threads: readonly string[], owner = "u-owner", opts: { projectThreads?: readonly string[] } = {},
+): Promise<void> {
   ensureDatabase();
   await migrateOnce();
   await resetOrgs(org);
   await seedOrg({ orgId: org, projectId: `${org}-p` });
-  await enableExtraction();
+  await enableExtraction(org);
   for (const t of threads) {
-    await addChatThread({ orgId: org, id: t, projectId: null, visibilityScope: "private", createdBy: owner });
+    const inProject = opts.projectThreads?.includes(t) === true;
+    await addChatThread({ orgId: org, id: t, projectId: inProject ? `${org}-p` : null, visibilityScope: inProject ? "plenary" : "private", createdBy: owner });
     await addChatMessage({ orgId: org, id: `m-${t}-seed`, threadId: t, body: "张三决定下周一上线 v2。测试环境不稳定。季度预算已经批下来了。", authorId: owner });
   }
   await runExtractionTick(extractionDeps(db, loopbackModel([["张三决定", LAUNCH]]).model, org));

@@ -13,17 +13,32 @@ import { PgOntologyStore } from "../../src/infrastructure/knowledge-graph/pg-ont
 import { addChatThread } from "../support/chat-db";
 import { asOwner, ensureDatabase, migrateOnce, resetOrgs, seedOrg } from "../support/db";
 
-/** 抽取默认关（关着时触发器不排队）；测试库里打开它。数据库级的单行开关，重复调用无害。 */
-export async function enableExtraction(): Promise<void> {
+/**
+ * 抽取默认关（两道闸门都要过才排队，见迁移 20260924210000 + 20260925110000）；测试库里打开它。
+ * 第一道（数据库级单行开关，「部署有没有能力」）总是打开，重复调用无害。
+ * 第二道（issue #4178，`kg_org_extraction_settings`，「这个组织有没有打开」）默认关、按组织落库——
+ * 传入的每个 orgId 在这里显式打开，不传就只开部署那一道（`kg-e2e-fixtures.ts` 的 `startApp()` 在
+ * 任何组织存在之前就调用它，调用方随后自己对每个测试组织再调一次这个函数）。
+ */
+export async function enableExtraction(...orgIds: readonly string[]): Promise<void> {
   await asOwner((c) => c.query("SELECT kg_extraction_enable()"));
+  for (const orgId of orgIds) {
+    await asOwner((c) => c.query(
+      `INSERT INTO kg_org_extraction_settings (org_id, enabled, updated_by)
+       VALUES ($1, true, 'test-fixture')
+       ON CONFLICT (org_id) DO UPDATE SET enabled = true, updated_by = 'test-fixture'`,
+      [orgId],
+    ));
+  }
 }
 
 export async function seedThread(orgId: string, threadIds: readonly string[]): Promise<void> {
   ensureDatabase();
   await migrateOnce();
-  await enableExtraction();
   await resetOrgs(orgId);
   await seedOrg({ orgId, projectId: `${orgId}-p` });
+  // `kg_org_extraction_settings.org_id` 外键指着 organizations，必须等 seedOrg 把这一行建出来才能开。
+  await enableExtraction(orgId);
   for (const id of threadIds) {
     await addChatThread({ orgId, id, projectId: `${orgId}-p`, visibilityScope: "private", createdBy: "u-owner" });
   }

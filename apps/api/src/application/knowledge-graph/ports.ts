@@ -58,6 +58,22 @@ export const GRAPH_PROJECTION_PORT = Symbol("GraphProjectionPort");
 
 // ─────────────────────────────── F06 抽取 ───────────────────────────────
 
+/**
+ * issue #4178 —— 部署是否具备抽取能力（provider 已配置且 `KG_EXTRACTION_ENABLED=1`）。
+ * 接口定义搬到 application 层：`knowledge-graph.controller.ts`（interface 层）需要读它的
+ * `enabled` 位来回答 `getKnowledgeExtractionSetting` 的 `deploymentCapable`，而 interface 层
+ * 不能直接 import infrastructure 的具体实现（ADR-020，`lint-arch-deps.mjs`）。真正的读取逻辑
+ * （`readKgExtractionModelConfig()`）仍在 `infrastructure/knowledge-graph/kg-extraction-model-config.ts`，
+ * 那里只是 re-export 这个接口与令牌，不重复声明第二份。
+ */
+export interface KgExtractionModelConfig {
+  readonly enabled: boolean;
+  readonly provider: string;
+  readonly modelId: string;
+}
+
+export const KG_EXTRACTION_MODEL_CONFIG = Symbol("KgExtractionModelConfig");
+
 export interface KgExtractionJob {
   readonly orgId: OrgId;
   readonly messageId: string;
@@ -105,10 +121,12 @@ export const KNOWLEDGE_EXTRACTOR_PORT = Symbol("KnowledgeExtractorPort");
 /** 读模型的形状直接取契约的 out（单一事实源），这里只起别名。 */
 export type ThreadKnowledgeData = Pick<
   z.infer<typeof KG.knowledgeGraph.getThreadKnowledge.out>,
-  "revision" | "objects" | "claims" | "edges" | "ingestion"
+  "revision" | "objects" | "claims" | "edges" | "ingestion" | "extractionActive"
 >;
 export type ClaimSourcesData = z.infer<typeof KG.knowledgeGraph.getClaimSources.out>;
 export type TurnMemoryData = z.infer<typeof KG.knowledgeGraph.getTurnMemory.out>;
+/** issue #4180：一条消息自己刚被抽取出的新结论。 */
+export type MessageExtractionData = z.infer<typeof KG.knowledgeGraph.getMessageExtraction.out>;
 
 /** 读知识需要的线程事实（来自 chat 的可见性判定，不含正文）。 */
 export interface KnowledgeThreadRef {
@@ -132,6 +150,11 @@ export interface KnowledgeReadPort {
   /** F12：一条结论的消息证据分布在哪些会话（只回会话 id，路由事实，不回内容）。 */
   claimEvidenceThreads(orgId: OrgId, userId: string, claimId: string): Promise<readonly string[]>;
   turnMemory(orgId: OrgId, userId: string, thread: KnowledgeThreadRef, messageId: string): Promise<Guarded<TurnMemoryData>>;
+  /**
+   * issue #4180：这一条消息自己（不做 `turnMemory` 那种「向前找最近一条人类消息」的扩展匹配）
+   * 抽取出的、还活着的结论——发送下方「已记下：{摘要}·撤销」的信号源。
+   */
+  messageExtraction(orgId: OrgId, userId: string, thread: KnowledgeThreadRef, messageId: string): Promise<Guarded<MessageExtractionData>>;
   /**
    * UC-KG-7：本人个人空间（L1）的活结论 / 实体 / 边。guard ref 是本人的个人空间
    * （`project:personal:<userId>`，同 resolve-visibility 个人线程的合成 id）；调用方交出
@@ -327,3 +350,24 @@ export interface MemoryCardPort {
 }
 
 export const MEMORY_CARD_PORT = Symbol("MemoryCardPort");
+
+// ─────────────────────────────── issue #4178 组织级抽取开关 ───────────────────────────────
+
+/**
+ * `kg_org_extraction_settings` 的读写口。这张表背后没有 `ObjectRef` 能表达的 ACL 对象——
+ * 是组织配置元数据（这个组织要不要让对话内容被抽取），不是要按内容披露的租户数据，
+ * 同 `ToolPermissionGrantStore.listStanding`/`revokeStanding`（#3068）一样不经 `guard()`：
+ * 塞进去只会退化成 DEFAULT_SCOPE 组织级、对每个成员恒真。
+ *
+ * 判据在应用层：`getEnabled` 任何组织成员可调（controller 只判「是不是本组织」），
+ * `setEnabled` 仅组织 admin（`knowledge-graph.controller.ts` 的 `requireOrgAdmin`，
+ * 与 `tool-permission-grant.controller.ts` 同名方法同一实现思路）。
+ */
+export interface KgOrgExtractionSettingsPort {
+  /** 没有行 = 从未设置过 = 默认关（新组织不默认抽取对话内容）。 */
+  getEnabled(orgId: OrgId): Promise<boolean>;
+  /** upsert；返回写入后的现值（防御性——不假设调用方传的就是落库的）。 */
+  setEnabled(orgId: OrgId, enabled: boolean, updatedByUserId: string): Promise<boolean>;
+}
+
+export const KG_ORG_EXTRACTION_SETTINGS_PORT = Symbol("KgOrgExtractionSettingsPort");

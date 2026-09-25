@@ -41,7 +41,7 @@ export const OWNERSHIP = {
   "apps/web": { class: "oss", why: "同 apps/api（C3 盘点 + D25、D26）" },
   "packages/dev-mode-accounts": { class: "oss", why: "apps/api 与 apps/web 的开发夹具，归属随它们" },
   "packages/cloud-deploy": { class: "oss", why: "自托管客户要用的部署、TLS、备份与发布工具（D23，2026-09-24 人类决策）；其中阿里云专属部分待改成通用写法" },
-  "packages/fabric-markdown": { class: "undecided", why: "vendored 上游分支，仓库里没有记录上游许可证（npm 上也查不到）；需人核实上游许可后保留其声明" },
+  "packages/fabric-markdown": { class: "oss", why: "上游 v0.1.0 由本项目作者自行开发，权利人 BoardX Inc.（2026-09-25 人类确认）；按 Apache-2.0 开源" },
 };
 
 /** 仓库里每个带 package.json 的工作区目录，连同它的归属。 */

@@ -44,7 +44,7 @@ beforeAll(async () => {
   await migrateOnce();
   await resetOrgs(ORG);
   const fx = await seedOrg({ orgId: ORG, projectId: `${ORG}-p` });
-  await enableExtraction();
+  await enableExtraction(ORG);
   await addOrgMember(ORG, "u-owner", "consultant", fx.teams.energy!);
   await addProjectMember(ORG, `${ORG}-p`, "u-owner", "facilitator", null);
   await addChatThread({ orgId: ORG, id: MINE, projectId: null, visibilityScope: "private", createdBy: "u-owner" });
@@ -52,7 +52,7 @@ beforeAll(async () => {
   db = new PgDatabase(appConfig());
   deps = {
     repo: new PgIdentityRepository(db), ids: new CountingDecisionIdFactory(), chat: new PgChatRepository(db),
-    knowledge: new PgKnowledgeRead(db), promotion: new PgPromotion(db), newId: newKgId,
+    knowledge: new PgKnowledgeRead(db, true), promotion: new PgPromotion(db), newId: newKgId,
   };
   const { model } = loopbackModel([["上线", REPLY]]);
   const body = "v2 下周一上线，发布说明还没写，测试环境不稳定，v2 用的是新架构。";

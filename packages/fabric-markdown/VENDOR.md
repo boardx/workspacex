@@ -3,6 +3,10 @@
 > 决策与理由见 **`docs/adr/ADR-100-fabric-markdown.md`**。本文件只记录**基线事实**，
 > 让下一次上游回流有个可比对的起点。它是 ADR 决策五的落点。
 
+## 权利与许可
+
+上游 `fabric-markdown` v0.1.0 由本项目作者自行开发，权利人为 **BoardX Inc.**（2026-09-25 人类确认）。本包连同本仓改动按 **Apache-2.0** 开源（`LICENSE`，归属表 `lib/ownership.mjs` 登记为 oss）。
+
 ## 基线
 
 | 项 | 值 |

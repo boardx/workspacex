@@ -24,7 +24,10 @@ describe("digital interview report export", () => {
     Object.defineProperty(URL, "revokeObjectURL", { configurable: true, value: vi.fn() });
     const click = vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(() => undefined);
 
-    await exportInterviewReportWord(report);
+    await exportInterviewReportWord(report, {
+      evidenceMode: "simulated",
+      review: { eligibility: "blocked_missing_participant_evidence", message: "需要真实受访者证据后才能批准。", action: "添加并复核真实受访者回答" },
+    });
 
     expect(click).toHaveBeenCalledOnce();
     expect(exported?.type).toBe("application/vnd.openxmlformats-officedocument.wordprocessingml.document");

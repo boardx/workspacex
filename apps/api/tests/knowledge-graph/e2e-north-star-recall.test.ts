@@ -32,6 +32,7 @@ import {
   client, memoryPath, messageRow, projectGraph, publishAgent, settleKnowledge, sourcesPath, startApp, turn,
   type ClaimSourcesBody, type Client, type E2eApp, type ThreadKnowledgeBody, type Turn, type TurnMemoryBody,
 } from "./kg-e2e-fixtures";
+import { enableExtraction } from "./kg-extraction-fixtures";
 
 const ORG = "org-kg-f14-north-star";
 const A = "thr-f14-ns-a";
@@ -58,6 +59,7 @@ beforeAll(async () => {
   e = await startApp();
   await resetOrgs(ORG);
   await seedOrg({ orgId: ORG, projectId: `${ORG}-p` });
+  await enableExtraction(ORG);
   await addOrgMember(ORG, OWNER, "consultant", null);
   await publishAgent(ORG, AGENT, OWNER);
   // 两条个人线程（无项目、仅本人）：A 是「上次」的对话，B 是之后开的新对话

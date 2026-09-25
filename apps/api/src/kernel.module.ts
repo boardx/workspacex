@@ -1,3 +1,6 @@
+import { WhiteboardController } from './interface/controllers/whiteboard.controller';
+import { WHITEBOARD_REPOSITORY } from './application/whiteboard/ports';
+import { PgWhiteboardRepository } from './infrastructure/whiteboard/pg-whiteboard-repository';
 import { SurveyAttachmentRateLimitGuard, SURVEY_ATTACHMENT_RATE_LIMITER, SURVEY_ATTACHMENT_REQUESTS_PER_MINUTE } from "./interface/guards/survey-attachment-rate-limit.guard";
 import { SurveyUploadCapabilityGuard, SurveyAttachmentController } from "./interface/controllers/survey-attachment.controller";
 import { PgSurveyAttachmentRepository } from "./infrastructure/survey/pg-survey-attachment-repository";
@@ -608,11 +611,12 @@ import {
 } from "./application/first-value/first-value-recorder";
 import { PgFirstValueFacts } from "./infrastructure/first-value/pg-first-value-facts";
 import { FirstValueController } from "./interface/controllers/first-value.controller";
-import { GRAPH_PROJECTION_PORT, KG_CONFLICT_PORT, KG_EXTRACTION_QUEUE_PORT, KG_EXTRACTION_SOURCE_PORT, HUMAN_ACTION_PORT, KNOWLEDGE_EXTRACTOR_PORT, KNOWLEDGE_READ_PORT, MEMORY_CARD_PORT, ONTOLOGY_STORE_PORT, PROMOTION_PORT } from "./application/knowledge-graph/ports";
+import { GRAPH_PROJECTION_PORT, KG_CONFLICT_PORT, KG_EXTRACTION_QUEUE_PORT, KG_EXTRACTION_SOURCE_PORT, KG_ORG_EXTRACTION_SETTINGS_PORT, HUMAN_ACTION_PORT, KNOWLEDGE_EXTRACTOR_PORT, KNOWLEDGE_READ_PORT, MEMORY_CARD_PORT, ONTOLOGY_STORE_PORT, PROMOTION_PORT } from "./application/knowledge-graph/ports";
 import { PgPromotion } from "./infrastructure/knowledge-graph/pg-promotion";
 import { PgHumanAction } from "./infrastructure/knowledge-graph/pg-human-action";
 import { KnowledgeGraphController } from "./interface/controllers/knowledge-graph.controller";
 import { PgKnowledgeRead } from "./infrastructure/knowledge-graph/pg-knowledge-read";
+import { PgKgOrgExtractionSettings } from "./infrastructure/knowledge-graph/pg-kg-org-extraction-settings";
 import { KgExtractionWorker } from "./infrastructure/knowledge-graph/kg-extraction-worker";
 import { KG_EXTRACTION_MODEL_CONFIG, readKgExtractionModelConfig, type KgExtractionModelConfig } from "./infrastructure/knowledge-graph/kg-extraction-model-config";
 import { ModelKnowledgeExtractor } from "./infrastructure/knowledge-graph/model-knowledge-extractor";
@@ -1079,6 +1083,7 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
     SystemDebugTraceController,
     InboxController,
     DesignWorkbenchController,
+    WhiteboardController,
     PublicDesignShareController,
     SystemMailController,
     SystemUptimeController,
@@ -2018,6 +2023,7 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
         events: RunEventBusPort, toolPermissionGrants: ToolPermissionGrantStore,
         interjections: InterjectionStore, artifactContinuations: ArtifactContinuationReader, nativeSessions: NativeSessionOwner | null, nativeOutputs: NativeOutputStaging | null,
         carryOver: InterjectionCarryOverDelivery,
+        firstValue: FirstValueRecorder,
       ) =>
         new AgentRunExecutor(
           runs, model, logger, process.env.KERNEL_AGENT_RUN_AUTOSTART !== "0", usage,
@@ -2067,13 +2073,15 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
           new PgKnowledgeRecall(db),
           // Phase 18 F17：对话里「记住 / 忘掉」只开确认卡（uc-18-6 A / B），同上。
           new PgMemoryCard(db),
+          // E3：回答引用写进 `chat_citations`（走既有 PgChatRepository 的租户内写口）+ 价值时刻。
+          { citations: new PgChatRepository(db), firstValue },
         ),
       inject: [
         AGENT_RUN_STORE, MODEL_CALL_PORT, LOGGER_PORT, TOKEN_USAGE_METER, DATABASE_PORT,
         IDENTITY_REPOSITORY, CANVAS_TEMPLATE_REPOSITORY, DECISION_ID_FACTORY, OBJECT_STORE,
         SKILL_SANDBOX_PORT, RUN_EVENT_BUS, TOOL_PERMISSION_GRANT_STORE,
         INTERJECTION_STORE, ARTIFACT_CONTINUATION_READER, NATIVE_SESSION_OWNER, NATIVE_OUTPUT_STAGING,
-        INTERJECTION_CARRY_OVER_DELIVERY,
+        INTERJECTION_CARRY_OVER_DELIVERY, FIRST_VALUE_RECORDER,
       ],
     },
     // issue #3405 —— 带入投递的唯一实现。走 chat 受理的唯一入口 `acceptHumanMessage`，
@@ -2907,6 +2915,11 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
     },
     // UC-17.8 B4.3：设计项目仓储按组织构造（`forOrg`），同 `FEEDBACK_DRAFT_REPOSITORY` 的理由。
     {
+      provide: WHITEBOARD_REPOSITORY,
+      useFactory: (db: DatabasePort) => new PgWhiteboardRepository(db),
+      inject: [DATABASE_PORT],
+    },
+    {
       provide: DESIGN_PROJECT_REPOSITORY,
       useFactory: (db: DatabasePort) => new PgDesignProjectRepository(db),
       inject: [DATABASE_PORT],
@@ -2997,8 +3010,14 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
       inject: [MODEL_CALL_PORT, KG_EXTRACTION_MODEL_CONFIG, LOGGER_PORT],
     },
     KgExtractionWorker,
-    // F09：知识面板 / 来源抽屉 / 每轮记忆行的读口。
-    { provide: KNOWLEDGE_READ_PORT, useFactory: (db: DatabasePort) => new PgKnowledgeRead(db), inject: [DATABASE_PORT] },
+    // F09：知识面板 / 来源抽屉 / 每轮记忆行的读口。issue #4178：多带部署能力位，算 `extractionActive`。
+    {
+      provide: KNOWLEDGE_READ_PORT,
+      useFactory: (db: DatabasePort, config: KgExtractionModelConfig) => new PgKnowledgeRead(db, config.enabled),
+      inject: [DATABASE_PORT, KG_EXTRACTION_MODEL_CONFIG],
+    },
+    // issue #4178：记忆抽取的组织开关（读任何成员，写仅组织 admin，判据在 controller）。
+    { provide: KG_ORG_EXTRACTION_SETTINGS_PORT, useFactory: (db: DatabasePort) => new PgKgOrgExtractionSettings(db), inject: [DATABASE_PORT] },
     // F10：人工编辑动作（只经 kg_apply_human_action 落表）。
     { provide: HUMAN_ACTION_PORT, useFactory: (db: DatabasePort) => new PgHumanAction(db), inject: [DATABASE_PORT] },
     // F11：晋升到个人空间（只经 kg_promote_claim 落表）。

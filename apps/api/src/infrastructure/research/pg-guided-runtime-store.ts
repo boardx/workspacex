@@ -2,6 +2,7 @@ import { research as C } from "@repo/contracts";
 import type { DatabasePort, TenantSession } from "../../application/ports/database.port";
 import { guard } from "../../application/security/permission-filter";
 import { ResearchRuntimeError, type GuidedRuntimeStore, type RuntimeActor, type RuntimeCommand, type ResearchRuntime } from "../../application/research/guided-runtime-ports";
+import { applyResearchSteering } from "../../application/research/guided-runtime-service";
 
 // Recheck authorization under the session lock before any effect or persisted write.
 async function authorize(tx: TenantSession, actor: RuntimeActor) {
@@ -65,7 +66,7 @@ export class PgGuidedRuntimeStore implements GuidedRuntimeStore {
     });
   }
   async steer(actor: RuntimeActor, command: RuntimeCommand, hash: string): Promise<ResearchRuntime> {
-    if (!["pause", "resume"].includes(command.action) || command.expectedRevision === undefined || !command.idempotencyKey) {
+    if (!["pause", "resume", "resolve_conflict"].includes(command.action) || command.expectedRevision === undefined || !command.idempotencyKey) {
       throw new ResearchRuntimeError("RESEARCH_NODE_STATE_INVALID");
     }
     const idempotencyKey = command.idempotencyKey;
@@ -82,12 +83,7 @@ export class PgGuidedRuntimeStore implements GuidedRuntimeStore {
       }
       if (state.version !== command.expectedVersion) throw new ResearchRuntimeError("RESEARCH_GRAPH_VERSION_CONFLICT");
       if ((state.planRevision ?? 0) !== command.expectedRevision) throw new ResearchRuntimeError("RESEARCH_REVISION_CONFLICT");
-      state.controlStatus = command.action === "pause" ? "paused" : "running";
-      state.planRevision = (state.planRevision ?? 0) + 1;
-      const activity = state.activity ?? (state.activity = []);
-      activity.push({ id: idempotencyKey, sequence: activity.length ? Math.max(...activity.map((event) => event.sequence)) + 1 : 1,
-        stage: "planning", taskId: null, summary: command.action === "pause" ? "研究已暂停" : "研究已继续",
-        occurredAt: new Date().toISOString(), status: command.action === "pause" ? "paused" : "succeeded" });
+      applyResearchSteering(state, command);
       await tx.query(`UPDATE guided_research_runtime SET state=$3::jsonb,
         requests=requests || jsonb_build_object($4::text,$5::jsonb) WHERE org_id=$1 AND session_id=$2`,
       [actor.orgId, actor.sessionId, JSON.stringify(state), command.requestId, JSON.stringify({ hash, done: true })]);

@@ -12,6 +12,7 @@ vi.mock("@/lib/interview-report-export", () => ({
   exportInterviewReportWord: (...args: unknown[]) => exportWord(...args),
   exportInterviewReportPdf: (...args: unknown[]) => exportPdf(...args),
   reportMarkdownBody: (title: string, markdown: string) => markdown.replace(`# ${title}\n\n`, ""),
+  evidenceModeLabel: (mode: string) => (mode === "simulated" ? "模拟探索" : mode === "mixed" ? "混合证据" : "真实访谈"),
 }));
 
 const completed: DigitalInterviewWorkflowView = {
@@ -22,6 +23,8 @@ const completed: DigitalInterviewWorkflowView = {
   scope: { kind: "none", projectId: null, researchProjectId: null }, currentStep: "runs", revisionId: "revision-f06",
   topicVersionId: "topic-f06", expertSnapshotVersionId: "experts-f06", questionVersionId: "questions-f06",
   expertCandidates: [], questions: [], questionCandidates: [], skillThreadId: "thread-f06", skillMessages: [], skillProposals: [],
+  studyEvidenceMode: "simulated",
+  reportEvidenceEligibility: { eligibility: "blocked_missing_participant_evidence", message: "需要真实受访者证据后才能批准。", action: "添加并复核真实受访者回答" },
   expertRuns: [{
     expertId: "expert-f06", displayName: "陈指导", status: "completed", completedQuestions: 1, totalQuestions: 1,
     answers: [{ questionId: "question-f06", question: "如何建设基层体系？", answer: "先培养教练，再连接赛事。" }],
@@ -54,6 +57,17 @@ describe("F06 interview answers to report", () => {
     expect(await screen.findByTestId("itv-report-decision-brief")).toHaveTextContent("决策摘要");
     expect(screen.getByTestId("itv-evidence-review-empty")).toHaveTextContent("尚无可展示的目标与专家证据覆盖");
     expect(screen.queryByRole("table")).toBeNull();
+  });
+
+  it("puts the evidence boundary and next validation action before report analysis", () => {
+    const report: DigitalInterviewWorkflowView = {
+      ...completed, currentStep: "report", status: "completed",
+      report: { reportId: "report-decision", title: "报告", executiveSummary: "摘要", markdown: "## 发现", findings: [], generatedAt: "2026-09-01T02:01:00.000Z" },
+    };
+    render(<PersistentDigitalInterviewWorkflow initialView={report} />);
+    expect(screen.getByTestId("itv-study-evidence-label")).toHaveTextContent("模拟探索");
+    expect(screen.getByTestId("itv-report-decision-brief")).toHaveTextContent("需要真实受访者证据后才能批准。");
+    expect(screen.getByTestId("itv-report-decision-brief")).toHaveTextContent("添加并复核真实受访者回答");
   });
 
   it("lets the user retry a failed first report without leaving the report step", async () => {
@@ -173,7 +187,7 @@ describe("F06 interview answers to report", () => {
 
     fireEvent.click(screen.getByTestId("itv-report-export-word"));
     fireEvent.click(screen.getByTestId("itv-report-export-pdf"));
-    expect(exportWord).toHaveBeenCalledWith(final.report);
+    expect(exportWord).toHaveBeenCalledWith(final.report, { evidenceMode: completed.studyEvidenceMode, review: completed.reportEvidenceEligibility });
     expect(exportPdf).toHaveBeenCalledWith("itv-report-print-root");
     await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
   });

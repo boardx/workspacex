@@ -129,7 +129,12 @@ describe("builtin template integration", () => {
     expect(screen.getByRole("group", { name: "内置模板" })).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "应用模板" }));
     const applied = onApply.mock.calls[0]![0] as SurveyDraftInput;
-    expect(applied.questions).toEqual(source.questions);
+    expect(applied.questions).toEqual(
+      source.questions.map((question) => ({
+        ...question,
+        provenance: { source: "template", sourceId: source.id },
+      })),
+    );
     applied.questions[0]!.title = "副本题目";
     expect(getBuiltinSurveyTemplate(source.id, "question")).toEqual(source);
     expect(request).toHaveBeenCalledTimes(1);
