@@ -208,6 +208,7 @@ describe("真实仓库", () => {
     expect(invoked).toContain("apps/web/playwright.fullstack-smoke.config.ts");
     expect(invoked).toContain("apps/devportal/playwright.config.ts");
     expect(invoked).toContain("apps/web/playwright.chat-read.config.ts");
+    expect(invoked).toContain("apps/web/playwright.whiteboard-room-soak.config.ts");
   });
 
   it("总体不为空 —— 空总体会让门控恒绿（本仓已九次「全绿但空转」）", () => {
@@ -236,6 +237,7 @@ describe("真实仓库", () => {
     expect(invoked.get("apps/devportal/playwright.config.ts")?.unconditional).toBe(false);
     expect(invoked.get("apps/web/playwright.fullstack-smoke.config.ts")?.unconditional).toBe(true);
     expect(invoked.get("apps/web/playwright.chat-read.config.ts")?.unconditional).toBe(true);
+    expect(invoked.get("apps/web/playwright.whiteboard-room-soak.config.ts")?.unconditional).toBe(false);
   });
 
   it("门控脚本本身以 0 退出", () => {

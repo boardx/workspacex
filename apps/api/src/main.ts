@@ -179,6 +179,7 @@ export function attachStreamingSurfaces(app: NestExpressApplication): void {
     store: app.get(WHITEBOARD_COLLABORATION_STORE),
     metrics: app.get(WHITEBOARD_OBSERVABILITY),
     logger: app.get(LOGGER_PORT),
+    soakLedgerPrivateKey: process.env.WHITEBOARD_SOAK_LEDGER_PRIVATE_KEY,
   });
   attachAsrGateway(app.getHttpServer(), {
     principals: app.get(PRINCIPAL_RESOLVER_PORT),

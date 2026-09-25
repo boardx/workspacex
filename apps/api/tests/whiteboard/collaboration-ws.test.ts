@@ -1,4 +1,4 @@
-import { randomUUID } from 'node:crypto';
+import { createHash, generateKeyPairSync, randomUUID, verify } from 'node:crypto';
 import { createServer, type Server } from 'node:http';
 import type { AddressInfo } from 'node:net';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
@@ -24,10 +24,12 @@ const outsider: Principal = { orgId: otherOrg, userId: owner.userId };
 // Resolver is the sole test seam: DB ACL, Yjs, workers, persistence and sockets are real.
 // Session token verification is tested by the existing HTTP/session integration lane.
 const identities = new Map([['owner-token', owner], ['editor-token', editor], ['viewer-token', viewer], ['outsider-token', outsider]]);
-let db: PgDatabase, repo: PgWhiteboardRepository, store: PgWhiteboardCollaborationStore, server: Server, baseUrl: string;
+let db: PgDatabase, repo: PgWhiteboardRepository, store: PgWhiteboardCollaborationStore, server: Server, baseUrl: string,maintenanceCalls=0;
 const sockets = new Set<WebSocket>();
+const soakKeys=generateKeyPairSync('ed25519'),soakPrivateKey=soakKeys.privateKey.export({type:'pkcs8',format:'pem'}).toString();
 const b64 = (value: Uint8Array) => Buffer.from(value).toString('base64');
 class Peer {
+  initialSync:Extract<Message,{type:'sync'}>|null=null;
   readonly doc = createWhiteboardDocument();
   private readonly messages: Message[] = [];
   private readonly listeners = new Set<() => void>();
@@ -69,7 +71,7 @@ function closeEvent(ws: WebSocket, timeoutMs = 5000): Promise<{ code: number; at
     ws.once('close', closed);
   });
 }
-async function connect(boardId: string, token: string): Promise<Peer> {
+async function connect(boardId: string, token: string, soakRun?:{runId:string;exactSha:string;environmentFingerprint:string;purpose:'initial'|'fresh'|'server';requiredDurationMs:number;requiredOfflineMs:number;expectedClients:number;expectedWriters:number;expectedReconnects:number}): Promise<Peer> {
   const ws = new WebSocket(`${baseUrl}/whiteboards/${boardId}/sync`, [WHITEBOARD_SYNC.protocol, `${WHITEBOARD_SYNC.bearerSubprotocolPrefix}${token}`]);
   sockets.add(ws); const peer = new Peer(ws);
   await new Promise<void>((resolve, reject) => {
@@ -77,8 +79,14 @@ async function connect(boardId: string, token: string): Promise<Peer> {
     ws.once('open', () => { clearTimeout(timer); resolve(); });
     ws.once('error', error => { clearTimeout(timer); reject(error); });
   });
-  peer.send({ type: 'hello', stateVector: b64(Y.encodeStateVector(peer.doc)) });
-  await peer.wait(message => message.type === 'sync'); return peer;
+  const clientNonce = randomUUID();
+  peer.send({ type: 'hello', stateVector: b64(Y.encodeStateVector(peer.doc)), clientNonce, ...(soakRun?{soakRun}:{}) });
+  const sync = await peer.wait(message => message.type === 'sync');
+  expect(sync).toMatchObject({ type: 'sync', clientNonce });
+  if (sync.type !== 'sync') throw new Error('Expected initial whiteboard sync');
+  peer.initialSync=sync;
+  expect(sync.connectionId).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i);
+  return peer;
 }
 async function rejectedUpgrade(boardId: string, token?: string): Promise<number> {
   const protocols = token ? [WHITEBOARD_SYNC.protocol, `${WHITEBOARD_SYNC.bearerSubprotocolPrefix}${token}`] : [WHITEBOARD_SYNC.protocol];
@@ -106,9 +114,9 @@ beforeAll(async () => {
   ensureDatabase(); await migrateOnce(); await resetOrgs(orgId, otherOrg);
   await seedOrg({ orgId, projectId: 'wb-ws-project-a' }); await seedOrg({ orgId: otherOrg, projectId: 'wb-ws-project-b' });
   for (const principal of [owner, editor, viewer, outsider]) await addOrgMember(principal.orgId, principal.userId, 'consultant', null);
-  db = new PgDatabase(appConfig()); repo = new PgWhiteboardRepository(db,{ensureScheduled:async()=>{}}); store = new PgWhiteboardCollaborationStore(db);
+  db = new PgDatabase(appConfig()); repo = new PgWhiteboardRepository(db,{ensureScheduled:async()=>{maintenanceCalls++;}}); store = new PgWhiteboardCollaborationStore(db);
   server = createServer((_request, response) => { response.statusCode = 404; response.end(); });
-  attachWhiteboardGateway(server, { boards: repo, store, principals: { resolve: async headers => identities.get(String(headers.authorization ?? '').replace(/^Bearer /, '')) ?? null } });
+  attachWhiteboardGateway(server, { boards: repo, store, soakLedgerPrivateKey:soakPrivateKey,principals: { resolve: async headers => identities.get(String(headers.authorization ?? '').replace(/^Bearer /, '')) ?? null } });
   await new Promise<void>(resolve => server.listen(0, '127.0.0.1', resolve));
   baseUrl = `ws://127.0.0.1:${(server.address() as AddressInfo).port}`;
 });
@@ -118,6 +126,31 @@ afterAll(async () => {
   await db?.close(); await resetOrgs(orgId, otherOrg);
 });
 describe('real WebSocket whiteboard collaboration', () => {
+  it('admits 50 concurrent hellos with the production five-connection pool',async()=>{
+    const boardId=await seedBoard();
+    const peers=await Promise.all(Array.from({length:50},()=>connect(boardId,'owner-token')));
+    try{expect(peers).toHaveLength(50);expect(peers.every(peer=>peer.initialSync?.type==='sync')).toBe(true);expect(maintenanceCalls).toBe(1);}
+    finally{await Promise.all(peers.map(peer=>peer.close()));}
+  },20000);
+  it('signs a server-owned soak ledger from real connection and committed operation evidence',async()=>{
+    const boardId=await seedBoard(),runId=randomUUID(),peer=await connect(boardId,'owner-token',{runId,exactSha:'a'.repeat(40),environmentFingerprint:'b'.repeat(64),purpose:'initial',requiredDurationMs:1,requiredOfflineMs:1,expectedClients:1,expectedWriters:1,expectedReconnects:0});
+    try{
+      const binding=peer.initialSync?.soakBinding;expect(binding).toMatchObject({runId});
+      await new Promise(resolve=>setTimeout(resolve,2));const id='soak-4144:api-ledger',vector=Y.encodeStateVector(peer.doc);executeCommands(peer.doc,[{type:'create',object:{id:'soak_api_ledger',schemaVersion:1,kind:'sticky',text:id,style:{},parentId:null,orderKey:'',geometry:{x:0,y:0,width:200,height:150,rotation:0}}}],{});const update=Y.encodeStateAsUpdate(peer.doc,vector),updateId=randomUUID();
+      peer.send({type:'update',epoch:1,updateId,update:b64(update)});await peer.wait(message=>message.type==='ack'&&message.updateId===updateId);
+      peer.send({type:'soak-finish',runId,challenge:binding!.challenge});const message=await peer.wait(item=>item.type==='soak-ledger');
+      if(message.type!=='soak-ledger')throw new Error('Expected signed soak ledger');
+      expect(message.payload.connections).toEqual(expect.arrayContaining([expect.objectContaining({connectionId:peer.initialSync!.connectionId,role:'owner',purpose:'initial'})]));
+      expect(message.payload.operations).toEqual(expect.arrayContaining([expect.objectContaining({id,connectionId:peer.initialSync!.connectionId})]));
+      expect(message.payload.finalHash).toBe(createHash('sha256').update(JSON.stringify(message.payload.finalDocument)).digest('hex'));expect(message.payload.finalDocument).toEqual(expect.arrayContaining([expect.objectContaining({text:id})]));expect(message.payload.finalSeq).toBeGreaterThanOrEqual(message.payload.operations[0]!.seq);expect(message.payload.finishedAtMs-message.payload.startedAtMs).toBeGreaterThanOrEqual(1);
+      expect(verify(null,Buffer.from(JSON.stringify(message.payload)),soakKeys.publicKey,Buffer.from(message.signature,'base64'))).toBe(true);
+      peer.send({type:'soak-finish',runId,challenge:binding!.challenge});expect(await peer.wait(item=>item.type==='error')).toMatchObject({type:'error',code:'VALIDATION_FAILED'});
+    }finally{await peer.close();}
+  });
+  it('rejects ledger finalization by a non-owner even for an otherwise valid signed run',async()=>{
+    const boardId=await seedBoard(),runId=randomUUID(),peer=await connect(boardId,'editor-token',{runId,exactSha:'a'.repeat(40),environmentFingerprint:'b'.repeat(64),purpose:'initial',requiredDurationMs:1,requiredOfflineMs:1,expectedClients:1,expectedWriters:1,expectedReconnects:0});
+    try{const binding=peer.initialSync!.soakBinding!;await new Promise(resolve=>setTimeout(resolve,2));const vector=Y.encodeStateVector(peer.doc);executeCommands(peer.doc,[{type:'create',object:{id:'soak_non_owner',schemaVersion:1,kind:'sticky',text:'soak-4144:non-owner',style:{},parentId:null,orderKey:'',geometry:{x:0,y:0,width:200,height:150,rotation:0}}}],{});const updateId=randomUUID();peer.send({type:'update',epoch:1,updateId,update:b64(Y.encodeStateAsUpdate(peer.doc,vector))});await peer.wait(item=>item.type==='ack'&&item.updateId===updateId);peer.send({type:'soak-finish',runId,challenge:binding.challenge});expect(await peer.wait(item=>item.type==='error')).toMatchObject({type:'error',code:'VALIDATION_FAILED'});}finally{await peer.close();}
+  });
   it('converges two concurrent Chinese edits, persists ACKs, reopens and deduplicates retry', async () => {
     const boardId = await seedBoard(), a = await connect(boardId, 'owner-token'), b = await connect(boardId, 'editor-token');
     try {

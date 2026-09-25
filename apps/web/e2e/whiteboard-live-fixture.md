@@ -19,3 +19,12 @@ pnpm --filter web exec playwright test e2e/whiteboard-live.spec.ts --workers=1
 The repository default config may start a Web server on 3197; the main thread should select its full-stack config or reuse the matching prestarted Web. Missing required fixture values fail explicitly. To stage only collaboration/fullscreen first, select `--grep 'independent users'`; that does not prove the Chat case.
 
 The spec creates uniquely named private boards with real HTTP APIs, grants real membership, uses independent browser contexts, asserts Chinese edits both ways and refresh persistence, verifies viewer controls, revokes editor live access, and confirms full-screen geometry. Its meeting-room journey creates a pairing in the presenter UI, joins through the public room page, proves the room is read-only, follows presenter zoom, leaves and resumes follow, then verifies revocation immediately clears Board content. Test boards are archived in cleanup; database/container lifecycle remains the full-stack isolation wrapper's responsibility.
+
+The dedicated resilience soak is opt-in because it runs for 30 minutes by default:
+
+```bash
+WHITEBOARD_API_URL=http://127.0.0.1:<api-port> E2E_BASE_URL=http://127.0.0.1:<web-port> \
+  pnpm --filter web e2e:whiteboard-room-soak --workers=1
+```
+
+`BOARD_ROOM_SOAK_MINUTES` may increase the duration. Values below 30 fail closed and cannot create accepted evidence. The lane attaches `meeting-room-soak-report.json` and fails unless it completes the wall-clock duration, observes monotonically increasing revisions, keeps p95 convergence at or below three seconds, finishes within the x/y and zoom tolerances, and never returns to the pairing screen. It periodically uses real browser offline and Chromium freeze/active transitions; it does not intercept or fulfill application routes.

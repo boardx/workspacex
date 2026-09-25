@@ -115,11 +115,31 @@ test('meeting-room display pairs once, stays read-only, follows the presenter an
     await room.getByTestId('room-follow-toggle').click();
     await expect(roomCanvas).toHaveAttribute('style',/scale\(1\.2\)/,{timeout:5_000});
 
+    await room.reload();
+    await expect(room.getByText(/会议室只读 · \d+ 次更新/)).toBeVisible({timeout:5_000});
+    await expect(room.getByTestId('room-join-payload')).toHaveCount(0);
+    await owner.reload();await synced(owner);
+    await owner.getByTestId('room-present-open').click();
+    await expect(owner.getByTestId('room-connected')).toBeVisible();
+    await owner.getByRole('button',{name:'关闭',exact:true}).click();
+
+    const safeTransform=await roomCanvas.getAttribute('style');
+    await roomContext.setOffline(true);
+    await owner.getByRole('button',{name:'放大',exact:true}).click();
+    await expect(room.getByText('连接暂时中断，正在恢复…').first()).toBeVisible({timeout:5_000});
+    expect(await roomCanvas.getAttribute('style')).toBe(safeTransform);
+    await room.waitForTimeout(10_000);
+    expect(await roomCanvas.getAttribute('style')).toBe(safeTransform);
+    await roomContext.setOffline(false);
+    await expect(roomCanvas).toHaveAttribute('style',/scale\(1\.3\)/,{timeout:5_000});
+
     await owner.getByTestId('room-present-open').click();
     await owner.getByRole('button',{name:'断开会议室',exact:true}).click();
-    await expect(room.getByRole('alert').filter({hasText:'会议室连接已过期或被主持人断开'})).toBeVisible({timeout:10_000});
+    await expect(room.getByRole('alert').filter({hasText:'会议室连接已过期或被主持人断开'})).toBeVisible({timeout:3_000});
     await expect(room.getByTestId('collaborative-editor')).toHaveCount(0);
     await expect(room.getByRole('button',{name:'图形：会议室只读便签',exact:true})).toHaveCount(0);
+    expect(await room.evaluate(()=>sessionStorage.getItem('wsx.board.room.active'))).toBeNull();
+    await room.reload();await expect(room.getByTestId('room-join-payload')).toBeVisible();
   }finally{
     try { if(boardId&&ownerToken)await request(api,ownerToken,'PATCH',`/whiteboards/${boardId}`,{archived:true}); }
     finally { await Promise.all([ownerContext.close(),roomContext.close()]); }
