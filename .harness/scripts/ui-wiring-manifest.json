@@ -623,20 +623,6 @@
       "kind": "shell",
       "screen": "apps/web/app/admin/skill/[id]/page.tsx"
     },
-    "/agent": {
-      "kind": "mock",
-      "screen": "apps/web/app/agent/page.tsx",
-      "mocks": [
-        "apps/web/lib/mock/agent-previews.ts"
-      ]
-    },
-    "/agent/[teamId]": {
-      "kind": "mock",
-      "screen": "apps/web/app/agent/[teamId]/page.tsx",
-      "mocks": [
-        "apps/web/lib/mock/agent-previews.ts"
-      ]
-    },
     "/asset-governance": {
       "kind": "mock",
       "screen": "apps/web/app/asset-governance/page.tsx",

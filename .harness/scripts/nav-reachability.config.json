@@ -31,7 +31,6 @@
     },
     "allowRoutes": [
       "/preview/chat-knowledge-graph",
-      "/agent",
       "/studio/survey",
       "/brain",
       "/tasks",
@@ -62,7 +61,6 @@
       "design-workbench": "/studio/design-workbench"
     },
     "allowRoutes": [
-      "/agent",
       "/admin",
       "/asset-governance",
       "/brain",
@@ -96,7 +94,6 @@
       "error-observability": "/preview/agent-kernel"
     },
     "allowRoutes": [
-      "/agent",
       "/admin",
       "/asset-governance",
       "/brain",
@@ -129,7 +126,6 @@
     },
     "allowRoutes": [
       "/admin",
-      "/agent",
       "/asset-governance",
       "/brain",
       "/canvas",
