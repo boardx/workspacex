@@ -231,6 +231,13 @@ const EXEMPTIONS = [
  */
 const CONDITIONAL_COVERAGE_EXEMPTIONS = [
   {
+    spec: "apps/web/e2e/whiteboard-room-soak.spec.ts",
+    reason:
+      "会议室投屏稳定性完成契约要求真实全栈浏览器持续至少 30 分钟，并周期性经历断网与 Chromium freeze/active。" +
+      "唯一入口是 harness-verify.yml 的显式 workflow_dispatch `run_whiteboard_room_soak`；默认关闭，避免每个普通 PR 都增加 30 分钟和完整服务栈成本。" +
+      "代价是共享代码打红该 spec 时普通 PR 不会自动发现，发布验收必须显式运行这条受控取证 lane。",
+  },
+  {
     spec: "apps/web/e2e/whiteboard-collaboration-soak.spec.ts",
     reason:
       "#4144 的完成契约就是 50 个独立浏览器上下文持续 30 分钟，并包含 30 秒断网窗口；" +

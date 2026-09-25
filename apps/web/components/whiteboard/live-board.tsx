@@ -1,5 +1,5 @@
 'use client';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import type * as Y from 'yjs';
 import { createWhiteboardDocument, readObjects } from '@repo/whiteboard-core';
@@ -13,6 +13,7 @@ import { DiscussionPanel } from './discussion-panel';
 import { BoardTransferControls } from './board-transfer-controls';
 import { RoomPresenterControls } from './room-presenter-controls';
 import { publishRoomViewport } from '@/lib/live-whiteboard-room';
+import {clearPresenterSession,isAuthoritativeRoomEnd,persistBoardViewport,restoreBoardViewport} from '@/lib/whiteboard-room-session';
 import { whiteboard as WhiteboardContract } from '@repo/contracts';
 const initial: WhiteboardConnectionState = { phase: 'connecting', pending: 0, quarantined: 0, quarantineReceipts: [], role: 'viewer', archived: false, peers: [], reason: null, clientNonce: '', connectionId: null,seq:0 };
 export function LiveBoard({ boardId }: { boardId: string }) {
@@ -25,9 +26,25 @@ export function LiveBoard({ boardId }: { boardId: string }) {
   const [state, setState] = useState(initial), [failed, setFailed] = useState(false);
   const [recoveryMessage,setRecoveryMessage]=useState<string|null>(null),[recoveryBusy,setRecoveryBusy]=useState(false);
   const [roomSession,setRoomSession]=useState<string|null>(null);
-  const roomSessionRef=useRef<string|null>(null), viewportTimer=useRef<number|null>(null);
-  const setActiveRoom=useCallback((value:string|null)=>{roomSessionRef.current=value;setRoomSession(value);},[]);
-  const viewport=useCallback((value:{x:number;y:number;zoom:number})=>{const active=roomSessionRef.current;if(!active)return;if(viewportTimer.current)window.clearTimeout(viewportTimer.current);viewportTimer.current=window.setTimeout(()=>{void publishRoomViewport(boardId,active,value).catch(()=>setActiveRoom(null));},120);},[boardId,setActiveRoom]);
+  type QueuedViewport={value:{x:number;y:number;zoom:number};session:{id:string;epoch:number};scope:{boardId:string;orgId:string;userId:string};operation:number};
+  const roomSessionRef=useRef<{id:string;epoch:number}|null>(null),roomSessionEpoch=useRef(0),viewportOperation=useRef(0),viewportTimer=useRef<number|null>(null),viewportInFlight=useRef(false),queuedViewport=useRef<QueuedViewport|null>(null),mounted=useRef(true);
+  const setActiveRoom=useCallback((value:string|null)=>{viewportOperation.current+=1;queuedViewport.current=null;if(viewportTimer.current){window.clearTimeout(viewportTimer.current);viewportTimer.current=null;}if(value===null){roomSessionRef.current=null;setRoomSession(null);return;}roomSessionRef.current={id:value,epoch:++roomSessionEpoch.current};setRoomSession(value);},[]);
+  const presenterScope=useMemo(()=>session?.session?.currentOrgId&&session.session.userId?{boardId,orgId:session.session.currentOrgId,userId:session.session.userId}:null,[boardId,session?.session?.currentOrgId,session?.session?.userId]);
+  const presenterScopeRef=useRef(presenterScope);presenterScopeRef.current=presenterScope;
+  const drainViewport=useRef<()=>void>(()=>undefined);
+  drainViewport.current=()=>{if(viewportInFlight.current)return;const queued=queuedViewport.current;if(!queued)return;queuedViewport.current=null;const {value,session:active,scope,operation}=queued;if(!mounted.current||roomSessionRef.current!==active||presenterScopeRef.current!==scope)return;viewportInFlight.current=true;void publishRoomViewport(boardId,active.id,value).catch(cause=>{if(!mounted.current||roomSessionRef.current!==active||presenterScopeRef.current!==scope)return;
+      // A newer transform queued while this request was in flight must get one chance to
+      // reach the server. Otherwise an older response can terminate the restored session
+      // before the latest presenter viewport is published.
+      if(isAuthoritativeRoomEnd(cause)&&!queuedViewport.current&&viewportOperation.current===operation){clearPresenterSession(scope,active.id);setActiveRoom(null);}
+    }).finally(()=>{viewportInFlight.current=false;if(mounted.current)drainViewport.current();});};
+  const viewport=useCallback((value:{x:number;y:number;zoom:number})=>{persistBoardViewport(boardId,value);const active=roomSessionRef.current;if(!active||!presenterScope)return;const operation=++viewportOperation.current;if(viewportTimer.current)window.clearTimeout(viewportTimer.current);viewportTimer.current=window.setTimeout(()=>{viewportTimer.current=null;if(!mounted.current||viewportOperation.current!==operation||roomSessionRef.current!==active||presenterScopeRef.current!==presenterScope)return;queuedViewport.current={value,session:active,scope:presenterScope,operation};drainViewport.current();},120);},[boardId,presenterScope]);
+  // The owner's own pan/zoom is plain component state in CollaborativeEditor, so it
+  // resets on every remount (a reload, navigating away and back). Restoring the last
+  // value this board saw keeps a reload from silently re-broadcasting a default
+  // viewport to a meeting-room display that is already following a real one.
+  const initialViewport=useMemo(()=>restoreBoardViewport(boardId),[boardId]);
+  useEffect(()=>{mounted.current=true;return()=>{mounted.current=false;viewportOperation.current+=1;queuedViewport.current=null;if(viewportTimer.current){window.clearTimeout(viewportTimer.current);viewportTimer.current=null;}roomSessionRef.current=null;};},[]);
   useEffect(() => {
     let active = true; const document = createWhiteboardDocument(); let provider: WhiteboardProvider | undefined;
     setSelection([]); setDoc(null); setBoard(null); setFailed(false); setState(initial);
@@ -62,5 +79,5 @@ export function LiveBoard({ boardId }: { boardId: string }) {
   const status = state.phase === 'connecting' ? '正在连接' : state.phase === 'offline' ? `连接中断 · ${state.pending} 项修改待保存` : state.pending ? `${state.pending} 项修改待保存` : '已同步';
   const selectedObject=selection.length===1?(()=>{const value=(doc.getMap('objects').get(selection[0]!) as {get?:(key:string)=>unknown}|undefined);return value?{id:selection[0]!,label:String(value.get?.('text')||'未命名对象').slice(0,200)}:null;})():null;
   const readOnly=state.phase === 'connecting' || state.role === 'viewer' || state.archived;
-  return <div className="relative flex h-full min-h-0 flex-col"><div className="flex items-center gap-2 border-b border-border bg-warning-tint px-3 py-1 text-12 text-warning-tint-foreground"><div className="flex-1"><p>未确认保存的修改已加密保存在此设备，恢复连接后会继续同步。在线成员 {state.peers.length}{roomSession?' · 会议室正在跟随':''}</p>{state.quarantined>0&&quarantineActions}</div><RoomPresenterControls boardId={boardId} disabled={readOnly} onSession={setActiveRoom}/><BoardTransferControls boardId={boardId} onImported={importedId=>router.push(`/studio/board/${importedId}`)}/></div><div className="min-h-0 flex-1"><CollaborativeEditor doc={doc} title={board.name} status={status} readOnly={readOnly} onBack={back} currentUserId={session?.session?.userId} peers={state.peers} onSelectionChange={setSelection} onAwareness={awareness} onViewportChange={viewport} workshop={state.phase === 'online' && <WorkshopPanel boardId={boardId} role={state.archived ? 'viewer' : state.role} selectedObjectId={selection.length===1?selection[0]:undefined} currentUserId={session?.session?.userId}/>}/></div><DiscussionPanel boardId={boardId} selectedObject={selectedObject} readOnly={readOnly}/></div>;
+  return <div className="relative flex h-full min-h-0 flex-col"><div className="flex items-center gap-2 border-b border-border bg-warning-tint px-3 py-1 text-12 text-warning-tint-foreground"><div className="flex-1"><p>未确认保存的修改已加密保存在此设备，恢复连接后会继续同步。在线成员 {state.peers.length}{roomSession?' · 会议室正在跟随':''}</p>{state.quarantined>0&&quarantineActions}</div><RoomPresenterControls boardId={boardId} orgId={session?.session?.currentOrgId??null} userId={session?.session?.userId??null} disabled={readOnly} onSession={setActiveRoom}/><BoardTransferControls boardId={boardId} onImported={importedId=>router.push(`/studio/board/${importedId}`)}/></div><div className="min-h-0 flex-1"><CollaborativeEditor doc={doc} title={board.name} status={status} readOnly={readOnly} onBack={back} currentUserId={session?.session?.userId} peers={state.peers} onSelectionChange={setSelection} onAwareness={awareness} onViewportChange={viewport} initialViewport={initialViewport} workshop={state.phase === 'online' && <WorkshopPanel boardId={boardId} role={state.archived ? 'viewer' : state.role} selectedObjectId={selection.length===1?selection[0]:undefined} currentUserId={session?.session?.userId}/>}/></div><DiscussionPanel boardId={boardId} selectedObject={selectedObject} readOnly={readOnly}/></div>;
 }

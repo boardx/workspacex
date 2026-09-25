@@ -65,6 +65,10 @@ on:
         description: "跑全量浏览器 e2e（e2e-full）"
         type: boolean
         default: true
+      run_whiteboard_room_soak:
+        description: "跑 Board 会议室投屏 30 分钟稳定性取证"
+        type: boolean
+        default: false
       run_board_collaboration_soak:
         description: "跑 Board 50 浏览器 30 分钟协作收敛取证（#4144）"
         type: boolean
@@ -586,6 +590,35 @@ jobs:
         env:
           CI_SOURCE_RESULT: ${{ steps.dedup.outputs.result }}
         run: node .harness/scripts/ci-lane-dedup.mjs verdict
+
+  # Long-running physical-room evidence is opt-in. Ordinary PR and main runs
+  # must not silently acquire a 30-minute browser lane.
+  whiteboard-room-soak:
+    if: github.event_name == 'workflow_dispatch' && inputs.run_whiteboard_room_soak
+    runs-on: ubuntu-latest
+    timeout-minutes: 50
+    concurrency:
+      group: whiteboard-room-soak-${{ github.sha }}
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@v5
+        with: { fetch-depth: 0 }
+      - uses: pnpm/action-setup@v4.4.0
+      - uses: actions/setup-node@v5
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter web exec playwright install --with-deps chromium
+      - name: Execute meeting-room convergence soak
+        run: pnpm run verify:whiteboard-room-soak
+      - name: Upload meeting-room soak evidence
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: whiteboard-room-soak-${{ github.sha }}-${{ github.run_id }}
+          path: apps/web/test-results/whiteboard-room-soak/
+          if-no-files-found: error
 
   # #4144: the acceptance contract itself requires 50 browser contexts and 30 minutes.
   # Keep it explicit so ordinary PRs do not silently acquire a >30 minute browser lane.
