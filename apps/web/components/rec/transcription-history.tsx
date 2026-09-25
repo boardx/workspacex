@@ -270,6 +270,7 @@ export function TranscriptionHistory({ uiState }: { uiState: UiState }) {
       inputLevel={inputLevel} devices={micDevices.devices} selectedDeviceId={micDevices.selectedDeviceId}
       onSelectDevice={micDevices.select}
       onStart={() => void startRealtimeTranscription()} onStop={() => void stopRealtimeTranscription()}
+      onReconnect={() => void startRealtimeTranscription()}
       onSaveContent={saveContent}
       onBack={() => { if (!streamRef.current && !stoppingRef.current) setActiveSession(null); }} />;
   }

@@ -73,6 +73,16 @@ describe("RealtimeTranscriptionWorkspace", () => {
     expect(screen.queryByText("音频仍在传输或确认中")).not.toBeInTheDocument();
   });
 
+  it("opens a recoverable error dialog and reconnects without hiding durable text", () => {
+    const onReconnect = vi.fn();
+    render(<RealtimeTranscriptionWorkspace session={SESSION} onBack={vi.fn()} streamState="error"
+      errorMessage="无法启动实时转录，请稍后重试。" onReconnect={onReconnect} onStart={vi.fn()} onStop={vi.fn()} />);
+    expect(screen.getByTestId("rec-live-reconnect-dialog")).toBeVisible();
+    expect(screen.getByTestId("rec-live-content")).toHaveTextContent("第一句 第二句");
+    fireEvent.click(screen.getByTestId("rec-live-reconnect"));
+    expect(onReconnect).toHaveBeenCalledTimes(1);
+  });
+
   it("shows the selected microphone and real input level, and locks selection while recording", () => {
     const onSelectDevice = vi.fn();
     const { rerender } = render(<RealtimeTranscriptionWorkspace session={SESSION} onBack={vi.fn()}

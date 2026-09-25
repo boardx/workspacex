@@ -7,6 +7,7 @@ import type { z } from "zod";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogTitle } from "@/components/ui/dialog";
 import { MicDevicePicker } from "@/components/chat/chat-composer-pickers";
 import type { AudioInputDevice } from "@/lib/live-recording";
 import type { RealtimeAsrStreamState } from "@/lib/realtime-asr.types";
@@ -31,6 +32,7 @@ export function RealtimeTranscriptionWorkspace({
   onStart,
   onStop,
   onSaveContent,
+  onReconnect,
   inputLevel = 0,
   devices = [],
   selectedDeviceId = null,
@@ -45,6 +47,7 @@ export function RealtimeTranscriptionWorkspace({
   onStart: () => void;
   onStop: () => void;
   onSaveContent?: (content: string) => Promise<void>;
+  onReconnect?: () => void;
   inputLevel?: number;
   devices?: readonly AudioInputDevice[];
   selectedDeviceId?: string | null;
@@ -54,7 +57,9 @@ export function RealtimeTranscriptionWorkspace({
   const [draft, setDraft] = React.useState(session.content);
   const [saving, setSaving] = React.useState(false);
   const [copied, setCopied] = React.useState(false);
+  const [errorDialogDismissed, setErrorDialogDismissed] = React.useState(false);
   React.useEffect(() => { if (!editing) setDraft(session.content); }, [editing, session.content]);
+  React.useEffect(() => { if (errorMessage) setErrorDialogDismissed(false); }, [errorMessage]);
   const recording = streamState === "recording" || streamState === "stopping" || session.status === "recording";
   const busy = streamState === "connecting" || streamState === "stopping";
   const visibleContent = [session.content, interimSegment].filter(Boolean).join(session.content && interimSegment ? " " : "");
@@ -183,6 +188,17 @@ export function RealtimeTranscriptionWorkspace({
           )}
         </Card>
       </div>
+      <Dialog open={Boolean(errorMessage) && !errorDialogDismissed} onOpenChange={(open) => { if (!open) setErrorDialogDismissed(true); }}>
+        <DialogContent data-testid="rec-live-reconnect-dialog" className="max-w-md">
+          <DialogTitle>实时转录连接异常</DialogTitle>
+          <DialogDescription>{errorMessage} 已保存的正文不会丢失。</DialogDescription>
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={() => setErrorDialogDismissed(true)}>暂不处理</Button>
+            <Button data-testid="rec-live-reconnect" type="button" variant="primary" disabled={!onReconnect}
+              onClick={() => { setErrorDialogDismissed(true); onReconnect?.(); }}>重新连接</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </section>
   );
 }
