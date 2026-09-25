@@ -395,12 +395,17 @@ export const KG_PROMOTE_MAX_BATCH = 50;
 export const KG_GRAPH_VIEW_MAX_NODES = 200;
 
 /**
- * issue #4178 —— 记忆抽取的组织开关。两个布尔分别回答两件不同的事，UI 好分别提示：
- * - `deploymentCapable`：这次部署有没有配置抽取用的模型 provider（`KgExtractionModelConfig.
- *   enabled` 的现值）——部署级、只读、不受本束任何写操作影响。
+ * issue #4178（`deploymentCapable` 的口径用户直接交办更正于 2026-09-25）—— 记忆抽取的
+ * 组织开关。两个布尔分别回答两件不同的事，UI 好分别提示：
+ * - `deploymentCapable`：**部署有没有配置抽取用的模型 provider AND 部署开关打开了**
+ *   （`KgExtractionModelConfig.enabled`（provider 是否配置）与
+ *   `KgDeploymentExtractionSettingsPort.getEnabled()`（部署开关现值）两者相与）——部署级、
+ *   只读（不受本束任何写操作影响；要改部署开关，走下面 `getPlatformExtractionSetting` /
+ *   `setPlatformExtractionSetting` 这一对平台级操作，不是这里）。
  * - `orgEnabled`：本组织有没有打开（`kg_org_extraction_settings.enabled`）——组织级、
  *   admin 可写、默认 false。
- * 两者都为真，新消息才会被排进抽取队列（`kg_enqueue_extraction` 的两道闸门）。
+ * 两者都为真，新消息才会被排进抽取队列（`kg_enqueue_extraction` 的三道闸门：provider 已配置、
+ * 部署开关打开、组织开关打开）。
  */
 export const KgExtractionSetting = z.object({
   deploymentCapable: z.boolean(),
@@ -413,6 +418,27 @@ export const SetKnowledgeExtractionSettingInput = z.object({
   enabled: z.boolean(),
 }).strict();
 export type SetKnowledgeExtractionSettingInput = z.infer<typeof SetKnowledgeExtractionSettingInput>;
+
+/**
+ * 用户直接交办（2026-09-25，ad-hoc）—— 平台级抽取开关（`kg_extraction_state`，全库单例）
+ * 的读出形状。与组织级 `KgExtractionSetting` 分开声明，即便字段名很像也不合并：这是
+ * 两个不同权限层级各自的完整答案，`providerConfigured` 是这一层唯一多出来的、组织级
+ * 视角看不到的基础设施事实（组织级只看得到两者相与后的 `deploymentCapable`）。
+ */
+export const KgDeploymentExtractionSetting = z.object({
+  /** 这次部署有没有配置抽取用的模型 provider（`KgExtractionModelConfig.enabled`）——只读，
+   *  这个平台级操作束也改不了它，它是启动参数。 */
+  providerConfigured: z.boolean(),
+  /** 部署开关的现值（`kg_extraction_state.enabled`）——平台管理员可来回切换。 */
+  enabled: z.boolean(),
+}).strict();
+export type KgDeploymentExtractionSetting = z.infer<typeof KgDeploymentExtractionSetting>;
+
+/** `setPlatformExtractionSetting` 的入参：只有目标值，没有 orgId——这是部署级、非租户开关。 */
+export const SetPlatformExtractionSettingInput = z.object({
+  enabled: z.boolean(),
+}).strict();
+export type SetPlatformExtractionSettingInput = z.infer<typeof SetPlatformExtractionSettingInput>;
 
 /* ────────────────────────────────────────────────────────────────────── *
  * 四、API 操作（usecases.md UC-KG-1 … UC-KG-7）
@@ -616,5 +642,27 @@ export const knowledgeGraph = {
     in: SetKnowledgeExtractionSettingInput,
     out: KgExtractionSetting,
     err: ["KG_NOT_ORG_ADMIN"] as const,
+  },
+
+  /**
+   * 用户直接交办（2026-09-25，ad-hoc）—— 平台级抽取开关（`kg_extraction_state`）的读，
+   * 与组织级 `getKnowledgeExtractionSetting` 是不同的权限层级、不同的路由：这一对只回答
+   * "整个部署"要不要跑抽取，不针对任何一个组织。任何平台运营准入（`PlatformOperatorGuard`：
+   * 平台超管，或落库的 `platform_admins`）都可读——同 `platform-members.listPlatformMembers`
+   * 的授权面，这一层再往下没有"只读"与"可写"的区分（不像组织级还有"任何成员可读、仅
+   * admin 可写"两级，平台运营准入已经是能接触这条路由的最低门槛）。
+   */
+  getPlatformExtractionSetting: {
+    method: "GET", path: "/platform/knowledge-graph/extraction-setting",
+    in: z.object({}).strict(),
+    out: KgDeploymentExtractionSetting,
+    err: ["NOT_PLATFORM_SUPERUSER"] as const,
+  },
+  /** 同上；写。同样要求平台运营准入——这一层没有比它更低的可写门槛。 */
+  setPlatformExtractionSetting: {
+    method: "PUT", path: "/platform/knowledge-graph/extraction-setting",
+    in: SetPlatformExtractionSettingInput,
+    out: KgDeploymentExtractionSetting,
+    err: ["NOT_PLATFORM_SUPERUSER"] as const,
   },
 } as const;

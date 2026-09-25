@@ -89,7 +89,7 @@ beforeAll(async () => {
     repo: new PgIdentityRepository(db), ids: new CountingDecisionIdFactory(), chat: new PgChatRepository(db),
     knowledge: new PgKnowledgeRead(db, true), promotion: new PgPromotion(db), newId: newKgId,
   };
-  ctl = new KnowledgeGraphController(deps.repo, deps.ids, deps.chat, deps.knowledge, new PgHumanAction(db), deps.promotion, {} as never, {} as never);
+  ctl = new KnowledgeGraphController(deps.repo, deps.ids, deps.chat, deps.knowledge, new PgHumanAction(db), deps.promotion, {} as never, {} as never, {} as never);
   const { model } = loopbackModel([["上线", REPLY], ["乙方", REPLY_B]]);
   for (const t of [MINE, MINE_OLD, SHARED, THEIRS]) {
     await addChatMessage({ orgId: ORG, id: `m-${t}`, threadId: t, body: BODY, authorId: t === THEIRS ? "u-other" : "u-owner" });

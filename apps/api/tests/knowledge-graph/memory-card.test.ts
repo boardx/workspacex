@@ -92,7 +92,7 @@ beforeAll(async () => {
     repo: new PgIdentityRepository(db), ids: new CountingDecisionIdFactory(), chat: new PgChatRepository(db),
     knowledge: new PgKnowledgeRead(db, true), cards, newId: newKgId,
   };
-  ctl = new KnowledgeGraphController(deps.repo, deps.ids, deps.chat, deps.knowledge, new PgHumanAction(db), new PgPromotion(db), {} as never, {} as never, cards);
+  ctl = new KnowledgeGraphController(deps.repo, deps.ids, deps.chat, deps.knowledge, new PgHumanAction(db), new PgPromotion(db), {} as never, {} as never, {} as never, cards);
   xdeps = extractionDeps(db, MODEL.model, ORG);
 });
 afterAll(async () => { await db.close(); });
