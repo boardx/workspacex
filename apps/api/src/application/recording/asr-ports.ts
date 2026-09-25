@@ -52,6 +52,8 @@ export interface AsrSessionHandlers {
    * **不向上编造新语义**（契约里没有 `UNKNOWN` 这一项，是刻意的）。
    */
   readonly onError: (reason: string, detail: string) => void;
+  /** Recoverable upstream transport pressure; payload deliberately excludes user content. */
+  readonly onFlow?: (flow: { readonly state: "normal" | "slow"; readonly source: "upstream"; readonly queuedMs: number }) => void;
   /** 上游正常收尾。 */
   readonly onClosed: () => void;
 }

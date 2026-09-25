@@ -56,9 +56,22 @@ import {
 const DEFAULT_ASR_TURN_SILENCE_MS = 400;
 const DEFAULT_RECORDING_TURN_SILENCE_MS = 800;
 const MAX_UPSTREAM_AUDIO_BACKLOG_BYTES = 48_000;
+const UPSTREAM_AUDIO_BYTES_PER_SECOND = MAX_UPSTREAM_AUDIO_BACKLOG_BYTES;
+const UPSTREAM_SLOW_BACKLOG_MS = 400;
+const UPSTREAM_RECOVERY_BACKLOG_MS = 200;
 
 export function realtimeAudioBacklogExceeded(bufferedBytes: number, nextPayloadBytes: number): boolean {
   return bufferedBytes + nextPayloadBytes > MAX_UPSTREAM_AUDIO_BACKLOG_BYTES;
+}
+
+export function upstreamAudioFlowState(
+  previous: "normal" | "slow",
+  bufferedBytes: number,
+): { readonly state: "normal" | "slow"; readonly queuedMs: number } {
+  const queuedMs = Math.round(bufferedBytes * 1_000 / UPSTREAM_AUDIO_BYTES_PER_SECOND);
+  if (previous === "normal" && queuedMs >= UPSTREAM_SLOW_BACKLOG_MS) return { state: "slow", queuedMs };
+  if (previous === "slow" && queuedMs <= UPSTREAM_RECOVERY_BACKLOG_MS) return { state: "normal", queuedMs };
+  return { state: previous, queuedMs };
 }
 
 interface ProviderConfig {
@@ -281,6 +294,13 @@ export class ConfiguredRealtimeAsrProvider implements AsrProviderPort {
     // that always follows it.
     let finishRequested = false;
     let errorReported = false;
+    let upstreamFlow: "normal" | "slow" = "normal";
+    const observeFlow = (bufferedBytes: number) => {
+      const next = upstreamAudioFlowState(upstreamFlow, bufferedBytes);
+      if (next.state === upstreamFlow) return;
+      upstreamFlow = next.state;
+      try { handlers.onFlow?.({ state: next.state, source: "upstream", queuedMs: next.queuedMs }); } catch { /* observers cannot interrupt ASR */ }
+    };
     const reportError = (reason: typeof PROVIDER_UNAVAILABLE | typeof AUDIO_FORMAT_REJECTED | typeof AUDIO_BACKPRESSURE, detail: string): void => {
       errorReported = true;
       handlers.onError(reason, detail);
@@ -381,6 +401,7 @@ export class ConfiguredRealtimeAsrProvider implements AsrProviderPort {
           socket.terminate();
           return;
         }
+        observeFlow(socket.bufferedAmount);
         socket.send(payload);
       },
       commit() {
