@@ -120,18 +120,25 @@ async function sendAndSettle(page: Page, prompt: string): Promise<string> {
    */
   const confirmIntentContinue = page.getByTestId("agent-interrupt-confirm-intent-continue");
   /**
-   * 第二道人在环门：`write_todos`（计划确认，issue #3132/B7）。跟 `confirm_task_intent`
-   * 不是同一个工具，落在同一个 `interrupted` 状态里，前端也是完全不同的组件
-   * （`plan-confirm-gate.tsx`，不是 `confirm-intent-card.tsx`）。2026-09-25 实测：
-   * 单独隔离跑复杂任务时直连 deep-agent-service 的 `/threads/:id/state` 现场抓到
-   * 卡在 `write_todos` 这一步——只处理了 `confirm_task_intent` 那一道门还不够，
-   * 十任务矩阵里那三个多步骤任务（先做研究/先列提纲/先算后讲）仍然全部超时。
+   * 第二道人在环门：不是 `PlanConfirmGate`（那个猜是错的）。
+   *
+   * 2026-09-25 用自己的浏览器手动登录、真实点一遍才看清楚：`write_todos` 落到的是
+   * **通用工具权限弹窗**（`chat-tool-permission-dialog`，L2·高风险，标题「agent 请求
+   * 执行一个高风险操作」），跟 `confirm_task_intent` 那张卡完全是两套组件、两种
+   * 弹法。第一版猜它走 `plan-confirm-gate.tsx`（`chat-task-workbench-plan-confirm-run`）
+   * ——那个 testid 在这条路径上从没出现过，猜错的判据只会一直等一个不存在的元素，
+   * 精确复现了"卡满整个预算"的症状，还连累了同一个共享 `page` 后面的任务。
+   *
+   * 选 `perm-run`（"本 run 内都允许"）而不是 `perm-once`（"仅本次允许"）：手动实测
+   * 界面自己会提示——同一个 run 里 `write_todos`/`call_skill` 会反复申请授权，选
+   * "仅本次"每次都要重新弹一遍，"本 run 内都允许"一次放行这一整条 run。
    */
-  const planConfirmRun = page.getByTestId("chat-task-workbench-plan-confirm-run");
+  const toolPermissionDialog = page.getByTestId("chat-tool-permission-dialog");
+  const toolPermissionAllowRun = page.getByTestId("perm-run");
   // 每一轮 task 各自的一次性开关——写成局部变量而不是复用上一个 task 遗留的状态，
   // 避免一次点击卡住之后在同一个 task 里反复重试、把一次可恢复的慢渲染拖成死循环。
   let confirmedOnce = false;
-  let planConfirmedOnce = false;
+  let toolPermissionAllowedOnce = false;
 
   const sentAt = Date.now();
   let sawRunning = false;
@@ -148,9 +155,9 @@ async function sendAndSettle(page: Page, prompt: string): Promise<string> {
       await page.waitForTimeout(1_000);
       continue;
     }
-    if (!planConfirmedOnce && (await planConfirmRun.count()) > 0) {
-      planConfirmedOnce = true;
-      await planConfirmRun.click({ timeout: 5_000 }).catch(() => { planConfirmedOnce = false; });
+    if (!toolPermissionAllowedOnce && (await toolPermissionDialog.count()) > 0) {
+      toolPermissionAllowedOnce = true;
+      await toolPermissionAllowRun.click({ timeout: 5_000 }).catch(() => { toolPermissionAllowedOnce = false; });
       await page.waitForTimeout(1_000);
       continue;
     }
