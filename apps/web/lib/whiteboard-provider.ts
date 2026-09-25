@@ -43,8 +43,14 @@ export class WhiteboardProvider {
     this.outbox = options.outbox ?? new IndexedDbWhiteboardOutbox();
     doc.on('update', this.onUpdate);
     this.sessionTimer = setInterval(() => { if (getStoredSessionToken() !== this.token) this.block('SESSION_CHANGED'); }, 1000);
+    if (typeof window !== 'undefined') { window.addEventListener('offline', this.onBrowserOffline); window.addEventListener('online', this.onBrowserOnline); }
     void this.start();
   }
+  // An idle WebSocket does not always surface a close/error event promptly when only the network
+  // path is cut (no in-flight read/write to fail against). Listening to the browser's own
+  // online/offline signal lets us reflect a lost connection immediately instead of waiting on TCP.
+  private onBrowserOffline = () => { if (!this.stopped) this.socket?.close(); };
+  private onBrowserOnline = () => { if (!this.stopped && !this.ready && !this.timer) this.connect(); };
   private async start() {
     if (!this.token) { this.block('SESSION_CHANGED'); return; }
     const sessionId = this.options.sessionId ?? await fingerprintWhiteboardSession(this.token);
@@ -163,5 +169,5 @@ export class WhiteboardProvider {
     if (!this.stopped && getStoredSessionToken() !== this.token) { this.block('SESSION_CHANGED'); return; }
     this.stop();
   }
-  private stop() { if (this.presenceTimer) clearTimeout(this.presenceTimer); this.stopped = true; this.ready = false; if (this.timer) clearTimeout(this.timer); if (this.handshake) clearTimeout(this.handshake); clearInterval(this.sessionTimer); this.doc.off('update', this.onUpdate); this.socket?.close(); }
+  private stop() { if (this.presenceTimer) clearTimeout(this.presenceTimer); this.stopped = true; this.ready = false; if (this.timer) clearTimeout(this.timer); if (this.handshake) clearTimeout(this.handshake); clearInterval(this.sessionTimer); this.doc.off('update', this.onUpdate); if (typeof window !== 'undefined') { window.removeEventListener('offline', this.onBrowserOffline); window.removeEventListener('online', this.onBrowserOnline); } this.socket?.close(); }
 }
