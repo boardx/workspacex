@@ -1,0 +1,70 @@
+{
+  "version": 1,
+  "purpose": "Seed registry for external practice evidence; inclusion does not imply redistribution rights.",
+  "sources": [
+    {
+      "id": "anthropic-knowledge-work-plugins",
+      "market": "global",
+      "type": "agent-skills",
+      "license_class": "permissive-observed",
+      "default_action": "direct-or-merge",
+      "notes": "Strong role-oriented knowledge-work practices; pin per-repo/per-artifact license."
+    },
+    {
+      "id": "anthropic-skills",
+      "market": "global",
+      "type": "agent-skills",
+      "license_class": "mixed-per-artifact",
+      "default_action": "license-dependent",
+      "notes": "Some skills/artifacts have restrictive terms; evaluate per skill rather than repository visibility."
+    },
+    {
+      "id": "skills-sh",
+      "market": "global",
+      "type": "directory",
+      "license_class": "metadata-only",
+      "default_action": "discovery",
+      "notes": "Use installs/trends as adoption signal, not quality proof."
+    },
+    {
+      "id": "n8n",
+      "market": "global",
+      "type": "workflow-templates",
+      "license_class": "source-available-platform",
+      "default_action": "cross-platform-rebuild",
+      "notes": "Extract workflow patterns; do not assume platform/source license permits embedding into WorkspaceX."
+    },
+    {
+      "id": "activepieces",
+      "market": "global",
+      "type": "workflow-templates",
+      "license_class": "mixed-core-enterprise",
+      "default_action": "cross-platform-rebuild",
+      "notes": "Core is permissive while enterprise paths differ; check individual template/piece provenance."
+    },
+    {
+      "id": "coze-studio",
+      "market": "china-global",
+      "type": "agent-workflow-platform",
+      "license_class": "permissive-platform-observed",
+      "default_action": "cross-platform-rebuild",
+      "notes": "Useful for China-native workflow patterns; verify template-specific provenance."
+    },
+    {
+      "id": "dify",
+      "market": "china-global",
+      "type": "agent-workflow-platform",
+      "license_class": "custom-conditions",
+      "default_action": "reference-or-cross-platform-rebuild",
+      "notes": "Treat platform code and marketplace contributions separately; review specific artifact terms."
+    },
+    {
+      "id": "openlark-skills",
+      "market": "china",
+      "type": "agent-skills",
+      "license_class": "unknown-per-artifact-until-verified",
+      "default_action": "reference-until-cleared",
+      "notes": "Useful China-local workflow evidence, including Douyin/Xiaohongshu/browser automations."
+    }
+  ]
+}
