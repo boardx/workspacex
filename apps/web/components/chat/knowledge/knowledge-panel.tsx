@@ -446,9 +446,22 @@ function useClaimSourcesDrawer(loadSources: ((claimId: string) => Promise<ClaimS
   return { isOpen: claim !== null, data, loading, error, open: load, close, retry };
 }
 
+/**
+ * issue #4178 —— 队列恒空不等于「已整理到最新」：抽取压根没开（部署没配置模型，或本组织
+ * 没打开，见契约 `extractionActive`）时，队列永远是空的，此前这里会一直显示「已整理到最新」——
+ * 那是队列恒空造成的假象，不是真的整理完了。抽取没开时改说「自动记忆未开启」，与忙碌 /
+ * 失败两态用不同的 `data-testid` 区分（面板测试与本函数逐条断言）。
+ */
 function IngestionStatus({ data, onReindex }: { data: ThreadKnowledge; onReindex?: () => void }) {
   const { queued, running, failed } = data.ingestion;
   const busy = queued + running > 0;
+  if (!data.extractionActive) {
+    return (
+      <p className="text-10 text-muted-foreground" data-testid="kg-ingestion-inactive">
+        自动记忆未开启
+      </p>
+    );
+  }
   if (!busy && failed === 0) {
     return (
       <p className="text-10 text-muted-foreground" data-testid="kg-ingestion-idle">

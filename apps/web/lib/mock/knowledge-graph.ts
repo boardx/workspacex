@@ -166,6 +166,7 @@ export const threadKnowledgeNormal: ThreadKnowledge = {
   canEdit: true,
   canPromote: true,
   visibility: "owner_only",
+  extractionActive: true,
 };
 
 /** 整理中（后台异步抽取尚未完成，R4 A2 / uc-18-1 R8） */
@@ -207,6 +208,7 @@ export const threadKnowledgeEmpty: ThreadKnowledge = {
   canEdit: true,
   canPromote: true,
   visibility: "owner_only",
+  extractionActive: true,
 };
 
 const BULK_KINDS = ["person", "concept", "term", "metric"] as const satisfies readonly KgObject["kind"][];

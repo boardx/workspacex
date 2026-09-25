@@ -27,6 +27,9 @@ const HUMAN_ACTION_FAILURE_ZH: Record<KnowledgeGraphErrorCode, string> = {
   KG_CARD_NOT_FOUND: "这张卡片已经不在了。",
   KG_CARD_STALE: "这张卡片已过期，请刷新后再试。",
   KG_PROMPT_NOT_FOUND: "这条提醒已经不在了。",
+  // issue #4178：`setKnowledgeExtractionSetting` 专属码，人的编辑动作（applyHumanAction 等）从不
+  // 返回它——这里只是让 Record<KgErrorCode, string> 保持穷举（漏配一个编译就不过）。
+  KG_NOT_ORG_ADMIN: "只有组织管理员可以修改这项设置。",
 };
 
 /** 失败后应当重读面板的码：服务端状态已与界面不一致。 */
