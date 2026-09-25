@@ -25,10 +25,14 @@ async function openInvalidImport(page:Page){
 }
 
 test('live Board reflows at 100%, 200% and 400% equivalents with platform zoom, panels and reduced motion',async({page,request,context})=>{
-  const token=await login(page);let boardId:string|undefined;
+  const token=await login(page);const boardIds:string[]=[];
   try{
-    const created=await api(request,token,'POST','/whiteboards',{requestId:randomUUID(),name:`Reflow Board ${randomUUID()}`});boardId=(await created.json() as {id:string}).id;await page.emulateMedia({reducedMotion:'reduce'});
+    await page.emulateMedia({reducedMotion:'reduce'});
     for(const viewport of [{width:1280,height:1024,label:'100%'},{width:640,height:512,label:'200%'},{width:320,height:256,label:'400%'}]){
+      // Each pass uses a fresh board: viewport (zoom/pan) is intentionally persisted per-boardId
+      // in localStorage (see whiteboard-room-session.ts persistBoardViewport/restoreBoardViewport),
+      // so reusing one boardId across passes would carry the previous pass's zoom forward.
+      const created=await api(request,token,'POST','/whiteboards',{requestId:randomUUID(),name:`Reflow Board ${randomUUID()}`});const boardId=(await created.json() as {id:string}).id;boardIds.push(boardId);
       await page.setViewportSize(viewport);await page.goto(`/studio/board/${boardId}`);await expect(page.getByTestId('collaborative-editor')).toBeVisible({timeout:30_000});await expect(page.getByText(/^已同步$/)).toBeVisible({timeout:30_000});
       await expect.poll(()=>page.evaluate(()=>document.documentElement.scrollWidth<=document.documentElement.clientWidth),{message:`${viewport.label} has no page horizontal overflow`}).toBe(true);
       expect(await page.getByTestId('board-live-surface').evaluate(element=>getComputedStyle(element).touchAction)).toBe('auto');expect(await page.evaluate(()=>({root:getComputedStyle(document.documentElement).touchAction,marker:document.documentElement.dataset.liveBoardMounted}))).toEqual({root:'auto',marker:'true'});
@@ -53,5 +57,5 @@ test('live Board reflows at 100%, 200% and 400% equivalents with platform zoom, 
       const zoomIn=page.getByRole('button',{name:'放大',exact:true});await tabTo(page,zoomIn,'Shift+Tab');await page.keyboard.press('Enter');await expect(page.getByTestId('board-live-announcer')).toContainText('缩放 110%');const viewportLayer=page.getByTestId('board-live-surface').locator(':scope > div').first();expect(await viewportLayer.evaluate(element=>getComputedStyle(element).transitionDuration)).toMatch(/^(0s|0\.001ms)$/);
     }
     await page.goto('/projects');await expect.poll(()=>page.evaluate(()=>document.documentElement.dataset.liveBoardMounted??null)).toBeNull();expect(await page.evaluate(()=>{const event=new WheelEvent('wheel',{ctrlKey:true,cancelable:true});window.dispatchEvent(event);return event.defaultPrevented;})).toBe(true);
-  }finally{await context.setOffline(false);if(boardId)await api(request,token,'PATCH',`/whiteboards/${boardId}`,{archived:true});}
+  }finally{await context.setOffline(false);for(const boardId of boardIds)await api(request,token,'PATCH',`/whiteboards/${boardId}`,{archived:true});}
 });
