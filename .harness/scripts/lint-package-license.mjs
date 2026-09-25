@@ -30,7 +30,10 @@ import { classifyWorkspace, LICENSE_BY_CLASS, APACHE_2_0_MD5 } from "./lib/owner
 const ri = process.argv.indexOf("--root");
 const ROOT = ri > -1 ? resolve(process.argv[ri + 1]) : join(dirname(fileURLToPath(import.meta.url)), "..", "..");
 
-const rows = classifyWorkspace(ROOT);
+// `--undecided <dir>`：把某个目录按「归属未定」对待。只给自测用——真实归属表里已没有未定的包
+// （fabric-markdown 于 2026-09-25 定为 oss），规则 ③ 仍要有反例可跑。
+const undecidedOverride = new Set(process.argv.flatMap((a, i) => (a === "--undecided" ? [process.argv[i + 1]] : [])));
+const rows = classifyWorkspace(ROOT).map((r) => (undecidedOverride.has(r.dir) ? { ...r, class: "undecided", why: "（自测指定为未定）" } : r));
 const findings = [];
 const undecided = [];
 for (const r of rows) {
