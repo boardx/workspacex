@@ -135,3 +135,12 @@ export async function getTurnMemory(
   const t = await visibleThread(deps, input, input.threadId);
   return reveal(await deps.knowledge.turnMemory(input.orgId, input.userId, t.ref, input.messageId), t.base, "KG_THREAD_NOT_FOUND");
 }
+
+/** issue #4180：一条消息自己刚被抽取出的新结论——发送下方「已记下：{摘要}·撤销」。 */
+export async function getMessageExtraction(
+  deps: KnowledgeReadDeps,
+  input: Viewer & { readonly threadId: string; readonly messageId: string },
+): Promise<z.infer<typeof KG.knowledgeGraph.getMessageExtraction.out>> {
+  const t = await visibleThread(deps, input, input.threadId);
+  return reveal(await deps.knowledge.messageExtraction(input.orgId, input.userId, t.ref, input.messageId), t.base, "KG_THREAD_NOT_FOUND");
+}

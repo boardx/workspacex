@@ -303,6 +303,18 @@ export const KgTurnMemory = z.object({
 export type KgTurnMemory = z.infer<typeof KgTurnMemory>;
 
 /**
+ * issue #4180 —— 这条消息（用户自己发的那条）刚被抽取出的、还活着的结论：发送下方
+ * 「已记下：{claim 摘要} · 撤销」的信号源。与 `KgTurnMemory.captured` 不是一件事——那个键在
+ * **回答**下方、按「回答 + 它前面紧邻的用户消息」这一整轮算；这个键在**发送的那条消息自己**
+ * 下方，只认这一条消息自己的证据（不做「向前找最近一条人类消息」的扩展匹配）。没有新结论（含
+ * 抽取关闭 / 未配置、还没抽完、抽出的东西已撤销或被取代）⇒ 空数组，不是错误。
+ */
+export const KgMessageExtraction = z.object({
+  claims: z.array(z.object({ claimId: z.string(), statement: z.string() }).strict()),
+}).strict();
+export type KgMessageExtraction = z.infer<typeof KgMessageExtraction>;
+
+/**
  * 「大脑」页（/brain）的一行会话记忆概况：本人的一个会话里记下了多少、有多少待确认 / 有矛盾。
  * 只有计数与会话标题，不带结论正文——正文照旧从 `getThreadKnowledge` 读（同一道可见性判定）。
  */
@@ -525,6 +537,17 @@ export const knowledgeGraph = {
     method: "GET", path: "/knowledge-graph/threads/:threadId/messages/:messageId/memory",
     in: z.object({ threadId: z.string(), messageId: z.string() }).strict(),
     out: KgTurnMemory,
+    err: ["KG_THREAD_NOT_FOUND", "KG_NOT_VISIBLE"] as const,
+  },
+
+  /**
+   * issue #4180：这条消息（发送方自己的）是否刚被抽取出新结论。前端只在这条消息是本会话
+   * 真的发出去的那条时才轮询（不对整段历史消息各自常驻轮询）。
+   */
+  getMessageExtraction: {
+    method: "GET", path: "/knowledge-graph/threads/:threadId/messages/:messageId/extraction",
+    in: z.object({ threadId: z.string(), messageId: z.string() }).strict(),
+    out: KgMessageExtraction,
     err: ["KG_THREAD_NOT_FOUND", "KG_NOT_VISIBLE"] as const,
   },
 

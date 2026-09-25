@@ -10,8 +10,8 @@
 import { contextPack as CP, knowledgeGraph as KG } from "@repo/contracts";
 import type { DatabasePort, TenantSession } from "../../application/ports/database.port";
 import type {
-  ClaimSourcesData, KnowledgeReadPort, KnowledgeThreadRef, PersonalClaimOriginRow, PersonalKnowledgeData,
-  ThreadKnowledgeCounts, ThreadKnowledgeData, TurnMemoryData,
+  ClaimSourcesData, KnowledgeReadPort, KnowledgeThreadRef, MessageExtractionData, PersonalClaimOriginRow,
+  PersonalKnowledgeData, ThreadKnowledgeCounts, ThreadKnowledgeData, TurnMemoryData,
 } from "../../application/knowledge-graph/ports";
 import { guard, type Guarded } from "../../application/security/permission-filter";
 import type { OrgId } from "../../domain/org-id";
@@ -274,6 +274,35 @@ export class PgKnowledgeRead implements KnowledgeReadPort {
         prompt: conflict !== null ? { type: "conflict" as const, conflict } : card !== null ? { type: "memory_card" as const, card } : null,
         ...recall,
       };
+    });
+    return guard(threadRef(thread), data);
+  }
+
+  /**
+   * issue #4180 —— 这条消息自己刚被抽取出的、还活着的结论。只认这一条消息自己的证据
+   * （`claim_message_evidence.message_id` 精确相等，`stance = 'supporting'`），不像
+   * `turnMemory` 那样向前扩展到「最近一条人类消息」——这里问的就是这一条消息本身产生了什么。
+   *
+   * 隔离：`EXISTS` 子句要求 `messageId` 真的属于 `(orgId, threadId)`——伪造 / 跨会话的
+   * messageId（哪怕字面上等于别的会话某条真实消息的 id）查不到这一行，`claims` 恒为空；
+   * `scope_kind = 'chat_session' AND scope_id = $2` 还额外保证了即使跳过这层
+   * 也只会看见挂在**这个**会话下的结论，不会读到别的会话的结论内容——两层防御，同
+   * `claimSources`/`turnMemory` 对「消息必须先查得到才有下文」的既有纪律。
+   */
+  async messageExtraction(orgId: OrgId, userId: string, thread: KnowledgeThreadRef, messageId: string): Promise<Guarded<MessageExtractionData>> {
+    const data = await this.inTenant(orgId, userId, async (s): Promise<MessageExtractionData> => {
+      // 不用 DISTINCT：join 键 (claim_id, message_id, stance) 恰是 claim_message_evidence 的主键，
+      // 一条 claim 对同一条消息、同一个 stance 至多一行证据，天然不会重复。
+      const r = await s.query<{ id: string; statement: string }>(
+        `SELECT c.id, c.statement FROM claims c
+           JOIN claim_message_evidence m ON m.claim_id = c.id AND m.org_id = c.org_id
+          WHERE c.org_id = $1 AND c.scope_kind = 'chat_session' AND c.scope_id = $2 AND ${LIVE_CLAIM}
+            AND m.stance = 'supporting' AND m.message_id = $3
+            AND EXISTS (SELECT 1 FROM chat_messages cm WHERE cm.org_id = $1 AND cm.thread_id = $2 AND cm.id = $3)
+          ORDER BY c.created_at, c.id`,
+        [orgId, thread.threadId, messageId],
+      );
+      return { claims: r.rows.map((x) => ({ claimId: x.id, statement: x.statement })) };
     });
     return guard(threadRef(thread), data);
   }
