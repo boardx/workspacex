@@ -17,8 +17,9 @@ describe("PcmAudioWorklet", () => {
     expect(PCM_AUDIO_WORKLET_SOURCE).toContain(`new ArrayBuffer(${PCM_FRAME_BYTES})`);
     expect(PCM_AUDIO_WORKLET_SOURCE).toContain("this.pendingLength");
     expect(PCM_AUDIO_WORKLET_SOURCE).toContain("this.port.onmessage");
-    expect(PCM_AUDIO_WORKLET_SOURCE).toContain('event.data?.type !== "flush"');
+    expect(PCM_AUDIO_WORKLET_SOURCE).toContain('event.data?.type !== "stop"');
     expect(PCM_AUDIO_WORKLET_SOURCE).toContain('type: "flushed"');
+    expect(PCM_AUDIO_WORKLET_SOURCE).toContain("this.accepting = false");
   });
 
   it("downmixes channels and produces 16kHz signed PCM16 little-endian bytes", () => {

@@ -18,3 +18,10 @@ export function browserAudioFlowState(
   if (previous === "slow" && queuedMs <= BROWSER_RECOVERY_BACKLOG_MS) return { state: "normal", queuedMs };
   return { state: previous, queuedMs };
 }
+
+export function combinedFlowState(
+  browser: RealtimeAsrFlowState,
+  upstream: RealtimeAsrFlowState,
+): RealtimeAsrFlowState {
+  return browser === "slow" || upstream === "slow" ? "slow" : "normal";
+}

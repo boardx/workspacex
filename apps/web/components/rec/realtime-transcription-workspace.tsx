@@ -116,7 +116,7 @@ export function RealtimeTranscriptionWorkspace({
             </div>
             <div className="flex items-center gap-2 text-12 text-muted-foreground">
               <Radio aria-hidden className={`h-4 w-4 ${recording ? "text-success" : ""}`} />
-              {streamState === "connecting" ? "正在连接" : streamState === "stopping" ? "正在等待尾部结果" : flowState === "slow" ? "音频仍在传输或确认中" : recording ? "正在接收音频" : session.status === "failed" ? "上次转录失败，可重新开始" : session.content ? "当前页面已有文字，可继续追加" : "尚未开始"}
+              {streamState === "connecting" ? "正在连接" : streamState === "stopping" ? "正在等待尾部结果" : recording && flowState === "slow" ? "音频仍在传输或确认中" : recording ? "正在接收音频" : session.status === "failed" ? "上次转录失败，可重新开始" : session.content ? "当前页面已有文字，可继续追加" : "尚未开始"}
             </div>
             <Button
               data-testid="rec-live-toggle"

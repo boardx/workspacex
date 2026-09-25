@@ -3,7 +3,7 @@ import { apiRequest, apiWebSocketUrl, waitForSocketOpen } from "./api-client";
 import { stopPersonalTranscription } from "./live-personal-transcriptions";
 import { startPcmAudioWorklet, type PcmAudioWorkletHandle } from "./PcmAudioWorklet";
 import { pcm16Level } from "./pcm-audio-level";
-import { browserAudioFlowState, type RealtimeAsrFlowState } from "./realtime-asr-flow";
+import { browserAudioFlowState, combinedFlowState, type RealtimeAsrFlowState } from "./realtime-asr-flow";
 import type {
   RealtimeAsrFinalEvent, RealtimeAsrFlowEvent, RealtimeAsrStreamError, RealtimeAsrStreamState, RealtimeAsrTicket,
 } from "./realtime-asr.types";
@@ -86,7 +86,7 @@ export async function openBoardxRealtimeAsr(
   let completed = false;
   let browserFlow: RealtimeAsrFlowState = "normal";
   let upstreamFlow: RealtimeAsrFlowState = "normal";
-  const emitFlow = () => deps.handlers.onFlow?.({ type: "flow", state: browserFlow === "slow" || upstreamFlow === "slow" ? "slow" : "normal", source: "browser", queuedMs: 0 });
+  const emitFlow = () => deps.handlers.onFlow?.({ type: "flow", state: combinedFlowState(browserFlow, upstreamFlow), source: "browser", queuedMs: 0 });
   let stopping = false;
   let stopPromise: Promise<void> | undefined;
   let captureStop: Promise<void> | undefined;
@@ -126,7 +126,7 @@ export async function openBoardxRealtimeAsr(
     }
     if (frame.type === "interim") return deps.handlers.onInterim(frame.text);
     if (frame.type === "final") return deps.handlers.onFinal(frame);
-    if (frame.type === "flow") { upstreamFlow = frame.state; deps.handlers.onFlow?.(frame); return; }
+    if (frame.type === "flow") { upstreamFlow = frame.state; emitFlow(); return; }
     if (frame.type === "stopping") return deps.handlers.onState("stopping");
     if (frame.type === "error") {
       startupTerminalError ??= new Error(frame.reason);

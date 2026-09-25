@@ -93,8 +93,10 @@ class BoardxPcm16Processor extends AudioWorkletProcessor {
     this.pendingBuffer = new ArrayBuffer(${PCM_FRAME_BYTES});
     this.pending = new Uint8Array(this.pendingBuffer);
     this.pendingLength = 0;
+    this.accepting = true;
     this.port.onmessage = (event) => {
-      if (event.data?.type !== "flush") return;
+      if (event.data?.type !== "stop") return;
+      this.accepting = false;
       this.flush();
       this.port.postMessage({ type: "flushed" });
     };
@@ -124,6 +126,7 @@ class BoardxPcm16Processor extends AudioWorkletProcessor {
     }
   }
   process(inputs) {
+    if (!this.accepting) return true;
     const channels = inputs[0];
     if (!channels || channels.length === 0 || channels[0].length === 0) return true;
     const inputLength = Math.min(...channels.map((channel) => channel.length));
@@ -229,13 +232,13 @@ export async function startPcmAudioWorklet(
       try {
         await new Promise<void>((resolve) => {
           flushResolve = resolve;
-          node.port.postMessage({ type: "flush" });
+          source.disconnect();
+          node.port.postMessage({ type: "stop" });
           setTimeout(resolve, 250);
         });
       } finally {
         flushResolve = undefined;
         node.port.onmessage = null;
-        source.disconnect();
         node.disconnect();
         silentGain.disconnect();
         stream.getTracks().forEach((track) => track.stop());

@@ -67,6 +67,12 @@ describe("RealtimeTranscriptionWorkspace", () => {
     expect(screen.getByTestId("rec-live-toggle")).toBeEnabled();
   });
 
+  it("does not show a stale slow advisory after capture is idle", () => {
+    render(<RealtimeTranscriptionWorkspace session={SESSION} onBack={vi.fn()}
+      streamState="idle" flowState="slow" onStart={vi.fn()} onStop={vi.fn()} />);
+    expect(screen.queryByText("音频仍在传输或确认中")).not.toBeInTheDocument();
+  });
+
   it("shows the selected microphone and real input level, and locks selection while recording", () => {
     const onSelectDevice = vi.fn();
     const { rerender } = render(<RealtimeTranscriptionWorkspace session={SESSION} onBack={vi.fn()}
