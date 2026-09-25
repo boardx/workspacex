@@ -40,6 +40,7 @@ function knowledge(overrides: Partial<ThreadKnowledge> = {}): ThreadKnowledge {
     claims: [claim("c-1")],
     edges: [],
     ingestion: { queued: 0, running: 0, failed: 0, failures: [] },
+    extractionActive: true,
     canEdit: true,
     canPromote: false,
     visibility: "owner_only",
