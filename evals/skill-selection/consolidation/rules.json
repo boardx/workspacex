@@ -1,0 +1,272 @@
+{
+  "version": 1,
+  "source_pr": 4017,
+  "agent_map": {
+    "product": "product-design",
+    "legal": "legal-compliance",
+    "finance": "finance-investing",
+    "marketing": "marketing-growth",
+    "seo": "marketing-growth",
+    "sales": "sales-revenue",
+    "hr": "people-hr",
+    "support": "customer-success",
+    "data": "data-research",
+    "research": "data-research",
+    "ops": "operations-project",
+    "exec": "executive-strategy",
+    "engineering": "engineering-it",
+    "other": "knowledge-productivity"
+  },
+  "drop_families": [
+    "Zoom 集成开发",
+    "教学训练",
+    "SEO 数据接入"
+  ],
+  "merge_rules": [
+    {
+      "family": "档案访谈",
+      "canonical": "shared/profile-onboarding",
+      "mode": "base+overlay"
+    },
+    {
+      "family": "档案定制",
+      "canonical": "shared/profile-customization",
+      "mode": "base+overlay"
+    },
+    {
+      "family": "状态汇报",
+      "canonical": "shared/status-update",
+      "mode": "base+overlay"
+    },
+    {
+      "family": "竞品分析",
+      "canonical": "shared/competitive-analysis",
+      "mode": "base+overlay"
+    },
+    {
+      "family": "会前准备",
+      "canonical": "shared/meeting-prep",
+      "mode": "base+overlay"
+    },
+    {
+      "family": "内容创作",
+      "canonical": "marketing/content-creation",
+      "mode": "modes"
+    },
+    {
+      "family": "文案",
+      "canonical": "marketing/copywriting",
+      "mode": "modes"
+    },
+    {
+      "family": "品牌审查",
+      "canonical": "marketing/brand-review",
+      "mode": "modes"
+    },
+    {
+      "family": "SEO 审计",
+      "canonical": "marketing/seo-audit",
+      "mode": "modes"
+    },
+    {
+      "family": "生命周期邮件",
+      "canonical": "marketing/lifecycle-email",
+      "mode": "modes"
+    },
+    {
+      "family": "AI 搜索优化",
+      "canonical": "marketing/ai-search-optimization",
+      "mode": "modes"
+    },
+    {
+      "family": "埋点方案",
+      "canonical": "marketing/analytics-tracking",
+      "mode": "modes"
+    },
+    {
+      "family": "竞品对比页",
+      "canonical": "marketing/competitor-pages",
+      "mode": "modes"
+    },
+    {
+      "family": "程序化 SEO",
+      "canonical": "marketing/programmatic-seo",
+      "mode": "modes"
+    },
+    {
+      "family": "推荐计划",
+      "canonical": "marketing/referral-program",
+      "mode": "modes"
+    },
+    {
+      "family": "营销配图",
+      "canonical": "marketing/image-generation",
+      "mode": "modes"
+    },
+    {
+      "family": "客户研究",
+      "canonical": "revenue/customer-intelligence",
+      "mode": "base+overlay"
+    },
+    {
+      "family": "管道复盘",
+      "canonical": "sales/pipeline-review",
+      "mode": "modes"
+    },
+    {
+      "family": "外联序列",
+      "canonical": "sales/outreach",
+      "mode": "modes"
+    },
+    {
+      "family": "客户经营计划",
+      "canonical": "sales/account-planning",
+      "mode": "modes"
+    },
+    {
+      "family": "销售预测",
+      "canonical": "sales/forecasting",
+      "mode": "modes"
+    },
+    {
+      "family": "潜客挖掘",
+      "canonical": "sales/prospecting",
+      "mode": "provider-adapter"
+    },
+    {
+      "family": "回复起草",
+      "canonical": "shared/response-drafting",
+      "mode": "base+overlay"
+    },
+    {
+      "family": "企业检索",
+      "canonical": "shared/enterprise-search",
+      "mode": "modes"
+    },
+    {
+      "family": "数据可视化",
+      "canonical": "data/visualization",
+      "mode": "modes"
+    },
+    {
+      "family": "SQL 查询",
+      "canonical": "data/sql-query",
+      "mode": "modes"
+    },
+    {
+      "family": "日记账",
+      "canonical": "finance/journal-entry",
+      "mode": "modes"
+    },
+    {
+      "family": "对账",
+      "canonical": "finance/reconciliation",
+      "mode": "base+overlay"
+    },
+    {
+      "family": "差异分析",
+      "canonical": "finance/variance-analysis",
+      "mode": "base+overlay"
+    },
+    {
+      "family": "月结",
+      "canonical": "finance/month-end-close",
+      "mode": "base+overlay"
+    },
+    {
+      "family": "NDA 审阅",
+      "canonical": "legal/nda-review",
+      "mode": "base+overlay"
+    },
+    {
+      "family": "合同审阅",
+      "canonical": "legal/contract-review",
+      "mode": "base+overlay"
+    },
+    {
+      "family": "风险评估",
+      "canonical": "shared/risk-assessment",
+      "mode": "base+overlay"
+    },
+    {
+      "family": "内部调查",
+      "canonical": "legal/internal-investigation",
+      "mode": "workflow"
+    },
+    {
+      "family": "出海扩张",
+      "canonical": "legal/international-expansion",
+      "mode": "workflow"
+    },
+    {
+      "family": "法规监测",
+      "canonical": "legal/regulatory-monitoring",
+      "mode": "base+overlay"
+    },
+    {
+      "family": "政策漂移监测",
+      "canonical": "legal/policy-monitoring",
+      "mode": "base+overlay"
+    },
+    {
+      "family": "法规差距分析",
+      "canonical": "legal/reg-gap-analysis",
+      "mode": "base+overlay"
+    },
+    {
+      "family": "法律检索",
+      "canonical": "legal/legal-research",
+      "mode": "base+overlay"
+    },
+    {
+      "family": "制度文件",
+      "canonical": "legal/policy-drafting",
+      "mode": "modes"
+    },
+    {
+      "family": "财报前瞻",
+      "canonical": "finance/earnings-preview",
+      "mode": "provider-adapter"
+    },
+    {
+      "family": "公司速览",
+      "canonical": "finance/company-tearsheet",
+      "mode": "provider-adapter"
+    },
+    {
+      "family": "定价",
+      "canonical": "shared/pricing-strategy",
+      "mode": "base+overlay"
+    },
+    {
+      "family": "架构设计",
+      "canonical": "engineering/architecture-design",
+      "mode": "modes"
+    },
+    {
+      "family": "品牌规范",
+      "canonical": "marketing/brand-guidelines",
+      "mode": "workflow"
+    },
+    {
+      "family": "事项管理",
+      "canonicalByAgent": true,
+      "mode": "base+overlay"
+    },
+    {
+      "family": "技能管理",
+      "canonical": "platform/skill-management",
+      "mode": "workflow"
+    }
+  ],
+  "improvement_rules": {
+    "professional_depth": "Q1 <= 2",
+    "output_contract": "Q2 <= 2",
+    "guardrails": "Q3 <= 2 or any gate=fixable",
+    "evals": "Q4 <= 2",
+    "runtime_dependency": "R1 <= 2",
+    "localization": "R3 <= 2",
+    "icp_fit": "U3 <= 2",
+    "evidence": "evidence_level=E1 or confidence=low"
+  }
+}
