@@ -19,6 +19,16 @@
  * covered by this file the day they are created -- nobody has to remember to extend it.
  * That matters more than it sounds: the table that leaks is always the newest one.
  *
+ * The filter also requires `runtime_grants > 0`. A table the runtime role holds zero
+ * privileges on cannot leak THROUGH the runtime role by construction -- there is no query
+ * `asApp` can even issue against it, so it would surface as "permission denied", not as a
+ * cross-tenant row. `whiteboard_content_rollout_contenders` is exactly this shape: it has
+ * an `org_id` column and a tenant policy (so `kernel_tenant_table_audit` correctly reports
+ * `verdict = 'ok'`), but it is a global admission table intentionally revoked from `app_rw`
+ * entirely -- every access goes through the SECURITY DEFINER admission functions running as
+ * `board_rollout_admission_owner` (`20260924001200_whiteboard_content_rollouts.sql`). That
+ * denial is asserted directly in `board-content-migrations-pglite.test.ts`.
+ *
  * ## One documented exception: rows the platform itself publishes to everyone
  *
  * `PLATFORM_ORG_ID` (`org-platform`) is a real row in `organizations`, and a small,
@@ -63,7 +73,7 @@ async function tenantTables(): Promise<{ table: string; col: string }[]> {
     async (c) =>
       (
         await c.query<{ table_name: string; tenant_column: string }>(
-          "SELECT table_name, tenant_column FROM kernel_tenant_table_audit() WHERE verdict = 'ok'",
+          "SELECT table_name, tenant_column FROM kernel_tenant_table_audit() WHERE verdict = 'ok' AND runtime_grants > 0",
         )
       ).rows,
   );

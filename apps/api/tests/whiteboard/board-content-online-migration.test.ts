@@ -3,7 +3,7 @@ import * as Y from 'yjs';
 import { describe, expect, it } from 'vitest';
 import { BOARD_ENCRYPTED_BLOB_CONTENT_TYPE, type BoardBlobCodec, type BoardBlobStore, type EncodedBoardBlob } from '../../src/application/whiteboard/blob-ports';
 import type { BoardContentMigrationRecord, BoardContentMigrationRepository, BoardMigrationCandidate, BoardRetirementHead, LegacyBoardInventory, LegacyBoardWatermark } from '../../src/application/whiteboard/content-migration-ports';
-import { MigrateBoardContent, RetireBoardContent } from '../../src/application/whiteboard/migrate-board-content';
+import { MigrateBoardContent, RetireBoardContent, type BoardContentMigrationReport } from '../../src/application/whiteboard/migrate-board-content';
 import { sha256 } from '../../src/domain/whiteboard/blob-identity';
 import { createBoardRetirementCredential } from '../../src/domain/whiteboard/retirement-credential';
 import { yjsSemanticallyEqual } from '../../src/domain/whiteboard/yjs-semantic-equivalence';
@@ -28,6 +28,7 @@ function fixture(): { inventory: LegacyBoardInventory; expected: Uint8Array } {
 class MemoryBlobs implements BoardBlobStore {
   values = new Map<string, Uint8Array>();
   corruptReads = false;
+  getCalls = 0;
   async putImmutable(input: Parameters<BoardBlobStore['putImmutable']>[0]) {
     const current = this.values.get(input.key);
     if (current) {
@@ -38,6 +39,7 @@ class MemoryBlobs implements BoardBlobStore {
     return 'created' as const;
   }
   async getVerified(input: Parameters<BoardBlobStore['getVerified']>[0]) {
+    this.getCalls++;
     const value = this.values.get(input.key);
     if (!value) throw Object.assign(new Error('missing'), { code: 'NOT_FOUND' });
     const bytes = this.corruptReads ? new Uint8Array([...value.slice(0, -1), (value.at(-1) ?? 0) ^ 1]) : new Uint8Array(value);
@@ -47,6 +49,15 @@ class MemoryBlobs implements BoardBlobStore {
   async head(input: Parameters<BoardBlobStore['head']>[0]) {
     const value = this.values.get(input.key);
     return value ? { cipherDigest: sha256(value), sizeBytes: value.byteLength, contentType: BOARD_ENCRYPTED_BLOB_CONTENT_TYPE } : null;
+  }
+}
+
+class FailManifestPutBlobs extends MemoryBlobs {
+  private puts = 0;
+  override async putImmutable(input: Parameters<BoardBlobStore['putImmutable']>[0]) {
+    this.puts++;
+    if (this.puts === 2) throw Object.assign(new Error('manifest unavailable'), { code: 'BLOB_WRITE_FAILED' });
+    return super.putImmutable(input);
   }
 }
 
@@ -170,6 +181,25 @@ describe('online legacy PG to Board blob migration', () => {
     const manifestBytes = blobs.values.get(candidate!.manifestKey)!;
     const manifest = JSON.parse(Buffer.from(manifestBytes).toString('utf8')) as { checkpoint: { key: string } };
     expect(yjsSemanticallyEqual(blobs.values.get(manifest.checkpoint.key)!, expected)).toBe(true);
+  });
+
+  it('counts initial and locked candidate readback and persists partial publication evidence on failure', async () => {
+    const { inventory } = fixture(), repository = new MemoryRepository(inventory), blobs = new MemoryBlobs();
+    const result = await new MigrateBoardContent(repository, blobs, codec, 1).step({ tenantId, boardId, jobId });
+    const legacyBytes = inventory.snapshot!.byteLength + inventory.updates.reduce((sum, update) => sum + update.update.byteLength, 0);
+    const publishedBytes = [...blobs.values.values()].reduce((sum, value) => sum + value.byteLength, 0);
+    expect(blobs.getCalls).toBe(4);
+    expect(result.operation).toEqual({ bytesRead: legacyBytes + publishedBytes * 2, bytesWritten: publishedBytes, casResets: 0, orphanCandidates: 0 });
+
+    const failingRepository = new MemoryRepository(fixture().inventory), failingBlobs = new FailManifestPutBlobs();
+    let failure: { code: string; operation: BoardContentMigrationReport['operation'] } | undefined;
+    try { await new MigrateBoardContent(failingRepository, failingBlobs, codec, 1).step({ tenantId, boardId, jobId }); }
+    catch (error) { failure = error as typeof failure; }
+    expect(failure).toBeDefined();
+    expect(failure!.code).toBe('BLOB_WRITE_FAILED');
+    expect(failure!.operation.bytesWritten).toBeGreaterThan(0);
+    expect(failure!.operation.bytesRead).toBeGreaterThan(failure!.operation.bytesWritten);
+    expect(failure!.operation.orphanCandidates).toBe(1);
   });
 
   it('never cuts over when an immutable candidate is missing or corrupt', async () => {

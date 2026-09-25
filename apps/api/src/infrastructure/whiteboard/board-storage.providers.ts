@@ -1,9 +1,9 @@
 import { tmpdir } from 'node:os';
 import { isAbsolute, join, resolve, sep } from 'node:path';
 import type { Provider } from '@nestjs/common';
-import { BOARD_BLOB_CODEC, BOARD_BLOB_PURGE_STORE, BOARD_BLOB_STORE, type BoardBlobDescriptor, type BoardBlobIdentity, type BoardBlobPurgeStore, type BoardBlobStore } from '../../application/whiteboard/blob-ports';
+import { BOARD_BLOB_CODEC, BOARD_BLOB_PURGE_STORE, BOARD_BLOB_STORE, type BoardBlobCodec, type BoardBlobDescriptor, type BoardBlobIdentity, type BoardBlobPurgeStore, type BoardBlobStore } from '../../application/whiteboard/blob-ports';
 import { objectStoreRoot } from '../storage/object-store-root';
-import type { VersionedBoardMasterKeySource } from './aes-gcm-board-blob-codec';
+import { AesGcmBoardBlobCodec, EnvBoardTenantKeyResolver, type VersionedBoardMasterKeySource } from './aes-gcm-board-blob-codec';
 import { assertFilesystemBoardBlobRuntime } from './board-blob-runtime';
 import { createBoardStorageSelection, type BoardStorageSelection, type HostedBoardClientFactory } from './board-storage-selection';
 import { FsBoardBlobStore } from './fs-board-blob-store';
@@ -57,6 +57,13 @@ export class ConfiguredFsBoardBlobPurgeStore implements BoardBlobPurgeStore {
     return this.configured().purgeCandidate(input);
   }
   private configured(): FsBoardBlobStore { return this.store ??= new FsBoardBlobStore(boardBlobRoot(this.env)); }
+}
+
+export interface ConfiguredBoardStorageRuntime { blobs: BoardBlobStore; codec: BoardBlobCodec }
+
+/** Composition seam shared by interactive writes and the migration CLI. */
+export function createConfiguredBoardStorageRuntime(env: NodeJS.ProcessEnv = process.env): ConfiguredBoardStorageRuntime {
+  return { blobs: new ConfiguredFsBoardBlobStore(env), codec: new AesGcmBoardBlobCodec(new EnvBoardTenantKeyResolver(env)) };
 }
 
 export const boardStorageProviders: Provider[] = [

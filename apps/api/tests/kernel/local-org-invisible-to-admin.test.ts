@@ -82,9 +82,17 @@ describe("no tenant table leaks the local organization to another tenant", () =>
     // Tables come from the catalog, not from a list here: a table added next month is in
     // scope without anyone remembering to add it, which is the only version of this check
     // that keeps working.
+    // `runtime_grants > 0` excludes tables `app_rw` holds zero privileges on -- e.g.
+    // `whiteboard_content_rollout_contenders`, a global admission table intentionally
+    // revoked from `app_rw` entirely (every access goes through the SECURITY DEFINER
+    // admission functions running as `board_rollout_admission_owner`,
+    // `20260924001200_whiteboard_content_rollouts.sql`). Such a table cannot leak the
+    // local organization THROUGH the runtime role by construction -- there is no query
+    // `asApp` can even issue against it, so it surfaces as "permission denied", not as a
+    // leaked row. Same filter as `rls-cross-tenant-zero-leak.test.ts`'s I-4 sweep.
     const tables = await asOwner((c) =>
       c.query<{ table_name: string }>(
-        "SELECT table_name FROM kernel_tenant_table_audit() WHERE verdict = 'ok'",
+        "SELECT table_name FROM kernel_tenant_table_audit() WHERE verdict = 'ok' AND runtime_grants > 0",
       ),
     );
     expect(tables.rows.length, "the audit found no tenant tables -- this test would be idle")
