@@ -71,12 +71,24 @@ function toClaim(r: ClaimRow): KgClaim | null {
 
 export class PgKnowledgeRead implements KnowledgeReadPort {
   /**
-   * issue #4178 —— `deploymentCapable` 是 `KgExtractionModelConfig.enabled` 的现值（部署有没有
-   * 配置抽取用的模型），构造时定住：这是进程启动参数，不会在一次请求的生命周期里变。
-   * `extractionActive`（本会话所在组织现在是不是真的在抽）还要再查一次 `kg_org_extraction_settings`——
-   * 那张表随时可能被组织 admin 切换，不能只看部署能力这一半。
+   * 用户直接交办更正（2026-09-25，issue #4178 基础上再收窄一次）—— `providerConfigured`
+   * 是 `KgExtractionModelConfig.enabled` 的现值（部署有没有配置抽取用的模型），构造时定住：
+   * 这是进程启动参数，不会在一次请求的生命周期里变，这一半继续按老办法传值进来。
+   *
+   * 部署开关（`kg_extraction_state.enabled`）不能再这样定住——它现在是平台管理员随时可能
+   * 切换的落库状态，而 `KNOWLEDGE_READ_PORT` 在 DI 里是**单例**（`kernel.module.ts` 没有
+   * `scope: Scope.REQUEST`，整个进程生命周期只构造一次），构造时读一次就会把"管理员刚
+   * 打开/关闭"这件事对所有后续请求都冻在构造那一刻的值上。所以 `threadKnowledge` 里每次
+   * 调用都直接在已经开着的 tenant session 里现查一次这张表（它没有 RLS、全库一行，
+   * `app_rw` 有 SELECT 权限）——不经 `KgDeploymentExtractionSettingsPort`：那个端口内部走
+   * `withoutTenant()`，会从连接池另取一条连接，这里已经在同一个 session 里，直接查更省
+   * 一次连接；`extractionActive` 紧接着还要再查一次 `kg_org_extraction_settings`，这个文件
+   * 本来就是直接按表名查、不经 `KgOrgExtractionSettingsPort`，两处手法保持一致。
    */
-  constructor(private readonly db: DatabasePort, private readonly deploymentCapable: boolean) {}
+  constructor(
+    private readonly db: DatabasePort,
+    private readonly providerConfigured: boolean,
+  ) {}
 
   private inTenant<T>(orgId: OrgId, userId: string, fn: (s: TenantSession) => Promise<T>): Promise<T> {
     return this.db.withTenant(orgId, async (s) => {
@@ -128,10 +140,20 @@ export class PgKnowledgeRead implements KnowledgeReadPort {
       );
       const failed = queue.rows.filter((q) => q.attempts >= KG_EXTRACTION_MAX_ATTEMPTS);
       const active = queue.rows.filter((q) => q.attempts < KG_EXTRACTION_MAX_ATTEMPTS);
-      // issue #4178：这个会话所在组织现在是不是真的在抽——部署具备能力 AND 该组织打开了
-      // （`kg_org_extraction_settings`，没有行 = 默认关）。与触发器 `kg_enqueue_extraction`
-      // 的两道闸门同一条件，供面板区分「队列空 = 已整理到最新」与「压根没开」。
-      const orgSetting = this.deploymentCapable
+      // 用户直接交办更正（2026-09-25）：这个会话所在组织现在是不是真的在抽——provider 已配置
+      // AND 部署开关打开了 AND 该组织打开了（`kg_org_extraction_settings`，没有行 = 默认关）。
+      // 与触发器 `kg_enqueue_extraction` 的三道闸门同一条件，供面板区分「队列空 = 已整理到
+      // 最新」与「压根没开」。provider 没配置时短路，不必再查库。
+      // 部署开关直接在这个已开着的 tenant session 里查（`kg_extraction_state` 没有 RLS、
+      // 全库一行，`app_rw` 有 SELECT 权限），不经 `this.deploymentExtraction`——那个端口内部
+      // 走 `withoutTenant()`，会从连接池另取一条连接，这里已经在同一个 session 里，直接查
+      // 更省一次连接（`PgKgDeploymentExtractionSettings` 头注：供平台级 controller 用，
+      // 不要求这里的读法必须走它）。
+      const deployment = this.providerConfigured
+        ? await s.query<{ enabled: boolean }>("SELECT enabled FROM kg_extraction_state WHERE singleton")
+        : null;
+      const deploymentCapable = deployment !== null && (deployment.rows[0]?.enabled ?? false);
+      const orgSetting = deploymentCapable
         ? await s.query<{ enabled: boolean }>(
             "SELECT enabled FROM kg_org_extraction_settings WHERE org_id = $1", [orgId],
           )

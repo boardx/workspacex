@@ -139,11 +139,19 @@ describe("F06: 解析容错", () => {
 });
 
 describe("F06: 开关", () => {
-  it("显式 KG_EXTRACTION_ENABLED=1 且配置了模型才开；其余一律关", () => {
+  /**
+   * 用户直接交办更正（2026-09-25）：`enabled` 现在只回答「配置了模型 provider 没有」，
+   * `KG_EXTRACTION_ENABLED` 已彻底退休——不管设不设、设成什么，都不再影响这个位。
+   * 「要不要跑」搬到了 `KgDeploymentExtractionSettingsPort`（落库，见该端口 + 迁移
+   * 20260925120000），不再是这个函数的职责。
+   */
+  it("只看配置了模型 provider 没有；KG_EXTRACTION_ENABLED 不再被读，设不设都不影响结果", () => {
+    expect(readKgExtractionModelConfig({ KERNEL_MODEL_PROVIDER: "dashscope" }).enabled).toBe(true);
     expect(readKgExtractionModelConfig({ KERNEL_MODEL_PROVIDER: "dashscope", KG_EXTRACTION_ENABLED: "1" }).enabled).toBe(true);
-    expect(readKgExtractionModelConfig({ KERNEL_MODEL_PROVIDER: "dashscope" }).enabled).toBe(false);
+    expect(readKgExtractionModelConfig({ KERNEL_MODEL_PROVIDER: "dashscope", KG_EXTRACTION_ENABLED: "0" }).enabled).toBe(true);
+    expect(readKgExtractionModelConfig({}).enabled).toBe(false);
     expect(readKgExtractionModelConfig({ KG_EXTRACTION_ENABLED: "1" }).enabled).toBe(false);
-    expect(readKgExtractionModelConfig({ KERNEL_MODEL_PROVIDER: "x", KG_EXTRACTION_ENABLED: "1", KERNEL_KG_EXTRACTION_MODEL_ID: "qwen-plus" }).modelId).toBe("qwen-plus");
+    expect(readKgExtractionModelConfig({ KERNEL_MODEL_PROVIDER: "x", KERNEL_KG_EXTRACTION_MODEL_ID: "qwen-plus" }).modelId).toBe("qwen-plus");
   });
 });
 

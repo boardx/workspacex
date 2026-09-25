@@ -18,8 +18,8 @@ import { actOnMemoryCard } from "../../application/knowledge-graph/act-on-memory
 import { applyHumanAction } from "../../application/knowledge-graph/apply-human-action";
 import { listPromotionNominations, promoteToPersonal } from "../../application/knowledge-graph/promote-to-personal";
 import {
-  HUMAN_ACTION_PORT, KG_EXTRACTION_MODEL_CONFIG, KG_ORG_EXTRACTION_SETTINGS_PORT, KNOWLEDGE_READ_PORT, KgHumanActionError, MEMORY_CARD_PORT, PROMOTION_PORT,
-  type HumanActionPort, type KgExtractionModelConfig, type KgOrgExtractionSettingsPort, type KnowledgeReadPort, type MemoryCardPort, type PromotionPort,
+  HUMAN_ACTION_PORT, KG_DEPLOYMENT_EXTRACTION_SETTINGS_PORT, KG_EXTRACTION_MODEL_CONFIG, KG_ORG_EXTRACTION_SETTINGS_PORT, KNOWLEDGE_READ_PORT, KgHumanActionError, MEMORY_CARD_PORT, PROMOTION_PORT,
+  type HumanActionPort, type KgDeploymentExtractionSettingsPort, type KgExtractionModelConfig, type KgOrgExtractionSettingsPort, type KnowledgeReadPort, type MemoryCardPort, type PromotionPort,
 } from "../../application/knowledge-graph/ports";
 import { newKgId } from "../../application/knowledge-graph/ids";
 import { getBrainOverview, getPersonalKnowledge } from "../../application/knowledge-graph/read-personal-knowledge";
@@ -40,9 +40,10 @@ export class KnowledgeGraphController {
     @Inject(KNOWLEDGE_READ_PORT) private readonly knowledge: KnowledgeReadPort,
     @Inject(HUMAN_ACTION_PORT) private readonly actions: HumanActionPort,
     @Inject(PROMOTION_PORT) private readonly promotion: PromotionPort,
-    /** issue #4178：记忆抽取的组织开关 + 部署能力位。 */
+    /** issue #4178：记忆抽取的组织开关 + 部署能力位（provider 是否配置）+ 部署开关（是否打开）。 */
     @Inject(KG_ORG_EXTRACTION_SETTINGS_PORT) private readonly extractionSettings: KgOrgExtractionSettingsPort,
     @Inject(KG_EXTRACTION_MODEL_CONFIG) private readonly extractionModelConfig: KgExtractionModelConfig,
+    @Inject(KG_DEPLOYMENT_EXTRACTION_SETTINGS_PORT) private readonly deploymentExtraction: KgDeploymentExtractionSettingsPort,
     /** F17 确认卡。生产合成必定注入；只测别的接口的构造点可以不给（此时这条接口回 503，不假装成功）。 */
     @Inject(MEMORY_CARD_PORT) private readonly cards?: MemoryCardPort,
   ) {}
@@ -170,6 +171,18 @@ export class KnowledgeGraphController {
   }
 
   /**
+   * `deploymentCapable`：部署具备能力（provider 已配置）AND 部署开关打开了（用户直接交办，
+   * 2026-09-25——原先只读 `extractionModelConfig.enabled` 这一半，那一半从今天起只回答
+   * "有没有配 provider"，不再回答"要不要跑"，所以这里要再乘上部署开关的现值才是完整答案，
+   * 见 `KgDeploymentExtractionSettingsPort` 头注）。没有 provider 时不必再查一次开关——
+   * 短路，也与 `PgKnowledgeRead.threadKnowledge` 的同款短路一致。
+   */
+  private async deploymentCapable(): Promise<boolean> {
+    if (!this.extractionModelConfig.enabled) return false;
+    return this.deploymentExtraction.getEnabled();
+  }
+
+  /**
    * issue #4178 getKnowledgeExtractionSetting —— 任何组织成员可读：这是「这个组织现在
    * 抽不抽」这件事本身，不是要按内容披露的租户数据（同 #3068 `listStandingToolGrants`
    * 的读写分权理由，见 `application/knowledge-graph/ports.ts` 的 `KgOrgExtractionSettingsPort` 头注）。
@@ -177,10 +190,10 @@ export class KnowledgeGraphController {
   @Get("/knowledge-graph/extraction-setting")
   async extractionSetting(@CurrentPrincipal() principal: Principal) {
     assertPrincipal(principal);
-    const orgEnabled = await this.extractionSettings.getEnabled(toOrgId(principal.orgId));
-    return KG.knowledgeGraph.getKnowledgeExtractionSetting.out.parse({
-      deploymentCapable: this.extractionModelConfig.enabled, orgEnabled,
-    });
+    const [orgEnabled, deploymentCapable] = await Promise.all([
+      this.extractionSettings.getEnabled(toOrgId(principal.orgId)), this.deploymentCapable(),
+    ]);
+    return KG.knowledgeGraph.getKnowledgeExtractionSetting.out.parse({ deploymentCapable, orgEnabled });
   }
 
   /**
@@ -199,9 +212,9 @@ export class KnowledgeGraphController {
     if (membership === null || membership.orgRole !== "admin") {
       throw new ForbiddenException({ reasonCode: "KG_NOT_ORG_ADMIN" });
     }
-    const orgEnabled = await this.extractionSettings.setEnabled(orgId, parsed.data.enabled, principal.userId);
-    return KG.knowledgeGraph.setKnowledgeExtractionSetting.out.parse({
-      deploymentCapable: this.extractionModelConfig.enabled, orgEnabled,
-    });
+    const [orgEnabled, deploymentCapable] = await Promise.all([
+      this.extractionSettings.setEnabled(orgId, parsed.data.enabled, principal.userId), this.deploymentCapable(),
+    ]);
+    return KG.knowledgeGraph.setKnowledgeExtractionSetting.out.parse({ deploymentCapable, orgEnabled });
   }
 }

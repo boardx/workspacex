@@ -116,7 +116,11 @@ export async function startApp(): Promise<E2eApp> {
   await migrateOnce();
   await enableExtraction();
   process.env.KERNEL_AGENT_RUN_AUTOSTART = "0";
-  delete process.env.KG_EXTRACTION_ENABLED;
+  // 用户直接交办更正（2026-09-25）：`KG_EXTRACTION_ENABLED` 已从 `readKgExtractionModelConfig`
+  // 的判定里彻底退休，这里不再需要（也不再有用）显式删它防泄漏。真正防的是应用自己的
+  // `KgExtractionWorker` 抢在测试手动驱动的 tick 之前跑：它现在只看有没有配置模型 provider
+  // （`KERNEL_MODEL_PROVIDER`），这个夹具从不设它，所以 worker 不会启动轮询——与本文件头注
+  // 「执行器的 kick 在应用里关掉」同一条纪律，防线搬到了不同的变量上。
   const { createApp } = await import("../../src/main");
   const app = await createApp();
   await app.listen(0, "127.0.0.1");

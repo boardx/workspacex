@@ -59,7 +59,15 @@ export const GRAPH_PROJECTION_PORT = Symbol("GraphProjectionPort");
 // ─────────────────────────────── F06 抽取 ───────────────────────────────
 
 /**
- * issue #4178 —— 部署是否具备抽取能力（provider 已配置且 `KG_EXTRACTION_ENABLED=1`）。
+ * ⚠ 用户直接交办更正（2026-09-25，ad-hoc）：`enabled` 现在只回答**这次部署有没有配置抽取
+ *   用的模型 provider**（`KERNEL_MODEL_PROVIDER` 非空）——纯粹的基础设施事实，没有 provider
+ *   就没有任何东西能跑抽取，这件事没法、也不该放进平台管理员可写的表里。`KG_EXTRACTION_
+ *   ENABLED` 环境变量**已从这里的判定里彻底退休**，不再读、也不作为任何 fallback：过去它和
+ *   provider 一起决定这个位，现在"这次部署要不要跑抽取"整个搬到了
+ *   `KgDeploymentExtractionSettingsPort`——落库、平台管理员可来回切换，不必再靠改部署配置
+ *   + 重启（env var + 重启这条路径真的在生产上卡过一次：部署流水线本身坏掉时，没有任何
+ *   办法把开关从关翻成开，见该端口头注）。
+ *
  * 接口定义搬到 application 层：`knowledge-graph.controller.ts`（interface 层）需要读它的
  * `enabled` 位来回答 `getKnowledgeExtractionSetting` 的 `deploymentCapable`，而 interface 层
  * 不能直接 import infrastructure 的具体实现（ADR-020，`lint-arch-deps.mjs`）。真正的读取逻辑
@@ -67,6 +75,7 @@ export const GRAPH_PROJECTION_PORT = Symbol("GraphProjectionPort");
  * 那里只是 re-export 这个接口与令牌，不重复声明第二份。
  */
 export interface KgExtractionModelConfig {
+  /** 这次部署有没有配置抽取用的模型 provider——只回答这一件事，"要不要跑"不再掺在这里。 */
   readonly enabled: boolean;
   readonly provider: string;
   readonly modelId: string;
@@ -371,3 +380,42 @@ export interface KgOrgExtractionSettingsPort {
 }
 
 export const KG_ORG_EXTRACTION_SETTINGS_PORT = Symbol("KgOrgExtractionSettingsPort");
+
+// ─────────────────────────────── 部署级抽取开关（用户直接交办，2026-09-25，ad-hoc） ───────────────────────────────
+
+/**
+ * `kg_extraction_state` 单例行的读写口——这次部署要不要让消息排进抽取队列。与
+ * `KgOrgExtractionSettingsPort`（组织级）同一形状、少一个 `orgId`：这张表全库只有一行，
+ * 不是租户数据，没有 RLS。
+ *
+ * ## 为什么要落库、为什么不再是「改环境变量 + 重启」
+ *
+ * 迁移 20260924210000 把它设计成全库单例、只能靠部署方设 `KG_EXTRACTION_ENABLED=1` +
+ * 重启才能打开——一次真实事故把这条路径的成本暴露出来：devapp 的部署流水线坏了好几天，
+ * 当时没有任何办法把这个开关从关翻成开（这台机器的凭据按本项目约定不出机器，没法远程
+ * SSH 上去手改）。一个纯粹的功能开关，因为被绑死在部署配置上，在部署本身坏掉时变得
+ * 不可操作。这个端口把「翻转它」的路径从「改部署配置」搬到「平台管理员调一次后台接口」，
+ * 不再需要重启、也不再需要碰这台机器。
+ *
+ * ## 判据在应用层，不在这里
+ *
+ * 与 `KgOrgExtractionSettingsPort` 同一条纪律：这里不经 `guard()`（没有 `ObjectRef` 能表达
+ * 的 ACL 对象）。真正的裁决是"调用者是不是平台运营准入"——由 interface 层的
+ * `PlatformOperatorGuard` 判（见新增的平台级抽取设置 controller），这个端口本身对谁能调
+ * 一无所知，和 `KgOrgExtractionSettingsPort` 的读写口对「谁是组织 admin」一无所知同一个理由。
+ *
+ * ## 默认值
+ *
+ * 迁移 20260925120000 把这一行的默认值、以及既有的单例行都改成了 `true`——继续默认关
+ * 只是把"忘了开"这个坑从"忘了设环境变量"换成"忘了调一次后台接口"，没有解决问题；真正
+ * 配置了模型 provider 的部署（`KgExtractionModelConfig.enabled`），绝大多数打算就是要用
+ * 知识图谱。
+ */
+export interface KgDeploymentExtractionSettingsPort {
+  /** `kg_extraction_state` 单例行的现值。 */
+  getEnabled(): Promise<boolean>;
+  /** 双向切换；返回写入后的现值（防御性——同 `KgOrgExtractionSettingsPort.setEnabled`）。 */
+  setEnabled(enabled: boolean, updatedByUserId: string): Promise<boolean>;
+}
+
+export const KG_DEPLOYMENT_EXTRACTION_SETTINGS_PORT = Symbol("KgDeploymentExtractionSettingsPort");
