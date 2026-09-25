@@ -16,6 +16,7 @@
  * （对话 / 上下文 / 指令 / 规则 / 一切 / 过去 / 烦恼…），或者没有一个能拿去比对的词。记住的内容只取第一句。
  * ——spec 里的「把这个记下来」「这个很重要」「刚才那个说错了」因此都不出卡，照常回答。
  */
+import { INTERROGATIVE, QUESTION_END } from "./question-detection";
 import { lexicalScore, lexicalTokens, type RecallClaim } from "./recall";
 
 export type MemoryIntent =
@@ -46,11 +47,8 @@ const FORGET_STRONG = new RegExp(
 );
 const FORGET_WITH_SEP = new RegExp(`^${LEAD}(?:忘记|忘了|别记|不要记)${SEP}`);
 
-const QUESTION_END = /[?？]\s*$/;
 /** 句末的疑问语气：「…吗」「…对吗」「…是不是」——是在问，不是在交代。 */
 const QUESTION_TAIL = /(?:吗|呢|么|对吗|是吗|好吗|行吗|是不是|对不对|是否)$/;
-/** 内容里有疑问词：「我的名字叫什么」「谁负责」——是在问，不是在交代。 */
-const INTERROGATIVE = /什么|谁|哪|怎么|怎样|咋|多少|几(?!乎)|为何|为什么|是否|是不是|对不对|有没有|能不能|要不要|会不会/;
 /** 只有指代、没有内容：说的是「前面那个」，但前面哪个——不猜。 */
 const DEICTIC_ONLY = /^(?:(?:这|那|它|上面|刚才|刚刚|以上|前面|之前)(?:个|些|条|件|句|事|点|一点|的|说的|提到的|那个|那条|这条|的话|的内容)*|一点|我(?:刚才|刚刚|上面|前面|之前)?说的(?:话|内容)?|刚说的(?:话)?)[。.!！~～]*$/;
 /**

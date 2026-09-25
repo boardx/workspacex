@@ -15,18 +15,22 @@ import { PgAgentRunRepository } from "../../src/infrastructure/agent-run/pg-agen
 import { appConfig } from "../../src/infrastructure/db/pg-config";
 import { PgDatabase } from "../../src/infrastructure/db/pg-database";
 import { PgKnowledgeRecall } from "../../src/infrastructure/knowledge-graph/pg-knowledge-recall";
-import { addChatMessage } from "../support/chat-db";
+import { addChatMessage, addChatThread } from "../support/chat-db";
 import { asApp } from "../support/db";
 import { seedRecallOrg } from "../knowledge-graph/kg-recall-fixtures";
 
 const ORG = "org-kg-f08-reasons";
 const T1 = "thr-kg-f08-r1";
+/** 空会话：没有任何消息 / 结论（不是 `seedRecallOrg` 三条固定结论里的哪一条，也没有决定类）。
+ * ad-hoc issue #4181 起，T1 里那条「张三决定下周一上线 v2」是决定类，会被强制带上，
+ * 所以「没有相关记忆 ⇒ 什么都不塞」这条不变量改在这个真的什么都没有的会话上验（见下方用例）。 */
+const T0 = "thr-kg-f08-r0";
 const AGENT = "agent-kg-f08";
 let db: PgDatabase;
 let port: PgKnowledgeRecall;
 const noLog = () => undefined;
-const recall = (query: string, p: KnowledgeRecallPort = port) =>
-  recallThreadKnowledge(p, { orgId: toOrgId(ORG), userId: "u-owner", threadId: T1, query }, noLog);
+const recall = (query: string, p: KnowledgeRecallPort = port, threadId = T1) =>
+  recallThreadKnowledge(p, { orgId: toOrgId(ORG), userId: "u-owner", threadId, query }, noLog);
 const graphDown: () => KnowledgeRecallPort = () => ({
   recordTurn: async () => undefined,
   candidates: (...a) => port.candidates(...a),
@@ -36,6 +40,7 @@ const graphDown: () => KnowledgeRecallPort = () => ({
 beforeAll(async () => {
   db = new PgDatabase(appConfig());
   await seedRecallOrg(db, ORG, [T1]);
+  await addChatThread({ orgId: ORG, id: T0, projectId: null, visibilityScope: "private", createdBy: "u-owner" });
   port = new PgKnowledgeRecall(db);
 });
 afterAll(async () => { await db.close(); });
@@ -67,8 +72,16 @@ describe("F08: 每条带理由，缺席的通道显式记录", () => {
     expect(ok).toContain("[AI 记下的] 张三决定下周一上线 v2");
   });
 
-  it("没有相关记忆 ⇒ 不往上下文塞任何东西", async () => {
-    expect(buildKnowledgeContextMessage(await recall("今天天气怎么样"))).toBeNull();
+  it("没有相关记忆、也没有决定类结论的空会话 ⇒ 不往上下文塞任何东西", async () => {
+    expect(buildKnowledgeContextMessage(await recall("今天天气怎么样", port, T0))).toBeNull();
+  });
+
+  // ad-hoc issue #4181：本会话内「决定类」结论不管字面/图路打分，都强制带上——T1 里那条
+  // 「张三决定下周一上线 v2」即使问题完全不相关也会出现，这正是新增行为要做到的事（见
+  // `decision-claim.test.ts` 与 `kg-decision-always-recall.test.ts` 的完整覆盖）。
+  it("本会话有决定类结论：即使问题字面/图路都不相关，那条决定仍然强制带上", async () => {
+    const memory = buildKnowledgeContextMessage(await recall("今天天气怎么样"));
+    expect(memory).toContain("张三决定下周一上线 v2");
   });
 });
 

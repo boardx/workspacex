@@ -12,6 +12,7 @@
  */
 import type { contextPack as CP, knowledgeGraph as KG } from "@repo/contracts";
 import type { z } from "zod";
+import { decisionLike, DECISION_RECALL_LIMIT } from "./decision-claim";
 import { normalizeName } from "./extraction";
 
 export type RecallChannel = z.infer<typeof CP.RetrievalChannel>;
@@ -199,14 +200,48 @@ export function fuseRecall(input: FuseInput): KnowledgeRecall {
       || b.score - a.score || a.claim.id.localeCompare(b.claim.id))
     .slice(0, input.limit);
 
-  const hits = (ch: RecallChannel) => items.filter((i) => i.channels.includes(ch)).length;
+  // Ad-hoc（issue #4181）：本会话内「决定类」结论，不管字面/图路打分有多低，都额外强制带上——
+  // 一句「我决定关注 211 高校」这样的约束性决定，只有后续问题恰好带关键词才会被上面的排序选中；
+  // 用户说「开始写报告吧」不会命中，等于决定在对话变长后失效，即使它理应一直生效（issue 原始报告）。
+  //
+  // 三条边界，都是这一轮特意收窄的范围（人类签核前的默认实现，见 signoff-draft 的新开放问题）：
+  //   1. **只认本会话（不含跨会话 / 长期记忆）**：`scope === "chat_session" && originThreadId === undefined`
+  //      精确对应「这条结论记在当前这个会话里」（cross-thread 的 F15 结论会带 originThreadId，L1 长期记忆的
+  //      结论 scope 是 "personal"）——跨会话是否也要享受这条规则，留给 F15 跨会话召回一起裁决（issue 原文）。
+  //   2. **只挑活的**：`input.claims` 本身已经是 `candidates()` 查出来的活结论（`revoked_at IS NULL AND
+  //      status <> 'superseded'`），撤销 / 被取代的结论从不会出现在这里，不需要在这个纯函数里再判一次。
+  //   3. **额外名额，不占用 `KG_RECALL_LIMIT`**：issue 里两种方案都要人确认，这里先按「倾向额外加」实现
+  //      （决定类通常很短，见 issue），已经在上面按 `input.limit`（=`KG_RECALL_LIMIT`）截断的 `items` 之外
+  //      再加最多 `DECISION_RECALL_LIMIT`（3）条——已经在 `items` 里的（正常打分就挤进了前 `limit`）不重复
+  //      加一份；超过上限时按结论最早证据时间（`saidAt`，没有就排最后）取最新的几条，同上面「决定类优先」
+  //      的直觉一致：越新的决定越可能仍然有效。
+  const forcedIds = new Set(items.map((i) => i.claim.id));
+  const decisionForced: RecallItem[] = input.claims
+    .filter((c) => !forcedIds.has(c.id) && c.scope === "chat_session" && c.originThreadId === undefined && decisionLike(c.statement))
+    .sort((a, b) => (b.saidAt ?? "").localeCompare(a.saidAt ?? "") || a.id.localeCompare(b.id))
+    .slice(0, DECISION_RECALL_LIMIT)
+    .map((claim) => ({
+      claim,
+      // "claim" 通道本来就是给「已复核的结论 / 决定」用的（见 `domain/retrieval/channel-plan.ts` 同名通道的注释），
+      // 语义上正合适；不复用 fts/graph，这样界面 / 日志能一眼看出这条不是靠打分挤进来的。
+      channels: ["claim"] as RecallChannel[],
+      retrievalReasons: ["recall"] as FilterAction[],
+      score: Number.POSITIVE_INFINITY,
+      graphPath: null,
+    }));
+
+  const allItems = [...items, ...decisionForced];
+  const hits = (ch: RecallChannel) => allItems.filter((i) => i.channels.includes(ch)).length;
   return {
-    items,
+    items: allItems,
     graphSeeds: seeds,
     plan: [
       { channel: "fts", weight: 1, hitCount: hits("fts"), available: true },
       { channel: "graph", weight: 0.5, hitCount: input.graph === null ? 0 : hits("graph"), available: input.graph !== null },
       { channel: "vector", weight: 0, hitCount: 0, available: false },
+      // 决定类强制召回不是一路真正的检索通道（不排序、不参与融合），但同样需要不静默：这里如实报告
+      // 命中了几条，供 F13 的回执与测试观察，不需要「不可用」这种降级状态（纯函数，不会失败）。
+      { channel: "claim", weight: 0, hitCount: decisionForced.length, available: true },
     ],
   };
 }
