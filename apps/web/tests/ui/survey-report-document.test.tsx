@@ -72,6 +72,7 @@ describe('survey report document',()=>{
   expect(xml).not.toContain('page-break 图注');
   expect(xml).toContain('仅反映该受访者反馈');expect(xml).toContain('核对具体经历');
   expect(xml).toContain('请改善检索体验');expect(xml).toContain('保留资料来源');expect(xml).toContain('首章');expect(xml).toContain('末章');expect(xml).toContain('样本不足');
+  expect(xml).toContain('总答卷 9 · 待复核 2 · 已排除 1 · 纳入分析 8');expect(xml).toContain('仅正常质量答卷 · 实际样本量 7');
   expect(xml).toContain('&lt;script&gt;不能执行&lt;/script&gt;');expect(xml).toContain('w:type="page"');
  });
  it('does not claim image export success when an image cannot be loaded',async()=>{
