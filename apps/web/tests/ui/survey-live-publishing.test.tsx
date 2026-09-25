@@ -66,15 +66,17 @@ describe("live survey trusted publishing", () => {
       { code: "QUESTION_OPTIONS_EMPTY", side: "question", subjectId: "q-choice", missingFields: ["options"] },
       { code: "MAPPING_INCOMPLETE", side: "section", subjectId: "s1", missingFields: ["questionIds"] },
       { code: "LEADING_QUESTION", side: "question", subjectId: "q-leading", missingFields: ["neutralWording"] },
+      { code: "LOGIC_INVALID", side: "question", subjectId: "q1", missingFields: ["显示条件只能引用前面有效的题目"] },
     ];
     client.request.mockResolvedValueOnce(runtime()).mockRejectedValueOnce(new client.BlockedError(blockers));
     render(<LiveSurveyWorkspace surveyId="survey-1" initialStep="publish" />);
     fireEvent.click(await screen.findByRole("button", { name: "检查发布条件" }));
-    expect(await screen.findByText("发现 4 项发布阻断")).toBeInTheDocument();
+    expect(await screen.findByText("发现 5 项发布阻断")).toBeInTheDocument();
     expect(screen.getByText(/问卷至少需要一道题/)).toBeInTheDocument();
     expect(screen.getByText(/选项题必须包含有效选项/)).toBeInTheDocument();
     expect(screen.getByText(/报告章节尚未覆盖对应题目/)).toBeInTheDocument();
     expect(screen.getByText(/题目措辞可能带有诱导性/)).toBeInTheDocument();
+    expect(screen.getByText(/条件显示或跳转规则无效/)).toBeInTheDocument();
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
     expect(screen.queryByText("发布准备已完成")).not.toBeInTheDocument();
     expect(client.request).toHaveBeenLastCalledWith("/surveys/survey-1/prepare", { method: "POST", body: { expectedVersion: 4 } }, expect.anything());

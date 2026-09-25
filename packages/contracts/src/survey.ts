@@ -19,6 +19,7 @@ export const SurveyPublishBlockerCodeSchema = z.enum([
   "QUESTION_OPTIONS_EMPTY",
   "MAPPING_INCOMPLETE",
   "LEADING_QUESTION",
+  "LOGIC_INVALID",
 ]);
 export const SurveyPublishBlockerSchema = z
   .object({
