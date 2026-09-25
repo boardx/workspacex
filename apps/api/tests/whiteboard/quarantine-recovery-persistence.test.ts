@@ -91,12 +91,13 @@ describe('whiteboard quarantine recovery on real PostgreSQL',()=>{
       withoutTenant:db.withoutTenant.bind(db),close:async()=>undefined,
     });
     const revoking=new PgWhiteboardRepository(wrap(async(sql,result)=>{const value=await result;if(sql.startsWith('DELETE FROM whiteboard_members')){removed.resolve();await allowCommit.promise;}return value;}),maintenance);
-    const issuing=new PgWhiteboardRepository(wrap(async(sql,result)=>{if(sql.includes('FROM whiteboards WHERE org_id=$1 AND id=$2 FOR UPDATE'))issueAttempted.resolve();return result;}),maintenance);
+    const issuing=new PgWhiteboardRepository(wrap(async(sql,result)=>{if(sql.includes('FROM whiteboards WHERE org_id=$1 AND id=$2 FOR SHARE'))issueAttempted.resolve();return result;}),maintenance);
     const revocation=revoking.removeMember(owner,boardId,editor.userId);await removed.promise;
-    const issue=issuing.issueQuarantineAccessReceipt(editor,boardId,'e'.repeat(64),1);await issueAttempted.promise;
+    const issues=Array.from({length:50},(_,index)=>issuing.issueQuarantineAccessReceipt(editor,boardId,index.toString(16).padStart(64,'0'),1));await issueAttempted.promise;
     allowCommit.resolve();await expect(revocation).resolves.toBe(true);
-    await expect(issue).rejects.toThrow('WHITEBOARD_ACCESS_CHANGED');
-  });
+    const results=await Promise.allSettled(issues);
+    expect(results).toHaveLength(50);expect(results.every(result=>result.status==='rejected'&&String(result.reason).includes('WHITEBOARD_ACCESS_CHANGED'))).toBe(true);
+  },20000);
 
   it('cleans from inactive_at and retains proofs referenced by audit history',async()=>{
     await repo.putMember(owner,boardId,{userId:editor.userId,role:'editor'});

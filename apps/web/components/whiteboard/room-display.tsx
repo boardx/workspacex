@@ -19,8 +19,17 @@ export function RoomDisplay(){
   useEffect(()=>{if(!grant)return;let active=true,inFlight=false,rerun=false,timer:number|undefined,failures=0,controller:AbortController|null=null;const ydoc=docRef.current!;
     const poll=async()=>{if(!active)return;if(inFlight){rerun=true;return;}inFlight=true;controller=new AbortController();const signal=controller.signal;try{const next=await readRoom(grant.sessionId,{orgId:grant.orgId,token:grant.token},signal);if(!active)return;failures=0;if(next.snapshot)Y.applyUpdate(ydoc,bytes(next.snapshot),'room-snapshot');setState(previous=>({...next,viewport:newerViewport(previous?.viewport??null,next.viewport)}));setReconnecting(false);setError('');
       }catch(cause){if(!active)return;if(signal.aborted&&rerun){/* an online/visibility wake superseded this transport read */}else if(isAuthoritativeRoomEnd(cause)){setError('会议室连接已过期或被主持人断开。');setGrant(null);setState(null);setReconnecting(false);clearRoomSession(grant.sessionId);resetDocument();return;}else{failures+=1;setReconnecting(true);setError('连接暂时中断，正在恢复…');}}
-      finally{inFlight=false;if(controller?.signal===signal)controller=null;}if(!active)return;if(rerun){rerun=false;void poll();return;}timer=window.setTimeout(()=>void poll(),Math.min(5_000,1_500*Math.max(1,failures)));
-    };const resume=()=>{if(document.visibilityState==='hidden')return;if(timer){window.clearTimeout(timer);timer=undefined;}rerun=true;if(inFlight)controller?.abort();else{rerun=false;void poll();}};window.addEventListener('online',resume);document.addEventListener('visibilitychange',resume);void poll();return()=>{active=false;rerun=false;controller?.abort();if(timer)window.clearTimeout(timer);window.removeEventListener('online',resume);document.removeEventListener('visibilitychange',resume);};},[grant,resetDocument]);
+      finally{inFlight=false;if(controller?.signal===signal)controller=null;}if(!active)return;if(rerun){rerun=false;void poll();return;}// Cap at 2s (not 5s): a transient failure right after connectivity returns
+      // (the CDP/network-stack 'online' signal can fire a beat before the OS actually
+      // accepts new connections) must still resolve well inside the 5s convergence
+      // budget the meeting-room acceptance test holds callers to. A 5s cap left zero
+      // slack for even one extra failed attempt after reconnect.
+      timer=window.setTimeout(()=>void poll(),Math.min(2_000,800*Math.max(1,failures)));
+    };const resume=()=>{if(document.visibilityState==='hidden')return;if(timer){window.clearTimeout(timer);timer=undefined;}rerun=true;if(inFlight)controller?.abort();else{rerun=false;void poll();}};// 'online' is the primary signal, but relying on it alone is fragile: some
+    // engines/CDP network-condition transitions deliver it a beat late relative to
+    // when requests actually start succeeding again. 'focus' is a cheap, harmless
+    // second chance to notice the same recovery sooner.
+    window.addEventListener('online',resume);window.addEventListener('focus',resume);document.addEventListener('visibilitychange',resume);void poll();return()=>{active=false;rerun=false;controller?.abort();if(timer)window.clearTimeout(timer);window.removeEventListener('online',resume);window.removeEventListener('focus',resume);document.removeEventListener('visibilitychange',resume);};},[grant,resetDocument]);
   useEffect(()=>{if(grant)persistRoomSession({grant,follow});},[grant,follow]);
   useEffect(()=>{const key=(event:KeyboardEvent)=>{if(event.key==='Escape'&&follow){event.preventDefault();setFollow(false);}};window.addEventListener('keydown',key);return()=>window.removeEventListener('keydown',key);},[follow]);
   useEffect(()=>()=>docRef.current?.destroy(),[]);

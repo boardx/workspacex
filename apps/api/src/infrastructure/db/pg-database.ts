@@ -16,6 +16,19 @@ import type { DatabasePort, QueryResult, TenantSession } from "../../application
 import type { KernelHealthProbe } from "../../application/use-cases/get-kernel-health";
 import type { OrgId } from "../../domain/org-id";
 import type { PgConfig } from "./pg-config";
+const DATABASE_POOL_MAX=5;
+type CheckoutFailure='checkout_timeout'|'connection_refused'|'tls'|'shutdown'|'unknown';
+const TLS_CODES=new Set(['ERR_TLS_CERT_ALTNAME_INVALID','DEPTH_ZERO_SELF_SIGNED_CERT','SELF_SIGNED_CERT_IN_CHAIN','UNABLE_TO_VERIFY_LEAF_SIGNATURE','CERT_HAS_EXPIRED']);
+const SHUTDOWN_CODES=new Set(['57P01','57P02','57P03','ECONNRESET','EPIPE']);
+function checkoutFailure(error:unknown):{failure:CheckoutFailure;code:string}{
+  const value=error as {code?:unknown;message?:unknown};
+  const code=typeof value?.code==='string'?value.code:'';
+  if(code==='ETIMEDOUT'||value?.message==='timeout exceeded when trying to connect'||value?.message==='Connection terminated due to connection timeout')return{failure:'checkout_timeout',code:code||'timeout'};
+  if(code==='ECONNREFUSED')return{failure:'connection_refused',code};
+  if(TLS_CODES.has(code))return{failure:'tls',code};
+  if(SHUTDOWN_CODES.has(code))return{failure:'shutdown',code};
+  return{failure:'unknown',code:'unknown'};
+}
 
 export class PgDatabase implements DatabasePort {
   private readonly pool: pg.Pool;
@@ -24,7 +37,7 @@ export class PgDatabase implements DatabasePort {
   private readonly connectionErrors = new WeakMap<pg.PoolClient, Error>();
 
   constructor(cfg: PgConfig, private readonly logger: LoggerPort = new ConsoleLogger()) {
-    this.pool = new pg.Pool({ ...cfg, max: 5 });
+    this.pool = new pg.Pool({ ...cfg, max: DATABASE_POOL_MAX });
     // Install once at creation, before checkout/BEGIN; keep it through release and
     // socket teardown. pg removes its own idle listener while a client is borrowed.
     this.pool.on("connect", client => client.on("error", error => {
@@ -45,7 +58,20 @@ export class PgDatabase implements DatabasePort {
   private async inTx<T>(orgId: OrgId | null, fn: (s: TenantSession) => Promise<T>): Promise<T> {
     const nested=this.activeSession.getStore();
     if(nested){if(nested.orgId!==orgId)throw new RunLeaseLostError();return fn(nested.session);}
-    const client = await this.pool.connect();
+    const checkoutStarted = performance.now();
+    let client: pg.PoolClient;
+    try {
+      client = await this.pool.connect();
+      this.logger.info("database_pool_checkout", { traceId: "database", outcome: "accepted",
+        elapsedMs: performance.now() - checkoutStarted, waiting: this.pool.waitingCount,
+        active: this.pool.totalCount - this.pool.idleCount, max: DATABASE_POOL_MAX });
+    } catch (error) {
+      const classified=checkoutFailure(error);
+      this.logger.info("database_pool_checkout", { traceId: "database", outcome: "error",
+        elapsedMs: performance.now() - checkoutStarted, waiting: this.pool.waitingCount,
+        active: this.pool.totalCount - this.pool.idleCount, max: DATABASE_POOL_MAX, ...classified });
+      throw error;
+    }
     const connectionErrors = this.connectionErrors;
     const assertConnected = () => { const error = connectionErrors.get(client); if (error) throw error; };
     let failure: unknown;
