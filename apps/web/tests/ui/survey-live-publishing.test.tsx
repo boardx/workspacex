@@ -106,6 +106,32 @@ describe("live survey trusted publishing", () => {
     expect(screen.getByRole("button", { name: /1\. 设计问卷/ })).toHaveAttribute("class", expect.stringContaining("border-primary"));
   });
 
+  it("shows the logic diagnostic and focuses its question for repair", async () => {
+    const blockers: SurveyPublishBlocker[] = [
+      {
+        code: "LOGIC_INVALID",
+        side: "question",
+        subjectId: "q2",
+        missingFields: ["显示条件只能引用前面有效的题目"],
+      },
+    ];
+    client.request
+      .mockResolvedValueOnce(
+        runtime({
+          questions: [
+            runtime().questions[0]!,
+            { id: "q2", title: "补充原因", type: "short", chapterId: "general", order: 2, required: true, options: [] },
+          ],
+        }),
+      )
+      .mockRejectedValueOnce(new client.BlockedError(blockers));
+    render(<LiveSurveyWorkspace surveyId="survey-1" initialStep="publish" />);
+    fireEvent.click(await screen.findByRole("button", { name: "检查发布条件" }));
+    expect(await screen.findByText("显示条件只能引用前面有效的题目")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "定位并修复：修复条件显示或跳转规则" }));
+    expect(screen.getByRole("button", { name: "2. 补充原因" })).toHaveAttribute("aria-current", "true");
+  });
+
   it("routes a question mapping blocker to the report-template editor", async () => {
     const blockers: SurveyPublishBlocker[] = [
       { code: "MAPPING_INCOMPLETE", side: "question", subjectId: "q1", missingFields: ["reportBlock"] },
