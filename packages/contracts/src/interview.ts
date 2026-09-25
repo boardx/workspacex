@@ -454,6 +454,27 @@ export const DigitalInterviewEvidenceRef = z.object({
   revisionId: z.string().min(1),
 }).strict();
 
+/**
+ * The one place that turns a legacy finding (persisted before `evidenceRefs` existed) into
+ * a source-bound reference. Both the schema default below and any repository read of an
+ * older row must call this instead of each writing its own fallback shape, or a replayed
+ * idempotency receipt and a normal repository read of the same report can disagree on
+ * evidence lineage — see AGENTS.md's "same fact must not be declared in two places".
+ */
+export function synthesizeDigitalInterviewEvidenceRef(
+  finding: { readonly sourceAnswerId: string; readonly expertId: string; readonly questionId: string },
+  revisionId: string,
+): z.infer<typeof DigitalInterviewEvidenceRef> {
+  return {
+    sourceKind: "digital_expert",
+    sourceAnswerId: finding.sourceAnswerId,
+    expertId: finding.expertId,
+    participantId: null,
+    questionId: finding.questionId,
+    revisionId,
+  };
+}
+
 export const DigitalInterviewReportEvidenceEligibility = z.object({
   eligibility: z.enum([
     "eligible",
@@ -466,11 +487,20 @@ export const DigitalInterviewReportEvidenceEligibility = z.object({
   action: z.string().min(1).nullable(),
 }).strict();
 
-const defaultDigitalInterviewReportEvidenceEligibility = {
+/**
+ * The one authoritative "no participant evidence yet" default. The SQL migration column
+ * default is a separate, unavoidable literal (a `DEFAULT` clause can't reference TS), but
+ * every application-code fallback — the domain eligibility deriver and the repository's
+ * no-report-row fallback — must import this constant instead of retyping the wording, or
+ * the three copies drift the way `AGENTS.md` warns identical facts do (packages/contracts
+ * tests/interview-evidence-single-source.test.ts checks the migration literal against it).
+ */
+export const DEFAULT_DIGITAL_INTERVIEW_REPORT_EVIDENCE_ELIGIBILITY = {
   eligibility: "blocked_missing_participant_evidence" as const,
   message: "需要真实受访者证据后才能批准。",
   action: "添加并复核真实受访者回答",
 };
+const defaultDigitalInterviewReportEvidenceEligibility = DEFAULT_DIGITAL_INTERVIEW_REPORT_EVIDENCE_ELIGIBILITY;
 
 /** 报告中的每条发现都必须能回到一位专家的一道问题及其原始回答。 */
 export const DigitalInterviewReportFinding = z.object({

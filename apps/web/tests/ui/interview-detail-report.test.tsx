@@ -12,6 +12,7 @@ vi.mock("@/lib/interview-report-export", () => ({
   exportInterviewReportWord: (...args: unknown[]) => exportWord(...args),
   exportInterviewReportPdf: (...args: unknown[]) => exportPdf(...args),
   reportMarkdownBody: (title: string, markdown: string) => markdown.replace(`# ${title}\n\n`, ""),
+  evidenceModeLabel: (mode: string) => (mode === "simulated" ? "模拟探索" : mode === "mixed" ? "混合证据" : "真实访谈"),
 }));
 
 const completed: DigitalInterviewWorkflowView = {
@@ -159,7 +160,7 @@ describe("F06 interview answers to report", () => {
 
     fireEvent.click(screen.getByTestId("itv-report-export-word"));
     fireEvent.click(screen.getByTestId("itv-report-export-pdf"));
-    expect(exportWord).toHaveBeenCalledWith(final.report);
+    expect(exportWord).toHaveBeenCalledWith(final.report, { evidenceMode: completed.studyEvidenceMode, review: completed.reportEvidenceEligibility });
     expect(exportPdf).toHaveBeenCalledWith("itv-report-print-root");
     await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
   });

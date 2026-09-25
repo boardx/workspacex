@@ -27,6 +27,7 @@ import {
 } from "./pg-interview-scope-repository";
 
 import { DIGITAL_REPORT_STALE_SQL } from "./workflow/digital-report-lease";
+import { interview } from "@repo/contracts";
 
 /** Shared by history, status filtering and detail reads (session table alias: s). */
 const DIGITAL_INTERVIEW_READ_STATUS_SQL = `CASE
@@ -75,10 +76,7 @@ function toWorkflowFinding(finding: StoredReportFinding, revisionId: string): No
     ...finding,
     goalIds: finding.goalIds ?? [],
     evidenceStatus: finding.evidenceStatus ?? "exploratory",
-    evidenceRefs: finding.evidenceRefs ?? [{
-      sourceKind: "digital_expert", sourceAnswerId: finding.sourceAnswerId,
-      expertId: finding.expertId, participantId: null, questionId: finding.questionId, revisionId,
-    }],
+    evidenceRefs: finding.evidenceRefs ?? [interview.synthesizeDigitalInterviewEvidenceRef(finding, revisionId)],
     counterEvidenceCount: finding.counterEvidenceCount ?? 0,
   };
 }
@@ -657,11 +655,8 @@ export async function readDigitalInterviewWorkflow(
     selectedExpertIds: row.selected_expert_ids,
     reportId: row.report_id,
     studyEvidenceMode: row.study_evidence_mode,
-    reportEvidenceEligibility: reports.rows[0]?.review_state ?? {
-      eligibility: "blocked_missing_participant_evidence",
-      message: "需要真实受访者证据后才能批准。",
-      action: "添加并复核真实受访者回答",
-    },
+    reportEvidenceEligibility: reports.rows[0]?.review_state
+      ?? interview.DEFAULT_DIGITAL_INTERVIEW_REPORT_EVIDENCE_ELIGIBILITY,
     report: reports.rows[0]?.generation_status === "completed" ? {
       reportId: reports.rows[0].report_id,
       title: reports.rows[0].title!,

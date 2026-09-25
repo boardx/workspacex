@@ -9,11 +9,9 @@ export function deriveApprovalEligibility(input: {
   readonly findings: readonly { readonly counterEvidenceCount: number }[];
   readonly hasUnreviewedQualityFlag: boolean;
 }): Review {
-  if (input.mode === "simulated") return blocked(
-    "blocked_missing_participant_evidence",
-    "需要真实受访者证据后才能批准。",
-    "添加并复核真实受访者回答",
-  );
+  if (input.mode === "simulated") return {
+    ...interview.DEFAULT_DIGITAL_INTERVIEW_REPORT_EVIDENCE_ELIGIBILITY,
+  };
   if (input.findings.some((finding) => finding.counterEvidenceCount === 0)) return blocked(
     "blocked_missing_counterexample",
     "每条决策结论需要记录反例或明确无反例。",
