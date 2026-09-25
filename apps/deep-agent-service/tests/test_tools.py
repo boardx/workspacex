@@ -557,3 +557,25 @@ def test_call_skill_still_rejects_a_genuinely_unrecognised_shape() -> None:
             _tool_call({"which_skill": "diagram-maker", "what_to_do": "画一个流程图"}), config=SKILL_CONFIG,
         )
     assert model.received_messages == []
+
+
+def test_call_skill_accepts_params_key_with_json_string_value() -> None:
+    """2026-09-25 追加实测：把矩阵预算从 900s 提到 1500s 之后撞见第二种错误键名——
+    `{'skill_name': ..., 'params': '{"filename": ..., "content_requirements": ...}'}`。
+    `params` 这次连值都不是自然语言，是一段 JSON 字符串；这里只要求它原样落进
+    `task`，不要求反解析成结构化字段。"""
+    model = FakeChatModel("写好了")
+    _, call_skill, *_ = build_tools(model)
+
+    result = call_skill.invoke(
+        _tool_call({
+            "skill_name": "diagram-maker",
+            "params": '{"filename": "x.docx", "content_requirements": "五个章节的手册"}',
+        }),
+        config=SKILL_CONFIG,
+    )
+
+    assert result.content == "写好了"
+    assert model.received_messages != []
+    sent_task = model.received_messages[0][1]["content"]
+    assert "content_requirements" in sent_task

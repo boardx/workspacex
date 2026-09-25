@@ -290,6 +290,13 @@ def build_tools(model: BaseChatModel, *, interactions_only: bool = False) -> lis
         这里不是放宽规范、也不是"猜模型想干嘛"：只认已经实测撞见过的那几个别名，
         输入仍然要能唯一映射到这两个字段，映射不上就让 pydantic 按原有规则报错——
         比"悄悄兼容任何形状"更诚实的边界是"点名兼容过这几种，其余照旧拒绝"。
+
+        2026-09-25 追加：把矩阵预算从 900s 提到 1500s 之后又实测到**第二种**错误
+        键名——`{'skill_name': ..., 'params': '{"filename": ..., "content_requirements":
+        ...}'}`（`params` 这次连值都不是自然语言，是一段 JSON 字符串）。追加
+        `params` 到 `task` 的别名列表：值原样落进 `task` 字段，focused sub-call
+        的模型仍然读得懂这段 JSON 描述的是什么任务，不追求把它反解析成结构化字段——
+        那是过度设计，这里要解决的只是"不要因为键名不对就在函数体之前被拒掉"。
         """
 
         model_config = {"populate_by_name": True}
@@ -314,7 +321,7 @@ def build_tools(model: BaseChatModel, *, interactions_only: bool = False) -> lis
                         out["skill_stable_name"] = out.pop(alias)
                         break
             if "task" not in out:
-                for alias in ("args", "arguments", "prompt", "instruction", "description"):
+                for alias in ("args", "arguments", "prompt", "instruction", "description", "params"):
                     if alias in out:
                         out["task"] = out.pop(alias)
                         break
