@@ -4,7 +4,10 @@ import * as React from "react";
 import { CopilotChatUserMessage } from "@copilotkit/react-core/v2";
 import { MessageAttachments } from "@/components/chat/chat-composer-attachments";
 import type { ChatAttachment } from "@/lib/live-chat";
-import { useCopilotKitV2MessageActions } from "@/components/chat/copilotkit-v2-message-actions";
+import {
+  useCopilotKitV2MessageActions,
+  CopilotKitV2RememberMessageButton,
+} from "@/components/chat/copilotkit-v2-message-actions";
 import { MESSAGE_ANCHOR_ATTR } from "@/lib/chat-message-focus";
 
 /**
@@ -122,10 +125,18 @@ function V2UserMessageImpl(
       : { threadId: ctx.threadId, items }),
     [items, ctx],
   );
+  // issue #4179 —— 「记住这句」正文取自框架给的这条消息本身，与 assistant 侧
+  // `copilotkit-v2-assistant-message.tsx` 取 `text` 的同一条纪律（`content` 的
+  // 静态类型是 `string | 数组`，只有纯字符串这一支有对应的可发送正文）。
+  const text = typeof props.message.content === "string" ? props.message.content : "";
   return (
     <CurrentUserMessageIdCtx.Provider value={persistedId}>
       <CurrentUserMessageAttachmentsCtx.Provider value={current}>
-        <CopilotChatUserMessage {...props} messageRenderer={V2UserMessageRenderer} />
+        <CopilotChatUserMessage
+          {...props}
+          messageRenderer={V2UserMessageRenderer}
+          additionalToolbarItems={<CopilotKitV2RememberMessageButton text={text} />}
+        />
       </CurrentUserMessageAttachmentsCtx.Provider>
     </CurrentUserMessageIdCtx.Provider>
   );

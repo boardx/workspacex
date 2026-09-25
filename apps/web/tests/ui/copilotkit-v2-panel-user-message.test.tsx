@@ -11,7 +11,7 @@
  * 真实渲染框架组件，只把它引入的第三方 CSS mock 成空 side-effect 模块。
  */
 import { describe, expect, it, vi } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 
 // 见 `copilotkit-v2-panel-markdown.test.tsx` 同一段头注——`@copilotkit/react-core/
 // dist/v2/index.mjs` 顶层无条件 `import "./index.css"`，vitest 走 Vite/esbuild 管线，
@@ -21,6 +21,7 @@ vi.mock(copilotkitV2CssPath, () => ({}));
 
 import { CopilotChatMessageView, CopilotChatConfigurationProvider, CopilotKit } from "@copilotkit/react-core/v2";
 import { V2UserMessage } from "@/components/chat/copilotkit-v2-user-message";
+import { onRememberStatement } from "@/lib/knowledge-graph-events";
 import type { Message } from "@copilotkit/react-core/v2";
 
 // 见 `copilotkit-v2-panel-markdown.test.tsx` 同一段头注——`<CopilotKit>` 挂载是
@@ -53,5 +54,62 @@ describe("CopilotKitV2PanelBody 的 userMessage slot —— 走 V2UserMessage，
     // 气泡外壳（背景/圆角）由 `copilotkit-v2.css` 锚定这个稳定 testid 补样式，
     // 不受本次改动影响——这里只钉正文本身。
     expect(await screen.findByTestId("copilot-user-message")).toBeInTheDocument();
+  });
+});
+
+/**
+ * issue #4179（F17 手动入口 ①）—— 消息旁「记住这句」只挂在 `userMessage` slot（`V2UserMessage`），
+ * `assistantMessage` slot 是完全不同的组件（`V2AssistantMessage`），从不引用这个按钮——AI 回答旁
+ * 天然不出现它，不是靠运行期身份判断做到的。见 `copilotkit-v2-message-actions.tsx`
+ * `CopilotKitV2RememberMessageButton` 的文件头注。
+ */
+describe("issue #4179 —— 消息旁「记住这句」：只在用户自己发的消息上出现，点击不直接写入", () => {
+  it("用户消息上有「记住这句」；AI 消息（框架默认 assistantMessage）上没有", async () => {
+    const messages: Message[] = [
+      { id: "m-user", role: "user", content: "下周一（9/29）上线 v2" },
+      { id: "m-ai", role: "assistant", content: "好的，我记下了。" },
+    ];
+    render(
+      withCopilotKit(
+        <CopilotChatMessageView messages={messages} isRunning={false} userMessage={V2UserMessage} />,
+      ),
+    );
+
+    await screen.findByTestId("chat-user-message-text");
+    const rememberButtons = screen.getAllByTestId("chat-message-remember");
+    // 只有一条用户消息 ⇒ 只有一个入口；AI 那条完全没有对应按钮。
+    expect(rememberButtons).toHaveLength(1);
+  });
+
+  it("点击「记住这句」⇒ 只发出请求（`requestRememberStatement`），不直接写入任何东西", async () => {
+    const messages: Message[] = [{ id: "m-user", role: "user", content: "客户A的对接人是王经理" }];
+    render(
+      withCopilotKit(
+        <CopilotChatMessageView messages={messages} isRunning={false} userMessage={V2UserMessage} />,
+      ),
+    );
+
+    const received: string[] = [];
+    const unsubscribe = onRememberStatement((statement) => received.push(statement));
+    try {
+      fireEvent.click(await screen.findByTestId("chat-message-remember"));
+      expect(received).toEqual(["客户A的对接人是王经理"]);
+    } finally {
+      unsubscribe();
+    }
+    // 这里只断言「请求被发出」，不断言任何 claim 被确认——真正执行（送进 `send()`、
+    // 出确认卡）由 `copilotkit-v2-panel-body.tsx` 订阅完成，是另一层集成，不在这个
+    // 组件测试的范围内（同文件头注：本测试只钉 slot 接线）。
+  });
+
+  it("消息正文为空白 ⇒ 不渲染「记住这句」（没有内容可记）", async () => {
+    const messages: Message[] = [{ id: "m-empty", role: "user", content: "   " }];
+    render(
+      withCopilotKit(
+        <CopilotChatMessageView messages={messages} isRunning={false} userMessage={V2UserMessage} />,
+      ),
+    );
+    await screen.findByTestId("chat-user-message-text");
+    expect(screen.queryByTestId("chat-message-remember")).not.toBeInTheDocument();
   });
 });
