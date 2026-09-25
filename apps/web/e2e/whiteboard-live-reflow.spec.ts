@@ -34,6 +34,10 @@ test('live Board reflows at 100%, 200% and 400% equivalents with platform zoom, 
       // so reusing one boardId across passes would carry the previous pass's zoom forward.
       const created=await api(request,token,'POST','/whiteboards',{requestId:randomUUID(),name:`Reflow Board ${randomUUID()}`});const boardId=(await created.json() as {id:string}).id;boardIds.push(boardId);
       await page.setViewportSize(viewport);await page.goto(`/studio/board/${boardId}`);await expect(page.getByTestId('collaborative-editor')).toBeVisible({timeout:30_000});await expect(page.getByText(/^已同步$/)).toBeVisible({timeout:30_000});
+      // A freshly-created board needs its own room/CRDT init on first load (unlike a reload of an
+      // already-warm board), so the canvas can still be hidden for a beat after "已同步" appears.
+      // Wait for it explicitly before tabbing to it, otherwise the later tabTo() below can race it.
+      await expect(page.getByTestId('board-live-surface')).toBeVisible({timeout:30_000});
       await expect.poll(()=>page.evaluate(()=>document.documentElement.scrollWidth<=document.documentElement.clientWidth),{message:`${viewport.label} has no page horizontal overflow`}).toBe(true);
       expect(await page.getByTestId('board-live-surface').evaluate(element=>getComputedStyle(element).touchAction)).toBe('auto');expect(await page.evaluate(()=>({root:getComputedStyle(document.documentElement).touchAction,marker:document.documentElement.dataset.liveBoardMounted}))).toEqual({root:'auto',marker:'true'});
       expect(await page.evaluate(()=>{const event=new WheelEvent('wheel',{ctrlKey:true,cancelable:true});window.dispatchEvent(event);return event.defaultPrevented;})).toBe(false);
