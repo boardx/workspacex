@@ -8,10 +8,10 @@
 
 | # | 动作 | 解锁什么 | 预计耗时 |
 |---|---|---|---|
-| 1 | [审阅并合入 PR #4065](#10-审阅并合入-pr-4065) | 下面所有项的代码前提 | 30–60 分钟 |
+| 1 | ~~审阅并合入 PR #4065~~ ✅ 2026-09-24 已合入 | — | — |
 | 2 | [确认凭据扫描命中（先看 `aliyun-ak` 2 处）](#9-确认凭据扫描命中) | 仓库能否公开（硬阻塞） | 1–3 小时（真凭据需轮换则更长） |
 | 3 | [填权利人名称、商标邮箱（可选：安全邮箱、NOTICE）](#2-权利人名称联系邮箱安全联系人) | 商标政策、NOTICE、B8 收尾 | 组织决定后 5 分钟 |
-| 4 | [`fabric-markdown` 上游许可](#8-fabric-markdown-许可问题) | B6 最后一个未定包 | 找到上游作者后 15 分钟 |
+| 4 | ~~`fabric-markdown` 上游许可~~ ✅ 2026-09-25 已定：作者自研，权利人 BoardX Inc.，Apache-2.0 | — | — |
 | 5 | [部署 ops-telemetry 与 ops-console + Access（含 D6 核对）](#3-部署-ops-console-与-ops-telemetry-worker) | 车队视图、发布控制台、D11 真实数据 | 2–3 小时 |
 | 6 | [实例安装密钥与上报地址](#4-实例上报的安装密钥分发) | 客户实例真正开始上报 | 30 分钟（决定方案） |
 | 7 | [立平台大脑真实实例（D4/D11）](#5-平台大脑真实实例d4--d11) | 平台大脑起步、六跳检索有数据 | 半天 |
@@ -342,6 +342,8 @@ sudo systemctl restart workspacex-api
 ---
 
 ## 8. fabric-markdown 许可问题
+
+> ✅ **已解决（2026-09-25）**：上游由本项目作者自行开发，权利人 BoardX Inc.；已在归属表登记为 oss，包内补 `license: "Apache-2.0"` 与 `LICENSE`，`lint:package-license` 未定数为 0。下文保留作记录。
 
 **在哪里**：
 - `.harness/scripts/lib/ownership.mjs`：`"packages/fabric-markdown": { class: "undecided", … }`——仓库里唯一未定归属的包；
