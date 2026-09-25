@@ -14,7 +14,7 @@ describe('live Board reflow and motion contracts',()=>{
     expect(css).toContain('html[data-live-board-mounted="true"] body');
     expect(css).toContain('html:has([data-live-board-page]) body');
     expect(css).toContain('@media (prefers-reduced-motion: reduce)');
-    expect(css).toContain('transition-duration: 0.001ms !important');
+    expect(css).toContain('transition-duration: 0s !important');
     const parsed=postcss.parse(css);
     parsed.walkRules(rule=>expect(rule.selector.includes('data-live-board-mounted')&&rule.selector.includes(':has(')).toBe(false));
     const withoutHas=parsed.clone();
@@ -22,7 +22,7 @@ describe('live Board reflow and motion contracts',()=>{
     const unsupportedCss=withoutHas.toString();
     expect(unsupportedCss).not.toContain(':has(');
     expect(unsupportedCss).toMatch(/html\[data-live-board-mounted="true"\][^{]*\{\s*touch-action:\s*auto/);
-    expect(unsupportedCss).toMatch(/html\[data-live-board-mounted="true"\] \*[^{]*\{[^}]*transition-duration:\s*0\.001ms/s);
+    expect(unsupportedCss).toMatch(/html\[data-live-board-mounted="true"\] \*[^{]*\{[^}]*transition-duration:\s*0s/s);
   });
 
   it('bounds every live Board overlay and keeps dense controls inside local scrolling regions',()=>{

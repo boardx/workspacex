@@ -620,19 +620,24 @@
   html[data-live-board-mounted="true"] *,
   html[data-live-board-mounted="true"] *::before,
   html[data-live-board-mounted="true"] *::after {
-    animation-duration: 0.001ms !important;
+    /* A literal 0s (not a near-zero placeholder like 0.001ms) - modern Chromium still fires
+       transitionend/animationend for a 0-duration transition, and this avoids getComputedStyle
+       serializing a sub-microsecond duration as scientific notation (e.g. "1e-06s" instead of
+       "0s"), which broke e2e/whiteboard-live-reflow.spec.ts's board-live-surface zoom assertion
+       on a Chromium version that stopped rounding 0.001ms down to exactly 0 on read-back. */
+    animation-duration: 0s !important;
     animation-iteration-count: 1 !important;
     scroll-behavior: auto !important;
-    transition-duration: 0.001ms !important;
+    transition-duration: 0s !important;
   }
   @supports selector(:has(*)) {
     html:has([data-live-board-page]) *,
     html:has([data-live-board-page]) *::before,
     html:has([data-live-board-page]) *::after {
-      animation-duration: 0.001ms !important;
+      animation-duration: 0s !important;
       animation-iteration-count: 1 !important;
       scroll-behavior: auto !important;
-      transition-duration: 0.001ms !important;
+      transition-duration: 0s !important;
     }
   }
 }
