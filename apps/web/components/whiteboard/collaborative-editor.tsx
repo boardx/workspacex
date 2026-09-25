@@ -77,7 +77,10 @@ export function CollaborativeEditor({ doc, readOnly, title, status, onTitleChang
   function undo() {
     if (readOnly) { setNotice('当前白板为只读，不能撤销。'); return; }
     const result = model.undo();
-    setNotice(result === 'creation-requires-explicit-delete' ? '创建对象请使用删除；为保护其他人的修改，不撤销对象创建。' : result === 'empty' ? '没有可撤销的本地修改。' : '已撤销本地修改');
+    setNotice(result === 'creation-requires-explicit-delete' ? '创建对象请使用删除；为保护其他人的修改，不撤销对象创建。'
+      : result === 'empty' ? '没有可撤销的本地修改。'
+      : result === 'conflict' ? '撤销失败：该修改与其他人的更改冲突，未能撤销。'
+      : '已撤销本地修改');
     focusCanvas();
   }
   function deleteSelection() {

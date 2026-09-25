@@ -143,7 +143,7 @@ export class WhiteboardProvider {
     const context = this.context;
     this.stop();
     // Hide and remove locally visible content after access loss; no clear update is sent.
-    this.doc.transact(() => { this.doc.getMap('objects').clear(); this.doc.getMap('deletedObjects').clear(); }, REMOTE);
+    this.doc.transact(() => { this.doc.getMap('objects').clear(); this.doc.getMap('deletedObjects').clear(); this.doc.getMap('deleteAttribution').clear(); }, REMOTE);
     this.publish({ phase: 'blocked', role: 'viewer', peers: [], reason });
     if (context) this.operation = this.operation.catch(() => undefined).then(() => reason === 'SESSION_CHANGED'
       ? this.outbox.quarantineSession(context, reason)

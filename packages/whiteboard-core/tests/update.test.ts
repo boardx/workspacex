@@ -73,3 +73,59 @@ it('rejects a concurrent false tombstone even when it loses to an existing true 
   expect(() => prepareWhiteboardUpdate(server, Y.encodeStateAsUpdate(peer))).toThrow('TOMBSTONE_CHANGED');
   expect(readObjects(server)).toEqual([]);
 });
+// --- Self-undo exception: a principal-authorized actor may resurrect their own recent delete ---
+function deletedBySelf(actorId: string, now = Date.now()): { authority: Y.Doc; resurrect: () => Uint8Array; now: number } {
+  const base = seeded(), deleter = cloneDocument(base), vector = Y.encodeStateVector(base);
+  executeCommands(deleter, [{ type: 'delete', id: 'a' }], {});
+  const authority = cloneDocument(base);
+  const accepted = prepareWhiteboardUpdate(authority, Y.encodeStateAsUpdate(deleter, vector), actorId, now);
+  Y.applyUpdate(authority, accepted);
+  return { authority, resurrect: () => { const undone = cloneDocument(authority); undone.getMap('deletedObjects').delete('a'); return Y.encodeStateAsUpdate(undone, Y.encodeStateVector(authority)); }, now };
+}
+it('allows the same actor to self-undo their own delete within the window', () => {
+  const { authority, resurrect, now } = deletedBySelf('alice');
+  expect(readObjects(authority)).toEqual([]);
+  const accepted = prepareWhiteboardUpdate(authority, resurrect(), 'alice', now + 5_000);
+  Y.applyUpdate(authority, accepted);
+  expect(readObjects(authority).map(o => o.id)).toEqual(['a']);
+});
+it('rejects a different actor resurrecting someone else\'s delete', () => {
+  const { authority, resurrect, now } = deletedBySelf('alice');
+  expect(() => prepareWhiteboardUpdate(authority, resurrect(), 'bob', now + 1_000)).toThrow('TOMBSTONE_CHANGED');
+  expect(readObjects(authority)).toEqual([]);
+});
+it('rejects a self-undo once the window has expired', () => {
+  const { authority, resurrect, now } = deletedBySelf('alice');
+  expect(() => prepareWhiteboardUpdate(authority, resurrect(), 'alice', now + 30_001)).toThrow('TOMBSTONE_CHANGED');
+  expect(readObjects(authority)).toEqual([]);
+});
+it('rejects a self-undo when no actorId is supplied at all', () => {
+  const { authority, resurrect, now } = deletedBySelf('alice');
+  expect(() => prepareWhiteboardUpdate(authority, resurrect(), undefined, now + 1_000)).toThrow('TOMBSTONE_CHANGED');
+});
+it('rejects a self-undo once the tombstone has changed since the recorded delete', () => {
+  const base = seeded(), deleter = cloneDocument(base), vector = Y.encodeStateVector(base);
+  deleter.clientID = 1;
+  executeCommands(deleter, [{ type: 'delete', id: 'a' }], {});
+  const authority = cloneDocument(base);
+  const now = Date.now();
+  const accepted = prepareWhiteboardUpdate(authority, Y.encodeStateAsUpdate(deleter, vector), 'alice', now);
+  Y.applyUpdate(authority, accepted);
+  // A different, concurrent delete of the same object (racing with alice's, and winning the
+  // Y.Map conflict by client id) is accepted as monotonic (not a resurrection) but changes
+  // which tombstone struct is authoritative.
+  const other = cloneDocument(base); other.clientID = Number.MAX_SAFE_INTEGER;
+  executeCommands(other, [{ type: 'delete', id: 'a' }], {});
+  const otherAccepted = prepareWhiteboardUpdate(authority, Y.encodeStateAsUpdate(other, vector), 'carol', now + 1_000);
+  Y.applyUpdate(authority, otherAccepted);
+  expect(readObjects(authority)).toEqual([]);
+  const undone = cloneDocument(authority); undone.getMap('deletedObjects').delete('a');
+  expect(() => prepareWhiteboardUpdate(authority, Y.encodeStateAsUpdate(undone, Y.encodeStateVector(authority)), 'alice', now + 2_000)).toThrow('TOMBSTONE_CHANGED');
+  expect(readObjects(authority)).toEqual([]);
+});
+it('rejects a client update that writes directly into the delete-attribution ledger', () => {
+  const { authority } = deletedBySelf('alice');
+  const tampered = cloneDocument(authority);
+  tampered.getMap('deleteAttribution').set('a', { actorId: 'mallory', deletedAt: Date.now(), tombstoneClient: 0, tombstoneClock: 0 });
+  expect(() => prepareWhiteboardUpdate(authority, Y.encodeStateAsUpdate(tampered, Y.encodeStateVector(authority)), 'mallory')).toThrow('ATTRIBUTION_TAMPERED');
+});
