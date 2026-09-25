@@ -101,9 +101,33 @@ async function sendAndSettle(page: Page, prompt: string): Promise<string> {
   const send = page.getByTestId("copilotkit-v2-send");
   await send.click();
 
+  /**
+   * 原生 deep-agent 链路会先问一遍「我理解的任务是这样，对吗」（`confirm_task_intent`，
+   * `DEEP_AGENT_HITL_CLARIFICATION` 非 `off` 时挂载——生产多用户部署的默认形状，
+   * `apps/deep-agent-service/src/deep_agent_service/tools.py` 的头注）。
+   *
+   * 2026-09-25 实测：这一步落到 `GET /threads/:id` 的 `status: "interrupted"`，
+   * 是图**正确地**停在等人裁决，不是失败（`deep-agent-model-provider.ts` 的
+   * `readInterruptedCompletion` 分支逐字这么说）。但 `data-send-state` 在这个状态下
+   * 停在 `"running"` 不再变——这条轮询循环只看这一个属性，于是把「正确地在等确认」
+   * 误判成「跑满预算的超时」。legacy call_skill 路径不挂这个工具，从没暴露过这个
+   * 判据缺口；十任务矩阵里五个"超时"实测全部卡在这一步（真实模型十任务 Office
+   * 矩阵证据包 `62-deep-agent.log`：`confirm_task_intent` 之后 `interrupted`，
+   * 此后再没有任何新请求，直到测试自己的预算耗尽）。
+   *
+   * 修法与 `real-model-pdf-smoke.spec.ts` 逐字同一条纪律：出现就点确认——这正是
+   * 真实用户会做的事，不是给判据开后门。
+   */
+  const confirmIntentContinue = page.getByTestId("agent-interrupt-confirm-intent-continue");
+
   const sentAt = Date.now();
   let sawRunning = false;
   while (Date.now() - sentAt < TASK_BUDGET_MS) {
+    if (await confirmIntentContinue.isVisible().catch(() => false)) {
+      await confirmIntentContinue.click();
+      await page.waitForTimeout(1_000);
+      continue;
+    }
     const state = await send.getAttribute("data-send-state").catch(() => null);
     if (state === "running") sawRunning = true;
     else if (sawRunning) return "landed";

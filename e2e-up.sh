@@ -111,12 +111,16 @@ if [ "$DEEP_AGENT_CHAIN" = "native" ]; then
   fi
   DA_PORT="$WORKSPACEX_DEEP_AGENT_PROVIDER_PORT"
   DA_DSN="postgresql://postgres:postgres_dev@${PGHOST}:${PGPORT}/${PGDATABASE}"
-  # ⚠ 子 shell 前面必须有 `exec`——2026-09-25 实测：`( cd dir && cmd ) &` 时 `$!`
-  # 拿到的是那个子 shell wrapper 的 pid，不是 uvicorn 自己的。`kill "$(cat pidfile)"`
-  # 杀掉的只是 wrapper，uvicorn 作为它的子进程不会跟着走，会被 init 收养变成孤儿——
-  # 连续跑几轮矩阵后 `ps aux` 里堆出了三个不同端口的僵尸 uvicorn，占着旧的 checkpoint
-  # 库连接，且没人再给它们发健康检查。`exec` 让子 shell 用 uvicorn 的进程映像替换
-  # 自己，`$!` 从此就是 uvicorn 真正的 pid，一份 kill 杀得干净。
+  # ⚠ 子 shell 里用 `exec` 起最终命令，不要让它停在普通调用上。
+  #
+  # 2026-09-25 连续跑几轮矩阵后，`ps aux` 里堆出了三个不同端口的孤儿 uvicorn——
+  # `real-model-smoke.sh` 的 `trap cleanup EXIT` 按 pidfile 逐个 kill 过，它们却仍在跑。
+  # `( cd dir && cmd ) &` 时 `$!` 拿到的是这个子 shell wrapper 的 pid；如果 bash 没有
+  # 把它优化成对最终命令的原地 `exec`（多个环境变量前缀 + 管道重定向的组合下，
+  # 这条优化不保证触发），杀 wrapper 就杀不到它 fork 出来的 uvicorn 子进程。
+  # 显式 `exec` 不依赖这条不保证的优化：子 shell 直接被 uvicorn 的进程映像替换，
+  # `$!` 从此就是 uvicorn 真正的 pid，一份 kill 杀得干净——这一步之后跑的三轮
+  # 矩阵收尾都确认过 `ps aux` 干净。
   ( cd "${REPO_ROOT}/apps/deep-agent-service" && \
     PYTHONPATH="${REPO_ROOT}/apps/deep-agent-service/src" \
     DEEP_AGENT_CHECKPOINT_DB="$DA_DSN" \
@@ -150,6 +154,15 @@ else
   echo "⚠ deep-agent 链路：legacy（显式选择）。本轮走 call_skill/run_script，不是线上同款。"
 fi
 
+# 2026-09-25 实测：`KERNEL_DEEP_AGENT_TIMEOUT_MS` 默认只有 300000（5 分钟）——
+# `readDeepAgentProviderConfig` 的兜底值，deep-agent-service 自己的注释也说这只是
+# "starting placeholder"。真实 Office 任务里一次 call_skill 可能就要跑好几分钟
+# （子模型要写出一整个 pptx 脚本），单次尝试超时后 chat 层会喂回去问模型"重试"，
+# 每次重试都另开一个 thread、再跑满一次 300s——三次这样的循环刚好吃满测试给的
+# 900s 预算，屏幕上和证据里都只留下一句「超时未落定」，看不出真相是"单次尝试的
+# 上限设太短，逼着它反复重开"。这里把上限提到 480s，让一次真实尝试有更公平的
+# 时间窗口，不必靠多次重试拼凑。
+KERNEL_DEEP_AGENT_TIMEOUT_MS="${KERNEL_DEEP_AGENT_TIMEOUT_MS:-480000}" \
 KERNEL_DEEP_AGENT_BASE_URL="$DEEP_AGENT_BASE_URL" \
 DEEP_AGENT_SERVICE_INTERNAL_KEY="$DEEP_AGENT_INTERNAL_KEY" \
 KERNEL_MODEL_PROVIDER=dashscope \
