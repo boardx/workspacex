@@ -1241,8 +1241,18 @@ describe("lint-permission-paths: counter-proof", () => {
     `], { cwd: API, encoding: "utf8" })) as {
       failures: string[]; rules: Array<{path: string; reason: string; checks: number; rejectsMissingImplementation: boolean}>;
     };
+    // Board rollout control plane (`pg-board-content-rollout.ts`) adds the 9th -> 10th
+    // workbench boundary rule: a CLI-only fleet control plane over the already-admitted
+    // content relocation state machine, reading only Board UUIDs, durable control state,
+    // bounded aggregate counters and sanitized error codes -- never content bytes, object
+    // keys or exception detail. Cross-tenant concurrency/rate/fairness state is reached
+    // solely through tenant-bound SECURITY DEFINER primitives with a fixed search path and
+    // metadata-only return (`claim_whiteboard_content_rollout_admission`,
+    // `release_whiteboard_content_rollout_admission`,
+    // `invalidate_whiteboard_content_rollout_leases`), and its own reason string is checked
+    // for length/mechanical-enforcement below like every other entry.
     expect(boundaryAudit.failures).toEqual([]);
-    expect(boundaryAudit.rules).toHaveLength(9);
+    expect(boundaryAudit.rules).toHaveLength(10);
     for (const rule of boundaryAudit.rules) {
       expect(rule.reason.length, rule.path).toBeGreaterThan(40);
       expect(rule.checks, rule.path).toBeGreaterThan(0);
