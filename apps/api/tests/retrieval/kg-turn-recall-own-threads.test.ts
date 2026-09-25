@@ -65,7 +65,7 @@ beforeAll(async () => {
   await resetOrgs(ORG);
   await seedOrg({ orgId: ORG, projectId: `${ORG}-p` });
   db = new PgDatabase(appConfig());
-  read = new PgKnowledgeRead(db);
+  read = new PgKnowledgeRead(db, true);
   await addChatThread({ orgId: ORG, id: HERE, projectId: null, visibilityScope: "private", createdBy: "u-owner" });
   await addChatThread({ orgId: ORG, id: MINE, projectId: null, visibilityScope: "private", createdBy: "u-owner" });
   await addChatThread({ orgId: ORG, id: THEIRS, projectId: null, visibilityScope: "private", createdBy: "u-other" });

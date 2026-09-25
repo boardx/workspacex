@@ -1,8 +1,16 @@
 /**
  * Phase 18 F06 —— 抽取 worker：每 2 秒认领一批新消息做知识抽取。
  *
- * 骨架同 kg-projection-worker（`setInterval(...).unref()` + `running` 防重入）。抽取没开（没配置模型，
- * 或没设 KG_EXTRACTION_ENABLED=1）时不启动——队列照样排，打开后补抽。
+ * 骨架同 kg-projection-worker（`setInterval(...).unref()` + `running` 防重入）。部署没能力
+ * （没配置模型，或没设 KG_EXTRACTION_ENABLED=1）时不启动轮询。
+ *
+ * ⚠ 2026-09-25 更正（issue #4178）：这里曾经写着「队列照样排，打开后补抽」——那是**假的**。
+ *   触发器 `kg_enqueue_extraction`（迁移 20260924210000，issue #4178 起加了第二道闸门）在
+ *   部署没能力、或该组织没打开抽取时，直接 `RETURN NULL` 丢弃这条消息，从不写进
+ *   `kg_extraction_queue`。也就是说：抽取关着期间发的消息，**永远不会被补抽**——之后打开
+ *   （不管是部署装上了模型，还是组织 admin 在组织后台把开关打开）只对**打开之后新发的消息**
+ *   生效，旧的那些没有第二次机会进队列。要把关着期间的历史消息补进来，只有「整理本会话」
+ *   那条路（uc-18-3 A1，`requestReindex`），不是等它自己排上。
  */
 import { Inject, Injectable, type OnModuleDestroy, type OnModuleInit } from "@nestjs/common";
 import { newKgId } from "../../application/knowledge-graph/ids";

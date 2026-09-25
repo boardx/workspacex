@@ -59,7 +59,7 @@ function readModel(): ThreadKnowledge {
   return knowledgeGraph.getThreadKnowledge.out.parse({
     scope: SCOPE, revision: server.revision, objects: server.objects, claims: server.claims, edges: [],
     ingestion: { queued: 0, running: 0, failed: 0, failures: [] },
-    canEdit: server.canEdit, canPromote: true, visibility: "owner_only",
+    canEdit: server.canEdit, canPromote: true, visibility: "owner_only", extractionActive: true,
   });
 }
 

@@ -34,7 +34,7 @@ export async function seedRecallOrg(
   await migrateOnce();
   await resetOrgs(org);
   await seedOrg({ orgId: org, projectId: `${org}-p` });
-  await enableExtraction();
+  await enableExtraction(org);
   for (const t of threads) {
     const inProject = opts.projectThreads?.includes(t) === true;
     await addChatThread({ orgId: org, id: t, projectId: inProject ? `${org}-p` : null, visibilityScope: inProject ? "plenary" : "private", createdBy: owner });

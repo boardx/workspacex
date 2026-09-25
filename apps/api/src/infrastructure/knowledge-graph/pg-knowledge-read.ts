@@ -70,7 +70,13 @@ function toClaim(r: ClaimRow): KgClaim | null {
 }
 
 export class PgKnowledgeRead implements KnowledgeReadPort {
-  constructor(private readonly db: DatabasePort) {}
+  /**
+   * issue #4178 —— `deploymentCapable` 是 `KgExtractionModelConfig.enabled` 的现值（部署有没有
+   * 配置抽取用的模型），构造时定住：这是进程启动参数，不会在一次请求的生命周期里变。
+   * `extractionActive`（本会话所在组织现在是不是真的在抽）还要再查一次 `kg_org_extraction_settings`——
+   * 那张表随时可能被组织 admin 切换，不能只看部署能力这一半。
+   */
+  constructor(private readonly db: DatabasePort, private readonly deploymentCapable: boolean) {}
 
   private inTenant<T>(orgId: OrgId, userId: string, fn: (s: TenantSession) => Promise<T>): Promise<T> {
     return this.db.withTenant(orgId, async (s) => {
@@ -122,6 +128,15 @@ export class PgKnowledgeRead implements KnowledgeReadPort {
       );
       const failed = queue.rows.filter((q) => q.attempts >= KG_EXTRACTION_MAX_ATTEMPTS);
       const active = queue.rows.filter((q) => q.attempts < KG_EXTRACTION_MAX_ATTEMPTS);
+      // issue #4178：这个会话所在组织现在是不是真的在抽——部署具备能力 AND 该组织打开了
+      // （`kg_org_extraction_settings`，没有行 = 默认关）。与触发器 `kg_enqueue_extraction`
+      // 的两道闸门同一条件，供面板区分「队列空 = 已整理到最新」与「压根没开」。
+      const orgSetting = this.deploymentCapable
+        ? await s.query<{ enabled: boolean }>(
+            "SELECT enabled FROM kg_org_extraction_settings WHERE org_id = $1", [orgId],
+          )
+        : null;
+      const extractionActive = orgSetting !== null && (orgSetting.rows[0]?.enabled ?? false);
       return {
         revision: Number(revision.rows[0]!.n),
         objects: objects.rows.map((o) => ({
@@ -141,6 +156,7 @@ export class PgKnowledgeRead implements KnowledgeReadPort {
           failed: failed.length,
           failures: failed.map((q) => ({ sourceKind: "chat_message" as const, sourceRef: q.message_id, reason: "retries_exhausted" as const })),
         },
+        extractionActive,
       };
     });
     return guard(threadRef(thread), data);

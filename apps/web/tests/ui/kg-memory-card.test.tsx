@@ -214,6 +214,7 @@ beforeEach(() => {
       return json(knowledgeGraph.getThreadKnowledge.out.parse({
         scope: { kind: "chat_session", id: THREAD }, revision: server.revision, objects: [], claims: [], edges: [],
         ingestion: { queued: 0, running: 0, failed: 0, failures: [] }, canEdit: true, canPromote: true, visibility: "owner_only",
+        extractionActive: true,
       }));
     }
     if (path.startsWith("/knowledge-graph/cards/") && init?.method === "POST") {

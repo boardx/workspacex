@@ -1291,7 +1291,15 @@ describe("lint-permission-paths: counter-proof", () => {
     // 11 passing tests in whiteboard/resource-{lifecycle,http}.test.ts: nonmember,
     // cross-tenant identity, viewer/editor administration, revocation and auth guard.
     // Remove this increment and its allowlist entry if those protections disappear.
-    expect(total - boundaryAudit.rules.length).toBeLessThanOrEqual(97);
+    // issue #4178 adds pg-kg-org-extraction-settings.ts (97 -> 98): the org-level
+    // memory-extraction toggle. `kg_org_extraction_settings` carries one boolean per
+    // org, no conversation content, no ObjectRef to guard() against; the real write
+    // decision (org admin only) is enforced one layer up, in
+    // knowledge-graph.controller.ts's setExtractionSetting, before setEnabled is
+    // ever called -- same shape as the #3068 and E3 entries above. Pinned by
+    // tests/knowledge-graph/org-extraction-settings-repo-guard.test.ts. Remove this
+    // increment with the exception if that guard test disappears.
+    expect(total - boundaryAudit.rules.length).toBeLessThanOrEqual(98);
 
     const src = readFileSync(
       fileURLToPath(new URL("../../scripts/lint-permission-paths.mjs", import.meta.url)),

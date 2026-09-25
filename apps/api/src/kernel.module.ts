@@ -611,11 +611,12 @@ import {
 } from "./application/first-value/first-value-recorder";
 import { PgFirstValueFacts } from "./infrastructure/first-value/pg-first-value-facts";
 import { FirstValueController } from "./interface/controllers/first-value.controller";
-import { GRAPH_PROJECTION_PORT, KG_CONFLICT_PORT, KG_EXTRACTION_QUEUE_PORT, KG_EXTRACTION_SOURCE_PORT, HUMAN_ACTION_PORT, KNOWLEDGE_EXTRACTOR_PORT, KNOWLEDGE_READ_PORT, MEMORY_CARD_PORT, ONTOLOGY_STORE_PORT, PROMOTION_PORT } from "./application/knowledge-graph/ports";
+import { GRAPH_PROJECTION_PORT, KG_CONFLICT_PORT, KG_EXTRACTION_QUEUE_PORT, KG_EXTRACTION_SOURCE_PORT, KG_ORG_EXTRACTION_SETTINGS_PORT, HUMAN_ACTION_PORT, KNOWLEDGE_EXTRACTOR_PORT, KNOWLEDGE_READ_PORT, MEMORY_CARD_PORT, ONTOLOGY_STORE_PORT, PROMOTION_PORT } from "./application/knowledge-graph/ports";
 import { PgPromotion } from "./infrastructure/knowledge-graph/pg-promotion";
 import { PgHumanAction } from "./infrastructure/knowledge-graph/pg-human-action";
 import { KnowledgeGraphController } from "./interface/controllers/knowledge-graph.controller";
 import { PgKnowledgeRead } from "./infrastructure/knowledge-graph/pg-knowledge-read";
+import { PgKgOrgExtractionSettings } from "./infrastructure/knowledge-graph/pg-kg-org-extraction-settings";
 import { KgExtractionWorker } from "./infrastructure/knowledge-graph/kg-extraction-worker";
 import { KG_EXTRACTION_MODEL_CONFIG, readKgExtractionModelConfig, type KgExtractionModelConfig } from "./infrastructure/knowledge-graph/kg-extraction-model-config";
 import { ModelKnowledgeExtractor } from "./infrastructure/knowledge-graph/model-knowledge-extractor";
@@ -3006,8 +3007,14 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
       inject: [MODEL_CALL_PORT, KG_EXTRACTION_MODEL_CONFIG, LOGGER_PORT],
     },
     KgExtractionWorker,
-    // F09：知识面板 / 来源抽屉 / 每轮记忆行的读口。
-    { provide: KNOWLEDGE_READ_PORT, useFactory: (db: DatabasePort) => new PgKnowledgeRead(db), inject: [DATABASE_PORT] },
+    // F09：知识面板 / 来源抽屉 / 每轮记忆行的读口。issue #4178：多带部署能力位，算 `extractionActive`。
+    {
+      provide: KNOWLEDGE_READ_PORT,
+      useFactory: (db: DatabasePort, config: KgExtractionModelConfig) => new PgKnowledgeRead(db, config.enabled),
+      inject: [DATABASE_PORT, KG_EXTRACTION_MODEL_CONFIG],
+    },
+    // issue #4178：记忆抽取的组织开关（读任何成员，写仅组织 admin，判据在 controller）。
+    { provide: KG_ORG_EXTRACTION_SETTINGS_PORT, useFactory: (db: DatabasePort) => new PgKgOrgExtractionSettings(db), inject: [DATABASE_PORT] },
     // F10：人工编辑动作（只经 kg_apply_human_action 落表）。
     { provide: HUMAN_ACTION_PORT, useFactory: (db: DatabasePort) => new PgHumanAction(db), inject: [DATABASE_PORT] },
     // F11：晋升到个人空间（只经 kg_promote_claim 落表）。

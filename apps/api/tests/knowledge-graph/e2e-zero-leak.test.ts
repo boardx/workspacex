@@ -28,6 +28,7 @@ import {
   client, memoryPath, projectGraph, publishAgent, settleKnowledge, sourcesPath, startApp, turn,
   type Client, type E2eApp, type HttpResult, type ThreadKnowledgeBody, type Turn, type TurnMemoryBody,
 } from "./kg-e2e-fixtures";
+import { enableExtraction } from "./kg-extraction-fixtures";
 
 const ORG = "org-kg-f14-zero-leak";
 const ORG2 = "org-kg-f14-zero-leak2";
@@ -107,6 +108,7 @@ beforeAll(async () => {
   await addChatThread({ orgId: ORG, id: O, projectId: null, visibilityScope: "private", createdBy: OTHER, title: "我的对话" });
   // 另一个组织：同一个用户 id 也是成员，有自己的个人会话
   await seedOrg({ orgId: ORG2, projectId: `${ORG2}-p` });
+  await enableExtraction(ORG, ORG2);
   await addOrgMember(ORG2, OWNER, "consultant", null);
   await publishAgent(ORG2, AGENT2, OWNER);
   await addChatThread({ orgId: ORG2, id: X, projectId: null, visibilityScope: "private", createdBy: OWNER, title: "另一个组织" });

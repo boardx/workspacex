@@ -196,7 +196,7 @@ function knowledge(): ThreadKnowledge {
   return knowledgeGraph.getThreadKnowledge.out.parse({
     scope: { kind: "chat_session", id: THREAD }, revision: 1, objects: [], claims: [], edges: [],
     ingestion: { queued: 0, running: 0, failed: 0, failures: [] },
-    canEdit: false, canPromote: false, visibility: "owner_only",
+    canEdit: false, canPromote: false, visibility: "owner_only", extractionActive: true,
   });
 }
 
