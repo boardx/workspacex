@@ -163,7 +163,10 @@ describe("F06 interview answers to report", () => {
     expect(await screen.findByTestId("itv-report")).toHaveTextContent("江西足球访谈报告");
     expect(screen.getByTestId("itv-report-markdown")).toHaveTextContent("基层体系");
     expect(screen.getByTestId("itv-report-markdown").querySelector("h1")).toBeNull();
-    expect(screen.getByTestId("itv-report-markdown").querySelector("h2")).toHaveTextContent("基层体系");
+    expect(screen.getByTestId("itv-report-markdown").querySelector("h2")).toBeNull();
+    // Generated `##` headings render two levels lower than markdown's h2 so they nest under the
+    // report's h2 title and the "研究发现" h3 section wrapper (see interview-report-markdown.tsx).
+    expect(screen.getByTestId("itv-report-markdown").querySelector("h4")).toHaveTextContent("基层体系");
     expect(screen.getByTestId("itv-report-markdown").querySelectorAll("li")).toHaveLength(2);
     expect(screen.getByTestId("itv-report-markdown").querySelector("script")).toBeNull();
     expect(screen.getByTestId("itv-report-markdown").querySelector("pre")).toBeNull();
