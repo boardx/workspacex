@@ -57,6 +57,13 @@ REVOKE ALL ON FUNCTION kg_extraction_set_enabled(boolean) FROM PUBLIC;
 
 -- 读：这张表没有 RLS（不是租户数据，全库一行），直接 SELECT 即可，不必再包一层
 -- SECURITY DEFINER 读函数——`kg_org_extraction_settings` 的读也是直接 SELECT（同一先例）。
+-- 这条 GRANT 让 app_rw 首次真的能读这张表（上一条迁移 REVOKE ALL），verify-rls.sh 的
+-- kernel_tenant_table_audit() 会把「无租户列 + app_rw 有 SELECT」的表判成
+-- UNTENANTED_BUT_GRANTED，除非表上有一份 `kernel-no-tenant-data:` 开头的 COMMENT
+-- 声明这是有意的豁免（0004 迁移的先例）——这里补上。
+COMMENT ON TABLE kg_extraction_state IS
+  'kernel-no-tenant-data: 部署级知识图谱抽取开关，全库单例（singleton 行），不属于任何组织，'
+  '没有 org_id 也不应该有——它是一次部署的运行时配置，不是租户数据。';
 GRANT SELECT ON kg_extraction_state TO app_rw;
 
 DO $$

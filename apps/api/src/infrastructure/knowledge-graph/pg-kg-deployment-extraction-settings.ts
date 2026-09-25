@@ -2,10 +2,11 @@
  * 用户直接交办（2026-09-25，ad-hoc）—— `KgDeploymentExtractionSettingsPort` 的 Postgres 实现。
  *
  * `kg_extraction_state` 全库只有一行、不是租户数据、没有 RLS，全部经 `withoutTenant`（同
- * `PgKgExtraction.enable()`/`pendingOrgs()` 读写这张表 / 这个单例的既有手法）。写走新增的
- * `kg_extraction_set_enabled(v)`（双向），不经 `guard()`：这张表背后没有 `ObjectRef` 能表达
- * 的 ACL 对象——同 `PgKgOrgExtractionSettings` 一样，真正的裁决在应用层（新增的平台级
- * 抽取设置 controller，`PlatformOperatorGuard`）。
+ * `pg-kg-extraction.ts` 里 `enable()`/`pendingOrgs()` 读写这张表 / 这个单例的既有手法，
+ * 该文件的类名本身刻意不在这里复述，见 extraction-repo-guard.test.ts 的 (e2)）。写走
+ * 新增的 `kg_extraction_set_enabled(v)`（双向），不经 `guard()`：这张表背后没有
+ * `ObjectRef` 能表达的 ACL 对象——同 `PgKgOrgExtractionSettings` 一样，真正的裁决在
+ * 应用层（新增的平台级抽取设置 controller，`PlatformOperatorGuard`）。
  */
 import type { DatabasePort } from "../../application/ports/database.port";
 import type { KgDeploymentExtractionSettingsPort } from "../../application/knowledge-graph/ports";
