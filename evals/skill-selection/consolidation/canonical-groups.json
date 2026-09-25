@@ -1,0 +1,1033 @@
+{
+  "source_pr": 4017,
+  "source_head_sha": "fabee33d8b822d0bd3e904f048f691af55ded4a4",
+  "generated_from_count": 645,
+  "canonicals": [
+    {
+      "canonical_id": "legal-compliance/work-item-management",
+      "family": "事项管理",
+      "mode": "base+overlay",
+      "agents": [
+        "legal-compliance"
+      ],
+      "member_count": 13,
+      "members": [
+        "legal/ai-governance-legal/matter-workspace",
+        "legal/commercial-legal/matter-workspace",
+        "legal/corporate-legal/matter-workspace",
+        "legal/employment-legal/matter-workspace",
+        "legal/ip-legal/matter-workspace",
+        "legal/legal-clinic/client-comms-log",
+        "legal/legal-clinic/deadlines",
+        "legal/legal-clinic/supervisor-review-queue",
+        "legal/litigation-legal/matter-close",
+        "legal/litigation-legal/matter-intake",
+        "legal/litigation-legal/matter-update",
+        "legal/privacy-legal/matter-workspace",
+        "legal/product-legal/matter-workspace"
+      ],
+      "improvement_tags": [
+        "evals",
+        "icp-fit",
+        "localization",
+        "professional-depth"
+      ]
+    },
+    {
+      "canonical_id": "shared/profile-onboarding",
+      "family": "档案访谈",
+      "mode": "base+overlay",
+      "agents": [
+        "knowledge-productivity",
+        "legal-compliance",
+        "marketing-growth",
+        "operations-project"
+      ],
+      "member_count": 13,
+      "members": [
+        "kwp/productivity/start",
+        "kwp/small-business/smb-onboard",
+        "legal/ai-governance-legal/cold-start-interview",
+        "legal/commercial-legal/cold-start-interview",
+        "legal/corporate-legal/cold-start-interview",
+        "legal/employment-legal/cold-start-interview",
+        "legal/ip-legal/cold-start-interview",
+        "legal/legal-builder-hub/cold-start-interview",
+        "legal/litigation-legal/cold-start-interview",
+        "legal/privacy-legal/cold-start-interview",
+        "legal/product-legal/cold-start-interview",
+        "legal/regulatory-legal/cold-start-interview",
+        "mkt/product-marketing"
+      ],
+      "improvement_tags": [
+        "evals",
+        "icp-fit",
+        "localization"
+      ]
+    },
+    {
+      "canonical_id": "shared/profile-customization",
+      "family": "档案定制",
+      "mode": "base+overlay",
+      "agents": [
+        "executive-strategy",
+        "legal-compliance",
+        "marketing-growth",
+        "operations-project",
+        "sales-revenue"
+      ],
+      "member_count": 12,
+      "members": [
+        "alir/c-level-advisor/context-engine",
+        "kwp/cowork-plugin-management/cowork-plugin-customizer",
+        "kwp/productivity/memory-management",
+        "kwp/sales/setup",
+        "kwp/small-business/brand-style",
+        "legal/ai-governance-legal/customize",
+        "legal/commercial-legal/customize",
+        "legal/corporate-legal/customize",
+        "legal/employment-legal/customize",
+        "legal/ip-legal/customize",
+        "legal/privacy-legal/customize",
+        "legal/product-legal/customize"
+      ],
+      "improvement_tags": [
+        "evals",
+        "guardrails",
+        "icp-fit",
+        "professional-depth"
+      ]
+    },
+    {
+      "canonical_id": "shared/status-update",
+      "family": "状态汇报",
+      "mode": "base+overlay",
+      "agents": [
+        "engineering-it",
+        "legal-compliance",
+        "operations-project",
+        "product-design",
+        "sales-revenue"
+      ],
+      "member_count": 12,
+      "members": [
+        "alir/project-management/senior-pm",
+        "askills/internal-comms",
+        "kwp/engineering/standup",
+        "kwp/operations/status-report",
+        "kwp/product-management/stakeholder-update",
+        "kwp/sales/daily-briefing",
+        "kwp/sales/end-of-day",
+        "kwp/sales/weekly-wrap",
+        "legal/corporate-legal/deal-team-summary",
+        "legal/legal-clinic/semester-handoff",
+        "legal/legal-clinic/status",
+        "legal/litigation-legal/portfolio-status"
+      ],
+      "improvement_tags": [
+        "evals",
+        "guardrails",
+        "icp-fit",
+        "localization",
+        "professional-depth",
+        "runtime-dependency"
+      ]
+    },
+    {
+      "canonical_id": "legal/contract-review",
+      "family": "合同审阅",
+      "mode": "base+overlay",
+      "agents": [
+        "legal-compliance"
+      ],
+      "member_count": 8,
+      "members": [
+        "evolsb/claude-legal-skill",
+        "kwp/legal/review-contract",
+        "kwp/small-business/contract-review",
+        "legal/commercial-legal/amendment-history",
+        "legal/commercial-legal/review-proposals",
+        "legal/commercial-legal/saas-msa-review",
+        "legal/commercial-legal/vendor-agreement-review",
+        "legal/ip-legal/ip-clause-review"
+      ],
+      "improvement_tags": [
+        "evals",
+        "output-contract",
+        "professional-depth",
+        "runtime-dependency"
+      ]
+    },
+    {
+      "canonical_id": "shared/risk-assessment",
+      "family": "风险评估",
+      "mode": "base+overlay",
+      "agents": [
+        "knowledge-productivity",
+        "legal-compliance",
+        "operations-project",
+        "sales-revenue"
+      ],
+      "member_count": 8,
+      "members": [
+        "alir/ra-qm-team/risk-management-specialist",
+        "kwp/legal/legal-risk-assessment",
+        "kwp/operations/risk-assessment",
+        "kwp/sales/deal-signals",
+        "legal/employment-legal/termination-review",
+        "legal/employment-legal/worker-classification",
+        "legal/litigation-legal/demand-received",
+        "legal/product-legal/feature-risk-assessment"
+      ],
+      "improvement_tags": [
+        "evals",
+        "guardrails",
+        "icp-fit",
+        "localization",
+        "output-contract",
+        "professional-depth",
+        "runtime-dependency"
+      ]
+    },
+    {
+      "canonical_id": "legal/internal-investigation",
+      "family": "内部调查",
+      "mode": "workflow",
+      "agents": [
+        "legal-compliance"
+      ],
+      "member_count": 6,
+      "members": [
+        "legal/employment-legal/internal-investigation",
+        "legal/employment-legal/investigation-add",
+        "legal/employment-legal/investigation-memo",
+        "legal/employment-legal/investigation-open",
+        "legal/employment-legal/investigation-query",
+        "legal/employment-legal/investigation-summary"
+      ],
+      "improvement_tags": [
+        "evals",
+        "professional-depth"
+      ]
+    },
+    {
+      "canonical_id": "marketing/content-creation",
+      "family": "内容创作",
+      "mode": "modes",
+      "agents": [
+        "marketing-growth",
+        "sales-revenue"
+      ],
+      "member_count": 6,
+      "members": [
+        "alir/marketing-skill/content-production",
+        "kwp/marketing/content-creation",
+        "kwp/marketing/draft-content",
+        "kwp/sales/create-an-asset",
+        "kwp/small-business/canva-creator",
+        "kwp/small-business/social-content-engine"
+      ],
+      "improvement_tags": [
+        "evals",
+        "guardrails",
+        "icp-fit",
+        "localization",
+        "professional-depth",
+        "runtime-dependency"
+      ]
+    },
+    {
+      "canonical_id": "marketing/seo-audit",
+      "family": "SEO 审计",
+      "mode": "modes",
+      "agents": [
+        "marketing-growth"
+      ],
+      "member_count": 6,
+      "members": [
+        "kwp/marketing/seo-audit",
+        "kwp/small-business/seo-ai-visibility",
+        "mkt/seo-audit",
+        "seo/seo-audit",
+        "seo/seo-page",
+        "seo/seo-technical"
+      ],
+      "improvement_tags": [
+        "evals",
+        "guardrails",
+        "icp-fit",
+        "localization",
+        "runtime-dependency"
+      ]
+    },
+    {
+      "canonical_id": "revenue/customer-intelligence",
+      "family": "客户研究",
+      "mode": "base+overlay",
+      "agents": [
+        "customer-success",
+        "data-research",
+        "sales-revenue"
+      ],
+      "member_count": 6,
+      "members": [
+        "kwp/customer-support/customer-research",
+        "kwp/partner-built/common-room/account-research",
+        "kwp/sales/account-context",
+        "kwp/sales/account-research",
+        "kwp/sales/stakeholder-map",
+        "mkt/customer-research"
+      ],
+      "improvement_tags": [
+        "evals",
+        "icp-fit",
+        "localization",
+        "runtime-dependency"
+      ]
+    },
+    {
+      "canonical_id": "shared/competitive-analysis",
+      "family": "竞品分析",
+      "mode": "base+overlay",
+      "agents": [
+        "data-research",
+        "finance-investing",
+        "marketing-growth",
+        "product-design",
+        "sales-revenue"
+      ],
+      "member_count": 6,
+      "members": [
+        "fs/financial-analysis/competitive-analysis",
+        "kwp/marketing/competitive-brief",
+        "kwp/product-management/competitive-brief",
+        "kwp/sales/competitive-intelligence",
+        "mkt/competitor-profiling",
+        "wsh/startup-business-analyst/competitive-landscape"
+      ],
+      "improvement_tags": [
+        "evals",
+        "guardrails",
+        "professional-depth"
+      ]
+    },
+    {
+      "canonical_id": "shared/meeting-prep",
+      "family": "会前准备",
+      "mode": "base+overlay",
+      "agents": [
+        "finance-investing",
+        "legal-compliance",
+        "sales-revenue"
+      ],
+      "member_count": 6,
+      "members": [
+        "fs/private-equity/dd-meeting-prep",
+        "kwp/legal/meeting-briefing",
+        "kwp/partner-built/common-room/call-prep",
+        "kwp/partner-built/common-room/weekly-prep-brief",
+        "kwp/sales/call-prep",
+        "legal/litigation-legal/matter-briefing"
+      ],
+      "improvement_tags": [
+        "evals",
+        "guardrails",
+        "icp-fit",
+        "localization",
+        "runtime-dependency"
+      ]
+    },
+    {
+      "canonical_id": "marketing/copywriting",
+      "family": "文案",
+      "mode": "modes",
+      "agents": [
+        "marketing-growth",
+        "product-design"
+      ],
+      "member_count": 5,
+      "members": [
+        "alir/marketing-skill/copy-editing",
+        "alir/marketing-skill/copywriting",
+        "kwp/design/ux-copy",
+        "mkt/copy-editing",
+        "mkt/copywriting"
+      ],
+      "improvement_tags": [
+        "evals",
+        "guardrails",
+        "localization"
+      ]
+    },
+    {
+      "canonical_id": "platform/skill-management",
+      "family": "技能管理",
+      "mode": "workflow",
+      "agents": [
+        "engineering-it",
+        "knowledge-productivity"
+      ],
+      "member_count": 5,
+      "members": [
+        "legal/legal-builder-hub/auto-updater",
+        "legal/legal-builder-hub/registry-browser",
+        "legal/legal-builder-hub/related-skills-surfacer",
+        "legal/legal-builder-hub/skill-installer",
+        "legal/legal-builder-hub/skill-manager"
+      ],
+      "improvement_tags": [
+        "evals",
+        "guardrails",
+        "icp-fit",
+        "output-contract",
+        "professional-depth",
+        "runtime-dependency"
+      ]
+    },
+    {
+      "canonical_id": "sales/pipeline-review",
+      "family": "管道复盘",
+      "mode": "modes",
+      "agents": [
+        "sales-revenue"
+      ],
+      "member_count": 5,
+      "members": [
+        "kwp/sales/deal-advance-gap",
+        "kwp/sales/deal-review",
+        "kwp/sales/pipeline-review",
+        "kwp/sales/team-pipeline",
+        "kwp/sales/win-loss-review"
+      ],
+      "improvement_tags": [
+        "evals",
+        "guardrails",
+        "icp-fit"
+      ]
+    },
+    {
+      "canonical_id": "finance/month-end-close",
+      "family": "月结",
+      "mode": "base+overlay",
+      "agents": [
+        "finance-investing"
+      ],
+      "member_count": 4,
+      "members": [
+        "fs/fund-admin/accrual-schedule",
+        "kwp/finance/close-management",
+        "kwp/small-business/close-month",
+        "kwp/small-business/month-end-prep"
+      ],
+      "improvement_tags": [
+        "evals",
+        "guardrails",
+        "icp-fit",
+        "localization",
+        "runtime-dependency"
+      ]
+    },
+    {
+      "canonical_id": "marketing/brand-review",
+      "family": "品牌审查",
+      "mode": "modes",
+      "agents": [
+        "marketing-growth"
+      ],
+      "member_count": 4,
+      "members": [
+        "alir/marketing-skill/brand-guidelines",
+        "askills/brand-guidelines",
+        "kwp/marketing/brand-review",
+        "kwp/partner-built/brand-voice/brand-voice-enforcement"
+      ],
+      "improvement_tags": [
+        "evals",
+        "guardrails",
+        "icp-fit",
+        "output-contract",
+        "professional-depth"
+      ]
+    },
+    {
+      "canonical_id": "sales/outreach",
+      "family": "外联序列",
+      "mode": "modes",
+      "agents": [
+        "sales-revenue"
+      ],
+      "member_count": 4,
+      "members": [
+        "kwp/sales/draft-outreach",
+        "kwp/small-business/grow-pipeline",
+        "kwp/small-business/outreach-composer",
+        "mkt/cold-email"
+      ],
+      "improvement_tags": [
+        "evals",
+        "guardrails",
+        "icp-fit",
+        "localization"
+      ]
+    },
+    {
+      "canonical_id": "shared/pricing-strategy",
+      "family": "定价",
+      "mode": "base+overlay",
+      "agents": [
+        "marketing-growth",
+        "product-design",
+        "sales-revenue"
+      ],
+      "member_count": 4,
+      "members": [
+        "alir/commercial/deal-desk",
+        "alir/commercial/pricing-strategist",
+        "alir/marketing-skill/pricing-strategy",
+        "mkt/pricing"
+      ],
+      "improvement_tags": [
+        "evals",
+        "guardrails",
+        "icp-fit",
+        "runtime-dependency"
+      ]
+    },
+    {
+      "canonical_id": "shared/response-drafting",
+      "family": "回复起草",
+      "mode": "base+overlay",
+      "agents": [
+        "customer-success",
+        "sales-revenue"
+      ],
+      "member_count": 4,
+      "members": [
+        "kwp/customer-support/draft-response",
+        "kwp/sales/handle-objection",
+        "kwp/sales/inbox-sweep",
+        "kwp/small-business/ticket-deflector"
+      ],
+      "improvement_tags": [
+        "evals",
+        "icp-fit"
+      ]
+    },
+    {
+      "canonical_id": "legal/international-expansion",
+      "family": "出海扩张",
+      "mode": "workflow",
+      "agents": [
+        "legal-compliance"
+      ],
+      "member_count": 3,
+      "members": [
+        "legal/employment-legal/expansion-kickoff",
+        "legal/employment-legal/expansion-update",
+        "legal/employment-legal/international-expansion"
+      ],
+      "improvement_tags": [
+        "evals",
+        "professional-depth"
+      ]
+    },
+    {
+      "canonical_id": "shared/enterprise-search",
+      "family": "企业检索",
+      "mode": "modes",
+      "agents": [
+        "operations-project"
+      ],
+      "member_count": 3,
+      "members": [
+        "kwp/enterprise-search/search",
+        "kwp/enterprise-search/search-strategy",
+        "kwp/enterprise-search/source-management"
+      ],
+      "improvement_tags": [
+        "evals",
+        "guardrails",
+        "icp-fit",
+        "professional-depth"
+      ]
+    },
+    {
+      "canonical_id": "data/sql-query",
+      "family": "SQL 查询",
+      "mode": "modes",
+      "agents": [
+        "data-research"
+      ],
+      "member_count": 2,
+      "members": [
+        "kwp/data/sql-queries",
+        "kwp/data/write-query"
+      ],
+      "improvement_tags": [
+        "evals",
+        "guardrails",
+        "icp-fit",
+        "output-contract"
+      ]
+    },
+    {
+      "canonical_id": "data/visualization",
+      "family": "数据可视化",
+      "mode": "modes",
+      "agents": [
+        "data-research"
+      ],
+      "member_count": 2,
+      "members": [
+        "kwp/data/create-viz",
+        "kwp/data/data-visualization"
+      ],
+      "improvement_tags": [
+        "evals",
+        "guardrails",
+        "runtime-dependency"
+      ]
+    },
+    {
+      "canonical_id": "engineering/architecture-design",
+      "family": "架构设计",
+      "mode": "modes",
+      "agents": [
+        "engineering-it"
+      ],
+      "member_count": 2,
+      "members": [
+        "kwp/engineering/architecture",
+        "kwp/engineering/system-design"
+      ],
+      "improvement_tags": [
+        "evals",
+        "guardrails",
+        "output-contract",
+        "professional-depth"
+      ]
+    },
+    {
+      "canonical_id": "finance/company-tearsheet",
+      "family": "公司速览",
+      "mode": "provider-adapter",
+      "agents": [
+        "finance-investing"
+      ],
+      "member_count": 2,
+      "members": [
+        "fs/investment-banking/strip-profile",
+        "fs/partner-built/spglobal/tear-sheet"
+      ],
+      "improvement_tags": [
+        "evals",
+        "runtime-dependency"
+      ]
+    },
+    {
+      "canonical_id": "finance/earnings-preview",
+      "family": "财报前瞻",
+      "mode": "provider-adapter",
+      "agents": [
+        "finance-investing"
+      ],
+      "member_count": 2,
+      "members": [
+        "fs/equity-research/earnings-preview",
+        "fs/partner-built/spglobal/earnings-preview-beta"
+      ],
+      "improvement_tags": [
+        "evals",
+        "guardrails",
+        "runtime-dependency"
+      ]
+    },
+    {
+      "canonical_id": "finance/journal-entry",
+      "family": "日记账",
+      "mode": "modes",
+      "agents": [
+        "finance-investing"
+      ],
+      "member_count": 2,
+      "members": [
+        "kwp/finance/journal-entry",
+        "kwp/finance/journal-entry-prep"
+      ],
+      "improvement_tags": [
+        "evals",
+        "guardrails",
+        "icp-fit",
+        "localization",
+        "professional-depth"
+      ]
+    },
+    {
+      "canonical_id": "finance/reconciliation",
+      "family": "对账",
+      "mode": "base+overlay",
+      "agents": [
+        "finance-investing"
+      ],
+      "member_count": 2,
+      "members": [
+        "fs/fund-admin/gl-recon",
+        "kwp/finance/reconciliation"
+      ],
+      "improvement_tags": [
+        "evals",
+        "guardrails",
+        "runtime-dependency"
+      ]
+    },
+    {
+      "canonical_id": "finance/variance-analysis",
+      "family": "差异分析",
+      "mode": "base+overlay",
+      "agents": [
+        "finance-investing"
+      ],
+      "member_count": 2,
+      "members": [
+        "fs/fund-admin/variance-commentary",
+        "kwp/finance/variance-analysis"
+      ],
+      "improvement_tags": [
+        "evals",
+        "guardrails"
+      ]
+    },
+    {
+      "canonical_id": "legal/nda-review",
+      "family": "NDA 审阅",
+      "mode": "base+overlay",
+      "agents": [
+        "legal-compliance"
+      ],
+      "member_count": 2,
+      "members": [
+        "kwp/legal/triage-nda",
+        "legal/commercial-legal/nda-review"
+      ],
+      "improvement_tags": [
+        "evals"
+      ]
+    },
+    {
+      "canonical_id": "legal/policy-drafting",
+      "family": "制度文件",
+      "mode": "modes",
+      "agents": [
+        "legal-compliance"
+      ],
+      "member_count": 2,
+      "members": [
+        "legal/employment-legal/handbook-updates",
+        "legal/employment-legal/policy-drafting"
+      ],
+      "improvement_tags": [
+        "evals",
+        "icp-fit"
+      ]
+    },
+    {
+      "canonical_id": "legal/policy-monitoring",
+      "family": "政策漂移监测",
+      "mode": "base+overlay",
+      "agents": [
+        "legal-compliance"
+      ],
+      "member_count": 2,
+      "members": [
+        "legal/ai-governance-legal/policy-monitor",
+        "legal/privacy-legal/policy-monitor"
+      ],
+      "improvement_tags": [
+        "evals"
+      ]
+    },
+    {
+      "canonical_id": "legal/reg-gap-analysis",
+      "family": "法规差距分析",
+      "mode": "base+overlay",
+      "agents": [
+        "legal-compliance"
+      ],
+      "member_count": 2,
+      "members": [
+        "legal/ai-governance-legal/reg-gap-analysis",
+        "legal/privacy-legal/reg-gap-analysis"
+      ],
+      "improvement_tags": [
+        "evals"
+      ]
+    },
+    {
+      "canonical_id": "legal/regulatory-monitoring",
+      "family": "法规监测",
+      "mode": "base+overlay",
+      "agents": [
+        "legal-compliance"
+      ],
+      "member_count": 2,
+      "members": [
+        "legal/regulatory-legal/comments",
+        "legal/regulatory-legal/reg-feed-watcher"
+      ],
+      "improvement_tags": [
+        "evals",
+        "icp-fit",
+        "localization",
+        "professional-depth"
+      ]
+    },
+    {
+      "canonical_id": "marketing/ai-search-optimization",
+      "family": "AI 搜索优化",
+      "mode": "modes",
+      "agents": [
+        "marketing-growth"
+      ],
+      "member_count": 2,
+      "members": [
+        "mkt/ai-seo",
+        "seo/seo-geo"
+      ],
+      "improvement_tags": [
+        "evals",
+        "icp-fit",
+        "localization"
+      ]
+    },
+    {
+      "canonical_id": "marketing/analytics-tracking",
+      "family": "埋点方案",
+      "mode": "modes",
+      "agents": [
+        "marketing-growth"
+      ],
+      "member_count": 2,
+      "members": [
+        "alir/marketing-skill/analytics-tracking",
+        "mkt/analytics"
+      ],
+      "improvement_tags": [
+        "evals",
+        "guardrails",
+        "icp-fit",
+        "localization",
+        "professional-depth"
+      ]
+    },
+    {
+      "canonical_id": "marketing/brand-guidelines",
+      "family": "品牌规范",
+      "mode": "workflow",
+      "agents": [
+        "marketing-growth"
+      ],
+      "member_count": 2,
+      "members": [
+        "kwp/partner-built/brand-voice/discover-brand",
+        "kwp/partner-built/brand-voice/guideline-generation"
+      ],
+      "improvement_tags": [
+        "evals"
+      ]
+    },
+    {
+      "canonical_id": "marketing/competitor-pages",
+      "family": "竞品对比页",
+      "mode": "modes",
+      "agents": [
+        "marketing-growth"
+      ],
+      "member_count": 2,
+      "members": [
+        "mkt/competitors",
+        "seo/seo-competitor-pages"
+      ],
+      "improvement_tags": [
+        "evals",
+        "icp-fit"
+      ]
+    },
+    {
+      "canonical_id": "marketing/image-generation",
+      "family": "营销配图",
+      "mode": "modes",
+      "agents": [
+        "marketing-growth"
+      ],
+      "member_count": 2,
+      "members": [
+        "mkt/image",
+        "seo/seo-image-gen"
+      ],
+      "improvement_tags": [
+        "evals",
+        "guardrails",
+        "icp-fit",
+        "runtime-dependency"
+      ]
+    },
+    {
+      "canonical_id": "marketing/lifecycle-email",
+      "family": "生命周期邮件",
+      "mode": "modes",
+      "agents": [
+        "marketing-growth"
+      ],
+      "member_count": 2,
+      "members": [
+        "alir/marketing-skill/email-sequence",
+        "kwp/marketing/email-sequence"
+      ],
+      "improvement_tags": [
+        "evals",
+        "guardrails",
+        "icp-fit",
+        "localization",
+        "professional-depth"
+      ]
+    },
+    {
+      "canonical_id": "marketing/programmatic-seo",
+      "family": "程序化 SEO",
+      "mode": "modes",
+      "agents": [
+        "marketing-growth"
+      ],
+      "member_count": 2,
+      "members": [
+        "mkt/programmatic-seo",
+        "seo/seo-programmatic"
+      ],
+      "improvement_tags": [
+        "evals",
+        "guardrails",
+        "icp-fit",
+        "localization"
+      ]
+    },
+    {
+      "canonical_id": "marketing/referral-program",
+      "family": "推荐计划",
+      "mode": "modes",
+      "agents": [
+        "marketing-growth"
+      ],
+      "member_count": 2,
+      "members": [
+        "alir/marketing-skill/referral-program",
+        "mkt/referrals"
+      ],
+      "improvement_tags": [
+        "evals",
+        "guardrails",
+        "icp-fit"
+      ]
+    },
+    {
+      "canonical_id": "operations-project/work-item-management",
+      "family": "事项管理",
+      "mode": "base+overlay",
+      "agents": [
+        "operations-project"
+      ],
+      "member_count": 2,
+      "members": [
+        "kwp/productivity/task-management",
+        "kwp/productivity/update"
+      ],
+      "improvement_tags": [
+        "evals",
+        "professional-depth"
+      ]
+    },
+    {
+      "canonical_id": "sales-revenue/work-item-management",
+      "family": "事项管理",
+      "mode": "base+overlay",
+      "agents": [
+        "sales-revenue"
+      ],
+      "member_count": 2,
+      "members": [
+        "kwp/sales/log-activity",
+        "kwp/sales/update-opportunity"
+      ],
+      "improvement_tags": [
+        "evals",
+        "icp-fit"
+      ]
+    },
+    {
+      "canonical_id": "sales/account-planning",
+      "family": "客户经营计划",
+      "mode": "modes",
+      "agents": [
+        "sales-revenue"
+      ],
+      "member_count": 2,
+      "members": [
+        "kwp/sales/account-plan",
+        "kwp/sales/expansion-whitespace"
+      ],
+      "improvement_tags": [
+        "evals",
+        "icp-fit"
+      ]
+    },
+    {
+      "canonical_id": "sales/forecasting",
+      "family": "销售预测",
+      "mode": "modes",
+      "agents": [
+        "sales-revenue"
+      ],
+      "member_count": 2,
+      "members": [
+        "kwp/sales/deal-slip-scenario",
+        "kwp/sales/forecast"
+      ],
+      "improvement_tags": [
+        "evals",
+        "icp-fit"
+      ]
+    },
+    {
+      "canonical_id": "finance-investing/work-item-management",
+      "family": "事项管理",
+      "mode": "base+overlay",
+      "agents": [
+        "finance-investing"
+      ],
+      "member_count": 1,
+      "members": [
+        "fs/investment-banking/deal-tracker"
+      ],
+      "improvement_tags": [
+        "evals",
+        "guardrails"
+      ]
+    },
+    {
+      "canonical_id": "legal/legal-research",
+      "family": "法律检索",
+      "mode": "base+overlay",
+      "agents": [
+        "legal-compliance"
+      ],
+      "member_count": 1,
+      "members": [
+        "legal/legal-clinic/research-start"
+      ],
+      "improvement_tags": [
+        "evals",
+        "icp-fit",
+        "localization"
+      ]
+    }
+  ]
+}
