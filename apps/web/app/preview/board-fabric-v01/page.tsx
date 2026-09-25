@@ -3,4 +3,3 @@ import { BoardFabricPreview } from "@/components/whiteboard/fabric-preview/board
 export default function BoardFabricV01PreviewPage() {
   return <BoardFabricPreview />;
 }
-

@@ -1,7 +1,7 @@
 import { fireEvent, render, screen } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const canvasState = vi.hoisted(() => ({ instances: 0, objects: [] as Array<{ data?: { boardObjectId?: string }; left: number; top: number; width: number; height: number; scaleX: number; scaleY: number }> }));
+const canvasState = vi.hoisted(() => ({ instances: 0, activeObjectId: null as string | null, objects: [] as Array<{ data?: { boardObjectId?: string }; left: number; top: number; width: number; height: number; scaleX: number; scaleY: number }> }));
 
 vi.mock("fabric", () => {
   class Shape {
@@ -18,7 +18,7 @@ vi.mock("fabric", () => {
     add(object: Shape) { this.objects.push(object); canvasState.objects.push(object); }
     getObjects() { return this.objects; }
     getActiveObject() { return undefined; }
-    setActiveObject() {}
+    setActiveObject(object: Shape) { canvasState.activeObjectId = object.data?.boardObjectId ?? null; }
     on() {} dispose() {} requestRenderAll() {} setDimensions() {} setViewportTransform(value: number[]) { this.viewportTransform = value; }
     getWidth() { return 1200; } getHeight() { return 720; } getZoom() { return this.zoom; } setZoom(value: number) { this.zoom = value; }
     zoomToPoint(_point: unknown, value: number) { this.zoom = value; }
@@ -33,7 +33,7 @@ vi.stubGlobal("ResizeObserver", ResizeObserverMock);
 import { BoardFabricPreview } from "@/components/whiteboard/fabric-preview/board-fabric-preview";
 
 describe("Board Fabric V0.1 preview", () => {
-  beforeEach(() => { canvasState.instances = 0; canvasState.objects.length = 0; });
+  beforeEach(() => { canvasState.instances = 0; canvasState.activeObjectId = null; canvasState.objects.length = 0; });
 
   it("mounts a real Fabric canvas projection instead of DOM whiteboard objects", () => {
     const { container } = render(<BoardFabricPreview />);
@@ -58,6 +58,8 @@ describe("Board Fabric V0.1 preview", () => {
     const list = screen.getByTestId("board-a11y-object-list");
     expect(list).toHaveAttribute("aria-label", "白板对象");
     expect(list.querySelectorAll("li")).toHaveLength(5);
+    fireEvent.click(screen.getByTestId("board-a11y-object-sticky-observe"));
+    expect(canvasState.activeObjectId).toBe("sticky-observe");
     expect(screen.getByTestId("board-preview-disclosure")).toHaveTextContent("未连接 Yjs 或服务端");
     expect(screen.getByTestId("board-preview-badge")).toHaveTextContent("Preview");
   });

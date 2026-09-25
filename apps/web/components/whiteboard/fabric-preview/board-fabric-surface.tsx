@@ -41,6 +41,7 @@ interface BoardFabricSurfaceProps {
   onSelectionChange: (object: PreviewBoardObject | null) => void;
   onObjectsChange: (objects: readonly PreviewBoardObject[]) => void;
   fitSignal: number;
+  selectionRequest: { id: string; nonce: number } | null;
 }
 
 type TaggedObject = FabricObject & { data?: { boardObjectId?: string; kind?: PreviewBoardObject["kind"] } };
@@ -86,7 +87,7 @@ function readObject(object: TaggedObject, fallback: PreviewBoardObject): Preview
   };
 }
 
-export function BoardFabricSurface({ tool, zoom, onZoomChange, onSelectionChange, onObjectsChange, fitSignal }: BoardFabricSurfaceProps) {
+export function BoardFabricSurface({ tool, zoom, onZoomChange, onSelectionChange, onObjectsChange, fitSignal, selectionRequest }: BoardFabricSurfaceProps) {
   const hostRef = React.useRef<HTMLDivElement>(null);
   const elementRef = React.useRef<HTMLCanvasElement>(null);
   const canvasRef = React.useRef<Canvas | null>(null);
@@ -222,6 +223,17 @@ export function BoardFabricSurface({ tool, zoom, onZoomChange, onSelectionChange
     onZoomChange(next);
     canvas.requestRenderAll();
   }, [fitSignal, onZoomChange]);
+
+  React.useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas || !selectionRequest) return;
+    const requested = canvas.getObjects().find((object) =>
+      (object as TaggedObject).data?.boardObjectId === selectionRequest.id,
+    );
+    if (!requested) return;
+    canvas.setActiveObject(requested);
+    canvas.requestRenderAll();
+  }, [selectionRequest]);
 
   return (
     <div ref={hostRef} className="absolute inset-0 overflow-hidden bg-muted/30" data-testid="board-fabric-stage">

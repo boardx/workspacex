@@ -21,6 +21,7 @@ export function BoardFabricPreview() {
   const [fitSignal, setFitSignal] = React.useState(0);
   const [selection, setSelection] = React.useState<PreviewBoardObject | null>(null);
   const [objects, setObjects] = React.useState<readonly PreviewBoardObject[]>([]);
+  const [selectionRequest, setSelectionRequest] = React.useState<{ id: string; nonce: number } | null>(null);
   const updateObjects = React.useCallback((next: readonly PreviewBoardObject[]) => setObjects(next), []);
   const updateSelection = React.useCallback((next: PreviewBoardObject | null) => setSelection(next), []);
   const updateZoom = React.useCallback((next: number) => setZoom(next), []);
@@ -42,7 +43,7 @@ export function BoardFabricPreview() {
       </header>
 
       <div className="absolute inset-x-0 bottom-0 top-14">
-        <BoardFabricSurface tool={tool} zoom={zoom} onZoomChange={updateZoom} onSelectionChange={updateSelection} onObjectsChange={updateObjects} fitSignal={fitSignal} />
+        <BoardFabricSurface tool={tool} zoom={zoom} onZoomChange={updateZoom} onSelectionChange={updateSelection} onObjectsChange={updateObjects} fitSignal={fitSignal} selectionRequest={selectionRequest} />
 
         <nav className="absolute left-4 top-4 z-20 flex flex-col gap-1 rounded-xl border border-border bg-card p-1.5 shadow-lg" aria-label="白板工具" data-testid="board-fabric-toolbar">
           {TOOLS.map(({ id, label, icon: Icon }) => (
@@ -78,7 +79,7 @@ export function BoardFabricPreview() {
             <h3 className="text-sm font-medium">无障碍对象列表</h3>
             <p className="mt-1 text-xs text-muted-foreground">Canvas 的同步语义视图，可用键盘浏览。</p>
             <ul className="mt-3 max-h-56 space-y-1 overflow-auto" data-testid="board-a11y-object-list" aria-label="白板对象">
-              {objects.map((object) => <li key={object.id}><Button variant="ghost" size="sm" className="w-full justify-start truncate transition-colors" data-testid={`board-a11y-object-${object.id}`} onClick={() => setSelection(object)}>{object.label}</Button></li>)}
+              {objects.map((object) => <li key={object.id}><Button variant="ghost" size="sm" className="w-full justify-start truncate transition-colors" data-testid={`board-a11y-object-${object.id}`} aria-pressed={selection?.id === object.id} onClick={() => setSelectionRequest((current) => ({ id: object.id, nonce: (current?.nonce ?? 0) + 1 }))}>{object.label}</Button></li>)}
             </ul>
           </div>
         </aside>
