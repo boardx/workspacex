@@ -9,6 +9,12 @@
  *   ③ 快照 `{ threadId, canEdit, revision }`：读模型每次读到就发布，回答下的「撤销」据此决定
  *      渲不渲染（只有所有者）以及带哪个 `basedOnRevision`。
  *   ④ `requestOpenClaimSources`（F13）：回答下的引用 chip → 切到「记忆」页签并打开那一条的来源抽屉。
+ *   ⑤ `requestRememberStatement`（F17 手动入口，issue #4179）：消息 hover 菜单「记住这句」/
+ *      记忆面板「+ 记一条」→ 把一句话交给 F17 已有的「记住」确认卡路径。同一条线，
+ *      不新增契约操作：订阅方（`copilotkit-v2-panel-body.tsx` 的 `send()`）把它当一条
+ *      新的聊天消息发出去（加「记住：」前缀），走既有的 `detectMemoryIntent` →
+ *      `cards.open` → 确认卡（`domain/knowledge-graph/memory-intent.ts`）。**这里只是
+ *      请求，从不直接写入**——是否真的记住仍由随后出现的确认卡上的人工点击决定。
  */
 import * as React from "react";
 
@@ -63,6 +69,30 @@ export function onOpenClaimSources(handler: (claimId: string) => void): () => vo
   };
   window.addEventListener(OPEN_CLAIM_SOURCES_EVENT, listener);
   return () => { window.removeEventListener(OPEN_CLAIM_SOURCES_EVENT, listener); };
+}
+
+/**
+ * F17 手动入口（issue #4179）：「记住这句」（消息 hover 菜单）/「+ 记一条」（记忆面板）共用同一个请求。
+ * `statement` 就是要记的那句话本身（用户自己发的消息全文，或面板里手打的文字）——「记住：」前缀
+ * 由订阅方加，这里只传纯内容，避免两处各自拼一次前缀、字面不一致。空白（trim 后）不发。
+ */
+export const REMEMBER_STATEMENT_EVENT = "chat:remember-statement";
+
+export function requestRememberStatement(statement: string): void {
+  const trimmed = statement.trim();
+  if (typeof window === "undefined" || trimmed === "") return;
+  window.dispatchEvent(new CustomEvent<string>(REMEMBER_STATEMENT_EVENT, { detail: trimmed }));
+}
+
+/** 订阅「有一句话要走记住流程」。handler 收到已 trim 过的纯文本（不带「记住：」前缀）。 */
+export function onRememberStatement(handler: (statement: string) => void): () => void {
+  if (typeof window === "undefined") return () => {};
+  const listener = (event: Event): void => {
+    const detail: unknown = (event as CustomEvent<unknown>).detail;
+    if (typeof detail === "string" && detail !== "") handler(detail);
+  };
+  window.addEventListener(REMEMBER_STATEMENT_EVENT, listener);
+  return () => { window.removeEventListener(REMEMBER_STATEMENT_EVENT, listener); };
 }
 
 export function requestKnowledgeReload(threadId: string): void {

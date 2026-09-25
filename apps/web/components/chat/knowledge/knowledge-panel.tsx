@@ -3,6 +3,7 @@
 import * as React from "react";
 import { Brain, List, Share2, RefreshCw, Loader2, AlertTriangle, Eye, Lock } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { KnowledgeList, KnowledgeEmpty } from "./knowledge-list";
 import { KnowledgeGraphView } from "./knowledge-graph-view";
@@ -12,7 +13,7 @@ import { NominationCard } from "./nomination-card";
 import { usePromotionFlow, visibleNominations, type PromoteFn } from "./use-promotion-flow";
 import { countByTriState } from "@/lib/knowledge-graph-view";
 import { describeHumanActionFailure } from "@/lib/knowledge-graph-failure";
-import { onOpenClaimSources, takePendingClaimSources } from "@/lib/knowledge-graph-events";
+import { onOpenClaimSources, requestRememberStatement, takePendingClaimSources } from "@/lib/knowledge-graph-events";
 import {
   knowledgeGraphErrorCode,
   type ClaimSources,
@@ -226,6 +227,9 @@ export function KnowledgePanel({
             <Badge tone="danger">{KG_TRI_STATE_LABEL_ZH.conflict} {counts.conflict}</Badge>
           </div>
         ) : null}
+
+        {/* issue #4179（F17 手动入口 ②）—— 手打一句话，走同一条「记住」确认卡路径 */}
+        {editable ? <RememberQuickAdd /> : null}
 
         {/* 记到长期记忆入口（仅个人线程 canPromote） */}
         {data && canPromote && data.claims.length > 0 ? (
@@ -444,6 +448,73 @@ function useClaimSourcesDrawer(loadSources: ((claimId: string) => Promise<ClaimS
   const retry = React.useCallback(() => { if (claim) load(claim); }, [claim, load]);
 
   return { isOpen: claim !== null, data, loading, error, open: load, close, retry };
+}
+
+/**
+ * issue #4179（F17 手动入口 ②）—— 面板「+ 记一条」：手打一句话，走 F17 已有的「记住」确认卡
+ * 路径（`cards.open(..., { kind: "remember", statement })`），**不新增契约操作**。
+ *
+ * 这里只 `requestRememberStatement`（`lib/knowledge-graph-events.ts`）——真正把它送进
+ * `detectMemoryIntent` → `cards.open` 的是订阅方 `copilotkit-v2-panel-body.tsx` 的 `send()`
+ * （加「记住：」前缀，当一条新消息发出去）。提交后清空输入框、收起表单；回答下方随后出现的是
+ * **确认卡**，不是直接写入——是否真的记住仍要用户在那张卡上再点一次「记住」（F17 既有规矩，
+ * 这条手动入口不绕过它）。
+ */
+function RememberQuickAdd(): JSX.Element {
+  const [open, setOpen] = React.useState(false);
+  const [text, setText] = React.useState("");
+
+  if (!open) {
+    return (
+      <Button size="xs" variant="outline" data-testid="kg-remember-quick-add-open" onClick={() => setOpen(true)}>
+        + 记一条
+      </Button>
+    );
+  }
+
+  const submit = () => {
+    const trimmed = text.trim();
+    if (trimmed === "") return;
+    requestRememberStatement(trimmed);
+    setText("");
+    setOpen(false);
+  };
+
+  return (
+    <form
+      className="flex items-center gap-1.5"
+      data-testid="kg-remember-quick-add-form"
+      onSubmit={(e) => { e.preventDefault(); submit(); }}
+    >
+      <Input
+        autoFocus
+        type="text"
+        value={text}
+        onChange={(e) => setText(e.target.value)}
+        placeholder="要记住的一句话…"
+        aria-label="要记住的一句话"
+        data-testid="kg-remember-quick-add-input"
+        className="h-7 flex-1 text-11"
+      />
+      <Button
+        size="xs"
+        type="submit"
+        disabled={text.trim().length === 0}
+        data-testid="kg-remember-quick-add-submit"
+      >
+        记住
+      </Button>
+      <Button
+        size="xs"
+        type="button"
+        variant="ghost"
+        data-testid="kg-remember-quick-add-cancel"
+        onClick={() => { setText(""); setOpen(false); }}
+      >
+        取消
+      </Button>
+    </form>
+  );
 }
 
 function IngestionStatus({ data, onReindex }: { data: ThreadKnowledge; onReindex?: () => void }) {
