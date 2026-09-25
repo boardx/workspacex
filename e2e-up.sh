@@ -111,6 +111,12 @@ if [ "$DEEP_AGENT_CHAIN" = "native" ]; then
   fi
   DA_PORT="$WORKSPACEX_DEEP_AGENT_PROVIDER_PORT"
   DA_DSN="postgresql://postgres:postgres_dev@${PGHOST}:${PGPORT}/${PGDATABASE}"
+  # ⚠ 子 shell 前面必须有 `exec`——2026-09-25 实测：`( cd dir && cmd ) &` 时 `$!`
+  # 拿到的是那个子 shell wrapper 的 pid，不是 uvicorn 自己的。`kill "$(cat pidfile)"`
+  # 杀掉的只是 wrapper，uvicorn 作为它的子进程不会跟着走，会被 init 收养变成孤儿——
+  # 连续跑几轮矩阵后 `ps aux` 里堆出了三个不同端口的僵尸 uvicorn，占着旧的 checkpoint
+  # 库连接，且没人再给它们发健康检查。`exec` 让子 shell 用 uvicorn 的进程映像替换
+  # 自己，`$!` 从此就是 uvicorn 真正的 pid，一份 kill 杀得干净。
   ( cd "${REPO_ROOT}/apps/deep-agent-service" && \
     PYTHONPATH="${REPO_ROOT}/apps/deep-agent-service/src" \
     DEEP_AGENT_CHECKPOINT_DB="$DA_DSN" \
@@ -122,7 +128,7 @@ if [ "$DEEP_AGENT_CHAIN" = "native" ]; then
     KERNEL_MODEL_BASE_URL="$DASHSCOPE_BASE_URL" \
     KERNEL_MODEL_API_KEY="$DASHSCOPE_API_KEY" \
     KERNEL_DEEP_AGENT_MODEL_ID="$DASHSCOPE_MODEL" \
-    "$DA_UVICORN" deep_agent_service.http_app:app \
+    exec "$DA_UVICORN" deep_agent_service.http_app:app \
       --host 127.0.0.1 --port "$DA_PORT" --workers 1 ) > /tmp/e2e-deep-agent.log 2>&1 &
   echo $! > /tmp/e2e-deep-agent.pid
   # 判据是 /healthz 真的应答——不是「进程还活着」。启动期它会建表、连库、装图，
