@@ -3,17 +3,20 @@
 > 需求单一事实源：`requirements/01-fabric-surface.md`。本表把 R12 与主/异常流程逐条映射到
 > application operation 和稳定前端观察点；实现后的验证命令由对应 feature 固化。
 
-## 一、R12 → operation → 前端消费点
+## 一、R12 → operation → API 操作 / 门控命令 → 前端消费点
 
-| 验收线索 | operation / 断言面 | 前端消费点 | 状态 |
-|---|---|---|---|
-| V1：真实浏览器中 sticky/shape/text 都是 Fabric objects，DOM 没有对应绝对定位交互节点 | `openBoardSurface` + renderer registry introspection + DOM 反向扫描 | `board-fabric-canvas`、`board-a11y-object-list` | 契约闭合；正式路由证据待实现 |
-| V2：双浏览器中 viewport 是用户本地状态，对象世界坐标一致 | `setBoardViewport`；两客户端读取 canonical geometry hash | `board-zoom-value`、Fabric viewport transform | 契约闭合；双浏览器证据待实现 |
-| V3：1000 次 Yjs patch 不触发 `canvas.clear()` | `projectBoardTransaction`；spy `clear/loadFromJSON/requestRenderAll` | `board-fabric-stage` 的稳定 object registry | 契约闭合；性能证据待实现 |
-| V4：Canvas context 丢失后保留 Y.Doc 并重建 projection | `rebuildFabricProjection`；恢复前后 document update hash 相同 | `board-state-context-recovering` | 契约闭合；失败注入证据待实现 |
-| V5：readonly 不能经控点/快捷键/adapter 绕过写权限 | `dispatchBoardCommand` 三入口反证 | `board-state-ready` readonly variant、禁用 Fabric controls | 契约闭合；ACL 证据待实现 |
-| V6：坏对象隔离，其他对象可继续编辑 | `projectBoardTransaction` 返回 `isolated` | `board-state-invalid` 的 object-level placeholder | 契约闭合；未知 kind fixture 待实现 |
-| V7：Canvas 与 DOM mirror 共享 object id/selection | `selectBoardObject` 双向调用 | `board-a11y-object-<objectId>`、`board-selection-properties` | 契约闭合；键盘/读屏证据待实现 |
+本束零对外 HTTP 面（见 `domain.md` 第四节）：这里的「API 操作 / 门控命令」列填的是六个
+Yjs-transaction operation 各自的**可执行验证命令**，不是 REST endpoint。
+
+| 行键 | 验收线索 | operation / 断言面 | API 操作 / 门控命令 | 前端消费点 | 状态 |
+|---|---|---|---|---|---|
+| V1 | 真实浏览器中 sticky/shape/text 都是 Fabric objects，DOM 没有对应绝对定位交互节点 | `openBoardSurface` + renderer registry introspection + DOM 反向扫描 | `pnpm --filter web test board-fabric-v01` | `board-fabric-canvas`、`board-a11y-object-list` | 契约闭合；正式路由证据待实现 |
+| V2 | 双浏览器中 viewport 是用户本地状态，对象世界坐标一致 | `setBoardViewport`；两客户端读取 canonical geometry hash | ⚠ 缺口：双浏览器 viewport 断言未建，规划为 `pnpm --filter web e2e vz-fabric-shots` 的扩展用例 | `board-zoom-value`、Fabric viewport transform | 契约闭合；双浏览器证据待实现 |
+| V3 | 1000 次 Yjs patch 不触发 `canvas.clear()` | `projectBoardTransaction`；spy `clear/loadFromJSON/requestRenderAll` | ⚠ 缺口：1000-patch 性能反证未建，规划为 `pnpm --filter web test board-fabric-v01` 的新增 case | `board-fabric-stage` 的稳定 object registry | 契约闭合；性能证据待实现 |
+| V4 | Canvas context 丢失后保留 Y.Doc 并重建 projection | `rebuildFabricProjection`；恢复前后 document update hash 相同 | ⚠ 缺口：context-lost 失败注入未建，规划为 `pnpm --filter web test board-fabric-v01` 的新增 case | `board-state-context-recovering` | 契约闭合；失败注入证据待实现 |
+| V5 | readonly 不能经控点/快捷键/adapter 绕过写权限 | `dispatchBoardCommand` 三入口反证 | ⚠ 缺口：ACL 三入口反证未建，规划为 `pnpm --filter web test board-fabric-v01` 的新增 case | `board-state-ready` readonly variant、禁用 Fabric controls | 契约闭合；ACL 证据待实现 |
+| V6 | 坏对象隔离，其他对象可继续编辑 | `projectBoardTransaction` 返回 `isolated` | ⚠ 缺口：未知 kind fixture 未建，规划为 `pnpm --filter web test board-fabric-v01` 的新增 case | `board-state-invalid` 的 object-level placeholder | 契约闭合；未知 kind fixture 待实现 |
+| V7 | Canvas 与 DOM mirror 共享 object id/selection | `selectBoardObject` 双向调用 | `pnpm --filter web e2e vz-fabric-shots` | `board-a11y-object-<objectId>`、`board-selection-properties` | 契约闭合；键盘/读屏证据待实现 |
 
 V4–V7 是 R4/R5/R6 与 `08-performance-accessibility.md` R3/R7 的必要验收投影；原 R12 只有两条
 复合句，若不拆出这些失败与 accessibility 断言，S01 可以在 happy path “全绿”但仍违反需求。

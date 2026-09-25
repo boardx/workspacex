@@ -102,7 +102,25 @@ idle → manipulating(ephemeral Fabric state) → commit-command
 
 拒绝 command 时从 canonical projection 恢复目标对象，不把被拒的瞬时位置留成看似已保存的状态。
 
-## 四、边界与复用
+## 四、③ 件为什么**不是** zod 契约文件（本束零对外 HTTP 面）
+
+本束的六个 operation（`openBoardSurface` / `dispatchBoardCommand` / `projectBoardTransaction` /
+`setBoardViewport` / `selectBoardObject` / `rebuildFabricProjection`）**没有一个是 REST/HTTP
+endpoint**。理由逐条成立：
+
+1. Board **内容**变更本来就不走 HTTP——`packages/contracts/src/whiteboard.ts` 的文件头注释
+   写得很直白：「Content updates use a separate collaboration protocol」。那个协议就是 Yjs
+   transaction，本束的六个 operation 正是这条协议在客户端的入口/出口，不是另一套 API。
+2. Board **metadata**（create/list/rename/member）已经由 `whiteboard.ts` 的 zod 单源覆盖；
+   本束（`边界与复用`一节）明确不重列第二份角色/资源 schema，避免同一事实声明两处。
+3. 给这六个 operation 硬造一个 `board-fabric-surface.ts` zod 文件，会制造一份没有下游消费者的
+   空转契约——没有 OpenAPI、没有后端路由、没有 mock 生成需要它；ADR-020 的 zod 单源是为四个
+   下游产物存在的，这里四个都不存在。
+
+⇒ **结论：本束零业务 HTTP API。** 第 ③ 件的可执行形式是 `coverage.md` 表一「API 操作 /
+门控命令」列里列出的现有与规划中的验证命令（vitest / Playwright），不是 zod schema 文件。
+
+## 五、边界与复用
 
 - 复用 `packages/contracts/src/whiteboard.ts` 的 Board metadata、role 和 member 语义；本束不重列第二份 role enum。
 - Mermaid/Chat 的 `DiagramModel` 只在导入边界转换成 create/connect commands；导入结束后不双写 DiagramModel。
