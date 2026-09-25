@@ -119,12 +119,22 @@ async function sendAndSettle(page: Page, prompt: string): Promise<string> {
    * 真实用户会做的事，不是给判据开后门。
    */
   const confirmIntentContinue = page.getByTestId("agent-interrupt-confirm-intent-continue");
+  // 每一轮 task 各自的一次性开关——写成局部变量而不是复用上一个 task 遗留的状态，
+  // 避免一次点击卡住之后在同一个 task 里反复重试、把一次可恢复的慢渲染拖成死循环。
+  let confirmedOnce = false;
 
   const sentAt = Date.now();
   let sawRunning = false;
   while (Date.now() - sentAt < TASK_BUDGET_MS) {
-    if (await confirmIntentContinue.isVisible().catch(() => false)) {
-      await confirmIntentContinue.click();
+    // `.count()` 是快照，不像 `.isVisible()` 那样在校验与点击之间还留一段可能被
+    // 对面重渲染改变的窗口——2026-09-25 头一版用 `isVisible()` 后立刻 `click()`，
+    // 卡片在两步之间被重渲染掉，`click()` 卡满 60s 超时，还连累了同一个共享 `page`
+    // 后面几个 task 全部 `toBeVisible` 失败。这里改成：数到恰好一次就点，点不动
+    // （5s 内没完成）就放弃这一次，交给下一轮循环重新判断，绝不让一次点击卡住
+    // 整条循环、更不能卡到拖垮后面的 task。
+    if (!confirmedOnce && (await confirmIntentContinue.count()) > 0) {
+      confirmedOnce = true;
+      await confirmIntentContinue.click({ timeout: 5_000 }).catch(() => { confirmedOnce = false; });
       await page.waitForTimeout(1_000);
       continue;
     }
