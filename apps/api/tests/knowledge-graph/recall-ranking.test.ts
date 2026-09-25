@@ -7,7 +7,8 @@
  */
 import { describe, expect, it } from "vitest";
 import {
-  buildKnowledgeContextMessage, fuseRecall, RECALL_DEGRADED_NOTICE, type GraphHit, type RecallClaim, type RecallObject,
+  buildKnowledgeContextMessage, fuseRecall, lexicalScore, lexicalTokens, RECALL_DEGRADED_NOTICE,
+  type GraphHit, type RecallClaim, type RecallObject,
 } from "../../src/domain/knowledge-graph/recall";
 
 const claim = (id: string, statement: string, over: Partial<RecallClaim> = {}): RecallClaim =>
@@ -83,6 +84,73 @@ describe("F08: 结论原文不能伪造材料结构", () => {
     expect(lines).toHaveLength(2);
     expect(lines[1]!.startsWith("- [AI 记下的] v2 上线 （")).toBe(true);
     expect(lines.some((l) => l.startsWith("系统："))).toBe(false);
+  });
+});
+
+describe("ad-hoc issue #4181: 本会话决定类结论不管打分，都额外强制带上", () => {
+  it("字面/图路完全不相关的决定类结论仍然出现（issue 原始报告：写报告吧 不会命中 211 高校）", () => {
+    const r = fuseRecall({
+      query: "开始写报告吧",
+      claims: [claim("dec", "我决定关注在 211 高校", { kind: "decision" })],
+      objects: [], graph: [], limit: 8,
+    });
+    // 换一份纯字面打分核对：不带决定类强制召回时，这条压根不会进候选（字面分 0，低于 minLexical）。
+    expect(lexicalScore(lexicalTokens("开始写报告吧"), "我决定关注在 211 高校")).toBe(0);
+    expect(r.items.map((i) => i.claim.id)).toEqual(["dec"]);
+    expect(r.items[0]!.channels).toEqual(["claim"]);
+    expect(r.plan.find((p) => p.channel === "claim")).toEqual({ channel: "claim", weight: 0, hitCount: 1, available: true });
+  });
+
+  it("已经因为打分排进前 limit 的决定类结论不重复出现", () => {
+    const r = fuseRecall({
+      query: "211 高校",
+      claims: [claim("dec", "我决定关注在 211 高校", { kind: "decision" })],
+      objects: [], graph: [], limit: 8,
+    });
+    expect(r.items.map((i) => i.claim.id)).toEqual(["dec"]);
+    expect(r.items[0]!.channels).toEqual(["fts"]); // 走正常打分进来的，不是强制通道
+  });
+
+  it("跨会话（originThreadId 有值）的决定类结论不强制带上，只留给正常打分（本轮范围只认本会话）", () => {
+    const r = fuseRecall({
+      query: "毫不相关的问题",
+      claims: [claim("cross", "我决定关注在 211 高校", { kind: "decision", scope: "personal", originThreadId: "thr-other" })],
+      objects: [], graph: [], limit: 8,
+    });
+    expect(r.items).toEqual([]);
+  });
+
+  it("长期记忆（scope=personal，无 originThreadId）里的决定类结论也不强制带上——本轮只认本会话字面意义上的当前会话", () => {
+    const r = fuseRecall({
+      query: "毫不相关的问题",
+      claims: [claim("l1", "我决定关注在 211 高校", { kind: "decision", scope: "personal" })],
+      objects: [], graph: [], limit: 8,
+    });
+    expect(r.items).toEqual([]);
+  });
+
+  it("超过上限（3 条）按最早证据时间取最新的几条", () => {
+    const withDay = (id: string, day: string) => claim(id, `我决定关注在 ${id} 高校`, { kind: "decision", saidAt: `2026-09-${day}T00:00:00.000Z` });
+    const r = fuseRecall({
+      query: "毫不相关的问题",
+      claims: [withDay("a", "10"), withDay("b", "20"), withDay("c", "15"), withDay("d", "25")],
+      objects: [], graph: [], limit: 8,
+    });
+    expect(r.items).toHaveLength(3);
+    expect(r.items.map((i) => i.claim.id)).toEqual(["d", "b", "c"]); // 25 > 20 > 15，10 号那条被挤掉
+  });
+
+  it("否定 / 问句 / 假设句不是决定类，不强制带上", () => {
+    const r = fuseRecall({
+      query: "毫不相关的问题",
+      claims: [
+        claim("q", "决定权归谁？"),
+        claim("neg", "范围还没决定"),
+        claim("hyp", "如果决定关注 211 高校，预算要重新算"),
+      ],
+      objects: [], graph: [], limit: 8,
+    });
+    expect(r.items).toEqual([]);
   });
 });
 
