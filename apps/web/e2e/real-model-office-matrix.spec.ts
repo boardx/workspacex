@@ -119,9 +119,19 @@ async function sendAndSettle(page: Page, prompt: string): Promise<string> {
    * 真实用户会做的事，不是给判据开后门。
    */
   const confirmIntentContinue = page.getByTestId("agent-interrupt-confirm-intent-continue");
+  /**
+   * 第二道人在环门：`write_todos`（计划确认，issue #3132/B7）。跟 `confirm_task_intent`
+   * 不是同一个工具，落在同一个 `interrupted` 状态里，前端也是完全不同的组件
+   * （`plan-confirm-gate.tsx`，不是 `confirm-intent-card.tsx`）。2026-09-25 实测：
+   * 单独隔离跑复杂任务时直连 deep-agent-service 的 `/threads/:id/state` 现场抓到
+   * 卡在 `write_todos` 这一步——只处理了 `confirm_task_intent` 那一道门还不够，
+   * 十任务矩阵里那三个多步骤任务（先做研究/先列提纲/先算后讲）仍然全部超时。
+   */
+  const planConfirmRun = page.getByTestId("chat-task-workbench-plan-confirm-run");
   // 每一轮 task 各自的一次性开关——写成局部变量而不是复用上一个 task 遗留的状态，
   // 避免一次点击卡住之后在同一个 task 里反复重试、把一次可恢复的慢渲染拖成死循环。
   let confirmedOnce = false;
+  let planConfirmedOnce = false;
 
   const sentAt = Date.now();
   let sawRunning = false;
@@ -135,6 +145,12 @@ async function sendAndSettle(page: Page, prompt: string): Promise<string> {
     if (!confirmedOnce && (await confirmIntentContinue.count()) > 0) {
       confirmedOnce = true;
       await confirmIntentContinue.click({ timeout: 5_000 }).catch(() => { confirmedOnce = false; });
+      await page.waitForTimeout(1_000);
+      continue;
+    }
+    if (!planConfirmedOnce && (await planConfirmRun.count()) > 0) {
+      planConfirmedOnce = true;
+      await planConfirmRun.click({ timeout: 5_000 }).catch(() => { planConfirmedOnce = false; });
       await page.waitForTimeout(1_000);
       continue;
     }
