@@ -72,7 +72,7 @@ test('live Board core editing is keyboard operable and restores focus',async({br
     const viewerCanvas=viewer.getByTestId('board-live-surface');await viewerCanvas.focus();await viewer.keyboard.press('Enter');
     const viewerBefore=await viewer.getByRole('button',{name:'图形：键盘想法一',exact:true}).boundingBox();await viewer.keyboard.press(`${mod}+ArrowRight`);expect(await viewer.getByRole('button',{name:'图形：键盘想法一',exact:true}).boundingBox()).toEqual(viewerBefore);await expect(viewer.getByTestId('board-live-announcer')).toContainText('只读');
     await api(request,token,'DELETE',`/whiteboards/${boardId}/members/${encodeURIComponent(required('WHITEBOARD_VIEWER_USER_ID'))}`);
-    const denied=viewer.getByRole('alert');await expect(denied).toBeVisible({timeout:30_000});await expect(denied).toBeFocused();await expect(viewerCanvas).toHaveCount(0);
+    const denied=viewer.getByTestId('denied');await expect(denied).toBeVisible({timeout:30_000});await expect(denied).toBeFocused();await expect(viewerCanvas).toHaveCount(0);
   }finally{
     try{if(boardId&&token)await api(request,token,'PATCH',`/whiteboards/${boardId}`,{archived:true});}finally{await Promise.all([ownerContext.close(),viewerContext.close()]);}
   }
