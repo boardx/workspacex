@@ -29,6 +29,7 @@ export function RealtimeTranscriptionWorkspace({
   interimSegment = "",
   flowState = "normal",
   errorMessage,
+  reconnectableError = false,
   onStart,
   onStop,
   onSaveContent,
@@ -44,6 +45,7 @@ export function RealtimeTranscriptionWorkspace({
   interimSegment?: string;
   flowState?: RealtimeAsrFlowState;
   errorMessage?: string | null;
+  reconnectableError?: boolean;
   onStart: () => void;
   onStop: () => void;
   onSaveContent?: (content: string) => Promise<void>;
@@ -188,10 +190,10 @@ export function RealtimeTranscriptionWorkspace({
           )}
         </Card>
       </div>
-      <Dialog open={Boolean(errorMessage) && !errorDialogDismissed} onOpenChange={(open) => { if (!open) setErrorDialogDismissed(true); }}>
+      <Dialog open={reconnectableError && Boolean(errorMessage) && !errorDialogDismissed} onOpenChange={(open) => { if (!open) setErrorDialogDismissed(true); }}>
         <DialogContent data-testid="rec-live-reconnect-dialog" className="max-w-md">
           <DialogTitle>实时转录连接异常</DialogTitle>
-          <DialogDescription>{errorMessage} 已保存的正文不会丢失。</DialogDescription>
+          <DialogDescription>已保存的正文不会丢失。你可以重新连接后继续转录。</DialogDescription>
           <DialogFooter>
             <Button type="button" variant="outline" onClick={() => setErrorDialogDismissed(true)}>暂不处理</Button>
             <Button data-testid="rec-live-reconnect" type="button" variant="primary" disabled={!onReconnect}

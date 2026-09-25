@@ -76,11 +76,18 @@ describe("RealtimeTranscriptionWorkspace", () => {
   it("opens a recoverable error dialog and reconnects without hiding durable text", () => {
     const onReconnect = vi.fn();
     render(<RealtimeTranscriptionWorkspace session={SESSION} onBack={vi.fn()} streamState="error"
-      errorMessage="无法启动实时转录，请稍后重试。" onReconnect={onReconnect} onStart={vi.fn()} onStop={vi.fn()} />);
+      errorMessage="无法启动实时转录，请稍后重试。" reconnectableError onReconnect={onReconnect} onStart={vi.fn()} onStop={vi.fn()} />);
     expect(screen.getByTestId("rec-live-reconnect-dialog")).toBeVisible();
     expect(screen.getByTestId("rec-live-content")).toHaveTextContent("第一句 第二句");
     fireEvent.click(screen.getByTestId("rec-live-reconnect"));
     expect(onReconnect).toHaveBeenCalledTimes(1);
+  });
+
+  it("keeps post-stop refresh errors as an inline alert without offering reconnect", () => {
+    render(<RealtimeTranscriptionWorkspace session={SESSION} onBack={vi.fn()} streamState="idle"
+      errorMessage="转录已停止，已保存文字仍保留；暂时无法刷新最新正文，请稍后重新打开。" onStart={vi.fn()} onStop={vi.fn()} />);
+    expect(screen.getByTestId("rec-live-error")).toBeVisible();
+    expect(screen.queryByTestId("rec-live-reconnect-dialog")).not.toBeInTheDocument();
   });
 
   it("shows the selected microphone and real input level, and locks selection while recording", () => {
