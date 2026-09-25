@@ -65,7 +65,9 @@ describe("kernel_benchmark_counts_for_report", () => {
     const before = await seats();
     expect(before).toHaveLength(1);
     expect(Object.keys(before[0]).sort()).toEqual(["run_count", "seat_count"]);
-    await asOwner((c) => c.query("INSERT INTO org_memberships (user_id, org_id, org_role) VALUES ('u-bench-local', $1, 'admin')", [LOCAL]));
+    // I-3：personal-local 组织的成员只能是它自己的 owner（`${orgId}-owner`，见 seedOrg），
+    // 插入别的 user_id 会被 `personal_local_org_is_single_member` 触发器拒绝。
+    await asOwner((c) => c.query("INSERT INTO org_memberships (user_id, org_id, org_role) VALUES ($1, $2, 'admin')", [`${LOCAL}-owner`, LOCAL]));
     expect(Number((await seats())[0].seat_count)).toBe(Number(before[0].seat_count));
     await asOwner((c) => c.query("INSERT INTO org_memberships (user_id, org_id, org_role) VALUES ('u-bench-std', $1, 'admin')", [STD]));
     expect(Number((await seats())[0].seat_count)).toBe(Number(before[0].seat_count) + 1);
