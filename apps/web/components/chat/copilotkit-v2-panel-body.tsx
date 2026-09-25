@@ -37,6 +37,7 @@ import { shouldOfferBannerRetry } from "@/lib/copilotkit-v2-banner-retry";
 import { reportClientError } from "@/lib/report-client-error";
 import { useChatMessageIdentity } from "@/lib/copilotkit-v2-message-identity";
 import { useCopilotKitV2RunProgress, type RunStage } from "@/lib/copilotkit-v2-run-progress";
+import { onRememberStatement } from "@/lib/knowledge-graph-events";
 import { cn } from "@/lib/utils";
 import { useCopilotKitV2RunRestore, RUN_RESTORE_PHASE_LABEL, type RunRestoreOutcome } from "@/lib/copilotkit-v2-run-restore";
 import { useChatHostInterjectionRun } from "@/lib/chat-host-interjection-run";
@@ -1582,6 +1583,19 @@ export function CopilotKitV2PanelBody({
     },
     [agent, copilotkit, inputDraft, setInputDraft, runIsRunning, attach, attachmentThreadId, onMessageSent, acceptedRunEpoch, canWrite, archived, projectId, resolveAttachmentThreadId],
   );
+
+  /**
+   * issue #4179（F17 手动入口 ①②：消息 hover「记住这句」+ 记忆面板「+ 记一条」）——
+   * 两个入口都只发 `requestRememberStatement`（`lib/knowledge-graph-events.ts`），真正执行在
+   * 这里：把它当一条新的聊天消息发出去，加「记住：」前缀，复用 F17 已有的
+   * `detectMemoryIntent` → `cards.open` 路径（`domain/knowledge-graph/memory-intent.ts`），
+   * **不新增契约操作**。是否真的记住仍由随后出现在回答下方的确认卡决定——这里只是把它
+   * 送进那条既有的检测通路，跟用户自己在输入框敲「记住：…」发出去完全是同一条路。
+   * `send()` 自身已有 `canWrite`/`archived`/`runIsRunning` 等门（见上方定义），这里不重复判断。
+   */
+  React.useEffect(() => onRememberStatement((statement) => {
+    void send(`记住：${statement}`);
+  }), [send]);
 
   // Template recommendations retain the existing persisted-evidence and permission gates.
   /*

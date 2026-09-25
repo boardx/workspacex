@@ -1,12 +1,13 @@
 "use client";
 import * as React from "react";
-import { Copy, Check } from "lucide-react";
+import { Copy, Check, Sparkles } from "lucide-react";
 import { MessageRating } from "@/components/chat/message-rating";
 import { PersistedAgentFeedback } from "@/components/chat/workbench/persisted-agent-feedback";
 import type { ChatMessageIdentityIndex } from "@/lib/copilotkit-v2-message-identity";
 import {
   MessageLandingTrigger, MessageLandingPanel, type MessageLandingState,
 } from "@/components/chat/message-landing";
+import { requestRememberStatement } from "@/lib/knowledge-graph-events";
 
 /**
  * CK-P3（issue #2054）—— v2 轨道逐条 AI 消息的操作条：复制 / 👍👎 评分 / 对 agent 提反馈。
@@ -233,6 +234,44 @@ export function CopilotKitV2MessageLandingTrigger({
       state={landing.stateFor(chatMessageId)}
       onOpen={() => landing.open(message)}
     />
+  );
+}
+
+/**
+ * issue #4179（F17 手动入口 ①）—— 用户自己发的消息旁的「记住这句」。
+ *
+ * ## 为什么只挂在 `userMessage` 一侧，不需要另外判断「是不是用户自己发的」
+ *
+ * 这个组件只由 `V2UserMessageImpl`（`copilotkit-v2-user-message.tsx`）在 `userMessage`
+ * slot 里实例化——`assistantMessage` slot 是另一份组件（`V2AssistantMessage`），根本不会
+ * 引用它，AI 回答旁天然不出现这个按钮（issue 要求的「AI 回答不该被用户『记住』成用户自己的
+ * 陈述」由此满足，不是靠一个运行期判断）。而 v2 轨道的 `UserMessage`（AG-UI 协议，
+ * `@ag-ui/core` 的 `UserMessageSchema`）本身只有 `id/role/content`，没有 authorId——这条轨道
+ * 的每一条 `user` 消息，协议层面就是当前这个会话唯一的发言者，不存在"同一条 `role: user`
+ * 消息可能是别人发的"这种情况，不需要也没有额外的身份字段可判。
+ *
+ * ## 点击之后发生了什么（不直接写入）
+ *
+ * `requestRememberStatement`（`lib/knowledge-graph-events.ts`）只是发一个请求：真正执行的
+ * 是订阅方 `copilotkit-v2-panel-body.tsx` 的 `send()`——把这句话包成「记住：{原文}」当一条
+ * 新消息发出去，走 F17 已有的 `detectMemoryIntent` → `cards.open` → 确认卡路径。回答下方
+ * 出现的是**确认卡**，不是直接记住；用户要再点一次卡片上的「记住」才真正生效（F17 既有规矩，
+ * 这里不新开一条能绕过确认卡的路）。
+ */
+export function CopilotKitV2RememberMessageButton({ text }: { text: string }): JSX.Element | null {
+  const trimmed = text.trim();
+  if (trimmed === "") return null;
+  return (
+    <button
+      type="button"
+      data-testid="chat-message-remember"
+      aria-label="记住这句"
+      title="记住这句"
+      onClick={() => requestRememberStatement(trimmed)}
+      className="inline-grid h-5 w-5 place-items-center rounded text-muted-foreground transition-colors duration-fast hover:bg-muted hover:text-card-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+    >
+      <Sparkles aria-hidden className="h-3 w-3" />
+    </button>
   );
 }
 
