@@ -2,10 +2,6 @@
  * `ensure-platform-skill-catalog.ts` 的 lint 豁免（`lint-permission-paths.mjs`），钉在
  * 这里（issue #2343）。
  *
- * 2026-09-15 起本文件末尾还带了 team1 那个临时 Agent 的「上会审阅」内置 Skill 种子
- * （`ensureIcReviewSkillSeeded`）——它共用同一条豁免、同一条理由，所以也由这里的
- * 断言看着；它不许引入第七张租户表、不许接 org id 参数。
- *
  * 豁免理由：这个文件里没有一个导出函数接受 org id 参数——每条 SQL 语句写的都是唯一一个
  * 写死的 `PLATFORM_ORG_ID`，没有调用方能左右目标是哪个租户，所以不存在"权限判定该挂在
  * 哪一层"这个问题。这条理由**只在四个前提成立时**有效，所以四个前提在这里被逐条断言，
