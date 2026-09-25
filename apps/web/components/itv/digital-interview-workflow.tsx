@@ -464,7 +464,23 @@ function LiveRunStep({ runs, reportPending, onGenerateReport }: { readonly runs:
 
 function LiveReportStep({ report, evidenceMode, review, onViewSource }: { readonly report: NonNullable<DigitalInterviewWorkflowView["report"]>; readonly evidenceMode: DigitalInterviewWorkflowView["studyEvidenceMode"]; readonly review: DigitalInterviewWorkflowView["reportEvidenceEligibility"]; readonly onViewSource: (expertId: string, questionId: string) => void }) {
   const label = evidenceModeLabel(evidenceMode);
-  return <div id="itv-report-print-root" data-testid="itv-report"><section data-testid="itv-report-decision-brief" className="mb-8 rounded-xl border border-border bg-muted/30 p-5"><p data-testid="itv-study-evidence-label" className="text-xs font-medium text-muted-foreground">{label}</p><h2 className="mt-2 text-xl font-semibold">决策摘要</h2><p className="mt-2 text-sm leading-6">{review.message}</p><p className="mt-2 text-sm text-muted-foreground">下一步：{review.action ?? "可提交人工批准"}</p></section><div className="flex flex-wrap items-start justify-between gap-4"><div><h2 className="text-xl font-semibold">{report.title}</h2><p className="mt-3 leading-7 text-muted-foreground">{report.executiveSummary}</p></div><div className="flex flex-wrap gap-2 print:hidden"><Button data-testid="itv-report-export-word" type="button" variant="outline" onClick={() => void exportInterviewReportWord(report, { evidenceMode, review })}><FileText className="size-4" aria-hidden />导出 Word</Button><Button data-testid="itv-report-export-pdf" type="button" variant="outline" onClick={() => exportInterviewReportPdf("itv-report-print-root")}><Download className="size-4" aria-hidden />导出 PDF</Button></div></div><InterviewReportMarkdown markdown={reportMarkdownBody(report.title, report.markdown)} testId="itv-report-markdown" /><div className="mt-8 space-y-3"><h3 className="font-semibold">来源发现</h3>{report.findings.map((finding) => <article key={finding.findingId} className="rounded-lg border border-border p-4"><strong>{finding.title}</strong><p className="mt-2 text-sm leading-6 text-muted-foreground">{finding.summary}</p><button type="button" className="mt-3 text-xs font-medium text-primary print:hidden" onClick={() => onViewSource(finding.expertId, finding.questionId)}>查看原始回答</button></article>)}</div></div>;
+  return <article id="itv-report-print-root" data-testid="itv-report" className="report-document">
+    <header className="border-b border-border pb-6">
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <div className="max-w-3xl"><p className="text-xs font-medium text-primary">访谈决策报告</p><h2 className="mt-2 text-2xl font-semibold tracking-tight">{report.title}</h2></div>
+        <div className="flex flex-wrap gap-2 print:hidden"><Button data-testid="itv-report-export-word" type="button" variant="outline" onClick={() => void exportInterviewReportWord(report, { evidenceMode, review })}><FileText className="size-4" aria-hidden />导出 Word</Button><Button data-testid="itv-report-export-pdf" type="button" variant="outline" onClick={() => exportInterviewReportPdf("itv-report-print-root")}><Download className="size-4" aria-hidden />导出 PDF</Button></div>
+      </div>
+      <section data-testid="itv-report-decision-brief" className="mt-5 border-l-2 border-primary/70 pl-4">
+        <p data-testid="itv-study-evidence-label" className="text-xs font-medium text-muted-foreground">{label}</p>
+        <h3 className="mt-2 text-sm font-semibold">决策摘要</h3>
+        <p className="mt-2 leading-7 text-muted-foreground">{report.executiveSummary}</p>
+        <p className="mt-2 text-sm">{review.message}</p>
+        <p className="mt-1 text-sm text-muted-foreground">下一步：{review.action ?? "可提交人工批准"}</p>
+      </section>
+    </header>
+    <section className="mt-7"><h3 className="text-base font-semibold">研究发现</h3><InterviewReportMarkdown markdown={reportMarkdownBody(report.title, report.markdown)} testId="itv-report-markdown" /></section>
+    {report.findings.length > 0 && <section className="mt-8"><div className="flex items-baseline justify-between gap-3"><h3 className="text-base font-semibold">来源发现</h3><p className="text-xs text-muted-foreground">每项发现均可回溯至访谈回答</p></div><div className="mt-3 space-y-3">{report.findings.map((finding, index) => <article key={finding.findingId} className="break-inside-avoid rounded-xl border border-border bg-muted/20 p-4"><p className="text-xs font-medium text-primary">发现 {index + 1}</p><strong className="mt-1 block">{finding.title}</strong><p className="mt-2 text-sm leading-6 text-muted-foreground">{finding.summary}</p><button type="button" className="mt-3 text-xs font-medium text-primary print:hidden" onClick={() => onViewSource(finding.expertId, finding.questionId)}>查看原始回答</button></article>)}</div></section>}
+  </article>;
 }
 
 function LiveReportGenerationStep({ generation, onRetry }: {

@@ -65,3 +65,23 @@ test("a failed report keeps its partial content and exposes retry in a real brow
   await expect(page.getByRole("dialog")).toContainText("是否重新生成？");
   await expect(page.getByRole("button", { name: "确认重新生成" })).toBeVisible();
 });
+
+test("a completed report separates the decision brief and replaces an empty evidence table with guidance", async ({ page }) => {
+  const completed = { ...view, status: "completed", currentStep: "report", topic: "采购决策链路", version: 13,
+    reportId: "report-completed", reportGeneration: null, report: { reportId: "report-completed", title: "采购决策研究报告",
+      executiveSummary: "先验证采购否决权，再决定进入路径。", markdown: "# 采购决策研究报告\n\n## 研究发现\n\n采购否决权仍需验证。",
+      findings: [], generatedAt: "2026-09-25T00:00:00.000Z" },
+    studyEvidenceMode: "simulated",
+    reportEvidenceEligibility: { eligibility: "blocked_missing_participant_evidence",
+      message: "需要真实受访者证据后才能批准。", action: "添加并复核真实受访者回答" } };
+  await page.addInitScript(() => {
+    localStorage.setItem("wsx.sessionToken", "e2e-token");
+    localStorage.setItem("wsx.session", JSON.stringify({ version: 1, userId: "user-e2e", orgs: ["org-e2e"], currentOrgId: "org-e2e", expiresAt: "2099-01-01T00:00:00.000Z" }));
+  });
+  await page.route("**/identity/me**", async (route) => route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ org: { id: "org-e2e", name: "E2E", kind: "organization", team: null, modelPolicy: "any" }, orgRole: "lead", teamId: null, projectRole: null, groupId: null, displayName: "E2E User", avatarUrl: null }) }));
+  await page.route("**/interviews/digital/itv-quality-e2e", async (route) => route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(completed) }));
+  await page.goto("/itv/itv-quality-e2e/setup");
+  await expect(page.getByTestId("itv-report-decision-brief")).toContainText("先验证采购否决权");
+  await expect(page.getByTestId("itv-evidence-review-empty")).toBeVisible();
+  await expect(page.getByRole("table")).toHaveCount(0);
+});

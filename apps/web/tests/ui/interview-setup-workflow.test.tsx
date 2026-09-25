@@ -241,7 +241,8 @@ describe("F04 可点击 Mock 访谈流程", () => {
     fireEvent.click(screen.getByTestId("itv-run-all"));
     fireEvent.click(screen.getByTestId("itv-workflow-step-5"));
     expect(screen.getByTestId("itv-report-markdown")).toHaveTextContent("德国采购决策链");
-    expect(screen.getByTestId("itv-report-markdown").querySelector("h1")).toHaveTextContent("德国采购决策链");
+    expect(screen.getByTestId("itv-report-markdown").querySelector("h1")).toBeNull();
+    expect(screen.getByTestId("itv-report-markdown").querySelector("h3")).toHaveTextContent("德国采购决策链");
     expect(screen.getByTestId("itv-report-timeline")).toHaveTextContent("报告已生成");
   });
 

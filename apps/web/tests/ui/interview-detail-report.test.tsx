@@ -35,6 +35,30 @@ const completed: DigitalInterviewWorkflowView = {
 afterEach(() => vi.unstubAllGlobals());
 
 describe("F06 interview answers to report", () => {
+  it("keeps an empty evidence matrix out of the report reading path and explains the review block", async () => {
+    const reportView = {
+      ...completed,
+      status: "completed" as const,
+      currentStep: "report" as const,
+      reportId: "report-empty-evidence",
+      report: {
+        reportId: "report-empty-evidence",
+        title: "江西足球访谈报告",
+        executiveSummary: "基层体系需要教练与赛事协同。",
+        markdown: "# 江西足球访谈报告\n\n## 决策摘要\n\n先培养教练。",
+        findings: [],
+        generatedAt: "2026-09-01T02:01:00.000Z",
+      },
+    };
+    vi.stubGlobal("fetch", vi.fn(async () => new Response(JSON.stringify(reportView), { status: 200, headers: { "content-type": "application/json" } })));
+
+    render(<PersistentDigitalInterviewWorkflow initialView={reportView} />);
+
+    expect(await screen.findByTestId("itv-report-decision-brief")).toHaveTextContent("决策摘要");
+    expect(screen.getByTestId("itv-evidence-review-empty")).toHaveTextContent("尚无可展示的目标与专家证据覆盖");
+    expect(screen.queryByRole("table")).toBeNull();
+  });
+
   it("puts the evidence boundary and next validation action before report analysis", () => {
     const report: DigitalInterviewWorkflowView = {
       ...completed, currentStep: "report", status: "completed",
@@ -153,7 +177,10 @@ describe("F06 interview answers to report", () => {
     expect(await screen.findByTestId("itv-report")).toHaveTextContent("江西足球访谈报告");
     expect(screen.getByTestId("itv-report-markdown")).toHaveTextContent("基层体系");
     expect(screen.getByTestId("itv-report-markdown").querySelector("h1")).toBeNull();
-    expect(screen.getByTestId("itv-report-markdown").querySelector("h2")).toHaveTextContent("基层体系");
+    expect(screen.getByTestId("itv-report-markdown").querySelector("h2")).toBeNull();
+    // Generated `##` headings render two levels lower than markdown's h2 so they nest under the
+    // report's h2 title and the "研究发现" h3 section wrapper (see interview-report-markdown.tsx).
+    expect(screen.getByTestId("itv-report-markdown").querySelector("h4")).toHaveTextContent("基层体系");
     expect(screen.getByTestId("itv-report-markdown").querySelectorAll("li")).toHaveLength(2);
     expect(screen.getByTestId("itv-report-markdown").querySelector("script")).toBeNull();
     expect(screen.getByTestId("itv-report-markdown").querySelector("pre")).toBeNull();
