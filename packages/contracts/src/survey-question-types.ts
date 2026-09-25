@@ -125,6 +125,13 @@ export const SurveyWorkflowQuestionSchema = z.object({
   required: z.boolean(),
   options: z.array(z.string().min(1)).default([]),
   config: SurveyQuestionConfigSchema.optional(),
+  provenance: z
+    .object({
+      source: z.enum(["question-library", "template", "manual"]),
+      sourceId: z.string().min(1).max(200).optional(),
+      certifiedAt: z.string().datetime().optional(),
+    })
+    .optional(),
 });
 export type SurveyWorkflowQuestion = z.infer<
   typeof SurveyWorkflowQuestionSchema
