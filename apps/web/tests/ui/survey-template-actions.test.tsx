@@ -193,7 +193,7 @@ describe("survey template actions", () => {
     fireEvent.click(screen.getByRole("button", { name: "应用模板" }));
     const applied = onApply.mock.calls[0]![0] as SurveyDraftInput;
     expect(applied.title).toBe(current.title);
-    expect(applied.questions).toEqual(source.questions);
+    expect(applied.questions).toEqual(source.questions.map((question) => ({ ...question, provenance: { source: "template", sourceId: source.id } })));
     expect(applied.questions).not.toBe(source.questions);
     expect(applied.template).toEqual(source.template);
     applied.questions[0]!.title = "副本改名";

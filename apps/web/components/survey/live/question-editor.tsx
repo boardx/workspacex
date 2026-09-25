@@ -45,8 +45,13 @@ export function SurveyQuestionEditor({
   const index = questions.findIndex((q) => q.id === question?.id);
   const change = (all: SurveyWorkflowQuestion[]) =>
     onChange(all.map((q, i) => ({ ...q, order: i + 1 })));
-  const update = (next: SurveyWorkflowQuestion) =>
-    change(questions.map((q) => (q.id === question?.id ? next : q)));
+  const update = (next: SurveyWorkflowQuestion) => {
+    const changed = JSON.stringify(next) !== JSON.stringify(question);
+    const provenance = changed && next.provenance?.certifiedAt
+      ? { ...next.provenance, certifiedAt: undefined }
+      : next.provenance;
+    change(questions.map((q) => (q.id === question?.id ? { ...next, ...(provenance ? { provenance } : {}) } : q)));
+  };
   function add(type: SurveyQuestionType) {
     const next = createSurveyQuestion(
       type,
@@ -68,6 +73,7 @@ export function SurveyQuestionEditor({
         ? false
         : question.required,
       config: { ...next.config, description: question.config?.description },
+      provenance: question.provenance,
     });
     setPendingType(undefined);
   }
@@ -315,6 +321,12 @@ export function SurveyQuestionEditor({
               disabled={locked}
               className="min-w-0 space-y-5 rounded-lg border border-border bg-card p-5"
             >
+              {question.provenance && (
+                <p data-testid="question-provenance" className="text-12 text-muted-foreground">
+                  {question.provenance.source === "question-library" ? "题库来源" : question.provenance.source === "template" ? "模板来源" : "手动创建"}
+                  {" · "}{question.provenance.certifiedAt ? "已认证" : "需重新认证"}
+                </p>
+              )}
               <label className="block text-12">
                 问题内容
                 <Textarea
@@ -440,6 +452,9 @@ export function SurveyQuestionEditor({
                       ...structuredClone(question),
                       id: crypto.randomUUID(),
                       title: `${question.title}（副本）`,
+                      provenance: question.provenance
+                        ? { ...question.provenance, certifiedAt: undefined }
+                        : undefined,
                     };
                     const next = [...questions];
                     next.splice(index + 1, 0, copy);
