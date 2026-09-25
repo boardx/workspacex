@@ -396,6 +396,8 @@ export class SurveyService {
         record.model.answerRevision++;
         record.model.version++;
         record.model.updatedAt = changedAt;
+        if (Buffer.byteLength(JSON.stringify(record)) > 16 * 1024 * 1024)
+          throw new SurveyError("capacity_reached");
       }
       return record.model;
     });
@@ -424,6 +426,8 @@ export class SurveyService {
         record.model.answerRevision++;
         record.model.version++;
         record.model.updatedAt = changedAt;
+        if (Buffer.byteLength(JSON.stringify(record)) > 16 * 1024 * 1024)
+          throw new SurveyError("capacity_reached");
       }
       return record.model;
     });

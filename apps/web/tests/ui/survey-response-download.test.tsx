@@ -28,3 +28,13 @@ it('shows an auditable analysis exclusion and lets the researcher restore the re
  expect(screen.getByText('排除原因：重复的测试提交')).toBeInTheDocument();expect(screen.getByRole('region',{name:'分析治理记录'})).toHaveTextContent('已排除：重复的测试提交 · owner');fireEvent.click(screen.getByRole('button',{name:'重新纳入分析'}));
  expect(onAnalysis).toHaveBeenCalledWith('response','included');
 });
+it('does not reuse an unsaved exclusion reason for another response',()=>{
+ const onAnalysis=vi.fn();const second={...response,id:'response-2'};
+ render(<LiveResponseList surveyId="survey" responses={[response,second]} questions={[question]} busy={false} onReview={()=>undefined} onAnalysis={onAnalysis}/>);
+ fireEvent.click(screen.getAllByRole('button',{name:'查看完整答卷'})[0]!);
+ fireEvent.change(screen.getByRole('textbox',{name:'排除分析原因'}),{target:{value:'仅适用于第一份'}});
+ fireEvent.click(screen.getByRole('button',{name:'收起详情'}));
+ fireEvent.click(screen.getAllByRole('button',{name:'查看完整答卷'})[1]!);
+ expect(screen.getByRole('textbox',{name:'排除分析原因'})).toHaveValue('');
+ expect(screen.getByRole('button',{name:'排除分析'})).toBeDisabled();
+});

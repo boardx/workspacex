@@ -48,6 +48,13 @@ describe('persistent survey lifecycle',()=>{
     ]);
     await expect((s as SurveyService & { excludeFromAnalysis(org:ReturnType<typeof toOrgId>,actor:string,id:string,version:number,responseId:string,reason:string):Promise<typeof m> }).excludeFromAnalysis(org,'owner',m.id,governed.version,receipt.responseId,'陈旧写入')).rejects.toThrow('version_conflict');
   });
+  it('rejects analysis history growth that would exceed the aggregate size limit',async()=>{
+    const {service:s,rows}=setup();let m=await s.create(org,'owner',draft);m=await s.publish(org,'owner',m.id,m.version);
+    const receipt=await s.submit(m.publication!.token,answer);m=await s.get(org,'owner',m.id);
+    rows.get(org+':'+m.id)!.model.responses[0]!.analysisHistory=[{analysis:'included',actor:'owner',changedAt:'2026-09-20T00:00:00.000Z'}];
+    rows.get(org+':'+m.id)!.model.responses[0]!.analysisHistory!.push({analysis:'excluded',reason:'x'.repeat(16*1024*1024),actor:'owner',changedAt:'2026-09-20T00:00:00.000Z'});
+    await expect((s as SurveyService & { excludeFromAnalysis(org:ReturnType<typeof toOrgId>,actor:string,id:string,version:number,responseId:string,reason:string):Promise<typeof m> }).excludeFromAnalysis(org,'owner',m.id,m.version,receipt.responseId,'不应写入')).rejects.toThrow('capacity_reached');
+  });
   it('requires a reason whenever a response is excluded from analysis',()=>{
     expect(SurveyResponseSchema.safeParse({
       id:'response-1',role:'未填写',companySize:'未填写',quality:'normal',analysis:'excluded',

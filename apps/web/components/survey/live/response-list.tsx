@@ -91,7 +91,10 @@ export function LiveResponseList({
                   <Button
                     size="xs"
                     variant="outline"
-                    onClick={() => setSelected(r.id)}
+                    onClick={() => {
+                      setExclusionReason("");
+                      setSelected(r.id);
+                    }}
                   >
                     查看完整答卷
                   </Button>
@@ -154,7 +157,10 @@ export function LiveResponseList({
                   排除分析
                 </Button>
               ))}
-              <Button variant="ghost" onClick={() => setSelected(null)}>
+              <Button variant="ghost" onClick={() => {
+                setExclusionReason("");
+                setSelected(null);
+              }}>
                 收起详情
               </Button>
             </div>
