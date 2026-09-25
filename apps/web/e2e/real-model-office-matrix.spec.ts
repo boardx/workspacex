@@ -95,6 +95,25 @@ async function login(page: Page): Promise<void> {
 /** 发一句话并等这一轮落定。返回是否**真的跑起来过**——没跑起来与跑完是两件事。 */
 async function sendAndSettle(page: Page, prompt: string): Promise<string> {
   await page.goto("/chat");
+  /**
+   * 2026-09-25 实测抓到的级联根因：task① 那种研究类任务连着跑 900 秒之后，
+   * `SessionProvider` 会把状态判成 `dependency-failed`（`session-provider.tsx`：
+   * 任何不是 401 的失败都会落到这个分支），界面整页换成「身份服务暂时不可用，
+   * 登录状态已保留」——不是产品的正常聊天页。此前这份 spec 在这一步只会
+   * `expect(composer).toBeVisible()` 死等composer 出现，可 composer 根本不在这个
+   * 页面上，于是**后面全部九个 task** 都因为同一个理由一起 `toBeVisible` 超时，
+   * 一次可恢复的临时状态被放大成了整条矩阵的级联失败。
+   *
+   * 界面自己给了恢复路径——「重试」按钮，这正是真实用户会做的事：出现就点，
+   * 给几次机会，而不是death loop 也不是假装它不存在。
+   */
+  const dependencyFailed = page.getByTestId("session-dependency-failed");
+  const retryButton = page.getByRole("button", { name: "重试" });
+  for (let attempt = 0; attempt < 5; attempt += 1) {
+    if ((await dependencyFailed.count()) === 0) break;
+    await retryButton.click({ timeout: 5_000 }).catch(() => {});
+    await page.waitForTimeout(3_000);
+  }
   const composer = page.getByTestId("copilotkit-v2-input");
   await expect(composer).toBeVisible({ timeout: 120_000 });
   await composer.fill(prompt);
@@ -135,10 +154,6 @@ async function sendAndSettle(page: Page, prompt: string): Promise<string> {
    */
   const toolPermissionDialog = page.getByTestId("chat-tool-permission-dialog");
   const toolPermissionAllowRun = page.getByTestId("perm-run");
-  // 每一轮 task 各自的一次性开关——写成局部变量而不是复用上一个 task 遗留的状态，
-  // 避免一次点击卡住之后在同一个 task 里反复重试、把一次可恢复的慢渲染拖成死循环。
-  let confirmedOnce = false;
-  let toolPermissionAllowedOnce = false;
 
   const sentAt = Date.now();
   let sawRunning = false;
@@ -149,15 +164,21 @@ async function sendAndSettle(page: Page, prompt: string): Promise<string> {
     // 后面几个 task 全部 `toBeVisible` 失败。这里改成：数到恰好一次就点，点不动
     // （5s 内没完成）就放弃这一次，交给下一轮循环重新判断，绝不让一次点击卡住
     // 整条循环、更不能卡到拖垮后面的 task。
-    if (!confirmedOnce && (await confirmIntentContinue.count()) > 0) {
-      confirmedOnce = true;
-      await confirmIntentContinue.click({ timeout: 5_000 }).catch(() => { confirmedOnce = false; });
+    // 2026-09-25 实测教训：**不设「只处理一次」的开关**。「本 run 内都允许」手动
+    // 验证过对 `write_todos` 有效，但没验证过它是否覆盖同一个 run 里后续出现的
+    // 别的高风险工具（`call_skill` 同样按 `_call_skill_requires_hitl` 独立判定，
+    // 见 harness.py）——真撞上第二个不同的弹窗时，"只处理一次"的开关会让它永远
+    // 等一个不会再来的处理，第①个 task 卡满整条预算，还连累了共享 `page` 后面
+    // 的每一个 task。这里改成每轮都判断"现在是不是正显示"，出现就点，
+    // `.count()` 快照 + 5s 超时 + `catch` 兜住偶发的重渲染竞态，但**不**记状态
+    // 阻止下一次判断——多点一次没代价，少点一次会死等。
+    if ((await confirmIntentContinue.count()) > 0) {
+      await confirmIntentContinue.click({ timeout: 5_000 }).catch(() => {});
       await page.waitForTimeout(1_000);
       continue;
     }
-    if (!toolPermissionAllowedOnce && (await toolPermissionDialog.count()) > 0) {
-      toolPermissionAllowedOnce = true;
-      await toolPermissionAllowRun.click({ timeout: 5_000 }).catch(() => { toolPermissionAllowedOnce = false; });
+    if ((await toolPermissionDialog.count()) > 0) {
+      await toolPermissionAllowRun.click({ timeout: 5_000 }).catch(() => {});
       await page.waitForTimeout(1_000);
       continue;
     }
