@@ -30,5 +30,15 @@ describe('persistent survey lifecycle',()=>{
     for(let i=0;i<6;i++)await s.submit(m.publication!.token,{...answer,submissionId:`group-request-${i}`,answers:[{questionId:'q1',value:'2'},{questionId:'group',value:i<5?'A':'B'}]});
     m=await s.get(org,'owner',m.id);m=await s.report(org,'owner',m.id,m.version);expect(m.report!.issues).toEqual([]);expect(m.report!.warnings?.length).toBeGreaterThan(0);expect(m.report!.sections[0]!.blocks[0]!.rows.map(r=>r.group)).toEqual(['A']);
   });
+  it('keeps an excluded response but removes it from the default report with its audit reason',async()=>{
+    const {service:s}=setup();let m=await s.create(org,'owner',draft);m=await s.publish(org,'owner',m.id,m.version);
+    const receipt=await s.submit(m.publication!.token,answer);m=await s.get(org,'owner',m.id);
+    const governed=await (s as SurveyService & { excludeFromAnalysis(org:ReturnType<typeof toOrgId>,actor:string,id:string,version:number,responseId:string,reason:string):Promise<typeof m> }).excludeFromAnalysis(org,'owner',m.id,m.version,receipt.responseId,'测试答卷，不纳入正式分析');
+    expect(governed.responses[0]).toMatchObject({quality:'normal',analysis:'excluded',exclusionReason:'测试答卷，不纳入正式分析'});
+    await expect(s.report(org,'owner',governed.id,governed.version)).rejects.toThrow('invalid_report');
+    const restored=await (s as SurveyService & { includeInAnalysis(org:ReturnType<typeof toOrgId>,actor:string,id:string,version:number,responseId:string):Promise<typeof m> }).includeInAnalysis(org,'owner',governed.id,governed.version,receipt.responseId);
+    expect(restored.responses[0]).toMatchObject({analysis:'included'});
+    expect(restored.responses[0]!.exclusionReason).toBeUndefined();
+  });
   it('denies expired and closed links and rejects empty reports',async()=>{const {service:s,advance}=setup();let m=await s.create(org,'owner',draft);await expect(s.report(org,'owner',m.id,m.version)).rejects.toThrow('invalid_report');m=await s.publish(org,'owner',m.id,m.version);advance();await expect(s.publicGet(m.publication!.token)).rejects.toThrow('expired');await expect(s.submit(m.publication!.token,answer)).rejects.toThrow('expired');m=await s.close(org,'owner',m.id,m.version);await expect(s.publicGet(m.publication!.token)).rejects.toThrow('closed');});
 });

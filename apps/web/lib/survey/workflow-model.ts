@@ -43,6 +43,7 @@ export function createSurveyWorkflowMock(options: CreateSurveyWorkflowMockOption
     role: ["高层管理者", "部门负责人", "普通员工"][index % 3]!,
     companySize: ["50–199人", "200–999人", "1000–4999人"][index % 3]!,
     quality: index < 6 ? "review" : "normal",
+    analysis: "included",
     submittedAt: new Date(Date.UTC(2026, 7, 12, 1, index)).toISOString(),
     durationSeconds: 260 + index * 3,
     answers: [

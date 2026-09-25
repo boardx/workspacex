@@ -37,6 +37,9 @@ it('wires real HTTP authentication, persistence, public submission, review, repo
   const saveWhileCollecting=await request(`/surveys/${id}`,'PUT',{...draft,expectedVersion:editorVersion});
   expect(saveWhileCollecting.status).toBe(200);m=SurveyRuntimeSchema.parse(await saveWhileCollecting.json());expect(m.responses).toHaveLength(1);
   const report=await request(`/surveys/${id}/report`,'POST',{expectedVersion:m.version});expect(report.status).toBe(201);m=SurveyRuntimeSchema.parse(await report.json());expect(m.report!.sections[0]!.blocks[0]!.rows[0]!.value).toBe(4);
+  const excluded=await request(`/surveys/${id}/responses/${receipt.responseId}`,'PATCH',{expectedVersion:m.version,analysis:'excluded',exclusionReason:'测试性答卷'});expect(excluded.status).toBe(200);m=SurveyRuntimeSchema.parse(await excluded.json());expect(m.responses[0]).toMatchObject({quality:'normal',analysis:'excluded',exclusionReason:'测试性答卷'});
+  expect((await request(`/surveys/${id}/report`,'POST',{expectedVersion:m.version})).status).toBe(400);
+  const included=await request(`/surveys/${id}/responses/${receipt.responseId}`,'PATCH',{expectedVersion:m.version,analysis:'included'});expect(included.status).toBe(200);m=SurveyRuntimeSchema.parse(await included.json());expect(m.responses[0]).toMatchObject({analysis:'included'});expect(m.responses[0]!.exclusionReason).toBeUndefined();
   const reviewed=await request(`/surveys/${id}/responses/${receipt.responseId}`,'PATCH',{expectedVersion:m.version,quality:'review'});expect(reviewed.status).toBe(200);m=SurveyRuntimeSchema.parse(await reviewed.json());expect(m.responses[0]!.quality).toBe('review');
   // Changing caller-controlled forwarding headers cannot reset the direct peer-IP key.
   expect(app.getHttpAdapter().getInstance().get('trust proxy')).toBe(false);

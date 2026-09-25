@@ -123,6 +123,7 @@ export class SurveyService {
           ? "collecting"
           : "draft";
     model.anonymity ??= "anonymous";
+    for (const response of model.responses) response.analysis ??= "included";
     return model;
   }
   private transact<T>(
@@ -363,6 +364,50 @@ export class SurveyService {
       return m;
     });
   }
+  excludeFromAnalysis(
+    orgId: OrgId,
+    actor: string,
+    id: string,
+    version: number,
+    responseId: string,
+    reason: string,
+  ) {
+    const exclusionReason = reason.trim();
+    if (!exclusionReason || exclusionReason.length > 1000)
+      throw new SurveyError("invalid_answers");
+    return this.transact(orgId, id, (record) => {
+      this.own(record, actor, version);
+      const response = record.model.responses.find((item) => item.id === responseId);
+      if (!response) throw new SurveyError("not_found");
+      if (response.analysis !== "excluded" || response.exclusionReason !== exclusionReason) {
+        response.analysis = "excluded";
+        response.exclusionReason = exclusionReason;
+        record.model.answerRevision++;
+        record.model.updatedAt = this.now().toISOString();
+      }
+      return record.model;
+    });
+  }
+  includeInAnalysis(
+    orgId: OrgId,
+    actor: string,
+    id: string,
+    version: number,
+    responseId: string,
+  ) {
+    return this.transact(orgId, id, (record) => {
+      this.own(record, actor, version);
+      const response = record.model.responses.find((item) => item.id === responseId);
+      if (!response) throw new SurveyError("not_found");
+      if (response.analysis !== "included" || response.exclusionReason !== undefined) {
+        response.analysis = "included";
+        delete response.exclusionReason;
+        record.model.answerRevision++;
+        record.model.updatedAt = this.now().toISOString();
+      }
+      return record.model;
+    });
+  }
   report(orgId: OrgId, actor: string, id: string, version: number) {
     return this.change(orgId, actor, id, version, (m) => {
       const responses = m.responses;
@@ -471,6 +516,7 @@ export class SurveyService {
         r.model.responses.push({
           id: responseId,
           quality: "normal",
+          analysis: "included",
           submittedAt: this.now().toISOString(),
           role: input.role,
           companySize: input.companySize,

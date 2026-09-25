@@ -5,6 +5,7 @@ import {
   SurveyStatusSchema,
   SurveyWorkflowQuestionSchema,
   SurveyResponseSchema,
+  SurveyResponseAnalysisSchema,
   SurveyAnswerValueSchema,
 } from "./survey";
 import {
@@ -54,6 +55,21 @@ export const SurveyVersionInputSchema = z
     expectedVersion: z.number().int().positive(),
   })
   .strict();
+export const SurveyResponseReviewInputSchema = SurveyVersionInputSchema.extend({
+  quality: z.enum(["normal", "review"]).optional(),
+  analysis: SurveyResponseAnalysisSchema.optional(),
+  exclusionReason: z.string().trim().min(1).max(1000).optional(),
+}).strict().superRefine((value, ctx) => {
+  if ((value.quality === undefined) === (value.analysis === undefined)) {
+    ctx.addIssue({ code: z.ZodIssueCode.custom, message: "选择质量或分析纳入状态" });
+  }
+  if (value.analysis === "excluded" && !value.exclusionReason) {
+    ctx.addIssue({ code: z.ZodIssueCode.custom, message: "排除分析需要说明原因", path: ["exclusionReason"] });
+  }
+  if (value.analysis !== "excluded" && value.exclusionReason !== undefined) {
+    ctx.addIssue({ code: z.ZodIssueCode.custom, message: "仅排除分析时可填写原因", path: ["exclusionReason"] });
+  }
+});
 export const SurveyPrepareCommandSchema = SurveyVersionInputSchema;
 export const SurveyWithdrawCommandSchema = SurveyVersionInputSchema;
 export const SurveyStartCollectionCommandSchema =

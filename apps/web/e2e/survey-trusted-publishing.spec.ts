@@ -108,3 +108,38 @@ test("发布门控展示全部阻断，修复后显式进入回收且匿名方�
   expect(anonymityChange.data.reasonCode).toBe("ANONYMITY_IMMUTABLE");
 
 });
+
+test("管理员可在真实答卷页排除测试答卷且保留审计理由", async ({ page }) => {
+  test.setTimeout(120_000);
+  await loginAsAdmin(page);
+  const created = await api<{ id: string; version: number }>(page, "/surveys", "POST", {
+    draft: repairedDraft,
+    anonymity: "anonymous",
+  });
+  expect(created.status).toBe(201);
+  const published = await api<{ publication: { token: string } }>(page, `/surveys/${created.data.id}/publish`, "POST", {
+    expectedVersion: created.data.version,
+  });
+  expect(published.status).toBe(201);
+  const submitted = await api<{ responseId: string }>(page, `/public/surveys/${published.data.publication.token}/responses`, "POST", {
+    submissionId: `browser-governance-${Date.now()}`,
+    answers: [{ questionId: "q-leading", value: "愿意" }],
+  });
+  expect(submitted.status).toBe(201);
+
+  await page.goto(`/studio/survey/${created.data.id}?step=responses`);
+  await page.getByRole("button", { name: "查看完整答卷" }).click();
+  await page.getByLabel("排除分析原因").fill("浏览器验收中的测试答卷");
+  await page.getByRole("button", { name: "排除分析" }).click();
+  await expect(page.getByText("排除原因：浏览器验收中的测试答卷")).toBeVisible();
+  await expect(page.getByText(/已排除分析 1/)).toBeVisible();
+  await page.screenshot({ path: test.info().outputPath("response-governance-excluded.png"), fullPage: true });
+
+  const persisted = await api<{ responses: Array<{ id: string; analysis: string; exclusionReason?: string }> }>(page, `/surveys/${created.data.id}`);
+  expect(persisted.status).toBe(200);
+  expect(persisted.data.responses.find((response) => response.id === submitted.data.responseId)).toMatchObject({
+    id: submitted.data.responseId,
+    analysis: "excluded",
+    exclusionReason: "浏览器验收中的测试答卷",
+  });
+});

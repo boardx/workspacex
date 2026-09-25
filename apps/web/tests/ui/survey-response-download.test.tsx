@@ -5,7 +5,7 @@ const token=vi.hoisted(()=>vi.fn(()=> 'owner-session'));
 vi.mock('@/lib/api-client',async importOriginal=>({...await importOriginal<typeof import('@/lib/api-client')>(),getStoredSessionToken:token}));
 const fetcher=vi.fn();const click=vi.fn();const create=vi.fn(()=> 'blob:private-attachment');const revoke=vi.fn();
 const question={id:'file',order:1,chapterId:'s',title:'上传材料',type:'file' as const,required:false,options:[]};
-const response={id:'response',submittedAt:'2026-09-21T00:00:00Z',durationSeconds:1,quality:'normal' as const,role:'未填写',companySize:'未填写',answers:[{questionId:'file',value:['attachment']}]};
+const response={id:'response',submittedAt:'2026-09-21T00:00:00Z',durationSeconds:1,quality:'normal' as const,analysis:'included' as const,role:'未填写',companySize:'未填写',answers:[{questionId:'file',value:['attachment']}]};
 beforeEach(()=>{vi.stubGlobal('fetch',fetcher);fetcher.mockReset();token.mockReturnValue('owner-session');create.mockClear();click.mockClear();Object.defineProperty(URL,'createObjectURL',{configurable:true,value:create});Object.defineProperty(URL,'revokeObjectURL',{configurable:true,value:revoke});vi.spyOn(HTMLAnchorElement.prototype,'click').mockImplementation(function(this:HTMLAnchorElement){click({href:this.href,download:this.download});});});
 afterEach(()=>{vi.restoreAllMocks();vi.unstubAllGlobals();});
 function open(){render(<LiveResponseList surveyId="survey" responses={[response]} questions={[question]} busy={false} onReview={()=>undefined}/>);fireEvent.click(screen.getByRole('button',{name:'查看完整答卷'}));}
@@ -21,4 +21,10 @@ it('failed authorization is visible and never creates a download URL; retry is p
 });
 it('missing login does not send anonymous file requests',async()=>{
  token.mockReturnValue('');open();fireEvent.click(screen.getByRole('button',{name:'下载附件 1'}));expect(await screen.findByRole('alert')).toHaveTextContent('请先登录');expect(fetcher).not.toHaveBeenCalled();
+});
+it('shows an auditable analysis exclusion and lets the researcher restore the response',()=>{
+ const onAnalysis=vi.fn();render(<LiveResponseList surveyId="survey" responses={[{...response,analysis:'excluded' as const,exclusionReason:'重复的测试提交'}]} questions={[question]} busy={false} onReview={()=>undefined} onAnalysis={onAnalysis}/>);
+ expect(screen.getByText(/已排除分析 1/)).toBeInTheDocument();fireEvent.click(screen.getByRole('button',{name:'查看完整答卷'}));
+ expect(screen.getByText('排除原因：重复的测试提交')).toBeInTheDocument();fireEvent.click(screen.getByRole('button',{name:'重新纳入分析'}));
+ expect(onAnalysis).toHaveBeenCalledWith('response','included');
 });

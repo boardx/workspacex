@@ -450,6 +450,27 @@ export function LiveSurveyWorkspace({
               responses={runtime?.responses ?? []}
               questions={runtime?.publication?.questions ?? draft.questions}
               busy={busy}
+              onAnalysis={(id, analysis, exclusionReason) =>
+                void execute(async () => {
+                  const current = dirty ? await save() : runtime;
+                  if (!current) return;
+                  accept(
+                    SurveyRuntimeSchema.parse(
+                      await surveyRequest(
+                        `/surveys/${current.id}/responses/${id}`,
+                        {
+                          method: "PATCH",
+                          body: {
+                            expectedVersion: current.version,
+                            analysis,
+                            ...(analysis === "excluded" ? { exclusionReason } : {}),
+                          },
+                        },
+                      ),
+                    ),
+                  );
+                })
+              }
               onReview={(id, quality) =>
                 void execute(async () => {
                   const current = dirty ? await save() : runtime;

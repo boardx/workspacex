@@ -42,6 +42,7 @@ import {
 } from "./survey-question-types";
 export * from "./survey-question-types";
 export const SurveyResponseQualitySchema = z.enum(["normal", "review"]);
+export const SurveyResponseAnalysisSchema = z.enum(["included", "excluded"]);
 export const SurveyChartTypeSchema = z.enum([
   "gap-matrix",
   "capability-table",
@@ -65,6 +66,8 @@ export const SurveyResponseSchema = z.object({
   role: z.string().min(1),
   companySize: z.string().min(1),
   quality: SurveyResponseQualitySchema,
+  analysis: SurveyResponseAnalysisSchema.default("included"),
+  exclusionReason: z.string().min(1).max(1000).optional(),
   submittedAt: z.string().datetime(),
   durationSeconds: z.number().int().nonnegative(),
   answers: z.array(

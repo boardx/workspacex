@@ -10,12 +10,14 @@ export function LiveResponseList({
   responses,
   questions,
   onReview,
+  onAnalysis,
   busy,
 }: {
   surveyId?: string;
   responses: survey.SurveyResponse[];
   questions: survey.SurveyWorkflowQuestion[];
   onReview: (id: string, quality: "normal" | "review") => void;
+  onAnalysis?: (id: string, analysis: "included" | "excluded", reason?: string) => void;
   busy: boolean;
 }) {
   const [downloadError, setDownloadError] = React.useState("");
@@ -24,6 +26,8 @@ export function LiveResponseList({
   const [quality, setQuality] = React.useState("all");
   const [page, setPage] = React.useState(0);
   const [selected, setSelected] = React.useState<string | null>(null);
+  const [exclusionReason, setExclusionReason] = React.useState("");
+  const excluded = responses.filter((r) => r.analysis === "excluded").length;
   const filtered = responses.filter(
     (r) =>
       (quality === "all" || r.quality === quality) &&
@@ -38,7 +42,7 @@ export function LiveResponseList({
         <p className="text-18 font-semibold">{responses.length} 份答卷</p>
         <p className="text-12 text-muted-foreground">
           有效 {responses.filter((r) => r.quality === "normal").length} · 待复核{" "}
-          {responses.filter((r) => r.quality === "review").length}
+          {responses.filter((r) => r.quality === "review").length} · 已排除分析 {excluded}
         </p>
       </div>
       <div className="flex gap-2">
@@ -141,11 +145,28 @@ export function LiveResponseList({
               >
                 {item.quality === "normal" ? "标记待复核" : "确认有效"}
               </Button>
+              {onAnalysis && (item.analysis === "excluded" ? (
+                <Button disabled={busy} variant="outline" onClick={() => onAnalysis(item.id, "included")}>
+                  重新纳入分析
+                </Button>
+              ) : (
+                <Button disabled={busy || !exclusionReason.trim()} variant="outline" onClick={() => onAnalysis(item.id, "excluded", exclusionReason.trim())}>
+                  排除分析
+                </Button>
+              ))}
               <Button variant="ghost" onClick={() => setSelected(null)}>
                 收起详情
               </Button>
             </div>
           </div>
+          {item.analysis === "excluded" ? (
+            <p className="mt-3 text-12 text-warning">排除原因：{item.exclusionReason ?? "未填写"}</p>
+          ) : onAnalysis ? (
+            <label className="mt-3 grid gap-1 text-12">
+              排除原因
+              <Input aria-label="排除分析原因" value={exclusionReason} onChange={(event) => setExclusionReason(event.target.value)} placeholder="例如：测试性或重复提交" />
+            </label>
+          ) : null}
           {downloadError && <p role="alert" className="mt-3 text-12 text-destructive">{downloadError}</p>}
           <ol className="mt-4 space-y-4">
             {questions.filter(q => !isSurveyPageElement(q)).map((q, i) => {

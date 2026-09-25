@@ -34,6 +34,7 @@ function submittedAnswers(
   return [2, 4].map((score, index) => ({
     id: `test-submission-${index}`,
     quality: "normal",
+    analysis: "included",
     role: "测试提交人",
     companySize: "测试组织",
     submittedAt: `2026-09-${20 + index}T00:00:00.000Z`,
