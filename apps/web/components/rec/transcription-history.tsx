@@ -23,6 +23,7 @@ import type { UiState } from "@/lib/ui-state";
 import { openBoardxRealtimeAsr, type BoardxRealtimeAsrHandle } from "@/lib/BoardxRealtimeAsrClient";
 import { LiveRecordingError } from "@/lib/live-recording";
 import type { RealtimeAsrFinalEvent, RealtimeAsrStreamState } from "@/lib/realtime-asr.types";
+import type { RealtimeAsrFlowState } from "@/lib/realtime-asr-flow";
 import { useAudioInputDevices } from "@/lib/use-audio-input-devices";
 import type { TranscriptionHistoryItem } from "@/lib/mock/realtime-transcriptions";
 import { CreateTranscriptionDialog, type NewTranscriptionDraft } from "./create-transcription-dialog";
@@ -63,6 +64,7 @@ export function TranscriptionHistory({ uiState }: { uiState: UiState }) {
   const [notice, setNotice] = React.useState<string | null>(null);
   const [activeSession, setActiveSession] = React.useState<PersonalTranscriptionDetail | null>(null);
   const [streamState, setStreamState] = React.useState<RealtimeAsrStreamState>("idle");
+  const [flowState, setFlowState] = React.useState<RealtimeAsrFlowState>("normal");
   const [interimSegment, setInterimSegment] = React.useState("");
   const [streamError, setStreamError] = React.useState<string | null>(null);
   const [inputLevel, setInputLevel] = React.useState(0);
@@ -155,6 +157,7 @@ export function TranscriptionHistory({ uiState }: { uiState: UiState }) {
     if (!activeSession || streamRef.current || stoppingRef.current || streamState === "connecting") return;
     setStreamError(null);
     setInterimSegment("");
+    setFlowState("normal");
     setInputLevel(0);
     receivedFinalIdsRef.current.clear();
     setStreamState("connecting");
@@ -172,6 +175,7 @@ export function TranscriptionHistory({ uiState }: { uiState: UiState }) {
             setActiveSession((current) => appendFinalEvent(current, event));
           },
           onLevel: setInputLevel,
+          onFlow: (event) => setFlowState(event.state),
           onError: (reason) => {
             setInputLevel(0);
             setStreamError(streamErrorText(reason));
@@ -262,7 +266,7 @@ export function TranscriptionHistory({ uiState }: { uiState: UiState }) {
 
   if (activeSession) {
     return <RealtimeTranscriptionWorkspace session={activeSession} streamState={streamState}
-      interimSegment={interimSegment} errorMessage={streamError}
+      interimSegment={interimSegment} flowState={flowState} errorMessage={streamError}
       inputLevel={inputLevel} devices={micDevices.devices} selectedDeviceId={micDevices.selectedDeviceId}
       onSelectDevice={micDevices.select}
       onStart={() => void startRealtimeTranscription()} onStop={() => void stopRealtimeTranscription()}

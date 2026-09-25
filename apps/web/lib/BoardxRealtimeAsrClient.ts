@@ -3,14 +3,16 @@ import { apiRequest, apiWebSocketUrl, waitForSocketOpen } from "./api-client";
 import { stopPersonalTranscription } from "./live-personal-transcriptions";
 import { startPcmAudioWorklet, type PcmAudioWorkletHandle } from "./PcmAudioWorklet";
 import { pcm16Level } from "./pcm-audio-level";
+import { browserAudioFlowState, combinedFlowState, type RealtimeAsrFlowState } from "./realtime-asr-flow";
 import type {
-  RealtimeAsrFinalEvent, RealtimeAsrStreamError, RealtimeAsrStreamState, RealtimeAsrTicket,
+  RealtimeAsrFinalEvent, RealtimeAsrFlowEvent, RealtimeAsrStreamError, RealtimeAsrStreamState, RealtimeAsrTicket,
 } from "./realtime-asr.types";
 
 export interface BoardxRealtimeAsrHandlers {
   onInterim(text: string): void;
   onFinal(event: RealtimeAsrFinalEvent): void;
   onLevel?(level: number): void;
+  onFlow?(event: RealtimeAsrFlowEvent | { readonly type: "flow"; readonly state: RealtimeAsrFlowState; readonly source: "browser"; readonly queuedMs: number }): void;
   onState(state: RealtimeAsrStreamState): void;
   onError(reason: RealtimeAsrStreamError | "CONNECTION_FAILED"): void;
 }
@@ -82,6 +84,9 @@ export async function openBoardxRealtimeAsr(
   // creating an unhandled rejection while no stop caller is waiting yet.
   void completion.catch(() => undefined);
   let completed = false;
+  let browserFlow: RealtimeAsrFlowState = "normal";
+  let upstreamFlow: RealtimeAsrFlowState = "normal";
+  const emitFlow = () => deps.handlers.onFlow?.({ type: "flow", state: combinedFlowState(browserFlow, upstreamFlow), source: "browser", queuedMs: 0 });
   let stopping = false;
   let stopPromise: Promise<void> | undefined;
   let captureStop: Promise<void> | undefined;
@@ -121,6 +126,7 @@ export async function openBoardxRealtimeAsr(
     }
     if (frame.type === "interim") return deps.handlers.onInterim(frame.text);
     if (frame.type === "final") return deps.handlers.onFinal(frame);
+    if (frame.type === "flow") { upstreamFlow = frame.state; emitFlow(); return; }
     if (frame.type === "stopping") return deps.handlers.onState("stopping");
     if (frame.type === "error") {
       startupTerminalError ??= new Error(frame.reason);
@@ -172,6 +178,8 @@ export async function openBoardxRealtimeAsr(
   capture.onFrame((frame) => {
     if (!completed && !cleaningUp && socket.readyState === socket.OPEN) {
       deps.handlers.onLevel?.(pcm16Level(new Int16Array(frame)));
+      const nextFlow = browserAudioFlowState(browserFlow, socket.bufferedAmount);
+      if (nextFlow.state !== browserFlow) { browserFlow = nextFlow.state; emitFlow(); }
       if (socket.bufferedAmount > MAX_SOCKET_AUDIO_BACKLOG_BYTES) {
         const error = new Error("AUDIO_BACKPRESSURE");
         deps.handlers.onState("error");

@@ -90,8 +90,43 @@ class BoardxPcm16Processor extends AudioWorkletProcessor {
   constructor() {
     super();
     this.sourceIndex = 0;
+    this.pendingBuffer = new ArrayBuffer(${PCM_FRAME_BYTES});
+    this.pending = new Uint8Array(this.pendingBuffer);
+    this.pendingLength = 0;
+    this.accepting = true;
+    this.port.onmessage = (event) => {
+      if (event.data?.type !== "stop") return;
+      this.accepting = false;
+      this.flush();
+      this.port.postMessage({ type: "flushed" });
+    };
+  }
+  flush() {
+    if (this.pendingLength === 0) return;
+    const tail = this.pendingBuffer.slice(0, this.pendingLength);
+    this.pendingBuffer = new ArrayBuffer(${PCM_FRAME_BYTES});
+    this.pending = new Uint8Array(this.pendingBuffer);
+    this.pendingLength = 0;
+    this.port.postMessage(tail, [tail]);
+  }
+  emit(bytes) {
+    let offset = 0;
+    while (offset < bytes.byteLength) {
+      const length = Math.min(${PCM_FRAME_BYTES} - this.pendingLength, bytes.byteLength - offset);
+      this.pending.set(bytes.subarray(offset, offset + length), this.pendingLength);
+      this.pendingLength += length;
+      offset += length;
+      if (this.pendingLength === ${PCM_FRAME_BYTES}) {
+        const frame = this.pendingBuffer;
+        this.pendingBuffer = new ArrayBuffer(${PCM_FRAME_BYTES});
+        this.pending = new Uint8Array(this.pendingBuffer);
+        this.pendingLength = 0;
+        this.port.postMessage(frame, [frame]);
+      }
+    }
   }
   process(inputs) {
+    if (!this.accepting) return true;
     const channels = inputs[0];
     if (!channels || channels.length === 0 || channels[0].length === 0) return true;
     const inputLength = Math.min(...channels.map((channel) => channel.length));
@@ -109,7 +144,7 @@ class BoardxPcm16Processor extends AudioWorkletProcessor {
     const bytes = new ArrayBuffer(values.length * 2);
     const view = new DataView(bytes);
     for (let index = 0; index < values.length; index += 1) view.setInt16(index * 2, values[index], true);
-    if (bytes.byteLength > 0) this.port.postMessage(bytes, [bytes]);
+    if (bytes.byteLength > 0) this.emit(new Uint8Array(bytes));
     return true;
   }
 }
@@ -175,13 +210,16 @@ export async function startPcmAudioWorklet(
   node.connect(silentGain);
   silentGain.connect(context.destination);
   const listeners = new Set<(frame: ArrayBuffer) => void>();
-  const batcher = new PcmFrameBatcher();
   const emit = (frame: ArrayBuffer) => {
     for (const listener of listeners) listener(frame);
   };
-  node.port.onmessage = (event: MessageEvent<ArrayBuffer>) => {
-    if (!(event.data instanceof ArrayBuffer) || event.data.byteLength === 0) return;
-    for (const frame of batcher.push(event.data)) emit(frame);
+  let flushResolve: (() => void) | undefined;
+  node.port.onmessage = (event: MessageEvent<ArrayBuffer | { type?: unknown }>) => {
+    if (event.data instanceof ArrayBuffer) {
+      if (event.data.byteLength > 0) emit(event.data);
+      return;
+    }
+    if (event.data?.type === "flushed") flushResolve?.();
   };
   let stopped = false;
 
@@ -191,14 +229,21 @@ export async function startPcmAudioWorklet(
     stop: async () => {
       if (stopped) return;
       stopped = true;
-      node.port.onmessage = null;
-      const tail = batcher.flush();
-      if (tail) emit(tail);
-      source.disconnect();
-      node.disconnect();
-      silentGain.disconnect();
-      stream.getTracks().forEach((track) => track.stop());
-      if (context.state !== "closed") await context.close();
+      try {
+        await new Promise<void>((resolve) => {
+          flushResolve = resolve;
+          source.disconnect();
+          node.port.postMessage({ type: "stop" });
+          setTimeout(resolve, 250);
+        });
+      } finally {
+        flushResolve = undefined;
+        node.port.onmessage = null;
+        node.disconnect();
+        silentGain.disconnect();
+        stream.getTracks().forEach((track) => track.stop());
+        if (context.state !== "closed") await context.close();
+      }
     },
   };
 }

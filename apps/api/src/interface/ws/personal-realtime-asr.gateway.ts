@@ -14,8 +14,14 @@ const CANONICAL_PATH=/^\/recording\/realtime-asr\/sessions\/([^/?]+)\/captures\/
 const ROUTED_ALIAS_PATH=/^\/recording\/sessions\/([^/?]+)\/asr-stream$/;
 type Frame=typeof C.RealtimeAsrServerEvent._type;
 const MAX_PROVIDER_STARTUP_AUDIO_BYTES=32_000;
+export interface PersonalRealtimeAsrObservation {
+  readonly captureId:string; readonly outcome:"completed"|"failed";
+  readonly providerOpenMs:number|null; readonly firstAudioMs:number|null;
+  readonly finalReceivedMs:number|null; readonly finalPersistedMs:number|null;
+  readonly stopRequestedMs:number|null; readonly totalMs:number;
+}
 export interface PersonalRealtimeAsrGatewayDeps { tickets:RealtimeAsrTicketStore; repository:PersonalTranscriptionRepository;
-  provider:AsrProviderPort; usage:AsrUsageMeter; ids:IdGenerator; }
+  provider:AsrProviderPort; usage:AsrUsageMeter; ids:IdGenerator; observe?: (event:PersonalRealtimeAsrObservation)=>void; }
 function refuse(socket:Duplex,status:number){socket.write(`HTTP/1.1 ${status} Refused\r\nConnection: close\r\nContent-Length: 0\r\n\r\n`);socket.destroy();}
 
 export function matchPersonalRealtimeAsrPath(url:URL):{transcriptionId:string;captureId:string}|null{
@@ -46,6 +52,10 @@ function serve(ws:WebSocket,deps:PersonalRealtimeAsrGatewayDeps,auth:{orgId:Retu
   let starting=false; const pendingAudio:Uint8Array[]=[]; let pendingBytes=0;
   const startedAt=Date.now(),providerSessionId=deps.ids.next("asr-provider-session");
   let receivedPcmBytes=0,lastFinalEndMs=0,stopping=false,terminal=false,usageRecorded=false;
+  let providerReadyAt:number|undefined,firstAudioAt:number|undefined,finalReceivedAt:number|undefined,finalPersistedAt:number|undefined,stopRequestedAt:number|undefined;
+  let observed=false;
+  const observeTerminal=(outcome:"completed"|"failed")=>{if(observed)return;observed=true;const elapsed=(at:number|undefined)=>at===undefined?null:Math.max(0,at-startedAt);
+    try{deps.observe?.({captureId:auth.captureId,outcome,providerOpenMs:elapsed(providerReadyAt),firstAudioMs:elapsed(firstAudioAt),finalReceivedMs:elapsed(finalReceivedAt),finalPersistedMs:elapsed(finalPersistedAt),stopRequestedMs:elapsed(stopRequestedAt),totalMs:Math.max(0,Date.now()-startedAt)});}catch{/* observability is best effort */}};
   let failure:Promise<void>|null=null;
   const fail=(reason:typeof C.RealtimeAsrStreamError._type):Promise<void>=>{
     if(failure)return failure;
@@ -53,11 +63,11 @@ function serve(ws:WebSocket,deps:PersonalRealtimeAsrGatewayDeps,auth:{orgId:Retu
     terminal=true;stopping=true;upstream?.abort();upstream=null;pendingAudio.splice(0);pendingBytes=0;
     failure=(async()=>{try{await deps.repository.finishCapture({...auth,durationMs:Date.now()-startedAt,failed:true});}
       catch(error){process.stderr.write(`[personal-asr] capture cleanup failed: ${safeErrorDetail(error)}\n`);}
-      finally{send({type:"error",captureId:auth.captureId,reason});ws.close();}})();
+      finally{observeTerminal("failed");send({type:"error",captureId:auth.captureId,reason});ws.close();}})();
     return failure;
   };
   ws.on("message",(raw,isBinary)=>{if(isBinary){try{const audio=new Uint8Array(raw as Buffer);
-      if(upstream&&!stopping){upstream.pushAudio(audio);receivedPcmBytes+=audio.byteLength;}
+      if(upstream&&!stopping){firstAudioAt??=Date.now();upstream.pushAudio(audio);receivedPcmBytes+=audio.byteLength;}
       else if(starting){if(pendingBytes+audio.byteLength>MAX_PROVIDER_STARTUP_AUDIO_BYTES){void fail("AUDIO_BACKPRESSURE");return;}
         pendingBytes+=audio.byteLength;pendingAudio.push(audio);receivedPcmBytes+=audio.byteLength;}
       else void fail("PROTOCOL_ERROR");}catch{void fail("PROTOCOL_ERROR");}return;}
@@ -66,27 +76,28 @@ function serve(ws:WebSocket,deps:PersonalRealtimeAsrGatewayDeps,auth:{orgId:Retu
       if(upstream||starting){void fail("PROTOCOL_ERROR");return;} starting=true;
       void deps.provider.open({
         onPartial:r=>{if(!terminal)send({type:"interim",captureId:auth.captureId,text:r.text});},
-        onFinal:r=>{if(terminal)return;const current=++ordinal,endMs=Math.round(pcm16MonoDurationSeconds(receivedPcmBytes)*1000),startMs=lastFinalEndMs;
+        onFinal:r=>{if(terminal)return;finalReceivedAt=Date.now();const current=++ordinal,endMs=Math.round(pcm16MonoDurationSeconds(receivedPcmBytes)*1000),startMs=lastFinalEndMs;
           lastFinalEndMs=endMs;writeChain=writeChain.then(()=>persistThenPublishFinal(async()=>{
-          const segmentId=deps.ids.next("personal-segment");await deps.repository.appendFinal({...auth,segmentId,ordinal:current,text:r.text,startMs,endMs});
+          const segmentId=deps.ids.next("personal-segment");await deps.repository.appendFinal({...auth,segmentId,ordinal:current,text:r.text,startMs,endMs});finalPersistedAt=Date.now();
           return{segmentId,ordinal:current};},stored=>send({type:"final",captureId:auth.captureId,...stored,text:r.text,startMs,endMs})))
           .catch(()=>fail("FINISH_TIMEOUT")).then(()=>undefined);},
+        onFlow:flow=>{if(!terminal)send({type:"flow",captureId:auth.captureId,...flow});},
         onError:(reason,detail)=>void fail(asPersonalErrorReason(reason,detail,stopping)),
         onClosed:()=>undefined,
       },{sampleRate:16_000,channels:1,encoding:"pcm16le"},{turnDetection:"recording"}).then(s=>{starting=false;
-          if(terminal){s.abort();return;}upstream=s;
+        if(terminal){s.abort();return;}providerReadyAt=Date.now();upstream=s;
           send({type:"ready",captureId:auth.captureId});
           for(const audio of pendingAudio.splice(0))s.pushAudio(audio);pendingBytes=0;
         }).catch(()=>void fail("ASR_PROVIDER_UNAVAILABLE"));return;
     }
-    if(!upstream||stopping||terminal){void fail("PROTOCOL_ERROR");return;} stopping=true;send({type:"stopping",captureId:auth.captureId});
+    if(!upstream||stopping||terminal){void fail("PROTOCOL_ERROR");return;} stopping=true;stopRequestedAt=Date.now();send({type:"stopping",captureId:auth.captureId});
     void upstream.finish().then(async()=>{await writeChain;const durationSeconds=pcm16MonoDurationSeconds(receivedPcmBytes);
       if(terminal)return;
       if(!usageRecorded){usageRecorded=true;await deps.usage.record({providerTaskId:providerSessionUsageId(auth.captureId,providerSessionId),
       orgId:auth.orgId,ownerUserId:auth.ownerUserId,captureId:auth.captureId,
       model:process.env.KERNEL_ASR_MODEL??"realtime-asr",durationSeconds:billedPcm16MonoDurationSeconds(receivedPcmBytes)});}
       await deps.repository.finishCapture({...auth,durationMs:durationSeconds*1000});
-      if(terminal)return;terminal=true;send({type:"completed",captureId:auth.captureId});ws.close();
+      if(terminal)return;terminal=true;observeTerminal("completed");send({type:"completed",captureId:auth.captureId});ws.close();
     }).catch(()=>void fail("FINISH_TIMEOUT"));
   });
   ws.on("close",()=>{if(!terminal)void fail("ASR_PROVIDER_UNAVAILABLE");});
