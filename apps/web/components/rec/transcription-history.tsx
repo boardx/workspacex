@@ -67,6 +67,7 @@ export function TranscriptionHistory({ uiState }: { uiState: UiState }) {
   const [flowState, setFlowState] = React.useState<RealtimeAsrFlowState>("normal");
   const [interimSegment, setInterimSegment] = React.useState("");
   const [streamError, setStreamError] = React.useState<string | null>(null);
+  const [reconnectableError, setReconnectableError] = React.useState(false);
   const [inputLevel, setInputLevel] = React.useState(0);
   const micDevices = useAudioInputDevices();
   const streamRef = React.useRef<BoardxRealtimeAsrHandle | null>(null);
@@ -156,6 +157,7 @@ export function TranscriptionHistory({ uiState }: { uiState: UiState }) {
   async function startRealtimeTranscription() {
     if (!activeSession || streamRef.current || stoppingRef.current || streamState === "connecting") return;
     setStreamError(null);
+    setReconnectableError(false);
     setInterimSegment("");
     setFlowState("normal");
     setInputLevel(0);
@@ -178,6 +180,7 @@ export function TranscriptionHistory({ uiState }: { uiState: UiState }) {
           onFlow: (event) => setFlowState(event.state),
           onError: (reason) => {
             setInputLevel(0);
+            setReconnectableError(true);
             setStreamError(streamErrorText(reason));
             streamRef.current = null;
           },
@@ -186,6 +189,7 @@ export function TranscriptionHistory({ uiState }: { uiState: UiState }) {
     } catch (error) {
       streamRef.current = null;
       setStreamState("error");
+      setReconnectableError(true);
       setStreamError(error instanceof LiveRecordingError ? error.message : streamErrorText(error instanceof Error ? error.message : "CONNECTION_FAILED"));
     }
   }
@@ -195,6 +199,7 @@ export function TranscriptionHistory({ uiState }: { uiState: UiState }) {
     const sessionId = activeSession?.sessionId;
     if (!handle && activeSession?.status === "recording") {
       setStreamError(null);
+      setReconnectableError(false);
       setStreamState("stopping");
       try {
         const updated = await stopPersonalTranscription(activeSession.sessionId, sessionToken);
@@ -210,6 +215,7 @@ export function TranscriptionHistory({ uiState }: { uiState: UiState }) {
     if (!handle || !sessionId || stoppingRef.current) return;
     stoppingRef.current = true;
     setStreamError(null);
+    setReconnectableError(false);
     setStreamState("stopping");
     setInputLevel(0);
     try {
@@ -266,10 +272,11 @@ export function TranscriptionHistory({ uiState }: { uiState: UiState }) {
 
   if (activeSession) {
     return <RealtimeTranscriptionWorkspace session={activeSession} streamState={streamState}
-      interimSegment={interimSegment} flowState={flowState} errorMessage={streamError}
+      interimSegment={interimSegment} flowState={flowState} errorMessage={streamError} reconnectableError={reconnectableError}
       inputLevel={inputLevel} devices={micDevices.devices} selectedDeviceId={micDevices.selectedDeviceId}
       onSelectDevice={micDevices.select}
       onStart={() => void startRealtimeTranscription()} onStop={() => void stopRealtimeTranscription()}
+      onReconnect={() => void startRealtimeTranscription()}
       onSaveContent={saveContent}
       onBack={() => { if (!streamRef.current && !stoppingRef.current) setActiveSession(null); }} />;
   }
