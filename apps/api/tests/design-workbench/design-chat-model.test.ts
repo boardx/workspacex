@@ -478,6 +478,47 @@ describe("V67 视觉判据进设计原则，且与 frontend-design skill 不是�
 });
 
 /**
+ * 人类实测原话（2026-09-25）：「设计一个心理学 app」画出来的「今日心情」页，六个情绪选项
+ * （平静/低落/焦虑/…）每一张配图长得一模一样——因为它们都是 image(kind:illustration)，
+ * 而这套系统里这个 kind 只有一种画法（`ImagePlaceholder` 里固定的一个圆 + 一个方块，
+ * 见 `prototype-canvas.tsx`），跟内容无关。一组并列选项因此看起来像没做完，是这次反馈里
+ * 最扎眼的一条。这组用例钉住两处修法：① 提示词里说清楚这个占位图形不能用来区分并列选项；
+ * ② 配色指南补上心理健康这个此前完全没覆盖的品类（之前只能瞎猜）。
+ */
+describe("V68 并列选项别用同一个占位图形区分；配色指南补心理健康品类", () => {
+  it("DESIGN_PRINCIPLES 里说清楚 image(kind:illustration) 画出来都一样，别指望它区分并列选项", () => {
+    // ⭐ 反证锚点：删掉这句 ⇒ 这条红——模型不知道这个占位图形对每一项都长一样。
+    expect(DESIGN_PRINCIPLES).toContain("image(kind:illustration)");
+    expect(DESIGN_PRINCIPLES).toContain("对每一项画出来都是");
+    expect(DESIGN_PRINCIPLES).toContain("list/bottomnav 的 icons");
+  });
+
+  it("系统提示词真的带上了这句（不是只导出一个没人用的常量）", () => {
+    expect(DESIGN_CHAT_SYSTEM_PROMPT).toContain("image(kind:illustration)");
+    expect(DESIGN_ONE_SCREEN_SYSTEM_PROMPT).toContain("image(kind:illustration)");
+  });
+
+  it("DESIGN_OUTLINE_SYSTEM_PROMPT 的配色指南覆盖了心理健康品类，且给的每个颜色词都是闭集里真实存在的档位", () => {
+    // ⭐ 反证锚点：删掉这句 ⇒ 这条红——心理健康类产品的 accent 之前无从谈起，只能瞎猜。
+    expect(DESIGN_OUTLINE_SYSTEM_PROMPT).toContain("心理健康/情绪类");
+    // accent 是闭集：这段新指南提到的每个颜色词都必须能映回 PrototypeAccent 的某个真实档位，
+    // 不能建议一个模型答了会被契约拒掉的颜色（那比不给建议更糟，反证见下）。
+    const promptAccentColorWords: Record<string, string> = {
+      neutral: "中性", blue: "靛蓝", violet: "紫", teal: "青", green: "绿", amber: "琥珀", rose: "玫红", slate: "石板灰",
+    };
+    const newGuidance = DESIGN_OUTLINE_SYSTEM_PROMPT.slice(DESIGN_OUTLINE_SYSTEM_PROMPT.indexOf("心理健康/情绪类"));
+    const sentence = newGuidance.slice(0, newGuidance.indexOf("；实在拿不准"));
+    for (const word of ["橙", "黄"]) {
+      // ⭐ 反证：把「青或紫」改成「橙或黄」这种不在 PrototypeAccent 八档里的颜色词 ⇒ 这条红。
+      // （不查"红"："玫红"这个合法词本身就带"红"字，查了会对着自己的合法用词假红。）
+      expect(sentence, `配色指南里出现了不在闭集里的颜色词「${word}」`).not.toContain(word);
+    }
+    // 而新增的这几句确实至少各自对应了一个真实档位（不是空话）。
+    expect(Object.values(promptAccentColorWords).some((w) => sentence.includes(w))).toBe(true);
+  });
+});
+
+/**
  * 迭代 13（delta `design-chat-inputs` §1）—— V52 / V53 / V54。
  * 参考图随**每一轮**发；模型看不了图时**不发图且在回复里说出来**。
  */
