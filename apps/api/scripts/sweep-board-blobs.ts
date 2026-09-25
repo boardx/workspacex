@@ -3,8 +3,8 @@ import { SweepBoardBlobs } from '../src/application/whiteboard/blob-gc';
 import { boardBlobGcPolicy } from '../src/application/whiteboard/blob-gc-policy';
 import { PgDatabase } from '../src/infrastructure/db/pg-database';
 import { appConfig } from '../src/infrastructure/db/pg-config';
-import { AesGcmBoardBlobCodec, EnvBoardTenantKeyResolver } from '../src/infrastructure/whiteboard/aes-gcm-board-blob-codec';
-import { ConfiguredFsBoardBlobPurgeStore, ConfiguredFsBoardBlobStore } from '../src/infrastructure/whiteboard/board-storage.providers';
+import { createBoardStorageSelection } from '../src/infrastructure/whiteboard/board-storage-selection';
+import { EnvHostedBoardClientFactory, versionedBoardKeySourceFromEnv } from '../src/infrastructure/whiteboard/hosted-board-provider-factory';
 import { PgBoardBlobReferenceGuard } from '../src/infrastructure/whiteboard/pg-board-blob-reference-guard';
 import { PgBoardBlobSweepCoordinator, type BoardBlobSweepRun } from '../src/infrastructure/whiteboard/pg-board-blob-sweep-coordinator';
 
@@ -41,8 +41,11 @@ export async function runBoardBlobSweepCli(argv: readonly string[], runner: Runn
 async function main(): Promise<number> {
   const db = new PgDatabase(appConfig());
   try {
-    const blobs = new ConfiguredFsBoardBlobStore(), purge = new ConfiguredFsBoardBlobPurgeStore();
-    const sweep = new SweepBoardBlobs(blobs, purge, new AesGcmBoardBlobCodec(new EnvBoardTenantKeyResolver()), new PgBoardBlobReferenceGuard(db));
+    const storage = await createBoardStorageSelection(process.env, {
+      hostedClients: new EnvHostedBoardClientFactory(process.env),
+      versionedKeys: versionedBoardKeySourceFromEnv(process.env),
+    });
+    const sweep = new SweepBoardBlobs(storage.store, storage.purgeStore, storage.codec, new PgBoardBlobReferenceGuard(db));
     const runner = new PgBoardBlobSweepCoordinator(db, sweep, boardBlobGcPolicy());
     return runBoardBlobSweepCli(process.argv.slice(2), runner, {
       out: value => process.stdout.write(`${value}\n`), err: value => process.stderr.write(`${value}\n`),
