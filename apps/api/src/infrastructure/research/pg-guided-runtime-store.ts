@@ -88,6 +88,10 @@ export class PgGuidedRuntimeStore implements GuidedRuntimeStore {
       activity.push({ id: idempotencyKey, sequence: activity.length ? Math.max(...activity.map((event) => event.sequence)) + 1 : 1,
         stage: "planning", taskId: null, summary: command.action === "pause" ? "研究已暂停" : "研究已继续",
         occurredAt: new Date().toISOString(), status: command.action === "pause" ? "paused" : "succeeded" });
+      // Cap steering activity to the schema maximum before persisting (same truncation as
+      // `appendActivity`), otherwise a session already at 1,000 events fails
+      // `GuidedResearchRuntime.parse` on every later read once event 1,001 is written.
+      if (activity.length > 1000) activity.splice(0, activity.length - 1000);
       await tx.query(`UPDATE guided_research_runtime SET state=$3::jsonb,
         requests=requests || jsonb_build_object($4::text,$5::jsonb) WHERE org_id=$1 AND session_id=$2`,
       [actor.orgId, actor.sessionId, JSON.stringify(state), command.requestId, JSON.stringify({ hash, done: true })]);

@@ -32,8 +32,12 @@ function detectedEvidenceConflicts(runtime: ResearchRuntime): Conflict[] {
       const a = [...direct[left]!.quote.matchAll(/\b\d+(?:\.\d+)?%/g)].map((match) => match[0]);
       const b = [...direct[right]!.quote.matchAll(/\b\d+(?:\.\d+)?%/g)].map((match) => match[0]);
       if (!a.length || !b.length || a.some((value) => b.includes(value))) continue;
-      conflicts.push(C.GuidedResearchEvidenceConflict.parse({ id: `detected:${questionId}:${left}:${right}`,
-        claimIds: [questionId, questionId], sourceIds: [direct[left]!.sourceId, direct[right]!.sourceId],
+      // Identify the pair by stable, sorted source IDs (not by position in `direct`), so
+      // report regeneration that inserts/reorders evidence cannot make a persisted human
+      // resolution for one source pair silently apply to a different pair under the same ID.
+      const pairSourceIds = [direct[left]!.sourceId, direct[right]!.sourceId].sort();
+      conflicts.push(C.GuidedResearchEvidenceConflict.parse({ id: `detected:${questionId}:${pairSourceIds.join(":")}`,
+        claimIds: [questionId, questionId], sourceIds: pairSourceIds,
         severity: "moderate", status: "open", resolution: null }));
     }
   }
@@ -61,8 +65,24 @@ export function projectResearchTrust(runtime: ResearchRuntime): GuidedResearchTr
       quote: evidence.quote, sourceId: evidence.sourceId, retrievedAt: source.document.retrievedAt,
       confidence: evidence.relevance === "direct" ? "high" : "medium", traceIds: source.taskIds ?? [source.taskId] })];
   });
+  // A persisted conflict (including a human resolution) is only carried forward while its
+  // source pair is still present in freshly detected evidence for that question. Source
+  // removal or `refine_scope` can invalidate `questionEvidence`; without this check a stale
+  // conflict could keep an `accept`ed/`prefer_source`d decision for evidence that no longer
+  // exists, and readiness would be computed from an obsolete resolution.
+  const currentEvidenceSourceIds = new Map<string, Set<string>>();
+  for (const item of runtime.questionEvidence ?? []) {
+    const set = currentEvidenceSourceIds.get(item.questionId) ?? new Set<string>();
+    set.add(item.sourceId);
+    currentEvidenceSourceIds.set(item.questionId, set);
+  }
+  const stillEvidenced = (conflict: Conflict) => {
+    const questionId = conflict.claimIds[0];
+    const sources = questionId ? currentEvidenceSourceIds.get(questionId) : undefined;
+    return !!sources && conflict.sourceIds.every((sourceId) => sources.has(sourceId));
+  };
   // An explicit human resolution has priority over a mechanically re-detected pair.
-  const conflicts = [...new Map([...detectedEvidenceConflicts(runtime), ...(runtime.conflicts ?? [])]
+  const conflicts = [...new Map([...detectedEvidenceConflicts(runtime), ...(runtime.conflicts ?? []).filter(stillEvidenced)]
     .map((conflict) => [conflict.id, C.GuidedResearchEvidenceConflict.parse(conflict)])).values()];
   const answered = coverage.filter((item) => item.status === "answered").length;
   const citationCoverage = coverage.length ? rounded(answered / coverage.length * 100) : null;

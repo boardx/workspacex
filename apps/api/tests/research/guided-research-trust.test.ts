@@ -58,7 +58,9 @@ describe("research trust projection", () => {
 
   it("keeps severe open conflicts limited even with many sources", () => {
     const state = fixture();
-    state.conflicts = [{ id: "conflict-1", claimIds: ["c1", "c2"], sourceIds: ["src1", "src2"], severity: "severe", status: "open", resolution: null }];
+    const questionId = "chapter:0/question:0";
+    state.questionEvidence!.push({ questionId, sectionId: "s1", sourceId: "src2", quote: "Conflicting evidence text", relevance: "direct" });
+    state.conflicts = [{ id: "conflict-1", claimIds: [questionId, questionId], sourceIds: ["src1", "src2"], severity: "severe", status: "open", resolution: null }];
     const result = projectResearchTrust(state);
     expect(result.publicationReadiness).toMatchObject({ status: "limited" });
     expect(result.publicationReadiness.blockers).toContain("存在未解决的严重冲突");
@@ -66,7 +68,9 @@ describe("research trust projection", () => {
 
   it("records an explicit human conflict decision and lets the readiness gate reopen", () => {
     const state = fixture();
-    state.conflicts = [{ id: "conflict-1", claimIds: ["c1", "c2"], sourceIds: ["src1", "src2"], severity: "severe", status: "open", resolution: null }];
+    const questionId = "chapter:0/question:0";
+    state.questionEvidence!.push({ questionId, sectionId: "s1", sourceId: "src2", quote: "Conflicting evidence text", relevance: "direct" });
+    state.conflicts = [{ id: "conflict-1", claimIds: [questionId, questionId], sourceIds: ["src1", "src2"], severity: "severe", status: "open", resolution: null }];
     applyResearchSteering(state, C.GuidedResearchRuntimeCommand.parse({
       sessionId: state.sessionId, node: "research", action: "resolve_conflict", requestId: "resolve-1", expectedVersion: state.planRevision ?? 0,
       expectedRevision: state.planRevision ?? 0, idempotencyKey: "human-resolution-1", conflictId: "conflict-1", sourceId: "src1",
@@ -74,6 +78,17 @@ describe("research trust projection", () => {
     }));
     expect(state.conflicts[0]).toMatchObject({ status: "resolved", resolutionAction: "prefer_source", resolvedSourceId: "src1" });
     expect(projectResearchTrust(state).publicationReadiness.blockers).not.toContain("存在未解决的严重冲突");
+  });
+
+  it("drops a persisted conflict once its evidence pair is no longer present", () => {
+    const state = fixture();
+    const questionId = "chapter:0/question:0";
+    state.questionEvidence!.push({ questionId, sectionId: "s1", sourceId: "src2", quote: "Conflicting evidence text", relevance: "direct" });
+    state.conflicts = [{ id: "conflict-1", claimIds: [questionId, questionId], sourceIds: ["src1", "src2"], severity: "severe", status: "resolved", resolution: "人工选择采用来源 src1", resolutionAction: "prefer_source", resolvedSourceId: "src1" }];
+    // Source removal / refine_scope invalidates evidence for src2: the pair no longer exists.
+    state.questionEvidence = state.questionEvidence!.filter((item) => item.sourceId !== "src2");
+    const result = projectResearchTrust(state);
+    expect(result.conflicts.find((conflict) => conflict.id === "conflict-1")).toBeUndefined();
   });
 
   it("uses null rather than zero when quality has no denominator", () => {
