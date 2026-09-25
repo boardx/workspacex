@@ -102,6 +102,7 @@ import httpx
 from langchain_core.language_models.chat_models import BaseChatModel
 from langchain_core.runnables import RunnableConfig
 from langchain_core.tools import InjectedToolCallId, tool
+from pydantic import BaseModel, Field, model_validator
 
 from .tool_progress import ToolProgressThrottle, resolve_writer
 
@@ -275,7 +276,58 @@ def build_tools(model: BaseChatModel, *, interactions_only: bool = False) -> lis
         lines = [f"- {s['stable_name']}：{s['name']}" for s in skills]
         return "\n".join(lines)
 
-    @tool
+    class CallSkillArgs(BaseModel):
+        """`call_skill` 的入参形状——**容错**一批实测撞见过的错误键名。
+
+        2026-09-25 真实模型十任务 Office 矩阵头一次接上原生链路时实测：DashScope 模型
+        并不总按工具签名给键名，观察到的实际调用是
+        `{'skill': ..., 'args': ...}`（正确应为 `skill_stable_name` / `task`）。
+        LangChain 的 `@tool` 默认按签名生成严格 schema，键名不对就在**进入函数体之前**
+        被 pydantic 拒掉——模型看到的报错是 `skill_stable_name: Field required`，
+        而它读不懂这条报错在说什么，于是原样重试，同一个任务反复撞同一堵墙直到整轮
+        跑满时间预算。
+
+        这里不是放宽规范、也不是"猜模型想干嘛"：只认已经实测撞见过的那几个别名，
+        输入仍然要能唯一映射到这两个字段，映射不上就让 pydantic 按原有规则报错——
+        比"悄悄兼容任何形状"更诚实的边界是"点名兼容过这几种，其余照旧拒绝"。
+
+        2026-09-25 追加：把矩阵预算从 900s 提到 1500s 之后又实测到**第二种**错误
+        键名——`{'skill_name': ..., 'params': '{"filename": ..., "content_requirements":
+        ...}'}`（`params` 这次连值都不是自然语言，是一段 JSON 字符串）。追加
+        `params` 到 `task` 的别名列表：值原样落进 `task` 字段，focused sub-call
+        的模型仍然读得懂这段 JSON 描述的是什么任务，不追求把它反解析成结构化字段——
+        那是过度设计，这里要解决的只是"不要因为键名不对就在函数体之前被拒掉"。
+        """
+
+        model_config = {"populate_by_name": True}
+
+        skill_stable_name: str = Field(validation_alias="skill_stable_name")
+        task: str = Field(validation_alias="task")
+        # InjectedToolCallId 必须原样出现在 args_schema 里——LangChain 认哪个字段是
+        # "运行时注入、模型不用填"看的是 schema 上的这个类型标注，不是函数签名。
+        # 换成自定义 args_schema 却漏了这一行，第一版实测就是 call_skill() 缺
+        # tool_call_id 直接 TypeError，而且是**所有**既有测试一起红。
+        tool_call_id: Annotated[str, InjectedToolCallId]
+
+        @model_validator(mode="before")
+        @classmethod
+        def _accept_known_aliases(cls, data: object) -> object:
+            if not isinstance(data, dict):
+                return data
+            out = dict(data)
+            if "skill_stable_name" not in out:
+                for alias in ("skill", "skill_name", "name"):
+                    if alias in out:
+                        out["skill_stable_name"] = out.pop(alias)
+                        break
+            if "task" not in out:
+                for alias in ("args", "arguments", "prompt", "instruction", "description", "params"):
+                    if alias in out:
+                        out["task"] = out.pop(alias)
+                        break
+            return out
+
+    @tool(args_schema=CallSkillArgs)
     def call_skill(skill_stable_name: str, task: str, config: RunnableConfig,
                    tool_call_id: Annotated[str, InjectedToolCallId]) -> str:
         """调用一个已挂载的技能，让它针对给定任务真正执行一次并返回结果——不是复述这个

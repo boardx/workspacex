@@ -26,6 +26,7 @@ import { usePlanLedgerPolling } from "@/lib/use-plan-ledger-polling";
 import { Dialog, DialogContent, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { AgentArtifactVersionsPanel } from "@/components/chat/workbench/agent-artifact-versions-panel";
 import { ChatArtifactView, type LoadedArtifact } from "@/components/chat/chat-artifact-view";
+import { ChatAttachmentView } from "@/components/chat/chat-attachment-view";
 import { artifactFileName } from "@/lib/chat-workbench/artifact-download";
 import {
   // `activeTab` 这个名字在本文件里已经是「右栏四个页签里选中的那一个」（InspectorTab）。
@@ -33,7 +34,7 @@ import {
   EMPTY_ARTIFACT_TABS, activateTab, activeTab as activeArtifactTab, closeTab, openTab,
   type ArtifactItem, type ArtifactTab, type ArtifactTabState,
 } from "@/lib/chat-workbench/artifact-tabs";
-import { onOpenInRightPanel } from "@/lib/chat-workbench/panel-document";
+import { onOpenFileInRightPanel, onOpenInRightPanel } from "@/lib/chat-workbench/panel-document";
 import { ArrowLeft, Check, Copy, CornerUpLeft, Download, Maximize2, X } from "lucide-react";
 import { scrollToAnchor } from "@/lib/chat-workbench/scroll-to-anchor";
 
@@ -296,6 +297,14 @@ export function ChatTaskInspector(props: ChatTaskInspectorProps): JSX.Element {
     setActiveTab("artifacts");
     setOverride("expanded");
   }), [openInPanelTab]);
+
+  /* E4 —— 文件（上传的材料 / 生成的产出物）走同一条页签，不另起一排。 */
+  React.useEffect(() => onOpenFileInRightPanel((doc) => {
+    openInPanelTab({ kind: "file", ...doc });
+    setActiveTab("artifacts");
+    setOverride("expanded");
+  }), [openInPanelTab]);
+
 
 
   // roster / memory 是可选能力：调用方没传（旧轨道两屏）就不占页签栏一个位置。
@@ -747,6 +756,9 @@ function ArtifactDetail({
   const [loaded, setLoaded] = React.useState<LoadedArtifact | null>(null);
   const doc: LoadedArtifact | null = tab.kind === "result"
     ? { markdown: tab.text, version: null, savedAt: "" }
+    // 文件是二进制，「复制全文」「下载 .md」两个动作对它没有意义——禁用而不是画一个
+    // 点了会存出一份坏文件的按钮（同 #2099 那条：不画点了没反应/点了做错事的按钮）。
+    : tab.kind === "file" ? null
     : loaded;
   /*
    * ⚠ 这里**不能**写一条 `useEffect(() => setLoaded(null), [tab.id])` 来「切换时清空」。
@@ -864,8 +876,26 @@ function ArtifactDetail({
           })}
         </div>
       ) : null}
-      {tab.kind === "artifact" ? <ArtifactSourceLine item={tab.item} /> : <ResultSourceLine url={tab.url} />}
-      {tab.kind === "result" ? (
+      {tab.kind === "artifact" ? <ArtifactSourceLine item={tab.item} />
+        : tab.kind === "result" ? <ResultSourceLine url={tab.url} />
+        : <p className="border-b border-border-subtle px-3 py-1 text-10 text-muted-foreground">{tab.mime}</p>}
+      {tab.kind === "file" ? (
+        /*
+         * E4 —— 文件在右栏里直接预览（图片 / PDF / pptx / 文本原样渲染，其余诚实说
+         * 「不支持预览，请下载」）。渲染与模态**共用同一份** `ChatAttachmentView`，
+         * 同一个文件在两处长得逐字一样。
+         */
+        <div className="min-h-0 flex-1 overflow-auto p-2" data-testid="chat-inspector-file-view">
+          <ChatAttachmentView
+            key={tab.id}
+            threadId={tab.threadId}
+            attachmentId={tab.attachmentId}
+            filename={tab.title}
+            mime={tab.mime}
+            compact
+          />
+        </div>
+      ) : tab.kind === "result" ? (
         /*
          * 工具结果直接就是正文，没有取源这一步。用 `<pre>` 而不是 markdown 渲染：
          * 抓回来的网页正文 / 脚本输出是**别人的字节**，按 markdown 解释会把里面的
@@ -887,7 +917,7 @@ function ArtifactDetail({
         key={tab.id}
         threadId={threadId}
         projectId={projectId}
-        artifactId={tab.item.artifactId}
+        artifactId={tab.kind === "artifact" ? tab.item.artifactId : ""}
         bearer={bearer}
         onLoaded={setLoaded}
       />

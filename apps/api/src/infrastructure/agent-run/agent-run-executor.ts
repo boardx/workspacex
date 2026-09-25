@@ -1,3 +1,4 @@
+import { structuredErrorLog } from "../../application/ports/logger.port";
 import type { KnowledgeRecallPort, MemoryCardPort } from "../../application/knowledge-graph/ports";
 import type { PersistAssistantCitationsDeps } from "../../application/chat/persist-assistant-citations";
 import type { NativeOutputStaging } from "../../application/agent-run/native-output-staging";
@@ -189,9 +190,7 @@ export class AgentRunExecutor implements AgentRunExecutorPort {
    * minted per line so an operator can correlate it with the run's terminal code.
    */
   private readonly log = (message: string, detail: Record<string, unknown>): void => {
-    this.logger.error(message, {
-      traceId: randomUUID(), err: detail.detail ?? message, ...detail,
-    });
+    structuredErrorLog(this.logger, randomUUID)(message, detail);
   };
 
   /**

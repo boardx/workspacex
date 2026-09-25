@@ -39,6 +39,24 @@ function okResult(over: Partial<SandboxRunResult> = {}): SandboxRunResult {
   };
 }
 
+/**
+ * 退出码 0 **且真的写了文件**的沙箱结果。
+ *
+ * ⚠ `okResult()`（默认 `files: []`）不再等价于"这次成功了"——`f2e246483`
+ *   （2026-09-24 真实模型实测：脚本退出码 0、界面全程无错误横幅，产出文件数为 0，
+ *   用户却什么也没拿到）之后，`runScriptWithRetries` 把"退出码 0 但没写文件"按
+ *   可纠正的失败处理：回喂重试，重试用尽仍空则抛 `ScriptProducedNoFilesError`（见
+ *   `tests/skill/script-exit-zero-without-files.test.ts`，那份规范是权威）。
+ *   本文件早于那次修复（`f9afc3d63` vs `f2e246483`），凡是想验证"这次真的成功了"
+ *   的用例都必须用**这个**替身，不能再用空文件的 `okResult()` 冒充成功。
+ */
+function okFileResult(over: Partial<SandboxRunResult> = {}): SandboxRunResult {
+  return okResult({
+    files: [{ name: "deck.pptx", contentBase64: Buffer.from("PKfake").toString("base64"), sizeBytes: 7 }],
+    ...over,
+  });
+}
+
 /** 记录被调用次数的沙箱替身——T3 断言的是"一次都没被调用"。 */
 function countingSandbox(result: SandboxRunResult): { port: SkillSandboxPort; calls: () => number } {
   let calls = 0;
@@ -108,7 +126,7 @@ describe("T3 触发判据：三条同时成立才执行", () => {
   });
 
   it("编排回复重复了工具脚本时只执行一次", async () => {
-    const sb = countingSandbox(okResult());
+    const sb = countingSandbox(okFileResult());
     const spy = storeSpy();
     const out = await maybeRunSkillScript(
       deps({ sandbox: sb.port, objects: spy.store as never }),
@@ -151,7 +169,7 @@ describe("T3 触发判据：三条同时成立才执行", () => {
 
   it("T3-CP 反证：判据若退化成『恒真』，上面两条必红——这里证明那两次输入确实带着可执行块/未挂 skill", async () => {
     // 恒真实现 = 直接把同样的输入交给执行循环。用同一个沙箱替身重放：
-    const sb = countingSandbox(okResult());
+    const sb = countingSandbox(okFileResult());
     const spy = storeSpy();
     // ① 「没挂 skill」那条输入本身是**含脚本的**——所以恒真判据会真的去跑它。
     const forced = await maybeRunSkillScript(
@@ -220,15 +238,23 @@ describe("T4 失败诚实：真实 stderr 出现，且不翻译成「请重试�
   });
 
   it("退出码 0 但没写文件 ⇒ 不谎称产出", async () => {
+    // ⚠ 2026-09-24 起（`f2e246483`）"退出码 0 但没写文件"不再被当成成功——那正是
+    //   真实模型事故的那一幕（界面无错误横幅、产出数为 0、用户却被告知一切正常）。
+    //   `runScriptWithRetries` 把它按可纠正的失败处理：回喂重试，重试用尽仍空则抛
+    //   `ScriptProducedNoFilesError`（见 `tests/skill/script-exit-zero-without-files.test.ts`，
+    //   那份规范是权威）。本用例原先断言 `kind: "succeeded"` 是本文件晚于那次修复才
+    //   暴露出的过期断言——"不谎称产出"现在是通过诚实地报 `kind: "failed"` 做到的，
+    //   不是通过在 `succeeded` 里掖一句免责声明。
     const sandbox: SkillSandboxPort = { run: async () => okResult({ files: [] }) };
     const spy = storeSpy();
     const out = await maybeRunSkillScript(
       deps({ sandbox, objects: spy.store as never }),
       { runId: "run_7", pinnedSkillCount: 1, reply: SCRIPT_REPLY },
     );
-    expect(out.kind).toBe("succeeded");
-    expect(out.text).toContain("没有向输出目录写入任何文件");
-    if (out.kind !== "succeeded") throw new Error("unreachable");
+    expect(out.kind).toBe("failed");
+    if (out.kind !== "failed") throw new Error("unreachable");
+    expect(out.failureCode).toBe("SCRIPT_PRODUCED_NO_FILES");
+    expect(out.text).toContain("没有写出任何文件");
     expect(out.files).toEqual([]);
   });
 });
@@ -236,7 +262,10 @@ describe("T4 失败诚实：真实 stderr 出现，且不翻译成「请重试�
 describe("回喂重试：第 1 次复用已有回复，不额外调模型", () => {
   it("首次成功 ⇒ regenerate 一次都不被调用", async () => {
     let regenCalls = 0;
-    const sandbox: SkillSandboxPort = { run: async () => okResult() };
+    // ⚠ 必须是**真的写了文件**的成功（见 `okFileResult` 头注）——空文件的 `okResult()`
+    //   自 `f2e246483` 起不再算"首次成功"，会触发回喂重试，这条用例就验证不到它的标题
+    //   说的那件事了。
+    const sandbox: SkillSandboxPort = { run: async () => okFileResult() };
     const spy = storeSpy();
     await maybeRunSkillScript(
       deps({
@@ -254,7 +283,10 @@ describe("回喂重试：第 1 次复用已有回复，不额外调模型", () =
     const sandbox: SkillSandboxPort = {
       run: async () => {
         runs += 1;
-        return runs === 1 ? okResult({ exitCode: 7, stderr: "boom-42" }) : okResult();
+        // ⚠ 第 2 次必须**真的写文件**（见 `okFileResult` 头注）——空文件的 `okResult()`
+        //   自 `f2e246483` 起不再算成功，会被判成 `SCRIPT_PRODUCED_NO_FILES` 继续重试，
+        //   这条用例就验证不到"第 2 次才调模型、随后成功"这件事了。
+        return runs === 1 ? okResult({ exitCode: 7, stderr: "boom-42" }) : okFileResult();
       },
     };
     const spy = storeSpy();

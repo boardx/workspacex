@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { requestOpenFileInRightPanel } from "@/lib/chat-workbench/panel-document";
 import { FileImage, FileSpreadsheet, FileText, File as FileIcon, Presentation, RefreshCw } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -136,7 +137,21 @@ export function ChatMaterialsPanel({
                 type="button"
                 className="flex items-center gap-2 rounded-md border border-border-subtle p-2 text-left transition-colors duration-base hover:border-primary/50 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                 data-testid={`chat-material-${item.id}`}
-                onClick={() => setPreviewing(item)}
+                /*
+                 * E4 —— 点材料**在右栏里打开**，不再弹模态。
+                 * 模态挡住对话，没法边看文件边追问；右栏是同一条页签，可与产物/结果并列切换。
+                 * 模态本身没删：它仍是「放大看」那一档（详情里的放大键），与产物同一套分工。
+                 */
+                onClick={() => {
+                  if (threadId === null) { setPreviewing(item); return; }
+                  requestOpenFileInRightPanel({
+                    id: `material:${item.id}`,
+                    title: item.filename,
+                    threadId,
+                    attachmentId: item.id,
+                    mime: item.mime,
+                  });
+                }}
               >
                 <span className="grid h-6 w-6 shrink-0 place-items-center rounded-md bg-muted text-muted-foreground" aria-hidden>
                   <Icon className="h-3.5 w-3.5" />

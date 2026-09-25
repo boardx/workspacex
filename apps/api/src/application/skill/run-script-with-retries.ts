@@ -53,6 +53,24 @@ export class ScriptFailedAfterRetriesError extends Error {
   }
 }
 
+/**
+ * 脚本跑通了（退出码 0）但一个文件都没写。
+ *
+ * 2026-09-24 真实模型实测：这一幕此前被当成**成功**——界面没有错误横幅，
+ * 而用户手里什么都没有。它与「脚本报错」是两个成因，处置也不同
+ * （前者是脚本忘了往输出目录写，后者是脚本本身错了），所以不共用一个错误类：
+ * 共用会让排查往「脚本哪里写错了」跑，而真相是「它从来没往输出目录写东西」。
+ */
+export class ScriptProducedNoFilesError extends Error {
+  constructor(readonly attempts: number) {
+    super("SCRIPT_PRODUCED_NO_FILES");
+    this.name = "ScriptProducedNoFilesError";
+  }
+}
+
+/** history 里标记「这一次跑通了但没产物」的哨兵，与真实 stderr 区分开。 */
+const NO_FILES_STDERR = "__script_exited_0_without_writing_any_file__";
+
 export class SandboxTimeoutError extends Error {
   constructor(readonly attempts: number) {
     super("SANDBOX_TIMEOUT");
@@ -171,6 +189,30 @@ export async function runScriptWithRetries(
     }
 
     if (result.exitCode === 0) {
+      /*
+       * ⚠ 退出码 0 **不等于**这一轮有产物（2026-09-24 真实模型实测）。
+       *
+       * 人类的 prompt 是「深度研究…然后生成一个 ppt」。这一轮：跑了 429 秒、
+       * 脚本退出码 0、界面全程没有错误横幅（「一切正常」），而
+       * `chat-produced-file-inline-card` 数量为 0——**用户什么也没拿到**，
+       * 系统却认为成功。证据：apps/web/test-results/real-model-evidence/01-verdict.txt。
+       *
+       * 空产出是**可纠正**的（脚本忘了往 SKILL_SANDBOX_OUT_DIR 写），与「模型没给脚本块」
+       * 同一性质，所以按同一条路处理：记进 history、给一条指名道姓的回喂、再试一次。
+       * 重试用尽仍然空 ⇒ 抛 `ScriptProducedNoFilesError`，让上层说得出真正的成因，
+       * 而不是把一次没有产物的运行报成成功。
+       */
+      if (result.files.length === 0) {
+        history.push({ attempt, exitCode: 0, stderr: NO_FILES_STDERR });
+        deps.log?.("skill trial run produced no files", { attempt, stdoutExcerpt: excerpt(result.stdout) });
+        feedback = [
+          "The script exited 0 but wrote no file, so there is nothing to deliver.",
+          "",
+          "Write every file you want to return into process.env.SKILL_SANDBOX_OUT_DIR",
+          "before the script exits, then reply with a single corrected run_script block.",
+        ].join("\n");
+        continue;
+      }
       return { script, stdout: result.stdout, files: result.files, attempts: attempt, history };
     }
 
@@ -201,8 +243,35 @@ export async function runScriptWithRetries(
    * 就是用一句关于回复格式的内部抱怨盖掉沙箱返回的真实 stderr。只有从头到尾一个
    * 脚本都没被执行过时，"没有脚本块"才**是**真因本身。
    */
+  /*
+   * ⚠ `NO_FILES_STDERR` 是**内部哨兵，永远不能成为报给用户的 stderr**。
+   *
+   * 第一版只判「是不是每一次都空产出」，于是「先报错、后空产出」这种混合序列会落到
+   * 下面那条 throw，把哨兵当成「沙箱返回的真实错误输出」贴到用户屏幕上——
+   * 2026-09-24 真实模型复跑时当场看到了：屏幕上是
+   * `__script_exited_0_without_writing_any_file__`。我刚在上面写注释反对
+   * 「把内部状态原样倒给用户」，自己的修复就犯了同一条。
+   *
+   * 现在按**有没有真实 stderr**分流：有 ⇒ 报那一条真实的；一条都没有
+   * （全程只有空产出）⇒ 成因就是空产出本身。
+   */
   const executed = history.filter((record) => record.exitCode !== null);
-  const last = (executed.length > 0 ? executed[executed.length - 1] : history[history.length - 1])!;
+  const realFailures = executed.filter((record) => record.stderr !== NO_FILES_STDERR);
+
+  /*
+   * 三种情形，成因各不相同，不能合并（既有测试 ③ 抓到过我把前两种合并的回归）：
+   *   · 一个脚本都没执行过 ⇒ 「模型没给脚本块」**本身**就是真因，照旧报它。
+   *   · 执行过，但每一次都空产出 ⇒ 成因是空产出。
+   *   · 执行过且真的报过错 ⇒ 报**最后一次真实**的 stderr（内部哨兵永远不外露）。
+   */
+  if (executed.length === 0) {
+    const last = history[history.length - 1]!;
+    throw new ScriptFailedAfterRetriesError(maxAttempts, last.stderr, last.exitCode);
+  }
+  if (realFailures.length === 0) {
+    throw new ScriptProducedNoFilesError(maxAttempts);
+  }
+  const last = realFailures[realFailures.length - 1]!;
   throw new ScriptFailedAfterRetriesError(maxAttempts, last.stderr, last.exitCode);
 }
 

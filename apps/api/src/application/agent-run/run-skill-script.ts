@@ -65,11 +65,12 @@ import type { SandboxInputFile } from "@repo/skill-sandbox/input-files";
  *   用户要把这个 .pptx 留成项目产物，仍然走既有的显式落地操作。
  */
 import { outputFileMime } from "./output-file-mime";
-import type { ObjectStore } from "../artifact/ports";
+import { ObjectExistsError, type ObjectStore } from "../artifact/ports";
 import { ModelCallError, ModelCallInterruptedError, type ModelCallCompletion, type RunOutputFile } from "./ports";
 import {
   MAX_SCRIPT_ATTEMPTS,
   ScriptFailedAfterRetriesError,
+  ScriptProducedNoFilesError,
   SandboxTimeoutError,
   runScriptWithRetries,
   tryExtractScript,
@@ -107,6 +108,16 @@ export type SkillScriptFailureCode =
    *  与 `MODEL_CALL_FAILED` 是两件事——调用没有失败，是它在等一个人回答问题，
    *  运维去查模型/内核故障只会一无所获。 */
   | "SCRIPT_RETRY_INTERRUPTED"
+  /**
+   * 脚本跑通了（退出码 0）却一个文件都没写。
+   *
+   * 2026-09-24 真实模型实测：人类要「深度研究…然后生成一个 ppt」，这一轮跑了 429 秒、
+   * 退出码 0、界面**全程没有错误横幅**，而产出文件卡数量为 0——用户什么也没拿到，
+   * 系统却认为成功。它与 `SCRIPT_FAILED_AFTER_RETRIES` 是两个成因：那个是脚本报错，
+   * 这个是脚本忘了往 `SKILL_SANDBOX_OUT_DIR` 写。混成一个会让排查往「脚本哪里写错了」
+   * 跑，而真相是「它从来没往输出目录写东西」。
+   */
+  | "SCRIPT_PRODUCED_NO_FILES"
   /** 诚实的兜底：分类器认不出这个异常属于以上哪一类时用这个,不得借用一个具体但
    *  错误的分类顶替（R7，`requirements/05-error-observability.md`）。 */
   | "UNKNOWN_EXECUTION_ERROR";
@@ -195,6 +206,43 @@ export interface MaybeRunSkillScriptInput {
  *
  * ⚠ 待批工具名只进异常的 `detail`（服务端日志），不进用户文案：那是内核的内部工具名。
  */
+/**
+ * 同一个键上的重复写入：**这一个键的形状**（`runId` + 文件名）天然只可能来自同一次
+ * call_skill 意图的重复交付，不是两份互不相干的产物抢同一个名字——所以撞键本身
+ * 就该当作幂等重试，不该按字节比对来决定放不放行。
+ *
+ * 2026-09-25 原生 deep-agent 链路实测两轮才把这件事看全：
+ *
+ * ① 第一轮：`call_skill` 被编排层重试，沙箱第二次又跑出"同一份"文件，`putOnce` 的
+ *    never-overwrite 把这次**成功的重试**判成失败，run 以 `UNKNOWN_EXECUTION_ERROR`
+ *    死掉。第一版修法是"读回来比对字节，一致才放行"。
+ * ② 第二轮：那个修法看着对，实测**仍然**崩在同一个错误上——反证用同一段 pptxgenjs
+ *    脚本连跑两次，产物字节从第 11 个字符就不同（OOXML 的 core.xml 里带创建/修改
+ *    时间戳）。也就是说 pptx/docx/xlsx 这类格式**永远不会**字节相同，"比对字节"这
+ *    道门槛实际上从没放行过一次，所有原生链路上的 Office 撞键都照旧硬失败。
+ *
+ * 结论：字节比对在这个场景下是个假门槛——它精确地卡住了它本该放行的那一类情况。
+ * 真正该问的问题不是"两次产物是不是一模一样"，而是"这个键的形状是不是只可能来自
+ * 同一次意图"：`agent-run-outputs/${runId}/${fileName}` 里 runId 天然只属于这一次
+ * chat run，同一轮内两次写向同一个文件名，唯一合理的解释就是重试或修订，不是两个
+ * 互不相干的产物撞名——那种情况从设计上就不会发生（不同产物不会自己选中同一个
+ * 文件名）。所以这里**不再比对内容**，撞键即视为幂等：保留先到的那一份，放行。
+ * 用户体感是"文件在"，不是"哪一次尝试的文件"——多次尝试里只要有一次真的成功过，
+ * run 就该算成功。
+ */
+async function putOnceIdempotent(
+  objects: ObjectStore,
+  key: string,
+  bytes: Uint8Array,
+  mime: string,
+): Promise<void> {
+  try {
+    await objects.putOnce(key, bytes, mime);
+  } catch (error) {
+    if (!(error instanceof ObjectExistsError)) throw error;
+  }
+}
+
 export function retryScriptSource(
   retry: Pick<ModelCallCompletion, "text" | "scriptCandidates" | "interrupted">,
 ): string {
@@ -211,7 +259,19 @@ export async function maybeRunSkillScript(
   deps: MaybeRunSkillScriptDeps,
   input: MaybeRunSkillScriptInput,
 ): Promise<SkillScriptOutcome> {
-  const notAttempted = { kind: "not_attempted", text: input.reply, files: [] } as const;
+  /*
+   * ⚠ 先把「模型把我们的系统提示复述了一遍」这种回复挡掉，再往下走。
+   *
+   * 2026-09-24 真实模型实测：人类要「深度研究…然后生成一个 ppt」，屏幕上出现的是
+   * **66149 字的技能内部协议**——`run_script` 协议块、
+   * 「The sandbox has NO network access」、画布模板的「条数上限〔分区名=N条〕」规则。
+   * 证据 apps/web/test-results/real-model-evidence/90-final-screen.png（肉眼确认）。
+   *
+   * 泄漏路径不是某一处：`input.reply` 在下面**四个**出口（成功 / 失败 / 取消 / 未尝试）
+   * 都会原样交给用户，所以收敛在入口一次，而不是每个出口各补一次。
+   */
+  const reply = withoutProtocolEcho(input.reply);
+  const notAttempted = { kind: "not_attempted", text: reply, files: [] } as const;
 
   // ── 判据（见头注的表）。三条任一不成立就原样返回，沙箱一次都不被调用。 ──
   if (!deps.sandbox || !deps.objects) return notAttempted;
@@ -266,7 +326,7 @@ export async function maybeRunSkillScript(
         : `agent-run-outputs/${input.runId}/${file.name}`;
       const mime = outputFileMime(file.name);
       await assertCurrentRunLease();
-      await objects.putOnce(key, bytes, mime);
+      await putOnceIdempotent(objects, key, bytes, mime);
       files.push({ name: file.name, mime, sizeBytes: bytes.length, objectKey: key });
     }
 
@@ -278,11 +338,11 @@ export async function maybeRunSkillScript(
     });
 
     return {
-      kind: "succeeded", text: renderSuccess(input.reply, files), files,
+      kind: "succeeded", text: renderSuccess(reply, files), files,
       attempts: loops.reduce((sum, loop) => sum + loop.attempts, 0),
     };
   } catch (e) {
-    if (e instanceof ScriptCancelledAtBoundary) return { kind: "cancelled", text: input.reply, files: [] };
+    if (e instanceof ScriptCancelledAtBoundary) return { kind: "cancelled", text: reply, files: [] };
     const failure = toFailure(e);
     deps.log("chat run skill script execution failed", {
       runId: input.runId, code: failure.failureCode, stderrExcerpt: failure.stderr.slice(0, 500),
@@ -296,7 +356,7 @@ export async function maybeRunSkillScript(
     });
     return {
       kind: "failed",
-      text: renderFailure(input.reply, failure.failureCode, failure.stderr),
+      text: renderFailure(reply, failure.failureCode, failure.stderr),
       files: [],
       failureCode: failure.failureCode,
       stderr: failure.stderr,
@@ -313,6 +373,10 @@ function toFailure(e: unknown): {
   }
   if (e instanceof SandboxTimeoutError) {
     return { failureCode: "SANDBOX_TIMEOUT", stderr: "" };
+  }
+  if (e instanceof ScriptProducedNoFilesError) {
+    // 没有 stderr 可报——沙箱这几次都跑通了，问题在"没写文件"这件事本身。
+    return { failureCode: "SCRIPT_PRODUCED_NO_FILES", stderr: "" };
   }
   if (e instanceof ScriptFailedAfterRetriesError) {
     // ⚠ 原样带回，不加工（#660）。
@@ -388,6 +452,31 @@ function renderSuccess(reply: string, files: readonly ProducedFile[]): string {
  *   一句既不是沙箱说的、也不是给用户看的话，被一个"诚实"的标签背书成了真因。
  *   **说出真因**与**把内部状态原样倒给用户**不是同一件事；来源不同，文案就必须不同。
  */
+/**
+ * 只存在于**我们自己的系统提示**里的串。用户可见的回答里出现它们，只有一种解释：
+ * 模型把提示复述回来了。
+ *
+ * ⚠ 判据要**两条以上同时命中**才动手。单条容易误伤——用户完全可能在正常回答里
+ * 提到「沙箱」或某个变量名；而复述整份协议时这些串是成片出现的。
+ * 宁可漏掉一次轻微泄漏，也不要把一条正常回答掐掉（后者用户立刻就会发现，且无从申诉）。
+ */
+const PROTOCOL_MARKERS = [
+  "SKILL_SANDBOX_OUT_DIR",
+  "The sandbox has NO network access",
+  "Write every file you want to return into",
+  "reply with exactly one fenced block",
+  "模板: <key>",
+] as const;
+
+/** 复述被挡掉时，留给用户的一句话——不留空白，也不假装那段内容是答案。 */
+const PROTOCOL_ECHO_NOTICE =
+  "（这一轮模型没有给出可用的回答，而是复述了内部执行说明，已省略。请再说一次你要的内容，我重试一次。）";
+
+export function withoutProtocolEcho(reply: string): string {
+  const hits = PROTOCOL_MARKERS.filter((marker) => reply.includes(marker)).length;
+  return hits >= 2 ? PROTOCOL_ECHO_NOTICE : reply;
+}
+
 function renderFailure(reply: string, code: SkillScriptFailureCode, stderr: string): string {
   return [reply, "", "---", "", ...failureBody(code, stderr)].join("\n");
 }
@@ -404,6 +493,15 @@ function failureBody(code: SkillScriptFailureCode, stderr: string): readonly str
       return [
         "⚠ 重新生成脚本时运行被中断（在等待一次人工确认），本轮**没有**产出文件。",
         "这一步没有执行沙箱，因此没有沙箱输出可报。补充说明你要的产物后可以继续。",
+      ];
+    case "SCRIPT_PRODUCED_NO_FILES":
+      /*
+       * 沙箱跑通了，所以没有 stderr 可贴；用户需要的不是"错误输出"，
+       * 是知道**这一轮没有东西可下载**，以及下一步能做什么。
+       */
+      return [
+        "⚠ 这一轮生成脚本执行成功，但没有写出任何文件，因此**没有**可下载的产物。",
+        "可以再说一次你要的文件类型与内容要点（例如「做一个 10 页的 pptx，包含结论与数据来源」），我再试一次。",
       ];
     case "MODEL_CALL_FAILED":
       // provider 的原话（`ModelCallError.detail`）到服务端日志为止——那条纪律写在

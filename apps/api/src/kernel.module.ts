@@ -131,7 +131,7 @@ import { Module } from "@nestjs/common";
 import { APP_FILTER, APP_GUARD } from "@nestjs/core";
 
 import { DATABASE_PORT, DIAGNOSTICS_READER_DB_PORT } from "./application/ports/database.port";
-import { LOGGER_PORT, type LoggerPort } from "./application/ports/logger.port";
+import { LOGGER_PORT, structuredErrorLog, type LoggerPort } from "./application/ports/logger.port";
 import { PRINCIPAL_RESOLVER_PORT } from "./application/ports/principal-resolver.port";
 
 import { appConfig, diagnosticsReaderConfig } from "./infrastructure/db/pg-config";
@@ -1250,9 +1250,9 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
         repo, ids, chat, commands, publishedAgents, threadMounts, enabledSkills, executor, runs, agentRunStore, logger,
         model, titleModel,
         // 同 ChatController.log 的既有先例（server-side only 适配器）。
-        log: (message: string, detail: Record<string, unknown>) => {
-          logger.error(message, { traceId: randomUUID(), err: detail.detail ?? message, ...detail });
-        },
+        // 单一事实源见 `structuredErrorLog` 头注：此前这段在 6 处各写一遍，
+        // 且都会把结构化字段退化成消息本身，于是 stderr 原文全丢。
+        log: structuredErrorLog(logger, randomUUID),
       }),
       inject: [
         IDENTITY_REPOSITORY, DECISION_ID_FACTORY, CHAT_REPOSITORY,
@@ -1276,9 +1276,9 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
         repo, ids, chat, commands, publishedAgents, threadMounts, enabledSkills, executor, runs, agentRunStore, logger,
         model, titleModel,
         // 同 ChatController.log 的既有先例（server-side only 适配器）。
-        log: (message: string, detail: Record<string, unknown>) => {
-          logger.error(message, { traceId: randomUUID(), err: detail.detail ?? message, ...detail });
-        },
+        // 单一事实源见 `structuredErrorLog` 头注：此前这段在 6 处各写一遍，
+        // 且都会把结构化字段退化成消息本身，于是 stderr 原文全丢。
+        log: structuredErrorLog(logger, randomUUID),
       }),
       inject: [
         IDENTITY_REPOSITORY, DECISION_ID_FACTORY, CHAT_REPOSITORY,
@@ -1302,9 +1302,9 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
         repo, ids, chat, commands, publishedAgents, threadMounts, enabledSkills, executor, runs, agentRunStore, logger,
         model, titleModel,
         // 同 ChatController.log 的既有先例（server-side only 适配器）。
-        log: (message: string, detail: Record<string, unknown>) => {
-          logger.error(message, { traceId: randomUUID(), err: detail.detail ?? message, ...detail });
-        },
+        // 单一事实源见 `structuredErrorLog` 头注：此前这段在 6 处各写一遍，
+        // 且都会把结构化字段退化成消息本身，于是 stderr 原文全丢。
+        log: structuredErrorLog(logger, randomUUID),
       }),
       inject: [
         IDENTITY_REPOSITORY, DECISION_ID_FACTORY, CHAT_REPOSITORY,

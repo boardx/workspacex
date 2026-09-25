@@ -35,7 +35,7 @@ cleanup() {
   local code=$?
   echo ""
   echo "[real-model-smoke] 收尾：释放本轮起的资源"
-  for pidfile in /tmp/e2e-api.pid /tmp/e2e-sandbox.pid; do
+  for pidfile in /tmp/e2e-api.pid /tmp/e2e-sandbox.pid /tmp/e2e-deep-agent.pid; do
     if [ -f "$pidfile" ]; then
       kill "$(cat "$pidfile")" 2>/dev/null || true
       rm -f "$pidfile"
@@ -78,10 +78,19 @@ export REAL_MODEL_E2E_START_WEB=1
 export REAL_MODEL_E2E_EVIDENCE_DIR="$EVIDENCE_DIR"
 SPEC_EXIT=0
 # 与 devapp lane 调的是**同一条** npm script —— playwright 的调用只声明一次。
-pnpm run e2e:real-model-smoke:raw || SPEC_EXIT=$?
+# 第一个参数选跑哪条 project：默认单条 pdf 体检；`office` 跑十任务矩阵。
+# 两者共用同一次起栈——起栈是最大固定成本，为十个任务各起一次会把 40 分钟拖成 3 小时。
+if [ "${1:-}" = "office" ]; then
+  pnpm run e2e:real-model-office:raw || SPEC_EXIT=$?
+else
+  pnpm run e2e:real-model-smoke:raw || SPEC_EXIT=$?
+fi
 
 echo "[real-model-smoke] ④ 收后端日志（脱敏后进证据包）"
 pnpm --filter web exec tsx e2e/support/scrub-file.ts /tmp/e2e-api.log "${EVIDENCE_DIR}/60-api.log" 4000 || true
 pnpm --filter web exec tsx e2e/support/scrub-file.ts /tmp/e2e-sandbox.log "${EVIDENCE_DIR}/61-skill-sandbox.log" 2000 || true
+# 原生 deep-agent 链路的日志。没有它就说不清这一轮到底走的哪条链——
+# 而「走的哪条链」正是本地绿能不能推出生产绿的全部依据。
+pnpm --filter web exec tsx e2e/support/scrub-file.ts /tmp/e2e-deep-agent.log "${EVIDENCE_DIR}/62-deep-agent.log" 3000 || true
 
 exit $SPEC_EXIT

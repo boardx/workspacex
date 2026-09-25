@@ -33,7 +33,7 @@ import { CHAT_MESSAGE_COMMAND_REPOSITORY, ENABLED_SKILL_VERSION_READER, PUBLISHE
 import type { ChatMessageCommandRepository, EnabledSkillVersionReader, PublishedAgentReader, ThreadMountedSkillReader } from "../../application/chat/message-command-ports";
 import { CHAT_REPOSITORY, type ChatRepository } from "../../application/chat/ports";
 import { DECISION_ID_FACTORY, IDENTITY_REPOSITORY, type DecisionIdFactory, type IdentityRepository } from "../../application/identity/ports";
-import { LOGGER_PORT, type LoggerPort } from "../../application/ports/logger.port";
+import { LOGGER_PORT, type LoggerPort, structuredErrorLog } from "../../application/ports/logger.port";
 import { MODEL_CALL_PORT, type ModelCallPort } from "../../application/agent-run/ports";
 import { THREAD_TITLE_MODEL_CONFIG, type ThreadTitleModelConfig } from "../../application/chat/generate-thread-title";
 
@@ -53,7 +53,7 @@ export class AcceptMessageCarryOverDelivery implements InterjectionCarryOverDeli
   ) {}
 
   private readonly log = (message: string, detail: Record<string, unknown>): void => {
-    this.logger.error(message, { traceId: randomUUID(), err: detail.detail ?? message, ...detail });
+    structuredErrorLog(this.logger, randomUUID)(message, detail);
   };
 
   async deliver(orgId: OrgId, batch: CarryOverBatch): Promise<string | null> {

@@ -36,6 +36,18 @@ const webPort = process.env.WORKSPACEX_WEB_PORT ?? "3000";
 const apiPort = process.env.WORKSPACEX_API_PORT ?? "3200";
 const apiOrigin = `http://127.0.0.1:${apiPort}`;
 
+/**
+ * 本地 lane 的同源改写前缀。**声明一次，webServer 与测试进程共用。**
+ *
+ * 2026-09-24 实测：此前它只写在下面 webServer 的 env 里，spec 里
+ * `process.env.NEXT_PUBLIC_API_PATH_PREFIX` 读到的是 undefined，于是 spec 退回
+ * 写死的 `/api/...`——本地没有反代，Next 返回 404 HTML，`response.json()` 抛
+ * 「Unexpected token '<'」。一条与真实模型毫无关系的前置失败，把整条用例挡在门外。
+ * 赋回 `process.env` 之后两边读到同一个值。
+ */
+const apiPathPrefix = startLocalWeb ? "/__fullstack_api" : "";
+process.env.NEXT_PUBLIC_API_PATH_PREFIX = apiPathPrefix;
+
 const evidenceDir = path.isAbsolute(REAL_MODEL_SMOKE.evidenceDir)
   ? REAL_MODEL_SMOKE.evidenceDir
   : path.resolve(__dirname, REAL_MODEL_SMOKE.evidenceDir);
@@ -75,6 +87,14 @@ export default defineConfig({
       name: "real-model-pdf",
       testMatch: ["real-model-pdf-smoke.spec.ts"],
     },
+    {
+      /*
+       * 2026-09-25 人类交办的十任务矩阵。与上面那条**共用同一套 webServer / use**
+       * （同一个真栈、同一份凭据），只换 testMatch——不新建 config、不复制编排。
+       */
+      name: "real-model-office-matrix",
+      testMatch: ["real-model-office-matrix.spec.ts"],
+    },
   ],
   ...(startLocalWeb
     ? {
@@ -96,7 +116,7 @@ export default defineConfig({
             env: {
               ...process.env,
               NEXT_PUBLIC_API_URL: `http://127.0.0.1:${webPort}`,
-              NEXT_PUBLIC_API_PATH_PREFIX: "/__fullstack_api",
+              NEXT_PUBLIC_API_PATH_PREFIX: apiPathPrefix,
               // WS 不能走 Next 的 rewrite（那是 HTTP 代理，Upgrade 到那里就断）——
               // 与 fullstack config 同一条既有结论，不重新踩一遍。
               NEXT_PUBLIC_API_WS_URL: apiOrigin,

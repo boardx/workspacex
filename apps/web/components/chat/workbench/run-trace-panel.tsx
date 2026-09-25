@@ -8,6 +8,8 @@ import { toolLabel, toolObject, isEmptyToolResult } from "@/lib/chat-workbench/t
 import { toolUrl } from "@/lib/chat-workbench/external-url";
 import { requestOpenInRightPanel } from "@/lib/chat-workbench/panel-document";
 import { RunTraceLivePreview } from "./run-trace-live-preview";
+import { planFromTrace } from "@/lib/chat-workbench/trace-plan";
+import { AgentPlanPanel } from "@/components/chat/agent-plan-panel";
 import { SubtaskRunLivePanel } from "@/components/chat/subtask-run-live-panel";
 import { RunTraceLiveStrip } from "@/components/chat/workbench/run-trace-live-strip";
 import { MarkdownProseBlock } from "@/components/chat/markdown-prose";
@@ -121,6 +123,7 @@ export function RunTracePanel({ runId, events, running = false, expanded: contro
   const id = React.useId();
   const entries = React.useMemo(() => traceEntries(events), [events]);
   const rows = React.useMemo(() => groupTraceRows(entries), [entries]);
+  const planTodos = React.useMemo(() => planFromTrace(entries), [entries]);
   const [now, setNow] = React.useState(Date.now);
   const status = [...events].reverse().find((event) => event.kind === "status");
   const legacy = events.every((event) => event.source === "legacy");
@@ -175,6 +178,16 @@ export function RunTracePanel({ runId, events, running = false, expanded: contro
       改默认展开值的那一版被 `fullstack-smoke` 按设计拦下来了）。展开与否一个字没改；
       这块只在「还活着 + 这一轮还没有任何正文 + 已经 ≥2 个动作」时出现，正文一来就消失。
     */}
+    {/* 2026-09-24（E3）—— 计划**画在折叠区外面**，默认就看得见。
+        评测第 ② 项实测 0.3：write_todos 发了三步计划，界面上默认看不到、展开右栏
+        也看不到——v2 这条链的计划面板吃的是 AG-UI STATE_SNAPSHOT / 计划账本，
+        deep-agent provider 两样都不走。而那份计划其实就在这次工具调用的 args 里，
+        已经在浏览器手上了。用「既有的」AgentPlanPanel 渲染，不另画一套。 */}
+    {planTodos !== null ? (
+      <div className="mb-1.5" data-testid="run-trace-plan">
+        <AgentPlanPanel steps={[]} stateSnapshotTodos={planTodos} />
+      </div>
+    ) : null}
     {!expanded && <RunTraceLivePreview entries={entries} active={active} hasAssistantText={hasAssistantText} />}
     <div id={id} hidden={!expanded} role="region" aria-label="任务执行过程" data-testid="run-trace-body" className="ml-3 border-l border-border-subtle pl-4">
       <ol className="space-y-3 py-3">

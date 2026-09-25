@@ -1,7 +1,8 @@
 import type { ExecutionEvent } from "@repo/contracts/execution-journal";
-import { cleanup, render, screen } from "@testing-library/react";
-import { afterEach, describe, expect, it } from "vitest";
+import { act, cleanup, render, screen } from "@testing-library/react";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { RunTracePanel } from "@/components/chat/workbench/run-trace-panel";
+import { RunTraceLiveStrip } from "@/components/chat/workbench/run-trace-live-strip";
 
 /**
  * issue #3320 —— 活性条的**逻辑**面（在不在、说什么、随不随执行推进而变）。
@@ -114,5 +115,38 @@ describe("RunTraceLiveStrip（#3320 失败之后的前进感）", () => {
     renderPanel([running, start(2, "t1"), end(3, "t1", false), start(4, "t2", "execute")]);
     const toggle = line(screen.getByTestId("run-trace-toggle"));
     expect(toggle).toMatch(/^正在执行工具操作 · 已完成 1 个动作 · 有失败步骤 · 历时 \d+:\d{2} · 工具 2 次$/);
+  });
+});
+
+/**
+ * E2（评测集第 2 轮）—— **静默窗口里也要有随时间变化的事实**。
+ *
+ * 实测：慢剧本模拟模型思考 12 秒期间执行过程一行都没有，这一行退化成恒定的
+ * 「正在推进任务」，整轮 90 秒采样只读到一种文案——与「卡死了」在屏幕上无法区分。
+ */
+describe("静默窗口：已等待时长", () => {
+  it("没有任何步骤时，超过 3 秒开始报已等待时长，并逐秒变化", () => {
+    vi.useFakeTimers();
+    try {
+      render(<RunTraceLiveStrip entries={[]} active />);
+      // 前 3 秒不报——一两秒就跳数字是噪音，不是信息。
+      act(() => { vi.advanceTimersByTime(2_000); });
+      expect(screen.getByTestId("run-trace-live-strip").textContent).not.toContain("已等待");
+
+      act(() => { vi.advanceTimersByTime(3_000); });
+      const at5 = screen.getByTestId("run-trace-live-strip").textContent ?? "";
+      expect(at5).toContain("已等待 5 秒");
+
+      act(() => { vi.advanceTimersByTime(4_000); });
+      expect(screen.getByTestId("run-trace-live-strip").textContent).toContain("已等待 9 秒");
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("run 结束后不再计时（active=false 整条不渲染）", () => {
+    const { rerender } = render(<RunTraceLiveStrip entries={[]} active />);
+    rerender(<RunTraceLiveStrip entries={[]} active={false} />);
+    expect(screen.queryByTestId("run-trace-live-strip")).toBeNull();
   });
 });

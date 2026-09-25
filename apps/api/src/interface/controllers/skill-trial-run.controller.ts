@@ -41,7 +41,7 @@ import { toOrgId } from "../../domain/org-id";
 import { CurrentPrincipal } from "../current-principal.decorator";
 import { ZodBodyPipe } from "../pipes/zod-body.pipe";
 import { IDENTITY_REPOSITORY, type IdentityRepository } from "../../application/identity/ports";
-import { LOGGER_PORT, type LoggerPort } from "../../application/ports/logger.port";
+import { LOGGER_PORT, type LoggerPort, structuredErrorLog } from "../../application/ports/logger.port";
 import { TrialRunSkillError } from "../../application/skill/trial-run-skill";
 import { readTrialRun, submitTrialRun } from "../../application/skill/submit-trial-run";
 import {
@@ -67,7 +67,7 @@ export class SkillTrialRunController {
   ) {}
 
   private readonly log = (message: string, detail: Record<string, unknown>): void => {
-    this.logger.error(message, { traceId: randomUUID(), err: detail.detail ?? message, ...detail });
+    structuredErrorLog(this.logger, randomUUID)(message, detail);
   };
 
   @Post(C.operations.runTrialRun.path)
