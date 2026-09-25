@@ -73,6 +73,7 @@ type StoredReportFinding = {
 function toWorkflowFinding(finding: StoredReportFinding, revisionId: string): NonNullable<DigitalInterviewWorkflowView["report"]>["findings"][number] {
   return {
     ...finding,
+    goalIds: finding.goalIds ?? [],
     evidenceStatus: finding.evidenceStatus ?? "exploratory",
     evidenceRefs: finding.evidenceRefs ?? [{
       sourceKind: "digital_expert", sourceAnswerId: finding.sourceAnswerId,
