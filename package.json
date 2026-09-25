@@ -112,9 +112,6 @@
     "yaml": "^2.5.0"
   },
   "pnpm": {
-    "overrides": {
-      "@langchain/langgraph-checkpoint-postgres>@langchain/langgraph-checkpoint": "0.1.1"
-    },
     "patchedDependencies": {
       "@cloudflare/next-on-pages@1.13.12": "patches/@cloudflare__next-on-pages@1.13.12.patch"
     }

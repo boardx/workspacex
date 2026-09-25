@@ -206,6 +206,23 @@ const EXEMPTIONS = [
       "真正的验收在人类签核，不在这个脚本自己判定「像不像」。",
   },
   {
+    spec: "apps/web/e2e/real-model-office-matrix.spec.ts",
+    reason:
+      "2026-09-25 人类交办的十任务真实模型 Office 矩阵评测集。与 `real-model-pdf-smoke.spec.ts` " +
+      "共用同一份 `playwright.real-model-smoke.config.ts`（同一个真栈、同一份真实模型凭据，" +
+      "只是另加一个 `real-model-office-matrix` project 换了 `testMatch`——config 头注写明" +
+      "「不新建 config、不复制编排」），但那份 project **没有**接进任何 CI job：" +
+      "`real-model-chat-evidence.yml#verify` 唯一调用的是 `e2e:real-model-smoke:raw`" +
+      "（固定 `--project=real-model-pdf`），十任务矩阵那条 `pnpm run e2e:real-model-office`/" +
+      "`:raw`（`--project=real-model-office-matrix`）眼下只能本地手动跑（`scripts/real-model-smoke.sh " +
+      "office`）。如实记为**完全 unrun**，不是「有条件覆盖」——这与上面 pdf 那条不同：pdf 至少被" +
+      "`workflow_dispatch` 那唯一一条路径跑到过，这条一次都没有。跑一次真金白银的十项真实模型任务、" +
+      "且与 pdf smoke 抢同一条 `real-model-chat-evidence` 并发锁，接不接进 CI（新增一个" +
+      "`workflow_dispatch` 分支或独立 workflow）是一次跨这条 lane 预算的决定，不在本次修复范围内。" +
+      "⚠ 代价照直写：这条 spec 红了，CI 没有任何自动信号——目前只能靠人手动触发" +
+      "`pnpm run e2e:real-model-office` 才能发现。",
+  },
+  {
     spec: "apps/web/e2e/live-collab-orchestration-shots.spec.ts",
     reason:
       "Phase 10「现场协作编排」UI 先行原型（9 屏 + 七态 + 4 视角）—— 同 canvas-tpl-shots：" +
@@ -230,6 +247,18 @@ const EXEMPTIONS = [
  * 写这里的代价是：这条 spec 被共享包改动打红时，CI 不会告诉任何人。
  */
 const CONDITIONAL_COVERAGE_EXEMPTIONS = [
+  {
+    spec: "apps/web/e2e/chat-run-always-lands.spec.ts",
+    reason: PROJECT_GRANULARITY_LEGACY("chat 线"),
+  },
+  {
+    spec: "apps/web/e2e/deepagent-plan-execute-reliability.spec.ts",
+    reason: PROJECT_GRANULARITY_LEGACY("chat 线"),
+  },
+  {
+    spec: "apps/web/e2e/chat-ux-eval.spec.ts",
+    reason: PROJECT_GRANULARITY_LEGACY("chat 线"),
+  },
   {
     spec: "apps/web/e2e/chat-path-ab-hitl-continuity.spec.ts",
     reason: PROJECT_GRANULARITY_LEGACY("chat 线"),
