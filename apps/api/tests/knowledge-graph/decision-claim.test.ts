@@ -88,6 +88,16 @@ describe("decisionLike：负例——过短 / 不含决定性动词", () => {
   });
 });
 
+describe("decisionLike：负例——名词 / 形容词用法（评审 2026-09-25 发现的真实误判）", () => {
+  it.each([
+    "决定权归属尚待明确",
+    "价格是这次谈判的决定性因素",
+    "这是一个确定性很高的估算",
+  ])("%s ⇒ false（裸子串匹配没有词边界意识，会误判成 true）", (statement) => {
+    expect(decisionLike(statement)).toBe(false);
+  });
+});
+
 describe("DECISION_RECALL_LIMIT", () => {
   it("是一个保守的小上限（issue 建议 3–5，这里取 3）", () => {
     expect(DECISION_RECALL_LIMIT).toBe(3);

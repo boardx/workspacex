@@ -18,14 +18,18 @@ const hop = (claimId: string): GraphHit => ({ claimId, path: [{ src: "object:z",
 
 describe("F08: 降级说明不静默", () => {
   it("问题里有已知实体、图路坏了、字面也没命中 ⇒ 材料里只有降级说明（评审 P3）", () => {
-    const r = fuseRecall({ query: "老张最近在忙什么", claims: [claim("c1", "张三决定下周一上线 v2", { kind: "decision" })], objects: [zhang], graph: null, limit: 8 });
+    // 用不含决定类关键词的陈述句：这条测的是「图路坏了 + 字面没命中 ⇒ 只有降级说明」，
+    // 与 issue #4181 的 decisionLike() 无关；用「决定」字样的原文会被新逻辑额外带上，
+    // 让这条测试的断言（items 为空）失真。
+    const r = fuseRecall({ query: "老张最近在忙什么", claims: [claim("c1", "张三上周五请假了", { kind: "decision" })], objects: [zhang], graph: null, limit: 8 });
     expect(r.items).toEqual([]);
     expect(r.graphSeeds).toEqual(["z"]);
     expect(buildKnowledgeContextMessage(r)).toBe(`【记忆】（${RECALL_DEGRADED_NOTICE}）`);
   });
 
   it("没有已知实体（图路本来就不用走）且没命中 ⇒ 不塞任何东西", () => {
-    const r = fuseRecall({ query: "今天天气怎么样", claims: [claim("c1", "张三决定下周一上线 v2")], objects: [zhang], graph: [], limit: 8 });
+    // 同上：换成不含决定类关键词的陈述句，避免被 issue #4181 的 decisionLike() 额外带上。
+    const r = fuseRecall({ query: "今天天气怎么样", claims: [claim("c1", "张三上周五请假了")], objects: [zhang], graph: [], limit: 8 });
     expect(buildKnowledgeContextMessage(r)).toBeNull();
   });
 });
