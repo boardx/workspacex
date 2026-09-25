@@ -27,6 +27,7 @@ import {
   SurveyVersionInputSchema,
   SurveyPublishInputSchema,
   SurveySubmissionInputSchema,
+  SurveyResponseReviewInputSchema,
 } from "@repo/contracts/survey-runtime";
 import {
   SurveyError,
@@ -227,21 +228,13 @@ export class SurveyController {
     @Body() body: unknown,
   ) {
     assertPrincipal(p);
-    const input = parse(
-      SurveyVersionInputSchema.extend({
-        quality: z.enum(["normal", "review"]),
-      }),
-      body,
-    );
+    const input = parse(SurveyResponseReviewInputSchema, body);
     return run(() =>
-      this.service.review(
-        p.orgId,
-        p.userId,
-        id,
-        input.expectedVersion,
-        responseId,
-        input.quality,
-      ),
+      input.analysis === "excluded"
+        ? this.service.excludeFromAnalysis(p.orgId, p.userId, id, input.expectedVersion, responseId, input.exclusionReason!)
+        : input.analysis === "included"
+          ? this.service.includeInAnalysis(p.orgId, p.userId, id, input.expectedVersion, responseId)
+          : this.service.review(p.orgId, p.userId, id, input.expectedVersion, responseId, input.quality!),
     );
   }
   @Post("/:id/report") report(

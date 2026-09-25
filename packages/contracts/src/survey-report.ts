@@ -327,7 +327,11 @@ function compileBlock(
     return result;
   }
   const samples = responses
-    .filter((r) => block.samplePolicy === "all" || r.quality === "normal")
+    .filter(
+      (r) =>
+        r.analysis !== "excluded" &&
+        (block.samplePolicy === "all" || r.quality === "normal"),
+    )
     .map((sample) => {
       const counts = new Map<string, number>();
       sample.answers.forEach((answer) =>

@@ -53,4 +53,16 @@ describe('live survey workspace persistence',()=>{
   expect(screen.queryByTestId('survey-design-question-Q01')).not.toBeInTheDocument();
   expect(screen.queryByRole('button',{name:'新增题目'})).not.toBeInTheDocument();
  });
+ it('sends an explicit reason when excluding a response from analysis',async()=>{
+  const response={id:'answer-1',analysis:'included' as const,quality:'normal' as const,role:'未填写',companySize:'未填写',submittedAt:'2026-09-20T11:00:00.000Z',durationSeconds:20,answers:[{questionId:'q1',value:'甲'}]};
+  request.mockResolvedValueOnce(runtime({status:'closed',responses:[response]})).mockResolvedValueOnce(runtime({status:'closed',version:5,responses:[{...response,analysis:'excluded',exclusionReason:'重复测试提交'}]}));
+  render(<LiveSurveyWorkspace surveyId="saved-survey" initialStep="responses"/>);
+  fireEvent.click(await screen.findByRole('button',{name:'查看完整答卷'}));
+  fireEvent.change(screen.getByLabelText('排除分析原因'),{target:{value:'重复测试提交'}});
+  fireEvent.click(screen.getByRole('button',{name:'排除分析'}));
+  await waitFor(()=>expect(request).toHaveBeenLastCalledWith('/surveys/saved-survey/responses/answer-1',{
+    method:'PATCH',body:{expectedVersion:4,analysis:'excluded',exclusionReason:'重复测试提交'},
+  }));
+  expect(await screen.findByText('排除原因：重复测试提交')).toBeInTheDocument();
+ });
 });

@@ -123,6 +123,10 @@ export class SurveyService {
           ? "collecting"
           : "draft";
     model.anonymity ??= "anonymous";
+    for (const response of model.responses) {
+      response.analysis ??= "included";
+      response.analysisHistory ??= [];
+    }
     return model;
   }
   private transact<T>(
@@ -363,6 +367,71 @@ export class SurveyService {
       return m;
     });
   }
+  excludeFromAnalysis(
+    orgId: OrgId,
+    actor: string,
+    id: string,
+    version: number,
+    responseId: string,
+    reason: string,
+  ) {
+    const exclusionReason = reason.trim();
+    if (!exclusionReason || exclusionReason.length > 1000)
+      throw new SurveyError("invalid_answers");
+    return this.transact(orgId, id, (record) => {
+      this.own(record, actor, version);
+      const response = record.model.responses.find((item) => item.id === responseId);
+      if (!response) throw new SurveyError("not_found");
+      if (response.analysis !== "excluded" || response.exclusionReason !== exclusionReason) {
+        const changedAt = this.now().toISOString();
+        response.analysis = "excluded";
+        response.exclusionReason = exclusionReason;
+        response.analysisHistory ??= [];
+        response.analysisHistory.push({
+          analysis: "excluded",
+          reason: exclusionReason,
+          actor,
+          changedAt,
+        });
+        record.model.answerRevision++;
+        record.model.version++;
+        record.model.updatedAt = changedAt;
+        if (Buffer.byteLength(JSON.stringify(record)) > 16 * 1024 * 1024)
+          throw new SurveyError("capacity_reached");
+      }
+      return record.model;
+    });
+  }
+  includeInAnalysis(
+    orgId: OrgId,
+    actor: string,
+    id: string,
+    version: number,
+    responseId: string,
+  ) {
+    return this.transact(orgId, id, (record) => {
+      this.own(record, actor, version);
+      const response = record.model.responses.find((item) => item.id === responseId);
+      if (!response) throw new SurveyError("not_found");
+      if (response.analysis !== "included" || response.exclusionReason !== undefined) {
+        const changedAt = this.now().toISOString();
+        response.analysis = "included";
+        delete response.exclusionReason;
+        response.analysisHistory ??= [];
+        response.analysisHistory.push({
+          analysis: "included",
+          actor,
+          changedAt,
+        });
+        record.model.answerRevision++;
+        record.model.version++;
+        record.model.updatedAt = changedAt;
+        if (Buffer.byteLength(JSON.stringify(record)) > 16 * 1024 * 1024)
+          throw new SurveyError("capacity_reached");
+      }
+      return record.model;
+    });
+  }
   report(orgId: OrgId, actor: string, id: string, version: number) {
     return this.change(orgId, actor, id, version, (m) => {
       const responses = m.responses;
@@ -471,6 +540,8 @@ export class SurveyService {
         r.model.responses.push({
           id: responseId,
           quality: "normal",
+          analysis: "included",
+          analysisHistory: [],
           submittedAt: this.now().toISOString(),
           role: input.role,
           companySize: input.companySize,
