@@ -1,10 +1,12 @@
 /**
  * phase-18 F09 —— 会话「记忆」面板（chat-knowledge-graph 束）的前端取数口。
  *
- * 三个只读操作，全部对着契约 `knowledgeGraph`（`packages/contracts/src/chat-knowledge-graph.ts`）：
- *   · `getThreadKnowledge` GET /knowledge-graph/threads/:threadId              —— 面板列表 + 图共用的读模型
- *   · `getClaimSources`    GET /knowledge-graph/claims/:claimId/sources        —— 来源抽屉
- *   · `getTurnMemory`      GET /knowledge-graph/threads/:threadId/messages/:messageId/memory —— 回答下「已记下 N 条」
+ * 只读操作，全部对着契约 `knowledgeGraph`（`packages/contracts/src/chat-knowledge-graph.ts`）：
+ *   · `getThreadKnowledge`    GET /knowledge-graph/threads/:threadId              —— 面板列表 + 图共用的读模型
+ *   · `getClaimSources`       GET /knowledge-graph/claims/:claimId/sources        —— 来源抽屉
+ *   · `getTurnMemory`         GET /knowledge-graph/threads/:threadId/messages/:messageId/memory —— 回答下「已记下 N 条」
+ *   · `getMessageExtraction`  GET /knowledge-graph/threads/:threadId/messages/:messageId/extraction
+ *     （issue #4180）—— 发送下方「已记下：{摘要}·撤销」，只认这一条消息自己的证据
  *
  * 返回值一律经契约 `out` schema 校验——形状只有契约一份，这里不另猜。校验失败不是
  * "空数据"，是协议违约：照样抛，让界面进错误态，不静默吞成一个空面板。
@@ -96,6 +98,17 @@ export function fetchTurnMemory(threadId: string, messageId: string, signal?: Ab
   return getParsed(
     `/knowledge-graph/threads/${seg(threadId)}/messages/${seg(messageId)}/memory`,
     knowledgeGraph.getTurnMemory.out,
+    signal,
+  );
+}
+
+export type MessageExtraction = z.infer<typeof knowledgeGraph.getMessageExtraction.out>;
+
+/** issue #4180：这条消息自己是否刚被抽取出新结论——发送下方「已记下：{摘要}·撤销」。 */
+export function fetchMessageExtraction(threadId: string, messageId: string, signal?: AbortSignal): Promise<MessageExtraction> {
+  return getParsed(
+    `/knowledge-graph/threads/${seg(threadId)}/messages/${seg(messageId)}/extraction`,
+    knowledgeGraph.getMessageExtraction.out,
     signal,
   );
 }

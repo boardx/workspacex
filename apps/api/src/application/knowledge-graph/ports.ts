@@ -125,6 +125,8 @@ export type ThreadKnowledgeData = Pick<
 >;
 export type ClaimSourcesData = z.infer<typeof KG.knowledgeGraph.getClaimSources.out>;
 export type TurnMemoryData = z.infer<typeof KG.knowledgeGraph.getTurnMemory.out>;
+/** issue #4180：一条消息自己刚被抽取出的新结论。 */
+export type MessageExtractionData = z.infer<typeof KG.knowledgeGraph.getMessageExtraction.out>;
 
 /** 读知识需要的线程事实（来自 chat 的可见性判定，不含正文）。 */
 export interface KnowledgeThreadRef {
@@ -148,6 +150,11 @@ export interface KnowledgeReadPort {
   /** F12：一条结论的消息证据分布在哪些会话（只回会话 id，路由事实，不回内容）。 */
   claimEvidenceThreads(orgId: OrgId, userId: string, claimId: string): Promise<readonly string[]>;
   turnMemory(orgId: OrgId, userId: string, thread: KnowledgeThreadRef, messageId: string): Promise<Guarded<TurnMemoryData>>;
+  /**
+   * issue #4180：这一条消息自己（不做 `turnMemory` 那种「向前找最近一条人类消息」的扩展匹配）
+   * 抽取出的、还活着的结论——发送下方「已记下：{摘要}·撤销」的信号源。
+   */
+  messageExtraction(orgId: OrgId, userId: string, thread: KnowledgeThreadRef, messageId: string): Promise<Guarded<MessageExtractionData>>;
   /**
    * UC-KG-7：本人个人空间（L1）的活结论 / 实体 / 边。guard ref 是本人的个人空间
    * （`project:personal:<userId>`，同 resolve-visibility 个人线程的合成 id）；调用方交出

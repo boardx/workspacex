@@ -640,6 +640,15 @@ export function CopilotKitV2PanelBody({
   const [userMessageAttachments, setUserMessageAttachments] =
     React.useState<ReadonlyMap<string, readonly ChatAttachment[]>>(() => new Map());
 
+  /**
+   * issue #4180 —— 「这条消息刚被抽取出新知识」的反馈条只对**本会话本次发送**的用户消息轮询
+   * （不对整段历史消息各自常驻轮询，同 `TurnMemoryLine` 头注「一屏历史消息各自常驻轮询会把
+   * 接口打满」那条纪律）。键与 `userMessageAttachments` 同一个 `clientMessageId`——乐观插入
+   * 那条用户气泡的 id，`send()` 里同一处写入（见下方）。历史回读的消息不在这张表里，天然
+   * 不会挂这条反馈——即使它们当时也被抽取过，那件事早已经在知识面板里，不需要再提醒一次。
+   */
+  const [sentMessageIds, setSentMessageIds] = React.useState<ReadonlySet<string>>(() => new Set());
+
   const [historyError, setHistoryError] = React.useState<string | null>(null);
   const hydratedRef = React.useRef(false);
   const [historyLoading, setHistoryLoading] = React.useState(initialChatThreadId !== null);
@@ -1504,6 +1513,9 @@ export function CopilotKitV2PanelBody({
       const sentAttachments = opts?.attachments ?? attach.uploadedAttachments;
       const attachmentIds = sentAttachments.map((a) => a.id);
       lastSentRef.current = { text, attachments: sentAttachments, clientMessageId };
+      // issue #4180 —— 这一条是本会话真的发出去的（不是重试复用同一个 id 的第二次登记也无妨，
+      // Set 天然去重）。
+      setSentMessageIds((cur) => (cur.has(clientMessageId) ? cur : new Set(cur).add(clientMessageId)));
       if (!agent.messages.some((message) => message.id === clientMessageId)) agent.addMessage({ id: clientMessageId, role: "user", content: text });
       /*
        * 2026-09-15 人类实测反馈 —— 附件在**发送这一刻**就从 composer 移到那条用户消息
@@ -1663,9 +1675,11 @@ export function CopilotKitV2PanelBody({
     () => ({
       threadId: chatThreadIdRef.current ?? attachmentThreadId ?? "",
       byMessageId: userMessageAttachments,
+      // issue #4180 —— 见 `sentMessageIds` 头注。
+      sentThisSession: sentMessageIds,
     }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [chatThreadIdRef.current, attachmentThreadId, userMessageAttachments],
+    [chatThreadIdRef.current, attachmentThreadId, userMessageAttachments, sentMessageIds],
   );
 
   /**

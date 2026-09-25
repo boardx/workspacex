@@ -24,7 +24,7 @@ import {
 import { newKgId } from "../../application/knowledge-graph/ids";
 import { getBrainOverview, getPersonalKnowledge } from "../../application/knowledge-graph/read-personal-knowledge";
 import {
-  KgReadError, getClaimSources, getThreadKnowledge, getTurnMemory, type KnowledgeReadDeps,
+  KgReadError, getClaimSources, getMessageExtraction, getThreadKnowledge, getTurnMemory, type KnowledgeReadDeps,
 } from "../../application/knowledge-graph/read-thread-knowledge";
 import { toOrgId } from "../../domain/org-id";
 import type { Principal } from "../../domain/principal";
@@ -96,6 +96,16 @@ export class KnowledgeGraphController {
     @Param("messageId") messageId: string,
   ) {
     return this.run(principal, (v) => getTurnMemory(this.deps, { ...v, threadId, messageId }));
+  }
+
+  /** issue #4180 getMessageExtraction —— 这条消息自己是否刚被抽取出新结论 */
+  @Get("/knowledge-graph/threads/:threadId/messages/:messageId/extraction")
+  messageExtraction(
+    @CurrentPrincipal() principal: Principal,
+    @Param("threadId") threadId: string,
+    @Param("messageId") messageId: string,
+  ) {
+    return this.run(principal, (v) => getMessageExtraction(this.deps, { ...v, threadId, messageId }));
   }
 
   /** UC-KG-7 getPersonalKnowledge —— 本人个人空间（长期记忆），只有本人 */
