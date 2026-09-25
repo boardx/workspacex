@@ -6,7 +6,7 @@
  */
 import {
   BadRequestException, Body, ConflictException, Controller, ForbiddenException, Get, HttpCode, Inject,
-  NotFoundException, Param, Post, ServiceUnavailableException,
+  NotFoundException, Param, Post, Put, ServiceUnavailableException,
 } from "@nestjs/common";
 import { knowledgeGraph as KG } from "@repo/contracts";
 import { AuthzUnavailableError } from "../../application/chat/resolve-visibility";
@@ -18,8 +18,8 @@ import { actOnMemoryCard } from "../../application/knowledge-graph/act-on-memory
 import { applyHumanAction } from "../../application/knowledge-graph/apply-human-action";
 import { listPromotionNominations, promoteToPersonal } from "../../application/knowledge-graph/promote-to-personal";
 import {
-  HUMAN_ACTION_PORT, KNOWLEDGE_READ_PORT, KgHumanActionError, MEMORY_CARD_PORT, PROMOTION_PORT,
-  type HumanActionPort, type KnowledgeReadPort, type MemoryCardPort, type PromotionPort,
+  HUMAN_ACTION_PORT, KG_EXTRACTION_MODEL_CONFIG, KG_ORG_EXTRACTION_SETTINGS_PORT, KNOWLEDGE_READ_PORT, KgHumanActionError, MEMORY_CARD_PORT, PROMOTION_PORT,
+  type HumanActionPort, type KgExtractionModelConfig, type KgOrgExtractionSettingsPort, type KnowledgeReadPort, type MemoryCardPort, type PromotionPort,
 } from "../../application/knowledge-graph/ports";
 import { newKgId } from "../../application/knowledge-graph/ids";
 import { getBrainOverview, getPersonalKnowledge } from "../../application/knowledge-graph/read-personal-knowledge";
@@ -40,6 +40,9 @@ export class KnowledgeGraphController {
     @Inject(KNOWLEDGE_READ_PORT) private readonly knowledge: KnowledgeReadPort,
     @Inject(HUMAN_ACTION_PORT) private readonly actions: HumanActionPort,
     @Inject(PROMOTION_PORT) private readonly promotion: PromotionPort,
+    /** issue #4178：记忆抽取的组织开关 + 部署能力位。 */
+    @Inject(KG_ORG_EXTRACTION_SETTINGS_PORT) private readonly extractionSettings: KgOrgExtractionSettingsPort,
+    @Inject(KG_EXTRACTION_MODEL_CONFIG) private readonly extractionModelConfig: KgExtractionModelConfig,
     /** F17 确认卡。生产合成必定注入；只测别的接口的构造点可以不给（此时这条接口回 503，不假装成功）。 */
     @Inject(MEMORY_CARD_PORT) private readonly cards?: MemoryCardPort,
   ) {}
@@ -154,5 +157,41 @@ export class KnowledgeGraphController {
       { ...this.deps, cards, newId: newKgId },
       { ...v, actorKind: "human", cardId, decision, ...(claimIds !== undefined ? { claimIds } : {}), ...(editedStatement !== undefined ? { editedStatement } : {}) },
     ));
+  }
+
+  /**
+   * issue #4178 getKnowledgeExtractionSetting —— 任何组织成员可读：这是「这个组织现在
+   * 抽不抽」这件事本身，不是要按内容披露的租户数据（同 #3068 `listStandingToolGrants`
+   * 的读写分权理由，见 `application/knowledge-graph/ports.ts` 的 `KgOrgExtractionSettingsPort` 头注）。
+   */
+  @Get("/knowledge-graph/extraction-setting")
+  async extractionSetting(@CurrentPrincipal() principal: Principal) {
+    assertPrincipal(principal);
+    const orgEnabled = await this.extractionSettings.getEnabled(toOrgId(principal.orgId));
+    return KG.knowledgeGraph.getKnowledgeExtractionSetting.out.parse({
+      deploymentCapable: this.extractionModelConfig.enabled, orgEnabled,
+    });
+  }
+
+  /**
+   * issue #4178 setKnowledgeExtractionSetting —— 仅组织 admin。判据与 `tool-permission-
+   * grant.controller.ts` 的 `requireOrgAdmin` 同一实现思路（查 `org_memberships`，
+   * `orgRole !== 'admin'` ⇒ 403 `KG_NOT_ORG_ADMIN`）——组织从调用者当前会话取，
+   * 不接受调用方在请求体里指定别的组织。
+   */
+  @Put("/knowledge-graph/extraction-setting")
+  async setExtractionSetting(@CurrentPrincipal() principal: Principal, @Body() body: unknown) {
+    assertPrincipal(principal);
+    const parsed = KG.knowledgeGraph.setKnowledgeExtractionSetting.in.safeParse(body);
+    if (!parsed.success) throw new BadRequestException({ reasonCode: "KG_INVALID_REQUEST" });
+    const orgId = toOrgId(principal.orgId);
+    const membership = await this.repo.findOrgMembership(principal.userId, orgId);
+    if (membership === null || membership.orgRole !== "admin") {
+      throw new ForbiddenException({ reasonCode: "KG_NOT_ORG_ADMIN" });
+    }
+    const orgEnabled = await this.extractionSettings.setEnabled(orgId, parsed.data.enabled, principal.userId);
+    return KG.knowledgeGraph.setKnowledgeExtractionSetting.out.parse({
+      deploymentCapable: this.extractionModelConfig.enabled, orgEnabled,
+    });
   }
 }
