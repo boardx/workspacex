@@ -94,5 +94,8 @@
   },
   "phase-18-org-brain-knowledge-graph": {
     "chat-knowledge-graph": "ui-preview/chat-knowledge-graph"
+  },
+  "phase-19-board-visual-workspace": {
+    "board-fabric-surface": "ui-preview/board-fabric-surface"
   }
 }

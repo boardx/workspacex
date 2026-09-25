@@ -1,5 +1,7 @@
 # 多人协作、历史与恢复
 
+> 元数据：估点 **21**（与 `../feature_list.json` 中 spec_ref 指向本文件的 feature 点数之和对账，由 validate-fl 核对）。
+
 ## R1 用例
 多人、会议室和 AI Agent 同时编辑 Board，并在离线、重连、撤权、崩溃后保持一致且可恢复。
 

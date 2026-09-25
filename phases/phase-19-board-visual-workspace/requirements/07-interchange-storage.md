@@ -1,5 +1,7 @@
 # 导入导出、开放 API 与内容存储
 
+> 元数据：估点 **16**（与 `../feature_list.json` 中 spec_ref 指向本文件的 feature 点数之和对账，由 validate-fl 核对）。
+
 ## R1 用例
 组织把 Miro/Mural 现有 Board 迁入 WorkspaceX，通过开放 API 操作 Board，并将大内容保存在文件/对象存储。
 

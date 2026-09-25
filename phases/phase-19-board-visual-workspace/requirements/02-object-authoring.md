@@ -1,5 +1,7 @@
 # 对象创作与直接编辑
 
+> 元数据：估点 **35**（与 `../feature_list.json` 中 spec_ref 指向本文件的 feature 点数之和对账，由 validate-fl 核对）。
+
 ## R1 用例
 编辑者以最低操作成本创建 Sticky、Text、Tile、Shape、Image、Drawing，并立即输入或调整。
 
@@ -13,6 +15,8 @@
 4. Tile 以图标、标题、描述、状态和可选预览呈现 WorkspaceX 结构化对象。
 5. 图片通过上传、拖放、剪贴板和 URL 创建；Drawing 记录可编辑 stroke 数据并投影为 Fabric path。
 6. 粘贴多行文本可预览并批量生成 Sticky；Alt/Option 拖动或快捷命令快速复制。
+7. 用户可删除对象并立即 Undo/Redo；删除产生 tombstone 与 `ObjectDeleted`，撤销恢复相同 object id，不复制或复活为新对象。
+8. Reaction、Link Preview、Web Tile、Table、独立 Icon 和 Template 都使用同一对象 registry、selection、operation 和持久化边界，不以 DOM 卡片绕过 Fabric 主渲染。
 
 ## R4 备选与异常
 - A1：附近没有排列趋势时连续 Sticky 默认横向；纵向趋势明确时继续纵向。
@@ -43,8 +47,9 @@ Editor/Owner 可创建编辑；Commenter/Viewer 只能选择阅读；上传还�
 对象 schema/operation、Fabric object registry、资产上传服务、剪贴板 adapter。
 
 ## R11 切分
-第 2 轮依次交付 Sticky 连续创作、文本/形状、Tile、图片、Drawing、paste intelligence。
+第 2 轮优先交付 Sticky 连续创作、文本/形状、复制/删除和基础 Undo/Redo；Tile、图片、Drawing、paste intelligence，以及 Reaction、Link Preview、Web Tile、Table、Icon、Template 随后按十轮 feature 依赖交付。
 
 ## R12 验收线索
-- 真实浏览器完成 PRD Brainstorm：60 秒内创建 10 张 Sticky，Tab 连续、可改颜色和移动。
+- 真实浏览器完成 PRD Brainstorm：进入空白 Board 到第一张 Sticky `< 5 秒`，第一张后连续创建 10 张 Sticky `< 30 秒`；Tab 连续、可改颜色、移动和删除，Undo 恢复相同 object id。
 - Ctrl/Cmd+Enter、Tab、IME、500 张批量一次 transaction、复制粘贴和四种图片入口都有可执行断言。
+- 截图进入 Board 必须是 `1 次 Paste`；所有 P1 对象具有真实 Fabric 对象、键盘语义和 round-trip 断言。

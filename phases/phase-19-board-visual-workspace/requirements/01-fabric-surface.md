@@ -1,5 +1,7 @@
 # Fabric 主画布与导航
 
+> 元数据：估点 **15**（与 `../feature_list.json` 中 spec_ref 指向本文件的 feature 点数之和对账，由 validate-fl 核对）。
+
 ## R1 用例
 编辑者在全屏无限画布中创建、定位和查看内容；查看者可安全导航。主视觉对象必须由 Fabric.js 渲染。
 

@@ -1,5 +1,7 @@
 # AI 协作与 Chat 图形交接
 
+> 元数据：估点 **15**（与 `../feature_list.json` 中 spec_ref 指向本文件的 feature 点数之和对账，由 validate-fl 核对）。
+
 ## R1 用例
 用户把 Chat 中看到的 Mermaid/Fabric 图形原样插入 Board，并让 AI 在可审核范围内生成、聚类、排版和修改对象。
 

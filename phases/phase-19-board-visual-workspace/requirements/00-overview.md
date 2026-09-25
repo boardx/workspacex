@@ -1,5 +1,7 @@
 # Board Visual Workspace V0.1 — 十轮交付总纲
 
+> 元数据：估点 **8**（与 `../feature_list.json` 中 spec_ref 指向本文件的 feature 点数之和对账，由 validate-fl 核对）。
+
 > 原始输入完整保存在 [00-source-prd.md](./00-source-prd.md)。本文件把它收敛为十轮可验收边界；各领域文件给出稳定的 R 条目，供后续 `feature_list.json` 的 `spec_ref` 引用。
 
 ## R1 目标与九分门槛
@@ -21,10 +23,10 @@
 | 轮次 | 优先级 | 可独立验收的交付边界 | 主要规格 |
 |---|---|---|---|
 | 1 | P0 | Fabric 主画布、无限平移缩放、viewport、选择框；删除 DOM/SVG 主渲染路径 | `01-fabric-surface.md` |
-| 2 | P0 | Sticky/Text/Shape/Tile/Image/Draw 创建编辑；连续便利贴与剪贴板 | `02-object-authoring.md` |
+| 2 | P0 | Sticky/Text/Shape 创建、编辑、复制、删除和基础 Undo/Redo；连续便利贴与剪贴板 | `02-object-authoring.md`、`05-collaboration-history.md` |
 | 3 | P0 | Panel、Frame、Group、层级、Connector 与连接点 | `03-structure-connectors.md` |
 | 4 | P0 | 多选、对齐、分布、网格/行列、智能吸附、锁定与层级 | `04-selection-layout.md` |
-| 5 | P0 | Yjs 多人协作、presence、评论、Undo/Redo、离线重连与恢复 | `05-collaboration-history.md` |
+| 5 | P0 | Yjs 多人协作、presence、评论、多人 Undo/Redo、tombstone、离线重连与恢复 | `05-collaboration-history.md` |
 | 6 | P0 | Chat 中 Mermaid/Fabric 的点击时布局原样插入；AI 生成/聚类/排版走同一 operation | `06-ai-chat-handoff.md` |
 | 7 | P0 | 开放 API、Miro/Mural 导入、标准导出、内容文件存储和 PG 元数据 | `07-interchange-storage.md` |
 | 8 | P1 | 1k/5k/10k 性能、视口裁剪、触控、键盘和屏幕阅读器对象大纲 | `08-performance-accessibility.md` |
@@ -63,7 +65,8 @@
 
 - 每个可见对象都能追溯到稳定 Board object id、Yjs 状态和持久化内容哈希。
 - 每轮必须保存命令输出、真实浏览器证据、性能报告或恢复报告，并由独立 reviewer 按 exact SHA 复核。
-- V0.1 不包含无限插件市场、任意脚本执行、三维画布和完整专业矢量设计器。
+- V0.1 必须包含原 PRD 的 P1 对象和入口：Reaction、Link Preview、Web Tile、Table、独立 Icon、Template；Mini Map、Bulk Sticky、Comment、Tag、AI Organize 和 AI Generate 同样纳入十轮功能清单。
+- V0.1 不包含原 PRD P2 的 Diagram、Mind Map、Kanban、Timeline、Presentation Mode，也不包含无限插件市场、任意脚本执行、三维画布和完整专业矢量设计器。
 
 ## R8 用户界面线索
 
@@ -90,4 +93,6 @@
 ## R12 完成证明
 
 - 可由规格推导并必须留证：Fabric 主表面、对象创作、结构连接、布局、Yjs 协作、历史恢复、AI/Chat、导入导出、文件存储、10k 性能、无障碍、会议室与 50 客户端 soak。
+- 六条体验阈值不可放宽：TTFI `< 5 秒`；第一张后连续创建 10 张 Sticky `< 30 秒`；20 张散乱 Sticky 整理为 Grid `≤ 2 次操作`；两个对象建立 Arrow `≤ 2 次操作`；截图进入 Board `1 次 Paste`；30 张 Sticky 完成 AI 主题聚类 `≤ 2 次操作`。真实浏览器脚本必须同时记录时间和用户动作数。
+- 所有 mutation 必须映射到稳定 Board Event Model：`ObjectCreated`、`ObjectMoved`、`ObjectResized`、`ObjectUpdated`、`ObjectDeleted`、`ObjectsGrouped`、`ObjectsArranged`、`ConnectorCreated`、`PanelCreated`、`AIOrganized`，并能用于协作、Undo、Version、Audit、Agent 与 Replay。
 - 第十轮评分使用同一份固定 rubric；只有全部 P0 和九分硬门通过，才可报告 9/10。

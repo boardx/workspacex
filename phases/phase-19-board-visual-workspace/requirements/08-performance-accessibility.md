@@ -1,5 +1,7 @@
 # 性能、可访问性与九分验收
 
+> 元数据：估点 **24**（与 `../feature_list.json` 中 spec_ref 指向本文件的 feature 点数之和对账，由 validate-fl 核对）。
+
 ## R1 用例
 用户在大 Board、移动/触控设备和辅助技术下仍能高效操作；团队以固定证据判断是否达到九分。
 
@@ -37,7 +39,8 @@
 对象大纲/搜索、跳到对象、键盘帮助、zoom/focus、性能模式提示均可发现；工具栏在 320px–大屏及 400% zoom 不遮挡核心操作。
 
 ## R9 非功能约束
-- 基准阈值在契约签核时冻结；至少覆盖 desktop 主流浏览器和一个触摸 viewport。
+- 产品体验硬阈值沿用原 PRD，不得在契约签核时放宽；性能工程阈值须在 S01 签核时冻结。至少覆盖 desktop 主流浏览器和一个触摸 viewport。
+- S01 建立真实 Fabric/Yjs 1k patch/no-clear 基线；对象与结构轮在 1k/5k 数据集持续回归；S10 才以完整 10k 混合业务对象作为最终放行门。
 - 50-client ≥30 分钟、meeting room ≥30 分钟；报告签名/hash/sequence 可校验。
 - WCAG 2.2 AA 对核心流程；无严重 axe 违规，并有真实键盘/屏幕阅读器人工或自动化证据。
 
@@ -48,4 +51,4 @@ Fabric performance adapter、Playwright、多浏览器 runner、axe、signed soa
 第 8 轮性能和无障碍；第 9 轮长时/恢复；第 10 轮完整 rubric 与缺陷清零。
 
 ## R12 验收线索
-1k/5k/10k 报告、三浏览器核心 E2E、键盘/屏幕阅读器/触摸证据、50-client 与会议室签名 ledger、灾备 restore hash、六条 PRD journey 视频/截图和逐项 rubric 全部可定位到 exact SHA。
+1k/5k/10k 报告、三浏览器核心 E2E、键盘/屏幕阅读器/触摸证据、50-client 与会议室签名 ledger、灾备 restore hash，以及六条固定体验阈值（`<5s`、`<30s`、`≤2`、`≤2`、`1 Paste`、`≤2`）的视频/trace/动作计数和逐项 rubric 全部可定位到 exact SHA。

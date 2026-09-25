@@ -1,5 +1,7 @@
 # Panel、层级与 Connector
 
+> 元数据：估点 **15**（与 `../feature_list.json` 中 spec_ref 指向本文件的 feature 点数之和对账，由 validate-fl 核对）。
+
 ## R1 用例
 编辑者把散落对象组织为 Panel/Frame/Group，并用独立 Connector 表达关系。
 
