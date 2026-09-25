@@ -30,6 +30,7 @@ interface CreateSurveyWorkflowMockOptions {
 const cloneQuestions = (questions: survey.SurveyWorkflowQuestion[]) => questions.map((question) => ({
   ...question,
   options: [...question.options],
+  provenance: question.provenance ?? { source: "question-library" as const, sourceId: question.id },
 }));
 
 export function createSurveyWorkflowMock(options: CreateSurveyWorkflowMockOptions = {}): survey.SurveyWorkflowModel {

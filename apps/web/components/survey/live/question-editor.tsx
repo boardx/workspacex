@@ -73,6 +73,7 @@ export function SurveyQuestionEditor({
         ? false
         : question.required,
       config: { ...next.config, description: question.config?.description },
+      provenance: question.provenance,
     });
     setPendingType(undefined);
   }
@@ -451,6 +452,9 @@ export function SurveyQuestionEditor({
                       ...structuredClone(question),
                       id: crypto.randomUUID(),
                       title: `${question.title}（副本）`,
+                      provenance: question.provenance
+                        ? { ...question.provenance, certifiedAt: undefined }
+                        : undefined,
                     };
                     const next = [...questions];
                     next.splice(index + 1, 0, copy);

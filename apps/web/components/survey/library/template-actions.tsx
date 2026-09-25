@@ -141,7 +141,10 @@ export function SurveyTemplateActions({
         kind === "question"
           ? {
               ...draft,
-              questions: structuredClone(source.questions),
+              questions: structuredClone(source.questions).map((question) => ({
+                ...question,
+                provenance: { source: "template" as const, sourceId: source.id },
+              })),
               template: structuredClone(source.template),
             }
           : {

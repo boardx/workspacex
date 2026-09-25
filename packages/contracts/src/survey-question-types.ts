@@ -236,6 +236,7 @@ export function createSurveyQuestion(
     title: SURVEY_QUESTION_TYPES.find((item) => item.type === type)!.label,
     required: !["description", "page_break"].includes(type),
     options: [],
+    provenance: { source: "manual" },
   };
   const c: NonNullable<SurveyWorkflowQuestion["config"]> = {};
   if (choiceTypes.has(type)) {

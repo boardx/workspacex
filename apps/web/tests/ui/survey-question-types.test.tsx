@@ -68,6 +68,22 @@ describe("question registry renders and configures every supported form", () => 
     fireEvent.change(screen.getByRole("textbox", { name: "问题内容" }), { target: { value: "更新后的问题" } });
     expect(JSON.parse(screen.getByTestId("questions").textContent!)[0].provenance.certifiedAt).toBeUndefined();
   });
+  it("marks newly created questions as manual and clears certification on copies or type changes", () => {
+    const question = SurveyWorkflowQuestionSchema.parse({
+      ...createSurveyQuestion("single", "q-source", 1),
+      provenance: { source: "question-library", sourceId: "library-q1", certifiedAt: "2026-09-25T00:00:00.000Z" },
+    });
+    render(<Editor initial={[question]} />);
+    fireEvent.click(screen.getByRole("button", { name: "复制题目" }));
+    expect(JSON.parse(screen.getByTestId("questions").textContent!)[1].provenance.certifiedAt).toBeUndefined();
+    fireEvent.change(screen.getByRole("combobox", { name: "题型" }), { target: { value: "open" } });
+    fireEvent.click(screen.getByRole("button", { name: /确认切换/ }));
+    const changed = JSON.parse(screen.getByTestId("questions").textContent!)[1];
+    expect(changed.provenance).toMatchObject({ source: "question-library", sourceId: "library-q1" });
+    fireEvent.click(screen.getByRole("button", { name: /^新增题目$/ }));
+    fireEvent.click(screen.getByTestId("add-question-short"));
+    expect(JSON.parse(screen.getByTestId("questions").textContent!).at(-1).provenance).toEqual({ source: "manual" });
+  });
   it("shows provenance and whether the selected question remains certified", () => {
     const question = SurveyWorkflowQuestionSchema.parse({
       ...createSurveyQuestion("single", "q-visible-provenance", 1),
