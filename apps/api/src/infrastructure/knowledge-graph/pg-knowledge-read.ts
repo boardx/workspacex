@@ -291,8 +291,10 @@ export class PgKnowledgeRead implements KnowledgeReadPort {
    */
   async messageExtraction(orgId: OrgId, userId: string, thread: KnowledgeThreadRef, messageId: string): Promise<Guarded<MessageExtractionData>> {
     const data = await this.inTenant(orgId, userId, async (s): Promise<MessageExtractionData> => {
+      // 不用 DISTINCT：join 键 (claim_id, message_id, stance) 恰是 claim_message_evidence 的主键，
+      // 一条 claim 对同一条消息、同一个 stance 至多一行证据，天然不会重复。
       const r = await s.query<{ id: string; statement: string }>(
-        `SELECT DISTINCT c.id, c.statement FROM claims c
+        `SELECT c.id, c.statement FROM claims c
            JOIN claim_message_evidence m ON m.claim_id = c.id AND m.org_id = c.org_id
           WHERE c.org_id = $1 AND c.scope_kind = 'chat_session' AND c.scope_id = $2 AND ${LIVE_CLAIM}
             AND m.stance = 'supporting' AND m.message_id = $3

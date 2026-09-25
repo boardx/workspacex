@@ -6,7 +6,7 @@
  *   - 一条消息产生了活结论 ⇒ 出现；
  *   - 那条结论后来被撤销（F10 revokeClaim）⇒ 不再出现；
  *   - 一条没有被抽出任何东西的消息 ⇒ 空数组，不是错误；
- *   - 伪造 / 跨会话 / 跨组织的 messageId 不泄露任何结论；
+ *   - 伪造 / 跨会话 / 跨组织（真实存在、但不属于这个 (orgId, threadId) 的）messageId 不泄露任何结论；
  *   - 看不见这个会话的人读它 ⇒ KG_THREAD_NOT_FOUND（同其余读接口「不存在与看不见同一出口」的纪律）。
  */
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
@@ -61,8 +61,11 @@ beforeAll(async () => {
   await addChatMessage({ orgId: ORG, id: `m-${MINE}`, threadId: MINE, body: `${STATEMENT}。`, authorId: "u-owner" });
   // 这条消息没有触发任何抽取产物（回环模型对「无关」不命中任何关键词，回空结果）。
   await addChatMessage({ orgId: ORG, id: `m-${SILENT}`, threadId: SILENT, body: "今天天气不错。", authorId: "u-owner" });
-  // 另一个组织里，恰好取了同一个字面量 id，用来证明「message_id 字面相等」不足以跨组织/跨会话拿到结论。
-  await addChatMessage({ orgId: OTHER_ORG, id: `m-${MINE}`, threadId: OTHER_THREAD, body: `${STATEMENT}。`, authorId: "u-owner" });
+  // 另一个组织里，产出同一句话（同名结论），用来证明本组织读不到别的组织的结论——
+  // 不是「凑巧两边都是空」这种弱结论。`chat_messages.id` 是全局主键（无 org_id 分量），
+  // 两个组织不能取同一个字面量 id，所以这里用一个不同的 id，跨组织隔离要证明的是
+  // 「读取时按 (orgId, threadId) 存在性判断」，不依赖 id 字符串本身是否相同。
+  await addChatMessage({ orgId: OTHER_ORG, id: `m-${OTHER_THREAD}`, threadId: OTHER_THREAD, body: `${STATEMENT}。`, authorId: "u-owner" });
 
   db = new PgDatabase(appConfig());
   const { model } = loopbackModel([["客户 A", REPLY]]);
@@ -99,16 +102,16 @@ describe("issue #4180: getMessageExtraction", () => {
     expect(out.claims).toEqual([]);
   });
 
-  it("跨组织：同一个字面量 message_id 在另一个组织里真实存在、也真的抽出了同名结论，读这个组织时不会读到那一条", async () => {
+  it("跨组织：另一个组织真实存在、也真的抽出了同名结论的 messageId，本组织读不到那一条", async () => {
     // 先证明另一个组织确实真的抽出了同名结论——不是「凑巧两边都是空」这种弱结论。
-    const otherOut = await getMessageExtraction(readDeps, { userId: "u-owner", orgId: OTHER_ORG_ID, threadId: OTHER_THREAD, messageId: `m-${MINE}` });
+    const otherOut = await getMessageExtraction(readDeps, { userId: "u-owner", orgId: OTHER_ORG_ID, threadId: OTHER_THREAD, messageId: `m-${OTHER_THREAD}` });
     expect(otherOut.claims).toHaveLength(1);
     expect(otherOut.claims[0]).toMatchObject({ statement: STATEMENT });
-    // 本组织用同一个字面量 messageId 读，看到的是自己会话里真的产生的那一条，不会因为跨组织撞了同一个
-    // message_id 字符串就多读出别的组织的结论（本条 claimId 与另一个组织那条不是同一个 id）。
-    const mineOut = await getMessageExtraction(readDeps, { userId: "u-owner", orgId: ORG_ID, threadId: MINE, messageId: `m-${MINE}` });
-    expect(mineOut.claims).toHaveLength(1);
-    expect(mineOut.claims[0]!.claimId).not.toBe(otherOut.claims[0]!.claimId);
+    // 本组织拿这个真实存在、但属于别的组织的 messageId 来读自己的会话：existence 判断按
+    // (orgId, threadId) 走，这条消息不属于 (ORG_ID, MINE)，所以读不到任何结论——不会因为
+    // 内容/结论同名就泄露。
+    const crossOut = await getMessageExtraction(readDeps, { userId: "u-owner", orgId: ORG_ID, threadId: MINE, messageId: `m-${OTHER_THREAD}` });
+    expect(crossOut.claims).toEqual([]);
   });
 
   it("那条结论后来被撤销（F10 revokeClaim）⇒ 不再出现", async () => {
