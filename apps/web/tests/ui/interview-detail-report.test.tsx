@@ -20,6 +20,7 @@ const completed: DigitalInterviewWorkflowView = {
   scope: { kind: "none", projectId: null, researchProjectId: null }, currentStep: "runs", revisionId: "revision-f06",
   topicVersionId: "topic-f06", expertSnapshotVersionId: "experts-f06", questionVersionId: "questions-f06",
   expertCandidates: [], questions: [], questionCandidates: [], skillThreadId: "thread-f06", skillMessages: [], skillProposals: [],
+  studyEvidenceMode: "simulated", reportReview: { eligibility: "blocked_missing_participant_evidence", message: "需要真实受访者证据后才能批准。", action: "添加并复核真实受访者回答" },
   expertRuns: [{
     expertId: "expert-f06", displayName: "陈指导", status: "completed", completedQuestions: 1, totalQuestions: 1,
     answers: [{ questionId: "question-f06", question: "如何建设基层体系？", answer: "先培养教练，再连接赛事。" }],
@@ -30,6 +31,17 @@ const completed: DigitalInterviewWorkflowView = {
 afterEach(() => vi.unstubAllGlobals());
 
 describe("F06 interview answers to report", () => {
+  it("puts the evidence boundary and next validation action before report analysis", () => {
+    const report = {
+      ...completed, currentStep: "report" as const, status: "completed" as const,
+      report: { reportId: "report-decision", title: "报告", executiveSummary: "摘要", markdown: "## 发现", findings: [], generatedAt: "2026-09-01T02:01:00.000Z" },
+    };
+    render(<PersistentDigitalInterviewWorkflow initialView={report} />);
+    expect(screen.getByTestId("itv-study-evidence-label")).toHaveTextContent("模拟探索");
+    expect(screen.getByTestId("itv-report-decision-brief")).toHaveTextContent("需要真实受访者证据后才能批准。");
+    expect(screen.getByTestId("itv-report-decision-brief")).toHaveTextContent("添加并复核真实受访者回答");
+  });
+
   it("reconstructs the report from append-only chunks and then loads the final state once", async () => {
     const streaming = { ...completed, status: "report_pending" as const, currentStep: "report" as const, version: 13,
       reportGeneration: { reportId: "report-f06", requestId: "request-f06", status: "running" as const,
