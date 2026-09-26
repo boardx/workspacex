@@ -51,6 +51,9 @@ TS="$(date -u +%Y%m%dT%H%M%SZ)"
 STATE_DIR="$ROOT/.selfhost/upgrades/$TS"
 BACKUP_DIR="${BACKUP_DIR:-$ROOT/.selfhost/backups/$TS}"
 PG_CONTAINER="${PROJECT}-postgres-1"
+# #4263：deploy compose 的 seccomp 相对路径经 include 会按仓库根解析（compose 不重定基
+# security_opt），这里给绝对路径。仅当 env 文件/环境未显式指定时。
+export WSX_SANDBOX_SECCOMP_PROFILE="${WSX_SANDBOX_SECCOMP_PROFILE:-$ROOT/apps/skill-sandbox/security/docker-seccomp.json}"
 COMPOSE=(docker compose -p "$PROJECT" -f "$ROOT/compose.yaml" --env-file "$ENV_FILE")
 
 step "① 记录当前版本"

@@ -122,6 +122,11 @@ if [ -f "$WT/selfhost.env.example" ]; then
   done
 fi
 set -a; . "$ENV_FILE"; set +a
+# #4263：seccomp 路径。新版本 deploy compose 读 WSX_SANDBOX_SECCOMP_PROFILE（upgrade.sh 会导出）；
+# 早于该修复的旧版本写死 ../skill-sandbox/...，经 include 按仓库根解析 → 指向 $WORK/skill-sandbox。
+# 旧版本起栈只能靠这条符号链接兜住（仅演练用的垫片，不改变被演练的 compose）。
+export WSX_SANDBOX_SECCOMP_PROFILE="$WT/apps/skill-sandbox/security/docker-seccomp.json"
+ln -sfn "$WT/apps/skill-sandbox" "$WORK/skill-sandbox"
 
 step "c. 旧版本起栈并等健康（超时 ${UP_TIMEOUT}s）"
 load_apparmor
