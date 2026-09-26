@@ -13,18 +13,12 @@ const encoded = (b: Uint8Array) => Buffer.from(b).toString('base64');
 const decoded = (s: string) => new Uint8Array(Buffer.from(s, 'base64'));
 /** Bounded WS transport. Database serializes writers; only committed updates are broadcast. */
 export function attachWhiteboardGateway(server: Server, deps: WhiteboardGatewayDeps): WebSocketServer {
-  const wss = new WebSocketServer({ noServer: true, maxPayload: WHITEBOARD_SYNC.maxPayloadBytes, perMessageDeflate: false,
+  const wss = new WebSocketServer({ noServer: true, maxPayload: WHITEBOARD_SYNC.inboundFrameBytes, perMessageDeflate: false,
     handleProtocols: protocols => protocols.has(WHITEBOARD_SYNC.protocol) ? WHITEBOARD_SYNC.protocol : false });
   const peers = new Set<Peer>();
   function send(ws: WebSocket, message: WhiteboardServerMessage) {
     if (ws.readyState !== ws.OPEN) return;
-    if (ws.bufferedAmount > 2 * 1024 * 1024) {
-      // A bounded full-document sync can itself exceed the steady-state queue
-      // watermark. Do not stack presence behind it; ACK/error are tiny ordering
-      // controls and may safely follow the already-admitted data frame.
-      if (message.type === 'presence') return;
-      if (message.type !== 'ack' && message.type !== 'error') { ws.close(1013, 'slow client'); return; }
-    }
+    if (ws.bufferedAmount > 2 * 1024 * 1024) { ws.close(1013, 'slow client'); return; }
     ws.send(JSON.stringify(message));
   }
   function fail(ws: WebSocket, code: string) { send(ws,{type:'error',code}); ws.close(4403,code.slice(0,100)); }
@@ -70,6 +64,9 @@ export function attachWhiteboardGateway(server: Server, deps: WhiteboardGatewayD
               peer.presence={actorId:principal.userId,cursor:message.cursor,selected:message.selected}; presence(peer); return;
             }
             const ack=await deps.store.append(principal,boardId,{...message,update:decoded(message.update)});
+            // ACK is durability only and never advances client document state. Queue
+            // it before a potentially large catch-up diff so backpressure stays fail-closed.
+            send(ws,{type:'ack',updateId:ack.updateId,seq:ack.seq});
             if(!ack.replayed) {
               for(const target of group(peer)) {
                 if(target.epoch!==ack.epoch) { fail(target.ws,'STALE_EPOCH'); continue; }
@@ -87,7 +84,6 @@ export function attachWhiteboardGateway(server: Server, deps: WhiteboardGatewayD
                 send(target.ws,{type:'update',epoch:diff.epoch,seq:diff.seq,update:encoded(diff.update)});
               }
             }
-            send(ws,{type:'ack',updateId:ack.updateId,seq:ack.seq});
           }).catch(error=>fail(ws,error instanceof WhiteboardCollaborationError?error.code:'DEPENDENCY_UNAVAILABLE')).finally(()=>{waiting--;});
         });
         ws.on('error',()=>ws.close());

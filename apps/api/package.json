@@ -10,6 +10,7 @@
     "typecheck": "tsc --noEmit",
     "lint": "node scripts/lint-error-leak.mjs && node scripts/lint-permission-paths.mjs && node scripts/lint-no-builtin-capabilities.mjs && node scripts/lint-global-scope-test-fixtures.mjs && node scripts/lint-design-facet-single-source.mjs && tsx scripts/gen-design-facet-catalog.ts --check && tsx scripts/gen-agenda-tier-catalog.ts --check &&node scripts/lint-skill-context-api-only.mjs && node scripts/lint-naming-single-source.mjs && node ../../.harness/scripts/lint-arch-deps.mjs apps/api/src",
     "test": "vitest run && vitest run --config vitest.exclusive.config.ts",
+    "test:whiteboard-unit": "vitest run --config vitest.whiteboard-unit.config.ts",
     "test:native-chain": "vitest run --config vitest.native-chain.config.ts",
     "test:browser-adapter": "vitest run --config vitest.browser-adapter.config.ts",
     "test:browser-real": "WORKSPACEX_REAL_BROWSER=1 vitest run --config vitest.browser-adapter.config.ts tests/agent-runtime/playwright-mcp-browser-real.test.ts",

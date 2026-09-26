@@ -11,13 +11,15 @@ const documentBytes = 32 * 1024 * 1024;
 const inboundUpdateBase64Characters = 4 * Math.ceil(inboundUpdateBytes / 3);
 const stateVectorBase64Characters = 4 * Math.ceil(stateVectorBytes / 3);
 const documentBase64Characters = 4 * Math.ceil(documentBytes / 3);
+const inboundFrameBytes = 96 * 1024;
+const outboundDocumentFrameBytes = 48 * 1024 * 1024;
 export const WHITEBOARD_SYNC = {
   path: '/whiteboards/:boardId/sync', protocol: 'whiteboard.v1',
   bearerSubprotocolPrefix: streamingOperations.subscribeRunEvents.bearerSubprotocolPrefix,
   pendingUpdates: 200, pendingBytes: 8 * 1024 * 1024,
   inboundUpdateBytes, inboundUpdateBase64Characters, persistedUpdateBytes,
   stateVectorBytes, stateVectorBase64Characters,
-  documentBytes, documentBase64Characters, maxPayloadBytes: 48 * 1024 * 1024,
+  documentBytes, documentBase64Characters, inboundFrameBytes, outboundDocumentFrameBytes,
 } as const;
 const boundedBase64 = (maximum: number) => z.string().superRefine((value, ctx) => {
   if (value.length > maximum) { ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'Base64 payload exceeds budget' }); return; }

@@ -9,3 +9,10 @@ it('keeps runtime document and update budgets within persisted bytea checks', ()
   expect(Number(snapshot?.[1])).toBeGreaterThanOrEqual(WHITEBOARD_SYNC.documentBytes);
   expect(Number(update?.[1])).toBeGreaterThanOrEqual(WHITEBOARD_SYNC.persistedUpdateBytes);
 });
+
+it('wires the small inbound frame to transport and keeps slow-client backpressure fail-closed', () => {
+  const source = readFileSync(new URL('../../src/interface/ws/whiteboard.gateway.ts', import.meta.url), 'utf8');
+  expect(source).toContain('maxPayload: WHITEBOARD_SYNC.inboundFrameBytes');
+  expect(source).toContain("if (ws.bufferedAmount > 2 * 1024 * 1024) { ws.close(1013, 'slow client'); return; }");
+  expect(source).not.toMatch(/bufferedAmount[^\n]+message\.type/);
+});
