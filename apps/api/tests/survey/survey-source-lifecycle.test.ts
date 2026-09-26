@@ -72,7 +72,7 @@ describe("survey Markdown source lifecycle", () => {
       design: "# 无效问卷\n\n## Q1 [single]\n没有选项\n",
       publication: "# 发布设置\n",
       reportTemplate: "# 报告模板\n",
-    })).rejects.toMatchObject({ code: "invalid_survey" });
+    })).rejects.toMatchObject({ code: "invalid_source" });
 
     const unchanged = await service.get(org, owner, created.id);
     expect(unchanged.version).toBe(original.version);

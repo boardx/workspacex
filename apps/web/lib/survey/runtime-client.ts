@@ -1,5 +1,6 @@
 import { apiRequest, apiUrl, getStoredSessionToken, ApiError, type ApiRequestOptions } from "@/lib/api-client";
 import { SurveyPublishBlockerSchema, type SurveyPublishBlocker } from "@repo/contracts/survey";
+import { SurveySourceStateSchema, type SurveySourceState } from "@repo/contracts/survey-runtime";
 import type { z } from "zod";
 
 export class SurveyPublishBlockedError extends Error {
@@ -59,6 +60,14 @@ export async function surveyRequest<T>(
     }
     throw new SurveySystemError("请求未完成，请检查网络后重试。");
   }
+}
+
+/** Read Markdown source exactly as validated by the API; this helper never generates local source. */
+export function surveySourceRequest(
+  path: string,
+  options: ApiRequestOptions = {},
+): Promise<SurveySourceState> {
+  return surveyRequest(path, options, SurveySourceStateSchema);
 }
 
 /** Fetch protected bytes before creating a local download; never expose a public object URL. */
