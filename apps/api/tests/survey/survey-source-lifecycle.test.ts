@@ -1,0 +1,137 @@
+import { describe, expect, it } from "vitest";
+import { SurveyService, type SurveyRecord, type SurveyRepository } from "../../src/application/survey/survey-service";
+import { toOrgId } from "../../src/domain/org-id";
+import { SurveyRuntimeSchema, type SurveyDraftInput, type SurveySubmissionInput } from "@repo/contracts/survey-runtime";
+import { serializeSurveyReportTemplateMarkdown } from "@repo/contracts/survey-source";
+
+const org = toOrgId("survey-source-org");
+const owner = "survey-source-owner";
+const draft: SurveyDraftInput = {
+  title: "真实问卷",
+  questions: [{ id: "Q1", order: 1, chapterId: "general", title: "您会推荐我们吗？", type: "single", required: true, options: ["会", "不会"], provenance: { source: "template", sourceId: "template-q1" } }],
+  template: { id: "report-1", title: "报告", sections: [{ id: "section-1", title: "结果", blocks: [{ id: "block-1", title: "分布", type: "bar", questionIds: ["Q1"], statistic: "distribution", samplePolicy: "valid", minGroupSize: 5 }] }] },
+};
+const submission: SurveySubmissionInput = {
+  submissionId: "source-lifecycle-submission",
+  answers: [{ questionId: "Q1", value: "会" }],
+  durationSeconds: 1,
+  role: "未填写",
+  companySize: "未填写",
+};
+const reportTemplateMarkdown = serializeSurveyReportTemplateMarkdown(draft.template);
+
+function setup() {
+  const rows = new Map<string, SurveyRecord>();
+  const repo: SurveyRepository = {
+    async list(currentOrg, actor) { return [...rows.entries()].filter(([key, value]) => key.startsWith(`${currentOrg}:`) && value.ownerId === actor).map(([, value]) => structuredClone(value.model)); },
+    async create(currentOrg, value) { rows.set(`${currentOrg}:${value.model.id}`, structuredClone(value)); },
+    async transact(currentOrg, id, work) { const key = `${currentOrg}:${id}`; const current = rows.get(key); if (!current) throw new Error("missing"); const next = structuredClone(current); const result = await work(next); rows.set(key, next); return structuredClone(result); },
+    async delete() { throw new Error("not used"); },
+  };
+  return { service: new SurveyService(repo, () => new Date("2026-09-26T00:00:00.000Z")), rows };
+}
+
+describe("survey Markdown source lifecycle", () => {
+  it("bootstraps an equivalent design source for a legacy structured draft", async () => {
+    const { service } = setup();
+    const created = await service.create(org, owner, draft);
+    const loaded = await service.get(org, owner, created.id);
+
+    expect(loaded.source!.documents.design.markdown).toContain("# 真实问卷");
+    expect(loaded.questions).toEqual(draft.questions);
+  });
+
+  it("freezes source and compiled projection when collection starts", async () => {
+    const { service } = setup();
+    const created = await service.create(org, owner, draft);
+    const saved = await service.saveSource(org, owner, created.id, created.version, {
+      design: "# 真实问卷\n\n## Q1 [single, required]\n您会推荐我们吗？\n- 会\n- 不会\n",
+      publication: "# 发布设置\n",
+      reportTemplate: reportTemplateMarkdown,
+    });
+    const ready = await service.prepare(org, owner, saved.id, saved.version);
+    const collected = await service.startCollection(org, owner, ready.id, ready.version);
+
+    expect(collected.publication?.sourceSnapshot!.contentHash).toMatch(/^[a-f0-9]{64}$/);
+    expect(() => SurveyRuntimeSchema.parse(collected)).not.toThrow();
+    await expect(service.saveSource(org, owner, collected.id, collected.version, {
+      design: "# 变更\n",
+      publication: "# 发布设置\n",
+      reportTemplate: reportTemplateMarkdown,
+    })).rejects.toMatchObject({ code: "closed" });
+  });
+
+  it("keeps a frozen legacy-compatible compiled snapshot consumable by the runtime schema", async () => {
+    const { service } = setup();
+    const created = await service.create(org, owner, draft);
+    const ready = await service.prepare(org, owner, created.id, created.version);
+    const collected = await service.startCollection(org, owner, ready.id, ready.version);
+
+    expect(collected.publication?.sourceSnapshot?.compiled.questions[0]?.provenance).toMatchObject({ source: "template" });
+    expect(() => SurveyRuntimeSchema.parse(collected)).not.toThrow();
+  });
+
+  it("does not mutate the source projection when a save is stale or invalid", async () => {
+    const { service } = setup();
+    const created = await service.create(org, owner, draft);
+    const original = await service.get(org, owner, created.id);
+
+    await expect(service.saveSource(org, owner, created.id, created.version - 1, {
+      design: "# 过期更新\n",
+      publication: "# 发布设置\n",
+      reportTemplate: reportTemplateMarkdown,
+    })).rejects.toMatchObject({ code: "version_conflict" });
+    await expect(service.saveSource(org, owner, created.id, created.version, {
+      design: "# 无效问卷\n\n## Q1 [single]\n没有选项\n",
+      publication: "# 发布设置\n",
+      reportTemplate: "# 报告模板\n",
+    })).rejects.toMatchObject({ code: "invalid_source" });
+    await expect(service.saveSource(org, owner, created.id, created.version, {
+      design: original.source!.documents.design.markdown,
+      publication: "# 发布设置\n",
+      reportTemplate: "# 报告模板\n",
+    })).rejects.toMatchObject({ code: "invalid_source" });
+
+    const unchanged = await service.get(org, owner, created.id);
+    expect(unchanged.version).toBe(original.version);
+    expect(unchanged.questions).toEqual(original.questions);
+    expect(unchanged.source).toEqual(original.source);
+  });
+
+  it("keeps legacy publications fillable and source-enabled snapshots immutable", async () => {
+    const { service, rows } = setup();
+    const legacy = await service.create(org, owner, draft);
+    const ready = await service.prepare(org, owner, legacy.id, legacy.version);
+    const collected = await service.startCollection(org, owner, ready.id, ready.version);
+    const token = collected.publication!.token;
+
+    const stored = rows.get(`${org}:${collected.id}`)!;
+    delete stored.model.source;
+    delete stored.model.publication!.sourceSnapshot;
+
+    const receipt = await service.submit(token, submission);
+    expect(receipt.responseId).toBeTruthy();
+    expect((await service.publicGet(token)).questions).toEqual(draft.questions);
+    expect((await service.get(org, owner, collected.id)).publication?.sourceSnapshot).toBeUndefined();
+  });
+
+  it("compiles report-template Markdown before atomically replacing the runtime projection", async () => {
+    const { service } = setup();
+    const created = await service.create(org, owner, draft);
+    const nextTemplate = {
+      id: "report-next", title: "新的报告", sections: [{
+        id: "section-next", title: "新结果", blocks: [{
+          id: "block-next", title: "计数", type: "metric" as const, questionIds: ["Q1"], statistic: "count" as const, samplePolicy: "all" as const, minGroupSize: 5,
+        }],
+      }],
+    };
+    const saved = await service.saveSource(org, owner, created.id, created.version, {
+      design: created.source!.documents.design.markdown,
+      publication: "# 发布设置\n",
+      reportTemplate: serializeSurveyReportTemplateMarkdown(nextTemplate),
+    });
+
+    expect(saved.template).toEqual(nextTemplate);
+    expect(saved.source!.documents.reportTemplate.markdown).toContain('"report-next"');
+  });
+});

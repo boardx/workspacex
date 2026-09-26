@@ -28,7 +28,7 @@ description: 问卷创建、模板、题目编辑、发布、填写和结果分�
 
 ## 踩坑与经验（append-only）
 
-暂无；首次交付后按可验证事实追加。
+- 2026-09-26：遗留结构化问卷在读取时只引导一次 Markdown source；已经发布的快照不回填 sourceSnapshot。证据：`apps/api/tests/survey/survey-source-lifecycle.test.ts` 的 legacy-publication 回归。
 
 ## 知识回流规则
 
