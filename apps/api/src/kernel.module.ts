@@ -623,7 +623,7 @@ import {
 } from "./application/first-value/first-value-recorder";
 import { PgFirstValueFacts } from "./infrastructure/first-value/pg-first-value-facts";
 import { FirstValueController } from "./interface/controllers/first-value.controller";
-import { GRAPH_PROJECTION_PORT, KG_CONFLICT_PORT, KG_DEPLOYMENT_EXTRACTION_SETTINGS_PORT, KG_EXTRACTION_QUEUE_PORT, KG_EXTRACTION_SOURCE_PORT, KG_ORG_EXTRACTION_SETTINGS_PORT, HUMAN_ACTION_PORT, KNOWLEDGE_EXTRACTOR_PORT, KNOWLEDGE_READ_PORT, MEMORY_CARD_PORT, ONTOLOGY_STORE_PORT, PROMOTION_PORT } from "./application/knowledge-graph/ports";
+import { GRAPH_PROJECTION_PORT, KG_AUTO_COPY_PORT, KG_CONFLICT_PORT, KG_DEPLOYMENT_EXTRACTION_SETTINGS_PORT, KG_EXTRACTION_QUEUE_PORT, KG_EXTRACTION_SOURCE_PORT, KG_ORG_EXTRACTION_SETTINGS_PORT, HUMAN_ACTION_PORT, KNOWLEDGE_EXTRACTOR_PORT, KNOWLEDGE_READ_PORT, MEMORY_CARD_PORT, ONTOLOGY_STORE_PORT, PROMOTION_PORT } from "./application/knowledge-graph/ports";
 import { PgPromotion } from "./infrastructure/knowledge-graph/pg-promotion";
 import { PgHumanAction } from "./infrastructure/knowledge-graph/pg-human-action";
 import { KnowledgeGraphController } from "./interface/controllers/knowledge-graph.controller";
@@ -636,6 +636,7 @@ import { KG_EXTRACTION_MODEL_CONFIG, readKgExtractionModelConfig, type KgExtract
 import { ModelKnowledgeExtractor } from "./infrastructure/knowledge-graph/model-knowledge-extractor";
 import { PgKgExtraction } from "./infrastructure/knowledge-graph/pg-kg-extraction";
 import { PgKgConflict } from "./infrastructure/knowledge-graph/pg-kg-conflict";
+import { PgKgAutoCopy } from "./infrastructure/knowledge-graph/pg-kg-auto-copy";
 import { PgMemoryCard } from "./infrastructure/knowledge-graph/pg-memory-card";
 import { KgProjectionWorker } from "./infrastructure/knowledge-graph/kg-projection-worker";
 import { PgGraphProjection } from "./infrastructure/knowledge-graph/pg-graph-projection";
@@ -3048,6 +3049,8 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
     { provide: KG_EXTRACTION_QUEUE_PORT, useFactory: (db: DatabasePort) => new PgKgExtraction(db), inject: [DATABASE_PORT] },
     { provide: KG_EXTRACTION_SOURCE_PORT, useExisting: KG_EXTRACTION_QUEUE_PORT },
     { provide: KG_CONFLICT_PORT, useFactory: (db: DatabasePort) => new PgKgConflict(db), inject: [DATABASE_PORT] },
+    // issue #4283：本人说的决定自动记进本人个人空间（系统写，目标空间由数据库按证据作者推出）+ 本人撤销。
+    { provide: KG_AUTO_COPY_PORT, useFactory: (db: DatabasePort) => new PgKgAutoCopy(db), inject: [DATABASE_PORT] },
     {
       provide: KNOWLEDGE_EXTRACTOR_PORT,
       useFactory: (model: ModelCallPort, config: KgExtractionModelConfig, logger: LoggerPort) => new ModelKnowledgeExtractor(model, config, logger),

@@ -507,7 +507,8 @@ describe("F17: 项目会话、非所有者与隐私", () => {
     const m = await threadClaimBy(T.s, MIGRATE);
     const t = await turn(T.s, "忘掉李四那条");
     const card = await cardOf(T.s, t.answerId);
-    // 项目会话里不列所有者的长期记忆（F12：个人记忆只进本人的个人会话）
+    // 项目会话里不列所有者的长期记忆：召回候选里有它（issue #4284），但开卡函数只在个人对话里收个人空间条目
+    // （kg_open_memory_card：`c.scope_kind = 'personal' AND ... AND v_t.project_id IS NULL`）
     expect(card.items).toEqual([{ claimId: m.id, statement: MIGRATE }]);
 
     // 成员：看得到只读的卡，点不动 ⇒ KG_NOT_OWNER（HTTP 403）；绕过应用层直调数据库同样拒

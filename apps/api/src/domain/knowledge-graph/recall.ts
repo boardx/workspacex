@@ -219,7 +219,7 @@ export function fuseRecall(input: FuseInput): KnowledgeRecall {
   //      originThreadId，**不**强制——它们只走正常打分。
   //      **可见面不扩大**：这个纯函数不做权限判定，只在 `input.claims` 里挑；候选集由
   //      `PgKnowledgeRecall.candidates()` 决定，`scope === "personal"` 的只可能是 F12 L1 那条查询取出来的——
-  //      `scope_id = 发起人本人`、只在发起人自己的个人线程里取、RLS 也只放本人（I-14）。别人的个人空间
+  //      `scope_id = 发起人本人`、只在发起人自己的个人线程与项目会话里取（issue #4284）、RLS 也只放本人（I-14）。别人的个人空间
   //      根本进不了候选集，自然也进不了强制召回（tests/knowledge-graph/decision-recall-personal-space.test.ts）。
   //   2. **只挑活的**：`input.claims` 本身已经是 `candidates()` 查出来的活结论（`revoked_at IS NULL AND
   //      status <> 'superseded'`），撤销 / 被取代的结论从不会出现在这里，不需要在这个纯函数里再判一次。

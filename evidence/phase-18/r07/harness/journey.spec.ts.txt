@@ -1,0 +1,235 @@
+/**
+ * Round 7 (#4283 + #4284) on a real local stack.
+ *
+ * Model: the deterministic KG-eval loopback (`apps/api/scripts/loopback-kg-eval-model-provider.ts`) fed
+ * `cases-r07.json`. Extraction of an exact sentence returns what the corpus says (it plays "an extraction model that
+ * read this sentence right"); chat answers only echo the 【记忆】 block the executor handed the model that turn.
+ * The corpus also maps the exact answer text 「根据之前的对话：我决定关注 985 高校（来自个人空间知识…）。」 to a fact
+ * claim 「关注名单已经定下来了」, so an answer that paraphrases personal memory WOULD yield a claim if it were extracted.
+ * Everything else — extraction worker, auto personal copy, PgKnowledgeRecall, kg_turn_recalls, the extraction gate,
+ * read paths, UI — is the product path.
+ */
+import { mkdirSync, writeFileSync } from "node:fs";
+import path from "node:path";
+import { expect, test, type Browser, type Page } from "@playwright/test";
+import { KG_EVAL } from "../kg-experience-eval/fixture";
+import { apiGet, login, newThread, openMemoryPanel, say, turnBlock } from "../kg-experience-eval/eval-helpers";
+
+const OUT = path.resolve(__dirname, "../../../../evidence/phase-18/r07");
+mkdirSync(OUT, { recursive: true });
+const D211 = "我决定关注 211 高校";
+const D985 = "我决定关注 985 高校";
+const UNRELATED = "开始写报告吧";
+const ANSWER_CLAIM = "关注名单已经定下来了";
+const record: Record<string, unknown> = {};
+const ids: Record<string, string> = {};
+const shot = (page: Page, name: string) => page.screenshot({ path: path.join(OUT, `${name}.png`), fullPage: false });
+const dump = () => writeFileSync(path.join(OUT, "journey.json"), `${JSON.stringify(record, null, 2)}\n`);
+
+interface Claim { id: string; statement: string; status: string; kind?: string; scope?: { kind: string; id: string } }
+interface Recalled { claimId: string; statement: string; scope: string; channels: string[] }
+
+const threadClaims = async (page: Page, threadId: string) =>
+  ((await apiGet(page, `/knowledge-graph/threads/${threadId}`)).body as { claims: Claim[] }).claims;
+async function turnMemory(page: Page, threadId: string, answerId: string) {
+  const r = await apiGet(page, `/knowledge-graph/threads/${threadId}/messages/${answerId}/memory`);
+  expect(r.status).toBe(200);
+  return (r.body as { recalled: Recalled[] }).recalled;
+}
+const personal = async (page: Page) =>
+  ((await apiGet(page, "/knowledge-graph/personal")).body as { claims: Claim[] }).claims.map((c) => ({ id: c.id, statement: c.statement, status: c.status }));
+async function waitClaim(page: Page, threadId: string, statement: string, timeout = 60_000): Promise<Claim> {
+  let hit: Claim | undefined;
+  await expect.poll(async () => {
+    hit = (await threadClaims(page, threadId)).find((c) => c.statement === statement);
+    return hit !== undefined;
+  }, { timeout, intervals: [500] }).toBe(true);
+  return hit!;
+}
+/**
+ * A shared project thread. The v2 「新对话」 button in a project creates a `private` thread (only its creator can read
+ * it — `lib/chat-workbench/project-scope.ts`), so a second member could never open it. This creates the thread with
+ * the signed-in user's own session through the product endpoint `POST /chat/threads/mutate` with visibility
+ * `plenary` — the same call the project thread list's create form makes (`chat-read-screen.tsx` `handleCreate`) —
+ * then opens it in the v2 chat UI.
+ */
+/** v2 chat resolves project scope from `?projectId=` (`copilotkit-v2-shell-route.tsx`). */
+const projectThreadUrl = (threadId: string, projectId: string) =>
+  `/chat/${encodeURIComponent(threadId)}?projectId=${encodeURIComponent(projectId)}`;
+async function sharedProjectThread(page: Page, projectId: string, title: string): Promise<string> {
+  const token = await page.evaluate(() => localStorage.getItem("wsx.sessionToken"));
+  const res = await page.request.post("/__fullstack_api/chat/threads/mutate", {
+    headers: { Authorization: `Bearer ${token}` },
+    data: { op: "create", projectId, threadId: null, groupId: null, title, visibilityScope: "plenary", expectedVersion: null, reason: null },
+  });
+  expect(res.status(), await res.text()).toBe(200);
+  const threadId = ((await res.json()) as { threadId: string }).threadId;
+  await page.goto(projectThreadUrl(threadId, projectId));
+  await expect(page.getByTestId("copilotkit-v2-input")).toBeVisible({ timeout: 60_000 });
+  return threadId;
+}
+async function loggedIn(browser: Browser, account: typeof KG_EVAL.owner): Promise<Page> {
+  const ctx = await browser.newContext();
+  const p = await ctx.newPage();
+  await login(p, account);
+  return p;
+}
+
+test.describe.configure({ mode: "serial" });
+let owner: Page;
+/** Second tab of the same signed-in owner: threads B and C open here, so thread A (and its chip — the chip only
+ * exists on messages sent in this tab, never on a history reload) stays open in the first tab for the undo. */
+let owner2: Page;
+let a: Page;
+let b: Page;
+
+test.beforeAll(async ({ browser }) => {
+  record.ids = ids;
+  owner = await loggedIn(browser, KG_EVAL.owner);
+});
+test.afterAll(() => dump());
+
+/* ───────────── #4283 ───────────── */
+
+test("4283-1: thread A 「我决定关注 211 高校」 → chip shows 「已记入个人记忆」", async () => {
+  ids.p4283A = await newThread(owner);
+  const t = await say(owner, D211);
+  const chip = owner.getByTestId("kg-extraction-feedback");
+  await expect(chip).toContainText(`已记下：${D211}`, { timeout: 60_000 });
+  await expect(chip).toContainText("已记入个人记忆", { timeout: 60_000 });
+  record.s4283_1 = { answerId: t.answerId, chip: (await chip.innerText()).trim() };
+  const claim = await waitClaim(owner, ids.p4283A, D211);
+  ids.c211Session = claim.id;
+  const p = await personal(owner);
+  record.s4283_1_personal = p;
+  const copy = p.find((c) => c.statement === D211);
+  expect(copy, "auto copy in the author's own personal space, no manual promote").toBeTruthy();
+  ids.c211Personal = copy!.id;
+  await shot(owner, "4283-1-chip-auto-personal");
+});
+
+test("4283-2: NO manual promote; new thread B 「开始写报告吧」 recalls it (scope personal)", async () => {
+  owner2 = await owner.context().newPage();
+  await owner2.goto("/chat");
+  ids.p4283B = await newThread(owner2);
+  const t = await say(owner2, UNRELATED);
+  const mem = await turnMemory(owner2, ids.p4283B, t.answerId);
+  const footer = turnBlock(t.answer);
+  await expect(footer.getByTestId("kg-citation-chips")).toContainText(D211, { timeout: 30_000 });
+  record.s4283_2 = { answerId: t.answerId, text: t.text, recalled: mem, footer: (await footer.innerText()).trim() };
+  expect(mem.find((r) => r.claimId === ids.c211Personal)).toMatchObject({ statement: D211, scope: "personal" });
+  expect(t.text).toContain(D211);
+  await t.answer.scrollIntoViewIfNeeded();
+  await shot(owner2, "4283-2-thread-B-recalls");
+});
+
+test("4283-3: undo from the chip in thread A (first tab, still open on thread A)", async () => {
+  await owner.bringToFront();
+  expect(new URL(owner.url()).pathname).toBe(`/chat/${encodeURIComponent(ids.p4283A)}`);
+  const undo = owner.getByTestId(`kg-extraction-undo-${ids.c211Session}`);
+  await expect(undo).toBeVisible({ timeout: 60_000 });
+  await shot(owner, "4283-3a-before-undo");
+  await undo.click();
+  await expect(owner.getByTestId(`kg-extraction-line-${ids.c211Session}`)).toHaveCount(0, { timeout: 30_000 });
+  await expect.poll(async () => (await personal(owner)).some((c) => c.id === ids.c211Personal), { timeout: 30_000 }).toBe(false);
+  record.s4283_3 = { personalAfterUndo: await personal(owner), sessionClaimsAfterUndo: await threadClaims(owner, ids.p4283A) };
+  await shot(owner, "4283-3b-after-undo");
+});
+
+test("4283-4: new thread C 「开始写报告吧」 no longer recalls it", async () => {
+  await owner2.bringToFront();
+  ids.p4283C = await newThread(owner2);
+  const t = await say(owner2, UNRELATED);
+  const mem = await turnMemory(owner2, ids.p4283C, t.answerId);
+  record.s4283_4 = { answerId: t.answerId, text: t.text, recalled: mem, footer: (await turnBlock(t.answer).innerText()).trim() };
+  expect(mem.map((r) => r.statement)).not.toContain(D211);
+  expect(t.text).not.toContain("211");
+  await expect(turnBlock(t.answer)).not.toContainText(D211);
+  await shot(owner2, "4283-4-thread-C-no-recall");
+});
+
+/* ───────────── #4284 ───────────── */
+
+test("4284-1: A (newbie) says 「我决定关注 985 高校」 in a personal thread → auto personal copy", async ({ browser }) => {
+  a = await loggedIn(browser, KG_EVAL.newbie);
+  ids.p4284A = await newThread(a);
+  await say(a, D985);
+  await expect(a.getByTestId("kg-extraction-feedback")).toContainText("已记入个人记忆", { timeout: 60_000 });
+  ids.c985Session = (await waitClaim(a, ids.p4284A, D985)).id;
+  const copy = (await personal(a)).find((c) => c.statement === D985);
+  expect(copy).toBeTruthy();
+  ids.c985Personal = copy!.id;
+  await shot(a, "4284-1-A-personal-decision");
+});
+
+test("4284-2 (control, non-vacuity): the same answer text in A's own personal thread IS extracted", async () => {
+  ids.p4284Control = await newThread(a);
+  const t = await say(a, UNRELATED);
+  record.s4284_2 = { answerId: t.answerId, text: t.text };
+  expect(t.text).toContain(D985);
+  const c = await waitClaim(a, ids.p4284Control, ANSWER_CLAIM, 60_000);
+  record.s4284_2_claim = c;
+  await shot(a, "4284-2-control-personal-answer-extracted");
+});
+
+test("4284-3: A in a project thread 「开始写报告吧」 → A's answer uses A's personal decision (A sees the citation)", async () => {
+  ids.project = await sharedProjectThread(a, KG_EVAL.projectId, "项目群聊 r07");
+  const t = await say(a, UNRELATED);
+  ids.projectAnswer = t.answerId;
+  const mem = await turnMemory(a, ids.project, t.answerId);
+  await expect(turnBlock(t.answer).getByTestId("kg-citation-chips")).toContainText(D985, { timeout: 30_000 });
+  record.s4284_3 = { answerId: t.answerId, text: t.text, recalledForA: mem, footerForA: (await turnBlock(t.answer).innerText()).trim() };
+  expect(mem.map((r) => [r.claimId, r.scope])).toEqual([[ids.c985Personal, "personal"]]);
+  expect(t.text).toContain(D985);
+  await t.answer.scrollIntoViewIfNeeded();
+  await shot(a, "4284-3-A-project-answer");
+});
+
+test("4284-4: B (other) sees nothing from A's personal space; the project gains no claim from A's answer", async ({ browser }) => {
+  // Give the extraction worker (2 s poll) several rounds on A's answer before looking.
+  await a.waitForTimeout(12_000);
+  b = await loggedIn(browser, KG_EVAL.other);
+  await b.goto(projectThreadUrl(ids.project, KG_EVAL.projectId));
+  const answer = b.getByTestId("copilot-assistant-message").first();
+  await expect(answer).toBeVisible({ timeout: 60_000 });
+  await b.waitForTimeout(3_000);  // let the footer (turn memory) load
+  const footer = turnBlock(answer);
+  const chips = footer.getByTestId("kg-citation-chips");
+  const chipText = (await chips.count()) > 0 ? (await chips.innerText()).trim() : "";
+  const memB = await turnMemory(b, ids.project, ids.projectAnswer);
+  const extractionB = await apiGet(b, `/knowledge-graph/threads/${ids.project}/messages/${ids.projectAnswer}/extraction`);
+  const panelB = await threadClaims(b, ids.project);
+  const panelA = await threadClaims(a, ids.project);
+  const src = await apiGet(b, `/knowledge-graph/claims/${ids.c985Personal}/sources`);
+  const srcSession = await apiGet(b, `/knowledge-graph/claims/${ids.c985Session}/sources`);
+  const missing = await apiGet(b, "/knowledge-graph/claims/clm-no-such/sources");
+  const strip = (x: unknown) => ({ ...(x as Record<string, unknown>), traceId: undefined });
+  record.s4284_4 = {
+    answerTextSeenByB: (await answer.innerText()).trim(), citationChipsForB: chipText, recalledForB: memB,
+    extractionForB: extractionB, panelClaimsForB: panelB, panelClaimsForA: panelA,
+    sourcesOfAPersonalForB: src, sourcesOfASessionForB: srcSession, sourcesOfMissingForB: missing,
+  };
+  await answer.scrollIntoViewIfNeeded();
+  await shot(b, "4284-4a-B-views-A-turn");
+  expect(chipText).not.toContain("985");
+  expect(memB).toEqual([]);
+  expect(extractionB.status).toBe(200);
+  expect(JSON.stringify(extractionB.body)).not.toContain("985");
+  expect(JSON.stringify(extractionB.body)).not.toContain(ANSWER_CLAIM);
+  for (const panel of [panelB, panelA]) {
+    expect(panel.map((c) => c.statement)).not.toContain(ANSWER_CLAIM);
+    expect(JSON.stringify(panel)).not.toContain("985");
+    expect(JSON.stringify(panel)).not.toContain(ids.c985Personal);
+  }
+  for (const s of [src, srcSession]) {
+    expect(s.status).toBe(404);
+    expect(strip(s.body)).toEqual(strip(missing.body));
+  }
+  const panelUi = await openMemoryPanel(b);
+  await b.waitForTimeout(1_500);
+  const panelText = (await panelUi.innerText()).trim();
+  (record.s4284_4 as Record<string, unknown>).panelUiTextForB = panelText;
+  expect(panelText).not.toContain("985");
+  expect(panelText).not.toContain(ANSWER_CLAIM);
+  await shot(b, "4284-4b-B-knowledge-panel");
+});

@@ -20,13 +20,19 @@ function walk(dir: string): string[] {
 }
 
 describe("F06 抽取流水线读取的豁免前提", () => {
-  it("(a) 只出现三张租户表；不用逗号连接（逗号连接会让下面的逐表扫描漏掉第二张表）", () => {
+  it("(a) 只出现三张租户表（外加 round 7 闸门那一条只回计数的查询里的 chat_threads / kg_turn_recalls / claims）；不用逗号连接（逗号连接会让下面的逐表扫描漏掉第二张表）", () => {
     expect(code).not.toMatch(/\b(?:FROM|JOIN)\s+[a-z_]+(?:\s+(?:AS\s+)?[a-z]\w*)?\s*,/i);
     const tables = new Set([...code.matchAll(/(?<!FOR\s)\b(?:FROM|JOIN|UPDATE|INTO)\s+([a-z_]+)/gi)].map((m) => m[1]!.toLowerCase()));
     tables.delete("kg_extraction_queue");
     tables.delete("chat_messages");
     tables.delete("ontology_objects");
     tables.delete("picked");  // 认领用的物化 CTE，不是表
+    // round 7（#4284 收口）：这三张只出现在 projectAnswerOutsideRecallCount 那一条 SQL 里（下面 (h) 钉住它只回一个计数）
+    const gate = /`SELECT count\(\*\)::int AS n[\s\S]*?`/.exec(code)?.[0] ?? "";
+    for (const t of ["chat_threads", "kg_turn_recalls", "claims", "jsonb_array_elements"]) {
+      expect(code.replace(gate, "")).not.toMatch(new RegExp(`\\b(?:FROM|JOIN)\\s+${t}\\b`, "i"));
+      tables.delete(t);
+    }
     expect([...tables]).toEqual([]);
   });
 
@@ -43,9 +49,9 @@ describe("F06 抽取流水线读取的豁免前提", () => {
     expect(code).toMatch(/scope_kind = 'chat_session' AND scope_id = \$2/);
   });
 
-  it("(d) loadMessage / knownObjects 的唯一调用方是抽取用例", () => {
+  it("(d) loadMessage / knownObjects / projectAnswerOutsideRecallCount 的唯一调用方是抽取用例", () => {
     const callers = walk(join(API, "src"))
-      .filter((f) => /\.(loadMessage|knownObjects)\(/.test(readFileSync(f, "utf8")))
+      .filter((f) => /\.(loadMessage|knownObjects|projectAnswerOutsideRecallCount)\(/.test(readFileSync(f, "utf8")))
       .map((f) => relative(API, f));
     expect(callers).toEqual(["src/application/knowledge-graph/extract-message-knowledge.ts"]);
   });
@@ -53,7 +59,7 @@ describe("F06 抽取流水线读取的豁免前提", () => {
   it("(e) 类成员只有端口要求的方法——不能悄悄多出一个「读全部正文」的方法（不论 async / 修饰符 / 箭头属性）", () => {
     const members = [...code.matchAll(/^\s{2}(?:(?:public|private|protected|readonly|static)\s+)*(?:async\s+)?(\w+)\s*[(=:<]/gm)]
       .map((m) => m[1]).filter((n) => n !== "constructor").sort();
-    expect(members).toEqual(["claim", "complete", "enable", "fail", "knownObjects", "loadMessage", "pendingOrgs"]);
+    expect(members).toEqual(["claim", "complete", "enable", "fail", "knownObjects", "loadMessage", "pendingOrgs", "projectAnswerOutsideRecallCount"]);
   });
 
   it("(e2) 模块顶层只有三个常量和这个类——不能在类外另挂一个读正文的函数 / 箭头常量（整个文件都在豁免里）", () => {
@@ -78,6 +84,15 @@ describe("F06 抽取流水线读取的豁免前提", () => {
     }
     // 源码里任何位置出现这张表名，都必须落在上面扫描过的字符串里（拼接 / 模板插值都不行）
     expect(code.match(/chat_messages/gi)?.length).toBe(sqls.reduce((n, q) => n + (q.match(/chat_messages/gi)?.length ?? 0), 0));
+  });
+
+  it("(h) round 7 闸门：只回一个计数、只看一条消息、不带 OR / UNION、个人空间行不读（不设 app.current_user_id）", () => {
+    const q = /`SELECT count\(\*\)::int AS n[\s\S]*?`/.exec(code)?.[0] ?? "";
+    expect(q).toMatch(/^`SELECT count\(\*\)::int AS n\s+FROM chat_messages m/);
+    expect(q).toMatch(/m\.id = \$2/);
+    expect(q).toMatch(/c\.scope_kind = 'chat_session' AND c\.scope_id = m\.thread_id/);
+    expect(q).not.toMatch(/\b(?:OR|UNION)\b/i);
+    expect(code).not.toMatch(/app\.current_user_id/);
   });
 
   it("(g) 已知实体的读取不带 OR / UNION（作用域条件不能被放宽）", () => {

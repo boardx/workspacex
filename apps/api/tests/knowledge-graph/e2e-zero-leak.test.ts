@@ -9,7 +9,9 @@
  *     读所有者的会话知识 / 回答引用 / 来源抽屉 / 消息流、往所有者会话发消息或晋升 ⇒ 一律 404，且与「不存在」
  *     逐字相同（除 traceId）。
  *   - 项目成员（同组织，共享项目会话 S）：只召回会话 S 里的 L0，看不到所有者的 L0（会话 A）与 L1；
- *     所有者本人在共享会话里提问也不带 L1（L1 只进本人的个人线程，uc-18-4 R5）。
+ *     所有者本人在共享项目会话里提问**带**自己的 L1（issue #4284 人类决定 2026-09-26），但成员读那一轮的引用 / 来源
+ *     拿不到它（读侧按查看者过滤）。回答正文本身可能复述 L1，是已记录的产品取舍（usecases.md），不在本扫描之内——
+ *     所以所有者那一轮放在另一个共享会话 S_OWN 里问，免得它的回答进了 S 的对话历史、被成员后续几轮的模型上下文带上。
  *   - 另一组织、同一个用户 id：召回为空；拿本组织的会话 / 结论 / 回答 id 去读 ⇒ 404；RLS 下 0 行。
  *   - 图路径尝试：执行器的图路把所有者的 L0 / L1 结论 id（连同经过所有者实体的路径）递给别人 ⇒ 召回与候选集
  *     求交后丢掉，模型上下文与回答引用里都没有；伪造别人的回答引用记录混进所有者的 id 与图路径 ⇒ 读接口按查看者
@@ -41,6 +43,7 @@ const agentOf = (org: string) => (org === ORG2 ? AGENT2 : AGENT);
 const A = "thr-f14-zl-a";
 const B = "thr-f14-zl-b";
 const S = "thr-f14-zl-s";
+const S_OWN = "thr-f14-zl-s-own";
 const O = "thr-f14-zl-o";
 const X = "thr-f14-zl-x";
 
@@ -105,6 +108,7 @@ beforeAll(async () => {
   await addChatThread({ orgId: ORG, id: A, projectId: null, visibilityScope: "private", createdBy: OWNER, title: "v2 上线" });
   await addChatThread({ orgId: ORG, id: B, projectId: null, visibilityScope: "private", createdBy: OWNER, title: "新对话" });
   await addChatThread({ orgId: ORG, id: S, projectId: `${ORG}-p`, visibilityScope: "plenary", createdBy: OWNER, title: "项目群聊" });
+  await addChatThread({ orgId: ORG, id: S_OWN, projectId: `${ORG}-p`, visibilityScope: "plenary", createdBy: OWNER, title: "项目群聊 2" });
   await addChatThread({ orgId: ORG, id: O, projectId: null, visibilityScope: "private", createdBy: OTHER, title: "我的对话" });
   // 另一个组织：同一个用户 id 也是成员，有自己的个人会话
   await seedOrg({ orgId: ORG2, projectId: `${ORG2}-p` });
@@ -209,13 +213,17 @@ describe("F14 零越权：项目成员（共享项目会话 S）", () => {
     expect(mem.body.recalled.map((m) => m.statement)).toEqual([CONTRACT]);
   });
 
-  it("所有者本人在共享会话 S 里问 ⇒ 也不带个人空间 L1（回答贴在会话里，成员会读到）", async () => {
-    const t = await ask("owner@S", api.owner, ORG, S, ASK_WHO_WHY);
-    expect(t.memory ?? "").not.toContain("来自个人空间知识");
-    // 成员读所有者这一轮的回答引用：同样干净
-    const mem = await api.member.get<TurnMemoryBody>(memoryPath(S, t.answerId));
+  it("所有者本人在共享项目会话里问 ⇒ 带自己的个人空间 L1（issue #4284）；成员读那一轮的引用与来源 ⇒ 干净", async () => {
+    // 所有者自己的这一轮不过扫描（那是他本人的记忆）；扫描的是成员能读到的结构化读路径。
+    const t = await turn(e, api.owner, ORG, S_OWN, ASK_WHO_WHY, AGENT);
+    expect(t.memory).toContain(`${DECISION}（来自个人空间知识`);
+    const own = await api.owner.get<TurnMemoryBody>(memoryPath(S_OWN, t.answerId));
+    expect(own.body.recalled.map((m) => m.claimId)).toEqual(expect.arrayContaining([ids.pDecision]));
+    const mem = await api.member.get<TurnMemoryBody>(memoryPath(S_OWN, t.answerId));
     expect(mem.status).toBe(200);
-    scan("member 读 owner@S 的回答引用", mem.body);
+    expect(mem.body.recalled).toEqual([]);
+    scan("member 读 owner@S_OWN 的回答引用", mem.body);
+    scan("member 读 S_OWN 的知识面板", (await api.member.get(`/knowledge-graph/threads/${S_OWN}`)).body);
   });
 
   it("成员读所有者的个人会话 / 个人空间来源 / 所有者在 B 的回答引用 ⇒ 404，与不存在逐字相同", async () => {

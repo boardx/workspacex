@@ -5,6 +5,9 @@
  * 数据来自 `getMessageExtraction`（契约 `out` 校验）；「撤销」发出的是 F10 既有的
  * `applyHumanAction{revokeClaim}`（同 `AnswerMemoryLine` 的撤销用的那一个操作，不是新端点）。
  * 网络在 `fetch` 层打桩成一个有状态的小服务端，同 `kg-conflict-card.test.tsx` 的接线方式。
+ *
+ * issue #4283：本人的决定已自动记进个人空间（`personalCopyClaimId` 非空）⇒「已记入个人记忆」，
+ * 撤销先撤个人副本（`undoAutoPersonalCopy`），调用者是会话所有者时再撤会话原结论。
  */
 import * as React from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -18,12 +21,17 @@ const THREAD = "thr-kg-extraction";
 const MESSAGE = "msg-user-1";
 const CLAIM_ID = "clm-extracted-1";
 const STATEMENT = "客户 A 要求下周一上线";
+const PERSONAL_ID = "clm-personal-copy-1";
+const UNDO_PATH = `/knowledge-graph/threads/${THREAD}/claims/${CLAIM_ID}/personal-copy/undo`;
 
 interface Server {
   revision: number;
-  claims: readonly { claimId: string; statement: string }[];
+  claims: readonly { claimId: string; statement: string; personalCopyClaimId: string | null }[];
   actions: { basedOnRevision: number; action: KgHumanAction }[];
   onAction: (body: Server["actions"][number]) => Response | undefined;
+  /** 按到达顺序记下两种撤销请求，用来钉住「先撤个人副本、再撤会话原结论」。 */
+  calls: string[];
+  onUndoCopy: () => Response | undefined;
 }
 let server: Server;
 let fetchMock: ReturnType<typeof vi.fn>;
@@ -36,7 +44,10 @@ const failure = (status: number, reasonCode: string) => json({ error: "rejected"
 beforeEach(() => {
   window.localStorage.clear();
   window.localStorage.setItem(SESSION_TOKEN_STORAGE_KEY, "tok-kg-extraction");
-  server = { revision: 7, claims: [{ claimId: CLAIM_ID, statement: STATEMENT }], actions: [], onAction: () => undefined };
+  server = {
+    revision: 7, claims: [{ claimId: CLAIM_ID, statement: STATEMENT, personalCopyClaimId: null }], actions: [],
+    onAction: () => undefined, calls: [], onUndoCopy: () => undefined,
+  };
   fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
     const path = new URL(typeof input === "string" ? input : input.toString()).pathname;
     if (path === `/knowledge-graph/threads/${THREAD}/messages/${MESSAGE}/extraction`) {
@@ -49,7 +60,14 @@ beforeEach(() => {
         extractionActive: true,
       }));
     }
+    if (path === UNDO_PATH && init?.method === "POST") {
+      server.calls.push("undoCopy");
+      const override = server.onUndoCopy();
+      if (override) return override;
+      return json(knowledgeGraph.undoAutoPersonalCopy.out.parse({ personalClaimId: PERSONAL_ID, outcome: "revoked" }));
+    }
     if (path === `/knowledge-graph/threads/${THREAD}/actions` && init?.method === "POST") {
+      server.calls.push("revokeClaim");
       const body = JSON.parse(String(init.body)) as Server["actions"][number];
       server.actions.push(body);
       const override = server.onAction(body);
@@ -120,6 +138,65 @@ describe("ExtractionFeedbackChip", () => {
     fireEvent.click(await screen.findByTestId(`kg-extraction-undo-${CLAIM_ID}`));
     expect(await screen.findByTestId(`kg-extraction-undo-error-${CLAIM_ID}`)).toHaveTextContent("内容已变化");
     expect(document.body.textContent).not.toContain("KG_");
+    expect(screen.getByTestId(`kg-extraction-line-${CLAIM_ID}`)).toBeInTheDocument();
+  });
+
+  it("不是自动记进个人空间的（personalCopyClaimId = null）⇒ 不说「已记入个人记忆」，撤销不碰个人副本", async () => {
+    render(<ExtractionFeedbackChip threadId={THREAD} messageId={MESSAGE} />);
+    await screen.findByTestId(`kg-extraction-line-${CLAIM_ID}`);
+    expect(screen.queryByTestId(`kg-extraction-personal-${CLAIM_ID}`)).not.toBeInTheDocument();
+    fireEvent.click(screen.getByTestId(`kg-extraction-undo-${CLAIM_ID}`));
+    await waitFor(() => expect(screen.queryByTestId(`kg-extraction-line-${CLAIM_ID}`)).not.toBeInTheDocument());
+    expect(server.calls).toEqual(["revokeClaim"]);
+  });
+});
+
+describe("ExtractionFeedbackChip · issue #4283 本人的决定已记入个人记忆", () => {
+  beforeEach(() => {
+    server.claims = [{ claimId: CLAIM_ID, statement: STATEMENT, personalCopyClaimId: PERSONAL_ID }];
+  });
+
+  it("显示「已记下：{摘要} · 已记入个人记忆 · 撤销」", async () => {
+    render(<ExtractionFeedbackChip threadId={THREAD} messageId={MESSAGE} />);
+    const line = await screen.findByTestId(`kg-extraction-line-${CLAIM_ID}`);
+    expect(line).toHaveTextContent(`已记下：${STATEMENT}`);
+    expect(screen.getByTestId(`kg-extraction-personal-${CLAIM_ID}`)).toHaveTextContent("已记入个人记忆");
+    expect(screen.getByTestId(`kg-extraction-undo-${CLAIM_ID}`)).toHaveTextContent("撤销");
+  });
+
+  it("会话所有者点撤销 ⇒ 先撤个人副本，再撤会话原结论；反馈消失", async () => {
+    render(<ExtractionFeedbackChip threadId={THREAD} messageId={MESSAGE} />);
+    fireEvent.click(await screen.findByTestId(`kg-extraction-undo-${CLAIM_ID}`));
+    await waitFor(() => expect(screen.queryByTestId(`kg-extraction-line-${CLAIM_ID}`)).not.toBeInTheDocument());
+    expect(server.calls).toEqual(["undoCopy", "revokeClaim"]);
+    expect(server.actions).toEqual([{ basedOnRevision: 7, action: { type: "revokeClaim", claimId: CLAIM_ID } }]);
+  });
+
+  it("作者不是会话所有者（项目会话里别人开的）⇒ 仍有撤销，只撤自己个人空间那份，不动会话的知识", async () => {
+    publishKnowledgeSnapshot({ threadId: THREAD, canEdit: false, revision: server.revision });
+    render(<ExtractionFeedbackChip threadId={THREAD} messageId={MESSAGE} />);
+    fireEvent.click(await screen.findByTestId(`kg-extraction-undo-${CLAIM_ID}`));
+    await waitFor(() => expect(screen.queryByTestId(`kg-extraction-line-${CLAIM_ID}`)).not.toBeInTheDocument());
+    expect(server.calls).toEqual(["undoCopy"]);
+    expect(server.actions).toEqual([]);
+  });
+
+  it("个人副本已经不在（KG_CLAIM_NOT_FOUND）⇒ 视为已撤，接着撤会话原结论，不报错", async () => {
+    server.onUndoCopy = () => failure(404, "KG_CLAIM_NOT_FOUND");
+    render(<ExtractionFeedbackChip threadId={THREAD} messageId={MESSAGE} />);
+    fireEvent.click(await screen.findByTestId(`kg-extraction-undo-${CLAIM_ID}`));
+    await waitFor(() => expect(screen.queryByTestId(`kg-extraction-line-${CLAIM_ID}`)).not.toBeInTheDocument());
+    expect(server.calls).toEqual(["undoCopy", "revokeClaim"]);
+    expect(screen.queryByTestId(`kg-extraction-undo-error-${CLAIM_ID}`)).not.toBeInTheDocument();
+  });
+
+  it("个人副本撤销失败（其余错误）⇒ 人话错误提示，不去撤会话原结论，反馈仍在", async () => {
+    server.onUndoCopy = () => failure(403, "KG_ACTOR_NOT_HUMAN");
+    render(<ExtractionFeedbackChip threadId={THREAD} messageId={MESSAGE} />);
+    fireEvent.click(await screen.findByTestId(`kg-extraction-undo-${CLAIM_ID}`));
+    expect(await screen.findByTestId(`kg-extraction-undo-error-${CLAIM_ID}`)).toBeInTheDocument();
+    expect(document.body.textContent).not.toContain("KG_");
+    expect(server.calls).toEqual(["undoCopy"]);
     expect(screen.getByTestId(`kg-extraction-line-${CLAIM_ID}`)).toBeInTheDocument();
   });
 });
