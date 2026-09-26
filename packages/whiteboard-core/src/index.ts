@@ -4,6 +4,21 @@ export { WhiteboardUndo } from './undo';
 export { WhiteboardObject, WhiteboardGeometry, WhiteboardStyle, WhiteboardCommand, WhiteboardCommandBatch, WHITEBOARD_LIMITS } from '@repo/contracts/whiteboard-document';
 export { prepareWhiteboardUpdate, WHITEBOARD_UPDATE_LIMITS } from './update';
 export {
+  SpatialRelationshipCommandPort,
+  type ConnectorAnchor,
+  type ConnectorLineStyle,
+  type ConnectorRelationship,
+  type ConnectorTip,
+  type ConnectorType,
+  type LayerAction,
+  type SpatialCommand,
+  type SpatialCommandAccepted,
+  type SpatialCommandEnvelope,
+  type SpatialEvent,
+  type SpatialPrecondition,
+} from './spatial-relationships';
+export { parsePanelMetadata, readPanelMetadata, type FlowDirection, type PanelMetadata, type PanelMode } from './spatial-model';
+export {
   ContentObjectCommandPort,
   SHAPE_VARIANTS,
   createContentObject,
