@@ -18,6 +18,8 @@ export function Toggle({
         "relative inline-flex h-4 w-7 shrink-0 items-center rounded-full transition-all duration-200",
         "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1",
         checked ? "bg-primary" : "bg-muted",
+        // 禁用态走 token（uiux-standards §1.1，不用 opacity）：否则禁用的「开」和可点的「开」一模一样（#4247）
+        "disabled:cursor-not-allowed disabled:bg-disabled",
       )}
       {...props}
     >

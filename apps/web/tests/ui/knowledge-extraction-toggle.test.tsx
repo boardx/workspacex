@@ -27,6 +27,8 @@ describe("组织级记忆抽取开关", () => {
     expect(note.textContent).toContain("未生效");
     const sw = screen.getByRole("switch");
     expect(sw.hasAttribute("disabled")).toBe(true);
+    // 禁用必须「看得出来」：共享 Toggle 带禁用 token，否则禁用的「开」与可点的「开」同色（#4247 评审 B1）
+    expect(sw.className).toContain("disabled:bg-disabled");
     fireEvent.click(sw);
     expect(apiRequest).toHaveBeenCalledTimes(1); // 只有那一次 GET
   });
