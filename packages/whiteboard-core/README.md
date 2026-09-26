@@ -21,6 +21,21 @@ transaction and reuses the first result for same-payload retries during the Y.Do
 lifetime. Reusing the tuple with another payload is rejected. Durable replay and
 ACK identity still belong to the collaboration host.
 
+Rich visual objects use the versioned `extensionData.contentObject` model. This
+keeps the public V1 object envelope compatible while giving Shape, vector
+Drawing, Image, Tile/WebTile, Table, Icon and Template strict structured data.
+`createContentObjectEnvelope` returns one ordinary create command.
+`ContentObjectCommandPort` replaces rich metadata atomically under the same
+stable caller identity and returns a typed before/after event. Both paths retain
+unknown inert JSON extension fields for forward-compatible plugins. The shared
+validator recursively rejects binary values and `data:`/`blob:` strings on
+create, replace and remote-update validation. Structured titles are mirrored to
+the outer collaborative text in the same transaction. Renderers should
+call `readContentObject` and project its typed result; they must composite eraser
+strokes against their explicit `erases` target IDs from the retained vectors
+rather than flattening drawings into bitmaps. `instantiateTemplateEnvelope`
+creates a template's caller-ID-mapped object set in one replay-safe envelope.
+
 `WhiteboardUndo` groups one accepted local command batch into one history item and
 tracks both objects and tombstones. Create, edit and delete batches can therefore
 be undone and redone atomically, including bulk creation. Before applying history,

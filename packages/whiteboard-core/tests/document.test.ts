@@ -48,6 +48,18 @@ describe('whiteboard content kernel', () => {
     expect(() => executeCommands(doc, [{ type: 'create', object: { ...note('bad'), text: 'x'.repeat(20001) } }], {})).toThrow();
     expect(() => executeCommands(doc, [{ type: 'create', object: { ...note('bad'), extensionData: { html: 'x'.repeat(20000) } } }], {})).toThrow();
   });
+  it('rejects embedded image bytes and ephemeral URLs through command and remote-update validation', () => {
+    const doc = createWhiteboardDocument();
+    for (const extensionData of [
+      { source: 'data:image/png;base64,AA==' },
+      { source: 'blob:https://workspace.test/transient' },
+      { binaryPayload: 'A'.repeat(512) },
+      { bytes: Array.from({ length: 65 }, (_, index) => index) },
+    ]) expect(() => executeCommands(doc, [{ type: 'create', object: { ...note('unsafe'), extensionData } }], {})).toThrow();
+    create(doc);
+    doc.getMap<Y.Map<unknown>>('objects').get('note')!.set('extensionData', { nested: { source: 'data:image/svg+xml;base64,PHN2Zy8+' } });
+    expect(() => validateDocument(doc)).toThrow();
+  });
   it('rejects parent cycles, unknown fields and hostile shared types', () => {
     const doc = createWhiteboardDocument();
     expect(() => executeCommands(doc, [{ type: 'create', object: { ...note('cycle'), kind: 'frame', parentId: 'cycle' } }], {})).toThrow('PARENT_CYCLE');

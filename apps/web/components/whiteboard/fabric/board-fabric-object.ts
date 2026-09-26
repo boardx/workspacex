@@ -1,5 +1,7 @@
-export type BoardFabricKind = "sticky" | "text" | "rectangle" | "ellipse" | "placeholder";
-export type BoardFabricTool = "select" | "hand";
+import type { BoardContentData } from "../board-content-adapter";
+
+export type BoardFabricKind = "sticky" | "text" | "rectangle" | "ellipse" | "shape" | "drawing" | "image" | "card" | "placeholder";
+export type BoardFabricTool = "select" | "hand" | "draw-pen" | "draw-marker" | "draw-highlighter" | "erase";
 
 export interface BoardProjectionIssue {
   code: "BOARD_OBJECT_UNSUPPORTED" | "BOARD_PROJECTION_FAILED";
@@ -20,6 +22,10 @@ export interface BoardFabricStyle {
   textColor: string;
   stroke?: string;
   strokeWidth?: number;
+  borderStyle?: "solid" | "dashed" | "dotted";
+  opacity?: number;
+  radius?: number;
+  verticalAlignment?: "top" | "middle" | "bottom";
   fontSize?: number;
   /** Validated thinking-input typography. Optional for legacy canonical objects. */
   textPreset?: "title" | "heading" | "subheading" | "body" | "caption";
@@ -48,6 +54,10 @@ export interface BoardFabricObject {
   content: { text: string };
   /** Renderer-only sticky shape and resize behavior derived from canonical extension data. */
   sticky?: BoardFabricStickyAppearance;
+  /** Validated content-object payload. Never contains unvalidated extension data. */
+  boardContent?: BoardContentData;
+  /** Verified browser-local bytes. Fabric must never fall back to boardContent.sourceUrl. */
+  imageAssetUrl?: string;
   parentId?: string;
   locked?: boolean;
   /** Renderer-only diagnostic. It is derived from canonical content and is never persisted. */

@@ -19,6 +19,9 @@ const probe = vi.hoisted(() => ({
   clearCalls: 0,
   renderCalls: 0,
   moveCalls: 0,
+  primitiveKinds: [] as string[],
+  imageSources: [] as string[],
+  imageOptions: [] as Record<string, unknown>[],
 }));
 
 vi.mock("fabric", () => {
@@ -33,13 +36,15 @@ vi.mock("fabric", () => {
     setCoords() {}
     getBoundingRect() { return { left: this.left, top: this.top, width: this.width * this.scaleX, height: this.height * this.scaleY }; }
   }
-  class MockRect extends MockObject { mockKind = "rect"; }
-  class MockCircle extends MockObject { mockKind = "circle"; }
+  class MockRect extends MockObject { mockKind = "rect"; constructor(first?: unknown, second?: Record<string, unknown>) { super(undefined, second ?? (first as Record<string, unknown>)); probe.primitiveKinds.push("Rect"); } }
+  class MockCircle extends MockObject { mockKind = "circle"; constructor(first?: unknown, second?: Record<string, unknown>) { super(first, second); probe.primitiveKinds.push("Circle"); } }
   class MockTextbox extends MockObject { mockKind = "textbox"; }
+  class MockPath extends MockObject { constructor(first?: unknown, second?: Record<string, unknown>) { super(first, second); probe.primitiveKinds.push("Path"); } }
+  class MockImage extends MockObject { constructor(first?: unknown, second: Record<string, unknown> = {}) { super(first, second); probe.primitiveKinds.push("Image"); probe.imageOptions.push(second); } setElement() {} }
   class MockGroup extends MockObject {
     mockKind = "group";
     children: MockProjectedObject[];
-    constructor(children: MockProjectedObject[]) { super(); this.children = children; }
+    constructor(children: MockProjectedObject[], second?: Record<string, unknown>) { super(children, second); this.children = children; probe.primitiveKinds.push("Group"); }
     getObjects() { return this.children; }
   }
   class Canvas {
@@ -65,11 +70,16 @@ vi.mock("fabric", () => {
     getActiveObject() { return probe.objects.find((object) => object.data?.boardObjectId === probe.activeId); }
     clear() { probe.clearCalls += 1; }
   }
-  return { Canvas, Rect: MockRect, Circle: MockCircle, Textbox: MockTextbox, Group: MockGroup, Point: MockObject };
+  return { Canvas, Rect: MockRect, Circle: MockCircle, Path: MockPath, FabricImage: MockImage, Textbox: MockTextbox, Group: MockGroup, Point: MockObject };
 });
 
 class ResizeObserverMock { observe() {} disconnect() {} }
 vi.stubGlobal("ResizeObserver", ResizeObserverMock);
+vi.stubGlobal("Image", class {
+  alt = ""; onload: (() => void) | null = null; private value = "";
+  set src(value: string) { this.value = value; probe.imageSources.push(value); }
+  get src() { return this.value; }
+});
 
 import { BoardFabricSurface } from "@/components/whiteboard/fabric/board-fabric-surface";
 
@@ -84,7 +94,7 @@ function renderSurface(overrides: Partial<React.ComponentProps<typeof BoardFabri
 }
 
 describe("BoardFabricSurface", () => {
-  beforeEach(() => { probe.instances = 0; probe.objects.length = 0; probe.handlers.clear(); probe.activeId = null; probe.zoom = 1; probe.clearCalls = 0; probe.renderCalls = 0; probe.moveCalls = 0; });
+  beforeEach(() => { probe.instances = 0; probe.objects.length = 0; probe.handlers.clear(); probe.activeId = null; probe.zoom = 1; probe.clearCalls = 0; probe.renderCalls = 0; probe.moveCalls = 0; probe.primitiveKinds.length = 0; probe.imageSources.length = 0; probe.imageOptions.length = 0; });
 
   it("projects canonical-like objects into one Fabric Canvas without DOM object replicas", () => {
     const { container } = renderSurface();
@@ -93,6 +103,26 @@ describe("BoardFabricSurface", () => {
     expect(probe.objects.map((object) => object.data?.boardObjectId)).toEqual(["s-1", "r-1"]);
     expect(container.querySelector('[data-testid^="whiteboard-object-"]')).toBeNull();
     expect(probe.clearCalls).toBe(0);
+  });
+
+  it("constructs dedicated Fabric projections for shape, vector drawing, image state, and structured card", () => {
+    const contentObjects: BoardFabricObject[] = [
+      { ...OBJECTS[0]!, id: "shape", kind: "shape", boardContent: { version: 1, type: "shape", variant: "diamond", fill: "#FFFFFF", borderColor: "#111111", borderWidth: 1, borderStyle: "solid", opacity: 1, radius: 0, textColor: "#111111", horizontalAlign: "center", verticalAlign: "middle" } },
+      { ...OBJECTS[0]!, id: "drawing", kind: "drawing", boardContent: { version: 1, type: "drawing", strokes: [{ id: "stroke", tool: "pen", points: [{ x: 1, y: 2, pressure: .2 }, { x: 4, y: 6, pressure: .9 }], color: "#111111", width: 3, opacity: 1 }] } },
+      { ...OBJECTS[0]!, id: "image", kind: "image", boardContent: { version: 1, type: "image", status: "uploading", assetId: null, sourceUrl: null, mimeType: "image/png", intrinsicWidth: 0, intrinsicHeight: 0, crop: { x: 0, y: 0, width: 1, height: 1 }, opacity: 1, borderColor: "#FFFFFF", borderWidth: 0, cornerRadius: 0, fileName: "photo.png", replacementOf: null, failureCode: null, byteSize: 0, contentDigest: null, magicMimeType: null, retryCount: 0 } },
+      { ...OBJECTS[0]!, id: "tile", kind: "card", content: { text: "用户访谈" }, boardContent: { version: 1, type: "tile", tileType: "document", title: "用户访谈", description: "研究材料", icon: null, coverAssetId: null, fields: [], tags: [], link: null, status: null, actions: [] } },
+    ];
+    renderSurface({ objects: contentObjects });
+    expect(probe.objects.map((object) => object.data?.adapterKind)).toEqual(["shape", "drawing", "image", "card"]);
+    expect(probe.primitiveKinds).toEqual(expect.arrayContaining(["Path", "Group", "Rect"]));
+  });
+
+  it("renders verified bytes through the session object URL with intrinsic crop and rounded clipping", () => {
+    const ready: BoardFabricObject = { ...OBJECTS[0]!, id: "verified-image", kind: "image", imageAssetUrl: "blob:verified-image", geometry: { x: 20, y: 30, width: 200, height: 120, rotation: 0 }, boardContent: { version: 1, type: "image", status: "ready", assetId: "local-session-1", sourceUrl: "https://assets.example.com/changed.png", mimeType: "image/png", intrinsicWidth: 400, intrinsicHeight: 300, crop: { x: .25, y: .1, width: .5, height: .8 }, opacity: .7, borderColor: "#112233", borderWidth: 2, cornerRadius: 16, fileName: "verified.png", replacementOf: null, failureCode: null, byteSize: 24, contentDigest: `sha256:${"a".repeat(64)}`, magicMimeType: "image/png", persistence: "local-session" } };
+    renderSurface({ objects: [ready] });
+    expect(probe.imageSources).toEqual(["blob:verified-image"]);
+    expect(probe.imageSources).not.toContain(ready.boardContent?.type === "image" ? ready.boardContent.sourceUrl : "");
+    expect(probe.imageOptions[0]).toMatchObject({ cropX: 100, cropY: 30, width: 200, height: 240, opacity: .7, clipPath: expect.objectContaining({ rx: expect.any(Number), ry: expect.any(Number) }) });
   });
 
   it("converts a dragged dock tool drop into world coordinates without creating renderer-owned state", () => {

@@ -489,6 +489,29 @@ const isToolFailureTurn = (record: RunRecord): boolean =>
  */
 const EMPTY_REPLY_TRIGGER = process.env.LOOPBACK_DEEP_AGENT_EMPTY_REPLY_TRIGGER;
 
+/**
+ * issue #4260 —— 第一个价值时刻的**引用闭环**剧本：`wx_knowledge_search` → `wx_cite` → 带 `[n]` 的终稿。
+ *
+ * ## 这两次工具调用是真的打到 API 上，不是替身自己编结果
+ *
+ * 与 `spawnAsyncTask` 同一条纪律：真实上游（`deep_agent_service/standard_context_tools.py::_invoke`）
+ * 在模型运行**内部**同步 POST `<run_control_callback.base_url>/internal/agent-runs/<run_id>/standard-context/invoke`，
+ * 体 `{orgId, attemptId, leaseEpoch, toolCallId, toolName, toolArgs[, permissionRequestId]}`，
+ * 头 `x-deep-agent-internal-key`。替身逐字照抄这条线格式，于是：
+ *   · 检索结果来自真实的组织索引（`OrganizationContextSource`），不是替身写死的 sourceId；
+ *   · `wx_cite` 由 API 真的**重读**来源并校验版本（`standard-cite.ts`），通过的才进
+ *     `agent_runs.cited_sources`，写回时编号落 `chat_citations`、记价值时刻。
+ * 替身只负责「模型决定查什么、引哪一条、答案里写 `[n]`」——正是真实部署里模型承担的那部分。
+ *
+ * `[n]` 取 `wx_cite` **真实回给的** `accepted[0].index`；检索无命中 / 引用被拒 / 回调缺席时，
+ * 终稿如实说明、**不带任何 `[n]`**——前端的可点标记因此只在引用真的落库时才会出现。
+ *
+ * 触发词（逐字相等）与检索词都默认关闭：未设置时这条分支恒不命中，其余剧本逐字节不变。
+ * 唯一事实源在 `apps/web/e2e/chat-read-fixture.ts` 的 `firstValueCiteTrigger` / `firstValueCiteQuery`。
+ */
+const CITE_TRIGGER = process.env.LOOPBACK_DEEP_AGENT_CITE_TRIGGER;
+const CITE_QUERY = process.env.LOOPBACK_DEEP_AGENT_CITE_QUERY;
+
 /** system prompt 的 skill **目录**里真的出现了这个 stable_name 吗。开关未给全时恒 `false`。 */
 function skillCatalogReachedUpstream(body: CreateRunBody): boolean {
   if (SKILL_CATALOG_STABLE_NAME === null || SKILL_CATALOG_ECHO_PREFIX === null) return false;
@@ -615,6 +638,8 @@ interface RunRecord {
    * 0.32.4）。替身记一个稳定的 task id 就是为了原样回放这个形状。
    */
   pausedInterruptTaskId?: string;
+  /** issue #4260 —— 引用闭环剧本这一轮真实拿到的两次工具结果；未命中剧本时 `undefined`。 */
+  cite?: CiteOutcome;
 }
 
 function approvalReply(record: RunRecord): string {
@@ -830,6 +855,99 @@ async function spawnAsyncTask(parsed: CreateRunBody, description: string, contex
     const name = error instanceof Error ? error.message.split(":")[0]! : "Exception";
     return { failure: `派发子任务失败（${name}），未能加入后台队列，请改为同步处理这个子任务。` };
   }
+}
+
+/** issue #4260 —— 引用闭环剧本一轮的真实工具往返（见 `CITE_TRIGGER` 头注）。 */
+interface CiteOutcome {
+  readonly searchCallId: string;
+  readonly citeCallId: string;
+  readonly searchArgs: Record<string, unknown>;
+  /** 真实回调的响应体（JSON 原样）或失败说明（回调缺席时也是一句失败说明）。 */
+  readonly searchResult: string;
+  readonly citeArgs: Record<string, unknown> | null;
+  readonly citeResult: string | null;
+  /** `wx_cite` 真实回给的 `accepted[0]`；没有 ⇒ 终稿不带 `[n]`。 */
+  readonly accepted: { readonly index: number; readonly sourceFullName: string } | null;
+}
+
+function isCiteTurn(record: RunRecord): boolean {
+  return CITE_TRIGGER !== undefined && CITE_QUERY !== undefined && record.userText === CITE_TRIGGER;
+}
+
+/** 终稿正文——`/stream` 与 `/state` 共用这一份（#3389 单一事实源）。 */
+function citeReply(record: RunRecord): string {
+  const accepted = record.cite?.accepted ?? null;
+  return accepted
+    ? `根据你上传的材料《${accepted.sourceFullName}》作答：结论见原文 [${accepted.index}]。`
+    : "没能引用到你上传的材料：检索没有命中可引用的来源，或引用未通过校验，因此不给出带引用的结论。";
+}
+
+/**
+ * 照 `standard_context_tools.py::_invoke` 读回调：`base_url`/`key`/`org_id`/`run_id`/`attempt_id`
+ * 必须是非空字符串、`lease_epoch` 必须是正整数，否则真实工具抛错——替身同样不发请求。
+ */
+function readStandardContextCallback(parsed: CreateRunBody): {
+  baseUrl: string; key: string; runId: string; identity: Record<string, unknown>;
+} | undefined {
+  const raw = parsed.config?.configurable?.run_control_callback;
+  if (typeof raw !== "object" || raw === null || Array.isArray(raw)) return undefined;
+  const v = raw as Record<string, unknown>;
+  const str = (k: string) => (typeof v[k] === "string" && (v[k] as string).trim() !== "" ? v[k] as string : undefined);
+  const baseUrl = str("base_url"), key = str("key"), orgId = str("org_id"), runId = str("run_id"), attemptId = str("attempt_id");
+  const leaseEpoch = v.lease_epoch;
+  if (!baseUrl || !key || !orgId || !runId || !attemptId || typeof leaseEpoch !== "number"
+    || !Number.isInteger(leaseEpoch) || leaseEpoch < 1) return undefined;
+  const identity: Record<string, unknown> = { orgId, attemptId, leaseEpoch };
+  if (typeof v.permission_request_id === "string") identity.permissionRequestId = v.permission_request_id;
+  return { baseUrl, key, runId, identity };
+}
+
+async function invokeStandardContext(
+  callback: NonNullable<ReturnType<typeof readStandardContextCallback>>,
+  toolCallId: string, toolName: string, toolArgs: Record<string, unknown>,
+): Promise<{ ok: true; body: unknown } | { ok: false; text: string }> {
+  const url = `${callback.baseUrl.replace(/\/+$/, "")}/internal/agent-runs/${encodeURIComponent(callback.runId)}/standard-context/invoke`;
+  try {
+    const response = await fetch(url, {
+      method: "POST",
+      headers: { "content-type": "application/json", "x-deep-agent-internal-key": callback.key },
+      body: JSON.stringify({ ...callback.identity, toolCallId, toolName, toolArgs }),
+      signal: AbortSignal.timeout(30_000),
+    });
+    if (!response.ok) throw new Error(`HTTPStatusError:${response.status}`);
+    return { ok: true, body: await response.json() };
+  } catch (error) {
+    // 与真实工具同一句措辞（`StandardContextError`），附上失败形态便于排查。
+    const name = error instanceof Error ? error.message : "Exception";
+    return { ok: false, text: `Workspace context unavailable or request refused; no content confirmed (${name}).` };
+  }
+}
+
+/** 这一轮真的检索一次、真的引用检索到的第一条来源。结果记进 record，由 `/state`/`/stream` 揭示。 */
+async function runCiteScenario(parsed: CreateRunBody, threadId: string): Promise<CiteOutcome> {
+  const searchCallId = `cite-search-${threadId}`;
+  const citeCallId = `cite-cite-${threadId}`;
+  const searchArgs: Record<string, unknown> = { query: CITE_QUERY ?? "", scope: "organization-index", limit: 1 };
+  const callback = readStandardContextCallback(parsed);
+  if (!callback) {
+    return { searchCallId, citeCallId, searchArgs, citeArgs: null, citeResult: null, accepted: null,
+      searchResult: "Workspace context unavailable or request refused; no content confirmed (run_control_callback missing)." };
+  }
+  const search = await invokeStandardContext(callback, searchCallId, "wx_knowledge_search", searchArgs);
+  if (!search.ok) return { searchCallId, citeCallId, searchArgs, searchResult: search.text, citeArgs: null, citeResult: null, accepted: null };
+  const first = (search.body as { items?: { sourceId?: unknown; versionId?: unknown }[] }).items?.[0];
+  if (typeof first?.sourceId !== "string" || typeof first.versionId !== "string") {
+    return { searchCallId, citeCallId, searchArgs, searchResult: JSON.stringify(search.body), citeArgs: null, citeResult: null, accepted: null };
+  }
+  const citeArgs = { citations: [{ sourceId: first.sourceId, versionId: first.versionId }] };
+  const cite = await invokeStandardContext(callback, citeCallId, "wx_cite", citeArgs);
+  const acceptedRaw = cite.ok ? (cite.body as { accepted?: { index?: unknown; sourceFullName?: unknown }[] }).accepted?.[0] : undefined;
+  const accepted = typeof acceptedRaw?.index === "number" && typeof acceptedRaw.sourceFullName === "string"
+    ? { index: acceptedRaw.index, sourceFullName: acceptedRaw.sourceFullName } : null;
+  return {
+    searchCallId, citeCallId, searchArgs, searchResult: JSON.stringify(search.body),
+    citeArgs, citeResult: cite.ok ? JSON.stringify(cite.body) : cite.text, accepted,
+  };
 }
 
 /**
@@ -1144,6 +1262,13 @@ const server = createServer((req, res) => {
           record.spawnFailureText = "failure" in outcome ? outcome.failure : null;
         }
       }
+      // issue #4260 —— 引用闭环剧本：同 spawn 那步，在 run 创建应答之前真的打两次回调
+      // （模型运行内部同步调用工具的时序），`wx_cite` 只在 run 仍是 running 时才会被 API 接受。
+      if (CITE_TRIGGER !== undefined && CITE_QUERY !== undefined && lastUserText === CITE_TRIGGER) {
+        const outcome = await runCiteScenario(parsed, threadId);
+        const record = runs.get(threadId);
+        if (record !== undefined) record.cite = outcome;
+      }
       // 用 thread id 直接当 run id：同一线程本进程不并发跑第二个 run，够用，
       // 不需要为了"看起来更像真服务"多维护一份映射。
       sendJson(res, 200, { run_id: threadId });
@@ -1337,6 +1462,9 @@ const server = createServer((req, res) => {
       ? multiCanvasBodies(record.userText).join("\n\n")
       : isToolFailureTurn(record)
       ? TOOL_FAILURE_REPLY
+      // issue #4260 —— 与 `/state` 同一份终稿（`citeReply`）。
+      : isCiteTurn(record)
+      ? citeReply(record)
       : computeSpecialTurnReply(threadId, record)
         // issue #2020：哨兵回显（开关未给全时 `skillEcho` 恒 ""，逐字节不变）——
         // 只拼在默认模板上：特殊剧本各有既有断言盯着措辞，不动它们。
@@ -1426,6 +1554,26 @@ const server = createServer((req, res) => {
     // 这条触发词就永远到不了（C4 的「specific 判定被 ambient 判定永久遮住」同形）。
     if (EMPTY_REPLY_TRIGGER !== undefined && record.userText === EMPTY_REPLY_TRIGGER) {
       sendJson(res, 200, { values: { messages: [{ type: "human", content: record.userText }] } });
+      return;
+    }
+    // issue #4260 —— 引用闭环：两次工具调用的结果是 API 真实回的那两份（见 `runCiteScenario`）。
+    if (isCiteTurn(record)) {
+      const cite = record.cite;
+      const messages: unknown[] = [{ type: "human", content: record.userText }];
+      if (cite !== undefined) {
+        messages.push(
+          { type: "ai", content: "我先在你的材料里检索相关来源。", tool_calls: [{ id: cite.searchCallId, name: "wx_knowledge_search", args: cite.searchArgs }] },
+          { type: "tool", tool_call_id: cite.searchCallId, content: cite.searchResult },
+        );
+        if (cite.citeArgs !== null) {
+          messages.push(
+            { type: "ai", content: "", tool_calls: [{ id: cite.citeCallId, name: "wx_cite", args: cite.citeArgs }] },
+            { type: "tool", tool_call_id: cite.citeCallId, content: cite.citeResult ?? "" },
+          );
+        }
+      }
+      messages.push({ type: "ai", content: citeReply(record) });
+      sendJson(res, 200, { values: { messages } });
       return;
     }
     const toolCallId = `call-${threadId}`;

@@ -402,6 +402,9 @@ export default defineConfig({
         "board-library-management.spec.ts",
         // Iteration 03 owns continuous Sticky/Text input and batch operation boundaries.
         "board-thinking-input.spec.ts",
+        // Iteration 04 owns rich visual objects and verifies their canonical state across
+        // two clients, undo/redo, and a persisted reload boundary.
+        "board-visual-content.spec.ts",
       ],
       grepInvert: EMPTY_DB_TAG_RE,
       dependencies: ["seeded"],

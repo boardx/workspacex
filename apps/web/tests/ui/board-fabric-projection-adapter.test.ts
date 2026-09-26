@@ -129,4 +129,17 @@ describe("Board canonical-to-Fabric projection adapter", () => {
     expect(projected.every((object) => object.kind === "placeholder" && object.locked)).toBe(true);
     expect(projected.map((object) => object.projectionIssue?.sourceKind)).toEqual(kinds);
   });
+
+  it("projects validated content extensions into dedicated Fabric renderer kinds", () => {
+    const content = [
+      { objectKind: "extension", boardContent: { version: 1, type: "shape", variant: "diamond", fill: "#FFFFFF", borderColor: "#111111", borderWidth: 1, borderStyle: "solid", opacity: 1, radius: 0, textColor: "#111111", horizontalAlign: "center", verticalAlign: "middle" }, expected: "shape" },
+      { objectKind: "drawing", boardContent: { version: 1, type: "drawing", strokes: [{ id: "stroke", tool: "pen", points: [{ x: 1, y: 2, pressure: .2 }, { x: 4, y: 6, pressure: .9 }], color: "#111111", width: 3, opacity: 1 }] }, expected: "drawing" },
+      { objectKind: "image", boardContent: { version: 1, type: "image", status: "ready", assetId: "asset-1", sourceUrl: "https://example.com/sample.png", mimeType: "image/png", intrinsicWidth: 10, intrinsicHeight: 10, crop: { x: 0, y: 0, width: 1, height: 1 }, opacity: 1, borderColor: "#FFFFFF", borderWidth: 0, cornerRadius: 0, fileName: "sample.png", replacementOf: null, failureCode: null, byteSize: 10, contentDigest: `sha256:${"a".repeat(64)}`, magicMimeType: "image/png", retryCount: 0 }, expected: "image" },
+      { objectKind: "extension", boardContent: { version: 1, type: "tile", tileType: "document", title: "访谈", description: "研究材料", icon: null, coverAssetId: null, fields: [], tags: [], link: null, status: null, actions: [] }, expected: "card" },
+    ] as const;
+    const projected = toBoardFabricObjects(content.map((item, index) => ({ ...canonical(`content-${index}`, item.objectKind), extensionData: { contentObject: item.boardContent } })));
+    expect(projected.map((item) => item.kind)).toEqual(content.map((item) => item.expected));
+    expect(projected.map((item) => item.boardContent?.type)).toEqual(["shape", "drawing", "image", "tile"]);
+    expect(projected[0]?.style).toMatchObject({ fill: "#FFFFFF", stroke: "#111111", borderStyle: "solid", opacity: 1, radius: 0, alignment: "center", verticalAlignment: "middle" });
+  });
 });

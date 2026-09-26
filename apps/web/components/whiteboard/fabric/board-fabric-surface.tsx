@@ -1,7 +1,8 @@
 "use client";
 
 import * as React from "react";
-import { Canvas, Circle, Group, Point, Rect, Textbox, type FabricObject, type TPointerEventInfo } from "fabric";
+import { Canvas, Circle, FabricImage, Group, Path, Point, Rect, Textbox, type FabricObject, type TPointerEventInfo } from "fabric";
+import { drawingEraserLayers } from "@repo/whiteboard-core";
 import { BoardA11yMirror } from "./board-a11y-mirror";
 import {
   clampBoardZoom,
@@ -34,6 +35,7 @@ export interface BoardFabricSurfaceProps {
   onCanvasDoubleClick?: (point: { x: number; y: number }) => void;
   onObjectDoubleClick?: (objectId: string) => void;
   onToolDrop?: (point: { x: number; y: number }, payload: string) => void;
+  onDrawingComplete?: (input: { tool: "pen" | "marker" | "highlighter" | "eraser"; points: Array<{ x: number; y: number; pressure: number }> }) => void;
   className?: string;
 }
 
@@ -80,7 +82,51 @@ function createFabricObject(object: BoardFabricObject): TaggedFabricObject {
     originY: "center" as const,
   };
   let projected: FabricObject;
-  if (object.kind === "placeholder") {
+  if (object.kind === "drawing" && object.boardContent?.type === "drawing") {
+    const eraserTargets = new Map(drawingEraserLayers(object.boardContent).map((layer) => [layer.stroke.id, new Set(layer.targetStrokeIds)]));
+    projected = new Group(object.boardContent.strokes.flatMap((stroke) => stroke.points.slice(1).map((point, index) => {
+      const previous = stroke.points[index]!;
+      const path = `M ${previous.x - object.geometry.x} ${previous.y - object.geometry.y} L ${point.x - object.geometry.x} ${point.y - object.geometry.y}`;
+      const pressure = Math.max(.1, (previous.pressure + point.pressure) / 2);
+      return new Path(path, { fill: "", stroke: stroke.color, strokeWidth: stroke.width * (.35 + pressure * .65), opacity: stroke.opacity, strokeLineCap: "round", strokeLineJoin: "round", globalCompositeOperation: stroke.tool === "eraser" && eraserTargets.get(stroke.id)?.size ? "destination-out" : "source-over" });
+    })));
+  } else if (object.kind === "image" && object.boardContent?.type === "image") {
+    if (object.boardContent.status === "ready" && object.imageAssetUrl) {
+      const image = new Image();
+      image.alt = object.boardContent.fileName;
+      const crop = object.boardContent.crop;
+      const naturalWidth = Math.max(1, object.boardContent.intrinsicWidth * crop.width), naturalHeight = Math.max(1, object.boardContent.intrinsicHeight * crop.height);
+      const scaleX = object.geometry.width / naturalWidth, scaleY = object.geometry.height / naturalHeight;
+      const clipPath = new Rect({ width: naturalWidth, height: naturalHeight, rx: object.boardContent.cornerRadius / Math.max(scaleX, .0001), ry: object.boardContent.cornerRadius / Math.max(scaleY, .0001), originX: "center", originY: "center" });
+      const bitmap = new FabricImage(image, { cropX: object.boardContent.intrinsicWidth * crop.x, cropY: object.boardContent.intrinsicHeight * crop.y, width: naturalWidth, height: naturalHeight, scaleX, scaleY, opacity: object.boardContent.opacity, originX: "center", originY: "center", clipPath });
+      image.onload = () => { bitmap.setElement(image); bitmap.canvas?.requestRenderAll(); };
+      image.src = object.imageAssetUrl;
+      projected = new Group([new Rect({ width: object.geometry.width, height: object.geometry.height, rx: object.boardContent.cornerRadius, ry: object.boardContent.cornerRadius, fill: "#F4F4F5", stroke: object.boardContent.borderColor, strokeWidth: object.boardContent.borderWidth, originX: "center", originY: "center" }), bitmap]);
+    } else {
+      const state = object.boardContent.status === "failed" ? "图片上传失败" : object.boardContent.status === "ready" ? "图片需在当前会话重新验证" : "图片上传中";
+      projected = new Group([new Rect({ width: object.geometry.width, height: object.geometry.height, rx: 12, ry: 12, fill: "#F4F4F5", stroke: "#A1A1AA", strokeDashArray: [8, 6], originX: "center", originY: "center" }), new Textbox(`${state}\n${object.boardContent.fileName}`, textOptions)]);
+    }
+  } else if (object.kind === "card" && object.boardContent && object.boardContent.type !== "shape" && object.boardContent.type !== "drawing" && object.boardContent.type !== "image") {
+    const content = object.boardContent;
+    const kicker = content.type === "web-tile" ? "链接" : content.type === "table" ? "表格" : content.type === "icon" ? "图标" : content.type === "template" ? "模板" : "卡片";
+    const description = content.type === "tile" || content.type === "web-tile" ? content.description : content.type === "table" ? `${content.columns.length} 列 · ${content.rows.length} 行` : content.type === "icon" ? `${content.set} / ${content.name}` : `版本 ${content.versionId}`;
+    projected = new Group([
+      new Rect({ width: object.geometry.width, height: object.geometry.height, rx: 16, ry: 16, fill: object.style.fill, stroke: object.style.stroke ?? "#D4D4D8", strokeWidth: 1, originX: "center", originY: "center" }),
+      new Textbox(kicker, { ...textOptions, top: -object.geometry.height / 2 + 30, fontSize: 12, fill: "#71717A", textAlign: "left" }),
+      new Textbox(object.content.text, { ...textOptions, top: -8, fontSize: 20, fontWeight: 650, textAlign: "left" }),
+      new Textbox(description, { ...textOptions, top: object.geometry.height / 2 - 42, fontSize: 13, fill: "#52525B", textAlign: "left" }),
+    ]);
+  } else if (object.kind === "shape" && object.boardContent?.type === "shape") {
+    const variant = object.boardContent.variant;
+    const w = object.geometry.width, h = object.geometry.height;
+    const shape = variant === "circle" || variant === "ellipse"
+      ? new Circle({ radius: 50, scaleX: w / 100, scaleY: h / 100, fill: object.style.fill, stroke: object.style.stroke, strokeWidth: object.style.strokeWidth ?? 1, strokeDashArray: dashFor(object.style.borderStyle), opacity: object.style.opacity, originX: "center", originY: "center" })
+      : ["diamond", "decision", "triangle", "hexagon", "cloud", "database", "document", "data", "predefined-process"].includes(variant)
+        ? new Path(shapePath(variant, w, h), { fill: object.style.fill, stroke: object.style.stroke, strokeWidth: object.style.strokeWidth ?? 1, strokeDashArray: dashFor(object.style.borderStyle), opacity: object.style.opacity, originX: "center", originY: "center" })
+        : new Rect({ width: w, height: h, rx: variant === "terminator" ? h / 2 : object.style.radius ?? (variant === "rounded-rectangle" ? 20 : 0), ry: variant === "terminator" ? h / 2 : object.style.radius ?? (variant === "rounded-rectangle" ? 20 : 0), fill: object.style.fill, stroke: object.style.stroke, strokeWidth: object.style.strokeWidth ?? 1, strokeDashArray: dashFor(object.style.borderStyle), opacity: object.style.opacity, originX: "center", originY: "center" });
+    const labelTop = object.style.verticalAlignment === "top" ? -h / 2 + 24 : object.style.verticalAlignment === "bottom" ? h / 2 - 24 : 0;
+    projected = new Group([shape, new Textbox(object.content.text, { ...textOptions, top: labelTop })]);
+  } else if (object.kind === "placeholder") {
     projected = new Group([
       new Rect({ width: object.geometry.width, height: object.geometry.height, rx: 8, ry: 8, fill: object.style.fill, stroke: object.style.stroke, strokeWidth: 2, strokeDashArray: [8, 6], originX: "center", originY: "center" }),
       new Textbox(object.content.text, textOptions),
@@ -118,6 +164,20 @@ function createFabricObject(object: BoardFabricObject): TaggedFabricObject {
   applyResizePolicy(projected, object);
   projected.setCoords();
   return projected;
+}
+
+function dashFor(style: BoardFabricObject["style"]["borderStyle"]): number[] | undefined { return style === "dashed" ? [10, 7] : style === "dotted" ? [2, 5] : undefined; }
+
+function shapePath(variant: string, width: number, height: number): string {
+  const x = width / 2, y = height / 2;
+  if (variant === "diamond" || variant === "decision") return `M 0 ${-y} L ${x} 0 L 0 ${y} L ${-x} 0 Z`;
+  if (variant === "triangle") return `M 0 ${-y} L ${x} ${y} L ${-x} ${y} Z`;
+  if (variant === "hexagon") return `M ${-x * .55} ${-y} L ${x * .55} ${-y} L ${x} 0 L ${x * .55} ${y} L ${-x * .55} ${y} L ${-x} 0 Z`;
+  if (variant === "cloud") return `M ${-x} ${y * .25} C ${-x} ${-y * .35} ${-x * .45} ${-y * .6} ${-x * .15} ${-y * .35} C 0 ${-y} ${x * .65} ${-y * .7} ${x * .55} ${-y * .25} C ${x} ${-y * .2} ${x} ${y * .5} ${x * .55} ${y * .55} L ${-x * .55} ${y * .55} C ${-x * .9} ${y * .55} ${-x} ${y * .25} ${-x} ${y * .25} Z`;
+  if (variant === "database") return `M ${-x} ${-y * .7} C ${-x} ${-y} ${x} ${-y} ${x} ${-y * .7} L ${x} ${y * .7} C ${x} ${y} ${-x} ${y} ${-x} ${y * .7} Z`;
+  if (variant === "data") return `M ${-x * .7} ${-y} L ${x} ${-y} L ${x * .7} ${y} L ${-x} ${y} Z`;
+  if (variant === "predefined-process") return `M ${-x} ${-y} L ${x} ${-y} L ${x} ${y} L ${-x} ${y} Z M ${-x * .72} ${-y} L ${-x * .72} ${y} M ${x * .72} ${-y} L ${x * .72} ${y}`;
+  return `M ${-x} ${-y} L ${x * .55} ${-y} L ${x} ${-y * .55} L ${x} ${y} L ${-x} ${y} Z`;
 }
 
 function applyCanonicalObject(projected: TaggedFabricObject, object: BoardFabricObject, readOnly: boolean): void {
@@ -195,7 +255,7 @@ function geometryFromFabric(projected: TaggedFabricObject, canonical?: BoardFabr
   return geometry;
 }
 
-export function BoardFabricSurface({ objects, selectedObjectIds, readOnly, tool, viewport, onSelectionChange, onObjectTransform, onViewportChange, onCanvasClick, onCanvasDoubleClick, onObjectDoubleClick, onToolDrop, className }: BoardFabricSurfaceProps) {
+export function BoardFabricSurface({ objects, selectedObjectIds, readOnly, tool, viewport, onSelectionChange, onObjectTransform, onViewportChange, onCanvasClick, onCanvasDoubleClick, onObjectDoubleClick, onToolDrop, onDrawingComplete, className }: BoardFabricSurfaceProps) {
   const hostRef = React.useRef<HTMLDivElement>(null);
   const canvasElementRef = React.useRef<HTMLCanvasElement>(null);
   const canvasRef = React.useRef<Canvas | null>(null);
@@ -205,9 +265,9 @@ export function BoardFabricSurface({ objects, selectedObjectIds, readOnly, tool,
   const [renderedObjects, setRenderedObjects] = React.useState<readonly BoardFabricObject[]>(objects);
   const selectedObjectIdsRef = React.useRef(selectedObjectIds);
   const renderFrameRef = React.useRef<number | null>(null);
-  const callbacksRef = React.useRef({ onSelectionChange, onObjectTransform, onViewportChange, onCanvasClick, onCanvasDoubleClick, onObjectDoubleClick, onToolDrop });
+  const callbacksRef = React.useRef({ onSelectionChange, onObjectTransform, onViewportChange, onCanvasClick, onCanvasDoubleClick, onObjectDoubleClick, onToolDrop, onDrawingComplete });
   const stateRef = React.useRef({ readOnly, tool, viewport });
-  callbacksRef.current = { onSelectionChange, onObjectTransform, onViewportChange, onCanvasClick, onCanvasDoubleClick, onObjectDoubleClick, onToolDrop };
+  callbacksRef.current = { onSelectionChange, onObjectTransform, onViewportChange, onCanvasClick, onCanvasDoubleClick, onObjectDoubleClick, onToolDrop, onDrawingComplete };
   stateRef.current = { readOnly, tool, viewport };
   selectedObjectIdsRef.current = selectedObjectIds;
   const scheduleRender = React.useCallback(() => {
@@ -275,7 +335,14 @@ export function BoardFabricSurface({ objects, selectedObjectIds, readOnly, tool,
     };
     let panning = false;
     let last = { x: 0, y: 0 };
+    let drawing: Array<{ x: number; y: number; pressure: number }> | null = null;
+    const pressureOf = (event: TPointerEventInfo) => typeof (event.e as PointerEvent).pressure === "number" ? (event.e as PointerEvent).pressure : .5;
     const pointerDown = (event: TPointerEventInfo) => {
+      if ((stateRef.current.tool.startsWith("draw-") || stateRef.current.tool === "erase") && !stateRef.current.readOnly) {
+        const pointer = canvas.getScenePoint(event.e);
+        drawing = [{ x: pointer.x, y: pointer.y, pressure: pressureOf(event) }];
+        return;
+      }
       if (stateRef.current.tool === "select" && !event.target) {
         const pointer = canvas.getScenePoint(event.e);
         callbacksRef.current.onCanvasClick?.({ x: pointer.x, y: pointer.y });
@@ -295,6 +362,7 @@ export function BoardFabricSurface({ objects, selectedObjectIds, readOnly, tool,
       }
     };
     const pointerMove = (event: TPointerEventInfo) => {
+      if (drawing) { const pointer = canvas.getScenePoint(event.e); drawing.push({ x: pointer.x, y: pointer.y, pressure: pressureOf(event) }); return; }
       if (!panning) return;
       const pointer = event.e as MouseEvent;
       const transform = [...canvas.viewportTransform] as typeof canvas.viewportTransform;
@@ -304,6 +372,11 @@ export function BoardFabricSurface({ objects, selectedObjectIds, readOnly, tool,
       canvas.setViewportTransform(transform);
     };
     const pointerUp = () => {
+      if (drawing) {
+        const completed = drawing; drawing = null;
+        if (completed.length > 1) callbacksRef.current.onDrawingComplete?.({ tool: stateRef.current.tool === "erase" ? "eraser" : stateRef.current.tool.replace("draw-", "") as "pen" | "marker" | "highlighter", points: completed });
+        return;
+      }
       if (!panning) return;
       panning = false;
       const transform = canvas.viewportTransform;
@@ -355,7 +428,8 @@ export function BoardFabricSurface({ objects, selectedObjectIds, readOnly, tool,
       const failedAtThisRevision = current?.data?.projectionFailure === true && current.data.renderedRevision === object.revision;
       let rendered = failedAtThisRevision ? renderedRef.current.get(object.id) ?? projectionFailureObject(object) : object;
       const stickyShapeChanged = current?.data?.stickyVariant !== object.sticky?.variant;
-      if (!current || (!failedAtThisRevision && (current.data?.adapterKind !== object.kind || stickyShapeChanged))) {
+      const richProjectionChanged = Boolean(current && current.data?.renderedRevision !== object.revision && ["shape", "drawing", "image", "card"].includes(object.kind));
+      if (!current || (!failedAtThisRevision && (current.data?.adapterKind !== object.kind || stickyShapeChanged || richProjectionChanged))) {
         if (current) canvas.remove(current);
         const entry = createProjectionEntry(object, readOnly);
         rendered = entry.rendered;
@@ -389,7 +463,7 @@ export function BoardFabricSurface({ objects, selectedObjectIds, readOnly, tool,
     const canvas = canvasRef.current;
     if (!canvas) return;
     canvas.selection = tool === "select" && !readOnly;
-    canvas.defaultCursor = tool === "hand" ? "grab" : "default";
+    canvas.defaultCursor = tool === "hand" ? "grab" : tool.startsWith("draw-") ? "crosshair" : tool === "erase" ? "cell" : "default";
     for (const [id, projected] of registryRef.current) {
       const canonical = canonicalRef.current.get(id);
       const editable = !readOnly && tool === "select" && !canonical?.locked && canonical?.kind !== "placeholder";
