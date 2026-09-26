@@ -91,7 +91,7 @@ it('reports world coordinates after zoom and renders server peer cursors/selecti
   const doc = createWhiteboardDocument();
   executeCommands(doc, [{ type: 'create', object: { id: 'peer-note', schemaVersion: 1, kind: 'sticky', geometry: {x:10,y:20,width:180,height:140,rotation:0}, text:'远端便签',style:{},parentId:null,orderKey:''} }], 'remote');
   const positions: Array<{x:number;y:number}|null> = [];
-  render(<CollaborativeEditor boardId="board-test" clientId="client-test" doc={doc} readOnly={false} title="白板" status="已连接" currentUserId="me" peers={[{actorId:'other',cursor:{x:30,y:40},selected:['peer-note']},{actorId:'me',cursor:{x:2,y:3},selected:[]}]} onAwareness={cursor=>positions.push(cursor)}/>);
+  render(<CollaborativeEditor boardId="board-test" clientId="client-test" doc={doc} readOnly={false} title="白板" status="已连接" currentUserId="me" peers={[{actorId:'other',displayName:'Other',contributorColor:'#3366FF',cursor:{x:30,y:40},selected:['peer-note'],editingObjectId:null,expiresAt:'2099-01-01T00:00:00.000Z'},{actorId:'me',displayName:'Me',contributorColor:'#FF6633',cursor:{x:2,y:3},selected:[],editingObjectId:null,expiresAt:'2099-01-01T00:00:00.000Z'}]} onAwareness={cursor=>positions.push(cursor)}/>);
   expect(screen.getByTestId('peer-cursor-other')).toHaveStyle({left:'30px',top:'40px'});
   expect(screen.getByTestId('peer-selection-other-peer-note')).toHaveStyle({left:'10px',top:'20px'});
   expect(screen.queryByTestId('peer-cursor-me')).not.toBeInTheDocument();

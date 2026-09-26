@@ -2,10 +2,11 @@ import * as Y from 'yjs';
 import { WhiteboardObject, WhiteboardCommandBatch, WHITEBOARD_LIMITS, type WhiteboardCommand } from '@repo/contracts/whiteboard-document';
 import { validateContentExtension } from './content-object-model';
 import { validateSpatialExtension } from './spatial-model';
+import { WhiteboardCommentThread } from '@repo/contracts/whiteboard-collaboration';
 
 export function createWhiteboardDocument(): Y.Doc {
   const doc = new Y.Doc();
-  doc.getMap('objects'); doc.getMap('deletedObjects');
+  doc.getMap('objects'); doc.getMap('deletedObjects'); doc.getMap('commentThreads');
   return doc;
 }
 export function cloneDocument(source: Y.Doc): Y.Doc {
@@ -32,10 +33,24 @@ export function readObjects(doc: Y.Doc): WhiteboardObject[] {
 }
 /** Semantic validation is NOT a sandbox for hostile binary Yjs updates. Only host-validated commands are public. */
 export function validateDocument(doc: Y.Doc): void {
-  for (const key of doc.share.keys()) if (!['objects', 'deletedObjects'].includes(key)) throw new Error('UNKNOWN_ROOT');
+  for (const key of doc.share.keys()) if (!['objects', 'deletedObjects', 'commentThreads'].includes(key)) throw new Error('UNKNOWN_ROOT');
   if (objectMap(doc).size > WHITEBOARD_LIMITS.objects || tombstones(doc).size > WHITEBOARD_LIMITS.tombstones) throw new Error('LIMIT_EXCEEDED');
   for (const [id, value] of tombstones(doc)) if (value !== true || !objectMap(doc).has(id)) throw new Error('INVALID_TOMBSTONE');
   const all = new Map([...objectMap(doc)].map(([id, value]) => [id, decode(id, value)]));
+  const comments = doc.getMap<unknown>('commentThreads');
+  if (comments.size > WHITEBOARD_LIMITS.objects) throw new Error('LIMIT_EXCEEDED');
+  for (const [id, raw] of comments) {
+    const thread = WhiteboardCommentThread.parse(raw);
+    const commentIds = new Set(thread.comments.map(comment => comment.id));
+    const priorCommentIds = new Set<string>();
+    const invalidComment = thread.comments.some((comment, index) => {
+      const invalid = comment.threadId !== thread.id || comment.boardId !== thread.boardId || comment.objectId !== thread.objectId
+        || (index === 0 ? comment.parentCommentId !== null : !comment.parentCommentId || !priorCommentIds.has(comment.parentCommentId));
+      priorCommentIds.add(comment.id); return invalid;
+    });
+    const bindingInvalid = !all.has(thread.objectId) || (thread.status === 'object-deleted' ? !tombstones(doc).has(thread.objectId) : tombstones(doc).has(thread.objectId));
+    if (thread.id !== id || thread.comments.length === 0 || commentIds.size !== thread.comments.length || invalidComment || bindingInvalid) throw new Error('INVALID_COMMENT_THREAD');
+  }
   for (const value of all.values()) {
     validateContentExtension(value);
     validateSpatialExtension(value);
@@ -79,6 +94,11 @@ function apply(doc: Y.Doc, commands: WhiteboardCommand[]): void {
           if (candidate.locked) throw new Error('OBJECT_LOCKED');
           deleted.set(id, true);
         }
+      }
+      const commentThreads = doc.getMap<unknown>('commentThreads');
+      for (const [threadId, raw] of commentThreads) {
+        const thread = WhiteboardCommentThread.parse(raw);
+        if (thread.objectId === command.id && thread.status !== 'object-deleted') commentThreads.set(threadId, { ...thread, status: 'object-deleted', archivedAt: new Date().toISOString(), revision: thread.revision + 1 });
       }
       deleted.set(command.id, true);
     }

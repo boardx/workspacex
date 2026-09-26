@@ -72,6 +72,21 @@ test('independent users collaborate, persist, enforce viewer permissions and cle
       await editorNote.focus();await editorNote.press('Enter');await editor.getByLabel('对象文字',{exact:true}).fill('另一位成员的中文修改');await synced(editor);
       await expect(owner.getByRole('button',{name:'图形：另一位成员的中文修改',exact:true})).toBeVisible({timeout:20_000});
     });
+    await test.step('show identity-aware presence and synchronize object comments',async()=>{
+      const surface=editor.getByTestId('board-live-surface'),bounds=await surface.boundingBox();expect(bounds).not.toBeNull();
+      await editor.mouse.move(bounds!.x+420,bounds!.y+320);
+      await expect(owner.getByLabel(`${required('WHITEBOARD_EDITOR_USER_ID')}的光标`)).toBeVisible({timeout:20_000});
+      await expect(owner.getByLabel(`${required('WHITEBOARD_EDITOR_USER_ID')}正在编辑另一位成员的中文修改`)).toBeVisible();
+      await editor.getByRole('button',{name:'评论'}).click();
+      await editor.getByLabel('评论内容').fill('请一起核对这个结论');
+      await editor.getByLabel('提及成员').fill(required('WHITEBOARD_OWNER_USER_ID'));
+      await editor.getByRole('button',{name:'发布评论'}).click();
+      const indicator=owner.locator('[data-testid^="board-comment-indicator-"]');await expect(indicator).toHaveCount(1,{timeout:20_000});await indicator.click();
+      await expect(owner.getByText('请一起核对这个结论')).toBeVisible();
+      await owner.getByLabel('评论内容').fill('已核对，可以关闭');await owner.getByRole('button',{name:'回复'}).click();
+      await expect(editor.getByText('已核对，可以关闭')).toBeVisible({timeout:20_000});
+      await owner.getByRole('button',{name:'标记解决'}).click();await expect(editor.getByText('已解决')).toBeVisible({timeout:20_000});
+    });
     await test.step('persist the change and expose readonly selection',async()=>{
       await owner.reload();await synced(owner);await expect(owner.getByRole('button',{name:'图形：另一位成员的中文修改',exact:true})).toBeVisible();
       const viewerNote=viewer.getByRole('button',{name:'图形：另一位成员的中文修改',exact:true});
