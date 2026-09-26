@@ -136,7 +136,7 @@ beforeEach(() => {
     const path = new URL(typeof input === "string" ? input : input.toString()).pathname;
     if (path === `/knowledge-graph/threads/${THREAD}/messages/msg-9/memory`) {
       return json(knowledgeGraph.getTurnMemory.out.parse({
-        messageId: "msg-9", captured: [], pending: false, recalled: [], recallDegraded: false,
+        messageId: "msg-9", captured: [], pending: false, supersede: null, recalled: [], recallDegraded: false,
         prompt: server.prompt === null ? null : { type: "conflict", conflict: server.prompt },
       }));
     }

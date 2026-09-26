@@ -365,6 +365,7 @@ export const turnMemoryWithConflict: TurnMemory = {
   ],
   pending: false,
   prompt: { type: "conflict", conflict: conflictPromptNormal },
+  supersede: null,
   recalled: [],
   recallDegraded: false,
 };
@@ -379,6 +380,7 @@ export const turnMemoryWithRememberCard: TurnMemory = {
   ],
   pending: false,
   prompt: { type: "memory_card", card: memoryCardRememberOpen },
+  supersede: null,
   recalled: [],
   recallDegraded: false,
 };
@@ -392,6 +394,7 @@ export const turnMemoryCapturedOnly: TurnMemory = {
   ],
   pending: false,
   prompt: null,
+  supersede: null,
   recalled: [],
   recallDegraded: false,
 };
@@ -402,6 +405,7 @@ export const turnMemoryPending: TurnMemory = {
   captured: [],
   pending: true,
   prompt: null,
+  supersede: null,
   recalled: [],
   recallDegraded: false,
 };

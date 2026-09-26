@@ -10,11 +10,13 @@ import { knowledgeGraph as KG } from "@repo/contracts";
 import type { DatabasePort, TenantSession } from "../../application/ports/database.port";
 import type { KgConflictPort } from "../../application/knowledge-graph/ports";
 import type { ConfirmedClaim, ConflictPair, FreshClaim } from "../../domain/knowledge-graph/conflict";
+import type { LiveDecision, SupersedeFresh } from "../../domain/knowledge-graph/decision-supersede";
 import { toOrgId, type OrgId } from "../../domain/org-id";
 import { retryOnceOnDeadlock } from "./kg-deadlock-retry";
 
 type Row = Record<string, unknown>;
 const str = (v: unknown): string => (typeof v === "string" ? v : "");
+const strOrNull = (v: unknown): string | null => (typeof v === "string" && v.length > 0 ? v : null);
 const names = (v: unknown): string[] => (Array.isArray(v) ? v.filter((x): x is string => typeof x === "string") : []);
 const kind = (v: unknown): FreshClaim["kind"] | null => {
   const k = KG.KgClaimKind.safeParse(v);
@@ -61,6 +63,41 @@ export class PgKgConflict implements KgConflictPort {
       return s.query<{ n: number }>("SELECT kg_open_conflicts($1::jsonb) AS n", [JSON.stringify({
         action_id: input.actionId, thread_id: input.threadId, message_id: input.messageId,
         pairs: input.pairs.map((p) => ({ newer: p.newerClaimId, older: p.olderClaimId })),
+      })]);
+    }));
+    return Number(r.rows[0]?.n ?? 0);
+  }
+
+  async supersedeCandidates(orgId: OrgId, threadId: string, messageId: string) {
+    // #4290：同 candidates——以所有者身份声明，数据库函数才拿所有者本人的个人空间来比（迁移 20260926140000）。
+    const r = await retryOnceOnDeadlock(() => this.db.withTenant(orgId, async (s) => {
+      await asThreadOwner(s, threadId);
+      return s.query<{ c: { fresh?: Row[]; live?: Row[] } }>("SELECT kg_supersede_candidates($1, $2) AS c", [threadId, messageId]);
+    }));
+    const out = r.rows[0]?.c ?? {};
+    const fresh: SupersedeFresh[] = [];
+    for (const x of out.fresh ?? []) {
+      const k = kind(x.kind);
+      if (k === null) continue;
+      fresh.push({ id: str(x.id), kind: k, statement: str(x.statement), authorId: strOrNull(x.authorId) });
+    }
+    const live: LiveDecision[] = [];
+    for (const x of out.live ?? []) {
+      const k = kind(x.kind);
+      if (k === null || (x.scope !== "chat_session" && x.scope !== "personal")) continue;
+      live.push({ id: str(x.id), kind: k, statement: str(x.statement), authorId: strOrNull(x.authorId), scope: x.scope });
+    }
+    return { fresh, live };
+  }
+
+  async applySupersedes(orgId: OrgId, input: {
+    readonly actionId: string; readonly threadId: string; readonly messageId: string;
+    readonly supersedes: readonly { readonly newer: string; readonly olders: readonly string[] }[];
+  }): Promise<number> {
+    const r = await retryOnceOnDeadlock(() => this.db.withTenant(orgId, async (s) => {
+      await asThreadOwner(s, input.threadId);
+      return s.query<{ n: number }>("SELECT kg_apply_supersedes($1::jsonb) AS n", [JSON.stringify({
+        action_id: input.actionId, thread_id: input.threadId, message_id: input.messageId, supersedes: input.supersedes,
       })]);
     }));
     return Number(r.rows[0]?.n ?? 0);

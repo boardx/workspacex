@@ -289,11 +289,14 @@ export class PgKnowledgeRead implements KnowledgeReadPort {
       // I-18：一轮至多一张主动卡，冲突卡优先。用户明确要求的「记住 / 忘掉」卡不丢：矛盾处理完（提醒不再 open），
       // 同一轮回答下就轮到它。
       const card = conflict === null ? await readTurnMemoryCard(s, orgId, userId, thread.threadId, messageId) : null;
+      // #4290：改口取代提示是一行附注，不占主动卡的名额（I-18 只管卡片）
+      const supersede = await readTurnSupersede(s, orgId, userId, thread.threadId, ids);
       return {
         messageId,
         captured: captured.rows.map((c) => ({ claimId: c.id, statement: c.statement })),
         pending: Number(pending.rows[0]!.n) > 0,
         prompt: conflict !== null ? { type: "conflict" as const, conflict } : card !== null ? { type: "memory_card" as const, card } : null,
+        supersede,
         ...recall,
       };
     });
@@ -496,6 +499,42 @@ async function readTurnConflict(
     promptId: row.id,
     newerClaim: { id: row.newer_id, statement: row.newer_statement },
     olderClaim: { id: row.older_id, statement: row.older_statement, saidAt: row.said_at.toISOString() },
+  };
+}
+
+type SupersedeNotice = NonNullable<TurnMemoryData["supersede"]>;
+
+/**
+ * #4290：这一轮的改口取代提示（「已用〈新〉取代〈旧〉 · 撤销」）。挂在这一轮的消息上、取最早开的一张。
+ * 按查看者读：新决定是本会话的；旧决定是本会话的，或查看者本人个人空间的（RLS 也这么判——提示的可见性跟随两条结论）。
+ * applied 只在旧决定现在仍是「因这次改口而失效」时出（别处又改过 ⇒ 这一行说的事已经不成立，不出）；撤销过的读作 undone。
+ */
+async function readTurnSupersede(
+  s: TenantSession, orgId: OrgId, viewer: string, threadId: string, turnMessageIds: readonly string[],
+): Promise<SupersedeNotice | null> {
+  if (turnMessageIds.length === 0) return null;
+  const r = await s.query<{
+    id: string; status: "applied" | "undone"; newer_id: string; newer_statement: string; older_id: string; older_statement: string;
+  }>(
+    `SELECT x.id, x.status, n.id AS newer_id, n.statement AS newer_statement, o.id AS older_id, o.statement AS older_statement
+       FROM kg_supersede_notices x
+       JOIN claims n ON n.id = x.newer_claim_id AND n.org_id = x.org_id
+       JOIN claims o ON o.id = x.older_claim_id AND o.org_id = x.org_id
+      WHERE x.org_id = $1 AND x.thread_id = $2 AND x.message_id = ANY($3::text[])
+        AND n.scope_kind = 'chat_session' AND n.scope_id = $2
+        AND ((o.scope_kind = 'chat_session' AND o.scope_id = $2) OR (o.scope_kind = 'personal' AND o.scope_id = $4))
+        AND (x.status = 'undone' OR (o.revoked_at IS NOT NULL AND o.revocation_reason = 'decision_changed'))
+      ORDER BY x.created_at, x.id
+      LIMIT 1`,
+    [orgId, threadId, [...turnMessageIds], viewer],
+  );
+  const row = r.rows[0];
+  if (row === undefined) return null;
+  return {
+    noticeId: row.id,
+    newerClaim: { id: row.newer_id, statement: row.newer_statement },
+    olderClaim: { id: row.older_id, statement: row.older_statement },
+    state: row.status,
   };
 }
 

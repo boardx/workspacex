@@ -6,11 +6,12 @@
  * - 失败隔离：一条消息失败只让它自己稍后重试；一个 org 失败不影响别的 org。
  * - 消息发送从不等这里（06-UX R3-8「不拖慢对话」）：抽取在后台 worker 里跑。
  * - F16：交给执行器之后，同一个任务里接着判矛盾（detect-conflicts.ts）——任务完成之前卡已经开好。
+ * - #4290：判完矛盾再判明确改口的取代（同一文件 detectSupersedes）——任务完成之前取代提示已经开好。
  */
 import type { LoggerPort } from "../ports/logger.port";
 import { buildExtractionBatch } from "../../domain/knowledge-graph/extraction";
 import { applyOntologyBatch } from "./apply-ontology-batch";
-import { detectConflicts } from "./detect-conflicts";
+import { detectConflicts, detectSupersedes } from "./detect-conflicts";
 import type {
   KgConflictPort, KgExtractionJob, KgExtractionQueuePort, KgExtractionSourcePort, KnowledgeExtractorPort, OntologyStorePort,
 } from "./ports";
@@ -56,6 +57,8 @@ export async function extractJob(deps: ExtractionDeps, job: KgExtractionJob): Pr
   }
   // 去重命中（任务重试）也照样判：上一次可能在交执行器之后、判矛盾之前失败了。
   await detectConflicts({ conflicts: deps.conflicts, newId: deps.newId }, job);
+  // #4290：明确改口的取代，接在判矛盾之后（见 detect-conflicts.ts detectSupersedes）
+  await detectSupersedes({ conflicts: deps.conflicts, newId: deps.newId }, job);
   return "written";
 }
 

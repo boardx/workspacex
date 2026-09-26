@@ -218,6 +218,11 @@ export const KgHumanAction = z.discriminatedUnion("type", [
     resolution: z.enum(["keep_new", "keep_both", "ignore"]),
     conditions: z.object({ newer: z.string().max(200), older: z.string().max(200) }).strict().optional(),
   }).strict(),
+  /**
+   * Issue #4290：撤销一次「明确改口」的自动取代（`KgSupersedeNotice` 那一行的「撤销」）。
+   * 旧决定恢复为生效、新决定仍在；同一条新决定之后不会再被自动取代。
+   */
+  z.object({ type: z.literal("undoSupersede"), noticeId: z.string() }).strict(),
   z.object({ type: z.literal("mergeObjects"), keepObjectId: z.string(), mergeObjectId: z.string() }).strict(),
   z.object({ type: z.literal("splitObject"), objectId: z.string(), newName: z.string().min(1), moveClaimIds: z.array(z.string()).min(1) }).strict(),
   z.object({ type: z.literal("renameObject"), objectId: z.string(), name: z.string().min(1).max(200) }).strict(),
@@ -249,6 +254,19 @@ export const KgConflictPrompt = z.object({
   olderClaim: z.object({ id: z.string(), statement: z.string(), saidAt: z.string() }).strict(),
 }).strict();
 export type KgConflictPrompt = z.infer<typeof KgConflictPrompt>;
+
+/**
+ * Issue #4290（人类决定 2026-09-26）：本人明确改口（「改成 / 换成 / 不再……」）时，新决定自动取代本人主题相同的旧决定。
+ * 会话里显示一行「已用〈新〉取代〈旧〉 · 撤销」；撤销（`applyHumanAction{undoSupersede}`）后旧决定恢复，读作 `undone`。
+ * 只给看得到两条结论的人（旧决定在个人空间时只有本人）。
+ */
+export const KgSupersedeNotice = z.object({
+  noticeId: z.string(),
+  newerClaim: z.object({ id: z.string(), statement: z.string() }).strict(),
+  olderClaim: z.object({ id: z.string(), statement: z.string() }).strict(),
+  state: z.enum(["applied", "undone"]),
+}).strict();
+export type KgSupersedeNotice = z.infer<typeof KgSupersedeNotice>;
 
 /**
  * U-4 对话里的「记住 / 忘掉」确认卡（uc-18-6 A/B）。
@@ -295,6 +313,8 @@ export const KgTurnMemory = z.object({
     z.object({ type: z.literal("conflict"), conflict: KgConflictPrompt }).strict(),
     z.object({ type: z.literal("memory_card"), card: KgMemoryCard }).strict(),
   ]).nullable(),
+  /** #4290：这一轮的改口取代提示（一行，不是卡片，不占 `prompt` 的名额）；没有为 null */
+  supersede: KgSupersedeNotice.nullable(),
   /** 本轮回答用到的记忆（按召回名次）；没用到记忆时为空数组 */
   recalled: z.array(KgRecalledMemory),
   /** 本轮计划走关联查询（图）但它没能执行：界面显示「这次没能查全你的记忆…」那一行（R4-E1） */

@@ -9,6 +9,7 @@
  */
 import type { OrgId } from "../../domain/org-id";
 import { findConflicts } from "../../domain/knowledge-graph/conflict";
+import { findSupersedes } from "../../domain/knowledge-graph/decision-supersede";
 import type { LoggerPort } from "../ports/logger.port";
 import type { KgConflictPort } from "./ports";
 
@@ -28,6 +29,30 @@ export async function detectConflicts(
   if (pairs.length === 0) return 0;
   return deps.conflicts.open(job.orgId, {
     actionId: deps.newId("act"), threadId: job.threadId, messageId: job.messageId, pairs,
+  });
+}
+
+/**
+ * Issue #4290 —— 明确改口的取代，接在判矛盾之后、同一个抽取任务里（迁移 20260926140000）。
+ *
+ * 顺序有意放在 F16 之后：F16 刚开了卡的新条已经是「有矛盾」，不再是「没人看过」的候选，这里自然跳过——
+ * 同一对不会既弹矛盾卡、又被自动取代；F16 管不到的（例如 211 → 985 这种换了对象的改口）才轮到这里。
+ * 任务重试时再跑一遍无害：同一条新决定只取代一次（数据库按 newer_claim_id 去重），撤销过的也不会再被取代。
+ * 返回开了几张取代提示。
+ */
+export async function detectSupersedes(
+  deps: ConflictDetectionDeps,
+  job: { readonly orgId: OrgId; readonly threadId: string; readonly messageId: string },
+): Promise<number> {
+  const { fresh, live } = await deps.conflicts.supersedeCandidates(job.orgId, job.threadId, job.messageId);
+  if (fresh.length === 0 || live.length === 0) return 0;
+  const pairs = findSupersedes(fresh, live);
+  if (pairs.length === 0) return 0;
+  const byNewer = new Map<string, string[]>();
+  for (const p of pairs) byNewer.set(p.newerClaimId, [...(byNewer.get(p.newerClaimId) ?? []), p.olderClaimId]);
+  return deps.conflicts.applySupersedes(job.orgId, {
+    actionId: deps.newId("act"), threadId: job.threadId, messageId: job.messageId,
+    supersedes: [...byNewer].map(([newer, olders]) => ({ newer, olders })),
   });
 }
 
