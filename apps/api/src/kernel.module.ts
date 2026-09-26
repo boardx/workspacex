@@ -9,6 +9,9 @@ import { WHITEBOARD_IMPORT_SERVICE, WhiteboardImportService } from './applicatio
 import { PgWhiteboardImportRepository } from './infrastructure/whiteboard/pg-import-repository';
 import { WHITEBOARD_RECOVERY_SERVICE, WhiteboardRecoveryService } from './application/whiteboard/recovery-service';
 import { CollaborationSnapshotSource, PgWhiteboardRecoveryMetadata } from './infrastructure/whiteboard/pg-recovery-metadata';
+import { WHITEBOARD_OPERATION_SERVICE, WhiteboardOperationService } from './application/whiteboard/operation-service';
+import { WhiteboardOperationController } from './interface/controllers/whiteboard-operation.controller';
+import { PgWhiteboardOperationRepository } from './infrastructure/whiteboard/pg-operation-repository';
 import { SurveyAttachmentRateLimitGuard, SURVEY_ATTACHMENT_RATE_LIMITER, SURVEY_ATTACHMENT_REQUESTS_PER_MINUTE } from "./interface/guards/survey-attachment-rate-limit.guard";
 import { SurveyUploadCapabilityGuard, SurveyAttachmentController } from "./interface/controllers/survey-attachment.controller";
 import { PgSurveyAttachmentRepository } from "./infrastructure/survey/pg-survey-attachment-repository";
@@ -1095,6 +1098,7 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
     InboxController,
     DesignWorkbenchController,
     WhiteboardController,
+    WhiteboardOperationController,
     WhiteboardImportController,
     PublicDesignShareController,
     SystemMailController,
@@ -2949,6 +2953,11 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
       provide: WHITEBOARD_RECOVERY_SERVICE,
       useFactory: (db: DatabasePort, collaboration: PgWhiteboardCollaborationStore, objects: ObjectStore) => new WhiteboardRecoveryService(new PgWhiteboardRecoveryMetadata(db),new CollaborationSnapshotSource(collaboration),objects),
       inject: [DATABASE_PORT, WHITEBOARD_COLLABORATION_STORE, OBJECT_STORE],
+    },
+    {
+      provide: WHITEBOARD_OPERATION_SERVICE,
+      useFactory: (db: DatabasePort, collaboration: PgWhiteboardCollaborationStore) => new WhiteboardOperationService(db, collaboration, new PgWhiteboardOperationRepository()),
+      inject: [DATABASE_PORT, WHITEBOARD_COLLABORATION_STORE],
     },
     {
       provide: DESIGN_PROJECT_REPOSITORY,

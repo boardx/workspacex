@@ -7,6 +7,7 @@ export default defineConfig({ resolve:{alias:{
   '@repo/contracts/whiteboard-document':resolve(__dirname,'../../packages/contracts/src/whiteboard-document.ts'),
   '@repo/contracts/whiteboard-sync':resolve(__dirname,'../../packages/contracts/src/whiteboard-sync.ts'),
   '@repo/contracts/whiteboard-collaboration':resolve(__dirname,'../../packages/contracts/src/whiteboard-collaboration.ts'),
+  '@repo/contracts/whiteboard-operation':resolve(__dirname,'../../packages/contracts/src/whiteboard-operation.ts'),
   '@repo/contracts':resolve(__dirname,'../../packages/contracts/src/index.ts'),
   '@repo/whiteboard-core':resolve(__dirname,'../../packages/whiteboard-core/src/index.ts'),
 }},test: {
@@ -21,6 +22,8 @@ export default defineConfig({ resolve:{alias:{
     'tests/whiteboard/recovery-metadata.test.ts',
     'tests/whiteboard/import-repository-guard.test.ts',
     'tests/whiteboard/recovery-repository-guard.test.ts',
+    'tests/whiteboard/operation-service.test.ts',
+    'tests/whiteboard/operation-repository-guard.test.ts',
   ],
   maxWorkers: 1, minWorkers: 1, testTimeout: 10_000,
 } });
