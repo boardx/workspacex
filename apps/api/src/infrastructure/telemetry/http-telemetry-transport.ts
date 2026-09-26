@@ -4,11 +4,11 @@ import type { TelemetryTransport } from "../../application/telemetry/telemetry-p
 export class HttpTelemetryTransport implements TelemetryTransport {
   constructor(private readonly fetchImpl: typeof fetch = fetch) {}
 
-  async post(endpoint: string, body: string, timeoutMs: number): Promise<{ ok: boolean }> {
+  async post(endpoint: string, body: string, timeoutMs: number, installSecret: string): Promise<{ ok: boolean }> {
     try {
       const res = await this.fetchImpl(endpoint, {
         method: "POST",
-        headers: { "content-type": "application/json" },
+        headers: { "content-type": "application/json", authorization: `Bearer ${installSecret}` },
         body,
         signal: AbortSignal.timeout(timeoutMs),
         redirect: "error",
