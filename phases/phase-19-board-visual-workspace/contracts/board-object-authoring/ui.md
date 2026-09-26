@@ -1,13 +1,13 @@
 # 契约束 `board-object-authoring` — ① UI（签核面第 ① 件）
 
-> **自检：本文件引用 0 张截图，目录下实际 0 张。**
+> **自检：本文件引用 8 张截图，目录下实际 8 张。N == M == 8。**
 > 截图目录：`ui-preview/board-object-authoring/`。
 >
 > 本束已提供真实 Fabric.js 组件与 mock command adapter 原型，但不 claim、不实现正式产品路由。
-> Sticky/Text 编辑、连续创作、IME、Delete/Undo、Reaction 与 Link Preview 的状态截图仍须由
-> 主 session 从页面文件 `apps/web/app/preview/board-object-authoring/page.tsx` 对应的
-> `/preview/board-object-authoring?state=<状态>` 产出，所以本束必须保持
-> `pending`；S01 的已签核截图不能冒充本束新增界面。
+> Sticky/Text 编辑、连续创作、IME、Delete/Undo、Reaction 与 Link Preview 的 8 个状态
+> 已由主 session 从页面文件 `apps/web/app/preview/board-object-authoring/page.tsx` 对应的
+> `/preview/board-object-authoring?state=<状态>` 取材。截图材料已齐，但本束仍保持
+> `pending`，等待人类核对；S01 的已签核截图没有冒充本束新增界面。
 
 依据：`requirements/02-object-authoring.md` R1–R12、
 `requirements/05-collaboration-history.md` R3/R7，以及原始 PRD 第 6–11、37、47–49、57–58 节。
@@ -19,11 +19,11 @@
 |---|---|---|---|
 | 正式 Board | `/studio/board/:boardId` | 在已签核 Fabric surface 内完成对象创作；不新增第二画布 | 待实现 |
 | 一级工具 | Sticky、Text | 单击工具后点画布创建；`N`/`T` 直达；双击空白默认 Sticky | 待实现 |
-| inline editor | Sticky/Text 的 Fabric 对象上方受控文本编辑层 | 创建后立即聚焦、显示 caret、承接 IME/RTL/长文本；内容仍写 canonical text command | 原型已实现，待截图 |
-| contextual toolbar | 对象附近的高频浮动工具条 | Sticky 形状/颜色/字号/标签/链接/Reaction；Text 层级和文字样式 | 原型已实现，待截图 |
-| property panel | 右侧精确设置 | normal/free/auto-height、固定/自动尺寸、精确颜色和链接状态 | 原型已实现，待截图 |
+| inline editor | Sticky/Text 的 Fabric 对象上方受控文本编辑层 | 创建后立即聚焦、显示 caret、承接 IME/RTL/长文本；内容仍写 canonical text command | 原型与截图已齐，待人类核对 |
+| contextual toolbar | 对象附近的高频浮动工具条 | Sticky 形状/颜色/字号/标签/链接/Reaction；Text 层级和文字样式 | 原型与截图已齐，待人类核对 |
+| property panel | 右侧精确设置 | normal/free/auto-height、固定/自动尺寸、精确颜色和链接状态 | 原型与截图已齐，待人类核对 |
 | history feedback | 顶部 Undo/Redo 与短暂结果提示 | 删除、恢复、冲突、无可撤销动作；只有 canonical transaction 确认后才报成功 | 待实现 |
-| accessible mirror | S01 DOM 对象大纲与编辑入口 | 使用同一 object id/selection；可键盘进入编辑、删除、撤销并接收状态播报 | 待实现 |
+| accessible mirror | S01 DOM 对象大纲与编辑入口 | 使用同一 object id/selection；可键盘进入编辑、删除、撤销并接收状态播报 | 原型可浏览/选择，正式接线待实现 |
 
 所有 Sticky/Text 本体、选择与变换仍由 Fabric 投影。inline editor 可以是 React DOM 输入层，
 但它只承接编辑会话和可访问语义，不能保存第二份文本、几何、样式或历史。
@@ -91,20 +91,33 @@
 - 预览成功显示标题、描述、站点和安全缩略图；失败、超时、被策略阻止时保留普通链接并给重试/移除入口，
   不显示伪造的“已加载”卡片，也不把远端 HTML 注入 Board。
 
-## 四、必须出图的状态（当前均未产出）
+## 四、截图索引（8/8）
 
-1. default：空 Board 双击后 Sticky 立即聚焦。
-2. continuous：第一张及后续 10 张的横向/纵向 24px 连续序列。
-3. composing：中文/日文 IME composition 中的 inline editor 与 Tab 优先级。
-4. resize：normal、free、auto-height 三态及长文本。
-5. contextual：Sticky/Text 工具条、Reaction 菜单、Link Preview ready。
-6. link-failed：blocked/timeout/invalid URL 保留普通链接。
-7. readonly：Viewer 可读但创建、属性、Delete、Undo 写入口禁用。
-8. undo-conflict：无法安全恢复时明确提示，画布不闪回错误对象。
+全部 PNG 均由主 session 从真实组件取材，尺寸为 1280×800；原型页明确披露 mock command
+adapter 与未连接 Yjs/服务端的边界。
+
+| # | state | 文件 | 验收要点 |
+|---:|---|---|---|
+| 1 | default | `default.png` | Sticky inline editor 已聚焦；Fabric 对象、属性面板与 DOM mirror 同屏；移动端 editor 仍保持安全边距 |
+| 2 | continuous | `continuous.png` | 第一张加后续 10 张共 11 张完整可见；蛇形顺序相邻对象边缘间距均为 24 world-space px，未进入右侧属性面板下方 |
+| 3 | composing | `composing.png` | 中文 IME 候选与“Tab 暂交给输入法”反馈可见；composition 中不声明半成品已提交 |
+| 4 | resize | `resize.png` | normal、free、auto-height 三种尺寸同时可辨；长文本对象完整显示 |
+| 5 | contextual | `contextual.png` | 选中 Text 时显示 Text 工具条与文字属性；选择、属性和 mirror 共用同一 object id |
+| 6 | link-failed | `link-failed.png` | blocked 状态保留原始安全链接，明确没有加载远端内容，并提供可控重试入口 |
+| 7 | readonly | `readonly.png` | Viewer 仍可浏览 Fabric 与 DOM mirror；创建、属性修改和 Undo 写入口禁用，安全链接仍可打开 |
+| 8 | undo-conflict | `undo-conflict.png` | 明确说明他人后续编辑导致无法安全撤销；画布保持当前对象，没有假成功或错误闪回 |
+
+### 主 session 真实浏览器验收摘要
+
+- 覆盖 8 个 state × 375 / 768 / 1280 三档 viewport，共 24/24 组合通过。
+- 每个组合均验证 `document.scrollWidth <= innerWidth`、Fabric Canvas 存在非透明绘制像素，且 DOM mirror 至少包含一个对象。
+- 375×800 的 default 状态额外核对 inline editor 完整位于 viewport 内，紧凑 `Board` 标题与场景选择器互不遮挡。
+- 1280×800 的 continuous 状态额外核对 11 个对象全部位于右侧属性面板之前，连续路径每一步边缘间距精确 24px。
+- 这些证据证明原型在目标视口的材料完整性；它们不证明正式 Yjs、权限、服务端 Link Preview 或协作 Undo 已完成。
 
 ## 五、签核边界
 
-- 当前 0 张截图，因此 ① UI **材料不足，不能确认**。
+- 当前 8 张截图已齐，① UI 已具备人类核对材料；只有人类可以确认，本文件不代签。
 - S01 已确认的画布层级与工具位置继续成立；本束只扩展对象创作状态，不重新打开 S01 renderer 决策。
 - 出图必须来自真实组件 + mock command adapter，并清楚标识哪些行为仍未接 Yjs/服务端；静态设计稿不能替代。
 - 人类确认视觉与状态后，才可把本束 `design-signoff.md` 改为 `confirmed`；确认 UI 不等于 BV04–BV06 完成。
