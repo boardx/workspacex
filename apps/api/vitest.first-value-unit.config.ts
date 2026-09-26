@@ -11,6 +11,8 @@ export default defineConfig({
       "tests/first-value/first-value-repo-guard.test.ts",
       "tests/first-value/persist-assistant-citations.test.ts",
       "tests/agent-run/standard-cite.test.ts",
+      // #4260：deep-agent 替身引用闭环剧本的线格式（无库，vm 驱动替身 handler）。
+      "tests/agent-run/loopback-cite-scenario.test.ts",
       "tests/chat/get-thread-citations.test.ts",
       "tests/telemetry/run-telemetry-cycle.test.ts",
       "tests/telemetry/telemetry-no-content-tables.test.ts",
