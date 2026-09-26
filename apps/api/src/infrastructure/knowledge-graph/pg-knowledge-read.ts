@@ -310,19 +310,30 @@ export class PgKnowledgeRead implements KnowledgeReadPort {
    * `scope_kind = 'chat_session' AND scope_id = $2` 还额外保证了即使跳过这层
    * 也只会看见挂在**这个**会话下的结论，不会读到别的会话的结论内容——两层防御，同
    * `claimSources`/`turnMemory` 对「消息必须先查得到才有下文」的既有纪律。
+   *
+   * issue #4271 —— `messageId` 也可以是**请求者自己**发的那条人类消息的 `client_message_id`。
+   * 本会话刚发出去的用户消息在前端只有视图 id（= 发送时带上的 `clientMessageId`）：身份索引
+   * （`copilotkit-v2-message-identity.ts`）只把 assistant 的流式 id 映射到落库 id，从不映射
+   * 人类消息，于是反馈条拿着 `clientMessageId` 来问，旧查询按 `cm.id` 精确相等永远查不到，
+   * 反馈条恒不出现（真浏览器复现，round 3）。别名只认 `author_kind = 'human' AND author_id = 请求者`：
+   * 别人的 `clientMessageId` 解析不出任何消息，不扩大可见面。
    */
   async messageExtraction(orgId: OrgId, userId: string, thread: KnowledgeThreadRef, messageId: string): Promise<Guarded<MessageExtractionData>> {
     const data = await this.inTenant(orgId, userId, async (s): Promise<MessageExtractionData> => {
       // 不用 DISTINCT：join 键 (claim_id, message_id, stance) 恰是 claim_message_evidence 的主键，
       // 一条 claim 对同一条消息、同一个 stance 至多一行证据，天然不会重复。
       const r = await s.query<{ id: string; statement: string }>(
-        `SELECT c.id, c.statement FROM claims c
+        `WITH msg AS (
+           SELECT cm.id FROM chat_messages cm
+            WHERE cm.org_id = $1 AND cm.thread_id = $2
+              AND (cm.id = $3 OR (cm.author_kind = 'human' AND cm.author_id = $4 AND cm.client_message_id::text = $3))
+         )
+         SELECT c.id, c.statement FROM claims c
            JOIN claim_message_evidence m ON m.claim_id = c.id AND m.org_id = c.org_id
           WHERE c.org_id = $1 AND c.scope_kind = 'chat_session' AND c.scope_id = $2 AND ${LIVE_CLAIM}
-            AND m.stance = 'supporting' AND m.message_id = $3
-            AND EXISTS (SELECT 1 FROM chat_messages cm WHERE cm.org_id = $1 AND cm.thread_id = $2 AND cm.id = $3)
+            AND m.stance = 'supporting' AND m.message_id IN (SELECT id FROM msg)
           ORDER BY c.created_at, c.id`,
-        [orgId, thread.threadId, messageId],
+        [orgId, thread.threadId, messageId, userId],
       );
       return { claims: r.rows.map((x) => ({ claimId: x.id, statement: x.statement })) };
     });
@@ -561,7 +572,7 @@ async function rememberedCard(
 
 type RecalledMemory = TurnMemoryData["recalled"][number];
 interface StoredRecallItem {
-  claimId: string; channels: string[]; retrievalReasons: string[]; score: number;
+  claimId: string; channels: string[]; retrievalReasons: string[]; score: number | null;
   graphPath: { src: string; relation: string; dst: string }[] | null;
 }
 
@@ -633,7 +644,8 @@ async function readTurnRecall(
       saidAt: c.said_at?.toISOString() ?? null,
       channels: item.channels.filter((x): x is RecalledMemory["channels"][number] => CP.RetrievalChannel.safeParse(x).success),
       retrievalReasons: item.retrievalReasons.filter((x): x is RecalledMemory["retrievalReasons"][number] => CP.FilterAction.safeParse(x).success),
-      score: item.score,
+      // issue #4271：修复前决定类强制召回写进库的是 Infinity → jsonb null；读出来按「没打分」给 0，守住契约。
+      score: typeof item.score === "number" && Number.isFinite(item.score) ? item.score : 0,
       graphPath,
     });
   }
