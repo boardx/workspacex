@@ -9,7 +9,8 @@
  *   - A 开新会话 C1 说「开始写报告吧」：只召回 985，不召回 211（**去掉修复这一条会失败**：两条都被强制召回）；
  *   - A 在 B1 点「撤销」（applyHumanAction{undoSupersede}）：211 恢复为生效、985 仍在；提示读作 undone；
  *     再开新会话 C2：两条都召回；抽取任务重试不会再次取代（同一条新决定只取代一次）。
- *   - 反证：并列补充（「也关注 985 高校」）不取代；项目会话里别人的改口不取代我的决定（只作用于同一作者）。
+ *   - 反证：并列补充（「也关注 985 高校」）不取代；项目会话里别人的改口不取代我的决定（只作用于同一作者）——
+ *     绕过领域判定、直接调 kg_apply_supersedes 塞一对不同作者的，数据库复核自己也拒绝。
  */
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { knowledgeGraph as KG } from "@repo/contracts";
@@ -221,6 +222,19 @@ describe("issue #4290: 本人明确改口 ⇒ 新决定取代旧决定（可撤�
     await settle();
     const { claim: mine } = await claimIn(a, SHARED, SHARED_OLD);
     expect(await claimRow(mine.id)).toMatchObject({ revoked: false });
+    // 数据库复核自己就挡得住：绕过领域判定，直接让 kg_apply_supersedes 用 B 的改口取代 A 的决定 ⇒ 0 张提示、A 的仍生效
+    const { claim: theirs } = await claimIn(a, SHARED, SHARED_NEW);
+    const forced = await new PgKgConflict(e.db).applySupersedes(toOrgId(ORG), {
+      actionId: newKgId("act"), threadId: SHARED, messageId: "m-i4290-s2",
+      supersedes: [{ newer: theirs.id, olders: [mine.id] }],
+    });
+    expect(forced).toBe(0);
+    const kept = await claimRow(mine.id);
+    expect(kept).toMatchObject({ revoked: false, revocation_reason: null });
+    expect(kept.status).not.toBe("superseded");
+    const forcedNotices = await asOwner(async (c) => (await c.query(
+      "SELECT id FROM kg_supersede_notices WHERE org_id = $1 AND newer_claim_id = $2", [ORG, theirs.id])).rows);
+    expect(forcedNotices).toEqual([]);
     // 同一句改口由 A 自己说 ⇒ 取代（同一作者，本会话里的旧条；supersedes 指向本会话那条）
     await addChatMessage({ orgId: ORG, id: "m-i4290-s3", threadId: SHARED, body: `还是${SHARED_NEW}吧。`, authorId: USER_A });
     await settle();

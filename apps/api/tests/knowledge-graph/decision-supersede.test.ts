@@ -80,6 +80,55 @@ describe("supersedeMatch：单对判定", () => {
   });
 });
 
+describe("独立评审第 8 轮：只认真正的改口句式（宁可漏，不可误）", () => {
+  it.each([
+    "我不再犹豫了，决定关注211",     // 「不再」没支配框架动词
+    "决定关注985，不用再讨论了",     // 「不用再…了」是「不需要」
+    "决定关注985，不过这事不急了",   // 「不急了」不是改口
+  ])("「不再 / 不…了」不支配框架动词 ⇒ 不是改口：%s", (s) => expect(hasChangeSignal(s)).toBe(false));
+  it.each(["不用 Vue 了，用 React", "不再用 Vue"])("「不用 X 了」「不再用 X」仍是改口：%s", (s) => expect(hasChangeSignal(s)).toBe(true));
+
+  it.each([
+    ["我决定关注985高校", "我不再犹豫了，决定关注211"],
+    ["决定关注211高校", "决定关注985，不用再讨论了"],
+    ["决定关注211高校", "决定关注985，不过这事不急了"],
+  ])("改口信号误报：%s → %s 不取代", (o, n) => expect(supersedeMatch(fresh(n), old(o))).toBeNull());
+
+  it.each([
+    ["决定做测试", "上线日期改成周五，先测试"],
+    ["决定用AI", "周会改成周五开，汇报AI进展"],
+    ["决定用Go", "改成去Google面试"],
+    ["决定用Go", "把Google换成Bing"],
+    ["决定用Go", "mongo换成pg"],
+  ])("旧对象只是碰巧出现在新句里（没连在改口句式上 / 不在词边界）：%s → %s 不取代", (o, n) =>
+    expect(supersedeMatch(fresh(n), old(o))).toBeNull());
+
+  it("重申旧决定（「不再用Vue了，改用React做前端」对「决定用React做前端」）→ 不取代", () => {
+    expect(supersedeMatch(fresh("不再用Vue了，改用React做前端"), old("决定用React做前端"))).toBeNull();
+  });
+  it("重说同一个对象（「改成关注985高校」对「关注985高校」）→ 不取代", () => {
+    expect(supersedeMatch(fresh("改成关注985高校"), old("关注985高校"))).toBeNull();
+  });
+  it("旧对象连在改口句式上 → explicit（ASCII 按词边界）", () => {
+    expect(supersedeMatch(fresh("把 Go 换成 Rust"), old("决定用Go"))).toBe("explicit");
+    expect(supersedeMatch(fresh("不再用 Vue 了，改用 React"), old("决定用 Vue"))).toBe("explicit");
+    expect(supersedeMatch(fresh("Go 算了，换成 Rust"), old("决定用Go"))).toBe("explicit");
+  });
+
+  it.each([
+    ["决定降低费用", null],
+    ["决定优化用户体验", null],
+    ["决定改进做法", null],
+    ["决定精简选项", null],
+  ])("单字框架动词在词里（费用 / 用户 / 做法 / 选项）不算框架：%s", (s, verb) => expect(decisionFrame(s).verb).toBe(verb));
+  it.each([
+    ["决定用 Vue", "改成优化用户体验"],
+    ["决定用 Go", "改成降低费用"],
+    ["决定做 A 方案", "改成换一种做法"],
+    ["决定选 A", "改成精简选项"],
+  ])("词里的单字动词不会凑出同框架：%s → %s 不取代", (o, n) => expect(supersedeMatch(fresh(n), old(o))).toBeNull());
+});
+
 describe("findSupersedes：一条新决定取代哪几条", () => {
   it("唯一的一条旧决定 → 取代它", () => {
     expect(findSupersedes([fresh("改成关注 985 高校")], [OLD_211])).toEqual([{ newerClaimId: "clm-new", olderClaimId: "clm-old" }]);
