@@ -168,7 +168,10 @@ services:
       - ALL
     security_opt:
       - no-new-privileges:true
-      - seccomp=../skill-sandbox/security/docker-seccomp.json
+      # ⚠ #4263：compose 不把 security_opt 当路径，不做 include 重定基——相对路径按**顶层项目
+      #   目录**解析。deploy.sh 直接 -f 本文件（项目目录 = apps/api），缺省值照旧成立；经根
+      #   compose.yaml include 时项目目录是仓库根，缺省值会指到仓库外，所以 upgrade.sh 导出绝对路径。
+      - seccomp=${WSX_SANDBOX_SECCOMP_PROFILE:-../skill-sandbox/security/docker-seccomp.json}
       - apparmor=workspacex-native-sessions
     tmpfs:
       - /tmp:rw,noexec,nosuid,size=256m,mode=1777

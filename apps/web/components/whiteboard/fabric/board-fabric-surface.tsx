@@ -7,6 +7,7 @@ import {
   clampBoardZoom,
   type BoardFabricGeometry,
   type BoardFabricObject,
+  type BoardFabricStickyAppearance,
   type BoardFabricTool,
   type BoardSelectionSource,
   type BoardViewport,
@@ -14,7 +15,7 @@ import {
 } from "./board-fabric-object";
 
 type TaggedFabricObject = FabricObject & {
-  data?: { boardObjectId?: string; adapterKind?: BoardFabricObject["kind"]; renderedRevision?: number; projectionFailure?: boolean };
+  data?: { boardObjectId?: string; adapterKind?: BoardFabricObject["kind"]; renderedRevision?: number; projectionFailure?: boolean; stickyVariant?: BoardFabricStickyAppearance["variant"]; sizingMode?: BoardFabricStickyAppearance["sizingMode"] };
 };
 
 export interface BoardFabricSurfaceProps {
@@ -29,18 +30,54 @@ export interface BoardFabricSurfaceProps {
   /** Returns whether the canonical command accepted the gesture. Rejection restores the projection. */
   onObjectTransform: (objectId: string, geometry: BoardFabricGeometry) => boolean | Promise<boolean>;
   onViewportChange: (viewport: BoardViewport, source: BoardViewportSource) => void;
+  onCanvasClick?: (point: { x: number; y: number }) => void;
+  onCanvasDoubleClick?: (point: { x: number; y: number }) => void;
+  onObjectDoubleClick?: (objectId: string) => void;
+  onToolDrop?: (point: { x: number; y: number }, payload: string) => void;
   className?: string;
 }
 
+function textOptionsFor(object: BoardFabricObject, defaults: { fontSize: number; alignment: "left" | "center" | "right" }) {
+  const linked = Boolean(object.style.link);
+  return {
+    fontFamily: object.style.fontFamily ?? "Noto Sans SC, sans-serif",
+    fontSize: object.style.fontSize ?? defaults.fontSize,
+    fontWeight: object.style.bold ? 700 : 400,
+    fontStyle: object.style.italic ? "italic" as const : "normal" as const,
+    underline: Boolean(object.style.underline || linked),
+    textAlign: object.style.alignment ?? defaults.alignment,
+    lineHeight: object.style.lineHeight ?? 1.3,
+    fill: object.style.textColor,
+    hoverCursor: linked ? "pointer" : "text",
+  };
+}
+
+function applyResizePolicy(projected: TaggedFabricObject, object: BoardFabricObject): void {
+  const sticky = object.kind === "sticky" ? object.sticky : undefined;
+  const autoSize = sticky?.sizingMode === "auto-size";
+  const autoHeight = sticky?.sizingMode === "auto-height";
+  const proportional = sticky?.variant === "square" || sticky?.variant === "circle";
+  projected.set({ lockScalingX: autoSize, lockScalingY: autoSize, hoverCursor: object.style.link ? "pointer" : "move" });
+  projected.setControlsVisibility({
+    mtr: true,
+    ml: !autoSize && !proportional,
+    mr: !autoSize && !proportional,
+    mt: !autoSize && !autoHeight && !proportional,
+    mb: !autoSize && !autoHeight && !proportional,
+    tl: !autoSize && !autoHeight,
+    tr: !autoSize && !autoHeight,
+    bl: !autoSize && !autoHeight,
+    br: !autoSize && !autoHeight,
+  });
+}
+
 function createFabricObject(object: BoardFabricObject): TaggedFabricObject {
+  const richText = textOptionsFor(object, { fontSize: 20, alignment: "center" });
   const textOptions = {
     width: Math.max(24, object.geometry.width - 32),
-    fontFamily: "Noto Sans SC, sans-serif",
-    fontSize: object.style.fontSize ?? 20,
-    fill: object.style.textColor,
+    ...richText,
     originX: "center" as const,
     originY: "center" as const,
-    textAlign: "center" as const,
   };
   let projected: FabricObject;
   if (object.kind === "placeholder") {
@@ -51,18 +88,22 @@ function createFabricObject(object: BoardFabricObject): TaggedFabricObject {
   } else if (object.kind === "text") {
     projected = new Textbox(object.content.text, {
       width: object.geometry.width,
-      fontFamily: textOptions.fontFamily,
-      fontSize: object.style.fontSize ?? 24,
-      fill: object.style.textColor,
+      ...textOptionsFor(object, { fontSize: 24, alignment: "left" }),
     });
   } else if (object.kind === "ellipse") {
     projected = new Group([
       new Circle({ radius: 50, scaleX: object.geometry.width / 100, scaleY: object.geometry.height / 100, fill: object.style.fill, stroke: object.style.stroke, strokeWidth: object.style.strokeWidth ?? 0, originX: "center", originY: "center" }),
       new Textbox(object.content.text, textOptions),
     ]);
-  } else {
+  } else if (object.kind === "sticky" && object.sticky?.variant === "circle") {
     projected = new Group([
-      new Rect({ width: object.geometry.width, height: object.geometry.height, rx: object.kind === "sticky" ? 6 : 12, ry: object.kind === "sticky" ? 6 : 12, fill: object.style.fill, stroke: object.style.stroke, strokeWidth: object.style.strokeWidth ?? 0, originX: "center", originY: "center" }),
+      new Circle({ radius: Math.min(object.geometry.width, object.geometry.height) / 2, fill: object.style.fill, stroke: object.style.stroke, strokeWidth: object.style.strokeWidth ?? 0, originX: "center", originY: "center" }),
+      new Textbox(object.content.text, { ...textOptions, width: Math.max(24, Math.min(object.geometry.width, object.geometry.height) - 40) }),
+    ]);
+  } else {
+    const cornerRadius = object.kind === "sticky" ? 6 : 12;
+    projected = new Group([
+      new Rect({ width: object.geometry.width, height: object.geometry.height, rx: cornerRadius, ry: cornerRadius, fill: object.style.fill, stroke: object.style.stroke, strokeWidth: object.style.strokeWidth ?? 0, originX: "center", originY: "center" }),
       new Textbox(object.content.text, textOptions),
     ]);
   }
@@ -70,22 +111,23 @@ function createFabricObject(object: BoardFabricObject): TaggedFabricObject {
     left: object.geometry.x,
     top: object.geometry.y,
     angle: object.geometry.rotation,
-    data: { boardObjectId: object.id, adapterKind: object.kind, renderedRevision: object.revision },
+    data: { boardObjectId: object.id, adapterKind: object.kind, renderedRevision: object.revision, stickyVariant: object.sticky?.variant, sizingMode: object.sticky?.sizingMode },
     selectable: !object.locked && object.kind !== "placeholder",
     evented: !object.locked && object.kind !== "placeholder",
   });
-  projected.setControlsVisibility({ mtr: true });
+  applyResizePolicy(projected, object);
   projected.setCoords();
   return projected;
 }
 
 function applyCanonicalObject(projected: TaggedFabricObject, object: BoardFabricObject, readOnly: boolean): void {
+  const richText = textOptionsFor(object, { fontSize: object.kind === "text" ? 24 : 20, alignment: object.kind === "text" ? "left" : "center" });
   if (object.kind === "text") {
-    projected.set({ text: object.content.text, fill: object.style.textColor, fontSize: object.style.fontSize ?? 24 });
+    projected.set({ text: object.content.text, ...richText });
   } else if ("getObjects" in projected && typeof projected.getObjects === "function") {
     const [shape, label] = projected.getObjects();
     shape?.set({ fill: object.style.fill, stroke: object.style.stroke, strokeWidth: object.style.strokeWidth ?? 0 });
-    label?.set({ text: object.content.text, fill: object.style.textColor, fontSize: object.style.fontSize ?? 20 });
+    label?.set({ text: object.content.text, ...richText });
   }
   const naturalWidth = projected.width || object.geometry.width;
   const naturalHeight = projected.height || object.geometry.height;
@@ -97,8 +139,9 @@ function applyCanonicalObject(projected: TaggedFabricObject, object: BoardFabric
     scaleY: object.geometry.height / naturalHeight,
     selectable: !readOnly && !object.locked && object.kind !== "placeholder",
     evented: !readOnly && !object.locked && object.kind !== "placeholder",
-    data: { boardObjectId: object.id, adapterKind: object.kind, renderedRevision: object.revision },
+    data: { boardObjectId: object.id, adapterKind: object.kind, renderedRevision: object.revision, stickyVariant: object.sticky?.variant, sizingMode: object.sticky?.sizingMode },
   });
+  applyResizePolicy(projected, object);
   projected.setCoords();
 }
 
@@ -128,17 +171,31 @@ function createProjectionEntry(object: BoardFabricObject, readOnly: boolean): { 
   }
 }
 
-function geometryFromFabric(projected: TaggedFabricObject): BoardFabricGeometry {
-  return {
+function geometryFromFabric(projected: TaggedFabricObject, canonical?: BoardFabricObject): BoardFabricGeometry {
+  const geometry = {
     x: Math.round(projected.left),
     y: Math.round(projected.top),
     width: Math.max(1, Math.round((projected.width || 1) * projected.scaleX)),
     height: Math.max(1, Math.round((projected.height || 1) * projected.scaleY)),
     rotation: Math.round(projected.angle ?? 0),
   };
+  if (canonical?.kind === "sticky") {
+    if (canonical.sticky?.sizingMode === "auto-size") {
+      geometry.width = canonical.geometry.width;
+      geometry.height = canonical.geometry.height;
+    } else if (canonical.sticky?.sizingMode === "auto-height") {
+      geometry.height = canonical.geometry.height;
+    }
+    if (canonical.sticky?.variant === "square" || canonical.sticky?.variant === "circle") {
+      const side = Math.max(geometry.width, geometry.height);
+      geometry.width = side;
+      geometry.height = side;
+    }
+  }
+  return geometry;
 }
 
-export function BoardFabricSurface({ objects, selectedObjectIds, readOnly, tool, viewport, onSelectionChange, onObjectTransform, onViewportChange, className }: BoardFabricSurfaceProps) {
+export function BoardFabricSurface({ objects, selectedObjectIds, readOnly, tool, viewport, onSelectionChange, onObjectTransform, onViewportChange, onCanvasClick, onCanvasDoubleClick, onObjectDoubleClick, onToolDrop, className }: BoardFabricSurfaceProps) {
   const hostRef = React.useRef<HTMLDivElement>(null);
   const canvasElementRef = React.useRef<HTMLCanvasElement>(null);
   const canvasRef = React.useRef<Canvas | null>(null);
@@ -148,9 +205,9 @@ export function BoardFabricSurface({ objects, selectedObjectIds, readOnly, tool,
   const [renderedObjects, setRenderedObjects] = React.useState<readonly BoardFabricObject[]>(objects);
   const selectedObjectIdsRef = React.useRef(selectedObjectIds);
   const renderFrameRef = React.useRef<number | null>(null);
-  const callbacksRef = React.useRef({ onSelectionChange, onObjectTransform, onViewportChange });
+  const callbacksRef = React.useRef({ onSelectionChange, onObjectTransform, onViewportChange, onCanvasClick, onCanvasDoubleClick, onObjectDoubleClick, onToolDrop });
   const stateRef = React.useRef({ readOnly, tool, viewport });
-  callbacksRef.current = { onSelectionChange, onObjectTransform, onViewportChange };
+  callbacksRef.current = { onSelectionChange, onObjectTransform, onViewportChange, onCanvasClick, onCanvasDoubleClick, onObjectDoubleClick, onToolDrop };
   stateRef.current = { readOnly, tool, viewport };
   selectedObjectIdsRef.current = selectedObjectIds;
   const scheduleRender = React.useCallback(() => {
@@ -204,7 +261,7 @@ export function BoardFabricSurface({ objects, selectedObjectIds, readOnly, tool,
         canvas.requestRenderAll();
       };
       try {
-        const accepted = callbacksRef.current.onObjectTransform(id, geometryFromFabric(target));
+        const accepted = callbacksRef.current.onObjectTransform(id, geometryFromFabric(target, canonical));
         if (typeof accepted === "boolean") {
           if (!accepted) restoreCanonicalGeometry();
           return;
@@ -219,10 +276,23 @@ export function BoardFabricSurface({ objects, selectedObjectIds, readOnly, tool,
     let panning = false;
     let last = { x: 0, y: 0 };
     const pointerDown = (event: TPointerEventInfo) => {
+      if (stateRef.current.tool === "select" && !event.target) {
+        const pointer = canvas.getScenePoint(event.e);
+        callbacksRef.current.onCanvasClick?.({ x: pointer.x, y: pointer.y });
+      }
       if (stateRef.current.tool !== "hand") return;
       const pointer = event.e as MouseEvent;
       panning = true;
       last = { x: pointer.clientX, y: pointer.clientY };
+    };
+    const doubleClick = (event: TPointerEventInfo) => {
+      const target = event.target as TaggedFabricObject | undefined;
+      const id = target?.data?.boardObjectId;
+      if (id) callbacksRef.current.onObjectDoubleClick?.(id);
+      else {
+        const pointer = canvas.getScenePoint(event.e);
+        callbacksRef.current.onCanvasDoubleClick?.({ x: pointer.x, y: pointer.y });
+      }
     };
     const pointerMove = (event: TPointerEventInfo) => {
       if (!panning) return;
@@ -255,6 +325,7 @@ export function BoardFabricSurface({ objects, selectedObjectIds, readOnly, tool,
     canvas.on("mouse:move", pointerMove);
     canvas.on("mouse:up", pointerUp);
     canvas.on("mouse:wheel", wheel);
+    canvas.on("mouse:dblclick", doubleClick);
     return () => {
       resizeObserver.disconnect();
       canvas.dispose();
@@ -283,7 +354,8 @@ export function BoardFabricSurface({ objects, selectedObjectIds, readOnly, tool,
       const current = registryRef.current.get(object.id);
       const failedAtThisRevision = current?.data?.projectionFailure === true && current.data.renderedRevision === object.revision;
       let rendered = failedAtThisRevision ? renderedRef.current.get(object.id) ?? projectionFailureObject(object) : object;
-      if (!current || (!failedAtThisRevision && current.data?.adapterKind !== object.kind)) {
+      const stickyShapeChanged = current?.data?.stickyVariant !== object.sticky?.variant;
+      if (!current || (!failedAtThisRevision && (current.data?.adapterKind !== object.kind || stickyShapeChanged))) {
         if (current) canvas.remove(current);
         const entry = createProjectionEntry(object, readOnly);
         rendered = entry.rendered;
@@ -374,7 +446,15 @@ export function BoardFabricSurface({ objects, selectedObjectIds, readOnly, tool,
 
   const selectFromOutline = React.useCallback((objectId: string) => onSelectionChange([objectId], "outline"), [onSelectionChange]);
   return (
-    <div ref={hostRef} className={className ?? "relative h-full w-full overflow-hidden bg-muted/30"} data-testid="board-fabric-surface">
+    <div ref={hostRef} className={className ?? "relative h-full w-full overflow-hidden bg-muted/30"} data-testid="board-fabric-surface"
+      onDragOver={(event) => { if (event.dataTransfer.types.includes("application/x-workspacex-board-tool")) { event.preventDefault(); event.dataTransfer.dropEffect = "copy"; } }}
+      onDrop={(event) => {
+        const payload = event.dataTransfer.getData("application/x-workspacex-board-tool");
+        if (!payload || readOnly) return;
+        event.preventDefault();
+        const bounds = event.currentTarget.getBoundingClientRect();
+        callbacksRef.current.onToolDrop?.({ x: (event.clientX - bounds.left - viewport.panX) / viewport.zoom, y: (event.clientY - bounds.top - viewport.panY) / viewport.zoom }, payload);
+      }}>
       <canvas ref={canvasElementRef} data-testid="board-fabric-canvas" aria-label="Fabric.js 白板画布" />
       <BoardA11yMirror objects={renderedObjects} selectedObjectIds={selectedObjectIds} onSelect={selectFromOutline} readOnly={readOnly} />
     </div>

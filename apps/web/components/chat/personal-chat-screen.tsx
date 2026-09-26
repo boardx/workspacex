@@ -7,6 +7,7 @@ import { ChevronLeft, MessageSquare, RefreshCw } from "lucide-react";
 import { ChatArtifactsPanel } from "@/components/chat/chat-artifacts-panel";
 import { ChatMaterialsPanel } from "@/components/chat/chat-materials-panel";
 import { ChatLiveMessagePanel } from "@/components/chat/chat-live-message-panel";
+import { ThreadCitationsProvider } from "@/components/chat/message-citations";
 import { useChatAttachments, type ChatAttachmentsController } from "@/components/chat/chat-composer-attachments";
 import { ChatSkillMountPanel } from "@/components/chat/chat-skill-mount-panel";
 import { ChatPopoverCoordinatorProvider } from "@/components/chat/chat-popover-coordinator";
@@ -604,6 +605,7 @@ function PersonalThreadDetail({
       */}
       <ChatPopoverCoordinatorProvider>
         {bearer ? (
+          <ThreadCitationsProvider messages={detail.messages}>
           <ChatLiveMessagePanel
             threadId={detail.thread.id}
             knownEmpty={knownEmpty}
@@ -631,6 +633,7 @@ function PersonalThreadDetail({
             onMessageSent={onMessageSent}
             hasMountedSkills={mountedSkillCount > 0}
           />
+          </ThreadCitationsProvider>
         ) : <CenteredState>登录已失效，无法读取或发送消息。</CenteredState>}
         {/*
           人类裁决（2026-08-21，原话）：「个人对话必须要可以使用公共的 skills」
