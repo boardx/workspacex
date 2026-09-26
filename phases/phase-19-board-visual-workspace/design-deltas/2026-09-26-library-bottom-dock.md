@@ -81,8 +81,9 @@ flowchart TD
     R --> L["P0 浏览页可达性<br/>新建、重命名、独立管理菜单"]
     R --> S["P0 共享编辑器壳<br/>全屏返回 + 底部 dock"]
     R --> X["删除生命周期契约<br/>归档与真正删除分开"]
-    S --> A["Sticky：BV04–06"]
-    S --> B["Shape：BV08"]
+    S --> A0["Sticky 基础：BV04"]
+    A0 --> A["Sticky 编辑与属性：BV05–06"]
+    A0 --> B["Shape：BV08"]
     S --> C["Draw：BV09"]
     S --> P["Panel 前置 BV11<br/>或先审 Connector 解耦设计"]
     P --> E["Connector：BV13"]
@@ -99,7 +100,7 @@ flowchart TD
     classDef pending fill:#ffedd5,stroke:#ea580c,color:#7c2d12
     classDef backlog fill:#f1f5f9,stroke:#94a3b8,color:#334155
     class D,R,X pending
-    class L,S,A,B,C,P,E,T,F,N,Q,Z backlog
+    class L,S,A0,A,B,C,P,E,T,F,N,Q,Z backlog
 ```
 
 并行边界：浏览页组件可与独立工具模块并行；先由一个 owner 交付 dock/selection/command 接口，再让不同 owner 扩展工具模块。同一 `collaborative-editor`、Fabric surface 或共享 E2E 文件不可同时修改；按依赖整合，不把四工具全部塞进一个 PR。每 feature 一个 issue/PR，全部提交后主 session 集中验收；不得以合并授权推定设计签核，也不得以设计签核推定合并授权。
