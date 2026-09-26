@@ -1,4 +1,4 @@
-import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, createEvent, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { BoardFabricObject, BoardViewport } from "@/components/whiteboard/fabric/board-fabric-object";
 
@@ -11,7 +11,7 @@ interface MockProjectedObject {
 const probe = vi.hoisted(() => ({
   instances: 0,
   objects: [] as MockProjectedObject[],
-  handlers: new Map<string, (event: { target?: MockProjectedObject }) => void>(),
+  handlers: new Map<string, (event: { target?: MockProjectedObject; e?: MouseEvent }) => void>(),
   activeId: null as string | null,
   zoom: 1,
   clearCalls: 0,
@@ -47,6 +47,7 @@ vi.mock("fabric", () => {
     setViewportTransform(value: number[]) { this.viewportTransform = value; probe.zoom = value[0] ?? 1; }
     getWidth() { return 1200; } getHeight() { return 800; } getZoom() { return probe.zoom; }
     zoomToPoint(_point: unknown, value: number) { probe.zoom = value; }
+    getScenePoint() { return { x: 123, y: 234 }; }
     setActiveObject(object: MockProjectedObject) { probe.activeId = object.data?.boardObjectId ?? null; }
     discardActiveObject() { probe.activeId = null; }
     getActiveObject() { return probe.objects.find((object) => object.data?.boardObjectId === probe.activeId); }
@@ -80,6 +81,30 @@ describe("BoardFabricSurface", () => {
     expect(probe.objects.map((object) => object.data?.boardObjectId)).toEqual(["s-1", "r-1"]);
     expect(container.querySelector('[data-testid^="whiteboard-object-"]')).toBeNull();
     expect(probe.clearCalls).toBe(0);
+  });
+
+  it("converts a dragged dock tool drop into world coordinates without creating renderer-owned state", () => {
+    const onToolDrop = vi.fn();
+    renderSurface({ viewport: { ...VIEWPORT, zoom: 2, panX: 10, panY: 20 }, onToolDrop });
+    const payload = JSON.stringify({ kind: "sticky", variant: "circle" });
+    const event = createEvent.drop(screen.getByTestId("board-fabric-surface"));
+    Object.defineProperties(event, {
+      clientX: { value: 210 }, clientY: { value: 220 },
+      dataTransfer: { value: { getData: (type: string) => type === "application/x-workspacex-board-tool" ? payload : "", types: ["application/x-workspacex-board-tool"] } },
+    });
+    fireEvent(screen.getByTestId("board-fabric-surface"), event);
+    expect(onToolDrop).toHaveBeenCalledWith({ x: 100, y: 100 }, payload);
+    expect(probe.objects.map((object) => object.data?.boardObjectId)).toEqual(["s-1", "r-1"]);
+  });
+
+  it("separates Fabric object double-click editing from blank-canvas quick creation", () => {
+    const onObjectDoubleClick = vi.fn(), onCanvasDoubleClick = vi.fn();
+    renderSurface({ onObjectDoubleClick, onCanvasDoubleClick });
+    probe.handlers.get("mouse:dblclick")?.({ target: probe.objects[0], e: new MouseEvent("dblclick") });
+    expect(onObjectDoubleClick).toHaveBeenCalledWith("s-1");
+    expect(onCanvasDoubleClick).not.toHaveBeenCalled();
+    probe.handlers.get("mouse:dblclick")?.({ e: new MouseEvent("dblclick") });
+    expect(onCanvasDoubleClick).toHaveBeenCalledWith({ x: 123, y: 234 });
   });
 
   it("shares controlled selection with the accessible mirror", () => {

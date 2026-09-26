@@ -29,6 +29,10 @@ export interface BoardFabricSurfaceProps {
   /** Returns whether the canonical command accepted the gesture. Rejection restores the projection. */
   onObjectTransform: (objectId: string, geometry: BoardFabricGeometry) => boolean | Promise<boolean>;
   onViewportChange: (viewport: BoardViewport, source: BoardViewportSource) => void;
+  onCanvasClick?: (point: { x: number; y: number }) => void;
+  onCanvasDoubleClick?: (point: { x: number; y: number }) => void;
+  onObjectDoubleClick?: (objectId: string) => void;
+  onToolDrop?: (point: { x: number; y: number }, payload: string) => void;
   className?: string;
 }
 
@@ -138,7 +142,7 @@ function geometryFromFabric(projected: TaggedFabricObject): BoardFabricGeometry 
   };
 }
 
-export function BoardFabricSurface({ objects, selectedObjectIds, readOnly, tool, viewport, onSelectionChange, onObjectTransform, onViewportChange, className }: BoardFabricSurfaceProps) {
+export function BoardFabricSurface({ objects, selectedObjectIds, readOnly, tool, viewport, onSelectionChange, onObjectTransform, onViewportChange, onCanvasClick, onCanvasDoubleClick, onObjectDoubleClick, onToolDrop, className }: BoardFabricSurfaceProps) {
   const hostRef = React.useRef<HTMLDivElement>(null);
   const canvasElementRef = React.useRef<HTMLCanvasElement>(null);
   const canvasRef = React.useRef<Canvas | null>(null);
@@ -148,9 +152,9 @@ export function BoardFabricSurface({ objects, selectedObjectIds, readOnly, tool,
   const [renderedObjects, setRenderedObjects] = React.useState<readonly BoardFabricObject[]>(objects);
   const selectedObjectIdsRef = React.useRef(selectedObjectIds);
   const renderFrameRef = React.useRef<number | null>(null);
-  const callbacksRef = React.useRef({ onSelectionChange, onObjectTransform, onViewportChange });
+  const callbacksRef = React.useRef({ onSelectionChange, onObjectTransform, onViewportChange, onCanvasClick, onCanvasDoubleClick, onObjectDoubleClick, onToolDrop });
   const stateRef = React.useRef({ readOnly, tool, viewport });
-  callbacksRef.current = { onSelectionChange, onObjectTransform, onViewportChange };
+  callbacksRef.current = { onSelectionChange, onObjectTransform, onViewportChange, onCanvasClick, onCanvasDoubleClick, onObjectDoubleClick, onToolDrop };
   stateRef.current = { readOnly, tool, viewport };
   selectedObjectIdsRef.current = selectedObjectIds;
   const scheduleRender = React.useCallback(() => {
@@ -219,10 +223,23 @@ export function BoardFabricSurface({ objects, selectedObjectIds, readOnly, tool,
     let panning = false;
     let last = { x: 0, y: 0 };
     const pointerDown = (event: TPointerEventInfo) => {
+      if (stateRef.current.tool === "select" && !event.target) {
+        const pointer = canvas.getScenePoint(event.e);
+        callbacksRef.current.onCanvasClick?.({ x: pointer.x, y: pointer.y });
+      }
       if (stateRef.current.tool !== "hand") return;
       const pointer = event.e as MouseEvent;
       panning = true;
       last = { x: pointer.clientX, y: pointer.clientY };
+    };
+    const doubleClick = (event: TPointerEventInfo) => {
+      const target = event.target as TaggedFabricObject | undefined;
+      const id = target?.data?.boardObjectId;
+      if (id) callbacksRef.current.onObjectDoubleClick?.(id);
+      else {
+        const pointer = canvas.getScenePoint(event.e);
+        callbacksRef.current.onCanvasDoubleClick?.({ x: pointer.x, y: pointer.y });
+      }
     };
     const pointerMove = (event: TPointerEventInfo) => {
       if (!panning) return;
@@ -255,6 +272,7 @@ export function BoardFabricSurface({ objects, selectedObjectIds, readOnly, tool,
     canvas.on("mouse:move", pointerMove);
     canvas.on("mouse:up", pointerUp);
     canvas.on("mouse:wheel", wheel);
+    canvas.on("mouse:dblclick", doubleClick);
     return () => {
       resizeObserver.disconnect();
       canvas.dispose();
@@ -374,7 +392,15 @@ export function BoardFabricSurface({ objects, selectedObjectIds, readOnly, tool,
 
   const selectFromOutline = React.useCallback((objectId: string) => onSelectionChange([objectId], "outline"), [onSelectionChange]);
   return (
-    <div ref={hostRef} className={className ?? "relative h-full w-full overflow-hidden bg-muted/30"} data-testid="board-fabric-surface">
+    <div ref={hostRef} className={className ?? "relative h-full w-full overflow-hidden bg-muted/30"} data-testid="board-fabric-surface"
+      onDragOver={(event) => { if (event.dataTransfer.types.includes("application/x-workspacex-board-tool")) { event.preventDefault(); event.dataTransfer.dropEffect = "copy"; } }}
+      onDrop={(event) => {
+        const payload = event.dataTransfer.getData("application/x-workspacex-board-tool");
+        if (!payload || readOnly) return;
+        event.preventDefault();
+        const bounds = event.currentTarget.getBoundingClientRect();
+        callbacksRef.current.onToolDrop?.({ x: (event.clientX - bounds.left - viewport.panX) / viewport.zoom, y: (event.clientY - bounds.top - viewport.panY) / viewport.zoom }, payload);
+      }}>
       <canvas ref={canvasElementRef} data-testid="board-fabric-canvas" aria-label="Fabric.js 白板画布" />
       <BoardA11yMirror objects={renderedObjects} selectedObjectIds={selectedObjectIds} onSelect={selectFromOutline} readOnly={readOnly} />
     </div>
