@@ -20,7 +20,7 @@ export function GuidedResearchSixStepShell({
   const currentIndex = GUIDED_RESEARCH_SIX_STEPS.findIndex((item) => item.id === current);
   return (
     <div className="min-w-0 bg-background" data-testid="guided-research-six-step-shell" data-layout="deep-research-desktop">
-      <div className="grid min-w-0 gap-4 xl:grid-cols-[11rem_minmax(0,1fr)_16rem]">
+      <div className={cn("grid min-w-0 gap-4", assistant ? "xl:grid-cols-[11rem_minmax(0,1fr)_16rem]" : "xl:grid-cols-[11rem_minmax(0,1fr)]")}>
         <aside className="hidden min-w-0 border-r border-border bg-card p-3 xl:block" aria-label="研究导航">
           <div className="mb-5 flex items-center gap-2 px-2 text-12 font-semibold text-background-foreground"><Sparkles className="h-4 w-4 text-primary" aria-hidden />Deep Research</div>
           <nav className="space-y-1 text-12 text-muted-foreground">

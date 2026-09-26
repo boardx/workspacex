@@ -328,7 +328,7 @@ export function GuidedResearchLive({ sessionId, onBack, initialNode }: { session
   const directionsDocument = draft?.node === "directions" ? serializeGuidedResearchMarkdown({ node: "directions", directions: draft.value }) : null;
   const outlineDocument = draft?.node === "outline" ? serializeGuidedResearchMarkdown({ node: "outline", outline: draft.value }) : null;
   const researchDocument = node === "research" ? serializeGuidedResearchMarkdown({ node: "research", brief: state.brief, tasks: state.tasks, sources: displaySources, evidence: state.questionEvidence ?? [] }) : null;
-  const visualStage = toGuidedResearchVisualStage(state);
+  const visualStage = toGuidedResearchVisualStage({ currentNode: loadingNode ?? node, availableNodes: state.availableNodes });
   const navigateVisual = (stage: GuidedResearchVisualStage) => {
     if (stage === "list") return onBack();
     const visualToNode: Record<Exclude<GuidedResearchVisualStage, "list">, Command["node"]> = { import: "brief", topic: "directions", plan: "outline", research: "research", report: "report" };
@@ -373,10 +373,10 @@ export function GuidedResearchLive({ sessionId, onBack, initialNode }: { session
           const parsed = parseGuidedResearchMarkdown({ document: briefDocument, markdown });
           if (!parsed.ok) return { ok: false, message: parsed.errors.map((item) => item.message).join("；") };
           if (draft?.node !== "brief") return { ok: false, message: "研究需求已更新，请重新打开 Markdown。" };
-          setDraft({ node: "brief", value: { ...draft.value, ...parsed.draft.value } });
-          return { ok: true };
+          const saved = await run("save", { draft: { node: "brief", value: { ...draft.value, ...parsed.draft.value } } });
+          return saved ? { ok: true } : { ok: false, message: "研究需求未保存，请根据页面提示重试。" };
         }} />}
-        {draft?.node === "brief" && <Card className="sr-only" aria-hidden="true"><CardContent>{(["topic", "goal", "timeRange", "region", "focus"] as const).map((field) => <label key={field}>{field}<Textarea disabled={busy} value={draft.value[field]} onChange={(event) => setDraft({ ...draft, value: { ...draft.value, [field]: event.target.value } })} /></label>)}</CardContent></Card>}
+        {draft?.node === "brief" && <Card className="sr-only" aria-hidden="true"><CardContent>{(["topic", "goal", "timeRange", "region", "focus"] as const).map((field) => <label key={field}>{field}<Textarea disabled tabIndex={-1} value={draft.value[field]} onChange={(event) => setDraft({ ...draft, value: { ...draft.value, [field]: event.target.value } })} /></label>)}</CardContent></Card>}
         {directionsDocument && <GuidedResearchMarkdownWorkspace document={directionsDocument} readOnly onSave={async () => ({ ok: false })} provenance="主题由确认界面的结构化配置生成；确认后会保留版本。" />}
         {draft?.node === "directions" && <ResearchDirectionsEditor draft={draft} disabled={busy} onChange={setDraft} />}
         {outlineDocument && <GuidedResearchMarkdownWorkspace document={outlineDocument} readOnly onSave={async () => ({ ok: false })} provenance="研究计划由确认界面的结构化配置生成；检索范围以已确认版本为准。" />}

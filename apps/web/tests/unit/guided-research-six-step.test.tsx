@@ -33,4 +33,10 @@ describe("six-step Deep Research shell", () => {
     screen.getByRole("button", { name: /确认研究主题/ }).click();
     expect(onNavigate).toHaveBeenCalledWith("topic");
   });
+
+  it("does not reserve an assistant column when no assistant is supplied", () => {
+    render(<GuidedResearchSixStepShell current="import" available={["import"]} onNavigate={vi.fn()} main={<div>主工作区</div>} />);
+
+    expect(screen.getByTestId("guided-research-six-step-shell").firstElementChild).toHaveClass("xl:grid-cols-[11rem_minmax(0,1fr)]");
+  });
 });
