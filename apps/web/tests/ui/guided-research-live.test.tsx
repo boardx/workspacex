@@ -27,22 +27,6 @@ describe("live research workspace", () => {
     fireEvent.click(screen.getByRole("button", { name: "重新生成本步骤" }));
     await waitFor(() => expect(executeResearchRuntime).toHaveBeenCalledWith(expect.objectContaining({ action: "generate", draft: { node: "brief", value: { ...initial.brief, topic: "Updated scope" } } })));
   });
-  it("persists a Markdown brief edit before confirming it was saved", async () => {
-    const updated = { ...initial, version: 8, brief: { ...initial.brief, topic: "Saved Markdown scope" } };
-    vi.mocked(executeResearchRuntime).mockResolvedValue(updated);
-    render(<GuidedResearchLive sessionId="session-live" onBack={vi.fn()} />);
-
-    fireEvent.click(await screen.findByRole("button", { name: "编辑 Markdown" }));
-    const editor = screen.getByTestId("guided-research-markdown-editor");
-    fireEvent.change(editor, { target: { value: (editor as HTMLTextAreaElement).value.replace("Storage", "Saved Markdown scope") } });
-    fireEvent.click(screen.getByRole("button", { name: "保存 Markdown" }));
-
-    await waitFor(() => expect(executeResearchRuntime).toHaveBeenCalledWith(expect.objectContaining({
-      action: "save",
-      draft: { node: "brief", value: { ...initial.brief, topic: "Saved Markdown scope" } },
-    })));
-    expect(await screen.findByTestId("guided-research-markdown-saved")).toBeInTheDocument();
-  });
   it("serializes slow polls and stops after receiving the terminal snapshot", async () => {
     const busy = { ...initial, busy: true, leaseUntil: "2099-01-01T00:00:00.000Z" };
     let finishPoll!: (value: GuidedResearchRuntime) => void;

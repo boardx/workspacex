@@ -18,7 +18,6 @@ import { Progress } from "@/components/ui/progress";
 import { Textarea } from "@/components/ui/textarea";
 import { CreateGuidedResearchDialog, type GuidedResearchCreateDraft } from "./create-guided-research-dialog";
 import { cn } from "@/lib/utils";
-import { GUIDED_RESEARCH_SIX_STEPS } from "@/lib/guided-research-six-step";
 import {
   createGuidedResearchSession,
   getResearchRuntime,
@@ -265,11 +264,11 @@ function FlowProgress({ step, maxStep, onBack, onNavigate }: {
   onNavigate: (step: GuidedResearchStep) => void;
 }) {
   const steps: Array<{ id: GuidedResearchStep; label: string }> = [
-    { id: "brief", label: GUIDED_RESEARCH_SIX_STEPS[1].label },
-    { id: "directions", label: GUIDED_RESEARCH_SIX_STEPS[2].label },
-    { id: "outline", label: GUIDED_RESEARCH_SIX_STEPS[3].label },
-    { id: "search", label: GUIDED_RESEARCH_SIX_STEPS[4].label },
-    { id: "report", label: GUIDED_RESEARCH_SIX_STEPS[5].label },
+    { id: "brief", label: "确认主题" },
+    { id: "directions", label: "研究方向" },
+    { id: "outline", label: "报告大纲" },
+    { id: "search", label: "资料研究" },
+    { id: "report", label: "研究报告" },
   ];
   const current = steps.findIndex((item) => item.id === step);
   const maximum = steps.findIndex((item) => item.id === maxStep);
