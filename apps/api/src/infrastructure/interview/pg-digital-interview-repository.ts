@@ -387,7 +387,7 @@ export async function readDigitalInterviewWorkflow(
   const row = base.rows[0];
   if (!row) return null;
 
-  const [questions, expertCandidates, questionCandidates, messages, expertRuns, proposals, reports] = await Promise.all([
+  const [questions, expertCandidates, questionCandidates, messages, expertRuns, proposals, reports, artifacts] = await Promise.all([
     session.query<{
       question_id: string; expert_id: string; ordinal: number; body: string; purpose: string;
     }>(
@@ -468,6 +468,19 @@ export async function readDigitalInterviewWorkflow(
       `SELECT report_id,title,executive_summary,markdown,findings,generated_at,
               generation_status,request_id,error_code,updated_at
          FROM digital_interview_reports WHERE org_id=$1 AND interview_id=$2 AND revision_id=$3`,
+      [orgId, interviewId, row.revision_id],
+    ),
+    session.query<{
+      artifact_id: string; step: "intake" | "analysis" | "experts" | "outline" | "runs" | "report";
+      version_number: number; title: string; markdown: string;
+      status: "draft" | "confirmed" | "generating" | "failed" | "completed";
+      generated_at: Date | string | null; failure: { code: string; retryable: boolean } | null;
+      evidence_mode: "simulated" | "participant" | "mixed";
+    }>(
+      `SELECT DISTINCT ON (step) artifact_id,step,version_number,title,markdown,status,generated_at,failure,evidence_mode
+         FROM digital_interview_artifact_versions
+        WHERE org_id=$1 AND interview_id=$2 AND revision_id=$3
+        ORDER BY step, version_number DESC`,
       [orgId, interviewId, row.revision_id],
     ),
   ]);
@@ -564,6 +577,17 @@ export async function readDigitalInterviewWorkflow(
       answers: run.answers,
       errorCode: run.error_code,
       updatedAt: new Date(run.updated_at).toISOString(),
+    })),
+    artifacts: artifacts.rows.map((artifact) => ({
+      artifactId: artifact.artifact_id,
+      step: artifact.step,
+      title: artifact.title,
+      markdown: artifact.markdown,
+      version: artifact.version_number,
+      status: artifact.status,
+      generatedAt: artifact.generated_at === null ? null : new Date(artifact.generated_at).toISOString(),
+      failure: artifact.failure,
+      evidenceMode: artifact.evidence_mode,
     })),
     skillThreadId: row.skill_thread_id,
     skillMessages: messages.rows.map((message) => ({
