@@ -1,10 +1,12 @@
 /**
  * Issue #4290 —— 明确改口时新决定取代旧决定：领域纯函数（decision-supersede.ts）。
- * 明确改口 → 取代；并列补充 / 无改口信号 / 不同作者 → 不取代；拿不准（多条候选 / 类别不同 / 问句 / 假设）→ 不取代。
+ * 高把握的明确改口（explicit / same_kind）→ 自动取代；低把握（frame_only）→ 只弹卡、不取代（人类决定 2026-09-26
+ * 「高把握自动、低把握弹卡」）；并列补充 / 无改口信号 / 不同作者 / 多条候选 / 类别不同 / 问句 / 假设 / 改口被评判否掉
+ * → 既不取代也不弹卡。
  */
 import { describe, expect, it } from "vitest";
 import {
-  changeClauses, decisionFrame, findSupersedes, hasChangeSignal, supersedeMatch, type LiveDecision, type SupersedeFresh,
+  changeClauses, decisionFrame, findSupersedes, hasChangeSignal, planSupersedes, supersedeMatch, type LiveDecision, type SupersedeFresh,
 } from "../../src/domain/knowledge-graph/decision-supersede";
 
 const ME = "u-me";
@@ -176,31 +178,102 @@ describe("独立评审第 8 轮复评：改口必须在同一分句里直接支�
     ["决定关注211高校", "这事算了，先吃饭"],
   ])("不取代：%s → %s", (o, n) => {
     expect(supersedeMatch(fresh(n), old(o))).toBeNull();
-    expect(findSupersedes([fresh(n)], [old(o)])).toEqual([]);
+    expect(planSupersedes([fresh(n)], [old(o)])).toEqual({ supersedes: [], prompts: [] });
   });
 
   it.each([
-    ["关注211高校", "改成关注985吧", "frame_only"],
     ["决定用Go", "把 Go 换成 Rust", "explicit"],
     ["决定用Vue", "不再用 Vue 了", "explicit"],
     ["决定用Vue", "不再使用Vue", "explicit"],
     ["决定关注211高校", "211高校算了，改成关注985高校", "explicit"],
     ["决定采用Vue框架", "改为采用React框架", "same_kind"],
-    ["后端用Go", "后端改用Rust", "frame_only"],
     ["决定关注211高校", "算了，还是关注985高校吧", "same_kind"],
     ["决定用Vue", "不用Vue了，改用React", "explicit"],
     ["决定关注211高校", "不关注211高校了", "explicit"],
-    ["决定用Vue", "改成用React，Vue太慢", "frame_only"],
     ["决定关注211高校", "我们还是改成关注985高校吧", "same_kind"],
     ["决定用Go", "Go算了", "explicit"],
     ["决定前端用Vue", "前端不再用Vue了", "explicit"],
-  ])("取代：%s → %s（%s）", (o, n, tier) => {
+  ])("高把握 ⇒ 自动取代：%s → %s（%s）", (o, n, tier) => {
     expect(supersedeMatch(fresh(n), old(o))).toBe(tier);
+    expect(planSupersedes([fresh(n)], [old(o)])).toEqual({ supersedes: [{ newerClaimId: "clm-new", olderClaimId: "clm-old" }], prompts: [] });
     expect(findSupersedes([fresh(n)], [old(o)])).toEqual([{ newerClaimId: "clm-new", olderClaimId: "clm-old" }]);
+  });
+
+  it.each([
+    ["关注211高校", "改成关注985吧"],
+    ["后端用Go", "后端改用Rust"],
+    ["决定用Vue", "改成用React，Vue太慢"],
+    ["决定关注211高校", "改成关注985吧"],
+  ])("低把握（frame_only）⇒ 只弹卡、从不自动取代：%s → %s", (o, n) => {
+    expect(supersedeMatch(fresh(n), old(o))).toBe("frame_only");
+    expect(planSupersedes([fresh(n)], [old(o)])).toEqual({ supersedes: [], prompts: [{ newerClaimId: "clm-new", olderClaimId: "clm-old" }] });
+    expect(findSupersedes([fresh(n)], [old(o)])).toEqual([]);
+  });
+});
+
+describe("人类决定 2026-09-26「高把握自动、低把握弹卡」+ 第 8 轮第三次评审：改口被评判 / 问句 / 话题", () => {
+  const nothing = (o: string, n: string) => {
+    expect(supersedeMatch(fresh(n), old(o))).toBeNull();
+    expect(planSupersedes([fresh(n)], [old(o)])).toEqual({ supersedes: [], prompts: [] });
+  };
+  it.each([
+    // 1. 新对象在谓语 / 否定标记处结束；改口后面跟着对它自己的否定评判 ⇒ 整个丢掉（任何一档都不取代、也不弹卡）
+    ["决定用Vue", "改成用React是不可能的"],
+    ["决定用Vue", "改成用React不现实"],
+    ["决定用Vue", "改成用React没必要"],
+    ["决定用Vue", "改成用React的提议被否了"],
+    ["决定用Vue框架", "改成用React框架是不可能的"],
+    ["决定关注211高校", "改成关注985高校不现实"],
+    ["决定关注211高校", "改成关注985高校的方案被否了"],
+    ["决定用Vue", "改成用React，我觉得不行"],
+    ["决定用Vue", "改成用React，不现实"],
+    ["决定用Vue", "改用React，算了"],
+    // 2. 问号在句中任何位置
+    ["决定用Vue", "改成用React？不行，还是用Vue"],
+    ["决定关注211高校", "改成关注985高校？再想想"],
+    ["决定用Vue", "改用React?先不定"],
+    // 3. 话题分句带主语：主语不在旧决定里 ⇒ 不是同一件事
+    ["决定用Vue", "关于周会，改成用腾讯会议"],
+    ["决定用Vitest", "单元测试那块，改成用Jest跑测试"],
+    ["决定关注985", "周报，改成关注招聘进度"],
+    ["决定用Vue", "有人提议，改成用React，我觉得不行"],
+    ["决定用Vue", "有人提议，改成用React"],
+    ["决定用Vue", "关于周会，我想了想，改成用腾讯会议"],
+  ])("既不取代也不弹卡：%s → %s", (o, n) => nothing(o, n));
+
+  it.each([
+    ["改成用React是不可能的"], ["改成用React不现实"], ["改成用React没必要"], ["改成用React的提议被否了"], ["改成用React？不行，还是用Vue"],
+  ])("没有改口分句：%s", (n) => expect(changeClauses(n)).toEqual([]));
+
+  it("话题分句的主语出现在旧决定里 ⇒ 照常判（「前端那块，改成用React框架」对「前端用Vue框架」）", () => {
+    expect(changeClauses("前端那块，改成用React框架")).toEqual([
+      { frame: { verb: "用", object: "react框架", kind: "框架" }, namedOld: null, subject: "前端" },
+    ]);
+    expect(supersedeMatch(fresh("前端那块，改成用React框架"), old("决定前端用Vue框架"))).toBe("same_kind");
+    expect(supersedeMatch(fresh("关于前端，不再用Vue了"), old("决定前端用Vue"))).toBe("explicit");
+    expect(supersedeMatch(fresh("关于后端，不再用Vue了"), old("决定前端用Vue"))).toBeNull();
+  });
+  it("带框架动词的前一分句是陈述、不是话题：「决定用React，不再用Vue了」仍点名 Vue", () => {
+    expect(supersedeMatch(fresh("决定用React，不再用Vue了"), old("决定用Vue"))).toBe("explicit");
+  });
+  it("「改成用React不用Vue了」：对象截在「不」前，同一分句里的「不用Vue了」仍是点名", () => {
+    expect(changeClauses("改成用React不用Vue了").map((c) => c.frame?.object ?? null)).toEqual(["react", null]);
+  });
+  it("好的 / 我想了想 这类空话不当主语", () => {
+    expect(supersedeMatch(fresh("好的，改成关注985高校"), old("决定关注211高校"))).toBe("same_kind");
+    expect(supersedeMatch(fresh("我想了想，改成关注985高校"), old("决定关注211高校"))).toBe("same_kind");
   });
 });
 
 describe("findSupersedes：一条新决定取代哪几条", () => {
+  it("frame_only 的卡：同一句旧决定在会话和个人空间各有一条 → 一张卡，〈旧〉取本会话那条", () => {
+    const live = [old("我决定关注 211 高校", { id: "b" }), old("我决定关注211高校", { id: "z", scope: "chat_session" })];
+    expect(planSupersedes([fresh("改成关注 985 吧")], live)).toEqual({ supersedes: [], prompts: [{ newerClaimId: "clm-new", olderClaimId: "z" }] });
+  });
+  it("frame_only 但两条不同的旧决定都匹配 → 不弹卡", () => {
+    const live = [old("我决定关注 211 高校", { id: "a" }), old("我决定关注双一流", { id: "b" })];
+    expect(planSupersedes([fresh("改成关注 985 吧")], live)).toEqual({ supersedes: [], prompts: [] });
+  });
   it("唯一的一条旧决定 → 取代它", () => {
     expect(findSupersedes([fresh("改成关注 985 高校")], [OLD_211])).toEqual([{ newerClaimId: "clm-new", olderClaimId: "clm-old" }]);
   });

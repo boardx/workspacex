@@ -373,12 +373,17 @@ export interface KgConflictPort {
     readonly fresh: readonly SupersedeFresh[];
     readonly live: readonly LiveDecision[];
   }>;
-  /** 复核后取代（旧决定 superseded、开一张可撤销的取代提示），返回开了几张；复核不过的跳过。 */
+  /**
+   * 复核后落表，返回开了几张（取代提示 + 卡）；复核不过的跳过。
+   * `supersedes`（高把握）：旧决定 superseded、开一张可撤销的取代提示；
+   * `prompts`（低把握 frame_only）：只开一张 F16 卡（kind = possible_change），两条都不改状态。
+   */
   applySupersedes(orgId: OrgId, input: {
     readonly actionId: string;
     readonly threadId: string;
     readonly messageId: string;
     readonly supersedes: readonly { readonly newer: string; readonly olders: readonly string[] }[];
+    readonly prompts: readonly { readonly newer: string; readonly older: string }[];
   }): Promise<number>;
 }
 

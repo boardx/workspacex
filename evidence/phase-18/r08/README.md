@@ -4,6 +4,16 @@ Done criteria under test (issue #4290, human decisions 2026-09-26): personal thr
 「改成关注 985 吧」 → the 211 decision is superseded automatically and B's answer shows 「已用〈新〉取代〈旧〉 · 撤销」;
 thread C 「开始写报告吧」 → the answer carries only 985; undo → 211 is live again.
 
+> **Rule change after this run (human decision 2026-09-26, "高把握自动、低把握弹卡").** This browser run used the
+> earlier **all-automatic** rule. Since then only the high-confidence tiers (`explicit`, `same_kind`) supersede
+> automatically; the low-confidence `frame_only` tier never does — it opens an F16 card
+> (`KgConflictPrompt.kind = possible_change`, 「用〈新〉取代〈旧〉？」 [取代] / [两条都保留]) and both decisions stay live
+> and recalled until the user chooses. The run still matches the new rule: the substitute model normalised B's claim to
+> 「改成关注 985 高校」, which is `same_kind` against 「我决定关注 211 高校」, so it still supersedes automatically. The browser
+> run was **not** re-done for the card path; that path is covered by
+> `apps/api/tests/knowledge-graph/decision-supersede-card.test.ts` (real app + DB: card, both recalled while pending,
+> [取代], [两条都保留], privacy, negatives) and `apps/web/tests/ui/kg-conflict-card.test.tsx` (the card variant).
+
 ## Stack (no Docker)
 
 Same shape as round 5 (`evidence/phase-18/r05/`): local Postgres 16 + AGE + pgvector at 127.0.0.1:55432, own db `r08e`
@@ -51,6 +61,10 @@ did. After #4283 both promotions go away.
   re-supersede, D recalls both; 「也关注 985 高校」 supersedes nothing; in a project thread another member's change of mind
   does not supersede mine, my own does.
 - `fail-without-fix.txt` — the integration test with the supersede step removed: thread C's memory still contains 211.
+- `apps/api/tests/knowledge-graph/decision-supersede-card.test.ts` — (after the 「高把握自动、低把握弹卡」 decision) real DB +
+  app: 「改成关注 985 吧」 (`frame_only`) opens a `possible_change` card and supersedes nothing, both decisions stay
+  un-contested and are both recalled; [取代] supersedes 211 and C recalls only 985; [两条都保留] closes the card and leaves
+  both; another user gets the same 404; 「改成采用 Rust 不现实」 / 「关于周会，改成采用飞书」 open no card.
 - `apps/web/tests/ui/kg-supersede-notice.test.tsx` — the answer line and its undo wiring (request body checked against
   the contract).
 

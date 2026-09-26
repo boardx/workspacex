@@ -1,10 +1,17 @@
 /*
- * Issue #4290（第 8 轮）—— 本人明确改口时，新决定自动取代本人的旧决定（可撤销）。
+ * Issue #4290（第 8 轮）—— 本人明确改口时，新决定取代本人的旧决定：高把握自动（可撤销），低把握弹卡。
  *
- * 人类决定（2026-09-26，signoff-draft/chat-knowledge-graph/usecases.md #4290 条目）：
- *   1. 只有明确改口才取代：新决定带改口信号，且与**同一作者**一条仍生效的旧决定主题相同。并列补充两条都留。
- *   2. 自动生效、可撤销：旧决定转 superseded（revocation_reason = decision_changed），不再召回；会话里一行
- *      「已用〈新〉取代〈旧〉 · 撤销」，撤销后旧决定恢复为生效，新决定仍在。
+ * 人类决定（2026-09-26，signoff-draft/chat-knowledge-graph/usecases.md 条目 5）：
+ *   1. 只有明确改口才算：新决定带改口信号，且与**同一作者**一条仍生效的旧决定主题相同。并列补充两条都留。
+ *   2. **高把握自动、低把握弹卡**：
+ *      - 高把握（explicit / same_kind）自动生效、可撤销：旧决定转 superseded（revocation_reason = decision_changed），
+ *        不再召回；会话里一行「已用〈新〉取代〈旧〉 · 撤销」，撤销后旧决定恢复为生效，新决定仍在。
+ *      - 低把握（frame_only）从不自动：复用 F16 的冲突卡（kg_conflict_prompts，新列 kind = 'possible_change'），卡上
+ *        「用〈新〉取代〈旧〉？」[取代] / [两条都保留]。**开卡不改任何一条的状态**——F16 开卡把两条转 contested（召回里标成
+ *        「有矛盾」、挡住自动记入个人空间 #4283 与晋升 F11），而人类决定要「选之前两条都照常生效、都召回」。
+ *        出口仍是 F16 的 kg_resolve_conflict（本迁移按 kind 分支重建）：[取代] = keep_new（旧条 superseded，连同本人由它
+ *        晋升出去的 L1 副本；新条 accepted）；[两条都保留] = keep_both，只关卡、不问适用条件、两条状态都不动；
+ *        界面上不给 ignore（直接调用时同样只关卡）。权限与 F16 相同：会话所有者本人；卡的可见性跟随两条结论（RLS）。
  *
  * 与 F16（20260924290000）同一形状，接在它后面、同一个抽取任务里跑（detect-conflicts.ts）：
  *   ① `kg_supersede_candidates(thread, message)`：只读。这条消息刚抽出的决定（F16 的 kg_conflict_newer_ok：本会话、
@@ -13,7 +20,8 @@
  *      时候（kg_conflict_source.with_personal，同 F16）——所有者本人个人空间的。每条旧决定带作者：
  *      会话里的 = 它全部支撑原话的唯一人类作者（kg_supersede_session_author，不唯一 ⇒ NULL）；个人空间的 = 空间主人。
  *   ② 应用层纯函数（domain/knowledge-graph/decision-supersede.ts）判哪几对算明确改口。判定规则只在那一处。
- *   ③ `kg_apply_supersedes(jsonb)`：在会话锁（+ 个人空间锁）下逐条复核（①的条件原样再判一遍、同一作者、行上锁），
+ *   ③ `kg_apply_supersedes(jsonb)`：在会话锁（+ 个人空间锁）下逐条复核（①的条件原样再判一遍、同一作者、行上锁）。
+ *      `prompts`（低把握）⇒ 只开一张 possible_change 卡；`supersedes`（高把握）⇒
  *      把旧决定——连同所有者本人由它晋升出去的、还活着的 L1 副本（同 F16 keep_new：用户说了改，旧说法就不该再被召回）——
  *      转 superseded，给新决定写 supersedes_claim_id，开一条取代提示（kg_supersede_notices）并记下撤销快照。
  *
@@ -30,6 +38,17 @@
  * 恢复成当时的状态；会话里的旧结论另外要求原话还在（原话被删了就没有可恢复的东西）。一条都恢复不了 ⇒ KG_CLAIM_NOT_FOUND。
  * 撤销过的一对不会再被自动取代：同一条新决定只开一张提示（UNIQUE org_id, newer_claim_id），抽取任务重试时跳过。
  */
+
+-- ─────────────────────────── F16 卡的种类（低把握的改口） ───────────────────────────
+-- conflict：F16 原有的矛盾提醒（开卡时两条转 contested）；possible_change：#4290 低把握改口（开卡不改状态）。
+ALTER TABLE kg_conflict_prompts ADD COLUMN IF NOT EXISTS kind text NOT NULL DEFAULT 'conflict';
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'kg_conflict_prompts_kind_check') THEN
+    ALTER TABLE kg_conflict_prompts ADD CONSTRAINT kg_conflict_prompts_kind_check CHECK (kind IN ('conflict', 'possible_change'));
+  END IF;
+END
+$$;
 
 -- ─────────────────────────────── 提示表 ───────────────────────────────
 CREATE TABLE IF NOT EXISTS kg_supersede_notices (
@@ -134,8 +153,8 @@ END
 $$;
 
 -- ─────────────────────────────── 取代 ───────────────────────────────
--- p = { action_id, thread_id, message_id, supersedes: [{ newer, olders: [id, …] }] }
--- 复核不过的旧条静默跳过（判定和落表之间状态可能变了）；一条新决定一张提示；返回开了几张。
+-- p = { action_id, thread_id, message_id, supersedes: [{ newer, olders: [id, …] }], prompts: [{ newer, older }] }
+-- 复核不过的旧条静默跳过（判定和落表之间状态可能变了）；一条新决定一张提示 / 一张卡；返回开了几张（提示 + 卡）。
 CREATE OR REPLACE FUNCTION kg_apply_supersedes(p jsonb) RETURNS integer
 LANGUAGE plpgsql SECURITY DEFINER SET search_path = pg_catalog, public, pg_temp
 AS $$
@@ -156,7 +175,11 @@ DECLARE
   v_restore  jsonb;
   v_session  text[] := '{}';
   v_personal text[] := '{}';
+  v_key      text;
+  v_csession text[] := '{}';
+  v_cpersonal text[] := '{}';
   n          int := 0;
+  m          int := 0;
 BEGIN
   IF v_org IS NULL OR v_org = '' THEN RAISE EXCEPTION 'KG_NO_TENANT' USING ERRCODE = '42501'; END IF;
   IF NOT public.kernel_org_is_writable(v_org) THEN
@@ -232,21 +255,63 @@ BEGIN
     v_personal := v_personal || ARRAY(SELECT c.id FROM claims c WHERE c.org_id = v_org AND c.id = ANY(v_set) AND c.scope_kind = 'personal');
   END LOOP;
 
-  IF n = 0 THEN RETURN 0; END IF;
+  -- 低把握（frame_only）：只开一张 possible_change 卡，两条都不改状态（选之前都照常生效、都召回）。复核同上。
+  FOR v_item IN SELECT * FROM jsonb_array_elements(coalesce(p->'prompts', '[]'::jsonb)) LOOP
+    CONTINUE WHEN v_item->>'newer' IS NULL OR v_item->>'older' IS NULL OR v_item->>'newer' = v_item->>'older';
+    SELECT * INTO v_newer FROM claims WHERE org_id = v_org AND id = v_item->>'newer' FOR UPDATE;
+    CONTINUE WHEN NOT FOUND;
+    SELECT * INTO v_older FROM claims WHERE org_id = v_org AND id = v_item->>'older' FOR UPDATE;
+    CONTINUE WHEN NOT FOUND;
+    CONTINUE WHEN v_newer.claim_kind IS DISTINCT FROM 'decision' OR NOT kg_conflict_newer_ok(v_org, v_thread, v_message, v_newer.id);
+    CONTINUE WHEN NOT kg_supersede_older_ok(v_org, v_thread, v_message, v_owner, v_older.id);
+    CONTINUE WHEN v_author IS DISTINCT FROM
+      (CASE WHEN v_older.scope_kind = 'personal' THEN v_older.scope_id ELSE kg_supersede_session_author(v_org, v_older.id) END);
+    -- 一条新决定只问一次（任务重试不再开第二张）；已经自动取代过的不再问
+    CONTINUE WHEN EXISTS (SELECT 1 FROM kg_supersede_notices x WHERE x.org_id = v_org AND x.newer_claim_id = v_newer.id);
+    CONTINUE WHEN EXISTS (SELECT 1 FROM kg_conflict_prompts x WHERE x.org_id = v_org AND x.newer_claim_id = v_newer.id);
+    v_key := kg_conflict_statement_key(v_newer.statement);
+    -- 同一旧条、同样说法已经问过（卡还开着 / 选了两条都保留）⇒ 不再问（同 F16 I-19）
+    CONTINUE WHEN EXISTS (SELECT 1 FROM kg_conflict_prompts x
+                           WHERE x.org_id = v_org AND x.older_claim_id = v_older.id AND x.newer_key = v_key
+                             AND x.status IN ('open', 'ignored', 'kept_both'));
+    INSERT INTO kg_conflict_prompts (id, org_id, thread_id, message_id, newer_claim_id, older_claim_id, newer_key, rank,
+                                     detected_by_action_id, kind)
+    VALUES (v_id || '-c' || m, v_org, v_thread, v_message, v_newer.id, v_older.id, v_key, m, v_id || '-c', 'possible_change');
+    m := m + 1;
+    v_csession := v_csession || v_newer.id;
+    IF v_older.scope_kind = 'personal' THEN v_cpersonal := v_cpersonal || v_older.id; ELSE v_csession := v_csession || v_older.id; END IF;
+  END LOOP;
+
   -- 会话作用域留一条（revision 前进；来源抽屉按 payload.claims 查）；个人空间的旧条单独在个人空间留一条（同 F16）。
-  INSERT INTO ontology_actions (id, org_id, scope_kind, scope_id, actor_kind, actor_id, action_type, payload, source_ref, outcome)
-  VALUES (v_id, v_org, 'chat_session', v_thread, 'system', 'kg-supersede-detector', 'supersedeDecision',
-          jsonb_build_object('message_id', v_message, 'notices', n, 'reason', 'decision_changed',
-                             'claims', (SELECT coalesce(jsonb_agg(DISTINCT jsonb_build_object('id', x)), '[]'::jsonb) FROM unnest(v_session) x)),
-          v_message, 'accepted');
-  IF cardinality(v_personal) > 0 THEN
+  IF n > 0 THEN
     INSERT INTO ontology_actions (id, org_id, scope_kind, scope_id, actor_kind, actor_id, action_type, payload, source_ref, outcome)
-    VALUES (v_id || '-l1', v_org, 'personal', v_owner, 'system', 'kg-supersede-detector', 'supersedeDecision',
-            jsonb_build_object('thread_id', v_thread, 'reason', 'decision_changed',
-                               'claims', (SELECT jsonb_agg(DISTINCT jsonb_build_object('id', x)) FROM unnest(v_personal) x)),
+    VALUES (v_id, v_org, 'chat_session', v_thread, 'system', 'kg-supersede-detector', 'supersedeDecision',
+            jsonb_build_object('message_id', v_message, 'notices', n, 'reason', 'decision_changed',
+                               'claims', (SELECT coalesce(jsonb_agg(DISTINCT jsonb_build_object('id', x)), '[]'::jsonb) FROM unnest(v_session) x)),
             v_message, 'accepted');
+    IF cardinality(v_personal) > 0 THEN
+      INSERT INTO ontology_actions (id, org_id, scope_kind, scope_id, actor_kind, actor_id, action_type, payload, source_ref, outcome)
+      VALUES (v_id || '-l1', v_org, 'personal', v_owner, 'system', 'kg-supersede-detector', 'supersedeDecision',
+              jsonb_build_object('thread_id', v_thread, 'reason', 'decision_changed',
+                                 'claims', (SELECT jsonb_agg(DISTINCT jsonb_build_object('id', x)) FROM unnest(v_personal) x)),
+              v_message, 'accepted');
+    END IF;
   END IF;
-  RETURN n;
+  IF m > 0 THEN
+    INSERT INTO ontology_actions (id, org_id, scope_kind, scope_id, actor_kind, actor_id, action_type, payload, source_ref, outcome)
+    VALUES (v_id || '-c', v_org, 'chat_session', v_thread, 'system', 'kg-supersede-detector', 'detectPossibleChange',
+            jsonb_build_object('message_id', v_message, 'prompts', m,
+                               'claims', (SELECT coalesce(jsonb_agg(DISTINCT jsonb_build_object('id', x)), '[]'::jsonb) FROM unnest(v_csession) x)),
+            v_message, 'accepted');
+    IF cardinality(v_cpersonal) > 0 THEN
+      INSERT INTO ontology_actions (id, org_id, scope_kind, scope_id, actor_kind, actor_id, action_type, payload, source_ref, outcome)
+      VALUES (v_id || '-c-l1', v_org, 'personal', v_owner, 'system', 'kg-supersede-detector', 'detectPossibleChange',
+              jsonb_build_object('thread_id', v_thread,
+                                 'claims', (SELECT jsonb_agg(DISTINCT jsonb_build_object('id', x)) FROM unnest(v_cpersonal) x)),
+              v_message, 'accepted');
+    END IF;
+  END IF;
+  RETURN n + m;
 END
 $$;
 
@@ -343,6 +408,139 @@ BEGIN
             jsonb_build_object('thread_id', v_thread, 'claims', (SELECT jsonb_agg(jsonb_build_object('id', x)) FROM unnest(v_personal) x)),
             'accepted');
   END IF;
+  RETURN jsonb_build_object('revision', kg_thread_revision(v_thread), 'action_id', v_id);
+END
+$$;
+
+-- ─────────────────── F16 出口按卡的种类分支（#4290 possible_change） ───────────────────
+-- 重建 F16 `kg_resolve_conflict`（20260924290000），只加 kind 分支，其余逐字不变：
+--   - possible_change + keep_both（界面上的 [两条都保留]）：只关卡（kept_both），不记适用条件、两条状态都不动（开卡时本来
+--     就没转 contested）；ignore 界面上不给，直接调用时同样只关卡（ignored）；
+--   - keep_new（两种卡相同）：新条若已有本人个人空间里活着的副本（#4283 自动记下的），转 accepted，不再晋升出第二份。
+-- p = { action_id, thread_id, based_on_revision, action: { type: resolveConflict, promptId, resolution, conditions? } }
+CREATE OR REPLACE FUNCTION kg_resolve_conflict(p jsonb) RETURNS jsonb
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = pg_catalog, public, pg_temp
+AS $$
+DECLARE
+  v_org     text := current_setting('app.current_org', true);
+  v_user    text := current_setting('app.current_user_id', true);
+  v_thread  text := p->>'thread_id';
+  v_action  jsonb := p->'action';
+  v_res     text := p->'action'->>'resolution';
+  v_id      text := p->>'action_id';
+  v_rev     bigint;
+  v_prompt  record;
+  v_newer   record;
+  v_older   record;
+  v_promote boolean := false;
+  v_l1      text;
+  v_claims  jsonb;
+  v_kind    text;
+BEGIN
+  IF v_org IS NULL OR v_org = '' THEN RAISE EXCEPTION 'KG_NO_TENANT' USING ERRCODE = '42501'; END IF;
+  IF NOT public.kernel_org_is_writable(v_org) THEN
+    RAISE EXCEPTION 'KG_ORG_FROZEN: organization % is read-only', v_org USING ERRCODE = '42501';
+  END IF;
+  IF v_user IS NULL OR v_user = '' THEN RAISE EXCEPTION 'KG_ACTOR_NOT_HUMAN: no signed-in user' USING ERRCODE = '42501'; END IF;
+  IF NOT EXISTS (SELECT 1 FROM chat_threads t WHERE t.id = v_thread AND t.org_id = v_org AND t.created_by = v_user) THEN
+    RAISE EXCEPTION 'KG_NOT_OWNER: only the thread owner edits its knowledge' USING ERRCODE = '42501';
+  END IF;
+  IF v_action->>'type' IS DISTINCT FROM 'resolveConflict' OR v_res IS NULL OR v_res NOT IN ('keep_new', 'keep_both', 'ignore') THEN
+    RAISE EXCEPTION 'KG_INVALID_ACTION: %', v_action->>'type' USING ERRCODE = '22023';
+  END IF;
+
+  -- 锁顺序同 F11：先会话、后个人空间。
+  PERFORM pg_advisory_xact_lock(hashtext('kg_scope:' || v_org || '|chat_session|' || v_thread));
+  PERFORM pg_advisory_xact_lock(hashtext('kg_scope:' || v_org || '|personal|' || v_user));
+  SELECT count(*) INTO v_rev FROM ontology_actions a
+   WHERE a.org_id = v_org AND a.scope_kind = 'chat_session' AND a.scope_id = v_thread AND a.outcome = 'accepted';
+  IF (p->>'based_on_revision')::bigint IS DISTINCT FROM v_rev THEN
+    RAISE EXCEPTION 'KG_REVISION_CHANGED: based on %, current %', p->>'based_on_revision', v_rev USING ERRCODE = '40001';
+  END IF;
+
+  -- 提醒：本会话的、还开着的。别的会话的 id、处理过的、不存在的——同一个出口。
+  SELECT * INTO v_prompt FROM kg_conflict_prompts
+   WHERE org_id = v_org AND id = v_action->>'promptId' AND thread_id = v_thread AND status = 'open'
+   FOR UPDATE;
+  IF NOT FOUND THEN RAISE EXCEPTION 'KG_PROMPT_NOT_FOUND' USING ERRCODE = '23503'; END IF;
+  -- #4290：低把握改口的卡界面上只有两个出口（取代 / 两条都保留）；ignore 若被直接调用，同 keep_both 只关卡
+  -- （两条本来就没转 contested，没有「保持冲突」可言），记作 ignored。
+  v_kind := v_prompt.kind;
+  SELECT * INTO v_newer FROM claims WHERE org_id = v_org AND id = v_prompt.newer_claim_id FOR UPDATE;
+  SELECT * INTO v_older FROM claims WHERE org_id = v_org AND id = v_prompt.older_claim_id FOR UPDATE;
+  -- 两条里有一条已经被改写 / 忘掉 / 取代：这张卡说的那一对已经不存在了
+  IF v_newer.revoked_at IS NOT NULL OR v_newer.status = 'superseded' OR v_older.revoked_at IS NOT NULL OR v_older.status = 'superseded'
+     OR NOT (v_newer.scope_kind = 'chat_session' AND v_newer.scope_id = v_thread)
+     OR NOT ((v_older.scope_kind = 'chat_session' AND v_older.scope_id = v_thread) OR (v_older.scope_kind = 'personal' AND v_older.scope_id = v_user)) THEN
+    RAISE EXCEPTION 'KG_PROMPT_NOT_FOUND: the conflicting pair has changed' USING ERRCODE = '23503';
+  END IF;
+
+  -- 先把这张卡结掉，再动两条结论：结论变成 superseded 会触发 kg_conflict_close_on_change（见下），
+  -- 它只收「还开着 / 被忽略」的卡——这张卡此刻已经不是了，不会被当成「因为别处的改动而结束」。
+  UPDATE kg_conflict_prompts
+     SET status = CASE v_res WHEN 'keep_new' THEN 'kept_new' WHEN 'keep_both' THEN 'kept_both' ELSE 'ignored' END,
+         resolved_by = v_user, resolved_at = now(),
+         newer_condition = CASE WHEN v_res = 'keep_both' AND v_kind = 'conflict' THEN nullif(btrim(v_action->'conditions'->>'newer'), '') END,
+         older_condition = CASE WHEN v_res = 'keep_both' AND v_kind = 'conflict' THEN nullif(btrim(v_action->'conditions'->>'older'), '') END
+   WHERE id = v_prompt.id;
+
+  IF v_res = 'keep_new' THEN
+    -- 旧条在长期记忆里（本身在个人空间，或有本人的 L1 副本）⇒ 新条也记进去，长期记忆里留的是新说法。
+    v_promote := v_older.scope_kind = 'personal' OR EXISTS (
+      SELECT 1 FROM ontology_edges d JOIN claims pc ON pc.id = d.src_id AND pc.org_id = d.org_id
+       WHERE d.org_id = v_org AND d.relation = 'derived_from' AND d.status = 'active' AND d.dst_kind = 'claim' AND d.dst_id = v_older.id
+         AND pc.scope_kind = 'personal' AND pc.scope_id = v_user AND pc.revoked_at IS NULL);
+    -- 本人由旧条晋升出去的 L1 副本一并失效：F07 的级联只在「所有来源都失效」时才收 L1（副本可能还合并了
+    -- 别的会话的来源），那样长期记忆里会同时留着新旧两种说法。用户选了「以新的为准」，旧说法就不该再被召回。
+    UPDATE claims pc SET status = 'superseded', revoked_at = now(), revocation_reason = 'conflict_keep_new', updated_at = now()
+     WHERE pc.org_id = v_org AND pc.scope_kind = 'personal' AND pc.scope_id = v_user AND pc.revoked_at IS NULL
+       AND EXISTS (SELECT 1 FROM ontology_edges d WHERE d.org_id = v_org AND d.src_kind = 'claim' AND d.src_id = pc.id
+                     AND d.relation = 'derived_from' AND d.dst_kind = 'claim' AND d.dst_id = v_older.id);
+    UPDATE claims SET status = 'superseded', revoked_at = now(), revocation_reason = 'conflict_keep_new', updated_at = now()
+     WHERE org_id = v_org AND id = v_older.id;
+    -- supersedes 只在同一作用域里连：会话里的结论不能指着一条别人看不到的个人空间 id。
+    UPDATE claims SET status = 'accepted', reviewed_by = v_user, updated_at = now(),
+                      supersedes_claim_id = CASE WHEN v_older.scope_kind = 'chat_session' THEN v_older.id ELSE supersedes_claim_id END
+     WHERE org_id = v_org AND id = v_newer.id;
+    IF v_promote THEN
+      -- #4290：possible_change 卡的新条没转 contested，#4283 可能已经把它自动记进了本人个人空间（「AI 记下的」）——
+      -- 那一份就是长期记忆里的新说法：转「你确认过」，不再晋升出第二份。
+      SELECT pc.id INTO v_l1 FROM claims pc
+       WHERE pc.org_id = v_org AND pc.scope_kind = 'personal' AND pc.scope_id = v_user AND pc.revoked_at IS NULL AND pc.status <> 'superseded'
+         AND EXISTS (SELECT 1 FROM ontology_edges d WHERE d.org_id = v_org AND d.src_kind = 'claim' AND d.src_id = pc.id
+                       AND d.relation = 'derived_from' AND d.status = 'active' AND d.dst_kind = 'claim' AND d.dst_id = v_newer.id)
+       ORDER BY pc.id LIMIT 1 FOR UPDATE;
+      IF v_l1 IS NOT NULL THEN
+        UPDATE claims SET status = 'accepted', reviewed_by = v_user, updated_at = now()
+         WHERE org_id = v_org AND id = v_l1 AND status IN ('proposed', 'reviewed');
+      ELSE
+        v_l1 := kg_promote_claim(jsonb_build_object('action_id', v_id || '-p', 'thread_id', v_thread, 'claim_id', v_newer.id));
+      END IF;
+      IF v_older.scope_kind = 'personal' THEN
+        UPDATE claims SET supersedes_claim_id = v_older.id WHERE org_id = v_org AND id = v_l1 AND id <> v_older.id;
+      END IF;
+    END IF;
+
+  ELSIF v_res = 'keep_both' AND v_kind = 'conflict' THEN
+    UPDATE claims SET status = 'accepted', reviewed_by = v_user, updated_at = now()
+     WHERE org_id = v_org AND id IN (v_newer.id, v_older.id);
+  END IF;
+  -- ignore：两条保持冲突；这一对不再提醒（开卡时按 status = ignored 挡住）
+  -- #4290 possible_change + keep_both：两条本来就没转 contested，只关卡（kept_both 同样挡住同一对再问）
+
+  v_claims := CASE WHEN v_older.scope_kind = 'chat_session'
+                   THEN jsonb_build_array(jsonb_build_object('id', v_newer.id), jsonb_build_object('id', v_older.id))
+                   ELSE jsonb_build_array(jsonb_build_object('id', v_newer.id)) END;
+  INSERT INTO ontology_actions (id, org_id, scope_kind, scope_id, actor_kind, actor_id, action_type, payload, outcome)
+  VALUES (v_id, v_org, 'chat_session', v_thread, 'human', v_user, 'resolveConflict',
+          jsonb_build_object('action', v_action, 'claims', v_claims, 'objects', '[]'::jsonb), 'accepted');
+  IF v_older.scope_kind = 'personal' AND v_res <> 'ignore' AND NOT (v_kind = 'possible_change' AND v_res = 'keep_both') THEN
+    INSERT INTO ontology_actions (id, org_id, scope_kind, scope_id, actor_kind, actor_id, action_type, payload, outcome)
+    VALUES (v_id || '-l1', v_org, 'personal', v_user, 'human', v_user, 'resolveConflict',
+            jsonb_build_object('thread_id', v_thread, 'resolution', v_res, 'claims', jsonb_build_array(jsonb_build_object('id', v_older.id))),
+            'accepted');
+  END IF;
+  -- 重数一遍而不是 v_rev + 1：取代旧条可能顺带结束了同一旧条上别的卡（kg_conflict_close_on_change 各记一条）。
   RETURN jsonb_build_object('revision', kg_thread_revision(v_thread), 'action_id', v_id);
 END
 $$;

@@ -1,19 +1,23 @@
 /**
  * Issue #4290（第 8 轮）—— 本人明确改口时，新决定取代本人的旧决定。
  *
- * 场景：同一个人在个人会话 A 说「我决定关注 211 高校」，之后在会话 B 说「改成关注 985 吧」。F16
+ * 场景：同一个人在个人会话 A 说「我决定关注 211 高校」，之后在会话 B 说「改成关注 985 高校吧」。F16
  * （`conflict.ts`）只认「同一组实体、同一指标、不同数值」，211 → 985 的 about 实体不同，不出冲突卡；
  * 于是两条决定都活着，会话 C 的模型同时拿到互相矛盾的两条。
  *
- * 人类决定（2026-09-26，usecases.md #4290 条目）：
- *   1. **只有明确改口才取代**：新决定带改口信号，且与**同一作者**一条仍生效的旧决定主题相同。
+ * 人类决定（2026-09-26，usecases.md #4290 条目 5）：
+ *   1. **只有明确改口才算**：新决定带改口信号，且与**同一作者**一条仍生效的旧决定主题相同。
  *      并列的补充（「也关注 985」）两条都保留。
- *   2. **自动生效、可撤销**：旧决定转 superseded（原因 `decision_changed`），不再召回；会话里显示
- *      「已用〈新〉取代〈旧〉 · 撤销」，撤销后旧决定恢复。
+ *   2. **高把握自动、低把握弹卡**（2026-09-26 第二次决定：三轮独立评审找到的误取代几乎都出在 frame_only 这一档）：
+ *      - 明说（explicit）与同框架同类（same_kind）⇒ **自动取代、可撤销**：旧决定转 superseded（原因 `decision_changed`），
+ *        不再召回；会话里显示「已用〈新〉取代〈旧〉 · 撤销」，撤销后旧决定恢复；
+ *      - 只有框架动词相同（frame_only）⇒ **从不自动**：会话里弹一张卡「用〈新〉取代〈旧〉？」——复用 F16 的冲突卡表与出口
+ *        （`kg_conflict_prompts.kind = possible_change`）：[取代] = F16 keep_new，[两条都保留] = 只关卡。卡开着的时候
+ *        两条都保持原状态（不像 F16 那样转 contested）、都照常召回。
  *
- * 本文件是纯函数：只回答「这条新决定是不是在改掉那条旧决定」。候选怎么取（这条消息刚抽出的决定；
- * 本会话里同一作者的活决定，个人线程里再加所有者本人个人空间的活决定）、落不落表（复核、改状态、留撤销
- * 快照）都在数据库函数 `kg_supersede_candidates` / `kg_apply_supersedes`（迁移 20260926140000）。
+ * 本文件是纯函数：只回答「这条新决定是不是在改掉那条旧决定、把握多大」（`planSupersedes`：自动取代的对 + 要弹卡问的对）。
+ * 候选怎么取（这条消息刚抽出的决定；本会话里同一作者的活决定，个人线程里再加所有者本人个人空间的活决定）、落不落表
+ * （复核、改状态、留撤销快照、开卡）都在数据库函数 `kg_supersede_candidates` / `kg_apply_supersedes`（迁移 20260926140000）。
  *
  * ## 判定规则（确定、可复现，不调模型——同 `conflict.ts` / `decision-claim.ts` 的理由）
  *
@@ -24,7 +28,8 @@
  *   1. 两条都是 decision；id 不同；
  *   2. **同一作者**：两边作者都已知且相等（作者未知 ⇒ 不取代；不同作者之间只走 F16）；
  *   3. N 整句不落在任何一条否决里：并列补充（`ADDITIVE`：也 / 还要 / 另外 / 同时 / 加上……）；否定的改口（「不改成」
- *      「没换成」「别改用」「不再改成」……）；问句（句末问号、疑问词、句末「吗 / 呢 / 么」）；假设（「如果 / 要是……」开头）；
+ *      「没换成」「别改用」「不再改成」……）；问句（**句中任何位置**的问号——「改成用React？不行，还是用Vue」——、疑问词、
+ *      句末「吗 / 呢 / 么」）；假设（「如果 / 要是……」开头）；
  *      且 N 至少有一个**改口分句**（`changeClauses`）：
  *      - **分句**：按 ，,；;。!！?？、 与连接词（但 / 但是 / 不过 / 然后 / 可是 / 只是 / 而是 / 因为 / 所以）切开，去掉决定动词；
  *      - **改口分句**只有下面五种句式，改口标记都**直接**支配同一分句里紧跟的框架动词或对象：
@@ -36,6 +41,14 @@
  *           「不用 Vue 了」相同，只点名「多想」「过多讨论」——它们不是任何旧决定的对象，所以不取代任何东西；
  *        e. 旧 + 算了（整个分句）：后面紧跟另一个改口分句或句子到此结束 ⇒ 点名旧对象。唯一跨分句的窄口子：「（旧）算了，
  *           还是 + 框架动词 + 对象」——只有紧跟在「算了」分句后、以「还是」开头的那一个分句可以提供新框架；
+ *      - **新对象在谓语 / 否定标记处结束**（`OBJECT_STOP`：是 / 不 / 没 / 被 / 而 / 的提议 / 的方案 / 的话……）。标记后面
+ *        是同一分句里一个「不 + 框架动词 + 旧 + 了」式的点名（「改成用React不用Vue了」）⇒ 对象截在标记前；否则那是对这个改口
+ *        本身的评判（「改成用React是不可能的 / 不现实 / 没必要」「改成用React的提议被否了」）⇒ 整个改口分句丢掉；
+ *      - **紧跟着的评判分句**（`VERDICT`：「我觉得不行」「不现实」「没必要」「算了」……整个分句只是一句评判）⇒ 它前面那个
+ *        改口分句丢掉（「有人提议，改成用React，我觉得不行」）；
+ *      - **话题分句带主语**：改口分句自己没有主语时，往前找最近的非改口分句（跳过「好的 / 我想了想」这类空话）：
+ *        「关于X / 至于X / X那块 / X方面 / X的话」取 X，其余不带框架动词的分句（光秃秃的名词短语「周报，」、转述「有人提议，」）
+ *        取整个分句；带框架动词的分句是一句陈述、不是话题（「决定用React，不用Vue了」不带主语）——话题就是这个改口的主语，照第 5 条要求出现在旧决定里（「关于周会，改成用腾讯会议」不取代「用Vue」）；
  *   4. **不是重说**：任一改口分句的新对象与 O 的对象相等、或一个包含另一个（React 对 React做前端、Vue 对 Vue写原型、
  *      985 对 985高校）⇒ 不取代——重说 / 重申旧决定永远不是改口；
  *   5. **主题相同**：存在一个改口分句，它的主语为空或出现在 O 的原文里（「后端改用 Rust」对「后端用 Go」可以，「周会改成用
@@ -50,10 +63,13 @@
  * 它后面到分句末、去掉句末语气词的部分是「对象」；对象末尾连续汉字的最后两个字是「类别词」（「211高校」→「高校」，「985」没有）。
  *
  * **一条新决定取代哪几条**：取最强的非空一档；这一档里的旧决定按归一文本分组——只有**一组**（同一句话可能在
- * 会话里和个人空间里各有一条）才取代这一组的全部；多于一组 ⇒ 说不清改的是哪一条，一条都不取代。
+ * 会话里和个人空间里各有一条）才算；多于一组 ⇒ 说不清改的是哪一条，既不取代也不弹卡。
+ *   - 这一档是 explicit / same_kind ⇒ 自动取代这一组的全部（`supersedes`）；
+ *   - 这一档是 frame_only ⇒ 弹一张卡（`prompts`），〈旧〉取这一组的代表：本会话的那条优先，其次 id 最小的
+ *     （[取代] 走 F16 keep_new，连带收掉本人由它晋升出去的 L1 副本）。
  * 宁可漏，不可误（R4 A1 同一原则）：漏了，用户还能在面板里手动忘掉旧的；误取代会让一条还有效的决定悄悄消失。
  */
-import { INTERROGATIVE, QUESTION_END } from "./question-detection";
+import { INTERROGATIVE } from "./question-detection";
 
 export type SupersedeClaimKind = "fact" | "hypothesis" | "decision" | "todo" | "risk";
 
@@ -81,6 +97,12 @@ export interface SupersedePair {
   readonly olderClaimId: string;
 }
 
+/** 一批新结论的判定结果：高把握的自动取代，低把握（frame_only）的弹卡问人（`kg_conflict_prompts.kind = possible_change`）。 */
+export interface SupersedePlan {
+  readonly supersedes: readonly SupersedePair[];
+  readonly prompts: readonly SupersedePair[];
+}
+
 /** 主题相同的三档（数字越小越强）。 */
 export type TopicMatch = "explicit" | "same_kind" | "frame_only";
 const MATCH_RANK: Record<TopicMatch, number> = { explicit: 0, same_kind: 1, frame_only: 2 };
@@ -89,6 +111,7 @@ const MATCH_RANK: Record<TopicMatch, number> = { explicit: 0, same_kind: 1, fram
 const CHANGE_WORD = /改成|改为|换成|换为|改用|换用|转为/;
 const ADDITIVE = /也|还要|还想|另外|同时|再加|加上|以及|并且|额外|增加|补充/;
 const NEGATED_CHANGE = /(?:不|没有?|未|别|不要|不想|不再|不会)(?:改成|改为|换成|换为|改用|换用|转为)/;
+const QUESTION_MARK = /[?？]/;
 const QUESTION_TAIL = /(?:吗|呢|么)[。.!！~～]*$/;
 const HYPOTHETICAL_LEAD = /^(?:如果|假如|假设|要是|倘若|假使|万一)/;
 
@@ -115,6 +138,19 @@ const CONNECTIVES = /但是|但|不过|然后|可是|只是|而是|因为|所以
 const LEAD_FILLERS = /^(?:我们|我|咱们|咱|那就|那么|那|就|还是|干脆|索性|最后|最终|直接|现在|以后|今后)+/;
 const TAIL_PARTICLES = /(?:吧|了|啊|呀|哦|啦|嘛|的)+$/;
 const GIVE_UP = /^(.*?)算了[吧啊呀啦哦嘛]*$/;
+/** 新对象在这里结束：谓语 / 否定 / 「…的提议」这类把改口本身当成被评判对象的标记。 */
+const OBJECT_STOP = /是|不|没|被|而|的(?:提议|方案|想法|建议|计划|话|说法|主意|做法|意见)/;
+/** 整个分句只是一句评判（「我觉得不行」「不现实」「算了」）：紧跟在改口分句后面 ⇒ 否掉那个改口。 */
+const VERDICT = new RegExp(
+  "^(?:我们|我|大家|领导|老板)?(?:觉得|认为|看|感觉)?(?:这样|那样|这个|那个|这|那|它)?(?:也|还是|肯定|实在|真的|根本|恐怕|估计|好像)?(?:是)?"
+  + "(?:不行|不好|不妥|不可能|不现实|不合适|不靠谱|不太行|不太好|不太现实|行不通|没必要|不必要|没用|不同意|不划算|不值得|否了|被否了?|算了)"
+  + "[吧啊呀啦哦嘛了的]*$",
+);
+/** 话题分句：「关于 / 至于 / 对于 / 说到 X」「X 那块 / 方面 / 的话」⇒ 话题 X。 */
+const TOPIC_LEAD = /^(?:关于|至于|对于|说到|提到)/;
+const TOPIC_TAIL = /(?:那块|这块|那边|这边|方面|那部分|这部分|部分|的话|这件事|那件事|这事|那事|的事)$/;
+/** 不带主题的空话分句（往前找话题时跳过）。 */
+const FILLER_CLAUSE = /^(?:好的?|行|嗯+|哦|对|是的|ok|okay|想了想|想了一下|考虑了一下|再想想|这样吧?|那这样|这么说吧?|总之|综上|说实话|老实说)$/;
 const STILL_LEAD = /^(?:那就|那|就|我们|我)?还是/;
 
 /** 归一：NFKC、小写、去掉全部空白。 */
@@ -180,35 +216,59 @@ const nonEmpty = (s: string): string | null => (s === "" ? null : s);
 /** 一个分句里的改口句式（不含「算了」，它要看下一个分句）。 */
 function clauseChanges(clause: string): ChangeClause[] {
   const out: ChangeClause[] = [];
-  // 肯定式：改成 / 换成……必须紧跟框架动词或对象；改用 / 换用 本身读作「用」
-  const cw = CHANGE_WORD.exec(clause);
-  if (cw !== null) {
-    let subject = lead(clause.slice(0, cw.index));
-    const ba = subject.startsWith("把");
-    if (ba) subject = subject.slice(1);
-    const rest = clause.slice(cw.index + cw[0].length);
-    const frame = cw[0] === "改用" || cw[0] === "换用"
-      ? frameAtStart(rest, false) ?? (rest === "" ? null : makeFrame("用", rest))
-      : frameAtStart(rest, true);
-    if (frame !== null) out.push({ frame, namedOld: ba ? nonEmpty(subject.replace(TAIL_PARTICLES, "")) : null, subject });
-  }
-  // 否定式：「不再 + 框架动词 + 旧」「不 + 框架动词 + 旧 + 了」——只点名旧对象，没有新框架
+  // 否定式：「不再 + 框架动词 + 旧」「不 + 框架动词 + 旧 + 了」——只点名旧对象，没有新框架。记下位置：肯定式的对象
+  // 撞上的「不」若正是这里的一个点名，那是「改成 A 不用 B 了」的对照，不是对改口本身的否定。
+  const negatedAt = new Set<number>();
   for (let i = clause.indexOf("不"); i !== -1; i = clause.indexOf("不", i + 1)) {
     const subject = lead(clause.slice(0, i));
     if (clause.startsWith("不再", i)) {
       const verb = frameVerbAt(clause, i + 2, false);
       if (verb === null) continue;
       const old = clause.slice(i + 2 + verb.length).replace(TAIL_PARTICLES, "");
-      if (old !== "") out.push({ frame: null, namedOld: old, subject });
+      if (old !== "") { out.push({ frame: null, namedOld: old, subject }); negatedAt.add(i); }
       continue;
     }
     const verb = frameVerbAt(clause, i + 1, false);
     if (verb === null) continue;
     const m = /^(.+?)了[吧啊呀啦哦嘛]*$/.exec(clause.slice(i + 1 + verb.length));
     const old = m?.[1]?.replace(TAIL_PARTICLES, "") ?? "";
-    if (old !== "") out.push({ frame: null, namedOld: old, subject });
+    if (old !== "") { out.push({ frame: null, namedOld: old, subject }); negatedAt.add(i); }
+  }
+  // 肯定式：改成 / 换成……必须紧跟框架动词或对象；改用 / 换用 本身读作「用」
+  const cw = CHANGE_WORD.exec(clause);
+  if (cw !== null) {
+    let subject = lead(clause.slice(0, cw.index));
+    const ba = subject.startsWith("把");
+    if (ba) subject = subject.slice(1);
+    const restAt = cw.index + cw[0].length;
+    let rest = clause.slice(restAt);
+    // 新对象在谓语 / 否定标记处结束；标记后面不是本分句里的一个「不…了」点名 ⇒ 那是对这个改口的评判，整个丢掉
+    const stop = OBJECT_STOP.exec(rest);
+    let judged = false;
+    if (stop !== null) {
+      if (negatedAt.has(restAt + stop.index)) rest = rest.slice(0, stop.index);
+      else judged = true;
+    }
+    if (!judged) {
+      const frame = cw[0] === "改用" || cw[0] === "换用"
+        ? frameAtStart(rest, false) ?? (rest === "" ? null : makeFrame("用", rest))
+        : frameAtStart(rest, true);
+      if (frame !== null) out.unshift({ frame, namedOld: ba ? nonEmpty(subject.replace(TAIL_PARTICLES, "")) : null, subject });
+    }
   }
   return out;
+}
+
+/**
+ * 话题分句的主语：「关于X」「X那块」取 X；其余不带框架动词的分句（光秃秃的名词短语、转述「有人提议」）取整个分句。
+ * 空话（好的 / 我想了想）⇒ undefined（接着往前找）；带框架动词的分句本身是一句陈述（「决定用React，不用Vue了」），
+ * 不是话题 ⇒ null（停下，不带主语）。
+ */
+function topicOf(clause: string): string | null | undefined {
+  const t = lead(clause.replace(TOPIC_LEAD, "").replace(TOPIC_TAIL, "")).replace(TAIL_PARTICLES, "");
+  if (t === "" || FILLER_CLAUSE.test(t)) return undefined;
+  for (let i = 0; i < clause.length; i += 1) if (frameVerbAt(clause, i) !== null) return null;
+  return t;
 }
 
 /** 全部改口句式，不看句子级否决（decisionFrame 读旧决定时也用）。 */
@@ -237,6 +297,16 @@ function rawChangeClauses(text: string): { clauses: string[]; changes: ChangeCla
     changed.add(k + 1);
     per[k]!.push({ frame, namedOld: old, subject: "" });
   });
+  // 紧跟着的评判分句否掉它前面那个改口分句（「改成用React，我觉得不行」）
+  clauses.forEach((c, k) => { if (k > 0 && VERDICT.test(c)) per[k - 1] = []; });
+  // 话题分句带主语：改口分句自己没有主语 ⇒ 往前找最近的非改口分句（跳过空话；带框架动词的陈述句不是话题），它就是主语
+  per.forEach((cs, k) => {
+    if (!cs.some((c) => c.subject === "")) return;
+    let topic: string | null | undefined;
+    for (let j = k - 1; j >= 0 && !changed.has(j) && topic === undefined; j -= 1) topic = topicOf(clauses[j]!);
+    if (topic === null || topic === undefined) return;
+    per[k] = cs.map((c) => (c.subject === "" ? { ...c, subject: topic } : c));
+  });
   return { clauses, changes: per.flat(), changed };
 }
 
@@ -244,7 +314,8 @@ function rawChangeClauses(text: string): { clauses: string[]; changes: ChangeCla
 export function changeClauses(statement: string): ChangeClause[] {
   const text = normalizeStatement(statement);
   if (ADDITIVE.test(text) || NEGATED_CHANGE.test(text)) return [];
-  if (QUESTION_END.test(text) || QUESTION_TAIL.test(text) || INTERROGATIVE.test(text)) return [];
+  // 问号在句中任何位置（「改成用React？不行，还是用Vue」）都算问句
+  if (QUESTION_MARK.test(text) || QUESTION_TAIL.test(text) || INTERROGATIVE.test(text)) return [];
   if (HYPOTHETICAL_LEAD.test(text)) return [];
   return rawChangeClauses(text).changes;
 }
@@ -304,23 +375,35 @@ export function supersedeMatch(fresh: SupersedeFresh, older: LiveDecision): Topi
 }
 
 /**
- * 这一批新结论各自取代哪些旧决定（见文件头「一条新决定取代哪几条」）。结果按新条、旧条 id 排序，确定可复现。
+ * 这一批新结论各自取代哪些旧决定、哪些要弹卡问人（见文件头「一条新决定取代哪几条」）。结果按新条、旧条 id 排序，确定可复现。
  */
-export function findSupersedes(fresh: readonly SupersedeFresh[], live: readonly LiveDecision[]): SupersedePair[] {
-  const pairs: SupersedePair[] = [];
+export function planSupersedes(fresh: readonly SupersedeFresh[], live: readonly LiveDecision[]): SupersedePlan {
+  const supersedes: SupersedePair[] = [];
+  const prompts: SupersedePair[] = [];
   for (const f of fresh) {
-    let best = Number.POSITIVE_INFINITY;
+    let best: TopicMatch | null = null;
     let hits: LiveDecision[] = [];
     for (const o of live) {
       const m = supersedeMatch(f, o);
       if (m === null) continue;
-      const rank = MATCH_RANK[m];
-      if (rank < best) { best = rank; hits = [o]; } else if (rank === best) hits.push(o);
+      if (best === null || MATCH_RANK[m] < MATCH_RANK[best]) { best = m; hits = [o]; } else if (m === best) hits.push(o);
     }
-    if (hits.length === 0) continue;
+    if (best === null) continue;
     const keys = new Set(hits.map((o) => normalizeStatement(o.statement)));
     if (keys.size !== 1) continue;
-    for (const o of hits) pairs.push({ newerClaimId: f.id, olderClaimId: o.id });
+    if (best === "frame_only") {
+      // 低把握：只问、不动。〈旧〉取这一组的代表（本会话的优先，其次 id 最小）
+      const rep = [...hits].sort((x, y) => Number(y.scope === "chat_session") - Number(x.scope === "chat_session") || x.id.localeCompare(y.id))[0]!;
+      prompts.push({ newerClaimId: f.id, olderClaimId: rep.id });
+    } else {
+      for (const o of hits) supersedes.push({ newerClaimId: f.id, olderClaimId: o.id });
+    }
   }
-  return pairs.sort((x, y) => x.newerClaimId.localeCompare(y.newerClaimId) || x.olderClaimId.localeCompare(y.olderClaimId));
+  const order = (x: SupersedePair, y: SupersedePair) => x.newerClaimId.localeCompare(y.newerClaimId) || x.olderClaimId.localeCompare(y.olderClaimId);
+  return { supersedes: supersedes.sort(order), prompts: prompts.sort(order) };
+}
+
+/** 只要自动取代的那部分（explicit / same_kind）。 */
+export function findSupersedes(fresh: readonly SupersedeFresh[], live: readonly LiveDecision[]): SupersedePair[] {
+  return [...planSupersedes(fresh, live).supersedes];
 }

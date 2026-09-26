@@ -247,9 +247,19 @@ export const KG_VISIBILITY_LABEL_ZH: Record<KgVisibility, string> = {
   thread_members: "会话成员可见",
 };
 
-/** U-5 矛盾提醒（uc-18-6 D）。一轮最多一张（R7-3）；被 ignore 的同一对不再出现 */
+/**
+ * U-5 矛盾提醒（uc-18-6 D）。一轮最多一张（R7-3）；被 ignore 的同一对不再出现。
+ * `kind`（issue #4290，人类决定 2026-09-26「高把握自动、低把握弹卡」）：
+ * - `conflict`：F16 的矛盾提醒——两条已转「有矛盾」，三个出口 keep_new / keep_both（各写适用条件）/ ignore；
+ * - `possible_change`：本人低把握的改口（只有框架动词相同）——卡上问「用〈新〉取代〈旧〉？」，两条都**不改状态**、
+ *   照常召回，直到人选：[取代] = `keep_new`，[两条都保留] = `keep_both`（不带 conditions，只关卡）；界面上不给 ignore
+ *   （直接调用时同样只关卡、两条状态不动）。
+ */
+export const KgConflictPromptKind = z.enum(["conflict", "possible_change"]);
+export type KgConflictPromptKind = z.infer<typeof KgConflictPromptKind>;
 export const KgConflictPrompt = z.object({
   promptId: z.string(),
+  kind: KgConflictPromptKind,
   newerClaim: z.object({ id: z.string(), statement: z.string() }).strict(),
   olderClaim: z.object({ id: z.string(), statement: z.string(), saidAt: z.string() }).strict(),
 }).strict();

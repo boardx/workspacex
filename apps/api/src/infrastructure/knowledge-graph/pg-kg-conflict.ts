@@ -93,11 +93,13 @@ export class PgKgConflict implements KgConflictPort {
   async applySupersedes(orgId: OrgId, input: {
     readonly actionId: string; readonly threadId: string; readonly messageId: string;
     readonly supersedes: readonly { readonly newer: string; readonly olders: readonly string[] }[];
+    readonly prompts: readonly { readonly newer: string; readonly older: string }[];
   }): Promise<number> {
     const r = await retryOnceOnDeadlock(() => this.db.withTenant(orgId, async (s) => {
       await asThreadOwner(s, input.threadId);
       return s.query<{ n: number }>("SELECT kg_apply_supersedes($1::jsonb) AS n", [JSON.stringify({
         action_id: input.actionId, thread_id: input.threadId, message_id: input.messageId, supersedes: input.supersedes,
+        prompts: input.prompts,
       })]);
     }));
     return Number(r.rows[0]?.n ?? 0);

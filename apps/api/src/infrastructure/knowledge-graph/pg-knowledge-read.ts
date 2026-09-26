@@ -485,9 +485,9 @@ async function readTurnConflict(
 ): Promise<ConflictPrompt | null> {
   if (turnMessageIds.length === 0) return null;
   const r = await s.query<{
-    id: string; newer_id: string; newer_statement: string; older_id: string; older_statement: string; said_at: Date;
+    id: string; kind: "conflict" | "possible_change"; newer_id: string; newer_statement: string; older_id: string; older_statement: string; said_at: Date;
   }>(
-    `SELECT p.id, n.id AS newer_id, n.statement AS newer_statement, o.id AS older_id, o.statement AS older_statement,
+    `SELECT p.id, p.kind, n.id AS newer_id, n.statement AS newer_statement, o.id AS older_id, o.statement AS older_statement,
             coalesce((SELECT min(m.created_at) FROM claim_message_evidence e
                         JOIN chat_messages m ON m.id = e.message_id AND m.org_id = e.org_id
                        WHERE e.claim_id = o.id AND e.org_id = o.org_id AND e.stance = 'supporting'), o.created_at) AS said_at
@@ -506,6 +506,7 @@ async function readTurnConflict(
   if (row === undefined) return null;
   return {
     promptId: row.id,
+    kind: row.kind,
     newerClaim: { id: row.newer_id, statement: row.newer_statement },
     olderClaim: { id: row.older_id, statement: row.older_statement, saidAt: row.said_at.toISOString() },
   };

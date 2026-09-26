@@ -206,7 +206,7 @@ beforeEach(() => {
       return json(knowledgeGraph.getTurnMemory.out.parse({
         messageId: "msg-5", captured: [], pending: false, supersede: null, recalled: [], recallDegraded: false,
         prompt: server.conflictInstead === true
-          ? { type: "conflict", conflict: { promptId: "kgp-x", newerClaim: { id: "c-n", statement: "新" }, olderClaim: { id: "c-o", statement: "旧", saidAt: "2026-09-20T00:00:00Z" } } }
+          ? { type: "conflict", conflict: { promptId: "kgp-x", kind: "conflict", newerClaim: { id: "c-n", statement: "新" }, olderClaim: { id: "c-o", statement: "旧", saidAt: "2026-09-20T00:00:00Z" } } }
           : server.card === null ? null : { type: "memory_card", card: server.card },
       }));
     }

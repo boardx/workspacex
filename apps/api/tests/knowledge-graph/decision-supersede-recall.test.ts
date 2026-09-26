@@ -226,7 +226,7 @@ describe("issue #4290: 本人明确改口 ⇒ 新决定取代旧决定（可撤�
     const { claim: theirs } = await claimIn(a, SHARED, SHARED_NEW);
     const forced = await new PgKgConflict(e.db).applySupersedes(toOrgId(ORG), {
       actionId: newKgId("act"), threadId: SHARED, messageId: "m-i4290-s2",
-      supersedes: [{ newer: theirs.id, olders: [mine.id] }],
+      supersedes: [{ newer: theirs.id, olders: [mine.id] }], prompts: [],
     });
     expect(forced).toBe(0);
     const kept = await claimRow(mine.id);

@@ -209,6 +209,7 @@ describe("F16: 当轮出卡（V3）", () => {
       "SELECT min(m.created_at) AS at FROM claim_message_evidence e JOIN chat_messages m ON m.id = e.message_id WHERE e.claim_id = $1 AND e.stance = 'supporting'", [older.id]);
     expect(prompt).toEqual({
       promptId: expect.any(String),
+      kind: "conflict",
       newerClaim: { id: newer.id, statement: "项目A 上线改到 10/1" },
       olderClaim: { id: older.id, statement: "项目A 9/29 上线", saidAt: nineTwentyNine!.at.toISOString() },
     });
