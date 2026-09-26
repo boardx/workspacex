@@ -329,3 +329,29 @@ $ PATH=/var/tmp/pgpurge/bin:$PATH PGPORT=55432 WORKSPACEX_DB=r08r7 npx vitest ru
       Tests  32 failed | 256 passed (288)
 
 With the fix: decision-supersede.test.ts 288/288 pass. tests/knowledge-graph + tests/retrieval 54 files / 811 tests pass.
+
+## Review round 8 of round 8 (numerals / measure words / repeated break marks / OK吧)
+Domain file restored to 044326907, new tests in place: apps/api tests/knowledge-graph/decision-supersede.test.ts (exit 1)
+   × 第 8 轮第七次评审：改口分句必须在原文里结束在新对象上；新对象的结构跟着旧对象走 > 不自动 ⇒ 卡：选北京 → 把北京换成一个 9ms
+   × 第 8 轮第七次评审：改口分句必须在原文里结束在新对象上；新对象的结构跟着旧对象走 > 不自动 ⇒ 卡：选北京 → 把北京换成一座 1ms
+   × 第 8 轮第七次评审：改口分句必须在原文里结束在新对象上；新对象的结构跟着旧对象走 > 不自动 ⇒ 卡：选北京 → 把北京换成一家 1ms
+   × 第 8 轮第七次评审：改口分句必须在原文里结束在新对象上；新对象的结构跟着旧对象走 > 不自动 ⇒ 卡：选北京 → 把北京换成一处 0ms
+   × 第 8 轮第七次评审：改口分句必须在原文里结束在新对象上；新对象的结构跟着旧对象走 > 不自动 ⇒ 卡：选北京 → 把北京换成三个 1ms
+   × 第 8 轮第七次评审：改口分句必须在原文里结束在新对象上；新对象的结构跟着旧对象走 > 不自动 ⇒ 卡：选北京 → 把北京换成一下 0ms
+   × 第 8 轮第七次评审：改口分句必须在原文里结束在新对象上；新对象的结构跟着旧对象走 > 不自动 ⇒ 卡：选北京 → 把北京换成一点 0ms
+   × 第 8 轮第七次评审：改口分句必须在原文里结束在新对象上；新对象的结构跟着旧对象走 > 不自动 ⇒ 卡：选北京 → 把北京换成大概 1ms
+   × 第 8 轮第七次评审：改口分句必须在原文里结束在新对象上；新对象的结构跟着旧对象走 > 不自动 ⇒ 卡：选北京 → 把北京换成若干 1ms
+   × 第 8 轮第七次评审：改口分句必须在原文里结束在新对象上；新对象的结构跟着旧对象走 > 不自动 ⇒ 卡：用Vue → 把Vue换成React。。。 1ms
+   × 第 8 轮第七次评审：改口分句必须在原文里结束在新对象上；新对象的结构跟着旧对象走 > 不自动 ⇒ 卡：用Vue → 把Vue换成React吧。。 1ms
+   × 第 8 轮第七次评审：改口分句必须在原文里结束在新对象上；新对象的结构跟着旧对象走 > 不自动 ⇒ 卡：用Vue → 把Vue换成React，，， 0ms
+   × 第 8 轮第七次评审：改口分句必须在原文里结束在新对象上；新对象的结构跟着旧对象走 > 不自动 ⇒ 卡：用Vue → 把Vue换成React、、、 0ms
+   × 第 8 轮第七次评审：改口分句必须在原文里结束在新对象上；新对象的结构跟着旧对象走 > 不自动 ⇒ 卡：关注211高校 → 改成关注985高校。。。 0ms
+   × 第 8 轮第七次评审：改口分句必须在原文里结束在新对象上；新对象的结构跟着旧对象走 > 不自动 ⇒ 卡：用Vue → Vue算了，还是用React。。。 0ms
+   × 第 8 轮第七次评审：改口分句必须在原文里结束在新对象上；新对象的结构跟着旧对象走 > 不自动 ⇒ 卡：用Vue → 把Vue换成React;; 1ms
+   × 第 8 轮第七次评审：改口分句必须在原文里结束在新对象上；新对象的结构跟着旧对象走 > 不自动 ⇒ 卡：用Vue → 把Vue换成React，OK吧 1ms
+   × 第 8 轮第七次评审：改口分句必须在原文里结束在新对象上；新对象的结构跟着旧对象走 > 不自动 ⇒ 卡：关注211高校 → 改成关注985高校，ok吧 0ms
+⎯⎯⎯⎯⎯⎯ Failed Tests 18 ⎯⎯⎯⎯⎯⎯⎯
+ Test Files  1 failed (1)
+      Tests  18 failed | 292 passed (310)
+
+With the fix: decision-supersede.test.ts 310/310 pass. tests/knowledge-graph + tests/retrieval 54 files / 833 tests pass.

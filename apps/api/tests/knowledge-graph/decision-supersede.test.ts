@@ -491,6 +491,8 @@ describe("第 8 轮第六次评审：自动这一档只认白名单（单分句�
     ["用Vue框架", "把Vue框架换成React框架", "explicit"],
     ["选北京", "把北京换成上海", "explicit"],
     ["用Vue", "把Vue换成c++", "explicit"],
+    ["选北大", "把北大换成清华", "explicit"],
+    ["用Vue", "把Vue换成React", "explicit"],
   ])("白名单里的整句仍然自动：%s → %s（%s）", (o, n, tier) => {
     expect(supersedeMatch(fresh(n), old(o))).toBe(tier);
     expect(plan(o, n)).toEqual(AUTO);
@@ -541,6 +543,27 @@ describe("第 8 轮第七次评审：改口分句必须在原文里结束在新�
     ["用Vue", "把Vue换成React，所以"],
     ["用Vue", "把Vue换成React……"],
     ["用Vue", "把Vue换成React吧吧"],
+    // 5. 第 8 轮第八次评审：2 个汉字的数量结构 / 副词不是名词（首字数词、次字量词、汉字说不准词）
+    ["选北京", "把北京换成一个"],
+    ["选北京", "把北京换成一座"],
+    ["选北京", "把北京换成一家"],
+    ["选北京", "把北京换成一处"],
+    ["选北京", "把北京换成三个"],
+    ["选北京", "把北京换成一下"],
+    ["选北京", "把北京换成一点"],
+    ["选北京", "把北京换成大概"],
+    ["选北京", "把北京换成若干"],
+    // 6. 第 8 轮第八次评审：连续的分句标点是省略号
+    ["用Vue", "把Vue换成React。。。"],
+    ["用Vue", "把Vue换成React吧。。"],
+    ["用Vue", "把Vue换成React，，，"],
+    ["用Vue", "把Vue换成React、、、"],
+    ["关注211高校", "改成关注985高校。。。"],
+    ["用Vue", "Vue算了，还是用React。。。"],
+    ["用Vue", "把Vue换成React;;"],
+    // 7. 勉强的应允：OK吧 / ok吧 与 好吧 一样
+    ["用Vue", "把Vue换成React，OK吧"],
+    ["关注211高校", "改成关注985高校，ok吧"],
   ])("不自动 ⇒ 卡：%s → %s", (o, n) => {
     expect(supersedeMatch(fresh(n), old(o))).toBe("frame_only");
     expect(plan(o, n)).toEqual(CARD);
@@ -558,6 +581,8 @@ describe("第 8 轮第七次评审：改口分句必须在原文里结束在新�
     ["关注211高校", "改成关注 985 高校", "same_kind"],
     ["关注北京高校", "把北京高校换成上海高校", "explicit"],
     ["用Vue", "把Vue换成c++", "explicit"],
+    ["选北大", "把北大换成清华", "explicit"],
+    ["用Vue", "把Vue换成React", "explicit"],
   ])("仍然自动：%s → %s（%s）", (o, n, tier) => {
     expect(supersedeMatch(fresh(n), old(o))).toBe(tier);
     expect(plan(o, n)).toEqual(AUTO);

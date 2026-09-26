@@ -96,6 +96,9 @@
  *         「更多」「985等」「某些」对「211」都是卡。
  *      汉字限定语 / 对象另外不许含虚字、泛指字或「还没定」的字（`HAN_NOT_NOUN`：的 / 之 / 等 / 些 / 某 / 更 / 多 / 较 / 为 / 就 /
  *      如 / 何 / 否 / 待 / 定 / 再 / 非 / 不 / 所 / 全 / 其……）与框架动词：它和 ASCII 小词表一样只能把自动降成卡。
+ *      e. **第八次评审**：2 个汉字的对象首字是数词（一…十 / 百 / 千 / 万 / 两 / 几 / 若 / 多 / 半）或次字是量词（个 / 座 / 家 / 处 / 点 / 下 / 些 /
+ *         位 / 名 / 种 / 类 / 批 / 次 / 条 / 件 / 项），或含「大概 / 也许 / 可能 / 或许」（`HAN_HEDGE`）⇒ 卡（「把北京换成一个 / 一下 / 大概」）；
+ *         原文里连续两个以上的分句标点（「。。。」「，，，」「、、、」「;;」）是省略号，照 a 在改口分句里 ⇒ 卡；「OK吧」与「好吧」一样是勉强的应允 ⇒ 卡。
  *      same_kind 没有点名旧对象：另一组旧决定哪怕只在更弱的一档也匹配 ⇒ 说不清改的是哪条，既不取代也不弹卡。
  *   最后，档位本身只有 explicit 与对齐的 same_kind 能自动；frame_only 永远是卡。
  *
@@ -211,7 +214,7 @@ const CLEAN_FILLER = /^(?:好|嗯+|哦|ok|okay|想了想|想了一下|考虑了�
 const TAG_QUESTION = /^(?:(?:对|是|没错)(?:吧|吗|么)|(?:好|行|可以)(?:吗|么)|对不对|是不是|好不好|行不行|可不可以|不是吗)[啊呀吧]*$/;
 const TAG_QUESTION_TAIL = /(?:对吧|是吧|对吗|是吗|好吗|行吗|没错吧)[。.!！~～]*$/;
 /** 勉强的应允（「行吧」「好吧」）：不是收回，也不是干净的同意 ⇒ 说不准（弹卡）。比对剥掉开头虚词后的原分句。 */
-const RELUCTANT = /^(?:行|好)的?吧[啊呀]*$/;
+const RELUCTANT = /^(?:行|好|ok)的?吧[啊呀]*$/;
 /** 并列主语（「前端和后端都用…」「前端、后端…」）：旧决定说的是不止一件事 ⇒ 永远不自动。 */
 const COORDINATED = /和|与|及|跟|都|、/;
 /** 同类（same_kind）的对齐：类别词前面的限定语里不许出现框架 / 动作动词（文件头第 5、8 条）。 */
@@ -548,11 +551,16 @@ const asciiToken = (t: string): boolean => ASCII_TOKEN.test(t) && !ASCII_HEDGE.t
  * 决定能不能自动的是下面的结构规则（长度、类别词、同类型）。
  */
 const HAN_NOT_NOUN = /[的之等些某更多较为就罢如何否似候辅类行可宜定说再待暂先试看想或非不没无其所全各部别另随任每几这那两]/;
+/** 汉字的「说不准」词（大概 / 也许 / 可能 / 或许）：和 HAN_NOT_NOUN 一样只能把自动降成卡。 */
+const HAN_HEDGE = /大概|也许|可能|或许/;
+/** 2 个汉字对象的数量结构（「一个」「三座」「一下」）：首字是数词，或次字是量词 ⇒ 不是名词，最多弹卡。 */
+const HAN_NUMERAL = /^[一二三四五六七八九十百千万两几若多半]/u;
+const HAN_MEASURE = /^.[个座家处点下些位名种类批次条件项]$/u;
 /** 限定语的类型：单个 ASCII 词 ⇒ ascii；不超过 maxHan 个汉字、不含虚字 / 动词 ⇒ han；其余 ⇒ null（不自动）。 */
 function specType(s: string, maxHan: number): "ascii" | "han" | null {
   if (asciiToken(s)) return "ascii";
   const han = [...s];
-  if (han.length >= 1 && han.length <= maxHan && /^\p{Script=Han}+$/u.test(s) && !HAN_NOT_NOUN.test(s) && !hasFrameVerb(s)) return "han";
+  if (han.length >= 1 && han.length <= maxHan && /^\p{Script=Han}+$/u.test(s) && !HAN_NOT_NOUN.test(s) && !HAN_HEDGE.test(s) && !hasFrameVerb(s)) return "han";
   return null;
 }
 /** 两个限定语同一类型：都是 ASCII 词，或都是等长的汉字限定语。 */
@@ -577,7 +585,8 @@ function cleanObject(object: string, o: DecisionFrame): boolean {
     if (hanObject && [...object].length > 4) return false;
     return sameSpec(spec, o.object.slice(0, -o.kind.length), 2);
   }
-  const twoHan = (s: string): boolean => /^\p{Script=Han}{2}$/u.test(s) && !HAN_NOT_NOUN.test(s) && !hasFrameVerb(s);
+  const twoHan = (s: string): boolean => /^\p{Script=Han}{2}$/u.test(s) && !HAN_NOT_NOUN.test(s) && !HAN_HEDGE.test(s)
+    && !HAN_NUMERAL.test(s) && !HAN_MEASURE.test(s) && !hasFrameVerb(s);
   return twoHan(object) && twoHan(o.object);
 }
 
@@ -585,6 +594,8 @@ function cleanObject(object: string, o: DecisionFrame): boolean {
 const CLAUSE_END_PARTICLE = /[吧了啊呀哦嘛]$/;
 /** 改口分句里的省略号 / 破折号 / 连字符（NFKC 之后「……」是「......」）：话没说完，或者是「React-maybe」⇒ 卡。 */
 const DASH_OR_ELLIPSIS = /\.\.|…|[-‐‑‒–—―─~～]/;
+/** 连续两个以上的分句标点（「。。。」「，，，」「、、、」「;;」）是省略号：先换成「…」，让它留在前一个分句里。 */
+const REPEATED_BREAK = /[。，、；;,.]{2,}/g;
 /** 以连接词结尾的分句（「把Vue换成React但是」「…，所以」）：话没说完 ⇒ 卡。 */
 const DANGLING_CONNECTIVE = /(?:但是|但|不过|所以|然后|而且|或者|或|可是|只是)$/;
 /** 汉字与 ASCII 交界处的空白是排版（「关注 985 高校」），不算把词拆开；ASCII 与 ASCII 之间的空白才是两个词。 */
@@ -598,7 +609,7 @@ const BOUNDARY_SPACE = /(?<=\p{Script=Han})\s+(?=[a-z0-9])|(?<=[a-z0-9.#+])\s+(?
  * 原文分句与归一分句对不上（按去空白后的文本比对）⇒ 卡。
  */
 function rawEndsClean(statement: string, raw: RawChanges): boolean {
-  const text = statement.normalize("NFKC").toLowerCase();
+  const text = statement.normalize("NFKC").toLowerCase().replace(REPEATED_BREAK, "…");
   if (text.split(CLAUSE_BREAK).some((seg) => DANGLING_CONNECTIVE.test(seg.trim()))) return false;
   const rawClauses = splitClauses(text).clauses;
   for (const k of raw.changed) {

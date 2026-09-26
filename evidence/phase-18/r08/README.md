@@ -93,6 +93,10 @@ thread C 「开始写报告吧」 → the answer carries only 985; undo → 211 
 >   only removes automatic results (needed for the existing 「把北京换成待定」 case, which is 2 Han against 2 Han).
 > - A `same_kind` winner does not auto when another old-decision group also matches at any weaker tier (same_kind names no
 >   old object, so it cannot say which one changed): nothing, as before.
+
+> **Numerals, measure words, repeated breaks (review round 8 of round 8).**
+> - *2-Han object*: first character a Han numeral, second a measure word, or containing 大概 / 也许 / 可能 / 或许 ⇒ card (「把北京换成一个 / 一下 / 大概 / 若干」); 「把北京换成上海」「把北大换成清华」 still auto.
+> - *Repeated break marks*: two or more consecutive 。，、；;,. in the raw text are an ellipsis ⇒ card when in the change clause (「把Vue换成React。。。」「Vue算了，还是用React。。。」); 「OK吧」 is reluctant like 好吧 ⇒ card.
 > Every existing "nothing" case (rejections, questions, reported speech, self-correction, jokes, 「…的事」, 非X, trailing ?)
 > is unchanged. Tests: the round-7 `describe` block in `decision-supersede.test.ts` (32 card, 11 automatic, 1 card); the
 > f4e1bcfa4 domain file fails all 32 new card cases (`fail-without-fix.txt`, last section). One earlier automatic
