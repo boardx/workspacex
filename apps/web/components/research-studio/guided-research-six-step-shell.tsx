@@ -21,7 +21,8 @@ export function GuidedResearchSixStepShell({
     <div className="min-w-0 bg-background" data-testid="guided-research-six-step-shell" data-layout="deep-research-desktop">
       <div className={cn("grid min-w-0 gap-4", assistant ? "xl:grid-cols-[minmax(0,1fr)_16rem]" : "xl:grid-cols-1")}>
         <div className="min-w-0 space-y-5 px-4 py-5 sm:px-6">
-          <ol className="grid grid-cols-2 gap-2 sm:grid-cols-3 xl:grid-cols-6" aria-label="研究步骤">
+          <nav aria-label="研究步骤" data-testid="research-flow-progress" className="rounded-lg border border-border bg-card p-2">
+          <ol className="grid grid-cols-2 gap-2 sm:grid-cols-3 xl:grid-cols-6">
             {GUIDED_RESEARCH_SIX_STEPS.map((step, index) => {
               const unlocked = step.id === "list" || available.includes(step.id);
               const active = step.id === current;
@@ -41,6 +42,7 @@ export function GuidedResearchSixStepShell({
               </li>;
             })}
           </ol>
+          </nav>
           <main className="min-w-0" data-testid="guided-research-six-step-main">{main}</main>
         </div>
         {assistant && <aside className="min-w-0 border-l border-border bg-card p-4 xl:sticky xl:top-0 xl:block xl:h-screen" data-testid="guided-research-six-step-assistant">{assistant}</aside>}
