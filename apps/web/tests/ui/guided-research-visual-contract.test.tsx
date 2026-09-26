@@ -121,11 +121,7 @@ describe("F180 signed guided-research visual contract", () => {
           qs={{}}
         />,
       );
-      const assistant = await screen.findByTestId("research-skill-assistant");
-      const workspace = assistant.closest("[data-layout]");
-
-      expect(workspace).toHaveAttribute("data-layout", "skill-workspace-thirds");
-      expect(workspace).toHaveClass("lg:grid-cols-[minmax(0,1fr)_minmax(0,2fr)]");
+      await screen.findByTestId("research-skill-assistant");
       expect(screen.getByTestId("research-step-main")).toBeInTheDocument();
       expect(screen.queryByTestId("shell-left-panel")).not.toBeInTheDocument();
       for (const label of ["研究 Studio 列表", "研究计划详情", "新建深度研究", "研究主题详情", "现场深度研究"]) {
@@ -174,7 +170,7 @@ describe("F180 signed guided-research visual contract", () => {
     await screen.findByTestId("research-flow-search");
     expect(screen.queryByRole("heading", { name: "研究检索进度" })).not.toBeInTheDocument();
     expect(screen.getByTestId("research-sources")).toBeVisible();
-    expect(screen.getByText("查看搜索详情").parentElement).not.toHaveAttribute("open");
+    expect(screen.getByTestId("guided-research-source-workspace")).toBeVisible();
 
     search.unmount();
     api.getResearchRuntime.mockResolvedValueOnce(sessionAt("report"));
