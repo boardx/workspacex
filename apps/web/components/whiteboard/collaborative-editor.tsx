@@ -14,7 +14,7 @@ import { textSplice, useWhiteboardDocument } from "./use-whiteboard-document";
 
 type Point = { x: number; y: number };
 export interface CollaborativeEditorProps {
-  doc: Y.Doc; readOnly: boolean; title: string; status: string;
+  boardId: string; clientId: string; doc: Y.Doc; readOnly: boolean; title: string; status: string;
   onTitleChange?: (title: string) => void; onBack?: () => void;
   onSelectionChange?: (ids: string[]) => void; onAwareness?: (cursor: Point | null, ids: string[]) => void;
   peers?: WhiteboardConnectionState["peers"]; currentUserId?: string;
@@ -22,7 +22,7 @@ export interface CollaborativeEditorProps {
 function make(kind: WhiteboardObject["kind"], x: number, y: number): WhiteboardObject {
   return { id: crypto.randomUUID(), schemaVersion: 1, kind, geometry: { x, y, width: 180, height: 140, rotation: 0 }, text: "写下一个想法", style: {}, parentId: null, orderKey: "" };
 }
-export function CollaborativeEditor({ doc, readOnly, title, status, onTitleChange, onBack, onSelectionChange, onAwareness, peers = [], currentUserId }: CollaborativeEditorProps) {
+export function CollaborativeEditor({ boardId, clientId, doc, readOnly, title, status, onTitleChange, onBack, onSelectionChange, onAwareness, peers = [], currentUserId }: CollaborativeEditorProps) {
   const model = useWhiteboardDocument(doc, readOnly);
   const objects = useMemo(() => toBoardFabricObjects(model.objects), [model.objects]);
   const visibleObjectIdKey = objects.map((object) => object.id).join("\u0000");
@@ -44,14 +44,17 @@ export function CollaborativeEditor({ doc, readOnly, title, status, onTitleChang
     });
   }, [visibleObjectIdKey]);
   const object = model.objects.find((candidate) => selected.length === 1 && candidate.id === selected[0]);
-  function execute(commands: WhiteboardCommand[]) {
-    if (readOnly) return;
-    try { model.execute(commands); setNotice(""); }
-    catch { setNotice("操作未应用：请检查对象是否仍存在或内容是否超出限制。"); }
+  function execute(commands: WhiteboardCommand[], gestureId = crypto.randomUUID()): boolean {
+    if (readOnly) return false;
+    try {
+      const accepted = model.execute({ boardId, clientId, gestureId, commands });
+      if (!accepted) { setNotice("操作未应用：命令通道尚未就绪，请重试。"); return false; }
+      setNotice(""); return true;
+    } catch { setNotice("操作未应用：请检查对象是否仍存在或内容是否超出限制。"); return false; }
   }
   function create(kind: "sticky" | "text" | "rectangle" | "ellipse") {
     const object = make(kind, (180 - viewport.panX) / viewport.zoom, (160 - viewport.panY) / viewport.zoom);
-    execute([{ type: "create", object }]); setSelected([object.id]);
+    if (execute([{ type: "create", object }])) setSelected([object.id]);
   }
   function changeText(next: string) {
     if (!object || readOnly) return;
@@ -69,7 +72,7 @@ export function CollaborativeEditor({ doc, readOnly, title, status, onTitleChang
     <div data-testid="board-live-surface" className="absolute inset-0" onPointerMove={announceCursor} onPointerLeave={() => onAwareness?.(null, selected)}>
       <BoardFabricSurface objects={objects} selectedObjectIds={selected} readOnly={readOnly} tool={tool} viewport={viewport}
         onSelectionChange={(ids) => setSelected([...ids])}
-        onObjectTransform={(id, geometry) => execute([{ type: "geometry", id, geometry }])}
+        onObjectTransform={(id, geometry) => execute([{ type: "geometry", id, geometry }], crypto.randomUUID())}
         onViewportChange={(next) => setViewport(next)} className="absolute inset-0 overflow-hidden bg-panel-alt" />
       <div className="pointer-events-none absolute inset-0 origin-top-left" style={{ transform: `translate(${viewport.panX}px,${viewport.panY}px) scale(${viewport.zoom})` }}>
         {peers.filter((peer) => peer.actorId !== currentUserId).map((peer) => <div key={peer.actorId}>
@@ -89,12 +92,12 @@ export function CollaborativeEditor({ doc, readOnly, title, status, onTitleChang
     <div className="absolute bottom-3 left-3 z-20 flex flex-wrap items-center gap-1 rounded-xl border border-border bg-card p-1 shadow-lg">
       <Button disabled={readOnly} onClick={() => { const result = model.undo(); setNotice(result === "undone" ? "已撤销本地修改" : result === "conflict" ? "未撤销：当前画板与这次修改存在冲突，请核对后再操作。" : result === "creation-requires-explicit-delete" ? "创建对象请使用删除；为保护其他人的修改，不撤销对象创建。" : "没有可撤销的本地修改。"); }}>撤销</Button><Button disabled={readOnly} onClick={() => { setNotice(model.redo() ? "已重做本地修改" : "未重做：没有可重做的本地修改，或当前画板存在冲突。"); }}>重做</Button>
       <Button disabled={!selected.length} onClick={() => { clipboard.current = copyObjects(doc, selected, () => crypto.randomUUID()); setNotice("已复制到当前白板剪贴板"); }}>复制</Button>
-      <Button disabled={readOnly} onClick={() => { const ids = new Map(clipboard.current.map((entry) => [entry.id, crypto.randomUUID()])); const copied = clipboard.current.map((entry) => ({ ...entry, id: ids.get(entry.id)!, parentId: entry.parentId ? ids.get(entry.parentId) ?? null : null, connector: entry.connector ? { from: ids.get(entry.connector.from)!, to: ids.get(entry.connector.to)! } : undefined, geometry: { ...entry.geometry, x: entry.geometry.x + 30, y: entry.geometry.y + 30 } })); execute(copied.map((entry) => ({ type: "create", object: entry }))); setSelected(copied.map((entry) => entry.id)); }}>粘贴</Button>
-      <Button disabled={readOnly || !selected.length} onClick={() => { execute(selected.map((id) => ({ type: "delete", id }))); setSelected([]); }}>删除选中</Button>
+      <Button disabled={readOnly} onClick={() => { const ids = new Map(clipboard.current.map((entry) => [entry.id, crypto.randomUUID()])); const copied = clipboard.current.map((entry) => ({ ...entry, id: ids.get(entry.id)!, parentId: entry.parentId ? ids.get(entry.parentId) ?? null : null, connector: entry.connector ? { from: ids.get(entry.connector.from)!, to: ids.get(entry.connector.to)! } : undefined, geometry: { ...entry.geometry, x: entry.geometry.x + 30, y: entry.geometry.y + 30 } })); if (copied.length && execute(copied.map((entry) => ({ type: "create", object: entry })))) setSelected(copied.map((entry) => entry.id)); }}>粘贴</Button>
+      <Button disabled={readOnly || !selected.length} onClick={() => { if (execute(selected.map((id) => ({ type: "delete", id })))) setSelected([]); }}>删除选中</Button>
       <Button data-testid="board-zoom-out" aria-label="缩小" onClick={() => setViewport((current) => ({ ...current, zoom: clampBoardZoom(current.zoom - .1) }))}>缩小</Button><span data-testid="board-zoom-value" className="w-14 text-center text-12">{Math.round(viewport.zoom * 100)}%</span><Button data-testid="board-zoom-in" aria-label="放大" onClick={() => setViewport((current) => ({ ...current, zoom: clampBoardZoom(current.zoom + .1) }))}>放大</Button>
       <Button data-testid="board-zoom-fit-selection" disabled={selected.length === 0} onClick={() => setViewport((current) => ({ ...current, fitMode: "selection", fitRequest: current.fitRequest + 1 }))}>适应选择</Button><Button data-testid="board-zoom-fit-board" onClick={() => setViewport((current) => ({ ...current, fitMode: "board", fitRequest: current.fitRequest + 1 }))}>适应白板</Button>
     </div>
-    {object ? <aside className="absolute bottom-16 right-3 z-20 w-56 rounded-container border border-border bg-card p-3 shadow-lg"><label className="text-13">对象文字<Textarea key={object.id} aria-label="对象文字" disabled={readOnly} value={draft ?? object.text} onChange={(event) => changeText(event.target.value)} onCompositionStart={() => { composition.current = { id: object.id, before: object.text }; setDraft(object.text); }} onCompositionEnd={(event) => { const pending = composition.current; composition.current = null; suppressCompositionChange.current = event.currentTarget.value; const current = readObjects(doc).find((candidate) => candidate.id === pending?.id); if (current && current.text === pending?.before) { execute([{ type: "text", id: current.id, ...textSplice(current.text, event.currentTarget.value) }]); setDraft(null); } else { setConflictedDraft(event.currentTarget.value); setDraft(null); setNotice("输入期间对象已由其他人修改。已保留此次输入草稿，请核对后重新输入。"); } }} /></label>{conflictedDraft !== null ? <label className="text-12">未应用的输入草稿<Textarea aria-label="未应用的输入草稿" readOnly value={conflictedDraft} /><Button onClick={() => setConflictedDraft(null)}>关闭草稿</Button></label> : null}</aside> : null}
+    {object ? <aside className="absolute bottom-16 right-3 z-20 w-56 rounded-container border border-border bg-card p-3 shadow-lg"><label className="text-13">对象文字<Textarea key={object.id} aria-label="对象文字" disabled={readOnly} value={draft ?? object.text} onChange={(event) => changeText(event.target.value)} onCompositionStart={() => { composition.current = { id: object.id, before: object.text }; setDraft(object.text); }} onCompositionEnd={(event) => { const pending = composition.current; composition.current = null; suppressCompositionChange.current = event.currentTarget.value; const current = readObjects(doc).find((candidate) => candidate.id === pending?.id); if (current && current.text === pending?.before) { if (execute([{ type: "text", id: current.id, ...textSplice(current.text, event.currentTarget.value) }])) setDraft(null); } else { setConflictedDraft(event.currentTarget.value); setDraft(null); setNotice("输入期间对象已由其他人修改。已保留此次输入草稿，请核对后重新输入。"); } }} /></label>{conflictedDraft !== null ? <label className="text-12">未应用的输入草稿<Textarea aria-label="未应用的输入草稿" readOnly value={conflictedDraft} /><Button onClick={() => setConflictedDraft(null)}>关闭草稿</Button></label> : null}</aside> : null}
     <p role="status" className="absolute bottom-0 left-1/2 z-20 min-h-6 -translate-x-1/2 rounded-t-lg bg-background/90 px-3 text-12">{notice || `${selected.length} 个已选对象`}</p>
   </section>;
 }
