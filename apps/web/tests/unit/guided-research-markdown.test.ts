@@ -20,8 +20,15 @@ describe("guided research Markdown artefacts", () => {
     expect(document.markdown).toContain("# 研究需求");
     expect(document.markdown).toContain("## 研究主题\n中国新能源汽车市场竞争格局");
     expect(document.markdown).toContain("## 研究目标\n判断未来三年的竞争与投资机会");
-    expect(document.markdown).toContain("## 时间与地区\n2024–2026 · 中国大陆");
+    expect(document.markdown).toContain("## 时间与地区\n时间范围：2024–2026\n研究地区：中国大陆");
     expect(document.markdown).toContain("## 重点关注\n市场份额、技术路线、政策和用户需求");
+  });
+
+  it("round-trips time range and region even when only one value is present", () => {
+    const document = serializeGuidedResearchMarkdown({ node: "brief", brief: { ...brief, timeRange: "", region: "中国大陆" } });
+    const result = parseGuidedResearchMarkdown({ document, markdown: document.markdown });
+
+    expect(result).toMatchObject({ ok: true, draft: { value: { timeRange: "", region: "中国大陆" } } });
   });
 
   it("returns field errors and preserves local Markdown when a required heading is deleted", () => {

@@ -44,7 +44,7 @@ const briefHeadings = ["研究主题", "研究目标", "时间与地区", "重�
 
 function section(markdown: string, heading: string): string | null {
   const escaped = heading.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-  const match = markdown.match(new RegExp(`^## ${escaped}\\s*\\n([\\s\\S]*?)(?=^## |\\s*$)`, "m"));
+  const match = markdown.match(new RegExp(`(?:^|\\n)## ${escaped}\\s*\\n([\\s\\S]*?)(?=\\n## |$)`));
   return match?.[1]?.trim() || null;
 }
 
@@ -66,7 +66,7 @@ export function serializeGuidedResearchMarkdown(input: GuidedResearchMarkdownInp
     return {
       node: "brief",
       title: "研究需求",
-      markdown: `# 研究需求\n\n## 研究主题\n${brief.topic}\n\n## 研究目标\n${brief.goal}\n\n## 时间与地区\n${[brief.timeRange, brief.region].filter(Boolean).join(" · ")}\n\n## 重点关注\n${brief.focus}`,
+      markdown: `# 研究需求\n\n## 研究主题\n${brief.topic}\n\n## 研究目标\n${brief.goal}\n\n## 时间与地区\n时间范围：${brief.timeRange}\n研究地区：${brief.region}\n\n## 重点关注\n${brief.focus}`,
       provenance: { sourceIds: [], citationIds: [] },
     };
   }
@@ -114,7 +114,14 @@ export function parseGuidedResearchMarkdown(input: GuidedResearchMarkdownParseIn
       errors: missing.map((heading) => ({ code: "required_heading", heading, message: `缺少必填章节：${heading}` })),
     };
   }
-  const [timeRange, region = ""] = values["时间与地区"]!.split(" · ", 2);
+  const timeframe = values["时间与地区"]!;
+  const timeMatch = timeframe.match(/^时间范围：(.*)$/m);
+  const regionMatch = timeframe.match(/^研究地区：(.*)$/m);
+  const timeRange = timeMatch ? timeMatch[1]!.trim() : undefined;
+  const region = regionMatch ? regionMatch[1]!.trim() : undefined;
+  if (timeRange === undefined || region === undefined) {
+    return { ok: false, markdown, errors: [{ code: "required_heading", heading: "时间与地区", message: "时间与地区必须包含时间范围和研究地区。" }] };
+  }
   return {
     ok: true,
     draft: {
