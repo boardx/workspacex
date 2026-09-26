@@ -322,20 +322,29 @@ export class PgKnowledgeRead implements KnowledgeReadPort {
     const data = await this.inTenant(orgId, userId, async (s): Promise<MessageExtractionData> => {
       // 不用 DISTINCT：join 键 (claim_id, message_id, stance) 恰是 claim_message_evidence 的主键，
       // 一条 claim 对同一条消息、同一个 stance 至多一行证据，天然不会重复。
-      const r = await s.query<{ id: string; statement: string }>(
+      // issue #4283 `personal_copy`：**请求者本人**个人空间里、由这条结论自动记下（derived_from 边 created_by = model）、
+      // 仍是「AI 记下的」（proposed）那一份——反馈条据此显示「已记入个人记忆」并给撤销。scope_id = 请求者本人，
+      // RLS 也只放本人的个人空间（I-14）：别人看这条消息，读不到作者的个人空间，这一列恒为 null。
+      const r = await s.query<{ id: string; statement: string; personal_copy: string | null }>(
         `WITH msg AS (
            SELECT cm.id FROM chat_messages cm
             WHERE cm.org_id = $1 AND cm.thread_id = $2
               AND (cm.id = $3 OR (cm.author_kind = 'human' AND cm.author_id = $4 AND cm.client_message_id::text = $3))
          )
-         SELECT c.id, c.statement FROM claims c
+         SELECT c.id, c.statement,
+                (SELECT p.id FROM ontology_edges d JOIN claims p ON p.id = d.src_id AND p.org_id = d.org_id
+                  WHERE d.org_id = c.org_id AND d.relation = 'derived_from' AND d.src_kind = 'claim' AND d.dst_kind = 'claim'
+                    AND d.dst_id = c.id AND d.status = 'active' AND d.created_by = 'model'
+                    AND p.scope_kind = 'personal' AND p.scope_id = $4 AND p.revoked_at IS NULL AND p.status = 'proposed'
+                  ORDER BY p.id LIMIT 1) AS personal_copy
+           FROM claims c
            JOIN claim_message_evidence m ON m.claim_id = c.id AND m.org_id = c.org_id
           WHERE c.org_id = $1 AND c.scope_kind = 'chat_session' AND c.scope_id = $2 AND ${LIVE_CLAIM}
             AND m.stance = 'supporting' AND m.message_id IN (SELECT id FROM msg)
           ORDER BY c.created_at, c.id`,
         [orgId, thread.threadId, messageId, userId],
       );
-      return { claims: r.rows.map((x) => ({ claimId: x.id, statement: x.statement })) };
+      return { claims: r.rows.map((x) => ({ claimId: x.id, statement: x.statement, personalCopyClaimId: x.personal_copy })) };
     });
     return guard(threadRef(thread), data);
   }

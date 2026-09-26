@@ -114,7 +114,12 @@ describe("F09: getClaimSources", () => {
       segmentId: `m-${PERSONAL}-q`, stance: "supporting", sourceKind: "chat_message", sourceRef: `m-${PERSONAL}-q`,
       excerpt: "张三决定下周一上线 v2", locator: null, revoked: false,
     }]);
-    expect(out.provenance).toEqual([expect.objectContaining({ actor: { kind: "system", id: "kg-extractor" }, action: "extract", pipelineVersion: "kg-extract@1" })]);
+    // issue #4283：这句是所有者本人说的决定 ⇒ 抽取之后系统把它自动记进了本人的个人空间，出处里照实多一条
+    // （个人空间的动作，只有本人看得到——这里查看者就是所有者本人）。
+    expect(out.provenance).toEqual([
+      expect.objectContaining({ actor: { kind: "system", id: "kg-extractor" }, action: "extract", pipelineVersion: "kg-extract@1" }),
+      expect.objectContaining({ actor: { kind: "system", id: "kg-decision-auto-copy" }, action: "autoCopyDecision", pipelineVersion: null }),
+    ]);
   });
 
   it("看不到会话的人读不到结论来源（与不存在同一个出口）", async () => {

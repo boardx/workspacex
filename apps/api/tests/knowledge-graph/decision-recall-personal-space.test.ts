@@ -5,10 +5,13 @@
  * 真 GET memory）：
  *   - 用户 A 在个人会话 A1 说「我决定关注 211 高校」→ 确认 → 存入个人空间；
  *   - 用户 B（同组织）在自己的个人会话 B1 说「我决定关注 985 高校」→ 确认 → 存入**他自己的**个人空间；
- *   - 用户 A 在另一个个人会话 A3 说「我决定改用周报模板 B」，**不**晋升（F15 跨会话结论）；
+ *   - 用户 A 在另一个个人会话 A3 说「我决定改用周报模板 B」，**不**晋升。issue #4283（人类决定 2026-09-26）之后，
+ *     本人说出的决定会被系统自动记进本人个人空间（「AI 记下的」），所以它也在 A 的 L1 里——原先「跨会话未晋升的
+ *     不强制」这一条被那个决定取代（usecases.md「待签核确认 #4181」第 4 条 (b) 已记为已决）；
  *   - 用户 A 开新会话 A2 说「开始写报告吧」（与三条都没有字面关系）：
  *       本人个人空间的决定经 `claim` 通道进了模型上下文、标「来自个人空间知识」、turn memory 里 scope=personal、
- *       score 有限；B 的个人空间决定**不**进来（可见面与 F12 的 L1 同一套判定）；A3 那条跨会话未晋升的也不强制。
+ *       score 有限；手动晋升过的标「你确认过」，自动记下的标「AI 记下的」；B 的个人空间决定**不**进来
+ *       （可见面与 F12 的 L1 同一套判定）。
  *   - 对称：B 开新会话，只拿到自己的，不拿到 A 的。
  */
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
@@ -77,7 +80,7 @@ async function confirmAndPromote(api: Client, threadId: string, statement: strin
   return personal!;
 }
 
-const ids: { aPersonal?: string; bPersonal?: string } = {};
+const ids: { aPersonal?: string; bPersonal?: string; aCrossPersonal?: string } = {};
 
 beforeAll(async () => {
   e = await startApp();
@@ -107,6 +110,12 @@ describe("issue #4278: 本人个人空间的决定在新会话无关轮次里被
     ids.aPersonal = await confirmAndPromote(a, A1, A_DECISION);
     ids.bPersonal = await confirmAndPromote(b, B1, B_DECISION);
     await projectGraph(e);
+    // issue #4283：A3 那条没点晋升，但它是 A 本人说的决定 ⇒ 已自动记进 A 的个人空间，仍是「AI 记下的」。
+    const cross = await asOwner(async (c) => (await c.query<{ id: string; scope_id: string; status: string }>(
+      `SELECT id, scope_id, status FROM claims WHERE org_id = $1 AND scope_kind = 'personal' AND statement = $2 AND revoked_at IS NULL`,
+      [ORG, A_CROSS])).rows);
+    expect(cross.map((r) => [r.scope_id, r.status])).toEqual([[USER_A, "proposed"]]);
+    ids.aCrossPersonal = cross[0]!.id;
     // 反证不空：B 的个人空间决定确实存在、是活的（不是因为不存在才没被召回）
     const rows = await asOwner(async (c) => (await c.query<{ id: string; scope_id: string }>(
       `SELECT id, scope_id FROM claims WHERE org_id = $1 AND scope_kind = 'personal' AND revoked_at IS NULL AND status <> 'superseded'`,
@@ -116,12 +125,12 @@ describe("issue #4278: 本人个人空间的决定在新会话无关轮次里被
     ]));
   }, 120_000);
 
-  it("A 开新会话说「开始写报告吧」：本人个人空间的决定进了上下文、标来自个人空间；B 的与跨会话未晋升的都不进", async () => {
+  it("A 开新会话说「开始写报告吧」：本人个人空间的决定（晋升的 + 自动记下的）进了上下文、标来自个人空间；B 的不进", async () => {
     const t = await turn(e, a, ORG, A2, UNRELATED, AGENT);
     expect(t.memory).not.toBeNull();
     expect(t.memory).toMatch(new RegExp(`- \\[你确认过\\] ${A_DECISION}（来自个人空间知识`));
+    expect(t.memory).toMatch(new RegExp(`- \\[AI 记下的\\] ${A_CROSS}（来自个人空间知识`));
     expect(t.memory).not.toContain(B_DECISION);
-    expect(t.memory).not.toContain(A_CROSS);
     expect(t.answer).toContain(A_DECISION);
     expect(t.answer).not.toContain(B_DECISION);
 
@@ -129,14 +138,20 @@ describe("issue #4278: 本人个人空间的决定在新会话无关轮次里被
     expect(r.status).toBe(200);
     const parsed = KG.knowledgeGraph.getTurnMemory.out.safeParse(r.body);
     expect(parsed.success, parsed.success ? "" : JSON.stringify(parsed.error.issues)).toBe(true);
-    expect(r.body.recalled.map((m) => m.claimId)).toEqual([ids.aPersonal]);
-    const hit = r.body.recalled[0]!;
+    expect(r.body.recalled.map((m) => m.claimId).sort()).toEqual([ids.aPersonal, ids.aCrossPersonal].sort());
+    const hit = r.body.recalled.find((m) => m.claimId === ids.aPersonal)!;
     expect(hit).toMatchObject({ statement: A_DECISION, scope: "personal", triState: "confirmed", channels: ["claim"], graphPath: null });
-    expect(Number.isFinite(parsed.success ? parsed.data.recalled[0]!.score : NaN)).toBe(true);
+    expect(r.body.recalled.find((m) => m.claimId === ids.aCrossPersonal)).toMatchObject({
+      statement: A_CROSS, scope: "personal", triState: "pending", channels: ["claim"], graphPath: null,
+    });
+    expect(parsed.success ? parsed.data.recalled.every((m) => Number.isFinite(m.score)) : false).toBe(true);
     // 库里落的就是有限分数（jsonb 不能有 Infinity → null）
     const [stored] = await asOwner(async (c) => (await c.query<{ items: Array<{ claimId: string; score: unknown }> }>(
       "SELECT items FROM kg_turn_recalls WHERE org_id = $1 AND run_id = $2", [ORG, t.runId])).rows);
-    expect(stored!.items).toEqual([expect.objectContaining({ claimId: ids.aPersonal, score: 0 })]);
+    expect(stored!.items).toEqual(expect.arrayContaining([
+      expect.objectContaining({ claimId: ids.aPersonal, score: 0 }), expect.objectContaining({ claimId: ids.aCrossPersonal, score: 0 }),
+    ]));
+    expect(stored!.items).toHaveLength(2);
     expect(stored!.items.some((i) => i.claimId === ids.bPersonal)).toBe(false);
   }, 120_000);
 
