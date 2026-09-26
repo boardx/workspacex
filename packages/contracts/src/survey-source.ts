@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { SurveyQuestionTypeSchema } from "./survey-question-types";
+import { SurveyQuestionTypeSchema, SurveyWorkflowQuestionSchema } from "./survey-question-types";
 import type { SurveyDraftInput } from "./survey-runtime";
 
 export const SurveySourceDocumentKindSchema = z.enum([
@@ -30,10 +30,7 @@ export type SurveySourceDiagnostic = z.infer<typeof SurveySourceDiagnosticSchema
 
 export const SurveyCompiledDraftSchema = z.object({
   title: z.string().min(1).max(200),
-  questions: z.array(z.object({
-    id: z.string().min(1).max(200), order: z.number().int().positive(), chapterId: z.string().max(200),
-    title: z.string().min(1).max(2000), type: SurveyQuestionTypeSchema, required: z.boolean(), options: z.array(z.string().min(1).max(2000)).max(100),
-  }).strict()).max(200),
+  questions: z.array(SurveyWorkflowQuestionSchema).max(200),
   template: z.object({ id: z.string().min(1), title: z.string().min(1), sections: z.array(z.unknown()) }).passthrough(),
 });
 export type SurveyCompiledDraft = z.infer<typeof SurveyCompiledDraftSchema>;
