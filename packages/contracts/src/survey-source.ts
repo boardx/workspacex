@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { SurveyQuestionTypeSchema, SurveyWorkflowQuestionSchema } from "./survey-question-types";
+import { SurveyReportTemplateSchema, type SurveyReportTemplate } from "./survey-report";
 import type { SurveyDraftInput } from "./survey-runtime";
 
 export const SurveySourceDocumentKindSchema = z.enum([
@@ -21,7 +22,7 @@ export const SurveySourceDocumentSchema = z.object({
 export type SurveySourceDocument = z.infer<typeof SurveySourceDocumentSchema>;
 
 export const SurveySourceDiagnosticSchema = z.object({
-  code: z.enum(["TITLE_REQUIRED", "QUESTION_SYNTAX", "QUESTION_TYPE_UNSUPPORTED", "QUESTION_ID_DUPLICATE", "QUESTION_PROMPT_REQUIRED", "OPTIONS_REQUIRED"]),
+  code: z.enum(["TITLE_REQUIRED", "QUESTION_SYNTAX", "QUESTION_TYPE_UNSUPPORTED", "QUESTION_ID_DUPLICATE", "QUESTION_PROMPT_REQUIRED", "OPTIONS_REQUIRED", "COMPILED_DRAFT_INVALID", "DOCUMENT_SYNTAX", "REPORT_TEMPLATE_INVALID"]),
   message: z.string().min(1),
   line: z.number().int().positive(),
   column: z.number().int().positive(),
@@ -31,7 +32,7 @@ export type SurveySourceDiagnostic = z.infer<typeof SurveySourceDiagnosticSchema
 export const SurveyCompiledDraftSchema = z.object({
   title: z.string().min(1).max(200),
   questions: z.array(SurveyWorkflowQuestionSchema).max(200),
-  template: z.object({ id: z.string().min(1), title: z.string().min(1), sections: z.array(z.unknown()) }).passthrough(),
+  template: SurveyReportTemplateSchema,
 });
 export type SurveyCompiledDraft = z.infer<typeof SurveyCompiledDraftSchema>;
 
@@ -41,6 +42,46 @@ export type SurveySourceParseResult =
 
 const choiceTypes = new Set(["single", "multi", "dropdown", "image_single", "image_multi", "scale", "matrix_single", "matrix_multi", "matrix_scale", "matrix_dropdown", "ranking", "allocation"]);
 const heading = /^##\s+([^\s]+)\s+\[([^\]]+)\]\s*$/;
+const sourceMetadata = z.object({
+  chapterId: z.string().optional(),
+  config: z.unknown().optional(),
+  provenance: z.unknown().optional(),
+}).strict();
+const sourceFence = /^```survey-question\s*$/;
+const reportFence = /^```survey-report\s*$/;
+
+function diagnostic(
+  code: SurveySourceDiagnostic["code"],
+  message: string,
+  line: number,
+): SurveySourceDiagnostic {
+  return { code, message, line, column: 1 };
+}
+
+function stableJson(value: unknown): string {
+  if (Array.isArray(value)) return `[${value.map(stableJson).join(",")}]`;
+  if (value && typeof value === "object") {
+    const record = value as Record<string, unknown>;
+    return `{${Object.keys(record).sort().map((key) => `${JSON.stringify(key)}:${stableJson(record[key])}`).join(",")}}`;
+  }
+  return JSON.stringify(value);
+}
+
+function fencedJson(
+  lines: string[],
+  startsFence: (line: string) => boolean,
+): { value?: unknown; body: string[]; diagnostic?: SurveySourceDiagnostic } {
+  const start = lines.findIndex(startsFence);
+  if (start < 0) return { body: lines };
+  const end = lines.findIndex((line, index) => index > start && /^```\s*$/.test(line));
+  if (end < 0) return { body: lines, diagnostic: diagnostic("QUESTION_SYNTAX", "元数据代码块缺少结束标记", start + 1) };
+  const raw = lines.slice(start + 1, end).join("\n");
+  try {
+    return { value: JSON.parse(raw), body: [...lines.slice(0, start), ...lines.slice(end + 1)] };
+  } catch {
+    return { body: lines, diagnostic: diagnostic("QUESTION_SYNTAX", "元数据必须是有效 JSON", start + 1) };
+  }
+}
 
 export function parseSurveyDesignMarkdown(markdown: string): SurveySourceParseResult {
   const lines = markdown.replace(/\r\n/g, "\n").split("\n");
@@ -53,7 +94,11 @@ export function parseSurveyDesignMarkdown(markdown: string): SurveySourceParseRe
   const ids = new Set<string>();
   for (let i = 0; i < lines.length; i++) {
     const match = heading.exec(lines[i]!);
-    if (!match) continue;
+    if (!match) {
+      if (/^##\s+/.test(lines[i]!))
+        diagnostics.push(diagnostic("QUESTION_SYNTAX", "题目标题必须使用“## 编号 [题型]”格式", i + 1));
+      continue;
+    }
     const id = match[1]!;
     const attributes = match[2]!.split(",").map((item) => item.trim()).filter(Boolean);
     const type = attributes[0] ?? "";
@@ -70,11 +115,26 @@ export function parseSurveyDesignMarkdown(markdown: string): SurveySourceParseRe
     ids.add(id);
     const body: string[] = [];
     for (let cursor = i + 1; cursor < lines.length && !/^##\s+/.test(lines[cursor]!); cursor++) body.push(lines[cursor]!);
-    const prompt = body.find((line) => line.trim() && !line.trimStart().startsWith("-"))?.trim() ?? "";
-    const options = body.filter((line) => /^-\s+\S/.test(line)).map((line) => line.replace(/^-\s+/, "").trim());
+    const fenced = fencedJson(body, (line) => sourceFence.test(line));
+    if (fenced.diagnostic) diagnostics.push({ ...fenced.diagnostic, line: i + fenced.diagnostic.line });
+    let advanced: z.infer<typeof sourceMetadata> = {};
+    if (fenced.value !== undefined) {
+      const metadata = sourceMetadata.safeParse(fenced.value);
+      if (!metadata.success)
+        diagnostics.push(diagnostic("QUESTION_SYNTAX", "题目元数据只允许 chapterId、config 与 provenance", i + 1));
+      else advanced = metadata.data;
+    }
+    const semanticBody = fenced.body;
+    const prompt = semanticBody.find((line) => line.trim() && !line.trimStart().startsWith("-") && !line.trimStart().startsWith(">"))?.trim() ?? "";
+    const options = semanticBody.filter((line) => /^-\s+\S/.test(line)).map((line) => line.replace(/^-\s+/, "").trim());
     if (!prompt) diagnostics.push({ code: "QUESTION_PROMPT_REQUIRED", message: "题目需要题干", line: i + 1, column: 1 });
     if (choiceTypes.has(type) && options.length < 2) diagnostics.push({ code: "OPTIONS_REQUIRED", message: "选择题至少需要两个选项", line: i + 1, column: 1 });
-    questions.push({ id, order: questions.length + 1, chapterId: "general", title: prompt || id, type: parsedType.data, required, options });
+    const question = SurveyWorkflowQuestionSchema.safeParse({ id, order: questions.length + 1, chapterId: advanced.chapterId ?? "general", title: prompt || id, type: parsedType.data, required, options, config: advanced.config, provenance: advanced.provenance });
+    if (!question.success) {
+      diagnostics.push(diagnostic("QUESTION_SYNTAX", "题目元数据不符合题型配置约束", i + 1));
+      continue;
+    }
+    questions.push(question.data);
     sourceRanges[id] = { line: i + 1, column: 1 };
   }
   for (let i = 0; i < lines.length; i++) {
@@ -85,7 +145,13 @@ export function parseSurveyDesignMarkdown(markdown: string): SurveySourceParseRe
       diagnostics.push({ code: "QUESTION_SYNTAX", message: "显示逻辑引用了不存在的题目", line: i + 1, column: 1 });
     }
   }
-  return diagnostics.length ? { ok: false, diagnostics } : { ok: true, draft: { title, questions, template: { id: "report-template", title: `${title}分析报告`, sections: [] } }, sourceRanges };
+  const draft: SurveyCompiledDraft = { title, questions, template: { id: "report-template", title: `${title}分析报告`, sections: [] } };
+  const compiled = SurveyCompiledDraftSchema.safeParse(draft);
+  if (!compiled.success) {
+    diagnostics.push(diagnostic("COMPILED_DRAFT_INVALID", "编译后的问卷超出运行时允许的范围", titleLine + 1 || 1));
+    return { ok: false, diagnostics };
+  }
+  return diagnostics.length ? { ok: false, diagnostics } : { ok: true, draft: compiled.data, sourceRanges };
 }
 
 export function serializeSurveyDesignMarkdown(draft: SurveyDraftInput): string {
@@ -93,8 +159,44 @@ export function serializeSurveyDesignMarkdown(draft: SurveyDraftInput): string {
   for (const question of [...draft.questions].sort((a, b) => a.order - b.order)) {
     parts.push("", `## ${question.id} [${question.type}${question.required ? ", required" : ""}]`, question.title.trim());
     for (const option of question.options) parts.push(`- ${option.trim()}`);
+    const metadata = {
+      ...(question.chapterId !== "general" ? { chapterId: question.chapterId } : {}),
+      ...(question.config ? { config: question.config } : {}),
+      ...(question.provenance ? { provenance: question.provenance } : {}),
+    };
+    if (Object.keys(metadata).length)
+      parts.push("", "```survey-question", stableJson(metadata), "```");
   }
   return `${parts.join("\n").trimEnd()}\n`;
+}
+
+export type SurveyReportTemplateParseResult =
+  | { ok: true; template: SurveyReportTemplate }
+  | { ok: false; diagnostics: SurveySourceDiagnostic[] };
+
+export function serializeSurveyReportTemplateMarkdown(template: SurveyReportTemplate): string {
+  return `# ${template.title.trim()}\n\n\`\`\`survey-report\n${stableJson(template)}\n\`\`\`\n`;
+}
+
+export function parseSurveyReportTemplateMarkdown(markdown: string): SurveyReportTemplateParseResult {
+  const lines = markdown.replace(/\r\n/g, "\n").split("\n");
+  const titleLine = lines.findIndex((line) => /^#\s+\S/.test(line));
+  if (titleLine < 0) return { ok: false, diagnostics: [diagnostic("DOCUMENT_SYNTAX", "报告模板需要一级标题", 1)] };
+  const fenced = fencedJson(lines, (line) => reportFence.test(line));
+  if (fenced.diagnostic) return { ok: false, diagnostics: [{ ...fenced.diagnostic, code: "REPORT_TEMPLATE_INVALID" }] };
+  const parsed = SurveyReportTemplateSchema.safeParse(fenced.value);
+  if (!parsed.success) return { ok: false, diagnostics: [diagnostic("REPORT_TEMPLATE_INVALID", "报告模板元数据不符合运行时约束", titleLine + 1)] };
+  return { ok: true, template: parsed.data };
+}
+
+export type SurveyPublicationParseResult =
+  | { ok: true }
+  | { ok: false; diagnostics: SurveySourceDiagnostic[] };
+
+export function parseSurveyPublicationMarkdown(markdown: string): SurveyPublicationParseResult {
+  return /^#\s+\S/.test(markdown.replace(/\r\n/g, "\n"))
+    ? { ok: true }
+    : { ok: false, diagnostics: [diagnostic("DOCUMENT_SYNTAX", "发布设置需要一级标题", 1)] };
 }
 
 /** A stable, dependency-free 256-bit fingerprint for source snapshot identity. */

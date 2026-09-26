@@ -17,7 +17,14 @@ import type {
   SurveySourceState,
   SurveySubmissionInput,
 } from "@repo/contracts/survey-runtime";
-import { parseSurveyDesignMarkdown, serializeSurveyDesignMarkdown, sourceContentHash } from "@repo/contracts/survey-source";
+import {
+  parseSurveyDesignMarkdown,
+  parseSurveyPublicationMarkdown,
+  parseSurveyReportTemplateMarkdown,
+  serializeSurveyDesignMarkdown,
+  serializeSurveyReportTemplateMarkdown,
+  sourceContentHash,
+} from "@repo/contracts/survey-source";
 import type {
   SurveyAnonymity,
   SurveyPublishBlocker,
@@ -144,7 +151,7 @@ export class SurveyService {
     const documents = {
       design: { kind: "design" as const, markdown: design, revision, updatedAt, parseStatus: "valid" as const },
       publication: { kind: "publication" as const, markdown: existing?.publication.markdown ?? "# 发布设置\n", revision, updatedAt, parseStatus: "valid" as const },
-      reportTemplate: { kind: "report_template" as const, markdown: existing?.reportTemplate.markdown ?? "# 报告模板\n", revision, updatedAt, parseStatus: "valid" as const },
+      reportTemplate: { kind: "report_template" as const, markdown: serializeSurveyReportTemplateMarkdown(draft.template), revision, updatedAt, parseStatus: "valid" as const },
     };
     return { documents, compiledVersion: revision, contentHash: sourceContentHash(Object.values(documents)) };
   }
@@ -266,8 +273,16 @@ export class SurveyService {
   ) {
     return this.change(orgId, actor, id, version, (model) => {
       if (model.publication) throw new SurveyError("closed");
-      const parsed = parseSurveyDesignMarkdown(documents.design);
-      if (!parsed.ok) throw new SurveyError("invalid_source", parsed.diagnostics);
+      const design = parseSurveyDesignMarkdown(documents.design);
+      const publication = parseSurveyPublicationMarkdown(documents.publication);
+      const reportTemplate = parseSurveyReportTemplateMarkdown(documents.reportTemplate);
+      const diagnostics = [
+        ...(design.ok ? [] : design.diagnostics),
+        ...(publication.ok ? [] : publication.diagnostics),
+        ...(reportTemplate.ok ? [] : reportTemplate.diagnostics),
+      ];
+      if (diagnostics.length) throw new SurveyError("invalid_source", diagnostics);
+      if (!design.ok || !reportTemplate.ok) throw new SurveyError("invalid_source");
       const now = this.now().toISOString();
       const revision = (model.source?.compiledVersion ?? 0) + 1;
       const nextDocuments = {
@@ -276,8 +291,9 @@ export class SurveyService {
         reportTemplate: { kind: "report_template" as const, markdown: documents.reportTemplate, revision, updatedAt: now, parseStatus: "valid" as const },
       };
       model.source = { documents: nextDocuments, compiledVersion: revision, contentHash: sourceContentHash(Object.values(nextDocuments)) };
-      model.title = parsed.draft.title;
-      model.questions = preserveTrustedCertification(parsed.draft.questions, model.questions);
+      model.title = design.draft.title;
+      model.questions = preserveTrustedCertification(design.draft.questions, model.questions);
+      model.template = reportTemplate.template;
     });
   }
   prepare(
