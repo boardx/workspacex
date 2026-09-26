@@ -9,6 +9,7 @@ import {
   createContentObjectEnvelope,
   createWhiteboardDocument,
   cloneDocument,
+  copyObjects,
   appendDrawingStroke,
   drawingEraserLayers,
   instantiateTemplateEnvelope,
@@ -115,9 +116,24 @@ describe('canonical visual content models', () => {
 
 describe('content object command boundary', () => {
   it('rejects binary or ephemeral unknown extensions before content creation reaches the command port', () => {
-    for (const extensionData of [{ preview: 'data:image/png;base64,AA==' }, { href: 'blob:https://workspace.test/a' }, { binaryPayload: 'A'.repeat(512) }]) {
+    for (const extensionData of [
+      { preview: 'data:image/png;base64,AA==' }, { href: 'blob:https://workspace.test/a' }, { binaryPayload: 'A'.repeat(512) },
+      { nested: { bytes: new Uint8Array([1, 2, 3]) } }, { nested: { buffer: new ArrayBuffer(8) } },
+      { nested: { blob: new Blob(['secret']) } }, { nested: { payload: 'AAECAwQ=' } }, { nested: { opaque: 'AAECAwQ=' } },
+      { nested: { values: [137, 80, 78, 71] } },
+    ]) {
       expect(() => createContentObjectEnvelope({ ...identity, gestureId: 'unsafe-create', id: 'unsafe', geometry, content: shape(), extensionData })).toThrow();
     }
+  });
+
+  it('rejects binary content updates and refuses to copy remotely injected binary extensions', () => {
+    const doc = createWhiteboardDocument();
+    new BoardCommandPort(doc).dispatch(createContentObjectEnvelope({ ...identity, gestureId: 'safe-create', id: 'shape-1', geometry, content: shape() }));
+    expect(() => new ContentObjectCommandPort(doc).dispatch({ ...identity, gestureId: 'unsafe-update', command: { type: 'replace-content', id: 'shape-1', content: { ...shape(), plugin: { payload: 'AAECAwQ=' } } } })).toThrow('UNSAFE_EXTENSION_BINARY');
+    const item = doc.getMap<import('yjs').Map<unknown>>('objects').get('shape-1')!;
+    item.set('extensionData', { contentObject: shape(), plugin: { nested: { bytes: new Uint8Array([1, 2, 3]) } } });
+    expect(() => copyObjects(doc, ['shape-1'], () => 'shape-copy')).toThrow();
+    doc.destroy();
   });
   it('creates one caller-identified command and retains unknown outer and model extensions', () => {
     const content = { ...shape('cloud'), pluginData: { semanticRole: 'risk' } } as ShapeContent;

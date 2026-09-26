@@ -8,12 +8,15 @@ export function validateWhiteboardExtensionData(value: unknown, depth = 0, key =
   if (value === null || typeof value === 'boolean') return;
   if (typeof value === 'string') {
     if (/^(data|blob):/i.test(value.trim())) throw new Error('UNSAFE_EXTENSION_URL');
-    if (/(base64|binary|bytes|blob|payload)/i.test(key) && value.length > 256 && /^[a-z0-9+/=_-]+$/i.test(value)) throw new Error('UNSAFE_EXTENSION_BINARY');
+    const compact = value.trim();
+    const base64Like = compact.length >= 8 && compact.length % 4 === 0 && /^[a-z0-9+/_-]*={0,2}$/i.test(compact);
+    if (base64Like && (/(base64|binary|bytes|blob|payload|buffer)/i.test(key) || compact.length >= 128 || /[+/=]/.test(compact))) throw new Error('UNSAFE_EXTENSION_BINARY');
     return;
   }
   if (typeof value === 'number') { if (!Number.isFinite(value)) throw new Error('UNSAFE_EXTENSION'); return; }
   if (Array.isArray(value)) {
-    if (value.length > 64 && value.every(item => Number.isInteger(item) && item >= 0 && item <= 255)) throw new Error('UNSAFE_EXTENSION_BINARY');
+    const bytes = value.length > 0 && value.every(item => Number.isInteger(item) && item >= 0 && item <= 255);
+    if (bytes) throw new Error('UNSAFE_EXTENSION_BINARY');
     value.forEach(item => validateWhiteboardExtensionData(item, depth + 1, key)); return;
   }
   if (typeof value !== 'object' || Object.getPrototypeOf(value) !== Object.prototype) throw new Error('UNSAFE_EXTENSION_BINARY');

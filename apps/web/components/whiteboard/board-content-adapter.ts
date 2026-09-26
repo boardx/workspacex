@@ -88,15 +88,23 @@ function sanitizeSvg(bytes: Uint8Array): { bytes: Uint8Array; width: number; hei
   return { bytes: new TextEncoder().encode(new XMLSerializer().serializeToString(document)), width: Math.round(width), height: Math.round(height) };
 }
 
-async function bitmapDimensions(bytes: Uint8Array, mimeType: BoardImageMime): Promise<{ width: number; height: number }> {
-  const direct = mimeType === "image/png" ? pngDimensions(bytes) : mimeType === "image/gif" ? gifDimensions(bytes) : mimeType === "image/jpeg" ? jpegDimensions(bytes) : null;
-  if (direct?.width && direct.height) return direct;
-  if (typeof createImageBitmap !== "function") throw new Error("IMAGE_DIMENSIONS_INVALID");
-  const bitmap = await createImageBitmap(new Blob([new Uint8Array(bytes)], { type: mimeType }));
-  const dimensions = { width: bitmap.width, height: bitmap.height };
-  bitmap.close();
-  if (dimensions.width < 1 || dimensions.height < 1) throw new Error("IMAGE_DIMENSIONS_INVALID");
-  return dimensions;
+export type BoardRasterDecoder = (blob: Blob) => Promise<{ width: number; height: number; close?: () => void }>;
+const MAX_IMAGE_DIMENSION = 32_768;
+const MAX_IMAGE_PIXELS = 100_000_000;
+
+async function browserRasterDecoder(blob: Blob): Promise<{ width: number; height: number; close?: () => void }> {
+  if (typeof createImageBitmap === "function") return createImageBitmap(blob);
+  return new Promise((resolve, reject) => {
+    const objectUrl = URL.createObjectURL(blob), image = new Image();
+    image.onload = () => { const value = { width: image.naturalWidth, height: image.naturalHeight }; URL.revokeObjectURL(objectUrl); resolve(value); };
+    image.onerror = () => { URL.revokeObjectURL(objectUrl); reject(new Error("IMAGE_DECODE_FAILED")); };
+    image.src = objectUrl;
+  });
+}
+
+function safeDimensions(width: number, height: number): { width: number; height: number } {
+  if (!Number.isInteger(width) || !Number.isInteger(height) || width < 1 || height < 1 || width > MAX_IMAGE_DIMENSION || height > MAX_IMAGE_DIMENSION || width * height > MAX_IMAGE_PIXELS) throw new Error("IMAGE_DIMENSIONS_INVALID");
+  return { width, height };
 }
 
 export interface VerifiedBoardImage {
@@ -110,7 +118,7 @@ export interface VerifiedBoardImage {
   intrinsicHeight: number;
 }
 
-export async function verifyBoardImageBytes(source: Blob, declaredMime: string): Promise<VerifiedBoardImage> {
+export async function verifyBoardImageBytes(source: Blob, declaredMime: string, decodeRaster: BoardRasterDecoder = browserRasterDecoder): Promise<VerifiedBoardImage> {
   if (!IMAGE_MIME.has(declaredMime)) throw new Error("IMAGE_MIME_INVALID");
   let bytes = await readBoundedBytes(source, MAX_IMAGE_BYTES);
   const mimeType = declaredMime as BoardImageMime;
@@ -125,8 +133,17 @@ export async function verifyBoardImageBytes(source: Blob, declaredMime: string):
   if (mimeType === "image/svg+xml") {
     const sanitized = sanitizeSvg(bytes);
     bytes = sanitized.bytes;
-    dimensions = sanitized;
-  } else dimensions = await bitmapDimensions(bytes, mimeType);
+    dimensions = safeDimensions(sanitized.width, sanitized.height);
+  } else {
+    const claimed = mimeType === "image/png" ? pngDimensions(bytes) : mimeType === "image/gif" ? gifDimensions(bytes) : mimeType === "image/jpeg" ? jpegDimensions(bytes) : null;
+    let decoded: Awaited<ReturnType<BoardRasterDecoder>>;
+    try { decoded = await decodeRaster(new Blob([new Uint8Array(bytes)], { type: mimeType })); }
+    catch { throw new Error("IMAGE_DECODE_FAILED"); }
+    try {
+      dimensions = safeDimensions(decoded.width, decoded.height);
+      if (claimed && (claimed.width !== dimensions.width || claimed.height !== dimensions.height)) throw new Error("IMAGE_DIMENSIONS_MISMATCH");
+    } finally { decoded.close?.(); }
+  }
   if (bytes.length > MAX_IMAGE_BYTES) throw new Error("IMAGE_TOO_LARGE");
   const digestInput = new Uint8Array(bytes).buffer;
   const digest = new Uint8Array(await crypto.subtle.digest("SHA-256", digestInput));
