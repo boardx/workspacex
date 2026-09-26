@@ -315,7 +315,12 @@ export default defineConfig({
        * 三条真实缺陷（#3186 / #3207 / #3244 ①）里有一条至今未修，首跑很可能红，
        * 那正是这条车道存在的意义（红是意外，但意外要能被看见）。
        */
-      testMatch: /(deepagent-plan-execute-reliability|chat-run-always-lands|chat-path-(f2-network-drop-reconnect|c6-office-artifacts|c8-subtask-artifact-writeback|f5-cancel-propagates-to-subtask|c1-canvas-survives-run-finalization|c2-canvas-fence-identity|d1-failed-tool-card-status|f1-failure-cause-distinguishable|f3-pause-resume-retry-step|ab-hitl-continuity))\.spec\.ts$/,
+      /*
+       * 2026-09-26 新增 `first-value-citation-loop`（issue #4260）：第一个价值时刻的引用闭环
+       * （检索 → wx_cite → 可点 [1] → 漏斗）。同一条「首跑与搬家」规矩——作者本地没有
+       * docker，首跑在 CI 上，先进这条非阻塞车道，连绿两次再搬进 `chat-read`。
+       */
+      testMatch: /(deepagent-plan-execute-reliability|chat-run-always-lands|first-value-citation-loop|chat-path-(f2-network-drop-reconnect|c6-office-artifacts|c8-subtask-artifact-writeback|f5-cancel-propagates-to-subtask|c1-canvas-survives-run-finalization|c2-canvas-fence-identity|d1-failed-tool-card-status|f1-failure-cause-distinguishable|f3-pause-resume-retry-step|ab-hitl-continuity))\.spec\.ts$/,
     },
     {
       /**
@@ -626,6 +631,10 @@ export default defineConfig({
         LOOPBACK_DEEP_AGENT_TOOL_FAILURE_TRIGGER: CHAT_READ_E2E.deepAgentToolFailureTrigger,
         LOOPBACK_DEEP_AGENT_TOOL_FAILURE_MESSAGE: CHAT_READ_E2E.deepAgentToolFailureMessage,
         LOOPBACK_DEEP_AGENT_TOOL_FAILURE_REPLY: CHAT_READ_E2E.deepAgentToolFailureReply,
+        // issue #4260 —— 引用闭环剧本（替身真的调 wx_knowledge_search → wx_cite），见替身
+        // `CITE_TRIGGER` 头注；默认关闭纪律同上，值的唯一事实源在 `chat-read-fixture.ts`。
+        LOOPBACK_DEEP_AGENT_CITE_TRIGGER: CHAT_READ_E2E.firstValueCiteTrigger,
+        LOOPBACK_DEEP_AGENT_CITE_QUERY: CHAT_READ_E2E.firstValueCiteQuery,
       },
     },
     {
@@ -698,6 +707,11 @@ export default defineConfig({
         // #1324 —— 三条专属线程（挂载持久化 / 因果对照 / 检索命中对照），见
         // `chat-read-fixture.ts` 同名字段与 `seed-chat-read-e2e.ts` 的头注。
         CHAT_E2E_RESTRUCTURE_PROJECT_ID: CHAT_READ_E2E.restructureProjectId,
+        // issue #4260 —— 引用闭环的非示例项目 + 自有材料 + 种子 admin 邮箱（见 fixture 同名字段）。
+        CHAT_E2E_FIRST_VALUE_PROJECT_ID: CHAT_READ_E2E.firstValueProjectId,
+        CHAT_E2E_FIRST_VALUE_DOC_FILENAME: CHAT_READ_E2E.firstValueDocFilename,
+        CHAT_E2E_FIRST_VALUE_DOC_BODY: CHAT_READ_E2E.firstValueDocBody,
+        CHAT_E2E_SEED_ADMIN_EMAIL: CHAT_READ_E2E.seedAdminEmail,
         CHAT_E2E_SKILL_MOUNT_THREAD_ID: CHAT_READ_E2E.skillMountThreadId,
         CHAT_E2E_CAUSAL_CHECK_THREAD_ID: CHAT_READ_E2E.causalCheckThreadId,
         CHAT_E2E_CONTEXT_CHECK_THREAD_ID: CHAT_READ_E2E.contextCheckThreadId,

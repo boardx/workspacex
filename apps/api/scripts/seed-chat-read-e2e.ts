@@ -32,6 +32,15 @@ import { createTemplate } from "../src/application/canvas/create-template";
 import { publishTemplate } from "../src/application/canvas/publish-template";
 import { backfillCanvasBuiltinTemplates } from "./backfill-canvas-builtin-templates";
 import { toOrgId } from "../src/domain/org-id";
+import { uploadArtifact } from "../src/application/files/upload-artifact";
+import { createObjectStore } from "../src/infrastructure/storage/create-object-store";
+import { PgArtifactRepository } from "../src/infrastructure/artifact/pg-artifact-repository";
+import { UuidIdFactory } from "../src/infrastructure/artifact/uuid-id-factory";
+import { PgQuarantineRepository } from "../src/infrastructure/files/pg-quarantine-repository";
+import { LogSecurityAlert } from "../src/infrastructure/files/log-security-alert";
+import { PgProvenanceRepository } from "../src/infrastructure/provenance/pg-provenance-repository";
+import { createArtifactIndexingService } from "../src/infrastructure/retrieval/artifact-indexing-service";
+import { createArtifactIndexProducer } from "../src/infrastructure/retrieval/artifact-index-producer";
 
 if (process.env.CHAT_E2E_FIXTURE !== "1") {
   throw new Error("CHAT_E2E_FIXTURE=1 is required");
@@ -154,6 +163,10 @@ const CANVAS_TEMPLATE_KEY = required("CHAT_E2E_CANVAS_TEMPLATE_KEY");
 const CANVAS_TEMPLATE_DISPLAY_NAME = required("CHAT_E2E_CANVAS_TEMPLATE_DISPLAY_NAME");
 const CANVAS_HEADER_FIELD_NAME = required("CHAT_E2E_CANVAS_HEADER_FIELD_NAME");
 const CANVAS_SECTION_NAME = required("CHAT_E2E_CANVAS_SECTION_NAME");
+const SEED_ADMIN_EMAIL = required("CHAT_E2E_SEED_ADMIN_EMAIL");
+const FIRST_VALUE_PROJECT_ID = required("CHAT_E2E_FIRST_VALUE_PROJECT_ID");
+const FIRST_VALUE_DOC_FILENAME = required("CHAT_E2E_FIRST_VALUE_DOC_FILENAME");
+const FIRST_VALUE_DOC_BODY = required("CHAT_E2E_FIRST_VALUE_DOC_BODY");
 
 /** 撑满字符预算，逼 `trimHistoryToBudget` 把早期轮次赶出 L1——与
  *  `agent-run-context-snapshot.test.ts` 的 `pad()` 同一个公式。 */
@@ -742,7 +755,8 @@ await asOwner(async (client) => {
   await client.query(
     `INSERT INTO credentials (user_id, email, display_name, password_hash, email_verified_at)
      VALUES ($1,$2,$3,$4,now())`,
-    [CANVAS_TEMPLATE_ADMIN_ID, `canvas-admin+${ORG_ID}@example.invalid`, "Canvas Template Seed Admin", passwordHash],
+    // issue #4260：邮箱的唯一事实源在 `chat-read-fixture.ts` 的 `seedAdminEmail`（漏斗断言要用它登录）。
+    [CANVAS_TEMPLATE_ADMIN_ID, SEED_ADMIN_EMAIL, "Canvas Template Seed Admin", passwordHash],
   );
 });
 
@@ -807,6 +821,57 @@ await asOwner(async (client) => {
  * 撑大，影响同车道其余用例的模型输入。
  */
 await backfillCanvasBuiltinTemplates(ORG_ID, ["persona"]);
+
+/*
+ * issue #4260 —— 第一个价值时刻引用闭环（`first-value-citation-loop.spec.ts`）的前置：
+ * 一个**非示例**项目 + 一份用户自己的材料，且已建好组织索引。
+ *
+ * · 上传走 `uploadArtifact`——示例项目（`ensureSampleProject`）用的同一个用例、同一套依赖
+ *   （`createSampleProjectSeeder` 的 upload 那一组）。目前没有任何 HTTP 路由能把文件传进项目
+ *   （契约 `/projects/:projectId/artifacts/upload` 无控制器），所以只能在这里调用例本身。
+ * · 建索引走 `ArtifactIndexingService.request`——`POST /artifact-versions/:id/index` 背后的
+ *   同一个服务（推进 ingestion 到 READY + 写 FTS 段），以 facilitator 身份请求，授权照常判。
+ * · ⚠ **失败不致命**：只打日志，不抛。本车道有几十条 spec 共用这一个种子，这一块坏了只该让
+ *   引用闭环那一条 spec 红（它会红在「没有 [1]」上），不该把整条车道一起拖倒。
+ */
+await asApp(ORG_ID, async (client) => {
+  await client.query("INSERT INTO projects (id, org_id, name, kind) VALUES ($1, $2, $3, 'workshop')", [
+    FIRST_VALUE_PROJECT_ID, ORG_ID, `project ${FIRST_VALUE_PROJECT_ID}`,
+  ]);
+  await client.query("INSERT INTO workshops (id, org_id) VALUES ($1, $2)", [FIRST_VALUE_PROJECT_ID, ORG_ID]);
+});
+await addProjectMember(ORG_ID, FIRST_VALUE_PROJECT_ID, USER_ID, "facilitator", null);
+{
+  const db = new PgDatabase(appConfig());
+  try {
+    const store = await createObjectStore();
+    const org = toOrgId(ORG_ID);
+    const uploaded = await uploadArtifact({
+      store,
+      repo: new PgArtifactRepository(db),
+      ids: new UuidIdFactory(),
+      quarantine: new PgQuarantineRepository(db),
+      alerts: new LogSecurityAlert(),
+      provenance: new PgProvenanceRepository(db),
+    }, {
+      orgId: org,
+      projectId: FIRST_VALUE_PROJECT_ID,
+      agendaSegmentId: null,
+      confidential: false,
+      actorId: USER_ID,
+      files: [{ filename: FIRST_VALUE_DOC_FILENAME, bytes: new TextEncoder().encode(FIRST_VALUE_DOC_BODY) }],
+    });
+    const file = uploaded.files[0];
+    if (file?.status !== "accepted") throw new Error(`upload rejected: ${JSON.stringify(file)}`);
+    const indexing = createArtifactIndexingService(db, store, createArtifactIndexProducer(db, store));
+    const indexed = await indexing.request(org, USER_ID, file.versionId);
+    process.stdout.write(`[chat-read-e2e-fixture] first-value material version=${file.versionId} index=${indexed.status}\n`);
+  } catch (error) {
+    process.stderr.write(`[chat-read-e2e-fixture] WARN first-value material not ready: ${String(error)}\n`);
+  } finally {
+    await db.close();
+  }
+}
 
 process.stdout.write(
   `[chat-read-e2e-fixture] seeded org=${ORG_ID} project=${PROJECT_ID} thread=${THREAD_ID} messages=51 `
