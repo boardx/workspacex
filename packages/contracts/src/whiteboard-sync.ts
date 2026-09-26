@@ -2,6 +2,7 @@ import { z } from 'zod';
 import { WhiteboardObjectId } from './whiteboard-document';
 import { BoardRole } from './whiteboard';
 import { operations as streamingOperations } from './streaming-transport';
+import { WHITEBOARD_COLLABORATION_LIMITS, WhiteboardRecoveryCode, WhiteboardResumeDisposition } from './whiteboard-collaboration';
 const inboundUpdateBytes = 64 * 1024;
 const persistedUpdateBytes = 1024 * 1024;
 const stateVectorBytes = 8 * 1024;
@@ -39,20 +40,26 @@ const updateBase64 = boundedBase64(WHITEBOARD_SYNC.inboundUpdateBase64Characters
 const documentBase64 = boundedBase64(WHITEBOARD_SYNC.documentBase64Characters);
 const epoch = z.number().int().min(1).max(Number.MAX_SAFE_INTEGER);
 const seq = z.number().int().nonnegative().max(Number.MAX_SAFE_INTEGER);
-const cursor = z.object({ x: z.number().finite(), y: z.number().finite() }).strict().nullable();
-const selected = z.array(WhiteboardObjectId).max(200);
+const cursor = z.object({ x: z.number().finite().min(-1000000).max(1000000), y: z.number().finite().min(-1000000).max(1000000) }).strict().nullable();
+const selected = z.array(WhiteboardObjectId).max(WHITEBOARD_COLLABORATION_LIMITS.selectionIds).superRefine((value,ctx)=>{if(new Set(value).size!==value.length)ctx.addIssue({code:z.ZodIssueCode.custom,message:'Duplicate selection id'});});
+const editingObjectId = WhiteboardObjectId.nullable();
+const contributorColor = z.string().regex(/^#[0-9a-fA-F]{6}$/);
 export const WhiteboardClientMessage = z.discriminatedUnion('type', [
-  z.object({ type: z.literal('hello'), stateVector: stateVectorBase64 }).strict(),
+  z.object({ type: z.literal('hello'), stateVector: stateVectorBase64, resume: z.object({ epoch, seq }).strict().optional() }).strict(),
   z.object({ type: z.literal('update'), epoch, updateId: z.string().uuid(), update: updateBase64 }).strict(),
-  z.object({ type: z.literal('awareness'), cursor, selected }).strict(),
+  z.object({ type: z.literal('awareness'), cursor, selected, editingObjectId: editingObjectId.optional() }).strict(),
 ]);
 export type WhiteboardClientMessage = z.infer<typeof WhiteboardClientMessage>;
-export const WhiteboardPresence = z.object({ actorId: z.string().min(1).max(200), cursor, selected }).strict();
+export const WhiteboardPresence = z.object({
+  actorId: z.string().min(1).max(200), displayName: z.string().min(1).max(WHITEBOARD_COLLABORATION_LIMITS.displayNameChars),
+  contributorColor, cursor, selected, editingObjectId, expiresAt: z.string().datetime(),
+}).strict();
 export const WhiteboardServerMessage = z.discriminatedUnion('type', [
   z.object({ type: z.literal('sync'), epoch, seq, update: documentBase64, role: BoardRole, archived: z.boolean() }).strict(),
   z.object({ type: z.literal('ack'), updateId: z.string().uuid(), seq }).strict(),
   z.object({ type: z.literal('update'), epoch, seq, update: documentBase64 }).strict(),
   z.object({ type: z.literal('presence'), peers: z.array(WhiteboardPresence).max(500) }).strict(),
-  z.object({ type: z.literal('error'), code: z.string().min(1).max(100) }).strict(),
+  z.object({ type: z.literal('recovery'), code: WhiteboardRecoveryCode, disposition: WhiteboardResumeDisposition, epoch: epoch.optional(), seq: seq.optional() }).strict(),
+  z.object({ type: z.literal('error'), code: WhiteboardRecoveryCode.exclude(['RESUME_OK']).or(z.enum(['PROTOCOL_ERROR', 'HELLO_REQUIRED', 'FORBIDDEN', 'VALIDATION_FAILED', 'VALIDATOR_UNAVAILABLE', 'IDEMPOTENCY_CONFLICT', 'RATE_LIMITED'])), recoverable: z.boolean() }).strict(),
 ]);
 export type WhiteboardServerMessage = z.infer<typeof WhiteboardServerMessage>;

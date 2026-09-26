@@ -19,6 +19,11 @@ export {
 } from './spatial-relationships';
 export { parsePanelMetadata, readPanelMetadata, type FlowDirection, type PanelMetadata, type PanelMode } from './spatial-model';
 export {
+  WhiteboardCommentService, WhiteboardPresenceRegistry, checkpointHash, verifyCheckpoint, restoredHead,
+  type CollaborationAccepted, type CollaborationActor, type CollaborationDependencies,
+  type PresenceInput, type PresenceState,
+} from './collaboration';
+export {
   ContentObjectCommandPort,
   SHAPE_VARIANTS,
   createContentObject,

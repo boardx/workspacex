@@ -82,3 +82,18 @@ it('rejects an oversized inbound frame in transport before JSON or Zod parsing',
   ws.send('x'.repeat(WHITEBOARD_SYNC.inboundFrameBytes + 1));
   expect(await closed).toBe(1009); expect(parse).not.toHaveBeenCalled(); parse.mockRestore();
 });
+
+it('classifies resume safely and publishes bounded editing presence without persisting it', async () => {
+  const boardId=randomUUID(),principal={orgId:toOrgId('gateway-resume-test'),userId:'grace'},doc=createWhiteboardDocument();
+  let appendCalls=0;
+  const store:WhiteboardCollaborationStore={head:async()=>({epoch:4,seq:8,role:'editor',archived:false}),load:async()=>({epoch:4,seq:8,role:'editor',archived:false,update:Y.encodeStateAsUpdate(doc)}),append:async()=>{appendCalls++;throw new Error('unused')},writeCommands:async()=>{throw new Error('unused')},writeCommandsInTransaction:async()=>{throw new Error('unused')}};
+  const boards:WhiteboardRepository={get:async()=>({id:boardId,name:'resume',ownerId:'owner',role:'editor',archived:false,createdAt:new Date().toISOString(),updatedAt:new Date().toISOString()}),list:async()=>[],create:async()=>{throw new Error('unused')},update:async()=>null,members:async()=>null,putMember:async()=>false,removeMember:async()=>false};
+  const server=createServer();servers.push(server);attachWhiteboardGateway(server,{store,boards,principals:{resolve:async()=>principal}});await new Promise<void>(resolve=>server.listen(0,'127.0.0.1',resolve));
+  const ws=new WebSocket(`ws://127.0.0.1:${(server.address() as AddressInfo).port}/whiteboards/${boardId}/sync`,[WHITEBOARD_SYNC.protocol,`${WHITEBOARD_SYNC.bearerSubprotocolPrefix}token`]);
+  const messages:ServerMessage[]=[];ws.on('message',(raw:RawData)=>messages.push(WhiteboardServerMessage.parse(JSON.parse(raw.toString()))));await new Promise<void>((resolve,reject)=>{ws.once('open',resolve);ws.once('error',reject)});
+  ws.send(JSON.stringify({type:'hello',stateVector:Buffer.from(Y.encodeStateVector(doc)).toString('base64'),resume:{epoch:3,seq:99}}));
+  await expect.poll(()=>messages.find(message=>message.type==='recovery')).toMatchObject({type:'recovery',code:'STALE_EPOCH',disposition:'reload-required',epoch:4,seq:8});
+  ws.send(JSON.stringify({type:'awareness',cursor:{x:12,y:24},selected:['note'],editingObjectId:'note'}));
+  await expect.poll(()=>messages.filter(message=>message.type==='presence').at(-1)).toMatchObject({type:'presence',peers:[{actorId:'grace',displayName:'grace',cursor:{x:12,y:24},selected:['note'],editingObjectId:'note'}]});
+  expect(appendCalls).toBe(0);ws.close();doc.destroy();
+});

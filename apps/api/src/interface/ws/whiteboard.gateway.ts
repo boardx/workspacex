@@ -2,6 +2,7 @@ import type { Server } from 'node:http';
 import { WebSocketServer, type WebSocket } from 'ws';
 import * as Y from 'yjs';
 import { WHITEBOARD_SYNC, WhiteboardClientMessage, type WhiteboardServerMessage, WhiteboardPresence } from '@repo/contracts/whiteboard-sync';
+import { WHITEBOARD_COLLABORATION_LIMITS } from '@repo/contracts/whiteboard-collaboration';
 import type { PrincipalResolverPort } from '../../application/ports/principal-resolver.port';
 import type { WhiteboardRepository } from '../../application/whiteboard/ports';
 import { WhiteboardCollaborationError, type WhiteboardCollaborationStore } from '../../application/whiteboard/collaboration-ports';
@@ -21,9 +22,13 @@ export function attachWhiteboardGateway(server: Server, deps: WhiteboardGatewayD
     if (ws.bufferedAmount > 2 * 1024 * 1024) { ws.close(1013, 'slow client'); return; }
     ws.send(JSON.stringify(message));
   }
-  function fail(ws: WebSocket, code: string) { send(ws,{type:'error',code}); ws.close(4403,code.slice(0,100)); }
+  function fail(ws: WebSocket, code: Extract<WhiteboardServerMessage,{type:'error'}>['code']) {
+    const recoverable=['STALE_EPOCH','DEPENDENCY_UNAVAILABLE','VALIDATOR_UNAVAILABLE','RATE_LIMITED','PROTOCOL_LIMIT'].includes(code);
+    send(ws,{type:'error',code,recoverable}); ws.close(4403,code.slice(0,100));
+  }
   function group(peer: Peer) { return [...peers].filter(p => p.ready && p.boardId===peer.boardId && p.principal.orgId===peer.principal.orgId); }
-  function presence(peer: Peer) { const room=group(peer); const states=room.map(p=>p.presence); for (const p of room) send(p.ws,{type:'presence',peers:states}); }
+  function presence(peer: Peer) { const room=group(peer),now=Date.now(); const states=room.filter(p=>Date.parse(p.presence.expiresAt)>now).map(p=>p.presence); for (const p of room) send(p.ws,{type:'presence',peers:states}); }
+  function color(actorId:string) { let hash=0; for(const character of actorId) hash=(hash*31+character.charCodeAt(0))>>>0; return `#${(hash&0xffffff).toString(16).padStart(6,'0')}`; }
   const upgrade = (request: import('node:http').IncomingMessage, socket: import('node:stream').Duplex, head: Buffer) => {
     const path=new URL(request.url ?? '/', 'http://localhost').pathname;
     const match=/^\/whiteboards\/([0-9a-f-]{36})\/sync$/i.exec(path); if (!match) return;
@@ -37,7 +42,7 @@ export function attachWhiteboardGateway(server: Server, deps: WhiteboardGatewayD
       const board=await deps.boards.get(principal,boardId); if (!board) { refuse(404); return; }
       if ([...peers].filter(p=>p.boardId===boardId && p.principal.orgId===principal.orgId).length>=50) { refuse(429); return; }
       wss.handleUpgrade(request,socket,head,ws=>{
-        const peer:Peer={ws,principal,boardId,token,ready:false,epoch:0,seq:0,role:board.role,archived:board.archived,mirror:new Y.Doc(),presence:{actorId:principal.userId,cursor:null,selected:[]},checking:false};
+        const peer:Peer={ws,principal,boardId,token,ready:false,epoch:0,seq:0,role:board.role,archived:board.archived,mirror:new Y.Doc(),presence:WhiteboardPresence.parse({actorId:principal.userId,displayName:principal.userId,contributorColor:color(principal.userId),cursor:null,selected:[],editingObjectId:null,expiresAt:new Date(Date.now()+WHITEBOARD_COLLABORATION_LIMITS.presenceTtlMs).toISOString()}),checking:false};
         peers.add(peer);
         const deadline=setTimeout(()=>ws.close(4408,'handshake timeout'),10000);
         let queue=Promise.resolve(), waiting=0, awarenessAt=0;
@@ -53,6 +58,11 @@ export function attachWhiteboardGateway(server: Server, deps: WhiteboardGatewayD
               if(peer.ready) throw new WhiteboardCollaborationError('VALIDATION_FAILED');
               // Keep a server-only full mirror for cross-process catch-up, never trust client content.
               const full=await deps.store.load(principal,boardId);
+              if(message.resume) {
+                if(message.resume.epoch!==full.epoch) send(ws,{type:'recovery',code:'STALE_EPOCH',disposition:'reload-required',epoch:full.epoch,seq:full.seq});
+                else if(message.resume.seq>full.seq) send(ws,{type:'recovery',code:'HISTORY_UNAVAILABLE',disposition:'reload-required',epoch:full.epoch,seq:full.seq});
+                else send(ws,{type:'recovery',code:'RESUME_OK',disposition:'resumed',epoch:full.epoch,seq:full.seq});
+              }
               Y.applyUpdate(peer.mirror,full.update); peer.epoch=full.epoch; peer.seq=full.seq;
               const diff=await deps.store.load(principal,boardId,decoded(message.stateVector));
               Y.applyUpdate(peer.mirror,diff.update); peer.seq=diff.seq; peer.ready=true; peer.role=diff.role; peer.archived=diff.archived; clearTimeout(deadline);
@@ -60,8 +70,8 @@ export function attachWhiteboardGateway(server: Server, deps: WhiteboardGatewayD
             }
             if(!peer.ready) { fail(ws,'HELLO_REQUIRED'); return; }
             if(message.type==='awareness') {
-              if(Date.now()-awarenessAt<50) return; awarenessAt=Date.now();
-              peer.presence={actorId:principal.userId,cursor:message.cursor,selected:message.selected}; presence(peer); return;
+              if(Date.now()-awarenessAt<WHITEBOARD_COLLABORATION_LIMITS.presenceMinimumIntervalMs) return; awarenessAt=Date.now();
+              peer.presence=WhiteboardPresence.parse({...peer.presence,cursor:message.cursor,selected:message.selected,editingObjectId:message.editingObjectId ?? null,expiresAt:new Date(Date.now()+WHITEBOARD_COLLABORATION_LIMITS.presenceTtlMs).toISOString()}); presence(peer); return;
             }
             const ack=await deps.store.append(principal,boardId,{...message,update:decoded(message.update)});
             // ACK is durability only and never advances client document state. Queue
@@ -84,7 +94,10 @@ export function attachWhiteboardGateway(server: Server, deps: WhiteboardGatewayD
                 send(target.ws,{type:'update',epoch:diff.epoch,seq:diff.seq,update:encoded(diff.update)});
               }
             }
-          }).catch(error=>fail(ws,error instanceof WhiteboardCollaborationError?error.code:'DEPENDENCY_UNAVAILABLE')).finally(()=>{waiting--;});
+          }).catch(error=>{
+            const code=error instanceof WhiteboardCollaborationError?error.code:'DEPENDENCY_UNAVAILABLE';
+            fail(ws,code==='NOT_FOUND'?'ACCESS_REVOKED':code==='ARCHIVED'?'BOARD_ARCHIVED':code);
+          }).finally(()=>{waiting--;});
         });
         ws.on('error',()=>ws.close());
         ws.on('close',()=>{clearTimeout(deadline);peers.delete(peer);peer.mirror.destroy();presence(peer);});
@@ -99,17 +112,18 @@ export function attachWhiteboardGateway(server: Server, deps: WhiteboardGatewayD
       peer.checking=true;
       void (async()=>{
         const current=await deps.principals.resolve({authorization:`Bearer ${peer.token}`});
-        if(!current || current.userId!==peer.principal.userId || current.orgId!==peer.principal.orgId) { fail(peer.ws,'FORBIDDEN');return; }
+        if(!current || current.userId!==peer.principal.userId || current.orgId!==peer.principal.orgId) { fail(peer.ws,'ACCESS_REVOKED');return; }
         const head=await deps.store.head(current,peer.boardId);
         const state=head;
         if(state.epoch!==peer.epoch) { fail(peer.ws,'STALE_EPOCH');return; }
-        if(state.role!==peer.role || state.archived!==peer.archived) { fail(peer.ws,'PERMISSION_CHANGED');return; }
+        if(state.role!==peer.role || state.archived!==peer.archived) { fail(peer.ws,state.archived?'BOARD_ARCHIVED':'ACCESS_REVOKED');return; }
         if(peer.ws.readyState!==peer.ws.OPEN) return;
         if(state.seq>peer.seq) { const diff=await deps.store.load(current,peer.boardId,Y.encodeStateVector(peer.mirror)); if(peer.ws.readyState!==peer.ws.OPEN) return; Y.applyUpdate(peer.mirror,diff.update);peer.seq=Math.max(peer.seq,diff.seq);send(peer.ws,{type:'update',epoch:diff.epoch,seq:diff.seq,update:encoded(diff.update)}); }
-      })().catch(()=>fail(peer.ws,'ACCESS_UNAVAILABLE')).finally(()=>{peer.checking=false;});
+      })().catch(()=>fail(peer.ws,'DEPENDENCY_UNAVAILABLE')).finally(()=>{peer.checking=false;});
     }
   },1000);
   monitor.unref();
-  server.on('close',()=>{clearInterval(monitor);server.off('upgrade',upgrade);for(const p of peers) p.ws.terminate();wss.close();});
+  const presenceSweep=setInterval(()=>{for(const peer of peers) if(peer.ready) presence(peer);},5000); presenceSweep.unref();
+  server.on('close',()=>{clearInterval(monitor);clearInterval(presenceSweep);server.off('upgrade',upgrade);for(const p of peers) p.ws.terminate();wss.close();});
   return wss;
 }

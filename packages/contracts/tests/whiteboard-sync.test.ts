@@ -16,3 +16,15 @@ it('separates bounded inbound updates and state vectors from whole-document sync
   expect(Buffer.byteLength(inboundFrame)).toBeLessThanOrEqual(WHITEBOARD_SYNC.inboundFrameBytes);
   expect(WHITEBOARD_SYNC.inboundFrameBytes).toBeLessThan(WHITEBOARD_SYNC.outboundDocumentFrameBytes);
 });
+
+it('keeps resume, awareness and recovery envelopes closed and bounded', () => {
+  const hello={type:'hello',stateVector:'',resume:{epoch:3,seq:9}};
+  expect(WhiteboardClientMessage.safeParse(hello).success).toBe(true);
+  expect(WhiteboardClientMessage.safeParse({...hello,resume:{epoch:0,seq:9}}).success).toBe(false);
+  expect(WhiteboardClientMessage.safeParse({type:'awareness',cursor:{x:1,y:2},selected:['note'],editingObjectId:'note'}).success).toBe(true);
+  expect(WhiteboardClientMessage.safeParse({type:'awareness',cursor:null,selected:Array.from({length:201},(_,i)=>`n-${i}`)}).success).toBe(false);
+  expect(WhiteboardServerMessage.safeParse({type:'recovery',code:'STALE_EPOCH',disposition:'reload-required',epoch:4,seq:0}).success).toBe(true);
+  expect(WhiteboardServerMessage.safeParse({type:'recovery',code:'UNKNOWN',disposition:'reload-required'}).success).toBe(false);
+  expect(WhiteboardServerMessage.safeParse({type:'error',code:'PROTOCOL_LIMIT',recoverable:true}).success).toBe(true);
+  expect(WhiteboardServerMessage.safeParse({type:'error',code:'PROTOCOL_LIMIT'}).success).toBe(false);
+});
