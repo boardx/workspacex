@@ -43,5 +43,5 @@ export function WorkspaceCanvas({ options, seeded = true, draft, onDraft }: { op
       else if (options.tool === 'shape') c.add(options.shape === 'circle' ? new Circle({ originX: 'left', originY: 'top', left: x, top: y, radius: 60, fill: options.color }) : new Rect({ originX: 'left', originY: 'top', left: x, top: y, width: 160, height: 100, fill: options.color }));
       else c.add(new Line([x, y, x + 140, y + 70], { stroke: options.color, strokeWidth: options.width })); c.requestRenderAll();
     }
-  }}><canvas ref={element} aria-label="白板绘图区：使用底部工具创建便利贴、图形、手绘和连线" /></div>;
+  }}><canvas ref={element} aria-label={options.readonly ? "只读白板绘图区" : "白板绘图区：使用底部工具创建便利贴、图形、手绘和连线"} /></div>;
 }

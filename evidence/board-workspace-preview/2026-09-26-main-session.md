@@ -35,3 +35,9 @@ Primary-session CUA browser acceptance after reload:
 - Double-clicked restored note; editable textarea exposed exact preserved text. PASS for restored editability.
 - Independent reviewer approved exact c85abfdb869d1da5713974ed6103921837ca7c5a, P0/P1/P2=0; executed real Fabric serialize/enliven roundtrip preserving PreviewSticky type, text, color,180×160 dimensions and 9/9 tests.
 - Full production acceptance, hardware touch/pen, collaboration, storage and human signoff are not claimed.
+
+## Readonly and repeatable object checks
+
+- 768×1024 browser viewport: complete canvas/header/dock visible; four creation tools disabled. Double-clicking text, dragging a note and pressing Return produced no editor and no visible object movement or creation. PASS for mock readonly behavior; not a server ACL test.
+- Test-only commit 6d57e1e4c adds real Fabric serialization and complete-object deletion coverage; agent reports 11/11 tests and TypeScript pass. GUI deletion was not performed.
+- Follow-up corrects the inner canvas accessible label in readonly mode; previously only the outer application label reflected readonly.
