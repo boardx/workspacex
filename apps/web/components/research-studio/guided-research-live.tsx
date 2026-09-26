@@ -98,6 +98,7 @@ export function GuidedResearchLive({ sessionId, onBack, initialNode }: { session
   const [draft, setDraft] = React.useState<Draft | null>(null);
   const [message, setMessage] = React.useState("");
   const [reportAssistantOpen, setReportAssistantOpen] = React.useState(false);
+  const [reportMarkdownOpen, setReportMarkdownOpen] = React.useState(false);
   const [loadingNode, setLoadingNode] = React.useState<Command["node"] | null>(null);
   const [pending, setPending] = React.useState(false);
   const [steeringPending, setSteeringPending] = React.useState(false);
@@ -122,7 +123,7 @@ export function GuidedResearchLive({ sessionId, onBack, initialNode }: { session
     let active = true;
     sessionGeneration.current += 1;
     responseEpoch.current += 1; snapshotRef.current = null; messageDraft.current = null;
-    setState(null); setDraft(null); setMessage(""); setError(null); setPending(false); setLoadingNode(null); updateRecovery(null);
+    setState(null); setDraft(null); setMessage(""); setError(null); setPending(false); setLoadingNode(null); setReportMarkdownOpen(false); updateRecovery(null);
     getResearchRuntime(sessionId).then((next) => {
       if (!active) return;
       const target = initialNode && next.availableNodes.includes(initialNode) ? initialNode : next.currentNode;
@@ -421,12 +422,12 @@ export function GuidedResearchLive({ sessionId, onBack, initialNode }: { session
         {node === "report" && reportDocument && <GuidedResearchReportWorkspace
           actions={null}
           contents={<nav aria-label="报告工作区目录" className="space-y-2 text-sm text-muted-foreground"><p>执行摘要</p><p>研究范围与方法</p>{reportDocument.sections.map((section, index) => <p key={section.sectionId}>{index + 1}. {section.title}</p>)}<p>综合结论</p><p>参考来源</p></nav>}
-          document={<div data-testid="research-report" data-layout="full-width-report"><GuidedResearchReportDocument document={reportDocument} title={`研究报告${state.completed ? ` · ${researchCompletionLabel(state.completed, state.publicationReadiness)}` : ""}`} limitations={researchLimitations(state.completed, state.publicationReadiness)} actions={reportPrimaryAction} moreActions={reportAssistantMenuAction} onRegenerate={() => void run("generate")} regenerateDisabled={busy || Boolean(proposal)} />{reportMarkdownDocument && <details className="mt-5"><summary className="cursor-pointer text-sm font-medium">编辑报告 Markdown</summary><div className="mt-3"><GuidedResearchMarkdownWorkspace document={reportMarkdownDocument} saving={busy} onSave={async (markdown) => {
+          document={<div data-testid="research-report" data-layout="full-width-report"><GuidedResearchReportDocument document={reportDocument} title={`研究报告${state.completed ? ` · ${researchCompletionLabel(state.completed, state.publicationReadiness)}` : ""}`} limitations={researchLimitations(state.completed, state.publicationReadiness)} actions={reportPrimaryAction} moreActions={reportAssistantMenuAction} onRegenerate={() => void run("generate")} regenerateDisabled={busy || Boolean(proposal)} />{reportMarkdownDocument && <details className="mt-5" open={reportMarkdownOpen} onToggle={(event) => setReportMarkdownOpen(event.currentTarget.open)}><summary className="cursor-pointer text-sm font-medium">编辑报告 Markdown</summary>{reportMarkdownOpen && <div className="mt-3"><GuidedResearchMarkdownWorkspace document={reportMarkdownDocument} saving={busy} onSave={async (markdown) => {
             const parsed = parseGuidedResearchMarkdown({ document: reportMarkdownDocument, markdown });
             if (!parsed.ok) return { ok: false, message: parsed.errors.map((item) => item.message).join("；") };
             const saved = await run("save", { draft: parsed.draft });
             return saved ? { ok: true } : { ok: false, message: "研究报告未保存，请根据页面提示重试。" };
-          }} provenance="报告 Markdown 可编辑；来源引用标识必须保持不变。" /></div></details>}</div>}
+          }} provenance="报告 Markdown 可编辑；来源引用标识必须保持不变。" /></div>}</details>}</div>}
           metrics={<div className="grid gap-3 text-sm"><p><span className="text-2xl font-semibold">{state.sources.filter((source) => source.decision !== "excluded").length}</span> 个有效来源</p>{state.qualityScore && <p><span className="text-2xl font-semibold">{state.qualityScore.overall ?? "—"}</span> 质量评分</p>}{state.publicationReadiness && <p className="text-muted-foreground">{state.publicationReadiness.status === "ready" ? "满足发布条件" : "仍有发布限制"}</p>}</div>}
           limitation={<div className="space-y-3">{state.qualityScore && state.publicationReadiness ? <GuidedResearchReadiness quality={state.qualityScore} readiness={state.publicationReadiness} /> : <p>{researchLimitations(state.completed, state.publicationReadiness) ?? "报告正在汇总质量与来源信息。"}</p>}</div>}
         />}
