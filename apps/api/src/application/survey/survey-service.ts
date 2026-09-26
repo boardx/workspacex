@@ -75,10 +75,12 @@ export class SurveyError extends Error {
       | "submission_conflict"
       | "invalid_report"
       | "capacity_reached"
+      | "invalid_source"
       | "invalid_transition"
       | "publish_blocked"
       | "anonymity_immutable"
       | "status_command_required",
+    readonly details?: unknown,
   ) {
     super(code);
   }
@@ -265,7 +267,7 @@ export class SurveyService {
     return this.change(orgId, actor, id, version, (model) => {
       if (model.publication) throw new SurveyError("closed");
       const parsed = parseSurveyDesignMarkdown(documents.design);
-      if (!parsed.ok) throw new SurveyError("invalid_survey");
+      if (!parsed.ok) throw new SurveyError("invalid_source", parsed.diagnostics);
       const now = this.now().toISOString();
       const revision = (model.source?.compiledVersion ?? 0) + 1;
       const nextDocuments = {
