@@ -27,9 +27,14 @@ Drawing, Image, Tile/WebTile, Table, Icon and Template strict structured data.
 `createContentObjectEnvelope` returns one ordinary create command.
 `ContentObjectCommandPort` replaces rich metadata atomically under the same
 stable caller identity and returns a typed before/after event. Both paths retain
-unknown JSON extension fields for forward-compatible plugins. Renderers should
+unknown inert JSON extension fields for forward-compatible plugins. The shared
+validator recursively rejects binary values and `data:`/`blob:` strings on
+create, replace and remote-update validation. Structured titles are mirrored to
+the outer collaborative text in the same transaction. Renderers should
 call `readContentObject` and project its typed result; they must composite eraser
-strokes from the retained vectors rather than flattening drawings into bitmaps.
+strokes against their explicit `erases` target IDs from the retained vectors
+rather than flattening drawings into bitmaps. `instantiateTemplateEnvelope`
+creates a template's caller-ID-mapped object set in one replay-safe envelope.
 
 `WhiteboardUndo` tracks only its own origin. Creation undo returns
 `creation-requires-explicit-delete` without changing anything, even when no peer

@@ -10,8 +10,11 @@ import { cloneDocument, objectMap, validateDocument } from './document';
 import {
   parseContentObject,
   readContentObject,
+  semanticContentTitle,
+  validateSafeExtensionTree,
   type CanonicalContentObject,
   type ContentObjectType,
+  type TemplateContent,
 } from './content-object-model';
 export * from './content-object-model';
 
@@ -34,9 +37,12 @@ function contractKind(content: CanonicalContentObject): WhiteboardObject['kind']
 export function createContentObjectEnvelope(input: CreateContentObjectInput): BoardCommandEnvelope {
   const content = parseContentObject(input.content);
   const previous = structuredClone(input.extensionData ?? {});
+  validateSafeExtensionTree(previous);
+  const semanticTitle = semanticContentTitle(content);
+  if (semanticTitle !== null && input.text !== undefined && input.text !== semanticTitle) throw new Error('CONTENT_TEXT_MISMATCH');
   const object = WhiteboardObject.parse({
     id: input.id, schemaVersion: 1, kind: contractKind(content), geometry: input.geometry,
-    text: input.text ?? '', style: input.style ?? {}, parentId: input.parentId ?? null,
+    text: semanticTitle ?? input.text ?? '', style: input.style ?? {}, parentId: input.parentId ?? null,
     orderKey: input.orderKey ?? '', extensionData: { ...previous, contentObject: content },
   });
   return { boardId: input.boardId, clientId: input.clientId, gestureId: input.gestureId, commands: [{ type: 'create', object }] };
@@ -47,13 +53,14 @@ export interface ContentObjectCommandEnvelope { boardId: string; clientId: strin
 export interface ContentObjectEvent {
   type: 'ContentObjectUpdated'; operationId: string; transactionId: string; objectId: string;
   before: CanonicalContentObject; after: CanonicalContentObject;
+  beforeText: string; afterText: string;
 }
 export interface ContentObjectAccepted extends BoardCommandAccepted { event: ContentObjectEvent; }
 
 const acceptedByDocument = new WeakMap<Y.Doc, Map<string, { payload: string; result: ContentObjectAccepted }>>();
 function identity(value: unknown): string { if (typeof value !== 'string' || value.length < 1 || value.length > 256) throw new Error('CONTENT_COMMAND_INVALID'); return value; }
 
-function applyReplace(doc: Y.Doc, command: ReplaceContentObjectCommand): { before: CanonicalContentObject; after: CanonicalContentObject } {
+function applyReplace(doc: Y.Doc, command: ReplaceContentObjectCommand): { before: CanonicalContentObject; after: CanonicalContentObject; beforeText: string; afterText: string } {
   if (command.type !== 'replace-content' || !ID.test(command.id)) throw new Error('CONTENT_COMMAND_INVALID');
   const item = objectMap(doc).get(command.id);
   if (!item) throw new Error('OBJECT_NOT_FOUND');
@@ -61,14 +68,16 @@ function applyReplace(doc: Y.Doc, command: ReplaceContentObjectCommand): { befor
   const before = readContentObject(current); if (!before) throw new Error('CONTENT_OBJECT_NOT_FOUND');
   const after = parseContentObject(command.content);
   if (before.type !== after.type) throw new Error('CONTENT_OBJECT_TYPE_IMMUTABLE');
+  if (contractKind(after) !== current.kind) throw new Error('CONTENT_KIND_IMMUTABLE');
   const extension = structuredClone(current.extensionData ?? {});
   item.set('extensionData', { ...structuredClone(extension), contentObject: after });
-  const display = after.type === 'tile' || after.type === 'web-tile' ? after.title : after.type === 'template' ? after.name : after.type === 'icon' ? after.name : null;
-  const sharedText = item.get('text');
-  if (display !== null && sharedText instanceof Y.Text && sharedText.toString() !== display) {
-    sharedText.delete(0, sharedText.length); sharedText.insert(0, display);
+  const beforeText = current.text, afterText = semanticContentTitle(after) ?? beforeText;
+  if (afterText !== beforeText) {
+    const sharedText = item.get('text') as import('yjs').Text;
+    if (sharedText.length) sharedText.delete(0, sharedText.length);
+    if (afterText) sharedText.insert(0, afterText);
   }
-  return { before, after };
+  return { before, after, beforeText, afterText };
 }
 
 /** Atomic edit boundary for rich object metadata; one envelope is one command, transaction and undo step. */
@@ -89,7 +98,7 @@ export class ContentObjectCommandPort {
     const candidate = cloneDocument(this.doc);
     try { candidate.transact(() => applyReplace(candidate, command), origin); validateDocument(candidate); }
     finally { candidate.destroy(); }
-    let change!: { before: CanonicalContentObject; after: CanonicalContentObject };
+    let change!: { before: CanonicalContentObject; after: CanonicalContentObject; beforeText: string; afterText: string };
     this.doc.transact(() => { change = applyReplace(this.doc, command); }, origin);
     const result: ContentObjectAccepted = {
       operationId, transactionId, acceptedObjectIds: [command.id],
@@ -110,4 +119,29 @@ export function createContentObject(port: BoardCommandPort, input: CreateContent
   const accepted = port.dispatch(envelope);
   const content = parseContentObject(input.content);
   return { ...accepted, event: { type: 'ObjectCreated', operationId: accepted.operationId, transactionId: accepted.transactionId, objectId: input.id, contentType: content.type } };
+}
+
+export interface InstantiateTemplateInput {
+  boardId: string; clientId: string; gestureId: string; instanceId: string;
+  template: TemplateContent; objectIds: Record<string, string>; x: number; y: number;
+}
+
+/** Caller supplies the durable localId -> objectId mapping; retries reproduce the same one-command batch. */
+export function instantiateTemplateEnvelope(input: InstantiateTemplateInput): BoardCommandEnvelope {
+  const template = parseContentObject(input.template) as TemplateContent;
+  const objects = template.objects ?? [];
+  if (objects.length === 0) throw new Error('TEMPLATE_OBJECTS_EMPTY');
+  identity(input.instanceId);
+  if (!Number.isFinite(input.x) || !Number.isFinite(input.y)) throw new Error('TEMPLATE_ORIGIN_INVALID');
+  const expected = new Set(objects.map(item => item.localId));
+  if (Object.keys(input.objectIds).length !== expected.size || Object.keys(input.objectIds).some(key => !expected.has(key))) throw new Error('TEMPLATE_OBJECT_IDS_INVALID');
+  const ids = objects.map(item => input.objectIds[item.localId]);
+  if (ids.some(id => !ID.test(id)) || new Set(ids).size !== ids.length) throw new Error('TEMPLATE_OBJECT_IDS_INVALID');
+  const commands = objects.map(item => createContentObjectEnvelope({
+    boardId: input.boardId, clientId: input.clientId, gestureId: input.gestureId,
+    id: input.objectIds[item.localId]!, geometry: { ...item.geometry, x: item.geometry.x + input.x, y: item.geometry.y + input.y },
+    text: item.text, content: item.content,
+    extensionData: { templateInstance: { templateId: template.templateId, versionId: template.versionId, instanceId: input.instanceId, localId: item.localId } },
+  }).commands[0]!);
+  return { boardId: input.boardId, clientId: input.clientId, gestureId: input.gestureId, commands };
 }
