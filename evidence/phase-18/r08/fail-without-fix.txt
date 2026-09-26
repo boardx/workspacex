@@ -1,0 +1,123 @@
+# Fail-without-fix proof (#4290). Reverted: the single line in apps/api/src/application/knowledge-graph/extract-message-knowledge.ts
+#   await detectSupersedes({ conflicts: deps.conflicts, newId: deps.newId }, job);
+# was deleted (nothing else changed), then: vitest run tests/knowledge-graph/decision-supersede-recall.test.ts (db r08).
+# Key failure: thread C 【记忆】 still contains 「我决定关注 211 高校」 (both decisions recalled). Fix restored afterwards; the file then passes 6/6.
+
+
+ RUN  v2.1.9 /home/user/workspacex/.claude/worktrees/agent-a77af8d2193fcf2c1/apps/api
+
+[db-isolation] db=r08 capacity=100 current=6 required=32
+{"level":"info","msg":"instance telemetry disabled (endpoint_unset)","traceId":"instance-telemetry"}
+{"level":"error","msg":"http exception","traceId":"4598629f-e645-4b43-ac3b-57d213a79a5d","detail":{"name":"BadRequestException","message":"Bad Request Exception","stack":"BadRequestException: Bad Request Exception\n    at KnowledgeGraphController.humanAction (/home/user/workspacex/.claude/worktrees/agent-a77af8d2193fcf2c1/apps/api/src/interface/controllers/knowledge-graph.controller.ts:129:32)\n    at /home/user/workspacex/.claude/worktrees/agent-a77af8d2193fcf2c1/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_class-transformer@0.5.1_class-validator@0.14.4_re_sgffei4zmw63aa4v2dkhbu25m4/node_modules/@nestjs/core/router/router-execution-context.js:38:29\n    at processTicksAndRejections (node:internal/process/task_queues:103:5)\n    at /home/user/workspacex/.claude/worktrees/agent-a77af8d2193fcf2c1/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_class-transformer@0.5.1_class-validator@0.14.4_re_sgffei4zmw63aa4v2dkhbu25m4/node_modules/@nestjs/core/router/router-execution-context.js:46:28\n    at /home/user/workspacex/.claude/worktrees/agent-a77af8d2193fcf2c1/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_class-transformer@0.5.1_class-validator@0.14.4_re_sgffei4zmw63aa4v2dkhbu25m4/node_modules/@nestjs/core/router/router-proxy.js:9:17"}}
+ ❯ tests/knowledge-graph/decision-supersede-recall.test.ts (6 tests | 4 failed) 11815ms
+   × issue #4290: 本人明确改口 ⇒ 新决定取代旧决定（可撤销） > B1 说「改成关注 985 高校吧」：个人空间的 211 被取代（decision_changed），回答下出取代提示 267ms
+     → expected { status: 'accepted', …(3) } to match object { status: 'superseded', …(2) }
+(1 matching property omitted from actual)
+   × issue #4290: 本人明确改口 ⇒ 新决定取代旧决定（可撤销） > 新会话 C1 说「开始写报告吧」：只召回 985，不再召回被取代的 211 98ms
+     → expected '【记忆】以下是之前对话里记下的、与本轮问题相关的内容。「AI 记下的」尚未…' not to contain '我决定关注 211 高校'
+   × issue #4290: 本人明确改口 ⇒ 新决定取代旧决定（可撤销） > 撤销：211 恢复为生效、985 仍在；提示读作 undone；新会话 C2 两条都召回；抽取任务重试不再取代 22ms
+     → {"error":"bad_request","traceId":"4598629f-e645-4b43-ac3b-57d213a79a5d"}: expected 400 to be 200 // Object.is equality
+   × issue #4290: 本人明确改口 ⇒ 新决定取代旧决定（可撤销） > 反证：项目会话里别人（B）的改口不取代我（A）的决定；我自己的改口才取代 194ms
+     → expected { status: 'proposed', …(3) } to match object { status: 'superseded', …(2) }
+(1 matching property omitted from actual)
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 4 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/knowledge-graph/decision-supersede-recall.test.ts > issue #4290: 本人明确改口 ⇒ 新决定取代旧决定（可撤销） > B1 说「改成关注 985 高校吧」：个人空间的 211 被取代（decision_changed），回答下出取代提示
+AssertionError: expected { status: 'accepted', …(3) } to match object { status: 'superseded', …(2) }
+(1 matching property omitted from actual)
+
+- Expected
++ Received
+
+  Object {
+-   "revocation_reason": "decision_changed",
+-   "revoked": true,
+-   "status": "superseded",
++   "revocation_reason": null,
++   "revoked": false,
++   "status": "accepted",
+  }
+
+ ❯ tests/knowledge-graph/decision-supersede-recall.test.ts:144:46
+    142|     ids.newPersonal = await confirmAndPromote(a, B1, NEW);
+    143|     await projectGraph(e);
+    144|     expect(await claimRow(ids.oldPersonal!)).toMatchObject({ status: "…
+       |                                              ^
+    145|     // 个人线程只有所有者本人看得到新结论 ⇒ 新决定指回被取代的个人空间…
+    146|     expect(await claimRow(ids.newSession)).toMatchObject({ status: "ac…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/4]⎯
+
+ FAIL  tests/knowledge-graph/decision-supersede-recall.test.ts > issue #4290: 本人明确改口 ⇒ 新决定取代旧决定（可撤销） > 新会话 C1 说「开始写报告吧」：只召回 985，不再召回被取代的 211
+AssertionError: expected '【记忆】以下是之前对话里记下的、与本轮问题相关的内容。「AI 记下的」尚未…' not to contain '我决定关注 211 高校'
+
+- Expected
++ Received
+
+- 我决定关注 211 高校
++ 【记忆】以下是之前对话里记下的、与本轮问题相关的内容。「AI 记下的」尚未经用户确认，引用时要说明；「有矛盾」的两条都要提到；标了「来自个人空间知识」的，引用时也照样标出。
++ - [你确认过] 改成关注 985 高校（来自个人空间知识，最早见于你 09/26 的对话）
++ - [你确认过] 我决定关注 211 高校（来自个人空间知识，最早见于你 09/26 的对话）
+
+ ❯ tests/knowledge-graph/decision-supersede-recall.test.ts:162:26
+    160|     expect(t.memory).not.toBeNull();
+    161|     expect(t.memory).toContain(NEW);
+    162|     expect(t.memory).not.toContain(OLD);
+       |                          ^
+    163|     expect(t.answer).toContain(NEW);
+    164|     expect(t.answer).not.toContain(OLD);
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/4]⎯
+
+ FAIL  tests/knowledge-graph/decision-supersede-recall.test.ts > issue #4290: 本人明确改口 ⇒ 新决定取代旧决定（可撤销） > 撤销：211 恢复为生效、985 仍在；提示读作 undone；新会话 C2 两条都召回；抽取任务重试不再取代
+AssertionError: {"error":"bad_request","traceId":"4598629f-e645-4b43-ac3b-57d213a79a5d"}: expected 400 to be 200 // Object.is equality
+
+- Expected
++ Received
+
+- 200
++ 400
+
+ ❯ tests/knowledge-graph/decision-supersede-recall.test.ts:175:52
+    173|       basedOnRevision: revision, action: { type: "undoSupersede", noti…
+    174|     });
+    175|     expect(undo.status, JSON.stringify(undo.body)).toBe(200);
+       |                                                    ^
+    176|     expect(await claimRow(ids.oldPersonal!)).toMatchObject({ status: "…
+    177|     expect(await claimRow(ids.newSession!)).toMatchObject({ revoked: f…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/4]⎯
+
+ FAIL  tests/knowledge-graph/decision-supersede-recall.test.ts > issue #4290: 本人明确改口 ⇒ 新决定取代旧决定（可撤销） > 反证：项目会话里别人（B）的改口不取代我（A）的决定；我自己的改口才取代
+AssertionError: expected { status: 'proposed', …(3) } to match object { status: 'superseded', …(2) }
+(1 matching property omitted from actual)
+
+- Expected
++ Received
+
+  Object {
+-   "revocation_reason": "decision_changed",
+-   "revoked": true,
+-   "status": "superseded",
++   "revocation_reason": null,
++   "revoked": false,
++   "status": "proposed",
+  }
+
+ ❯ tests/knowledge-graph/decision-supersede-recall.test.ts:227:37
+    225|     await addChatMessage({ orgId: ORG, id: "m-i4290-s3", threadId: SHA…
+    226|     await settle();
+    227|     expect(await claimRow(mine.id)).toMatchObject({ status: "supersede…
+       |                                     ^
+    228|   }, 120_000);
+    229| });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/4]⎯
+
+ Test Files  1 failed (1)
+      Tests  4 failed | 2 passed (6)
+   Start at  14:54:29
+   Duration  14.80s (transform 7.46s, setup 0ms, collect 2.12s, tests 11.81s, environment 0ms, prepare 61ms)
+
+[db-isolation] db=r08 peak_connections=3
