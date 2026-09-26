@@ -141,7 +141,7 @@ export class PgKnowledgeRead implements KnowledgeReadPort {
       const failed = queue.rows.filter((q) => q.attempts >= KG_EXTRACTION_MAX_ATTEMPTS);
       const active = queue.rows.filter((q) => q.attempts < KG_EXTRACTION_MAX_ATTEMPTS);
       // 用户直接交办更正（2026-09-25）：这个会话所在组织现在是不是真的在抽——provider 已配置
-      // AND 部署开关打开了 AND 该组织打开了（`kg_org_extraction_settings`，没有行 = 默认关）。
+      // AND 部署开关打开了 AND 该组织没关（`kg_org_extraction_settings`，默认值见 `KgOrgExtractionSettingsPort.getEnabled`）。
       // 与触发器 `kg_enqueue_extraction` 的三道闸门同一条件，供面板区分「队列空 = 已整理到
       // 最新」与「压根没开」。provider 没配置时短路，不必再查库。
       // 部署开关直接在这个已开着的 tenant session 里查（`kg_extraction_state` 没有 RLS、
@@ -158,7 +158,7 @@ export class PgKnowledgeRead implements KnowledgeReadPort {
             "SELECT enabled FROM kg_org_extraction_settings WHERE org_id = $1", [orgId],
           )
         : null;
-      const extractionActive = orgSetting !== null && (orgSetting.rows[0]?.enabled ?? false);
+      const extractionActive = orgSetting !== null && (orgSetting.rows[0]?.enabled ?? true);
       return {
         revision: Number(revision.rows[0]!.n),
         objects: objects.rows.map((o) => ({

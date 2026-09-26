@@ -23,7 +23,7 @@ import {
  *
  * - `deploymentCapable`：这次部署有没有配置抽取用的模型——部署级事实，这个开关改不了它，
  *   没有能力时这里如实说明并把开关禁用，而不是让人以为点了就会生效。
- * - `orgEnabled`：本组织有没有打开——组织级、admin 可写、默认关。
+ * - `orgEnabled`：本组织有没有打开——组织级、admin 可写（默认值见契约 `KgExtractionSetting` 注释）。
  *
  * ## 权限形状
  *
@@ -74,7 +74,7 @@ export function KnowledgeExtractionToggleSection({ isAdmin }: { isAdmin: boolean
       </div>
       <p className="text-12 text-muted-foreground">
         打开后，本组织的对话内容会被整理成可在会话内召回的记忆；关闭后不再抽取新的对话内容，
-        已经记下的仍可查看。默认关闭，新对话不会被默认抽取。
+        已经记下的仍可查看。默认开启，组织管理员可以随时关闭。
       </p>
       <StateShell
         state={state}

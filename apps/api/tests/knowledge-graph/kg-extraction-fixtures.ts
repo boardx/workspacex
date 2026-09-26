@@ -14,9 +14,10 @@ import { addChatThread } from "../support/chat-db";
 import { asOwner, ensureDatabase, migrateOnce, resetOrgs, seedOrg } from "../support/db";
 
 /**
- * 抽取默认关（两道闸门都要过才排队，见迁移 20260924210000 + 20260925110000）；测试库里打开它。
- * 第一道（数据库级单行开关，「部署有没有能力」）总是打开，重复调用无害。
- * 第二道（issue #4178，`kg_org_extraction_settings`，「这个组织有没有打开」）默认关、按组织落库——
+ * 两道闸门都要过才排队（迁移 20260924210000 + 20260925110000 + 20260926100000）；测试库里打开它。
+ * 第一道（数据库级单行开关，部署开关）总是打开，重复调用无害。
+ * 第二道（issue #4178，`kg_org_extraction_settings`，组织开关）在产品里默认开，但测试组织由
+ * `seedOrg` 显式关掉（理由见 `tests/support/db.ts` 里那条 INSERT 的注释）——
  * 传入的每个 orgId 在这里显式打开，不传就只开部署那一道（`kg-e2e-fixtures.ts` 的 `startApp()` 在
  * 任何组织存在之前就调用它，调用方随后自己对每个测试组织再调一次这个函数）。
  */

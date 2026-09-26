@@ -403,7 +403,7 @@ export const KG_GRAPH_VIEW_MAX_NODES = 200;
  *   只读（不受本束任何写操作影响；要改部署开关，走下面 `getPlatformExtractionSetting` /
  *   `setPlatformExtractionSetting` 这一对平台级操作，不是这里）。
  * - `orgEnabled`：本组织有没有打开（`kg_org_extraction_settings.enabled`）——组织级、
- *   admin 可写、默认 false。
+ *   admin 可写、admin 没设置过时为 true（默认开，见 `KgOrgExtractionSettingsPort.getEnabled`）。
  * 两者都为真，新消息才会被排进抽取队列（`kg_enqueue_extraction` 的三道闸门：provider 已配置、
  * 部署开关打开、组织开关打开）。
  */
