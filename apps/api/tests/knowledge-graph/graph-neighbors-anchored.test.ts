@@ -246,13 +246,14 @@ describe("#4175: 枢纽实体上的图路邻域", () => {
     await c.connect();
     const ms: number[] = [];
     try {
-      for (let i = 0; i < 20; i++) {
+      // i = -1 is an untimed warm-up (plan cache / first-touch pages on a cold CI runner).
+      for (let i = -1; i < 20; i++) {
         await c.query("BEGIN");
         await c.query("SELECT set_config('app.current_org', $1, true)", [HUB_ORG]);
         await c.query("SELECT set_config('statement_timeout', '2000', true)");
         const t0 = performance.now();
         const r = await c.query("SELECT count(*)::int AS n FROM kg_graph_neighbors($1::text[])", [[obj("hub")]]);
-        ms.push(performance.now() - t0);
+        if (i >= 0) ms.push(performance.now() - t0);
         await c.query("COMMIT");
         expect(r.rows[0].n).toBe(400);
       }

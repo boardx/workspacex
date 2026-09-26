@@ -21,8 +21,13 @@ ARG AGE_COMMIT=2db2f060c4c9265a14d40f007eb8c56febf31e4c
 ARG AGE_REPOSITORY=https://github.com/apache/age.git
 ARG APT_MIRROR=https://deb.debian.org
 
+# The base ships `http://deb.debian.org` sources and no CA bundle (ca-certificates is only
+# installed below), so rewriting the scheme to https would fail `apt-get update`. Only the
+# mirror HOST is substituted and the base's http scheme is kept: apt authenticates packages
+# through the signed Release files, not TLS. With the default mirror this is a no-op.
 RUN set -eux; \
-    sed -Ei "s#https?://deb.debian.org#${APT_MIRROR}#g" /etc/apt/sources.list.d/debian.sources; \
+    apt_host="${APT_MIRROR#*://}"; apt_host="${apt_host%%/*}"; \
+    sed -Ei "s#//deb\.debian\.org#//${apt_host}#g" /etc/apt/sources.list.d/debian.sources; \
     apt-get update; \
     apt-get install -y --no-install-recommends \
       build-essential ca-certificates git flex bison postgresql-server-dev-16; \

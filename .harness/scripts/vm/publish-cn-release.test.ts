@@ -140,6 +140,11 @@ describe("China production release publisher",()=>{
     expect(postgresAgeDockerfile).toContain('test "$(git -C /tmp/age rev-parse HEAD)" = "${AGE_COMMIT}"');
     expect(postgresAgeDockerfile).toContain("LABEL org.opencontainers.image.revision=$SOURCE_REVISION");
     expect(postgresAgeDockerfile).toContain('CMD ["postgres", "-c", "shared_preload_libraries=age"]');
+    // The pgvector base has no CA bundle before `apt-get install ca-certificates`, so the mirror
+    // swap must keep the base's http scheme (apt verifies the signed Release files) and only
+    // replace the host; rewriting to the https APT_MIRROR URL fails `apt-get update`.
+    expect(postgresAgeDockerfile).not.toMatch(/s#https\?:\/\/deb\\?\.debian\\?\.org#\$\{APT_MIRROR\}/);
+    expect(postgresAgeDockerfile).toContain('sed -Ei "s#//deb\\.debian\\.org#//${apt_host}#g"');
   });
   it("keeps the CI postgres example on the AGE image (#4081)",()=>{
     // Single source: whatever image the dev compose builds from postgres-age.
