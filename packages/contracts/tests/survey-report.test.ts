@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { compileSurveyReport, SURVEY_REPORT_SHARE_MIN_SAMPLE, surveyReportShareBlockedReason, SurveyReportTemplateSchema } from "../src/survey-report";
+import { compileSurveyReport, SURVEY_REPORT_SHARE_MIN_SAMPLE, surveyReportShareBlockedReason, SurveyReportTemplateSchema, type CompiledSurveyReport } from "../src/survey-report";
 import type { SurveyResponse, SurveyWorkflowQuestion } from "../src/survey";
 const question = (id = "q", type: SurveyWorkflowQuestion["type"] = "scale", options = ["1", "2", "3", "4", "5"]): SurveyWorkflowQuestion => ({ id, type, options, order: 1, chapterId: "c", title: id, required: true });
 const response = (value: string | string[], quality: SurveyResponse["quality"] = "normal", date = "2026-09-01", group?: string): SurveyResponse => ({ id: JSON.stringify([value, quality, date, group]), quality, submittedAt: `${date}T12:00:00.000Z`, role: "user", companySize: "1", durationSeconds: 60, answers: [{ questionId: "q", value }, ...(group ? [{ questionId: "g", value: group }] : [])] });
@@ -17,10 +17,19 @@ describe("deterministic survey reports", () => {
     expect(report.sections[0]!.blocks[0]!.sampleSize).toBe(2);
     expect(report.sections[0]!.blocks[0]!.rows[0]).toMatchObject({ value: 2.5, count: 2 });
   });
-  it("blocks report sharing below the anonymous sample threshold, including missing provenance", () => {
-    expect(surveyReportShareBlockedReason({ sampleSummary: { total: 4, pendingReview: 0, excluded: 1, included: 3 } })).toContain(`不足 ${SURVEY_REPORT_SHARE_MIN_SAMPLE}`);
-    expect(surveyReportShareBlockedReason({ sampleSummary: { total: 5, pendingReview: 0, excluded: 0, included: SURVEY_REPORT_SHARE_MIN_SAMPLE } })).toBeUndefined();
-    expect(surveyReportShareBlockedReason({})).toContain("缺少");
+  it("uses the aggregate privacy threshold for the report and each exported result", () => {
+    expect(SURVEY_REPORT_SHARE_MIN_SAMPLE).toBe(8);
+    expect(surveyReportShareBlockedReason({ sampleSummary: { total: 7, pendingReview: 0, excluded: 0, included: 7 }, sections: [] })).toContain("不足 8");
+    expect(surveyReportShareBlockedReason({ sampleSummary: { total: 8, pendingReview: 0, excluded: 0, included: 8 }, sections: [] })).toBeUndefined();
+    const undersizedBlock = {
+      id: "report",
+      title: "报告",
+      issues: [],
+      sampleSummary: { total: 8, pendingReview: 0, excluded: 0, included: 8 },
+      sections: [{ id: "section", title: "章节", blocks: [{ id: "optional", title: "可选题", type: "table", questionIds: ["q"], statistic: "responses", samplePolicy: "valid", minGroupSize: 8, sampleSize: 1, rows: [], answerTexts: [{ label: "受访者回答", value: "只答了一人" }], issues: [] }] }],
+    } satisfies CompiledSurveyReport;
+    expect(surveyReportShareBlockedReason(undersizedBlock)).toContain("可选题");
+    expect(surveyReportShareBlockedReason({ sections: [] })).toContain("缺少");
   });
   it("counts each selected option once per person without coercing choices to numbers", () => {
     expect(compile({ statistic: "distribution" }, [response(["A", "A", "B"]), response(["B", "bad"])], [question("q", "multi", ["A", "B", "C"])]).rows).toEqual([{ label: "q · A", value: 1, count: 1 }, { label: "q · B", value: 2, count: 2 }, { label: "q · C", value: 0, count: 0 }]);

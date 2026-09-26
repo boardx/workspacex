@@ -4,8 +4,8 @@ import { render, screen } from '@testing-library/react';
 import type { survey } from '@repo/contracts';
 import { SurveyReportDocument } from '@/components/survey/report/report-document';
 import { printSurveyReport, buildSurveyReportWord } from '@/components/survey/report/report-export';
-const block = (type: survey.CompiledSurveyBlock['type']): survey.CompiledSurveyBlock => ({id:type,title:type,caption:`${type} 图注`,type,questionIds:[],statistic:'mean',samplePolicy:'valid',sampleSize:7,minGroupSize:5,rows:[{label:'实际数据',value:3,count:7,target:5,gap:-2}],issues:[]});
-const report: survey.CompiledSurveyReport = {id:'report',title:'调研结论',issues:[],sampleSummary:{total:9,pendingReview:2,excluded:1,included:8},sections:[{id:'first',title:'首章',analysis:[{title:'章节发现',evidence:'仅反映该受访者反馈',action:'核对具体经历',blockIds:['bar']}],blocks:[{...block('text'),text:'<script>不能执行</script>'},block('bar'),block('radar'),block('line'),block('gap'),block('page-break')]},{id:'last',title:'末章',blocks:[{...block('table'),rows:[],issues:['样本不足']},{...block('table'),id:'answers',title:'开放回答',statistic:'responses',rows:[],answerTexts:[{label:'实际建议',value:'请改善检索体验\n保留资料来源'}]}]}]};
+const block = (type: survey.CompiledSurveyBlock['type']): survey.CompiledSurveyBlock => ({id:type,title:type,caption:`${type} 图注`,type,questionIds:[],statistic:'mean',samplePolicy:'valid',sampleSize:8,minGroupSize:8,rows:[{label:'实际数据',value:3,count:8,target:5,gap:-2}],issues:[]});
+const report: survey.CompiledSurveyReport = {id:'report',title:'调研结论',issues:[],sampleSummary:{total:9,pendingReview:2,excluded:1,included:8},sections:[{id:'first',title:'首章',analysis:[{title:'章节发现',evidence:'仅反映该受访者反馈',action:'核对具体经历',blockIds:['bar']}],blocks:[{...block('text'),text:'<script>不能执行</script>'},block('bar'),block('radar'),block('line'),block('gap'),block('page-break')]},{id:'last',title:'末章',blocks:[{...block('table'),rows:[],issues:['样本不足']},{...block('table'),id:'answers',title:'开放回答',statistic:'responses',rows:[],answerTexts:[{label:'实际建议',value:'请改善检索体验\n保留资料来源'},...Array.from({length:7},(_,index)=>({label:`补充建议 ${index+2}`,value:`补充回答 ${index+2}`}))]}]}]};
 describe('survey report document',()=>{
  beforeEach(()=>{ vi.stubGlobal('ResizeObserver', class { observe() {} disconnect() {} }); });
  it('renders captions exactly once on every content type and retains them in print',async()=>{
@@ -52,7 +52,7 @@ describe('survey report document',()=>{
  it('makes the report and block sample bases explicit',()=>{
   render(<SurveyReportDocument report={report}/>);
   expect(screen.getByTestId('survey-report-sample-summary')).toHaveTextContent('总答卷 9 · 待复核 2 · 已排除 1 · 纳入分析 8');
-  expect(screen.getByTestId('survey-report-block-sample-bar')).toHaveTextContent('仅正常质量答卷 · 实际样本量 7');
+  expect(screen.getByTestId('survey-report-block-sample-bar')).toHaveTextContent('仅正常质量答卷 · 实际样本量 8');
  });
  it('exports a genuine Word archive with every chapter',async()=>{
   const blob=await buildSurveyReportWord({...report,sections:report.sections.map(s=>({...s,blocks:s.blocks.filter(b=>!['bar','radar','line'].includes(b.type))}))});
@@ -72,11 +72,11 @@ describe('survey report document',()=>{
   expect(xml).not.toContain('page-break 图注');
   expect(xml).toContain('仅反映该受访者反馈');expect(xml).toContain('核对具体经历');
   expect(xml).toContain('请改善检索体验');expect(xml).toContain('保留资料来源');expect(xml).toContain('首章');expect(xml).toContain('末章');expect(xml).toContain('样本不足');
-  expect(xml).toContain('总答卷 9 · 待复核 2 · 已排除 1 · 纳入分析 8');expect(xml).toContain('仅正常质量答卷 · 实际样本量 7');
+  expect(xml).toContain('总答卷 9 · 待复核 2 · 已排除 1 · 纳入分析 8');expect(xml).toContain('仅正常质量答卷 · 实际样本量 8');
   expect(xml).toContain('&lt;script&gt;不能执行&lt;/script&gt;');expect(xml).toContain('w:type="page"');
  });
  it('blocks Word and PDF exports for reports below the anonymous sharing threshold',async()=>{
-  const privateReport={...report,sampleSummary:{...report.sampleSummary!,included:4}};
+  const privateReport={...report,sampleSummary:{...report.sampleSummary!,included:7}};
   await expect(buildSurveyReportWord(privateReport)).rejects.toThrow('样本不足');
   const root=document.createElement('article');root.innerHTML='<h1>报告</h1>';
   await expect(printSurveyReport(root,privateReport)).rejects.toThrow('样本不足');

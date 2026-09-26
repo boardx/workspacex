@@ -409,7 +409,6 @@ export function LiveSurveyWorkspace({
                   <div className="flex flex-wrap gap-2">
                     <Button
                       variant="outline"
-                      disabled={!!reportShareBlockedReason}
                       onClick={() =>
                         void execute(async () => {
                           await navigator.clipboard.writeText(link);

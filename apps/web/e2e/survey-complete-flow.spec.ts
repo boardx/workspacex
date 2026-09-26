@@ -121,7 +121,7 @@ test("用户可从模板完整走通创建、发布、答题、查看答卷和�
   await expect(report.locator("[data-chart] svg").first()).toContainText("2");
 
   await expect(page.getByTestId("survey-report-share-privacy-warning")).toHaveText(
-    "纳入分析的样本不足 5 份，无法导出或共享报告",
+    "纳入分析的样本不足 8 份，无法导出或共享报告",
   );
   await expect(page.getByRole("button", { name: "导出 Word" })).toBeDisabled();
   await expect(page.getByRole("button", { name: "导出 PDF" })).toBeDisabled();
