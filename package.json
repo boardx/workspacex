@@ -67,6 +67,8 @@
     "verify:self-service-profile:raw": "pnpm --filter web exec playwright test --config playwright.self-service-profile.config.ts",
     "e2e:real-model-office": "pnpm exec tsx .harness/scripts/with-test-isolation.ts -- bash scripts/real-model-smoke.sh office",
     "e2e:real-model-office:raw": "pnpm --filter web exec playwright test --config playwright.real-model-smoke.config.ts --project=real-model-office-matrix",
+    "e2e:real-model-web-artifact-reliability": "pnpm exec tsx .harness/scripts/with-test-isolation.ts -- bash scripts/real-model-smoke.sh web-artifact-reliability",
+    "e2e:real-model-web-artifact-reliability:raw": "pnpm --filter web exec playwright test --config playwright.real-model-smoke.config.ts --project=real-model-web-artifact-reliability",
     "e2e:real-model-smoke": "pnpm exec tsx .harness/scripts/with-test-isolation.ts -- bash scripts/real-model-smoke.sh",
     "e2e:real-model-smoke:raw": "pnpm --filter web exec playwright test --config playwright.real-model-smoke.config.ts --project=real-model-pdf",
     "shots:chat-main": "pnpm exec tsx .harness/scripts/with-test-isolation.ts -- pnpm run shots:chat-main:raw",

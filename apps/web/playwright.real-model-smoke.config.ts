@@ -95,6 +95,15 @@ export default defineConfig({
       name: "real-model-office-matrix",
       testMatch: ["real-model-office-matrix.spec.ts"],
     },
+    {
+      /*
+       * 2026-09-27 人类交办："报错了，请测试 10 轮，保证 100% 成功"——
+       * web-artifact 技能十连跑，验证 `deep-agent-service` 模型客户端超时修复
+       * （commit 5fb5b9953）是否真的把 `tool_call_unresolved` 的成功率拉到 100%。
+       */
+      name: "real-model-web-artifact-reliability",
+      testMatch: ["real-model-web-artifact-reliability.spec.ts"],
+    },
   ],
   ...(startLocalWeb
     ? {
