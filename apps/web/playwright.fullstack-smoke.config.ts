@@ -395,6 +395,8 @@ export default defineConfig({
         "skill-agent-import-usecase-audit.spec.ts",
         "core-journey-03-skill-lifecycle-chat.spec.ts",
         "core-journey-04-canvas-template-lifecycle-chat.spec.ts",
+        // BV01 owns its Board lifecycle and can run after the seeded empty-state assertions.
+        "board-fabric-surface.spec.ts",
       ],
       grepInvert: EMPTY_DB_TAG_RE,
       dependencies: ["seeded"],
