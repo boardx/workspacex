@@ -128,7 +128,7 @@ test("production Board library manages, duplicates, filters and deletes durable 
   const duplicateName = `Copy-${suffix}`;
   await page.getByTestId("board-dialog-name").fill(duplicateName);
   await page.getByTestId("board-dialog-confirm").click();
-  await expect(page.getByRole("status")).toContainText("副本已创建");
+  await expect(page.getByText("副本已创建。", { exact: true })).toBeVisible();
   const copies = await apiJson<{ items: Board[] }>(api, token, "GET", `/whiteboards?archived=active&limit=30&query=${encodeURIComponent(duplicateName)}`);
   const exactCopies = copies.items.filter((board) => board.name === duplicateName);
   expect(exactCopies).toHaveLength(1);
@@ -151,7 +151,7 @@ test("production Board library manages, duplicates, filters and deletes durable 
   await expect(page.getByTestId(`board-card-${copy.id}`)).toBeVisible({ timeout: 30_000 });
   await page.getByTestId(`board-menu-${copy.id}`).click();
   await page.getByTestId(`board-action-archive-${copy.id}`).click();
-  await expect(page.getByRole("status")).toContainText("白板已归档");
+  await expect(page.getByText("白板已归档。", { exact: true })).toBeVisible();
   await page.getByTestId("board-filter-archived").click();
   await expect(page.getByTestId(`board-card-${copy.id}`)).toBeVisible();
   await page.getByTestId(`board-menu-${copy.id}`).click();
@@ -165,7 +165,7 @@ test("production Board library manages, duplicates, filters and deletes durable 
   await page.getByTestId(`board-menu-${copy.id}`).click();
   await page.getByTestId(`board-action-delete-${copy.id}`).click();
   await page.getByTestId("board-dialog-confirm").click();
-  await expect(page.getByRole("status")).toContainText("白板已永久删除");
+  await expect(page.getByText("白板已永久删除。", { exact: true })).toBeVisible();
   expect((await apiFetch(api, token, "GET", `/whiteboards/${copy.id}`)).status()).toBe(404);
   cleanupBoards.delete(copy.id);
 });
