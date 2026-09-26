@@ -76,8 +76,9 @@ describe('whiteboard content kernel', () => {
     undo.execute([{ type: 'create', object: note('note') }]);
     expect(undo.undo()).toBe('undone'); expect(readObjects(a)).toEqual([]);
     expect(undo.redo()).toBe(true); expect(readObjects(a)).toHaveLength(1);
+    const restoredId = readObjects(a)[0].id;
     const b = cloneDocument(a);
-    executeCommands(b, [{ type: 'text', id: 'note', index: 2, deleteCount: 0, insert: '同事' }], {});
+    executeCommands(b, [{ type: 'text', id: restoredId, index: 2, deleteCount: 0, insert: '同事' }], {});
     sync(a, b); expect(undo.undo()).toBe('conflict'); expect(readObjects(a)[0].text).toContain('同事');
   });
   it('rejects text undo after a remote change and round-trips a local deletion', () => {

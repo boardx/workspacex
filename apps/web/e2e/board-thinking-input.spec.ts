@@ -102,7 +102,7 @@ test("brainstorm input creates twenty connected ideas and one-operation bulk und
   await expect(peer.getByTestId("board-a11y-mirror").getByRole("button")).toHaveCount(23);
 
   await page.getByRole("button", { name: "撤销" }).click();
-  await expect(page.getByRole("status")).toContainText("已撤销本地修改");
+  await expect(page.getByText("已撤销本地修改", { exact: true })).toBeVisible();
   await expect(outline.getByRole("button")).toHaveCount(20);
   await expect(peer.getByTestId("board-a11y-mirror").getByRole("button")).toHaveCount(20);
   await page.getByRole("button", { name: "重做" }).click();

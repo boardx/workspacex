@@ -1,6 +1,6 @@
 import { expect, it } from 'vitest';
 import * as Y from 'yjs';
-import { cloneDocument, createWhiteboardDocument, executeCommands, prepareWhiteboardUpdate, readObjects, validateDocument, WHITEBOARD_LIMITS, WHITEBOARD_UPDATE_LIMITS } from '../src';
+import { cloneDocument, createWhiteboardDocument, executeCommands, prepareWhiteboardUpdate, readObjects, validateDocument, WhiteboardUndo, WHITEBOARD_LIMITS, WHITEBOARD_UPDATE_LIMITS } from '../src';
 function seeded(): Y.Doc {
   const doc = createWhiteboardDocument();
   executeCommands(doc, [{ type: 'create', object: { id: 'a', kind: 'sticky', schemaVersion: 1, text: '你好', style: {}, geometry: { x: 0, y: 0, width: 100, height: 100, rotation: 0 } } }], {});
@@ -30,6 +30,22 @@ it('rejects removal of objects or replacement of text identity', () => {
   expect(() => prepareWhiteboardUpdate(server, Y.encodeStateAsUpdate(peer))).toThrow('OBJECT_IDENTITY_REPLACED');
   const other = cloneDocument(server); other.getMap<Y.Map<unknown>>('objects').get('a')!.set('text', new Y.Text('same'));
   expect(() => prepareWhiteboardUpdate(server, Y.encodeStateAsUpdate(other))).toThrow('FIELD_IDENTITY_REPLACED');
+});
+it('transports create-batch undo and redo as validated monotonic compensations', () => {
+  const authority = createWhiteboardDocument(), peer = createWhiteboardDocument();
+  const updates: Uint8Array[] = [];
+  peer.on('update', update => updates.push(update));
+  let generation = 0;
+  const history = new WhiteboardUndo(peer, {}, oldId => `${oldId}-restored-${++generation}`);
+  history.execute(['a', 'b', 'c'].map(id => ({ type: 'create' as const, object: { ...readObjects(seeded())[0], id } })));
+  Y.applyUpdate(authority, prepareWhiteboardUpdate(authority, updates.shift()!));
+  expect(readObjects(authority)).toHaveLength(3);
+  expect(history.undo()).toBe('undone');
+  Y.applyUpdate(authority, prepareWhiteboardUpdate(authority, updates.shift()!));
+  expect(readObjects(authority)).toEqual([]);
+  expect(history.redo()).toBe(true);
+  Y.applyUpdate(authority, prepareWhiteboardUpdate(authority, updates.shift()!));
+  expect(readObjects(authority).map(object => object.restoredFrom).sort()).toEqual(['a', 'b', 'c']);
 });
 it('rejects oversized updates and unresolved causal dependencies', () => {
   const server = createWhiteboardDocument(), peer = createWhiteboardDocument(), updates: Uint8Array[] = [];

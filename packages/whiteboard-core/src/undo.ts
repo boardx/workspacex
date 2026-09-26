@@ -4,7 +4,13 @@ import { executeCommands, objectMap, readObjects, tombstones, validateDocument }
 import { WhiteboardCommandOrigin } from './command-port';
 
 const HISTORY = Symbol('whiteboard-history');
+const COMPENSATION = Symbol('whiteboard-history-compensation');
 type HistorySnapshot = { ids: string[]; before: Record<string, string>; after: Record<string, string> };
+type StructuralHistory = {
+  action: 'create' | 'delete';
+  objects: ReturnType<typeof readObjects>;
+};
+type HistoryEntry = { type: 'manager'; item: StackItem } | { type: 'structural'; value: StructuralHistory };
 type StackItem = Y.UndoManager['undoStack'][number];
 function copyDeleteSet(source: StackItem['deletions']): StackItem['deletions'] {
   const copy = Y.createDeleteSet();
@@ -16,7 +22,9 @@ function copyDeleteSet(source: StackItem['deletions']): StackItem['deletions'] {
  * operation against a clone. Remote changes are therefore never silently overwritten. */
 export class WhiteboardUndo {
   private readonly manager: Y.UndoManager;
-  constructor(private readonly doc: Y.Doc, readonly origin: object = {}) {
+  private undoHistory: HistoryEntry[] = [];
+  private redoHistory: HistoryEntry[] = [];
+  constructor(private readonly doc: Y.Doc, readonly origin: object = {}, private readonly newId: (oldId: string) => string = () => crypto.randomUUID()) {
     this.manager = new Y.UndoManager([objectMap(doc), tombstones(doc)], { trackedOrigins: new Set([origin, WhiteboardCommandOrigin]), captureTimeout: 0 });
   }
   private snapshot(ids: readonly string[]): Record<string, string> {
@@ -28,7 +36,52 @@ export class WhiteboardUndo {
     const ids = [...new Set(commands.map(command => command.type === 'create' ? command.object.id : command.id))];
     const before = this.snapshot(ids);
     executeCommands(this.doc, commands, transactionOrigin);
-    this.manager.undoStack.at(-1)?.meta.set(HISTORY, { ids, before, after: this.snapshot(ids) } satisfies HistorySnapshot);
+    const after = this.snapshot(ids);
+    const item = this.manager.undoStack.at(-1);
+    if (!item) throw new Error('HISTORY_NOT_CAPTURED');
+    item.meta.set(HISTORY, { ids, before, after } satisfies HistorySnapshot);
+    const pureCreate = commands.every(command => command.type === 'create');
+    const pureDelete = commands.every(command => command.type === 'delete');
+    if (pureCreate || pureDelete) {
+      this.manager.undoStack.pop();
+      const source = pureCreate ? after : before;
+      const objects = ids.map(id => JSON.parse(source[id] ?? 'null')).filter(Boolean);
+      this.undoHistory.push({ type: 'structural', value: { action: pureCreate ? 'create' : 'delete', objects } });
+    } else this.undoHistory.push({ type: 'manager', item });
+    this.redoHistory = [];
+  }
+
+  private recreate(objects: ReturnType<typeof readObjects>): ReturnType<typeof readObjects> {
+    const mapping = new Map(objects.map(object => [object.id, this.newId(object.id)]));
+    if (new Set(mapping.values()).size !== mapping.size) throw new Error('DUPLICATE_RESTORE_ID');
+    const recreated = objects.map(object => ({
+      ...structuredClone(object), id: mapping.get(object.id)!, restoredFrom: object.id,
+      parentId: object.parentId ? mapping.get(object.parentId) ?? object.parentId : null,
+      ...(object.connector ? { connector: {
+        from: mapping.get(object.connector.from) ?? object.connector.from,
+        to: mapping.get(object.connector.to) ?? object.connector.to,
+      } } : {}),
+    }));
+    executeCommands(this.doc, recreated.map(object => ({ type: 'create' as const, object })), COMPENSATION);
+    return recreated;
+  }
+
+  private undoStructural(entry: StructuralHistory): StructuralHistory {
+    if (entry.action === 'create') {
+      const live = new Map(readObjects(this.doc).map(object => [object.id, object]));
+      if (!entry.objects.every(object => JSON.stringify(live.get(object.id) ?? null) === JSON.stringify(object))) throw new Error('STRUCTURAL_HISTORY_CONFLICT');
+      executeCommands(this.doc, entry.objects.map(object => ({ type: 'delete' as const, id: object.id })), COMPENSATION);
+      return entry;
+    }
+    return { ...entry, objects: this.recreate(entry.objects) };
+  }
+
+  private redoStructural(entry: StructuralHistory): StructuralHistory {
+    if (entry.action === 'create') return { ...entry, objects: this.recreate(entry.objects) };
+    const live = new Map(readObjects(this.doc).map(object => [object.id, object]));
+    if (!entry.objects.every(object => JSON.stringify(live.get(object.id) ?? null) === JSON.stringify(object))) throw new Error('STRUCTURAL_HISTORY_CONFLICT');
+    executeCommands(this.doc, entry.objects.map(object => ({ type: 'delete' as const, id: object.id })), COMPENSATION);
+    return entry;
   }
   /** Pinned Yjs adapter: redone links and stack ranges are local metadata, absent from encoded updates. */
   private canApply(item: StackItem, direction: 'undo' | 'redo'): boolean {
@@ -79,16 +132,32 @@ export class WhiteboardUndo {
     finally { this.manager[key] = [...stack.slice(0, -1), ...this.manager[key]]; }
   }
   undo(): 'undone' | 'empty' | 'conflict' {
-    const item = this.manager.undoStack.at(-1);
-    if (!item) return 'empty';
-    if (!this.matchesSnapshot(item, 'undo') || !this.canApply(item, 'undo')) return 'conflict';
-    this.applyOne('undo');
-    return 'undone';
+    const entry = this.undoHistory.at(-1);
+    if (!entry) return 'empty';
+    if (entry.type === 'manager') {
+      const item = this.manager.undoStack.at(-1);
+      if (item !== entry.item || !this.matchesSnapshot(item, 'undo') || !this.canApply(item, 'undo')) return 'conflict';
+      this.applyOne('undo');
+      entry.item = this.manager.redoStack.at(-1)!;
+    } else {
+      try { entry.value = this.undoStructural(entry.value); }
+      catch { return 'conflict'; }
+    }
+    this.undoHistory.pop(); this.redoHistory.push(entry); return 'undone';
   }
   redo(): boolean {
-    const item = this.manager.redoStack.at(-1);
-    if (!item || !this.matchesSnapshot(item, 'redo') || !this.canApply(item, 'redo')) return false;
-    this.applyOne('redo'); return true;
+    const entry = this.redoHistory.at(-1);
+    if (!entry) return false;
+    if (entry.type === 'manager') {
+      const item = this.manager.redoStack.at(-1);
+      if (item !== entry.item || !this.matchesSnapshot(item, 'redo') || !this.canApply(item, 'redo')) return false;
+      this.applyOne('redo');
+      entry.item = this.manager.undoStack.at(-1)!;
+    } else {
+      try { entry.value = this.redoStructural(entry.value); }
+      catch { return false; }
+    }
+    this.redoHistory.pop(); this.undoHistory.push(entry); return true;
   }
   destroy(): void { this.manager.destroy(); }
 }
