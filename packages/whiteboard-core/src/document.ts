@@ -1,5 +1,6 @@
 import * as Y from 'yjs';
 import { WhiteboardObject, WhiteboardCommandBatch, WHITEBOARD_LIMITS, type WhiteboardCommand } from '@repo/contracts/whiteboard-document';
+import { validateContentExtension } from './content-object-model';
 
 export function createWhiteboardDocument(): Y.Doc {
   const doc = new Y.Doc();
@@ -34,6 +35,7 @@ export function validateDocument(doc: Y.Doc): void {
   for (const [id, value] of tombstones(doc)) if (value !== true || !objectMap(doc).has(id)) throw new Error('INVALID_TOMBSTONE');
   const all = new Map([...objectMap(doc)].map(([id, value]) => [id, decode(id, value)]));
   for (const value of all.values()) {
+    validateContentExtension(value);
     if (tombstones(doc).has(value.id)) continue;
     const visited = new Set([value.id]);
     let parent = value.parentId;
