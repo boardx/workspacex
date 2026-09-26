@@ -355,3 +355,7 @@ Domain file restored to 044326907, new tests in place: apps/api tests/knowledge-
       Tests  18 failed | 292 passed (310)
 
 With the fix: decision-supersede.test.ts 310/310 pass. tests/knowledge-graph + tests/retrieval 54 files / 833 tests pass.
+
+== round 9 review (71efec136): dangling connective + repeated break marks ==
+with decision-supersede.ts at 71efec136: Tests 6 failed | 310 passed (316) — the 6 new 「…，但是。。。」-style cases
+with the fix: Tests 316 passed (316)
