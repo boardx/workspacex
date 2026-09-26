@@ -11,7 +11,7 @@
       "user_visible_behavior": "用户进入 /studio/board/:boardId 时看到全屏 Fabric.js 主画布，可用鼠标、触控板和 viewport 控件执行 5%–800% 缩放、平移、Fit selection 与 Fit Board；Board 对象不再由绝对定位 DOM/SVG 充当主渲染表面。",
       "status": "in_progress",
       "sprint": "01",
-      "owner": "codex-board-fabric",
+      "owner": "dev-chat-e2e",
       "depends_on": [],
       "points": 5,
       "wave": 1,
