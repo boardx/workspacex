@@ -54,6 +54,12 @@
 
 重试必须返回同一个目标 Board 和同一个 captured source version。省略 `expectedSource` 不表示每次重试重新取“最新”；第一次接纳后，request receipt 已锁定来源版本与目标 ID。
 
+### 2.3 内部 copy job 与授权水位
+
+Duplicate 需要一个不直接暴露内容的持久 job/receipt。候选内部字段至少包括：`jobId`、tenant/actor、request hash、source/target Board ID、captured source epoch/seq/manifest、source ACL revision、organization membership/create-entitlement revision、按 asset ID 排序的复制授权 revision/digest、object/asset ID map digest、状态、错误码和时间戳。授权 revision 是发布 CAS 的输入，不加入公开 `Board` DTO。
+
+job 状态至少区分 `running`、`ready_to_publish`、`completed`、`failed_pending_cleanup` 和 `cancelled_pending_cleanup`。所有非 completed job 的 source/output pins 都由 retention/GC 契约保护；失败或取消不能用一次请求直接物理删除内容。
+
 ## 3. 候选操作差异
 
 下面是签核用形状说明，不是第二份运行时 schema。签核通过后只在 `packages/contracts/src/whiteboard.ts` 物化一次，并由前端 client、controller、OpenAPI 和 mock 共同消费。
@@ -110,9 +116,18 @@ delete、set Board tags 和 Duplicate 捕获 tag bindings 必须按固定锁序�
 
 ### 6.1 捕获一个明确来源版本
 
-Duplicate application use case 先执行与正式 Board load 相同的 tenant/ACL 检查，再取得 Board writer/leader fence 或等价行锁，捕获 authoritative `(epoch,seq,manifest pointer/fencing token)`；legacy PG 期间捕获同一事务里的 snapshot/seq。提供 `expectedSource` 时不一致即返回 `SOURCE_VERSION_CHANGED`，不擅自复制别的版本。同一捕获事务分配 hidden target ID、持久 request receipt，并在固定锁序下复制当时有效的 tag bindings；目标在内容发布完成前不参与普通 list/get。这样，后续 tag delete 仍能从隐藏目标解绑，而 Duplicate 不需要在长时间内容转换期间持有 tag row lock。
+Duplicate capture transaction 使用与成员撤权、组织成员变更、asset permission 变更和 GC reference guard 约定的固定锁顺序：organization membership/create entitlement → source Board/ACL revision → source content head/fencing → 按 asset ID 排序的 asset authorization rows → copy job/hidden target。它执行与正式 Board load 相同的 tenant/ACL 检查，捕获 authoritative `(epoch,seq,manifest pointer/fencing token)`；legacy PG 期间捕获同一事务里的 snapshot/seq。提供 `expectedSource` 时不一致即返回 `SOURCE_VERSION_CHANGED`，不擅自复制别的版本。
 
-捕获后的 immutable manifest/checkpoint 可在锁外读取和转换；源 Board 后续写入不进入本次副本。目标对外可见前再次检查调用者仍有源访问权、资产复制权和目标创建权，并验证目标 Y.Doc 与 receipt 的 source epoch/seq 一致。权限被撤销或校验失败时，隐藏目标进入受控清理，不出现在 `listBoards`。
+同一 capture transaction 必须在释放锁之前完成以下动作：
+
+1. 分配 hidden target ID，持久 request receipt 和全部授权 revision 水位。
+2. 以 `copy_job` retention root pin 住 exact source manifest/checkpoint/tail；同时从权威 Board-asset binding rows 或已验证 asset-set manifest 读取并 pin 完整 asset roots。
+3. 在固定 tag/Board 锁顺序下复制当时有效的 tag bindings 到 hidden target。
+4. 把 job 标为 `running` 并提交。目标在完成发布前不参与普通 list/get。
+
+只有 pin 事务提交后，worker 才能在锁外读取 source blobs、生成 ID map 和 target 内容。每个新 target manifest/asset binding set 在进入 job durable state 前也要成为该 `copy_job` 的 output root；blob-first 写入与 PG pin 之间依靠新对象 GC 安全窗保护，但 worker 不能把未持久 pin 的 output 报告为可恢复进度。
+
+源 Board 后续写入不进入本次副本。source 删除/retention 与 capture 使用同一 Board 锁：capture pin 先提交时，即使 source 随后 tombstone，其 bytes 仍受 job root 保护；但发布授权复核会因 source 状态/revision 改变而拒绝公开目标。删除先提交时 capture 失败，不创建有效恢复点。
 
 未打开过的 Board 也从服务端 authoritative content head 复制；不能依赖浏览器 `drafts`、Fabric JSON 或组件是否访问过该 Board。
 
@@ -134,9 +149,35 @@ Duplicate application use case 先执行与正式 Board load 相同的 tenant/AC
 
 候选默认采用 all-or-nothing：任何 Image/附件缺失、损坏、不可复制或调用者缺少复制权，整个 Duplicate 在目标可见前失败并返回稳定 `ASSET_COPY_FORBIDDEN`、`ASSET_MISSING` 或 `COPY_INTEGRITY_FAILED`；不静默产生缺图副本。若产品需要降级复制，必须另行签核逐项报告和用户确认，不能由实现自行跳过。
 
+copy-job pin 只提供 retention，不提供读取授权。捕获时记录每项 asset copy authorization revision；最终发布仍须在锁内重读并 CAS。权限已撤销时，bytes 即使仍被 pin 保护也不能绑定到可见目标。
+
 ### 6.4 目标默认权限
 
 目标 Board 的 owner 是调用者，members 为空；不复制源 Owner、Editor、Viewer、邀请链接、历史、presence 或 API grants。复制 tags 只复制捕获时仍有效的稳定 tag IDs。新目标只有在元数据、完整 canonical Yjs 内容、connector remap、asset bindings 和标签 bindings 全部提交并验证后才进入 list/get 可见状态。
+
+最终 publish transaction 必须使用与 capture 和所有撤权路径相同的固定锁顺序，重新锁 organization membership/create entitlement、source Board/ACL、全部 asset authorization rows、copy job 和 hidden target；比较捕获的 revision，并在同一事务内完成：
+
+1. 确认调用者仍是组织成员、仍有创建权，并仍具备 D1 选择的 source copy role。
+2. 确认 source 未删除且 ACL revision 未变；确认每项 asset 仍允许复制且 revision/digest 未变。
+3. 将 verified target manifest/asset roots 从 `copy_job` roots 原子转为 target authoritative roots，提交目标 content head、asset bindings、tags、private ACL 和 completed receipt。
+4. 最后把 hidden target 切为可见。以上任一步失败，整个事务回滚，普通 list/get 仍看不到目标。
+
+撤权与 publish 的先后语义由锁和 revision CAS 唯一决定：publish 事务先取得全部锁并提交，则 Duplicate 成功，随后 source 撤权不追溯删除这个已经 private-by-default 的目标；任一 source ACL、asset 权限、组织成员或 create entitlement 撤销先提交，则 publish 观察到 revision/授权变化并失败，目标保持隐藏。不得出现“先检查授权、释放锁、再单独设 visible”的窗口。
+
+失败 job 转为 `failed_pending_cleanup`，取消转为 `cancelled_pending_cleanup`；两者的 source/output roots 继续被 GC 标记。只有显式 cleanup 在相同 Board/GC fencing 下确认 target 未发布、无 backup/legal-hold/其他 job 引用并经过安全窗，才释放 pins。成功路径只在 target roots 已生效的同一事务中释放 copy-job pins。
+
+### 6.5 复制内容的语义等价验证
+
+源和目标不能用原始 Yjs state-vector 双向 diff 为空来验收：目标重建了 object IDs、connector refs、Board identity，且不复制 Undo/Redo 历史，二者的 Yjs 编码理应不同。
+
+验证顺序固定为：
+
+1. 通过 copy-job pin 的 immutable source manifest 证明输入确实是 receipt 记录的 source epoch/seq；即使 source 当前 head 已前进，也不能改读当前版本。
+2. 把 captured source Y.Doc 投影为 canonical domain graph，再通过持久 ID map 将 object、connector endpoint、frame/group member 和 asset reference 归一到目标身份。
+3. 把 target initial Y.Doc 投影为同一 domain graph，忽略明确不复制或预期变化的 Board ID、源 object IDs、actor/time、presence、selection、Undo history 和审计 provenance。
+4. 对文字、几何、样式、层级、对象类型、asset content digest 与完整引用图做双向集合/边比较；任何遗漏、额外对象或指回 source ID 都使 publish 失败。
+
+target 使用独立版本轴：新目标用一条 system-authored `duplicate-init` receipt 建立自己的基线（候选为 epoch 1、headSeq 1，首次后续用户 accepted update 为 seq 2），不能继承 source epoch/seq。source epoch/seq 只保存在 copy receipt/provenance，用于证明本次内容来自哪个 durable 版本。
 
 ## 7. 失败与并发矩阵
 
@@ -146,9 +187,13 @@ Duplicate application use case 先执行与正式 Board load 相同的 tenant/AC
 | 同一 requestId 改 targetName/source choice | `IDEMPOTENCY_CONFLICT`，原副本不被改名或重做 |
 | Duplicate 捕获时源 Board 继续编辑 | 副本固定在 captured epoch/seq；之后 ACK 的源更新不进入目标 |
 | `expectedSource` 已过期 | `SOURCE_VERSION_CHANGED`；无目标卡片、无部分 bindings |
-| 源权限在转换中被撤销 | 发布前复核失败；对调用者按既有 non-disclosure 规则返回不可访问，隐藏目标清理 |
+| source ACL 撤销与 publish 并发 | 共锁后只有两个终态：publish 先提交则目标成功且保持私有；撤销先提交则 revision CAS 失败、目标不可见并待清理 |
+| org membership/create 权撤销与 publish 并发 | publish 前提交的撤销阻止目标可见；publish 先提交后再撤销时目标已存在，但调用者随后按新的 org 权限失去相应访问 |
+| asset copy 权撤销与 publish 并发 | asset row 共锁/revision CAS；撤销先提交则整体失败，publish 先提交则目标 binding 已受目标 ACL 管理 |
 | Viewer 请求 Duplicate | 按推荐权限拒绝且不创建目标；最终是否允许由第 9 节签核 |
 | 目标写入/存储/asset binding 中途失败 | `COPY_INTEGRITY_FAILED` 或稳定基础设施错误；list/get 不出现半成品，request receipt 可安全重试/恢复 |
+| copy job 与 source 删除/GC 并发 | capture 先提交 pin 时 bytes 保留但发布因删除/revision 变化失败；删除先提交时 capture 失败；GC 永不删除 running/pending-cleanup pins |
+| copy output 与 GC 并发 | output 先成为 job root 才报告 durable；final sweep recheck 看见 running/failed/cancelled pending roots 并保留；显式释放且安全窗通过后才可回收 |
 | 同源两个不同 requestId | 两个独立目标，各自新 Board/object IDs；这是两个用户意图，不去重 |
 | tag rename 与 list/filter 并发 | ID 和 bindings 不变；筛选语义不变，下一次目录读取显示新名称 |
 | 两个 rename 使用同 revision | 一个 CAS 成功，另一个 `REVISION_CONFLICT` 并重新读取 |
@@ -176,16 +221,18 @@ Duplicate application use case 先执行与正式 Board load 相同的 tenant/AC
 | tag rename CAS | 两请求使用同 expectedRevision | 一个成功、一个 409；无丢失更新 | 并发请求和最终 row |
 | tag delete | 删除被多 Board 使用的 tag | tag 不再列出，所有 bindings 原子解除；Boards、内容和 ACL 不变 | 事务前后表、Board/Yjs hash |
 | Board tag revision | 两客户端基于同 tagsRevision 保存不同集合 | 一个成功，另一个冲突并能刷新重试 | HTTP 409、最终集合与 revision |
-| 未打开源 Board Duplicate | 不打开编辑器直接复制有内容 Board | 目标包含服务端完整内容和 tags；不依赖浏览器 draft | source/target Yjs 对象计数和 captured seq |
-| 已编辑源 Board Duplicate | 等待一批写 ACK 后复制，同时继续编辑源 | 目标只含 captured seq；后续源写不出现；两边继续编辑互不影响 | ACK/head、双向 Yjs diff、两 Board 回读 |
+| 未打开源 Board Duplicate | 不打开编辑器直接复制有内容 Board | 目标包含 exact captured source version 的完整领域内容和 tags；不依赖浏览器 draft | source pin/receipt、ID-map 归一化领域图、target 独立 head |
+| 已编辑源 Board Duplicate | 等待一批写 ACK 后复制，同时继续编辑源 | pinned manifest 精确对应 captured epoch/seq；目标只含该版本，后续源写不出现；target 用独立 epoch/seq 初始化 | ACK/head、source pin/receipt、target head、两 Board 回读 |
 | Duplicate 不确定响应 | 服务端完成后丢响应，用同 requestId 重试 | 仅一个目标 Board、相同 target ID/object map/source seq | receipt、Board 数量、对象 IDs |
 | Duplicate payload conflict | 同 requestId 改名称或 source version | 稳定 409；原目标保持不变 | 两请求与目标回读 |
-| object/connector remap | 源含对象、connector、frame/group 与 detached connector | 所有有效 refs 指向目标新 ID；无 source object ID 泄漏；detached 语义保持 | source-target map、领域校验、画布回读 |
+| object/connector remap | 源含对象、connector、frame/group 与 detached connector | captured source 经 ID/asset map 归一后的领域内容与 target domain graph 双向语义等价；所有 refs 指向目标新 ID；detached 语义保持 | exact source epoch/seq、map digest、领域节点/边 diff、target 独立 epoch/seq |
 | asset ACL | 源含可复制和不可复制资产；并发撤销权限 | 全部可复制时目标 binding 只受目标 ACL；任一失败时无可见半成品 | asset rows/blob refs、角色读取、失败清理 |
 | 默认权限 | Owner/Editor 执行 Duplicate，随后源成员访问目标 | 调用者为目标 Owner，成员为空；源成员看不到目标，除非目标 Owner 另行授权 | member rows、Owner/Editor/Viewer/跨租户 HTTP |
-| publish 前撤权 | 转换期间撤销源 Board 或 asset 权限 | Duplicate 不发布目标；重试不越权 | fence/ACL trace、list/get 结果 |
+| publish/撤权两种顺序 | 分别控制 publish 先锁并提交，以及 source ACL/asset/org/create 撤权先提交 | 前者成功后目标保持私有；后者 CAS 失败且目标不可见；没有检查与 visible 分离窗口 | 固定锁序、各 revision、事务提交序列、list/get |
+| copy pin 与 source 删除/GC | capture 后删除 source，并让 GC mark/sweep；另测删除先于 capture | pin 先时 source/output bytes 保留但授权复核阻止发布；删除先时无有效 job；running/failed_pending_cleanup 均不可回收 | retention roots、job state、GC candidates/objects、发布结果 |
+| copy output 失败/取消清理 | 在 target manifest/asset 生成后失败或取消，同时运行 GC | pins 保持到显式 cleanup；确认未发布/无其他 root 并经过安全窗后才释放和回收 | job/root 状态机、fencing trace、对象前后列表 |
 | tag delete 与 copy 交错 | 控制两种锁顺序 | 结果符合第 7 节且无 dangling bindings | transaction trace、bindings 完整性 |
-| 失败恢复 | 在 snapshot read、transform、content publish、metadata publish 各点注入失败 | 不出现空白/部分目标；同 request 可恢复或返回稳定终态 | 故障注入、hidden job/receipt、list/get |
+| 失败恢复 | 在 snapshot read、transform、content publish、authorization CAS、visible commit 各点注入失败 | 不出现空白/部分目标；同 request 可恢复或进入受 pin 保护的待清理终态 | 故障注入、hidden job/receipt、roots、list/get |
 
 ## 9. 人类签核所需的最小决策
 
@@ -217,4 +264,4 @@ Duplicate application use case 先执行与正式 Board load 相同的 tenant/AC
 
 ## 10. 当前缺失证据
 
-本次只新增候选设计文档，没有修改或执行 contract、controller、repository、migration、Yjs copier、asset binding 或前端 client；没有运行浏览器、Docker、API、PG、WebSocket 或 E2E；没有读取 GitHub 当前 checks。当前也没有已签核的标签/复制 API、tag schema、copy receipt、对象 remap、asset ACL 复制器或上述并发/失败测试。因此本文帮助人类收敛签核，不构成实现或通过声明。
+本次只新增候选设计文档，没有修改或执行 contract、controller、repository、migration、Yjs copier、asset binding 或前端 client；没有运行浏览器、Docker、API、PG、WebSocket 或 E2E；没有读取 GitHub 当前 checks。当前也没有已签核的标签/复制 API、tag schema、copy receipt、共享锁/授权 revision CAS、copy-job retention roots、对象 remap、领域图语义等价校验、asset ACL 复制器或上述撤权/删除/GC/失败竞态测试。因此本文帮助人类收敛签核，不构成实现或通过声明。
