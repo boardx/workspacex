@@ -13,7 +13,7 @@ const encoded = (b: Uint8Array) => Buffer.from(b).toString('base64');
 const decoded = (s: string) => new Uint8Array(Buffer.from(s, 'base64'));
 /** Bounded WS transport. Database serializes writers; only committed updates are broadcast. */
 export function attachWhiteboardGateway(server: Server, deps: WhiteboardGatewayDeps): WebSocketServer {
-  const wss = new WebSocketServer({ noServer: true, maxPayload: 96 * 1024, perMessageDeflate: false,
+  const wss = new WebSocketServer({ noServer: true, maxPayload: WHITEBOARD_SYNC.maxPayloadBytes, perMessageDeflate: false,
     handleProtocols: protocols => protocols.has(WHITEBOARD_SYNC.protocol) ? WHITEBOARD_SYNC.protocol : false });
   const peers = new Set<Peer>();
   function send(ws: WebSocket, message: WhiteboardServerMessage) {
@@ -64,10 +64,12 @@ export function attachWhiteboardGateway(server: Server, deps: WhiteboardGatewayD
               peer.presence={actorId:principal.userId,cursor:message.cursor,selected:message.selected}; presence(peer); return;
             }
             const ack=await deps.store.append(principal,boardId,{...message,update:decoded(message.update)});
-            for(const target of group(peer)) {
-              if(target.epoch!==ack.epoch) { fail(target.ws,'STALE_EPOCH'); continue; }
-              Y.applyUpdate(target.mirror,ack.update); if(ack.seq===target.seq+1) target.seq=ack.seq;
-              send(target.ws,{type:'update',epoch:ack.epoch,seq:ack.seq,update:encoded(ack.update)});
+            if(!ack.replayed) {
+              for(const target of group(peer)) {
+                if(target.epoch!==ack.epoch) { fail(target.ws,'STALE_EPOCH'); continue; }
+                Y.applyUpdate(target.mirror,ack.update); if(ack.seq>target.seq) target.seq=ack.seq;
+                send(target.ws,{type:'update',epoch:ack.epoch,seq:ack.seq,update:encoded(ack.update)});
+              }
             }
             send(ws,{type:'ack',updateId:ack.updateId,seq:ack.seq});
           }).catch(error=>fail(ws,error instanceof WhiteboardCollaborationError?error.code:'DEPENDENCY_UNAVAILABLE')).finally(()=>{waiting--;});

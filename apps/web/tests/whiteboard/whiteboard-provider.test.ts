@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import * as Y from 'yjs';
-import { createWhiteboardDocument, executeCommands } from '@repo/whiteboard-core';
+import { createWhiteboardDocument, executeCommands, readObjects } from '@repo/whiteboard-core';
 import { WhiteboardProvider, bytesToBase64, type WhiteboardConnectionState } from '@/lib/whiteboard-provider';
 vi.mock('@/lib/api-client', () => ({ getStoredSessionToken: () => 'test-session', apiWebSocketUrl: (path: string) => `ws://localhost${path}` }));
 class Socket {
@@ -42,4 +42,15 @@ it('throttles awareness and sends the latest world cursor without client identit
   expect(socket.sent).toHaveLength(0);vi.advanceTimersByTime(50);
   expect(JSON.parse(socket.sent[0]!)).toEqual({type:'awareness',cursor:{x:30,y:40},selected:['b']});
   provider.close();doc.destroy();server.destroy();
+});
+it('ignores a replayed peer update without regressing sequence, then accepts a newer update', () => {
+  const doc=createWhiteboardDocument(),server=createWhiteboardDocument(),stale=createWhiteboardDocument(),provider=new WhiteboardProvider(doc,'board-1',()=>{}),socket=Socket.sockets[0]!;
+  socket.message({type:'sync',epoch:1,seq:5,update:bytesToBase64(Y.encodeStateAsUpdate(server)),role:'editor',archived:false});
+  executeCommands(stale,[{type:'create',object:{id:'stale',kind:'sticky',schemaVersion:1,geometry:{x:0,y:0,width:180,height:140,rotation:0},text:'stale',style:{},parentId:null,orderKey:''}}],{});
+  socket.message({type:'update',epoch:1,seq:4,update:bytesToBase64(Y.encodeStateAsUpdate(stale))});
+  expect(readObjects(doc)).toEqual([]);
+  executeCommands(server,[{type:'create',object:{id:'fresh',kind:'sticky',schemaVersion:1,geometry:{x:200,y:0,width:180,height:140,rotation:0},text:'fresh',style:{},parentId:null,orderKey:''}}],{});
+  socket.message({type:'update',epoch:1,seq:6,update:bytesToBase64(Y.encodeStateAsUpdate(server))});
+  expect(readObjects(doc).map(object=>object.id)).toEqual(['fresh']);
+  provider.close();doc.destroy();server.destroy();stale.destroy();
 });

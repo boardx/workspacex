@@ -54,6 +54,21 @@ class Peer {
       this.listeners.add(check); check();
     });
   }
+  async expectNo(predicate: (message: Message) => boolean, timeoutMs = 250): Promise<void> {
+    await new Promise<void>((resolve, reject) => {
+      let timer: ReturnType<typeof setTimeout>;
+      const check = () => {
+        const message = this.messages.find(predicate);
+        if (!message) return;
+        clearTimeout(timer); this.listeners.delete(check); reject(new Error(`Unexpected whiteboard WS message: ${JSON.stringify(message)}`));
+      };
+      timer = setTimeout(() => { this.listeners.delete(check); resolve(); }, timeoutMs);
+      this.listeners.add(check); check();
+    });
+  }
+  discard(predicate: (message: Message) => boolean): void {
+    for (let index = this.messages.length - 1; index >= 0; index--) if (predicate(this.messages[index]!)) this.messages.splice(index, 1);
+  }
   async close(): Promise<void> {
     if (this.ws.readyState !== WebSocket.CLOSED) {
       const closed = closeEvent(this.ws);
@@ -128,6 +143,7 @@ describe('real WebSocket whiteboard collaboration', () => {
       b.send({ type: 'update', epoch: 1, updateId: bId, update: b64(bUpdate) });
       const acknowledgements = await Promise.all([aAck, bAck]);
       expect(acknowledgements.map(m => m.type === 'ack' ? m.seq : -1).sort()).toEqual([2, 3]);
+      const aSeq = acknowledgements[0]!.type === 'ack' ? acknowledgements[0]!.seq : -1;
       await Promise.all([a.wait(m => m.type === 'update' && m.seq === 3), b.wait(m => m.type === 'update' && m.seq === 3)]);
       expect(readObjects(a.doc)).toEqual(readObjects(b.doc));
       expect(readObjects(a.doc)[0]?.text).toContain('甲'); expect(readObjects(a.doc)[0]?.text).toContain('乙');
@@ -138,8 +154,9 @@ describe('real WebSocket whiteboard collaboration', () => {
       } finally { await fresh.close(); }
       const third = await connect(boardId, 'viewer-token');
       try { expect(readObjects(third.doc)).toEqual(readObjects(a.doc)); } finally { await third.close(); }
-      const replay = a.wait(m => m.type === 'ack' && m.updateId === aId);
-      a.send({ type: 'update', epoch: 1, updateId: aId, update: b64(aUpdate) }); await replay;
+      b.discard(m => m.type === 'update' && m.seq === aSeq);
+      const replay = a.wait(m => m.type === 'ack' && m.updateId === aId), noPeerReplay = b.expectNo(m => m.type === 'update' && m.seq === aSeq);
+      a.send({ type: 'update', epoch: 1, updateId: aId, update: b64(aUpdate) }); await replay; await noPeerReplay;
       expect((await store.load(owner, boardId)).seq).toBe(3);
     } finally { await a.close(); await b.close(); }
   });
