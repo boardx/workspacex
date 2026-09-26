@@ -55,7 +55,7 @@ describe('whiteboard collaboration durable transactions', () => {
     await store.writeCommands(editor, board.id, input); await repo.removeMember(owner, board.id, editor.userId);
     await expect(store.load(editor, board.id)).rejects.toMatchObject({ code: 'NOT_FOUND' });
     await expect(store.writeCommands(editor, board.id, input)).rejects.toMatchObject({ code: 'NOT_FOUND' });
-    await repo.update(owner, board.id, { archived: true });
+    await repo.update(owner, board.id, { archived: true, expectedLifecycleRevision: board.lifecycleRevision });
     await expect(store.writeCommands(owner, board.id, input)).rejects.toMatchObject({ code: 'ARCHIVED' });
     expect((await store.load(viewer, board.id)).archived).toBe(true);
   });

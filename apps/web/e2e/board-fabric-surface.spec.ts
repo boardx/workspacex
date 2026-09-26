@@ -34,7 +34,7 @@ async function apiRequest(api: APIRequestContext, token: string, method: string,
   return response;
 }
 
-let boardToArchive: { id: string; token: string } | undefined;
+let boardToArchive: { id: string; token: string; lifecycleRevision: number } | undefined;
 
 test.afterEach(async () => {
   const target = boardToArchive;
@@ -46,7 +46,7 @@ test.afterEach(async () => {
   // the afterEach hook and therefore retains the hook's independent timeout budget.
   const cleanupApi = await playwrightRequest.newContext();
   try {
-    await apiRequest(cleanupApi, target.token, "PATCH", `/whiteboards/${target.id}`, { archived: true });
+    await apiRequest(cleanupApi, target.token, "PATCH", `/whiteboards/${target.id}`, { archived: true, expectedLifecycleRevision: target.lifecycleRevision });
   } finally {
     await cleanupApi.dispose();
   }
@@ -56,8 +56,9 @@ test("fabric surface viewport", async ({ page, request: api }) => {
   await page.setViewportSize({ width: 1280, height: 800 });
   const token = await login(page);
   const created = await apiRequest(api, token, "POST", "/whiteboards", { requestId: randomUUID(), name: `Fabric surface ${randomUUID()}` });
-  const boardId = (await created.json() as { id: string }).id;
-  boardToArchive = { id: boardId, token };
+  const board = await created.json() as { id: string; lifecycleRevision: number };
+  const boardId = board.id;
+  boardToArchive = { id: boardId, token, lifecycleRevision: board.lifecycleRevision };
   await page.goto(`/studio/board/${boardId}`);
   await expect(page.getByTestId("collaborative-editor")).toBeVisible({ timeout: 30_000 });
   await expect(page.getByText(/^已同步$/)).toBeVisible({ timeout: 30_000 });
