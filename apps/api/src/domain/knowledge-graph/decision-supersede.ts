@@ -9,7 +9,7 @@
  *   1. **只有明确改口才算**：新决定带改口信号，且与**同一作者**一条仍生效的旧决定主题相同。
  *      并列的补充（「也关注 985」）两条都保留。
  *   2. **高把握自动、低把握弹卡**（2026-09-26 第二次决定：三轮独立评审找到的误取代几乎都出在 frame_only 这一档）：
- *      - 明说（explicit）与对齐的同类（same_kind），且整句干净（第 6 条）⇒ **自动取代、可撤销**：旧决定转 superseded
+ *      - 明说（explicit）与对齐的同类（same_kind），且过了白名单（第 6–8 条：单分句旧决定、改口分句 + 封闭空话、干净的新对象）⇒ **自动取代、可撤销**：旧决定转 superseded
  *        （原因 `decision_changed`），不再召回；会话里显示「已用〈新〉取代〈旧〉 · 撤销」，撤销后旧决定恢复；
  *      - 只有框架动词相同（frame_only），或整句说不准 ⇒ **从不自动**：会话里弹一张卡「用〈新〉取代〈旧〉？」——复用 F16 的冲突卡表与出口
  *        （`kg_conflict_prompts.kind = possible_change`）：[取代] = F16 keep_new，[两条都保留] = 只关卡。卡开着的时候
@@ -63,25 +63,27 @@
  *        「改成关注 985 高校」算；「用React做前端开发」→「改成用Rust做后端开发」（剩下「react做前端」）不算，落到 frame_only；
  *      - 同框架、一边缺类别词或没对齐（frame_only）：框架动词相同，至少一边的对象没有类别词——「关注 211 高校」→「改成关注 985 吧」。
  *      框架动词相同但两边类别词**不同**（「关注 211 高校」对「改成关注 AI 方向」、「报考北大」对「改成报考清华」）⇒ 不算同一主题。
- *   6. **整句门**（`sentenceCertainty`，第 8 轮第四次评审：误自动取代是唯一不许出现的结果，多一张卡很便宜）——看改口分句
- *      以外的每个分句：
- *      - **收回** ⇒ 什么都不做（不取代、不弹卡）：一个分句是评判（`VERDICT`：「我反对」「不可行」「不赞成」「没同意」……），
- *        或带「还是」又提到旧对象（「不对，还是关注211高校」）；整句级的收回在第 3 条之前就挡掉：自我更正分句
- *        （`SELF_CORRECTION`：不对 / 哦不……）、「开玩笑的 / 说着玩的」（`JOKE`）；
- *      - **干净** ⇒ 这一档照旧（explicit / same_kind 自动）：每个其余分句都是下面之一——整句空话（`CLEAN_FILLER`，小的封闭表：
- *        好 / 嗯 / 哦 / ok / 想了想 / 这样 / 这么定 / 定——**没有**单独的「对 / 是 / 行」：「对吧」「是吧」剥掉「吧」就是它们）；
- *        另一个改口分句，它点名的旧对象就是 O 的对象、主语对得上 O 的框架分句（第 5 条）、新对象与别的改口相同；原因分句，
- *        且内容里没有否定 / 不确定的字或词（`REASON_DOUBT`：不 / 没 / 否 / 未 / 非 / 还没 / 假设 / 暂 / 可能 / 也许 / 先 / 反对 /
- *        拒绝 / 驳回 / 或许 / 大概 / 说不定 / 万一 / 如果 / 要是——「因为离家近」干净，「由于还没最终确定」「毕竟不急」不干净）；
- *        已当成这个改口主语、且在 O 的框架动词前面的话题分句（「关于前端，…」）；同框架说出的那个新选择（「决定用React，不再用Vue了」）；
- *        且全句只有一个新对象；
- *      - 其余都是**说不准** ⇒ 最多到 frame_only（弹卡）：认不出的后续分句（「这是老板说的」「暂定」「不过要看预算」）、
- *        别的分句提到旧对象（「211高校继续关注」「因为211高校太远」）、别的分句里的「还是」、带否定 / 不确定的原因分句、
- *        勉强的应允（`RELUCTANT`：「行吧」「好吧」「好的吧」）、「是的」「对」这类不在空话表里的应答。
- *      自动的路上不加词表：干净是「只允许这几种」，认不出的一律下到卡。
- *   7. **复合的旧决定从不自动**（第 8 轮第五次评审）：O 有不止一个带框架动词的分句（「后端用Go语言，前端用TS语言」「关注211高校，
- *      主攻计算机」），或它的框架前面是并列主语（`COORDINATED`：和 / 与 / 及 / 跟 / 都，或原文里有「、」——「前端和后端都用Vue框架」）
- *      ⇒ 最多到 frame_only（弹卡）。自动取代是整条转 superseded，O 说的另一件事（后端的 Go）会跟着一起丢。
+ *   **自动这一档只认白名单**（第 8 轮第六次评审：六轮评审每轮都在自动路上的词表里找到一个漏掉的词——不再加词表）。
+ *   一对要**自动**取代，下面 6–8 必须全部成立；任何一条不成立 ⇒ 最多弹卡（或者，下面说「什么都不做」的，什么都不做）：
+ *   6. **新句只有改口分句 + 封闭空话**（`sentenceCertainty`）——看改口分句以外的每个分句：
+ *      - **收回** ⇒ 什么都不做（不取代、不弹卡），与之前完全一样：一个分句是评判（`VERDICT`：「我反对」「不可行」「毕竟我反对」
+ *        「由于老板不同意」……），或带「还是」又提到旧对象（「不对，还是关注211高校」）；整句级的收回在第 3 条之前就挡掉：
+ *        自我更正分句（`SELF_CORRECTION`）、「开玩笑的 / 说着玩的」（`JOKE`）、附加问句、问句、「…的事」；
+ *      - **干净** ⇒ 每个其余分句都是整句空话（`CLEAN_FILLER`，小的封闭表：好 / 嗯 / 哦 / ok / 想了想 / 这样 / 这么定 / 定；
+ *        比对剥掉开头虚词与句末语气词之后的分句），另一个改口分句只在它点名的旧对象就是 O 的对象、主语对得上 O 的框架分句、
+ *        新对象与别的改口相同时才算一致；「旧 + 算了，还是 + 框架…」整个是改口句式，不是别的分句；
+ *      - 其余**全部**是说不准 ⇒ 卡：**原因分句**（因为 / 由于 / 毕竟——不再看原因的内容：「因为离家近」也是卡）、话题分句
+ *        （「前端那块，…」）、同框架的陈述（「决定用React，不再用Vue了」）、勉强的应允（`RELUCTANT`：行吧 / 好吧）、
+ *        「是的」「对」、以及任何认不出的分句。
+ *   7. **旧决定是单一分句**（`singleClause`）：按新句同样的分句规则切开，除封闭空话外只剩一个分句（「用Vue框架，周五上线」
+ *      「关注211高校，学计算机」「用Vue，不用React」都不是）；另外仍保留：不止一个带框架的分句、或框架前面是并列主语
+ *      （`COORDINATED`：和 / 与 / 及 / 跟 / 都 / 、）⇒ 复合。复合的旧决定从不自动：自动取代是整条转 superseded，O 说的另一件事会跟着丢。
+ *   8. **新对象干净**：改口分句里没有「的」（「把Vue换成更好的」）；explicit 的每个新对象（`cleanObject`）是单个 ASCII 词
+ *      （字母、数字、. # -，「+」只在词尾：c++），或单个 ASCII 词 + O 的类别词（「把Vue框架换成React框架」的 react框架、985高校），
+ *      或不超过 6 个汉字的名词——不含框架 / 动作动词，不以 试试 / 看看 / 一下 / 着 / 过 / 吗 / 呢 / 吧 结尾，不含「还没定」的字
+ *      （`UNSETTLED`：待定 / 暂定 / 清华再说……）；「react试试」「react+svelte」都不干净。same_kind 由对齐规则（`aligned`）核对，
+ *      限定语另外不许是否定（「非985」）。
+ *   最后，档位本身只有 explicit 与对齐的 same_kind 能自动；frame_only 永远是卡。
  *
  * **框架**（`decisionFrame`，也用来读 O）：有带新框架的改口分句 ⇒ 取第一个；否则取第一个不是改口分句的分句里第一个框架动词
  * （`FRAME_VERBS`，同一位置取最长的：采用 > 用；单字的 用 / 做 / 选 在词里——费用、用户、做法、选项、不用……——不算），
@@ -161,11 +163,6 @@ const CLAUSE_BREAK = /[，。,；;！!？?、]/;
 const CONNECTIVES = /但是|但|不过|然后|可是|只是|而是|因为|由于|毕竟|所以/g;
 /** 原因连接词：切分时和别的连接词一样剥掉，另外把后面那个分句记成原因分句。 */
 const REASON_WORDS = new Set(["因为", "由于", "毕竟"]);
-/**
- * 原因分句里带否定 / 不确定的字或词 ⇒ 这个原因可能在否这个改口（「由于我不同意这个改动」「由于还没最终确定」「毕竟不急」）
- * ⇒ 说不准（弹卡）。只有不带这些的原因（「因为离家近」「毕竟生态好」）留在自动的路上。
- */
-const REASON_DOUBT = /不|没|否|未|非|还没|假设|暂|可能|也许|先|反对|拒绝|驳回|或许|大概|说不定|万一|如果|要是/;
 /** 分句开头不算「主语」的虚词（剥不掉 ⇒ 当成主语，旧决定必须包含它——剥漏只会让取代变少）。 */
 const LEAD_FILLERS = /^(?:我们|我|咱们|咱|那就|那么|那|就|还是|干脆|索性|最后|最终|直接|现在|以后|今后)+/;
 const TAIL_PARTICLES = /(?:吧|了|啊|呀|哦|啦|嘛|的)+$/;
@@ -188,7 +185,7 @@ const STILL_LEAD = /^(?:那就|那|就|我们|我)?还是/;
 const JOKE = /开玩笑|说着玩|闹着玩/;
 const SELF_CORRECTION = /^(?:不对|哦不|噢不|啊不|不不+|错了|说错了|口误)$/;
 /**
- * 自动取代的整句门（文件头 A）：其余分句只允许整句空话——小的封闭表，只放不带态度的应答 / 收尾（没有「再想想」「暂定」）。
+ * 自动取代的整句门（文件头第 6 条）：其余分句只允许整句空话——小的封闭表，只放不带态度的应答 / 收尾（没有「再想想」「暂定」）。
  * 比对的是剥掉开头虚词（我 / 那就……）与句末语气词（吧 / 了 / 的……）之后的分句：「好的」→ 好、「就这么定了」→ 这么定。
  */
 const CLEAN_FILLER = /^(?:好|嗯+|哦|ok|okay|想了想|想了一下|考虑了一下|这样|这么定|定)$/;
@@ -202,8 +199,10 @@ const TAG_QUESTION_TAIL = /(?:对吧|是吧|对吗|是吗|好吗|行吗|没错�
 const RELUCTANT = /^(?:行|好)的?吧[啊呀]*$/;
 /** 并列主语（「前端和后端都用…」「前端、后端…」）：旧决定说的是不止一件事 ⇒ 永远不自动。 */
 const COORDINATED = /和|与|及|跟|都|、/;
-/** 同类（same_kind）的对齐：类别词前面的限定语里不许出现框架 / 动作动词（文件头 B）。 */
+/** 同类（same_kind）的对齐：类别词前面的限定语里不许出现框架 / 动作动词（文件头第 5、8 条）。 */
 const SPEC_VERB = /做|写|用|沟通|关注|开发|处理|负责|搞|跑|选|研究|的/;
+/** 同类对齐的限定语不许是否定（「非985」「不限」「无」）：「关注非985高校」和「关注211高校」可能重叠，不是换掉。 */
+const NEGATED_SPEC = /非|不|没|无/;
 
 /** 归一：NFKC、小写、去掉全部空白。 */
 export function normalizeStatement(statement: string): string {
@@ -453,14 +452,14 @@ function hasFrameVerb(s: string): boolean {
 }
 
 /**
- * 同类对齐（文件头 B）：共同的类别词前面，两边都只是一个短的限定语（211 / 985、周一 / 周三、Vue / React）——
+ * 同类对齐（文件头第 5、8 条）：共同的类别词前面，两边都只是一个短的限定语（211 / 985、周一 / 周三、Vue / React）——
  * 去掉类别词后不超过 4 个字符或是单个 ASCII 词，且不含框架 / 动作动词（「React做前端开发」对「Rust做后端开发」不算）。
  */
 function aligned(a: DecisionFrame, b: DecisionFrame): boolean {
   if (a.kind === null || a.kind !== b.kind || hasFrameVerb(a.kind)) return false;
   const spec = (f: DecisionFrame): boolean => {
     const r = f.object.slice(0, f.object.length - f.kind!.length);
-    if (r === "") return false;
+    if (r === "" || NEGATED_SPEC.test(r)) return false;
     return /^[a-z0-9][a-z0-9._+#-]*$/.test(r) || ([...r].length <= 4 && !hasFrameVerb(r));
   };
   return spec(a) && spec(b);
@@ -477,18 +476,21 @@ function subjectTied(ch: ChangeClause, oldPrefix: string): boolean {
 }
 
 /**
- * 整句门（文件头 A）：改口分句以外的每个分句都只能是空话 / 一致的另一个改口 / 原因 / 已当作主语的话题 /
- * 同框架说出的那个新选择——才算「干净」，可以自动；别的都是「说不准」（弹卡）。明确收回（评判分句、「还是 + 旧」）⇒ rejected。
+ * 整句门（文件头第 6 条，只允许清单）：改口分句以外的每个分句都只能是整句空话（`CLEAN_FILLER`）——才算「干净」，可以自动；
+ * 原因分句（因为 / 由于 / 毕竟）、话题分句、同框架的陈述、认不出的分句一律「说不准」（弹卡）。
+ * 明确收回（评判分句、「还是 + 旧」）⇒ rejected。
  */
 function sentenceCertainty(raw: RawChanges, o: DecisionFrame, oldPrefix: string): Certainty {
   const old = o.object;
   const { clauses, reason, per, changed } = raw;
-  // 收回：任何非改口分句是一句评判（「不可行」「我反对」），或「还是 + 旧对象」（「不对，还是关注211高校」）
+  // 收回：任何非改口分句是一句评判（「不可行」「我反对」「毕竟我反对」），或「还是 + 旧对象」（「不对，还是关注211高校」）
   for (let k = 0; k < clauses.length; k += 1) {
     if (changed.has(k)) continue;
     const c = clauses[k]!;
     if (VERDICT.test(c) || (c.includes("还是") && c.includes(old))) return "rejected";
   }
+  // 原因分句（哪怕是改口句式）不在自动的路上：原因的内容说不准它是在支持还是在否这个改口
+  if (reason.some((r) => r)) return "uncertain";
   const all = per.flat();
   const newObjects = new Set<string>();
   for (const ch of all) {
@@ -498,24 +500,39 @@ function sentenceCertainty(raw: RawChanges, o: DecisionFrame, oldPrefix: string)
   }
   for (let k = 0; k < clauses.length; k += 1) {
     if (changed.has(k)) continue;
-    const c = clauses[k]!;
-    if (RELUCTANT.test(lead(c))) return "uncertain";
-    const bare = lead(c).replace(TAIL_PARTICLES, "");
-    if (bare === "" || CLEAN_FILLER.test(bare)) continue;
-    if (c.includes(old) || c.includes("还是")) return "uncertain";
-    // 原因分句：内容不带否定 / 不确定才算干净（「因为离家近」）；「由于还没最终确定」「毕竟不急」⇒ 说不准
-    if (reason[k]) {
-      if (REASON_DOUBT.test(c)) return "uncertain";
-      continue;
-    }
-    const topic = topicOf(c);
-    if (typeof topic === "string" && oldPrefix.includes(topic) && all.some((ch) => ch.subject === topic)) continue;
-    // 同框架说出的新选择（「决定用React，不再用Vue了」的「用React」）：算作新对象，和改口分句的新对象必须是同一个
-    const f = frameAtStart(lead(c), false);
-    if (f !== null && f.verb === o.verb && f.object !== "" && !OBJECT_STOP.test(f.object)) { newObjects.add(f.object); continue; }
-    return "uncertain";
+    if (!isFiller(clauses[k]!)) return "uncertain";
   }
   return newObjects.size > 1 ? "uncertain" : "clean";
+}
+
+/** 整句空话（小的封闭表）：剥掉开头虚词与句末语气词后是 CLEAN_FILLER；勉强的应允（「行吧」「好吧」）不算。 */
+function isFiller(clause: string): boolean {
+  if (RELUCTANT.test(lead(clause))) return false;
+  const bare = lead(clause).replace(TAIL_PARTICLES, "");
+  return bare === "" || CLEAN_FILLER.test(bare);
+}
+
+/** 旧决定是不是单一分句（文件头第 7 条）：按新句同样的规则分句，除整句空话外只剩一个分句。 */
+function singleClause(statement: string): boolean {
+  return splitClauses(normalizeStatement(statement)).clauses.filter((c) => !isFiller(c)).length <= 1;
+}
+
+/** 单个 ASCII 词：字母、数字、. # -；「+」只许在词尾（c++、notepad++），「react+svelte」是两个东西。 */
+const ASCII_TOKEN = /^[a-z0-9][a-z0-9.#-]*\+*$/;
+/** 语气 / 体貌尾巴（剥掉句末语气词之后）：「React试试」「上海看看」「换一下」是试探，不是定了。 */
+const TENTATIVE_TAIL = /(?:试试|看看|一下|着|过|吗|呢|吧)$/;
+/** 汉字新对象里不许有「还没定」的字（待定 / 暂定 / 清华再说 / 先… / 或…）：说不准就不是干净的名词，最多弹卡。 */
+const UNSETTLED = /定|说|再|待|暂|先|试|看|等|想|考虑|或/;
+
+/**
+ * 干净的新对象（文件头第 8 条，只允许清单）：单个 ASCII 词（字母、数字、.+#-）；单个 ASCII 词 + 旧对象的类别词
+ * （「把Vue框架换成React框架」的「react框架」、「985高校」）；不超过 6 个汉字的名词——不含框架 / 动作动词与「的」，
+ * 不以试试 / 看看 / 一下 / 着 / 过 / 吗 / 呢 / 吧 结尾。其余（「react试试」「上海那边的学校」）⇒ 不干净，最多弹卡。
+ */
+function cleanObject(object: string, o: DecisionFrame): boolean {
+  if (ASCII_TOKEN.test(object)) return true;
+  if (o.kind !== null && object.endsWith(o.kind) && ASCII_TOKEN.test(object.slice(0, -o.kind.length))) return true;
+  return /^\p{Script=Han}{1,6}$/u.test(object) && !hasFrameVerb(object) && !TENTATIVE_TAIL.test(object) && !UNSETTLED.test(object);
 }
 
 /**
@@ -552,9 +569,16 @@ export function supersedeMatch(fresh: SupersedeFresh, older: LiveDecision): Topi
   // 整句门：明确收回 ⇒ 什么都不做；句子里还有说不准的分句 ⇒ 最多弹卡
   const certainty = sentenceCertainty(raw, o, site.prefix);
   if (certainty === "rejected") return null;
-  // 复合的旧决定（不止一个带框架的分句，或并列主语「前端和后端都用…」）说的不止一件事 ⇒ 永远不自动，最多弹卡
-  const compound = site.frameClauses > 1 || COORDINATED.test(site.prefix) || normalizeStatement(older.statement).includes("、");
-  return certainty === "clean" && !compound ? best : "frame_only";
+  if (certainty !== "clean") return "frame_only";
+  // 复合的旧决定（不止一个非空话分句、不止一个带框架的分句，或并列主语「前端和后端都用…」）说的不止一件事 ⇒ 永远不自动，最多弹卡
+  const compound = !singleClause(older.statement) || site.frameClauses > 1 || COORDINATED.test(site.prefix)
+    || normalizeStatement(older.statement).includes("、");
+  if (compound) return "frame_only";
+  // 改口分句里有「的」（「把Vue换成更好的」「改成关注985的高校」）⇒ 新对象不是干净的词，最多弹卡（「的」会被当语气词剥掉，所以看原分句）
+  if ([...raw.changed].some((k) => raw.clauses[k]!.includes("的"))) return "frame_only";
+  // 新对象必须干净：explicit 看每个改口分句的新对象；same_kind 已由对齐规则（aligned）核过
+  if (best === "explicit" && !changes.every((c) => c.frame === null || cleanObject(c.frame.object, o))) return "frame_only";
+  return best;
 }
 
 /**

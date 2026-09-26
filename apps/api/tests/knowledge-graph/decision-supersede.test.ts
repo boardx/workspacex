@@ -245,16 +245,16 @@ describe("人类决定 2026-09-26「高把握自动、低把握弹卡」+ 第 8 
     ["改成用React是不可能的"], ["改成用React不现实"], ["改成用React没必要"], ["改成用React的提议被否了"], ["改成用React？不行，还是用Vue"],
   ])("没有改口分句：%s", (n) => expect(changeClauses(n)).toEqual([]));
 
-  it("话题分句的主语出现在旧决定里 ⇒ 照常判（「前端那块，改成用React框架」对「前端用Vue框架」）", () => {
+  it("话题分句的主语出现在旧决定里 ⇒ 照常判主题，但话题分句不是空话 ⇒ 第 8 轮第六次评审起只到卡（「前端那块，改成用React框架」对「前端用Vue框架」）", () => {
     expect(changeClauses("前端那块，改成用React框架")).toEqual([
       { frame: { verb: "用", object: "react框架", kind: "框架" }, namedOld: null, subject: "前端" },
     ]);
-    expect(supersedeMatch(fresh("前端那块，改成用React框架"), old("决定前端用Vue框架"))).toBe("same_kind");
-    expect(supersedeMatch(fresh("关于前端，不再用Vue了"), old("决定前端用Vue"))).toBe("explicit");
+    expect(supersedeMatch(fresh("前端那块，改成用React框架"), old("决定前端用Vue框架"))).toBe("frame_only");
+    expect(supersedeMatch(fresh("关于前端，不再用Vue了"), old("决定前端用Vue"))).toBe("frame_only");
     expect(supersedeMatch(fresh("关于后端，不再用Vue了"), old("决定前端用Vue"))).toBeNull();
   });
-  it("带框架动词的前一分句是陈述、不是话题：「决定用React，不再用Vue了」仍点名 Vue", () => {
-    expect(supersedeMatch(fresh("决定用React，不再用Vue了"), old("决定用Vue"))).toBe("explicit");
+  it("带框架动词的前一分句是陈述、不是话题：「决定用React，不再用Vue了」仍点名 Vue；陈述分句不是空话 ⇒ 第六次评审起只到卡", () => {
+    expect(supersedeMatch(fresh("决定用React，不再用Vue了"), old("决定用Vue"))).toBe("frame_only");
   });
   it("「改成用React不用Vue了」：对象截在「不」前，同一分句里的「不用Vue了」仍是点名", () => {
     expect(changeClauses("改成用React不用Vue了").map((c) => c.frame?.object ?? null)).toEqual(["react", null]);
@@ -358,8 +358,6 @@ describe("第 8 轮第四次评审：自动取代只给干净的整句（人类�
     ["用Vue", "把Vue换成React", "explicit"],
     ["用Vue", "不再用Vue了", "explicit"],
     ["关注211高校", "211高校算了，改成关注985高校", "explicit"],
-    ["关注211高校", "改成关注985高校，因为离家近", "same_kind"],
-    ["用Vue", "把Vue换成React，毕竟生态好", "explicit"],
     ["关注211高校", "改成关注985高校，好的", "same_kind"],
     ["关注211高校", "就改成关注985高校吧，定了", "same_kind"],
     ["采用Vue框架", "改为采用React框架，那就这样", "same_kind"],
@@ -431,8 +429,6 @@ describe("第 8 轮第五次评审：原因分句看内容、附加问句不是�
     ["决定用Vue", "把Vue换成React", "explicit"],
     ["用Vue", "不再用Vue了", "explicit"],
     ["关注211高校", "211高校算了，改成关注985高校", "explicit"],
-    ["关注211高校", "改成关注985高校，因为离家近", "same_kind"],
-    ["关注211高校", "改成关注985高校，由于离家近", "same_kind"],
     ["关注211高校", "改成关注985高校，好的", "same_kind"],
     ["前端用Vue框架", "前端改用React框架", "same_kind"],
   ])("仍然自动：%s → %s（%s）", (o, n, tier) => {
@@ -441,4 +437,64 @@ describe("第 8 轮第五次评审：原因分句看内容、附加问句不是�
   });
 
   it("「改成关注 985 吧」仍是卡", () => expect(plan("关注211高校", "改成关注 985 吧")).toEqual(CARD));
+});
+
+describe("第 8 轮第六次评审：自动这一档只认白名单（单分句旧决定 + 改口分句与封闭空话 + 干净的新对象），没有词表", () => {
+  const plan = (o: string, n: string) => planSupersedes([fresh(n)], [old(o)]);
+  const AUTO = { supersedes: [{ newerClaimId: "clm-new", olderClaimId: "clm-old" }], prompts: [] };
+  const notAuto = (o: string, n: string) => {
+    const p = plan(o, n);
+    expect(p.supersedes).toEqual([]);
+    expect(supersedeMatch(fresh(n), old(o))).not.toBe("explicit");
+    expect(supersedeMatch(fresh(n), old(o))).not.toBe("same_kind");
+  };
+
+  it.each([
+    // A. 旧决定不止一个分句（多出来的分句没有框架动词也一样）
+    ["前端用Vue框架，后端也一样", "前端改用React框架"],
+    ["前端用Vue框架，后端同上", "前端改用React框架"],
+    ["用Vue框架，周五上线", "改用React框架"],
+    ["用Vue框架；上线定在周五", "改用React框架"],
+    ["用Vue框架，部署在阿里云", "把Vue框架换成React框架"],
+    ["关注211高校，计算机专业优先", "改成关注985高校"],
+    ["关注211高校，学计算机", "改成关注985高校"],
+    ["关注211高校,同时看海外", "改成关注985高校"],
+    ["用Vue，不用React", "不再用Vue了"],
+  ])("复合的旧决定 ⇒ 卡：%s → %s", (o, n) => expect(plan(o, n)).toEqual({ supersedes: [], prompts: [{ newerClaimId: "clm-new", olderClaimId: "clm-old" }] }));
+
+  it.each([
+    // B. 原因分句一律不在自动的路上（不再看内容）
+    "改成关注985高校，因为还在犹豫", "改成关注985高校，因为待定", "改成关注985高校，由于尚待确认", "改成关注985高校，因为有待商榷",
+    "改成关注985高校，因为待讨论", "改成关注985高校，因为试试看", "改成关注985高校，因为测试一下", "改成关注985高校，因为这是玩笑话",
+    "改成关注985高校，因为我在说反话", "改成关注985高校，因为离家近", "改成关注985高校，由于离家近",
+  ])("原因分句 ⇒ 卡：关注211高校 → %s", (n) => expect(plan("关注211高校", n)).toEqual({ supersedes: [], prompts: [{ newerClaimId: "clm-new", olderClaimId: "clm-old" }] }));
+  it("「把Vue换成React，毕竟生态好」⇒ 卡", () => expect(plan("用Vue", "把Vue换成React，毕竟生态好").prompts).toHaveLength(1));
+
+  it.each([
+    // C. 新对象不干净：试探的尾巴、「的」、两个东西、没定下来的汉字
+    ["用Vue", "把Vue换成React试试"],
+    ["用Vue", "把Vue换成React看看"],
+    ["用Vue", "把Vue换成React一下"],
+    ["用Vue", "把Vue换成更好的"],
+    ["用Vue", "把Vue换成React+Svelte"],
+    ["选北京", "把北京换成待定"],
+    ["报考北大", "把北大换成清华再说"],
+    ["关注211高校", "改成关注非985高校"],
+  ])("新对象不干净 ⇒ 不自动：%s → %s", (o, n) => notAuto(o, n));
+
+  it.each([
+    ["关注211高校", "改成关注985高校吧", "same_kind"],
+    ["决定用Vue", "把Vue换成React", "explicit"],
+    ["用Vue", "不再用Vue了", "explicit"],
+    ["关注211高校", "211高校算了，改成关注985高校", "explicit"],
+    ["关注211高校", "改成关注985高校，好的", "same_kind"],
+    ["用Vue框架", "把Vue框架换成React框架", "explicit"],
+    ["选北京", "把北京换成上海", "explicit"],
+    ["用Vue", "把Vue换成c++", "explicit"],
+  ])("白名单里的整句仍然自动：%s → %s（%s）", (o, n, tier) => {
+    expect(supersedeMatch(fresh(n), old(o))).toBe(tier);
+    expect(plan(o, n)).toEqual(AUTO);
+  });
+
+  it("「改成关注 985 吧」仍是卡", () => expect(plan("关注211高校", "改成关注 985 吧").prompts).toHaveLength(1));
 });

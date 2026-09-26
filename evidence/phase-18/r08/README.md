@@ -46,6 +46,31 @@ thread C 「开始写报告吧」 → the answer carries only 985; undo → 211 
 > card) and the compound case in `decision-supersede-card.test.ts` (card opens, old decision unchanged). The 601398a27
 > domain file fails them (`fail-without-fix.txt`, last section).
 
+> **Allowlist only (review round 6 of round 8).** Six reviews each found one more word missing from a blocklist on the
+> automatic path, so the automatic tier no longer has blocklists. A pair is superseded **automatically** only if all of
+> these hold; anything else is a card, or nothing where the existing rejection / question / cancel handling already says
+> nothing (those nothing-cases are unchanged):
+> 1. *Single-clause old decision.* The old decision, split into clauses the same way as the new sentence, has exactly one
+>    clause that is not whole-clause filler. 「用Vue框架，周五上线」「关注211高校，学计算机」「前端用Vue框架，后端也一样」
+>    「用Vue，不用React」 are compound ⇒ card. (The frame-verb-count and coordinated-subject checks stay as well.)
+> 2. *Change clause plus closed filler only.* Every other clause of the new sentence is whole-clause filler from the closed
+>    list (好 / 嗯 / 哦 / ok / 想了想 / 这样 / 这么定 / 定). Reason clauses (因为 / 由于 / 毕竟) are no longer allowed on the
+>    automatic path, whatever they say — `REASON_DOUBT` is gone. A reason clause that is itself a rejection (「毕竟我反对」)
+>    still gives nothing. **This intentionally moves 「改成关注985高校，因为离家近」 (and 「由于离家近」「把Vue换成React，毕竟生态好」)
+>    from automatic to card.** Topic clauses (「前端那块，…」) and a same-frame statement (「决定用React，不再用Vue了」) are not
+>    filler either, so they are now cards too. 「211高校算了，改成关注985高校」 stays automatic: the 算了 clause is part of the
+>    change construction.
+> 3. *Clean new object.* No 的 in the change clause. For `explicit`, each new object is a single ASCII token (letters, digits,
+>    . # -, + only at the end), or an ASCII token plus the old object's category tail (「把Vue框架换成React框架」, 985高校), or a CJK
+>    noun of at most 6 characters with no frame/action verb, no 试试 / 看看 / 一下 / 着 / 过 / 吗 / 呢 / 吧 tail and no unsettled
+>    character (待定 / 暂定 / 再说). 「把Vue换成React试试 / 看看」 ⇒ card. For `same_kind`, the aligned-specifier rule, and the
+>    specifier may not be negated (「非985高校」).
+> 4. *Tier.* Only `explicit` or aligned `same_kind`; `frame_only` is always a card.
+> Tests: the round-6 `describe` block in `decision-supersede.test.ts` (9 compound cards, 12 reason cards, 8 unclean objects,
+> 8 automatic, 1 card) plus four earlier expectations moved from automatic to card (「因为离家近」「由于离家近」「毕竟生态好」, topic
+> clause, same-frame statement). No integration test relied on a reason clause auto-superseding. The 24139f479 domain
+> file fails the new negatives (`fail-without-fix.txt`, last section).
+
 ## Stack (no Docker)
 
 Same shape as round 5 (`evidence/phase-18/r05/`): local Postgres 16 + AGE + pgvector at 127.0.0.1:55432, own db `r08e`
