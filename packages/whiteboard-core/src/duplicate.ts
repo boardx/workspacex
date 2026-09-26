@@ -76,12 +76,14 @@ export function duplicateWhiteboardSnapshot(sourceSnapshot: Uint8Array, newId: (
     const copies = dependencyOrder(objects).map(item => {
       if (item.parentId !== null && !mapping.has(item.parentId)) throw new Error('INVALID_DUPLICATE_REFERENCE');
       if (item.connector && (!mapping.has(item.connector.from) || !mapping.has(item.connector.to))) throw new Error('INVALID_DUPLICATE_REFERENCE');
+      const copy = structuredClone(item);
+      // The receipt carries source Board/version provenance. Keeping an object-level
+      // restoredFrom would leave a dangling source identity in the independent target.
+      delete copy.restoredFrom;
       return WhiteboardObject.parse({
-        ...structuredClone(item), id: mapping.get(item.id),
+        ...copy, id: mapping.get(item.id),
         parentId: item.parentId === null ? null : mapping.get(item.parentId),
         ...(item.connector ? { connector: { from: mapping.get(item.connector.from), to: mapping.get(item.connector.to) } } : {}),
-        // restoredFrom is immutable historical provenance, not a live relation;
-        // preserving it records lineage without coupling target edits to source.
       });
     });
     for (let offset = 0; offset < copies.length; offset += WHITEBOARD_LIMITS.batch) {

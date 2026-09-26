@@ -13,14 +13,14 @@ type JobRow = {
   object_count: number | null; connector_count: number | null; asset_count: number | null; status: string;
 };
 type BoardRow = {
-  id: string; name: string; owner_id: string; role: string; archived: boolean; tags_revision: number; tag_ids: string[];
+  id: string; name: string; owner_id: string; role: string; archived: boolean; lifecycle_revision: number; tags_revision: number; tag_ids: string[];
   created_at: Date; updated_at: Date;
 };
 
 const requestHash = (sourceBoardId: string, input: DuplicateBoard) => createHash('sha256')
   .update(JSON.stringify({ operation: 'duplicate-board', sourceBoardId, requestId: input.requestId, targetName: input.targetName, expectedSource: input.expectedSource ?? null }))
   .digest('hex');
-const boardColumns = `b.id,b.name,b.owner_id,b.archived,b.tags_revision,b.created_at,b.updated_at,
+const boardColumns = `b.id,b.name,b.owner_id,b.archived,b.lifecycle_revision,b.tags_revision,b.created_at,b.updated_at,
   COALESCE(ARRAY(SELECT bt.tag_id FROM whiteboard_tag_bindings bt JOIN whiteboard_tags t
     ON t.org_id=bt.org_id AND t.id=bt.tag_id AND t.deleted_at IS NULL
     WHERE bt.org_id=b.org_id AND bt.board_id=b.id ORDER BY bt.tag_id),ARRAY[]::uuid[]) AS tag_ids,
@@ -28,7 +28,7 @@ const boardColumns = `b.id,b.name,b.owner_id,b.archived,b.tags_revision,b.create
 
 function board(row: BoardRow): C.Board {
   return C.Board.parse({
-    id: row.id, name: row.name, ownerId: row.owner_id, role: row.role, archived: row.archived,
+    id: row.id, name: row.name, ownerId: row.owner_id, role: row.role, archived: row.archived, lifecycleRevision: row.lifecycle_revision,
     tagIds: row.tag_ids, tagsRevision: row.tags_revision,
     createdAt: new Date(row.created_at).toISOString(), updatedAt: new Date(row.updated_at).toISOString(),
   });
@@ -63,7 +63,7 @@ export class PgBoardContentCopyStore implements BoardContentCopyPort {
         return this.replay(session,p,sourceBoardId,input,hash,prior.rows[0]);
       }
 
-      await this.assertVisible(session,p,sourceBoardId);
+      await this.assertDuplicable(session,p,sourceBoardId);
       // Lock order is Tag -> Board, matching tag mutation. The unlocked actor
       // preflight above prevents an inaccessible board id from being used to
       // lock organization tag rows. capture() rechecks access under Board lock.
@@ -81,8 +81,8 @@ export class PgBoardContentCopyStore implements BoardContentCopyPort {
       }
       this.assertPrepared(prepared);
       const targetBoardId = randomUUID();
-      await session.query(`INSERT INTO whiteboards(id,org_id,owner_id,request_id,name,tags_revision)
-        VALUES($1,$2,$3,$1,$4,0)`, [targetBoardId,p.orgId,p.userId,input.targetName]);
+      await session.query(`INSERT INTO whiteboards(id,org_id,owner_id,request_id,name,lifecycle_revision,tags_revision)
+        VALUES($1,$2,$3,$1,$4,0,0)`, [targetBoardId,p.orgId,p.userId,input.targetName]);
       await session.query(`INSERT INTO whiteboard_tag_bindings(org_id,board_id,tag_id)
         SELECT $1,$2,tag_id FROM unnest($3::uuid[]) AS tag_id`, [p.orgId,targetBoardId,sourceTagIds]);
       // A duplicate snapshot is the target's immutable baseline, not a replayed
@@ -101,11 +101,11 @@ export class PgBoardContentCopyStore implements BoardContentCopyPort {
     });
   }
 
-  private async assertVisible(session: TenantSession, p: Principal, sourceBoardId: string): Promise<void> {
+  private async assertDuplicable(session: TenantSession, p: Principal, sourceBoardId: string): Promise<void> {
     const visible = await session.query<{owner_id:string;role:string|null}>(`SELECT b.owner_id,CASE WHEN b.owner_id=$2 THEN 'owner' ELSE m.role END AS role
       FROM whiteboards b LEFT JOIN whiteboard_members m ON m.org_id=b.org_id AND m.board_id=b.id AND m.user_id=$2
-      WHERE b.org_id=$1 AND b.id=$3 AND (b.owner_id=$2 OR m.user_id IS NOT NULL)`, [p.orgId,p.userId,sourceBoardId]);
-    if (!visible.rows[0]?.role) throw new WhiteboardResourceError('NOT_FOUND');
+      WHERE b.org_id=$1 AND b.id=$3 AND (b.owner_id=$2 OR m.role='editor')`, [p.orgId,p.userId,sourceBoardId]);
+    if (!['owner','editor'].includes(visible.rows[0]?.role ?? '')) throw new WhiteboardResourceError('NOT_FOUND');
   }
 
   private async lockSourceTags(session: TenantSession, p: Principal, sourceBoardId: string): Promise<string[]> {
@@ -113,7 +113,7 @@ export class PgBoardContentCopyStore implements BoardContentCopyPort {
       JOIN whiteboard_tags t ON t.org_id=bt.org_id AND t.id=bt.tag_id AND t.deleted_at IS NULL
       JOIN whiteboards b ON b.org_id=bt.org_id AND b.id=bt.board_id
       LEFT JOIN whiteboard_members m ON m.org_id=b.org_id AND m.board_id=b.id AND m.user_id=$2
-      WHERE b.org_id=$1 AND b.id=$3 AND (b.owner_id=$2 OR m.user_id IS NOT NULL)
+      WHERE b.org_id=$1 AND b.id=$3 AND (b.owner_id=$2 OR m.role='editor')
       ORDER BY t.id FOR SHARE OF t`, [p.orgId,p.userId,sourceBoardId]);
     return result.rows.map(row => row.id);
   }
@@ -121,8 +121,8 @@ export class PgBoardContentCopyStore implements BoardContentCopyPort {
   private async capture(session: TenantSession, p: Principal, sourceBoardId: string): Promise<CapturedBoardContent> {
     const locked = await session.query<{owner_id:string;role:string|null}>(`SELECT b.owner_id,CASE WHEN b.owner_id=$2 THEN 'owner' ELSE m.role END AS role
       FROM whiteboards b LEFT JOIN whiteboard_members m ON m.org_id=b.org_id AND m.board_id=b.id AND m.user_id=$2
-      WHERE b.org_id=$1 AND b.id=$3 AND (b.owner_id=$2 OR m.user_id IS NOT NULL) FOR SHARE OF b`, [p.orgId,p.userId,sourceBoardId]);
-    if (!locked.rows[0]?.role) throw new WhiteboardResourceError('NOT_FOUND');
+      WHERE b.org_id=$1 AND b.id=$3 AND (b.owner_id=$2 OR m.role='editor') FOR SHARE OF b`, [p.orgId,p.userId,sourceBoardId]);
+    if (!['owner','editor'].includes(locked.rows[0]?.role ?? '')) throw new WhiteboardResourceError('NOT_FOUND');
     await session.query(`INSERT INTO whiteboard_documents(org_id,board_id) VALUES($1,$2) ON CONFLICT(org_id,board_id) DO NOTHING`, [p.orgId,sourceBoardId]);
     const content = await session.query<Pick<SourceRow,'epoch'|'seq'|'snapshot'>>(`SELECT epoch,seq,snapshot FROM whiteboard_documents
       WHERE org_id=$1 AND board_id=$2 FOR SHARE`, [p.orgId,sourceBoardId]);

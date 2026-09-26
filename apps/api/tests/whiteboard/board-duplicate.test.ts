@@ -21,7 +21,7 @@ function sourceSnapshot(extensionData?: Record<string, unknown>): Uint8Array {
   const result = Y.encodeStateAsUpdate(doc); doc.destroy(); return result;
 }
 const targetBoard = (id = randomUUID()) => ({
-  id, name: 'Copy', ownerId: principal.userId, role: 'owner' as const, archived: false, tagIds: [], tagsRevision: 0,
+  id, name: 'Copy', ownerId: principal.userId, role: 'owner' as const, archived: false, lifecycleRevision: 0, tagIds: [], tagsRevision: 0,
   createdAt: new Date(0).toISOString(), updatedAt: new Date(0).toISOString(),
 });
 
@@ -67,13 +67,18 @@ type State = {
   lockedTagIds: string[];
   currentTagIds: string[];
 };
-function database(snapshot: Uint8Array): { db: DatabasePort; state: State } {
+function database(snapshot: Uint8Array, sourceRole: 'owner'|'editor'|'viewer'|Array<'owner'|'editor'|'viewer'> = 'owner'): { db: DatabasePort; state: State } {
   const state: State = {queries:[],lockedTagIds:[],currentTagIds:[]};
+  const sourceRoles = Array.isArray(sourceRole) ? sourceRole : [sourceRole];
+  let sourceAccess = 0;
   const session: TenantSession = { async query<R>(sql: string, params: readonly unknown[] = []) {
     state.queries.push({sql,params});
     if (sql.startsWith('INSERT INTO whiteboard_duplicate_requests')) return {rows:(state.job ? [] : [{job_id:String(params[0])}]) as R[]};
     if (sql.includes('FROM whiteboard_duplicate_requests') && sql.includes('FOR UPDATE')) return {rows:(state.job ? [state.job] : []) as R[]};
-    if (sql.startsWith('SELECT b.owner_id')) return {rows:[{owner_id:principal.userId,role:'owner'}] as R[]};
+    if (sql.startsWith('SELECT b.owner_id')) {
+      const role = sourceRoles[Math.min(sourceAccess++,sourceRoles.length - 1)]!;
+      return {rows:[{owner_id:role === 'owner' ? principal.userId : 'board-owner',role}] as R[]};
+    }
     if (sql.startsWith('SELECT t.id')) return {rows:state.lockedTagIds.map(id => ({id})) as R[]};
     if (sql.startsWith('SELECT bt.tag_id')) return {rows:state.currentTagIds.map(tag_id => ({tag_id})) as R[]};
     if (sql.startsWith('SELECT epoch,seq,snapshot')) return {rows:[{epoch:4,seq:'12',snapshot:Buffer.from(snapshot)}] as R[]};
@@ -84,7 +89,7 @@ function database(snapshot: Uint8Array): { db: DatabasePort; state: State } {
       return {rows:[] as R[]};
     }
     if (sql.startsWith('SELECT b.id,b.name')) return {rows:[{
-      id:state.targetId,name:'Copy',owner_id:principal.userId,role:'owner',archived:false,tags_revision:0,tag_ids:[],created_at:new Date(0),updated_at:new Date(0),
+      id:state.targetId,name:'Copy',owner_id:principal.userId,role:'owner',archived:false,lifecycle_revision:0,tags_revision:0,tag_ids:[],created_at:new Date(0),updated_at:new Date(0),
     }] as R[]};
     return {rows:[] as R[]};
   } };
@@ -92,6 +97,26 @@ function database(snapshot: Uint8Array): { db: DatabasePort; state: State } {
 }
 
 describe('PgBoardContentCopyStore legacy adapter', () => {
+  it('rejects a viewer before locking content or creating a target', async () => {
+    const fixture = database(sourceSnapshot(),'viewer'), store = new PgBoardContentCopyStore(fixture.db);
+    await expect(store.duplicate(principal,sourceBoardId,input(),() => {
+      throw new Error('viewer must not prepare content');
+    })).rejects.toMatchObject({code:'NOT_FOUND'});
+    expect(fixture.state.queries.some(item => item.sql.startsWith('SELECT t.id'))).toBe(false);
+    expect(fixture.state.queries.some(item => item.sql.startsWith('SELECT epoch,seq,snapshot'))).toBe(false);
+    expect(fixture.state.queries.some(item => item.sql.startsWith('INSERT INTO whiteboards'))).toBe(false);
+  });
+
+  it('rechecks write authority under the source Board lock', async () => {
+    const fixture = database(sourceSnapshot(),['editor','viewer']), store = new PgBoardContentCopyStore(fixture.db);
+    await expect(store.duplicate(principal,sourceBoardId,input(),() => {
+      throw new Error('revoked editor must not prepare content');
+    })).rejects.toMatchObject({code:'NOT_FOUND'});
+    expect(fixture.state.queries.some(item => item.sql.startsWith('SELECT t.id'))).toBe(true);
+    expect(fixture.state.queries.some(item => item.sql.startsWith('SELECT epoch,seq,snapshot'))).toBe(false);
+    expect(fixture.state.queries.some(item => item.sql.startsWith('INSERT INTO whiteboards'))).toBe(false);
+  });
+
   it('captures an explicit source version and publishes a fresh epoch=1 seq=0 document atomically', async () => {
     const source = sourceSnapshot(), fixture = database(source), request = input();
     const store = new PgBoardContentCopyStore(fixture.db);
@@ -103,6 +128,7 @@ describe('PgBoardContentCopyStore legacy adapter', () => {
     const targetWrite = fixture.state.queries.find(item => item.sql.startsWith('INSERT INTO whiteboard_documents') && item.sql.includes('epoch,seq,snapshot'));
     expect(targetWrite?.sql).toContain('VALUES($1,$2,1,0,$3)');
     expect(targetWrite?.params[1]).toBe(fixture.state.targetId);
+    expect(result.board.lifecycleRevision).toBe(0);
     expect(fixture.state.queries.some(item => item.sql.includes('INSERT INTO whiteboard_updates'))).toBe(false);
     expect(fixture.state.queries.find(item => item.sql.startsWith('INSERT INTO whiteboard_duplicate_requests'))?.sql).toContain('ON CONFLICT(org_id,actor_id,request_id) DO NOTHING');
     const tagLock = fixture.state.queries.findIndex(item => item.sql.startsWith('SELECT t.id'));

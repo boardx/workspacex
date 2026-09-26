@@ -19,7 +19,7 @@ function sourceDocument(): Y.Doc {
   const doc = createWhiteboardDocument();
   executeCommands(doc, [
     { type: 'create', object: object('frame', 'frame') },
-    { type: 'create', object: { ...object('child'), parentId: 'frame' } },
+    { type: 'create', object: { ...object('child'), parentId: 'frame', restoredFrom: 'deleted' } },
     { type: 'create', object: object('peer') },
     { type: 'create', object: object('edge', 'connector') },
     { type: 'create', object: object('deleted') },
@@ -43,6 +43,16 @@ describe('duplicateWhiteboardSnapshot', () => {
     ]);
     expect(result).toMatchObject({ objectCount: 4, connectorCount: 1, assetCount: 0 });
     expect(readObjects(target).some(item => item.id === 'copy_deleted')).toBe(false);
+    const sourceIds = new Set(['frame','child','peer','edge','deleted']);
+    for (const item of readObjects(target)) {
+      expect(sourceIds.has(item.id)).toBe(false);
+      expect(item.restoredFrom).toBeUndefined();
+      if (item.parentId) expect(sourceIds.has(item.parentId)).toBe(false);
+      if (item.connector) {
+        expect(sourceIds.has(item.connector.from)).toBe(false);
+        expect(sourceIds.has(item.connector.to)).toBe(false);
+      }
+    }
     validateDocument(target);
     source.destroy(); target.destroy();
   });
