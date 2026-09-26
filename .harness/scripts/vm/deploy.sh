@@ -432,8 +432,12 @@ step "4d3. 清除已下线的投后 agent 与内置 skill（#4012，2026-09-24 �
 # 投后管理报告（team4）与投后财务评级（team2）已下线，代码已删；库里当初种下的 agent 行、
 # 内置 skill 及其版本仍在——删代码不删数据。这一步幂等：没有命中时报告 0 行并退出 0。
 # 刻意**不带** --purge-threads：用户用它们聊过的线程与消息是用户自己的数据，只摘入编行。
+# 失败只告警不中断部署（2026-09-26 人类决定，方案 2）：清除是一次性的数据收尾，不是可用性
+# 前提。实测它撞上 append-only 的运行日志与不可变的版本触发器，整个事务回滚、一行不删，
+# 却让每一次部署都中断。真正的删除改由一次性迁移完成，这一步在那之前失败只留日志。
 sudo -u "$RUN_AS" env $(grep -v '^#' "$ENV_FILE" | grep -v '^$' | xargs) \
-  pnpm --filter api exec tsx scripts/purge-postinvest-agents.ts --apply
+  pnpm --filter api exec tsx scripts/purge-postinvest-agents.ts --apply \
+  || echo "  ⚠ 投后 agent 清除失败（不阻塞部署），见上方 [purge-postinvest-agents] 日志"
 
 step "4e. 图片生成 agent 补种（第三个系统 agent，2026-08-07 —— 人类指令"要能直接看到图片"）"
 # 同 4c/4d 的理由，第三个 stable_name。落库不依赖 DashScope 是否可达，只在真的发一条
