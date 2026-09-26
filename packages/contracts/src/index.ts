@@ -117,3 +117,5 @@ export * as crmContacts from "./crm-contacts";
 
 /** Board 资源生命周期、成员角色与租户边界契约（#3926）。 */
 export * as whiteboard from "./whiteboard";
+export * as whiteboardDocument from "./whiteboard-document";
+export * as whiteboardSync from "./whiteboard-sync";

@@ -1,6 +1,6 @@
 import { expect, it } from 'vitest';
 import * as Y from 'yjs';
-import { cloneDocument, createWhiteboardDocument, executeCommands, prepareWhiteboardUpdate, readObjects } from '../src';
+import { cloneDocument, createWhiteboardDocument, executeCommands, prepareWhiteboardUpdate, readObjects, validateDocument, WHITEBOARD_LIMITS, WHITEBOARD_UPDATE_LIMITS } from '../src';
 function seeded(): Y.Doc {
   const doc = createWhiteboardDocument();
   executeCommands(doc, [{ type: 'create', object: { id: 'a', kind: 'sticky', schemaVersion: 1, text: '你好', style: {}, geometry: { x: 0, y: 0, width: 100, height: 100, rotation: 0 } } }], {});
@@ -72,4 +72,20 @@ it('rejects a concurrent false tombstone even when it loses to an existing true 
   peer.getMap('deletedObjects').set('a', false);
   expect(() => prepareWhiteboardUpdate(server, Y.encodeStateAsUpdate(peer))).toThrow('TOMBSTONE_CHANGED');
   expect(readObjects(server)).toEqual([]);
+});
+it('validates and reloads the public 5000-object minimum board within the document budget', () => {
+  const doc = createWhiteboardDocument();
+  for (let start = 0; start < WHITEBOARD_LIMITS.objects; start += WHITEBOARD_LIMITS.batch) {
+    executeCommands(doc, Array.from({ length: WHITEBOARD_LIMITS.batch }, (_, offset) => ({
+      type: 'create' as const,
+      object: { id: `minimal-${start + offset}`, kind: 'sticky' as const, schemaVersion: 1 as const, text: '', style: {}, parentId: null, orderKey: '', geometry: { x: 0, y: 0, width: 1, height: 1, rotation: 0 } },
+    })), null);
+  }
+  validateDocument(doc);
+  const snapshot = Y.encodeStateAsUpdate(doc), reloaded = createWhiteboardDocument();
+  expect(snapshot.byteLength).toBeLessThanOrEqual(WHITEBOARD_UPDATE_LIMITS.documentBytes);
+  expect(WHITEBOARD_UPDATE_LIMITS.documentBytes).toBeGreaterThanOrEqual(snapshot.byteLength * 2);
+  Y.applyUpdate(reloaded, snapshot); validateDocument(reloaded);
+  expect(readObjects(reloaded)).toHaveLength(WHITEBOARD_LIMITS.objects);
+  doc.destroy(); reloaded.destroy();
 });
