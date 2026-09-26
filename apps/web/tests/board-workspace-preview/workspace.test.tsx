@@ -8,7 +8,7 @@ it('requires a name, creates and renames a board, and cancels destructive deleti
  fireEvent.click(screen.getByTestId('workspace-create')); fireEvent.click(screen.getByTestId('workspace-confirm'));
  expect(screen.getByTestId('err-form')).toBeTruthy();
  fireEvent.change(screen.getByTestId('workspace-name'), { target: { value: '新想法' } }); fireEvent.click(screen.getByTestId('workspace-confirm'));
- expect(screen.getByRole('button', { name: '打开 新想法' })).toBeTruthy();
+ expect(screen.getByTestId('workspace-editor')).toBeTruthy(); fireEvent.click(screen.getByTestId('workspace-back')); expect(screen.getByRole('button', { name: '打开 新想法' })).toBeTruthy();
  fireEvent.click(screen.getByTestId('workspace-rename-one')); fireEvent.change(screen.getByTestId('workspace-name'), { target: { value: '更新后的名称' } }); fireEvent.click(screen.getByTestId('workspace-confirm'));
  fireEvent.click(screen.getByTestId('workspace-delete-one')); fireEvent.click(screen.getByTestId('workspace-cancel'));
  expect(screen.getByRole('button', { name: '打开 更新后的名称' })).toBeTruthy();

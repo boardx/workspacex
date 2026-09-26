@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import type { Tool } from './canvas';
+import { ToolArt } from './tool-art';
 const Surface = dynamic(() => import('./canvas').then(m => m.WorkspaceCanvas), { ssr: false });
 const colors = ['#fff1a8', '#f8c9dc', '#d8e8ff', '#d4edd8', '#292929'] as const;
 const tools = [{ id: 'select', label: '选择', icon: MousePointer2 }, { id: 'sticky', label: '便利贴', icon: StickyNote }, { id: 'shape', label: '图形', icon: Shapes }, { id: 'draw', label: '画笔', icon: Pencil }, { id: 'connector', label: '连线', icon: MoveUpRight }] as const;
@@ -18,11 +19,11 @@ export function BoardWorkspacePreview() {
   useEffect(() => { const s = new URLSearchParams(window.location.search).get('state') || 'default'; setState(s); if (s === 'empty') setBoards([]); if (s === 'readonly' || s === 'editor') setActive(initial[0] ?? null); if (s === 'validation') { setModal('create'); setError('请输入画板名称'); } if (s === 'success') setNotice('画板已创建（演示）'); }, []);
   const readonly = state === 'readonly';
   const open = (action: 'create' | 'rename' | 'delete', board?: Board) => { setTarget(board || null); setName(board?.name || ''); setError(''); setModal(action); };
-  const save = () => { if (modal !== 'delete' && !name.trim()) { setError('请输入画板名称'); return; } if (modal === 'create') setBoards(b => [{ id: crypto.randomUUID(), name: name.trim(), detail: '刚刚更新' }, ...b]); if (modal === 'rename') setBoards(b => b.map(item => item.id === target?.id ? { ...item, name: name.trim() } : item)); if (modal === 'delete') setBoards(b => b.filter(item => item.id !== target?.id)); setNotice(modal === 'delete' ? '已从演示列表删除' : '画板已更新（演示）'); setModal(null); };
+  const save = () => { if (modal !== 'delete' && !name.trim()) { setError('请输入画板名称'); return; } if (modal === 'create') { const created = { id: crypto.randomUUID(), name: name.trim(), detail: '刚刚更新' }; setBoards(b => [created, ...b]); setActive(created); } if (modal === 'rename') setBoards(b => b.map(item => item.id === target?.id ? { ...item, name: name.trim() } : item)); if (modal === 'delete') setBoards(b => b.filter(item => item.id !== target?.id)); setNotice(modal === 'delete' ? '已从演示列表删除' : '画板已更新（演示）'); setModal(null); };
   return <main className="min-h-screen bg-background text-foreground" data-testid="board-workspace-preview">
-    <style>{`.board-dock-tool{transition:transform 180ms ease,background 180ms ease}.board-dock-tool:hover{transform:translateY(-4px)}.board-dock-tool[aria-pressed=true]{transform:translateY(-6px)}@media(prefers-reduced-motion:reduce){.board-dock-tool{transition:none!important;transform:none!important}}`}</style>
+    <style>{`.board-dock-tool{transition:transform 180ms ease,background 180ms ease}.board-dock-tool:hover{transform:translateY(-4px)}.board-dock-tool[aria-pressed=true]{transform:translateY(-6px);box-shadow:0 4px 0 hsl(var(--accent-foreground) / .2)}@media(prefers-reduced-motion:reduce){.board-dock-tool{transition:none!important;transform:none!important}}`}</style>
     {active ? <section className="fixed inset-0 bg-background" data-testid="workspace-editor">
-      <Surface options={{ tool, color, shape, width, readonly }} />
+      <Surface key={active.id} seeded={initial.some(board => board.id === active.id)} options={{ tool, color, shape, width, readonly }} />
       <header className="absolute left-3 right-3 top-3 flex items-center justify-between gap-2 rounded-xl border bg-background/95 p-2 shadow-sm">
         <div className="flex min-w-0 items-center gap-2"><Button variant="ghost" className="h-12 w-12 shrink-0" aria-label="返回画板浏览" data-testid="workspace-back" onClick={() => setActive(null)}><ArrowLeft /></Button><div className="min-w-0"><h1 className="truncate font-semibold">{active.name}</h1><p className="text-xs text-muted-foreground">{readonly ? '只读预览' : '交互预览 · 刷新后重置'}</p></div></div><span className="hidden pr-3 text-sm text-muted-foreground sm:block">一起把想法画出来</span>
       </header>
@@ -34,7 +35,7 @@ export function BoardWorkspacePreview() {
           {tool === 'connector' && <Button data-testid="workspace-connector-style" className="h-12" variant="outline" onClick={() => setShape(shape === 'dashed' ? 'straight' : 'dashed')}>{shape === 'dashed' ? '虚线' : '实线'}</Button>}
         </div>}
         <div className="flex items-end justify-center gap-1 rounded-2xl border bg-background px-2 py-3 shadow-xl" role="toolbar" aria-label="白板工具">
-          {tools.map(({ id, label, icon: Icon }) => <Button key={id} disabled={readonly && id !== 'select'} aria-pressed={tool === id} aria-label={label} data-testid={`workspace-tool-${id}`} variant={tool === id ? 'secondary' : 'ghost'} className="board-dock-tool flex h-16 min-w-12 flex-col gap-1 rounded-xl px-3 sm:min-w-16" onClick={() => { setTool(id); if (id === 'draw' || id === 'connector') setColor(colors[4]); }}><Icon className="h-7 w-7" /><span className="text-xs">{label}</span></Button>)}
+          {tools.map(({ id, label }) => <Button key={id} disabled={readonly && id !== 'select'} aria-pressed={tool === id} aria-label={label} data-testid={`workspace-tool-${id}`} variant={tool === id ? 'secondary' : 'ghost'} className="board-dock-tool flex h-16 min-w-12 flex-col gap-1 rounded-xl px-3 sm:min-w-16" onClick={() => { setTool(id); if (id === 'draw' || id === 'connector') setColor(colors[4]); }}><ToolArt tool={id} /><span className="text-xs">{label}</span></Button>)}
         </div><p className="mt-2 text-center text-xs text-muted-foreground">{readonly ? '只读模式，无法编辑' : tool === 'connector' ? '在画布上拖动，画出连线' : tool === 'draw' ? '在画布上拖动画笔' : tool === 'select' ? '拖动选择 · 双击文字编辑' : '轻触画布，放下一个新想法'}</p>
       </div>
     </section> : <div className="mx-auto max-w-6xl px-5 py-12 sm:px-10">
