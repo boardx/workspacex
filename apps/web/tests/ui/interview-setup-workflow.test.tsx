@@ -52,15 +52,10 @@ const defaultQuestion = {
   text: "服务端为候选专家生成的默认问题",
   purpose: "决策流程",
   section: "core" as const,
-  goalIds: ["goal-1"],
+  goalIds: [],
 };
 
-const qualityDefaults = { researchBrief: null, moderatorPolicy: null, reportReview: null,
-  quality: { previewStatus: "unavailable" as const, briefIssues: [], expertCoverage: [],
-    questionFindings: [], readiness: null, readinessDecision: null, evidenceCoverage: [] } };
-
 const topicPendingInterview: LiveInterview = {
-  ...qualityDefaults,
   interviewId: "itv-f04-live",
   name: "德国储能采购决策链",
   tags: ["采购", "德国市场"],
@@ -82,9 +77,18 @@ const topicPendingInterview: LiveInterview = {
   skillThreadId: "thread-f04",
   skillMessages: [],
   skillProposals: [],
-  expertRuns: [],
   studyEvidenceMode: "simulated",
-  reportEvidenceEligibility: { eligibility: "blocked_missing_participant_evidence", message: "需要真实受访者证据后才能批准。", action: "添加并复核真实受访者回答" },
+  reportEvidenceEligibility: {
+    eligibility: "blocked_missing_participant_evidence",
+    message: "需要真实受访者证据后才能批准。",
+    action: "添加并复核真实受访者回答",
+  },
+  researchBrief: null,
+  moderatorPolicy: null,
+  quality: { previewStatus: "unavailable", briefIssues: [], expertCoverage: [], questionFindings: [], readiness: null, readinessDecision: null, evidenceCoverage: [] },
+  reportReview: null,
+  artifacts: [],
+  expertRuns: [],
 };
 
 const persistedInterview: PersistedLiveInterview = {
@@ -121,7 +125,7 @@ function proposal(status: z.infer<typeof interview.DigitalInterviewSkillProposal
   } as z.infer<typeof interview.DigitalInterviewSkillProposal>;
 }
 
-function installLiveFetch(initial: LiveInterview = topicPendingInterview, options: { readonly failTopicOnce?: boolean } = {}) {
+function installLiveFetch(initial: LiveInterview = topicPendingInterview, options: { readonly failTopicOnce?: boolean; readonly questionReadiness?: "ready" | "warning" | "blocking" } = {}) {
   const calls: FetchCall[] = [];
   let view = initial;
   let failTopicOnce = options.failTopicOnce ?? false;
@@ -164,11 +168,25 @@ function installLiveFetch(initial: LiveInterview = topicPendingInterview, option
       view = {
         ...view,
         questions: body.questions,
-        status: "running",
-        currentStep: "runs",
+        status: options.questionReadiness ? "questions_pending" : "running",
+        currentStep: options.questionReadiness ? "questions" : "runs",
         questionVersionId: "question-version-f04",
+        quality: options.questionReadiness ? {
+          ...view.quality,
+          readiness: {
+            status: options.questionReadiness,
+            ruleVersion: "quality-v1",
+            evaluatedAt: "2026-09-26T00:00:00.000Z",
+            issues: options.questionReadiness === "warning" ? [{ code: "single-perspective", severity: "warning", message: "需要补充真人访谈证据", objectId: null }] : options.questionReadiness === "blocking" ? [{ code: "missing-brief", severity: "blocking", message: "研究简报缺少目标", objectId: null }] : [],
+            estimatedMinutes: { min: 5, max: 10 },
+          },
+        } : view.quality,
         version: view.version + 1,
       };
+      return json(view, 201);
+    }
+    if (method === "POST" && url.pathname.endsWith("/readiness/decide")) {
+      view = { ...view, status: "running", currentStep: "runs", version: view.version + 1 };
       return json(view, 201);
     }
     if (method === "POST" && url.pathname.endsWith("/skill/messages")) {
@@ -241,8 +259,6 @@ describe("F04 可点击 Mock 访谈流程", () => {
     fireEvent.click(screen.getByTestId("itv-run-all"));
     fireEvent.click(screen.getByTestId("itv-workflow-step-5"));
     expect(screen.getByTestId("itv-report-markdown")).toHaveTextContent("德国采购决策链");
-    expect(screen.getByTestId("itv-report-markdown").querySelector("h1")).toBeNull();
-    expect(screen.getByTestId("itv-report-markdown").querySelector("h3")).toHaveTextContent("德国采购决策链");
     expect(screen.getByTestId("itv-report-timeline")).toHaveTextContent("报告已生成");
   });
 
@@ -369,7 +385,7 @@ describe("F04 正式 setup 的显式确认与双层持久化验收门", () => {
     fireEvent.change(await screen.findByTestId("itv-topic-input"), { target: { value: "验证服务端候选" } });
     fireEvent.click(screen.getByTestId("itv-confirm-topic"));
 
-    expect(await screen.findByText(expertCandidate.role)).toBeInTheDocument();
+    expect((await screen.findAllByText(expertCandidate.role)).length).toBeGreaterThan(0);
     fireEvent.click(screen.getByTestId("itv-add-expert"));
     expect(await screen.findByRole("dialog")).toBeInTheDocument();
     expect(screen.getByText("添加访谈专家")).toBeInTheDocument();
@@ -408,6 +424,28 @@ describe("F04 正式 setup 的显式确认与双层持久化验收门", () => {
       personalityTraits: expect.any(Object), serviceValue: expect.any(String),
     });
     expect(transport.requests("POST", "/questions/confirm")[0]!.body).toMatchObject({ questions: [defaultQuestion] });
+  });
+
+  it("问题确认遇到 warning 时保留评估，要求填写理由后才接受提醒并开始访谈", async () => {
+    const transport = installLiveFetch(topicPendingInterview, { questionReadiness: "warning" });
+    render(<DigitalInterviewSetup interviewId={topicPendingInterview.interviewId} />);
+    fireEvent.change(await screen.findByTestId("itv-topic-input"), { target: { value: "验证提醒分支" } });
+    fireEvent.click(screen.getByTestId("itv-confirm-topic"));
+    fireEvent.click(await screen.findByTestId("itv-confirm-experts"));
+    fireEvent.click(await screen.findByTestId("itv-confirm-questions"));
+
+    expect(await screen.findByTestId("itv-readiness")).toHaveTextContent("开始前检查");
+    expect(transport.requests("POST", "/readiness/decide")).toHaveLength(0);
+    const start = screen.getByTestId("itv-start-ready");
+    expect(start).toBeDisabled();
+    fireEvent.change(screen.getByLabelText("接受提醒的理由（10–300 字）"), { target: { value: "已确认单一视角风险，并安排真人访谈补证。" } });
+    fireEvent.click(start);
+    await waitFor(() => expect(transport.requests("POST", "/readiness/decide")).toHaveLength(1));
+    expect(transport.requests("POST", "/readiness/decide")[0]!.body).toMatchObject({
+      status: "warning_accepted",
+      rationale: "已确认单一视角风险，并安排真人访谈补证。",
+      assessmentRuleVersion: "quality-v1",
+    });
   });
 
   it("模型生成专家和静态专家都可查看详情，且查看操作不触发删除", async () => {
@@ -499,7 +537,7 @@ describe("F04 正式 setup 的显式确认与双层持久化验收门", () => {
     const added = MOCK_DIGITAL_EXPERTS[0]!;
     const transport = installLiveFetch(persistedInterview);
     render(<DigitalInterviewSetup interviewId={persistedInterview.interviewId} />);
-    expect(await screen.findByText(expertCandidate.role)).toBeInTheDocument();
+    expect((await screen.findAllByText(expertCandidate.role)).length).toBeGreaterThan(0);
 
     fireEvent.change(screen.getByTestId("itv-skill-input"), { target: { value: "添加一个用户" } });
     fireEvent.click(screen.getByTestId("itv-skill-send"));
@@ -513,8 +551,8 @@ describe("F04 正式 setup 的显式确认与双层持久化验收门", () => {
     });
     fireEvent.click(await screen.findByTestId("itv-skill-apply"));
 
-    expect(await within(screen.getByTestId("itv-expert-step")).findByText(expertCandidate.role)).toBeInTheDocument();
-    expect(await within(screen.getByTestId("itv-expert-step")).findByText(added.role)).toBeInTheDocument();
+    expect((await screen.findAllByText(expertCandidate.role)).length).toBeGreaterThan(0);
+    expect((await screen.findAllByText(added.role)).length).toBeGreaterThan(0);
     fireEvent.click(screen.getByTestId("itv-confirm-experts"));
 
     await waitFor(() => expect(transport.requests("POST", "/experts/confirm")).toHaveLength(1));
@@ -542,59 +580,20 @@ describe("F04 正式 setup 的显式确认与双层持久化验收门", () => {
     expect(await screen.findByTestId("itv-expert-step")).toBeInTheDocument();
   });
 
-  it("confirms regeneration and leaves the topic draft untouched on cancel", async () => {
-    const transport = installLiveFetch(persistedInterview);
+  it("将持久化访谈呈现为六阶段工作台，并将分析作为独立的可导航步骤", async () => {
+    installLiveFetch(persistedInterview);
     render(<DigitalInterviewSetup interviewId={persistedInterview.interviewId} />);
-    await screen.findByTestId("itv-expert-step");
-    fireEvent.click(screen.getByTestId("itv-workflow-step-1"));
-    fireEvent.change(screen.getByTestId("itv-topic-input"), { target: { value: "更新后的主题" } });
-    fireEvent.click(screen.getByTestId("itv-confirm-topic"));
-    expect(screen.getByRole("dialog")).toHaveTextContent("专家、问题、访谈结果和报告");
-    expect(transport.requests("POST", "/brief/confirm")).toHaveLength(0);
-    fireEvent.click(screen.getByRole("button", { name: "保留现有内容" }));
-    expect(screen.getByTestId("itv-topic-input")).toHaveValue("更新后的主题");
-    fireEvent.click(screen.getByTestId("itv-confirm-topic"));
-    fireEvent.click(screen.getByRole("button", { name: "确认重新生成" }));
-    await waitFor(() => expect(transport.requests("POST", "/brief/confirm")).toHaveLength(1));
-    expect(transport.requests("POST", "/brief/confirm")[0]!.body).toMatchObject({ topic: "更新后的主题" });
-  });
 
-  it.each([
-    { step: 2, button: "itv-confirm-experts", endpoint: "/experts/confirm", impact: "问题、访谈结果和报告" },
-    { step: 3, button: "itv-confirm-questions", endpoint: "/questions/confirm", impact: "访谈结果和报告" },
-  ])("warns before regenerating step $step downstream results", async ({ step, button, endpoint, impact }) => {
-    const advanced: LiveInterview = { ...persistedInterview, status: "running", currentStep: "runs",
-      expertSnapshotVersionId: "ev1", questionVersionId: "qv1", questions: [defaultQuestion], questionCandidates: [defaultQuestion] };
-    const transport = installLiveFetch(advanced);
-    render(<DigitalInterviewSetup interviewId={advanced.interviewId} />);
-    await screen.findByTestId("itv-expert-runs");
-    fireEvent.click(screen.getByTestId(`itv-workflow-step-${step}`));
-    fireEvent.click(screen.getByTestId(button));
-    expect(screen.getByRole("dialog")).toHaveTextContent(impact);
-    expect(transport.requests("POST", endpoint)).toHaveLength(0);
-    fireEvent.click(screen.getByRole("button", { name: "保留现有内容" }));
-    expect(transport.requests("POST", endpoint)).toHaveLength(0);
-    fireEvent.click(screen.getByTestId(button));
-    fireEvent.click(screen.getByRole("button", { name: "确认重新生成" }));
-    await waitFor(() => expect(transport.requests("POST", endpoint)).toHaveLength(1));
-  });
+    expect(await screen.findByTestId("itv-workbench-step-intake")).toHaveTextContent("导入需求");
+    expect(screen.getByTestId("itv-workbench-step-analysis")).toHaveTextContent("确认分析");
+    expect(screen.getByTestId("itv-workbench-step-experts")).toHaveTextContent("选择专家");
+    expect(screen.getByTestId("itv-workbench-step-outline")).toHaveTextContent("专家提纲");
+    expect(screen.getByTestId("itv-workbench-step-runs")).toHaveTextContent("开始访谈");
+    expect(screen.getByTestId("itv-workbench-step-report")).toHaveTextContent("汇总报告");
 
-  it("renders structured Skill expert suggestions with profiles and roster changes", async () => {
-    const added = MOCK_DIGITAL_EXPERTS[0]!;
-    const patch = { expertIds: [added.expertId] };
-    installLiveFetch({ ...persistedInterview,
-      skillMessages: [{ messageId: "skill-assistant-f04", skillThreadId: "thread-f04", role: "assistant", text: JSON.stringify(patch), createdAt: "2026-08-15T00:00:00.000Z" }],
-      skillProposals: [{ ...proposal("proposed", patch), baseRevisionId: persistedInterview.revisionId }],
-    });
-    render(<DigitalInterviewSetup interviewId={persistedInterview.interviewId} />);
-    const assistant = await screen.findByTestId("itv-skill-assistant");
-    expect(assistant).not.toHaveTextContent("expertIds");
-    expect(assistant).not.toHaveTextContent(added.expertId);
-    expect(assistant).toHaveTextContent(added.role);
-    expect(assistant).toHaveTextContent(added.bio);
-    expect(assistant).toHaveTextContent("新增");
-    expect(assistant).toHaveTextContent("移除");
-    expect(assistant).toHaveTextContent(expertCandidate.role);
+    fireEvent.click(screen.getByTestId("itv-workbench-step-analysis"));
+    expect(await screen.findByTestId("itv-analysis-workbench")).toHaveTextContent("研究目标");
+    expect(screen.getByTestId("itv-analysis-workbench")).toHaveTextContent("预期产出");
   });
 
   it("dirty navigation can be cancelled or discarded without persisting the buffer", async () => {

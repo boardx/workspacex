@@ -1,0 +1,17 @@
+/**
+ * Round-5 (#4278) post-seed, run right after `seed-kg-experience-eval.ts`:
+ *   - `seedOrg` (since #4239) writes an explicit `enabled=false` org extraction row for test orgs; re-enable it
+ *     with the test fixture `enableExtraction` (upsert enabled=true), instead of deleting the row as round 3 did;
+ *   - make the owner a member of the seeded project so they can open a project thread in the UI.
+ */
+import { addProjectMember } from "../tests/support/db";
+import { enableExtraction } from "../tests/knowledge-graph/kg-extraction-fixtures";
+
+const orgId = process.env.KG_EVAL_ORG_ID!;
+const projectId = process.env.KG_EVAL_PROJECT_ID!;
+const owner = process.env.KG_EVAL_OWNER_ID!;
+if (!orgId || !projectId || !owner) throw new Error("KG_EVAL_ORG_ID / KG_EVAL_PROJECT_ID / KG_EVAL_OWNER_ID required");
+await enableExtraction(orgId);
+await addProjectMember(orgId, projectId, owner, "facilitator", null);
+process.stdout.write(`[r05-post-seed] extraction re-enabled for ${orgId}; ${owner} joined ${projectId}\n`);
+process.exit(0);

@@ -2,7 +2,7 @@
 
 A renderer- and host-independent Yjs content kernel. The contract source is
 `@repo/contracts/whiteboard-document`; this package does not provide authentication,
-network transport, persistence, idempotency storage or trusted author attribution.
+network transport, persistence, durable idempotency storage or trusted author attribution.
 
 `executeCommands(doc, batch, origin)` validates the entire bounded batch on an
 isolated clone before mutating the live document in one transaction. Commands are
@@ -15,13 +15,18 @@ Text commands are character splices; a DOM/IME binding must wait for composition
 commit and submit the changed range, not replace the whole string each keystroke.
 Geometry is an atomic value. Style properties merge independently.
 
-`WhiteboardUndo` tracks only its own origin. Creation undo returns
-`creation-requires-explicit-delete` without changing anything, even when no peer
-edit is currently visible: a collaborator's edit may still be in flight. The UI
-must explain this and offer a separate confirmed delete command. Deletion uses
-monotonic tombstones and cannot be undone by removing them. Restore means creating
-a new ID with `restoredFrom`. This deliberately conservative behavior satisfies
-collaborator preservation without pretending a local observation is a global lock.
+`BoardCommandPort` is the canonical local gesture boundary. It requires a stable
+`(boardId, clientId, gestureId)` envelope, applies an accepted batch in one Yjs
+transaction and reuses the first result for same-payload retries during the Y.Doc
+lifetime. Reusing the tuple with another payload is rejected. Durable replay and
+ACK identity still belong to the collaboration host.
+
+`WhiteboardUndo` groups one accepted local command batch into one history item and
+tracks both objects and tombstones. Create, edit and delete batches can therefore
+be undone and redone atomically, including bulk creation. Before applying history,
+the adapter compares every touched object with the state produced by that item and
+validates the operation against a clone. A later remote change to any touched
+object rejects the undo or redo instead of overwriting collaborator work.
 
 **Security boundary:** `validateDocument` validates semantic content, not arbitrary
 Yjs binary structure/resource usage. Never expose raw `Y.applyUpdate` to anonymous

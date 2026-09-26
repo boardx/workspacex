@@ -212,63 +212,8 @@ export interface RosterMember {
   agents: readonly RosterAgentNode[];
 }
 
-export const MOCK_ROSTER_PROJECT = { slug: "boardx", name: "BoardX" } as const;
-
-export const MOCK_ROSTER: readonly RosterMember[] = [
-  {
-    handle: "usamshen",
-    name: "Usam Shen",
-    role: "owner",
-    trust: "Core",
-    doing: "在处理 2 项待拍板 · 持有 coord-agent",
-    agents: [
-      {
-        id: "@usamshen/coord-main",
-        doing: "派工仲裁中 · 租约 #352",
-        heartbeat: "fresh",
-        subs: [
-          { id: "@usamshen/coord-main.reviewer", doing: "PR #739 初审", heartbeat: "fresh", subs: [] },
-          { id: "@usamshen/coord-main.triage", doing: "issue 分诊队列（空闲）", heartbeat: "aging", subs: [] },
-        ],
-      },
-      { id: "@usamshen/feature-implementer-a", doing: "F21 实现中", heartbeat: "aging", subs: [] },
-      { id: "@usamshen/feature-implementer-b", doing: "⚠ 心跳丢失 42 分钟", heartbeat: "stale", subs: [] },
-    ],
-  },
-  {
-    handle: "lichen",
-    name: "Li Chen",
-    role: "maintainer",
-    trust: "Trusted",
-    doing: "review PR #741 · 模块：collab",
-    agents: [
-      {
-        id: "@lichen/module-collab",
-        doing: "光标广播节流验证中",
-        heartbeat: "fresh",
-        subs: [{ id: "@lichen/module-collab.e2e", doing: "跑 collab e2e 基线", heartbeat: "fresh", subs: [] }],
-      },
-    ],
-  },
-  {
-    handle: "kaiwei",
-    name: "Kai Wei",
-    role: "contributor",
-    trust: "Probation",
-    doing: "onboarding 第 4 步：认领 good-first-issue",
-    agents: [{ id: "@kaiwei/starter", doing: "等待首个派工", heartbeat: "fresh", subs: [] }],
-  },
-] as const;
-
-/** 花名册 👤/🤖 分开计数（UC-03） */
-export function rosterCounts(roster: readonly RosterMember[]): { humans: number; agents: number } {
-  const countAgents = (nodes: readonly RosterAgentNode[]): number =>
-    nodes.reduce((sum, n) => sum + 1 + countAgents(n.subs), 0);
-  return {
-    humans: roster.length,
-    agents: roster.reduce((sum, m) => sum + countAgents(m.agents), 0),
-  };
-}
+// MOCK_ROSTER / rosterCounts 已随 W5 花名册接真删除——真实数据源与计数见 lib/people-roster.ts。
+// 上面两个类型仍被本文件其余 mock（治理台/公开主页/分身）引用，保留。
 
 // ================= 批次 2（P2 招募页 + W6 治理台）=================
 // ⚠️ 同头部声明：p30 UI 先行 mock，feature 实现时替换；不得被真实数据路径 import。

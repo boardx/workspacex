@@ -145,6 +145,14 @@ function sharedRank<T>(sorted: readonly T[], i: number, key: (x: T) => number): 
   return r;
 }
 
+/**
+ * 决定类强制召回认哪些来源（issue #4181 / #4278）：本会话（L0）与本人个人空间（L1）。跨会话（F15，
+ * originThreadId 有值）的不认。所有权不在这里判——候选集已按 F12 的条件只含本人的 L1（见 fuseRecall 注释）。
+ */
+export function forcedDecisionScope(c: RecallClaim): boolean {
+  return c.originThreadId === undefined && (c.scope === "chat_session" || c.scope === "personal");
+}
+
 export function fuseRecall(input: FuseInput): KnowledgeRecall {
   const minLexical = input.minLexical ?? 0.2;
   const seeds = graphSeeds(input.query, input.objects);
@@ -200,24 +208,31 @@ export function fuseRecall(input: FuseInput): KnowledgeRecall {
       || b.score - a.score || a.claim.id.localeCompare(b.claim.id))
     .slice(0, input.limit);
 
-  // Ad-hoc（issue #4181）：本会话内「决定类」结论，不管字面/图路打分有多低，都额外强制带上——
+  // Ad-hoc（issue #4181）：「决定类」结论，不管字面/图路打分有多低，都额外强制带上——
   // 一句「我决定关注 211 高校」这样的约束性决定，只有后续问题恰好带关键词才会被上面的排序选中；
   // 用户说「开始写报告吧」不会命中，等于决定在对话变长后失效，即使它理应一直生效（issue 原始报告）。
   //
-  // 三条边界，都是这一轮特意收窄的范围（人类签核前的默认实现，见 signoff-draft 的新开放问题）：
-  //   1. **只认本会话（不含跨会话 / 长期记忆）**：`scope === "chat_session" && originThreadId === undefined`
-  //      精确对应「这条结论记在当前这个会话里」（cross-thread 的 F15 结论会带 originThreadId，L1 长期记忆的
-  //      结论 scope 是 "personal"）——跨会话是否也要享受这条规则，留给 F15 跨会话召回一起裁决（issue 原文）。
+  // 四条边界（人类签核前的默认实现，见 signoff-draft usecases.md 的开放问题）：
+  //   1. **本会话 + 本人个人空间（L1），不含跨会话**：`originThreadId === undefined` 且 scope 是
+  //      `"chat_session"`（记在当前这个会话里）或 `"personal"`（本人长期记忆，issue #4278：晋升到个人空间的
+  //      决定，在新会话的无关轮次里也要带上）。跨会话的 F15 结论（本人其他个人对话里记下、未晋升的）带
+  //      originThreadId，**不**强制——它们只走正常打分。
+  //      **可见面不扩大**：这个纯函数不做权限判定，只在 `input.claims` 里挑；候选集由
+  //      `PgKnowledgeRecall.candidates()` 决定，`scope === "personal"` 的只可能是 F12 L1 那条查询取出来的——
+  //      `scope_id = 发起人本人`、只在发起人自己的个人线程里取、RLS 也只放本人（I-14）。别人的个人空间
+  //      根本进不了候选集，自然也进不了强制召回（tests/knowledge-graph/decision-recall-personal-space.test.ts）。
   //   2. **只挑活的**：`input.claims` 本身已经是 `candidates()` 查出来的活结论（`revoked_at IS NULL AND
   //      status <> 'superseded'`），撤销 / 被取代的结论从不会出现在这里，不需要在这个纯函数里再判一次。
   //   3. **额外名额，不占用 `KG_RECALL_LIMIT`**：issue 里两种方案都要人确认，这里先按「倾向额外加」实现
   //      （决定类通常很短，见 issue），已经在上面按 `input.limit`（=`KG_RECALL_LIMIT`）截断的 `items` 之外
-  //      再加最多 `DECISION_RECALL_LIMIT`（3）条——已经在 `items` 里的（正常打分就挤进了前 `limit`）不重复
-  //      加一份；超过上限时按结论最早证据时间（`saidAt`，没有就排最后）取最新的几条，同上面「决定类优先」
-  //      的直觉一致：越新的决定越可能仍然有效。
+  //      再加最多 `DECISION_RECALL_LIMIT`（3）条——本会话与个人空间**共用**这 3 条；已经在 `items` 里的
+  //      （正常打分就挤进了前 `limit`）不重复加一份；超过上限时按结论最早证据时间（`saidAt`，没有就排最后）
+  //      取最新的几条，不分来源：越新的决定越可能仍然有效。
+  //   4. **来源照实标**：强制带上的条目保留原 `claim.scope`，个人空间那条在给模型的材料里照样是
+  //      「来自个人空间知识」、在 turn memory（F13）里 scope = "personal"，与打分进来的 L1 条目同一个标签。
   const forcedIds = new Set(items.map((i) => i.claim.id));
   const decisionForced: RecallItem[] = input.claims
-    .filter((c) => !forcedIds.has(c.id) && c.scope === "chat_session" && c.originThreadId === undefined && decisionLike(c.statement))
+    .filter((c) => !forcedIds.has(c.id) && forcedDecisionScope(c) && decisionLike(c.statement))
     .sort((a, b) => (b.saidAt ?? "").localeCompare(a.saidAt ?? "") || a.id.localeCompare(b.id))
     .slice(0, DECISION_RECALL_LIMIT)
     .map((claim) => ({
@@ -226,7 +241,10 @@ export function fuseRecall(input: FuseInput): KnowledgeRecall {
       // 语义上正合适；不复用 fts/graph，这样界面 / 日志能一眼看出这条不是靠打分挤进来的。
       channels: ["claim"] as RecallChannel[],
       retrievalReasons: ["recall"] as FilterAction[],
-      score: Number.POSITIVE_INFINITY,
+      // 不是打分进来的：分数记 0，「强制」由 claim 通道表达。**不能是 Infinity**——它要写进
+      // `kg_turn_recalls.items`（jsonb），JSON 会把 Infinity 变成 null，读接口回 `score: null` 违反契约
+      // `KgRecalledMemory.score: z.number()`，前端解析失败、整轮回答下方（引用 / 确认卡）都不画（issue #4271）。
+      score: 0,
       graphPath: null,
     }));
 

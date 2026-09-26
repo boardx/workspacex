@@ -12,6 +12,27 @@ export const WhiteboardStyle = z.object({
   fill: z.string().max(64).optional(), stroke: z.string().max(64).optional(),
   color: z.string().max(64).optional(), fontSize: z.number().min(8).max(200).optional(),
 }).strict();
+export const WhiteboardExtensionData = z.record(z.unknown()).superRefine((value, ctx) => {
+  try {
+    const encoded = JSON.stringify(value);
+    if (new TextEncoder().encode(encoded).length > WHITEBOARD_LIMITS.extensionBytes) throw new Error();
+    const visit = (item: unknown, depth: number): void => {
+      if (depth > 8) throw new Error();
+      if (item === null || typeof item === 'string' || typeof item === 'boolean') return;
+      if (typeof item === 'number' && Number.isFinite(item)) return;
+      if (Array.isArray(item)) { item.forEach(v => visit(v, depth + 1)); return; }
+      if (typeof item === 'object' && Object.getPrototypeOf(item) === Object.prototype) {
+        for (const [key, val] of Object.entries(item)) {
+          if (['__proto__', 'constructor', 'prototype'].includes(key)) throw new Error();
+          visit(val, depth + 1);
+        }
+        return;
+      }
+      throw new Error();
+    };
+    visit(value, 0);
+  } catch { ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'Extension must be bounded plain JSON' }); }
+});
 export const WhiteboardObject = z.object({
   id: WhiteboardObjectId, schemaVersion: z.literal(1),
   kind: z.enum(['sticky', 'text', 'rectangle', 'ellipse', 'frame', 'group', 'connector', 'image', 'drawing', 'extension']),
@@ -19,37 +40,21 @@ export const WhiteboardObject = z.object({
   parentId: WhiteboardObjectId.nullable().default(null), orderKey: z.string().max(128).default(''),
   connector: z.object({ from: WhiteboardObjectId, to: WhiteboardObjectId }).strict().optional(),
   restoredFrom: WhiteboardObjectId.optional(),
-  extensionData: z.record(z.unknown()).optional().superRefine((value, ctx) => {
-    if (!value) return;
-    try {
-      const encoded = JSON.stringify(value);
-      if (new TextEncoder().encode(encoded).length > WHITEBOARD_LIMITS.extensionBytes) throw new Error();
-      const visit = (item: unknown, depth: number): void => {
-        if (depth > 8) throw new Error();
-        if (item === null || typeof item === 'string' || typeof item === 'boolean') return;
-        if (typeof item === 'number' && Number.isFinite(item)) return;
-        if (Array.isArray(item)) { item.forEach(v => visit(v, depth + 1)); return; }
-        if (typeof item === 'object' && Object.getPrototypeOf(item) === Object.prototype) {
-          for (const [key, val] of Object.entries(item)) {
-            if (['__proto__', 'constructor', 'prototype'].includes(key)) throw new Error();
-            visit(val, depth + 1);
-          }
-          return;
-        }
-        throw new Error();
-      };
-      visit(value, 0);
-    } catch { ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'Extension must be bounded plain JSON' }); }
-  }),
+  extensionData: WhiteboardExtensionData.optional(),
 }).strict().superRefine((object, ctx) => {
   if ((object.kind === 'connector') !== Boolean(object.connector)) ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'Connector endpoints required only for connector objects' });
 });
 export type WhiteboardObject = z.infer<typeof WhiteboardObject>;
+const WhiteboardExtensionValue = z.unknown().superRefine((value, ctx) => {
+  const parsed = WhiteboardExtensionData.safeParse({ value });
+  if (!parsed.success) ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'Extension must be bounded plain JSON' });
+});
 export const WhiteboardCommand = z.discriminatedUnion('type', [
   z.object({ type: z.literal('create'), object: WhiteboardObject }).strict(),
   z.object({ type: z.literal('geometry'), id: WhiteboardObjectId, geometry: WhiteboardGeometry }).strict(),
   z.object({ type: z.literal('text'), id: WhiteboardObjectId, index: z.number().int().nonnegative(), deleteCount: z.number().int().nonnegative(), insert: z.string().max(WHITEBOARD_LIMITS.text) }).strict(),
   z.object({ type: z.literal('style'), id: WhiteboardObjectId, style: WhiteboardStyle }).strict(),
+  z.object({ type: z.literal('extension'), id: WhiteboardObjectId, key: z.string().min(1).max(128).regex(/^[a-zA-Z0-9_-]+$/).refine(key => !['__proto__', 'constructor', 'prototype'].includes(key)), value: WhiteboardExtensionValue }).strict(),
   z.object({ type: z.literal('parent'), id: WhiteboardObjectId, parentId: WhiteboardObjectId.nullable(), orderKey: z.string().max(128) }).strict(),
   z.object({ type: z.literal('delete'), id: WhiteboardObjectId }).strict(),
 ]);

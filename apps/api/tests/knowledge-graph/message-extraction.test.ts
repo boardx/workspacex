@@ -23,7 +23,7 @@ import { PgIdentityRepository } from "../../src/infrastructure/identity/pg-ident
 import { PgHumanAction } from "../../src/infrastructure/knowledge-graph/pg-human-action";
 import { PgKnowledgeRead } from "../../src/infrastructure/knowledge-graph/pg-knowledge-read";
 import { addChatMessage, addChatThread } from "../support/chat-db";
-import { addOrgMember, addProjectMember, ensureDatabase, migrateOnce, resetOrgs, seedOrg } from "../support/db";
+import { addOrgMember, addProjectMember, asOwner, ensureDatabase, migrateOnce, resetOrgs, seedOrg } from "../support/db";
 import { enableExtraction, extractionDeps, loopbackModel } from "./kg-extraction-fixtures";
 
 const ORG = "org-kg-f4180-extraction";
@@ -33,6 +33,9 @@ const OTHER_ORG_ID = toOrgId(OTHER_ORG);
 const MINE = "thr-kg-f4180-mine";
 const SILENT = "thr-kg-f4180-silent";
 const OTHER_THREAD = "thr-kg-f4180-other-thread";
+/** issue #4271：浏览器里本会话刚发出去的用户消息只有视图 id（= 发送时的 clientMessageId）。 */
+const MINE_CLIENT_ID = "0f4271aa-0000-4000-8000-000000000001";
+const PEER_CLIENT_ID = "0f4271aa-0000-4000-8000-000000000002";
 
 const STATEMENT = "客户 A 要求下周一上线";
 const REPLY = JSON.stringify({
@@ -59,6 +62,12 @@ beforeAll(async () => {
   await addChatThread({ orgId: OTHER_ORG, id: OTHER_THREAD, projectId: null, visibilityScope: "private", createdBy: "u-owner" });
 
   await addChatMessage({ orgId: ORG, id: `m-${MINE}`, threadId: MINE, body: `${STATEMENT}。`, authorId: "u-owner" });
+  // 同一会话里另一个人发的、同样被抽出结论的消息：它的 clientMessageId 不许被 u-owner 当别名解析。
+  await addChatMessage({ orgId: ORG, id: `m-${MINE}-peer`, threadId: MINE, body: `${STATEMENT}！`, authorId: "u-peer" });
+  await asOwner((c) => c.query(
+    "UPDATE chat_messages SET client_message_id = (CASE id WHEN $1 THEN $2 ELSE $3 END)::uuid WHERE id = ANY(ARRAY[$1, $4])",
+    [`m-${MINE}`, MINE_CLIENT_ID, PEER_CLIENT_ID, `m-${MINE}-peer`],
+  ));
   // 这条消息没有触发任何抽取产物（回环模型对「无关」不命中任何关键词，回空结果）。
   await addChatMessage({ orgId: ORG, id: `m-${SILENT}`, threadId: SILENT, body: "今天天气不错。", authorId: "u-owner" });
   // 另一个组织里，产出同一句话（同名结论），用来证明本组织读不到别的组织的结论——
@@ -85,6 +94,19 @@ describe("issue #4180: getMessageExtraction", () => {
     const out = await getMessageExtraction(readDeps, { userId: "u-owner", orgId: ORG_ID, threadId: MINE, messageId: `m-${MINE}` });
     expect(out.claims).toHaveLength(1);
     expect(out.claims[0]).toMatchObject({ statement: STATEMENT });
+  });
+
+  it("issue #4271：用请求者自己那条消息的 clientMessageId（浏览器里的视图 id）来问 ⇒ 同样读到那条结论", async () => {
+    const out = await getMessageExtraction(readDeps, { userId: "u-owner", orgId: ORG_ID, threadId: MINE, messageId: MINE_CLIENT_ID });
+    expect(out.claims).toHaveLength(1);
+    expect(out.claims[0]).toMatchObject({ statement: STATEMENT });
+  });
+
+  it("issue #4271：别人那条消息的 clientMessageId 不是我的别名 ⇒ 空数组（按 id 问仍然读得到，证明它真被抽出过）", async () => {
+    const byId = await getMessageExtraction(readDeps, { userId: "u-owner", orgId: ORG_ID, threadId: MINE, messageId: `m-${MINE}-peer` });
+    expect(byId.claims.length).toBeGreaterThan(0);
+    const byPeerClientId = await getMessageExtraction(readDeps, { userId: "u-owner", orgId: ORG_ID, threadId: MINE, messageId: PEER_CLIENT_ID });
+    expect(byPeerClientId.claims).toEqual([]);
   });
 
   it("一条没有被抽出任何东西的消息 ⇒ 空数组，不是错误", async () => {

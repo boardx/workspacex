@@ -351,6 +351,10 @@ export default defineConfig({
         "core-journey-01-registration.spec.ts",
         "core-journey-02-org-management.spec.ts",
         "core-journey-05-voice-skill-multichannel-context.spec.ts",
+        // #3967: real Board HTTP + authenticated WS with three independently logged-in
+        // users. Reuses the seeded admin/lead/consultant identities through the fixture
+        // fallback in the spec; it creates and archives its own private Board.
+        "whiteboard-live.spec.ts",
       ],
       grepInvert: EMPTY_DB_TAG_RE,
     },
@@ -391,6 +395,13 @@ export default defineConfig({
         "skill-agent-import-usecase-audit.spec.ts",
         "core-journey-03-skill-lifecycle-chat.spec.ts",
         "core-journey-04-canvas-template-lifecycle-chat.spec.ts",
+        // BV01 owns its Board lifecycle and can run after the seeded empty-state assertions.
+        "board-fabric-surface.spec.ts",
+        // Board library mutations create their own resources and remove them in a strict hook.
+        // Keep them after the seeded catalog-empty assertions, alongside the Fabric lifecycle.
+        "board-library-management.spec.ts",
+        // Iteration 03 owns continuous Sticky/Text input and batch operation boundaries.
+        "board-thinking-input.spec.ts",
       ],
       grepInvert: EMPTY_DB_TAG_RE,
       dependencies: ["seeded"],

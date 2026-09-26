@@ -68,6 +68,11 @@ function apply(doc: Y.Doc, commands: WhiteboardCommand[]): void {
       const style = item.get('style') as Y.Map<unknown>;
       for (const [key, value] of Object.entries(command.style)) style.set(key, value);
     }
+    if (command.type === 'extension') {
+      const extensionData = structuredClone((item.get('extensionData') as Record<string, unknown> | undefined) ?? {});
+      extensionData[command.key] = structuredClone(command.value);
+      item.set('extensionData', extensionData);
+    }
     if (command.type === 'parent') { item.set('parentId', command.parentId); item.set('orderKey', command.orderKey); }
     if (command.type === 'text') {
       const text = item.get('text') as Y.Text;

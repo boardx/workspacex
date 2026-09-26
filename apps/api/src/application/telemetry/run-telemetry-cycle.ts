@@ -121,7 +121,7 @@ export async function runTelemetryCycle(deps: TelemetryCycleDeps, config: Teleme
       return { kind: "invalid" };
     }
     const body = JSON.stringify(parsed.data);
-    const res = await deps.transport.post(endpoint, body, config.timeoutMs);
+    const res = await deps.transport.post(endpoint, body, config.timeoutMs, row.installSecret);
     // 存的就是发出去的那份字节（解析回对象），不是重新组装的一份。
     await deps.state.recordAttempt({ attemptedAt, outcome: res.ok ? "sent" : "failed", omittedForLackOfData: omitted, report: JSON.parse(body) });
     if (!res.ok) {

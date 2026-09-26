@@ -1,6 +1,14 @@
-import { WhiteboardController } from './interface/controllers/whiteboard.controller';
-import { WHITEBOARD_REPOSITORY } from './application/whiteboard/ports';
+import { WHITEBOARD_COLLABORATION_STORE, WHITEBOARD_UPDATE_VALIDATOR } from './application/whiteboard/collaboration-ports';
+import { PgWhiteboardCollaborationStore } from './infrastructure/whiteboard/pg-collaboration-store';
+import { WorkerWhiteboardUpdateValidator } from './infrastructure/whiteboard/update-validator';
+import { WhiteboardController, WhiteboardTagController } from './interface/controllers/whiteboard.controller';
+import { WHITEBOARD_REPOSITORY, WHITEBOARD_TAG_REPOSITORY } from './application/whiteboard/ports';
+import { DUPLICATE_BOARD_SERVICE } from './application/whiteboard/ports';
+import { BOARD_CONTENT_COPY_PORT, type BoardContentCopyPort } from './application/whiteboard/board-content-copy-port';
+import { DuplicateBoard } from './application/whiteboard/duplicate-board';
 import { PgWhiteboardRepository } from './infrastructure/whiteboard/pg-whiteboard-repository';
+import { PgWhiteboardTagRepository } from './infrastructure/whiteboard/pg-whiteboard-tag-repository';
+import { PgBoardContentCopyStore } from './infrastructure/whiteboard/pg-board-content-copy-store';
 import { SurveyAttachmentRateLimitGuard, SURVEY_ATTACHMENT_RATE_LIMITER, SURVEY_ATTACHMENT_REQUESTS_PER_MINUTE } from "./interface/guards/survey-attachment-rate-limit.guard";
 import { SurveyUploadCapabilityGuard, SurveyAttachmentController } from "./interface/controllers/survey-attachment.controller";
 import { PgSurveyAttachmentRepository } from "./infrastructure/survey/pg-survey-attachment-repository";
@@ -607,6 +615,10 @@ import { PgTelemetryFacts } from "./infrastructure/telemetry/pg-telemetry-facts"
 import { HttpTelemetryTransport } from "./infrastructure/telemetry/http-telemetry-transport";
 import { TelemetryReportWorker } from "./infrastructure/telemetry/telemetry-report-worker";
 import {
+  DEV_PROJECTION_SYNC_CONFIG, DEV_PROJECTION_SYNC_RUNNER, DevProcessProjectionSyncWorker,
+  readDevProjectionSyncConfig, scriptProjectionSyncRunner,
+} from "./infrastructure/retrieval/dev-process-projection-sync-worker";
+import {
   FIRST_VALUE_FACT_STORE, FIRST_VALUE_RECORDER, FirstValueRecorder, type FirstValueFactStore,
 } from "./application/first-value/first-value-recorder";
 import { PgFirstValueFacts } from "./infrastructure/first-value/pg-first-value-facts";
@@ -1087,6 +1099,7 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
     InboxController,
     DesignWorkbenchController,
     WhiteboardController,
+    WhiteboardTagController,
     PublicDesignShareController,
     SystemMailController,
     SystemUptimeController,
@@ -2918,9 +2931,33 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
     },
     // UC-17.8 B4.3：设计项目仓储按组织构造（`forOrg`），同 `FEEDBACK_DRAFT_REPOSITORY` 的理由。
     {
+      provide: WHITEBOARD_UPDATE_VALIDATOR,
+      useFactory: () => new WorkerWhiteboardUpdateValidator(),
+    },
+    {
+      provide: WHITEBOARD_COLLABORATION_STORE,
+      useFactory: (db: DatabasePort) => new PgWhiteboardCollaborationStore(db),
+      inject: [DATABASE_PORT],
+    },
+    {
       provide: WHITEBOARD_REPOSITORY,
       useFactory: (db: DatabasePort) => new PgWhiteboardRepository(db),
       inject: [DATABASE_PORT],
+    },
+    {
+      provide: WHITEBOARD_TAG_REPOSITORY,
+      useFactory: (db: DatabasePort) => new PgWhiteboardTagRepository(db),
+      inject: [DATABASE_PORT],
+    },
+    {
+      provide: BOARD_CONTENT_COPY_PORT,
+      useFactory: (db: DatabasePort) => new PgBoardContentCopyStore(db),
+      inject: [DATABASE_PORT],
+    },
+    {
+      provide: DUPLICATE_BOARD_SERVICE,
+      useFactory: (content: BoardContentCopyPort) => new DuplicateBoard(content),
+      inject: [BOARD_CONTENT_COPY_PORT],
     },
     {
       provide: DESIGN_PROJECT_REPOSITORY,
@@ -2998,6 +3035,10 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
       inject: [FIRST_VALUE_FACT_STORE, LOGGER_PORT],
     },
     TelemetryReportWorker,
+    // D12：开发过程投影同步（默认关，WSX_DEV_PROJECTION_SYNC_ORG 打开；幂等，失败只记日志）。
+    { provide: DEV_PROJECTION_SYNC_CONFIG, useFactory: () => readDevProjectionSyncConfig() },
+    { provide: DEV_PROJECTION_SYNC_RUNNER, useValue: scriptProjectionSyncRunner },
+    DevProcessProjectionSyncWorker,
     // Phase 18（ADR-114）：本体唯一写入口（F03）+ AGE 投影 worker（F04，outbox → 各 org 的图）。
     { provide: ONTOLOGY_STORE_PORT, useFactory: (db: DatabasePort) => new PgOntologyStore(db), inject: [DATABASE_PORT] },
     { provide: GRAPH_PROJECTION_PORT, useFactory: (db: DatabasePort) => new PgGraphProjection(db), inject: [DATABASE_PORT] },

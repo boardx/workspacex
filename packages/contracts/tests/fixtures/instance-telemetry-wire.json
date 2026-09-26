@@ -1,0 +1,21 @@
+{
+  "installSecret": "5555555555555555555555555555555555555555555555555555555555555555",
+  "defaultConsent": {
+    "method": "POST",
+    "path": "/v1/report",
+    "headers": {
+      "authorization": "Bearer 5555555555555555555555555555555555555555555555555555555555555555",
+      "content-type": "application/json"
+    },
+    "body": "{\"schemaVersion\":1,\"instanceId\":\"911878b1ff94a6daecaba1d7ef6fda0b97116a16291389427b402a013a2ae79f\",\"edition\":\"cloud\",\"productVersion\":\"3.4.5\",\"periodEnd\":\"2026-09-24T00:00:00.000Z\",\"excludesPersonalLocalOrgs\":true,\"consent\":{\"health\":true,\"usage\":false,\"diagnostics\":false,\"benchmark\":false},\"health\":{\"uptimeRatio\":0.999,\"latencyP50Ms\":12,\"latencyP95Ms\":80,\"queueDepth\":2,\"diskUsedRatio\":0.4,\"migrationVersion\":\"0270\"}}"
+  },
+  "consentOff": {
+    "method": "POST",
+    "path": "/v1/report",
+    "headers": {
+      "authorization": "Bearer 5555555555555555555555555555555555555555555555555555555555555555",
+      "content-type": "application/json"
+    },
+    "body": "{\"schemaVersion\":1,\"instanceId\":\"911878b1ff94a6daecaba1d7ef6fda0b97116a16291389427b402a013a2ae79f\",\"edition\":\"cloud\",\"productVersion\":\"3.4.5\",\"periodEnd\":\"2026-09-24T00:00:00.000Z\",\"excludesPersonalLocalOrgs\":true,\"consent\":{\"health\":false,\"usage\":false,\"diagnostics\":false,\"benchmark\":false}}"
+  }
+}

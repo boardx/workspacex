@@ -31,6 +31,7 @@ import { MCP_CREDENTIAL_BOUNDARIES, checkMcpCredentialBoundary } from './lib/mcp
  * an allowlist without reasons grows.
  */
 import { workbenchBoundaries, verifyWorkbenchBoundaries } from "./workbench-permission-boundaries.mjs";
+import { whiteboardPermissionBoundaries, verifyWhiteboardPermissionBoundaries } from "./whiteboard-permission-boundaries.mjs";
 import { readdirSync, readFileSync, statSync, existsSync } from "node:fs";
 import { join, relative, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -73,6 +74,10 @@ const ALLOWLIST = new Map([
   [
     "src/infrastructure/whiteboard/pg-whiteboard-repository.ts",
     "#3926: private-by-default whiteboards have explicit owner/member roles, not an acl_bindings ObjectRef. Each read is actor-filtered inside withTenant; mutations require owner_id, grants additionally require org_memberships. Forcing an unbound generic ACL ref would default to org-wide and weaken this rule. Scope is only whiteboards/whiteboard_members/org_memberships metadata. Real PostgreSQL negative tests in tests/whiteboard/resource-lifecycle.test.ts cover same-org nonmember, cross-org identity, viewer/editor administration and revocation; resource-http.test.ts covers the global PrincipalGuard and public response boundary. tests/whiteboard/resource-repository-guard.test.ts mechanically restricts the three-table scope, withTenant on every method, read visibility and owner predicates, with mutation counterexamples. The 11 real PostgreSQL/HTTP tests passed for #3926. Remove this entry if these tests or actor predicates are removed. Content/sync require separately reviewed authorization.",
+  ],
+  [
+    "src/infrastructure/whiteboard/pg-collaboration-store.ts",
+    "#3967: Yjs document state belongs to a private whiteboard whose owner/member roles cannot be represented by the generic acl_bindings ObjectRef; its org-wide fallback would weaken privacy. Every operation uses withTenant, locks the board FOR SHARE or FOR UPDATE, binds membership and idempotency to the acting user, and authorizes before reading or mutating snapshots/updates. Scope is exactly whiteboards, whiteboard_members, whiteboard_documents and whiteboard_updates. tests/whiteboard/collaboration-repository-guard.test.ts mechanically enforces that SQL, transaction, lock, tenant, ACL and ordering premise and contains mutation counterexamples. Real PostgreSQL and websocket coverage lives in collaboration-persistence.test.ts, collaboration-transaction.test.ts and collaboration-ws.test.ts. Remove this entry if the guard or those integration proofs disappear.",
   ],
   [
     "src/infrastructure/survey/pg-survey-attachment-repository.ts",
@@ -460,7 +465,7 @@ const ALLOWLIST = new Map([
   ],
   [
     "src/infrastructure/telemetry/pg-telemetry-facts.ts",
-    "D9 客户实例运行信号（S2 契约 D27 签核，#4068）：这里读 `ingestion_outbox` / `organizations` 只为得到**一个实例级计数**（待处理队列深度，`SELECT count(*)`），从不返回任何行、任何列值或任何组织可识别的信息；`JOIN organizations ... kind = 'organization'` 是排除 personal-local 组织（契约要求）的判定本身，不是披露。没有 actor、没有 ObjectRef 可推——这是实例对运营面的健康信号，不是任何成员对内容的读取，`guard()` 表达不了、也不该表达。⚠ 豁免仅在以下同时成立时有效：(a) 本文件只出现 `TELEMETRY_FACT_TABLES` 列出的表（四张表 + E3 的 `kernel_first_value_facts_for_report()` 、benchmark 的 `kernel_benchmark_counts_for_report()` 与 usage 的 `kernel_usage_counts_for_report()` 三个函数）；(b) 每条租户表 SQL 只做聚合计数；(c) 按组织的 SQL 必带 `kind='organization'` 连接；(d) E3 第一个价值时刻事实只经 `kernel_first_value_facts_for_report()` 读——函数体内限定 `org_kind = 'organization'`、SELECT 列表不含 `org_id`（只回 dense_rank 序号），本文件不直接读 `first_value_facts`，取回的事实只在内存里经契约 `aggregateFirstValueFunnel`/`firstValueMedianMinutes` 折成计数后才进报告。(e) benchmark 的 `runsPerSeatPerWeek` 只经 `kernel_benchmark_counts_for_report(start, end)` 读——函数体内每个子查询都 JOIN organizations 限定 `kind = 'organization'`、只回 `count(*)` / `count(DISTINCT user_id)` 两个计数，本文件不直接读 `agent_runs` / `org_memberships`（`tests/telemetry/telemetry-benchmark-facts.test.ts` 逐条断言并配反例）。(f) usage 分节只经 `kernel_usage_counts_for_report(start, end)` 读（#4226）——函数体内每个子查询都 JOIN organizations 限定 `kind = 'organization'`、只回 count / sum / 按能力编号分组的计数，本文件不直接读 `agent_runs` / `token_usage_events` / `skill_versions`（`tests/telemetry/telemetry-usage-facts.test.ts` 逐条断言并配反例）。`tests/telemetry/telemetry-no-content-tables.test.ts` 逐条解析本文件与该迁移断言这些，并用反例（读 `chat_messages`、函数回 `org_id`）证明会红。那个测试若被删除，本条目必须一并删除。",
+    "D9 客户实例运行信号（S2 契约 D27 签核，#4068）：这里经 `kernel_queue_depth_for_report()` 只为得到**一个实例级计数**（待处理队列深度：函数体内对 `ingestion_outbox` 做 `count(*)`；该表 RLS FORCE，withoutTenant 直读恒 0，#4225），从不返回任何行、任何列值或任何组织可识别的信息；`JOIN organizations ... kind = 'organization'` 是排除 personal-local 组织（契约要求）的判定本身，不是披露。没有 actor、没有 ObjectRef 可推——这是实例对运营面的健康信号，不是任何成员对内容的读取，`guard()` 表达不了、也不该表达。⚠ 豁免仅在以下同时成立时有效：(a) 本文件只出现 `TELEMETRY_FACT_TABLES` 列出的表（两张非租户表 `service_uptime_checks` / `_kernel_migrations` + E3 的 `kernel_first_value_facts_for_report()`、benchmark 的 `kernel_benchmark_counts_for_report()`、usage 的 `kernel_usage_counts_for_report()` 与 queueDepth 的 `kernel_queue_depth_for_report()` 四个函数）；(b) 每条租户表 SQL 只做聚合计数；(c) 按组织的 SQL 必带 `kind='organization'` 连接；(d) E3 第一个价值时刻事实只经 `kernel_first_value_facts_for_report()` 读——函数体内限定 `org_kind = 'organization'`、SELECT 列表不含 `org_id`（只回 dense_rank 序号），本文件不直接读 `first_value_facts`，取回的事实只在内存里经契约 `aggregateFirstValueFunnel`/`firstValueMedianMinutes` 折成计数后才进报告。(e) benchmark 的 `runsPerSeatPerWeek` 只经 `kernel_benchmark_counts_for_report(start, end)` 读——函数体内每个子查询都 JOIN organizations 限定 `kind = 'organization'`、只回 `count(*)` / `count(DISTINCT user_id)` 两个计数，本文件不直接读 `agent_runs` / `org_memberships`（`tests/telemetry/telemetry-benchmark-facts.test.ts` 逐条断言并配反例）。(f) usage 分节只经 `kernel_usage_counts_for_report(start, end)` 读（#4226）——函数体内每个子查询都 JOIN organizations 限定 `kind = 'organization'`、只回 count / sum / 按能力编号分组的计数，本文件不直接读 `agent_runs` / `token_usage_events` / `skill_versions`（`tests/telemetry/telemetry-usage-facts.test.ts` 逐条断言并配反例）。(g) `queueDepth` 只经 `kernel_queue_depth_for_report()` 读——函数体只有一个 JOIN organizations 限定 `kind = 'organization'` 的 `count(*)`，本文件不直接读 `ingestion_outbox`（`tests/telemetry/telemetry-queue-depth-facts.test.ts` 断言并配反例）。`tests/telemetry/telemetry-no-content-tables.test.ts` 逐条解析本文件与该迁移断言这些，并用反例（读 `chat_messages`、函数回 `org_id`）证明会红。那个测试若被删除，本条目必须一并删除。",
   ],
 ]);
 
@@ -499,6 +504,12 @@ if (boundaryFailures.length) {
   process.exit(1);
 }
 for (const [path, rule] of workbenchBoundaries) ALLOWLIST.set(path, rule.reason);
+const whiteboardBoundaryFailures = verifyWhiteboardPermissionBoundaries(path => readFileSync(join(API,path), "utf8"), TABLES);
+if (whiteboardBoundaryFailures.length) {
+  for (const failure of whiteboardBoundaryFailures) console.error(`Whiteboard permission boundary: ${failure}`);
+  process.exit(1);
+}
+for (const [path, rule] of whiteboardPermissionBoundaries) ALLOWLIST.set(path, rule.reason);
 
 const ROOTS = process.argv.slice(2).length ? process.argv.slice(2) : [join(API, "src")];
 

@@ -1,0 +1,49 @@
+{
+  "ids": {
+    "threadP1": "thr-6b1ac569-91fb-4f7a-8281-ccae832b07e1",
+    "sourceClaim": "clm_b3ad2fac415845c9b4c4f08c79d2c2f7",
+    "personalClaim": "act_91653bd349b34fc590d9029dc4ecfc20-p",
+    "threadP2": "thr-6056a0fc-070e-442a-b572-372a462396cf",
+    "threadProject": "thr-867057e4-e420-4380-9666-3fbf5fac0dcd"
+  },
+  "step1_turn": {
+    "answerId": "01d6721d-431c-4a38-aeb9-9fdd255a0c7d",
+    "text": "好的，收到。"
+  },
+  "step1_chip": "已记下：我决定关注 211 高校\n·\n撤销",
+  "step2_personal": [
+    {
+      "id": "act_91653bd349b34fc590d9029dc4ecfc20-p",
+      "statement": "我决定关注 211 高校",
+      "status": "accepted"
+    }
+  ],
+  "step3": {
+    "answerId": "57bf78b4-4717-4b62-9cd8-4aa9739b3145",
+    "text": "根据之前的对话：我决定关注 211 高校（来自个人空间知识，最早见于你 09/26 的对话）。",
+    "recalled": [
+      {
+        "claimId": "act_91653bd349b34fc590d9029dc4ecfc20-p",
+        "statement": "我决定关注 211 高校",
+        "triState": "confirmed",
+        "scope": "personal",
+        "saidAt": "2026-09-26T13:45:21.619Z",
+        "channels": [
+          "claim"
+        ],
+        "retrievalReasons": [
+          "recall"
+        ],
+        "score": 0,
+        "graphPath": null
+      }
+    ],
+    "footer": "根据之前的对话：我决定关注 211 高校（来自个人空间知识，最早见于你 09/26 的对话）。\n\n[1]\n我决定关注 211 高校\n来自你 9/26 的对话\n为什么用到它\n\n正在记…"
+  },
+  "step4": {
+    "answerId": "779c00c8-008e-4464-9ad0-122f07624c75",
+    "text": "好的，收到。",
+    "recalled": [],
+    "footer": "好的，收到。"
+  }
+}

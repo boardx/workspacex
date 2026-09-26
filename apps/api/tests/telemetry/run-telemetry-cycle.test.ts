@@ -110,9 +110,9 @@ describe("runTelemetryCycle", () => {
 
   it("HttpTelemetryTransport：fetch 抛错 / 非 2xx ⇒ { ok: false }，不抛", async () => {
     const throwing = new HttpTelemetryTransport((async () => { throw new Error("ECONNREFUSED"); }) as unknown as typeof fetch);
-    await expect(throwing.post("https://x.test", "{}", 10)).resolves.toEqual({ ok: false });
+    await expect(throwing.post("https://x.test", "{}", 10, SECRET)).resolves.toEqual({ ok: false });
     const bad = new HttpTelemetryTransport((async () => new Response("", { status: 503 })) as unknown as typeof fetch);
-    await expect(bad.post("https://x.test", "{}", 10)).resolves.toEqual({ ok: false });
+    await expect(bad.post("https://x.test", "{}", 10, SECRET)).resolves.toEqual({ ok: false });
   });
 
   it("instanceId 是安装密钥的 64 位十六进制哈希，不等于密钥本身", () => {

@@ -36,6 +36,7 @@
     "@radix-ui/react-tooltip": "^1.1.3",
     "@repo/contracts": "workspace:*",
     "@repo/fabric-markdown": "workspace:*",
+    "@repo/whiteboard-core": "workspace:*",
     "@tanstack/react-query": "^5",
     "@xyflow/react": "^12.3.6",
     "class-variance-authority": "^0.7.0",
@@ -58,6 +59,7 @@
     "rehype-sanitize": "^6",
     "remark-gfm": "^4",
     "tailwind-merge": "^2.5.4",
+    "yjs": "13.6.32",
     "zod": "^3.23.8"
   },
   "devDependencies": {

@@ -2,6 +2,7 @@ import { createHash } from "node:crypto";
 import type { IdFactory } from "../../../application/artifact/ports";
 import { ModelCallError, type ModelCallPort } from "../../../application/agent-run/ports";
 import type {
+  ConfirmationNodeName,
   CommitDigitalInterviewStepInput,
   CommitDigitalInterviewStepResult,
   DigitalInterviewEffects,
@@ -585,6 +586,11 @@ export class PgDigitalInterviewEffects implements DigitalInterviewEffects {
       } else {
         throw new DigitalInterviewWorkflowError("DIGITAL_INTERVIEW_STEP_INVALID");
       }
+
+      await this.appendConfirmedArtifact(session, {
+        orgId: toOrgId(input.orgId), interviewId: input.interviewId, revisionId: activeRevisionId,
+        actorId: input.actorId, nodeName: input.nodeName, command: input.command,
+      });
 
       await this.finishStepProposals(
         session, toOrgId(input.orgId), activeRevisionId, input.nodeName,
@@ -1797,5 +1803,33 @@ export class PgDigitalInterviewEffects implements DigitalInterviewEffects {
     const workflow = await readDigitalInterviewWorkflow(session, orgId, interviewId);
     if (!workflow) throw new DigitalInterviewWorkflowError("NO_INTERVIEW_ACCESS");
     return workflow;
+  }
+
+  private async appendConfirmedArtifact(session: TenantSession, input: {
+    readonly orgId: OrgId; readonly interviewId: string; readonly revisionId: string; readonly actorId: string;
+    readonly nodeName: ConfirmationNodeName;
+    readonly command: CommitDigitalInterviewStepInput["command"];
+  }): Promise<void> {
+    const detail = input.command.kind === "confirm_brief"
+      ? `# 分析建议\n\n## 决策\n\n${input.command.researchBrief.decision}\n\n## 学习目标\n\n${input.command.researchBrief.learningGoals.map((goal) => `- ${goal.statement}`).join("\n")}\n\n## 目标角色\n\n${input.command.researchBrief.targetRoles.map((role) => `- ${role}`).join("\n")}`
+      : input.command.kind === "confirm_topic"
+        ? `# 需求说明\n\n${input.command.topic}`
+      : input.command.kind === "confirm_experts"
+        ? `# 专家建议\n\n${input.command.expertIds.map((id) => `- ${id}`).join("\n")}`
+        : `# 访谈提纲\n\n${input.command.questions.map((question) => `- ${question.text}`).join("\n")}`;
+    const step = input.nodeName === "confirm_brief" ? "analysis"
+      : input.nodeName === "confirm_topic" ? "intake"
+        : input.nodeName === "confirm_experts" ? "experts" : "outline";
+    const title = step === "analysis" ? "分析建议.md"
+      : step === "intake" ? "需求说明.md"
+        : step === "experts" ? "专家建议.md" : "访谈提纲.md";
+    await session.query(
+      `INSERT INTO digital_interview_artifact_versions
+         (org_id,artifact_id,interview_id,revision_id,step,version_number,title,markdown,status,generated_at,failure,evidence_mode)
+       SELECT $1,$2,$3,$4,$5,coalesce(max(version_number),0)+1,$6,$7,'confirmed',now(),NULL,'simulated'
+         FROM digital_interview_artifact_versions
+        WHERE org_id=$1 AND interview_id=$3 AND revision_id=$4 AND step=$5`,
+      [input.orgId, this.ids.next("itv-artifact"), input.interviewId, input.revisionId, step, title, detail],
+    );
   }
 }
