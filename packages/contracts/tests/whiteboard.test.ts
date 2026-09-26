@@ -21,13 +21,18 @@ describe('whiteboard library contract', () => {
     expect(UpdateBoard.parse({ tagIds: [tagId], expectedTagsRevision: 3 })).toMatchObject({ expectedTagsRevision: 3 });
     expect(DuplicateBoard.parse({ requestId: id, targetName: ' Copy ', expectedSource: { epoch: 1, seq: 4 } }))
       .toEqual({ requestId: id, targetName: 'Copy', expectedSource: { epoch: 1, seq: 4 } });
-    expect(DeleteBoard.safeParse({ requestId: id, confirmation: true }).success).toBe(false);
-    expect(DeleteBoard.parse({ requestId: id, confirmation: 'PERMANENTLY_DELETE' }).confirmation).toBe('PERMANENTLY_DELETE');
+    expect(UpdateBoard.safeParse({ archived: true }).success).toBe(false);
+    expect(UpdateBoard.safeParse({ name: 'Rename', expectedLifecycleRevision: 0 }).success).toBe(false);
+    expect(UpdateBoard.parse({ archived: true, expectedLifecycleRevision: 0 })).toMatchObject({ archived: true, expectedLifecycleRevision: 0 });
+    expect(DeleteBoard.safeParse({ requestId: id, confirmation: true, expectedLifecycleRevision: 1 }).success).toBe(false);
+    expect(DeleteBoard.safeParse({ requestId: id, confirmation: 'PERMANENTLY_DELETE' }).success).toBe(false);
+    expect(DeleteBoard.parse({ requestId: id, confirmation: 'PERMANENTLY_DELETE', expectedLifecycleRevision: 1 }))
+      .toMatchObject({ confirmation: 'PERMANENTLY_DELETE', expectedLifecycleRevision: 1 });
   });
   it('returns tag IDs and a CAS revision on every board and publishes lifecycle operations', () => {
     expect(Board.parse({ id, name: 'Board', ownerId: 'owner', role: 'owner', archived: false,
-      tagIds: [tagId], tagsRevision: 2, createdAt: '2026-09-26T00:00:00.000Z', updatedAt: '2026-09-26T00:00:00.000Z' }))
-      .toMatchObject({ tagIds: [tagId], tagsRevision: 2 });
+      lifecycleRevision: 3, tagIds: [tagId], tagsRevision: 2, createdAt: '2026-09-26T00:00:00.000Z', updatedAt: '2026-09-26T00:00:00.000Z' }))
+      .toMatchObject({ lifecycleRevision: 3, tagIds: [tagId], tagsRevision: 2 });
     expect(operations.duplicateBoard.path).toBe('/whiteboards/:boardId/duplicates');
     expect(operations.deleteBoard.path).toBe('/whiteboards/:boardId');
     expect(operations.listBoardTags.path).toBe('/whiteboard-tags');

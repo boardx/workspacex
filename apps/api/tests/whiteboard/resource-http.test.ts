@@ -68,11 +68,13 @@ describe('whiteboard resource HTTP boundary', () => {
     const listed = await call('GET', '');
     expect(listed.status).toBe(200);
     expect(C.operations.listBoards.out.parse(await listed.json()).items).toContainEqual(board);
-    for (const changes of [{ name: '重命名白板' }, { archived: true }, { archived: false }]) {
-      const res = await call('PATCH', `/${board.id}`, changes);
-      expect(res.status).toBe(200);
-      expect(C.operations.updateBoard.out.parse(await res.json())).toMatchObject(changes);
-    }
+    const renamed=await call('PATCH',`/${board.id}`,{name:'重命名白板'}); expect(renamed.status).toBe(200);
+    const archived=await call('PATCH',`/${board.id}`,{archived:true,expectedLifecycleRevision:board.lifecycleRevision});
+    expect(archived.status).toBe(200); const archivedBoard=C.operations.updateBoard.out.parse(await archived.json());
+    expect(archivedBoard).toMatchObject({archived:true,lifecycleRevision:board.lifecycleRevision+1});
+    const restored=await call('PATCH',`/${board.id}`,{archived:false,expectedLifecycleRevision:archivedBoard.lifecycleRevision});
+    expect(restored.status).toBe(200); expect(C.operations.updateBoard.out.parse(await restored.json()))
+      .toMatchObject({archived:false,lifecycleRevision:archivedBoard.lifecycleRevision+1});
     const persisted = await asApp(ORG, c => c.query('SELECT name, archived FROM whiteboards WHERE org_id=$1 AND id=$2', [ORG, board.id]));
     expect(persisted.rows).toEqual([{ name: '重命名白板', archived: false }]);
   });
@@ -125,8 +127,10 @@ describe('whiteboard resource HTTP boundary', () => {
       ['DELETE', `/not-a-uuid/members/${MEMBER}`, undefined],
       ['POST', '', { requestId: 'bad', name: 'x' }], ['POST', '', { requestId: randomUUID(), name: '   ' }],
       ['POST', '', { requestId: randomUUID(), name: 'x', orgId: OTHER }],
-      ['PATCH', `/${board.id}`, {}], ['PATCH', `/${board.id}`, { archived: 'yes' }],
+      ['PATCH', `/${board.id}`, {}], ['PATCH', `/${board.id}`, { archived: 'yes', expectedLifecycleRevision: 0 }],
+      ['PATCH', `/${board.id}`, { archived: true }], ['PATCH', `/${board.id}`, { name: 'x', expectedLifecycleRevision: 0 }],
       ['PATCH', `/${board.id}`, { ownerId: MEMBER }],
+      ['DELETE', `/${board.id}`, { requestId: randomUUID(), confirmation: 'PERMANENTLY_DELETE' }],
       ['PUT', `/${board.id}/members`, { userId: MEMBER, role: 'owner' }],
       ['PUT', `/${board.id}/members`, { userId: '', role: 'editor' }],
     ] as const) expect((await call(method, path, body)).status, `${method} ${path} ${JSON.stringify(body)}`).toBe(400);
@@ -156,12 +160,14 @@ describe('whiteboard resource HTTP boundary', () => {
     expect(C.operations.listBoardTags.out.parse(await (await tagCall('GET')).json()).items.some(tag=>tag.id===research.id)).toBe(false);
   });
   it('requires archive and explicit confirmation before idempotent permanent delete', async () => {
-    const board=await create(), requestId=randomUUID(), input={requestId,confirmation:'PERMANENTLY_DELETE'};
+    const board=await create(), requestId=randomUUID(), input={requestId,confirmation:'PERMANENTLY_DELETE',expectedLifecycleRevision:board.lifecycleRevision};
     const active=await call('DELETE',`/${board.id}`,input); expect(active.status).toBe(409); expect(await active.json()).toMatchObject({reasonCode:'BOARD_NOT_ARCHIVED'});
-    await call('PATCH',`/${board.id}`,{archived:true});
-    const deleted=await call('DELETE',`/${board.id}`,input); expect(deleted.status).toBe(200);
+    const archived=await call('PATCH',`/${board.id}`,{archived:true,expectedLifecycleRevision:board.lifecycleRevision});
+    const archivedBoard=C.Board.parse(await archived.json());
+    const deleteInput={...input,expectedLifecycleRevision:archivedBoard.lifecycleRevision};
+    const deleted=await call('DELETE',`/${board.id}`,deleteInput); expect(deleted.status).toBe(200);
     const receipt=C.DeleteBoardReceipt.parse(await deleted.json()); expect(receipt).toMatchObject({boardId:board.id,deleted:true});
-    expect(C.DeleteBoardReceipt.parse(await (await call('DELETE',`/${board.id}`,input)).json())).toEqual(receipt);
+    expect(C.DeleteBoardReceipt.parse(await (await call('DELETE',`/${board.id}`,deleteInput)).json())).toEqual(receipt);
     expect((await call('GET',`/${board.id}`)).status).toBe(404);
   });
 });

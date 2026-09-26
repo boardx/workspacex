@@ -21,4 +21,12 @@ describe('whiteboard library management durability boundary', () => {
     expect(source).toContain('whiteboard_delete_receipts');
     expect(source.match(/FROM whiteboard_delete_receipts/g)).toHaveLength(2);
   });
+
+  it('serializes lifecycle transitions and binds permanent deletion to the current generation', () => {
+    expect(migration).toContain('lifecycle_revision integer NOT NULL DEFAULT 0 CHECK (lifecycle_revision >= 0)');
+    expect(source).toMatch(/SELECT archived,tags_revision,lifecycle_revision FROM whiteboards[^`]*FOR UPDATE/);
+    expect(source).toContain('board.rows[0].lifecycle_revision !== input.expectedLifecycleRevision');
+    expect(source).toContain('lifecycle_revision=lifecycle_revision+CASE WHEN $7::boolean THEN 1 ELSE 0 END');
+    expect(source).toContain("expectedLifecycleRevision:input.expectedLifecycleRevision");
+  });
 });

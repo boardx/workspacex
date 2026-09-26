@@ -2,6 +2,7 @@
 import { z } from 'zod';
 export const BoardId = z.string().uuid();
 export const BoardRole = z.enum(['owner', 'editor', 'viewer']);
+export const LifecycleRevision = z.number().int().nonnegative();
 export const BoardTagId = z.string().uuid();
 export const BoardTagName = z.string().trim().min(1).max(40);
 export const BoardTagIds = z.array(BoardTagId)
@@ -15,6 +16,7 @@ export type BoardTag = z.infer<typeof BoardTag>;
 export const Board = z.object({
   id: BoardId, name: z.string().trim().min(1).max(200),
   ownerId: z.string().min(1), role: BoardRole, archived: z.boolean(),
+  lifecycleRevision: LifecycleRevision,
   tagIds: BoardTagIds, tagsRevision: z.number().int().nonnegative(),
   createdAt: z.string().datetime(), updatedAt: z.string().datetime(),
 }).strict();
@@ -33,10 +35,12 @@ export const ListBoards = z.object({
 export const UpdateBoard = z.object({
   name: Board.shape.name.optional(),
   archived: z.boolean().optional(),
+  expectedLifecycleRevision: LifecycleRevision.optional(),
   tagIds: BoardTagIds.optional(),
   expectedTagsRevision: z.number().int().nonnegative().optional(),
 }).strict()
   .refine(v => v.name !== undefined || v.archived !== undefined || v.tagIds !== undefined, 'At least one change is required')
+  .refine(v => (v.archived === undefined) === (v.expectedLifecycleRevision === undefined), 'archived and expectedLifecycleRevision must be provided together')
   .refine(v => (v.tagIds === undefined) === (v.expectedTagsRevision === undefined), 'tagIds and expectedTagsRevision must be provided together');
 export const SourceVersion = z.object({ epoch: z.number().int().positive(), seq: z.number().int().nonnegative() }).strict();
 export const DuplicateBoard = z.object({ requestId: z.string().uuid(), targetName: Board.shape.name, expectedSource: SourceVersion.optional() }).strict();
@@ -46,7 +50,9 @@ export const DuplicateBoardReceipt = z.object({
 }).strict();
 export const DuplicateBoardResult = z.object({ board: Board, receipt: DuplicateBoardReceipt }).strict();
 export type DuplicateBoardResult = z.infer<typeof DuplicateBoardResult>;
-export const DeleteBoard = z.object({ requestId: z.string().uuid(), confirmation: z.literal('PERMANENTLY_DELETE') }).strict();
+export const DeleteBoard = z.object({
+  requestId: z.string().uuid(), confirmation: z.literal('PERMANENTLY_DELETE'), expectedLifecycleRevision: LifecycleRevision,
+}).strict();
 export const DeleteBoardReceipt = z.object({ requestId: z.string().uuid(), boardId: BoardId, deleted: z.literal(true) }).strict();
 export type DeleteBoardReceipt = z.infer<typeof DeleteBoardReceipt>;
 export const CreateBoardTag = z.object({ requestId: z.string().uuid(), name: BoardTagName }).strict();

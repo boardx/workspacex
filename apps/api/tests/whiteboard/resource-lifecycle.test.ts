@@ -50,9 +50,11 @@ describe('whiteboard resource lifecycle on real PostgreSQL', () => {
   it('owner renames, archives and restores persisted metadata', async () => {
     const board = await create();
     expect(await repo.update(owner, board.id, { name: '新的名称' })).toMatchObject({ name: '新的名称' });
-    expect(await repo.update(owner, board.id, { archived: true })).toMatchObject({ archived: true });
+    const archived=await repo.update(owner, board.id, { archived: true, expectedLifecycleRevision: board.lifecycleRevision });
+    expect(archived).toMatchObject({ archived: true, lifecycleRevision: board.lifecycleRevision+1 });
     expect(await repo.get(owner, board.id)).toMatchObject({ name: '新的名称', archived: true });
-    expect(await repo.update(owner, board.id, { archived: false })).toMatchObject({ archived: false });
+    expect(await repo.update(owner, board.id, { archived: false, expectedLifecycleRevision: archived!.lifecycleRevision }))
+      .toMatchObject({ archived: false, lifecycleRevision: archived!.lifecycleRevision+1 });
     expect((await repo.list(owner,{archived:'all',limit:30})).items.some(b => b.id === board.id)).toBe(true);
   });
   it.each([['editor', editor], ['viewer', viewer]] as const)('%s can read but cannot manage metadata or membership', async (role, member) => {
@@ -60,7 +62,7 @@ describe('whiteboard resource lifecycle on real PostgreSQL', () => {
     expect(await repo.putMember(owner, board.id, { userId: member.userId, role })).toBe(true);
     expect(await repo.get(member, board.id)).toMatchObject({ id: board.id, role });
     expect((await repo.list(member)).items.some(b => b.id === board.id)).toBe(true);
-    expect(await repo.update(member, board.id, { name: '非法修改', archived: true })).toBeNull();
+    expect(await repo.update(member, board.id, { name: '非法修改', archived: true, expectedLifecycleRevision: board.lifecycleRevision })).toBeNull();
     expect(await repo.members(member, board.id)).toBeNull();
     expect(await repo.putMember(member, board.id, { userId: colleague.userId, role: 'editor' })).toBe(false);
     expect(await repo.removeMember(member, board.id, member.userId)).toBe(false);
@@ -103,14 +105,25 @@ describe('whiteboard resource lifecycle on real PostgreSQL', () => {
   });
   it('requires archive before permanent delete and replays a durable delete receipt', async () => {
     const board = await create(), requestId = randomUUID();
-    const input = {requestId,confirmation:'PERMANENTLY_DELETE' as const};
+    const input = {requestId,confirmation:'PERMANENTLY_DELETE' as const,expectedLifecycleRevision:board.lifecycleRevision};
     await expect(repo.permanentlyDelete(owner,board.id,input)).rejects.toMatchObject({code:'BOARD_NOT_ARCHIVED'});
-    await repo.update(owner,board.id,{archived:true});
-    const receipt = await repo.permanentlyDelete(owner,board.id,input);
+    const archived = await repo.update(owner,board.id,{archived:true,expectedLifecycleRevision:board.lifecycleRevision});
+    const deleteInput = {...input,expectedLifecycleRevision:archived!.lifecycleRevision};
+    const receipt = await repo.permanentlyDelete(owner,board.id,deleteInput);
     expect(receipt).toEqual({requestId,boardId:board.id,deleted:true});
-    expect(await repo.permanentlyDelete(owner,board.id,input)).toEqual(receipt);
+    expect(await repo.permanentlyDelete(owner,board.id,deleteInput)).toEqual(receipt);
     expect(await repo.get(owner,board.id)).toBeNull();
-    const other = await create(); await repo.update(owner,other.id,{archived:true});
-    await expect(repo.permanentlyDelete(owner,other.id,input)).rejects.toMatchObject({code:'IDEMPOTENCY_CONFLICT'});
+    const other = await create(); const otherArchived=await repo.update(owner,other.id,{archived:true,expectedLifecycleRevision:other.lifecycleRevision});
+    await expect(repo.permanentlyDelete(owner,other.id,{...deleteInput,expectedLifecycleRevision:otherArchived!.lifecycleRevision})).rejects.toMatchObject({code:'IDEMPOTENCY_CONFLICT'});
+  });
+  it('rejects an old delete confirmation after archive, restore and re-archive', async () => {
+    const board=await create();
+    const firstArchive=await repo.update(owner,board.id,{archived:true,expectedLifecycleRevision:board.lifecycleRevision});
+    const staleDelete={requestId:randomUUID(),confirmation:'PERMANENTLY_DELETE' as const,expectedLifecycleRevision:firstArchive!.lifecycleRevision};
+    const restored=await repo.update(owner,board.id,{archived:false,expectedLifecycleRevision:firstArchive!.lifecycleRevision});
+    const reArchived=await repo.update(owner,board.id,{archived:true,expectedLifecycleRevision:restored!.lifecycleRevision});
+    await expect(repo.permanentlyDelete(owner,board.id,staleDelete)).rejects.toMatchObject({code:'REVISION_CONFLICT'});
+    expect(await repo.get(owner,board.id)).toMatchObject({archived:true,lifecycleRevision:reArchived!.lifecycleRevision});
+    await expect(repo.update(owner,board.id,{archived:false,expectedLifecycleRevision:firstArchive!.lifecycleRevision})).rejects.toMatchObject({code:'REVISION_CONFLICT'});
   });
 });

@@ -1,5 +1,6 @@
 -- Board library metadata. Content remains in the canonical whiteboard document boundary.
 ALTER TABLE whiteboards ADD COLUMN IF NOT EXISTS tags_revision integer NOT NULL DEFAULT 0 CHECK (tags_revision >= 0);
+ALTER TABLE whiteboards ADD COLUMN IF NOT EXISTS lifecycle_revision integer NOT NULL DEFAULT 0 CHECK (lifecycle_revision >= 0);
 
 CREATE TABLE IF NOT EXISTS whiteboard_tags (
   id uuid NOT NULL,

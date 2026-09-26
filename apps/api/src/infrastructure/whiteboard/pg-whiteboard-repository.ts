@@ -14,11 +14,11 @@ import {
 } from '../../application/whiteboard/ports';
 import { WhiteboardCursorCodec } from './whiteboard-cursor';
 
-type Row = { id: string; name: string; owner_id: string; role: string; archived: boolean; tags_revision: number; tag_ids: string[]; created_at: Date; updated_at: Date };
+type Row = { id: string; name: string; owner_id: string; role: string; archived: boolean; lifecycle_revision: number; tags_revision: number; tag_ids: string[]; created_at: Date; updated_at: Date };
 const tagIds = `COALESCE(ARRAY(SELECT bt.tag_id FROM whiteboard_tag_bindings bt
   JOIN whiteboard_tags t ON t.org_id=bt.org_id AND t.id=bt.tag_id AND t.deleted_at IS NULL
   WHERE bt.org_id=b.org_id AND bt.board_id=b.id ORDER BY bt.tag_id), ARRAY[]::uuid[]) AS tag_ids`;
-const columns = `b.id,b.name,b.owner_id,b.archived,b.tags_revision,b.created_at,b.updated_at,${tagIds},
+const columns = `b.id,b.name,b.owner_id,b.archived,b.lifecycle_revision,b.tags_revision,b.created_at,b.updated_at,${tagIds},
   CASE WHEN b.owner_id=$2 THEN 'owner' ELSE m.role END AS role`;
 const membership = `LEFT JOIN whiteboard_members m ON m.org_id=b.org_id AND m.board_id=b.id AND m.user_id=$2`;
 const visible = `(b.owner_id=$2 OR m.user_id IS NOT NULL)`;
@@ -26,7 +26,8 @@ const hash = (value: unknown) => createHash('sha256').update(JSON.stringify(valu
 const escapeLike = (value: string) => value.replace(/[\\%_]/g, match => `\\${match}`);
 function view(row: Row): C.Board {
   return C.Board.parse({ id: row.id, name: row.name, ownerId: row.owner_id, role: row.role, archived: row.archived,
-    tagIds: row.tag_ids, tagsRevision: row.tags_revision, createdAt: new Date(row.created_at).toISOString(), updatedAt: new Date(row.updated_at).toISOString() });
+    lifecycleRevision: row.lifecycle_revision, tagIds: row.tag_ids, tagsRevision: row.tags_revision,
+    createdAt: new Date(row.created_at).toISOString(), updatedAt: new Date(row.updated_at).toISOString() });
 }
 
 /** Tenant RLS and explicit actor predicates both apply; resource IDs never grant access. */
@@ -83,12 +84,15 @@ export class PgWhiteboardRepository implements WhiteboardRepository {
         const locked = await session.query<{id:string}>(`SELECT id FROM whiteboard_tags WHERE org_id=$1 AND id=ANY($2::uuid[]) AND deleted_at IS NULL ORDER BY id FOR SHARE`, [p.orgId,requested]);
         if (locked.rows.length !== requested.length) throw new WhiteboardResourceError('TAG_NOT_FOUND');
       }
-      const board = await session.query<{tags_revision:number}>(`SELECT tags_revision FROM whiteboards WHERE org_id=$1 AND owner_id=$2 AND id=$3 FOR UPDATE`, [p.orgId,p.userId,id]);
+      const board = await session.query<{archived:boolean;tags_revision:number;lifecycle_revision:number}>(`SELECT archived,tags_revision,lifecycle_revision FROM whiteboards WHERE org_id=$1 AND owner_id=$2 AND id=$3 FOR UPDATE`, [p.orgId,p.userId,id]);
       if (!board.rows[0]) return null;
+      if (input.expectedLifecycleRevision !== undefined && board.rows[0].lifecycle_revision !== input.expectedLifecycleRevision) throw new WhiteboardResourceError('REVISION_CONFLICT');
       if (input.expectedTagsRevision !== undefined && board.rows[0].tags_revision !== input.expectedTagsRevision) throw new WhiteboardResourceError('REVISION_CONFLICT');
+      const lifecycleChanged = input.archived !== undefined && input.archived !== board.rows[0].archived;
       await session.query(`UPDATE whiteboards SET name=COALESCE($4,name),archived=COALESCE($5,archived),
-        tags_revision=tags_revision+CASE WHEN $6::boolean THEN 1 ELSE 0 END,updated_at=now()
-        WHERE org_id=$1 AND owner_id=$2 AND id=$3`, [p.orgId,p.userId,id,input.name ?? null,input.archived ?? null,requested !== undefined]);
+        tags_revision=tags_revision+CASE WHEN $6::boolean THEN 1 ELSE 0 END,
+        lifecycle_revision=lifecycle_revision+CASE WHEN $7::boolean THEN 1 ELSE 0 END,updated_at=now()
+        WHERE org_id=$1 AND owner_id=$2 AND id=$3`, [p.orgId,p.userId,id,input.name ?? null,input.archived ?? null,requested !== undefined,lifecycleChanged]);
       if (requested) {
         await session.query(`DELETE FROM whiteboard_tag_bindings WHERE org_id=$1 AND board_id=$2`, [p.orgId,id]);
         if (requested.length) await session.query(`INSERT INTO whiteboard_tag_bindings(org_id,board_id,tag_id)
@@ -101,7 +105,7 @@ export class PgWhiteboardRepository implements WhiteboardRepository {
   }
 
   async permanentlyDelete(p: Principal, id: string, input: DeleteBoard): Promise<C.DeleteBoardReceipt | null> {
-    const requestHash = hash({ operation:'delete-board',boardId:id,confirmation:input.confirmation });
+    const requestHash = hash({ operation:'delete-board',boardId:id,confirmation:input.confirmation,expectedLifecycleRevision:input.expectedLifecycleRevision });
     return this.db.withTenant(p.orgId, async session => {
       const prior = await session.query<{request_hash:string;board_id:string}>(`SELECT request_hash,board_id FROM whiteboard_delete_receipts
         WHERE org_id=$1 AND actor_id=$2 AND request_id=$3`, [p.orgId,p.userId,input.requestId]);
@@ -109,7 +113,7 @@ export class PgWhiteboardRepository implements WhiteboardRepository {
         if (prior.rows[0].request_hash !== requestHash || prior.rows[0].board_id !== id) throw new WhiteboardResourceError('IDEMPOTENCY_CONFLICT');
         return C.DeleteBoardReceipt.parse({ requestId:input.requestId,boardId:id,deleted:true });
       }
-      const board = await session.query<{archived:boolean}>(`SELECT archived FROM whiteboards WHERE org_id=$1 AND owner_id=$2 AND id=$3 FOR UPDATE`, [p.orgId,p.userId,id]);
+      const board = await session.query<{archived:boolean;lifecycle_revision:number}>(`SELECT archived,lifecycle_revision FROM whiteboards WHERE org_id=$1 AND owner_id=$2 AND id=$3 FOR UPDATE`, [p.orgId,p.userId,id]);
       if (!board.rows[0]) {
         // A concurrent replay can observe the board only after the first transaction
         // deleted it. Re-read the durable receipt before reporting a missing board.
@@ -119,6 +123,7 @@ export class PgWhiteboardRepository implements WhiteboardRepository {
         if (concurrent.rows[0].request_hash !== requestHash || concurrent.rows[0].board_id !== id) throw new WhiteboardResourceError('IDEMPOTENCY_CONFLICT');
         return C.DeleteBoardReceipt.parse({ requestId:input.requestId,boardId:id,deleted:true });
       }
+      if (board.rows[0].lifecycle_revision !== input.expectedLifecycleRevision) throw new WhiteboardResourceError('REVISION_CONFLICT');
       if (!board.rows[0].archived) throw new WhiteboardResourceError('BOARD_NOT_ARCHIVED');
       await session.query(`INSERT INTO whiteboard_delete_receipts(org_id,actor_id,request_id,request_hash,board_id) VALUES($1,$2,$3,$4,$5)`, [p.orgId,p.userId,input.requestId,requestHash,id]);
       await session.query(`DELETE FROM whiteboards WHERE org_id=$1 AND owner_id=$2 AND id=$3`, [p.orgId,p.userId,id]);
