@@ -22,7 +22,9 @@ confirmed_at: ""
 
 ## 一、材料清单
 
-- ① UI：`ui.md`（当前 0 张截图；八种新增状态明确列为签核缺口）。
+- ① UI：`ui.md`（8/8 状态截图已齐；主 session 已完成 8 state × 375/768/1280
+  共 24/24 组合的响应式与视觉验收，包含 Canvas 绘制、DOM mirror、移动端 editor、
+  11 张连续对象以及 resize 长文本与工具条非遮挡复核）。
 - ② 用例：`usecases.md`（十组 application operations + 十二个统一失败码）。
 - ③ API/协议：本束不新增公开 Object CRUD；扩展 `whiteboard-core` canonical command 判别联合，
   metadata/ACL 继续复用 `packages/contracts/src/whiteboard.ts`。Link Preview 只定义受限 application port，
@@ -42,7 +44,9 @@ confirmed_at: ""
 - [ ] Delete 只有 canonical tombstone 确认后才消失，Undo 恢复相同 object id；冲突不得假成功。
 - [ ] Reaction 与 Link Preview 的 ready/failed/blocked/readonly 状态是否满足可发现性和无障碍。
 
-当前没有新增状态截图。① UI 材料不足，本束不能确认；S01 截图不能替代这些状态。
+当前 8/8 新增状态截图已齐，且来自本束真实 Fabric.js 原型与 mock command adapter；
+主 session 已完成 24/24 响应式组合及最终视觉复核。材料已具备人类核对条件，
+但 ① UI 仍须由人类确认；截图与自动验收不构成 agent 代签，也不证明正式 Yjs/服务端实现完成。
 
 ## ② 用例 — command、IME 与基础历史边界对不对
 
@@ -75,6 +79,6 @@ confirmed_at: ""
 
 ## 人类确认动作
 
-本束当前 `status: pending`。请先补齐并核对 ① UI 截图，再核对 ② 用例、③ API/协议，
-并把本束加入阶段 `design-coherence.md` 做跨束复核。只有人类可以把 frontmatter 改为
+本束当前 `status: pending`。① UI 的 8/8 材料与主 session 验收已齐，现在等待人类依次核对
+① UI、② 用例、③ API/协议，并把本束加入阶段 `design-coherence.md` 做跨束复核。只有人类可以把 frontmatter 改为
 `confirmed` 并填写 `confirmed_by`、`confirmed_at`；agent 不得代签。
