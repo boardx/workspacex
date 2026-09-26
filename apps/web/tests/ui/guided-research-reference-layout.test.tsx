@@ -5,8 +5,25 @@ import { GuidedResearchTopicPanel } from "@/components/research-studio/guided-re
 import { GuidedResearchPlanPanel } from "@/components/research-studio/guided-research-plan-panel";
 import { GuidedResearchSourceWorkspace } from "@/components/research-studio/guided-research-source-workspace";
 import { GuidedResearchReportWorkspace } from "@/components/research-studio/guided-research-report-workspace";
+import { GuidedResearchSixStepShell } from "@/components/research-studio/guided-research-six-step-shell";
 
 describe("guided research reference layout", () => {
+  it("uses the reference-style six-step canvas instead of a generic document shell", () => {
+    render(<GuidedResearchSixStepShell
+      current="topic"
+      available={["import", "topic"]}
+      onNavigate={vi.fn()}
+      onBack={vi.fn()}
+      main={<div>研究主题工作区</div>}
+      assistant={<div>研究助手</div>}
+    />);
+
+    expect(screen.getByTestId("guided-research-six-step-shell")).toHaveAttribute("data-reference-layout", "prototype-desktop");
+    expect(screen.getByTestId("research-flow-progress")).toHaveAttribute("data-reference-variant", "blue-stepper");
+    expect(screen.getByTestId("guided-research-six-step-main").parentElement).toHaveAttribute("data-reference-region", "work-canvas");
+    expect(screen.getByTestId("guided-research-six-step-assistant")).toHaveAttribute("data-reference-region", "assistant-rail");
+  });
+
   it("offers truthful import routes around the brief workspace", () => {
     render(<GuidedResearchEntryPanel brief={<div>研究需求 Markdown</div>} onContinue={vi.fn()} onRegenerate={vi.fn()} onSave={vi.fn()} disabled={false} />);
 
