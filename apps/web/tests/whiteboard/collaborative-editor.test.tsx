@@ -1,6 +1,6 @@
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, expect, it, vi } from 'vitest';
-import { createWhiteboardDocument, executeCommands, readObjects } from '@repo/whiteboard-core';
+import { createWhiteboardDocument, executeCommands, readObjects, WhiteboardUndo } from '@repo/whiteboard-core';
 import { CollaborativeEditor } from '@/components/whiteboard/collaborative-editor';
 import { textSplice } from '@/components/whiteboard/use-whiteboard-document';
 import type { BoardFabricGeometry, BoardFabricObject } from '@/components/whiteboard/fabric/board-fabric-object';
@@ -9,7 +9,7 @@ vi.mock('@/components/whiteboard/fabric/board-fabric-surface', () => ({
 }));
 class ResizeObserverMock { observe() {} disconnect() {} }
 globalThis.ResizeObserver = ResizeObserverMock as unknown as typeof ResizeObserver;
-afterEach(cleanup);
+afterEach(() => { cleanup(); vi.restoreAllMocks(); });
 it('text diff only replaces the changed span', () => {
   expect(textSplice('早上好世界', '早上美好世界')).toEqual({ index: 2, deleteCount: 0, insert: '美' });
   expect(textSplice('abc', 'ac')).toEqual({ index: 1, deleteCount: 1, insert: '' });
@@ -73,5 +73,29 @@ it('reports world coordinates after zoom and renders server peer cursors/selecti
   fireEvent.click(screen.getByText('放大',{exact:true}));
   fireEvent(screen.getByTestId('board-live-surface'),new MouseEvent('pointermove',{bubbles:true,clientX:110,clientY:220}));
   expect(positions.at(-1)?.x).toBeCloseTo(100); expect(positions.at(-1)?.y).toBeCloseTo(200);
+  doc.destroy();
+});
+
+it.each([
+  ['undone', '已撤销本地修改'],
+  ['conflict', '未撤销：当前画板与这次修改存在冲突，请核对后再操作。'],
+  ['empty', '没有可撤销的本地修改。'],
+  ['creation-requires-explicit-delete', '创建对象请使用删除；为保护其他人的修改，不撤销对象创建。'],
+] as const)('announces the actual undo result %s', (result, message) => {
+  vi.spyOn(WhiteboardUndo.prototype, 'undo').mockReturnValue(result);
+  const doc = createWhiteboardDocument();
+  render(<CollaborativeEditor doc={doc} readOnly={false} title="白板" status="已连接" />);
+  fireEvent.click(screen.getByText('撤销', { exact: true }));
+  expect(screen.getByText(message, { exact: true })).toBeVisible();
+  if (result !== 'undone') expect(screen.queryByText('已撤销本地修改', { exact: true })).toBeNull();
+  doc.destroy();
+});
+it.each([true, false])('announces redo success only when core returns %s', result => {
+  vi.spyOn(WhiteboardUndo.prototype, 'redo').mockReturnValue(result);
+  const doc = createWhiteboardDocument();
+  render(<CollaborativeEditor doc={doc} readOnly={false} title="白板" status="已连接" />);
+  fireEvent.click(screen.getByText('重做', { exact: true }));
+  expect(screen.getByText(result ? '已重做本地修改' : '未重做：没有可重做的本地修改，或当前画板存在冲突。', { exact: true })).toBeVisible();
+  if (!result) expect(screen.queryByText('已重做本地修改', { exact: true })).toBeNull();
   doc.destroy();
 });
