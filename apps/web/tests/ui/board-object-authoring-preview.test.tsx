@@ -49,6 +49,7 @@ import {
   STICKY_TEXT_HORIZONTAL_PADDING,
   getAuthoringMobileBounds,
   getAuthoringSceneObjects,
+  getResizeToolbarCaptureBounds,
 } from "@/components/whiteboard/authoring-preview/board-object-authoring-surface";
 
 describe("BoardObjectAuthoringPreview", () => {
@@ -208,6 +209,24 @@ describe("BoardObjectAuthoringPreview", () => {
     expect(autoHeight).toBeDefined();
     expect(autoHeight!.text.length).toBeGreaterThan(30);
     expect(autoHeight!.height).toBeGreaterThan(autoHeight!.width);
+  });
+
+  it("places the resize toolbar below all three objects without entering the panel or viewport edge", () => {
+    const toolbar = getResizeToolbarCaptureBounds(1280, 800);
+    expect(toolbar.left).toBeGreaterThanOrEqual(0);
+    expect(toolbar.top).toBeGreaterThanOrEqual(0);
+    expect(toolbar.right).toBeLessThanOrEqual(RESIZE_CAPTURE_BOUNDS.right);
+    expect(toolbar.bottom).toBeLessThanOrEqual(800 - 56);
+    for (const object of getAuthoringSceneObjects("resize")) {
+      const intersects = toolbar.left < object.x + object.width
+        && toolbar.right > object.x
+        && toolbar.top < object.y + object.height
+        && toolbar.bottom > object.y;
+      expect(intersects, `${object.id} must not intersect resize toolbar`).toBe(false);
+    }
+
+    render(<BoardObjectAuthoringPreview initialScene="resize" />);
+    expect(screen.getByTestId("board-sticky-resize-mode")).toHaveClass("bottom-20", "top-auto", "left-1/2", "-translate-x-1/2");
   });
 
   it("dispatches no text splice during IME composition and one after compositionend", () => {

@@ -150,7 +150,7 @@ function ContinuousStatus() {
 }
 
 function ResizeToolbar() {
-  return <section className="absolute left-1/2 top-24 z-20 flex -translate-x-1/2 items-center gap-1 rounded-xl border border-border bg-card p-1.5 shadow-lg" data-testid="board-sticky-resize-mode" aria-label="便利贴尺寸模式"><Button size="sm" variant="outline">Normal</Button><Button size="sm" variant="outline">Free</Button><Button size="sm" variant="primary">Auto-height <Check className="h-3.5 w-3.5" /></Button></section>;
+  return <section className="absolute bottom-20 left-1/2 top-auto z-20 flex -translate-x-1/2 items-center gap-1 rounded-xl border border-border bg-card p-1.5 shadow-lg" data-testid="board-sticky-resize-mode" aria-label="便利贴尺寸模式"><Button size="sm" variant="outline">Normal</Button><Button size="sm" variant="outline">Free</Button><Button size="sm" variant="primary">Auto-height <Check className="h-3.5 w-3.5" /></Button></section>;
 }
 
 function ContextualToolbar({ object, dispatch }: { readonly object: AuthoringSurfaceObject; readonly dispatch: (event: BoardAuthoringPreviewEvent) => void }) {

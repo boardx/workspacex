@@ -32,6 +32,17 @@ export const CONTINUOUS_CAPTURE_BOUNDS = Object.freeze({ left: 64, top: 120, rig
 export const RESIZE_CAPTURE_BOUNDS = Object.freeze({ left: 64, top: 120, right: 944, bottom: 600 });
 export const STICKY_TEXT_HORIZONTAL_PADDING = 40;
 
+export function getResizeToolbarCaptureBounds(viewportWidth = 1280, viewportHeight = 800) {
+  const headerHeight = 56;
+  const toolbarWidth = 320;
+  const toolbarHeight = 40;
+  const bottomInset = 80;
+  const canvasHeight = viewportHeight - headerHeight;
+  const left = (viewportWidth - toolbarWidth) / 2;
+  const top = canvasHeight - bottomInset - toolbarHeight;
+  return { left, top, right: left + toolbarWidth, bottom: top + toolbarHeight };
+}
+
 export function getAuthoringMobileBounds(viewportWidth: number) {
   const inset = 16;
   const pickerWidth = 160;
