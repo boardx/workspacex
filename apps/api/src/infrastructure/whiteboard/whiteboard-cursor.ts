@@ -39,6 +39,15 @@ export class WhiteboardCursorCodec {
 }
 export function whiteboardCursorSecret(env: NodeJS.ProcessEnv = process.env): string {
   if (env.WHITEBOARD_CURSOR_SECRET) return env.WHITEBOARD_CURSOR_SECRET;
-  if (env.NODE_ENV === 'production') throw new Error('WHITEBOARD_CURSOR_SECRET is required in production');
+  // Production already provisions MODEL_CREDENTIAL_KEY as a boot-critical,
+  // deployment-stable secret. Derive a purpose-bound cursor key from it so
+  // enabling Board pagination cannot introduce an undocumented startup secret
+  // or reuse the credential-encryption key bytes directly.
+  if (env.MODEL_CREDENTIAL_KEY) {
+    return createHmac('sha256', env.MODEL_CREDENTIAL_KEY)
+      .update('workspacex:whiteboard:list-cursor:v1')
+      .digest('hex');
+  }
+  if (env.NODE_ENV === 'production') throw new Error('MODEL_CREDENTIAL_KEY is required in production');
   return 'workspacex-development-whiteboard-cursor-secret-change-me';
 }
