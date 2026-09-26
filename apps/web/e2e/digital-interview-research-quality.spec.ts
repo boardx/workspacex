@@ -40,6 +40,30 @@ test("research brief is keyboard reachable and responsive in a real browser", as
   expect(overflow).toBe(false);
 });
 
+test("the six-stage workbench exposes a separate analysis stage and Markdown artifact", async ({ page }) => {
+  await page.addInitScript(() => {
+    localStorage.setItem("wsx.sessionToken", "e2e-token");
+    localStorage.setItem("wsx.session", JSON.stringify({ version: 1, userId: "user-e2e", orgs: ["org-e2e"],
+      currentOrgId: "org-e2e", expiresAt: "2099-01-01T00:00:00.000Z" }));
+  });
+  await page.route("**/identity/me**", async (route) => route.fulfill({ status: 200, contentType: "application/json",
+    body: JSON.stringify({ org: { id: "org-e2e", name: "E2E", kind: "organization", team: null, modelPolicy: "any" },
+      orgRole: "lead", teamId: null, projectRole: null, groupId: null, displayName: "E2E User", avatarUrl: null }) }));
+  await page.route("**/interviews/digital/itv-quality-e2e", async (route) => route.fulfill({
+    status: 200, contentType: "application/json", body: JSON.stringify(view),
+  }));
+
+  await page.goto("/itv/itv-quality-e2e/setup");
+  await expect(page.getByTestId("itv-workbench-navigation")).toBeVisible();
+  await expect(page.getByTestId("itv-workbench-step-intake")).toContainText("导入需求");
+  await expect(page.getByTestId("itv-workbench-step-analysis")).toContainText("确认分析");
+  await expect(page.getByTestId("itv-workbench-step-report")).toContainText("汇总报告");
+
+  await page.getByTestId("itv-workbench-step-analysis").click();
+  await expect(page.getByTestId("itv-analysis-workbench")).toContainText("研究目标");
+  await expect(page.getByTestId("itv-step-markdown-artifact")).toContainText("分析建议.md");
+});
+
 test("a failed report keeps its partial content and exposes retry in a real browser", async ({ page }) => {
   const failed = { ...view, status: "report_pending", currentStep: "report", topic: "采购决策链路",
     version: 12, reportGeneration: { reportId: "report-failed", requestId: "request-failed", status: "failed",
@@ -82,6 +106,6 @@ test("a completed report separates the decision brief and replaces an empty evid
   await page.route("**/interviews/digital/itv-quality-e2e", async (route) => route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(completed) }));
   await page.goto("/itv/itv-quality-e2e/setup");
   await expect(page.getByTestId("itv-report-decision-brief")).toContainText("先验证采购否决权");
-  await expect(page.getByTestId("itv-evidence-review-empty")).toBeVisible();
+  await expect(page.getByTestId("itv-evidence-review").getByTestId("itv-evidence-review-empty")).toBeVisible();
   await expect(page.getByRole("table")).toHaveCount(0);
 });
