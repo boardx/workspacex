@@ -72,6 +72,43 @@ from langchain_openai import ChatOpenAI
 
 DEFAULT_MODEL_ID = "qwen-plus"
 
+# 2026-09-25 devapp 实测（人类原话「model call limit how it comes?」+「解决这个 bug」，
+# 三次同一个失败：`web-artifact` 技能的「隔离浏览器验收」步骤失败，界面上说
+# 「有一次工具调用始终没有返回结果……多半是它执行的脚本卡住或失败了」）。
+#
+# 真因不在浏览器验收脚本本身，在更上游一层：`ChatOpenAI` 构造时**从没传过
+# `request_timeout`**（`langchain_openai.ChatOpenAI.request_timeout` 默认 `None`）。
+# 本文件之外**每一处**打外部网络的地方都有显式、有界的超时（`standard_web_tools.py`
+# / `native_factory.py` / `retrieval_embeddings.py` … 逐个 grep 过，唯独模型客户端
+# 这一处没有）。DashScope 对长生成（`web-artifact` 要吐一整份自包含 HTML/CSS/JS，
+# 比普通问答长得多）偶尔会在连接建立后迟迟不吐首字节——`stream_chunk_timeout`
+# （库默认 120s）只挡「流已经开始、中途卡住」，挡不住「连接建立了但第一个字节
+# 一直不来」这一种。
+#
+# 后果：`_focused_call` 里的 `model.stream()` 可以挂到没有上限，唯一能兜住它的是
+# TS 侧的外层 `KERNEL_DEEP_AGENT_TIMEOUT_MS`（默认 300s）——那个超时触发时
+# `call_skill` 这次工具调用还没关闭，`execute-run.ts` 的结构性判据（"这一轮终止时
+# 还有已开未闭的工具调用"）据实分类成 `tool_call_unresolved`，如实说"卡住了"，
+# 但代价是每次卡住都要吃满 5 分钟、还挡不住重试把 25 次模型调用配额耗光
+# （另一张截图：`Model call limits exceeded: run limit (25/25)`——这两张截图
+# 是同一条因果链的两端）。
+#
+# 修法：给模型客户端自己一个**比外层超时更短**的界——卡住时几十秒内在
+# `_focused_call` 内部就失败，`call_skill` 现有的 `except Exception` 分支立刻把
+# 它翻译成"技能「X」执行失败"回给编排模型，模型可以马上决定重试或换路，而不是
+# 让整条 run 静默挂五分钟。默认 180s：比 `stream_chunk_timeout` 的 120s 宽松
+# （首字节前的等待天然比"两个 token 之间"更容易长），又明显短于外层 300s——
+# 留给外层判据兜底剩余的类别（比如网络彻底断开）。
+MODEL_REQUEST_TIMEOUT_ENV = "KERNEL_DEEP_AGENT_MODEL_REQUEST_TIMEOUT_MS"
+DEFAULT_MODEL_REQUEST_TIMEOUT_MS = 180_000
+
+
+def _model_request_timeout_seconds(env: "os._Environ[str]" = os.environ) -> float:
+    raw = (env.get(MODEL_REQUEST_TIMEOUT_ENV) or "").strip()
+    if raw.isdigit() and int(raw) > 0:
+        return int(raw) / 1000
+    return DEFAULT_MODEL_REQUEST_TIMEOUT_MS / 1000
+
 # #2700 —— 与 `configured-model-provider.ts` 的 `readThinkingDisableModelIds` 默认值
 # 逐字相同，见本文件头注「判断逻辑必须与 configured-model-provider.ts 保持一致」。
 # 2026-09-06 人类反馈「task 工具处理时间很长，把 thinking 关掉」：devapp 实测跑的是
@@ -158,5 +195,6 @@ def build_chat_model() -> ChatOpenAI:
         base_url=base_url,
         api_key=api_key,
         model=model_id,
+        request_timeout=_model_request_timeout_seconds(),
         **({"extra_body": extra_body} if extra_body else {}),
     )
