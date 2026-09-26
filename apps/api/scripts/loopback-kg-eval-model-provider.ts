@@ -14,8 +14,6 @@
  * user 形如「本条消息（用户说的）：\n<原话>」——原话逐字命中语料 `cases.json` 的某条 `say`，回它的 `extract`；
  * 其余（助手的回答、提问、闲聊、没登记的话）一律回空 `{"entities":[],"claims":[]}`。它扮演「把这句话读对了的
  * 抽取模型」：抽取质量不是本评测量的东西（本机没有真实模型），被量的是抽出来之后产品怎么用它。
- * 例外（显式打开才有）：`LOOPBACK_KG_EVAL_EXTRACT_ASSISTANT=1` 时「本条消息（助手说的）：」也按同一张语料逐字匹配——
- * 给「助手的回答会不会被抽取」这类验收用（round 7 #4284：用过个人记忆的项目会话回答不该被抽取）；默认关，评测不受影响。
  *
  * ## 对话请求：只照着这一轮收到的【记忆】作答（grounded，同 F14 `kg-e2e-fixtures.ts` 的 groundedModel）
  * 回答里有没有某个事实，完全取决于执行器这一轮真的交给模型什么（召回名次、作用域、删除失效都体现在这里），
@@ -43,9 +41,6 @@ const extractions = new Map(Object.values(cases.says).map((s) => [normalize(s.sa
 
 const EMPTY_EXTRACTION = '{"entities":[],"claims":[]}';
 const EXTRACTION_USER_PREFIX = "本条消息（用户说的）：\n";
-const EXTRACTION_ASSISTANT_PREFIX = "本条消息（助手说的）：\n";
-const EXTRACTION_PREFIXES = process.env.LOOPBACK_KG_EVAL_EXTRACT_ASSISTANT === "1"
-  ? [EXTRACTION_USER_PREFIX, EXTRACTION_ASSISTANT_PREFIX] : [EXTRACTION_USER_PREFIX];
 const MEMORY_HEADER = "【记忆】";
 const CARD_HEADER = "【记忆卡片】";
 /** 流式分片：每段几个字、段间一点间隔——够让浏览器看到「首字」先于整段到达，又不拖慢评测。 */
@@ -63,9 +58,8 @@ const text = (m: Message | undefined): string => (typeof m?.content === "string"
 
 function extractionReply(messages: readonly Message[]): string {
   const user = text([...messages].reverse().find((m) => m.role === "user"));
-  const prefix = EXTRACTION_PREFIXES.find((p) => user.startsWith(p));
-  if (prefix === undefined) return EMPTY_EXTRACTION;
-  return extractions.get(normalize(user.slice(prefix.length))) ?? EMPTY_EXTRACTION;
+  if (!user.startsWith(EXTRACTION_USER_PREFIX)) return EMPTY_EXTRACTION;
+  return extractions.get(normalize(user.slice(EXTRACTION_USER_PREFIX.length))) ?? EMPTY_EXTRACTION;
 }
 
 /** 【记忆】里的每一条：「- [你确认过] 原文（出处）」→「原文（出处）」。降级说明那一行不是记忆，不照抄。 */

@@ -29,7 +29,7 @@
  *     调用方若声明了登录用户（app.current_user_id），必须就是这个作者（人的请求不能替别人触发）。
  *     读仍只有本人（RLS 不变）。
  *   - 作用域纪律：org 取自 app.current_org，所有查询按 org 限定；个人空间开关走 kg_scope_enabled。
- *   - 被排除：模型 / agent 消息、转写原文（raw_transcript：可能是别人的发言）、可见范围更窄的消息、
+ *   - 被排除：**项目会话里的消息**（只限个人线程，同 F11）、模型 / agent 消息、转写原文（raw_transcript：可能是别人的发言）、可见范围更窄的消息、
  *     带附件片段证据的结论、冲突态（contested）、已经有过本人副本的结论（撤销后重试不会再复制回来）。
  *   - search_path 固定为 pg_catalog, public, pg_temp（pg_temp 最后），不创建任何临时对象。
  *   - 授权只给 app_rw 执行这三个函数（和 kg_promote_claim 同一角色）。
@@ -71,10 +71,13 @@ AS $$
 $$;
 
 -- 一条消息的人类作者（本人发的、不是转写、没有更窄的可见范围、仍是本 org 成员）；否则 NULL。
+-- 只限**个人线程**（project_id IS NULL），与 F11 `kg_promote_claim` 的 KG_SCOPE_NOT_PERSONAL 同一边界（#4291 评审）：
+-- 项目会话里的决定属于那个项目，复制进个人空间后会被 #4284 带进**别的**项目会话的回答，给不在原项目的成员看到。
 CREATE OR REPLACE FUNCTION kg_auto_copy_author(p_org text, p_thread text, p_message text) RETURNS text
 LANGUAGE sql STABLE SECURITY DEFINER SET search_path = pg_catalog, public, pg_temp
 AS $$
   SELECT m.author_id FROM public.chat_messages m
+    JOIN public.chat_threads t ON t.org_id = m.org_id AND t.id = m.thread_id AND t.project_id IS NULL
    WHERE m.org_id = p_org AND m.id = p_message AND m.thread_id = p_thread
      AND m.author_kind = 'human' AND m.author_id IS NOT NULL AND m.raw_transcript = false AND m.visibility_scope IS NULL
      AND EXISTS (SELECT 1 FROM public.org_memberships om WHERE om.org_id = p_org AND om.user_id = m.author_id)

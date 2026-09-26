@@ -18,8 +18,11 @@ afterwards.
   this sentence right": 「我决定关注 211 高校」 and 「我决定关注 985 高校」 each become one `decision` claim.
 - Chat answers only echo the 【记忆】 block that the executor actually handed the model that turn. An answer that
   contains a decision therefore proves the decision was in the model's context.
-- **New in this round, opt-in:** `LOOPBACK_KG_EVAL_EXTRACT_ASSISTANT=1` makes the loopback also match assistant
-  messages (「本条消息（助手说的）」) against the corpus. The default is off, so the F15 eval is unchanged. The corpus maps
+- **Harness-only patch, opt-in:** `harness/loopback-extract-assistant.patch.txt` (apply to
+  `apps/api/scripts/loopback-kg-eval-model-provider.ts` before starting the stack) adds
+  `LOOPBACK_KG_EVAL_EXTRACT_ASSISTANT=1`, which makes the loopback also match assistant messages (「本条消息（助手说的）」)
+  against the corpus. It is **not** in the source tree: that file is part of the frozen F15 eval fingerprint
+  (`rubric-lock.json`), and the eval must stay byte-identical. The corpus maps
   the exact answer text 「根据之前的对话：我决定关注 985 高校（来自个人空间知识，最早见于你 09/26 的对话）。」 to one fact
   claim 「关注名单已经定下来了」. So if that answer were extracted, a claim WOULD appear. Step 4284-2 shows this
   happening in a personal thread.

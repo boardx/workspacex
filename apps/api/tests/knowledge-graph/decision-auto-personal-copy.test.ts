@@ -155,36 +155,33 @@ describe("issue #4283: 本人的决定自动记进本人个人空间", () => {
     expect(ex.body.claims.map((c) => c.personalCopyClaimId)).toEqual([null]);
   });
 
-  it("项目会话：B 的决定只进 B 的个人空间，A 的只进 A 的；各自读不到对方的副本", async () => {
-    const bRows = await personalRows(B_DECISION);
-    expect(bRows.map((r) => r.scope_id)).toEqual([USER_B]);
-    const aRows = await personalRows(A_IN_PROJECT);
-    expect(aRows.map((r) => r.scope_id)).toEqual([USER_A]);
-    // A（会话所有者）看 B 那条消息的反馈：看得到会话结论，但没有任何个人副本（那是 B 的空间）
-    const aSeesB = await extraction(a, P1, "m-i4283-p1-b");
-    expect(aSeesB.status).toBe(200);
-    expect(aSeesB.body.claims.map((c) => c.personalCopyClaimId)).toEqual([null]);
-    const bSeesB = await extraction(b, P1, "m-i4283-p1-b");
-    expect(bSeesB.body.claims.map((c) => c.personalCopyClaimId)).toEqual([bRows[0]!.id]);
-    const bSeesA = await extraction(b, P1, "m-i4283-p1-a");
-    expect(bSeesA.body.claims.map((c) => c.personalCopyClaimId)).toEqual([null]);
-    // 个人空间读接口同样只给本人
-    const aPersonal = await a.get<{ claims: Array<{ statement: string }> }>("/knowledge-graph/personal");
-    expect(aPersonal.body.claims.map((c) => c.statement)).not.toContain(B_DECISION);
+  it("项目会话里的决定不自动进任何人的个人空间（只限个人线程，同 F11；#4291 评审）", async () => {
+    // 项目会话的决定属于那个项目：复制进个人空间后会被 #4284 带进别的项目会话的回答，给不在原项目的成员看到。
+    const bSrc = await threadClaim(P1, B_DECISION);
+    const aSrc = await threadClaim(P1, A_IN_PROJECT);
+    expect(await personalRows(B_DECISION)).toEqual([]);
+    expect(await personalRows(A_IN_PROJECT)).toEqual([]);
+    // 会话结论照常在（项目成员看得到），只是没有个人副本
+    for (const [who, msg] of [[a, "m-i4283-p1-b"], [b, "m-i4283-p1-b"], [a, "m-i4283-p1-a"], [b, "m-i4283-p1-a"]] as const) {
+      const ex = await extraction(who, P1, msg);
+      expect(ex.status).toBe(200);
+      expect(ex.body.claims.map((c) => c.personalCopyClaimId)).toEqual([null]);
+    }
+    // 系统身份（worker）也取不到候选、直接调复制被拒
+    const cands = await asApp(ORG, async (c) => (await c.query<{ c: { author: string | null } }>(
+      "SELECT kg_auto_copy_candidates($1, $2) AS c", [P1, "m-i4283-p1-a"])).rows[0]!.c);
+    expect(cands.author).toBeNull();
+    await expect(asApp(ORG, (c) => c.query("SELECT kg_auto_copy_decision($1::jsonb)", [JSON.stringify({
+      action_id: "act-i4283-proj", thread_id: P1, message_id: "m-i4283-p1-a", claim_id: aSrc.id, mode: "new",
+    })]))).rejects.toThrow(/KG_NOT_AUTHOR/);
+    // 撤销入口同样没有东西可撤（同一个 404 出口）
+    for (const [who, src] of [[a, aSrc], [b, bSrc]] as const) {
+      const r = await who.post(undoPath(P1, src.id), {});
+      expect(r.status).toBe(404);
+      expect(r.body).toMatchObject({ reasonCode: "KG_CLAIM_NOT_FOUND" });
+    }
     const bPersonal = await b.get<{ claims: Array<{ statement: string }> }>("/knowledge-graph/personal");
-    expect(bPersonal.body.claims.map((c) => c.statement)).toEqual([B_DECISION]);
-    // A 不能撤 B 的副本（同一个 404 出口）
-    const src = await threadClaim(P1, B_DECISION);
-    // 来源抽屉的出处：自动复制是 B 个人空间里的动作，A 看不到（I-14）；B 自己看得到
-    const aSources = await a.get<{ provenance: Array<{ action: string }> }>(`/knowledge-graph/claims/${src.id}/sources`);
-    expect(aSources.status).toBe(200);
-    expect(aSources.body.provenance.map((p) => p.action)).not.toContain("autoCopyDecision");
-    const bSources = await b.get<{ provenance: Array<{ action: string }> }>(`/knowledge-graph/claims/${src.id}/sources`);
-    expect(bSources.body.provenance.map((p) => p.action)).toContain("autoCopyDecision");
-    const r = await a.post(undoPath(P1, src.id), {});
-    expect(r.status).toBe(404);
-    expect(r.body).toMatchObject({ reasonCode: "KG_CLAIM_NOT_FOUND" });
-    expect((await personalRows(B_DECISION))[0]!.revoked_at).toBeNull();
+    expect(bPersonal.body.claims.map((c) => c.statement)).not.toContain(B_DECISION);
   });
 
   it("同一个决定说两遍（另一个会话）⇒ 合并成一条：两个来源、两条证据，不重复建", async () => {
@@ -275,14 +272,15 @@ describe("issue #4283: 本人的决定自动记进本人个人空间", () => {
   });
 
   it("数据库守卫：人的请求不能替别人触发复制；证据不是作者本人的话 ⇒ 拒绝；候选对别人为空", async () => {
-    // B 的消息、A 以登录身份去触发 ⇒ KG_NOT_OWNER
-    const bSrc = await threadClaim(P1, B_DECISION);
+    // A 个人线程里 A 的话、B 以登录身份去触发 ⇒ KG_NOT_OWNER
+    const aSrc = await threadClaim(A1, A_DECISION);
     await expect(asApp(ORG, async (c) => {
-      await c.query("SELECT set_config('app.current_user_id', $1, true)", [USER_A]);
+      await c.query("SELECT set_config('app.current_user_id', $1, true)", [USER_B]);
       return c.query("SELECT kg_auto_copy_decision($1::jsonb)", [JSON.stringify({
-        action_id: "act-i4283-forge", thread_id: P1, message_id: "m-i4283-p1-b", claim_id: bSrc.id, mode: "new",
+        action_id: "act-i4283-forge", thread_id: A1, message_id: "m-i4283-a1", claim_id: aSrc.id, mode: "new",
       })]);
     })).rejects.toThrow(/KG_NOT_OWNER/);
+    const bSrc = await threadClaim(P1, B_DECISION);
     const forCaller = await asApp(ORG, async (c) => {
       await c.query("SELECT set_config('app.current_user_id', $1, true)", [USER_A]);
       return (await c.query<{ c: { author: string | null; personal: unknown[] } }>(
