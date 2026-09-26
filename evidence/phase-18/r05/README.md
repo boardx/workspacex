@@ -34,10 +34,10 @@ deleted the row instead), and added the owner as a member of the seeded project 
 | 4 | *Observation, not a done criterion.* **New project thread**, same 「开始写报告吧」 → answer 「好的，收到。」, `recalled: []`, no `kg_turn_recalls` row; the personal claim is still live | current behaviour, recorded | `04-current-behaviour-project-thread-no-recall.png`, `journey.json` `step4`, `db-proof.txt` |
 
 Step 4 is current behaviour only: the personal-space candidates reuse F12's L1 condition (requester's own
-personal thread only). Whether a personal decision *should* follow the user into project threads is open
-question (c) of the #4278 entry in
-`phases/phase-18-org-brain-knowledge-graph/signoff-draft/chat-knowledge-graph/usecases.md`; this run does not
-settle it.
+personal thread only). Question (c) of the #4278 entry in
+`phases/phase-18-org-brain-knowledge-graph/signoff-draft/chat-knowledge-graph/usecases.md` has since been
+decided by the human (2026-09-26): personal memory should also apply to the requester's own answers in
+project threads, self-only (#4284, round 7). This run records the behaviour before that change.
 
 ## Files
 
