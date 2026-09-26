@@ -26,7 +26,8 @@ export interface BoardFabricSurfaceProps {
   viewport: BoardViewport;
   onSelectionChange: (objectIds: readonly string[], source: BoardSelectionSource) => void;
   /** Fired once at Fabric's gesture completion boundary, never for projection patches. */
-  onObjectTransform: (objectId: string, geometry: BoardFabricGeometry) => void;
+  /** Returns whether the canonical command accepted the gesture. Rejection restores the projection. */
+  onObjectTransform: (objectId: string, geometry: BoardFabricGeometry) => boolean | Promise<boolean>;
   onViewportChange: (viewport: BoardViewport, source: BoardViewportSource) => void;
   className?: string;
 }
@@ -192,7 +193,28 @@ export function BoardFabricSurface({ objects, selectedObjectIds, readOnly, tool,
         canvas.requestRenderAll();
         return;
       }
-      callbacksRef.current.onObjectTransform(id, geometryFromFabric(target));
+      const restoreCanonicalGeometry = () => {
+        // A delayed result must never mutate a replacement projection. When the
+        // object still exists, restore the latest canonical revision so remote
+        // updates that arrived while the command was pending are preserved.
+        if (registryRef.current.get(id) !== target) return;
+        const latestCanonical = canonicalRef.current.get(id);
+        if (!latestCanonical) return;
+        applyCanonicalObject(target, latestCanonical, stateRef.current.readOnly);
+        canvas.requestRenderAll();
+      };
+      try {
+        const accepted = callbacksRef.current.onObjectTransform(id, geometryFromFabric(target));
+        if (typeof accepted === "boolean") {
+          if (!accepted) restoreCanonicalGeometry();
+          return;
+        }
+        void accepted.then((resolved) => {
+          if (!resolved) restoreCanonicalGeometry();
+        }, restoreCanonicalGeometry);
+      } catch {
+        restoreCanonicalGeometry();
+      }
     };
     let panning = false;
     let last = { x: 0, y: 0 };
