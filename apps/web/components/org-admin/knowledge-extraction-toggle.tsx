@@ -21,8 +21,10 @@ import {
  *
  * ## 两个布尔分别说什么（同 `getKnowledgeExtractionSetting` 契约注释）
  *
- * - `deploymentCapable`：这次部署有没有配置抽取用的模型——部署级事实，这个开关改不了它，
- *   没有能力时这里如实说明并把开关禁用，而不是让人以为点了就会生效。
+ * - `deploymentCapable`：整个部署此刻能不能抽取（配置了抽取用的模型 AND 平台管理员没有关掉
+ *   部署级总闸，见契约注释）——部署级事实，这个开关改不了它。为假时（issue #4247）这里如实
+ *   说明「部署没有开启」、把开关禁用，并把状态写成「未生效」，而不是摆一个看起来开着、
+ *   点了也不起作用的开关。
  * - `orgEnabled`：本组织有没有打开——组织级、admin 可写（默认值见契约 `KgExtractionSetting` 注释）。
  *
  * ## 权限形状
@@ -82,12 +84,15 @@ export function KnowledgeExtractionToggleSection({ isAdmin }: { isAdmin: boolean
         depFailure={{ what: "记忆抽取设置", retry: () => void load() }}
       >
         {setting ? (
-          <div className="flex items-center justify-between gap-3 rounded-control border border-border p-3">
+          <div
+            className={`flex items-center justify-between gap-3 rounded-control border p-3 ${setting.deploymentCapable ? "border-border" : "border-warning bg-warning-tint"}`}
+          >
             <div className="flex flex-col gap-0.5">
               <span className="text-13 font-medium">为本组织开启记忆抽取</span>
               {!setting.deploymentCapable ? (
-                <span className="text-11 text-muted-foreground" data-testid="knowledge-extraction-not-capable">
-                  这次部署还没有配置抽取用的模型，暂时无法开启。
+                <span className="text-11 text-warning-tint-foreground" data-testid="knowledge-extraction-not-capable">
+                  未生效：这个部署没有开启记忆抽取（平台管理员关闭了部署级开关，或没有配置抽取用的模型），
+                  本组织的开关暂时不起作用，也无法修改。
                 </span>
               ) : !isAdmin ? (
                 <span className="text-11 text-muted-foreground">

@@ -1,0 +1,48 @@
+== deployment + org extraction gates (no org row = on) ==
+ singleton | enabled |          enabled_at          
+-----------+---------+------------------------------
+ t         | t       | 2026-09-26 12:21:23.71223+00
+(1 row)
+
+ org_id | enabled | updated_at | updated_by 
+--------+---------+------------+------------
+(0 rows)
+
+== all claims for this org (scope, kind, revoked) ==
+                    id                    |         statement          | claim_kind |   status   |  scope_kind  |                 scope_id                 | created_by | revoked | revocation_reason 
+------------------------------------------+----------------------------+------------+------------+--------------+------------------------------------------+------------+---------+-------------------
+ clm_bccf0ccb54d04e44971e7ba1e7c2b692     | 我决定关注 211 高校        | decision   | superseded | chat_session | thr-cda69de5-f0e4-4dfb-a71e-1170645c327d | model      | t       | user_revoked
+ clm_793cf90a409d4dd684de5a10498ee3e3     | 我决定关注 211 高校        | decision   | superseded | chat_session | thr-5e249ea7-c03c-4d09-a168-813c4e076d95 | model      | t       | user_revoked
+ act_3419fda1a8b34c39a8c910dccf9bf7c4-p-p | 报告截止日期是 10 月 15 日 | fact       | accepted   | personal     | user-kg-eval-owner                       | human      | f       | 
+ act_3419fda1a8b34c39a8c910dccf9bf7c4-c   | 报告截止日期是 10 月 15 日 | fact       | accepted   | chat_session | thr-5e249ea7-c03c-4d09-a168-813c4e076d95 | human      | f       | 
+ act_8f46db5dddfd44338e2f12fd3f5dbc96-p-p | 报告只写中文版             | fact       | accepted   | personal     | user-kg-eval-owner                       | human      | f       | 
+ act_8f46db5dddfd44338e2f12fd3f5dbc96-c   | 报告只写中文版             | fact       | accepted   | chat_session | thr-5e249ea7-c03c-4d09-a168-813c4e076d95 | human      | f       | 
+ act_a37b5fb087164accb4d3e99ef0887328-p   | 我决定关注 211 高校        | decision   | superseded | personal     | user-kg-eval-owner                       | human      | t       | user_revoked
+(7 rows)
+
+== extraction evidence: claim <- human message (step 1/2) ==
+                claim_id                |              message_id              |          client_message_id           |                thread_id                 |        body         
+----------------------------------------+--------------------------------------+--------------------------------------+------------------------------------------+---------------------
+ clm_bccf0ccb54d04e44971e7ba1e7c2b692   | eab87315-9ebc-46ef-a282-a472df23c61d | ae1def0c-809d-47c5-a160-08201fa6c145 | thr-cda69de5-f0e4-4dfb-a71e-1170645c327d | 我决定关注 211 高校
+ act_a37b5fb087164accb4d3e99ef0887328-p | 98127262-4a03-4b11-913f-284403a8f8cd | 2fb320a7-1aa5-4fe5-82ee-c339be5a2b99 | thr-5e249ea7-c03c-4d09-a168-813c4e076d95 | 我决定关注 211 高校
+ clm_793cf90a409d4dd684de5a10498ee3e3   | 98127262-4a03-4b11-913f-284403a8f8cd | 2fb320a7-1aa5-4fe5-82ee-c339be5a2b99 | thr-5e249ea7-c03c-4d09-a168-813c4e076d95 | 我决定关注 211 高校
+(3 rows)
+
+== kg_turn_recalls per thread, oldest first (step 4 / 6 / 7) ==
+                thread_id                 |            user_said             |                                                                                                                                                             items                                                                                                                                                              
+------------------------------------------+----------------------------------+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ thr-cda69de5-f0e4-4dfb-a71e-1170645c327d | 开始写报告吧                     | [{"score": 0, "claimId": "clm_bccf0ccb54d04e44971e7ba1e7c2b692", "channels": ["claim"], "graphPath": null, "retrievalReasons": ["recall"]}]
+ thr-5e249ea7-c03c-4d09-a168-813c4e076d95 | 报告截止日期是 10 月 15 日       | [{"score": 0, "claimId": "clm_793cf90a409d4dd684de5a10498ee3e3", "channels": ["claim"], "graphPath": null, "retrievalReasons": ["recall"]}]
+ thr-5e249ea7-c03c-4d09-a168-813c4e076d95 | 记住：报告截止日期是 10 月 15 日 | [{"score": 0, "claimId": "clm_793cf90a409d4dd684de5a10498ee3e3", "channels": ["claim"], "graphPath": null, "retrievalReasons": ["recall"]}]
+ thr-5e249ea7-c03c-4d09-a168-813c4e076d95 | 记住：报告只写中文版             | [{"score": 0, "claimId": "clm_793cf90a409d4dd684de5a10498ee3e3", "channels": ["claim"], "graphPath": null, "retrievalReasons": ["recall"]}]
+ thr-e9fb4167-d6f8-4e2c-b2eb-ab7e938a90c8 | 我关注哪类高校？                 | [{"score": 0.01639364262295082, "claimId": "act_a37b5fb087164accb4d3e99ef0887328-p", "channels": ["fts"], "graphPath": null, "retrievalReasons": ["recall"]}]
+ thr-e9fb4167-d6f8-4e2c-b2eb-ab7e938a90c8 | 开始写报告吧                     | [{"score": 0.01639364262295082, "claimId": "act_3419fda1a8b34c39a8c910dccf9bf7c4-p-p", "channels": ["fts"], "graphPath": null, "retrievalReasons": ["recall"]}, {"score": 0.01639364262295082, "claimId": "act_8f46db5dddfd44338e2f12fd3f5dbc96-p-p", "channels": ["fts"], "graphPath": null, "retrievalReasons": ["recall"]}]
+(6 rows)
+
+== memory cards (step 5) ==
+   kind   | status |                                                                   items                                                                    |          remembered_personal_id          
+----------+--------+--------------------------------------------------------------------------------------------------------------------------------------------+------------------------------------------
+ remember | done   | [{"basis": null, "scope": "chat_session", "claimId": "act_3419fda1a8b34c39a8c910dccf9bf7c4-c", "statement": "报告截止日期是 10 月 15 日"}] | act_3419fda1a8b34c39a8c910dccf9bf7c4-p-p
+ remember | done   | [{"basis": null, "scope": "chat_session", "claimId": "act_8f46db5dddfd44338e2f12fd3f5dbc96-c", "statement": "报告只写中文版"}]             | act_8f46db5dddfd44338e2f12fd3f5dbc96-p-p
+(2 rows)
+

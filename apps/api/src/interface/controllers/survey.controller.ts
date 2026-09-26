@@ -28,7 +28,6 @@ import {
   SurveyPublishInputSchema,
   SurveySubmissionInputSchema,
   SurveyResponseReviewInputSchema,
-  SurveySourceSaveCommandSchema,
 } from "@repo/contracts/survey-runtime";
 import {
   SurveyError,
@@ -66,11 +65,6 @@ async function run<T>(work: () => Promise<T>): Promise<T> {
       throw new ConflictException({ reasonCode: "INVALID_TRANSITION" });
     if (e.code === "submission_conflict")
       throw new ConflictException(e.code);
-    if (e.code === "invalid_source")
-      throw new BadRequestException({
-        reasonCode: "SURVEY_SOURCE_INVALID",
-        diagnostics: e.details,
-      });
     if (e.code === "closed" || e.code === "expired")
       throw new GoneException(e.code);
     throw new BadRequestException(e.code);
@@ -133,19 +127,6 @@ export class SurveyController {
   @Get("/:id") get(@CurrentPrincipal() p: Principal, @Param("id") id: string) {
     assertPrincipal(p);
     return run(() => this.service.get(p.orgId, p.userId, id));
-  }
-  @Get("/:id/source") source(@CurrentPrincipal() p: Principal, @Param("id") id: string) {
-    assertPrincipal(p);
-    return run(async () => (await this.service.get(p.orgId, p.userId, id)).source);
-  }
-  @Put("/:id/source") saveSource(
-    @CurrentPrincipal() p: Principal,
-    @Param("id") id: string,
-    @Body() body: unknown,
-  ) {
-    assertPrincipal(p);
-    const input = parse(SurveySourceSaveCommandSchema, body);
-    return run(() => this.service.saveSource(p.orgId, p.userId, id, input.expectedVersion, input.documents));
   }
   @Put("/:id") save(
     @CurrentPrincipal() p: Principal,

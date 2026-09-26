@@ -125,7 +125,7 @@ function proposal(status: z.infer<typeof interview.DigitalInterviewSkillProposal
   } as z.infer<typeof interview.DigitalInterviewSkillProposal>;
 }
 
-function installLiveFetch(initial: LiveInterview = topicPendingInterview, options: { readonly failTopicOnce?: boolean } = {}) {
+function installLiveFetch(initial: LiveInterview = topicPendingInterview, options: { readonly failTopicOnce?: boolean; readonly questionReadiness?: "ready" | "warning" | "blocking" } = {}) {
   const calls: FetchCall[] = [];
   let view = initial;
   let failTopicOnce = options.failTopicOnce ?? false;
@@ -134,7 +134,7 @@ function installLiveFetch(initial: LiveInterview = topicPendingInterview, option
     const method = init?.method ?? "GET";
     const body = init?.body === undefined ? undefined : JSON.parse(String(init.body));
     calls.push({ method, path: url.pathname, body });
-    if (method === "POST" && url.pathname.endsWith("/topic/confirm")) {
+    if (method === "POST" && url.pathname.endsWith("/brief/confirm")) {
       if (failTopicOnce) {
         failTopicOnce = false;
         return json({ reasonCode: "DEPENDENCY_UNAVAILABLE" }, 503);
@@ -168,11 +168,25 @@ function installLiveFetch(initial: LiveInterview = topicPendingInterview, option
       view = {
         ...view,
         questions: body.questions,
-        status: "running",
-        currentStep: "runs",
+        status: options.questionReadiness ? "questions_pending" : "running",
+        currentStep: options.questionReadiness ? "questions" : "runs",
         questionVersionId: "question-version-f04",
+        quality: options.questionReadiness ? {
+          ...view.quality,
+          readiness: {
+            status: options.questionReadiness,
+            ruleVersion: "quality-v1",
+            evaluatedAt: "2026-09-26T00:00:00.000Z",
+            issues: options.questionReadiness === "warning" ? [{ code: "single-perspective", severity: "warning", message: "需要补充真人访谈证据", objectId: null }] : options.questionReadiness === "blocking" ? [{ code: "missing-brief", severity: "blocking", message: "研究简报缺少目标", objectId: null }] : [],
+            estimatedMinutes: { min: 5, max: 10 },
+          },
+        } : view.quality,
         version: view.version + 1,
       };
+      return json(view, 201);
+    }
+    if (method === "POST" && url.pathname.endsWith("/readiness/decide")) {
+      view = { ...view, status: "running", currentStep: "runs", version: view.version + 1 };
       return json(view, 201);
     }
     if (method === "POST" && url.pathname.endsWith("/skill/messages")) {
@@ -337,12 +351,12 @@ describe("F04 正式 setup 的显式确认与双层持久化验收门", () => {
     expect(screen.getByTestId("itv-workflow-status")).toHaveTextContent("topic_pending");
     expect(screen.getByTestId("itv-workflow-version")).toHaveTextContent("41");
     fireEvent.change(topic, { target: { value: "谁拥有最终否决权？" } });
-    expect(transport.requests("POST", "/topic/confirm")).toHaveLength(0);
+    expect(transport.requests("POST", "/brief/confirm")).toHaveLength(0);
     expect(transport.requests("POST", "/skill/messages")).toHaveLength(0);
 
     fireEvent.click(screen.getByTestId("itv-confirm-topic"));
-    await waitFor(() => expect(transport.requests("POST", "/topic/confirm")).toHaveLength(1));
-    expect(transport.requests("POST", `/interviews/digital/${topicPendingInterview.interviewId}/topic/confirm`)[0]!.body).toMatchObject({
+    await waitFor(() => expect(transport.requests("POST", "/brief/confirm")).toHaveLength(1));
+    expect(transport.requests("POST", `/interviews/digital/${topicPendingInterview.interviewId}/brief/confirm`)[0]!.body).toMatchObject({
       topic: "谁拥有最终否决权？",
       expectedVersion: 41,
       requestId: expect.any(String),
@@ -412,6 +426,28 @@ describe("F04 正式 setup 的显式确认与双层持久化验收门", () => {
     expect(transport.requests("POST", "/questions/confirm")[0]!.body).toMatchObject({ questions: [defaultQuestion] });
   });
 
+  it("问题确认遇到 warning 时保留评估，要求填写理由后才接受提醒并开始访谈", async () => {
+    const transport = installLiveFetch(topicPendingInterview, { questionReadiness: "warning" });
+    render(<DigitalInterviewSetup interviewId={topicPendingInterview.interviewId} />);
+    fireEvent.change(await screen.findByTestId("itv-topic-input"), { target: { value: "验证提醒分支" } });
+    fireEvent.click(screen.getByTestId("itv-confirm-topic"));
+    fireEvent.click(await screen.findByTestId("itv-confirm-experts"));
+    fireEvent.click(await screen.findByTestId("itv-confirm-questions"));
+
+    expect(await screen.findByTestId("itv-readiness")).toHaveTextContent("开始前检查");
+    expect(transport.requests("POST", "/readiness/decide")).toHaveLength(0);
+    const start = screen.getByTestId("itv-start-ready");
+    expect(start).toBeDisabled();
+    fireEvent.change(screen.getByLabelText("接受提醒的理由（10–300 字）"), { target: { value: "已确认单一视角风险，并安排真人访谈补证。" } });
+    fireEvent.click(start);
+    await waitFor(() => expect(transport.requests("POST", "/readiness/decide")).toHaveLength(1));
+    expect(transport.requests("POST", "/readiness/decide")[0]!.body).toMatchObject({
+      status: "warning_accepted",
+      rationale: "已确认单一视角风险，并安排真人访谈补证。",
+      assessmentRuleVersion: "quality-v1",
+    });
+  });
+
   it("模型生成专家和静态专家都可查看详情，且查看操作不触发删除", async () => {
     installLiveFetch();
     render(<DigitalInterviewSetup interviewId={topicPendingInterview.interviewId} />);
@@ -466,7 +502,7 @@ describe("F04 正式 setup 的显式确认与双层持久化验收门", () => {
 
     fireEvent.click(screen.getByTestId("itv-workflow-step-2"));
     expect(await screen.findByRole("alert")).toHaveTextContent("未确认");
-    expect(transport.requests("POST", "/topic/confirm")).toHaveLength(0);
+    expect(transport.requests("POST", "/brief/confirm")).toHaveLength(0);
   });
 
   it("Skill 发送立即持久化，而应用建议只改本地 dirty buffer，直到步骤确认才写访谈", async () => {
@@ -487,10 +523,10 @@ describe("F04 正式 setup 的显式确认与双层持久化验收门", () => {
 
     fireEvent.click(await screen.findByTestId("itv-skill-apply"));
     await waitFor(() => expect(screen.getByTestId("itv-topic-input")).toHaveValue("应用后的可验证主题"));
-    expect(transport.requests("POST", "/topic/confirm")).toHaveLength(0);
+    expect(transport.requests("POST", "/brief/confirm")).toHaveLength(0);
     fireEvent.click(screen.getByTestId("itv-confirm-topic"));
-    await waitFor(() => expect(transport.requests("POST", "/topic/confirm")).toHaveLength(1));
-    expect(transport.requests("POST", `/interviews/digital/${topicPendingInterview.interviewId}/topic/confirm`)[0]!.body).toMatchObject({
+    await waitFor(() => expect(transport.requests("POST", "/brief/confirm")).toHaveLength(1));
+    expect(transport.requests("POST", `/interviews/digital/${topicPendingInterview.interviewId}/brief/confirm`)[0]!.body).toMatchObject({
       topic: "应用后的可验证主题",
       expectedVersion: 43,
       requestId: expect.any(String),
@@ -573,7 +609,7 @@ describe("F04 正式 setup 的显式确认与双层持久化验收门", () => {
     fireEvent.click(screen.getByTestId("itv-workflow-step-2"));
     fireEvent.click(screen.getByRole("button", { name: "放弃更改" }));
     expect(await screen.findByTestId("itv-expert-step")).toBeInTheDocument();
-    expect(transport.requests("POST", "/topic/confirm")).toHaveLength(0);
+    expect(transport.requests("POST", "/brief/confirm")).toHaveLength(0);
   });
 
   it("top-right return warns for dirty content and only navigates after discard", async () => {
@@ -599,8 +635,8 @@ describe("F04 正式 setup 的显式确认与双层持久化验收门", () => {
     expect(screen.getByTestId("itv-topic-input")).toHaveValue("重试时不得丢失");
 
     fireEvent.click(screen.getByTestId("itv-confirm-topic"));
-    await waitFor(() => expect(transport.requests("POST", "/topic/confirm")).toHaveLength(2));
-    const writes = transport.requests("POST", "/topic/confirm");
+    await waitFor(() => expect(transport.requests("POST", "/brief/confirm")).toHaveLength(2));
+    const writes = transport.requests("POST", "/brief/confirm");
     expect((writes[0]!.body as { requestId: string }).requestId).toBe((writes[1]!.body as { requestId: string }).requestId);
   });
 

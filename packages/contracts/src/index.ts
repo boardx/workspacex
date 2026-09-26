@@ -33,7 +33,6 @@ export * as wave2Runtime from "./wave2-runtime";
 export * as templates from "./templates";
 export * as research from "./research";
 export * as survey from "./survey";
-export * as surveySource from "./survey-source";
 export * as personalRealtimeTranscription from "./personal-realtime-transcription";
 
 /* ── phase-03 契约束 ───────────────────────────────────────────────── */
@@ -118,3 +117,5 @@ export * as crmContacts from "./crm-contacts";
 
 /** Board 资源生命周期、成员角色与租户边界契约（#3926）。 */
 export * as whiteboard from "./whiteboard";
+export * as whiteboardDocument from "./whiteboard-document";
+export * as whiteboardSync from "./whiteboard-sync";

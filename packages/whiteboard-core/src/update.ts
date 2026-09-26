@@ -1,9 +1,10 @@
 import * as Y from 'yjs';
+import { WHITEBOARD_SYNC } from '@repo/contracts/whiteboard-sync';
 import { cloneDocument, objectMap, tombstones, validateDocument } from './document';
 
 export const WHITEBOARD_UPDATE_LIMITS = {
-  bytes: 65536, structsPerUpdate: 10000, logicalUnitsPerUpdate: 200000,
-  documentStructs: 200000, documentBytes: 32 * 1024 * 1024,
+  bytes: WHITEBOARD_SYNC.inboundUpdateBytes, structsPerUpdate: 10000, logicalUnitsPerUpdate: 200000,
+  documentStructs: 200000, documentBytes: WHITEBOARD_SYNC.documentBytes,
 } as const;
 function sameItem(a: { id: { client: number; clock: number } } | null | undefined, b: { id: { client: number; clock: number } } | null | undefined): boolean {
   return Boolean(a && b && a.id.client === b.id.client && a.id.clock === b.id.clock);

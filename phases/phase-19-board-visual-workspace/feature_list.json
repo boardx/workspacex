@@ -9,16 +9,16 @@
       "title": "全屏 Fabric 主画布与无限 viewport",
       "spec_ref": "01-fabric-surface.md#R3",
       "user_visible_behavior": "用户进入 /studio/board/:boardId 时看到全屏 Fabric.js 主画布，可用鼠标、触控板和 viewport 控件执行 5%–800% 缩放、平移、Fit selection 与 Fit Board；Board 对象不再由绝对定位 DOM/SVG 充当主渲染表面。",
-      "status": "not_started",
-      "sprint": null,
-      "owner": null,
+      "status": "in_progress",
+      "sprint": "01",
+      "owner": "coord-canvas",
       "depends_on": [],
       "points": 5,
       "wave": 1,
       "design_ref": "ui-preview/board-fabric-surface/s01-fabric-board.png",
       "verification": [
         "pnpm --filter web exec vitest run tests/ui/board-fabric-surface.test.tsx",
-        "pnpm --filter web exec playwright test -c playwright.config.ts -g 'fabric surface viewport'"
+        "pnpm exec tsx .harness/scripts/with-test-isolation.ts -- pnpm --filter web exec playwright test --config playwright.fullstack-smoke.config.ts --project=seeded-github-import --grep 'fabric surface viewport' --no-deps"
       ],
       "evidence": "",
       "notes": "Iteration 1 / foundation；has_ui=true。共享热点 apps/web/components/whiteboard/fabric/board-fabric-surface.tsx、Board route shell；与 BV02/BV03 串行合并。"
@@ -32,7 +32,7 @@
       "spec_ref": "01-fabric-surface.md#R7",
       "user_visible_behavior": "本地或远端 Y.Doc 对象变化时，Fabric 画布按稳定 object id 增量 add/patch/remove/reorder；单个坏对象显示可恢复占位，其他对象保持可见可编辑，1000 次 patch 不触发整板 clear/loadFromJSON。",
       "status": "not_started",
-      "sprint": null,
+      "sprint": "01",
       "owner": null,
       "depends_on": [
         "BV01"
@@ -57,7 +57,7 @@
       "spec_ref": "01-fabric-surface.md#R12",
       "user_visible_behavior": "用户移动、缩放、旋转或编辑 Fabric 对象时，每个完成手势只产生一个领域 operation/Yjs transaction；远端回放不反向生成重复命令，React 对象大纲以同一 object id 同步选择和 readonly 状态。",
       "status": "not_started",
-      "sprint": null,
+      "sprint": "01",
       "owner": null,
       "depends_on": [
         "BV02"

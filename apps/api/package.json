@@ -10,6 +10,7 @@
     "typecheck": "tsc --noEmit",
     "lint": "node scripts/lint-error-leak.mjs && node scripts/lint-permission-paths.mjs && node scripts/lint-no-builtin-capabilities.mjs && node scripts/lint-global-scope-test-fixtures.mjs && node scripts/lint-design-facet-single-source.mjs && tsx scripts/gen-design-facet-catalog.ts --check && tsx scripts/gen-agenda-tier-catalog.ts --check &&node scripts/lint-skill-context-api-only.mjs && node scripts/lint-naming-single-source.mjs && node ../../.harness/scripts/lint-arch-deps.mjs apps/api/src",
     "test": "vitest run && vitest run --config vitest.exclusive.config.ts",
+    "test:whiteboard-unit": "vitest run --config vitest.whiteboard-unit.config.ts",
     "test:native-chain": "vitest run --config vitest.native-chain.config.ts",
     "test:browser-adapter": "vitest run --config vitest.browser-adapter.config.ts",
     "test:browser-real": "WORKSPACEX_REAL_BROWSER=1 vitest run --config vitest.browser-adapter.config.ts tests/agent-runtime/playwright-mcp-browser-real.test.ts",
@@ -69,6 +70,7 @@
     "@playwright/mcp": "0.0.80",
     "@repo/cloud-deploy": "workspace:*",
     "@repo/contracts": "workspace:*",
+    "@repo/whiteboard-core": "workspace:*",
     "ali-oss": "6.23.0",
     "bcryptjs": "^3.0.2",
     "cron-parser": "5.10.0",
@@ -83,6 +85,7 @@
     "rxjs": "^7.8.1",
     "undici": "7.28.0",
     "ws": "^8.18.0",
+    "yjs": "13.6.32",
     "zod": "^3.23.8",
     "zod-to-json-schema": "3.24.6"
   },
