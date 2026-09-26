@@ -14,10 +14,8 @@ import {
 import type {
   SurveyDraftInput,
   SurveyRuntime,
-  SurveySourceState,
   SurveySubmissionInput,
 } from "@repo/contracts/survey-runtime";
-import { parseSurveyDesignMarkdown, serializeSurveyDesignMarkdown, sourceContentHash } from "@repo/contracts/survey-source";
 import type {
   SurveyAnonymity,
   SurveyPublishBlocker,
@@ -75,12 +73,10 @@ export class SurveyError extends Error {
       | "submission_conflict"
       | "invalid_report"
       | "capacity_reached"
-      | "invalid_source"
       | "invalid_transition"
       | "publish_blocked"
       | "anonymity_immutable"
       | "status_command_required",
-    readonly details?: unknown,
   ) {
     super(code);
   }
@@ -127,26 +123,11 @@ export class SurveyService {
           ? "collecting"
           : "draft";
     model.anonymity ??= "anonymous";
-    model.source ??= this.sourceFromDraft(model, model.updatedAt ?? this.now().toISOString(), 1);
     for (const response of model.responses) {
       response.analysis ??= "included";
       response.analysisHistory ??= [];
     }
     return model;
-  }
-  private sourceFromDraft(
-    draft: SurveyDraftInput,
-    updatedAt: string,
-    revision: number,
-    existing?: SurveySourceState["documents"],
-  ): SurveySourceState {
-    const design = serializeSurveyDesignMarkdown(draft);
-    const documents = {
-      design: { kind: "design" as const, markdown: design, revision, updatedAt, parseStatus: "valid" as const },
-      publication: { kind: "publication" as const, markdown: existing?.publication.markdown ?? "# 发布设置\n", revision, updatedAt, parseStatus: "valid" as const },
-      reportTemplate: { kind: "report_template" as const, markdown: existing?.reportTemplate.markdown ?? "# 报告模板\n", revision, updatedAt, parseStatus: "valid" as const },
-    };
-    return { documents, compiledVersion: revision, contentHash: sourceContentHash(Object.values(documents)) };
   }
   private transact<T>(
     orgId: OrgId,
@@ -187,7 +168,6 @@ export class SurveyService {
       reportBasisVersion: null,
       reportBasisAnswerRevision: null,
       reportGeneratedAt: null,
-      source: this.sourceFromDraft(input, this.now().toISOString(), 1),
     };
     await this.repo.create(orgId, { ownerId: actor, model, receipts: {} });
     return model;
@@ -249,35 +229,6 @@ export class SurveyService {
       m.title = input.title;
       m.questions = preserveTrustedCertification(input.questions, m.questions);
       m.template = input.template;
-      m.source = this.sourceFromDraft(
-        { ...input, questions: m.questions },
-        this.now().toISOString(),
-        (m.source?.compiledVersion ?? 0) + 1,
-        m.source?.documents,
-      );
-    });
-  }
-  saveSource(
-    orgId: OrgId,
-    actor: string,
-    id: string,
-    version: number,
-    documents: { design: string; publication: string; reportTemplate: string },
-  ) {
-    return this.change(orgId, actor, id, version, (model) => {
-      if (model.publication) throw new SurveyError("closed");
-      const parsed = parseSurveyDesignMarkdown(documents.design);
-      if (!parsed.ok) throw new SurveyError("invalid_source", parsed.diagnostics);
-      const now = this.now().toISOString();
-      const revision = (model.source?.compiledVersion ?? 0) + 1;
-      const nextDocuments = {
-        design: { kind: "design" as const, markdown: documents.design, revision, updatedAt: now, parseStatus: "valid" as const },
-        publication: { kind: "publication" as const, markdown: documents.publication, revision, updatedAt: now, parseStatus: "valid" as const },
-        reportTemplate: { kind: "report_template" as const, markdown: documents.reportTemplate, revision, updatedAt: now, parseStatus: "valid" as const },
-      };
-      model.source = { documents: nextDocuments, compiledVersion: revision, contentHash: sourceContentHash(Object.values(nextDocuments)) };
-      model.title = parsed.draft.title;
-      model.questions = preserveTrustedCertification(parsed.draft.questions, model.questions);
     });
   }
   prepare(
@@ -328,11 +279,6 @@ export class SurveyService {
       questions: structuredClone(model.questions),
       version: model.version,
       expiresAt: end.toISOString(),
-      sourceSnapshot: model.source ? {
-        documents: structuredClone(model.source.documents),
-        compiled: { title: model.title, questions: structuredClone(model.questions), template: structuredClone(model.template) },
-        contentHash: model.source.contentHash,
-      } : undefined,
     };
   }
   startCollection(

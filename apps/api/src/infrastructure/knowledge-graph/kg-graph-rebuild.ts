@@ -7,9 +7,9 @@
 import type pg from "pg";
 
 export interface GraphParity {
-  /** canonical 里有、图里没有 */
+  /** canonical 里有、图里没有（按多重集：canonical 比图多出的每一次出现） */
   readonly missingInGraph: readonly string[];
-  /** 图里有、canonical 里没有 */
+  /** 图里有、canonical 里没有（按多重集：重复边的每个多余副本各列一次） */
   readonly extraInGraph: readonly string[];
 }
 
@@ -19,9 +19,20 @@ export async function graphParity(c: pg.ClientBase, orgId: string): Promise<Grap
   const q = (sql: string) => c.query<{ x: string }>(sql).then((r) => r.rows.map((row) => row.x).sort());
   const canonical = await q("SELECT x FROM kg_canonical_snapshot() AS x");
   const graph = await q("SELECT x FROM kg_graph_snapshot() AS x");
-  const g = new Set(graph);
-  const cset = new Set(canonical);
-  return { missingInGraph: canonical.filter((x) => !g.has(x)), extraInGraph: graph.filter((x) => !cset.has(x)) };
+  // 按多重集比（#4270）：图里同一条边出现两次也是不一致。按 Set 比时两条一模一样的边算一条，重复边因此一直没被发现。
+  return { missingInGraph: multisetMinus(canonical, graph), extraInGraph: multisetMinus(graph, canonical) };
+}
+
+/** a − b（多重集）：a 里比 b 多出来的每一次出现都列出来。 */
+function multisetMinus(a: readonly string[], b: readonly string[]): string[] {
+  const left = new Map<string, number>();
+  for (const x of b) left.set(x, (left.get(x) ?? 0) + 1);
+  return a.filter((x) => {
+    const n = left.get(x) ?? 0;
+    if (n === 0) return true;
+    left.set(x, n - 1);
+    return false;
+  });
 }
 
 export interface RebuildResult {
