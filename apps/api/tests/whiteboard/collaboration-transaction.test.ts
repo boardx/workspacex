@@ -39,8 +39,8 @@ it('public commands return ACK only after the outer transaction succeeds', async
   db.withTenant = async (_org, fn) => { await fn(s.value); throw new Error('COMMIT failed'); };
   await expect(new PgWhiteboardCollaborationStore(db, validator).writeCommands(p, boardId, input())).rejects.toThrow('COMMIT failed');
 });
-it.each(['snapshot', 'update'] as const)('rejects a validated %s above the transportable document budget before commit', async oversizedField => {
-  const s = session(), tooLarge = new Uint8Array(WHITEBOARD_SYNC.documentBytes + 1);
+it.each(['snapshot', 'update'] as const)('rejects a validated %s above its transport budget before commit', async oversizedField => {
+  const s = session(), tooLarge = new Uint8Array((oversizedField === 'snapshot' ? WHITEBOARD_SYNC.documentBytes : WHITEBOARD_SYNC.persistedUpdateBytes) + 1);
   const oversized: WhiteboardUpdateValidator = {
     ...validator,
     commands: async () => ({ snapshot: oversizedField === 'snapshot' ? tooLarge : new Uint8Array([0, 0]), update: oversizedField === 'update' ? tooLarge : new Uint8Array([0, 0]) }),

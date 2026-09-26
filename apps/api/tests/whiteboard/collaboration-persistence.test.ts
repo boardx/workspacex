@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import * as Y from 'yjs';
-import { createWhiteboardDocument, executeCommands, readObjects, type WhiteboardCommand } from '@repo/whiteboard-core';
+import { createWhiteboardDocument, executeCommands, readObjects, validateDocument, WHITEBOARD_LIMITS, type WhiteboardCommand } from '@repo/whiteboard-core';
 import { PgDatabase } from '../../src/infrastructure/db/pg-database';
 import { appConfig } from '../../src/infrastructure/db/pg-config';
 import { PgWhiteboardRepository } from '../../src/infrastructure/whiteboard/pg-whiteboard-repository';
@@ -85,4 +85,20 @@ describe('whiteboard collaboration durable transactions', () => {
     await expect(limited.writeCommands(owner, board.id, { ...input, requestId: randomUUID(), commands: [command('b')] })).rejects.toMatchObject({ code: 'RATE_LIMITED' });
     expect((await store.load(owner, board.id)).seq).toBe(1);
   });
+  it('stores and reloads all 5000 public minimal objects through real validation and PostgreSQL', async () => {
+    const board = await createBoard();
+    for (let start = 0; start < WHITEBOARD_LIMITS.objects; start += WHITEBOARD_LIMITS.batch) {
+      await store.writeCommands(owner, board.id, {
+        epoch: 1, requestId: randomUUID(),
+        commands: Array.from({ length: WHITEBOARD_LIMITS.batch }, (_, offset) => command(`minimal-${start + offset}`)),
+      });
+    }
+    const fresh = new PgDatabase(appConfig());
+    try {
+      const loaded = await new PgWhiteboardCollaborationStore(fresh).load(owner, board.id), doc = createWhiteboardDocument();
+      Y.applyUpdate(doc, loaded.update); validateDocument(doc);
+      expect(loaded.seq).toBe(WHITEBOARD_LIMITS.objects / WHITEBOARD_LIMITS.batch);
+      expect(readObjects(doc)).toHaveLength(WHITEBOARD_LIMITS.objects); doc.destroy();
+    } finally { await fresh.close(); }
+  }, 120_000);
 });

@@ -1,9 +1,10 @@
 import { Worker } from 'node:worker_threads';
 import { WhiteboardCommandBatch, type WhiteboardCommand, type WhiteboardObject } from '@repo/contracts/whiteboard-document';
+import { WHITEBOARD_SYNC } from '@repo/contracts/whiteboard-sync';
 import { WHITEBOARD_UPDATE_LIMITS } from '@repo/whiteboard-core';
 import { WhiteboardCollaborationError, type ValidatedWhiteboardUpdate, type WhiteboardUpdateValidator } from '../../application/whiteboard/collaboration-ports';
 
-export const WHITEBOARD_VALIDATOR_LIMITS = { vectorBytes: 8192, commandBytes: 262144, workerHeapMb: 128, timeoutMs: 5000, concurrent: 4, queued: 64, queuedBytes: 64 * 1024 * 1024, queueWaitMs: 10000 } as const;
+export const WHITEBOARD_VALIDATOR_LIMITS = { vectorBytes: WHITEBOARD_SYNC.stateVectorBytes, commandBytes: 262144, workerHeapMb: 128, timeoutMs: 5000, concurrent: 4, queued: 64, queuedBytes: 64 * 1024 * 1024, queueWaitMs: 10000 } as const;
 /** FIFO admission is bounded by count, retained input bytes and waiting time. */
 export class WhiteboardValidationQueue {
   private active = 0;

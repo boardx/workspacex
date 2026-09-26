@@ -68,7 +68,6 @@ export class WhiteboardProvider {
           this.seq = message.seq;
         } else if (message.type === 'ack') {
           if (!this.ready) { this.block('PROTOCOL_ERROR'); return; }
-          this.seq = Math.max(this.seq ?? 0, message.seq);
           this.pending = this.pending.filter(item => item.updateId !== message.updateId); this.publish({});
         } else if (message.type === 'presence') this.publish({ peers: message.peers });
       } catch { this.block('PROTOCOL_ERROR'); }

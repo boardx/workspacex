@@ -18,7 +18,13 @@ export function attachWhiteboardGateway(server: Server, deps: WhiteboardGatewayD
   const peers = new Set<Peer>();
   function send(ws: WebSocket, message: WhiteboardServerMessage) {
     if (ws.readyState !== ws.OPEN) return;
-    if (ws.bufferedAmount > 2 * 1024 * 1024) { ws.close(1013, 'slow client'); return; }
+    if (ws.bufferedAmount > 2 * 1024 * 1024) {
+      // A bounded full-document sync can itself exceed the steady-state queue
+      // watermark. Do not stack presence behind it; ACK/error are tiny ordering
+      // controls and may safely follow the already-admitted data frame.
+      if (message.type === 'presence') return;
+      if (message.type !== 'ack' && message.type !== 'error') { ws.close(1013, 'slow client'); return; }
+    }
     ws.send(JSON.stringify(message));
   }
   function fail(ws: WebSocket, code: string) { send(ws,{type:'error',code}); ws.close(4403,code.slice(0,100)); }
@@ -67,8 +73,18 @@ export function attachWhiteboardGateway(server: Server, deps: WhiteboardGatewayD
             if(!ack.replayed) {
               for(const target of group(peer)) {
                 if(target.epoch!==ack.epoch) { fail(target.ws,'STALE_EPOCH'); continue; }
-                Y.applyUpdate(target.mirror,ack.update); if(ack.seq>target.seq) target.seq=ack.seq;
-                send(target.ws,{type:'update',epoch:ack.epoch,seq:ack.seq,update:encoded(ack.update)});
+                if(ack.seq<=target.seq) continue;
+                if(ack.seq===target.seq+1) {
+                  Y.applyUpdate(target.mirror,ack.update); target.seq=ack.seq;
+                  send(target.ws,{type:'update',epoch:ack.epoch,seq:ack.seq,update:encoded(ack.update)});
+                  continue;
+                }
+                // Another gateway committed one or more sequences. Keep the old head
+                // until an authoritative state-vector diff closes the whole gap.
+                const diff=await deps.store.load(target.principal,target.boardId,Y.encodeStateVector(target.mirror));
+                if(diff.epoch!==target.epoch || diff.seq<ack.seq) throw new WhiteboardCollaborationError('STALE_EPOCH');
+                Y.applyUpdate(target.mirror,diff.update); target.seq=diff.seq;
+                send(target.ws,{type:'update',epoch:diff.epoch,seq:diff.seq,update:encoded(diff.update)});
               }
             }
             send(ws,{type:'ack',updateId:ack.updateId,seq:ack.seq});

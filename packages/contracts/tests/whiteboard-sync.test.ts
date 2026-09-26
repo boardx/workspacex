@@ -1,16 +1,15 @@
 import { expect, it } from 'vitest';
-import { WHITEBOARD_SYNC, WhiteboardServerMessage } from '../src/whiteboard-sync';
+import { WHITEBOARD_SYNC, WhiteboardClientMessage, WhiteboardServerMessage } from '../src/whiteboard-sync';
 
-it('fits every allowed document in one bounded WebSocket sync frame after base64 expansion', () => {
+it('separates bounded inbound updates and state vectors from whole-document sync frames', () => {
   const encodedLength = 4 * Math.ceil(WHITEBOARD_SYNC.documentBytes / 3);
   expect(WHITEBOARD_SYNC.documentBase64Characters).toBe(encodedLength);
-  const frame = JSON.stringify({
-    type: 'sync', epoch: Number.MAX_SAFE_INTEGER, seq: Number.MAX_SAFE_INTEGER,
-    update: 'A'.repeat(encodedLength), role: 'owner', archived: false,
-  });
-  expect(Buffer.byteLength(frame)).toBeLessThanOrEqual(WHITEBOARD_SYNC.maxPayloadBytes);
-  expect(WhiteboardServerMessage.safeParse(JSON.parse(frame)).success).toBe(true);
-  expect(WhiteboardServerMessage.safeParse({
-    type: 'sync', epoch: 1, seq: 0, update: 'A'.repeat(encodedLength + 4), role: 'owner', archived: false,
-  }).success).toBe(false);
+  const emptyEnvelope = Buffer.byteLength(JSON.stringify({ type: 'sync', epoch: Number.MAX_SAFE_INTEGER, seq: Number.MAX_SAFE_INTEGER, update: '', role: 'owner', archived: false }));
+  expect(encodedLength + emptyEnvelope).toBeLessThanOrEqual(WHITEBOARD_SYNC.maxPayloadBytes);
+  expect(WhiteboardServerMessage.safeParse({ type: 'sync', epoch: 1, seq: 0, update: 'A'.repeat(encodedLength), role: 'owner', archived: false }).success).toBe(true);
+  const beyondInbound = 'A'.repeat(WHITEBOARD_SYNC.inboundUpdateBase64Characters + 4), updateId = crypto.randomUUID();
+  expect(WhiteboardServerMessage.safeParse({ type: 'sync', epoch: 1, seq: 0, update: beyondInbound, role: 'owner', archived: false }).success).toBe(true);
+  expect(WhiteboardClientMessage.safeParse({ type: 'update', epoch: 1, updateId, update: 'A'.repeat(WHITEBOARD_SYNC.inboundUpdateBase64Characters) }).success).toBe(true);
+  expect(WhiteboardClientMessage.safeParse({ type: 'update', epoch: 1, updateId, update: beyondInbound }).success).toBe(false);
+  expect(WhiteboardClientMessage.safeParse({ type: 'hello', stateVector: 'A'.repeat(WHITEBOARD_SYNC.stateVectorBase64Characters + 4) }).success).toBe(false);
 });

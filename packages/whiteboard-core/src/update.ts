@@ -3,7 +3,7 @@ import { WHITEBOARD_SYNC } from '@repo/contracts/whiteboard-sync';
 import { cloneDocument, objectMap, tombstones, validateDocument } from './document';
 
 export const WHITEBOARD_UPDATE_LIMITS = {
-  bytes: WHITEBOARD_SYNC.documentBytes, structsPerUpdate: 10000, logicalUnitsPerUpdate: 200000,
+  bytes: WHITEBOARD_SYNC.inboundUpdateBytes, structsPerUpdate: 10000, logicalUnitsPerUpdate: 200000,
   documentStructs: 200000, documentBytes: WHITEBOARD_SYNC.documentBytes,
 } as const;
 function sameItem(a: { id: { client: number; clock: number } } | null | undefined, b: { id: { client: number; clock: number } } | null | undefined): boolean {
