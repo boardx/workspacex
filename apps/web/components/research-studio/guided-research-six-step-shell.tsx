@@ -47,7 +47,7 @@ export function GuidedResearchSixStepShell({
                   onClick={() => onNavigate(step.id)}
                 >
                   <span className={cn("flex h-6 w-6 shrink-0 items-center justify-center rounded-full border text-11", completed && "border-primary bg-primary text-primary-foreground", active && "border-primary text-primary", !completed && !active && "border-border text-muted-foreground")}>{completed ? "✓" : index + 1}</span>
-                  <span className="truncate">{step.label}</span>
+                  <span className="truncate">步骤 {index + 1} · {step.label}</span>
                 </Button>
               </li>;
             })}
