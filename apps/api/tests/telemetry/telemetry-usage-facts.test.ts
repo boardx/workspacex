@@ -14,7 +14,7 @@ import { PgTelemetryFacts, TELEMETRY_FACT_TABLES, usageBaseFrom } from "../../sr
 const referencedTables = (src: string): string[] =>
   [...new Set([...src.matchAll(/\b(?:FROM|JOIN)\s+(?!LATERAL\b)([a-z_][a-z0-9_.]*)/gi)].map((m) => m[1]!.toLowerCase()))];
 
-const MIGRATION = join(import.meta.dirname, "../../migrations/20260926100000_telemetry_usage_counts.sql");
+const MIGRATION = join(import.meta.dirname, "../../migrations/20260926110000_telemetry_usage_counts.sql");
 const SRC = join(import.meta.dirname, "../../src/infrastructure/telemetry/pg-telemetry-facts.ts");
 
 function fakeDb(rows: Record<string, unknown>[]): DatabasePort & { calls: { sql: string; params?: readonly unknown[] }[] } {
