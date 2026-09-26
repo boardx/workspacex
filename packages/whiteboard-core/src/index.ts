@@ -5,6 +5,21 @@ export { WhiteboardObject, WhiteboardGeometry, WhiteboardStyle, WhiteboardComman
 export { prepareWhiteboardUpdate, WHITEBOARD_UPDATE_LIMITS } from './update';
 export { duplicateWhiteboardSnapshot, type DuplicatedWhiteboardSnapshot } from './duplicate';
 export {
+  SpatialRelationshipCommandPort,
+  type ConnectorAnchor,
+  type ConnectorLineStyle,
+  type ConnectorRelationship,
+  type ConnectorTip,
+  type ConnectorType,
+  type LayerAction,
+  type SpatialCommand,
+  type SpatialCommandAccepted,
+  type SpatialCommandEnvelope,
+  type SpatialEvent,
+  type SpatialPrecondition,
+} from './spatial-relationships';
+export { parsePanelMetadata, readPanelMetadata, type FlowDirection, type PanelMetadata, type PanelMode } from './spatial-model';
+export {
   ContentObjectCommandPort,
   SHAPE_SEMANTICS,
   SHAPE_VARIANTS,

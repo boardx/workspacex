@@ -1,6 +1,7 @@
 import * as Y from 'yjs';
 import { WhiteboardObject, WhiteboardCommandBatch, WHITEBOARD_LIMITS, type WhiteboardCommand } from '@repo/contracts/whiteboard-document';
 import { validateContentExtension } from './content-object-model';
+import { validateSpatialExtension } from './spatial-model';
 
 export function createWhiteboardDocument(): Y.Doc {
   const doc = new Y.Doc();
@@ -20,7 +21,8 @@ function decode(id: string, value: Y.Map<unknown>): WhiteboardObject {
   for (const delta of (value.get('text') as Y.Text).toDelta()) {
     if (typeof delta.insert !== 'string' || delta.attributes) throw new Error('UNSUPPORTED_TEXT_FORMAT');
   }
-  return WhiteboardObject.parse(structuredClone({ ...value.toJSON(), id }));
+  const json = value.toJSON();
+  return WhiteboardObject.parse(structuredClone({ ...json, id, locked: json.locked ?? false, zIndex: json.zIndex ?? 0 }));
 }
 export function readObjects(doc: Y.Doc): WhiteboardObject[] {
   const alive = [...objectMap(doc)].filter(([id]) => !tombstones(doc).has(id)).map(([id, value]) => decode(id, value));
@@ -36,6 +38,7 @@ export function validateDocument(doc: Y.Doc): void {
   const all = new Map([...objectMap(doc)].map(([id, value]) => [id, decode(id, value)]));
   for (const value of all.values()) {
     validateContentExtension(value);
+    validateSpatialExtension(value);
     if (tombstones(doc).has(value.id)) continue;
     const visited = new Set([value.id]);
     let parent = value.parentId;
@@ -43,10 +46,11 @@ export function validateDocument(doc: Y.Doc): void {
       if (visited.has(parent)) throw new Error('PARENT_CYCLE');
       visited.add(parent);
       const container = all.get(parent);
-      if (!container || !['frame', 'group'].includes(container.kind)) throw new Error('INVALID_PARENT');
+      if (!container || tombstones(doc).has(parent) || !['frame', 'group'].includes(container.kind)) throw new Error('INVALID_PARENT');
       parent = container.parentId;
     }
-    if (value.connector && (!all.has(value.connector.from) || !all.has(value.connector.to))) throw new Error('INVALID_CONNECTOR');
+    if (value.connector && (!all.has(value.connector.from) || !all.has(value.connector.to)
+      || tombstones(doc).has(value.connector.from) || tombstones(doc).has(value.connector.to))) throw new Error('INVALID_CONNECTOR');
   }
 }
 function apply(doc: Y.Doc, commands: WhiteboardCommand[]): void {
@@ -64,8 +68,44 @@ function apply(doc: Y.Doc, commands: WhiteboardCommand[]): void {
     }
     const item = objects.get(command.id);
     if (!item || deleted.has(command.id)) throw new Error('OBJECT_NOT_FOUND');
-    if (command.type === 'delete') deleted.set(command.id, true);
-    if (command.type === 'geometry') item.set('geometry', structuredClone(command.geometry));
+    const current = decode(command.id, item);
+    if (current.locked && !(command.type === 'state' && command.locked !== undefined && command.zIndex === undefined)) throw new Error('OBJECT_LOCKED');
+    if (command.type === 'delete') {
+      if ([...objects].some(([id, value]) => id !== command.id && !deleted.has(id) && decode(id, value).parentId === command.id)) throw new Error('CONTAINER_NOT_EMPTY');
+      for (const [id, value] of objects) {
+        if (deleted.has(id)) continue;
+        const candidate = decode(id, value);
+        if (candidate.connector && (candidate.connector.from === command.id || candidate.connector.to === command.id)) {
+          if (candidate.locked) throw new Error('OBJECT_LOCKED');
+          deleted.set(id, true);
+        }
+      }
+      deleted.set(command.id, true);
+    }
+    if (command.type === 'geometry') {
+      if (current.kind !== 'connector') for (const [id, value] of objects) {
+        if (deleted.has(id)) continue;
+        const edge = decode(id, value);
+        if (edge.connector && (edge.connector.from === command.id || edge.connector.to === command.id) && edge.locked) throw new Error('OBJECT_LOCKED');
+      }
+      item.set('geometry', structuredClone(command.geometry));
+      if (current.kind !== 'connector') for (const [id, value] of objects) {
+        if (deleted.has(id)) continue;
+        const edge = decode(id, value);
+        if (!edge.connector || (edge.connector.from !== command.id && edge.connector.to !== command.id)) continue;
+        const from = decode(edge.connector.from, objects.get(edge.connector.from)!), to = decode(edge.connector.to, objects.get(edge.connector.to)!);
+        const point = (target: WhiteboardObject, anchor = 'center') => {
+          const { x, y, width, height } = target.geometry;
+          if (anchor === 'top') return { x: x + width / 2, y };
+          if (anchor === 'right') return { x: x + width, y: y + height / 2 };
+          if (anchor === 'bottom') return { x: x + width / 2, y: y + height };
+          if (anchor === 'left') return { x, y: y + height / 2 };
+          return { x: x + width / 2, y: y + height / 2 };
+        };
+        const start = point(from, edge.connector.fromAnchor), end = point(to, edge.connector.toAnchor);
+        value.set('geometry', { x: Math.min(start.x, end.x), y: Math.min(start.y, end.y), width: Math.max(1, Math.abs(end.x - start.x)), height: Math.max(1, Math.abs(end.y - start.y)), rotation: 0 });
+      }
+    }
     if (command.type === 'style') {
       const style = item.get('style') as Y.Map<unknown>;
       for (const [key, value] of Object.entries(command.style)) style.set(key, value);
@@ -76,6 +116,19 @@ function apply(doc: Y.Doc, commands: WhiteboardCommand[]): void {
       item.set('extensionData', extensionData);
     }
     if (command.type === 'parent') { item.set('parentId', command.parentId); item.set('orderKey', command.orderKey); }
+    if (command.type === 'state') {
+      if (command.locked === undefined && command.zIndex === undefined) throw new Error('STATE_CHANGE_REQUIRED');
+      if (command.locked !== undefined) item.set('locked', command.locked);
+      if (command.zIndex !== undefined) item.set('zIndex', command.zIndex);
+    }
+    if (command.type === 'extension') {
+      if (command.extensionData === null) item.delete('extensionData');
+      else item.set('extensionData', structuredClone(command.extensionData));
+    }
+    if (command.type === 'connector') {
+      if (current.kind !== 'connector') throw new Error('CONNECTOR_KIND_REQUIRED');
+      item.set('connector', structuredClone(command.connector));
+    }
     if (command.type === 'text') {
       const text = item.get('text') as Y.Text;
       if (command.index > text.length || command.index + command.deleteCount > text.length) throw new Error('TEXT_RANGE');
@@ -100,6 +153,6 @@ export function copyObjects(doc: Y.Doc, ids: string[], newId: (oldId: string) =>
   return chosen.filter(object => !object.connector || (mapping.has(object.connector.from) && mapping.has(object.connector.to)))
     .map(object => WhiteboardObject.parse({ ...structuredClone(object), id: mapping.get(object.id),
       parentId: object.parentId ? mapping.get(object.parentId) ?? null : null,
-      ...(object.connector ? { connector: { from: mapping.get(object.connector.from), to: mapping.get(object.connector.to) } } : {}),
+      ...(object.connector ? { connector: { ...structuredClone(object.connector), from: mapping.get(object.connector.from), to: mapping.get(object.connector.to) } } : {}),
     }));
 }
