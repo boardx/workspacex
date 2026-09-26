@@ -6,6 +6,10 @@ export default defineConfig({ test: {
     'tests/whiteboard/collaboration-budget.test.ts',
     'tests/whiteboard/collaboration-gateway-gap.test.ts',
     'tests/whiteboard/collaboration-transaction.test.ts',
+    'tests/whiteboard/library-cursor.test.ts',
+    'tests/whiteboard/library-management-static.test.ts',
+    'tests/whiteboard/resource-repository-guard.test.ts',
+    'tests/whiteboard/tag-repository-guard.test.ts',
   ],
   maxWorkers: 1, minWorkers: 1, testTimeout: 10_000,
 } });
