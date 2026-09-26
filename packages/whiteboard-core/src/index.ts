@@ -23,6 +23,7 @@ export {
   SelectionLayoutCommandPort,
   arrangeObjects,
   calculateSnapGuides,
+  calculateRotationSnap,
   canonicalSceneBounds,
   createLayoutPreconditions,
   resolveSelection,
@@ -36,6 +37,7 @@ export {
   type SnapGuide,
   type SnapMeasurement,
   type SnapResult,
+  type RotationSnapResult,
 } from './selection-layout';
 export {
   ContentObjectCommandPort,

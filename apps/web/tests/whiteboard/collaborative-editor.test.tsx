@@ -129,8 +129,22 @@ it('smart layout preview is zero-write, cancelable, applicable and conflict guar
   fireEvent.click(screen.getByTestId('board-layout-smart-preview'));
   expect(screen.getByTestId('board-layout-preview')).toBeVisible();
   expect(readObjects(doc)).toEqual(before);
+  expect(screen.getByText('撤销', { exact: true })).toBeDisabled();
+  expect(screen.getByText('删除选中', { exact: true })).toBeDisabled();
+  expect(screen.getByTestId('board-add-sticky')).toBeDisabled();
+  expect(screen.getByTestId('board-layout-grid')).toBeDisabled();
+  fireEvent.click(screen.getByTestId('fabric-transform-first'));
+  fireEvent.keyDown(window, { key: 'n' });
+  fireEvent.keyDown(window, { key: 't' });
+  expect(readObjects(doc)).toEqual(before);
   fireEvent.click(screen.getByTestId('board-layout-preview-cancel'));
   expect(readObjects(doc)).toEqual(before);
+  for (const suggestion of ['grid', 'cards', 'cluster', 'journey', 'mind-map', 'flow', 'timeline']) {
+    fireEvent.click(screen.getByTestId(`board-smart-${suggestion}`));
+    expect(screen.getByTestId('board-layout-preview')).toBeVisible();
+    expect(readObjects(doc)).toEqual(before);
+    fireEvent.click(screen.getByTestId('board-layout-preview-cancel'));
+  }
   fireEvent.click(screen.getByTestId('board-layout-smart-preview'));
   executeCommands(doc, [{ type: 'style', id: 'smart-0', style: { fill: '#112233' } }], 'remote');
   fireEvent.click(screen.getByTestId('board-layout-preview-apply'));

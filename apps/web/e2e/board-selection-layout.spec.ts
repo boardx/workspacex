@@ -32,15 +32,45 @@ async function apiRequest(api: APIRequestContext, token: string, method: string,
 }
 
 async function geometry(page: Page): Promise<string> {
-  return page.getByTestId("board-a11y-mirror").locator("li[data-object-id]").evaluateAll((items) => JSON.stringify(items.map((item) => ({
+  return page.getByTestId("board-a11y-mirror").locator("li[data-object-id]").evaluateAll((items) => JSON.stringify(items.map((item, order) => ({
     id: item.getAttribute("data-object-id"), x: Number(item.getAttribute("data-x")), y: Number(item.getAttribute("data-y")),
-    width: Number(item.getAttribute("data-width")), height: Number(item.getAttribute("data-height")), rotation: Number(item.getAttribute("data-rotation")),
+    width: Number(item.getAttribute("data-width")), height: Number(item.getAttribute("data-height")), rotation: Number(item.getAttribute("data-rotation")), order,
   })).sort((a, b) => String(a.id).localeCompare(String(b.id)))));
 }
 
-type Geometry = { id: string | null; x: number; y: number; width: number; height: number; rotation: number };
-function layoutSemantics(kind: string, serialized: string): boolean {
+type Geometry = { id: string | null; x: number; y: number; width: number; height: number; rotation: number; order: number };
+function parseGeometry(serialized: string): Geometry[] { return JSON.parse(serialized) as Geometry[]; }
+
+function gridSemantics(values: Geometry[], original: Geometry[], preserveOrder: "selection" | "visual"): boolean {
+  const epsilon = 1;
+  const rows: Geometry[][] = [];
+  for (const value of [...values].sort((a, b) => a.y - b.y || a.x - b.x)) {
+    const row = rows.find(candidate => Math.abs(candidate[0]!.y - value.y) <= epsilon);
+    if (row) row.push(value); else rows.push([value]);
+  }
+  rows.forEach(row => row.sort((a, b) => a.x - b.x));
+  if (rows.length !== Math.ceil(values.length / 3) || rows.some((row, index) => row.length !== Math.min(3, values.length - index * 3))) return false;
+  const columnWidths = [0, 1, 2].map(column => Math.max(...rows.flatMap(row => row[column] ? [row[column]!.width] : [])));
+  const rowHeights = rows.map(row => Math.max(...row.map(value => value.height)));
+  for (const row of rows) {
+    for (let column = 1; column < row.length; column += 1) {
+      if (Math.abs(row[column]!.x - row[column - 1]!.x - columnWidths[column - 1]! - 24) > epsilon) return false;
+    }
+  }
+  for (let row = 1; row < rows.length; row += 1) {
+    if (Math.abs(rows[row]![0]!.y - rows[row - 1]![0]!.y - rowHeights[row - 1]! - 24) > epsilon) return false;
+  }
+  const expected = preserveOrder === "visual"
+    ? [...original].sort((a, b) => a.y - b.y || a.x - b.x || String(a.id).localeCompare(String(b.id))).map(value => value.id)
+    : [...original].sort((a, b) => a.order - b.order).map(value => value.id);
+  const actual = rows.flat().map(value => value.id);
+  if (JSON.stringify(actual) !== JSON.stringify(expected)) return false;
+  return true;
+}
+
+function layoutSemantics(kind: string, serialized: string, originalSerialized: string): boolean {
   const values = JSON.parse(serialized) as Geometry[], epsilon = 1;
+  const original = parseGeometry(originalSerialized);
   const close = (items: number[]) => Math.max(...items) - Math.min(...items) <= epsilon;
   if (kind === "align-left") return close(values.map(value => value.x));
   if (kind === "align-center") return close(values.map(value => value.x + value.width / 2));
@@ -56,8 +86,15 @@ function layoutSemantics(kind: string, serialized: string): boolean {
   if (kind === "distribute-vertical") return close(vertical.slice(1).map((value, index) => value.y - (vertical[index]!.y + vertical[index]!.height)));
   if (kind === "row") return close(values.map(value => value.y)) && horizontal.slice(1).every((value, index) => Math.abs(value.x - (horizontal[index]!.x + horizontal[index]!.width) - 24) <= epsilon);
   if (kind === "column") return close(values.map(value => value.x)) && vertical.slice(1).every((value, index) => Math.abs(value.y - (vertical[index]!.y + vertical[index]!.height) - 24) <= epsilon);
-  if (["grid", "tidy-up"].includes(kind)) return new Set(values.map(value => Math.round(value.y))).size === Math.ceil(values.length / 3);
+  if (kind === "grid") return gridSemantics(values, original, "selection");
+  if (kind === "tidy-up") return gridSemantics(values, original, "visual");
   return false;
+}
+
+function closeGeometry(left: Geometry, right: Geometry, epsilon = 1): boolean {
+  return Math.abs(left.x - right.x) <= epsilon && Math.abs(left.y - right.y) <= epsilon
+    && Math.abs(left.width - right.width) <= epsilon && Math.abs(left.height - right.height) <= epsilon
+    && Math.abs(left.rotation - right.rotation) <= epsilon;
 }
 
 async function marqueeAll(page: Page): Promise<void> {
@@ -116,13 +153,57 @@ test("all 15 canonical layouts satisfy geometry semantics, persist to a second c
       await page.getByTestId(`board-layout-${operation}`).click();
       await expect.poll(async () => (await geometry(page)) !== original).toBe(true);
       const arranged = await geometry(page);
-      expect(layoutSemantics(operation, arranged), `${operation} must satisfy its geometry semantics`).toBe(true);
+      expect(layoutSemantics(operation, arranged, original), `${operation} must satisfy its geometry semantics`).toBe(true);
       await expect.poll(() => geometry(second)).toBe(arranged);
 
       await page.getByText("撤销", { exact: true }).click();
       await expect.poll(() => geometry(page)).toBe(original);
       await expect.poll(() => geometry(second)).toBe(original);
     }
+
+    // A real Fabric ActiveSelection drag writes every child as one canonical batch and one undo unit.
+    await marqueeAll(page);
+    const beforeGroupDrag = parseGeometry(await geometry(page));
+    const canvasBounds = await page.getByTestId("board-fabric-canvas").boundingBox();
+    expect(canvasBounds).not.toBeNull();
+    const zoom = Number((await page.getByTestId("board-zoom-value").textContent())?.replace("%", "")) / 100;
+    const groupLeft = Math.min(...beforeGroupDrag.map(value => value.x));
+    const groupTop = Math.min(...beforeGroupDrag.map(value => value.y));
+    const groupRight = Math.max(...beforeGroupDrag.map(value => value.x + value.width));
+    const groupBottom = Math.max(...beforeGroupDrag.map(value => value.y + value.height));
+    const groupStart = { x: canvasBounds!.x + (groupLeft + groupRight) / 2 * zoom, y: canvasBounds!.y + (groupTop + groupBottom) / 2 * zoom };
+    await page.keyboard.down("Alt");
+    await page.mouse.move(groupStart.x, groupStart.y); await page.mouse.down();
+    await page.mouse.move(groupStart.x + 42, groupStart.y + 28, { steps: 8 }); await page.mouse.up();
+    await page.keyboard.up("Alt");
+    const afterGroupDrag = parseGeometry(await geometry(page));
+    const deltas = afterGroupDrag.map(value => {
+      const before = beforeGroupDrag.find(candidate => candidate.id === value.id)!;
+      return { x: value.x - before.x, y: value.y - before.y };
+    });
+    expect(deltas.every(delta => Math.abs(delta.x - deltas[0]!.x) <= 1 && Math.abs(delta.y - deltas[0]!.y) <= 1 && Math.abs(delta.x) > 1)).toBe(true);
+    await expect.poll(() => geometry(second)).toBe(JSON.stringify(afterGroupDrag.sort((a, b) => String(a.id).localeCompare(String(b.id)))));
+    await page.getByText("撤销", { exact: true }).click();
+    await expect.poll(() => geometry(page)).toBe(original);
+    await expect.poll(() => geometry(second)).toBe(original);
+
+    // A real Fabric pointer drag exposes a smart guide and persists the snapped world-space position.
+    const snapBefore = parseGeometry(original);
+    const source = snapBefore[0]!, target = snapBefore[1]!;
+    await page.getByTestId(`board-a11y-object-${source.id}`).click();
+    const sourceCenter = { x: canvasBounds!.x + (source.x + source.width / 2) * zoom, y: canvasBounds!.y + (source.y + source.height / 2) * zoom };
+    await page.mouse.move(sourceCenter.x, sourceCenter.y); await page.mouse.down();
+    await page.mouse.move(sourceCenter.x + 56, canvasBounds!.y + (target.y + source.height / 2 + 3) * zoom, { steps: 12 });
+    await expect(page.getByTestId("board-smart-guides")).toBeVisible();
+    await page.mouse.up();
+    const snapAfter = parseGeometry(await geometry(page));
+    const snappedSource = snapAfter.find(value => value.id === source.id)!;
+    expect(Math.abs(snappedSource.y - target.y)).toBeLessThanOrEqual(1);
+    expect(closeGeometry(snappedSource, source)).toBe(false);
+    await expect.poll(() => geometry(second)).toBe(JSON.stringify(snapAfter.sort((a, b) => String(a.id).localeCompare(String(b.id)))));
+    await page.getByText("撤销", { exact: true }).click();
+    await expect.poll(() => geometry(page)).toBe(original);
+    await expect.poll(() => geometry(second)).toBe(original);
 
     await marqueeAll(page);
     await page.getByTestId("board-layout-smart-preview").click();

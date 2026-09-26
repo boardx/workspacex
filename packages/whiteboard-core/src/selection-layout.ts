@@ -78,6 +78,7 @@ export interface SnapResult {
   guides: SnapGuide[];
   measurements: SnapMeasurement[];
 }
+export interface RotationSnapResult { geometry: WhiteboardGeometry; snapped: boolean; targetAngle: number | null; }
 
 type Snapshot = { objects: WhiteboardObject[]; byId: Map<string, WhiteboardObject> };
 type Accepted = { payload: string; result: LayoutCommandAccepted };
@@ -521,4 +522,26 @@ export function calculateSnapGuides(
     }
   }
   return { geometry, delta, guides, measurements };
+}
+
+/** Snap rotation to nearby object angles or 15° increments without changing its canonical origin. */
+export function calculateRotationSnap(
+  moving: WhiteboardGeometry,
+  targets: readonly Pick<WhiteboardObject, 'id' | 'geometry' | 'hidden'>[],
+  thresholdDegrees = 4,
+): RotationSnapResult {
+  WhiteboardGeometrySchema.parse(moving);
+  if (!Number.isFinite(thresholdDegrees) || thresholdDegrees < 0 || thresholdDegrees > 45) throw new Error('ROTATION_SNAP_THRESHOLD_INVALID');
+  const normalizeAngle = (angle: number): number => {
+    const normalized = ((angle + 180) % 360 + 360) % 360 - 180;
+    return normalized === -180 && angle > 0 ? 180 : normalized;
+  };
+  const movingAngle = normalizeAngle(moving.rotation);
+  const candidates = new Set<number>();
+  for (let angle = -180; angle <= 180; angle += 15) candidates.add(angle);
+  for (const target of targets) if (!target.hidden) candidates.add(normalizeAngle(target.geometry.rotation));
+  const distance = (left: number, right: number) => Math.abs((((left - right) % 360) + 540) % 360 - 180);
+  const targetAngle = [...candidates].sort((a, b) => distance(movingAngle, a) - distance(movingAngle, b) || Math.abs(movingAngle - a) - Math.abs(movingAngle - b) || a - b)[0] ?? null;
+  if (targetAngle === null || distance(movingAngle, targetAngle) > thresholdDegrees) return { geometry: { ...moving }, snapped: false, targetAngle: null };
+  return { geometry: { ...moving, rotation: targetAngle }, snapped: true, targetAngle };
 }

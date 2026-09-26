@@ -184,8 +184,29 @@ describe("BoardFabricSurface", () => {
     expect(await screen.findByTestId("board-smart-guides")).toBeVisible();
     act(() => probe.handlers.get("object:scaling")?.({ target: probe.objects[0], e: new MouseEvent("mousemove", { altKey: true }) }));
     expect(screen.queryByTestId("board-smart-guides")).toBeNull();
+    probe.active!.scaleX = 1.7; probe.active!.scaleY = .6;
+    act(() => probe.handlers.get("object:scaling")?.({ target: probe.active! }));
+    expect(probe.active!.scaleX).toBe(probe.active!.scaleY);
     act(() => probe.handlers.get("object:moving")?.({ target: probe.active! }));
     expect(screen.getByTestId("board-smart-guides")).toBeVisible();
+  });
+
+  it("snaps rotation angles and keeps distance threshold in screen pixels", async () => {
+    const first = renderSurface({ selectedObjectIds: ["s-1"], viewport: { ...VIEWPORT, zoom: 2 } });
+    const moving = probe.objects[0]!;
+    moving.left = 136; moving.angle = 44;
+    act(() => probe.handlers.get("object:moving")?.({ target: moving }));
+    expect(screen.queryByTestId("board-smart-guides")).toBeNull();
+    act(() => probe.handlers.get("object:rotating")?.({ target: moving }));
+    expect(moving.angle).toBe(45);
+    first.unmount();
+
+    probe.objects.length = 0; probe.handlers.clear();
+    renderSurface({ selectedObjectIds: ["s-1"], viewport: { ...VIEWPORT, zoom: .5 } });
+    const zoomedOut = probe.objects[0]!;
+    zoomedOut.left = 136;
+    act(() => probe.handlers.get("object:moving")?.({ target: zoomedOut }));
+    expect(await screen.findByTestId("board-smart-guides")).toBeVisible();
   });
 
   it("rolls a rejected transform back to canonical geometry without losing selection", () => {

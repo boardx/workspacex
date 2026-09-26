@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
-import { Group, Rect } from "fabric";
+import { ActiveSelection, Group, Rect } from "fabric";
 import { canonicalSceneBounds } from "@repo/whiteboard-core";
+import { representableWorldGeometry } from "@/components/whiteboard/fabric/fabric-transform";
 
 describe("Board Fabric canonical coordinate contract", () => {
   it.each([0, 37, 90, -45])("matches canonical top-left scene bounds at %s degrees", (rotation) => {
@@ -16,5 +17,23 @@ describe("Board Fabric canonical coordinate contract", () => {
     expect(fabric.top).toBeCloseTo(canonical.top, 5);
     expect(fabric.width).toBeCloseTo(canonical.width, 5);
     expect(fabric.height).toBeCloseTo(canonical.height, 5);
+  });
+});
+
+describe("ActiveSelection canonical transform boundary", () => {
+  it("rejects real Fabric skew from non-uniform scaling of a rotated child", () => {
+    const rotated = new Rect({ left: 40, top: 60, width: 120, height: 80, angle: 35, originX: "left", originY: "top" });
+    const plain = new Rect({ left: 260, top: 80, width: 100, height: 100, originX: "left", originY: "top" });
+    const selection = new ActiveSelection([rotated, plain]);
+    selection.set({ scaleX: 1.8, scaleY: 0.7 }); selection.setCoords();
+    expect(() => representableWorldGeometry(rotated)).toThrow("FABRIC_TRANSFORM_NOT_REPRESENTABLE");
+  });
+
+  it("accepts uniform ActiveSelection scaling and rotation", () => {
+    const rotated = new Rect({ left: 40, top: 60, width: 120, height: 80, angle: 35, originX: "left", originY: "top" });
+    const plain = new Rect({ left: 260, top: 80, width: 100, height: 100, originX: "left", originY: "top" });
+    const selection = new ActiveSelection([rotated, plain]);
+    selection.set({ scaleX: 1.4, scaleY: 1.4, angle: 15 }); selection.setCoords();
+    expect(representableWorldGeometry(rotated)).toMatchObject({ width: expect.any(Number), height: expect.any(Number), rotation: 50 });
   });
 });

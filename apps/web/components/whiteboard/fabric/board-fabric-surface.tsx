@@ -1,8 +1,8 @@
 "use client";
 
 import * as React from "react";
-import { ActiveSelection, Canvas, Circle, Group, Point, Rect, Textbox, util, type FabricObject, type TPointerEventInfo } from "fabric";
-import { calculateSnapGuides, type SnapResult } from "@repo/whiteboard-core";
+import { ActiveSelection, Canvas, Circle, Group, Point, Rect, Textbox, type FabricObject, type TPointerEventInfo } from "fabric";
+import { calculateRotationSnap, calculateSnapGuides, type SnapResult } from "@repo/whiteboard-core";
 import { BoardA11yMirror } from "./board-a11y-mirror";
 import {
   clampBoardZoom,
@@ -13,6 +13,7 @@ import {
   type BoardViewport,
   type BoardViewportSource,
 } from "./board-fabric-object";
+import { representableWorldGeometry } from "./fabric-transform";
 
 type TaggedFabricObject = FabricObject & {
   data?: { boardObjectId?: string; adapterKind?: BoardFabricObject["kind"]; renderedRevision?: number; projectionFailure?: boolean };
@@ -148,19 +149,6 @@ function geometryFromFabric(projected: TaggedFabricObject): BoardFabricGeometry 
   };
 }
 
-function worldGeometryFromFabric(projected: TaggedFabricObject): BoardFabricGeometry {
-  const decomposed = util.qrDecompose(projected.calcTransformMatrix());
-  const rotation = decomposed.angle;
-  const width = Math.max(1, Math.abs((projected.width || 1) * decomposed.scaleX));
-  const height = Math.max(1, Math.abs((projected.height || 1) * decomposed.scaleY));
-  const radians = rotation * Math.PI / 180;
-  return {
-    x: Math.round(decomposed.translateX - width / 2 * Math.cos(radians) + height / 2 * Math.sin(radians)),
-    y: Math.round(decomposed.translateY - width / 2 * Math.sin(radians) - height / 2 * Math.cos(radians)),
-    width: Math.round(width), height: Math.round(height), rotation: Math.round(rotation),
-  };
-}
-
 export function BoardFabricSurface({ objects, selectedObjectIds, readOnly, tool, viewport, onSelectionChange, onObjectTransform, onObjectsTransform, onViewportChange, onCanvasClick, onCanvasDoubleClick, onObjectDoubleClick, onToolDrop, className }: BoardFabricSurfaceProps) {
   const hostRef = React.useRef<HTMLDivElement>(null);
   const canvasElementRef = React.useRef<HTMLCanvasElement>(null);
@@ -191,7 +179,7 @@ export function BoardFabricSurface({ objects, selectedObjectIds, readOnly, tool,
     if (!host || !element) return;
     const registry = registryRef.current;
     const rendered = renderedRef.current;
-    const canvas = new Canvas(element, { selection: !stateRef.current.readOnly, preserveObjectStacking: true });
+    const canvas = new Canvas(element, { selection: !stateRef.current.readOnly, preserveObjectStacking: true, uniformScaling: true });
     canvasRef.current = canvas;
     const resize = () => {
       canvas.setDimensions({ width: host.clientWidth || 1200, height: host.clientHeight || 720 });
@@ -219,20 +207,38 @@ export function BoardFabricSurface({ objects, selectedObjectIds, readOnly, tool,
       const nested = target && !id && "getObjects" in target && typeof target.getObjects === "function" ? target.getObjects() as TaggedFabricObject[] : [];
       const nestedIds = new Set(nested.flatMap(object => object.data?.boardObjectId ? [object.data.boardObjectId] : []));
       if (!target || (!canonical && nested.length === 0) || canonical?.locked || stateRef.current.readOnly) { setSnapPreview(null); return; }
+      if (mode === "scale" && nested.length) {
+        const uniformScale = Math.abs(target.scaleX - 1) >= Math.abs(target.scaleY - 1) ? target.scaleX : target.scaleY;
+        target.set({ scaleX: uniformScale, scaleY: uniformScale });
+        target.setCoords();
+      }
       const moving = id ? geometryFromFabric(target) : { x: target.getBoundingRect().left, y: target.getBoundingRect().top, width: target.getBoundingRect().width, height: target.getBoundingRect().height, rotation: 0 };
-      const result = calculateSnapGuides(moving, [...canonicalRef.current.values()].filter(candidate => candidate.id !== id && !nestedIds.has(candidate.id)));
+      const targets = [...canonicalRef.current.values()].filter(candidate => candidate.id !== id && !nestedIds.has(candidate.id));
+      const result = calculateSnapGuides(moving, targets, 5 / Math.max(0.05, canvas.getZoom()));
       if (mode === "scale") {
         const xAnchor = result.guides.find(guide => guide.axis === "x")?.movingAnchor;
         const yAnchor = result.guides.find(guide => guide.axis === "y")?.movingAnchor;
         const width = Math.max(1, moving.width + (xAnchor === "start" ? -result.delta.x : xAnchor === "end" ? result.delta.x : 0));
         const height = Math.max(1, moving.height + (yAnchor === "start" ? -result.delta.y : yAnchor === "end" ? result.delta.y : 0));
-        target.set({
+        if (nested.length) {
+          const uniformFactor = xAnchor ? width / moving.width : yAnchor ? height / moving.height : 1;
+          target.set({
+            left: target.left + (xAnchor === "start" ? result.delta.x : xAnchor === "center" ? result.delta.x : 0),
+            top: target.top + (yAnchor === "start" ? result.delta.y : yAnchor === "center" ? result.delta.y : 0),
+            scaleX: target.scaleX * uniformFactor,
+            scaleY: target.scaleY * uniformFactor,
+          });
+        } else target.set({
           left: target.left + (xAnchor === "start" ? result.delta.x : xAnchor === "center" ? result.delta.x : 0),
           top: target.top + (yAnchor === "start" ? result.delta.y : yAnchor === "center" ? result.delta.y : 0),
           scaleX: target.scaleX * width / moving.width,
           scaleY: target.scaleY * height / moving.height,
         });
       } else if (mode === "move") target.set({ left: target.left + result.delta.x, top: target.top + result.delta.y });
+      else {
+        const rotation = calculateRotationSnap({ ...moving, rotation: target.angle ?? moving.rotation }, targets, 4);
+        target.set({ angle: rotation.geometry.rotation, left: target.left + result.delta.x, top: target.top + result.delta.y });
+      }
       target.setCoords();
       setSnapPreview(result.guides.length || result.measurements.length ? result : null);
       canvas.requestRenderAll();
@@ -244,18 +250,21 @@ export function BoardFabricSurface({ objects, selectedObjectIds, readOnly, tool,
       if (!target) return;
       const nested = !id && "getObjects" in target && typeof target.getObjects === "function" ? target.getObjects() as TaggedFabricObject[] : [];
       if (!id && nested.length) {
-        const changes = nested.flatMap(object => {
-          const objectId = object.data?.boardObjectId;
-          const canonical = objectId ? canonicalRef.current.get(objectId) : undefined;
-          return objectId && canonical && !canonical.locked ? [{ id: objectId, geometry: worldGeometryFromFabric(object) }] : [];
-        });
-        if (!changes.length || stateRef.current.readOnly || !callbacksRef.current.onObjectsTransform) return;
-        const restore = () => { for (const change of changes) { const object = registryRef.current.get(change.id), canonical = canonicalRef.current.get(change.id); if (object && canonical) applyCanonicalObject(object, canonical, stateRef.current.readOnly); } canvas.requestRenderAll(); };
         try {
+          const changes = nested.flatMap(object => {
+            const objectId = object.data?.boardObjectId;
+            const canonical = objectId ? canonicalRef.current.get(objectId) : undefined;
+            return objectId && canonical && !canonical.locked ? [{ id: objectId, geometry: representableWorldGeometry(object) }] : [];
+          });
+          if (!changes.length || stateRef.current.readOnly || !callbacksRef.current.onObjectsTransform) return;
+          const restore = () => { for (const change of changes) { const object = registryRef.current.get(change.id), canonical = canonicalRef.current.get(change.id); if (object && canonical) applyCanonicalObject(object, canonical, stateRef.current.readOnly); } canvas.requestRenderAll(); };
           const accepted = callbacksRef.current.onObjectsTransform(changes);
           if (typeof accepted === "boolean") { if (!accepted) restore(); }
           else void accepted.then(value => { if (!value) restore(); }, restore);
-        } catch { restore(); }
+        } catch {
+          for (const object of nested) { const objectId = object.data?.boardObjectId, canonical = objectId ? canonicalRef.current.get(objectId) : undefined; if (canonical) applyCanonicalObject(object, canonical, stateRef.current.readOnly); }
+          canvas.requestRenderAll();
+        }
         return;
       }
       if (!id) return;
@@ -423,7 +432,11 @@ export function BoardFabricSurface({ objects, selectedObjectIds, readOnly, tool,
       const object = registryRef.current.get(id);
       return object ? [object] : [];
     });
-    if (projected.length > 1) canvas.setActiveObject(new ActiveSelection(projected, { canvas }));
+    if (projected.length > 1) {
+      const activeSelection = new ActiveSelection(projected, { canvas });
+      activeSelection.setControlsVisibility({ ml: false, mr: false, mt: false, mb: false });
+      canvas.setActiveObject(activeSelection);
+    }
     else if (projected[0]) canvas.setActiveObject(projected[0]);
     else canvas.discardActiveObject();
     scheduleRender();

@@ -7,6 +7,7 @@ import {
   canonicalSceneBounds,
   createLayoutPreconditions,
   calculateSnapGuides,
+  calculateRotationSnap,
   createWhiteboardDocument,
   executeCommands,
   readObjects,
@@ -182,6 +183,11 @@ describe('smart guides and measurements', () => {
     expect(result.delta.x).toBeCloseTo(-4);
     expect(result.geometry.x).toBeCloseTo(40);
     expect(result.guides).toContainEqual(expect.objectContaining({ axis: 'x', position: 0 }));
+  });
+  it('snaps rotation to object angles and 15-degree increments', () => {
+    expect(calculateRotationSnap({ ...geometry(0, 0), rotation: 28 }, [{ id: 'target', geometry: { ...geometry(0, 0), rotation: 30 } }], 4)).toMatchObject({ snapped: true, targetAngle: 30, geometry: { rotation: 30 } });
+    expect(calculateRotationSnap({ ...geometry(0, 0), rotation: 44 }, [], 4)).toMatchObject({ snapped: true, targetAngle: 45, geometry: { rotation: 45 } });
+    expect(calculateRotationSnap({ ...geometry(0, 0), rotation: 38 }, [], 4)).toMatchObject({ snapped: false, targetAngle: null, geometry: { rotation: 38 } });
   });
 });
 
