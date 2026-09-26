@@ -28,6 +28,7 @@ describe("guided research reference layout", () => {
     render(<GuidedResearchEntryPanel brief={<div>研究需求 Markdown</div>} onContinue={vi.fn()} onRegenerate={vi.fn()} onSave={vi.fn()} disabled={false} />);
 
     expect(screen.getByTestId("guided-research-import-panel")).toBeInTheDocument();
+    expect(screen.getByTestId("guided-research-import-panel")).toHaveAttribute("data-reference-layout", "three-entry-cards");
     expect(screen.getByRole("button", { name: "选择文件" })).toBeDisabled();
     expect(screen.getByRole("button", { name: "开始录音" })).toBeDisabled();
     expect(screen.getByText("当前环境尚未配置文件导入")).toBeInTheDocument();
@@ -39,6 +40,7 @@ describe("guided research reference layout", () => {
     render(<GuidedResearchTopicPanel workspace={<div>确认研究主题</div>} assistant={<div>主题助手建议</div>} />);
 
     expect(screen.getByTestId("guided-research-topic-panel")).toBeInTheDocument();
+    expect(screen.getByTestId("guided-research-topic-panel")).toHaveAttribute("data-reference-layout", "topic-workspace");
     expect(screen.getByTestId("guided-research-topic-assistant")).toHaveTextContent("主题助手建议");
     expect(screen.getByText("确认研究主题")).toBeInTheDocument();
   });
