@@ -25,8 +25,10 @@ describe("Board accessibility object mirror", () => {
     if (!first || !second) throw new Error("Object outline did not render both canonical objects");
 
     expect(buttons.map((button) => button.closest("li")?.getAttribute("data-object-id"))).toEqual(["a", "b"]);
-    expect(first).toHaveAccessibleName("便利贴：Alpha");
-    expect(second).toHaveAccessibleName("矩形：Beta");
+    expect(within(mirror).getByRole("button", { name: "图形：Alpha" })).toBe(first);
+    expect(within(mirror).getByRole("button", { name: "图形：Beta" })).toBe(second);
+    expect(first).toHaveAccessibleDescription("对象类型：便利贴");
+    expect(second).toHaveAccessibleDescription("对象类型：矩形");
     expect(first).toHaveAttribute("aria-pressed", "false");
 
     fireEvent.click(first);
@@ -43,7 +45,8 @@ describe("Board accessibility object mirror", () => {
     render(<BoardA11yMirror objects={[object("a", "a", "Readonly note")]} selectedObjectIds={[]} onSelect={onSelect} readOnly />);
 
     expect(screen.getByText("只读模式；可浏览和选择对象。")).toBeInTheDocument();
-    const button = screen.getByRole("button", { name: "便利贴：Readonly note" });
+    const button = screen.getByRole("button", { name: "图形：Readonly note" });
+    expect(button).toHaveAccessibleDescription("对象类型：便利贴");
     expect(button).toBeEnabled();
     fireEvent.click(button);
     expect(onSelect).toHaveBeenCalledWith("a");
@@ -57,6 +60,13 @@ describe("Board accessibility object mirror", () => {
 
     expect(screen.queryByRole("button", { name: /Before/ })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /Delete me/ })).not.toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "便利贴：After" })).toHaveAttribute("aria-pressed", "true");
+    expect(screen.getByRole("button", { name: "图形：After" })).toHaveAttribute("aria-pressed", "true");
+  });
+
+  it("uses the object kind as the stable name fallback without merging its type into the name", () => {
+    render(<BoardA11yMirror objects={[object("empty", "a", "", "ellipse")]} selectedObjectIds={[]} onSelect={vi.fn()} readOnly={false} />);
+
+    const button = screen.getByRole("button", { name: "图形：椭圆" });
+    expect(button).toHaveAccessibleDescription("对象类型：椭圆");
   });
 });

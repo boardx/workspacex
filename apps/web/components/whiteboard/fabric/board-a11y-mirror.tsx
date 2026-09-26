@@ -33,11 +33,13 @@ export function BoardA11yMirror({ objects, selectedObjectIds, onSelect, readOnly
               variant="ghost"
               size="sm"
               className="w-full justify-start truncate transition-colors"
+              aria-label={`图形：${object.content.text || KIND_LABEL[object.kind]}`}
+              aria-description={`对象类型：${KIND_LABEL[object.kind]}`}
               aria-pressed={selected.has(object.id)}
               data-testid={`board-a11y-object-${object.id}`}
               onClick={() => onSelect(object.id)}
             >
-              <span className="sr-only">{KIND_LABEL[object.kind]}：</span>{object.content.text || `未命名${KIND_LABEL[object.kind]}`}
+              {object.content.text || KIND_LABEL[object.kind]}
             </Button>
           </li>
         ))}
