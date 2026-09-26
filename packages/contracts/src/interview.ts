@@ -291,23 +291,6 @@ export const DigitalInterviewPrimaryAction = z.enum([
 /** 当前步骤与主操作同源，领域投影不得另抄一份字符串联合。 */
 export const DigitalInterviewStep = z.enum(["topic", "experts", "questions", "runs", "report"]);
 
-/** Durable, user-visible Markdown generated at each workbench stage. */
-export const DigitalInterviewArtifactStep = z.enum(["intake", "analysis", "experts", "outline", "runs", "report"]);
-export const DigitalInterviewArtifactFailure = z.object({ code: z.string().min(1), retryable: z.boolean() }).strict();
-export const DigitalInterviewArtifact = z.object({
-  artifactId: z.string().min(1), step: DigitalInterviewArtifactStep, title: z.string().trim().min(1), markdown: z.string(),
-  version: z.number().int().positive(), status: z.enum(["draft", "confirmed", "generating", "failed", "completed"]),
-  generatedAt: z.string().datetime().nullable(), failure: DigitalInterviewArtifactFailure.nullable(),
-  evidenceMode: z.enum(["simulated", "participant", "mixed"]),
-}).strict().superRefine((artifact, context) => {
-  if (["confirmed", "completed"].includes(artifact.status) && !artifact.markdown.trim()) context.addIssue({ code: z.ZodIssueCode.custom, path: ["markdown"], message: "confirmed artifacts require markdown" });
-  if (artifact.status === "failed" && !artifact.failure) context.addIssue({ code: z.ZodIssueCode.custom, path: ["failure"], message: "failed artifacts require failure metadata" });
-});
-const DigitalInterviewArtifacts = z.array(DigitalInterviewArtifact).superRefine((artifacts, context) => {
-  const identities = new Set<string>();
-  artifacts.forEach((artifact, index) => { const identity = `${artifact.step}:${artifact.version}`; if (identities.has(identity)) context.addIssue({ code: z.ZodIssueCode.custom, path: [index], message: "artifact step/version must be unique" }); identities.add(identity); });
-});
-
 export const DigitalInterviewLearningGoal = z.object({
   goalId: z.string().trim().min(1),
   statement: z.string().trim().min(1),
@@ -822,7 +805,6 @@ export const DigitalInterviewWorkflowView = DigitalInterview.extend({
     evidenceCoverage: [],
   }),
   reportReview: DigitalInterviewReportReview.nullable().default(null),
-  artifacts: DigitalInterviewArtifacts.optional(),
 }).strict();
 
 /*
