@@ -17,7 +17,7 @@ export function BoardCardMenu({ board, disabled, onAction }: { board: Board; dis
     <MenuTrigger asChild><Button ref={triggerRef} type="button" size="icon" variant="ghost" disabled={disabled} aria-label={`${board.name} 更多操作`} data-testid={`board-menu-${board.id}`} onClick={event => event.stopPropagation()}><MoreHorizontal className="size-5" aria-hidden /></Button></MenuTrigger>
     <MenuContent align="end" onClick={event => event.stopPropagation()}>
       {board.role === 'owner' && <MenuItem data-testid={`board-action-rename-${board.id}`} onSelect={choose('rename')}><Pencil className="mr-2 size-4" aria-hidden />重命名</MenuItem>}
-      {board.role !== 'viewer' && <MenuItem data-testid={`board-action-tags-${board.id}`} onSelect={choose('tags')}><Tags className="mr-2 size-4" aria-hidden />管理标签</MenuItem>}
+      {board.role === 'owner' && <MenuItem data-testid={`board-action-tags-${board.id}`} onSelect={choose('tags')}><Tags className="mr-2 size-4" aria-hidden />管理标签</MenuItem>}
       {board.role !== 'viewer' && <MenuItem data-testid={`board-action-duplicate-${board.id}`} onSelect={choose('duplicate')}><Copy className="mr-2 size-4" aria-hidden />创建副本</MenuItem>}
       {board.role === 'owner' && <><MenuSeparator />{board.archived
         ? <MenuItem data-testid={`board-action-restore-${board.id}`} onSelect={choose('restore')}><RotateCcw className="mr-2 size-4" aria-hidden />恢复</MenuItem>

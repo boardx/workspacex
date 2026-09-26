@@ -14,6 +14,7 @@ vi.mock('@/lib/live-whiteboard', () => ({
 const tag: api.BoardTag = { id: '7f2973dc-c5d2-4757-903e-44e421aa3c28', name: '研究', revision: 1, createdBy: 'owner', createdAt: '2026-09-24T00:00:00.000Z', updatedAt: '2026-09-24T00:00:00.000Z' };
 const board: api.Board = { id: '57d83843-21e2-40ae-8c1c-571d0ad63c80', name: '团队白板', ownerId: 'owner', role: 'owner', archived: false, tagIds: [tag.id], tagsRevision: 2, createdAt: '2026-09-24T00:00:00.000Z', updatedAt: '2026-09-24T00:00:00.000Z' };
 const result = (items: api.Board[]) => ({ items, nextCursor: null });
+function deferred<T>() { let resolve!: (value: T) => void, reject!: (reason: unknown) => void; const promise = new Promise<T>((yes, no) => { resolve = yes; reject = no; }); return { promise, resolve, reject }; }
 
 beforeEach(() => {
   vi.resetAllMocks();
@@ -28,12 +29,38 @@ describe('Board library', () => {
     vi.mocked(api.createBoard).mockRejectedValueOnce(new Error('private')).mockResolvedValueOnce(board);
     render(<WhiteboardLibrary />); await screen.findByTestId('empty');
     fireEvent.change(screen.getByTestId('board-create-name'), { target: { value: '团队白板' } }); fireEvent.click(screen.getByTestId('board-create')); await screen.findByTestId('dep-failed');
+    expect(screen.getByTestId('board-create-name')).toBeDisabled(); expect(screen.getByTestId('board-create-name')).toHaveValue('团队白板'); expect(screen.getByTestId('board-create')).toHaveTextContent('重试创建“团队白板”');
     fireEvent.click(screen.getByTestId('board-create')); await waitFor(() => expect(push).toHaveBeenCalledWith(`/studio/board/${board.id}`));
     expect(api.createBoard).toHaveBeenCalledTimes(2); expect(vi.mocked(api.createBoard).mock.calls[0]![0]).toEqual(vi.mocked(api.createBoard).mock.calls[1]![0]);
   });
   it('debounces server search and sends stable tag ids as an AND filter', async () => {
     render(<WhiteboardLibrary />); await screen.findByTestId('empty'); fireEvent.change(screen.getByTestId('board-search'), { target: { value: '  journey  ' } }); fireEvent.click(screen.getByTestId(`board-filter-tag-${tag.id}`));
-    await waitFor(() => expect(api.listBoards).toHaveBeenLastCalledWith(expect.objectContaining({ query: 'journey', tagIds: [tag.id], archived: 'active' })), { timeout: 1200 });
+    await waitFor(() => expect(api.listBoards).toHaveBeenLastCalledWith(expect.objectContaining({ query: 'journey', tagIds: [tag.id], archived: 'active' }), expect.anything()), { timeout: 1200 });
+  });
+  it('ignores a superseded list response that resolves after the current query', async () => {
+    const old = deferred<ReturnType<typeof result>>(), current = { ...board, name: '当前结果' }, stale = { ...board, name: '过期结果' };
+    vi.mocked(api.listBoards).mockImplementationOnce(() => old.promise).mockResolvedValueOnce(result([current]));
+    render(<WhiteboardLibrary />); fireEvent.change(screen.getByTestId('board-search'), { target: { value: 'current' } });
+    expect(await screen.findByText('当前结果', {}, { timeout: 1200 })).toBeInTheDocument(); old.resolve(result([stale]));
+    await waitFor(() => expect(screen.queryByText('过期结果')).not.toBeInTheDocument()); expect(screen.getByText('当前结果')).toBeInTheDocument();
+  });
+  it('offers a discoverable retry after initial list failure', async () => {
+    vi.mocked(api.listBoards).mockRejectedValueOnce(new Error('offline')).mockResolvedValueOnce(result([])); render(<WhiteboardLibrary />);
+    await screen.findByTestId('board-list-error'); fireEvent.click(screen.getByTestId('board-list-retry')); expect(await screen.findByTestId('empty')).toBeInTheDocument();
+  });
+  it('keeps boards visible when the independent tag catalog request fails', async () => {
+    vi.mocked(api.listBoards).mockResolvedValue(result([board])); vi.mocked(api.listBoardTags).mockRejectedValueOnce(new Error('tag service'));
+    render(<WhiteboardLibrary />); expect(await screen.findByTestId(`board-card-${board.id}`)).toBeInTheDocument(); expect(await screen.findByTestId('board-tags-error')).toBeInTheDocument();
+  });
+  it('deduplicates cursor pages by board id and keeps the newest projection', async () => {
+    const second = { ...board, id: '18b458a2-1065-44d2-ae74-02fdab5afbd2', name: '第二块' }, updated = { ...board, name: '更新后的名称' };
+    vi.mocked(api.listBoards).mockResolvedValueOnce({ items: [board], nextCursor: 'cursor-2' }).mockResolvedValueOnce({ items: [updated, second], nextCursor: null });
+    render(<WhiteboardLibrary />); fireEvent.click(await screen.findByTestId('board-load-more'));
+    expect(await screen.findByText('第二块')).toBeInTheDocument(); expect(screen.getAllByTestId(`board-card-${board.id}`)).toHaveLength(1); expect(screen.getByText('更新后的名称')).toBeInTheDocument();
+  });
+  it('exposes pressed state for grid and list view controls', async () => {
+    render(<WhiteboardLibrary />); await screen.findByTestId('empty'); const grid = screen.getByRole('button', { name: '网格视图' }), list = screen.getByRole('button', { name: '列表视图' });
+    expect(grid).toHaveAttribute('aria-pressed', 'true'); expect(list).toHaveAttribute('aria-pressed', 'false'); fireEvent.click(list); expect(list).toHaveAttribute('aria-pressed', 'true');
   });
   it('opens editor from the card while the three-dot menu stays action-only', async () => {
     vi.mocked(api.listBoards).mockResolvedValue(result([board])); render(<WhiteboardLibrary />);
@@ -45,17 +72,21 @@ describe('Board library', () => {
     fireEvent.click(await screen.findByRole('checkbox')); fireEvent.click(screen.getByTestId('board-tags-save'));
     await waitFor(() => expect(api.updateBoard).toHaveBeenCalledWith(board.id, { tagIds: [], expectedTagsRevision: 2 }));
   });
-  it('creates, renames and confirms deletion of catalog tags with revision guards', async () => {
+  it('reuses exact request ids and payloads for uncertain tag create, rename and delete retries', async () => {
     const renamed = { ...tag, name: '洞察', revision: 2 };
-    vi.mocked(api.createBoardTag).mockResolvedValue({ ...tag, id: '59a39eb5-0d5a-4590-9870-c212e162ae11', name: '产品' });
-    vi.mocked(api.renameBoardTag).mockResolvedValue(renamed); vi.mocked(api.deleteBoardTag).mockResolvedValue({ requestId: '4a2f9d8f-9f18-41b2-921a-a64905c757ca', tagId: tag.id, deleted: true });
+    vi.mocked(api.createBoardTag).mockRejectedValueOnce(new Error('lost')).mockResolvedValueOnce({ ...tag, id: '59a39eb5-0d5a-4590-9870-c212e162ae11', name: '产品' });
+    vi.mocked(api.renameBoardTag).mockRejectedValueOnce(new Error('lost')).mockResolvedValueOnce(renamed);
+    vi.mocked(api.deleteBoardTag).mockRejectedValueOnce(new Error('lost')).mockResolvedValueOnce({ requestId: '4a2f9d8f-9f18-41b2-921a-a64905c757ca', tagId: tag.id, deleted: true });
     render(<WhiteboardLibrary />); await screen.findByTestId('empty'); fireEvent.click(screen.getByTestId('board-tag-catalog'));
     fireEvent.change(screen.getByTestId('board-tag-name'), { target: { value: '产品' } }); fireEvent.click(screen.getByTestId('board-tag-create'));
-    await waitFor(() => expect(api.createBoardTag).toHaveBeenCalledWith(expect.objectContaining({ name: '产品' })));
+    await screen.findByTestId('dep-failed'); expect(screen.getByTestId('board-tag-name')).toBeDisabled(); fireEvent.click(screen.getByTestId('board-tag-create'));
+    await waitFor(() => expect(api.createBoardTag).toHaveBeenCalledTimes(2)); expect(vi.mocked(api.createBoardTag).mock.calls[0]![0]).toEqual(vi.mocked(api.createBoardTag).mock.calls[1]![0]);
     const researchName = screen.getByLabelText('研究 标签名称'); fireEvent.change(researchName, { target: { value: '洞察' } }); fireEvent.click(researchName.closest('li')!.querySelector('button')!);
-    await waitFor(() => expect(api.renameBoardTag).toHaveBeenCalledWith(tag.id, expect.objectContaining({ name: '洞察', expectedRevision: 1 })));
+    await screen.findByTestId('dep-failed'); expect(researchName).toBeDisabled(); fireEvent.click(screen.getByRole('button', { name: '重试“洞察”' }));
+    await waitFor(() => expect(api.renameBoardTag).toHaveBeenCalledTimes(2)); expect(vi.mocked(api.renameBoardTag).mock.calls[0]![1]).toEqual(vi.mocked(api.renameBoardTag).mock.calls[1]![1]);
     const insightRow = (await screen.findByLabelText('洞察 标签名称')).closest('li')!; fireEvent.click(insightRow.querySelectorAll('button')[1]!); fireEvent.click(screen.getByRole('button', { name: '确认删除' }));
-    await waitFor(() => expect(api.deleteBoardTag).toHaveBeenCalledWith(tag.id, expect.objectContaining({ expectedRevision: 2 })));
+    await screen.findByTestId('dep-failed'); fireEvent.click(screen.getByRole('button', { name: '重试删除' }));
+    await waitFor(() => expect(api.deleteBoardTag).toHaveBeenCalledTimes(2)); expect(vi.mocked(api.deleteBoardTag).mock.calls[0]![1]).toEqual(vi.mocked(api.deleteBoardTag).mock.calls[1]![1]);
   });
   it('duplicates with a durable retry id', async () => {
     vi.mocked(api.listBoards).mockResolvedValue(result([board]));
@@ -70,7 +101,12 @@ describe('Board library', () => {
   });
   it('hides mutating actions from viewers and redacts dependency detail', async () => {
     const viewer = { ...board, role: 'viewer' as const }; vi.mocked(api.listBoards).mockResolvedValueOnce(result([viewer])); render(<WhiteboardLibrary />); await openMenu(viewer);
-    expect(screen.queryByTestId(`board-action-rename-${board.id}`)).not.toBeInTheDocument(); cleanup(); vi.mocked(api.listBoards).mockRejectedValue(new ApiError(403, 'private', {})); render(<WhiteboardLibrary />); expect(await screen.findByTestId('denied')).not.toHaveTextContent('private');
+    expect(screen.queryByTestId(`board-action-rename-${board.id}`)).not.toBeInTheDocument(); expect(screen.queryByTestId(`board-action-tags-${board.id}`)).not.toBeInTheDocument();
+    cleanup(); vi.mocked(api.listBoards).mockRejectedValue(new ApiError(403, 'private', {})); render(<WhiteboardLibrary />); expect(await screen.findByTestId('board-list-error')).not.toHaveTextContent('private');
+  });
+  it('does not expose board tag management to editors', async () => {
+    const editor = { ...board, role: 'editor' as const }; vi.mocked(api.listBoards).mockResolvedValue(result([editor])); render(<WhiteboardLibrary />); await openMenu(editor);
+    expect(screen.queryByTestId(`board-action-tags-${board.id}`)).not.toBeInTheDocument(); expect(screen.getByTestId(`board-action-duplicate-${board.id}`)).toBeInTheDocument();
   });
   it('returns focus to the originating menu trigger when a dialog closes', async () => {
     vi.mocked(api.listBoards).mockResolvedValue(result([board])); render(<WhiteboardLibrary />); await openMenu(); fireEvent.click(await screen.findByTestId(`board-action-rename-${board.id}`));

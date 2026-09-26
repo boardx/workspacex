@@ -19,15 +19,15 @@ const replacePath = (path: string, values: Record<string, string>) => Object.ent
 );
 const boardPath = (path: string, id: string) => replacePath(path, { boardId: id });
 
-export async function listBoards(input: ListBoardsInput = {}) {
+export async function listBoards(input: ListBoardsInput = {}, signal?: AbortSignal) {
   const query = C.ListBoards.parse(input);
   const params = new URLSearchParams({ archived: query.archived, limit: String(query.limit) });
   if (query.query) params.set('query', query.query);
   if (query.cursor) params.set('cursor', query.cursor);
   query.tagIds?.forEach(id => params.append('tagIds', id));
-  return ops.listBoards.out.parse(await apiRequest(`${ops.listBoards.path}?${params}`, { method: ops.listBoards.method }));
+  return ops.listBoards.out.parse(await apiRequest(`${ops.listBoards.path}?${params}`, { method: ops.listBoards.method, signal }));
 }
-export async function listBoardTags() { return ops.listBoardTags.out.parse(await apiRequest(ops.listBoardTags.path, { method: ops.listBoardTags.method })).items; }
+export async function listBoardTags(signal?: AbortSignal) { return ops.listBoardTags.out.parse(await apiRequest(ops.listBoardTags.path, { method: ops.listBoardTags.method, signal })).items; }
 export async function createBoardTag(input: CreateBoardTagInput) { return C.BoardTag.parse(await apiRequest(ops.createBoardTag.path, { method: ops.createBoardTag.method, body: C.CreateBoardTag.parse(input) })); }
 export async function renameBoardTag(tagId: string, input: RenameBoardTagInput) { return C.BoardTag.parse(await apiRequest(replacePath(ops.renameBoardTag.path, { tagId }), { method: ops.renameBoardTag.method, body: C.RenameBoardTag.parse(input) })); }
 export async function deleteBoardTag(tagId: string, input: DeleteBoardTagInput) { return ops.deleteBoardTag.out.parse(await apiRequest(replacePath(ops.deleteBoardTag.path, { tagId }), { method: ops.deleteBoardTag.method, body: C.DeleteBoardTag.parse(input) })); }
