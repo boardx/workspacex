@@ -11,6 +11,7 @@ export default defineConfig({ test: {
     'tests/whiteboard/library-cursor.test.ts',
     'tests/whiteboard/library-management-static.test.ts',
     'tests/whiteboard/lifecycle-cas.test.ts',
+    'tests/whiteboard/reason-code-response.test.ts',
     'tests/whiteboard/resource-repository-guard.test.ts',
     'tests/whiteboard/tag-repository-guard.test.ts',
   ],
