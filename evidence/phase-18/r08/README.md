@@ -71,6 +71,35 @@ thread C 「开始写报告吧」 → the answer carries only 985; undo → 211 
 > clause, same-frame statement). No integration test relied on a reason clause auto-superseding. The 24139f479 domain
 > file fails the new negatives (`fail-without-fix.txt`, last section).
 
+> **The change clause ends at the new object (review round 7 of round 8).** Rule 3 above ("clean new object") let two
+> things through: normalization strips whitespace, so 「把Vue换成React maybe / if approved / React-tbd」 read as one ASCII token;
+> and a CJK noun of up to 6 characters accepted any tail (「把上海换成北京如何 / 候补 / 就行」). Rule 3 is now structural:
+> - *Ends at the object.* Checked on the NFKC + lowercase text **before** whitespace is removed. A change clause that carries
+>   a new object must be `… + object + at most one closed sentence-final particle (吧 / 了 / 啊 / 呀 / 哦 / 嘛; not 呢)`,
+>   after dropping typographic spaces at Han/ASCII boundaries (「关注 985 高校」). Anything after the object ⇒ card. An
+>   ellipsis, dash or hyphen in a change clause ⇒ card. Any clause ending in a connective (但是 / 但 / 不过 / 所以 / 然后 / 而且 /
+>   或者 / 或 / 可是 / 只是) ⇒ card. 的 in a change clause ⇒ card (unchanged).
+> - *ASCII object = literally a single token in the raw text*: no whitespace, starts with a letter or digit, then letters,
+>   digits, `.` `#`; no `-`; no trailing `.`; `+` only as a trailing run after a letter (c++, not 985+ or react+svelte). It may
+>   be followed only by the old object's category tail (React框架). Hedge / placeholder tokens (maybe, tbd, tba, todo,
+>   pending, later, none, n/a, all, any, some, more, other(s), each, every, etc, whatever, x…) ⇒ card. That is the one ASCII
+>   list; it can only turn an automatic result into a card.
+> - *Han object (explicit)*: 2–4 characters and either ends in the old object's category tail with a specifier of the same
+>   type as the old one, or both old and new objects are exactly 2 Han characters (「把北京换成上海」). Anything else ⇒ card.
+> - *same_kind*: both specifiers are single ASCII tokens (211 / 985 / C9), or both Han of equal length ≤ 3 (北京 / 上海).
+>   Mixed types or unequal lengths ⇒ not aligned ⇒ `frame_only` ⇒ card (「更多 / 985等 / 某些」 against 211).
+> - Han specifiers/objects containing a function, quantifier or unsettled character (的 之 等 些 某 更 多 较 为 就 罢 如 何 否 似
+>   候 辅 类 行 可 宜 定 说 再 待 暂 先 试 看 想 或 非 不 没 无 其 所 全 各 部 别 另 随 任 每 几 这 那 两) ⇒ card. Like the ASCII list, it
+>   only removes automatic results (needed for the existing 「把北京换成待定」 case, which is 2 Han against 2 Han).
+> - A `same_kind` winner does not auto when another old-decision group also matches at any weaker tier (same_kind names no
+>   old object, so it cannot say which one changed): nothing, as before.
+> Every existing "nothing" case (rejections, questions, reported speech, self-correction, jokes, 「…的事」, 非X, trailing ?)
+> is unchanged. Tests: the round-7 `describe` block in `decision-supersede.test.ts` (32 card, 11 automatic, 1 card); the
+> f4e1bcfa4 domain file fails all 32 new card cases (`fail-without-fix.txt`, last section). One earlier automatic
+> expectation moved to card: 「我决定关注 C9 高校」→「改成关注 双一流 高校」 (ASCII against Han specifier), so the project-thread
+> case in `decision-supersede-recall.test.ts` now uses 「改成关注 QS50 高校」 to keep testing author scoping. With the fix:
+> tests/knowledge-graph + tests/retrieval 54 files / 811 tests pass.
+
 ## Stack (no Docker)
 
 Same shape as round 5 (`evidence/phase-18/r05/`): local Postgres 16 + AGE + pgvector at 127.0.0.1:55432, own db `r08e`

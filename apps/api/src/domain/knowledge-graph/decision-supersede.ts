@@ -21,7 +21,7 @@
  *
  * ## 判定规则（确定、可复现，不调模型——同 `conflict.ts` / `decision-claim.ts` 的理由）
  *
- * 文本先归一：NFKC、小写、去掉全部空白。**核心是分句规则**：改口词只对它所在的那个分句说话，新框架只从改口分句里读，
+ * 文本先归一：NFKC、小写、去掉全部空白（唯一例外：第 8 条 a / b 在没去空白的原文上核对改口分句的结尾）。**核心是分句规则**：改口词只对它所在的那个分句说话，新框架只从改口分句里读，
  * 别的分句里的框架永远不和另一处的改口词配对。没有「哪些词不算」的词表——分不清的，一律不取代。
  *
  * 一对（新决定 N，旧决定 O）进入候选，当且仅当**全部**成立：
@@ -59,7 +59,7 @@
  *      「把 X 换成…」的主语就是点名的旧对象，由 explicit 的整段相等核对：
  *      - 明说（explicit）：它点名的旧对象（b–e，至少两个字符）**等于** O 的对象——整段相等，所以 ASCII 天然按词边界（Go ≠ Google）；
  *      - 同框架同类（same_kind）：它的新框架动词与 O 的相同，两边对象的类别词相同，且**对齐**（`aligned`）：去掉类别词后两边
- *        剩下的都是短限定语——不超过 4 个字符或单个 ASCII 词，不含框架 / 动作动词（`SPEC_VERB`）与「的」——「关注 211 高校」→
+ *        剩下的限定语**同一类型**——都是单个 ASCII 词，或都是等长的、不超过 3 个汉字、不含动词与虚字的汉字限定语（第 8 条 d）——「关注 211 高校」→
  *        「改成关注 985 高校」算；「用React做前端开发」→「改成用Rust做后端开发」（剩下「react做前端」）不算，落到 frame_only；
  *      - 同框架、一边缺类别词或没对齐（frame_only）：框架动词相同，至少一边的对象没有类别词——「关注 211 高校」→「改成关注 985 吧」。
  *      框架动词相同但两边类别词**不同**（「关注 211 高校」对「改成关注 AI 方向」、「报考北大」对「改成报考清华」）⇒ 不算同一主题。
@@ -78,11 +78,25 @@
  *   7. **旧决定是单一分句**（`singleClause`）：按新句同样的分句规则切开，除封闭空话外只剩一个分句（「用Vue框架，周五上线」
  *      「关注211高校，学计算机」「用Vue，不用React」都不是）；另外仍保留：不止一个带框架的分句、或框架前面是并列主语
  *      （`COORDINATED`：和 / 与 / 及 / 跟 / 都 / 、）⇒ 复合。复合的旧决定从不自动：自动取代是整条转 superseded，O 说的另一件事会跟着丢。
- *   8. **新对象干净**：改口分句里没有「的」（「把Vue换成更好的」）；explicit 的每个新对象（`cleanObject`）是单个 ASCII 词
- *      （字母、数字、. # -，「+」只在词尾：c++），或单个 ASCII 词 + O 的类别词（「把Vue框架换成React框架」的 react框架、985高校），
- *      或不超过 6 个汉字的名词——不含框架 / 动作动词，不以 试试 / 看看 / 一下 / 着 / 过 / 吗 / 呢 / 吧 结尾，不含「还没定」的字
- *      （`UNSETTLED`：待定 / 暂定 / 清华再说……）；「react试试」「react+svelte」都不干净。same_kind 由对齐规则（`aligned`）核对，
- *      限定语另外不许是否定（「非985」）。
+ *   8. **新对象干净、改口分句结束在新对象上**（第 8 轮第七次评审：结构规则，不是词表）：
+ *      a. **分句结束在新对象上**（`rawEndsClean`，看 NFKC + 小写、**没去空白**的原文）：带新对象的改口分句，去掉汉字与 ASCII
+ *         交界处的排版空白后，必须是「… + 新对象 + 至多一个句末语气词（吧 / 了 / 啊 / 呀 / 哦 / 嘛；没有「呢」）」——新对象后面
+ *         还有任何东西（「北京如何」「React maybe」「React if approved」）⇒ 卡；改口分句里有省略号 / 破折号 / 连字符（「React……」
+ *         「React-maybe」）⇒ 卡；原文里任何分句以连接词结尾（但是 / 但 / 不过 / 所以 / 然后 / 而且 / 或者 / 或 / 可是 / 只是：
+ *         「把Vue换成React但是」「…，所以」）⇒ 卡；改口分句里有「的」⇒ 卡；
+ *      b. **ASCII 新对象是真正的单个词**（`asciiToken`）：原文里是一个不带空白的词，字母或数字开头，只含字母、数字、. #，不以「.」
+ *         结尾，「+」只许在字母后的词尾（c++；「react+svelte」「985+」都不是）；没有「-」。后面只许跟旧对象的类别词（「把Vue框架
+ *         换成React框架」），再按 a 结束。本身就是没定 / 泛指的 ASCII 词（maybe / tbd / tba / todo / pending / later / none / n/a /
+ *         all / any / some / more / other / each / every / etc / whatever / x…，`ASCII_HEDGE`）⇒ 卡——这是唯一的 ASCII 小词表，
+ *         它只能把自动降成卡；
+ *      c. **汉字新对象跟着旧对象的结构走**（`cleanObject`，explicit）：2–4 个汉字，并且要么以旧对象的类别词结尾、两边限定语
+ *         同一类型（见 d），要么新旧对象**都正好是 2 个汉字**（「把北京换成上海」）；其余（「北京如何」「北京候补」）⇒ 卡；
+ *      d. **same_kind 的限定语同一类型**（`aligned` / `sameSpec`）：两边去掉类别词后都是单个 ASCII 词（211 / 985 / C9、Vue / React），
+ *         或都是等长的、不超过 3 个汉字的汉字限定语（北京 / 上海）。一边 ASCII 一边汉字、长度不等 ⇒ 没对齐 ⇒ frame_only（卡）：
+ *         「更多」「985等」「某些」对「211」都是卡。
+ *      汉字限定语 / 对象另外不许含虚字、泛指字或「还没定」的字（`HAN_NOT_NOUN`：的 / 之 / 等 / 些 / 某 / 更 / 多 / 较 / 为 / 就 /
+ *      如 / 何 / 否 / 待 / 定 / 再 / 非 / 不 / 所 / 全 / 其……）与框架动词：它和 ASCII 小词表一样只能把自动降成卡。
+ *      same_kind 没有点名旧对象：另一组旧决定哪怕只在更弱的一档也匹配 ⇒ 说不清改的是哪条，既不取代也不弹卡。
  *   最后，档位本身只有 explicit 与对齐的 same_kind 能自动；frame_only 永远是卡。
  *
  * **框架**（`decisionFrame`，也用来读 O）：有带新框架的改口分句 ⇒ 取第一个；否则取第一个不是改口分句的分句里第一个框架动词
@@ -91,7 +105,8 @@
  *
  * **一条新决定取代哪几条**：取最强的非空一档；这一档里的旧决定按归一文本分组——只有**一组**（同一句话可能在
  * 会话里和个人空间里各有一条）才算；多于一组 ⇒ 说不清改的是哪一条，既不取代也不弹卡。
- *   - 这一档是 explicit / same_kind（整句干净）⇒ 自动取代这一组的全部（`supersedes`）；
+ *   - 这一档是 explicit / same_kind（整句干净）⇒ 自动取代这一组的全部（`supersedes`）；same_kind 时另一组旧决定在任何一档
+ *     匹配 ⇒ 什么都不做（第 8 条末）；
  *   - 这一档是 frame_only（含被整句门降下来的）⇒ 弹一张卡（`prompts`），〈旧〉取这一组的代表：本会话的那条优先，其次 id 最小的
  *     （[取代] 走 F16 keep_new，连带收掉本人由它晋升出去的 L1 副本）。
  * 宁可漏，不可误（R4 A1 同一原则）：漏了，用户还能在面板里手动忘掉旧的；误取代会让一条还有效的决定悄悄消失。
@@ -201,8 +216,6 @@ const RELUCTANT = /^(?:行|好)的?吧[啊呀]*$/;
 const COORDINATED = /和|与|及|跟|都|、/;
 /** 同类（same_kind）的对齐：类别词前面的限定语里不许出现框架 / 动作动词（文件头第 5、8 条）。 */
 const SPEC_VERB = /做|写|用|沟通|关注|开发|处理|负责|搞|跑|选|研究|的/;
-/** 同类对齐的限定语不许是否定（「非985」「不限」「无」）：「关注非985高校」和「关注211高校」可能重叠，不是换掉。 */
-const NEGATED_SPEC = /非|不|没|无/;
 
 /** 归一：NFKC、小写、去掉全部空白。 */
 export function normalizeStatement(statement: string): string {
@@ -251,7 +264,7 @@ function splitClauses(text: string): { clauses: string[]; reason: boolean[] } {
   const reason: boolean[] = [];
   for (const part of text.replace(CONNECTIVES, (m) => (REASON_WORDS.has(m) ? "，\u0000" : "，")).split(CLAUSE_BREAK)) {
     const c = part.replace(/\u0000/g, "").replace(DECISION_WORDS, "");
-    if (c === "") continue;
+    if (c.trim() === "") continue;
     clauses.push(c);
     reason.push(part.startsWith("\u0000"));
   }
@@ -337,6 +350,8 @@ interface RawChanges {
   readonly changes: ChangeClause[];
   /** 属于改口句式的分句（含被评判否掉的、含「算了」后面那个「还是…」分句）。 */
   readonly changed: Set<number>;
+  /** 新对象落在哪个分句里（分句下标 → 新对象）：「算了，还是…」的新对象在「还是…」那个分句。 */
+  readonly objectAt: Map<number, string>;
 }
 
 /** 全部改口句式，不看句子级否决（decisionFrame 读旧决定时也用）。 */
@@ -344,7 +359,12 @@ function rawChangeClauses(text: string): RawChanges {
   const { clauses, reason } = splitClauses(text);
   const per = clauses.map((c) => (GIVE_UP.test(c) ? [] : clauseChanges(c)));
   const changed = new Set<number>();
-  per.forEach((cs, k) => { if (cs.length > 0) changed.add(k); });
+  const objectAt = new Map<number, string>();
+  per.forEach((cs, k) => {
+    if (cs.length > 0) changed.add(k);
+    const f = cs.find((c) => c.frame !== null)?.frame;
+    if (f) objectAt.set(k, f.object);
+  });
   clauses.forEach((c, k) => {
     const g = GIVE_UP.exec(c);
     if (g === null) return;
@@ -363,10 +383,11 @@ function rawChangeClauses(text: string): RawChanges {
     const frame = still === null ? null : frameAtStart(next.slice(still[0].length), false);
     if (frame === null) return;
     changed.add(k + 1);
+    objectAt.set(k + 1, frame.object);
     per[k]!.push({ frame, namedOld: old, subject: "" });
   });
   // 紧跟着的评判分句否掉它前面那个改口分句（「改成用React，我觉得不行」）
-  clauses.forEach((c, k) => { if (k > 0 && VERDICT.test(c)) per[k - 1] = []; });
+  clauses.forEach((c, k) => { if (k > 0 && VERDICT.test(c)) { per[k - 1] = []; objectAt.delete(k - 1); } });
   // 话题分句带主语：改口分句自己没有主语 ⇒ 往前找最近的非改口分句（跳过空话；带框架动词的陈述句不是话题），它就是主语
   per.forEach((cs, k) => {
     if (!cs.some((c) => c.subject === "")) return;
@@ -375,7 +396,7 @@ function rawChangeClauses(text: string): RawChanges {
     if (topic === null || topic === undefined) return;
     per[k] = cs.map((c) => (c.subject === "" ? { ...c, subject: topic } : c));
   });
-  return { clauses, reason, per, changes: per.flat(), changed };
+  return { clauses, reason, per, changes: per.flat(), changed, objectAt };
 }
 
 /** 新决定的改口分析；句子是并列补充 / 否定的改口 / 问句 / 假设 / 说着玩 / 自我更正 ⇒ null（一个改口都没有）。 */
@@ -452,17 +473,14 @@ function hasFrameVerb(s: string): boolean {
 }
 
 /**
- * 同类对齐（文件头第 5、8 条）：共同的类别词前面，两边都只是一个短的限定语（211 / 985、周一 / 周三、Vue / React）——
- * 去掉类别词后不超过 4 个字符或是单个 ASCII 词，且不含框架 / 动作动词（「React做前端开发」对「Rust做后端开发」不算）。
+ * 同类对齐（文件头第 5、8 条）：共同的类别词前面，两边的限定语是**同一种**（`specType`）——都是单个 ASCII 词（211 / 985、
+ * Vue / React、C9），或都是等长的、不超过 3 个汉字的汉字限定语（北京 / 上海）。一边 ASCII 一边汉字、长度不等、带虚字、
+ * 否定、动词（「更多」「985等」「某些」对 211；「React做前端开发」对「Rust做后端开发」）⇒ 没对齐。
  */
 function aligned(a: DecisionFrame, b: DecisionFrame): boolean {
   if (a.kind === null || a.kind !== b.kind || hasFrameVerb(a.kind)) return false;
-  const spec = (f: DecisionFrame): boolean => {
-    const r = f.object.slice(0, f.object.length - f.kind!.length);
-    if (r === "" || NEGATED_SPEC.test(r)) return false;
-    return /^[a-z0-9][a-z0-9._+#-]*$/.test(r) || ([...r].length <= 4 && !hasFrameVerb(r));
-  };
-  return spec(a) && spec(b);
+  const spec = (f: DecisionFrame): string => f.object.slice(0, f.object.length - f.kind!.length);
+  return sameSpec(spec(a), spec(b), 3);
 }
 
 type Certainty = "clean" | "uncertain" | "rejected";
@@ -517,22 +535,81 @@ function singleClause(statement: string): boolean {
   return splitClauses(normalizeStatement(statement)).clauses.filter((c) => !isFiller(c)).length <= 1;
 }
 
-/** 单个 ASCII 词：字母、数字、. # -；「+」只许在词尾（c++、notepad++），「react+svelte」是两个东西。 */
-const ASCII_TOKEN = /^[a-z0-9][a-z0-9.#-]*\+*$/;
-/** 语气 / 体貌尾巴（剥掉句末语气词之后）：「React试试」「上海看看」「换一下」是试探，不是定了。 */
-const TENTATIVE_TAIL = /(?:试试|看看|一下|着|过|吗|呢|吧)$/;
-/** 汉字新对象里不许有「还没定」的字（待定 / 暂定 / 清华再说 / 先… / 或…）：说不准就不是干净的名词，最多弹卡。 */
-const UNSETTLED = /定|说|再|待|暂|先|试|看|等|想|考虑|或/;
+/**
+ * 单个 ASCII 词（文件头第 8 条）：字母或数字开头，后面只有字母、数字、. #，「+」只许在字母后的词尾（c++；「985+」不算），不以「.」结尾；没有空白、
+ * 没有「-」（「react-maybe」）。原文里词中间有空白（「React if approved」）由 `rawEndsClean` 在原文上核对。
+ */
+const ASCII_TOKEN = /^[a-z0-9](?:[a-z0-9.#]*[a-z0-9#])?(?:(?<=[a-z])\++)?$/;
+/** 唯一的 ASCII 小词表：本身就是「还没定」或只是泛指（all / other / x）的 ASCII 词。它只能把自动降成卡，不能让任何东西变成自动。 */
+const ASCII_HEDGE = /^(?:maybe|tbd|tba|todo|pending|later|none|n\/a|all|any|some|more|other|others|each|every|etc|whatever|x+)$/;
+const asciiToken = (t: string): boolean => ASCII_TOKEN.test(t) && !ASCII_HEDGE.test(t);
+/**
+ * 汉字新对象 / 限定语里的虚字与「还没定」的字：出现就不是一个干净的名词。它只能把自动降成卡（与上面的 ASCII 词表一样），
+ * 决定能不能自动的是下面的结构规则（长度、类别词、同类型）。
+ */
+const HAN_NOT_NOUN = /[的之等些某更多较为就罢如何否似候辅类行可宜定说再待暂先试看想或非不没无其所全各部别另随任每几这那两]/;
+/** 限定语的类型：单个 ASCII 词 ⇒ ascii；不超过 maxHan 个汉字、不含虚字 / 动词 ⇒ han；其余 ⇒ null（不自动）。 */
+function specType(s: string, maxHan: number): "ascii" | "han" | null {
+  if (asciiToken(s)) return "ascii";
+  const han = [...s];
+  if (han.length >= 1 && han.length <= maxHan && /^\p{Script=Han}+$/u.test(s) && !HAN_NOT_NOUN.test(s) && !hasFrameVerb(s)) return "han";
+  return null;
+}
+/** 两个限定语同一类型：都是 ASCII 词，或都是等长的汉字限定语。 */
+function sameSpec(a: string, b: string, maxHan: number): boolean {
+  const ta = specType(a, maxHan);
+  return ta !== null && ta === specType(b, maxHan) && (ta === "ascii" || [...a].length === [...b].length);
+}
 
 /**
- * 干净的新对象（文件头第 8 条，只允许清单）：单个 ASCII 词（字母、数字、.+#-）；单个 ASCII 词 + 旧对象的类别词
- * （「把Vue框架换成React框架」的「react框架」、「985高校」）；不超过 6 个汉字的名词——不含框架 / 动作动词与「的」，
- * 不以试试 / 看看 / 一下 / 着 / 过 / 吗 / 呢 / 吧 结尾。其余（「react试试」「上海那边的学校」）⇒ 不干净，最多弹卡。
+ * explicit 的干净新对象（文件头第 8 条，只允许清单）：
+ *   - 单个 ASCII 词（`asciiToken`）；
+ *   - 限定语 + 旧对象的类别词，且两边限定语同一类型（「把Vue框架换成React框架」、「把211高校换成985高校」、
+ *     「把北京高校换成上海高校」）；汉字的整个对象 2–4 个字；
+ *   - 2 个汉字的名词，且旧对象也正好是 2 个汉字（「把北京换成上海」）。
+ * 其余（「北京如何」「更多」「react试试」「上海那边的学校」）⇒ 不干净，最多弹卡。
  */
 function cleanObject(object: string, o: DecisionFrame): boolean {
-  if (ASCII_TOKEN.test(object)) return true;
-  if (o.kind !== null && object.endsWith(o.kind) && ASCII_TOKEN.test(object.slice(0, -o.kind.length))) return true;
-  return /^\p{Script=Han}{1,6}$/u.test(object) && !hasFrameVerb(object) && !TENTATIVE_TAIL.test(object) && !UNSETTLED.test(object);
+  if (asciiToken(object)) return true;
+  if (o.kind !== null && object.endsWith(o.kind) && object.length > o.kind.length && o.object.endsWith(o.kind)) {
+    const spec = object.slice(0, -o.kind.length);
+    const hanObject = /^\p{Script=Han}+$/u.test(object);
+    if (hanObject && [...object].length > 4) return false;
+    return sameSpec(spec, o.object.slice(0, -o.kind.length), 2);
+  }
+  const twoHan = (s: string): boolean => /^\p{Script=Han}{2}$/u.test(s) && !HAN_NOT_NOUN.test(s) && !hasFrameVerb(s);
+  return twoHan(object) && twoHan(o.object);
+}
+
+/** 改口分句结束时允许的唯一尾巴：一个封闭的句末语气词（没有「呢」——那是在问）。 */
+const CLAUSE_END_PARTICLE = /[吧了啊呀哦嘛]$/;
+/** 改口分句里的省略号 / 破折号 / 连字符（NFKC 之后「……」是「......」）：话没说完，或者是「React-maybe」⇒ 卡。 */
+const DASH_OR_ELLIPSIS = /\.\.|…|[-‐‑‒–—―─~～]/;
+/** 以连接词结尾的分句（「把Vue换成React但是」「…，所以」）：话没说完 ⇒ 卡。 */
+const DANGLING_CONNECTIVE = /(?:但是|但|不过|所以|然后|而且|或者|或|可是|只是)$/;
+/** 汉字与 ASCII 交界处的空白是排版（「关注 985 高校」），不算把词拆开；ASCII 与 ASCII 之间的空白才是两个词。 */
+const BOUNDARY_SPACE = /(?<=\p{Script=Han})\s+(?=[a-z0-9])|(?<=[a-z0-9.#+])\s+(?=\p{Script=Han})/gu;
+
+/**
+ * 改口分句必须结束在新对象上（文件头第 8 条，在**没去空白的原文**上核对）：
+ *   - 原文里每个改口分句不含省略号 / 破折号 / 连字符；原文里没有以连接词结尾的分句；
+ *   - 带新对象的分句：去掉汉字 / ASCII 交界处的空白后，分句 = … + 新对象 + 至多一个句末语气词。新对象后面还有任何东西
+ *     （「如何」「maybe」「if approved」「但是」），或 ASCII 词中间有空白（「React maybe」归一后会粘成一个词）⇒ 卡。
+ * 原文分句与归一分句对不上（按去空白后的文本比对）⇒ 卡。
+ */
+function rawEndsClean(statement: string, raw: RawChanges): boolean {
+  const text = statement.normalize("NFKC").toLowerCase();
+  if (text.split(CLAUSE_BREAK).some((seg) => DANGLING_CONNECTIVE.test(seg.trim()))) return false;
+  const rawClauses = splitClauses(text).clauses;
+  for (const k of raw.changed) {
+    const rc = rawClauses.find((r) => r.replace(/\s+/g, "") === raw.clauses[k]);
+    if (rc === undefined || DASH_OR_ELLIPSIS.test(rc)) return false;
+    const object = raw.objectAt.get(k);
+    if (object === undefined) continue;
+    const body = rc.replace(BOUNDARY_SPACE, "").trim().replace(CLAUSE_END_PARTICLE, "").trimEnd();
+    if (!body.endsWith(object)) return false;
+  }
+  return true;
 }
 
 /**
@@ -578,6 +655,8 @@ export function supersedeMatch(fresh: SupersedeFresh, older: LiveDecision): Topi
   if ([...raw.changed].some((k) => raw.clauses[k]!.includes("的"))) return "frame_only";
   // 新对象必须干净：explicit 看每个改口分句的新对象；same_kind 已由对齐规则（aligned）核过
   if (best === "explicit" && !changes.every((c) => c.frame === null || cleanObject(c.frame.object, o))) return "frame_only";
+  // 改口分句必须在原文里结束在新对象上（ASCII 词中间没有空白、后面没有别的东西、没有省略号 / 破折号 / 悬空的连接词）
+  if (!rawEndsClean(fresh.statement, raw)) return "frame_only";
   return best;
 }
 
@@ -590,14 +669,19 @@ export function planSupersedes(fresh: readonly SupersedeFresh[], live: readonly 
   for (const f of fresh) {
     let best: TopicMatch | null = null;
     let hits: LiveDecision[] = [];
+    const matched = new Set<string>();
     for (const o of live) {
       const m = supersedeMatch(f, o);
       if (m === null) continue;
+      matched.add(normalizeStatement(o.statement));
       if (best === null || MATCH_RANK[m] < MATCH_RANK[best]) { best = m; hits = [o]; } else if (m === best) hits.push(o);
     }
     if (best === null) continue;
     const keys = new Set(hits.map((o) => normalizeStatement(o.statement)));
     if (keys.size !== 1) continue;
+    // same_kind 没有点名旧对象：另一组旧决定哪怕只在更弱的一档匹配（「关注211高校」「关注双一流高校」对「改成关注985高校」），
+    // 也说不清改的是哪一条 ⇒ 既不取代也不弹卡。explicit 点名了旧对象，不受影响。
+    if (best === "same_kind" && matched.size > 1) continue;
     if (best === "frame_only") {
       // 低把握：只问、不动。〈旧〉取这一组的代表（本会话的优先，其次 id 最小）
       const rep = [...hits].sort((x, y) => Number(y.scope === "chat_session") - Number(x.scope === "chat_session") || x.id.localeCompare(y.id))[0]!;

@@ -46,7 +46,8 @@ const ALSO = "也关注 985 高校";
 /** 第 8 轮第四次评审：改口后面另起一个分句把它否了 ⇒ 不取代、也不弹卡。 */
 const REJECTED = "改成关注985高校，我反对";
 const SHARED_OLD = "我决定关注 C9 高校";
-const SHARED_NEW = "改成关注 双一流 高校";
+// 第 8 轮第七次评审：C9 对「双一流」是 ASCII 对汉字的限定语，不再对齐（只到卡）⇒ 这里换成同类型的 ASCII 限定语
+const SHARED_NEW = "改成关注 QS50 高校";
 const UNRELATED = "开始写报告吧";
 
 const decisionReply = (statement: string) => JSON.stringify({

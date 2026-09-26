@@ -498,3 +498,70 @@ describe("第 8 轮第六次评审：自动这一档只认白名单（单分句�
 
   it("「改成关注 985 吧」仍是卡", () => expect(plan("关注211高校", "改成关注 985 吧").prompts).toHaveLength(1));
 });
+
+describe("第 8 轮第七次评审：改口分句必须在原文里结束在新对象上；新对象的结构跟着旧对象走", () => {
+  const plan = (o: string, n: string) => planSupersedes([fresh(n)], [old(o)]);
+  const CARD = { supersedes: [], prompts: [{ newerClaimId: "clm-new", olderClaimId: "clm-old" }] };
+  const AUTO = { supersedes: [{ newerClaimId: "clm-new", olderClaimId: "clm-old" }], prompts: [] };
+
+  it.each([
+    // 1. 英文短语在归一后粘成一个「ASCII 词」：原文里词中间有空白 / 连字符 ⇒ 卡
+    ["用Vue", "把Vue换成React if approved"],
+    ["用Vue", "把Vue换成React maybe"],
+    ["用Vue", "把Vue换成React tbd"],
+    ["用Vue", "把Vue换成React for now"],
+    ["用Vue", "把Vue换成React or Svelte"],
+    ["用Vue", "把Vue换成React-maybe"],
+    ["用Vue", "把Vue换成React-tbd"],
+    ["用Vue", "不用Vue了，改用React maybe"],
+    ["用Vue", "把Vue换成maybe"],
+    ["关注211高校", "改成关注all高校"],
+    // 2. 汉字新对象后面跟着没列出的尾巴：2 个汉字对 2 个汉字以外一律卡
+    ["选上海", "把上海换成北京如何"],
+    ["选上海", "把上海换成北京可否"],
+    ["选上海", "把上海换成北京行否"],
+    ["选上海", "把上海换成北京如果"],
+    ["选上海", "把上海换成北京似乎"],
+    ["选上海", "把上海换成北京为宜"],
+    ["选上海", "把上海换成北京较好"],
+    ["选上海", "把上海换成北京候补"],
+    ["选上海", "把上海换成北京为辅"],
+    ["选上海", "把上海换成北京之类"],
+    ["选上海", "把上海换成北京就行"],
+    ["选上海", "把上海换成北京罢了"],
+    ["选上海", "上海算了，还是选北京如何"],
+    // 3. same_kind 的限定语类型不同 / 带虚字
+    ["关注211高校", "改成关注更多高校"],
+    ["关注211高校", "改成关注985等高校"],
+    ["关注211高校", "改成关注某些高校"],
+    ["关注北京高校", "改成关注所有高校"],
+    ["关注211高校", "改成关注985+高校"],
+    // 4. 悬空的连接词、省略号
+    ["用Vue", "把Vue换成React但是"],
+    ["用Vue", "把Vue换成React，所以"],
+    ["用Vue", "把Vue换成React……"],
+    ["用Vue", "把Vue换成React吧吧"],
+  ])("不自动 ⇒ 卡：%s → %s", (o, n) => {
+    expect(supersedeMatch(fresh(n), old(o))).toBe("frame_only");
+    expect(plan(o, n)).toEqual(CARD);
+  });
+
+  it.each([
+    ["关注211高校", "改成关注985高校吧", "same_kind"],
+    ["决定用Vue", "把Vue换成React", "explicit"],
+    ["用Vue", "不再用Vue了", "explicit"],
+    ["关注211高校", "211高校算了，改成关注985高校", "explicit"],
+    ["关注211高校", "改成关注985高校，好的", "same_kind"],
+    ["用Vue框架", "把Vue框架换成React框架", "explicit"],
+    ["选北京", "把北京换成上海", "explicit"],
+    ["关注211高校", "改成关注C9高校", "same_kind"],
+    ["关注211高校", "改成关注 985 高校", "same_kind"],
+    ["关注北京高校", "把北京高校换成上海高校", "explicit"],
+    ["用Vue", "把Vue换成c++", "explicit"],
+  ])("仍然自动：%s → %s（%s）", (o, n, tier) => {
+    expect(supersedeMatch(fresh(n), old(o))).toBe(tier);
+    expect(plan(o, n)).toEqual(AUTO);
+  });
+
+  it("「改成关注 985 吧」仍是卡", () => expect(plan("关注211高校", "改成关注 985 吧")).toEqual(CARD));
+});
