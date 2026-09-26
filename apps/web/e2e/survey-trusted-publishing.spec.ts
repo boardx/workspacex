@@ -142,4 +142,14 @@ test("管理员可在真实答卷页排除测试答卷且保留审计理由", as
     analysis: "excluded",
     exclusionReason: "浏览器验收中的测试答卷",
   });
+
+  const included = await api<{ responseId: string }>(page, `/public/surveys/${published.data.publication.token}/responses`, "POST", {
+    submissionId: `browser-included-${Date.now()}`,
+    answers: [{ questionId: "q-leading", value: "愿意" }],
+  });
+  expect(included.status).toBe(201);
+  await page.goto(`/studio/survey/${created.data.id}?step=report`);
+  await page.getByRole("button", { name: "生成报告" }).click();
+  await expect(page.getByTestId("survey-report-sample-summary")).toHaveText(/总答卷 2 · 待复核 0 · 已排除 1 · 纳入分析 1/);
+  await expect(page.getByTestId("survey-report-block-sample-recommendation-distribution")).toHaveText(/实际样本量 1/);
 });

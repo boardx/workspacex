@@ -111,6 +111,7 @@ export const SurveyReportRowSchema = z.object({
   group: z.string().optional(),
 });
 export const CompiledSurveyBlockSchema = SurveyReportBlockSchema.extend({
+  sampleSize: z.number().int().nonnegative().optional(),
   rows: z.array(SurveyReportRowSchema),
   answerTexts: z
     .array(z.object({ label: z.string(), value: z.string() }))
@@ -130,6 +131,12 @@ export const CompiledSurveyReportSchema = z.object({
     }),
   ),
   issues: z.array(z.string()),
+  sampleSummary: z.object({
+    total: z.number().int().nonnegative(),
+    pendingReview: z.number().int().nonnegative(),
+    excluded: z.number().int().nonnegative(),
+    included: z.number().int().nonnegative(),
+  }).optional(),
   warnings: z.array(z.string()).optional(),
 });
 export type SurveyReportRow = z.infer<typeof SurveyReportRowSchema>;
@@ -269,6 +276,7 @@ function compileBlock(
 ): CompiledSurveyBlock {
   const result: CompiledSurveyBlock = {
     ...block,
+    sampleSize: 0,
     rows: [],
     issues: [],
     warnings: [],
@@ -350,6 +358,7 @@ function compileBlock(
         ),
       };
     });
+  result.sampleSize = samples.length;
   if (!samples.length) issue("没有可用样本");
   for (const question of selected) {
     if (!question) continue;
@@ -565,6 +574,12 @@ export function compileSurveyReport(
     title: parsed.title,
     sections,
     issues,
+    sampleSummary: {
+      total: responses.length,
+      pendingReview: responses.filter((response) => response.quality === "review").length,
+      excluded: responses.filter((response) => response.analysis === "excluded").length,
+      included: responses.filter((response) => response.analysis !== "excluded").length,
+    },
     warnings: sections.flatMap((section) =>
       section.blocks.flatMap((block) =>
         (block.warnings ?? []).map(

@@ -88,6 +88,10 @@ export async function buildSurveyReportWord(
       }),
     );
   paragraph(report.title, HeadingLevel.TITLE);
+  if (report.sampleSummary) {
+    const { total, pendingReview, excluded, included } = report.sampleSummary;
+    paragraph(`样本口径：总答卷 ${total} · 待复核 ${pendingReview} · 已排除 ${excluded} · 纳入分析 ${included}`);
+  }
   for (const section of report.sections) {
     paragraph(section.title, HeadingLevel.HEADING_1);
     for (const insight of section.analysis ?? []) {
@@ -102,6 +106,8 @@ export async function buildSurveyReportWord(
         continue;
       }
       paragraph(block.title, HeadingLevel.HEADING_2);
+      if (!["text", "image"].includes(block.type))
+        paragraph(`样本策略：${block.samplePolicy === "all" ? "全部已纳入答卷" : "仅正常质量答卷"} · 实际样本量 ${block.sampleSize ?? "未记录"}`);
       if (block.text) paragraph(block.text);
       let image: Awaited<ReturnType<typeof rasterImage>> | undefined;
       if (block.type === "image") {

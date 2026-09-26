@@ -100,6 +100,9 @@ export function SurveyReportDocument({
       className="mx-auto max-w-5xl bg-background p-6 font-sans text-background-foreground sm:p-10"
     >
       <h1 className="mb-10 border-b border-border pb-6 text-24 font-bold leading-relaxed">{report.title}</h1>
+      {report.sampleSummary && <p className="mb-6 text-12 text-muted-foreground" data-testid="survey-report-sample-summary">
+        样本口径：总答卷 {report.sampleSummary.total} · 待复核 {report.sampleSummary.pendingReview} · 已排除 {report.sampleSummary.excluded} · 纳入分析 {report.sampleSummary.included}
+      </p>}
       {!report.sections.length && (
         <p className="text-muted-foreground">尚无报告章节</p>
       )}
@@ -136,6 +139,11 @@ export function SurveyReportDocument({
             ) : (
               <div key={block.id} className={`rounded-lg border border-border p-5 ${block.type === "metric" ? "" : "sm:col-span-2"}`} data-report-block={block.id}>
                 <h3 className="mb-3 text-16 font-semibold">{block.title}</h3>
+                {!["text", "image", "page-break"].includes(block.type) && (
+                  <p className="mb-3 text-12 text-muted-foreground" data-testid={`survey-report-block-sample-${block.id}`}>
+                    样本策略：{block.samplePolicy === "all" ? "全部已纳入答卷" : "仅正常质量答卷"} · 实际样本量 {block.sampleSize ?? "未记录"}
+                  </p>
+                )}
                 {block.text && (
                   <p className="mb-4 whitespace-pre-wrap text-14 leading-7">
                     {block.text}
