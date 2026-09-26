@@ -22,6 +22,13 @@ class DurableMemoryOutbox implements WhiteboardDurableOutbox {
   async revoke(token:string){this.revoked.add(token);this.updates.delete(token);}
   close(){this.closed=true;}
 }
+class DeferredRebindOutbox extends DurableMemoryOutbox {
+  private start!:()=>void;private release!:()=>void;
+  readonly started=new Promise<void>(resolve=>{this.start=resolve;});
+  private readonly gate=new Promise<void>(resolve=>{this.release=resolve;});
+  finish(){this.release();}
+  override async rebind(from:string,to:string){this.start();await this.gate;await super.rebind(from,to);}
+}
 beforeEach(() => { vi.useFakeTimers(); Socket.sockets = []; auth.token = 'test-session'; vi.stubGlobal('WebSocket', Socket); });
 afterEach(() => { vi.unstubAllGlobals(); vi.useRealTimers(); });
 it('handshakes before writes, only ACK clears pending, and reconnect replays same updateId', () => {
@@ -75,16 +82,34 @@ it('rejects an ACK that reuses the update id for a different gesture receipt',()
   expect(state).toMatchObject({phase:'blocked',reason:'ACK_CONFLICT'});provider.close();doc.destroy();server.destroy();
 });
 
-it('refreshes changed authentication, resumes the known head, and exposes bounded retry state', () => {
+it('refreshes changed authentication, resumes the known head, and exposes bounded retry state', async () => {
   const doc=createWhiteboardDocument(),server=createWhiteboardDocument();let state!:WhiteboardConnectionState;
   const provider=new WhiteboardProvider(doc,'board-1',value=>{state=value;}),first=Socket.sockets[0]!;
   first.message({type:'sync',epoch:3,seq:7,update:bytesToBase64(Y.encodeStateAsUpdate(server)),role:'editor',archived:false});
-  auth.token='refreshed-session';vi.advanceTimersByTime(1000);
+  auth.token='refreshed-session';await vi.advanceTimersByTimeAsync(1000);await vi.advanceTimersByTimeAsync(0);
   const second=Socket.sockets[1]!;expect(second.protocols.at(-1)).toContain('refreshed-session');second.onopen?.();
   expect(JSON.parse(second.sent[0]!)).toMatchObject({type:'hello',resume:{epoch:3,seq:7}});
   second.onclose?.({code:1006});expect(state).toMatchObject({phase:'offline',retryAttempt:1});
   provider.retryNow();expect(Socket.sockets).toHaveLength(3);
   provider.close();doc.destroy();server.destroy();
+});
+
+it('serializes refresh rebind with concurrent persistence and restart without recreating the old token generation',async()=>{
+  const outbox=new DeferredRebindOutbox(),doc=createWhiteboardDocument(),server=createWhiteboardDocument();
+  const provider=new WhiteboardProvider(doc,'board-1',()=>{},outbox);await vi.advanceTimersByTimeAsync(0);const first=Socket.sockets[0]!;
+  first.message({type:'sync',epoch:1,seq:0,update:bytesToBase64(Y.encodeStateAsUpdate(server)),role:'editor',archived:false});
+  executeCommands(doc,[{type:'create',object:{id:'before-refresh',kind:'sticky',schemaVersion:1,geometry:{x:0,y:0,width:1,height:1,rotation:0},text:'before',style:{},parentId:null,orderKey:''}}],{gestureId:'before-refresh'});
+  await vi.advanceTimersByTimeAsync(0);expect(outbox.updates.get('test-session')).toHaveLength(1);
+  auth.token='refreshed-session';await vi.advanceTimersByTimeAsync(1000);await outbox.started;
+  executeCommands(doc,[{type:'create',object:{id:'during-refresh',kind:'sticky',schemaVersion:1,geometry:{x:2,y:0,width:1,height:1,rotation:0},text:'during',style:{},parentId:null,orderKey:''}}],{gestureId:'during-refresh'});
+  expect(outbox.updates.get('test-session')).toHaveLength(1);
+  outbox.finish();await vi.advanceTimersByTimeAsync(0);await vi.advanceTimersByTimeAsync(0);
+  expect(outbox.updates.has('test-session')).toBe(false);
+  expect(outbox.updates.get('refreshed-session')?.map(item=>item.gestureId)).toEqual(['before-refresh','during-refresh']);
+  provider.close();doc.destroy();
+  const restored=createWhiteboardDocument(),restarted=new WhiteboardProvider(restored,'board-1',()=>{},outbox);await vi.advanceTimersByTimeAsync(0);
+  expect(readObjects(restored).map(item=>item.id).sort()).toEqual(['before-refresh','during-refresh']);
+  restarted.close();restored.destroy();server.destroy();
 });
 
 it('distinguishes retryable recovery from access revocation', () => {

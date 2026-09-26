@@ -1,6 +1,6 @@
 -- Trusted collaboration sidecar: comments/audit and immutable checkpoint metadata stay out of Yjs.
 CREATE TABLE IF NOT EXISTS whiteboard_comment_threads (
-  org_id text NOT NULL, board_id uuid NOT NULL, id uuid NOT NULL, object_id text,
+  org_id text NOT NULL, board_id uuid NOT NULL, id uuid NOT NULL, object_id text NOT NULL,
   status text NOT NULL CHECK(status IN ('open','resolved','object-deleted')),
   revision integer NOT NULL CHECK(revision>0), payload jsonb NOT NULL,
   created_at timestamptz NOT NULL DEFAULT now(), updated_at timestamptz NOT NULL DEFAULT now(),
@@ -42,7 +42,3 @@ REVOKE ALL ON whiteboard_comment_threads,whiteboard_comment_requests,whiteboard_
 GRANT SELECT,INSERT,UPDATE ON whiteboard_comment_threads TO app_rw;
 GRANT SELECT,INSERT ON whiteboard_comment_requests,whiteboard_collaboration_events,whiteboard_checkpoints,whiteboard_restore_requests TO app_rw;
 SELECT kernel_apply_org_freeze_policies();
-
--- Commenting is a capability separate from editing board content.
-ALTER TABLE whiteboard_members DROP CONSTRAINT IF EXISTS whiteboard_members_role_check;
-ALTER TABLE whiteboard_members ADD CONSTRAINT whiteboard_members_role_check CHECK(role IN ('editor','commenter','viewer'));

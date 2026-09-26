@@ -13,11 +13,11 @@ export interface WhiteboardRecoveryMetadata {
   saveCheckpoint(principal: Principal, manifest: WhiteboardCheckpointManifest, requestId: string, event: WhiteboardCollaborationEvent): Promise<{ manifest: WhiteboardCheckpointManifest; replayed: boolean }>;
   getCheckpoint(principal: Principal, boardId: string, checkpointId: string): Promise<WhiteboardCheckpointManifest | null>;
   findCheckpointRequest(principal: Principal, boardId: string, requestId: string): Promise<WhiteboardCheckpointManifest|null>;
-  findRestore(principal: Principal, boardId: string, requestId: string): Promise<{epoch:number;seq:0;event:WhiteboardCollaborationEvent}|null>;
+  findRestore(principal: Principal, boardId: string, requestId: string): Promise<{epoch:number;seq:0;event:WhiteboardCollaborationEvent;auditEvents:WhiteboardCollaborationEvent[]}|null>;
   recoveryCandidates(principal:Principal,boardId:string,epoch:number,beforeSeq:number):Promise<WhiteboardCheckpointManifest[]>;
   updatesBetween(principal:Principal,boardId:string,epoch:number,afterSeq:number,throughSeq:number):Promise<Array<{seq:number;update:Uint8Array}>>;
   /** Atomically CAS the old head, append BoardRestored, and point the new epoch at immutable bytes. */
-  commitRestore(principal: Principal, input: { boardId: string; checkpoint: WhiteboardCheckpointManifest; snapshot: Uint8Array; newEpoch: number; expectedEpoch: number; expectedSeq: number; requestId: string; event: WhiteboardCollaborationEvent; auditEvents:WhiteboardCollaborationEvent[] }): Promise<{ epoch: number; seq: 0; replayed: boolean }>;
+  commitRestore(principal: Principal, input: { boardId: string; checkpoint: WhiteboardCheckpointManifest; snapshot: Uint8Array; newEpoch: number; expectedEpoch: number; expectedSeq: number; requestId: string; event: WhiteboardCollaborationEvent; auditEvents:WhiteboardCollaborationEvent[] }): Promise<{ epoch: number; seq: 0; replayed: boolean; auditEvents:WhiteboardCollaborationEvent[] }>;
 }
 
 /** Snapshot bytes only cross ObjectStore; repository receives immutable refs and metadata. */
@@ -43,7 +43,7 @@ export class WhiteboardRecoveryService {
     const saved=await this.metadata.saveCheckpoint(principal,manifest,requestId,event);
     return {manifest:saved.manifest,replayed:saved.replayed,event};
   }
-  async restore(principal: Principal, boardId: string, checkpointId: string, requestId: string, expected: { epoch: number; seq: number }): Promise<{epoch:number;seq:0;replayed:boolean;event:WhiteboardCollaborationEvent}> {
+  async restore(principal: Principal, boardId: string, checkpointId: string, requestId: string, expected: { epoch: number; seq: number }): Promise<{epoch:number;seq:0;replayed:boolean;event:WhiteboardCollaborationEvent;auditEvents:WhiteboardCollaborationEvent[]}> {
     WhiteboardCheckpointManifest.shape.checkpointId.parse(requestId);
     const [head, manifest]=await Promise.all([this.metadata.head(principal,boardId),this.metadata.getCheckpoint(principal,boardId,checkpointId)]);
     if (!manifest) throw new WhiteboardRecoveryError('NOT_FOUND');

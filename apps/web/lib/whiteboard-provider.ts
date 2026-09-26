@@ -26,6 +26,7 @@ export class WhiteboardProvider {
   private seq: number | null = null;
   private token = getStoredSessionToken();
   private refreshingToken: string | null = null;
+  private persistenceTail: Promise<void> = Promise.resolve();
   private readonly outbox: WhiteboardDurableOutbox | null;
   private readonly acked = new Set<string>();
   private readonly retryableClose = new WeakSet<WebSocket>();
@@ -45,11 +46,22 @@ export class WhiteboardProvider {
   private async refreshAuth(next: string) {
     const previous=this.token; if(!previous || next===previous || this.stopped || this.refreshingToken!==null)return;
     this.refreshingToken=next;
-    try { if(this.outbox)await this.outbox.rebind(previous,next); }
+    try { await this.queuePersistence(async()=>{
+      if(this.outbox)await this.outbox.rebind(previous,next);
+      if(this.token!==previous)return;
+      // Advance the persistence generation even if the page closed while the atomic
+      // rebind was committing. Already queued writes must never recreate the old token.
+      this.token=next;
+      if(this.stopped)return;
+      this.ready=false;this.socket?.close();this.connect('AUTH_REFRESH');
+    }); }
     catch { this.block('OUTBOX_WRITE_FAILED',false); return; }
     finally { this.refreshingToken=null; }
-    if(this.stopped||this.token!==previous)return;
-    this.token=next;this.ready=false;this.socket?.close();this.connect('AUTH_REFRESH');
+  }
+  private queuePersistence(operation:()=>Promise<void>):Promise<void>{
+    const next=this.persistenceTail.then(operation,operation);
+    this.persistenceTail=next.catch(()=>undefined);
+    return next;
   }
   private async restoreOutbox(token: string) {
     try {
@@ -71,7 +83,7 @@ export class WhiteboardProvider {
     if (this.pending.length >= WHITEBOARD_SYNC.pendingUpdates || bytes > WHITEBOARD_SYNC.pendingBytes) { this.block('PENDING_LIMIT'); return; }
     this.pending.push(message); this.publish({});
     if(!this.outbox){if(this.ready)this.send(message);return;}
-    void this.outbox.persist(this.token!, message).then(() => { if (this.ready && !this.stopped && this.pending.some(item=>item.updateId===message.updateId)) this.send(message); })
+    void this.queuePersistence(async()=>{const token=this.token;if(!token)throw new Error('SESSION_CHANGED');await this.outbox!.persist(token,message);if(this.ready&&!this.stopped&&this.refreshingToken===null&&this.token===token&&this.pending.some(item=>item.updateId===message.updateId))this.send(message);})
       .catch(() => this.block('OUTBOX_WRITE_FAILED', false));
   };
   private send(message: WhiteboardClientMessage) { if (this.socket?.readyState === WebSocket.OPEN) this.socket.send(JSON.stringify(message)); }
@@ -113,7 +125,7 @@ export class WhiteboardProvider {
             this.block('ACK_CONFLICT'); return;
           }
           this.pending.splice(index, 1); this.acked.add(receiptKey);
-          if (this.outbox && this.token) void this.outbox.acknowledge(this.token,message.updateId).catch(()=>this.block('OUTBOX_WRITE_FAILED',false));
+          if (this.outbox) void this.queuePersistence(async()=>{const token=this.token;if(!token)throw new Error('SESSION_CHANGED');await this.outbox!.acknowledge(token,message.updateId);}).catch(()=>this.block('OUTBOX_WRITE_FAILED',false));
           while (this.acked.size > WHITEBOARD_SYNC.pendingUpdates) this.acked.delete(this.acked.values().next().value!);
           this.publish({ lastAckSequence: message.seq, lastAckReceipt:{updateId:message.updateId,gestureId:message.gestureId,seq:message.seq} });
         } else if (message.type === 'recovery') {

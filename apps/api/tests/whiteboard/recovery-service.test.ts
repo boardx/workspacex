@@ -10,7 +10,7 @@ import { createWhiteboardDocument,executeCommands,readObjects } from '@repo/whit
 const principal={orgId:toOrgId('recovery-unit-org'),userId:'owner'}, boardId='20000000-0000-4000-8000-000000000001';
 const ids=['10000000-0000-4000-8000-000000000001','10000000-0000-4000-8000-000000000002','10000000-0000-4000-8000-000000000003','10000000-0000-4000-8000-000000000004'];
 function fixture() {
-  let saved:WhiteboardCheckpointManifest|undefined, restoreInput:Parameters<WhiteboardRecoveryMetadata['commitRestore']>[1]|undefined,restored:{epoch:number;seq:0;event:Parameters<WhiteboardRecoveryMetadata['commitRestore']>[1]['event']}|null=null,head={epoch:2,seq:7};
+  let saved:WhiteboardCheckpointManifest|undefined, restoreInput:Parameters<WhiteboardRecoveryMetadata['commitRestore']>[1]|undefined,restored:{epoch:number;seq:0;event:Parameters<WhiteboardRecoveryMetadata['commitRestore']>[1]['event'];auditEvents:Parameters<WhiteboardRecoveryMetadata['commitRestore']>[1]['auditEvents']}|null=null,head={epoch:2,seq:7};
   const bytes=new TextEncoder().encode('snapshot'); const blobs=new Map<string,Uint8Array>();
   const metadata:WhiteboardRecoveryMetadata={
     head:async()=>({...head,role:'owner',archived:false}),
@@ -18,7 +18,7 @@ function fixture() {
     findCheckpointRequest:async()=>saved??null,
     findRestore:async()=>restored,
     recoveryCandidates:async()=>[],updatesBetween:async()=>[],
-    commitRestore:async(_p,input)=>{restoreInput=input;restored={epoch:input.newEpoch,seq:0,event:input.event};head={epoch:input.newEpoch,seq:0};return{epoch:input.newEpoch,seq:0,replayed:false}},
+    commitRestore:async(_p,input)=>{restoreInput=input;restored={epoch:input.newEpoch,seq:0,event:input.event,auditEvents:input.auditEvents};head={epoch:input.newEpoch,seq:0};return{epoch:input.newEpoch,seq:0,replayed:false,auditEvents:input.auditEvents}},
   };
   const objects={putOnce:async(key:string,value:Uint8Array)=>{if(blobs.has(key))throw new ObjectExistsError(key);blobs.set(key,value)},get:async(key:string)=>blobs.get(key)??null};
   const snapshots={snapshot:async()=>bytes};
@@ -58,7 +58,7 @@ describe('whiteboard checkpoint recovery orchestration',()=>{
     const candidate:WhiteboardCheckpointManifest={checkpointId:ids[0]!,boardId,version:1,epoch:2,seq:6,objectKey:'candidate',contentHash:await checkpointHash(baseBytes),byteSize:baseBytes.byteLength,createdBy:'owner',createdAt:'2026-09-26T00:00:00.000Z'};
     const requested:WhiteboardCheckpointManifest={checkpointId:ids[1]!,boardId,version:1,epoch:2,seq:7,objectKey:'requested',contentHash:await checkpointHash(targetBytes),byteSize:targetBytes.byteLength,createdBy:'owner',createdAt:'2026-09-26T00:01:00.000Z'};
     let committed:Parameters<WhiteboardRecoveryMetadata['commitRestore']>[1]|undefined;
-    const metadata:WhiteboardRecoveryMetadata={head:async()=>({epoch:2,seq:7,role:'owner',archived:false}),saveCheckpoint:async()=>{throw new Error('unused')},getCheckpoint:async()=>requested,findCheckpointRequest:async()=>null,findRestore:async()=>null,recoveryCandidates:async()=>[candidate],updatesBetween:async()=>[{seq:7,update:delta}],commitRestore:async(_p,input)=>{committed=input;return{epoch:3,seq:0,replayed:false}}};
+    const metadata:WhiteboardRecoveryMetadata={head:async()=>({epoch:2,seq:7,role:'owner',archived:false}),saveCheckpoint:async()=>{throw new Error('unused')},getCheckpoint:async()=>requested,findCheckpointRequest:async()=>null,findRestore:async()=>null,recoveryCandidates:async()=>[candidate],updatesBetween:async()=>[{seq:7,update:delta}],commitRestore:async(_p,input)=>{committed=input;return{epoch:3,seq:0,replayed:false,auditEvents:input.auditEvents}}};
     const blobs=new Map([['candidate',baseBytes],['requested',new Uint8Array([9,9,9])]]),objects={putOnce:async()=>{},get:async(key:string)=>blobs.get(key)??null};
     const service=new WhiteboardRecoveryService(metadata,{snapshot:async()=>targetBytes},objects,()=>new Date('2026-09-26T00:02:00.000Z'));
     await expect(service.restore(principal,boardId,requested.checkpointId,ids[2]!,{epoch:2,seq:7})).resolves.toMatchObject({epoch:3});

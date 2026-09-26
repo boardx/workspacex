@@ -15,15 +15,19 @@ function transaction(state:Map<string,CipherRow>,failAt:number|null):WhiteboardO
 }
 
 describe('encrypted outbox authentication rebind',()=>{
-  it('rolls back at every write/delete/commit boundary and commits all rows together',async()=>{
+  it('rolls back at every write/delete/commit crash boundary and restarts from one complete token generation',async()=>{
     const source=[row('old:a','old'),row('old:b','old')],replacement=[row('new:a','new'),row('new:b','new')];
     for(let failAt=0;failAt<5;failAt++){
       const state=new Map(source.map(value=>[value.id,value]));
       await expect(commitWhiteboardOutboxRebind(source,replacement,transaction(state,failAt))).rejects.toThrow('injected');
       expect([...state.keys()].sort()).toEqual(['old:a','old:b']);
+      const restartedRows=[...state.values()];
+      expect(restartedRows.every(value=>value.tokenHash==='old')).toBe(true);
+      expect(restartedRows.some(value=>value.tokenHash==='new')).toBe(false);
     }
     const state=new Map(source.map(value=>[value.id,value]));
     await commitWhiteboardOutboxRebind(source,replacement,transaction(state,null));
     expect([...state.keys()].sort()).toEqual(['new:a','new:b']);
+    expect([...state.values()].every(value=>value.tokenHash==='new')).toBe(true);
   });
 });
