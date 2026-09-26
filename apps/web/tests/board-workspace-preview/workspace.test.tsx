@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, expect, it, vi } from 'vitest';
 vi.mock('next/dynamic', () => ({ default: () => ({ draft, onDraft }: { draft?: string; onDraft: (draft: string) => void }) => <button data-testid="mock-fabric" onClick={() => onDraft(draft === 'edited document' ? 'changed copy' : 'edited document')}>{draft || 'empty document'}</button> }));
 import { BoardWorkspacePreview } from '@/components/board-workspace-preview/workspace';
@@ -60,4 +60,11 @@ it('clears editing state when the tag being renamed is deleted', () => {
  expect((screen.getByTestId('workspace-tag-name') as HTMLInputElement).value).toBe(''); expect(screen.getByTestId('workspace-tag-save').textContent).toBe('新建标签');
  fireEvent.click(screen.getByTestId('workspace-tag-save')); expect(screen.getByRole('alert')).toBeTruthy(); fireEvent.click(screen.getByTestId('workspace-tags-done'));
  expect(screen.queryByTestId('workspace-filter-idea')).toBeNull(); expect(screen.queryByText('不应复活')).toBeNull();
+});
+
+it('restores tag dialog focus to global or per-board trigger', async () => {
+ render(<BoardWorkspacePreview />); fireEvent.click(screen.getByTestId('workspace-manage-tags')); fireEvent.click(screen.getByTestId('workspace-tags-done'));
+ await waitFor(() => expect(document.activeElement).toBe(screen.getByTestId('workspace-manage-tags')));
+ fireEvent.keyDown(screen.getByTestId('workspace-menu-one'), { key: 'Enter' }); fireEvent.click(screen.getByTestId('workspace-tags-one')); fireEvent.click(screen.getByTestId('workspace-tags-done'));
+ await waitFor(() => expect(document.activeElement).toBe(screen.getByTestId('workspace-menu-one')));
 });
