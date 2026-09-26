@@ -77,5 +77,5 @@ export function WorkspaceCanvas({ options, seeded = true, draft, onDraft }: { op
     <label className="text-sm">字号<select aria-label="便利贴字号" data-testid="sticky-font-size" className="min-h-12 min-w-12 bg-background" value={selected.fontSize} onChange={event => updateSticky({ fontSize: Number(event.target.value) })}>{[16, 22, 28, 36].map(size => <option key={size} value={size}>{size}</option>)}</select></label>
     <label className="text-sm">对齐<select aria-label="便利贴对齐" data-testid="sticky-alignment" className="min-h-12 min-w-12 bg-background" value={selected.textAlign} onChange={event => updateSticky({ textAlign: event.target.value as PreviewSticky['textAlign'] })}><option value="left">左</option><option value="center">中</option><option value="right">右</option></select></label>
     <button type="button" data-testid="sticky-duplicate" className="min-h-12 min-w-12 rounded-lg border border-border px-3 text-sm" onClick={() => { if (canvas.current && !current.current.readonly) { selected.exitEditing(); activateSticky(canvas.current, adjacentSticky(selected, true)); } }}>复制</button>
-  </div>}<canvas ref={element} aria-label={options.readonly ? "只读白板绘图区" : "白板绘图区：使用底部工具创建便利贴、图形、手绘和连线"} /></div>;
+  </div>}<div data-testid="fabric-dom-host"><canvas ref={element} aria-label={options.readonly ? "只读白板绘图区" : "白板绘图区：使用底部工具创建便利贴、图形、手绘和连线"} /></div></div>;
 }
