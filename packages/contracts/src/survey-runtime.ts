@@ -12,6 +12,17 @@ import {
   SurveyReportTemplateSchema,
   CompiledSurveyReportSchema,
 } from "./survey-report";
+import { SurveyCompiledDraftSchema, SurveySourceDocumentSchema } from "./survey-source";
+
+export const SurveySourceStateSchema = z.object({
+  documents: z.object({
+    design: SurveySourceDocumentSchema,
+    publication: SurveySourceDocumentSchema,
+    reportTemplate: SurveySourceDocumentSchema,
+  }).strict(),
+  compiledVersion: z.number().int().positive(),
+  contentHash: z.string().regex(/^[a-f0-9]{64}$/),
+}).strict();
 
 export const SurveyDraftInputSchema = z.object({
   title: z.string().trim().min(1).max(200),
@@ -108,8 +119,14 @@ const SurveyRuntimeBaseSchema = SurveyDraftInputSchema.extend({
       questions: z.array(SurveyWorkflowQuestionSchema),
       version: z.number().int().positive(),
       expiresAt: z.string().datetime(),
+      sourceSnapshot: z.object({
+        documents: SurveySourceStateSchema.shape.documents,
+        compiled: SurveyCompiledDraftSchema,
+        contentHash: z.string().regex(/^[a-f0-9]{64}$/),
+      }).strict().optional(),
     })
     .nullable(),
+  source: SurveySourceStateSchema.optional(),
   report: CompiledSurveyReportSchema.nullable(),
   reportBasisVersion: z.number().int().positive().nullable(),
   reportBasisAnswerRevision: z
@@ -142,6 +159,7 @@ export const SurveyCommandResultSchema = z
   })
   .strict();
 export type SurveyRuntime = z.infer<typeof SurveyRuntimeSchema>;
+export type SurveySourceState = z.infer<typeof SurveySourceStateSchema>;
 export type SurveyDraftInput = z.infer<typeof SurveyDraftInputSchema>;
 export type SurveySubmissionInput = z.infer<typeof SurveySubmissionInputSchema>;
 export type SurveyCreateCommand = z.infer<typeof SurveyCreateCommandSchema>;
