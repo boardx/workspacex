@@ -143,3 +143,26 @@ flowchart LR
 正式接入验收详见 [Given/When/Then 矩阵](./2026-09-26-workspace-acceptance-matrix.md)。补充静态核对：PR4213 `e48bf80631dca1963f70a046f5d084acdd3e88c6` 基于 PR4212 `aa35c58ebe69476765b02c60f0f9950c368e9c2f`，已包括动态路由、canonical command host、Yjs provider/gateway 与 Fabric 增量投影。真正剩余项是浏览卡片/创建后导航、正式底部 dock、Fabric Draw/Connector 及删除契约，不能重写整套 host。
 
 **存储要求仍未满足**：上述协作 PR 的 `PgWhiteboardCollaborationStore` 将 snapshot/update bytes 存 PG；用户要求和 `requirements/07-interchange-storage.md` 规定内容进入文件/对象存储、PG 仅存 metadata/pointers。此差异必须在存储迭代完成并用真实恢复/增长证据验收，不能因为 PG 持久化可用就宣称存储需求通过，也不能将 UI 确认解释为接受该存储偏差。
+
+## 10. 用户补充：标签、菜单、复制与便利贴九分目标
+
+2026-09-26 用户审阅预览后补充以下要求。此前截图仅是上一版材料，不能视作这些增量已经确认或完成。
+
+- [#4221](https://github.com/boardx/workspacex/issues/4221)：浏览页加入标签管理与过滤。标签使用稳定 ID；重命名保持引用；删除标签解除关联但不删除 Board。多标签采用 AND，与名称搜索同时生效，并提供清空筛选。卡片上的管理操作收进独立三点菜单，支持键盘打开、Escape 关闭及焦点返回；打开菜单不得进入画板。
+- Duplicate 属于同一浏览页增量：复制名称、标签和画板内容到新 Board ID，原副本独立修改；未打开过的画板也必须有完整内容。预览先证明页面内草稿复制；正式 API 还需定义快照一致性、对象 ID/连接引用重映射、媒体引用、幂等重试和权限。建议新 Board 默认仅创建者可见，不复制原成员权限、历史记录或在线状态；该建议须进入正式契约，不可由 mock 行为推定已生效。
+- [#4222](https://github.com/boardx/workspacex/issues/4222)：用户给当前便利贴体验六分，要求以 Mural 为十分基准达到九分。第一批改进覆盖快速创建、Tab 连续输入、中文输入、排版和上下文样式；完整验收还包括批量创建/编辑、复制、Undo/Redo、触摸、协作与恢复。不能把第一批 UI 改进或单元测试通过换算为九分。
+
+### 主 session 验收补充
+
+| 链路 | 必须观察的结果 |
+|---|---|
+| 标签 CRUD | 建立标签、关联两张 Board、重命名后两处同步；删除标签不会删除 Board |
+| 组合过滤 | 两标签 AND 与名称搜索同时生效；无匹配有空态；清空恢复完整授权列表 |
+| 三点菜单 | 点击不打开 Board；Tab/Enter/Escape 可操作；关闭后焦点回触发器 |
+| 内容复制 | 未打开的源板与已编辑的源板均复制完整；新增ID；原副本分别修改互不影响 |
+| 复制失败 | 正式请求失败不出现假成功卡片；不确定响应重试不产生重复副本 |
+| 连续便利贴 | 双击空白与双击文字行为不混淆；Tab 保留当前文字并创建相邻便签；中文组合输入不提前提交 |
+| 文字与样式 | 长中文/英文及换行不溢出纸面；深色纸面可读；属性修改对应正确选中对象 |
+| 持久与协作 | 同一动作经 canonical command/Yjs 到达第二客户端，刷新恢复；只读者无法写入 |
+
+Mural 官方参考：[创建与自定义便利贴](https://learning.mural.co/lessons/add-create-and-customize-sticky-notes)、[便利贴协作](https://www.mural.co/use-case/sticky-notes)。上述计时、可靠性及验收门槛是 WorkspaceX 的目标，不宣称为 Mural 官方评分标准。
