@@ -1,7 +1,9 @@
 import { describe, expect, it } from "vitest";
 import {
   parseSurveyDesignMarkdown,
+  parseSurveyReportTemplateMarkdown,
   serializeSurveyDesignMarkdown,
+  serializeSurveyReportTemplateMarkdown,
   sourceContentHash,
 } from "../src/survey-source";
 
@@ -39,6 +41,58 @@ describe("survey Markdown source compiler", () => {
       diagnostics: [
         expect.objectContaining({ line: 3, code: "OPTIONS_REQUIRED" }),
       ],
+    });
+  });
+
+  it("rejects malformed question headings instead of silently dropping them", () => {
+    const result = parseSurveyDesignMarkdown(
+      "# 标题\n\n## Q1 [single\n题干\n- 是\n- 否\n",
+    );
+
+    expect(result).toMatchObject({
+      ok: false,
+      diagnostics: [expect.objectContaining({ code: "QUESTION_SYNTAX", line: 3 })],
+    });
+  });
+
+  it("round-trips advanced workflow fields through canonical Markdown metadata", () => {
+    const markdown = serializeSurveyDesignMarkdown({
+      title: "复杂问卷",
+      questions: [{
+        id: "Q1", order: 1, chapterId: "decision", title: "请选择", type: "single", required: true,
+        options: ["是", "否"],
+        config: { optionIds: ["yes", "no"], other: true, visibleWhen: [{ questionId: "Q0", operator: "equals", value: "启用" }] },
+        provenance: { source: "question-library", sourceId: "library-q1", certifiedAt: "2026-09-26T00:00:00.000Z" },
+      }],
+      template: { id: "rt-1", title: "报告", sections: [] },
+    });
+    const result = parseSurveyDesignMarkdown(markdown);
+
+    expect(result).toMatchObject({ ok: true, draft: { questions: [{
+      id: "Q1", chapterId: "decision",
+      config: { optionIds: ["yes", "no"], other: true },
+      provenance: { source: "question-library", sourceId: "library-q1", certifiedAt: "2026-09-26T00:00:00.000Z" },
+    }] } });
+  });
+
+  it("rejects a compiled draft that violates runtime bounds", () => {
+    const result = parseSurveyDesignMarkdown(`# ${"过".repeat(201)}\n`);
+
+    expect(result).toMatchObject({
+      ok: false,
+      diagnostics: [expect.objectContaining({ code: "COMPILED_DRAFT_INVALID", line: 1 })],
+    });
+  });
+
+  it("compiles report template Markdown into the runtime template projection", () => {
+    const markdown = serializeSurveyReportTemplateMarkdown({
+      id: "report-1", title: "诊断报告", sections: [{ id: "section-1", title: "结果", blocks: [{ id: "block-1", title: "分布", type: "bar", questionIds: ["Q1"], statistic: "distribution", samplePolicy: "valid", minGroupSize: 5 }] }],
+    });
+    const result = parseSurveyReportTemplateMarkdown(markdown);
+
+    expect(result).toMatchObject({
+      ok: true,
+      template: { id: "report-1", sections: [{ blocks: [{ id: "block-1", samplePolicy: "valid" }] }] },
     });
   });
 

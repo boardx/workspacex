@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { SurveyService, type SurveyRecord, type SurveyRepository } from "../../src/application/survey/survey-service";
 import { toOrgId } from "../../src/domain/org-id";
 import { SurveyRuntimeSchema, type SurveyDraftInput, type SurveySubmissionInput } from "@repo/contracts/survey-runtime";
+import { serializeSurveyReportTemplateMarkdown } from "@repo/contracts/survey-source";
 
 const org = toOrgId("survey-source-org");
 const owner = "survey-source-owner";
@@ -17,6 +18,7 @@ const submission: SurveySubmissionInput = {
   role: "未填写",
   companySize: "未填写",
 };
+const reportTemplateMarkdown = serializeSurveyReportTemplateMarkdown(draft.template);
 
 function setup() {
   const rows = new Map<string, SurveyRecord>();
@@ -45,7 +47,7 @@ describe("survey Markdown source lifecycle", () => {
     const saved = await service.saveSource(org, owner, created.id, created.version, {
       design: "# 真实问卷\n\n## Q1 [single, required]\n您会推荐我们吗？\n- 会\n- 不会\n",
       publication: "# 发布设置\n",
-      reportTemplate: "# 报告模板\n",
+      reportTemplate: reportTemplateMarkdown,
     });
     const ready = await service.prepare(org, owner, saved.id, saved.version);
     const collected = await service.startCollection(org, owner, ready.id, ready.version);
@@ -55,7 +57,7 @@ describe("survey Markdown source lifecycle", () => {
     await expect(service.saveSource(org, owner, collected.id, collected.version, {
       design: "# 变更\n",
       publication: "# 发布设置\n",
-      reportTemplate: "# 报告模板\n",
+      reportTemplate: reportTemplateMarkdown,
     })).rejects.toMatchObject({ code: "closed" });
   });
 
@@ -77,10 +79,15 @@ describe("survey Markdown source lifecycle", () => {
     await expect(service.saveSource(org, owner, created.id, created.version - 1, {
       design: "# 过期更新\n",
       publication: "# 发布设置\n",
-      reportTemplate: "# 报告模板\n",
+      reportTemplate: reportTemplateMarkdown,
     })).rejects.toMatchObject({ code: "version_conflict" });
     await expect(service.saveSource(org, owner, created.id, created.version, {
       design: "# 无效问卷\n\n## Q1 [single]\n没有选项\n",
+      publication: "# 发布设置\n",
+      reportTemplate: "# 报告模板\n",
+    })).rejects.toMatchObject({ code: "invalid_source" });
+    await expect(service.saveSource(org, owner, created.id, created.version, {
+      design: original.source!.documents.design.markdown,
       publication: "# 发布设置\n",
       reportTemplate: "# 报告模板\n",
     })).rejects.toMatchObject({ code: "invalid_source" });
@@ -106,5 +113,25 @@ describe("survey Markdown source lifecycle", () => {
     expect(receipt.responseId).toBeTruthy();
     expect((await service.publicGet(token)).questions).toEqual(draft.questions);
     expect((await service.get(org, owner, collected.id)).publication?.sourceSnapshot).toBeUndefined();
+  });
+
+  it("compiles report-template Markdown before atomically replacing the runtime projection", async () => {
+    const { service } = setup();
+    const created = await service.create(org, owner, draft);
+    const nextTemplate = {
+      id: "report-next", title: "新的报告", sections: [{
+        id: "section-next", title: "新结果", blocks: [{
+          id: "block-next", title: "计数", type: "metric" as const, questionIds: ["Q1"], statistic: "count" as const, samplePolicy: "all" as const, minGroupSize: 5,
+        }],
+      }],
+    };
+    const saved = await service.saveSource(org, owner, created.id, created.version, {
+      design: created.source!.documents.design.markdown,
+      publication: "# 发布设置\n",
+      reportTemplate: serializeSurveyReportTemplateMarkdown(nextTemplate),
+    });
+
+    expect(saved.template).toEqual(nextTemplate);
+    expect(saved.source!.documents.reportTemplate.markdown).toContain('"report-next"');
   });
 });

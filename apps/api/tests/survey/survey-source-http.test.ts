@@ -68,7 +68,7 @@ it("reads and saves Markdown source with tenancy, syntax, and version protection
     documents: {
       design: "# HTTP Markdown 已保存\n\n## Q1 [single, required]\n会推荐吗？\n- 会\n- 不会\n",
       publication: "# 发布设置\n",
-      reportTemplate: "# 报告模板\n",
+      reportTemplate: previousDocuments.reportTemplate,
     },
   });
   expect(saved.status).toBe(200);
