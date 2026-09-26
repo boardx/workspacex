@@ -18,7 +18,7 @@
       "design_ref": "ui-preview/board-fabric-surface/s01-fabric-board.png",
       "verification": [
         "pnpm --filter web exec vitest run tests/ui/board-fabric-surface.test.tsx",
-        "pnpm --filter web exec playwright test -c playwright.config.ts -g 'fabric surface viewport'"
+        "pnpm exec tsx .harness/scripts/with-test-isolation.ts -- pnpm --filter web exec playwright test --config playwright.fullstack-smoke.config.ts --project=seeded-github-import --grep 'fabric surface viewport' --no-deps"
       ],
       "evidence": "",
       "notes": "Iteration 1 / foundation；has_ui=true。共享热点 apps/web/components/whiteboard/fabric/board-fabric-surface.tsx、Board route shell；与 BV02/BV03 串行合并。"
