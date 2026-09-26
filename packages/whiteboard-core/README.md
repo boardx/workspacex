@@ -42,6 +42,14 @@ and Group membership always uses `parentId`, so the same operations are availabl
 to UI, API and AI callers. Mutations of locked objects are rejected at the lowest
 command boundary, including indirect connector or container changes.
 
+`SelectionLayoutCommandPort` is the shared UI/API/Agent arrangement boundary. It
+keeps caller selection order, rejects hidden, locked, nested, and mixed-parent
+selections, and commits Align, Distribute, Grid, Row, Column, or Tidy Up as one
+Yjs transaction and one undo item. `ObjectsArranged` records the layout kind and
+before/after geometry for every changed object, including moved descendants and
+attached connectors. `calculateSnapGuides` is the renderer-independent model for
+edge/center guides and equal-spacing measurements.
+
 `WhiteboardUndo` tracks only its own origin. Creation undo returns
 `creation-requires-explicit-delete` without changing anything, even when no peer
 edit is currently visible: a collaborator's edit may still be in flight. The UI

@@ -1,7 +1,7 @@
 export { createWhiteboardDocument, cloneDocument, readObjects, validateDocument, executeCommands, copyObjects } from './document';
 export { BoardCommandPort, WhiteboardCommandOrigin, type BoardCommandAccepted, type BoardCommandEnvelope } from './command-port';
 export { WhiteboardUndo } from './undo';
-export { WhiteboardObject, WhiteboardGeometry, WhiteboardStyle, WhiteboardCommand, WhiteboardCommandBatch, WHITEBOARD_LIMITS } from '@repo/contracts/whiteboard-document';
+export { WhiteboardObject, WhiteboardGeometry, WhiteboardStyle, WhiteboardCommand, WhiteboardCommandBatch, WhiteboardLayoutCommand, WhiteboardLayoutKind, WHITEBOARD_LIMITS } from '@repo/contracts/whiteboard-document';
 export { prepareWhiteboardUpdate, WHITEBOARD_UPDATE_LIMITS } from './update';
 export {
   SpatialRelationshipCommandPort,
@@ -18,6 +18,22 @@ export {
   type SpatialPrecondition,
 } from './spatial-relationships';
 export { parsePanelMetadata, readPanelMetadata, type FlowDirection, type PanelMetadata, type PanelMode } from './spatial-model';
+export {
+  DEFAULT_LAYOUT_GAP,
+  SelectionLayoutCommandPort,
+  arrangeObjects,
+  calculateSnapGuides,
+  resolveSelection,
+  type LayoutCommandAccepted,
+  type LayoutCommandEnvelope,
+  type LayoutGeometryState,
+  type LayoutPrecondition,
+  type ObjectsArrangedEvent,
+  type SelectionResolution,
+  type SnapGuide,
+  type SnapMeasurement,
+  type SnapResult,
+} from './selection-layout';
 export {
   ContentObjectCommandPort,
   SHAPE_VARIANTS,

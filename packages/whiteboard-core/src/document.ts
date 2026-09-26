@@ -22,7 +22,7 @@ function decode(id: string, value: Y.Map<unknown>): WhiteboardObject {
     if (typeof delta.insert !== 'string' || delta.attributes) throw new Error('UNSUPPORTED_TEXT_FORMAT');
   }
   const json = value.toJSON();
-  return WhiteboardObject.parse(structuredClone({ ...json, id, locked: json.locked ?? false, zIndex: json.zIndex ?? 0 }));
+  return WhiteboardObject.parse(structuredClone({ ...json, id, locked: json.locked ?? false, hidden: json.hidden ?? false, zIndex: json.zIndex ?? 0 }));
 }
 export function readObjects(doc: Y.Doc): WhiteboardObject[] {
   const alive = [...objectMap(doc)].filter(([id]) => !tombstones(doc).has(id)).map(([id, value]) => decode(id, value));
@@ -69,7 +69,7 @@ function apply(doc: Y.Doc, commands: WhiteboardCommand[]): void {
     const item = objects.get(command.id);
     if (!item || deleted.has(command.id)) throw new Error('OBJECT_NOT_FOUND');
     const current = decode(command.id, item);
-    if (current.locked && !(command.type === 'state' && command.locked !== undefined && command.zIndex === undefined)) throw new Error('OBJECT_LOCKED');
+    if (current.locked && !(command.type === 'state' && command.locked !== undefined && command.zIndex === undefined && command.hidden === undefined)) throw new Error('OBJECT_LOCKED');
     if (command.type === 'delete') {
       if ([...objects].some(([id, value]) => id !== command.id && !deleted.has(id) && decode(id, value).parentId === command.id)) throw new Error('CONTAINER_NOT_EMPTY');
       for (const [id, value] of objects) {
@@ -112,8 +112,9 @@ function apply(doc: Y.Doc, commands: WhiteboardCommand[]): void {
     }
     if (command.type === 'parent') { item.set('parentId', command.parentId); item.set('orderKey', command.orderKey); }
     if (command.type === 'state') {
-      if (command.locked === undefined && command.zIndex === undefined) throw new Error('STATE_CHANGE_REQUIRED');
+      if (command.locked === undefined && command.hidden === undefined && command.zIndex === undefined) throw new Error('STATE_CHANGE_REQUIRED');
       if (command.locked !== undefined) item.set('locked', command.locked);
+      if (command.hidden !== undefined) item.set('hidden', command.hidden);
       if (command.zIndex !== undefined) item.set('zIndex', command.zIndex);
     }
     if (command.type === 'extension') {

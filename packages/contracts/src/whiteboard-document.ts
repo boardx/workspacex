@@ -28,7 +28,7 @@ export const WhiteboardObject = z.object({
   kind: z.enum(['sticky', 'text', 'rectangle', 'ellipse', 'frame', 'group', 'connector', 'image', 'drawing', 'extension']),
   geometry: WhiteboardGeometry, text: z.string().max(WHITEBOARD_LIMITS.text), style: WhiteboardStyle,
   parentId: WhiteboardObjectId.nullable().default(null), orderKey: z.string().max(128).default(''),
-  locked: z.boolean().optional(), zIndex: z.number().int().min(-1000000).max(1000000).optional(),
+  locked: z.boolean().optional(), hidden: z.boolean().optional(), zIndex: z.number().int().min(-1000000).max(1000000).optional(),
   connector: WhiteboardConnector.optional(),
   restoredFrom: WhiteboardObjectId.optional(),
   extensionData: z.record(z.unknown()).optional().superRefine((value, ctx) => {
@@ -63,10 +63,32 @@ export const WhiteboardCommand = z.discriminatedUnion('type', [
   z.object({ type: z.literal('text'), id: WhiteboardObjectId, index: z.number().int().nonnegative(), deleteCount: z.number().int().nonnegative(), insert: z.string().max(WHITEBOARD_LIMITS.text) }).strict(),
   z.object({ type: z.literal('style'), id: WhiteboardObjectId, style: WhiteboardStyle }).strict(),
   z.object({ type: z.literal('parent'), id: WhiteboardObjectId, parentId: WhiteboardObjectId.nullable(), orderKey: z.string().max(128) }).strict(),
-  z.object({ type: z.literal('state'), id: WhiteboardObjectId, locked: z.boolean().optional(), zIndex: z.number().int().min(-1000000).max(1000000).optional() }).strict(),
+  z.object({ type: z.literal('state'), id: WhiteboardObjectId, locked: z.boolean().optional(), hidden: z.boolean().optional(), zIndex: z.number().int().min(-1000000).max(1000000).optional() }).strict(),
   z.object({ type: z.literal('extension'), id: WhiteboardObjectId, extensionData: z.record(z.unknown()).nullable() }).strict(),
   z.object({ type: z.literal('connector'), id: WhiteboardObjectId, connector: WhiteboardConnector }).strict(),
   z.object({ type: z.literal('delete'), id: WhiteboardObjectId }).strict(),
 ]);
 export type WhiteboardCommand = z.infer<typeof WhiteboardCommand>;
 export const WhiteboardCommandBatch = z.array(WhiteboardCommand).min(1).max(WHITEBOARD_LIMITS.batch);
+
+/** Stable UI/API/Agent vocabulary for canonical multi-object layout. */
+export const WhiteboardLayoutKind = z.enum([
+  'align-left', 'align-center', 'align-right', 'align-top', 'align-middle', 'align-bottom',
+  'distribute-horizontal', 'distribute-vertical', 'grid', 'row', 'column', 'tidy-up',
+]);
+export type WhiteboardLayoutKind = z.infer<typeof WhiteboardLayoutKind>;
+
+export const WhiteboardLayoutCommand = z.object({
+  type: z.literal('arrange-objects'),
+  kind: WhiteboardLayoutKind,
+  objectIds: z.array(WhiteboardObjectId).min(2).max(WHITEBOARD_LIMITS.batch),
+  gap: z.number().finite().min(0).max(10000).optional(),
+  horizontalGap: z.number().finite().min(0).max(10000).optional(),
+  verticalGap: z.number().finite().min(0).max(10000).optional(),
+  columns: z.number().int().min(1).max(100).optional(),
+}).strict().superRefine((value, ctx) => {
+  if (new Set(value.objectIds).size !== value.objectIds.length) {
+    ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'Layout object ids must be unique', path: ['objectIds'] });
+  }
+});
+export type WhiteboardLayoutCommand = z.infer<typeof WhiteboardLayoutCommand>;
