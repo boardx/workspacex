@@ -3,6 +3,7 @@ import * as React from "react";
 import { useSurveyUnsavedNavigation } from "@/lib/survey/use-unsaved-navigation";
 import { useRouter } from "next/navigation";
 import { survey } from "@repo/contracts";
+import { surveyReportShareBlockedReason } from "@repo/contracts/survey-report";
 import {
   SurveyRuntimeSchema,
   SurveyDraftInputSchema,
@@ -183,6 +184,9 @@ export function LiveSurveyWorkspace({
     () => assessPublishReadiness({ questions: draft?.questions ?? [], blockers }),
     [draft?.questions, blockers],
   );
+  const reportShareBlockedReason = runtime?.report
+    ? surveyReportShareBlockedReason(runtime.report)
+    : undefined;
   const selectStep = (next: string, targetQuestionId?: string) => {
     setStep(next);
     setRepairQuestionId(targetQuestionId ?? null);
@@ -509,6 +513,7 @@ export function LiveSurveyWorkspace({
                   <>
                     <Button
                       variant="outline"
+                      disabled={!!reportShareBlockedReason}
                       onClick={() =>
                         void execute(async () => {
                           await exportSurveyReportWord(runtime.report!);
@@ -519,10 +524,11 @@ export function LiveSurveyWorkspace({
                     </Button>
                     <Button
                       variant="outline"
+                      disabled={!!reportShareBlockedReason}
                       onClick={() =>
                         void execute(async () => {
                           if (reportRef.current)
-                            await printSurveyReport(reportRef.current);
+                            await printSurveyReport(reportRef.current, runtime.report!);
                         })
                       }
                     >
@@ -531,6 +537,15 @@ export function LiveSurveyWorkspace({
                   </>
                 )}
               </div>
+              {reportShareBlockedReason && (
+                <p
+                  className="rounded-md border border-warning/30 bg-warning/10 p-3 text-12"
+                  data-testid="survey-report-share-privacy-warning"
+                  role="status"
+                >
+                  {reportShareBlockedReason}
+                </p>
+              )}
               {runtime?.reportGeneratedAt && (
                 <p className="text-12 text-muted-foreground" data-testid="survey-report-generated-at">
                   生成时间：{new Date(runtime.reportGeneratedAt).toLocaleString("zh-CN")}
