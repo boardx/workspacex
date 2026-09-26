@@ -1,8 +1,14 @@
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
-import { afterEach, expect, it } from 'vitest';
+import { afterEach, expect, it, vi } from 'vitest';
 import { createWhiteboardDocument, executeCommands, readObjects } from '@repo/whiteboard-core';
 import { CollaborativeEditor } from '@/components/whiteboard/collaborative-editor';
 import { textSplice } from '@/components/whiteboard/use-whiteboard-document';
+import type { BoardFabricGeometry, BoardFabricObject } from '@/components/whiteboard/fabric/board-fabric-object';
+vi.mock('@/components/whiteboard/fabric/board-fabric-surface', () => ({
+  BoardFabricSurface: ({ objects, onObjectTransform }: { objects: readonly BoardFabricObject[]; onObjectTransform: (id: string, geometry: BoardFabricGeometry) => void }) => <div data-testid="board-fabric-surface"><canvas data-testid="board-fabric-canvas" />{objects.map((object) => <span key={object.id} data-projected-id={object.id} />)}{objects[0] ? <button data-testid="fabric-transform-first" onClick={() => onObjectTransform(objects[0]!.id, { ...objects[0]!.geometry, x: 345 })}>transform</button> : null}</div>,
+}));
+class ResizeObserverMock { observe() {} disconnect() {} }
+globalThis.ResizeObserver = ResizeObserverMock as unknown as typeof ResizeObserver;
 afterEach(cleanup);
 it('text diff only replaces the changed span', () => {
   expect(textSplice('早上好世界', '早上美好世界')).toEqual({ index: 2, deleteCount: 0, insert: '美' });
@@ -11,8 +17,14 @@ it('text diff only replaces the changed span', () => {
 it('commands change Y.Doc and remote changes render without snapshots', () => {
   const doc = createWhiteboardDocument();
   render(<CollaborativeEditor doc={doc} readOnly={false} title="白板" status="已连接" />);
+  expect(screen.getByTestId('board-fabric-surface')).toBeVisible();
+  expect(screen.getByTestId('board-fabric-canvas')).toBeVisible();
+  expect(document.querySelector('[data-testid^="whiteboard-object-"]')).toBeNull();
   fireEvent.click(screen.getByTestId('board-add-sticky'));
   const id = readObjects(doc)[0]!.id;
+  expect(document.querySelector(`[data-projected-id="${id}"]`)).not.toBeNull();
+  fireEvent.click(screen.getByTestId('fabric-transform-first'));
+  expect(readObjects(doc)[0]!.geometry.x).toBe(345);
   fireEvent.change(screen.getByLabelText('对象文字'), { target: { value: '协作文字' } });
   expect(readObjects(doc)[0]!.text).toBe('协作文字');
   act(() => executeCommands(doc, [{ type: 'text', id, index: 4, deleteCount: 0, insert: '远端' }], 'remote'));
