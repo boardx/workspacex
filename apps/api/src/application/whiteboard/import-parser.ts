@@ -10,6 +10,7 @@ export interface ParsedWhiteboardImport { items: ImportedBoardItem[]; assets: Pa
 type R = Record<string, unknown>;
 type SourceContext = { sourceVersion?: string; sourceBoardId?: string };
 type ZipEntry = { name: string; flags: number; method: number; crc: number; compressedSize: number; size: number; localOffset: number; directory: boolean };
+const UNSUPPORTED_ZIP_FLAGS = 0x2061; // encrypted, patched data, strong encryption, encrypted central directory
 const record = (value: unknown): R => value && typeof value === 'object' && !Array.isArray(value) ? value as R : {};
 const str = (...values: unknown[]) => String(values.find(value => typeof value === 'string' || typeof value === 'number') ?? '');
 const num = (fallback: number, ...values: unknown[]) => { const value = values.find(value => typeof value === 'number' || (typeof value === 'string' && value.trim() !== '')); const parsed = Number(value); return Number.isFinite(parsed) ? parsed : fallback; };
@@ -98,7 +99,7 @@ function readZipDirectory(bytes: Uint8Array): { entries: ZipEntry[]; centralOffs
     if (offset + 46 > eocd || view.getUint32(offset, true) !== 0x02014b50) throw new UnsafeWhiteboardImport('UNSAFE_ARCHIVE');
     const flags = view.getUint16(offset + 8, true), method = view.getUint16(offset + 10, true), crc = view.getUint32(offset + 16, true), compressedSize = view.getUint32(offset + 20, true), size = view.getUint32(offset + 24, true);
     const nameLength = view.getUint16(offset + 28, true), extraLength = view.getUint16(offset + 30, true), commentLength = view.getUint16(offset + 32, true), external = view.getUint32(offset + 38, true), localOffset = view.getUint32(offset + 42, true), end = offset + 46 + nameLength + extraLength + commentLength;
-    if (end > eocd || flags & 1 || ![0, 8].includes(method) || [compressedSize, size, localOffset].includes(0xffffffff) || (external >>> 16 & 0o170000) === 0o120000) throw new UnsafeWhiteboardImport('UNSAFE_ARCHIVE');
+    if (end > eocd || (flags & UNSUPPORTED_ZIP_FLAGS) !== 0 || ![0, 8].includes(method) || [compressedSize, size, localOffset].includes(0xffffffff) || (external >>> 16 & 0o170000) === 0o120000) throw new UnsafeWhiteboardImport('UNSAFE_ARCHIVE');
     let name: string; try { name = new TextDecoder('utf-8', { fatal: true }).decode(bytes.subarray(offset + 46, offset + 46 + nameLength)); } catch { throw new UnsafeWhiteboardImport('UNSAFE_ARCHIVE'); }
     const directory = name.endsWith('/');
     if (!safePath(directory ? name.slice(0, -1) : name) || names.has(name)) throw new UnsafeWhiteboardImport('UNSAFE_ARCHIVE'); names.add(name);
