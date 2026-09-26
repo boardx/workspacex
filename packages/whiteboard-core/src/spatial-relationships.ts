@@ -240,7 +240,7 @@ function build(snapshot: Snapshot, command: SpatialCommand): { commands: Whitebo
     if (layoutChanged) ensureUnlocked(...items);
     const placements = layoutChanged ? arrangedGeometry(target, metadata, items) : new Map<string, WhiteboardGeometry>();
     const commands: WhiteboardCommand[] = [
-      { type: 'extension', id: target.id, extensionData: panelExtension(target.extensionData, metadata) },
+      { type: 'extension', id: target.id, key: 'spatial', value: metadata },
       ...(command.text !== undefined && command.text !== target.text ? [{ type: 'text' as const, id: target.id, index: 0, deleteCount: target.text.length, insert: command.text }] : []),
       ...[...placements].map(([id, geometry]) => ({ type: 'geometry' as const, id, geometry })),
     ];

@@ -116,10 +116,6 @@ function apply(doc: Y.Doc, commands: WhiteboardCommand[]): void {
       if (command.locked !== undefined) item.set('locked', command.locked);
       if (command.zIndex !== undefined) item.set('zIndex', command.zIndex);
     }
-    if (command.type === 'extension') {
-      if (command.extensionData === null) item.delete('extensionData');
-      else item.set('extensionData', structuredClone(command.extensionData));
-    }
     if (command.type === 'connector') {
       if (current.kind !== 'connector') throw new Error('CONNECTOR_KIND_REQUIRED');
       item.set('connector', structuredClone(command.connector));

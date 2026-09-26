@@ -169,7 +169,7 @@ describe('groups, copies, layers and locks', () => {
       { type: 'style', id: 'a', style: { fill: '#fff' } },
       { type: 'text', id: 'a', index: 0, deleteCount: 0, insert: 'x' },
       { type: 'parent', id: 'a', parentId: null, orderKey: '' },
-      { type: 'extension', id: 'a', extensionData: {} },
+      { type: 'extension', id: 'a', key: 'spatial', value: {} },
       { type: 'delete', id: 'a' },
     ] as const) expect(() => executeCommands(doc, [command], 'bypass')).toThrow('OBJECT_LOCKED');
     expect(readObjects(doc)).toEqual(before);

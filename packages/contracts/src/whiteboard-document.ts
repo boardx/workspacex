@@ -126,7 +126,6 @@ export const WhiteboardCommand = z.discriminatedUnion('type', [
   z.object({ type: z.literal('extension'), id: WhiteboardObjectId, key: z.string().min(1).max(128).regex(/^[a-zA-Z0-9_-]+$/).refine(key => !['__proto__', 'constructor', 'prototype'].includes(key)), value: WhiteboardExtensionValue }).strict(),
   z.object({ type: z.literal('parent'), id: WhiteboardObjectId, parentId: WhiteboardObjectId.nullable(), orderKey: z.string().max(128) }).strict(),
   z.object({ type: z.literal('state'), id: WhiteboardObjectId, locked: z.boolean().optional(), zIndex: z.number().int().min(-1000000).max(1000000).optional() }).strict(),
-  z.object({ type: z.literal('extension'), id: WhiteboardObjectId, extensionData: z.record(z.unknown()).nullable() }).strict(),
   z.object({ type: z.literal('connector'), id: WhiteboardObjectId, connector: WhiteboardConnector }).strict(),
   z.object({ type: z.literal('delete'), id: WhiteboardObjectId }).strict(),
 ]);
