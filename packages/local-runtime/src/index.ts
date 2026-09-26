@@ -33,6 +33,7 @@ export { planImport, importModels, type ImportPlan } from "./model-bundle";
 export {
   UPDATE_MANIFEST, BUNDLE_VERSION_FILE, compareVersions, inspectUpdate, verifyUpdatePayload,
   rollbackTargetOf, readBundleVersion, bundleVersionMarker,
+  applyUpdate, rollbackBundle, makeUpdatePackage, readHistory, type ApplyResult, type RollbackResult,
   type UpdateManifest, type UpdateVerdict, type VerifyResult, type AppliedRecord,
   type BundleVersionMarker,
 } from "./update-package";

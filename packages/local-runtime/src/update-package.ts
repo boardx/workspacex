@@ -29,9 +29,9 @@
  *    而不是把状态倒回去,这样历史是可读的。
  */
 import { createHash } from "node:crypto";
-import { createReadStream } from "node:fs";
+import { createReadStream, cpSync, existsSync, readdirSync, readFileSync, renameSync, rmSync, statSync, writeFileSync, mkdirSync } from "node:fs";
 import { readFile } from "node:fs/promises";
-import { join } from "node:path";
+import { join, relative } from "node:path";
 import { pipeline } from "node:stream/promises";
 
 /** 更新包根目录里的清单文件名。 */
@@ -197,4 +197,153 @@ export async function readBundleVersion(bundleDir: string, shellVersion: string)
 
 export function bundleVersionMarker(version: string, origin: BundleVersionMarker["origin"]): string {
   return JSON.stringify({ version, origin, at: new Date().toISOString() } satisfies BundleVersionMarker, null, 2);
+}
+
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 应用与回滚的核心：桌面菜单和 CLI 共用这一份（#3872 R20 第 2 步）
+//
+// 抽出来有两个理由：
+//   1. 真机验证要能不点对话框就跑一遍往返——R14 的备份恢复也是这么做的；
+//   2. 第一版写在 main.ts 里的应用逻辑有个真缺陷：`cpSync` 拷到一半失败时，
+//      bundle 目录已经存在（半新半旧），而还原条件是「bundle 不存在才搬回旧的」，
+//      于是**不还原**——弹窗却说「已还原到更新前」。界面承诺了代码没做的事。
+//      给它写的门只检查源码里有那句 renameSync，从没让拷贝真的中途失败过。
+//
+// 修法：先拷到暂存目录，全部成功后用两次改名交换（同一文件系统上改名是原子的）。
+// 拷贝失败只删暂存目录（那是我们自己刚建的），bundle 一个字节都没动过。
+// ─────────────────────────────────────────────────────────────────────────────
+
+/** 目标路径已存在时加时间戳，**从不覆盖**一份保留的旧版本。 */
+function uniqueAside(base: string, now: Date): string {
+  if (!existsSync(base)) return base;
+  return `${base}-${now.toISOString().replace(/[:.]/g, "-")}`;
+}
+
+export function readHistory(path: string): AppliedRecord[] {
+  try { return JSON.parse(readFileSync(path, "utf8")) as AppliedRecord[]; } catch { return []; }
+}
+function appendHistory(path: string, r: AppliedRecord): void {
+  const h = readHistory(path);
+  h.push(r);
+  mkdirSync(join(path, ".."), { recursive: true });
+  writeFileSync(path, JSON.stringify(h, null, 2));
+}
+
+export type ApplyResult =
+  | { readonly ok: true; readonly from: string; readonly to: string; readonly keptAt: string; readonly files: number }
+  | { readonly ok: false; readonly reason: string; readonly touched: false };
+
+export async function applyUpdate(o: {
+  readonly bundleDir: string;
+  readonly packageDir: string;
+  readonly shellVersion: string;
+  readonly historyPath: string;
+  readonly now?: Date;
+  /** 测试缝：模拟拷到一半失败。生产用 cpSync。 */
+  readonly copy?: (from: string, to: string) => void;
+}): Promise<ApplyResult> {
+  const now = o.now ?? new Date();
+  const current = await readBundleVersion(o.bundleDir, o.shellVersion);
+  const v = await inspectUpdate(o.packageDir, current);
+  if (!v.ok) return { ok: false, reason: v.reason, touched: false };
+  const check = await verifyUpdatePayload(o.packageDir, v.manifest);
+  if (!check.ok) {
+    const first = Object.entries(check.bad).slice(0, 3).map(([f, why]) => `${f}：${why}`).join("；");
+    return { ok: false, reason: `更新包校验没通过（${String(Object.keys(check.bad).length)} 个文件）：${first}`, touched: false };
+  }
+
+  const staging = `${o.bundleDir}.staging-${now.getTime()}`;
+  try {
+    (o.copy ?? ((a, b) => cpSync(a, b, { recursive: true })))(join(o.packageDir, "payload"), staging);
+    writeFileSync(join(staging, BUNDLE_VERSION_FILE), bundleVersionMarker(v.manifest.version, "offline-update"));
+  } catch (e) {
+    rmSync(staging, { recursive: true, force: true });   // 只删我们自己刚建的暂存目录
+    return { ok: false, reason: `拷贝更新包失败，应用没有被改动：${e instanceof Error ? e.message : String(e)}`, touched: false };
+  }
+
+  // 暂存已完整，交换：两次改名。第一次失败时什么都没动；第二次失败时把旧的搬回来。
+  const keptAt = uniqueAside(`${o.bundleDir}.prev-${current}`, now);
+  renameSync(o.bundleDir, keptAt);
+  try {
+    renameSync(staging, o.bundleDir);
+  } catch (e) {
+    renameSync(keptAt, o.bundleDir);
+    rmSync(staging, { recursive: true, force: true });
+    return { ok: false, reason: `换入新版本失败，已换回原版本：${e instanceof Error ? e.message : String(e)}`, touched: false };
+  }
+  appendHistory(o.historyPath, { at: now.toISOString(), from: current, to: v.manifest.version, kind: "update", keptAt });
+  return { ok: true, from: current, to: v.manifest.version, keptAt, files: check.checked };
+}
+
+export type RollbackResult =
+  | { readonly ok: true; readonly from: string; readonly to: string; readonly keptAt: string }
+  | { readonly ok: false; readonly reason: string };
+
+/**
+ * 回滚到最近一次「留了上一版、且那一份还在」的更新之前。
+ *
+ * 用**历史记录里写的那个路径**，不按版本号拼路径——上一版可能因为重名被加了时间戳。
+ * 回滚也是一次前进：当前版本同样被保留，并追加一条 kind=rollback 的记录。
+ */
+export async function rollbackBundle(o: {
+  readonly bundleDir: string;
+  readonly shellVersion: string;
+  readonly historyPath: string;
+  readonly now?: Date;
+}): Promise<RollbackResult> {
+  const now = o.now ?? new Date();
+  const current = await readBundleVersion(o.bundleDir, o.shellVersion);
+  const history = readHistory(o.historyPath);
+  let rec: AppliedRecord | null = null;
+  for (let i = history.length - 1; i >= 0; i--) {
+    const r = history[i]!;
+    if (r.kind === "update" && r.keptAt !== null && r.from !== current && existsSync(r.keptAt)) { rec = r; break; }
+  }
+  if (rec === null || rec.keptAt === null) {
+    return { ok: false, reason: "没有可回滚的版本：还没装过离线更新，或上一版已经被清理掉了。" };
+  }
+  const asideNow = uniqueAside(`${o.bundleDir}.prev-${current}`, now);
+  renameSync(o.bundleDir, asideNow);
+  try {
+    renameSync(rec.keptAt, o.bundleDir);
+  } catch (e) {
+    renameSync(asideNow, o.bundleDir);
+    return { ok: false, reason: `回滚失败，已换回当前版本：${e instanceof Error ? e.message : String(e)}` };
+  }
+  writeFileSync(join(o.bundleDir, BUNDLE_VERSION_FILE), bundleVersionMarker(rec.from, "rollback"));
+  appendHistory(o.historyPath, { at: now.toISOString(), from: current, to: rec.from, kind: "rollback", keptAt: asideNow });
+  return { ok: true, from: current, to: rec.from, keptAt: asideNow };
+}
+
+/**
+ * 把一个目录打成更新包：`<out>/payload/**` + 清单（逐文件 sha256）。发布工具与测试共用。
+ * 版本标记文件不进清单——它由应用那一侧写，不该从包里带过来覆盖。
+ */
+export async function makeUpdatePackage(o: {
+  readonly fromDir: string;
+  readonly outDir: string;
+  readonly version: string;
+  readonly summary?: string;
+}): Promise<UpdateManifest> {
+  if (compareVersions(o.version, "0.0.0") === null) throw new Error(`版本号必须是 x.y.z：${o.version}`);
+  const payload = join(o.outDir, "payload");
+  cpSync(o.fromDir, payload, { recursive: true });
+  rmSync(join(payload, BUNDLE_VERSION_FILE), { force: true });
+  const files: Record<string, string> = {};
+  const walk = async (d: string): Promise<void> => {
+    for (const e of readdirSync(d, { withFileTypes: true })) {
+      const p = join(d, e.name);
+      if (e.isSymbolicLink()) continue;          // 软链不进清单：它的目标可能在包外
+      if (e.isDirectory()) await walk(p);
+      else if (e.isFile() && statSync(p).isFile()) files[relative(payload, p)] = await sha256File(p);
+    }
+  };
+  await walk(payload);
+  const manifest: UpdateManifest = {
+    formatVersion: 1, version: o.version, createdAt: new Date().toISOString(), payload: "bundle", files,
+    ...(o.summary === undefined ? {} : { summary: o.summary }),
+  };
+  writeFileSync(join(o.outDir, UPDATE_MANIFEST), JSON.stringify(manifest, null, 2));
+  return manifest;
 }

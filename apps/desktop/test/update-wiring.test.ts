@@ -33,33 +33,42 @@ function fn(name: string): string {
   return MAIN.slice(i, j > 0 ? j : i + 4000);
 }
 
-describe("安装离线更新包", () => {
-  const body = () => fn("runUpdate");
+describe("更新与回滚：桌面壳只是薄壳", () => {
+  /*
+    2026-09-27 改为共用核心（local-runtime 的 applyUpdate / rollbackBundle）。
+    改之前 main.ts 内联了一份应用逻辑，有个真缺陷：拷到一半失败时 bundle 已存在（半新半旧），
+    还原条件「bundle 不存在才搬回旧的」不成立，于是不还原——弹窗却说「已还原到更新前」。
+    原来这里的门只检查源码里有那句 renameSync，从没让拷贝真的失败过。
 
-  it("**先 inspect，再 verify，最后才动文件**", () => {
-    const b = body();
-    expectOrder(b, "inspectUpdate(", "verifyUpdatePayload(", "必须先 inspect 再 verify");
-    expectOrder(b, "verifyUpdatePayload(", "cpSync(", "写入必须在两道检查之后");
+    「先验再动 / 旧版保留 / 失败不留半新半旧」现在由核心的**真实文件系统**测试钉住
+    （test/update-apply-rollback.test.ts，含让拷贝写进一半再失败的用例）。
+    这里只钉桌面壳这一侧该守的：**不再自己动 bundle**，否则逻辑会漂回第二份副本。
+  */
+  it("**main.ts 不直接改 bundle 目录**——动文件的只有共用核心", () => {
+    const upd = fn("runUpdate");
+    const rb = fn("runRollback");
+    for (const [name, body] of [["runUpdate", upd], ["runRollback", rb]] as const) {
+      expect(body, `${name} 又自己拷文件了`).not.toMatch(/cpSync\(/);
+      expect(body, `${name} 又自己改名 bundle 了`).not.toMatch(/renameSync\([^)]*BUNDLE_DIR/);
+      expect(body, `${name} 又自己写版本标记了`).not.toMatch(/writeFileSync\([^)]*BUNDLE_VERSION_FILE/);
+    }
+    expect(upd).toMatch(/applyUpdate\(/);
+    expect(rb).toMatch(/rollbackBundle\(/);
   });
 
-  it("校验不过时**一个字节都不动**——不许出现写入路径", () => {
-    const b = body();
-    const bad = b.indexOf("if (!check.ok)");
-    const write = b.indexOf("cpSync(");
-    const between = b.slice(bad, write);
-    expect(bad).toBeGreaterThan(-1);
-    expect(between, "校验失败分支到写入之间不该有 return 之外的出路").toContain("return");
+  it("「当前版本」读 bundle 自己的标记，不是外壳的 package.json", () => {
+    expect(fn("runUpdate")).toMatch(/readBundleVersion\(BUNDLE_DIR\(\), app\.getVersion\(\)\)/);
+    expect(fn("runUpdate"), "把外壳版本直接当当前版本传给 inspectUpdate").not.toMatch(/inspectUpdate\([^)]*app\.getVersion\(\)/);
   });
 
-  it("**装新版之前把当前版本挪走保留，不是覆盖**", () => {
-    const b = body();
-    expectOrder(b, "renameSync(BUNDLE_DIR(), keptAt)", "cpSync(", "装新版之前必须把当前版本挪走保留");
-  });
-
-  it("写失败时把旧的搬回来——不留半新半旧的 bundle", () => {
-    const b = body();
-    const catchPart = b.slice(b.indexOf("} catch (e) {"));
-    expect(catchPart).toMatch(/renameSync\(keptAt, BUNDLE_DIR\(\)\)/);
+  it("失败弹窗只说核心真正保证的事", () => {
+    /*
+      第一版说「已还原到更新前」而代码做不到。现在核心在失败时返回 touched:false，
+      意思是「一个字节都没动」，所以弹窗说「应用没有被改动」——且不再出现「已还原」。
+    */
+    const upd = fn("runUpdate");
+    expect(upd).toMatch(/应用没有被改动/);
+    expect(upd, "又出现了代码做不到的承诺").not.toMatch(/已还原到更新前/);
   });
 
   it("**那三样换不了要说出口**，而且文案只写一处", () => {
@@ -69,32 +78,7 @@ describe("安装离线更新包", () => {
     expect(note).toMatch(/模型/);
     expect(note).toMatch(/Ollama/);
     expect(note).toMatch(/重新安装/);
-    // 同一句话不许出现第二份副本（本仓头号病）
     expect(MAIN.split("离线更新换的是应用逻辑").length - 1, "这句话出现了多次").toBe(1);
-  });
-});
-
-describe("回滚", () => {
-  const body = () => fn("runRollback");
-
-  it("没有可回滚版本时说清楚，不抛错", () => {
-    expect(body()).toContain("没有可回滚的版本");
-  });
-
-  it("记录说有、目录不在时**指名那个路径**", () => {
-    const b = body();
-    expect(b).toMatch(/existsSync\(keptAt\)/);
-    expect(b).toMatch(/\$\{keptAt\}|keptAt\}/);
-  });
-
-  it("**回滚也保留当前版本**——不是单向丢弃", () => {
-    const b = body();
-    expectOrder(b, "renameSync(BUNDLE_DIR(), asideNow)", "renameSync(keptAt, BUNDLE_DIR())",
-      "回滚必须先把当前版本挪开保留，再把旧版换回来");
-  });
-
-  it("回滚记一条 kind=rollback 的历史——回滚是前进", () => {
-    expect(body()).toMatch(/kind: "rollback"/);
   });
 });
 
@@ -121,8 +105,8 @@ describe("更新不打断生成", () => {
   };
 
   it("更新与回滚**都**在动文件之前问一句", () => {
-    expectOrder(fn("runUpdate"), 'confirmNoActiveRuns("更新")', "cpSync(", "更新必须先问再动文件");
-    expectOrder(fn("runRollback"), 'confirmNoActiveRuns("回滚")', "renameSync(keptAt, BUNDLE_DIR())", "回滚必须先问再动文件");
+    expectOrder(fn("runUpdate"), 'confirmNoActiveRuns("更新")', "applyUpdate(", "更新必须先问再动文件");
+    expectOrder(fn("runRollback"), 'confirmNoActiveRuns("回滚")', "rollbackBundle(", "回滚必须先问再动文件");
   });
 
   it("**读不到任务状态时当「不知道」，不当「空闲」**", () => {

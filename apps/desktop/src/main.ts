@@ -11,14 +11,13 @@
  */
 import { app, BrowserWindow, dialog, Menu, shell } from "electron";
 import { execFileSync } from "node:child_process";
-import { appendFileSync, cpSync, existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
+import { appendFileSync, existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import {
   checkWebBuild, dataDirAdvice, dataDirAdviceBody, diagnoseStartupFailure, localSessionUrl,
   resolveLocalConfig, restoreIntoDataDir, runDoctor, signInLocal, stopListenerOnPort, up,
-  verifyBackup, inspectUpdate, verifyUpdatePayload, rollbackTargetOf,
-  readBundleVersion, bundleVersionMarker, BUNDLE_VERSION_FILE, type RunningStack,
-  type AppliedRecord,
+  verifyBackup, inspectUpdate, readBundleVersion, applyUpdate, rollbackBundle,
+  type RunningStack,
 } from "@repo/local-runtime";
 import { SHUTDOWN_TIMEOUT_MS, shutdownNoticeDataUrl } from "./shutdown-notice";
 import { welcomeDataUrl } from "./welcome";
@@ -519,14 +518,6 @@ const TABLE_LABELS: Readonly<Record<string, string>> = {
 const UPDATE_HISTORY = (): string => join(app.getPath("userData"), "local", "update-history.json");
 const BUNDLE_DIR = (): string => join(process.resourcesPath ?? "", "bundle");
 
-function readUpdateHistory(): AppliedRecord[] {
-  try { return JSON.parse(readFileSync(UPDATE_HISTORY(), "utf8")) as AppliedRecord[]; } catch { return []; }
-}
-function appendUpdateHistory(r: AppliedRecord): void {
-  const h = readUpdateHistory();
-  h.push(r);
-  try { writeFileSync(UPDATE_HISTORY(), JSON.stringify(h, null, 2)); } catch { /* 记不住不该让更新本身失败 */ }
-}
 
 /** 这条路换不了的三样，说给用户听的原话。文案只写一处。 */
 const UPDATE_SCOPE_NOTE =
@@ -572,8 +563,7 @@ async function runUpdate(): Promise<void> {
   if (picked.canceled || picked.filePaths[0] === undefined) return;
   const dir = picked.filePaths[0];
 
-  // 「当前版本」必须读 bundle 自己的标记，不是外壳的 package.json —— 两个位置不是
-  // 一回事，见 update-package.ts 里 BUNDLE_VERSION_FILE 的头注（真机验证发现）。
+  // 先只读地看一眼：这是什么、能不能装。动文件的事交给 applyUpdate（与 CLI 共用一份）。
   const current = await readBundleVersion(BUNDLE_DIR(), app.getVersion());
   const v = await inspectUpdate(dir, current);
   if (!v.ok) {
@@ -583,19 +573,9 @@ async function runUpdate(): Promise<void> {
     });
     return;
   }
-  const check = await verifyUpdatePayload(dir, v.manifest);
-  if (!check.ok) {
-    const first = Object.entries(check.bad).slice(0, 3).map(([f, why]) => `· ${f}：${why}`).join("\n");
-    await dialog.showMessageBox({
-      type: "error", title: "更新包校验没通过，一个字节都没有动",
-      message: `${String(Object.keys(check.bad).length)} 个文件对不上：\n${first}`,
-      detail: "多半是包在传输中损坏了。重新取一份再试；你现在的应用和数据完好。",
-    });
-    return;
-  }
   const ok = await dialog.showMessageBox({
-    type: "warning", title: `确认更新到 ${v.manifest.version}？`,
-    message: `${v.manifest.summary ?? "这一版没有附带说明。"}\n\n已逐个校验 ${String(check.checked)} 个文件，全部通过。`,
+    type: "warning", title: `确认从 ${current} 更新到 ${v.manifest.version}？`,
+    message: `${v.manifest.summary ?? "这一版没有附带说明。"}\n\n装之前会逐个校验文件，任何一个对不上都不会动你的应用。`,
     detail: `当前版本 ${current} 会被**保留**，随时可以从菜单回滚。\n`
       + `更新完成后应用会重启。\n\n${UPDATE_SCOPE_NOTE}`,
     buttons: ["取消", "更新并重启"], defaultId: 0, cancelId: 0,
@@ -603,74 +583,37 @@ async function runUpdate(): Promise<void> {
   if (ok.response !== 1) return;
   if (!await confirmNoActiveRuns("更新")) return;
 
-  const keptAt = `${BUNDLE_DIR()}.prev-${current}`;
-  try {
-    // 先挪走当前版本（保留，不删），再写新的——和恢复流程同一个形状
-    if (existsSync(BUNDLE_DIR())) renameSync(BUNDLE_DIR(), keptAt);
-    cpSync(join(dir, "payload"), BUNDLE_DIR(), { recursive: true });
-    // 新 bundle 自己带上版本标记 —— 否则下次「当前版本」又会退回外壳版本，
-    // 同一个包就能被反复装，而每次装都会覆盖掉真正的原始版本。
-    writeFileSync(join(BUNDLE_DIR(), BUNDLE_VERSION_FILE), bundleVersionMarker(v.manifest.version, "offline-update"));
-  } catch (e) {
-    // 写失败时把旧的搬回来，不留一个半新半旧的 bundle
-    try { if (!existsSync(BUNDLE_DIR()) && existsSync(keptAt)) renameSync(keptAt, BUNDLE_DIR()); } catch { /* 尽力 */ }
+  const r = await applyUpdate({ bundleDir: BUNDLE_DIR(), packageDir: dir, shellVersion: app.getVersion(), historyPath: UPDATE_HISTORY() });
+  if (!r.ok) {
+    // applyUpdate 保证 touched=false：失败时应用一个字节都没被动过——所以这句话是真的
     await dialog.showMessageBox({
-      type: "error", title: "更新没有完成，已还原到更新前",
-      message: e instanceof Error ? e.message : String(e),
-      detail: "应用目录可能是只读的（例如从磁盘映像直接运行）。把应用拖到「应用程序」里再试。",
+      type: "error", title: "更新没有完成，应用没有被改动", message: r.reason,
+      detail: "应用目录可能是只读的（例如从磁盘映像直接运行），或磁盘空间不足。把应用拖到「应用程序」里、腾出空间后再试。",
     });
     return;
   }
-  appendUpdateHistory({ at: new Date().toISOString(), from: current, to: v.manifest.version, kind: "update", keptAt });
-  appendLog(`[update] ${current} → ${v.manifest.version}（上一版留在 ${keptAt}）`);
+  appendLog(`[update] ${r.from} → ${r.to}（${String(r.files)} 个文件已校验；上一版留在 ${r.keptAt}）`);
   app.relaunch();
   app.exit(0);
 }
 
 async function runRollback(): Promise<void> {
-  // 「当前版本」读 bundle 自己的标记，不是外壳的 package.json（见 update-package.ts 头注）。
   const current = await readBundleVersion(BUNDLE_DIR(), app.getVersion());
-  const history = readUpdateHistory();
-  const target = rollbackTargetOf(history);
-  if (target === null) {
-    await dialog.showMessageBox({
-      type: "info", title: "没有可回滚的版本",
-      message: "这个应用还没有装过离线更新，所以没有上一版可以回去。",
-      detail: UPDATE_SCOPE_NOTE,
-    });
-    return;
-  }
-  const keptAt = `${BUNDLE_DIR()}.prev-${target}`;
-  if (!existsSync(keptAt)) {
-    await dialog.showMessageBox({
-      type: "error", title: `找不到 ${target} 的那一份`,
-      message: `记录里说上一版留在 ${keptAt}，但那个目录现在不在了。`,
-      detail: "如果是手工清理掉的，只能重新安装对应版本。",
-    });
-    return;
-  }
   const ok = await dialog.showMessageBox({
-    type: "warning", title: `回滚到 ${target}？`,
+    type: "warning", title: "回滚到上一版？",
     message: `当前 ${current} 会被保留（不删除），回滚本身也会记成一次新的更新记录。`,
-    detail: `你的数据不受影响——回滚只换应用逻辑。\n完成后应用会重启。`,
+    detail: "你的数据不受影响——回滚只换应用逻辑。\n完成后应用会重启。",
     buttons: ["取消", "回滚并重启"], defaultId: 0, cancelId: 0,
   });
   if (ok.response !== 1) return;
   if (!await confirmNoActiveRuns("回滚")) return;
 
-  const asideNow = `${BUNDLE_DIR()}.prev-${current}`;
-  try {
-    if (existsSync(BUNDLE_DIR())) renameSync(BUNDLE_DIR(), asideNow);
-    renameSync(keptAt, BUNDLE_DIR());
-    // 回滚也是一次前进：把标记写成目标版本 + origin=rollback，历史因此可读。
-    writeFileSync(join(BUNDLE_DIR(), BUNDLE_VERSION_FILE), bundleVersionMarker(target, "rollback"));
-  } catch (e) {
-    try { if (!existsSync(BUNDLE_DIR()) && existsSync(asideNow)) renameSync(asideNow, BUNDLE_DIR()); } catch { /* 尽力 */ }
-    await dialog.showMessageBox({ type: "error", title: "回滚没有完成，已还原", message: e instanceof Error ? e.message : String(e) });
+  const r = await rollbackBundle({ bundleDir: BUNDLE_DIR(), shellVersion: app.getVersion(), historyPath: UPDATE_HISTORY() });
+  if (!r.ok) {
+    await dialog.showMessageBox({ type: "info", title: "没有回滚", message: r.reason, detail: UPDATE_SCOPE_NOTE });
     return;
   }
-  appendUpdateHistory({ at: new Date().toISOString(), from: current, to: target, kind: "rollback", keptAt: asideNow });
-  appendLog(`[update] 回滚 ${current} → ${target}`);
+  appendLog(`[update] 回滚 ${r.from} → ${r.to}（${r.from} 留在 ${r.keptAt}）`);
   app.relaunch();
   app.exit(0);
 }
