@@ -112,10 +112,20 @@ export function BoardFabricSurface({ objects, selectedObjectIds, readOnly, tool,
   const canvasRef = React.useRef<Canvas | null>(null);
   const registryRef = React.useRef(new Map<string, TaggedFabricObject>());
   const canonicalRef = React.useRef(new Map<string, BoardFabricObject>());
+  const selectedObjectIdsRef = React.useRef(selectedObjectIds);
+  const renderFrameRef = React.useRef<number | null>(null);
   const callbacksRef = React.useRef({ onSelectionChange, onObjectTransform, onViewportChange });
   const stateRef = React.useRef({ readOnly, tool, viewport });
   callbacksRef.current = { onSelectionChange, onObjectTransform, onViewportChange };
   stateRef.current = { readOnly, tool, viewport };
+  selectedObjectIdsRef.current = selectedObjectIds;
+  const scheduleRender = React.useCallback(() => {
+    if (renderFrameRef.current !== null) return;
+    renderFrameRef.current = requestAnimationFrame(() => {
+      renderFrameRef.current = null;
+      canvasRef.current?.requestRenderAll();
+    });
+  }, []);
 
   React.useEffect(() => {
     const host = hostRef.current;
@@ -194,6 +204,8 @@ export function BoardFabricSurface({ objects, selectedObjectIds, readOnly, tool,
       canvas.dispose();
       canvasRef.current = null;
       registry.clear();
+      if (renderFrameRef.current !== null) cancelAnimationFrame(renderFrameRef.current);
+      renderFrameRef.current = null;
     };
   }, []);
 
@@ -208,7 +220,8 @@ export function BoardFabricSurface({ objects, selectedObjectIds, readOnly, tool,
         registryRef.current.delete(id);
       }
     }
-    for (const object of [...objects].sort((left, right) => left.orderKey.localeCompare(right.orderKey))) {
+    const orderedObjects = [...objects].sort((left, right) => left.orderKey.localeCompare(right.orderKey));
+    for (const object of orderedObjects) {
       const current = registryRef.current.get(object.id);
       if (!current || current.data?.adapterKind !== object.kind) {
         if (current) canvas.remove(current);
@@ -220,8 +233,12 @@ export function BoardFabricSurface({ objects, selectedObjectIds, readOnly, tool,
         applyCanonicalObject(current, object, readOnly);
       }
     }
-    canvas.requestRenderAll();
-  }, [objects, readOnly]);
+    orderedObjects.forEach((object, index) => {
+      const projected = registryRef.current.get(object.id);
+      if (projected) canvas.moveObjectTo(projected, index);
+    });
+    scheduleRender();
+  }, [objects, readOnly, scheduleRender]);
 
   React.useEffect(() => {
     const canvas = canvasRef.current;
@@ -241,8 +258,8 @@ export function BoardFabricSurface({ objects, selectedObjectIds, readOnly, tool,
     const primary = selectedObjectIds[0] ? registryRef.current.get(selectedObjectIds[0]) : undefined;
     if (primary) canvas.setActiveObject(primary);
     else canvas.discardActiveObject();
-    canvas.requestRenderAll();
-  }, [objects, selectedObjectIds]);
+    scheduleRender();
+  }, [objects, scheduleRender, selectedObjectIds]);
 
   React.useEffect(() => {
     const canvas = canvasRef.current;
@@ -256,7 +273,14 @@ export function BoardFabricSurface({ objects, selectedObjectIds, readOnly, tool,
     const canvas = canvasRef.current;
     if (!canvas || viewport.fitRequest === 0) return;
     const currentViewport = stateRef.current.viewport;
-    const projected = canvas.getObjects();
+    const fitMode = currentViewport.fitMode ?? "board";
+    const projected = fitMode === "selection"
+      ? selectedObjectIdsRef.current.flatMap((id) => {
+          const object = registryRef.current.get(id);
+          return object ? [object] : [];
+        })
+      : canvas.getObjects();
+    if (fitMode === "selection" && projected.length === 0) return;
     if (projected.length === 0) {
       callbacksRef.current.onViewportChange({ ...currentViewport, zoom: 1, panX: 0, panY: 0 }, "fit");
       return;

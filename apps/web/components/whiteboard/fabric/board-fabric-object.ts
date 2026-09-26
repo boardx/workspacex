@@ -35,6 +35,8 @@ export interface BoardViewport {
   panY: number;
   /** Increment to request a fit-to-board calculation. This is local UI state. */
   fitRequest: number;
+  /** Selection fitting is ignored when the controlled selection is empty. */
+  fitMode?: "board" | "selection";
 }
 
 export type BoardSelectionSource = "canvas" | "outline";
@@ -46,4 +48,3 @@ export const BOARD_ZOOM_MAX = 8;
 export function clampBoardZoom(value: number): number {
   return Math.min(BOARD_ZOOM_MAX, Math.max(BOARD_ZOOM_MIN, value));
 }
-

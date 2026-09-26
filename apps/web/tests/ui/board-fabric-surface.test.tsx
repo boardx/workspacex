@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { BoardFabricObject, BoardViewport } from "@/components/whiteboard/fabric/board-fabric-object";
 
@@ -15,6 +15,8 @@ const probe = vi.hoisted(() => ({
   activeId: null as string | null,
   zoom: 1,
   clearCalls: 0,
+  renderCalls: 0,
+  moveCalls: 0,
 }));
 
 vi.mock("fabric", () => {
@@ -35,7 +37,13 @@ vi.mock("fabric", () => {
     remove(object: MockProjectedObject) { probe.objects.splice(probe.objects.indexOf(object), 1); }
     getObjects() { return probe.objects as Array<MockObject>; }
     on(name: string, handler: (event: { target?: MockProjectedObject }) => void) { probe.handlers.set(name, handler); }
-    dispose() {} requestRenderAll() {} setDimensions() {}
+    dispose() {} requestRenderAll() { probe.renderCalls += 1; } setDimensions() {}
+    moveObjectTo(object: MockProjectedObject, index: number) {
+      probe.moveCalls += 1;
+      const current = probe.objects.indexOf(object);
+      if (current >= 0) probe.objects.splice(current, 1);
+      probe.objects.splice(index, 0, object);
+    }
     setViewportTransform(value: number[]) { this.viewportTransform = value; probe.zoom = value[0] ?? 1; }
     getWidth() { return 1200; } getHeight() { return 800; } getZoom() { return probe.zoom; }
     zoomToPoint(_point: unknown, value: number) { probe.zoom = value; }
@@ -63,7 +71,7 @@ function renderSurface(overrides: Partial<React.ComponentProps<typeof BoardFabri
 }
 
 describe("BoardFabricSurface", () => {
-  beforeEach(() => { probe.instances = 0; probe.objects.length = 0; probe.handlers.clear(); probe.activeId = null; probe.zoom = 1; probe.clearCalls = 0; });
+  beforeEach(() => { probe.instances = 0; probe.objects.length = 0; probe.handlers.clear(); probe.activeId = null; probe.zoom = 1; probe.clearCalls = 0; probe.renderCalls = 0; probe.moveCalls = 0; });
 
   it("projects canonical-like objects into one Fabric Canvas without DOM object replicas", () => {
     const { container } = renderSurface();
@@ -111,5 +119,34 @@ describe("BoardFabricSurface", () => {
     expect(onViewportChange).toHaveBeenCalledWith(expect.objectContaining({ zoom: expect.any(Number) }), "fit");
     expect(probe.clearCalls).toBe(0);
   });
-});
 
+  it("reorders the Fabric stack and accessibility mirror from the same orderKey", () => {
+    const reversed = [
+      { ...OBJECTS[0]!, revision: 2, orderKey: "z" },
+      { ...OBJECTS[1]!, revision: 2, orderKey: "a" },
+    ];
+    renderSurface({ objects: reversed });
+    expect(probe.objects.map((object) => object.data?.boardObjectId)).toEqual(["r-1", "s-1"]);
+    const mirrorIds = [...screen.getByTestId("board-a11y-mirror").querySelectorAll("li")].map((node) => node.getAttribute("data-object-id"));
+    expect(mirrorIds).toEqual(["r-1", "s-1"]);
+    expect(probe.moveCalls).toBeGreaterThan(0);
+  });
+
+  it("coalesces canonical projection and controlled selection into one frame render", async () => {
+    const view = renderSurface({ selectedObjectIds: ["s-1"] });
+    await waitFor(() => expect(probe.renderCalls).toBeGreaterThan(0));
+    probe.renderCalls = 0;
+    view.rerender(<BoardFabricSurface objects={[{ ...OBJECTS[0]!, revision: 2, geometry: { ...OBJECTS[0]!.geometry, x: 88 } }, OBJECTS[1]!]} selectedObjectIds={["s-1"]} readOnly={false} tool="select" viewport={VIEWPORT} onSelectionChange={vi.fn()} onObjectTransform={vi.fn()} onViewportChange={vi.fn()} />);
+    await waitFor(() => expect(probe.renderCalls).toBe(1));
+  });
+
+  it("distinguishes fit selection from fit board and ignores an empty selection fit", () => {
+    const onViewportChange = vi.fn();
+    const selected = renderSurface({ selectedObjectIds: ["s-1"], viewport: { ...VIEWPORT, fitRequest: 1, fitMode: "selection" }, onViewportChange });
+    expect(onViewportChange).toHaveBeenCalledWith(expect.objectContaining({ fitMode: "selection" }), "fit");
+    selected.unmount();
+    probe.objects.length = 0; probe.handlers.clear(); onViewportChange.mockClear();
+    renderSurface({ selectedObjectIds: [], viewport: { ...VIEWPORT, fitRequest: 2, fitMode: "selection" }, onViewportChange });
+    expect(onViewportChange).not.toHaveBeenCalled();
+  });
+});
