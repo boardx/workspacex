@@ -13,6 +13,8 @@
  *       score 有限；手动晋升过的标「你确认过」，自动记下的标「AI 记下的」；B 的个人空间决定**不**进来
  *       （可见面与 F12 的 L1 同一套判定）。
  *   - 对称：B 开新会话，只拿到自己的，不拿到 A 的。
+ *   - 反证（评审补充）：A 把晋升的那条决定忘掉（在原会话里撤销来源，级联撤销个人空间副本）以后，再开新会话说无关的话，
+ *     **不**再强制带上。（项目会话里的个人记忆由 issue #4284 决定并在 personal-memory-project-thread.test.ts 里门控，不在本文件。）
  */
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { knowledgeGraph as KG } from "@repo/contracts";
@@ -34,6 +36,7 @@ const A2 = "thr-i4278-a2";
 const A3 = "thr-i4278-a3";
 const B1 = "thr-i4278-b1";
 const B2 = "thr-i4278-b2";
+const A4 = "thr-i4278-a4";
 
 const A_DECISION = "我决定关注 211 高校";
 const B_DECISION = "我决定关注 985 高校";
@@ -90,7 +93,7 @@ beforeAll(async () => {
   await addOrgMember(ORG, USER_A, "consultant", null);
   await addOrgMember(ORG, USER_B, "consultant", null);
   await publishAgent(ORG, AGENT, USER_A);
-  for (const [id, owner] of [[A1, USER_A], [A2, USER_A], [A3, USER_A], [B1, USER_B], [B2, USER_B]] as const) {
+  for (const [id, owner] of [[A1, USER_A], [A2, USER_A], [A3, USER_A], [A4, USER_A], [B1, USER_B], [B2, USER_B]] as const) {
     await addChatThread({ orgId: ORG, id, projectId: null, visibilityScope: "private", createdBy: owner, title: id });
   }
   a = client(e, USER_A, ORG);
@@ -163,5 +166,31 @@ describe("issue #4278: 本人个人空间的决定在新会话无关轮次里被
     const r = await b.get<TurnMemoryBody>(memoryPath(B2, t.answerId));
     expect(r.status).toBe(200);
     expect(r.body.recalled.map((m) => [m.claimId, m.scope, m.channels])).toEqual([[ids.bPersonal, "personal", ["claim"]]]);
+  }, 120_000);
+
+  it("反证：A 忘掉晋升的决定以后，新会话的无关轮次不再强制带上（turn memory / kg_turn_recalls 都没有）", async () => {
+    const k = await a.get<ThreadKnowledgeBody>(`/knowledge-graph/threads/${A1}`);
+    expect(k.status).toBe(200);
+    const src = k.body.claims.find((c) => c.statement === A_DECISION);
+    expect(src, "A1 里应还有那条决定的原结论").toBeDefined();
+    const revoke = await a.post(`/knowledge-graph/threads/${A1}/actions`, {
+      basedOnRevision: k.body.revision, action: { type: "revokeClaim", claimId: src!.id },
+    });
+    expect(revoke.status, JSON.stringify(revoke.body)).toBe(200);
+    // 级联：个人空间副本（derived_from 唯一来源已失效）一并失效——撤销的就是晋升的那条
+    const [row] = await asOwner(async (c) => (await c.query<{ revoked: boolean }>(
+      "SELECT revoked_at IS NOT NULL AS revoked FROM claims WHERE org_id = $1 AND id = $2", [ORG, ids.aPersonal])).rows);
+    expect(row).toEqual({ revoked: true });
+
+    const t = await turn(e, a, ORG, A4, UNRELATED, AGENT);
+    expect(t.memory ?? "").not.toContain(A_DECISION);
+    expect(t.answer).not.toContain(A_DECISION);
+    const r = await a.get<TurnMemoryBody>(memoryPath(A4, t.answerId));
+    expect(r.status).toBe(200);
+    expect(r.body.recalled.map((m) => m.claimId)).not.toContain(ids.aPersonal);
+    expect(r.body.recalled.map((m) => m.statement)).not.toContain(A_DECISION);
+    const stored = await asOwner(async (c) => (await c.query<{ items: Array<{ claimId: string }> }>(
+      "SELECT items FROM kg_turn_recalls WHERE org_id = $1 AND run_id = $2", [ORG, t.runId])).rows);
+    expect(stored.flatMap((x) => x.items).map((i) => i.claimId)).not.toContain(ids.aPersonal);
   }, 120_000);
 });

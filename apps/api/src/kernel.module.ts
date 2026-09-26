@@ -1,6 +1,14 @@
-import { WhiteboardController } from './interface/controllers/whiteboard.controller';
-import { WHITEBOARD_REPOSITORY } from './application/whiteboard/ports';
+import { WHITEBOARD_COLLABORATION_STORE, WHITEBOARD_UPDATE_VALIDATOR } from './application/whiteboard/collaboration-ports';
+import { PgWhiteboardCollaborationStore } from './infrastructure/whiteboard/pg-collaboration-store';
+import { WorkerWhiteboardUpdateValidator } from './infrastructure/whiteboard/update-validator';
+import { WhiteboardController, WhiteboardTagController } from './interface/controllers/whiteboard.controller';
+import { WHITEBOARD_REPOSITORY, WHITEBOARD_TAG_REPOSITORY } from './application/whiteboard/ports';
+import { DUPLICATE_BOARD_SERVICE } from './application/whiteboard/ports';
+import { BOARD_CONTENT_COPY_PORT, type BoardContentCopyPort } from './application/whiteboard/board-content-copy-port';
+import { DuplicateBoard } from './application/whiteboard/duplicate-board';
 import { PgWhiteboardRepository } from './infrastructure/whiteboard/pg-whiteboard-repository';
+import { PgWhiteboardTagRepository } from './infrastructure/whiteboard/pg-whiteboard-tag-repository';
+import { PgBoardContentCopyStore } from './infrastructure/whiteboard/pg-board-content-copy-store';
 import { SurveyAttachmentRateLimitGuard, SURVEY_ATTACHMENT_RATE_LIMITER, SURVEY_ATTACHMENT_REQUESTS_PER_MINUTE } from "./interface/guards/survey-attachment-rate-limit.guard";
 import { SurveyUploadCapabilityGuard, SurveyAttachmentController } from "./interface/controllers/survey-attachment.controller";
 import { PgSurveyAttachmentRepository } from "./infrastructure/survey/pg-survey-attachment-repository";
@@ -1088,6 +1096,7 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
     InboxController,
     DesignWorkbenchController,
     WhiteboardController,
+    WhiteboardTagController,
     PublicDesignShareController,
     SystemMailController,
     SystemUptimeController,
@@ -2919,9 +2928,33 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
     },
     // UC-17.8 B4.3：设计项目仓储按组织构造（`forOrg`），同 `FEEDBACK_DRAFT_REPOSITORY` 的理由。
     {
+      provide: WHITEBOARD_UPDATE_VALIDATOR,
+      useFactory: () => new WorkerWhiteboardUpdateValidator(),
+    },
+    {
+      provide: WHITEBOARD_COLLABORATION_STORE,
+      useFactory: (db: DatabasePort) => new PgWhiteboardCollaborationStore(db),
+      inject: [DATABASE_PORT],
+    },
+    {
       provide: WHITEBOARD_REPOSITORY,
       useFactory: (db: DatabasePort) => new PgWhiteboardRepository(db),
       inject: [DATABASE_PORT],
+    },
+    {
+      provide: WHITEBOARD_TAG_REPOSITORY,
+      useFactory: (db: DatabasePort) => new PgWhiteboardTagRepository(db),
+      inject: [DATABASE_PORT],
+    },
+    {
+      provide: BOARD_CONTENT_COPY_PORT,
+      useFactory: (db: DatabasePort) => new PgBoardContentCopyStore(db),
+      inject: [DATABASE_PORT],
+    },
+    {
+      provide: DUPLICATE_BOARD_SERVICE,
+      useFactory: (content: BoardContentCopyPort) => new DuplicateBoard(content),
+      inject: [BOARD_CONTENT_COPY_PORT],
     },
     {
       provide: DESIGN_PROJECT_REPOSITORY,

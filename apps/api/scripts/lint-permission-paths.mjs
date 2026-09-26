@@ -31,6 +31,7 @@ import { MCP_CREDENTIAL_BOUNDARIES, checkMcpCredentialBoundary } from './lib/mcp
  * an allowlist without reasons grows.
  */
 import { workbenchBoundaries, verifyWorkbenchBoundaries } from "./workbench-permission-boundaries.mjs";
+import { whiteboardPermissionBoundaries, verifyWhiteboardPermissionBoundaries } from "./whiteboard-permission-boundaries.mjs";
 import { readdirSync, readFileSync, statSync, existsSync } from "node:fs";
 import { join, relative, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -73,6 +74,10 @@ const ALLOWLIST = new Map([
   [
     "src/infrastructure/whiteboard/pg-whiteboard-repository.ts",
     "#3926: private-by-default whiteboards have explicit owner/member roles, not an acl_bindings ObjectRef. Each read is actor-filtered inside withTenant; mutations require owner_id, grants additionally require org_memberships. Forcing an unbound generic ACL ref would default to org-wide and weaken this rule. Scope is only whiteboards/whiteboard_members/org_memberships metadata. Real PostgreSQL negative tests in tests/whiteboard/resource-lifecycle.test.ts cover same-org nonmember, cross-org identity, viewer/editor administration and revocation; resource-http.test.ts covers the global PrincipalGuard and public response boundary. tests/whiteboard/resource-repository-guard.test.ts mechanically restricts the three-table scope, withTenant on every method, read visibility and owner predicates, with mutation counterexamples. The 11 real PostgreSQL/HTTP tests passed for #3926. Remove this entry if these tests or actor predicates are removed. Content/sync require separately reviewed authorization.",
+  ],
+  [
+    "src/infrastructure/whiteboard/pg-collaboration-store.ts",
+    "#3967: Yjs document state belongs to a private whiteboard whose owner/member roles cannot be represented by the generic acl_bindings ObjectRef; its org-wide fallback would weaken privacy. Every operation uses withTenant, locks the board FOR SHARE or FOR UPDATE, binds membership and idempotency to the acting user, and authorizes before reading or mutating snapshots/updates. Scope is exactly whiteboards, whiteboard_members, whiteboard_documents and whiteboard_updates. tests/whiteboard/collaboration-repository-guard.test.ts mechanically enforces that SQL, transaction, lock, tenant, ACL and ordering premise and contains mutation counterexamples. Real PostgreSQL and websocket coverage lives in collaboration-persistence.test.ts, collaboration-transaction.test.ts and collaboration-ws.test.ts. Remove this entry if the guard or those integration proofs disappear.",
   ],
   [
     "src/infrastructure/survey/pg-survey-attachment-repository.ts",
@@ -499,6 +504,12 @@ if (boundaryFailures.length) {
   process.exit(1);
 }
 for (const [path, rule] of workbenchBoundaries) ALLOWLIST.set(path, rule.reason);
+const whiteboardBoundaryFailures = verifyWhiteboardPermissionBoundaries(path => readFileSync(join(API,path), "utf8"), TABLES);
+if (whiteboardBoundaryFailures.length) {
+  for (const failure of whiteboardBoundaryFailures) console.error(`Whiteboard permission boundary: ${failure}`);
+  process.exit(1);
+}
+for (const [path, rule] of whiteboardPermissionBoundaries) ALLOWLIST.set(path, rule.reason);
 
 const ROOTS = process.argv.slice(2).length ? process.argv.slice(2) : [join(API, "src")];
 

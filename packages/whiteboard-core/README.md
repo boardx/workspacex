@@ -2,7 +2,7 @@
 
 A renderer- and host-independent Yjs content kernel. The contract source is
 `@repo/contracts/whiteboard-document`; this package does not provide authentication,
-network transport, persistence, idempotency storage or trusted author attribution.
+network transport, persistence, durable idempotency storage or trusted author attribution.
 
 `executeCommands(doc, batch, origin)` validates the entire bounded batch on an
 isolated clone before mutating the live document in one transaction. Commands are
@@ -14,6 +14,12 @@ Yjs state update, not the plain rendering projection, to preserve CRDT history.
 Text commands are character splices; a DOM/IME binding must wait for composition
 commit and submit the changed range, not replace the whole string each keystroke.
 Geometry is an atomic value. Style properties merge independently.
+
+`BoardCommandPort` is the canonical local gesture boundary. It requires a stable
+`(boardId, clientId, gestureId)` envelope, applies an accepted batch in one Yjs
+transaction and reuses the first result for same-payload retries during the Y.Doc
+lifetime. Reusing the tuple with another payload is rejected. Durable replay and
+ACK identity still belong to the collaboration host.
 
 `WhiteboardUndo` tracks only its own origin. Creation undo returns
 `creation-requires-explicit-delete` without changing anything, even when no peer

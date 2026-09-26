@@ -1,6 +1,7 @@
 import * as Y from 'yjs';
 import { WhiteboardCommandBatch } from '@repo/contracts/whiteboard-document';
 import { executeCommands, objectMap, validateDocument } from './document';
+import { WhiteboardCommandOrigin } from './command-port';
 
 const CREATION = Symbol('whiteboard-creation');
 type StackItem = Y.UndoManager['undoStack'][number];
@@ -19,15 +20,15 @@ export class WhiteboardUndo {
   private readonly manager: Y.UndoManager;
   private creating = false;
   constructor(private readonly doc: Y.Doc, readonly origin: object = {}) {
-    this.manager = new Y.UndoManager(objectMap(doc), { trackedOrigins: new Set([origin]), captureTimeout: 0 });
+    this.manager = new Y.UndoManager(objectMap(doc), { trackedOrigins: new Set([origin, WhiteboardCommandOrigin]), captureTimeout: 0 });
     this.manager.on('stack-item-added', ({ stackItem, type }) => {
       if (type === 'undo' && this.creating) stackItem.meta.set(CREATION, true);
     });
   }
-  execute(input: unknown): void {
+  execute(input: unknown, transactionOrigin: unknown = this.origin): void {
     const commands = WhiteboardCommandBatch.parse(input);
     this.creating = commands.some(command => command.type === 'create');
-    try { executeCommands(this.doc, commands, this.origin); }
+    try { executeCommands(this.doc, commands, transactionOrigin); }
     finally { this.creating = false; }
   }
   /** Pinned Yjs adapter: redone links and stack ranges are local metadata, absent from encoded updates. */
