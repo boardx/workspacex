@@ -68,3 +68,11 @@ it('restores tag dialog focus to global or per-board trigger', async () => {
  fireEvent.keyDown(screen.getByTestId('workspace-menu-one'), { key: 'Enter' }); fireEvent.click(screen.getByTestId('workspace-tags-one')); fireEvent.click(screen.getByTestId('workspace-tags-done'));
  await waitFor(() => expect(document.activeElement).toBe(screen.getByTestId('workspace-menu-one')));
 });
+
+it('restores focus to tag management if unbinding hides the filtered card', async () => {
+ render(<BoardWorkspacePreview />); fireEvent.click(screen.getByTestId('workspace-filter-team'));
+ fireEvent.keyDown(screen.getByTestId('workspace-menu-one'), { key: 'Enter' }); fireEvent.click(screen.getByTestId('workspace-tags-one'));
+ fireEvent.click(screen.getByTestId('workspace-bind-team')); expect(screen.queryByTestId('workspace-menu-one')).toBeNull();
+ fireEvent.click(screen.getByTestId('workspace-tags-done'));
+ await waitFor(() => expect(document.activeElement).toBe(screen.getByTestId('workspace-manage-tags')));
+});
