@@ -107,15 +107,18 @@ donor 当前 `publish()` 对每次 accepted update 写完整 checkpoint，并生
 1. `legacy_pg`：锁内捕获 epoch/seq watermark，盘点 snapshot 和顺序 updates。
 2. `candidate_ready`：在锁外重建 canonical Y.Doc，上传并回读验证 candidate checkpoint/manifest。
 3. `verified`：重新捕获 watermark；对 legacy 与 candidate 做双向 Yjs state-vector diff，并核对所有 blob digest/size/key version。
-4. `cutover`：短暂围栏写入，用 headSeq + fencing token CAS 发布 blob head；保留 PG mirror 和明确 rollback deadline。
+4. `cutover`：短暂围栏写入，用 headSeq + fencing token CAS 发布 blob head；进入 rollback window 后继续维护 PG mirror，并记录明确 rollback deadline。
 5. `active/retirement`：rollback window 结束且联合备份恢复演练通过后，使用签名 credential 分批清空旧 `bytea`；删除列另走兼容 schema migration。
+
+rollback window 内，blob manifest 是正常读取事实源，PG mirror 是受保护的回退副本。每次写仍先完成 blob put/read-back；随后在**同一个 PG 事务**里锁定 authoritative content head，把新的 epoch/seq 与 manifest pointer、幂等 receipt、完整 legacy snapshot/update mirror 一起提交。只有该事务提交后才能返回 durable ACK。mirror 写失败必须使整次 PG 事务失败且不 ACK；不允许 head 已推进而 mirror 停在旧水位，也不允许 mirror 单独接纳一个 blob head 不知道的更新。这样，rollback window 内任一已经 ACK 的 seq 都同时存在于 authoritative blob head 和 PG mirror。
 
 批量 rollout 必须支持 dry-run、暂停、恢复、取消和失败隔离。迁移指标至少按 tenant/Board 记录状态、watermark、bytes moved、digest、attempt、错误码和持续时间，不记录明文内容。
 
 ### Gate 4：rollback
 
 - cutover 前失败：保留 `legacy_pg` 读写事实源，candidate 作为不可达对象等待安全窗 GC。
-- rollback window 内 blob 主路径故障：围栏该 Board，证明 PG mirror 已追到当前 verified watermark，再 CAS 回 legacy/dual-write 状态；旧 blob 保留供诊断与重试。
+- rollback window 内 blob 主路径故障：先取得 writer/leader fence，并在事务中锁定 authoritative `whiteboard_content_heads`，捕获其 epoch、headSeq 和 fencing token。PG mirror 必须覆盖该 authoritative head 的全部已 ACK seq，且从 mirror 重建的 Y.Doc 与该 head 做双向 state-vector diff 为空，才能用原 fencing token 做 CAS，递增 token 后切回 legacy/dual-write。旧 blob 保留供诊断与重试。
+- 若 mirror 水位落后、内容不等价，或 blob outage 导致无法读取 authoritative manifest 来补齐/证明等价，Board 保持围栏并显式拒绝新写和 rollback；不得退回旧 watermark、不得 ACK 新写，也不得把较旧 mirror 作为“可用降级”。恢复 blob 路径或从 verified backup 补齐并重新验证后，才能重试 CAS。
 - retirement 后：不再把正文写回 PG；切换到兼容 BlobStore adapter，或从联合备份恢复到新的 verified head。
 
 donor 会在 `content_state='rollback'` 时保留 PG mirror，但本次审计没有找到可执行的“blob primary 切回 PG”operator command。该命令、权限、幂等和演练证据是 Gate 4 的缺口，不能只靠表状态或 ADR 描述验收。
@@ -130,7 +133,16 @@ GC 标记集必须包含当前 head 和完整 parent history、未完成 migrati
 
 联合恢复点由 PG PITR/元数据快照水位与该水位可达的不可变 manifest/blob 集合组成。恢复必须在隔离环境读取 PG head，恢复并校验 manifest/checkpoint/tail，重建 Y.Doc，核对 epoch/seq、ACL、digest 和对象计数，再将新 head 以 CAS 发布。只证明对象存储里“文件存在”不算恢复通过。
 
-donor 有 retention root schema 和 GC 对 backup/legal-hold roots 的保护，但本次没有发现 Board 专属的 backup root 创建、恢复命令、从 verified secondary copy 自动恢复或 recovery alarm 实现。仓库通用 starter backup 脚本不能替代 Board 联合恢复链。上述能力和故障注入证据必须新增。
+backup 创建与 GC 必须复用同一 Board 锁/lease 和 fencing 规则，顺序固定如下：
+
+1. backup worker 取得 Board fence，锁定 authoritative head，读取 epoch、headSeq、fencing token 和完整 manifest pointer。
+2. 在仍受该锁保护的事务中，先把这个精确恢复点作为 `preparing` retention root 持久化并提交；root 包含 tenant/Board、epoch/seq、manifest key/digests/size/key version、backup operation id 和捕获时 fencing token。
+3. root 可见后才遍历 manifest、扫描可达对象、复制到备份介质并逐对象验证。manifest/blob 不可变，因此后续 head 前进不改变已 pin 的恢复点。
+4. 完成后把 root 标为 `verified`。扫描、复制或验证失败时标为 `failed_pending_cleanup`，但仍是 GC root；只有显式取消/清理流程确认没有恢复或 legal-hold 依赖并经过安全窗后，才能释放 pin。
+
+GC 的 mark snapshot、备份 pin 创建和最终 purge recheck 使用同一锁/fencing 协议。若 sweep 已持锁，backup 等待，不能事后把已经进入不可逆删除阶段的对象声明为恢复点；若 backup 先提交 pin，当前及后续 sweep 必须把 `preparing`、`verified` 和 `failed_pending_cleanup` roots 全部视为可达。复制中、重试中和失败待清理的对象都不能被回收。
+
+donor 有 retention root schema 和 GC 对 backup/legal-hold roots 的保护，但本次没有发现 Board 专属的 backup pin 创建状态机、与 sweep 共锁的协议实现、恢复命令、从 verified secondary copy 自动恢复或 recovery alarm 实现。仓库通用 starter backup 脚本不能替代 Board 联合恢复链。上述能力和故障注入证据必须新增。
 
 ## 6. donor 不能直接视为完成的缺口
 
@@ -138,8 +150,8 @@ donor 有 retention root schema 和 GC 对 backup/legal-hold roots 的保护，�
 |---|---|---|
 | update segments | 每次写完整 checkpoint，manifest `tail: []` | 有界 segment、连续 seq、压缩与 epoch 切换；证明大 Board 写放大可接受 |
 | Hosted migration CLI | Nest provider 可选 Hosted；`createConfiguredBoardStorageRuntime()` 仍固定创建 `ConfiguredFsBoardBlobStore` | 迁移、rollout、read/write 和 GC 使用同一个已选 Hosted store/codec；生产配置无本地盘回退 |
-| rollback operator path | rollback 状态会保留 PG body | 有权限、围栏、watermark 验证与 CAS 的可执行回滚命令和演练 |
-| Board backup/restore | retention roots 能阻止 GC；没有 Board 恢复 use case/CLI | 创建联合恢复点、恢复到隔离环境、重建 Y.Doc、CAS 发布和定期演练 |
+| rollback operator path | rollback 状态会保留 PG body；未找到可执行回退命令 | rollback window 每次 ACK 同事务更新 authoritative head 与完整 mirror；回退命令锁定 head epoch/seq/fencing，证明水位覆盖和 Yjs 等价后才 CAS；无法证明时保持围栏 |
+| Board backup/restore | retention roots 能阻止 GC；没有 Board pin/恢复 use case/CLI | backup 与 GC 共锁/fencing，先持久 pin 再扫描复制；处理中及失败待清理 root 受保护；恢复到隔离环境、重建 Y.Doc、CAS 发布和定期演练 |
 | 损坏副本恢复 | `getVerified()` 检测错误并失败 | 按策略读取 verified secondary/version、恢复告警、无可用副本时拒绝空板 |
 | BV26 契约与门控 | donor 的旧 ADR 记录决定，但未在 Phase 19 存储束签核 | 新契约束经人类签核；`design_ref` 由权威流程填写；一致性复核通过 |
 | Phase 19 指名测试 | PR #4213 exact SHA 上四个测试文件均不存在 | BV26 verification 中的 atomicity、retention-GC、backup-restore、PG-growth 命令真实通过并留证据 |
@@ -161,9 +173,11 @@ Hosted adapter 的单对象读取上限和 whiteboard document 限额也需与 P
 | 幂等重试 | 丢弃成功响应，以相同 request/update ID 重试 | 返回同一 accepted seq/receipt；不重复发布逻辑对象 | 请求与 receipt 对照、对象计数 |
 | legacy 单板迁移 | 对有真实历史的 PG Board 逐 phase 迁移 | 双向 state-vector diff 为空；对象/连接计数一致；切换只发生在 verified watermark | migration journal、digest、Yjs diff、切换前后截图 |
 | rollout 暂停与恢复 | 多 Board 批次中注入单板失败，pause/resume | 失败隔离；租约/fencing 有效；resume 不重复成功 Board；报告可审计 | rollout rows、命令输出、状态分布 |
-| rollback window | cutover 后注入 blob outage 并执行回滚 | 先围栏；PG mirror 水位校验；CAS 后协作恢复且不丢 ACK 内容 | operator command、watermark、两客户端回读 |
+| rollback window 多次 ACK | cutover 后让两个客户端产生多次已确认写，再注入 blob outage 并执行回滚 | 每个 ACK 前 authoritative head/receipt/mirror 已在同一 PG 事务提交；围栏后锁定的 head epoch/seq 与 mirror 水位一致且 Yjs 双向等价；CAS 后所有已 ACK 内容仍可见 | 每次 ACK/seq、事务 trace、head/mirror state-vector diff、两客户端回读 |
+| rollback mirror 落后 | 人为让 mirror 缺少最后一个已 ACK seq，或令 outage 阻止读取 authoritative manifest | 回滚拒绝，Board 保持围栏且新写不 ACK；不会切到旧 watermark；补齐并重新验证前状态不变 | 稳定拒绝码、fencing/head 未变、客户端无假成功 |
 | retirement | rollback window 未过、恢复演练未过、credential 错误分别尝试清理 | 三种情况都拒绝；全部满足后才有界清空 legacy body | 拒绝码、credential receipt、批次计数 |
 | GC 可达性 | 构造 current、parent、migration、backup、hold 与 orphan blobs | 所有 roots 保留；仅超过安全窗且二次确认仍不可达的 orphan 删除 | mark/sweep 清单、前后对象列表、PG roots |
+| backup pin 与 sweep 并发 | 分别控制“backup 先持锁提交 preparing pin”和“sweep 先持锁进入 mark/recheck”两种交错；再注入复制失败 | backup pin 先提交时 sweep 不删除其可达对象；sweep 先持锁时 backup 等待且不产生虚假恢复点；`failed_pending_cleanup` 继续保护对象，显式释放并经过安全窗后才可删 | 锁/fencing trace、retention root 状态、候选与对象前后列表 |
 | GC fail closed | PG 不可用、manifest 损坏、分页中断或 tenant 不确定 | 本轮不删除并发出诊断 | job 结果、对象列表保持、告警 |
 | 联合备份恢复 | 从指定 PG restore point 和对象存储版本恢复隔离租户 | manifest 可解密；Y.Doc、epoch/seq、ACL、对象计数一致；恢复 Board 可继续协作 | restore run ID、digest 报告、DB/blob 水位、两客户端验证 |
 | 元数据-only 增长 | 记录基线后执行长时间/大量 Yjs 更新 | PG 不随 snapshot/update 正文线性增长；增长仅来自已定义 metadata/receipts | 表/TOAST/WAL 前后数据、blob bytes、操作计数 |
@@ -188,7 +202,7 @@ pnpm --filter api exec vitest run tests/whiteboard/pgsql-metadata-only-growth.te
 2. 最终 exact SHA 包含复用后的端口、正式 runtime adapters、PG metadata schema 和 blob-first collaboration 接入。
 3. filesystem 与 Hosted 两种拓扑分别通过契约和运行时验收；Hosted 迁移/GC 不落到节点本地盘。
 4. 现有 PG Boards 在线迁移、回滚和 retirement 均有可执行命令、稳定状态和故障演练。
-5. backup/legal hold roots 有实际创建方，联合恢复从真实恢复点重建 Y.Doc 并重新协作。
+5. backup/legal hold roots 有实际创建方；backup pin 与 GC 共用锁/fencing，处理中和失败待清理 root 不被 sweep；联合恢复从真实恢复点重建 Y.Doc 并重新协作。
 6. BV26 的全部 verification 在最终 SHA 上退出码为 0，证据写回权威 feature；合入 main 与 CI 仍按仓库完成定义核验。
 
-当前缺失证据明确如下：本次没有运行 donor 测试、真实 PG、filesystem、OSS/S3、迁移、GC、浏览器或双客户端；没有读取 GitHub 当前 PR checks；没有发现 BV26 存储契约束、人类签核、四个指名测试文件、Board 专属备份恢复执行链、verified secondary copy 恢复告警或 blob-primary 回退 PG 的 operator command。因此本文是接入与验收计划，不是通过声明。
+当前缺失证据明确如下：本次没有运行 donor 测试、真实 PG、filesystem、OSS/S3、迁移、GC、浏览器或双客户端；没有读取 GitHub 当前 PR checks；没有发现 BV26 存储契约束、人类签核、四个指名测试文件、rollback window 中多次 ACK 与 PG mirror 完整覆盖的故障演练、Board 专属 backup pin/恢复执行链、pin 与 sweep 并发测试、verified secondary copy 恢复告警或 blob-primary 回退 PG 的 operator command。因此本文是接入与验收计划，不是通过声明。
