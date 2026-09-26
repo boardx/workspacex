@@ -61,7 +61,7 @@ describe("survey Markdown source compiler", () => {
       questions: [{
         id: "Q1", order: 1, chapterId: "decision", title: "请选择", type: "single", required: true,
         options: ["是", "否"],
-        config: { optionIds: ["yes", "no"], other: true, visibleWhen: [{ questionId: "Q0", operator: "equals", value: "启用" }] },
+        config: { optionIds: ["yes", "no"], other: true },
         provenance: { source: "question-library", sourceId: "library-q1", certifiedAt: "2026-09-26T00:00:00.000Z" },
       }],
       template: { id: "rt-1", title: "报告", sections: [] },

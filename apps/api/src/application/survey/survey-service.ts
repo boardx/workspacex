@@ -179,9 +179,10 @@ export class SurveyService {
     input: SurveyDraftInput,
     anonymity: SurveyAnonymity = "anonymous",
   ) {
+    const questions = preserveTrustedCertification(input.questions);
     const model: SurveyRuntime = {
       ...input,
-      questions: preserveTrustedCertification(input.questions),
+      questions,
       id: randomUUID(),
       version: 1,
       status: "draft",
@@ -194,7 +195,7 @@ export class SurveyService {
       reportBasisVersion: null,
       reportBasisAnswerRevision: null,
       reportGeneratedAt: null,
-      source: this.sourceFromDraft(input, this.now().toISOString(), 1),
+      source: this.sourceFromDraft({ ...input, questions }, this.now().toISOString(), 1),
     };
     await this.repo.create(orgId, { ownerId: actor, model, receipts: {} });
     return model;
@@ -294,6 +295,8 @@ export class SurveyService {
       model.title = design.draft.title;
       model.questions = preserveTrustedCertification(design.draft.questions, model.questions);
       model.template = reportTemplate.template;
+      if (model.status === "ready")
+        model.status = transitionSurveyStatus(model.status, "withdraw");
     });
   }
   prepare(

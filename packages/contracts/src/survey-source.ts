@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { SurveyQuestionTypeSchema, SurveyWorkflowQuestionSchema } from "./survey-question-types";
+import { SurveyQuestionTypeSchema, SurveyWorkflowQuestionSchema, validateSurveyQuestionLogic } from "./survey-question-types";
 import { SurveyReportTemplateSchema, type SurveyReportTemplate } from "./survey-report";
 import type { SurveyDraftInput } from "./survey-runtime";
 
@@ -108,6 +108,10 @@ export function parseSurveyDesignMarkdown(markdown: string): SurveySourceParseRe
       diagnostics.push({ code: "QUESTION_TYPE_UNSUPPORTED", message: `不支持的题型：${type}`, line: i + 1, column: 1 });
       continue;
     }
+    if (attributes.slice(1).some((attribute) => attribute !== "required")) {
+      diagnostics.push(diagnostic("QUESTION_SYNTAX", "题目属性只支持 required", i + 1));
+      continue;
+    }
     if (ids.has(id)) {
       diagnostics.push({ code: "QUESTION_ID_DUPLICATE", message: `题目编号重复：${id}`, line: i + 1, column: 1 });
       continue;
@@ -145,6 +149,10 @@ export function parseSurveyDesignMarkdown(markdown: string): SurveySourceParseRe
       diagnostics.push({ code: "QUESTION_SYNTAX", message: "显示逻辑引用了不存在的题目", line: i + 1, column: 1 });
     }
   }
+  questions.forEach((question, index) => {
+    for (const error of validateSurveyQuestionLogic(question, index, questions))
+      diagnostics.push(diagnostic("QUESTION_SYNTAX", error, sourceRanges[question.id]!.line));
+  });
   const draft: SurveyCompiledDraft = { title, questions, template: { id: "report-template", title: `${title}分析报告`, sections: [] } };
   const compiled = SurveyCompiledDraftSchema.safeParse(draft);
   if (!compiled.success) {
@@ -186,6 +194,9 @@ export function parseSurveyReportTemplateMarkdown(markdown: string): SurveyRepor
   if (fenced.diagnostic) return { ok: false, diagnostics: [{ ...fenced.diagnostic, code: "REPORT_TEMPLATE_INVALID" }] };
   const parsed = SurveyReportTemplateSchema.safeParse(fenced.value);
   if (!parsed.success) return { ok: false, diagnostics: [diagnostic("REPORT_TEMPLATE_INVALID", "报告模板元数据不符合运行时约束", titleLine + 1)] };
+  const headingTitle = lines[titleLine]!.replace(/^#\s+/, "").trim();
+  if (parsed.data.title !== headingTitle)
+    return { ok: false, diagnostics: [diagnostic("REPORT_TEMPLATE_INVALID", "报告标题必须与一级标题一致", titleLine + 1)] };
   return { ok: true, template: parsed.data };
 }
 
