@@ -71,6 +71,8 @@
 
 后续将已审 UI 和上述缺口转换为 feature 四元组时，必须经 `loadFeatureList`/`saveFeatureList`；本稿不新造 BV 编号或静默改 dependencies。已有十轮目标全量保留，以下是优先级提案而非已生效 sprint 排期。
 
+Latest consolidated execution plan: [full Mermaid plan](./2026-09-26-mermaid-execution-plan.md). The graph below remains the original design-priority proposal.
+
 ## 7. Mermaid 优先级与并行 backlog
 
 图例：橙色＝本次待确认设计；灰色＝后续交付边界。没有绿色节点，避免以静态设计稿宣称当前实现/CI 状态。
