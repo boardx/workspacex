@@ -1,5 +1,4 @@
 import * as React from "react";
-import { Archive, BookOpen, FolderKanban, Sparkles, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { GUIDED_RESEARCH_SIX_STEPS, type GuidedResearchVisualStage } from "@/lib/guided-research-six-step";
@@ -20,17 +19,7 @@ export function GuidedResearchSixStepShell({
   const currentIndex = GUIDED_RESEARCH_SIX_STEPS.findIndex((item) => item.id === current);
   return (
     <div className="min-w-0 bg-background" data-testid="guided-research-six-step-shell" data-layout="deep-research-desktop">
-      <div className={cn("grid min-w-0 gap-4", assistant ? "xl:grid-cols-[11rem_minmax(0,1fr)_16rem]" : "xl:grid-cols-[11rem_minmax(0,1fr)]")}>
-        <aside className="hidden min-w-0 border-r border-border bg-card p-3 xl:block" aria-label="研究导航">
-          <div className="mb-5 flex items-center gap-2 px-2 text-12 font-semibold text-background-foreground"><Sparkles className="h-4 w-4 text-primary" aria-hidden />Deep Research</div>
-          <nav className="space-y-1 text-12 text-muted-foreground">
-            <p className="flex items-center gap-2 rounded-md bg-accent px-2 py-2 text-accent-foreground"><FolderKanban className="h-4 w-4" aria-hidden />研究项目</p>
-            <p className="flex items-center gap-2 px-2 py-2"><BookOpen className="h-4 w-4" aria-hidden />知识库</p>
-            <p className="flex items-center gap-2 px-2 py-2"><Sparkles className="h-4 w-4" aria-hidden />我的收藏</p>
-            <p className="flex items-center gap-2 px-2 py-2"><Trash2 className="h-4 w-4" aria-hidden />回收站</p>
-          </nav>
-          <p className="mt-auto flex items-center gap-2 px-2 pt-12 text-11 text-muted-foreground"><Archive className="h-4 w-4" aria-hidden />研究档案</p>
-        </aside>
+      <div className={cn("grid min-w-0 gap-4", assistant ? "xl:grid-cols-[minmax(0,1fr)_16rem]" : "xl:grid-cols-1")}>
         <div className="min-w-0 space-y-5 px-4 py-5 sm:px-6">
           <ol className="grid grid-cols-2 gap-2 sm:grid-cols-3 xl:grid-cols-6" aria-label="研究步骤">
             {GUIDED_RESEARCH_SIX_STEPS.map((step, index) => {
