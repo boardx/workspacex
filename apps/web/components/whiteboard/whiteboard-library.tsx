@@ -16,6 +16,7 @@ import { RESERVED_STATE_TESTID } from '@/lib/ui-state';
 type Failure = { kind: 'denied' | 'dep-failed' | 'invalid'; message: string };
 type BoardDialog = { action: Exclude<BoardCardAction, 'tags' | 'archive' | 'restore'>; board: api.Board } | null;
 type PendingTagRequest<T> = { key: string; requestId: string; payload: T };
+type PendingDuplicate = { requestId: string; targetName: string };
 const EDITOR_PATH = (id: string) => `/studio/board/${encodeURIComponent(id)}`;
 function failure(error: unknown): Failure {
   if (error instanceof ApiError && [401, 403, 404].includes(error.status)) return { kind: 'denied', message: '无法访问这块白板。请确认当前账号、组织与授权后刷新。' };
@@ -39,7 +40,8 @@ export function WhiteboardLibrary() {
   const [pendingCreate, setPendingCreate] = useState<api.CreateBoardInput | null>(null), pendingCreateRef = useRef<api.CreateBoardInput | null>(null);
   const [pendingTagCreate, setPendingTagCreate] = useState<PendingTagRequest<{ name: string }> | null>(null), pendingTagCreateRef = useRef<PendingTagRequest<{ name: string }> | null>(null);
   const pendingTagRenames = useRef(new Map<string, PendingTagRequest<{ name: string; expectedRevision: number }>>()), pendingTagDeletes = useRef(new Map<string, PendingTagRequest<{ expectedRevision: number }>>());
-  const [, renderPendingTags] = useState(0), pendingMutation = useRef<{ key: string; requestId: string } | null>(null);
+  const [, renderPendingTags] = useState(0), [, renderPendingDuplicates] = useState(0), pendingMutation = useRef<{ key: string; requestId: string } | null>(null);
+  const pendingDuplicates = useRef(new Map<string, PendingDuplicate>());
   const returnFocus = useRef<HTMLElement | null>(null), createInput = useRef<HTMLInputElement>(null);
   const boardSequence = useRef(0), tagSequence = useRef(0);
   const querySignature = `${debouncedQuery}\u0000${selectedTags.join(',')}\u0000${archiveFilter}`;
@@ -49,7 +51,7 @@ export function WhiteboardLibrary() {
   useEffect(() => {
     const sequence = ++boardSequence.current, controller = new AbortController();
     const snapshot = { signature: querySignature, query: debouncedQuery, tagIds: [...selectedTags], archived: archiveFilter };
-    setLoadingBoards(true); setListError(null);
+    setLoadingBoards(true); setListError(null); setNextCursor(null);
     void api.listBoards({ query: snapshot.query || undefined, tagIds: snapshot.tagIds, archived: snapshot.archived, limit: 30 }, controller.signal).then(result => {
       if (sequence !== boardSequence.current) return;
       listSnapshot.current = snapshot; setItems(result.items); setNextCursor(result.nextCursor); setLoaded(true);
@@ -101,18 +103,20 @@ export function WhiteboardLibrary() {
     if (action === 'archive' || action === 'restore') return immediate(board, action, trigger);
     returnFocus.current = trigger;
     if (action === 'tags') setTagBoard(board);
-    else { setDialog({ action, board }); setDialogName(action === 'duplicate' ? `${board.name} 副本` : board.name); }
+    else { setDialog({ action, board }); setDialogName(action === 'duplicate' ? pendingDuplicates.current.get(board.id)?.targetName ?? `${board.name} 副本` : board.name); }
   };
   const mutateBoard = () => {
     if (!dialog) return;
     const { action, board } = dialog;
-    if (action !== 'delete' && !C.Board.shape.name.safeParse(dialogName).success) return setError({ kind: 'invalid', message: '请输入 1–200 字的白板名称。' });
+    const duplicateExisting = action === 'duplicate' ? pendingDuplicates.current.get(board.id) : undefined;
+    if (action !== 'delete' && !C.Board.shape.name.safeParse(duplicateExisting?.targetName ?? dialogName).success) return setError({ kind: 'invalid', message: '请输入 1–200 字的白板名称。' });
     void run(async () => {
       if (action === 'rename') updateLocal(await api.updateBoard(board.id, { name: dialogName.trim() }));
       if (action === 'duplicate') {
-        const key = `duplicate:${board.id}:${dialogName.trim()}`;
-        if (pendingMutation.current?.key !== key) pendingMutation.current = { key, requestId: crypto.randomUUID() };
-        await api.duplicateBoard(board.id, { requestId: pendingMutation.current.requestId, targetName: dialogName.trim() }); pendingMutation.current = null;
+        const existing = pendingDuplicates.current.get(board.id), pending = existing ?? { requestId: crypto.randomUUID(), targetName: dialogName.trim() };
+        if (!existing) { pendingDuplicates.current.set(board.id, pending); renderPendingDuplicates(value => value + 1); }
+        try { await api.duplicateBoard(board.id, pending); pendingDuplicates.current.delete(board.id); renderPendingDuplicates(value => value + 1); }
+        catch (cause) { if (isDefiniteRejection(cause)) { pendingDuplicates.current.delete(board.id); renderPendingDuplicates(value => value + 1); } throw cause; }
       }
       if (action === 'delete') {
         const key = `delete:${board.id}`;
@@ -149,6 +153,7 @@ export function WhiteboardLibrary() {
     void run(async () => { try { await api.deleteBoardTag(tag.id, { requestId: pending.requestId, ...pending.payload }); pendingTagDeletes.current.delete(tag.id); renderPendingTags(value => value + 1); setTags(value => value.filter(item => item.id !== tag.id)); setSelectedTags(value => value.filter(id => id !== tag.id)); setDeletingTagId(null); setNotice('标签已删除并从白板解绑。'); }
       catch (cause) { if (isDefiniteRejection(cause)) { pendingTagDeletes.current.delete(tag.id); setDeletingTagId(null); renderPendingTags(value => value + 1); } throw cause; } });
   };
+  const dialogDuplicate = dialog?.action === 'duplicate' ? pendingDuplicates.current.get(dialog.board.id) : undefined;
 
   return <main data-testid="whiteboard-library" className="min-h-full bg-background px-4 py-8 md:px-8 lg:px-12">
     <div className="mx-auto w-full max-w-7xl space-y-7">
@@ -163,13 +168,13 @@ export function WhiteboardLibrary() {
       {(loadingBoards || busy) && <p data-testid={RESERVED_STATE_TESTID.loading} role="status" className="py-4 text-center text-14 text-muted-foreground">正在同步白板…</p>}
       {loaded && !loadingBoards && !listError && items.length === 0 && <section data-testid={RESERVED_STATE_TESTID.empty} className="rounded-container border border-dashed border-border py-20 text-center"><h2 className="text-20 font-semibold">{archiveFilter === 'archived' ? '没有已归档的白板' : '从第一块白板开始'}</h2><p className="mt-2 text-14 text-muted-foreground">{query || selectedTags.length ? '调整搜索或标签筛选以查看其他结果。' : '新建后会直接进入全屏编辑器。'}</p></section>}
       {items.length > 0 && <div aria-busy={loadingBoards} className={view === 'grid' ? 'grid gap-4 sm:grid-cols-2 xl:grid-cols-3' : 'grid gap-3'}>{items.map(board => <article key={board.id} data-testid={`board-card-${board.id}`} className="group relative min-w-0 rounded-container border border-border bg-card p-4 shadow-sm transition-all duration-base hover:-translate-y-0.5 hover:border-ring hover:shadow-md focus-within:border-ring">
-        <div className="flex items-start gap-3"><Link href={EDITOR_PATH(board.id)} data-testid={`board-open-${board.id}`} className="min-w-0 flex-1 rounded-control focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"><div className="mb-8 aspect-[16/8] rounded-control bg-gradient-to-br from-muted via-background to-accent p-4"><div className="grid h-full grid-cols-3 gap-2 opacity-70"><span className="rounded bg-warning-tint"/><span className="rounded bg-info-tint"/><span className="rounded bg-success-tint"/></div></div><h2 className="truncate text-16 font-semibold">{board.name}</h2><p className="mt-1 text-12 text-muted-foreground">{board.archived ? '已归档' : '使用中'} · {board.role === 'owner' ? '所有者' : board.role === 'editor' ? '编辑者' : '查看者'}</p></Link><BoardCardMenu board={board} disabled={busy} onAction={(action, trigger) => openAction(board, action, trigger)} /></div>
+        <div className="flex items-start gap-3"><Link href={EDITOR_PATH(board.id)} data-testid={`board-open-${board.id}`} className="min-w-0 flex-1 rounded-control focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"><div data-testid={`board-thumbnail-empty-${board.id}`} className="mb-8 flex aspect-[16/8] items-center justify-center rounded-control border border-dashed border-border bg-muted text-12 text-muted-foreground">暂无缩略图</div><h2 className="truncate text-16 font-semibold">{board.name}</h2><p className="mt-1 text-12 text-muted-foreground">{board.archived ? '已归档' : '使用中'} · {board.role === 'owner' ? '所有者' : board.role === 'editor' ? '编辑者' : '查看者'}</p></Link><BoardCardMenu board={board} disabled={busy} onAction={(action, trigger) => openAction(board, action, trigger)} /></div>
         {board.tagIds.length > 0 && <div className="mt-3 flex flex-wrap gap-1">{board.tagIds.map(id => <span key={id} className="rounded-full bg-muted px-2 py-1 text-11 text-muted-foreground">{tags.find(tag => tag.id === id)?.name ?? '未知标签'}</span>)}</div>}
       </article>)}</div>}
-      {!busy && !loadingBoards && nextCursor && <div className="flex justify-center"><Button variant="outline" data-testid="board-load-more" onClick={loadMore}>加载更多</Button></div>}
+      {!busy && !loadingBoards && !listError && nextCursor && <div className="flex justify-center"><Button variant="outline" data-testid="board-load-more" onClick={loadMore}>加载更多</Button></div>}
     </div>
     {tagBoard && <BoardTagManager board={tagBoard} tags={tags} busy={busy} onClose={closeDialog} onSave={tagIds => saveTags(tagBoard, tagIds)} />}
-    {dialog && <Dialog open onOpenChange={open => { if (!open && !busy) closeDialog(); }}><DialogContent data-testid={`board-${dialog.action}-dialog`}><DialogHeader><DialogTitle>{dialog.action === 'rename' ? '重命名白板' : dialog.action === 'duplicate' ? '创建白板副本' : '永久删除白板'}</DialogTitle><DialogDescription>{dialog.action === 'delete' ? '此操作无法撤销。画布内容、协作记录与关联数据将永久删除。' : dialog.action === 'duplicate' ? '副本拥有独立内容，之后的修改不会影响原白板。' : '新名称会对有权限的协作者显示。'}</DialogDescription></DialogHeader>{dialog.action !== 'delete' && <Input autoFocus data-testid="board-dialog-name" value={dialogName} maxLength={200} disabled={busy} onChange={event => setDialogName(event.target.value)} />}<DialogFooter><Button variant="outline" disabled={busy} onClick={closeDialog}>取消</Button><Button data-testid="board-dialog-confirm" variant={dialog.action === 'delete' ? 'destructive' : 'primary'} disabled={busy} onClick={mutateBoard}>{dialog.action === 'delete' ? '永久删除' : dialog.action === 'duplicate' ? '创建副本' : '保存'}</Button></DialogFooter></DialogContent></Dialog>}
+    {dialog && <Dialog open onOpenChange={open => { if (!open && !busy) closeDialog(); }}><DialogContent data-testid={`board-${dialog.action}-dialog`}><DialogHeader><DialogTitle>{dialog.action === 'rename' ? '重命名白板' : dialog.action === 'duplicate' ? '创建白板副本' : '永久删除白板'}</DialogTitle><DialogDescription>{dialog.action === 'delete' ? '此操作无法撤销。画布内容、协作记录与关联数据将永久删除。' : dialog.action === 'duplicate' ? '副本拥有独立内容，之后的修改不会影响原白板。' : '新名称会对有权限的协作者显示。'}</DialogDescription></DialogHeader>{dialog.action !== 'delete' && <Input autoFocus data-testid="board-dialog-name" value={dialogDuplicate?.targetName ?? dialogName} maxLength={200} disabled={busy || !!dialogDuplicate} onChange={event => setDialogName(event.target.value)} />}<DialogFooter><Button variant="outline" disabled={busy} onClick={closeDialog}>取消</Button><Button data-testid="board-dialog-confirm" variant={dialog.action === 'delete' ? 'destructive' : 'primary'} disabled={busy} onClick={mutateBoard}>{dialog.action === 'delete' ? '永久删除' : dialogDuplicate ? `重试创建“${dialogDuplicate.targetName}”` : dialog.action === 'duplicate' ? '创建副本' : '保存'}</Button></DialogFooter></DialogContent></Dialog>}
     {showTagCatalog && <Dialog open onOpenChange={open => { if (!open && !busy) closeDialog(); }}><DialogContent data-testid="board-tag-catalog-dialog"><DialogHeader><DialogTitle>组织标签</DialogTitle><DialogDescription>创建稳定标签，用于跨白板管理与筛选。删除会从所有白板解绑。</DialogDescription></DialogHeader><form className="flex gap-2" onSubmit={createTag}><Input data-testid="board-tag-name" value={pendingTagCreate?.payload.name ?? tagName} maxLength={40} disabled={busy || !!pendingTagCreate} onChange={event => setTagName(event.target.value)} placeholder="标签名称"/><Button type="submit" data-testid="board-tag-create" disabled={busy}>{pendingTagCreate ? `重试创建“${pendingTagCreate.payload.name}”` : '创建'}</Button></form><ul className="max-h-64 space-y-2 overflow-auto">{tags.map(tag => { const renamePending = pendingTagRenames.current.get(tag.id), deletePending = pendingTagDeletes.current.get(tag.id); return <li key={tag.id} className="flex min-h-11 flex-wrap items-center gap-2 rounded-control border border-border p-2"><Input aria-label={`${tag.name} 标签名称`} value={renamePending?.payload.name ?? tagEdits[tag.id] ?? tag.name} maxLength={40} disabled={busy || !!renamePending || !!deletePending} onChange={event => setTagEdits(value => ({ ...value, [tag.id]: event.target.value }))}/><Button size="sm" variant="outline" disabled={busy || !!deletePending || (!renamePending && (tagEdits[tag.id] ?? tag.name).trim() === tag.name)} onClick={() => saveTagName(tag)}>{renamePending ? `重试“${renamePending.payload.name}”` : '重命名'}</Button><Button size="sm" variant={deletingTagId === tag.id ? 'destructive' : 'ghost'} disabled={busy || !!renamePending} onClick={() => removeTag(tag)}>{deletePending ? '重试删除' : deletingTagId === tag.id ? '确认删除' : '删除'}</Button></li>; })}</ul><DialogFooter><Button onClick={closeDialog}>完成</Button></DialogFooter></DialogContent></Dialog>}
   </main>;
 }

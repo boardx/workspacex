@@ -65,6 +65,7 @@ describe('Board library', () => {
   it('opens editor from the card while the three-dot menu stays action-only', async () => {
     vi.mocked(api.listBoards).mockResolvedValue(result([board])); render(<WhiteboardLibrary />);
     expect(await screen.findByTestId(`board-open-${board.id}`)).toHaveAttribute('href', `/studio/board/${board.id}`);
+    expect(screen.getByTestId(`board-thumbnail-empty-${board.id}`)).toHaveTextContent('暂无缩略图'); expect(screen.getByTestId(`board-thumbnail-empty-${board.id}`)).not.toHaveClass('bg-gradient-to-br');
     await openMenu(); fireEvent.click(await screen.findByTestId(`board-action-rename-${board.id}`)); expect(await screen.findByTestId('board-rename-dialog')).toBeInTheDocument(); expect(push).not.toHaveBeenCalled();
   });
   it('updates board tags with the current CAS revision', async () => {
@@ -88,16 +89,25 @@ describe('Board library', () => {
     await screen.findByTestId('dep-failed'); fireEvent.click(screen.getByRole('button', { name: '重试删除' }));
     await waitFor(() => expect(api.deleteBoardTag).toHaveBeenCalledTimes(2)); expect(vi.mocked(api.deleteBoardTag).mock.calls[0]![1]).toEqual(vi.mocked(api.deleteBoardTag).mock.calls[1]![1]);
   });
-  it('duplicates with a durable retry id', async () => {
+  it('freezes and reuses the exact duplicate request after an uncertain response', async () => {
     vi.mocked(api.listBoards).mockResolvedValue(result([board]));
     vi.mocked(api.duplicateBoard).mockRejectedValueOnce(new Error('lost')).mockResolvedValueOnce({ board: { ...board, id: '18b458a2-1065-44d2-ae74-02fdab5afbd2' }, receipt: { requestId: '4a2f9d8f-9f18-41b2-921a-a64905c757ca', sourceBoardId: board.id, sourceEpoch: 1, sourceSeq: 3, objectCount: 2, connectorCount: 1, assetCount: 0 } });
-    render(<WhiteboardLibrary />); await openMenu(); fireEvent.click(await screen.findByTestId(`board-action-duplicate-${board.id}`)); fireEvent.click(await screen.findByTestId('board-dialog-confirm')); await screen.findByTestId('dep-failed'); fireEvent.click(screen.getByTestId('board-dialog-confirm'));
-    await waitFor(() => expect(api.duplicateBoard).toHaveBeenCalledTimes(2)); expect(vi.mocked(api.duplicateBoard).mock.calls[0]![1].requestId).toBe(vi.mocked(api.duplicateBoard).mock.calls[1]![1].requestId);
+    render(<WhiteboardLibrary />); await openMenu(); fireEvent.click(await screen.findByTestId(`board-action-duplicate-${board.id}`));
+    fireEvent.change(screen.getByTestId('board-dialog-name'), { target: { value: '冻结的副本名' } }); fireEvent.click(screen.getByTestId('board-dialog-confirm')); await screen.findByTestId('dep-failed');
+    const frozen = screen.getByTestId('board-dialog-name'); expect(frozen).toBeDisabled(); expect(frozen).toHaveValue('冻结的副本名'); fireEvent.change(frozen, { target: { value: '丢失响应后篡改' } }); expect(frozen).toHaveValue('冻结的副本名');
+    expect(screen.getByTestId('board-dialog-confirm')).toHaveTextContent('重试创建“冻结的副本名”'); fireEvent.click(screen.getByTestId('board-dialog-confirm'));
+    await waitFor(() => expect(api.duplicateBoard).toHaveBeenCalledTimes(2)); expect(vi.mocked(api.duplicateBoard).mock.calls[0]![1]).toEqual(vi.mocked(api.duplicateBoard).mock.calls[1]![1]);
   });
   it('deletes only archived boards with explicit confirmation', async () => {
     const archived = { ...board, archived: true }; vi.mocked(api.listBoards).mockResolvedValue(result([archived])); vi.mocked(api.deleteBoard).mockResolvedValue({ requestId: '4a2f9d8f-9f18-41b2-921a-a64905c757ca', boardId: board.id, deleted: true });
     render(<WhiteboardLibrary />); fireEvent.click(await screen.findByTestId('board-filter-archived')); await openMenu(archived); fireEvent.click(await screen.findByTestId(`board-action-delete-${board.id}`)); fireEvent.click(await screen.findByTestId('board-dialog-confirm'));
     await waitFor(() => expect(api.deleteBoard).toHaveBeenCalledWith(board.id, expect.objectContaining({ confirmation: 'PERMANENTLY_DELETE' })));
+  });
+  it('removes the prior cursor for a new filter and keeps load-more unavailable on failure', async () => {
+    vi.mocked(api.listBoards).mockResolvedValueOnce({ items: [board], nextCursor: 'old-cursor' }).mockRejectedValueOnce(new Error('filter failed'));
+    render(<WhiteboardLibrary />); await screen.findByTestId('board-load-more'); fireEvent.change(screen.getByTestId('board-search'), { target: { value: 'new filter' } });
+    await waitFor(() => expect(api.listBoards).toHaveBeenCalledTimes(2), { timeout: 1200 }); expect(screen.queryByTestId('board-load-more')).not.toBeInTheDocument();
+    await screen.findByTestId('board-list-error'); expect(screen.queryByTestId('board-load-more')).not.toBeInTheDocument();
   });
   it('hides mutating actions from viewers and redacts dependency detail', async () => {
     const viewer = { ...board, role: 'viewer' as const }; vi.mocked(api.listBoards).mockResolvedValueOnce(result([viewer])); render(<WhiteboardLibrary />); await openMenu(viewer);
