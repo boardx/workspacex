@@ -293,6 +293,8 @@ CF_ACCESS_CLIENT_ID=… CF_ACCESS_CLIENT_SECRET=… \
 
 **为什么要做**：`compose.yaml` + `scripts/upgrade.sh` 只跑过 dry-run 与 lint，backlog E7 标着「完整升级待真机验证」。
 
+**自动化部分**（#4263）：依赖栈 + 备份 + 迁移 + 数据保留这一段已由 CI `self-host-upgrade-drill.yml` 在相关 PR 上演练（本机：`scripts/self-host-upgrade-drill.sh --old-ref <旧版本>`）；它不起宿主 API（`upgrade.sh --skip-api`），所以下面的 systemd/healthz/回滚部分仍需人工。
+
 **前置条件**：一台装有 Docker（含 compose v2）、Node（版本见 `.nvmrc`）、pnpm 的 Linux 机；
 本仓完整 clone；API 以 systemd 单元 `workspacex-api` 运行（或演练时用 `--api-service` 指定）；两个可比较的版本 `<旧版本>`、`<新版本>`（tag 或 commit）。
 

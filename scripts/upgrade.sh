@@ -3,6 +3,7 @@
 #
 #   scripts/upgrade.sh [--env-file selfhost.env] [--ref origin/main] [--backup-dir DIR]
 #                      [--skip-backup] [--api-service workspacex-api] [--dry-run]
+#                      [--skip-api]   # 只升级依赖栈+迁移，跳过 ⑥⑦（CI 升级演练用，无宿主 API）
 #
 # 步骤：①记录当前版本 → ②升级前备份（复用 @repo/cloud-deploy 的 starter-backup-cli）
 #       → ③切到新版本并装依赖 → ④拉/构建镜像并重启依赖栈（根 compose.yaml）
@@ -18,6 +19,7 @@ BACKUP_DIR=""
 SKIP_BACKUP=0
 API_SERVICE="workspacex-api"
 DRY=0
+SKIP_API=0
 PROJECT="workspacex"   # 与 compose.yaml 的 name: 以及生产 deploy.sh 的 -p 一致
 
 while [ $# -gt 0 ]; do
@@ -28,7 +30,8 @@ while [ $# -gt 0 ]; do
     --skip-backup) SKIP_BACKUP=1; shift ;;
     --api-service) API_SERVICE="$2"; shift 2 ;;
     --dry-run) DRY=1; shift ;;
-    -h|--help) sed -n '2,11p' "$0"; exit 0 ;;
+    --skip-api) SKIP_API=1; shift ;;
+    -h|--help) sed -n '2,12p' "$0"; exit 0 ;;
     *) echo "未知参数：$1" >&2; exit 2 ;;
   esac
 done
@@ -111,7 +114,9 @@ if [ -n "${APP_DB_PASSWORD:-}" ]; then
 fi
 
 step "⑥ 重启 API"
-if command -v systemctl >/dev/null 2>&1 && systemctl cat "$API_SERVICE.service" >/dev/null 2>&1; then
+if [ "$SKIP_API" = 1 ]; then
+  echo "  ⚠ --skip-api：不重启 API，也不做 ⑦ 的 /healthz 检查（依赖栈健康由 ④ up --wait 保证）"
+elif command -v systemctl >/dev/null 2>&1 && systemctl cat "$API_SERVICE.service" >/dev/null 2>&1; then
   run sudo systemctl restart "$API_SERVICE"
 else
   echo "  ⚠ 没找到 systemd 单元 $API_SERVICE —— 请按你的方式手动重启 API（--api-service 可指定单元名）"
@@ -119,7 +124,9 @@ fi
 
 step "⑦ 健康检查"
 HEALTH_URL="http://127.0.0.1:${APP_API_PORT:-3200}/healthz"
-if [ "$DRY" = 1 ]; then
+if [ "$SKIP_API" = 1 ]; then
+  echo "  跳过（--skip-api）"
+elif [ "$DRY" = 1 ]; then
   echo "+ curl $HEALTH_URL（dry-run 不执行）"
 else
   ok=0
