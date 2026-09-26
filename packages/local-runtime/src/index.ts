@@ -30,6 +30,12 @@ export {
 
 export { etaSeconds, humanBytes as humanImportBytes, humanEta, digestFromBlobPath, copyBlobVerified, sha256File, type ImportProgress } from "./model-import";
 export { planImport, importModels, type ImportPlan } from "./model-bundle";
+export {
+  UPDATE_MANIFEST, BUNDLE_VERSION_FILE, compareVersions, inspectUpdate, verifyUpdatePayload,
+  rollbackTargetOf, readBundleVersion, bundleVersionMarker,
+  type UpdateManifest, type UpdateVerdict, type VerifyResult, type AppliedRecord,
+  type BundleVersionMarker,
+} from "./update-package";
 export { diagnoseStartupFailure, type StartupDiagnosis, type StartupRemedy } from "./startup-failure";
 export { stopListenerOnPort } from "./processes";
 export { dataDirAdvice, dataDirAdviceBody, type DataDirAdvice } from "./data-dir-advice";

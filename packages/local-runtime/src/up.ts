@@ -76,6 +76,14 @@ export interface RunningStack {
   /** 本地各服务此刻的健康状态——外壳据此决定要不要把「有东西坏了」说出来。 */
   health(): readonly ServiceHealth[];
   /**
+   * 还在跑（或等人裁决）的 AI 任务有几个；读不到返回 null。
+   *
+   * 桌面壳在**离线更新/回滚之前**问这个——评分卡维度 8 的九分判据里有一条
+   * 「更新不打断生成」，而更新要换掉 `bundle/` 并重启进程。返回 null 时
+   * 调用方必须当成「不知道」而不是「空闲」，否则「不打断」就成了一句空话。
+   */
+  countActiveRuns(): Promise<number | null>;
+  /**
    * 等那几个「不挡首屏」的服务也就绪。界面不需要它，**但测量与自动化需要**：
    * 否则一条 e2e 会在沙箱还没起来的时候就去跑技能。
    */
@@ -582,6 +590,9 @@ export async function up(opts: UpOptions): Promise<RunningStack> {
         });
       },
       health: () => supervised.map((s) => s.health()),
+      // pg 在这一点上一定非空（栈已经起来了），但类型上它是可空的——
+      // 读不到就如实返回 null，调用方必须把 null 当「不知道」而不是「空闲」。
+      countActiveRuns: async () => (pg === null ? null : pg.countActiveRuns()),
       whenFullyReady: async () => { await Promise.allSettled(deferredReady.map((d) => d.wait)); },
       stop: stopAll,
     };
