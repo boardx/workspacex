@@ -4,13 +4,14 @@
  *   · RLS：另一租户读不到；
  *   · 上报函数排除 personal-local、只回序号不回 org_id（先证明有行，空集不算绿）。
  *   · benchmark 计数函数：personal-local 的席位不计入、只回一行两个计数。
+ *   · queueDepth 计数函数（#4225）：app_rw 可调用；插一条 pending outbox 行，计数 +1（RLS FORCE 下直读恒 0）。
  */
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import type { DatabasePort, TenantSession } from "../../src/application/ports/database.port";
 import { PgFirstValueFacts } from "../../src/infrastructure/first-value/pg-first-value-facts";
 import { PgTelemetryFacts } from "../../src/infrastructure/telemetry/pg-telemetry-facts";
 import type { OrgId } from "../../src/domain/org-id";
-import { asApp, asOwner, ensureDatabase, migrateOnce, resetOrgs, seedOrg } from "../support/db";
+import { addArtifact, asApp, asOwner, ensureDatabase, migrateOnce, resetOrgs, seedOrg } from "../support/db";
 
 const STD = "org-fv-std";
 const LOCAL = "org-fv-local";
@@ -71,5 +72,38 @@ describe("kernel_benchmark_counts_for_report", () => {
     expect(Number((await seats())[0].seat_count)).toBe(Number(before[0].seat_count));
     await asOwner((c) => c.query("INSERT INTO org_memberships (user_id, org_id, org_role) VALUES ('u-bench-std', $1, 'admin')", [STD]));
     expect(Number((await seats())[0].seat_count)).toBe(Number(before[0].seat_count) + 1);
+  });
+});
+
+describe("kernel_queue_depth_for_report（#4225）", () => {
+  const depth = async () => (await asApp(null, async (c) =>
+    (await c.query("SELECT kernel_queue_depth_for_report() AS n")).rows));
+
+  it("app_rw 可调用、只回一个计数；插一条普通组织的 pending outbox 行 ⇒ 计数 +1，且上报方读到同一个数", async () => {
+    const before = await depth();
+    expect(before).toHaveLength(1);
+    expect(Object.keys(before[0])).toEqual(["n"]);
+    const n0 = Number(before[0].n);
+    await addArtifact({ orgId: STD, id: "art-qd-std" });
+    await asApp(STD, async (c) => {
+      await c.query(
+        `INSERT INTO artifact_versions (id, org_id, artifact_id, version_number, object_storage_key, content_hash, mime, size_bytes, pinned_by)
+         VALUES ('av-qd-std', $1, 'art-qd-std', 1, $2, $3, 'application/pdf', 128, 'u-seed')`,
+        [STD, `${STD}/artifacts/art-qd-std/v1/original`, "b".repeat(64)],
+      );
+      await c.query(
+        "INSERT INTO ingestion_outbox (org_id, artifact_id, artifact_version_id, step) VALUES ($1, 'art-qd-std', 'av-qd-std', 'EXTRACTED')",
+        [STD],
+      );
+    });
+    expect(Number((await depth())[0].n)).toBe(n0 + 1);
+    // 上报方经 withoutTenant（无租户上下文）走同一个函数——不再恒为 0。
+    await asOwner((c) => c.query("INSERT INTO service_uptime_checks (service, checked_at, is_up, latency_ms) VALUES ('test-queue-depth', now(), true, 5)"));
+    try {
+      const h = await new PgTelemetryFacts(db).health(new Date(Date.now() - 3_600_000), new Date(Date.now() + 60_000));
+      expect(h?.facts.queueDepth).toBe(n0 + 1);
+    } finally {
+      await asOwner((c) => c.query("DELETE FROM service_uptime_checks WHERE service = 'test-queue-depth'"));
+    }
   });
 });

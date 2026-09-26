@@ -6,8 +6,9 @@
  * 各字段来源：
  * - `uptimeRatio` / `latencyP50Ms` / `latencyP95Ms`：周期内 `service_uptime_checks` 的探活记录
  *   （实例自我探活，见 issue #2645）。周期内 0 条 ⇒ 无真实来源 ⇒ 整节缺席（返回 `null`）。
- * - `queueDepth`：`ingestion_outbox` 中 `pending` 行数，**只算 `kind = 'organization'` 的组织**
- *   ——`personal-local` 组织的行在 SQL 层就被 JOIN 条件排除。
+ * - `queueDepth`：`kernel_queue_depth_for_report()`——SECURITY DEFINER 函数（`ingestion_outbox` 是 RLS FORCE，
+ *   withoutTenant 直读恒为 0，#4225），函数体内数 `pending` 行，**只算 `kind = 'organization'` 的组织**
+ *   ——`personal-local` 组织的行在函数体内就被 JOIN 条件排除；只回一个计数。
  * - `diskUsedRatio`：本进程工作目录所在文件系统的 `statfs`。
  * - `migrationVersion`：`_kernel_migrations` 已应用的迁移条数，补零到 4 位（迁移文件名是时间戳，
  *   契约要 4 位数字，条数是能如实给出的单调版本号）。
@@ -16,7 +17,7 @@
  *   拼成契约要求形状的不透明本地标识，只在内存里交给契约 `aggregateFirstValueFunnel` /
  *   `firstValueMedianMinutes` 聚合成计数。
  * - `runsPerSeatPerWeek`（benchmark）：`kernel_benchmark_counts_for_report(start, end)`——SECURITY DEFINER
- *   函数，函数体内 JOIN organizations 限定 kind = 'organization'，只回一行两个计数：周期内 `agent_runs` 条数、
+ *   函数，函数体内连接 organizations 限定 kind = 'organization'，只回一行两个计数：周期内 `agent_runs` 条数、
  *   当前 `org_memberships` 不同 user_id 数。= run_count / seat_count / 周期周数。seat_count = 0 ⇒ 分母
  *   不存在 ⇒ `null`（整节缺席，不造数）。
  * - `usageBase`：仍 `null`。契约把 runCount / tokenCount / seatCount / organizationCount / skillPackRuns
@@ -34,7 +35,9 @@ import type {
 
 /** 白名单：上报方允许读取的全部表。加表 = 改这里 + 过静态门评审。 */
 export const TELEMETRY_FACT_TABLES = [
-  "service_uptime_checks", "ingestion_outbox", "organizations", "_kernel_migrations",
+  "service_uptime_checks", "_kernel_migrations",
+  // queueDepth：只经这个函数取一个计数（ingestion_outbox 是 RLS FORCE，直读恒 0，#4225）。
+  "kernel_queue_depth_for_report",
   // E3：只经这个函数读 first_value_facts（已排除 personal-local、不回 org_id）。
   "kernel_first_value_facts_for_report",
   // benchmark：只经这个函数取两个计数（已排除 personal-local、不回任何行）。
@@ -48,10 +51,7 @@ const UPTIME_SQL = `SELECT count(*)::int AS total,
   FROM service_uptime_checks
  WHERE checked_at > $1 AND checked_at <= $2`;
 
-const QUEUE_SQL = `SELECT count(*)::int AS n
-  FROM ingestion_outbox q
-  JOIN organizations o ON o.id = q.org_id AND o.kind = 'organization'
- WHERE q.status = 'pending'`;
+const QUEUE_SQL = `SELECT q::int AS n FROM kernel_queue_depth_for_report() AS q`;
 
 const MIGRATIONS_SQL = `SELECT count(*)::int AS n FROM _kernel_migrations`;
 
