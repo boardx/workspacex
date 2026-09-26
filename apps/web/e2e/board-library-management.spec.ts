@@ -51,20 +51,30 @@ let cleanupToken = "";
 test.afterEach(async () => {
   if (!cleanupToken) return;
   const api = await playwrightRequest.newContext();
+  const failures: string[] = [];
   try {
     for (const id of cleanupBoards) {
       const current = await apiFetch(api, cleanupToken, "GET", `/whiteboards/${id}`);
       if (current.status() === 404) continue;
-      if (!current.ok()) continue;
+      if (!current.ok()) { failures.push(`GET /whiteboards/${id}: ${current.status()} ${await current.text()}`); continue; }
       let board = await current.json() as Board;
-      if (!board.archived) board = await apiJson<Board>(api, cleanupToken, "PATCH", `/whiteboards/${id}`, { archived: true, expectedLifecycleRevision: board.lifecycleRevision });
-      await apiFetch(api, cleanupToken, "DELETE", `/whiteboards/${id}`, { requestId: randomUUID(), confirmation: "PERMANENTLY_DELETE", expectedLifecycleRevision: board.lifecycleRevision });
+      if (!board.archived) {
+        const archived = await apiFetch(api, cleanupToken, "PATCH", `/whiteboards/${id}`, { archived: true, expectedLifecycleRevision: board.lifecycleRevision });
+        if (!archived.ok()) { failures.push(`PATCH /whiteboards/${id}: ${archived.status()} ${await archived.text()}`); continue; }
+        board = await archived.json() as Board;
+      }
+      const deleted = await apiFetch(api, cleanupToken, "DELETE", `/whiteboards/${id}`, { requestId: randomUUID(), confirmation: "PERMANENTLY_DELETE", expectedLifecycleRevision: board.lifecycleRevision });
+      if (!deleted.ok()) failures.push(`DELETE /whiteboards/${id}: ${deleted.status()} ${await deleted.text()}`);
     }
-    for (const [id, revision] of cleanupTags) await apiFetch(api, cleanupToken, "DELETE", `/whiteboard-tags/${id}`, { requestId: randomUUID(), expectedRevision: revision });
+    for (const [id, revision] of cleanupTags) {
+      const deleted = await apiFetch(api, cleanupToken, "DELETE", `/whiteboard-tags/${id}`, { requestId: randomUUID(), expectedRevision: revision });
+      if (!deleted.ok()) failures.push(`DELETE /whiteboard-tags/${id}: ${deleted.status()} ${await deleted.text()}`);
+    }
   } finally {
     cleanupBoards.clear(); cleanupTags.clear(); cleanupToken = "";
     await api.dispose();
   }
+  expect(failures, `cleanup failures:\n${failures.join("\n")}`).toEqual([]);
 });
 
 test("production Board library manages, duplicates, filters and deletes durable Boards", async ({ page, request: api }) => {

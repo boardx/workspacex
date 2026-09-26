@@ -397,6 +397,9 @@ export default defineConfig({
         "core-journey-04-canvas-template-lifecycle-chat.spec.ts",
         // BV01 owns its Board lifecycle and can run after the seeded empty-state assertions.
         "board-fabric-surface.spec.ts",
+        // Board library mutations create their own resources and remove them in a strict hook.
+        // Keep them after the seeded catalog-empty assertions, alongside the Fabric lifecycle.
+        "board-library-management.spec.ts",
       ],
       grepInvert: EMPTY_DB_TAG_RE,
       dependencies: ["seeded"],
