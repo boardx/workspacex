@@ -1,0 +1,18 @@
+/**
+ * Round-7 post-seed (run right after `seed-kg-experience-eval.ts`):
+ *   - `seedOrg` (since #4239) writes `enabled=false` for test orgs: re-enable with the fixture `enableExtraction`;
+ *   - owner / newbie / other join the seeded project as facilitators so a project thread one of them opens in the
+ *     UI (default visibility `group-shared`) is readable by the others (#4284 two-account check).
+ */
+import { addProjectMember } from "../tests/support/db";
+import { enableExtraction } from "../tests/knowledge-graph/kg-extraction-fixtures";
+
+const orgId = process.env.KG_EVAL_ORG_ID!;
+const projectId = process.env.KG_EVAL_PROJECT_ID!;
+if (!orgId || !projectId) throw new Error("KG_EVAL_ORG_ID / KG_EVAL_PROJECT_ID required");
+await enableExtraction(orgId);
+for (const u of ["user-kg-eval-owner", "user-kg-eval-newbie", "user-kg-eval-other"]) {
+  await addProjectMember(orgId, projectId, u, "facilitator", null);
+}
+process.stdout.write(`[r07-post-seed] extraction re-enabled for ${orgId}; owner/newbie/other joined ${projectId}\n`);
+process.exit(0);
