@@ -56,10 +56,24 @@ export function CollaborativeThinkingEditor({ boardId, clientId, doc, readOnly, 
   const clipboard = useRef<WhiteboardObject[]>([]);
   const imageInput = useRef<HTMLInputElement>(null);
   const ownedImageAssets = useRef(new Set<string>());
+  const mounted = useRef(true);
+  const imageRequestGeneration = useRef(0);
+  const remoteImageAbort = useRef<AbortController | null>(null);
 
   useEffect(() => { onSelectionChange?.(selected); onAwareness?.(null, selected); }, [onAwareness, onSelectionChange, selected]);
   useEffect(() => { const ids = new Set(visibleObjectIdKey ? visibleObjectIdKey.split("\u0000") : []); setSelected((current) => current.filter((id) => ids.has(id))); setEditing((current) => current && ids.has(current.id) ? current : null); }, [visibleObjectIdKey]);
-  useEffect(() => () => { for (const assetId of ownedImageAssets.current) revokeBoardSessionImageAsset(assetId); ownedImageAssets.current.clear(); }, []);
+  useEffect(() => {
+    mounted.current = true;
+    const sessionAssets = ownedImageAssets.current;
+    return () => {
+      mounted.current = false;
+      imageRequestGeneration.current += 1;
+      remoteImageAbort.current?.abort();
+      remoteImageAbort.current = null;
+      for (const assetId of sessionAssets) revokeBoardSessionImageAsset(assetId);
+      sessionAssets.clear();
+    };
+  }, []);
 
   const dispatchEnvelope = useCallback((envelope: BoardCommandEnvelope): boolean => {
     if (readOnly) { setNotice("当前白板为只读，不能修改。"); return false; }
@@ -157,23 +171,33 @@ export function CollaborativeThinkingEditor({ boardId, clientId, doc, readOnly, 
   }, [createContentAt, replaceContent]);
   const importImage = useCallback(async (file: File, point = centerPoint(viewport), targetId = imageDialog?.targetId) => {
     if (!file.type.match(/^image\/(png|jpeg|webp|gif|svg\+xml)$/)) { setNotice("无法添加图片：请选择 JPG、PNG、WEBP、GIF 或 SVG 文件。"); return; }
+    const generation = ++imageRequestGeneration.current;
+    remoteImageAbort.current?.abort();
+    remoteImageAbort.current = null;
     setImageBusy(true);
     try {
       const verified = await verifyBoardImageBytes(file, file.type);
+      if (!mounted.current || generation !== imageRequestGeneration.current) return;
       if (commitVerifiedImage(verified, file.name, point, targetId)) setImageDialog(null);
     } catch (error) {
+      if (!mounted.current || generation !== imageRequestGeneration.current) return;
       const code = error instanceof Error ? error.message : "IMAGE_DECODE_FAILED";
       setNotice(code === "IMAGE_TOO_LARGE" ? "图片超过 25MB，未添加。" : code === "IMAGE_MAGIC_INVALID" ? "图片内容与声明格式不一致，未添加。" : "图片无法安全解码，未添加。");
-    } finally { setImageBusy(false); }
+    } finally { if (mounted.current && generation === imageRequestGeneration.current) setImageBusy(false); }
   }, [commitVerifiedImage, imageDialog?.targetId, viewport]);
   const importRemoteImage = useCallback(async () => {
+    const generation = ++imageRequestGeneration.current;
+    remoteImageAbort.current?.abort();
+    const controller = new AbortController();
+    remoteImageAbort.current = controller;
     setImageBusy(true);
     try {
-      const inspected = await inspectRemoteImageUrl(imageUrl);
+      const inspected = await inspectRemoteImageUrl(imageUrl, fetch, controller.signal);
+      if (!mounted.current || generation !== imageRequestGeneration.current) return;
       const name = new URL(inspected.url).pathname.split("/").pop() || "remote-image";
       if (commitVerifiedImage(inspected, name, centerPoint(viewport), imageDialog?.targetId, inspected.url)) { setImageDialog(null); setImageUrl(""); }
-    } catch (error) { const code = error instanceof Error ? error.message : "IMAGE_FETCH_FAILED"; setNotice(code === "IMAGE_TOO_LARGE" ? "图片超过 25MB，未添加。" : code === "IMAGE_MAGIC_INVALID" ? "图片内容与声明格式不一致，未添加。" : "无法读取该 HTTPS 图片。请检查地址、跨域权限和文件格式。"); }
-    finally { setImageBusy(false); }
+    } catch (error) { if (!mounted.current || generation !== imageRequestGeneration.current) return; const code = error instanceof Error ? error.message : "IMAGE_FETCH_FAILED"; setNotice(code === "IMAGE_TOO_LARGE" ? "图片超过 25MB，未添加。" : code === "IMAGE_MAGIC_INVALID" ? "图片内容与声明格式不一致，未添加。" : "无法读取该 HTTPS 图片。请检查地址、跨域权限和文件格式。"); }
+    finally { if (remoteImageAbort.current === controller) remoteImageAbort.current = null; if (mounted.current && generation === imageRequestGeneration.current) setImageBusy(false); }
   }, [commitVerifiedImage, imageDialog?.targetId, imageUrl, viewport]);
   const handlePaste = (event: ClipboardEvent<HTMLElement>) => { if (readOnly || isEditableTarget(event.target)) return; const image = Array.from(event.clipboardData.files ?? []).find((file) => file.type.startsWith("image/")); if (image) { event.preventDefault(); importImage(image); return; } const value = event.clipboardData.getData("text/plain"); if (!value.includes("\n")) return; try { parseThinkingPaste(value); event.preventDefault(); setPasteChoice({ text: value, point: centerPoint(viewport) }); } catch { /* Preserve normal paste. */ } };
   const handleFileDrop = (event: DragEvent<HTMLElement>) => { const image = [...event.dataTransfer.files].find((file) => file.type.startsWith("image/")); if (!image || readOnly) return; event.preventDefault(); const bounds = event.currentTarget.getBoundingClientRect(); importImage(image, { x: (event.clientX - bounds.left - viewport.panX) / viewport.zoom, y: (event.clientY - bounds.top - viewport.panY) / viewport.zoom }); };
@@ -193,12 +217,13 @@ export function CollaborativeThinkingEditor({ boardId, clientId, doc, readOnly, 
   };
   const beginStructuredEdit = () => {
     if (!selectedObject || !selectedContent || !["tile", "web-tile", "table", "icon", "template"].includes(selectedContent.type)) return;
-    const title = selectedContent.type === "icon" || selectedContent.type === "template" ? selectedContent.name : typeof selectedContent.title === "string" ? selectedContent.title : "";
-    const details = selectedContent.type === "tile" ? { description: selectedContent.description, fields: selectedContent.fields, tags: selectedContent.tags, status: selectedContent.status, link: selectedContent.link, actions: selectedContent.actions }
-      : selectedContent.type === "web-tile" ? { url: selectedContent.url, description: selectedContent.description, imageUrl: selectedContent.imageUrl, siteName: selectedContent.siteName, fetchStatus: selectedContent.fetchStatus }
-      : selectedContent.type === "table" ? { columns: selectedContent.columns, rows: selectedContent.rows }
-      : selectedContent.type === "icon" ? { set: selectedContent.set, color: selectedContent.color }
-      : { parameters: selectedContent.parameters };
+    const structured = selectedContent as Extract<CanonicalContentObject, { type: BoardStructuredKind }>;
+    const title = structured.type === "icon" || structured.type === "template" ? structured.name : structured.title ?? "";
+    const details = structured.type === "tile" ? { description: structured.description, fields: structured.fields, tags: structured.tags, status: structured.status, link: structured.link, actions: structured.actions }
+      : structured.type === "web-tile" ? { url: structured.url, description: structured.description, imageUrl: structured.imageUrl, siteName: structured.siteName, fetchStatus: structured.fetchStatus }
+      : structured.type === "table" ? { columns: structured.columns, rows: structured.rows }
+      : structured.type === "icon" ? { set: structured.set, color: structured.color }
+      : { parameters: structured.parameters };
     setStructuredDraft({ objectId: selectedObject.id, title, details: JSON.stringify(details, null, 2) });
   };
   const saveStructuredEdit = () => {

@@ -16,7 +16,7 @@ export const SHAPE_SEMANTICS: Record<ShapeVariant, string> = {
   process: 'process', decision: 'decision', terminator: 'terminator', data: 'input-output', 'predefined-process': 'subprocess',
 };
 
-interface ContentBase { version: 1; type: ContentObjectType; [key: string]: unknown; }
+interface ContentBase { version: 1; type: ContentObjectType; }
 export interface ShapeContent extends ContentBase {
   type: 'shape'; variant: ShapeVariant; semanticRole?: string; fill: string; borderColor: string;
   borderWidth: number; borderStyle: BorderStyle; opacity: number; radius: number;
@@ -109,10 +109,19 @@ function stringArray(value: unknown, maxItems: number, itemMax: number): string[
   if (!Array.isArray(value) || value.length > maxItems) throw new Error('CONTENT_OBJECT_INVALID');
   return value.map(item => text(item, itemMax));
 }
-function base(raw: JsonRecord, type: ContentObjectType): ContentBase & JsonRecord {
+function exactKeys(raw: JsonRecord, allowed: readonly string[], code = 'CONTENT_OBJECT_UNKNOWN_FIELD'): void {
+  const known = new Set(['version', 'type', ...allowed]);
+  for (const key of Object.keys(raw)) if (!known.has(key)) throw new Error(code);
+}
+function nestedExactKeys(raw: JsonRecord, allowed: readonly string[], code = 'CONTENT_OBJECT_UNKNOWN_FIELD'): void {
+  const known = new Set(allowed);
+  for (const key of Object.keys(raw)) if (!known.has(key)) throw new Error(code);
+}
+function base(raw: JsonRecord, type: ContentObjectType, allowed: readonly string[]): ContentBase {
   if (raw.version !== 1 || raw.type !== type) throw new Error('CONTENT_OBJECT_INVALID');
   validateSafeExtensionTree(raw);
-  return { ...structuredClone(raw), version: 1, type } as ContentBase & JsonRecord;
+  exactKeys(raw, allowed);
+  return { version: 1, type };
 }
 
 export function parseContentObject(input: unknown): CanonicalContentObject {
@@ -123,7 +132,7 @@ export function parseContentObject(input: unknown): CanonicalContentObject {
     const variant = oneOf(raw.variant, SHAPE_VARIANTS);
     if (raw.semanticRole !== undefined && raw.semanticRole !== SHAPE_SEMANTICS[variant]) throw new Error('SHAPE_SEMANTIC_INVALID');
     return {
-    ...base(raw, type), variant, semanticRole: SHAPE_SEMANTICS[variant], fill: color(raw.fill), borderColor: color(raw.borderColor),
+    ...base(raw, type, ['variant', 'semanticRole', 'fill', 'borderColor', 'borderWidth', 'borderStyle', 'opacity', 'radius', 'textColor', 'horizontalAlign', 'verticalAlign']), variant, semanticRole: SHAPE_SEMANTICS[variant], fill: color(raw.fill), borderColor: color(raw.borderColor),
     borderWidth: number(raw.borderWidth, 0, 100), borderStyle: oneOf(raw.borderStyle, ['solid', 'dashed', 'dotted'] as const),
     opacity: number(raw.opacity, 0, 1), radius: number(raw.radius, 0, 10000), textColor: color(raw.textColor),
     horizontalAlign: oneOf(raw.horizontalAlign, ['left', 'center', 'right'] as const),
@@ -135,22 +144,23 @@ export function parseContentObject(input: unknown): CanonicalContentObject {
     const priorStrokeIds = new Set<string>();
     const strokes = raw.strokes.map(value => {
       const stroke = record(value, 'DRAWING_STROKE_INVALID');
+      nestedExactKeys(stroke, ['id', 'tool', 'points', 'color', 'width', 'opacity', 'erases']);
       if (!Array.isArray(stroke.points) || stroke.points.length < 2 || stroke.points.length > 512) throw new Error('DRAWING_POINTS_INVALID');
       const tool = oneOf(stroke.tool, ['pen', 'marker', 'highlighter', 'eraser'] as const, 'DRAWING_TOOL_INVALID');
       const erases = stroke.erases === undefined ? [] : stringArray(stroke.erases, 128, 128);
       if (tool === 'eraser' && (erases.length === 0 || erases.some(id => !priorStrokeIds.has(id)))) throw new Error('DRAWING_ERASER_TARGET_INVALID');
       if (tool !== 'eraser' && erases.length > 0) throw new Error('DRAWING_ERASER_TARGET_INVALID');
       const parsed = {
-        ...structuredClone(stroke), id: requiredText(stroke.id, 128, 'DRAWING_STROKE_INVALID'),
+        id: requiredText(stroke.id, 128, 'DRAWING_STROKE_INVALID'),
         tool,
-        points: stroke.points.map(value => { const point = record(value, 'DRAWING_POINT_INVALID'); return { ...structuredClone(point), x: number(point.x, -1000000, 1000000), y: number(point.y, -1000000, 1000000), pressure: number(point.pressure, 0, 1) }; }),
+        points: stroke.points.map(value => { const point = record(value, 'DRAWING_POINT_INVALID'); nestedExactKeys(point, ['x', 'y', 'pressure']); return { x: number(point.x, -1000000, 1000000), y: number(point.y, -1000000, 1000000), pressure: number(point.pressure, 0, 1) }; }),
         color: color(stroke.color), width: number(stroke.width, 0.1, 1000), opacity: number(stroke.opacity, 0, 1), erases,
       } as DrawingStroke;
       priorStrokeIds.add(parsed.id);
       return parsed;
     });
     if (new Set(strokes.map(stroke => stroke.id)).size !== strokes.length) throw new Error('DRAWING_STROKE_ID_DUPLICATE');
-    return { ...base(raw, type), strokes } as DrawingContent;
+    return { ...base(raw, type, ['strokes']), strokes } as DrawingContent;
   }
   if (type === 'image') {
     const crop = record(raw.crop, 'IMAGE_CROP_INVALID');
@@ -169,7 +179,7 @@ export function parseContentObject(input: unknown): CanonicalContentObject {
     const fileName = requiredText(raw.fileName, 512);
     if (/[/\\\0-\x1f]/.test(fileName) || fileName === '.' || fileName === '..') throw new Error('IMAGE_FILE_NAME_INVALID');
     return {
-      ...base(raw, type), status, assetId, sourceUrl, mimeType,
+      ...base(raw, type, ['status', 'assetId', 'sourceUrl', 'mimeType', 'intrinsicWidth', 'intrinsicHeight', 'crop', 'opacity', 'borderColor', 'borderWidth', 'cornerRadius', 'fileName', 'replacementOf', 'failureCode', 'byteSize', 'contentDigest', 'magicMimeType', 'retryCount', 'persistence']), status, assetId, sourceUrl, mimeType,
       intrinsicWidth: integer(raw.intrinsicWidth, status === 'ready' ? 1 : 0, 100000), intrinsicHeight: integer(raw.intrinsicHeight, status === 'ready' ? 1 : 0, 100000),
       crop: validateCrop(crop),
       opacity: number(raw.opacity, 0, 1), borderColor: color(raw.borderColor), borderWidth: number(raw.borderWidth, 0, 100),
@@ -180,41 +190,42 @@ export function parseContentObject(input: unknown): CanonicalContentObject {
   }
   if (type === 'tile') {
     if (!Array.isArray(raw.fields) || raw.fields.length > 100) throw new Error('TILE_FIELDS_INVALID');
-    const fields = raw.fields.map(value => { const field = record(value); return { ...structuredClone(field), key: requiredText(field.key, 128), label: text(field.label, 256), value: text(field.value, 4000) }; });
+    const fields = raw.fields.map(value => { const field = record(value); nestedExactKeys(field, ['key', 'label', 'value']); return { key: requiredText(field.key, 128), label: text(field.label, 256), value: text(field.value, 4000) }; });
     if (new Set(fields.map(field => field.key)).size !== fields.length) throw new Error('TILE_FIELD_KEY_DUPLICATE');
     return {
-      ...base(raw, type), tileType: oneOf(raw.tileType, ['document', 'task', 'agent', 'file', 'data', 'person', 'project', 'prompt', 'ai-result'] as const),
+      ...base(raw, type, ['tileType', 'title', 'description', 'icon', 'coverAssetId', 'fields', 'tags', 'link', 'status', 'actions']), tileType: oneOf(raw.tileType, ['document', 'task', 'agent', 'file', 'data', 'person', 'project', 'prompt', 'ai-result'] as const),
       title: text(raw.title, 1000), description: text(raw.description, 10000), icon: nullableText(raw.icon, 256), coverAssetId: nullableText(raw.coverAssetId, 256), fields,
       tags: stringArray(raw.tags, 100, 128), link: safeUrl(raw.link, true), status: nullableText(raw.status, 128), actions: stringArray(raw.actions, 32, 128),
     } as TileContent;
   }
   if (type === 'web-tile') return {
-    ...base(raw, type), url: safeUrl(raw.url)!, title: text(raw.title, 1000), description: text(raw.description, 4000),
+    ...base(raw, type, ['url', 'title', 'description', 'imageUrl', 'siteName', 'fetchStatus']), url: safeUrl(raw.url)!, title: text(raw.title, 1000), description: text(raw.description, 4000),
     imageUrl: safeUrl(raw.imageUrl, true), siteName: nullableText(raw.siteName, 256), fetchStatus: oneOf(raw.fetchStatus, ['pending', 'ready', 'failed'] as const),
   } as WebTileContent;
   if (type === 'table') {
     if (!Array.isArray(raw.columns) || raw.columns.length < 1 || raw.columns.length > 50 || !Array.isArray(raw.rows) || raw.rows.length > 200) throw new Error('TABLE_DIMENSIONS_INVALID');
-    const columns = raw.columns.map(value => { const column = record(value); return { ...structuredClone(column), id: requiredText(column.id, 128), name: text(column.name, 256) }; });
+    const columns = raw.columns.map(value => { const column = record(value); nestedExactKeys(column, ['id', 'name']); return { id: requiredText(column.id, 128), name: text(column.name, 256) }; });
     if (new Set(columns.map(column => column.id)).size !== columns.length) throw new Error('TABLE_COLUMN_ID_DUPLICATE');
     const ids = new Set(columns.map(column => column.id));
-    const rows = raw.rows.map(value => { const row = record(value), cells = record(row.cells); for (const key of Object.keys(cells)) if (!ids.has(key)) throw new Error('TABLE_CELL_COLUMN_UNKNOWN'); return { ...structuredClone(row), id: requiredText(row.id, 128), cells: Object.fromEntries(Object.entries(cells).map(([key, value]) => [key, text(value, 4000)])) }; });
+    const rows = raw.rows.map(value => { const row = record(value), cells = record(row.cells); nestedExactKeys(row, ['id', 'cells']); for (const key of Object.keys(cells)) if (!ids.has(key)) throw new Error('TABLE_CELL_COLUMN_UNKNOWN'); return { id: requiredText(row.id, 128), cells: Object.fromEntries(Object.entries(cells).map(([key, value]) => [key, text(value, 4000)])) }; });
     if (new Set(rows.map(row => row.id)).size !== rows.length) throw new Error('TABLE_ROW_ID_DUPLICATE');
-    return { ...base(raw, type), title: text(raw.title ?? '', 1000), columns, rows } as TableContent;
+    return { ...base(raw, type, ['title', 'columns', 'rows']), title: text(raw.title ?? '', 1000), columns, rows } as TableContent;
   }
-  if (type === 'icon') return { ...base(raw, type), name: requiredText(raw.name, 256), set: requiredText(raw.set, 128), color: color(raw.color) } as IconContent;
+  if (type === 'icon') return { ...base(raw, type, ['name', 'set', 'color']), name: requiredText(raw.name, 256), set: requiredText(raw.set, 128), color: color(raw.color) } as IconContent;
   const parameters = record(raw.parameters);
   const objects = raw.objects === undefined ? [] : raw.objects;
   if (!Array.isArray(objects) || objects.length > 100) throw new Error('TEMPLATE_OBJECTS_INVALID');
   const parsedObjects = objects.map(value => {
     const item = record(value, 'TEMPLATE_OBJECT_INVALID');
+    nestedExactKeys(item, ['localId', 'geometry', 'text', 'content']);
     const content = parseContentObject(item.content);
     if (content.type === 'template') throw new Error('TEMPLATE_NESTING_INVALID');
     const title = semanticContentTitle(content);
     if (title !== null && item.text !== undefined && item.text !== title) throw new Error('CONTENT_TEXT_MISMATCH');
-    return { ...structuredClone(item), localId: requiredText(item.localId, 128), geometry: WhiteboardGeometry.parse(item.geometry), ...(item.text === undefined ? {} : { text: text(item.text, 20000) }), content } as TemplateObjectBlueprint;
+    return { localId: requiredText(item.localId, 128), geometry: WhiteboardGeometry.parse(item.geometry), ...(item.text === undefined ? {} : { text: text(item.text, 20000) }), content } as TemplateObjectBlueprint;
   });
   if (new Set(parsedObjects.map(item => item.localId)).size !== parsedObjects.length) throw new Error('TEMPLATE_LOCAL_ID_DUPLICATE');
-  return { ...base(raw, 'template'), templateId: requiredText(raw.templateId, 256), name: requiredText(raw.name, 512), versionId: requiredText(raw.versionId, 256), parameters: Object.fromEntries(Object.entries(parameters).map(([key, value]) => [requiredText(key, 128), text(value, 4000)])), objects: parsedObjects } as TemplateContent;
+  return { ...base(raw, 'template', ['templateId', 'name', 'versionId', 'parameters', 'objects']), templateId: requiredText(raw.templateId, 256), name: requiredText(raw.name, 512), versionId: requiredText(raw.versionId, 256), parameters: Object.fromEntries(Object.entries(parameters).map(([key, value]) => [requiredText(key, 128), text(value, 4000)])), objects: parsedObjects } as TemplateContent;
 }
 
 export function readContentObject(object: WhiteboardObject): CanonicalContentObject | null {
@@ -252,8 +263,9 @@ export function drawingEraserLayers(content: DrawingContent): { stroke: DrawingS
 }
 
 function validateCrop(crop: JsonRecord): ImageContent['crop'] {
+  nestedExactKeys(crop, ['x', 'y', 'width', 'height']);
   const result = {
-    ...structuredClone(crop), x: number(crop.x, 0, 1), y: number(crop.y, 0, 1),
+    x: number(crop.x, 0, 1), y: number(crop.y, 0, 1),
     width: number(crop.width, 0.0001, 1), height: number(crop.height, 0.0001, 1),
   };
   if (result.x + result.width > 1 || result.y + result.height > 1) throw new Error('IMAGE_CROP_INVALID');

@@ -67,6 +67,14 @@ function jpegDimensions(bytes: Uint8Array): { width: number; height: number } | 
   return null;
 }
 
+function webpDimensions(bytes: Uint8Array): { width: number; height: number } | null {
+  if (bytes.length < 30 || new TextDecoder().decode(bytes.subarray(12, 16)) !== "VP8X") return null;
+  return {
+    width: 1 + bytes[24]! + (bytes[25]! << 8) + (bytes[26]! << 16),
+    height: 1 + bytes[27]! + (bytes[28]! << 8) + (bytes[29]! << 16),
+  };
+}
+
 function sanitizeSvg(bytes: Uint8Array): { bytes: Uint8Array; width: number; height: number } {
   const source = new TextDecoder().decode(bytes);
   if (/<!doctype|<!entity/i.test(source)) throw new Error("IMAGE_MAGIC_INVALID");
@@ -135,7 +143,8 @@ export async function verifyBoardImageBytes(source: Blob, declaredMime: string, 
     bytes = sanitized.bytes;
     dimensions = safeDimensions(sanitized.width, sanitized.height);
   } else {
-    const claimed = mimeType === "image/png" ? pngDimensions(bytes) : mimeType === "image/gif" ? gifDimensions(bytes) : mimeType === "image/jpeg" ? jpegDimensions(bytes) : null;
+    const claimed = mimeType === "image/png" ? pngDimensions(bytes) : mimeType === "image/gif" ? gifDimensions(bytes) : mimeType === "image/jpeg" ? jpegDimensions(bytes) : webpDimensions(bytes);
+    if (claimed) safeDimensions(claimed.width, claimed.height);
     let decoded: Awaited<ReturnType<BoardRasterDecoder>>;
     try { decoded = await decodeRaster(new Blob([new Uint8Array(bytes)], { type: mimeType })); }
     catch { throw new Error("IMAGE_DECODE_FAILED"); }
@@ -150,11 +159,11 @@ export async function verifyBoardImageBytes(source: Blob, declaredMime: string, 
   return { bytes, blob: new Blob([new Uint8Array(bytes)], { type: mimeType }), mimeType, byteSize: bytes.length, contentDigest: `sha256:${[...digest].map(value => value.toString(16).padStart(2, "0")).join("")}`, magicMimeType: mimeType, intrinsicWidth: dimensions.width, intrinsicHeight: dimensions.height };
 }
 
-export async function inspectRemoteImageUrl(raw: string, fetcher: typeof fetch = fetch): Promise<VerifiedBoardImage & { url: string }> {
+export async function inspectRemoteImageUrl(raw: string, fetcher: typeof fetch = fetch, signal?: AbortSignal): Promise<VerifiedBoardImage & { url: string }> {
   let url: URL;
   try { url = new URL(raw); } catch { throw new Error("IMAGE_URL_INVALID"); }
   if (url.protocol !== "https:" || url.username || url.password) throw new Error("IMAGE_URL_INVALID");
-  const safeInit: RequestInit = { cache: "no-store", credentials: "omit", redirect: "error", referrerPolicy: "no-referrer" };
+  const safeInit: RequestInit = { cache: "no-store", credentials: "omit", redirect: "error", referrerPolicy: "no-referrer", signal };
   const response = await fetcher(url.toString(), { ...safeInit, headers: { Range: `bytes=0-${MAX_IMAGE_BYTES - 1}` } });
   if (!response.ok || response.redirected) throw new Error("IMAGE_FETCH_FAILED");
   const contentRange = response.headers.get("content-range");

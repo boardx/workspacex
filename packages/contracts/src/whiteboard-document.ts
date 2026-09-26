@@ -9,8 +9,9 @@ export function validateWhiteboardExtensionData(value: unknown, depth = 0, key =
   if (typeof value === 'string') {
     if (/^(data|blob):/i.test(value.trim())) throw new Error('UNSAFE_EXTENSION_URL');
     const compact = value.trim();
+    if (compact && /(base64|binary|bytes|blob|payload|buffer)/i.test(key)) throw new Error('UNSAFE_EXTENSION_BINARY');
     const base64Like = compact.length >= 8 && compact.length % 4 === 0 && /^[a-z0-9+/_-]*={0,2}$/i.test(compact);
-    if (base64Like && (/(base64|binary|bytes|blob|payload|buffer)/i.test(key) || compact.length >= 128 || /[+/=]/.test(compact))) throw new Error('UNSAFE_EXTENSION_BINARY');
+    if (base64Like && (compact.length >= 128 || /[+/=]/.test(compact))) throw new Error('UNSAFE_EXTENSION_BINARY');
     return;
   }
   if (typeof value === 'number') { if (!Number.isFinite(value)) throw new Error('UNSAFE_EXTENSION'); return; }

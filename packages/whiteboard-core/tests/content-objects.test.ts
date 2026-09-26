@@ -65,12 +65,13 @@ describe('canonical visual content models', () => {
 
   it('keeps drawing strokes vector-based including pressure and non-destructive eraser semantics', () => {
     const drawing = parseContentObject({
-      version: 1, type: 'drawing', rendererHint: 'future-compositor', strokes: [
+      version: 1, type: 'drawing', strokes: [
         { id: 'ink', tool: 'pen', points: [{ x: 0, y: 0, pressure: 0.2 }, { x: 4, y: 5, pressure: 0.8 }], color: '#001122', width: 4, opacity: 1 },
         { id: 'erase', tool: 'eraser', erases: ['ink'], points: [{ x: 2, y: 2, pressure: 0.5 }, { x: 3, y: 3, pressure: 0.6 }], color: '#FFFFFF', width: 12, opacity: 1 },
       ],
     });
-    expect(drawing).toMatchObject({ type: 'drawing', rendererHint: 'future-compositor' });
+    expect(drawing).toMatchObject({ type: 'drawing' });
+    expect(() => parseContentObject({ ...drawing, rendererHint: 'future-compositor' })).toThrow('CONTENT_OBJECT_UNKNOWN_FIELD');
     expect(drawing.type === 'drawing' && drawing.strokes[1]).toMatchObject({ id: 'erase', tool: 'eraser' });
     if (drawing.type !== 'drawing') throw new Error('fixture');
     expect(drawingEraserLayers(drawing)).toMatchObject([{ stroke: { id: 'erase' }, targetStrokeIds: ['ink'] }]);
@@ -129,17 +130,17 @@ describe('content object command boundary', () => {
   it('rejects binary content updates and refuses to copy remotely injected binary extensions', () => {
     const doc = createWhiteboardDocument();
     new BoardCommandPort(doc).dispatch(createContentObjectEnvelope({ ...identity, gestureId: 'safe-create', id: 'shape-1', geometry, content: shape() }));
-    expect(() => new ContentObjectCommandPort(doc).dispatch({ ...identity, gestureId: 'unsafe-update', command: { type: 'replace-content', id: 'shape-1', content: { ...shape(), plugin: { payload: 'AAECAwQ=' } } } })).toThrow('UNSAFE_EXTENSION_BINARY');
+    expect(() => new ContentObjectCommandPort(doc).dispatch({ ...identity, gestureId: 'unsafe-update', command: { type: 'replace-content', id: 'shape-1', content: { ...shape(), plugin: { payload: 'AAECAwQ=' } } as unknown as ShapeContent } })).toThrow('UNSAFE_EXTENSION_BINARY');
     const item = doc.getMap<import('yjs').Map<unknown>>('objects').get('shape-1')!;
     item.set('extensionData', { contentObject: shape(), plugin: { nested: { bytes: new Uint8Array([1, 2, 3]) } } });
     expect(() => copyObjects(doc, ['shape-1'], () => 'shape-copy')).toThrow();
     doc.destroy();
   });
-  it('creates one caller-identified command and retains unknown outer and model extensions', () => {
-    const content = { ...shape('cloud'), pluginData: { semanticRole: 'risk' } } as ShapeContent;
+  it('creates one caller-identified command, retains outer extensions and closes canonical content', () => {
+    const content = shape('cloud');
     const envelope = createContentObjectEnvelope({
       ...identity, gestureId: 'create-shape', id: 'shape-1', geometry, text: 'Risk',
-      content, extensionData: { plugin: { future: true } },
+      content, extensionData: { plugin: { future: true, opaque: 'normal-short-text' } },
     });
     expect(envelope.commands).toHaveLength(1);
     const doc = createWhiteboardDocument();
@@ -148,8 +149,9 @@ describe('content object command boundary', () => {
     expect(created.acceptedObjectIds).toEqual(['shape-1']);
     const object = readObjects(doc)[0]!;
     expect(object.kind).toBe('extension');
-    expect(object.extensionData?.plugin).toEqual({ future: true });
-    expect(readContentObject(object)).toMatchObject({ type: 'shape', variant: 'cloud', pluginData: { semanticRole: 'risk' } });
+    expect(object.extensionData?.plugin).toEqual({ future: true, opaque: 'normal-short-text' });
+    expect(readContentObject(object)).toMatchObject({ type: 'shape', variant: 'cloud' });
+    expect(() => createContentObjectEnvelope({ ...identity, gestureId: 'unknown', id: 'unknown', geometry, content: { ...shape(), pluginData: { semanticRole: 'risk' } } as unknown as ShapeContent })).toThrow('CONTENT_OBJECT_UNKNOWN_FIELD');
     doc.destroy();
   });
 
@@ -168,11 +170,11 @@ describe('content object command boundary', () => {
     const transactions: unknown[] = [];
     doc.on('afterTransaction', transaction => { if (transaction.origin instanceof WhiteboardCommandOrigin) transactions.push(transaction.origin); });
     const port = new ContentObjectCommandPort(doc);
-    const input = { ...identity, gestureId: 'style-1', command: { type: 'replace-content' as const, id: 'shape-1', content: { ...shape(), fill: '#112233', borderStyle: 'dashed' as const, future: { semantic: true } } } };
+    const input = { ...identity, gestureId: 'style-1', command: { type: 'replace-content' as const, id: 'shape-1', content: { ...shape(), fill: '#112233', borderStyle: 'dashed' as const } } };
     const accepted = port.dispatch(input);
     expect(port.dispatch(structuredClone(input))).toEqual(accepted);
     expect(transactions).toHaveLength(1);
-    expect(accepted.event).toMatchObject({ type: 'ContentObjectUpdated', objectId: 'shape-1', before: { fill: '#FFFFFF' }, after: { fill: '#112233', future: { semantic: true } } });
+    expect(accepted.event).toMatchObject({ type: 'ContentObjectUpdated', objectId: 'shape-1', before: { fill: '#FFFFFF' }, after: { fill: '#112233' } });
     expect(readContentObject(readObjects(doc)[0]!)).toMatchObject({ fill: '#112233' });
     expect(readObjects(doc)[0]?.extensionData?.keep).toBe(7);
     expect(undo.undo()).toBe('undone');
@@ -239,16 +241,31 @@ describe('content object command boundary', () => {
   });
 
   it('rejects active and binary payloads on create, replace and remote validation while preserving inert extensions', () => {
-    expect(() => createContentObjectEnvelope({ ...identity, gestureId: 'data', id: 'shape-data', geometry, content: { ...shape(), future: { href: 'data:text/html,boom' } } })).toThrow('UNSAFE_EXTENSION_URL');
+    expect(() => createContentObjectEnvelope({ ...identity, gestureId: 'data', id: 'shape-data', geometry, content: { ...shape(), future: { href: 'data:text/html,boom' } } as unknown as ShapeContent })).toThrow('UNSAFE_EXTENSION_URL');
     expect(() => createContentObjectEnvelope({ ...identity, gestureId: 'binary', id: 'shape-binary', geometry, content: { ...shape(), future: new Uint8Array([1, 2]) } as unknown as ShapeContent })).toThrow('UNSAFE_EXTENSION_BINARY');
     expect(() => createContentObjectEnvelope({ ...identity, gestureId: 'outer-data', id: 'shape-outer', geometry, content: shape(), extensionData: { plugin: { source: 'data:text/plain,bad' } } })).toThrow('UNSAFE_EXTENSION_URL');
     const doc = createWhiteboardDocument();
-    new BoardCommandPort(doc).dispatch(createContentObjectEnvelope({ ...identity, gestureId: 'safe', id: 'shape-1', geometry, content: { ...shape(), future: { pluginVersion: 2, value: 'safe' } } }));
+    new BoardCommandPort(doc).dispatch(createContentObjectEnvelope({ ...identity, gestureId: 'safe', id: 'shape-1', geometry, content: shape(), extensionData: { plugin: { pluginVersion: 2, value: 'safe', opaque: 'AQIDBAU' } } }));
     const port = new ContentObjectCommandPort(doc);
-    expect(() => port.dispatch({ ...identity, gestureId: 'blob', command: { type: 'replace-content', id: 'shape-1', content: { ...shape(), future: { url: 'blob:https://example.com/id' } } } })).toThrow('UNSAFE_EXTENSION_URL');
+    expect(() => port.dispatch({ ...identity, gestureId: 'blob', command: { type: 'replace-content', id: 'shape-1', content: { ...shape(), future: { url: 'blob:https://example.com/id' } } as unknown as ShapeContent } })).toThrow('UNSAFE_EXTENSION_URL');
     const item = doc.getMap<import('yjs').Map<unknown>>('objects').get('shape-1')!;
     item.set('extensionData', { plugin: { payload: 'data:image/png;base64,AAAA' }, contentObject: shape() });
     expect(() => validateDocument(doc)).toThrow('UNSAFE_EXTENSION_URL');
+    doc.destroy();
+  });
+
+  it('rejects short base64 aliases and unknown content fields on create, update, copy and Yjs validation', () => {
+    for (const [key, value] of [['bytes', 'AQID'], ['payload', 'AQIDBAU'], ['opaque', 'AQIDBAU']] as const) {
+      expect(() => createContentObjectEnvelope({ ...identity, gestureId: `create-${key}`, id: `create-${key}`, geometry, content: { ...shape(), [key]: value } as unknown as ShapeContent })).toThrow();
+    }
+    const doc = createWhiteboardDocument();
+    new BoardCommandPort(doc).dispatch(createContentObjectEnvelope({ ...identity, gestureId: 'closed-safe', id: 'shape-1', geometry, content: shape() }));
+    const port = new ContentObjectCommandPort(doc);
+    expect(() => port.dispatch({ ...identity, gestureId: 'closed-update', command: { type: 'replace-content', id: 'shape-1', content: { ...shape(), payload: 'AQIDBAU' } as unknown as ShapeContent } })).toThrow('UNSAFE_EXTENSION_BINARY');
+    const item = doc.getMap<import('yjs').Map<unknown>>('objects').get('shape-1')!;
+    item.set('extensionData', { contentObject: { ...shape(), opaque: 'AQIDBAU' } });
+    expect(() => validateDocument(doc)).toThrow('CONTENT_OBJECT_UNKNOWN_FIELD');
+    expect(() => copyObjects(doc, ['shape-1'], () => 'shape-copy')).toThrow('CONTENT_OBJECT_UNKNOWN_FIELD');
     doc.destroy();
   });
 

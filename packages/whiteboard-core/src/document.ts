@@ -89,6 +89,7 @@ export function executeCommands(doc: Y.Doc, input: unknown, origin: unknown): vo
 }
 export function copyObjects(doc: Y.Doc, ids: string[], newId: (oldId: string) => string): WhiteboardObject[] {
   const chosen = readObjects(doc).filter(object => ids.includes(object.id));
+  for (const object of chosen) validateContentExtension(object);
   const mapping = new Map(chosen.map(object => [object.id, newId(object.id)]));
   if (new Set(mapping.values()).size !== mapping.size) throw new Error('DUPLICATE_COPY_ID');
   return chosen.filter(object => !object.connector || (mapping.has(object.connector.from) && mapping.has(object.connector.to)))

@@ -140,6 +140,21 @@ it("creates a verified local-session image without writing bytes or blob/data UR
   doc.destroy();
 });
 
+it("discards a local image decode that completes after editor unmount", async () => {
+  let resolveDecode!: (value: { width: number; height: number; close: () => void }) => void;
+  const close = vi.fn();
+  vi.stubGlobal("createImageBitmap", vi.fn(() => new Promise((resolve) => { resolveDecode = resolve; })));
+  const { doc, unmount } = await setupView();
+  fireEvent.change(screen.getByTestId("board-image-input"), { target: { files: [new File([byteBuffer(png())], "late.png", { type: "image/png" })] } });
+  await waitFor(() => expect(createImageBitmap).toHaveBeenCalledOnce());
+  unmount();
+  await act(async () => { resolveDecode({ width: 32, height: 24, close }); await Promise.resolve(); });
+  await waitFor(() => expect(close).toHaveBeenCalledOnce());
+  expect(readObjects(doc)).toEqual([]);
+  expect(objectUrls.size).toBe(0);
+  doc.destroy();
+});
+
 it("retains a shared image asset across duplicate deletion and remote bulk deletion until editor unmount", async () => {
   const { doc, unmount } = await setupView();
   fireEvent.change(screen.getByTestId("board-image-input"), { target: { files: [new File([byteBuffer(png())], "shared.png", { type: "image/png" })] } });
@@ -223,6 +238,31 @@ it("validates HTTPS image MIME, size, and magic bytes before storing a durable U
   doc.destroy();
 });
 
+it("aborts and discards a remote image fetch that completes after editor unmount", async () => {
+  const bytes = png(48, 36);
+  let resolveFetch!: (value: Response) => void;
+  const fetcher = vi.fn((_url: string, init?: RequestInit) => new Promise<Response>((resolve) => {
+    resolveFetch = resolve;
+    expect(init?.signal).toBeInstanceOf(AbortSignal);
+  }));
+  vi.stubGlobal("fetch", fetcher);
+  const { doc, unmount } = await setupView();
+  fireEvent.click(screen.getByTestId("board-add-image"));
+  fireEvent.change(screen.getByTestId("board-image-url"), { target: { value: "https://assets.example.com/late.png" } });
+  fireEvent.click(screen.getByTestId("board-image-url-apply"));
+  await waitFor(() => expect(fetcher).toHaveBeenCalledOnce());
+  const signal = fetcher.mock.calls[0]![1]!.signal!;
+  unmount();
+  expect(signal.aborted).toBe(true);
+  await act(async () => {
+    resolveFetch(new Response(byteBuffer(bytes), { status: 206, headers: { "content-type": "image/png", "content-range": `bytes 0-${bytes.length - 1}/${bytes.length}`, "content-length": String(bytes.length) } }));
+    await Promise.resolve();
+  });
+  expect(readObjects(doc)).toEqual([]);
+  expect(objectUrls.size).toBe(0);
+  doc.destroy();
+});
+
 it("verifies JPEG, GIF, WEBP and sanitizes SVG into the exact displayed bytes", async () => {
   const { verifyBoardImageBytes } = await import("@/components/whiteboard/board-content-adapter");
   const jpeg = Uint8Array.from([0xff, 0xd8, 0xff, 0xc0, 0x00, 0x11, 0x08, 0x00, 0x10, 0x00, 0x20]);
@@ -241,7 +281,7 @@ it("rejects header-only raster fakes and closes decoded bitmaps on dimension rej
   const { verifyBoardImageBytes } = await import("@/components/whiteboard/board-content-adapter");
   const fakePng = png().subarray(0, 24);
   const fakeJpeg = Uint8Array.from([0xff, 0xd8, 0xff, 0xc0, 0x00, 0x11, 0x08, 0x00, 0x10, 0x00, 0x20]);
-  const fakeGif = new Uint8Array(10); fakeGif.set(new TextEncoder().encode("GIF89a"));
+  const fakeGif = new Uint8Array(10); fakeGif.set(new TextEncoder().encode("GIF89a")); new DataView(fakeGif.buffer).setUint16(6, 30, true); new DataView(fakeGif.buffer).setUint16(8, 20, true);
   await expect(verifyBoardImageBytes(new Blob([byteBuffer(fakePng)]), "image/png")).rejects.toThrow("IMAGE_DECODE_FAILED");
   await expect(verifyBoardImageBytes(new Blob([byteBuffer(fakeJpeg)]), "image/jpeg")).rejects.toThrow("IMAGE_DECODE_FAILED");
   await expect(verifyBoardImageBytes(new Blob([byteBuffer(fakeGif)]), "image/gif")).rejects.toThrow("IMAGE_DECODE_FAILED");
@@ -251,6 +291,9 @@ it("rejects header-only raster fakes and closes decoded bitmaps on dimension rej
   const mismatchClose = vi.fn();
   await expect(verifyBoardImageBytes(new Blob([byteBuffer(png())]), "image/png", async () => ({ width: 31, height: 24, close: mismatchClose }))).rejects.toThrow("IMAGE_DIMENSIONS_MISMATCH");
   expect(mismatchClose).toHaveBeenCalledOnce();
+  const oversized = png(32_769, 24), decoder = vi.fn(async () => ({ width: 32_769, height: 24, close: vi.fn() }));
+  await expect(verifyBoardImageBytes(new Blob([byteBuffer(oversized)]), "image/png", decoder)).rejects.toThrow("IMAGE_DIMENSIONS_INVALID");
+  expect(decoder).not.toHaveBeenCalled();
 });
 
 it("rejects malformed partial responses before creating an image object", async () => {
