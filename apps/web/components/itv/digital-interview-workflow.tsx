@@ -10,12 +10,14 @@ import {
   appendDigitalInterviewSkillMessage,
   applyDigitalInterviewSkillProposal,
   confirmDigitalInterviewExperts,
+  confirmDigitalInterviewBrief,
   confirmDigitalInterviewQuestions,
-  confirmDigitalInterviewTopic,
+  decideDigitalInterviewReadiness,
   generateDigitalInterviewReportStream,
   loadDigitalInterviewWorkflow,
   observeDigitalInterviewReportStream,
   rejectDigitalInterviewSkillProposal,
+  reviewDigitalInterviewReport,
   type DigitalInterviewQuestion,
   type DigitalInterviewModeratorPolicy,
   type DigitalInterviewResearchBrief,
@@ -29,6 +31,7 @@ import { ExpertPickerDialog } from "./expert-picker-dialog";
 import { InterviewSkillAssistant, PersistentInterviewSkillAssistant } from "./interview-skill-assistant";
 import { InterviewReportMarkdown } from "./interview-report-markdown";
 import { DigitalInterviewResearchBriefEditor } from "./digital-interview-research-brief";
+import { DigitalInterviewEvidenceReview } from "./digital-interview-evidence-review";
 import { evidenceModeLabel, exportInterviewReportPdf, exportInterviewReportWord, reportMarkdownBody } from "@/lib/interview-report-export";
 import { reconcileMockInterviewQuestions, updateMockDigitalInterviewDraft, type MockDigitalInterviewDraft, type MockInterviewStep, type MockSkillSuggestion } from "@/lib/mock/digital-interview-drafts";
 
@@ -248,10 +251,10 @@ export function PersistentDigitalInterviewWorkflow({ initialView }: { readonly i
   async function confirmTopic() {
     const topic = buffers.topic.trim();
     if (!topic) return;
-    const payload = { topic, expectedVersion: view.version };
-    const operation = "confirm-topic";
+    const payload = { topic, researchBrief: buffers.researchBrief, expectedVersion: view.version };
+    const operation = "confirm-brief";
     try {
-      const next = await confirmDigitalInterviewTopic({ interviewId: view.interviewId, ...payload, requestId: requestIdFor(operation, payload) });
+      const next = await confirmDigitalInterviewBrief({ interviewId: view.interviewId, ...payload, requestId: requestIdFor(operation, payload) });
       replaceAfterConfirmation(next, operation);
     } catch (cause) { showError(cause); }
   }
@@ -276,7 +279,11 @@ export function PersistentDigitalInterviewWorkflow({ initialView }: { readonly i
     const operation = "confirm-questions";
     try {
       const next = await confirmDigitalInterviewQuestions({ interviewId: view.interviewId, ...payload, requestId: requestIdFor(operation, payload) });
-      replaceAfterConfirmation(next, operation);
+      const readiness = next.quality.readiness;
+      if (!readiness) { replaceAfterConfirmation(next, operation); return; }
+      const decisionPayload = { assessmentRuleVersion: readiness.ruleVersion, status: "ready" as const, rationale: null, expectedVersion: next.version };
+      const ready = await decideDigitalInterviewReadiness({ interviewId: next.interviewId, ...decisionPayload, requestId: requestIdFor("decide-readiness", decisionPayload) });
+      replaceAfterConfirmation(ready, "decide-readiness");
     } catch (cause) { showError(cause); }
   }
 
@@ -301,6 +308,15 @@ export function PersistentDigitalInterviewWorkflow({ initialView }: { readonly i
   function requestReportGeneration() {
     if (view.report || view.reportGeneration?.status === "failed") { setRegeneration(true); return; }
     void generateReport();
+  }
+
+  async function reviewReport(status: "approved" | "changes_requested", note: string | null) {
+    if (!view.report) return;
+    const payload = { reportId: view.report.reportId, status, note, expectedVersion: view.version };
+    try {
+      const next = await reviewDigitalInterviewReport({ interviewId: view.interviewId, ...payload, requestId: requestIdFor("review-report", payload) });
+      replaceAfterConfirmation(next, "review-report");
+    } catch (cause) { showError(cause); }
   }
 
   async function sendSkillMessage(text: string) {
@@ -345,7 +361,6 @@ export function PersistentDigitalInterviewWorkflow({ initialView }: { readonly i
       setActiveWorkbenchStep(step);
       return;
     }
-    setActiveWorkbenchStep(step);
     requestNavigation({ step: WORKBENCH_STEPS.find((candidate) => candidate.id === step)!.liveStep });
   }
   return <div className="flex min-h-0 flex-1 flex-col lg:flex-row">
@@ -363,11 +378,11 @@ export function PersistentDigitalInterviewWorkflow({ initialView }: { readonly i
         {activeWorkbench === "experts" && <LiveExpertStep expertIds={buffers.expertIds} candidates={view.expertCandidates} onChange={(expertIds) => { setBuffers((current) => ({ ...current, expertIds })); setDirty(true); }} onConfirm={() => void confirmExperts()} />}
         {activeWorkbench === "outline" && <LiveQuestionStep expertIds={buffers.expertIds} candidates={view.expertCandidates} questions={buffers.questions} onChange={(questions) => { setBuffers((current) => ({ ...current, questions })); setDirty(true); }} onConfirm={() => void confirmQuestions()} />}
         {activeWorkbench === "runs" && <LiveRunStep runs={view.expertRuns} reportPending={reportPending} onGenerateReport={requestReportGeneration} />}
-        {activeWorkbench === "report" && (view.report ? <LiveReportStep report={view.report} boundary={{ evidenceMode: view.studyEvidenceMode, review: view.reportEvidenceEligibility }} onViewSource={(expertId, questionId) => {
+        {activeWorkbench === "report" && (view.report ? <><LiveReportStep report={view.report} boundary={{ evidenceMode: view.studyEvidenceMode, review: view.reportEvidenceEligibility }} onViewSource={(expertId, questionId) => {
           setActiveStep("runs");
           setActiveWorkbenchStep("runs");
           window.setTimeout(() => document.getElementById(`answer-${expertId}-${questionId}`)?.scrollIntoView({ block: "center" }), 0);
-        }} generation={view.reportGeneration} error={error} onRetry={requestReportGeneration} /> : view.reportGeneration ? <LiveReportGenerationStep generation={view.reportGeneration} onRetry={requestReportGeneration} />
+        }} generation={view.reportGeneration} error={error} onRetry={requestReportGeneration} /><DigitalInterviewEvidenceReview view={view} onReview={reviewReport} /></> : view.reportGeneration ? <LiveReportGenerationStep generation={view.reportGeneration} onRetry={requestReportGeneration} />
           : <LiveReadOnlyStep title="访谈报告" text="请先确认访谈回答并生成报告。" />)}
       </section>
     </div></main>
