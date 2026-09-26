@@ -1,5 +1,6 @@
 import { validateTextAttributes, type WhiteboardObject } from "@repo/whiteboard-core";
 import type { BoardFabricObject, BoardFabricKind, BoardFabricStickyAppearance, BoardFabricStyle } from "./fabric/board-fabric-object";
+import { readBoardContent } from "./board-content-adapter";
 
 const SUPPORTED_KINDS = new Set<WhiteboardObject["kind"]>(["sticky", "text", "rectangle", "ellipse"]);
 
@@ -82,17 +83,20 @@ function projectedTextStyle(object: WhiteboardObject): Partial<BoardFabricStyle>
 /** Pure adapter: derives disposable renderer input from whiteboard-core canonical objects. */
 export function toBoardFabricObjects(objects: readonly WhiteboardObject[]): BoardFabricObject[] {
   return objects.map((object) => {
-    const supported = SUPPORTED_KINDS.has(object.kind);
+    const content = readBoardContent(object);
+    const contentKind: BoardFabricKind | undefined = content?.type === "shape" ? "shape" : content?.type === "drawing" ? "drawing" : content?.type === "image" ? "image" : content ? "card" : undefined;
+    const supported = SUPPORTED_KINDS.has(object.kind) || Boolean(contentKind);
     const sticky = projectedSticky(object);
     const projected: Omit<BoardFabricObject, "revision"> = {
       id: object.id,
-      kind: supported ? object.kind as BoardFabricKind : "placeholder",
+      kind: contentKind ?? (supported ? object.kind as BoardFabricKind : "placeholder"),
       orderKey: object.orderKey || object.id,
       geometry: { ...object.geometry },
       style: supported ? {
-        fill: sticky?.fill ?? object.style.fill ?? (object.kind === "sticky" ? "#F8D76E" : "#F4F4F5"),
-        textColor: object.style.color ?? "#29261E",
-        stroke: object.style.stroke,
+        fill: content?.type === "shape" ? content.fill : sticky?.fill ?? object.style.fill ?? (object.kind === "sticky" ? "#F8D76E" : "#F4F4F5"),
+        textColor: content?.type === "shape" ? content.textColor : object.style.color ?? "#29261E",
+        stroke: content?.type === "shape" ? content.borderColor : object.style.stroke,
+        strokeWidth: content?.type === "shape" ? content.borderWidth : undefined,
         fontSize: object.style.fontSize,
         ...projectedTextStyle(object),
       } : {
@@ -105,6 +109,7 @@ export function toBoardFabricObjects(objects: readonly WhiteboardObject[]): Boar
         ? { text: object.text }
         : { text: `暂不支持“${object.kind}”对象，内容已安全保留。` },
       sticky: supported ? sticky?.appearance : undefined,
+      boardContent: content,
       parentId: object.parentId ?? undefined,
       locked: supported ? undefined : true,
       projectionIssue: supported ? undefined : {

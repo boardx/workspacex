@@ -16,6 +16,10 @@ const KIND_LABEL: Record<BoardFabricObject["kind"], string> = {
   text: "文字",
   rectangle: "矩形",
   ellipse: "椭圆",
+  shape: "形状",
+  drawing: "绘图",
+  image: "图片",
+  card: "结构化卡片",
   placeholder: "暂不支持的对象",
 };
 

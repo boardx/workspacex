@@ -17,6 +17,7 @@ const probe = vi.hoisted(() => ({
   clearCalls: 0,
   renderCalls: 0,
   moveCalls: 0,
+  primitiveKinds: [] as string[],
 }));
 
 vi.mock("fabric", () => {
@@ -30,6 +31,11 @@ vi.mock("fabric", () => {
     setCoords() {}
     getBoundingRect() { return { left: this.left, top: this.top, width: this.width * this.scaleX, height: this.height * this.scaleY }; }
   }
+  class MockRect extends MockObject { constructor(first?: unknown, second?: Record<string, unknown>) { super(first, second); probe.primitiveKinds.push("Rect"); } }
+  class MockCircle extends MockObject { constructor(first?: unknown, second?: Record<string, unknown>) { super(first, second); probe.primitiveKinds.push("Circle"); } }
+  class MockPath extends MockObject { constructor(first?: unknown, second?: Record<string, unknown>) { super(first, second); probe.primitiveKinds.push("Path"); } }
+  class MockImage extends MockObject { constructor(first?: unknown, second?: Record<string, unknown>) { super(first, second); probe.primitiveKinds.push("Image"); } }
+  class MockGroup extends MockObject { constructor(first?: unknown, second?: Record<string, unknown>) { super(first, second); probe.primitiveKinds.push("Group"); } getObjects() { return []; } }
   class Canvas {
     selection = true; defaultCursor = "default"; viewportTransform = [1, 0, 0, 1, 0, 0];
     constructor() { probe.instances += 1; }
@@ -53,7 +59,7 @@ vi.mock("fabric", () => {
     getActiveObject() { return probe.objects.find((object) => object.data?.boardObjectId === probe.activeId); }
     clear() { probe.clearCalls += 1; }
   }
-  return { Canvas, Rect: MockObject, Circle: MockObject, Textbox: MockObject, Group: MockObject, Point: MockObject };
+  return { Canvas, Rect: MockRect, Circle: MockCircle, Path: MockPath, FabricImage: MockImage, Textbox: MockObject, Group: MockGroup, Point: MockObject };
 });
 
 class ResizeObserverMock { observe() {} disconnect() {} }
@@ -72,7 +78,7 @@ function renderSurface(overrides: Partial<React.ComponentProps<typeof BoardFabri
 }
 
 describe("BoardFabricSurface", () => {
-  beforeEach(() => { probe.instances = 0; probe.objects.length = 0; probe.handlers.clear(); probe.activeId = null; probe.zoom = 1; probe.clearCalls = 0; probe.renderCalls = 0; probe.moveCalls = 0; });
+  beforeEach(() => { probe.instances = 0; probe.objects.length = 0; probe.handlers.clear(); probe.activeId = null; probe.zoom = 1; probe.clearCalls = 0; probe.renderCalls = 0; probe.moveCalls = 0; probe.primitiveKinds.length = 0; });
 
   it("projects canonical-like objects into one Fabric Canvas without DOM object replicas", () => {
     const { container } = renderSurface();
@@ -81,6 +87,18 @@ describe("BoardFabricSurface", () => {
     expect(probe.objects.map((object) => object.data?.boardObjectId)).toEqual(["s-1", "r-1"]);
     expect(container.querySelector('[data-testid^="whiteboard-object-"]')).toBeNull();
     expect(probe.clearCalls).toBe(0);
+  });
+
+  it("constructs dedicated Fabric projections for shape, vector drawing, image state, and structured card", () => {
+    const contentObjects: BoardFabricObject[] = [
+      { ...OBJECTS[0]!, id: "shape", kind: "shape", boardContent: { version: 1, type: "shape", variant: "diamond", fill: "#FFFFFF", borderColor: "#111111", borderWidth: 1, borderStyle: "solid", opacity: 1, radius: 0, textColor: "#111111", horizontalAlign: "center", verticalAlign: "middle" } },
+      { ...OBJECTS[0]!, id: "drawing", kind: "drawing", boardContent: { version: 1, type: "drawing", strokes: [{ id: "stroke", tool: "pen", points: [{ x: 1, y: 2, pressure: .2 }, { x: 4, y: 6, pressure: .9 }], color: "#111111", width: 3, opacity: 1 }] } },
+      { ...OBJECTS[0]!, id: "image", kind: "image", boardContent: { version: 1, type: "image", status: "uploading", assetId: null, sourceUrl: null, mimeType: "image/png", intrinsicWidth: 0, intrinsicHeight: 0, crop: { x: 0, y: 0, width: 1, height: 1 }, opacity: 1, borderColor: "#FFFFFF", borderWidth: 0, cornerRadius: 0, fileName: "photo.png", replacementOf: null, failureCode: null } },
+      { ...OBJECTS[0]!, id: "tile", kind: "card", content: { text: "用户访谈" }, boardContent: { version: 1, type: "tile", tileType: "document", title: "用户访谈", description: "研究材料", icon: null, coverAssetId: null, fields: [], tags: [], link: null, status: null, actions: [] } },
+    ];
+    renderSurface({ objects: contentObjects });
+    expect(probe.objects.map((object) => object.data?.adapterKind)).toEqual(["shape", "drawing", "image", "card"]);
+    expect(probe.primitiveKinds).toEqual(expect.arrayContaining(["Path", "Group", "Rect"]));
   });
 
   it("converts a dragged dock tool drop into world coordinates without creating renderer-owned state", () => {
