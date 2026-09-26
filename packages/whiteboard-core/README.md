@@ -30,8 +30,9 @@ validated commands at the authoritative host; peer updates in the tests model
 trusted synchronization. Hosts must reject incompatible schema/epoch and enforce
 limits, authorization, idempotency, durable ACK and revocation independently.
 
-Dependencies: exact Yjs 13.6.32 (MIT); package remains private until repository
-license/release policy is settled. References: https://github.com/yjs/yjs and
+Dependencies: exact Yjs 13.6.32 (MIT). This package's source is licensed under
+Apache-2.0; `private: true` in `package.json` only means it is not currently
+published to npm. References: https://github.com/yjs/yjs and
 https://docs.yjs.dev/api/undo-manager .
 
 Run `pnpm --filter @repo/whiteboard-core test` and
