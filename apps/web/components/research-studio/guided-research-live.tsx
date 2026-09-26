@@ -7,8 +7,6 @@ import { Loader2, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { GuidedResearchConversation } from "./guided-research-conversation";
-import { Textarea } from "@/components/ui/textarea";
-import { Card, CardContent } from "@/components/ui/card";
 import { ResearchProgress, ResearchLoading, researchSteps as steps, researchStepLabels as labels } from "./guided-research-presentation";
 import { researchReportDocument } from "@/lib/research-report-document";
 import { GuidedResearchReportDocument } from "./guided-research-report-document";
@@ -23,6 +21,8 @@ import { GuidedResearchIntentPlan } from "./guided-research-intent-plan";
 import { GuidedResearchTrustConsole } from "./guided-research-trust-console";
 import { GuidedResearchReadiness, researchCompletionLabel, researchLimitations } from "./guided-research-readiness";
 import { GuidedResearchStepLayout } from "./guided-research-step-layout";
+import { GuidedResearchMarkdownWorkspace } from "./guided-research-markdown-workspace";
+import { parseGuidedResearchMarkdown, serializeGuidedResearchMarkdown } from "@/lib/guided-research-markdown";
 import { getResearchRuntime, getResearchRuntimeProgress, mergeResearchProgress, executeResearchRuntime, type GuidedResearchRuntime as Runtime, type GuidedResearchRuntimeCommand as Command, type GuidedResearchRuntimeDraft as Draft } from "@/lib/guided-research-api";
 function trustCommandId(prefix: string): string {
   return `${prefix}-${crypto.randomUUID()}`;
@@ -320,6 +320,7 @@ export function GuidedResearchLive({ sessionId, onBack, initialNode }: { session
         : null);
   const reportAssistantMenuAction = <DropdownMenuItem onSelect={() => setReportAssistantOpen((open) => !open)}>{reportAssistantOpen ? "收起助手" : "修改报告"}</DropdownMenuItem>;
   const reportActions = <div className="flex flex-wrap items-center justify-between gap-3"><h1 className="text-24 font-semibold">研究报告{state.completed ? " · 已完成" : ""}</h1>{reportPrimaryAction}{showReportRecoveryActions && <DropdownMenu><DropdownMenuTrigger asChild><Button variant="outline" aria-label="更多操作">更多操作</Button></DropdownMenuTrigger><DropdownMenuContent align="end">{reportAssistantMenuAction}<DropdownMenuSeparator /><DropdownMenuItem disabled={busy} onSelect={() => void run("generate")}>重新生成报告</DropdownMenuItem></DropdownMenuContent></DropdownMenu>}</div>;
+  const briefDocument = draft?.node === "brief" ? serializeGuidedResearchMarkdown({ node: "brief", brief: draft.value }) : null;
   return <div className="max-w-none space-y-4" data-layout="signed-desktop" data-testid={`research-flow-${node === "research" ? "search" : node}`}>
     <ResearchProgress node={loadingNode ?? node} availableNodes={state.availableNodes} busy={busy} completed={state.completed} onNavigate={navigate} onBack={onBack} />
     <GuidedResearchStepLayout reading={reportVisible} assistantOpen={reportAssistantOpen} onAssistantOpenChange={setReportAssistantOpen} assistant={<GuidedResearchConversation node={node} messages={state.messages} message={message} onMessageChange={setMessage} busy={busy} processing={processing}
@@ -354,7 +355,13 @@ export function GuidedResearchLive({ sessionId, onBack, initialNode }: { session
         {state.currentNode !== node && <p className="text-12 text-muted-foreground">重新确认此步骤会使后续研究结果失效，并按当前内容重新生成。</p>}
         {processing && !(reportVisible && state.reportTimeline?.length) && <p role="status" className="flex items-center gap-2 text-12 text-muted-foreground"><Loader2 className="size-4 animate-spin" aria-hidden />正在处理，进度会自动保存…</p>}
         {node === "outline" && !state.intent && <GuidedResearchIntentPlan initialIntent={state.intent} initialPolicy={state.sourcePolicy} revision={state.planRevision ?? 0} disabled={busy} onConfirm={({ intent, sourcePolicy, expectedRevision }) => void run("refine_scope", { intent, sourcePolicy, expectedRevision, idempotencyKey: trustCommandId("scope") })} />}
-        {draft?.node === "brief" && <Card><CardContent className="space-y-3 p-4">{(["topic", "goal", "timeRange", "region", "focus"] as const).map((field) => <label key={field} className="block text-12">{{ topic: "研究主题", goal: "研究目标", timeRange: "时间范围", region: "研究区域", focus: "重点关注" }[field]}<Textarea disabled={busy} value={draft.value[field]} onChange={(event) => setDraft({ ...draft, value: { ...draft.value, [field]: event.target.value } })} /></label>)}</CardContent></Card>}
+        {briefDocument && <GuidedResearchMarkdownWorkspace document={briefDocument} saving={busy} onSave={async (markdown) => {
+          const parsed = parseGuidedResearchMarkdown({ document: briefDocument, markdown });
+          if (!parsed.ok) return { ok: false, message: parsed.errors.map((item) => item.message).join("；") };
+          if (draft?.node !== "brief") return { ok: false, message: "研究需求已更新，请重新打开 Markdown。" };
+          setDraft({ node: "brief", value: { ...draft.value, ...parsed.draft.value } });
+          return { ok: true };
+        }} />}
         {draft?.node === "directions" && <ResearchDirectionsEditor draft={draft} disabled={busy} onChange={setDraft} />}
         {draft?.node === "outline" && <ResearchOutlineEditor draft={draft} disabled={busy} onChange={setDraft} />}
         {node === "research" && <>
