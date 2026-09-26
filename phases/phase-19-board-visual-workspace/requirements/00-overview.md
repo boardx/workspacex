@@ -20,18 +20,18 @@
 
 ## R3 十轮交付边界与优先级
 
-| 轮次 | 优先级 | 可独立验收的交付边界 | 主要规格 |
+| 轮次 | 类别 | 权威 feature 分组与可独立验收的交付边界 | 主要规格 |
 |---|---|---|---|
-| 1 | P0 | Fabric 主画布、无限平移缩放、viewport、选择框；删除 DOM/SVG 主渲染路径 | `01-fabric-surface.md` |
-| 2 | P0 | Sticky/Text/Shape 创建、编辑、复制、删除和基础 Undo/Redo；连续便利贴与剪贴板 | `02-object-authoring.md`、`05-collaboration-history.md` |
-| 3 | P0 | Panel、Frame、Group、层级、Connector 与连接点 | `03-structure-connectors.md` |
-| 4 | P0 | 多选、对齐、分布、网格/行列、智能吸附、锁定与层级 | `04-selection-layout.md` |
-| 5 | P0 | Yjs 多人协作、presence、评论、多人 Undo/Redo、tombstone、离线重连与恢复 | `05-collaboration-history.md` |
-| 6 | P0 | Chat 中 Mermaid/Fabric 的点击时布局原样插入；AI 生成/聚类/排版走同一 operation | `06-ai-chat-handoff.md` |
-| 7 | P0 | 开放 API、Miro/Mural 导入、标准导出、内容文件存储和 PG 元数据 | `07-interchange-storage.md` |
-| 8 | P1 | 1k/5k/10k 性能、视口裁剪、触控、键盘和屏幕阅读器对象大纲 | `08-performance-accessibility.md` |
-| 9 | P1 | 会议室/工作坊、50 客户端 soak、断网/崩溃/快照恢复和灾备演练 | `05-collaboration-history.md`、`08-performance-accessibility.md` |
-| 10 | 9 分门禁 | 六条 PRD 旅程、三块真实迁移板、跨浏览器 E2E、API/存储/安全审计与回归收口 | 全部规格 |
+| 1 | Foundation | **BV01–BV03**：Fabric surface、Yjs 增量投影、命令桥与对象大纲 | `01-fabric-surface.md` |
+| 2 | Core | **BV04–BV06**：Sticky/Text、连续输入、基础 Delete/Undo/Redo、Reaction 与 Link Preview | `02-object-authoring.md`、`05-collaboration-history.md` |
+| 3 | Core | **BV07–BV10**：Tile/Web Tile/Table/Template、Shape/Icon、Draw 与 Image | `02-object-authoring.md` |
+| 4 | Core | **BV11–BV13**：Panel/Frame、Group/Layer/Lock 与 Connector | `03-structure-connectors.md` |
+| 5 | Core | **BV14–BV16**：选择、复制粘贴、快捷键与对象上下文控件 | `04-selection-layout.md` |
+| 6 | Core | **BV17–BV19**：对齐/分布/网格、Snap/Guidelines 与 Smart Layout | `04-selection-layout.md` |
+| 7 | Collaboration | **BV20–BV22**：Presence、评论、多人 Undo/tombstone、离线与 checkpoint 恢复 | `05-collaboration-history.md` |
+| 8 | Integration | **BV23–BV25**：统一 operation/Event API、AI proposal、Chat Mermaid/Fabric handoff | `06-ai-chat-handoff.md` |
+| 9 | Integration | **BV26–BV28**：文件/对象存储与 PG 元数据、Miro/Mural 导入导出、会议室 | `07-interchange-storage.md`、`05-collaboration-history.md` |
+| 10 | Quality / 9 分门禁 | **BV29–BV32**：真实 10k 性能、50 浏览器恢复门、无障碍与六旅程总验收 | `08-performance-accessibility.md`、全部规格 |
 
 依赖必须按轮次推进；可在同一轮内并行，但不得以 mock、单元测试或静态截图替代该轮声明的真实边界。
 
