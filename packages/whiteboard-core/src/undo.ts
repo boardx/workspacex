@@ -24,8 +24,36 @@ export class WhiteboardUndo {
   private readonly manager: Y.UndoManager;
   private undoHistory: HistoryEntry[] = [];
   private redoHistory: HistoryEntry[] = [];
+  private executing = false;
+  private externalBefore: ReturnType<typeof readObjects> | null = null;
+  private readonly beforeTransaction = (transaction: Y.Transaction): void => {
+    if (!this.executing && transaction.origin instanceof WhiteboardCommandOrigin) this.externalBefore = readObjects(this.doc);
+  };
+  private readonly afterTransaction = (transaction: Y.Transaction): void => {
+    if (this.executing || !(transaction.origin instanceof WhiteboardCommandOrigin) || !this.externalBefore) return;
+    const beforeObjects = this.externalBefore; this.externalBefore = null;
+    const afterObjects = readObjects(this.doc);
+    const beforeById = new Map(beforeObjects.map(object => [object.id, object]));
+    const afterById = new Map(afterObjects.map(object => [object.id, object]));
+    const ids = [...new Set([...beforeById.keys(), ...afterById.keys()])].filter(id => JSON.stringify(beforeById.get(id) ?? null) !== JSON.stringify(afterById.get(id) ?? null));
+    if (!ids.length) return;
+    const before = Object.fromEntries(ids.map(id => [id, JSON.stringify(beforeById.get(id) ?? null)]));
+    const after = Object.fromEntries(ids.map(id => [id, JSON.stringify(afterById.get(id) ?? null)]));
+    const item = this.manager.undoStack.at(-1);
+    if (!item) return;
+    item.meta.set(HISTORY, { ids, before, after } satisfies HistorySnapshot);
+    const pureCreate = ids.every(id => !beforeById.has(id) && afterById.has(id));
+    const pureDelete = ids.every(id => beforeById.has(id) && !afterById.has(id));
+    if (pureCreate || pureDelete) {
+      this.manager.undoStack.pop();
+      this.undoHistory.push({ type: 'structural', value: { action: pureCreate ? 'create' : 'delete', objects: ids.map(id => (pureCreate ? afterById : beforeById).get(id)!).filter(Boolean) } });
+    } else this.undoHistory.push({ type: 'manager', item });
+    this.redoHistory = [];
+  };
   constructor(private readonly doc: Y.Doc, readonly origin: object = {}, private readonly newId: (oldId: string) => string = () => crypto.randomUUID()) {
     this.manager = new Y.UndoManager([objectMap(doc), tombstones(doc)], { trackedOrigins: new Set([origin, WhiteboardCommandOrigin]), captureTimeout: 0 });
+    doc.on('beforeTransaction', this.beforeTransaction);
+    doc.on('afterTransaction', this.afterTransaction);
   }
   private snapshot(ids: readonly string[]): Record<string, string> {
     const objects = new Map(readObjects(this.doc).map(object => [object.id, object]));
@@ -35,7 +63,9 @@ export class WhiteboardUndo {
     const commands = WhiteboardCommandBatch.parse(input);
     const ids = [...new Set(commands.map(command => command.type === 'create' ? command.object.id : command.id))];
     const before = this.snapshot(ids);
-    executeCommands(this.doc, commands, transactionOrigin);
+    this.executing = true;
+    try { executeCommands(this.doc, commands, transactionOrigin); }
+    finally { this.executing = false; }
     const after = this.snapshot(ids);
     const item = this.manager.undoStack.at(-1);
     if (!item) throw new Error('HISTORY_NOT_CAPTURED');
@@ -159,5 +189,5 @@ export class WhiteboardUndo {
     }
     this.redoHistory.pop(); this.undoHistory.push(entry); return true;
   }
-  destroy(): void { this.manager.destroy(); }
+  destroy(): void { this.doc.off('beforeTransaction', this.beforeTransaction); this.doc.off('afterTransaction', this.afterTransaction); this.manager.destroy(); }
 }

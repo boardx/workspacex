@@ -16,8 +16,24 @@ const KIND_LABEL: Record<BoardFabricObject["kind"], string> = {
   text: "文字",
   rectangle: "矩形",
   ellipse: "椭圆",
+  shape: "形状",
+  drawing: "绘图",
+  image: "图片",
+  card: "结构化卡片",
   placeholder: "暂不支持的对象",
 };
+
+function describeObject(object: BoardFabricObject): string {
+  if (object.kind !== "image" || object.boardContent?.type !== "image") return `对象类型：${KIND_LABEL[object.kind]}`;
+  const imageState = object.boardContent.status === "failed"
+    ? "图片上传失败"
+    : object.boardContent.status === "ready" && !object.imageAssetUrl
+      ? "图片需在当前会话重新验证"
+      : object.boardContent.status === "ready"
+        ? "图片已验证"
+        : "图片上传中";
+  return `对象类型：${KIND_LABEL[object.kind]}；${imageState}`;
+}
 
 export function BoardA11yMirror({ objects, selectedObjectIds, onSelect, readOnly }: BoardA11yMirrorProps) {
   const selected = new Set(selectedObjectIds);
@@ -35,7 +51,7 @@ export function BoardA11yMirror({ objects, selectedObjectIds, onSelect, readOnly
               size="sm"
               className="w-full justify-start truncate transition-colors"
               aria-label={`图形：${object.content.text || KIND_LABEL[object.kind]}`}
-              aria-description={`对象类型：${KIND_LABEL[object.kind]}`}
+              aria-description={describeObject(object)}
               aria-pressed={selected.has(object.id)}
               disabled={object.kind === "placeholder"}
               data-testid={`board-a11y-object-${object.id}`}

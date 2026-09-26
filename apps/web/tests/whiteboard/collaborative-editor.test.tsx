@@ -62,7 +62,7 @@ it('read-only disables mutation controls and does not alter the document', () =>
   const doc = createWhiteboardDocument();
   render(<CollaborativeEditor boardId="board-test" clientId="client-test" doc={doc} readOnly title="只读白板" status="已连接" />);
   expect(screen.getByTestId('board-add-sticky')).toBeDisabled();
-  expect(screen.getByText('画笔', { exact: true })).toBeDisabled();
+  expect(screen.getByTestId('board-add-draw')).toBeDisabled();
   expect(screen.getByText('粘贴', { exact: true })).toBeDisabled();
   expect(screen.getByLabelText('白板名称')).toBeDisabled();
   fireEvent.click(screen.getByTestId('board-add-sticky'));

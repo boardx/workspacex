@@ -70,6 +70,24 @@ describe("Board accessibility object mirror", () => {
     expect(button).toHaveAccessibleDescription("对象类型：椭圆");
   });
 
+  it("announces when a persisted image needs session verification", () => {
+    const image = {
+      ...object("image", "a", "research.png", "image"),
+      boardContent: {
+        version: 1, type: "image", status: "ready", assetId: "local-session-1",
+        sourceUrl: null, mimeType: "image/png", intrinsicWidth: 32, intrinsicHeight: 32,
+        crop: { x: 0, y: 0, width: 1, height: 1 }, opacity: 1, borderColor: "#000000",
+        borderWidth: 0, cornerRadius: 0, fileName: "research.png", replacementOf: null,
+        failureCode: null, byteSize: 128, contentDigest: `sha256:${"a".repeat(64)}`,
+        magicMimeType: "image/png", persistence: "local-session",
+      },
+    } as BoardFabricObject;
+    render(<BoardA11yMirror objects={[image]} selectedObjectIds={[]} onSelect={vi.fn()} readOnly={false} />);
+
+    expect(screen.getByRole("button", { name: "图形：research.png" }))
+      .toHaveAccessibleDescription("对象类型：图片；图片需在当前会话重新验证");
+  });
+
   it("announces an unsupported object placeholder without exposing a canonical write path", () => {
     const onSelect = vi.fn();
     render(<BoardA11yMirror objects={[{ ...object("future", "a", "暂不支持“frame”对象，内容已安全保留。", "placeholder"), locked: true, projectionIssue: { code: "BOARD_OBJECT_UNSUPPORTED", sourceKind: "frame", message: "暂不支持“frame”对象，内容已安全保留。" } }]} selectedObjectIds={[]} onSelect={onSelect} readOnly={false} />);
