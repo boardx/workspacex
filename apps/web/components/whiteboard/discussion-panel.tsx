@@ -1,17 +1,32 @@
 'use client';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { createBoardTask,createBoardThread,listBoardThreads,replyBoardThread,resolveBoardThread,updateBoardTask,type BoardThread } from '@/lib/live-whiteboard';
 const mentions=(value:string)=>[...new Set(value.split(',').map(v=>v.trim()).filter(Boolean))];
-export function DiscussionPanel({boardId,selectedObject,readOnly}:{boardId:string;selectedObject:{id:string;label:string}|null;readOnly:boolean}){
- const [open,setOpen]=useState(false),[threads,setThreads]=useState<BoardThread[]>([]),[body,setBody]=useState(''),[mentionText,setMentionText]=useState(''),[assignee,setAssignee]=useState(''),[due,setDue]=useState(''),[notice,setNotice]=useState('');
+export function DiscussionPanel({boardId,selectedObject,readOnly,expanded,onExpandedChange}:{boardId:string;selectedObject:{id:string;label:string}|null;readOnly:boolean;expanded?:boolean;onExpandedChange?:(expanded:boolean)=>void}){
+ const [localOpen,setLocalOpen]=useState(false),[threads,setThreads]=useState<BoardThread[]>([]),[body,setBody]=useState(''),[mentionText,setMentionText]=useState(''),[assignee,setAssignee]=useState(''),[due,setDue]=useState(''),[notice,setNotice]=useState('');
+ const open=expanded??localOpen;const setOpen=(next:boolean)=>{setLocalOpen(next);onExpandedChange?.(next);};
+ const trigger=useRef<HTMLButtonElement>(null),heading=useRef<HTMLHeadingElement>(null);
  const load=useCallback(async()=>{try{setThreads((await listBoardThreads(boardId)).items);}catch{setNotice('无法读取评论，请确认白板权限。');}},[boardId]);
  useEffect(()=>{if(open)void load();},[open,load]);
+ useEffect(()=>{if(open)requestAnimationFrame(()=>heading.current?.focus());},[open]);
+ const close=()=>{setOpen(false);requestAnimationFrame(()=>trigger.current?.focus());};
  const run=async(action:()=>Promise<unknown>)=>{try{await action();setBody('');setMentionText('');setNotice('已保存');await load();}catch{setNotice('操作未保存。成员、权限或白板状态可能已改变。');}};
- return <><Button data-testid="board-discussion-toggle" className="absolute right-3 top-3 z-20" onClick={()=>setOpen(v=>!v)}>评论 {threads.length||''}</Button>{open&&<aside data-testid="board-discussion-panel" className="absolute inset-y-0 right-0 z-10 w-80 overflow-y-auto border-l border-border bg-card p-3 pt-14 shadow-lg">
-  <h2 className="text-16 font-semibold">评论与任务</h2><p className="text-12 text-muted-foreground">{selectedObject?`锚定：${selectedObject.label}`:'选择对象后可发起评论'}</p>
+ return <><Button ref={trigger} data-testid="board-discussion-toggle" aria-expanded={open} aria-controls="board-discussion-panel" className="absolute bottom-8 left-3 z-20 sm:bottom-auto sm:left-auto sm:right-3 sm:top-[calc(var(--board-canvas-offset,0px)+0.75rem)]" onClick={()=>open?close():setOpen(true)}>评论 {threads.length||''}</Button>{open&&<aside id="board-discussion-panel" aria-label="评论与任务" data-testid="board-discussion-panel" onKeyDown={event=>{if(event.key==='Escape'){event.preventDefault();close();return;}
+  // Keep Tab contained to this panel's own focusable elements while it is open. The
+  // primary controls become `inert` at the same time (see live-board.tsx), so relying on
+  // the browser's native forward/backward wrap-around across the rest of the (otherwise
+  // near-empty, fullscreen) page proved unreliable; a self-contained trap that only ever
+  // looks at elements inside this <aside> is unambiguous and doesn't depend on it.
+  if(event.key!=='Tab')return;const root=event.currentTarget;
+  const focusables=Array.from(root.querySelectorAll<HTMLElement>('button:not(:disabled), [href], input:not(:disabled), textarea:not(:disabled), select:not(:disabled), [tabindex]:not([tabindex="-1"])')).filter(el=>el.offsetParent!==null);
+  if(focusables.length===0)return;const first=focusables[0]!,last=focusables[focusables.length-1]!,active=document.activeElement;
+  if(event.shiftKey){if(active===first||!root.contains(active)){event.preventDefault();last.focus();}}
+  else{if(active===last||!root.contains(active)){event.preventDefault();first.focus();}}
+ }} className="absolute inset-y-0 right-0 z-10 w-full max-w-80 overflow-y-auto border-l border-border bg-card p-3 pt-14 shadow-lg motion-reduce:transition-none">
+  <div className="mb-2 flex items-center justify-between gap-2"><h2 ref={heading} tabIndex={-1} className="text-16 font-semibold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">评论与任务</h2><Button variant="outline" size="sm" data-testid="board-discussion-close" onClick={close}>关闭</Button></div><p className="text-12 text-muted-foreground">{selectedObject?`锚定：${selectedObject.label}`:'选择对象后可发起评论'}</p>
   {!readOnly&&selectedObject&&<div className="my-3 space-y-2"><Textarea aria-label="新评论" value={body} onChange={e=>setBody(e.target.value)} placeholder="写评论…"/><Input aria-label="提及成员 ID" value={mentionText} onChange={e=>setMentionText(e.target.value)} placeholder="@成员 ID，逗号分隔"/><Button disabled={!body.trim()} onClick={()=>void run(()=>createBoardThread(boardId,{requestId:crypto.randomUUID(),anchor:{kind:'object',objectId:selectedObject.id,label:selectedObject.label||'未命名对象'},body,mentionUserIds:mentions(mentionText)}))}>发布评论</Button></div>}
   <div className="space-y-3">{threads.map(thread=><article key={thread.id} data-testid={`board-thread-${thread.id}`} className="rounded-container border border-border p-2"><p className="text-12 font-medium">{thread.anchor.kind==='object'?thread.anchor.label:`画布位置 ${Math.round(thread.anchor.x)}, ${Math.round(thread.anchor.y)}`}{thread.resolvedAt?' · 已解决':''}</p>{thread.comments.map(comment=><p key={comment.id} className="mt-2 text-13"><b>{comment.authorId}</b> {comment.deletedAt?'[评论已删除]':comment.body}{comment.editedAt?'（已编辑）':''}</p>)}
    {!readOnly&&<><Textarea aria-label={`回复 ${thread.id}`} placeholder="回复…" onChange={e=>setBody(e.target.value)} /><Button disabled={!body.trim()} onClick={()=>void run(()=>replyBoardThread(boardId,thread.id,{requestId:crypto.randomUUID(),body,mentionUserIds:mentions(mentionText)}))}>回复</Button><Button onClick={()=>void run(()=>resolveBoardThread(boardId,thread.id,!thread.resolvedAt))}>{thread.resolvedAt?'重新打开':'解决'}</Button>{thread.task?<Button onClick={()=>void run(()=>updateBoardTask(boardId,thread.task!.id,{status:thread.task!.status==='open'?'done':'open'}))}>{thread.task.status==='open'?'完成任务':'重开任务'}</Button>:<><Input aria-label={`任务负责人 ${thread.id}`} value={assignee} onChange={e=>setAssignee(e.target.value)} placeholder="负责人成员 ID（可选）"/><Input aria-label={`任务截止日期 ${thread.id}`} type="date" value={due} onChange={e=>setDue(e.target.value)}/><Button onClick={()=>void run(()=>createBoardTask(boardId,thread.id,{requestId:crypto.randomUUID(),assigneeId:assignee.trim()||null,dueAt:due?new Date(`${due}T23:59:59.000Z`).toISOString():null}))}>转为任务</Button></>}</>}

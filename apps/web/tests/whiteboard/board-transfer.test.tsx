@@ -24,6 +24,23 @@ beforeEach(()=>{vi.resetAllMocks();vi.mocked(api.getBoard).mockResolvedValue(boa
 afterEach(()=>{cleanup();vi.unstubAllGlobals();});
 
 describe('Board portable transfer UI',()=>{
+  it('opens the file chooser from a visible button and restores focus after an import error',async()=>{
+    const inputClick=vi.spyOn(HTMLInputElement.prototype,'click');
+    render(<LiveBoard boardId={board.id}/>);
+    const trigger=await screen.findByRole('button',{name:'导入副本'});
+    expect(trigger).toHaveAttribute('data-testid','board-import-trigger');
+    expect(trigger.className).toContain('focus-visible:ring-2');
+    trigger.focus();fireEvent.click(trigger);
+    expect(inputClick).toHaveBeenCalledTimes(1);
+    const input=screen.getByTestId('board-import-file');
+    expect(input).toHaveAttribute('tabindex','-1');
+    fireEvent.change(input,{target:{files:[{size:10,text:async()=>'{}'}]}});
+    expect(await screen.findByRole('alert')).toBeVisible();
+    fireEvent.click(screen.getByRole('button',{name:'关闭'}));
+    await waitFor(()=>expect(trigger).toHaveFocus());
+    expect(input).not.toHaveFocus();
+    inputClick.mockRestore();
+  });
   it('previews loss and explicitly creates a new board instead of replacing the open board',async()=>{
     vi.mocked(api.importBoardPackage).mockResolvedValue({board:{...board,id:'8f177ac1-a652-4a6d-9078-fe239ad672bd',name:'Source（导入）'},importedObjects:0,remappedObjects:0,replayed:false});
     render(<LiveBoard boardId={board.id}/>);await screen.findByTestId('board-import-file');

@@ -74,7 +74,7 @@ export class PgWhiteboardCollaborationStore implements WhiteboardCollaborationSt
     validIds(p, boardId, input.updateId, input.epoch);
     if (!(input.update instanceof Uint8Array) || input.update.byteLength < 1 || input.update.byteLength > WHITEBOARD_UPDATE_LIMITS.bytes) throw new Fault('VALIDATION_FAILED');
     const update = new Uint8Array(input.update);
-    return this.commit(p, boardId, input.epoch, input.updateId, HASH(Buffer.concat([Buffer.from('update:'), Buffer.from(update)])), snapshot => this.validator.validate(snapshot, update));
+    return this.commit(p, boardId, input.epoch, input.updateId, HASH(Buffer.concat([Buffer.from('update:'), Buffer.from(update)])), snapshot => this.validator.validate(snapshot, update, p.userId));
   }
   async writeCommands(p: Principal, boardId: string, input: WhiteboardCommandsInput): Promise<WhiteboardUpdateAck> {
     validIds(p, boardId, input.requestId, input.epoch);

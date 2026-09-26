@@ -1,5 +1,5 @@
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
-import { afterEach, expect, it } from 'vitest';
+import { afterEach, expect, it, vi } from 'vitest';
 import { createWhiteboardDocument, executeCommands, readObjects } from '@repo/whiteboard-core';
 import { CollaborativeEditor } from '@/components/whiteboard/collaborative-editor';
 import { textSplice } from '@/components/whiteboard/use-whiteboard-document';
@@ -33,6 +33,19 @@ it('read-only disables mutation controls and does not alter the document', () =>
   expect(screen.getByLabelText('白板名称')).toBeDisabled();
   fireEvent.click(screen.getByTestId('board-add-sticky'));
   expect(readObjects(doc)).toEqual([]); doc.destroy();
+});
+it('keeps platform pinch enabled and removes the inspector from focus order while an auxiliary panel is open', () => {
+  const doc=createWhiteboardDocument();
+  executeCommands(doc,[{type:'create',object:{id:'note',schemaVersion:1,kind:'sticky',geometry:{x:0,y:0,width:100,height:80,rotation:0},text:'便签',style:{},parentId:null,orderKey:'a'}}],'seed');
+  const {rerender}=render(<CollaborativeEditor doc={doc} readOnly={false} title="白板" status="已同步"/>);
+  const surface=screen.getByTestId('board-live-surface');
+  expect(surface).toHaveClass('touch-auto');expect(surface).not.toHaveClass('touch-none');
+  surface.focus();fireEvent.focus(surface);fireEvent.keyDown(surface,{key:'Enter'});fireEvent.keyDown(surface,{key:'Enter'});
+  expect(screen.getByLabelText('对象文字')).toBeVisible();
+  rerender(<CollaborativeEditor doc={doc} readOnly={false} title="白板" status="已同步" auxiliaryPanelOpen workshop={<button>面板控件</button>}/>);
+  expect(screen.queryByTestId('board-object-inspector')).not.toBeInTheDocument();
+  expect(screen.getByRole('button',{name:'面板控件'})).toBeVisible();
+  doc.destroy();
 });
 it('groups a multi-selection, wraps it in a frame and ungroups without losing objects', () => {
   HTMLElement.prototype.setPointerCapture = () => {};
@@ -102,5 +115,105 @@ it('follows a presenter viewport while keeping room controls read-only', () => {
   render(<CollaborativeEditor doc={doc} readOnly title="会议室" status="只读" followViewport={{x:120,y:-40,zoom:1.5,revision:2}}/>);
   expect(screen.getByTestId('board-live-surface').firstElementChild).toHaveStyle({transform:'translate(120px,-40px) scale(1.5)'});
   expect(screen.getByTestId('board-add-sticky')).toBeDisabled();
+  doc.destroy();
+});
+
+it('completes spatial selection, multi-select, movement and connection from the canvas keyboard entry', () => {
+  const doc=createWhiteboardDocument(), geometry={x:10,y:20,width:100,height:80,rotation:0};
+  executeCommands(doc,[
+    {type:'create',object:{id:'left',schemaVersion:1,kind:'sticky',geometry,text:'左侧想法',style:{},parentId:null,orderKey:'a'}},
+    {type:'create',object:{id:'right',schemaVersion:1,kind:'sticky',geometry:{...geometry,x:240},text:'右侧想法',style:{},parentId:null,orderKey:'b'}},
+  ],'seed');
+  render(<CollaborativeEditor doc={doc} readOnly={false} title="白板" status="已同步"/>);
+  expect(screen.getByRole('toolbar',{name:'白板工具'})).toBeVisible();
+  expect(screen.getAllByRole('status')).toHaveLength(1);
+  const canvas=screen.getByTestId('board-live-surface');
+  canvas.focus(); fireEvent.focus(canvas);
+  expect(canvas).toHaveFocus();
+  expect(canvas).toHaveAttribute('aria-activedescendant','board-a11y-object-left');
+  fireEvent.keyDown(canvas,{key:'Enter'});
+  expect(screen.getByTestId('board-object-left')).toHaveAttribute('aria-pressed','true');
+  fireEvent.keyDown(canvas,{key:'ArrowRight'});
+  expect(canvas).toHaveAttribute('aria-activedescendant','board-a11y-object-right');
+  fireEvent.keyDown(canvas,{key:' ',shiftKey:true});
+  expect(screen.getByTestId('board-object-right')).toHaveAttribute('aria-pressed','true');
+  fireEvent.keyDown(canvas,{key:'ArrowDown',ctrlKey:true,shiftKey:true});
+  expect(readObjects(doc).find(item=>item.id==='left')?.geometry.y).toBe(30);
+  expect(readObjects(doc).find(item=>item.id==='right')?.geometry.y).toBe(30);
+  expect(screen.getByTestId('board-live-announcer')).toHaveTextContent('已移动 2 个对象');
+
+  const connect=screen.getByText('连接',{exact:true});connect.focus();fireEvent.click(connect);
+  expect(canvas).toHaveFocus();
+  const press=(key:string)=>fireEvent.keyDown(document.activeElement!,{key});
+  press('ArrowLeft');press(' ');press('ArrowRight');press(' ');
+  expect(readObjects(doc).find(item=>item.kind==='connector')?.connector).toEqual({from:'left',to:'right'});
+  expect(screen.getByTestId('board-live-announcer')).toHaveTextContent('左侧想法');
+  expect(screen.getByTestId('board-live-announcer')).toHaveTextContent('右侧想法');
+  doc.destroy();
+});
+
+it('restores a keyboard deletion and its connector as one local undo transaction', () => {
+  const doc=createWhiteboardDocument(), geometry={x:0,y:0,width:100,height:80,rotation:0};
+  executeCommands(doc,[
+    {type:'create',object:{id:'a',schemaVersion:1,kind:'sticky',geometry,text:'A',style:{},parentId:null,orderKey:'a'}},
+    {type:'create',object:{id:'b',schemaVersion:1,kind:'sticky',geometry:{...geometry,x:200},text:'B',style:{},parentId:null,orderKey:'b'}},
+    {type:'create',object:{id:'edge',schemaVersion:1,kind:'connector',geometry,text:'',style:{},parentId:null,orderKey:'c',connector:{from:'a',to:'b'}}},
+  ],'seed');
+  render(<CollaborativeEditor doc={doc} readOnly={false} title="白板" status="已同步"/>);
+  const canvas=screen.getByTestId('board-live-surface');canvas.focus();fireEvent.focus(canvas);
+  fireEvent.keyDown(canvas,{key:'Enter'});fireEvent.keyDown(canvas,{key:'Delete'});
+  expect(readObjects(doc).map(item=>item.id)).toEqual(['b']);expect(canvas).toHaveFocus();
+  fireEvent.keyDown(document.activeElement!,{key:'z',ctrlKey:true});
+  expect(readObjects(doc).map(item=>item.id)).toEqual(['a','b','edge']);
+  expect(screen.getByTestId('board-live-announcer')).toHaveTextContent('已撤销本地修改');
+  expect(canvas).toHaveFocus();
+  doc.destroy();
+});
+
+it('keeps the canvas focused after keyboard cancellation and deletion, and lets viewers navigate without mutation', () => {
+  const doc=createWhiteboardDocument();
+  executeCommands(doc,[{type:'create',object:{id:'note',schemaVersion:1,kind:'sticky',geometry:{x:0,y:0,width:100,height:80,rotation:0},text:'只读对象',style:{},parentId:null,orderKey:'a'}}],'seed');
+  const {rerender}=render(<CollaborativeEditor doc={doc} readOnly={false} title="白板" status="已同步"/>);
+  const canvas=screen.getByTestId('board-live-surface'); canvas.focus(); fireEvent.focus(canvas);
+  fireEvent.keyDown(canvas,{key:' '}); fireEvent.keyDown(canvas,{key:'Enter'});
+  expect(screen.getByLabelText('对象文字')).toHaveFocus(); fireEvent.keyDown(screen.getByLabelText('对象文字'),{key:'Escape'});
+  expect(canvas).toHaveFocus();
+  fireEvent.click(screen.getByText('连接',{exact:true})); fireEvent.keyDown(canvas,{key:'Escape'});
+  expect(canvas).toHaveFocus(); expect(screen.getByTestId('board-live-announcer')).toHaveTextContent('已取消连接');
+  fireEvent.keyDown(canvas,{key:' '}); fireEvent.keyDown(canvas,{key:'Delete'});
+  expect(readObjects(doc)).toEqual([]); expect(canvas).toHaveFocus();
+  rerender(<CollaborativeEditor doc={doc} readOnly title="白板" status="已同步"/>);
+  act(()=>executeCommands(doc,[{type:'create',object:{id:'viewer-note',schemaVersion:1,kind:'sticky',geometry:{x:5,y:5,width:100,height:80,rotation:0},text:'查看对象',style:{},parentId:null,orderKey:'b'}}],'remote'));
+  const viewerCanvas=screen.getByTestId('board-live-surface'); viewerCanvas.focus(); fireEvent.focus(viewerCanvas);
+  fireEvent.keyDown(viewerCanvas,{key:' '});
+  const before=readObjects(doc)[0]!.geometry.x;
+  fireEvent.keyDown(viewerCanvas,{key:'ArrowRight',ctrlKey:true});
+  expect(readObjects(doc)[0]!.geometry.x).toBe(before);
+  expect(screen.getByTestId('board-live-announcer')).toHaveTextContent('只读');
+  doc.destroy();
+});
+
+it('clears selection and repairs the active descendant when a collaborator deletes the active object', () => {
+  const doc=createWhiteboardDocument(), awareness=vi.fn(), geometry={x:10,y:20,width:100,height:80,rotation:0};
+  executeCommands(doc,[
+    {type:'create',object:{id:'active',schemaVersion:1,kind:'sticky',geometry,text:'将被远端删除',style:{},parentId:null,orderKey:'a'}},
+    {type:'create',object:{id:'next',schemaVersion:1,kind:'sticky',geometry:{...geometry,x:240},text:'保留对象',style:{},parentId:null,orderKey:'b'}},
+  ],'seed');
+  render(<CollaborativeEditor doc={doc} readOnly={false} title="白板" status="已同步" onAwareness={awareness}/>);
+  const canvas=screen.getByTestId('board-live-surface');canvas.focus();fireEvent.focus(canvas);fireEvent.keyDown(canvas,{key:'Enter'});
+  expect(canvas).toHaveAttribute('aria-activedescendant','board-a11y-object-active');
+  expect(screen.getByTestId('board-object-active')).toHaveAttribute('aria-pressed','true');
+  expect(screen.getByRole('button',{name:'删除选中'})).toBeEnabled();
+
+  act(()=>executeCommands(doc,[{type:'delete',id:'active'}],'remote-client'));
+
+  expect(canvas).toHaveFocus();
+  expect(screen.queryByTestId('board-object-active')).not.toBeInTheDocument();
+  expect(canvas).toHaveAttribute('aria-activedescendant','board-a11y-object-next');
+  expect(screen.getByTestId('board-object-next')).toHaveAttribute('aria-pressed','false');
+  expect(screen.getByRole('button',{name:'复制'})).toBeDisabled();
+  expect(screen.getByRole('button',{name:'删除选中'})).toBeDisabled();
+  expect(screen.getByTestId('board-live-announcer')).toHaveTextContent('协作者删除了 1 个已选对象。0 个已选对象');
+  expect(awareness).toHaveBeenLastCalledWith(null,[]);
   doc.destroy();
 });

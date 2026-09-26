@@ -12,4 +12,12 @@ describe('DiscussionPanel',()=>{
  it('lets viewers read while hiding write controls',async()=>{
   render(<DiscussionPanel boardId="11111111-1111-4111-8111-111111111111" selectedObject={{id:'x',label:'只读'}} readOnly/>);fireEvent.click(screen.getByTestId('board-discussion-toggle'));await screen.findByTestId('board-discussion-panel');expect(screen.queryByLabelText('新评论')).not.toBeInTheDocument();
  });
+ it('supports a controlled mutually exclusive expanded state',async()=>{
+  const onExpandedChange=vi.fn();const props={boardId:'11111111-1111-4111-8111-111111111111',selectedObject:null,readOnly:true,onExpandedChange};
+  const {rerender}=render(<DiscussionPanel {...props} expanded={false}/>);
+  fireEvent.click(screen.getByTestId('board-discussion-toggle'));expect(onExpandedChange).toHaveBeenCalledWith(true);
+  expect(screen.queryByTestId('board-discussion-panel')).not.toBeInTheDocument();
+  rerender(<DiscussionPanel {...props} expanded/>);expect(await screen.findByTestId('board-discussion-panel')).toBeVisible();
+  fireEvent.keyDown(screen.getByTestId('board-discussion-panel'),{key:'Escape'});expect(onExpandedChange).toHaveBeenLastCalledWith(false);
+ });
 });

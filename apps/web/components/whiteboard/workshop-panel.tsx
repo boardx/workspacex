@@ -7,9 +7,11 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 
-export interface WorkshopPanelProps { boardId:string; role:Board['role']; selectedObjectId?:string; currentUserId?:string }
-export function WorkshopPanel({boardId,role,selectedObjectId,currentUserId}:WorkshopPanelProps){
-  const [open,setOpen]=useState(false),[comments,setComments]=useState<C.Comment[]>([]),[votes,setVotes]=useState<C.Vote[]>([]);
+export interface WorkshopPanelProps { boardId:string; role:Board['role']; selectedObjectId?:string; currentUserId?:string; expanded?:boolean; onExpandedChange?:(expanded:boolean)=>void }
+export function WorkshopPanel({boardId,role,selectedObjectId,currentUserId,expanded,onExpandedChange}:WorkshopPanelProps){
+  const [localOpen,setLocalOpen]=useState(false),[comments,setComments]=useState<C.Comment[]>([]),[votes,setVotes]=useState<C.Vote[]>([]);
+  const open=expanded??localOpen;
+  const setOpen=(next:boolean)=>{setLocalOpen(next);onExpandedChange?.(next);};
   const [timer,setTimer]=useState<C.Timer>({deadline:null,running:false});
   const [comment,setComment]=useState(''),[draft,setDraft]=useState(''),[draftSaved,setDraftSaved]=useState('');
   const [draftRevision,setDraftRevision]=useState<string|null>(null),[publishConsent,setPublishConsent]=useState(false);
@@ -33,9 +35,18 @@ export function WorkshopPanel({boardId,role,selectedObjectId,currentUserId}:Work
     finally{lock.current=false;setBusy(false);}
   };
   const owner=role==='owner';const write=role!=='viewer';const remaining=timer.deadline?Math.max(0,Math.ceil((Date.parse(timer.deadline)-now)/1000)):0;
-  return <aside className="w-80 max-w-full rounded-xl border bg-background p-3 text-foreground shadow-sm" aria-label="工作坊">
-    <Button variant="outline" className="w-full" aria-expanded={open} onClick={()=>setOpen(v=>!v)}>工作坊 {open?'收起':'展开'}</Button>
-    {open&&<div className="mt-3 max-h-[70vh] space-y-4 overflow-y-auto">
+  // Collapsed, this is nothing but a peek toggle floating over the live canvas. It must
+  // stay a bare button with no card chrome (border/padding/shadow) around it: that chrome
+  // used to make the persistently-mounted overlay tall enough to cover the canvas's own
+  // hit-test center at small/zoomed viewports (e2e/whiteboard-live-reflow.spec.ts), so a
+  // keyboard user focused on the canvas would have `elementFromPoint` at its center land on
+  // this toggle instead - an occlusion bug, not a scroll-position one. Only the expanded
+  // panel below gets the full card treatment, and only while it actually occupies that
+  // space for a reason.
+  if (!open) return <Button variant="outline" size="sm" aria-expanded={false} className="shadow-sm" onClick={()=>setOpen(true)}>工作坊 展开</Button>;
+  return <aside data-testid="board-workshop-panel" className="max-h-full w-80 max-w-full overflow-y-auto rounded-xl border bg-background p-3 text-foreground shadow-sm" aria-label="工作坊">
+    <Button variant="outline" className="w-full" aria-expanded={open} onClick={()=>setOpen(!open)}>工作坊 收起</Button>
+    <div className="mt-3 max-h-[70vh] space-y-4 overflow-y-auto">
       {loading&&<p role="status">正在加载工作坊…</p>}{error&&<p role="alert" className="text-destructive">{error}</p>}{notice&&<p role="status">{notice}</p>}
       <details open><summary>评论</summary><p className="text-sm text-muted-foreground">{selectedObjectId?`关联对象：${selectedObjectId}`:'当前评论关联整块白板'}</p>
         <ul className="space-y-2">{comments.map(c=><li key={c.id} className="rounded border p-2"><p className="whitespace-pre-wrap">{c.text}</p><small>{c.authorId}</small>{(owner||c.authorId===currentUserId)&&<Button variant="ghost" size="sm" disabled={busy} onClick={()=>void run(`delete-${c.id}`,async current=>{await api.deleteWorkshopComment(boardId,c.id);if(!current())return;setComments(items=>items.filter(item=>item.id!==c.id));})}>删除评论</Button>}</li>)}</ul>
@@ -53,6 +64,6 @@ export function WorkshopPanel({boardId,role,selectedObjectId,currentUserId}:Work
         {owner&&<><Input aria-label="投票标题" value={title} maxLength={200} onChange={e=>setTitle(e.target.value)}/><label>每人票数<Input aria-label="每人票数" type="number" min={1} max={100} value={quota} onChange={e=>setQuota(Number(e.target.value))}/></label><p className="text-sm text-muted-foreground">首个投票目标使用当前选中的对象。</p><Button disabled={busy||loading||!selectedObjectId||!title.trim()||quota<1||quota>100||seconds<1||seconds>86400} onClick={()=>{const key=`vote:${title}:${quota}:${seconds}:${selectedObjectId}`;void run(key,async current=>{const saved=await api.createWorkshopVote(boardId,{requestId:requestId(key),title,quota,durationSeconds:seconds,objectIds:[selectedObjectId!]});if(!current())return;setVotes(items=>[saved,...items.filter(item=>item.id!==saved.id)]);});}}>发起投票</Button></>}
       </details>
       <details><summary>计时器</summary><p aria-live="polite">{timer.running&&remaining>0?`剩余 ${remaining} 秒`:'计时已停止或结束'}</p>{owner&&<><label>计时与新投票时长（秒）<Input aria-label="时长秒数" type="number" min={1} max={86400} value={seconds} onChange={e=>setSeconds(Number(e.target.value))}/></label><Button disabled={busy||loading||seconds<1||seconds>86400} onClick={()=>void run('timer',async current=>{const value=await api.startWorkshopTimer(boardId,{durationSeconds:seconds});if(current())setTimer(value);})}>开始计时</Button><Button variant="outline" disabled={busy||!timer.running} onClick={()=>void run('stop-timer',async current=>{const value=await api.stopWorkshopTimer(boardId);if(current())setTimer(value);})}>停止计时</Button></>}</details>
-    </div>}
+    </div>
   </aside>;
 }

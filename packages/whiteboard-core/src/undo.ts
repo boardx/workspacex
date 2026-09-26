@@ -1,6 +1,6 @@
 import * as Y from 'yjs';
 import { WhiteboardCommandBatch } from '@repo/contracts/whiteboard-document';
-import { executeCommands, objectMap, validateDocument } from './document';
+import { executeCommands, objectMap, tombstones, validateDocument } from './document';
 
 const CREATION = Symbol('whiteboard-creation');
 type StackItem = Y.UndoManager['undoStack'][number];
@@ -13,13 +13,15 @@ function copyDeleteSet(source: StackItem['deletions']): StackItem['deletions'] {
  * Conservative collaboration safety: creation undo is always explicit deletion.
  * A peer's edit may be in flight. Every undo/redo is preflighted against the current
  * document, because restoring a locally valid parent can conflict with remote work.
- * Deletion tombstones are outside the UndoManager scope and never removed by undo.
+ * Local deletion tombstones share the UndoManager scope so an explicit local undo can restore
+ * the object and any connectors deleted in the same command. Remote tombstones keep their
+ * original transport origin and therefore never enter this local history.
  */
 export class WhiteboardUndo {
   private readonly manager: Y.UndoManager;
   private creating = false;
   constructor(private readonly doc: Y.Doc, readonly origin: object = {}) {
-    this.manager = new Y.UndoManager(objectMap(doc), { trackedOrigins: new Set([origin]), captureTimeout: 0 });
+    this.manager = new Y.UndoManager([objectMap(doc), tombstones(doc)], { trackedOrigins: new Set([origin]), captureTimeout: 0 });
     this.manager.on('stack-item-added', ({ stackItem, type }) => {
       if (type === 'undo' && this.creating) stackItem.meta.set(CREATION, true);
     });
@@ -47,7 +49,7 @@ export class WhiteboardUndo {
           counterpart.redone = Y.createID(struct.redone.client, struct.redone.clock);
         }
       });
-      trial = new Y.UndoManager(objectMap(candidate), { trackedOrigins: new Set(), captureTimeout: 0 });
+      trial = new Y.UndoManager([objectMap(candidate), tombstones(candidate)], { trackedOrigins: new Set(), captureTimeout: 0 });
       const copy = { insertions: copyDeleteSet(item.insertions), deletions: copyDeleteSet(item.deletions), meta: new Map(item.meta) };
       trial[direction === 'undo' ? 'undoStack' : 'redoStack'] = [copy];
       const result = direction === 'undo' ? trial.undo() : trial.redo();

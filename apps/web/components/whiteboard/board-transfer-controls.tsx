@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { convertExternalBoardSnapshot } from '@repo/whiteboard-core';
 import { whiteboardMigration as M, whiteboardTransfer as T } from '@repo/contracts';
 import { exportBoardPackage, importBoardPackage, previewBoardImport } from '@/lib/live-whiteboard';
@@ -55,6 +55,10 @@ export function BoardTransferControls({ boardId, onImported }: { boardId: string
   const [preview, setPreview] = useState<ImportPreview | null>(null);
   const [error, setError] = useState('');
   const [transferring, setTransferring] = useState(false);
+  const exportTrigger = useRef<HTMLButtonElement>(null);
+  const importTrigger = useRef<HTMLButtonElement>(null);
+  const importInput = useRef<HTMLInputElement>(null);
+  const returnFocus = useRef<HTMLElement | null>(null);
 
   const download = async () => {
     try {
@@ -134,13 +138,14 @@ export function BoardTransferControls({ boardId, onImported }: { boardId: string
   const external = preview?.external;
   const losses = external ? lossCategories(external.losses) : [];
   return <>
-    <Button data-testid="board-export" size="sm" variant="outline" className="ml-auto" onClick={() => void download()}>导出</Button>
-    <label className="cursor-pointer rounded-control border border-border bg-background px-3 py-1 text-background-foreground">
-      <span>导入副本</span>
-      <input data-testid="board-import-file" className="sr-only" type="file" accept="application/json,.json" onChange={event => void chooseImport(event.target.files?.[0])}/>
-    </label>
+    <Button ref={exportTrigger} data-testid="board-export" size="sm" variant="outline" className="ml-auto" onClick={() => { returnFocus.current=exportTrigger.current; void download(); }}>导出</Button>
+    <Button ref={importTrigger} data-testid="board-import-trigger" size="sm" variant="outline" onClick={() => {
+      returnFocus.current=importTrigger.current;
+      importInput.current?.click();
+    }}>导入副本</Button>
+    <input ref={importInput} aria-label="导入白板副本文件" data-testid="board-import-file" className="hidden" tabIndex={-1} type="file" accept="application/json,.json" onChange={event => void chooseImport(event.target.files?.[0])}/>
     <Dialog open={open} onOpenChange={setOpen}>
-      <DialogContent>
+      <DialogContent className="max-h-[calc(100dvh-2rem)] w-[calc(100%-2rem)] overflow-y-auto motion-reduce:transition-none" onCloseAutoFocus={event=>{event.preventDefault();returnFocus.current?.focus();}}>
         <DialogTitle>导入为新的白板副本</DialogTitle>
         {error ? <DialogDescription role="alert">{error}</DialogDescription> : preview ? <>
           {external ? <section data-testid="vendor-import-preview" className="space-y-2">
