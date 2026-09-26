@@ -585,6 +585,20 @@ export function accentStyle(
 const RATIO: Record<"square" | "video" | "wide" | "portrait", string> = { square: "aspect-square", video: "aspect-video", wide: "aspect-[3/1]", portrait: "aspect-[3/4]" };
 
 /**
+ * #4198 之后的另一半修复——`image(kind:illustration)` 此前对每一项都画同一个形状
+ * （圆 + 圆角矩形），一组并列选项里配几个反而像没做完（见 DESIGN_PRINCIPLES ⑬）。
+ * 这里按节点 id（没有就用 `alt`）稳定哈希出 4 种形状里的一种：同一节点每次渲染形状不变
+ * （id/alt 不变 ⇒ 哈希不变），不同节点大多数情况下落到不同形状——不是真的按内容画，
+ * 只是让"一组里长得一样"这件事不再必然发生。选项真的需要按内容区分，仍然是
+ * DESIGN_PRINCIPLES ⑬ 里说的 list/bottomnav icons 或文字/chip，不是这个占位图形。
+ */
+function illustrationVariant(seed: string): 0 | 1 | 2 | 3 {
+  let h = 0;
+  for (let i = 0; i < seed.length; i++) h = (h * 31 + seed.charCodeAt(i)) >>> 0;
+  return (h % 4) as 0 | 1 | 2 | 3;
+}
+
+/**
  * 迭代 16（#3773 R4）—— `image` 按**语义**画占位，不是一律一个灰块。
  *
  * 一张商品图、一张地图、一条折线图在屏上长得一模一样时，原型就没法让人判断
@@ -648,9 +662,19 @@ function ImagePlaceholder({ node, tap }: { node: Extract<PrototypeNode, { type: 
       )}
       {kind === "logo" && <span aria-hidden className={cn("h-8 w-8 bg-primary/30", sc.r("md"))} />}
       {kind === "illustration" && (
-        <svg aria-hidden viewBox="0 0 120 60" className="h-full w-full" preserveAspectRatio="none">
-          <circle cx="42" cy="26" r="14" className="fill-primary/25" />
-          <rect x="58" y="24" width="34" height="22" rx="4" className="fill-border" />
+        <svg aria-hidden viewBox="0 0 120 60" className="h-full w-full" preserveAspectRatio="none" data-illustration-variant={illustrationVariant(node.id ?? p.alt)}>
+          {(() => {
+            switch (illustrationVariant(node.id ?? p.alt)) {
+              case 1:
+                return <><circle cx="46" cy="30" r="16" className="fill-primary/20" /><circle cx="72" cy="22" r="11" className="fill-border" /></>;
+              case 2:
+                return <><circle cx="90" cy="16" r="7" className="fill-primary/25" /><path d="M10 50 L34 24 L52 40 L74 14 L110 50 Z" className="fill-border" /></>;
+              case 3:
+                return <><rect x="38" y="10" width="34" height="34" rx="10" transform="rotate(45 55 27)" className="fill-primary/25" /><rect x="80" y="34" width="14" height="14" rx="3" className="fill-border" /></>;
+              default:
+                return <><circle cx="42" cy="26" r="14" className="fill-primary/25" /><rect x="58" y="24" width="34" height="22" rx="4" className="fill-border" /></>;
+            }
+          })()}
         </svg>
       )}
       {kind === "photo" && <ImageIcon aria-hidden className="h-4 w-4" />}
