@@ -94,8 +94,8 @@ export function BoardBottomDock({ activeTool, creationTool, readOnly, onToolChan
         </div>
       )}
       <div className="flex items-end gap-1 rounded-2xl border border-border bg-card/95 p-1.5 shadow-2xl backdrop-blur">
-        <DockButton label="选择" shortcut="V" pressed={activeTool === "select" && !creationTool} onClick={() => { onCreationToolChange(null); onToolChange("select"); }}><MousePointer2 className="h-5 w-5" /></DockButton>
-        <DockButton label="移动画布" shortcut="H" pressed={activeTool === "hand"} onClick={() => { onCreationToolChange(null); onToolChange("hand"); }}><Hand className="h-5 w-5" /></DockButton>
+        <DockButton testId="board-tool-select" label="选择" shortcut="V" pressed={activeTool === "select" && !creationTool} onClick={() => { onCreationToolChange(null); onToolChange("select"); }}><MousePointer2 className="h-5 w-5" /></DockButton>
+        <DockButton testId="board-tool-hand" label="移动画布" shortcut="H" pressed={activeTool === "hand"} onClick={() => { onCreationToolChange(null); onToolChange("hand"); }}><Hand className="h-5 w-5" /></DockButton>
         <span aria-hidden="true" className="mx-1 h-10 w-px bg-border" />
         <DockButton testId="board-add-sticky" label="便利贴" shortcut="N" pressed={stickyOpen} disabled={readOnly} onClick={() => { const next = { kind: "sticky", variant: stickyOpen ? creationTool.variant : "square" } as const; onToolChange("select"); onCreationToolChange(next); onQuickCreate(next); }}><StickyNote className="h-5 w-5" /></DockButton>
         <DockButton testId="board-add-text" label="文字" shortcut="T" pressed={textOpen} disabled={readOnly} onClick={() => { const next = { kind: "text", preset: textOpen ? creationTool.preset : "body" } as const; onToolChange("select"); onCreationToolChange(next); onQuickCreate(next); }}><Type className="h-5 w-5" /></DockButton>

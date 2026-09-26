@@ -1241,21 +1241,26 @@ describe("lint-permission-paths: counter-proof", () => {
     // by the production gate. Keep the existing bare-entry ceiling unchanged.
     const boundaryAudit = JSON.parse(execFileSync("node", ["--input-type=module", "-e", `
       import { workbenchBoundaries, verifyWorkbenchBoundaries } from './scripts/workbench-permission-boundaries.mjs';
+      import { whiteboardPermissionBoundaries, verifyWhiteboardPermissionBoundaries } from './scripts/whiteboard-permission-boundaries.mjs';
       import { readFileSync } from 'node:fs';
       const read = path => readFileSync(path, 'utf8');
-      const tables = new Set([...workbenchBoundaries.values()].flatMap(rule => rule.tables));
-      const failures = verifyWorkbenchBoundaries(read, tables);
-      const rules = [...workbenchBoundaries].map(([path, rule]) => ({
+      const boundarySets = [
+        [workbenchBoundaries, verifyWorkbenchBoundaries],
+        [whiteboardPermissionBoundaries, verifyWhiteboardPermissionBoundaries],
+      ];
+      const tables = new Set(boundarySets.flatMap(([rules]) => [...rules.values()].flatMap(rule => rule.tables)));
+      const failures = boundarySets.flatMap(([, verify]) => verify(read, tables));
+      const rules = boundarySets.flatMap(([entries, verify]) => [...entries].map(([path, rule]) => ({
         path, reason: rule.reason, checks: rule.checks.length,
-        // Removing the admitted implementation must invalidate its exemption.
-        rejectsMissingImplementation: verifyWorkbenchBoundaries(file => file === path ? '' : read(file), tables).some(f => f.startsWith(path + ':')),
-      }));
+        // Removing the admitted implementation must invalidate its exception.
+        rejectsMissingImplementation: verify(file => file === path ? '' : read(file), tables).some(f => f.startsWith(path + ':')),
+      })));
       console.log(JSON.stringify({ failures, rules }));
     `], { cwd: API, encoding: "utf8" })) as {
       failures: string[]; rules: Array<{path: string; reason: string; checks: number; rejectsMissingImplementation: boolean}>;
     };
     expect(boundaryAudit.failures).toEqual([]);
-    expect(boundaryAudit.rules).toHaveLength(8);
+    expect(boundaryAudit.rules).toHaveLength(10);
     for (const rule of boundaryAudit.rules) {
       expect(rule.reason.length, rule.path).toBeGreaterThan(40);
       expect(rule.checks, rule.path).toBeGreaterThan(0);
@@ -1304,6 +1309,9 @@ describe("lint-permission-paths: counter-proof", () => {
     // whiteboard/collaboration-repository-guard.test.ts; the real PostgreSQL
     // and WebSocket tests cover nonmembers, cross-tenant writes, revocation,
     // restart recovery and authentication. Remove this increment with them.
+    // #4242's tag catalog repository is mechanically
+    // admitted by whiteboard-permission-boundaries.mjs, so it does not raise
+    // this bare-exception ceiling.
     expect(total - boundaryAudit.rules.length).toBeLessThanOrEqual(99);
 
     const src = readFileSync(

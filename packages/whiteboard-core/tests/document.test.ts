@@ -74,20 +74,33 @@ describe('whiteboard content kernel', () => {
     (item.get('text') as Y.Text).format(0, 1, { link: 'javascript:alert(1)' });
     expect(() => validateDocument(doc)).toThrow('UNSUPPORTED_TEXT_FORMAT');
   });
-  it('protects collaborator content from creation undo, including edits still in flight', () => {
+  it('updates one structured extension namespace without dropping unknown data', () => {
+    const doc = createWhiteboardDocument();
+    executeCommands(doc, [{ type: 'create', object: { ...note('note'), extensionData: { plugin: { keep: true }, objectExperience: { future: 'preserve', tags: ['old'] } } } }], {});
+    executeCommands(doc, [{ type: 'extension', id: 'note', key: 'objectExperience', value: { future: 'preserve', tags: ['old', 'new'], reactions: { '👍': ['actor'] } } }], {});
+    expect(readObjects(doc)[0].extensionData).toEqual({ plugin: { keep: true }, objectExperience: { future: 'preserve', tags: ['old', 'new'], reactions: { '👍': ['actor'] } } });
+    expect(() => executeCommands(doc, [{ type: 'extension', id: 'note', key: '__proto__', value: {} }], {})).toThrow();
+    expect(() => executeCommands(doc, [{ type: 'extension', id: 'note', key: 'large', value: 'x'.repeat(20000) }], {})).toThrow();
+    expect(readObjects(doc)[0].extensionData).not.toHaveProperty('large');
+  });
+  it('undoes and redoes creation, but rejects creation undo after a collaborator edit', () => {
     const a = createWhiteboardDocument(), undo = new WhiteboardUndo(a);
     undo.execute([{ type: 'create', object: note('note') }]);
-    expect(undo.undo()).toBe('creation-requires-explicit-delete');
+    expect(undo.undo()).toBe('undone'); expect(readObjects(a)).toEqual([]);
+    expect(undo.redo()).toBe(true); expect(readObjects(a)).toHaveLength(1);
+    const restoredId = readObjects(a)[0].id;
     const b = cloneDocument(a);
-    executeCommands(b, [{ type: 'text', id: 'note', index: 2, deleteCount: 0, insert: '同事' }], {});
-    sync(a, b); expect(undo.undo()).toBe('creation-requires-explicit-delete'); expect(readObjects(a)[0].text).toContain('同事');
+    executeCommands(b, [{ type: 'text', id: restoredId, index: 2, deleteCount: 0, insert: '同事' }], {});
+    sync(a, b); expect(undo.undo()).toBe('conflict'); expect(readObjects(a)[0].text).toContain('同事');
   });
-  it('undoes local text without undoing remote text or deletion tombstones', () => {
+  it('rejects text undo after a remote change and round-trips a local deletion', () => {
     const a = createWhiteboardDocument(); create(a); const b = cloneDocument(a), undo = new WhiteboardUndo(a);
     undo.execute([{ type: 'text', id: 'note', index: 2, deleteCount: 0, insert: '甲' }]);
     executeCommands(b, [{ type: 'text', id: 'note', index: 2, deleteCount: 0, insert: '乙' }], {}); sync(a, b);
-    expect(undo.undo()).toBe('undone'); expect(readObjects(a)[0].text).toBe('你好乙');
-    expect(undo.redo()).toBe(true); expect(readObjects(a)[0].text).toContain('甲');
-    undo.execute([{ type: 'delete', id: 'note' }]); undo.undo(); expect(readObjects(a)).toEqual([]);
+    expect(undo.undo()).toBe('conflict'); expect(readObjects(a)[0].text).toContain('甲'); expect(readObjects(a)[0].text).toContain('乙');
+    const clean = createWhiteboardDocument(); create(clean); const deletion = new WhiteboardUndo(clean);
+    deletion.execute([{ type: 'delete', id: 'note' }]); expect(readObjects(clean)).toEqual([]);
+    expect(deletion.undo()).toBe('undone'); expect(readObjects(clean)).toHaveLength(1);
+    expect(deletion.redo()).toBe(true); expect(readObjects(clean)).toEqual([]);
   });
 });

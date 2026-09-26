@@ -68,12 +68,13 @@ it('read-only disables mutation controls and does not alter the document', () =>
   fireEvent.click(screen.getByTestId('board-add-sticky'));
   expect(readObjects(doc)).toEqual([]); doc.destroy();
 });
-it('creation undo requires explicit deletion', () => {
+it('undoes and redoes object creation as one local operation', () => {
   const doc = createWhiteboardDocument();
   render(<CollaborativeEditor boardId="board-test" clientId="client-test" doc={doc} readOnly={false} title="白板" status="已连接" />);
   fireEvent.click(screen.getByTestId('board-add-sticky')); fireEvent.click(screen.getByText('撤销', { exact: true }));
-  expect(readObjects(doc)).toHaveLength(1); expect(screen.getByText(/创建对象请使用删除/)).toBeVisible();
-  fireEvent.click(screen.getByText('删除选中')); expect(readObjects(doc)).toHaveLength(0); doc.destroy();
+  expect(readObjects(doc)).toHaveLength(0); expect(screen.getByText('已撤销本地修改')).toBeVisible();
+  fireEvent.click(screen.getByText('重做', { exact: true }));
+  expect(readObjects(doc)).toHaveLength(1); expect(screen.getByText('已重做本地修改')).toBeVisible(); doc.destroy();
 });
 it('IME keeps remote text and preserves the uncommitted composition draft', () => {
   const doc = createWhiteboardDocument();
@@ -103,9 +104,8 @@ it('reports world coordinates after zoom and renders server peer cursors/selecti
 
 it.each([
   ['undone', '已撤销本地修改'],
-  ['conflict', '未撤销：当前画板与这次修改存在冲突，请核对后再操作。'],
+  ['conflict', '未撤销：对象已有其他协作者的更新，请核对后再操作。'],
   ['empty', '没有可撤销的本地修改。'],
-  ['creation-requires-explicit-delete', '创建对象请使用删除；为保护其他人的修改，不撤销对象创建。'],
 ] as const)('announces the actual undo result %s', (result, message) => {
   vi.spyOn(WhiteboardUndo.prototype, 'undo').mockReturnValue(result);
   const doc = createWhiteboardDocument();
@@ -120,7 +120,7 @@ it.each([true, false])('announces redo success only when core returns %s', resul
   const doc = createWhiteboardDocument();
   render(<CollaborativeEditor boardId="board-test" clientId="client-test" doc={doc} readOnly={false} title="白板" status="已连接" />);
   fireEvent.click(screen.getByText('重做', { exact: true }));
-  expect(screen.getByText(result ? '已重做本地修改' : '未重做：没有可重做的本地修改，或当前画板存在冲突。', { exact: true })).toBeVisible();
+  expect(screen.getByText(result ? '已重做本地修改' : '未重做：没有可重做的本地修改，或对象已有其他协作者的更新。', { exact: true })).toBeVisible();
   if (!result) expect(screen.queryByText('已重做本地修改', { exact: true })).toBeNull();
   doc.destroy();
 });

@@ -316,7 +316,7 @@ it("rejects header-only raster fakes and closes decoded bitmaps on dimension rej
   for (const kind of ["VP8", "VP8L", "VP8X"] as const) {
     const oversizedWebpDecoder = vi.fn(async () => ({ width: 32_769, height: 24, close: vi.fn() }));
     const dimensions = kind === "VP8X" ? [32_769, 24] as const : [16_383, 16_383] as const;
-    await expect(verifyBoardImageBytes(new Blob([byteBuffer(webp(kind, ...dimensions))]), "image/webp", oversizedWebpDecoder)).rejects.toThrow("IMAGE_DIMENSIONS_INVALID");
+    await expect(verifyBoardImageBytes(new Blob([byteBuffer(webp(kind, dimensions[0], dimensions[1]))]), "image/webp", oversizedWebpDecoder)).rejects.toThrow("IMAGE_DIMENSIONS_INVALID");
     expect(oversizedWebpDecoder).not.toHaveBeenCalled();
   }
 });

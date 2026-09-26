@@ -1,6 +1,6 @@
 import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, expect, it, vi } from "vitest";
-import { createWhiteboardDocument, readObjects, WhiteboardCommandOrigin } from "@repo/whiteboard-core";
+import { createWhiteboardDocument, executeCommands, readObjects, WhiteboardCommandOrigin, type WhiteboardObject } from "@repo/whiteboard-core";
 import { CollaborativeEditor } from "@/components/whiteboard/collaborative-editor";
 import type { BoardFabricObject } from "@/components/whiteboard/fabric/board-fabric-object";
 
@@ -24,11 +24,17 @@ class ResizeObserverMock { observe() {} disconnect() {} }
 globalThis.ResizeObserver = ResizeObserverMock as unknown as typeof ResizeObserver;
 afterEach(() => { cleanup(); vi.restoreAllMocks(); });
 
-const editor = (readOnly = false) => {
-  const doc = createWhiteboardDocument();
+const editor = (readOnly = false, supplied = createWhiteboardDocument()) => {
+  const doc = supplied;
   render(<CollaborativeEditor boardId="thinking-board" clientId="thinking-client" doc={doc} readOnly={readOnly} title="想法板" status="已连接" />);
   return doc;
 };
+
+const object = (kind: "sticky" | "text", extensionData: Record<string, unknown>): WhiteboardObject => ({
+  id: `${kind}-one`, schemaVersion: 1, kind,
+  geometry: { x: 100, y: 120, width: kind === "sticky" ? 180 : 320, height: kind === "sticky" ? 180 : 96, rotation: 0 },
+  text: kind === "sticky" ? "保留想法" : "结构化标题", style: {}, parentId: null, orderKey: "", extensionData,
+});
 
 it("double-clicks blank Fabric space into an immediately focused, IME-safe sticky editor", () => {
   const doc = editor();
@@ -128,4 +134,88 @@ it("accepts dock drag payloads at the Fabric drop point and rejects every read-o
   expect(readObjects(readonly)).toEqual([]);
   expect(screen.getByTestId("board-add-sticky")).toBeDisabled();
   readonly.destroy();
+});
+
+it("edits sticky appearance through canonical commands while preserving future extension fields", () => {
+  const doc = createWhiteboardDocument();
+  executeCommands(doc, [{ type: "create", object: object("sticky", { plugin: { keep: true }, thinkingInput: { future: "root", sticky: { future: "sticky", variant: "square", sizing: "auto-height", color: "#F8D76E" } } }) }], "seed");
+  editor(false, doc);
+  fireEvent.click(screen.getByTestId("mock-object-double"));
+  expect(screen.getByRole("complementary", { name: "便利贴快捷工具" })).toBeVisible();
+  fireEvent.click(screen.getByTestId("sticky-color-blue"));
+  fireEvent.click(screen.getByTestId("context-sticky-circle"));
+  fireEvent.change(screen.getByTestId("sticky-sizing"), { target: { value: "fixed" } });
+  const updated = readObjects(doc)[0]!;
+  expect(updated.geometry).toMatchObject({ width: 180, height: 180 });
+  expect(updated.style.fill).toBe("#BBDDF8");
+  expect(updated.extensionData).toMatchObject({
+    plugin: { keep: true },
+    thinkingInput: { future: "root", sticky: { future: "sticky", variant: "circle", sizing: "fixed", color: "#BBDDF8" } },
+  });
+  doc.destroy();
+});
+
+it("persists tags, per-person reactions and a safe link preview without losing unknown experience data", () => {
+  const doc = createWhiteboardDocument();
+  executeCommands(doc, [{ type: "create", object: object("sticky", { objectExperience: { future: { keep: true }, tags: ["已有"], reactions: { "👍": ["peer"], custom: ["future"] }, linkPreview: { url: "https://old.example", title: "旧链接", description: "旧描述", future: "preview" } } }) }], "seed");
+  editor(false, doc);
+  fireEvent.click(screen.getByTestId("mock-object-double"));
+  fireEvent.change(screen.getByLabelText("新标签"), { target: { value: "洞察" } });
+  fireEvent.click(screen.getByLabelText("添加标签"));
+  fireEvent.click(screen.getByRole("button", { name: /👍 回应 1/ }));
+  fireEvent.change(screen.getByLabelText("预览链接"), { target: { value: "https://example.com/research" } });
+  fireEvent.change(screen.getByLabelText("预览标题"), { target: { value: "研究资料" } });
+  fireEvent.change(screen.getByLabelText("预览描述"), { target: { value: "访谈来源" } });
+  fireEvent.click(screen.getByText("保存预览", { exact: true }));
+  const experience = readObjects(doc)[0]!.extensionData?.objectExperience;
+  expect(experience).toMatchObject({
+    future: { keep: true }, tags: ["已有", "洞察"],
+    reactions: { "👍": ["peer", "thinking-client"], custom: ["future"] },
+    linkPreview: { url: "https://example.com/research", title: "研究资料", description: "访谈来源", future: "preview" },
+  });
+  expect(screen.getByRole("link", { name: /研究资料/ })).toHaveAttribute("href", "https://example.com/research");
+  doc.destroy();
+});
+
+it("applies all direct text controls and rejects a non-http link without mutating canonical data", () => {
+  const doc = createWhiteboardDocument();
+  executeCommands(doc, [{ type: "create", object: object("text", { plugin: { keep: true }, thinkingInput: { future: "root", text: { future: "text", preset: "body", fontFamily: "Noto Sans SC", fontSize: 18, bold: false, italic: false, underline: false, color: "#242424", alignment: "left", lineHeight: 1.4, list: "none", link: null } } }) }], "seed");
+  editor(false, doc);
+  fireEvent.click(screen.getByTestId("mock-object-double"));
+  fireEvent.change(screen.getByLabelText("文字样式"), { target: { value: "title" } });
+  fireEvent.change(screen.getByLabelText("字体"), { target: { value: "Noto Serif SC" } });
+  fireEvent.change(screen.getByLabelText("字号"), { target: { value: "56" } });
+  fireEvent.click(screen.getByLabelText("粗体"));
+  fireEvent.click(screen.getByLabelText("斜体"));
+  fireEvent.click(screen.getByLabelText("下划线"));
+  fireEvent.change(screen.getByLabelText("文字颜色"), { target: { value: "#123456" } });
+  fireEvent.change(screen.getByLabelText("文字对齐"), { target: { value: "center" } });
+  fireEvent.change(screen.getByLabelText("行高"), { target: { value: "1.8" } });
+  fireEvent.change(screen.getByLabelText("列表"), { target: { value: "bullet" } });
+  fireEvent.change(screen.getByLabelText("文字链接"), { target: { value: "https://example.com/doc" } });
+  fireEvent.blur(screen.getByLabelText("文字链接"));
+  let updated = readObjects(doc)[0]!;
+  expect(updated.style).toMatchObject({ color: "#123456", fontSize: 56 });
+  expect(updated.extensionData).toMatchObject({ plugin: { keep: true }, thinkingInput: { future: "root", text: { future: "text", preset: "title", fontFamily: "Noto Serif SC", fontSize: 56, bold: false, italic: true, underline: true, color: "#123456", alignment: "center", lineHeight: 1.8, list: "bullet", link: "https://example.com/doc" } } });
+  fireEvent.change(screen.getByLabelText("文字链接"), { target: { value: "javascript:alert(1)" } });
+  fireEvent.blur(screen.getByLabelText("文字链接"));
+  updated = readObjects(doc)[0]!;
+  expect((updated.extensionData?.thinkingInput as { text: { link: string } }).text.link).toBe("https://example.com/doc");
+  expect(screen.getByText(/链接仅支持 http\(s\)/)).toBeVisible();
+  doc.destroy();
+});
+
+it("shows contextual data in read-only mode but disables every mutation control", () => {
+  const doc = createWhiteboardDocument();
+  executeCommands(doc, [{ type: "create", object: object("sticky", { objectExperience: { tags: ["只读"], reactions: {} } }) }], "seed");
+  const before = readObjects(doc);
+  editor(true, doc);
+  fireEvent.click(screen.getByTestId("mock-object-double"));
+  expect(screen.getByText("只读", { exact: true })).toBeVisible();
+  expect(screen.getByTestId("context-sticky-circle")).toBeDisabled();
+  expect(screen.getByLabelText("新标签")).toBeDisabled();
+  expect(screen.getByText("保存预览", { exact: true })).toBeDisabled();
+  fireEvent.click(screen.getByTestId("context-sticky-circle"));
+  expect(readObjects(doc)).toEqual(before);
+  doc.destroy();
 });
