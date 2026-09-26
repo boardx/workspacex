@@ -114,6 +114,9 @@ chmod 0777 "$WORK/sandbox" "$WORK/sessions"
   echo "PGHOST=127.0.0.1"
   echo "PGPORT=55433"
   echo "PGDATABASE=workspacex"
+  # #4263：selfhost.env.example 把它列为必填，下面的必填检查读的是这个文件——只 export 不写进来，
+  # 旧版本一旦带上这一项（merge-base 晚于 #4263 的每个 PR），演练就在 b 步红。
+  echo "WSX_SANDBOX_SECCOMP_PROFILE=$WT/apps/skill-sandbox/security/docker-seccomp.json"
 } > "$ENV_FILE"
 # 必填变量以旧版本的 selfhost.env.example 为准：漏一个就在这里红，而不是在 compose 里报 ?err。
 if [ -f "$WT/selfhost.env.example" ]; then
