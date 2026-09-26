@@ -1,6 +1,7 @@
 'use client';
 import { useEffect, useRef } from 'react';
 import { makeSticky } from './sticky';
+import { createPreviewSeedObjects } from './seed';
 import { previewViewport, documentBounds } from './viewport';
 import { Canvas, Rect, Circle, Textbox, Line, PencilBrush } from 'fabric';
 export type Tool = 'select' | 'sticky' | 'shape' | 'draw' | 'connector';
@@ -19,7 +20,7 @@ export function WorkspaceCanvas({ options, seeded = true, draft, onDraft }: { op
     const resize = () => { if (host.current) { c.setDimensions({ width: host.current.clientWidth, height: host.current.clientHeight }); c.setViewportTransform(previewViewport(host.current.clientWidth, host.current.clientHeight, documentBounds(c.getObjects().map(object => object.getBoundingRect())))); c.requestRenderAll(); } };
     const observer = new ResizeObserver(resize); observer.observe(host.current); resize();
     let loaded = !initialDraft.current;
-    if (!initialDraft.current && seeded) c.add(makeSticky(100, 130, '#fff1a8', '让每个想法\n都被看见'), makeSticky(385, 210, '#d8e8ff', '一起画出\n下一步'));
+    if (!initialDraft.current && seeded) c.add(...createPreviewSeedObjects());
     if (initialDraft.current) void c.loadFromJSON(initialDraft.current).then(() => { if (canvas.current === c) { loaded = true; c.getObjects().forEach(object => object.set({ selectable: !current.current.readonly, evented: !current.current.readonly })); resize(); } });
     resize();
     let start: { x: number; y: number } | null = null;

@@ -23,3 +23,12 @@ describe('preview sticky serialization', () => {
   expect(restored[0]?.width).toBe(180); expect(restored[0]?.height).toBeGreaterThanOrEqual(160);
  });
 });
+
+import { createPreviewSeedObjects } from '@/components/board-workspace-preview/seed';
+it('copies an unopened fixture with complete independent serialized objects', async () => {
+ const original = createPreviewSeedObjects();
+ const copied = await util.enlivenObjects<PreviewSticky>(original.map(object => object.toObject()));
+ expect(copied).toHaveLength(2); expect(copied[0]?.text).toBe(original[0]?.text);
+ copied[0]?.set({ text: '副本独立编辑', backgroundColor: '#d4edd8' });
+ expect(original[0]?.text).toBe('让每个想法\n都被看见'); expect(original[0]?.backgroundColor).toBe('#fff1a8');
+});
