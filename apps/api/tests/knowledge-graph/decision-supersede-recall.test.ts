@@ -43,6 +43,8 @@ const OLD = "我决定关注 211 高校";
 const NEW = "改成关注 985 高校";
 const SAY_NEW = `${NEW}吧`;
 const ALSO = "也关注 985 高校";
+/** 第 8 轮第四次评审：改口后面另起一个分句把它否了 ⇒ 不取代、也不弹卡。 */
+const REJECTED = "改成关注985高校，我反对";
 const SHARED_OLD = "我决定关注 C9 高校";
 const SHARED_NEW = "改成关注 双一流 高校";
 const UNRELATED = "开始写报告吧";
@@ -52,7 +54,7 @@ const decisionReply = (statement: string) => JSON.stringify({
   claims: [{ statement, kind: "decision", confidence: 0.9, about: [], decidedBy: null, quote: statement }],
 });
 const MODEL = () => loopbackModel([
-  [OLD, decisionReply(OLD)], [NEW, decisionReply(NEW)], [ALSO, decisionReply(ALSO)],
+  [OLD, decisionReply(OLD)], [NEW, decisionReply(NEW)], [ALSO, decisionReply(ALSO)], [REJECTED, decisionReply(REJECTED)],
   [SHARED_OLD, decisionReply(SHARED_OLD)], [SHARED_NEW, decisionReply(SHARED_NEW)],
 ]).model;
 
@@ -213,6 +215,19 @@ describe("issue #4290: 本人明确改口 ⇒ 新决定取代旧决定（可撤�
     const notices = await asOwner(async (c) => (await c.query(
       "SELECT id FROM kg_supersede_notices WHERE org_id = $1 AND thread_id = $2", [ORG, ADD])).rows);
     expect(notices).toEqual([]);
+  }, 120_000);
+
+  it("反证：「改成关注985高校，我反对」——改口被后面的分句否掉 ⇒ 不取代、不弹卡", async () => {
+    await addChatMessage({ orgId: ORG, id: "m-i4290-rej", threadId: ADD, body: `${REJECTED}。`, authorId: USER_A });
+    await settle();
+    await claimIn(a, ADD, REJECTED);
+    expect(await claimRow(ids.oldPersonal!)).toMatchObject({ status: "accepted", revoked: false });
+    const notices = await asOwner(async (c) => (await c.query(
+      "SELECT id FROM kg_supersede_notices WHERE org_id = $1 AND thread_id = $2", [ORG, ADD])).rows);
+    expect(notices).toEqual([]);
+    const cards = await asOwner(async (c) => (await c.query(
+      "SELECT id FROM kg_conflict_prompts WHERE org_id = $1 AND thread_id = $2", [ORG, ADD])).rows);
+    expect(cards).toEqual([]);
   }, 120_000);
 
   it("反证：项目会话里别人（B）的改口不取代我（A）的决定；我自己的改口才取代", async () => {

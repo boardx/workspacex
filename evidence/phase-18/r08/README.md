@@ -14,6 +14,19 @@ thread C 「开始写报告吧」 → the answer carries only 985; undo → 211 
 > `apps/api/tests/knowledge-graph/decision-supersede-card.test.ts` (real app + DB: card, both recalled while pending,
 > [取代], [两条都保留], privacy, negatives) and `apps/web/tests/ui/kg-conflict-card.test.tsx` (the card variant).
 
+> **Tightened again (review round 4 of round 8): automatic only for a clean sentence.** A wrong automatic supersede is
+> the one outcome we must not produce; a spare card is cheap. Automatic now means: the change clause, plus other clauses
+> that are only whole-clause filler (好的 / 嗯 / 那就这样 / 定了 …, a small closed list), another change clause naming
+> the same new object, or a reason clause (因为 / 由于 / 毕竟); plus either an explicitly named old object (`explicit`) or
+> an **aligned** `same_kind` (both specifiers in front of the shared category word are short — at most 4 characters or one
+> ASCII token, no frame / action verb: 211 / 985 高校 yes, React做前端开发 / Rust做后端开发 no). Everything else is a card
+> (an unrecognised trailing clause such as 「这是老板说的」, another clause mentioning the old object such as
+> 「211高校继续关注」, an unaligned same kind) or nothing (a trailing verdict such as 「我反对」「不可行」, a
+> self-correction 「不对，还是211高校」, 「开玩笑的」, 「把Vue换成React的事…」). This run's sentence 「改成关注 985 高校」 is a
+> single clean clause and aligned `same_kind`, so it is still automatic. Tests: the round-4 `describe` block in
+> `decision-supersede.test.ts` and the 「改成关注985高校，我反对」 case in `decision-supersede-recall.test.ts`; the old domain
+> file fails 27 of them (`fail-without-fix.txt`, last section).
+
 ## Stack (no Docker)
 
 Same shape as round 5 (`evidence/phase-18/r05/`): local Postgres 16 + AGE + pgvector at 127.0.0.1:55432, own db `r08e`

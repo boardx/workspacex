@@ -300,3 +300,79 @@ describe("findSupersedes：一条新决定取代哪几条", () => {
     expect(findSupersedes(f, live)).toEqual(findSupersedes(f, [...live].reverse()));
   });
 });
+
+describe("第 8 轮第四次评审：自动取代只给干净的整句（人类决定：误自动取代是唯一不许出现的结果，多一张卡很便宜）", () => {
+  const plan = (o: string, n: string) => planSupersedes([fresh(n)], [old(o)]);
+  const CARD = { supersedes: [], prompts: [{ newerClaimId: "clm-new", olderClaimId: "clm-old" }] };
+  const NONE = { supersedes: [], prompts: [] };
+  const AUTO = { supersedes: [{ newerClaimId: "clm-new", olderClaimId: "clm-old" }], prompts: [] };
+
+  it.each([
+    // 1. 另起一个分句的否决（明确的评判 ⇒ 不弹卡）
+    ["关注211高校", "改成关注985高校，我反对"],
+    ["关注211高校", "改成关注985高校，不可行"],
+    ["关注211高校", "改成关注985高校，我不赞成"],
+    ["关注211高校", "改成关注985高校，老板没同意"],
+    ["关注211高校", "改成关注985高校，不太合适"],
+    ["关注211高校", "改成关注985高校，没意义"],
+    ["用Vue", "把Vue换成React，不可行"],
+    // 2. 自我更正回到旧选择
+    ["关注211高校", "改成关注985高校，不对，还是关注211高校"],
+    ["关注211高校", "改成关注985高校，哦不，还是211高校吧"],
+    // D. 「…的事」是被谈论的话题；开玩笑 / 说着玩 收回整句
+    ["用Vue", "把Vue换成React的事下周再讨论"],
+    ["关注211高校", "改成关注985高校，开玩笑的"],
+    ["用Vue", "不用Vue了，说着玩的"],
+  ])("收回 ⇒ 不自动、不弹卡：%s → %s", (o, n) => {
+    expect(supersedeMatch(fresh(n), old(o))).toBeNull();
+    expect(plan(o, n)).toEqual(NONE);
+  });
+
+  it.each([
+    // 1. 认不出的后续分句（否决，但不在评判表里）⇒ 说不准 ⇒ 弹卡
+    ["关注211高校", "改成关注985高校，被老板否决了"],
+    ["关注211高校", "改成关注985高校，还不如维持现状"],
+    ["关注211高校", "改成关注985高校，领导不批"],
+    ["用Vue", "不用Vue了，这个方案被否了"],
+    // 3. 转述
+    ["关注211高校", "改成关注985高校，这是老板说的"],
+    ["用Vue", "不用Vue了，这是他的意见"],
+    // 4. 共同的类别词前面不是短限定语（跨了范围）⇒ 不算 same_kind
+    ["用React做前端开发", "改成用Rust做后端开发"],
+    ["用Python写数据脚本", "改用Go写部署脚本"],
+    ["用飞书沟通内部事务", "改成用邮件沟通外部事务"],
+    // 5. 明说两条都留
+    ["关注211高校", "改成关注985高校，211高校继续关注"],
+    // 其余分句说不准（原因里提旧对象、条件、暂定）
+    ["关注211高校", "改成关注985高校，因为211高校太远"],
+    ["关注211高校", "改成关注985高校，暂定"],
+    ["关注211高校", "改成关注985高校，不过要看预算"],
+    ["用Vue", "Vue算了，换成React，领导定的"],
+  ])("说不准 ⇒ 只弹卡、不自动：%s → %s", (o, n) => {
+    expect(supersedeMatch(fresh(n), old(o))).toBe("frame_only");
+    expect(plan(o, n)).toEqual(CARD);
+  });
+
+  it.each([
+    ["关注211高校", "改成关注985高校吧", "same_kind"],
+    ["用Vue", "把Vue换成React", "explicit"],
+    ["用Vue", "不再用Vue了", "explicit"],
+    ["关注211高校", "211高校算了，改成关注985高校", "explicit"],
+    ["关注211高校", "改成关注985高校，因为离家近", "same_kind"],
+    ["用Vue", "把Vue换成React，毕竟生态好", "explicit"],
+    ["关注211高校", "改成关注985高校，好的", "same_kind"],
+    ["关注211高校", "就改成关注985高校吧，定了", "same_kind"],
+    ["采用Vue框架", "改为采用React框架，那就这样", "same_kind"],
+    ["用Vue", "不用Vue了，改用React", "explicit"],
+    ["关注北京高校", "改成关注上海高校", "same_kind"],
+    ["关注211高校", "改成关注C9高校", "same_kind"],
+  ])("干净的整句 ⇒ 自动：%s → %s（%s）", (o, n, tier) => {
+    expect(supersedeMatch(fresh(n), old(o))).toBe(tier);
+    expect(plan(o, n)).toEqual(AUTO);
+  });
+
+  it("「后端改用Rust」对「后端用Go」：两边都没有类别词 ⇒ 弹卡（一直如此，不是这一轮挪下来的）", () => {
+    expect(plan("后端用Go", "后端改用Rust")).toEqual(CARD);
+  });
+  it("「改成关注 985 吧」仍是卡", () => expect(plan("关注211高校", "改成关注 985 吧")).toEqual(CARD));
+});

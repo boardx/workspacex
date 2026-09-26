@@ -416,7 +416,8 @@ $$;
 -- 重建 F16 `kg_resolve_conflict`（20260924290000），只加 kind 分支，其余逐字不变：
 --   - possible_change + keep_both（界面上的 [两条都保留]）：只关卡（kept_both），不记适用条件、两条状态都不动（开卡时本来
 --     就没转 contested）；ignore 界面上不给，直接调用时同样只关卡（ignored）；
---   - keep_new（两种卡相同）：新条若已有本人个人空间里活着的副本（#4283 自动记下的），转 accepted，不再晋升出第二份。
+--   - possible_change + keep_new：新条若已有本人个人空间里活着的副本（#4283 自动记下的），转 accepted，不再晋升出第二份；
+--     conflict 卡的 keep_new 逐字同 F16（新条开卡时转了 contested，#4283 不会替它记副本，照旧 kg_promote_claim）。
 -- p = { action_id, thread_id, based_on_revision, action: { type: resolveConflict, promptId, resolution, conditions? } }
 CREATE OR REPLACE FUNCTION kg_resolve_conflict(p jsonb) RETURNS jsonb
 LANGUAGE plpgsql SECURITY DEFINER SET search_path = pg_catalog, public, pg_temp
@@ -504,12 +505,14 @@ BEGIN
      WHERE org_id = v_org AND id = v_newer.id;
     IF v_promote THEN
       -- #4290：possible_change 卡的新条没转 contested，#4283 可能已经把它自动记进了本人个人空间（「AI 记下的」）——
-      -- 那一份就是长期记忆里的新说法：转「你确认过」，不再晋升出第二份。
-      SELECT pc.id INTO v_l1 FROM claims pc
-       WHERE pc.org_id = v_org AND pc.scope_kind = 'personal' AND pc.scope_id = v_user AND pc.revoked_at IS NULL AND pc.status <> 'superseded'
-         AND EXISTS (SELECT 1 FROM ontology_edges d WHERE d.org_id = v_org AND d.src_kind = 'claim' AND d.src_id = pc.id
-                       AND d.relation = 'derived_from' AND d.status = 'active' AND d.dst_kind = 'claim' AND d.dst_id = v_newer.id)
-       ORDER BY pc.id LIMIT 1 FOR UPDATE;
+      -- 那一份就是长期记忆里的新说法：转「你确认过」，不再晋升出第二份。conflict 卡不走这里（v_l1 为空 ⇒ 逐字同 F16）。
+      IF v_kind = 'possible_change' THEN
+        SELECT pc.id INTO v_l1 FROM claims pc
+         WHERE pc.org_id = v_org AND pc.scope_kind = 'personal' AND pc.scope_id = v_user AND pc.revoked_at IS NULL AND pc.status <> 'superseded'
+           AND EXISTS (SELECT 1 FROM ontology_edges d WHERE d.org_id = v_org AND d.src_kind = 'claim' AND d.src_id = pc.id
+                         AND d.relation = 'derived_from' AND d.status = 'active' AND d.dst_kind = 'claim' AND d.dst_id = v_newer.id)
+         ORDER BY pc.id LIMIT 1 FOR UPDATE;
+      END IF;
       IF v_l1 IS NOT NULL THEN
         UPDATE claims SET status = 'accepted', reviewed_by = v_user, updated_at = now()
          WHERE org_id = v_org AND id = v_l1 AND status IN ('proposed', 'reviewed');
