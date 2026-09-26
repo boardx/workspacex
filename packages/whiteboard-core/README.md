@@ -21,6 +21,16 @@ transaction and reuses the first result for same-payload retries during the Y.Do
 lifetime. Reusing the tuple with another payload is rejected. Durable replay and
 ACK identity still belong to the collaboration host.
 
+Rich visual objects use the versioned `extensionData.contentObject` model. This
+keeps the public V1 object envelope compatible while giving Shape, vector
+Drawing, Image, Tile/WebTile, Table, Icon and Template strict structured data.
+`createContentObjectEnvelope` returns one ordinary create command.
+`ContentObjectCommandPort` replaces rich metadata atomically under the same
+stable caller identity and returns a typed before/after event. Both paths retain
+unknown JSON extension fields for forward-compatible plugins. Renderers should
+call `readContentObject` and project its typed result; they must composite eraser
+strokes from the retained vectors rather than flattening drawings into bitmaps.
+
 `WhiteboardUndo` tracks only its own origin. Creation undo returns
 `creation-requires-explicit-delete` without changing anything, even when no peer
 edit is currently visible: a collaborator's edit may still be in flight. The UI
