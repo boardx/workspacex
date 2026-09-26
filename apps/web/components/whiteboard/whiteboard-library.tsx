@@ -95,9 +95,16 @@ export function WhiteboardLibrary() {
     setItems(value => { const byId = new Map(value.map(item => [item.id, item])); result.items.forEach(item => byId.set(item.id, item)); return [...byId.values()]; }); setNextCursor(result.nextCursor);
   });
   const updateLocal = (board: api.Board) => setItems(value => value.map(item => item.id === board.id ? board : item));
+  const reportLifecycleConflict = () => {
+    pendingMutation.current = null;
+    setError({ kind: 'invalid', message: '白板状态已被其他协作者更新，列表已刷新。请基于最新状态重试。' });
+    setDialog(null); setLoadingBoards(true); setReloadBoards(value => value + 1); restoreFocus();
+  };
   const immediate = (board: api.Board, action: 'archive' | 'restore', trigger: HTMLElement) => {
     returnFocus.current = trigger;
-    void run(async () => { await api.updateBoard(board.id, { archived: action === 'archive' }); setNotice(action === 'archive' ? '白板已归档。' : '白板已恢复。'); setReloadBoards(value => value + 1); restoreFocus(); });
+    void run(async () => { try { await api.updateBoard(board.id, { archived: action === 'archive', expectedLifecycleRevision: board.lifecycleRevision }); }
+      catch (cause) { if (cause instanceof ApiError && cause.status === 409) { reportLifecycleConflict(); return; } throw cause; }
+      setNotice(action === 'archive' ? '白板已归档。' : '白板已恢复。'); setReloadBoards(value => value + 1); restoreFocus(); });
   };
   const openAction = (board: api.Board, action: BoardCardAction, trigger: HTMLElement) => {
     if (action === 'archive' || action === 'restore') return immediate(board, action, trigger);
@@ -119,9 +126,10 @@ export function WhiteboardLibrary() {
         catch (cause) { if (isDefiniteRejection(cause)) { pendingDuplicates.current.delete(board.id); renderPendingDuplicates(value => value + 1); } throw cause; }
       }
       if (action === 'delete') {
-        const key = `delete:${board.id}`;
+        const key = `delete:${board.id}:${board.lifecycleRevision}`;
         if (pendingMutation.current?.key !== key) pendingMutation.current = { key, requestId: crypto.randomUUID() };
-        await api.deleteBoard(board.id, { requestId: pendingMutation.current.requestId, confirmation: 'PERMANENTLY_DELETE' }); pendingMutation.current = null;
+        try { await api.deleteBoard(board.id, { requestId: pendingMutation.current.requestId, confirmation: 'PERMANENTLY_DELETE', expectedLifecycleRevision: board.lifecycleRevision }); pendingMutation.current = null; }
+        catch (cause) { if (cause instanceof ApiError && cause.status === 409) { reportLifecycleConflict(); return; } if (isDefiniteRejection(cause)) pendingMutation.current = null; throw cause; }
       }
       setNotice(action === 'duplicate' ? '副本已创建。' : action === 'delete' ? '白板已永久删除。' : '白板名称已更新。'); closeDialog(); setReloadBoards(value => value + 1); restoreFocus();
     });
@@ -168,7 +176,7 @@ export function WhiteboardLibrary() {
       {(loadingBoards || busy) && <p data-testid={RESERVED_STATE_TESTID.loading} role="status" className="py-4 text-center text-14 text-muted-foreground">正在同步白板…</p>}
       {loaded && !loadingBoards && !listError && items.length === 0 && <section data-testid={RESERVED_STATE_TESTID.empty} className="rounded-container border border-dashed border-border py-20 text-center"><h2 className="text-20 font-semibold">{archiveFilter === 'archived' ? '没有已归档的白板' : '从第一块白板开始'}</h2><p className="mt-2 text-14 text-muted-foreground">{query || selectedTags.length ? '调整搜索或标签筛选以查看其他结果。' : '新建后会直接进入全屏编辑器。'}</p></section>}
       {items.length > 0 && <div aria-busy={loadingBoards} className={view === 'grid' ? 'grid gap-4 sm:grid-cols-2 xl:grid-cols-3' : 'grid gap-3'}>{items.map(board => <article key={board.id} data-testid={`board-card-${board.id}`} className="group relative min-w-0 rounded-container border border-border bg-card p-4 shadow-sm transition-all duration-base hover:-translate-y-0.5 hover:border-ring hover:shadow-md focus-within:border-ring">
-        <div className="flex items-start gap-3"><Link href={EDITOR_PATH(board.id)} data-testid={`board-open-${board.id}`} className="min-w-0 flex-1 rounded-control focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"><div data-testid={`board-thumbnail-empty-${board.id}`} className="mb-8 flex aspect-[16/8] items-center justify-center rounded-control border border-dashed border-border bg-muted text-12 text-muted-foreground">暂无缩略图</div><h2 className="truncate text-16 font-semibold">{board.name}</h2><p className="mt-1 text-12 text-muted-foreground">{board.archived ? '已归档' : '使用中'} · {board.role === 'owner' ? '所有者' : board.role === 'editor' ? '编辑者' : '查看者'}</p></Link><BoardCardMenu board={board} disabled={busy} onAction={(action, trigger) => openAction(board, action, trigger)} /></div>
+        <div className="flex items-start gap-3"><Link href={EDITOR_PATH(board.id)} data-testid={`board-open-${board.id}`} className="min-w-0 flex-1 rounded-control focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"><div data-testid={`board-thumbnail-empty-${board.id}`} className="mb-8 flex aspect-[16/8] items-center justify-center rounded-control border border-dashed border-border bg-muted text-12 text-muted-foreground">暂无缩略图</div><h2 className="truncate text-16 font-semibold">{board.name}</h2><p className="mt-1 text-12 text-muted-foreground">{board.archived ? '已归档' : '使用中'} · {board.role === 'owner' ? '所有者' : board.role === 'editor' ? '编辑者' : '查看者'}</p></Link><BoardCardMenu board={board} disabled={busy || loadingBoards} onAction={(action, trigger) => openAction(board, action, trigger)} /></div>
         {board.tagIds.length > 0 && <div className="mt-3 flex flex-wrap gap-1">{board.tagIds.map(id => <span key={id} className="rounded-full bg-muted px-2 py-1 text-11 text-muted-foreground">{tags.find(tag => tag.id === id)?.name ?? '未知标签'}</span>)}</div>}
       </article>)}</div>}
       {!busy && !loadingBoards && !listError && nextCursor && <div className="flex justify-center"><Button variant="outline" data-testid="board-load-more" onClick={loadMore}>加载更多</Button></div>}

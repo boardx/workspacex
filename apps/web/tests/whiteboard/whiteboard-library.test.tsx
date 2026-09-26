@@ -12,7 +12,7 @@ vi.mock('@/lib/live-whiteboard', () => ({
 }));
 
 const tag: api.BoardTag = { id: '7f2973dc-c5d2-4757-903e-44e421aa3c28', name: '研究', revision: 1, createdBy: 'owner', createdAt: '2026-09-24T00:00:00.000Z', updatedAt: '2026-09-24T00:00:00.000Z' };
-const board: api.Board = { id: '57d83843-21e2-40ae-8c1c-571d0ad63c80', name: '团队白板', ownerId: 'owner', role: 'owner', archived: false, tagIds: [tag.id], tagsRevision: 2, createdAt: '2026-09-24T00:00:00.000Z', updatedAt: '2026-09-24T00:00:00.000Z' };
+const board: api.Board = { id: '57d83843-21e2-40ae-8c1c-571d0ad63c80', name: '团队白板', ownerId: 'owner', role: 'owner', archived: false, lifecycleRevision: 3, tagIds: [tag.id], tagsRevision: 2, createdAt: '2026-09-24T00:00:00.000Z', updatedAt: '2026-09-24T00:00:00.000Z' };
 const result = (items: api.Board[]) => ({ items, nextCursor: null });
 function deferred<T>() { let resolve!: (value: T) => void, reject!: (reason: unknown) => void; const promise = new Promise<T>((yes, no) => { resolve = yes; reject = no; }); return { promise, resolve, reject }; }
 
@@ -98,10 +98,28 @@ describe('Board library', () => {
     expect(screen.getByTestId('board-dialog-confirm')).toHaveTextContent('重试创建“冻结的副本名”'); fireEvent.click(screen.getByTestId('board-dialog-confirm'));
     await waitFor(() => expect(api.duplicateBoard).toHaveBeenCalledTimes(2)); expect(vi.mocked(api.duplicateBoard).mock.calls[0]![1]).toEqual(vi.mocked(api.duplicateBoard).mock.calls[1]![1]);
   });
+  it('binds archive to the visible lifecycle revision', async () => {
+    vi.mocked(api.listBoards).mockResolvedValue(result([board])); vi.mocked(api.updateBoard).mockResolvedValue({ ...board, archived: true, lifecycleRevision: 4 });
+    render(<WhiteboardLibrary />); await openMenu(); fireEvent.click(await screen.findByTestId(`board-action-archive-${board.id}`));
+    await waitFor(() => expect(api.updateBoard).toHaveBeenCalledWith(board.id, { archived: true, expectedLifecycleRevision: 3 }));
+  });
+  it('surfaces an archive revision conflict, refreshes and disables the stale action', async () => {
+    const latest = { ...board, archived: true, lifecycleRevision: 4 };
+    vi.mocked(api.listBoards).mockResolvedValueOnce(result([board])).mockResolvedValueOnce(result([latest])); vi.mocked(api.updateBoard).mockRejectedValue(new ApiError(409, 'REVISION_CONFLICT', {}));
+    render(<WhiteboardLibrary />); await openMenu(); fireEvent.click(await screen.findByTestId(`board-action-archive-${board.id}`));
+    expect(await screen.findByText(/状态已被其他协作者更新/)).toBeInTheDocument(); await waitFor(() => expect(api.listBoards).toHaveBeenCalledTimes(2)); expect(api.updateBoard).toHaveBeenCalledTimes(1);
+    await waitFor(() => expect(screen.getByTestId(`board-card-${board.id}`)).toHaveTextContent('已归档'));
+  });
   it('deletes only archived boards with explicit confirmation', async () => {
     const archived = { ...board, archived: true }; vi.mocked(api.listBoards).mockResolvedValue(result([archived])); vi.mocked(api.deleteBoard).mockResolvedValue({ requestId: '4a2f9d8f-9f18-41b2-921a-a64905c757ca', boardId: board.id, deleted: true });
     render(<WhiteboardLibrary />); fireEvent.click(await screen.findByTestId('board-filter-archived')); await openMenu(archived); fireEvent.click(await screen.findByTestId(`board-action-delete-${board.id}`)); fireEvent.click(await screen.findByTestId('board-dialog-confirm'));
-    await waitFor(() => expect(api.deleteBoard).toHaveBeenCalledWith(board.id, expect.objectContaining({ confirmation: 'PERMANENTLY_DELETE' })));
+    await waitFor(() => expect(api.deleteBoard).toHaveBeenCalledWith(board.id, expect.objectContaining({ confirmation: 'PERMANENTLY_DELETE', expectedLifecycleRevision: 3 })));
+  });
+  it('closes stale permanent delete on revision conflict and refreshes before another action', async () => {
+    const archived = { ...board, archived: true }, latest = { ...archived, lifecycleRevision: 4 };
+    vi.mocked(api.listBoards).mockResolvedValueOnce(result([archived])).mockResolvedValueOnce(result([latest])); vi.mocked(api.deleteBoard).mockRejectedValue(new ApiError(409, 'REVISION_CONFLICT', {}));
+    render(<WhiteboardLibrary />); await openMenu(archived); fireEvent.click(await screen.findByTestId(`board-action-delete-${board.id}`)); fireEvent.click(screen.getByTestId('board-dialog-confirm'));
+    expect(await screen.findByText(/状态已被其他协作者更新/)).toBeInTheDocument(); expect(screen.queryByTestId('board-delete-dialog')).not.toBeInTheDocument(); await waitFor(() => expect(api.listBoards).toHaveBeenCalledTimes(2)); expect(api.deleteBoard).toHaveBeenCalledTimes(1);
   });
   it('removes the prior cursor for a new filter and keeps load-more unavailable on failure', async () => {
     vi.mocked(api.listBoards).mockResolvedValueOnce({ items: [board], nextCursor: 'old-cursor' }).mockRejectedValueOnce(new Error('filter failed'));
