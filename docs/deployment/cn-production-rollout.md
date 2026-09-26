@@ -25,7 +25,8 @@ WSX_ECS_RAM_ROLE_NAME=<attached ECS RAM role>
 WSX_PLATFORM=linux/amd64
 WSX_NODE_IMAGE=<reviewed digest reference>
 WSX_PYTHON_IMAGE=<reviewed digest reference>
-WSX_POSTGRES_IMAGE=<reviewed digest reference>
+WSX_POSTGRES_IMAGE=<reviewed pgvector/pgvector base digest; AGE is built on top and pushed as <prefix>/postgres-age>
+# optional: WSX_AGE_REPOSITORY=<https git mirror of apache/age; the build pins and verifies the AGE commit>
 WSX_REDIS_IMAGE=<reviewed digest reference>
 ```
 
@@ -36,7 +37,7 @@ WSX_REDIS_IMAGE=<reviewed digest reference>
 1. 发布 SHA 是当前 `main-cn` tip，并且属于 `origin/main` 历史。
 2. canonical release manifest 的 `sourceRevision` 等于发布 SHA，且 `.sealed.json` 记录的 SHA-256 与 manifest 原始字节完全一致。
 3. 四个应用镜像位于 `CN_ACR_REPOSITORY_PREFIX` 指定的新 ACR namespace，全部固定为 `@sha256` digest。
-4. PostgreSQL/Redis 基础镜像仍在 canonical manifest 中固定 digest，但 production 使用托管 RDS/Redis，不要求将它们复制进 ACR。
+4. PostgreSQL/Redis 镜像仍在 canonical manifest 中固定 digest，但 production 使用托管 RDS/Redis。Redis 不要求复制进 ACR；PostgreSQL 必须带 Apache AGE（ADR-114 / #4081），因此候选构建以 `WSX_POSTGRES_IMAGE`（pgvector 基础 digest）为底、从 `apps/api/docker/postgres-age` 构建并推送 `<prefix>/postgres-age:<SHA>`，需要在同一 namespace 预建版本不可变的 `postgres-age` 仓库。托管 RDS 同样必须提供 `age` 扩展，否则图检索报 `KG_GRAPH_UNAVAILABLE`。
 5. runner 使用独立标签 `workspacex-cn-production`，GitHub Environment 固定为 `production-cn`；当前 Devapp workflow 不被触发。
 
 ## 五分钟 provision 之前必须完成
