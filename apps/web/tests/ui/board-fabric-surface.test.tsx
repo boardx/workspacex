@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { BoardFabricObject, BoardViewport } from "@/components/whiteboard/fabric/board-fabric-object";
 
@@ -145,6 +145,97 @@ describe("BoardFabricSurface", () => {
     await waitFor(() => expect(sticky.left).toBe(OBJECTS[0]!.geometry.x));
     expect(sticky.top).toBe(OBJECTS[0]!.geometry.y);
     expect(probe.activeId).toBe("s-1");
+  });
+
+  it("rolls a transform back when the command callback throws synchronously", () => {
+    const onObjectTransform = vi.fn(() => { throw new Error("command failed"); });
+    renderSurface({ selectedObjectIds: ["s-1"], onObjectTransform });
+    const sticky = probe.objects[0]!;
+    sticky.left = 777;
+    sticky.top = 888;
+
+    probe.handlers.get("object:modified")?.({ target: sticky });
+
+    expect(onObjectTransform).toHaveBeenCalledOnce();
+    expect(sticky.left).toBe(OBJECTS[0]!.geometry.x);
+    expect(sticky.top).toBe(OBJECTS[0]!.geometry.y);
+    expect(probe.activeId).toBe("s-1");
+  });
+
+  it("rolls a transform back when the command promise rejects", async () => {
+    const onObjectTransform = vi.fn(() => Promise.reject(new Error("command failed")));
+    renderSurface({ selectedObjectIds: ["s-1"], onObjectTransform });
+    const sticky = probe.objects[0]!;
+    sticky.left = 777;
+    sticky.top = 888;
+
+    probe.handlers.get("object:modified")?.({ target: sticky });
+
+    await waitFor(() => expect(sticky.left).toBe(OBJECTS[0]!.geometry.x));
+    expect(sticky.top).toBe(OBJECTS[0]!.geometry.y);
+    expect(probe.activeId).toBe("s-1");
+  });
+
+  it("restores the latest canonical revision when rejection settles after a remote update", async () => {
+    let settle!: (accepted: boolean) => void;
+    const pending = new Promise<boolean>((resolve) => { settle = resolve; });
+    const onObjectTransform = vi.fn(() => pending);
+    const view = renderSurface({ selectedObjectIds: ["s-1"], onObjectTransform });
+    const sticky = probe.objects[0]!;
+    sticky.left = 777;
+    probe.handlers.get("object:modified")?.({ target: sticky });
+    expect(sticky.left).toBe(777);
+
+    const remote = { ...OBJECTS[0]!, revision: 2, geometry: { ...OBJECTS[0]!.geometry, x: 222, y: 333 } };
+    view.rerender(<BoardFabricSurface objects={[remote, OBJECTS[1]!]} selectedObjectIds={["s-1"]} readOnly={false} tool="select" viewport={VIEWPORT} onSelectionChange={vi.fn()} onObjectTransform={onObjectTransform} onViewportChange={vi.fn()} />);
+    expect(sticky.left).toBe(222);
+    expect(sticky.top).toBe(333);
+
+    await act(async () => { settle(false); await pending; });
+
+    expect(sticky.left).toBe(222);
+    expect(sticky.top).toBe(333);
+    expect(probe.activeId).toBe("s-1");
+  });
+
+  it("does not roll a rejected gesture into a replacement object with the same id", async () => {
+    let settle!: (accepted: boolean) => void;
+    const pending = new Promise<boolean>((resolve) => { settle = resolve; });
+    const onObjectTransform = vi.fn(() => pending);
+    const view = renderSurface({ selectedObjectIds: ["s-1"], onObjectTransform });
+    const originalProjection = probe.objects[0]!;
+    originalProjection.left = 777;
+    probe.handlers.get("object:modified")?.({ target: originalProjection });
+
+    const replacementCanonical: BoardFabricObject = {
+      ...OBJECTS[0]!, revision: 2, kind: "ellipse", geometry: { ...OBJECTS[0]!.geometry, x: 456, y: 321 },
+    };
+    view.rerender(<BoardFabricSurface objects={[replacementCanonical, OBJECTS[1]!]} selectedObjectIds={["s-1"]} readOnly={false} tool="select" viewport={VIEWPORT} onSelectionChange={vi.fn()} onObjectTransform={onObjectTransform} onViewportChange={vi.fn()} />);
+    const replacementProjection = probe.objects.find((candidate) => candidate.data?.boardObjectId === "s-1");
+    expect(replacementProjection).toBeDefined();
+    expect(replacementProjection).not.toBe(originalProjection);
+
+    await act(async () => { settle(false); await pending; });
+
+    expect(replacementProjection?.data?.adapterKind).toBe("ellipse");
+    expect(replacementProjection?.left).toBe(456);
+    expect(replacementProjection?.top).toBe(321);
+    expect(probe.activeId).toBe("s-1");
+  });
+
+  it("settles a pending rejected gesture safely after the surface unmounts", async () => {
+    let settle!: (accepted: boolean) => void;
+    const pending = new Promise<boolean>((resolve) => { settle = resolve; });
+    const view = renderSurface({ selectedObjectIds: ["s-1"], onObjectTransform: vi.fn(() => pending) });
+    const sticky = probe.objects[0]!;
+    sticky.left = 777;
+    probe.handlers.get("object:modified")?.({ target: sticky });
+    view.unmount();
+    const rendersAfterUnmount = probe.renderCalls;
+
+    await act(async () => { settle(false); await pending; });
+
+    expect(probe.renderCalls).toBe(rendersAfterUnmount);
   });
 
   it("never emits a transform command from a projection placeholder", () => {
