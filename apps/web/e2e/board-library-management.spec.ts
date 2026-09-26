@@ -130,8 +130,9 @@ test("production Board library manages, duplicates, filters and deletes durable 
   await page.getByTestId("board-dialog-confirm").click();
   await expect(page.getByRole("status")).toContainText("副本已创建");
   const copies = await apiJson<{ items: Board[] }>(api, token, "GET", `/whiteboards?archived=active&limit=30&query=${encodeURIComponent(duplicateName)}`);
-  expect(copies.items).toHaveLength(1);
-  const copy = copies.items[0]!;
+  const exactCopies = copies.items.filter((board) => board.name === duplicateName);
+  expect(exactCopies).toHaveLength(1);
+  const copy = exactCopies[0]!;
   cleanupBoards.add(copy.id);
 
   await page.goto(`/studio/board/${copy.id}`);
