@@ -45,6 +45,8 @@ import {
 } from "@/components/whiteboard/authoring-preview/board-object-authoring-preview";
 import {
   CONTINUOUS_CAPTURE_BOUNDS,
+  RESIZE_CAPTURE_BOUNDS,
+  STICKY_TEXT_HORIZONTAL_PADDING,
   getAuthoringMobileBounds,
   getAuthoringSceneObjects,
 } from "@/components/whiteboard/authoring-preview/board-object-authoring-surface";
@@ -190,7 +192,22 @@ describe("BoardObjectAuthoringPreview", () => {
   it("models normal, free and auto-height as three distinct canonical resize modes", () => {
     const objects = getAuthoringSceneObjects("resize");
     expect(objects.map((object) => object.resizeMode)).toEqual(["normal", "free", "auto-height"]);
-    expect(objects.map(({ width, height }) => [width, height])).toEqual([[190, 190], [300, 150], [240, 270]]);
+    expect(objects.map(({ width, height }) => [width, height])).toEqual([[190, 190], [280, 150], [220, 270]]);
+  });
+
+  it("keeps all resize objects and their text areas visible before the 1280 property panel", () => {
+    const objects = getAuthoringSceneObjects("resize");
+    for (const object of objects) {
+      expect(object.x).toBeGreaterThanOrEqual(RESIZE_CAPTURE_BOUNDS.left);
+      expect(object.y).toBeGreaterThanOrEqual(RESIZE_CAPTURE_BOUNDS.top);
+      expect(object.x + object.width).toBeLessThanOrEqual(RESIZE_CAPTURE_BOUNDS.right);
+      expect(object.y + object.height).toBeLessThanOrEqual(RESIZE_CAPTURE_BOUNDS.bottom);
+      expect(object.width - STICKY_TEXT_HORIZONTAL_PADDING).toBeGreaterThanOrEqual(150);
+    }
+    const autoHeight = objects.find((object) => object.resizeMode === "auto-height");
+    expect(autoHeight).toBeDefined();
+    expect(autoHeight!.text.length).toBeGreaterThan(30);
+    expect(autoHeight!.height).toBeGreaterThan(autoHeight!.width);
   });
 
   it("dispatches no text splice during IME composition and one after compositionend", () => {

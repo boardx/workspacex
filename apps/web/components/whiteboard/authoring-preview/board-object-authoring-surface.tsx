@@ -29,6 +29,8 @@ export interface AuthoringSurfaceObject {
 }
 
 export const CONTINUOUS_CAPTURE_BOUNDS = Object.freeze({ left: 64, top: 120, right: 960, bottom: 560 });
+export const RESIZE_CAPTURE_BOUNDS = Object.freeze({ left: 64, top: 120, right: 944, bottom: 600 });
+export const STICKY_TEXT_HORIZONTAL_PADDING = 40;
 
 export function getAuthoringMobileBounds(viewportWidth: number) {
   const inset = 16;
@@ -76,9 +78,9 @@ export function getAuthoringSceneObjects(scene: AuthoringScene): readonly Author
   }
   if (scene === "resize") {
     return [
-      { id: "sticky-normal", text: "Normal\n保持比例", x: 230, y: 180, width: 190, height: 190, fill: "hsl(48 88% 72%)", resizeMode: "normal" },
-      { id: "sticky-free", text: "Free\n自由尺寸", x: 520, y: 200, width: 300, height: 150, fill: "hsl(203 78% 82%)", shape: "rectangle", resizeMode: "free" },
-      { id: "sticky-auto", text: "Auto-height\n长文本会按照内容自动增加高度，缩放画布不会改变对象的真实尺寸。", x: 930, y: 140, width: 240, height: 270, fill: "hsl(264 58% 84%)", shape: "rectangle", resizeMode: "auto-height" },
+      { id: "sticky-normal", text: "Normal\n保持比例", x: 160, y: 190, width: 190, height: 190, fill: "hsl(48 88% 72%)", resizeMode: "normal" },
+      { id: "sticky-free", text: "Free\n自由尺寸", x: 410, y: 210, width: 280, height: 150, fill: "hsl(203 78% 82%)", shape: "rectangle", resizeMode: "free" },
+      { id: "sticky-auto", text: "Auto-height\n长文本会按照内容自动增加高度，缩放画布不会改变对象的真实尺寸。", x: 710, y: 150, width: 220, height: 270, fill: "hsl(264 58% 84%)", shape: "rectangle", resizeMode: "auto-height" },
     ];
   }
   if (scene === "link-failed") {
@@ -102,7 +104,7 @@ function makeObject(item: AuthoringSurfaceObject): FabricObject {
     return object;
   }
   const text = new Textbox(item.text, {
-    width: item.width - 40,
+    width: item.width - STICKY_TEXT_HORIZONTAL_PADDING,
     fontFamily: "Noto Sans SC, sans-serif",
     fontSize: 20,
     fontWeight: 520,
