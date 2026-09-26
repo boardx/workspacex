@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState, type ClipboardEvent, type DragEvent, type PointerEvent } from "react";
 import type * as Y from "yjs";
-import { ContentObjectCommandPort, copyObjects, createContentObjectEnvelope, createStickyBatchEnvelope, nextStickyPlacement, parseBulkStickyLines, parseThinkingPaste, readContentObject, readObjects, validateTextAttributes, type BoardCommandEnvelope, type CanonicalContentObject, type DrawingTool, type StickyVariant, type TextStylePreset, type WhiteboardCommand, type WhiteboardObject } from "@repo/whiteboard-core";
+import { ContentObjectCommandPort, copyObjects, createContentObjectEnvelope, createStickyBatchEnvelope, instantiateTemplateEnvelope, nextStickyPlacement, parseBulkStickyLines, parseThinkingPaste, readContentObject, readObjects, validateTextAttributes, type BoardCommandEnvelope, type CanonicalContentObject, type DrawingTool, type StickyVariant, type TextStylePreset, type WhiteboardCommand, type WhiteboardObject } from "@repo/whiteboard-core";
 import type { WhiteboardConnectionState } from "@/lib/whiteboard-provider";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
@@ -72,7 +72,12 @@ export function CollaborativeThinkingEditor({ boardId, clientId, doc, readOnly, 
     const id = crypto.randomUUID();
     const isShape = content.type === "shape";
     const geometry = isShape ? topLeft(point, 220, 150) : content.type === "drawing" ? drawingBounds(content.strokes.flatMap((stroke) => stroke.points)) : topLeft(point, content.type === "image" ? 320 : 280, content.type === "image" ? 220 : 170);
-    const title = text || ("title" in content ? content.title : "");
+    const contentTitle = content.type === "tile" || content.type === "web-tile" || content.type === "table"
+      ? content.title ?? ""
+      : content.type === "icon" || content.type === "template"
+        ? content.name
+        : "";
+    const title = text || contentTitle;
     const envelope = createContentObjectEnvelope({ boardId, clientId, gestureId: crypto.randomUUID(), id, geometry, text: title, style: { fill: isShape ? "#FFFFFF" : "#FAFAFA", stroke: "#27272A", color: "#18181B", fontSize: 18 }, orderKey: `${Date.now().toString(36)}-${id}`, content });
     if (!dispatchEnvelope(envelope)) return null;
     setSelected([id]);
@@ -87,16 +92,16 @@ export function CollaborativeThinkingEditor({ boardId, clientId, doc, readOnly, 
     const value = defaults[contentType];
     if (contentType === "template") {
       const instanceId = crypto.randomUUID();
-      const content: CanonicalContentObject = { version: 1, type: "template", templateId: "blank-workshop", name: value.title, versionId: "v1", parameters: { instanceId } };
-      const root = createContentObjectEnvelope({ boardId, clientId, gestureId: instanceId, id: instanceId, geometry: topLeft(point, 640, 360), text: value.title, style: { fill: "#FAFAFA", stroke: "#A1A1AA", color: "#18181B" }, orderKey: `${Date.now().toString(36)}-${instanceId}`, content });
-      const notes: WhiteboardObject[] = ["目标", "想法", "下一步"].map((text, index) => ({ id: `${instanceId}-${index + 1}`, schemaVersion: 1, kind: "sticky", geometry: { x: point.x - 250 + index * 205, y: point.y - 40, width: 180, height: 180, rotation: 0 }, text, style: { fill: "#F8D76E", color: "#29261E" }, parentId: null, orderKey: `${Date.now().toString(36)}-${instanceId}-${index}`, extensionData: { thinkingInput: { sticky: { variant: "square", sizing: "auto-height", color: "#F8D76E" } } } }));
-      if (dispatchEnvelope({ ...root, commands: [...root.commands, ...notes.map((object) => ({ type: "create" as const, object }))] })) setSelected([instanceId, ...notes.map((note) => note.id)]);
+      const tile = (title: string): Extract<CanonicalContentObject, { type: "tile" }> => ({ version: 1, type: "tile", tileType: "document", title, description: "模板实例", icon: null, coverAssetId: null, fields: [], tags: [], link: null, status: null, actions: [] });
+      const content: Extract<CanonicalContentObject, { type: "template" }> = { version: 1, type: "template", templateId: "blank-workshop", name: value.title, versionId: "v1", parameters: {}, objects: ["目标", "想法", "下一步"].map((title, index) => ({ localId: `tile-${index + 1}`, geometry: { x: index * 205, y: 0, width: 180, height: 180, rotation: 0 }, text: title, content: tile(title) })) };
+      const objectIds = Object.fromEntries(content.objects!.map((item) => [item.localId, `${instanceId}-${item.localId}`]));
+      if (dispatchEnvelope(instantiateTemplateEnvelope({ boardId, clientId, gestureId: instanceId, instanceId, template: content, objectIds, x: point.x - 250, y: point.y - 40 }))) setSelected(Object.values(objectIds));
       return instanceId;
     }
     const content: CanonicalContentObject = contentType === "tile" ? { version: 1, type: "tile", tileType: "document", title: value.title, description: value.description, icon: null, coverAssetId: null, fields: [], tags: [], link: null, status: null, actions: [] }
       : contentType === "web-tile" ? { version: 1, type: "web-tile", url: "https://example.com/", title: value.title, description: value.description, imageUrl: null, siteName: null, fetchStatus: "pending" }
-      : contentType === "table" ? { version: 1, type: "table", columns: [{ id: "name", name: "项目" }, { id: "status", name: "状态" }], rows: [{ id: "example", cells: { name: "示例", status: "进行中" } }] }
-      : contentType === "icon" ? { version: 1, type: "icon", name: "sparkles", set: "lucide", color: "#18181B" }
+      : contentType === "table" ? { version: 1, type: "table", title: value.title, columns: [{ id: "name", name: "项目" }, { id: "status", name: "状态" }], rows: [{ id: "example", cells: { name: "示例", status: "进行中" } }] }
+      : contentType === "icon" ? { version: 1, type: "icon", name: value.title, set: "lucide", color: "#18181B" }
       : { version: 1, type: "template", templateId: "blank-workshop", name: value.title, versionId: "v1", parameters: {} };
     return createContentAt(point, content, value.title);
   }, [boardId, clientId, createContentAt, dispatchEnvelope]);
@@ -132,7 +137,7 @@ export function CollaborativeThinkingEditor({ boardId, clientId, doc, readOnly, 
     try {
       const inspected = await inspectRemoteImageUrl(imageUrl);
       const name = new URL(inspected.url).pathname.split("/").pop() || "remote-image";
-      const content: Extract<CanonicalContentObject, { type: "image" }> = { version: 1, type: "image", status: "ready", assetId: null, sourceUrl: inspected.url, mimeType: inspected.mimeType, intrinsicWidth: 1, intrinsicHeight: 1, crop: { x: 0, y: 0, width: 1, height: 1 }, opacity: 1, borderColor: "#FFFFFF", borderWidth: 0, cornerRadius: 0, fileName: name, replacementOf: null, failureCode: null };
+      const content: Extract<CanonicalContentObject, { type: "image" }> = { version: 1, type: "image", status: "ready", assetId: null, sourceUrl: inspected.url, mimeType: inspected.mimeType, intrinsicWidth: 1, intrinsicHeight: 1, crop: { x: 0, y: 0, width: 1, height: 1 }, opacity: 1, borderColor: "#FFFFFF", borderWidth: 0, cornerRadius: 0, fileName: name, replacementOf: null, failureCode: null, byteSize: inspected.byteSize, contentDigest: inspected.contentDigest, magicMimeType: inspected.magicMimeType, retryCount: 0 };
       if (imageDialog?.targetId) replaceContent(imageDialog.targetId, { ...content, replacementOf: imageDialog.targetId }); else createContentAt(centerPoint(viewport), content, name);
       setImageDialog(null); setImageUrl("");
     } catch (error) { const code = error instanceof Error ? error.message : "IMAGE_FETCH_FAILED"; setNotice(code === "IMAGE_TOO_LARGE" ? "图片超过 25MB，未添加。" : code === "IMAGE_MAGIC_INVALID" ? "图片内容与声明格式不一致，未添加。" : "无法读取该 HTTPS 图片。请检查地址、跨域权限和文件格式。"); }
@@ -145,7 +150,7 @@ export function CollaborativeThinkingEditor({ boardId, clientId, doc, readOnly, 
   const selectedContent = selectedObject ? readContentObject(selectedObject) : null;
   const commitDrawing = (drawingTool: DrawingTool, points: Array<{ x: number; y: number; pressure: number }>) => {
     const styles: Record<DrawingTool, { color: string; width: number; opacity: number }> = { pen: { color: "#18181B", width: 3, opacity: 1 }, marker: { color: "#2563EB", width: 8, opacity: .9 }, highlighter: { color: "#FACC15", width: 20, opacity: .35 }, eraser: { color: "#FFFFFF", width: 24, opacity: 1 } };
-    const stroke = { id: crypto.randomUUID(), tool: drawingTool, points, ...styles[drawingTool] };
+    const stroke = { id: crypto.randomUUID(), tool: drawingTool, points, ...styles[drawingTool], ...(drawingTool === "eraser" && selectedContent?.type === "drawing" ? { erases: selectedContent.strokes.filter((item) => item.tool !== "eraser").map((item) => item.id) } : {}) };
     if (selectedObject && selectedContent?.type === "drawing") { replaceContent(selectedObject.id, { ...selectedContent, strokes: [...selectedContent.strokes, stroke] }); return; }
     if (drawingTool === "eraser") { setNotice("先选择一个绘图对象，再用橡皮擦添加可撤销的矢量擦除笔画。"); return; }
     createContentAt(points[0]!, { version: 1, type: "drawing", strokes: [stroke] });

@@ -2,6 +2,7 @@
 
 import * as React from "react";
 import { Canvas, Circle, FabricImage, Group, Path, Point, Rect, Textbox, type FabricObject, type TPointerEventInfo } from "fabric";
+import { drawingEraserLayers } from "@repo/whiteboard-core";
 import { BoardA11yMirror } from "./board-a11y-mirror";
 import {
   clampBoardZoom,
@@ -49,11 +50,12 @@ function createFabricObject(object: BoardFabricObject): TaggedFabricObject {
   };
   let projected: FabricObject;
   if (object.kind === "drawing" && object.boardContent?.type === "drawing") {
+    const eraserTargets = new Map(drawingEraserLayers(object.boardContent).map((layer) => [layer.stroke.id, new Set(layer.targetStrokeIds)]));
     projected = new Group(object.boardContent.strokes.flatMap((stroke) => stroke.points.slice(1).map((point, index) => {
       const previous = stroke.points[index]!;
       const path = `M ${previous.x - object.geometry.x} ${previous.y - object.geometry.y} L ${point.x - object.geometry.x} ${point.y - object.geometry.y}`;
       const pressure = Math.max(.1, (previous.pressure + point.pressure) / 2);
-      return new Path(path, { fill: "", stroke: stroke.color, strokeWidth: stroke.width * (.35 + pressure * .65), opacity: stroke.opacity, strokeLineCap: "round", strokeLineJoin: "round", globalCompositeOperation: stroke.tool === "eraser" ? "destination-out" : "source-over" });
+      return new Path(path, { fill: "", stroke: stroke.color, strokeWidth: stroke.width * (.35 + pressure * .65), opacity: stroke.opacity, strokeLineCap: "round", strokeLineJoin: "round", globalCompositeOperation: stroke.tool === "eraser" && eraserTargets.get(stroke.id)?.size ? "destination-out" : "source-over" });
     })));
   } else if (object.kind === "image" && object.boardContent?.type === "image") {
     if (object.boardContent.status === "ready" && object.boardContent.sourceUrl) {

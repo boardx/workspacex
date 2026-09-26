@@ -2,6 +2,26 @@ import { z } from 'zod';
 
 /** Content contract only. Actor identity, ACL and durable sequence belong to the host. */
 export const WHITEBOARD_LIMITS = { objects: 5000, tombstones: 10000, text: 20000, batch: 200, extensionBytes: 16384 } as const;
+/** Single inert-JSON validator shared by contract parsing and the content-object domain. */
+export function validateWhiteboardExtensionData(value: unknown, depth = 0, key = ''): void {
+  if (depth > 8) throw new Error('UNSAFE_EXTENSION');
+  if (value === null || typeof value === 'boolean') return;
+  if (typeof value === 'string') {
+    if (/^(data|blob):/i.test(value.trim())) throw new Error('UNSAFE_EXTENSION_URL');
+    if (/(base64|binary|bytes|blob|payload)/i.test(key) && value.length > 256 && /^[a-z0-9+/=_-]+$/i.test(value)) throw new Error('UNSAFE_EXTENSION_BINARY');
+    return;
+  }
+  if (typeof value === 'number') { if (!Number.isFinite(value)) throw new Error('UNSAFE_EXTENSION'); return; }
+  if (Array.isArray(value)) {
+    if (value.length > 64 && value.every(item => Number.isInteger(item) && item >= 0 && item <= 255)) throw new Error('UNSAFE_EXTENSION_BINARY');
+    value.forEach(item => validateWhiteboardExtensionData(item, depth + 1, key)); return;
+  }
+  if (typeof value !== 'object' || Object.getPrototypeOf(value) !== Object.prototype) throw new Error('UNSAFE_EXTENSION_BINARY');
+  for (const [childKey, child] of Object.entries(value as Record<string, unknown>)) {
+    if (['__proto__', 'constructor', 'prototype'].includes(childKey)) throw new Error('UNSAFE_EXTENSION');
+    validateWhiteboardExtensionData(child, depth + 1, childKey);
+  }
+}
 export const WhiteboardObjectId = z.string().min(1).max(128).regex(/^[a-zA-Z0-9_-]+$/);
 export const WhiteboardGeometry = z.object({
   x: z.number().finite().min(-1000000).max(1000000), y: z.number().finite().min(-1000000).max(1000000),
@@ -24,30 +44,8 @@ export const WhiteboardObject = z.object({
     try {
       const encoded = JSON.stringify(value);
       if (new TextEncoder().encode(encoded).length > WHITEBOARD_LIMITS.extensionBytes) throw new Error();
-      const visit = (item: unknown, depth: number, key = ''): void => {
-        if (depth > 8) throw new Error();
-        if (item === null || typeof item === 'boolean') return;
-        if (typeof item === 'string') {
-          if (/^(data|blob):/i.test(item.trim())) throw new Error();
-          if (/(base64|binary|bytes|blob|payload)/i.test(key) && item.length > 256 && /^[a-z0-9+/=_-]+$/i.test(item)) throw new Error();
-          return;
-        }
-        if (typeof item === 'number' && Number.isFinite(item)) return;
-        if (Array.isArray(item)) {
-          if (item.length > 64 && item.every(value => Number.isInteger(value) && (value as number) >= 0 && (value as number) <= 255)) throw new Error();
-          item.forEach(v => visit(v, depth + 1, key)); return;
-        }
-        if (typeof item === 'object' && Object.getPrototypeOf(item) === Object.prototype) {
-          for (const [key, val] of Object.entries(item)) {
-            if (['__proto__', 'constructor', 'prototype'].includes(key)) throw new Error();
-            visit(val, depth + 1, key);
-          }
-          return;
-        }
-        throw new Error();
-      };
-      visit(value, 0);
-    } catch { ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'Extension must be bounded plain JSON' }); }
+      validateWhiteboardExtensionData(value);
+    } catch (error) { ctx.addIssue({ code: z.ZodIssueCode.custom, message: error instanceof Error && error.message.startsWith('UNSAFE_EXTENSION') ? error.message : 'Extension must be bounded plain JSON' }); }
   }),
 }).strict().superRefine((object, ctx) => {
   if ((object.kind === 'connector') !== Boolean(object.connector)) ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'Connector endpoints required only for connector objects' });

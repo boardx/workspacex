@@ -136,7 +136,7 @@ export function instantiateTemplateEnvelope(input: InstantiateTemplateInput): Bo
   const expected = new Set(objects.map(item => item.localId));
   if (Object.keys(input.objectIds).length !== expected.size || Object.keys(input.objectIds).some(key => !expected.has(key))) throw new Error('TEMPLATE_OBJECT_IDS_INVALID');
   const ids = objects.map(item => input.objectIds[item.localId]);
-  if (ids.some(id => !ID.test(id)) || new Set(ids).size !== ids.length) throw new Error('TEMPLATE_OBJECT_IDS_INVALID');
+  if (ids.some(id => typeof id !== 'string' || !ID.test(id)) || new Set(ids).size !== ids.length) throw new Error('TEMPLATE_OBJECT_IDS_INVALID');
   const commands = objects.map(item => createContentObjectEnvelope({
     boardId: input.boardId, clientId: input.clientId, gestureId: input.gestureId,
     id: input.objectIds[item.localId]!, geometry: { ...item.geometry, x: item.geometry.x + input.x, y: item.geometry.y + input.y },

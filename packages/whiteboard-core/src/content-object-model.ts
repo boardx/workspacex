@@ -1,4 +1,4 @@
-import { WhiteboardGeometry, type WhiteboardObject } from '@repo/contracts/whiteboard-document';
+import { WhiteboardGeometry, validateWhiteboardExtensionData, type WhiteboardObject } from '@repo/contracts/whiteboard-document';
 
 export const SHAPE_VARIANTS = [
   'rectangle', 'rounded-rectangle', 'circle', 'ellipse', 'diamond', 'triangle',
@@ -66,20 +66,10 @@ const TYPES = new Set<ContentObjectType>(['shape', 'drawing', 'image', 'tile', '
 const HEX = /^#[0-9a-f]{6}([0-9a-f]{2})?$/i;
 const ID = /^[a-zA-Z0-9_-]{1,128}$/;
 const SHA256 = /^sha256:[0-9a-f]{64}$/i;
-const FORBIDDEN_URL = /^(data|blob):/i;
 
 /** Unknown fields stay forward compatible only while remaining bounded, inert JSON. */
 export function validateSafeExtensionTree(value: unknown, depth = 0): void {
-  if (depth > 12) throw new Error('UNSAFE_EXTENSION');
-  if (value === null || typeof value === 'boolean') return;
-  if (typeof value === 'number') { if (!Number.isFinite(value)) throw new Error('UNSAFE_EXTENSION'); return; }
-  if (typeof value === 'string') { if (FORBIDDEN_URL.test(value.trim())) throw new Error('UNSAFE_EXTENSION_URL'); return; }
-  if (Array.isArray(value)) { for (const item of value) validateSafeExtensionTree(item, depth + 1); return; }
-  if (typeof value !== 'object' || Object.getPrototypeOf(value) !== Object.prototype) throw new Error('UNSAFE_EXTENSION_BINARY');
-  for (const [key, child] of Object.entries(value as JsonRecord)) {
-    if (['__proto__', 'prototype', 'constructor'].includes(key)) throw new Error('UNSAFE_EXTENSION');
-    validateSafeExtensionTree(child, depth + 1);
-  }
+  validateWhiteboardExtensionData(value, depth);
 }
 
 function record(value: unknown, code = 'CONTENT_OBJECT_INVALID'): JsonRecord {
