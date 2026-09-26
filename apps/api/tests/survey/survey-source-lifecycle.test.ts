@@ -1,13 +1,13 @@
 import { describe, expect, it } from "vitest";
 import { SurveyService, type SurveyRecord, type SurveyRepository } from "../../src/application/survey/survey-service";
 import { toOrgId } from "../../src/domain/org-id";
-import type { SurveyDraftInput, SurveySubmissionInput } from "@repo/contracts/survey-runtime";
+import { SurveyRuntimeSchema, type SurveyDraftInput, type SurveySubmissionInput } from "@repo/contracts/survey-runtime";
 
 const org = toOrgId("survey-source-org");
 const owner = "survey-source-owner";
 const draft: SurveyDraftInput = {
   title: "真实问卷",
-  questions: [{ id: "Q1", order: 1, chapterId: "general", title: "您会推荐我们吗？", type: "single", required: true, options: ["会", "不会"] }],
+  questions: [{ id: "Q1", order: 1, chapterId: "general", title: "您会推荐我们吗？", type: "single", required: true, options: ["会", "不会"], provenance: { source: "template", sourceId: "template-q1" } }],
   template: { id: "report-1", title: "报告", sections: [{ id: "section-1", title: "结果", blocks: [{ id: "block-1", title: "分布", type: "bar", questionIds: ["Q1"], statistic: "distribution", samplePolicy: "valid", minGroupSize: 5 }] }] },
 };
 const submission: SurveySubmissionInput = {
@@ -51,11 +51,22 @@ describe("survey Markdown source lifecycle", () => {
     const collected = await service.startCollection(org, owner, ready.id, ready.version);
 
     expect(collected.publication?.sourceSnapshot!.contentHash).toMatch(/^[a-f0-9]{64}$/);
+    expect(() => SurveyRuntimeSchema.parse(collected)).not.toThrow();
     await expect(service.saveSource(org, owner, collected.id, collected.version, {
       design: "# 变更\n",
       publication: "# 发布设置\n",
       reportTemplate: "# 报告模板\n",
     })).rejects.toMatchObject({ code: "closed" });
+  });
+
+  it("keeps a frozen legacy-compatible compiled snapshot consumable by the runtime schema", async () => {
+    const { service } = setup();
+    const created = await service.create(org, owner, draft);
+    const ready = await service.prepare(org, owner, created.id, created.version);
+    const collected = await service.startCollection(org, owner, ready.id, ready.version);
+
+    expect(collected.publication?.sourceSnapshot?.compiled.questions[0]?.provenance).toMatchObject({ source: "template" });
+    expect(() => SurveyRuntimeSchema.parse(collected)).not.toThrow();
   });
 
   it("does not mutate the source projection when a save is stale or invalid", async () => {
