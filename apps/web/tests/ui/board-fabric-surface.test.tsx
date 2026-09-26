@@ -70,7 +70,8 @@ vi.mock("fabric", () => {
     getActiveObject() { return probe.objects.find((object) => object.data?.boardObjectId === probe.activeId); }
     clear() { probe.clearCalls += 1; }
   }
-  return { Canvas, Rect: MockRect, Circle: MockCircle, Path: MockPath, FabricImage: MockImage, Textbox: MockTextbox, Group: MockGroup, Point: MockObject };
+  class ActiveSelection extends MockObject { constructor(public objects: MockObject[]) { super(); } getObjects() { return this.objects; } }
+  return { ActiveSelection, Canvas, Rect: MockRect, Circle: MockCircle, Line: MockObject, Path: MockPath, FabricImage: MockImage, Triangle: MockObject, Textbox: MockTextbox, Group: MockGroup, Point: MockObject };
 });
 
 class ResizeObserverMock { observe() {} disconnect() {} }
@@ -123,6 +124,28 @@ describe("BoardFabricSurface", () => {
     expect(probe.imageSources).toEqual(["blob:verified-image"]);
     expect(probe.imageSources).not.toContain(ready.boardContent?.type === "image" ? ready.boardContent.sourceUrl : "");
     expect(probe.imageOptions[0]).toMatchObject({ cropX: 100, cropY: 30, width: 200, height: 240, opacity: .7, clipPath: expect.objectContaining({ rx: expect.any(Number), ry: expect.any(Number) }) });
+  });
+
+  it("renders panel and connector projections while keeping connectors endpoint-driven", () => {
+    const panel: BoardFabricObject = { ...OBJECTS[0]!, id: "panel", kind: "panel", zIndex: -1, panel: { title: "Research", mode: "grid", autoExpand: true, clipContent: false } };
+    const edge: BoardFabricObject = { ...OBJECTS[0]!, id: "edge", kind: "connector", zIndex: 2, content: { text: "needs" }, connector: { from: "s-1", to: "r-1", fromAnchor: "right", toAnchor: "left", type: "curve", startStyle: "none", endStyle: "arrow", lineStyle: "dashed", label: "needs", semanticRelation: "needs", start: { x: 260, y: 150 }, end: { x: 360, y: 150 } } };
+    renderSurface({ objects: [OBJECTS[0]!, OBJECTS[1]!, panel, edge] });
+    expect(probe.objects.map((object) => object.data?.boardObjectId)).toEqual(["panel", "s-1", "r-1", "edge"]);
+    expect(probe.objects.find((object) => object.data?.boardObjectId === "edge")).toMatchObject({ selectable: true, evented: true });
+  });
+
+  it("highlights and reparents nested Panels at the completed Fabric gesture boundary", () => {
+    const parent: BoardFabricObject = { ...OBJECTS[0]!, id: "parent", kind: "panel", geometry: { x: 0, y: 0, width: 500, height: 400, rotation: 0 }, panel: { title: "Parent", mode: "freeform", autoExpand: true, clipContent: false } };
+    const child: BoardFabricObject = { ...OBJECTS[0]!, id: "child", kind: "panel", geometry: { x: 600, y: 0, width: 180, height: 140, rotation: 0 }, panel: { title: "Child", mode: "flow", autoExpand: true, clipContent: false } };
+    const onPanelHoverChange = vi.fn(), onObjectReparent = vi.fn();
+    renderSurface({ objects: [parent, child], onObjectTransform: vi.fn(() => true), onPanelHoverChange, onObjectReparent });
+    const projected = probe.objects.find((object) => object.data?.boardObjectId === "child")!;
+    projected.left = 120; projected.top = 100;
+    probe.handlers.get("object:moving")?.({ target: projected });
+    expect(onPanelHoverChange).toHaveBeenCalledWith("parent");
+    probe.handlers.get("object:modified")?.({ target: projected });
+    expect(onObjectReparent).toHaveBeenCalledWith("child", "parent");
+    expect(onPanelHoverChange).toHaveBeenLastCalledWith(null);
   });
 
   it("converts a dragged dock tool drop into world coordinates without creating renderer-owned state", () => {

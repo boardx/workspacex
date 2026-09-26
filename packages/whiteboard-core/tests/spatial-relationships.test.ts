@@ -65,6 +65,22 @@ describe('semantic panels and hierarchy', () => {
     doc.destroy();
   });
 
+  it('updates panel title and layout in one guarded operation', () => {
+    const doc = seed(); const undo = new WhiteboardUndo(doc); const port = new SpatialRelationshipCommandPort(doc);
+    dispatch(port, 'panel', { type: 'create-panel', id: 'panel', geometry: geometry(), text: 'Draft', panel });
+    const accepted = port.dispatch({ ...identity, gestureId: 'rename', command: { type: 'update-panel', id: 'panel', text: 'Research', panel: { ...panel, mode: 'grid' } }, preconditions: [{ id: 'panel', locked: false }] });
+    expect(accepted.events.map(value => value.operationId)).toEqual([accepted.operationId]);
+    expect(readObjects(doc).find(value => value.id === 'panel')).toMatchObject({ text: 'Research' });
+    expect(readPanelMetadata(readObjects(doc).find(value => value.id === 'panel')!)).toMatchObject({ mode: 'grid' });
+    expect(undo.undo()).toBe('undone');
+    expect(readObjects(doc).find(value => value.id === 'panel')).toMatchObject({ text: 'Draft' });
+    dispatch(port, 'lock', { type: 'set-locked', objectIds: ['panel'], locked: true });
+    expect(() => dispatch(port, 'blocked-title', { type: 'update-panel', id: 'panel', text: 'Blocked', panel })).toThrow('OBJECT_LOCKED');
+    expect(() => port.dispatch({ ...identity, gestureId: 'stale-title', command: { type: 'update-panel', id: 'panel', text: 'Stale', panel }, preconditions: [{ id: 'panel', locked: false }] })).toThrow('SPATIAL_CONFLICT');
+    expect(() => dispatch(port, 'long-title', { type: 'update-panel', id: 'panel', text: 'x'.repeat(20001), panel })).toThrow();
+    undo.destroy(); doc.destroy();
+  });
+
   it('deletes panels with explicit preserve or cascade semantics', () => {
     const preserve = seed(note('child')); const preservePort = new SpatialRelationshipCommandPort(preserve);
     dispatch(preservePort, 'p', { type: 'create-panel', id: 'panel', geometry: geometry(), panel });

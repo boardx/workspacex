@@ -32,7 +32,7 @@ export interface SpatialPrecondition {
 
 export type SpatialCommand =
   | { type: 'create-panel'; id: string; geometry: WhiteboardGeometry; text?: string; parentId?: string | null; orderKey?: string; zIndex?: number; panel: PanelMetadata }
-  | { type: 'update-panel'; id: string; panel: PanelMetadata }
+  | { type: 'update-panel'; id: string; panel: PanelMetadata; text?: string }
   | { type: 'arrange-panel'; id: string }
   | { type: 'reparent'; id: string; parentId: string | null; orderKey?: string }
   | { type: 'move'; id: string; x: number; y: number }
@@ -174,10 +174,12 @@ function build(snapshot: Snapshot, command: SpatialCommand): { commands: Whitebo
   }
   if (command.type === 'update-panel') {
     const target = object(snapshot, command.id); ensureUnlocked(target); readPanelMetadata(target);
+    if (command.text !== undefined && (typeof command.text !== 'string' || command.text.length > 20000)) throw new Error('PANEL_TITLE_INVALID');
     const metadata = parsePanelMetadata(command.panel), items = children(snapshot, target.id); ensureUnlocked(...items);
     const placements = arrangedGeometry(target, metadata, items);
     const commands: WhiteboardCommand[] = [
       { type: 'extension', id: target.id, extensionData: panelExtension(target.extensionData, metadata) },
+      ...(command.text !== undefined && command.text !== target.text ? [{ type: 'text' as const, id: target.id, index: 0, deleteCount: target.text.length, insert: command.text }] : []),
       ...[...placements].map(([id, geometry]) => ({ type: 'geometry' as const, id, geometry })),
     ];
     const projected = items.map(item => ({ ...item, geometry: placements.get(item.id) ?? item.geometry }));
@@ -366,6 +368,7 @@ export class SpatialRelationshipCommandPort {
     verifyPreconditions(current, input.preconditions ?? []);
     const built = build(current, input.command);
     const accepted = this.commandPort.dispatch({ boardId: input.boardId, clientId: input.clientId, gestureId: input.gestureId, commands: built.commands });
+    if (!accepted) throw new Error('SPATIAL_COMMAND_REJECTED');
     const result = { ...accepted, events: built.events.map(value => ({ ...value, operationId: accepted.operationId })) };
     this.accepted.set(key, { payload, result: structuredClone(result) });
     return result;
