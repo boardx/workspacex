@@ -28,6 +28,10 @@ let cleanup: { id: string; token: string } | undefined;
 test.afterEach(async () => { if (!cleanup) return; const api = await playwrightRequest.newContext(); try { await apiCall(api, cleanup.token, "PATCH", `/whiteboards/${cleanup.id}`, { archived: true }); } finally { cleanup = undefined; await api.dispose(); } });
 
 type Geometry = { x: number; y: number; width: number; height: number; rotation: number };
+function anchorPoint(geometry: Geometry, anchor: "left" | "right") {
+  const radians = geometry.rotation * Math.PI / 180, localX = anchor === "right" ? geometry.width : 0, localY = geometry.height / 2;
+  return { x: geometry.x + localX * Math.cos(radians) - localY * Math.sin(radians), y: geometry.y + localX * Math.sin(radians) + localY * Math.cos(radians) };
+}
 const objectRow = (page: Page, kind: string, index = 0) => page.locator(`[data-testid="board-a11y-mirror"] li[data-object-kind="${kind}"]`).nth(index);
 async function geometryOf(row: ReturnType<typeof objectRow>): Promise<Geometry> { return JSON.parse((await row.getAttribute("data-geometry"))!) as Geometry; }
 async function dragObject(page: Page, row: ReturnType<typeof objectRow>, dx: number, dy: number) {
@@ -35,6 +39,26 @@ async function dragObject(page: Page, row: ReturnType<typeof objectRow>, dx: num
   const geometry = await geometryOf(row), canvas = page.getByTestId("board-fabric-canvas"), box = (await canvas.boundingBox())!;
   const x = box.x + geometry.x + geometry.width / 2, y = box.y + geometry.y + geometry.height / 2;
   await page.mouse.move(x, y); await page.mouse.down(); await page.mouse.move(x + dx, y + dy, { steps: 10 }); await page.mouse.up();
+}
+async function geometries(page: Page): Promise<Geometry[]> {
+  return page.locator('[data-testid="board-a11y-mirror"] li').evaluateAll(rows => rows.map(row => JSON.parse((row as HTMLElement).dataset.geometry!) as Geometry));
+}
+async function activeSelectionBounds(page: Page) {
+  const values = await geometries(page);
+  return { left: Math.min(...values.map(value => value.x)), top: Math.min(...values.map(value => value.y)), right: Math.max(...values.map(value => value.x + value.width)), bottom: Math.max(...values.map(value => value.y + value.height)) };
+}
+async function transformActiveSelection(page: Page, kind: "scale" | "rotate") {
+  const bounds = await activeSelectionBounds(page), box = (await page.getByTestId("board-fabric-canvas").boundingBox())!;
+  const centerX = box.x + (bounds.left + bounds.right) / 2, centerY = box.y + (bounds.top + bounds.bottom) / 2;
+  const start = kind === "scale" ? { x: box.x + bounds.right, y: box.y + bounds.bottom } : { x: centerX, y: box.y + bounds.top - 40 };
+  const end = kind === "scale" ? { x: start.x + 120, y: start.y + 80 } : { x: box.x + bounds.right + 40, y: centerY };
+  await page.mouse.move(start.x, start.y); await page.mouse.down(); await page.mouse.move(end.x, end.y, { steps: 16 }); await page.mouse.up();
+}
+async function boardRows(page: Page) {
+  return page.locator('[data-testid="board-a11y-mirror"] li').evaluateAll(rows => rows.map(row => {
+    const value = row as HTMLElement;
+    return { id: value.dataset.objectId, geometry: value.dataset.geometry, parentId: value.dataset.parentId, zIndex: value.dataset.zIndex, from: value.dataset.connectorFrom, to: value.dataset.connectorTo, start: value.dataset.connectorStart, end: value.dataset.connectorEnd };
+  }));
 }
 
 test("multi-select transform, Panel clip/expand, connector preservation, and total z-order survive reload", async ({ page, request }) => {
@@ -50,15 +74,26 @@ test("multi-select transform, Panel clip/expand, connector preservation, and tot
   const outline = page.getByTestId("board-a11y-mirror").getByRole("button");
   await expect(outline).toHaveCount(3);
 
-  // Real marquee + drag exercises Fabric ActiveSelection and its one-command batch bridge.
+  // Real marquee, corner scale, and rotation-handle drag exercise Fabric ActiveSelection's scene-matrix bridge.
   const canvas = page.getByTestId("board-fabric-canvas"); const box = (await canvas.boundingBox())!;
   await page.mouse.move(box.x + 20, box.y + 80); await page.mouse.down(); await page.mouse.move(box.x + 1250, box.y + 760, { steps: 12 }); await page.mouse.up();
   await expect(page.getByTestId("board-a11y-selection-announcement")).toHaveText("已选择 3 个对象");
-  await page.mouse.move(box.x + 450, box.y + 300); await page.mouse.down(); await page.mouse.move(box.x + 520, box.y + 360, { steps: 8 }); await page.mouse.up();
+  const beforeScale = await geometries(page);
+  await transformActiveSelection(page, "scale");
   await expect(page.getByText("已用一次操作更新 3 个对象。")).toBeVisible();
+  const afterScale = await geometries(page);
+  expect(afterScale.map((value, index) => value.width - beforeScale[index]!.width).every(delta => delta > 0)).toBe(true);
+  expect(afterScale.map((value, index) => value.height - beforeScale[index]!.height).every(delta => delta > 0)).toBe(true);
+  await transformActiveSelection(page, "rotate");
+  const afterRotate = await geometries(page);
+  const rotationDeltas = afterRotate.map((value, index) => value.rotation - afterScale[index]!.rotation);
+  expect(Math.abs(rotationDeltas[0]!)).toBeGreaterThan(30);
+  expect(rotationDeltas.every(delta => Math.abs(delta - rotationDeltas[0]!) < 1)).toBe(true);
 
   const panel = objectRow(page, "panel"), firstSticky = objectRow(page, "sticky"), secondSticky = objectRow(page, "sticky", 1);
   const panelId = (await panel.getAttribute("data-object-id"))!;
+  const secondId = (await secondSticky.getAttribute("data-object-id"))!;
+  expect(Math.abs((await geometryOf(panel)).rotation)).toBeGreaterThan(30);
   // Give the first Sticky a canonical parent through a completed Fabric gesture.
   await dragObject(page, firstSticky, 12, 8);
   await expect(firstSticky).toHaveAttribute("data-parent-id", panelId);
@@ -81,9 +116,19 @@ test("multi-select transform, Panel clip/expand, connector preservation, and tot
   expect(panelAfterExpand.width > panelBeforeExpand.width || panelAfterExpand.height > panelBeforeExpand.height).toBe(true);
   await expect(firstSticky).toHaveAttribute("data-parent-id", panelId);
 
-  // One-step and edge layer actions retain a unique total order.
+  // A locked sibling keeps its exact zIndex while one-step layer movement swaps only one relative position.
+  await panel.getByRole("button").focus(); await page.keyboard.press("Enter");
+  await page.getByRole("button", { name: "锁定", exact: true }).click();
+  const lockedPanelZ = Number(await panel.getAttribute("data-z-index"));
   await secondSticky.getByRole("button").focus(); await page.keyboard.press("Enter");
-  for (const label of ["上移一层", "置于顶层", "下移一层", "置于底层"]) await page.getByRole("button", { name: label }).click();
+  await page.getByRole("button", { name: "置于底层" }).click();
+  const orderedBeforeStep = await page.locator('[data-testid="board-a11y-mirror"] li').evaluateAll(rows => rows.map(row => ({ id: (row as HTMLElement).dataset.objectId!, z: Number((row as HTMLElement).dataset.zIndex) })).sort((a, b) => a.z - b.z));
+  const secondIndex = orderedBeforeStep.findIndex(value => value.id === secondId);
+  await page.getByRole("button", { name: "上移一层" }).click();
+  const orderedAfterStep = await page.locator('[data-testid="board-a11y-mirror"] li').evaluateAll(rows => rows.map(row => ({ id: (row as HTMLElement).dataset.objectId!, z: Number((row as HTMLElement).dataset.zIndex) })).sort((a, b) => a.z - b.z));
+  expect(orderedAfterStep.findIndex(value => value.id === secondId)).toBe(secondIndex + 1);
+  expect(Number(await panel.getAttribute("data-z-index"))).toBe(lockedPanelZ);
+  for (const label of ["置于顶层", "下移一层", "置于底层"]) await page.getByRole("button", { name: label }).click();
   const zBeforeReload = await page.locator('[data-testid="board-a11y-mirror"] li').evaluateAll(rows => rows.map(row => Number((row as HTMLElement).dataset.zIndex)));
   expect(new Set(zBeforeReload).size).toBe(zBeforeReload.length);
 
@@ -95,31 +140,35 @@ test("multi-select transform, Panel clip/expand, connector preservation, and tot
     element.dispatchEvent(new DragEvent("dragstart", { bubbles: true, dataTransfer: transfer }));
   });
   await secondSticky.getByRole("button").focus(); await page.keyboard.press("Enter");
-  const secondId = (await secondSticky.getAttribute("data-object-id"))!;
   await page.getByTestId(`connector-handle-${secondId}-left`).evaluate(element => {
     const transfer = (window as typeof window & { __boardConnectorTransfer?: DataTransfer }).__boardConnectorTransfer!;
     element.dispatchEvent(new DragEvent("drop", { bubbles: true, dataTransfer: transfer }));
   });
   const connector = objectRow(page, "connector");
+  const connectorStart = JSON.parse((await connector.getAttribute("data-connector-start"))!) as { x: number; y: number };
+  const connectorEnd = JSON.parse((await connector.getAttribute("data-connector-end"))!) as { x: number; y: number };
+  const expectedStart = anchorPoint(await geometryOf(firstSticky), "right"), expectedEnd = anchorPoint(await geometryOf(secondSticky), "left");
+  expect(connectorStart.x).toBeCloseTo(expectedStart.x, 5); expect(connectorStart.y).toBeCloseTo(expectedStart.y, 5);
+  expect(connectorEnd.x).toBeCloseTo(expectedEnd.x, 5); expect(connectorEnd.y).toBeCloseTo(expectedEnd.y, 5);
   const connectorEndBeforeMove = await connector.getAttribute("data-connector-end");
   await firstSticky.getByRole("button").focus(); await page.keyboard.press("Enter");
   await page.getByTestId("board-delete-preserve-connectors").click();
   await expect(page.getByTestId("board-a11y-mirror").getByRole("button")).toHaveCount(3);
   await expect(connector).toHaveAttribute("data-connector-from", "");
   await expect(connector).toHaveAttribute("data-connector-to", secondId);
+  const peer = await page.context().newPage();
+  await peer.goto(`/studio/board/${boardId}`); await expect(peer.getByText(/^已同步$/)).toBeVisible();
+  await expect.poll(() => boardRows(peer)).toEqual(await boardRows(page));
   await dragObject(page, secondSticky, 90, 70);
   await expect(connector).not.toHaveAttribute("data-connector-end", connectorEndBeforeMove!);
+  await expect.poll(async () => (await objectRow(peer, "connector").getAttribute("data-connector-end"))).not.toBe(connectorEndBeforeMove);
 
-  const expectedRows = await page.locator('[data-testid="board-a11y-mirror"] li').evaluateAll(rows => rows.map(row => {
-    const value = row as HTMLElement;
-    return { id: value.dataset.objectId, geometry: value.dataset.geometry, parentId: value.dataset.parentId, zIndex: value.dataset.zIndex, from: value.dataset.connectorFrom, to: value.dataset.connectorTo, start: value.dataset.connectorStart, end: value.dataset.connectorEnd };
-  }));
+  const expectedRows = await boardRows(page);
+  await expect.poll(() => boardRows(peer)).toEqual(expectedRows);
 
   await page.reload(); await expect(page.getByText(/^已同步$/)).toBeVisible();
   await expect(page.getByTestId("board-a11y-mirror").getByRole("button")).toHaveCount(3);
-  const reloadedRows = await page.locator('[data-testid="board-a11y-mirror"] li').evaluateAll(rows => rows.map(row => {
-    const value = row as HTMLElement;
-    return { id: value.dataset.objectId, geometry: value.dataset.geometry, parentId: value.dataset.parentId, zIndex: value.dataset.zIndex, from: value.dataset.connectorFrom, to: value.dataset.connectorTo, start: value.dataset.connectorStart, end: value.dataset.connectorEnd };
-  }));
+  const reloadedRows = await boardRows(page);
   expect(reloadedRows).toEqual(expectedRows);
+  await peer.close();
 });

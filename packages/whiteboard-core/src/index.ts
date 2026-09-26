@@ -19,6 +19,7 @@ export {
   type SpatialPrecondition,
 } from './spatial-relationships';
 export { parsePanelMetadata, readPanelMetadata, type FlowDirection, type PanelMetadata, type PanelMode } from './spatial-model';
+export { geometryBoundsInLocalSpace, localPointFromScene, rotatedAnchorPoint, rotatedGeometryCorners, scenePointFromLocal, type SpatialAnchor, type SpatialPoint } from './spatial-geometry';
 export {
   ContentObjectCommandPort,
   SHAPE_SEMANTICS,

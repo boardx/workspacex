@@ -94,6 +94,8 @@ it("creates a semantic connector from handles, updates its label/styles, and fol
   const b = readObjects(doc).find((object) => object.id !== a.id)!;
   fireEvent.keyDown(screen.getByLabelText("对象文字"), { key: "Escape" });
   fireEvent.click(screen.getByTestId(`mock-select-${a.id}`));
+  act(() => new SpatialRelationshipCommandPort(doc).dispatch({ boardId: "spatial-board", clientId: "fixture", gestureId: "rotate-a", command: { type: "transform", items: [{ id: a.id, geometry: { ...a.geometry, rotation: 90 } }] } }));
+  expect(screen.getByTestId(`connector-handle-${a.id}-right`)).toHaveStyle({ left: `${a.geometry.x - a.geometry.height / 2}px`, top: `${a.geometry.y + a.geometry.width}px` });
   let payload = "";
   fireEvent.dragStart(screen.getByTestId(`connector-handle-${a.id}-right`), { dataTransfer: { setData: (_type: string, value: string) => { payload = value; } } });
   fireEvent.click(screen.getByTestId(`mock-select-${b.id}`));

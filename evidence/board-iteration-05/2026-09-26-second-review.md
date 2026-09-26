@@ -9,21 +9,25 @@ The second independent review findings are closed in this change:
 - Multi-object deletion has one preflight and one canonical batch for both cascade and preserve-as-free strategies. A locked connector or invalid container rejects the full selection without mutation.
 - Clip-enabled rotated Panels use an absolute, rotation-aware Fabric clipPath. Moving a child beyond a clip boundary is rejected atomically; moving a child beyond an auto-expand Panel retains `parentId` and expands the Panel.
 - The browser acceptance specification now uses exact selection counts and reloads before comparing persisted geometry, `parentId`, unique `zIndex`, connector free/attached endpoints, and endpoint-follow geometry.
+- Connector endpoints now share one canonical rotation-aware edge-midpoint function across spatial commands, low-level document apply, Fabric projection, and visible drag handles.
+- Rotated Panel auto-expand measures every rotated child corner in Panel-local space, shifts the rotated origin when expansion crosses the local top/left edge, and preserves complete scene-bound containment.
+- Browser acceptance now drives real ActiveSelection corner scaling and rotation controls, asserts exact persisted geometry across a second live client and reload, checks a rotated Panel and endpoints, and verifies one-step ordering without changing a locked sibling's `zIndex`.
 
 ## Verification
 
 ```text
 pnpm --filter whiteboard-core test
-7 files, 62 tests passed
+7 files, 65 tests passed
 
 pnpm --filter whiteboard-core typecheck
 passed
 
 pnpm --filter web exec vitest run \
+  tests/ui/board-fabric-projection-adapter.test.ts \
   tests/ui/board-fabric-surface.test.tsx \
   tests/ui/board-a11y-mirror.test.tsx \
   tests/whiteboard/spatial-interactions.test.tsx
-3 files, 34 tests passed
+4 files, 40 tests passed
 
 pnpm --filter web typecheck
 passed

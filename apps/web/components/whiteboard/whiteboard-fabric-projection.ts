@@ -1,4 +1,4 @@
-import { readPanelMetadata, validateTextAttributes, type ConnectorAnchor, type WhiteboardObject } from "@repo/whiteboard-core";
+import { readPanelMetadata, rotatedAnchorPoint, validateTextAttributes, type WhiteboardObject } from "@repo/whiteboard-core";
 import type { BoardFabricObject, BoardFabricKind, BoardFabricStickyAppearance, BoardFabricStyle } from "./fabric/board-fabric-object";
 import { readBoardContent } from "./board-content-adapter";
 import { getBoardSessionImageAsset } from "./board-session-image-assets";
@@ -84,14 +84,6 @@ function projectedTextStyle(object: WhiteboardObject): Partial<BoardFabricStyle>
 /** Pure adapter: derives disposable renderer input from whiteboard-core canonical objects. */
 export function toBoardFabricObjects(objects: readonly WhiteboardObject[]): BoardFabricObject[] {
   const byId = new Map(objects.map((object) => [object.id, object]));
-  const anchorPoint = (object: WhiteboardObject, anchor: ConnectorAnchor) => {
-    const { x, y, width, height } = object.geometry;
-    if (anchor === "top") return { x: x + width / 2, y };
-    if (anchor === "right") return { x: x + width, y: y + height / 2 };
-    if (anchor === "bottom") return { x: x + width / 2, y: y + height };
-    if (anchor === "left") return { x, y: y + height / 2 };
-    return { x: x + width / 2, y: y + height / 2 };
-  };
   return objects.map((object) => {
     const content = readBoardContent(object);
     const contentKind: BoardFabricKind | undefined = content?.type === "shape" ? "shape" : content?.type === "drawing" ? "drawing" : content?.type === "image" ? "image" : content ? "card" : undefined;
@@ -134,8 +126,8 @@ export function toBoardFabricObjects(objects: readonly WhiteboardObject[]): Boar
         const from = object.connector!.from ? byId.get(object.connector!.from) : undefined;
         const to = object.connector!.to ? byId.get(object.connector!.to) : undefined;
         const fromAnchor = object.connector!.fromAnchor ?? "right", toAnchor = object.connector!.toAnchor ?? "left";
-        const start = from ? anchorPoint(from, fromAnchor) : object.connector!.fromPoint;
-        const end = to ? anchorPoint(to, toAnchor) : object.connector!.toPoint;
+        const start = from ? rotatedAnchorPoint(from, fromAnchor) : object.connector!.fromPoint;
+        const end = to ? rotatedAnchorPoint(to, toAnchor) : object.connector!.toPoint;
         if (!start || !end) return undefined;
         return {
           ...(from ? { from: from.id } : {}), ...(to ? { to: to.id } : {}), fromAnchor, toAnchor,

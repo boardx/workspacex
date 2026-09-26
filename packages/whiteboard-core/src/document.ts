@@ -2,6 +2,7 @@ import * as Y from 'yjs';
 import { WhiteboardObject, WhiteboardCommandBatch, WHITEBOARD_LIMITS, type WhiteboardCommand } from '@repo/contracts/whiteboard-document';
 import { validateContentExtension } from './content-object-model';
 import { validateSpatialExtension } from './spatial-model';
+import { rotatedAnchorPoint } from './spatial-geometry';
 
 export function createWhiteboardDocument(): Y.Doc {
   const doc = new Y.Doc();
@@ -95,16 +96,8 @@ function apply(doc: Y.Doc, commands: WhiteboardCommand[]): void {
         if (!edge.connector || (edge.connector.from !== command.id && edge.connector.to !== command.id)) continue;
         const from = edge.connector.from ? decode(edge.connector.from, objects.get(edge.connector.from)!) : null;
         const to = edge.connector.to ? decode(edge.connector.to, objects.get(edge.connector.to)!) : null;
-        const point = (target: WhiteboardObject, anchor = 'center') => {
-          const { x, y, width, height } = target.geometry;
-          if (anchor === 'top') return { x: x + width / 2, y };
-          if (anchor === 'right') return { x: x + width, y: y + height / 2 };
-          if (anchor === 'bottom') return { x: x + width / 2, y: y + height };
-          if (anchor === 'left') return { x, y: y + height / 2 };
-          return { x: x + width / 2, y: y + height / 2 };
-        };
-        const start = from ? point(from, edge.connector.fromAnchor) : edge.connector.fromPoint!;
-        const end = to ? point(to, edge.connector.toAnchor) : edge.connector.toPoint!;
+        const start = from ? rotatedAnchorPoint(from, edge.connector.fromAnchor ?? 'center') : edge.connector.fromPoint!;
+        const end = to ? rotatedAnchorPoint(to, edge.connector.toAnchor ?? 'center') : edge.connector.toPoint!;
         value.set('geometry', { x: Math.min(start.x, end.x), y: Math.min(start.y, end.y), width: Math.max(1, Math.abs(end.x - start.x)), height: Math.max(1, Math.abs(end.y - start.y)), rotation: 0 });
       }
     }

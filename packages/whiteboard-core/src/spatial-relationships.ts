@@ -3,9 +3,10 @@ import type { WhiteboardCommand, WhiteboardGeometry, WhiteboardObject } from '@r
 import { BoardCommandPort, type BoardCommandAccepted } from './command-port';
 import { readObjects } from './document';
 import { panelExtension, parsePanelMetadata, readPanelMetadata, type PanelMetadata } from './spatial-model';
+import { geometryBoundsInLocalSpace, rotatedAnchorPoint, scenePointFromLocal, type SpatialAnchor } from './spatial-geometry';
 
 export type LayerAction = 'bring-forward' | 'bring-to-front' | 'send-backward' | 'send-to-back';
-export type ConnectorAnchor = 'top' | 'right' | 'bottom' | 'left' | 'center';
+export type ConnectorAnchor = SpatialAnchor;
 export type ConnectorType = 'straight' | 'elbow' | 'curve';
 export type ConnectorTip = 'none' | 'arrow' | 'circle' | 'diamond';
 export type ConnectorLineStyle = 'solid' | 'dashed' | 'dotted';
@@ -127,17 +128,8 @@ function relation(input: ConnectorRelationship): ConnectorRelationship {
   return structuredClone(input);
 }
 
-function anchorPoint(value: WhiteboardObject, anchor: ConnectorAnchor): { x: number; y: number } {
-  const { x, y, width, height } = value.geometry;
-  if (anchor === 'top') return { x: x + width / 2, y };
-  if (anchor === 'right') return { x: x + width, y: y + height / 2 };
-  if (anchor === 'bottom') return { x: x + width / 2, y: y + height };
-  if (anchor === 'left') return { x, y: y + height / 2 };
-  return { x: x + width / 2, y: y + height / 2 };
-}
-
 function connectorGeometry(from: WhiteboardObject, to: WhiteboardObject, value: ConnectorRelationship): WhiteboardGeometry {
-  const start = anchorPoint(from, value.fromAnchor), end = anchorPoint(to, value.toAnchor);
+  const start = rotatedAnchorPoint(from, value.fromAnchor), end = rotatedAnchorPoint(to, value.toAnchor);
   return { x: Math.min(start.x, end.x), y: Math.min(start.y, end.y), width: Math.max(1, Math.abs(end.x - start.x)), height: Math.max(1, Math.abs(end.y - start.y)), rotation: 0 };
 }
 
@@ -145,7 +137,7 @@ function relationshipPoint(snapshot: Snapshot, value: ConnectorRelationship, end
   const id = value[end];
   if (!id) return structuredClone(value[end === 'from' ? 'fromPoint' : 'toPoint']!);
   const target = proposed.get(id) ?? object(snapshot, id);
-  return anchorPoint(target, value[end === 'from' ? 'fromAnchor' : 'toAnchor']);
+  return rotatedAnchorPoint(target, value[end === 'from' ? 'fromAnchor' : 'toAnchor']);
 }
 
 function relationshipGeometry(snapshot: Snapshot, value: ConnectorRelationship, proposed = new Map<string, WhiteboardObject>()): WhiteboardGeometry {
@@ -176,11 +168,13 @@ function arrangedGeometry(panel: WhiteboardObject, metadata: PanelMetadata, item
 
 function expandedPanelGeometry(panel: WhiteboardObject, metadata: PanelMetadata, items: WhiteboardObject[]): WhiteboardGeometry | null {
   if (!metadata.autoExpand || metadata.clipContent || items.length === 0) return null;
-  const left = Math.min(panel.geometry.x, ...items.map(item => item.geometry.x - metadata.padding));
-  const top = Math.min(panel.geometry.y, ...items.map(item => item.geometry.y - metadata.padding));
-  const right = Math.max(panel.geometry.x + panel.geometry.width, ...items.map(item => item.geometry.x + item.geometry.width + metadata.padding));
-  const bottom = Math.max(panel.geometry.y + panel.geometry.height, ...items.map(item => item.geometry.y + item.geometry.height + metadata.padding));
-  return { ...panel.geometry, x: left, y: top, width: right - left, height: bottom - top };
+  const bounds = items.map(item => geometryBoundsInLocalSpace(item.geometry, panel.geometry));
+  const left = Math.min(0, ...bounds.map(value => value.left - metadata.padding));
+  const top = Math.min(0, ...bounds.map(value => value.top - metadata.padding));
+  const right = Math.max(panel.geometry.width, ...bounds.map(value => value.right + metadata.padding));
+  const bottom = Math.max(panel.geometry.height, ...bounds.map(value => value.bottom + metadata.padding));
+  const origin = scenePointFromLocal(panel.geometry, { x: left, y: top });
+  return { ...panel.geometry, x: origin.x, y: origin.y, width: right - left, height: bottom - top };
 }
 
 function geometryEqual(a: WhiteboardGeometry, b: WhiteboardGeometry): boolean {
@@ -188,17 +182,8 @@ function geometryEqual(a: WhiteboardGeometry, b: WhiteboardGeometry): boolean {
 }
 
 function within(child: WhiteboardGeometry, parent: WhiteboardGeometry): boolean {
-  const childAngle = child.rotation * Math.PI / 180;
-  const parentAngle = -parent.rotation * Math.PI / 180;
-  const corners = [[0, 0], [child.width, 0], [0, child.height], [child.width, child.height]];
-  return corners.every(([localX = 0, localY = 0]) => {
-    const worldX = child.x + localX * Math.cos(childAngle) - localY * Math.sin(childAngle);
-    const worldY = child.y + localX * Math.sin(childAngle) + localY * Math.cos(childAngle);
-    const dx = worldX - parent.x, dy = worldY - parent.y;
-    const x = dx * Math.cos(parentAngle) - dy * Math.sin(parentAngle);
-    const y = dx * Math.sin(parentAngle) + dy * Math.cos(parentAngle);
-    return x >= 0 && x <= parent.width && y >= 0 && y <= parent.height;
-  });
+  const bounds = geometryBoundsInLocalSpace(child, parent);
+  return bounds.left >= 0 && bounds.top >= 0 && bounds.right <= parent.width && bounds.bottom <= parent.height;
 }
 
 function event(type: SpatialEvent['type'], ids: string[]): Omit<SpatialEvent, 'operationId'> {
@@ -220,8 +205,8 @@ function deleteObjects(snapshot: Snapshot, ids: readonly string[], connectorPoli
   } else {
     for (const item of attached) {
       const value = normalizeConnector(item.connector!);
-      if (value.from && selected.has(value.from)) { const endpoint = object(snapshot, value.from); delete value.from; value.fromPoint = anchorPoint(endpoint, value.fromAnchor); }
-      if (value.to && selected.has(value.to)) { const endpoint = object(snapshot, value.to); delete value.to; value.toPoint = anchorPoint(endpoint, value.toAnchor); }
+      if (value.from && selected.has(value.from)) { const endpoint = object(snapshot, value.from); delete value.from; value.fromPoint = rotatedAnchorPoint(endpoint, value.fromAnchor); }
+      if (value.to && selected.has(value.to)) { const endpoint = object(snapshot, value.to); delete value.to; value.toPoint = rotatedAnchorPoint(endpoint, value.toAnchor); }
       commands.push({ type: 'connector', id: item.id, connector: value });
     }
   }

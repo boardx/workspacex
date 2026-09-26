@@ -9,6 +9,7 @@ import {
   readObjects,
   readPanelMetadata,
   validateDocument,
+  geometryBoundsInLocalSpace,
   type ConnectorRelationship,
   type SpatialCommand,
   type WhiteboardObject,
@@ -92,6 +93,20 @@ describe('semantic panels and hierarchy', () => {
     dispatch(port, 'unlock-child', { type: 'set-locked', objectIds: ['child'], locked: false });
     dispatch(port, 'move-child', { type: 'transform', items: [{ id: 'child', geometry: geometry(300, 260), parentId: 'panel' }] });
     expect(readObjects(doc).find(value => value.id === 'panel')?.geometry).toMatchObject({ width: 410, height: 350 });
+    doc.destroy();
+  });
+
+  it('auto-expands a rotated Panel in its local coordinate system and contains rotated child scene bounds', () => {
+    const child = note('child', 80, 120); child.geometry.rotation = 90;
+    const doc = seed(child); const port = new SpatialRelationshipCommandPort(doc);
+    dispatch(port, 'rotated-panel', { type: 'create-panel', id: 'panel', geometry: { x: 100, y: 100, width: 200, height: 160, rotation: 90 }, panel });
+    dispatch(port, 'parent', { type: 'reparent', id: 'child', parentId: 'panel' });
+    dispatch(port, 'cross-left-edge', { type: 'transform', items: [{ id: 'child', geometry: { x: 80, y: 20, width: 100, height: 80, rotation: 90 }, parentId: 'panel' }] });
+    const values = readObjects(doc), expanded = values.find(value => value.id === 'panel')!, moved = values.find(value => value.id === 'child')!;
+    expect(expanded.geometry).toEqual({ x: 100, y: 10, width: 290, height: 160, rotation: 90 });
+    const bounds = geometryBoundsInLocalSpace(moved.geometry, expanded.geometry);
+    expect(bounds.left).toBeGreaterThanOrEqual(0); expect(bounds.top).toBeGreaterThanOrEqual(0);
+    expect(bounds.right).toBeLessThanOrEqual(expanded.geometry.width); expect(bounds.bottom).toBeLessThanOrEqual(expanded.geometry.height);
     doc.destroy();
   });
 
@@ -246,6 +261,18 @@ describe('semantic connectors and operation boundaries', () => {
     dispatch(port, 'move-b', { type: 'move', id: 'b', x: 500, y: 200 });
     expect(readObjects(doc).find(value => value.id === 'edge')?.geometry).not.toEqual(before);
     expect(() => validateDocument(doc)).not.toThrow(); doc.destroy();
+  });
+
+  it('uses rotated edge midpoints for connector creation, movement, and preserved free endpoints', () => {
+    const a = note('a', 10, 20); a.geometry.rotation = 90;
+    const doc = seed(a, note('b', 300)); const port = new SpatialRelationshipCommandPort(doc);
+    dispatch(port, 'edge', { type: 'create-connector', id: 'edge', relationship });
+    expect(readObjects(doc).find(value => value.id === 'edge')?.geometry).toMatchObject({ x: -30, y: 40, width: 330, height: 80 });
+    dispatch(port, 'rotate-move', { type: 'transform', items: [{ id: 'a', geometry: { x: 100, y: 200, width: 100, height: 80, rotation: 180 } }] });
+    expect(readObjects(doc).find(value => value.id === 'edge')?.geometry).toMatchObject({ x: 0, y: 40, width: 300, height: 120 });
+    dispatch(port, 'preserve', { type: 'delete-object', id: 'a', connectors: 'preserve-free' });
+    expect(readObjects(doc).find(value => value.id === 'edge')?.connector?.fromPoint).toEqual({ x: 0, y: 160 });
+    doc.destroy();
   });
 
   it('preflights multi-delete as one atomic batch for cascade and preserve-free policies', () => {
