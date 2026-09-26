@@ -104,8 +104,9 @@ describe("kernel_usage_counts_for_report（#4226）", () => {
     await asOwner(async (c) => {
       await c.query(`INSERT INTO skills (id, org_id, stable_name, name, status, creator_id, created_at, updated_at)
                      VALUES ($1,$2,$1,$1,'enabled','u',now(),now())`, [id, orgId]);
+      // 触发器 skill_versions_starts_draft_trg 要求新版本以草稿插入；用量函数不看 published。
       await c.query(`INSERT INTO skill_versions (id, org_id, skill_id, semantic_label, content_digest, manifest, creator_id, created_at, published)
-                     VALUES ($1,$2,$3,'1.0.0',$4,$5::jsonb,'u',now(),true)`, [v, orgId, id, "a".repeat(64), JSON.stringify(manifest)]);
+                     VALUES ($1,$2,$3,'1.0.0',$4,$5::jsonb,'u',now(),false)`, [v, orgId, id, "a".repeat(64), JSON.stringify(manifest)]);
     });
     return v;
   }
