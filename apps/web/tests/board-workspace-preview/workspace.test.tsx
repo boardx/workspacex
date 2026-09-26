@@ -1,6 +1,6 @@
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, expect, it, vi } from 'vitest';
-vi.mock('next/dynamic', () => ({ default: () => () => <div data-testid="mock-fabric" /> }));
+vi.mock('next/dynamic', () => ({ default: () => ({ draft, onDraft }: { draft?: string; onDraft: (draft: string) => void }) => <button data-testid="mock-fabric" onClick={() => onDraft('edited document')}>{draft || 'empty document'}</button> }));
 import { BoardWorkspacePreview } from '@/components/board-workspace-preview/workspace';
 afterEach(() => { cleanup(); window.history.replaceState({}, '', '/'); });
 it('requires a name, creates and renames a board, and cancels destructive deletion', () => {
@@ -24,4 +24,10 @@ it('opens fullscreen editor and exposes core tool settings', () => {
 it('disables every mutating tool in readonly mode', () => {
  window.history.replaceState({}, '', '/?state=readonly'); render(<BoardWorkspacePreview />);
  for (const tool of ['sticky', 'shape', 'draw', 'connector']) expect(screen.getByTestId(`workspace-tool-${tool}`).hasAttribute('disabled')).toBe(true);
+});
+
+it('retains drafts separately for each board across list navigation', () => {
+ render(<BoardWorkspacePreview />); fireEvent.click(screen.getByTestId('workspace-open-one')); fireEvent.click(screen.getByTestId('mock-fabric')); fireEvent.click(screen.getByTestId('workspace-back'));
+ fireEvent.click(screen.getByTestId('workspace-open-two')); expect(screen.getByTestId('mock-fabric').textContent).toBe('empty document'); fireEvent.click(screen.getByTestId('workspace-back'));
+ fireEvent.click(screen.getByTestId('workspace-open-one')); expect(screen.getByTestId('mock-fabric').textContent).toBe('edited document');
 });

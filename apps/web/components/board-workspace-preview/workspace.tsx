@@ -1,5 +1,5 @@
 'use client';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import dynamic from 'next/dynamic';
 import { ArrowLeft, Plus, Search, MousePointer2, StickyNote, Shapes, Pencil, MoveUpRight, Trash2, PenLine } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -13,6 +13,7 @@ const tools = [{ id: 'select', label: '选择', icon: MousePointer2 }, { id: 'st
 type Board = { id: string; name: string; detail: string };
 const initial: Board[] = [{ id: 'one', name: '团队创意工作坊', detail: '今天更新' }, { id: 'two', name: '新产品体验地图', detail: '昨天更新' }, { id: 'three', name: '下一季，我们一起做什么？', detail: '3 天前更新' }, { id: 'four', name: '研究发现与用户声音', detail: '上周更新' }];
 export function BoardWorkspacePreview() {
+  const drafts = useRef<Record<string, string>>({});
   const [state, setState] = useState('default'); const [boards, setBoards] = useState(initial); const [active, setActive] = useState<Board | null>(null); const [query, setQuery] = useState('');
   const [tool, setTool] = useState<Tool>('select'); const [color, setColor] = useState<string>(colors[0]); const [shape, setShape] = useState('rounded'); const [width, setWidth] = useState(4);
   const [modal, setModal] = useState<'create' | 'rename' | 'delete' | null>(null); const [target, setTarget] = useState<Board | null>(null); const [name, setName] = useState(''); const [error, setError] = useState(''); const [notice, setNotice] = useState('');
@@ -23,7 +24,7 @@ export function BoardWorkspacePreview() {
   return <main className="min-h-screen bg-background text-foreground" data-testid="board-workspace-preview">
     <style>{`.board-dock-tool{transition:transform 180ms ease,background 180ms ease}.board-dock-tool:hover{transform:translateY(-4px)}.board-dock-tool[aria-pressed=true]{transform:translateY(-6px);box-shadow:0 4px 0 hsl(var(--accent-foreground) / .2)}@media(prefers-reduced-motion:reduce){.board-dock-tool{transition:none!important;transform:none!important}}`}</style>
     {active ? <section className="fixed inset-0 bg-background" data-testid="workspace-editor">
-      <Surface key={active.id} seeded={initial.some(board => board.id === active.id)} options={{ tool, color, shape, width, readonly }} />
+      <Surface draft={drafts.current[active.id]} onDraft={draft => { drafts.current[active.id] = draft; }} key={active.id} seeded={initial.some(board => board.id === active.id)} options={{ tool, color, shape, width, readonly }} />
       <header className="absolute left-3 right-3 top-3 flex items-center justify-between gap-2 rounded-xl border bg-background/95 p-2 shadow-sm">
         <div className="flex min-w-0 items-center gap-2"><Button variant="ghost" className="h-12 w-12 shrink-0" aria-label="返回画板浏览" data-testid="workspace-back" onClick={() => setActive(null)}><ArrowLeft /></Button><div className="min-w-0"><h1 className="truncate font-semibold">{active.name}</h1><p className="text-xs text-muted-foreground">{readonly ? '只读预览' : '交互预览 · 刷新后重置'}</p></div></div><span className="hidden pr-3 text-sm text-muted-foreground sm:block">一起把想法画出来</span>
       </header>
