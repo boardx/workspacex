@@ -3,8 +3,10 @@
 > **自检：本文件引用 0 张截图，目录下实际 0 张。**
 > 截图目录：`ui-preview/board-object-authoring/`。
 >
-> 本束只准备 Iteration 2 的交互契约，不 claim、不实现。Sticky/Text 编辑、连续创作、
-> IME、Delete/Undo、Reaction 与 Link Preview 的状态截图均尚未产出，所以本束必须保持
+> 本束已提供真实 Fabric.js 组件与 mock command adapter 原型，但不 claim、不实现正式产品路由。
+> Sticky/Text 编辑、连续创作、IME、Delete/Undo、Reaction 与 Link Preview 的状态截图仍须由
+> 主 session 从页面文件 `apps/web/app/preview/board-object-authoring/page.tsx` 对应的
+> `/preview/board-object-authoring?state=<状态>` 产出，所以本束必须保持
 > `pending`；S01 的已签核截图不能冒充本束新增界面。
 
 依据：`requirements/02-object-authoring.md` R1–R12、
@@ -17,9 +19,9 @@
 |---|---|---|---|
 | 正式 Board | `/studio/board/:boardId` | 在已签核 Fabric surface 内完成对象创作；不新增第二画布 | 待实现 |
 | 一级工具 | Sticky、Text | 单击工具后点画布创建；`N`/`T` 直达；双击空白默认 Sticky | 待实现 |
-| inline editor | Sticky/Text 的 Fabric 对象上方受控文本编辑层 | 创建后立即聚焦、显示 caret、承接 IME/RTL/长文本；内容仍写 canonical text command | 待原型 |
-| contextual toolbar | 对象附近的高频浮动工具条 | Sticky 形状/颜色/字号/标签/链接/Reaction；Text 层级和文字样式 | 待原型 |
-| property panel | 右侧精确设置 | normal/free/auto-height、固定/自动尺寸、精确颜色和链接状态 | 待原型 |
+| inline editor | Sticky/Text 的 Fabric 对象上方受控文本编辑层 | 创建后立即聚焦、显示 caret、承接 IME/RTL/长文本；内容仍写 canonical text command | 原型已实现，待截图 |
+| contextual toolbar | 对象附近的高频浮动工具条 | Sticky 形状/颜色/字号/标签/链接/Reaction；Text 层级和文字样式 | 原型已实现，待截图 |
+| property panel | 右侧精确设置 | normal/free/auto-height、固定/自动尺寸、精确颜色和链接状态 | 原型已实现，待截图 |
 | history feedback | 顶部 Undo/Redo 与短暂结果提示 | 删除、恢复、冲突、无可撤销动作；只有 canonical transaction 确认后才报成功 | 待实现 |
 | accessible mirror | S01 DOM 对象大纲与编辑入口 | 使用同一 object id/selection；可键盘进入编辑、删除、撤销并接收状态播报 | 待实现 |
 
