@@ -3,6 +3,7 @@ import { describe, expect, it, vi } from "vitest";
 import { GuidedResearchEntryPanel } from "@/components/research-studio/guided-research-entry-panel";
 import { GuidedResearchTopicPanel } from "@/components/research-studio/guided-research-topic-panel";
 import { GuidedResearchPlanPanel } from "@/components/research-studio/guided-research-plan-panel";
+import { GuidedResearchSourceWorkspace } from "@/components/research-studio/guided-research-source-workspace";
 
 describe("guided research reference layout", () => {
   it("offers truthful import routes around the brief workspace", () => {
@@ -32,5 +33,15 @@ describe("guided research reference layout", () => {
     expect(screen.getByRole("heading", { name: "核心问题" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "资料范围" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "开始研究" })).toBeDisabled();
+  });
+
+  it("keeps live task activity, source evidence, and risk states in named research regions", () => {
+    render(<GuidedResearchSourceWorkspace progress={<div>2 / 4</div>} activity={<div>正在检索政策资料</div>} evidence={<div>来源证据</div>} insights={<div>发现：市场增长</div>} risk={<div>1 项检索失败</div>} actions={<button>重试失败任务</button>} />);
+
+    expect(screen.getByTestId("guided-research-source-workspace")).toBeInTheDocument();
+    expect(screen.getByTestId("guided-research-source-progress")).toHaveTextContent("2 / 4");
+    expect(screen.getByTestId("guided-research-source-activity")).toHaveTextContent("正在检索政策资料");
+    expect(screen.getByTestId("guided-research-source-evidence")).toHaveTextContent("来源证据");
+    expect(screen.getByTestId("guided-research-source-risks")).toHaveTextContent("1 项检索失败");
   });
 });
