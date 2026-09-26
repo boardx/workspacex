@@ -32,6 +32,9 @@ describe("issue #4247 平台级记忆抽取开关", () => {
     render(<OpsStatusScreen state="default" />);
     await screen.findByTestId("admin-platform-extraction-provider-configured");
     expect(toggle().getAttribute("aria-checked")).toBe("true");
+    // 面板给开关传了 className：开关必须仍带轨道底色与尺寸，而不是只剩一个白点（#4247 评审）
+    expect(toggle().className).toMatch(/\bbg-primary\b/);
+    expect(toggle().className).toMatch(/\bw-7\b/);
     expect(screen.getByTestId("admin-platform-extraction-state").textContent).toBe("已开启");
     expect(screen.getByTestId("admin-platform-extraction").textContent).toContain("生效中");
     expect(apiRequest).toHaveBeenCalledWith(PATH, { method: "GET" });

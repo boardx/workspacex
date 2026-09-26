@@ -4,8 +4,8 @@ import { cn } from "@/lib/utils";
 
 /** 开关。用 token 对表达开/关，不用 opacity */
 export function Toggle({
-  checked, onCheckedChange, label, id, ...props
-}: { checked: boolean; onCheckedChange: (v: boolean) => void; label: string; id?: string } & Omit<React.ButtonHTMLAttributes<HTMLButtonElement>, "onChange">) {
+  checked, onCheckedChange, label, id, className, ...props
+}:{ checked: boolean; onCheckedChange: (v: boolean) => void; label: string; id?: string } & Omit<React.ButtonHTMLAttributes<HTMLButtonElement>, "onChange">) {
   return (
     <button
       type="button"
@@ -21,6 +21,8 @@ export function Toggle({
         checked ? "bg-primary" : "bg-muted",
         // 禁用态走 token（uiux-standards §1.1，不用 opacity）：否则禁用的「开」和可点的「开」一模一样（#4247）
         "disabled:cursor-not-allowed disabled:bg-disabled",
+        // 调用方的 className 只追加（如 mt-0.5），不能整串顶掉轨道 / 尺寸 / 颜色（#4247：开关只剩一个白点）
+        className,
       )}
       {...props}
     >

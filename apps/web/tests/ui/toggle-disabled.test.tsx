@@ -20,6 +20,16 @@ describe("Toggle 禁用态", () => {
     expect(knobOf("开").className).toContain("group-disabled:bg-disabled-foreground");
   });
 
+  it("调用方传 className 只追加，不顶掉轨道 / 尺寸 / 颜色（#4247 评审：面板开关只剩白点）", () => {
+    render(<Toggle checked label="带外边距" onCheckedChange={() => {}} className="mt-0.5" />);
+    const cls = screen.getByRole("switch", { name: "带外边距" }).className;
+    expect(cls).toContain("mt-0.5");
+    expect(cls).toContain("bg-primary");
+    expect(cls).toContain("h-4");
+    expect(cls).toContain("w-7");
+    expect(cls).toContain("group");
+  });
+
   it("禁用的「开」与禁用的「关」渲染不同（旋钮位置 + aria-checked）", () => {
     render(
       <>
