@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { ThreadCitationsProvider } from "@/components/chat/message-citations";
 import { useRouter } from "next/navigation";
 import { Lock } from "lucide-react";
 import { CopilotKitV2Panel } from "@/components/chat/copilotkit-v2-panel";
@@ -1291,6 +1292,8 @@ export function CopilotKitV2Shell({
             这层补 `min-h-0 flex-1` 让面板继续占满剩余高度，不然 flex-col 默认按
             内容撑高，消息区会失去可滚动的固定高度。 */}
         <div className="min-h-0 flex-1">
+        {/* issue #4244：助手消息引用来自同一次 `getThread`（`onMessageSent` 会重读）。 */}
+        <ThreadCitationsProvider messages={threadDetail?.messages}>
         <CopilotKitV2Panel
           key={panelMountKey}
           chatThreadId={selectedThreadId}
@@ -1326,6 +1329,7 @@ export function CopilotKitV2Shell({
           canDecide={canWriteThread && (personalOwnerCanDecide || threadDetail?.capabilities.includes("approval.decide") === true)}
           canGeneratePersona={canGeneratePersona}
         />
+        </ThreadCitationsProvider>
         </div>
       </div>
       {/* issue #2068（TW-P0-4）—— 右栏从「产物 + 材料」固定两段堆叠换成四页签动态

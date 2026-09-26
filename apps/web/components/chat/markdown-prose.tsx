@@ -4,6 +4,7 @@ import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import rehypeSanitize from "rehype-sanitize";
 import { ChatCodeFence } from "./chat-code-fence";
+import { CitationMarker, citationMarkerIndex, remarkCitationMarkers, useCitationScope } from "./message-citations";
 
 /**
  * 「一段 markdown 文本 → HTML」这件事在本仓的**唯一**实现。
@@ -30,13 +31,32 @@ import { ChatCodeFence } from "./chat-code-fence";
  */
 const MARKDOWN_COMPONENTS = { pre: ChatCodeFence } as const;
 
+const REMARK_PLUGINS = [remarkGfm];
+
+/** issue #4244：在 `CitationScope` 内时，`[n]`（n 有对应引用）渲成可点标记；作用域外原样。 */
+const MarkerLink: NonNullable<React.ComponentProps<typeof ReactMarkdown>["components"]>["a"] = ({ node: _node, href, children, ...rest }) => {
+  const index = citationMarkerIndex(href);
+  if (index !== null) return <CitationMarker index={index} label={children} />;
+  return <a href={href} {...rest}>{children}</a>;
+};
+
 export function MarkdownProse({ text }: { text: string }): React.ReactElement {
+  const scope = useCitationScope();
+  const indexes = scope?.indexes ?? null;
+  const remarkPlugins = React.useMemo(
+    () => (indexes ? [remarkGfm, remarkCitationMarkers(indexes)] : REMARK_PLUGINS),
+    [indexes],
+  );
+  const components = React.useMemo(
+    () => (indexes ? { ...MARKDOWN_COMPONENTS, a: MarkerLink } : MARKDOWN_COMPONENTS),
+    [indexes],
+  );
   return (
     <ReactMarkdown
-      remarkPlugins={[remarkGfm]}
+      remarkPlugins={remarkPlugins}
       rehypePlugins={[rehypeSanitize]}
       // 普通围栏代码块默认折叠（见 chat-code-fence.tsx）；行内 code 不经过 pre。
-      components={MARKDOWN_COMPONENTS}
+      components={components}
     >
       {text}
     </ReactMarkdown>
