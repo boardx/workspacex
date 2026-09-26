@@ -21,6 +21,21 @@ export interface BoardFabricStyle {
   stroke?: string;
   strokeWidth?: number;
   fontSize?: number;
+  /** Validated thinking-input typography. Optional for legacy canonical objects. */
+  textPreset?: "title" | "heading" | "subheading" | "body" | "caption";
+  fontFamily?: string;
+  bold?: boolean;
+  italic?: boolean;
+  underline?: boolean;
+  alignment?: "left" | "center" | "right";
+  lineHeight?: number;
+  list?: "none" | "bullet" | "number";
+  link?: string | null;
+}
+
+export interface BoardFabricStickyAppearance {
+  variant: "square" | "rectangle" | "circle";
+  sizingMode: "auto-height" | "fixed" | "auto-size";
 }
 
 export interface BoardFabricObject {
@@ -31,6 +46,8 @@ export interface BoardFabricObject {
   geometry: BoardFabricGeometry;
   style: BoardFabricStyle;
   content: { text: string };
+  /** Renderer-only sticky shape and resize behavior derived from canonical extension data. */
+  sticky?: BoardFabricStickyAppearance;
   parentId?: string;
   locked?: boolean;
   /** Renderer-only diagnostic. It is derived from canonical content and is never persisted. */

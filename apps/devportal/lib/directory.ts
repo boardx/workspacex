@@ -136,6 +136,12 @@ export async function listProjectMemberships(slug: string): Promise<DirectoryMem
   return r.body.memberships.filter((m) => m.project_slug === slug);
 }
 
+/** 全部 engineer（花名册展示名 / github_login join 用）；读失败 → null。 */
+export async function listEngineers(): Promise<DirectoryEngineer[] | null> {
+  const r = await readCall<{ engineers: DirectoryEngineer[] }>("/engineers");
+  return r.ok ? r.body.engineers : null;
+}
+
 /**
  * 用 github_login（认证锚点）查 engineer——绝不能退化成按 handle 匹配。同款纪律见
  * lib/workspace-authz.ts 的 findEngineerByGithubLogin：handle 只是目录里的展示用

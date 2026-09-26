@@ -1009,8 +1009,10 @@ describe("F16: 以新的为准时，长期记忆里旧说法的副本一起失�
     expect(t.prompt.conflict.olderClaim.id).toBe(src.id);   // 会话里的原条，不是它的 L1 副本
     await resolve(T.l1a, t.prompt.conflict.promptId, "keep_new");
     expect(await row(copy!.id)).toMatchObject({ status: "superseded", revoked: true, revocation_reason: "conflict_keep_new" });
+    // 只看「上线」这件事：issue #4283 之后，前面测试里所有者说过的「项目A 预算定为 50 万」是本人说的决定，
+    // 已被自动记进他的长期记忆——它与这里的矛盾无关，不该影响这条断言。
     const live = await sql<{ statement: string }>(
-      "SELECT statement FROM claims WHERE org_id = $1 AND scope_kind = 'personal' AND scope_id = 'u-owner' AND statement LIKE '项目A%' AND revoked_at IS NULL", [ORG]);
+      "SELECT statement FROM claims WHERE org_id = $1 AND scope_kind = 'personal' AND scope_id = 'u-owner' AND statement LIKE '项目A%上线%' AND revoked_at IS NULL", [ORG]);
     expect(live.map((x) => x.statement)).toEqual(["项目A 上线改到 10/1"]);
   });
 });

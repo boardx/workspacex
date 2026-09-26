@@ -3,8 +3,11 @@
  *
  * 候选集 = 这一轮所在会话（L0）的活结论与实体 ∪ 发起人本人个人空间（L1，F12）的活结论与实体
  * ∪（F15，只在本人个人对话里）本人其他个人对话里记下的活结论与实体。
+ * L1 在本人的个人对话与**项目会话**里都取（issue #4284 人类决定 2026-09-26：个人记忆也用于项目会话里提问者本人的回答）；
+ * 别人的个人对话里不取（执行器也不会以别人身份跑在那里）。
  * 执行器已经是以发起人身份在这个会话里跑；L1 用 scope_id = 发起人本人限定，读的时候再设
  * app.current_user_id，RLS 也只把个人空间的行放给本人（I-14）——会话里其他成员提问，只得 L0 和他自己的 L1。
+ * 项目会话是多人可见的：这一轮用到的个人条目只给这一轮的提问者本人看，读侧按查看者过滤（pg-knowledge-read.ts readTurnRecall）。
  * 图路只拿 id（kg_graph_neighbors），回到候选集求交，图里别的会话 / 别人的 id 不会漏出来。
  */
 import { knowledgeGraph as KG } from "@repo/contracts";
@@ -32,15 +35,18 @@ export class PgKnowledgeRecall implements KnowledgeRecallPort {
           WHERE c.org_id = $1 AND c.scope_kind = 'chat_session' AND c.scope_id = $2 AND ${LIVE}`,
         [orgId, threadId],
       );
-      // L1 只进发起人**自己的个人线程**（无项目、本人创建；uc-18-4 R5）：在项目会话里用了，
-      // 回答贴在会话里，别的成员就读到了、还会被抽取进本会话的 L0。
-      const own = await s.query(
-        `SELECT 1 FROM chat_threads t WHERE t.org_id = $1 AND t.id = $2 AND t.project_id IS NULL AND t.created_by = $3`,
+      // 这一轮在哪种会话里：本人的个人对话 ⇒ L1 + F15；项目会话 ⇒ 只有 L1（issue #4284，同 F12 的所有权条件）；
+      // 别的（别人的个人对话）⇒ 都没有。
+      // 只取两个布尔，不取会话的任何内容列；判定在下面的 JS 里做（这个文件的 SQL 不许带 OR，见 recall-repo-guard）。
+      const where = await s.query<{ personal: boolean; mine: boolean }>(
+        `SELECT t.project_id IS NULL AS personal, t.created_by = $3 AS mine FROM chat_threads t WHERE t.org_id = $1 AND t.id = $2`,
         [orgId, threadId, userId],
       );
-      const inPersonalThread = own.rows.length === 1;
+      const here = where.rows[0];
+      const inPersonalThread = here?.personal === true && here.mine === true;
+      const withL1 = here?.personal === false || inPersonalThread;
       // L1：已从本会话晋升出去、而本会话的原结论还在的，不再重复一份（原结论已经在上面了）。
-      const personal = !inPersonalThread ? { rows: [] as Row[] } : await s.query<Row>(
+      const personal = !withL1 ? { rows: [] as Row[] } : await s.query<Row>(
         `SELECT ${CLAIM_COLUMNS} FROM claims c
           WHERE c.org_id = $1 AND c.scope_kind = 'personal' AND c.scope_id = $3 AND ${LIVE}
             AND NOT EXISTS (
@@ -87,7 +93,7 @@ export class PgKnowledgeRecall implements KnowledgeRecallPort {
           WHERE org_id = $1 AND scope_kind = 'chat_session' AND scope_id = $2 AND merged_into IS NULL`,
         [orgId, threadId],
       );
-      const personalObjects = !inPersonalThread ? { rows: [] as { id: string; name: string; aliases: string[] }[] } : await s.query<{ id: string; name: string; aliases: string[] }>(
+      const personalObjects = !withL1 ? { rows: [] as { id: string; name: string; aliases: string[] }[] } : await s.query<{ id: string; name: string; aliases: string[] }>(
         `SELECT id, name, aliases FROM ontology_objects
           WHERE org_id = $1 AND scope_kind = 'personal' AND scope_id = $2 AND merged_into IS NULL`,
         [orgId, userId],

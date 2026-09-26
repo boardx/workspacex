@@ -325,20 +325,29 @@ export class PgKnowledgeRead implements KnowledgeReadPort {
     const data = await this.inTenant(orgId, userId, async (s): Promise<MessageExtractionData> => {
       // 不用 DISTINCT：join 键 (claim_id, message_id, stance) 恰是 claim_message_evidence 的主键，
       // 一条 claim 对同一条消息、同一个 stance 至多一行证据，天然不会重复。
-      const r = await s.query<{ id: string; statement: string }>(
+      // issue #4283 `personal_copy`：**请求者本人**个人空间里、由这条结论自动记下（derived_from 边 created_by = model）、
+      // 仍是「AI 记下的」（proposed）那一份——反馈条据此显示「已记入个人记忆」并给撤销。scope_id = 请求者本人，
+      // RLS 也只放本人的个人空间（I-14）：别人看这条消息，读不到作者的个人空间，这一列恒为 null。
+      const r = await s.query<{ id: string; statement: string; personal_copy: string | null }>(
         `WITH msg AS (
            SELECT cm.id FROM chat_messages cm
             WHERE cm.org_id = $1 AND cm.thread_id = $2
               AND (cm.id = $3 OR (cm.author_kind = 'human' AND cm.author_id = $4 AND cm.client_message_id::text = $3))
          )
-         SELECT c.id, c.statement FROM claims c
+         SELECT c.id, c.statement,
+                (SELECT p.id FROM ontology_edges d JOIN claims p ON p.id = d.src_id AND p.org_id = d.org_id
+                  WHERE d.org_id = c.org_id AND d.relation = 'derived_from' AND d.src_kind = 'claim' AND d.dst_kind = 'claim'
+                    AND d.dst_id = c.id AND d.status = 'active' AND d.created_by = 'model'
+                    AND p.scope_kind = 'personal' AND p.scope_id = $4 AND p.revoked_at IS NULL AND p.status = 'proposed'
+                  ORDER BY p.id LIMIT 1) AS personal_copy
+           FROM claims c
            JOIN claim_message_evidence m ON m.claim_id = c.id AND m.org_id = c.org_id
           WHERE c.org_id = $1 AND c.scope_kind = 'chat_session' AND c.scope_id = $2 AND ${LIVE_CLAIM}
             AND m.stance = 'supporting' AND m.message_id IN (SELECT id FROM msg)
           ORDER BY c.created_at, c.id`,
         [orgId, thread.threadId, messageId, userId],
       );
-      return { claims: r.rows.map((x) => ({ claimId: x.id, statement: x.statement })) };
+      return { claims: r.rows.map((x) => ({ claimId: x.id, statement: x.statement, personalCopyClaimId: x.personal_copy })) };
     });
     return guard(threadRef(thread), data);
   }
@@ -619,12 +628,17 @@ interface StoredRecallItem {
  * F13：这条回答用到的记忆。按查看者重新读 canonical：只要本会话的、或查看者本人个人空间的活结论
  * （别人的个人空间 RLS 本来就读不到，这里再按 scope_id 限定一次）；已失效的自然不在。
  * 图路径的端点换成查看者看得到的名字；有一端看不到就整条不给。
+ *
+ * issue #4284：项目会话里提问者本人的个人记忆也会被召回，而项目会话多人可见。持久化照实记（本人回看要用），
+ * **读的时候按查看者过滤**：个人空间的条目（L1、F15 本人其他个人对话里的）只给**这一轮的提问者本人**看——
+ * 查看者不是提问者 ⇒ 连它的原文、id、图路径标签都不出（别人的个人空间 RLS 也不放；而查看者自己的个人条目
+ * 出现在别人那一轮里只可能是记录被污染，同样不给）。选读侧而不是写侧：对已经落库的旧行、被污染的行同样成立。
  */
 async function readTurnRecall(
   s: TenantSession, orgId: OrgId, viewer: string, threadId: string, messageId: string,
 ): Promise<Pick<TurnMemoryData, "recalled" | "recallDegraded">> {
-  const r = await s.query<{ items: StoredRecallItem[]; graph_degraded: boolean }>(
-    `SELECT r.items, r.graph_degraded FROM kg_turn_recalls r
+  const r = await s.query<{ items: StoredRecallItem[]; graph_degraded: boolean; requester_user_id: string }>(
+    `SELECT r.items, r.graph_degraded, r.requester_user_id FROM kg_turn_recalls r
        JOIN chat_messages m ON m.org_id = r.org_id AND m.agent_run_id = r.run_id
       WHERE m.org_id = $1 AND m.thread_id = $2 AND m.id = $3 AND r.thread_id = $2`,
     [orgId, threadId, messageId],
@@ -635,8 +649,11 @@ async function readTurnRecall(
   const ownPersonal = `EXISTS (SELECT 1 FROM chat_threads here, chat_threads t
       WHERE here.org_id = c.org_id AND here.id = $3 AND here.project_id IS NULL AND here.created_by = $4
         AND t.org_id = c.org_id AND t.id = c.scope_id AND t.project_id IS NULL AND t.created_by = $4 AND NOT t.archived)`;
-  const visible = `((c.scope_kind = 'chat_session' AND c.scope_id = $3) OR (c.scope_kind = 'personal' AND c.scope_id = $4)
-    OR (c.scope_kind = 'chat_session' AND ${ownPersonal}))`;
+  // $5：查看者就是这一轮的提问者。个人空间的条目只在这时才可见（issue #4284，见函数头注）。
+  const visible = `((c.scope_kind = 'chat_session' AND c.scope_id = $3)
+    OR ($5::boolean AND c.scope_kind = 'personal' AND c.scope_id = $4)
+    OR ($5::boolean AND c.scope_kind = 'chat_session' AND ${ownPersonal}))`;
+  const viewerIsRequester = row.requester_user_id === viewer;
   const claimKeys = new Set(row.items.map((i) => i.claimId));
   const objectKeys = new Set<string>();
   for (const i of row.items) for (const h of i.graphPath ?? []) for (const k of [h.src, h.dst]) {
@@ -651,12 +668,12 @@ async function readTurnRecall(
               WHERE e.claim_id = c.id AND e.stance = 'supporting') AS said_at
        FROM claims c
       WHERE c.org_id = $1 AND c.id = ANY($2::text[]) AND ${LIVE_CLAIM} AND ${visible}`,
-    [orgId, [...claimKeys], threadId, viewer],
+    [orgId, [...claimKeys], threadId, viewer, viewerIsRequester],
   );
   const objects = await s.query<{ id: string; name: string }>(
     `SELECT c.id, c.name FROM ontology_objects c
       WHERE c.org_id = $1 AND c.id = ANY($2::text[]) AND c.merged_into IS NULL AND ${visible}`,
-    [orgId, [...objectKeys], threadId, viewer],
+    [orgId, [...objectKeys], threadId, viewer, viewerIsRequester],
   );
   const claimById = new Map(claims.rows.map((c) => [c.id, c]));
   const label = new Map<string, string>([

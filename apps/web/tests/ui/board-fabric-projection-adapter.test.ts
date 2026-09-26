@@ -15,6 +15,94 @@ const canonical = (id: string, kind: WhiteboardObject["kind"]): WhiteboardObject
 });
 
 describe("Board canonical-to-Fabric projection adapter", () => {
+  it("projects square, rectangle, and circle stickies as distinct renderer data", () => {
+    const variants = ["square", "rectangle", "circle"] as const;
+    const source = variants.map((variant, index) => ({
+      ...canonical(`sticky-${variant}`, "sticky"),
+      extensionData: {
+        thinkingInput: {
+          sticky: {
+            variant,
+            sizing: (["auto-height", "fixed", "auto-size"] as const)[index],
+            color: (["#F8D76E", "#12ab34", "#FFFFFF"] as const)[index],
+          },
+        },
+      },
+    }));
+
+    const projected = toBoardFabricObjects(source);
+
+    expect(projected.map((object) => object.sticky)).toEqual([
+      { variant: "square", sizingMode: "auto-height" },
+      { variant: "rectangle", sizingMode: "fixed" },
+      { variant: "circle", sizingMode: "auto-size" },
+    ]);
+    expect(projected.map((object) => object.style.fill)).toEqual(["#F8D76E", "#12AB34", "#FFFFFF"]);
+    expect(new Set(projected.map((object) => object.revision)).size).toBe(3);
+  });
+
+  it("preserves every validated text style in the renderer projection", () => {
+    const source: WhiteboardObject = {
+      ...canonical("styled-text", "text"),
+      extensionData: {
+        thinkingInput: {
+          text: {
+            preset: "heading",
+            fontFamily: "Noto Serif SC",
+            fontSize: 36,
+            bold: true,
+            italic: true,
+            underline: true,
+            color: "#12ab34",
+            alignment: "right",
+            lineHeight: 1.75,
+            list: "number",
+            link: "https://example.com/board",
+          },
+        },
+      },
+    };
+
+    expect(toBoardFabricObjects([source])[0]!.style).toMatchObject({
+      textPreset: "heading",
+      fontFamily: "Noto Serif SC",
+      fontSize: 36,
+      bold: true,
+      italic: true,
+      underline: true,
+      textColor: "#12AB34",
+      alignment: "right",
+      lineHeight: 1.75,
+      list: "number",
+      link: "https://example.com/board",
+    });
+  });
+
+  it("ignores unknown extension fields, falls back from invalid thinking styles, and never mutates canonical input", () => {
+    const source = {
+      ...canonical("safe-fallback", "sticky"),
+      style: { fill: "#ABCDEF", color: "#123456", fontSize: 27 },
+      extensionData: {
+        futurePlugin: { payload: [1, 2, 3] },
+        thinkingInput: {
+          future: { enabled: true },
+          sticky: { variant: "star", sizing: "elastic", color: "javascript:bad" },
+          text: { preset: "body", fontSize: Number.POSITIVE_INFINITY, color: "not-a-color" },
+        },
+      },
+    } as unknown as WhiteboardObject;
+    const before = structuredClone(source);
+
+    const projected = toBoardFabricObjects([source])[0]!;
+
+    expect(projected).toMatchObject({
+      sticky: { variant: "square", sizingMode: "auto-height" },
+      style: { fill: "#ABCDEF", textColor: "#123456", fontSize: 27 },
+    });
+    expect(projected.style).not.toHaveProperty("textPreset");
+    expect(source).toEqual(before);
+  });
+
   it("keeps unsupported canonical objects visible as locked placeholders with the same identity", () => {
     const source = [canonical("supported", "sticky"), canonical("future", "frame")];
 

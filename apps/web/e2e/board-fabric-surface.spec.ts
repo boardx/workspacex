@@ -63,7 +63,15 @@ test("fabric surface viewport", async ({ page, request: api }) => {
   await expect(page.getByTestId("collaborative-editor")).toBeVisible({ timeout: 30_000 });
   await expect(page.getByText(/^已同步$/)).toBeVisible({ timeout: 30_000 });
 
-  for (const kind of ["sticky", "text", "rectangle", "ellipse"] as const) await page.getByTestId(`board-add-${kind}`).click();
+  // Iteration 03 replaces the legacy rectangle/ellipse quick-add buttons with
+  // the Sticky-first picker. Exercise the three canonical Sticky variants and
+  // Text through the production bottom dock.
+  await page.getByTestId("board-add-sticky").click();
+  await page.getByTestId("board-sticky-rectangle").click();
+  await page.getByTestId("board-add-sticky").click();
+  await page.getByTestId("board-sticky-circle").click();
+  await page.getByTestId("board-add-sticky").click();
+  await page.getByTestId("board-add-text").click();
 
   const surface = page.getByTestId("board-fabric-surface");
   const canvas = page.getByTestId("board-fabric-canvas");

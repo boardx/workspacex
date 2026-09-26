@@ -6,8 +6,7 @@ import { cn } from "@/lib/utils";
 import { getAgentRunContextSnapshot, type AgentRunContextSnapshotView } from "@/lib/agent-run";
 
 /**
- * context-engine 可用性补口——组装出的 L1/L2/L3/F190 四层上下文此前对用户**完全不可见**
- * （`chat-live-message-panel.tsx` 自己的既有注释写着"citations 的写入路径目前不存在"）；
+ * context-engine 可用性补口——组装出的 L1/L2/L3/F190 四层上下文此前对用户**完全不可见**；
  * F157 的可审计快照落地时只接了写，从没有任何 HTTP 端点或 UI 消费过它。本组件是这条
  * 可用性缺口的最小补丁：每条 AI 消息自己身上挂一枚可展开的徽标，读的是 F157 已经在
  * `execute-run.ts` 组装完成那一刻写下的真实快照（`GET /agent-runs/:runId/context-
