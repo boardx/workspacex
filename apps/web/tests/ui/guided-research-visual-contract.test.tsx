@@ -95,7 +95,8 @@ describe("F180 signed guided-research visual contract", () => {
     render(<GuidedResearchFlow step="search" sessionId="grs-visual" />);
 
     const progress = await screen.findByTestId("research-flow-progress");
-    expect(progress).toHaveClass("rounded-lg", "border");
+    expect(progress).toHaveClass("rounded-xl", "border");
+    expect(progress).toHaveAttribute("data-reference-variant", "blue-stepper");
     const flow = screen.getByTestId("research-flow-search");
     expect(flow).toHaveAttribute("data-layout", "signed-desktop");
     expect(flow).toHaveClass("max-w-none");

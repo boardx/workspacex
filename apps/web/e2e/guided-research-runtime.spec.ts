@@ -8,10 +8,12 @@ test("research persists all five model-backed steps through the real UI, API and
   await page.getByTestId("login-submit").click();
   await expect(page).toHaveURL(/\/projects$/);
   await page.goto("/research");
+  await expect(page.getByTestId("research-home-page")).toHaveAttribute("data-reference-layout", "research-list");
   await page.getByTestId("research-create").click();
   await page.getByTestId("research-create-name").fill("研究全链路验证");
   await page.getByTestId("research-create-submit").click();
   await page.getByTestId("research-brief-goal").fill("核对储能并网政策");
+  await expect(page.getByTestId("guided-research-import-panel")).toHaveAttribute("data-reference-layout", "three-entry-cards");
   let releaseGeneration!: () => void;
   const generationGate = new Promise<void>((resolve) => { releaseGeneration = resolve; });
   await page.route("**/runtime/commands", async (route) => {
@@ -33,6 +35,10 @@ test("research persists all five model-backed steps through the real UI, API and
   await expect(page.getByTestId("research-skill-messages")).toContainText("请检查研究方向");
   for (const expectedTitle of ["研究方向", "报告大纲"]) {
     await expect(page.getByRole("heading", { name: expectedTitle, exact: true })).toBeVisible();
+    await expect(page.getByTestId(expectedTitle === "研究方向" ? "guided-research-topic-panel" : "guided-research-plan-panel")).toHaveAttribute(
+      "data-reference-layout",
+      expectedTitle === "研究方向" ? "topic-workspace" : "plan-cards",
+    );
     if (expectedTitle !== "报告大纲") await expect(page.getByRole("button", { name: "确认并继续", exact: true })).toBeEnabled();
     if (expectedTitle === "报告大纲") {
       const chapter = page.getByRole("region", { name: "报告章节 1", exact: true });
@@ -67,6 +73,7 @@ test("research persists all five model-backed steps through the real UI, API and
     }
     await page.getByRole("button", { name: "确认并继续", exact: true }).click();
   }
+  await expect(page.getByTestId("guided-research-source-workspace")).toHaveAttribute("data-reference-layout", "research-operations");
   await expect(page.getByRole("link", { name: "Research E2E policy evidence" })).toBeVisible();
   await expect(page.getByTestId("research-activity-trace")).toContainText("检索与来源筛选完成");
   await page.getByRole("button", { name: "暂停研究" }).click();
@@ -120,6 +127,7 @@ test("research persists all five model-backed steps through the real UI, API and
   await page.reload();
   await expect(page.getByTestId("research-report-preview-text")).toContainText("本章分析", { timeout: 10000 });
   await expect(page.getByTestId("research-report")).toContainText("并网政策报告", { timeout: 60000 });
+  await expect(page.getByTestId("guided-research-report-workspace")).toHaveAttribute("data-reference-layout", "report-document");
   const runtimeResponse = await page.request.get(streamResponse.url().replace(/\/commands\/stream$/, ""), { headers: { authorization: streamResponse.request().headers()["authorization"]! } });
   expect(runtimeResponse.ok()).toBeTruthy();
   const runtime = await runtimeResponse.json();
