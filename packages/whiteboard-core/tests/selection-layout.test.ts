@@ -60,6 +60,15 @@ describe('stable multi-selection semantics', () => {
 });
 
 describe('canonical layout calculations', () => {
+  it('aligns rotated objects by their rendered scene bounds', () => {
+    const plain = note('plain', 10, 10, { geometry: { x: 10, y: 10, width: 100, height: 40, rotation: 0 } });
+    const rotated = note('rotated', 200, 50, { geometry: { x: 200, y: 50, width: 100, height: 40, rotation: 90 } });
+    const arranged = arrangeObjects([plain, rotated], command('align-left', ['plain', 'rotated']));
+    const plainAfter = arranged.find(value => value.id === 'plain')!.geometry;
+    const rotatedAfter = arranged.find(value => value.id === 'rotated')!.geometry;
+    expect(plainAfter.x).toBeCloseTo(rotatedAfter.x - 40);
+    expect(rotatedAfter.rotation).toBe(90);
+  });
   it.each([
     ['align-left', [{ x: 0 }, { x: 0 }]],
     ['align-center', [{ x: 75 }, { x: 50 }]],

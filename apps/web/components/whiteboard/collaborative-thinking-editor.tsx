@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState, type ClipboardEvent, type PointerEvent } from "react";
 import type * as Y from "yjs";
-import { copyObjects, createStickyBatchEnvelope, nextStickyPlacement, parseBulkStickyLines, parseThinkingPaste, readObjects, validateTextAttributes, type BoardCommandEnvelope, type StickyVariant, type TextStylePreset, type WhiteboardCommand, type WhiteboardObject } from "@repo/whiteboard-core";
+import { DEFAULT_LAYOUT_GAP, SelectionLayoutCommandPort, copyObjects, createStickyBatchEnvelope, nextStickyPlacement, parseBulkStickyLines, parseThinkingPaste, readObjects, validateTextAttributes, type BoardCommandEnvelope, type StickyVariant, type TextStylePreset, type WhiteboardCommand, type WhiteboardLayoutKind, type WhiteboardObject } from "@repo/whiteboard-core";
 import type { WhiteboardConnectionState } from "@/lib/whiteboard-provider";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
@@ -33,7 +33,9 @@ export function CollaborativeThinkingEditor({ boardId, clientId, doc, readOnly, 
   const [viewport, setViewport] = useState<BoardViewport>({ zoom: 1, panX: 0, panY: 0, fitRequest: 0, fitMode: "board" });
   const [notice, setNotice] = useState(""), [editing, setEditing] = useState<EditSession | null>(null), [conflictedDraft, setConflictedDraft] = useState<string | null>(null);
   const [bulk, setBulk] = useState<string | null>(null), [pasteChoice, setPasteChoice] = useState<PasteChoice>(null);
+  const [layoutGap, setLayoutGap] = useState(DEFAULT_LAYOUT_GAP), [layoutColumns, setLayoutColumns] = useState(3);
   const clipboard = useRef<WhiteboardObject[]>([]);
+  const layoutPort = useMemo(() => new SelectionLayoutCommandPort(doc), [doc]);
 
   useEffect(() => { onSelectionChange?.(selected); onAwareness?.(null, selected); }, [onAwareness, onSelectionChange, selected]);
   useEffect(() => { const ids = new Set(visibleObjectIdKey ? visibleObjectIdKey.split("\u0000") : []); setSelected((current) => current.filter((id) => ids.has(id))); setEditing((current) => current && ids.has(current.id) ? current : null); }, [visibleObjectIdKey]);
@@ -44,6 +46,33 @@ export function CollaborativeThinkingEditor({ boardId, clientId, doc, readOnly, 
     catch { setNotice("操作未应用：请检查对象是否仍存在或内容是否超出限制。"); return false; }
   }, [model, readOnly]);
   const execute = useCallback((commands: WhiteboardCommand[], gestureId = crypto.randomUUID()) => dispatchEnvelope({ boardId, clientId, gestureId, commands }), [boardId, clientId, dispatchEnvelope]);
+  const selectedObjects = useMemo(() => selected.flatMap((id) => {
+    const object = model.objects.find((candidate) => candidate.id === id);
+    return object ? [object] : [];
+  }), [model.objects, selected]);
+  const selectionLayoutDisabled = readOnly || selectedObjects.length < 2 || selectedObjects.some((object) => object.locked || object.hidden || object.kind === "connector");
+  const arrangeSelection = useCallback((kind: WhiteboardLayoutKind) => {
+    if (selectionLayoutDisabled) return;
+    try {
+      layoutPort.dispatch({
+        boardId,
+        clientId,
+        gestureId: crypto.randomUUID(),
+        command: {
+          type: "arrange-objects",
+          kind,
+          objectIds: [...selected],
+          ...(kind === "grid" || kind === "tidy-up" ? { columns: layoutColumns } : {}),
+          ...(["grid", "row", "column", "tidy-up"].includes(kind) ? { gap: layoutGap } : {}),
+        },
+        preconditions: selectedObjects.map((object) => ({ id: object.id, geometry: object.geometry, parentId: object.parentId, locked: Boolean(object.locked), hidden: Boolean(object.hidden) })),
+      });
+      setNotice(`已${kind.startsWith("align-") ? "对齐" : kind.startsWith("distribute-") ? "等距分布" : "整理"} ${selected.length} 个对象。`);
+    } catch (error) {
+      const code = error instanceof Error ? error.message : "LAYOUT_FAILED";
+      setNotice(code === "LAYOUT_CONFLICT" ? "布局未应用：对象已被其他协作者修改。" : code === "SELECTION_PARENT_BOUNDARY" ? "布局未应用：请选择同一容器内的对象。" : code === "DISTRIBUTION_REQUIRES_THREE" ? "等距分布至少需要 3 个对象。" : "布局未应用：选择中包含锁定对象或当前排列不可用。");
+    }
+  }, [boardId, clientId, layoutColumns, layoutGap, layoutPort, selected, selectedObjects, selectionLayoutDisabled]);
   const beginEditing = useCallback((id: string) => { const object = readObjects(doc).find((candidate) => candidate.id === id); if (!object) return; setSelected([id]); setEditing({ id, initial: object.text }); }, [doc]);
 
   const createStickyAt = useCallback((point: Point, variant: StickyVariant = "square", text = "") => {
@@ -86,6 +115,11 @@ export function CollaborativeThinkingEditor({ boardId, clientId, doc, readOnly, 
     </div>
     <header className="absolute inset-x-0 top-0 z-20 flex flex-wrap items-center gap-2 border-b border-border bg-background/95 p-3 backdrop-blur">{onBack ? <Button onClick={onBack}>返回白板</Button> : null}<Input aria-label="白板名称" className="max-w-64" value={title} disabled={readOnly || !onTitleChange} onChange={(event) => { if (!readOnly) onTitleChange?.(event.target.value); }} /><span role="status" className="text-12">{status}{readOnly ? " · 只读" : ""}</span><span className="ml-auto text-12 text-muted-foreground">在线成员 {peers.length}</span></header>
     <div className="absolute bottom-5 left-5 z-20 flex items-center gap-1 rounded-xl border border-border bg-card/95 p-1 shadow-lg backdrop-blur"><Button disabled={readOnly} onClick={() => { const result = model.undo(); setNotice(result === "undone" ? "已撤销本地修改" : result === "conflict" ? "未撤销：当前画板与这次修改存在冲突，请核对后再操作。" : result === "creation-requires-explicit-delete" ? "创建对象请使用删除；为保护其他人的修改，不撤销对象创建。" : "没有可撤销的本地修改。"); }}>撤销</Button><Button disabled={readOnly} onClick={() => setNotice(model.redo() ? "已重做本地修改" : "未重做：没有可重做的本地修改，或当前画板存在冲突。")}>重做</Button><Button disabled={!selected.length} onClick={() => { clipboard.current = copyObjects(doc, selected, () => crypto.randomUUID()); setNotice("已复制到当前白板剪贴板"); }}>复制</Button><Button disabled={readOnly || !clipboard.current.length} onClick={() => { const ids = new Map(clipboard.current.map((entry) => [entry.id, crypto.randomUUID()])); const copied = clipboard.current.map((entry) => ({ ...entry, id: ids.get(entry.id)!, parentId: entry.parentId ? ids.get(entry.parentId) ?? null : null, connector: entry.connector ? { from: ids.get(entry.connector.from)!, to: ids.get(entry.connector.to)! } : undefined, geometry: { ...entry.geometry, x: entry.geometry.x + 24, y: entry.geometry.y + 24 } })); if (copied.length && execute(copied.map((entry) => ({ type: "create", object: entry })))) setSelected(copied.map((entry) => entry.id)); }}>粘贴</Button><Button disabled={readOnly || !selected.length} onClick={() => { if (execute(selected.map((id) => ({ type: "delete", id })))) setSelected([]); }}>删除选中</Button><Button disabled title="将在自由绘制迭代开放">画笔</Button><Button data-testid="board-zoom-out" aria-label="缩小" onClick={() => setViewport((current) => ({ ...current, zoom: clampBoardZoom(current.zoom - .1) }))}>缩小</Button><span data-testid="board-zoom-value" className="w-12 text-center text-12">{Math.round(viewport.zoom * 100)}%</span><Button data-testid="board-zoom-in" aria-label="放大" onClick={() => setViewport((current) => ({ ...current, zoom: clampBoardZoom(current.zoom + .1) }))}>放大</Button><Button data-testid="board-zoom-fit-selection" disabled={!selected.length} onClick={() => setViewport((current) => ({ ...current, fitMode: "selection", fitRequest: current.fitRequest + 1 }))}>适应选择</Button><Button data-testid="board-zoom-fit-board" onClick={() => setViewport((current) => ({ ...current, fitMode: "board", fitRequest: current.fitRequest + 1 }))}>适应白板</Button></div>
+    {selected.length >= 2 ? <div role="toolbar" aria-label="多选布局" data-testid="board-selection-layout-toolbar" className="absolute bottom-24 left-1/2 z-30 flex max-w-[calc(100vw-2rem)] -translate-x-1/2 flex-wrap items-center justify-center gap-1 rounded-2xl border border-border bg-card/95 p-2 shadow-xl backdrop-blur">
+      {([['align-left', '左对齐'], ['align-center', '水平居中'], ['align-right', '右对齐'], ['align-top', '顶对齐'], ['align-middle', '垂直居中'], ['align-bottom', '底对齐'], ['distribute-horizontal', '水平分布'], ['distribute-vertical', '垂直分布'], ['grid', '网格'], ['row', '横排'], ['column', '竖排'], ['tidy-up', '整理']] as const).map(([kind, label]) => <Button key={kind} size="sm" data-testid={`board-layout-${kind}`} disabled={selectionLayoutDisabled || (kind.startsWith('distribute-') && selected.length < 3)} onClick={() => arrangeSelection(kind)}>{label}</Button>)}
+      <label className="ml-1 flex items-center gap-1 text-12">间距<Input data-testid="board-layout-gap" aria-label="布局间距" className="h-8 w-16" type="number" min={0} max={400} value={layoutGap} disabled={selectionLayoutDisabled} onChange={(event) => setLayoutGap(Math.max(0, Math.min(400, Number(event.target.value) || 0)))} /></label>
+      <label className="flex items-center gap-1 text-12">列数<Input data-testid="board-layout-columns" aria-label="网格列数" className="h-8 w-16" type="number" min={1} max={20} value={layoutColumns} disabled={selectionLayoutDisabled} onChange={(event) => setLayoutColumns(Math.max(1, Math.min(20, Number(event.target.value) || 1)))} /></label>
+    </div> : null}
     <BoardBottomDock activeTool={tool} creationTool={creationTool} readOnly={readOnly} onToolChange={setTool} onCreationToolChange={setCreationTool} onQuickCreate={(requested) => requested.kind === "sticky" ? createStickyAt(centerPoint(viewport), requested.variant, "写下一个想法") : createTextAt(centerPoint(viewport), requested.preset)} onBulkSticky={() => setBulk("")} />
     {conflictedDraft !== null ? <aside className="absolute right-4 top-20 z-30 w-72 rounded-xl border border-border bg-card p-3 shadow-xl"><label className="text-12">未应用的输入草稿<Textarea aria-label="未应用的输入草稿" readOnly value={conflictedDraft} /></label><Button onClick={() => setConflictedDraft(null)}>关闭草稿</Button></aside> : null}<p role="status" className="absolute bottom-0 left-1/2 z-20 min-h-5 -translate-x-1/2 rounded-t-lg bg-background/90 px-3 text-12">{notice || `${selected.length} 个已选对象`}</p>
     <Dialog open={bulk !== null} onOpenChange={(open) => { if (!open) setBulk(null); }}><DialogContent closeTestId="board-bulk-close"><DialogTitle>批量创建便利贴</DialogTitle><DialogDescription>每行一个想法，单次最多 100 行；整批只产生一个可协作操作。</DialogDescription><Textarea autoFocus data-testid="board-bulk-text" aria-label="批量便利贴文字" rows={10} value={bulk ?? ""} onChange={(event) => setBulk(event.target.value)} /><div className="flex justify-end gap-2"><Button onClick={() => setBulk(null)}>取消</Button><Button variant="primary" data-testid="board-bulk-apply" onClick={() => { try { createStickyBatch(parseBulkStickyLines(bulk ?? ""), centerPoint(viewport)); setBulk(null); } catch (error) { setNotice(error instanceof Error && error.message === "BULK_STICKY_LIMIT_EXCEEDED" ? "一次最多创建 100 张便利贴。" : "请输入至少一行内容。"); } }}>创建便利贴</Button></div></DialogContent></Dialog>

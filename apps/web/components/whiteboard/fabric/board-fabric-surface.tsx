@@ -1,7 +1,8 @@
 "use client";
 
 import * as React from "react";
-import { Canvas, Circle, Group, Point, Rect, Textbox, type FabricObject, type TPointerEventInfo } from "fabric";
+import { ActiveSelection, Canvas, Circle, Group, Point, Rect, Textbox, type FabricObject, type TPointerEventInfo } from "fabric";
+import { calculateSnapGuides, type SnapResult } from "@repo/whiteboard-core";
 import { BoardA11yMirror } from "./board-a11y-mirror";
 import {
   clampBoardZoom,
@@ -150,6 +151,7 @@ export function BoardFabricSurface({ objects, selectedObjectIds, readOnly, tool,
   const canonicalRef = React.useRef(new Map<string, BoardFabricObject>());
   const renderedRef = React.useRef(new Map<string, BoardFabricObject>());
   const [renderedObjects, setRenderedObjects] = React.useState<readonly BoardFabricObject[]>(objects);
+  const [snapPreview, setSnapPreview] = React.useState<SnapResult | null>(null);
   const selectedObjectIdsRef = React.useRef(selectedObjectIds);
   const renderFrameRef = React.useRef<number | null>(null);
   const callbacksRef = React.useRef({ onSelectionChange, onObjectTransform, onViewportChange, onCanvasClick, onCanvasDoubleClick, onObjectDoubleClick, onToolDrop });
@@ -184,9 +186,26 @@ export function BoardFabricSurface({ objects, selectedObjectIds, readOnly, tool,
     const selectionChanged = () => {
       const active = canvas.getActiveObject() as TaggedFabricObject | undefined;
       const id = active?.data?.boardObjectId;
-      callbacksRef.current.onSelectionChange(id ? [id] : [], "canvas");
+      if (id) { callbacksRef.current.onSelectionChange([id], "canvas"); return; }
+      const nested = active && "getObjects" in active && typeof active.getObjects === "function" ? active.getObjects() as TaggedFabricObject[] : [];
+      const activeIds = new Set(nested.flatMap((object) => object.data?.boardObjectId ? [object.data.boardObjectId] : []));
+      const stable = selectedObjectIdsRef.current.filter((objectId) => activeIds.delete(objectId));
+      for (const object of canvas.getObjects() as TaggedFabricObject[]) if (object.data?.boardObjectId && activeIds.delete(object.data.boardObjectId)) stable.push(object.data.boardObjectId);
+      callbacksRef.current.onSelectionChange(stable, "canvas");
+    };
+    const previewSnap = (event: { target?: FabricObject }) => {
+      const target = event.target as TaggedFabricObject | undefined;
+      const id = target?.data?.boardObjectId;
+      const canonical = id ? canonicalRef.current.get(id) : undefined;
+      if (!target || !id || !canonical || canonical.locked || stateRef.current.readOnly) { setSnapPreview(null); return; }
+      const result = calculateSnapGuides(geometryFromFabric(target), [...canonicalRef.current.values()].filter((candidate) => candidate.id !== id));
+      target.set({ left: result.geometry.x, top: result.geometry.y });
+      target.setCoords();
+      setSnapPreview(result.guides.length || result.measurements.length ? result : null);
+      canvas.requestRenderAll();
     };
     const transformCompleted = (event: { target?: FabricObject }) => {
+      setSnapPreview(null);
       const target = event.target as TaggedFabricObject | undefined;
       const id = target?.data?.boardObjectId;
       if (!target || !id) return;
@@ -268,6 +287,7 @@ export function BoardFabricSurface({ objects, selectedObjectIds, readOnly, tool,
     canvas.on("selection:updated", selectionChanged);
     canvas.on("selection:cleared", selectionChanged);
     canvas.on("object:modified", transformCompleted);
+    canvas.on("object:moving", previewSnap);
     canvas.on("mouse:down", pointerDown);
     canvas.on("mouse:move", pointerMove);
     canvas.on("mouse:up", pointerUp);
@@ -347,8 +367,12 @@ export function BoardFabricSurface({ objects, selectedObjectIds, readOnly, tool,
   React.useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
-    const primary = selectedObjectIds[0] ? registryRef.current.get(selectedObjectIds[0]) : undefined;
-    if (primary) canvas.setActiveObject(primary);
+    const projected = selectedObjectIds.flatMap((id) => {
+      const object = registryRef.current.get(id);
+      return object ? [object] : [];
+    });
+    if (projected.length > 1) canvas.setActiveObject(new ActiveSelection(projected, { canvas }));
+    else if (projected[0]) canvas.setActiveObject(projected[0]);
     else canvas.discardActiveObject();
     scheduleRender();
   }, [objects, scheduleRender, selectedObjectIds]);
@@ -402,6 +426,12 @@ export function BoardFabricSurface({ objects, selectedObjectIds, readOnly, tool,
         callbacksRef.current.onToolDrop?.({ x: (event.clientX - bounds.left - viewport.panX) / viewport.zoom, y: (event.clientY - bounds.top - viewport.panY) / viewport.zoom }, payload);
       }}>
       <canvas ref={canvasElementRef} data-testid="board-fabric-canvas" aria-label="Fabric.js 白板画布" />
+      {snapPreview ? <div className="pointer-events-none absolute inset-0 z-10" data-testid="board-smart-guides" aria-hidden="true">
+        {snapPreview.guides.map((guide, index) => guide.axis === "x"
+          ? <span key={`guide-${index}`} className="absolute inset-y-0 w-px bg-primary" style={{ left: guide.position * viewport.zoom + viewport.panX }} />
+          : <span key={`guide-${index}`} className="absolute inset-x-0 h-px bg-primary" style={{ top: guide.position * viewport.zoom + viewport.panY }} />)}
+        {snapPreview.measurements.map((measurement, index) => <span key={`measurement-${index}`} data-testid="board-spacing-measurement" className="absolute rounded-control bg-primary px-1 text-11 font-semibold text-primary-foreground" style={measurement.axis === "x" ? { left: ((measurement.from + measurement.to) / 2) * viewport.zoom + viewport.panX, top: 12 + index * 20 } : { left: 12 + index * 48, top: ((measurement.from + measurement.to) / 2) * viewport.zoom + viewport.panY }}>{Math.round(measurement.size)} px</span>)}
+      </div> : null}
       <BoardA11yMirror objects={renderedObjects} selectedObjectIds={selectedObjectIds} onSelect={selectFromOutline} readOnly={readOnly} />
     </div>
   );

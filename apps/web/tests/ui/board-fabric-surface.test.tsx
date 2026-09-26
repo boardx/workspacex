@@ -17,6 +17,7 @@ const probe = vi.hoisted(() => ({
   clearCalls: 0,
   renderCalls: 0,
   moveCalls: 0,
+  active: null as MockProjectedObject | null,
 }));
 
 vi.mock("fabric", () => {
@@ -48,12 +49,16 @@ vi.mock("fabric", () => {
     getWidth() { return 1200; } getHeight() { return 800; } getZoom() { return probe.zoom; }
     zoomToPoint(_point: unknown, value: number) { probe.zoom = value; }
     getScenePoint() { return { x: 123, y: 234 }; }
-    setActiveObject(object: MockProjectedObject) { probe.activeId = object.data?.boardObjectId ?? null; }
-    discardActiveObject() { probe.activeId = null; }
-    getActiveObject() { return probe.objects.find((object) => object.data?.boardObjectId === probe.activeId); }
+    setActiveObject(object: MockProjectedObject) { probe.active = object; probe.activeId = object.data?.boardObjectId ?? null; }
+    discardActiveObject() { probe.active = null; probe.activeId = null; }
+    getActiveObject() { return probe.active ?? probe.objects.find((object) => object.data?.boardObjectId === probe.activeId); }
     clear() { probe.clearCalls += 1; }
   }
-  return { Canvas, Rect: MockObject, Circle: MockObject, Textbox: MockObject, Group: MockObject, Point: MockObject };
+  class ActiveSelection extends MockObject {
+    constructor(private readonly children: MockProjectedObject[]) { super(); }
+    getObjects() { return this.children; }
+  }
+  return { ActiveSelection, Canvas, Rect: MockObject, Circle: MockObject, Textbox: MockObject, Group: MockObject, Point: MockObject };
 });
 
 class ResizeObserverMock { observe() {} disconnect() {} }
@@ -72,7 +77,7 @@ function renderSurface(overrides: Partial<React.ComponentProps<typeof BoardFabri
 }
 
 describe("BoardFabricSurface", () => {
-  beforeEach(() => { probe.instances = 0; probe.objects.length = 0; probe.handlers.clear(); probe.activeId = null; probe.zoom = 1; probe.clearCalls = 0; probe.renderCalls = 0; probe.moveCalls = 0; });
+  beforeEach(() => { probe.instances = 0; probe.objects.length = 0; probe.handlers.clear(); probe.active = null; probe.activeId = null; probe.zoom = 1; probe.clearCalls = 0; probe.renderCalls = 0; probe.moveCalls = 0; });
 
   it("projects canonical-like objects into one Fabric Canvas without DOM object replicas", () => {
     const { container } = renderSurface();
@@ -115,6 +120,27 @@ describe("BoardFabricSurface", () => {
     expect(onSelectionChange).toHaveBeenCalledWith(["r-1"], "outline");
     rerender(<BoardFabricSurface objects={OBJECTS} selectedObjectIds={["r-1"]} readOnly={false} tool="select" viewport={VIEWPORT} onSelectionChange={onSelectionChange} onObjectTransform={vi.fn()} onViewportChange={vi.fn()} />);
     expect(screen.getByTestId("board-a11y-object-r-1")).toHaveAttribute("aria-pressed", "true");
+  });
+
+  it("keeps Fabric ActiveSelection callbacks in canonical controlled-selection order", () => {
+    const onSelectionChange = vi.fn();
+    renderSurface({ selectedObjectIds: ["r-1", "s-1"], onSelectionChange });
+    expect(probe.active).not.toBeNull();
+    probe.handlers.get("selection:updated")?.({ target: probe.active! });
+    expect(onSelectionChange).toHaveBeenCalledWith(["r-1", "s-1"], "canvas");
+  });
+
+  it("renders alignment guides and equal 24 px spacing while an object moves", async () => {
+    const spaced: BoardFabricObject[] = [
+      { ...OBJECTS[0]!, id: "left", geometry: { x: 0, y: 60, width: 100, height: 80, rotation: 0 } },
+      { ...OBJECTS[0]!, id: "moving", geometry: { x: 124, y: 60, width: 100, height: 80, rotation: 0 } },
+      { ...OBJECTS[0]!, id: "right", geometry: { x: 248, y: 60, width: 100, height: 80, rotation: 0 } },
+    ];
+    renderSurface({ objects: spaced, selectedObjectIds: ["moving"] });
+    const moving = probe.objects.find((object) => object.data?.boardObjectId === "moving")!;
+    act(() => probe.handlers.get("object:moving")?.({ target: moving }));
+    expect(await screen.findByTestId("board-smart-guides")).toBeVisible();
+    expect(screen.getAllByTestId("board-spacing-measurement").map((node) => node.textContent)).toContain("24 px");
   });
 
   it("commits one normalized geometry callback at gesture end and blocks viewer writes", () => {

@@ -87,6 +87,20 @@ function snapshot(doc: Y.Doc): Snapshot {
   return { objects, byId: new Map(objects.map(value => [value.id, value])) };
 }
 
+/** Fabric projects canonical x/y as the rotation origin. Layout against those
+ * scene bounds so rotated objects align visually without changing rotation. */
+function sceneBounds(geometry: WhiteboardGeometry): { left: number; top: number; right: number; bottom: number; width: number; height: number } {
+  const radians = geometry.rotation * Math.PI / 180;
+  const cosine = Math.cos(radians), sine = Math.sin(radians);
+  const points = [[0, 0], [geometry.width, 0], [0, geometry.height], [geometry.width, geometry.height]].map(([x = 0, y = 0]) => ({
+    x: geometry.x + x * cosine - y * sine,
+    y: geometry.y + x * sine + y * cosine,
+  }));
+  const left = Math.min(...points.map(point => point.x)), top = Math.min(...points.map(point => point.y));
+  const right = Math.max(...points.map(point => point.x)), bottom = Math.max(...points.map(point => point.y));
+  return { left, top, right, bottom, width: right - left, height: bottom - top };
+}
+
 /** Resolve once in caller order. Selection may span containers, but arrange operations may not. */
 export function resolveSelection(objects: readonly WhiteboardObject[], objectIds: readonly string[]): SelectionResolution {
   if (objectIds.length === 0 || new Set(objectIds).size !== objectIds.length) throw new Error('SELECTION_INVALID');
@@ -108,18 +122,20 @@ export function resolveSelection(objects: readonly WhiteboardObject[], objectIds
 function placementMap(selection: SelectionResolution, input: WhiteboardLayoutCommand): Map<string, WhiteboardGeometry> {
   const items = selection.objects;
   const result = new Map(items.map(item => [item.id, { ...item.geometry }]));
-  const left = Math.min(...items.map(item => item.geometry.x));
-  const top = Math.min(...items.map(item => item.geometry.y));
-  const right = Math.max(...items.map(item => item.geometry.x + item.geometry.width));
-  const bottom = Math.max(...items.map(item => item.geometry.y + item.geometry.height));
+  const bounds = new Map(items.map(item => [item.id, sceneBounds(item.geometry)]));
+  const left = Math.min(...items.map(item => bounds.get(item.id)!.left));
+  const top = Math.min(...items.map(item => bounds.get(item.id)!.top));
+  const right = Math.max(...items.map(item => bounds.get(item.id)!.right));
+  const bottom = Math.max(...items.map(item => bounds.get(item.id)!.bottom));
   const centerX = (left + right) / 2, centerY = (top + bottom) / 2;
   const set = (item: WhiteboardObject, x: number, y: number) => result.set(item.id, { ...item.geometry, x: finite(x), y: finite(y) });
 
   if (input.kind.startsWith('align-')) {
     for (const item of items) {
-      const x = input.kind === 'align-left' ? left : input.kind === 'align-center' ? centerX - item.geometry.width / 2 : input.kind === 'align-right' ? right - item.geometry.width : item.geometry.x;
-      const y = input.kind === 'align-top' ? top : input.kind === 'align-middle' ? centerY - item.geometry.height / 2 : input.kind === 'align-bottom' ? bottom - item.geometry.height : item.geometry.y;
-      set(item, x, y);
+      const visual = bounds.get(item.id)!;
+      const dx = input.kind === 'align-left' ? left - visual.left : input.kind === 'align-center' ? centerX - (visual.left + visual.right) / 2 : input.kind === 'align-right' ? right - visual.right : 0;
+      const dy = input.kind === 'align-top' ? top - visual.top : input.kind === 'align-middle' ? centerY - (visual.top + visual.bottom) / 2 : input.kind === 'align-bottom' ? bottom - visual.bottom : 0;
+      set(item, item.geometry.x + dx, item.geometry.y + dy);
     }
     return result;
   }
@@ -128,20 +144,21 @@ function placementMap(selection: SelectionResolution, input: WhiteboardLayoutCom
     if (items.length < 3) throw new Error('DISTRIBUTION_REQUIRES_THREE');
     const horizontal = input.kind === 'distribute-horizontal';
     const ordered = [...items].sort((a, b) => horizontal
-      ? a.geometry.x - b.geometry.x || a.id.localeCompare(b.id)
-      : a.geometry.y - b.geometry.y || a.id.localeCompare(b.id));
+      ? bounds.get(a.id)!.left - bounds.get(b.id)!.left || a.id.localeCompare(b.id)
+      : bounds.get(a.id)!.top - bounds.get(b.id)!.top || a.id.localeCompare(b.id));
     const first = ordered[0]!, last = ordered.at(-1)!;
     const span = horizontal
-      ? last.geometry.x + last.geometry.width - first.geometry.x
-      : last.geometry.y + last.geometry.height - first.geometry.y;
-    const occupied = ordered.reduce((sum, item) => sum + (horizontal ? item.geometry.width : item.geometry.height), 0);
+      ? bounds.get(last.id)!.right - bounds.get(first.id)!.left
+      : bounds.get(last.id)!.bottom - bounds.get(first.id)!.top;
+    const occupied = ordered.reduce((sum, item) => sum + (horizontal ? bounds.get(item.id)!.width : bounds.get(item.id)!.height), 0);
     const gap = (span - occupied) / (ordered.length - 1);
-    let cursor = horizontal ? first.geometry.x : first.geometry.y;
+    let cursor = horizontal ? bounds.get(first.id)!.left : bounds.get(first.id)!.top;
     ordered.forEach((item, index) => {
       if (index === 0 || index === ordered.length - 1) return;
       const previous = ordered[index - 1]!;
-      cursor += (horizontal ? previous.geometry.width : previous.geometry.height) + gap;
-      set(item, horizontal ? cursor : item.geometry.x, horizontal ? item.geometry.y : cursor);
+      cursor += (horizontal ? bounds.get(previous.id)!.width : bounds.get(previous.id)!.height) + gap;
+      const visual = bounds.get(item.id)!;
+      set(item, horizontal ? item.geometry.x + cursor - visual.left : item.geometry.x, horizontal ? item.geometry.y : item.geometry.y + cursor - visual.top);
     });
     return result;
   }

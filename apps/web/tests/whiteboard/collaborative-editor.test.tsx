@@ -6,7 +6,7 @@ import { CollaborativeEditor } from '@/components/whiteboard/collaborative-edito
 import { textSplice } from '@/components/whiteboard/use-whiteboard-document';
 import type { BoardFabricGeometry, BoardFabricObject } from '@/components/whiteboard/fabric/board-fabric-object';
 vi.mock('@/components/whiteboard/fabric/board-fabric-surface', () => ({
-  BoardFabricSurface: ({ objects, onObjectTransform }: { objects: readonly BoardFabricObject[]; onObjectTransform: (id: string, geometry: BoardFabricGeometry) => boolean | Promise<boolean> }) => <div data-testid="board-fabric-surface"><canvas data-testid="board-fabric-canvas" />{objects.map((object) => <span key={object.id} data-projected-id={object.id} />)}{objects[0] ? <button data-testid="fabric-transform-first" onClick={(event) => { const result = onObjectTransform(objects[0]!.id, { ...objects[0]!.geometry, x: 345 }); event.currentTarget.dataset.accepted = String(result); }}>transform</button> : null}</div>,
+  BoardFabricSurface: ({ objects, onObjectTransform, onSelectionChange }: { objects: readonly BoardFabricObject[]; onObjectTransform: (id: string, geometry: BoardFabricGeometry) => boolean | Promise<boolean>; onSelectionChange: (ids: string[], source: 'canvas') => void }) => <div data-testid="board-fabric-surface"><canvas data-testid="board-fabric-canvas" />{objects.map((object) => <span key={object.id} data-projected-id={object.id} />)}{objects[0] ? <button data-testid="fabric-transform-first" onClick={(event) => { const result = onObjectTransform(objects[0]!.id, { ...objects[0]!.geometry, x: 345 }); event.currentTarget.dataset.accepted = String(result); }}>transform</button> : null}<button data-testid="fabric-select-all" onClick={() => onSelectionChange(objects.map((object) => object.id), 'canvas')}>select all</button></div>,
 }));
 class ResizeObserverMock { observe() {} disconnect() {} }
 globalThis.ResizeObserver = ResizeObserverMock as unknown as typeof ResizeObserver;
@@ -98,6 +98,39 @@ it('reports world coordinates after zoom and renders server peer cursors/selecti
   fireEvent.click(screen.getByText('放大',{exact:true}));
   fireEvent(screen.getByTestId('board-live-surface'),new MouseEvent('pointermove',{bubbles:true,clientX:110,clientY:220}));
   expect(positions.at(-1)?.x).toBeCloseTo(100); expect(positions.at(-1)?.y).toBeCloseTo(200);
+  doc.destroy();
+});
+
+it('exposes every multi-selection layout action and commits grid as one canonical transaction', () => {
+  const doc = createWhiteboardDocument();
+  executeCommands(doc, [0, 1, 2, 3].map((index) => ({ type: 'create' as const, object: { id: `layout-${index}`, schemaVersion: 1 as const, kind: 'sticky' as const, geometry: { x: index * 37, y: index * 19, width: 100, height: 80, rotation: 0 }, text: String(index), style: {}, parentId: null, orderKey: String(index) } })), 'seed');
+  render(<CollaborativeEditor boardId="board-test" clientId="client-test" doc={doc} readOnly={false} title="白板" status="已连接" />);
+  fireEvent.click(screen.getByTestId('fabric-select-all'));
+  for (const kind of ['align-left', 'align-center', 'align-right', 'align-top', 'align-middle', 'align-bottom', 'distribute-horizontal', 'distribute-vertical', 'grid', 'row', 'column', 'tidy-up']) expect(screen.getByTestId(`board-layout-${kind}`)).toBeEnabled();
+  fireEvent.change(screen.getByLabelText('布局间距'), { target: { value: '24' } });
+  fireEvent.change(screen.getByLabelText('网格列数'), { target: { value: '2' } });
+  const transactions: Y.Transaction[] = [];
+  doc.on('afterTransaction', transaction => { if (transaction.origin instanceof WhiteboardCommandOrigin) transactions.push(transaction); });
+  fireEvent.click(screen.getByTestId('board-layout-grid'));
+  const arranged = readObjects(doc);
+  expect(arranged.map((object) => [object.geometry.x, object.geometry.y])).toEqual([[0, 0], [124, 0], [0, 104], [124, 104]]);
+  expect(transactions).toHaveLength(1);
+  fireEvent.click(screen.getByText('撤销', { exact: true }));
+  expect(readObjects(doc).map((object) => object.geometry.x)).toEqual([0, 37, 74, 111]);
+  doc.destroy();
+});
+
+it('disables contextual layout when the board or any selected object is locked', () => {
+  const doc = createWhiteboardDocument();
+  executeCommands(doc, [
+    { type: 'create', object: { id: 'free', schemaVersion: 1, kind: 'sticky', geometry: { x: 0, y: 0, width: 100, height: 80, rotation: 0 }, text: '', style: {}, parentId: null, orderKey: 'a' } },
+    { type: 'create', object: { id: 'locked', schemaVersion: 1, kind: 'sticky', geometry: { x: 140, y: 0, width: 100, height: 80, rotation: 0 }, text: '', style: {}, parentId: null, orderKey: 'b', locked: true } },
+  ], 'seed');
+  const view = render(<CollaborativeEditor boardId="board-test" clientId="client-test" doc={doc} readOnly={false} title="白板" status="已连接" />);
+  fireEvent.click(screen.getByTestId('fabric-select-all'));
+  expect(screen.getByTestId('board-layout-grid')).toBeDisabled();
+  view.rerender(<CollaborativeEditor boardId="board-test" clientId="client-test" doc={doc} readOnly title="白板" status="已连接" />);
+  expect(screen.getByTestId('board-layout-align-left')).toBeDisabled();
   doc.destroy();
 });
 
