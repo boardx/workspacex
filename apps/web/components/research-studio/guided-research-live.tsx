@@ -27,6 +27,7 @@ import { GuidedResearchMarkdownWorkspace } from "./guided-research-markdown-work
 import { GuidedResearchSixStepShell } from "./guided-research-six-step-shell";
 import { GuidedResearchEntryPanel } from "./guided-research-entry-panel";
 import { GuidedResearchTopicPanel } from "./guided-research-topic-panel";
+import { GuidedResearchPlanPanel } from "./guided-research-plan-panel";
 import { parseGuidedResearchMarkdown, serializeGuidedResearchMarkdown } from "@/lib/guided-research-markdown";
 import { toGuidedResearchVisualStage, type GuidedResearchVisualStage } from "@/lib/guided-research-six-step";
 import { getResearchRuntime, getResearchRuntimeProgress, mergeResearchProgress, executeResearchRuntime, type GuidedResearchRuntime as Runtime, type GuidedResearchRuntimeCommand as Command, type GuidedResearchRuntimeDraft as Draft } from "@/lib/guided-research-api";
@@ -386,8 +387,11 @@ export function GuidedResearchLive({ sessionId, onBack, initialNode }: { session
           {directionsDocument && <GuidedResearchMarkdownWorkspace document={directionsDocument} readOnly onSave={async () => ({ ok: false })} provenance="主题由确认界面的结构化配置生成；确认后会保留版本。" />}
           <ResearchDirectionsEditor draft={draft} disabled={busy} onChange={setDraft} />
         </>} />}
-        {outlineDocument && <GuidedResearchMarkdownWorkspace document={outlineDocument} readOnly onSave={async () => ({ ok: false })} provenance="研究计划由确认界面的结构化配置生成；检索范围以已确认版本为准。" />}
-        {draft?.node === "outline" && <ResearchOutlineEditor draft={draft} disabled={busy} onChange={setDraft} />}
+        {draft?.node === "outline" && <GuidedResearchPlanPanel disabled={busy || Boolean(proposal) || !validDraft || !state.intent} onConfirm={() => void run("confirm", { draft })}
+          plan={<><p className="mb-3 text-sm text-muted-foreground">计划以 Markdown 展示，章节、问题和小节通过下方结构化编辑器维护。</p>{outlineDocument && <GuidedResearchMarkdownWorkspace document={outlineDocument} readOnly onSave={async () => ({ ok: false })} provenance="研究计划由确认界面的结构化配置生成；检索范围以已确认版本为准。" />}<div className="mt-4"><ResearchOutlineEditor draft={draft} disabled={busy} onChange={setDraft} /></div></>}
+          questions={<ul className="space-y-2 text-sm">{draft.value.filter((item) => item.enabled).flatMap((item) => item.questions.map((question, index) => <li key={`${item.id}-${index}`}><span className="font-medium">{item.title}：</span>{question}</li>))}</ul>}
+          sourceScope={<div className="space-y-2 text-sm"><p>{state.sourcePolicy?.mode === "restrict" ? "仅检索指定站点" : state.sourcePolicy?.mode === "prioritize" ? "优先检索指定站点" : "检索公开网页资料"}</p>{state.sourcePolicy?.domains.length ? <p className="text-muted-foreground">{state.sourcePolicy.domains.join("、")}</p> : <p className="text-muted-foreground">请先确认研究边界与来源策略。</p>}</div>}
+        />}
         {node === "research" && <>
           {!state.intent && <p role="status" className="rounded-md border p-3 text-sm">请返回报告大纲步骤确认研究边界后再开始检索。</p>}
           <GuidedResearchTrustConsole runtime={state} pending={steeringPending} onSteer={(action) => void steer(action)} onResolveConflict={(decision) => void resolveConflict(decision)} />
