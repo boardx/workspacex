@@ -89,7 +89,7 @@ export function getAuthoringSceneObjects(scene: AuthoringScene): readonly Author
   return BASE;
 }
 
-function makeObject(item: AuthoringSurfaceObject): FabricObject {
+export function createAuthoringFabricObject(item: AuthoringSurfaceObject): FabricObject {
   if (item.kind === "text") {
     const object = new Textbox(item.text, {
       left: item.x,
@@ -105,6 +105,7 @@ function makeObject(item: AuthoringSurfaceObject): FabricObject {
   }
   const text = new Textbox(item.text, {
     width: item.width - STICKY_TEXT_HORIZONTAL_PADDING,
+    splitByGrapheme: true,
     fontFamily: "Noto Sans SC, sans-serif",
     fontSize: 20,
     fontWeight: 520,
@@ -147,7 +148,7 @@ export function BoardObjectAuthoringSurface({ scene, selectedId, onSelectionChan
     const element = canvasRef.current;
     if (!host || !element) return;
     const canvas = new Canvas(element, { selection: scene !== "readonly", preserveObjectStacking: true });
-    const objects = getAuthoringSceneObjects(scene).map(makeObject);
+    const objects = getAuthoringSceneObjects(scene).map(createAuthoringFabricObject);
     canvas.add(...objects);
     for (const object of objects) object.set({ selectable: true, evented: true, hasControls: scene !== "readonly", lockMovementX: scene === "readonly", lockMovementY: scene === "readonly", lockScalingX: scene === "readonly", lockScalingY: scene === "readonly", lockRotation: scene === "readonly" });
     const selected = objects.find((object) => (object as TaggedGroup).data?.boardObjectId === selectedId);
