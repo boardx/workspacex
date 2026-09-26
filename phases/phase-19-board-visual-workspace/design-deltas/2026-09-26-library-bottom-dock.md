@@ -110,3 +110,35 @@ flowchart TD
 - 本稿仅定义需求；没有运行浏览器或启动 Docker，也没有改变人类签核。
 - 后续验收证据应包含 exact SHA、入口到编辑器视频/trace、四工具操作计数、触摸/键盘/reduced-motion 录制、API 权限失败与刷新后持久化断言。
 - 删除缺口、Connector 依赖、dock 共享文件归属、正式路由过期文案必须在实现 issue 中逐项关闭；缺一项不宣称本次需求完成。
+
+## 9. 可审查材料与接入顺序（2026-09-26 快照）
+
+这部分是 review 材料索引，不是第二份 feature 状态源；合并与 CI 以链接的实时状态为准。
+
+- [PR #4220](https://github.com/boardx/workspacex/pull/4220)：浏览页与底部 dock 的真实 Fabric mock 预览。实现复核绑定 `dd0f477f0c8455121395ec46506d06f59537e6eb`，独立 review 无 P0/P1/P2；11 项组件/几何/真实 Fabric 测试通过。主 session 的操作证据见该 PR 的 `evidence/board-workspace-preview/2026-09-26-main-session.md`。这不代表正式保存、协作或人类签核。
+- [PR #4213](https://github.com/boardx/workspacex/pull/4213)：正式 Fabric 路由工作。不能因预览分支缺少动态路由就安排重新实现；先核对并集成此 PR 的最终版本。
+- [PR #4212](https://github.com/boardx/workspacex/pull/4212)：协作与持久化工作。不能将它与预览页面内 Fabric JSON 草稿混同；正式内容保持 canonical Yjs/Board command 边界。
+- 元数据已有 list/create/get/update（名称与 archived）；永久删除仍无既有契约。正式接入必须保留 create 的 requestId 重试语义和服务端权限，不能直接搬运预览数组操作。
+
+```mermaid
+flowchart LR
+    U["UI 预览 PR4220<br/>局部浏览器验收与独立复核通过"]:::reviewed
+    F["正式 Fabric 路由 PR4213<br/>待合并能力，避免重复开发"]:::pending
+    Y["协作持久化 PR4212<br/>待合并能力，避免重复开发"]:::pending
+    U --> D["更新 UI / 用例 / API 设计材料<br/>保持待人类签核"]:::design
+    D --> I["正式集成<br/>浏览入口 + 全屏 + 底部工具栏"]:::backlog
+    F --> I
+    Y --> I
+    I --> V["主 session 验收<br/>真实路由、权限、刷新、第二客户端"]:::backlog
+    X["真正删除生命周期<br/>契约缺口未关闭"]:::design --> V
+    classDef reviewed fill:#dbeafe,stroke:#2563eb,color:#1e3a8a
+    classDef pending fill:#fef3c7,stroke:#d97706,color:#78350f
+    classDef design fill:#ffedd5,stroke:#ea580c,color:#7c2d12
+    classDef backlog fill:#f1f5f9,stroke:#94a3b8,color:#334155
+```
+
+蓝色仅表示局部预览材料已复核；黄色表示已有待合并工作；橙色表示设计门或缺口；灰色表示后续正式集成验收。此图不将任何节点标为正式交付完成。
+
+正式接入验收详见 [Given/When/Then 矩阵](./2026-09-26-workspace-acceptance-matrix.md)。补充静态核对：PR4213 `e48bf80631dca1963f70a046f5d084acdd3e88c6` 基于 PR4212 `aa35c58ebe69476765b02c60f0f9950c368e9c2f`，已包括动态路由、canonical command host、Yjs provider/gateway 与 Fabric 增量投影。真正剩余项是浏览卡片/创建后导航、正式底部 dock、Fabric Draw/Connector 及删除契约，不能重写整套 host。
+
+**存储要求仍未满足**：上述协作 PR 的 `PgWhiteboardCollaborationStore` 将 snapshot/update bytes 存 PG；用户要求和 `requirements/07-interchange-storage.md` 规定内容进入文件/对象存储、PG 仅存 metadata/pointers。此差异必须在存储迭代完成并用真实恢复/增长证据验收，不能因为 PG 持久化可用就宣称存储需求通过，也不能将 UI 确认解释为接受该存储偏差。
