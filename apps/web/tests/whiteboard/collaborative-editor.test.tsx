@@ -1,12 +1,12 @@
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, expect, it, vi } from 'vitest';
 import type * as Y from 'yjs';
-import { createWhiteboardDocument, executeCommands, readObjects, WhiteboardCommandOrigin, WhiteboardUndo } from '@repo/whiteboard-core';
+import { BoardCommandPort, createWhiteboardDocument, executeCommands, readObjects, WhiteboardCommandOrigin, WhiteboardUndo } from '@repo/whiteboard-core';
 import { CollaborativeEditor } from '@/components/whiteboard/collaborative-editor';
 import { textSplice } from '@/components/whiteboard/use-whiteboard-document';
 import type { BoardFabricGeometry, BoardFabricObject } from '@/components/whiteboard/fabric/board-fabric-object';
 vi.mock('@/components/whiteboard/fabric/board-fabric-surface', () => ({
-  BoardFabricSurface: ({ objects, onObjectTransform }: { objects: readonly BoardFabricObject[]; onObjectTransform: (id: string, geometry: BoardFabricGeometry) => void }) => <div data-testid="board-fabric-surface"><canvas data-testid="board-fabric-canvas" />{objects.map((object) => <span key={object.id} data-projected-id={object.id} />)}{objects[0] ? <button data-testid="fabric-transform-first" onClick={() => onObjectTransform(objects[0]!.id, { ...objects[0]!.geometry, x: 345 })}>transform</button> : null}</div>,
+  BoardFabricSurface: ({ objects, onObjectTransform }: { objects: readonly BoardFabricObject[]; onObjectTransform: (id: string, geometry: BoardFabricGeometry) => boolean | Promise<boolean> }) => <div data-testid="board-fabric-surface"><canvas data-testid="board-fabric-canvas" />{objects.map((object) => <span key={object.id} data-projected-id={object.id} />)}{objects[0] ? <button data-testid="fabric-transform-first" onClick={(event) => { const result = onObjectTransform(objects[0]!.id, { ...objects[0]!.geometry, x: 345 }); event.currentTarget.dataset.accepted = String(result); }}>transform</button> : null}</div>,
 }));
 class ResizeObserverMock { observe() {} disconnect() {} }
 globalThis.ResizeObserver = ResizeObserverMock as unknown as typeof ResizeObserver;
@@ -40,6 +40,22 @@ it('routes a completed Fabric transform through one identifiable canonical trans
   expect(screen.getByLabelText('对象文字')).toHaveValue('协作文字远端');
   fireEvent.click(screen.getByText('撤销', { exact: true }));
   expect(readObjects(doc)[0]!.text).toContain('远端');
+  doc.destroy();
+});
+it('returns a rejected transform result, reports it truthfully, and opens no Yjs transaction', () => {
+  vi.spyOn(BoardCommandPort.prototype, 'dispatch').mockReturnValue(null as never);
+  const doc = createWhiteboardDocument();
+  executeCommands(doc, [{ type: 'create', object: { id: 'reject-note', schemaVersion: 1, kind: 'sticky', geometry: { x: 10, y: 20, width: 180, height: 140, rotation: 0 }, text: '保留原位置', style: {}, parentId: null, orderKey: '' } }], 'seed');
+  render(<CollaborativeEditor boardId="board-test" clientId="client-test" doc={doc} readOnly={false} title="白板" status="已连接" />);
+  const transactions: Y.Transaction[] = [];
+  doc.on('afterTransaction', transaction => transactions.push(transaction));
+
+  fireEvent.click(screen.getByTestId('fabric-transform-first'));
+
+  expect(screen.getByTestId('fabric-transform-first')).toHaveAttribute('data-accepted', 'false');
+  expect(screen.getByText('操作未应用：命令通道尚未就绪，请重试。', { exact: true })).toBeVisible();
+  expect(transactions).toHaveLength(0);
+  expect(readObjects(doc)[0]!.geometry.x).toBe(10);
   doc.destroy();
 });
 it('read-only disables mutation controls and does not alter the document', () => {

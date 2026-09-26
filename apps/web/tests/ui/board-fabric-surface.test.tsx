@@ -109,6 +109,44 @@ describe("BoardFabricSurface", () => {
     expect(probe.objects.every((object) => !object.selectable && !object.evented)).toBe(true);
   });
 
+  it("rolls a rejected transform back to canonical geometry without losing selection", () => {
+    const onObjectTransform = vi.fn(() => false);
+    renderSurface({ selectedObjectIds: ["s-1"], onObjectTransform });
+    const sticky = probe.objects[0]!;
+    expect(probe.activeId).toBe("s-1");
+    const rendersBeforeGesture = probe.renderCalls;
+
+    sticky.left = 777;
+    sticky.top = 888;
+    sticky.scaleX = 4;
+    sticky.scaleY = 3;
+    sticky.angle = 42;
+    probe.handlers.get("object:modified")?.({ target: sticky });
+
+    expect(onObjectTransform).toHaveBeenCalledOnce();
+    expect(sticky.left).toBe(OBJECTS[0]!.geometry.x);
+    expect(sticky.top).toBe(OBJECTS[0]!.geometry.y);
+    expect(sticky.angle).toBe(OBJECTS[0]!.geometry.rotation);
+    expect(sticky.width * sticky.scaleX).toBeCloseTo(OBJECTS[0]!.geometry.width);
+    expect(sticky.height * sticky.scaleY).toBeCloseTo(OBJECTS[0]!.geometry.height);
+    expect(probe.activeId).toBe("s-1");
+    expect(probe.renderCalls).toBeGreaterThan(rendersBeforeGesture);
+  });
+
+  it("rolls an asynchronously rejected transform back to the latest canonical geometry", async () => {
+    const onObjectTransform = vi.fn(async () => false);
+    renderSurface({ selectedObjectIds: ["s-1"], onObjectTransform });
+    const sticky = probe.objects[0]!;
+    sticky.left = 777;
+    sticky.top = 888;
+
+    probe.handlers.get("object:modified")?.({ target: sticky });
+
+    await waitFor(() => expect(sticky.left).toBe(OBJECTS[0]!.geometry.x));
+    expect(sticky.top).toBe(OBJECTS[0]!.geometry.y);
+    expect(probe.activeId).toBe("s-1");
+  });
+
   it("never emits a transform command from a projection placeholder", () => {
     const onObjectTransform = vi.fn();
     const placeholder: BoardFabricObject = {
