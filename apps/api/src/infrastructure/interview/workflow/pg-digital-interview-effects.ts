@@ -2,6 +2,7 @@ import { createHash } from "node:crypto";
 import type { IdFactory } from "../../../application/artifact/ports";
 import { ModelCallError, type ModelCallPort } from "../../../application/agent-run/ports";
 import type {
+  ConfirmationNodeName,
   CommitDigitalInterviewStepInput,
   CommitDigitalInterviewStepResult,
   DigitalInterviewEffects,
@@ -585,6 +586,11 @@ export class PgDigitalInterviewEffects implements DigitalInterviewEffects {
       } else {
         throw new DigitalInterviewWorkflowError("DIGITAL_INTERVIEW_STEP_INVALID");
       }
+
+      await this.appendConfirmedArtifact(session, {
+        orgId: toOrgId(input.orgId), interviewId: input.interviewId, revisionId: activeRevisionId,
+        actorId: input.actorId, nodeName: input.nodeName, command: input.command,
+      });
 
       await this.finishStepProposals(
         session, toOrgId(input.orgId), activeRevisionId, input.nodeName,
@@ -1550,6 +1556,18 @@ export class PgDigitalInterviewEffects implements DigitalInterviewEffects {
         ORDER BY q.ordinal`,
       [input.orgId, current.revision_id],
     );
+    const previousArtifacts = await session.query<{
+      step: "intake" | "analysis" | "experts" | "outline" | "runs" | "report";
+      version_number: number; title: string; markdown: string;
+      status: "draft" | "confirmed" | "generating" | "failed" | "completed";
+      generated_at: Date | string | null; failure: { code: string; retryable: boolean } | null;
+      evidence_mode: "simulated" | "participant" | "mixed";
+    }>(
+      `SELECT step,version_number,title,markdown,status,generated_at,failure,evidence_mode
+         FROM digital_interview_artifact_versions
+        WHERE org_id=$1 AND interview_id=$2 AND revision_id=$3`,
+      [input.orgId, input.interviewId, current.revision_id],
+    );
     await session.query(
       `UPDATE digital_interview_revisions
           SET is_current=false,superseded_at=now()
@@ -1654,6 +1672,21 @@ export class PgDigitalInterviewEffects implements DigitalInterviewEffects {
             expert.personality_traits, expert.service_value],
         );
       }
+    }
+    const inheritedSteps = input.nodeName === "confirm_experts"
+      ? new Set(["intake", "analysis"])
+      : input.nodeName === "confirm_questions"
+        ? new Set(["intake", "analysis", "experts"])
+        : new Set<string>();
+    for (const artifact of previousArtifacts.rows.filter((candidate) => inheritedSteps.has(candidate.step))) {
+      await session.query(
+        `INSERT INTO digital_interview_artifact_versions
+           (org_id,artifact_id,interview_id,revision_id,step,version_number,title,markdown,status,generated_at,failure,evidence_mode)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)`,
+        [input.orgId, this.ids.next("itv-artifact"), input.interviewId, revisionId, artifact.step,
+          artifact.version_number, artifact.title, artifact.markdown, artifact.status,
+          artifact.generated_at, artifact.failure, artifact.evidence_mode],
+      );
     }
     return { revisionId, revisionNumber };
   }
@@ -1797,5 +1830,30 @@ export class PgDigitalInterviewEffects implements DigitalInterviewEffects {
     const workflow = await readDigitalInterviewWorkflow(session, orgId, interviewId);
     if (!workflow) throw new DigitalInterviewWorkflowError("NO_INTERVIEW_ACCESS");
     return workflow;
+  }
+
+  private async appendConfirmedArtifact(session: TenantSession, input: {
+    readonly orgId: OrgId; readonly interviewId: string; readonly revisionId: string; readonly actorId: string;
+    readonly nodeName: ConfirmationNodeName;
+    readonly command: CommitDigitalInterviewStepInput["command"];
+  }): Promise<void> {
+    const artifacts = input.command.kind === "confirm_brief"
+      ? [
+        { step: "intake", title: "需求说明.md", markdown: `# 需求说明\n\n${input.command.topic}` },
+        { step: "analysis", title: "分析建议.md", markdown: `# 分析建议\n\n## 决策\n\n${input.command.researchBrief.decision}\n\n## 学习目标\n\n${input.command.researchBrief.learningGoals.map((goal) => `- ${goal.statement}`).join("\n")}\n\n## 目标角色\n\n${input.command.researchBrief.targetRoles.map((role) => `- ${role}`).join("\n")}` },
+      ]
+      : input.command.kind === "confirm_topic"
+        ? [{ step: "intake", title: "需求说明.md", markdown: `# 需求说明\n\n${input.command.topic}` }]
+        : input.command.kind === "confirm_experts"
+          ? [{ step: "experts", title: "专家建议.md", markdown: `# 专家建议\n\n${input.command.expertIds.map((id) => `- ${id}`).join("\n")}` }]
+          : [{ step: "outline", title: "访谈提纲.md", markdown: `# 访谈提纲\n\n${input.command.questions.map((question) => `- ${question.text}`).join("\n")}` }];
+    for (const artifact of artifacts) await session.query(
+      `INSERT INTO digital_interview_artifact_versions
+         (org_id,artifact_id,interview_id,revision_id,step,version_number,title,markdown,status,generated_at,failure,evidence_mode)
+       SELECT $1,$2,$3,$4,$5,coalesce(max(version_number),0)+1,$6,$7,'confirmed',now(),NULL,'simulated'
+         FROM digital_interview_artifact_versions
+        WHERE org_id=$1 AND interview_id=$3 AND revision_id=$4 AND step=$5`,
+      [input.orgId, this.ids.next("itv-artifact"), input.interviewId, input.revisionId, artifact.step, artifact.title, artifact.markdown],
+    );
   }
 }

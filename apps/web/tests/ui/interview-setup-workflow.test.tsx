@@ -595,6 +595,22 @@ describe("F04 正式 setup 的显式确认与双层持久化验收门", () => {
     expect(transport.requests("POST", "/brief/confirm")[0]!.body).toMatchObject({ topic: "更新后的主题" });
   });
 
+  it("renders the six-stage Markdown workbench and keeps analysis as a navigable stage", async () => {
+    installLiveFetch(persistedInterview);
+    render(<DigitalInterviewSetup interviewId={persistedInterview.interviewId} />);
+
+    expect(await screen.findByTestId("itv-workbench-step-intake")).toHaveTextContent("导入需求");
+    expect(screen.getByTestId("itv-workbench-step-analysis")).toHaveTextContent("确认分析");
+    expect(screen.getByTestId("itv-workbench-step-experts")).toHaveTextContent("选择专家");
+    expect(screen.getByTestId("itv-workbench-step-outline")).toHaveTextContent("专家提纲");
+    expect(screen.getByTestId("itv-workbench-step-runs")).toHaveTextContent("开始访谈");
+    expect(screen.getByTestId("itv-workbench-step-report")).toHaveTextContent("汇总报告");
+
+    fireEvent.click(screen.getByTestId("itv-workbench-step-analysis"));
+    expect(await screen.findByTestId("itv-analysis-workbench")).toHaveTextContent("研究目标");
+    expect(screen.getByTestId("itv-step-markdown-artifact")).toHaveTextContent("分析建议.md");
+  });
+
   it.each([
     { step: 2, button: "itv-confirm-experts", endpoint: "/experts/confirm", impact: "问题、访谈结果和报告" },
     { step: 3, button: "itv-confirm-questions", endpoint: "/questions/confirm", impact: "访谈结果和报告" },
