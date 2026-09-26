@@ -49,6 +49,7 @@ describe("guided research reference layout", () => {
     render(<GuidedResearchPlanPanel plan={<div>计划 Markdown</div>} questions={<div>国家进入条件</div>} sourceScope={<div>政府与行业来源</div>} onConfirm={vi.fn()} disabled />);
 
     expect(screen.getByTestId("guided-research-plan-panel")).toBeInTheDocument();
+    expect(screen.getByTestId("guided-research-plan-panel")).toHaveAttribute("data-reference-layout", "plan-cards");
     expect(screen.getByRole("heading", { name: "研究计划" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "核心问题" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "资料范围" })).toBeInTheDocument();
@@ -59,6 +60,7 @@ describe("guided research reference layout", () => {
     render(<GuidedResearchSourceWorkspace progress={<div>2 / 4</div>} activity={<div>正在检索政策资料</div>} evidence={<div>来源证据</div>} insights={<div>发现：市场增长</div>} risk={<div>1 项检索失败</div>} actions={<button>重试失败任务</button>} />);
 
     expect(screen.getByTestId("guided-research-source-workspace")).toBeInTheDocument();
+    expect(screen.getByTestId("guided-research-source-workspace")).toHaveAttribute("data-reference-layout", "research-operations");
     expect(screen.getByTestId("guided-research-source-progress")).toHaveTextContent("2 / 4");
     expect(screen.getByTestId("guided-research-source-activity")).toHaveTextContent("正在检索政策资料");
     expect(screen.getByTestId("guided-research-source-evidence")).toHaveTextContent("来源证据");
@@ -69,6 +71,7 @@ describe("guided research reference layout", () => {
     render(<GuidedResearchReportWorkspace actions={<button>下载 Word</button>} contents={<div>执行摘要</div>} document={<article>报告正文</article>} metrics={<div>28 个来源</div>} limitation={<div>证据覆盖存在缺口</div>} />);
 
     expect(screen.getByTestId("guided-research-report-workspace")).toBeInTheDocument();
+    expect(screen.getByTestId("guided-research-report-workspace")).toHaveAttribute("data-reference-layout", "report-document");
     expect(screen.getByTestId("guided-research-report-contents")).toHaveTextContent("执行摘要");
     expect(screen.getByTestId("guided-research-report-metrics")).toHaveTextContent("28 个来源");
     expect(screen.getByTestId("guided-research-report-limitation")).toHaveTextContent("证据覆盖存在缺口");
