@@ -15,9 +15,15 @@
  *   node .harness/scripts/oss-secret-scan.mjs              # 扫全部可见历史
  *   node .harness/scripts/oss-secret-scan.mjs --head-only  # 只扫工作树
  *   node .harness/scripts/oss-secret-scan.mjs --strict     # 有命中则退出码 1
+ *   node .harness/scripts/oss-secret-scan.mjs --head-only --write-baseline <file>  # 把当前命中写成基线
+ *   node .harness/scripts/oss-secret-scan.mjs --head-only --baseline <file>        # 增量门控：只有基线外的新命中才退出 1
+ *
+ * 基线（#4262）只存 {path, rule, sha256(命中串)}——不存值、不存前缀、不存上下文。
+ * 基线存在的意义是「存量已登记、等人处理」，不是「存量已无害」：它只让门控对**新增**命中敏感。
  */
 import { execFileSync } from "node:child_process";
-import { readFileSync } from "node:fs";
+import { readFileSync, writeFileSync } from "node:fs";
+import { createHash } from "node:crypto";
 
 const RULES = [
   { id: "aws-access-key",   re: /\bAKIA[0-9A-Z]{16}\b/ },
@@ -70,14 +76,22 @@ if (headOnly) {
 const hits = [];
 const lines = chunks;
 let currentCommit = "(工作树)";
+let currentPath = null;
 for (let i = 0; i < lines.length; i++) {
   const line = lines[i];
   const cm = line.match(/^commit ([0-9a-f]{7,40}|\(工作树:[^)]*\))/);
-  if (cm) { currentCommit = cm[1].startsWith("(") ? "(工作树)" : cm[1].slice(0, 12); continue; }
+  if (cm) {
+    currentCommit = cm[1].startsWith("(") ? "(工作树)" : cm[1].slice(0, 12);
+    currentPath = cm[1].startsWith("(") ? cm[1].slice("(工作树:".length, -1) : null;
+    continue;
+  }
   for (const rule of RULES) {
-    if (!rule.re.test(line)) continue;
+    const m = rule.re.exec(line);
+    if (!m) continue;
     if (rule.ignore && rule.ignore.test(line)) continue;
-    hits.push({ rule: rule.id, commit: currentCommit, sample: line.trim().slice(0, 120) });
+    // 只保留单向哈希，不留命中串本身
+    const sha256 = createHash("sha256").update(m[0]).digest("hex");
+    hits.push({ rule: rule.id, commit: currentCommit, path: currentPath, sha256 });
   }
 }
 
@@ -113,4 +127,33 @@ if (hits.length) {
 if (process.argv.includes("--strict")) {
   if (hits.length > 0) { console.error("\nstrict：存在疑似凭据，未通过。"); process.exit(1); }
   if (shallow || commitCount < 200) { console.error("\nstrict：历史不完整，无法给出通过结论。"); process.exit(1); }
+}
+
+// ---- 基线（#4262）：只在 --head-only 下有意义，历史模式没有稳定的 path ----
+const argVal = (flag) => { const i = process.argv.indexOf(flag); return i > -1 ? process.argv[i + 1] : undefined; };
+const baselineKey = (h) => `${h.path}\0${h.rule}\0${h.sha256}`;
+const writeTo = argVal("--write-baseline");
+const baselineFrom = argVal("--baseline");
+if ((writeTo || baselineFrom) && !headOnly) { console.error("\n--baseline / --write-baseline 只能配合 --head-only 使用"); process.exit(2); }
+if (writeTo) {
+  const uniq = new Map();
+  for (const h of hits) uniq.set(baselineKey(h), { path: h.path, rule: h.rule, sha256: h.sha256 });
+  const entries = [...uniq.values()].sort((a, b) => a.path.localeCompare(b.path) || a.rule.localeCompare(b.rule) || a.sha256.localeCompare(b.sha256));
+  writeFileSync(writeTo, JSON.stringify({ note: "oss-secret-scan 基线：只含 path / rule / sha256(命中串)，不含值（#4262）", entries }, null, 2) + "\n");
+  console.log(`\n基线已写入 ${writeTo}：${entries.length} 条`);
+}
+if (baselineFrom) {
+  let known;
+  try { known = new Set(JSON.parse(readFileSync(baselineFrom, "utf8")).entries.map(baselineKey)); }
+  catch (e) { console.error(`\n读不了基线 ${baselineFrom}：${e.message}`); process.exit(2); }
+  const fresh = new Map();
+  for (const h of hits) if (!known.has(baselineKey(h))) fresh.set(`${h.path}\0${h.rule}`, h);
+  console.log(`\n基线 ${known.size} 条 · 基线外新命中 ${fresh.size} 处`);
+  if (fresh.size) {
+    for (const h of fresh.values()) console.error(`  [${h.rule}] ${h.path}`);
+    console.error("\n出现基线外的疑似凭据（只列路径与规则）。真凭据：移除并立即轮换；误报：改写法绕开规则，");
+    console.error("确属必要才用 --write-baseline 重生成基线，并在 PR 里说明。");
+    process.exit(1);
+  }
+  console.log("✅ 没有基线外的新命中");
 }
