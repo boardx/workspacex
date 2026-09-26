@@ -68,11 +68,21 @@ function jpegDimensions(bytes: Uint8Array): { width: number; height: number } | 
 }
 
 function webpDimensions(bytes: Uint8Array): { width: number; height: number } | null {
-  if (bytes.length < 30 || new TextDecoder().decode(bytes.subarray(12, 16)) !== "VP8X") return null;
-  return {
-    width: 1 + bytes[24]! + (bytes[25]! << 8) + (bytes[26]! << 16),
-    height: 1 + bytes[27]! + (bytes[28]! << 8) + (bytes[29]! << 16),
-  };
+  if (bytes.length < 21) return null;
+  const chunk = new TextDecoder().decode(bytes.subarray(12, 16));
+  if (chunk === "VP8X") {
+    if (bytes.length < 30) return null;
+    return { width: 1 + bytes[24]! + (bytes[25]! << 8) + (bytes[26]! << 16), height: 1 + bytes[27]! + (bytes[28]! << 8) + (bytes[29]! << 16) };
+  }
+  if (chunk === "VP8L") {
+    if (bytes.length < 25 || bytes[20] !== 0x2f) return null;
+    return { width: 1 + bytes[21]! + ((bytes[22]! & 0x3f) << 8), height: 1 + (bytes[22]! >> 6) + (bytes[23]! << 2) + ((bytes[24]! & 0x0f) << 10) };
+  }
+  if (chunk === "VP8 ") {
+    if (bytes.length < 30 || bytes[23] !== 0x9d || bytes[24] !== 0x01 || bytes[25] !== 0x2a) return null;
+    return { width: (bytes[26]! | (bytes[27]! << 8)) & 0x3fff, height: (bytes[28]! | (bytes[29]! << 8)) & 0x3fff };
+  }
+  return null;
 }
 
 function sanitizeSvg(bytes: Uint8Array): { bytes: Uint8Array; width: number; height: number } {
@@ -96,16 +106,37 @@ function sanitizeSvg(bytes: Uint8Array): { bytes: Uint8Array; width: number; hei
   return { bytes: new TextEncoder().encode(new XMLSerializer().serializeToString(document)), width: Math.round(width), height: Math.round(height) };
 }
 
-export type BoardRasterDecoder = (blob: Blob) => Promise<{ width: number; height: number; close?: () => void }>;
+export type BoardRasterDecoder = (blob: Blob, signal?: AbortSignal) => Promise<{ width: number; height: number; close?: () => void }>;
 const MAX_IMAGE_DIMENSION = 32_768;
 const MAX_IMAGE_PIXELS = 100_000_000;
+const IMAGE_DECODE_TIMEOUT_MS = 15_000;
 
-async function browserRasterDecoder(blob: Blob): Promise<{ width: number; height: number; close?: () => void }> {
-  if (typeof createImageBitmap === "function") return createImageBitmap(blob);
+export async function browserRasterDecoder(blob: Blob, signal?: AbortSignal): Promise<{ width: number; height: number; close?: () => void }> {
+  if (signal?.aborted) throw new Error("IMAGE_DECODE_ABORTED");
+  if (typeof createImageBitmap === "function") {
+    const bitmap = createImageBitmap(blob);
+    if (!signal) return bitmap;
+    return new Promise((resolve, reject) => {
+      let settled = false;
+      const abort = () => { if (settled) return; settled = true; reject(new Error("IMAGE_DECODE_ABORTED")); };
+      signal.addEventListener("abort", abort, { once: true });
+      void bitmap.then((decoded) => {
+        signal.removeEventListener("abort", abort);
+        if (settled) { decoded.close(); return; }
+        settled = true; resolve(decoded);
+      }, (error) => { signal.removeEventListener("abort", abort); if (!settled) { settled = true; reject(error); } });
+    });
+  }
   return new Promise((resolve, reject) => {
     const objectUrl = URL.createObjectURL(blob), image = new Image();
-    image.onload = () => { const value = { width: image.naturalWidth, height: image.naturalHeight }; URL.revokeObjectURL(objectUrl); resolve(value); };
-    image.onerror = () => { URL.revokeObjectURL(objectUrl); reject(new Error("IMAGE_DECODE_FAILED")); };
+    let settled = false;
+    const dispose = () => { clearTimeout(timeout); signal?.removeEventListener("abort", abort); image.onload = null; image.onerror = null; image.src = ""; URL.revokeObjectURL(objectUrl); };
+    const finish = (action: () => void) => { if (settled) return; settled = true; dispose(); action(); };
+    const abort = () => finish(() => reject(new Error("IMAGE_DECODE_ABORTED")));
+    const timeout = setTimeout(() => finish(() => reject(new Error("IMAGE_DECODE_TIMEOUT"))), IMAGE_DECODE_TIMEOUT_MS);
+    image.onload = () => { const value = { width: image.naturalWidth, height: image.naturalHeight }; finish(() => resolve(value)); };
+    image.onerror = () => finish(() => reject(new Error("IMAGE_DECODE_FAILED")));
+    signal?.addEventListener("abort", abort, { once: true });
     image.src = objectUrl;
   });
 }
@@ -126,7 +157,7 @@ export interface VerifiedBoardImage {
   intrinsicHeight: number;
 }
 
-export async function verifyBoardImageBytes(source: Blob, declaredMime: string, decodeRaster: BoardRasterDecoder = browserRasterDecoder): Promise<VerifiedBoardImage> {
+export async function verifyBoardImageBytes(source: Blob, declaredMime: string, decodeRaster: BoardRasterDecoder = browserRasterDecoder, signal?: AbortSignal): Promise<VerifiedBoardImage> {
   if (!IMAGE_MIME.has(declaredMime)) throw new Error("IMAGE_MIME_INVALID");
   let bytes = await readBoundedBytes(source, MAX_IMAGE_BYTES);
   const mimeType = declaredMime as BoardImageMime;
@@ -144,9 +175,10 @@ export async function verifyBoardImageBytes(source: Blob, declaredMime: string, 
     dimensions = safeDimensions(sanitized.width, sanitized.height);
   } else {
     const claimed = mimeType === "image/png" ? pngDimensions(bytes) : mimeType === "image/gif" ? gifDimensions(bytes) : mimeType === "image/jpeg" ? jpegDimensions(bytes) : webpDimensions(bytes);
-    if (claimed) safeDimensions(claimed.width, claimed.height);
+    if (!claimed) throw new Error("IMAGE_DIMENSIONS_INVALID");
+    safeDimensions(claimed.width, claimed.height);
     let decoded: Awaited<ReturnType<BoardRasterDecoder>>;
-    try { decoded = await decodeRaster(new Blob([new Uint8Array(bytes)], { type: mimeType })); }
+    try { decoded = await decodeRaster(new Blob([new Uint8Array(bytes)], { type: mimeType }), signal); }
     catch { throw new Error("IMAGE_DECODE_FAILED"); }
     try {
       dimensions = safeDimensions(decoded.width, decoded.height);
@@ -176,5 +208,5 @@ export async function inspectRemoteImageUrl(raw: string, fetcher: typeof fetch =
   if (!IMAGE_MIME.has(mimeType)) throw new Error("IMAGE_MIME_INVALID");
   const bytes = await readBoundedBytes(response, MAX_IMAGE_BYTES);
   if ((contentLength && bytes.length !== contentLength) || (parsedRange && bytes.length !== Number(parsedRange[2]) + 1)) throw new Error("IMAGE_SIZE_MISMATCH");
-  return { url: url.toString(), ...await verifyBoardImageBytes(new Blob([new Uint8Array(bytes)], { type: mimeType }), mimeType) };
+  return { url: url.toString(), ...await verifyBoardImageBytes(new Blob([new Uint8Array(bytes)], { type: mimeType }), mimeType, browserRasterDecoder, signal) };
 }

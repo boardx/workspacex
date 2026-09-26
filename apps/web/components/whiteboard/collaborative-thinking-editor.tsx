@@ -58,7 +58,7 @@ export function CollaborativeThinkingEditor({ boardId, clientId, doc, readOnly, 
   const ownedImageAssets = useRef(new Set<string>());
   const mounted = useRef(true);
   const imageRequestGeneration = useRef(0);
-  const remoteImageAbort = useRef<AbortController | null>(null);
+  const imageAbort = useRef<AbortController | null>(null);
 
   useEffect(() => { onSelectionChange?.(selected); onAwareness?.(null, selected); }, [onAwareness, onSelectionChange, selected]);
   useEffect(() => { const ids = new Set(visibleObjectIdKey ? visibleObjectIdKey.split("\u0000") : []); setSelected((current) => current.filter((id) => ids.has(id))); setEditing((current) => current && ids.has(current.id) ? current : null); }, [visibleObjectIdKey]);
@@ -68,8 +68,8 @@ export function CollaborativeThinkingEditor({ boardId, clientId, doc, readOnly, 
     return () => {
       mounted.current = false;
       imageRequestGeneration.current += 1;
-      remoteImageAbort.current?.abort();
-      remoteImageAbort.current = null;
+      imageAbort.current?.abort();
+      imageAbort.current = null;
       for (const assetId of sessionAssets) revokeBoardSessionImageAsset(assetId);
       sessionAssets.clear();
     };
@@ -172,24 +172,25 @@ export function CollaborativeThinkingEditor({ boardId, clientId, doc, readOnly, 
   const importImage = useCallback(async (file: File, point = centerPoint(viewport), targetId = imageDialog?.targetId) => {
     if (!file.type.match(/^image\/(png|jpeg|webp|gif|svg\+xml)$/)) { setNotice("无法添加图片：请选择 JPG、PNG、WEBP、GIF 或 SVG 文件。"); return; }
     const generation = ++imageRequestGeneration.current;
-    remoteImageAbort.current?.abort();
-    remoteImageAbort.current = null;
+    imageAbort.current?.abort();
+    const controller = new AbortController();
+    imageAbort.current = controller;
     setImageBusy(true);
     try {
-      const verified = await verifyBoardImageBytes(file, file.type);
+      const verified = await verifyBoardImageBytes(file, file.type, undefined, controller.signal);
       if (!mounted.current || generation !== imageRequestGeneration.current) return;
       if (commitVerifiedImage(verified, file.name, point, targetId)) setImageDialog(null);
     } catch (error) {
       if (!mounted.current || generation !== imageRequestGeneration.current) return;
       const code = error instanceof Error ? error.message : "IMAGE_DECODE_FAILED";
       setNotice(code === "IMAGE_TOO_LARGE" ? "图片超过 25MB，未添加。" : code === "IMAGE_MAGIC_INVALID" ? "图片内容与声明格式不一致，未添加。" : "图片无法安全解码，未添加。");
-    } finally { if (mounted.current && generation === imageRequestGeneration.current) setImageBusy(false); }
+    } finally { if (imageAbort.current === controller) imageAbort.current = null; if (mounted.current && generation === imageRequestGeneration.current) setImageBusy(false); }
   }, [commitVerifiedImage, imageDialog?.targetId, viewport]);
   const importRemoteImage = useCallback(async () => {
     const generation = ++imageRequestGeneration.current;
-    remoteImageAbort.current?.abort();
+    imageAbort.current?.abort();
     const controller = new AbortController();
-    remoteImageAbort.current = controller;
+    imageAbort.current = controller;
     setImageBusy(true);
     try {
       const inspected = await inspectRemoteImageUrl(imageUrl, fetch, controller.signal);
@@ -197,7 +198,7 @@ export function CollaborativeThinkingEditor({ boardId, clientId, doc, readOnly, 
       const name = new URL(inspected.url).pathname.split("/").pop() || "remote-image";
       if (commitVerifiedImage(inspected, name, centerPoint(viewport), imageDialog?.targetId, inspected.url)) { setImageDialog(null); setImageUrl(""); }
     } catch (error) { if (!mounted.current || generation !== imageRequestGeneration.current) return; const code = error instanceof Error ? error.message : "IMAGE_FETCH_FAILED"; setNotice(code === "IMAGE_TOO_LARGE" ? "图片超过 25MB，未添加。" : code === "IMAGE_MAGIC_INVALID" ? "图片内容与声明格式不一致，未添加。" : "无法读取该 HTTPS 图片。请检查地址、跨域权限和文件格式。"); }
-    finally { if (remoteImageAbort.current === controller) remoteImageAbort.current = null; if (mounted.current && generation === imageRequestGeneration.current) setImageBusy(false); }
+    finally { if (imageAbort.current === controller) imageAbort.current = null; if (mounted.current && generation === imageRequestGeneration.current) setImageBusy(false); }
   }, [commitVerifiedImage, imageDialog?.targetId, imageUrl, viewport]);
   const handlePaste = (event: ClipboardEvent<HTMLElement>) => { if (readOnly || isEditableTarget(event.target)) return; const image = Array.from(event.clipboardData.files ?? []).find((file) => file.type.startsWith("image/")); if (image) { event.preventDefault(); importImage(image); return; } const value = event.clipboardData.getData("text/plain"); if (!value.includes("\n")) return; try { parseThinkingPaste(value); event.preventDefault(); setPasteChoice({ text: value, point: centerPoint(viewport) }); } catch { /* Preserve normal paste. */ } };
   const handleFileDrop = (event: DragEvent<HTMLElement>) => { const image = [...event.dataTransfer.files].find((file) => file.type.startsWith("image/")); if (!image || readOnly) return; event.preventDefault(); const bounds = event.currentTarget.getBoundingClientRect(); importImage(image, { x: (event.clientX - bounds.left - viewport.panX) / viewport.zoom, y: (event.clientY - bounds.top - viewport.panY) / viewport.zoom }); };

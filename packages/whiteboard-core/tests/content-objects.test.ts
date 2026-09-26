@@ -245,7 +245,7 @@ describe('content object command boundary', () => {
     expect(() => createContentObjectEnvelope({ ...identity, gestureId: 'binary', id: 'shape-binary', geometry, content: { ...shape(), future: new Uint8Array([1, 2]) } as unknown as ShapeContent })).toThrow('UNSAFE_EXTENSION_BINARY');
     expect(() => createContentObjectEnvelope({ ...identity, gestureId: 'outer-data', id: 'shape-outer', geometry, content: shape(), extensionData: { plugin: { source: 'data:text/plain,bad' } } })).toThrow('UNSAFE_EXTENSION_URL');
     const doc = createWhiteboardDocument();
-    new BoardCommandPort(doc).dispatch(createContentObjectEnvelope({ ...identity, gestureId: 'safe', id: 'shape-1', geometry, content: shape(), extensionData: { plugin: { pluginVersion: 2, value: 'safe', opaque: 'AQIDBAU' } } }));
+    new BoardCommandPort(doc).dispatch(createContentObjectEnvelope({ ...identity, gestureId: 'safe', id: 'shape-1', geometry, content: shape(), extensionData: { plugin: { pluginVersion: 2, value: 'safe', opaque: 'normal-short-text' } } }));
     const port = new ContentObjectCommandPort(doc);
     expect(() => port.dispatch({ ...identity, gestureId: 'blob', command: { type: 'replace-content', id: 'shape-1', content: { ...shape(), future: { url: 'blob:https://example.com/id' } } as unknown as ShapeContent } })).toThrow('UNSAFE_EXTENSION_URL');
     const item = doc.getMap<import('yjs').Map<unknown>>('objects').get('shape-1')!;
@@ -264,8 +264,23 @@ describe('content object command boundary', () => {
     expect(() => port.dispatch({ ...identity, gestureId: 'closed-update', command: { type: 'replace-content', id: 'shape-1', content: { ...shape(), payload: 'AQIDBAU' } as unknown as ShapeContent } })).toThrow('UNSAFE_EXTENSION_BINARY');
     const item = doc.getMap<import('yjs').Map<unknown>>('objects').get('shape-1')!;
     item.set('extensionData', { contentObject: { ...shape(), opaque: 'AQIDBAU' } });
-    expect(() => validateDocument(doc)).toThrow('CONTENT_OBJECT_UNKNOWN_FIELD');
-    expect(() => copyObjects(doc, ['shape-1'], () => 'shape-copy')).toThrow('CONTENT_OBJECT_UNKNOWN_FIELD');
+    expect(() => validateDocument(doc)).toThrow('UNSAFE_EXTENSION_BINARY');
+    expect(() => copyObjects(doc, ['shape-1'], () => 'shape-copy')).toThrow('UNSAFE_EXTENSION_BINARY');
+    doc.destroy();
+  });
+
+  it('rejects mixed byte arrays and fragmented base64 aliases across create, copy and Yjs validation', () => {
+    for (const extensionData of [
+      { plugin: { values: [0, 1, null] } },
+      { plugin: { opaque: 'AQIDBAU' } },
+      { plugin: { chunks: ['AQID', 'BAUG'] } },
+    ]) expect(() => createContentObjectEnvelope({ ...identity, gestureId: crypto.randomUUID(), id: crypto.randomUUID(), geometry, content: shape(), extensionData })).toThrow('UNSAFE_EXTENSION_BINARY');
+    const doc = createWhiteboardDocument();
+    new BoardCommandPort(doc).dispatch(createContentObjectEnvelope({ ...identity, gestureId: 'fragment-safe', id: 'shape-1', geometry, content: shape() }));
+    const item = doc.getMap<import('yjs').Map<unknown>>('objects').get('shape-1')!;
+    item.set('extensionData', { contentObject: shape(), plugin: { chunks: ['AQID', 'BAUG'] } });
+    expect(() => validateDocument(doc)).toThrow('UNSAFE_EXTENSION_BINARY');
+    expect(() => copyObjects(doc, ['shape-1'], () => 'shape-copy')).toThrow('UNSAFE_EXTENSION_BINARY');
     doc.destroy();
   });
 

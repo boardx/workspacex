@@ -45,6 +45,22 @@ function png(width = 32, height = 24): Uint8Array {
   const view = new DataView(bytes.buffer); view.setUint32(16, width); view.setUint32(20, height);
   return bytes;
 }
+function webp(kind: "VP8" | "VP8L" | "VP8X", width: number, height: number): Uint8Array {
+  const bytes = new Uint8Array(32);
+  bytes.set(new TextEncoder().encode("RIFF")); bytes.set(new TextEncoder().encode("WEBP"), 8);
+  if (kind === "VP8X") {
+    bytes.set(new TextEncoder().encode("VP8X"), 12);
+    const w = width - 1, h = height - 1;
+    bytes.set([w & 0xff, (w >> 8) & 0xff, (w >> 16) & 0xff, h & 0xff, (h >> 8) & 0xff, (h >> 16) & 0xff], 24);
+  } else if (kind === "VP8L") {
+    bytes.set(new TextEncoder().encode("VP8L"), 12); bytes[20] = 0x2f;
+    const w = width - 1, h = height - 1;
+    bytes[21] = w & 0xff; bytes[22] = ((w >> 8) & 0x3f) | ((h & 0x03) << 6); bytes[23] = (h >> 2) & 0xff; bytes[24] = (h >> 10) & 0x0f;
+  } else {
+    bytes.set(new TextEncoder().encode("VP8 "), 12); bytes.set([0x9d, 0x01, 0x2a, width & 0xff, (width >> 8) & 0x3f, height & 0xff, (height >> 8) & 0x3f], 23);
+  }
+  return bytes;
+}
 const byteBuffer = (bytes: Uint8Array): ArrayBuffer => new Uint8Array(bytes).buffer;
 
 async function setupView() {
@@ -267,11 +283,10 @@ it("verifies JPEG, GIF, WEBP and sanitizes SVG into the exact displayed bytes", 
   const { verifyBoardImageBytes } = await import("@/components/whiteboard/board-content-adapter");
   const jpeg = Uint8Array.from([0xff, 0xd8, 0xff, 0xc0, 0x00, 0x11, 0x08, 0x00, 0x10, 0x00, 0x20]);
   const gif = new Uint8Array(10); gif.set(new TextEncoder().encode("GIF89a")); new DataView(gif.buffer).setUint16(6, 30, true); new DataView(gif.buffer).setUint16(8, 20, true);
-  const webp = new Uint8Array(16); webp.set(new TextEncoder().encode("RIFF")); webp.set(new TextEncoder().encode("WEBP"), 8);
   const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="80" height="60"><script>alert(1)</script><image href="https://tracker.example/x"/><rect width="80" height="60"/></svg>`;
   await expect(verifyBoardImageBytes(new Blob([byteBuffer(jpeg)]), "image/jpeg", async () => ({ width: 32, height: 16 }))).resolves.toMatchObject({ intrinsicWidth: 32, intrinsicHeight: 16 });
   await expect(verifyBoardImageBytes(new Blob([byteBuffer(gif)]), "image/gif", async () => ({ width: 30, height: 20 }))).resolves.toMatchObject({ intrinsicWidth: 30, intrinsicHeight: 20 });
-  await expect(verifyBoardImageBytes(new Blob([byteBuffer(webp)]), "image/webp", async () => ({ width: 64, height: 48 }))).resolves.toMatchObject({ intrinsicWidth: 64, intrinsicHeight: 48 });
+  for (const kind of ["VP8", "VP8L", "VP8X"] as const) await expect(verifyBoardImageBytes(new Blob([byteBuffer(webp(kind, 64, 48))]), "image/webp", async () => ({ width: 64, height: 48 }))).resolves.toMatchObject({ intrinsicWidth: 64, intrinsicHeight: 48 });
   const sanitized = await verifyBoardImageBytes(new Blob([svg]), "image/svg+xml");
   expect(sanitized).toMatchObject({ intrinsicWidth: 80, intrinsicHeight: 60 });
   expect(new TextDecoder().decode(sanitized.bytes)).not.toMatch(/script|tracker\.example/);
@@ -294,6 +309,46 @@ it("rejects header-only raster fakes and closes decoded bitmaps on dimension rej
   const oversized = png(32_769, 24), decoder = vi.fn(async () => ({ width: 32_769, height: 24, close: vi.fn() }));
   await expect(verifyBoardImageBytes(new Blob([byteBuffer(oversized)]), "image/png", decoder)).rejects.toThrow("IMAGE_DIMENSIONS_INVALID");
   expect(decoder).not.toHaveBeenCalled();
+  const unknownWebp = new Uint8Array(32); unknownWebp.set(new TextEncoder().encode("RIFF")); unknownWebp.set(new TextEncoder().encode("WEBP"), 8); unknownWebp.set(new TextEncoder().encode("JUNK"), 12);
+  const webpDecoder = vi.fn(async () => ({ width: 32, height: 24, close: vi.fn() }));
+  await expect(verifyBoardImageBytes(new Blob([byteBuffer(unknownWebp)]), "image/webp", webpDecoder)).rejects.toThrow("IMAGE_DIMENSIONS_INVALID");
+  expect(webpDecoder).not.toHaveBeenCalled();
+  for (const kind of ["VP8", "VP8L", "VP8X"] as const) {
+    const oversizedWebpDecoder = vi.fn(async () => ({ width: 32_769, height: 24, close: vi.fn() }));
+    const dimensions = kind === "VP8X" ? [32_769, 24] as const : [16_383, 16_383] as const;
+    await expect(verifyBoardImageBytes(new Blob([byteBuffer(webp(kind, ...dimensions))]), "image/webp", oversizedWebpDecoder)).rejects.toThrow("IMAGE_DIMENSIONS_INVALID");
+    expect(oversizedWebpDecoder).not.toHaveBeenCalled();
+  }
+});
+
+it("aborts and disposes the Image fallback decoder without retaining its temporary URL", async () => {
+  const { browserRasterDecoder } = await import("@/components/whiteboard/board-content-adapter");
+  vi.stubGlobal("createImageBitmap", undefined);
+  let imageInstance: { onload: (() => void) | null; onerror: (() => void) | null; src: string } | undefined;
+  vi.stubGlobal("Image", class { naturalWidth = 32; naturalHeight = 24; onload: (() => void) | null = null; onerror: (() => void) | null = null; private value = ""; constructor() { imageInstance = this; } set src(value: string) { this.value = value; } get src() { return this.value; } });
+  const controller = new AbortController();
+  const pending = browserRasterDecoder(new Blob([byteBuffer(png())], { type: "image/png" }), controller.signal);
+  expect(imageInstance?.src).toBe("blob:verified-1");
+  controller.abort();
+  await expect(pending).rejects.toThrow("IMAGE_DECODE_ABORTED");
+  expect(imageInstance?.src).toBe("");
+  expect(revokeObjectUrl).toHaveBeenCalledWith("blob:verified-1");
+});
+
+it("times out and disposes a stalled Image fallback decode", async () => {
+  const { browserRasterDecoder } = await import("@/components/whiteboard/board-content-adapter");
+  vi.stubGlobal("createImageBitmap", undefined);
+  let imageInstance: { src: string } | undefined;
+  vi.stubGlobal("Image", class { naturalWidth = 0; naturalHeight = 0; onload: (() => void) | null = null; onerror: (() => void) | null = null; private value = ""; constructor() { imageInstance = this; } set src(value: string) { this.value = value; } get src() { return this.value; } });
+  vi.useFakeTimers();
+  try {
+    const pending = browserRasterDecoder(new Blob([byteBuffer(png())], { type: "image/png" }));
+    const rejection = expect(pending).rejects.toThrow("IMAGE_DECODE_TIMEOUT");
+    await vi.advanceTimersByTimeAsync(15_000);
+    await rejection;
+    expect(imageInstance?.src).toBe("");
+    expect(revokeObjectUrl).toHaveBeenCalledWith("blob:verified-1");
+  } finally { vi.useRealTimers(); }
 });
 
 it("rejects malformed partial responses before creating an image object", async () => {
