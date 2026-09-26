@@ -1,4 +1,7 @@
 import { randomUUID } from 'node:crypto';
+import { mkdtempSync,rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import * as Y from 'yjs';
 import { createWhiteboardDocument, executeCommands, readObjects, validateDocument, WHITEBOARD_LIMITS, type WhiteboardCommand } from '@repo/whiteboard-core';
@@ -7,30 +10,37 @@ import { appConfig } from '../../src/infrastructure/db/pg-config';
 import { PgWhiteboardRepository } from '../../src/infrastructure/whiteboard/pg-whiteboard-repository';
 import { PgWhiteboardCollaborationStore } from '../../src/infrastructure/whiteboard/pg-collaboration-store';
 import { WorkerWhiteboardUpdateValidator } from '../../src/infrastructure/whiteboard/update-validator';
+import { FsObjectStore } from '../../src/infrastructure/storage/fs-object-store';
 import { toOrgId } from '../../src/domain/org-id';
 import type { Principal } from '../../src/domain/principal';
 import { addOrgMember, ensureDatabase, migrateOnce, resetOrgs, seedOrg } from '../support/db';
 const orgId = toOrgId('wb-collaboration-3945-a'), otherOrg = toOrgId('wb-collaboration-3945-b');
 const actor = (userId: string, org = orgId): Principal => ({ userId, orgId: org });
 const owner = actor('wb-collab-owner'), editor = actor('wb-collab-editor'), viewer = actor('wb-collab-viewer'), outsider = actor(owner.userId, otherOrg);
-let db: PgDatabase, repo: PgWhiteboardRepository, store: PgWhiteboardCollaborationStore;
+let db: PgDatabase, repo: PgWhiteboardRepository, store: PgWhiteboardCollaborationStore, objects:FsObjectStore, objectRoot:string;
 const command = (id: string): WhiteboardCommand => ({ type: 'create', object: { id, schemaVersion: 1, kind: 'sticky', text: '团队', style: {}, parentId: null, orderKey: '', geometry: { x: 0, y: 0, width: 100, height: 100, rotation: 0 } } });
 const createBoard = () => repo.create(owner, { requestId: randomUUID(), name: '实时白板' });
 beforeAll(async () => {
   ensureDatabase(); await migrateOnce(); await resetOrgs(orgId, otherOrg);
   await seedOrg({ orgId, projectId: 'wb-collab-project-a' }); await seedOrg({ orgId: otherOrg, projectId: 'wb-collab-project-b' });
   for (const p of [owner, editor, viewer, outsider]) await addOrgMember(p.orgId, p.userId, 'consultant', null);
-  db = new PgDatabase(appConfig()); repo = new PgWhiteboardRepository(db); store = new PgWhiteboardCollaborationStore(db);
+  objectRoot=mkdtempSync(join(tmpdir(),'whiteboard-objects-'));objects=new FsObjectStore(objectRoot);
+  db = new PgDatabase(appConfig()); repo = new PgWhiteboardRepository(db); store = new PgWhiteboardCollaborationStore(db,new WorkerWhiteboardUpdateValidator(),120,objects);
 });
-afterAll(async () => { await db?.close(); await resetOrgs(orgId, otherOrg); });
+afterAll(async () => { await db?.close(); await resetOrgs(orgId, otherOrg); if(objectRoot)rmSync(objectRoot,{recursive:true,force:true}); });
 describe('whiteboard collaboration durable transactions', () => {
   it('commits one sequence for concurrent retries and recovers on a fresh DB connection', async () => {
     const board = await createBoard(), input = { epoch: 1, requestId: randomUUID(), commands: [command('a')] };
     const [a, b] = await Promise.all([store.writeCommands(owner, board.id, input), store.writeCommands(owner, board.id, input)]);
     expect(a.seq).toBe(1); expect(b.seq).toBe(1); expect([a.replayed, b.replayed].sort()).toEqual([false, true]);
+    const manifests=await db.withTenant(orgId,session=>session.query<{snapshot_is_null:boolean;object_key:string;content_hash:string;byte_size:string}>(`SELECT snapshot IS NULL AS snapshot_is_null,object_key,content_hash,byte_size::text FROM whiteboard_documents WHERE org_id=$1 AND board_id=$2`,[orgId,board.id]));
+    expect(manifests.rows[0]).toMatchObject({snapshot_is_null:true,content_hash:expect.stringMatching(/^[a-f0-9]{64}$/),byte_size:expect.any(String)});
+    expect(manifests.rows[0]?.object_key).toContain(`/boards/${board.id}/epochs/1/snapshots/1-`);
+    const updates=await db.withTenant(orgId,session=>session.query<{body_is_null:boolean;update_object_key:string}>(`SELECT update IS NULL AS body_is_null,update_object_key FROM whiteboard_updates WHERE org_id=$1 AND board_id=$2`,[orgId,board.id]));
+    expect(updates.rows).toMatchObject([{body_is_null:true,update_object_key:expect.stringContaining(`/boards/${board.id}/epochs/1/updates/1-`)}]);
     const fresh = new PgDatabase(appConfig());
     try {
-      const loaded = await new PgWhiteboardCollaborationStore(fresh).load(owner, board.id), doc = createWhiteboardDocument();
+      const loaded = await new PgWhiteboardCollaborationStore(fresh,new WorkerWhiteboardUpdateValidator(),120,objects).load(owner, board.id), doc = createWhiteboardDocument();
       Y.applyUpdate(doc, loaded.update); expect(readObjects(doc).map(o => o.id)).toEqual(['a']); expect(loaded.seq).toBe(1); doc.destroy();
     } finally { await fresh.close(); }
     await expect(store.writeCommands(owner, board.id, { ...input, commands: [command('b')] })).rejects.toMatchObject({ code: 'IDEMPOTENCY_CONFLICT' });
@@ -76,7 +86,7 @@ describe('whiteboard collaboration durable transactions', () => {
     expect((await store.load(owner, board.id)).seq).toBe(0);
   });
   it('rejected updates leave no sequence and rate limits allow idempotent replay', async () => {
-    const board = await createBoard(), limited = new PgWhiteboardCollaborationStore(db, new WorkerWhiteboardUpdateValidator(), 1);
+    const board = await createBoard(), limited = new PgWhiteboardCollaborationStore(db, new WorkerWhiteboardUpdateValidator(), 1,objects);
     await expect(store.append(owner, board.id, { epoch: 1, updateId: randomUUID(), update: new Uint8Array([255]) })).rejects.toMatchObject({ code: 'VALIDATION_FAILED' });
     expect((await store.load(owner, board.id)).seq).toBe(0);
     const input = { epoch: 1, requestId: randomUUID(), commands: [command('a')] };
@@ -95,7 +105,7 @@ describe('whiteboard collaboration durable transactions', () => {
     }
     const fresh = new PgDatabase(appConfig());
     try {
-      const loaded = await new PgWhiteboardCollaborationStore(fresh).load(owner, board.id), doc = createWhiteboardDocument();
+      const loaded = await new PgWhiteboardCollaborationStore(fresh,new WorkerWhiteboardUpdateValidator(),120,objects).load(owner, board.id), doc = createWhiteboardDocument();
       Y.applyUpdate(doc, loaded.update); validateDocument(doc);
       expect(loaded.seq).toBe(WHITEBOARD_LIMITS.objects / WHITEBOARD_LIMITS.batch);
       expect(readObjects(doc)).toHaveLength(WHITEBOARD_LIMITS.objects); doc.destroy();

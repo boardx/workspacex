@@ -86,3 +86,4 @@ export {
   type ThinkingInputGeometry,
   type ThinkingPaste,
 } from './thinking-input';
+export { mapImportedBoard, type ImportedBoardItem, type ImportMappingIssue, type ImportMappingResult, type ImportSource } from './import-mapping';

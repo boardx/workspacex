@@ -96,7 +96,7 @@ export function attachWhiteboardGateway(server: Server, deps: WhiteboardGatewayD
             }
           }).catch(error=>{
             const code=error instanceof WhiteboardCollaborationError?error.code:'DEPENDENCY_UNAVAILABLE';
-            fail(ws,code==='NOT_FOUND'?'ACCESS_REVOKED':code==='ARCHIVED'?'BOARD_ARCHIVED':code);
+            fail(ws,code==='NOT_FOUND'?'ACCESS_REVOKED':code==='ARCHIVED'?'BOARD_ARCHIVED':code==='INTEGRITY_FAILED'?'DEPENDENCY_UNAVAILABLE':code);
           }).finally(()=>{waiting--;});
         });
         ws.on('error',()=>ws.close());

@@ -1,0 +1,47 @@
+{
+  "items": [
+    {
+      "id": "a",
+      "type": "circle",
+      "position": {
+        "x": 0,
+        "y": 0
+      },
+      "size": {
+        "width": 120,
+        "height": 120
+      },
+      "content": {
+        "text": "Start"
+      }
+    },
+    {
+      "id": "b",
+      "type": "rectangle",
+      "position": {
+        "x": 260,
+        "y": 0
+      },
+      "size": {
+        "width": 180,
+        "height": 120
+      },
+      "content": {
+        "text": "Finish"
+      }
+    },
+    {
+      "id": "c",
+      "type": "arrow",
+      "connectedFrom": {
+        "id": "a"
+      },
+      "connectedTo": {
+        "id": "b"
+      },
+      "content": {
+        "text": "next"
+      }
+    }
+  ]
+}

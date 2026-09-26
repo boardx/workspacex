@@ -1,0 +1,4 @@
+id,type,x,y,width,height,text,color,parentId,fromId,toId,shape
+area,area,0,0,900,600,Journey,#ffffff,,,,
+n,note,60,90,180,180,Pain point,#fecaca,area,,,,
+card,card,280,90,280,160,Interview,#ffffff,area,,,,

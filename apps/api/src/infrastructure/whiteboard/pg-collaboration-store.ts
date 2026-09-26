@@ -8,8 +8,11 @@ import { WhiteboardCollaborationError as Fault, type WhiteboardCollaborationStor
 import { WorkerWhiteboardUpdateValidator, WHITEBOARD_VALIDATOR_LIMITS } from './update-validator';
 import { WHITEBOARD_UPDATE_LIMITS } from '@repo/whiteboard-core';
 import { WHITEBOARD_SYNC } from '@repo/contracts/whiteboard-sync';
+import { ObjectExistsError, type ObjectStore } from '../../application/artifact/ports';
 
-type DocumentRow = { epoch: number; seq: string; snapshot: Buffer };
+type StoredBody = { object_key: string | null; content_hash: string | null; byte_size: string | null; snapshot: Buffer | null };
+type DocumentRow = StoredBody & { epoch: number; seq: string };
+type UpdateRow = { seq: string; request_hash: string; update: Buffer | null; update_object_key: string | null; update_hash: string | null; update_size: string | null };
 type Access = { role: C.Board['role']; archived: boolean };
 const HASH = (value: Uint8Array | string) => createHash('sha256').update(value).digest('hex');
 function validIds(principal: Principal, boardId: string, requestId?: string, epoch?: number): void {
@@ -29,7 +32,39 @@ function canonical(value: unknown): unknown {
  * the DatabasePort's outer transaction has committed, not merely a savepoint.
  */
 export class PgWhiteboardCollaborationStore implements WhiteboardCollaborationStore {
-  constructor(private readonly db: DatabasePort, private readonly validator: WhiteboardUpdateValidator = new WorkerWhiteboardUpdateValidator(), private readonly acceptedUpdatesPerMinute = 120) {}
+  constructor(private readonly db: DatabasePort, private readonly validator: WhiteboardUpdateValidator = new WorkerWhiteboardUpdateValidator(), private readonly acceptedUpdatesPerMinute = 120,
+    private readonly objects?: Pick<ObjectStore, 'putOnce' | 'get' | 'head'>) {}
+  private objectPrefix(p: Principal, boardId: string): string {
+    return `whiteboards/tenants/${HASH(p.orgId).slice(0,32)}/boards/${boardId}`;
+  }
+  private async readStored(p: Principal, boardId: string, body: StoredBody, update = false): Promise<Uint8Array> {
+    const key = body.object_key;
+    if (!key) {
+      if (!body.snapshot) throw new Fault('INTEGRITY_FAILED');
+      return new Uint8Array(body.snapshot);
+    }
+    if (!this.objects || !key.startsWith(`${this.objectPrefix(p, boardId)}/`)
+      || !body.content_hash || !/^[a-f0-9]{64}$/.test(body.content_hash)) throw new Fault('INTEGRITY_FAILED');
+    let bytes: Uint8Array | null;
+    try { bytes = await this.objects.get(key); }
+    catch { throw new Fault('DEPENDENCY_UNAVAILABLE'); }
+    if (!bytes) throw new Fault('INTEGRITY_FAILED');
+    const expected = Number(body.byte_size);
+    if (!Number.isSafeInteger(expected) || expected !== bytes.byteLength || HASH(bytes) !== body.content_hash
+      || bytes.byteLength > (update ? WHITEBOARD_SYNC.persistedUpdateBytes : WHITEBOARD_SYNC.documentBytes)) throw new Fault('INTEGRITY_FAILED');
+    return bytes;
+  }
+  private async writeStored(key: string, bytes: Uint8Array): Promise<{ key: string; hash: string; size: number }> {
+    if (!this.objects) throw new Fault('DEPENDENCY_UNAVAILABLE');
+    const hash = HASH(bytes), copy = new Uint8Array(bytes);
+    try { await this.objects.putOnce(key, copy, 'application/vnd.yjs-update'); }
+    catch (error) { if (!(error instanceof ObjectExistsError)) throw new Fault('DEPENDENCY_UNAVAILABLE'); }
+    let readback: Uint8Array | null, head: { sizeBytes: number; mime: string } | null;
+    try { [readback, head] = await Promise.all([this.objects.get(key), this.objects.head(key)]); }
+    catch { throw new Fault('DEPENDENCY_UNAVAILABLE'); }
+    if (!readback || !head || readback.byteLength !== copy.byteLength || head.sizeBytes !== copy.byteLength || HASH(readback) !== hash) throw new Fault('INTEGRITY_FAILED');
+    return { key, hash, size: copy.byteLength };
+  }
   private async access(session: TenantSession, p: Principal, boardId: string, write: boolean): Promise<Access> {
     const board = await session.query<{ owner_id: string; archived: boolean }>(`SELECT owner_id,archived FROM whiteboards WHERE org_id=$1 AND id=$2 FOR ${write ? 'UPDATE' : 'SHARE'}`, [p.orgId, boardId]);
     const row = board.rows[0]; if (!row) throw new Fault('NOT_FOUND');
@@ -44,7 +79,7 @@ export class PgWhiteboardCollaborationStore implements WhiteboardCollaborationSt
   }
   private async document(session: TenantSession, p: Principal, boardId: string): Promise<DocumentRow> {
     await session.query(`INSERT INTO whiteboard_documents(org_id,board_id) VALUES($1,$2) ON CONFLICT(org_id,board_id) DO NOTHING`, [p.orgId, boardId]);
-    const result = await session.query<DocumentRow>(`SELECT epoch,seq,snapshot FROM whiteboard_documents WHERE org_id=$1 AND board_id=$2`, [p.orgId, boardId]);
+    const result = await session.query<DocumentRow>(`SELECT epoch,seq,snapshot,object_key,content_hash,byte_size::text FROM whiteboard_documents WHERE org_id=$1 AND board_id=$2`, [p.orgId, boardId]);
     const row = result.rows[0]; if (!row) throw new Fault('NOT_FOUND'); return row;
   }
   async head(p: Principal, boardId: string): Promise<WhiteboardSyncHead> {
@@ -62,7 +97,8 @@ export class PgWhiteboardCollaborationStore implements WhiteboardCollaborationSt
     const stateVector = vector ? new Uint8Array(vector) : undefined;
     return this.db.withTenant(p.orgId, async session => {
       const access = await this.access(session, p, boardId, false), doc = await this.document(session, p, boardId);
-      return { ...access, epoch: doc.epoch, seq: Number(doc.seq), update: await this.validator.diff(doc.snapshot, stateVector) };
+      const snapshot = await this.readStored(p, boardId, doc);
+      return { ...access, epoch: doc.epoch, seq: Number(doc.seq), update: await this.validator.diff(snapshot, stateVector) };
     });
   }
   async append(p: Principal, boardId: string, input: WhiteboardUpdateInput): Promise<WhiteboardUpdateAck> {
@@ -92,18 +128,31 @@ export class PgWhiteboardCollaborationStore implements WhiteboardCollaborationSt
     await this.access(session, p, boardId, true);
     const doc = await this.document(session, p, boardId);
     if (doc.epoch !== epoch) throw new Fault('STALE_EPOCH');
-    const previous = await session.query<{ seq: string; request_hash: string; update: Buffer }>(`SELECT seq,request_hash,update FROM whiteboard_updates WHERE org_id=$1 AND board_id=$2 AND epoch=$3 AND actor_id=$4 AND update_id=$5`, [p.orgId, boardId, epoch, p.userId, updateId]);
+    const previous = await session.query<UpdateRow>(`SELECT seq,request_hash,update,update_object_key,update_hash,update_size::text FROM whiteboard_updates WHERE org_id=$1 AND board_id=$2 AND epoch=$3 AND actor_id=$4 AND update_id=$5`, [p.orgId, boardId, epoch, p.userId, updateId]);
     const replay = previous.rows[0];
     if (replay) {
       if (replay.request_hash !== hash) throw new Fault('IDEMPOTENCY_CONFLICT');
-      return { durability: 'pending', epoch, seq: Number(replay.seq), updateId, replayed: true, update: new Uint8Array(replay.update) };
+      const replayBytes = await this.readStored(p, boardId, { object_key: replay.update_object_key, content_hash: replay.update_hash, byte_size: replay.update_size, snapshot: replay.update }, true);
+      return { durability: 'pending', epoch, seq: Number(replay.seq), updateId, replayed: true, update: replayBytes };
     }
     const count = await session.query<{ count: string }>(`SELECT count(*)::text AS count FROM whiteboard_updates WHERE org_id=$1 AND board_id=$2 AND actor_id=$3 AND created_at>clock_timestamp()-interval '1 minute'`, [p.orgId, boardId, p.userId]);
     if (Number(count.rows[0]?.count ?? 0) >= this.acceptedUpdatesPerMinute) throw new Fault('RATE_LIMITED');
-    const accepted = await validate(doc.snapshot), seq = Number(doc.seq) + 1;
+    const current = await this.readStored(p, boardId, doc), accepted = await validate(current), seq = Number(doc.seq) + 1;
     if (!Number.isSafeInteger(seq) || accepted.snapshot.byteLength > WHITEBOARD_UPDATE_LIMITS.documentBytes || accepted.update.byteLength > WHITEBOARD_SYNC.persistedUpdateBytes) throw new Fault('VALIDATION_FAILED');
-    await session.query(`INSERT INTO whiteboard_updates(org_id,board_id,epoch,seq,actor_id,update_id,request_hash,update) VALUES($1,$2,$3,$4,$5,$6,$7,$8)`, [p.orgId, boardId, epoch, seq, p.userId, updateId, hash, Buffer.from(accepted.update)]);
-    await session.query(`UPDATE whiteboard_documents SET seq=$3,snapshot=$4,updated_at=now() WHERE org_id=$1 AND board_id=$2`, [p.orgId, boardId, seq, Buffer.from(accepted.snapshot)]);
+    if (this.objects) {
+      const prefix=this.objectPrefix(p,boardId), snapshotHash=HASH(accepted.snapshot), updateHash=HASH(accepted.update);
+      const [snapshotRef,updateRef]=await Promise.all([
+        this.writeStored(`${prefix}/epochs/${epoch}/snapshots/${seq}-${snapshotHash}.yjs`,accepted.snapshot),
+        this.writeStored(`${prefix}/epochs/${epoch}/updates/${seq}-${updateHash}.yjs`,accepted.update),
+      ]);
+      await session.query(`INSERT INTO whiteboard_updates(org_id,board_id,epoch,seq,actor_id,update_id,request_hash,update,update_object_key,update_hash,update_size) VALUES($1,$2,$3,$4,$5,$6,$7,NULL,$8,$9,$10)`, [p.orgId, boardId, epoch, seq, p.userId, updateId, hash, updateRef.key, updateRef.hash, updateRef.size]);
+      await session.query(`UPDATE whiteboard_documents SET seq=$3,snapshot=NULL,manifest_version=1,object_key=$4,content_hash=$5,byte_size=$6,updated_at=now() WHERE org_id=$1 AND board_id=$2`, [p.orgId, boardId, seq, snapshotRef.key, snapshotRef.hash, snapshotRef.size]);
+    } else {
+      // Rolling-upgrade compatibility. Production wiring always supplies ObjectStore;
+      // this path only reads/writes legacy rows until every deployment has migrated.
+      await session.query(`INSERT INTO whiteboard_updates(org_id,board_id,epoch,seq,actor_id,update_id,request_hash,update) VALUES($1,$2,$3,$4,$5,$6,$7,$8)`, [p.orgId, boardId, epoch, seq, p.userId, updateId, hash, Buffer.from(accepted.update)]);
+      await session.query(`UPDATE whiteboard_documents SET seq=$3,snapshot=$4,updated_at=now() WHERE org_id=$1 AND board_id=$2`, [p.orgId, boardId, seq, Buffer.from(accepted.snapshot)]);
+    }
     await session.query(`UPDATE whiteboards SET updated_at=now() WHERE org_id=$1 AND id=$2`, [p.orgId, boardId]);
     return { durability: 'pending', epoch, seq, updateId, replayed: false, update: accepted.update };
   }

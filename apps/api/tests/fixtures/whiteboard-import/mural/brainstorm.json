@@ -1,0 +1,34 @@
+{
+  "items": [
+    {
+      "id": "u1",
+      "type": "sticky note",
+      "position": {
+        "x": 10,
+        "y": 20
+      },
+      "size": {
+        "width": 180,
+        "height": 180
+      },
+      "content": {
+        "text": "Need"
+      }
+    },
+    {
+      "id": "u2",
+      "type": "sticky note",
+      "position": {
+        "x": 220,
+        "y": 20
+      },
+      "size": {
+        "width": 180,
+        "height": 180
+      },
+      "content": {
+        "text": "Solution"
+      }
+    }
+  ]
+}

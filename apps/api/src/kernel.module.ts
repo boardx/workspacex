@@ -4,6 +4,11 @@ import { WorkerWhiteboardUpdateValidator } from './infrastructure/whiteboard/upd
 import { WhiteboardController } from './interface/controllers/whiteboard.controller';
 import { WHITEBOARD_REPOSITORY } from './application/whiteboard/ports';
 import { PgWhiteboardRepository } from './infrastructure/whiteboard/pg-whiteboard-repository';
+import { WhiteboardImportController } from './interface/controllers/whiteboard-import.controller';
+import { WHITEBOARD_IMPORT_SERVICE, WhiteboardImportService } from './application/whiteboard/import-service';
+import { PgWhiteboardImportRepository } from './infrastructure/whiteboard/pg-import-repository';
+import { WHITEBOARD_RECOVERY_SERVICE, WhiteboardRecoveryService } from './application/whiteboard/recovery-service';
+import { CollaborationSnapshotSource, PgWhiteboardRecoveryMetadata } from './infrastructure/whiteboard/pg-recovery-metadata';
 import { SurveyAttachmentRateLimitGuard, SURVEY_ATTACHMENT_RATE_LIMITER, SURVEY_ATTACHMENT_REQUESTS_PER_MINUTE } from "./interface/guards/survey-attachment-rate-limit.guard";
 import { SurveyUploadCapabilityGuard, SurveyAttachmentController } from "./interface/controllers/survey-attachment.controller";
 import { PgSurveyAttachmentRepository } from "./infrastructure/survey/pg-survey-attachment-repository";
@@ -1090,6 +1095,7 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
     InboxController,
     DesignWorkbenchController,
     WhiteboardController,
+    WhiteboardImportController,
     PublicDesignShareController,
     SystemMailController,
     SystemUptimeController,
@@ -2926,13 +2932,23 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
     },
     {
       provide: WHITEBOARD_COLLABORATION_STORE,
-      useFactory: (db: DatabasePort) => new PgWhiteboardCollaborationStore(db),
-      inject: [DATABASE_PORT],
+      useFactory: (db: DatabasePort, objects: ObjectStore) => new PgWhiteboardCollaborationStore(db, new WorkerWhiteboardUpdateValidator(), 120, objects),
+      inject: [DATABASE_PORT, OBJECT_STORE],
     },
     {
       provide: WHITEBOARD_REPOSITORY,
       useFactory: (db: DatabasePort) => new PgWhiteboardRepository(db),
       inject: [DATABASE_PORT],
+    },
+    {
+      provide: WHITEBOARD_IMPORT_SERVICE,
+      useFactory: (boards: PgWhiteboardRepository, collaboration: PgWhiteboardCollaborationStore, db: DatabasePort, objects: ObjectStore) => new WhiteboardImportService(boards,new PgWhiteboardImportRepository(db),collaboration,objects),
+      inject: [WHITEBOARD_REPOSITORY, WHITEBOARD_COLLABORATION_STORE, DATABASE_PORT, OBJECT_STORE],
+    },
+    {
+      provide: WHITEBOARD_RECOVERY_SERVICE,
+      useFactory: (db: DatabasePort, collaboration: PgWhiteboardCollaborationStore, objects: ObjectStore) => new WhiteboardRecoveryService(new PgWhiteboardRecoveryMetadata(db),new CollaborationSnapshotSource(collaboration),objects),
+      inject: [DATABASE_PORT, WHITEBOARD_COLLABORATION_STORE, OBJECT_STORE],
     },
     {
       provide: DESIGN_PROJECT_REPOSITORY,

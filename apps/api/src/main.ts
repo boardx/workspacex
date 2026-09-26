@@ -9,6 +9,7 @@ import "reflect-metadata";
 import { json, type Request, type Response, type NextFunction } from "express";
 import { PayloadTooLargeException } from "@nestjs/common";
 import { operations as skillFileEdit, SKILL_FILE_EDIT_BODY_MAX_BYTES } from "@repo/contracts/skill-file-edit";
+import { WHITEBOARD_IMPORT_LIMITS } from "@repo/contracts/whiteboard-import";
 import { realpathSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { NestFactory } from "@nestjs/core";
@@ -91,6 +92,12 @@ export async function createApp(): Promise<NestExpressApplication> {
       if (typeof error === "object" && error !== null && "type" in error && error.type === "entity.too.large") {
         next(new PayloadTooLargeException()); return;
       }
+      next(error);
+    }));
+  const whiteboardImportParser=json({limit:Math.ceil(WHITEBOARD_IMPORT_LIMITS.uploadBytes*4/3)+16*1024});
+  app.getHttpAdapter().getInstance().post('/whiteboards/:boardId/imports',
+    (req:Request,res:Response,next:NextFunction)=>whiteboardImportParser(req,res,(error?:unknown)=>{
+      if(typeof error==='object'&&error!==null&&'type' in error&&error.type==='entity.too.large'){next(new PayloadTooLargeException({reasonCode:'PAYLOAD_TOO_LARGE'}));return;}
       next(error);
     }));
 
