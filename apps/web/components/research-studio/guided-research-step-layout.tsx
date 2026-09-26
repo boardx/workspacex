@@ -8,7 +8,7 @@ export function GuidedResearchStepLayout({
   onAssistantOpenChange,
   children,
 }: {
-  assistant: React.ReactNode;
+  assistant?: React.ReactNode;
   wideMain?: boolean;
   reading?: boolean;
   assistantOpen?: boolean;
@@ -24,6 +24,7 @@ export function GuidedResearchStepLayout({
       <main className="mx-auto w-full min-w-0 max-w-5xl" data-testid="research-step-main">{children}</main>
     </div>
   </div>;
+  if (!assistant) return <main className="min-w-0" data-testid="research-step-main">{children}</main>;
   return (
     <div
       className={wideMain

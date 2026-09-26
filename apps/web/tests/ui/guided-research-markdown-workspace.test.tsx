@@ -2,7 +2,7 @@ import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { GuidedResearchMarkdownWorkspace } from "@/components/research-studio/guided-research-markdown-workspace";
 
-const document = { node: "brief" as const, title: "研究需求", markdown: "# 研究需求\n\n## 研究主题\n新能源汽车", provenance: { sourceIds: [], citationIds: [] } };
+const document = { node: "brief" as const, title: "研究需求", markdown: "# 研究需求\n\n## 研究主题\n新能源汽车", provenance: { sourceIds: [], citationIds: [] }, draft: { node: "brief" as const, value: { topic: "新能源汽车", goal: "比较市场", timeRange: "2026", region: "中国", focus: "竞争" } } };
 
 describe("GuidedResearchMarkdownWorkspace", () => {
   it("shows a preview first, preserves invalid local text, and reports successful saves", async () => {

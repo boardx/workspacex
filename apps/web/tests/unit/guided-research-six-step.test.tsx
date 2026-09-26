@@ -37,6 +37,8 @@ describe("six-step Deep Research shell", () => {
   it("does not reserve an assistant column when no assistant is supplied", () => {
     render(<GuidedResearchSixStepShell current="import" available={["import"]} onNavigate={vi.fn()} main={<div>主工作区</div>} />);
 
-    expect(screen.getByTestId("guided-research-six-step-shell").firstElementChild).toHaveClass("xl:grid-cols-[11rem_minmax(0,1fr)]");
+    expect(screen.queryByLabelText("研究导航")).not.toBeInTheDocument();
+    expect(screen.queryByText("研究档案")).not.toBeInTheDocument();
+    expect(screen.getByTestId("guided-research-six-step-shell").firstElementChild).not.toHaveClass("xl:grid-cols-[11rem_minmax(0,1fr)_16rem]");
   });
 });

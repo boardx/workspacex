@@ -1,4 +1,7 @@
--- Durable, append-only user-visible Markdown generated at each interview stage.
+-- Retained as an immutable historical migration. The workbench code that
+-- previously consumed this table has been reverted, but deployed databases
+-- may already have applied this version; removing it would make fresh and
+-- upgraded schemas diverge.
 CREATE TABLE IF NOT EXISTS digital_interview_artifact_versions (
   org_id text NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
   artifact_id text NOT NULL,
