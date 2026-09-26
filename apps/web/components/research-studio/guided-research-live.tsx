@@ -325,6 +325,9 @@ export function GuidedResearchLive({ sessionId, onBack, initialNode }: { session
   const reportAssistantMenuAction = <DropdownMenuItem onSelect={() => setReportAssistantOpen((open) => !open)}>{reportAssistantOpen ? "收起助手" : "修改报告"}</DropdownMenuItem>;
   const reportActions = <div className="flex flex-wrap items-center justify-between gap-3"><h1 className="text-24 font-semibold">研究报告{state.completed ? " · 已完成" : ""}</h1>{reportPrimaryAction}{showReportRecoveryActions && <DropdownMenu><DropdownMenuTrigger asChild><Button variant="outline" aria-label="更多操作">更多操作</Button></DropdownMenuTrigger><DropdownMenuContent align="end">{reportAssistantMenuAction}<DropdownMenuSeparator /><DropdownMenuItem disabled={busy} onSelect={() => void run("generate")}>重新生成报告</DropdownMenuItem></DropdownMenuContent></DropdownMenu>}</div>;
   const briefDocument = draft?.node === "brief" ? serializeGuidedResearchMarkdown({ node: "brief", brief: draft.value }) : null;
+  const directionsDocument = draft?.node === "directions" ? serializeGuidedResearchMarkdown({ node: "directions", directions: draft.value }) : null;
+  const outlineDocument = draft?.node === "outline" ? serializeGuidedResearchMarkdown({ node: "outline", outline: draft.value }) : null;
+  const researchDocument = node === "research" ? serializeGuidedResearchMarkdown({ node: "research", brief: state.brief, tasks: state.tasks, sources: displaySources, evidence: state.questionEvidence ?? [] }) : null;
   const visualStage = toGuidedResearchVisualStage(state);
   const navigateVisual = (stage: GuidedResearchVisualStage) => {
     if (stage === "list") return onBack();
@@ -374,11 +377,14 @@ export function GuidedResearchLive({ sessionId, onBack, initialNode }: { session
           return { ok: true };
         }} />}
         {draft?.node === "brief" && <Card className="sr-only" aria-hidden="true"><CardContent>{(["topic", "goal", "timeRange", "region", "focus"] as const).map((field) => <label key={field}>{field}<Textarea disabled={busy} value={draft.value[field]} onChange={(event) => setDraft({ ...draft, value: { ...draft.value, [field]: event.target.value } })} /></label>)}</CardContent></Card>}
+        {directionsDocument && <GuidedResearchMarkdownWorkspace document={directionsDocument} readOnly onSave={async () => ({ ok: false })} provenance="主题由确认界面的结构化配置生成；确认后会保留版本。" />}
         {draft?.node === "directions" && <ResearchDirectionsEditor draft={draft} disabled={busy} onChange={setDraft} />}
+        {outlineDocument && <GuidedResearchMarkdownWorkspace document={outlineDocument} readOnly onSave={async () => ({ ok: false })} provenance="研究计划由确认界面的结构化配置生成；检索范围以已确认版本为准。" />}
         {draft?.node === "outline" && <ResearchOutlineEditor draft={draft} disabled={busy} onChange={setDraft} />}
         {node === "research" && <>
           {!state.intent && <p role="status" className="rounded-md border p-3 text-sm">请返回报告大纲步骤确认研究边界后再开始检索。</p>}
           <GuidedResearchTrustConsole runtime={state} pending={steeringPending} onSteer={(action) => void steer(action)} onResolveConflict={(decision) => void resolveConflict(decision)} />
+          {researchDocument && <GuidedResearchMarkdownWorkspace document={researchDocument} readOnly onSave={async () => ({ ok: false })} provenance={`已锁定 ${researchDocument.provenance.sourceIds.length} 个来源标识；证据与来源变更须通过资料管理操作完成。`} />}
           <div className="flex gap-2">{(!state.tasks.length || state.tasks.some((task) => task.status !== "succeeded") || state.sources.some((source) => source.decision !== "excluded" && !source.addedByUser && !source.presentation)) && <Button variant="primary" disabled={busy} onClick={() => void run("start")}>{state.tasks.length && state.tasks.every((task) => task.status === "succeeded") ? "更新资料" : state.sources.length ? "继续搜索" : "搜索资料"}</Button>}{state.tasks.some((task) => task.status === "failed" || (expired && task.status === "running")) && <Button variant="outline" disabled={busy} onClick={() => void run("retry")}>重试失败任务</Button>}</div>
           <GuidedResearchSources sources={displaySources} disabled={busy || Boolean(proposal)} onAdd={(sourceUrl) => run("add_source", { sourceUrl })} onRemove={(sourceId) => void run("remove_source", { sourceId })} />
           <details className="text-12 text-muted-foreground"><summary className="cursor-pointer">查看搜索详情</summary><div className="mt-3"><GuidedResearchPlanDetails state={state} errors={errors} /></div></details>

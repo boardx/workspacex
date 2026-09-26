@@ -31,6 +31,22 @@ describe("guided research Markdown artefacts", () => {
     expect(result).toMatchObject({ ok: true, draft: { value: { timeRange: "", region: "中国大陆" } } });
   });
 
+  it("renders generated topics and research plans as readable Markdown artefacts", () => {
+    const directions = serializeGuidedResearchMarkdown({
+      node: "directions",
+      directions: [{ id: "market", title: "市场竞争", description: "比较主要参与者", decisionQuestions: ["谁正在扩大份额？"], enabled: true, order: 0 }],
+    });
+    const outline = serializeGuidedResearchMarkdown({
+      node: "outline",
+      outline: [{ id: "market", title: "市场格局", objective: "识别竞争变化", questions: ["份额如何变化？"], enabled: true, order: 0 }],
+    });
+
+    expect(directions.markdown).toContain("# 研究主题");
+    expect(directions.markdown).toContain("### 决策问题");
+    expect(outline.markdown).toContain("# 研究计划");
+    expect(outline.markdown).toContain("### 核心问题");
+  });
+
   it("returns field errors and preserves local Markdown when a required heading is deleted", () => {
     const document = serializeGuidedResearchMarkdown({ node: "brief", brief });
     const markdown = document.markdown.replace("## 研究目标\n判断未来三年的竞争与投资机会\n\n", "");

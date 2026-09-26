@@ -1,11 +1,13 @@
 import type {
   GuidedResearchBrief,
+  GuidedResearchDirection,
+  GuidedResearchOutlineSection,
   GuidedResearchReport,
   GuidedResearchSource,
   GuidedResearchTask,
 } from "./guided-research-api";
 
-type MarkdownNode = "brief" | "research" | "report";
+type MarkdownNode = "brief" | "directions" | "outline" | "research" | "report";
 type Evidence = { questionId: string; sectionId: string; sourceId: string; quote: string; relevance: "direct" | "context" };
 
 export type GuidedResearchMarkdownProvenance = {
@@ -22,6 +24,8 @@ export type GuidedResearchMarkdownDocument = {
 
 export type GuidedResearchMarkdownInput =
   | { node: "brief"; brief: Pick<GuidedResearchBrief, "topic" | "goal" | "timeRange" | "region" | "focus"> }
+  | { node: "directions"; directions: GuidedResearchDirection[] }
+  | { node: "outline"; outline: GuidedResearchOutlineSection[] }
   | { node: "research"; brief: Pick<GuidedResearchBrief, "topic">; tasks: GuidedResearchTask[]; sources: GuidedResearchSource[]; evidence: Evidence[] }
   | { node: "report"; report: GuidedResearchReport };
 
@@ -67,6 +71,34 @@ export function serializeGuidedResearchMarkdown(input: GuidedResearchMarkdownInp
       node: "brief",
       title: "研究需求",
       markdown: `# 研究需求\n\n## 研究主题\n${brief.topic}\n\n## 研究目标\n${brief.goal}\n\n## 时间与地区\n时间范围：${brief.timeRange}\n研究地区：${brief.region}\n\n## 重点关注\n${brief.focus}`,
+      provenance: { sourceIds: [], citationIds: [] },
+    };
+  }
+
+  if (input.node === "directions") {
+    const directions = input.directions
+      .slice()
+      .sort((left, right) => left.order - right.order)
+      .map((item, index) => `## ${index + 1}. ${item.title}${item.enabled ? "" : "（未纳入）"}\n${item.description}${item.decisionQuestions?.length ? `\n\n### 决策问题\n${item.decisionQuestions.map((question) => `- ${question}`).join("\n")}` : ""}${item.hypotheses?.length ? `\n\n### 待验证假设\n${item.hypotheses.map((hypothesis) => `- ${hypothesis}`).join("\n")}` : ""}`)
+      .join("\n\n");
+    return {
+      node: "directions",
+      title: "研究主题",
+      markdown: `# 研究主题\n\n${directions || "暂无已生成的研究主题"}`,
+      provenance: { sourceIds: [], citationIds: [] },
+    };
+  }
+
+  if (input.node === "outline") {
+    const sections = input.outline
+      .slice()
+      .sort((left, right) => left.order - right.order)
+      .map((item, index) => `## ${index + 1}. ${item.title}${item.enabled ? "" : "（未纳入）"}\n${item.objective ? `目标：${item.objective}\n\n` : ""}### 核心问题\n${item.questions.map((question) => `- ${question}`).join("\n")}${item.analysisApproach ? `\n\n### 分析方法\n${item.analysisApproach}` : ""}${item.expectedOutput ? `\n\n### 预期产出\n${item.expectedOutput}` : ""}${item.subsections?.length ? `\n\n### 子章节\n${item.subsections.map((section) => `- ${section.title}：${section.questions.join("；")}`).join("\n")}` : ""}`)
+      .join("\n\n");
+    return {
+      node: "outline",
+      title: "研究计划",
+      markdown: `# 研究计划\n\n${sections || "暂无已生成的研究计划"}`,
       provenance: { sourceIds: [], citationIds: [] },
     };
   }

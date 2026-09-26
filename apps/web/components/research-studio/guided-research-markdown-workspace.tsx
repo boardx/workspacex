@@ -15,12 +15,14 @@ export function GuidedResearchMarkdownWorkspace({
   saving = false,
   parseError,
   provenance,
+  readOnly = false,
 }: {
   document: GuidedResearchMarkdownDocument;
   onSave: (markdown: string) => Promise<{ ok: boolean; message?: string }>;
   saving?: boolean;
   parseError?: string | null;
   provenance?: React.ReactNode;
+  readOnly?: boolean;
 }) {
   const [editing, setEditing] = React.useState(false);
   const [markdown, setMarkdown] = React.useState(document.markdown);
@@ -44,7 +46,7 @@ export function GuidedResearchMarkdownWorkspace({
   return <Card data-testid="guided-research-markdown-workspace">
     <CardHeader className="flex-row items-center justify-between gap-3">
       <CardTitle className="text-16">{document.title}</CardTitle>
-      {!editing && <Button variant="outline" size="sm" onClick={() => { setEditing(true); setSaved(false); }}>编辑 Markdown</Button>}
+      {!readOnly && !editing && <Button variant="outline" size="sm" onClick={() => { setEditing(true); setSaved(false); }}>编辑 Markdown</Button>}
     </CardHeader>
     <CardContent className="space-y-4">
       {saved && <p data-testid="guided-research-markdown-saved" role="status" className="text-12 text-success">Markdown 已保存</p>}
