@@ -27,7 +27,7 @@ function decode(id: string, value: Y.Map<unknown>): WhiteboardObject {
 export function readObjects(doc: Y.Doc): WhiteboardObject[] {
   const alive = [...objectMap(doc)].filter(([id]) => !tombstones(doc).has(id)).map(([id, value]) => decode(id, value));
   const ids = new Set(alive.map(value => value.id));
-  return alive.filter(value => !value.connector || (ids.has(value.connector.from) && ids.has(value.connector.to)))
+  return alive.filter(value => !value.connector || ((!value.connector.from || ids.has(value.connector.from)) && (!value.connector.to || ids.has(value.connector.to))))
     .sort((a, b) => a.orderKey < b.orderKey ? -1 : a.orderKey > b.orderKey ? 1 : (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
 }
 /** Semantic validation is NOT a sandbox for hostile binary Yjs updates. Only host-validated commands are public. */
@@ -49,8 +49,8 @@ export function validateDocument(doc: Y.Doc): void {
       if (!container || tombstones(doc).has(parent) || !['frame', 'group'].includes(container.kind)) throw new Error('INVALID_PARENT');
       parent = container.parentId;
     }
-    if (value.connector && (!all.has(value.connector.from) || !all.has(value.connector.to)
-      || tombstones(doc).has(value.connector.from) || tombstones(doc).has(value.connector.to))) throw new Error('INVALID_CONNECTOR');
+    if (value.connector && ((value.connector.from && (!all.has(value.connector.from) || tombstones(doc).has(value.connector.from)))
+      || (value.connector.to && (!all.has(value.connector.to) || tombstones(doc).has(value.connector.to))))) throw new Error('INVALID_CONNECTOR');
   }
 }
 function apply(doc: Y.Doc, commands: WhiteboardCommand[]): void {
@@ -93,7 +93,8 @@ function apply(doc: Y.Doc, commands: WhiteboardCommand[]): void {
         if (deleted.has(id)) continue;
         const edge = decode(id, value);
         if (!edge.connector || (edge.connector.from !== command.id && edge.connector.to !== command.id)) continue;
-        const from = decode(edge.connector.from, objects.get(edge.connector.from)!), to = decode(edge.connector.to, objects.get(edge.connector.to)!);
+        const from = edge.connector.from ? decode(edge.connector.from, objects.get(edge.connector.from)!) : null;
+        const to = edge.connector.to ? decode(edge.connector.to, objects.get(edge.connector.to)!) : null;
         const point = (target: WhiteboardObject, anchor = 'center') => {
           const { x, y, width, height } = target.geometry;
           if (anchor === 'top') return { x: x + width / 2, y };
@@ -102,7 +103,8 @@ function apply(doc: Y.Doc, commands: WhiteboardCommand[]): void {
           if (anchor === 'left') return { x, y: y + height / 2 };
           return { x: x + width / 2, y: y + height / 2 };
         };
-        const start = point(from, edge.connector.fromAnchor), end = point(to, edge.connector.toAnchor);
+        const start = from ? point(from, edge.connector.fromAnchor) : edge.connector.fromPoint!;
+        const end = to ? point(to, edge.connector.toAnchor) : edge.connector.toPoint!;
         value.set('geometry', { x: Math.min(start.x, end.x), y: Math.min(start.y, end.y), width: Math.max(1, Math.abs(end.x - start.x)), height: Math.max(1, Math.abs(end.y - start.y)), rotation: 0 });
       }
     }
@@ -150,9 +152,9 @@ export function copyObjects(doc: Y.Doc, ids: string[], newId: (oldId: string) =>
   for (const object of chosen) validateContentExtension(object);
   const mapping = new Map(chosen.map(object => [object.id, newId(object.id)]));
   if (new Set(mapping.values()).size !== mapping.size) throw new Error('DUPLICATE_COPY_ID');
-  return chosen.filter(object => !object.connector || (mapping.has(object.connector.from) && mapping.has(object.connector.to)))
+  return chosen.filter(object => !object.connector || ((!object.connector.from || mapping.has(object.connector.from)) && (!object.connector.to || mapping.has(object.connector.to))))
     .map(object => WhiteboardObject.parse({ ...structuredClone(object), id: mapping.get(object.id),
       parentId: object.parentId ? mapping.get(object.parentId) ?? null : null,
-      ...(object.connector ? { connector: { ...structuredClone(object.connector), from: mapping.get(object.connector.from), to: mapping.get(object.connector.to) } } : {}),
+      ...(object.connector ? { connector: { ...structuredClone(object.connector), ...(object.connector.from ? { from: mapping.get(object.connector.from) } : {}), ...(object.connector.to ? { to: mapping.get(object.connector.to) } : {}) } } : {}),
     }));
 }

@@ -110,6 +110,12 @@ it("creates a semantic connector from handles, updates its label/styles, and fol
   fireEvent.change(screen.getByLabelText("连接起点"), { target: { value: "circle" } });
   fireEvent.change(screen.getByLabelText("连接终点"), { target: { value: "diamond" } });
   expect(readObjects(doc).find((object) => object.id === edge.id)?.connector).toMatchObject({ label: "depends on", semanticRelation: "depends_on", type: "curve", lineStyle: "dotted", startStyle: "circle", endStyle: "diamond" });
+  fireEvent.click(within(screen.getByTestId("board-spatial-toolbar")).getByText("锁定"));
+  expect(screen.getByLabelText("连接标签")).toBeDisabled();
+  expect(screen.getByLabelText("连接路径")).toBeDisabled();
+  expect(screen.getByLabelText("连接线型")).toBeDisabled();
+  expect(screen.getByLabelText("连接起点")).toBeDisabled();
+  expect(screen.getByLabelText("连接终点")).toBeDisabled();
   doc.destroy();
 });
 

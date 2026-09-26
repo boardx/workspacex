@@ -131,15 +131,18 @@ export function toBoardFabricObjects(objects: readonly WhiteboardObject[]): Boar
         return panel ? { title: object.text, mode: panel.mode, autoExpand: panel.autoExpand, clipContent: panel.clipContent } : undefined;
       })() : undefined,
       connector: object.kind === "connector" && object.connector ? (() => {
-        const from = byId.get(object.connector!.from), to = byId.get(object.connector!.to);
+        const from = object.connector!.from ? byId.get(object.connector!.from) : undefined;
+        const to = object.connector!.to ? byId.get(object.connector!.to) : undefined;
         const fromAnchor = object.connector!.fromAnchor ?? "right", toAnchor = object.connector!.toAnchor ?? "left";
-        if (!from || !to) return undefined;
+        const start = from ? anchorPoint(from, fromAnchor) : object.connector!.fromPoint;
+        const end = to ? anchorPoint(to, toAnchor) : object.connector!.toPoint;
+        if (!start || !end) return undefined;
         return {
-          from: from.id, to: to.id, fromAnchor, toAnchor,
+          ...(from ? { from: from.id } : {}), ...(to ? { to: to.id } : {}), fromAnchor, toAnchor,
           type: object.connector!.type ?? "straight", startStyle: object.connector!.startStyle ?? "none",
           endStyle: object.connector!.endStyle ?? "arrow", lineStyle: object.connector!.lineStyle ?? "solid",
           label: object.connector!.label ?? object.text, semanticRelation: object.connector!.semanticRelation ?? "",
-          start: anchorPoint(from, fromAnchor), end: anchorPoint(to, toAnchor),
+          start, end,
         };
       })() : undefined,
       parentId: object.parentId ?? undefined,

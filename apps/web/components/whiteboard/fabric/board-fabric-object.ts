@@ -53,8 +53,8 @@ export interface BoardFabricPanelAppearance {
 }
 
 export interface BoardFabricConnectorAppearance {
-  from: string;
-  to: string;
+  from?: string;
+  to?: string;
   fromAnchor: ConnectorAnchor;
   toAnchor: ConnectorAnchor;
   type: ConnectorType;

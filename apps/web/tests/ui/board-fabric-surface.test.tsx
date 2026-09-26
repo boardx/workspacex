@@ -8,6 +8,7 @@ interface MockProjectedObject {
   selectable: boolean; evented: boolean;
   mockKind?: string; children?: MockProjectedObject[]; controls?: Record<string, boolean>;
   fontFamily?: string; fontSize?: number; fontWeight?: number; fontStyle?: string; underline?: boolean; textAlign?: string; lineHeight?: number; fill?: string; hoverCursor?: string; lockScalingX?: boolean; lockScalingY?: boolean;
+  clipPath?: unknown;
 }
 
 const probe = vi.hoisted(() => ({
@@ -82,7 +83,7 @@ vi.stubGlobal("Image", class {
   get src() { return this.value; }
 });
 
-import { BoardFabricSurface } from "@/components/whiteboard/fabric/board-fabric-surface";
+import { BoardFabricSurface, connectorTipAngles } from "@/components/whiteboard/fabric/board-fabric-surface";
 
 const OBJECTS: readonly BoardFabricObject[] = [
   { id: "s-1", kind: "sticky", revision: 1, orderKey: "a", geometry: { x: 40, y: 60, width: 220, height: 180, rotation: 0 }, style: { fill: "#F8D76E", textColor: "#29261E" }, content: { text: "一个观察" } },
@@ -96,6 +97,15 @@ function renderSurface(overrides: Partial<React.ComponentProps<typeof BoardFabri
 
 describe("BoardFabricSurface", () => {
   beforeEach(() => { probe.instances = 0; probe.objects.length = 0; probe.handlers.clear(); probe.activeId = null; probe.zoom = 1; probe.clearCalls = 0; probe.renderCalls = 0; probe.moveCalls = 0; probe.primitiveKinds.length = 0; probe.imageSources.length = 0; probe.imageOptions.length = 0; });
+
+  it("orients connector tips from each final path tangent", () => {
+    expect(connectorTipAngles("straight", -50, -30, 50, 30)).toEqual({ start: expect.any(Number), end: expect.any(Number) });
+    const elbow = connectorTipAngles("elbow", -50, -30, 50, 30);
+    expect(elbow.start % 360).not.toBe(elbow.end % 360);
+    const curve = connectorTipAngles("curve", -50, -30, 50, 30);
+    expect(curve.start % 360).toBe(270);
+    expect(curve.end % 360).toBe(90);
+  });
 
   it("projects canonical-like objects into one Fabric Canvas without DOM object replicas", () => {
     const { container } = renderSurface();
@@ -260,6 +270,26 @@ describe("BoardFabricSurface", () => {
     probe.handlers.get("object:modified")?.({ target: probe.objects[0]! });
     expect(onObjectTransform).not.toHaveBeenCalled();
     expect(probe.objects.every((object) => !object.selectable && !object.evented)).toBe(true);
+  });
+
+  it("commits an ActiveSelection as one batch and restores every member when rejected", () => {
+    const onObjectsTransform = vi.fn((_items: readonly unknown[]) => false);
+    renderSurface({ selectedObjectIds: ["s-1", "r-1"], onObjectsTransform });
+    const [sticky, rectangle] = probe.objects;
+    sticky!.left = 500; rectangle!.left = 700;
+    probe.handlers.get("object:modified")?.({ target: { getObjects: () => [sticky, rectangle] } as unknown as MockProjectedObject });
+    expect(onObjectsTransform).toHaveBeenCalledOnce();
+    expect(onObjectsTransform.mock.calls[0]?.[0]).toHaveLength(2);
+    expect(sticky!.left).toBe(OBJECTS[0]!.geometry.x);
+    expect(rectangle!.left).toBe(OBJECTS[1]!.geometry.x);
+  });
+
+  it("applies an absolute Fabric clipPath only to children of clip-enabled Panels", () => {
+    const panel: BoardFabricObject = { ...OBJECTS[0]!, id: "panel", kind: "panel", panel: { title: "Clip", mode: "freeform", autoExpand: false, clipContent: true } };
+    const child: BoardFabricObject = { ...OBJECTS[1]!, id: "child", parentId: "panel" };
+    renderSurface({ objects: [panel, child] });
+    expect(probe.objects.find((object) => object.data?.boardObjectId === "child")?.clipPath).toBeTruthy();
+    expect(probe.objects.find((object) => object.data?.boardObjectId === "panel")?.clipPath).toBeUndefined();
   });
 
   it("rolls a rejected transform back to canonical geometry without losing selection", () => {

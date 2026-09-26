@@ -81,6 +81,19 @@ describe('semantic panels and hierarchy', () => {
     undo.destroy(); doc.destroy();
   });
 
+  it('renames a Panel with locked children and expands when an existing child crosses its bounds', () => {
+    const doc = seed(note('child', 20, 20)); const port = new SpatialRelationshipCommandPort(doc);
+    dispatch(port, 'panel', { type: 'create-panel', id: 'panel', geometry: geometry(0, 0, 200, 160), text: 'Before', panel });
+    dispatch(port, 'parent', { type: 'reparent', id: 'child', parentId: 'panel' });
+    dispatch(port, 'lock-child', { type: 'set-locked', objectIds: ['child'], locked: true });
+    dispatch(port, 'rename', { type: 'update-panel', id: 'panel', text: 'After', panel });
+    expect(readObjects(doc).find(value => value.id === 'panel')?.text).toBe('After');
+    dispatch(port, 'unlock-child', { type: 'set-locked', objectIds: ['child'], locked: false });
+    dispatch(port, 'move-child', { type: 'transform', items: [{ id: 'child', geometry: geometry(300, 260), parentId: 'panel' }] });
+    expect(readObjects(doc).find(value => value.id === 'panel')?.geometry).toMatchObject({ width: 410, height: 350 });
+    doc.destroy();
+  });
+
   it('deletes panels with explicit preserve or cascade semantics', () => {
     const preserve = seed(note('child')); const preservePort = new SpatialRelationshipCommandPort(preserve);
     dispatch(preservePort, 'p', { type: 'create-panel', id: 'panel', geometry: geometry(), panel });
@@ -136,6 +149,27 @@ describe('groups, copies, layers and locks', () => {
     expect(readObjects(doc).find(value => value.id === 'a')).toMatchObject({ locked: false, geometry: { x: 10, y: 10 } });
     doc.destroy();
   });
+
+  it('assigns a deterministic unique total layer order even when the input contains ties', () => {
+    const doc = seed(note('a', 0, 0, null, 1), note('b', 0, 0, null, 1), note('c', 0, 0, null, 2)); const port = new SpatialRelationshipCommandPort(doc);
+    dispatch(port, 'forward', { type: 'layer', objectIds: ['a'], action: 'bring-forward' });
+    expect(readObjects(doc).map(value => value.zIndex).sort((a, b) => a! - b!)).toEqual([0, 1, 2]);
+    expect(new Set(readObjects(doc).map(value => value.zIndex)).size).toBe(3);
+    dispatch(port, 'front', { type: 'layer', objectIds: ['a', 'b'], action: 'bring-to-front' });
+    expect(new Set(readObjects(doc).map(value => value.zIndex)).size).toBe(3);
+    doc.destroy();
+  });
+
+  it('moves an unlocked selection across an unselected locked sibling without mutating the lock', () => {
+    const doc = seed(note('a', 0, 0, null, 0), note('locked', 0, 0, null, 1), note('c', 0, 0, null, 2)); const port = new SpatialRelationshipCommandPort(doc);
+    dispatch(port, 'lock-sibling', { type: 'set-locked', objectIds: ['locked'], locked: true });
+    dispatch(port, 'front', { type: 'layer', objectIds: ['a'], action: 'bring-to-front' });
+    const values = readObjects(doc);
+    expect(values.find(value => value.id === 'locked')).toMatchObject({ locked: true, zIndex: 1 });
+    expect(values.find(value => value.id === 'a')!.zIndex).toBeGreaterThan(values.find(value => value.id === 'c')!.zIndex!);
+    expect(new Set(values.map(value => value.zIndex)).size).toBe(3);
+    doc.destroy();
+  });
 });
 
 describe('semantic connectors and operation boundaries', () => {
@@ -161,6 +195,37 @@ describe('semantic connectors and operation boundaries', () => {
     dispatch(port, 'unlock', { type: 'set-locked', objectIds: ['edge'], locked: false });
     dispatch(port, 'delete-a-2', { type: 'delete-object', id: 'a' });
     expect(readObjects(doc).map(value => value.id)).toEqual(['b']); doc.destroy();
+  });
+
+  it('preserves a connector as a free endpoint and keeps its attached endpoint live', () => {
+    const doc = seed(note('a'), note('b', 300)); const port = new SpatialRelationshipCommandPort(doc);
+    dispatch(port, 'edge', { type: 'create-connector', id: 'edge', relationship });
+    dispatch(port, 'delete-preserve', { type: 'delete-object', id: 'a', connectors: 'preserve-free' });
+    const preserved = readObjects(doc).find(value => value.id === 'edge')!;
+    expect(preserved.connector).toMatchObject({ fromPoint: { x: 100, y: 40 }, to: 'b' });
+    expect(preserved.connector?.from).toBeUndefined();
+    const before = preserved.geometry;
+    dispatch(port, 'move-b', { type: 'move', id: 'b', x: 500, y: 200 });
+    expect(readObjects(doc).find(value => value.id === 'edge')?.geometry).not.toEqual(before);
+    expect(() => validateDocument(doc)).not.toThrow(); doc.destroy();
+  });
+
+  it('commits multi-object geometry and reparent as one atomic gesture and rejects every item on conflict', () => {
+    const doc = seed(note('a'), note('b', 200)); const undo = new WhiteboardUndo(doc); const port = new SpatialRelationshipCommandPort(doc);
+    dispatch(port, 'panel', { type: 'create-panel', id: 'panel', geometry: geometry(0, 0, 500, 400), panel: { ...panel, autoExpand: false } });
+    const before = readObjects(doc);
+    dispatch(port, 'transform', { type: 'transform', items: [
+      { id: 'a', geometry: geometry(40, 60, 120, 90), parentId: 'panel' },
+      { id: 'b', geometry: { ...geometry(260, 80, 130, 100), rotation: 15 }, parentId: 'panel' },
+    ] });
+    expect(readObjects(doc).filter(value => ['a', 'b'].includes(value.id)).every(value => value.parentId === 'panel')).toBe(true);
+    expect(undo.undo()).toBe('undone');
+    expect(readObjects(doc)).toEqual(before);
+    dispatch(port, 'lock-b', { type: 'set-locked', objectIds: ['b'], locked: true });
+    const lockedBefore = readObjects(doc);
+    expect(() => dispatch(port, 'rejected-transform', { type: 'transform', items: [{ id: 'a', geometry: geometry(99, 99) }, { id: 'b', geometry: geometry(300, 300) }] })).toThrow('OBJECT_LOCKED');
+    expect(readObjects(doc)).toEqual(lockedBefore);
+    undo.destroy(); doc.destroy();
   });
 
   it('is caller-key idempotent, emits one operation boundary, undoes as one unit and detects remote stale state', () => {

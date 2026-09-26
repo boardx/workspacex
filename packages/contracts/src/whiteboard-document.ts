@@ -86,8 +86,10 @@ export const WhiteboardExtensionData = z.record(z.unknown()).superRefine((value,
     ctx.addIssue({ code: z.ZodIssueCode.custom, message: error instanceof Error && error.message.startsWith('UNSAFE_EXTENSION') ? error.message : 'Extension must be bounded plain JSON' });
   }
 });
+const WhiteboardPoint = z.object({ x: z.number().finite().min(-1000000).max(1000000), y: z.number().finite().min(-1000000).max(1000000) }).strict();
 export const WhiteboardConnector = z.object({
-  from: WhiteboardObjectId, to: WhiteboardObjectId,
+  from: WhiteboardObjectId.optional(), to: WhiteboardObjectId.optional(),
+  fromPoint: WhiteboardPoint.optional(), toPoint: WhiteboardPoint.optional(),
   fromAnchor: z.enum(['top', 'right', 'bottom', 'left', 'center']).optional(),
   toAnchor: z.enum(['top', 'right', 'bottom', 'left', 'center']).optional(),
   type: z.enum(['straight', 'elbow', 'curve']).optional(),
@@ -95,7 +97,10 @@ export const WhiteboardConnector = z.object({
   endStyle: z.enum(['none', 'arrow', 'circle', 'diamond']).optional(),
   lineStyle: z.enum(['solid', 'dashed', 'dotted']).optional(),
   label: z.string().max(1000).optional(), semanticRelation: z.string().max(256).optional(),
-}).strict();
+}).strict().superRefine((connector, ctx) => {
+  if (Boolean(connector.from) === Boolean(connector.fromPoint)) ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'Connector from endpoint must be attached or free' });
+  if (Boolean(connector.to) === Boolean(connector.toPoint)) ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'Connector to endpoint must be attached or free' });
+});
 export const WhiteboardObject = z.object({
   id: WhiteboardObjectId, schemaVersion: z.literal(1),
   kind: z.enum(['sticky', 'text', 'rectangle', 'ellipse', 'frame', 'group', 'connector', 'image', 'drawing', 'extension']),
