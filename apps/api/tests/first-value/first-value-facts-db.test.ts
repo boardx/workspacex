@@ -1,3 +1,4 @@
+// @global-scope-fixture table:service_uptime_checks: 平台级表，无 org_id；本文件只写 service='test-queue-depth' 的一行，并在同一用例的 finally 里删除。
 /**
  * E3 —— `first_value_facts` 真 PostgreSQL（app_rw 身份）：
  *   · 先写者胜：同组织同步第二次写入不改 occurred_at；
