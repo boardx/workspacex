@@ -124,13 +124,16 @@ it.each([true, false])('announces redo success only when core returns %s', resul
   if (!result) expect(screen.queryByText('重做已在本地应用，正在等待服务器确认', { exact: true })).toBeNull();
   doc.destroy();
 });
-it('announces undo durability only after a newer authoritative ACK sequence',()=>{
-  vi.spyOn(WhiteboardUndo.prototype,'undo').mockReturnValue('undone');
+it('announces undo durability only after the exact update gesture receipt',()=>{
+  const undo=vi.spyOn(WhiteboardUndo.prototype,'undo').mockReturnValue('undone');
   const doc=createWhiteboardDocument(),view=render(<CollaborativeEditor boardId="board-test" clientId="client-test" doc={doc} readOnly={false} title="白板" status="已同步 · 序列 4" lastAckSequence={4}/>);
   fireEvent.click(screen.getByText('撤销',{exact:true}));
+  const gestureId=undo.mock.calls[0]?.[0];expect(gestureId).toEqual(expect.any(String));
   expect(screen.getByText('撤销已在本地应用，正在等待服务器确认',{exact:true})).toBeVisible();
   view.rerender(<CollaborativeEditor boardId="board-test" clientId="client-test" doc={doc} readOnly={false} title="白板" status="已同步 · 序列 4" lastAckSequence={4}/>);
   expect(screen.queryByText(/撤销已由服务器确认/)).toBeNull();
-  view.rerender(<CollaborativeEditor boardId="board-test" clientId="client-test" doc={doc} readOnly={false} title="白板" status="已同步 · 序列 5" lastAckSequence={5}/>);
-  expect(screen.getByText('撤销已由服务器确认 · 序列 5',{exact:true})).toBeVisible();doc.destroy();
+  view.rerender(<CollaborativeEditor boardId="board-test" clientId="client-test" doc={doc} readOnly={false} title="白板" status="已同步 · 序列 5" lastAckSequence={5} lastAckReceipt={{updateId:crypto.randomUUID(),gestureId:'different-gesture',seq:5}}/>);
+  expect(screen.queryByText(/撤销已由服务器确认/)).toBeNull();
+  view.rerender(<CollaborativeEditor boardId="board-test" clientId="client-test" doc={doc} readOnly={false} title="白板" status="已同步 · 序列 6" lastAckSequence={6} lastAckReceipt={{updateId:crypto.randomUUID(),gestureId:gestureId!,seq:6}}/>);
+  expect(screen.getByText('撤销已由服务器确认 · 序列 6',{exact:true})).toBeVisible();doc.destroy();
 });

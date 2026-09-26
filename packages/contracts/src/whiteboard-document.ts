@@ -67,6 +67,8 @@ export const WhiteboardCommand = z.discriminatedUnion('type', [
   z.object({ type: z.literal('extension'), id: WhiteboardObjectId, extensionData: z.record(z.unknown()).nullable() }).strict(),
   z.object({ type: z.literal('connector'), id: WhiteboardObjectId, connector: WhiteboardConnector }).strict(),
   z.object({ type: z.literal('delete'), id: WhiteboardObjectId }).strict(),
+  /** Restore the same logical object identity from its durable tombstone. */
+  z.object({ type: z.literal('restore'), id: WhiteboardObjectId }).strict(),
 ]);
 export type WhiteboardCommand = z.infer<typeof WhiteboardCommand>;
 export const WhiteboardCommandBatch = z.array(WhiteboardCommand).min(1).max(WHITEBOARD_LIMITS.batch);

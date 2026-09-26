@@ -66,6 +66,11 @@ function apply(doc: Y.Doc, commands: WhiteboardCommand[]): void {
       objects.set(id, item);
       continue;
     }
+    if (command.type === 'restore') {
+      if (!objects.has(command.id) || !deleted.has(command.id)) throw new Error('TOMBSTONE_NOT_FOUND');
+      deleted.delete(command.id);
+      continue;
+    }
     const item = objects.get(command.id);
     if (!item || deleted.has(command.id)) throw new Error('OBJECT_NOT_FOUND');
     const current = decode(command.id, item);

@@ -9,6 +9,8 @@ import { decideWhiteboardAccess } from '../../src/domain/whiteboard/access-decis
 it('uses an explicit private-board ACL decision for every disclosed tenant row',()=>{
   expect(decideWhiteboardAccess({decisionId:'owner-write',role:'owner',action:'write'})).toMatchObject({allowed:true});
   expect(decideWhiteboardAccess({decisionId:'editor-write',role:'editor',action:'write'})).toMatchObject({allowed:true});
+  expect(decideWhiteboardAccess({decisionId:'commenter-comment',role:'commenter',action:'comment'})).toMatchObject({allowed:true});
+  expect(decideWhiteboardAccess({decisionId:'commenter-write',role:'commenter',action:'write'})).toMatchObject({allowed:false});
   expect(decideWhiteboardAccess({decisionId:'viewer-write',role:'viewer',action:'write'})).toMatchObject({allowed:false,reasonCode:'PROJECT_ROLE_INSUFFICIENT'});
   expect(decideWhiteboardAccess({decisionId:'outsider-read',role:null,action:'read'})).toMatchObject({allowed:false,reasonCode:'NO_ORG_MEMBERSHIP'});
 });
@@ -30,8 +32,9 @@ it('binds the authenticated actor, audits once, replays idempotently and keeps v
   const db={withTenant:async(_org:string,work:(s:TenantSession)=>Promise<unknown>)=>work(session)} as unknown as DatabasePort;
   const validator={objectIds:async()=>['note']} as unknown as WhiteboardUpdateValidator;
   const store=new PgWhiteboardCommentStore(db,validator,()=>new Date('2026-09-26T00:00:00.000Z'));
-  const command={type:'create-comment' as const,requestId,threadId,commentId,objectId:'note',body:'trusted',mentions:[{userId:'mentioned'}],expectedRevision:0 as const};
+  const command={type:'create-comment' as const,requestId,threadId,commentId,objectId:'note',worldPosition:null,body:'trusted',mentions:[{userId:'mentioned'}],expectedRevision:0 as const};
   const accepted=await store.dispatch(principal,boardId,command);expect(accepted.threads[0]?.comments[0]?.authorId).toBe('owner');expect(events).toEqual([expect.objectContaining({type:'CommentCreated',actorId:'owner'})]);
   const replay=await store.dispatch(principal,boardId,command);expect(replay.replayed).toBe(true);expect(events).toHaveLength(1);
+  role='commenter';savedRequest=null;const world={...command,requestId:randomUUID(),threadId:randomUUID(),commentId:randomUUID(),objectId:null,worldPosition:{x:42,y:-12}};const commented=await store.dispatch({...principal,userId:'commenter'},boardId,world);expect(commented.threads[0]).toMatchObject({objectId:null,worldPosition:{x:42,y:-12}});
   role='viewer';await expect(store.dispatch({...principal,userId:'viewer'},boardId,{...command,requestId:randomUUID(),threadId:randomUUID(),commentId:randomUUID()})).rejects.toEqual(expect.objectContaining<Partial<WhiteboardCollaborationError>>({code:'FORBIDDEN'}));
 });

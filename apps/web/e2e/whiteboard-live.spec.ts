@@ -37,11 +37,11 @@ async function synced(page:Page){await expect(page.getByTestId('collaborative-ed
 test('independent users collaborate, persist, enforce viewer permissions and clear revoked view',async({browser,request:api,baseURL})=>{
   const ownerContext=await browser.newContext({baseURL}),editorContext=await browser.newContext({baseURL}),viewerContext=await browser.newContext({baseURL});
   const owner=await ownerContext.newPage(),editor=await editorContext.newPage(),viewer=await viewerContext.newPage();
-  let boardId:string|undefined,ownerToken:string|undefined;
+  let boardId:string|undefined,ownerToken:string|undefined,viewerToken:string|undefined;
   try{
     await test.step('authenticate the three independent users',async()=>{
-      const [authenticatedOwnerToken]=await Promise.all([login(owner,'OWNER'),login(editor,'EDITOR'),login(viewer,'VIEWER')]);
-      ownerToken=authenticatedOwnerToken;
+      const [authenticatedOwnerToken,,authenticatedViewerToken]=await Promise.all([login(owner,'OWNER'),login(editor,'EDITOR'),login(viewer,'VIEWER')]);
+      ownerToken=authenticatedOwnerToken;viewerToken=authenticatedViewerToken;
     });
     await test.step('create the board and grant editor/viewer access',async()=>{
       const created=await request(api,ownerToken!,'POST','/whiteboards',{requestId:randomUUID(),name:`Live collaboration ${randomUUID()}`});
@@ -95,6 +95,17 @@ test('independent users collaborate, persist, enforce viewer permissions and cle
       await expect(viewer.getByTestId('board-add-sticky')).toBeDisabled();
       await viewerNote.focus();await viewerNote.press('Enter');await expect(viewer.getByLabel('对象文字',{exact:true})).toBeDisabled();
       await viewer.getByRole('button',{name:'评论'}).click();await viewer.getByLabel('评论内容').fill('viewer cannot publish');await expect(viewer.getByRole('button',{name:'发布评论'})).toBeDisabled();
+    });
+    await test.step('grant independent commenter access and persist a world-position anchored thread',async()=>{
+      await request(api,ownerToken!,'PUT',`/whiteboards/${boardId}/members`,{userId:required('WHITEBOARD_VIEWER_USER_ID'),role:'commenter'});
+      await expect(viewer.getByTestId('denied')).toBeVisible({timeout:30_000});await viewer.reload();await synced(viewer);
+      const note=viewer.getByRole('button',{name:'图形：另一位成员的中文修改',exact:true});await note.focus();await note.press('Enter');
+      await expect(viewer.getByLabel('对象文字',{exact:true})).toBeDisabled();await viewer.getByRole('button',{name:'评论'}).click();await viewer.getByLabel('评论内容').fill('commenter can discuss without editing');await expect(viewer.getByRole('button',{name:'发布评论'})).toBeEnabled();
+      const worldBody={type:'create-comment',requestId:randomUUID(),threadId:randomUUID(),commentId:randomUUID(),objectId:null,worldPosition:{x:640,y:360},body:'world anchored discussion',mentions:[],expectedRevision:0};
+      await request(api,viewerToken!,'POST',`/whiteboards/${boardId}/comments/commands`,worldBody);
+      const comments=await request(api,viewerToken!,'GET',`/whiteboards/${boardId}/comments`);expect((await comments.json() as {items:Array<{objectId:string|null;worldPosition:{x:number;y:number}|null}>}).items).toContainEqual(expect.objectContaining({objectId:null,worldPosition:{x:640,y:360}}));
+      await request(api,ownerToken!,'PUT',`/whiteboards/${boardId}/members`,{userId:required('WHITEBOARD_VIEWER_USER_ID'),role:'viewer'});
+      await expect(viewer.getByTestId('denied')).toBeVisible({timeout:30_000});
     });
     await test.step('clear the editor view after access is revoked',async()=>{
       await request(api,ownerToken!,'DELETE',`/whiteboards/${boardId}/members/${encodeURIComponent(required('WHITEBOARD_EDITOR_USER_ID'))}`);

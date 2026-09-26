@@ -4,9 +4,9 @@ import { apiWebSocketUrl, getStoredSessionToken } from './api-client';
 import { createWhiteboardOutbox, type WhiteboardDurableOutbox } from './whiteboard-outbox';
 export type WhiteboardConnectionState = {
   phase: 'connecting' | 'online' | 'offline' | 'blocked'; pending: number;
-  role: 'owner' | 'editor' | 'viewer'; archived: boolean;
+  role: 'owner' | 'editor' | 'commenter' | 'viewer'; archived: boolean;
   peers: Extract<WhiteboardServerMessage, { type: 'presence' }>['peers']; reason: string | null;
-  retryAttempt: number; duplicateAcks: number; lastAckSequence: number | null;
+  retryAttempt: number; duplicateAcks: number; lastAckSequence: number | null; lastAckReceipt: {updateId:string;gestureId:string;seq:number}|null;
 };
 const REMOTE = Symbol('whiteboard-server');
 export function bytesToBase64(bytes: Uint8Array): string { let out = ''; for (let i = 0; i < bytes.length; i += 8192) out += String.fromCharCode(...bytes.subarray(i, i + 8192)); return btoa(out); }
@@ -30,7 +30,7 @@ export class WhiteboardProvider {
   private readonly acked = new Set<string>();
   private readonly retryableClose = new WeakSet<WebSocket>();
   private pending: Extract<WhiteboardClientMessage, { type: 'update' }>[] = [];
-  private state: WhiteboardConnectionState = { phase: 'connecting', pending: 0, role: 'viewer', archived: false, peers: [], reason: null, retryAttempt: 0, duplicateAcks: 0, lastAckSequence: null };
+  private state: WhiteboardConnectionState = { phase: 'connecting', pending: 0, role: 'viewer', archived: false, peers: [], reason: null, retryAttempt: 0, duplicateAcks: 0, lastAckSequence: null, lastAckReceipt:null };
   constructor(private doc: Y.Doc, private boardId: string, private onState: (state: WhiteboardConnectionState) => void, outbox?: WhiteboardDurableOutbox | null) {
     this.outbox = outbox === undefined ? createWhiteboardOutbox(boardId) : outbox;
     doc.on('update', this.onUpdate);
@@ -64,8 +64,9 @@ export class WhiteboardProvider {
   private publish(patch: Partial<WhiteboardConnectionState>) { this.state = { ...this.state, ...patch, pending: this.pending.length }; this.onState(this.state); }
   private onUpdate = (update: Uint8Array, origin: unknown) => {
     if (origin === REMOTE || this.stopped) return;
-    if (!this.epoch || this.state.role === 'viewer' || this.state.archived) { this.block('WRITE_DENIED'); return; }
-    const message: Extract<WhiteboardClientMessage, { type: 'update' }> = { type: 'update', epoch: this.epoch, updateId: crypto.randomUUID(), update: bytesToBase64(update) };
+    if (!this.epoch || !['owner','editor'].includes(this.state.role) || this.state.archived) { this.block('WRITE_DENIED'); return; }
+    const gestureId=typeof origin==='object'&&origin!==null&&'gestureId' in origin&&typeof origin.gestureId==='string'?origin.gestureId:typeof origin==='object'&&origin!==null&&'receiptGestureId' in origin&&typeof origin.receiptGestureId==='string'?origin.receiptGestureId:crypto.randomUUID();
+    const message: Extract<WhiteboardClientMessage, { type: 'update' }> = { type: 'update', epoch: this.epoch, updateId: crypto.randomUUID(), gestureId, update: bytesToBase64(update) };
     const bytes = this.pending.reduce((sum, item) => sum + item.update.length, 0) + message.update.length;
     if (this.pending.length >= WHITEBOARD_SYNC.pendingUpdates || bytes > WHITEBOARD_SYNC.pendingBytes) { this.block('PENDING_LIMIT'); return; }
     this.pending.push(message); this.publish({});
@@ -93,7 +94,7 @@ export class WhiteboardProvider {
         if (message.type === 'sync') {
           if (this.epoch !== null && this.epoch !== message.epoch) { this.block('STALE_EPOCH'); return; }
           if (this.seq !== null && message.seq < this.seq) { this.block('STALE_SEQUENCE'); return; }
-          if ((message.role === 'viewer' || message.archived) && this.pending.length) { this.block('WRITE_DENIED'); return; }
+          if ((!['owner','editor'].includes(message.role) || message.archived) && this.pending.length) { this.block('WRITE_DENIED'); return; }
           Y.applyUpdate(this.doc, base64ToBytes(message.update), REMOTE); this.epoch = message.epoch; this.seq = message.seq; this.ready = true; this.retry = 0;
           if (this.handshake) clearTimeout(this.handshake);
           this.publish({ phase: 'online', role: message.role, archived: message.archived, reason: null, retryAttempt: 0 });
@@ -106,14 +107,15 @@ export class WhiteboardProvider {
         } else if (message.type === 'ack') {
           if (!this.ready) { this.block('PROTOCOL_ERROR'); return; }
           const index = this.pending.findIndex(item => item.updateId === message.updateId);
-          if (index < 0) {
-            if (this.acked.has(message.updateId)) { this.publish({ duplicateAcks: this.state.duplicateAcks + 1, lastAckSequence: message.seq }); return; }
+          const receiptKey=`${message.updateId}:${message.gestureId}`;
+          if (index < 0 || this.pending[index]?.gestureId!==message.gestureId) {
+            if (this.acked.has(receiptKey)) { this.publish({ duplicateAcks: this.state.duplicateAcks + 1, lastAckSequence: message.seq }); return; }
             this.block('ACK_CONFLICT'); return;
           }
-          this.pending.splice(index, 1); this.acked.add(message.updateId);
+          this.pending.splice(index, 1); this.acked.add(receiptKey);
           if (this.outbox && this.token) void this.outbox.acknowledge(this.token,message.updateId).catch(()=>this.block('OUTBOX_WRITE_FAILED',false));
           while (this.acked.size > WHITEBOARD_SYNC.pendingUpdates) this.acked.delete(this.acked.values().next().value!);
-          this.publish({ lastAckSequence: message.seq });
+          this.publish({ lastAckSequence: message.seq, lastAckReceipt:{updateId:message.updateId,gestureId:message.gestureId,seq:message.seq} });
         } else if (message.type === 'recovery') {
           if (message.disposition === 'access-revoked') { this.block('ACCESS_REVOKED'); return; }
           if (message.disposition === 'board-archived') { this.block('BOARD_ARCHIVED'); return; }

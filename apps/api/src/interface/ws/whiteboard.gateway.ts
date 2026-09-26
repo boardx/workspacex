@@ -78,7 +78,7 @@ export function attachWhiteboardGateway(server: Server, deps: WhiteboardGatewayD
             const ack=await deps.store.append(principal,boardId,{...message,update:decoded(message.update)});
             // ACK is durability only and never advances client document state. Queue
             // it before a potentially large catch-up diff so backpressure stays fail-closed.
-            send(ws,{type:'ack',updateId:ack.updateId,seq:ack.seq});
+            send(ws,{type:'ack',updateId:ack.updateId,gestureId:ack.gestureId,seq:ack.seq});
             if(!ack.replayed) {
               for(const target of group(peer)) {
                 if(target.epoch!==ack.epoch) { fail(target.ws,'STALE_EPOCH'); continue; }

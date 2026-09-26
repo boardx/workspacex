@@ -10,7 +10,7 @@ vi.mock("@/lib/whiteboard-provider", () => ({ WhiteboardProvider: class { constr
 vi.mock("@/components/whiteboard/collaborative-editor", () => ({ CollaborativeEditor: ({ status }: { status: string }) => <div data-testid="editor-status">{status}</div> }));
 
 import { LiveBoard } from "@/components/whiteboard/live-board";
-const online: WhiteboardConnectionState = { phase: "online", pending: 0, role: "owner", archived: false, peers: [], reason: null, retryAttempt: 0, duplicateAcks: 0, lastAckSequence: 12 };
+const online: WhiteboardConnectionState = { phase: "online", pending: 0, role: "owner", archived: false, peers: [], reason: null, retryAttempt: 0, duplicateAcks: 0, lastAckSequence: 12, lastAckReceipt:null };
 
 beforeEach(() => { harness.state = null; harness.retry.mockClear(); harness.close.mockClear(); });
 

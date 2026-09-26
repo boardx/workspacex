@@ -28,7 +28,7 @@ it('fills an external seq gap before broadcasting the later local commit', async
     append: async (_principal, _board, input) => {
       executeCommands(authority, [{ type: 'create', object: object('external-seq-2') }], null); seq = 2;
       Y.applyUpdate(authority, input.update); seq = 3; appended = true;
-      return { epoch: 1, seq, updateId: input.updateId, replayed: false, update: input.update };
+      return { epoch: 1, seq, updateId: input.updateId, gestureId:input.gestureId, replayed: false, update: input.update };
     },
     writeCommands: async () => { throw new Error('unused'); }, writeCommandsInTransaction: async () => { throw new Error('unused'); },
   };
@@ -49,10 +49,10 @@ it('fills an external seq gap before broadcasting the later local commit', async
   await expect.poll(() => messages.find(message => message.type === 'sync')).toBeTruthy();
   const sync = messages.find(message => message.type === 'sync')!; if (sync.type !== 'sync') throw new Error('sync missing');
   Y.applyUpdate(client, Buffer.from(sync.update, 'base64'));
-  const vector = Y.encodeStateVector(client), updateId = randomUUID();
+  const vector = Y.encodeStateVector(client), updateId = randomUUID(),gestureId=randomUUID();
   executeCommands(client, [{ type: 'create', object: object('local-seq-3') }], null);
-  ws.send(JSON.stringify({ type: 'update', epoch: 1, updateId, update: Buffer.from(Y.encodeStateAsUpdate(client, vector)).toString('base64') }));
-  await expect.poll(() => messages.find(message => message.type === 'ack' && message.updateId === updateId)).toBeTruthy();
+  ws.send(JSON.stringify({ type: 'update', epoch: 1, updateId, gestureId, update: Buffer.from(Y.encodeStateAsUpdate(client, vector)).toString('base64') }));
+  await expect.poll(() => messages.find(message => message.type === 'ack' && message.updateId === updateId && message.gestureId===gestureId)).toBeTruthy();
   const delivered = messages.find(message => message.type === 'update' && message.seq === 3); if (!delivered || delivered.type !== 'update') throw new Error('seq 3 missing');
   Y.applyUpdate(client, Buffer.from(delivered.update, 'base64'));
   expect(gapLoads).toBe(1);

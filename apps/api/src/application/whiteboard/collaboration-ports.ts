@@ -13,10 +13,10 @@ export class WhiteboardCollaborationError extends Error {
 }
 export interface WhiteboardSyncState { epoch: number; seq: number; update: Uint8Array; role: C.Board['role']; archived: boolean; }
 export type WhiteboardSyncHead = Omit<WhiteboardSyncState, 'update'>;
-export interface WhiteboardUpdateAck { epoch: number; seq: number; updateId: string; replayed: boolean; update: Uint8Array; }
+export interface WhiteboardUpdateAck { epoch: number; seq: number; updateId: string; gestureId: string; replayed: boolean; update: Uint8Array; }
 /** Never broadcast or acknowledge before the owning outer transaction commits. */
 export interface WhiteboardPendingUpdate extends WhiteboardUpdateAck { durability: 'pending'; }
-export interface WhiteboardUpdateInput { epoch: number; updateId: string; update: Uint8Array; }
+export interface WhiteboardUpdateInput { epoch: number; updateId: string; gestureId: string; update: Uint8Array; }
 export interface WhiteboardCommandsInput { epoch: number; requestId: string; commands: WhiteboardCommand[]; }
 export interface WhiteboardCollaborationStore {
   head(principal: Principal, boardId: string): Promise<WhiteboardSyncHead>;

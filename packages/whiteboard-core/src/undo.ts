@@ -14,13 +14,14 @@ function copyDeleteSet(source: StackItem['deletions']): StackItem['deletions'] {
  * Conservative collaboration safety: creation undo is always explicit deletion.
  * A peer's edit may be in flight. Every undo/redo is preflighted against the current
  * document, because restoring a locally valid parent can conflict with remote work.
- * Deletion tombstones are outside the UndoManager scope and never removed by undo.
+ * Deletion tombstones are tracked so undo restores the original object id and all
+ * reference identity. Creation remains protected from implicit deletion.
  */
 export class WhiteboardUndo {
   private readonly manager: Y.UndoManager;
   private creating = false;
   constructor(private readonly doc: Y.Doc, readonly origin: object = {}) {
-    this.manager = new Y.UndoManager(objectMap(doc), { trackedOrigins: new Set([origin, WhiteboardCommandOrigin]), captureTimeout: 0 });
+    this.manager = new Y.UndoManager([objectMap(doc), doc.getMap('deletedObjects')], { trackedOrigins: new Set([origin, WhiteboardCommandOrigin]), captureTimeout: 0 });
     this.manager.on('stack-item-added', ({ stackItem, type }) => {
       if (type === 'undo' && this.creating) stackItem.meta.set(CREATION, true);
     });
@@ -48,7 +49,7 @@ export class WhiteboardUndo {
           counterpart.redone = Y.createID(struct.redone.client, struct.redone.clock);
         }
       });
-      trial = new Y.UndoManager(objectMap(candidate), { trackedOrigins: new Set(), captureTimeout: 0 });
+      trial = new Y.UndoManager([objectMap(candidate),candidate.getMap('deletedObjects')], { trackedOrigins: new Set(), captureTimeout: 0 });
       const copy = { insertions: copyDeleteSet(item.insertions), deletions: copyDeleteSet(item.deletions), meta: new Map(item.meta) };
       trial[direction === 'undo' ? 'undoStack' : 'redoStack'] = [copy];
       const result = direction === 'undo' ? trial.undo() : trial.redo();
@@ -58,27 +59,29 @@ export class WhiteboardUndo {
     } catch { return false; }
     finally { trial?.destroy(); candidate.destroy(); }
   }
-  private applyOne(direction: 'undo' | 'redo'): void {
+  private applyOne(direction: 'undo' | 'redo', receiptGestureId?: string): void {
     // Yjs normally skips no-op entries. Never let it silently cross a protected
     // creation or a separately validated history entry in the same operation.
     const key = direction === 'undo' ? 'undoStack' : 'redoStack';
     const stack = this.manager[key], item = stack.at(-1)!;
     this.manager[key] = [item];
+    const receiptOrigin=this.manager as Y.UndoManager&{receiptGestureId?:string};
+    if(receiptGestureId)receiptOrigin.receiptGestureId=receiptGestureId;
     try { if (direction === 'undo') this.manager.undo(); else this.manager.redo(); }
-    finally { this.manager[key] = [...stack.slice(0, -1), ...this.manager[key]]; }
+    finally { delete receiptOrigin.receiptGestureId; this.manager[key] = [...stack.slice(0, -1), ...this.manager[key]]; }
   }
-  undo(): 'undone' | 'empty' | 'creation-requires-explicit-delete' | 'conflict' {
+  undo(receiptGestureId?: string): 'undone' | 'empty' | 'creation-requires-explicit-delete' | 'conflict' {
     const item = this.manager.undoStack.at(-1);
     if (!item) return 'empty';
     if (item.meta.get(CREATION)) return 'creation-requires-explicit-delete';
     if (!this.canApply(item, 'undo')) return 'conflict';
-    this.applyOne('undo');
+    this.applyOne('undo',receiptGestureId);
     return 'undone';
   }
-  redo(): boolean {
+  redo(receiptGestureId?: string): boolean {
     const item = this.manager.redoStack.at(-1);
     if (!item || !this.canApply(item, 'redo')) return false;
-    this.applyOne('redo'); return true;
+    this.applyOne('redo',receiptGestureId); return true;
   }
   destroy(): void { this.manager.destroy(); }
 }

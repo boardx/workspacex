@@ -9,10 +9,10 @@ it('separates bounded inbound updates and state vectors from whole-document sync
   expect(WhiteboardServerMessage.safeParse({ type: 'sync', epoch: 1, seq: 0, update: 'A'.repeat(encodedLength), role: 'owner', archived: false }).success).toBe(true);
   const beyondInbound = 'A'.repeat(WHITEBOARD_SYNC.inboundUpdateBase64Characters + 4), updateId = crypto.randomUUID();
   expect(WhiteboardServerMessage.safeParse({ type: 'sync', epoch: 1, seq: 0, update: beyondInbound, role: 'owner', archived: false }).success).toBe(true);
-  expect(WhiteboardClientMessage.safeParse({ type: 'update', epoch: 1, updateId, update: 'A'.repeat(WHITEBOARD_SYNC.inboundUpdateBase64Characters) }).success).toBe(true);
-  expect(WhiteboardClientMessage.safeParse({ type: 'update', epoch: 1, updateId, update: beyondInbound }).success).toBe(false);
+  expect(WhiteboardClientMessage.safeParse({ type: 'update', epoch: 1, updateId, gestureId:updateId, update: 'A'.repeat(WHITEBOARD_SYNC.inboundUpdateBase64Characters) }).success).toBe(true);
+  expect(WhiteboardClientMessage.safeParse({ type: 'update', epoch: 1, updateId, gestureId:updateId, update: beyondInbound }).success).toBe(false);
   expect(WhiteboardClientMessage.safeParse({ type: 'hello', stateVector: 'A'.repeat(WHITEBOARD_SYNC.stateVectorBase64Characters + 4) }).success).toBe(false);
-  const inboundFrame = JSON.stringify({ type: 'update', epoch: Number.MAX_SAFE_INTEGER, updateId, update: 'A'.repeat(WHITEBOARD_SYNC.inboundUpdateBase64Characters) });
+  const inboundFrame = JSON.stringify({ type: 'update', epoch: Number.MAX_SAFE_INTEGER, updateId, gestureId:updateId, update: 'A'.repeat(WHITEBOARD_SYNC.inboundUpdateBase64Characters) });
   expect(Buffer.byteLength(inboundFrame)).toBeLessThanOrEqual(WHITEBOARD_SYNC.inboundFrameBytes);
   expect(WHITEBOARD_SYNC.inboundFrameBytes).toBeLessThan(WHITEBOARD_SYNC.outboundDocumentFrameBytes);
 });

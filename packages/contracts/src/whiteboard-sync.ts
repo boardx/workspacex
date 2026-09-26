@@ -48,7 +48,7 @@ const ActorId=z.string().min(1).max(200);
 export const WhiteboardViewportPresence=z.object({centerX:z.number().finite().min(-1000000).max(1000000),centerY:z.number().finite().min(-1000000).max(1000000),zoom:z.number().finite().min(.05).max(8),revision:z.number().int().nonnegative().max(Number.MAX_SAFE_INTEGER)}).strict();
 export const WhiteboardClientMessage = z.discriminatedUnion('type', [
   z.object({ type: z.literal('hello'), stateVector: stateVectorBase64, resume: z.object({ epoch, seq }).strict().optional() }).strict(),
-  z.object({ type: z.literal('update'), epoch, updateId: z.string().uuid(), update: updateBase64 }).strict(),
+  z.object({ type: z.literal('update'), epoch, updateId: z.string().uuid(), gestureId: z.string().min(1).max(256), update: updateBase64 }).strict(),
   z.object({ type: z.literal('awareness'), cursor, selected, editingObjectId: editingObjectId.optional(),viewport:WhiteboardViewportPresence.nullable().optional(),presenting:z.boolean().optional(),followingActorId:ActorId.nullable().optional() }).strict(),
 ]);
 export type WhiteboardClientMessage = z.infer<typeof WhiteboardClientMessage>;
@@ -59,7 +59,7 @@ export const WhiteboardPresence = z.object({
 }).strict();
 export const WhiteboardServerMessage = z.discriminatedUnion('type', [
   z.object({ type: z.literal('sync'), epoch, seq, update: documentBase64, role: BoardRole, archived: z.boolean() }).strict(),
-  z.object({ type: z.literal('ack'), updateId: z.string().uuid(), seq }).strict(),
+  z.object({ type: z.literal('ack'), updateId: z.string().uuid(), gestureId: z.string().min(1).max(256), seq }).strict(),
   z.object({ type: z.literal('update'), epoch, seq, update: documentBase64 }).strict(),
   z.object({ type: z.literal('presence'), peers: z.array(WhiteboardPresence).max(500) }).strict(),
   z.object({ type: z.literal('recovery'), code: WhiteboardRecoveryCode, disposition: WhiteboardResumeDisposition, epoch: epoch.optional(), seq: seq.optional() }).strict(),

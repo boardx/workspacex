@@ -35,7 +35,7 @@ it('handshakes before writes, only ACK clears pending, and reconnect replays sam
   const second = Socket.sockets[1]!; second.onopen?.(); expect(second.sent).toHaveLength(1);
   second.message({ type: 'sync', epoch: 1, seq: 0, update: bytesToBase64(Y.encodeStateAsUpdate(server)), role: 'owner', archived: false });
   expect(JSON.parse(second.sent[1]!)).toEqual(pending);
-  second.message({ type: 'ack', updateId: pending.updateId, seq: 1 }); expect(state?.pending).toBe(0);
+  second.message({ type: 'ack', updateId: pending.updateId, gestureId:pending.gestureId, seq: 1 }); expect(state?.pending).toBe(0);
   provider.close(); doc.destroy(); server.destroy();
 });
 it('permission rejection stops retry and clears visible document', () => {
@@ -60,11 +60,19 @@ it('reports duplicate ACKs, blocks unknown ACK conflicts, and never removes anot
   const provider=new WhiteboardProvider(doc,'board-1',value=>{state=value;}),socket=Socket.sockets[0]!;
   socket.message({type:'sync',epoch:1,seq:0,update:bytesToBase64(Y.encodeStateAsUpdate(server)),role:'editor',archived:false});
   executeCommands(doc,[{type:'create',object:{id:'local',kind:'sticky',schemaVersion:1,geometry:{x:0,y:0,width:1,height:1,rotation:0},text:'x',style:{},parentId:null,orderKey:''}}],'local');
-  const updateId=JSON.parse(socket.sent[0]!).updateId;
-  socket.message({type:'ack',updateId,seq:1}); expect(state.pending).toBe(0);
-  socket.message({type:'ack',updateId,seq:1}); expect(state.duplicateAcks).toBe(1);
-  socket.message({type:'ack',updateId:crypto.randomUUID(),seq:2}); expect(state).toMatchObject({phase:'blocked',reason:'ACK_CONFLICT'});
+  const pending=JSON.parse(socket.sent[0]!),updateId=pending.updateId;
+  socket.message({type:'ack',updateId,gestureId:pending.gestureId,seq:1}); expect(state.pending).toBe(0);
+  socket.message({type:'ack',updateId,gestureId:pending.gestureId,seq:1}); expect(state.duplicateAcks).toBe(1);
+  socket.message({type:'ack',updateId:crypto.randomUUID(),gestureId:crypto.randomUUID(),seq:2}); expect(state).toMatchObject({phase:'blocked',reason:'ACK_CONFLICT'});
   provider.close();doc.destroy();server.destroy();
+});
+it('rejects an ACK that reuses the update id for a different gesture receipt',()=>{
+  const doc=createWhiteboardDocument(),server=createWhiteboardDocument();let state!:WhiteboardConnectionState;
+  const provider=new WhiteboardProvider(doc,'board-1',value=>{state=value;}),socket=Socket.sockets[0]!;
+  socket.message({type:'sync',epoch:1,seq:0,update:bytesToBase64(Y.encodeStateAsUpdate(server)),role:'editor',archived:false});
+  executeCommands(doc,[{type:'create',object:{id:'receipt',kind:'sticky',schemaVersion:1,geometry:{x:0,y:0,width:1,height:1,rotation:0},text:'x',style:{},parentId:null,orderKey:''}}],{gestureId:'gesture-a'});
+  const pending=JSON.parse(socket.sent[0]!);socket.message({type:'ack',updateId:pending.updateId,gestureId:'gesture-b',seq:1});
+  expect(state).toMatchObject({phase:'blocked',reason:'ACK_CONFLICT'});provider.close();doc.destroy();server.destroy();
 });
 
 it('refreshes changed authentication, resumes the known head, and exposes bounded retry state', () => {
@@ -116,7 +124,7 @@ it('does not let an ACK skip document sequences that still need to arrive', () =
   executeCommands(server,[{type:'create',object:{id:'seq-1',kind:'sticky',schemaVersion:1,geometry:{x:0,y:0,width:1,height:1,rotation:0},text:'one',style:{},parentId:null,orderKey:''}}],{});
   socket.message({type:'sync',epoch:1,seq:1,update:bytesToBase64(Y.encodeStateAsUpdate(server)),role:'editor',archived:false});
   executeCommands(doc,[{type:'create',object:{id:'local-seq-3',kind:'sticky',schemaVersion:1,geometry:{x:2,y:0,width:1,height:1,rotation:0},text:'local',style:{},parentId:null,orderKey:''}}],{});
-  const pending=JSON.parse(socket.sent[0]!); socket.message({type:'ack',updateId:pending.updateId,seq:3});
+  const pending=JSON.parse(socket.sent[0]!); socket.message({type:'ack',updateId:pending.updateId,gestureId:pending.gestureId,seq:3});
   executeCommands(server,[{type:'create',object:{id:'external-seq-2',kind:'sticky',schemaVersion:1,geometry:{x:1,y:0,width:1,height:1,rotation:0},text:'external',style:{},parentId:null,orderKey:''}}],{});
   socket.message({type:'update',epoch:1,seq:3,update:bytesToBase64(Y.encodeStateAsUpdate(server,Y.encodeStateVector(doc)))});
   expect(readObjects(doc).map(object=>object.id).sort()).toEqual(['external-seq-2','local-seq-3','seq-1']);
@@ -130,7 +138,7 @@ it('restores encrypted-durable outbox semantics across provider recreation and r
   const update=JSON.parse(first.sent[0]!);expect(outbox.updates.get('test-session')).toHaveLength(1);firstProvider.close();firstDoc.destroy();
   const restoredDoc=createWhiteboardDocument(),secondProvider=new WhiteboardProvider(restoredDoc,'board-1',()=>{},outbox);await vi.advanceTimersByTimeAsync(0);const second=Socket.sockets[1]!;
   expect(readObjects(restoredDoc).map(item=>item.id)).toEqual(['durable']);second.message({type:'sync',epoch:1,seq:0,update:bytesToBase64(Y.encodeStateAsUpdate(server)),role:'editor',archived:false});expect(JSON.parse(second.sent[0]!).updateId).toBe(update.updateId);
-  second.message({type:'ack',updateId:update.updateId,seq:1});await vi.advanceTimersByTimeAsync(0);expect(outbox.updates.get('test-session')).toEqual([]);secondProvider.close();restoredDoc.destroy();server.destroy();
+  second.message({type:'ack',updateId:update.updateId,gestureId:update.gestureId,seq:1});await vi.advanceTimersByTimeAsync(0);expect(outbox.updates.get('test-session')).toEqual([]);secondProvider.close();restoredDoc.destroy();server.destroy();
 });
 it('persists an authentication tombstone and refuses stale document restore after revocation',async()=>{
   const outbox=new DurableMemoryOutbox(),doc=createWhiteboardDocument();let state!:WhiteboardConnectionState;
