@@ -43,6 +43,8 @@ const L0_READ_ONLY_TOOLS: ReadonlySet<string> = new Set([
   "wx_audio_transcribe",    // 转写一个已存在的附件，读入产出文本，不改附件。
   "task",                   // deepagents 同步子代理委派：它本身无副作用，子代理调的每一件工具
                             // 仍逐个过同一张 `interrupt_on` 表——在这里拦它等于把内层的分级重复计一次。
+  "wx_cite",                // #4227：只把经 `wx_knowledge_read` 同路径重读校验过的引用记到本 run 的账本
+                            // （`agent_runs.cited_sources`），不写消息、不写任何外部系统（standard-cite.ts）。
 ]);
 
 /** L1：有版本历史、可回滚的副作用。本仓当前的执行内核尚未注册这两个工具，但分级

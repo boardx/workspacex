@@ -1,4 +1,5 @@
 import type { NewAssistantCitation } from "../chat/persist-assistant-citations";
+import type { RunCitation } from "./standard-cite";
 import type { RestorableInterrupt } from "@repo/contracts/agent-interrupts";
 import { designWorkbench } from "@repo/contracts";
 import type { ExecutionEvent, ExecutionEventInput } from "@repo/contracts/execution-journal";
@@ -399,12 +400,15 @@ export interface PendingWriteback {
   readonly files?: readonly RunOutputFile[];
   /**
    * E3 —— 这条回答携带的结构化引用。**可选**：缺省/空 ⇒ 不写 `chat_citations`。
-   * ⚠ 目前模型输出还没有结构化引用的产出方，此字段是写入侧的接线点。
+   * #4227：产出方是 `wx_cite` 工具（`standard-cite.ts`），它把校验通过的条目记在
+   * `agent_runs.cited_sources`，`claimWritebackPending` 经 `numberRunCitations` 编号 1..n。
    */
   readonly citations?: readonly NewAssistantCitation[];
 }
 
 export interface AgentRunStore {
+  /** #4227 —— `wx_cite` 的 run 引用账本，语义见 `standard-cite.ts` 的 `RunCitationLedger`。 */
+  appendRunCitations?(orgId: OrgId, runId: string, items: readonly RunCitation[]): Promise<readonly string[] | null>;
   /** Explicit rejection ends a waiting run without executing or reporting failure. */
   rejectAwaitingPermission?(orgId: OrgId, runId: string): Promise<boolean>;
   requestCancellation?(orgId: OrgId, runId: string): Promise<"cancel_requested" | "cancelled" | null>;
