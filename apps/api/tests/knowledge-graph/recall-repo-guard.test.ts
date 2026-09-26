@@ -65,13 +65,15 @@ describe("F08 会话记忆召回读取的豁免前提", () => {
     expect(code).toMatch(/async candidates\(orgId: OrgId, userId: string, threadId: string\) \{\s*return this\.db\.withTenant\(orgId, async \(s\) => \{\s*await s\.query\("SELECT set_config\('app\.current_user_id', \$1, true\)", \[userId\]\);/);
   });
 
-  it("(c4) L1 与本人其他个人对话只进发起人自己的个人线程：先判这一次（只取 1、无项目且本人创建），四路个人查询都挂在它后面", () => {
+  it("(c4) 本人其他个人对话（F15）只进发起人自己的个人线程；L1 进本人的个人线程与项目会话（issue #4284），别人的个人线程两样都不进", () => {
     // 判定 1 次 + 其他个人对话的结论 / 实体各 JOIN 一次 + 「改过的说了算」子查询 JOIN 一次
     expect(code.match(/\bchat_threads\b/g)).toHaveLength(4);
-    expect(code).toMatch(/`SELECT 1 FROM chat_threads t WHERE t\.org_id = \$1 AND t\.id = \$2 AND t\.project_id IS NULL AND t\.created_by = \$3`,\s*\[orgId, threadId, userId\]/);
-    expect(code).toMatch(/const inPersonalThread = own\.rows\.length === 1;/);
-    expect(code).toMatch(/const personal = !inPersonalThread \? \{ rows: \[\] as Row\[\] \} : await s\.query/);
-    expect(code).toMatch(/const personalObjects = !inPersonalThread \? \{ rows: \[\] as \{ id: string; name: string; aliases: string\[\] \}\[\] \} : await s\.query/);
+    // 判定只取两个布尔（无项目？本人创建？），不取会话的内容列
+    expect(code).toMatch(/`SELECT t\.project_id IS NULL AS personal, t\.created_by = \$3 AS mine FROM chat_threads t WHERE t\.org_id = \$1 AND t\.id = \$2`,\s*\[orgId, threadId, userId\]/);
+    expect(code).toMatch(/const inPersonalThread = here\?\.personal === true && here\.mine === true;/);
+    expect(code).toMatch(/const withL1 = here\?\.personal === false \|\| inPersonalThread;/);
+    expect(code).toMatch(/const personal = !withL1 \? \{ rows: \[\] as Row\[\] \} : await s\.query/);
+    expect(code).toMatch(/const personalObjects = !withL1 \? \{ rows: \[\] as \{ id: string; name: string; aliases: string\[\] \}\[\] \} : await s\.query/);
     expect(code).toMatch(/const ownOther = !inPersonalThread \? \{ rows: \[\] as \(Row & \{ thread_id: string; basis: string \}\)\[\] \} : await s\.query/);
     expect(code).toMatch(/const ownOtherObjects = !inPersonalThread \? \{ rows: \[\] as \{ id: string; name: string; aliases: string\[\] \}\[\] \} : await s\.query/);
   });

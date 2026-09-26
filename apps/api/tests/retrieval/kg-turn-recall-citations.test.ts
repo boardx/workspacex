@@ -4,8 +4,8 @@
  * 执行器召回后记下这一轮用到了哪些记忆；getTurnMemory 按查看者重新读出来：
  *   - 个人空间的那条标 scope=personal、带最早说出来的日期（界面：「来自你 {日期} 的对话」）；
  *   - 经图路找到的带可读的关系路径（「客户 A —关于→ …」）；
- *   - 共享（项目）会话里不召回个人记忆（F12 R5），所以引用里也只有会话记忆；读接口另按查看者复核：
- *     即便记录里混进了个人空间的 id，别的成员也看不到；
+ *   - 共享（项目）会话里提问人自己的个人记忆也召回（issue #4284），但读接口按查看者复核：个人空间的条目
+ *     只给这一轮的提问人看，别的成员只看到会话记忆——即便记录里再混进个人空间的 id 也一样；
  *   - 记忆之后被忘掉 ⇒ 不再出现在引用里；图路不可用 ⇒ recallDegraded；
  *   - 记录写失败 ⇒ 回答照常带记忆（不拖累对话）。
  */
@@ -63,12 +63,15 @@ describe("F13: 回答下方的记忆引用", () => {
     expect(m!.graphPath).toEqual([{ from: "客户 A", relation: "about", to: DEMAND }]);
   });
 
-  it("共享会话：不召回个人记忆，提问人和成员都只看到会话记忆；记录里即便混进个人 id，成员也看不到", async () => {
+  it("共享会话：提问人自己的个人记忆也召回（issue #4284），但只有提问人看得到；成员只看到会话记忆；记录里再混进个人 id，成员也看不到", async () => {
     const { answerId } = await turn(fx.S, "run-f13-s");
     const owner = await read(fx.S, answerId, "u-owner");
-    expect(owner.recalled.map((r) => r.scope)).toEqual(["chat_session"]);
+    expect(owner.recalled.map((r) => r.scope).sort()).toEqual(["chat_session", "personal"]);
+    expect(owner.recalled.find((r) => r.scope === "personal")?.claimId).toBe(fx.personalClaimId);
     const member = await read(fx.S, answerId, "u-member");
     expect(member.recalled.map((r) => r.statement)).toEqual(["客户 A 的合同在法务那里"]);
+    expect(JSON.stringify(member)).not.toContain(fx.personalClaimId);
+    expect(JSON.stringify(member)).not.toContain(DEMAND);
     // 读侧的第二道：往这条记录里硬塞提问人的个人结论，成员读到的仍只有会话记忆
     await asOwner((c) => c.query(
       `UPDATE kg_turn_recalls SET items = items || jsonb_build_array(jsonb_build_object(
@@ -89,7 +92,8 @@ describe("F13: 回答下方的记忆引用", () => {
     await asOwner((c) => c.query("UPDATE claims SET statement = 'SECRET-OTHER-THREAD' WHERE id = $1", [other!.id]));
     await asOwner((c) => c.query("UPDATE ontology_objects SET name = 'SECRET-OBJ' WHERE id = $1", [otherObj!.id]));
     const items = (await sqlRows<{ items: { claimId: string }[] }>("SELECT items FROM kg_turn_recalls WHERE run_id = 'run-f13-s'"))[0]!.items;
-    const own = items[0]!;
+    // 本会话那一条（issue #4284 起这一轮还召回了提问人自己的个人记忆，那条只给提问人看，不拿来当两人共同的对照）
+    const own = items.find((i) => i.claimId !== fx.personalClaimId)!;
     const forged = [
       { ...own, graphPath: [{ src: `object:${otherObj!.id}`, relation: "about", dst: `claim:${own.claimId}` }] },
       { claimId: other!.id, channels: ["fts"], retrievalReasons: ["fts"], score: 0.02, graphPath: [{ src: `object:${otherObj!.id}`, relation: "about", dst: `claim:${other!.id}` }] },
