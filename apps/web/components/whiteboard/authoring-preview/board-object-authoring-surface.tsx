@@ -28,6 +28,26 @@ export interface AuthoringSurfaceObject {
   readonly link?: { readonly href: string; readonly state: "ready" | "blocked" };
 }
 
+export const CONTINUOUS_CAPTURE_BOUNDS = Object.freeze({ left: 64, top: 120, right: 960, bottom: 560 });
+
+export function getAuthoringMobileBounds(viewportWidth: number) {
+  const inset = 16;
+  const pickerWidth = 160;
+  const headerGap = 8;
+  const compactTitleWidth = 56;
+  return {
+    editor: { left: inset, right: viewportWidth - inset, width: viewportWidth - inset * 2 },
+    header: {
+      titleLeft: 8,
+      titleRight: 8 + compactTitleWidth,
+      pickerLeft: viewportWidth - 8 - pickerWidth,
+      pickerRight: viewportWidth - 8,
+      gap: viewportWidth - 8 - pickerWidth - (8 + compactTitleWidth),
+      requiredGap: headerGap,
+    },
+  };
+}
+
 type TaggedGroup = Group & { data?: { boardObjectId: string; canonical: "mock-command-adapter" } };
 
 const BASE: readonly AuthoringSurfaceObject[] = [
@@ -39,16 +59,20 @@ const BASE: readonly AuthoringSurfaceObject[] = [
 
 export function getAuthoringSceneObjects(scene: AuthoringScene): readonly AuthoringSurfaceObject[] {
   if (scene === "continuous") {
-    return Array.from({ length: 11 }, (_, index) => ({
-      id: `sticky-series-${index + 1}`,
-      text: index === 0 ? "先写观察" : `想法 ${index + 1}`,
-      x: 64 + index * 104,
-      y: 230,
-      width: 80,
-      height: 80,
-      fill: index % 3 === 0 ? "hsl(48 88% 72%)" : index % 3 === 1 ? "hsl(203 78% 82%)" : "hsl(264 58% 84%)",
-      resizeMode: "normal" as const,
-    }));
+    return Array.from({ length: 11 }, (_, index) => {
+      const topRow = index < 6;
+      const reverseIndex = index - 6;
+      return {
+        id: `sticky-series-${index + 1}`,
+        text: index === 0 ? "先写观察" : `想法 ${index + 1}`,
+        x: topRow ? 120 + index * 104 : 640 - reverseIndex * 104,
+        y: topRow ? 180 : 284,
+        width: 80,
+        height: 80,
+        fill: index % 3 === 0 ? "hsl(48 88% 72%)" : index % 3 === 1 ? "hsl(203 78% 82%)" : "hsl(264 58% 84%)",
+        resizeMode: "normal" as const,
+      };
+    });
   }
   if (scene === "resize") {
     return [

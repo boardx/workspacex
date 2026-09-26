@@ -43,7 +43,11 @@ import {
   resolveBoardObjectAuthoringScene,
   type BoardObjectAuthoringScene,
 } from "@/components/whiteboard/authoring-preview/board-object-authoring-preview";
-import { getAuthoringSceneObjects } from "@/components/whiteboard/authoring-preview/board-object-authoring-surface";
+import {
+  CONTINUOUS_CAPTURE_BOUNDS,
+  getAuthoringMobileBounds,
+  getAuthoringSceneObjects,
+} from "@/components/whiteboard/authoring-preview/board-object-authoring-surface";
 
 describe("BoardObjectAuthoringPreview", () => {
   beforeEach(() => {
@@ -81,16 +85,49 @@ describe("BoardObjectAuthoringPreview", () => {
     expect(screen.getByTestId("board-authoring-trace")).toHaveTextContent("caret-ready");
   });
 
-  it("projects exactly eleven ordered neighbors with a 24 world-space gap", () => {
+  it("projects an eleven-object snake with an exact 24 world-space edge gap at every step", () => {
     const objects = getAuthoringSceneObjects("continuous");
     expect(objects).toHaveLength(11);
     expect(objects.map((object) => object.id)).toEqual(Array.from({ length: 11 }, (_, index) => `sticky-series-${index + 1}`));
     for (let index = 1; index < objects.length; index += 1) {
       const current = objects[index]!;
       const previous = objects[index - 1]!;
-      expect(current.x - (previous.x + previous.width)).toBe(24);
-      expect(current.y).toBe(previous.y);
+      if (current.x > previous.x) {
+        expect(current.x - (previous.x + previous.width)).toBe(24);
+        expect(current.y).toBe(previous.y);
+      } else if (current.x < previous.x) {
+        expect(previous.x - (current.x + current.width)).toBe(24);
+        expect(current.y).toBe(previous.y);
+      } else {
+        expect(current.y - (previous.y + previous.height)).toBe(24);
+        expect(current.x).toBe(previous.x);
+      }
     }
+  });
+
+  it("keeps all eleven continuous objects inside the 1280 capture canvas before the property panel", () => {
+    const objects = getAuthoringSceneObjects("continuous");
+    for (const object of objects) {
+      expect(object.x).toBeGreaterThanOrEqual(CONTINUOUS_CAPTURE_BOUNDS.left);
+      expect(object.y).toBeGreaterThanOrEqual(CONTINUOUS_CAPTURE_BOUNDS.top);
+      expect(object.x + object.width).toBeLessThanOrEqual(CONTINUOUS_CAPTURE_BOUNDS.right);
+      expect(object.y + object.height).toBeLessThanOrEqual(CONTINUOUS_CAPTURE_BOUNDS.bottom);
+    }
+    expect(CONTINUOUS_CAPTURE_BOUNDS.right).toBeLessThan(1280 - 288);
+  });
+
+  it("keeps the 375px editor and compact header allocations inside the viewport", () => {
+    const bounds = getAuthoringMobileBounds(375);
+    expect(bounds.editor).toEqual({ left: 16, right: 359, width: 343 });
+    expect(bounds.editor.left).toBeGreaterThanOrEqual(0);
+    expect(bounds.editor.right).toBeLessThanOrEqual(375);
+    expect(bounds.header.titleRight + bounds.header.requiredGap).toBeLessThanOrEqual(bounds.header.pickerLeft);
+    expect(bounds.header.pickerRight).toBeLessThanOrEqual(375);
+
+    render(<BoardObjectAuthoringPreview initialScene="default" />);
+    expect(screen.getByTestId("board-inline-editor-sticky-focus")).toHaveClass("left-4", "right-4", "w-auto", "sm:left-52", "sm:right-auto", "sm:w-64");
+    expect(screen.getByTestId("board-mobile-title")).toHaveTextContent("Board");
+    expect(screen.getByTestId("board-authoring-scene-picker")).toHaveClass("w-40", "min-w-0", "sm:min-w-48");
   });
 
   it("keeps contextual controls matched to the selected canonical kind", () => {

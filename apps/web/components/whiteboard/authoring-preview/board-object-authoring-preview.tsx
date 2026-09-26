@@ -79,17 +79,18 @@ export function BoardObjectAuthoringPreview({ initialScene = "default", onMockCo
 
   return (
     <main className="relative h-dvh min-h-[40rem] overflow-hidden bg-background text-foreground" data-testid="board-object-authoring-preview" data-scene={scene}>
-      <header className="absolute inset-x-0 top-0 z-40 flex h-14 items-center justify-between border-b border-border bg-background/95 px-4 backdrop-blur">
-        <div className="flex min-w-0 items-center gap-3">
-          <Link href="/studio" className="text-sm text-muted-foreground transition-colors hover:text-foreground">返回 Studio</Link>
-          <span className="h-5 w-px bg-border" aria-hidden />
+      <header className="absolute inset-x-0 top-0 z-40 flex h-14 items-center justify-between gap-2 border-b border-border bg-background/95 px-2 backdrop-blur sm:px-4">
+        <div className="flex min-w-0 shrink items-center gap-2 sm:gap-3">
+          <Link href="/studio" className="hidden text-sm text-muted-foreground transition-colors hover:text-foreground sm:inline">返回 Studio</Link>
+          <span className="hidden h-5 w-px bg-border sm:block" aria-hidden />
           <Frame className="h-5 w-5" aria-hidden />
-          <strong className="truncate text-sm">产品洞察工作坊</strong>
+          <strong className="hidden truncate text-sm sm:block">产品洞察工作坊</strong>
+          <strong className="text-sm sm:hidden" data-testid="board-mobile-title">Board</strong>
           <span className="hidden rounded-full border border-border bg-muted px-2 py-1 text-11 text-muted-foreground md:inline">对象创作原型 · mock commands</span>
         </div>
         <div className="flex items-center gap-2">
           <span className="hidden items-center gap-1 text-xs text-muted-foreground sm:flex"><Users className="h-4 w-4" aria-hidden />3 人在线</span>
-          <Select options={SCENES} value={scene} onValueChange={(value) => setScene(value as AuthoringScene)} data-testid="board-authoring-scene-picker" className="min-w-48" />
+          <Select options={SCENES} value={scene} onValueChange={(value) => setScene(value as AuthoringScene)} data-testid="board-authoring-scene-picker" className="w-40 min-w-0 sm:w-auto sm:min-w-48" />
         </div>
       </header>
 
@@ -136,7 +137,7 @@ function InlineEditor({ scene, object, dispatch }: { readonly scene: AuthoringSc
   const composing = scene === "composing";
   const kindLabel = object.kind === "text" ? "文字" : "便利贴";
   return (
-    <section className="absolute left-52 top-40 z-30 w-64 rounded-xl border-2 border-foreground bg-card p-3 shadow-xl" data-testid={composing ? "board-inline-editor-composing" : `board-inline-editor-${object.id}`}>
+    <section className="absolute left-4 right-4 top-24 z-30 w-auto rounded-xl border-2 border-foreground bg-card p-3 shadow-xl sm:left-52 sm:right-auto sm:top-40 sm:w-64" data-testid={composing ? "board-inline-editor-composing" : `board-inline-editor-${object.id}`}>
       <div className="mb-2 flex items-center justify-between text-11 text-muted-foreground"><span>{composing ? "中文输入中…" : "输入想法"}</span><span>{composing ? "IME 优先" : "已自动聚焦"}</span></div>
       <Textarea aria-label={`编辑${kindLabel} ${object.text.replace("\n", " ")}`} defaultValue={composing ? "我们可以先从用户旅" : object.text.replace("\n", " ")} className="min-h-28 resize-none border-0 bg-transparent p-0 text-base shadow-none focus-visible:ring-2" onCompositionEnd={() => dispatch({ type: "text-splice", objectId: object.id, detail: "输入已确认，文字已同步到 canonical 文本" })} />
       {composing && <p className="mt-2 rounded-md bg-muted px-2 py-1 text-xs text-muted-foreground" role="status">候选：程　景　径 · Tab 暂交给输入法</p>}
