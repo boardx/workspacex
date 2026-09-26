@@ -373,7 +373,11 @@ export const MEMORY_CARD_PORT = Symbol("MemoryCardPort");
  * 与 `tool-permission-grant.controller.ts` 同名方法同一实现思路）。
  */
 export interface KgOrgExtractionSettingsPort {
-  /** 没有行 = 从未设置过 = 默认关（新组织不默认抽取对话内容）。 */
+  /**
+   * 没有行 = 从未设置过 = **默认开**（人类指令「默认是打开的」，迁移 20260926100000；
+   * 触发器 `kg_enqueue_extraction` 同一条件：只有显式 `enabled = false` 的行才拦）。
+   * 这是「组织级默认值」的唯一说明处，其余注释只引用这里。
+   */
   getEnabled(orgId: OrgId): Promise<boolean>;
   /** upsert；返回写入后的现值（防御性——不假设调用方传的就是落库的）。 */
   setEnabled(orgId: OrgId, enabled: boolean, updatedByUserId: string): Promise<boolean>;
