@@ -29,6 +29,7 @@ vi.mock("fabric", () => {
     set(values: Record<string, unknown>) { Object.assign(this, values); return this; }
     setControlsVisibility() { return this; }
     setCoords() {}
+    calcTransformMatrix() { const matrix = [this.scaleX, 0, 0, this.scaleY, this.left + this.width * this.scaleX / 2, this.top + this.height * this.scaleY / 2]; Object.assign(matrix, { angle: this.angle }); return matrix; }
     getBoundingRect() { return { left: this.left, top: this.top, width: this.width * this.scaleX, height: this.height * this.scaleY }; }
   }
   class Canvas {
@@ -58,7 +59,8 @@ vi.mock("fabric", () => {
     constructor(private readonly children: MockProjectedObject[]) { super(); }
     getObjects() { return this.children; }
   }
-  return { ActiveSelection, Canvas, Rect: MockObject, Circle: MockObject, Textbox: MockObject, Group: MockObject, Point: MockObject };
+  const util = { qrDecompose: (matrix: number[] & { angle?: number }) => ({ angle: matrix.angle ?? 0, scaleX: matrix[0] ?? 1, scaleY: matrix[3] ?? 1, skewX: 0, skewY: 0, translateX: matrix[4] ?? 0, translateY: matrix[5] ?? 0 }) };
+  return { ActiveSelection, Canvas, Rect: MockObject, Circle: MockObject, Textbox: MockObject, Group: MockObject, Point: MockObject, util };
 });
 
 class ResizeObserverMock { observe() {} disconnect() {} }
@@ -158,6 +160,32 @@ describe("BoardFabricSurface", () => {
     probe.handlers.get("object:modified")?.({ target: probe.objects[0]! });
     expect(onObjectTransform).not.toHaveBeenCalled();
     expect(probe.objects.every((object) => !object.selectable && !object.evented)).toBe(true);
+  });
+
+  it("commits ActiveSelection move/resize/rotate as one canonical batch", () => {
+    const onObjectsTransform = vi.fn(() => true);
+    renderSurface({ selectedObjectIds: ["s-1", "r-1"], onObjectsTransform });
+    expect(probe.active).not.toBeNull();
+    probe.objects[0]!.left = 120; probe.objects[0]!.top = 140; probe.objects[0]!.scaleX = 1.5;
+    probe.objects[1]!.left = 420; probe.objects[1]!.top = 180; probe.objects[1]!.scaleY = 1.25;
+    probe.handlers.get("object:modified")?.({ target: probe.active! });
+    expect(onObjectsTransform).toHaveBeenCalledOnce();
+    expect(onObjectsTransform).toHaveBeenCalledWith([
+      expect.objectContaining({ id: "s-1", geometry: expect.objectContaining({ x: 120, y: 140, width: 150 }) }),
+      expect.objectContaining({ id: "r-1", geometry: expect.objectContaining({ height: 100, rotation: 5 }) }),
+    ]);
+  });
+
+  it("shows guides for resize and ActiveSelection, with Alt bypass", async () => {
+    const target = { ...OBJECTS[0]!, id: "target", geometry: { ...OBJECTS[0]!.geometry, x: 100, y: 0 } };
+    renderSurface({ objects: [...OBJECTS, target], selectedObjectIds: ["s-1", "r-1"] });
+    probe.objects[0]!.left = 140;
+    act(() => probe.handlers.get("object:scaling")?.({ target: probe.objects[0] }));
+    expect(await screen.findByTestId("board-smart-guides")).toBeVisible();
+    act(() => probe.handlers.get("object:scaling")?.({ target: probe.objects[0], e: new MouseEvent("mousemove", { altKey: true }) }));
+    expect(screen.queryByTestId("board-smart-guides")).toBeNull();
+    act(() => probe.handlers.get("object:moving")?.({ target: probe.active! }));
+    expect(screen.getByTestId("board-smart-guides")).toBeVisible();
   });
 
   it("rolls a rejected transform back to canonical geometry without losing selection", () => {

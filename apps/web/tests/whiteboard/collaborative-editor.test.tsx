@@ -106,7 +106,7 @@ it('exposes every multi-selection layout action and commits grid as one canonica
   executeCommands(doc, [0, 1, 2, 3].map((index) => ({ type: 'create' as const, object: { id: `layout-${index}`, schemaVersion: 1 as const, kind: 'sticky' as const, geometry: { x: index * 37, y: index * 19, width: 100, height: 80, rotation: 0 }, text: String(index), style: {}, parentId: null, orderKey: String(index) } })), 'seed');
   render(<CollaborativeEditor boardId="board-test" clientId="client-test" doc={doc} readOnly={false} title="白板" status="已连接" />);
   fireEvent.click(screen.getByTestId('fabric-select-all'));
-  for (const kind of ['align-left', 'align-center', 'align-right', 'align-top', 'align-middle', 'align-bottom', 'distribute-horizontal', 'distribute-vertical', 'grid', 'row', 'column', 'tidy-up']) expect(screen.getByTestId(`board-layout-${kind}`)).toBeEnabled();
+  for (const kind of ['align-left', 'align-center', 'align-right', 'align-top', 'align-middle', 'align-bottom', 'distribute-horizontal', 'distribute-vertical', 'equal-width', 'equal-height', 'equal-size', 'grid', 'row', 'column', 'tidy-up']) expect(screen.getByTestId(`board-layout-${kind}`)).toBeEnabled();
   fireEvent.change(screen.getByLabelText('布局间距'), { target: { value: '24' } });
   fireEvent.change(screen.getByLabelText('网格列数'), { target: { value: '2' } });
   const transactions: Y.Transaction[] = [];
@@ -117,6 +117,24 @@ it('exposes every multi-selection layout action and commits grid as one canonica
   expect(transactions).toHaveLength(1);
   fireEvent.click(screen.getByText('撤销', { exact: true }));
   expect(readObjects(doc).map((object) => object.geometry.x)).toEqual([0, 37, 74, 111]);
+  doc.destroy();
+});
+
+it('smart layout preview is zero-write, cancelable, applicable and conflict guarded', () => {
+  const doc = createWhiteboardDocument();
+  executeCommands(doc, [0, 1, 2].map(index => ({ type: 'create' as const, object: { id: `smart-${index}`, schemaVersion: 1 as const, kind: 'sticky' as const, geometry: { x: index * 51, y: index * 37, width: 100, height: 80, rotation: 0 }, text: String(index), style: {}, parentId: null, orderKey: String(index) } })), 'seed');
+  render(<CollaborativeEditor boardId="board-test" clientId="client-test" doc={doc} readOnly={false} title="白板" status="已连接" />);
+  fireEvent.click(screen.getByTestId('fabric-select-all'));
+  const before = readObjects(doc);
+  fireEvent.click(screen.getByTestId('board-layout-smart-preview'));
+  expect(screen.getByTestId('board-layout-preview')).toBeVisible();
+  expect(readObjects(doc)).toEqual(before);
+  fireEvent.click(screen.getByTestId('board-layout-preview-cancel'));
+  expect(readObjects(doc)).toEqual(before);
+  fireEvent.click(screen.getByTestId('board-layout-smart-preview'));
+  executeCommands(doc, [{ type: 'style', id: 'smart-0', style: { fill: '#112233' } }], 'remote');
+  fireEvent.click(screen.getByTestId('board-layout-preview-apply'));
+  expect(screen.getByText('应用失败：预览后对象已被其他协作者修改。')).toBeVisible();
   doc.destroy();
 });
 

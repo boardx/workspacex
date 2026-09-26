@@ -1,7 +1,7 @@
 import { z } from 'zod';
 
 /** Content contract only. Actor identity, ACL and durable sequence belong to the host. */
-export const WHITEBOARD_LIMITS = { objects: 5000, tombstones: 10000, text: 20000, batch: 200, extensionBytes: 16384 } as const;
+export const WHITEBOARD_LIMITS = { objects: 5000, tombstones: 10000, text: 20000, batch: 1000, layoutSelection: 500, extensionBytes: 16384 } as const;
 export const WhiteboardObjectId = z.string().min(1).max(128).regex(/^[a-zA-Z0-9_-]+$/);
 export const WhiteboardGeometry = z.object({
   x: z.number().finite().min(-1000000).max(1000000), y: z.number().finite().min(-1000000).max(1000000),
@@ -75,13 +75,14 @@ export const WhiteboardCommandBatch = z.array(WhiteboardCommand).min(1).max(WHIT
 export const WhiteboardLayoutKind = z.enum([
   'align-left', 'align-center', 'align-right', 'align-top', 'align-middle', 'align-bottom',
   'distribute-horizontal', 'distribute-vertical', 'grid', 'row', 'column', 'tidy-up',
+  'equal-width', 'equal-height', 'equal-size',
 ]);
 export type WhiteboardLayoutKind = z.infer<typeof WhiteboardLayoutKind>;
 
 export const WhiteboardLayoutCommand = z.object({
   type: z.literal('arrange-objects'),
   kind: WhiteboardLayoutKind,
-  objectIds: z.array(WhiteboardObjectId).min(2).max(WHITEBOARD_LIMITS.batch),
+  objectIds: z.array(WhiteboardObjectId).min(2).max(WHITEBOARD_LIMITS.layoutSelection),
   gap: z.number().finite().min(0).max(10000).optional(),
   horizontalGap: z.number().finite().min(0).max(10000).optional(),
   verticalGap: z.number().finite().min(0).max(10000).optional(),

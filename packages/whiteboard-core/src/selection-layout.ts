@@ -1,6 +1,7 @@
-import type * as Y from 'yjs';
+import * as Y from 'yjs';
 import {
   WhiteboardGeometry as WhiteboardGeometrySchema,
+  WHITEBOARD_LIMITS,
   WhiteboardLayoutCommand,
   type WhiteboardGeometry,
   type WhiteboardLayoutKind,
@@ -18,6 +19,8 @@ export interface LayoutPrecondition {
   parentId?: string | null;
   locked?: boolean;
   hidden?: boolean;
+  /** Full canonical state guard. Geometry-only checks permit metadata/endpoints ABA. */
+  state: string;
 }
 
 export interface SelectionResolution {
@@ -33,6 +36,13 @@ export interface LayoutCommandEnvelope {
   gestureId: string;
   command: WhiteboardLayoutCommand;
   preconditions: LayoutPrecondition[];
+  stateVector: Uint8Array;
+}
+
+export interface LayoutPreview {
+  previewId: string;
+  layoutKind: WhiteboardLayoutKind;
+  geometries: LayoutGeometryState[];
 }
 
 export interface LayoutGeometryState { id: string; geometry: WhiteboardGeometry; }
@@ -80,6 +90,17 @@ function finite(value: number, code = 'LAYOUT_INVALID'): number {
 
 function sameGeometry(a: WhiteboardGeometry, b: WhiteboardGeometry): boolean {
   return a.x === b.x && a.y === b.y && a.width === b.width && a.height === b.height && a.rotation === b.rotation;
+}
+
+function objectState(value: WhiteboardObject): string {
+  const json = JSON.stringify(value);
+  let hash = 2166136261;
+  for (let index = 0; index < json.length; index++) { hash ^= json.charCodeAt(index); hash = Math.imul(hash, 16777619); }
+  return (hash >>> 0).toString(16).padStart(8, '0');
+}
+
+function sameBytes(left: Uint8Array, right: Uint8Array): boolean {
+  return left.length === right.length && left.every((value, index) => value === right[index]);
 }
 
 function snapshot(doc: Y.Doc): Snapshot {
@@ -167,6 +188,17 @@ function placementMap(selection: SelectionResolution, input: WhiteboardLayoutCom
     return result;
   }
 
+  if (input.kind === 'equal-width' || input.kind === 'equal-height' || input.kind === 'equal-size') {
+    const width = Math.max(...items.map(item => item.geometry.width));
+    const height = Math.max(...items.map(item => item.geometry.height));
+    for (const item of items) result.set(item.id, {
+      ...item.geometry,
+      width: input.kind === 'equal-height' ? item.geometry.width : width,
+      height: input.kind === 'equal-width' ? item.geometry.height : height,
+    });
+    return result;
+  }
+
   const gap = input.gap ?? DEFAULT_LAYOUT_GAP;
   const horizontalGap = input.horizontalGap ?? gap;
   const verticalGap = input.verticalGap ?? gap;
@@ -239,7 +271,8 @@ function verifyPreconditions(current: Snapshot, expected: readonly LayoutPrecond
     if (!sameGeometry(item.geometry, value.geometry)
       || (value.parentId !== undefined && value.parentId !== item.parentId)
       || (value.locked !== undefined && value.locked !== Boolean(item.locked))
-      || (value.hidden !== undefined && value.hidden !== Boolean(item.hidden))) throw new Error('LAYOUT_CONFLICT');
+      || (value.hidden !== undefined && value.hidden !== Boolean(item.hidden))
+      || value.state !== objectState(item)) throw new Error('LAYOUT_CONFLICT');
   }
 }
 
@@ -301,7 +334,7 @@ function build(current: Snapshot, input: WhiteboardLayoutCommand, allowNoChange 
     }
   }
   if (!commands.length && !allowNoChange) throw new Error('NO_LAYOUT_CHANGE');
-  if (commands.length > 200) throw new Error('LAYOUT_LIMIT_EXCEEDED');
+  if (commands.length > WHITEBOARD_LIMITS.batch) throw new Error('LAYOUT_LIMIT_EXCEEDED');
   const selectedAfter = selection.objects.map(item => ({ id: item.id, geometry: structuredClone(placements.get(item.id)!) }));
   return { commands, selection, selectedAfter };
 }
@@ -318,9 +351,11 @@ export function createLayoutPreconditions(objects: readonly WhiteboardObject[], 
   const current: Snapshot = { objects: [...objects], byId: new Map(objects.map(value => [value.id, value])) };
   const built = build(current, input, true);
   const ids = new Set([...built.selection.objectIds, ...mutationIds(current, built)]);
+  if (built.selection.parentId) ids.add(built.selection.parentId);
   return current.objects.filter(value => ids.has(value.id)).map(value => ({
     id: value.id, geometry: structuredClone(value.geometry), parentId: value.parentId,
     locked: Boolean(value.locked), hidden: Boolean(value.hidden),
+    state: objectState(value),
   }));
 }
 
@@ -332,6 +367,7 @@ export function arrangeObjects(objects: readonly WhiteboardObject[], input: Whit
 export class SelectionLayoutCommandPort {
   private readonly accepted: Map<string, Accepted>;
   private readonly commandPort: BoardCommandPort;
+  private readonly previews = new Map<string, LayoutCommandEnvelope>();
   constructor(private readonly doc: Y.Doc) {
     this.commandPort = new BoardCommandPort(doc);
     this.accepted = acceptedByDocument.get(doc) ?? new Map();
@@ -339,7 +375,7 @@ export class SelectionLayoutCommandPort {
   }
   dispatch(input: LayoutCommandEnvelope): LayoutCommandAccepted {
     const key = JSON.stringify([input?.boardId, input?.clientId, input?.gestureId]);
-    const payload = JSON.stringify({ command: input?.command, preconditions: input?.preconditions });
+    const payload = JSON.stringify({ command: input?.command, preconditions: input?.preconditions, stateVector: [...(input?.stateVector ?? [])] });
     const prior = this.accepted.get(key);
     if (prior) {
       if (prior.payload !== payload) throw new Error('LAYOUT_COMMAND_INVALID');
@@ -347,6 +383,7 @@ export class SelectionLayoutCommandPort {
     }
     const current = snapshot(this.doc);
     if (!input.preconditions?.length) throw new Error('LAYOUT_PRECONDITION_REQUIRED');
+    if (!(input.stateVector instanceof Uint8Array) || !sameBytes(input.stateVector, Y.encodeStateVector(this.doc))) throw new Error('LAYOUT_CONFLICT');
     verifyPreconditions(current, input.preconditions);
     const built = build(current, input.command);
     const expected = new Set(input.preconditions.map(value => value.id));
@@ -369,6 +406,26 @@ export class SelectionLayoutCommandPort {
     const result: LayoutCommandAccepted = { ...accepted, events: [event] };
     this.accepted.set(key, { payload, result: structuredClone(result) });
     return result;
+  }
+
+  preview(input: LayoutCommandEnvelope): LayoutPreview {
+    const current = snapshot(this.doc);
+    if (!input.preconditions?.length || !(input.stateVector instanceof Uint8Array)) throw new Error('LAYOUT_PRECONDITION_REQUIRED');
+    if (!sameBytes(input.stateVector, Y.encodeStateVector(this.doc))) throw new Error('LAYOUT_CONFLICT');
+    verifyPreconditions(current, input.preconditions);
+    const built = build(current, input.command, true);
+    const expected = new Set(input.preconditions.map(value => value.id));
+    if (mutationIds(current, built).some(id => !expected.has(id))) throw new Error('LAYOUT_CONFLICT');
+    const previewId = JSON.stringify([input.boardId, input.clientId, input.gestureId]);
+    this.previews.set(previewId, { ...input, stateVector: new Uint8Array(input.stateVector), preconditions: structuredClone(input.preconditions) });
+    return { previewId, layoutKind: input.command.kind, geometries: built.commands.map(command => ({ id: command.id, geometry: structuredClone(command.geometry) })) };
+  }
+  cancelPreview(previewId: string): boolean { return this.previews.delete(previewId); }
+  applyPreview(previewId: string): LayoutCommandAccepted {
+    const input = this.previews.get(previewId);
+    if (!input) throw new Error('LAYOUT_PREVIEW_NOT_FOUND');
+    this.previews.delete(previewId);
+    return this.dispatch(input);
   }
 }
 

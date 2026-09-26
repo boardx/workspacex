@@ -6,6 +6,7 @@ describe('whiteboard selection and layout contract', () => {
     expect(WhiteboardLayoutKind.options).toEqual([
       'align-left', 'align-center', 'align-right', 'align-top', 'align-middle', 'align-bottom',
       'distribute-horizontal', 'distribute-vertical', 'grid', 'row', 'column', 'tidy-up',
+      'equal-width', 'equal-height', 'equal-size',
     ]);
     expect(WhiteboardLayoutCommand.parse({
       type: 'arrange-objects', kind: 'grid', objectIds: ['a', 'b'], columns: 2, horizontalGap: 24, verticalGap: 32,

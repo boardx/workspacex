@@ -36,8 +36,8 @@ function seed(...objects: WhiteboardObject[]): Y.Doc {
 function command(kind: WhiteboardLayoutCommand['kind'], objectIds: string[], extra: Partial<WhiteboardLayoutCommand> = {}): WhiteboardLayoutCommand {
   return { type: 'arrange-objects', kind, objectIds, ...extra } as WhiteboardLayoutCommand;
 }
-function dispatch(doc: Y.Doc, port: SelectionLayoutCommandPort, gestureId: string, layout: WhiteboardLayoutCommand, preconditions?: LayoutPrecondition[]) {
-  return port.dispatch({ boardId: 'board', clientId: 'human-or-agent', gestureId, command: layout, preconditions: preconditions ?? createLayoutPreconditions(readObjects(doc), layout) });
+function dispatch(doc: Y.Doc, port: SelectionLayoutCommandPort, gestureId: string, layout: WhiteboardLayoutCommand, preconditions?: LayoutPrecondition[], stateVector = Y.encodeStateVector(doc)) {
+  return port.dispatch({ boardId: 'board', clientId: 'human-or-agent', gestureId, command: layout, preconditions: preconditions ?? createLayoutPreconditions(readObjects(doc), layout), stateVector });
 }
 
 describe('stable multi-selection semantics', () => {
@@ -82,6 +82,12 @@ describe('canonical layout calculations', () => {
     const gridFirst = canonicalSceneBounds(grid[0]!.geometry), gridSecond = canonicalSceneBounds(grid[1]!.geometry);
     expect(gridFirst.left).toBeCloseTo(gridSecond.left);
     expect(gridSecond.top - gridFirst.bottom).toBeCloseTo(24);
+  });
+  it('equalizes width, height or both without moving object origins', () => {
+    const objects = [note('a', 10, 20, { geometry: geometry(10, 20, 40, 80) }), note('b', 200, 100, { geometry: geometry(200, 100, 120, 30) })];
+    expect(arrangeObjects(objects, command('equal-width', ['a', 'b'])).map(value => value.geometry)).toEqual([geometry(10, 20, 120, 80), geometry(200, 100, 120, 30)]);
+    expect(arrangeObjects(objects, command('equal-height', ['a', 'b'])).map(value => value.geometry)).toEqual([geometry(10, 20, 40, 80), geometry(200, 100, 120, 80)]);
+    expect(arrangeObjects(objects, command('equal-size', ['a', 'b'])).map(value => value.geometry)).toEqual([geometry(10, 20, 120, 80), geometry(200, 100, 120, 80)]);
   });
   it.each([
     ['align-left', [{ x: 0 }, { x: 0 }]],
@@ -186,8 +192,8 @@ describe('operation, event, CAS and undo boundary', () => {
     let transactions = 0;
     doc.on('afterTransaction', transaction => { if ((transaction.origin as { kind?: string } | null)?.kind === 'whiteboard-command') transactions++; });
     const input = command('row', ['c', 'a', 'b']);
-    const preconditions = createLayoutPreconditions(readObjects(doc), input);
-    const accepted = dispatch(doc, port, 'row', input, preconditions), replay = dispatch(doc, port, 'row', structuredClone(input), structuredClone(preconditions));
+    const preconditions = createLayoutPreconditions(readObjects(doc), input), stateVector = Y.encodeStateVector(doc);
+    const accepted = dispatch(doc, port, 'row', input, preconditions, stateVector), replay = dispatch(doc, port, 'row', structuredClone(input), structuredClone(preconditions), stateVector);
     expect(replay).toEqual(accepted);
     expect(transactions).toBe(1);
     expect(accepted.events).toEqual([expect.objectContaining({
@@ -211,9 +217,9 @@ describe('operation, event, CAS and undo boundary', () => {
     expect(readObjects(doc)).toEqual(before);
     expect(() => dispatch(doc, port, 'nested', command('row', ['group', 'child']))).toThrow();
     executeCommands(doc, [{ type: 'state', id: 'child', locked: false }], 'fixture');
-    const expected = readObjects(doc).find(value => value.id === 'other')!;
+    const stalePreconditions = createLayoutPreconditions(readObjects(doc), command('column', ['group', 'other'])).filter(value => value.id === 'other');
     executeCommands(doc, [{ type: 'geometry', id: 'other', geometry: geometry(450, 0) }], 'remote');
-    expect(() => dispatch(doc, port, 'stale', command('column', ['group', 'other']), [{ id: 'other', geometry: expected.geometry }])).toThrow('LAYOUT_CONFLICT');
+    expect(() => dispatch(doc, port, 'stale', command('column', ['group', 'other']), stalePreconditions)).toThrow('LAYOUT_CONFLICT');
     expect(readObjects(doc).find(value => value.id === 'other')?.geometry).toEqual(geometry(450, 0));
     doc.destroy();
   });
@@ -253,8 +259,57 @@ describe('operation, event, CAS and undo boundary', () => {
     expect(new Set(preconditions.map(value => value.id))).toEqual(new Set(['group', 'other', 'child', 'edge', 'p']));
     executeCommands(doc, [{ type: 'geometry', id: 'child', geometry: geometry(30, 20) }], 'remote');
     expect(() => dispatch(doc, port, 'stale-implicit', layout, preconditions)).toThrow('LAYOUT_CONFLICT');
-    expect(() => port.dispatch({ boardId: 'board', clientId: 'client', gestureId: 'missing-cas', command: layout, preconditions: [] })).toThrow('LAYOUT_PRECONDITION_REQUIRED');
+    expect(() => port.dispatch({ boardId: 'board', clientId: 'client', gestureId: 'missing-cas', command: layout, preconditions: [], stateVector: Y.encodeStateVector(doc) })).toThrow('LAYOUT_PRECONDITION_REQUIRED');
     doc.destroy();
+  });
+
+  it('previews and cancels with zero writes, applies once, and rejects concurrent ABA or metadata changes', () => {
+    const doc = seed(note('a', 0, 0), note('b', 300, 100));
+    const port = new SelectionLayoutCommandPort(doc), layout = command('row', ['a', 'b']);
+    const envelope = { boardId: 'board', clientId: 'client', gestureId: 'preview', command: layout, preconditions: createLayoutPreconditions(readObjects(doc), layout), stateVector: Y.encodeStateVector(doc) };
+    const before = readObjects(doc), preview = port.preview(envelope);
+    expect(readObjects(doc)).toEqual(before);
+    expect(preview.geometries).not.toHaveLength(0);
+    expect(port.cancelPreview(preview.previewId)).toBe(true);
+    expect(readObjects(doc)).toEqual(before);
+    const appliedPreview = port.preview({ ...envelope, gestureId: 'apply' });
+    port.applyPreview(appliedPreview.previewId);
+    expect(readObjects(doc)).not.toEqual(before);
+
+    const staleLayout = command('column', ['a', 'b']);
+    const stale = { boardId: 'board', clientId: 'client', gestureId: 'stale-preview', command: staleLayout, preconditions: createLayoutPreconditions(readObjects(doc), staleLayout), stateVector: Y.encodeStateVector(doc) };
+    const stalePreview = port.preview(stale);
+    executeCommands(doc, [{ type: 'geometry', id: 'a', geometry: geometry(1, 0) }, { type: 'geometry', id: 'a', geometry: readObjects(doc).find(value => value.id === 'a')!.geometry }], 'aba');
+    expect(() => port.applyPreview(stalePreview.previewId)).toThrow('LAYOUT_CONFLICT');
+    doc.destroy();
+  });
+
+  it('guards connector endpoint state and parent panel metadata in preview CAS', () => {
+    const parent = frame('p', geometry(0, 0, 500, 300), { ...panel, autoExpand: true });
+    const a = note('a', 20, 20, { parentId: 'p' }), b = note('b', 250, 100, { parentId: 'p' });
+    const edge: WhiteboardObject = { ...note('edge', 0, 0), kind: 'connector', connector: { from: 'a', to: 'b' } };
+    const doc = seed(parent, a, b, edge), port = new SelectionLayoutCommandPort(doc), layout = command('row', ['a', 'b']);
+    const envelope = (gestureId: string) => ({ boardId: 'board', clientId: 'client', gestureId, command: layout, preconditions: createLayoutPreconditions(readObjects(doc), layout), stateVector: Y.encodeStateVector(doc) });
+    const connectorPreview = port.preview(envelope('connector-change'));
+    executeCommands(doc, [{ type: 'connector', id: 'edge', connector: { from: 'b', to: 'a' } }], 'remote');
+    expect(() => port.applyPreview(connectorPreview.previewId)).toThrow('LAYOUT_CONFLICT');
+    const panelPreview = port.preview(envelope('panel-change'));
+    executeCommands(doc, [{ type: 'extension', id: 'p', extensionData: { spatial: { ...panel, autoExpand: true, padding: 40 } } }], 'remote');
+    expect(() => port.applyPreview(panelPreview.previewId)).toThrow('LAYOUT_CONFLICT');
+    doc.destroy();
+  });
+
+  it('arranges 500 objects in one transaction and one undo unit', () => {
+    const objects = Array.from({ length: 500 }, (_, index) => note(`n-${index}`, index * 3, index * 2, { geometry: geometry(index * 3, index * 2, 20, 20) }));
+    const doc = seed(...objects), port = new SelectionLayoutCommandPort(doc), undo = new WhiteboardUndo(doc);
+    let transactions = 0;
+    doc.on('afterTransaction', transaction => { if ((transaction.origin as { kind?: string } | null)?.kind === 'whiteboard-command') transactions++; });
+    dispatch(doc, port, 'five-hundred', command('grid', objects.map(value => value.id), { columns: 25, gap: 24 }));
+    expect(transactions).toBe(1);
+    expect(undo.undo()).toBe('undone');
+    const restored = new Map(readObjects(doc).map(value => [value.id, value.geometry.x]));
+    expect(objects.every(value => restored.get(value.id) === value.geometry.x)).toBe(true);
+    undo.destroy(); doc.destroy();
   });
 
   it('moves container descendants and reports implicit connector geometry changes in one event', () => {

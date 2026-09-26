@@ -30,6 +30,7 @@ export {
   type LayoutCommandEnvelope,
   type LayoutGeometryState,
   type LayoutPrecondition,
+  type LayoutPreview,
   type ObjectsArrangedEvent,
   type SelectionResolution,
   type SnapGuide,
