@@ -23,6 +23,15 @@ export const SurveySourceStateSchema = z.object({
   compiledVersion: z.number().int().positive(),
   contentHash: z.string().regex(/^[a-f0-9]{64}$/),
 }).strict();
+export const SurveySourceDocumentsInputSchema = z.object({
+  design: z.string().min(1).max(500_000),
+  publication: z.string().min(1).max(500_000),
+  reportTemplate: z.string().min(1).max(500_000),
+}).strict();
+export const SurveySourceSaveCommandSchema = z.object({
+  expectedVersion: z.number().int().positive(),
+  documents: SurveySourceDocumentsInputSchema,
+}).strict();
 
 export const SurveyDraftInputSchema = z.object({
   title: z.string().trim().min(1).max(200),
@@ -162,6 +171,7 @@ export type SurveyRuntime = z.infer<typeof SurveyRuntimeSchema>;
 export type SurveySourceState = z.infer<typeof SurveySourceStateSchema>;
 export type SurveyDraftInput = z.infer<typeof SurveyDraftInputSchema>;
 export type SurveySubmissionInput = z.infer<typeof SurveySubmissionInputSchema>;
+export type SurveySourceSaveCommand = z.infer<typeof SurveySourceSaveCommandSchema>;
 export type SurveyCreateCommand = z.infer<typeof SurveyCreateCommandSchema>;
 export type SurveySaveCommand = z.infer<typeof SurveySaveCommandSchema>;
 export type SurveyCommandResult = z.infer<typeof SurveyCommandResultSchema>;
