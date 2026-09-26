@@ -4,7 +4,7 @@
  */
 import { describe, expect, it } from "vitest";
 import {
-  decisionFrame, findSupersedes, hasChangeSignal, supersedeMatch, type LiveDecision, type SupersedeFresh,
+  changeClauses, decisionFrame, findSupersedes, hasChangeSignal, supersedeMatch, type LiveDecision, type SupersedeFresh,
 } from "../../src/domain/knowledge-graph/decision-supersede";
 
 const ME = "u-me";
@@ -83,7 +83,6 @@ describe("supersedeMatch：单对判定", () => {
 describe("独立评审第 8 轮：只认真正的改口句式（宁可漏，不可误）", () => {
   it.each([
     "我不再犹豫了，决定关注211",     // 「不再」没支配框架动词
-    "决定关注985，不用再讨论了",     // 「不用再…了」是「不需要」
     "决定关注985，不过这事不急了",   // 「不急了」不是改口
   ])("「不再 / 不…了」不支配框架动词 ⇒ 不是改口：%s", (s) => expect(hasChangeSignal(s)).toBe(false));
   it.each(["不用 Vue 了，用 React", "不再用 Vue"])("「不用 X 了」「不再用 X」仍是改口：%s", (s) => expect(hasChangeSignal(s)).toBe(true));
@@ -127,6 +126,78 @@ describe("独立评审第 8 轮：只认真正的改口句式（宁可漏，不�
     ["决定做 A 方案", "改成换一种做法"],
     ["决定选 A", "改成精简选项"],
   ])("词里的单字动词不会凑出同框架：%s → %s 不取代", (o, n) => expect(supersedeMatch(fresh(n), old(o))).toBeNull());
+});
+
+describe("独立评审第 8 轮复评：改口必须在同一分句里直接支配框架（结构规则，不是词表）", () => {
+  // 「不 + 动词 + X + 了」只点名 X、不带新框架：X 不是旧决定的对象就什么都不取代——「不用再讨论了」「不用多想了」
+  // 与「不用 Vue 了」在句式上一模一样，分辨它们的只有旧对象本身，所以这里不再有「不需要」词表。
+  it("「不用再讨论了」只点名「再讨论」：是一个否定分句，但不带新框架", () => {
+    expect(changeClauses("决定关注985，不用再讨论了")).toEqual([{ frame: null, namedOld: "再讨论", subject: "" }]);
+  });
+
+  it.each([
+    // 评审点名的 6 句
+    ["决定关注211高校", "决定关注985高校，不用多想了"],
+    ["决定关注211高校", "决定关注985高校，不用特意讨论了"],
+    ["决定关注985", "决定关注211，不做过多讨论了"],
+    ["决定用React做前端", "前端框架还是用React，部署改成周五"],
+    ["决定用Vue", "会议时间改成周五，用Vue写原型"],
+    ["决定关注985", "周会改成周五，重点关注招聘"],
+    // 不用 / 不做 / 不必 + 无关的词（框架出在别的分句，否定分句点名的不是旧对象）
+    ["决定关注211高校", "决定关注985高校，不用再讨论了"],
+    ["决定关注211高校", "决定关注985高校，不用管预算了"],
+    ["决定用Vue", "决定用React，不用纠结了"],
+    ["决定用Go", "用Rust写后端，不用再开会了"],
+    ["决定做A方案", "决定做B方案，不做额外评审了"],
+    ["决定选北京", "决定选上海，不必再比较了"],
+    ["决定采用React框架", "采用Vue框架，不用写文档了"],
+    ["决定用Vue", "我们不用加班了，用React"],
+    ["决定关注985", "决定关注211，不用急了"],
+    ["决定用Vue", "不用Vue写文档了"],
+    // 改口词在另一个分句、改的是别的事
+    ["决定用Vue", "周会改成线上，用React写原型"],
+    ["决定关注211高校", "汇报时间改成下午，关注985高校"],
+    ["决定用Go", "截止日期改为下周，用Rust重写"],
+    ["决定用Vue", "会议室换成302，然后用React"],
+    ["决定关注211高校", "报告模板换成新版，但关注985高校"],
+    ["决定关注985", "开会地点改成三楼，关注211吧"],
+    // 改口词支配了框架，但主语是别的事（旧决定里没有这个主语）
+    ["决定用Vue", "周会改成用腾讯会议"],
+    ["决定用Go", "部署脚本改用Python，后端用Rust"],
+    ["决定用Vue", "把周会换成用腾讯会议"],
+    // 重说（新对象与旧对象相等 / 互相包含）
+    ["决定用React做前端", "改用React"],
+    ["决定用Vue", "改成用Vue写原型"],
+    ["决定关注985高校", "改成关注985"],
+    ["决定用React", "还是改用React做前端吧"],
+    ["决定关注211高校", "算了，还是关注211高校吧"],
+    // 「算了」后面不是改口分句、也不是「还是 + 框架」
+    ["决定关注211高校", "算了，关注985高校"],
+    ["决定关注211高校", "这事算了，先吃饭"],
+  ])("不取代：%s → %s", (o, n) => {
+    expect(supersedeMatch(fresh(n), old(o))).toBeNull();
+    expect(findSupersedes([fresh(n)], [old(o)])).toEqual([]);
+  });
+
+  it.each([
+    ["关注211高校", "改成关注985吧", "frame_only"],
+    ["决定用Go", "把 Go 换成 Rust", "explicit"],
+    ["决定用Vue", "不再用 Vue 了", "explicit"],
+    ["决定用Vue", "不再使用Vue", "explicit"],
+    ["决定关注211高校", "211高校算了，改成关注985高校", "explicit"],
+    ["决定采用Vue框架", "改为采用React框架", "same_kind"],
+    ["后端用Go", "后端改用Rust", "frame_only"],
+    ["决定关注211高校", "算了，还是关注985高校吧", "same_kind"],
+    ["决定用Vue", "不用Vue了，改用React", "explicit"],
+    ["决定关注211高校", "不关注211高校了", "explicit"],
+    ["决定用Vue", "改成用React，Vue太慢", "frame_only"],
+    ["决定关注211高校", "我们还是改成关注985高校吧", "same_kind"],
+    ["决定用Go", "Go算了", "explicit"],
+    ["决定前端用Vue", "前端不再用Vue了", "explicit"],
+  ])("取代：%s → %s（%s）", (o, n, tier) => {
+    expect(supersedeMatch(fresh(n), old(o))).toBe(tier);
+    expect(findSupersedes([fresh(n)], [old(o)])).toEqual([{ newerClaimId: "clm-new", olderClaimId: "clm-old" }]);
+  });
 });
 
 describe("findSupersedes：一条新决定取代哪几条", () => {
