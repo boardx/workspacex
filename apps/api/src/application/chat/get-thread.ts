@@ -31,7 +31,7 @@ import {
 } from "../../domain/chat/thread-visibility";
 import { messageBadges } from "../../domain/chat/thread-badges";
 import { discloseDecided, isDisclosed } from "../security/permission-filter";
-import type { ChatMessageRow, ChatRepository } from "./ports";
+import type { ChatCitationRow, ChatMessageRow, ChatRepository } from "./ports";
 import { resolveVisibility, type ResolveVisibilityDeps } from "./resolve-visibility";
 
 /** 契约派生，绝不另写一份。 */
@@ -87,6 +87,14 @@ export async function getThread(
   // 判定到取数之间线程被删了。仍然走同一个出口——「刚刚还在」不是一个对外可见的状态。
   if (meta === null) throw new ThreadNotVisibleError();
 
+  // #4227：引用只为**已下发**的 agent 消息取（观察者过滤之后），同一租户、一次批量读。
+  const agentIds = visible.filter((m) => m.authorKind === "agent").map((m) => m.id);
+  const citationRows = agentIds.length > 0 && deps.chat.findCitationsForMessages
+    ? await deps.chat.findCitationsForMessages(input.orgId, agentIds)
+    : [];
+  const byMessage = new Map<string, ChatCitationRow[]>();
+  for (const c of citationRows) byMessage.set(c.messageId, [...(byMessage.get(c.messageId) ?? []), c]);
+
   return {
     thread: {
       id: thread.threadId,
@@ -101,7 +109,7 @@ export async function getThread(
     },
     // 逐字段构造，不 spread 数据库行：spread 会让「某天有人给 SELECT 加了一列」
     // 变成「响应里多了一个没人决定要公开的字段」（F03 personal-layer-summary 同理）。
-    messages: visible.map(toMessage),
+    messages: visible.map((m) => toMessage(m, byMessage.get(m.id) ?? [])),
     rightTabs: rightTabs(visible),
     // 🔴 #594：个人线程（`thread.projectId === null`）不经 `capabilitiesFor`——
     // 它按 `ProjectRole` 分派，个人线程的 `actor.projectRole` 恒为 `null`，
@@ -114,7 +122,7 @@ export async function getThread(
   };
 }
 
-function toMessage(row: ChatMessageRow): z.infer<typeof C.Message> {
+function toMessage(row: ChatMessageRow, citations: readonly ChatCitationRow[]): z.infer<typeof C.Message> {
   return {
     id: row.id,
     authorKind: row.authorKind,
@@ -124,10 +132,20 @@ function toMessage(row: ChatMessageRow): z.infer<typeof C.Message> {
     // ⭐ I-13：与线程卡的「N 条待复核」**同一个函数**。这里若写成 `[]` 或就地判一次
     //   `row.reviewPending`，两处数值就变成「碰巧相等」，而碰巧会在下一次改动时结束。
     badges: messageBadges(row),
-    citations: [],
+    citations: citations.map(toCitation),
     toolCallSummary: null,
     // 转录卡 / 产物卡的可读内容。见文件头「契约缺口」：正文目前只能经由它出现。
     card: row.body,
+  };
+}
+
+/** `chat_citations` 行 → 契约 `Citation`（带 `citationId`，前端 `openCitation` 据此上报定位）。逐字段构造。 */
+function toCitation(c: ChatCitationRow): z.infer<typeof C.Citation> {
+  return {
+    citationId: c.citationId,
+    index: c.index,
+    sourceFullName: c.sourceFullName,
+    anchor: { kind: c.anchorKind, page: c.anchorPage, range: c.anchorRange, messageId: c.anchorMessageId },
   };
 }
 
