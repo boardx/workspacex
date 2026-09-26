@@ -6,12 +6,14 @@ import { GUIDED_RESEARCH_SIX_STEPS, type GuidedResearchVisualStage } from "@/lib
 export function GuidedResearchSixStepShell({
   current,
   available,
+  onBack,
   onNavigate,
   main,
   assistant,
 }: {
   current: GuidedResearchVisualStage;
   available: readonly GuidedResearchVisualStage[];
+  onBack?: () => void;
   onNavigate: (stage: GuidedResearchVisualStage) => void;
   main: React.ReactNode;
   assistant?: React.ReactNode;
@@ -21,6 +23,7 @@ export function GuidedResearchSixStepShell({
     <div className="min-w-0 bg-background" data-testid="guided-research-six-step-shell" data-layout="deep-research-desktop">
       <div className={cn("grid min-w-0 gap-4", assistant ? "xl:grid-cols-[minmax(0,1fr)_16rem]" : "xl:grid-cols-1")}>
         <div className="min-w-0 space-y-5 px-4 py-5 sm:px-6">
+          {onBack && <Button variant="ghost" size="sm" className="w-fit" onClick={onBack}>返回</Button>}
           <nav aria-label="研究步骤" data-testid="research-flow-progress" className="rounded-lg border border-border bg-card p-2">
           <ol className="grid grid-cols-2 gap-2 sm:grid-cols-3 xl:grid-cols-6">
             {GUIDED_RESEARCH_SIX_STEPS.map((step, index) => {
