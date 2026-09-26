@@ -37,6 +37,8 @@ export interface ImageContent extends ContentBase {
   fileName: string; replacementOf: string | null; failureCode: string | null;
   byteSize?: number; contentDigest?: string | null; magicMimeType?: ImageContent['mimeType'] | null;
   retryCount?: number;
+  /** local-session means bytes are verified but must be uploaded before another browser can render them. */
+  persistence?: 'durable' | 'local-session';
 }
 export interface TileField { key: string; label: string; value: string; }
 export interface TileContent extends ContentBase {
@@ -157,9 +159,12 @@ export function parseContentObject(input: unknown): CanonicalContentObject {
     const assetId = nullableText(raw.assetId, 256), sourceUrl = safeUrl(raw.sourceUrl, true), failureCode = nullableText(raw.failureCode, 128);
     const byteSize = integer(raw.byteSize ?? 0, 0, 2_000_000_000), contentDigest = nullableText(raw.contentDigest ?? null, 80);
     const retryCount = integer(raw.retryCount ?? 0, 0, 100);
+    const persistence = oneOf(raw.persistence ?? 'durable', ['durable', 'local-session'] as const, 'IMAGE_PERSISTENCE_INVALID');
     const magicMimeType = raw.magicMimeType === null || raw.magicMimeType === undefined ? null : oneOf(raw.magicMimeType, ['image/jpeg', 'image/png', 'image/webp', 'image/gif', 'image/svg+xml'] as const, 'IMAGE_MIME_INVALID');
     if (status === 'ready' && !assetId && !sourceUrl) throw new Error('IMAGE_SOURCE_REQUIRED');
     if (status === 'ready' && (byteSize < 1 || !contentDigest || !SHA256.test(contentDigest) || magicMimeType !== mimeType)) throw new Error('IMAGE_METADATA_INVALID');
+    if (persistence === 'local-session' && (!assetId || !/^local-session-[a-zA-Z0-9_-]+$/.test(assetId))) throw new Error('IMAGE_SESSION_ASSET_INVALID');
+    if (persistence === 'durable' && assetId?.startsWith('local-session-')) throw new Error('IMAGE_SESSION_ASSET_INVALID');
     if (status === 'failed' && !failureCode) throw new Error('IMAGE_FAILURE_REQUIRED');
     const fileName = requiredText(raw.fileName, 512);
     if (/[/\\\0-\x1f]/.test(fileName) || fileName === '.' || fileName === '..') throw new Error('IMAGE_FILE_NAME_INVALID');
@@ -170,7 +175,7 @@ export function parseContentObject(input: unknown): CanonicalContentObject {
       opacity: number(raw.opacity, 0, 1), borderColor: color(raw.borderColor), borderWidth: number(raw.borderWidth, 0, 100),
       cornerRadius: number(raw.cornerRadius, 0, 10000), fileName,
       replacementOf: nullableText(raw.replacementOf, 256), failureCode, byteSize,
-      contentDigest: contentDigest?.toLowerCase() ?? null, magicMimeType, retryCount,
+      contentDigest: contentDigest?.toLowerCase() ?? null, magicMimeType, retryCount, persistence,
     } as ImageContent;
   }
   if (type === 'tile') {

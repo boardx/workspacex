@@ -56,6 +56,8 @@ export interface BoardFabricObject {
   sticky?: BoardFabricStickyAppearance;
   /** Validated content-object payload. Never contains unvalidated extension data. */
   boardContent?: BoardContentData;
+  /** Verified browser-local bytes. Fabric must never fall back to boardContent.sourceUrl. */
+  imageAssetUrl?: string;
   parentId?: string;
   locked?: boolean;
   /** Renderer-only diagnostic. It is derived from canonical content and is never persisted. */

@@ -1,6 +1,7 @@
 import { validateTextAttributes, type WhiteboardObject } from "@repo/whiteboard-core";
 import type { BoardFabricObject, BoardFabricKind, BoardFabricStickyAppearance, BoardFabricStyle } from "./fabric/board-fabric-object";
 import { readBoardContent } from "./board-content-adapter";
+import { getBoardSessionImageAsset } from "./board-session-image-assets";
 
 const SUPPORTED_KINDS = new Set<WhiteboardObject["kind"]>(["sticky", "text", "rectangle", "ellipse"]);
 
@@ -115,6 +116,7 @@ export function toBoardFabricObjects(objects: readonly WhiteboardObject[]): Boar
         : { text: `暂不支持“${object.kind}”对象，内容已安全保留。` },
       sticky: supported ? sticky?.appearance : undefined,
       boardContent: content,
+      imageAssetUrl: content?.type === "image" ? getBoardSessionImageAsset(content.assetId)?.objectUrl : undefined,
       parentId: object.parentId ?? undefined,
       locked: supported ? undefined : true,
       projectionIssue: supported ? undefined : {

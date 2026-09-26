@@ -58,17 +58,20 @@ function createFabricObject(object: BoardFabricObject): TaggedFabricObject {
       return new Path(path, { fill: "", stroke: stroke.color, strokeWidth: stroke.width * (.35 + pressure * .65), opacity: stroke.opacity, strokeLineCap: "round", strokeLineJoin: "round", globalCompositeOperation: stroke.tool === "eraser" && eraserTargets.get(stroke.id)?.size ? "destination-out" : "source-over" });
     })));
   } else if (object.kind === "image" && object.boardContent?.type === "image") {
-    if (object.boardContent.status === "ready" && object.boardContent.sourceUrl) {
+    if (object.boardContent.status === "ready" && object.imageAssetUrl) {
       const image = new Image();
       image.alt = object.boardContent.fileName;
       const crop = object.boardContent.crop;
       const naturalWidth = Math.max(1, object.boardContent.intrinsicWidth * crop.width), naturalHeight = Math.max(1, object.boardContent.intrinsicHeight * crop.height);
-      const bitmap = new FabricImage(image, { cropX: object.boardContent.intrinsicWidth * crop.x, cropY: object.boardContent.intrinsicHeight * crop.y, width: naturalWidth, height: naturalHeight, scaleX: object.geometry.width / naturalWidth, scaleY: object.geometry.height / naturalHeight, opacity: object.boardContent.opacity, originX: "center", originY: "center" });
+      const scaleX = object.geometry.width / naturalWidth, scaleY = object.geometry.height / naturalHeight;
+      const clipPath = new Rect({ width: naturalWidth, height: naturalHeight, rx: object.boardContent.cornerRadius / Math.max(scaleX, .0001), ry: object.boardContent.cornerRadius / Math.max(scaleY, .0001), originX: "center", originY: "center" });
+      const bitmap = new FabricImage(image, { cropX: object.boardContent.intrinsicWidth * crop.x, cropY: object.boardContent.intrinsicHeight * crop.y, width: naturalWidth, height: naturalHeight, scaleX, scaleY, opacity: object.boardContent.opacity, originX: "center", originY: "center", clipPath });
       image.onload = () => { bitmap.setElement(image); bitmap.canvas?.requestRenderAll(); };
-      image.src = object.boardContent.sourceUrl;
+      image.src = object.imageAssetUrl;
       projected = new Group([new Rect({ width: object.geometry.width, height: object.geometry.height, rx: object.boardContent.cornerRadius, ry: object.boardContent.cornerRadius, fill: "#F4F4F5", stroke: object.boardContent.borderColor, strokeWidth: object.boardContent.borderWidth, originX: "center", originY: "center" }), bitmap]);
     } else {
-      projected = new Group([new Rect({ width: object.geometry.width, height: object.geometry.height, rx: 12, ry: 12, fill: "#F4F4F5", stroke: "#A1A1AA", strokeDashArray: [8, 6], originX: "center", originY: "center" }), new Textbox(`${object.boardContent.status === "failed" ? "图片上传失败" : "图片上传中"}\n${object.boardContent.fileName}`, textOptions)]);
+      const state = object.boardContent.status === "failed" ? "图片上传失败" : object.boardContent.status === "ready" ? "图片需在当前会话重新验证" : "图片上传中";
+      projected = new Group([new Rect({ width: object.geometry.width, height: object.geometry.height, rx: 12, ry: 12, fill: "#F4F4F5", stroke: "#A1A1AA", strokeDashArray: [8, 6], originX: "center", originY: "center" }), new Textbox(`${state}\n${object.boardContent.fileName}`, textOptions)]);
     }
   } else if (object.kind === "card" && object.boardContent && object.boardContent.type !== "shape" && object.boardContent.type !== "drawing" && object.boardContent.type !== "image") {
     const content = object.boardContent;

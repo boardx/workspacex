@@ -91,6 +91,9 @@ describe('canonical visual content models', () => {
     expect(() => parseContentObject({ ...image(), fileName: '../secret.png' })).toThrow('IMAGE_FILE_NAME_INVALID');
     expect(() => parseContentObject({ ...image('failed'), retryCount: 101 })).toThrow('CONTENT_OBJECT_INVALID');
     expect(parseContentObject({ ...image('failed'), retryCount: 2 })).toMatchObject({ retryCount: 2 });
+    expect(parseContentObject({ ...image(), assetId: 'local-session-example', sourceUrl: null, persistence: 'local-session' })).toMatchObject({ persistence: 'local-session' });
+    expect(() => parseContentObject({ ...image(), persistence: 'temporary-cache' })).toThrow('IMAGE_PERSISTENCE_INVALID');
+    expect(() => parseContentObject({ ...image(), assetId: 'asset-1', persistence: 'local-session' })).toThrow('IMAGE_SESSION_ASSET_INVALID');
     expect(() => parseContentObject({ ...image('failed'), failureCode: null })).toThrow('IMAGE_FAILURE_REQUIRED');
     expect(() => parseContentObject({ ...image(), crop: { x: 0.5, y: 0, width: 0.6, height: 1 } })).toThrow('IMAGE_CROP_INVALID');
     expect(parseContentObject({ ...image('failed'), intrinsicWidth: 0, intrinsicHeight: 0 })).toMatchObject({ intrinsicWidth: 0, intrinsicHeight: 0 });
