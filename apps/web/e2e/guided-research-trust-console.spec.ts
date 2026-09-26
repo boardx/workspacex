@@ -3,6 +3,7 @@ import { expect, test } from "@playwright/test";
 test("trust console validates boundaries, steering and publication readiness", async ({ page }, testInfo) => {
   await page.goto("/research?preview=trust-console");
   await expect(page.getByRole("heading", { name: "Deep Research 可信研究控制台" })).toBeVisible();
+  await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
   const confirm = page.getByRole("button", { name: "确认研究边界" });
   await expect(confirm).toBeDisabled();
   await page.getByLabel("决策对象").fill("决定企业搜索供应商");
@@ -25,6 +26,8 @@ test("trust console validates boundaries, steering and publication readiness", a
   await expect(page.getByTestId("research-conflict-view")).toContainText("没有检测到证据冲突");
   await page.screenshot({ path: testInfo.outputPath("trust-console-ready.png"), fullPage: true });
 
+  await page.setViewportSize({ width: 768, height: 1024 });
+  await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
   await page.setViewportSize({ width: 390, height: 844 });
   await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
   await page.screenshot({ path: testInfo.outputPath("trust-console-mobile.png"), fullPage: true });

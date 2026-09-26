@@ -29,6 +29,7 @@ import { GuidedResearchEntryPanel } from "./guided-research-entry-panel";
 import { GuidedResearchTopicPanel } from "./guided-research-topic-panel";
 import { GuidedResearchPlanPanel } from "./guided-research-plan-panel";
 import { GuidedResearchSourceWorkspace } from "./guided-research-source-workspace";
+import { GuidedResearchReportWorkspace } from "./guided-research-report-workspace";
 import { parseGuidedResearchMarkdown, serializeGuidedResearchMarkdown } from "@/lib/guided-research-markdown";
 import { toGuidedResearchVisualStage, type GuidedResearchVisualStage } from "@/lib/guided-research-six-step";
 import { getResearchRuntime, getResearchRuntimeProgress, mergeResearchProgress, executeResearchRuntime, type GuidedResearchRuntime as Runtime, type GuidedResearchRuntimeCommand as Command, type GuidedResearchRuntimeDraft as Draft } from "@/lib/guided-research-api";
@@ -328,6 +329,7 @@ export function GuidedResearchLive({ sessionId, onBack, initialNode }: { session
         : null);
   const reportAssistantMenuAction = <DropdownMenuItem onSelect={() => setReportAssistantOpen((open) => !open)}>{reportAssistantOpen ? "收起助手" : "修改报告"}</DropdownMenuItem>;
   const reportActions = <div className="flex flex-wrap items-center justify-between gap-3"><h1 className="text-24 font-semibold">研究报告{state.completed ? " · 已完成" : ""}</h1>{reportPrimaryAction}{showReportRecoveryActions && <DropdownMenu><DropdownMenuTrigger asChild><Button variant="outline" aria-label="更多操作">更多操作</Button></DropdownMenuTrigger><DropdownMenuContent align="end">{reportAssistantMenuAction}<DropdownMenuSeparator /><DropdownMenuItem disabled={busy} onSelect={() => void run("generate")}>重新生成报告</DropdownMenuItem></DropdownMenuContent></DropdownMenu>}</div>;
+  const reportDocument = displayReport ? researchReportDocument(displayReport, state.sources, state.outline) : null;
   const briefDocument = draft?.node === "brief" ? serializeGuidedResearchMarkdown({ node: "brief", brief: draft.value }) : null;
   const directionsDocument = draft?.node === "directions" ? serializeGuidedResearchMarkdown({ node: "directions", directions: draft.value }) : null;
   const outlineDocument = draft?.node === "outline" ? serializeGuidedResearchMarkdown({ node: "outline", outline: draft.value }) : null;
@@ -401,10 +403,13 @@ export function GuidedResearchLive({ sessionId, onBack, initialNode }: { session
           risk={<>{researchFailed ? <p className="text-sm text-destructive">存在 {state.tasks.filter((task) => task.status === "failed").length} 项检索失败；可重试或补充来源。</p> : <p className="text-sm text-muted-foreground">当前没有待处理的检索失败。</p>}{state.tasks.length > 0 && !state.questionEvidence?.length && <p className="mt-3 text-sm text-destructive">尚未提取到可关联的核心问题证据。</p>}</>}
           actions={<>{(!state.tasks.length || state.tasks.some((task) => task.status !== "succeeded") || state.sources.some((source) => source.decision !== "excluded" && !source.addedByUser && !source.presentation)) && <Button variant="primary" disabled={busy} onClick={() => void run("start")}>{state.tasks.length && state.tasks.every((task) => task.status === "succeeded") ? "更新资料" : state.sources.length ? "继续搜索" : "搜索资料"}</Button>}{state.tasks.some((task) => task.status === "failed" || (expired && task.status === "running")) && <Button variant="outline" disabled={busy} onClick={() => void run("retry")}>重试失败任务</Button>}</>}
         />}
-        {node === "report" && displayReport && <div className="space-y-4" data-testid="research-report" data-layout="full-width-report">
-          {state.qualityScore && state.publicationReadiness && <GuidedResearchReadiness quality={state.qualityScore} readiness={state.publicationReadiness} />}
-          <GuidedResearchReportDocument document={researchReportDocument(displayReport, state.sources, state.outline)} title={`研究报告${state.completed ? ` · ${researchCompletionLabel(state.completed, state.publicationReadiness)}` : ""}`} limitations={researchLimitations(state.completed, state.publicationReadiness)} actions={reportPrimaryAction} moreActions={reportAssistantMenuAction} onRegenerate={() => void run("generate")} regenerateDisabled={busy || Boolean(proposal)} />
-        </div>}
+        {node === "report" && reportDocument && <GuidedResearchReportWorkspace
+          actions={reportPrimaryAction}
+          contents={<nav aria-label="报告工作区目录" className="space-y-2 text-sm text-muted-foreground"><p>执行摘要</p><p>研究范围与方法</p>{reportDocument.sections.map((section, index) => <p key={section.sectionId}>{index + 1}. {section.title}</p>)}<p>综合结论</p><p>参考来源</p></nav>}
+          document={<div data-testid="research-report" data-layout="full-width-report"><GuidedResearchReportDocument document={reportDocument} title={`研究报告${state.completed ? ` · ${researchCompletionLabel(state.completed, state.publicationReadiness)}` : ""}`} limitations={researchLimitations(state.completed, state.publicationReadiness)} actions={reportPrimaryAction} moreActions={reportAssistantMenuAction} onRegenerate={() => void run("generate")} regenerateDisabled={busy || Boolean(proposal)} /></div>}
+          metrics={<div className="grid gap-3 text-sm"><p><span className="text-2xl font-semibold">{state.sources.filter((source) => source.decision !== "excluded").length}</span> 个有效来源</p>{state.qualityScore && <p><span className="text-2xl font-semibold">{state.qualityScore.overall ?? "—"}</span> 质量评分</p>}{state.publicationReadiness && <p className="text-muted-foreground">{state.publicationReadiness.status === "ready" ? "满足发布条件" : "仍有发布限制"}</p>}</div>}
+          limitation={<p>{researchLimitations(state.completed, state.publicationReadiness)}</p>}
+        />}
         {researchBlocked && <p role="status" className="text-12 text-muted-foreground">{researchPending ? "检索仍在进行，任务结束后可生成报告。" : "请完成检索并保留至少一个真实来源后生成报告。"}</p>}
         {node !== "report" && node !== "brief" && <div className="sticky bottom-0 flex justify-end gap-2 border-t border-border bg-card/95 py-4"><Button variant="outline" disabled={busy || Boolean(proposal) || !validDraft} onClick={() => draft && void run("save", { draft })}>保存草稿</Button><Button variant="primary" disabled={busy || Boolean(proposal) || !validDraft || researchBlocked || (node === "outline" && !state.intent)} onClick={() => void run(node === "research" ? "complete" : "confirm", { ...(draft ? { draft } : {}), ...(partialResearch ? { allowPartialResearch: true } : {}) })}>{partialResearch ? "基于已有来源生成报告" : "确认并继续"}</Button></div>}
         </>}

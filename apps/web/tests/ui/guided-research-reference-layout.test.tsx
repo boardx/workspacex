@@ -4,6 +4,7 @@ import { GuidedResearchEntryPanel } from "@/components/research-studio/guided-re
 import { GuidedResearchTopicPanel } from "@/components/research-studio/guided-research-topic-panel";
 import { GuidedResearchPlanPanel } from "@/components/research-studio/guided-research-plan-panel";
 import { GuidedResearchSourceWorkspace } from "@/components/research-studio/guided-research-source-workspace";
+import { GuidedResearchReportWorkspace } from "@/components/research-studio/guided-research-report-workspace";
 
 describe("guided research reference layout", () => {
   it("offers truthful import routes around the brief workspace", () => {
@@ -43,5 +44,14 @@ describe("guided research reference layout", () => {
     expect(screen.getByTestId("guided-research-source-activity")).toHaveTextContent("正在检索政策资料");
     expect(screen.getByTestId("guided-research-source-evidence")).toHaveTextContent("来源证据");
     expect(screen.getByTestId("guided-research-source-risks")).toHaveTextContent("1 项检索失败");
+  });
+
+  it("frames the report with contents, quality metrics, and an evidence limitation", () => {
+    render(<GuidedResearchReportWorkspace actions={<button>下载 Word</button>} contents={<div>执行摘要</div>} document={<article>报告正文</article>} metrics={<div>28 个来源</div>} limitation={<div>证据覆盖存在缺口</div>} />);
+
+    expect(screen.getByTestId("guided-research-report-workspace")).toBeInTheDocument();
+    expect(screen.getByTestId("guided-research-report-contents")).toHaveTextContent("执行摘要");
+    expect(screen.getByTestId("guided-research-report-metrics")).toHaveTextContent("28 个来源");
+    expect(screen.getByTestId("guided-research-report-limitation")).toHaveTextContent("证据覆盖存在缺口");
   });
 });
