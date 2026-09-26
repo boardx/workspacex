@@ -11,7 +11,7 @@
  * 分节缺口（如实记录而不造数；见契约 `omittedForLackOfData`）：
  * - `usage`：E3 起 `firstValueFunnel` 有真实来源（`facts.firstValueFacts` → 契约
  *   `aggregateFirstValueFunnel`）；但契约把 runCount / tokenCount / seatCount / organizationCount /
- *   skillPackRuns 定为同节必填，`facts.usageBase` 给不出（skillPackRuns 的能力编号映射尚不存在）时
+ *   skillPackRuns 定为同节必填，#4226 起由 `kernel_usage_counts_for_report()` 给出；`facts.usageBase` 给不出时
  *   整节仍缺席——不为了带上漏斗而给其余字段造数。
  * - `diagnostics`：`error_logs` 没有机器可读错误码列（只有自由文本 `msg`），造不出 `errorCode` ⇒ 暂缺席。
  * - `benchmark`：E3 起 `firstValueMedianMinutes` 由契约 `firstValueMedianMinutes()` 算出；同节必填的

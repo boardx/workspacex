@@ -845,6 +845,41 @@ export class PgChatRepository implements ChatRepository, ChatCitationWriter {
     });
   }
 
+  /** #4227：`getThread` 的批量引用读取，同 `findCitationsForMessage` 的租户内读，一次取齐。 */
+  async findCitationsForMessages(orgId: OrgId, messageIds: readonly string[]): Promise<readonly ChatCitationRow[]> {
+    if (messageIds.length === 0) return [];
+    return this.db.withTenant(orgId, async (s) => {
+      const r = await s.query<{
+        citation_id: string;
+        message_id: string;
+        idx: number;
+        source_full_name: string;
+        anchor_kind: string;
+        anchor_page: number | null;
+        anchor_range: string | null;
+        anchor_message_id: string | null;
+        source_artifact_id: string | null;
+      }>(
+        `SELECT citation_id, message_id, idx, source_full_name, anchor_kind,
+                anchor_page, anchor_range, anchor_message_id, source_artifact_id
+           FROM chat_citations WHERE org_id = $1 AND message_id = ANY($2::text[])
+          ORDER BY message_id, idx ASC`,
+        [orgId, [...messageIds]],
+      );
+      return r.rows.map((row) => ({
+        citationId: row.citation_id,
+        messageId: row.message_id,
+        index: row.idx,
+        sourceFullName: row.source_full_name,
+        anchorKind: row.anchor_kind as ChatCitationRow["anchorKind"],
+        anchorPage: row.anchor_page,
+        anchorRange: row.anchor_range,
+        anchorMessageId: row.anchor_message_id,
+        sourceArtifactId: row.source_artifact_id,
+      }));
+    });
+  }
+
   /**
    * E3：assistant 回答的引用写入（`persist-assistant-citations.ts` 已做组织内校验）。
    * 幂等：`(org_id, message_id, idx)` 唯一索引 + DO NOTHING；`citation_id` 由消息与编号

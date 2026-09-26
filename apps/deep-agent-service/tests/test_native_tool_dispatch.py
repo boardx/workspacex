@@ -82,6 +82,7 @@ DISPATCH: dict[str, tuple[str, str, dict]] = {
     "wx_knowledge_read": ("/standard-context/invoke", "returns-refusal", {"sourceId": SENTINEL, "versionId": "v1"}),
     "wx_project_list": ("/standard-context/invoke", "returns-refusal", {"query": SENTINEL}),
     "wx_project_read": ("/standard-context/invoke", "returns-refusal", {"projectId": SENTINEL}),
+    "wx_cite": ("/standard-context/invoke", "returns-refusal", {"citations": [{"sourceId": SENTINEL, "versionId": "v1"}]}),
     "wx_canvas_read": ("/standard-canvas/invoke", "raises", {"canvasId": SENTINEL}),
     "wx_canvas_update": ("/standard-canvas/invoke", "raises", {"canvasId": SENTINEL, "expectedRevision": 1, "changes": {"kind": "replace-source", "markdown": SENTINEL}, "idempotencyKey": "idem-key"}),
     "wx_document_parse": ("/document/parse", "raises", {"workspacePath": "/inputs/" + SENTINEL}),
