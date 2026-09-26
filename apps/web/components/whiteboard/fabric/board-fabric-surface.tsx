@@ -165,6 +165,7 @@ export function BoardFabricSurface({ objects, selectedObjectIds, readOnly, tool,
     const element = canvasElementRef.current;
     if (!host || !element) return;
     const registry = registryRef.current;
+    const rendered = renderedRef.current;
     const canvas = new Canvas(element, { selection: !stateRef.current.readOnly, preserveObjectStacking: true });
     canvasRef.current = canvas;
     const resize = () => {
@@ -237,7 +238,7 @@ export function BoardFabricSurface({ objects, selectedObjectIds, readOnly, tool,
       canvas.dispose();
       canvasRef.current = null;
       registry.clear();
-      renderedRef.current.clear();
+      rendered.clear();
       if (renderFrameRef.current !== null) cancelAnimationFrame(renderFrameRef.current);
       renderFrameRef.current = null;
     };
