@@ -615,6 +615,10 @@ import { PgTelemetryFacts } from "./infrastructure/telemetry/pg-telemetry-facts"
 import { HttpTelemetryTransport } from "./infrastructure/telemetry/http-telemetry-transport";
 import { TelemetryReportWorker } from "./infrastructure/telemetry/telemetry-report-worker";
 import {
+  DEV_PROJECTION_SYNC_CONFIG, DEV_PROJECTION_SYNC_RUNNER, DevProcessProjectionSyncWorker,
+  readDevProjectionSyncConfig, scriptProjectionSyncRunner,
+} from "./infrastructure/retrieval/dev-process-projection-sync-worker";
+import {
   FIRST_VALUE_FACT_STORE, FIRST_VALUE_RECORDER, FirstValueRecorder, type FirstValueFactStore,
 } from "./application/first-value/first-value-recorder";
 import { PgFirstValueFacts } from "./infrastructure/first-value/pg-first-value-facts";
@@ -3031,6 +3035,10 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
       inject: [FIRST_VALUE_FACT_STORE, LOGGER_PORT],
     },
     TelemetryReportWorker,
+    // D12：开发过程投影同步（默认关，WSX_DEV_PROJECTION_SYNC_ORG 打开；幂等，失败只记日志）。
+    { provide: DEV_PROJECTION_SYNC_CONFIG, useFactory: () => readDevProjectionSyncConfig() },
+    { provide: DEV_PROJECTION_SYNC_RUNNER, useValue: scriptProjectionSyncRunner },
+    DevProcessProjectionSyncWorker,
     // Phase 18（ADR-114）：本体唯一写入口（F03）+ AGE 投影 worker（F04，outbox → 各 org 的图）。
     { provide: ONTOLOGY_STORE_PORT, useFactory: (db: DatabasePort) => new PgOntologyStore(db), inject: [DATABASE_PORT] },
     { provide: GRAPH_PROJECTION_PORT, useFactory: (db: DatabasePort) => new PgGraphProjection(db), inject: [DATABASE_PORT] },
