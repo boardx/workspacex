@@ -19,14 +19,15 @@
  *   函数，函数体内 JOIN organizations 限定 kind = 'organization'，只回一行两个计数：周期内 `agent_runs` 条数、
  *   当前 `org_memberships` 不同 user_id 数。= run_count / seat_count / 周期周数。seat_count = 0 ⇒ 分母
  *   不存在 ⇒ `null`（整节缺席，不造数）。
- * - `usageBase`：仍 `null`。契约把 runCount / tokenCount / seatCount / organizationCount / skillPackRuns
- *   定为同组必填；前四项库里有来源（agent_runs / token_usage_events.tokens_total / org_memberships /
- *   organizations），但 **`skillPackRuns[].capabilityId`（`WX-S\d+` 或 `<vendor>-<id>`）没有来源**——
- *   skills / skill_versions / agent_runs.skill_version_ids 里都没有能力编号列，也没有技能→能力编号的映射。
- *   给空数组等于谎称「本周期零次技能包运行」，所以整节缺席，直到该映射落地。
+ * - `usageBase`：`kernel_usage_counts_for_report(start, end)`——SECURITY DEFINER 函数（#4226），函数体内每个子查询
+ *   都 JOIN organizations 限定 kind = 'organization'，只回一行计数：runCount（agent_runs）/ tokenCount
+ *   （token_usage_events.tokens_total 之和）/ seatCount / organizationCount / 按能力编号分组的运行数。能力编号
+ *   来自运行快照指向的 `skill_versions.manifest.capabilityId`（starter pack 导入时从包清单原样写入，源头是
+ *   SKILL.md frontmatter 的 `capability_id`）；没有编号的技能不计入 skillPackRuns（不编号、不猜）。这里再按契约
+ *   逐条校验一次，不合格的编号丢弃。函数无行 ⇒ `null`（整节缺席）。
  */
 import { statfs } from "node:fs/promises";
-import { firstValueEvents as FV } from "@repo/contracts";
+import { firstValueEvents as FV, instanceTelemetry as T } from "@repo/contracts";
 import type { DatabasePort } from "../../application/ports/database.port";
 import type {
   FirstValueLocalFact, TelemetryFactsSource, TelemetryHealthFacts, TelemetryUsageBase,
@@ -39,6 +40,8 @@ export const TELEMETRY_FACT_TABLES = [
   "kernel_first_value_facts_for_report",
   // benchmark：只经这个函数取两个计数（已排除 personal-local、不回任何行）。
   "kernel_benchmark_counts_for_report",
+  // usage：只经这个函数取计数（已排除 personal-local、不回任何行；token_usage_events 只能经它读）。
+  "kernel_usage_counts_for_report",
 ] as const;
 
 const UPTIME_SQL = `SELECT count(*)::int AS total,
@@ -58,6 +61,29 @@ const MIGRATIONS_SQL = `SELECT count(*)::int AS n FROM _kernel_migrations`;
 const FIRST_VALUE_SQL = `SELECT org_ref, step, occurred_at FROM kernel_first_value_facts_for_report()`;
 
 const BENCHMARK_SQL = `SELECT run_count, seat_count FROM kernel_benchmark_counts_for_report($1, $2)`;
+
+const USAGE_SQL = `SELECT run_count, token_count, seat_count, organization_count, capability_runs FROM kernel_usage_counts_for_report($1, $2)`;
+
+const SkillPackRun = T.TelemetryUsage.shape.skillPackRuns.element;
+
+/** 纯函数：把函数回的一行计数折成契约形状；编号不合契约的条目丢弃（不改写、不猜）。 */
+export function usageBaseFrom(row: {
+  run_count: string | number; token_count: string | number; seat_count: string | number;
+  organization_count: string | number; capability_runs: Record<string, string | number> | null;
+}): TelemetryUsageBase {
+  const skillPackRuns = Object.entries(row.capability_runs ?? {})
+    .map(([capabilityId, n]) => SkillPackRun.safeParse({ capabilityId, runCount: Number(n) }))
+    .flatMap((r) => (r.success ? [r.data] : []))
+    .sort((a, b) => b.runCount - a.runCount || a.capabilityId.localeCompare(b.capabilityId))
+    .slice(0, 500);
+  return {
+    runCount: Number(row.run_count),
+    tokenCount: Number(row.token_count),
+    seatCount: Number(row.seat_count),
+    organizationCount: Number(row.organization_count),
+    skillPackRuns,
+  };
+}
 
 const WEEK_MS = 7 * 86_400_000;
 
@@ -112,8 +138,10 @@ export class PgTelemetryFacts implements TelemetryFactsSource {
     return { facts, personalLocalExcluded: true };
   }
 
-  async usageBase(): Promise<TelemetryUsageBase | null> {
-    return null;
+  async usageBase(periodStart: Date, periodEnd: Date): Promise<TelemetryUsageBase | null> {
+    const row = await this.db.withoutTenant(async (s) =>
+      (await s.query<Parameters<typeof usageBaseFrom>[0]>(USAGE_SQL, [periodStart, periodEnd])).rows[0]);
+    return row ? usageBaseFrom(row) : null;
   }
 
   async runsPerSeatPerWeek(periodStart: Date, periodEnd: Date): Promise<number | null> {

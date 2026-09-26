@@ -13,6 +13,7 @@ export default defineConfig({
       "tests/telemetry/run-telemetry-cycle.test.ts",
       "tests/telemetry/telemetry-no-content-tables.test.ts",
       "tests/telemetry/telemetry-benchmark-facts.test.ts",
+      "tests/telemetry/telemetry-usage-facts.test.ts",
     ],
   },
 });

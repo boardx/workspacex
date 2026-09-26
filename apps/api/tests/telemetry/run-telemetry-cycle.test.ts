@@ -169,6 +169,17 @@ describe("runTelemetryCycle", () => {
       expect(sent).not.toHaveProperty("usage");
       expect(sent).not.toHaveProperty("benchmark");
       expect(f.firstValueFacts).not.toHaveBeenCalled();
+      // #4226：usage 有真实来源也不读、不发
+      expect(f.usageBase).not.toHaveBeenCalled();
+    });
+
+    it("usage 同意关、benchmark 开 ⇒ 有能力编号的来源也不读 usageBase，报告里没有 usage", async () => {
+      const { repo } = fakeState({ health: false, usage: false, diagnostics: false, benchmark: true });
+      const t = okTransport();
+      const f = facts(HEALTH, { fv: FV, base: { ...BASE, skillPackRuns: [{ capabilityId: "WX-S007", runCount: 3 }] }, rps: 1 });
+      await runTelemetryCycle({ state: repo, facts: f, transport: t, logger: logger(), now }, cfg());
+      expect(JSON.parse(t.bodies[0]!)).not.toHaveProperty("usage");
+      expect(f.usageBase).not.toHaveBeenCalled();
     });
 
     it("usage 同意但其余必填字段无来源 ⇒ 整节缺席并如实列入 omitted（不为带漏斗而造数）", async () => {
