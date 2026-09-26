@@ -63,6 +63,7 @@ export function BoardObjectAuthoringPreview({ initialScene = "default", onMockCo
   const objects = React.useMemo(() => getAuthoringSceneObjects(scene), [scene]);
   const initialSelected = scene === "contextual" ? "text-heading" : scene === "resize" ? "sticky-auto" : scene === "link-failed" ? "sticky-link" : objects[0]?.id ?? "";
   const [selectedId, setSelectedId] = React.useState(initialSelected);
+  const selectedObject = objects.find((object) => object.id === selectedId) ?? objects[0];
   const [announcement, setAnnouncement] = React.useState("便利贴已创建，文字编辑已就绪");
   const readOnly = scene === "readonly";
 
@@ -109,14 +110,14 @@ export function BoardObjectAuthoringPreview({ initialScene = "default", onMockCo
           <span className="px-2 text-xs text-muted-foreground">{readOnly ? "只读 · 仍可浏览对象" : scene === "continuous" ? "11 张 · 间距 24" : "已选便利贴"}</span>
         </section>
 
-        {(scene === "default" || scene === "composing") && <InlineEditor scene={scene} dispatch={dispatch} />}
-        {(scene === "contextual" || scene === "link-failed") && <ContextualToolbar kind={objects.find((object) => object.id === selectedId)?.kind ?? "sticky"} scene={scene} dispatch={dispatch} />}
+        {(scene === "default" || scene === "composing") && selectedObject && <InlineEditor scene={scene} object={selectedObject} dispatch={dispatch} />}
+        {(scene === "contextual" || scene === "link-failed") && selectedObject && <ContextualToolbar object={selectedObject} dispatch={dispatch} />}
         {scene === "continuous" && <ContinuousStatus />}
         {scene === "resize" && <ResizeToolbar />}
         {scene === "readonly" && <ReadOnlyNotice />}
         {scene === "undo-conflict" && <UndoConflict />}
 
-        <PropertiesPanel scene={scene} readOnly={readOnly} dispatch={dispatch} objects={objects} selectedId={selectedId} onSelect={setSelectedId} />
+        {selectedObject && <PropertiesPanel readOnly={readOnly} dispatch={dispatch} objects={objects} selectedObject={selectedObject} onSelect={setSelectedId} />}
 
         <div className="absolute bottom-4 left-4 z-20 rounded-xl border border-border bg-card px-3 py-2 shadow-lg">
           <p className="text-xs font-medium">100%</p>
@@ -131,12 +132,13 @@ export function BoardObjectAuthoringPreview({ initialScene = "default", onMockCo
   );
 }
 
-function InlineEditor({ scene, dispatch }: { readonly scene: AuthoringScene; readonly dispatch: (event: BoardAuthoringPreviewEvent) => void }) {
+function InlineEditor({ scene, object, dispatch }: { readonly scene: AuthoringScene; readonly object: AuthoringSurfaceObject; readonly dispatch: (event: BoardAuthoringPreviewEvent) => void }) {
   const composing = scene === "composing";
+  const kindLabel = object.kind === "text" ? "文字" : "便利贴";
   return (
-    <section className="absolute left-52 top-40 z-30 w-64 rounded-xl border-2 border-foreground bg-card p-3 shadow-xl" data-testid={composing ? "board-inline-editor-composing" : "board-inline-editor-sticky-focus"}>
+    <section className="absolute left-52 top-40 z-30 w-64 rounded-xl border-2 border-foreground bg-card p-3 shadow-xl" data-testid={composing ? "board-inline-editor-composing" : `board-inline-editor-${object.id}`}>
       <div className="mb-2 flex items-center justify-between text-11 text-muted-foreground"><span>{composing ? "中文输入中…" : "输入想法"}</span><span>{composing ? "IME 优先" : "已自动聚焦"}</span></div>
-      <Textarea aria-label="编辑便利贴 把用户的原话放在这里" defaultValue={composing ? "我们可以先从用户旅" : "把用户的原话放在这里"} className="min-h-28 resize-none border-0 bg-transparent p-0 text-base shadow-none focus-visible:ring-2" onCompositionEnd={() => dispatch({ type: "text-splice", objectId: "sticky-focus", detail: "输入已确认，文字已同步到 canonical 文本" })} />
+      <Textarea aria-label={`编辑${kindLabel} ${object.text.replace("\n", " ")}`} defaultValue={composing ? "我们可以先从用户旅" : object.text.replace("\n", " ")} className="min-h-28 resize-none border-0 bg-transparent p-0 text-base shadow-none focus-visible:ring-2" onCompositionEnd={() => dispatch({ type: "text-splice", objectId: object.id, detail: "输入已确认，文字已同步到 canonical 文本" })} />
       {composing && <p className="mt-2 rounded-md bg-muted px-2 py-1 text-xs text-muted-foreground" role="status">候选：程　景　径 · Tab 暂交给输入法</p>}
     </section>
   );
@@ -150,13 +152,14 @@ function ResizeToolbar() {
   return <section className="absolute left-1/2 top-24 z-20 flex -translate-x-1/2 items-center gap-1 rounded-xl border border-border bg-card p-1.5 shadow-lg" data-testid="board-sticky-resize-mode" aria-label="便利贴尺寸模式"><Button size="sm" variant="outline">Normal</Button><Button size="sm" variant="outline">Free</Button><Button size="sm" variant="primary">Auto-height <Check className="h-3.5 w-3.5" /></Button></section>;
 }
 
-function ContextualToolbar({ kind, scene, dispatch }: { readonly kind: "sticky" | "text"; readonly scene: AuthoringScene; readonly dispatch: (event: BoardAuthoringPreviewEvent) => void }) {
+function ContextualToolbar({ object, dispatch }: { readonly object: AuthoringSurfaceObject; readonly dispatch: (event: BoardAuthoringPreviewEvent) => void }) {
+  const kind = object.kind ?? "sticky";
   return (
     <section className="absolute left-1/2 top-24 z-30 flex -translate-x-1/2 items-center gap-1 rounded-xl border border-border bg-card p-1.5 shadow-xl" data-testid={kind === "text" ? "board-text-contextual-toolbar" : "board-sticky-contextual-toolbar"} data-object-kind={kind} aria-label={kind === "text" ? "文字快捷属性" : "便利贴快捷属性"}>
       {kind === "text" ? <><Button size="sm" variant="primary">Heading <ChevronDown className="h-3.5 w-3.5" /></Button><Button size="sm" variant="outline">对齐</Button><Button size="sm" variant="outline">样式</Button></> : <><Button size="sm" variant="outline">方形 <ChevronDown className="h-3.5 w-3.5" /></Button><Button size="sm" variant="outline">颜色</Button><Button size="sm" variant="outline">正文</Button></>}
       <span className="mx-1 h-5 w-px bg-border" aria-hidden />
-      <Button size="sm" variant="outline" data-testid="board-object-reaction-menu" onClick={() => dispatch({ type: "reaction", objectId: "sticky-context", detail: "已添加 👍 Reaction" })}><MessageCircleHeart className="h-4 w-4" />👍 3</Button>
-      <Button size="sm" variant={scene === "link-failed" ? "primary" : "outline"} data-testid="board-object-link-editor"><Link2 className="h-4 w-4" />链接</Button>
+      {object.reactions && <Button size="sm" variant="outline" data-testid="board-object-reaction-menu" onClick={() => dispatch({ type: "reaction", objectId: object.id, detail: "已添加 👍 Reaction" })}><MessageCircleHeart className="h-4 w-4" />👍 {object.reactions.reduce((total, reaction) => total + reaction.count, 0)}</Button>}
+      {object.link && <Button size="sm" variant={object.link.state === "blocked" ? "primary" : "outline"} data-testid="board-object-link-editor" onClick={() => dispatch({ type: "link", objectId: object.id, detail: "已打开链接编辑" })}><Link2 className="h-4 w-4" />链接</Button>}
     </section>
   );
 }
@@ -169,18 +172,18 @@ function UndoConflict() {
   return <div className="absolute left-1/2 top-24 z-30 flex max-w-md -translate-x-1/2 items-start gap-3 rounded-xl border border-destructive bg-card p-4 shadow-lg" role="alert" data-testid="err-board-history-conflict"><AlertTriangle className="mt-0.5 h-5 w-5 text-destructive" /><div><p className="text-sm font-semibold">无法安全撤销</p><p className="mt-1 text-xs text-muted-foreground">林珊已继续编辑这张便利贴。画布保持当前内容，没有闪回旧对象。</p><Button className="mt-3" size="sm" variant="outline">查看对象历史</Button></div></div>;
 }
 
-function PropertiesPanel({ scene, readOnly, dispatch, objects, selectedId, onSelect }: { readonly scene: AuthoringScene; readonly readOnly: boolean; readonly dispatch: (event: BoardAuthoringPreviewEvent) => void; readonly objects: readonly AuthoringSurfaceObject[]; readonly selectedId: string; readonly onSelect: (id: string) => void }) {
+function PropertiesPanel({ readOnly, dispatch, objects, selectedObject, onSelect }: { readonly readOnly: boolean; readonly dispatch: (event: BoardAuthoringPreviewEvent) => void; readonly objects: readonly AuthoringSurfaceObject[]; readonly selectedObject: AuthoringSurfaceObject; readonly onSelect: (id: string) => void }) {
+  const selectedKind = selectedObject.kind ?? "sticky";
   return (
     <aside className="absolute bottom-4 right-4 top-4 z-20 hidden w-72 flex-col overflow-hidden rounded-2xl border border-border bg-card shadow-xl lg:flex" data-testid="board-authoring-properties">
-      <div className="border-b border-border p-4"><div className="flex items-center justify-between"><h2 className="font-semibold">{scene === "contextual" ? "文字" : "便利贴"}</h2>{readOnly && <LockKeyhole className="h-4 w-4 text-muted-foreground" />}</div><p className="mt-1 text-xs text-muted-foreground">所有更改通过同一对象 command 提交</p></div>
+      <div className="border-b border-border p-4"><div className="flex items-center justify-between"><h2 className="font-semibold" data-testid="board-properties-title">{selectedKind === "text" ? "文字" : "便利贴"}</h2>{readOnly && <LockKeyhole className="h-4 w-4 text-muted-foreground" />}</div><p className="mt-1 text-xs text-muted-foreground">所有更改通过同一对象 command 提交</p></div>
       <div className="space-y-5 overflow-auto p-4">
-        {scene === "contextual" ? <div><p className="mb-2 text-xs font-medium">文字层级</p><div className="grid grid-cols-2 gap-2"><Button size="sm" variant="primary">Heading</Button><Button size="sm" variant="outline">Body</Button><Button size="sm" variant="outline">Caption</Button><Button size="sm" variant="outline">更多样式</Button></div></div> : <div><p className="mb-2 text-xs font-medium">形状</p><div className="grid grid-cols-3 gap-2"><Button size="sm" variant="primary" disabled={readOnly}>方形</Button><Button size="sm" variant="outline" disabled={readOnly}>长方</Button><Button size="sm" variant="outline" disabled={readOnly}>圆形</Button></div></div>}
-        <div><p className="mb-2 text-xs font-medium">尺寸</p><Select options={[{ value: "normal", label: "Normal" }, { value: "free", label: "Free" }, { value: "auto", label: "Auto-height" }]} value={scene === "resize" ? "auto" : "normal"} disabled={readOnly} data-testid="board-sticky-resize-mode-select" /></div>
-        <div><div className="mb-2 flex items-center justify-between"><p className="text-xs font-medium">Reaction</p><span className="text-xs text-muted-foreground">4 人回应</span></div><div className="flex flex-wrap gap-2" data-testid="board-object-reaction-summary"><span className="rounded-full border border-border bg-muted px-2 py-1 text-xs">👍 3</span><span className="rounded-full border border-border bg-muted px-2 py-1 text-xs">💡 1</span></div></div>
-        <LinkPreview failed={scene === "link-failed"} readOnly={readOnly} onRetry={() => dispatch({ type: "link", objectId: "sticky-link", detail: "正在重试安全链接预览" })} />
+        {selectedKind === "text" ? <div data-testid="board-properties-text-controls"><p className="mb-2 text-xs font-medium">文字层级</p><div className="grid grid-cols-2 gap-2"><Button size="sm" variant="primary" disabled={readOnly} onClick={() => dispatch({ type: "presentation", objectId: selectedObject.id, detail: "文字层级已更新" })}>Heading</Button><Button size="sm" variant="outline" disabled={readOnly}>Body</Button><Button size="sm" variant="outline" disabled={readOnly}>Caption</Button><Button size="sm" variant="outline" disabled={readOnly}>更多样式</Button></div></div> : <><div data-testid="board-properties-sticky-controls"><p className="mb-2 text-xs font-medium">形状</p><div className="grid grid-cols-3 gap-2"><Button size="sm" variant="primary" disabled={readOnly} onClick={() => dispatch({ type: "presentation", objectId: selectedObject.id, detail: "便利贴形状已更新" })}>方形</Button><Button size="sm" variant="outline" disabled={readOnly}>长方</Button><Button size="sm" variant="outline" disabled={readOnly}>圆形</Button></div></div><div><p className="mb-2 text-xs font-medium">尺寸</p><Select options={[{ value: "normal", label: "Normal" }, { value: "free", label: "Free" }, { value: "auto-height", label: "Auto-height" }]} value={selectedObject.resizeMode ?? "normal"} disabled={readOnly} data-testid="board-sticky-resize-mode-select" /></div></>}
+        {selectedObject.reactions && <div><div className="mb-2 flex items-center justify-between"><p className="text-xs font-medium">Reaction</p><span className="text-xs text-muted-foreground">{selectedObject.reactions.reduce((total, reaction) => total + reaction.count, 0)} 人回应</span></div><div className="flex flex-wrap gap-2" data-testid="board-object-reaction-summary">{selectedObject.reactions.map((reaction) => <span key={reaction.emoji} className="rounded-full border border-border bg-muted px-2 py-1 text-xs">{reaction.emoji} {reaction.count}</span>)}</div></div>}
+        {selectedObject.link && <LinkPreview failed={selectedObject.link.state === "blocked"} href={selectedObject.link.href} readOnly={readOnly} onRetry={() => dispatch({ type: "link", objectId: selectedObject.id, detail: "正在重试安全链接预览" })} />}
       </div>
       <div className="mt-auto border-t border-border p-4"><p className="flex items-center gap-2 text-xs text-muted-foreground"><Sparkles className="h-4 w-4" />Yjs canonical → Fabric projection</p></div>
-      <ObjectMirror objects={objects} selectedId={selectedId} onSelect={onSelect} />
+      <ObjectMirror objects={objects} selectedId={selectedObject.id} onSelect={onSelect} />
     </aside>
   );
 }
@@ -189,10 +192,10 @@ function ObjectMirror({ objects, selectedId, onSelect }: { readonly objects: rea
   return <section className="border-t border-border p-4" aria-label="白板对象大纲"><h3 className="text-xs font-medium">对象大纲</h3><ul className="mt-2 max-h-40 space-y-1 overflow-auto" data-testid="board-authoring-object-mirror">{objects.map((object) => <li key={object.id}><Button variant={selectedId === object.id ? "secondary" : "ghost"} size="sm" className="w-full justify-start truncate" aria-pressed={selectedId === object.id} data-testid={`board-mirror-object-${object.id}`} onClick={() => onSelect(object.id)}><span className="mr-1 text-11">{object.kind === "text" ? "文字" : "便利贴"}</span>{object.text.replace("\n", " ")}</Button>{object.reactions?.map((reaction) => <span key={reaction.emoji} className="ml-2 text-11 text-muted-foreground">{reaction.emoji} {reaction.count}</span>)}{object.link?.state === "ready" ? <a href={object.link.href} target="_blank" rel="noopener noreferrer" className="ml-2 text-11 text-primary underline focus-visible:ring-2 focus-visible:ring-ring" data-testid={`board-mirror-link-${object.id}`}>打开安全链接</a> : object.link ? <span className="ml-2 text-11 text-muted-foreground" data-testid={`board-mirror-link-blocked-${object.id}`}>链接预览已阻止</span> : null}</li>)}</ul></section>;
 }
 
-function LinkPreview({ failed, readOnly, onRetry }: { readonly failed: boolean; readonly readOnly: boolean; readonly onRetry: () => void }) {
+function LinkPreview({ failed, href, readOnly, onRetry }: { readonly failed: boolean; readonly href: string; readonly readOnly: boolean; readonly onRetry: () => void }) {
   return (
     <div><p className="mb-2 text-xs font-medium">链接预览</p><div className={cn("rounded-xl border p-3", failed ? "border-destructive" : "border-border")} data-testid="board-object-link-preview">
-      {failed ? <><p className="flex items-center gap-2 text-sm font-medium"><AlertTriangle className="h-4 w-4 text-destructive" />预览被安全策略阻止</p><p className="mt-2 break-all text-xs text-muted-foreground">https://miro.com/templates</p><p className="mt-2 text-xs text-muted-foreground">原链接已保留。没有加载远端内容。</p><Button className="mt-3" size="sm" variant="outline" disabled={readOnly} onClick={onRetry}>重试</Button></> : <><div className="flex items-start justify-between gap-2"><div><p className="text-sm font-medium">Miroverse templates</p><p className="mt-1 text-xs text-muted-foreground">Workshop templates for collaborative teams</p></div><ExternalLink className="h-4 w-4 shrink-0 text-muted-foreground" /></div><p className="mt-3 text-11 text-muted-foreground">miro.com · 安全元数据</p></>}
+      {failed ? <><p className="flex items-center gap-2 text-sm font-medium"><AlertTriangle className="h-4 w-4 text-destructive" />预览被安全策略阻止</p><p className="mt-2 break-all text-xs text-muted-foreground">{href}</p><p className="mt-2 text-xs text-muted-foreground">原链接已保留。没有加载远端内容。</p><Button className="mt-3" size="sm" variant="outline" disabled={readOnly} onClick={onRetry}>重试</Button></> : <><div className="flex items-start justify-between gap-2"><div><p className="text-sm font-medium">Miroverse templates</p><p className="mt-1 text-xs text-muted-foreground">Workshop templates for collaborative teams</p></div><ExternalLink className="h-4 w-4 shrink-0 text-muted-foreground" /></div><p className="mt-3 text-11 text-muted-foreground">miro.com · 安全元数据</p></>}
     </div></div>
   );
 }

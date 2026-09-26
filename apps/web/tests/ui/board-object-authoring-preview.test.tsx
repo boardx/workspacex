@@ -107,6 +107,49 @@ describe("BoardObjectAuthoringPreview", () => {
     expect(within(stickyToolbar).queryByRole("button", { name: /Heading/ })).not.toBeInTheDocument();
   });
 
+  it("derives contextual UI, property controls and command targets from one selected object", () => {
+    const onCommand = vi.fn();
+    render(<BoardObjectAuthoringPreview initialScene="contextual" onMockCommand={onCommand} />);
+
+    const text = screen.getByTestId("board-mirror-object-text-heading");
+    expect(text).toHaveAttribute("aria-pressed", "true");
+    expect(screen.getByTestId("board-properties-title")).toHaveTextContent("文字");
+    expect(screen.getByTestId("board-properties-text-controls")).toBeVisible();
+    fireEvent.click(within(screen.getByTestId("board-properties-text-controls")).getByRole("button", { name: "Heading" }));
+    expect(onCommand).toHaveBeenLastCalledWith(expect.objectContaining({ type: "presentation", objectId: "text-heading" }));
+
+    const reactionSticky = screen.getByTestId("board-mirror-object-sticky-context");
+    fireEvent.click(reactionSticky);
+    expect(reactionSticky).toHaveAttribute("aria-pressed", "true");
+    expect(text).toHaveAttribute("aria-pressed", "false");
+    expect(screen.getByTestId("board-sticky-contextual-toolbar")).toHaveAttribute("data-object-kind", "sticky");
+    expect(screen.getByTestId("board-properties-title")).toHaveTextContent("便利贴");
+    expect(screen.getByTestId("board-object-reaction-summary")).toHaveTextContent("👍 3");
+    fireEvent.click(screen.getByTestId("board-object-reaction-menu"));
+    expect(onCommand).toHaveBeenLastCalledWith(expect.objectContaining({ type: "reaction", objectId: "sticky-context" }));
+
+    const linkSticky = screen.getByTestId("board-mirror-object-sticky-link");
+    fireEvent.click(linkSticky);
+    expect(linkSticky).toHaveAttribute("aria-pressed", "true");
+    expect(screen.queryByTestId("board-object-reaction-summary")).not.toBeInTheDocument();
+    expect(screen.getByTestId("board-object-link-preview")).toBeVisible();
+    fireEvent.click(screen.getByTestId("board-object-link-editor"));
+    expect(onCommand).toHaveBeenLastCalledWith(expect.objectContaining({ type: "link", objectId: "sticky-link" }));
+  });
+
+  it("updates the default scene property panel when the mirror selects Text", () => {
+    const onCommand = vi.fn();
+    render(<BoardObjectAuthoringPreview initialScene="default" onMockCommand={onCommand} />);
+    expect(screen.getByTestId("board-properties-title")).toHaveTextContent("便利贴");
+    fireEvent.click(screen.getByTestId("board-mirror-object-text-heading"));
+    expect(screen.getByTestId("board-properties-title")).toHaveTextContent("文字");
+    expect(screen.getByTestId("board-properties-text-controls")).toBeVisible();
+    expect(screen.queryByTestId("board-properties-sticky-controls")).not.toBeInTheDocument();
+    const textEditor = screen.getByTestId("board-inline-editor-text-heading");
+    fireEvent.compositionEnd(within(textEditor).getByRole("textbox"));
+    expect(onCommand).toHaveBeenLastCalledWith(expect.objectContaining({ type: "text-splice", objectId: "text-heading" }));
+  });
+
   it("models normal, free and auto-height as three distinct canonical resize modes", () => {
     const objects = getAuthoringSceneObjects("resize");
     expect(objects.map((object) => object.resizeMode)).toEqual(["normal", "free", "auto-height"]);
