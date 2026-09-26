@@ -66,14 +66,18 @@ test('independent users collaborate, persist, enforce viewer permissions and cle
       await owner.getByTestId('board-add-sticky').click();
       await owner.getByLabel('对象文字',{exact:true}).fill('团队中文协作便签');await synced(owner);
       const editorNote=editor.getByRole('button',{name:'图形：团队中文协作便签',exact:true});await expect(editorNote).toBeVisible({timeout:20_000});
-      await editorNote.click();await editor.getByLabel('对象文字',{exact:true}).fill('另一位成员的中文修改');await synced(editor);
+      // The outline is visually hidden until keyboard focus enters it. A pointer click is
+      // intercepted by Fabric's upper canvas, while focus + Enter exercises its intended
+      // accessible interaction without bypassing actionability checks.
+      await editorNote.focus();await editorNote.press('Enter');await editor.getByLabel('对象文字',{exact:true}).fill('另一位成员的中文修改');await synced(editor);
       await expect(owner.getByRole('button',{name:'图形：另一位成员的中文修改',exact:true})).toBeVisible({timeout:20_000});
     });
     await test.step('persist the change and expose readonly selection',async()=>{
       await owner.reload();await synced(owner);await expect(owner.getByRole('button',{name:'图形：另一位成员的中文修改',exact:true})).toBeVisible();
-      await expect(viewer.getByRole('button',{name:'图形：另一位成员的中文修改',exact:true})).toBeVisible({timeout:20_000});
+      const viewerNote=viewer.getByRole('button',{name:'图形：另一位成员的中文修改',exact:true});
+      await expect(viewerNote).toBeVisible({timeout:20_000});
       await expect(viewer.getByTestId('board-add-sticky')).toBeDisabled();
-      await viewer.getByRole('button',{name:'图形：另一位成员的中文修改',exact:true}).click();await expect(viewer.getByLabel('对象文字',{exact:true})).toBeDisabled();
+      await viewerNote.focus();await viewerNote.press('Enter');await expect(viewer.getByLabel('对象文字',{exact:true})).toBeDisabled();
     });
     await test.step('clear the editor view after access is revoked',async()=>{
       await request(api,ownerToken!,'DELETE',`/whiteboards/${boardId}/members/${encodeURIComponent(required('WHITEBOARD_EDITOR_USER_ID'))}`);
