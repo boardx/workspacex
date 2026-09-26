@@ -4,6 +4,7 @@ export class PreviewSticky extends Textbox {
   static type = 'PreviewSticky';
   /** Transient controller callback; never persisted as document data. */
   onNextSticky?: () => void;
+  get composing() { return this.inCompositionMode; }
   override initDimensions() { super.initDimensions(); this.height = Math.max(160, this.height + 32); }
   override _wrapLine(...args: Parameters<Textbox['_wrapLine']>) {
     args[3] = (args[3] ?? 0) + 32;

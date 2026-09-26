@@ -2,6 +2,7 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { makeSticky, PreviewSticky, adjacentSticky, stickyTextColor } from './sticky';
 import { previewViewport, documentBounds } from './viewport';
+import { stickyViewport } from './sticky-viewport';
 import { Canvas, Rect, Circle, Textbox, Line, PencilBrush } from 'fabric';
 export type Tool = 'select' | 'sticky' | 'shape' | 'draw' | 'connector';
 export type Options = { tool: Tool; color: string; shape: string; width: number; readonly: boolean };
@@ -13,24 +14,48 @@ export function WorkspaceCanvas({ options, seeded = true, draft, onDraft }: { op
   const canvas = useRef<Canvas | null>(null);
   const saveDraft = useRef(onDraft); saveDraft.current = onDraft;
   const initialDraft = useRef(draft);
+  const fitFrame = useRef<number | null>(null);
+  const revealSticky = useCallback((sticky: PreviewSticky) => {
+    if (fitFrame.current !== null) cancelAnimationFrame(fitFrame.current);
+    fitFrame.current = requestAnimationFrame(() => {
+      fitFrame.current = null;
+      const c = canvas.current; const surface = host.current;
+      if (!c || !surface || sticky.composing) return;
+      const editor = surface.closest('[data-testid="workspace-editor"]');
+      const surfaceRect = surface.getBoundingClientRect();
+      const header = editor?.querySelector('header')?.getBoundingClientRect();
+      const contextElement = surface.querySelector<HTMLElement>('[data-sticky-controls]');
+      const context = contextElement?.getBoundingClientRect();
+      const dock = editor?.querySelector('[data-testid="workspace-dock"]')?.getBoundingClientRect();
+      const gap = 12;
+      const headerBottom = Math.max(0, (header?.bottom ?? surfaceRect.top) - surfaceRect.top);
+      const dockTop = Math.min(surfaceRect.height, (dock?.top ?? surfaceRect.bottom) - surfaceRect.top);
+      const paper = sticky.getBoundingRect(); const zoom = c.getZoom();
+      const paperTop = paper.top * zoom + c.viewportTransform[5];
+      const paperBottom = (paper.top + paper.height) * zoom + c.viewportTransform[5];
+      const contextHeight = context?.height ?? 0;
+      // Prefer a non-overlapping toolbar position so first selection never covers
+      // the second click of a double-click. Move paper only when neither slot fits.
+      const below = paperTop < headerBottom + gap * 2 + contextHeight && paperBottom < dockTop - contextHeight - gap * 2;
+      if (contextElement) contextElement.style.top = `${below ? dockTop - contextHeight - gap : headerBottom + gap}px`;
+      const top = headerBottom + gap + (below ? 0 : contextHeight + gap);
+      const bottom = dockTop - gap - (below ? contextHeight + gap : 0);
+      c.setViewportTransform(stickyViewport(sticky.getBoundingRect(), { left: gap, top, width: surfaceRect.width - gap * 2, height: bottom - top }, c.viewportTransform));
+      sticky.setCoords(); c.requestRenderAll();
+    });
+  }, []);
+  useEffect(() => { if (selected) revealSticky(selected); }, [selected, options, revealSticky]);
   const activateSticky = useCallback(function activate(c: Canvas, sticky: PreviewSticky) {
     if (current.current.readonly) return;
     sticky.onNextSticky = () => { if (current.current.readonly) return; sticky.exitEditing(); activate(c, adjacentSticky(sticky)); };
     c.add(sticky); c.skipTargetFind = false; c.setActiveObject(sticky); setSelected(sticky);
-    const bounds = sticky.getBoundingRect(); const zoom = c.getZoom(); const view = [...c.viewportTransform] as typeof c.viewportTransform;
-    // Keep rapid-entry notes reachable above the bottom dock without changing zoom.
-    const right = (bounds.left + bounds.width) * zoom + view[4];
-    const bottom = (bounds.top + bounds.height) * zoom + view[5];
-    if (right > c.width - 24) view[4] -= right - c.width + 24;
-    if (bottom > c.height - 150) view[5] -= bottom - c.height + 150;
-    if (bounds.left * zoom + view[4] < 24) view[4] = 24 - bounds.left * zoom;
-    c.setViewportTransform(view);
+    revealSticky(sticky);
     sticky.enterEditing(); sticky.selectAll(); c.requestRenderAll();
-  }, []);
+  }, [revealSticky]);
   const createSticky = useCallback((c: Canvas, x: number, y: number) => activateSticky(c, makeSticky(x, y, current.current.color)), [activateSticky]);
   const updateSticky = (values: Partial<Pick<PreviewSticky, 'backgroundColor' | 'fontSize' | 'textAlign'>>) => {
     if (!selected || current.current.readonly) return;
-    selected.set({ ...values, ...(values.backgroundColor ? { fill: stickyTextColor(values.backgroundColor) } : {}) }); selected.initDimensions(); selected.setCoords(); canvas.current?.requestRenderAll(); refresh(value => value + 1);
+    selected.set({ ...values, ...(values.backgroundColor ? { fill: stickyTextColor(values.backgroundColor) } : {}) }); selected.initDimensions(); selected.setCoords(); canvas.current?.requestRenderAll(); revealSticky(selected); refresh(value => value + 1);
   };
   const current = useRef(options); current.current = options;
   useEffect(() => {
@@ -48,6 +73,9 @@ export function WorkspaceCanvas({ options, seeded = true, draft, onDraft }: { op
       if (sticky) sticky.onNextSticky = () => { if (current.current.readonly) return; sticky.exitEditing(); activateSticky(c, adjacentSticky(sticky)); };
       setSelected(sticky);
     };
+    c.on('text:changed', event => { if (event.target instanceof PreviewSticky) revealSticky(event.target); });
+    c.on('text:editing:entered', event => { if (event.target instanceof PreviewSticky) revealSticky(event.target); });
+    c.on('text:editing:exited', event => { if (event.target instanceof PreviewSticky) revealSticky(event.target); });
     c.on('selection:created', selectionChanged); c.on('selection:updated', selectionChanged); c.on('selection:cleared', selectionChanged);
     c.on('mouse:dblclick', event => { if (!event.target && !current.current.readonly && current.current.tool === 'select') { const p = c.getScenePoint(event.e); createSticky(c, p.x, p.y); } });
     let start: { x: number; y: number } | null = null;
@@ -60,8 +88,8 @@ export function WorkspaceCanvas({ options, seeded = true, draft, onDraft }: { op
       c.requestRenderAll();
     });
     c.on('mouse:up', event => { if (!start || current.current.readonly) return; const p = c.getScenePoint(event.e); c.add(new Line([start.x, start.y, p.x, p.y], { stroke: current.current.color, strokeWidth: current.current.width, strokeDashArray: current.current.shape === 'dashed' ? [10, 6] : undefined })); start = null; c.requestRenderAll(); });
-    return () => { if (loaded) saveDraft.current(JSON.stringify(c.toJSON())); observer.disconnect(); canvas.current = null; void c.dispose(); };
-  }, [seeded, activateSticky, createSticky]);
+    return () => { if (fitFrame.current !== null) cancelAnimationFrame(fitFrame.current); if (loaded) saveDraft.current(JSON.stringify(c.toJSON())); observer.disconnect(); canvas.current = null; void c.dispose(); };
+  }, [seeded, activateSticky, createSticky, revealSticky]);
   useEffect(() => { const c = canvas.current; if (!c) return; if (options.readonly) { const active = c.getActiveObject(); if (active instanceof Textbox && active.isEditing) active.exitEditing(); c.discardActiveObject(); } c.isDrawingMode = options.tool === 'draw' && !options.readonly; c.selection = options.tool === 'select' && !options.readonly; c.skipTargetFind = options.tool !== 'select' || options.readonly; c.getObjects().forEach(object => object.set({ selectable: !options.readonly, evented: !options.readonly })); const brush = new PencilBrush(c); brush.color = options.color; brush.width = options.width; c.freeDrawingBrush = brush; c.requestRenderAll(); }, [options]);
   return <div ref={host} className="absolute inset-0 touch-none" data-testid="workspace-fabric-surface" tabIndex={0} role="application" aria-label={options.readonly ? "只读白板画布，无法编辑对象。" : "白板画布。空白处双击创建便利贴；Tab 连续创建；Enter 添加当前工具对象；Delete 删除选中对象。"} onKeyDown={event => {
     const c = canvas.current; if (!c || options.readonly || (event.target instanceof HTMLElement && event.target.closest('[data-sticky-controls]')) || c.getActiveObject() instanceof Textbox && (c.getActiveObject() as Textbox).isEditing) return;
