@@ -12,6 +12,7 @@ The second independent review findings are closed in this change:
 - Connector endpoints now share one canonical rotation-aware edge-midpoint function across spatial commands, low-level document apply, Fabric projection, and visible drag handles.
 - Rotated Panel auto-expand measures every rotated child corner in Panel-local space, shifts the rotated origin when expansion crosses the local top/left edge, and preserves complete scene-bound containment.
 - Browser acceptance now drives real ActiveSelection corner scaling and rotation controls, asserts exact persisted geometry across a second live client and reload, checks a rotated Panel and endpoints, and verifies one-step ordering without changing a locked sibling's `zIndex`.
+- Browser drag acceptance converts the canonical rotated local center through the live Fabric viewport zoom/pan into client coordinates, then polls the exact committed or rejected canonical `x/y` delta after every drag.
 
 ## Verification
 
@@ -31,6 +32,9 @@ pnpm --filter web exec vitest run \
 
 pnpm --filter web typecheck
 passed
+
+pnpm --filter web exec playwright test e2e/board-spatial-relationships.spec.ts --list
+1 test in 1 file listed successfully
 ```
 
 `apps/web/e2e/board-spatial-relationships.spec.ts` was strengthened but not executed here. The root session owns real-service browser acceptance. No Docker stack was started and no human signoff/status was changed.

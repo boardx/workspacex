@@ -34,11 +34,21 @@ function anchorPoint(geometry: Geometry, anchor: "left" | "right") {
 }
 const objectRow = (page: Page, kind: string, index = 0) => page.locator(`[data-testid="board-a11y-mirror"] li[data-object-kind="${kind}"]`).nth(index);
 async function geometryOf(row: ReturnType<typeof objectRow>): Promise<Geometry> { return JSON.parse((await row.getAttribute("data-geometry"))!) as Geometry; }
-async function dragObject(page: Page, row: ReturnType<typeof objectRow>, dx: number, dy: number) {
+async function canvasTransform(page: Page) {
+  const surface = page.getByTestId("board-fabric-surface"), box = (await surface.boundingBox())!;
+  return { box, zoom: Number(await surface.getAttribute("data-viewport-zoom")), panX: Number(await surface.getAttribute("data-viewport-pan-x")), panY: Number(await surface.getAttribute("data-viewport-pan-y")) };
+}
+async function dragObject(page: Page, row: ReturnType<typeof objectRow>, dx: number, dy: number, outcome: "commit" | "reject" = "commit") {
   await row.getByRole("button").focus(); await page.keyboard.press("Enter");
-  const geometry = await geometryOf(row), canvas = page.getByTestId("board-fabric-canvas"), box = (await canvas.boundingBox())!;
-  const x = box.x + geometry.x + geometry.width / 2, y = box.y + geometry.y + geometry.height / 2;
-  await page.mouse.move(x, y); await page.mouse.down(); await page.mouse.move(x + dx, y + dy, { steps: 10 }); await page.mouse.up();
+  const geometry = await geometryOf(row), { box, zoom, panX, panY } = await canvasTransform(page), radians = geometry.rotation * Math.PI / 180;
+  const sceneCenter = {
+    x: geometry.x + geometry.width / 2 * Math.cos(radians) - geometry.height / 2 * Math.sin(radians),
+    y: geometry.y + geometry.width / 2 * Math.sin(radians) + geometry.height / 2 * Math.cos(radians),
+  };
+  const start = { x: box.x + panX + sceneCenter.x * zoom, y: box.y + panY + sceneCenter.y * zoom };
+  await page.mouse.move(start.x, start.y); await page.mouse.down(); await page.mouse.move(start.x + dx * zoom, start.y + dy * zoom, { steps: 10 }); await page.mouse.up();
+  const expected = outcome === "commit" ? { x: geometry.x + dx, y: geometry.y + dy } : { x: geometry.x, y: geometry.y };
+  await expect.poll(async () => { const next = await geometryOf(row); return { x: next.x, y: next.y }; }).toEqual(expected);
 }
 async function geometries(page: Page): Promise<Geometry[]> {
   return page.locator('[data-testid="board-a11y-mirror"] li').evaluateAll(rows => rows.map(row => JSON.parse((row as HTMLElement).dataset.geometry!) as Geometry));
@@ -48,10 +58,11 @@ async function activeSelectionBounds(page: Page) {
   return { left: Math.min(...values.map(value => value.x)), top: Math.min(...values.map(value => value.y)), right: Math.max(...values.map(value => value.x + value.width)), bottom: Math.max(...values.map(value => value.y + value.height)) };
 }
 async function transformActiveSelection(page: Page, kind: "scale" | "rotate") {
-  const bounds = await activeSelectionBounds(page), box = (await page.getByTestId("board-fabric-canvas").boundingBox())!;
-  const centerX = box.x + (bounds.left + bounds.right) / 2, centerY = box.y + (bounds.top + bounds.bottom) / 2;
-  const start = kind === "scale" ? { x: box.x + bounds.right, y: box.y + bounds.bottom } : { x: centerX, y: box.y + bounds.top - 40 };
-  const end = kind === "scale" ? { x: start.x + 120, y: start.y + 80 } : { x: box.x + bounds.right + 40, y: centerY };
+  const bounds = await activeSelectionBounds(page), { box, zoom, panX, panY } = await canvasTransform(page);
+  const client = (x: number, y: number) => ({ x: box.x + panX + x * zoom, y: box.y + panY + y * zoom });
+  const center = client((bounds.left + bounds.right) / 2, (bounds.top + bounds.bottom) / 2), corner = client(bounds.right, bounds.bottom), top = client((bounds.left + bounds.right) / 2, bounds.top);
+  const start = kind === "scale" ? corner : { x: top.x, y: top.y - 40 };
+  const end = kind === "scale" ? { x: start.x + 120, y: start.y + 80 } : { x: client(bounds.right, bounds.top).x + 40, y: center.y };
   await page.mouse.move(start.x, start.y); await page.mouse.down(); await page.mouse.move(end.x, end.y, { steps: 16 }); await page.mouse.up();
 }
 async function boardRows(page: Page) {
@@ -104,7 +115,7 @@ test("multi-select transform, Panel clip/expand, connector preservation, and tot
   await expect(page.getByLabel("自动扩展")).toBeDisabled();
   await expect(firstSticky).toHaveAttribute("data-clip-parent-id", panelId);
   const clippedGeometry = await firstSticky.getAttribute("data-geometry");
-  await dragObject(page, firstSticky, 620, 420);
+  await dragObject(page, firstSticky, 620, 420, "reject");
   await expect(firstSticky).toHaveAttribute("data-geometry", clippedGeometry!);
 
   // With auto-expand enabled, the same boundary crossing retains parentId and expands the Panel.

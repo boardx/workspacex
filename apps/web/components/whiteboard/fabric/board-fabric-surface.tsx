@@ -648,6 +648,7 @@ export function BoardFabricSurface({ objects, selectedObjectIds, readOnly, tool,
   const selectFromOutline = React.useCallback((objectId: string) => onSelectionChange([objectId], "outline"), [onSelectionChange]);
   return (
     <div ref={hostRef} className={className ?? "relative h-full w-full overflow-hidden bg-muted/30"} data-testid="board-fabric-surface"
+      data-viewport-zoom={clampBoardZoom(viewport.zoom)} data-viewport-pan-x={viewport.panX} data-viewport-pan-y={viewport.panY}
       onDragOver={(event) => { if (event.dataTransfer.types.includes("application/x-workspacex-board-tool")) { event.preventDefault(); event.dataTransfer.dropEffect = "copy"; } }}
       onDrop={(event) => {
         const payload = event.dataTransfer.getData("application/x-workspacex-board-tool");
