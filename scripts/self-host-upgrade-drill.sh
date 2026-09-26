@@ -110,6 +110,7 @@ chmod 0777 "$WORK/sandbox" "$WORK/sessions"
   echo "SANDBOX_GID=$(id -g)"
   echo "SANDBOX_SOCKET_DIR=$WORK/sandbox"
   echo "NATIVE_SESSION_SOCKET_DIR=$WORK/sessions"
+  echo "WSX_SANDBOX_SECCOMP_PROFILE=$WT/apps/skill-sandbox/security/docker-seccomp.json"
   # pg-config.ts 的 PGPORT 缺省是门控栈的 55432；deploy compose 的缺省是 55433。
   echo "PGHOST=127.0.0.1"
   echo "PGPORT=55433"
