@@ -305,9 +305,10 @@ export function PersistentDigitalInterviewWorkflow({ initialView }: { readonly i
     <main className="min-w-0 flex-1 overflow-y-auto bg-background p-6 lg:p-10"><div className="mx-auto max-w-5xl">
       <header className="flex items-start justify-between gap-4"><div><p className="text-xs text-primary">批量访谈流程</p><h1 className="mt-2 text-3xl font-semibold">{view.name}</h1><div className="mt-3 flex flex-wrap gap-2">{view.tags.map((tag) => <span key={tag} className="rounded-md bg-muted px-2 py-1 text-xs text-muted-foreground">{tag}</span>)}</div></div><button data-testid="itv-return-history" type="button" onClick={() => requestNavigation({ href: "/itv?tab=history" })} className="inline-flex shrink-0 items-center gap-2 rounded-lg border border-border bg-background px-3 py-2 text-sm font-medium text-foreground transition-colors hover:bg-muted"><ArrowLeft className="size-4" aria-hidden />返回访谈列表</button></header>
       <div className="mt-4 flex flex-wrap gap-3 text-xs text-muted-foreground"><span data-testid="itv-workflow-status">{view.status}</span><span data-testid="itv-workflow-version">版本 {view.version}</span>{view.topic && <span data-testid="itv-persisted-topic">已确认主题：{view.topic}</span>}</div>
-      <ol className="mt-7 grid gap-2 sm:grid-cols-5">{LIVE_STEPS.map((step, index) => <li key={step.id}><button data-testid={`itv-workflow-step-${index + 1}`} type="button" aria-current={active === step.id ? "step" : undefined} onClick={() => requestNavigation({ step: step.id })} className={active === step.id ? "w-full rounded-lg bg-primary p-3 text-left text-xs font-medium text-primary-foreground" : "w-full rounded-lg border border-border p-3 text-left text-xs text-muted-foreground"}>0{index + 1} {step.label}</button></li>)}</ol>
+      <ol className="mt-7 grid gap-2 sm:grid-cols-5">{LIVE_STEPS.map((step, index) => <li key={step.id}><button data-testid={`itv-workflow-step-${index + 1}`} type="button" aria-current={active === step.id ? "step" : undefined} onClick={() => requestNavigation({ step: step.id })} className={active === step.id ? "w-full rounded-xl bg-primary p-3 text-left text-xs font-medium text-primary-foreground shadow-sm transition-all" : "w-full rounded-xl border border-border bg-card p-3 text-left text-xs text-muted-foreground transition-all hover:border-primary/40 hover:bg-muted"}>0{index + 1} {step.label}</button></li>)}</ol>
       {error && <p role="alert" className="mt-4 rounded-lg border border-destructive/20 bg-destructive/5 p-3 text-sm text-destructive">操作未完成：{error}。请重试，当前草稿已保留。</p>}
       <section className="mt-8 rounded-2xl border border-border bg-card p-6 shadow-sm lg:p-8">
+        <WorkflowArtifactPanel artifacts={view.artifacts} step={active} />
         {active === "topic" && <LiveTopicStep topic={buffers.topic} onChange={(topic) => { setBuffers((current) => ({ ...current, topic })); setDirty(true); }} onConfirm={() => void confirmTopic()} />}
         {active === "experts" && <LiveExpertStep expertIds={buffers.expertIds} candidates={view.expertCandidates} onChange={(expertIds) => { setBuffers((current) => ({ ...current, expertIds })); setDirty(true); }} onConfirm={() => void confirmExperts()} />}
         {active === "questions" && <LiveQuestionStep expertIds={buffers.expertIds} candidates={view.expertCandidates} questions={buffers.questions} onChange={(questions) => { setBuffers((current) => ({ ...current, questions })); setDirty(true); }} onConfirm={() => void confirmQuestions()} />}
@@ -321,6 +322,17 @@ export function PersistentDigitalInterviewWorkflow({ initialView }: { readonly i
     </div></main>
     {pendingNavigation && <UnsavedChangesDialog onKeepEditing={() => setPendingNavigation(null)} onDiscard={discardAndNavigate} />}
   </div>;
+}
+
+function WorkflowArtifactPanel({ artifacts, step }: { readonly artifacts: DigitalInterviewWorkflowView["artifacts"] | undefined; readonly step: DigitalInterviewStep }) {
+  const artifactStep = step === "topic" ? "intake" : step === "questions" ? "outline" : step;
+  const artifact = (artifacts ?? []).find((candidate) => candidate.step === artifactStep);
+  if (!artifact) return null;
+  return <aside data-testid="itv-step-markdown-artifact" className="mb-6 rounded-xl border border-primary/20 bg-primary/5 p-4">
+    <div className="flex flex-wrap items-center justify-between gap-2"><div><p className="text-xs font-medium text-primary">Markdown 产物 · v{artifact.version}</p><h2 className="mt-1 text-sm font-semibold">{artifact.title}</h2></div><span className="rounded-full bg-background px-2.5 py-1 text-xs text-muted-foreground">{artifact.evidenceMode === "simulated" ? "模拟证据 · 待真人验证" : artifact.evidenceMode === "mixed" ? "混合证据" : "真人证据"}</span></div>
+    {artifact.markdown && <details className="mt-3"><summary className="cursor-pointer text-sm font-medium">查看 Markdown</summary><pre className="mt-3 max-h-56 overflow-auto whitespace-pre-wrap rounded-lg bg-background p-3 text-xs leading-5 text-muted-foreground">{artifact.markdown}</pre></details>}
+    {artifact.status === "failed" && <p role="alert" className="mt-3 text-sm text-destructive">生成失败：{artifact.failure?.code ?? "DEPENDENCY_UNAVAILABLE"}。已保存内容，可重试。</p>}
+  </aside>;
 }
 
 function skillDraftContext(step: DigitalInterviewStep, buffers: LiveBuffers, fallbackTopic: string, generatedExperts: readonly DigitalExpertCatalogRow[]): DigitalInterviewSkillDraftContext {

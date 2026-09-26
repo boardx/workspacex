@@ -627,7 +627,7 @@ export const DigitalInterviewWorkflowView = DigitalInterview.extend({
   questionCandidates: DigitalInterviewQuestionList,
   expertRuns: z.array(DigitalInterviewExpertRun),
   /** Additive during migration: historical workflows have no generated document artifacts. */
-  artifacts: DigitalInterviewArtifacts.default([]),
+  artifacts: DigitalInterviewArtifacts.optional(),
   report: DigitalInterviewReport.nullable().optional(),
   reportGeneration: DigitalInterviewReportGeneration.nullable().optional(),
   skillThreadId: z.string().min(1),
