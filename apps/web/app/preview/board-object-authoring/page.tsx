@@ -4,7 +4,7 @@ import * as React from "react";
 import { useSearchParams } from "next/navigation";
 import {
   BoardObjectAuthoringPreview,
-  isBoardObjectAuthoringScene,
+  resolveBoardObjectAuthoringScene,
 } from "@/components/whiteboard/authoring-preview/board-object-authoring-preview";
 
 export default function BoardObjectAuthoringPreviewPage() {
@@ -17,7 +17,6 @@ export default function BoardObjectAuthoringPreviewPage() {
 
 function PreviewFromQuery() {
   const params = useSearchParams();
-  const requested = params?.get("state");
-  const scene = isBoardObjectAuthoringScene(requested) ? requested : "default";
+  const scene = resolveBoardObjectAuthoringScene(params?.get("state"));
   return <BoardObjectAuthoringPreview initialScene={scene} />;
 }

@@ -13,7 +13,7 @@ export type AuthoringScene =
   | "readonly"
   | "undo-conflict";
 
-interface SurfaceObject {
+export interface AuthoringSurfaceObject {
   readonly id: string;
   readonly text: string;
   readonly x: number;
@@ -23,40 +23,47 @@ interface SurfaceObject {
   readonly fill: string;
   readonly shape?: "square" | "rectangle" | "circle";
   readonly kind?: "sticky" | "text";
+  readonly resizeMode?: "normal" | "free" | "auto-height";
+  readonly reactions?: readonly { readonly emoji: string; readonly count: number }[];
+  readonly link?: { readonly href: string; readonly state: "ready" | "blocked" };
 }
 
 type TaggedGroup = Group & { data?: { boardObjectId: string; canonical: "mock-command-adapter" } };
 
-const BASE: readonly SurfaceObject[] = [
-  { id: "sticky-focus", text: "把用户的原话\n放在这里", x: 250, y: 190, width: 224, height: 196, fill: "hsl(48 88% 72%)" },
-  { id: "sticky-context", text: "邀请工程与设计\n一起看证据", x: 650, y: 280, width: 224, height: 196, fill: "hsl(203 78% 82%)" },
-  { id: "sticky-link", text: "竞品研究\nmiro.com/templates", x: 940, y: 160, width: 244, height: 170, fill: "hsl(264 58% 84%)", shape: "rectangle" },
+const BASE: readonly AuthoringSurfaceObject[] = [
+  { id: "sticky-focus", text: "把用户的原话\n放在这里", x: 250, y: 190, width: 224, height: 196, fill: "hsl(48 88% 72%)", resizeMode: "normal" },
+  { id: "sticky-context", text: "邀请工程与设计\n一起看证据", x: 650, y: 280, width: 224, height: 196, fill: "hsl(203 78% 82%)", resizeMode: "normal", reactions: [{ emoji: "👍", count: 3 }, { emoji: "💡", count: 1 }] },
+  { id: "sticky-link", text: "竞品研究\nmiro.com/templates", x: 940, y: 160, width: 244, height: 170, fill: "hsl(264 58% 84%)", shape: "rectangle", resizeMode: "free", link: { href: "https://miro.com/templates", state: "ready" } },
   { id: "text-heading", text: "先看事实，再归纳机会", x: 310, y: 70, width: 430, height: 56, fill: "hsl(225 18% 18%)", kind: "text" },
 ];
 
-function sceneObjects(scene: AuthoringScene): readonly SurfaceObject[] {
+export function getAuthoringSceneObjects(scene: AuthoringScene): readonly AuthoringSurfaceObject[] {
   if (scene === "continuous") {
     return Array.from({ length: 11 }, (_, index) => ({
       id: `sticky-series-${index + 1}`,
       text: index === 0 ? "先写观察" : `想法 ${index + 1}`,
-      x: 150 + (index % 6) * 188,
-      y: 150 + Math.floor(index / 6) * 190,
-      width: 164,
-      height: 164,
+      x: 64 + index * 104,
+      y: 230,
+      width: 80,
+      height: 80,
       fill: index % 3 === 0 ? "hsl(48 88% 72%)" : index % 3 === 1 ? "hsl(203 78% 82%)" : "hsl(264 58% 84%)",
+      resizeMode: "normal" as const,
     }));
   }
   if (scene === "resize") {
     return [
-      { id: "sticky-normal", text: "Normal\n保持比例", x: 230, y: 180, width: 190, height: 190, fill: "hsl(48 88% 72%)" },
-      { id: "sticky-free", text: "Free\n自由尺寸", x: 520, y: 200, width: 300, height: 150, fill: "hsl(203 78% 82%)", shape: "rectangle" },
-      { id: "sticky-auto", text: "Auto-height\n长文本会按照内容自动增加高度，缩放画布不会改变对象的真实尺寸。", x: 930, y: 140, width: 240, height: 270, fill: "hsl(264 58% 84%)", shape: "rectangle" },
+      { id: "sticky-normal", text: "Normal\n保持比例", x: 230, y: 180, width: 190, height: 190, fill: "hsl(48 88% 72%)", resizeMode: "normal" },
+      { id: "sticky-free", text: "Free\n自由尺寸", x: 520, y: 200, width: 300, height: 150, fill: "hsl(203 78% 82%)", shape: "rectangle", resizeMode: "free" },
+      { id: "sticky-auto", text: "Auto-height\n长文本会按照内容自动增加高度，缩放画布不会改变对象的真实尺寸。", x: 930, y: 140, width: 240, height: 270, fill: "hsl(264 58% 84%)", shape: "rectangle", resizeMode: "auto-height" },
     ];
+  }
+  if (scene === "link-failed") {
+    return BASE.map((object) => object.id === "sticky-link" ? { ...object, link: { href: object.link!.href, state: "blocked" as const } } : object);
   }
   return BASE;
 }
 
-function makeObject(item: SurfaceObject): FabricObject {
+function makeObject(item: AuthoringSurfaceObject): FabricObject {
   if (item.kind === "text") {
     const object = new Textbox(item.text, {
       left: item.x,
@@ -105,7 +112,7 @@ function makeObject(item: SurfaceObject): FabricObject {
   return group;
 }
 
-export function BoardObjectAuthoringSurface({ scene }: { readonly scene: AuthoringScene }) {
+export function BoardObjectAuthoringSurface({ scene, selectedId, onSelectionChange }: { readonly scene: AuthoringScene; readonly selectedId: string; readonly onSelectionChange: (objectId: string) => void }) {
   const hostRef = React.useRef<HTMLDivElement>(null);
   const canvasRef = React.useRef<HTMLCanvasElement>(null);
 
@@ -114,11 +121,17 @@ export function BoardObjectAuthoringSurface({ scene }: { readonly scene: Authori
     const element = canvasRef.current;
     if (!host || !element) return;
     const canvas = new Canvas(element, { selection: scene !== "readonly", preserveObjectStacking: true });
-    const objects = sceneObjects(scene).map(makeObject);
+    const objects = getAuthoringSceneObjects(scene).map(makeObject);
     canvas.add(...objects);
-    for (const object of objects) object.set({ selectable: scene !== "readonly", evented: scene !== "readonly" });
-    const selected = objects.find((object) => (object as TaggedGroup).data?.boardObjectId === (scene === "contextual" ? "text-heading" : scene === "resize" ? "sticky-auto" : "sticky-focus"));
-    if (selected && scene !== "readonly" && scene !== "undo-conflict") canvas.setActiveObject(selected);
+    for (const object of objects) object.set({ selectable: true, evented: true, hasControls: scene !== "readonly", lockMovementX: scene === "readonly", lockMovementY: scene === "readonly", lockScalingX: scene === "readonly", lockScalingY: scene === "readonly", lockRotation: scene === "readonly" });
+    const selected = objects.find((object) => (object as TaggedGroup).data?.boardObjectId === selectedId);
+    if (selected && scene !== "undo-conflict") canvas.setActiveObject(selected);
+    const publishSelection = () => {
+      const active = canvas.getActiveObject() as TaggedGroup | undefined;
+      if (active?.data?.boardObjectId) onSelectionChange(active.data.boardObjectId);
+    };
+    canvas.on("selection:created", publishSelection);
+    canvas.on("selection:updated", publishSelection);
     const resize = () => {
       canvas.setDimensions({ width: host.clientWidth || 1280, height: host.clientHeight || 720 });
       canvas.requestRenderAll();
@@ -127,7 +140,7 @@ export function BoardObjectAuthoringSurface({ scene }: { readonly scene: Authori
     const observer = new ResizeObserver(resize);
     observer.observe(host);
     return () => { observer.disconnect(); canvas.dispose(); };
-  }, [scene]);
+  }, [onSelectionChange, scene, selectedId]);
 
   return (
     <div ref={hostRef} className="absolute inset-0 overflow-hidden bg-muted/30" data-testid="board-authoring-fabric-stage">
