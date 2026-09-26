@@ -192,7 +192,20 @@ export function CollaborativeEditor({ doc, readOnly, title, status, onTitleChang
       <Button disabled={readOnly || !selected.length} onClick={deleteSelection}>删除选中</Button>
       <Button onClick={()=>setZoom(z=>{const next=Math.max(.2,z-.1);setNotice(`缩放 ${Math.round(next*100)}%`);return next;})}>缩小</Button><span aria-hidden="true" className="p-2 text-12">{Math.round(zoom*100)}%</span><Button onClick={()=>setZoom(z=>{const next=Math.min(2,z+.1);setNotice(`缩放 ${Math.round(next*100)}%`);return next;})}>放大</Button>
     </div>
-    <div className="relative min-h-0 flex-1 overflow-hidden">
+    {/*
+      `min-h-0 flex-1` only gets a real (non-zero) height when an ANCESTOR flex chain
+      resolves to a definite size to grow into. `LiveBoard`'s root layout intentionally
+      switches from a definite `h-full` to a content-hugging `min-h-full` below the `sm`
+      breakpoint (see live-board.tsx's `live-board-layout`), so the page can scroll past
+      board chrome that wraps onto extra rows at narrow widths instead of squeezing
+      everything into one screen. In that hugging mode there is no "extra space" for
+      `flex-1` to distribute, and this canvas wrapper's only child is `absolute inset-0`
+      (out of flow, contributing zero intrinsic height) - so without a hard floor the
+      wrapper, and the canvas inside it, collapse to 0×0 and read as `hidden` to Playwright
+      (e2e/whiteboard-live-reflow.spec.ts's 400%-equivalent / <640px pass; #4153).
+      `min-h-64` gives the canvas a real size in that mode; the page still scrolls to it.
+    */}
+    <div className="relative min-h-64 flex-1 overflow-hidden">
       <div ref={surface} tabIndex={0} role="application" aria-label="白板画布。使用方向键导航对象，Enter 或空格选择，Shift 加空格多选，Control 或 Command 加方向键移动。" aria-activedescendant={effectiveActiveId ? `board-a11y-object-${effectiveActiveId}` : undefined} data-testid="board-live-surface" className="absolute inset-0 touch-auto overflow-hidden bg-panel-alt focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring" onFocus={() => { const next=nextBoardObject(displayed,effectiveActiveId,'ArrowRight');if(next&&!effectiveActiveId){setActiveId(next.id);setNotice(`当前对象：${boardObjectLabel(next)}`);} }} onKeyDown={canvasKeyDown} onPointerDown={e=>down(e)} onPointerMove={move} onPointerLeave={() => { cursor.current=null; onAwareness?.(null,selected); }} onPointerUp={finish} onPointerCancel={()=>setGesture(null)}>
         <div className="absolute inset-0 origin-top-left" style={{transform:`translate(${offset.x}px,${offset.y}px) scale(${zoom})`}}>
           <WhiteboardRenderer objects={displayed} selected={selected} activeId={effectiveActiveId} viewport={viewport} onPointerDown={down}/>
