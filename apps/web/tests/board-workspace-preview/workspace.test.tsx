@@ -52,3 +52,12 @@ it('renames tags without changing identity and deletes bindings everywhere', () 
  fireEvent.click(screen.getByTestId('workspace-manage-tags')); fireEvent.click(screen.getByTestId('workspace-tag-delete-idea')); fireEvent.click(screen.getByTestId('workspace-tag-delete-confirm')); fireEvent.click(screen.getByTestId('workspace-tags-done'));
  expect(screen.queryByTestId('workspace-filter-idea')).toBeNull(); expect(screen.getByTestId('workspace-open-three')).toBeTruthy(); expect(screen.queryByText('灵感', { selector: 'span.rounded-full' })).toBeNull();
 });
+
+it('clears editing state when the tag being renamed is deleted', () => {
+ render(<BoardWorkspacePreview />); fireEvent.click(screen.getByTestId('workspace-manage-tags')); fireEvent.click(screen.getByTestId('workspace-tag-rename-idea'));
+ fireEvent.change(screen.getByTestId('workspace-tag-name'), { target: { value: '不应复活' } });
+ fireEvent.click(screen.getByTestId('workspace-tag-delete-idea')); fireEvent.click(screen.getByTestId('workspace-tag-delete-confirm'));
+ expect((screen.getByTestId('workspace-tag-name') as HTMLInputElement).value).toBe(''); expect(screen.getByTestId('workspace-tag-save').textContent).toBe('新建标签');
+ fireEvent.click(screen.getByTestId('workspace-tag-save')); expect(screen.getByRole('alert')).toBeTruthy(); fireEvent.click(screen.getByTestId('workspace-tags-done'));
+ expect(screen.queryByTestId('workspace-filter-idea')).toBeNull(); expect(screen.queryByText('不应复活')).toBeNull();
+});
