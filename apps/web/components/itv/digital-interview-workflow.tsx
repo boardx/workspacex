@@ -3,7 +3,7 @@
 import * as React from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, CheckCircle2, Download, Eye, FileText, Plus, Play, Trash2 } from "lucide-react";
+import { ArrowLeft, CheckCircle2, Download, Eye, FileText, FileUp, Lightbulb, ListChecks, MessageSquareText, Plus, Play, Sparkles, Trash2, UsersRound } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import {
@@ -95,6 +95,24 @@ const LIVE_STEPS: readonly { readonly id: DigitalInterviewStep; readonly label: 
   { id: "topic", label: "主题" }, { id: "experts", label: "专家" }, { id: "questions", label: "问题" }, { id: "runs", label: "访谈" }, { id: "report", label: "报告" },
 ];
 
+type WorkbenchStep = "intake" | "analysis" | "experts" | "outline" | "runs" | "report";
+
+const WORKBENCH_STEPS: readonly { readonly id: WorkbenchStep; readonly label: string; readonly detail: string; readonly liveStep: DigitalInterviewStep }[] = [
+  { id: "intake", label: "导入需求", detail: "明确研究问题与材料边界", liveStep: "topic" },
+  { id: "analysis", label: "确认分析", detail: "校准目标、对象与预期产出", liveStep: "experts" },
+  { id: "experts", label: "选择专家", detail: "组合互补的访谈视角", liveStep: "experts" },
+  { id: "outline", label: "专家提纲", detail: "逐位确认问题与追问", liveStep: "questions" },
+  { id: "runs", label: "开始访谈", detail: "执行并保留可追溯回答", liveStep: "runs" },
+  { id: "report", label: "汇总报告", detail: "输出洞察、边界与行动", liveStep: "report" },
+];
+
+function workbenchStepFor(step: DigitalInterviewStep): WorkbenchStep {
+  if (step === "topic") return "intake";
+  if (step === "experts") return "experts";
+  if (step === "questions") return "outline";
+  return step;
+}
+
 type LiveBuffers = { readonly topic: string; readonly expertIds: readonly string[]; readonly questions: readonly DigitalInterviewQuestion[] };
 type PendingNavigation = { readonly step?: DigitalInterviewStep; readonly href?: string } | null;
 
@@ -111,6 +129,7 @@ export function PersistentDigitalInterviewWorkflow({ initialView }: { readonly i
   const router = useRouter();
   const [view, setView] = React.useState(initialView);
   const [activeStep, setActiveStep] = React.useState<DigitalInterviewStep>(initialView.currentStep);
+  const [activeWorkbenchStep, setActiveWorkbenchStep] = React.useState<WorkbenchStep>(() => workbenchStepFor(initialView.currentStep));
   const [buffers, setBuffers] = React.useState<LiveBuffers>(() => buffersFrom(initialView));
   const [dirty, setDirty] = React.useState(false);
   const [error, setError] = React.useState("");
@@ -173,6 +192,7 @@ export function PersistentDigitalInterviewWorkflow({ initialView }: { readonly i
     requestIds.current.delete(operation);
     setView(next);
     setActiveStep(next.currentStep);
+    setActiveWorkbenchStep(workbenchStepFor(next.currentStep));
     setBuffers(buffersFrom(next));
     setDirty(false);
     setError("");
@@ -200,7 +220,10 @@ export function PersistentDigitalInterviewWorkflow({ initialView }: { readonly i
   }
 
   function navigate(next: PendingNavigation) {
-    if (next?.step) setActiveStep(next.step);
+    if (next?.step) {
+      setActiveStep(next.step);
+      setActiveWorkbenchStep(workbenchStepFor(next.step));
+    }
     if (next?.href) router.push(next.href);
   }
 
@@ -252,6 +275,7 @@ export function PersistentDigitalInterviewWorkflow({ initialView }: { readonly i
     const operation = "generate-report";
     localReportStream.current = true;
     setActiveStep("report");
+    setActiveWorkbenchStep("report");
     setReportPending(true);
     try {
       const next = await generateDigitalInterviewReportStream(
@@ -300,21 +324,33 @@ export function PersistentDigitalInterviewWorkflow({ initialView }: { readonly i
   }
 
   const active = activeStep;
+  const activeWorkbench = activeWorkbenchStep;
+  function requestWorkbenchNavigation(step: WorkbenchStep) {
+    if (step === "analysis") {
+      setActiveWorkbenchStep(step);
+      return;
+    }
+    setActiveWorkbenchStep(step);
+    requestNavigation({ step: WORKBENCH_STEPS.find((candidate) => candidate.id === step)!.liveStep });
+  }
   return <div className="flex min-h-0 flex-1 flex-col lg:flex-row">
     <PersistentInterviewSkillAssistant view={view} currentStep={active} onSend={sendSkillMessage} onApply={applyProposal} onReject={rejectProposal} />
-    <main className="min-w-0 flex-1 overflow-y-auto bg-background p-6 lg:p-10"><div className="mx-auto max-w-5xl">
-      <header className="flex items-start justify-between gap-4"><div><p className="text-xs text-primary">批量访谈流程</p><h1 className="mt-2 text-3xl font-semibold">{view.name}</h1><div className="mt-3 flex flex-wrap gap-2">{view.tags.map((tag) => <span key={tag} className="rounded-md bg-muted px-2 py-1 text-xs text-muted-foreground">{tag}</span>)}</div></div><button data-testid="itv-return-history" type="button" onClick={() => requestNavigation({ href: "/itv?tab=history" })} className="inline-flex shrink-0 items-center gap-2 rounded-lg border border-border bg-background px-3 py-2 text-sm font-medium text-foreground transition-colors hover:bg-muted"><ArrowLeft className="size-4" aria-hidden />返回访谈列表</button></header>
-      <div className="mt-4 flex flex-wrap gap-3 text-xs text-muted-foreground"><span data-testid="itv-workflow-status">{view.status}</span><span data-testid="itv-workflow-version">版本 {view.version}</span>{view.topic && <span data-testid="itv-persisted-topic">已确认主题：{view.topic}</span>}</div>
-      <ol className="mt-7 grid gap-2 sm:grid-cols-5">{LIVE_STEPS.map((step, index) => <li key={step.id}><button data-testid={`itv-workflow-step-${index + 1}`} type="button" aria-current={active === step.id ? "step" : undefined} onClick={() => requestNavigation({ step: step.id })} className={active === step.id ? "w-full rounded-xl bg-primary p-3 text-left text-xs font-medium text-primary-foreground shadow-sm transition-all" : "w-full rounded-xl border border-border bg-card p-3 text-left text-xs text-muted-foreground transition-all hover:border-primary/40 hover:bg-muted"}>0{index + 1} {step.label}</button></li>)}</ol>
+    <main className="min-w-0 flex-1 overflow-y-auto bg-background p-5 lg:p-8"><div className="mx-auto max-w-6xl">
+      <header className="rounded-2xl border border-border bg-card p-5 shadow-sm lg:p-6"><div className="flex items-start justify-between gap-4"><div><p className="flex items-center gap-2 text-xs font-medium text-primary"><Sparkles className="size-4" aria-hidden />AI 模拟访谈工作台</p><h1 className="mt-2 text-3xl font-semibold tracking-tight">{view.name}</h1><p className="mt-2 max-w-3xl text-sm leading-6 text-muted-foreground">将需求、分析、专家意见和访谈证据收敛为可审阅的 Markdown 研究资产。</p><div className="mt-3 flex flex-wrap gap-2">{view.tags.map((tag) => <span key={tag} className="rounded-full bg-muted px-3 py-1 text-xs text-muted-foreground">{tag}</span>)}</div></div><Button data-testid="itv-return-history" type="button" variant="outline" onClick={() => requestNavigation({ href: "/itv?tab=history" })}><ArrowLeft className="size-4" aria-hidden />返回访谈列表</Button></div>
+      <div className="mt-5 flex flex-wrap gap-3 border-t border-border pt-4 text-xs text-muted-foreground"><span data-testid="itv-workflow-status">状态：{view.status}</span><span data-testid="itv-workflow-version">版本 {view.version}</span>{view.topic && <span data-testid="itv-persisted-topic">已确认主题：{view.topic}</span>}</div></header>
+      <ol data-testid="itv-workbench-navigation" className="mt-6 grid gap-2 sm:grid-cols-2 lg:grid-cols-6">{WORKBENCH_STEPS.map((step, index) => <li key={step.id}><Button data-testid={`itv-workbench-step-${step.id}`} type="button" variant={activeWorkbench === step.id ? "primary" : "outline"} aria-current={activeWorkbench === step.id ? "step" : undefined} onClick={() => requestWorkbenchNavigation(step.id)} className="h-auto w-full justify-start whitespace-normal px-3 py-3 text-left"><span className="mr-2 grid size-6 shrink-0 place-items-center rounded-full bg-background/20 text-xs">{index + 1}</span><span><span className="block text-sm">{step.label}</span><span className="mt-1 block text-xs font-normal opacity-80">{step.detail}</span></span></Button></li>)}</ol>
+      <ol className="sr-only">{LIVE_STEPS.map((step, index) => <li key={step.id}><Button data-testid={`itv-workflow-step-${index + 1}`} type="button" aria-current={active === step.id ? "step" : undefined} onClick={() => requestNavigation({ step: step.id })}>0{index + 1} {step.label}</Button></li>)}</ol>
       {error && <p role="alert" className="mt-4 rounded-lg border border-destructive/20 bg-destructive/5 p-3 text-sm text-destructive">操作未完成：{error}。请重试，当前草稿已保留。</p>}
-      <section className="mt-8 rounded-2xl border border-border bg-card p-6 shadow-sm lg:p-8">
-        <WorkflowArtifactPanel artifacts={view.artifacts} step={active} />
-        {active === "topic" && <LiveTopicStep topic={buffers.topic} onChange={(topic) => { setBuffers((current) => ({ ...current, topic })); setDirty(true); }} onConfirm={() => void confirmTopic()} />}
-        {active === "experts" && <LiveExpertStep expertIds={buffers.expertIds} candidates={view.expertCandidates} onChange={(expertIds) => { setBuffers((current) => ({ ...current, expertIds })); setDirty(true); }} onConfirm={() => void confirmExperts()} />}
-        {active === "questions" && <LiveQuestionStep expertIds={buffers.expertIds} candidates={view.expertCandidates} questions={buffers.questions} onChange={(questions) => { setBuffers((current) => ({ ...current, questions })); setDirty(true); }} onConfirm={() => void confirmQuestions()} />}
-        {active === "runs" && <LiveRunStep runs={view.expertRuns} reportPending={reportPending} onGenerateReport={() => void generateReport()} />}
-        {active === "report" && (view.report ? <LiveReportStep report={view.report} onViewSource={(expertId, questionId) => {
+      <section className="mt-6 rounded-2xl border border-border bg-card p-5 shadow-sm lg:p-7">
+        <WorkflowArtifactPanel artifacts={view.artifacts} workbenchStep={activeWorkbench} topic={buffers.topic || view.topic || view.name} />
+        {activeWorkbench === "intake" && <LiveTopicStep topic={buffers.topic} onChange={(topic) => { setBuffers((current) => ({ ...current, topic })); setDirty(true); }} onConfirm={() => void confirmTopic()} />}
+        {activeWorkbench === "analysis" && <LiveAnalysisWorkbench topic={buffers.topic || view.topic || view.name} onContinue={() => requestWorkbenchNavigation("experts")} />}
+        {activeWorkbench === "experts" && <LiveExpertStep expertIds={buffers.expertIds} candidates={view.expertCandidates} onChange={(expertIds) => { setBuffers((current) => ({ ...current, expertIds })); setDirty(true); }} onConfirm={() => void confirmExperts()} />}
+        {activeWorkbench === "outline" && <LiveQuestionStep expertIds={buffers.expertIds} candidates={view.expertCandidates} questions={buffers.questions} onChange={(questions) => { setBuffers((current) => ({ ...current, questions })); setDirty(true); }} onConfirm={() => void confirmQuestions()} />}
+        {activeWorkbench === "runs" && <LiveRunStep runs={view.expertRuns} reportPending={reportPending} onGenerateReport={() => void generateReport()} />}
+        {activeWorkbench === "report" && (view.report ? <LiveReportStep report={view.report} onViewSource={(expertId, questionId) => {
           setActiveStep("runs");
+          setActiveWorkbenchStep("runs");
           window.setTimeout(() => document.getElementById(`answer-${expertId}-${questionId}`)?.scrollIntoView({ block: "center" }), 0);
         }} /> : view.reportGeneration ? <LiveReportGenerationStep generation={view.reportGeneration} />
           : <LiveReadOnlyStep title="访谈报告" text="请先确认访谈回答并生成报告。" />)}
@@ -324,15 +360,29 @@ export function PersistentDigitalInterviewWorkflow({ initialView }: { readonly i
   </div>;
 }
 
-function WorkflowArtifactPanel({ artifacts, step }: { readonly artifacts: DigitalInterviewWorkflowView["artifacts"] | undefined; readonly step: DigitalInterviewStep }) {
-  const artifactStep = step === "topic" ? "intake" : step === "questions" ? "outline" : step;
-  const artifact = (artifacts ?? []).find((candidate) => candidate.step === artifactStep);
-  if (!artifact) return null;
+function WorkflowArtifactPanel({ artifacts, workbenchStep, topic }: { readonly artifacts: DigitalInterviewWorkflowView["artifacts"] | undefined; readonly workbenchStep: WorkbenchStep; readonly topic: string }) {
+  const artifact = (artifacts ?? []).find((candidate) => candidate.step === workbenchStep);
+  const fallbackMarkdown = workbenchStep === "analysis" ? analysisMarkdown(topic) : "";
+  if (!artifact && !fallbackMarkdown) return null;
   return <aside data-testid="itv-step-markdown-artifact" className="mb-6 rounded-xl border border-primary/20 bg-primary/5 p-4">
-    <div className="flex flex-wrap items-center justify-between gap-2"><div><p className="text-xs font-medium text-primary">Markdown 产物 · v{artifact.version}</p><h2 className="mt-1 text-sm font-semibold">{artifact.title}</h2></div><span className="rounded-full bg-background px-2.5 py-1 text-xs text-muted-foreground">{artifact.evidenceMode === "simulated" ? "模拟证据 · 待真人验证" : artifact.evidenceMode === "mixed" ? "混合证据" : "真人证据"}</span></div>
-    {artifact.markdown && <details className="mt-3"><summary className="cursor-pointer text-sm font-medium">查看 Markdown</summary><pre className="mt-3 max-h-56 overflow-auto whitespace-pre-wrap rounded-lg bg-background p-3 text-xs leading-5 text-muted-foreground">{artifact.markdown}</pre></details>}
-    {artifact.status === "failed" && <p role="alert" className="mt-3 text-sm text-destructive">生成失败：{artifact.failure?.code ?? "DEPENDENCY_UNAVAILABLE"}。已保存内容，可重试。</p>}
+    <div className="flex flex-wrap items-center justify-between gap-2"><div><p className="text-xs font-medium text-primary">Markdown 产物 {artifact ? `· v${artifact.version}` : "· 待确认"}</p><h2 className="mt-1 text-sm font-semibold">{artifact?.title ?? "分析建议.md"}</h2></div><span className="rounded-full bg-background px-2.5 py-1 text-xs text-muted-foreground">{artifact ? artifact.evidenceMode === "simulated" ? "模拟证据 · 待真人验证" : artifact.evidenceMode === "mixed" ? "混合证据" : "真人证据" : "基于已确认需求"}</span></div>
+    {(artifact?.markdown || fallbackMarkdown) && <details className="mt-3"><summary className="cursor-pointer text-sm font-medium">查看 Markdown</summary><pre className="mt-3 max-h-56 overflow-auto whitespace-pre-wrap rounded-lg bg-background p-3 text-xs leading-5 text-muted-foreground">{artifact?.markdown || fallbackMarkdown}</pre></details>}
+    {artifact?.status === "failed" && <p role="alert" className="mt-3 text-sm text-destructive">生成失败：{artifact.failure?.code ?? "DEPENDENCY_UNAVAILABLE"}。已保存内容，可重试。</p>}
   </aside>;
+}
+
+function analysisMarkdown(topic: string): string {
+  return `# 分析建议\n\n## 研究目标\n\n- 围绕“${topic}”识别关键决策、约束与反例。\n\n## 建议访谈方向\n\n- 决策链与实际行为\n- 采用障碍与替代方案\n- 可验证的成功指标\n\n## 预期产出\n\n- 专家组合、访谈提纲、可追溯研究发现。`;
+}
+
+function LiveAnalysisWorkbench({ topic, onContinue }: { readonly topic: string; readonly onContinue: () => void }) {
+  const cards = [
+    { title: "研究目标", icon: Lightbulb, items: ["澄清需要验证的核心决策", "识别影响选择的真实约束", "找出需用真人访谈验证的假设"] },
+    { title: "建议访谈方向", icon: MessageSquareText, items: ["决策者的触发点与否决条件", "现有流程中的高摩擦环节", "替代方案与反例"] },
+    { title: "目标人群", icon: UsersRound, items: ["最终决策者", "一线使用者", "影响预算或风险的人"] },
+    { title: "预期产出", icon: ListChecks, items: ["可审阅的专家提纲", "带边界的探索性发现", "下一步真人研究建议"] },
+  ] as const;
+  return <div data-testid="itv-analysis-workbench"><div className="flex flex-wrap items-start justify-between gap-4"><div><p className="text-xs font-medium text-primary">AI 分析结果</p><h2 className="mt-1 text-2xl font-semibold">从需求开始，校准研究方向</h2><p className="mt-2 max-w-2xl text-sm leading-6 text-muted-foreground">围绕“{topic}”生成的分析仅用于组织后续模拟访谈；关键结论仍需用真实用户证据验证。</p></div><Button type="button" variant="primary" onClick={onContinue}>下一步：选择专家</Button></div><div className="mt-6 grid gap-4 md:grid-cols-2">{cards.map(({ title, icon: Icon, items }) => <article key={title} className="rounded-xl border border-border bg-background p-5"><div className="flex items-center gap-2"><span className="grid size-9 place-items-center rounded-lg bg-primary/10 text-primary"><Icon className="size-5" aria-hidden /></span><h3 className="font-semibold">{title}</h3></div><ul className="mt-4 space-y-2 text-sm leading-6 text-muted-foreground">{items.map((item) => <li key={item} className="flex gap-2"><CheckCircle2 className="mt-1 size-3.5 shrink-0 text-primary" aria-hidden />{item}</li>)}</ul></article>)}</div></div>;
 }
 
 function skillDraftContext(step: DigitalInterviewStep, buffers: LiveBuffers, fallbackTopic: string, generatedExperts: readonly DigitalExpertCatalogRow[]): DigitalInterviewSkillDraftContext {
@@ -351,7 +401,7 @@ function skillDraftContext(step: DigitalInterviewStep, buffers: LiveBuffers, fal
 }
 
 function LiveTopicStep({ topic, onChange, onConfirm }: { readonly topic: string; readonly onChange: (topic: string) => void; readonly onConfirm: () => void }) {
-  return <div><h2 className="text-xl font-semibold">确认访谈主题</h2><textarea data-testid="itv-topic-input" value={topic} onChange={(event) => onChange(event.target.value)} placeholder="用一句业务问题说明需要验证什么" className="mt-5 min-h-40 w-full rounded-lg border border-input bg-background p-3" /><Button data-testid="itv-confirm-topic" className="mt-5" variant="primary" size="lg" disabled={!topic.trim()} onClick={onConfirm}>确认主题并生成专家</Button></div>;
+  return <div data-testid="itv-intake-workbench"><div><p className="text-xs font-medium text-primary">导入需求</p><h2 className="mt-1 text-2xl font-semibold">你想研究什么？</h2><p className="mt-2 text-sm leading-6 text-muted-foreground">先用一句清晰的业务问题定义研究范围；确认后，系统会保留一份可审阅的需求 Markdown。</p></div><div className="mt-6 grid gap-3 sm:grid-cols-3"><div className="rounded-xl border border-primary/30 bg-primary/5 p-4"><FileUp className="size-5 text-primary" aria-hidden /><p className="mt-3 text-sm font-medium">粘贴或录入</p><p className="mt-1 text-xs leading-5 text-muted-foreground">当前支持直接录入研究需求。</p></div><div className="rounded-xl border border-border p-4"><FileText className="size-5 text-muted-foreground" aria-hidden /><p className="mt-3 text-sm font-medium">上传文件</p><p className="mt-1 text-xs leading-5 text-muted-foreground">文件导入即将接入，不会丢弃当前草稿。</p></div><div className="rounded-xl border border-border p-4"><MessageSquareText className="size-5 text-muted-foreground" aria-hidden /><p className="mt-3 text-sm font-medium">语音输入</p><p className="mt-1 text-xs leading-5 text-muted-foreground">语音转写接入后会明确标注来源。</p></div></div><label htmlFor="itv-topic-input" className="mt-6 block text-sm font-medium">研究需求</label><textarea id="itv-topic-input" data-testid="itv-topic-input" value={topic} onChange={(event) => onChange(event.target.value)} placeholder="例如：德国储能采购中，谁拥有最终否决权，以及怎样验证他们的真实顾虑？" className="mt-2 min-h-40 w-full rounded-xl border border-input bg-background p-4 text-sm leading-6 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" /><div className="mt-5 flex flex-wrap items-center justify-between gap-3"><p className="text-xs text-muted-foreground">确认后生成「需求说明.md」，并进入分析校准。</p><Button data-testid="itv-confirm-topic" variant="primary" size="lg" disabled={!topic.trim()} onClick={onConfirm}>确认需求并生成分析</Button></div></div>;
 }
 
 function LiveExpertStep({ expertIds, candidates, onChange, onConfirm }: { readonly expertIds: readonly string[]; readonly candidates: readonly DigitalExpertCatalogRow[]; readonly onChange: (expertIds: readonly string[]) => void; readonly onConfirm: () => void }) {
@@ -361,7 +411,7 @@ function LiveExpertStep({ expertIds, candidates, onChange, onConfirm }: { readon
     ? candidates.find((candidate) => candidate.expertId === detailExpertId) ?? findMockDigitalExpert(detailExpertId)
     : undefined;
   const roles = expertIds.map((id) => (candidates.find((candidate) => candidate.expertId === id) ?? findMockDigitalExpert(id))?.role ?? "专家角色暂不可用");
-  return <div data-testid="itv-expert-step"><h2 className="text-xl font-semibold">确认访谈专家</h2><p className="mt-2 text-sm text-muted-foreground">审核模型生成的专家，也可以从静态专家列表添加互补角色。</p><div className="mt-5 grid gap-3">{expertIds.map((expertId, index) => { const expert = candidates.find((candidate) => candidate.expertId === expertId) ?? findMockDigitalExpert(expertId); const name = expert?.role ?? "专家角色暂不可用"; const actionName = roles.filter((role) => role === name).length > 1 ? `${name}（第 ${index + 1} 位）` : name; return <article key={expertId} className="flex items-center justify-between gap-3 rounded-lg border border-border p-4"><div className="min-w-0"><strong>{name}</strong>{expert && <p className="mt-1 text-xs text-muted-foreground">{expert.bio}</p>}</div><div className="flex shrink-0 items-center gap-1"><button data-testid={`itv-expert-detail-trigger-${expertId}`} type="button" aria-label={`查看专家详情 ${actionName}`} onClick={() => setDetailExpertId(expertId)} className="inline-flex items-center gap-1 rounded-md px-2 py-1.5 text-xs text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"><Eye className="size-4" aria-hidden />查看详情</button><button type="button" disabled={expertIds.length <= 1} aria-label={`删除专家 ${actionName}`} onClick={() => onChange(expertIds.filter((id) => id !== expertId))} className="rounded-md p-2 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:cursor-not-allowed disabled:text-disabled-foreground"><Trash2 className="size-4" aria-hidden /></button></div></article>; })}</div><div className="mt-5 flex flex-wrap gap-3"><Button data-testid="itv-add-expert" type="button" variant="outline" onClick={() => setPickerOpen(true)}><Plus className="size-4" aria-hidden />添加专家</Button><Button data-testid="itv-confirm-experts" type="button" variant="primary" disabled={!expertIds.length} onClick={onConfirm}>确认并生成问题</Button></div><ExpertPickerDialog open={pickerOpen} selectedExpertIds={expertIds} onOpenChange={setPickerOpen} onConfirm={onChange} experts={MOCK_DIGITAL_EXPERTS} description="从静态专家列表中选择，本次选择会追加到访谈。" /><ExpertDetailDialog expert={detailExpert} open={Boolean(detailExpertId)} onOpenChange={(open) => { if (!open) setDetailExpertId(null); }} /></div>;
+  return <div data-testid="itv-expert-step"><div><p className="text-xs font-medium text-primary">选择专家</p><h2 className="mt-1 text-2xl font-semibold">用互补视角覆盖研究问题</h2><p className="mt-2 text-sm text-muted-foreground">系统推荐与主题相关的专家；你可以从目录补充角色，并在确认前查看其能力与材料边界。</p></div><div className="mt-6 grid gap-5 lg:grid-cols-[minmax(0,1fr)_20rem]"><section className="rounded-xl border border-border bg-background p-4"><div className="flex items-center justify-between gap-3"><h3 className="font-semibold">候选专家库</h3><Button data-testid="itv-add-expert" type="button" variant="outline" size="sm" onClick={() => setPickerOpen(true)}><Plus className="size-4" aria-hidden />从目录添加</Button></div><div className="mt-4 grid gap-3">{expertIds.map((expertId, index) => { const expert = candidates.find((candidate) => candidate.expertId === expertId) ?? findMockDigitalExpert(expertId); const name = expert?.role ?? "专家角色暂不可用"; const actionName = roles.filter((role) => role === name).length > 1 ? `${name}（第 ${index + 1} 位）` : name; return <article key={expertId} className="flex items-center justify-between gap-3 rounded-lg border border-border p-4"><div className="min-w-0"><strong>{name}</strong>{expert && <p className="mt-1 line-clamp-2 text-xs leading-5 text-muted-foreground">{expert.bio}</p>}</div><Button data-testid={`itv-expert-detail-trigger-${expertId}`} type="button" variant="ghost" size="sm" aria-label={`查看专家详情 ${actionName}`} onClick={() => setDetailExpertId(expertId)}><Eye className="size-4" aria-hidden />详情</Button></article>; })}</div></section><aside className="rounded-xl border border-primary/20 bg-primary/5 p-4"><p className="text-xs font-medium text-primary">已选择专家</p><p className="mt-1 text-2xl font-semibold">{expertIds.length}<span className="ml-1 text-sm font-normal text-muted-foreground">位</span></p><div className="mt-4 space-y-2">{expertIds.map((expertId, index) => { const expert = candidates.find((candidate) => candidate.expertId === expertId) ?? findMockDigitalExpert(expertId); const name = expert?.role ?? "专家角色暂不可用"; const actionName = roles.filter((role) => role === name).length > 1 ? `${name}（第 ${index + 1} 位）` : name; return <div key={expertId} className="flex items-center justify-between gap-2 rounded-lg bg-card p-3"><span className="min-w-0 text-sm font-medium">{expert?.displayName ?? name}</span><Button type="button" variant="ghost" size="icon" disabled={expertIds.length <= 1} aria-label={`删除专家 ${actionName}`} onClick={() => onChange(expertIds.filter((id) => id !== expertId))}><Trash2 className="size-4" aria-hidden /></Button></div>; })}</div><Button data-testid="itv-confirm-experts" type="button" variant="primary" className="mt-5 w-full" disabled={!expertIds.length} onClick={onConfirm}>确认专家并生成提纲</Button></aside></div><ExpertPickerDialog open={pickerOpen} selectedExpertIds={expertIds} onOpenChange={setPickerOpen} onConfirm={onChange} experts={MOCK_DIGITAL_EXPERTS} description="从静态专家列表中选择，本次选择会追加到访谈。" /><ExpertDetailDialog expert={detailExpert} open={Boolean(detailExpertId)} onOpenChange={(open) => { if (!open) setDetailExpertId(null); }} /></div>;
 }
 
 function ExpertDetailDialog({ expert, open, onOpenChange }: { readonly expert: DigitalExpertCatalogRow | undefined; readonly open: boolean; readonly onOpenChange: (open: boolean) => void }) {
@@ -379,18 +429,18 @@ function DetailList({ testId, label, values }: { readonly testId: string; readon
 
 function LiveQuestionStep({ expertIds, candidates, questions, onChange, onConfirm }: { readonly expertIds: readonly string[]; readonly candidates: readonly DigitalExpertCatalogRow[]; readonly questions: readonly DigitalInterviewQuestion[]; readonly onChange: (questions: readonly DigitalInterviewQuestion[]) => void; readonly onConfirm: () => void }) {
   const addQuestion = (expertId: string) => onChange([...questions, { questionId: `manual-${crypto.randomUUID()}`, expertId, order: questions.length + 1, text: "", purpose: "手动问题" }]);
-  return <div><h2 className="text-xl font-semibold">确认针对性问题</h2><div className="mt-4 space-y-4">{expertIds.map((expertId) => <section data-testid="itv-question-group" key={expertId} className="rounded-xl border border-border p-4"><h3 className="font-semibold">{candidates.find((candidate) => candidate.expertId === expertId)?.displayName ?? expertId}</h3>{questions.filter((question) => question.expertId === expertId).map((question) => <textarea key={question.questionId} rows={2} data-testid="itv-question-input" value={question.text} onChange={(event) => onChange(questions.map((candidate) => candidate.questionId === question.questionId ? { ...candidate, text: event.target.value } : candidate))} className="mt-3 w-full resize-y rounded-lg border border-input bg-background px-3 py-2 text-sm" />)}<Button type="button" variant="outline" size="sm" className="mt-3" onClick={() => addQuestion(expertId)}><Plus className="size-4" aria-hidden />添加问题</Button></section>)}</div><Button data-testid="itv-confirm-questions" className="mt-5" variant="primary" disabled={!questions.length || questions.some((question) => !question.text.trim())} onClick={onConfirm}>确认问题并进入访谈</Button></div>;
+  return <div><div className="flex flex-wrap items-start justify-between gap-4"><div><p className="text-xs font-medium text-primary">专家提纲</p><h2 className="mt-1 text-2xl font-semibold">让每位专家回答他们最擅长的问题</h2><p className="mt-2 text-sm text-muted-foreground">编辑后的问题会被写入「访谈提纲.md」；未确认的改动不会覆盖已确认版本。</p></div><span className="rounded-full bg-muted px-3 py-1.5 text-xs text-muted-foreground">{questions.length} 个问题</span></div><div className="mt-6 grid gap-5 lg:grid-cols-[13rem_minmax(0,1fr)]"><aside className="rounded-xl border border-border bg-background p-4"><p className="text-xs font-medium text-muted-foreground">已选专家</p><div className="mt-3 space-y-2">{expertIds.map((expertId) => <div key={expertId} className="rounded-lg bg-muted p-3 text-sm font-medium">{candidates.find((candidate) => candidate.expertId === expertId)?.displayName ?? expertId}</div>)}</div></aside><div className="space-y-4">{expertIds.map((expertId) => <section data-testid="itv-question-group" key={expertId} className="rounded-xl border border-border p-4"><h3 className="font-semibold">{candidates.find((candidate) => candidate.expertId === expertId)?.displayName ?? expertId}</h3><p className="mt-1 text-xs text-muted-foreground">围绕职责、证据和反例组织追问。</p>{questions.filter((question) => question.expertId === expertId).map((question, index) => <div key={question.questionId} className="mt-3 rounded-lg bg-muted/50 p-3"><label htmlFor={question.questionId} className="text-xs font-medium text-muted-foreground">问题 {index + 1} · {question.purpose}</label><textarea id={question.questionId} rows={2} data-testid="itv-question-input" value={question.text} onChange={(event) => onChange(questions.map((candidate) => candidate.questionId === question.questionId ? { ...candidate, text: event.target.value } : candidate))} className="mt-2 w-full resize-y rounded-lg border border-input bg-background px-3 py-2 text-sm leading-6 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" /></div>)}<Button type="button" variant="outline" size="sm" className="mt-3" onClick={() => addQuestion(expertId)}><Plus className="size-4" aria-hidden />添加追问</Button></section>)}</div></div><div className="mt-6 flex justify-end"><Button data-testid="itv-confirm-questions" variant="primary" disabled={!questions.length || questions.some((question) => !question.text.trim())} onClick={onConfirm}>确认提纲并开始访谈</Button></div></div>;
 }
 
 function LiveReadOnlyStep({ title, text }: { readonly title: string; readonly text: string }) { return <div><h2 className="text-xl font-semibold">{title}</h2><p className="mt-2 text-sm text-muted-foreground">{text}</p></div>; }
 
 function LiveRunStep({ runs, reportPending, onGenerateReport }: { readonly runs: DigitalInterviewWorkflowView["expertRuns"]; readonly reportPending: boolean; readonly onGenerateReport: () => void }) {
   const ready = runs.length > 0 && runs.every((run) => run.status !== "running") && runs.some((run) => run.status === "completed" && run.answers.length > 0);
-  return <div data-testid="itv-expert-runs"><h2 className="text-xl font-semibold">执行批量访谈</h2><p className="mt-2 text-sm text-muted-foreground">每位专家独立运行；刷新或离开页面后会从服务端恢复。</p><div className="mt-5 space-y-4">{runs.map((run) => <article key={run.expertId} data-testid="itv-expert-run" className="rounded-xl border border-border p-4"><div className="flex items-center justify-between gap-3"><h3 className="font-semibold">{run.displayName}</h3><span className="text-xs text-muted-foreground">{run.status === "completed" ? "已完成" : run.status === "failed" ? "失败" : "进行中"} · {run.completedQuestions}/{run.totalQuestions}</span></div>{run.errorCode && <p role="alert" className="mt-3 text-sm text-destructive">{run.errorCode}</p>}<div className="mt-3 space-y-3">{run.answers.map((answer) => <section id={`answer-${run.expertId}-${answer.questionId}`} key={answer.questionId} className="scroll-mt-6 rounded-lg bg-muted/50 p-3"><p className="text-sm font-medium">{answer.question}</p><p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-muted-foreground">{answer.answer}</p></section>)}</div></article>)}</div>{runs.length === 0 && <p data-testid="itv-runs-empty" className="mt-5 text-sm text-muted-foreground">访谈任务正在创建，请稍后刷新。</p>}<Button data-testid="itv-confirm-answers-generate-report" className="mt-6" variant="primary" size="lg" disabled={!ready || reportPending} onClick={onGenerateReport}>{reportPending ? "正在生成报告…" : "确认访谈回答并生成报告"}</Button></div>;
+  return <div data-testid="itv-expert-runs"><div className="flex flex-wrap items-start justify-between gap-4"><div><p className="text-xs font-medium text-primary">开始访谈</p><h2 className="mt-1 text-2xl font-semibold">逐位执行并保留可追溯回答</h2><p className="mt-2 text-sm text-muted-foreground">每位专家独立运行；刷新或离开页面后会从服务端恢复。</p></div><div className="rounded-xl bg-muted px-4 py-3 text-right"><p className="text-xs text-muted-foreground">完成进度</p><p className="mt-1 text-xl font-semibold">{runs.filter((run) => run.status === "completed").length}/{runs.length || 0}</p></div></div><div className="mt-6 space-y-4">{runs.map((run) => <article key={run.expertId} data-testid="itv-expert-run" className="rounded-xl border border-border bg-background p-5"><div className="flex items-center justify-between gap-3"><div><h3 className="font-semibold">{run.displayName}</h3><p className="mt-1 text-xs text-muted-foreground">模拟专家访谈 · 回答可回溯至问题</p></div><span className="rounded-full bg-muted px-3 py-1 text-xs text-muted-foreground">{run.status === "completed" ? "已完成" : run.status === "failed" ? "失败" : "进行中"} · {run.completedQuestions}/{run.totalQuestions}</span></div>{run.errorCode && <p role="alert" className="mt-3 text-sm text-destructive">{run.errorCode}</p>}<div className="mt-4 space-y-3">{run.answers.map((answer) => <section id={`answer-${run.expertId}-${answer.questionId}`} key={answer.questionId} className="scroll-mt-6 rounded-lg border border-border bg-muted/30 p-4"><p className="text-sm font-medium">{answer.question}</p><p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-muted-foreground">{answer.answer}</p></section>)}</div></article>)}</div>{runs.length === 0 && <p data-testid="itv-runs-empty" className="mt-5 rounded-lg border border-dashed border-border p-5 text-sm text-muted-foreground">访谈任务正在创建，请稍后刷新。</p>}<div className="mt-6 flex justify-end"><Button data-testid="itv-confirm-answers-generate-report" variant="primary" size="lg" disabled={!ready || reportPending} onClick={onGenerateReport}>{reportPending ? "正在生成报告…" : "确认回答并汇总报告"}</Button></div></div>;
 }
 
 function LiveReportStep({ report, onViewSource }: { readonly report: NonNullable<DigitalInterviewWorkflowView["report"]>; readonly onViewSource: (expertId: string, questionId: string) => void }) {
-  return <div id="itv-report-print-root" data-testid="itv-report"><div className="flex flex-wrap items-start justify-between gap-4"><div><h2 className="text-xl font-semibold">{report.title}</h2><p className="mt-3 leading-7 text-muted-foreground">{report.executiveSummary}</p></div><div className="flex flex-wrap gap-2 print:hidden"><Button data-testid="itv-report-export-word" type="button" variant="outline" onClick={() => void exportInterviewReportWord(report)}><FileText className="size-4" aria-hidden />导出 Word</Button><Button data-testid="itv-report-export-pdf" type="button" variant="outline" onClick={() => exportInterviewReportPdf("itv-report-print-root")}><Download className="size-4" aria-hidden />导出 PDF</Button></div></div><InterviewReportMarkdown markdown={reportMarkdownBody(report.title, report.markdown)} testId="itv-report-markdown" /><div className="mt-8 space-y-3"><h3 className="font-semibold">来源发现</h3>{report.findings.map((finding) => <article key={finding.findingId} className="rounded-lg border border-border p-4"><strong>{finding.title}</strong><p className="mt-2 text-sm leading-6 text-muted-foreground">{finding.summary}</p><button type="button" className="mt-3 text-xs font-medium text-primary print:hidden" onClick={() => onViewSource(finding.expertId, finding.questionId)}>查看原始回答</button></article>)}</div></div>;
+  return <div id="itv-report-print-root" data-testid="itv-report"><div className="flex flex-wrap items-start justify-between gap-4"><div><p className="text-xs font-medium text-primary">汇总报告</p><h2 className="mt-1 text-2xl font-semibold">{report.title}</h2><p className="mt-3 max-w-3xl leading-7 text-muted-foreground">{report.executiveSummary}</p></div><div className="flex flex-wrap gap-2 print:hidden"><Button data-testid="itv-report-export-word" type="button" variant="outline" onClick={() => void exportInterviewReportWord(report)}><FileText className="size-4" aria-hidden />导出 Word</Button><Button data-testid="itv-report-export-pdf" type="button" variant="outline" onClick={() => exportInterviewReportPdf("itv-report-print-root")}><Download className="size-4" aria-hidden />导出 PDF</Button></div></div><div className="mt-6 grid gap-3 sm:grid-cols-3"><div className="rounded-xl border border-border bg-background p-4"><p className="text-xs text-muted-foreground">来源发现</p><p className="mt-1 text-2xl font-semibold">{report.findings.length}</p></div><div className="rounded-xl border border-border bg-background p-4"><p className="text-xs text-muted-foreground">证据状态</p><p className="mt-1 text-sm font-semibold">探索性 · 待验证</p></div><div className="rounded-xl border border-border bg-background p-4"><p className="text-xs text-muted-foreground">可导出格式</p><p className="mt-1 text-sm font-semibold">Word / PDF</p></div></div><div className="mt-7"><InterviewReportMarkdown markdown={reportMarkdownBody(report.title, report.markdown)} testId="itv-report-markdown" /></div><div className="mt-8 space-y-3"><h3 className="font-semibold">来源发现</h3>{report.findings.map((finding) => <article key={finding.findingId} className="rounded-lg border border-border bg-background p-4"><strong>{finding.title}</strong><p className="mt-2 text-sm leading-6 text-muted-foreground">{finding.summary}</p><Button type="button" variant="ghost" size="sm" className="mt-3 print:hidden" onClick={() => onViewSource(finding.expertId, finding.questionId)}>查看原始回答</Button></article>)}</div></div>;
 }
 
 function LiveReportGenerationStep({ generation }: { readonly generation: NonNullable<DigitalInterviewWorkflowView["reportGeneration"]> }) {

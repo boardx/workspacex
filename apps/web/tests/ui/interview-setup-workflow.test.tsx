@@ -532,6 +532,22 @@ describe("F04 正式 setup 的显式确认与双层持久化验收门", () => {
     expect(await screen.findByTestId("itv-expert-step")).toBeInTheDocument();
   });
 
+  it("将持久化访谈呈现为六阶段工作台，并将分析作为独立的可导航步骤", async () => {
+    installLiveFetch(persistedInterview);
+    render(<DigitalInterviewSetup interviewId={persistedInterview.interviewId} />);
+
+    expect(await screen.findByTestId("itv-workbench-step-intake")).toHaveTextContent("导入需求");
+    expect(screen.getByTestId("itv-workbench-step-analysis")).toHaveTextContent("确认分析");
+    expect(screen.getByTestId("itv-workbench-step-experts")).toHaveTextContent("选择专家");
+    expect(screen.getByTestId("itv-workbench-step-outline")).toHaveTextContent("专家提纲");
+    expect(screen.getByTestId("itv-workbench-step-runs")).toHaveTextContent("开始访谈");
+    expect(screen.getByTestId("itv-workbench-step-report")).toHaveTextContent("汇总报告");
+
+    fireEvent.click(screen.getByTestId("itv-workbench-step-analysis"));
+    expect(await screen.findByTestId("itv-analysis-workbench")).toHaveTextContent("研究目标");
+    expect(screen.getByTestId("itv-analysis-workbench")).toHaveTextContent("预期产出");
+  });
+
   it("dirty navigation can be cancelled or discarded without persisting the buffer", async () => {
     const transport = installLiveFetch();
     render(<DigitalInterviewSetup interviewId={topicPendingInterview.interviewId} />);
