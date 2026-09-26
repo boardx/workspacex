@@ -6,14 +6,15 @@
  * - 失败隔离：一条消息失败只让它自己稍后重试；一个 org 失败不影响别的 org。
  * - 消息发送从不等这里（06-UX R3-8「不拖慢对话」）：抽取在后台 worker 里跑。
  * - F16：交给执行器之后，同一个任务里接着判矛盾（detect-conflicts.ts）——任务完成之前卡已经开好。
- * - issue #4283：判完矛盾，作者本人说的「决定」复制进作者本人的个人空间（auto-copy-decisions.ts）。
+ * - #4290：判完矛盾再判明确改口的取代（同一文件 detectSupersedes）——任务完成之前取代提示已经开好。
+ * - issue #4283：判完取代，作者本人说的「决定」复制进作者本人的个人空间（auto-copy-decisions.ts）。
  * - round 7（#4284 收口）：项目会话里用过个人记忆的那一轮的 agent 回答不抽（见 extractJob）。
  */
 import type { LoggerPort } from "../ports/logger.port";
 import { buildExtractionBatch } from "../../domain/knowledge-graph/extraction";
 import { applyOntologyBatch } from "./apply-ontology-batch";
 import { copyAuthorDecisions } from "./auto-copy-decisions";
-import { detectConflicts } from "./detect-conflicts";
+import { detectConflicts, detectSupersedes } from "./detect-conflicts";
 import type {
   KgAutoCopyPort, KgConflictPort, KgExtractionJob, KgExtractionQueuePort, KgExtractionSourcePort, KnowledgeExtractorPort, OntologyStorePort,
 } from "./ports";
@@ -73,7 +74,10 @@ export async function extractJob(deps: ExtractionDeps, job: KgExtractionJob): Pr
   }
   // 去重命中（任务重试）也照样判：上一次可能在交执行器之后、判矛盾之前失败了。
   await detectConflicts({ conflicts: deps.conflicts, newId: deps.newId }, job);
-  // 同理：重试时再跑一遍无害（已复制过的不再是候选）。判矛盾之后跑，被标成冲突的新条不会被带进个人空间。
+  // #4290：明确改口的取代，接在判矛盾之后（见 detect-conflicts.ts detectSupersedes）
+  await detectSupersedes({ conflicts: deps.conflicts, newId: deps.newId }, job);
+  // 同理：重试时再跑一遍无害（已复制过的不再是候选）。判矛盾、取代之后跑：被标成冲突的新条不会被带进个人空间，
+  // 被取代的旧条在复制之前已经定下来。
   await copyAuthorDecisions({ autoCopy: deps.autoCopy, logger: deps.logger, newId: deps.newId }, job);
   return "written";
 }

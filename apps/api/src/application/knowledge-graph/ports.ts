@@ -9,6 +9,7 @@ import type { OntologyBatch, OntologyRejectCode } from "../../domain/knowledge-g
 import type { ExtractionResult, KnownObject } from "../../domain/knowledge-graph/extraction";
 import type { GraphHit, GraphHop, RecallClaim, RecallObject } from "../../domain/knowledge-graph/recall";
 import type { ConfirmedClaim, ConflictPair, FreshClaim } from "../../domain/knowledge-graph/conflict";
+import type { LiveDecision, SupersedeFresh } from "../../domain/knowledge-graph/decision-supersede";
 
 export interface AppliedBatch {
   readonly actionId: string;
@@ -364,6 +365,26 @@ export interface KgConflictPort {
    */
   pendingCloseOrgs(): Promise<readonly OrgId[]>;
   drainCloseOne(orgId: OrgId): Promise<boolean>;
+  /**
+   * Issue #4290：明确改口的取代（迁移 20260926140000）。候选 = 这条消息刚抽出的决定（带消息作者）+ 还活着的旧决定
+   * （本会话的；个人线程里再加所有者本人个人空间的，各带作者）。判定在 domain/knowledge-graph/decision-supersede.ts。
+   */
+  supersedeCandidates(orgId: OrgId, threadId: string, messageId: string): Promise<{
+    readonly fresh: readonly SupersedeFresh[];
+    readonly live: readonly LiveDecision[];
+  }>;
+  /**
+   * 复核后落表，返回开了几张（取代提示 + 卡）；复核不过的跳过。
+   * `supersedes`（高把握）：旧决定 superseded、开一张可撤销的取代提示；
+   * `prompts`（低把握 frame_only）：只开一张 F16 卡（kind = possible_change），两条都不改状态。
+   */
+  applySupersedes(orgId: OrgId, input: {
+    readonly actionId: string;
+    readonly threadId: string;
+    readonly messageId: string;
+    readonly supersedes: readonly { readonly newer: string; readonly olders: readonly string[] }[];
+    readonly prompts: readonly { readonly newer: string; readonly older: string }[];
+  }): Promise<number>;
 }
 
 export const KG_CONFLICT_PORT = Symbol("KgConflictPort");
