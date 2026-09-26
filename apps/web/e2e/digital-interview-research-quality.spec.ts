@@ -106,6 +106,6 @@ test("a completed report separates the decision brief and replaces an empty evid
   await page.route("**/interviews/digital/itv-quality-e2e", async (route) => route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(completed) }));
   await page.goto("/itv/itv-quality-e2e/setup");
   await expect(page.getByTestId("itv-report-decision-brief")).toContainText("先验证采购否决权");
-  await expect(page.getByTestId("itv-evidence-review").getByTestId("itv-evidence-review-empty")).toBeVisible();
+  await expect(page.getByTestId("itv-evidence-review").getByTestId("itv-evidence-review-blocked")).toBeVisible();
   await expect(page.getByRole("table")).toHaveCount(0);
 });
