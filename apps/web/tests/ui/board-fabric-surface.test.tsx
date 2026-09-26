@@ -109,6 +109,32 @@ describe("BoardFabricSurface", () => {
     expect(probe.objects.every((object) => !object.selectable && !object.evented)).toBe(true);
   });
 
+  it("never emits a transform command from a projection placeholder", () => {
+    const onObjectTransform = vi.fn();
+    const placeholder: BoardFabricObject = {
+      ...OBJECTS[0]!,
+      id: "future",
+      kind: "placeholder",
+      locked: true,
+      content: { text: "暂不支持“frame”对象，内容已安全保留。" },
+      projectionIssue: { code: "BOARD_OBJECT_UNSUPPORTED", sourceKind: "frame", message: "暂不支持“frame”对象，内容已安全保留。" },
+    };
+    renderSurface({ objects: [OBJECTS[0]!, placeholder, OBJECTS[1]!], onObjectTransform });
+    const projected = probe.objects.find((object) => object.data?.boardObjectId === "future");
+    if (!projected) throw new Error("Unsupported object placeholder was not rendered");
+    expect(projected.selectable).toBe(false);
+    expect(projected.evented).toBe(false);
+    probe.handlers.get("object:modified")?.({ target: projected });
+    expect(onObjectTransform).not.toHaveBeenCalled();
+    expect(screen.getByTestId("board-a11y-object-future")).toBeDisabled();
+    const valid = probe.objects.find((object) => object.data?.boardObjectId === "s-1");
+    if (!valid) throw new Error("Valid neighbor was not rendered");
+    valid.left = 120;
+    probe.handlers.get("object:modified")?.({ target: valid });
+    expect(onObjectTransform).toHaveBeenCalledOnce();
+    expect(onObjectTransform).toHaveBeenCalledWith("s-1", expect.objectContaining({ x: 120 }));
+  });
+
   it("clamps viewport to 5%-800% and fits canonical content locally", () => {
     const onViewportChange = vi.fn();
     const { rerender } = renderSurface({ viewport: { ...VIEWPORT, zoom: 0.001 }, onViewportChange });

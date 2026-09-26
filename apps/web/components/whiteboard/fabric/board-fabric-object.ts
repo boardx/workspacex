@@ -1,5 +1,11 @@
-export type BoardFabricKind = "sticky" | "text" | "rectangle" | "ellipse";
+export type BoardFabricKind = "sticky" | "text" | "rectangle" | "ellipse" | "placeholder";
 export type BoardFabricTool = "select" | "hand";
+
+export interface BoardProjectionIssue {
+  code: "BOARD_OBJECT_UNSUPPORTED" | "BOARD_PROJECTION_FAILED";
+  sourceKind: string;
+  message: string;
+}
 
 export interface BoardFabricGeometry {
   x: number;
@@ -27,6 +33,8 @@ export interface BoardFabricObject {
   content: { text: string };
   parentId?: string;
   locked?: boolean;
+  /** Renderer-only diagnostic. It is derived from canonical content and is never persisted. */
+  projectionIssue?: BoardProjectionIssue;
 }
 
 export interface BoardViewport {

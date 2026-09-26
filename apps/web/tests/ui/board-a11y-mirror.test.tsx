@@ -69,4 +69,15 @@ describe("Board accessibility object mirror", () => {
     const button = screen.getByRole("button", { name: "图形：椭圆" });
     expect(button).toHaveAccessibleDescription("对象类型：椭圆");
   });
+
+  it("announces an unsupported object placeholder without exposing a canonical write path", () => {
+    const onSelect = vi.fn();
+    render(<BoardA11yMirror objects={[{ ...object("future", "a", "暂不支持“frame”对象，内容已安全保留。", "placeholder"), locked: true, projectionIssue: { code: "BOARD_OBJECT_UNSUPPORTED", sourceKind: "frame", message: "暂不支持“frame”对象，内容已安全保留。" } }]} selectedObjectIds={[]} onSelect={onSelect} readOnly={false} />);
+
+    const placeholder = screen.getByRole("button", { name: "图形：暂不支持“frame”对象，内容已安全保留。" });
+    expect(placeholder).toHaveAccessibleDescription("对象类型：暂不支持的对象");
+    expect(placeholder).toBeDisabled();
+    fireEvent.click(placeholder);
+    expect(onSelect).not.toHaveBeenCalled();
+  });
 });

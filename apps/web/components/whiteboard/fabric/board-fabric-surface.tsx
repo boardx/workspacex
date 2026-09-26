@@ -14,7 +14,7 @@ import {
 } from "./board-fabric-object";
 
 type TaggedFabricObject = FabricObject & {
-  data?: { boardObjectId?: string; adapterKind?: BoardFabricObject["kind"]; renderedRevision?: number };
+  data?: { boardObjectId?: string; adapterKind?: BoardFabricObject["kind"]; renderedRevision?: number; projectionFailure?: boolean };
 };
 
 export interface BoardFabricSurfaceProps {
@@ -42,7 +42,12 @@ function createFabricObject(object: BoardFabricObject): TaggedFabricObject {
     textAlign: "center" as const,
   };
   let projected: FabricObject;
-  if (object.kind === "text") {
+  if (object.kind === "placeholder") {
+    projected = new Group([
+      new Rect({ width: object.geometry.width, height: object.geometry.height, rx: 8, ry: 8, fill: object.style.fill, stroke: object.style.stroke, strokeWidth: 2, strokeDashArray: [8, 6], originX: "center", originY: "center" }),
+      new Textbox(object.content.text, textOptions),
+    ]);
+  } else if (object.kind === "text") {
     projected = new Textbox(object.content.text, {
       width: object.geometry.width,
       fontFamily: textOptions.fontFamily,
@@ -65,8 +70,8 @@ function createFabricObject(object: BoardFabricObject): TaggedFabricObject {
     top: object.geometry.y,
     angle: object.geometry.rotation,
     data: { boardObjectId: object.id, adapterKind: object.kind, renderedRevision: object.revision },
-    selectable: !object.locked,
-    evented: true,
+    selectable: !object.locked && object.kind !== "placeholder",
+    evented: !object.locked && object.kind !== "placeholder",
   });
   projected.setControlsVisibility({ mtr: true });
   projected.setCoords();
@@ -89,11 +94,37 @@ function applyCanonicalObject(projected: TaggedFabricObject, object: BoardFabric
     angle: object.geometry.rotation,
     scaleX: object.geometry.width / naturalWidth,
     scaleY: object.geometry.height / naturalHeight,
-    selectable: !readOnly && !object.locked,
-    evented: !readOnly && !object.locked,
+    selectable: !readOnly && !object.locked && object.kind !== "placeholder",
+    evented: !readOnly && !object.locked && object.kind !== "placeholder",
     data: { boardObjectId: object.id, adapterKind: object.kind, renderedRevision: object.revision },
   });
   projected.setCoords();
+}
+
+function projectionFailureObject(object: BoardFabricObject): BoardFabricObject {
+  const message = "对象渲染失败，内容已安全保留。";
+  return {
+    ...object,
+    kind: "placeholder",
+    locked: true,
+    style: { fill: "#FEF2F2", textColor: "#991B1B", stroke: "#DC2626", fontSize: 14 },
+    content: { text: message },
+    projectionIssue: { code: "BOARD_PROJECTION_FAILED", sourceKind: object.projectionIssue?.sourceKind ?? object.kind, message },
+  };
+}
+
+function createProjectionEntry(object: BoardFabricObject, readOnly: boolean): { projected: TaggedFabricObject; rendered: BoardFabricObject } {
+  try {
+    const projected = createFabricObject(object);
+    applyCanonicalObject(projected, object, readOnly);
+    return { projected, rendered: object };
+  } catch {
+    const rendered = projectionFailureObject(object);
+    const projected = createFabricObject(rendered);
+    applyCanonicalObject(projected, rendered, true);
+    projected.data = { ...projected.data, boardObjectId: object.id, renderedRevision: object.revision, projectionFailure: true };
+    return { projected, rendered };
+  }
 }
 
 function geometryFromFabric(projected: TaggedFabricObject): BoardFabricGeometry {
@@ -112,6 +143,8 @@ export function BoardFabricSurface({ objects, selectedObjectIds, readOnly, tool,
   const canvasRef = React.useRef<Canvas | null>(null);
   const registryRef = React.useRef(new Map<string, TaggedFabricObject>());
   const canonicalRef = React.useRef(new Map<string, BoardFabricObject>());
+  const renderedRef = React.useRef(new Map<string, BoardFabricObject>());
+  const [renderedObjects, setRenderedObjects] = React.useState<readonly BoardFabricObject[]>(objects);
   const selectedObjectIdsRef = React.useRef(selectedObjectIds);
   const renderFrameRef = React.useRef<number | null>(null);
   const callbacksRef = React.useRef({ onSelectionChange, onObjectTransform, onViewportChange });
@@ -153,7 +186,7 @@ export function BoardFabricSurface({ objects, selectedObjectIds, readOnly, tool,
       if (!target || !id) return;
       const canonical = canonicalRef.current.get(id);
       if (!canonical) return;
-      if (stateRef.current.readOnly || canonical.locked) {
+      if (stateRef.current.readOnly || canonical.locked || canonical.kind === "placeholder") {
         applyCanonicalObject(target, canonical, true);
         canvas.requestRenderAll();
         return;
@@ -204,6 +237,7 @@ export function BoardFabricSurface({ objects, selectedObjectIds, readOnly, tool,
       canvas.dispose();
       canvasRef.current = null;
       registry.clear();
+      renderedRef.current.clear();
       if (renderFrameRef.current !== null) cancelAnimationFrame(renderFrameRef.current);
       renderFrameRef.current = null;
     };
@@ -213,26 +247,42 @@ export function BoardFabricSurface({ objects, selectedObjectIds, readOnly, tool,
     const canvas = canvasRef.current;
     if (!canvas) return;
     const incoming = new Map(objects.map((object) => [object.id, object]));
-    canonicalRef.current = incoming;
     for (const [id, projected] of registryRef.current) {
       if (!incoming.has(id)) {
         canvas.remove(projected);
         registryRef.current.delete(id);
+        renderedRef.current.delete(id);
       }
     }
     const orderedObjects = [...objects].sort((left, right) => left.orderKey.localeCompare(right.orderKey));
+    const nextRendered: BoardFabricObject[] = [];
     for (const object of orderedObjects) {
       const current = registryRef.current.get(object.id);
-      if (!current || current.data?.adapterKind !== object.kind) {
+      const failedAtThisRevision = current?.data?.projectionFailure === true && current.data.renderedRevision === object.revision;
+      let rendered = failedAtThisRevision ? renderedRef.current.get(object.id) ?? projectionFailureObject(object) : object;
+      if (!current || (!failedAtThisRevision && current.data?.adapterKind !== object.kind)) {
         if (current) canvas.remove(current);
-        const created = createFabricObject(object);
-        applyCanonicalObject(created, object, readOnly);
-        registryRef.current.set(object.id, created);
-        canvas.add(created);
-      } else if (current.data?.renderedRevision !== object.revision || current.selectable === readOnly) {
-        applyCanonicalObject(current, object, readOnly);
+        const entry = createProjectionEntry(object, readOnly);
+        rendered = entry.rendered;
+        registryRef.current.set(object.id, entry.projected);
+        canvas.add(entry.projected);
+      } else if (!failedAtThisRevision && (current.data?.renderedRevision !== object.revision || current.selectable === readOnly)) {
+        try {
+          applyCanonicalObject(current, object, readOnly);
+        } catch {
+          canvas.remove(current);
+          const entry = createProjectionEntry(projectionFailureObject(object), true);
+          entry.projected.data = { ...entry.projected.data, boardObjectId: object.id, renderedRevision: object.revision, projectionFailure: true };
+          rendered = entry.rendered;
+          registryRef.current.set(object.id, entry.projected);
+          canvas.add(entry.projected);
+        }
       }
+      renderedRef.current.set(object.id, rendered);
+      nextRendered.push(rendered);
     }
+    canonicalRef.current = new Map(nextRendered.map((object) => [object.id, object]));
+    setRenderedObjects(nextRendered);
     orderedObjects.forEach((object, index) => {
       const projected = registryRef.current.get(object.id);
       if (projected) canvas.moveObjectTo(projected, index);
@@ -247,7 +297,8 @@ export function BoardFabricSurface({ objects, selectedObjectIds, readOnly, tool,
     canvas.defaultCursor = tool === "hand" ? "grab" : "default";
     for (const [id, projected] of registryRef.current) {
       const canonical = canonicalRef.current.get(id);
-      projected.set({ selectable: !readOnly && tool === "select" && !canonical?.locked, evented: !readOnly && tool === "select" && !canonical?.locked });
+      const editable = !readOnly && tool === "select" && !canonical?.locked && canonical?.kind !== "placeholder";
+      projected.set({ selectable: editable, evented: editable });
     }
     canvas.requestRenderAll();
   }, [readOnly, tool]);
@@ -302,7 +353,7 @@ export function BoardFabricSurface({ objects, selectedObjectIds, readOnly, tool,
   return (
     <div ref={hostRef} className={className ?? "relative h-full w-full overflow-hidden bg-muted/30"} data-testid="board-fabric-surface">
       <canvas ref={canvasElementRef} data-testid="board-fabric-canvas" aria-label="Fabric.js 白板画布" />
-      <BoardA11yMirror objects={objects} selectedObjectIds={selectedObjectIds} onSelect={selectFromOutline} readOnly={readOnly} />
+      <BoardA11yMirror objects={renderedObjects} selectedObjectIds={selectedObjectIds} onSelect={selectFromOutline} readOnly={readOnly} />
     </div>
   );
 }

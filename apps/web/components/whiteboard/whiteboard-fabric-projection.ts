@@ -15,19 +15,35 @@ function projectionRevision(object: WhiteboardObject): number {
 
 /** Pure adapter: derives disposable renderer input from whiteboard-core canonical objects. */
 export function toBoardFabricObjects(objects: readonly WhiteboardObject[]): BoardFabricObject[] {
-  return objects.filter((object) => SUPPORTED_KINDS.has(object.kind)).map((object) => ({
-    id: object.id,
-    kind: object.kind as BoardFabricKind,
-    revision: projectionRevision(object),
-    orderKey: object.orderKey || object.id,
-    geometry: { ...object.geometry },
-    style: {
-      fill: object.style.fill ?? (object.kind === "sticky" ? "#F8D76E" : "#F4F4F5"),
-      textColor: object.style.color ?? "#29261E",
-      stroke: object.style.stroke,
-      fontSize: object.style.fontSize,
-    },
-    content: { text: object.text },
-    parentId: object.parentId ?? undefined,
-  }));
+  return objects.map((object) => {
+    const supported = SUPPORTED_KINDS.has(object.kind);
+    return {
+      id: object.id,
+      kind: supported ? object.kind as BoardFabricKind : "placeholder",
+      revision: projectionRevision(object),
+      orderKey: object.orderKey || object.id,
+      geometry: { ...object.geometry },
+      style: supported ? {
+        fill: object.style.fill ?? (object.kind === "sticky" ? "#F8D76E" : "#F4F4F5"),
+        textColor: object.style.color ?? "#29261E",
+        stroke: object.style.stroke,
+        fontSize: object.style.fontSize,
+      } : {
+        fill: "#FEF2F2",
+        textColor: "#991B1B",
+        stroke: "#DC2626",
+        fontSize: 14,
+      },
+      content: supported
+        ? { text: object.text }
+        : { text: `暂不支持“${object.kind}”对象，内容已安全保留。` },
+      parentId: object.parentId ?? undefined,
+      locked: supported ? undefined : true,
+      projectionIssue: supported ? undefined : {
+        code: "BOARD_OBJECT_UNSUPPORTED" as const,
+        sourceKind: object.kind,
+        message: `暂不支持“${object.kind}”对象，内容已安全保留。`,
+      },
+    };
+  });
 }

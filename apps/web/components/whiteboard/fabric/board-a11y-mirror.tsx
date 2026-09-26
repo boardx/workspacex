@@ -16,6 +16,7 @@ const KIND_LABEL: Record<BoardFabricObject["kind"], string> = {
   text: "文字",
   rectangle: "矩形",
   ellipse: "椭圆",
+  placeholder: "暂不支持的对象",
 };
 
 export function BoardA11yMirror({ objects, selectedObjectIds, onSelect, readOnly }: BoardA11yMirrorProps) {
@@ -36,6 +37,7 @@ export function BoardA11yMirror({ objects, selectedObjectIds, onSelect, readOnly
               aria-label={`图形：${object.content.text || KIND_LABEL[object.kind]}`}
               aria-description={`对象类型：${KIND_LABEL[object.kind]}`}
               aria-pressed={selected.has(object.id)}
+              disabled={object.kind === "placeholder"}
               data-testid={`board-a11y-object-${object.id}`}
               onClick={() => onSelect(object.id)}
             >
