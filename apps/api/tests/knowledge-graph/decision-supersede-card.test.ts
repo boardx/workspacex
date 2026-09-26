@@ -13,6 +13,8 @@
  *     新会话 C3 两条都召回；
  *   - 反证：G1「我决定采用 Go」之后，「改成采用 Rust 不现实」「关于周会，改成采用飞书」——既不取代、也不弹卡
  *     （去掉修复这两句都会对「采用 Go」弹卡：frame_only）。
+ *   - 第 8 轮第五次评审：复合的旧决定 K1「我决定后端用 Go 语言，前端用 TS 语言」→ K2「前端改用 JS 语言」⇒ 只弹卡、旧决定照常生效
+ *     （去掉修复这一句会自动取代整条旧决定，连后端的 Go 一起丢掉）。
  */
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { knowledgeGraph as KG } from "@repo/contracts";
@@ -30,8 +32,8 @@ const PROJECT = `${ORG}-p`;
 const USER_A = "u-i4290c-a";
 const USER_B = "u-i4290c-b";
 const AGENT = "agent-i4290c";
-const [A1, B1, C1, C2, C3, V1, V2, G1, N1, N2, OTHER] =
-  ["a1", "b1", "c1", "c2", "c3", "v1", "v2", "g1", "n1", "n2", "other"].map((x) => `thr-i4290c-${x}`) as [string, ...string[]] as string[];
+const [A1, B1, C1, C2, C3, V1, V2, G1, N1, N2, K1, K2, OTHER] =
+  ["a1", "b1", "c1", "c2", "c3", "v1", "v2", "g1", "n1", "n2", "k1", "k2", "other"].map((x) => `thr-i4290c-${x}`) as [string, ...string[]] as string[];
 
 const OLD = "我决定关注 211 高校";
 const NEW = "改成关注 985";
@@ -42,12 +44,16 @@ const GO = "我决定采用 Go";
 const JUDGED = "改成采用 Rust 不现实";
 const TOPIC = "关于周会，改成采用飞书";
 const UNRELATED = "开始写报告吧";
+// 复合的旧决定：两个带框架的分句；改口的主语「前端」不在旧框架（「后端用…」）的分句里
+const COMPOUND = "我决定后端用 Go 语言，前端用 TS 语言";
+const FRONTEND_JS = "前端改用 JS 语言";
 
 const decisionReply = (statement: string) => JSON.stringify({
   entities: [],
   claims: [{ statement, kind: "decision", confidence: 0.9, about: [], decidedBy: null, quote: statement }],
 });
 const MODEL = () => loopbackModel([
+  [COMPOUND, decisionReply(COMPOUND)], [FRONTEND_JS, decisionReply(FRONTEND_JS)],
   [JUDGED, decisionReply(JUDGED)], [TOPIC, decisionReply(TOPIC)], [GO, decisionReply(GO)],
   [OLD, decisionReply(OLD)], [NEW, decisionReply(NEW)], [VUE, decisionReply(VUE)], [REACT, decisionReply(REACT)],
 ]).model;
@@ -124,7 +130,7 @@ beforeAll(async () => {
   await enableExtraction(ORG);
   for (const u of [USER_A, USER_B]) await addOrgMember(ORG, u, "consultant", fx.teams.energy!);
   await publishAgent(ORG, AGENT, USER_A);
-  for (const id of [A1, B1, C1, C2, C3, V1, V2, G1, N1, N2]) {
+  for (const id of [A1, B1, C1, C2, C3, V1, V2, G1, N1, N2, K1, K2]) {
     await addChatThread({ orgId: ORG, id: id!, projectId: null, visibilityScope: "private", createdBy: USER_A, title: id! });
   }
   await addChatThread({ orgId: ORG, id: OTHER!, projectId: null, visibilityScope: "private", createdBy: USER_B, title: OTHER! });
@@ -253,5 +259,23 @@ describe("issue #4290: 低把握改口（frame_only）⇒ 弹卡、不自动取�
       expect(await promptsIn(t)).toEqual([]);
     }
     expect(await claimRow(go.id)).toEqual(go);
+  }, 120_000);
+
+  it("复合的旧决定「后端用 Go 语言，前端用 TS 语言」→「前端改用 JS 语言」⇒ 只弹卡、不自动取代；旧决定照常生效", async () => {
+    await addChatMessage({ orgId: ORG, id: "m-i4290c-k1", threadId: K1!, body: `${COMPOUND}。`, authorId: USER_A });
+    await settle();
+    const compound = await personalOf(COMPOUND);
+    const { body } = await sayAndRead(K2!, FRONTEND_JS);
+    const js = (await claimIn(a, K2!, FRONTEND_JS)).claim;
+    expect(body.supersede).toBeNull();
+    expect(await noticesIn(K2!)).toEqual([]);
+    expect(body.prompt).toMatchObject({
+      type: "conflict",
+      conflict: { kind: "possible_change", newerClaim: { id: js.id, statement: FRONTEND_JS }, olderClaim: { id: compound.id, statement: COMPOUND } },
+    });
+    expect(await promptsIn(K2!)).toEqual([{ id: body.prompt!.conflict!.promptId, kind: "possible_change", status: "open" }]);
+    // 旧决定一点没变（没有 superseded、没有 contested），新的仍是 proposed
+    expect(await claimRow(compound.id)).toEqual(compound);
+    expect(await claimRow(js.id)).toMatchObject({ status: "proposed", revoked: false });
   }, 120_000);
 });

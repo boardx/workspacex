@@ -202,3 +202,50 @@ $ git show 73cbd7122:apps/api/src/domain/knowledge-graph/decision-supersede.ts >
       Tests  27 failed | 158 passed (185)
 
 With the fix: both files 185/185 pass; tests/knowledge-graph + tests/retrieval 54 files / 700 tests pass.
+
+## Review round 5 (reason clauses, tag questions, compound old decisions): decision-supersede.ts at 601398a27, tests from this commit
+$ git show 601398a27:apps/api/src/domain/knowledge-graph/decision-supersede.ts > (domain file); vitest run tests/knowledge-graph/decision-supersede.test.ts tests/knowledge-graph/decision-supersede-card.test.ts (db r08r5)
+# Key failure (integration): 「前端改用 JS 语言」 against 「我决定后端用 Go 语言，前端用 TS 语言」 -> getTurnMemory.supersede is an applied notice (automatic supersede); expected null plus a possible_change card.
+   × 第 8 轮第五次评审：原因分句看内容、附加问句不是空话、复合的旧决定从不自动 > 收回 / 问句 ⇒ 不自动、不弹卡：关注211高校 → 改成关注985高校，毕竟我反对
+   × 第 8 轮第五次评审：原因分句看内容、附加问句不是空话、复合的旧决定从不自动 > 收回 / 问句 ⇒ 不自动、不弹卡：关注211高校 → 改成关注985高校，由于老板不同意
+   × 第 8 轮第五次评审：原因分句看内容、附加问句不是空话、复合的旧决定从不自动 > 收回 / 问句 ⇒ 不自动、不弹卡：关注211高校 → 改成关注985高校，对吧
+   × 第 8 轮第五次评审：原因分句看内容、附加问句不是空话、复合的旧决定从不自动 > 收回 / 问句 ⇒ 不自动、不弹卡：关注211高校 → 改成关注985高校，是吧
+   × 第 8 轮第五次评审：原因分句看内容、附加问句不是空话、复合的旧决定从不自动 > 说不准 ⇒ 只弹卡、不自动：用Vue → 把Vue换成React，由于我不同意这个改动
+   × 第 8 轮第五次评审：原因分句看内容、附加问句不是空话、复合的旧决定从不自动 > 说不准 ⇒ 只弹卡、不自动：关注211高校 → 改成关注985高校，由于还没最终确定
+   × 第 8 轮第五次评审：原因分句看内容、附加问句不是空话、复合的旧决定从不自动 > 说不准 ⇒ 只弹卡、不自动：关注211高校 → 改成关注985高校，由于是假设
+   × 第 8 轮第五次评审：原因分句看内容、附加问句不是空话、复合的旧决定从不自动 > 说不准 ⇒ 只弹卡、不自动：关注211高校 → 改成关注985高校，毕竟不急
+   × 第 8 轮第五次评审：原因分句看内容、附加问句不是空话、复合的旧决定从不自动 > 说不准 ⇒ 只弹卡、不自动：关注211高校 → 改成关注985高校，因为暂时这样
+   × 第 8 轮第五次评审：原因分句看内容、附加问句不是空话、复合的旧决定从不自动 > 说不准 ⇒ 只弹卡、不自动：关注211高校 → 改成关注985高校，因为可能更好
+   × 第 8 轮第五次评审：原因分句看内容、附加问句不是空话、复合的旧决定从不自动 > 说不准 ⇒ 只弹卡、不自动：关注211高校 → 改成关注985高校，行吧
+   × 第 8 轮第五次评审：原因分句看内容、附加问句不是空话、复合的旧决定从不自动 > 说不准 ⇒ 只弹卡、不自动：关注211高校 → 改成关注985高校，好吧
+   × 第 8 轮第五次评审：原因分句看内容、附加问句不是空话、复合的旧决定从不自动 > 说不准 ⇒ 只弹卡、不自动：关注211高校 → 改成关注985高校，好的吧
+   × 第 8 轮第五次评审：原因分句看内容、附加问句不是空话、复合的旧决定从不自动 > 说不准 ⇒ 只弹卡、不自动：关注211高校 → 改成关注985高校，是的
+   × 第 8 轮第五次评审：原因分句看内容、附加问句不是空话、复合的旧决定从不自动 > 说不准 ⇒ 只弹卡、不自动：后端用Go语言，前端用TS语言 → 前端改用JS语言
+   × 第 8 轮第五次评审：原因分句看内容、附加问句不是空话、复合的旧决定从不自动 > 说不准 ⇒ 只弹卡、不自动：前端和后端都用Vue框架 → 前端改用React框架
+   × 第 8 轮第五次评审：原因分句看内容、附加问句不是空话、复合的旧决定从不自动 > 说不准 ⇒ 只弹卡、不自动：前端用Vue，后端用Go → 把Vue换成React
+   × 第 8 轮第五次评审：原因分句看内容、附加问句不是空话、复合的旧决定从不自动 > 说不准 ⇒ 只弹卡、不自动：前端、后端都用Vue框架 → 前端改用React框架
+   × 第 8 轮第五次评审：原因分句看内容、附加问句不是空话、复合的旧决定从不自动 > 说不准 ⇒ 只弹卡、不自动：关注211高校，主攻计算机 → 改成关注985高校
+   × 第 8 轮第五次评审：原因分句看内容、附加问句不是空话、复合的旧决定从不自动 > 主语在旧决定里、但不在旧框架动词前面 ⇒ 卡
+   × issue #4290: 低把握改口（frame_only）⇒ 弹卡、不自动取代 > 复合的旧决定「后端用 Go 语言，前端用 TS 语言」→「前端改用 JS 语言」⇒ 只弹卡、不自动取代；旧决定照常生效
+⎯⎯⎯⎯⎯⎯ Failed Tests 21 ⎯⎯⎯⎯⎯⎯⎯
+ Test Files  2 failed (2)
+      Tests  21 failed | 197 passed (218)
+AssertionError: expected { …(4) } to be null
+
+- Expected: 
+null
+
++ Received: 
+Object {
+  "newerClaim": Object {
+    "id": "clm_d3c256ab92e7440d863d654d306c639e",
+    "statement": "前端改用 JS 语言",
+  },
+  "noticeId": "act_027202ddb68a4939bd8b95394044c21b-0",
+  "olderClaim": Object {
+    "id": "act_5f3c386a757145af85d531b9f93b4280-p",
+    "statement": "我决定后端用 Go 语言，前端用 TS 语言",
+  },
+  "state": "applied",
+
+With the fix: both files 218/218 pass; tests/knowledge-graph + tests/retrieval 54 files / 733 tests pass.

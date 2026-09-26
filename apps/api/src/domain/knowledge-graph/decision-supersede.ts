@@ -30,8 +30,10 @@
  *   3. N 整句不落在任何一条否决里：并列补充（`ADDITIVE`：也 / 还要 / 另外 / 同时 / 加上……）；否定的改口（「不改成」
  *      「没换成」「别改用」「不再改成」……）；问句（**句中任何位置**的问号——「改成用React？不行，还是用Vue」——、疑问词、
  *      句末「吗 / 呢 / 么」）；假设（「如果 / 要是……」开头）；
+ *      附加问句（`TAG_QUESTION`：「，对吧」「，是吧」「，是不是」「，好吗」…… 整个分句，或句末的「对吧 / 是吧」）；
  *      且 N 至少有一个**改口分句**（`changeClauses`）：
- *      - **分句**：按 ，,；;。!！?？、 与连接词（但 / 但是 / 不过 / 然后 / 可是 / 只是 / 而是 / 因为 / 所以）切开，去掉决定动词；
+ *      - **分句**：按 ，,；;。!！?？、 与连接词（但 / 但是 / 不过 / 然后 / 可是 / 只是 / 而是 / 因为 / 由于 / 毕竟 / 所以）切开，
+ *        去掉决定动词；因为 / 由于 / 毕竟 三个一样剥掉，后面那个分句记成**原因分句**（剥掉后才看它是不是评判：「毕竟我反对」）；
  *      - **改口分句**只有下面五种句式，改口标记都**直接**支配同一分句里紧跟的框架动词或对象：
  *        a. 改成 / 改为 / 换成 / 换为 / 转为 + 紧跟的框架动词 + 对象，或直接跟对象（新框架 = 后面那段；「改成周五」动词为空）；
  *           改用 / 换用 + 对象（读作「用 + 对象」）。改口词前面剥掉虚词（我 / 那就 / 还是……）后剩下的是**主语**；
@@ -52,7 +54,9 @@
  *   4. **不是重说**：任一改口分句的新对象与 O 的对象相等、或一个包含另一个（React 对 React做前端、Vue 对 Vue写原型、
  *      985 对 985高校）⇒ 不取代——重说 / 重申旧决定永远不是改口；
  *   5. **主题相同**：存在一个改口分句，它的主语为空或出现在 O 的原文里（「后端改用 Rust」对「后端用 Go」可以，「周会改成用
- *      腾讯会议」对「用 Vue」不行），并且落在下面三档之一，取最强的一档：
+ *      腾讯会议」对「用 Vue」不行），并且落在下面三档之一，取最强的一档。主语出现在 O 里、却不在 O 的框架**自己那个分句的
+ *      框架动词前面**（`subjectTied`：「前端改用JS语言」对「后端用Go语言，前端用TS语言」，O 的框架是「后端用…」）⇒ 最多到卡；
+ *      「把 X 换成…」的主语就是点名的旧对象，由 explicit 的整段相等核对：
  *      - 明说（explicit）：它点名的旧对象（b–e，至少两个字符）**等于** O 的对象——整段相等，所以 ASCII 天然按词边界（Go ≠ Google）；
  *      - 同框架同类（same_kind）：它的新框架动词与 O 的相同，两边对象的类别词相同，且**对齐**（`aligned`）：去掉类别词后两边
  *        剩下的都是短限定语——不超过 4 个字符或单个 ASCII 词，不含框架 / 动作动词（`SPEC_VERB`）与「的」——「关注 211 高校」→
@@ -64,13 +68,20 @@
  *      - **收回** ⇒ 什么都不做（不取代、不弹卡）：一个分句是评判（`VERDICT`：「我反对」「不可行」「不赞成」「没同意」……），
  *        或带「还是」又提到旧对象（「不对，还是关注211高校」）；整句级的收回在第 3 条之前就挡掉：自我更正分句
  *        （`SELF_CORRECTION`：不对 / 哦不……）、「开玩笑的 / 说着玩的」（`JOKE`）；
- *      - **干净** ⇒ 这一档照旧（explicit / same_kind 自动）：每个其余分句都是下面之一——整句空话（`CLEAN_FILLER`，小的封闭表）；
- *        另一个改口分句，它点名的旧对象就是 O 的对象、主语出现在 O 里、新对象与别的改口相同；「因为 / 由于 / 毕竟」开头的
- *        原因分句；已当成这个改口主语的话题分句（「关于前端，…」）；同框架说出的那个新选择（「决定用React，不再用Vue了」）；
+ *      - **干净** ⇒ 这一档照旧（explicit / same_kind 自动）：每个其余分句都是下面之一——整句空话（`CLEAN_FILLER`，小的封闭表：
+ *        好 / 嗯 / 哦 / ok / 想了想 / 这样 / 这么定 / 定——**没有**单独的「对 / 是 / 行」：「对吧」「是吧」剥掉「吧」就是它们）；
+ *        另一个改口分句，它点名的旧对象就是 O 的对象、主语对得上 O 的框架分句（第 5 条）、新对象与别的改口相同；原因分句，
+ *        且内容里没有否定 / 不确定的字或词（`REASON_DOUBT`：不 / 没 / 否 / 未 / 非 / 还没 / 假设 / 暂 / 可能 / 也许 / 先 / 反对 /
+ *        拒绝 / 驳回 / 或许 / 大概 / 说不定 / 万一 / 如果 / 要是——「因为离家近」干净，「由于还没最终确定」「毕竟不急」不干净）；
+ *        已当成这个改口主语、且在 O 的框架动词前面的话题分句（「关于前端，…」）；同框架说出的那个新选择（「决定用React，不再用Vue了」）；
  *        且全句只有一个新对象；
  *      - 其余都是**说不准** ⇒ 最多到 frame_only（弹卡）：认不出的后续分句（「这是老板说的」「暂定」「不过要看预算」）、
- *        别的分句提到旧对象（「211高校继续关注」「因为211高校太远」）、别的分句里的「还是」。
+ *        别的分句提到旧对象（「211高校继续关注」「因为211高校太远」）、别的分句里的「还是」、带否定 / 不确定的原因分句、
+ *        勉强的应允（`RELUCTANT`：「行吧」「好吧」「好的吧」）、「是的」「对」这类不在空话表里的应答。
  *      自动的路上不加词表：干净是「只允许这几种」，认不出的一律下到卡。
+ *   7. **复合的旧决定从不自动**（第 8 轮第五次评审）：O 有不止一个带框架动词的分句（「后端用Go语言，前端用TS语言」「关注211高校，
+ *      主攻计算机」），或它的框架前面是并列主语（`COORDINATED`：和 / 与 / 及 / 跟 / 都，或原文里有「、」——「前端和后端都用Vue框架」）
+ *      ⇒ 最多到 frame_only（弹卡）。自动取代是整条转 superseded，O 说的另一件事（后端的 Go）会跟着一起丢。
  *
  * **框架**（`decisionFrame`，也用来读 O）：有带新框架的改口分句 ⇒ 取第一个；否则取第一个不是改口分句的分句里第一个框架动词
  * （`FRAME_VERBS`，同一位置取最长的：采用 > 用；单字的 用 / 做 / 选 在词里——费用、用户、做法、选项、不用……——不算），
@@ -147,7 +158,14 @@ const COMPOUND_AFTER: Readonly<Record<string, string>> = {
 };
 /** 分句：标点与连接词（连接词两边是两个分句）。 */
 const CLAUSE_BREAK = /[，。,；;！!？?、]/;
-const CONNECTIVES = /但是|但|不过|然后|可是|只是|而是|因为|所以/g;
+const CONNECTIVES = /但是|但|不过|然后|可是|只是|而是|因为|由于|毕竟|所以/g;
+/** 原因连接词：切分时和别的连接词一样剥掉，另外把后面那个分句记成原因分句。 */
+const REASON_WORDS = new Set(["因为", "由于", "毕竟"]);
+/**
+ * 原因分句里带否定 / 不确定的字或词 ⇒ 这个原因可能在否这个改口（「由于我不同意这个改动」「由于还没最终确定」「毕竟不急」）
+ * ⇒ 说不准（弹卡）。只有不带这些的原因（「因为离家近」「毕竟生态好」）留在自动的路上。
+ */
+const REASON_DOUBT = /不|没|否|未|非|还没|假设|暂|可能|也许|先|反对|拒绝|驳回|或许|大概|说不定|万一|如果|要是/;
 /** 分句开头不算「主语」的虚词（剥不掉 ⇒ 当成主语，旧决定必须包含它——剥漏只会让取代变少）。 */
 const LEAD_FILLERS = /^(?:我们|我|咱们|咱|那就|那么|那|就|还是|干脆|索性|最后|最终|直接|现在|以后|今后)+/;
 const TAIL_PARTICLES = /(?:吧|了|啊|呀|哦|啦|嘛|的)+$/;
@@ -173,9 +191,17 @@ const SELF_CORRECTION = /^(?:不对|哦不|噢不|啊不|不不+|错了|说错�
  * 自动取代的整句门（文件头 A）：其余分句只允许整句空话——小的封闭表，只放不带态度的应答 / 收尾（没有「再想想」「暂定」）。
  * 比对的是剥掉开头虚词（我 / 那就……）与句末语气词（吧 / 了 / 的……）之后的分句：「好的」→ 好、「就这么定了」→ 这么定。
  */
-const CLEAN_FILLER = /^(?:好|行|嗯+|哦|对|是|ok|okay|想了想|想了一下|考虑了一下|这样|这么定|定)$/;
-/** 原因分句：「因为…」在分句时被切成连接词，这里另外记；「由于 / 毕竟」开头的分句。 */
-const REASON_LEAD = /^(?:由于|毕竟)/;
+const CLEAN_FILLER = /^(?:好|嗯+|哦|ok|okay|想了想|想了一下|考虑了一下|这样|这么定|定)$/;
+/**
+ * 附加问句（第 8 轮第五次评审）：「对吧 / 是吧 / 是不是 / 对不对 / 好吗……」是在问，不是在定 ⇒ 整句不算改口（什么都不做）。
+ * 单独的「对 / 是 / 行」因此不在 CLEAN_FILLER 里——「对吧」剥掉「吧」后就是「对」。
+ */
+const TAG_QUESTION = /^(?:(?:对|是|没错)(?:吧|吗|么)|(?:好|行|可以)(?:吗|么)|对不对|是不是|好不好|行不行|可不可以|不是吗)[啊呀吧]*$/;
+const TAG_QUESTION_TAIL = /(?:对吧|是吧|对吗|是吗|好吗|行吗|没错吧)[。.!！~～]*$/;
+/** 勉强的应允（「行吧」「好吧」）：不是收回，也不是干净的同意 ⇒ 说不准（弹卡）。比对剥掉开头虚词后的原分句。 */
+const RELUCTANT = /^(?:行|好)的?吧[啊呀]*$/;
+/** 并列主语（「前端和后端都用…」「前端、后端…」）：旧决定说的是不止一件事 ⇒ 永远不自动。 */
+const COORDINATED = /和|与|及|跟|都|、/;
 /** 同类（same_kind）的对齐：类别词前面的限定语里不许出现框架 / 动作动词（文件头 B）。 */
 const SPEC_VERB = /做|写|用|沟通|关注|开发|处理|负责|搞|跑|选|研究|的/;
 
@@ -224,11 +250,11 @@ function frameAtStart(text: string, verbOptional: boolean): DecisionFrame | null
 function splitClauses(text: string): { clauses: string[]; reason: boolean[] } {
   const clauses: string[] = [];
   const reason: boolean[] = [];
-  for (const part of text.replace(CONNECTIVES, (m) => (m === "因为" ? "，\u0000" : "，")).split(CLAUSE_BREAK)) {
+  for (const part of text.replace(CONNECTIVES, (m) => (REASON_WORDS.has(m) ? "，\u0000" : "，")).split(CLAUSE_BREAK)) {
     const c = part.replace(/\u0000/g, "").replace(DECISION_WORDS, "");
     if (c === "") continue;
     clauses.push(c);
-    reason.push(part.startsWith("\u0000") || REASON_LEAD.test(c));
+    reason.push(part.startsWith("\u0000"));
   }
   return { clauses, reason };
 }
@@ -358,10 +384,11 @@ function analyseChange(statement: string): RawChanges | null {
   const text = normalizeStatement(statement);
   if (ADDITIVE.test(text) || NEGATED_CHANGE.test(text) || JOKE.test(text)) return null;
   // 问号在句中任何位置（「改成用React？不行，还是用Vue」）都算问句
-  if (QUESTION_MARK.test(text) || QUESTION_TAIL.test(text) || INTERROGATIVE.test(text)) return null;
+  if (QUESTION_MARK.test(text) || QUESTION_TAIL.test(text) || INTERROGATIVE.test(text) || TAG_QUESTION_TAIL.test(text)) return null;
   if (HYPOTHETICAL_LEAD.test(text)) return null;
   const raw = rawChangeClauses(text);
-  if (raw.clauses.some((c) => SELF_CORRECTION.test(c))) return null;
+  // 自我更正（「不对」）收回整句；附加问句分句（「，对吧」「，是吧」）是在问 ⇒ 都什么都不做
+  if (raw.clauses.some((c) => SELF_CORRECTION.test(c) || TAG_QUESTION.test(lead(c)))) return null;
   return raw;
 }
 
@@ -380,18 +407,41 @@ export function hasChangeSignal(statement: string): boolean {
  * 第一个框架动词（否定式的「不用 Vue 了」因此不会被读成肯定的「用 Vue」）。
  */
 export function decisionFrame(statement: string): DecisionFrame {
-  const { clauses, changes, changed } = rawChangeClauses(normalizeStatement(statement));
-  const fromChange = changes.find((c) => c.frame !== null)?.frame;
-  if (fromChange) return fromChange;
+  return frameSite(statement).frame;
+}
+
+/** 旧决定的框架 + 它在自己分句里的位置：框架动词前面的那段（`prefix`，主语就该在这里）、有几个分句带框架（`frameClauses`）。 */
+interface FrameSite {
+  readonly frame: DecisionFrame;
+  readonly prefix: string;
+  readonly frameClauses: number;
+}
+
+function frameSite(statement: string): FrameSite {
+  const { clauses, per, changed } = rawChangeClauses(normalizeStatement(statement));
+  let fromChange: { frame: DecisionFrame; prefix: string } | null = null;
+  let frameClauses = 0;
+  // 改口分句带的新框架优先（旧决定本身就是一句改口：「后端改用Rust」的主语「后端」）
+  for (const cs of per) {
+    const c = cs.find((x) => x.frame !== null);
+    if (c === undefined || c.frame === null) continue;
+    frameClauses += 1;
+    fromChange ??= { frame: c.frame, prefix: c.subject };
+  }
+  let fromPlain: { frame: DecisionFrame; prefix: string } | null = null;
   for (let k = 0; k < clauses.length; k += 1) {
     if (changed.has(k)) continue;
     const clause = clauses[k]!;
     for (let i = 0; i < clause.length; i += 1) {
       const verb = frameVerbAt(clause, i);
-      if (verb !== null) return makeFrame(verb, clause.slice(i + verb.length).replace(/^(?:了|在)/, ""));
+      if (verb === null) continue;
+      frameClauses += 1;
+      fromPlain ??= { frame: makeFrame(verb, clause.slice(i + verb.length).replace(/^(?:了|在)/, "")), prefix: clause.slice(0, i) };
+      break;
     }
   }
-  return NO_FRAME;
+  const site = fromChange ?? fromPlain;
+  return site === null ? { frame: NO_FRAME, prefix: "", frameClauses } : { ...site, frameClauses };
 }
 
 /** 重说：两个对象相等、或一个包含另一个（React 对 React做前端、Vue 对 Vue写原型）。 */
@@ -419,10 +469,18 @@ function aligned(a: DecisionFrame, b: DecisionFrame): boolean {
 type Certainty = "clean" | "uncertain" | "rejected";
 
 /**
+ * 改口的主语是否落在旧框架自己的分句里、框架动词前面（「前端改用JS语言」对「后端用Go语言，前端用TS语言」：旧框架是
+ * 「后端用…」，主语「前端」不在「后端」里 ⇒ 没对上）。「把 X 换成…」的主语就是点名的旧对象，它由 explicit 的整段相等去核对。
+ */
+function subjectTied(ch: ChangeClause, oldPrefix: string): boolean {
+  return ch.subject === "" || ch.subject === ch.namedOld || oldPrefix.includes(ch.subject);
+}
+
+/**
  * 整句门（文件头 A）：改口分句以外的每个分句都只能是空话 / 一致的另一个改口 / 原因 / 已当作主语的话题 /
  * 同框架说出的那个新选择——才算「干净」，可以自动；别的都是「说不准」（弹卡）。明确收回（评判分句、「还是 + 旧」）⇒ rejected。
  */
-function sentenceCertainty(raw: RawChanges, o: DecisionFrame, olderText: string): Certainty {
+function sentenceCertainty(raw: RawChanges, o: DecisionFrame, oldPrefix: string): Certainty {
   const old = o.object;
   const { clauses, reason, per, changed } = raw;
   // 收回：任何非改口分句是一句评判（「不可行」「我反对」），或「还是 + 旧对象」（「不对，还是关注211高校」）
@@ -435,18 +493,23 @@ function sentenceCertainty(raw: RawChanges, o: DecisionFrame, olderText: string)
   const newObjects = new Set<string>();
   for (const ch of all) {
     if (ch.namedOld !== null && ch.namedOld !== old) return "uncertain";
-    if (ch.subject !== "" && !olderText.includes(ch.subject)) return "uncertain";
+    if (!subjectTied(ch, oldPrefix)) return "uncertain";
     if (ch.frame !== null) newObjects.add(ch.frame.object);
   }
   for (let k = 0; k < clauses.length; k += 1) {
     if (changed.has(k)) continue;
     const c = clauses[k]!;
+    if (RELUCTANT.test(lead(c))) return "uncertain";
     const bare = lead(c).replace(TAIL_PARTICLES, "");
     if (bare === "" || CLEAN_FILLER.test(bare)) continue;
     if (c.includes(old) || c.includes("还是")) return "uncertain";
-    if (reason[k]) continue;
+    // 原因分句：内容不带否定 / 不确定才算干净（「因为离家近」）；「由于还没最终确定」「毕竟不急」⇒ 说不准
+    if (reason[k]) {
+      if (REASON_DOUBT.test(c)) return "uncertain";
+      continue;
+    }
     const topic = topicOf(c);
-    if (typeof topic === "string" && olderText.includes(topic) && all.some((ch) => ch.subject === topic)) continue;
+    if (typeof topic === "string" && oldPrefix.includes(topic) && all.some((ch) => ch.subject === topic)) continue;
     // 同框架说出的新选择（「决定用React，不再用Vue了」的「用React」）：算作新对象，和改口分句的新对象必须是同一个
     const f = frameAtStart(lead(c), false);
     if (f !== null && f.verb === o.verb && f.object !== "" && !OBJECT_STOP.test(f.object)) { newObjects.add(f.object); continue; }
@@ -464,13 +527,15 @@ export function supersedeMatch(fresh: SupersedeFresh, older: LiveDecision): Topi
   const raw = analyseChange(fresh.statement);
   const changes = raw?.changes ?? [];
   if (raw === null || changes.length === 0) return null;
-  const o = decisionFrame(older.statement);
+  const site = frameSite(older.statement);
+  const o = site.frame;
   if (o.object === "") return null;
   // 重说 / 重申旧决定（任一改口分句的新对象与旧对象相等或互相包含）永远不是改口
   if (changes.some((c) => c.frame !== null && restates(c.frame.object, o.object))) return null;
   const olderText = normalizeStatement(older.statement).replace(DECISION_WORDS, "");
   let best: TopicMatch | null = null;
   for (const c of changes) {
+    // 主语不在旧决定里 ⇒ 不是同一主题；在旧决定里、但不在旧框架自己那个分句的框架动词前面 ⇒ 下面由 subjectTied 降到卡
     if (c.subject !== "" && !olderText.includes(c.subject)) continue;
     let m: TopicMatch | null = null;
     if (c.namedOld !== null && c.namedOld.length >= 2 && c.namedOld === o.object) m = "explicit";
@@ -485,9 +550,11 @@ export function supersedeMatch(fresh: SupersedeFresh, older: LiveDecision): Topi
   }
   if (best === null) return null;
   // 整句门：明确收回 ⇒ 什么都不做；句子里还有说不准的分句 ⇒ 最多弹卡
-  const certainty = sentenceCertainty(raw, o, olderText);
+  const certainty = sentenceCertainty(raw, o, site.prefix);
   if (certainty === "rejected") return null;
-  return certainty === "clean" ? best : "frame_only";
+  // 复合的旧决定（不止一个带框架的分句，或并列主语「前端和后端都用…」）说的不止一件事 ⇒ 永远不自动，最多弹卡
+  const compound = site.frameClauses > 1 || COORDINATED.test(site.prefix) || normalizeStatement(older.statement).includes("、");
+  return certainty === "clean" && !compound ? best : "frame_only";
 }
 
 /**

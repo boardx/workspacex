@@ -27,6 +27,25 @@ thread C 「开始写报告吧」 → the answer carries only 985; undo → 211 
 > `decision-supersede.test.ts` and the 「改成关注985高校，我反对」 case in `decision-supersede-recall.test.ts`; the old domain
 > file fails 27 of them (`fail-without-fix.txt`, last section).
 
+> **Tightened again (review round 5 of round 8): reason clauses, tag questions, compound old decisions.**
+> - *Reason clauses.* 因为 / 由于 / 毕竟 are all stripped the same way before the verdict check, so 「，毕竟我反对」
+>   「，由于老板不同意」 are rejections (no supersede, no card). A reason clause stays on the automatic path only if its
+>   content has no negation or uncertainty character or word (不 / 没 / 否 / 未 / 非 / 还没 / 假设 / 暂 / 可能 / 也许 / 先 /
+>   反对 / 拒绝 / 驳回 / 或许 / 大概 / 说不定 / 万一 / 如果 / 要是); otherwise it is a card (「由于我不同意这个改动」
+>   「由于还没最终确定」「由于是假设」「毕竟不急」). 「因为离家近」「毕竟生态好」 stay automatic.
+> - *Tag questions.* 对 / 是 / 行 are no longer whole-clause filler. 「，对吧」「，是吧」「，是不是」「，对不对」「，好吗」
+>   (or 对吧 / 是吧 at the very end) make the sentence a question: nothing. 「，行吧」「，好吧」「，好的吧」 (reluctant) are a card;
+>   so is 「，是的」.
+> - *Compound old decisions.* An old decision with more than one clause carrying a frame verb (「后端用Go语言，前端用TS语言」)
+>   or a coordinated subject in front of its frame verb (和 / 与 / 及 / 跟 / 都, or 「、」 anywhere: 「前端和后端都用Vue框架」)
+>   is never superseded automatically — at most a card, because an automatic supersede retires the whole statement,
+>   including the part nobody changed. A change clause with a subject must find that subject in front of the frame verb
+>   in the old frame's own clause; found only elsewhere in the old decision ⇒ card; not found at all ⇒ nothing
+>   (「把 X 换成…」: the subject is the named old object, checked by the `explicit` whole-object equality).
+> Tests: the round-5 `describe` block in `decision-supersede.test.ts` (7 none, 15 card, 1 subject card, 8 auto, 1 frame_only
+> card) and the compound case in `decision-supersede-card.test.ts` (card opens, old decision unchanged). The 601398a27
+> domain file fails them (`fail-without-fix.txt`, last section).
+
 ## Stack (no Docker)
 
 Same shape as round 5 (`evidence/phase-18/r05/`): local Postgres 16 + AGE + pgvector at 127.0.0.1:55432, own db `r08e`

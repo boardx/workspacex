@@ -376,3 +376,69 @@ describe("第 8 轮第四次评审：自动取代只给干净的整句（人类�
   });
   it("「改成关注 985 吧」仍是卡", () => expect(plan("关注211高校", "改成关注 985 吧")).toEqual(CARD));
 });
+
+describe("第 8 轮第五次评审：原因分句看内容、附加问句不是空话、复合的旧决定从不自动", () => {
+  const plan = (o: string, n: string) => planSupersedes([fresh(n)], [old(o)]);
+  const CARD = { supersedes: [], prompts: [{ newerClaimId: "clm-new", olderClaimId: "clm-old" }] };
+  const NONE = { supersedes: [], prompts: [] };
+  const AUTO = { supersedes: [{ newerClaimId: "clm-new", olderClaimId: "clm-old" }], prompts: [] };
+
+  it.each([
+    // 1. 由于 / 毕竟 和 因为 一样先剥掉，再看评判：明确的收回 ⇒ 什么都不做
+    ["关注211高校", "改成关注985高校，毕竟我反对"],
+    ["关注211高校", "改成关注985高校，由于老板不同意"],
+    // 2. 附加问句是在问，不是在定
+    ["关注211高校", "改成关注985高校，对吧"],
+    ["关注211高校", "改成关注985高校，是吧"],
+    ["关注211高校", "改成关注985高校，是不是"],
+    ["关注211高校", "改成关注985高校，对不对"],
+    ["关注211高校", "改成关注985高校对吧"],
+  ])("收回 / 问句 ⇒ 不自动、不弹卡：%s → %s", (o, n) => {
+    expect(supersedeMatch(fresh(n), old(o))).toBeNull();
+    expect(plan(o, n)).toEqual(NONE);
+  });
+
+  it.each([
+    // 1. 原因分句带否定 / 不确定 ⇒ 说不准
+    ["用Vue", "把Vue换成React，由于我不同意这个改动"],
+    ["关注211高校", "改成关注985高校，由于还没最终确定"],
+    ["关注211高校", "改成关注985高校，由于是假设"],
+    ["关注211高校", "改成关注985高校，毕竟不急"],
+    ["关注211高校", "改成关注985高校，因为暂时这样"],
+    ["关注211高校", "改成关注985高校，因为可能更好"],
+    // 2. 勉强的应允
+    ["关注211高校", "改成关注985高校，行吧"],
+    ["关注211高校", "改成关注985高校，好吧"],
+    ["关注211高校", "改成关注985高校，好的吧"],
+    ["关注211高校", "改成关注985高校，是的"],
+    // 3. 复合的旧决定：不止一个带框架的分句 / 并列主语；主语不在旧框架自己的分句里
+    ["后端用Go语言，前端用TS语言", "前端改用JS语言"],
+    ["前端和后端都用Vue框架", "前端改用React框架"],
+    ["前端用Vue，后端用Go", "把Vue换成React"],
+    ["前端、后端都用Vue框架", "前端改用React框架"],
+    ["关注211高校，主攻计算机", "改成关注985高校"],
+  ])("说不准 ⇒ 只弹卡、不自动：%s → %s", (o, n) => {
+    expect(supersedeMatch(fresh(n), old(o))).toBe("frame_only");
+    expect(plan(o, n)).toEqual(CARD);
+  });
+
+  it("主语在旧决定里、但不在旧框架动词前面 ⇒ 卡", () => {
+    expect(plan("用Vue框架，前端组定的", "前端改用React框架")).toEqual(CARD);
+  });
+
+  it.each([
+    ["关注211高校", "改成关注985高校吧", "same_kind"],
+    ["决定用Vue", "把Vue换成React", "explicit"],
+    ["用Vue", "不再用Vue了", "explicit"],
+    ["关注211高校", "211高校算了，改成关注985高校", "explicit"],
+    ["关注211高校", "改成关注985高校，因为离家近", "same_kind"],
+    ["关注211高校", "改成关注985高校，由于离家近", "same_kind"],
+    ["关注211高校", "改成关注985高校，好的", "same_kind"],
+    ["前端用Vue框架", "前端改用React框架", "same_kind"],
+  ])("仍然自动：%s → %s（%s）", (o, n, tier) => {
+    expect(supersedeMatch(fresh(n), old(o))).toBe(tier);
+    expect(plan(o, n)).toEqual(AUTO);
+  });
+
+  it("「改成关注 985 吧」仍是卡", () => expect(plan("关注211高校", "改成关注 985 吧")).toEqual(CARD));
+});
