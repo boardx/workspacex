@@ -33,8 +33,10 @@ decision obvious without weakening the existing trust guarantees.
 
 ### Included
 
-1. A `Deep Research` desktop shell with compact left navigation, top six-step
-   progress, primary work canvas, and contextual research assistant rail.
+1. A `Deep Research` desktop shell that starts directly beside the existing
+   WorkspaceX product rail, with top six-step progress, a primary work canvas,
+   and a contextual research assistant rail. It does not introduce a second
+   left navigation menu.
 2. A redesigned research home that uses search, filters, compact research
    cards, clear status, and a primary `新建研究` action.
 3. A six-stage session view that maps current runtime nodes to the approved
@@ -128,21 +130,40 @@ publishable.
 
 ## Desktop Layout
 
-At desktop widths, the screen has four visual regions:
+At desktop widths, the screen has three visual regions:
 
 1. The product rail remains unchanged.
-2. A compact research rail contains `研究项目`, `知识库`, `我的收藏`, and
-   `回收站`; only research-project navigation is interactive in this feature.
-3. The main canvas contains the title, six-step progress bar, and the current
+2. The main canvas begins immediately after the product rail and contains the
+   title, six-step progress bar, and the current
    stage document or workspace.
-4. A right assistant rail appears where helpful, showing stage-specific
+3. A right assistant rail appears only where helpful, showing stage-specific
    suggestions, evidence warnings, active work, and a deliberate action to
    apply a suggestion. It never silently changes a Markdown document.
 
 On narrower viewports, rails collapse before the main document does, preserving
 logical keyboard order and avoiding horizontal page scroll. This is a desktop
 workflow, so the wide view prioritizes readable documentation, source rows, and
-the activity timeline rather than card density alone.
+the activity timeline rather than card density alone. The existing WorkspaceX
+global sidebar is not duplicated inside the research module.
+
+## Reference-Stage Layouts
+
+The supplied six-panel reference is the interaction and layout source of truth.
+The product shell may retain WorkspaceX chrome, but each stage must use the
+reference's own composition rather than a generic document card.
+
+| Stage | Reference composition | Required runtime behavior |
+| --- | --- | --- |
+| 1. 研究列表 | searchable research cards, filters, a `新建研究` action, and a compact assistant entry point | open or continue an existing session; empty and loading states stay truthful |
+| 2. 导入需求 | three equal entry choices for upload, live voice, and text; an optional brief area and explicit next action | unavailable upload/voice integrations are disabled with an explanation; text creates the normal brief draft |
+| 3. 确认研究主题 | structured brief form in the center and a right-side assistant that proposes scope refinements | assistant output is an explicit suggestion; saving or applying always persists through the runtime command |
+| 4. 研究计划 | plan summary, key questions, methods, and source-scope cards with an explicit start action | enabled outline sections remain the server-authoritative research boundary |
+| 5. 资料研究 | task-progress rail, live activity timeline, and a compact insight/risk rail | tasks, source decisions, evidence gaps, conflicts, and resume state remain live structured data; Markdown is the inspectable artefact |
+| 6. 研究报告 | table of contents, report document, export actions, and source/quality metric tiles | citation validation and publication readiness remain prerequisites for a verified report |
+
+The contextual assistant appears on stages 1–3 and 5 when it supplies a clear
+next decision. It must not leave an empty reserved desktop column on stages
+where it is absent.
 
 ## Component Boundaries
 
