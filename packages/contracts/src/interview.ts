@@ -291,6 +291,47 @@ export const DigitalInterviewPrimaryAction = z.enum([
 /** 当前步骤与主操作同源，领域投影不得另抄一份字符串联合。 */
 export const DigitalInterviewStep = z.enum(["topic", "experts", "questions", "runs", "report"]);
 
+/**
+ * 用户可见的研究文档阶段。它与旧工作流内部步骤分离，以便历史访谈在迁移期间仍可恢复。
+ */
+export const DigitalInterviewArtifactStep = z.enum(["intake", "analysis", "experts", "outline", "runs", "report"]);
+
+export const DigitalInterviewArtifactFailure = z.object({
+  code: z.string().min(1),
+  retryable: z.boolean(),
+}).strict();
+
+export const DigitalInterviewArtifact = z.object({
+  artifactId: z.string().min(1),
+  step: DigitalInterviewArtifactStep,
+  title: z.string().trim().min(1),
+  markdown: z.string(),
+  version: z.number().int().positive(),
+  status: z.enum(["draft", "confirmed", "generating", "failed", "completed"]),
+  generatedAt: z.string().datetime().nullable(),
+  failure: DigitalInterviewArtifactFailure.nullable(),
+  evidenceMode: z.enum(["simulated", "participant", "mixed"]),
+}).strict().superRefine((artifact, context) => {
+  if (["confirmed", "completed"].includes(artifact.status) && !artifact.markdown.trim()) {
+    context.addIssue({ code: z.ZodIssueCode.custom, path: ["markdown"], message: "confirmed artifacts require markdown" });
+  }
+  if (artifact.status === "failed" && !artifact.failure) {
+    context.addIssue({ code: z.ZodIssueCode.custom, path: ["failure"], message: "failed artifacts require failure metadata" });
+  }
+});
+
+const DigitalInterviewArtifacts = z.array(DigitalInterviewArtifact).superRefine((artifacts, context) => {
+  const identities = new Set<string>();
+  for (const artifact of artifacts) {
+    const identity = `${artifact.step}:${artifact.version}`;
+    if (identities.has(identity)) {
+      context.addIssue({ code: z.ZodIssueCode.custom, message: "artifact step/version must be unique" });
+      return;
+    }
+    identities.add(identity);
+  }
+});
+
 /** 已确认的问题属于本场当前已确认的专家快照。 */
 export const DigitalInterviewQuestion = z.object({
   questionId: z.string().min(1),
@@ -585,6 +626,8 @@ export const DigitalInterviewWorkflowView = DigitalInterview.extend({
   questions: DigitalInterviewQuestionList,
   questionCandidates: DigitalInterviewQuestionList,
   expertRuns: z.array(DigitalInterviewExpertRun),
+  /** Additive during migration: historical workflows have no generated document artifacts. */
+  artifacts: DigitalInterviewArtifacts.default([]),
   report: DigitalInterviewReport.nullable().optional(),
   reportGeneration: DigitalInterviewReportGeneration.nullable().optional(),
   skillThreadId: z.string().min(1),

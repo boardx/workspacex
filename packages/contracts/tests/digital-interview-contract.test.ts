@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   DigitalInterviewDraftInput,
+  DigitalInterviewArtifact,
   DigitalInterviewStatus,
   DigitalInterviewWorkflowView,
   DigitalReportTransportEvent,
@@ -86,6 +87,37 @@ describe("数字专家访谈契约", () => {
       },
     ],
     expertRuns: [],
+  });
+
+  it("六个工作阶段均以带版本的 Markdown 产物表达，并拒绝空的已确认内容", () => {
+    const base = {
+      artifactId: "artifact-1",
+      title: "研究分析.md",
+      markdown: "# 研究分析\n\n可验证的研究目标。",
+      version: 1,
+      status: "confirmed" as const,
+      generatedAt: "2026-09-26T08:00:00.000Z",
+      failure: null,
+      evidenceMode: "simulated" as const,
+    };
+    expect(["intake", "analysis", "experts", "outline", "runs", "report"].map((step) =>
+      DigitalInterviewArtifact.parse({ ...base, step }),
+    )).toHaveLength(6);
+    expect(DigitalInterviewArtifact.safeParse({ ...base, markdown: "   " }).success).toBe(false);
+    expect(DigitalInterviewArtifact.safeParse({
+      ...base,
+      step: "analysis",
+      status: "failed",
+      markdown: "",
+      failure: { code: "AI_GENERATION_UNAVAILABLE", retryable: true },
+    }).success).toBe(true);
+    expect(DigitalInterviewWorkflowView.safeParse({
+      ...draftWorkflow,
+      artifacts: [
+        { ...base, step: "analysis" },
+        { ...base, artifactId: "artifact-2", step: "analysis" },
+      ],
+    }).success).toBe(false);
   });
 
   it("只接受签核的八个工作流状态", () => {
