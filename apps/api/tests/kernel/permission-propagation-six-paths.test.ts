@@ -1299,7 +1299,12 @@ describe("lint-permission-paths: counter-proof", () => {
     // ever called -- same shape as the #3068 and E3 entries above. Pinned by
     // tests/knowledge-graph/org-extraction-settings-repo-guard.test.ts. Remove this
     // increment with the exception if that guard test disappears.
-    expect(total - boundaryAudit.rules.length).toBeLessThanOrEqual(98);
+    // #3967 adds exactly one collaborative Yjs repository (98 -> 99). Its
+    // tenant/actor predicates and mutation counterexamples are pinned by
+    // whiteboard/collaboration-repository-guard.test.ts; the real PostgreSQL
+    // and WebSocket tests cover nonmembers, cross-tenant writes, revocation,
+    // restart recovery and authentication. Remove this increment with them.
+    expect(total - boundaryAudit.rules.length).toBeLessThanOrEqual(99);
 
     const src = readFileSync(
       fileURLToPath(new URL("../../scripts/lint-permission-paths.mjs", import.meta.url)),
