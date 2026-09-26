@@ -166,3 +166,30 @@ flowchart LR
 | 持久与协作 | 同一动作经 canonical command/Yjs 到达第二客户端，刷新恢复；只读者无法写入 |
 
 Mural 官方参考：[创建与自定义便利贴](https://learning.mural.co/lessons/add-create-and-customize-sticky-notes)、[便利贴协作](https://www.mural.co/use-case/sticky-notes)。上述计时、可靠性及验收门槛是 WorkspaceX 的目标，不宣称为 Mural 官方评分标准。
+
+## 11. Incremental preview evidence (2026-09-26)
+
+Evidence index only; feature/signoff/merge state is unchanged. Read live CI from each PR.
+
+- [Library PR #4224](https://github.com/boardx/workspacex/pull/4224): tags, AND/search filters, overflow actions and content duplication. Independent APPROVE at `f5dd6752d58666cd9c867817ea4fb4ed5069df9e`; 18 tests passed. If filtering removes the originating card, closing the tag dialog focuses Manage tags.
+- [Sticky PR #4223](https://github.com/boardx/workspacex/pull/4223): rapid entry, padding/growing text, color/size/alignment and measured toolbar safe areas. Independent APPROVE at `d640473140ac68612a167f08013c4e978dd01996`; 19 tests passed. Main-session browser repros confirmed fixes for Fabric DOM reparenting crash and top/bottom occlusion.
+- Main-session integration `a753c2c35`: six test files, 26/26 tests passed. Browser observed independent copied content, contextual styling, 375px editor visibility and readonly rejection of empty-space double-click, Return/Tab, existing-note double-click and drag. Final local integration evidence commit `940564e3f`; both PRs contain earlier detailed observations in `evidence/board-ui-integration/2026-09-26.md`.
+- Native IME, physical touch, bulk operations, complete Undo/Redo, server ACL, refresh recovery and two-user convergence remain unproven by this preview. Refresh resets its state. This does not establish nine-point completion.
+
+```mermaid
+flowchart LR
+    L["Tags / overflow / Duplicate<br/>PR4224 reviewed preview"]:::preview
+    S["Sticky entry / style / safe area<br/>PR4223 reviewed preview"]:::preview
+    L --> V["Main-session integration<br/>26 tests + scoped browser evidence"]:::preview
+    S --> V
+    V --> D["Formal UI / use cases / API<br/>pending human signoff"]:::pending
+    D --> I["Formal route + canonical Yjs integration"]:::todo
+    I --> A["ACL / refresh / second client acceptance"]:::todo
+    B["File or object content storage<br/>migration / rollback / restore"]:::todo --> A
+    A --> N["Bulk / Undo / native IME / touch<br/>complete nine-point acceptance"]:::todo
+    classDef preview fill:#dbeafe,stroke:#2563eb,color:#1e3a8a
+    classDef pending fill:#ffedd5,stroke:#ea580c,color:#7c2d12
+    classDef todo fill:#f1f5f9,stroke:#94a3b8,color:#334155
+```
+
+Blue means scoped preview evidence; orange means pending design; gray means remaining implementation/acceptance. No node denotes production completion.
