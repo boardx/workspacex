@@ -33,7 +33,11 @@ export function WorkspaceCanvas({ options, seeded = true }: { options: Options; 
     const c = canvas.current; if (!c || options.readonly || c.getActiveObject() instanceof Textbox && (c.getActiveObject() as Textbox).isEditing) return;
     if (event.key === 'Delete' || event.key === 'Backspace') { event.preventDefault(); c.getActiveObjects().forEach(object => c.remove(object)); c.discardActiveObject(); c.requestRenderAll(); }
     if (event.key === 'Enter' && options.tool !== 'select') { event.preventDefault(); const transform = c.viewportTransform; const x = (c.width / 2 - transform[4]) / c.getZoom() - 70; const y = (c.height / 2 - transform[5]) / c.getZoom() - 50;
-      if (options.tool === 'sticky') c.add(new Textbox('写下一个想法', { originX: 'left', originY: 'top', left: x, top: y, width: 160, padding: 20, fontSize: 22, backgroundColor: options.color }));
+      if (options.tool === 'sticky') {
+        c.add(new Rect({ originX: 'left', originY: 'top', left: x, top: y, width: 180, height: 160, fill: options.color, rx: 4, ry: 4 }));
+        const text = new Textbox('写下一个想法', { originX: 'left', originY: 'top', left: x + 16, top: y + 25, width: 148, fontSize: 22, fill: '#292929', editable: true });
+        c.add(text); c.setActiveObject(text); text.enterEditing(); text.selectAll();
+      }
       else if (options.tool === 'shape') c.add(options.shape === 'circle' ? new Circle({ originX: 'left', originY: 'top', left: x, top: y, radius: 60, fill: options.color }) : new Rect({ originX: 'left', originY: 'top', left: x, top: y, width: 160, height: 100, fill: options.color }));
       else c.add(new Line([x, y, x + 140, y + 70], { stroke: options.color, strokeWidth: options.width })); c.requestRenderAll();
     }
