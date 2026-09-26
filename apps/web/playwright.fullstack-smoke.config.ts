@@ -400,6 +400,8 @@ export default defineConfig({
         // Board library mutations create their own resources and remove them in a strict hook.
         // Keep them after the seeded catalog-empty assertions, alongside the Fabric lifecycle.
         "board-library-management.spec.ts",
+        // Iteration 03 owns continuous Sticky/Text input and batch operation boundaries.
+        "board-thinking-input.spec.ts",
       ],
       grepInvert: EMPTY_DB_TAG_RE,
       dependencies: ["seeded"],
