@@ -41,6 +41,10 @@ export function LiveSurveyLibrary() {
       setBusy(false);
     }
   };
+  const open = (item: SurveyRuntime) => {
+    const step = item.status === "collecting" || item.status === "closed" ? "responses" : "design";
+    router.push(`/studio/survey/${item.id}?step=${step}`);
+  };
   return (
     <main className="mx-auto max-w-6xl space-y-6 p-6">
       <header className="flex items-center justify-between">
@@ -48,7 +52,7 @@ export function LiveSurveyLibrary() {
           <p className="text-11 text-muted-foreground">Studio / 问卷</p>
           <h1 className="mt-2 text-24 font-semibold">我的问卷</h1>
         </div>
-        <div className="flex flex-wrap gap-2"><Button variant="outline" onClick={() => router.push("/studio/survey?tab=modules")}>从模板创建</Button><Button onClick={() => router.push("/studio/survey/new")}>创建问卷</Button></div>
+        <div className="flex flex-wrap gap-2"><Link className="inline-flex min-h-8 items-center rounded-control border border-border bg-card px-3 text-13 font-medium text-card-foreground" href="/studio/survey?tab=modules">问卷模板</Link><Link className="inline-flex min-h-8 items-center rounded-control border border-border bg-card px-3 text-13 font-medium text-card-foreground" href="/studio/survey?tab=reports">报告模板</Link><Button onClick={() => router.push("/studio/survey/new?step=design")}>新建问卷</Button></div>
       </header>
       <div className="flex gap-2">
         <Input
@@ -87,19 +91,14 @@ export function LiveSurveyLibrary() {
               </Link>
               <p className="mt-3 text-12 text-muted-foreground">
                 {item.questions.length} 道题 · {item.responses.length} 份答卷 ·{" "}
-                {item.publication?.status === "collecting"
+                <span data-testid={`survey-status-${item.id}`}>{item.publication?.status === "collecting"
                   ? "回收中"
                   : item.publication
                     ? "已关闭"
-                    : "未发布"}
+                    : item.status === "ready" ? "待发布" : "草稿"}</span>
               </p>
               <div className="mt-5 flex justify-between">
-                <Link
-                  className="text-12 text-primary"
-                  href={`/studio/survey/${item.id}`}
-                >
-                  打开问卷 →
-                </Link>
+                <Button variant="outline" size="xs" onClick={() => open(item)}>{item.status === "collecting" || item.status === "closed" ? "查看答卷" : "继续设计"}</Button>
                 <Button
                   variant="ghost"
                   size="xs"
@@ -113,7 +112,7 @@ export function LiveSurveyLibrary() {
           ))}
       </div>
       {!busy && !error && items.length === 0 && (
-        <div className="space-y-4 py-16 text-center"><p className="text-muted-foreground">还没有问卷，可以使用内置模板开始，也可以创建空白问卷。</p><Link className="inline-block rounded-md border border-border px-4 py-2 text-13 transition-colors hover:bg-accent" href="/studio/survey?tab=modules">浏览问卷模板</Link><Link className="ml-3 inline-block rounded-md border border-border px-4 py-2 text-13 transition-colors hover:bg-accent" href="/studio/survey?tab=reports">浏览报告模板</Link></div>
+        <div className="space-y-4 py-16 text-center"><h2 className="text-18 font-semibold">还没有问卷</h2><p className="text-muted-foreground">从空白问卷或现有模板开始，三步完成设计、回收与答卷查看。</p><Button onClick={() => router.push("/studio/survey/new?step=design")}>新建问卷</Button></div>
       )}
     </main>
   );
