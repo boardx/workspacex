@@ -20,13 +20,19 @@
  * 永远看不到产物自动弹出来。
  */
 
-export type InspectorTab = "progress" | "materials" | "artifacts" | "roster" | "run-details";
+/**
+ * phase-18 F09 —— `memory`（「记忆」）是 web 侧页签，**不是**聊天契约 `RightTab` 的第六个值：
+ * 契约里的五标签由服务端 `rightTabs()` 计算，本组页签从来就不是它的投影（#2068 起由本文件定）。
+ * 与 `roster` 一样是可选能力：调用方不开就不占页签栏一个位置。
+ */
+export type InspectorTab = "progress" | "materials" | "artifacts" | "roster" | "memory" | "run-details";
 
 export const INSPECTOR_TABS: readonly InspectorTab[] = [
   "progress",
   "materials",
   "artifacts",
   "roster",
+  "memory",
   "run-details",
 ];
 

@@ -13,6 +13,7 @@ import { Label } from "@/components/ui/label";
 import { ApiError } from "@/lib/api-client";
 import { currentOrganizationLabel } from "@/lib/org-display";
 import { SkillUrlImportPanel } from "@/components/admin/skill-url-import-panel";
+import { SkillEntryPoints, isEntryManaged, isHiddenPlatformSkill } from "@/components/skill/skill-entry-points";
 /**
  * G3（2026-08-14，人类原话：「新建skill应该弹出来一个新的popup界面」）—— 复用
  * `components/files/overlay.tsx` 的 `Modal`：这不是 `components/ui/` 底下的组件，
@@ -242,6 +243,17 @@ function Catalog({ orgId, orgName }: { orgId: string; orgName: string }) {
   }, [pending, serverRows]);
 
   /**
+   * backlog E6：平台 skill 按 `skillEntryPoints` 分进三个场景入口，不再平铺在网格里；
+   * 隐藏的底层能力默认不显示，勾选「显示底层能力」时才回到网格（数据从未被删掉）。
+   */
+  const [showHidden, setShowHidden] = React.useState(false);
+  const hiddenCount = React.useMemo(() => rows.filter(isHiddenPlatformSkill).length, [rows]);
+  const gridRows = React.useMemo<readonly SkillListItem[]>(
+    () => rows.filter((r) => !isEntryManaged(r) || (showHidden && isHiddenPlatformSkill(r))),
+    [rows, showHidden],
+  );
+
+  /**
    * 标签 = 三个既有封闭枚举（来源 / 状态 / 可见范围，后端真实返回、卡片上本来就画成
    * Badge）＋ G5 的自由 `tags`。纯前端本地过滤，零后端改动——同从前的 chip 过滤条，
    * 只是不再按维度分三行，而是同画布模板库一样汇总成一条、每个后跟数量。
@@ -347,11 +359,22 @@ function Catalog({ orgId, orgName }: { orgId: string; orgName: string }) {
         </Button>
       }
       notices={
-        notice ? (
-          <p data-testid="skill-catalog-notice" className="text-12 text-muted-foreground">
-            {notice}
-          </p>
-        ) : null
+        <>
+          {notice ? (
+            <p data-testid="skill-catalog-notice" className="text-12 text-muted-foreground">
+              {notice}
+            </p>
+          ) : null}
+          <SkillEntryPoints rows={rows} hrefOf={(row) => editSourceHref(row.skillId)} />
+          {hiddenCount > 0 ? (
+            <Checkbox
+              checked={showHidden}
+              onChange={(e) => setShowHidden(e.target.checked)}
+              data-testid="skill-show-hidden"
+              label={`显示自动调用的底层能力（${hiddenCount}）`}
+            />
+          ) : null}
+        </>
       }
       status={
         /**
@@ -364,7 +387,7 @@ function Catalog({ orgId, orgName }: { orgId: string; orgName: string }) {
             ? { kind: "error", message: visibleState.message }
             : { kind: "loading" }
       }
-      rows={rows}
+      rows={gridRows}
       keyOf={(row) => row.skillId}
       searchTextOf={searchTextOf}
       tagsOf={tagsOf}
@@ -422,7 +445,11 @@ function Catalog({ orgId, orgName }: { orgId: string; orgName: string }) {
         </CardContent>
       )}
       onRefresh={() => void load()}
-      emptyState="当前组织还没有任何 skill。这里就是真实空态 —— 不会替你生成示例 skill。"
+      emptyState={
+        rows.length > 0
+          ? "除上面三个场景入口里的平台 skill 外，当前组织还没有自己的 skill。"
+          : "当前组织还没有任何 skill。这里就是真实空态 —— 不会替你生成示例 skill。"
+      }
       searchPlaceholder="按名字、ID、职责或标签搜索 skill…"
       selectedKey={selectedKey}
       onSelect={setSelectedKey}

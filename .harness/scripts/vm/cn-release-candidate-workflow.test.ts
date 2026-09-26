@@ -17,5 +17,8 @@ describe("CN release candidate workflow", () => {
     expect(workflow).toContain("github.event.workflow_run.head_sha");
     expect(workflow).toContain("workspacex-cn-release-candidate");
     expect(workflow).not.toContain("docker build");
+    expect(workflow).toContain("sudo -n /usr/local/bin/workspacex-cn-build-candidate");
+    expect(workflow).toContain("CN_CANDIDATE_NONINTERACTIVE_ENTRYPOINT_FAILED");
+    expect(workflow).not.toMatch(/\bsudo \/usr\/local\/bin\/workspacex-cn-build-candidate/);
   });
 });

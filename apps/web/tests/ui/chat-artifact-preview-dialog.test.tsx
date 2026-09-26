@@ -5,7 +5,7 @@
  * （不是孤立测每个组件），钉住的是"点击真的能看到内容"这条端到端行为。
  */
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import * as React from "react";
 
 const getThreadArtifactSource = vi.hoisted(() => vi.fn());
@@ -71,25 +71,55 @@ describe("产物列表点击查看（issue #2099）", () => {
     });
     render(<Harness />);
 
-    expect(screen.getByTestId("chat-task-workbench-artifact-preview")).toBeVisible();
-    expect(screen.getByTestId("chat-task-workbench-artifact-sources")).toBeVisible();
+    /*
+     * 2026-09-23 —— 这两行原本就摆在**点击之前**，而且都通过了。那正是 TW-P1-4
+     * 的锚点问题本身：`-preview` 挂在列表标题 `<h2>产物预览</h2>` 上，
+     * 什么都没预览它也在。判据没变（产物预览要齐），读法变强了：
+     * 点开之前不该有预览，点开之后才该有。
+     */
+    expect(screen.queryByTestId("chat-task-workbench-artifact-preview")).toBeNull();
+    // 「来源」锚点 2026-09-23（R8）搬进了**右栏详情态**——它陈述的是某一份产物挂没挂
+    // 出处，而这个 Harness 只渲染列表 + 模态，没有详情态，所以这里本来就不该有它。
+    // 它的判据在 tests/ui/artifact-acceptance-anchors.test.tsx。
+    expect(screen.queryByTestId("chat-task-workbench-artifact-sources")).toBeNull();
 
     fireEvent.click(screen.getByTestId("chat-artifact-art-1"));
     expect(getThreadArtifactSource).toHaveBeenCalledWith("thr-1", "art-1", null, "b");
 
     const content = await screen.findByTestId("chat-artifact-preview-content");
+    // 预览锚点只在真的渲染出正文之后才出现。
+    expect(screen.getByTestId("chat-task-workbench-artifact-preview")).toBeVisible();
     expect(content.querySelector("h2")?.textContent).toContain("用户画像");
     expect(content.textContent).toContain("张三");
   });
 
-  it("取回失败（NOT_VISIBLE）⇒ 原样回显 reasonCode，不糊成一句「加载失败」", async () => {
+  /*
+   * 2026-09-23 改判据（判据背后的需求没变，读法更严了）：
+   * 这条原本要求「原样回显 reasonCode」——它真正要挡的是「把所有失败糊成一句加载失败」，
+   * 因为 NOT_VISIBLE 与 STORAGE_UNAVAILABLE 的处置完全不同。但「区分」不等于
+   * 「把内部码端给用户」，后者正是 lint-user-facing-error-text 这道门要挡的。
+   * 现在要求：两种码给出**互不相同、且不含内部码**的人话。
+   */
+  it("取回失败：不同错误码给不同的人话，且屏上不出现内部码", async () => {
     const { ApiError } = await import("@/lib/api-client");
     getThreadArtifactSource.mockRejectedValueOnce(new ApiError(404, "NOT_VISIBLE", {}));
     render(<Harness />);
 
     fireEvent.click(screen.getByTestId("chat-artifact-art-2"));
     const err = await screen.findByTestId("chat-artifact-preview-error");
-    expect(err.textContent).toBe("NOT_VISIBLE");
+    const notVisible = err.textContent ?? "";
+    expect(notVisible).not.toContain("NOT_VISIBLE");
+    expect(notVisible).not.toContain("HTTP");
+    expect(notVisible.length).toBeGreaterThan(6);
+    cleanup();
+
+    getThreadArtifactSource.mockRejectedValueOnce(new ApiError(503, "STORAGE_UNAVAILABLE", {}));
+    render(<Harness />);
+    fireEvent.click(screen.getByTestId("chat-artifact-art-2"));
+    const other = (await screen.findByTestId("chat-artifact-preview-error")).textContent ?? "";
+    expect(other).not.toContain("STORAGE_UNAVAILABLE");
+    // 两种失败必须说不同的话——这正是原判据要守的那件事。
+    expect(other).not.toBe(notVisible);
   });
 
   it("没有 onOpen 时条目保持纯展示，不可点击（既有行为不变）", () => {

@@ -3,12 +3,27 @@ import * as React from "react";
 export function GuidedResearchStepLayout({
   assistant,
   wideMain = false,
+  reading = false,
+  assistantOpen,
+  onAssistantOpenChange,
   children,
 }: {
   assistant: React.ReactNode;
   wideMain?: boolean;
+  reading?: boolean;
+  assistantOpen?: boolean;
+  onAssistantOpenChange?: (open: boolean) => void;
   children: React.ReactNode;
 }) {
+  const [internalAssistantOpen, setInternalAssistantOpen] = React.useState(false);
+  const reportAssistantOpen = assistantOpen ?? internalAssistantOpen;
+  const setReportAssistantOpen = onAssistantOpenChange ?? setInternalAssistantOpen;
+  if (reading) return <div className="min-w-0 space-y-4" data-layout="report-reading">
+    <div className={reportAssistantOpen ? "grid min-w-0 gap-8 lg:grid-cols-[18rem_minmax(0,1fr)]" : "min-w-0"}>
+      <aside id="report-assistant" hidden={!reportAssistantOpen} className="min-w-0 lg:sticky lg:top-4 lg:h-[calc(100vh-9rem)]">{assistant}</aside>
+      <main className="mx-auto w-full min-w-0 max-w-5xl" data-testid="research-step-main">{children}</main>
+    </div>
+  </div>;
   return (
     <div
       className={wideMain

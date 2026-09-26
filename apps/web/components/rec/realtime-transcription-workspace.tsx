@@ -7,7 +7,11 @@ import type { z } from "zod";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogTitle } from "@/components/ui/dialog";
+import { MicDevicePicker } from "@/components/chat/chat-composer-pickers";
+import type { AudioInputDevice } from "@/lib/live-recording";
 import type { RealtimeAsrStreamState } from "@/lib/realtime-asr.types";
+import type { RealtimeAsrFlowState } from "@/lib/realtime-asr-flow";
 
 type PersonalTranscriptionDetail = z.infer<typeof C.PersonalTranscriptionDetail>;
 type PersonalTranscriptionStatus = z.infer<typeof C.PersonalTranscriptionStatus>;
@@ -23,25 +27,41 @@ export function RealtimeTranscriptionWorkspace({
   onBack,
   streamState = "idle",
   interimSegment = "",
+  flowState = "normal",
   errorMessage,
+  reconnectableError = false,
   onStart,
   onStop,
   onSaveContent,
+  onReconnect,
+  inputLevel = 0,
+  devices = [],
+  selectedDeviceId = null,
+  onSelectDevice = () => undefined,
 }: {
   session: PersonalTranscriptionDetail;
   onBack: () => void;
   streamState?: RealtimeAsrStreamState;
   interimSegment?: string;
+  flowState?: RealtimeAsrFlowState;
   errorMessage?: string | null;
+  reconnectableError?: boolean;
   onStart: () => void;
   onStop: () => void;
   onSaveContent?: (content: string) => Promise<void>;
+  onReconnect?: () => void;
+  inputLevel?: number;
+  devices?: readonly AudioInputDevice[];
+  selectedDeviceId?: string | null;
+  onSelectDevice?: (deviceId: string | null) => void;
 }) {
   const [editing, setEditing] = React.useState(false);
   const [draft, setDraft] = React.useState(session.content);
   const [saving, setSaving] = React.useState(false);
   const [copied, setCopied] = React.useState(false);
+  const [errorDialogDismissed, setErrorDialogDismissed] = React.useState(false);
   React.useEffect(() => { if (!editing) setDraft(session.content); }, [editing, session.content]);
+  React.useEffect(() => { if (errorMessage) setErrorDialogDismissed(false); }, [errorMessage]);
   const recording = streamState === "recording" || streamState === "stopping" || session.status === "recording";
   const busy = streamState === "connecting" || streamState === "stopping";
   const visibleContent = [session.content, interimSegment].filter(Boolean).join(session.content && interimSegment ? " " : "");
@@ -85,10 +105,25 @@ export function RealtimeTranscriptionWorkspace({
               <p className="mt-2 text-12 text-muted-foreground">个人转录 · {session.tags.join(" / ") || "未添加标签"}</p>
             </div>
           </div>
-          <div className="flex items-center gap-3 pl-11 md:pl-0">
+          <div className="flex flex-wrap items-center gap-3 pl-11 md:justify-end md:pl-0">
+            <MicDevicePicker devices={devices} selectedDeviceId={selectedDeviceId}
+              disabled={recording || busy} onSelect={onSelectDevice} testIdPrefix="rec" side="down" />
+            <div className="flex items-end gap-0.5" role="meter" aria-label="麦克风输入音量"
+              aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(inputLevel * 100)}
+              data-testid="rec-live-input-level">
+              {([
+                { threshold: 0.15, height: "h-2" },
+                { threshold: 0.35, height: "h-3" },
+                { threshold: 0.6, height: "h-4" },
+                { threshold: 0.85, height: "h-5" },
+              ] as const).map(({ threshold, height }) => (
+                <span key={threshold} aria-hidden data-level-threshold={threshold}
+                  className={`w-1 rounded-full transition-colors ${height} ${inputLevel >= threshold ? "bg-success" : "bg-muted"}`} />
+              ))}
+            </div>
             <div className="flex items-center gap-2 text-12 text-muted-foreground">
               <Radio aria-hidden className={`h-4 w-4 ${recording ? "text-success" : ""}`} />
-              {streamState === "connecting" ? "正在连接" : streamState === "stopping" ? "正在等待尾部结果" : recording ? "正在接收音频" : session.status === "failed" ? "上次转录失败，可重新开始" : session.content ? "当前页面已有文字，可继续追加" : "尚未开始"}
+              {streamState === "connecting" ? "正在连接" : streamState === "stopping" ? "正在等待尾部结果" : recording && flowState === "slow" ? "音频仍在传输或确认中" : recording ? "正在接收音频" : session.status === "failed" ? "上次转录失败，可重新开始" : session.content ? "当前页面已有文字，可继续追加" : "尚未开始"}
             </div>
             <Button
               data-testid="rec-live-toggle"
@@ -139,7 +174,7 @@ export function RealtimeTranscriptionWorkspace({
             <div className="mt-5 rounded-lg bg-card p-1">
               <p data-testid="rec-live-content" className="whitespace-pre-wrap text-14 leading-8">{session.content}
                 {session.content && interimSegment ? " " : ""}
-                {interimSegment && <span data-testid="rec-live-interim" className="text-muted-foreground">{interimSegment}</span>}
+                {interimSegment && <span data-testid="rec-live-interim" className="text-muted-foreground">{interimSegment}<span className="ml-2 text-11">实时草稿，约在自然停顿 800ms 后确认保存</span></span>}
               </p>
             </div>
           ) : (
@@ -155,6 +190,17 @@ export function RealtimeTranscriptionWorkspace({
           )}
         </Card>
       </div>
+      <Dialog open={reconnectableError && Boolean(errorMessage) && !errorDialogDismissed} onOpenChange={(open) => { if (!open) setErrorDialogDismissed(true); }}>
+        <DialogContent data-testid="rec-live-reconnect-dialog" className="max-w-md">
+          <DialogTitle>实时转录连接异常</DialogTitle>
+          <DialogDescription>已保存的正文不会丢失。你可以重新连接后继续转录。</DialogDescription>
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={() => setErrorDialogDismissed(true)}>暂不处理</Button>
+            <Button data-testid="rec-live-reconnect" type="button" variant="primary" disabled={!onReconnect}
+              onClick={() => { setErrorDialogDismissed(true); onReconnect?.(); }}>重新连接</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </section>
   );
 }

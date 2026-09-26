@@ -143,7 +143,7 @@ test.describe("核心闭环八步", () => {
     await page.goto("/auth/register");
     // ⚠ 不点 `registration-bootstrap-toggle`——默认路径就是开放注册
     // （`registerNewAccount`），且不存在任何邀请码输入框可填。
-    await expect(page.getByTestId("registration-code")).toHaveCount(0);
+    await expect(page.getByTestId("registration-code")).toHaveCount(0); // testid-gate: absent 开放注册路径没有邀请码输入框，锚点不该存在（#1929）
     await page.getByTestId("registration-org-name").fill(user.orgName);
     await page.getByTestId("registration-display-name").fill(user.displayName);
     await page.getByTestId("registration-email").fill(user.email);

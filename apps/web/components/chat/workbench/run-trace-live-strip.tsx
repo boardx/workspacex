@@ -55,9 +55,49 @@ export function RunTraceLiveStrip({ entries, active }: {
   /** 这条 run 此刻是否仍在途（由 journal 的 status 事实定，见 `RunTracePanel`）。 */
   readonly active: boolean;
 }): JSX.Element | null {
+  /*
+   * 2026-09-24（评测集 E2）—— **静默窗口里也要有随时间变化的事实**。
+   *
+   * 实测：慢剧本（模拟模型思考 12 秒）期间，执行过程一行都没有，于是下面的
+   * `runningEntry` 与 `lastSettled` 双双为空，这一行退化成一句恒定的「正在推进任务」。
+   * 整轮 90 秒采样只读到**一种**文案——用户看到的就是一个会转的圈加一句不变的话，
+   * 与「卡死了」在屏幕上长得一模一样。人类最早那张「深度研究 5:20 一屏白」的截图
+   * 就是这个场景。
+   *
+   * 2026-09-24（E3）连带改掉那句「正在推进任务」：一条工具都还没收尾时，我们**确切知道**
+   * 此刻在等什么——在等模型返回。说「正在推进任务」是一句放之四海皆准、因而什么也没说的话；
+   * 说「正在等待模型返回」才是这一刻的事实，用户据此能判断「是模型慢，不是界面卡了」。
+   *
+   * 「已等待 N 秒」是**真事实**（我们确实知道等了多久），不是伪造的进度百分比——
+   * 后者才是这个文件头注一直在拒绝的那种「界面从未验证过的谎言」。
+   */
+  const [elapsedSec, setElapsedSec] = React.useState(0);
+  const startedAt = React.useRef<number | null>(null);
+  React.useEffect(() => {
+    if (!active) { startedAt.current = null; setElapsedSec(0); return undefined; }
+    startedAt.current ??= Date.now();
+    const tick = (): void => {
+      setElapsedSec(Math.floor((Date.now() - (startedAt.current ?? Date.now())) / 1000));
+    };
+    tick();
+    const timer = setInterval(tick, 1_000);
+    return () => { clearInterval(timer); };
+  }, [active]);
+
   if (!active) return null;
   const runningEntry = entries.find((entry) => entry.status === "running");
   const completed = entries.filter((entry) => entry.status === "succeeded" || entry.status === "failed").length;
+  /*
+   * 2026-09-22 —— 没有在飞的工具时，说**刚做完的那一步**，而不是一句恒定的「正在推进任务」。
+   *
+   * 人类实测截图里这一行是「正在推进任务 · 已完成 17 步」：17 步都做完了、`runningEntry`
+   * 却是 `undefined`，于是最有信息量的那一段退化成一个常量。这不是偶发——本地模型两次工具
+   * 之间要思考几十秒，**「什么都没在飞」才是常态**，所以那句常量是用户大部分时间看到的东西。
+   *
+   * 「刚完成 X」与「正在做 X」都取自同一份日志事实（entry.status），只是取最后一条已收尾的
+   * 而不是唯一一条在跑的；`completed` 会继续增长，活性仍然可判。
+   */
+  const lastSettled = [...entries].reverse().find((entry) => entry.status === "succeeded" || entry.status === "failed");
   return <span
     data-testid="run-trace-live-strip"
     data-has-detail={runningEntry === undefined ? "false" : "true"}
@@ -65,20 +105,36 @@ export function RunTraceLiveStrip({ entries, active }: {
     className="flex min-w-0 items-center"
   >
     <span data-testid="run-trace-live-label" className="truncate">
-      {runningEntry === undefined ? "正在推进任务" : liveLabel(runningEntry)}
-      {completed > 0 ? ` · 已完成 ${String(completed)} 步` : ""}
+      {runningEntry !== undefined
+        ? liveLabel(runningEntry)
+        : lastSettled === undefined ? "正在等待模型返回" : settledLabel(lastSettled)}
+      {completed > 0 ? ` · 已完成 ${String(completed)} 个动作` : ""}
+      {elapsedSec >= 3 ? ` · 已等待 ${String(elapsedSec)} 秒` : ""}
     </span>
   </span>;
+}
+
+/**
+ * 刚收尾的那一步。用「刚完成 / 刚失败」而不是「正在」——它说的是过去式，不能借活性文案
+ * 的位置假装有东西在跑。
+ */
+function settledLabel(entry: TraceEntry): string {
+  const what = entry.kind === "skill" ? `技能 · ${entry.text}` : actionName(entry.text);
+  return entry.status === "failed" ? `刚失败：${what}` : `刚完成：${what}`;
 }
 
 /** 与折叠行同一套动作措辞，但只说**此刻**在做什么——不带「有失败步骤」这种恒在的后缀。 */
 function liveLabel(entry: TraceEntry): string {
   if (entry.activityStage) return "正在执行技能";
   if (entry.kind === "skill") return `正在调用技能 · ${entry.text}`;
-  const action = entry.text === "search_documents" ? "检索资料"
-    : entry.text === "spawn_async_task" ? "派发后台任务"
-    : entry.text === "write_todos" ? "更新执行计划"
-    : entry.text === "run_script" ? "执行生成脚本"
+  return `正在${actionName(entry.text)}`;
+}
+
+/** 动作措辞的单一事实源：`liveLabel`（进行中）与 `settledLabel`（已收尾）共用。 */
+function actionName(tool: string): string {
+  return tool === "search_documents" ? "检索资料"
+    : tool === "spawn_async_task" ? "派发后台任务"
+    : tool === "write_todos" ? "更新执行计划"
+    : tool === "run_script" ? "执行生成脚本"
     : "执行工具操作";
-  return `正在${action}`;
 }

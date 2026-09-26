@@ -388,10 +388,16 @@ export type InboxView = z.infer<typeof InboxView>;
 /**
  * 来源可见性。`withheld` = 请求者不是平台超管，系统异常那一半**没有被查询**——不是查了为空。
  * 前端据此显示「系统异常仅平台运维可见」。
+ *
+ * `unavailable`（2026-09-23 人类裁决，#3921）= **查了，但这一路读失败了**——不是「不让看」，
+ * 也不是「没有」。本地真栈实测：本地版的 PGlite 不区分数据库角色，系统异常那一路走的诊断角色
+ * 必然被拒，原来整个收件箱跟着 500，反馈与设计方案两路一起没了，屏上还叫人「稍后重试」。
+ * 一路失败只丢那一路：其余照常给，这一格说「这一路暂时读不到」。三个值的含义互不重叠，
+ * 前端不许把 `unavailable` 说成「仅平台运维可见」，也不许把它当成「零异常」。
  */
 export const InboxSources = z
   .object({
-    exception: z.enum(["included", "withheld"]),
+    exception: z.enum(["included", "withheld", "unavailable"]),
   })
   .strict();
 export type InboxSources = z.infer<typeof InboxSources>;
@@ -457,7 +463,7 @@ export const operations = {
    *   「当前页里的」（同 `getFeedbackCounts` 的理由）。
    * ⚠ 不带 `kind` / `stage` / `q` 过滤：这组数字是「收件箱整体」的口径。Chip 与列头同时显示时，
    *   一个受筛选影响、一个不受，用户分不清哪个是哪个；要「筛选后的条数」读 `listInbox` 的结果。
-   * ⚠ `byKind.design` 本轮恒 0；`sources.exception === "withheld"` 时 `byKind.exception` 恒 0
+   * ⚠ `byKind.design` 本轮恒 0；`sources.exception` 为 `"withheld"` 或 `"unavailable"` 时 `byKind.exception` 恒 0
    *   且四列数字**不含**系统异常。
    */
   getInboxCounts: {

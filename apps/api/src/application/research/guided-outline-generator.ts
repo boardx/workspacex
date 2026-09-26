@@ -1,14 +1,15 @@
 import { research as C } from "@repo/contracts";
 import { z } from "zod";
 import { ModelCallError, type ModelCallPort } from "../agent-run/ports";
+import { guidedModelConfig } from "./guided-model-config";
 import { extractJson } from "./guided-structured-json";
+import { GUIDED_RESEARCH_OUTLINE_RESPONSE_SCHEMA } from "./guided-research-model";
 
 type DirectionsNodeState = z.infer<typeof C.DirectionsNodeInputState>;
 type GuidedResearchWorkflowOutlineSection = z.infer<typeof C.GuidedResearchWorkflowOutlineSection>;
 
 export const GUIDED_RESEARCH_OUTLINE_GENERATOR = Symbol("GuidedResearchOutlineGenerator");
 
-export const GUIDED_RESEARCH_OUTLINE_MODEL_ID = "qwen3.7-plus";
 export const GUIDED_RESEARCH_OUTLINE_SCHEMA_VERSION = "guided-research-outline:v1";
 
 export class GuidedResearchOutlineGenerationError extends Error {
@@ -20,7 +21,7 @@ export class GuidedResearchOutlineGenerationError extends Error {
 export interface GuidedResearchOutlineGeneration {
   readonly sections: readonly GuidedResearchWorkflowOutlineSection[];
   readonly modelProvider: string;
-  readonly modelId: typeof GUIDED_RESEARCH_OUTLINE_MODEL_ID;
+  readonly modelId: string;
   readonly modelInvocationId: string;
   readonly modelOutputSchemaVersion: typeof GUIDED_RESEARCH_OUTLINE_SCHEMA_VERSION;
 }
@@ -36,9 +37,8 @@ export interface GuidedResearchOutlineGenerator {
 export class ModelGuidedResearchOutlineGenerator implements GuidedResearchOutlineGenerator {
   constructor(
     private readonly model: ModelCallPort,
-    private readonly modelProvider = process.env.KERNEL_GUIDED_RESEARCH_MODEL_PROVIDER
-      ?? process.env.KERNEL_MODEL_PROVIDER
-      ?? "",
+    private readonly modelProvider = guidedModelConfig().provider,
+    private readonly modelId = guidedModelConfig().id,
   ) {}
 
   async generate(input: {
@@ -50,7 +50,8 @@ export class ModelGuidedResearchOutlineGenerator implements GuidedResearchOutlin
     try {
       completion = await this.model.complete({
         modelProvider: this.modelProvider,
-        modelId: GUIDED_RESEARCH_OUTLINE_MODEL_ID,
+        modelId: this.modelId,
+        responseSchema: GUIDED_RESEARCH_OUTLINE_RESPONSE_SCHEMA,
         system: [
           "You generate Guided Research report outlines for BoardX.",
           "Return JSON only. Do not include markdown, prose, citations, or comments.",
@@ -79,7 +80,7 @@ export class ModelGuidedResearchOutlineGenerator implements GuidedResearchOutlin
     return {
       sections: parsed.sections.map((section, order) => ({ ...section, order })),
       modelProvider: this.modelProvider,
-      modelId: GUIDED_RESEARCH_OUTLINE_MODEL_ID,
+      modelId: this.modelId,
       modelInvocationId: `${input.sessionId}:${input.requestId}:qwen3.7-plus`,
       modelOutputSchemaVersion: GUIDED_RESEARCH_OUTLINE_SCHEMA_VERSION,
     };

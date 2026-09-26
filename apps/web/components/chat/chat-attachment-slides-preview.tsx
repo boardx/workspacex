@@ -156,7 +156,7 @@ export function ChatAttachmentSlidesPreview({
           data-testid="chat-attachment-preview-slides-loading"
         >
           <span
-            className="h-5 w-5 motion-safe:animate-spin rounded-full border-2 border-muted-foreground/40 border-t-foreground"
+            className="h-5 w-5 motion-safe:animate-spin rounded-full border-2 border-muted-foreground/40 border-t-muted-foreground"
             aria-hidden
           />
           <p className="text-13 text-muted-foreground">正在解析幻灯片…</p>

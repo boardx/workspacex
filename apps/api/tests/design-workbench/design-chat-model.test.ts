@@ -4,13 +4,17 @@
 import { describe, expect, it, vi } from "vitest";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { designWorkbench as C } from "@repo/contracts";
+import { designPrototype, designWorkbench as C } from "@repo/contracts";
 import { MODEL_CALL_IMAGE_MIMES, ModelCallError } from "../../src/application/agent-run/ports";
 import {
   DESIGN_CHAT_SYSTEM_PROMPT,
   DESIGN_ONE_SCREEN_SYSTEM_PROMPT,
   DESIGN_OUTLINE_SYSTEM_PROMPT,
   DESIGN_PRINCIPLES,
+  DESIGN_QUALITY_BAR,
+  SCREEN_CONCURRENCY,
+  CHAT_HISTORY_MAX_TURNS,
+  CHAT_TURN_MAX_CHARS,
   ModelDesignChatReplier,
   parseSuggestions,
   parseWriteback,
@@ -58,7 +62,25 @@ describe("B5.2 ModelDesignChatReplier", () => {
 
   it("迭代 7 修复轮：首轮 prototype 不合法 ⇒ 带原话理由再问一次；修复轮合法 ⇒ 用它；修复轮也失败 ⇒ 保留首轮合法字段与回复", async () => {
     const bad = '{"reply":"画好了。","writeback":{"criteria":["c1"],"prototype":[{"frame":"聊天","root":{"type":"iframe"}}]}}';
-    const good = '{"reply":"修好了。","writeback":{"prototype":[{"frame":"聊天","root":{"type":"text","props":{"content":"hi"}}}]}}';
+    /*
+     * 迭代 16（#3773 R5）：修复轮产出的页**也要过质量门**了，所以这里的"修好了"那一页
+     * 必须本身是一页说得过去的界面——否则会多出一次质量重问，这条用例就不再是在测修复轮。
+     * 这正是本轮要的效果：迭代产出的页不再无人把关（另有用例专门钉它）。
+     */
+    const goodRoot = {
+      type: "stack",
+      children: [
+        { type: "text", props: { content: "客服会话", variant: "title" } },
+        { type: "text", props: { content: "12 条待回复", variant: "caption", muted: true } },
+        { type: "text", props: { content: "今天", variant: "label" } },
+        { type: "list", props: { items: ["王女士：订单还没发货", "李先生：想改收货地址", "赵小姐：申请退款"], leading: "avatar" } },
+        { type: "text", props: { content: "已处理", variant: "label" } },
+        { type: "list", props: { items: ["陈先生：发票抬头", "周女士：尺码咨询"], leading: "avatar" } },
+        { type: "input", props: { placeholder: "搜索会话" } },
+        { type: "button", props: { label: "开始回复", variant: "primary", full: true } },
+      ],
+    };
+    const good = `{"reply":"修好了。","writeback":{"prototype":[{"frame":"聊天","root":${JSON.stringify(goodRoot)}}]}}`;
     let n = 0;
     const ok = replier(async () => ({ text: (n += 1) === 1 ? bad : good }));
     const out = await ok.r.reply(CTX);
@@ -67,7 +89,7 @@ describe("B5.2 ModelDesignChatReplier", () => {
     expect(repairPrompt).toContain("没通过契约校验");
     expect(repairPrompt).toContain("prototype");
     expect(out.text).toBe("画好了。"); // 回复文字沿用首轮
-    expect(out.writeback).toEqual({ criteria: ["c1"], prototype: [{ frame: "聊天", root: { type: "text", props: { content: "hi" } } }] });
+    expect(out.writeback).toEqual({ criteria: ["c1"], prototype: [{ frame: "聊天", root: goodRoot }] });
 
     let m = 0;
     const stillBad = replier(async () => { m += 1; if (m === 1) return { text: bad }; throw new Error("boom"); });
@@ -456,6 +478,47 @@ describe("V67 视觉判据进设计原则，且与 frontend-design skill 不是�
 });
 
 /**
+ * 人类实测原话（2026-09-25）：「设计一个心理学 app」画出来的「今日心情」页，六个情绪选项
+ * （平静/低落/焦虑/…）每一张配图长得一模一样——因为它们都是 image(kind:illustration)，
+ * 而这套系统里这个 kind 只有一种画法（`ImagePlaceholder` 里固定的一个圆 + 一个方块，
+ * 见 `prototype-canvas.tsx`），跟内容无关。一组并列选项因此看起来像没做完，是这次反馈里
+ * 最扎眼的一条。这组用例钉住两处修法：① 提示词里说清楚这个占位图形不能用来区分并列选项；
+ * ② 配色指南补上心理健康这个此前完全没覆盖的品类（之前只能瞎猜）。
+ */
+describe("V68 并列选项别用同一个占位图形区分；配色指南补心理健康品类", () => {
+  it("DESIGN_PRINCIPLES 里说清楚 image(kind:illustration) 画出来都一样，别指望它区分并列选项", () => {
+    // ⭐ 反证锚点：删掉这句 ⇒ 这条红——模型不知道这个占位图形对每一项都长一样。
+    expect(DESIGN_PRINCIPLES).toContain("image(kind:illustration)");
+    expect(DESIGN_PRINCIPLES).toContain("对每一项画出来都是");
+    expect(DESIGN_PRINCIPLES).toContain("list/bottomnav 的 icons");
+  });
+
+  it("系统提示词真的带上了这句（不是只导出一个没人用的常量）", () => {
+    expect(DESIGN_CHAT_SYSTEM_PROMPT).toContain("image(kind:illustration)");
+    expect(DESIGN_ONE_SCREEN_SYSTEM_PROMPT).toContain("image(kind:illustration)");
+  });
+
+  it("DESIGN_OUTLINE_SYSTEM_PROMPT 的配色指南覆盖了心理健康品类，且给的每个颜色词都是闭集里真实存在的档位", () => {
+    // ⭐ 反证锚点：删掉这句 ⇒ 这条红——心理健康类产品的 accent 之前无从谈起，只能瞎猜。
+    expect(DESIGN_OUTLINE_SYSTEM_PROMPT).toContain("心理健康/情绪类");
+    // accent 是闭集：这段新指南提到的每个颜色词都必须能映回 PrototypeAccent 的某个真实档位，
+    // 不能建议一个模型答了会被契约拒掉的颜色（那比不给建议更糟，反证见下）。
+    const promptAccentColorWords: Record<string, string> = {
+      neutral: "中性", blue: "靛蓝", violet: "紫", teal: "青", green: "绿", amber: "琥珀", rose: "玫红", slate: "石板灰",
+    };
+    const newGuidance = DESIGN_OUTLINE_SYSTEM_PROMPT.slice(DESIGN_OUTLINE_SYSTEM_PROMPT.indexOf("心理健康/情绪类"));
+    const sentence = newGuidance.slice(0, newGuidance.indexOf("；实在拿不准"));
+    for (const word of ["橙", "黄"]) {
+      // ⭐ 反证：把「青或紫」改成「橙或黄」这种不在 PrototypeAccent 八档里的颜色词 ⇒ 这条红。
+      // （不查"红"："玫红"这个合法词本身就带"红"字，查了会对着自己的合法用词假红。）
+      expect(sentence, `配色指南里出现了不在闭集里的颜色词「${word}」`).not.toContain(word);
+    }
+    // 而新增的这几句确实至少各自对应了一个真实档位（不是空话）。
+    expect(Object.values(promptAccentColorWords).some((w) => sentence.includes(w))).toBe(true);
+  });
+});
+
+/**
  * 迭代 13（delta `design-chat-inputs` §1）—— V52 / V53 / V54。
  * 参考图随**每一轮**发；模型看不了图时**不发图且在回复里说出来**。
  */
@@ -567,5 +630,412 @@ describe("迭代 13：参考图", () => {
   it("没传图 ⇒ 不管模型能不能看图，都不加那句提示", async () => {
     const { r } = replier(async () => ({ text: '{"reply":"好的。"}' }));
     expect((await r.reply(CTX)).text).not.toContain("看不了图");
+  });
+});
+
+/* ───────────────── 迭代 16（#3773 R1）：上下文膨胀与提示词一致性 ───────────────── */
+
+describe("迭代 16：喂给模型的对话历史有上限（#3773 R1-⑦）", () => {
+  it("超过上限 ⇒ 只带最近 N 轮，并如实说明省略了多少轮", async () => {
+    const chat = Array.from({ length: CHAT_HISTORY_MAX_TURNS + 8 }, (_, i) => ({
+      role: i % 2 === 0 ? ("user" as const) : ("ai" as const),
+      text: `第 ${String(i)} 句`,
+      at: "2026-09-05T00:00:00.000Z",
+      ...(i % 2 === 0 ? {} : { source: "model" as const }),
+    }));
+    const { r, model } = replier(async () => ({ text: '{"reply":"好。"}' }));
+    await r.reply({ ...CTX, chat });
+    const user = model.complete.mock.calls[0]?.[0].user ?? "";
+    // 最早的几句不该还在上下文里；最后一句必须在。
+    expect(user).not.toContain("第 0 句");
+    expect(user).toContain(`第 ${String(chat.length - 1)} 句`);
+    // 不静默截断：模型要知道前面还有话，才不会把「用户没说过」当事实。
+    expect(user).toContain("更早的 8 轮已省略");
+  });
+
+  it("单条超长消息被截断，不把预算一次吃光", async () => {
+    const huge = "长".repeat(CHAT_TURN_MAX_CHARS + 500);
+    const { r, model } = replier(async () => ({ text: '{"reply":"好。"}' }));
+    await r.reply({ ...CTX, chat: [{ role: "user", text: huge, at: "2026-09-05T00:00:00.000Z" }] });
+    const user = model.complete.mock.calls[0]?.[0].user ?? "";
+    expect(user).toContain("（本条已截断）");
+    expect(user).not.toContain(huge);
+  });
+});
+
+describe("迭代 16：提示词与服务端质量门不再互相矛盾（#3773 R1-⑤⑥）", () => {
+  it("两个系统提示词都写明了质量门的判据", () => {
+    expect(DESIGN_CHAT_SYSTEM_PROMPT).toContain(DESIGN_QUALITY_BAR);
+    expect(DESIGN_ONE_SCREEN_SYSTEM_PROMPT).toContain(DESIGN_QUALITY_BAR);
+  });
+
+  it("few-shot 里的第一页**自己过得了质量门**——模型照抄范例不该被我们自己判不及格", async () => {
+    // 回归钉：原来的范例首页只有 5 个节点、零个 text，按 `scorePrototypeScreen` 是不及格的。
+    const { scorePrototypeScreen, PROTOTYPE_QUALITY_THRESHOLD } =
+      await import("../../src/application/design-workbench/prototype-quality");
+    const { DESIGN_FEW_SHOT } = await import("../../src/application/design-workbench/design-chat-model");
+    const start = DESIGN_FEW_SHOT.indexOf("{\"reply\"");
+    const end = DESIGN_FEW_SHOT.indexOf("}]}}", start) + 4;
+    const parsed = JSON.parse(DESIGN_FEW_SHOT.slice(start, end)) as {
+      writeback: { prototype: { frame: string; root: unknown }[] };
+    };
+    const screens = parsed.writeback.prototype;
+    expect(screens.length).toBeGreaterThanOrEqual(2);
+    // 每一页都要过契约（范例里写错一个 props 键，模型就会照着写错）。
+    for (const s of screens) expect(designPrototype.PrototypeScreen.safeParse(s).success).toBe(true);
+    // 首页要过质量门。
+    expect(scorePrototypeScreen(screens[0]!.root as never).total).toBeGreaterThanOrEqual(PROTOTYPE_QUALITY_THRESHOLD);
+  });
+});
+
+describe("迭代 16：设计基调在骨架轮定一次、每页轮都带着（#3773 R1-⑩）", () => {
+  it("骨架轮给了 tone ⇒ 每一页的上下文里都有它", async () => {
+    const outline = '{"reply":"拆成两页。","tone":"面向一线客服、信息密度高、以待办列表为视觉重点","outline":[{"frame":"待办","intent":"看今天要做什么"},{"frame":"详情","intent":"处理一条"}]}';
+    const screen = '{"frame":"x","root":{"type":"stack","children":[{"type":"text","props":{"content":"一句真实文案","variant":"title"}},{"type":"button","props":{"label":"开始处理","variant":"primary"}}]},"notes":"说明"}';
+    let call = 0;
+    const { r, model } = replier(async () => ({ text: call++ === 0 ? outline : screen }));
+    await r.reply({ ...CTX, prototype: [], frames: [], chat: [{ role: "user", text: "做个客服待办", at: "2026-09-05T00:00:00.000Z" }] });
+    const perScreen = model.complete.mock.calls.slice(1);
+    expect(perScreen.length).toBeGreaterThanOrEqual(2);
+    for (const [input] of perScreen) {
+      expect(input.system).toBe(DESIGN_ONE_SCREEN_SYSTEM_PROMPT);
+      expect(input.user).toContain("面向一线客服、信息密度高、以待办列表为视觉重点");
+    }
+  });
+
+  it("骨架轮没给 tone ⇒ 不往上下文里塞空句子（照常生成）", async () => {
+    const outline = '{"reply":"一页。","outline":[{"frame":"待办","intent":"看今天要做什么"}]}';
+    const screen = '{"frame":"x","root":{"type":"stack","children":[{"type":"text","props":{"content":"一句真实文案","variant":"title"}},{"type":"button","props":{"label":"开始处理","variant":"primary"}}]}}';
+    let call = 0;
+    const { r, model } = replier(async () => ({ text: call++ === 0 ? outline : screen }));
+    const out = await r.reply({ ...CTX, prototype: [], frames: [], chat: [{ role: "user", text: "做个客服待办", at: "2026-09-05T00:00:00.000Z" }] });
+    expect(out.source).toBe("model");
+    expect(model.complete.mock.calls[1]?.[0].user).not.toContain("设计基调");
+  });
+});
+
+describe("迭代 16：分页生成的中间结果当场发出去（#3773 R2）", () => {
+  const outline = '{"reply":"拆成三页。","outline":[{"frame":"待办","intent":"看今天要做什么"},{"frame":"详情","intent":"处理一条"},{"frame":"我的","intent":"看设置"}]}';
+  const screen = '{"frame":"x","root":{"type":"stack","children":[{"type":"text","props":{"content":"一句真实文案","variant":"title"}},{"type":"button","props":{"label":"开始处理","variant":"primary"}}]},"notes":"说明"}';
+  const fresh = { ...CTX, prototype: [], frames: [], chat: [{ role: "user" as const, text: "做个客服待办", at: "2026-09-05T00:00:00.000Z" }] };
+
+  it("骨架一回来就发一次（全是占位页），之后每画好一页再发一次", async () => {
+    const seen: string[][] = [];
+    let call = 0;
+    const { r } = replier(async () => ({ text: call++ === 0 ? outline : screen }));
+    await r.reply({
+      ...fresh,
+      onProgress: async (screens) => {
+        seen.push(screens.map((x) => (x.root === undefined ? `${x.frame}:空` : `${x.frame}:有`)));
+      },
+    });
+    /*
+     * 迭代 16（#3773 R9）之后是**一批一次**：1 次骨架 + 第 0 页（串行定调）
+     * + 其余页按 `SCREEN_CONCURRENCY` 成批 ⇒ 三页项目共 3 次。
+     * 逐页可见这件事没有变（用户看到的仍然是一批批长出来），变的是不再一页页干等。
+     */
+    expect(seen.length).toBe(3);
+    // 第一次：三页全是占位——页标签当场就能出现在画布上，而不是等几分钟。
+    expect(seen[0]).toEqual(["待办:空", "详情:空", "我的:空"]);
+    // 第 0 页先单独画完（它是后面几页的风格锚）。
+    expect(seen[1]).toEqual(["待办:有", "详情:空", "我的:空"]);
+    // 最后一次：全部画好，且**页序按骨架还原**——并发之后完成顺序不再等于页序。
+    expect(seen[2]).toEqual(["待办:有", "详情:有", "我的:有"]);
+  });
+
+  it("回调抛了 ⇒ 记一条日志，生成照常走完（它只是「早点存一下」，不是成败条件）", async () => {
+    let call = 0;
+    const { r, log } = replier(async () => ({ text: call++ === 0 ? outline : screen }));
+    const out = await r.reply({
+      ...fresh,
+      onProgress: async () => { throw new Error("db down"); },
+    });
+    expect(out.source).toBe("model");
+    expect(out.pagedScreens?.length).toBe(3);
+    expect(out.pagedScreens?.every((x) => x.root !== undefined)).toBe(true);
+    expect(log.mock.calls.some(([m]) => String(m).includes("progress publish failed"))).toBe(true);
+  });
+
+  it("没给回调 ⇒ 一切照旧（老调用方不受影响）", async () => {
+    let call = 0;
+    const { r } = replier(async () => ({ text: call++ === 0 ? outline : screen }));
+    const out = await r.reply(fresh);
+    expect(out.pagedScreens?.length).toBe(3);
+  });
+});
+
+describe("迭代 16：裁剪不许裁掉系统留痕（#3773 R3）", () => {
+  it("很早的一条「从对话导入」留痕，即使被 20 轮窗口挤出去也仍然在上下文里", async () => {
+    const trace = { role: "ai" as const, text: "从线程《导出慢》导入了 12 条消息作为背景。", at: "2026-09-05T00:00:00.000Z", source: "system" as const };
+    const noise = Array.from({ length: CHAT_HISTORY_MAX_TURNS + 5 }, (_, i) => ({
+      role: i % 2 === 0 ? ("user" as const) : ("ai" as const),
+      text: `闲聊 ${String(i)}`,
+      at: "2026-09-05T00:00:00.000Z",
+      ...(i % 2 === 0 ? {} : { source: "model" as const }),
+    }));
+    const { r, model } = replier(async () => ({ text: '{"reply":"好。"}' }));
+    await r.reply({ ...CTX, chat: [trace, ...noise] });
+    const user = model.complete.mock.calls[0]?.[0].user ?? "";
+    expect(user).toContain("从线程《导出慢》导入了 12 条消息");
+    expect(user).not.toContain("闲聊 0");
+    // 钉住顺序：留痕仍排在被保留的那些闲聊之前，不是被挪到末尾。
+    expect(user.indexOf("从线程《导出慢》")).toBeLessThan(user.indexOf(`闲聊 ${String(noise.length - 1)}`));
+  });
+});
+
+/* ───────────────── 迭代 16（#3773 R5）：迭代产出也要被管住 ───────────────── */
+
+const THIN_PAGE = { type: "stack", children: [{ type: "text", props: { content: "空空如也" } }] };
+const SOLID_PAGE = {
+  type: "stack",
+  children: [
+    { type: "text", props: { content: "我的订单", variant: "title" } },
+    { type: "text", props: { content: "近 30 天共 8 单", variant: "caption", muted: true } },
+    { type: "text", props: { content: "进行中", variant: "label" } },
+    { type: "list", props: { items: ["楼下的面馆", "书店", "水果摊"], detail: ["牛肉面 × 1", "三本书", "两斤橙子"], trailing: ["¥28", "¥136", "¥19"], leading: "icon", icons: ["cart"] } },
+    { type: "text", props: { content: "已完成", variant: "label" } },
+    { type: "list", props: { items: ["咖啡店", "便利店"], trailing: ["¥32", "¥15"] } },
+    { type: "input", props: { placeholder: "搜索订单" } },
+    { type: "button", props: { label: "再来一单", icon: "refresh", variant: "primary", full: true } },
+  ],
+};
+
+describe("整页写回也过质量门（#3773 R5）", () => {
+  it("写回的页低于线 ⇒ 带着具体反馈重问那一页；更好就换", async () => {
+    // ⭐ 反证锚点：把 `liftScreenQuality` 摘掉 ⇒ 这条红。质量门此前**只跑在首次分页生成上**，
+    // 用户每一轮迭代产出的页一次都没被审过——而迭代恰恰是这个工具的主用途。
+    const first = `{"reply":"重画了首页。","writeback":{"prototype":[{"frame":"订单","root":${JSON.stringify(THIN_PAGE)}}]}}`;
+    const retry = `{"frame":"订单","root":${JSON.stringify(SOLID_PAGE)},"notes":"列出进行中与已完成的订单。"}`;
+    let n = 0;
+    const { r, model } = replier(async () => ({ text: (n += 1) === 1 ? first : retry }));
+    const out = await r.reply(CTX);
+    expect(model.complete).toHaveBeenCalledTimes(2);
+    // 第二次是**单页**重问，带着具体缺什么，不是一句"再试一次"。
+    const second = model.complete.mock.calls[1]?.[0];
+    expect(second?.system).toBe(DESIGN_ONE_SCREEN_SYSTEM_PROMPT);
+    expect(second?.user).toContain("刚才这一页画得不够好");
+    expect(second?.user).toContain("元素");
+    expect(out.writeback.prototype?.[0]?.root).toEqual(SOLID_PAGE);
+    expect(out.writeback.prototype?.[0]?.notes).toBe("列出进行中与已完成的订单。");
+  });
+
+  it("重问反而更差 ⇒ 保留原来那版（不能越修越坏）", async () => {
+    const first = `{"reply":"重画了。","writeback":{"prototype":[{"frame":"订单","root":${JSON.stringify(THIN_PAGE)}}]}}`;
+    const worse = '{"frame":"订单","root":{"type":"stack","children":[{"type":"divider"}]}}';
+    let n = 0;
+    const { r } = replier(async () => ({ text: (n += 1) === 1 ? first : worse }));
+    const out = await r.reply(CTX);
+    expect(out.writeback.prototype?.[0]?.root).toEqual(THIN_PAGE);
+  });
+
+  it("写回的页本来就过线 ⇒ 一次都不重问（不为了 1 分多花一次调用）", async () => {
+    const first = `{"reply":"重画了。","writeback":{"prototype":[{"frame":"订单","root":${JSON.stringify(SOLID_PAGE)}}]}}`;
+    const { r, model } = replier(async () => ({ text: first }));
+    await r.reply(CTX);
+    expect(model.complete).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("整页重画被截断 ⇒ 落到分页生成，而不是直接判失败（#3773 R5）", () => {
+  it("首轮 truncated ⇒ 改走「一次骨架 + 每页一次」，用户拿到的是页，不是一句「没说完」", async () => {
+    /*
+     * ⭐ 反证锚点：改回 `return fallbackWith("MODEL_OUTPUT_TRUNCATED")` ⇒ 这条红。
+     * 「整体重画一遍」要一次吐出所有页的完整树，正是首次生成早就拆掉的那件事，
+     * 只是换了个入口；退回一句"AI 这次没说完"会让用户一遍遍重试一个必然再次截断的请求。
+     */
+    const outline = '{"reply":"重画成两页。","outline":[{"frame":"订单","intent":"看订单"},{"frame":"详情","intent":"看一单"}]}';
+    const screen = `{"frame":"x","root":${JSON.stringify(SOLID_PAGE)},"notes":"说明"}`;
+    let n = 0;
+    const { r, model } = replier(async () => {
+      n += 1;
+      if (n === 1) return { text: "{\"reply\":\"重画中", truncated: true } as never;
+      return { text: n === 2 ? outline : screen };
+    });
+    const out = await r.reply(CTX);
+    expect(out.source).toBe("model");
+    expect(out.fallbackReason).toBeUndefined();
+    expect(out.pagedScreens?.map((x) => x.frame)).toEqual(["订单", "详情"]);
+    expect(out.pagedScreens?.every((x) => x.root !== undefined)).toBe(true);
+    // 1 次首轮 + 1 次骨架 + 2 次每页
+    expect(model.complete).toHaveBeenCalledTimes(4);
+  });
+
+  it("落过去的分页生成也失败 ⇒ 仍然如实报「被截断」，不假装成别的原因", async () => {
+    let n = 0;
+    const { r } = replier(async () => {
+      n += 1;
+      if (n === 1) return { text: "{半截", truncated: true } as never;
+      throw new ModelCallError("MODEL_CALL_FAILED", "boom");
+    });
+    const out = await r.reply(CTX);
+    expect(out.source).toBe("fallback");
+    expect(out.fallbackReason).toBe("MODEL_OUTPUT_TRUNCATED");
+  });
+});
+
+describe("迭代 16：每页轮成批并发（#3773 R9）", () => {
+  const screen = '{"frame":"x","root":{"type":"stack","children":[{"type":"text","props":{"content":"一句真实文案","variant":"title"}},{"type":"button","props":{"label":"开始处理","variant":"primary"}}]},"notes":"说明"}';
+
+  it("第 0 页串行定调，其余页按并发度成批——同一批的调用真的是同时在跑", async () => {
+    const outline = '{"reply":"五页。","outline":[{"frame":"A","intent":"a"},{"frame":"B","intent":"b"},{"frame":"C","intent":"c"},{"frame":"D","intent":"d"},{"frame":"E","intent":"e"}]}';
+    let inFlight = 0;
+    let peak = 0;
+    let call = 0;
+    const { r } = replier(async () => {
+      const n = (call += 1);
+      inFlight += 1;
+      peak = Math.max(peak, inFlight);
+      await new Promise((res) => setTimeout(res, 1));
+      inFlight -= 1;
+      return { text: n === 1 ? outline : screen };
+    });
+    const out = await r.reply({ ...CTX, prototype: [], frames: [], chat: [{ role: "user", text: "画", at: "2026-09-05T00:00:00.000Z" }] });
+    // ⭐ 反证锚点：改回串行 ⇒ peak 恒为 1，这条红。5 页 × 每页几十秒 = 用户干等两三分钟，
+    // 而这几次调用之间没有真正的依赖。
+    expect(peak).toBe(SCREEN_CONCURRENCY);
+    // 并发度不许被悄悄放大：429 在这条链路上的表现是「某几页没画出来」，比慢更糟。
+    expect(peak).toBeLessThanOrEqual(SCREEN_CONCURRENCY);
+    expect(out.pagedScreens?.map((x) => x.frame)).toEqual(["A", "B", "C", "D", "E"]);
+    expect(out.pagedScreens?.every((x) => x.root !== undefined)).toBe(true);
+  });
+
+  it("第 0 页**不**与别人并发——它是后面每一页的风格锚", async () => {
+    const outline = '{"reply":"三页。","outline":[{"frame":"A","intent":"a"},{"frame":"B","intent":"b"},{"frame":"C","intent":"c"}]}';
+    const order: string[] = [];
+    let call = 0;
+    const { r, model } = replier(async () => {
+      const n = (call += 1);
+      if (n > 1) order.push("start");
+      await new Promise((res) => setTimeout(res, 1));
+      if (n > 1) order.push("end");
+      return { text: n === 1 ? outline : screen };
+    });
+    await r.reply({ ...CTX, prototype: [], frames: [], chat: [{ role: "user", text: "画", at: "2026-09-05T00:00:00.000Z" }] });
+    // 第一页：start,end 成对；之后 B、C 同批 ⇒ start,start,end,end。
+    expect(order.slice(0, 2)).toEqual(["start", "end"]);
+    expect(order.slice(2)).toEqual(["start", "start", "end", "end"]);
+    // 后面几页的上下文里带着第 0 页的结构轮廓。
+    const laterUser = model.complete.mock.calls[2]?.[0].user ?? "";
+    expect(laterUser).toContain("已经画好的页");
+  });
+
+  it("并发批里某一页失败 ⇒ 只损失那一页，其余照常，页序仍按骨架还原", async () => {
+    const outline = '{"reply":"三页。","outline":[{"frame":"A","intent":"a"},{"frame":"B","intent":"b"},{"frame":"C","intent":"c"}]}';
+    let call = 0;
+    const { r } = replier(async () => {
+      const n = (call += 1);
+      if (n === 1) return { text: outline };
+      if (n === 3) throw new ModelCallError("MODEL_CALL_FAILED", "boom");
+      return { text: screen };
+    });
+    const out = await r.reply({ ...CTX, prototype: [], frames: [], chat: [{ role: "user", text: "画", at: "2026-09-05T00:00:00.000Z" }] });
+    expect(out.pagedScreens?.map((x) => x.frame)).toEqual(["A", "B", "C"]);
+    expect(out.pagedScreens?.filter((x) => x.root === undefined)).toHaveLength(1);
+    expect(out.text).toContain("没画出来");
+  });
+});
+
+/* ───────────────── 迭代 17：骨架轮挑强调色（#3773 后续） ───────────────── */
+
+describe("迭代 17：强调色在骨架轮定一次，过契约闭集", () => {
+  const screen = '{"frame":"x","root":{"type":"stack","children":[{"type":"text","props":{"content":"一句真实文案","variant":"title"}},{"type":"button","props":{"label":"开始处理","variant":"primary"}}]},"notes":"说明"}';
+  const fresh = { ...CTX, prototype: [], frames: [], chat: [{ role: "user" as const, text: "做个记账 App", at: "2026-09-22T00:00:00.000Z" }] };
+  const run = async (outline: string) => {
+    let call = 0;
+    const { r } = replier(async () => ({ text: call++ === 0 ? outline : screen }));
+    return r.reply(fresh);
+  };
+
+  it("模型给了合法档位 ⇒ 带出去，调用方据它落库", async () => {
+    // ⭐ 反证锚点：骨架轮不问强调色 ⇒ 这条红。不问的话每个项目都是同一个中性灰，
+    // 不管做的是儿童记账还是医院排班——所有产出看起来像同一个模板的不同填空。
+    const out = await run('{"reply":"两页。","accent":"blue","outline":[{"frame":"A","intent":"a"},{"frame":"B","intent":"b"}]}');
+    expect(out.accent).toBe("blue");
+  });
+
+  it("给了个闭集外的名字 ⇒ 不带（**不猜、不近似匹配**）", async () => {
+    // 「深蓝」和 blue 差一个字就该判不合法：近似匹配会让"模型给了个什么"变得不可复核。
+    const out = await run('{"reply":"两页。","accent":"深蓝","outline":[{"frame":"A","intent":"a"},{"frame":"B","intent":"b"}]}');
+    expect(out.accent).toBeUndefined();
+  });
+
+  it("压根没给 ⇒ 不带，项目保持原样（不是「改回 neutral」）", async () => {
+    const out = await run('{"reply":"两页。","outline":[{"frame":"A","intent":"a"},{"frame":"B","intent":"b"}]}');
+    expect(out.accent).toBeUndefined();
+    expect(out.pagedScreens?.length).toBe(2);
+  });
+
+  it("骨架轮的提示词把可选档位逐个列出来了（不列，模型只会编一个渲染不了的名字）", () => {
+    for (const a of C.PrototypeAccent.options) expect(DESIGN_OUTLINE_SYSTEM_PROMPT).toContain(a);
+  });
+});
+
+describe("迭代 20：页数上限由服务端**截断执行**，不是给模型的提示", () => {
+  const screen = '{"frame":"x","root":{"type":"stack","children":[{"type":"text","props":{"content":"一句真实文案","variant":"title"}},{"type":"button","props":{"label":"开始处理","variant":"primary"}}]},"notes":"说明"}';
+  const outline5 = '{"reply":"五页。","outline":[{"frame":"A","intent":"a"},{"frame":"B","intent":"b"},{"frame":"C","intent":"c"},{"frame":"D","intent":"d"},{"frame":"E","intent":"e"}]}';
+  const fresh = { ...CTX, prototype: [], frames: [], chat: [{ role: "user" as const, text: "画", at: "2026-09-22T00:00:00.000Z" }] };
+
+  it("模型规划了 5 页、上限给 3 ⇒ 只画前 3 页（先给最核心的，所以截前面）", async () => {
+    /*
+     * ⭐ 反证锚点：把上限当成提示塞进提示词、不做截断 ⇒ 这条红。
+     * 超时退路一直写着「试试少要几页」，而用户此前没有任何控制页数的手段——
+     * 说「只画 3 页」只是一句模型可以不听的话。
+     */
+    let call = 0;
+    const { r, model } = replier(async () => ({ text: call++ === 0 ? outline5 : screen }));
+    const out = await r.reply({ ...fresh, maxScreens: 3 });
+    expect(out.pagedScreens?.map((x) => x.frame)).toEqual(["A", "B", "C"]);
+    // 1 次骨架 + 3 次每页：被砍掉的两页**一次模型调用都没花**。
+    expect(model.complete).toHaveBeenCalledTimes(4);
+  });
+
+  it("上限比规划的页数大 ⇒ 不影响（不会凭空补页）", async () => {
+    let call = 0;
+    const { r } = replier(async () => ({ text: call++ === 0 ? outline5 : screen }));
+    const out = await r.reply({ ...fresh, maxScreens: 20 });
+    expect(out.pagedScreens?.length).toBe(5);
+  });
+
+  it("不给上限 ⇒ 行为与这个字段出现之前逐字相同", async () => {
+    let call = 0;
+    const { r } = replier(async () => ({ text: call++ === 0 ? outline5 : screen }));
+    const out = await r.reply(fresh);
+    expect(out.pagedScreens?.length).toBe(5);
+  });
+});
+
+/* ───────────────── 对标 R1（#3933）：骨架轮定品牌色与字体 ───────────────── */
+
+describe("对标 R1：品牌色与字体在骨架轮定一次，过契约", () => {
+  const screen = '{"frame":"x","root":{"type":"stack","children":[{"type":"text","props":{"content":"一句真实文案","variant":"title"}},{"type":"button","props":{"label":"开始处理","variant":"primary"}}]},"notes":"说明"}';
+  const fresh = { ...CTX, prototype: [], frames: [], chat: [{ role: "user" as const, text: "品牌色 #FF5A1F，衬线体", at: "2026-09-23T00:00:00.000Z" }] };
+  const run = async (outline: string) => {
+    let call = 0;
+    const { r } = replier(async () => ({ text: call++ === 0 ? outline : screen }));
+    return r.reply(fresh);
+  };
+
+  it("用户给了色值 ⇒ 原样带出去（统一大写，免得大小写不同被当成「变了」）；字体档位一起带", async () => {
+    // ⭐ 反证锚点：骨架轮不读 brand/font ⇒ 这条红——用户说了「我们的橙是 #FF5A1F」，产出还是某一档近似色。
+    const out = await run('{"reply":"两页。","brand":"#ff5a1f","font":"serif","outline":[{"frame":"A","intent":"a"},{"frame":"B","intent":"b"}]}');
+    expect(out.tokens).toEqual({ brand: "#FF5A1F", font: "serif" });
+  });
+
+  it("色值不合法、字体不在档位里 ⇒ 都不带（不猜「橙色」是哪个色）", async () => {
+    const out = await run('{"reply":"两页。","brand":"橙色","font":"comic","outline":[{"frame":"A","intent":"a"},{"frame":"B","intent":"b"}]}');
+    expect(out.tokens).toBeUndefined();
+  });
+
+  it("对标 R2：圆角与密度也在骨架轮定；不在档位里的名字不带", async () => {
+    const out = await run('{"reply":"两页。","radius":"round","density":"comfortable","outline":[{"frame":"A","intent":"a"},{"frame":"B","intent":"b"}]}');
+    expect(out.tokens).toEqual({ radius: "round", density: "comfortable" });
+    const bad = await run('{"reply":"两页。","radius":"圆一点","density":"airy","outline":[{"frame":"A","intent":"a"},{"frame":"B","intent":"b"}]}');
+    expect(bad.tokens).toBeUndefined();
+    for (const v of [...C.PrototypeRadiusScale.options, ...C.PrototypeDensity.options]) expect(DESIGN_OUTLINE_SYSTEM_PROMPT).toContain(v);
+  });
+
+  it("提示词把字体档位逐个列出来，并说清楚没给色值就不要编", () => {
+    for (const f of C.PrototypeFont.options) expect(DESIGN_OUTLINE_SYSTEM_PROMPT).toContain(f);
+    expect(DESIGN_OUTLINE_SYSTEM_PROMPT).toMatch(/没给就不要输出这个字段/);
   });
 });

@@ -37,6 +37,7 @@ import { shouldOfferBannerRetry } from "@/lib/copilotkit-v2-banner-retry";
 import { reportClientError } from "@/lib/report-client-error";
 import { useChatMessageIdentity } from "@/lib/copilotkit-v2-message-identity";
 import { useCopilotKitV2RunProgress, type RunStage } from "@/lib/copilotkit-v2-run-progress";
+import { onRememberStatement } from "@/lib/knowledge-graph-events";
 import { cn } from "@/lib/utils";
 import { useCopilotKitV2RunRestore, RUN_RESTORE_PHASE_LABEL, type RunRestoreOutcome } from "@/lib/copilotkit-v2-run-restore";
 import { useChatHostInterjectionRun } from "@/lib/chat-host-interjection-run";
@@ -65,7 +66,7 @@ import type { PlanTodo } from "@/components/chat/agent-plan-panel";
 import { useAsrDraft } from "@/lib/use-asr-draft";
 import { useAudioInputDevices } from "@/lib/use-audio-input-devices";
 import { ComposerVoiceControl, formatElapsed } from "@/components/chat/chat-composer-voice-control";
-import { ComposerStatusBar, type ComposerStatusAction } from "@/components/chat/chat-composer-status-bar";
+import { ComposerStatusBar, voiceErrorStatus, type ComposerStatusAction } from "@/components/chat/chat-composer-status-bar";
 import { ComposerIconButton } from "@/components/chat/chat-composer-icon-button";
 import { useComposerVoiceSession, SILENCE_AUTO_PAUSE_AFTER_SECONDS } from "@/lib/use-composer-voice-session";
 import { appendTranscript } from "@/lib/use-asr-draft";
@@ -638,6 +639,15 @@ export function CopilotKitV2PanelBody({
    */
   const [userMessageAttachments, setUserMessageAttachments] =
     React.useState<ReadonlyMap<string, readonly ChatAttachment[]>>(() => new Map());
+
+  /**
+   * issue #4180 —— 「这条消息刚被抽取出新知识」的反馈条只对**本会话本次发送**的用户消息轮询
+   * （不对整段历史消息各自常驻轮询，同 `TurnMemoryLine` 头注「一屏历史消息各自常驻轮询会把
+   * 接口打满」那条纪律）。键与 `userMessageAttachments` 同一个 `clientMessageId`——乐观插入
+   * 那条用户气泡的 id，`send()` 里同一处写入（见下方）。历史回读的消息不在这张表里，天然
+   * 不会挂这条反馈——即使它们当时也被抽取过，那件事早已经在知识面板里，不需要再提醒一次。
+   */
+  const [sentMessageIds, setSentMessageIds] = React.useState<ReadonlySet<string>>(() => new Set());
 
   const [historyError, setHistoryError] = React.useState<string | null>(null);
   const hydratedRef = React.useRef(false);
@@ -1256,22 +1266,11 @@ export function CopilotKitV2PanelBody({
       );
     }
     if (voice.phase === "error") {
-      const denied = speech.status === "denied";
-      const unsupported = speech.status === "unsupported";
-      const actions: ComposerStatusAction[] = [];
-      if (denied) {
-        actions.push({
-          label: "查看如何开启",
-          onClick: () => window.open("https://support.google.com/chrome/answer/2693767", "_blank", "noopener"),
-          testId: "chat-task-workbench-composer-mic-permission-help",
-        });
-      }
-      if (!unsupported) actions.push({ label: "重试", onClick: voice.start, variant: "solid", testId: "chat-task-workbench-composer-mic-retry" });
+      // 说什么、给不给「重试」：与另一处 composer 共用 `voiceErrorStatus`（chat-composer-status-bar.tsx）。
+      const bar = voiceErrorStatus(speech, { onRetry: voice.start, retryTestId: "chat-task-workbench-composer-mic-retry", helpTestId: "chat-task-workbench-composer-mic-permission-help" });
       return (
         <ComposerStatusBar tone="warning" testId="chat-mic-error" icon={<AlertTriangle className="h-4 w-4" />}
-          title={denied ? "浏览器未授权麦克风" : unsupported ? "此浏览器不支持语音输入" : "语音识别暂时不可用"}
-          description={denied ? "在地址栏左侧的站点设置中允许麦克风，然后重试" : speech.error}
-          actions={actions} />
+          title={bar.title} description={bar.description} actions={bar.actions} />
       );
     }
     if (voice.phase === "done") {
@@ -1514,6 +1513,9 @@ export function CopilotKitV2PanelBody({
       const sentAttachments = opts?.attachments ?? attach.uploadedAttachments;
       const attachmentIds = sentAttachments.map((a) => a.id);
       lastSentRef.current = { text, attachments: sentAttachments, clientMessageId };
+      // issue #4180 —— 这一条是本会话真的发出去的（不是重试复用同一个 id 的第二次登记也无妨，
+      // Set 天然去重）。
+      setSentMessageIds((cur) => (cur.has(clientMessageId) ? cur : new Set(cur).add(clientMessageId)));
       if (!agent.messages.some((message) => message.id === clientMessageId)) agent.addMessage({ id: clientMessageId, role: "user", content: text });
       /*
        * 2026-09-15 人类实测反馈 —— 附件在**发送这一刻**就从 composer 移到那条用户消息
@@ -1594,6 +1596,19 @@ export function CopilotKitV2PanelBody({
     [agent, copilotkit, inputDraft, setInputDraft, runIsRunning, attach, attachmentThreadId, onMessageSent, acceptedRunEpoch, canWrite, archived, projectId, resolveAttachmentThreadId],
   );
 
+  /**
+   * issue #4179（F17 手动入口 ①②：消息 hover「记住这句」+ 记忆面板「+ 记一条」）——
+   * 两个入口都只发 `requestRememberStatement`（`lib/knowledge-graph-events.ts`），真正执行在
+   * 这里：把它当一条新的聊天消息发出去，加「记住：」前缀，复用 F17 已有的
+   * `detectMemoryIntent` → `cards.open` 路径（`domain/knowledge-graph/memory-intent.ts`），
+   * **不新增契约操作**。是否真的记住仍由随后出现在回答下方的确认卡决定——这里只是把它
+   * 送进那条既有的检测通路，跟用户自己在输入框敲「记住：…」发出去完全是同一条路。
+   * `send()` 自身已有 `canWrite`/`archived`/`runIsRunning` 等门（见上方定义），这里不重复判断。
+   */
+  React.useEffect(() => onRememberStatement((statement) => {
+    void send(`记住：${statement}`);
+  }), [send]);
+
   // Template recommendations retain the existing persisted-evidence and permission gates.
   /*
    * issue #3000 —— 这里读的必须是**当前生效的**线程 id，不是挂载时那个。
@@ -1660,9 +1675,11 @@ export function CopilotKitV2PanelBody({
     () => ({
       threadId: chatThreadIdRef.current ?? attachmentThreadId ?? "",
       byMessageId: userMessageAttachments,
+      // issue #4180 —— 见 `sentMessageIds` 头注。
+      sentThisSession: sentMessageIds,
     }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [chatThreadIdRef.current, attachmentThreadId, userMessageAttachments],
+    [chatThreadIdRef.current, attachmentThreadId, userMessageAttachments, sentMessageIds],
   );
 
   /**
@@ -2014,7 +2031,7 @@ export function CopilotKitV2PanelBody({
               title="回到最新消息（Ctrl/Cmd+End）"
               aria-label="回到最新消息"
               onClick={() => scrollMessagesToBottom(prefersReducedMotion() ? "auto" : "smooth")}
-              className="absolute bottom-3 left-1/2 z-10 flex h-9 w-9 -translate-x-1/2 items-center justify-center rounded-full border border-border-subtle bg-card text-foreground shadow-md transition-colors duration-fast hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              className="absolute bottom-3 left-1/2 z-10 flex h-9 w-9 -translate-x-1/2 items-center justify-center rounded-full border border-border-subtle bg-card text-background-foreground shadow-md transition-colors duration-fast hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             >
               <ArrowDown className="h-4 w-4" aria-hidden />
             </button>
@@ -2288,6 +2305,11 @@ export function CopilotKitV2PanelBody({
               <textarea
                 ref={composerInputRef}
                 data-testid="copilotkit-v2-input"
+                // issue #3022② —— 没有 `aria-label` 时可及名只能回落到 `placeholder`，而下面
+                // 那个 placeholder 会随状态在三句话之间变（常态 / 运行中 / 归档）：屏幕阅读器
+                // 读到的控件名会跟着状态变。名字与旧屏 `chat-live-message-panel.tsx` 逐字相同，
+                // 迁移过来的 e2e 可以直接用回 `getByRole("textbox", { name: "消息内容" })`。
+                aria-label="消息内容"
                 // 2026-09-08 人类反馈「这个框的高度，默认有一行就可以了」——默认 1 行，
                 // 内容变多时由 `syncComposerHeight` 按 scrollHeight 自动长高（封顶
                 // `COMPOSER_MAX_HEIGHT_PX`，超出后内部滚动）。

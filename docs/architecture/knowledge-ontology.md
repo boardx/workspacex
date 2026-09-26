@@ -1,4 +1,9 @@
-# 组织本体与知识图谱数据架构（Knowledge & Ontology）
+# 平台大脑元本体数据架构（Knowledge & Ontology · harness 专用）
+
+> ⚠ **适用范围（2026-09-24 起，PROP-ORG-BRAIN-KG-001 D3）**：本文只服务**平台大脑 / harness 元本体**
+> （developer / agent / feature / ADR）。**产品「组织大脑」不以本文为准**，请看
+> `docs/architecture/context-engine.md` + `docs/proposals/PROP-ORG-BRAIN-KG-001.md` + ADR-114。
+> 本文的「graph-first」检索已被 context-engine.md §四推翻，两域都用 hybrid。
 
 > 支撑「完整组织本体 + 知识图谱」的数据架构方案，源自上游 2026-07-15 人类拍板的
 > 正式选型（取代"图数据库只是注释预留"的状态）。核心立场：**canonical 永远是

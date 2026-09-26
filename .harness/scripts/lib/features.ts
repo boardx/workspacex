@@ -1,43 +1,87 @@
 import { readFileSync, writeFileSync, existsSync } from "node:fs";
 import { join } from "node:path";
-import { phaseFeatureListPath, phaseFeatureArchivePath, sprintDir } from "./paths";
+import {
+  phaseFeatureListPath,
+  phaseFeatureArchivePath,
+  featureListPathIn,
+  featureArchivePathIn,
+  sprintDirIn,
+  findPhaseDir,
+  phaseIdFromDir,
+} from "./paths";
+import { buildActiveFeaturesView, renderActiveFeaturesView, ACTIVE_FEATURES_BASENAME } from "./startup-discovery";
 import type { Feature, FeatureList, FeatureStatus } from "./types";
+import { featurePriority } from "./feature-schema";
 
-/** 读归档文件的 id 集合（不存在则返回空集）。saveFeatureList 用它过滤，防止归档记录被写回 live 文件。 */
-function loadArchivedIds(phaseId: string): Set<string> {
-  const p = phaseFeatureArchivePath(phaseId);
-  if (!existsSync(p)) return new Set();
-  const archive = JSON.parse(readFileSync(p, "utf8")) as FeatureList;
-  if (!Array.isArray(archive.features)) throw new Error(`feature_list 归档结构非法: ${p}`);
-  return new Set(archive.features.map((f) => f.id));
+/** 按路径读原始字节。#1094 的取号临界区要拿它做乐观并发比对（写回前确认文件没被
+ *  第三方动过）——**整份写是覆盖式的**，不比对就会把不持锁的写入方的改动连同条目
+ *  一起抹掉，而且抹得无声无息。 */
+export function readFeatureListRawAt(path: string): string {
+  return readFileSync(path, "utf8");
+}
+
+/** 解析一份 feature_list 形态的 JSON。`label` 只用于报错定位。 */
+export function parseFeatureList(raw: string, label: string): FeatureList {
+  const fl = JSON.parse(raw) as FeatureList;
+  if (!Array.isArray(fl.features)) throw new Error(`feature_list 结构非法: ${label}`);
+  return fl;
+}
+
+/** 按**路径**读一份 feature_list 形态的 JSON（live 或 archive 都走它）。
+ *  本文件内读盘只有 `readFeatureListRawAt` 一处，AGENTS.md 硬约束「一律用
+ *  lib/features.ts 读写、不要直接 readFileSync」就是按「lib 侧只有一份实现」
+ *  兑现的：需要按路径访问的调用方（#1094 的取号临界区、#401 的按目录发现）
+ *  也从这里进，不另写一个读法。
+ *  ⚠ 唯一的例外是 `validate-fl.ts`——它**刻意**自己 readFileSync，因为它是校验
+ *  清单本身写得对不对的独立校验器，用被校验方的读法去读会把结构错误吞掉。 */
+export function readFeatureListAt(path: string): FeatureList {
+  return parseFeatureList(readFeatureListRawAt(path), path);
+}
+
+/** 归档文件里的 id 集合（不存在则空集）。归档只是已 passing 记录的搬家结果，
+ *  不是第二份可变事实源——它的 id 同样**已被占用**，取号时必须算进去。 */
+export function archivedIdsAt(archivePath: string): Set<string> {
+  if (!existsSync(archivePath)) return new Set();
+  return new Set(readFeatureListAt(archivePath).features.map((f) => f.id));
+}
+
+/** 按路径写 live 清单；`archived` 里的 id 会被剔除，不回写进 live（见 saveFeatureList）。 */
+export function writeFeatureListAt(path: string, fl: FeatureList, archived: ReadonlySet<string>): void {
+  const live = archived.size === 0 ? fl.features : fl.features.filter((f) => !archived.has(f.id));
+  writeFileSync(path, JSON.stringify({ ...fl, features: live }, null, 2) + "\n", "utf8");
 }
 
 /** 合并 live + archive 两个文件的只读视图。archive 只在这里被读入内存，
  *  永不通过 saveFeatureList 写回——它是已冻结（passing）记录的搬家结果，不是第二份可变事实源。 */
-export function loadFeatureList(phaseId: string): FeatureList {
-  const p = phaseFeatureListPath(phaseId);
-  const fl = JSON.parse(readFileSync(p, "utf8")) as FeatureList;
-  if (!Array.isArray(fl.features)) throw new Error(`feature_list 结构非法: ${p}`);
-  const archivePath = phaseFeatureArchivePath(phaseId);
+function loadFeatureListFromPaths(livePath: string, archivePath: string): FeatureList {
+  const fl = readFeatureListAt(livePath);
   if (!existsSync(archivePath)) return fl;
-  const archive = JSON.parse(readFileSync(archivePath, "utf8")) as FeatureList;
-  if (!Array.isArray(archive.features)) throw new Error(`feature_list 归档结构非法: ${archivePath}`);
+  const archive = readFeatureListAt(archivePath);
   return { ...fl, features: [...archive.features, ...fl.features] };
+}
+
+export function loadFeatureList(phaseId: string): FeatureList {
+  return loadFeatureListFromPaths(phaseFeatureListPath(phaseId), phaseFeatureArchivePath(phaseId));
+}
+
+/** 目录版：按**阶段目录**读权威清单，同一份实现（#401）。
+ *  开工发现要遍历目录而不是 id——phases/ 下可以有两个 id 相同的目录，
+ *  按 id 走会漏掉其中一个阶段的 in_progress。 */
+export function loadFeatureListIn(phaseDir: string): FeatureList {
+  return loadFeatureListFromPaths(featureListPathIn(phaseDir), featureArchivePathIn(phaseDir));
 }
 
 /** 只写 live 文件。任何 id 已在归档里的 feature 会被剔除，不回写进 live——
  *  归档记录只能由专门的归档脚本搬动，常规调用方（claim/verify/sweep-unblock…）不需要、
  *  也不应该关心这个过滤;它们照常 load → 改字段 → save 即可。 */
 export function saveFeatureList(phaseId: string, fl: FeatureList): void {
-  const archived = loadArchivedIds(phaseId);
-  const live = archived.size === 0 ? fl.features : fl.features.filter((f) => !archived.has(f.id));
-  writeFileSync(phaseFeatureListPath(phaseId), JSON.stringify({ ...fl, features: live }, null, 2) + "\n", "utf8");
+  writeFeatureListAt(phaseFeatureListPath(phaseId), fl, archivedIdsAt(phaseFeatureArchivePath(phaseId)));
 }
 
 export function featuresForSprint(fl: FeatureList, sprintId: string): Feature[] {
   return fl.features
     .filter((f) => f.sprint === sprintId)
-    .sort((a, b) => a.priority - b.priority);
+    .sort((a, b) => featurePriority(a) - featurePriority(b));
 }
 
 /** 单一来源原则：同一 owner 同时最多一个 in_progress
@@ -74,20 +118,18 @@ export function assertSingleInProgress(fl: FeatureList): void {
   }
 }
 
-/** 把 sprint 的工作集派生成只读视图(绝不手改) */
-export function writeActiveFeatures(phaseId: string, sprintId: string, fl: FeatureList): string {
-  const features = featuresForSprint(fl, sprintId);
-  const view = {
-    phase: phaseId,
-    sprint: sprintId,
-    generated_at: new Date().toISOString(),
-    source: `phases/phase-${phaseId}-*/feature_list.json`,
-    note: "派生视图,只读。修改归属请改阶段 feature_list.json 的 sprint 字段后重新生成。",
-    features,
-  };
-  const out = join(sprintDir(phaseId, sprintId), "active-features.json");
-  writeFileSync(out, JSON.stringify(view, null, 2) + "\n", "utf8");
+/** 把 sprint 的工作集派生成只读视图(绝不手改)。
+ *  视图内容由 lib/startup-discovery.ts 的纯函数构造——**确定性**：同一份权威清单
+ *  ⇒ 同样的字节（#401 验收第二条）。这里只负责落盘。 */
+export function writeActiveFeaturesIn(phaseDir: string, sprintId: string, fl: FeatureList): string {
+  const view = buildActiveFeaturesView(phaseIdFromDir(phaseDir), sprintId, featuresForSprint(fl, sprintId));
+  const out = join(sprintDirIn(phaseDir, sprintId), ACTIVE_FEATURES_BASENAME);
+  writeFileSync(out, renderActiveFeaturesView(view), "utf8");
   return out;
+}
+
+export function writeActiveFeatures(phaseId: string, sprintId: string, fl: FeatureList): string {
+  return writeActiveFeaturesIn(findPhaseDir(phaseId), sprintId, fl);
 }
 
 export type Counts = Record<FeatureStatus, number>;

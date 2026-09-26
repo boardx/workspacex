@@ -2,6 +2,7 @@
   "name": "@repo/coord-repohub",
   "version": "0.1.0",
   "private": true,
+  "license": "UNLICENSED",
   "description": "RepoHub Durable Object：每仓一个的协调内核——原子租约 + issue/PR 实时镜像 + append-only 事件流（ADR-017）",
   "type": "module",
   "main": "src/index.ts",

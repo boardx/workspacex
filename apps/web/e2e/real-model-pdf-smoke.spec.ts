@@ -118,10 +118,35 @@ async function authenticatedSessionRequest(
   }, { storageKey: SESSION_TOKEN_STORAGE_KEY, path, method, body });
 }
 
+/**
+ * 文档自动批准那个端点的**浏览器侧路径**。
+ *
+ * ⚠ 不能写死 `/api/...`（2026-09-24 实测）。devapp lane 打的是公网入口，
+ * 反代把 `/api/*` 转给后端，所以写死能过；**本地 lane 没有那层反代**，
+ * Next 直接返回它自己的 404 HTML，于是 `response.json()` 抛
+ * 「Unexpected token '<', "<!DOCTYPE "」——一条与真实模型毫无关系的前置失败，
+ * 把整条真实模型用例挡在门外。
+ *
+ * 前缀的唯一事实源是 `NEXT_PUBLIC_API_PATH_PREFIX`（应用自己的 `buildUrl` 用的同一个，
+ * 见 `lib/api-client.ts`）：devapp 上为空 ⇒ 仍是 `/api/...`，本地 lane 是
+ * `/__fullstack_api` ⇒ 走同源改写。两条 lane 共用一份 spec，这里就必须共用同一条规则。
+ */
+const API_PREFIX = (process.env.NEXT_PUBLIC_API_PATH_PREFIX ?? "").replace(/\/$/, "");
+/*
+ * 后端那个控制器挂的是**裸路径** `/document-generation-auto-approve`
+ * （`@Controller()` 空前缀，见 document-generation-auto-approve.controller.ts）。
+ * 两条 lane 的到达方式因此不同，必须分支——两边都写 `/api/...` 或都写前缀都会错一边：
+ *   · devapp：公网反代把 `/api/*` 转给后端 ⇒ `/api/document-generation-auto-approve`
+ *   · 本地：Next 的同源改写（next.config.mjs:421）⇒ `/__fullstack_api/document-generation-auto-approve`
+ */
+const AUTO_APPROVE_PATH = API_PREFIX === ""
+  ? "/api/document-generation-auto-approve"
+  : `${API_PREFIX}/document-generation-auto-approve`;
+
 async function readDocumentAutoApproveFromApi(page: Page): Promise<boolean> {
   const response = await authenticatedSessionRequest(
     page,
-    "/api/document-generation-auto-approve",
+    AUTO_APPROVE_PATH,
     "GET",
   );
   expect(response.ok, "读取文档自动批准授权必须使用当前浏览器会话成功").toBe(true);
@@ -153,7 +178,7 @@ async function setDocumentAutoApproveFromUi(page: Page, enabled: boolean): Promi
  * a DOM click cannot provide that guarantee after a failed run has blocked pointer events.
  */
 async function setDocumentAutoApproveFromApi(page: Page, enabled: boolean): Promise<void> {
-  const path = "/api/document-generation-auto-approve";
+  const path = AUTO_APPROVE_PATH;
   const response = await authenticatedSessionRequest(page, path, "PUT", { enabled });
   expect(response.ok, "清理授权的 PUT 必须使用当前浏览器会话成功").toBe(true);
   expect(response.body, "清理授权的 PUT 回执必须确认目标状态").toEqual({ enabled });

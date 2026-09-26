@@ -27,9 +27,10 @@
  * 28b6862c-71e1-4ce8-8e3f-3fceb9f8b607).
  */
 import {
-  Body, Controller, HttpCode, HttpStatus, Inject, Post, Req, UseGuards,
+  Body, Controller, HttpCode, HttpStatus, Inject, Optional, Post, Req, UseGuards,
   ServiceUnavailableException, UnauthorizedException,
 } from "@nestjs/common";
+import { FIRST_VALUE_RECORDER, recordFirstValue, type FirstValueRecorder } from "../../application/first-value/first-value-recorder";
 import { auth as C } from "@repo/contracts";
 import { login } from "../../application/auth/login";
 import {
@@ -73,6 +74,8 @@ export class AuthController {
     @Inject(MAILER) private readonly mailer: Mailer,
     @Inject(CLOCK) private readonly clock: Clock,
     @Inject(IDENTITY_REPOSITORY) private readonly identity: IdentityRepository,
+    // E3：首次登录（计时起点）。可选注入：手工构造的控制器没有它时埋点即 no-op。
+    @Optional() @Inject(FIRST_VALUE_RECORDER) private readonly firstValue?: FirstValueRecorder,
   ) {}
 
   private get resetDeps(): PasswordResetDeps {
@@ -102,7 +105,7 @@ export class AuthController {
     @Req() req: RequestLike,
   ) {
     try {
-      return await login(
+      const session = await login(
         {
           credentials: this.credentials, hasher: this.hasher, attempts: this.attempts,
           sessions: this.sessions, tokens: this.tokens, clock: this.clock,
@@ -111,6 +114,9 @@ export class AuthController {
         body,
         deviceContextOf(req),
       );
+      // 会话落在 orgs[0]（`issue-authenticated-session.ts` 的 currentOrgId），计时从那个组织起。
+      recordFirstValue(this.firstValue, session.orgs[0], "first_sign_in");
+      return session;
     } catch (e) {
       throw toHttp(e);
     }

@@ -4,7 +4,7 @@ import { extractMermaidBlocks } from "@repo/fabric-markdown/markdown";
 import { ChatDiagramFabric } from "./chat-diagram-fabric";
 import { ChatCanvasFabric } from "./chat-canvas-fabric";
 import { MarkdownProse } from "./markdown-prose";
-import { isCanvasFenceLang, type CanvasFenceLang } from "@/lib/canvas/canvas-fence";
+import { checkCanvasFence, isCanvasFenceLang, type CanvasFenceLang } from "@/lib/canvas/canvas-fence";
 
 /**
  * AI 消息正文渲染（VZ-01）：把 `msg.text`（纯 markdown 源）渲成 HTML，
@@ -21,8 +21,12 @@ import { isCanvasFenceLang, type CanvasFenceLang } from "@/lib/canvas/canvas-fen
 
 type Segment =
   | { kind: "md"; text: string; key: string }
-  | { kind: "mermaid"; code: string; key: string }
-  | { kind: "canvas"; code: string; lang: CanvasFenceLang; key: string; closed: boolean };
+  | { kind: "mermaid"; code: string; key: string; closed: boolean }
+  | {
+      kind: "canvas"; code: string; lang: CanvasFenceLang; key: string; closed: boolean;
+      /** 见 `ChatCanvasFabric` 同名 prop（issue #3252）。 */
+      templateKeyAmbiguous: boolean;
+    };
 
 /**
  * 放行哪些围栏进 fabric 渲染分支。
@@ -46,9 +50,36 @@ function isRenderableFence(lang: string): boolean {
   return lang === "mermaid" || isCanvasFenceLang(lang);
 }
 
+/**
+ * 本条消息里每个模板 key 各出现了几次（issue #3252）。
+ *
+ * 围栏组件只看得见自己那一段，判断不了「本消息里还有没有另一个同模板围栏」，而这
+ * 恰恰是**旧存量产物**（标题里没有围栏身份后缀的那些）能不能被归属的前提——两个同
+ * 模板围栏面前，一份没有身份的保存版归谁无从判断，只能诚实判否。完整判据在
+ * `canvas-fence-identity.ts` 的 `acceptsSavedCanvasSource`。
+ *
+ * ⚠ 这是**计数**，不是序号：围栏重排、增删都不改变「某个 key 出现过几次」这件事，
+ *   与 issue 里点名禁止的「按出现顺序编号当身份」不是一回事。
+ * ⚠ 流式未闭合期间 `code` 是半截内容、解析出的 key 可能是截断值，这一格因此可能
+ *   短暂不准；它只影响旧存量那一条兜底分支，围栏闭合后自行收敛。
+ */
+function countTemplateKeys(
+  blocks: readonly { code: string; lang: string }[],
+): Map<string, number> {
+  const counts = new Map<string, number>();
+  for (const b of blocks) {
+    if (!isCanvasFenceLang(b.lang)) continue;
+    const checked = checkCanvasFence(b.code, b.lang);
+    if (!checked.ok) continue;
+    counts.set(checked.key, (counts.get(checked.key) ?? 0) + 1);
+  }
+  return counts;
+}
+
 function segment(text: string): Segment[] {
   const blocks = extractMermaidBlocks(text).filter((b) => isRenderableFence(b.lang));
   if (blocks.length === 0) return [{ kind: "md", text, key: "md-0" }];
+  const templateKeyCounts = countTemplateKeys(blocks);
   const out: Segment[] = [];
   let cursor = 0;
   blocks.forEach((b, i) => {
@@ -56,11 +87,15 @@ function segment(text: string): Segment[] {
       const chunk = text.slice(cursor, b.start);
       if (chunk.trim().length > 0) out.push({ kind: "md", text: chunk, key: `md-${i}` });
     }
-    out.push(
-      isCanvasFenceLang(b.lang)
-        ? { kind: "canvas", code: b.code, lang: b.lang, key: `cvs-${i}`, closed: b.closed }
-        : { kind: "mermaid", code: b.code, key: `mmd-${i}` },
-    );
+    if (isCanvasFenceLang(b.lang)) {
+      const checked = checkCanvasFence(b.code, b.lang);
+      out.push({
+        kind: "canvas", code: b.code, lang: b.lang, key: `cvs-${i}`, closed: b.closed,
+        templateKeyAmbiguous: checked.ok && (templateKeyCounts.get(checked.key) ?? 0) > 1,
+      });
+    } else {
+      out.push({ kind: "mermaid", code: b.code, key: `mmd-${i}`, closed: b.closed });
+    }
     cursor = b.end;
   });
   if (cursor < text.length) {
@@ -120,6 +155,9 @@ export function MarkdownMessage({
             // 这不是格式错误，是内容还没写完——`closed=false` 时组件必须保持
             // 加载态，不能把半截内容当终态去跑 `checkCanvasFence`。
             closed={s.closed}
+            // 同一消息里还有没有另一个同模板围栏（issue #3252）——决定没有围栏身份的
+            // 旧存量保存版能不能归属给它。
+            templateKeyAmbiguous={s.templateKeyAmbiguous}
             threadId={threadId}
             messageId={messageId}
             bearer={bearer}
@@ -129,6 +167,9 @@ export function MarkdownMessage({
           <ChatDiagramFabric
             key={s.key}
             code={s.code}
+            // 围栏是否已闭合（#3866 R5）。canvas 那条一直透传，mermaid 这条一直漏着，
+            // 于是模型画图的整段时间里用户看到的是一个「语法错误」红框。
+            closed={s.closed}
             threadId={threadId}
             messageId={messageId}
             bearer={bearer}

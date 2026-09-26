@@ -1,0 +1,360 @@
+{
+  "round": "R5",
+  "sha": "ce9488cf",
+  "dirty": false,
+  "total": 6.45,
+  "dims": [
+    {
+      "dim": "D1",
+      "name": "视觉定制",
+      "what": "明暗主题、强调色落到每一页、任意品牌色、字体",
+      "passed": 5,
+      "total": 5,
+      "score": 1,
+      "checks": [
+        {
+          "dim": "D1",
+          "id": "D1.c1",
+          "title": "明暗主题：深色原型切到浅色，画布整体变亮",
+          "passed": true
+        },
+        {
+          "dim": "D1",
+          "id": "D1.c2",
+          "title": "强调色落到每一页：换成蓝色后，所有页的主按钮都是同一个蓝",
+          "passed": true
+        },
+        {
+          "dim": "D1",
+          "id": "D1.c3",
+          "title": "任意品牌色：项目品牌色 #FF5A1F，主按钮就是这个橙",
+          "passed": true
+        },
+        {
+          "dim": "D1",
+          "id": "D1.c4",
+          "title": "在外观里输入品牌色 #1F7AFF：画布立即变色，并写回项目",
+          "passed": true
+        },
+        {
+          "dim": "D1",
+          "id": "D1.c5",
+          "title": "字体：项目要衬线体，标题就是衬线体",
+          "passed": true
+        }
+      ]
+    },
+    {
+      "dim": "D2",
+      "name": "设计系统",
+      "what": "圆角 / 密度 / 字体一处改处处变，存得住，导出跟着走",
+      "passed": 5,
+      "total": 5,
+      "score": 1,
+      "checks": [
+        {
+          "dim": "D2",
+          "id": "D2.c1",
+          "title": "圆角一处改：直角 ⇒ 按钮 ≤2px；圆润 ⇒ 按钮 ≥14px",
+          "passed": true
+        },
+        {
+          "dim": "D2",
+          "id": "D2.c2",
+          "title": "密度一处改：宽松比紧凑的元素间距大",
+          "passed": true
+        },
+        {
+          "dim": "D2",
+          "id": "D2.c3",
+          "title": "字体一处改：选等宽体，标题跟着变",
+          "passed": true
+        },
+        {
+          "dim": "D2",
+          "id": "D2.c4",
+          "title": "存得住：改了圆角后刷新，还是改过的样子",
+          "passed": true
+        },
+        {
+          "dim": "D2",
+          "id": "D2.c5",
+          "title": "导出跟着走：导出的可点击 HTML 里是品牌色和衬线体",
+          "passed": true
+        }
+      ]
+    },
+    {
+      "dim": "D3",
+      "name": "产出类型",
+      "what": "手机 App、桌面 Web 应用、官网落地页、幻灯片",
+      "passed": 4,
+      "total": 4,
+      "score": 1,
+      "checks": [
+        {
+          "dim": "D3",
+          "id": "D3.c1",
+          "title": "手机 App：三页都画出来了，每页内容充实",
+          "passed": true
+        },
+        {
+          "dim": "D3",
+          "id": "D3.c2",
+          "title": "桌面 Web 应用：桌面尺寸下侧栏在左、主区在右，三个指标同一行",
+          "passed": true
+        },
+        {
+          "dim": "D3",
+          "id": "D3.c3",
+          "title": "官网落地页：至少三个分区，最后有页脚",
+          "passed": true
+        },
+        {
+          "dim": "D3",
+          "id": "D3.c4",
+          "title": "幻灯片：有 16:9 的幻灯片画布",
+          "passed": true
+        }
+      ]
+    },
+    {
+      "dim": "D4",
+      "name": "组件表达力",
+      "what": "表格、带数据的图表、下拉与单选、弹窗叠层",
+      "passed": 4,
+      "total": 4,
+      "score": 1,
+      "checks": [
+        {
+          "dim": "D4",
+          "id": "D4.c1",
+          "title": "表格：四列表头、四行数据",
+          "passed": true
+        },
+        {
+          "dim": "D4",
+          "id": "D4.c2",
+          "title": "带数据的图表：七根柱子，周六最高、周三最低",
+          "passed": true
+        },
+        {
+          "dim": "D4",
+          "id": "D4.c3",
+          "title": "表单：下拉显示当前值，单选组第三项被选中",
+          "passed": true
+        },
+        {
+          "dim": "D4",
+          "id": "D4.c4",
+          "title": "弹窗叠层：确认框盖在页面上，有遮罩",
+          "passed": true
+        }
+      ]
+    },
+    {
+      "dim": "D5",
+      "name": "生成体验",
+      "what": "生成中可见进度与取消、取消不丢草稿、下一步建议、照图画",
+      "passed": 4,
+      "total": 4,
+      "score": 1,
+      "checks": [
+        {
+          "dim": "D5",
+          "id": "D5.c1",
+          "title": "生成中看得见：秒数在走、可以取消",
+          "passed": true
+        },
+        {
+          "dim": "D5",
+          "id": "D5.c2",
+          "title": "取消不丢草稿：点取消后刚才那句话还在输入框里",
+          "passed": true
+        },
+        {
+          "dim": "D5",
+          "id": "D5.c3",
+          "title": "下一步建议：回复后给出可一点即发的建议",
+          "passed": true
+        },
+        {
+          "dim": "D5",
+          "id": "D5.c4",
+          "title": "照着一张图画：有入口且可用",
+          "passed": true
+        }
+      ]
+    },
+    {
+      "dim": "D6",
+      "name": "直接编辑",
+      "what": "属性面板、撤销、重做、画布上直接改字、拖拽排序",
+      "passed": 2,
+      "total": 5,
+      "score": 0.4,
+      "checks": [
+        {
+          "dim": "D6",
+          "id": "D6.c1",
+          "title": "属性面板改文案，画布跟着变",
+          "passed": true
+        },
+        {
+          "dim": "D6",
+          "id": "D6.c2",
+          "title": "撤销：回到改之前",
+          "passed": true
+        },
+        {
+          "dim": "D6",
+          "id": "D6.c3",
+          "title": "重做：撤销之后还能再恢复回来",
+          "passed": false
+        },
+        {
+          "dim": "D6",
+          "id": "D6.c4",
+          "title": "画布上直接改字：双击标题、输入、回车",
+          "passed": false
+        },
+        {
+          "dim": "D6",
+          "id": "D6.c5",
+          "title": "图层里拖拽排序：把「同意协议」拖到 tabs 上方",
+          "passed": false
+        }
+      ]
+    },
+    {
+      "dim": "D7",
+      "name": "批注",
+      "what": "钉在元素上的批注、批注列表、一次交给 AI 改",
+      "passed": 0,
+      "total": 3,
+      "score": 0,
+      "checks": [
+        {
+          "dim": "D7",
+          "id": "D7.c1",
+          "title": "批注模式：点一个元素写一句，元素上钉一个标记",
+          "passed": false
+        },
+        {
+          "dim": "D7",
+          "id": "D7.c2",
+          "title": "批注列表：两条批注都在，写明是哪个元素",
+          "passed": false
+        },
+        {
+          "dim": "D7",
+          "id": "D7.c3",
+          "title": "一次交给 AI：两条批注合成一次请求，发完标记为已处理",
+          "passed": false
+        }
+      ]
+    },
+    {
+      "dim": "D8",
+      "name": "变体",
+      "what": "一次出多个方案并排比、选一个替换、选了能撤销",
+      "passed": 0,
+      "total": 3,
+      "score": 0,
+      "checks": [
+        {
+          "dim": "D8",
+          "id": "D8.c1",
+          "title": "一次出三个方案并排看",
+          "passed": false
+        },
+        {
+          "dim": "D8",
+          "id": "D8.c2",
+          "title": "选一个：这一页换成它，候选收起",
+          "passed": false
+        },
+        {
+          "dim": "D8",
+          "id": "D8.c3",
+          "title": "选了能撤销：回到原来的页",
+          "passed": false
+        }
+      ]
+    },
+    {
+      "dim": "D9",
+      "name": "可交互原型",
+      "what": "预览里点导航换页、tabs 切换、开关勾选、能打字",
+      "passed": 1,
+      "total": 4,
+      "score": 0.25,
+      "checks": [
+        {
+          "dim": "D9",
+          "id": "D9.c1",
+          "title": "预览里点底部导航「历史」，换到历史会话页",
+          "passed": true
+        },
+        {
+          "dim": "D9",
+          "id": "D9.c2",
+          "title": "预览里 tabs 能切：点「规格」，它变成选中",
+          "passed": false
+        },
+        {
+          "dim": "D9",
+          "id": "D9.c3",
+          "title": "预览里开关、勾选能点",
+          "passed": false
+        },
+        {
+          "dim": "D9",
+          "id": "D9.c4",
+          "title": "预览里能打字：跳到确认订单页，在优惠码里输入",
+          "passed": false
+        }
+      ]
+    },
+    {
+      "dim": "D10",
+      "name": "交付交接",
+      "what": "可点击 HTML、PDF、图片与文档、分享链接、代码",
+      "passed": 4,
+      "total": 5,
+      "score": 0.8,
+      "checks": [
+        {
+          "dim": "D10",
+          "id": "D10.c1",
+          "title": "可点击 HTML：三页都在，带跳转脚本",
+          "passed": true
+        },
+        {
+          "dim": "D10",
+          "id": "D10.c2",
+          "title": "PDF：打印视图里三页都在",
+          "passed": true
+        },
+        {
+          "dim": "D10",
+          "id": "D10.c3",
+          "title": "图片与设计文档：PNG 非空、文档里有每一页",
+          "passed": true
+        },
+        {
+          "dim": "D10",
+          "id": "D10.c4",
+          "title": "分享链接：发布后拿到可复制的链接",
+          "passed": true
+        },
+        {
+          "dim": "D10",
+          "id": "D10.c5",
+          "title": "代码交接：导出一份能直接用的前端代码",
+          "passed": false
+        }
+      ]
+    }
+  ]
+}

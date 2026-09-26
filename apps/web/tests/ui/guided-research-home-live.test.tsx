@@ -108,6 +108,98 @@ describe("F168 guided research home live data", () => {
     expect(onStepChange).toHaveBeenCalledWith("report", "grs-done");
   });
 
+  it("shows the real workflow stage and a specific next action instead of an opaque percentage", async () => {
+    listGuidedResearchSessions.mockResolvedValueOnce({
+      items: [{
+        ...createdSession("grs-outline"),
+        stage: "outline",
+        resumeStage: "outline",
+        progress: 40,
+      }],
+    });
+    const onStepChange = vi.fn();
+    render(<GuidedResearchFlow step="home" onStepChange={onStepChange} />);
+
+    const card = await screen.findByTestId("research-history-grs-outline");
+    expect(card).toHaveTextContent("研究大纲");
+    expect(card).toHaveTextContent("第 3 / 5 步");
+    fireEvent.click(screen.getByRole("button", { name: "审阅研究大纲" }));
+    expect(onStepChange).toHaveBeenCalledWith("outline", "grs-outline");
+  });
+
+  it("warns when evidence is missing and never presents high progress as healthy", async () => {
+    listGuidedResearchSessions.mockResolvedValueOnce({
+      items: [{
+        ...createdSession("grs-evidence-gap"),
+        stage: "report",
+        resumeStage: "report",
+        progress: 90,
+        sourceCount: 0,
+      }],
+    });
+    render(<GuidedResearchFlow step="home" onStepChange={vi.fn()} />);
+
+    const card = await screen.findByTestId("research-history-grs-evidence-gap");
+    expect(card).toHaveTextContent("证据缺口");
+    expect(card).toHaveTextContent("报告阶段尚无可用来源");
+    expect(card).not.toHaveTextContent("90%");
+    expect(screen.getByRole("button", { name: "审阅研究报告" })).toBeInTheDocument();
+  });
+
+  it("does not flag a fresh researching run with zero sources as an evidence gap", async () => {
+    listGuidedResearchSessions.mockResolvedValueOnce({
+      items: [{
+        ...createdSession("grs-collecting"),
+        stage: "researching",
+        resumeStage: "researching",
+        progress: 60,
+        sourceCount: 0,
+      }],
+    });
+    render(<GuidedResearchFlow step="home" onStepChange={vi.fn()} />);
+
+    const card = await screen.findByTestId("research-history-grs-collecting");
+    expect(card).not.toHaveTextContent("证据缺口");
+    expect(card).toHaveTextContent("正在收集证据，尚无来源");
+    expect(screen.getByTestId("research-home-summary")).toHaveTextContent("需要处理0");
+  });
+
+  it("summarizes work that needs attention before the full research library", async () => {
+    listGuidedResearchSessions.mockResolvedValueOnce({ items: [
+      { ...createdSession("grs-active"), stage: "researching", resumeStage: "researching", progress: 70, sourceCount: 12 },
+      { ...createdSession("grs-risk"), title: "缺少证据的报告", stage: "report", resumeStage: "report", progress: 90, sourceCount: 0 },
+      { ...createdSession("grs-complete"), title: "已完成研究", stage: "report", resumeStage: "report", status: "completed", progress: 100, sourceCount: 18, reportId: "report-1" },
+    ] });
+    render(<GuidedResearchFlow step="home" onStepChange={vi.fn()} />);
+
+    expect(await screen.findByTestId("research-home-summary")).toHaveTextContent("进行中2");
+    expect(screen.getByTestId("research-home-summary")).toHaveTextContent("需要处理1");
+    expect(screen.getByTestId("research-home-summary")).toHaveTextContent("已完成1");
+  });
+
+  it("uses the status summary to filter the library and composes it with search", async () => {
+    listGuidedResearchSessions.mockResolvedValueOnce({ items: [
+      { ...createdSession("grs-active"), title: "欧洲活跃研究", stage: "researching", resumeStage: "researching", progress: 70, sourceCount: 12 },
+      { ...createdSession("grs-risk"), title: "欧洲证据缺口", stage: "report", resumeStage: "report", progress: 90, sourceCount: 0 },
+      { ...createdSession("grs-complete"), title: "亚洲已完成研究", stage: "report", resumeStage: "report", status: "completed", progress: 100, sourceCount: 18, reportId: "report-1" },
+    ] });
+    render(<GuidedResearchFlow step="home" onStepChange={vi.fn()} />);
+
+    await screen.findByTestId("research-history-grs-active");
+    const attention = screen.getByRole("button", { name: /需要处理 1 项研究/ });
+    fireEvent.click(attention);
+    expect(attention).toHaveAttribute("aria-pressed", "true");
+    expect(screen.getByTestId("research-history-grs-risk")).toBeInTheDocument();
+    expect(screen.queryByTestId("research-history-grs-active")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("research-history-grs-complete")).not.toBeInTheDocument();
+
+    fireEvent.change(screen.getByTestId("research-history-search"), { target: { value: "亚洲" } });
+    expect(screen.getByTestId("research-history-empty")).toHaveTextContent("当前状态筛选与搜索条件下没有研究");
+    fireEvent.click(screen.getByRole("button", { name: "清除状态筛选" }));
+    expect(screen.getByTestId("research-history-grs-complete")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "清除状态筛选" })).not.toBeInTheDocument();
+  });
+
   it("combines tag and content filters and changes history sort order", async () => {
     listGuidedResearchSessions.mockResolvedValueOnce({ items: [
       { ...createdSession("grs-old"), updatedAt: "2026-08-10T00:00:00.000Z" },
@@ -156,7 +248,7 @@ describe("F168 guided research home live data", () => {
     render(<GuidedResearchFlow step="home" onStepChange={onStepChange} />);
 
     await screen.findByTestId("research-history-grs-report-active");
-    expect(screen.getByText("待继续")).toBeInTheDocument();
+    expect(screen.getByTestId("research-stage-grs-report-active")).toHaveTextContent("研究报告");
     fireEvent.click(screen.getByTestId("research-continue-grs-report-active"));
     expect(onStepChange).toHaveBeenCalledWith("report", "grs-report-active");
   });

@@ -1,0 +1,228 @@
+/* ==========================================================================
+   motion.css — scroll reveals, sticky scenes, hero
+   Every animation here has to survive `prefers-reduced-motion`. The rule at
+   the bottom of this file is the contract: motion is an enhancement, the
+   content is never gated behind it.
+   ========================================================================== */
+
+/* ---- reveal -------------------------------------------------------------- */
+/* Elements start displaced; .is-in (set by IntersectionObserver) settles them.
+   `will-change` is deliberately NOT set globally — it is toggled in JS only
+   while an element is mid-flight, otherwise a long page pins dozens of layers.
+
+   FAILING VISIBLE. Starting at opacity 0 means the page is blank unless
+   something arrives to reveal it — and measured, with scripting off, that is
+   exactly what happened: 37 elements stuck at zero and nothing to read. Two
+   independent guarantees now cover that:
+
+     1. `<noscript>` in the head drops the whole mechanism when scripting is
+        off. Instant, no flash, no dependency on anything loading.
+     2. `main.js` marks `<html class="js">` as its first act. If it never runs
+        — a 404, a parse error, a blocked request — the class is absent and the
+        failsafe animation below reveals everything a second later.
+
+   Neither can be removed on the grounds that the other exists: the first does
+   nothing when scripting is on, the second does nothing when it is off. */
+[data-reveal] {
+  opacity: 0;
+  transform: translate3d(0, 22px, 0);
+  transition:
+    opacity var(--dur-slow) var(--ease-out),
+    transform var(--dur-slow) var(--ease-out);
+}
+[data-reveal="left"]  { transform: translate3d(-24px, 0, 0); }
+[data-reveal="right"] { transform: translate3d(24px, 0, 0); }
+
+/* On a stacked layout the horizontal offset adds nothing, and it is actively
+   harmful: an unrevealed element parked 24px to the side of a full-width
+   column sticks out past the viewport and gives the whole page a horizontal
+   scroll range until it happens to be revealed. */
+@media (max-width: 56.25rem) {
+  [data-reveal="left"], [data-reveal="right"] { transform: translate3d(0, 22px, 0); }
+}
+[data-reveal="scale"] { transform: scale(0.965); }
+[data-reveal].is-in   { opacity: 1; transform: none; }
+
+/* Scripting is on but our script never arrived: show everything rather than
+   leave a blank page. Scoped to :not(.js) so it never fires on a healthy load. */
+html:not(.js) [data-reveal],
+html:not(.js) [data-stagger] > * {
+  animation: reveal-failsafe 1ms linear 1.2s forwards;
+}
+@keyframes reveal-failsafe { to { opacity: 1; transform: none; } }
+
+/* staggered children */
+[data-stagger] > * {
+  opacity: 0;
+  transform: translate3d(0, 18px, 0);
+  transition:
+    opacity var(--dur) var(--ease-out),
+    transform var(--dur) var(--ease-out);
+  transition-delay: calc(var(--i, 0) * 70ms);
+}
+[data-stagger].is-in > * { opacity: 1; transform: none; }
+
+/* ---- hero ---------------------------------------------------------------- */
+.hero {
+  position: relative;
+  min-height: min(100svh, 940px);
+  display: grid; align-items: center;
+  padding-block: calc(var(--nav-h) + 4rem) clamp(3rem, 8vh, 6rem);
+  overflow: hidden;
+  isolation: isolate;
+}
+
+/* The aurora is a baked image, not three blurred elements.
+   Measured before: 66.7ms per frame — 15fps — for as long as the blurred
+   layers existed, on the hero and on every section below it. Hiding them off
+   screen did not release the cost; the compositor still carried them. A blur
+   that never changes does not need to be recomputed sixty times a second, so
+   it is rendered once by scripts/build-aurora.mjs (23 KB) and the only thing
+   that moves at runtime is a transform, which is free. */
+.hero__aurora {
+  position: absolute; inset: -12%; z-index: -2; pointer-events: none;
+  background: url("../img/aurora.webp") center / cover no-repeat;
+  opacity: 0.85;
+  animation: drift 26s var(--ease-io) infinite alternate;
+  will-change: transform;
+}
+@keyframes drift {
+  from { transform: translate3d(-1.5%, -1%, 0) scale(1.04); }
+  to   { transform: translate3d(1.5%, 2%, 0)  scale(1.12); }
+}
+
+/* a vignette so the aurora never fights the type */
+.hero::after {
+  content: ""; position: absolute; inset: 0; z-index: -1; pointer-events: none;
+  background:
+    radial-gradient(90% 65% at 50% 45%, transparent 20%, rgba(8,7,11,.72) 78%),
+    linear-gradient(180deg, rgba(8,7,11,.5), transparent 28%, rgba(8,7,11,.9));
+}
+
+/* minmax(0, 1fr) rather than the default auto track: an auto track takes the
+   largest item's min-content as its floor, so one unwrappable child could
+   widen the whole column past the screen. */
+.hero__inner { display: grid; grid-template-columns: minmax(0, 1fr);
+               justify-items: center; text-align: center; gap: var(--s-5); }
+/* `ch` scales with the font size, so an 18ch headline measures 406 px once
+   the reader doubles their text — wider than the phone it is on, and
+   `justify-items: center` then sizes the box to that instead of to the track.
+   Capping against the container keeps the measure on a desktop and the
+   headline on the screen everywhere else. */
+.hero__title { max-width: min(18ch, 100%); }
+.hero__sub {
+  font-size: var(--t-lead); color: var(--fg-soft);
+  max-width: 42rem; margin-top: var(--s-1);
+}
+.hero__actions { display: flex; flex-wrap: wrap; gap: var(--s-3); justify-content: center; margin-top: var(--s-3); }
+
+/* headline words rise in sequence */
+.hero__title .word {
+  display: inline-block;
+  opacity: 0;
+  transform: translate3d(0, 0.5em, 0);
+  animation: word-rise 900ms var(--ease-out) forwards;
+  animation-delay: calc(140ms + var(--i) * 65ms);
+}
+@keyframes word-rise { to { opacity: 1; transform: none; } }
+
+/* hero chain diagram sits under the fold line as an invitation to scroll */
+.hero__chain { width: 100%; max-width: 60rem; margin-top: clamp(2rem, 5vh, 3.5rem); }
+
+.scroll-cue {
+  position: absolute; left: 50%; bottom: 1.75rem;
+  transform: translateX(-50%);
+  display: grid; justify-items: center; gap: var(--s-2);
+  font-family: var(--font-mono); font-size: var(--t-nano);
+  letter-spacing: calc(0.18em * var(--track-open)); text-transform: uppercase; color: var(--fg-faint);
+}
+.scroll-cue__line {
+  width: 1px; height: 30px;
+  background: linear-gradient(180deg, var(--fg-faint), transparent);
+  animation: cue 2.2s var(--ease-io) infinite;
+  transform-origin: top;
+}
+@keyframes cue {
+  0%, 100% { transform: scaleY(0.35); opacity: 0.35; }
+  50%      { transform: scaleY(1);    opacity: 1; }
+}
+
+/* ---- sticky scene -------------------------------------------------------- */
+/* A tall track; the visual pins inside it while the scroll position drives
+   a --progress custom property (0 → 1) written by JS. */
+.scene { position: relative; }
+.scene__track { height: var(--scene-track, 320vh); }
+.scene__pin {
+  position: sticky; top: var(--nav-h);
+  height: calc(100svh - var(--nav-h));
+  display: grid; align-content: center;
+}
+
+@media (max-width: 53.75rem) {
+  /* Pinned scrubbing is hostile on touch: it eats the scroll and the diagram
+     ends up smaller than the caption. Fall back to a plain stacked read. */
+  .scene__track { height: auto; }
+  .scene__pin { position: static; height: auto; }
+}
+
+/* ---- reduced motion ------------------------------------------------------ */
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+
+  *, *::before, *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+  }
+
+  /* Reveals must land visible, not stay at opacity 0. */
+  [data-reveal], [data-stagger] > * { opacity: 1 !important; transform: none !important; }
+  .hero__title .word { opacity: 1; transform: none; }
+  .hero__aurora { animation: none; opacity: 0.55; }
+
+  /* Sticky scrubbing becomes a plain stacked layout. */
+  .scene__track { height: auto; }
+  .scene__pin { position: static; height: auto; }
+}
+
+/* ---- off-screen pause ----------------------------------------------------- */
+/* `.is-offscreen` is toggled by an IntersectionObserver. Perpetual animations
+   composite every frame even when nobody can see them; on a page this tall
+   that is a measurable battery cost for zero effect. */
+/* `data-animates` sits on the hero itself, not on the aurora: an observer
+   watching an element it is about to collapse never sees it return. */
+.is-offscreen .hero__aurora { animation-play-state: paused; }
+
+.is-offscreen .d-break__spark,
+.is-offscreen .d-chain__pulse,
+.is-offscreen .surface__pip {
+  animation-play-state: paused;
+}
+
+/* ---- evidence trail fills in on reveal ------------------------------------ */
+/* The trail is the argument of that section, so it is worth watching it
+   assemble once rather than arriving pre-built. */
+.surface .trail__item {
+  opacity: 0;
+  transform: translate3d(0, 6px, 0);
+  transition: opacity 520ms var(--ease-out), transform 520ms var(--ease-out);
+}
+.surface .trail__item:nth-child(1) { transition-delay: 320ms; }
+.surface .trail__item:nth-child(2) { transition-delay: 520ms; }
+.surface .trail__item:nth-child(3) { transition-delay: 720ms; }
+.surface .trail__item:nth-child(4) { transition-delay: 920ms; }
+.surface.is-in .trail__item { opacity: 1; transform: none; }
+
+.surface .note {
+  opacity: 0;
+  transform: translate3d(0, 10px, 0) scale(0.97);
+  transition: opacity 620ms var(--ease-out), transform 620ms var(--ease-out);
+}
+.surface .note--a { transition-delay: 120ms; }
+.surface .note--b { transition-delay: 280ms; }
+.surface .note--c { transition-delay: 440ms; }
+.surface.is-in .note { opacity: 1; transform: none; }
+
+@media (prefers-reduced-motion: reduce) {
+  .surface .trail__item, .surface .note { opacity: 1 !important; transform: none !important; }
+}

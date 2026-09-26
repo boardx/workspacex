@@ -26,6 +26,8 @@ import { Loader2, MessagesSquare } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { ApiError } from "@/lib/api-client";
+import { describeFailure as describeGeneric } from "@/lib/design-failure";
+import { humanTime } from "@/lib/human-time";
 import { listPersonalThreads, type ThreadCard } from "@/lib/live-chat";
 import { importThread, type DesignProject, type ImportedThread } from "@/lib/live-design-workbench";
 import { useDialogFocus } from "./use-dialog-focus";
@@ -33,7 +35,20 @@ import { useDialogFocus } from "./use-dialog-focus";
 type Stage =
   | { kind: "picking" }
   /** 预览：服务端已经摘好一段，还没写库。`text` 是用户可以随便改的那份。 */
-  | { kind: "preview"; thread: ThreadCard; imported: ImportedThread; text: string; truncated: boolean };
+  | {
+      kind: "preview"; thread: ThreadCard; imported: ImportedThread; text: string; truncated: boolean;
+      /**
+       * 迭代 16（UIUX 第 16 轮）：服务端摘回来的**原文**。留着只为一件事——判断
+       * 「用户改过没有」。改过的那段是他自己敲的字，关窗前必须先问一声（见 `requestClose`）。
+       */
+      original: string;
+      /**
+       * 迭代 16（#3773 R3）：从同一段对话抽出来的验收标准候选，逐条可勾可改。
+       * `picked` 记住哪几条要写进去——默认全选（模型只抽"真的定下来过"的口径，
+       * 默认不选等于让用户把这件事再做一遍）。
+       */
+      criteria: readonly string[]; picked: readonly boolean[];
+    };
 
 function describeFailure(err: unknown): string {
   if (err instanceof ApiError) {
@@ -51,10 +66,14 @@ function describeFailure(err: unknown): string {
       return "服务器出错了，这次没能保存。你编辑的这段文字还在，可以再点一次确认。";
     }
     if (err.status === 403) return "这个设计项目不是你的，不能改它的背景。";
-    return "这次导入没成功，可以再试一次。";
+    return describeGeneric(err);
   }
-  if (err instanceof TypeError) return "无法连接服务器，请稍后重试";
-  return "这次导入没成功，可以再试一次。";
+  /*
+   * 迭代 33：这两句原来各写各的（「无法连接服务器，请稍后重试」在全仓有四份不同措辞）。
+   * 本文件上面那几条 404/503/500/403 的特判是**这条路独有的信息**，留着；
+   * 剩下的退回单源 `describeFailure`，同一类失败在所有屏上说同一句话。
+   */
+  return describeGeneric(err);
 }
 
 export function ImportThreadDialog({
@@ -67,10 +86,25 @@ export function ImportThreadDialog({
   /** 只有真的写进去了才会调——预览阶段关掉弹窗不触发它。 */
   readonly onImported: (project: DesignProject) => void;
 }) {
-  /** B6.5：焦点进弹窗 / Esc 关闭 / 关掉之后焦点回到「从对话导入」那个按钮。 */
   const panelRef = React.useRef<HTMLDivElement>(null);
-  useDialogFocus(panelRef, onClose);
   const [threads, setThreads] = React.useState<readonly ThreadCard[] | null>(null);
+  /**
+   * 迭代 16（UIUX 第 16 轮）：列表**读失败**和**真的一条都没有**是两回事。
+   * 原来 catch 里一句 `setThreads([])` 把两者合流，屏上说的是「还没有可以导入的对话。先去
+   * 对话里把需求聊清楚」——用户有 187 条对话，被告知他一条都没有，还被指使去做一件
+   * 他早就做完的事。失败要说失败，并且给一条回去的路（重试）。
+   */
+  const [loadFailed, setLoadFailed] = React.useState(false);
+  /** 正在摘的那条线程 id。摘要走模型，是**秒级**的等待，必须在他点的那一行上说出来。 */
+  const [pendingId, setPendingId] = React.useState<string | null>(null);
+  /**
+   * 预览里改过字之后要离开：先停在这句确认上，不直接丢。
+   * `"close"` = 关掉整个弹窗；`"back"` = 只回到选线程那一步——两个出口丢的是同一段文字，
+   * 但落点不同，所以记的是**去哪**，不是一个布尔。
+   */
+  const [confirmDiscard, setConfirmDiscard] = React.useState<"close" | "back" | null>(null);
+  /** 重试就是「再读一次」——加一不是计数，是把那个 effect 重新跑一遍。 */
+  const [reloadKey, setReloadKey] = React.useState(0);
   /**
    * issue #3356 —— `listPersonalThreads` 现在**默认只给一页（30 条）**：契约的
    * `limit` 省略即 30，不再是"省略即全部"。这个弹窗因此也得能翻下一页，否则一个
@@ -84,6 +118,27 @@ export function ImportThreadDialog({
   const [stage, setStage] = React.useState<Stage>({ kind: "picking" });
   const [busy, setBusy] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
+
+  const dirty = stage.kind === "preview" && stage.text !== stage.original;
+  /**
+   * 关窗的**唯一入口**：遮罩、Esc、「取消」三条路都走它。改过的那段文字属于用户，
+   * 一次误点不该把它抹掉（同 V58 那条理由：这一步没有撤销）。
+   */
+  const requestClose = () => {
+    if (dirty) {
+      setConfirmDiscard("close");
+      return;
+    }
+    onClose();
+  };
+  /** 回到选线程那一步（同样要过上面那道「改过就先问」）。 */
+  const backToPicking = () => {
+    setConfirmDiscard(null);
+    setError(null);
+    setStage({ kind: "picking" });
+  };
+  /** B6.5：焦点进弹窗 / Esc 关闭 / 关掉之后焦点回到「从对话导入」那个按钮。 */
+  useDialogFocus(panelRef, requestClose);
 
   React.useEffect(() => {
     let alive = true;
@@ -100,6 +155,7 @@ export function ImportThreadDialog({
       } catch (e) {
         if (alive) {
           setThreads([]);
+          setLoadFailed(true);
           setError(describeFailure(e));
         }
       }
@@ -107,12 +163,20 @@ export function ImportThreadDialog({
     return () => {
       alive = false;
     };
+  }, [reloadKey]);
+
+  /** 卸载之后不再 setState：`pick` / `confirm` 的请求可能比这个弹窗活得久。 */
+  const aliveRef = React.useRef(true);
+  React.useEffect(() => () => {
+    aliveRef.current = false;
   }, []);
 
   /** issue #3356 —— 翻下一页并**追加**（去重兜底同 `thread-pages.ts` 那条理由）。 */
   const loadMore = async () => {
     if (nextCursor === null || loadingMore) return;
     setLoadingMore(true);
+    // 上一次翻页失败留下的那句话不该压在这一次成功的结果上面。
+    setError(null);
     try {
       const out = await listPersonalThreads({ cursor: nextCursor });
       const incoming = out.groups.flatMap((g) => g.cards);
@@ -131,14 +195,27 @@ export function ImportThreadDialog({
   /** 选中 ⇒ **预览**（不传 `problem`）。这一步服务端一个字不写。 */
   const pick = async (thread: ThreadCard) => {
     setBusy(true);
+    setPendingId(thread.id);
     setError(null);
     try {
       const out = await importThread(projectId, thread.id);
-      setStage({ kind: "preview", thread, imported: out.imported, text: out.summary, truncated: out.truncated });
+      if (!aliveRef.current) return;
+      setStage({
+        kind: "preview", thread, imported: out.imported, text: out.summary, original: out.summary, truncated: out.truncated,
+        /*
+         * `?? []`：契约上 `criteria` 是必给的，但滚动发布期间前端可能先上、后端还是旧版，
+         * 那时这个键不存在。少了这道，整个导入预览会当场白屏——为一个可选增强
+         * 赔掉一条本来能用的路径。
+         */
+        criteria: out.criteria ?? [], picked: (out.criteria ?? []).map(() => true),
+      });
     } catch (e) {
-      setError(describeFailure(e));
+      if (aliveRef.current) setError(describeFailure(e));
     } finally {
-      setBusy(false);
+      if (aliveRef.current) {
+        setBusy(false);
+        setPendingId(null);
+      }
     }
   };
 
@@ -148,28 +225,39 @@ export function ImportThreadDialog({
     setBusy(true);
     setError(null);
     try {
-      const out = await importThread(projectId, stage.thread.id, stage.text);
+      const chosen = stage.criteria.filter((_, i) => stage.picked[i] === true);
+      // 一条都没抽到 ⇒ 不传这个键（语义是「不动」）；抽到了但用户全取消 ⇒ 传空数组，
+      // 那是「这次导入不带验收标准」，与「不动」是两件事。
+      const out = await importThread(
+        projectId, stage.thread.id, stage.text,
+        stage.criteria.length === 0 ? undefined : chosen,
+      );
       onImported(out.project);
       onClose();
     } catch (e) {
-      setError(describeFailure(e));
+      if (aliveRef.current) setError(describeFailure(e));
     } finally {
-      setBusy(false);
+      if (aliveRef.current) setBusy(false);
     }
   };
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4" data-testid="import-thread-dialog">
-      <div className="absolute inset-0 bg-inverse/40" onClick={onClose} aria-hidden />
+      <div className="absolute inset-0 bg-inverse/40" onClick={requestClose} aria-hidden />
       <div
         ref={panelRef}
         tabIndex={-1}
         role="dialog"
         aria-modal="true"
-        aria-label="从对话导入"
+        /*
+         * 屏上的标题随步骤换（「从对话导入」→「确认要导入的背景」），读屏念的却一直是
+         * 第一步那句——进到预览之后，只靠听的人不知道自己已经走到了「确认」这一步。
+         * 指向那个 h3，而不是再抄一份标题：同一事实不得声明在两处。
+         */
+        aria-labelledby="import-thread-title"
         className="relative flex w-full max-w-lg flex-col gap-3 rounded-card border border-border bg-card p-5 shadow-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
       >
-        <h3 className="text-16 font-semibold">
+        <h3 id="import-thread-title" className="text-16 font-semibold">
           {stage.kind === "picking" ? "从对话导入" : "确认要导入的背景"}
         </h3>
 
@@ -182,6 +270,24 @@ export function ImportThreadDialog({
               <div className="flex items-center gap-1.5 py-6 text-12 text-muted-foreground" data-testid="import-thread-loading" role="status">
                 <Loader2 aria-hidden className="h-3.5 w-3.5 animate-spin" /> 正在读你的对话…
               </div>
+            ) : loadFailed ? (
+              /* 读失败 ≠ 一条都没有。说清是哪一种，并且给一条回去的路。 */
+              <div className="flex flex-col items-start gap-2 py-6" data-testid="import-thread-load-failed">
+                <p className="text-12 text-muted-foreground">没能读到你的对话列表。</p>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  data-testid="import-thread-retry"
+                  onClick={() => {
+                    setThreads(null);
+                    setLoadFailed(false);
+                    setError(null);
+                    setReloadKey((k) => k + 1);
+                  }}
+                >
+                  重试
+                </Button>
+              </div>
             ) : threads.length === 0 ? (
               <p className="py-6 text-12 text-muted-foreground" data-testid="import-thread-empty">
                 还没有可以导入的对话。先去对话里把需求聊清楚，再回来导。
@@ -193,13 +299,30 @@ export function ImportThreadDialog({
                     <button
                       type="button"
                       disabled={busy}
+                      aria-busy={pendingId === t.id}
                       onClick={() => void pick(t)}
                       data-testid={`import-thread-item-${t.id}`}
                       className="flex w-full items-center gap-2 rounded-control px-2 py-1.5 text-left transition-colors duration-fast hover:bg-panel focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:text-disabled-foreground"
                     >
-                      <MessagesSquare aria-hidden className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                      {pendingId === t.id ? (
+                        <Loader2 aria-hidden className="h-3.5 w-3.5 shrink-0 animate-spin text-muted-foreground" />
+                      ) : (
+                        <MessagesSquare aria-hidden className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                      )}
                       <span className="min-w-0 flex-1 truncate text-12">{t.title}</span>
-                      <span className="shrink-0 text-10 text-muted-foreground">{t.lastActivityAt.slice(0, 10)}</span>
+                      {/*
+                        * 摘要走模型，几秒起步。原来这几秒里屏上唯一的变化是整列变灰——用户不知道
+                        * 是自己没点中还是系统卡住，于是再点一次（点不动）或者直接关掉。
+                        * 把「正在摘」说在他点的那一行上，并挤掉这一行的时间。
+                        */}
+                      {pendingId === t.id ? (
+                        <span className="shrink-0 text-10 text-muted-foreground" data-testid="import-thread-picking" role="status">
+                          正在读这条对话…
+                        </span>
+                      ) : (
+                        /* 机器时间不上屏：读它的人问的是「是不是最近聊的那条」，不是哪一天。 */
+                        <span className="shrink-0 text-10 text-muted-foreground">{humanTime(t.lastActivityAt)}</span>
+                      )}
                     </button>
                   </li>
                 ))}
@@ -209,6 +332,7 @@ export function ImportThreadDialog({
                     <button
                       type="button"
                       disabled={loadingMore}
+                      aria-busy={loadingMore}
                       onClick={() => void loadMore()}
                       data-testid="import-thread-load-more"
                       className="w-full rounded-control px-2 py-1.5 text-12 text-muted-foreground transition-colors duration-fast hover:bg-panel focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
@@ -227,7 +351,7 @@ export function ImportThreadDialog({
             <p className="text-11 text-muted-foreground" data-testid="import-thread-source">
               来自《{stage.imported.title}》的 {stage.imported.messageCount} 条消息
               {/* 截断必须说出来：静默截断会让用户以为模型看过它其实没看过的那段 */}
-              {stage.truncated && <span data-testid="import-thread-truncated">（对话更长，只读了最近这些）</span>}
+              {stage.truncated && <span data-testid="import-thread-truncated">（对话更长，读了开头几条与最近的部分，中间略过）</span>}
             </p>
             <Textarea
               rows={10}
@@ -236,8 +360,63 @@ export function ImportThreadDialog({
               aria-label="导入预览"
               data-testid="import-thread-preview"
             />
+            {stage.criteria.length > 0 && (
+              <div className="flex flex-col gap-1" data-testid="import-thread-criteria">
+                <p className="text-11 font-medium">这段对话里定下来的验收标准（勾上的会一起写进项目）</p>
+                {stage.criteria.map((c, i) => (
+                  /*
+                   * key 用下标而不是条文本身：模型抽出两条一模一样的验收标准是会发生的，
+                   * 那时 `key={c}` 是重复 key。实测它当前**没有**让勾选串行（所以本轮不把它
+                   * 算成一条修好的用户可见缺陷、也没有为它留一条断不出东西的用例），但重复 key
+                   * 本身是 React 明确不支持的输入：它会在控制台报错，并且在列表顺序变化时
+                   * 允许复用/丢弃任意一行。按契约写对，不赌它的实现细节。
+                   */
+                  <label key={`${String(i)}:${c}`} className="flex items-start gap-2 text-12" data-testid="import-thread-criterion">
+                    <input
+                      type="checkbox"
+                      className="mt-0.5"
+                      checked={stage.picked[i] === true}
+                      onChange={(e) =>
+                        setStage({ ...stage, picked: stage.picked.map((v, k) => (k === i ? e.target.checked : v)) })
+                      }
+                    />
+                    <span className="min-w-0 flex-1">{c}</span>
+                  </label>
+                ))}
+              </div>
+            )}
             <p className="text-10 text-muted-foreground">改完再确认——写进项目的是上面这段文字，不是原始对话。</p>
+            {/*
+              * 灰掉的按钮必须自己解释为什么灰。原来这里只是「导入为背景」点不动，
+              * 用户看不出是系统坏了还是自己少做了一步。
+              */}
+            {stage.text.trim() === "" && (
+              <p className="text-10 text-destructive" data-testid="import-thread-blank-hint">
+                这段是空的，导不了。写点什么，或者点「重新选一条」换一条对话。
+              </p>
+            )}
           </>
+        )}
+
+        {confirmDiscard !== null && (
+          <div className="flex flex-col gap-2 rounded-control border border-border bg-panel p-2" data-testid="import-thread-discard-confirm" role="alertdialog" aria-label="放弃已编辑的背景">
+            <p className="text-11">
+              你改过这段背景。{confirmDiscard === "close" ? "关掉" : "换一条对话"}就丢了，这一步没有撤销。
+            </p>
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" size="sm" data-testid="import-thread-discard-keep" onClick={() => setConfirmDiscard(null)}>
+                继续编辑
+              </Button>
+              <Button
+                variant="destructive"
+                size="sm"
+                data-testid="import-thread-discard-confirm-yes"
+                onClick={() => (confirmDiscard === "close" ? onClose() : backToPicking())}
+              >
+                {confirmDiscard === "close" ? "丢掉并关闭" : "丢掉并换一条"}
+              </Button>
+            </div>
+          </div>
         )}
 
         {error !== null && (
@@ -245,7 +424,27 @@ export function ImportThreadDialog({
         )}
 
         <div className="flex justify-end gap-2">
-          <Button variant="outline" size="sm" onClick={onClose} data-testid="import-thread-cancel">取消</Button>
+          {/*
+            * 选错一条对话原来只有一条出路：整个关掉重开。回到列表是**同一件事的上一步**，
+            * 不该收费成一次重开（而且重开还要重新等列表）。
+            */}
+          {stage.kind === "preview" && (
+            <Button
+              variant="ghost"
+              size="sm"
+              data-testid="import-thread-back"
+              onClick={() => {
+                if (dirty) {
+                  setConfirmDiscard("back");
+                  return;
+                }
+                backToPicking();
+              }}
+            >
+              重新选一条
+            </Button>
+          )}
+          <Button variant="outline" size="sm" onClick={requestClose} data-testid="import-thread-cancel">取消</Button>
           {stage.kind === "preview" && (
             <Button variant="primary" size="sm" disabled={busy || stage.text.trim() === ""} onClick={() => void confirm()} data-testid="import-thread-confirm">
               {busy && <Loader2 aria-hidden className="h-3.5 w-3.5 animate-spin" />} 导入为背景

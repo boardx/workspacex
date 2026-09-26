@@ -47,7 +47,9 @@ import {
   ExportItemNotApprovedError,
   LocalOrgEgressBlockedError,
 } from "../../application/identity/errors";
-import type { EgressGuard, ExportAperture } from "../../application/identity/local-org-ports";
+import type {
+  EgressGuard, EgressLedgerKind, EgressLedgerReader, ExportAperture,
+} from "../../application/identity/local-org-ports";
 import type { OrgId } from "../../domain/org-id";
 
 interface Scope {
@@ -72,6 +74,63 @@ const store = new AsyncLocalStorage<Scope>();
 
 const refusals: { orgId: string; target: string }[] = [];
 const permits: { orgId: string; artifactId: string; target: string }[] = [];
+
+/* ─────────────────────── E4: the ledger the user can see ─────────────────────── */
+
+/**
+ * Every non-loopback connection the process opened (or tried to), classified into the
+ * contract's four buckets (`@repo/contracts/deployment` `EgressLedger`).
+ *
+ * ## Why this lives on the same patched method as the guard
+ *
+ * Because "the user sees 0" must be observed at the same chokepoint that enforces the
+ * promise. A counter kept by the web tools or by the model adapter would count what OUR code
+ * meant to do; this one counts what the process actually did, whoever did it.
+ *
+ * ## `onRequest` is DECLARED, not inferred
+ *
+ * `fetch_url` / `web_search` mark their own outbound call with `declareOnRequestEgress`. The
+ * mark is an `AsyncLocalStorage` scope, so it covers exactly that call's async chain -- a
+ * telemetry ping that happens to run concurrently lands in `unexpected`, which is the point.
+ */
+type LedgerKind = EgressLedgerKind;
+const LEDGER_RECENT_MAX = 50;
+const ledgerCounts: Record<LedgerKind, number> = { onRequest: 0, refused: 0, export: 0, unexpected: 0 };
+const ledgerRecent: { kind: LedgerKind; target: string; at: string }[] = [];
+let ledgerSince: string | null = null;
+const onRequestStore = new AsyncLocalStorage<{ tool: string }>();
+
+function record(kind: LedgerKind, target: string): void {
+  ledgerCounts[kind] += 1;
+  ledgerRecent.push({ kind, target: target.slice(0, 300), at: new Date().toISOString() });
+  if (ledgerRecent.length > LEDGER_RECENT_MAX) ledgerRecent.shift();
+}
+
+/**
+ * Mark `fn` as an outbound call the USER asked for (`fetch_url`, `web_search`). Connections it
+ * opens are counted as `onRequest` instead of `unexpected`. It opens nothing inside a
+ * local-only scope: the guard's refusal still wins there.
+ */
+export function declareOnRequestEgress<T>(tool: string, fn: () => Promise<T>): Promise<T> {
+  return onRequestStore.run({ tool }, fn);
+}
+
+export interface EgressLedgerSnapshot {
+  readonly since: string;
+  readonly counts: Readonly<Record<LedgerKind, number>>;
+  readonly recent: readonly { readonly kind: LedgerKind; readonly target: string; readonly at: string }[];
+}
+
+/**
+ * What the process did on the network since the guard was installed.
+ *
+ * ⚠ Before `installEgressGuard` has run nothing is being observed, and an all-zero ledger
+ * would be the exact lie E4 exists to prevent. So an uninstalled guard is an error, not zeros.
+ */
+export function egressLedgerSnapshot(): EgressLedgerSnapshot {
+  if (ledgerSince === null) throw new Error("egress guard is not installed: the ledger would report zeros it never observed");
+  return { since: ledgerSince, counts: { ...ledgerCounts }, recent: ledgerRecent.slice() };
+}
 
 /** Loopback only. Everything else is off this machine, LAN included. */
 export function isLoopbackTarget(host: string | undefined): boolean {
@@ -146,21 +205,28 @@ let installed = false;
 export function installEgressGuard(): void {
   if (installed) return;
   installed = true;
+  ledgerSince = new Date().toISOString();
 
   const original = net.Socket.prototype.connect;
   // eslint-disable-next-line func-names -- needs `this`
   net.Socket.prototype.connect = function (this: net.Socket, ...args: unknown[]) {
     const scope = store.getStore();
-    if (scope !== undefined) {
+    if (scope === undefined) {
+      // Outside the promise nothing is blocked -- but the ledger still sees it (E4).
+      const { host, label } = targetOf(args);
+      if (!isLoopbackTarget(host)) record(onRequestStore.getStore() ? "onRequest" : "unexpected", label);
+    } else {
       const { host, label } = targetOf(args);
       if (!isLoopbackTarget(host)) {
         // F17: the ONE aperture. Note what is checked -- not "is an export running" but
         // "is a confirmed artifact being transferred on THIS async chain right now".
         if (scope.transferring !== null) {
           permits.push({ orgId: scope.orgId, artifactId: scope.transferring, target: label });
+          record("export", label);
           return (original as (...a: unknown[]) => net.Socket).apply(this, args);
         }
         refusals.push({ orgId: scope.orgId, target: label });
+        record("refused", label);
         // THROWN, not silently dropped. A dropped connection looks like a network blip and
         // gets retried; an exception stops the operation and reaches a human. The promise is
         // that this cannot happen, so its occurrence is an incident, not a condition.
@@ -169,6 +235,24 @@ export function installEgressGuard(): void {
     }
     return (original as (...a: unknown[]) => net.Socket).apply(this, args);
   } as typeof net.Socket.prototype.connect;
+}
+
+/**
+ * E4's reader: the edition this process runs as plus the ledger above. Constructing it installs
+ * the guard, so "the ledger exists" and "the chokepoint is patched" cannot come apart.
+ */
+export class ProcessEgressLedger implements EgressLedgerReader {
+  constructor(private readonly editionValue: "cloud" | "local") {
+    installEgressGuard();
+  }
+
+  edition(): "cloud" | "local" {
+    return this.editionValue;
+  }
+
+  snapshot(): EgressLedgerSnapshot {
+    return egressLedgerSnapshot();
+  }
 }
 
 export class ProcessEgressGuard implements EgressGuard {

@@ -5,13 +5,14 @@
  * 复用既有的 `FeedbackSubmitterDirectory`——同一个"userId → 显示名"端口没有理由为设计项目
  * 再造一份（本仓「同一事实不得声明在两处」纪律不只管字段，也管"怎么查一个人的名字"这件事）。
  */
-import type { designWorkbench } from "@repo/contracts";
+import { designWorkbench } from "@repo/contracts";
 import type { z } from "zod";
 import type { TransactionalMailTransport } from "../notifications/transactional-mail-ports";
 import type { LoggerPort } from "../ports/logger.port";
 import type { FeedbackSubmitterDirectory } from "../feedback/notification-ports";
 import type { OrgId } from "../../domain/org-id";
 import type { DesignProjectRepository, DesignProjectRow } from "./project-ports";
+import { isShareStale } from "./share-snapshot";
 
 export type DesignProjectView = z.infer<typeof designWorkbench.DesignProject>;
 
@@ -40,7 +41,24 @@ export interface DesignProjectDeps {
   readonly traceId?: string;
 }
 
-export function projectDesignProject(row: DesignProjectRow, ownerName: string | null): DesignProjectView {
+/**
+ * 迭代 22：发布状态的读投影。
+ *
+ * ⚠ `token` **只给 owner**：组织内全员可读说的是"看得见这个项目"，不是"可以替 owner 把它
+ *   发到组织外面去"。那两件事之间隔着一次明确的发布动作，而令牌就是那次动作的凭证。
+ *   `viewerId` 不给（老调用点）⇒ 一律不给令牌——默认方向朝安全那边倒。
+ */
+function shareView(row: DesignProjectRow, viewerId: string | null): DesignProjectView["share"] {
+  if (row.share === undefined) return null;
+  return {
+    token: viewerId !== null && viewerId === row.ownerId ? row.share.token : null,
+    scope: row.share.scope,
+    publishedAt: row.share.publishedAt,
+    stale: isShareStale(row.share.snapshot, row),
+  };
+}
+
+export function projectDesignProject(row: DesignProjectRow, ownerName: string | null, viewerId: string | null = null): DesignProjectView {
   return {
     id: row.id,
     name: row.name,
@@ -53,6 +71,11 @@ export function projectDesignProject(row: DesignProjectRow, ownerName: string | 
     // 迭代 13：原型自己的明暗主题。行里没有（这个字段之前建的项目）⇒ `dark`，
     // 与它出现之前的行为逐字相同。
     theme: row.theme ?? "dark",
+    // 迭代 17：强调色档位。行里没有（这个字段之前建的项目）⇒ `neutral` = 不覆盖任何 token，
+    // 与它出现之前的行为逐字相同：老项目打开来一个像素都不会变。
+    accent: row.accent ?? "neutral",
+    // 对标 R1：设计 token。行里没有（这一列之前建的项目）⇒ 全缺省值，渲染与之前逐像素相同。
+    tokens: row.tokens ?? designWorkbench.DEFAULT_DESIGN_TOKENS,
     // 迭代 13（delta §4）：老行没有这一列 ⇒ 空数组。
     tags: [...(row.tags ?? [])],
     // 迭代 13：参考图的元信息（不含字节）；老行没有这一列 ⇒ 空数组。
@@ -63,6 +86,7 @@ export function projectDesignProject(row: DesignProjectRow, ownerName: string | 
     githubIssueUrl: row.githubIssueUrl,
     githubIssueNumber: row.githubIssueNumber,
     chat: [...row.chat],
+    share: shareView(row, viewerId),
     ownerId: row.ownerId,
     ownerName,
     createdAt: row.createdAt,
@@ -80,9 +104,14 @@ export async function ownerNamesFor(
 }
 
 /** `get` + 投影，找不到就抛——update / appendChat / delete / pushToInbox 的 owner 校验前置读都要这一步。 */
-export async function loadProjectView(deps: DesignProjectDeps, projectId: string): Promise<DesignProjectView> {
+export async function loadProjectView(
+  deps: DesignProjectDeps,
+  projectId: string,
+  /** 迭代 22：谁在读——只影响 `share.token` 给不给（见 `shareView`）。不给 ⇒ 不给令牌。 */
+  viewerId: string | null = null,
+): Promise<DesignProjectView> {
   const row = await deps.projects.get(projectId);
   if (row === null) throw new DesignProjectNotFoundError();
   const names = await ownerNamesFor(deps, [row.ownerId]);
-  return projectDesignProject(row, names.get(row.ownerId) ?? null);
+  return projectDesignProject(row, names.get(row.ownerId) ?? null, viewerId);
 }

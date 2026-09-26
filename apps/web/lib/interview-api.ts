@@ -24,6 +24,9 @@ export type DigitalInterviewStep = z.infer<typeof interview.DigitalInterviewStep
 export type InterviewScope = z.infer<typeof interview.InterviewScope>;
 export type CreateDigitalInterviewDraftInput = z.infer<typeof interview.operations.createDigitalInterviewDraft.in>;
 export type DigitalInterviewSkillDraftContext = z.infer<typeof interview.DigitalInterviewSkillDraftContext>;
+export type DigitalInterviewResearchBrief = z.infer<typeof interview.DigitalInterviewResearchBrief>;
+export type DigitalInterviewModeratorPolicy = z.infer<typeof interview.DigitalInterviewModeratorPolicy>;
+export type DigitalInterviewQualityProjection = z.infer<typeof interview.DigitalInterviewQualityProjection>;
 
 export function loadDigitalInterviewHistory(status?: string): Promise<DigitalInterviewHistory> {
   return apiRequest("/interviews/digital", { query: { status } });
@@ -92,6 +95,20 @@ export function confirmDigitalInterviewTopic(input: {
   });
 }
 
+export function confirmDigitalInterviewBrief(input: z.infer<typeof interview.operations.confirmDigitalInterviewBrief.in>) {
+  return apiRequest<DigitalInterviewWorkflowView>(`/interviews/digital/${input.interviewId}/brief/confirm`, {
+    method: "POST", body: { topic: input.topic, researchBrief: input.researchBrief,
+      expectedVersion: input.expectedVersion, requestId: input.requestId },
+  });
+}
+
+export function previewDigitalInterviewQuality(input: z.infer<typeof interview.operations.previewDigitalInterviewQuality.in>) {
+  return apiRequest<DigitalInterviewQualityProjection>(`/interviews/digital/${input.interviewId}/quality/preview`, {
+    method: "POST", body: { researchBrief: input.researchBrief, expertIds: input.expertIds,
+      questions: input.questions, moderatorPolicy: input.moderatorPolicy, expectedVersion: input.expectedVersion },
+  });
+}
+
 export function confirmDigitalInterviewExperts(input: {
   readonly interviewId: string;
   readonly expertIds: readonly string[];
@@ -108,12 +125,28 @@ export function confirmDigitalInterviewExperts(input: {
 export function confirmDigitalInterviewQuestions(input: {
   readonly interviewId: string;
   readonly questions: readonly DigitalInterviewQuestion[];
+  readonly moderatorPolicy: DigitalInterviewModeratorPolicy;
   readonly expectedVersion: number;
   readonly requestId: string;
 }) {
   return apiRequest<DigitalInterviewWorkflowView>(`/interviews/digital/${input.interviewId}/questions/confirm`, {
     method: "POST",
-    body: { questions: input.questions, expectedVersion: input.expectedVersion, requestId: input.requestId },
+    body: { questions: input.questions, moderatorPolicy: input.moderatorPolicy,
+      expectedVersion: input.expectedVersion, requestId: input.requestId },
+  });
+}
+
+export function decideDigitalInterviewReadiness(input: z.infer<typeof interview.operations.decideDigitalInterviewReadiness.in>) {
+  return apiRequest<DigitalInterviewWorkflowView>(`/interviews/digital/${input.interviewId}/readiness/decide`, {
+    method: "POST", body: { assessmentRuleVersion: input.assessmentRuleVersion, status: input.status,
+      rationale: input.rationale, expectedVersion: input.expectedVersion, requestId: input.requestId },
+  });
+}
+
+export function reviewDigitalInterviewReport(input: z.infer<typeof interview.operations.reviewDigitalInterviewReport.in>) {
+  return apiRequest<DigitalInterviewWorkflowView>(`/interviews/digital/${input.interviewId}/report/review`, {
+    method: "POST", body: { reportId: input.reportId, status: input.status, note: input.note,
+      expectedVersion: input.expectedVersion, requestId: input.requestId },
   });
 }
 
@@ -217,6 +250,9 @@ export async function generateDigitalInterviewReportStream(
   onProgress: (view: DigitalInterviewWorkflowView) => void,
   signal?: AbortSignal,
 ): Promise<DigitalInterviewWorkflowView> {
+  const previousReport = initialView.report;
+  const isRestoredReport = (view: DigitalInterviewWorkflowView) => Boolean(previousReport && view.report
+    && view.report.reportId === previousReport.reportId && view.report.generatedAt === previousReport.generatedAt);
   const token = getStoredSessionToken();
   try {
     const response = await fetch(apiUrl(`/interviews/digital/${input.interviewId}/report/generate/stream`), {
@@ -242,12 +278,15 @@ export async function generateDigitalInterviewReportStream(
     if (signal?.aborted) throw cause;
     const recovered = await loadDigitalInterviewWorkflow(input.interviewId, signal);
     onProgress(recovered);
+    if (isRestoredReport(recovered)) throw cause;
     if (reportGenerationFinished(recovered)) return recovered;
     if (!reportGenerationRunning(recovered)) throw cause;
     initialView = recovered;
   }
 
-  return observeDigitalInterviewReportStream(input.interviewId, initialView, onProgress, signal);
+  const final = await observeDigitalInterviewReportStream(input.interviewId, initialView, onProgress, signal);
+  if (isRestoredReport(final)) throw new ApiError(503, "REPORT_REGENERATION_FAILED", null);
+  return final;
 }
 
 export async function observeDigitalInterviewReportStream(
@@ -273,7 +312,12 @@ export async function observeDigitalInterviewReportStream(
       initialView = streamed.latest;
       if (reportGenerationFinished(streamed.latest) || !reportGenerationRunning(streamed.latest)) return streamed.latest;
     } catch (cause) {
-      if (signal?.aborted || !isRetryableReportStreamError(cause)) throw cause;
+      if (signal?.aborted) throw cause;
+      if (!isRetryableReportStreamError(cause)) {
+        const recovered = await loadDigitalInterviewWorkflow(interviewId, signal);
+        onProgress(recovered);
+        throw cause;
+      }
     }
     await waitForReportStreamRetry(signal);
   }

@@ -306,8 +306,14 @@ async function fetchGithubDirectoryFiles(
   return files;
 }
 
-/** 多文件目录导入的整体内容摘要——与 `pg-asset-file-repository.ts` 的 manifest digest 同一构造。 */
-function manifestDigestOf(files: readonly { readonly path: string; readonly digest: string }[]): string {
+/**
+ * 多文件目录导入的整体内容摘要——与 `pg-asset-file-repository.ts` 的 manifest digest 同一构造。
+ *
+ * ⚠ #3066 起**导出**：URL 导入落库前会把 `SKILL.md` 前言的 `name:` 改写成 `stable_name`
+ *   （`pg-skill-url-import-repository.ts`），改写后必须按**同一个构造**重算包摘要。
+ *   仓储层 import 这一份，而不是抄一份同义实现——「同一事实不得声明在两处」。
+ */
+export function manifestDigestOf(files: readonly { readonly path: string; readonly digest: string }[]): string {
   return sha256(
     [...files]
       .sort((a, b) => (a.path < b.path ? -1 : a.path > b.path ? 1 : 0))

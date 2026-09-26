@@ -21,37 +21,15 @@ import { createPortal } from "react-dom";
 import { Download } from "lucide-react";
 import { Modal } from "@/components/files/overlay";
 import { Button } from "@/components/ui/button";
-import { apiUrl } from "@/lib/api-client";
-import { useAuthedImageSrc } from "@/lib/use-authed-image-src";
-import { formatBytes, iconKindForMime, type AttachmentIconKind } from "@/lib/chat-attachment-format";
+import { formatBytes } from "@/lib/chat-attachment-format";
 import type { ChatAttachment } from "@/lib/live-chat";
-import { ChatAttachmentSlidesPreview } from "./chat-attachment-slides-preview";
+import { ChatAttachmentView, type AttachmentViewHandle } from "./chat-attachment-view";
 
-/** 五种渲染态：内联图片 / PDF / pptx / UTF-8 文本 / 无法内联。 */
-function previewMode(kind: AttachmentIconKind, mime: string): "image" | "pdf" | "slides" | "text" | "unsupported" {
-  const normalizedMime = mime.split(";", 1)[0]?.trim().toLowerCase();
-  if (kind === "image") return "image";
-  if (kind === "pdf") return "pdf";
-  if (kind === "slides") return "slides";
-  if (kind === "text" || normalizedMime === "application/json") return "text";
-  return "unsupported";
-}
-
-export function TextAttachmentPreview({ src }: { src: string }) {
-  const [text, setText] = React.useState<string | null>(null);
-  const [failed, setFailed] = React.useState(false);
-  React.useEffect(() => {
-    const controller = new AbortController();
-    setText(null);setFailed(false);
-    fetch(src,{signal:controller.signal}).then(response=>response.text()).then(setText).catch(error=>{
-      if((error as {name?:string}).name!=="AbortError")setFailed(true);
-    });
-    return ()=>controller.abort();
-  },[src]);
-  if(failed)return <p className="text-13 text-muted-foreground" data-testid="chat-attachment-preview-text-failed">文本预览加载失败，请下载查看。</p>;
-  if(text===null)return <p className="text-13 text-muted-foreground" data-testid="chat-attachment-preview-text-loading">正在读取内容…</p>;
-  return <pre className="max-h-[60vh] w-full overflow-auto whitespace-pre-wrap break-words rounded-md border border-border-subtle bg-muted p-3 text-11 text-card-foreground" data-testid="chat-attachment-preview-text">{text}</pre>;
-}
+/*
+ * 渲染体已搬进 `chat-attachment-view.tsx`（右栏与模态共用同一份，见该文件头注）。
+ * 这里保留 re-export：既有引用方（测试与 produced-file 卡片）一个字都不用改。
+ */
+export { previewMode, TextAttachmentPreview } from "./chat-attachment-view";
 
 export function ChatAttachmentPreviewModal({
   threadId, attachment, onClose,
@@ -65,9 +43,8 @@ export function ChatAttachmentPreviewModal({
   const [mounted, setMounted] = React.useState(false);
   React.useEffect(() => setMounted(true), []);
 
-  const contentUrl = apiUrl(`/chat/threads/${threadId}/attachments/${attachment.id}/content`);
-  const { src, failed } = useAuthedImageSrc(contentUrl);
-  const mode = previewMode(iconKindForMime(attachment.mime),attachment.mime);
+  const [state, setState] = React.useState<AttachmentViewHandle>({ src: null, failed: false });
+  const src = state.src;
 
   if (!mounted) return null;
 
@@ -103,36 +80,13 @@ export function ChatAttachmentPreviewModal({
         }
       >
         <div className="grid min-h-[240px] place-items-center">
-          {failed ? (
-            <p className="text-13 text-muted-foreground" data-testid="chat-attachment-preview-failed">
-              加载失败，请重试或直接下载。
-            </p>
-          ) : !src ? (
-            <p className="text-13 text-muted-foreground" data-testid="chat-attachment-preview-loading">
-              正在加载…
-            </p>
-          ) : mode === "image" ? (
-            // eslint-disable-next-line @next/next/no-img-element -- blob URL，不是可优化的远程图
-            <img
-              src={src} alt={attachment.filename}
-              className="max-h-[60vh] max-w-full rounded-md object-contain"
-              data-testid="chat-attachment-preview-image"
-            />
-          ) : mode === "pdf" ? (
-            <iframe
-              src={src} title={attachment.filename}
-              className="h-[60vh] w-full rounded-md border border-border-subtle"
-              data-testid="chat-attachment-preview-pdf"
-            />
-          ) : mode === "slides" ? (
-            <ChatAttachmentSlidesPreview src={src} filename={attachment.filename} />
-          ) : mode === "text" ? (
-            <TextAttachmentPreview src={src} />
-          ) : (
-            <p className="text-13 text-muted-foreground" data-testid="chat-attachment-preview-unsupported">
-              该文件类型不支持预览，请下载查看。
-            </p>
-          )}
+          <ChatAttachmentView
+            threadId={threadId}
+            attachmentId={attachment.id}
+            filename={attachment.filename}
+            mime={attachment.mime}
+            onState={setState}
+          />
         </div>
       </Modal>
     </div>,

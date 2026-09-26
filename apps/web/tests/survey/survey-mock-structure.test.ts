@@ -3,7 +3,7 @@ import {
   SURVEY_LIST, SURVEY_STATUS_LABEL, SURVEY_STATUS_ACTION,
   REPORT_TEMPLATE, SURVEY_QUESTIONS, mappedQuestions, qualityGateBlockers,
   surveyStatusCounts,
-  type SurveyStatus,
+  type MockSurveyStatus,
 } from "@/lib/mock/survey";
 
 /**
@@ -21,7 +21,7 @@ describe("survey mock · 四态机（UC-12.1 R7.2）", () => {
   });
 
   it("每态都有唯一声明的主动作（R7.2 表：各态动作互斥）", () => {
-    const statuses: SurveyStatus[] = ["draft", "pending_send", "collecting", "closed"];
+    const statuses: MockSurveyStatus[] = ["draft", "pending_send", "collecting", "closed"];
     for (const s of statuses) {
       expect(SURVEY_STATUS_ACTION[s]).toBeTruthy();
     }

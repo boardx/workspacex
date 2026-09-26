@@ -1,3 +1,4 @@
+import { structuredErrorLog } from "../../application/ports/logger.port";
 import { randomUUID } from "node:crypto";
 import type {SubtaskContextResolver} from '../../application/agent-run/standard-subtask-tools';
 import {NATIVE_SUBTASK_CONTEXT_PREFIX} from '@repo/contracts/standard-subtask-tools';
@@ -49,7 +50,8 @@ export class SubtaskRunExecutor {
     let executed = 0;
     for (let count = 0; count < 10; count += 1) {
       const claimed = await executeQueuedSubtaskRuns({ store: this.store,
-        log: (message, detail) => this.logger.error(message, { ...detail, traceId: randomUUID(), err: detail.detail ?? message }),
+        // 单一事实源见 `structuredErrorLog` 头注（结构化字段此前会退化成消息本身）。
+        log: structuredErrorLog(this.logger, randomUUID),
         execute:run=>this.execute(orgId,run),
       }, { orgId, limit: 1 });
       executed += claimed;

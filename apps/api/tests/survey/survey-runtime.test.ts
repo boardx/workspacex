@@ -1,0 +1,65 @@
+import { describe, expect, it } from 'vitest';
+import { SurveyService, SurveyError, type SurveyRepository, type SurveyRecord } from '../../src/application/survey/survey-service';
+import { toOrgId } from '../../src/domain/org-id';
+import { SurveyDraftInputSchema } from '@repo/contracts/survey-runtime';
+import { SurveyResponseSchema } from '@repo/contracts/survey';
+import type { SurveyDraftInput, SurveySubmissionInput } from '@repo/contracts/survey-runtime';
+function setup(){
+  const rows=new Map<string,SurveyRecord>();
+  const repo:SurveyRepository={
+    async list(org,owner){return [...rows.entries()].filter(([k,r])=>k.startsWith(org+':')&&r.ownerId===owner).map(([,r])=>structuredClone(r.model));},
+    async create(org,r){rows.set(org+':'+r.model.id,structuredClone(r));},
+    async transact(org,id,fn){const key=org+':'+id;const r=rows.get(key);if(!r)throw new SurveyError('not_found');const clone=structuredClone(r);const out=fn(clone);rows.set(key,clone);return structuredClone(out);},
+    async delete(org,id,owner,v){const r=rows.get(org+':'+id);if(!r||r.ownerId!==owner)throw new SurveyError('not_found');if(r.model.version!==v)throw new SurveyError('version_conflict');rows.delete(org+':'+id);},
+  };
+  let now=new Date('2026-09-20T00:00:00Z');return {rows,service:new SurveyService(repo,()=>now),advance:()=>{now=new Date('2027-01-01T00:00:00Z');}};
+}
+const org=toOrgId('org-a');
+const draft={title:'真实问卷',questions:[{id:'q1',order:1,chapterId:'s',title:'选择',type:'single',required:true,options:['甲','乙']}],template:{id:'template',title:'报告',sections:[{id:'s',title:'结果',blocks:[{id:'b',title:'分布',type:'bar',questionIds:['q1'],statistic:'distribution'}]}]}} as SurveyDraftInput;
+const answer:SurveySubmissionInput={submissionId:'request-00001',answers:[{questionId:'q1',value:'甲'}],durationSeconds:1,role:'未填写',companySize:'未填写'};
+describe('persistent survey lifecycle',()=>{
+  it('isolates owner and tenant, enforces optimistic version',async()=>{const {service:s}=setup();const m=await s.create(org,'owner',draft);expect(await s.list(org,'other')).toEqual([]);await expect(s.get(org,'other',m.id)).rejects.toThrow('not_found');await expect(s.get(toOrgId('org-b'),'owner',m.id)).rejects.toThrow('not_found');await expect(s.save(org,'owner',m.id,9,draft)).rejects.toThrow('version_conflict');expect((await s.save(org,'owner',m.id,1,{...draft,title:'更新'})).version).toBe(2);});
+  it('freezes published questions, validates submissions, and replays only identical receipt',async()=>{const {service:s}=setup();let m=await s.create(org,'owner',draft);m=await s.publish(org,'owner',m.id,m.version);const token=m.publication!.token;expect((await s.publicGet(token)).questions).toEqual(draft.questions);await expect(s.publicGet(token+'x')).rejects.toThrow('not_found');await expect(s.submit(token,{...answer,answers:[]})).rejects.toThrow('invalid_answers');const receipt=await s.submit(token,answer);expect(await s.submit(token,answer)).toEqual({...receipt,replayed:true});await expect(s.submit(token,{...answer,answers:[{questionId:'q1',value:'乙'}]})).rejects.toThrow('submission_conflict');m=await s.get(org,'owner',m.id);expect(m.responses).toHaveLength(1);await expect(s.save(org,'owner',m.id,m.version,{...draft,questions:[]})).rejects.toThrow('closed');});
+  it('keeps accepted provenance in the publication snapshot while refusing recovered-response mutations',async()=>{const {service:s}=setup();const provenance={source:'question-library' as const,sourceId:'library-q1',certifiedAt:'2026-09-25T00:00:00.000Z'};let m=await s.create(org,'owner',{...draft,questions:[{...draft.questions[0]!,provenance}]});expect(m.questions[0]!.provenance?.certifiedAt).toBeUndefined();m=await s.publish(org,'owner',m.id,m.version);const published=await s.publicGet(m.publication!.token);expect(published.questions[0]!.provenance).toEqual({...provenance,certifiedAt:undefined});await s.submit(m.publication!.token,answer);await expect(s.save(org,'owner',m.id,m.version,{...draft,questions:[]})).rejects.toThrow('closed');expect((await s.publicGet(m.publication!.token)).questions[0]!.provenance).toEqual({...provenance,certifiedAt:undefined});});
+  it('rejects client-forged certification while retaining certification only for unchanged trusted questions',async()=>{const {service:s,rows}=setup();const provenance={source:'question-library' as const,sourceId:'library-q1',certifiedAt:'2026-09-25T00:00:00.000Z'};let m=await s.create(org,'owner',{...draft,questions:[{...draft.questions[0]!,provenance}]});expect(m.questions[0]!.provenance?.certifiedAt).toBeUndefined();rows.get(org+':'+m.id)!.model.questions[0]!.provenance!.certifiedAt='2026-09-25T01:00:00.000Z';m=await s.save(org,'owner',m.id,m.version,{...draft,questions:m.questions});expect(m.questions[0]!.provenance?.certifiedAt).toBe('2026-09-25T01:00:00.000Z');m=await s.save(org,'owner',m.id,m.version,{...draft,questions:[{...m.questions[0]!,title:'已修改'}]});expect(m.questions[0]!.provenance?.certifiedAt).toBeUndefined();});
+  it('handles reserved receipt names without prototype bypass',async()=>{const {service:s}=setup();let m=await s.create(org,'owner',draft);m=await s.publish(org,'owner',m.id,m.version);const input={...answer,submissionId:'__proto__'};const first=await s.submit(m.publication!.token,input);expect(await s.submit(m.publication!.token,input)).toEqual({...first,replayed:true});expect((await s.get(org,'owner',m.id)).responses).toHaveLength(1);});
+  it('rejects malformed scale definitions and out-of-options scale answers',async()=>{const {service:s}=setup();const q={...draft.questions[0]!,type:'scale' as const,options:['1','2','3']};let m=await s.create(org,'owner',{...draft,questions:[{...q,options:['1','oops']}]});await expect(s.publish(org,'owner',m.id,m.version)).rejects.toThrow('invalid_survey');m=await s.save(org,'owner',m.id,m.version,{...draft,questions:[q]});m=await s.publish(org,'owner',m.id,m.version);await expect(s.submit(m.publication!.token,{...answer,answers:[{questionId:'q1',value:'1.5'}]})).rejects.toThrow('invalid_answers');});
+  it('bounds aggregate growth while replaying existing receipts',async()=>{const {service:s,rows}=setup();let m=await s.create(org,'owner',draft);m=await s.publish(org,'owner',m.id,m.version);const first=await s.submit(m.publication!.token,answer);const record=rows.get(org+':'+m.id)!;record.model.responses=Array.from({length:10000},()=>record.model.responses[0]!);await expect(s.submit(m.publication!.token,{...answer,submissionId:'new-request-0002'})).rejects.toThrow('capacity_reached');expect(await s.submit(m.publication!.token,answer)).toEqual({...first,replayed:true});});
+  it('generates a report when small groups are suppressed but a sufficient group remains',async()=>{
+    const {service:s}=setup();const input=SurveyDraftInputSchema.parse({title:'分组',questions:[{...draft.questions[0],type:'scale',options:['1','2','3']},{...draft.questions[0],id:'group',order:2,options:['A','B']}],template:{id:'t',title:'报告',sections:[{id:'sec',title:'分组',blocks:[{id:'b',title:'均分',type:'bar',questionIds:['q1'],groupByQuestionId:'group'}]}]}});
+    let m=await s.create(org,'owner',input);m=await s.publish(org,'owner',m.id,m.version);
+    for(let i=0;i<6;i++)await s.submit(m.publication!.token,{...answer,submissionId:`group-request-${i}`,answers:[{questionId:'q1',value:'2'},{questionId:'group',value:i<5?'A':'B'}]});
+    m=await s.get(org,'owner',m.id);m=await s.report(org,'owner',m.id,m.version);expect(m.report!.issues).toEqual([]);expect(m.report!.warnings?.length).toBeGreaterThan(0);expect(m.report!.sections[0]!.blocks[0]!.rows.map(r=>r.group)).toEqual(['A']);
+  });
+  it('keeps an excluded response out of every report sample and preserves an immutable audit trail',async()=>{
+    const allSamplesDraft={...draft,template:{...draft.template,sections:[{...draft.template.sections[0]!,blocks:[{...draft.template.sections[0]!.blocks[0]!,samplePolicy:'all' as const}]}]}};
+    const {service:s}=setup();let m=await s.create(org,'owner',allSamplesDraft);m=await s.publish(org,'owner',m.id,m.version);
+    const receipt=await s.submit(m.publication!.token,answer);m=await s.get(org,'owner',m.id);
+    const governed=await (s as SurveyService & { excludeFromAnalysis(org:ReturnType<typeof toOrgId>,actor:string,id:string,version:number,responseId:string,reason:string):Promise<typeof m> }).excludeFromAnalysis(org,'owner',m.id,m.version,receipt.responseId,'测试答卷，不纳入正式分析');
+    expect(governed.responses[0]).toMatchObject({quality:'normal',analysis:'excluded',exclusionReason:'测试答卷，不纳入正式分析'});
+    expect(governed.version).toBe(m.version+1);
+    await expect(s.report(org,'owner',governed.id,governed.version)).rejects.toThrow('invalid_report');
+    const restored=await (s as SurveyService & { includeInAnalysis(org:ReturnType<typeof toOrgId>,actor:string,id:string,version:number,responseId:string):Promise<typeof m> }).includeInAnalysis(org,'owner',governed.id,governed.version,receipt.responseId);
+    expect(restored.responses[0]).toMatchObject({analysis:'included'});
+    expect(restored.responses[0]!.exclusionReason).toBeUndefined();
+    expect(restored.responses[0]!.analysisHistory).toMatchObject([
+      {analysis:'excluded',reason:'测试答卷，不纳入正式分析',actor:'owner'},
+      {analysis:'included',actor:'owner'},
+    ]);
+    await expect((s as SurveyService & { excludeFromAnalysis(org:ReturnType<typeof toOrgId>,actor:string,id:string,version:number,responseId:string,reason:string):Promise<typeof m> }).excludeFromAnalysis(org,'owner',m.id,governed.version,receipt.responseId,'陈旧写入')).rejects.toThrow('version_conflict');
+  });
+  it('rejects analysis history growth that would exceed the aggregate size limit',async()=>{
+    const {service:s,rows}=setup();let m=await s.create(org,'owner',draft);m=await s.publish(org,'owner',m.id,m.version);
+    const receipt=await s.submit(m.publication!.token,answer);m=await s.get(org,'owner',m.id);
+    rows.get(org+':'+m.id)!.model.responses[0]!.analysisHistory=[{analysis:'included',actor:'owner',changedAt:'2026-09-20T00:00:00.000Z'}];
+    rows.get(org+':'+m.id)!.model.responses[0]!.analysisHistory!.push({analysis:'excluded',reason:'x'.repeat(16*1024*1024),actor:'owner',changedAt:'2026-09-20T00:00:00.000Z'});
+    await expect((s as SurveyService & { excludeFromAnalysis(org:ReturnType<typeof toOrgId>,actor:string,id:string,version:number,responseId:string,reason:string):Promise<typeof m> }).excludeFromAnalysis(org,'owner',m.id,m.version,receipt.responseId,'不应写入')).rejects.toThrow('capacity_reached');
+  });
+  it('requires a reason whenever a response is excluded from analysis',()=>{
+    expect(SurveyResponseSchema.safeParse({
+      id:'response-1',role:'未填写',companySize:'未填写',quality:'normal',analysis:'excluded',
+      submittedAt:'2026-09-20T00:00:00.000Z',durationSeconds:1,answers:[],
+    }).success).toBe(false);
+  });
+  it('denies expired and closed links and rejects empty reports',async()=>{const {service:s,advance}=setup();let m=await s.create(org,'owner',draft);await expect(s.report(org,'owner',m.id,m.version)).rejects.toThrow('invalid_report');m=await s.publish(org,'owner',m.id,m.version);advance();await expect(s.publicGet(m.publication!.token)).rejects.toThrow('expired');await expect(s.submit(m.publication!.token,answer)).rejects.toThrow('expired');m=await s.close(org,'owner',m.id,m.version);await expect(s.publicGet(m.publication!.token)).rejects.toThrow('closed');});
+});

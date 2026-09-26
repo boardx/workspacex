@@ -16,10 +16,13 @@ import {
 import { refreshProgress } from "./lib/progress";
 import { loadHarnessConfig } from "./lib/config";
 import { resolveSpecRef } from "./lib/spec-ref";
+import { describeMissingTargets, missingVerificationTargets } from "./lib/verification-targets";
 import { sh } from "./lib/sh";
 import { req } from "./lib/args";
 import { cacheReadDisabled, computeFingerprint, currentSha, lookupCredential, recordCredential } from "./lib/verify-cache";
 import { collectChangedFiles, resolveVerifyProfile } from "./lib/verify-risk";
+import { describeSkipped, nonOwnerWriteWarning, partitionByWriteScope } from "./lib/verify-evidence-scope";
+import type { EvidenceScopeOptions } from "./lib/verify-evidence-scope";
 import { log, die } from "./lib/log";
 import type { Args } from "./lib/args";
 import type { Feature } from "./lib/types";
@@ -60,6 +63,22 @@ export async function verify(args: Args): Promise<void> {
   if (only) targets = targets.filter((f) => f.id === only);
   if (!targets.length) die("没有匹配的 feature 可验证");
 
+  // #1025（coord-main 2026-08-12 批）：只对**本次任务对象**做写操作。
+  // 旧行为把扫到的每一个 feature 的 evidence 日志覆写成本次运行的输出（失败也照写），
+  // 于是 sprint 里并存的其他 owner 的审计材料被静默替换成别人的失败日志
+  // （2026-08-12 dev-project 收口 F158 时连续覆写 F34/F50，实录见 #1025）。
+  // 默认只认 `--feature` 点名的、或 `--owner` 名下的；要动别人的必须显式 `--all`。
+  const scope: EvidenceScopeOptions = {
+    only,
+    owner: args.opts["owner"] ?? null,
+    all: args.flags["all"] === true,
+  };
+  const { inScope, skipped } = partitionByWriteScope(targets, scope);
+  const skipNote = describeSkipped(skipped, scope);
+  if (skipNote) log.warn(skipNote);
+  if (!inScope.length) die("没有属于本次任务对象的 feature 可验证（见上一行跳过说明）");
+  targets = inScope;
+
   // --backfill-evidence：仅补写已 passing feature 的真实证据日志（重跑 verification 命令），
   // 绝不改动 status —— 用于修复"verify 曾在非 --sprint 模式下运行、从未落盘证据"的历史缺口。
   // 只在 --sprint 模式下开放，因为只有这条路径才会真的落盘日志文件；--phase 裸时间戳模式
@@ -95,6 +114,34 @@ export async function verify(args: Args): Promise<void> {
       }
     }
 
+    // 0.5) 指向物存在性门控（#965）：verification 声称要跑的测试文件必须真的在仓库里。
+    //
+    // 为什么不能只靠「命令跑不绿」兜住——2026-09-21 实测，两条独立的路径都能让
+    // 「声称的测试文件不存在」一路绿到 passing：
+    //   ① vitest 的路径参数是**子串过滤器**不是文件名。
+    //      `pnpm --filter @repo/contracts exec vitest run tests/contract-shape.test.ts tests/__nope__.test.ts`
+    //      → `Test Files  1 passed (1)` **exit 0**（同一条命令只给那个不存在的路径时 exit 1）。
+    //      声称跑两个、实际跑一个，退出码看不出差别，而本函数只看退出码。
+    //   ② 命令在 agent worktree 里跑绿，测试文件却没被提交（F166 的证据日志就是这样，
+    //      见 verification-target-allowlist.json 的取证）。
+    // ⇒ 判据必须独立于退出码：先问「指向物在不在」，再谈「跑没跑绿」。
+    //
+    // 只在「正在被推向 passing」的路径上生效，跳过补写模式（isBackfill 同 spec_ref 门控的
+    // 理由：补写不重新评判，只如实记录）。还没实现的 feature 在清单里先写下将来要建的测试
+    // 路径是本仓的正常用法（`lint-verification-can-fail.mjs` 为此**故意**不查存在性），
+    // 它在这里判红不改变任何结果：那条 verification 本来就跑不绿，而失败不产生状态转移
+    // （见下方 2026-08-12 那条注释）。差别只在报错说的是哪件事——
+    // 「你声称的测试文件不存在」比 vitest 的 `No test files found` 指得准。
+    if (ok && !isBackfill) {
+      const missing = missingVerificationTargets(f);
+      if (missing.length > 0) {
+        ok = false;
+        const detail = describeMissingTargets(f.id, missing);
+        logs.push(`[VERIFICATION_TARGET]\n${detail}`);
+        log.err(detail);
+      }
+    }
+
     // 1) 逐条执行 feature.verification
     if (ok) {
       for (const cmd of f.verification) {
@@ -116,6 +163,8 @@ export async function verify(args: Args): Promise<void> {
       // 留给人工核实这条 passing 判定当初是否有效。
       const ev = join(sprintDir(phaseId, sprintId!), "evidence", `${f.id}.verify.log`);
       writeFileSync(ev, appendFingerprint(logs.join("\n\n")), "utf8");
+      const backfillWarning = nonOwnerWriteWarning(f, scope, ok);
+      if (backfillWarning) log.warn(backfillWarning);
       f.evidence = `evidence/${f.id}.verify.log @ ${new Date().toISOString()}${ok ? "" : " [BACKFILL: 重跑未通过，请人工核实]"}`;
       if (ok) log.ok(`${f.id} 补写证据完成，重跑通过`);
       else log.err(`${f.id} 补写时重跑未通过——status 不变，已在 evidence 中标注，需人工核实`);
@@ -178,9 +227,13 @@ export async function verify(args: Args): Promise<void> {
     }
 
     // 3) 证据落盘到 sprint evidence
+    //    这里写的一定是本次任务对象（作用域在循环外已按 #1025 收窄）；
+    //    经 --all / --feature 写到别人名下且未通过时，额外出声提醒。
     if (sprintId) {
       const ev = join(sprintDir(phaseId, sprintId), "evidence", `${f.id}.verify.log`);
       writeFileSync(ev, appendFingerprint(logs.join("\n\n")), "utf8");
+      const warning = nonOwnerWriteWarning(f, scope, ok);
+      if (warning) log.warn(warning);
     }
 
     if (ok) {

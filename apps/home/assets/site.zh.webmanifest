@@ -1,0 +1,22 @@
+{
+  "name": "WorkspaceX — 面向人与 AI 的开放协作运行空间",
+  "short_name": "WorkspaceX",
+  "description": "WorkspaceX 是把上下文、智能体、行动、证据与记忆连成一条链的运行层——让意图变成工作，让工作留下证据。",
+  "lang": "zh-Hans",
+  "start_url": "/zh/",
+  "display": "standalone",
+  "background_color": "#08070b",
+  "theme_color": "#08070b",
+  "icons": [
+    {
+      "src": "img/favicon.png",
+      "sizes": "32x32",
+      "type": "image/png"
+    },
+    {
+      "src": "img/apple-touch-icon.png",
+      "sizes": "180x180",
+      "type": "image/png"
+    }
+  ]
+}

@@ -304,7 +304,8 @@ export default defineConfig({
        *     都看见了，run 一结束全部消失、刷新后一个也没有」。PR #3248 修了它，但修它
        *     的是一条单元测试；这是它在浏览器这一层的门。
        *   · **C2** `c2-canvas-fence-identity` —— #3252 同一消息内两个同模板画布互相
-       *     认领保存版。**当前未修**，按既有先例挂 `test.fixme`（不删、不改宽、不 skip）。
+       *     认领保存版。当初按既有先例挂 `test.fixme`（不删、不改宽、不 skip）；围栏级
+       *     身份补上后（2026-09-21）按说好的转回真断言，现在是这条缺陷的回归门。
        *   · **D1** `d1-failed-tool-card-status` —— #3204 ① 失败工具卡发绿勾。轨迹面板
        *     那一半已修（这条是回归门），实时消息流那一半仍在（挂 `test.fixme`）。
        */
@@ -314,7 +315,7 @@ export default defineConfig({
        * 三条真实缺陷（#3186 / #3207 / #3244 ①）里有一条至今未修，首跑很可能红，
        * 那正是这条车道存在的意义（红是意外，但意外要能被看见）。
        */
-      testMatch: /chat-path-(f2-network-drop-reconnect|c6-office-artifacts|c8-subtask-artifact-writeback|f5-cancel-propagates-to-subtask|c1-canvas-survives-run-finalization|c2-canvas-fence-identity|d1-failed-tool-card-status|f1-failure-cause-distinguishable|f3-pause-resume-retry-step|ab-hitl-continuity)\.spec\.ts$/,
+      testMatch: /(deepagent-plan-execute-reliability|chat-run-always-lands|chat-path-(f2-network-drop-reconnect|c6-office-artifacts|c8-subtask-artifact-writeback|f5-cancel-propagates-to-subtask|c1-canvas-survives-run-finalization|c2-canvas-fence-identity|d1-failed-tool-card-status|f1-failure-cause-distinguishable|f3-pause-resume-retry-step|ab-hitl-continuity))\.spec\.ts$/,
     },
     {
       /**
@@ -384,7 +385,7 @@ export default defineConfig({
        * 里各跑一遍、白付一份自建 runner 的钱。
        */
       name: "chat-task-workbench",
-      testMatch: /chat-task-workbench-(workflow-states|inspector|approval|tool-events|p1-efficiency|a11y)\.spec\.ts$/,
+      testMatch: /(chat-task-workbench-(workflow-states|inspector|approval|tool-events|p1-efficiency|a11y)|chat-ux-eval)\.spec\.ts$/,
     },
   ],
   fullyParallel: false,

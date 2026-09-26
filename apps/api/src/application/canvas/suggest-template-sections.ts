@@ -20,10 +20,10 @@ import type { ModelCallPort } from "../agent-run/ports";
 import { ModelCallError } from "../agent-run/ports";
 import type { IdentityRepository } from "../identity/ports";
 import { extractJson } from "../research/guided-structured-json";
+import { canvasTemplateModelConfig } from "./canvas-template-model-config";
 import { CanvasError } from "./errors";
 import { requireTemplateAdmin } from "./template-admin";
 
-export const SUGGEST_TEMPLATE_SECTIONS_MODEL_ID = "qwen3.7-plus";
 
 type ModelResponse = z.infer<typeof canvas.TemplateSectionSuggestionModelResponse>;
 
@@ -47,7 +47,7 @@ export interface SuggestedTemplateSections {
     readonly why?: string;
   }[];
   readonly modelProvider: string;
-  readonly modelId: typeof SUGGEST_TEMPLATE_SECTIONS_MODEL_ID;
+  readonly modelId: string;
 }
 
 export async function suggestTemplateSections(
@@ -57,16 +57,13 @@ export async function suggestTemplateSections(
   // 与其余五个 canvas 模板写操作同一个判定函数——见 `template-admin.ts` 文件头。
   await requireTemplateAdmin({ identity: deps.identity }, input);
 
-  const modelProvider = deps.modelProvider
-    ?? process.env.KERNEL_CANVAS_TEMPLATE_MODEL_PROVIDER
-    ?? process.env.KERNEL_MODEL_PROVIDER
-    ?? "";
+  const { provider: modelProvider, id: modelId } = canvasTemplateModelConfig(deps.modelProvider);
 
   let completion: { readonly text: string };
   try {
     completion = await deps.model.complete({
       modelProvider,
-      modelId: SUGGEST_TEMPLATE_SECTIONS_MODEL_ID,
+      modelId,
       system: [
         "You help draft workshop canvas templates (like Business Model Canvas, SWOT, PESTEL).",
         "The user names a commonly known template or framework, possibly in Chinese.",
@@ -102,6 +99,6 @@ export async function suggestTemplateSections(
     suggestedDisplayName: parsed.displayName,
     sections: parsed.sections,
     modelProvider,
-    modelId: SUGGEST_TEMPLATE_SECTIONS_MODEL_ID,
+    modelId,
   };
 }

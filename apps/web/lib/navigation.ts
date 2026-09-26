@@ -82,38 +82,64 @@ export interface NavSegment {
 }
 
 /**
- * 「海创汇」入口的**名字**（2026-09-15 人类直接要求：Nav App 名从「智能体」改成这个）。
+ * 一级导航的**可见性判据**（2026-09-20 人类直接要求：「只有平台管理员可以看到平台管理
+ * 菜单，至于组织管理员才可以看到组织管理后台」）。
  *
- * ⚠ 放在这里而不是 `lib/mock/agent-previews.ts`：`tests/session/*-route-no-mock.test.ts`
- *   有一份「残留 mock 边台账」，导航是真实路由图的一部分，不许挂到 `lib/mock/` 上——
- *   从那里 import 会让台账多一条边而变红。示例 team 数据仍留在 mock 文件里（它本来
- *   就是示例），页面从这里取名字、从 mock 取数据，名字仍然只有这一份。
- */
-export const AGENTS_NAV_LABEL = "海创汇";
-
-/**
- * 「海创汇」入口的可见性（2026-09-15 人类直接要求：只有 Workspace 的组织才显示这个标签）。
+ * ⚠ 这是**展示过滤，不是权限**（UC-0.3 R5：前端隐藏即安全是禁止的）。真正的门在服务端：
+ *   平台面的每条接口挂 `PlatformOperatorGuard`（403 `NOT_PLATFORM_SUPERUSER`），组织面的
+ *   写操作要本组织 admin。菜单藏起来只决定「会不会被引导过去」——直接敲 URL 进那些屏，
+ *   它们仍然各自渲染「仅平台运维可见 / 仅组织管理员可见」的说明，而不是把数据给你。
  *
- * ⚠ 这是**展示过滤，不是权限**（UC-0.3 R5：前端隐藏即安全是禁止的）。路由 `/agent`
- *   本身仍然可直达，它只是一组只读示例卡片；真实能力门控在服务端。
+ * ⚠ 判据集中在这一张表里，不写进 `IconRail`：同一条「谁看得见什么」若在渲染处各写一份，
+ *   下一个入口（顶栏、移动端抽屉、命令面板）必然漂移（AGENTS.md：同一事实不得声明在两处）。
  */
-export const AGENTS_NAV_ORG_NAME = "Workspace";
-
-export function isAgentsNavVisibleForOrg(orgName: string | null | undefined): boolean {
-  return (orgName ?? "").trim().toLowerCase() === AGENTS_NAV_ORG_NAME.toLowerCase();
+export interface NavViewer {
+  /** 当前组织名。 */
+  orgName: string | null | undefined;
+  /** 当前登录者在当前组织里的组织角色；`null` = 还没解析出来（保守按非 admin 处理）。 */
+  orgRole?: string | null;
+  /**
+   * 平台运营准入（平台超管或落库的平台管理员），来自 `GET /platform/access`
+   * （契约 `platformMembers.getPlatformAccess`）。`undefined` = 还在查
+   * ⇒ **先不画**平台后台入口：菜单闪现一下再消失比晚出现半秒更糟，
+   * 而"多画了一个点进去就 403 的入口"正是本次要修的东西。
+   */
+  platformOperator?: boolean;
 }
 
-/** 受组织可见性约束的一级入口；其余入口对所有组织一视同仁。 */
-const ORG_SCOPED_NAV_KEYS: Record<string, (orgName: string | null | undefined) => boolean> = {
-  agents: isAgentsNavVisibleForOrg,
+/** 受可见性约束的一级入口；未列出的入口对所有人一视同仁。 */
+const SCOPED_NAV_KEYS: Record<string, (viewer: NavViewer) => boolean> = {
+  // 「组织后台」= 本组织的总览/成员配额/本地组织，面向组织管理员。
+  admin: (v) => v.orgRole === "admin",
+  // 「平台后台」= 全平台账号与运营，面向平台运维（平台超管或平台管理员），与组织角色无关。
+  "platform-admin": (v) => v.platformOperator === true,
+  /*
+   * ⚠ 留给人类的一个**已知取舍**（不是疏漏）：2026-09-02 的裁决把「AI 能力」六项
+   *   （Agent / 模型 / MCP / Skill / 画布模板 / 项目模板）归进了平台后台这一面，但明确
+   *   写着「数据读取与写权限没有改：目录仍按登录者所在组织走 RLS、写操作仍要组织 admin」
+   *   （见 `lib/mock/admin.ts` 的 AI 能力组注）。于是本条判据一上，**组织管理员就失去了
+   *   进入那六项的菜单入口**——路由本身没下线（敲 URL 仍可用、服务端授权面一字未改），
+   *   但界面上找不到了。
+   *   把那六项搬回组织面是一次新的信息架构决定（会与 2026-09-02 那条人类裁决打架），
+   *   agent 不自行裁；本轮先按 2026-09-20 的要求把菜单可见性修对，这条取舍记在这里。
+   */
 };
 
-/** 按当前组织过滤一级导航（空组则整段不渲染）。渲染方一律走这里，不要各自写判断。 */
-export function navSegmentsForOrg(orgName: string | null | undefined): NavSegment[] {
+/** 按当前登录者过滤一级导航（空组则整段不渲染）。渲染方一律走这里，不要各自写判断。 */
+export function navSegmentsForViewer(viewer: NavViewer): NavSegment[] {
   return NAV_SEGMENTS.map((seg) => ({
     ...seg,
-    items: seg.items.filter((item) => ORG_SCOPED_NAV_KEYS[item.key]?.(orgName) ?? true),
+    items: seg.items.filter((item) => SCOPED_NAV_KEYS[item.key]?.(viewer) ?? true),
   })).filter((seg) => seg.items.length > 0);
+}
+
+/**
+ * 只按组织名过滤的既有入口 —— `navSegmentsForViewer` 的特例（组织角色与平台准入都未知）。
+ * ⚠ 未知 ⇒ 组织后台与平台后台都**不画**：这个重载只剩既有测试与不知道登录者是谁的
+ *   调用方在用，而"不知道你是谁"时给出一个治理入口正是本次修的缺陷。
+ */
+export function navSegmentsForOrg(orgName: string | null | undefined): NavSegment[] {
+  return navSegmentsForViewer({ orgName });
 }
 
 export const NAV_SEGMENTS: NavSegment[] = [
@@ -136,6 +162,8 @@ export const NAV_SEGMENTS: NavSegment[] = [
   {
     label: "STUDIO",
     items: [
+      // #3902: 独立白板入口，不替代后台画布模板管理。
+      { key: "whiteboard", label: "Board", href: "/studio/board", icon: Shapes, ucRefs: [], isPrototype: true },
       // 束: research（研究 Studio · M24）—— 重指到本束现行屏 /research（顶层）。
       //   旧值 /studio/research 渲染的是 UC-0.2 Context Pack（语义不同），二者共用一条路由
       //   是 requirements/24-research/OPEN-QUESTIONS.md 的 Q-2（阻塞级·未裁）。此处只做**最小可逆**
@@ -144,13 +172,6 @@ export const NAV_SEGMENTS: NavSegment[] = [
       { key: "research", label: "研究", href: "/research", icon: Search, ucRefs: ["24-research/uc-24-1", "24-research/uc-24-2", "24-research/uc-24-3", "24-research/uc-24-4", "24-research/uc-24-5", "24-research/uc-24-6"] },
       // 束: interview —— 重指到 v2 现行屏 /itv（label/icon 不变，像素不变；旧 /studio/interview 已重定向）
       { key: "interview", label: "访谈", href: "/itv", icon: Mic, ucRefs: ["06-itv/uc-6-1", "06-itv/uc-6-3"] },
-      // #3602：用户明确新增的展示入口；后台 agent-runtime 管理入口保持独立。
-      // 2026-09-15 人类直接要求：标签改为「海创汇」（文案单一事实源在
-      // `lib/mock/agent-previews.ts` 的 `AGENTS_NAV_LABEL`，页面与导航共用同一个常量），
-      // 且**只对 Workspace 组织显示**——可见性判定在 `isAgentsNavVisibleForOrg`（本文件下方），
-      // 由 `components/shell/icon-rail.tsx` 在渲染时过滤。条目本身留在 NAV_SEGMENTS 里，
-      // 不做成"第二份导航表"：同一入口只声明一次，可见性是它的一个属性，不是另一张表。
-      { key: "agents", label: AGENTS_NAV_LABEL, href: "/agent", icon: Bot, ucRefs: [] },
       // 束: recording —— 现场录音转写，此前只能敲 /rec
       { key: "recording", label: "录音", href: "/rec", icon: AudioLines, ucRefs: ["05-rec/uc-5-1", "05-rec/uc-5-2"] },
       { key: "survey", label: "问卷", href: "/studio/survey", icon: ClipboardList, ucRefs: ["12-survey/uc-12-1"] },
@@ -182,7 +203,9 @@ export const NAV_SEGMENTS: NavSegment[] = [
   {
     label: "能力",
     items: [
-      { key: "brain", label: "大脑", href: "/brain", icon: Brain, ucRefs: ["14-brain/uc-14-6"] },
+      // 2026-09-24 起 /brain 只读真实记忆（个人空间 + 各对话的记忆计数），不再承载 uc-14-6 的 Context Pack 审查；
+      // phase-18 的 UC 直接放在 requirements/ 下（没有 NN-模块 子目录），故以阶段目录名作前缀。
+      { key: "brain", label: "大脑", href: "/brain", icon: Brain, ucRefs: ["phase-18-org-brain-knowledge-graph/uc-18-4", "phase-18-org-brain-knowledge-graph/uc-18-3"] },
       { key: "tasks", label: "任务", href: "/tasks", icon: ListTodo, ucRefs: ["11-board/uc-11-1"] },
     ],
   },
@@ -310,6 +333,13 @@ export const NAV_SEGMENTS: NavSegment[] = [
           // ucRefs 如实留空：本 phase 判据单一事实源是 requirements/*.md 的 R12，不是
           // UC 文档编号体系，编一个假引用比留空更糟。
           { key: "agent-kernel", label: "Agent 内核预览", href: "/preview/agent-kernel", icon: Cpu, ucRefs: [], isPrototype: true },
+          // 束: chat-knowledge-graph（phase-18 组织大脑 × 知识图谱，chat session 先行，2026-09-24 建）。
+          // ⚠ 同 agent-kernel 先例：本轮只出签核材料（design-signoff.md status: pending），未接实现——
+          //   落地后知识面板挂在 `/chat` 会话右侧栏「知识」tab，不是独立页面。
+          //   `/preview/chat-knowledge-graph` 是签核用的静态原型屏（ui-prototyper 交付，
+          //   `phases/phase-18-org-brain-knowledge-graph/ui-preview/chat-knowledge-graph/` 21 张截图），
+          //   供 lint-nav-reachability 判可达用；接线落地后这一行应改指向 /chat，非遗漏。
+          { key: "chat-knowledge-graph", label: "知识图谱预览", href: "/preview/chat-knowledge-graph", icon: Brain, ucRefs: ["uc-18-3"], isPrototype: true },
           // 束: canvas（画布 hub，六屏切换，默认落在 `template-admin`）
           // ✅ 已从后台导航移除（与「画布模板」`/admin/canvasadmin` 去重）。原型本来的设计
           //   就说"画布从议程进，不占一级"——即它天然应该是**项目内上下文入口**，不是全局
@@ -345,7 +375,6 @@ export const NAV_SEGMENTS: NavSegment[] = [
 ];
 
 /* ────────────────────────────────────────────────────────────────────────────
- * #3602 更新：历史规则约束后台管理入口；用户现授权独立的 /agent 展示页进入 STUDIO。
  * 2026-08-06 · issue #593 · 信息架构复位（一级 ↔ 二级）
  *
  * 病：一级导航里跟「对话」平级地挂着 蓝本 / 技能 / 智能体 / 成员 / 资产。

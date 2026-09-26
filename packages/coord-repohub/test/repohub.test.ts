@@ -208,6 +208,90 @@ describe("F06 andon 状态 + 投影游标", () => {
     expect((raised[0]!["payload"] as Record<string, unknown>)["severity"]).toBe("stop-merge");
   });
 
+  // #376：投影发件箱——追加式动作（issue 评论）的持久幂等键。
+  // 持久性是这套去重的全部前提：键只活在 Worker 内存里，DO 一换实例就重复满天飞。
+  it("投影发件箱：登记后跨请求可查回；重复登记幂等；未登记的键查不到", async () => {
+    const K1 = "issue_comment:issue:376:event:evt_out1";
+    const K2 = "issue_comment:issue:376:event:evt_out2";
+
+    const before = await (await post("/projector/outbox/delivered", { keys: [K1, K2] }))
+      .json<{ delivered: string[] }>();
+    expect(before.delivered).toEqual([]);
+
+    const rec = await (await post("/projector/outbox/record", { key: K1 })).json<{ duplicate: boolean }>();
+    expect(rec.duplicate).toBe(false);
+    // 重复登记不报错、也不新增行（apply 的 record() 语义要求幂等）
+    const again = await (await post("/projector/outbox/record", { key: K1 })).json<{ duplicate: boolean }>();
+    expect(again.duplicate).toBe(true);
+
+    const after = await (await post("/projector/outbox/delivered", { keys: [K1, K2] }))
+      .json<{ delivered: string[] }>();
+    expect(after.delivered).toEqual([K1]); // 只有已投递的那个，K2 仍要发
+  });
+
+  // 显式超时 30s（默认 5s）来自 #3907，这里保留不动——它当余量用。
+  // #3907 写它时，这条还是顺序打 125 次 DO 往返、本机独跑 ~0.9s 且毫无余量，
+  // 在 CI 上 5017ms 超时红过。本 PR 换掉了前置数据的打法（本机 ~26ms），
+  // 30s 实际不会再被用到；但慢机器上留一道余量没有坏处，所以不撤 #3907 的决定。
+  it("投影发件箱：键数超过单条 IN 的分块大小仍能全量查回（分块查询回归）", async () => {
+    const keys = Array.from({ length: 250 }, (_, i) => `issue_comment:issue:376:event:evt_bulk_${i}`);
+    const recorded = keys.filter((_, i) => i % 2 === 0);
+    // 本条断言的是 **outboxDelivered 的分块查回**（键数 > OUTBOX_QUERY_CHUNK），
+    // 那 125 条登记只是前置数据。早先逐条走 HTTP 登记 = 125 次 worker 请求派发，
+    // 本地 ~0.9s，CI 上超过 vitest 默认 5s testTimeout 而红（#3826 实测 8 次）。
+    // 现在只用公开接口登记首尾两条（证明公开写入与下面直插同一张表、能被同一条查询查回），
+    // 其余直插存储——与本文件「保留窗口」那条用例同样的 runInDurableObject + SQL 写法。
+    // outboxRecord 自身的行为（幂等 / 422 / 保留窗口）由本 describe 的另外两条用例覆盖。
+    const viaApi = [recorded[0]!, recorded.at(-1)!];
+    for (const k of viaApi) {
+      expect((await post("/projector/outbox/record", { key: k })).status).toBe(200);
+    }
+    const bulk = recorded.filter((k) => !viaApi.includes(k));
+    await runInDurableObject(
+      env.REPOHUB.get(env.REPOHUB.idFromName("boardx/workspacex")),
+      async (_i: unknown, state: DurableObjectState) => {
+        for (const k of bulk) {
+          state.storage.sql.exec(
+            `INSERT INTO projection_outbox (idem_key, delivered_at) VALUES (?,?)`,
+            k, new Date().toISOString(),
+          );
+        }
+      },
+    );
+    const { delivered } = await (await post("/projector/outbox/delivered", { keys }))
+      .json<{ delivered: string[] }>();
+    expect(delivered.sort()).toEqual(recorded.slice().sort());
+  }, 30_000);
+
+  it("投影发件箱：坏输入 422（keys 非数组 / key 空）", async () => {
+    expect((await post("/projector/outbox/delivered", { keys: "nope" })).status).toBe(422);
+    expect((await post("/projector/outbox/record", { key: "" })).status).toBe(422);
+    expect((await post("/projector/outbox/delivered", {
+      keys: Array.from({ length: 1001 }, (_, i) => `k${i}`),
+    })).status).toBe(422);
+  });
+
+  it("投影发件箱：保留窗口外的行在 alarm 里被清掉（同 deliveries，防 DO 无界增长）", async () => {
+    const OLD = "issue_comment:issue:376:event:evt_ancient";
+    await post("/projector/outbox/record", { key: OLD });
+    const stub = env.REPOHUB.get(env.REPOHUB.idFromName("boardx/workspacex"));
+    await runInDurableObject(stub, async (_i: unknown, state: DurableObjectState) => {
+      state.storage.sql.exec(
+        `UPDATE projection_outbox SET delivered_at='2000-01-01T00:00:00Z' WHERE idem_key=?`, OLD,
+      );
+    });
+    // 借一次租约到期把 alarm 排上并立即执行（清理挂在同一个 alarm 里）
+    const lease = await (await post("/claims", claimBody("wrk-outbox-gc", "issue:37600"))).json<Record<string, unknown>>();
+    await runInDurableObject(stub, async (_i: unknown, state: DurableObjectState) => {
+      state.storage.sql.exec(`UPDATE leases SET expires_at='2000-01-01T00:00:00Z' WHERE lease_id=?`, lease["lease_id"]);
+    });
+    expect(await runDurableObjectAlarm(stub)).toBe(true);
+
+    const { delivered } = await (await post("/projector/outbox/delivered", { keys: [OLD] }))
+      .json<{ delivered: string[] }>();
+    expect(delivered).toEqual([]);
+  });
+
   it("投影游标：初始 null → PUT 后可读回；坏 cursor 422", async () => {
     const empty = await (await SELF.fetch(`${BASE}/projector/cursor`)).json<{ cursor: string | null }>();
     expect(empty.cursor).toBeNull();

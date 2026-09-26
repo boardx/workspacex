@@ -449,8 +449,36 @@
 }
 
 @media print {
+  /*
+   * The report root can be nested inside AppShell's `h-dvh overflow-hidden`
+   * shell and the workflow's `overflow-y-auto` main. Hiding those ancestors
+   * with `visibility: hidden` alone still leaves them sized/clipped as
+   * flex/scroll containers, which truncates or offsets long (4k-8k char)
+   * reports in the printed PDF. Reset height/overflow/layout on every
+   * ancestor chain we know the report can be mounted under, not just the
+   * report root itself.
+   */
+  html:has(body[data-print-interview-report="true"]),
+  body[data-print-interview-report="true"] {
+    height: auto !important;
+    overflow: visible !important;
+  }
+
   body[data-print-interview-report="true"] * {
     visibility: hidden;
+  }
+
+  body[data-print-interview-report="true"] [data-testid="app-shell"],
+  body[data-print-interview-report="true"] [data-testid="shell-main"],
+  body[data-print-interview-report="true"] .print-interview-report-ancestor {
+    display: block !important;
+    position: static !important;
+    height: auto !important;
+    max-height: none !important;
+    min-height: 0 !important;
+    width: auto !important;
+    overflow: visible !important;
+    flex: none !important;
   }
 
   body[data-print-interview-report="true"] .print-interview-report-root,
@@ -459,12 +487,18 @@
   }
 
   body[data-print-interview-report="true"] .print-interview-report-root {
-    position: absolute;
-    inset: 0;
-    width: 100%;
-    padding: 24mm 20mm;
+    position: static;
+    display: block;
+    width: auto;
+    min-height: auto;
+    overflow: visible;
+    padding: 0;
     color: #111827;
     background: white;
+  }
+
+  body[data-print-interview-report="true"] .print-interview-report-root .break-inside-avoid {
+    break-inside: avoid;
   }
 }
 

@@ -167,7 +167,10 @@ export async function bindScopedAgentRequest(
 
 /** GET /tasks 的收件箱可见性绑定（F10-pre，语义等价 coord-service inbox_is_private）：
  *  scoped token 只能查自己的收件箱——assignee 缺省注入 token 身份；指定他人或 `*`
- *  一律 403。ops 万能钥匙与 admin 面不受限（协调层可查任何人/列全队，#706）。 */
+ *  一律 403。ops 万能钥匙与 admin 面不受限（协调层可查任何人/列全队，#706）。
+ *  ⚠ 本函数只认 token 形态，不查 Directory：协调层 scoped token 的例外由调用方
+ *  （index.ts handleRest）在拿到本函数的 403 之后用 coordinatorOfPrincipal 复核，
+ *  worker 的 inbox_is_private 语义因此原样保留（#480 §3）。 */
 export function bindScopedInboxQuery(
   search: URLSearchParams,
   principal: RepoPrincipal,
@@ -189,8 +192,10 @@ export function bindScopedInboxQuery(
 export function isAllowedRestSubpath(method: string, sub: string): boolean {
   if (sub === "/claims") return true; // GET 列表 / POST 认领
   // tasks 收件箱（F10-pre）：GET 轮询 + ack/complete 归 scoped 面；
-  // POST /tasks（派工）、/tasks/:id/recall（撤回）、/tasks/import（割接导入）
-  // 是 COORD_ADMIN_TOKEN 管理面（index.ts 先行路由），普通透传一律 404
+  // POST /tasks（派工）、/tasks/:id/recall（撤回）走 dispatch-authz 的分层门
+  // （admin token 或协调层 scoped token + areas 范围判定，#480），
+  // /tasks/import（割接导入）仍是 admin 独占——三者都由 index.ts 先行路由，
+  // 普通透传一律 404
   if (sub === "/tasks") return method === "GET";
   if (/^\/tasks\/\d+\/(ack|complete)$/.test(sub)) return method === "POST";
   if (/^\/claims\/[^/]+\/(heartbeat|release)$/.test(sub)) return method === "POST";

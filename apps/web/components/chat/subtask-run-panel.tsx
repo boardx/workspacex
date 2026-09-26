@@ -1,4 +1,5 @@
 "use client";
+import { scrollToAnchor } from "@/lib/chat-workbench/scroll-to-anchor";
 import * as React from "react";
 import {
   AlertTriangle, Ban, CheckCircle2, ChevronRight, Loader2, RotateCcw,
@@ -89,14 +90,9 @@ export function SubtaskRunPanel({
     setFocusId(id);
     setJustCompletedIds((v) => v.filter((x) => x !== id));
     // 展开是同步 state 更新，实际卡片下一帧才挂载——排到微任务之后再找元素。
-    queueMicrotask(() => {
-      const el = document.querySelector(`[data-subtask-id="${CSS.escape(id)}"]`);
-      // jsdom（组件测试环境）没有实现 `scrollIntoView`——真实浏览器才有，做特性检测
-      // 而不是假设它总存在，避免测试环境里一个纯 UX 细节抛出未捕获异常。
-      if (el && "scrollIntoView" in el && typeof el.scrollIntoView === "function") {
-        el.scrollIntoView({ block: "nearest", behavior: "smooth" });
-      }
-    });
+    // 实现搬进 `lib/chat-workbench/scroll-to-anchor.ts`（产物详情的「跳到原消息」
+    // 是第二个调用方；同一事实不留两份写法，含那条 jsdom 特性检测）。
+    queueMicrotask(() => { scrollToAnchor("data-subtask-id", id); });
   }
 
   return (

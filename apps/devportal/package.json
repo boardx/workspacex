@@ -2,26 +2,31 @@
   "name": "@repo/devportal",
   "version": "0.1.0",
   "private": true,
+  "license": "UNLICENSED",
   "scripts": {
     "dev": "next dev -p 3400",
     "build": "next build",
-    "pages:build": "next-on-pages",
+    "pages:build": "next-on-pages && node scripts/assert-worker-routes.mjs",
     "typecheck": "tsc --noEmit",
     "lint": "node scripts/check-token-contrast.mjs",
     "test": "vitest run --passWithNoTests",
     "e2e": "playwright test"
   },
   "dependencies": {
+    "@fontsource-variable/inter": "5.2.5",
+    "@fontsource-variable/jetbrains-mono": "5.3.0",
+    "@fontsource-variable/newsreader": "5.2.5",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "jose": "^5.9.6",
     "next": "14.2.15",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
+    "react-markdown": "^9.0.1",
+    "remark-gfm": "^4.0.0",
     "tailwind-merge": "^2.5.2",
     "yaml": "^2.5.0",
-    "react-markdown": "^9.0.1",
-    "remark-gfm": "^4.0.0"
+    "@repo/coord-access": "workspace:*"
   },
   "devDependencies": {
     "@cloudflare/next-on-pages": "1.13.12",

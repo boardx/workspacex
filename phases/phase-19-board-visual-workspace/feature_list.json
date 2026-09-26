@@ -1,0 +1,797 @@
+{
+  "phase": "19",
+  "features": [
+    {
+      "id": "BV01",
+      "priority": 1,
+      "area": "board-renderer",
+      "capability": "CAP-WEB",
+      "title": "全屏 Fabric 主画布与无限 viewport",
+      "spec_ref": "01-fabric-surface.md#R3",
+      "user_visible_behavior": "用户进入 /studio/board/:boardId 时看到全屏 Fabric.js 主画布，可用鼠标、触控板和 viewport 控件执行 5%–800% 缩放、平移、Fit selection 与 Fit Board；Board 对象不再由绝对定位 DOM/SVG 充当主渲染表面。",
+      "status": "not_started",
+      "sprint": null,
+      "owner": null,
+      "depends_on": [],
+      "points": 5,
+      "wave": 1,
+      "design_ref": "ui-preview/board-fabric-surface/s01-fabric-board.png",
+      "verification": [
+        "pnpm --filter web exec vitest run tests/ui/board-fabric-surface.test.tsx",
+        "pnpm --filter web exec playwright test -c playwright.config.ts -g 'fabric surface viewport'"
+      ],
+      "evidence": "",
+      "notes": "Iteration 1 / foundation；has_ui=true。共享热点 apps/web/components/whiteboard/fabric/board-fabric-surface.tsx、Board route shell；与 BV02/BV03 串行合并。"
+    },
+    {
+      "id": "BV02",
+      "priority": 1,
+      "area": "board-renderer",
+      "capability": "CAP-WEB",
+      "title": "Yjs 到 Fabric 的增量对象投影注册表",
+      "spec_ref": "01-fabric-surface.md#R7",
+      "user_visible_behavior": "本地或远端 Y.Doc 对象变化时，Fabric 画布按稳定 object id 增量 add/patch/remove/reorder；单个坏对象显示可恢复占位，其他对象保持可见可编辑，1000 次 patch 不触发整板 clear/loadFromJSON。",
+      "status": "not_started",
+      "sprint": null,
+      "owner": null,
+      "depends_on": [
+        "BV01"
+      ],
+      "points": 5,
+      "wave": 1,
+      "design_ref": "ui-preview/board-fabric-surface/s01-fabric-board.png",
+      "verification": [
+        "pnpm --filter web exec vitest run tests/ui/board-fabric-projection-registry.test.ts",
+        "pnpm --filter web exec playwright test -c playwright.config.ts -g 'fabric incremental projection'",
+        "pnpm --filter web exec vitest run tests/performance/board-fabric-1k-no-clear.test.ts"
+      ],
+      "evidence": "",
+      "notes": "Iteration 1 / foundation；has_ui=true。共享热点 apps/web/components/whiteboard/fabric/board-fabric-adapter.ts、whiteboard-core/Yjs adapter；严禁持久化 Fabric JSON。"
+    },
+    {
+      "id": "BV03",
+      "priority": 1,
+      "area": "board-renderer",
+      "capability": "CAP-WEB",
+      "title": "Fabric 手势命令桥、回声抑制与对象大纲",
+      "spec_ref": "01-fabric-surface.md#R12",
+      "user_visible_behavior": "用户移动、缩放、旋转或编辑 Fabric 对象时，每个完成手势只产生一个领域 operation/Yjs transaction；远端回放不反向生成重复命令，React 对象大纲以同一 object id 同步选择和 readonly 状态。",
+      "status": "not_started",
+      "sprint": null,
+      "owner": null,
+      "depends_on": [
+        "BV02"
+      ],
+      "points": 5,
+      "wave": 1,
+      "design_ref": "ui-preview/board-fabric-surface/s01-fabric-board.png",
+      "verification": [
+        "pnpm --filter web exec vitest run tests/ui/board-fabric-event-command-bridge.test.ts tests/ui/board-a11y-mirror.test.tsx",
+        "pnpm --filter web exec playwright test -c playwright.config.ts -g 'fabric yjs echo suppression'"
+      ],
+      "evidence": "",
+      "notes": "Iteration 1 / foundation；has_ui=true。共享热点 board-fabric-events.ts、board-a11y-mirror.tsx、whiteboard command adapter；无障碍完整键盘能力由 BV31 收口。"
+    },
+    {
+      "id": "BV04",
+      "priority": 2,
+      "area": "board-authoring",
+      "capability": "CAP-WEB",
+      "title": "Sticky 与 Text 直接编辑和三种尺寸模式",
+      "spec_ref": "02-object-authoring.md#R3",
+      "user_visible_behavior": "编辑者可创建 Sticky/Text 后立即输入，设置方形/矩形/圆形、颜色、字号和文字层级，并在 normal、free、auto-height 三种 resize 模式间切换；IME composition、RTL 与长文本编辑不误提交。",
+      "status": "not_started",
+      "sprint": null,
+      "owner": null,
+      "depends_on": [
+        "BV03"
+      ],
+      "points": 5,
+      "wave": 2,
+      "design_ref": "ui-preview/board-fabric-surface/s01-fabric-board.png",
+      "verification": [
+        "pnpm --filter web exec vitest run tests/ui/board-sticky-text-editing.test.tsx tests/ui/board-sticky-resize-modes.test.ts",
+        "pnpm --filter web exec playwright test -c playwright.config.ts -g 'sticky text IME'"
+      ],
+      "evidence": "",
+      "notes": "Iteration 2 / core；has_ui=true。共享热点 Fabric sticky/text factories、textSplice command、inline editor；文字继续以领域/Y.Text 数据为事实源。"
+    },
+    {
+      "id": "BV05",
+      "priority": 2,
+      "area": "board-authoring",
+      "capability": "CAP-WEB",
+      "title": "连续便利贴、删除与基础 Undo/Redo",
+      "spec_ref": "02-object-authoring.md#R12",
+      "user_visible_behavior": "用户双击空白或按 N 后 TTFI 小于 5 秒，并在 30 秒内连续创建至少 10 张便利贴；Tab 按 24px 邻近方向继续，创建、编辑、移动和 Delete 删除均可基础 Undo/Redo；粘贴多行内容可用一次批量 transaction 创建 500 张有稳定顺序的便利贴。",
+      "status": "not_started",
+      "sprint": null,
+      "owner": null,
+      "depends_on": [
+        "BV04"
+      ],
+      "points": 5,
+      "wave": 2,
+      "design_ref": "ui-preview/board-fabric-surface/s01-fabric-board.png",
+      "verification": [
+        "pnpm --filter web exec vitest run tests/ui/board-sticky-quick-capture.test.tsx tests/ui/board-bulk-sticky-transaction.test.ts",
+        "pnpm --filter web exec playwright test -c playwright.config.ts -g 'TTFI <5s|10 stickies <30s'",
+        "pnpm --filter web exec playwright test -c playwright.config.ts -g 'basic create edit delete undo redo'"
+      ],
+      "evidence": "",
+      "notes": "Iteration 2 / core；has_ui=true。共享热点 quick-create controller、clipboard parser、whiteboard batch operation/history；可复用已有 issue #4032，但基础 create/edit/delete Undo/Redo 必须在本轮交付。多人/tombstone/offline 语义由 BV22 收口。"
+    },
+    {
+      "id": "BV06",
+      "priority": 2,
+      "area": "board-authoring",
+      "capability": "CAP-WEB",
+      "title": "Sticky 属性、Reaction 与 Link Preview",
+      "spec_ref": "02-object-authoring.md#R8",
+      "user_visible_behavior": "选中 Sticky/Text 时出现类型匹配的浮动工具条，可改颜色、文字样式、标签和链接并添加 Reaction；粘贴允许的 URL 可显示可刷新 Link Preview，失败时保留普通链接；readonly 用户只读且不能绕过权限写入。",
+      "status": "not_started",
+      "sprint": null,
+      "owner": null,
+      "depends_on": [
+        "BV04"
+      ],
+      "points": 3,
+      "wave": 2,
+      "design_ref": "ui-preview/board-fabric-surface/s01-fabric-board.png",
+      "verification": [
+        "pnpm --filter web exec vitest run tests/ui/board-sticky-contextual-toolbar.test.tsx tests/ui/board-reaction-link-preview.test.tsx",
+        "pnpm --filter web exec playwright test -c playwright.config.ts -g 'sticky properties reaction link preview'"
+      ],
+      "evidence": "",
+      "notes": "Iteration 2 / core；has_ui=true。共享热点 contextual toolbar、property panel、Reaction/Link Preview contract、Board ACL projection；评论由 BV21 交付。"
+    },
+    {
+      "id": "BV07",
+      "priority": 3,
+      "area": "board-authoring",
+      "capability": "CAP-WEB",
+      "title": "Tile、Web Tile、Table 与 Template 对象",
+      "spec_ref": "02-object-authoring.md#R3",
+      "user_visible_behavior": "编辑者可创建 WorkspaceX Tile、带安全预览的 Web Tile、可编辑行列的基础 Table，并从 Template 实例化一组稳定对象；刷新和协作后对象身份、资源引用、表格内容与模板来源不变。",
+      "status": "not_started",
+      "sprint": null,
+      "owner": null,
+      "depends_on": [
+        "BV04"
+      ],
+      "points": 3,
+      "wave": 3,
+      "design_ref": "ui-preview/board-fabric-surface/s01-fabric-board.png",
+      "verification": [
+        "pnpm --filter web exec vitest run tests/ui/board-fabric-tile-object.test.tsx tests/ui/board-table-template-object.test.tsx",
+        "pnpm --filter web exec playwright test -c playwright.config.ts -g 'tile web table template authoring'"
+      ],
+      "evidence": "",
+      "notes": "Iteration 3 / core；has_ui=true。共享热点 Board object schema、Fabric Tile/WebTile/Table factories、template instantiation、resource reference resolver。"
+    },
+    {
+      "id": "BV08",
+      "priority": 3,
+      "area": "board-authoring",
+      "capability": "CAP-WEB",
+      "title": "基础 Shape、独立 Icon 与文字样式",
+      "spec_ref": "02-object-authoring.md#R3",
+      "user_visible_behavior": "编辑者可创建矩形、圆形、菱形等基础 Shape 与独立 Icon 对象，直接编辑文字并调整填充、边框、透明度、图标和尺寸；创建后对象可选择、协作、撤销和导出。",
+      "status": "not_started",
+      "sprint": null,
+      "owner": null,
+      "depends_on": [
+        "BV04"
+      ],
+      "points": 3,
+      "wave": 3,
+      "design_ref": "ui-preview/board-fabric-surface/s01-fabric-board.png",
+      "verification": [
+        "pnpm --filter web exec vitest run tests/ui/board-fabric-shape-object.test.tsx tests/ui/board-fabric-icon-object.test.tsx",
+        "pnpm --filter web exec playwright test -c playwright.config.ts -g 'shape icon authoring'"
+      ],
+      "evidence": "",
+      "notes": "Iteration 3 / core；has_ui=true。共享热点 Board Shape/Icon schema、Fabric factories、contextual controls。"
+    },
+    {
+      "id": "BV09",
+      "priority": 3,
+      "area": "board-authoring",
+      "capability": "CAP-WEB",
+      "title": "矢量自由绘制与可编辑 stroke",
+      "spec_ref": "02-object-authoring.md#R3",
+      "user_visible_behavior": "用户用鼠标、触摸或笔自由绘制时获得可选择、移动、改色和改粗细的 Drawing 对象；持久化的是可审计 stroke 数据，Fabric Path 只作为视觉投影。",
+      "status": "not_started",
+      "sprint": null,
+      "owner": null,
+      "depends_on": [
+        "BV03"
+      ],
+      "points": 5,
+      "wave": 3,
+      "design_ref": "ui-preview/board-fabric-surface/s01-fabric-board.png",
+      "verification": [
+        "pnpm --filter web exec vitest run tests/ui/board-fabric-drawing-object.test.ts",
+        "pnpm --filter web exec playwright test -c playwright.config.ts -g 'draw mouse touch pen'"
+      ],
+      "evidence": "",
+      "notes": "Iteration 3 / core；has_ui=true。共享热点 Drawing schema、Fabric free-drawing adapter、pointer input；不做专业贝塞尔钢笔编辑。"
+    },
+    {
+      "id": "BV10",
+      "priority": 3,
+      "area": "board-authoring",
+      "capability": "CAP-WEB",
+      "title": "图片四入口创建与失败占位恢复",
+      "spec_ref": "02-object-authoring.md#R4",
+      "user_visible_behavior": "用户可通过上传、拖放、剪贴板和允许的 URL 创建图片；类型或大小不合法时看到明确原因，上传/解码失败时保留可重试占位，成功后媒体 blob 与 Board 对象引用一致。",
+      "status": "not_started",
+      "sprint": null,
+      "owner": null,
+      "depends_on": [
+        "BV03"
+      ],
+      "points": 5,
+      "wave": 3,
+      "design_ref": "ui-preview/board-fabric-surface/s01-fabric-board.png",
+      "verification": [
+        "pnpm --filter web exec vitest run tests/ui/board-image-ingress.test.tsx tests/ui/board-image-placeholder-retry.test.ts",
+        "pnpm --filter web exec playwright test -c playwright.config.ts -g 'screenshot one paste'",
+        "pnpm --filter web exec vitest run tests/performance/board-fabric-1k-mixed.test.ts"
+      ],
+      "evidence": "",
+      "notes": "Iteration 3 / core；has_ui=true。共享热点 Board image object、asset upload client、Fabric image projection；blob 生命周期由 BV26 收口。"
+    },
+    {
+      "id": "BV11",
+      "priority": 4,
+      "area": "board-structure",
+      "capability": "CAP-WEB",
+      "title": "Panel/Frame 三模式与稳定 membership",
+      "spec_ref": "03-structure-connectors.md#R3",
+      "user_visible_behavior": "编辑者可创建带标题、背景和边框的 Panel/Frame，在 Freeform、Grid、Flow 模式间切换；对象拖入拖出后以稳定 parentId/orderKey 保存，移动 Panel 带动子对象且世界坐标可解释。",
+      "status": "not_started",
+      "sprint": null,
+      "owner": null,
+      "depends_on": [
+        "BV07",
+        "BV08"
+      ],
+      "points": 5,
+      "wave": 4,
+      "design_ref": "ui-preview/board-fabric-surface/s01-fabric-board.png",
+      "verification": [
+        "pnpm --filter web exec vitest run tests/ui/board-panel-membership.test.ts tests/ui/board-panel-modes.test.tsx",
+        "pnpm --filter web exec playwright test -c playwright.config.ts -g 'panel structure collaboration'"
+      ],
+      "evidence": "",
+      "notes": "Iteration 4 / core；has_ui=true。共享热点 whiteboard-core hierarchy、Fabric Panel projection、parent/order commands；禁止用几何包含作为持久化事实。"
+    },
+    {
+      "id": "BV12",
+      "priority": 4,
+      "area": "board-structure",
+      "capability": "CAP-WEB",
+      "title": "Group、Layer、Lock 与 stacking order",
+      "spec_ref": "03-structure-connectors.md#R3",
+      "user_visible_behavior": "编辑者可把选中对象成组、解组、前移后移并锁定；共同变换保持对象稳定 id，锁定对象不能被鼠标、键盘或批量命令修改，且解锁仍受 Board ACL 约束。",
+      "status": "not_started",
+      "sprint": null,
+      "owner": null,
+      "depends_on": [
+        "BV11"
+      ],
+      "points": 5,
+      "wave": 4,
+      "design_ref": "ui-preview/board-fabric-surface/s01-fabric-board.png",
+      "verification": [
+        "pnpm --filter web exec vitest run tests/ui/board-group-layer-lock.test.tsx",
+        "pnpm --filter web exec playwright test -c playwright.config.ts -g 'group layer lock ACL'"
+      ],
+      "evidence": "",
+      "notes": "Iteration 4 / core；has_ui=true。共享热点 hierarchy/order commands、Fabric selection adapter；不持久化 Fabric Group。"
+    },
+    {
+      "id": "BV13",
+      "priority": 4,
+      "area": "board-structure",
+      "capability": "CAP-WEB",
+      "title": "独立 Connector、锚点、路由与 label",
+      "spec_ref": "03-structure-connectors.md#R12",
+      "user_visible_behavior": "用户从对象连接点拖出独立 Connector，完成一次有效连线最多 2 次操作；可选直线/折线/曲线、箭头、线型和 label，端点绑定 object id/anchor，源对象移动或 resize 后自动重算，双浏览器中关系一致且 Undo/Redo 可恢复。",
+      "status": "not_started",
+      "sprint": null,
+      "owner": null,
+      "depends_on": [
+        "BV11"
+      ],
+      "points": 5,
+      "wave": 4,
+      "design_ref": "ui-preview/board-fabric-surface/s01-fabric-board.png",
+      "verification": [
+        "pnpm --filter web exec vitest run tests/ui/board-connector-domain-model.test.ts tests/ui/board-connector-routing.test.ts",
+        "pnpm --filter web exec playwright test -c playwright.config.ts -g 'connection <=2 actions'",
+        "pnpm --filter web exec vitest run tests/performance/board-fabric-5k-mixed.test.ts"
+      ],
+      "evidence": "",
+      "notes": "Iteration 4 / core；has_ui=true。共享热点 Connector schema、anchor/routing geometry、Fabric connector projection；像素端点只派生不持久化。"
+    },
+    {
+      "id": "BV14",
+      "priority": 5,
+      "area": "board-selection",
+      "capability": "CAP-WEB",
+      "title": "单选、多选、框选与稳定变换",
+      "spec_ref": "04-selection-layout.md#R3",
+      "user_visible_behavior": "用户可单击、Shift 点击、框选和 Select all 选择对象，Fabric 显示统一选择边界并同步对象大纲；移动、缩放、旋转混合选择时跳过锁定对象并预览真实影响范围。",
+      "status": "not_started",
+      "sprint": null,
+      "owner": null,
+      "depends_on": [
+        "BV12"
+      ],
+      "points": 5,
+      "wave": 5,
+      "design_ref": "ui-preview/board-fabric-surface/s01-fabric-board.png",
+      "verification": [
+        "pnpm --filter web exec vitest run tests/ui/board-selection-model.test.tsx",
+        "pnpm --filter web exec playwright test -c playwright.config.ts -g 'selection transform locks'"
+      ],
+      "evidence": "",
+      "notes": "Iteration 5 / core；has_ui=true。共享热点 Fabric selection adapter、domain transform commands、a11y object outline。"
+    },
+    {
+      "id": "BV15",
+      "priority": 5,
+      "area": "board-selection",
+      "capability": "CAP-WEB",
+      "title": "复制粘贴、快速复制与键盘生产力",
+      "spec_ref": "02-object-authoring.md#R7",
+      "user_visible_behavior": "编辑者可用复制/粘贴、Alt/Option 拖动、Duplicate 命令和标准快捷键复制选区；新对象使用新 id 且保持内部关系，纯文本可兼容粘贴，危险 HTML/脚本被清理。",
+      "status": "not_started",
+      "sprint": null,
+      "owner": null,
+      "depends_on": [
+        "BV14"
+      ],
+      "points": 3,
+      "wave": 5,
+      "design_ref": "ui-preview/board-fabric-surface/s01-fabric-board.png",
+      "verification": [
+        "pnpm --filter web exec vitest run tests/ui/board-copy-paste-duplicate.test.ts tests/ui/board-keyboard-shortcuts.test.tsx",
+        "pnpm --filter web exec playwright test -c playwright.config.ts -g 'copy paste sanitization'"
+      ],
+      "evidence": "",
+      "notes": "Iteration 5 / core；has_ui=true。共享热点 clipboard adapter、id remap、shortcut registry；不得复制 Fabric 私有状态。"
+    },
+    {
+      "id": "BV16",
+      "priority": 5,
+      "area": "board-selection",
+      "capability": "CAP-WEB",
+      "title": "对象感知的浮动工具条与属性面板",
+      "spec_ref": "02-object-authoring.md#R8",
+      "user_visible_behavior": "单选或多选对象后，浮动工具条只显示当前可执行命令，右侧属性面板展示对象共有属性与混合值；少于所需对象数或 readonly 时命令禁用并解释原因。",
+      "status": "not_started",
+      "sprint": null,
+      "owner": null,
+      "depends_on": [
+        "BV14"
+      ],
+      "points": 3,
+      "wave": 5,
+      "design_ref": "ui-preview/board-fabric-surface/s01-fabric-board.png",
+      "verification": [
+        "pnpm --filter web exec vitest run tests/ui/board-contextual-toolbar.test.tsx tests/ui/board-property-panel.test.tsx",
+        "pnpm --filter web exec playwright test -c playwright.config.ts -g 'contextual controls availability'"
+      ],
+      "evidence": "",
+      "notes": "Iteration 5 / core；has_ui=true。共享热点 contextual toolbar/property panel 与 command availability selector。"
+    },
+    {
+      "id": "BV17",
+      "priority": 6,
+      "area": "board-layout",
+      "capability": "CAP-WEB",
+      "title": "原子对齐、分布、统一尺寸与行列网格",
+      "spec_ref": "04-selection-layout.md#R3",
+      "user_visible_behavior": "用户可在最多 2 次操作内完成多选对象的目标整理，并执行六向对齐、水平/垂直分布、统一尺寸以及 Grid/Row/Column 排列；一次布局只产生一个批量 operation 和一个 undo entry，并保留文字、连接、评论与 membership。",
+      "status": "not_started",
+      "sprint": null,
+      "owner": null,
+      "depends_on": [
+        "BV14",
+        "BV13"
+      ],
+      "points": 5,
+      "wave": 6,
+      "design_ref": "ui-preview/board-fabric-surface/s01-fabric-board.png",
+      "verification": [
+        "pnpm --filter web exec vitest run tests/ui/board-atomic-layout-commands.test.ts",
+        "pnpm --filter web exec playwright test -c playwright.config.ts -g 'organize <=2 actions'"
+      ],
+      "evidence": "",
+      "notes": "Iteration 6 / core；has_ui=true。共享热点 layout geometry、batch operation、connector recompute；500 对象不得产生 500 次网络往返。"
+    },
+    {
+      "id": "BV18",
+      "priority": 6,
+      "area": "board-layout",
+      "capability": "CAP-WEB",
+      "title": "Snap、Guidelines 与等间距反馈",
+      "spec_ref": "04-selection-layout.md#R3",
+      "user_visible_behavior": "拖动和 resize 对象时显示对齐线、相等间距与容器边界吸附，命中在各缩放级别可辨认；用户可用修饰键暂时关闭 Snap，viewport 变化不写回世界坐标。",
+      "status": "not_started",
+      "sprint": null,
+      "owner": null,
+      "depends_on": [
+        "BV14"
+      ],
+      "points": 3,
+      "wave": 6,
+      "design_ref": "ui-preview/board-fabric-surface/s01-fabric-board.png",
+      "verification": [
+        "pnpm --filter web exec vitest run tests/ui/board-snap-guidelines.test.ts",
+        "pnpm --filter web exec playwright test -c playwright.config.ts -g 'snap guideline zoom'"
+      ],
+      "evidence": "",
+      "notes": "Iteration 6 / core；has_ui=true。共享热点 geometry index、Fabric overlay renderer、viewport adapter。"
+    },
+    {
+      "id": "BV19",
+      "priority": 6,
+      "area": "board-layout",
+      "capability": "CAP-WORKFLOW",
+      "title": "Smart Layout 确定性预览与冲突确认",
+      "spec_ref": "04-selection-layout.md#R4",
+      "user_visible_behavior": "用户对选区请求 Smart Layout 时先看到 before/after 预览；确认后以一个原子 operation 应用，取消不改 Y.Doc，远端 revision 变化时刷新预览或报告冲突而不覆盖新修改。",
+      "status": "not_started",
+      "sprint": null,
+      "owner": null,
+      "depends_on": [
+        "BV17",
+        "BV18"
+      ],
+      "points": 5,
+      "wave": 6,
+      "design_ref": "ui-preview/board-fabric-surface/s01-fabric-board.png",
+      "verification": [
+        "pnpm --filter web exec vitest run tests/ui/board-smart-layout-preview.test.tsx tests/ui/board-layout-revision-conflict.test.ts",
+        "pnpm --filter web exec playwright test -c playwright.config.ts -g 'smart layout confirm cancel'"
+      ],
+      "evidence": "",
+      "notes": "Iteration 6 / core；has_ui=true。共享热点 deterministic layout engine、proposal preview、revision guard；AI 建议 provenance 由 BV24 收口。"
+    },
+    {
+      "id": "BV20",
+      "priority": 7,
+      "area": "board-collaboration",
+      "capability": "CAP-WEB",
+      "title": "Fabric presence、远端选区与字段级收敛",
+      "spec_ref": "05-collaboration-history.md#R3",
+      "user_visible_behavior": "两个或更多真实浏览器进入同一 Board 后看到用户/Agent 身份、光标和远端选区；并发修改不同字段不会互相覆盖，presence 自动过期且不进入内容历史。",
+      "status": "not_started",
+      "sprint": null,
+      "owner": null,
+      "depends_on": [
+        "BV03",
+        "BV14"
+      ],
+      "points": 5,
+      "wave": 7,
+      "design_ref": "ui-preview/board-fabric-surface/s01-fabric-board.png",
+      "verification": [
+        "pnpm --filter web exec vitest run tests/ui/board-fabric-presence.test.tsx",
+        "pnpm --filter web exec playwright test -c playwright.config.ts -g 'realtime presence field convergence'"
+      ],
+      "evidence": "",
+      "notes": "Iteration 7 / collaboration；has_ui=true。共享热点 Yjs awareness/provider、Fabric remote overlay、object patch adapter。"
+    },
+    {
+      "id": "BV21",
+      "priority": 7,
+      "area": "board-collaboration",
+      "capability": "CAP-WEB",
+      "title": "对象锚定评论、回复与解决",
+      "spec_ref": "05-collaboration-history.md#R3",
+      "user_visible_behavior": "Commenter/Editor 可在 object id 或 world position 上创建评论、回复和解决线程；对象移动后锚点保持，Viewer 只读，评论权限和对象内容权限分别生效。",
+      "status": "not_started",
+      "sprint": null,
+      "owner": null,
+      "depends_on": [
+        "BV20"
+      ],
+      "points": 3,
+      "wave": 7,
+      "design_ref": "ui-preview/board-fabric-surface/s01-fabric-board.png",
+      "verification": [
+        "pnpm --filter web exec vitest run tests/ui/board-anchored-comments.test.tsx",
+        "pnpm --filter web exec playwright test -c playwright.config.ts -g 'comments anchor ACL'"
+      ],
+      "evidence": "",
+      "notes": "Iteration 7 / collaboration；has_ui=true。共享热点 comment contract/API、Board comment sidebar、anchor projection。"
+    },
+    {
+      "id": "BV22",
+      "priority": 7,
+      "area": "board-collaboration",
+      "capability": "CAP-DATA",
+      "title": "多人 Undo 语义、认证 tombstone、离线与 checkpoint 恢复",
+      "spec_ref": "05-collaboration-history.md#R4",
+      "user_visible_behavior": "在 BV05 基础 Undo/Redo 上，多人场景只撤销/重做本人允许的语义动作且不覆盖他人后续字段；删除 Undo 经认证 tombstone restore 保留原 id，离线操作加密排队并幂等重放，损坏恢复点回退到已验证快照与更新段并报告审计事件。",
+      "status": "not_started",
+      "sprint": null,
+      "owner": null,
+      "depends_on": [
+        "BV20"
+      ],
+      "points": 8,
+      "wave": 7,
+      "design_ref": "ui-preview/board-fabric-surface/s01-fabric-board.png",
+      "verification": [
+        "pnpm --filter api exec vitest run tests/whiteboard/undo-tombstone-restore.test.ts tests/whiteboard/offline-checkpoint-recovery.test.ts",
+        "pnpm --filter web exec playwright test -c playwright.config.ts -g 'undo offline reconnect recovery'"
+      ],
+      "evidence": "",
+      "notes": "Iteration 7 / collaboration。共享热点 whiteboard-core history、Yjs UndoManager origin、tombstone API、encrypted outbox/checkpoint store；成功提示必须晚于权威确认。"
+    },
+    {
+      "id": "BV23",
+      "priority": 8,
+      "area": "board-operations",
+      "capability": "CAP-API",
+      "title": "统一 operation API 与 Board Event Model",
+      "spec_ref": "06-ai-chat-handoff.md#R7",
+      "user_visible_behavior": "人类 UI、AI Agent、Chat handoff、导入器和 API client 以同一版本化 operation schema 创建与批量修改 Board；Board Event Model 以稳定 event id、actor、object ids、revision、provenance 和 timestamp 记录可订阅事件，相同 ACL、幂等、限流与审计对所有 actor 生效。",
+      "status": "not_started",
+      "sprint": null,
+      "owner": null,
+      "depends_on": [
+        "BV22"
+      ],
+      "points": 5,
+      "wave": 8,
+      "design_ref": "",
+      "verification": [
+        "pnpm --filter @repo/contracts exec vitest run tests/board-operation-contract.test.ts tests/board-event-model.test.ts",
+        "pnpm --filter api exec vitest run tests/whiteboard/operation-actor-parity.test.ts tests/whiteboard/operation-idempotency-acl.test.ts"
+      ],
+      "evidence": "",
+      "notes": "Iteration 8 / integration。共享热点 packages/contracts/src/whiteboard.ts、whiteboard-core commands、apps/api Board operation controller；Fabric 私有字段不得进入公开契约。"
+    },
+    {
+      "id": "BV24",
+      "priority": 8,
+      "area": "board-ai",
+      "capability": "CAP-WORKFLOW",
+      "title": "AI proposal/diff、确认、provenance 与撤销",
+      "spec_ref": "06-ai-chat-handoff.md#R3",
+      "user_visible_behavior": "AI 对授权对象生成 Sticky、聚类、布局和关系 proposal 时，用户最多 2 次操作完成聚类并先看到 before/after diff，可确认或拒绝；确认后走普通 operation 写入，保留 actor、模型/skill、输入 revision 和 provenance，过期 proposal 不覆盖新修改且可一键撤销。",
+      "status": "not_started",
+      "sprint": null,
+      "owner": null,
+      "depends_on": [
+        "BV19",
+        "BV23"
+      ],
+      "points": 5,
+      "wave": 8,
+      "design_ref": "ui-preview/board-fabric-surface/s01-fabric-board.png",
+      "verification": [
+        "pnpm --filter api exec vitest run tests/whiteboard/ai-proposal-provenance.test.ts tests/whiteboard/ai-proposal-revision-conflict.test.ts",
+        "pnpm --filter web exec playwright test -c playwright.config.ts -g 'AI clustering <=2 actions'"
+      ],
+      "evidence": "",
+      "notes": "Iteration 8 / integration；has_ui=true。共享热点 AI proposal runtime、Board proposal panel、operation audit；未确认 proposal 不修改正式 Y.Doc。"
+    },
+    {
+      "id": "BV25",
+      "priority": 8,
+      "area": "board-handoff",
+      "capability": "CAP-WORKFLOW",
+      "title": "Chat Mermaid/Fabric 点击时布局原样插入 Board",
+      "spec_ref": "06-ai-chat-handoff.md#R12",
+      "user_visible_behavior": "用户在 Chat 对 flowchart、sequence、persona 图形点击“插入 Board”时，系统提取点击时实际 Fabric 场景的稳定 id、world geometry、style、revision 与 layout hash；插入后位置、大小、文字、连线和分组保持一致并可普通编辑、协作、撤销。",
+      "status": "not_started",
+      "sprint": null,
+      "owner": null,
+      "depends_on": [
+        "BV13",
+        "BV23"
+      ],
+      "points": 5,
+      "wave": 8,
+      "design_ref": "ui-preview/board-fabric-surface/s01-fabric-board.png",
+      "verification": [
+        "pnpm --filter @repo/fabric-markdown exec vitest run tests/rendered-diagram-layout.test.ts",
+        "pnpm --filter web exec playwright test -c playwright.config.ts -g 'chat fabric layout handoff'"
+      ],
+      "evidence": "",
+      "notes": "Iteration 8 / integration；has_ui=true。共享热点 @repo/fabric-markdown、Chat artifact UI、Board handoff API；可复用 issue #3975，禁止服务器重新解析 Mermaid 后静默重排。"
+    },
+    {
+      "id": "BV26",
+      "priority": 9,
+      "area": "board-storage",
+      "capability": "CAP-DATA",
+      "title": "文件/对象存储正文与 PG 元数据生命周期",
+      "spec_ref": "07-interchange-storage.md#R3",
+      "user_visible_behavior": "Board 元数据、ACL、索引、version/blob pointer 和审计引用保存在 PG；Yjs snapshot/update segment、媒体、导入原件与导出包保存在内容哈希文件/对象存储，采用原子 pointer、租户隔离、保留/GC 和可验证备份恢复。",
+      "status": "not_started",
+      "sprint": null,
+      "owner": null,
+      "depends_on": [
+        "BV22",
+        "BV23"
+      ],
+      "points": 8,
+      "wave": 9,
+      "design_ref": "",
+      "verification": [
+        "pnpm --filter api exec vitest run tests/whiteboard/blob-pointer-atomicity.test.ts tests/whiteboard/blob-retention-gc.test.ts tests/whiteboard/blob-backup-restore.test.ts",
+        "pnpm --filter api exec vitest run tests/whiteboard/pgsql-metadata-only-growth.test.ts"
+      ],
+      "evidence": "",
+      "notes": "Iteration 9 / integration。共享热点 Board blob repository、filesystem/S3 backend、PG metadata schema、GC/backup jobs；Fabric JSON 永不落盘。"
+    },
+    {
+      "id": "BV27",
+      "priority": 9,
+      "area": "board-interchange",
+      "capability": "CAP-WORKFLOW",
+      "title": "Miro/Mural 可核对导入与标准导出",
+      "spec_ref": "07-interchange-storage.md#R12",
+      "user_visible_behavior": "组织可用官方导出包或授权连接导入 Miro/Mural 的 Sticky、Text、Shape、Image、Connector、Frame/Area 和 Group；扫描预览后确认写入，完成报告逐项列出成功、降级、跳过、失败与原因，按来源 id/revision 幂等重试并可标准导出。",
+      "status": "not_started",
+      "sprint": null,
+      "owner": null,
+      "depends_on": [
+        "BV13",
+        "BV23",
+        "BV26",
+        "BV10"
+      ],
+      "points": 8,
+      "wave": 9,
+      "design_ref": "ui-preview/board-fabric-surface/s01-fabric-board.png",
+      "verification": [
+        "pnpm --filter api exec vitest run tests/whiteboard/miro-mural-import-conformance.test.ts tests/whiteboard/import-security-boundary.test.ts",
+        "pnpm --filter web exec playwright test -c playwright.config.ts -g 'Miro Mural import report'"
+      ],
+      "evidence": "",
+      "notes": "Iteration 9 / integration；has_ui=true。共享热点 Miro/Mural adapters、import quarantine/scanner、mapping/report UI；最终必须用三块脱敏真实供应商 Board 验收。"
+    },
+    {
+      "id": "BV28",
+      "priority": 9,
+      "area": "board-meeting-room",
+      "capability": "CAP-WORKFLOW",
+      "title": "会议室 presenter viewport 与参与者跟随",
+      "spec_ref": "05-collaboration-history.md#R3",
+      "user_visible_behavior": "会议室 presenter 以单调 revision 广播 viewport，参与者可跟随或退出跟随后本地浏览；刷新恢复最新权威 viewport，连续 30 分钟至少 360 次 revision 无空白、回退或跨 Board 串流。",
+      "status": "not_started",
+      "sprint": null,
+      "owner": null,
+      "depends_on": [
+        "BV20",
+        "BV22"
+      ],
+      "points": 5,
+      "wave": 9,
+      "design_ref": "ui-preview/board-fabric-surface/s01-fabric-board.png",
+      "verification": [
+        "pnpm --filter api exec vitest run tests/whiteboard/meeting-room-viewport-revision.test.ts",
+        "pnpm --filter web exec playwright test -c playwright.config.ts -g 'meeting room follow'",
+        "pnpm --filter api exec vitest run tests/whiteboard/meeting-room-soak-gate.test.ts"
+      ],
+      "evidence": "",
+      "notes": "Iteration 9 / integration；has_ui=true。共享热点 meeting-room session/API、Board viewport controller、signed soak ledger；目标 p95 ≤3000ms。"
+    },
+    {
+      "id": "BV29",
+      "priority": 10,
+      "area": "board-performance",
+      "capability": "CAP-WEB",
+      "title": "真实 1k/5k/10k Fabric/Yjs 性能门",
+      "spec_ref": "08-performance-accessibility.md#R7",
+      "user_visible_behavior": "用户打开含真实混合 Sticky/Text/Shape/Image/Connector/Panel 的 1k、5k、10k Board 时，系统使用 viewport culling、空间索引、缓存与合并 render；报告记录 cold/warm load、pan/zoom FPS、拖动/输入 p95、内存、长任务和同步延迟。",
+      "status": "not_started",
+      "sprint": null,
+      "owner": null,
+      "depends_on": [
+        "BV27",
+        "BV10"
+      ],
+      "points": 8,
+      "wave": 10,
+      "design_ref": "ui-preview/board-fabric-surface/s01-fabric-board.png",
+      "verification": [
+        "pnpm --filter web exec playwright test -c playwright.config.ts -g 'fabric 10k performance'",
+        "pnpm --filter web exec vitest run tests/performance/board-fabric-10k-report.test.ts"
+      ],
+      "evidence": "",
+      "notes": "Iteration 10 / quality；has_ui=true。共享热点 Fabric projection/culling/index、performance harness/datasets；不得以空矩形或 mock renderer 替代真实业务对象。"
+    },
+    {
+      "id": "BV30",
+      "priority": 10,
+      "area": "board-reliability",
+      "capability": "CAP-WORKFLOW",
+      "title": "50 浏览器长时协作、撤权与灾备恢复门",
+      "spec_ref": "08-performance-accessibility.md#R9",
+      "user_visible_behavior": "至少 50 个真实浏览器、20 个 writers 连续协作 30 分钟后，所有授权客户端 object/hash 收敛且零丢失、重复、分叉，同步 p95 ≤300ms；断网、崩溃、撤权、blob 损坏和快照恢复均产生可校验 ledger 与恢复 hash。",
+      "status": "not_started",
+      "sprint": null,
+      "owner": null,
+      "depends_on": [
+        "BV22",
+        "BV26",
+        "BV28"
+      ],
+      "points": 8,
+      "wave": 10,
+      "design_ref": "",
+      "verification": [
+        "pnpm --filter api exec vitest run tests/whiteboard/collaboration-50-browser-soak-ledger.test.ts",
+        "pnpm --filter api exec vitest run tests/whiteboard/recovery-revoke-blob-ledger.test.ts"
+      ],
+      "evidence": "",
+      "notes": "Iteration 10 / quality。共享热点 multi-browser runner、signed soak ledger、recovery harness；短窗口或中断采样一律判无效。"
+    },
+    {
+      "id": "BV31",
+      "priority": 10,
+      "area": "board-accessibility",
+      "capability": "CAP-WEB",
+      "title": "键盘、屏幕阅读器、触控与 400% reflow",
+      "spec_ref": "08-performance-accessibility.md#R3",
+      "user_visible_behavior": "键盘和屏幕阅读器用户可通过 React 对象大纲完成选择、编辑、移动、连接、评论和跳转，Canvas 与 DOM 选择/revision 双向一致；触摸/笔支持 pan、pinch、选择、拖动、绘制，200%/400% reflow、RTL、高对比和 reduced motion 可用。",
+      "status": "not_started",
+      "sprint": null,
+      "owner": null,
+      "depends_on": [
+        "BV03",
+        "BV21",
+        "BV09"
+      ],
+      "points": 8,
+      "wave": 10,
+      "design_ref": "ui-preview/board-fabric-surface/s01-fabric-board.png",
+      "verification": [
+        "pnpm --filter web exec playwright test -c playwright.config.ts -g 'accessibility keyboard screenreader touch pen reflow'",
+        "pnpm --filter web exec vitest run tests/ui/board-a11y-object-outline.test.tsx"
+      ],
+      "evidence": "",
+      "notes": "Iteration 10 / quality；has_ui=true。共享热点 board-a11y-mirror.tsx、focus/shortcut controller、responsive toolbar；核心流程目标 WCAG 2.2 AA 且无严重 axe 违规。"
+    },
+    {
+      "id": "BV32",
+      "priority": 10,
+      "area": "board-acceptance",
+      "capability": "CAP-WORKFLOW",
+      "title": "六条 PRD 旅程与 Mural 九分总门禁",
+      "spec_ref": "00-overview.md#R12",
+      "user_visible_behavior": "同一 exact SHA 完成 Brainstorm、Organize、Panel、Diagram、Visual Research、AI Ready 六条旅程，并通过三浏览器核心 E2E、三块真实迁移板、API/存储/安全审计、会议室与 50-client soak；任一 P0 或硬门缺证据时评分保持未达九分并列出失败项。",
+      "status": "not_started",
+      "sprint": null,
+      "owner": null,
+      "depends_on": [
+        "BV24",
+        "BV25",
+        "BV27",
+        "BV29",
+        "BV30",
+        "BV31"
+      ],
+      "points": 8,
+      "wave": 10,
+      "design_ref": "ui-preview/board-fabric-surface/s01-fabric-board.png",
+      "verification": [
+        "pnpm --filter web exec playwright test -c tests/e2e/board/playwright.three-browsers.config.ts -g 'TTFI <5s|10 stickies <30s|organize <=2 actions|connection <=2 actions|screenshot one paste|AI clustering <=2 actions'",
+        "pnpm --filter web exec vitest run tests/ui/board-nine-point-rubric.test.ts"
+      ],
+      "evidence": "",
+      "notes": "Iteration 10 / quality；has_ui=true。全阶段退出门；共享热点 acceptance rubric/evidence index，不用主观打分或四舍五入代替缺失证据。"
+    }
+  ]
+}

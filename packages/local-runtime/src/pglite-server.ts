@@ -19,8 +19,9 @@ import net from "node:net";
 import { PGlite } from "@electric-sql/pglite";
 import { vector } from "@electric-sql/pglite-pgvector";
 import { PGLiteSocketServer } from "@electric-sql/pglite-socket";
-import { DB_NAME } from "./config";
+import { DB_NAME, DB_OWNER_ROLE } from "./config";
 import { SessionAwareQueryQueue } from "./pglite-queue";
+import { assertPortFree } from "./processes";
 
 export interface PgliteServerOptions {
   readonly dataDir: string;
@@ -32,6 +33,13 @@ export interface PgliteServerOptions {
 export interface PgliteHandle {
   readonly port: number;
   readonly username: string;
+  /**
+   * 一致快照。**备份必须走这里，不能去拷 `pgdata` 目录**——应用还在写的时候拷到的是
+   * 撕裂的状态，那是这一类应用最经典的损坏来源。这个方法由持有数据库的实例自己产出。
+   */
+  dumpDatabase(): Promise<Uint8Array>;
+  /** 表不存在时返回 null，不要返回 0：备份收据上「0 条」和「这张表没有」不是一回事。 */
+  countRows(table: string): Promise<number | null>;
   stop(): Promise<void>;
 }
 
@@ -52,12 +60,31 @@ export async function startPgliteServer(opts: PgliteServerOptions): Promise<Pgli
   });
   // Replace the per-message queue with a session-aware one (see pglite-queue.ts): the
   // built-in one interleaves clients between Parse and Bind and shares statement names.
-  (server as unknown as { queryQueue: unknown }).queryQueue = new SessionAwareQueryQueue(db);
+  const queue = new SessionAwareQueryQueue(db);
+  queue.onIdleRelease = (i) => console.warn(`[pglite] backend taken from idle connection #${i.handlerId} after ${i.heldMs}ms (why=${i.why} types=${i.lastTypes}) last sql: ${i.lastSql}`);
+  queue.onLongWait = (i) => console.warn(`[pglite] connection #${i.handlerId} waited ${i.waitedMs}ms for the backend (busy: #${i.busyHandlerId} ${i.busySql || "?"}; queued=${i.queued})`);
+  (server as unknown as { queryQueue: unknown }).queryQueue = queue;
   await server.start();
   let stopped = false;
   return {
     port: opts.port,
     username: opts.username,
+    async dumpDatabase() {
+      const blob = await db.dumpDataDir("gzip");
+      return new Uint8Array(await blob.arrayBuffer());
+    },
+    async countRows(table: string) {
+      // 表名不进字符串拼接的参数位：这里只接受本仓自己写死的白名单（RECEIPT_TABLES），
+      // 但仍然显式校验一次形状——将来有人把用户输入接到这里时，这道检查还在。
+      if (!/^[a-z_][a-z0-9_]*$/.test(table)) return null;
+      try {
+        const r = await db.query<{ n: number | string }>(`SELECT count(*)::int AS n FROM ${table}`);
+        const n = r.rows[0]?.n;
+        return typeof n === "number" ? n : typeof n === "string" ? Number(n) : null;
+      } catch {
+        return null;   // 表不存在 / 权限不足：如实说「没有」，不要编 0
+      }
+    },
     async stop() {
       if (stopped) return;
       stopped = true;
@@ -74,18 +101,26 @@ export async function startPgliteServer(opts: PgliteServerOptions): Promise<Pgli
  * cannot tell us who owns the directory; the port can. Anything already listening on our
  * PostgreSQL port is another WorkspaceX Local, and we say so instead of letting PGlite abort.
  */
-export async function assertPostgresPortFree(port: number): Promise<void> {
-  const inUse = await new Promise<boolean>((resolve) => {
-    const s = net.createServer();
-    s.once("error", () => resolve(true));
-    s.listen(port, "127.0.0.1", () => s.close(() => resolve(false)));
+/**
+ * 把一份 `dumpDataDir()` 产出的快照**物化**成一个可用的数据目录。
+ *
+ * PGlite 的 `loadDataDir` 是**创建时**选项，所以恢复必须在数据库还没被打开的时候做——
+ * 这也是为什么桌面壳的恢复流程要先停栈：在一个活着的实例上换掉它脚下的目录，
+ * 是 PGlite 单会话所有权那一类事故的标准做法。
+ */
+export async function restoreDatabaseDump(pgDataDir: string, dump: Uint8Array): Promise<void> {
+  const db = await PGlite.create({
+    dataDir: pgDataDir,
+    extensions: { vector },
+    username: DB_OWNER_ROLE,
+    database: DB_NAME,
+    loadDataDir: new Blob([dump]),
   });
-  if (inUse) {
-    throw new Error(
-      `127.0.0.1:${port} is already in use -- another WorkspaceX Local is probably running; ` +
-        "stop it first (Ctrl-C in its terminal, or: lsof -ti :" + port + " | xargs kill)",
-    );
-  }
+  await db.close();
+}
+
+export async function assertPostgresPortFree(port: number): Promise<void> {
+  await assertPortFree(port, "PostgreSQL");
 }
 
 /** Turn PGlite's opaque WASM abort into an actionable message. */

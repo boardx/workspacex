@@ -1,0 +1,15 @@
+# Cloudflare Pages redirects.
+#
+# NOT /privacy → /privacy.html. Pages already serves /privacy from
+# privacy.html and 308-redirects /privacy.html back to /privacy, so that rule
+# (it was here, for both languages) sent a visitor back and forth until the
+# browser gave up. check-links fails any rule of that shape.
+
+# Language roots, with and without the trailing slash.
+/zh             /zh/                301
+/en             /                   301
+/en/*           /:splat             301
+
+# Common guesses at the security contact.
+/security       /.well-known/security.txt   301
+/security.txt   /.well-known/security.txt   301

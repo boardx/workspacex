@@ -1,0 +1,108 @@
+{
+  "api": "http://127.0.0.1:3201",
+  "at": "2026-09-20T00:19:03.211Z",
+  "runs": [
+    {
+      "category": "url",
+      "text": "读取 https://www.ruanyifeng.com/blog/index.html 这个页面，用两句话说明它是什么",
+      "threadId": "thr-0b93047f-a095-493e-847d-d1af835f82ee",
+      "runId": "3268d395-d756-4ace-ad24-6d6e7b59ffdc",
+      "status": "succeeded",
+      "wallMs": 18304,
+      "firstChunkMs": 2361,
+      "chunks": 37,
+      "chunksPerSec": 5.4,
+      "lastEventMs": 17668,
+      "systemPromptChars": 1219,
+      "tools": [
+        "fetch_url"
+      ],
+      "outputChars": 56,
+      "canvasFence": false,
+      "mermaid": false
+    },
+    {
+      "category": "url",
+      "text": "分析网址：https://www.baidu.com/ 的内容是什么网站",
+      "threadId": "thr-6ddae880-b31b-4011-b81b-31237cdb0ea0",
+      "runId": "be15b089-d934-455e-a877-a37de88f4220",
+      "status": "succeeded",
+      "wallMs": 26410,
+      "firstChunkMs": 1802,
+      "chunks": 128,
+      "chunksPerSec": 9.3,
+      "lastEventMs": 24145,
+      "systemPromptChars": 629,
+      "tools": [
+        "fetch_url",
+        "web_search"
+      ],
+      "outputChars": 259,
+      "canvasFence": false,
+      "mermaid": false
+    },
+    {
+      "category": "url",
+      "text": "读取 https://www.ruanyifeng.com/blog/index.html，列出其中提到的一个文章标题",
+      "threadId": "thr-3115d042-434c-4383-a25f-b483fe62f797",
+      "runId": "d32eeef9-f0cf-4b13-bcdf-c2412807a4db",
+      "status": "succeeded",
+      "wallMs": 59398,
+      "firstChunkMs": 2088,
+      "chunks": 160,
+      "chunksPerSec": 5.3,
+      "lastEventMs": 57050,
+      "systemPromptChars": 629,
+      "tools": [
+        "fetch_url"
+      ],
+      "outputChars": 147,
+      "canvasFence": false,
+      "mermaid": false
+    },
+    {
+      "category": "url",
+      "text": "https://www.baidu.com/ 这个页面的标题是什么",
+      "threadId": "thr-971b776d-87d2-44d8-a226-d04d5889ef17",
+      "runId": "4e31c294-a6aa-40b1-80cb-8f14f0ca3f73",
+      "status": "succeeded",
+      "wallMs": 105752,
+      "firstChunkMs": 1793,
+      "chunks": 103,
+      "chunksPerSec": 1.5,
+      "lastEventMs": 104921,
+      "systemPromptChars": 629,
+      "tools": [
+        "fetch_url"
+      ],
+      "outputChars": 82,
+      "canvasFence": false,
+      "mermaid": false
+    },
+    {
+      "category": "url",
+      "text": "读取 https://www.ruanyifeng.com/blog/index.html 并总结三点",
+      "threadId": "thr-74072183-13c7-4e10-8073-fc2461709563",
+      "runId": "044625d7-0133-4857-83a4-ff93334e6a5e",
+      "status": "succeeded",
+      "wallMs": 36736,
+      "firstChunkMs": 5251,
+      "chunks": 98,
+      "chunksPerSec": 8.6,
+      "lastEventMs": 35093,
+      "systemPromptChars": 629,
+      "tools": [
+        "fetch_url"
+      ],
+      "outputChars": 170,
+      "canvasFence": false,
+      "mermaid": false
+    }
+  ],
+  "jsons": {
+    "followup": [],
+    "feedback": [],
+    "title": []
+  },
+  "summary": "| 类别 | n | 成功 | wall 中位 s | 首块中位 s | 块/s 中位 | 系统提示中位 chars | 工具调用 | 画布围栏 |\n|---|---|---|---|---|---|---|---|---|\n| url | 5 | 5 | 37 | 2.1 | 5.4 | 629 | 5 | 0 |"
+}

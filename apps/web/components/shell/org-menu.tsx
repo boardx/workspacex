@@ -2,7 +2,9 @@
 import * as React from "react";
 import Link from "next/link";
 import { Settings } from "lucide-react";
-import { type Identity } from "@/lib/identity";
+import { isLocalOrg, LOCAL_ORG_GUARANTEES, type Identity } from "@/lib/identity";
+import { useIsLocalEdition } from "@/lib/edition";
+import { HardDrive } from "lucide-react";
 import { apiUrl } from "@/lib/api-client";
 import { useAuthedImageSrc } from "@/lib/use-authed-image-src";
 import { useOptionalSession } from "@/components/session/session-provider";
@@ -129,9 +131,24 @@ export function OrgMenu({
 }) {
   const session = useOptionalSession();
 
+  /**
+   * 「这个工作区在不在本机」——**两种成立方式，缺一不可**（#3872 R1 实测修正）。
+   *
+   * UC-0.5 R8 的原判据是 `isLocalOrg(identity.org)`，它只认 kind 为 `personal-local`
+   * 的组织，那是**云端产品里的隐私模式**概念。本地版实测下来有两个组织：
+   * 默认工作的那个「我的本地工作区」kind 是 `organization`，另一个才是 `personal-local`
+   * ——于是「本机工作区」的标记**恰恰不显示在用户真正用的那个组织上**。
+   *
+   * 在本地版里每个组织都在本机，这是版次事实不是组织属性。所以判据补上版次这一半。
+   */
+  const localEdition = useIsLocalEdition();
+  const local = localEdition || isLocalOrg(identity.org);
+  const currentLabel = organizations.find((o) => o.id === identity.org.id)?.label ?? identity.org.name ?? "";
+
   // 见文件头「组织头像的读路径」：URL 首选 identity（全员、零请求）；
   // admin-only 空补丁读只作为上传头像后（invalidateOrgAvatar）的刷新通道。
-  const adminCanRefresh = session?.status === "authenticated" && identity.orgRole === "admin";
+  const isOrgAdmin = identity.orgRole === "admin";
+  const adminCanRefresh = session?.status === "authenticated" && isOrgAdmin;
   const avatarUrl = useOrgAvatarUrl(identity.org.id, identity.org.avatarUrl, adminCanRefresh);
   // ⚠ 用 `apiUrl()` 拼，不许 `${apiBaseUrl()}${path}` 字符串拼接——后者会吃掉
   //   `NEXT_PUBLIC_API_PATH_PREFIX`（fullstack e2e 的同源代理前缀），实测 404。
@@ -174,39 +191,79 @@ export function OrgMenu({
         // 固定宽 w-52 不变，超高时列表内部滚动。
         className="max-h-[70vh] w-52 overflow-y-auto"
       >
-        <MenuLabel className="pb-1 pt-1.5 text-10 uppercase tracking-wide">切换组织</MenuLabel>
-        <MenuRadioGroup
-          value={identity.org.id}
-          onValueChange={(id) => {
-            if (id !== identity.org.id) onSelect(id);
-          }}
-        >
-          {organizations.map((o) => (
-            <MenuRadioItem
-              key={o.id}
-              value={o.id}
-              data-testid={`org-switcher-option-${o.id}${testIdSuffix}`}
-              className={cn(o.id === identity.org.id ? "font-medium text-primary" : "text-card-foreground")}
+        {/*
+          「你在哪」永远先说，「能去哪」才跟在后面。
+
+          ⚠ 只有一个组织时「不渲染单选组」：那是一个已经选中、点了不会有任何事发生的
+          单选项（`onValueChange` 里 `id !== identity.org.id` 直接挡掉），顶上还压着
+          「切换组织」四个字——本地版就是这个样子，它只有一个组织
+          （`packages/local-runtime/src/seeds.ts` 种一个用户一个组织）。
+          判据用的是「列表长度」而不是「是不是本地版」：云端用户只属于一个组织时
+          症状一模一样，按版次硬编码会漏掉他们。
+        */}
+        <MenuLabel className="pb-1 pt-1.5 text-10 uppercase tracking-wide">当前所在</MenuLabel>
+        <div data-testid={`org-menu-current${testIdSuffix}`} className="px-2 pb-1.5">
+          <div className="flex items-center gap-1.5">
+            {local && <HardDrive aria-hidden className="h-3.5 w-3.5 shrink-0 text-primary" />}
+            <span className="min-w-0 flex-1 truncate text-13 font-medium text-card-foreground">
+              {currentLabel}
+            </span>
+          </div>
+          {local && (
+            <p data-testid={`org-menu-local-note${testIdSuffix}`} className="mt-0.5 text-11 leading-snug text-muted-foreground">
+              本机工作区 · {LOCAL_ORG_GUARANTEES[0].statement}
+            </p>
+          )}
+        </div>
+
+        {organizations.length > 1 && (
+          <>
+            <MenuSeparator />
+            <MenuLabel className="pb-1 pt-1.5 text-10 uppercase tracking-wide">切换组织</MenuLabel>
+            <MenuRadioGroup
+              value={identity.org.id}
+              onValueChange={(id) => {
+                if (id !== identity.org.id) onSelect(id);
+              }}
             >
-              <span className="min-w-0 flex-1 truncate">{o.label}</span>
-            </MenuRadioItem>
-          ))}
-        </MenuRadioGroup>
+              {organizations.map((o) => (
+                <MenuRadioItem
+                  key={o.id}
+                  value={o.id}
+                  data-testid={`org-switcher-option-${o.id}${testIdSuffix}`}
+                  className={cn(o.id === identity.org.id ? "font-medium text-primary" : "text-card-foreground")}
+                >
+                  <span className="min-w-0 flex-1 truncate">{o.label}</span>
+                </MenuRadioItem>
+              ))}
+            </MenuRadioGroup>
+          </>
+        )}
 
-        <MenuSeparator />
+        {isOrgAdmin && <MenuSeparator />}
 
-        {/* 组织功能区块：只放有真实后端支撑的入口，不发明死入口 */}
-        <MenuItem asChild>
-          <Link
-            href="/org-admin"
-            data-testid={`org-admin-entry${testIdSuffix}`}
-            aria-label="组织管理"
-            className="gap-2"
-          >
-            <Settings aria-hidden className="h-3.5 w-3.5" />
-            组织管理
-          </Link>
-        </MenuItem>
+        {/*
+          组织功能区块：只放有真实后端支撑的入口，不发明死入口。
+
+          ⚠ 2026-09-20 人类要求「组织管理员才可以看到组织管理后台」：非 admin 不渲染这一项。
+            `/org-admin` 的四个标签页（团队/成员/邀请/资料）后端全部要本组织 admin，
+            非 admin 点进去只能看到一屏 403——那不是功能入口，是把人引到一堵墙上。
+          ⚠ 仍然是展示过滤而非权限（UC-0.3 R5）：路由本身没有下线，直接敲 URL 进去
+            由服务端拒绝并由屏自己解释，不靠这里藏着来保证安全。
+        */}
+        {isOrgAdmin && (
+          <MenuItem asChild>
+            <Link
+              href="/org-admin"
+              data-testid={`org-admin-entry${testIdSuffix}`}
+              aria-label="组织管理"
+              className="gap-2"
+            >
+              <Settings aria-hidden className="h-3.5 w-3.5" />
+              组织管理
+            </Link>
+          </MenuItem>
+        )}
       </MenuContent>
     </Menu>
   );

@@ -23,7 +23,8 @@
  */
 
 /** 外壳形态。决定画哪种 chrome，不决定尺寸。 */
-export type PrototypeChrome = "phone" | "tablet" | "browser";
+/** 对标 R5（#3933）：`slide` = 幻灯片，没有状态栏、没有浏览器地址栏，只有一张 16:9 的纸。 */
+export type PrototypeChrome = "phone" | "tablet" | "browser" | "slide";
 
 export interface PrototypeDevicePreset {
   readonly id: string;
@@ -50,6 +51,8 @@ export const DEVICE_PRESETS: readonly PrototypeDevicePreset[] = [
   { id: "ipad", label: "iPad", chrome: "tablet", w: 820, h: 1180, radius: 30, rotatable: true },
   { id: "laptop", label: "笔记本", chrome: "browser", w: 1280, h: 800, radius: 10, rotatable: false },
   { id: "desktop", label: "桌面", chrome: "browser", w: 1440, h: 900, radius: 10, rotatable: false },
+  // 对标 R5（#3933）：路演、汇报、方案讲解——「帮我做几页幻灯片」是普通人最常提的非 App 需求之一。
+  { id: "slide", label: "幻灯片 16:9", chrome: "slide", w: 1280, h: 720, radius: 4, rotatable: false },
 ];
 
 export const DEFAULT_PRESET_ID = "iphone";
@@ -84,4 +87,26 @@ export function fitScale(
 ): number {
   if (container.w <= 0 || container.h <= 0 || device.w <= 0 || device.h <= 0) return 1;
   return Math.min(1, container.w / device.w, container.h / device.h);
+}
+
+/**
+ * 低于这个倍数，画出来的字就读不了了。2026-09-23 本地真栈实测：375 宽的手机上打开设计详情，
+ * 对话区和工具条占掉上半屏，画布只剩 291px 高，两头都装下的缩放是 **0.29**——393 宽的手机
+ * 缩成 114×247px，正文约 4px。那不是「在手机上长什么样」，是一张看不清的缩略图。
+ */
+export const LEGIBLE_MIN_SCALE = 0.5;
+
+/**
+ * 给**能滚动**的舞台用：两头都装得下就照 `fitScale`；装下的代价是读不了字时，
+ * **宁可只按宽度缩、竖着滚**——人在手机上本来就是竖着滑着看一整屏的。
+ * 仍然只缩不放（上限 1），理由同 `fitScale`。
+ */
+export function fitScaleScrollable(
+  container: { readonly w: number; readonly h: number },
+  device: { readonly w: number; readonly h: number },
+): number {
+  const both = fitScale(container, device);
+  if (both >= LEGIBLE_MIN_SCALE) return both;
+  if (container.w <= 0 || device.w <= 0) return both;
+  return Math.max(both, Math.min(1, container.w / device.w));
 }

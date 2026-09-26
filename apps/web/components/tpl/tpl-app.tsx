@@ -2,6 +2,7 @@
 import * as React from "react";
 import { Check, X, LayoutTemplate, FolderKanban } from "lucide-react";
 import { AppShell } from "@/components/shell/app-shell";
+import { PrototypeDataBanner } from "@/components/shell/prototype-data-banner";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { StatePreviewSwitcher } from "@/components/state/state-shell";
@@ -57,6 +58,7 @@ export function TplApp({
     <AppShell identity={identity} previewRole={previewRole} left={<TplNav screen={screen} href={href} />}>
       <div className="relative flex h-full min-h-0 flex-col">
         <PreviewControls href={href} screen={screen} uiState={uiState} qs={qs} />
+        <PrototypeDataBanner className="mx-4 mt-2" />
 
         <div className="min-h-0 flex-1 overflow-y-auto">
           {screen === "list" && <BlueprintListScreen {...common} />}
@@ -104,7 +106,20 @@ function TplNav({ screen, href }: { screen: TplScreen; href: (o: { screen: strin
               >
                 <a href={s === "designer" ? "/tpl/designer" : href({ screen: s })}>
                   {TPL_SCREEN_LABEL[s]}
-                  <Badge tone="outline" className="ml-auto">{TPL_SCREEN_UC[s]}</Badge>
+                  {/*
+                    2026-09-22 实测：`tone="outline"` 是 `text-muted-foreground` + `border-border`，
+                    落在「选中态那颗 primary 实心按钮」（近黑 #141417）上只有 2.91:1。
+                    徽标不知道自己坐在深色面上，所以由这里按 variant 给它配对的前景色。
+                  */}
+                  <Badge
+                    tone="outline"
+                    className={cn(
+                      "ml-auto",
+                      s === screen && s !== "designer" && "border-primary-foreground/30 text-primary-foreground/80",
+                    )}
+                  >
+                    {TPL_SCREEN_UC[s]}
+                  </Badge>
                 </a>
               </Button>
             ))}

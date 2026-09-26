@@ -210,11 +210,7 @@ def create_native_graph(
             previous = item.retry_on
             # Keep the official retry implementation and all harness settings.
             # A lost execution response must not become a new side-effect call.
-            def retry_known_failure(error, prior=previous):
-                return not isinstance(error, (SandboxTransportError, SkillActivityError, ToolAuthorityError, NativeArtifactPublishError, StandardWebError, StandardBrowserError, StandardArtifactDownloadError, StandardRunStatusError, StandardRunCancelError, StandardMemoryError, StandardContextError, StandardCanvasError, StandardDocumentError, StandardSqlError, StandardScheduleError, StandardImageError, StandardAudioError, SkillDraftError, StandardSubtaskError, McpExecutionError)) and (
-                    prior(error) if callable(prior) else isinstance(error, prior)
-                )
-            item.retry_on = retry_known_failure
+            item.retry_on = _retry_policy(previous)
     activity = NativeSkillActivity(pinned_skills)
     delegated_inputs = validated_inputs(list(inputs))
     graph = create_deep_agent(
@@ -235,3 +231,55 @@ def create_native_graph(
         node = graph.nodes["tools"]
         snapshot.validate(getattr(node, "bound", node).tools_by_name)
     return graph
+
+
+def _retry_policy(previous):
+    """工具失败要不要重试。**提到模块层是为了能被单测直接打**——它此前是个闭包，
+    只能靠跑整张图间接验证，而这条判据正是 2026-09-24「联网十次五次失败」的关键一环。
+
+    规则（`StandardWebError` 的 `retryable` 是唯一事实源，不在这里重抄一份分类）：
+      · 只读联网失败 ⇒ 按它自己声明的 `retryable`（超时 / 网关不可达 / 上游 5xx 才重试）；
+      · 其余有副作用的工具 ⇒ 一律不重试（丢失的执行响应不得变成新的副作用调用）；
+      · 都不是 ⇒ 交回官方 `ToolRetryMiddleware` 原本的判据。
+    """
+    from .standard_web_tools import StandardWebError
+
+    def decide(error):
+        if isinstance(error, StandardWebError):
+            return getattr(error, 'retryable', False)
+        if isinstance(error, _never_retry()):
+            return False
+        return previous(error) if callable(previous) else isinstance(error, previous)
+
+    return decide
+
+
+def _never_retry():
+    """有副作用、重试可能造成第二次副作用的工具错误。惰性导入：与本模块既有写法一致。
+
+    ⚠ 这份清单与 `build_native_graph` 里那份是**同一件事**，由
+    `tests/test_web_retry_policy.py` 机械核对两边一致——第二份副本一旦分叉，
+    会出现「某类错误在一处不重试、在另一处重试」这种最难查的行为差异。
+    """
+    from .native_artifact_publish import NativeArtifactPublishError
+    from .standard_artifact_download import StandardArtifactDownloadError
+    from .standard_audio_tools import StandardAudioError
+    from .standard_browser_tools import StandardBrowserError
+    from .standard_canvas_tools import StandardCanvasError
+    from .standard_context_tools import StandardContextError
+    from .standard_document_tools import StandardDocumentError
+    from .standard_image_tools import StandardImageError
+    from .standard_memory import StandardMemoryError
+    from .standard_run_cancel import StandardRunCancelError
+    from .standard_run_status import StandardRunStatusError
+    from .standard_schedule import StandardScheduleError
+    from .standard_skill_draft import SkillDraftError
+    from .standard_sql_database import StandardSqlError
+    from .standard_subtask_tools import StandardSubtaskError
+    from .mcp_snapshot_tools import McpExecutionError
+    # 这三个是本模块顶层就导入的（第 29/33/34 行），不重复惰性导入。
+    return (SandboxTransportError, SkillActivityError, ToolAuthorityError, NativeArtifactPublishError,
+            StandardBrowserError, StandardArtifactDownloadError, StandardRunStatusError,
+            StandardRunCancelError, StandardMemoryError, StandardContextError, StandardCanvasError,
+            StandardDocumentError, StandardSqlError, StandardScheduleError, StandardImageError,
+            StandardAudioError, SkillDraftError, StandardSubtaskError, McpExecutionError)

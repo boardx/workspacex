@@ -170,11 +170,14 @@ describe("recommendTemplates · 推荐哪几个", () => {
 });
 
 describe("buildRecommendationPrompt", () => {
-  it("带上显示名与 key，并明说不要编造——围栏格式说明不在这里重复（它在 system prompt 里）", () => {
+  it("带上显示名与 key，并要求没聊到的分区推理补全而不是留空——与 system prompt 的画布指引同向（2026-09-17 人类裁决：默认 AI 推理填充）", () => {
     const prompt = buildRecommendationPrompt({ key: "journey-map", displayName: "用户旅程图" });
     expect(prompt).toContain("用户旅程图");
     expect(prompt).toContain("journey-map");
-    expect(prompt).toContain("不要编造");
+    expect(prompt).toContain("推理补全");
+    // ⚠ 反证：曾经的「没有依据的分区留空，不要编造」与指引相反，小模型会反问而不出围栏
+    expect(prompt).not.toContain("没有依据的分区留空");
+    expect(prompt).not.toContain("不要编造");
     // ⚠ 反证：格式说明只能有一份（`buildCanvasTemplateGuidance`）。在用户消息里再写
     //   一遍围栏语法，两份措辞早晚漂移，而漂移的那天没有任何东西会报警。
     expect(prompt).not.toContain("```");

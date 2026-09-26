@@ -276,7 +276,9 @@ export function classify(cmd) {
     return {
       shape: `pytest-file:${normalizedRunner}`,
       probe: `cd ${cwd} && ${runner} tests/${PROBE_TOKEN}.py`,
-      checks: [{ type: "path", path: cwd }, { type: "test-file", path: paths }],
+      // `cwd` 随 test-file 一起带出：pytest 的路径是相对 `cd` 那个目录的，
+      // 缺了它，下游（lib/verification-targets.ts）无法把指向物还原成仓库根相对路径。
+      checks: [{ type: "path", path: cwd }, { type: "test-file", cwd, path: paths }],
     };
   }
 

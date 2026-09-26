@@ -1,3 +1,5 @@
+import type { NewAssistantCitation } from "../chat/persist-assistant-citations";
+import type { RunCitation } from "./standard-cite";
 import type { RestorableInterrupt } from "@repo/contracts/agent-interrupts";
 import { designWorkbench } from "@repo/contracts";
 import type { ExecutionEvent, ExecutionEventInput } from "@repo/contracts/execution-journal";
@@ -396,9 +398,17 @@ export interface PendingWriteback {
    * 与本次改动之前逐字节相同（既有测试替身不必都改，这是不回归的保证之一）。
    */
   readonly files?: readonly RunOutputFile[];
+  /**
+   * E3 —— 这条回答携带的结构化引用。**可选**：缺省/空 ⇒ 不写 `chat_citations`。
+   * #4227：产出方是 `wx_cite` 工具（`standard-cite.ts`），它把校验通过的条目记在
+   * `agent_runs.cited_sources`，`claimWritebackPending` 经 `numberRunCitations` 编号 1..n。
+   */
+  readonly citations?: readonly NewAssistantCitation[];
 }
 
 export interface AgentRunStore {
+  /** #4227 —— `wx_cite` 的 run 引用账本，语义见 `standard-cite.ts` 的 `RunCitationLedger`。 */
+  appendRunCitations?(orgId: OrgId, runId: string, items: readonly RunCitation[]): Promise<readonly string[] | null>;
   /** Explicit rejection ends a waiting run without executing or reporting failure. */
   rejectAwaitingPermission?(orgId: OrgId, runId: string): Promise<boolean>;
   requestCancellation?(orgId: OrgId, runId: string): Promise<"cancel_requested" | "cancelled" | null>;
@@ -915,14 +925,42 @@ export interface ModelCallImage {
   readonly bytes: Uint8Array;
 }
 
+/** A JSON schema the provider may enforce at decode time (OpenAI `response_format` shape). */
+export interface ModelResponseSchema {
+  readonly name: string;
+  readonly schema: Record<string, unknown>;
+}
+
 export interface ModelCallInput {
   /** Local transport cancellation only; never serialized or a claim of remote cessation. */
   readonly signal?: AbortSignal;
+  /**
+   * #3749 B1.4：要求模型输出恰好符合这份 JSON schema。OPTIONAL——只有开启了
+   * `KERNEL_MODEL_JSON_SCHEMA=1` 的 `ConfiguredModelProvider` 会把它作为 `response_format`
+   * 发出（Ollama / llama.cpp 用语法约束解码，不再靠 prompt-and-parse）；其余 provider 与未开
+   * 开关的部署忽略它，请求逐字节不变。
+   */
+  readonly responseSchema?: ModelResponseSchema;
+  /**
+   * #3749 R2：本次调用不该让模型看见的工具名。OPTIONAL——只有 deep-agent provider 转发
+   * （`configurable.excluded_tools`，远端 `ToolBudgetMiddleware` 读），其余 provider 忽略。
+   * 缺席 ⇒ 请求逐字节不变。
+   */
+  readonly excludedTools?: readonly string[];
   /** Non-secret binding issued by the trusted native session owner. */
   readonly nativeSession?: z.infer<typeof import("@repo/contracts/native-session-binding").NativeSessionBindingRef>;
   /** Trusted executor restriction. A text-only subtask must not inherit parent tools. */
   readonly executionMode?: z.infer<typeof SC.RestrictedExecutionMode>;
   readonly onSkillActivity?: (fact: import("@repo/contracts/skill-activity").SkillActivityFact) => Promise<void>;
+  /**
+   * 2026-09-22 —— 这一轮有溯源事实**没收到**时写一条缺页标记（本地版 best-effort 纪律，
+   * 见 `@repo/contracts/deployment` 的 `skillActivityDeliveryDiscipline`）。
+   *
+   * ⚠ 缺席 ⇒ provider 不记缺页；而**是否因此判 run 失败**由 provider 自己的
+   * `skillActivityDelivery` 决定，不由这个回调在不在决定——两件事分开，否则「没接回调」
+   * 会悄悄变成「顺便放宽了纪律」。
+   */
+  readonly onSkillActivityGap?: (note: string) => Promise<void>;
   /**
    * issue #3322 —— 一次工具调用**执行期间**的中间进展。
    *
@@ -1134,6 +1172,34 @@ export class ModelCallError extends Error {
 }
 
 /**
+ * issue #2893 —— 远端 run 停在 **interrupt**（内核自己发起 `confirm_task_intent` /
+ * `fill_run_params` 等 HITL 工具，等人裁决），不是一次失败的模型调用。
+ *
+ * ## 为什么需要一个类型，而不是让调用方去认 `detail` 里的措辞
+ *
+ * 实测（2026-09-07，本地生产镜像矩阵）：技能脚本第一次在沙箱失败后，重试路径用
+ * `complete()` 让内核重生成脚本，这次 run 停在了 interrupt。`pollToTerminal` 对
+ * `interrupted` 一律抛 `MODEL_CALL_FAILED`，于是「内核在等人回答一个问题」与「模型
+ * 调用真的坏了」在调用方那里**不可分辨**——用户拿到的是一句
+ * `deep agent run ended with status "interrupted"`，既不是失败原因，也没有裁决入口。
+ * 唯一能分辨它们的信息此刻只有 `detail` 里的那句话,而按 `ModelCallError` 自己的纪律
+ * 那是**只进服务端日志**的字符串;让调用方去正则匹配它,等于把一条产品判断建在一句
+ * 随时会被改写的日志措辞上（本仓「同一事实声明在两处」栽过五次的同一个形状）。
+ *
+ * ⚠ `code` 仍然是 `MODEL_CALL_FAILED`,**不新增枚举值**：`RunFailureCode` 由契约派生
+ *   （ADR-020），动它是一次跨 SQL CHECK / 前端译码的契约改动,不属于本 issue。既有
+ *   catch 点（`instanceof ModelCallError`、按 `code` 落终态、`classifyModelCallFailureReason`
+ *   按 `detail` 分类）因此**逐字保持原行为**;新增的只是「关心这件事的调用方现在**能**
+ *   分辨它」这一个能力。
+ */
+export class ModelCallInterruptedError extends ModelCallError {
+  constructor(detail: string) {
+    super("MODEL_CALL_FAILED", detail);
+    this.name = "ModelCallInterruptedError";
+  }
+}
+
+/**
  * 一次模型调用的返回。原本是三处逐字重复的内联字面量（`complete` / `completeStream` /
  * `completeWithProgress`），#1747 收敛成一个具名类型——否则新增一个字段要改三处，
  * 漏一处就是一条只在某一条分支上存在的契约。
@@ -1314,7 +1380,21 @@ export interface ModelCallPort {
    * 正确的下游 port，同 `supportsProgress(modelProvider)`/`supportsVision(modelProvider,
    * modelId)` 的既有形状——一个只服务单一 provider 的叶子 port 可以忽略这个参数。
    */
-  checkKernelHealth?(modelProvider: string): Promise<KG.KernelHealthStatus>;
+  /**
+   * `onDiagnosis` —— 判定为 `"unavailable"` 时，把**为什么**用一句人读文案交回调用方
+   * （`execute-run.ts` 把它写进那条 `kernel health check failed` 日志）。此前这条路径
+   * 只留下「某个 run 以 KERNEL_UNAVAILABLE 失败」，分不出「地址没配」还是「连不上」，
+   * 每次线上排查都要上机器手工复现（2026-09-22 devapp 实测：用户看到"服务暂时不可用"，
+   * 服务端日志里没有任何可据以行动的信息）。判 `"healthy"` 时不回调。
+   *
+   * 可选参数：不传 ⇒ 行为与本次改动之前逐字节相同；不实现它的 port 不受影响。
+   * 诊断文案只进日志，**不**外露给用户（裸地址/异常串不是人话，见
+   * `copilotkit-v2-error-copy.ts` 的同一条纪律）。
+   */
+  checkKernelHealth?(
+    modelProvider: string,
+    onDiagnosis?: (detail: string) => void,
+  ): Promise<KG.KernelHealthStatus>;
 }
 
 export interface AgentRunClock {

@@ -1,0 +1,16 @@
+/*
+ * 自托管字体变量——与 `apps/web/app/fonts.module.css` 同一处置。
+ *
+ * 原本走 `next/font/google`，于是 `next build` 每次都要去 fonts.googleapis.com 取字体：
+ * 网络一抖构建就红，而且 `harness-verify` 的 `verify-full-compile` 红在这上面时
+ * 看起来像是代码坏了（main 自己也会红，实测 5 次里 4 次）。字体由确切的 npm 版本拥有，
+ * 构建期零网络请求。
+ *
+ * 字族名来自各 @fontsource-variable 包自己的 @font-face（见其 index.css），
+ * 不是我另起的名字——换包版本前先核对，不要在这里猜。
+ */
+.variables {
+  --font-sans: "Inter Variable";
+  --font-mono: "JetBrains Mono Variable";
+  --font-serif: "Newsreader Variable";
+}

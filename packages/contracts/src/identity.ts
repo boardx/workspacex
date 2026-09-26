@@ -16,6 +16,7 @@
  * 用例接口见 同目录 `usecases.md`
  */
 import { z } from "zod";
+import { EgressLedger } from "./deployment";
 
 /**
  * 与 `auth.ts` 的 `PasswordPolicy`（`z.string().min(AUTH_POLICY.passwordMinLen)`）
@@ -932,6 +933,23 @@ export const operations = {
       "NO_ORG_MEMBERSHIP", "LOCAL_ORG_ONLY", "CAPABILITY_NOT_FOUND",
       "CLOUD_MODEL_FORBIDDEN", "LOCAL_RUNTIME_UNAVAILABLE",
     ] as const,
+  },
+
+  /**
+   * getEgressLedger —— 本地版「出网 0 次」的**实测**来源（backlog E4）
+   *
+   * 进程级（不是某个组织的）：数的是这次启动以来 API 进程打开过的非回环连接，按
+   * `deployment.ts` 的 `EgressLedger` 四个桶分类。判定「界面显示哪一格」的只有
+   * `egressLedgerState`，前端不自己比计数。
+   *
+   * ⚠ 只在 `local` 版次回答；在线版一律 404。在线部署的出站目的地（数据库、模型网关的主机名）
+   *   对任何登录用户都不该可见——这条路由存在的理由只在单人单机上成立。
+   */
+  getEgressLedger: {
+    method: "GET", path: "/identity/local-org/egress-ledger",
+    in: z.object({}).strict(),
+    out: EgressLedger,
+    err: [] as const,
   },
 
   previewExport: {

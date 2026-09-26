@@ -56,8 +56,9 @@ pnpm harness verify --sprint 01/01        # 唯一的完成之门
 | 交付 | `phases/` | 阶段 → sprint → feature 时间线 |
 
 技术架构方案：参考栈（分层选型+可替换点+部署三形态）见
-`.harness/instructions/architecture.md`；组织本体/知识图谱数据架构（PG canonical +
-pgvector + Apache AGE 图投影，graph-first 检索）见 `docs/architecture/knowledge-ontology.md`。
+`.harness/instructions/architecture.md`；组织大脑/知识图谱（PG canonical +
+pgvector + Apache AGE 图投影，hybrid 检索）见 `docs/proposals/PROP-ORG-BRAIN-KG-001.md` 与 ADR-114；
+harness 元本体见 `docs/architecture/knowledge-ontology.md`。
 
 入口永远是 `AGENTS.md`（≤100 行目录页，agent 每次开工第一个读的文件）。
 
@@ -78,6 +79,11 @@ pgvector + Apache AGE 图投影，graph-first 检索）见 `docs/architecture/kn
   同样工具无关：`agent-bootstrap.md`/`coordinator-sop.md` 等执行书不绑定任何一个
   CLI 工具的语法，`pnpm harness tick`/`claim`/`verify` 等命令两边通用（都是纯 shell +
   Node 脚本，不依赖某个工具的专有能力）。
+
+## 许可证与商标
+
+代码以 Apache-2.0 开源（[`LICENSE`](LICENSE)）；名称与 logo 的使用规则见
+[`TRADEMARKS.md`](TRADEMARKS.md)——修改后再分发的 fork 须改名。
 
 ## 与上游的关系
 

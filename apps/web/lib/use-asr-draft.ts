@@ -47,6 +47,12 @@ export interface UseAsrDraftResult {
   /** 已点停止，正在等最后一段 `asr.final` 落定——同样不是 0 秒（见上面文件头注）。 */
   readonly stopping: boolean;
   readonly error: string | null;
+  /**
+   * 2026-09-23 本地真栈实测：`error` 只有一句话，调用方分不出「暂时不可用」和「这个环境根本
+   * 没开通」——于是两种都给了「重试」，而后者点多少次都一样（本地版没下转写模型时就是这样）。
+   * 服务端给了闭集原因时带上它；浏览器侧的失败（权限、不支持）仍是 `null`，走原来的判断。
+   */
+  readonly errorReason: AsrDraftErrorReason | null;
   readonly start: () => void;
   /** 停止并**保留**已转录的文字（追加进输入框）——TW-P0-5⑥ 的「确认」。 */
   readonly stop: () => void;
@@ -160,6 +166,7 @@ function stripTrailingTurnBoundaryPunctuation(text: string): string {
 export function useAsrDraft({ onTranscript, getBaseText, sessionToken, deviceId }: UseAsrDraftOptions): UseAsrDraftResult {
   const [status, setStatus] = React.useState<AsrDraftStatus>("idle");
   const [error, setError] = React.useState<string | null>(null);
+  const [errorReason, setErrorReason] = React.useState<AsrDraftErrorReason | null>(null);
   const [elapsedSeconds, setElapsedSeconds] = React.useState(0);
   const [level, setLevel] = React.useState(0);
   const [segments, setSegments] = React.useState({ baseText: "", committedText: "", partialText: "" });
@@ -226,6 +233,7 @@ export function useAsrDraft({ onTranscript, getBaseText, sessionToken, deviceId 
     discardRef.current = false;
     setSegments({ baseText: baseTextRef.current, committedText: "", partialText: "" });
     setError(null);
+    setErrorReason(null);
     setElapsedSeconds(0);
     setLevel(0);
     startingRef.current = true;
@@ -255,6 +263,7 @@ export function useAsrDraft({ onTranscript, getBaseText, sessionToken, deviceId 
           stoppingRef.current = false;
           setStatus("error");
           setError(ERROR_TEXT[reason] ?? `语音识别出错：${reason}`);
+          setErrorReason(reason);
         },
         onFinished: () => {
           if (!current()) return;
@@ -313,6 +322,7 @@ export function useAsrDraft({ onTranscript, getBaseText, sessionToken, deviceId 
     connecting: status === "connecting",
     stopping: status === "stopping",
     error,
+    errorReason,
     start,
     stop,
     cancel,

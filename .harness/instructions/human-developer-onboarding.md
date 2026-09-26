@@ -31,17 +31,17 @@ BoardX 的开发不是"一个人写代码"，而是**一支 agent 团队并行�
   └─────────────────────────────────────────────┘
                 │  全员登记 + 全员可见
                 ▼
-     coord-service (Cloudflare D1)  ← 唯一协调权威
+     coord-gateway (每仓一个 RepoHub DO)  ← 唯一协调权威
      dashboard: https://<你的门户域名>/admin/coordination
 ```
 
 两条贯穿全局的铁律，先记住：
 
-- **协调权威在 coord-service（D1），不在 GitHub**。认领谁在做什么、租约新不新鲜，
-  都由 coord-service 裁定（ADR-009）。GitHub issue 只用于 feature 规格 + 人类可读
-  的叙述/讨论，不再是协调锁。
+- **协调权威在 coord-gateway，不在 GitHub**。认领谁在做什么、租约新不新鲜，
+  都由 coord-gateway 裁定（ADR-009 定方向、ADR-017 定实现；旧 coord-service (D1)
+  已退役）。GitHub issue 只用于 feature 规格 + 人类可读的叙述/讨论，不再是协调锁。
 - **看不见的活等于不存在的活**。任何在干活的 agent（包括临时派出的子 agent）
-  必须在 coord-service 有身份 + 认领记录，否则它就是无法度量、无法回收的"影子劳动力"，
+  必须在 coord-gateway 有身份 + 认领记录，否则它就是无法度量、无法回收的"影子劳动力"，
   这是本项目明确禁止的（ADR-010 防断链不变量）。
 
 ## 1. 三级协调者：你的 agent 是哪一级？
@@ -50,7 +50,7 @@ BoardX 的开发不是"一个人写代码"，而是**一支 agent 团队并行�
 |---|---|---|---|
 | **总协调 main coordinator**（`coord-main`） | 管整个项目：全局分派、跨模块仲裁、**唯一能合并 PR 的人** | 全仓唯一一个，通常是仓库所有者授权的核心会话 | ✅ 唯一 |
 | **模块协调 module coordinator**（`coord-<模块>`） | 管一个领域（Board / AVA / Room / Survey / Platform…）：分派本领域的活、首轮 review、派子 agent 干活 | **你带来的核心 agent 通常就当这个** | ❌（全绿转交 coord-main 合并） |
-| **架构协调 architecture coordinator**（`coord-architecture`） | 管协议/控制平面本身：ADR、SOP、coord-service、协作文档 | 通常一个，负责让协作规则本身持续演进 | ❌ |
+| **架构协调 architecture coordinator**（`coord-architecture`） | 管协议/控制平面本身：ADR、SOP、coord-gateway、协作文档 | 通常一个，负责让协作规则本身持续演进 | ❌ |
 
 **你带自己的 agent 加入，最常见的定位是 module coordinator**——认领一个模块领域，
 对它负责。下面按这个主线讲怎么接入。
@@ -61,9 +61,9 @@ module coordinator 是"该领域的项目经理 + 首轮技术负责人"，职�
 `.agents/skills/module-coordinator/SKILL.md`）：
 
 **它必须做的**：
-1. **认领本模块的唯一性租约**（D1）：`pnpm harness module-lock-acquire --module <名>
+1. **认领本模块的唯一性租约**（coord-gateway）：`pnpm harness module-lock-acquire --module <名>
    --session coord-<模块>`，之后每个巡检周期续约（acquire-or-renew）。同一模块同一
-   时刻只应有一个 module-coordinator，由 coord-service 的原子认领保证。
+   时刻只应有一个 module-coordinator，由 coord-gateway 的原子认领保证。
 2. **分派本领域的开发工作**给 worker 或自己派出的子 agent；管 issue、管 PR 品质。
 3. **首轮 review + 返工裁决**：本领域的 PR 先由它把关；敏感 area（auth/billing/
    admin/share/invite）强制过安全评审，不因"自己审过"降低标准。
@@ -110,21 +110,24 @@ module coordinator 不必亲自写所有代码，它可以按需派出**承担�
 没把握选哪个模块 / area 命名，在协调叙述 issue（#323）里 @coord-architecture 或
 仓库所有者确认。
 
-### 第 2 步 — 领 coord-service 凭据
+### 第 2 步 — 领 coord-gateway 凭据
 
 > 2026-07-14 起（ADR-011 P2）：**worker/module-coordinator 级身份在
 > <你的门户域名> → 加入开发 → 第 5 步自助领取**（registry 合并即有资格，
 > 无需等人）。以下人工流程仅剩 coordinator 级身份与自助通道故障时使用。
 
-协调要动 D1，需要本身份的 token。由有 Cloudflare 访问权的人（仓库所有者）用
-`packages/coord-service/scripts/seed-agents.ts` 为新身份 mint token，写进本地
-gitignored 的凭据文件 `.harness/state/.cache/coord-credentials.json`。你的会话用：
-```bash
-export COORD_SERVICE_URL=https://<你的协调服务>.workers.dev
-export COORD_SERVICE_TOKEN=$(jq -r '.tokens["coord-<你的模块>"]' .harness/state/.cache/coord-credentials.json)
-```
-**没有凭据 = 无法参与协调**（命令会直接报错）——这是 ADR-009 有意的强制换轨，
-不是 bug。运维细节见 `packages/coord-service/OPERATIONS.md`。
+自助通道不可用时，由持 `COORD_GATEWAY_ADMIN_TOKEN` 的人（仓库所有者）走
+coord-gateway 的 token 管理面为新身份 mint 按仓 scoped token，写进本地 gitignored
+的凭据文件 `.harness/state/.cache/coord-credentials.json`。
+
+**接线命令（`COORD_GATEWAY_URL` / `COORD_API_TOKEN` / `COORD_REPO` 三件套）与连通性
+自检只写在 `.harness/instructions/agent-bootstrap.md` 第 3 步**——照那一份做，本文
+不复述（同一事实不声明在两处；旧 `COORD_SERVICE_URL`/`COORD_SERVICE_TOKEN` 已随
+coord-service 退役，ADR-017，配了也不会被读取）。
+
+**没有凭据 = 无法参与协调**（命令会直接报错、非零退出）——这是 ADR-009 有意的强制
+换轨，不是 bug。网关运维细节见 `docs/adr/ADR-017-coord-gateway-repohub-cutover.md`
+与 `apps/coord-gateway/`。
 
 ### 第 3 步 — 认领模块租约，开始工作
 ```bash
@@ -135,7 +138,7 @@ pnpm harness module-lock-acquire --module <你的模块> --session coord-<你的
 
 ### 第 4 步 — 派子 agent 时，先登记
 
-你派出的每个子 agent，**在它开始干活前**必须在 coord-service 有身份 + 对其工作
+你派出的每个子 agent，**在它开始干活前**必须在 coord-gateway 有身份 + 对其工作
 资源的 claim。当前自动化尚未落地（见 ADR-010 差距节），所以这是 **module
 coordinator 的手动责任**：
 - 子 agent 身份命名：`coord-<模块>.<role>-<n>`（如 `coord-board.designer-1`）。
@@ -144,7 +147,7 @@ coordinator 的手动责任**：
 - 子 agent 干完/退出，释放它的 claim。
 
 不登记就派子 agent 干活 = 制造影子劳动力，违反 ADR-010——coord-main 抽查
-dashboard 时发现"有活但 D1 里没有对应 agent"会追溯到你。
+dashboard 时发现"有活但协调权威里没有对应 agent"会追溯到你。
 
 ## 3.5 启用你的 agent：第一条消息发什么
 
@@ -222,24 +225,24 @@ flow time 趋势）。
    会话没在 tick = 租约按 ttl 正常过期回收 = dashboard 诚实显示席位空缺，下个活跃
    tick 自愈。**席位间歇性空缺是诚实信号，不是故障**；不要为了显示连续去调大 ttl，
    也不要替别人代跑心跳（那会掩盖真实的失联）。
-2. **全员登记 = 全员可回收**：你的子 agent 也在 D1，你（父 coordinator）失联后，
+2. **全员登记 = 全员可回收**：你的子 agent 也在 coord-gateway，你（父 coordinator）失联后，
    你的子树租约一并进入可回收状态，coord-main 能统一回收重分派。这就是为什么 §3
    坚持子 agent 必须登记。
-3. **状态不留在会话记忆里**：租约/事件的权威在 coord-service，人类可读的叙述在
+3. **状态不留在会话记忆里**：租约/事件的权威在 coord-gateway，人类可读的叙述在
    协调叙述 issue（#323）。任何 agent 冷启动只读这两处就能续上——会话死了，
-   协调状态不丢。你的 agent 也应遵守：重要状态写进 D1 / 叙述 issue，不要只留在
+   协调状态不丢。你的 agent 也应遵守：重要状态写进协调权威 / 叙述 issue，不要只留在
    自己的上下文里。
 
 ## 6. 最小清单（照着做就能接入）
 
 1. [ ] 拿仓库权限 → clone → `./init.sh` 通过（§3 第 0 步）。
-2. [ ] 读本文 + ADR-010 + ADR-009（协调权威在 D1）+ `module-coordinator/SKILL.md`。
+2. [ ] 读本文 + ADR-010 + ADR-009/ADR-017（协调权威在 coord-gateway）+ `module-coordinator/SKILL.md`。
 3. [ ] 给 module coordinator 在 registry.yaml 建身份（PR + review）。
-4. [ ] 找仓库所有者领 coord-service 凭据（token 只显示一次，只存 gitignored 文件）。
+4. [ ] 领 coord-gateway 凭据（门户自助领取；token 只显示一次，只存 gitignored 文件）。
 5. [ ] 启动你的 agent，第一条消息用 §3.5 对应角色的模板（main coordinator /
    module coordinator / worker 三选一，不要都发 worker 模板）。
 6. [ ] 在 <你的门户域名>/portal「实时协调」里确认它的租约可见。
-7. [ ] 派子 agent 前，先给它登记 D1 身份 + claim。
+7. [ ] 派子 agent 前，先给它登记 coord-gateway 身份 + claim。
 8. [ ] 每 3 小时周期发 cycle-plan / cycle-result，接受 flow-time 度量。
-9. [ ] 每 tick 续约租约；重要状态写 D1 / 叙述 issue，不留会话记忆。
+9. [ ] 每 tick 续约租约；重要状态写 coord-gateway / 叙述 issue，不留会话记忆。
 10. [ ] 全绿 PR 转交 coord-main 合并（你和你的 agent 都没有合并权）。

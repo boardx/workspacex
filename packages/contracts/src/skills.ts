@@ -383,6 +383,11 @@ export const SkillListItem = z
      * 就是空数组，不是一个额外的第三态。
      */
     tags: z.array(z.string()).default([]),
+    /**
+     * backlog E6 —— 平台内置 skill（`org_id = PLATFORM_ORG_ID`）的 `stable_name`，
+     * 用来按 `skill-entry-points.ts` 分入口展示；非平台行恒 null。向后兼容：`.default(null)`。
+     */
+    platformStableName: z.string().nullable().default(null),
   })
   .strict();
 

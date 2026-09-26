@@ -123,9 +123,12 @@ export class RoutingModelCallPort implements ModelCallPort {
    * `MODEL_PROVIDER_NOT_CONFIGURED` for that case, this method is not a second place to
    * pre-empt it.
    */
-  async checkKernelHealth(modelProvider: string): Promise<KG.KernelHealthStatus> {
+  async checkKernelHealth(
+    modelProvider: string,
+    onDiagnosis?: (detail: string) => void,
+  ): Promise<KG.KernelHealthStatus> {
     const port = this.ports.get(modelProvider);
-    return port?.checkKernelHealth ? port.checkKernelHealth(modelProvider) : "healthy";
+    return port?.checkKernelHealth ? port.checkKernelHealth(modelProvider, onDiagnosis) : "healthy";
   }
 
   private resolve(modelProvider: string): ModelCallPort {

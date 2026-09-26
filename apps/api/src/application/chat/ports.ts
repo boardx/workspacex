@@ -385,6 +385,12 @@ export interface ChatRepository {
   findCitationsForMessage(orgId: OrgId, messageId: string): Promise<readonly ChatCitationRow[]>;
 
   /**
+   * #4227 —— 一批消息的全部引用（`getThread` 一次取齐，不逐条 N+1）。租户内读，按
+   * `(message_id, idx)` 排序。**可选**：未实现的仓储（既有测试替身）⇒ `getThread` 回 `citations: []`。
+   */
+  findCitationsForMessages?(orgId: OrgId, messageIds: readonly string[]): Promise<readonly ChatCitationRow[]>;
+
+  /**
    * 引用的来源材料是否仍然存在（`SOURCE_ARTIFACT_DELETED`）。
    * `sourceArtifactId` 为 `null` 时不适用，调用方不应调这个方法。
    */
@@ -626,9 +632,20 @@ export interface MessageLocation {
 
 /**
  * 一条引用的落库形状（F111）。**这是 `chat.Citation` 唯一的持久化点**——消息读路径
- * （`get-thread.ts` 的 `toMessage`）目前把 `citations` 写死成 `[]`，是已登记的缺口
- * （契约没有消息创建端口，写入侧还没有着落）；本表存在的意义是让 `locateCitation`
- * 有一个真实的"原件"可定位，而不是让这条链路整体停在 mock 阶段。
+ * （`get-thread.ts` 的 `toMessage`）目前把 `citations` 写死成 `[]`，是已登记的缺口。
+ *
+ * ⚠ 这里原先写着「契约没有消息创建端口，写入侧还没有着落」。**那句话已经变假**：
+ *   `chat.operations.createMessage`（`POST /chat/threads/:threadId/messages`）由 PR #429
+ *   交付，本仓的实现就在 `interface/controllers/chat.controller.ts` 的 `createMessage`。
+ *   缺口的真实形状比原来那句窄得多：该写端口的 `in` 只有
+ *   `clientMessageId / text / agentId / attachmentIds`，**契约里没有 `citations`**
+ *   这一栏，所以本表至今没有产生者——不是「没有写端口」。
+ *   （同一句谎话的前端副本曾让 coordinator 建了不必要的 issue #461、派了不必要的
+ *    高优先级任务并重排两条链的优先级，见 #473；本行现在归
+ *    `lint-contract-negative-assertion` 机械核对。）
+ *
+ * 本表存在的意义是让 `locateCitation` 有一个真实的"原件"可定位，而不是让这条链路
+ * 整体停在 mock 阶段。
  */
 export interface ChatCitationRow {
   readonly citationId: string;

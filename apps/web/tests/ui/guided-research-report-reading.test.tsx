@@ -1,6 +1,6 @@
 import * as React from "react";
 import { beforeEach, expect, it, vi } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import { GuidedResearchLive } from "@/components/research-studio/guided-research-live";
 import { executeResearchRuntime, getResearchRuntime, type GuidedResearchRuntime } from "@/lib/guided-research-api";
 import { runtimeFixture } from "../guided-runtime-fixture";
@@ -28,5 +28,25 @@ it.each(["final", "draft"])("reads a saved %s as a report without generation dia
   expect(screen.queryByText(/Critical Evidence Mismatch/)).not.toBeInTheDocument();
   expect(screen.queryByText(/完整草稿已生成并保存/)).not.toBeInTheDocument();
   if (kind === "draft") expect(screen.queryByRole("button", { name: "完成研究" })).not.toBeInTheDocument();
+  expect(executeResearchRuntime).not.toHaveBeenCalled();
+});
+
+
+it("opens the report assistant without losing entered text when collapsed", async () => {
+  const state = runtimeFixture("report");
+  vi.mocked(getResearchRuntime).mockResolvedValue(state);
+  render(<GuidedResearchLive sessionId={state.sessionId} onBack={vi.fn()} />);
+  await screen.findByTestId("research-report-actions");
+  expect(screen.queryByRole("button", { name: "修改报告" })).not.toBeInTheDocument();
+  fireEvent.pointerDown(screen.getByRole("button", { name: "更多操作" }), { button: 0, ctrlKey: false });
+  fireEvent.click(await screen.findByRole("menuitem", { name: "修改报告" }));
+  const input = screen.getByRole("textbox");
+  fireEvent.change(input, { target: { value: "请补充结论" } });
+  fireEvent.pointerDown(screen.getByRole("button", { name: "更多操作" }), { button: 0, ctrlKey: false });
+  fireEvent.click(await screen.findByRole("menuitem", { name: "收起助手" }));
+  expect(screen.queryByRole("textbox")).not.toBeInTheDocument();
+  fireEvent.pointerDown(screen.getByRole("button", { name: "更多操作" }), { button: 0, ctrlKey: false });
+  fireEvent.click(await screen.findByRole("menuitem", { name: "修改报告" }));
+  expect(screen.getByRole("textbox")).toHaveValue("请补充结论");
   expect(executeResearchRuntime).not.toHaveBeenCalled();
 });

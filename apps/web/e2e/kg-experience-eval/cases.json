@@ -1,0 +1,232 @@
+{
+  "$comment": "phase-18 F15 记忆体验评测集的语料（R0 冻结，改动要在 evidence/kg-experience-eval/README.md 记理由并重写锁）。say = 用户在对话里说的原话；extract = 抽取回环模型（apps/api/scripts/loopback-kg-eval-model-provider.ts）对这句话回的 JSON——扮演『把这句话读对了的抽取模型』，只对用户逐字说过的这些话有输出，其余一律回空。questions 的 expect 是回答里必须出现的原话片段。",
+  "says": {
+    "M1": {
+      "say": "北极星项目的负责人是王芳，技术负责人是赵磊。",
+      "extract": {
+        "entities": [
+          { "name": "北极星项目", "kind": "project", "aliases": ["北极星"] },
+          { "name": "王芳", "kind": "person", "aliases": [] },
+          { "name": "赵磊", "kind": "person", "aliases": [] }
+        ],
+        "claims": [
+          { "statement": "北极星项目的负责人是王芳", "kind": "fact", "confidence": 0.9, "about": ["北极星项目", "王芳"], "decidedBy": null, "quote": "北极星项目的负责人是王芳" },
+          { "statement": "北极星项目的技术负责人是赵磊", "kind": "fact", "confidence": 0.9, "about": ["北极星项目", "赵磊"], "decidedBy": null, "quote": "技术负责人是赵磊" }
+        ]
+      }
+    },
+    "M2": {
+      "say": "客户恒通物流那边的对接人是陈静，合同金额 96 万元，9 月 30 日签的。",
+      "extract": {
+        "entities": [
+          { "name": "恒通物流", "kind": "organization", "aliases": [] },
+          { "name": "陈静", "kind": "person", "aliases": [] }
+        ],
+        "claims": [
+          { "statement": "恒通物流的对接人是陈静", "kind": "fact", "confidence": 0.9, "about": ["恒通物流", "陈静"], "decidedBy": null, "quote": "恒通物流那边的对接人是陈静" },
+          { "statement": "恒通物流的合同金额是 96 万元", "kind": "fact", "confidence": 0.9, "about": ["恒通物流"], "decidedBy": null, "quote": "合同金额 96 万元" },
+          { "statement": "恒通物流的合同在 9 月 30 日签署", "kind": "fact", "confidence": 0.9, "about": ["恒通物流"], "decidedBy": null, "quote": "9 月 30 日签的" }
+        ]
+      }
+    },
+    "M3": {
+      "say": "设计稿由孙悦负责，要在 10 月 15 日前交。",
+      "extract": {
+        "entities": [
+          { "name": "孙悦", "kind": "person", "aliases": [] },
+          { "name": "北极星项目", "kind": "project", "aliases": ["北极星"] }
+        ],
+        "claims": [
+          { "statement": "北极星项目的设计稿由孙悦负责", "kind": "fact", "confidence": 0.9, "about": ["北极星项目", "孙悦"], "decidedBy": null, "quote": "设计稿由孙悦负责" },
+          { "statement": "北极星项目的设计稿要在 10 月 15 日前交", "kind": "todo", "confidence": 0.9, "about": ["北极星项目"], "decidedBy": null, "quote": "要在 10 月 15 日前交" }
+        ]
+      }
+    },
+    "M4": {
+      "say": "我们决定主数据库用 PostgreSQL，因为团队对它最熟。",
+      "extract": {
+        "entities": [
+          { "name": "北极星项目", "kind": "project", "aliases": ["北极星"] },
+          { "name": "PostgreSQL", "kind": "product", "aliases": ["PG"] }
+        ],
+        "claims": [
+          { "statement": "北极星项目决定采用 PostgreSQL 作为主数据库", "kind": "decision", "confidence": 0.9, "about": ["北极星项目", "PostgreSQL"], "decidedBy": null, "quote": "我们决定主数据库用 PostgreSQL" },
+          { "statement": "北极星项目选 PostgreSQL 是因为团队对它最熟", "kind": "fact", "confidence": 0.85, "about": ["北极星项目", "PostgreSQL"], "decidedBy": null, "quote": "因为团队对它最熟" }
+        ]
+      }
+    },
+    "M5": {
+      "say": "王芳拍板首发只做安卓版，因为恒通物流的司机主要用安卓手机。",
+      "extract": {
+        "entities": [
+          { "name": "王芳", "kind": "person", "aliases": [] },
+          { "name": "北极星项目", "kind": "project", "aliases": ["北极星"] },
+          { "name": "安卓版", "kind": "product", "aliases": ["安卓"] },
+          { "name": "恒通物流", "kind": "organization", "aliases": [] }
+        ],
+        "claims": [
+          { "statement": "王芳决定北极星项目首发只做安卓版", "kind": "decision", "confidence": 0.9, "about": ["北极星项目", "安卓版"], "decidedBy": "王芳", "quote": "王芳拍板首发只做安卓版" },
+          { "statement": "北极星项目首发只做安卓版是因为恒通物流的司机主要用安卓手机", "kind": "fact", "confidence": 0.85, "about": ["北极星项目", "安卓版", "恒通物流"], "decidedBy": null, "quote": "因为恒通物流的司机主要用安卓手机" }
+        ]
+      }
+    },
+    "M6": {
+      "say": "海外市场推广先暂停，预算要优先保证国内上线。",
+      "extract": {
+        "entities": [
+          { "name": "北极星项目", "kind": "project", "aliases": ["北极星"] }
+        ],
+        "claims": [
+          { "statement": "北极星项目决定暂停海外市场推广", "kind": "decision", "confidence": 0.85, "about": ["北极星项目"], "decidedBy": null, "quote": "海外市场推广先暂停" },
+          { "statement": "北极星项目暂停海外市场推广是因为预算要优先保证国内上线", "kind": "fact", "confidence": 0.85, "about": ["北极星项目"], "decidedBy": null, "quote": "预算要优先保证国内上线" }
+        ]
+      }
+    },
+    "M7": {
+      "say": "赵磊定了接口统一改成 GraphQL。",
+      "extract": {
+        "entities": [
+          { "name": "赵磊", "kind": "person", "aliases": [] },
+          { "name": "北极星项目", "kind": "project", "aliases": ["北极星"] },
+          { "name": "GraphQL", "kind": "term", "aliases": [] }
+        ],
+        "claims": [
+          { "statement": "赵磊决定北极星项目的接口统一改成 GraphQL", "kind": "decision", "confidence": 0.9, "about": ["北极星项目", "GraphQL"], "decidedBy": "赵磊", "quote": "赵磊定了接口统一改成 GraphQL" }
+        ]
+      }
+    },
+    "M8": {
+      "say": "北极星项目总预算 380 万元，团队一共 12 人。",
+      "extract": {
+        "entities": [
+          { "name": "北极星项目", "kind": "project", "aliases": ["北极星"] }
+        ],
+        "claims": [
+          { "statement": "北极星项目的总预算是 380 万元", "kind": "fact", "confidence": 0.9, "about": ["北极星项目"], "decidedBy": null, "quote": "北极星项目总预算 380 万元" },
+          { "statement": "北极星项目的团队一共 12 人", "kind": "fact", "confidence": 0.9, "about": ["北极星项目"], "decidedBy": null, "quote": "团队一共 12 人" }
+        ]
+      }
+    },
+    "M9": {
+      "say": "首月目标是 5000 个活跃用户，正式上线定在 11 月 18 日。",
+      "extract": {
+        "entities": [
+          { "name": "北极星项目", "kind": "project", "aliases": ["北极星"] }
+        ],
+        "claims": [
+          { "statement": "北极星项目的首月目标是 5000 个活跃用户", "kind": "fact", "confidence": 0.9, "about": ["北极星项目"], "decidedBy": null, "quote": "首月目标是 5000 个活跃用户" },
+          { "statement": "北极星项目的正式上线定在 11 月 18 日", "kind": "fact", "confidence": 0.9, "about": ["北极星项目"], "decidedBy": null, "quote": "正式上线定在 11 月 18 日" }
+        ]
+      }
+    },
+    "M10": {
+      "say": "内测定在 10 月 20 日，因为支付接口还没通过审核。",
+      "extract": {
+        "entities": [
+          { "name": "北极星项目", "kind": "project", "aliases": ["北极星"] }
+        ],
+        "claims": [
+          { "statement": "北极星项目的内测定在 10 月 20 日", "kind": "fact", "confidence": 0.9, "about": ["北极星项目"], "decidedBy": null, "quote": "内测定在 10 月 20 日" },
+          { "statement": "北极星项目的内测定在 10 月 20 日是因为支付接口还没通过审核", "kind": "fact", "confidence": 0.85, "about": ["北极星项目"], "decidedBy": null, "quote": "因为支付接口还没通过审核" }
+        ]
+      }
+    },
+    "CHANGE_LAUNCH": {
+      "say": "正式上线改到 11 月 25 日了。",
+      "extract": {
+        "entities": [
+          { "name": "北极星项目", "kind": "project", "aliases": ["北极星"] }
+        ],
+        "claims": [
+          { "statement": "北极星项目的正式上线改到 11 月 25 日", "kind": "fact", "confidence": 0.9, "about": ["北极星项目"], "decidedBy": null, "quote": "正式上线改到 11 月 25 日了" }
+        ]
+      }
+    },
+    "REMEMBER_CHANGE_LAUNCH": {
+      "say": "记住：正式上线改到 11 月 25 日。",
+      "extract": {
+        "entities": [
+          { "name": "北极星项目", "kind": "project", "aliases": ["北极星"] }
+        ],
+        "claims": [
+          { "statement": "北极星项目的正式上线改到 11 月 25 日", "kind": "fact", "confidence": 0.9, "about": ["北极星项目"], "decidedBy": null, "quote": "正式上线改到 11 月 25 日" }
+        ]
+      }
+    },
+    "N1": {
+      "say": "我在负责晨光项目，客户是蓝海科技。",
+      "extract": {
+        "entities": [
+          { "name": "晨光项目", "kind": "project", "aliases": ["晨光"] },
+          { "name": "蓝海科技", "kind": "organization", "aliases": [] }
+        ],
+        "claims": [
+          { "statement": "晨光项目的客户是蓝海科技", "kind": "fact", "confidence": 0.9, "about": ["晨光项目", "蓝海科技"], "decidedBy": null, "quote": "客户是蓝海科技" }
+        ]
+      }
+    },
+    "N2": {
+      "say": "晨光项目的预算是 120 万元。",
+      "extract": {
+        "entities": [
+          { "name": "晨光项目", "kind": "project", "aliases": ["晨光"] }
+        ],
+        "claims": [
+          { "statement": "晨光项目的预算是 120 万元", "kind": "fact", "confidence": 0.9, "about": ["晨光项目"], "decidedBy": null, "quote": "晨光项目的预算是 120 万元" }
+        ]
+      }
+    },
+    "N3": {
+      "say": "晨光项目的验收定在 12 月 5 日。",
+      "extract": {
+        "entities": [
+          { "name": "晨光项目", "kind": "project", "aliases": ["晨光"] }
+        ],
+        "claims": [
+          { "statement": "晨光项目的验收定在 12 月 5 日", "kind": "fact", "confidence": 0.9, "about": ["晨光项目"], "decidedBy": null, "quote": "晨光项目的验收定在 12 月 5 日" }
+        ]
+      }
+    }
+  },
+  "recall": {
+    "tell": ["M1", "M2", "M3", "M4", "M5", "M6", "M7", "M8", "M9", "M10"],
+    "questions": [
+      { "id": "c01", "type": "人名", "ask": "北极星项目的负责人是谁？", "expect": "王芳" },
+      { "id": "c02", "type": "人名", "ask": "北极星的技术负责人是谁？", "expect": "赵磊" },
+      { "id": "c03", "type": "人名", "ask": "恒通物流那边的对接人是谁？", "expect": "陈静" },
+      { "id": "c04", "type": "人名", "ask": "设计稿由谁负责？", "expect": "孙悦" },
+      { "id": "c05", "type": "决定", "ask": "主数据库最后定了用什么？", "expect": "PostgreSQL" },
+      { "id": "c06", "type": "决定", "ask": "首发做哪个平台？", "expect": "安卓" },
+      { "id": "c07", "type": "决定", "ask": "海外市场推广是怎么定的？", "expect": "暂停" },
+      { "id": "c08", "type": "决定", "ask": "接口最后统一成什么了？", "expect": "GraphQL" },
+      { "id": "c09", "type": "数字", "ask": "北极星项目的总预算是多少？", "expect": "380 万" },
+      { "id": "c10", "type": "数字", "ask": "团队一共多少人？", "expect": "12 人" },
+      { "id": "c11", "type": "数字", "ask": "恒通物流的合同金额是多少？", "expect": "96 万" },
+      { "id": "c12", "type": "数字", "ask": "首月的活跃用户目标是多少？", "expect": "5000" },
+      { "id": "c13", "type": "日期", "ask": "内测定在哪天？", "expect": "10 月 20 日" },
+      { "id": "c14", "type": "日期", "ask": "正式上线是哪天？", "expect": "11 月 18 日" },
+      { "id": "c15", "type": "日期", "ask": "设计稿什么时候交？", "expect": "10 月 15 日" },
+      { "id": "c16", "type": "日期", "ask": "恒通物流的合同是哪天签的？", "expect": "9 月 30 日" },
+      { "id": "c17", "type": "原因", "ask": "为什么首发只做安卓版？", "expect": "司机主要用安卓手机" },
+      { "id": "c18", "type": "原因", "ask": "为什么暂停海外推广？", "expect": "优先保证国内上线" },
+      { "id": "c19", "type": "原因", "ask": "为什么选 PostgreSQL？", "expect": "团队对它最熟" },
+      { "id": "c20", "type": "原因", "ask": "内测为什么定在 10 月 20 日？", "expect": "支付接口还没通过审核" }
+    ]
+  },
+  "relation": {
+    "tell": ["M5", "M7", "M9"],
+    "whoDecided": { "ask": "首发只做安卓版是谁定的？", "expect": "王芳" },
+    "why": { "ask": "为什么首发只做安卓版？", "expect": "司机主要用安卓手机" },
+    "supersede": { "confirm": "北极星项目的正式上线定在 11 月 18 日", "say": "CHANGE_LAUNCH", "ask": "正式上线是哪天？", "expect": "11 月 25 日", "gone": "11 月 18 日" },
+    "vectorBaseline": [
+      { "ask": "首发只做安卓版是谁定的？", "expect": "王芳" },
+      { "ask": "为什么首发只做安卓版？", "expect": "司机主要用安卓手机" },
+      { "ask": "接口统一改成 GraphQL 是谁定的？", "expect": "赵磊" }
+    ]
+  },
+  "zeroEffort": {
+    "tell": ["N1", "N2", "N3"],
+    "ask": "晨光项目的预算是多少？",
+    "expect": "120 万"
+  }
+}

@@ -63,7 +63,11 @@ describe("issue #2017 HITL 工具名单一事实源", () => {
     const src = readPy(TOOLS_PY);
     // `@tool` 紧接着 `def <name>(` ——langchain 以函数名作工具名，所以这两行连在一起
     // 才构成"这个名字真的是一个可被模型调用的工具"。
-    const pattern = new RegExp(`@tool\\s*\\n\\s*def\\s+${DEEP_AGENT_HITL_TOOL_NAME}\\s*\\(`);
+    // ⚠ 装饰器允许带参数（例如 `@tool(args_schema=CallSkillArgs)`，#4 DashScope 错误键名
+    //   别名映射引入的自定义 schema）——同一行末尾到换行之间不再必然是空白，正则需要
+    //   容许一段不跨行的装饰器参数，而不是要求 `@tool` 后立刻换行（11b74a3a4 引入
+    //   `args_schema` 后，本正则若不放宽就会把这个真实存在的工具误判成"漂移了"）。
+    const pattern = new RegExp(`@tool(?:\\([^\\n]*\\))?\\s*\\n\\s*def\\s+${DEEP_AGENT_HITL_TOOL_NAME}\\s*\\(`);
     expect(
       pattern.test(src),
       `tools.py 里找不到 @tool def ${DEEP_AGENT_HITL_TOOL_NAME}(——契约里的工具名与引擎漂移了`,

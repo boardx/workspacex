@@ -107,5 +107,5 @@ export async function createDesignGithubIssue(
   });
 
   const names = await ownerNamesFor(deps, [updated.ownerId]);
-  return { project: projectDesignProject(updated, names.get(updated.ownerId) ?? null) };
+  return { project: projectDesignProject(updated, names.get(updated.ownerId) ?? null, input.ownerId) };
 }

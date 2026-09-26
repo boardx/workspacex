@@ -16,6 +16,8 @@ import {
 import { usePlanLedgerPolling } from "@/lib/use-plan-ledger-polling";
 import { CHAT_RUN_PAUSE_ENTRY_ENABLED } from "@/lib/chat-run-pause-entry";
 import { describePlanFailureReason } from "@/lib/plan-control-copy";
+import { useEdition } from "@/lib/edition";
+import { planAllDoneButFailedNote } from "@/lib/chat-workbench/plan-failure-shape";
 
 /**
  * F972-F978（plan-control 契约束）接入 `copilotkit-v2-panel.tsx` 真实聊天渲染树。
@@ -190,6 +192,8 @@ function PlanControlSession(
 
   // 折叠开关：默认折叠。needsDecision 从 false→true 的那次转变自动展开——
   // 用户上一轮手动折叠，不该让 ta 错过下一次真正需要确认/处理失败的时刻。
+  // 2026-09-22 —— 失败之后那句「下一步」按版次不同（本地版没有管理员可联系）。
+  const edition = useEdition();
   const [collapsed, setCollapsed] = React.useState(true);
   //
   // ⚠ 合并注：原写法是 `gate.required && phase !== "executing"`，与下面渲染
@@ -540,7 +544,7 @@ function PlanControlSession(
           data-testid={PLAN_CONTROL_COLLAPSE_TOGGLE_TESTID}
           aria-label={collapsed ? "展开计划面板" : "折叠计划面板"}
           onClick={() => setCollapsed((v) => !v)}
-          className="flex min-w-0 items-center gap-2 rounded-control px-1 py-1 text-13 text-muted-foreground transition-colors duration-fast hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          className="flex min-w-0 items-center gap-2 rounded-control px-1 py-1 text-13 text-muted-foreground transition-colors duration-fast hover:bg-muted hover:text-background-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
         >
           {collapsed ? <ChevronRight aria-hidden className="h-4 w-4" /> : <ChevronDown aria-hidden className="h-4 w-4" />}
           <span data-testid="chat-task-workbench-plan-summary">执行计划 · {stateLabel}{ledger.steps.length > 0 ? ` · ${completed}/${ledger.steps.length} 步已标记完成` : ""}</span>
@@ -581,7 +585,11 @@ function PlanControlSession(
           // issue #2451 —— 真实失败原因（`agent_runs.error_code` 经 `getPlanLedger.errorCode`
           // 透传），不再是写死的占位句。`errorCode` 为 null 或不在枚举内时，
           // `describePlanFailureReason` 自己退回同一句诚实兜底，不在这里再判一次。
-          reason={describePlanFailureReason(ledger.errorCode, ledger.failureReason)}
+          reason={describePlanFailureReason(ledger.errorCode, ledger.failureReason, edition)}
+          // 2026-09-22 —— 「3/3 步已标记完成」与「这次任务执行失败」同屏那一幕的解释。
+          // 这个渲染门（`offersStepRecovery`）已经要求 `phase === "failed"`，但**不写死 true**：
+          // 判据原样传给那个纯函数，它的头注才不会变成一句会说谎的注释。
+          note={planAllDoneButFailedNote(ledger.steps, ledger.phase === "failed")}
           onRetryStep={() => handleRetryStep(failedStep?.planStepId ?? null)}
           onEditInput={handleEditInput}
         />

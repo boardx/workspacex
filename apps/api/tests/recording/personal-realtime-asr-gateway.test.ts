@@ -89,6 +89,25 @@ describe("personal realtime ASR gateway", () => {
     client.ws.close();
   });
 
+  it("relays recoverable upstream flow without failing the capture", async () => {
+    let handlers: AsrSessionHandlers | undefined;
+    const provider: AsrProviderPort = {
+      isConfigured: () => true,
+      open: async nextHandlers => {
+        handlers = nextHandlers;
+        return sessionStub(() => undefined);
+      },
+    };
+    const client = await connect({ provider, repository: repositoryStub(), usage: usageMeter([]) });
+    client.ws.send(JSON.stringify({ type: "start" }));
+    expect(await client.next()).toMatchObject({ type: "ready" });
+    handlers?.onFlow?.({ state: "slow", source: "upstream", queuedMs: 400 });
+    expect(await client.next()).toEqual({ type: "flow", captureId: CAPTURE, state: "slow", source: "upstream", queuedMs: 400 });
+    handlers?.onFlow?.({ state: "normal", source: "upstream", queuedMs: 100 });
+    expect(await client.next()).toMatchObject({ type: "flow", state: "normal", queuedMs: 100 });
+    client.ws.close();
+  });
+
   it("preserves FINISH_TIMEOUT when the shared provider cannot settle the final segment", async () => {
     const provider: AsrProviderPort = {
       isConfigured: () => true,
@@ -139,6 +158,19 @@ describe("personal realtime ASR gateway", () => {
     await once(client.ws, "close");
     resolveOpen?.(sessionStub(() => { aborted = true; }));
     await expect.poll(() => aborted).toBe(true);
+  });
+
+  it("rejects more than one second of audio while the provider is still opening", async () => {
+    const provider: AsrProviderPort = {
+      isConfigured: () => true,
+      open: () => new Promise(() => undefined),
+    };
+    const client = await connect({ provider, repository: repositoryStub(), usage: usageMeter([]) });
+    client.ws.send(JSON.stringify({ type: "start" }));
+    for (let frame = 0; frame < 13; frame += 1) client.ws.send(Buffer.alloc(2_560));
+
+    expect(await client.next()).toMatchObject({ type: "error", reason: "AUDIO_BACKPRESSURE" });
+    client.ws.close();
   });
 
   it("closes and aborts immediately when final persistence and cleanup both fail", async () => {

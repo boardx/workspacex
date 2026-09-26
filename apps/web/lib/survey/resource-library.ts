@@ -1,3 +1,5 @@
+import { getSurveyReferenceQuestions } from "./template-content";
+
 export type SurveyResourceTab = "surveys" | "modules" | "reports";
 export type SurveyResourceState = "default" | "loading" | "empty" | "error";
 export type SurveyCardStatus = "draft" | "collecting" | "closed";
@@ -43,10 +45,10 @@ export const SURVEY_LIBRARY_CARDS: SurveyLibraryCard[] = [
 ];
 
 export const SURVEY_TEMPLATE_CARDS: SurveyTemplateCard[] = [
-  { id: "tpl-digital-collaboration", title: "企业数字协作成熟度诊断模板", category: "organization", questionCount: 16, reportSectionCount: 8, updatedAt: "今天 09:20", surveyCount: 12 },
-  { id: "tpl-team-health", title: "团队协作健康度模板", category: "collaboration", questionCount: 20, reportSectionCount: 6, updatedAt: "昨天 15:40", surveyCount: 8 },
-  { id: "tpl-project-review", title: "客户项目复盘模板", category: "feedback", questionCount: 12, reportSectionCount: 5, updatedAt: "2 天前 11:30", surveyCount: 15 },
-  { id: "tpl-knowledge-governance", title: "组织知识治理评估模板", category: "organization", questionCount: 24, reportSectionCount: 8, updatedAt: "4 天前 16:50", surveyCount: 6 },
+  { id: "tpl-digital-collaboration", title: "企业数字协作成熟度诊断模板", category: "organization", questionCount: getSurveyReferenceQuestions().length, reportSectionCount: 8, updatedAt: "今天 09:20", surveyCount: 12 },
+  { id: "tpl-team-health", title: "团队协作健康度模板", category: "collaboration", questionCount: getSurveyReferenceQuestions().length, reportSectionCount: 6, updatedAt: "昨天 15:40", surveyCount: 8 },
+  { id: "tpl-project-review", title: "客户项目复盘模板", category: "feedback", questionCount: getSurveyReferenceQuestions().length, reportSectionCount: 5, updatedAt: "2 天前 11:30", surveyCount: 15 },
+  { id: "tpl-knowledge-governance", title: "组织知识治理评估模板", category: "organization", questionCount: getSurveyReferenceQuestions().length, reportSectionCount: 8, updatedAt: "4 天前 16:50", surveyCount: 6 },
 ];
 
 export const SURVEY_QUESTION_MODULE_CARDS: SurveyQuestionModuleCard[] = [

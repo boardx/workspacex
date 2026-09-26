@@ -136,6 +136,8 @@ export type CitationAnchorKind = z.infer<typeof C.CitationAnchorKind>;
  * 这里是**渲染后的展示视图**（带序号、出处全称、已解析的锚点）。两者不同层，故名字上分开。
  */
 export interface CitationView {
+  /** 持久化引用的 id（`chat_citations.citation_id`）；mock 数据没有。有 id 时点开会上报 E3。 */
+  citationId?: string;
   index: number;
   /** 出处全称 */
   sourceFullName: string;
@@ -508,20 +510,6 @@ export const CHAT_MESSAGES: ChatMessage[] = [
     },
   },
 ];
-
-/* ─────────────────────────── 改派建议条（UC-4.2 R3 步骤 9 / UC-8.2 R3 步骤 11）─────────────────────────── */
-
-export interface ReassignSuggestion {
-  targetAgent: string;
-  /** 具体授权名 —— 不得只说「更合适」（UC-4.2 R7 / V11 reason 非空）*/
-  reason: string;
-  detail: string;
-}
-export const REASSIGN_SUGGESTION: ReassignSuggestion = {
-  targetAgent: "Scout",
-  reason: "有行业数据库授权",
-  detail: "这条更适合 Scout：它有行业数据库授权，改派后本轮由它回答",
-};
 
 /* ─────────────────────────── 输入区状态四段（UC-8.2 R3 步骤 10）─────────────────────────── */
 

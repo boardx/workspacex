@@ -23,8 +23,11 @@ import type { z } from "zod";
 import { ApiError, apiRequest, apiUrl, getStoredSessionToken } from "./api-client";
 
 export type ProjectTemplate = z.infer<typeof designWorkbench.ProjectTemplate>;
+/** 迭代 17：原型的强调色档位（闭集，契约单源）。 */
+export type PrototypeAccent = z.infer<typeof designWorkbench.PrototypeAccent>;
 export type DesignProjectChatTurn = z.infer<typeof designWorkbench.DesignProjectChatTurn>;
 export type DesignProject = z.infer<typeof designWorkbench.DesignProject>;
+export type DesignTokens = z.infer<typeof designWorkbench.DesignTokens>;
 export type CreateProjectOut = z.infer<typeof designWorkbench.operations.createProject.out>;
 export type ListMyProjectsOut = z.infer<typeof designWorkbench.operations.listMyProjects.out>;
 export type UpdateProjectOut = z.infer<typeof designWorkbench.operations.updateProject.out>;
@@ -45,6 +48,17 @@ export type DesignIssueDraft = z.infer<typeof designWorkbench.operations.createD
 /** 首页三类模板入口的闭集顺序——同契约 `ProjectTemplate` 枚举顺序，供下拉框/网格复用。 */
 export const PROJECT_TEMPLATE_OPTIONS = designWorkbench.ProjectTemplate.options;
 
+/**
+ * 迭代 33：三种模板的中文名。原来在 `workbench-screen.tsx`（新建弹窗的下拉）与
+ * `detail-screen.tsx`（详情页状态栏）各写了一份同样的三行——同一事实的第二份副本。
+ * 键集合是契约闭集，漏一种编译不过。
+ */
+export const PROJECT_TEMPLATE_LABEL: Record<ProjectTemplate, string> = {
+  mobile: "移动端设计",
+  ui: "UI 原型",
+  wireframe: "线框图",
+};
+
 /** 空状态引导语 / 固定回执——展示层文案，不落库（见契约文件头【待确认点 2】）。 */
 export const DESIGN_WORKBENCH_CHAT_INTRO = designWorkbench.DESIGN_WORKBENCH_CHAT_INTRO;
 /** 迭代 9：空项目起手模板（契约常量，展示层）。 */
@@ -55,6 +69,8 @@ export type DesignChatFallbackReason = z.infer<typeof designAiCollab.DesignChatF
 
 /** 迭代 13：按一句 brief 生成澄清问题。**从不失败**——模型不可用时服务端回退通用六问并置 `fallback`。 */
 export type IntakeQuestionsOut = z.infer<typeof designWorkbench.operations.intakeQuestions.out>;
+/** 迭代 17：答案**带着维度**交上去——只有 `success` 那一维会变成验收标准。 */
+export type IntakeAnswer = z.infer<typeof designWorkbench.IntakeAnswer>;
 export async function intakeQuestions(brief: string): Promise<IntakeQuestionsOut> {
   return apiRequest<IntakeQuestionsOut>(designWorkbench.operations.intakeQuestions.path, {
     method: "POST",
@@ -103,6 +119,10 @@ export async function updateProject(
     readonly template?: ProjectTemplate;
     readonly problem?: string;
     readonly theme?: "light" | "dark";
+    /** 迭代 17：强调色档位。省略 = 不动（不是"改回 neutral"）。 */
+    readonly accent?: PrototypeAccent;
+    /** 对标 R1：设计 token，按键合并（`brand: null` = 清掉品牌色）。 */
+    readonly tokens?: Partial<DesignTokens>;
     /** 迭代 13（delta §4）：**整份替换**标签。 */
     readonly tags?: readonly string[];
   },
@@ -120,6 +140,11 @@ export async function appendProjectChat(
   signal?: AbortSignal,
   /** 迭代 13：这一轮要让模型看的参考图。空数组与不传等价——服务端不认空数组以外的差别。 */
   refImageIds?: readonly string[],
+  /**
+   * 迭代 20：这一轮最多画几页。**服务端强制截断**，不是给模型的提示。
+   * 不给 ⇒ 不设限（行为与这个参数出现之前逐字相同）。
+   */
+  maxScreens?: number,
 ): Promise<AppendProjectChatOut> {
   return apiRequest<AppendProjectChatOut>(
     designWorkbench.operations.appendProjectChat.path.replace(":projectId", encodeURIComponent(projectId)),
@@ -129,6 +154,7 @@ export async function appendProjectChat(
         text,
         ...(focusNodeId !== undefined ? { focusNodeId } : {}),
         ...(refImageIds !== undefined && refImageIds.length > 0 ? { refImageIds: [...refImageIds] } : {}),
+        ...(maxScreens !== undefined ? { maxScreens } : {}),
       },
       signal,
     },
@@ -154,10 +180,22 @@ export async function importThread(
   projectId: string,
   threadId: string,
   problem?: string,
+  /**
+   * 迭代 16（#3773 R3）：确认阶段一并写入的验收标准（用户在预览里勾/改过的那份）。
+   * 省略 = 不动项目现有的（**不是**清空）——所以「一条都不要」要传空数组，不是不传。
+   */
+  criteria?: readonly string[],
 ): Promise<ImportThreadOut> {
   return apiRequest<ImportThreadOut>(
     designWorkbench.operations.importThread.path.replace(":projectId", encodeURIComponent(projectId)),
-    { method: "POST", body: { threadId, ...(problem !== undefined ? { problem } : {}) } },
+    {
+      method: "POST",
+      body: {
+        threadId,
+        ...(problem !== undefined ? { problem } : {}),
+        ...(criteria !== undefined ? { criteria: [...criteria] } : {}),
+      },
+    },
   );
 }
 
@@ -248,6 +286,39 @@ export async function patchPrototype(projectId: string, ops: readonly PrototypeP
   });
 }
 
+/* ── 对标 R9：同一页的几个方案（不写库；挑中后走 patchPrototype 的 replace） ── */
+export type ProposeVariantsOut = z.infer<typeof designWorkbench.operations.proposeVariants.out>;
+/** 深度 S9：`ask` 带上要几个、对方案的一句要求（都可省：服务端有缺省）。 */
+export async function proposeVariants(projectId: string, screen: number, ask: { readonly count?: number; readonly instruction?: string } = {}): Promise<ProposeVariantsOut> {
+  return apiRequest<ProposeVariantsOut>(versionPath(designWorkbench.operations.proposeVariants.path, projectId), {
+    method: "POST",
+    body: { screen, ...(ask.count !== undefined ? { count: ask.count } : {}), ...(ask.instruction !== undefined && ask.instruction !== "" ? { instruction: ask.instruction } : {}) },
+  });
+}
+
+/* ── 深度 S2：批注存在服务端（全组织可读可写，删除限作者或 owner） ── */
+export type DesignComment = z.infer<typeof designWorkbench.DesignComment>;
+const commentPath = (projectId: string, commentId?: string): string =>
+  `/pm-designs/${encodeURIComponent(projectId)}/comments${commentId === undefined ? "" : `/${encodeURIComponent(commentId)}`}`;
+export async function listDesignComments(projectId: string): Promise<{ items: DesignComment[] }> {
+  return apiRequest<{ items: DesignComment[] }>(commentPath(projectId));
+}
+export async function createDesignComment(
+  projectId: string,
+  c: { nodeId: string; frameIndex: number; label: string; text: string },
+): Promise<{ comment: DesignComment }> {
+  return apiRequest<{ comment: DesignComment }>(commentPath(projectId), { method: "POST", body: c });
+}
+export async function setDesignCommentResolved(projectId: string, commentId: string, resolved: boolean): Promise<{ comment: DesignComment }> {
+  return apiRequest<{ comment: DesignComment }>(commentPath(projectId, commentId), { method: "PATCH", body: { resolved } });
+}
+export async function replyToDesignComment(projectId: string, commentId: string, text: string): Promise<{ comment: DesignComment }> {
+  return apiRequest<{ comment: DesignComment }>(`${commentPath(projectId, commentId)}/replies`, { method: "POST", body: { text } });
+}
+export async function deleteDesignComment(projectId: string, commentId: string): Promise<void> {
+  await apiRequest<Record<string, never>>(commentPath(projectId, commentId), { method: "DELETE" });
+}
+
 /** 迭代 2：画布选中态用——契约里的路径查找与短标签，前端不另写遍历。 */
 export const findPrototypeNodePath = designPrototype.findPrototypeNodePath;
 export const prototypeNodeLabel = designPrototype.prototypeNodeLabel;
@@ -278,4 +349,54 @@ export async function createDesignGithubIssue(
     designWorkbench.operations.createDesignGithubIssue.path.replace(":projectId", encodeURIComponent(projectId)),
     { method: "POST", body: { draft } },
   );
+}
+
+/* ─────────────────── 迭代 22：发布与分享 ─────────────────── */
+
+export type DesignShare = z.infer<typeof designWorkbench.DesignShare>;
+export type DesignShareScope = z.infer<typeof designWorkbench.DesignShareScope>;
+export type SharedDesign = z.infer<typeof designWorkbench.SharedDesign>;
+export type PublishProjectOut = z.infer<typeof designWorkbench.operations.publishProject.out>;
+export type UnpublishProjectOut = z.infer<typeof designWorkbench.operations.unpublishProject.out>;
+export type GetSharedDesignOut = z.infer<typeof designWorkbench.operations.getSharedDesign.out>;
+export const DESIGN_SHARE_SCOPES = designWorkbench.DesignShareScope.options;
+
+/** 发布 / 重新发布。`scope` 省略 = 沿用上一次那档（从未发布过 ⇒ 服务端取 `prototype`）。 */
+export async function publishProject(projectId: string, scope?: DesignShareScope): Promise<PublishProjectOut> {
+  return apiRequest<PublishProjectOut>(
+    designWorkbench.operations.publishProject.path.replace(":projectId", encodeURIComponent(projectId)),
+    { method: "POST", body: scope === undefined ? {} : { scope } },
+  );
+}
+
+/** 取消发布——链接立刻失效。幂等：没发布过也返回 200。 */
+export async function unpublishProject(projectId: string): Promise<UnpublishProjectOut> {
+  return apiRequest<UnpublishProjectOut>(
+    designWorkbench.operations.unpublishProject.path.replace(":projectId", encodeURIComponent(projectId)),
+    { method: "DELETE" },
+  );
+}
+
+/**
+ * 读一条分享链接。**显式 `sessionToken: null`**——这条路径是给没登录的人用的，
+ * 而 `apiRequest` 缺省会把浏览器里存着的会话令牌带上。带上它本身不会出错（服务端根本不看），
+ * 但那会让"这条接口到底要不要登录"在本地永远验不出来：开发者自己是登录态，
+ * 于是一条其实 401 的接口在他机器上一直好使。
+ */
+export async function fetchSharedDesign(token: string): Promise<GetSharedDesignOut> {
+  return apiRequest<GetSharedDesignOut>(
+    designWorkbench.operations.getSharedDesign.path.replace(":token", encodeURIComponent(token)),
+    { sessionToken: null },
+  );
+}
+
+/**
+ * 分享链接的**页面**地址（不是 API 地址）——`/d/<token>`。
+ *
+ * 短路径是刻意的：这串东西要被粘进微信、飞书、邮件，长一截就多一次折行。
+ * `origin` 由调用方传入（浏览器里就是 `window.location.origin`），这一层不去读
+ * `window`——纯函数才测得了。
+ */
+export function designShareUrl(origin: string, token: string): string {
+  return `${origin.replace(/\/$/, "")}/d/${encodeURIComponent(token)}`;
 }

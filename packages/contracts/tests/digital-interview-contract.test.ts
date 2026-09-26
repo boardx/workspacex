@@ -1,7 +1,9 @@
 import { describe, expect, it } from "vitest";
 import {
   DigitalInterviewDraftInput,
-  DigitalInterviewArtifact,
+  DigitalInterviewModeratorPolicy,
+  DigitalInterviewResearchBrief,
+  DigitalInterviewReportFinding,
   DigitalInterviewStatus,
   DigitalInterviewWorkflowView,
   DigitalReportTransportEvent,
@@ -14,7 +16,69 @@ describe("数字专家访谈契约", () => {
   const question = {
     questionId: "question-1", expertId: "expert-1", order: 1,
     text: "谁拥有否决权？", purpose: "识别决策权归属",
+    section: "core" as const, goalIds: ["goal-1"],
   };
+  const researchBrief = {
+    decision: "判断是否应优先优化采购审批链",
+    learningGoals: [
+      { goalId: "goal-1", statement: "识别采购审批中的主要阻塞点" },
+      { goalId: "goal-2", statement: "验证不同角色对改进优先级的分歧" },
+    ],
+    targetRoles: ["采购负责人", "业务申请人"],
+    outOfScope: ["评估供应商的真实市场份额"],
+    successCriteria: ["每个目标至少获得两种互补视角"],
+  };
+  const moderatorPolicy = {
+    probingDepth: "balanced" as const,
+    clarifyAmbiguity: true,
+    seekCounterexamples: true,
+    redirectOffTopic: true,
+    stopWhenGoalSatisfied: true,
+    maxFollowUpsPerQuestion: 3,
+  };
+  const quality = {
+    previewStatus: "available" as const,
+    briefIssues: [], expertCoverage: [], questionFindings: [], readiness: null,
+    readinessDecision: null, evidenceCoverage: [],
+  };
+
+  it("严格校验研究简报和主持策略", () => {
+    expect(DigitalInterviewResearchBrief.parse(researchBrief)).toEqual(researchBrief);
+    expect(() => DigitalInterviewResearchBrief.parse({
+      ...researchBrief,
+      learningGoals: [researchBrief.learningGoals[0], researchBrief.learningGoals[0]],
+    })).toThrow(/goalId must be unique/);
+    expect(DigitalInterviewResearchBrief.safeParse({ ...researchBrief, unknown: true }).success).toBe(false);
+    expect(DigitalInterviewResearchBrief.safeParse({
+      ...researchBrief,
+      learningGoals: [...researchBrief.learningGoals, ...researchBrief.learningGoals, researchBrief.learningGoals[0]],
+    }).success).toBe(false);
+    expect(DigitalInterviewResearchBrief.safeParse({ ...researchBrief, targetRoles: [""] }).success).toBe(false);
+    expect(DigitalInterviewModeratorPolicy.parse(moderatorPolicy)).toEqual(moderatorPolicy);
+    expect(DigitalInterviewModeratorPolicy.safeParse({
+      ...moderatorPolicy,
+      maxFollowUpsPerQuestion: 11,
+    }).success).toBe(false);
+  });
+
+  it("质量写操作要求严格版本输入和人工说明", () => {
+    expect(operations.confirmDigitalInterviewBrief.in.parse({
+      interviewId: "itv-1", topic: "采购审批", researchBrief,
+      expectedVersion: 1, requestId: "req-brief-1",
+    }).researchBrief).toEqual(researchBrief);
+    expect(operations.previewDigitalInterviewQuality.in.safeParse({
+      interviewId: "itv-1", researchBrief, expertIds: [], questions: [], moderatorPolicy,
+      expectedVersion: 1, unknown: true,
+    }).success).toBe(false);
+    expect(operations.decideDigitalInterviewReadiness.in.safeParse({
+      interviewId: "itv-1", assessmentRuleVersion: "quality-v1", status: "warning_accepted",
+      rationale: "太短", expectedVersion: 1, requestId: "req-ready-1",
+    }).success).toBe(false);
+    expect(operations.reviewDigitalInterviewReport.in.parse({
+      interviewId: "itv-1", reportId: "report-1", status: "changes_requested",
+      note: "补充反例来源", expectedVersion: 1, requestId: "req-review-1",
+    }).status).toBe("changes_requested");
+  });
   const draftWorkflow = {
     interviewId: "itv-digital-1", name: "德国采购决策链", tags: ["采购决策"], topic: null,
     scope,
@@ -23,6 +87,7 @@ describe("数字专家访谈契约", () => {
     reportId: null, version: 1, revisionId: "rev-1",
     topicVersionId: null, expertSnapshotVersionId: null, questionVersionId: null,
     skillThreadId: "skill-thread-1", skillMessages: [], skillProposals: [], expertRuns: [],
+    researchBrief: null, moderatorPolicy: null, quality, reportReview: null,
   };
   const workflow = (version = 4) => ({
     interviewId: "itv-digital-1",
@@ -87,37 +152,7 @@ describe("数字专家访谈契约", () => {
       },
     ],
     expertRuns: [],
-  });
-
-  it("六个工作阶段均以带版本的 Markdown 产物表达，并拒绝空的已确认内容", () => {
-    const base = {
-      artifactId: "artifact-1",
-      title: "研究分析.md",
-      markdown: "# 研究分析\n\n可验证的研究目标。",
-      version: 1,
-      status: "confirmed" as const,
-      generatedAt: "2026-09-26T08:00:00.000Z",
-      failure: null,
-      evidenceMode: "simulated" as const,
-    };
-    expect(["intake", "analysis", "experts", "outline", "runs", "report"].map((step) =>
-      DigitalInterviewArtifact.parse({ ...base, step }),
-    )).toHaveLength(6);
-    expect(DigitalInterviewArtifact.safeParse({ ...base, markdown: "   " }).success).toBe(false);
-    expect(DigitalInterviewArtifact.safeParse({
-      ...base,
-      step: "analysis",
-      status: "failed",
-      markdown: "",
-      failure: { code: "AI_GENERATION_UNAVAILABLE", retryable: true },
-    }).success).toBe(true);
-    expect(DigitalInterviewWorkflowView.safeParse({
-      ...draftWorkflow,
-      artifacts: [
-        { ...base, step: "analysis" },
-        { ...base, artifactId: "artifact-2", step: "analysis" },
-      ],
-    }).success).toBe(false);
+    researchBrief, moderatorPolicy, quality, reportReview: null,
   });
 
   it("只接受签核的八个工作流状态", () => {
@@ -126,6 +161,15 @@ describe("数字专家访谈契约", () => {
       "running", "report_pending", "completed", "failed",
     ]);
     expect(DigitalInterviewStatus.safeParse("scheduled").success).toBe(false);
+  });
+
+  it("旧报告发现缺少目标映射时兼容为空数组", () => {
+    const finding = DigitalInterviewReportFinding.parse({
+      findingId: "finding-legacy", title: "旧发现", summary: "历史报告仍可恢复",
+      expertId: "expert-1", questionId: "question-1", sourceAnswerId: "expert-1:question-1",
+      exploratory: true,
+    });
+    expect(finding.goalIds).toEqual([]);
   });
 
   it("报告传输事件只携带一次轻量快照和可追加增量，严格拒绝完整 workflow 字段", () => {
@@ -184,7 +228,7 @@ describe("数字专家访谈契约", () => {
     },
     {
       name: "确认问题", operation: operations.confirmDigitalInterviewQuestions,
-      input: { interviewId: "itv-1", questions: [question], expectedVersion: 3, requestId: "req-q-1" },
+      input: { interviewId: "itv-1", questions: [question], moderatorPolicy, expectedVersion: 3, requestId: "req-q-1" },
     },
     {
       name: "追加 Skill 消息", operation: operations.appendDigitalInterviewSkillMessage,
@@ -233,7 +277,7 @@ describe("数字专家访谈契约", () => {
       [{ ...question, order: 0 }],
     ]) {
       expect(operations.confirmDigitalInterviewQuestions.in.safeParse({
-        interviewId: "itv-1", questions: duplicateQuestions, expectedVersion: 3, requestId: "req-q-3",
+        interviewId: "itv-1", questions: duplicateQuestions, moderatorPolicy, expectedVersion: 3, requestId: "req-q-3",
       }).success).toBe(false);
     }
     expect(operations.appendDigitalInterviewSkillMessage.in.safeParse({
@@ -286,6 +330,13 @@ describe("数字专家访谈契约", () => {
         primaryAction: "confirm_experts", updatedAt: "2026-08-15T10:00:00.000Z",
       }],
     }).items[0]?.topic).toBe("谁有否决权");
+  });
+
+  it("质量预览拒绝引用当前研究简报之外的目标", () => {
+    expect(operations.previewDigitalInterviewQuality.in.safeParse({
+      interviewId: "itv-1", researchBrief, expertIds: ["expert-1"], moderatorPolicy,
+      questions: [{ ...question, goalIds: ["goal-from-another-brief"] }], expectedVersion: 4,
+    }).success).toBe(false);
   });
 
   it("Skill 草稿上下文必须与当前步骤一致且保持严格结构", () => {

@@ -4,6 +4,7 @@ import { Maximize2 } from "lucide-react";
 import { Canvas as FabricCanvas } from "fabric";
 import { markdownToCanvas, fitToContent, wrapAsMermaidBlock, getTemplate } from "@repo/fabric-markdown";
 import { checkCanvasFence, type CanvasFenceLang } from "@/lib/canvas/canvas-fence";
+import { acceptsSavedCanvasSource, canvasFenceIdentity } from "@/lib/canvas/canvas-fence-identity";
 import { ensureCanvasFenceTemplate, type CanvasFenceTemplateSource } from "@/lib/canvas/fence-template-resolver";
 import { capFenceBulletsToCapacity, sectionRenderCapacities } from "@/lib/canvas/cap-fence-bullets";
 import { useOptionalSession } from "@/components/session/session-provider";
@@ -11,6 +12,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ChatCanvasModal } from "./chat-canvas-modal";
 import { fetchLatestSavedDiagramSource } from "@/lib/chat/diagram-readback";
+import { useSampledFenceCode } from "@/lib/canvas/streaming-fence-sample";
 
 /**
  * 单个 ```canvas / ```persona 围栏在 AI 气泡内的 **fabric 渲染**。
@@ -104,6 +106,7 @@ const ERROR_TITLE: Record<Extract<Status, { phase: "error" }>["reason"], string>
 
 export function ChatCanvasFabric({
   code, lang, closed = true, threadId, messageId, bearer, projectId,
+  templateKeyAmbiguous = false,
 }: {
   code: string;
   lang: CanvasFenceLang;
@@ -121,6 +124,18 @@ export function ChatCanvasFabric({
   bearer?: string;
   /** G1 读回判权用；个人线程（无 projectId）不发读回请求，见 `ChatDiagramFabric` 同款注释。 */
   projectId?: string;
+  /**
+   * 同一条消息里是否还有**另一个同模板**围栏（issue #3252）。由
+   * `markdown-message.tsx` 在切段时按「本消息全部围栏的模板 key」算出来——本组件
+   * 只看得见自己那一段，看不见兄弟围栏，这个事实只能由上面传下来。
+   *
+   * ⚠ 它**不是序号**，是一个集合事实（「这个模板 key 在本消息里出现不止一次」），
+   *   重排围栏不会让它变化。它只决定**旧存量产物**（标题里没有围栏身份后缀的那些）
+   *   能不能被归属，见 `acceptsSavedCanvasSource` 第 ③ 条。
+   *
+   * 默认 `false`：预览页/组件测试里单独渲染一个围栏，与改动前行为逐字一致。
+   */
+  templateKeyAmbiguous?: boolean;
 }) {
   const containerRef = React.useRef<HTMLDivElement>(null);
   const [inView, setInView] = React.useState(false);
@@ -136,11 +151,26 @@ export function ChatCanvasFabric({
     const checked = checkCanvasFence(code, lang);
     return checked.ok ? checked.key : null;
   }, [code, lang]);
-  const acceptsSavedSource = React.useCallback((markdown: string) => {
-    if (sourceTemplateKey === null) return false;
-    const checked = checkCanvasFence(markdown, lang);
-    return checked.ok && checked.key === sourceTemplateKey;
-  }, [sourceTemplateKey, lang]);
+  // 围栏身份（issue #3252）：算自**消息原文里这一段围栏**，不是保存后的内容——
+  // 保存内容会随编辑变，拿它算身份等于编辑一次就换一次身份。判据与格式都只在
+  // `canvas-fence-identity.ts` 里，本文件不复述。
+  const fenceIdentity = React.useMemo(() => canvasFenceIdentity(code, lang), [code, lang]);
+  // 「这份保存版是不是本围栏的」。此前这里只比 `checked.key === sourceTemplateKey`，
+  // 也就是**只比模板名**——同一条消息里两个同模板围栏因此互相认领对方的保存版
+  // （issue #3252）。现在比的是围栏身份，模板名降级为必要条件之一。
+  const acceptsSavedSource = React.useCallback(
+    (candidate: { readonly markdown: string; readonly title: string }) => {
+      const checked = checkCanvasFence(candidate.markdown, lang);
+      return acceptsSavedCanvasSource({
+        fenceIdentity,
+        templateKey: sourceTemplateKey,
+        savedTitle: candidate.title,
+        savedTemplateKey: checked.ok ? checked.key : null,
+        templateKeyAmbiguous,
+      });
+    },
+    [fenceIdentity, sourceTemplateKey, lang, templateKeyAmbiguous],
+  );
   // `useOptionalSession`：组件可能被渲染在没有 SessionProvider 的上下文里（预览页、
   // 组件测试）。那时 orgId 为 null，内置模板照样渲染，组织模板给诚实错误态。
   const orgId = useOptionalSession()?.session?.currentOrgId ?? null;
@@ -252,6 +282,7 @@ export function ChatCanvasFabric({
           messageId={messageId}
           bearer={bearer}
           savedSource={savedSource}
+          fenceIdentity={fenceIdentity}
         />
       )}
     </>
@@ -280,6 +311,18 @@ function CanvasFabricBody({
   const canvasElRef = React.useRef<HTMLCanvasElement>(null);
   const [status, setStatus] = React.useState<Status>({ phase: "validating" });
   const [ready, setReady] = React.useState(false);
+  /**
+   * 首帧渲染成功过就不再回到「渲染画布中…」遮罩：流式期间每取样一次都会重建一次
+   * fabric，如果每次都把遮罩打回来，用户看到的是一张不停闪的画布，比不渲染还糟。
+   */
+  const everReadyRef = React.useRef(false);
+
+  /**
+   * 流式取样（见 `streaming-fence-sample.ts`）。渲染层消费 `renderCode` 而不是
+   * `previewCode`：围栏闭合后两者一致；未闭合时按内容签名 + 最小间隔跟进，
+   * 于是画布是边生成边长出来的，而不是 30 多秒一个转圈之后整张蹦出来。
+   */
+  const renderCode = useSampledFenceCode(previewCode, closed);
 
   // 阶段一：校验（**不挂 canvas**）。纯函数闸门 → 模板解析闸门（可能发一次 GET）。
   // 原始消息流式期间 `previewCode` 会变化，但 `closed=false` 会在下面提前返回，fabric
@@ -287,11 +330,13 @@ function CanvasFabricBody({
   // `orgId` 理论上可能因为登录状态变化而变，沿用既有依赖数组。
   React.useEffect(() => {
     if (!inView) return;
-    // 围栏还没闭合（issue #2298）：流式增量文本里的半截内容，不是作者的最终
-    // 产出——跳过校验，状态机停在 "validating"（渲成加载态），不判定格式。
-    if (!closed) return;
-    const check = checkCanvasFence(previewCode, lang);
+    const check = checkCanvasFence(renderCode, lang);
     if (!check.ok) {
+      // 围栏还没闭合（issue #2298）：半截内容里还没出现「模板:」行或第一个「## 分区」，
+      // 这不是格式错误，是内容还没写完——停在 "validating"，**绝不**在未闭合时判错。
+      // 与 #2298 的差别只在于：一旦半截内容已经足够解析（有模板 key + 至少一个分区），
+      // 就让它先画出来，而不是继续等闭合。判错的时机一字未改。
+      if (!closed) return;
       setStatus({ phase: "error", reason: "syntax", detail: check.detail });
       return;
     }
@@ -317,7 +362,7 @@ function CanvasFabricBody({
     return () => {
       cancelled = true;
     };
-  }, [previewCode, lang, orgId, inView, closed]);
+  }, [renderCode, lang, orgId, inView, closed]);
 
   // 阶段二：仅当 valid（<canvas> 已挂）时建 FabricCanvas 并渲染（只读）。
   React.useEffect(() => {
@@ -335,11 +380,11 @@ function CanvasFabricBody({
     // 失败）；渲染前用 `key` 对应的已注册 `spec` 算出每个分区的真实容量，截掉超出
     // 部分——见 `cap-fence-bullets.ts` 文件头，与 `template-simulate-dialog.tsx`
     // 「chat 模拟」共用同一份逻辑（两条路径此前就被要求「渲染引擎完全一致」）。
-    const check = checkCanvasFence(previewCode, lang);
+    const check = checkCanvasFence(renderCode, lang);
     const spec = check.ok ? getTemplate(check.key) : undefined;
     const cappedPreviewCode = spec
-      ? capFenceBulletsToCapacity(previewCode, sectionRenderCapacities(spec))
-      : previewCode;
+      ? capFenceBulletsToCapacity(renderCode, sectionRenderCapacities(spec))
+      : renderCode;
     // 复用唯一入口 `markdownToCanvas`（它按围栏 lang 分派到 templateToModel），
     // 不在这里另写一份 templateToModel + renderToCanvas 的组合。
     markdownToCanvas(wrapAsMermaidBlock(cappedPreviewCode, lang), canvas)
@@ -351,6 +396,7 @@ function CanvasFabricBody({
         });
         fitToContent(canvas, { padding: 24 });
         canvas.requestRenderAll();
+        everReadyRef.current = true;
         setReady(true);
       })
       .catch(() => {
@@ -361,10 +407,10 @@ function CanvasFabricBody({
       cancelled = true;
       canvas.dispose();
     };
-    // 正常流式期间 closed=false，不会进入 valid；围栏闭合后 previewCode 稳定。
+    // 流式期间 `renderCode` 按取样节奏变化（不是每个 token），每次变化重建一次 fabric。
     // 保存版替换会由外层 key 重挂，因此不会在同一个已挂 fabric 的 DOM 上换源码。
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [status.phase, previewCode, lang]);
+  }, [status.phase, renderCode, lang]);
 
   if (status.phase === "error") {
     // 诚实错误态：与 mermaid 那条同样的结构与文案节奏（「原因 + 原始源码」），
@@ -431,7 +477,7 @@ function CanvasFabricBody({
             {!inView ? "滚动到此处即渲染" : !closed ? "画布内容生成中…" : "解析工作坊画布模板中…"}
           </div>
         )}
-        {status.phase === "valid" && !ready && (
+        {status.phase === "valid" && !ready && !everReadyRef.current && (
           <div
             data-testid="chat-canvas-loading"
             className="pointer-events-none absolute inset-0 flex items-center justify-center text-11 text-muted-foreground"

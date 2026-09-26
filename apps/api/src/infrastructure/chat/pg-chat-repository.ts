@@ -34,6 +34,7 @@ import type {
   ChatVisibilityScope,
   ThreadFacts,
 } from "../../domain/chat/thread-visibility";
+import type { ChatCitationWriter, NewAssistantCitation } from "../../application/chat/persist-assistant-citations";
 import type { AgentPresenceValue } from "../../domain/chat/agent-presence";
 import type { OrgId } from "../../domain/org-id";
 import type {
@@ -84,7 +85,7 @@ interface ThreadDbRow {
   version: number;
 }
 
-export class PgChatRepository implements ChatRepository {
+export class PgChatRepository implements ChatRepository, ChatCitationWriter {
   constructor(private readonly db: DatabasePort) {}
 
   async findThreadFacts(orgId: OrgId, threadId: string): Promise<ThreadFacts | null> {
@@ -841,6 +842,71 @@ export class PgChatRepository implements ChatRepository {
         anchorMessageId: row.anchor_message_id,
         sourceArtifactId: row.source_artifact_id,
       }));
+    });
+  }
+
+  /** #4227：`getThread` 的批量引用读取，同 `findCitationsForMessage` 的租户内读，一次取齐。 */
+  async findCitationsForMessages(orgId: OrgId, messageIds: readonly string[]): Promise<readonly ChatCitationRow[]> {
+    if (messageIds.length === 0) return [];
+    return this.db.withTenant(orgId, async (s) => {
+      const r = await s.query<{
+        citation_id: string;
+        message_id: string;
+        idx: number;
+        source_full_name: string;
+        anchor_kind: string;
+        anchor_page: number | null;
+        anchor_range: string | null;
+        anchor_message_id: string | null;
+        source_artifact_id: string | null;
+      }>(
+        `SELECT citation_id, message_id, idx, source_full_name, anchor_kind,
+                anchor_page, anchor_range, anchor_message_id, source_artifact_id
+           FROM chat_citations WHERE org_id = $1 AND message_id = ANY($2::text[])
+          ORDER BY message_id, idx ASC`,
+        [orgId, [...messageIds]],
+      );
+      return r.rows.map((row) => ({
+        citationId: row.citation_id,
+        messageId: row.message_id,
+        index: row.idx,
+        sourceFullName: row.source_full_name,
+        anchorKind: row.anchor_kind as ChatCitationRow["anchorKind"],
+        anchorPage: row.anchor_page,
+        anchorRange: row.anchor_range,
+        anchorMessageId: row.anchor_message_id,
+        sourceArtifactId: row.source_artifact_id,
+      }));
+    });
+  }
+
+  /**
+   * E3：assistant 回答的引用写入（`persist-assistant-citations.ts` 已做组织内校验）。
+   * 幂等：`(org_id, message_id, idx)` 唯一索引 + DO NOTHING；`citation_id` 由消息与编号
+   * 确定性派生，重放同一回答不会产生新行。返回实际插入行数。
+   */
+  async insertCitations(
+    orgId: OrgId,
+    messageId: string,
+    citations: readonly NewAssistantCitation[],
+  ): Promise<number> {
+    if (citations.length === 0) return 0;
+    return this.db.withTenant(orgId, async (s) => {
+      let inserted = 0;
+      for (const c of citations) {
+        const r = await s.query(
+          `INSERT INTO chat_citations
+             (citation_id, org_id, message_id, idx, source_full_name, anchor_kind,
+              anchor_page, anchor_range, anchor_message_id, source_artifact_id)
+           VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
+           ON CONFLICT DO NOTHING
+           RETURNING citation_id`,
+          [`cit-${messageId}-${c.index}`, orgId, messageId, c.index, c.sourceFullName, c.anchorKind,
+            c.anchorPage, c.anchorRange, c.anchorMessageId, c.sourceArtifactId],
+        );
+        inserted += r.rows.length;
+      }
+      return inserted;
     });
   }
 

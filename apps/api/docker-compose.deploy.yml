@@ -31,7 +31,15 @@
 
 services:
   postgres:
-    image: pgvector/pgvector:pg16
+    # Same image as docker-compose.dev.yml (ADR-114: pgvector + Apache AGE). Same PG major
+    # as the previous `pgvector/pgvector:pg16`, so the existing named volume is reused
+    # as-is; AGE only adds an extension, created by migration.
+    # `localhost/` + `pull_policy: build`: this image is only ever built from the Dockerfile
+    # next to it, never pulled. A bare `workspacex/...` name made compose try Docker Hub
+    # first, and that namespace is not ours -- whoever registered it would supply our DB.
+    image: localhost/workspacex-postgres-age:pg16-age1.6.0
+    pull_policy: build
+    build: ./docker/postgres-age
     environment:
       POSTGRES_USER: postgres
       # Deployed credentials come from the environment, never from this file. The dev file
@@ -53,10 +61,11 @@ services:
     restart: unless-stopped
 
   minio:
-    # issue #3457 —— Docker Hub 的 `minio/minio` 仓库已下架（"repository does not
-    # exist"，本机实测复现）。CI/dev 侧已在 PR #3458 换成 quay.io（同一 tag），本条
-    # 是同一修法在生产配置上的补齐，经人类确认后单独处理（ad-hoc-fix-pr-sop.md 例外条款）。
-    image: quay.io/minio/minio:RELEASE.2024-09-13T20-26-02Z
+    # Image ownership and immutable-lock state live in one file shared with dev compose.
+    # See issue #4100 and docker-compose.minio-image.yml; do not copy an image ref here.
+    extends:
+      file: docker-compose.minio-image.yml
+      service: minio-image
     command: server /data --console-address ":59001"
     environment:
       MINIO_ROOT_USER: ${S3_ACCESS_KEY_ID:?set S3_ACCESS_KEY_ID}

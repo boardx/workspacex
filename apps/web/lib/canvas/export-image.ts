@@ -36,6 +36,16 @@ export function downloadDataUrl(dataUrl: string, filename: string): void {
  */
 export const PDF_IMAGE_COMPRESSION = "FAST" as const;
 
+/**
+ * PDF 的长度单位 pt 是 1/72 英寸，CSS 像素是 1/96 英寸，所以 1px = 72/96 = 0.75pt。
+ * 这是单位制本身的事实，不是本仓挑的系数——导出的 PDF 页面尺寸按它从逻辑像素换算。
+ *
+ * 导出它是为了让「读回 PDF 核页面尺寸」的测试能**把这个常量本身钉在 72/96 上**
+ * （见 `tests/ui/canvas-export-artifact-readback.test.tsx`）：测试自己按单位制独立
+ * 算期望值，再核对实现用的系数与之相等——而不是在测试里跟着抄一遍 0.75。
+ */
+export const PX_TO_PT = 0.75;
+
 export async function exportPngAsPdf(
   pngDataUrl: string,
   widthPx: number,
@@ -50,10 +60,8 @@ export async function exportPngAsPdf(
  *  mock 掉 `save`。 */
 export async function buildPdfFromPng(pngDataUrl: string, widthPx: number, heightPx: number) {
   const { jsPDF } = await import("jspdf");
-  // jsPDF 的 'pt' 单位下 1px = 0.75pt（96 dpi 换算，业界导出工具的通行做法，
-  // 不是任意选的系数）——页面尺寸按图片像素尺寸换算，图片再原样铺满整页，
+  // 页面尺寸按图片逻辑尺寸换算（系数见 `PX_TO_PT`），图片再原样铺满整页，
   // 不留白边也不裁切。
-  const PX_TO_PT = 0.75;
   const pageWidth = widthPx * PX_TO_PT;
   const pageHeight = heightPx * PX_TO_PT;
   const doc = new jsPDF({

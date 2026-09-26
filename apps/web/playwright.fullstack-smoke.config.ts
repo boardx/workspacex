@@ -263,6 +263,12 @@ export default defineConfig({
       testMatch: [
         "fullstack-smoke.spec.ts",
         "guided-research-runtime.spec.ts",
+        // Trust-console preview is deterministic, but keeping it in a CI-reachable project
+        // prevents the browser acceptance contract from silently becoming local-only.
+        "guided-research-trust-console.spec.ts",
+        "digital-interview-research-quality.spec.ts",
+        "survey-complete-flow.spec.ts",
+        "survey-trusted-publishing.spec.ts",
         // #2490：controller 路由 ↔ rewrite 成对的**运行时**反证（静态 lint 之外的那一半）。
         "rewrite-coverage-live-smoke.spec.ts",
         "capability-mutate-smoke.spec.ts",
@@ -502,6 +508,18 @@ export default defineConfig({
       name: "design-prototype-loop",
       testMatch: ["design-prototype-loop.spec.ts"],
     },
+    {
+      /**
+       * 迭代 22 —— 发布与分享：设计者那一侧（发布 → 拿到链接 → 取消发布）与访客那一侧
+       * （`/d/<token>` 翻页、点得动的跳转、375px 不横向溢出、链接打不开时的话）。
+       *
+       * 与上面两条同一份 `page.route()` 夹具，访客页那几条另外自带
+       * `/public/design-shares/*` 的路由夹具——不读 DB、不需要登录态（分享页本来就是
+       * 给没账号的人点的），所以同样独立成不带 dependencies 的 project。
+       */
+      name: "design-share",
+      testMatch: ["design-share.spec.ts"],
+    },
   ],
   fullyParallel: false,
   /**
@@ -673,6 +691,10 @@ export default defineConfig({
         NEXT_PUBLIC_API_WS_URL: `http://127.0.0.1:${apiPort}`,
         FULLSTACK_E2E_API_ORIGIN: apiOrigin,
         FULLSTACK_E2E_BREAK_CONTROLLER: breakController,
+        // Preview fixtures stay closed in ordinary production builds. This explicit lane-only
+        // switch makes the trust-console browser contract reachable in the production-mode
+        // build exercised by fullstack smoke.
+        FULLSTACK_E2E_PREVIEWS: "1",
         NEXT_DIST_DIR: ".next-fullstack-e2e",
         /**
          * #951 —— 让 `next build` 的 `next/font/google` 完全不联网（hermetic）。

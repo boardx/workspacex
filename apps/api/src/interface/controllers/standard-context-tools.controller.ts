@@ -33,6 +33,7 @@ export class StandardContextToolsController {
    case 'wx_project_read':return await this.service.project(actor,input.toolArgs);
    case 'wx_knowledge_search':return await this.service.search(actor,input.toolArgs);
    case 'wx_knowledge_read':return await this.service.read(actor,input.toolArgs);
+   case 'wx_cite':return await this.service.cite(actor,runId,input.toolArgs,this.runs);
   }}catch{throw new ServiceUnavailableException('standard_context_unavailable_or_refused');}
  }
 }

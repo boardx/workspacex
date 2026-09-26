@@ -16,6 +16,11 @@ set -euo pipefail
 cd "$(dirname "$0")"
 REPO_ROOT="$(pwd)"
 
+# 哪条链路：原生 deep-agent-service，还是 legacy call_skill/run_script。
+# 提到最前面声明——下面「起沙箱之后、种子之前」要按它钉 fixture agent 的 provider，
+# 早于「起 deep-agent 进程」那个判定块本身。
+DEEP_AGENT_CHAIN="${E2E_DEEP_AGENT_CHAIN:-native}"
+
 # shellcheck source=scripts/real-model-env.sh
 source "${REPO_ROOT}/scripts/real-model-env.sh"
 real_model_load_env_file "$REPO_ROOT"
@@ -29,7 +34,16 @@ real_model_require_credentials "dashscope 真实模型" DASHSCOPE_API_KEY DASHSC
 # 以并行会话随机撞端口的形态延迟爆炸，而不是当场说清楚。
 SB="$SKILL_SANDBOX_PORT"
 docker compose -f apps/api/docker-compose.dev.yml -p "$COMPOSE_PROJECT_NAME" up -d --wait postgres redis minio
-SKILL_SANDBOX_PORT=$SB pnpm --filter @repo/skill-sandbox exec tsx src/main.ts > /tmp/e2e-sandbox.log 2>&1 &
+# 预装依赖（pptxgenjs / docx / exceljs / pdf-lib）**必须显式给到沙箱**。
+# 2026-09-25 实测：这里漏了 SKILL_SANDBOX_MODULES_DIR，于是十任务 Office 矩阵
+# 连续三轮 0/10——每个脚本都以 `Cannot find module 'pptxgenjs'` 死掉，而这条 stderr
+# 在日志链上被吞了两次，表面症状只是「模型没产出文件」，看起来像产品缺陷。
+# 镜像靠 Dockerfile 的 ENV 给这个值；本地 lane 之前谁都没给。
+bash "${REPO_ROOT}/scripts/local-bundle/prepare-sandbox-modules.sh" >/tmp/e2e-sandbox-modules.log 2>&1 || {
+  echo "沙箱预装依赖准备失败：" >&2; tail -20 /tmp/e2e-sandbox-modules.log >&2; exit 1;
+}
+SANDBOX_MODULES_DIR="${REPO_ROOT}/apps/skill-sandbox/preinstalled/node_modules"
+SKILL_SANDBOX_PORT=$SB SKILL_SANDBOX_MODULES_DIR="$SANDBOX_MODULES_DIR" pnpm --filter @repo/skill-sandbox exec tsx src/main.ts > /tmp/e2e-sandbox.log 2>&1 &
 echo $! > /tmp/e2e-sandbox.pid
 # 沙箱**必须真的在监听**才算起来了。原来这里只 `sleep 5` 就往下走：沙箱以 EADDRINUSE
 # 秒死时栈照常"就绪"，技能调用要到很久以后才以别的形态失败（真实模型 lane 上表现为
@@ -50,17 +64,107 @@ fi
 echo "技能沙箱就绪：127.0.0.1:${SB}"
 pnpm --filter web exec tsx e2e/dump-fixture-env.ts > /tmp/e2e-fixture.sh
 source /tmp/e2e-fixture.sh
-export FULLSTACK_E2E_AGENT_MODEL_PROVIDER=dashscope
+# 原生链路时把 fixture agent 钉在 "deep-agent" provider（`DEEP_AGENT_PROVIDER_NAME`）
+# 上，否则即便 deep-agent-service 起来了、RoutingModelCallPort 也不会把 run 路由过去
+# ——2026-09-25 头一轮忘了这一步，服务起了、健康检查过了、但全程零请求（origin log
+# 里 request 计数为 0），十任务照旧走 legacy call_skill。判据从来不是"服务在跑"，
+# 是"run 快照里 pin 的 modelProvider 是不是这一个"。
+FULLSTACK_E2E_AGENT_MODEL_PROVIDER="dashscope"
+if [ "$DEEP_AGENT_CHAIN" = "native" ]; then
+  FULLSTACK_E2E_AGENT_MODEL_PROVIDER="deep-agent"
+fi
+export FULLSTACK_E2E_AGENT_MODEL_PROVIDER
 export FULLSTACK_E2E_AGENT_MODEL_ID="$DASHSCOPE_MODEL"
 echo "ADMIN=$FULLSTACK_E2E_ADMIN_EMAIL"
 echo "ORG=$FULLSTACK_E2E_ORG_ID"
 echo "PROJECT=$FULLSTACK_E2E_PROJECT_ID"
 echo "AGENT=$FULLSTACK_E2E_AGENT_ID"
-pnpm --filter @repo/api exec tsx scripts/seed-fullstack-smoke.ts >/dev/null 2>&1
-# KERNEL_DEEP_AGENT_BASE_URL 是**可选透传**：本机跑着 deep-agent-service 容器时
-# （devapp 上是 127.0.0.1:2025）这条链路才跟线上一致；没起它时不伪造一个地址——
-# `DeepAgentModelProvider` 会以 MODEL_PROVIDER_NOT_CONFIGURED 诚实失败，而不是
-# 悄悄换一条别的路径然后把结果说成"线上同款"。证据包会记下这次到底走的是哪条。
+# ⚠ 2026-09-24：这一行原来是 `>/dev/null 2>&1`。种子失败时 `set -e` 直接退出，
+# 而失败原因被丢掉了——起栈日志止于上面那句 `AGENT=`，读日志的人（我自己）
+# 只看到「起栈进程已退出」，查不出为什么。**静默掉的失败等于没有失败信息**。
+# 改成落到文件里，并在失败时把末尾打出来。
+if ! pnpm --filter @repo/api exec tsx scripts/seed-fullstack-smoke.ts > /tmp/e2e-seed.log 2>&1; then
+  echo "✗ 种子失败（fullstack-smoke）——末尾 30 行："
+  tail -30 /tmp/e2e-seed.log
+  exit 1
+fi
+# ── deep-agent-service（原生链路）──────────────────────────────────────────────
+#
+# 2026-09-25 之前这里什么都不起，于是本条 lane 跑的是 legacy `call_skill`/`run_script`
+# 路径，**不是** devapp 的原生 deep-agent 链——「本地 10/10」证明不了生产 10/10。
+# 现在默认起真的那一个：它只是一个 uvicorn 应用（同 Dockerfile 的 CMD），
+# 唯一的硬依赖是 checkpoint 库，而隔离外壳已经给了我们一套独享 postgres。
+#
+# ⚠ 刻意**不静默降级**。venv 不在就红退并给出安装命令：
+#   「这台机器恰好没装 Python 依赖」和「这条链路根本没被测到」在日志里长得一模一样，
+#   而后者正是我们花了三天才发现的那类问题。要跑 legacy 请显式
+#   `E2E_DEEP_AGENT_CHAIN=legacy`，这样证据里写着的就是你真的选了它。
+# API 与 deep-agent 之间的内部密钥：两边必须同一个值，所以在这里生成一次。
+DEEP_AGENT_INTERNAL_KEY="${DEEP_AGENT_SERVICE_INTERNAL_KEY:-e2e-internal-key-not-a-secret}"DEEP_AGENT_BASE_URL=""
+if [ "$DEEP_AGENT_CHAIN" = "native" ]; then
+  DA_UVICORN="${REPO_ROOT}/apps/deep-agent-service/.venv/bin/uvicorn"
+  if [ ! -x "$DA_UVICORN" ]; then
+    echo "✗ 要跑原生 deep-agent 链，但 apps/deep-agent-service/.venv 不存在。" >&2
+    echo "  装一下：(cd apps/deep-agent-service && uv sync)" >&2
+    echo "  或显式降级：E2E_DEEP_AGENT_CHAIN=legacy（证据里会记下这次走的是 legacy）" >&2
+    exit 1
+  fi
+  DA_PORT="$WORKSPACEX_DEEP_AGENT_PROVIDER_PORT"
+  DA_DSN="postgresql://postgres:postgres_dev@${PGHOST}:${PGPORT}/${PGDATABASE}"
+  # ⚠ 子 shell 里用 `exec` 起最终命令，不要让它停在普通调用上。
+  #
+  # 2026-09-25 连续跑几轮矩阵后，`ps aux` 里堆出了三个不同端口的孤儿 uvicorn——
+  # `real-model-smoke.sh` 的 `trap cleanup EXIT` 按 pidfile 逐个 kill 过，它们却仍在跑。
+  # `( cd dir && cmd ) &` 时 `$!` 拿到的是这个子 shell wrapper 的 pid；如果 bash 没有
+  # 把它优化成对最终命令的原地 `exec`（多个环境变量前缀 + 管道重定向的组合下，
+  # 这条优化不保证触发），杀 wrapper 就杀不到它 fork 出来的 uvicorn 子进程。
+  # 显式 `exec` 不依赖这条不保证的优化：子 shell 直接被 uvicorn 的进程映像替换，
+  # `$!` 从此就是 uvicorn 真正的 pid，一份 kill 杀得干净——这一步之后跑的三轮
+  # 矩阵收尾都确认过 `ps aux` 干净。
+  ( cd "${REPO_ROOT}/apps/deep-agent-service" && \
+    PYTHONPATH="${REPO_ROOT}/apps/deep-agent-service/src" \
+    DEEP_AGENT_CHECKPOINT_DB="$DA_DSN" \
+    DATABASE_URI="$DA_DSN" \
+    DEEP_AGENT_OTEL_DISABLED=1 \
+    DEEP_AGENT_SERVICE_INTERNAL_KEY="$DEEP_AGENT_INTERNAL_KEY" \
+    NATIVE_SESSION_SERVICE_BASE_URL="http://127.0.0.1:${WORKSPACEX_API_PORT}" \
+    NATIVE_SESSION_SERVICE_KEY="$DEEP_AGENT_INTERNAL_KEY" \
+    KERNEL_MODEL_BASE_URL="$DASHSCOPE_BASE_URL" \
+    KERNEL_MODEL_API_KEY="$DASHSCOPE_API_KEY" \
+    KERNEL_DEEP_AGENT_MODEL_ID="$DASHSCOPE_MODEL" \
+    exec "$DA_UVICORN" deep_agent_service.http_app:app \
+      --host 127.0.0.1 --port "$DA_PORT" --workers 1 ) > /tmp/e2e-deep-agent.log 2>&1 &
+  echo $! > /tmp/e2e-deep-agent.pid
+  # 判据是 /healthz 真的应答——不是「进程还活着」。启动期它会建表、连库、装图，
+  # 失败时 uvicorn 会打完 traceback 才退，所以顺带把末尾贴出来。
+  DA_READY=0
+  for _ in $(seq 1 60); do
+    if curl -sf -m 3 "http://127.0.0.1:${DA_PORT}/healthz" >/dev/null 2>&1; then DA_READY=1; break; fi
+    if ! kill -0 "$(cat /tmp/e2e-deep-agent.pid)" 2>/dev/null; then break; fi
+    sleep 2
+  done
+  if [ "$DA_READY" != "1" ]; then
+    echo "✗ deep-agent-service 没能在 127.0.0.1:${DA_PORT} 起来——日志末尾：" >&2
+    tail -30 /tmp/e2e-deep-agent.log >&2 || true
+    exit 1
+  fi
+  DEEP_AGENT_BASE_URL="http://127.0.0.1:${DA_PORT}"
+  echo "deep-agent 就绪（原生链路）：${DEEP_AGENT_BASE_URL}"
+else
+  echo "⚠ deep-agent 链路：legacy（显式选择）。本轮走 call_skill/run_script，不是线上同款。"
+fi
+
+# 2026-09-25 实测：`KERNEL_DEEP_AGENT_TIMEOUT_MS` 默认只有 300000（5 分钟）——
+# `readDeepAgentProviderConfig` 的兜底值，deep-agent-service 自己的注释也说这只是
+# "starting placeholder"。真实 Office 任务里一次 call_skill 可能就要跑好几分钟
+# （子模型要写出一整个 pptx 脚本），单次尝试超时后 chat 层会喂回去问模型"重试"，
+# 每次重试都另开一个 thread、再跑满一次 300s——三次这样的循环刚好吃满测试给的
+# 900s 预算，屏幕上和证据里都只留下一句「超时未落定」，看不出真相是"单次尝试的
+# 上限设太短，逼着它反复重开"。这里把上限提到 480s，让一次真实尝试有更公平的
+# 时间窗口，不必靠多次重试拼凑。
+KERNEL_DEEP_AGENT_TIMEOUT_MS="${KERNEL_DEEP_AGENT_TIMEOUT_MS:-480000}" \
+KERNEL_DEEP_AGENT_BASE_URL="$DEEP_AGENT_BASE_URL" \
+DEEP_AGENT_SERVICE_INTERNAL_KEY="$DEEP_AGENT_INTERNAL_KEY" \
 KERNEL_MODEL_PROVIDER=dashscope \
 KERNEL_MODEL_BASE_URL="$DASHSCOPE_BASE_URL" \
 KERNEL_MODEL_API_KEY="$DASHSCOPE_API_KEY" \

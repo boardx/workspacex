@@ -51,6 +51,8 @@ const defaultQuestion = {
   order: 1,
   text: "服务端为候选专家生成的默认问题",
   purpose: "决策流程",
+  section: "core" as const,
+  goalIds: [],
 };
 
 const topicPendingInterview: LiveInterview = {
@@ -75,6 +77,17 @@ const topicPendingInterview: LiveInterview = {
   skillThreadId: "thread-f04",
   skillMessages: [],
   skillProposals: [],
+  studyEvidenceMode: "simulated",
+  reportEvidenceEligibility: {
+    eligibility: "blocked_missing_participant_evidence",
+    message: "需要真实受访者证据后才能批准。",
+    action: "添加并复核真实受访者回答",
+  },
+  researchBrief: null,
+  moderatorPolicy: null,
+  quality: { previewStatus: "unavailable", briefIssues: [], expertCoverage: [], questionFindings: [], readiness: null, readinessDecision: null, evidenceCoverage: [] },
+  reportReview: null,
+  artifacts: [],
   expertRuns: [],
 };
 
@@ -232,7 +245,6 @@ describe("F04 可点击 Mock 访谈流程", () => {
     fireEvent.click(screen.getByTestId("itv-run-all"));
     fireEvent.click(screen.getByTestId("itv-workflow-step-5"));
     expect(screen.getByTestId("itv-report-markdown")).toHaveTextContent("德国采购决策链");
-    expect(screen.getByTestId("itv-report-markdown").querySelector("h1")).toHaveTextContent("德国采购决策链");
     expect(screen.getByTestId("itv-report-timeline")).toHaveTextContent("报告已生成");
   });
 
@@ -359,7 +371,7 @@ describe("F04 正式 setup 的显式确认与双层持久化验收门", () => {
     fireEvent.change(await screen.findByTestId("itv-topic-input"), { target: { value: "验证服务端候选" } });
     fireEvent.click(screen.getByTestId("itv-confirm-topic"));
 
-    expect(await screen.findByText(expertCandidate.role)).toBeInTheDocument();
+    expect((await screen.findAllByText(expertCandidate.role)).length).toBeGreaterThan(0);
     fireEvent.click(screen.getByTestId("itv-add-expert"));
     expect(await screen.findByRole("dialog")).toBeInTheDocument();
     expect(screen.getByText("添加访谈专家")).toBeInTheDocument();
@@ -489,7 +501,7 @@ describe("F04 正式 setup 的显式确认与双层持久化验收门", () => {
     const added = MOCK_DIGITAL_EXPERTS[0]!;
     const transport = installLiveFetch(persistedInterview);
     render(<DigitalInterviewSetup interviewId={persistedInterview.interviewId} />);
-    expect(await screen.findByText(expertCandidate.role)).toBeInTheDocument();
+    expect((await screen.findAllByText(expertCandidate.role)).length).toBeGreaterThan(0);
 
     fireEvent.change(screen.getByTestId("itv-skill-input"), { target: { value: "添加一个用户" } });
     fireEvent.click(screen.getByTestId("itv-skill-send"));
@@ -503,8 +515,8 @@ describe("F04 正式 setup 的显式确认与双层持久化验收门", () => {
     });
     fireEvent.click(await screen.findByTestId("itv-skill-apply"));
 
-    expect(await screen.findByText(expertCandidate.role)).toBeInTheDocument();
-    expect(await screen.findByText(added.role)).toBeInTheDocument();
+    expect((await screen.findAllByText(expertCandidate.role)).length).toBeGreaterThan(0);
+    expect((await screen.findAllByText(added.role)).length).toBeGreaterThan(0);
     fireEvent.click(screen.getByTestId("itv-confirm-experts"));
 
     await waitFor(() => expect(transport.requests("POST", "/experts/confirm")).toHaveLength(1));

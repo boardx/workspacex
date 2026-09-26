@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { render, screen, waitFor, within } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { ResearchStudioApp } from "@/components/research-studio/research-studio-app";
 import { GuidedResearchFlow } from "@/components/research-studio/guided-research-flow";
 import { mockIdentity } from "@/lib/identity";
@@ -7,6 +7,7 @@ import ResearchPage from "@/app/research/page";
 import { runtimeFixture } from "../guided-runtime-fixture";
 import type { ReactElement } from "react";
 import { type GuidedResearchStep } from "@/lib/mock/guided-research";
+import { GuidedResearchEffortBudgetPreview } from "@/components/research-studio/guided-research-effort-budget-preview";
 
 const api = vi.hoisted(() => ({
   getResearchRuntime: vi.fn(), executeResearchRuntime: vi.fn(),
@@ -34,6 +35,20 @@ beforeEach(() => {
 });
 
 describe("F180 signed guided-research visual contract", () => {
+  it("derives restored budget progress from the selected tier limits", () => {
+    render(<GuidedResearchEffortBudgetPreview state="default" />);
+
+    fireEvent.click(screen.getByTestId("research-effort-deep"));
+    fireEvent.click(screen.getByTestId("research-budget-save"));
+
+    const bars = within(screen.getByTestId("research-budget-summary")).getAllByRole("progressbar");
+    expect(bars.map((bar) => Number(bar.getAttribute("aria-valuenow")))).toEqual([
+      (8 * 60 + 16) / (2 * 60 * 60) * 100,
+      7 / 180 * 100,
+      3 / 120 * 100,
+    ]);
+  });
+
   it("uses the real session shell for guided research while legacy Studio keeps preview identity", () => {
     const guided = ResearchPage({ searchParams: {} }) as ReactElement<{ identity?: unknown; flow?: string }>;
     expect(guided.props.flow).toBe("home");
@@ -120,13 +135,13 @@ describe("F180 signed guided-research visual contract", () => {
     }
   });
 
-  it("keeps the research Skill assistant beside the final report", async () => {
+  it("keeps the assistant available in the report reading layout", async () => {
     api.getResearchRuntime.mockResolvedValueOnce(sessionAt("report"));
     render(<GuidedResearchFlow step="report" sessionId="grs-visual" />);
 
     await screen.findByTestId("research-flow-report");
     const assistant = screen.getByTestId("research-skill-assistant");
-    expect(assistant.closest("[data-layout]")).toHaveAttribute("data-layout", "skill-workspace-thirds");
+    expect(assistant.closest("[data-layout]")).toHaveAttribute("data-layout", "report-reading");
     expect(screen.getByTestId("research-report")).toBeInTheDocument();
   });
 
@@ -157,8 +172,9 @@ describe("F180 signed guided-research visual contract", () => {
     api.getResearchRuntime.mockResolvedValueOnce(sessionAt("search"));
     const search = render(<GuidedResearchFlow step="search" sessionId="grs-visual" />);
     await screen.findByTestId("research-flow-search");
-    expect(screen.getByRole("heading", { name: "研究检索进度" })).toBeInTheDocument();
-    expect(screen.getByTestId("research-search-summary")).toContainElement(screen.getByTestId("research-current-query"));
+    expect(screen.queryByRole("heading", { name: "研究检索进度" })).not.toBeInTheDocument();
+    expect(screen.getByTestId("research-sources")).toBeVisible();
+    expect(screen.getByText("查看搜索详情").parentElement).not.toHaveAttribute("open");
 
     search.unmount();
     api.getResearchRuntime.mockResolvedValueOnce(sessionAt("report"));

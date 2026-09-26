@@ -1,5 +1,7 @@
 // F10-pre tasks 面隔离测试（真 workerd）：
-//   派工/撤回/导入 = COORD_ADMIN_TOKEN 管理面（原 coord-service COORDINATOR_KINDS）；
+//   派工/撤回/导入 = COORD_ADMIN_TOKEN 管理面（devportal broker 通道）；协调层
+//     scoped token 也能派工/撤回的那条线在 tasks-coordinator-dispatch.test.ts（#480），
+//     本文件守 admin 通道与「非协调层身份一律不行」的回归；
 //   收件箱轮询 + ack/complete = scoped 面 + agent_id 强绑定（冒充 403）；
 //   GET /tasks：admin bearer 可 assignee=*（devportal broker，#706），
 //   scoped 强制只见自己（inbox_is_private），ops 万能钥匙可查任何人。
@@ -45,10 +47,11 @@ async function adminDispatch(issue: number, assignee: string): Promise<Task> {
 }
 
 describe("tasks 派工面（admin 特权）", () => {
-  it("POST /tasks：无 token 401；ops/scoped token 也是 401（派工是协调层权力）；admin 201", async () => {
+  it("POST /tasks：无 token 401；ops token 与 Directory 查无此身份的 scoped token 也 401；admin 201", async () => {
     const body = JSON.stringify({ issue: 801, assignee: "wrk-gw-t1" });
     expect((await SELF.fetch(API("/tasks"), { method: "POST", body })).status).toBe(401);
     expect((await SELF.fetch(API("/tasks"), { method: "POST", headers: OPS, body })).status).toBe(401);
+    // wrk-gw-priv 从未在 Directory 登记 → 不是协调者 → 派工面对它仍然关着（#480）
     const scoped = await mintScoped("wrk-gw-priv");
     expect((await SELF.fetch(API("/tasks"), {
       method: "POST", headers: { authorization: `Bearer ${scoped}`, "content-type": "application/json" }, body,

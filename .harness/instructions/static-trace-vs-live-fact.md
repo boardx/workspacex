@@ -53,6 +53,7 @@
 | 某段代码在不在 main | 文件在你的工作区里存在 | `git ls-tree origin/main -- <path>`；`git show origin/main:<path>` |
 | 某次测量量的是哪棵树 | 记录里的 SHA 字段 | `git merge-base --is-ancestor <sha> origin/main` |
 | 某个 agent / 栈还活不活 | worktree 或进程痕迹还在 | 心跳、lease、owner label —— **痕迹不是心跳** |
+| 某条契约声明的路径今天能不能跑 | 它所属 feature 是 `passing` | `pnpm harness contract-routes`——**feature 状态本身就是一个静态痕迹**（issue #1177） |
 
 ### 三条可操作的习惯
 
@@ -70,8 +71,27 @@
 - **CLR G5**：`scored_sha` 不是 `origin/main` 的祖先 ⇒ 记 0（对应第 4 次）
 - **CLR G6**：证据必须结构上可解析 ⇒ 挡住手写假锚点
 - **CLR 队列门**：`blocking_issues` 里出现已 CLOSED 的 issue ⇒ 当场红（对应第 1 次的下游后果）
+- **契约 ↔ 路由覆盖**（issue #1177）：已交付契约束里声明了 `path` 却没有对应路由的 operation
+  逐条进清单，`doctor` 出 WARN。判据与它**够不到**的部分（束级近似的假阴性）写在
+  `.harness/scripts/lib/contract-route-coverage.ts` 的头注里
+- **契约 → 路由棘轮**（issue #564）：上面那份清单的**只减不增**版本。今天的 253 条记进
+  `.harness/state/contract-route-coverage-allowlist.json`，名单只能变短；新增一条「契约声明了
+  `path` 却不接线」的 operation ⇒ PR 上当场红（`pnpm run lint:contract-route-coverage`）。
+  ⚠ 名单里的条目**不在今天的缺口清单里**同样是一个静态痕迹：它有两种相反的成因
+  （路由补上了 / 所属束退出判定范围了），判据见 `lib/contract-route-ratchet.ts` 的头注
+- **`lint-contract-negative-assertion`**（#473，2026-09-21）：源码里「契约里没有 `X`」这类
+  **对契约的否定性断言**，机械核对 `X` 是不是 `packages/contracts/` 里的一个 operation；
+  契约后来加上了 ⇒ 当场红（对应第 1 次那三条注释的形状）。
+  **它只判点名了标识符的那些**——`契约里没有「分享线程」操作` 这种散文断言机械上不可判定，
+  走「只减不增」的预算（`.harness/state/contract-negative-assertion-budget.json`），
+  即**新写的否定性断言必须点名标识符**，这样它才会被持续复核。写这类断言时照这个形状写：
+  ```ts
+  // ✅ 契约里没有 `deleteTemplate` 操作（本门每次 CI 都替你复核一遍）
+  // ❌ 契约里没有删除模板的操作      ← 机械上没人能核实它，它会随时间变假
+  ```
 
-⚠ **覆盖不到的部分要诚实**：散文里的过期断言（issue 正文、代码注释）没有门能自动抓，
+⚠ **覆盖不到的部分要诚实**：上面那道门只覆盖「对契约做否定性断言」这一类，且只覆盖点名
+标识符的那部分。其余散文断言（issue 正文、注释里对能力/路径/状态的叙述）仍然没有门能自动抓，
 只能靠上面那三条习惯。`sweep-docker` 的归属推断问题登记在 #841，修法方向是**让归属可证明
 （label + lease）而不是可推断**——不要用启发式（"超过 N 小时算孤儿"），那会误伤长任务，
 且违反 `agent-resource-cleanup-sop.md` 已有的硬规矩。
@@ -95,7 +115,7 @@
 一轮去查字体/编码，而根因是那份代码压根没上线。
 
 ## 相关
-- #2810（沙箱镜像永不重建，第 5 次）· #823（三条过期注释）· #834（评分卡不在 main）· #839（G5/G6 两道门）· #841（sweep-docker 盲区）
+- #473（会说谎的注释 + 否定性断言机械门）· #2810（沙箱镜像永不重建，第 5 次）· #823（三条过期注释）· #834（评分卡不在 main）· #839（G5/G6 两道门）· #841（sweep-docker 盲区）
 - `.harness/instructions/deployment-verification-standard.md`（本条在部署链上的落地规则：四层各要问什么）
 - `.harness/instructions/core-loop-readiness-standard.md`（CLR 的门控总览）
 - `.harness/instructions/agent-resource-cleanup-sop.md`（只清理能证明是自己造的栈）

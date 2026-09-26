@@ -1,20 +1,78 @@
 import { z } from "zod";
 
-export const SurveyWorkflowStepSchema = z.enum(["design", "template", "publish", "responses", "report"]);
-export const SurveyStatusSchema = z.enum(["draft", "ready", "collecting", "closed"]);
-export const SurveyQuestionTypeSchema = z.enum(["single", "multi", "scale", "open"]);
+export const SurveyWorkflowStepSchema = z.enum([
+  "design",
+  "template",
+  "publish",
+  "responses",
+  "report",
+]);
+export const SurveyStatusSchema = z.enum([
+  "draft",
+  "ready",
+  "collecting",
+  "closed",
+]);
+export const SurveyAnonymitySchema = z.enum(["anonymous", "identified"]);
+export const SurveyPublishBlockerCodeSchema = z.enum([
+  "QUESTIONS_EMPTY",
+  "QUESTION_OPTIONS_EMPTY",
+  "MAPPING_INCOMPLETE",
+  "LEADING_QUESTION",
+  "LOGIC_INVALID",
+]);
+export const SurveyPublishBlockerSchema = z
+  .object({
+    code: SurveyPublishBlockerCodeSchema,
+    side: z.enum(["survey", "question", "section"]),
+    subjectId: z.string().min(1),
+    missingFields: z.array(z.string().min(1)),
+  })
+  .strict();
+export const SurveyCommandErrorCodeSchema = z.enum([
+  "ANONYMITY_IMMUTABLE",
+  "STATUS_COMMAND_REQUIRED",
+  "INVALID_TRANSITION",
+  "SURVEY_VERSION_CONFLICT",
+  "SURVEY_PUBLISH_BLOCKED",
+]);
+import {
+  SurveyWorkflowQuestionSchema,
+  SurveyAnswerValueSchema,
+} from "./survey-question-types";
+export * from "./survey-question-types";
 export const SurveyResponseQualitySchema = z.enum(["normal", "review"]);
-export const SurveyChartTypeSchema = z.enum(["gap-matrix", "capability-table", "grouped-bar", "line", "radar"]);
-
-export const SurveyWorkflowQuestionSchema = z.object({
-  id: z.string().min(1),
-  order: z.number().int().positive(),
-  chapterId: z.string(),
-  type: SurveyQuestionTypeSchema,
-  title: z.string().min(1),
-  required: z.boolean(),
-  options: z.array(z.string().min(1)).default([]),
-});
+export const SurveyResponseAnalysisSchema = z.enum(["included", "excluded"]);
+export const SurveyResponseAnalysisHistoryEntrySchema = z
+  .object({
+    analysis: SurveyResponseAnalysisSchema,
+    reason: z.string().min(1).max(1000).optional(),
+    actor: z.string().min(1),
+    changedAt: z.string().datetime(),
+  })
+  .superRefine((entry, ctx) => {
+    if (entry.analysis === "excluded" && !entry.reason) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["reason"],
+        message: "排除分析记录需要说明原因",
+      });
+    }
+    if (entry.analysis === "included" && entry.reason !== undefined) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["reason"],
+        message: "重新纳入记录不能携带排除原因",
+      });
+    }
+  });
+export const SurveyChartTypeSchema = z.enum([
+  "gap-matrix",
+  "capability-table",
+  "grouped-bar",
+  "line",
+  "radar",
+]);
 
 export const SurveyReportSectionSchema = z.object({
   id: z.string().min(1),
@@ -31,40 +89,85 @@ export const SurveyResponseSchema = z.object({
   role: z.string().min(1),
   companySize: z.string().min(1),
   quality: SurveyResponseQualitySchema,
+  // Legacy persisted responses predate analysis governance. The service
+  // normalizes an omitted value to included before returning or compiling.
+  analysis: SurveyResponseAnalysisSchema.optional(),
+  exclusionReason: z.string().min(1).max(1000).optional(),
+  analysisHistory: z.array(SurveyResponseAnalysisHistoryEntrySchema).optional(),
   submittedAt: z.string().datetime(),
   durationSeconds: z.number().int().nonnegative(),
-  answers: z.array(z.object({ questionId: z.string().min(1), value: z.union([z.string(), z.array(z.string())]) })),
-});
-
-export const SurveyWorkflowSchema = z.object({
-  survey: z.object({
-    id: z.string().min(1), title: z.string().min(1), status: SurveyStatusSchema, lastSavedAt: z.string().datetime(),
-  }),
-  questions: z.array(SurveyWorkflowQuestionSchema),
-  reportTemplate: z.object({ sections: z.array(SurveyReportSectionSchema) }),
-  publication: z.object({ target: z.number().int().positive(), link: z.string().url() }),
-  responses: z.array(SurveyResponseSchema),
-  report: z.object({
-    generatedAt: z.string().datetime(),
-    sections: z.array(z.object({ id: z.string(), title: z.string(), body: z.string() })),
-  }),
-}).superRefine((model, ctx) => {
-  const questionIds = new Set(model.questions.map((question) => question.id));
-  for (const [responseIndex, response] of model.responses.entries()) {
-    for (const [answerIndex, answer] of response.answers.entries()) {
-      if (!questionIds.has(answer.questionId)) {
-        ctx.addIssue({
-          code: z.ZodIssueCode.custom,
-          message: `Unknown question: ${answer.questionId}`,
-          path: ["responses", responseIndex, "answers", answerIndex, "questionId"],
-        });
-      }
-    }
+  answers: z.array(
+    z.object({ questionId: z.string().min(1), value: SurveyAnswerValueSchema }),
+  ),
+}).superRefine((response, ctx) => {
+  if (response.analysis === "excluded" && !response.exclusionReason) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ["exclusionReason"],
+      message: "排除分析需要说明原因",
+    });
+  }
+  if (response.analysis === "included" && response.exclusionReason !== undefined) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ["exclusionReason"],
+      message: "仅排除分析时可填写原因",
+    });
   }
 });
 
+export const SurveyWorkflowSchema = z
+  .object({
+    survey: z.object({
+      id: z.string().min(1),
+      title: z.string().min(1),
+      status: SurveyStatusSchema,
+      lastSavedAt: z.string().datetime(),
+    }),
+    questions: z.array(SurveyWorkflowQuestionSchema),
+    reportTemplate: z.object({ sections: z.array(SurveyReportSectionSchema) }),
+    publication: z.object({
+      target: z.number().int().positive(),
+      link: z.string().url(),
+    }),
+    responses: z.array(SurveyResponseSchema),
+    report: z.object({
+      generatedAt: z.string().datetime(),
+      sections: z.array(
+        z.object({ id: z.string(), title: z.string(), body: z.string() }),
+      ),
+    }),
+  })
+  .superRefine((model, ctx) => {
+    const questionIds = new Set(model.questions.map((question) => question.id));
+    for (const [responseIndex, response] of model.responses.entries()) {
+      for (const [answerIndex, answer] of response.answers.entries()) {
+        if (!questionIds.has(answer.questionId)) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            message: `Unknown question: ${answer.questionId}`,
+            path: [
+              "responses",
+              responseIndex,
+              "answers",
+              answerIndex,
+              "questionId",
+            ],
+          });
+        }
+      }
+    }
+  });
+
 export type SurveyWorkflowStep = z.infer<typeof SurveyWorkflowStepSchema>;
 export type SurveyWorkflowModel = z.infer<typeof SurveyWorkflowSchema>;
-export type SurveyWorkflowQuestion = z.infer<typeof SurveyWorkflowQuestionSchema>;
+export type SurveyStatus = z.infer<typeof SurveyStatusSchema>;
+export type SurveyAnonymity = z.infer<typeof SurveyAnonymitySchema>;
+export type SurveyPublishBlocker = z.infer<
+  typeof SurveyPublishBlockerSchema
+>;
+
 export type SurveyChartType = z.infer<typeof SurveyChartTypeSchema>;
 export type SurveyResponse = z.infer<typeof SurveyResponseSchema>;
+
+export * from "./survey-report";

@@ -98,6 +98,7 @@ beforeAll(async () => {
         experts?: Array<{
           expertId: string; occupation: string; goals: string[]; painPoints: string[]; typicalAdvice: string;
         }>;
+        questions?: Array<{ questionId: string }>;
       };
       const patch = context.operation === "generate_interview_experts"
         ? { experts: [
@@ -113,6 +114,10 @@ beforeAll(async () => {
               { text: `针对“${expert.painPoints[0]}”，您会如何判断和行动？`, purpose: "深挖专业痛点" },
               { text: `“${expert.typicalAdvice}”有哪些真实案例或证据？`, purpose: "验证典型建议" },
             ],
+          })) }
+        : context.questions?.length
+          ? { answers: context.questions.map((question) => ({
+            questionId: question.questionId, answer: "我会先核对赛事数据，再结合本地实践提出建议。",
           })) }
         : context.currentStep === "topic"
         ? { topic: "建议聚焦最终否决权" }
@@ -179,6 +184,44 @@ beforeEach(async () => {
 });
 
 describe("F04 批量数字专家访谈 — HTTP 持久化验收门", () => {
+  it("只投影当前 revision 的研究简报、主持策略和就绪决定", async () => {
+    const created = await createInterview("create-quality-projection");
+    const brief = {
+      decision: "决定是否优先优化采购审批链",
+      learningGoals: [{ goalId: "goal-1", statement: "识别审批阻塞" }],
+      targetRoles: ["采购负责人"], outOfScope: ["市场规模"], successCriteria: ["获得互补证据"],
+    };
+    await asApp(ORG, async (session) => {
+      await session.query(
+        `INSERT INTO digital_interview_research_briefs
+          (org_id,id,interview_id,revision_id,brief,rule_version,request_id,created_by)
+         VALUES ($1,'brief-quality-1',$2,$3,$4,'quality-v1','request-brief-quality-1',$5)`,
+        [ORG, created.interviewId, created.revisionId, brief, USER],
+      );
+      await session.query(
+        `INSERT INTO digital_interview_readiness_decisions
+          (org_id,id,interview_id,revision_id,assessment_rule_version,status,rationale,request_id,decided_by)
+         VALUES ($1,'decision-quality-1',$2,$3,'quality-v1','warning_accepted','已知只有单一专家视角，下一轮补充真人访谈。','request-ready-quality-1',$4)`,
+        [ORG, created.interviewId, created.revisionId, USER],
+      );
+    });
+
+    const response = await fetch(`${base}/interviews/digital/${created.interviewId}`, { headers: auth });
+    expect(response.status).toBe(200);
+    expect(await response.json()).toMatchObject({
+      researchBrief: brief,
+      moderatorPolicy: null,
+      quality: {
+        previewStatus: "available",
+        readinessDecision: {
+          revisionId: created.revisionId,
+          status: "warning_accepted",
+          assessmentRuleVersion: "quality-v1",
+        },
+      },
+    });
+  });
+
   it("创建只持久化名称和标签；create replay 幂等、变更 payload 被拒绝，并在重启后恢复 scope", async () => {
     const first = await postCreate({ requestId: "create-f04" });
     expect(first.status).toBe(201);
@@ -360,13 +403,29 @@ describe("F04 批量数字专家访谈 — HTTP 持久化验收门", () => {
     expect(expertView.expertCandidates).toEqual(expect.arrayContaining([expect.objectContaining(staticExpert)]));
     expect(expertView.questionCandidates).toHaveLength(6);
 
-    const generatedQuestions = expertView.questionCandidates;
+    const generatedQuestions = expertView.questionCandidates.map((question, index, questions) => ({
+      ...question,
+      section: index === questions.length - 1 ? "counterexample" as const : "core" as const,
+      goalIds: ["legacy-goal"],
+    }));
     const questions = await fetch(`${base}/interviews/digital/${created.interviewId}/questions/confirm`, {
       method: "POST", headers: { ...auth, "content-type": "application/json" },
       body: JSON.stringify({ questions: generatedQuestions, expectedVersion: 3, requestId: "questions-complete-f04" }),
     });
     expect(questions.status).toBe(201);
     expect(await questions.json()).toMatchObject({ currentStep: "runs", questions: generatedQuestions, version: 4 });
+
+    let runs: DigitalInterviewResponse["expertRuns"] = [];
+    for (let attempt = 0; attempt < 50; attempt += 1) {
+      const current = await fetch(`${base}/interviews/digital/${created.interviewId}`, { headers: auth });
+      expect(current.status).toBe(200);
+      runs = ((await current.json()) as DigitalInterviewResponse).expertRuns;
+      if (runs.length === 2 && runs.every((run) => run.status !== "running")) break;
+      await new Promise((resolve) => setTimeout(resolve, 20));
+    }
+    expect(runs).toEqual(expect.arrayContaining([
+      expect.objectContaining({ expertId: staticExpert.expertId, status: "completed", completedQuestions: 3 }),
+    ]));
 
     const earlierStepMessage = await fetch(`${base}/interviews/digital/${created.interviewId}/skill/messages`, {
       method: "POST", headers: { ...auth, "content-type": "application/json" },

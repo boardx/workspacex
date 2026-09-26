@@ -20,6 +20,7 @@ export interface StoredDigitalInterview {
 }
 
 export interface StoredDigitalInterviewListItem extends StoredDigitalInterview {
+  readonly completedExpertCount: number;
   readonly updatedAt: string;
   readonly kind: "quick" | "batch";
 }

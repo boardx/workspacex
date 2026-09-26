@@ -91,5 +91,11 @@
     "interaction-primitives": "ui-preview/interaction-primitives",
     "motion-microinteraction": "ui-preview/motion-microinteraction",
     "review-governance": "ui-preview/review-governance"
+  },
+  "phase-18-org-brain-knowledge-graph": {
+    "chat-knowledge-graph": "ui-preview/chat-knowledge-graph"
+  },
+  "phase-19-board-visual-workspace": {
+    "board-fabric-surface": "ui-preview/board-fabric-surface"
   }
 }

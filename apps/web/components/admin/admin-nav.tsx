@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { Bot, Boxes, Cpu, Plug, Shapes, LayoutTemplate, LayoutDashboard, Users, UserCog, Mail, Lock, Globe, Settings, Activity, FileEdit, Inbox, PencilRuler } from "lucide-react";
+import { Bot, Boxes, Cpu, Plug, Shapes, LayoutTemplate, LayoutDashboard, Users, UserCog, Mail, Lock, Globe, Settings, Activity, FileEdit, Inbox, PencilRuler, Send } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import * as React from "react";
 import { ADMIN_NAV, ADMIN_MODULE_SCOPE, ADMIN_SCOPE_META, adminNavForScope, type AdminModuleKey, type AdminScope } from "@/lib/mock/admin";
@@ -36,6 +36,8 @@ const ICONS: Record<AdminModuleKey, LucideIcon> = {
   members: Users,
   // 心跳/活跃度符号——「运营状态」是运维自查这个部署本身是否健康的工具。
   "ops-status": Activity,
+  // 向外发送的箭头：本实例向外上报运行信号。
+  telemetry: Send,
   // 锁形图标，与顶栏切到本地组织时的那把锁是同一个符号——同一件事在两处要看起来是同一件事
   local: Lock,
   // 地球：跨组织的全平台视角，与「组织」组的 Users（一个组织里的人）刻意不同符号。
@@ -119,7 +121,7 @@ const ALL_NAV_KEYS: AdminModuleKey[] = ADMIN_NAV.flatMap((g) => g.items.map((i) 
  */
 const MERGED_SECOND_LEVEL_KEYS = new Set<string>([
   "templates", "skills", "agent-runtime", "asset-governance", "canvas", "org-admin",
-  "agent-interrupts", "plan-control", "agent-kernel",
+  "agent-interrupts", "plan-control", "agent-kernel", "chat-knowledge-graph",
 ]);
 
 export function AdminNav({
@@ -203,6 +205,16 @@ export function AdminNav({
                    *   也不假装它是 0。
                    */
                   title={countUnavailable ? `${item.label}：尚未接入真实数据源，因此不显示数字（不是 0）` : undefined}
+                  /*
+                   * 2026-09-22：`scripts/audit-text-contrast.mjs` 量出这一支只有 2.55:1，低于 AA。
+                   * 这是**刻意**的弱化——它要和「接了真实数据源的数字」在视觉上分得开，而含义由
+                   * 上面那个 `title` 承担（#881 的原意）。所以不是提高对比度，而是把例外**声明**出来：
+                   * 审计器据这个属性单独计数并打印理由，不再混进「不通过」。
+                   * ⚠ 只对 `countUnavailable` 那一支声明；接了真实计数的那一支必须照常过 AA。
+                   */
+                  data-contrast-exempt={countUnavailable
+                    ? "占位符「—」故意弱化，以便与接了真实数据源的数字区分；含义由 title 说明（#881）"
+                    : undefined}
                   className={cn(
                     "shrink-0 text-11 tabular-nums",
                     countUnavailable ? "text-muted-foreground/60" : "text-muted-foreground",
