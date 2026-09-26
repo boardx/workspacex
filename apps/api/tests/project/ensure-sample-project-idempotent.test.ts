@@ -59,6 +59,7 @@ const adminIdentity = {
 } as unknown as IdentityRepository;
 
 function harness(store = new FakeObjectStore()) {
+  const marked = new Set<string>();
   const projects = new FakeProjects();
   const tags = new FakeTags(projects);
   const artifacts = new FakeArtifactRepository();
@@ -73,8 +74,9 @@ function harness(store = new FakeObjectStore()) {
     },
     tags,
     lookup: tags,
+    marker: { markSampleProject: async (_o, id) => { marked.add(id); } },
   };
-  return { deps, projects, tags, artifacts };
+  return { deps, projects, tags, artifacts, marked };
 }
 
 const ORG = toOrgId("org-e2-sample");
@@ -90,6 +92,17 @@ describe("ensureSampleProject", () => {
     expect(row.kind).toBe(SAMPLE_PROJECT_KIND);
     expect(h.tags.tags.get(r.projectId)).toEqual([SAMPLE_PROJECT_TAG]);
     expect(h.artifacts.artifacts.size).toBe(SAMPLE_DOCUMENTS.length);
+    expect(h.artifacts.versions.size).toBe(SAMPLE_DOCUMENTS.length);
+    expect([...h.marked]).toEqual([r.projectId]);
+  });
+
+  it("#4245 存量组织（有标签、无标记行）：早返回分支补写持久标记，不再种", async () => {
+    const h = harness();
+    const first = await ensureSampleProject(h.deps, { orgId: ORG, actorId: ACTOR });
+    h.marked.clear();
+    const again = await ensureSampleProject(h.deps, { orgId: ORG, actorId: ACTOR });
+    expect(again.created).toBe(false);
+    expect([...h.marked]).toEqual([first.projectId]);
     expect(h.artifacts.versions.size).toBe(SAMPLE_DOCUMENTS.length);
   });
 
@@ -129,7 +142,7 @@ describe("ensureSampleProject", () => {
 
   it("种子路径零外部调用：依赖里没有模型/嵌入/网络端口", () => {
     const h = harness();
-    expect(Object.keys(h.deps).sort()).toEqual(["lookup", "project", "tags", "upload"]);
+    expect(Object.keys(h.deps).sort()).toEqual(["lookup", "marker", "project", "tags", "upload"]);
     expect(Object.keys(h.deps.upload).sort()).toEqual(["alerts", "ids", "quarantine", "repo", "store"]);
   });
 });

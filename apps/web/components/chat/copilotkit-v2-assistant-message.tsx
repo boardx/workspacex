@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { CitationList, PersistedMessageCitationScope } from "@/components/chat/message-citations";
 import { RunTraceCoveredContext, isDecisionTool } from "@/lib/chat-workbench/trace-context";
 import { Wrench, ChevronDown, ChevronUp, X } from "lucide-react";
 import {
@@ -320,6 +321,9 @@ function V2AssistantMessageImpl(
     // 是两个物理上分开的节点（CK-P3/CK-P7 各自的加法，见下方注释），够不着把两者
     // 塞进同一个 flex 容器统一对齐——但把间距收紧到跟框架 toolbar 内部同一量级，
     // 至少让它们读作"同一条消息下的连续操作区"，不是两个不相关的独立区块。
+    // issue #4244：已落库回答的引用（`ThreadCitationsProvider`，来自 `getThread`）——正文 `[n]`
+    // 可点 + 气泡下方紧凑列表；流式中/无引用时不建作用域，渲染不变。
+    <PersistedMessageCitationScope messageId={persistedMessageId}>
     <div className="flex flex-col gap-1">
       <CopilotChatAssistantMessage
         {...props}
@@ -340,6 +344,7 @@ function V2AssistantMessageImpl(
           </>
         }
       />
+      <CitationList />
       {/* issue #2052（CK-P7）—— 打开后的表单/提交中/出错/完成四态，需要的宽度进不了
           行内工具栏，所以仍作为气泡的兄弟节点挂在下面（未打开时它自己不渲染任何东西，
           见 `MessageLandingPanel`）。⚠ 这不是第二层 slot 包装：`assistantMessage` slot
@@ -364,6 +369,7 @@ function V2AssistantMessageImpl(
         <TurnMemoryLine threadId={artifactThreadId} messageId={persistedMessageId} />
       ) : null}
     </div>
+    </PersistedMessageCitationScope>
   );
 }
 
