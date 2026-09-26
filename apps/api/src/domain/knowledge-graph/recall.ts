@@ -226,7 +226,10 @@ export function fuseRecall(input: FuseInput): KnowledgeRecall {
       // 语义上正合适；不复用 fts/graph，这样界面 / 日志能一眼看出这条不是靠打分挤进来的。
       channels: ["claim"] as RecallChannel[],
       retrievalReasons: ["recall"] as FilterAction[],
-      score: Number.POSITIVE_INFINITY,
+      // 不是打分进来的：分数记 0，「强制」由 claim 通道表达。**不能是 Infinity**——它要写进
+      // `kg_turn_recalls.items`（jsonb），JSON 会把 Infinity 变成 null，读接口回 `score: null` 违反契约
+      // `KgRecalledMemory.score: z.number()`，前端解析失败、整轮回答下方（引用 / 确认卡）都不画（issue #4271）。
+      score: 0,
       graphPath: null,
     }));
 
