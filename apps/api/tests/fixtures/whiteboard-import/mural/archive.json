@@ -1,0 +1,13 @@
+{
+  "version": "mural-export-2026.3",
+  "mural": {
+    "id": "mural-workshop-7",
+    "items": [
+      { "id": "area-1", "type": "area", "title": "Workshop", "x": 20, "y": 20, "width": 960, "height": 600 },
+      { "id": "circle-1", "type": "circle", "text": "Shared outcome", "parentId": "area-1", "x": 180, "y": 140, "width": 180, "height": 180, "backgroundColor": "#dbeafe" },
+      { "id": "card-1", "type": "card", "title": "Action", "parentId": "area-1", "x": 480, "y": 140, "width": 260, "height": 160 },
+      { "id": "arrow-1", "type": "arrow", "connectedFrom": { "id": "circle-1" }, "connectedTo": { "id": "card-1" }, "semanticRelation": "generates" },
+      { "id": "unsupported-1", "type": "vote", "x": 0, "y": 0 }
+    ]
+  }
+}

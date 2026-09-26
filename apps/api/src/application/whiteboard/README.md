@@ -6,6 +6,16 @@ update receipts and audit data. Production composition always injects `OBJECT_ST
 `PgWhiteboardCollaborationStore`; the nullable `snapshot` and `update` columns only support
 rolling reads of rows written before migration `20260926160000`.
 
+Those rolling reads are a read-through backfill: snapshot and idempotency-update bytes are
+uploaded under tenant/board-scoped immutable keys, read back, hash/size verified, and then
+published with a compare-and-swap. New writes fail closed when ObjectStore is absent and never
+fall back to PostgreSQL bytea. A tenant-scoped worker can call the bounded
+`backfillLegacyBoard` hook for update rows that may never be replayed naturally. After every
+legacy board and update has migrated, run `psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f
+apps/api/scripts/whiteboard-object-backfill-complete.sql`. It raises
+`WHITEBOARD_OBJECT_BACKFILL_INCOMPLETE` while any inline body remains; only a passing gate permits
+a later migration to drop the legacy columns.
+
 A write validates against the current snapshot, writes the next snapshot and accepted Yjs
 update under tenant-hashed, board-scoped immutable keys, reads both objects back and verifies
 their hashes, then publishes their manifests in the locked PostgreSQL transaction. A store

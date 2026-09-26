@@ -47,9 +47,10 @@ export class WhiteboardRecoveryService {
     try { await this.objects.putOnce(manifest.objectKey, snapshot, 'application/vnd.yjs-update'); }
     catch(error) {
       if (!(error instanceof ObjectExistsError)) throw new WhiteboardRecoveryError('DEPENDENCY_UNAVAILABLE');
-      let existing:Uint8Array|null;try{existing=await this.objects.get(manifest.objectKey);}catch{throw new WhiteboardRecoveryError('DEPENDENCY_UNAVAILABLE');}if(!existing) throw new WhiteboardRecoveryError('DEPENDENCY_UNAVAILABLE');
-      try { await verifyCheckpoint(manifest,existing); } catch { throw new WhiteboardRecoveryError('CHECKPOINT_INVALID'); }
     }
+    // Both a fresh write and an immutable replay must be readable and hash/size exact
+    // before the PG manifest can make the checkpoint visible.
+    await this.verifiedExisting(principal,manifest);
     let saved;
     try { saved=await this.metadata.saveCheckpoint(principal,manifest,requestId); }
     catch(error) {

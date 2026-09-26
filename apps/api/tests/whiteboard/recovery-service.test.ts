@@ -53,4 +53,9 @@ describe('whiteboard checkpoint recovery orchestration',()=>{
     await expect(f.service.restore(principal,boardId,created.manifest.checkpointId,ids[2]!,{epoch:2,seq:7})).rejects.toMatchObject({code:'CHECKPOINT_INVALID'});
     expect(f.restoreInput).toBeUndefined();
   });
+  it('reads back and verifies every fresh checkpoint write before publishing metadata',async()=>{
+    let saves=0;const metadata:WhiteboardRecoveryMetadata={head:async()=>({epoch:1,seq:0,role:'owner',archived:false}),getCheckpoint:async()=>null,saveCheckpoint:async(_p,manifest)=>{saves++;return{manifest,replayed:false}},commitRestore:async()=>{throw new Error('unused')}};
+    const service=new WhiteboardRecoveryService(metadata,{snapshot:async()=>new TextEncoder().encode('expected')},{putOnce:async()=>{},get:async()=>new TextEncoder().encode('tampered')},()=>new Date('2026-09-26T00:00:00.000Z'));
+    await expect(service.createCheckpoint(principal,boardId,ids[0]!)).rejects.toMatchObject({code:'CHECKPOINT_INVALID'});expect(saves).toBe(0);
+  });
 });

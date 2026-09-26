@@ -21,9 +21,10 @@ const color=(value:string|null,fallback:string,issues:ImportMappingIssue[],item:
 const geometry=(item:ImportedBoardItem)=>({x:finite(item.x,0),y:finite(item.y,0),width:positive(item.width,200),height:positive(item.height,120),rotation:finite(item.rotation,0,-360,360)});
 const provenance=(source:ImportSource,item:ImportedBoardItem)=>({version:1,source,sourceId:item.sourceId,sourceType:item.sourceType,metadata:item.metadata});
 const contentShape=(variant:string,fill:string)=>({version:1,type:'shape',variant,fill,borderColor:'#1F2937',borderWidth:2,borderStyle:'solid',opacity:1,radius:variant==='rounded-rectangle'?16:0,textColor:'#111827',horizontalAlign:'center',verticalAlign:'middle'});
-function shapeVariant(value:string|null): 'rectangle'|'rounded-rectangle'|'circle'|'ellipse'|'diamond'|'triangle'|'hexagon'|'cloud'|'database'|'document' {
+function shapeVariant(value:string|null,issues:ImportMappingIssue[],item:ImportedBoardItem): 'rectangle'|'rounded-rectangle'|'circle'|'ellipse'|'diamond'|'triangle'|'hexagon'|'cloud'|'database'|'document' {
   const normalized=String(value??'rectangle').toLowerCase().replace(/[_ ]/g,'-');
   if(['rectangle','rounded-rectangle','circle','ellipse','diamond','triangle','hexagon','cloud','database','document'].includes(normalized)) return normalized as ReturnType<typeof shapeVariant>;
+  issues.push({code:'VALUE_NORMALIZED',sourceId:item.sourceId,sourceType:item.sourceType,detail:`Unsupported shape ${value??item.sourceType} normalized to rectangle`});
   return 'rectangle';
 }
 function importedObject(id:string,item:ImportedBoardItem,source:ImportSource,parentId:string|null,issues:ImportMappingIssue[]):WhiteboardObject|null {
@@ -32,7 +33,7 @@ function importedObject(id:string,item:ImportedBoardItem,source:ImportSource,par
   if(item.type==='sticky') return {...base,kind:'sticky',style:{fill:color(item.color,'#FFF4A3',issues,item),color:'#111827'},extensionData:{import:imported}};
   if(item.type==='text') return {...base,kind:'text',style:{color:color(item.color,'#111827',issues,item)},extensionData:{import:imported}};
   if(item.type==='shape') {
-    const variant=shapeVariant(item.shape),fill=color(item.color,'#FFFFFF',issues,item);
+    const variant=shapeVariant(item.shape,issues,item),fill=color(item.color,'#FFFFFF',issues,item);
     return {...base,kind:variant==='ellipse'||variant==='circle'?'ellipse':'rectangle',style:{fill,stroke:'#1F2937'},extensionData:{import:imported,contentObject:contentShape(variant,fill)}};
   }
   if(item.type==='panel') return {...base,kind:'frame',style:{fill:color(item.color,'#FFFFFF',issues,item)},extensionData:{import:imported,spatial:{version:1,mode:'freeform',autoExpand:true,clipContent:false,padding:24,gap:24,columns:3,flowDirection:'horizontal'}}};
@@ -48,20 +49,23 @@ function importedObject(id:string,item:ImportedBoardItem,source:ImportSource,par
 export function mapImportedBoard(source:ImportSource, requestId:string, input:readonly ImportedBoardItem[], limit=200):ImportMappingResult {
   const issues:ImportMappingIssue[]=[], commands:WhiteboardCommand[]=[], selected=input.slice(0,limit);
   if(input.length>limit) issues.push({code:'OBJECT_LIMIT',sourceId:null,sourceType:null,detail:`Only the first ${limit} source items can be imported atomically`});
-  const ids=new Map<string,string>();
-  selected.forEach((item,index)=>{if(!ids.has(item.sourceId)&&item.type!=='unsupported'&&item.type!=='connector')ids.set(item.sourceId,`import_${requestId.replace(/-/g,'').slice(0,12)}_${index}`)});
-  const emitted=new Set<string>();
-  for(const item of selected){
+  const seenSourceIds=new Set<string>(),duplicates=new Set<ImportedBoardItem>();
+  for(const item of selected){if(seenSourceIds.has(item.sourceId)){duplicates.add(item);issues.push({code:'INVALID_REFERENCE',sourceId:item.sourceId,sourceType:item.sourceType,detail:'Duplicate source id was skipped'});}else seenSourceIds.add(item.sourceId);}
+  const emitted=new Map<string,{id:string;kind:WhiteboardObject['kind'];object:WhiteboardObject;item:ImportedBoardItem}>();
+  for(const [index,item] of selected.entries()){
+    if(duplicates.has(item))continue;
     if(item.type==='unsupported'){issues.push({code:'UNSUPPORTED_ITEM',sourceId:item.sourceId,sourceType:item.sourceType,detail:`${item.sourceType} is not supported`});continue;}
     if(item.type==='connector') continue;
-    const id=ids.get(item.sourceId); if(!id) continue;
-    if(emitted.has(item.sourceId)){issues.push({code:'INVALID_REFERENCE',sourceId:item.sourceId,sourceType:item.sourceType,detail:'Duplicate source id was skipped'});continue;} emitted.add(item.sourceId);
-    const parentId=item.parentSourceId?ids.get(item.parentSourceId)??null:null;
-    if(item.parentSourceId&&!parentId)issues.push({code:'INVALID_REFERENCE',sourceId:item.sourceId,sourceType:item.sourceType,detail:`Parent ${item.parentSourceId} was not imported`});
-    const object=importedObject(id,item,source,parentId,issues); if(object)commands.push({type:'create',object});
+    const id=`import_${requestId.replace(/-/g,'').slice(0,12)}_${index}`,object=importedObject(id,item,source,null,issues);
+    if(object)emitted.set(item.sourceId,{id,kind:object.kind,object,item});
   }
-  for(const item of selected.filter(value=>value.type==='connector')){
-    const from=item.fromSourceId?ids.get(item.fromSourceId):undefined,to=item.toSourceId?ids.get(item.toSourceId):undefined;
+  for(const value of emitted.values()){
+    const parent=value.item.parentSourceId?emitted.get(value.item.parentSourceId):undefined;
+    if(value.item.parentSourceId&&(!parent||!['frame','group'].includes(parent.kind)))issues.push({code:'INVALID_REFERENCE',sourceId:value.item.sourceId,sourceType:value.item.sourceType,detail:`Parent ${value.item.parentSourceId} is not an emitted panel`});
+    commands.push({type:'create',object:{...value.object,parentId:parent&&['frame','group'].includes(parent.kind)?parent.id:null}});
+  }
+  for(const item of selected.filter(value=>value.type==='connector'&&!duplicates.has(value))){
+    const from=item.fromSourceId?emitted.get(item.fromSourceId)?.id:undefined,to=item.toSourceId?emitted.get(item.toSourceId)?.id:undefined;
     if(!from||!to){issues.push({code:'INVALID_REFERENCE',sourceId:item.sourceId,sourceType:item.sourceType,detail:'Connector endpoint was not imported'});continue;}
     const id=`import_${requestId.replace(/-/g,'').slice(0,12)}_${selected.indexOf(item)}`;
     commands.push({type:'create',object:{id,schemaVersion:1,kind:'connector',geometry:geometry(item),text:item.text.slice(0,1000),style:{stroke:color(item.color,'#1F2937',issues,item)},parentId:null,orderKey:item.sourceId.slice(0,128),zIndex:Math.trunc(item.zIndex),connector:{from,to,type:'straight',startStyle:'none',endStyle:'arrow',lineStyle:'solid',label:item.text.slice(0,1000),semanticRelation:typeof item.metadata.semanticRelation==='string'?item.metadata.semanticRelation.slice(0,256):undefined},extensionData:{import:provenance(source,item)}}});
