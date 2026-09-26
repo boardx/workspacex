@@ -32,5 +32,5 @@ The native browser accessibility tree was checked for the report route: all six 
 ```bash
 pnpm --filter web exec tsc --noEmit
 pnpm --filter web exec vitest run tests/ui/guided-research-reference-layout.test.tsx tests/ui/guided-research-visual-contract.test.tsx tests/ui/guided-research-markdown-workspace.test.tsx tests/ui/guided-research-flow.test.tsx
-pnpm --filter web exec playwright test -c playwright.prototype-audit.config.ts guided-research-prototype-audit.spec.ts
+pnpm --filter web exec playwright test --config playwright.fullstack-smoke.config.ts --project seeded-github-import guided-research-runtime.spec.ts
 ```
