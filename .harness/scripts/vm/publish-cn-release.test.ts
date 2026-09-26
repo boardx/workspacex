@@ -8,6 +8,8 @@ const apiDockerfile=readFileSync(resolve(import.meta.dirname,"../../../deploy/al
 const webDockerfile=readFileSync(resolve(import.meta.dirname,"../../../deploy/aliyun/images/web.Dockerfile"),"utf8");
 const agentDockerfile=readFileSync(resolve(import.meta.dirname,"../../../apps/deep-agent-service/Dockerfile"),"utf8");
 const sandboxDockerfile=readFileSync(resolve(import.meta.dirname,"../../../apps/skill-sandbox/Dockerfile"),"utf8");
+const postgresAgeDockerfile=readFileSync(resolve(import.meta.dirname,"../../../apps/api/docker/postgres-age/Dockerfile"),"utf8");
+const localEnvExample=readFileSync(resolve(import.meta.dirname,"../../config/local.env.example"),"utf8");
 
 describe("China production release publisher",()=>{
   it("requires a clean exact main revision and digest-pinned dependencies",()=>{
@@ -119,6 +121,37 @@ describe("China production release publisher",()=>{
     expect(sandboxDockerfile.match(/sed -Ei "s#https\?:\/\/deb\.debian\.org#\$\{APT_MIRROR\}#g"/g)).toHaveLength(4);
     expect(sandboxDockerfile.match(/PIP_INDEX_URL="\$PYPI_INDEX_URL"/g)).toHaveLength(2);
     expect(sandboxDockerfile.match(/--require-hashes/g)).toHaveLength(2);
+  });
+  it("publishes the pgvector + Apache AGE postgres image, never the bare pgvector base (#4081)",()=>{
+    // The released postgres image is built from the same Dockerfile compose uses, with the
+    // reviewed pgvector digest only as its FROM; the manifest entry is the pushed AGE image,
+    // which release-manifest-cli then resolves to its registry digest.
+    expect(source).toContain('build_and_push postgres postgres-age apps/api/docker/postgres-age/Dockerfile apps/api/docker/postgres-age --build-arg "PGVECTOR_IMAGE=$pgvector_base_image" --build-arg "APT_MIRROR=$apt_mirror" --build-arg "AGE_REPOSITORY=$age_repository" --build-arg "SOURCE_REVISION=$revision"');
+    const assignment='postgres_image="$prefix/postgres-age:$revision"';
+    expect(source).toContain(assignment);
+    expect(source.match(/^\s*postgres_image=/gm)).toHaveLength(1);
+    expect(source.indexOf(assignment)).toBeLessThan(source.indexOf('"$postgres_image" "$redis_image" <<\'NODE\''));
+    expect(source).toContain("pgvector_base_image=${WSX_POSTGRES_IMAGE:?");
+    expect(source).not.toContain('docker pull --platform "$platform" "$postgres_image"');
+    expect(source).toContain('validate_package_index "$age_repository" "AGE source"');
+    expect(postgresAgeDockerfile).toContain("ARG PGVECTOR_IMAGE=pgvector/pgvector:pg16");
+    expect(postgresAgeDockerfile).toContain("FROM ${PGVECTOR_IMAGE}");
+    expect(postgresAgeDockerfile).toMatch(/ARG AGE_COMMIT=[a-f0-9]{40}\n/);
+    expect(postgresAgeDockerfile).toContain('test "$(git -C /tmp/age rev-parse HEAD)" = "${AGE_COMMIT}"');
+    expect(postgresAgeDockerfile).toContain("LABEL org.opencontainers.image.revision=$SOURCE_REVISION");
+    expect(postgresAgeDockerfile).toContain('CMD ["postgres", "-c", "shared_preload_libraries=age"]');
+    // The pgvector base has no CA bundle before `apt-get install ca-certificates`, so the mirror
+    // swap must keep the base's http scheme (apt verifies the signed Release files) and only
+    // replace the host; rewriting to the https APT_MIRROR URL fails `apt-get update`.
+    expect(postgresAgeDockerfile).not.toMatch(/s#https\?:\/\/deb\\?\.debian\\?\.org#\$\{APT_MIRROR\}/);
+    expect(postgresAgeDockerfile).toContain('sed -Ei "s#//deb\\.debian\\.org#//${apt_host}#g"');
+  });
+  it("keeps the CI postgres example on the AGE image (#4081)",()=>{
+    // Single source: whatever image the dev compose builds from postgres-age.
+    const compose=readFileSync(resolve(import.meta.dirname,"../../../apps/api/docker-compose.dev.yml"),"utf8");
+    const composeImage=compose.match(/^\s*image:\s*(\S*postgres-age\S*)\s*$/m)?.[1];
+    expect(composeImage).toBeTruthy();
+    expect(localEnvExample.match(/^CI_PG_IMAGE=(\S+)/m)?.[1]).toBe(composeImage);
   });
   it("builds the Sandbox without GitHub Raw and verifies its vendored analysis font",()=>{
     expect(sandboxDockerfile).not.toContain("raw.githubusercontent.com");

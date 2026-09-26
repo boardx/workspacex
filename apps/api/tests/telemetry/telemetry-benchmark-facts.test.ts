@@ -1,6 +1,6 @@
 /**
  * D9 benchmark 来源：`runsPerSeatPerWeek` 只经 `kernel_benchmark_counts_for_report()` 取两个计数；
- * 函数体排除 personal-local、只回计数；无席位 ⇒ `null`（整节缺席）；`usageBase` 仍缺席（skillPackRuns 无来源）。
+ * 函数体排除 personal-local、只回计数；无席位 ⇒ `null`（整节缺席）。usage 来源见 telemetry-usage-facts.test.ts（#4226）。
  */
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
@@ -43,11 +43,6 @@ describe("runsPerSeatPerWeek 的真实来源", () => {
     expect(runsPerSeatPerWeekFrom(0, 4, 86_400_000)).toBe(0);
   });
 
-  it("usageBase 仍缺席：skillPackRuns 的能力编号没有来源，不以空数组冒充零次运行", async () => {
-    const db = fakeDb([]);
-    expect(await new PgTelemetryFacts(db).usageBase()).toBeNull();
-    expect(db.calls).toEqual([]);
-  });
 });
 
 const fnBody = (sql: string): string =>

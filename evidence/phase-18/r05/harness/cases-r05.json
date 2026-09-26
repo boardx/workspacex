@@ -1,0 +1,11 @@
+{
+  "says": {
+    "R03-1": {
+      "say": "我决定关注 211 高校",
+      "extract": {
+        "entities": [ { "name": "211 高校", "kind": "concept", "aliases": ["211"] } ],
+        "claims": [ { "statement": "我决定关注 211 高校", "kind": "decision", "confidence": 0.9, "about": ["211 高校"], "decidedBy": null, "quote": "我决定关注 211 高校" } ]
+      }
+    }
+  }
+}

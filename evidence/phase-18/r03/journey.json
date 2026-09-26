@@ -1,0 +1,274 @@
+{
+  "kgCalls": [
+    "200 GET /__fullstack_api/knowledge-graph/threads/thr-cda69de5-f0e4-4dfb-a71e-1170645c327d",
+    "200 GET /__fullstack_api/knowledge-graph/threads/thr-cda69de5-f0e4-4dfb-a71e-1170645c327d/messages/ae1def0c-809d-47c5-a160-08201fa6c145/extraction",
+    "200 GET /__fullstack_api/knowledge-graph/threads/thr-cda69de5-f0e4-4dfb-a71e-1170645c327d/messages/8a5d6236-dae4-45af-b566-c04a492c1d85/memory",
+    "200 GET /__fullstack_api/knowledge-graph/threads/thr-cda69de5-f0e4-4dfb-a71e-1170645c327d/messages/ae1def0c-809d-47c5-a160-08201fa6c145/extraction",
+    "200 GET /__fullstack_api/knowledge-graph/threads/thr-cda69de5-f0e4-4dfb-a71e-1170645c327d/nominations",
+    "200 GET /__fullstack_api/knowledge-graph/threads/thr-cda69de5-f0e4-4dfb-a71e-1170645c327d",
+    "200 GET /__fullstack_api/knowledge-graph/threads/thr-cda69de5-f0e4-4dfb-a71e-1170645c327d/messages/26360417-dbb1-46c0-8222-b62bb1b4acb0/extraction",
+    "200 GET /__fullstack_api/knowledge-graph/threads/thr-cda69de5-f0e4-4dfb-a71e-1170645c327d/messages/8a5d6236-dae4-45af-b566-c04a492c1d85/memory",
+    "200 GET /__fullstack_api/knowledge-graph/threads/thr-cda69de5-f0e4-4dfb-a71e-1170645c327d/messages/b04ea011-2c49-4ca5-bb3a-aa24afa96abf/memory",
+    "200 GET /__fullstack_api/knowledge-graph/threads/thr-cda69de5-f0e4-4dfb-a71e-1170645c327d",
+    "200 POST /__fullstack_api/knowledge-graph/threads/thr-cda69de5-f0e4-4dfb-a71e-1170645c327d/actions",
+    "200 GET /__fullstack_api/knowledge-graph/threads/thr-cda69de5-f0e4-4dfb-a71e-1170645c327d",
+    "200 GET /__fullstack_api/knowledge-graph/threads/thr-cda69de5-f0e4-4dfb-a71e-1170645c327d",
+    "200 GET /__fullstack_api/knowledge-graph/threads/thr-cda69de5-f0e4-4dfb-a71e-1170645c327d/nominations",
+    "200 GET /__fullstack_api/knowledge-graph/threads/thr-cda69de5-f0e4-4dfb-a71e-1170645c327d/messages/0cb42faa-af1b-409f-b1c6-f4a7d843ce78/extraction",
+    "200 GET /__fullstack_api/knowledge-graph/threads/thr-cda69de5-f0e4-4dfb-a71e-1170645c327d/messages/44f9466b-50a2-4be4-857d-8235726b20d1/memory",
+    "200 GET /__fullstack_api/knowledge-graph/threads/thr-5e249ea7-c03c-4d09-a168-813c4e076d95",
+    "200 GET /__fullstack_api/knowledge-graph/threads/thr-5e249ea7-c03c-4d09-a168-813c4e076d95/messages/2fb320a7-1aa5-4fe5-82ee-c339be5a2b99/extraction",
+    "200 GET /__fullstack_api/knowledge-graph/threads/thr-5e249ea7-c03c-4d09-a168-813c4e076d95/messages/c956e473-6c2c-4233-b287-3e5b28ca8aaf/memory",
+    "200 GET /__fullstack_api/knowledge-graph/threads/thr-5e249ea7-c03c-4d09-a168-813c4e076d95/messages/2fb320a7-1aa5-4fe5-82ee-c339be5a2b99/extraction",
+    "200 GET /__fullstack_api/knowledge-graph/threads/thr-5e249ea7-c03c-4d09-a168-813c4e076d95/messages/30023b66-6406-4645-afdc-d0b7acc2c896/extraction",
+    "200 GET /__fullstack_api/knowledge-graph/threads/thr-5e249ea7-c03c-4d09-a168-813c4e076d95/messages/c956e473-6c2c-4233-b287-3e5b28ca8aaf/memory",
+    "200 GET /__fullstack_api/knowledge-graph/threads/thr-5e249ea7-c03c-4d09-a168-813c4e076d95/messages/f22a177c-e609-4c26-b80e-4538d3fe4aee/memory",
+    "200 GET /__fullstack_api/knowledge-graph/threads/thr-5e249ea7-c03c-4d09-a168-813c4e076d95/messages/4e3f4a03-60ed-47d9-9c67-104eabdec434/extraction",
+    "200 GET /__fullstack_api/knowledge-graph/threads/thr-5e249ea7-c03c-4d09-a168-813c4e076d95/messages/27a1cb3d-c6c3-45c0-8d03-064fcfb40c4b/memory",
+    "200 POST /__fullstack_api/knowledge-graph/cards/card_139e4d5e6f8e49ff8ca6882970174dbd",
+    "200 GET /__fullstack_api/knowledge-graph/threads/thr-5e249ea7-c03c-4d09-a168-813c4e076d95",
+    "200 GET /__fullstack_api/knowledge-graph/threads/thr-5e249ea7-c03c-4d09-a168-813c4e076d95",
+    "200 GET /__fullstack_api/knowledge-graph/threads/thr-5e249ea7-c03c-4d09-a168-813c4e076d95/nominations",
+    "200 GET /__fullstack_api/knowledge-graph/threads/thr-5e249ea7-c03c-4d09-a168-813c4e076d95/messages/976d5a0b-bbb1-4807-8ffc-2b8992169448/extraction",
+    "200 GET /__fullstack_api/knowledge-graph/threads/thr-5e249ea7-c03c-4d09-a168-813c4e076d95/messages/30023b66-6406-4645-afdc-d0b7acc2c896/extraction",
+    "200 GET /__fullstack_api/knowledge-graph/threads/thr-5e249ea7-c03c-4d09-a168-813c4e076d95/messages/ff237f97-8685-4709-9970-19363874b0f6/memory",
+    "200 POST /__fullstack_api/knowledge-graph/cards/card_d25323ea2d204680b4ba9114675fd251",
+    "200 GET /__fullstack_api/knowledge-graph/threads/thr-5e249ea7-c03c-4d09-a168-813c4e076d95",
+    "200 GET /__fullstack_api/knowledge-graph/threads/thr-5e249ea7-c03c-4d09-a168-813c4e076d95",
+    "200 GET /__fullstack_api/knowledge-graph/threads/thr-5e249ea7-c03c-4d09-a168-813c4e076d95/messages/27a1cb3d-c6c3-45c0-8d03-064fcfb40c4b/memory",
+    "200 GET /__fullstack_api/knowledge-graph/threads/thr-5e249ea7-c03c-4d09-a168-813c4e076d95/messages/c956e473-6c2c-4233-b287-3e5b28ca8aaf/memory",
+    "200 GET /__fullstack_api/knowledge-graph/threads/thr-5e249ea7-c03c-4d09-a168-813c4e076d95/messages/f22a177c-e609-4c26-b80e-4538d3fe4aee/memory",
+    "200 GET /__fullstack_api/knowledge-graph/threads/thr-5e249ea7-c03c-4d09-a168-813c4e076d95/messages/ff237f97-8685-4709-9970-19363874b0f6/memory",
+    "200 GET /__fullstack_api/knowledge-graph/threads/thr-5e249ea7-c03c-4d09-a168-813c4e076d95/nominations",
+    "200 POST /__fullstack_api/knowledge-graph/threads/thr-5e249ea7-c03c-4d09-a168-813c4e076d95/promote",
+    "200 GET /__fullstack_api/knowledge-graph/threads/thr-5e249ea7-c03c-4d09-a168-813c4e076d95",
+    "200 GET /__fullstack_api/knowledge-graph/threads/thr-e9fb4167-d6f8-4e2c-b2eb-ab7e938a90c8",
+    "200 GET /__fullstack_api/knowledge-graph/threads/thr-e9fb4167-d6f8-4e2c-b2eb-ab7e938a90c8/nominations",
+    "200 GET /__fullstack_api/knowledge-graph/threads/thr-e9fb4167-d6f8-4e2c-b2eb-ab7e938a90c8/messages/443477c1-d0b6-42c7-a703-4603101e4e4e/extraction",
+    "200 GET /__fullstack_api/knowledge-graph/threads/thr-e9fb4167-d6f8-4e2c-b2eb-ab7e938a90c8/messages/5f79d677-ef47-40e8-91d2-8ea50ec470d2/memory",
+    "200 GET /__fullstack_api/knowledge-graph/threads/thr-e9fb4167-d6f8-4e2c-b2eb-ab7e938a90c8/messages/f762ab6d-3ec9-4519-9639-db428b51c801/extraction",
+    "200 GET /__fullstack_api/knowledge-graph/threads/thr-e9fb4167-d6f8-4e2c-b2eb-ab7e938a90c8/messages/24598cb5-7dd2-43f6-8ca5-b40988564780/memory",
+    "200 GET /__fullstack_api/knowledge-graph/personal",
+    "200 GET /__fullstack_api/knowledge-graph/me/overview",
+    "200 GET /__fullstack_api/knowledge-graph/threads/thr-5e249ea7-c03c-4d09-a168-813c4e076d95",
+    "200 GET /__fullstack_api/knowledge-graph/threads/thr-5e249ea7-c03c-4d09-a168-813c4e076d95/messages/c956e473-6c2c-4233-b287-3e5b28ca8aaf/memory",
+    "200 GET /__fullstack_api/knowledge-graph/threads/thr-5e249ea7-c03c-4d09-a168-813c4e076d95/messages/27a1cb3d-c6c3-45c0-8d03-064fcfb40c4b/memory",
+    "200 GET /__fullstack_api/knowledge-graph/threads/thr-5e249ea7-c03c-4d09-a168-813c4e076d95/messages/f22a177c-e609-4c26-b80e-4538d3fe4aee/memory",
+    "200 GET /__fullstack_api/knowledge-graph/threads/thr-5e249ea7-c03c-4d09-a168-813c4e076d95/nominations",
+    "200 GET /__fullstack_api/knowledge-graph/threads/thr-5e249ea7-c03c-4d09-a168-813c4e076d95/messages/ff237f97-8685-4709-9970-19363874b0f6/memory",
+    "200 POST /__fullstack_api/knowledge-graph/threads/thr-5e249ea7-c03c-4d09-a168-813c4e076d95/actions",
+    "200 GET /__fullstack_api/knowledge-graph/threads/thr-5e249ea7-c03c-4d09-a168-813c4e076d95",
+    "200 GET /__fullstack_api/knowledge-graph/threads/thr-0ed04d9d-13ea-4ee2-8f5c-b2ce2c219cfd",
+    "200 GET /__fullstack_api/knowledge-graph/threads/thr-0ed04d9d-13ea-4ee2-8f5c-b2ce2c219cfd/nominations",
+    "200 GET /__fullstack_api/knowledge-graph/threads/thr-0ed04d9d-13ea-4ee2-8f5c-b2ce2c219cfd/messages/97739076-b348-4302-a0a6-e64ee82750fb/extraction",
+    "200 GET /__fullstack_api/knowledge-graph/threads/thr-0ed04d9d-13ea-4ee2-8f5c-b2ce2c219cfd/messages/cfa34156-976b-46d7-97e9-1a14739f42f7/memory",
+    "200 GET /__fullstack_api/knowledge-graph/personal",
+    "200 GET /__fullstack_api/knowledge-graph/me/overview"
+  ],
+  "ids": {
+    "threadA": "thr-cda69de5-f0e4-4dfb-a71e-1170645c327d",
+    "claimA": "clm_bccf0ccb54d04e44971e7ba1e7c2b692",
+    "threadB": "thr-5e249ea7-c03c-4d09-a168-813c4e076d95",
+    "claimB": "clm_793cf90a409d4dd684de5a10498ee3e3",
+    "personalDecision": "act_a37b5fb087164accb4d3e99ef0887328-p",
+    "threadC": "thr-e9fb4167-d6f8-4e2c-b2eb-ab7e938a90c8",
+    "threadD": "thr-0ed04d9d-13ea-4ee2-8f5c-b2ce2c219cfd"
+  },
+  "A_turn1": {
+    "answerId": "8a5d6236-dae4-45af-b566-c04a492c1d85",
+    "text": "好的，收到。"
+  },
+  "A_chipVisibleMsAfterAnswer": 2356,
+  "A_chipText": "已记下：我决定关注 211 高校\n·\n撤销",
+  "A_threadKnowledge": {
+    "extractionActive": true,
+    "ingestion": {
+      "queued": 0,
+      "running": 0,
+      "failed": 0,
+      "failures": []
+    },
+    "claims": [
+      {
+        "id": "clm_bccf0ccb54d04e44971e7ba1e7c2b692",
+        "statement": "我决定关注 211 高校",
+        "status": "proposed",
+        "kind": "decision"
+      }
+    ]
+  },
+  "A_turn2": {
+    "answerId": "b04ea011-2c49-4ca5-bb3a-aa24afa96abf",
+    "text": "根据之前的对话：我决定关注 211 高校（本会话 09/26 的对话）。",
+    "recalled": [
+      {
+        "claimId": "clm_bccf0ccb54d04e44971e7ba1e7c2b692",
+        "statement": "我决定关注 211 高校",
+        "triState": "pending",
+        "scope": "chat_session",
+        "saidAt": "2026-09-26T12:43:21.431Z",
+        "channels": [
+          "claim"
+        ],
+        "retrievalReasons": [
+          "recall"
+        ],
+        "score": 0,
+        "graphPath": null
+      }
+    ]
+  },
+  "A_afterUndo_claims": [],
+  "A_turn3_afterUndo": {
+    "answerId": "44f9466b-50a2-4be4-857d-8235726b20d1",
+    "text": "好的，收到。",
+    "recalled": []
+  },
+  "B_personalAfterStep5": [
+    {
+      "id": "act_3419fda1a8b34c39a8c910dccf9bf7c4-p-p",
+      "statement": "报告截止日期是 10 月 15 日",
+      "status": "accepted"
+    },
+    {
+      "id": "act_8f46db5dddfd44338e2f12fd3f5dbc96-p-p",
+      "statement": "报告只写中文版",
+      "status": "accepted"
+    }
+  ],
+  "B_personalAfterPromote": [
+    {
+      "id": "act_3419fda1a8b34c39a8c910dccf9bf7c4-p-p",
+      "statement": "报告截止日期是 10 月 15 日",
+      "status": "accepted"
+    },
+    {
+      "id": "act_8f46db5dddfd44338e2f12fd3f5dbc96-p-p",
+      "statement": "报告只写中文版",
+      "status": "accepted"
+    },
+    {
+      "id": "act_a37b5fb087164accb4d3e99ef0887328-p",
+      "statement": "我决定关注 211 高校",
+      "status": "accepted"
+    }
+  ],
+  "C_question": {
+    "answerId": "5f79d677-ef47-40e8-91d2-8ea50ec470d2",
+    "text": "根据之前的对话：我决定关注 211 高校（来自个人空间知识，最早见于你 09/26 的对话）。",
+    "recalled": [
+      {
+        "claimId": "act_a37b5fb087164accb4d3e99ef0887328-p",
+        "statement": "我决定关注 211 高校",
+        "triState": "confirmed",
+        "scope": "personal",
+        "saidAt": "2026-09-26T12:43:27.687Z",
+        "channels": [
+          "fts"
+        ],
+        "retrievalReasons": [
+          "recall"
+        ],
+        "score": 0.01639364262295082,
+        "graphPath": null
+      }
+    ]
+  },
+  "C_unrelated": {
+    "answerId": "24598cb5-7dd2-43f6-8ca5-b40988564780",
+    "text": "根据之前的对话：报告截止日期是 10 月 15 日（来自个人空间知识，最早见于你 09/26 的对话）；报告只写中文版（来自个人空间知识，最早见于你 09/26 的对话）。",
+    "recalled": [
+      {
+        "claimId": "act_3419fda1a8b34c39a8c910dccf9bf7c4-p-p",
+        "statement": "报告截止日期是 10 月 15 日",
+        "triState": "confirmed",
+        "scope": "personal",
+        "saidAt": "2026-09-26T12:43:31.831Z",
+        "channels": [
+          "fts"
+        ],
+        "retrievalReasons": [
+          "recall"
+        ],
+        "score": 0.01639364262295082,
+        "graphPath": null
+      },
+      {
+        "claimId": "act_8f46db5dddfd44338e2f12fd3f5dbc96-p-p",
+        "statement": "报告只写中文版",
+        "triState": "confirmed",
+        "scope": "personal",
+        "saidAt": "2026-09-26T12:43:33.229Z",
+        "channels": [
+          "fts"
+        ],
+        "retrievalReasons": [
+          "recall"
+        ],
+        "score": 0.01639364262295082,
+        "graphPath": null
+      }
+    ]
+  },
+  "brain_personalCount": "3",
+  "brain_items": [
+    "我决定关注 211 高校\n\n你确认过\n来自对话\n我决定关注 211 高校\n点开看原话",
+    "报告截止日期是 10 月 15 日\n\n你确认过\n来自对话\n我决定关注 211 高校\n点开看原话",
+    "报告只写中文版\n\n你确认过\n来自对话\n我决定关注 211 高校\n点开看原话"
+  ],
+  "brain_overview": {
+    "threads": [
+      {
+        "threadId": "thr-5e249ea7-c03c-4d09-a168-813c4e076d95",
+        "projectId": null,
+        "title": "我决定关注 211 高校",
+        "lastActivityAt": "2026-09-26T12:43:27.028Z",
+        "claims": 3,
+        "pending": 0,
+        "confirmed": 3,
+        "conflict": 0,
+        "objects": 1
+      }
+    ],
+    "personalOrigins": [
+      {
+        "personalClaimId": "act_3419fda1a8b34c39a8c910dccf9bf7c4-p-p",
+        "sourceClaimId": "act_3419fda1a8b34c39a8c910dccf9bf7c4-c",
+        "threadId": "thr-5e249ea7-c03c-4d09-a168-813c4e076d95",
+        "projectId": null,
+        "threadTitle": "我决定关注 211 高校"
+      },
+      {
+        "personalClaimId": "act_8f46db5dddfd44338e2f12fd3f5dbc96-p-p",
+        "sourceClaimId": "act_8f46db5dddfd44338e2f12fd3f5dbc96-c",
+        "threadId": "thr-5e249ea7-c03c-4d09-a168-813c4e076d95",
+        "projectId": null,
+        "threadTitle": "我决定关注 211 高校"
+      },
+      {
+        "personalClaimId": "act_a37b5fb087164accb4d3e99ef0887328-p",
+        "sourceClaimId": "clm_793cf90a409d4dd684de5a10498ee3e3",
+        "threadId": "thr-5e249ea7-c03c-4d09-a168-813c4e076d95",
+        "projectId": null,
+        "threadTitle": "我决定关注 211 高校"
+      }
+    ]
+  },
+  "personalAfterForget": [
+    {
+      "id": "act_3419fda1a8b34c39a8c910dccf9bf7c4-p-p",
+      "statement": "报告截止日期是 10 月 15 日",
+      "status": "accepted"
+    },
+    {
+      "id": "act_8f46db5dddfd44338e2f12fd3f5dbc96-p-p",
+      "statement": "报告只写中文版",
+      "status": "accepted"
+    }
+  ],
+  "D_question": {
+    "answerId": "cfa34156-976b-46d7-97e9-1a14739f42f7",
+    "text": "我没有找到相关的记忆。",
+    "recalled": []
+  }
+}

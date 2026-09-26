@@ -310,7 +310,16 @@ export type KgTurnMemory = z.infer<typeof KgTurnMemory>;
  * 抽取关闭 / 未配置、还没抽完、抽出的东西已撤销或被取代）⇒ 空数组，不是错误。
  */
 export const KgMessageExtraction = z.object({
-  claims: z.array(z.object({ claimId: z.string(), statement: z.string() }).strict()),
+  claims: z.array(z.object({
+    claimId: z.string(),
+    statement: z.string(),
+    /**
+     * issue #4283（人类决定 2026-09-26）：这条是作者本人说的「决定」，已自动记进**请求者本人**的个人空间，
+     * 且那一份仍是「AI 记下的」（未确认）——反馈条显示「已记入个人记忆」、撤销走 `undoAutoPersonalCopy`。
+     * 其余情况（不是决定类、不是请求者本人说的、副本已撤销 / 已确认、看的人不是作者）⇒ null。
+     */
+    personalCopyClaimId: z.string().nullable(),
+  }).strict()),
 }).strict();
 export type KgMessageExtraction = z.infer<typeof KgMessageExtraction>;
 
@@ -403,7 +412,7 @@ export const KG_GRAPH_VIEW_MAX_NODES = 200;
  *   只读（不受本束任何写操作影响；要改部署开关，走下面 `getPlatformExtractionSetting` /
  *   `setPlatformExtractionSetting` 这一对平台级操作，不是这里）。
  * - `orgEnabled`：本组织有没有打开（`kg_org_extraction_settings.enabled`）——组织级、
- *   admin 可写、默认 false。
+ *   admin 可写、admin 没设置过时为 true（默认开，见 `KgOrgExtractionSettingsPort.getEnabled`）。
  * 两者都为真，新消息才会被排进抽取队列（`kg_enqueue_extraction` 的三道闸门：provider 已配置、
  * 部署开关打开、组织开关打开）。
  */
@@ -575,6 +584,19 @@ export const knowledgeGraph = {
     in: z.object({ threadId: z.string(), messageId: z.string() }).strict(),
     out: KgMessageExtraction,
     err: ["KG_THREAD_NOT_FOUND", "KG_NOT_VISIBLE"] as const,
+  },
+
+  /**
+   * UC-KG-14（issue #4283）：撤销系统自动记进**本人**个人空间的那一份决定（人的动作；Agent 身份拒绝）。
+   * `claimId` 是会话里的原结论（反馈条上那一条）。只撤仍是「AI 记下的」那份：副本只有这一个来源 ⇒ `revoked`；
+   * 同一决定在别处也说过、合并在一起 ⇒ 只摘掉这一个来源（`detached`），副本由其余来源继续支撑。
+   * 别人的空间 / 不存在 / 已确认过 / 已撤销 ⇒ 同一个 `KG_CLAIM_NOT_FOUND`。
+   */
+  undoAutoPersonalCopy: {
+    method: "POST", path: "/knowledge-graph/threads/:threadId/claims/:claimId/personal-copy/undo",
+    in: z.object({ threadId: z.string(), claimId: z.string() }).strict(),
+    out: z.object({ personalClaimId: z.string(), outcome: z.enum(["revoked", "detached"]) }).strict(),
+    err: ["KG_THREAD_NOT_FOUND", "KG_NOT_VISIBLE", "KG_CLAIM_NOT_FOUND", "KG_ACTOR_NOT_HUMAN"] as const,
   },
 
   /** UC-KG-12：对「记住 / 忘掉」确认卡做决定（人的动作；Agent 身份拒绝） */

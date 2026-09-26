@@ -16,10 +16,11 @@ import {
 } from "../../application/identity/ports";
 import { actOnMemoryCard } from "../../application/knowledge-graph/act-on-memory-card";
 import { applyHumanAction } from "../../application/knowledge-graph/apply-human-action";
+import { undoAutoPersonalCopy } from "../../application/knowledge-graph/auto-copy-decisions";
 import { listPromotionNominations, promoteToPersonal } from "../../application/knowledge-graph/promote-to-personal";
 import {
-  HUMAN_ACTION_PORT, KG_DEPLOYMENT_EXTRACTION_SETTINGS_PORT, KG_EXTRACTION_MODEL_CONFIG, KG_ORG_EXTRACTION_SETTINGS_PORT, KNOWLEDGE_READ_PORT, KgHumanActionError, MEMORY_CARD_PORT, PROMOTION_PORT,
-  type HumanActionPort, type KgDeploymentExtractionSettingsPort, type KgExtractionModelConfig, type KgOrgExtractionSettingsPort, type KnowledgeReadPort, type MemoryCardPort, type PromotionPort,
+  HUMAN_ACTION_PORT, KG_AUTO_COPY_PORT, KG_DEPLOYMENT_EXTRACTION_SETTINGS_PORT, KG_EXTRACTION_MODEL_CONFIG, KG_ORG_EXTRACTION_SETTINGS_PORT, KNOWLEDGE_READ_PORT, KgHumanActionError, MEMORY_CARD_PORT, PROMOTION_PORT,
+  type HumanActionPort, type KgAutoCopyPort, type KgDeploymentExtractionSettingsPort, type KgExtractionModelConfig, type KgOrgExtractionSettingsPort, type KnowledgeReadPort, type MemoryCardPort, type PromotionPort,
 } from "../../application/knowledge-graph/ports";
 import { newKgId } from "../../application/knowledge-graph/ids";
 import { getBrainOverview, getPersonalKnowledge } from "../../application/knowledge-graph/read-personal-knowledge";
@@ -46,6 +47,8 @@ export class KnowledgeGraphController {
     @Inject(KG_DEPLOYMENT_EXTRACTION_SETTINGS_PORT) private readonly deploymentExtraction: KgDeploymentExtractionSettingsPort,
     /** F17 确认卡。生产合成必定注入；只测别的接口的构造点可以不给（此时这条接口回 503，不假装成功）。 */
     @Inject(MEMORY_CARD_PORT) private readonly cards?: MemoryCardPort,
+    /** issue #4283 撤销自动记进个人空间的决定。生产合成必定注入；只测别的接口的构造点可以不给（此时这条接口回 503）。 */
+    @Inject(KG_AUTO_COPY_PORT) private readonly autoCopy?: KgAutoCopyPort,
   ) {}
 
   private get deps(): KnowledgeReadDeps {
@@ -153,6 +156,20 @@ export class KnowledgeGraphController {
   @Get("/knowledge-graph/threads/:threadId/nominations")
   nominations(@CurrentPrincipal() principal: Principal, @Param("threadId") threadId: string) {
     return this.run(principal, (v) => listPromotionNominations({ ...this.deps, promotion: this.promotion, newId: newKgId }, { ...v, threadId }));
+  }
+
+  /** UC-KG-14 undoAutoPersonalCopy（issue #4283）—— 反馈条上「已记入个人记忆 · 撤销」（人的动作） */
+  @Post("/knowledge-graph/threads/:threadId/claims/:claimId/personal-copy/undo")
+  @HttpCode(200)
+  undoPersonalCopy(@CurrentPrincipal() principal: Principal, @Param("threadId") threadId: string, @Param("claimId") claimId: string) {
+    const parsed = KG.knowledgeGraph.undoAutoPersonalCopy.in.safeParse({ threadId, claimId });
+    if (!parsed.success) throw new BadRequestException({ reasonCode: "KG_INVALID_REQUEST" });
+    const autoCopy = this.autoCopy;
+    if (autoCopy === undefined) throw new ServiceUnavailableException("auto_copy_unavailable");
+    return this.run(principal, (v) => undoAutoPersonalCopy(
+      { ...this.deps, autoCopy, newId: newKgId },
+      { ...v, actorKind: "human", threadId: parsed.data.threadId, claimId: parsed.data.claimId },
+    ));
   }
 
   /** UC-KG-12 actOnMemoryCard —— 对「记住 / 忘掉」确认卡做决定（人的动作：接口只接受人类会话，I-15 / I-17） */

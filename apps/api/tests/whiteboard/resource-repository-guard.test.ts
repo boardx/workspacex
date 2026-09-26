@@ -4,7 +4,7 @@ import ts from 'typescript';
 import { describe, expect, it } from 'vitest';
 const source = readFileSync(new URL('../../src/infrastructure/whiteboard/pg-whiteboard-repository.ts', import.meta.url), 'utf8');
 const lint = readFileSync(new URL('../../scripts/lint-permission-paths.mjs', import.meta.url), 'utf8');
-const expectedMethods = ['list', 'create', 'get', 'update', 'members', 'putMember', 'removeMember'];
+const expectedMethods = ['list', 'create', 'get', 'update', 'permanentlyDelete', 'members', 'putMember', 'removeMember'];
 function audit(code: string): string[] {
   const file = ts.createSourceFile('repository.ts', code, ts.ScriptTarget.Latest, true);
   const methods = new Map<string, string>(), sql: string[] = [];
@@ -16,9 +16,9 @@ function audit(code: string): string[] {
   }
   visit(file);
   const errors: string[] = [];
-  const allowedTables = new Set(['whiteboards', 'whiteboard_members', 'org_memberships']);
+  const allowedTables = new Set(['whiteboards', 'whiteboard_members', 'org_memberships', 'whiteboard_tags', 'whiteboard_tag_bindings', 'whiteboard_delete_receipts']);
   const tables = new Set(sql.flatMap(query => [...query.matchAll(/\b(?:FROM|JOIN|INTO|UPDATE)\s+(\w+)/gi)].map(match => match[1]!).filter(table => table.toUpperCase() !== 'SET')));
-  if (tables.size !== 3 || [...tables].some(table => !allowedTables.has(table))) errors.push('table scope');
+  if (tables.size !== allowedTables.size || [...tables].some(table => !allowedTables.has(table))) errors.push('table scope');
   if (/\bwithoutTenant\s*\(/.test(code)) errors.push('withoutTenant');
   if (methods.size !== expectedMethods.length || expectedMethods.some(name => !methods.has(name))) errors.push('method coverage');
   for (const [name, body] of methods) {
@@ -31,7 +31,7 @@ function audit(code: string): string[] {
     if (!/WHERE b\.org_id=\$1[^`]*\$\{visible\}/.test(body) || !body.includes('${membership}')) errors.push(`${name}: visibility predicate`);
     if (!/\[p\.orgId,\s*p\.userId/.test(body)) errors.push(`${name}: actor binding`);
   }
-  for (const name of ['create', 'update', 'members', 'putMember', 'removeMember']) {
+  for (const name of ['create', 'update', 'permanentlyDelete', 'members', 'putMember', 'removeMember']) {
     const body = methods.get(name) ?? '';
     if (!/WHERE (?:b\.)?org_id=\$1 AND (?:b\.)?owner_id=\$2/.test(body)) errors.push(`${name}: owner predicate`);
     if (!/\[p\.orgId,\s*p\.userId/.test(body)) errors.push(`${name}: owner binding`);
@@ -51,7 +51,7 @@ describe('whiteboard metadata repository permission exemption', () => {
     expect(lint).toContain('tests/whiteboard/resource-repository-guard.test.ts');
   });
   it('detects removal of a mutation owner predicate', () => {
-    const mutated = source.replace('WHERE org_id=$1 AND owner_id=$2 AND id=$3 RETURNING', 'WHERE org_id=$1 AND id=$3 RETURNING');
+    const mutated = source.replaceAll('owner_id=$2', 'owner_id<>$2');
     expect(mutated).not.toBe(source); expect(audit(mutated)).toContain('update: owner predicate');
   });
   it('detects an added table and unscoped tenant access', () => {
@@ -59,7 +59,7 @@ describe('whiteboard metadata repository permission exemption', () => {
     expect(audit(source.replace('this.db.withTenant(p.orgId,', 'this.db.withoutTenant('))).toContain('withoutTenant');
   });
   it('detects removal of private-board read visibility', () => {
-    const mutated = source.replace('AND ${visible} ORDER BY', 'ORDER BY');
+    const mutated = source.replace('AND ${visible}\n', 'AND true\n');
     expect(mutated).not.toBe(source); expect(audit(mutated)).toContain('list: visibility predicate');
   });
 });

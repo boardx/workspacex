@@ -300,6 +300,13 @@ const CONDITIONAL_COVERAGE_EXEMPTIONS = [
     reason: PROJECT_GRANULARITY_LEGACY("chat 线"),
   },
   {
+    spec: "apps/web/e2e/first-value-citation-loop.spec.ts",
+    reason:
+      "issue #4260 第一个价值时刻引用闭环。作者本地无 docker、从未真栈跑过，按 chat-read 配置里" +
+      "「首跑与搬家」的规矩先进非阻塞的 chat-path-coverage 车道（workflow_dispatch）；" +
+      "在 CI 上连绿两次后搬进阻塞的 chat-read project，并删掉本条豁免。",
+  },
+  {
     spec: "apps/web/e2e/chat-task-workbench-a11y.spec.ts",
     reason: PROJECT_GRANULARITY_LEGACY("chat 线"),
   },

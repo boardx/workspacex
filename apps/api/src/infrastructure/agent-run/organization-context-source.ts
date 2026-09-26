@@ -36,6 +36,6 @@ export class OrganizationContextSource implements StandardKnowledgeSource {
   if(!first||version(first)!==input.versionId)throw new Error('context_source_unavailable');
   const current=await this.index.read(actor,first.row.segmentId,input.projectId);
   if(!current||version(current)!==input.versionId)throw new Error('context_source_unavailable');
-  return KnowledgeReadOutput.parse({sourceId:input.sourceId,sourceVersion:input.versionId,content:current.row.content.slice(0,L.maxTextChars),citationAnchor:citation(current),accessibleAt:new Date().toISOString(),truncated:current.row.content.length>L.maxTextChars,contentKind:'indexed-segment'});
+  return KnowledgeReadOutput.parse({sourceId:input.sourceId,sourceVersion:input.versionId,content:current.row.content.slice(0,L.maxTextChars),citationAnchor:citation(current),accessibleAt:new Date().toISOString(),truncated:current.row.content.length>L.maxTextChars,contentKind:'indexed-segment',title:current.locator.title.slice(0,512)});
  }
 }

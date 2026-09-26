@@ -253,6 +253,120 @@
           "toolArgs"
         ],
         "additionalProperties": false
+      },
+      {
+        "type": "object",
+        "properties": {
+          "orgId": {
+            "type": "string",
+            "minLength": 1
+          },
+          "attemptId": {
+            "type": "string",
+            "minLength": 1
+          },
+          "leaseEpoch": {
+            "type": "integer",
+            "exclusiveMinimum": 0
+          },
+          "toolCallId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 256
+          },
+          "permissionRequestId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "toolName": {
+            "type": "string",
+            "const": "wx_cite"
+          },
+          "toolArgs": {
+            "type": "object",
+            "properties": {
+              "citations": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "sourceId": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 512
+                    },
+                    "versionId": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 2048
+                    },
+                    "projectId": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 256
+                    },
+                    "anchor": {
+                      "type": "object",
+                      "properties": {
+                        "kind": {
+                          "type": "string",
+                          "enum": [
+                            "page",
+                            "transcript",
+                            "message"
+                          ]
+                        },
+                        "page": {
+                          "type": "integer",
+                          "exclusiveMinimum": 0
+                        },
+                        "range": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 200
+                        },
+                        "messageId": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 256
+                        }
+                      },
+                      "required": [
+                        "kind"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "quote": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 500
+                    }
+                  },
+                  "required": [
+                    "sourceId",
+                    "versionId"
+                  ],
+                  "additionalProperties": false
+                },
+                "minItems": 1,
+                "maxItems": 20
+              }
+            },
+            "required": [
+              "citations"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "orgId",
+          "attemptId",
+          "leaseEpoch",
+          "toolCallId",
+          "toolName",
+          "toolArgs"
+        ],
+        "additionalProperties": false
       }
     ],
     "$schema": "http://json-schema.org/draft-07/schema#"
@@ -635,6 +749,10 @@
               "extracted-source",
               "indexed-segment"
             ]
+          },
+          "title": {
+            "type": "string",
+            "maxLength": 512
           }
         },
         "required": [
@@ -1016,6 +1134,144 @@
           "overview",
           "observedAt",
           "sourceRefs"
+        ],
+        "additionalProperties": false,
+        "$schema": "http://json-schema.org/draft-07/schema#"
+      }
+    },
+    "wx_cite": {
+      "input": {
+        "type": "object",
+        "properties": {
+          "citations": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "sourceId": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 512
+                },
+                "versionId": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 2048
+                },
+                "projectId": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 256
+                },
+                "anchor": {
+                  "type": "object",
+                  "properties": {
+                    "kind": {
+                      "type": "string",
+                      "enum": [
+                        "page",
+                        "transcript",
+                        "message"
+                      ]
+                    },
+                    "page": {
+                      "type": "integer",
+                      "exclusiveMinimum": 0
+                    },
+                    "range": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 200
+                    },
+                    "messageId": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 256
+                    }
+                  },
+                  "required": [
+                    "kind"
+                  ],
+                  "additionalProperties": false
+                },
+                "quote": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 500
+                }
+              },
+              "required": [
+                "sourceId",
+                "versionId"
+              ],
+              "additionalProperties": false
+            },
+            "minItems": 1,
+            "maxItems": 20
+          }
+        },
+        "required": [
+          "citations"
+        ],
+        "additionalProperties": false,
+        "$schema": "http://json-schema.org/draft-07/schema#"
+      },
+      "output": {
+        "type": "object",
+        "properties": {
+          "accepted": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "index": {
+                  "type": "integer",
+                  "exclusiveMinimum": 0
+                },
+                "sourceId": {
+                  "type": "string"
+                },
+                "sourceFullName": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "index",
+                "sourceId",
+                "sourceFullName"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "rejected": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "sourceId": {
+                  "type": "string"
+                },
+                "reason": {
+                  "type": "string",
+                  "enum": [
+                    "source_not_visible",
+                    "anchor_invalid",
+                    "quote_not_found",
+                    "run_not_active"
+                  ]
+                }
+              },
+              "required": [
+                "sourceId",
+                "reason"
+              ],
+              "additionalProperties": false
+            }
+          }
+        },
+        "required": [
+          "accepted",
+          "rejected"
         ],
         "additionalProperties": false,
         "$schema": "http://json-schema.org/draft-07/schema#"

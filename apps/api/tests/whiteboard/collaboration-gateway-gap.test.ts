@@ -33,8 +33,8 @@ it('fills an external seq gap before broadcasting the later local commit', async
     writeCommands: async () => { throw new Error('unused'); }, writeCommandsInTransaction: async () => { throw new Error('unused'); },
   };
   const boards: WhiteboardRepository = {
-    get: async () => ({ id: boardId, name: 'gap', ownerId: principal.userId, role: 'owner', archived: false, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() }),
-    list: async () => [], create: async () => { throw new Error('unused'); }, update: async () => null,
+    get: async () => ({ id: boardId, name: 'gap', ownerId: principal.userId, role: 'owner', archived: false, lifecycleRevision: 0, tagIds: [], tagsRevision: 0, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() }),
+    list: async () => ({items:[],nextCursor:null}), create: async () => { throw new Error('unused'); }, update: async () => null, permanentlyDelete: async () => null,
     members: async () => null, putMember: async () => false, removeMember: async () => false,
   };
   const server = createServer(); servers.push(server);
@@ -69,8 +69,8 @@ it('rejects an oversized inbound frame in transport before JSON or Zod parsing',
     writeCommandsInTransaction: async () => { throw new Error('unreachable'); },
   } as WhiteboardCollaborationStore;
   const boards: WhiteboardRepository = {
-    get: async () => ({ id: boardId, name: 'frame', ownerId: principal.userId, role: 'owner', archived: false, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() }),
-    list: async () => [], create: async () => { throw new Error('unused'); }, update: async () => null,
+    get: async () => ({ id: boardId, name: 'frame', ownerId: principal.userId, role: 'owner', archived: false, lifecycleRevision: 0, tagIds: [], tagsRevision: 0, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() }),
+    list: async () => ({items:[],nextCursor:null}), create: async () => { throw new Error('unused'); }, update: async () => null, permanentlyDelete: async () => null,
     members: async () => null, putMember: async () => false, removeMember: async () => false,
   };
   const parse = vi.spyOn(WhiteboardClientMessage, 'parse'), server = createServer(); servers.push(server);

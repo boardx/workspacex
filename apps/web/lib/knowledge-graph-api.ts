@@ -113,6 +113,22 @@ export function fetchMessageExtraction(threadId: string, messageId: string, sign
   );
 }
 
+export type UndoAutoPersonalCopyResult = z.infer<typeof knowledgeGraph.undoAutoPersonalCopy.out>;
+
+/**
+ * UC-KG-14（issue #4283）：撤销系统自动记进本人个人空间的那一份决定。`claimId` 是会话里的原结论
+ * （反馈条上那一条）。已经不在（撤过 / 已确认过）⇒ `KG_CLAIM_NOT_FOUND`，调用方按已撤销处理。
+ */
+export function undoAutoPersonalCopy(threadId: string, claimId: string): Promise<UndoAutoPersonalCopyResult> {
+  const input = knowledgeGraph.undoAutoPersonalCopy.in.parse({ threadId, claimId });
+  return getParsed(
+    `/knowledge-graph/threads/${seg(input.threadId)}/claims/${seg(input.claimId)}/personal-copy/undo`,
+    knowledgeGraph.undoAutoPersonalCopy.out,
+    undefined,
+    { method: "POST", body: {} },
+  );
+}
+
 export type HumanActionResult = z.infer<typeof knowledgeGraph.applyHumanAction.out>;
 
 /**

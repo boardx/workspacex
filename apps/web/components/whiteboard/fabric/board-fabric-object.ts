@@ -1,5 +1,13 @@
-export type BoardFabricKind = "sticky" | "text" | "rectangle" | "ellipse";
-export type BoardFabricTool = "select" | "hand";
+import type { BoardContentData } from "../board-content-adapter";
+
+export type BoardFabricKind = "sticky" | "text" | "rectangle" | "ellipse" | "shape" | "drawing" | "image" | "card" | "placeholder";
+export type BoardFabricTool = "select" | "hand" | "draw-pen" | "draw-marker" | "draw-highlighter" | "erase";
+
+export interface BoardProjectionIssue {
+  code: "BOARD_OBJECT_UNSUPPORTED" | "BOARD_PROJECTION_FAILED";
+  sourceKind: string;
+  message: string;
+}
 
 export interface BoardFabricGeometry {
   x: number;
@@ -14,7 +22,26 @@ export interface BoardFabricStyle {
   textColor: string;
   stroke?: string;
   strokeWidth?: number;
+  borderStyle?: "solid" | "dashed" | "dotted";
+  opacity?: number;
+  radius?: number;
+  verticalAlignment?: "top" | "middle" | "bottom";
   fontSize?: number;
+  /** Validated thinking-input typography. Optional for legacy canonical objects. */
+  textPreset?: "title" | "heading" | "subheading" | "body" | "caption";
+  fontFamily?: string;
+  bold?: boolean;
+  italic?: boolean;
+  underline?: boolean;
+  alignment?: "left" | "center" | "right";
+  lineHeight?: number;
+  list?: "none" | "bullet" | "number";
+  link?: string | null;
+}
+
+export interface BoardFabricStickyAppearance {
+  variant: "square" | "rectangle" | "circle";
+  sizingMode: "auto-height" | "fixed" | "auto-size";
 }
 
 export interface BoardFabricObject {
@@ -25,8 +52,16 @@ export interface BoardFabricObject {
   geometry: BoardFabricGeometry;
   style: BoardFabricStyle;
   content: { text: string };
+  /** Renderer-only sticky shape and resize behavior derived from canonical extension data. */
+  sticky?: BoardFabricStickyAppearance;
+  /** Validated content-object payload. Never contains unvalidated extension data. */
+  boardContent?: BoardContentData;
+  /** Verified browser-local bytes. Fabric must never fall back to boardContent.sourceUrl. */
+  imageAssetUrl?: string;
   parentId?: string;
   locked?: boolean;
+  /** Renderer-only diagnostic. It is derived from canonical content and is never persisted. */
+  projectionIssue?: BoardProjectionIssue;
 }
 
 export interface BoardViewport {

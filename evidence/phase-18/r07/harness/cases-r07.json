@@ -1,0 +1,32 @@
+{
+  "says": {
+    "R07-4283": {
+      "say": "我决定关注 211 高校",
+      "extract": {
+        "entities": [ { "name": "211 高校", "kind": "concept", "aliases": [] } ],
+        "claims": [ { "statement": "我决定关注 211 高校", "kind": "decision", "confidence": 0.9, "about": ["211 高校"], "decidedBy": null, "quote": "我决定关注 211 高校" } ]
+      }
+    },
+    "R07-4284-A": {
+      "say": "我决定关注 985 高校",
+      "extract": {
+        "entities": [ { "name": "985 高校", "kind": "concept", "aliases": [] } ],
+        "claims": [ { "statement": "我决定关注 985 高校", "kind": "decision", "confidence": 0.9, "about": ["985 高校"], "decidedBy": null, "quote": "我决定关注 985 高校" } ]
+      }
+    },
+    "R07-4284-answer-dated": {
+      "say": "根据之前的对话：我决定关注 985 高校（来自个人空间知识，最早见于你 09/26 的对话）。",
+      "extract": {
+        "entities": [],
+        "claims": [ { "statement": "关注名单已经定下来了", "kind": "fact", "confidence": 0.9, "about": [], "decidedBy": null, "quote": "根据之前的对话" } ]
+      }
+    },
+    "R07-4284-answer": {
+      "say": "根据之前的对话：我决定关注 985 高校（来自个人空间知识）。",
+      "extract": {
+        "entities": [],
+        "claims": [ { "statement": "关注名单已经定下来了", "kind": "fact", "confidence": 0.9, "about": [], "decidedBy": null, "quote": "根据之前的对话" } ]
+      }
+    }
+  }
+}

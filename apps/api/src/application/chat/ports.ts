@@ -385,6 +385,12 @@ export interface ChatRepository {
   findCitationsForMessage(orgId: OrgId, messageId: string): Promise<readonly ChatCitationRow[]>;
 
   /**
+   * #4227 —— 一批消息的全部引用（`getThread` 一次取齐，不逐条 N+1）。租户内读，按
+   * `(message_id, idx)` 排序。**可选**：未实现的仓储（既有测试替身）⇒ `getThread` 回 `citations: []`。
+   */
+  findCitationsForMessages?(orgId: OrgId, messageIds: readonly string[]): Promise<readonly ChatCitationRow[]>;
+
+  /**
    * 引用的来源材料是否仍然存在（`SOURCE_ARTIFACT_DELETED`）。
    * `sourceArtifactId` 为 `null` 时不适用，调用方不应调这个方法。
    */

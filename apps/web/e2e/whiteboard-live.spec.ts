@@ -37,7 +37,7 @@ async function synced(page:Page){await expect(page.getByTestId('collaborative-ed
 test('independent users collaborate, persist, enforce viewer permissions and clear revoked view',async({browser,request:api,baseURL})=>{
   const ownerContext=await browser.newContext({baseURL}),editorContext=await browser.newContext({baseURL}),viewerContext=await browser.newContext({baseURL});
   const owner=await ownerContext.newPage(),editor=await editorContext.newPage(),viewer=await viewerContext.newPage();
-  let boardId:string|undefined,ownerToken:string|undefined;
+  let boardId:string|undefined,boardLifecycleRevision:number|undefined,ownerToken:string|undefined;
   try{
     await test.step('authenticate the three independent users',async()=>{
       const [authenticatedOwnerToken]=await Promise.all([login(owner,'OWNER'),login(editor,'EDITOR'),login(viewer,'VIEWER')]);
@@ -45,7 +45,8 @@ test('independent users collaborate, persist, enforce viewer permissions and cle
     });
     await test.step('create the board and grant editor/viewer access',async()=>{
       const created=await request(api,ownerToken!,'POST','/whiteboards',{requestId:randomUUID(),name:`Live collaboration ${randomUUID()}`});
-      boardId=(await created.json() as {id:string}).id;
+      const board=await created.json() as {id:string;lifecycleRevision:number};
+      boardId=board.id;boardLifecycleRevision=board.lifecycleRevision;
       await Promise.all([
         request(api,ownerToken!,'PUT',`/whiteboards/${boardId}/members`,{userId:required('WHITEBOARD_EDITOR_USER_ID'),role:'editor'}),
         request(api,ownerToken!,'PUT',`/whiteboards/${boardId}/members`,{userId:required('WHITEBOARD_VIEWER_USER_ID'),role:'viewer'}),
@@ -86,7 +87,7 @@ test('independent users collaborate, persist, enforce viewer permissions and cle
       await expect(editor.getByRole('button',{name:'图形：另一位成员的中文修改',exact:true})).toHaveCount(0);
     });
   }finally{
-    try { if(boardId&&ownerToken)await request(api,ownerToken,'PATCH',`/whiteboards/${boardId}`,{archived:true}); }
+    try { if(boardId&&ownerToken&&boardLifecycleRevision!==undefined)await request(api,ownerToken,'PATCH',`/whiteboards/${boardId}`,{archived:true,expectedLifecycleRevision:boardLifecycleRevision}); }
     finally { await Promise.all([ownerContext.close(),editorContext.close(),viewerContext.close()]); }
   }
 });
