@@ -46,6 +46,14 @@ describe('live survey workspace persistence',()=>{
   expect(screen.queryByText(/当前展示上次生成的报告/)).not.toBeInTheDocument();
   expect(request).toHaveBeenLastCalledWith('/surveys/saved-survey/report',{method:'POST',body:{expectedVersion:4}},expect.anything());
  });
+ it('keeps exports disabled with a clear privacy reason until the report reaches the sharing threshold',async()=>{
+  const report={id:'report',title:'受保护报告',issues:[],sampleSummary:{total:4,pendingReview:0,excluded:1,included:3},sections:[{id:'s',title:'章节',blocks:[]}]};
+  request.mockResolvedValueOnce(runtime({report,reportBasisVersion:4,reportBasisAnswerRevision:0}));
+  render(<LiveSurveyWorkspace surveyId="saved-survey" initialStep="report"/>);
+  expect(await screen.findByTestId('survey-report-share-privacy-warning')).toHaveTextContent('纳入分析的样本不足 5 份');
+  expect(screen.getByRole('button',{name:'导出 Word'})).toBeDisabled();
+  expect(screen.getByRole('button',{name:'导出 PDF'})).toBeDisabled();
+ });
  it('does not replace a failed load with prototype questions',async()=>{
   request.mockRejectedValueOnce(new Error('问卷不存在或无访问权限'));
   render(<LiveSurveyWorkspace surveyId="private"/>);

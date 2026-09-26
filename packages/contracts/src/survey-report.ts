@@ -143,6 +143,24 @@ export type SurveyReportRow = z.infer<typeof SurveyReportRowSchema>;
 export type CompiledSurveyBlock = z.infer<typeof CompiledSurveyBlockSchema>;
 export type CompiledSurveyReport = z.infer<typeof CompiledSurveyReportSchema>;
 
+/** Small report samples can identify respondents when a report is shared externally. */
+export const SURVEY_REPORT_SHARE_MIN_SAMPLE = 5;
+
+/**
+ * Returns an actionable privacy reason when a report must remain internal.
+ * Missing provenance is intentionally treated as unsafe rather than shareable.
+ */
+export function surveyReportShareBlockedReason(
+  report: Pick<CompiledSurveyReport, "sampleSummary">,
+): string | undefined {
+  const included = report.sampleSummary?.included;
+  if (included === undefined)
+    return "报告缺少纳入分析样本口径，请重新生成后再导出或共享";
+  if (included < SURVEY_REPORT_SHARE_MIN_SAMPLE)
+    return `纳入分析的样本不足 ${SURVEY_REPORT_SHARE_MIN_SAMPLE} 份，无法导出或共享报告`;
+  return undefined;
+}
+
 type Projection = {
   key: string;
   label: string;

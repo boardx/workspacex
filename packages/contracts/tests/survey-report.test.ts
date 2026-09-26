@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { compileSurveyReport, SurveyReportTemplateSchema } from "../src/survey-report";
+import { compileSurveyReport, SURVEY_REPORT_SHARE_MIN_SAMPLE, surveyReportShareBlockedReason, SurveyReportTemplateSchema } from "../src/survey-report";
 import type { SurveyResponse, SurveyWorkflowQuestion } from "../src/survey";
 const question = (id = "q", type: SurveyWorkflowQuestion["type"] = "scale", options = ["1", "2", "3", "4", "5"]): SurveyWorkflowQuestion => ({ id, type, options, order: 1, chapterId: "c", title: id, required: true });
 const response = (value: string | string[], quality: SurveyResponse["quality"] = "normal", date = "2026-09-01", group?: string): SurveyResponse => ({ id: JSON.stringify([value, quality, date, group]), quality, submittedAt: `${date}T12:00:00.000Z`, role: "user", companySize: "1", durationSeconds: 60, answers: [{ questionId: "q", value }, ...(group ? [{ questionId: "g", value: group }] : [])] });
@@ -16,6 +16,11 @@ describe("deterministic survey reports", () => {
     expect(report.sampleSummary).toEqual({ total: 3, pendingReview: 1, excluded: 1, included: 2 });
     expect(report.sections[0]!.blocks[0]!.sampleSize).toBe(2);
     expect(report.sections[0]!.blocks[0]!.rows[0]).toMatchObject({ value: 2.5, count: 2 });
+  });
+  it("blocks report sharing below the anonymous sample threshold, including missing provenance", () => {
+    expect(surveyReportShareBlockedReason({ sampleSummary: { total: 4, pendingReview: 0, excluded: 1, included: 3 } })).toContain(`不足 ${SURVEY_REPORT_SHARE_MIN_SAMPLE}`);
+    expect(surveyReportShareBlockedReason({ sampleSummary: { total: 5, pendingReview: 0, excluded: 0, included: SURVEY_REPORT_SHARE_MIN_SAMPLE } })).toBeUndefined();
+    expect(surveyReportShareBlockedReason({})).toContain("缺少");
   });
   it("counts each selected option once per person without coercing choices to numbers", () => {
     expect(compile({ statistic: "distribution" }, [response(["A", "A", "B"]), response(["B", "bad"])], [question("q", "multi", ["A", "B", "C"])]).rows).toEqual([{ label: "q · A", value: 1, count: 1 }, { label: "q · B", value: 2, count: 2 }, { label: "q · C", value: 0, count: 0 }]);

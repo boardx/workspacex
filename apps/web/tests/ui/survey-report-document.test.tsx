@@ -75,6 +75,13 @@ describe('survey report document',()=>{
   expect(xml).toContain('总答卷 9 · 待复核 2 · 已排除 1 · 纳入分析 8');expect(xml).toContain('仅正常质量答卷 · 实际样本量 7');
   expect(xml).toContain('&lt;script&gt;不能执行&lt;/script&gt;');expect(xml).toContain('w:type="page"');
  });
+ it('blocks Word and PDF exports for reports below the anonymous sharing threshold',async()=>{
+  const privateReport={...report,sampleSummary:{...report.sampleSummary!,included:4}};
+  await expect(buildSurveyReportWord(privateReport)).rejects.toThrow('样本不足');
+  const root=document.createElement('article');root.innerHTML='<h1>报告</h1>';
+  await expect(printSurveyReport(root,privateReport)).rejects.toThrow('样本不足');
+  expect(document.querySelector('iframe')).toBeNull();
+ });
  it('does not claim image export success when an image cannot be loaded',async()=>{
   vi.stubGlobal('Image',class { onerror: (()=>void)|null=null; set src(_:string){queueMicrotask(()=>this.onerror?.());} });
   await expect(buildSurveyReportWord({...report,sections:[{id:'s',title:'s',blocks:[{...block('image'),imageUrl:'https://example.com/missing.png'}]}]})).rejects.toThrow('图片');
