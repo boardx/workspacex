@@ -27,6 +27,7 @@ import {
   memoryCardRememberDone,
   memoryCardForgetOpen,
   conflictPromptNormal,
+  conflictPromptPossibleChange,
   recallAnswerGroups,
   type ThreadKnowledge,
 } from "@/lib/mock/knowledge-graph";
@@ -222,6 +223,8 @@ export default function ChatKnowledgeGraphPreviewPage({
             <AnswerMemoryLine undo="local" turn={turnMemoryWithConflict} />
             {/* 预览：选择只切本地状态（产品路径经 TurnMemoryLine 调 applyHumanAction{resolveConflict}） */}
             <ConflictPromptCard prompt={conflictPromptNormal} canResolve onResolve={async () => {}} />
+            {/* issue #4290：低把握改口的同一张卡（kind = possible_change） */}
+            <ConflictPromptCard prompt={conflictPromptPossibleChange} canResolve onResolve={async () => {}} />
           </>
         );
         break;

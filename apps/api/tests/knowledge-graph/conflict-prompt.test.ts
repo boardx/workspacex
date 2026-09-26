@@ -209,6 +209,7 @@ describe("F16: 当轮出卡（V3）", () => {
       "SELECT min(m.created_at) AS at FROM claim_message_evidence e JOIN chat_messages m ON m.id = e.message_id WHERE e.claim_id = $1 AND e.stance = 'supporting'", [older.id]);
     expect(prompt).toEqual({
       promptId: expect.any(String),
+      kind: "conflict",
       newerClaim: { id: newer.id, statement: "项目A 上线改到 10/1" },
       olderClaim: { id: older.id, statement: "项目A 9/29 上线", saidAt: nineTwentyNine!.at.toISOString() },
     });
@@ -780,6 +781,8 @@ describe("F16: 判定用的读写口只调两个数据库函数", () => {
     expect([...code.matchAll(/"(SELECT [^"]*)"/g)].map((m) => m[1])).toEqual([
       "SELECT set_config('app.current_user_id', coalesce(kg_thread_owner($1), ''), true)",
       "SELECT kg_conflict_candidates($1, $2) AS c", "SELECT kg_open_conflicts($1::jsonb) AS n",
+      // #4290：明确改口的取代，同样只调数据库函数（迁移 20260926140000）
+      "SELECT kg_supersede_candidates($1, $2) AS c", "SELECT kg_apply_supersedes($1::jsonb) AS n",
       "SELECT kg_conflict_close_pending_orgs() AS org", "SELECT kg_conflict_close_drain() AS done",
     ]);
     expect(code).not.toMatch(/\b(?:FROM|JOIN|UPDATE|INTO)\s+[a-z_]+/i);

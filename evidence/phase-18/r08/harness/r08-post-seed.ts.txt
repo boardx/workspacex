@@ -1,0 +1,12 @@
+/**
+ * Round-8 (#4290) post-seed, run right after `seed-kg-experience-eval.ts` (same as round 5's r05-post-seed):
+ * `seedOrg` writes an explicit `enabled=false` org extraction row for test orgs; re-enable it with the test fixture
+ * `enableExtraction` (upsert enabled=true). Removed from the source tree after the run (copy in evidence/phase-18/r08/harness/).
+ */
+import { enableExtraction } from "../tests/knowledge-graph/kg-extraction-fixtures";
+
+const orgId = process.env.KG_EVAL_ORG_ID;
+if (!orgId) throw new Error("KG_EVAL_ORG_ID required");
+await enableExtraction(orgId);
+process.stdout.write(`[r08-post-seed] extraction re-enabled for ${orgId}\n`);
+process.exit(0);

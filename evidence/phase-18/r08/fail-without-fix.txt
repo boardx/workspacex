@@ -1,0 +1,331 @@
+# Fail-without-fix proof (#4290). Reverted: the single line in apps/api/src/application/knowledge-graph/extract-message-knowledge.ts
+#   await detectSupersedes({ conflicts: deps.conflicts, newId: deps.newId }, job);
+# was deleted (nothing else changed), then: vitest run tests/knowledge-graph/decision-supersede-recall.test.ts (db r08).
+# Key failure: thread C 【记忆】 still contains 「我决定关注 211 高校」 (both decisions recalled). Fix restored afterwards; the file then passes 6/6.
+
+
+ RUN  v2.1.9 /home/user/workspacex/.claude/worktrees/agent-a77af8d2193fcf2c1/apps/api
+
+[db-isolation] db=r08 capacity=100 current=6 required=32
+{"level":"info","msg":"instance telemetry disabled (endpoint_unset)","traceId":"instance-telemetry"}
+{"level":"error","msg":"http exception","traceId":"4598629f-e645-4b43-ac3b-57d213a79a5d","detail":{"name":"BadRequestException","message":"Bad Request Exception","stack":"BadRequestException: Bad Request Exception\n    at KnowledgeGraphController.humanAction (/home/user/workspacex/.claude/worktrees/agent-a77af8d2193fcf2c1/apps/api/src/interface/controllers/knowledge-graph.controller.ts:129:32)\n    at /home/user/workspacex/.claude/worktrees/agent-a77af8d2193fcf2c1/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_class-transformer@0.5.1_class-validator@0.14.4_re_sgffei4zmw63aa4v2dkhbu25m4/node_modules/@nestjs/core/router/router-execution-context.js:38:29\n    at processTicksAndRejections (node:internal/process/task_queues:103:5)\n    at /home/user/workspacex/.claude/worktrees/agent-a77af8d2193fcf2c1/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_class-transformer@0.5.1_class-validator@0.14.4_re_sgffei4zmw63aa4v2dkhbu25m4/node_modules/@nestjs/core/router/router-execution-context.js:46:28\n    at /home/user/workspacex/.claude/worktrees/agent-a77af8d2193fcf2c1/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_class-transformer@0.5.1_class-validator@0.14.4_re_sgffei4zmw63aa4v2dkhbu25m4/node_modules/@nestjs/core/router/router-proxy.js:9:17"}}
+ ❯ tests/knowledge-graph/decision-supersede-recall.test.ts (6 tests | 4 failed) 11815ms
+   × issue #4290: 本人明确改口 ⇒ 新决定取代旧决定（可撤销） > B1 说「改成关注 985 高校吧」：个人空间的 211 被取代（decision_changed），回答下出取代提示 267ms
+     → expected { status: 'accepted', …(3) } to match object { status: 'superseded', …(2) }
+(1 matching property omitted from actual)
+   × issue #4290: 本人明确改口 ⇒ 新决定取代旧决定（可撤销） > 新会话 C1 说「开始写报告吧」：只召回 985，不再召回被取代的 211 98ms
+     → expected '【记忆】以下是之前对话里记下的、与本轮问题相关的内容。「AI 记下的」尚未…' not to contain '我决定关注 211 高校'
+   × issue #4290: 本人明确改口 ⇒ 新决定取代旧决定（可撤销） > 撤销：211 恢复为生效、985 仍在；提示读作 undone；新会话 C2 两条都召回；抽取任务重试不再取代 22ms
+     → {"error":"bad_request","traceId":"4598629f-e645-4b43-ac3b-57d213a79a5d"}: expected 400 to be 200 // Object.is equality
+   × issue #4290: 本人明确改口 ⇒ 新决定取代旧决定（可撤销） > 反证：项目会话里别人（B）的改口不取代我（A）的决定；我自己的改口才取代 194ms
+     → expected { status: 'proposed', …(3) } to match object { status: 'superseded', …(2) }
+(1 matching property omitted from actual)
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 4 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/knowledge-graph/decision-supersede-recall.test.ts > issue #4290: 本人明确改口 ⇒ 新决定取代旧决定（可撤销） > B1 说「改成关注 985 高校吧」：个人空间的 211 被取代（decision_changed），回答下出取代提示
+AssertionError: expected { status: 'accepted', …(3) } to match object { status: 'superseded', …(2) }
+(1 matching property omitted from actual)
+
+- Expected
++ Received
+
+  Object {
+-   "revocation_reason": "decision_changed",
+-   "revoked": true,
+-   "status": "superseded",
++   "revocation_reason": null,
++   "revoked": false,
++   "status": "accepted",
+  }
+
+ ❯ tests/knowledge-graph/decision-supersede-recall.test.ts:144:46
+    142|     ids.newPersonal = await confirmAndPromote(a, B1, NEW);
+    143|     await projectGraph(e);
+    144|     expect(await claimRow(ids.oldPersonal!)).toMatchObject({ status: "…
+       |                                              ^
+    145|     // 个人线程只有所有者本人看得到新结论 ⇒ 新决定指回被取代的个人空间…
+    146|     expect(await claimRow(ids.newSession)).toMatchObject({ status: "ac…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/4]⎯
+
+ FAIL  tests/knowledge-graph/decision-supersede-recall.test.ts > issue #4290: 本人明确改口 ⇒ 新决定取代旧决定（可撤销） > 新会话 C1 说「开始写报告吧」：只召回 985，不再召回被取代的 211
+AssertionError: expected '【记忆】以下是之前对话里记下的、与本轮问题相关的内容。「AI 记下的」尚未…' not to contain '我决定关注 211 高校'
+
+- Expected
++ Received
+
+- 我决定关注 211 高校
++ 【记忆】以下是之前对话里记下的、与本轮问题相关的内容。「AI 记下的」尚未经用户确认，引用时要说明；「有矛盾」的两条都要提到；标了「来自个人空间知识」的，引用时也照样标出。
++ - [你确认过] 改成关注 985 高校（来自个人空间知识，最早见于你 09/26 的对话）
++ - [你确认过] 我决定关注 211 高校（来自个人空间知识，最早见于你 09/26 的对话）
+
+ ❯ tests/knowledge-graph/decision-supersede-recall.test.ts:162:26
+    160|     expect(t.memory).not.toBeNull();
+    161|     expect(t.memory).toContain(NEW);
+    162|     expect(t.memory).not.toContain(OLD);
+       |                          ^
+    163|     expect(t.answer).toContain(NEW);
+    164|     expect(t.answer).not.toContain(OLD);
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/4]⎯
+
+ FAIL  tests/knowledge-graph/decision-supersede-recall.test.ts > issue #4290: 本人明确改口 ⇒ 新决定取代旧决定（可撤销） > 撤销：211 恢复为生效、985 仍在；提示读作 undone；新会话 C2 两条都召回；抽取任务重试不再取代
+AssertionError: {"error":"bad_request","traceId":"4598629f-e645-4b43-ac3b-57d213a79a5d"}: expected 400 to be 200 // Object.is equality
+
+- Expected
++ Received
+
+- 200
++ 400
+
+ ❯ tests/knowledge-graph/decision-supersede-recall.test.ts:175:52
+    173|       basedOnRevision: revision, action: { type: "undoSupersede", noti…
+    174|     });
+    175|     expect(undo.status, JSON.stringify(undo.body)).toBe(200);
+       |                                                    ^
+    176|     expect(await claimRow(ids.oldPersonal!)).toMatchObject({ status: "…
+    177|     expect(await claimRow(ids.newSession!)).toMatchObject({ revoked: f…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/4]⎯
+
+ FAIL  tests/knowledge-graph/decision-supersede-recall.test.ts > issue #4290: 本人明确改口 ⇒ 新决定取代旧决定（可撤销） > 反证：项目会话里别人（B）的改口不取代我（A）的决定；我自己的改口才取代
+AssertionError: expected { status: 'proposed', …(3) } to match object { status: 'superseded', …(2) }
+(1 matching property omitted from actual)
+
+- Expected
++ Received
+
+  Object {
+-   "revocation_reason": "decision_changed",
+-   "revoked": true,
+-   "status": "superseded",
++   "revocation_reason": null,
++   "revoked": false,
++   "status": "proposed",
+  }
+
+ ❯ tests/knowledge-graph/decision-supersede-recall.test.ts:227:37
+    225|     await addChatMessage({ orgId: ORG, id: "m-i4290-s3", threadId: SHA…
+    226|     await settle();
+    227|     expect(await claimRow(mine.id)).toMatchObject({ status: "supersede…
+       |                                     ^
+    228|   }, 120_000);
+    229| });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/4]⎯
+
+ Test Files  1 failed (1)
+      Tests  4 failed | 2 passed (6)
+   Start at  14:54:29
+   Duration  14.80s (transform 7.46s, setup 0ms, collect 2.12s, tests 11.81s, environment 0ms, prepare 61ms)
+
+[db-isolation] db=r08 peak_connections=3
+
+## 2026-09-26 「高把握自动、低把握弹卡」 + review fixes 1-3 (fail-without-fix)
+
+### A. fixes 1-3 disabled (OBJECT_STOP never matches, no VERDICT discard, no topic carry, question mark only at the end)
+cmd: vitest run tests/knowledge-graph/decision-supersede.test.ts tests/knowledge-graph/decision-supersede-card.test.ts
+   × 人类决定 2026-09-26「高把握自动、低把握弹卡」+ 第 8 轮第三次评审：改口被评判 / 问句 / 话题 > 既不取代也不弹卡：决定用Vue → 改成用React是不可能的 6ms
+   × 人类决定 2026-09-26「高把握自动、低把握弹卡」+ 第 8 轮第三次评审：改口被评判 / 问句 / 话题 > 既不取代也不弹卡：决定用Vue → 改成用React不现实 1ms
+   × 人类决定 2026-09-26「高把握自动、低把握弹卡」+ 第 8 轮第三次评审：改口被评判 / 问句 / 话题 > 既不取代也不弹卡：决定用Vue → 改成用React没必要 1ms
+   × 人类决定 2026-09-26「高把握自动、低把握弹卡」+ 第 8 轮第三次评审：改口被评判 / 问句 / 话题 > 既不取代也不弹卡：决定用Vue → 改成用React的提议被否了 0ms
+   × 人类决定 2026-09-26「高把握自动、低把握弹卡」+ 第 8 轮第三次评审：改口被评判 / 问句 / 话题 > 既不取代也不弹卡：决定用Vue → 改成用React，我觉得不行 1ms
+   × 人类决定 2026-09-26「高把握自动、低把握弹卡」+ 第 8 轮第三次评审：改口被评判 / 问句 / 话题 > 既不取代也不弹卡：决定用Vue → 改成用React，不现实 0ms
+   × 人类决定 2026-09-26「高把握自动、低把握弹卡」+ 第 8 轮第三次评审：改口被评判 / 问句 / 话题 > 既不取代也不弹卡：决定用Vue → 改用React，算了 0ms
+   × 人类决定 2026-09-26「高把握自动、低把握弹卡」+ 第 8 轮第三次评审：改口被评判 / 问句 / 话题 > 既不取代也不弹卡：决定用Vue → 改成用React？不行，还是用Vue 0ms
+   × 人类决定 2026-09-26「高把握自动、低把握弹卡」+ 第 8 轮第三次评审：改口被评判 / 问句 / 话题 > 既不取代也不弹卡：决定关注211高校 → 改成关注985高校？再想想 0ms
+   × 人类决定 2026-09-26「高把握自动、低把握弹卡」+ 第 8 轮第三次评审：改口被评判 / 问句 / 话题 > 既不取代也不弹卡：决定用Vue → 改用React?先不定 0ms
+   × 人类决定 2026-09-26「高把握自动、低把握弹卡」+ 第 8 轮第三次评审：改口被评判 / 问句 / 话题 > 既不取代也不弹卡：决定用Vue → 关于周会，改成用腾讯会议 0ms
+   × 人类决定 2026-09-26「高把握自动、低把握弹卡」+ 第 8 轮第三次评审：改口被评判 / 问句 / 话题 > 既不取代也不弹卡：决定用Vitest → 单元测试那块，改成用Jest跑测试 0ms
+   × 人类决定 2026-09-26「高把握自动、低把握弹卡」+ 第 8 轮第三次评审：改口被评判 / 问句 / 话题 > 既不取代也不弹卡：决定关注985 → 周报，改成关注招聘进度 0ms
+   × 人类决定 2026-09-26「高把握自动、低把握弹卡」+ 第 8 轮第三次评审：改口被评判 / 问句 / 话题 > 既不取代也不弹卡：决定用Vue → 有人提议，改成用React，我觉得不行 0ms
+   × 人类决定 2026-09-26「高把握自动、低把握弹卡」+ 第 8 轮第三次评审：改口被评判 / 问句 / 话题 > 既不取代也不弹卡：决定用Vue → 有人提议，改成用React 0ms
+   × 人类决定 2026-09-26「高把握自动、低把握弹卡」+ 第 8 轮第三次评审：改口被评判 / 问句 / 话题 > 既不取代也不弹卡：决定用Vue → 关于周会，我想了想，改成用腾讯会议 0ms
+   × 人类决定 2026-09-26「高把握自动、低把握弹卡」+ 第 8 轮第三次评审：改口被评判 / 问句 / 话题 > 没有改口分句：改成用React是不可能的 3ms
+   × 人类决定 2026-09-26「高把握自动、低把握弹卡」+ 第 8 轮第三次评审：改口被评判 / 问句 / 话题 > 没有改口分句：改成用React不现实 1ms
+   × 人类决定 2026-09-26「高把握自动、低把握弹卡」+ 第 8 轮第三次评审：改口被评判 / 问句 / 话题 > 没有改口分句：改成用React没必要 1ms
+   × 人类决定 2026-09-26「高把握自动、低把握弹卡」+ 第 8 轮第三次评审：改口被评判 / 问句 / 话题 > 没有改口分句：改成用React的提议被否了 1ms
+   × 人类决定 2026-09-26「高把握自动、低把握弹卡」+ 第 8 轮第三次评审：改口被评判 / 问句 / 话题 > 没有改口分句：改成用React？不行，还是用Vue 1ms
+   × 人类决定 2026-09-26「高把握自动、低把握弹卡」+ 第 8 轮第三次评审：改口被评判 / 问句 / 话题 > 话题分句的主语出现在旧决定里 ⇒ 照常判（「前端那块，改成用React框架」对「前端用Vue框架」） 1ms
+   × 人类决定 2026-09-26「高把握自动、低把握弹卡」+ 第 8 轮第三次评审：改口被评判 / 问句 / 话题 > 「改成用React不用Vue了」：对象截在「不」前，同一分句里的「不用Vue了」仍是点名 1ms
+   × issue #4290: 低把握改口（frame_only）⇒ 弹卡、不自动取代 > 反证：改口被评判否掉（「改成采用 Rust 不现实」）/ 话题不在旧决定里（「关于周会，改成采用飞书」）⇒ 对「采用 Go」既不取代、也不弹卡 223ms
+⎯⎯⎯⎯⎯⎯ Failed Tests 24 ⎯⎯⎯⎯⎯⎯⎯
+      Tests  24 failed | 121 passed (145)
+
+### B. frame_only treated as automatic again (planSupersedes frame_only branch disabled)
+   × 独立评审第 8 轮复评：改口必须在同一分句里直接支配框架（结构规则，不是词表） > 低把握（frame_only）⇒ 只弹卡、从不自动取代：关注211高校 → 改成关注985吧 11ms
+   × 独立评审第 8 轮复评：改口必须在同一分句里直接支配框架（结构规则，不是词表） > 低把握（frame_only）⇒ 只弹卡、从不自动取代：后端用Go → 后端改用Rust 2ms
+   × 独立评审第 8 轮复评：改口必须在同一分句里直接支配框架（结构规则，不是词表） > 低把握（frame_only）⇒ 只弹卡、从不自动取代：决定用Vue → 改成用React，Vue太慢 1ms
+   × 独立评审第 8 轮复评：改口必须在同一分句里直接支配框架（结构规则，不是词表） > 低把握（frame_only）⇒ 只弹卡、从不自动取代：决定关注211高校 → 改成关注985吧 1ms
+   × findSupersedes：一条新决定取代哪几条 > frame_only 的卡：同一句旧决定在会话和个人空间各有一条 → 一张卡，〈旧〉取本会话那条 11ms
+   × issue #4290: 低把握改口（frame_only）⇒ 弹卡、不自动取代 > B1「改成关注 985 吧」：不取代；回答下是 possible_change 卡；两条都不转 contested，985 照常自动记入个人空间 270ms
+   × issue #4290: 低把握改口（frame_only）⇒ 弹卡、不自动取代 > 卡开着时，新会话 C1 两条都召回 110ms
+   × issue #4290: 低把握改口（frame_only）⇒ 弹卡、不自动取代 > 隐私：别人读不到这张卡、点不动；拿到 id 在自己的会话里点也是同一个 404；所有者点不存在的卡同样 404 18ms
+   × issue #4290: 低把握改口（frame_only）⇒ 弹卡、不自动取代 > [取代]（keep_new）⇒ 211 superseded、985 转「你确认过」（不晋升出第二份）；新会话 C2 只召回 985 18ms
+   × issue #4290: 低把握改口（frame_only）⇒ 弹卡、不自动取代 > V1「我决定用 Vue」→ V2「改成用 React 吧」⇒ 卡；[两条都保留]（keep_both，不带适用条件）⇒ 卡关掉、两条都不动；C3 两条都召回 379ms
+⎯⎯⎯⎯⎯⎯ Failed Tests 10 ⎯⎯⎯⎯⎯⎯⎯
+      Tests  10 failed | 135 passed (145)
+
+With the fix: both files 145/145 pass; tests/knowledge-graph + tests/retrieval 54 files / 659 tests pass.
+
+## Review round 4 (strict automatic tier): decision-supersede.ts at 73cbd7122, tests from this commit
+$ git show 73cbd7122:apps/api/src/domain/knowledge-graph/decision-supersede.ts > (domain file); vitest run tests/knowledge-graph/decision-supersede.test.ts tests/knowledge-graph/decision-supersede-recall.test.ts
+   × 第 8 轮第四次评审：自动取代只给干净的整句（人类决定：误自动取代是唯一不许出现的结果，多一张卡很便宜） > 收回 ⇒ 不自动、不弹卡：关注211高校 → 改成关注985高校，我反对
+   × 第 8 轮第四次评审：自动取代只给干净的整句（人类决定：误自动取代是唯一不许出现的结果，多一张卡很便宜） > 收回 ⇒ 不自动、不弹卡：关注211高校 → 改成关注985高校，不可行
+   × 第 8 轮第四次评审：自动取代只给干净的整句（人类决定：误自动取代是唯一不许出现的结果，多一张卡很便宜） > 收回 ⇒ 不自动、不弹卡：关注211高校 → 改成关注985高校，我不赞成
+   × 第 8 轮第四次评审：自动取代只给干净的整句（人类决定：误自动取代是唯一不许出现的结果，多一张卡很便宜） > 收回 ⇒ 不自动、不弹卡：关注211高校 → 改成关注985高校，老板没同意
+   × 第 8 轮第四次评审：自动取代只给干净的整句（人类决定：误自动取代是唯一不许出现的结果，多一张卡很便宜） > 收回 ⇒ 不自动、不弹卡：关注211高校 → 改成关注985高校，不太合适
+   × 第 8 轮第四次评审：自动取代只给干净的整句（人类决定：误自动取代是唯一不许出现的结果，多一张卡很便宜） > 收回 ⇒ 不自动、不弹卡：关注211高校 → 改成关注985高校，没意义
+   × 第 8 轮第四次评审：自动取代只给干净的整句（人类决定：误自动取代是唯一不许出现的结果，多一张卡很便宜） > 收回 ⇒ 不自动、不弹卡：用Vue → 把Vue换成React，不可行
+   × 第 8 轮第四次评审：自动取代只给干净的整句（人类决定：误自动取代是唯一不许出现的结果，多一张卡很便宜） > 收回 ⇒ 不自动、不弹卡：关注211高校 → 改成关注985高校，不对，还是关注211高校
+   × 第 8 轮第四次评审：自动取代只给干净的整句（人类决定：误自动取代是唯一不许出现的结果，多一张卡很便宜） > 收回 ⇒ 不自动、不弹卡：关注211高校 → 改成关注985高校，哦不，还是211高校吧
+   × 第 8 轮第四次评审：自动取代只给干净的整句（人类决定：误自动取代是唯一不许出现的结果，多一张卡很便宜） > 收回 ⇒ 不自动、不弹卡：用Vue → 把Vue换成React的事下周再讨论
+   × 第 8 轮第四次评审：自动取代只给干净的整句（人类决定：误自动取代是唯一不许出现的结果，多一张卡很便宜） > 收回 ⇒ 不自动、不弹卡：关注211高校 → 改成关注985高校，开玩笑的
+   × 第 8 轮第四次评审：自动取代只给干净的整句（人类决定：误自动取代是唯一不许出现的结果，多一张卡很便宜） > 收回 ⇒ 不自动、不弹卡：用Vue → 不用Vue了，说着玩的
+   × 第 8 轮第四次评审：自动取代只给干净的整句（人类决定：误自动取代是唯一不许出现的结果，多一张卡很便宜） > 说不准 ⇒ 只弹卡、不自动：关注211高校 → 改成关注985高校，被老板否决了
+   × 第 8 轮第四次评审：自动取代只给干净的整句（人类决定：误自动取代是唯一不许出现的结果，多一张卡很便宜） > 说不准 ⇒ 只弹卡、不自动：关注211高校 → 改成关注985高校，还不如维持现状
+   × 第 8 轮第四次评审：自动取代只给干净的整句（人类决定：误自动取代是唯一不许出现的结果，多一张卡很便宜） > 说不准 ⇒ 只弹卡、不自动：关注211高校 → 改成关注985高校，领导不批
+   × 第 8 轮第四次评审：自动取代只给干净的整句（人类决定：误自动取代是唯一不许出现的结果，多一张卡很便宜） > 说不准 ⇒ 只弹卡、不自动：用Vue → 不用Vue了，这个方案被否了
+   × 第 8 轮第四次评审：自动取代只给干净的整句（人类决定：误自动取代是唯一不许出现的结果，多一张卡很便宜） > 说不准 ⇒ 只弹卡、不自动：关注211高校 → 改成关注985高校，这是老板说的
+   × 第 8 轮第四次评审：自动取代只给干净的整句（人类决定：误自动取代是唯一不许出现的结果，多一张卡很便宜） > 说不准 ⇒ 只弹卡、不自动：用Vue → 不用Vue了，这是他的意见
+   × 第 8 轮第四次评审：自动取代只给干净的整句（人类决定：误自动取代是唯一不许出现的结果，多一张卡很便宜） > 说不准 ⇒ 只弹卡、不自动：用React做前端开发 → 改成用Rust做后端开发
+   × 第 8 轮第四次评审：自动取代只给干净的整句（人类决定：误自动取代是唯一不许出现的结果，多一张卡很便宜） > 说不准 ⇒ 只弹卡、不自动：用Python写数据脚本 → 改用Go写部署脚本
+   × 第 8 轮第四次评审：自动取代只给干净的整句（人类决定：误自动取代是唯一不许出现的结果，多一张卡很便宜） > 说不准 ⇒ 只弹卡、不自动：用飞书沟通内部事务 → 改成用邮件沟通外部事务
+   × 第 8 轮第四次评审：自动取代只给干净的整句（人类决定：误自动取代是唯一不许出现的结果，多一张卡很便宜） > 说不准 ⇒ 只弹卡、不自动：关注211高校 → 改成关注985高校，211高校继续关注
+   × 第 8 轮第四次评审：自动取代只给干净的整句（人类决定：误自动取代是唯一不许出现的结果，多一张卡很便宜） > 说不准 ⇒ 只弹卡、不自动：关注211高校 → 改成关注985高校，因为211高校太远
+   × 第 8 轮第四次评审：自动取代只给干净的整句（人类决定：误自动取代是唯一不许出现的结果，多一张卡很便宜） > 说不准 ⇒ 只弹卡、不自动：关注211高校 → 改成关注985高校，暂定
+   × 第 8 轮第四次评审：自动取代只给干净的整句（人类决定：误自动取代是唯一不许出现的结果，多一张卡很便宜） > 说不准 ⇒ 只弹卡、不自动：关注211高校 → 改成关注985高校，不过要看预算
+   × 第 8 轮第四次评审：自动取代只给干净的整句（人类决定：误自动取代是唯一不许出现的结果，多一张卡很便宜） > 说不准 ⇒ 只弹卡、不自动：用Vue → Vue算了，换成React，领导定的
+   × issue #4290: 本人明确改口 ⇒ 新决定取代旧决定（可撤销） > 反证：「改成关注985高校，我反对」——改口被后面的分句否掉 ⇒ 不取代、不弹卡
+ Test Files  2 failed (2)
+      Tests  27 failed | 158 passed (185)
+
+With the fix: both files 185/185 pass; tests/knowledge-graph + tests/retrieval 54 files / 700 tests pass.
+
+## Review round 5 (reason clauses, tag questions, compound old decisions): decision-supersede.ts at 601398a27, tests from this commit
+$ git show 601398a27:apps/api/src/domain/knowledge-graph/decision-supersede.ts > (domain file); vitest run tests/knowledge-graph/decision-supersede.test.ts tests/knowledge-graph/decision-supersede-card.test.ts (db r08r5)
+# Key failure (integration): 「前端改用 JS 语言」 against 「我决定后端用 Go 语言，前端用 TS 语言」 -> getTurnMemory.supersede is an applied notice (automatic supersede); expected null plus a possible_change card.
+   × 第 8 轮第五次评审：原因分句看内容、附加问句不是空话、复合的旧决定从不自动 > 收回 / 问句 ⇒ 不自动、不弹卡：关注211高校 → 改成关注985高校，毕竟我反对
+   × 第 8 轮第五次评审：原因分句看内容、附加问句不是空话、复合的旧决定从不自动 > 收回 / 问句 ⇒ 不自动、不弹卡：关注211高校 → 改成关注985高校，由于老板不同意
+   × 第 8 轮第五次评审：原因分句看内容、附加问句不是空话、复合的旧决定从不自动 > 收回 / 问句 ⇒ 不自动、不弹卡：关注211高校 → 改成关注985高校，对吧
+   × 第 8 轮第五次评审：原因分句看内容、附加问句不是空话、复合的旧决定从不自动 > 收回 / 问句 ⇒ 不自动、不弹卡：关注211高校 → 改成关注985高校，是吧
+   × 第 8 轮第五次评审：原因分句看内容、附加问句不是空话、复合的旧决定从不自动 > 说不准 ⇒ 只弹卡、不自动：用Vue → 把Vue换成React，由于我不同意这个改动
+   × 第 8 轮第五次评审：原因分句看内容、附加问句不是空话、复合的旧决定从不自动 > 说不准 ⇒ 只弹卡、不自动：关注211高校 → 改成关注985高校，由于还没最终确定
+   × 第 8 轮第五次评审：原因分句看内容、附加问句不是空话、复合的旧决定从不自动 > 说不准 ⇒ 只弹卡、不自动：关注211高校 → 改成关注985高校，由于是假设
+   × 第 8 轮第五次评审：原因分句看内容、附加问句不是空话、复合的旧决定从不自动 > 说不准 ⇒ 只弹卡、不自动：关注211高校 → 改成关注985高校，毕竟不急
+   × 第 8 轮第五次评审：原因分句看内容、附加问句不是空话、复合的旧决定从不自动 > 说不准 ⇒ 只弹卡、不自动：关注211高校 → 改成关注985高校，因为暂时这样
+   × 第 8 轮第五次评审：原因分句看内容、附加问句不是空话、复合的旧决定从不自动 > 说不准 ⇒ 只弹卡、不自动：关注211高校 → 改成关注985高校，因为可能更好
+   × 第 8 轮第五次评审：原因分句看内容、附加问句不是空话、复合的旧决定从不自动 > 说不准 ⇒ 只弹卡、不自动：关注211高校 → 改成关注985高校，行吧
+   × 第 8 轮第五次评审：原因分句看内容、附加问句不是空话、复合的旧决定从不自动 > 说不准 ⇒ 只弹卡、不自动：关注211高校 → 改成关注985高校，好吧
+   × 第 8 轮第五次评审：原因分句看内容、附加问句不是空话、复合的旧决定从不自动 > 说不准 ⇒ 只弹卡、不自动：关注211高校 → 改成关注985高校，好的吧
+   × 第 8 轮第五次评审：原因分句看内容、附加问句不是空话、复合的旧决定从不自动 > 说不准 ⇒ 只弹卡、不自动：关注211高校 → 改成关注985高校，是的
+   × 第 8 轮第五次评审：原因分句看内容、附加问句不是空话、复合的旧决定从不自动 > 说不准 ⇒ 只弹卡、不自动：后端用Go语言，前端用TS语言 → 前端改用JS语言
+   × 第 8 轮第五次评审：原因分句看内容、附加问句不是空话、复合的旧决定从不自动 > 说不准 ⇒ 只弹卡、不自动：前端和后端都用Vue框架 → 前端改用React框架
+   × 第 8 轮第五次评审：原因分句看内容、附加问句不是空话、复合的旧决定从不自动 > 说不准 ⇒ 只弹卡、不自动：前端用Vue，后端用Go → 把Vue换成React
+   × 第 8 轮第五次评审：原因分句看内容、附加问句不是空话、复合的旧决定从不自动 > 说不准 ⇒ 只弹卡、不自动：前端、后端都用Vue框架 → 前端改用React框架
+   × 第 8 轮第五次评审：原因分句看内容、附加问句不是空话、复合的旧决定从不自动 > 说不准 ⇒ 只弹卡、不自动：关注211高校，主攻计算机 → 改成关注985高校
+   × 第 8 轮第五次评审：原因分句看内容、附加问句不是空话、复合的旧决定从不自动 > 主语在旧决定里、但不在旧框架动词前面 ⇒ 卡
+   × issue #4290: 低把握改口（frame_only）⇒ 弹卡、不自动取代 > 复合的旧决定「后端用 Go 语言，前端用 TS 语言」→「前端改用 JS 语言」⇒ 只弹卡、不自动取代；旧决定照常生效
+⎯⎯⎯⎯⎯⎯ Failed Tests 21 ⎯⎯⎯⎯⎯⎯⎯
+ Test Files  2 failed (2)
+      Tests  21 failed | 197 passed (218)
+AssertionError: expected { …(4) } to be null
+
+- Expected: 
+null
+
++ Received: 
+Object {
+  "newerClaim": Object {
+    "id": "clm_d3c256ab92e7440d863d654d306c639e",
+    "statement": "前端改用 JS 语言",
+  },
+  "noticeId": "act_027202ddb68a4939bd8b95394044c21b-0",
+  "olderClaim": Object {
+    "id": "act_5f3c386a757145af85d531b9f93b4280-p",
+    "statement": "我决定后端用 Go 语言，前端用 TS 语言",
+  },
+  "state": "applied",
+
+With the fix: both files 218/218 pass; tests/knowledge-graph + tests/retrieval 54 files / 733 tests pass.
+
+## Review round 6 (allowlist-only automatic tier): decision-supersede.ts at 24139f479, tests from this commit
+
+   × 人类决定 2026-09-26「高把握自动、低把握弹卡」+ 第 8 轮第三次评审：改口被评判 / 问句 / 话题 > 话题分句的主语出现在旧决定里 ⇒ 照常判主题，但话题分句不是空话 ⇒ 第 8 轮第六次评审起只到卡（「前端那块，改成用React框架」对「前端用Vue框架」） 9ms
+   × 人类决定 2026-09-26「高把握自动、低把握弹卡」+ 第 8 轮第三次评审：改口被评判 / 问句 / 话题 > 带框架动词的前一分句是陈述、不是话题：「决定用React，不再用Vue了」仍点名 Vue；陈述分句不是空话 ⇒ 第六次评审起只到卡 1ms
+   × 第 8 轮第六次评审：自动这一档只认白名单（单分句旧决定 + 改口分句与封闭空话 + 干净的新对象），没有词表 > 复合的旧决定 ⇒ 卡：前端用Vue框架，后端也一样 → 前端改用React框架 4ms
+   × 第 8 轮第六次评审：自动这一档只认白名单（单分句旧决定 + 改口分句与封闭空话 + 干净的新对象），没有词表 > 复合的旧决定 ⇒ 卡：前端用Vue框架，后端同上 → 前端改用React框架 1ms
+   × 第 8 轮第六次评审：自动这一档只认白名单（单分句旧决定 + 改口分句与封闭空话 + 干净的新对象），没有词表 > 复合的旧决定 ⇒ 卡：用Vue框架，周五上线 → 改用React框架 1ms
+   × 第 8 轮第六次评审：自动这一档只认白名单（单分句旧决定 + 改口分句与封闭空话 + 干净的新对象），没有词表 > 复合的旧决定 ⇒ 卡：用Vue框架；上线定在周五 → 改用React框架 1ms
+   × 第 8 轮第六次评审：自动这一档只认白名单（单分句旧决定 + 改口分句与封闭空话 + 干净的新对象），没有词表 > 复合的旧决定 ⇒ 卡：用Vue框架，部署在阿里云 → 把Vue框架换成React框架 1ms
+   × 第 8 轮第六次评审：自动这一档只认白名单（单分句旧决定 + 改口分句与封闭空话 + 干净的新对象），没有词表 > 复合的旧决定 ⇒ 卡：关注211高校，计算机专业优先 → 改成关注985高校 1ms
+   × 第 8 轮第六次评审：自动这一档只认白名单（单分句旧决定 + 改口分句与封闭空话 + 干净的新对象），没有词表 > 复合的旧决定 ⇒ 卡：关注211高校，学计算机 → 改成关注985高校 1ms
+   × 第 8 轮第六次评审：自动这一档只认白名单（单分句旧决定 + 改口分句与封闭空话 + 干净的新对象），没有词表 > 复合的旧决定 ⇒ 卡：关注211高校,同时看海外 → 改成关注985高校 1ms
+   × 第 8 轮第六次评审：自动这一档只认白名单（单分句旧决定 + 改口分句与封闭空话 + 干净的新对象），没有词表 > 复合的旧决定 ⇒ 卡：用Vue，不用React → 不再用Vue了 1ms
+   × 第 8 轮第六次评审：自动这一档只认白名单（单分句旧决定 + 改口分句与封闭空话 + 干净的新对象），没有词表 > 原因分句 ⇒ 卡：关注211高校 → 改成关注985高校，因为还在犹豫 2ms
+   × 第 8 轮第六次评审：自动这一档只认白名单（单分句旧决定 + 改口分句与封闭空话 + 干净的新对象），没有词表 > 原因分句 ⇒ 卡：关注211高校 → 改成关注985高校，因为待定 1ms
+   × 第 8 轮第六次评审：自动这一档只认白名单（单分句旧决定 + 改口分句与封闭空话 + 干净的新对象），没有词表 > 原因分句 ⇒ 卡：关注211高校 → 改成关注985高校，由于尚待确认 1ms
+   × 第 8 轮第六次评审：自动这一档只认白名单（单分句旧决定 + 改口分句与封闭空话 + 干净的新对象），没有词表 > 原因分句 ⇒ 卡：关注211高校 → 改成关注985高校，因为有待商榷 1ms
+   × 第 8 轮第六次评审：自动这一档只认白名单（单分句旧决定 + 改口分句与封闭空话 + 干净的新对象），没有词表 > 原因分句 ⇒ 卡：关注211高校 → 改成关注985高校，因为待讨论 1ms
+   × 第 8 轮第六次评审：自动这一档只认白名单（单分句旧决定 + 改口分句与封闭空话 + 干净的新对象），没有词表 > 原因分句 ⇒ 卡：关注211高校 → 改成关注985高校，因为试试看 1ms
+   × 第 8 轮第六次评审：自动这一档只认白名单（单分句旧决定 + 改口分句与封闭空话 + 干净的新对象），没有词表 > 原因分句 ⇒ 卡：关注211高校 → 改成关注985高校，因为测试一下 1ms
+   × 第 8 轮第六次评审：自动这一档只认白名单（单分句旧决定 + 改口分句与封闭空话 + 干净的新对象），没有词表 > 原因分句 ⇒ 卡：关注211高校 → 改成关注985高校，因为这是玩笑话 1ms
+   × 第 8 轮第六次评审：自动这一档只认白名单（单分句旧决定 + 改口分句与封闭空话 + 干净的新对象），没有词表 > 原因分句 ⇒ 卡：关注211高校 → 改成关注985高校，因为我在说反话 1ms
+   × 第 8 轮第六次评审：自动这一档只认白名单（单分句旧决定 + 改口分句与封闭空话 + 干净的新对象），没有词表 > 原因分句 ⇒ 卡：关注211高校 → 改成关注985高校，因为离家近 1ms
+   × 第 8 轮第六次评审：自动这一档只认白名单（单分句旧决定 + 改口分句与封闭空话 + 干净的新对象），没有词表 > 原因分句 ⇒ 卡：关注211高校 → 改成关注985高校，由于离家近 1ms
+   × 第 8 轮第六次评审：自动这一档只认白名单（单分句旧决定 + 改口分句与封闭空话 + 干净的新对象），没有词表 > 「把Vue换成React，毕竟生态好」⇒ 卡 2ms
+   × 第 8 轮第六次评审：自动这一档只认白名单（单分句旧决定 + 改口分句与封闭空话 + 干净的新对象），没有词表 > 新对象不干净 ⇒ 不自动：用Vue → 把Vue换成React试试 1ms
+   × 第 8 轮第六次评审：自动这一档只认白名单（单分句旧决定 + 改口分句与封闭空话 + 干净的新对象），没有词表 > 新对象不干净 ⇒ 不自动：用Vue → 把Vue换成React看看 1ms
+   × 第 8 轮第六次评审：自动这一档只认白名单（单分句旧决定 + 改口分句与封闭空话 + 干净的新对象），没有词表 > 新对象不干净 ⇒ 不自动：用Vue → 把Vue换成React一下 1ms
+   × 第 8 轮第六次评审：自动这一档只认白名单（单分句旧决定 + 改口分句与封闭空话 + 干净的新对象），没有词表 > 新对象不干净 ⇒ 不自动：用Vue → 把Vue换成更好的 1ms
+   × 第 8 轮第六次评审：自动这一档只认白名单（单分句旧决定 + 改口分句与封闭空话 + 干净的新对象），没有词表 > 新对象不干净 ⇒ 不自动：用Vue → 把Vue换成React+Svelte 1ms
+   × 第 8 轮第六次评审：自动这一档只认白名单（单分句旧决定 + 改口分句与封闭空话 + 干净的新对象），没有词表 > 新对象不干净 ⇒ 不自动：选北京 → 把北京换成待定 1ms
+   × 第 8 轮第六次评审：自动这一档只认白名单（单分句旧决定 + 改口分句与封闭空话 + 干净的新对象），没有词表 > 新对象不干净 ⇒ 不自动：报考北大 → 把北大换成清华再说 1ms
+   × 第 8 轮第六次评审：自动这一档只认白名单（单分句旧决定 + 改口分句与封闭空话 + 干净的新对象），没有词表 > 新对象不干净 ⇒ 不自动：关注211高校 → 改成关注非985高校 1ms
+⎯⎯⎯⎯⎯⎯ Failed Tests 31 ⎯⎯⎯⎯⎯⎯⎯
+ Test Files  1 failed (1)
+      Tests  31 failed | 213 passed (244)
+
+With the fix: decision-supersede.test.ts 244/244 pass; tests/knowledge-graph + tests/retrieval 54 files / 767 tests pass.
+
+## Review round 7 (change clause ends at the new object; object structure tied to the old one): decision-supersede.ts at f4e1bcfa4, tests from this commit
+
+$ PATH=/var/tmp/pgpurge/bin:$PATH PGPORT=55432 WORKSPACEX_DB=r08r7 npx vitest run tests/knowledge-graph/decision-supersede.test.ts
+   × 第 8 轮第七次评审：改口分句必须在原文里结束在新对象上；新对象的结构跟着旧对象走 > 不自动 ⇒ 卡：用Vue → 把Vue换成React if approved 10ms
+   × 第 8 轮第七次评审：改口分句必须在原文里结束在新对象上；新对象的结构跟着旧对象走 > 不自动 ⇒ 卡：用Vue → 把Vue换成React maybe 1ms
+   × 第 8 轮第七次评审：改口分句必须在原文里结束在新对象上；新对象的结构跟着旧对象走 > 不自动 ⇒ 卡：用Vue → 把Vue换成React tbd 1ms
+   × 第 8 轮第七次评审：改口分句必须在原文里结束在新对象上；新对象的结构跟着旧对象走 > 不自动 ⇒ 卡：用Vue → 把Vue换成React for now 1ms
+   × 第 8 轮第七次评审：改口分句必须在原文里结束在新对象上；新对象的结构跟着旧对象走 > 不自动 ⇒ 卡：用Vue → 把Vue换成React or Svelte 1ms
+   × 第 8 轮第七次评审：改口分句必须在原文里结束在新对象上；新对象的结构跟着旧对象走 > 不自动 ⇒ 卡：用Vue → 把Vue换成React-maybe 1ms
+   × 第 8 轮第七次评审：改口分句必须在原文里结束在新对象上；新对象的结构跟着旧对象走 > 不自动 ⇒ 卡：用Vue → 把Vue换成React-tbd 0ms
+   × 第 8 轮第七次评审：改口分句必须在原文里结束在新对象上；新对象的结构跟着旧对象走 > 不自动 ⇒ 卡：用Vue → 不用Vue了，改用React maybe 0ms
+   × 第 8 轮第七次评审：改口分句必须在原文里结束在新对象上；新对象的结构跟着旧对象走 > 不自动 ⇒ 卡：用Vue → 把Vue换成maybe 1ms
+   × 第 8 轮第七次评审：改口分句必须在原文里结束在新对象上；新对象的结构跟着旧对象走 > 不自动 ⇒ 卡：关注211高校 → 改成关注all高校 1ms
+   × 第 8 轮第七次评审：改口分句必须在原文里结束在新对象上；新对象的结构跟着旧对象走 > 不自动 ⇒ 卡：选上海 → 把上海换成北京如何 0ms
+   × 第 8 轮第七次评审：改口分句必须在原文里结束在新对象上；新对象的结构跟着旧对象走 > 不自动 ⇒ 卡：选上海 → 把上海换成北京可否 0ms
+   × 第 8 轮第七次评审：改口分句必须在原文里结束在新对象上；新对象的结构跟着旧对象走 > 不自动 ⇒ 卡：选上海 → 把上海换成北京行否 0ms
+   × 第 8 轮第七次评审：改口分句必须在原文里结束在新对象上；新对象的结构跟着旧对象走 > 不自动 ⇒ 卡：选上海 → 把上海换成北京如果 0ms
+   × 第 8 轮第七次评审：改口分句必须在原文里结束在新对象上；新对象的结构跟着旧对象走 > 不自动 ⇒ 卡：选上海 → 把上海换成北京似乎 1ms
+   × 第 8 轮第七次评审：改口分句必须在原文里结束在新对象上；新对象的结构跟着旧对象走 > 不自动 ⇒ 卡：选上海 → 把上海换成北京为宜 1ms
+   × 第 8 轮第七次评审：改口分句必须在原文里结束在新对象上；新对象的结构跟着旧对象走 > 不自动 ⇒ 卡：选上海 → 把上海换成北京较好 0ms
+   × 第 8 轮第七次评审：改口分句必须在原文里结束在新对象上；新对象的结构跟着旧对象走 > 不自动 ⇒ 卡：选上海 → 把上海换成北京候补 1ms
+   × 第 8 轮第七次评审：改口分句必须在原文里结束在新对象上；新对象的结构跟着旧对象走 > 不自动 ⇒ 卡：选上海 → 把上海换成北京为辅 1ms
+   × 第 8 轮第七次评审：改口分句必须在原文里结束在新对象上；新对象的结构跟着旧对象走 > 不自动 ⇒ 卡：选上海 → 把上海换成北京之类 1ms
+   × 第 8 轮第七次评审：改口分句必须在原文里结束在新对象上；新对象的结构跟着旧对象走 > 不自动 ⇒ 卡：选上海 → 把上海换成北京就行 0ms
+   × 第 8 轮第七次评审：改口分句必须在原文里结束在新对象上；新对象的结构跟着旧对象走 > 不自动 ⇒ 卡：选上海 → 把上海换成北京罢了 1ms
+   × 第 8 轮第七次评审：改口分句必须在原文里结束在新对象上；新对象的结构跟着旧对象走 > 不自动 ⇒ 卡：选上海 → 上海算了，还是选北京如何 0ms
+   × 第 8 轮第七次评审：改口分句必须在原文里结束在新对象上；新对象的结构跟着旧对象走 > 不自动 ⇒ 卡：关注211高校 → 改成关注更多高校 0ms
+   × 第 8 轮第七次评审：改口分句必须在原文里结束在新对象上；新对象的结构跟着旧对象走 > 不自动 ⇒ 卡：关注211高校 → 改成关注985等高校 0ms
+   × 第 8 轮第七次评审：改口分句必须在原文里结束在新对象上；新对象的结构跟着旧对象走 > 不自动 ⇒ 卡：关注211高校 → 改成关注某些高校 0ms
+   × 第 8 轮第七次评审：改口分句必须在原文里结束在新对象上；新对象的结构跟着旧对象走 > 不自动 ⇒ 卡：关注北京高校 → 改成关注所有高校 0ms
+   × 第 8 轮第七次评审：改口分句必须在原文里结束在新对象上；新对象的结构跟着旧对象走 > 不自动 ⇒ 卡：关注211高校 → 改成关注985+高校 0ms
+   × 第 8 轮第七次评审：改口分句必须在原文里结束在新对象上；新对象的结构跟着旧对象走 > 不自动 ⇒ 卡：用Vue → 把Vue换成React但是 0ms
+   × 第 8 轮第七次评审：改口分句必须在原文里结束在新对象上；新对象的结构跟着旧对象走 > 不自动 ⇒ 卡：用Vue → 把Vue换成React，所以 1ms
+   × 第 8 轮第七次评审：改口分句必须在原文里结束在新对象上；新对象的结构跟着旧对象走 > 不自动 ⇒ 卡：用Vue → 把Vue换成React…… 0ms
+   × 第 8 轮第七次评审：改口分句必须在原文里结束在新对象上；新对象的结构跟着旧对象走 > 不自动 ⇒ 卡：用Vue → 把Vue换成React吧吧 0ms
+⎯⎯⎯⎯⎯⎯ Failed Tests 32 ⎯⎯⎯⎯⎯⎯⎯
+ Test Files  1 failed (1)
+      Tests  32 failed | 256 passed (288)
+
+With the fix: decision-supersede.test.ts 288/288 pass. tests/knowledge-graph + tests/retrieval 54 files / 811 tests pass.
