@@ -15,6 +15,7 @@
  *
  * 已知取舍（usecases.md「已决：个人记忆用于项目会话」）：模型写出来的**回答正文**对项目成员可见，可能复述 A 的
  * 个人记忆——这里的回环模型就会照抄，所以本文件不对回答正文做「B 看不到」的断言，只断言结构化的记忆读路径。
+ * round 7 收口：这条回答**不会再被抽取**成 S 的共享结论（末两条：闸门挡住用过个人记忆的回答、不误伤没用过的）。
  */
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { knowledgeGraph as KG } from "@repo/contracts";
@@ -36,11 +37,21 @@ const AGENT = "agent-i4284";
 const A1 = "thr-i4284-a1";
 const B1 = "thr-i4284-b1";
 const S = "thr-i4284-s";
+const USER_C = "u-i4284-c";
+const S2 = "thr-i4284-s2";
 
 const A_DECISION = "我决定关注 211 高校";
 const B_DECISION = "我决定关注 985 高校";
 const A_REVOKED = "我决定每周五开例会";
 const UNRELATED = "开始写报告吧";
+/** 事实而不是决定：决定会被 #4283 自动记进 C 的个人空间，那样这一轮就用到了个人记忆。 */
+const C_FACT = "项目名单里是 C9 高校";
+/** round 7：groundedModel 的回答都以这句开头；抽取回环模型见到它就从回答里抽出 ANSWER_CLAIM。 */
+const ANSWER_KEY = "根据之前的对话";
+const ANSWER_CLAIM = "报告按之前记下的方向写";
+const answerReply = JSON.stringify({
+  entities: [], claims: [{ statement: ANSWER_CLAIM, kind: "fact", confidence: 0.9, about: [], decidedBy: null, quote: ANSWER_KEY }],
+});
 
 const decisionReply = (statement: string) => JSON.stringify({
   entities: [],
@@ -56,9 +67,11 @@ const ids: { aPersonal: string; aSource: string; bPersonal: string; bSource: str
 let aTurn: Turn;
 let bTurn: Turn;
 
-async function settle(): Promise<void> {
+async function settle(extra: ReadonlyArray<readonly [string, string]> = []): Promise<void> {
   const { model } = loopbackModel([
+    ...extra,
     [A_DECISION, decisionReply(A_DECISION)], [B_DECISION, decisionReply(B_DECISION)], [A_REVOKED, decisionReply(A_REVOKED)],
+    [C_FACT, decisionReply(C_FACT).replace('"decision"', '"fact"')],
   ]);
   const deps = extractionDeps(e.db, model, ORG);
   for (let i = 0; i < 50; i += 1) {
@@ -107,7 +120,7 @@ beforeAll(async () => {
   await resetOrgs(ORG);
   await seedOrg({ orgId: ORG, projectId: PROJECT });
   await enableExtraction(ORG);
-  for (const u of [USER_A, USER_B]) {
+  for (const u of [USER_A, USER_B, USER_C]) {
     await addOrgMember(ORG, u, "consultant", null);
     await addProjectMember(ORG, PROJECT, u, "facilitator", null);
   }
@@ -115,6 +128,7 @@ beforeAll(async () => {
   await addChatThread({ orgId: ORG, id: A1, projectId: null, visibilityScope: "private", createdBy: USER_A, title: A1 });
   await addChatThread({ orgId: ORG, id: B1, projectId: null, visibilityScope: "private", createdBy: USER_B, title: B1 });
   await addChatThread({ orgId: ORG, id: S, projectId: PROJECT, visibilityScope: "plenary", createdBy: USER_A, title: "项目群聊" });
+  await addChatThread({ orgId: ORG, id: S2, projectId: PROJECT, visibilityScope: "plenary", createdBy: USER_C, title: "项目群聊 2" });
   a = client(e, USER_A, ORG);
   b = client(e, USER_B, ORG);
 }, 180_000);
@@ -240,5 +254,51 @@ describe("issue #4284: 个人记忆用于项目会话里本人的回答，不向
     expect(t.memory).toContain(A_DECISION);
     expect(t.memory).not.toContain(B_DECISION);
     expect(t.memory).not.toContain(A_REVOKED);
+  }, 120_000);
+
+  /*
+   * round 7（#4284 收口）：项目会话里 agent 的回答也会被排进抽取队列。A 那一轮用了 A 的个人记忆、回答复述了它——
+   * 抽出来就成了 S 的 chat_session 结论，全体成员可见、下一轮谁问都召回。闸门：这种回答跳过抽取（任务完成、不重试）。
+   */
+  const evidenceFrom = (messageId: string) => asOwner(async (c) => (await c.query<{ scope_kind: string; scope_id: string; statement: string }>(
+    `SELECT c.scope_kind, c.scope_id, c.statement FROM claim_message_evidence e JOIN claims c ON c.id = e.claim_id AND c.org_id = e.org_id
+      WHERE e.org_id = $1 AND e.message_id = $2`, [ORG, messageId])).rows);
+  const queued = (messageId: string) => asOwner(async (c) => (await c.query(
+    "SELECT 1 FROM kg_extraction_queue WHERE org_id = $1 AND message_id = $2", [ORG, messageId])).rowCount);
+
+  it("闸门：A 那一轮用了 A 的个人决定，回答复述了它 ⇒ 抽取不从这条回答产出任何 S 的结论；任务完成、不留在队列里", async () => {
+    expect(aTurn.answer, "前提：回答真的复述了 A 的个人决定").toContain(A_DECISION);
+    expect(aTurn.answer).toContain(ANSWER_KEY);
+    expect(await queued(aTurn.answerId), "前提：回答确实被排进了抽取队列").toBe(1);
+    await settle([[ANSWER_KEY, answerReply]]);
+    expect(await queued(aTurn.answerId), "跳过也要完成任务，不重试").toBe(0);
+    expect(await queued(bTurn.answerId)).toBe(0);
+    expect(await evidenceFrom(aTurn.answerId)).toEqual([]);
+    expect(await evidenceFrom(bTurn.answerId)).toEqual([]);
+    const panel = await b.get<ThreadKnowledgeBody>(`/knowledge-graph/threads/${S}`);
+    expect(panel.status).toBe(200);
+    expect(panel.body.claims.map((c) => c.statement)).not.toContain(ANSWER_CLAIM);
+    expectNoTrace("B 读 S 的知识面板（抽取之后）", panel.body, [A_DECISION, ids.aPersonal]);
+    // 个人会话照旧：A 在自己个人会话里的那条回答（也用了个人记忆）照常抽取
+    const [personalAnswer] = await asOwner(async (c) => (await c.query<{ id: string }>(
+      `SELECT id FROM chat_messages WHERE org_id = $1 AND thread_id = $2 AND author_kind = 'agent' ORDER BY created_at DESC LIMIT 1`, [ORG, A1])).rows);
+    expect(await evidenceFrom(personalAnswer!.id)).toEqual(expect.arrayContaining([
+      { scope_kind: "chat_session", scope_id: A1, statement: ANSWER_CLAIM },
+    ]));
+  }, 120_000);
+
+  it("闸门不误伤：项目会话里没用到任何个人记忆的回答照常抽取", async () => {
+    await addChatMessage({ orgId: ORG, id: "m-i4284-c1", threadId: S2, body: `${C_FACT}。`, authorId: USER_C });
+    await settle();
+    const c = client(e, USER_C, ORG);
+    const t = await turn(e, c, ORG, S2, C_FACT, AGENT);
+    expect(t.memory, "前提：这一轮召回了 S2 自己的结论").toContain(C_FACT);
+    const [stored] = await asOwner(async (q) => (await q.query<{ items: Array<{ claimId: string }> }>(
+      "SELECT items FROM kg_turn_recalls WHERE org_id = $1 AND run_id = $2", [ORG, t.runId])).rows);
+    expect(stored!.items.length, "前提：这一轮有召回记录（闸门真的查到了条目，不是空转）").toBeGreaterThan(0);
+    expect(t.answer).toContain(ANSWER_KEY);
+    await settle([[ANSWER_KEY, answerReply]]);
+    expect(await queued(t.answerId)).toBe(0);
+    expect(await evidenceFrom(t.answerId)).toEqual([{ scope_kind: "chat_session", scope_id: S2, statement: ANSWER_CLAIM }]);
   }, 120_000);
 });

@@ -7,6 +7,7 @@
  * - 消息发送从不等这里（06-UX R3-8「不拖慢对话」）：抽取在后台 worker 里跑。
  * - F16：交给执行器之后，同一个任务里接着判矛盾（detect-conflicts.ts）——任务完成之前卡已经开好。
  * - issue #4283：判完矛盾，作者本人说的「决定」复制进作者本人的个人空间（auto-copy-decisions.ts）。
+ * - round 7（#4284 收口）：项目会话里用过个人记忆的那一轮的 agent 回答不抽（见 extractJob）。
  */
 import type { LoggerPort } from "../ports/logger.port";
 import { buildExtractionBatch } from "../../domain/knowledge-graph/extraction";
@@ -40,9 +41,21 @@ export interface ExtractionTickResult {
   readonly failed: number;
 }
 
-export async function extractJob(deps: ExtractionDeps, job: KgExtractionJob): Promise<"written" | "empty"> {
+export async function extractJob(deps: ExtractionDeps, job: KgExtractionJob): Promise<"written" | "empty" | "skipped"> {
   const loaded = await deps.source.loadMessage(job.orgId, job.messageId, KG_EXTRACTION_CONTEXT_TURNS);
   if (loaded === null) return "empty";  // 消息已被删：没有东西可抽
+  // round 7（#4284 收口）：项目会话里，agent 的回答若是在用了**提问者个人记忆**的那一轮写出来的，正文可能复述
+  // 个人记忆；抽出来就成了全体成员可见、可召回的 chat_session 结论。这种回答不抽（任务照常完成、不重试），
+  // 记一条日志说明原因。判定 fail closed：这一轮召回里只要有一条不能证明属于本会话的条目就跳过。个人会话不受影响。
+  if (loaded.message.authorKind === "agent") {
+    const outside = await deps.source.projectAnswerOutsideRecallCount(job.orgId, job.messageId);
+    if (outside > 0) {
+      deps.logger.info("kg extraction skipped: project-thread answer used personal memory", {
+        traceId: "kg-extraction", orgId: job.orgId, messageId: job.messageId, threadId: job.threadId, outsideRecallItems: outside,
+      });
+      return "skipped";
+    }
+  }
   const result = await deps.extractor.extract(loaded);
   const known = await deps.source.knownObjects(job.orgId, job.threadId);
   const batch = buildExtractionBatch({

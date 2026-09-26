@@ -114,6 +114,13 @@ export interface KgExtractionSourcePort {
   loadMessage(orgId: OrgId, messageId: string, contextTurns: number): Promise<{ readonly message: KgMessage; readonly context: readonly KgMessage[] } | null>;
   /** 本会话已有的实体（实体解析用）。 */
   knownObjects(orgId: OrgId, threadId: string): Promise<readonly KnownObject[]>;
+  /**
+   * round 7（#4284 收口）：这条消息若是**项目会话里 agent 的回答**，产出它的那个 run 在这一轮召回（`kg_turn_recalls`）里
+   * 用到了多少条**不能证明属于本会话**的记忆（本会话 = `chat_session` 作用域、`scope_id` = 该消息的 thread）。
+   * 个人空间条目在这里一律算「不能证明」（worker 不以任何用户身份读，RLS 本来就不放 personal 行）——fail closed。
+   * 不是 agent 回答 / 不在项目会话 / 这一轮没有召回记录 ⇒ 0。只回一个数，不回任何内容。
+   */
+  projectAnswerOutsideRecallCount(orgId: OrgId, messageId: string): Promise<number>;
 }
 
 export interface KnowledgeExtractorPort {

@@ -7,7 +7,7 @@
  *   - 共享（项目）会话里提问人自己的个人记忆也召回（issue #4284），但读接口按查看者复核：个人空间的条目
  *     只给这一轮的提问人看，别的成员只看到会话记忆——即便记录里再混进个人空间的 id 也一样；
  *   - 记忆之后被忘掉 ⇒ 不再出现在引用里；图路不可用 ⇒ recallDegraded；
- *   - 记录写失败 ⇒ 回答照常带记忆（不拖累对话）。
+ *   - 记录写失败 ⇒ 回答照常带会话记忆（不拖累对话），个人空间的条目这一轮不用（round 7：没有记录，抽取闸门就看不见它）。
  */
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import type { KnowledgeRecallPort } from "../../src/application/knowledge-graph/ports";
@@ -163,15 +163,22 @@ describe("F13: 回答下方的记忆引用", () => {
     expect(out.recalled.map((r) => r.channels)).toEqual([["fts"]]);
   });
 
-  it("记录写失败不拖累对话：记忆照常交给模型，只记一条日志", async () => {
+  it("记录写失败不拖累对话：会话记忆照常交给模型，只记日志；个人空间的条目这一轮不用（round 7 fail closed）", async () => {
     const failing: KnowledgeRecallPort = {
       candidates: (...a) => port.candidates(...a),
       graphNeighbors: (...a) => port.graphNeighbors(...a),
       recordTurn: async () => { throw new Error("disk full"); },
     };
-    const memory = await knowledgeMemoryFor(failing, { orgId: ORG_ID, userId: "u-owner", threadId: fx.B, query: Q, runId: "run-f13-fail" }, log);
-    expect(memory).toContain(DEMAND);
+    // 前提：记录正常时，这一轮在共享会话里既有会话记忆，也有提问人自己的个人记忆
+    const ok = await knowledgeMemoryFor(port, { orgId: ORG_ID, userId: "u-owner", threadId: fx.S, query: Q, runId: "run-f13-fail-ok" }, log);
+    expect(ok).toContain("客户 A 的合同在法务那里");
+    expect(ok).toContain(DEMAND);
+    // 记录写不成 ⇒ 抽取那一侧的闸门（项目会话里用过个人记忆的回答不抽）看不见这一轮 ⇒ 个人条目不进模型材料
+    const memory = await knowledgeMemoryFor(failing, { orgId: ORG_ID, userId: "u-owner", threadId: fx.S, query: Q, runId: "run-f13-fail" }, log);
+    expect(memory).toContain("客户 A 的合同在法务那里");
+    expect(memory).not.toContain(DEMAND);
     expect(logs).toContain("knowledge recall could not be recorded for this turn");
+    expect(logs).toContain("knowledge recall not recorded, dropping personal-space items from this turn");
   });
 
   it("失效只看 revoked_at 也要生效：revoked_at 有值、状态没改的结论同样不再引用", async () => {
