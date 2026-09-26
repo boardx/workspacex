@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState, type ClipboardEvent, type PointerEvent } from "react";
 import type * as Y from "yjs";
-import { DEFAULT_LAYOUT_GAP, SelectionLayoutCommandPort, copyObjects, createStickyBatchEnvelope, nextStickyPlacement, parseBulkStickyLines, parseThinkingPaste, readObjects, validateTextAttributes, type BoardCommandEnvelope, type StickyVariant, type TextStylePreset, type WhiteboardCommand, type WhiteboardLayoutKind, type WhiteboardObject } from "@repo/whiteboard-core";
+import { DEFAULT_LAYOUT_GAP, SelectionLayoutCommandPort, copyObjects, createLayoutPreconditions, createStickyBatchEnvelope, nextStickyPlacement, parseBulkStickyLines, parseThinkingPaste, readObjects, validateTextAttributes, type BoardCommandEnvelope, type StickyVariant, type TextStylePreset, type WhiteboardCommand, type WhiteboardLayoutCommand, type WhiteboardLayoutKind, type WhiteboardObject } from "@repo/whiteboard-core";
 import type { WhiteboardConnectionState } from "@/lib/whiteboard-provider";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
@@ -54,25 +54,26 @@ export function CollaborativeThinkingEditor({ boardId, clientId, doc, readOnly, 
   const arrangeSelection = useCallback((kind: WhiteboardLayoutKind) => {
     if (selectionLayoutDisabled) return;
     try {
+      const command: WhiteboardLayoutCommand = {
+        type: "arrange-objects",
+        kind,
+        objectIds: [...selected],
+        ...(kind === "grid" || kind === "tidy-up" ? { columns: layoutColumns } : {}),
+        ...(["grid", "row", "column", "tidy-up"].includes(kind) ? { gap: layoutGap } : {}),
+      };
       layoutPort.dispatch({
         boardId,
         clientId,
         gestureId: crypto.randomUUID(),
-        command: {
-          type: "arrange-objects",
-          kind,
-          objectIds: [...selected],
-          ...(kind === "grid" || kind === "tidy-up" ? { columns: layoutColumns } : {}),
-          ...(["grid", "row", "column", "tidy-up"].includes(kind) ? { gap: layoutGap } : {}),
-        },
-        preconditions: selectedObjects.map((object) => ({ id: object.id, geometry: object.geometry, parentId: object.parentId, locked: Boolean(object.locked), hidden: Boolean(object.hidden) })),
+        command,
+        preconditions: createLayoutPreconditions(model.objects, command),
       });
       setNotice(`已${kind.startsWith("align-") ? "对齐" : kind.startsWith("distribute-") ? "等距分布" : "整理"} ${selected.length} 个对象。`);
     } catch (error) {
       const code = error instanceof Error ? error.message : "LAYOUT_FAILED";
       setNotice(code === "LAYOUT_CONFLICT" ? "布局未应用：对象已被其他协作者修改。" : code === "SELECTION_PARENT_BOUNDARY" ? "布局未应用：请选择同一容器内的对象。" : code === "DISTRIBUTION_REQUIRES_THREE" ? "等距分布至少需要 3 个对象。" : "布局未应用：选择中包含锁定对象或当前排列不可用。");
     }
-  }, [boardId, clientId, layoutColumns, layoutGap, layoutPort, selected, selectedObjects, selectionLayoutDisabled]);
+  }, [boardId, clientId, layoutColumns, layoutGap, layoutPort, model.objects, selected, selectionLayoutDisabled]);
   const beginEditing = useCallback((id: string) => { const object = readObjects(doc).find((candidate) => candidate.id === id); if (!object) return; setSelected([id]); setEditing({ id, initial: object.text }); }, [doc]);
 
   const createStickyAt = useCallback((point: Point, variant: StickyVariant = "square", text = "") => {

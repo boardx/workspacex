@@ -3,7 +3,7 @@ import { expect, request as playwrightRequest, test, type APIRequestContext, typ
 import { SESSION_TOKEN_STORAGE_KEY } from "../lib/api-client";
 import { FULLSTACK_E2E } from "./fullstack-smoke-fixture";
 
-test.describe.configure({ mode: "serial", timeout: 120_000 });
+test.describe.configure({ mode: "serial", timeout: 180_000 });
 
 function required(name: string): string {
   const fallback: Record<string, string | undefined> = {
@@ -31,6 +31,27 @@ async function apiRequest(api: APIRequestContext, token: string, method: string,
   return response;
 }
 
+async function geometry(page: Page): Promise<string> {
+  return page.getByTestId("board-a11y-mirror").locator("li[data-object-id]").evaluateAll((items) => JSON.stringify(items.map((item) => ({
+    id: item.getAttribute("data-object-id"), x: Number(item.getAttribute("data-x")), y: Number(item.getAttribute("data-y")),
+    width: Number(item.getAttribute("data-width")), height: Number(item.getAttribute("data-height")), rotation: Number(item.getAttribute("data-rotation")),
+  })).sort((a, b) => String(a.id).localeCompare(String(b.id)))));
+}
+
+async function marqueeAll(page: Page): Promise<void> {
+  while ((Number((await page.getByTestId("board-zoom-value").textContent())?.replace("%", "")) || 100) > 70) {
+    await page.getByTestId("board-zoom-out").click();
+  }
+  const bounds = await page.getByTestId("board-fabric-canvas").boundingBox();
+  expect(bounds).not.toBeNull();
+  await page.mouse.move(bounds!.x + 300, bounds!.y + 200);
+  await page.mouse.down();
+  await page.mouse.move(bounds!.x + bounds!.width - 20, bounds!.y + bounds!.height - 20, { steps: 12 });
+  await page.mouse.up();
+  await expect(page.getByTestId("board-a11y-selection-announcement")).toHaveText("已选择 6 个对象");
+  await expect(page.getByTestId("board-selection-layout-toolbar")).toBeVisible();
+}
+
 let cleanup: { id: string; token: string } | undefined;
 test.afterEach(async () => {
   if (!cleanup) return;
@@ -39,38 +60,48 @@ test.afterEach(async () => {
   finally { await api.dispose(); cleanup = undefined; }
 });
 
-test("multi-select layout toolbar persists one grid operation", async ({ page, request }) => {
+test("all 12 canonical layouts persist to a second client and undo as one operation", async ({ page, request, browser, baseURL }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
   const token = await login(page);
   const created = await apiRequest(request, token, "POST", "/whiteboards", { requestId: randomUUID(), name: `Selection layout ${randomUUID()}` });
   const boardId = (await created.json() as { id: string }).id;
   cleanup = { id: boardId, token };
-  await page.goto(`/studio/board/${boardId}`);
-  await expect(page.getByText(/^已同步$/)).toBeVisible({ timeout: 30_000 });
+  const secondContext = await browser.newContext({ baseURL, viewport: { width: 1440, height: 900 } });
+  const second = await secondContext.newPage();
+  try {
+    await page.goto(`/studio/board/${boardId}`);
+    await expect(page.getByText(/^已同步$/)).toBeVisible({ timeout: 30_000 });
+    await page.keyboard.press("Shift+N");
+    await page.getByTestId("board-bulk-text").fill("一\n二\n三\n四\n五\n六");
+    await page.getByTestId("board-bulk-apply").click();
+    await expect(page.getByTestId("board-a11y-mirror").getByRole("button")).toHaveCount(6);
 
-  await page.keyboard.press("Shift+N");
-  await page.getByTestId("board-bulk-text").fill("一\n二\n三\n四\n五\n六");
-  await page.getByTestId("board-bulk-apply").click();
-  await expect(page.getByTestId("board-a11y-mirror").getByRole("button")).toHaveCount(6);
+    await login(second);
+    await second.goto(`/studio/board/${boardId}`);
+    await expect(second.getByText(/^已同步$/)).toBeVisible({ timeout: 30_000 });
+    await expect(second.getByTestId("board-a11y-mirror").getByRole("button")).toHaveCount(6);
+    const original = await geometry(page);
+    await expect.poll(() => geometry(second)).toBe(original);
 
-  const canvas = page.getByTestId("board-fabric-canvas");
-  const bounds = await canvas.boundingBox();
-  expect(bounds).not.toBeNull();
-  await page.mouse.move(bounds!.x + 560, bounds!.y + 330);
-  await page.mouse.down();
-  await page.mouse.move(bounds!.x + 1420, bounds!.y + 820, { steps: 12 });
-  await page.mouse.up();
+    const operations = ["align-left", "align-center", "align-right", "align-top", "align-middle", "align-bottom", "distribute-horizontal", "distribute-vertical", "grid", "row", "column", "tidy-up"] as const;
+    for (const operation of operations) {
+      await marqueeAll(page);
+      await page.getByTestId("board-layout-gap").fill("24");
+      await page.getByTestId("board-layout-columns").fill("3");
+      await page.getByTestId(`board-layout-${operation}`).click();
+      await expect.poll(async () => (await geometry(page)) !== original).toBe(true);
+      const arranged = await geometry(page);
+      await expect.poll(() => geometry(second)).toBe(arranged);
 
-  const toolbar = page.getByTestId("board-selection-layout-toolbar");
-  await expect(toolbar).toBeVisible();
-  await expect(page.getByTestId("board-layout-align-left")).toBeEnabled();
-  await expect(page.getByTestId("board-layout-distribute-horizontal")).toBeEnabled();
-  await page.getByTestId("board-layout-gap").fill("24");
-  await page.getByTestId("board-layout-columns").fill("3");
-  await page.getByTestId("board-layout-grid").click();
-  await expect(page.getByText("已整理 6 个对象。")).toBeVisible();
+      await page.getByText("撤销", { exact: true }).click();
+      await expect.poll(() => geometry(page)).toBe(original);
+      await expect.poll(() => geometry(second)).toBe(original);
+    }
 
-  await page.reload();
-  await expect(page.getByText(/^已同步$/)).toBeVisible({ timeout: 30_000 });
-  await expect(page.getByTestId("board-a11y-mirror").getByRole("button")).toHaveCount(6);
+    await page.reload();
+    await expect(page.getByText(/^已同步$/)).toBeVisible({ timeout: 30_000 });
+    await expect.poll(() => geometry(page)).toBe(original);
+  } finally {
+    await secondContext.close();
+  }
 });

@@ -23,6 +23,8 @@ export {
   SelectionLayoutCommandPort,
   arrangeObjects,
   calculateSnapGuides,
+  canonicalSceneBounds,
+  createLayoutPreconditions,
   resolveSelection,
   type LayoutCommandAccepted,
   type LayoutCommandEnvelope,

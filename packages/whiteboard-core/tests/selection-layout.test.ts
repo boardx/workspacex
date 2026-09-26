@@ -4,6 +4,8 @@ import {
   SelectionLayoutCommandPort,
   WhiteboardUndo,
   arrangeObjects,
+  canonicalSceneBounds,
+  createLayoutPreconditions,
   calculateSnapGuides,
   createWhiteboardDocument,
   executeCommands,
@@ -34,8 +36,8 @@ function seed(...objects: WhiteboardObject[]): Y.Doc {
 function command(kind: WhiteboardLayoutCommand['kind'], objectIds: string[], extra: Partial<WhiteboardLayoutCommand> = {}): WhiteboardLayoutCommand {
   return { type: 'arrange-objects', kind, objectIds, ...extra } as WhiteboardLayoutCommand;
 }
-function dispatch(port: SelectionLayoutCommandPort, gestureId: string, layout: WhiteboardLayoutCommand, preconditions?: LayoutPrecondition[]) {
-  return port.dispatch({ boardId: 'board', clientId: 'human-or-agent', gestureId, command: layout, preconditions });
+function dispatch(doc: Y.Doc, port: SelectionLayoutCommandPort, gestureId: string, layout: WhiteboardLayoutCommand, preconditions?: LayoutPrecondition[]) {
+  return port.dispatch({ boardId: 'board', clientId: 'human-or-agent', gestureId, command: layout, preconditions: preconditions ?? createLayoutPreconditions(readObjects(doc), layout) });
 }
 
 describe('stable multi-selection semantics', () => {
@@ -68,6 +70,18 @@ describe('canonical layout calculations', () => {
     const rotatedAfter = arranged.find(value => value.id === 'rotated')!.geometry;
     expect(plainAfter.x).toBeCloseTo(rotatedAfter.x - 40);
     expect(rotatedAfter.rotation).toBe(90);
+  });
+  it('uses rotated visual bounds for row, grid and tidy placement', () => {
+    const rotated = note('rotated', 200, 50, { geometry: { x: 200, y: 50, width: 100, height: 40, rotation: 90 } });
+    const plain = note('plain', 10, 10, { geometry: geometry(10, 10, 60, 30) });
+    const row = arrangeObjects([rotated, plain], command('row', ['rotated', 'plain'], { gap: 24 }));
+    const first = canonicalSceneBounds(row[0]!.geometry), second = canonicalSceneBounds(row[1]!.geometry);
+    expect(first.top).toBeCloseTo(second.top);
+    expect(second.left - first.right).toBeCloseTo(24);
+    const grid = arrangeObjects([rotated, plain], command('grid', ['rotated', 'plain'], { columns: 1, gap: 24 }));
+    const gridFirst = canonicalSceneBounds(grid[0]!.geometry), gridSecond = canonicalSceneBounds(grid[1]!.geometry);
+    expect(gridFirst.left).toBeCloseTo(gridSecond.left);
+    expect(gridSecond.top - gridFirst.bottom).toBeCloseTo(24);
   });
   it.each([
     ['align-left', [{ x: 0 }, { x: 0 }]],
@@ -118,7 +132,7 @@ describe('canonical layout calculations', () => {
     expect(arrangeObjects(objects, command('row', ['a', 'b']))).toEqual(objects.map(value => ({ id: value.id, geometry: value.geometry })));
     expect(objects).toEqual(before);
     const doc = seed(...objects), port = new SelectionLayoutCommandPort(doc);
-    expect(() => dispatch(port, 'empty-write', command('row', ['a', 'b']))).toThrow('NO_LAYOUT_CHANGE');
+    expect(() => dispatch(doc, port, 'empty-write', command('row', ['a', 'b']))).toThrow('NO_LAYOUT_CHANGE');
     expect(readObjects(doc).map(value => value.geometry)).toEqual(objects.map(value => value.geometry));
     doc.destroy();
   });
@@ -156,6 +170,13 @@ describe('smart guides and measurements', () => {
     expect(() => calculateSnapGuides(geometry(0, 0), [], 101)).toThrow('SNAP_THRESHOLD_INVALID');
     expect(() => calculateSnapGuides(geometry(Infinity, 0), [], 5)).toThrow();
   });
+
+  it('snaps rotated scene edges rather than unrotated geometry anchors', () => {
+    const result = calculateSnapGuides({ x: 44, y: 0, width: 100, height: 40, rotation: 90 }, [note('target', 0, 0)], 5);
+    expect(result.delta.x).toBeCloseTo(-4);
+    expect(result.geometry.x).toBeCloseTo(40);
+    expect(result.guides).toContainEqual(expect.objectContaining({ axis: 'x', position: 0 }));
+  });
 });
 
 describe('operation, event, CAS and undo boundary', () => {
@@ -165,7 +186,8 @@ describe('operation, event, CAS and undo boundary', () => {
     let transactions = 0;
     doc.on('afterTransaction', transaction => { if ((transaction.origin as { kind?: string } | null)?.kind === 'whiteboard-command') transactions++; });
     const input = command('row', ['c', 'a', 'b']);
-    const accepted = dispatch(port, 'row', input), replay = dispatch(port, 'row', structuredClone(input));
+    const preconditions = createLayoutPreconditions(readObjects(doc), input);
+    const accepted = dispatch(doc, port, 'row', input, preconditions), replay = dispatch(doc, port, 'row', structuredClone(input), structuredClone(preconditions));
     expect(replay).toEqual(accepted);
     expect(transactions).toBe(1);
     expect(accepted.events).toEqual([expect.objectContaining({
@@ -173,7 +195,7 @@ describe('operation, event, CAS and undo boundary', () => {
       before: expect.arrayContaining([expect.objectContaining({ id: 'c', geometry: geometry(700, 200) })]),
       after: expect.arrayContaining([expect.objectContaining({ id: 'c', geometry: geometry(0, 0) })]),
     })]);
-    expect(() => dispatch(port, 'row', command('column', ['c', 'a', 'b']))).toThrow('LAYOUT_COMMAND_INVALID');
+    expect(() => dispatch(doc, port, 'row', command('column', ['c', 'a', 'b']))).toThrow('LAYOUT_COMMAND_INVALID');
     expect(undo.undo()).toBe('undone');
     expect(readObjects(doc).map(value => value.geometry)).toEqual([geometry(0, 0), geometry(300, 100), geometry(700, 200)]);
     expect(undo.redo()).toBe(true);
@@ -185,13 +207,13 @@ describe('operation, event, CAS and undo boundary', () => {
     const group: WhiteboardObject = { ...note('group', 0, 0), kind: 'group', geometry: geometry(0, 0, 250, 150) };
     const doc = seed(group, note('child', 20, 20, { parentId: 'group', locked: true }), note('other', 400, 0));
     const port = new SelectionLayoutCommandPort(doc), before = readObjects(doc);
-    expect(() => dispatch(port, 'locked-descendant', command('row', ['group', 'other']))).toThrow('OBJECT_LOCKED');
+    expect(() => dispatch(doc, port, 'locked-descendant', command('row', ['group', 'other']))).toThrow('OBJECT_LOCKED');
     expect(readObjects(doc)).toEqual(before);
-    expect(() => dispatch(port, 'nested', command('row', ['group', 'child']))).toThrow();
+    expect(() => dispatch(doc, port, 'nested', command('row', ['group', 'child']))).toThrow();
     executeCommands(doc, [{ type: 'state', id: 'child', locked: false }], 'fixture');
     const expected = readObjects(doc).find(value => value.id === 'other')!;
     executeCommands(doc, [{ type: 'geometry', id: 'other', geometry: geometry(450, 0) }], 'remote');
-    expect(() => dispatch(port, 'stale', command('column', ['group', 'other']), [{ id: 'other', geometry: expected.geometry }])).toThrow('LAYOUT_CONFLICT');
+    expect(() => dispatch(doc, port, 'stale', command('column', ['group', 'other']), [{ id: 'other', geometry: expected.geometry }])).toThrow('LAYOUT_CONFLICT');
     expect(readObjects(doc).find(value => value.id === 'other')?.geometry).toEqual(geometry(450, 0));
     doc.destroy();
   });
@@ -200,11 +222,39 @@ describe('operation, event, CAS and undo boundary', () => {
     const expanding = { ...panel, autoExpand: true };
     const doc = seed(frame('p', geometry(0, 0, 220, 120), expanding), note('a', 10, 10, { parentId: 'p' }), note('b', 110, 10, { parentId: 'p' }));
     const undo = new WhiteboardUndo(doc), port = new SelectionLayoutCommandPort(doc);
-    dispatch(port, 'expand', command('row', ['a', 'b'], { gap: 80 }));
+    dispatch(doc, port, 'expand', command('row', ['a', 'b'], { gap: 80 }));
     expect(readObjects(doc).find(value => value.id === 'p')?.geometry.width).toBe(300);
     expect(undo.undo()).toBe('undone');
     expect(readObjects(doc).find(value => value.id === 'p')?.geometry.width).toBe(220);
     undo.destroy(); doc.destroy();
+  });
+
+  it('uses rotated child scene bounds for panel rejection and auto-expand', () => {
+    const child = note('a', 150, 10, { parentId: 'p', geometry: { x: 150, y: 10, width: 40, height: 80, rotation: -45 } });
+    const sibling = note('b', 20, 20, { parentId: 'p' });
+    expect(() => arrangeObjects([frame('p', geometry(0, 0, 220, 120)), child, sibling], command('align-left', ['a', 'b']))).toThrow('PARENT_BOUNDS_EXCEEDED');
+    const doc = seed(frame('p', geometry(0, 0, 220, 120), { ...panel, autoExpand: true }), child, sibling);
+    const port = new SelectionLayoutCommandPort(doc);
+    dispatch(doc, port, 'rotated-expand', command('align-left', ['a', 'b']));
+    const expanded = readObjects(doc).find(value => value.id === 'p')!.geometry;
+    expect(expanded.y).toBeLessThan(0);
+    doc.destroy();
+  });
+
+  it('requires CAS for implicit descendants, connectors and the auto-expanded parent', () => {
+    const expanding = { ...panel, autoExpand: true };
+    const group: WhiteboardObject = { ...note('group', 10, 10), kind: 'group', geometry: geometry(10, 10, 100, 80), parentId: 'p' };
+    const child = note('child', 20, 20, { parentId: 'group' });
+    const other = note('other', 120, 10, { parentId: 'p' });
+    const edge: WhiteboardObject = { ...note('edge', 0, 0), kind: 'connector', connector: { from: 'child', to: 'other' } };
+    const doc = seed(frame('p', geometry(0, 0, 240, 120), expanding), group, child, other, edge);
+    const port = new SelectionLayoutCommandPort(doc), layout = command('row', ['other', 'group'], { gap: 100 });
+    const preconditions = createLayoutPreconditions(readObjects(doc), layout);
+    expect(new Set(preconditions.map(value => value.id))).toEqual(new Set(['group', 'other', 'child', 'edge', 'p']));
+    executeCommands(doc, [{ type: 'geometry', id: 'child', geometry: geometry(30, 20) }], 'remote');
+    expect(() => dispatch(doc, port, 'stale-implicit', layout, preconditions)).toThrow('LAYOUT_CONFLICT');
+    expect(() => port.dispatch({ boardId: 'board', clientId: 'client', gestureId: 'missing-cas', command: layout, preconditions: [] })).toThrow('LAYOUT_PRECONDITION_REQUIRED');
+    doc.destroy();
   });
 
   it('moves container descendants and reports implicit connector geometry changes in one event', () => {
@@ -215,7 +265,7 @@ describe('operation, event, CAS and undo boundary', () => {
       connector: { from: 'child', to: 'other', fromAnchor: 'right', toAnchor: 'left', type: 'straight', startStyle: 'none', endStyle: 'arrow', lineStyle: 'solid', label: '', semanticRelation: '' },
     };
     const doc = seed(group, child, other, edge), port = new SelectionLayoutCommandPort(doc);
-    const accepted = dispatch(port, 'containers', command('column', ['group', 'other'], { gap: 40 }));
+    const accepted = dispatch(doc, port, 'containers', command('column', ['group', 'other'], { gap: 40 }));
     expect(readObjects(doc).find(value => value.id === 'child')?.geometry).toMatchObject({ x: 20, y: 20 });
     expect(readObjects(doc).find(value => value.id === 'other')?.geometry).toMatchObject({ x: 0, y: 180 });
     expect(accepted.events[0].objectIds).toEqual(['group', 'other', 'child', 'edge']);

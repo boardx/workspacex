@@ -74,6 +74,8 @@ function createFabricObject(object: BoardFabricObject): TaggedFabricObject {
   projected.set({
     left: object.geometry.x,
     top: object.geometry.y,
+    originX: "left",
+    originY: "top",
     angle: object.geometry.rotation,
     data: { boardObjectId: object.id, adapterKind: object.kind, renderedRevision: object.revision },
     selectable: !object.locked && object.kind !== "placeholder",
@@ -97,6 +99,8 @@ function applyCanonicalObject(projected: TaggedFabricObject, object: BoardFabric
   projected.set({
     left: object.geometry.x,
     top: object.geometry.y,
+    originX: "left",
+    originY: "top",
     angle: object.geometry.rotation,
     scaleX: object.geometry.width / naturalWidth,
     scaleY: object.geometry.height / naturalHeight,

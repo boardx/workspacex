@@ -32,7 +32,7 @@ export interface LayoutCommandEnvelope {
   clientId: string;
   gestureId: string;
   command: WhiteboardLayoutCommand;
-  preconditions?: LayoutPrecondition[];
+  preconditions: LayoutPrecondition[];
 }
 
 export interface LayoutGeometryState { id: string; geometry: WhiteboardGeometry; }
@@ -89,13 +89,17 @@ function snapshot(doc: Y.Doc): Snapshot {
 
 /** Fabric projects canonical x/y as the rotation origin. Layout against those
  * scene bounds so rotated objects align visually without changing rotation. */
-function sceneBounds(geometry: WhiteboardGeometry): { left: number; top: number; right: number; bottom: number; width: number; height: number } {
+function sceneCorners(geometry: WhiteboardGeometry): { x: number; y: number }[] {
   const radians = geometry.rotation * Math.PI / 180;
   const cosine = Math.cos(radians), sine = Math.sin(radians);
-  const points = [[0, 0], [geometry.width, 0], [0, geometry.height], [geometry.width, geometry.height]].map(([x = 0, y = 0]) => ({
+  return [[0, 0], [geometry.width, 0], [0, geometry.height], [geometry.width, geometry.height]].map(([x = 0, y = 0]) => ({
     x: geometry.x + x * cosine - y * sine,
     y: geometry.y + x * sine + y * cosine,
   }));
+}
+
+export function canonicalSceneBounds(geometry: WhiteboardGeometry): { left: number; top: number; right: number; bottom: number; width: number; height: number } {
+  const points = sceneCorners(geometry);
   const left = Math.min(...points.map(point => point.x)), top = Math.min(...points.map(point => point.y));
   const right = Math.max(...points.map(point => point.x)), bottom = Math.max(...points.map(point => point.y));
   return { left, top, right, bottom, width: right - left, height: bottom - top };
@@ -122,7 +126,7 @@ export function resolveSelection(objects: readonly WhiteboardObject[], objectIds
 function placementMap(selection: SelectionResolution, input: WhiteboardLayoutCommand): Map<string, WhiteboardGeometry> {
   const items = selection.objects;
   const result = new Map(items.map(item => [item.id, { ...item.geometry }]));
-  const bounds = new Map(items.map(item => [item.id, sceneBounds(item.geometry)]));
+  const bounds = new Map(items.map(item => [item.id, canonicalSceneBounds(item.geometry)]));
   const left = Math.min(...items.map(item => bounds.get(item.id)!.left));
   const top = Math.min(...items.map(item => bounds.get(item.id)!.top));
   const right = Math.max(...items.map(item => bounds.get(item.id)!.right));
@@ -168,17 +172,25 @@ function placementMap(selection: SelectionResolution, input: WhiteboardLayoutCom
   const verticalGap = input.verticalGap ?? gap;
   if (input.kind === 'row') {
     let x = left;
-    for (const item of items) { set(item, x, top); x += item.geometry.width + horizontalGap; }
+    for (const item of items) {
+      const visual = bounds.get(item.id)!;
+      set(item, item.geometry.x + x - visual.left, item.geometry.y + top - visual.top);
+      x += visual.width + horizontalGap;
+    }
     return result;
   }
   if (input.kind === 'column') {
     let y = top;
-    for (const item of items) { set(item, left, y); y += item.geometry.height + verticalGap; }
+    for (const item of items) {
+      const visual = bounds.get(item.id)!;
+      set(item, item.geometry.x + left - visual.left, item.geometry.y + y - visual.top);
+      y += visual.height + verticalGap;
+    }
     return result;
   }
 
   const ordered = input.kind === 'tidy-up'
-    ? [...items].sort((a, b) => a.geometry.y - b.geometry.y || a.geometry.x - b.geometry.x || a.id.localeCompare(b.id))
+    ? [...items].sort((a, b) => bounds.get(a.id)!.top - bounds.get(b.id)!.top || bounds.get(a.id)!.left - bounds.get(b.id)!.left || a.id.localeCompare(b.id))
     : items;
   const columns = input.columns ?? Math.max(1, Math.ceil(Math.sqrt(ordered.length)));
   const columnWidths = Array.from({ length: columns }, () => 0);
@@ -186,12 +198,15 @@ function placementMap(selection: SelectionResolution, input: WhiteboardLayoutCom
   const rowHeights = Array.from({ length: rowCount }, () => 0);
   ordered.forEach((item, index) => {
     const column = index % columns, row = Math.floor(index / columns);
-    columnWidths[column] = Math.max(columnWidths[column]!, item.geometry.width);
-    rowHeights[row] = Math.max(rowHeights[row]!, item.geometry.height);
+    columnWidths[column] = Math.max(columnWidths[column]!, bounds.get(item.id)!.width);
+    rowHeights[row] = Math.max(rowHeights[row]!, bounds.get(item.id)!.height);
   });
   const xs = columnWidths.map((_, index) => left + columnWidths.slice(0, index).reduce((sum, value) => sum + value, 0) + horizontalGap * index);
   const ys = rowHeights.map((_, index) => top + rowHeights.slice(0, index).reduce((sum, value) => sum + value, 0) + verticalGap * index);
-  ordered.forEach((item, index) => set(item, xs[index % columns]!, ys[Math.floor(index / columns)]!));
+  ordered.forEach((item, index) => {
+    const visual = bounds.get(item.id)!;
+    set(item, item.geometry.x + xs[index % columns]! - visual.left, item.geometry.y + ys[Math.floor(index / columns)]! - visual.top);
+  });
   return result;
 }
 
@@ -229,9 +244,12 @@ function verifyPreconditions(current: Snapshot, expected: readonly LayoutPrecond
 }
 
 function within(child: WhiteboardGeometry, parent: WhiteboardGeometry): boolean {
-  return child.x >= parent.x && child.y >= parent.y
-    && child.x + child.width <= parent.x + parent.width
-    && child.y + child.height <= parent.y + parent.height;
+  const radians = -parent.rotation * Math.PI / 180, cosine = Math.cos(radians), sine = Math.sin(radians);
+  return sceneCorners(child).every(point => {
+    const dx = point.x - parent.x, dy = point.y - parent.y;
+    const x = dx * cosine - dy * sine, y = dx * sine + dy * cosine;
+    return x >= -1e-9 && y >= -1e-9 && x <= parent.width + 1e-9 && y <= parent.height + 1e-9;
+  });
 }
 
 function build(current: Snapshot, input: WhiteboardLayoutCommand, allowNoChange = false) {
@@ -254,22 +272,56 @@ function build(current: Snapshot, input: WhiteboardLayoutCommand, allowNoChange 
   if (selection.parentId) {
     const parent = current.byId.get(selection.parentId);
     if (!parent) throw new Error('INVALID_PARENT');
-    const projected = selection.objects.map(item => placements.get(item.id)!);
+    const projectedById = new Map(selection.objects.map(item => [item.id, placements.get(item.id)!]));
+    for (const command of commands) {
+      const object = current.byId.get(command.id);
+      if (object && object.kind !== 'connector' && command.id !== parent.id) projectedById.set(command.id, command.geometry);
+    }
+    const projected = [...projectedById.values()];
     if (projected.some(value => !within(value, parent.geometry))) {
       const metadata = parent.kind === 'frame' ? readPanelMetadata(parent) : null;
       if (!metadata?.autoExpand || metadata.clipContent || parent.locked) throw new Error('PARENT_BOUNDS_EXCEEDED');
       const padding = metadata.padding;
-      const left = Math.min(parent.geometry.x, ...projected.map(value => value.x - padding));
-      const top = Math.min(parent.geometry.y, ...projected.map(value => value.y - padding));
-      const right = Math.max(parent.geometry.x + parent.geometry.width, ...projected.map(value => value.x + value.width + padding));
-      const bottom = Math.max(parent.geometry.y + parent.geometry.height, ...projected.map(value => value.y + value.height + padding));
-      commands.push({ type: 'geometry', id: parent.id, geometry: { ...parent.geometry, x: left, y: top, width: right - left, height: bottom - top } });
+      const radians = parent.geometry.rotation * Math.PI / 180, cosine = Math.cos(radians), sine = Math.sin(radians);
+      const local = projected.flatMap(sceneCorners).map(point => {
+        const dx = point.x - parent.geometry.x, dy = point.y - parent.geometry.y;
+        return { x: dx * cosine + dy * sine, y: -dx * sine + dy * cosine };
+      });
+      const localLeft = Math.min(0, ...local.map(value => value.x - padding));
+      const localTop = Math.min(0, ...local.map(value => value.y - padding));
+      const localRight = Math.max(parent.geometry.width, ...local.map(value => value.x + padding));
+      const localBottom = Math.max(parent.geometry.height, ...local.map(value => value.y + padding));
+      commands.push({ type: 'geometry', id: parent.id, geometry: {
+        ...parent.geometry,
+        x: parent.geometry.x + localLeft * cosine - localTop * sine,
+        y: parent.geometry.y + localLeft * sine + localTop * cosine,
+        width: localRight - localLeft,
+        height: localBottom - localTop,
+      } });
     }
   }
   if (!commands.length && !allowNoChange) throw new Error('NO_LAYOUT_CHANGE');
   if (commands.length > 200) throw new Error('LAYOUT_LIMIT_EXCEEDED');
   const selectedAfter = selection.objects.map(item => ({ id: item.id, geometry: structuredClone(placements.get(item.id)!) }));
   return { commands, selection, selectedAfter };
+}
+
+function mutationIds(current: Snapshot, built: ReturnType<typeof build>): string[] {
+  const ids = new Set(built.commands.map(command => command.id));
+  for (const object of current.objects) {
+    if (object.connector && (ids.has(object.connector.from) || ids.has(object.connector.to))) ids.add(object.id);
+  }
+  return [...ids];
+}
+
+export function createLayoutPreconditions(objects: readonly WhiteboardObject[], input: WhiteboardLayoutCommand): LayoutPrecondition[] {
+  const current: Snapshot = { objects: [...objects], byId: new Map(objects.map(value => [value.id, value])) };
+  const built = build(current, input, true);
+  const ids = new Set([...built.selection.objectIds, ...mutationIds(current, built)]);
+  return current.objects.filter(value => ids.has(value.id)).map(value => ({
+    id: value.id, geometry: structuredClone(value.geometry), parentId: value.parentId,
+    locked: Boolean(value.locked), hidden: Boolean(value.hidden),
+  }));
 }
 
 export function arrangeObjects(objects: readonly WhiteboardObject[], input: WhiteboardLayoutCommand): LayoutGeometryState[] {
@@ -287,15 +339,18 @@ export class SelectionLayoutCommandPort {
   }
   dispatch(input: LayoutCommandEnvelope): LayoutCommandAccepted {
     const key = JSON.stringify([input?.boardId, input?.clientId, input?.gestureId]);
-    const payload = JSON.stringify({ command: input?.command, preconditions: input?.preconditions ?? [] });
+    const payload = JSON.stringify({ command: input?.command, preconditions: input?.preconditions });
     const prior = this.accepted.get(key);
     if (prior) {
       if (prior.payload !== payload) throw new Error('LAYOUT_COMMAND_INVALID');
       return structuredClone(prior.result);
     }
     const current = snapshot(this.doc);
-    verifyPreconditions(current, input.preconditions ?? []);
+    if (!input.preconditions?.length) throw new Error('LAYOUT_PRECONDITION_REQUIRED');
+    verifyPreconditions(current, input.preconditions);
     const built = build(current, input.command);
+    const expected = new Set(input.preconditions.map(value => value.id));
+    if (mutationIds(current, built).some(id => !expected.has(id))) throw new Error('LAYOUT_CONFLICT');
     const accepted = this.commandPort.dispatch({ boardId: input.boardId, clientId: input.clientId, gestureId: input.gestureId, commands: built.commands });
     const updated = snapshot(this.doc);
     const selected = new Set(built.selection.objectIds);
@@ -319,8 +374,9 @@ export class SelectionLayoutCommandPort {
 
 type Anchor = { value: number; anchor: 'start' | 'center' | 'end' };
 function anchors(geometry: WhiteboardGeometry, axis: 'x' | 'y'): Anchor[] {
-  const start = axis === 'x' ? geometry.x : geometry.y;
-  const size = axis === 'x' ? geometry.width : geometry.height;
+  const bounds = canonicalSceneBounds(geometry);
+  const start = axis === 'x' ? bounds.left : bounds.top;
+  const size = axis === 'x' ? bounds.width : bounds.height;
   return [{ value: start, anchor: 'start' }, { value: start + size / 2, anchor: 'center' }, { value: start + size, anchor: 'end' }];
 }
 
@@ -344,21 +400,30 @@ export function calculateSnapGuides(
       if (distance <= threshold && (!winner || distance < winner.distance
         || (distance === winner.distance && JSON.stringify(guide) < JSON.stringify(winner.guide)))) winner = { distance, signed, guide };
     }
-    const start = axis === 'x' ? moving.x : moving.y;
-    const size = axis === 'x' ? moving.width : moving.height;
+    const movingBounds = canonicalSceneBounds(moving);
+    const start = axis === 'x' ? movingBounds.left : movingBounds.top;
+    const size = axis === 'x' ? movingBounds.width : movingBounds.height;
     const before = visible.filter(value => {
-      const end = axis === 'x' ? value.geometry.x + value.geometry.width : value.geometry.y + value.geometry.height;
+      const bounds = canonicalSceneBounds(value.geometry);
+      const end = axis === 'x' ? bounds.right : bounds.bottom;
       return end <= start;
     }).sort((a, b) => {
-      const aEnd = axis === 'x' ? a.geometry.x + a.geometry.width : a.geometry.y + a.geometry.height;
-      const bEnd = axis === 'x' ? b.geometry.x + b.geometry.width : b.geometry.y + b.geometry.height;
+      const aBounds = canonicalSceneBounds(a.geometry), bBounds = canonicalSceneBounds(b.geometry);
+      const aEnd = axis === 'x' ? aBounds.right : aBounds.bottom;
+      const bEnd = axis === 'x' ? bBounds.right : bBounds.bottom;
       return bEnd - aEnd || a.id.localeCompare(b.id);
     })[0];
-    const after = visible.filter(value => (axis === 'x' ? value.geometry.x : value.geometry.y) >= start + size)
-      .sort((a, b) => (axis === 'x' ? a.geometry.x - b.geometry.x : a.geometry.y - b.geometry.y) || a.id.localeCompare(b.id))[0];
+    const after = visible.filter(value => {
+      const bounds = canonicalSceneBounds(value.geometry);
+      return (axis === 'x' ? bounds.left : bounds.top) >= start + size;
+    }).sort((a, b) => {
+      const aBounds = canonicalSceneBounds(a.geometry), bBounds = canonicalSceneBounds(b.geometry);
+      return (axis === 'x' ? aBounds.left - bBounds.left : aBounds.top - bBounds.top) || a.id.localeCompare(b.id);
+    })[0];
     if (before && after) {
-      const beforeEnd = axis === 'x' ? before.geometry.x + before.geometry.width : before.geometry.y + before.geometry.height;
-      const afterStart = axis === 'x' ? after.geometry.x : after.geometry.y;
+      const beforeBounds = canonicalSceneBounds(before.geometry), afterBounds = canonicalSceneBounds(after.geometry);
+      const beforeEnd = axis === 'x' ? beforeBounds.right : beforeBounds.bottom;
+      const afterStart = axis === 'x' ? afterBounds.left : afterBounds.top;
       const signed = (beforeEnd + afterStart - size) / 2 - start;
       if (Math.abs(signed) <= threshold && (!winner || Math.abs(signed) < winner.distance)) {
         winner = null;
@@ -369,27 +434,32 @@ export function calculateSnapGuides(
   }
   const geometry = { ...moving, x: moving.x + delta.x, y: moving.y + delta.y };
   const measurements: SnapMeasurement[] = [];
-  const left = visible.filter(value => value.geometry.x + value.geometry.width <= geometry.x)
-    .sort((a, b) => b.geometry.x + b.geometry.width - (a.geometry.x + a.geometry.width))[0];
-  const right = visible.filter(value => value.geometry.x >= geometry.x + geometry.width).sort((a, b) => a.geometry.x - b.geometry.x)[0];
+  const geometryBounds = canonicalSceneBounds(geometry);
+  const left = visible.filter(value => canonicalSceneBounds(value.geometry).right <= geometryBounds.left)
+    .sort((a, b) => canonicalSceneBounds(b.geometry).right - canonicalSceneBounds(a.geometry).right)[0];
+  const right = visible.filter(value => canonicalSceneBounds(value.geometry).left >= geometryBounds.right)
+    .sort((a, b) => canonicalSceneBounds(a.geometry).left - canonicalSceneBounds(b.geometry).left)[0];
   if (left && right) {
-    const a = geometry.x - (left.geometry.x + left.geometry.width), b = right.geometry.x - (geometry.x + geometry.width);
+    const leftBounds = canonicalSceneBounds(left.geometry), rightBounds = canonicalSceneBounds(right.geometry);
+    const a = geometryBounds.left - leftBounds.right, b = rightBounds.left - geometryBounds.right;
     if (Math.abs(a - b) <= threshold) {
       measurements.push(
-        { axis: 'x', size: a, from: left.geometry.x + left.geometry.width, to: geometry.x, relatedObjectIds: [left.id, right.id], equalSpacing: true },
-        { axis: 'x', size: b, from: geometry.x + geometry.width, to: right.geometry.x, relatedObjectIds: [left.id, right.id], equalSpacing: true },
+        { axis: 'x', size: a, from: leftBounds.right, to: geometryBounds.left, relatedObjectIds: [left.id, right.id], equalSpacing: true },
+        { axis: 'x', size: b, from: geometryBounds.right, to: rightBounds.left, relatedObjectIds: [left.id, right.id], equalSpacing: true },
       );
     }
   }
-  const above = visible.filter(value => value.geometry.y + value.geometry.height <= geometry.y)
-    .sort((a, b) => b.geometry.y + b.geometry.height - (a.geometry.y + a.geometry.height))[0];
-  const below = visible.filter(value => value.geometry.y >= geometry.y + geometry.height).sort((a, b) => a.geometry.y - b.geometry.y)[0];
+  const above = visible.filter(value => canonicalSceneBounds(value.geometry).bottom <= geometryBounds.top)
+    .sort((a, b) => canonicalSceneBounds(b.geometry).bottom - canonicalSceneBounds(a.geometry).bottom)[0];
+  const below = visible.filter(value => canonicalSceneBounds(value.geometry).top >= geometryBounds.bottom)
+    .sort((a, b) => canonicalSceneBounds(a.geometry).top - canonicalSceneBounds(b.geometry).top)[0];
   if (above && below) {
-    const a = geometry.y - (above.geometry.y + above.geometry.height), b = below.geometry.y - (geometry.y + geometry.height);
+    const aboveBounds = canonicalSceneBounds(above.geometry), belowBounds = canonicalSceneBounds(below.geometry);
+    const a = geometryBounds.top - aboveBounds.bottom, b = belowBounds.top - geometryBounds.bottom;
     if (Math.abs(a - b) <= threshold) {
       measurements.push(
-        { axis: 'y', size: a, from: above.geometry.y + above.geometry.height, to: geometry.y, relatedObjectIds: [above.id, below.id], equalSpacing: true },
-        { axis: 'y', size: b, from: geometry.y + geometry.height, to: below.geometry.y, relatedObjectIds: [above.id, below.id], equalSpacing: true },
+        { axis: 'y', size: a, from: aboveBounds.bottom, to: geometryBounds.top, relatedObjectIds: [above.id, below.id], equalSpacing: true },
+        { axis: 'y', size: b, from: geometryBounds.bottom, to: belowBounds.top, relatedObjectIds: [above.id, below.id], equalSpacing: true },
       );
     }
   }
