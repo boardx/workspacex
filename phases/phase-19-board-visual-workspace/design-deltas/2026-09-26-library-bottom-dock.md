@@ -127,6 +127,7 @@ flowchart LR
     Y["协作持久化 PR4212<br/>待合并能力，避免重复开发"]:::pending
     U --> D["更新 UI / 用例 / API 设计材料<br/>保持待人类签核"]:::design
     D --> I["正式集成<br/>浏览入口 + 全屏 + 底部工具栏"]:::backlog
+    Y --> F
     F --> I
     Y --> I
     I --> V["主 session 验收<br/>真实路由、权限、刷新、第二客户端"]:::backlog
