@@ -140,5 +140,6 @@ describe("Board canonical-to-Fabric projection adapter", () => {
     const projected = toBoardFabricObjects(content.map((item, index) => ({ ...canonical(`content-${index}`, item.objectKind), extensionData: { contentObject: item.boardContent } })));
     expect(projected.map((item) => item.kind)).toEqual(content.map((item) => item.expected));
     expect(projected.map((item) => item.boardContent?.type)).toEqual(["shape", "drawing", "image", "tile"]);
+    expect(projected[0]?.style).toMatchObject({ fill: "#FFFFFF", stroke: "#111111", borderStyle: "solid", opacity: 1, radius: 0, alignment: "center", verticalAlignment: "middle" });
   });
 });

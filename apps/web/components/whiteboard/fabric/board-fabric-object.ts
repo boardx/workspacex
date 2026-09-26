@@ -22,6 +22,10 @@ export interface BoardFabricStyle {
   textColor: string;
   stroke?: string;
   strokeWidth?: number;
+  borderStyle?: "solid" | "dashed" | "dotted";
+  opacity?: number;
+  radius?: number;
+  verticalAlignment?: "top" | "middle" | "bottom";
   fontSize?: number;
   /** Validated thinking-input typography. Optional for legacy canonical objects. */
   textPreset?: "title" | "heading" | "subheading" | "body" | "caption";

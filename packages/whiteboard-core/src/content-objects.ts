@@ -1,4 +1,4 @@
-import type * as Y from 'yjs';
+import * as Y from 'yjs';
 import { WhiteboardObject } from '@repo/contracts/whiteboard-document';
 import {
   BoardCommandPort,
@@ -63,6 +63,11 @@ function applyReplace(doc: Y.Doc, command: ReplaceContentObjectCommand): { befor
   if (before.type !== after.type) throw new Error('CONTENT_OBJECT_TYPE_IMMUTABLE');
   const extension = structuredClone(current.extensionData ?? {});
   item.set('extensionData', { ...structuredClone(extension), contentObject: after });
+  const display = after.type === 'tile' || after.type === 'web-tile' ? after.title : after.type === 'template' ? after.name : after.type === 'icon' ? after.name : null;
+  const sharedText = item.get('text');
+  if (display !== null && sharedText instanceof Y.Text && sharedText.toString() !== display) {
+    sharedText.delete(0, sharedText.length); sharedText.insert(0, display);
+  }
   return { before, after };
 }
 

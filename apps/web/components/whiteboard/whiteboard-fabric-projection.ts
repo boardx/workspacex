@@ -97,6 +97,11 @@ export function toBoardFabricObjects(objects: readonly WhiteboardObject[]): Boar
         textColor: content?.type === "shape" ? content.textColor : object.style.color ?? "#29261E",
         stroke: content?.type === "shape" ? content.borderColor : object.style.stroke,
         strokeWidth: content?.type === "shape" ? content.borderWidth : undefined,
+        borderStyle: content?.type === "shape" ? content.borderStyle : undefined,
+        opacity: content?.type === "shape" ? content.opacity : undefined,
+        radius: content?.type === "shape" ? content.radius : undefined,
+        alignment: content?.type === "shape" ? content.horizontalAlign : undefined,
+        verticalAlignment: content?.type === "shape" ? content.verticalAlign : undefined,
         fontSize: object.style.fontSize,
         ...projectedTextStyle(object),
       } : {

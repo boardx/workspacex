@@ -24,15 +24,23 @@ export const WhiteboardObject = z.object({
     try {
       const encoded = JSON.stringify(value);
       if (new TextEncoder().encode(encoded).length > WHITEBOARD_LIMITS.extensionBytes) throw new Error();
-      const visit = (item: unknown, depth: number): void => {
+      const visit = (item: unknown, depth: number, key = ''): void => {
         if (depth > 8) throw new Error();
-        if (item === null || typeof item === 'string' || typeof item === 'boolean') return;
+        if (item === null || typeof item === 'boolean') return;
+        if (typeof item === 'string') {
+          if (/^(data|blob):/i.test(item.trim())) throw new Error();
+          if (/(base64|binary|bytes|blob|payload)/i.test(key) && item.length > 256 && /^[a-z0-9+/=_-]+$/i.test(item)) throw new Error();
+          return;
+        }
         if (typeof item === 'number' && Number.isFinite(item)) return;
-        if (Array.isArray(item)) { item.forEach(v => visit(v, depth + 1)); return; }
+        if (Array.isArray(item)) {
+          if (item.length > 64 && item.every(value => Number.isInteger(value) && (value as number) >= 0 && (value as number) <= 255)) throw new Error();
+          item.forEach(v => visit(v, depth + 1, key)); return;
+        }
         if (typeof item === 'object' && Object.getPrototypeOf(item) === Object.prototype) {
           for (const [key, val] of Object.entries(item)) {
             if (['__proto__', 'constructor', 'prototype'].includes(key)) throw new Error();
-            visit(val, depth + 1);
+            visit(val, depth + 1, key);
           }
           return;
         }

@@ -82,6 +82,11 @@ describe('canonical visual content models', () => {
 });
 
 describe('content object command boundary', () => {
+  it('rejects binary or ephemeral unknown extensions before content creation reaches the command port', () => {
+    for (const extensionData of [{ preview: 'data:image/png;base64,AA==' }, { href: 'blob:https://workspace.test/a' }, { binaryPayload: 'A'.repeat(512) }]) {
+      expect(() => createContentObjectEnvelope({ ...identity, gestureId: 'unsafe-create', id: 'unsafe', geometry, content: shape(), extensionData })).toThrow();
+    }
+  });
   it('creates one caller-identified command and retains unknown outer and model extensions', () => {
     const content = { ...shape('cloud'), pluginData: { semanticRole: 'risk' } } as ShapeContent;
     const envelope = createContentObjectEnvelope({

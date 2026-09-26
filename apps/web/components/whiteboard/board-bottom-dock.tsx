@@ -40,9 +40,11 @@ const TEXT_PRESETS: Array<{ preset: TextStylePreset; label: string }> = [
 ];
 
 const SHAPES: Array<{ variant: BoardShapeVariant; label: string }> = [
-  { variant: "rectangle", label: "矩形" }, { variant: "rounded-rectangle", label: "圆角矩形" }, { variant: "circle", label: "圆形" },
+  { variant: "rectangle", label: "矩形" }, { variant: "rounded-rectangle", label: "圆角矩形" }, { variant: "circle", label: "圆形" }, { variant: "ellipse", label: "椭圆" },
   { variant: "diamond", label: "菱形" }, { variant: "triangle", label: "三角形" }, { variant: "hexagon", label: "六边形" },
   { variant: "cloud", label: "云" }, { variant: "database", label: "数据库" }, { variant: "document", label: "文档" },
+  { variant: "process", label: "流程" }, { variant: "decision", label: "决策" }, { variant: "terminator", label: "开始 / 结束" },
+  { variant: "data", label: "数据" }, { variant: "predefined-process", label: "预定义流程" },
 ];
 const DRAW_TOOLS: Array<{ tool: BoardDrawingTool | "eraser"; label: string }> = [{ tool: "pen", label: "画笔" }, { tool: "marker", label: "马克笔" }, { tool: "highlighter", label: "荧光笔" }, { tool: "eraser", label: "橡皮擦" }];
 const MORE: Array<{ contentType: BoardStructuredKind; label: string }> = [{ contentType: "tile", label: "信息卡片" }, { contentType: "web-tile", label: "网页卡片" }, { contentType: "table", label: "表格" }, { contentType: "icon", label: "图标" }, { contentType: "template", label: "模板" }];

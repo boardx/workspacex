@@ -45,7 +45,7 @@ function createFabricObject(object: BoardFabricObject): TaggedFabricObject {
     fill: object.style.textColor,
     originX: "center" as const,
     originY: "center" as const,
-    textAlign: "center" as const,
+    textAlign: object.style.alignment ?? "center" as const,
   };
   let projected: FabricObject;
   if (object.kind === "drawing" && object.boardContent?.type === "drawing") {
@@ -59,7 +59,9 @@ function createFabricObject(object: BoardFabricObject): TaggedFabricObject {
     if (object.boardContent.status === "ready" && object.boardContent.sourceUrl) {
       const image = new Image();
       image.alt = object.boardContent.fileName;
-      const bitmap = new FabricImage(image, { width: object.geometry.width, height: object.geometry.height, opacity: object.boardContent.opacity, originX: "center", originY: "center" });
+      const crop = object.boardContent.crop;
+      const naturalWidth = Math.max(1, object.boardContent.intrinsicWidth * crop.width), naturalHeight = Math.max(1, object.boardContent.intrinsicHeight * crop.height);
+      const bitmap = new FabricImage(image, { cropX: object.boardContent.intrinsicWidth * crop.x, cropY: object.boardContent.intrinsicHeight * crop.y, width: naturalWidth, height: naturalHeight, scaleX: object.geometry.width / naturalWidth, scaleY: object.geometry.height / naturalHeight, opacity: object.boardContent.opacity, originX: "center", originY: "center" });
       image.onload = () => { bitmap.setElement(image); bitmap.canvas?.requestRenderAll(); };
       image.src = object.boardContent.sourceUrl;
       projected = new Group([new Rect({ width: object.geometry.width, height: object.geometry.height, rx: object.boardContent.cornerRadius, ry: object.boardContent.cornerRadius, fill: "#F4F4F5", stroke: object.boardContent.borderColor, strokeWidth: object.boardContent.borderWidth, originX: "center", originY: "center" }), bitmap]);
@@ -80,11 +82,12 @@ function createFabricObject(object: BoardFabricObject): TaggedFabricObject {
     const variant = object.boardContent.variant;
     const w = object.geometry.width, h = object.geometry.height;
     const shape = variant === "circle" || variant === "ellipse"
-      ? new Circle({ radius: 50, scaleX: w / 100, scaleY: h / 100, fill: object.style.fill, stroke: object.style.stroke, strokeWidth: object.style.strokeWidth ?? 1, originX: "center", originY: "center" })
-      : ["diamond", "triangle", "hexagon", "cloud", "database", "document"].includes(variant)
-        ? new Path(shapePath(variant, w, h), { fill: object.style.fill, stroke: object.style.stroke, strokeWidth: object.style.strokeWidth ?? 1, originX: "center", originY: "center" })
-        : new Rect({ width: w, height: h, rx: variant === "rounded-rectangle" ? 20 : 0, ry: variant === "rounded-rectangle" ? 20 : 0, fill: object.style.fill, stroke: object.style.stroke, strokeWidth: object.style.strokeWidth ?? 1, originX: "center", originY: "center" });
-    projected = new Group([shape, new Textbox(object.content.text, textOptions)]);
+      ? new Circle({ radius: 50, scaleX: w / 100, scaleY: h / 100, fill: object.style.fill, stroke: object.style.stroke, strokeWidth: object.style.strokeWidth ?? 1, strokeDashArray: dashFor(object.style.borderStyle), opacity: object.style.opacity, originX: "center", originY: "center" })
+      : ["diamond", "decision", "triangle", "hexagon", "cloud", "database", "document", "data", "predefined-process"].includes(variant)
+        ? new Path(shapePath(variant, w, h), { fill: object.style.fill, stroke: object.style.stroke, strokeWidth: object.style.strokeWidth ?? 1, strokeDashArray: dashFor(object.style.borderStyle), opacity: object.style.opacity, originX: "center", originY: "center" })
+        : new Rect({ width: w, height: h, rx: variant === "terminator" ? h / 2 : object.style.radius ?? (variant === "rounded-rectangle" ? 20 : 0), ry: variant === "terminator" ? h / 2 : object.style.radius ?? (variant === "rounded-rectangle" ? 20 : 0), fill: object.style.fill, stroke: object.style.stroke, strokeWidth: object.style.strokeWidth ?? 1, strokeDashArray: dashFor(object.style.borderStyle), opacity: object.style.opacity, originX: "center", originY: "center" });
+    const labelTop = object.style.verticalAlignment === "top" ? -h / 2 + 24 : object.style.verticalAlignment === "bottom" ? h / 2 - 24 : 0;
+    projected = new Group([shape, new Textbox(object.content.text, { ...textOptions, top: labelTop })]);
   } else if (object.kind === "placeholder") {
     projected = new Group([
       new Rect({ width: object.geometry.width, height: object.geometry.height, rx: 8, ry: 8, fill: object.style.fill, stroke: object.style.stroke, strokeWidth: 2, strokeDashArray: [8, 6], originX: "center", originY: "center" }),
@@ -121,13 +124,17 @@ function createFabricObject(object: BoardFabricObject): TaggedFabricObject {
   return projected;
 }
 
+function dashFor(style: BoardFabricObject["style"]["borderStyle"]): number[] | undefined { return style === "dashed" ? [10, 7] : style === "dotted" ? [2, 5] : undefined; }
+
 function shapePath(variant: string, width: number, height: number): string {
   const x = width / 2, y = height / 2;
-  if (variant === "diamond") return `M 0 ${-y} L ${x} 0 L 0 ${y} L ${-x} 0 Z`;
+  if (variant === "diamond" || variant === "decision") return `M 0 ${-y} L ${x} 0 L 0 ${y} L ${-x} 0 Z`;
   if (variant === "triangle") return `M 0 ${-y} L ${x} ${y} L ${-x} ${y} Z`;
   if (variant === "hexagon") return `M ${-x * .55} ${-y} L ${x * .55} ${-y} L ${x} 0 L ${x * .55} ${y} L ${-x * .55} ${y} L ${-x} 0 Z`;
   if (variant === "cloud") return `M ${-x} ${y * .25} C ${-x} ${-y * .35} ${-x * .45} ${-y * .6} ${-x * .15} ${-y * .35} C 0 ${-y} ${x * .65} ${-y * .7} ${x * .55} ${-y * .25} C ${x} ${-y * .2} ${x} ${y * .5} ${x * .55} ${y * .55} L ${-x * .55} ${y * .55} C ${-x * .9} ${y * .55} ${-x} ${y * .25} ${-x} ${y * .25} Z`;
   if (variant === "database") return `M ${-x} ${-y * .7} C ${-x} ${-y} ${x} ${-y} ${x} ${-y * .7} L ${x} ${y * .7} C ${x} ${y} ${-x} ${y} ${-x} ${y * .7} Z`;
+  if (variant === "data") return `M ${-x * .7} ${-y} L ${x} ${-y} L ${x * .7} ${y} L ${-x} ${y} Z`;
+  if (variant === "predefined-process") return `M ${-x} ${-y} L ${x} ${-y} L ${x} ${y} L ${-x} ${y} Z M ${-x * .72} ${-y} L ${-x * .72} ${y} M ${x * .72} ${-y} L ${x * .72} ${y}`;
   return `M ${-x} ${-y} L ${x * .55} ${-y} L ${x} ${-y * .55} L ${x} ${y} L ${-x} ${y} Z`;
 }
 
