@@ -1,5 +1,6 @@
 import * as Y from 'yjs';
 import { WhiteboardObject, WhiteboardCommandBatch, WHITEBOARD_LIMITS, type WhiteboardCommand } from '@repo/contracts/whiteboard-document';
+import { validateContentExtension } from './content-object-model';
 
 export function createWhiteboardDocument(): Y.Doc {
   const doc = new Y.Doc();
@@ -34,6 +35,7 @@ export function validateDocument(doc: Y.Doc): void {
   for (const [id, value] of tombstones(doc)) if (value !== true || !objectMap(doc).has(id)) throw new Error('INVALID_TOMBSTONE');
   const all = new Map([...objectMap(doc)].map(([id, value]) => [id, decode(id, value)]));
   for (const value of all.values()) {
+    validateContentExtension(value);
     if (tombstones(doc).has(value.id)) continue;
     const visited = new Set([value.id]);
     let parent = value.parentId;
@@ -68,6 +70,11 @@ function apply(doc: Y.Doc, commands: WhiteboardCommand[]): void {
       const style = item.get('style') as Y.Map<unknown>;
       for (const [key, value] of Object.entries(command.style)) style.set(key, value);
     }
+    if (command.type === 'extension') {
+      const extensionData = structuredClone((item.get('extensionData') as Record<string, unknown> | undefined) ?? {});
+      extensionData[command.key] = structuredClone(command.value);
+      item.set('extensionData', extensionData);
+    }
     if (command.type === 'parent') { item.set('parentId', command.parentId); item.set('orderKey', command.orderKey); }
     if (command.type === 'text') {
       const text = item.get('text') as Y.Text;
@@ -87,6 +94,7 @@ export function executeCommands(doc: Y.Doc, input: unknown, origin: unknown): vo
 }
 export function copyObjects(doc: Y.Doc, ids: string[], newId: (oldId: string) => string): WhiteboardObject[] {
   const chosen = readObjects(doc).filter(object => ids.includes(object.id));
+  for (const object of chosen) validateContentExtension(object);
   const mapping = new Map(chosen.map(object => [object.id, newId(object.id)]));
   if (new Set(mapping.values()).size !== mapping.size) throw new Error('DUPLICATE_COPY_ID');
   return chosen.filter(object => !object.connector || (mapping.has(object.connector.from) && mapping.has(object.connector.to)))

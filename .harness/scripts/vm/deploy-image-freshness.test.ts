@@ -189,7 +189,8 @@ describe("#2929 DevApp native session topology", () => {
     expect(native).toContain("cap_drop:");
     expect(native).toContain("- ALL");
     expect(native).toContain("no-new-privileges:true");
-    expect(native).toContain("seccomp=../skill-sandbox/security/docker-seccomp.json");
+    // #4263：路径可由 upgrade.sh 覆盖为绝对路径，缺省值仍是相对 apps/api 的原路径。
+    expect(native).toContain("seccomp=${WSX_SANDBOX_SECCOMP_PROFILE:-../skill-sandbox/security/docker-seccomp.json}");
     expect(native).toContain("apparmor=workspacex-native-sessions");
     expect(native).toContain("SKILL_SANDBOX_SESSIONS_ONLY: \"1\"");
     expect(native).toContain("${NATIVE_SESSION_SOCKET_DIR:?set NATIVE_SESSION_SOCKET_DIR}:/run/sessions");

@@ -32,19 +32,24 @@ it('preflights redo without discarding a conflicting redo entry', () => {
   executeCommands(doc, [parent('a', null)], {});
   expect(undo.redo()).toBe(true); expect(readObjects(doc).find(o => o.id === 'b')?.parentId).toBe('a');
 });
-it('never skips a remotely superseded operation to undo a protected creation', () => {
+it('never skips a remotely superseded operation to reach an older history item', () => {
   const doc = createWhiteboardDocument(), undo = new WhiteboardUndo(doc);
   undo.execute([{ type: 'create', object: object('a') }]);
   undo.execute([{ type: 'geometry', id: 'a', geometry: { ...object('a').geometry, x: 20 } }]);
   executeCommands(doc, [{ type: 'geometry', id: 'a', geometry: { ...object('a').geometry, x: 30 } }], {});
   expect(undo.undo()).toBe('conflict'); expect(readObjects(doc)).toHaveLength(1); expect(readObjects(doc)[0].geometry.x).toBe(30);
 });
-it('repeated undo/redo preserves Yjs local redone chains and foreign text', () => {
+it('rejects undo when the same object received foreign text', () => {
   const doc = groups(), undo = new WhiteboardUndo(doc);
   undo.execute([{ type: 'text', id: 'b', index: 0, deleteCount: 0, insert: '甲' }]);
   executeCommands(doc, [{ type: 'text', id: 'b', index: 1, deleteCount: 0, insert: '乙' }], {});
-  for (let n = 0; n < 4; n++) {
-    expect(undo.undo()).toBe('undone'); expect(readObjects(doc).find(o => o.id === 'b')?.text).toBe('乙');
-    expect(undo.redo()).toBe(true); expect(readObjects(doc).find(o => o.id === 'b')?.text).toBe('甲乙');
-  }
+  expect(undo.undo()).toBe('conflict'); expect(readObjects(doc).find(o => o.id === 'b')?.text).toBe('甲乙');
+});
+it('round-trips a 100-object create batch as one history item', () => {
+  const doc = createWhiteboardDocument(), undo = new WhiteboardUndo(doc);
+  undo.execute(Array.from({ length: 100 }, (_, index) => ({ type: 'create', object: { ...object(`note-${index}`), kind: 'sticky' as const } })));
+  expect(readObjects(doc)).toHaveLength(100);
+  expect(undo.undo()).toBe('undone'); expect(readObjects(doc)).toEqual([]);
+  expect(undo.undo()).toBe('empty');
+  expect(undo.redo()).toBe(true); expect(readObjects(doc)).toHaveLength(100);
 });

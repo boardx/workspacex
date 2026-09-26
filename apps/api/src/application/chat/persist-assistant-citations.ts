@@ -9,11 +9,14 @@
  *    （`CrossOrgCitationError`），一行也不写。RLS 是第二道闸，不是唯一一道。
  * 2. **幂等**：写入走 `(org_id, message_id, idx)` 唯一索引 + ON CONFLICT DO NOTHING，
  *    重放同一条回答的写回不会产生第二行；价值时刻记录本身也是先写者胜。
- * 3. **价值时刻**：至少一条引用指向本组织的 artifact ⇒ 记 `cited_answer_own_material`
- *    （fire-and-forget，失败不冒泡）。
+ * 3. **价值时刻**（#4245）：来源 artifact 按「是否在示例项目里」分两类——判据是
+ *    `sample_projects` 持久标记（`ensureSampleProject` 写，用户不可改），**不是**标签或显示名：
+ *      · 至少一条指向本组织**自己的**材料 ⇒ 记 `cited_answer_own_material`；
+ *      · 至少一条指向示例项目材料 ⇒ 记 `cited_answer_sample`；
+ *      · 两类都有 ⇒ 两步都记。只引示例材料的回答**永远不**记 own_material（否则 E1 漏斗虚高）。
+ *    fire-and-forget，失败不冒泡。
  *
- * ⚠ 已知边界：目前没有区分「示例项目材料」与「自己上传的材料」的事实源，
- *   所以任何本组织 artifact 都算「自己的材料」。
+ * ⚠ 已知边界：用户自己传进示例项目里的文件也算示例材料（按容器判，不按上传者判）。
  */
 import type { OrgId } from "../../domain/org-id";
 import { recordFirstValue, type FirstValueRecorder } from "../first-value/first-value-recorder";
@@ -33,6 +36,8 @@ export interface NewAssistantCitation {
 export interface ChatCitationWriter {
   messageExists(orgId: OrgId, messageId: string): Promise<boolean>;
   artifactExists(orgId: OrgId, artifactId: string): Promise<boolean>;
+  /** 给定的本组织 artifact 中，位于示例项目（`sample_projects`）里的那些 id。 */
+  sampleArtifactIds(orgId: OrgId, artifactIds: readonly string[]): Promise<ReadonlySet<string>>;
   insertCitations(orgId: OrgId, messageId: string, citations: readonly NewAssistantCitation[]): Promise<number>;
 }
 
@@ -82,6 +87,10 @@ export async function persistAssistantCitations(
     if (!(await deps.citations.artifactExists(input.orgId, id))) throw new CrossOrgCitationError("source_not_in_org");
   }
   const inserted = await deps.citations.insertCitations(input.orgId, input.messageId, input.citations);
-  if (sourceIds.length > 0) recordFirstValue(deps.firstValue, input.orgId, "cited_answer_own_material");
+  if (sourceIds.length > 0) {
+    const sample = await deps.citations.sampleArtifactIds(input.orgId, sourceIds);
+    if (sourceIds.some((id) => sample.has(id))) recordFirstValue(deps.firstValue, input.orgId, "cited_answer_sample");
+    if (sourceIds.some((id) => !sample.has(id))) recordFirstValue(deps.firstValue, input.orgId, "cited_answer_own_material");
+  }
   return { inserted };
 }

@@ -114,6 +114,13 @@ export interface KgExtractionSourcePort {
   loadMessage(orgId: OrgId, messageId: string, contextTurns: number): Promise<{ readonly message: KgMessage; readonly context: readonly KgMessage[] } | null>;
   /** 本会话已有的实体（实体解析用）。 */
   knownObjects(orgId: OrgId, threadId: string): Promise<readonly KnownObject[]>;
+  /**
+   * round 7（#4284 收口）：这条消息若是**项目会话里 agent 的回答**，产出它的那个 run 在这一轮召回（`kg_turn_recalls`）里
+   * 用到了多少条**不能证明属于本会话**的记忆（本会话 = `chat_session` 作用域、`scope_id` = 该消息的 thread）。
+   * 个人空间条目在这里一律算「不能证明」（worker 不以任何用户身份读，RLS 本来就不放 personal 行）——fail closed。
+   * 不是 agent 回答 / 不在项目会话 / 这一轮没有召回记录 ⇒ 0。只回一个数，不回任何内容。
+   */
+  projectAnswerOutsideRecallCount(orgId: OrgId, messageId: string): Promise<number>;
 }
 
 export interface KnowledgeExtractorPort {
@@ -288,6 +295,49 @@ export interface PromotionPort {
 }
 
 export const PROMOTION_PORT = Symbol("PromotionPort");
+
+// ─────────────────────────────── issue #4283 本人的决定自动记进本人个人空间 ───────────────────────────────
+
+/** 数据库拒绝一次自动复制的码（迁移 20260926131000 `kg_auto_copy_decision`）。逐条记日志、跳过，不让整条抽取任务失败。 */
+export type KgAutoCopyRejectCode =
+  | "KG_NOT_AUTHOR" | "KG_NOT_OWNER" | "KG_CLAIM_NOT_FOUND" | "KG_CONTESTED_NEEDS_RESOLUTION"
+  | "KG_EVIDENCE_REVOKED" | "KG_SCOPE_NOT_ENABLED";
+
+export class KgAutoCopyRejected extends Error {
+  constructor(readonly code: KgAutoCopyRejectCode, message?: string) {
+    super(message ?? code);
+  }
+}
+
+/**
+ * 系统把「作者本人说的决定」复制到作者本人个人空间，以及本人撤销那份副本。实现只调数据库函数：
+ * 目标空间由数据库从证据消息的作者推出（调用方给不出、也改不了），见迁移头注。
+ */
+export interface KgAutoCopyPort {
+  /**
+   * 这条消息刚抽出的、可以复制的结论（模型提出、全部证据都是作者本人的话、还没复制过），以及作者本人
+   * 个人空间的活结论（去重用）。消息不是成员本人说的 ⇒ `author = null`、两边都空。
+   */
+  candidates(orgId: OrgId, threadId: string, messageId: string): Promise<{
+    readonly author: string | null;
+    readonly fresh: readonly { readonly id: string; readonly statement: string }[];
+    readonly personal: readonly { readonly id: string; readonly statement: string }[];
+  }>;
+  /** 执行一次复制；被数据库拒绝时抛 `KgAutoCopyRejected`。返回个人空间那条的 id（merge 时 = 目标）。 */
+  copy(orgId: OrgId, input: {
+    readonly actionId: string; readonly threadId: string; readonly messageId: string; readonly claimId: string;
+    readonly mode: "new" | "merge"; readonly targetClaimId?: string;
+  }): Promise<string>;
+  /**
+   * 人的动作：撤销本人个人空间里由 `claimId`（会话原结论）自动记下、仍是「AI 记下的」那一份。
+   * 找不到（别人的 / 不存在 / 已确认过 / 已撤销）⇒ `KgHumanActionError("KG_CLAIM_NOT_FOUND")`。
+   */
+  undo(orgId: OrgId, userId: string, input: { readonly actionId: string; readonly threadId: string; readonly claimId: string }): Promise<{
+    readonly personalClaimId: string; readonly outcome: "revoked" | "detached";
+  }>;
+}
+
+export const KG_AUTO_COPY_PORT = Symbol("KgAutoCopyPort");
 
 // ─────────────────────────────── F16 矛盾提醒 ───────────────────────────────
 

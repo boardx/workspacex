@@ -919,6 +919,19 @@ export class PgChatRepository implements ChatRepository, ChatCitationWriter {
     });
   }
 
+  async sampleArtifactIds(orgId: OrgId, artifactIds: readonly string[]): Promise<ReadonlySet<string>> {
+    if (artifactIds.length === 0) return new Set();
+    return this.db.withTenant(orgId, async (s) => {
+      const r = await s.query<{ id: string }>(
+        `SELECT a.id FROM artifacts a
+           JOIN sample_projects sp ON sp.project_id = a.project_id AND sp.org_id = a.org_id
+          WHERE a.org_id = $1 AND a.id = ANY($2::text[])`,
+        [orgId, [...artifactIds]],
+      );
+      return new Set(r.rows.map((row) => row.id));
+    });
+  }
+
   /* ── F112：批准闸门（chat 束 domain.md E 组）────────────────────────── */
 
   async createApprovalRequest(

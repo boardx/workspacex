@@ -1,0 +1,67 @@
+Pager usage is off.
+== org extraction gate row
+         org_id         | enabled |  updated_by  
+------------------------+---------+--------------
+ org-kg-experience-eval | t       | test-fixture
+(1 row)
+
+== threads (project_id / visibility / creator)
+                    id                    |         project_id         | visibility_scope |     created_by      |        title        
+------------------------------------------+----------------------------+------------------+---------------------+---------------------
+ thr-c73b4b78-77fc-4b4c-a8b5-8d1e679beef0 |                            | private          | user-kg-eval-owner  | 我决定关注 211 高校
+ thr-b142145b-5f94-4f75-9273-1f2e056903d6 |                            | private          | user-kg-eval-owner  | 开始写报告吧
+ thr-862c5bd6-dcf1-41a5-ba0d-7cb8c07c100b |                            | private          | user-kg-eval-owner  | 开始写报告吧
+ thr-3bf3c9e5-d647-437a-9403-0771ea75e03a |                            | private          | user-kg-eval-newbie | 我决定关注 985 高校
+ thr-196d2548-ae98-4738-95ee-1ea9dfb1cdc4 |                            | private          | user-kg-eval-newbie | 开始写报告吧
+ thr-f1645ba2-1d39-4041-8019-dbf5bd0f3d7c | project-kg-experience-eval | plenary          | user-kg-eval-newbie | 项目群聊 r07
+(6 rows)
+
+== claims (scope / kind / status / revoked)
+                   id                   |  scope_kind  |                 scope_id                 | claim_kind |   status   | created_by | revoked |      statement       
+----------------------------------------+--------------+------------------------------------------+------------+------------+------------+---------+----------------------
+ clm_0bfad5d05f574713bc75885a796c6fe4   | chat_session | thr-c73b4b78-77fc-4b4c-a8b5-8d1e679beef0 | decision   | superseded | model      | t       | 我决定关注 211 高校
+ act_4fbea1a0fbad4e35a4f69c86f58f5436-p | personal     | user-kg-eval-owner                       | decision   | superseded | model      | t       | 我决定关注 211 高校
+ clm_5dc04a9dcf1340b28674c1320fbc2163   | chat_session | thr-3bf3c9e5-d647-437a-9403-0771ea75e03a | decision   | proposed   | model      | f       | 我决定关注 985 高校
+ act_e2b7ae91cd394aefa3c7b40cfc6b6024-p | personal     | user-kg-eval-newbie                      | decision   | proposed   | model      | f       | 我决定关注 985 高校
+ clm_9589e8d468d944f7bbbd19a4c74eb95c   | chat_session | thr-196d2548-ae98-4738-95ee-1ea9dfb1cdc4 | fact       | proposed   | model      | f       | 关注名单已经定下来了
+(5 rows)
+
+== derived_from edges (personal copy -> source)
+                 src_id                 |                dst_id                |   status    | created_by 
+----------------------------------------+--------------------------------------+-------------+------------
+ act_4fbea1a0fbad4e35a4f69c86f58f5436-p | clm_0bfad5d05f574713bc75885a796c6fe4 | invalidated | model
+ act_e2b7ae91cd394aefa3c7b40cfc6b6024-p | clm_5dc04a9dcf1340b28674c1320fbc2163 | active      | model
+(2 rows)
+
+== claim -> message evidence (author_kind of the evidence message)
+                claim_id                |  scope_kind  |                 scope_id                 | author_kind |                thread_id                 |              message_id              
+----------------------------------------+--------------+------------------------------------------+-------------+------------------------------------------+--------------------------------------
+ clm_0bfad5d05f574713bc75885a796c6fe4   | chat_session | thr-c73b4b78-77fc-4b4c-a8b5-8d1e679beef0 | human       | thr-c73b4b78-77fc-4b4c-a8b5-8d1e679beef0 | b4b8e191-66f8-4fcc-a5f6-919c1578f60c
+ act_4fbea1a0fbad4e35a4f69c86f58f5436-p | personal     | user-kg-eval-owner                       | human       | thr-c73b4b78-77fc-4b4c-a8b5-8d1e679beef0 | b4b8e191-66f8-4fcc-a5f6-919c1578f60c
+ clm_5dc04a9dcf1340b28674c1320fbc2163   | chat_session | thr-3bf3c9e5-d647-437a-9403-0771ea75e03a | human       | thr-3bf3c9e5-d647-437a-9403-0771ea75e03a | e868b13a-ede1-4b85-a672-f26019399458
+ act_e2b7ae91cd394aefa3c7b40cfc6b6024-p | personal     | user-kg-eval-newbie                      | human       | thr-3bf3c9e5-d647-437a-9403-0771ea75e03a | e868b13a-ede1-4b85-a672-f26019399458
+ clm_9589e8d468d944f7bbbd19a4c74eb95c   | chat_session | thr-196d2548-ae98-4738-95ee-1ea9dfb1cdc4 | agent       | thr-196d2548-ae98-4738-95ee-1ea9dfb1cdc4 | 5d236b9d-b754-4f96-8b3e-9cf9c3844e5b
+(5 rows)
+
+== kg_turn_recalls (run -> requester -> items)
+                run_id                |                thread_id                 |  requester_user_id  |                                                                            items                                                                             
+--------------------------------------+------------------------------------------+---------------------+--------------------------------------------------------------------------------------------------------------------------------------------------------------
+ cd1b44cd-178b-4af9-8da1-4f8f950779f2 | thr-c73b4b78-77fc-4b4c-a8b5-8d1e679beef0 | user-kg-eval-owner  | [{"score": 0.016393742622950822, "claimId": "clm_0bfad5d05f574713bc75885a796c6fe4", "channels": ["fts"], "graphPath": null, "retrievalReasons": ["recall"]}]
+ bd4f27c9-9141-4959-a072-6ab0e58d4c56 | thr-b142145b-5f94-4f75-9273-1f2e056903d6 | user-kg-eval-owner  | [{"score": 0, "claimId": "act_4fbea1a0fbad4e35a4f69c86f58f5436-p", "channels": ["claim"], "graphPath": null, "retrievalReasons": ["recall"]}]
+ cc656e52-2876-40c5-80fe-5621260b75a3 | thr-196d2548-ae98-4738-95ee-1ea9dfb1cdc4 | user-kg-eval-newbie | [{"score": 0, "claimId": "act_e2b7ae91cd394aefa3c7b40cfc6b6024-p", "channels": ["claim"], "graphPath": null, "retrievalReasons": ["recall"]}]
+ fc11d913-0ba7-40c3-8a2c-a7fdb6f44338 | thr-f1645ba2-1d39-4041-8019-dbf5bd0f3d7c | user-kg-eval-newbie | [{"score": 0, "claimId": "act_e2b7ae91cd394aefa3c7b40cfc6b6024-p", "channels": ["claim"], "graphPath": null, "retrievalReasons": ["recall"]}]
+(4 rows)
+
+== agent answers: extraction queue leftovers (expect 0 rows) and whether any claim came from them
+                  id                  |                thread_id                 |         project_id         | queued | claims_from_it |                                        body                                        
+--------------------------------------+------------------------------------------+----------------------------+--------+----------------+------------------------------------------------------------------------------------
+ bfd9c43e-c390-4a40-ab63-dd31f4c91386 | thr-c73b4b78-77fc-4b4c-a8b5-8d1e679beef0 |                            |      0 |              0 | 根据之前的对话：我决定关注 211 高校（本会话 09/26 的对话）。
+ b6934b8f-88c0-4cae-af51-6be468ee9e18 | thr-b142145b-5f94-4f75-9273-1f2e056903d6 |                            |      0 |              0 | 根据之前的对话：我决定关注 211 高校（来自个人空间知识，最早见于你 09/26 的对话）。
+ 566d84f1-5525-4f45-a5a9-0c514a3c0e62 | thr-862c5bd6-dcf1-41a5-ba0d-7cb8c07c100b |                            |      0 |              0 | 好的，收到。
+ 4fee08ad-f1a9-4766-a0bf-989961363f85 | thr-3bf3c9e5-d647-437a-9403-0771ea75e03a |                            |      0 |              0 | 好的，收到。
+ 5d236b9d-b754-4f96-8b3e-9cf9c3844e5b | thr-196d2548-ae98-4738-95ee-1ea9dfb1cdc4 |                            |      0 |              1 | 根据之前的对话：我决定关注 985 高校（来自个人空间知识，最早见于你 09/26 的对话）。
+ be71c39f-869f-45d8-bba9-3146d3163e80 | thr-f1645ba2-1d39-4041-8019-dbf5bd0f3d7c | project-kg-experience-eval |      0 |              0 | 根据之前的对话：我决定关注 985 高校（来自个人空间知识，最早见于你 09/26 的对话）。
+(6 rows)
+
+== API log: extraction gate (this run's project answer)
+{"level":"info","msg":"kg extraction skipped: project-thread answer used personal memory","traceId":"kg-extraction","orgId":"org-kg-experience-eval","messageId":"be71c39f-869f-45d8-bba9-3146d3163e80","threadId":"thr-f1645ba2-1d39-4041-8019-dbf5bd0f3d7c","outsideRecallItems":1}

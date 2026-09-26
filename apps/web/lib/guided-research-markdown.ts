@@ -5,6 +5,7 @@ import type {
   GuidedResearchReport,
   GuidedResearchSource,
   GuidedResearchTask,
+  GuidedResearchRuntimeDraft,
 } from "./guided-research-api";
 
 type MarkdownNode = "brief" | "directions" | "outline" | "research" | "report";
@@ -20,6 +21,7 @@ export type GuidedResearchMarkdownDocument = {
   title: string;
   markdown: string;
   provenance: GuidedResearchMarkdownProvenance;
+  draft: GuidedResearchRuntimeDraft;
 };
 
 export type GuidedResearchMarkdownInput =
@@ -36,7 +38,7 @@ export type GuidedResearchMarkdownError = {
 };
 
 export type GuidedResearchMarkdownParseResult =
-  | { ok: true; draft: { node: "brief"; value: Pick<GuidedResearchBrief, "topic" | "goal" | "timeRange" | "region" | "focus"> } }
+  | { ok: true; draft: GuidedResearchRuntimeDraft }
   | { ok: false; markdown: string; errors: GuidedResearchMarkdownError[] };
 
 export type GuidedResearchMarkdownParseInput = {
@@ -53,7 +55,7 @@ function section(markdown: string, heading: string): string | null {
 }
 
 function sourceIds(markdown: string): string[] {
-  return [...markdown.matchAll(/\[source:([^\]]+)\]/g)].map((match) => match[1]!).sort();
+  return [...new Set([...markdown.matchAll(/\[source:([^\]]+)\]/g)].map((match) => match[1]!))].sort();
 }
 
 function citationIds(markdown: string): string[] {
@@ -72,6 +74,7 @@ export function serializeGuidedResearchMarkdown(input: GuidedResearchMarkdownInp
       title: "研究需求",
       markdown: `# 研究需求\n\n## 研究主题\n${brief.topic}\n\n## 研究目标\n${brief.goal}\n\n## 时间与地区\n时间范围：${brief.timeRange}\n研究地区：${brief.region}\n\n## 重点关注\n${brief.focus}`,
       provenance: { sourceIds: [], citationIds: [] },
+      draft: { node: "brief", value: brief },
     };
   }
 
@@ -86,6 +89,7 @@ export function serializeGuidedResearchMarkdown(input: GuidedResearchMarkdownInp
       title: "研究主题",
       markdown: `# 研究主题\n\n${directions || "暂无已生成的研究主题"}`,
       provenance: { sourceIds: [], citationIds: [] },
+      draft: { node: "directions", value: input.directions },
     };
   }
 
@@ -100,6 +104,7 @@ export function serializeGuidedResearchMarkdown(input: GuidedResearchMarkdownInp
       title: "研究计划",
       markdown: `# 研究计划\n\n${sections || "暂无已生成的研究计划"}`,
       provenance: { sourceIds: [], citationIds: [] },
+      draft: { node: "outline", value: input.outline },
     };
   }
 
@@ -110,8 +115,9 @@ export function serializeGuidedResearchMarkdown(input: GuidedResearchMarkdownInp
     return {
       node: "research",
       title: "资料研究",
-      markdown: `# 资料研究\n\n## 研究主题\n${input.brief.topic}\n\n## 研究任务\n${taskLines}\n\n## 已验证证据\n${evidenceLines}\n\n## 研究者笔记\n`,
+      markdown: `# 资料研究\n\n## 研究主题\n${input.brief.topic}\n\n## 研究任务\n${taskLines}\n\n## 已验证证据\n${evidenceLines}\n\n## 来源决策\n${input.sources.map((source) => `- [source:${source.id}] ${source.decision === "accepted" ? "采纳" : source.decision === "excluded" ? "排除" : "待定"}`).join("\n") || "- 暂无来源"}\n\n## 研究者笔记\n`,
       provenance: { sourceIds, citationIds: [] },
+      draft: { node: "research", value: input.sources.map((source) => ({ id: source.id, decision: source.decision })) },
     };
   }
 
@@ -122,6 +128,7 @@ export function serializeGuidedResearchMarkdown(input: GuidedResearchMarkdownInp
     title: input.report.title,
     markdown,
     provenance: { sourceIds: [], citationIds: citationIds(markdown) },
+    draft: { node: "report", value: input.report },
   };
 }
 
@@ -133,8 +140,33 @@ export function parseGuidedResearchMarkdown(input: GuidedResearchMarkdownParseIn
   if (document.node === "report" && !sameIds(citationIds(markdown), document.provenance.citationIds)) {
     return { ok: false, markdown, errors: [{ code: "immutable_citation", message: "报告引用必须保留已验证的来源标识。" }] };
   }
-  if (document.node !== "brief") {
-    return { ok: false, markdown, errors: [{ code: "required_heading", message: "此阶段的 Markdown 仅支持在专用编辑器中保存。" }] };
+  if (document.node === "directions" && document.draft.node === "directions") {
+    const entries = [...markdown.matchAll(/^## \d+\. (.*?)(（未纳入）)?\n([\s\S]*?)(?=^## \d+\.|\s*$)/gm)];
+    if (entries.length !== document.draft.value.length) return { ok: false, markdown, errors: [{ code: "required_heading", message: "研究主题必须保留全部编号章节。" }] };
+    return { ok: true, draft: { node: "directions", value: document.draft.value.map((item, index) => {
+      const entry = entries[index]!;
+      return { ...item, title: entry[1]!.trim(), enabled: !entry[2], description: entry[3]!.split(/\n\n### /)[0]!.trim() };
+    }) } };
+  }
+  if (document.node === "outline" && document.draft.node === "outline") {
+    const entries = [...markdown.matchAll(/^## \d+\. (.*?)(（未纳入）)?\n([\s\S]*?)(?=^## \d+\.|\s*$)/gm)];
+    if (entries.length !== document.draft.value.length) return { ok: false, markdown, errors: [{ code: "required_heading", message: "研究计划必须保留全部编号章节。" }] };
+    return { ok: true, draft: { node: "outline", value: document.draft.value.map((item, index) => {
+      const entry = entries[index]!; const body = entry[3]!;
+      const questions = body.match(/### 核心问题\n([\s\S]*?)(?=\n### |$)/)?.[1]?.split("\n").filter((line) => line.startsWith("- ")).map((line) => line.slice(2).trim()).filter(Boolean) ?? [];
+      return { ...item, title: entry[1]!.trim(), enabled: !entry[2], objective: body.match(/^目标：(.*)$/m)?.[1]?.trim() || item.objective, questions };
+    }) } };
+  }
+  if (document.node === "research" && document.draft.node === "research") {
+    const decisions = new Map([...markdown.matchAll(/^- \[source:([^\]]+)\] (采纳|排除|待定)$/gm)].map((match) => [match[1]!, match[2] === "采纳" ? "accepted" : match[2] === "排除" ? "excluded" : "pending"] as const));
+    if (decisions.size !== document.draft.value.length) return { ok: false, markdown, errors: [{ code: "required_heading", message: "来源决策必须保留每个已验证来源。" }] };
+    return { ok: true, draft: { node: "research", value: document.draft.value.map((item) => ({ ...item, decision: decisions.get(item.id) ?? item.decision })) } };
+  }
+  if (document.node === "report" && document.draft.node === "report") {
+    const title = markdown.match(/^#\s+(.+)$/m)?.[1]?.trim();
+    const summary = section(markdown, "执行摘要");
+    if (!title || !summary) return { ok: false, markdown, errors: [{ code: "required_heading", message: "报告必须保留标题与执行摘要。" }] };
+    return { ok: true, draft: { node: "report", value: { ...document.draft.value, title, summary, introduction: section(markdown, "引言") ?? document.draft.value.introduction, conclusion: section(markdown, "结论") ?? document.draft.value.conclusion, sections: document.draft.value.sections.map((item) => ({ ...item, body: section(markdown, item.sectionId) ?? item.body })) } } };
   }
 
   const values = Object.fromEntries(briefHeadings.map((heading) => [heading, section(markdown, heading)]));
