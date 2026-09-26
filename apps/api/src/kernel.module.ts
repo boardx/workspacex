@@ -1,5 +1,8 @@
-import { WHITEBOARD_COLLABORATION_STORE, WHITEBOARD_UPDATE_VALIDATOR } from './application/whiteboard/collaboration-ports';
+import { WHITEBOARD_COLLABORATION_STORE, WHITEBOARD_COMMENT_STORE, WHITEBOARD_RECOVERY_SERVICE, WHITEBOARD_UPDATE_VALIDATOR, type WhiteboardCollaborationStore, type WhiteboardUpdateValidator } from './application/whiteboard/collaboration-ports';
 import { PgWhiteboardCollaborationStore } from './infrastructure/whiteboard/pg-collaboration-store';
+import { PgWhiteboardCommentStore } from './infrastructure/whiteboard/pg-whiteboard-comment-store';
+import { PgWhiteboardRecoveryAdapter } from './infrastructure/whiteboard/pg-whiteboard-recovery';
+import { WhiteboardRecoveryService } from './application/whiteboard/recovery-service';
 import { WorkerWhiteboardUpdateValidator } from './infrastructure/whiteboard/update-validator';
 import { WhiteboardController } from './interface/controllers/whiteboard.controller';
 import { WHITEBOARD_REPOSITORY } from './application/whiteboard/ports';
@@ -2928,6 +2931,16 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
       provide: WHITEBOARD_COLLABORATION_STORE,
       useFactory: (db: DatabasePort) => new PgWhiteboardCollaborationStore(db),
       inject: [DATABASE_PORT],
+    },
+    {
+      provide: WHITEBOARD_COMMENT_STORE,
+      useFactory: (db:DatabasePort,validator:WhiteboardUpdateValidator)=>new PgWhiteboardCommentStore(db,validator),
+      inject:[DATABASE_PORT,WHITEBOARD_UPDATE_VALIDATOR],
+    },
+    {
+      provide: WHITEBOARD_RECOVERY_SERVICE,
+      useFactory:(db:DatabasePort,collaboration:WhiteboardCollaborationStore,objects:ObjectStore)=>{const adapter=new PgWhiteboardRecoveryAdapter(db,collaboration);return new WhiteboardRecoveryService(adapter,adapter,objects);},
+      inject:[DATABASE_PORT,WHITEBOARD_COLLABORATION_STORE,OBJECT_STORE],
     },
     {
       provide: WHITEBOARD_REPOSITORY,

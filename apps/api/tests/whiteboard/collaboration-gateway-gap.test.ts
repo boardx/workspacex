@@ -88,12 +88,14 @@ it('classifies resume safely and publishes bounded editing presence without pers
   let appendCalls=0;
   const store:WhiteboardCollaborationStore={head:async()=>({epoch:4,seq:8,role:'editor',archived:false}),load:async()=>({epoch:4,seq:8,role:'editor',archived:false,update:Y.encodeStateAsUpdate(doc)}),append:async()=>{appendCalls++;throw new Error('unused')},writeCommands:async()=>{throw new Error('unused')},writeCommandsInTransaction:async()=>{throw new Error('unused')}};
   const boards:WhiteboardRepository={get:async()=>({id:boardId,name:'resume',ownerId:'owner',role:'editor',archived:false,createdAt:new Date().toISOString(),updatedAt:new Date().toISOString()}),list:async()=>[],create:async()=>{throw new Error('unused')},update:async()=>null,members:async()=>null,putMember:async()=>false,removeMember:async()=>false};
-  const server=createServer();servers.push(server);attachWhiteboardGateway(server,{store,boards,principals:{resolve:async()=>principal}});await new Promise<void>(resolve=>server.listen(0,'127.0.0.1',resolve));
+  const server=createServer();servers.push(server);attachWhiteboardGateway(server,{store,boards,principals:{resolve:async()=>principal},identities:{resolve:async()=>({displayName:'Grace',avatarUrl:'https://assets.example/grace.png',principalKind:'user'})}});await new Promise<void>(resolve=>server.listen(0,'127.0.0.1',resolve));
   const ws=new WebSocket(`ws://127.0.0.1:${(server.address() as AddressInfo).port}/whiteboards/${boardId}/sync`,[WHITEBOARD_SYNC.protocol,`${WHITEBOARD_SYNC.bearerSubprotocolPrefix}token`]);
   const messages:ServerMessage[]=[];ws.on('message',(raw:RawData)=>messages.push(WhiteboardServerMessage.parse(JSON.parse(raw.toString()))));await new Promise<void>((resolve,reject)=>{ws.once('open',resolve);ws.once('error',reject)});
   ws.send(JSON.stringify({type:'hello',stateVector:Buffer.from(Y.encodeStateVector(doc)).toString('base64'),resume:{epoch:3,seq:99}}));
   await expect.poll(()=>messages.find(message=>message.type==='recovery')).toMatchObject({type:'recovery',code:'STALE_EPOCH',disposition:'reload-required',epoch:4,seq:8});
-  ws.send(JSON.stringify({type:'awareness',cursor:{x:12,y:24},selected:['note'],editingObjectId:'note'}));
-  await expect.poll(()=>messages.filter(message=>message.type==='presence').at(-1)).toMatchObject({type:'presence',peers:[{actorId:'grace',displayName:'grace',cursor:{x:12,y:24},selected:['note'],editingObjectId:'note'}]});
+  ws.send(JSON.stringify({type:'awareness',cursor:{x:12,y:24},selected:['note'],editingObjectId:'note',viewport:{centerX:10,centerY:20,zoom:2,revision:2},presenting:true,followingActorId:null}));
+  await expect.poll(()=>messages.filter(message=>message.type==='presence').at(-1)).toMatchObject({type:'presence',peers:[{actorId:'grace',displayName:'Grace',avatarUrl:'https://assets.example/grace.png',principalKind:'user',cursor:{x:12,y:24},selected:['note'],editingObjectId:'note',viewport:{revision:2},presenting:true}]});
+  ws.send(JSON.stringify({type:'awareness',cursor:{x:13,y:25},selected:['note'],viewport:{centerX:999,centerY:999,zoom:8,revision:1},presenting:false,followingActorId:'stale-target'}));
+  await expect.poll(()=>messages.filter(message=>message.type==='presence').at(-1)).toMatchObject({type:'presence',peers:[{cursor:{x:13,y:25},viewport:{centerX:10,centerY:20,zoom:2,revision:2},presenting:true,followingActorId:null}]});
   expect(appendCalls).toBe(0);ws.close();doc.destroy();
 });

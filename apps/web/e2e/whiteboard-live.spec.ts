@@ -75,8 +75,9 @@ test('independent users collaborate, persist, enforce viewer permissions and cle
     await test.step('show identity-aware presence and synchronize object comments',async()=>{
       const surface=editor.getByTestId('board-live-surface'),bounds=await surface.boundingBox();expect(bounds).not.toBeNull();
       await editor.mouse.move(bounds!.x+420,bounds!.y+320);
-      await expect(owner.getByLabel(`${required('WHITEBOARD_EDITOR_USER_ID')}的光标`)).toBeVisible({timeout:20_000});
-      await expect(owner.getByLabel(`${required('WHITEBOARD_EDITOR_USER_ID')}正在编辑另一位成员的中文修改`)).toBeVisible();
+      const editorCursor=owner.locator('[data-testid^="peer-cursor-"]');await expect(editorCursor).toBeVisible({timeout:20_000});await expect(editorCursor).toHaveAccessibleName(/的光标$/);
+      await expect(owner.locator('[data-testid^="peer-selection-"]')).toHaveAccessibleName(/正在编辑另一位成员的中文修改/);
+      await owner.getByTestId('board-present-viewport').click();const presenter=editor.getByTitle(/正在演示/);await expect(presenter).toBeVisible({timeout:20_000});await presenter.click();await owner.getByTestId('board-zoom-in').click();await expect(editor.getByTestId('board-zoom-value')).toHaveText('110%',{timeout:20_000});
       await editor.getByRole('button',{name:'评论'}).click();
       await editor.getByLabel('评论内容').fill('请一起核对这个结论');
       await editor.getByLabel('提及成员').fill(required('WHITEBOARD_OWNER_USER_ID'));
@@ -93,6 +94,7 @@ test('independent users collaborate, persist, enforce viewer permissions and cle
       await expect(viewerNote).toBeVisible({timeout:20_000});
       await expect(viewer.getByTestId('board-add-sticky')).toBeDisabled();
       await viewerNote.focus();await viewerNote.press('Enter');await expect(viewer.getByLabel('对象文字',{exact:true})).toBeDisabled();
+      await viewer.getByRole('button',{name:'评论'}).click();await viewer.getByLabel('评论内容').fill('viewer cannot publish');await expect(viewer.getByRole('button',{name:'发布评论'})).toBeDisabled();
     });
     await test.step('clear the editor view after access is revoked',async()=>{
       await request(api,ownerToken!,'DELETE',`/whiteboards/${boardId}/members/${encodeURIComponent(required('WHITEBOARD_EDITOR_USER_ID'))}`);

@@ -70,34 +70,6 @@ describe('whiteboard content kernel', () => {
     executeCommands(b, [{ type: 'text', id: 'note', index: 2, deleteCount: 0, insert: '同事' }], {});
     sync(a, b); expect(undo.undo()).toBe('creation-requires-explicit-delete'); expect(readObjects(a)[0].text).toContain('同事');
   });
-  it('validates object-bound comment threads and archives them with their deleted object', () => {
-    const doc = createWhiteboardDocument(); create(doc);
-    const threadId = '11111111-1111-4111-8111-111111111111';
-    const commentId = '22222222-2222-4222-8222-222222222222';
-    const boardId = '33333333-3333-4333-8333-333333333333';
-    const thread = {
-      id: threadId, boardId, objectId: 'note', status: 'open', revision: 1,
-      resolvedBy: null, resolvedAt: null, archivedAt: null,
-      comments: [{ id: commentId, threadId, boardId, objectId: 'note', parentCommentId: null,
-        authorId: 'owner', body: 'Follow this object', mentions: [], createdAt: '2026-09-26T00:00:00.000Z', deletedAt: null }],
-    };
-    doc.getMap('commentThreads').set(threadId, thread);
-    expect(() => validateDocument(doc)).not.toThrow();
-
-    const dangling = cloneDocument(doc);
-    dangling.getMap('commentThreads').set(threadId, { ...thread, objectId: 'missing' });
-    expect(() => validateDocument(dangling)).toThrow('INVALID_COMMENT_THREAD');
-    const mismatched = cloneDocument(doc);
-    mismatched.getMap('commentThreads').set(threadId, { ...thread, comments: [{ ...thread.comments[0], objectId: 'different' }] });
-    expect(() => validateDocument(mismatched)).toThrow('INVALID_COMMENT_THREAD');
-
-    executeCommands(doc, [{ type: 'delete', id: 'note' }], {});
-    const archived = doc.getMap<Record<string, unknown>>('commentThreads').get(threadId)!;
-    expect(archived.status).toBe('object-deleted');
-    expect(archived.archivedAt).toEqual(expect.any(String));
-    expect(archived.revision).toBe(2);
-    expect(() => validateDocument(doc)).not.toThrow();
-  });
   it('undoes local text without undoing remote text or deletion tombstones', () => {
     const a = createWhiteboardDocument(); create(a); const b = cloneDocument(a), undo = new WhiteboardUndo(a);
     undo.execute([{ type: 'text', id: 'note', index: 2, deleteCount: 0, insert: '甲' }]);

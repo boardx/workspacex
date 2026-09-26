@@ -2,6 +2,7 @@ import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import * as Y from 'yjs';
 import { createWhiteboardDocument, executeCommands, readObjects } from '@repo/whiteboard-core';
 import { WhiteboardProvider, bytesToBase64, type WhiteboardConnectionState } from '@/lib/whiteboard-provider';
+import type { WhiteboardDurableOutbox } from '@/lib/whiteboard-outbox';
 const auth = vi.hoisted(() => ({ token: 'test-session' as string | null }));
 vi.mock('@/lib/api-client', () => ({ getStoredSessionToken: () => auth.token, apiWebSocketUrl: (path: string) => `ws://localhost${path}` }));
 class Socket {
@@ -11,6 +12,15 @@ class Socket {
   constructor(readonly url: string, readonly protocols: string[]) { Socket.sockets.push(this); }
   send(data: string) { this.sent.push(data); } close() { this.readyState = 3; }
   message(value: unknown) { this.onmessage?.({ data: JSON.stringify(value) }); }
+}
+class DurableMemoryOutbox implements WhiteboardDurableOutbox {
+  updates=new Map<string,any[]>();revoked=new Set<string>();closed=false;
+  async restore(token:string){return{revoked:this.revoked.has(token),updates:structuredClone(this.updates.get(token)??[])};}
+  async persist(token:string,update:any){const list=this.updates.get(token)??[];if(!list.some(item=>item.updateId===update.updateId))list.push(structuredClone(update));this.updates.set(token,list);}
+  async acknowledge(token:string,id:string){this.updates.set(token,(this.updates.get(token)??[]).filter(item=>item.updateId!==id));}
+  async rebind(from:string,to:string){this.updates.set(to,this.updates.get(from)??[]);this.updates.delete(from);}
+  async revoke(token:string){this.revoked.add(token);this.updates.delete(token);}
+  close(){this.closed=true;}
 }
 beforeEach(() => { vi.useFakeTimers(); Socket.sockets = []; auth.token = 'test-session'; vi.stubGlobal('WebSocket', Socket); });
 afterEach(() => { vi.unstubAllGlobals(); vi.useRealTimers(); });
@@ -30,10 +40,9 @@ it('handshakes before writes, only ACK clears pending, and reconnect replays sam
 });
 it('permission rejection stops retry and clears visible document', () => {
   const doc = createWhiteboardDocument(); let state: WhiteboardConnectionState | undefined;
-  doc.getMap('commentThreads').set('private-thread', { body: 'must disappear' });
   const provider = new WhiteboardProvider(doc, 'board-1', value => { state = value; });
   Socket.sockets[0]!.message({ type: 'error', code: 'ACCESS_DENIED' });
-  expect(state?.phase).toBe('blocked'); expect(doc.getMap('objects').size).toBe(0); expect(doc.getMap('commentThreads').size).toBe(0);
+  expect(state?.phase).toBe('blocked'); expect(doc.getMap('objects').size).toBe(0);
   vi.advanceTimersByTime(60000); expect(Socket.sockets).toHaveLength(1); provider.close(); doc.destroy();
 });
 it('throttles awareness and sends the latest world cursor without client identity', () => {
@@ -42,7 +51,7 @@ it('throttles awareness and sends the latest world cursor without client identit
   socket.message({type:'sync',epoch:1,seq:0,update:bytesToBase64(Y.encodeStateAsUpdate(server)),role:'editor',archived:false});
   provider.awareness({x:10,y:20},['a']); provider.awareness({x:30,y:40},['b']);
   expect(socket.sent).toHaveLength(0);vi.advanceTimersByTime(50);
-  expect(JSON.parse(socket.sent[0]!)).toEqual({type:'awareness',cursor:{x:30,y:40},selected:['b'],editingObjectId:null});
+  expect(JSON.parse(socket.sent[0]!)).toEqual({type:'awareness',cursor:{x:30,y:40},selected:['b'],editingObjectId:null,viewport:null,presenting:false,followingActorId:null});
   provider.close();doc.destroy();server.destroy();
 });
 
@@ -112,4 +121,20 @@ it('does not let an ACK skip document sequences that still need to arrive', () =
   socket.message({type:'update',epoch:1,seq:3,update:bytesToBase64(Y.encodeStateAsUpdate(server,Y.encodeStateVector(doc)))});
   expect(readObjects(doc).map(object=>object.id).sort()).toEqual(['external-seq-2','local-seq-3','seq-1']);
   provider.close();doc.destroy();server.destroy();
+});
+it('restores encrypted-durable outbox semantics across provider recreation and replays the same id until ACK',async()=>{
+  const outbox=new DurableMemoryOutbox(),server=createWhiteboardDocument(),firstDoc=createWhiteboardDocument();
+  const firstProvider=new WhiteboardProvider(firstDoc,'board-1',()=>{},outbox);await vi.advanceTimersByTimeAsync(0);const first=Socket.sockets[0]!;
+  first.message({type:'sync',epoch:1,seq:0,update:bytesToBase64(Y.encodeStateAsUpdate(server)),role:'editor',archived:false});
+  executeCommands(firstDoc,[{type:'create',object:{id:'durable',kind:'sticky',schemaVersion:1,geometry:{x:0,y:0,width:1,height:1,rotation:0},text:'kept',style:{},parentId:null,orderKey:''}}],'local');await vi.advanceTimersByTimeAsync(0);
+  const update=JSON.parse(first.sent[0]!);expect(outbox.updates.get('test-session')).toHaveLength(1);firstProvider.close();firstDoc.destroy();
+  const restoredDoc=createWhiteboardDocument(),secondProvider=new WhiteboardProvider(restoredDoc,'board-1',()=>{},outbox);await vi.advanceTimersByTimeAsync(0);const second=Socket.sockets[1]!;
+  expect(readObjects(restoredDoc).map(item=>item.id)).toEqual(['durable']);second.message({type:'sync',epoch:1,seq:0,update:bytesToBase64(Y.encodeStateAsUpdate(server)),role:'editor',archived:false});expect(JSON.parse(second.sent[0]!).updateId).toBe(update.updateId);
+  second.message({type:'ack',updateId:update.updateId,seq:1});await vi.advanceTimersByTimeAsync(0);expect(outbox.updates.get('test-session')).toEqual([]);secondProvider.close();restoredDoc.destroy();server.destroy();
+});
+it('persists an authentication tombstone and refuses stale document restore after revocation',async()=>{
+  const outbox=new DurableMemoryOutbox(),doc=createWhiteboardDocument();let state!:WhiteboardConnectionState;
+  const provider=new WhiteboardProvider(doc,'board-1',value=>{state=value;},outbox);await vi.advanceTimersByTimeAsync(0);Socket.sockets[0]!.message({type:'error',code:'ACCESS_REVOKED',recoverable:false});await vi.advanceTimersByTimeAsync(0);
+  expect(outbox.revoked.has('test-session')).toBe(true);expect(state).toMatchObject({phase:'blocked',reason:'ACCESS_REVOKED'});provider.close();doc.destroy();
+  const stale=createWhiteboardDocument();let restored!:WhiteboardConnectionState;new WhiteboardProvider(stale,'board-1',value=>{restored=value;},outbox);await vi.advanceTimersByTimeAsync(0);expect(restored).toMatchObject({phase:'blocked',reason:'ACCESS_REVOKED'});expect(Socket.sockets).toHaveLength(1);stale.destroy();
 });

@@ -7,6 +7,7 @@ export default defineConfig({ test: {
     'tests/whiteboard/collaboration-gateway-gap.test.ts',
     'tests/whiteboard/collaboration-transaction.test.ts',
     'tests/whiteboard/recovery-service.test.ts',
+    'tests/whiteboard/trusted-comment-store.test.ts',
   ],
   maxWorkers: 1, minWorkers: 1, testTimeout: 10_000,
 } });

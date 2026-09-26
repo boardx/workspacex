@@ -91,7 +91,7 @@ it('reports world coordinates after zoom and renders server peer cursors/selecti
   const doc = createWhiteboardDocument();
   executeCommands(doc, [{ type: 'create', object: { id: 'peer-note', schemaVersion: 1, kind: 'sticky', geometry: {x:10,y:20,width:180,height:140,rotation:0}, text:'远端便签',style:{},parentId:null,orderKey:''} }], 'remote');
   const positions: Array<{x:number;y:number}|null> = [];
-  render(<CollaborativeEditor boardId="board-test" clientId="client-test" doc={doc} readOnly={false} title="白板" status="已连接" currentUserId="me" peers={[{actorId:'other',displayName:'Other',contributorColor:'#3366FF',cursor:{x:30,y:40},selected:['peer-note'],editingObjectId:null,expiresAt:'2099-01-01T00:00:00.000Z'},{actorId:'me',displayName:'Me',contributorColor:'#FF6633',cursor:{x:2,y:3},selected:[],editingObjectId:null,expiresAt:'2099-01-01T00:00:00.000Z'}]} onAwareness={cursor=>positions.push(cursor)}/>);
+  render(<CollaborativeEditor boardId="board-test" clientId="client-test" doc={doc} readOnly={false} title="白板" status="已连接" currentUserId="me" peers={[{actorId:'other',displayName:'Other',principalKind:'user',avatarUrl:null,viewport:{centerX:30,centerY:40,zoom:1,revision:1},presenting:false,followingActorId:null,contributorColor:'#3366FF',cursor:{x:30,y:40},selected:['peer-note'],editingObjectId:null,expiresAt:'2099-01-01T00:00:00.000Z'},{actorId:'me',displayName:'Me',principalKind:'user',avatarUrl:null,viewport:null,presenting:false,followingActorId:null,contributorColor:'#FF6633',cursor:{x:2,y:3},selected:[],editingObjectId:null,expiresAt:'2099-01-01T00:00:00.000Z'}]} onAwareness={cursor=>positions.push(cursor)}/>);
   expect(screen.getByTestId('peer-cursor-other')).toHaveStyle({left:'30px',top:'40px'});
   expect(screen.getByTestId('peer-selection-other-peer-note')).toHaveStyle({left:'10px',top:'20px'});
   expect(screen.queryByTestId('peer-cursor-me')).not.toBeInTheDocument();
@@ -102,7 +102,7 @@ it('reports world coordinates after zoom and renders server peer cursors/selecti
 });
 
 it.each([
-  ['undone', '已撤销本地修改'],
+  ['undone', '撤销已在本地应用，正在等待服务器确认'],
   ['conflict', '未撤销：当前画板与这次修改存在冲突，请核对后再操作。'],
   ['empty', '没有可撤销的本地修改。'],
   ['creation-requires-explicit-delete', '创建对象请使用删除；为保护其他人的修改，不撤销对象创建。'],
@@ -112,7 +112,7 @@ it.each([
   render(<CollaborativeEditor boardId="board-test" clientId="client-test" doc={doc} readOnly={false} title="白板" status="已连接" />);
   fireEvent.click(screen.getByText('撤销', { exact: true }));
   expect(screen.getByText(message, { exact: true })).toBeVisible();
-  if (result !== 'undone') expect(screen.queryByText('已撤销本地修改', { exact: true })).toBeNull();
+  if (result !== 'undone') expect(screen.queryByText('撤销已在本地应用，正在等待服务器确认', { exact: true })).toBeNull();
   doc.destroy();
 });
 it.each([true, false])('announces redo success only when core returns %s', result => {
@@ -120,7 +120,17 @@ it.each([true, false])('announces redo success only when core returns %s', resul
   const doc = createWhiteboardDocument();
   render(<CollaborativeEditor boardId="board-test" clientId="client-test" doc={doc} readOnly={false} title="白板" status="已连接" />);
   fireEvent.click(screen.getByText('重做', { exact: true }));
-  expect(screen.getByText(result ? '已重做本地修改' : '未重做：没有可重做的本地修改，或当前画板存在冲突。', { exact: true })).toBeVisible();
-  if (!result) expect(screen.queryByText('已重做本地修改', { exact: true })).toBeNull();
+  expect(screen.getByText(result ? '重做已在本地应用，正在等待服务器确认' : '未重做：没有可重做的本地修改，或当前画板存在冲突。', { exact: true })).toBeVisible();
+  if (!result) expect(screen.queryByText('重做已在本地应用，正在等待服务器确认', { exact: true })).toBeNull();
   doc.destroy();
+});
+it('announces undo durability only after a newer authoritative ACK sequence',()=>{
+  vi.spyOn(WhiteboardUndo.prototype,'undo').mockReturnValue('undone');
+  const doc=createWhiteboardDocument(),view=render(<CollaborativeEditor boardId="board-test" clientId="client-test" doc={doc} readOnly={false} title="白板" status="已同步 · 序列 4" lastAckSequence={4}/>);
+  fireEvent.click(screen.getByText('撤销',{exact:true}));
+  expect(screen.getByText('撤销已在本地应用，正在等待服务器确认',{exact:true})).toBeVisible();
+  view.rerender(<CollaborativeEditor boardId="board-test" clientId="client-test" doc={doc} readOnly={false} title="白板" status="已同步 · 序列 4" lastAckSequence={4}/>);
+  expect(screen.queryByText(/撤销已由服务器确认/)).toBeNull();
+  view.rerender(<CollaborativeEditor boardId="board-test" clientId="client-test" doc={doc} readOnly={false} title="白板" status="已同步 · 序列 5" lastAckSequence={5}/>);
+  expect(screen.getByText('撤销已由服务器确认 · 序列 5',{exact:true})).toBeVisible();doc.destroy();
 });

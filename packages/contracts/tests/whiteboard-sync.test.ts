@@ -22,6 +22,8 @@ it('keeps resume, awareness and recovery envelopes closed and bounded', () => {
   expect(WhiteboardClientMessage.safeParse(hello).success).toBe(true);
   expect(WhiteboardClientMessage.safeParse({...hello,resume:{epoch:0,seq:9}}).success).toBe(false);
   expect(WhiteboardClientMessage.safeParse({type:'awareness',cursor:{x:1,y:2},selected:['note'],editingObjectId:'note'}).success).toBe(true);
+  expect(WhiteboardClientMessage.safeParse({type:'awareness',cursor:null,selected:[],viewport:{centerX:1,centerY:2,zoom:1,revision:4},presenting:true,followingActorId:null}).success).toBe(true);
+  expect(WhiteboardClientMessage.safeParse({type:'awareness',cursor:null,selected:[],viewport:{centerX:1,centerY:2,zoom:9,revision:4}}).success).toBe(false);
   expect(WhiteboardClientMessage.safeParse({type:'awareness',cursor:null,selected:Array.from({length:201},(_,i)=>`n-${i}`)}).success).toBe(false);
   expect(WhiteboardServerMessage.safeParse({type:'recovery',code:'STALE_EPOCH',disposition:'reload-required',epoch:4,seq:0}).success).toBe(true);
   expect(WhiteboardServerMessage.safeParse({type:'recovery',code:'UNKNOWN',disposition:'reload-required'}).success).toBe(false);

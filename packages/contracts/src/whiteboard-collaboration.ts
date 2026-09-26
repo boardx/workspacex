@@ -58,3 +58,9 @@ export type WhiteboardCheckpointManifest = z.infer<typeof WhiteboardCheckpointMa
 export const WhiteboardResumeDisposition = z.enum(['resumed', 'reload-required', 'access-revoked', 'board-archived', 'retry-later']);
 export const WhiteboardRecoveryCode = z.enum(['RESUME_OK', 'STALE_EPOCH', 'HISTORY_UNAVAILABLE', 'ACCESS_REVOKED', 'BOARD_ARCHIVED', 'DEPENDENCY_UNAVAILABLE', 'PROTOCOL_LIMIT']);
 export const WhiteboardOperationActor = z.object({ actorId: ActorId, role: BoardRole }).strict();
+export const whiteboardCollaborationOperations = {
+  listComments: { method: 'GET', path: '/whiteboards/:boardId/comments', in: z.object({ boardId: BoardId }).strict(), out: z.object({ items: z.array(WhiteboardCommentThread) }).strict() },
+  dispatchComment: { method: 'POST', path: '/whiteboards/:boardId/comments/commands', in: WhiteboardCommentCommand, out: z.object({ operationId: z.string().uuid(), replayed: z.boolean(), threads: z.array(WhiteboardCommentThread), events: z.array(WhiteboardCollaborationEvent) }).strict() },
+  createCheckpoint: { method: 'POST', path: '/whiteboards/:boardId/checkpoints', in: z.object({ requestId: z.string().uuid() }).strict(), out: z.object({ manifest: WhiteboardCheckpointManifest, event: WhiteboardCollaborationEvent, replayed: z.boolean() }).strict() },
+  restoreCheckpoint: { method: 'POST', path: '/whiteboards/:boardId/checkpoints/:checkpointId/restore', in: z.object({ requestId: z.string().uuid(), expectedEpoch: z.number().int().positive(), expectedSeq: z.number().int().nonnegative() }).strict(), out: z.object({ epoch: z.number().int().positive(), seq: z.literal(0), replayed: z.boolean(), event: WhiteboardCollaborationEvent }).strict() },
+} as const;

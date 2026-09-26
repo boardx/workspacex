@@ -30,7 +30,9 @@ const canonical = (value: unknown): string => JSON.stringify(canonicalValue(valu
 export class WhiteboardCommentService {
   private readonly threads = new Map<string, WhiteboardCommentThread>();
   private readonly requests = new Map<string, Replay>();
-  constructor(private readonly boardId: string, private readonly dependencies: CollaborationDependencies) {}
+  constructor(private readonly boardId: string, private readonly dependencies: CollaborationDependencies, initialThreads: readonly WhiteboardCommentThread[] = []) {
+    for (const value of initialThreads) { const thread=WhiteboardCommentThread.parse(value); if(thread.boardId!==boardId||this.threads.has(thread.id))throw new Error('COMMENT_CONFLICT');this.threads.set(thread.id,clone(thread)); }
+  }
 
   list(actor: CollaborationActor, includeObjectDeleted = false): WhiteboardCommentThread[] {
     this.actor(actor);

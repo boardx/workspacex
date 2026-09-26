@@ -1,6 +1,9 @@
-import { Body, Controller, Delete, Get, Inject, NotFoundException, Param, ParseUUIDPipe, Patch, Post, Put } from '@nestjs/common';
+import { BadRequestException, Body, ConflictException, Controller, Delete, ForbiddenException, Get, Inject, NotFoundException, Param, ParseUUIDPipe, Patch, Post, Put, ServiceUnavailableException } from '@nestjs/common';
 import { whiteboard as C } from '@repo/contracts';
+import { WhiteboardCommentCommand, whiteboardCollaborationOperations as Collaboration } from '@repo/contracts/whiteboard-collaboration';
 import { WHITEBOARD_REPOSITORY, type WhiteboardRepository, type CreateBoard, type UpdateBoard, type Member } from '../../application/whiteboard/ports';
+import { WHITEBOARD_COMMENT_STORE, WHITEBOARD_RECOVERY_SERVICE, WhiteboardCollaborationError, type WhiteboardCommentStore } from '../../application/whiteboard/collaboration-ports';
+import { WhiteboardRecoveryError, WhiteboardRecoveryService } from '../../application/whiteboard/recovery-service';
 import { assertPrincipal, type Principal } from '../../domain/principal';
 import { CurrentPrincipal } from '../current-principal.decorator';
 import { ZodBodyPipe } from '../pipes/zod-body.pipe';
@@ -8,7 +11,10 @@ import { ZodBodyPipe } from '../pipes/zod-body.pipe';
 /** PrincipalGuard applies globally. Inaccessible boards have the same response as missing boards. */
 @Controller('whiteboards')
 export class WhiteboardController {
-  constructor(@Inject(WHITEBOARD_REPOSITORY) private readonly repo: WhiteboardRepository) {}
+  constructor(@Inject(WHITEBOARD_REPOSITORY) private readonly repo: WhiteboardRepository,
+    @Inject(WHITEBOARD_COMMENT_STORE) private readonly comments: WhiteboardCommentStore,
+    @Inject(WHITEBOARD_RECOVERY_SERVICE) private readonly recovery: WhiteboardRecoveryService) {}
+  private collaborationError(error:unknown):never { if(error instanceof WhiteboardCollaborationError||error instanceof WhiteboardRecoveryError){if(error.code==='NOT_FOUND')throw new NotFoundException();if(error.code==='FORBIDDEN'||error.code==='ARCHIVED')throw new ForbiddenException();if(error.code==='IDEMPOTENCY_CONFLICT'||error.code==='COMMENT_CONFLICT'||error.code==='STALE_HEAD'||error.code==='STALE_EPOCH')throw new ConflictException(error.code);if(error.code==='INVALID_MENTION'||error.code==='VALIDATION_FAILED')throw new BadRequestException(error.code);}throw new ServiceUnavailableException(); }
   @Get()
   async list(@CurrentPrincipal() p: Principal) { assertPrincipal(p); return { items: await this.repo.list(p) }; }
   @Post()
@@ -37,4 +43,12 @@ export class WhiteboardController {
   async removeMember(@CurrentPrincipal() p: Principal, @Param('boardId', new ParseUUIDPipe()) id: string, @Param('userId') userId: string) {
     assertPrincipal(p); if (!await this.repo.removeMember(p,id,userId)) throw new NotFoundException(); return {ok:true};
   }
+  @Get(':boardId/comments')
+  async listComments(@CurrentPrincipal() p:Principal,@Param('boardId',new ParseUUIDPipe()) id:string){assertPrincipal(p);try{return{items:await this.comments.list(p,id)};}catch(error){this.collaborationError(error);}}
+  @Post(':boardId/comments/commands')
+  async dispatchComment(@CurrentPrincipal() p:Principal,@Param('boardId',new ParseUUIDPipe()) id:string,@Body(new ZodBodyPipe(WhiteboardCommentCommand)) command:unknown){assertPrincipal(p);try{return await this.comments.dispatch(p,id,WhiteboardCommentCommand.parse(command));}catch(error){this.collaborationError(error);}}
+  @Post(':boardId/checkpoints')
+  async createCheckpoint(@CurrentPrincipal() p:Principal,@Param('boardId',new ParseUUIDPipe()) id:string,@Body(new ZodBodyPipe(Collaboration.createCheckpoint.in)) body:{requestId:string}){assertPrincipal(p);try{return await this.recovery.createCheckpoint(p,id,body.requestId);}catch(error){this.collaborationError(error);}}
+  @Post(':boardId/checkpoints/:checkpointId/restore')
+  async restoreCheckpoint(@CurrentPrincipal() p:Principal,@Param('boardId',new ParseUUIDPipe()) id:string,@Param('checkpointId',new ParseUUIDPipe()) checkpointId:string,@Body(new ZodBodyPipe(Collaboration.restoreCheckpoint.in)) body:{requestId:string;expectedEpoch:number;expectedSeq:number}){assertPrincipal(p);try{return await this.recovery.restore(p,id,checkpointId,body.requestId,{epoch:body.expectedEpoch,seq:body.expectedSeq});}catch(error){this.collaborationError(error);}}
 }

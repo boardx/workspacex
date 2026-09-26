@@ -1,4 +1,4 @@
-import { createHash } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
 import { whiteboard as C } from '@repo/contracts';
 import { WhiteboardCommandBatch } from '@repo/contracts/whiteboard-document';
 import type { Principal } from '../../domain/principal';
@@ -104,6 +104,13 @@ export class PgWhiteboardCollaborationStore implements WhiteboardCollaborationSt
     if (!Number.isSafeInteger(seq) || accepted.snapshot.byteLength > WHITEBOARD_UPDATE_LIMITS.documentBytes || accepted.update.byteLength > WHITEBOARD_SYNC.persistedUpdateBytes) throw new Fault('VALIDATION_FAILED');
     await session.query(`INSERT INTO whiteboard_updates(org_id,board_id,epoch,seq,actor_id,update_id,request_hash,update) VALUES($1,$2,$3,$4,$5,$6,$7,$8)`, [p.orgId, boardId, epoch, seq, p.userId, updateId, hash, Buffer.from(accepted.update)]);
     await session.query(`UPDATE whiteboard_documents SET seq=$3,snapshot=$4,updated_at=now() WHERE org_id=$1 AND board_id=$2`, [p.orgId, boardId, seq, Buffer.from(accepted.snapshot)]);
+    const liveObjectIds=await this.validator.objectIds(accepted.snapshot);
+    const orphaned=await session.query<{id:string;object_id:string}>(`SELECT id,object_id FROM whiteboard_comment_threads WHERE org_id=$1 AND board_id=$2 AND status<>'object-deleted' AND NOT(object_id=ANY($3::text[])) FOR UPDATE`,[p.orgId,boardId,liveObjectIds]);
+    if(orphaned.rows.length){
+      const archivedAt=new Date().toISOString();
+      await session.query(`UPDATE whiteboard_comment_threads SET status='object-deleted',revision=revision+1,payload=jsonb_set(jsonb_set(jsonb_set(payload,'{status}','"object-deleted"'::jsonb),'{revision}',to_jsonb(revision+1)),'{archivedAt}',to_jsonb($4::text)),updated_at=now() WHERE org_id=$1 AND board_id=$2 AND id=ANY($3::uuid[])`,[p.orgId,boardId,orphaned.rows.map(row=>row.id),archivedAt]);
+      for(const objectId of new Set(orphaned.rows.map(row=>row.object_id))){const event={type:'ObjectCommentsArchived',eventId:randomUUID(),operationId:updateId,boardId,objectId,threadIds:orphaned.rows.filter(row=>row.object_id===objectId).map(row=>row.id),actorId:p.userId,occurredAt:archivedAt};await session.query(`INSERT INTO whiteboard_collaboration_events(org_id,board_id,event_id,actor_id,event_type,payload) VALUES($1,$2,$3,$4,$5,$6::jsonb)`,[p.orgId,boardId,event.eventId,p.userId,event.type,JSON.stringify(event)]);}
+    }
     await session.query(`UPDATE whiteboards SET updated_at=now() WHERE org_id=$1 AND id=$2`, [p.orgId, boardId]);
     return { durability: 'pending', epoch, seq, updateId, replayed: false, update: accepted.update };
   }

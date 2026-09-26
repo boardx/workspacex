@@ -17,6 +17,7 @@ beforeEach(() => { harness.state = null; harness.retry.mockClear(); harness.clos
 it("makes pending, retry and duplicate ACK recovery state visible and actionable", async () => {
   render(<LiveBoard boardId="00000000-0000-4000-8000-000000000007" />);
   await waitFor(() => expect(harness.state).not.toBeNull());
+  expect(screen.getByTestId("board-sync-banner")).toHaveTextContent("加密保存在此浏览器");
   harness.state?.({ ...online, phase: "offline", pending: 3, reason: "CONNECTION_LOST", retryAttempt: 2, duplicateAcks: 1 });
   expect(await screen.findByTestId("editor-status")).toHaveTextContent("第 2 次重连 · 3 项修改待确认");
   expect(screen.getByTestId("board-duplicate-ack")).toHaveTextContent("已忽略 1 个重复确认");

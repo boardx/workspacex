@@ -9,10 +9,12 @@ export interface WhiteboardRecoveryHead { epoch: number; seq: number; role: 'own
 export interface WhiteboardSnapshotSource { snapshot(principal: Principal, boardId: string, epoch: number, seq: number): Promise<Uint8Array>; }
 export interface WhiteboardRecoveryMetadata {
   head(principal: Principal, boardId: string): Promise<WhiteboardRecoveryHead>;
-  saveCheckpoint(principal: Principal, manifest: WhiteboardCheckpointManifest, requestId: string): Promise<{ manifest: WhiteboardCheckpointManifest; replayed: boolean }>;
+  saveCheckpoint(principal: Principal, manifest: WhiteboardCheckpointManifest, requestId: string, event: WhiteboardCollaborationEvent): Promise<{ manifest: WhiteboardCheckpointManifest; replayed: boolean }>;
   getCheckpoint(principal: Principal, boardId: string, checkpointId: string): Promise<WhiteboardCheckpointManifest | null>;
+  findCheckpointRequest(principal: Principal, boardId: string, requestId: string): Promise<WhiteboardCheckpointManifest|null>;
+  findRestore(principal: Principal, boardId: string, requestId: string): Promise<{epoch:number;seq:0;event:WhiteboardCollaborationEvent}|null>;
   /** Atomically CAS the old head, append BoardRestored, and point the new epoch at immutable bytes. */
-  commitRestore(principal: Principal, input: { boardId: string; checkpoint: WhiteboardCheckpointManifest; newEpoch: number; expectedEpoch: number; expectedSeq: number; requestId: string; event: WhiteboardCollaborationEvent }): Promise<{ epoch: number; seq: 0; replayed: boolean }>;
+  commitRestore(principal: Principal, input: { boardId: string; checkpoint: WhiteboardCheckpointManifest; snapshot: Uint8Array; newEpoch: number; expectedEpoch: number; expectedSeq: number; requestId: string; event: WhiteboardCollaborationEvent }): Promise<{ epoch: number; seq: 0; replayed: boolean }>;
 }
 
 /** Snapshot bytes only cross ObjectStore; repository receives immutable refs and metadata. */
@@ -22,6 +24,8 @@ export class WhiteboardRecoveryService {
     WhiteboardCheckpointManifest.shape.checkpointId.parse(requestId);
     const head = await this.metadata.head(principal, boardId);
     if (head.role === 'viewer' || head.archived) throw new WhiteboardRecoveryError('FORBIDDEN');
+    const existing=await this.metadata.findCheckpointRequest(principal,boardId,requestId);
+    if(existing) return {manifest:existing,replayed:true,event:{type:'CheckpointCreated',eventId:requestId,operationId:requestId,boardId,checkpointId:existing.checkpointId,epoch:existing.epoch,seq:existing.seq,actorId:existing.createdBy,occurredAt:existing.createdAt}};
     const snapshot=await this.snapshots.snapshot(principal,boardId,head.epoch,head.seq);
     const checkpointId=requestId, contentHash=await checkpointHash(snapshot);
     const manifest=WhiteboardCheckpointManifest.parse({checkpointId,boardId,version:1,epoch:head.epoch,seq:head.seq,
@@ -32,19 +36,21 @@ export class WhiteboardRecoveryService {
       const existing=await this.objects.get(manifest.objectKey); if(!existing) throw new WhiteboardRecoveryError('DEPENDENCY_UNAVAILABLE');
       try { await verifyCheckpoint(manifest,existing); } catch { throw new WhiteboardRecoveryError('CHECKPOINT_INVALID'); }
     }
-    const saved=await this.metadata.saveCheckpoint(principal,manifest,requestId);
-    return {manifest:saved.manifest,replayed:saved.replayed,event:{type:'CheckpointCreated',eventId:requestId,operationId:requestId,boardId,checkpointId:saved.manifest.checkpointId,epoch:saved.manifest.epoch,seq:saved.manifest.seq,actorId:principal.userId,occurredAt:saved.manifest.createdAt}};
+    const event:WhiteboardCollaborationEvent={type:'CheckpointCreated',eventId:requestId,operationId:requestId,boardId,checkpointId:manifest.checkpointId,epoch:manifest.epoch,seq:manifest.seq,actorId:principal.userId,occurredAt:manifest.createdAt};
+    const saved=await this.metadata.saveCheckpoint(principal,manifest,requestId,event);
+    return {manifest:saved.manifest,replayed:saved.replayed,event};
   }
   async restore(principal: Principal, boardId: string, checkpointId: string, requestId: string, expected: { epoch: number; seq: number }): Promise<{epoch:number;seq:0;replayed:boolean;event:WhiteboardCollaborationEvent}> {
     WhiteboardCheckpointManifest.shape.checkpointId.parse(requestId);
     const [head, manifest]=await Promise.all([this.metadata.head(principal,boardId),this.metadata.getCheckpoint(principal,boardId,checkpointId)]);
     if (!manifest) throw new WhiteboardRecoveryError('NOT_FOUND');
     if (head.role !== 'owner' || head.archived) throw new WhiteboardRecoveryError('FORBIDDEN');
+    const replay=await this.metadata.findRestore(principal,boardId,requestId);if(replay)return{...replay,replayed:true};
     if (head.epoch!==expected.epoch || head.seq!==expected.seq) throw new WhiteboardRecoveryError('STALE_HEAD');
     const bytes=await this.objects.get(manifest.objectKey); if(!bytes) throw new WhiteboardRecoveryError('DEPENDENCY_UNAVAILABLE');
     try { await verifyCheckpoint(manifest,bytes); } catch { throw new WhiteboardRecoveryError('CHECKPOINT_INVALID'); }
     const next=restoredHead(expected,manifest), event:WhiteboardCollaborationEvent={type:'BoardRestored',eventId:requestId,operationId:requestId,boardId,checkpointId,previousEpoch:expected.epoch,epoch:next.epoch,actorId:principal.userId,occurredAt:this.now().toISOString()};
-    const committed=await this.metadata.commitRestore(principal,{boardId,checkpoint:manifest,newEpoch:next.epoch,expectedEpoch:expected.epoch,expectedSeq:expected.seq,requestId,event});
+    const committed=await this.metadata.commitRestore(principal,{boardId,checkpoint:manifest,snapshot:bytes,newEpoch:next.epoch,expectedEpoch:expected.epoch,expectedSeq:expected.seq,requestId,event});
     return {...committed,event};
   }
 }

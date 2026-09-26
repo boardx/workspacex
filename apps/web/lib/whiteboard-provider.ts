@@ -1,6 +1,7 @@
 import * as Y from 'yjs';
 import { WHITEBOARD_SYNC, WhiteboardServerMessage, type WhiteboardClientMessage } from '@repo/contracts/whiteboard-sync';
 import { apiWebSocketUrl, getStoredSessionToken } from './api-client';
+import { createWhiteboardOutbox, type WhiteboardDurableOutbox } from './whiteboard-outbox';
 export type WhiteboardConnectionState = {
   phase: 'connecting' | 'online' | 'offline' | 'blocked'; pending: number;
   role: 'owner' | 'editor' | 'viewer'; archived: boolean;
@@ -10,7 +11,7 @@ export type WhiteboardConnectionState = {
 const REMOTE = Symbol('whiteboard-server');
 export function bytesToBase64(bytes: Uint8Array): string { let out = ''; for (let i = 0; i < bytes.length; i += 8192) out += String.fromCharCode(...bytes.subarray(i, i + 8192)); return btoa(out); }
 export function base64ToBytes(value: string): Uint8Array { return Uint8Array.from(atob(value), c => c.charCodeAt(0)); }
-/** In-memory pending writes only. Host must warn on page exit; no offline durability claim. */
+/** Authenticated realtime transport with an encrypted, bounded IndexedDB outbox when available. */
 export class WhiteboardProvider {
   private socket: WebSocket | null = null;
   private timer: ReturnType<typeof setTimeout> | null = null;
@@ -24,19 +25,41 @@ export class WhiteboardProvider {
   private epoch: number | null = null;
   private seq: number | null = null;
   private token = getStoredSessionToken();
+  private refreshingToken: string | null = null;
+  private readonly outbox: WhiteboardDurableOutbox | null;
   private readonly acked = new Set<string>();
   private readonly retryableClose = new WeakSet<WebSocket>();
   private pending: Extract<WhiteboardClientMessage, { type: 'update' }>[] = [];
   private state: WhiteboardConnectionState = { phase: 'connecting', pending: 0, role: 'viewer', archived: false, peers: [], reason: null, retryAttempt: 0, duplicateAcks: 0, lastAckSequence: null };
-  constructor(private doc: Y.Doc, private boardId: string, private onState: (state: WhiteboardConnectionState) => void) {
+  constructor(private doc: Y.Doc, private boardId: string, private onState: (state: WhiteboardConnectionState) => void, outbox?: WhiteboardDurableOutbox | null) {
+    this.outbox = outbox === undefined ? createWhiteboardOutbox(boardId) : outbox;
     doc.on('update', this.onUpdate);
     this.sessionTimer = setInterval(() => {
       const next = getStoredSessionToken();
       if (next === this.token) return;
       if (!next) { this.block('SESSION_REVOKED'); return; }
-      this.token = next; this.ready = false; this.socket?.close(); this.connect('AUTH_REFRESH');
+      void this.refreshAuth(next);
     }, 1000);
-    this.connect();
+    if (this.outbox && this.token) void this.restoreOutbox(this.token); else this.connect();
+  }
+  private async refreshAuth(next: string) {
+    const previous=this.token; if(!previous || next===previous || this.stopped || this.refreshingToken!==null)return;
+    this.refreshingToken=next;
+    try { if(this.outbox)await this.outbox.rebind(previous,next); }
+    catch { this.block('OUTBOX_WRITE_FAILED',false); return; }
+    finally { this.refreshingToken=null; }
+    if(this.stopped||this.token!==previous)return;
+    this.token=next;this.ready=false;this.socket?.close();this.connect('AUTH_REFRESH');
+  }
+  private async restoreOutbox(token: string) {
+    try {
+      const restored = await this.outbox!.restore(token);
+      if (this.stopped || token !== this.token) return;
+      if (restored.revoked) { this.block('ACCESS_REVOKED', false); return; }
+      this.pending = restored.updates;
+      for (const item of restored.updates) Y.applyUpdate(this.doc, base64ToBytes(item.update), REMOTE);
+      this.publish({ pending: this.pending.length }); this.connect(restored.updates.length ? 'RESTORED_OUTBOX' : null);
+    } catch { this.block('OUTBOX_CORRUPT', false); }
   }
   private publish(patch: Partial<WhiteboardConnectionState>) { this.state = { ...this.state, ...patch, pending: this.pending.length }; this.onState(this.state); }
   private onUpdate = (update: Uint8Array, origin: unknown) => {
@@ -45,7 +68,10 @@ export class WhiteboardProvider {
     const message: Extract<WhiteboardClientMessage, { type: 'update' }> = { type: 'update', epoch: this.epoch, updateId: crypto.randomUUID(), update: bytesToBase64(update) };
     const bytes = this.pending.reduce((sum, item) => sum + item.update.length, 0) + message.update.length;
     if (this.pending.length >= WHITEBOARD_SYNC.pendingUpdates || bytes > WHITEBOARD_SYNC.pendingBytes) { this.block('PENDING_LIMIT'); return; }
-    this.pending.push(message); this.publish({}); if (this.ready) this.send(message);
+    this.pending.push(message); this.publish({});
+    if(!this.outbox){if(this.ready)this.send(message);return;}
+    void this.outbox.persist(this.token!, message).then(() => { if (this.ready && !this.stopped && this.pending.some(item=>item.updateId===message.updateId)) this.send(message); })
+      .catch(() => this.block('OUTBOX_WRITE_FAILED', false));
   };
   private send(message: WhiteboardClientMessage) { if (this.socket?.readyState === WebSocket.OPEN) this.socket.send(JSON.stringify(message)); }
   private connect(reason: string | null = null) {
@@ -85,6 +111,7 @@ export class WhiteboardProvider {
             this.block('ACK_CONFLICT'); return;
           }
           this.pending.splice(index, 1); this.acked.add(message.updateId);
+          if (this.outbox && this.token) void this.outbox.acknowledge(this.token,message.updateId).catch(()=>this.block('OUTBOX_WRITE_FAILED',false));
           while (this.acked.size > WHITEBOARD_SYNC.pendingUpdates) this.acked.delete(this.acked.values().next().value!);
           this.publish({ lastAckSequence: message.seq });
         } else if (message.type === 'recovery') {
@@ -107,19 +134,21 @@ export class WhiteboardProvider {
     };
     socket.onerror = () => socket.close();
   }
-  awareness(cursor: { x: number; y: number } | null, selected: string[], editingObjectId: string | null = null) {
+  awareness(cursor: { x: number; y: number } | null, selected: string[], editingObjectId: string | null = null, collaboration?: {viewport:{centerX:number;centerY:number;zoom:number;revision:number};presenting:boolean;followingActorId:string|null}) {
     if (!this.ready || this.stopped || (cursor && (!Number.isFinite(cursor.x) || !Number.isFinite(cursor.y)))) return;
-    this.latestPresence = { type: 'awareness', cursor, selected: selected.slice(0,200), editingObjectId };
+    this.latestPresence = { type: 'awareness', cursor, selected: selected.slice(0,200), editingObjectId,viewport:collaboration?.viewport??null,presenting:collaboration?.presenting??false,followingActorId:collaboration?.followingActorId??null };
     if (this.presenceTimer) return;
     this.presenceTimer = setTimeout(() => { this.presenceTimer = null; if (this.ready && !this.stopped && this.latestPresence) this.send(this.latestPresence); }, 50);
   }
   retryNow() { if (this.stopped || this.state.phase === 'blocked') return; if (this.timer) clearTimeout(this.timer); this.retry = 0; this.socket?.close(); this.connect('MANUAL_RETRY'); }
-  private block(reason: string) {
+  private block(reason: string, persistRevocation = ['ACCESS_REVOKED','ACCESS_DENIED','SESSION_REVOKED'].includes(reason)) {
     if (this.stopped) return;
-    this.close(); this.pending = [];
+    const token=this.token,outbox=this.outbox;
+    this.close(!persistRevocation); this.pending = [];
     // Hide and remove locally visible content after access loss; no clear update is sent.
-    this.doc.transact(() => { this.doc.getMap('objects').clear(); this.doc.getMap('deletedObjects').clear(); this.doc.getMap('commentThreads').clear(); }, REMOTE);
+    this.doc.transact(() => { this.doc.getMap('objects').clear(); this.doc.getMap('deletedObjects').clear(); }, REMOTE);
     this.publish({ phase: 'blocked', role: 'viewer', peers: [], reason });
+    if (persistRevocation && token && outbox) void outbox.revoke(token).finally(()=>outbox.close());
   }
-  close() { if (this.presenceTimer) clearTimeout(this.presenceTimer); this.stopped = true; this.ready = false; if (this.timer) clearTimeout(this.timer); if (this.handshake) clearTimeout(this.handshake); clearInterval(this.sessionTimer); this.doc.off('update', this.onUpdate); this.socket?.close(); }
+  close(closeOutbox = true) { if (this.presenceTimer) clearTimeout(this.presenceTimer); this.stopped = true; this.ready = false; if (this.timer) clearTimeout(this.timer); if (this.handshake) clearTimeout(this.handshake); clearInterval(this.sessionTimer); this.doc.off('update', this.onUpdate); this.socket?.close(); if(closeOutbox)this.outbox?.close(); }
 }
