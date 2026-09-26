@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { ActiveSelection, Canvas, Circle, FabricImage, Group, Line, Path, Point, Rect, Textbox, Triangle, type FabricObject, type TPointerEventInfo } from "fabric";
+import { ActiveSelection, Canvas, Circle, FabricImage, Group, Line, Path, Point, Rect, Textbox, Triangle, util, type FabricObject, type TPointerEventInfo } from "fabric";
 import { drawingEraserLayers } from "@repo/whiteboard-core";
 import { BoardA11yMirror } from "./board-a11y-mirror";
 import {
@@ -305,6 +305,19 @@ function geometryFromFabric(projected: TaggedFabricObject, canonical?: BoardFabr
   return geometry;
 }
 
+/** ActiveSelection keeps child coordinates in its local plane. The total scene
+ * matrix is the only authoritative result after group move/scale/rotation. */
+export function geometryFromFabricSceneTransform(projected: TaggedFabricObject): BoardFabricGeometry {
+  const decomposition = util.qrDecompose(projected.calcTransformMatrix());
+  const rotation = typeof projected.getTotalAngle === "function" ? projected.getTotalAngle() : decomposition.angle;
+  const width = Math.max(1, (projected.width || 1) * Math.abs(decomposition.scaleX));
+  const height = Math.max(1, (projected.height || 1) * Math.abs(decomposition.scaleY));
+  const radians = rotation * Math.PI / 180;
+  const x = decomposition.translateX - Math.cos(radians) * width / 2 + Math.sin(radians) * height / 2;
+  const y = decomposition.translateY - Math.sin(radians) * width / 2 - Math.cos(radians) * height / 2;
+  return { x: Math.round(x), y: Math.round(y), width: Math.round(width), height: Math.round(height), rotation: Math.round(rotation) };
+}
+
 export function BoardFabricSurface({ objects, selectedObjectIds, readOnly, tool, viewport, onSelectionChange, onObjectTransform, onObjectsTransform, onViewportChange, onCanvasClick, onCanvasDoubleClick, onObjectDoubleClick, onToolDrop, onDrawingComplete, onPanelHoverChange, onObjectReparent, onObjectHoverChange, className }: BoardFabricSurfaceProps) {
   const hostRef = React.useRef<HTMLDivElement>(null);
   const canvasElementRef = React.useRef<HTMLCanvasElement>(null);
@@ -353,6 +366,19 @@ export function BoardFabricSurface({ objects, selectedObjectIds, readOnly, tool,
         : [];
       callbacksRef.current.onSelectionChange(id ? [id] : nested, "canvas");
     };
+    const topmostPanelAt = (point: { x: number; y: number }, excludedId: string) => {
+      for (const projected of [...canvas.getObjects()].reverse() as TaggedFabricObject[]) {
+        const panelId = projected.data?.boardObjectId;
+        const candidate = panelId ? canonicalRef.current.get(panelId) : undefined;
+        if (!panelId || panelId === excludedId || candidate?.kind !== "panel") continue;
+        const { x, y, width, height, rotation } = candidate.geometry;
+        const radians = -rotation * Math.PI / 180, dx = point.x - x, dy = point.y - y;
+        const localX = dx * Math.cos(radians) - dy * Math.sin(radians);
+        const localY = dx * Math.sin(radians) + dy * Math.cos(radians);
+        if (localX >= 0 && localX <= width && localY >= 0 && localY <= height) return candidate;
+      }
+      return undefined;
+    };
     const transformCompleted = (event: { target?: FabricObject }) => {
       const target = event.target as TaggedFabricObject | undefined;
       if (!target) return;
@@ -365,13 +391,12 @@ export function BoardFabricSurface({ objects, selectedObjectIds, readOnly, tool,
         return;
       }
       const transforms = canonicals.map(({ id, member, canonical }) => {
-        const bounds = geometryFromFabric(member, canonical, members.length > 1);
-        const parent = [...canonicalRef.current.values()].filter((candidate) => candidate.kind === "panel" && candidate.id !== id).reverse().find((candidate) => {
-        const box = candidate.geometry;
+        const bounds = members.length > 1 ? geometryFromFabricSceneTransform(member) : geometryFromFabric(member, canonical);
         const center = { x: bounds.x + bounds.width / 2, y: bounds.y + bounds.height / 2 };
-        return center.x >= box.x && center.x <= box.x + box.width && center.y >= box.y && center.y <= box.y + box.height;
-        });
-        return { id, geometry: bounds, parentId: canonical.kind === "group" || canonical.kind === "connector" ? canonical.parentId ?? null : parent?.id ?? null };
+        const parent = topmostPanelAt(center, id);
+        const currentPanel = canonical.parentId ? canonicalRef.current.get(canonical.parentId) : undefined;
+        const retainedParent = currentPanel?.kind === "panel" && (currentPanel.panel?.autoExpand || currentPanel.panel?.clipContent) ? currentPanel.id : null;
+        return { id, geometry: bounds, parentId: canonical.kind === "group" || canonical.kind === "connector" ? canonical.parentId ?? null : parent?.id ?? retainedParent };
       });
       const restoreCanonicalGeometry = () => {
         if (disposed) return;
@@ -418,7 +443,7 @@ export function BoardFabricSurface({ objects, selectedObjectIds, readOnly, tool,
       const canonical = canonicalRef.current.get(id);
       if (!canonical || canonical.kind === "group" || canonical.kind === "connector") return;
       const bounds = geometryFromFabric(target), center = { x: bounds.x + bounds.width / 2, y: bounds.y + bounds.height / 2 };
-      const parent = [...canonicalRef.current.values()].filter((candidate) => candidate.kind === "panel" && candidate.id !== id).reverse().find((candidate) => center.x >= candidate.geometry.x && center.x <= candidate.geometry.x + candidate.geometry.width && center.y >= candidate.geometry.y && center.y <= candidate.geometry.y + candidate.geometry.height);
+      const parent = topmostPanelAt(center, id);
       callbacksRef.current.onPanelHoverChange?.(parent?.id ?? null);
     };
     let panning = false;
@@ -552,7 +577,7 @@ export function BoardFabricSurface({ objects, selectedObjectIds, readOnly, tool,
         canvas.moveObjectTo(projected, index);
         const parent = object.parentId ? incoming.get(object.parentId) : undefined;
         if (parent?.kind === "panel" && parent.panel?.clipContent) {
-          projected.clipPath = new Rect({ left: parent.geometry.x, top: parent.geometry.y, width: parent.geometry.width, height: parent.geometry.height, absolutePositioned: true });
+          projected.clipPath = new Rect({ left: parent.geometry.x, top: parent.geometry.y, width: parent.geometry.width, height: parent.geometry.height, angle: parent.geometry.rotation, originX: "left", originY: "top", absolutePositioned: true });
         } else projected.clipPath = undefined;
       }
     });

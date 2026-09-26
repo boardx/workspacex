@@ -1,6 +1,7 @@
 import { act, cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import { afterEach, expect, it, vi } from "vitest";
-import { createWhiteboardDocument, readObjects, SpatialRelationshipCommandPort, type PanelMetadata } from "@repo/whiteboard-core";
+import type * as Y from "yjs";
+import { createWhiteboardDocument, readObjects, SpatialRelationshipCommandPort, WhiteboardCommandOrigin, type PanelMetadata } from "@repo/whiteboard-core";
 import { CollaborativeEditor } from "@/components/whiteboard/collaborative-editor";
 import type { BoardFabricObject } from "@/components/whiteboard/fabric/board-fabric-object";
 
@@ -136,5 +137,28 @@ it("groups, layers, duplicates the full subgraph, and ungroups through canonical
   fireEvent.click(within(screen.getByTestId("board-spatial-toolbar")).getByText("取消组合"));
   expect(readObjects(doc).filter((object) => object.kind === "group")).toHaveLength(1);
   expect(readObjects(doc).filter((object) => object.kind === "sticky" && object.parentId === null)).toHaveLength(2);
+  doc.destroy();
+});
+
+it("preflights multi-delete and commits preserve-free endpoints in one UI transaction", () => {
+  const doc = mount();
+  fireEvent.click(screen.getByTestId("mock-create-a")); fireEvent.keyDown(screen.getByLabelText("对象文字"), { key: "Escape" });
+  fireEvent.click(screen.getByTestId("mock-create-b")); fireEvent.keyDown(screen.getByLabelText("对象文字"), { key: "Escape" });
+  const [a, b] = readObjects(doc), port = new SpatialRelationshipCommandPort(doc);
+  act(() => {
+    port.dispatch({ boardId: "spatial-board", clientId: "fixture", gestureId: "edge", command: { type: "create-connector", id: "edge", relationship: { from: a!.id, to: b!.id, fromAnchor: "right", toAnchor: "left", type: "straight", startStyle: "none", endStyle: "arrow", lineStyle: "solid", label: "", semanticRelation: "" } } });
+    port.dispatch({ boardId: "spatial-board", clientId: "fixture", gestureId: "lock-edge", command: { type: "set-locked", objectIds: ["edge"], locked: true } });
+  });
+  fireEvent.click(screen.getByTestId("mock-select-stickies"));
+  const before = readObjects(doc);
+  fireEvent.click(screen.getByText("删除选中", { exact: true }));
+  expect(readObjects(doc)).toEqual(before);
+  act(() => port.dispatch({ boardId: "spatial-board", clientId: "fixture", gestureId: "unlock-edge", command: { type: "set-locked", objectIds: ["edge"], locked: false } }));
+  const transactions: Y.Transaction[] = [];
+  doc.on("afterTransaction", transaction => { if (transaction.origin instanceof WhiteboardCommandOrigin) transactions.push(transaction); });
+  fireEvent.click(screen.getByTestId("board-delete-preserve-connectors"));
+  expect(readObjects(doc)).toHaveLength(1);
+  expect(readObjects(doc)[0]).toMatchObject({ id: "edge", connector: { fromPoint: expect.any(Object), toPoint: expect.any(Object) } });
+  expect(transactions).toHaveLength(1);
   doc.destroy();
 });

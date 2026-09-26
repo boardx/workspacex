@@ -9,6 +9,8 @@ interface MockProjectedObject {
   mockKind?: string; children?: MockProjectedObject[]; controls?: Record<string, boolean>;
   fontFamily?: string; fontSize?: number; fontWeight?: number; fontStyle?: string; underline?: boolean; textAlign?: string; lineHeight?: number; fill?: string; hoverCursor?: string; lockScalingX?: boolean; lockScalingY?: boolean;
   clipPath?: unknown;
+  matrix?: number[];
+  calcTransformMatrix: () => number[];
 }
 
 const probe = vi.hoisted(() => ({
@@ -32,10 +34,19 @@ vi.mock("fabric", () => {
     selectable = true; evented = true;
     controls?: Record<string, boolean>;
     constructor(first?: unknown, second: Record<string, unknown> = {}) { if (first && typeof first === "object" && !Array.isArray(first)) Object.assign(this, first); if (typeof first === "string") Object.assign(this, { text: first }); Object.assign(this, second); }
+    matrix?: number[];
     set(values: Record<string, unknown>) { Object.assign(this, values); return this; }
     setControlsVisibility(values: Record<string, boolean>) { this.controls = { ...values }; return this; }
     setCoords() {}
     getBoundingRect() { return { left: this.left, top: this.top, width: this.width * this.scaleX, height: this.height * this.scaleY }; }
+    getTotalAngle() { return this.angle; }
+    calcTransformMatrix() {
+      if (this.matrix) return this.matrix;
+      const radians = this.angle * Math.PI / 180, width = this.width * this.scaleX, height = this.height * this.scaleY;
+      return [Math.cos(radians) * this.scaleX, Math.sin(radians) * this.scaleX, -Math.sin(radians) * this.scaleY, Math.cos(radians) * this.scaleY,
+        this.left + Math.cos(radians) * width / 2 - Math.sin(radians) * height / 2,
+        this.top + Math.sin(radians) * width / 2 + Math.cos(radians) * height / 2];
+    }
   }
   class MockRect extends MockObject { mockKind = "rect"; constructor(first?: unknown, second?: Record<string, unknown>) { super(undefined, second ?? (first as Record<string, unknown>)); probe.primitiveKinds.push("Rect"); } }
   class MockCircle extends MockObject { mockKind = "circle"; constructor(first?: unknown, second?: Record<string, unknown>) { super(first, second); probe.primitiveKinds.push("Circle"); } }
@@ -72,7 +83,8 @@ vi.mock("fabric", () => {
     clear() { probe.clearCalls += 1; }
   }
   class ActiveSelection extends MockObject { constructor(public objects: MockObject[]) { super(); } getObjects() { return this.objects; } }
-  return { ActiveSelection, Canvas, Rect: MockRect, Circle: MockCircle, Line: MockObject, Path: MockPath, FabricImage: MockImage, Triangle: MockObject, Textbox: MockTextbox, Group: MockGroup, Point: MockObject };
+  const util = { qrDecompose: (matrix: number[]) => ({ angle: Math.atan2(matrix[1]!, matrix[0]!) * 180 / Math.PI, scaleX: Math.hypot(matrix[0]!, matrix[1]!), scaleY: Math.hypot(matrix[2]!, matrix[3]!), translateX: matrix[4]!, translateY: matrix[5]!, skewX: 0, skewY: 0 }) };
+  return { ActiveSelection, Canvas, Rect: MockRect, Circle: MockCircle, Line: MockObject, Path: MockPath, FabricImage: MockImage, Triangle: MockObject, Textbox: MockTextbox, Group: MockGroup, Point: MockObject, util };
 });
 
 class ResizeObserverMock { observe() {} disconnect() {} }
@@ -284,11 +296,39 @@ describe("BoardFabricSurface", () => {
     expect(rectangle!.left).toBe(OBJECTS[1]!.geometry.x);
   });
 
+  it("writes ActiveSelection members from their total scene matrix and total angle", () => {
+    const onObjectsTransform = vi.fn(() => true);
+    renderSurface({ selectedObjectIds: ["s-1", "r-1"], onObjectsTransform });
+    const [sticky, rectangle] = probe.objects;
+    const rotation = 30, radians = rotation * Math.PI / 180, width = sticky!.width * 2, height = sticky!.height * 2;
+    const x = 300, y = 200;
+    sticky!.angle = rotation;
+    sticky!.matrix = [Math.cos(radians) * 2, Math.sin(radians) * 2, -Math.sin(radians) * 2, Math.cos(radians) * 2,
+      x + Math.cos(radians) * width / 2 - Math.sin(radians) * height / 2,
+      y + Math.sin(radians) * width / 2 + Math.cos(radians) * height / 2];
+    rectangle!.matrix = rectangle!.calcTransformMatrix();
+    probe.handlers.get("object:modified")?.({ target: { getObjects: () => [sticky, rectangle] } as unknown as MockProjectedObject });
+    expect(onObjectsTransform).toHaveBeenCalledWith(expect.arrayContaining([expect.objectContaining({ id: "s-1", geometry: { x, y, width, height, rotation } })]));
+  });
+
+  it("chooses the visually topmost overlapping Panel as the reparent target", () => {
+    const lower: BoardFabricObject = { ...OBJECTS[0]!, id: "lower", kind: "panel", zIndex: 1, geometry: { x: 0, y: 0, width: 500, height: 400, rotation: 0 }, panel: { title: "Lower", mode: "freeform", autoExpand: false, clipContent: false } };
+    const upper: BoardFabricObject = { ...lower, id: "upper", zIndex: 9, panel: { ...lower.panel!, title: "Upper" } };
+    const child: BoardFabricObject = { ...OBJECTS[0]!, id: "child", zIndex: 10, geometry: { x: 600, y: 20, width: 100, height: 80, rotation: 0 } };
+    const onObjectsTransform = vi.fn(() => true);
+    renderSurface({ objects: [upper, child, lower], onObjectsTransform });
+    const projected = probe.objects.find((object) => object.data?.boardObjectId === "child")!;
+    projected.left = 100; projected.top = 100;
+    probe.handlers.get("object:modified")?.({ target: projected });
+    expect(onObjectsTransform).toHaveBeenCalledWith([expect.objectContaining({ id: "child", parentId: "upper" })]);
+  });
+
   it("applies an absolute Fabric clipPath only to children of clip-enabled Panels", () => {
-    const panel: BoardFabricObject = { ...OBJECTS[0]!, id: "panel", kind: "panel", panel: { title: "Clip", mode: "freeform", autoExpand: false, clipContent: true } };
+    const panel: BoardFabricObject = { ...OBJECTS[0]!, id: "panel", kind: "panel", geometry: { ...OBJECTS[0]!.geometry, rotation: 30 }, panel: { title: "Clip", mode: "freeform", autoExpand: false, clipContent: true } };
     const child: BoardFabricObject = { ...OBJECTS[1]!, id: "child", parentId: "panel" };
     renderSurface({ objects: [panel, child] });
     expect(probe.objects.find((object) => object.data?.boardObjectId === "child")?.clipPath).toBeTruthy();
+    expect(probe.objects.find((object) => object.data?.boardObjectId === "child")?.clipPath).toMatchObject({ angle: 30, originX: "left", originY: "top", absolutePositioned: true });
     expect(probe.objects.find((object) => object.data?.boardObjectId === "panel")?.clipPath).toBeUndefined();
   });
 

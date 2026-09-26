@@ -54,7 +54,8 @@ export type SpatialCommand =
   | { type: 'set-locked'; objectIds: string[]; locked: boolean }
   | { type: 'create-connector'; id: string; relationship: ConnectorRelationship; zIndex?: number }
   | { type: 'update-connector'; id: string; relationship: ConnectorRelationship }
-  | { type: 'delete-object'; id: string; connectors?: 'cascade' | 'preserve-free' };
+  | { type: 'delete-object'; id: string; connectors?: 'cascade' | 'preserve-free' }
+  | { type: 'delete-objects'; ids: string[]; connectors?: 'cascade' | 'preserve-free' };
 
 export interface SpatialCommandEnvelope {
   boardId: string;
@@ -186,8 +187,58 @@ function geometryEqual(a: WhiteboardGeometry, b: WhiteboardGeometry): boolean {
   return a.x === b.x && a.y === b.y && a.width === b.width && a.height === b.height && a.rotation === b.rotation;
 }
 
+function within(child: WhiteboardGeometry, parent: WhiteboardGeometry): boolean {
+  const childAngle = child.rotation * Math.PI / 180;
+  const parentAngle = -parent.rotation * Math.PI / 180;
+  const corners = [[0, 0], [child.width, 0], [0, child.height], [child.width, child.height]];
+  return corners.every(([localX = 0, localY = 0]) => {
+    const worldX = child.x + localX * Math.cos(childAngle) - localY * Math.sin(childAngle);
+    const worldY = child.y + localX * Math.sin(childAngle) + localY * Math.cos(childAngle);
+    const dx = worldX - parent.x, dy = worldY - parent.y;
+    const x = dx * Math.cos(parentAngle) - dy * Math.sin(parentAngle);
+    const y = dx * Math.sin(parentAngle) + dy * Math.cos(parentAngle);
+    return x >= 0 && x <= parent.width && y >= 0 && y <= parent.height;
+  });
+}
+
 function event(type: SpatialEvent['type'], ids: string[]): Omit<SpatialEvent, 'operationId'> {
   return { type, objectIds: [...new Set(ids)] };
+}
+
+function deleteObjects(snapshot: Snapshot, ids: readonly string[], connectorPolicy: 'cascade' | 'preserve-free') {
+  if (!ids.length || new Set(ids).size !== ids.length) throw new Error('DELETE_SELECTION_INVALID');
+  const targets = ids.map(id => object(snapshot, id));
+  ensureUnlocked(...targets);
+  const selected = new Set(ids);
+  for (const target of targets) if (children(snapshot, target.id).some(child => !selected.has(child.id))) throw new Error('CONTAINER_NOT_EMPTY');
+  const attached = snapshot.objects.filter(item => item.connector && !selected.has(item.id)
+    && ((item.connector.from && selected.has(item.connector.from)) || (item.connector.to && selected.has(item.connector.to))));
+  ensureUnlocked(...attached);
+  const commands: WhiteboardCommand[] = [];
+  if (connectorPolicy === 'cascade') {
+    commands.push(...attached.map(item => ({ type: 'delete' as const, id: item.id })));
+  } else {
+    for (const item of attached) {
+      const value = normalizeConnector(item.connector!);
+      if (value.from && selected.has(value.from)) { const endpoint = object(snapshot, value.from); delete value.from; value.fromPoint = anchorPoint(endpoint, value.fromAnchor); }
+      if (value.to && selected.has(value.to)) { const endpoint = object(snapshot, value.to); delete value.to; value.toPoint = anchorPoint(endpoint, value.toAnchor); }
+      commands.push({ type: 'connector', id: item.id, connector: value });
+    }
+  }
+  const deletedConnectorIds = new Set([...targets.filter(item => item.kind === 'connector').map(item => item.id), ...attached.filter(() => connectorPolicy === 'cascade').map(item => item.id)]);
+  commands.push(...targets.filter(item => item.kind === 'connector').map(item => ({ type: 'delete' as const, id: item.id })));
+  const depth = (item: WhiteboardObject) => { let count = 0, parent = item.parentId; while (parent && selected.has(parent)) { count++; parent = snapshot.byId.get(parent)?.parentId ?? null; } return count; };
+  commands.push(...targets.filter(item => item.kind !== 'connector').sort((a, b) => depth(b) - depth(a)).map(item => ({ type: 'delete' as const, id: item.id })));
+  const deletedIds = [...ids, ...deletedConnectorIds];
+  return {
+    commands,
+    events: [
+      event('ObjectDeleted', deletedIds),
+      ...(connectorPolicy === 'preserve-free'
+        ? attached.map(item => event('ConnectorUpdated', [item.id]))
+        : []),
+    ],
+  };
 }
 
 function build(snapshot: Snapshot, command: SpatialCommand): { commands: WhiteboardCommand[]; events: Omit<SpatialEvent, 'operationId'>[] } {
@@ -305,6 +356,7 @@ function build(snapshot: Snapshot, command: SpatialCommand): { commands: Whitebo
       const panel = proposed.get(panelId) ?? object(snapshot, panelId), metadata = readPanelMetadata(panel);
       if (!metadata) continue;
       const panelItems = snapshot.objects.filter(item => (proposed.get(item.id) ?? item).parentId === panelId).map(item => proposed.get(item.id) ?? item);
+      if (metadata.clipContent && panelItems.some(item => !within(item.geometry, panel.geometry))) throw new Error('PARENT_BOUNDS_EXCEEDED');
       const expanded = expandedPanelGeometry(panel, metadata, panelItems);
       if (expanded && !geometryEqual(expanded, panel.geometry)) commands.push({ type: 'geometry', id: panel.id, geometry: expanded });
     }
@@ -339,7 +391,11 @@ function build(snapshot: Snapshot, command: SpatialCommand): { commands: Whitebo
   if (command.type === 'duplicate-subgraph') {
     const chosen = descendants(snapshot, command.rootIds);
     const chosenIds = new Set(chosen.map(item => item.id));
-    for (const edge of snapshot.objects) if (edge.connector && (!edge.connector.from || chosenIds.has(edge.connector.from)) && (!edge.connector.to || chosenIds.has(edge.connector.to))) chosenIds.add(edge.id);
+    for (const edge of snapshot.objects) {
+      if (!edge.connector) continue;
+      const attachedIds = [edge.connector.from, edge.connector.to].filter((id): id is string => Boolean(id));
+      if (attachedIds.length > 0 && attachedIds.every(id => chosenIds.has(id))) chosenIds.add(edge.id);
+    }
     const source = snapshot.objects.filter(item => chosenIds.has(item.id)); ensureUnlocked(...source);
     if (!source.length || source.some(item => !command.newIds[item.id])) throw new Error('DUPLICATE_ID_REQUIRED');
     const copies = copyObjectsForSnapshot(snapshot, [...chosenIds], oldId => command.newIds[oldId]!);
@@ -374,22 +430,25 @@ function build(snapshot: Snapshot, command: SpatialCommand): { commands: Whitebo
     let insertion = command.action === 'bring-to-front' ? rest.length : command.action === 'send-to-back' ? 0
       : command.action === 'bring-forward' ? Math.min(rest.length, originalFirst + 1) : Math.max(0, originalFirst - 1);
     const next = [...rest.slice(0, insertion), ...block, ...rest.slice(insertion)];
-    let commands: WhiteboardCommand[];
-    if (next.some(item => item.locked && !selected.has(item.id))) {
-      const occupied = new Set(next.filter(item => !selected.has(item.id)).map(layerOf));
-      const selectedInOrder = next.filter(item => selected.has(item.id));
-      let cursor = command.action === 'send-to-back' || command.action === 'send-backward'
-        ? Math.min(...next.map(layerOf)) - selectedInOrder.length
-        : Math.max(...next.map(layerOf)) + 1;
-      const step = command.action === 'send-to-back' || command.action === 'send-backward' ? 1 : 1;
-      commands = selectedInOrder.map((item): WhiteboardCommand => {
-        while (occupied.has(cursor)) cursor += step;
-        const value = cursor; occupied.add(value); cursor += step;
-        return { type: 'state', id: item.id, zIndex: value };
-      });
-    } else {
-      commands = next.map((item, index): WhiteboardCommand => ({ type: 'state', id: item.id, zIndex: index }));
+    const assigned = new Map<string, number>();
+    const lockedAnchors = next.map((item, index) => ({ item, index })).filter(({ item }) => item.locked && !selected.has(item.id));
+    if (!lockedAnchors.length) next.forEach((item, index) => assigned.set(item.id, index));
+    else {
+      const first = lockedAnchors[0]!, before = next.slice(0, first.index);
+      before.forEach((item, index) => assigned.set(item.id, layerOf(first.item) - before.length + index));
+      assigned.set(first.item.id, layerOf(first.item));
+      for (let anchorIndex = 1; anchorIndex < lockedAnchors.length; anchorIndex++) {
+        const previous = lockedAnchors[anchorIndex - 1]!, current = lockedAnchors[anchorIndex]!;
+        const between = next.slice(previous.index + 1, current.index);
+        if (layerOf(current.item) - layerOf(previous.item) - 1 < between.length) throw new Error('LAYER_LOCKED_ORDER_CONFLICT');
+        between.forEach((item, index) => assigned.set(item.id, layerOf(previous.item) + index + 1));
+        assigned.set(current.item.id, layerOf(current.item));
+      }
+      const last = lockedAnchors.at(-1)!, after = next.slice(last.index + 1);
+      after.forEach((item, index) => assigned.set(item.id, layerOf(last.item) + index + 1));
     }
+    const commands: WhiteboardCommand[] = next.filter(item => !item.locked && layerOf(item) !== assigned.get(item.id)).map(item => ({ type: 'state', id: item.id, zIndex: assigned.get(item.id)! }));
+    if (!commands.length) commands.push({ type: 'state', id: items[0]!.id, zIndex: layerOf(items[0]!) });
     return { commands, events: [event('ObjectsLayered', items.map(item => item.id))] };
   }
   if (command.type === 'set-locked') {
@@ -409,19 +468,8 @@ function build(snapshot: Snapshot, command: SpatialCommand): { commands: Whitebo
     if (from?.kind === 'connector' || to?.kind === 'connector' || (from && to && from.id === to.id)) throw new Error('CONNECTOR_ENDPOINT_INVALID');
     return { commands: [{ type: 'connector', id: target.id, connector: value }, { type: 'geometry', id: target.id, geometry: relationshipGeometry(snapshot, value) }, { type: 'text', id: target.id, index: 0, deleteCount: target.text.length, insert: value.label }], events: [event('ConnectorUpdated', [target.id])] };
   }
-  const target = object(snapshot, command.id); ensureUnlocked(target);
-  if (children(snapshot, target.id).length) throw new Error('CONTAINER_NOT_EMPTY');
-  const attached = snapshot.objects.filter(item => item.connector && (item.connector.from === target.id || item.connector.to === target.id));
-  ensureUnlocked(...attached);
-  if ((command.connectors ?? 'cascade') === 'cascade') return { commands: [...attached.map(item => ({ type: 'delete' as const, id: item.id })), { type: 'delete', id: target.id }], events: [event('ObjectDeleted', [target.id, ...attached.map(item => item.id)])] };
-  const commands: WhiteboardCommand[] = attached.map(item => {
-    const value = normalizeConnector(item.connector!);
-    if (value.from === target.id) { delete value.from; value.fromPoint = anchorPoint(target, value.fromAnchor); }
-    if (value.to === target.id) { delete value.to; value.toPoint = anchorPoint(target, value.toAnchor); }
-    return { type: 'connector' as const, id: item.id, connector: value };
-  });
-  commands.push({ type: 'delete', id: target.id });
-  return { commands, events: [event('ObjectDeleted', [target.id]), ...attached.map(item => event('ConnectorUpdated', [item.id]))] };
+  if (command.type === 'delete-objects') return deleteObjects(snapshot, command.ids, command.connectors ?? 'cascade');
+  return deleteObjects(snapshot, [command.id], command.connectors ?? 'cascade');
 }
 
 function normalizeConnector(value: NonNullable<WhiteboardObject['connector']>): ConnectorRelationship {

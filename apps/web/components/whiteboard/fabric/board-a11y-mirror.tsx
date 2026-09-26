@@ -40,6 +40,7 @@ function describeObject(object: BoardFabricObject): string {
 
 export function BoardA11yMirror({ objects, selectedObjectIds, onSelect, readOnly }: BoardA11yMirrorProps) {
   const selected = new Set(selectedObjectIds);
+  const byId = new Map(objects.map((object) => [object.id, object]));
   const orderedObjects = [...objects].sort((left, right) => left.orderKey.localeCompare(right.orderKey));
   return (
     <section className="sr-only focus-within:not-sr-only focus-within:absolute focus-within:bottom-4 focus-within:right-4 focus-within:z-30 focus-within:w-72 focus-within:rounded-xl focus-within:border focus-within:border-border focus-within:bg-card focus-within:p-3 focus-within:shadow-xl" data-testid="board-a11y-mirror" aria-label="白板对象大纲">
@@ -47,7 +48,10 @@ export function BoardA11yMirror({ objects, selectedObjectIds, onSelect, readOnly
       <p className="mt-1 text-xs text-muted-foreground">{readOnly ? "只读模式；可浏览和选择对象。" : "使用 Tab 浏览对象，Enter 选择。"}</p>
       <ul className="mt-2 space-y-1" aria-label="白板对象">
         {orderedObjects.map((object) => (
-          <li key={object.id} data-object-id={object.id}>
+          <li key={object.id} data-object-id={object.id} data-object-kind={object.kind} data-geometry={JSON.stringify(object.geometry)} data-parent-id={object.parentId ?? ""} data-z-index={object.zIndex ?? 0}
+            data-clip-parent-id={object.parentId && byId.get(object.parentId)?.panel?.clipContent ? object.parentId : undefined}
+            data-connector-from={object.connector?.from ?? ""} data-connector-to={object.connector?.to ?? ""}
+            data-connector-start={object.connector ? JSON.stringify(object.connector.start) : undefined} data-connector-end={object.connector ? JSON.stringify(object.connector.end) : undefined}>
             <Button
               type="button"
               variant="ghost"

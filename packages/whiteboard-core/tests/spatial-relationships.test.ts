@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import * as Y from 'yjs';
 import {
   SpatialRelationshipCommandPort,
+  WhiteboardCommandOrigin,
   WhiteboardUndo,
   createWhiteboardDocument,
   executeCommands,
@@ -94,6 +95,19 @@ describe('semantic panels and hierarchy', () => {
     doc.destroy();
   });
 
+  it('atomically rejects a child crossing a rotated clip Panel boundary', () => {
+    const angle = 30 * Math.PI / 180;
+    const child = note('child', 100 + 20 * Math.cos(angle) - 20 * Math.sin(angle), 100 + 20 * Math.sin(angle) + 20 * Math.cos(angle));
+    child.geometry.rotation = 30;
+    const doc = seed(child); const port = new SpatialRelationshipCommandPort(doc);
+    dispatch(port, 'rotated-panel', { type: 'create-panel', id: 'panel', geometry: { x: 100, y: 100, width: 300, height: 220, rotation: 30 }, panel: { ...panel, autoExpand: false, clipContent: true } });
+    dispatch(port, 'parent-child', { type: 'reparent', id: 'child', parentId: 'panel' });
+    const before = readObjects(doc);
+    expect(() => dispatch(port, 'outside-clip', { type: 'transform', items: [{ id: 'child', geometry: geometry(700, 700), parentId: 'panel' }] })).toThrow('PARENT_BOUNDS_EXCEEDED');
+    expect(readObjects(doc)).toEqual(before);
+    doc.destroy();
+  });
+
   it('deletes panels with explicit preserve or cascade semantics', () => {
     const preserve = seed(note('child')); const preservePort = new SpatialRelationshipCommandPort(preserve);
     dispatch(preservePort, 'p', { type: 'create-panel', id: 'panel', geometry: geometry(), panel });
@@ -170,6 +184,30 @@ describe('groups, copies, layers and locks', () => {
     expect(new Set(values.map(value => value.zIndex)).size).toBe(3);
     doc.destroy();
   });
+
+  it('moves exactly one visual layer across a locked sibling and only relabels unlocked objects', () => {
+    const doc = seed(note('a', 0, 0, null, 0), note('locked', 0, 0, null, 1), note('c', 0, 0, null, 2)); const port = new SpatialRelationshipCommandPort(doc);
+    dispatch(port, 'lock-sibling', { type: 'set-locked', objectIds: ['locked'], locked: true });
+    dispatch(port, 'one-forward', { type: 'layer', objectIds: ['a'], action: 'bring-forward' });
+    const afterForward = [...readObjects(doc)].sort((left, right) => left.zIndex! - right.zIndex!);
+    expect(afterForward.map(value => value.id)).toEqual(['locked', 'a', 'c']);
+    expect(afterForward.find(value => value.id === 'locked')).toMatchObject({ locked: true, zIndex: 1 });
+    expect(new Set(afterForward.map(value => value.zIndex)).size).toBe(3);
+    dispatch(port, 'one-backward', { type: 'layer', objectIds: ['a'], action: 'send-backward' });
+    expect([...readObjects(doc)].sort((left, right) => left.zIndex! - right.zIndex!).map(value => value.id)).toEqual(['a', 'locked', 'c']);
+    expect(readObjects(doc).find(value => value.id === 'locked')?.zIndex).toBe(1);
+    doc.destroy();
+  });
+
+  it('does not pull an unrelated free-to-free connector into a copied closure', () => {
+    const doc = seed(note('a'), note('b', 140)); const port = new SpatialRelationshipCommandPort(doc);
+    dispatch(port, 'group-source', { type: 'group', id: 'group', objectIds: ['a', 'b'] });
+    dispatch(port, 'attached', { type: 'create-connector', id: 'attached', relationship });
+    dispatch(port, 'unrelated-free', { type: 'create-connector', id: 'free-edge', relationship: { ...relationship, from: undefined, to: undefined, fromPoint: { x: 900, y: 900 }, toPoint: { x: 1000, y: 1000 } } });
+    dispatch(port, 'copy-closure', { type: 'duplicate-subgraph', rootIds: ['group'], newIds: { group: 'group2', a: 'a2', b: 'b2', attached: 'attached2' } });
+    expect(readObjects(doc).filter(value => value.kind === 'connector').map(value => value.id).sort()).toEqual(['attached', 'attached2', 'free-edge']);
+    doc.destroy();
+  });
 });
 
 describe('semantic connectors and operation boundaries', () => {
@@ -208,6 +246,36 @@ describe('semantic connectors and operation boundaries', () => {
     dispatch(port, 'move-b', { type: 'move', id: 'b', x: 500, y: 200 });
     expect(readObjects(doc).find(value => value.id === 'edge')?.geometry).not.toEqual(before);
     expect(() => validateDocument(doc)).not.toThrow(); doc.destroy();
+  });
+
+  it('preflights multi-delete as one atomic batch for cascade and preserve-free policies', () => {
+    const doc = seed(note('a'), note('b', 300), note('survivor', 600)); const port = new SpatialRelationshipCommandPort(doc);
+    dispatch(port, 'edge-ab', { type: 'create-connector', id: 'edge-ab', relationship });
+    dispatch(port, 'edge-bs', { type: 'create-connector', id: 'edge-bs', relationship: { ...relationship, from: 'b', to: 'survivor' } });
+    dispatch(port, 'lock-bs', { type: 'set-locked', objectIds: ['edge-bs'], locked: true });
+    const before = readObjects(doc);
+    expect(() => dispatch(port, 'reject-all', { type: 'delete-objects', ids: ['a', 'b'], connectors: 'preserve-free' })).toThrow('OBJECT_LOCKED');
+    expect(readObjects(doc)).toEqual(before);
+    dispatch(port, 'unlock-bs', { type: 'set-locked', objectIds: ['edge-bs'], locked: false });
+    const transactions: Y.Transaction[] = [];
+    doc.on('afterTransaction', transaction => { if (transaction.origin instanceof WhiteboardCommandOrigin) transactions.push(transaction); });
+    const preservedBatch = dispatch(port, 'preserve-all', { type: 'delete-objects', ids: ['a', 'b'], connectors: 'preserve-free' });
+    expect(readObjects(doc).find(value => value.id === 'edge-ab')?.connector).toMatchObject({ fromPoint: { x: 100, y: 40 }, toPoint: { x: 300, y: 40 } });
+    expect(readObjects(doc).find(value => value.id === 'edge-bs')?.connector).toMatchObject({ fromPoint: { x: 400, y: 40 }, to: 'survivor' });
+    expect(preservedBatch.events).toEqual([
+      expect.objectContaining({ type: 'ObjectDeleted', objectIds: ['a', 'b'] }),
+      expect.objectContaining({ type: 'ConnectorUpdated', objectIds: ['edge-ab'] }),
+      expect.objectContaining({ type: 'ConnectorUpdated', objectIds: ['edge-bs'] }),
+    ]);
+    expect(transactions).toHaveLength(1);
+    doc.destroy();
+
+    const cascade = seed(note('a'), note('b', 300), note('survivor', 600)); const cascadePort = new SpatialRelationshipCommandPort(cascade);
+    dispatch(cascadePort, 'edge-ab', { type: 'create-connector', id: 'edge-ab', relationship });
+    dispatch(cascadePort, 'edge-bs', { type: 'create-connector', id: 'edge-bs', relationship: { ...relationship, from: 'b', to: 'survivor' } });
+    dispatch(cascadePort, 'cascade-all', { type: 'delete-objects', ids: ['a', 'b'], connectors: 'cascade' });
+    expect(readObjects(cascade).map(value => value.id)).toEqual(['survivor']);
+    cascade.destroy();
   });
 
   it('commits multi-object geometry and reparent as one atomic gesture and rejects every item on conflict', () => {
