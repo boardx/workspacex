@@ -31,7 +31,7 @@
 import { createHash } from "node:crypto";
 import { createReadStream, cpSync, existsSync, readdirSync, readFileSync, renameSync, rmSync, statSync, writeFileSync, mkdirSync } from "node:fs";
 import { readFile } from "node:fs/promises";
-import { join, relative } from "node:path";
+import { join, relative, sep } from "node:path";
 import { pipeline } from "node:stream/promises";
 
 /** 更新包根目录里的清单文件名。 */
@@ -351,7 +351,7 @@ export async function makeUpdatePackage(o: {
       const p = join(d, e.name);
       if (e.isSymbolicLink()) continue;          // 软链不进清单：它的目标可能在包外
       if (e.isDirectory()) await walk(p);
-      else if (e.isFile() && statSync(p).isFile()) files[relative(payload, p)] = await sha256File(p);
+      else if (e.isFile() && statSync(p).isFile()) files[relative(payload, p).split(sep).join("/")] = await sha256File(p);   // 清单里一律 `/`，包才能跨平台
     }
   };
   await walk(payload);
