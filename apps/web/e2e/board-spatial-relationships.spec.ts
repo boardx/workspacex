@@ -242,11 +242,18 @@ async function openEmptyBoard(page: Page, request: APIRequestContext, prefix: st
 test("selection transform locks", async ({ page, request }) => {
   await openEmptyBoard(page, request, "Selection locks");
   await page.getByTestId("board-add-sticky").click();
+  const stickies = page.locator('[data-testid="board-a11y-mirror"] li[data-object-kind="sticky"]');
+  await expect(stickies).toHaveCount(1);
+  // Equal orderKeys are sorted by random UUID, not creation time. Capture the
+  // center note's identity before adding the dragged note so their roles cannot swap.
+  const lockedId = await stickies.first().getAttribute("data-object-id");
+  if (!lockedId) throw new Error("Created sticky is missing its canonical object ID");
   await page.getByTestId("board-sticky-square").dragTo(page.getByTestId("board-fabric-surface"), { targetPosition: { x: 950, y: 470 } });
   await page.getByTestId("board-tool-select").click();
-  const stickies = page.locator('[data-testid="board-a11y-mirror"] li[data-object-kind="sticky"]');
   await expect(stickies).toHaveCount(2);
-  const locked = stickies.nth(0), free = stickies.nth(1);
+  const locked = page.locator(`[data-testid="board-a11y-mirror"] li[data-object-id="${lockedId}"]`);
+  const free = page.locator(`[data-testid="board-a11y-mirror"] li[data-object-kind="sticky"]:not([data-object-id="${lockedId}"])`);
+  await expect(free).toHaveCount(1);
   const lockedBefore = await geometryOf(locked), freeBefore = await geometryOf(free);
   await locked.getByRole("button").focus();
   await page.keyboard.press("Enter");
@@ -258,11 +265,11 @@ test("selection transform locks", async ({ page, request }) => {
   await expect(page.getByTestId("board-a11y-selection-announcement")).toHaveText("已选择 2 个对象");
   const transform = await canvasTransform(page);
   const start = { x: transform.box.x + transform.panX + (freeBefore.x + freeBefore.width / 4) * transform.zoom, y: transform.box.y + transform.panY + (freeBefore.y + freeBefore.height / 2) * transform.zoom };
-  await page.mouse.move(start.x, start.y); await page.mouse.down(); await page.mouse.move(start.x + 90 * transform.zoom, start.y + 60 * transform.zoom, { steps: 10 }); await page.mouse.up();
   // The proposed bottom move falls within the existing five-CSS-pixel guide
   // threshold of the locked object's bottom edge; assert the exact snapped result.
   const snappedY = lockedBefore.y + lockedBefore.height;
   expect(Math.abs(freeBefore.y + 60 - snappedY) * transform.zoom).toBeLessThanOrEqual(5);
+  await page.mouse.move(start.x, start.y); await page.mouse.down(); await page.mouse.move(start.x + 90 * transform.zoom, start.y + 60 * transform.zoom, { steps: 10 }); await page.mouse.up();
   await expect.poll(() => geometryOf(free)).toMatchObject({ x: freeBefore.x + 90, y: snappedY });
   expect(await geometryOf(locked)).toEqual(lockedBefore);
   await page.getByRole("button", { name: "撤销", exact: true }).click();
