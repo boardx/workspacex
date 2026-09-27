@@ -37,6 +37,9 @@ export async function migrateInterviewMarkdown(session: TenantSession, orgId: Or
     report: workflow.report?.markdown ?? workflow.reportGeneration?.markdown ?? "",
   };
   for (const step of ["intake", "analysis", "experts", "outline", "runs", "report"] as const) {
+    // A legacy run snapshot is immutable once migrated. Never freeze in-flight
+    // evidence: a later explicit initialization can archive completed answers.
+    if (step === "runs" && (!workflow.expertRuns.length || workflow.expertRuns.some((run) => run.status !== "completed"))) continue;
     if (migrated.versions.some((document) => document.step === step)) continue;
     const old = workflow.artifacts.find((artifact) => artifact.step === step);
     // Artifacts used to be thin display projections. Archive the richer source

@@ -95,7 +95,9 @@ async function openPanel() {
   render(<DesignDetailScreen projectId="p1" />);
   await screen.findByTestId("design-detail");
   fireEvent.click(screen.getByTestId("design-detail-view-single"));
-  fireEvent.click(screen.getByTestId("design-detail-appearance"));
+  // design-delta `novice-progressive-disclosure`：「外观」收进了「更多」菜单（Radix，pointerdown 打开）。
+  fireEvent.pointerDown(screen.getByTestId("design-detail-more"), { button: 0, ctrlKey: false });
+  fireEvent.click(await screen.findByTestId("design-detail-appearance"));
   await screen.findByTestId("design-detail-appearance-panel");
 }
 

@@ -31,11 +31,14 @@ import { ExpertAvatar, ExpertAvatarEditor } from "@/components/itv/expert-avatar
 import { ExpertPickerDialog } from "./expert-picker-dialog";
 import { InterviewSkillAssistant } from "./interview-skill-assistant";
 import { InterviewReportMarkdown } from "./interview-report-markdown";
+import { InterviewMarkdownResultsStep } from "./interview-markdown-results-step";
 import { InterviewMarkdownSurface } from "./interview-markdown-surface";
 import { InterviewSkillDrawer } from "./interview-skill-drawer";
 import { InterviewStageFrame } from "./interview-stage-frame";
 import { InterviewWorkbenchHeader } from "./interview-workbench-header";
 import { DigitalInterviewResearchBriefEditor } from "./digital-interview-research-brief";
+import { InterviewMarkdownPlanningStep } from "./interview-markdown-planning-step";
+import { InterviewMarkdownEditingStep } from "./interview-markdown-editing-step";
 import { DigitalInterviewEvidenceReview } from "./digital-interview-evidence-review";
 import { DigitalInterviewReadiness } from "./digital-interview-readiness";
 import { evidenceModeLabel, exportInterviewReportPdf, exportInterviewReportWord, reportMarkdownBody } from "@/lib/interview-report-export";
@@ -147,7 +150,7 @@ function buffersFrom(view: DigitalInterviewWorkflowView): LiveBuffers {
 }
 
 /** Live workflow deliberately has no persistence side effects on input events. */
-export function PersistentDigitalInterviewWorkflow({ initialView, initialWorkbenchStep }: { readonly initialView: DigitalInterviewWorkflowView; readonly initialWorkbenchStep?: WorkbenchStep }) {
+export function PersistentDigitalInterviewWorkflow({ initialView, initialWorkbenchStep, markdownWorkbenchEnabled = false }: { readonly initialView: DigitalInterviewWorkflowView; readonly initialWorkbenchStep?: WorkbenchStep; readonly markdownWorkbenchEnabled?: boolean }) {
   const router = useRouter();
   const [view, setView] = React.useState(initialView);
   const [activeStep, setActiveStep] = React.useState<DigitalInterviewStep>(initialView.currentStep);
@@ -410,6 +413,11 @@ export function PersistentDigitalInterviewWorkflow({ initialView, initialWorkben
 
   const active = activeStep;
   const activeWorkbench = activeWorkbenchStep;
+  // Source editors remain opt-in until their confirmations drive the execution
+  // workflow. Named URLs must not silently bypass readiness or run creation.
+  const markdownPlanning = markdownWorkbenchEnabled && (activeWorkbench === "intake" || activeWorkbench === "analysis");
+  const markdownEditing = markdownWorkbenchEnabled && (activeWorkbench === "experts" || activeWorkbench === "outline");
+  const markdownResults = markdownWorkbenchEnabled && (activeWorkbench === "runs" || activeWorkbench === "report");
   function requestWorkbenchNavigation(step: WorkbenchStep) {
     const target = WORKBENCH_STEPS.find((candidate) => candidate.id === step)!;
     requestNavigation({ step: target.liveStep, workbenchStep: step, href: workbenchHref(view.interviewId, step) });
@@ -420,13 +428,16 @@ export function PersistentDigitalInterviewWorkflow({ initialView, initialWorkben
       <ol className="sr-only">{LIVE_STEPS.map((step, index) => <li key={step.id}><Button data-testid={`itv-workflow-step-${index + 1}`} type="button" aria-current={active === step.id ? "step" : undefined} onClick={() => requestNavigation({ step: step.id })}>0{index + 1} {step.label}</Button></li>)}</ol>
       {error && !view.report && <p role="alert" className="mt-4 rounded-lg border border-destructive/20 bg-destructive/5 p-3 text-sm text-destructive">操作未完成：{error}。请重试，当前草稿已保留。</p>}
       <InterviewStageFrame>
-        <WorkflowArtifactPanel artifacts={view.artifacts} workbenchStep={activeWorkbench} topic={buffers.topic || view.topic || view.name} />
-        {activeWorkbench === "intake" && <DigitalInterviewResearchBriefEditor topic={buffers.topic} brief={buffers.researchBrief} onTopicChange={(topic) => { setBuffers((current) => ({ ...current, topic })); setDirty(true); }} onChange={(researchBrief) => { setBuffers((current) => ({ ...current, researchBrief })); setDirty(true); }} onConfirm={() => requestConfirmation("topic")} />}
-        {activeWorkbench === "analysis" && <LiveAnalysisWorkbench topic={buffers.topic || view.topic || view.name} onContinue={() => requestWorkbenchNavigation("experts")} />}
-        {activeWorkbench === "experts" && <LiveExpertStep expertIds={buffers.expertIds} candidates={view.expertCandidates} onChange={(expertIds) => { setBuffers((current) => ({ ...current, expertIds })); setDirty(true); }} onConfirm={() => requestConfirmation("experts")} />}
-        {activeWorkbench === "outline" && <><LiveQuestionStep expertIds={buffers.expertIds} candidates={view.expertCandidates} questions={buffers.questions} learningGoals={buffers.researchBrief.learningGoals} onChange={(questions) => { setBuffers((current) => ({ ...current, questions })); setDirty(true); }} onConfirm={() => requestConfirmation("questions")} />{view.quality.readiness && <DigitalInterviewReadiness quality={view.quality} pending={readinessPending} onDecide={(status, rationale) => void decideReadiness(view, status, rationale)} />}</>}
-        {activeWorkbench === "runs" && <LiveRunStep runs={view.expertRuns} reportPending={reportPending} onGenerateReport={requestReportGeneration} />}
-        {activeWorkbench === "report" && (view.report ? <><LiveReportStep report={view.report} boundary={{ evidenceMode: view.studyEvidenceMode, review: view.reportEvidenceEligibility }} onViewSource={(expertId, questionId) => {
+        {!markdownPlanning && !markdownEditing && !markdownResults && <WorkflowArtifactPanel artifacts={view.artifacts} workbenchStep={activeWorkbench} topic={buffers.topic || view.topic || view.name} />}
+        {markdownResults && <InterviewMarkdownResultsStep interviewId={view.interviewId} step={activeWorkbench as "runs" | "report"} runs={view.expertRuns} onVersionChange={(version) => setView((current) => ({ ...current, version }))} onReport={() => requestWorkbenchNavigation("report")} />}
+        {markdownEditing && <InterviewMarkdownEditingStep interviewId={view.interviewId} step={activeWorkbench as "experts" | "outline"} onVersionChange={(version) => setView((current) => ({ ...current, version }))} onDirtyChange={setDirty} onContinue={requestWorkbenchNavigation} />}
+        {markdownPlanning && <InterviewMarkdownPlanningStep interviewId={view.interviewId} step={activeWorkbench as "intake" | "analysis"} onVersionChange={(version) => setView((current) => ({ ...current, version }))} onDirtyChange={setDirty} onContinue={requestWorkbenchNavigation} />}
+        {!markdownPlanning && activeWorkbench === "intake" && <DigitalInterviewResearchBriefEditor topic={buffers.topic} brief={buffers.researchBrief} onTopicChange={(topic) => { setBuffers((current) => ({ ...current, topic })); setDirty(true); }} onChange={(researchBrief) => { setBuffers((current) => ({ ...current, researchBrief })); setDirty(true); }} onConfirm={() => requestConfirmation("topic")} />}
+        {!markdownPlanning && activeWorkbench === "analysis" && <LiveAnalysisWorkbench topic={buffers.topic || view.topic || view.name} onContinue={() => requestWorkbenchNavigation("experts")} />}
+        {!markdownEditing && activeWorkbench === "experts" && <LiveExpertStep expertIds={buffers.expertIds} candidates={view.expertCandidates} onChange={(expertIds) => { setBuffers((current) => ({ ...current, expertIds })); setDirty(true); }} onConfirm={() => requestConfirmation("experts")} />}
+        {!markdownEditing && activeWorkbench === "outline" && <><LiveQuestionStep expertIds={buffers.expertIds} candidates={view.expertCandidates} questions={buffers.questions} learningGoals={buffers.researchBrief.learningGoals} onChange={(questions) => { setBuffers((current) => ({ ...current, questions })); setDirty(true); }} onConfirm={() => requestConfirmation("questions")} />{view.quality.readiness && <DigitalInterviewReadiness quality={view.quality} pending={readinessPending} onDecide={(status, rationale) => void decideReadiness(view, status, rationale)} />}</>}
+        {!markdownResults && activeWorkbench === "runs" && <LiveRunStep runs={view.expertRuns} reportPending={reportPending} onGenerateReport={requestReportGeneration} />}
+        {!markdownResults && activeWorkbench === "report" && (view.report ? <><LiveReportStep report={view.report} boundary={{ evidenceMode: view.studyEvidenceMode, review: view.reportEvidenceEligibility }} onViewSource={(expertId, questionId) => {
           setActiveStep("runs");
           setActiveWorkbenchStep("runs");
           window.setTimeout(() => document.getElementById(`answer-${expertId}-${questionId}`)?.scrollIntoView({ block: "center" }), 0);
