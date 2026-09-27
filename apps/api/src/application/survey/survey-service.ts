@@ -256,10 +256,11 @@ export class SurveyService {
         m.status = transitionSurveyStatus(m.status, "withdraw");
       }
       m.title = input.title;
+      m.tags = input.tags ?? m.tags;
       m.questions = preserveTrustedCertification(input.questions, m.questions);
       m.template = input.template;
       m.source = this.sourceFromDraft(
-        { ...input, questions: m.questions },
+        { ...input, tags: m.tags, questions: m.questions },
         this.now().toISOString(),
         (m.source?.compiledVersion ?? 0) + 1,
         m.source?.documents,
@@ -294,6 +295,7 @@ export class SurveyService {
       };
       model.source = { documents: nextDocuments, compiledVersion: revision, contentHash: sourceContentHash(Object.values(nextDocuments)) };
       model.title = design.draft.title;
+      model.tags = design.draft.tags;
       model.questions = preserveTrustedCertification(design.draft.questions, model.questions);
       model.template = reportTemplate.template;
       if (model.status === "ready")
@@ -350,7 +352,7 @@ export class SurveyService {
       expiresAt: end.toISOString(),
       sourceSnapshot: model.source ? {
         documents: structuredClone(model.source.documents),
-        compiled: { title: model.title, questions: structuredClone(model.questions), template: structuredClone(model.template) },
+        compiled: { title: model.title, tags: model.tags, questions: structuredClone(model.questions), template: structuredClone(model.template) },
         contentHash: model.source.contentHash,
       } : undefined,
     };
