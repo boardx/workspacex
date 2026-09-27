@@ -1,4 +1,6 @@
 import { act, cleanup, createEvent, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { Buffer } from "node:buffer";
+import { webcrypto } from "node:crypto";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { createWhiteboardDocument, executeCommands, readObjects } from "@repo/whiteboard-core";
 import type { BoardFabricObject } from "@/components/whiteboard/fabric/board-fabric-object";
@@ -21,11 +23,20 @@ class ResizeObserverMock { observe() {} disconnect() {} }
 globalThis.ResizeObserver = ResizeObserverMock as unknown as typeof ResizeObserver;
 const objectUrls = new Map<string, Blob>();
 const revokeObjectUrl = vi.fn((url: string) => { objectUrls.delete(url); });
+const nativeDigest = webcrypto.subtle.digest.bind(webcrypto.subtle);
 async function readBlobBytes(blob: Blob): Promise<Uint8Array> {
   if (typeof blob.arrayBuffer === "function") return new Uint8Array(await blob.arrayBuffer());
   return new Promise((resolve, reject) => { const reader = new FileReader(); reader.onerror = reject; reader.onload = () => reader.result instanceof ArrayBuffer ? resolve(new Uint8Array(reader.result)) : reject(new Error("read")); reader.readAsArrayBuffer(blob); });
 }
 beforeEach(() => {
+  // jsdom byte buffers belong to another realm. Bridge only the bytes to Node;
+  // keep real WebCrypto hashing rather than replacing image-integrity checks.
+  vi.spyOn(crypto.subtle, "digest").mockImplementation((algorithm, data) => {
+    const bytes = ArrayBuffer.isView(data)
+      ? new Uint8Array(data.buffer, data.byteOffset, data.byteLength)
+      : new Uint8Array(data);
+    return nativeDigest(algorithm, Buffer.from(bytes));
+  });
   objectUrls.clear(); revokeObjectUrl.mockClear();
   vi.stubGlobal("URL", class extends globalThis.URL {
     static createObjectURL(blob: Blob) { const url = `blob:verified-${objectUrls.size + 1}`; objectUrls.set(url, blob); return url; }
@@ -37,7 +48,7 @@ beforeEach(() => {
     const view = new DataView(bytes.buffer); return { width: view.getUint32(16), height: view.getUint32(20), close: vi.fn() };
   }));
 });
-afterEach(() => { cleanup(); vi.unstubAllGlobals(); });
+afterEach(() => { cleanup(); vi.restoreAllMocks(); vi.unstubAllGlobals(); });
 
 function png(width = 32, height = 24): Uint8Array {
   const bytes = new Uint8Array(32);
@@ -62,6 +73,12 @@ function webp(kind: "VP8" | "VP8L" | "VP8X", width: number, height: number): Uin
   return bytes;
 }
 const byteBuffer = (bytes: Uint8Array): ArrayBuffer => new Uint8Array(bytes).buffer;
+
+it("computes the real SHA-256 of jsdom byte buffers", async () => {
+  const digest = new Uint8Array(await crypto.subtle.digest("SHA-256", new Uint8Array([97, 98, 99]).buffer));
+  expect([...digest].map(value => value.toString(16).padStart(2, "0")).join(""))
+    .toBe("ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad");
+});
 
 async function setupView() {
   const { CollaborativeEditor } = await import("@/components/whiteboard/collaborative-editor");
