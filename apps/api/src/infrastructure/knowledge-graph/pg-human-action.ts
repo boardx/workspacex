@@ -46,7 +46,7 @@ export class PgHumanAction implements HumanActionPort {
     }
   }
 
-  /** issue #4363（S6）：`kg_set_todo_status`（迁移 20260927420000）。 */
+  /** issue #4363（S6）：`kg_set_todo_status`（迁移 20260928170000）。 */
   async setTodoStatus(orgId: OrgId, userId: string, input: {
     readonly actionId: string; readonly claimId: string; readonly status: KgTodoStatus;
   }) {

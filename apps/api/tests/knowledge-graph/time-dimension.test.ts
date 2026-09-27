@@ -230,7 +230,7 @@ describe("issue #4363 review（#4492）：改写一条结论不丢时间字段",
 
 describe("issue #4363：迁移回填", () => {
   it("迁移之前记下的待办（todo_status 为空）由迁移里的回填语句补成 open；非待办不动", async () => {
-    const sql = readFileSync(fileURLToPath(new URL("../../migrations/20260927420000_kg_s6_time_dimension.sql", import.meta.url)), "utf8");
+    const sql = readFileSync(fileURLToPath(new URL("../../migrations/20260928170000_kg_s6_time_dimension.sql", import.meta.url)), "utf8");
     const backfill = /^UPDATE claims SET todo_status = 'open' WHERE [^;]+;/m.exec(sql)?.[0];
     expect(backfill).toBeDefined();
     const legacy = "clm-i4363-legacy-todo";

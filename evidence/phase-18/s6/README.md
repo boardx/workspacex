@@ -16,8 +16,8 @@ todo as open, and /brain must show how a decision evolved (211 → 985 → 清�
 | #4307 | `kg_apply_supersedes` collects personal copies only along **active** `derived_from` edges (`CREATE OR REPLACE`, one-line change). The undo path restores from the notice snapshot, which no longer contains the detached copy — symmetric without changes. |
 | Ranking | Among claims with equal relevance and equal fused rank: query intent (「谁定的」) first, then **newer first**, then tri-state. S9 fusion (channel ranks, relevance, RRF) is untouched. |
 
-Migration: `apps/api/migrations/20260927420000_kg_s6_time_dimension.sql` (sorts after the newest on origin/main,
-`20260927310000`, after the rebase onto `1f80811d0`).
+Migration: `apps/api/migrations/20260928170000_kg_s6_time_dimension.sql` (sorts after the newest on origin/main `20260928150000`;
+checked after merging origin/main).
 
 ## Tests (fail-without-fix proof: see the last column; two SQL-level red runs are missing)
 
@@ -73,7 +73,7 @@ playwright config, db-proof.sql).
   Test `time-dimension.test.ts` 「改写一条结论不丢时间字段」: with the fix 8/8 green
   (`fail-without-fix/api-revise-keeps-time.fixed.txt`); trigger dropped in the same DB ⇒ red, `todoStatus "open"`,
   `dueAt null` (`fail-without-fix/api-revise-keeps-time.txt`).
-- Migration renamed to `20260927420000_kg_s6_time_dimension.sql` (no timestamp clash with S4's `20260927400000`).
+- Migration renamed to `20260928170000_kg_s6_time_dimension.sql` (after main's newest `20260928150000`; no clash with S4).
 - The copy-inheritance "first source" check counts only active `derived_from` edges.
 - Chat 「那个做完了」 is future work and is not wired (contract comment and this README reworded).
 
