@@ -629,6 +629,16 @@ describe("F04 正式 setup 的显式确认与双层持久化验收门", () => {
     expect(screen.getByTestId("itv-markdown-preview")).toHaveTextContent("研究目标");
   });
 
+  it("restores a named stage route and changes the URL from the unified header", async () => {
+    installLiveFetch(persistedInterview);
+    render(<DigitalInterviewSetup interviewId={persistedInterview.interviewId} initialWorkbenchStep="analysis" />);
+
+    expect(await screen.findByTestId("itv-analysis-workbench")).toBeInTheDocument();
+    fireEvent.click(screen.getByTestId("itv-workbench-step-experts"));
+    expect(push).toHaveBeenCalledWith(`/itv/${persistedInterview.interviewId}/experts`);
+    expect(await screen.findByTestId("itv-expert-step")).toBeInTheDocument();
+  });
+
   it.each([
     { step: 2, button: "itv-confirm-experts", endpoint: "/experts/confirm", impact: "问题、访谈结果和报告" },
     { step: 3, button: "itv-confirm-questions", endpoint: "/questions/confirm", impact: "访谈结果和报告" },

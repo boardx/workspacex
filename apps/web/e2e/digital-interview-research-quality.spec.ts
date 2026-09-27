@@ -40,7 +40,7 @@ test("research brief is keyboard reachable and responsive in a real browser", as
   expect(overflow).toBe(false);
 });
 
-test("the six-stage workbench exposes a separate analysis stage and Markdown artifact", async ({ page }) => {
+test("the six-stage workbench restores a direct stage route and updates it from the timeline", async ({ page }) => {
   await page.addInitScript(() => {
     localStorage.setItem("wsx.sessionToken", "e2e-token");
     localStorage.setItem("wsx.session", JSON.stringify({ version: 1, userId: "user-e2e", orgs: ["org-e2e"],
@@ -53,7 +53,7 @@ test("the six-stage workbench exposes a separate analysis stage and Markdown art
     status: 200, contentType: "application/json", body: JSON.stringify(view),
   }));
 
-  await page.goto("/itv/itv-quality-e2e/setup");
+  await page.goto("/itv/itv-quality-e2e/analysis");
   await expect(page.getByTestId("shell-rail")).toHaveCount(0);
   await expect(page.getByTestId("itv-workbench-header")).toBeVisible();
   await expect(page.getByTestId("itv-workbench-navigation")).toBeVisible();
@@ -61,10 +61,12 @@ test("the six-stage workbench exposes a separate analysis stage and Markdown art
   await expect(page.getByTestId("itv-workbench-step-analysis")).toContainText("确认分析");
   await expect(page.getByTestId("itv-workbench-step-report")).toContainText("汇总报告");
 
-  await page.getByTestId("itv-workbench-step-analysis").click();
   await expect(page.getByTestId("itv-analysis-workbench")).toContainText("研究目标");
   await expect(page.getByTestId("itv-step-markdown-artifact")).toContainText("分析建议.md");
   await expect(page.getByTestId("itv-markdown-preview")).toContainText("研究目标");
+  await page.getByTestId("itv-workbench-step-experts").click();
+  await expect(page).toHaveURL(/\/itv\/itv-quality-e2e\/experts$/);
+  await expect(page.getByTestId("itv-expert-step")).toBeVisible();
   await page.getByTestId("itv-skill-drawer-trigger").click();
   await expect(page.getByTestId("itv-skill-drawer")).toHaveAttribute("aria-hidden", "false");
 });

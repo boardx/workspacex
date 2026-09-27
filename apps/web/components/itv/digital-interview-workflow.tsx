@@ -111,7 +111,7 @@ const LIVE_STEPS: readonly { readonly id: DigitalInterviewStep; readonly label: 
   { id: "topic", label: "主题" }, { id: "experts", label: "专家" }, { id: "questions", label: "问题" }, { id: "runs", label: "访谈" }, { id: "report", label: "报告" },
 ];
 
-type WorkbenchStep = "intake" | "analysis" | "experts" | "outline" | "runs" | "report";
+export type WorkbenchStep = "intake" | "analysis" | "experts" | "outline" | "runs" | "report";
 
 const WORKBENCH_STEPS: readonly { readonly id: WorkbenchStep; readonly label: string; readonly detail: string; readonly liveStep: DigitalInterviewStep }[] = [
   { id: "intake", label: "导入需求", detail: "明确研究问题与材料边界", liveStep: "topic" },
@@ -130,7 +130,11 @@ function workbenchStepFor(step: DigitalInterviewStep): WorkbenchStep {
 }
 
 type LiveBuffers = { readonly topic: string; readonly researchBrief: DigitalInterviewResearchBrief; readonly expertIds: readonly string[]; readonly questions: readonly DigitalInterviewQuestion[] };
-type PendingNavigation = { readonly step?: DigitalInterviewStep; readonly href?: string } | null;
+type PendingNavigation = { readonly step?: DigitalInterviewStep; readonly workbenchStep?: WorkbenchStep; readonly href?: string } | null;
+
+function workbenchHref(interviewId: string, step: WorkbenchStep) {
+  return `/itv/${encodeURIComponent(interviewId)}/${step}`;
+}
 
 function buffersFrom(view: DigitalInterviewWorkflowView): LiveBuffers {
   return {
@@ -142,11 +146,11 @@ function buffersFrom(view: DigitalInterviewWorkflowView): LiveBuffers {
 }
 
 /** Live workflow deliberately has no persistence side effects on input events. */
-export function PersistentDigitalInterviewWorkflow({ initialView }: { readonly initialView: DigitalInterviewWorkflowView }) {
+export function PersistentDigitalInterviewWorkflow({ initialView, initialWorkbenchStep }: { readonly initialView: DigitalInterviewWorkflowView; readonly initialWorkbenchStep?: WorkbenchStep }) {
   const router = useRouter();
   const [view, setView] = React.useState(initialView);
   const [activeStep, setActiveStep] = React.useState<DigitalInterviewStep>(initialView.currentStep);
-  const [activeWorkbenchStep, setActiveWorkbenchStep] = React.useState<WorkbenchStep>(() => workbenchStepFor(initialView.currentStep));
+  const [activeWorkbenchStep, setActiveWorkbenchStep] = React.useState<WorkbenchStep>(() => initialWorkbenchStep ?? workbenchStepFor(initialView.currentStep));
   const [buffers, setBuffers] = React.useState<LiveBuffers>(() => buffersFrom(initialView));
   const [dirty, setDirty] = React.useState(false);
   const [skillDrawerOpen, setSkillDrawerOpen] = React.useState(false);
@@ -215,7 +219,9 @@ export function PersistentDigitalInterviewWorkflow({ initialView }: { readonly i
     requestIds.current.delete(operation);
     setView(next);
     setActiveStep(next.currentStep);
-    setActiveWorkbenchStep(workbenchStepFor(next.currentStep));
+    const nextWorkbenchStep = workbenchStepFor(next.currentStep);
+    setActiveWorkbenchStep(nextWorkbenchStep);
+    router.replace?.(workbenchHref(next.interviewId, nextWorkbenchStep));
     setBuffers(buffersFrom(next));
     setDirty(false);
     setError("");
@@ -245,8 +251,9 @@ export function PersistentDigitalInterviewWorkflow({ initialView }: { readonly i
   function navigate(next: PendingNavigation) {
     if (next?.step) {
       setActiveStep(next.step);
-      setActiveWorkbenchStep(workbenchStepFor(next.step));
     }
+    if (next?.workbenchStep) setActiveWorkbenchStep(next.workbenchStep);
+    else if (next?.step) setActiveWorkbenchStep(workbenchStepFor(next.step));
     if (next?.href) router.push(next.href);
   }
 
@@ -339,6 +346,7 @@ export function PersistentDigitalInterviewWorkflow({ initialView }: { readonly i
     localReportStream.current = true;
     setActiveStep("report");
     setActiveWorkbenchStep("report");
+    router.replace?.(workbenchHref(view.interviewId, "report"));
     setReportPending(true);
     try {
       const next = await generateDigitalInterviewReportStream(
@@ -402,11 +410,8 @@ export function PersistentDigitalInterviewWorkflow({ initialView }: { readonly i
   const active = activeStep;
   const activeWorkbench = activeWorkbenchStep;
   function requestWorkbenchNavigation(step: WorkbenchStep) {
-    if (step === "analysis") {
-      setActiveWorkbenchStep(step);
-      return;
-    }
-    requestNavigation({ step: WORKBENCH_STEPS.find((candidate) => candidate.id === step)!.liveStep });
+    const target = WORKBENCH_STEPS.find((candidate) => candidate.id === step)!;
+    requestNavigation({ step: target.liveStep, workbenchStep: step, href: workbenchHref(view.interviewId, step) });
   }
   return <div className="min-h-0 flex-1 bg-background">
     <main className="min-w-0 overflow-y-auto p-5 lg:p-8"><div className="mx-auto max-w-6xl">

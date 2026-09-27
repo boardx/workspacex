@@ -188,7 +188,41 @@ git add apps/web/components/itv/interview-studio-home.tsx apps/web/e2e/digital-i
 git commit -m "test(interview): verify fullscreen markdown workflow"
 ```
 
-### Task 5: 全量回归与 PR 更新
+### Task 5: 六个工作台阶段的可直达路由
+
+**Files:**
+- Create: `apps/web/app/itv/[interviewId]/[stage]/page.tsx`
+- Modify: `apps/web/app/itv/[interviewId]/setup/page.tsx`
+- Modify: `apps/web/components/itv/digital-interview-setup.tsx`
+- Modify: `apps/web/components/itv/digital-interview-workflow.tsx`
+- Modify: `apps/web/tests/ui/interview-setup-workflow.test.tsx`
+- Modify: `apps/web/e2e/digital-interview-research-quality.spec.ts`
+
+**Interfaces:**
+- Produces: `/itv/:interviewId/{intake,analysis,experts,outline,runs,report}`; each route mounts the same immersive workbench and restores the selected stage after refresh.
+- Consumes: the unified Header timeline and dirty-navigation guard.
+
+- [ ] **Step 1: 写失败的路由 UI 测试**
+
+断言从 `/analysis` 初始渲染分析阶段，点击 Header 的专家阶段更新 URL 到 `/experts`，而有草稿时仍先弹出放弃确认。
+
+- [ ] **Step 2: 运行测试确认失败**
+
+Run: `pnpm --dir apps/web exec vitest run tests/ui/interview-setup-workflow.test.tsx`
+
+Expected: FAIL，因为阶段仍只存于页面内 state。
+
+- [ ] **Step 3: 实现动态阶段页和 URL 驱动的 Header 导航**
+
+`/setup` 作为兼容入口保留；六个命名阶段各有可直达 URL。Header 点击同时更新 UI 和 URL，确认操作转向下一可见阶段，不能绕过 dirty guard。
+
+- [ ] **Step 4: 运行 UI 与浏览器测试确认通过**
+
+Run: `pnpm --dir apps/web exec vitest run tests/ui/interview-setup-workflow.test.tsx && pnpm --dir apps/web exec playwright test e2e/digital-interview-research-quality.spec.ts --project=chromium`
+
+Expected: PASS。
+
+### Task 6: 全量回归与 PR 更新
 
 **Files:**
 - Modify: 仅在前四个任务发现的回归文件。
