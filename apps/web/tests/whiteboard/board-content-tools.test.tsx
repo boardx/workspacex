@@ -86,7 +86,12 @@ async function setupView() {
   const view = render(<CollaborativeEditor boardId="content-board" clientId="content-client" doc={doc} readOnly={false} title="内容板" status="已连接" />);
   return { doc, ...view };
 }
-function openAppearance() { const trigger = screen.getByTestId("board-inspector-appearance"); if (trigger.getAttribute("aria-expanded") !== "true") fireEvent.click(trigger); }
+function openAppearance() {
+  const panel = screen.getByTestId("board-context-toolbar");
+  if (panel.getAttribute("data-expanded") !== "true") fireEvent.click(screen.getByTestId("board-inspector-expand"));
+  const trigger = screen.getByTestId("board-inspector-appearance");
+  if (trigger.getAttribute("aria-expanded") !== "true") fireEvent.click(trigger);
+}
 async function setup() { return (await setupView()).doc; }
 
 it("creates a real shape and structured Tile from the touch-first dock", async () => {
@@ -199,10 +204,11 @@ it("retains a shared image asset across duplicate deletion and remote bulk delet
   const { doc, unmount } = await setupView();
   fireEvent.change(screen.getByTestId("board-image-input"), { target: { files: [new File([byteBuffer(png())], "shared.png", { type: "image/png" })] } });
   await waitFor(() => expect(readObjects(doc)).toHaveLength(1));
-  fireEvent.click(screen.getByRole("button", { name: "复制对象" }));
+  fireEvent.click(screen.getAllByRole("button", { name: "复制对象" })[0]!);
   expect(readObjects(doc)).toHaveLength(2);
   const assetIds = readObjects(doc).map((object) => (object.extensionData?.contentObject as { assetId?: string }).assetId);
   expect(new Set(assetIds).size).toBe(1);
+  fireEvent.click(screen.getByTestId("board-inspector-expand"));
   fireEvent.click(screen.getByTestId("board-inspector-actions"));
   fireEvent.click(screen.getByRole("button", { name: "删除" }));
   expect(readObjects(doc)).toHaveLength(1);
@@ -395,12 +401,12 @@ it("applies contextual color and duplicates with a 24px offset", async () => {
   fireEvent.click(screen.getByTestId("board-add-shape"));
   const source = readObjects(doc)[0]!;
   openAppearance();
-  fireEvent.click(screen.getByLabelText("填充色 #93C5FD"));
+  fireEvent.click(screen.getAllByLabelText("填充色 #93C5FD").at(-1)!);
   expect(readObjects(doc).find((item) => item.id === source.id)?.extensionData?.contentObject).toMatchObject({ fill: "#93C5FD" });
   fireEvent.click(screen.getByRole("button", { name: "边框样式" }));
   fireEvent.click(screen.getByRole("button", { name: "文字对齐" }));
   expect(readObjects(doc).find((item) => item.id === source.id)?.extensionData?.contentObject).toMatchObject({ borderStyle: "dashed", horizontalAlign: "left", verticalAlign: "top" });
-  fireEvent.click(screen.getByRole("button", { name: "复制对象" }));
+  fireEvent.click(screen.getAllByRole("button", { name: "复制对象" })[0]!);
   const records = readObjects(doc);
   expect(records).toHaveLength(2);
   const duplicate = records.find((record) => record.id !== source.id)!;
