@@ -7,7 +7,8 @@ import { SESSION_TOKEN_STORAGE_KEY } from '../lib/api-client';
 import { FULLSTACK_E2E } from './fullstack-smoke-fixture';
 
 /** Real services only: no route interception, business mocks or injected test principals. */
-test.describe.configure({ mode: 'serial', timeout: 120_000 });
+test.describe.configure({ mode: 'default', timeout: 120_000 });
+test.use({ actionTimeout: 15_000 });
 const fullstackFallbacks: Record<string, string | undefined> = {
   WHITEBOARD_OWNER_EMAIL: FULLSTACK_E2E.adminEmail,
   WHITEBOARD_OWNER_PASSWORD: FULLSTACK_E2E.adminPassword,
