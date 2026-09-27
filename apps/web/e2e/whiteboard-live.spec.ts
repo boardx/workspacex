@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { resolveObjectPath } from '../../api/src/infrastructure/storage/object-store-path';
 import { expect, test, type Page, type APIRequestContext } from '@playwright/test';
 import { SESSION_TOKEN_STORAGE_KEY } from '../lib/api-client';
 import { FULLSTACK_E2E } from './fullstack-smoke-fixture';
@@ -173,7 +174,8 @@ test('realtime presence field convergence',async({browser,request:api,baseURL})=
       const revokedWrite = await api.post(`${required('WHITEBOARD_API_URL')}/whiteboards/${boardId}/commands`, {
         headers: {Authorization: `Bearer ${editorToken}`}, data: {requestId: randomUUID(), epoch: 1, commands: [{type: 'style', id: 'revoked-attempt', style: {fill: '#ffffff'}}]},
       });
-      expect(revokedWrite.status()).toBe(403);
+      // A removed member cannot discover whether this Board exists.
+      expect(revokedWrite.status()).toBe(404);
     });
   }finally{
     try { if(boardId&&ownerToken)await archiveBoard(api,ownerToken,boardId); }
@@ -221,7 +223,7 @@ test('undo offline reconnect recovery',async({browser,request:api,baseURL})=>{
     const baseCheckpoint=await request(api,token,'POST',`/whiteboards/${boardId}/checkpoints`,{requestId:randomUUID()}),baseManifest=(await baseCheckpoint.json() as {manifest:{checkpointId:string;epoch:number;seq:number}}).manifest;
     await request(api,token,'POST',`/whiteboards/${boardId}/commands`,{requestId:randomUUID(),epoch:baseManifest.epoch,commands:[{type:'style',id:'undo-target',style:{fill:'#fde68a'}}]});
     const corruptCheckpoint=await request(api,token,'POST',`/whiteboards/${boardId}/checkpoints`,{requestId:randomUUID()}),corruptManifest=(await corruptCheckpoint.json() as {manifest:{checkpointId:string;epoch:number;seq:number;objectKey:string}}).manifest;
-    const objectRoot=process.env.WORKSPACEX_OBJECT_ROOT??join(tmpdir(),'workspacex-objects');await writeFile(join(objectRoot,corruptManifest.objectKey),new Uint8Array([9,9,9]));
+    const objectRoot=process.env.WORKSPACEX_OBJECT_ROOT??join(tmpdir(),'workspacex-objects');await writeFile(resolveObjectPath(objectRoot,corruptManifest.objectKey),new Uint8Array([9,9,9]));
     const restoredResponse=await request(api,token,'POST',`/whiteboards/${boardId}/checkpoints/${corruptManifest.checkpointId}/restore`,{requestId:randomUUID(),expectedEpoch:corruptManifest.epoch,expectedSeq:corruptManifest.seq});
     const restored=await restoredResponse.json() as {auditEvents:Array<{type:string;fallbackCheckpointId?:string;requestedCheckpointId?:string}>};expect(restored.auditEvents).toContainEqual(expect.objectContaining({type:'CheckpointFallbackUsed',fallbackCheckpointId:baseManifest.checkpointId,requestedCheckpointId:corruptManifest.checkpointId}));
     await owner.reload();await synced(owner);await expect(owner.getByTestId('board-a11y-object-undo-target')).toBeAttached();await expect(owner.getByTestId('board-a11y-object-undo-edge')).toBeAttached();
