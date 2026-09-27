@@ -39,11 +39,12 @@ it('never skips a remotely superseded operation to reach an older history item',
   executeCommands(doc, [{ type: 'geometry', id: 'a', geometry: { ...object('a').geometry, x: 30 } }], {});
   expect(undo.undo()).toBe('conflict'); expect(readObjects(doc)).toHaveLength(1); expect(readObjects(doc)[0].geometry.x).toBe(30);
 });
-it('rejects undo when the same object received foreign text', () => {
+it('undoes only local text and redoes it without changing the shared identity', () => {
   const doc = groups(), undo = new WhiteboardUndo(doc);
   undo.execute([{ type: 'text', id: 'b', index: 0, deleteCount: 0, insert: '甲' }]);
   executeCommands(doc, [{ type: 'text', id: 'b', index: 1, deleteCount: 0, insert: '乙' }], {});
-  expect(undo.undo()).toBe('conflict'); expect(readObjects(doc).find(o => o.id === 'b')?.text).toBe('甲乙');
+  expect(undo.undo()).toBe('undone'); expect(readObjects(doc).find(o => o.id === 'b')).toMatchObject({id: 'b', text: '乙'});
+  expect(undo.redo()).toBe(true); expect(readObjects(doc).find(o => o.id === 'b')).toMatchObject({id: 'b', text: '甲乙'});
 });
 it('round-trips a 100-object create batch as one history item', () => {
   const doc = createWhiteboardDocument(), undo = new WhiteboardUndo(doc);

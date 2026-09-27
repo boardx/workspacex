@@ -16,7 +16,8 @@ import { join } from "node:path";
 import {
   checkWebBuild, dataDirAdvice, dataDirAdviceBody, diagnoseStartupFailure, localSessionUrl,
   resolveLocalConfig, restoreIntoDataDir, runDoctor, signInLocal, stopListenerOnPort, up,
-  verifyBackup, type RunningStack,
+  verifyBackup, inspectUpdate, readBundleVersion, applyUpdate, rollbackBundle,
+  type RunningStack,
 } from "@repo/local-runtime";
 import { SHUTDOWN_TIMEOUT_MS, shutdownNoticeDataUrl } from "./shutdown-notice";
 import { welcomeDataUrl } from "./welcome";
@@ -510,6 +511,116 @@ const TABLE_LABELS: Readonly<Record<string, string>> = {
   skills: "技能", canvas_templates: "画布模板", agent_runs: "运行记录",
 };
 
+
+/**
+ * 离线更新与回滚（#3872 R20）。
+ *
+ * 顺序与备份恢复同一条纪律：**先验、再说清代价、最后才动数据**。
+ * 且必须明说哪三样这条路换不了——否则用户会以为所有更新都能这样装。
+ */
+const UPDATE_HISTORY = (): string => join(app.getPath("userData"), "local", "update-history.json");
+const BUNDLE_DIR = (): string => join(process.resourcesPath ?? "", "bundle");
+
+
+/** 这条路换不了的三样，说给用户听的原话。文案只写一处。 */
+const UPDATE_SCOPE_NOTE =
+  "离线更新换的是应用逻辑。Electron 外壳、本地模型、Ollama 二进制这三样变了仍然要重新安装——"
+  + "那条路要过系统的签名检查，和这里不是一回事。";
+
+
+/**
+ * 更新/回滚都要换掉 `bundle/` 并重启进程 —— 评分卡维度 8 的九分判据里有一条
+ * **「更新不打断生成」**，所以动手之前必须问一句「现在有没有 AI 任务在跑」。
+ *
+ * ⚠ 读不到时（`null`）必须当成**「不知道」**，不能当成「空闲」。
+ *   否则一旦这个查询坏掉（表名改了、库连不上），「不打断」就自动退化成
+ *   「静默打断」，而且没有任何人会发现——本仓抓过多次的那种失效方向。
+ *
+ * 返回 true 表示「可以继续」。
+ */
+async function confirmNoActiveRuns(what: "更新" | "回滚"): Promise<boolean> {
+  if (stack === null) return true;   // 栈没起来就没有 run 在跑
+  const n = await stack.countActiveRuns();
+  if (n === 0) return true;
+  const unknown = n === null;
+  const r = await dialog.showMessageBox({
+    type: "warning",
+    title: unknown ? `无法确认现在有没有 AI 任务在跑` : `有 ${String(n)} 个 AI 任务正在进行`,
+    message: unknown
+      ? `读不到任务状态，所以我不能保证这次${what}不会打断正在跑的东西。`
+      : `${what}要重启应用，正在跑的 ${String(n)} 个任务会被中断，已经产出的内容会保留，但没跑完的那一步要重新来。`,
+    detail: unknown
+      ? `稳妥的做法是先关掉这个窗口、确认没有任务在跑，再回来${what}。`
+      : `等它们跑完再${what}最稳妥。你的数据不会丢——中断的只是那几步的进度。`,
+    buttons: ["先不要", `仍然${what}`],
+    defaultId: 0,
+    cancelId: 0,
+  });
+  return r.response === 1;
+}
+
+async function runUpdate(): Promise<void> {
+  const picked = await dialog.showOpenDialog({
+    title: "选择更新包所在的目录", properties: ["openDirectory"], buttonLabel: "读这一个",
+  });
+  if (picked.canceled || picked.filePaths[0] === undefined) return;
+  const dir = picked.filePaths[0];
+
+  // 先只读地看一眼：这是什么、能不能装。动文件的事交给 applyUpdate（与 CLI 共用一份）。
+  const current = await readBundleVersion(BUNDLE_DIR(), app.getVersion());
+  const v = await inspectUpdate(dir, current);
+  if (!v.ok) {
+    await dialog.showMessageBox({
+      type: "error", title: "这个更新包装不了", message: v.reason,
+      detail: `${UPDATE_SCOPE_NOTE}\n\n你现在的数据和应用都没有被改动。`,
+    });
+    return;
+  }
+  const ok = await dialog.showMessageBox({
+    type: "warning", title: `确认从 ${current} 更新到 ${v.manifest.version}？`,
+    message: `${v.manifest.summary ?? "这一版没有附带说明。"}\n\n装之前会逐个校验文件，任何一个对不上都不会动你的应用。`,
+    detail: `当前版本 ${current} 会被**保留**，随时可以从菜单回滚。\n`
+      + `更新完成后应用会重启。\n\n${UPDATE_SCOPE_NOTE}`,
+    buttons: ["取消", "更新并重启"], defaultId: 0, cancelId: 0,
+  });
+  if (ok.response !== 1) return;
+  if (!await confirmNoActiveRuns("更新")) return;
+
+  const r = await applyUpdate({ bundleDir: BUNDLE_DIR(), packageDir: dir, shellVersion: app.getVersion(), historyPath: UPDATE_HISTORY() });
+  if (!r.ok) {
+    // applyUpdate 保证 touched=false：失败时应用一个字节都没被动过——所以这句话是真的
+    await dialog.showMessageBox({
+      type: "error", title: "更新没有完成，应用没有被改动", message: r.reason,
+      detail: "应用目录可能是只读的（例如从磁盘映像直接运行），或磁盘空间不足。把应用拖到「应用程序」里、腾出空间后再试。",
+    });
+    return;
+  }
+  appendLog(`[update] ${r.from} → ${r.to}（${String(r.files)} 个文件已校验；上一版留在 ${r.keptAt}）`);
+  app.relaunch();
+  app.exit(0);
+}
+
+async function runRollback(): Promise<void> {
+  const current = await readBundleVersion(BUNDLE_DIR(), app.getVersion());
+  const ok = await dialog.showMessageBox({
+    type: "warning", title: "回滚到上一版？",
+    message: `当前 ${current} 会被保留（不删除），回滚本身也会记成一次新的更新记录。`,
+    detail: "你的数据不受影响——回滚只换应用逻辑。\n完成后应用会重启。",
+    buttons: ["取消", "回滚并重启"], defaultId: 0, cancelId: 0,
+  });
+  if (ok.response !== 1) return;
+  if (!await confirmNoActiveRuns("回滚")) return;
+
+  const r = await rollbackBundle({ bundleDir: BUNDLE_DIR(), shellVersion: app.getVersion(), historyPath: UPDATE_HISTORY() });
+  if (!r.ok) {
+    await dialog.showMessageBox({ type: "info", title: "没有回滚", message: r.reason, detail: UPDATE_SCOPE_NOTE });
+    return;
+  }
+  appendLog(`[update] 回滚 ${r.from} → ${r.to}（${r.from} 留在 ${r.keptAt}）`);
+  app.relaunch();
+  app.exit(0);
+}
+
 function installMenu(): void {
   const template = Menu.getApplicationMenu()?.items.map((item) => item) ?? [];
   const help = {
@@ -531,6 +642,15 @@ function installMenu(): void {
       {
         label: "打开数据目录",
         click: () => { void openDataDir(); },
+      },
+      { type: "separator" as const },
+      {
+        label: "安装离线更新包…",
+        click: () => { void runUpdate(); },
+      },
+      {
+        label: "回滚到上一版",
+        click: () => { void runRollback(); },
       },
     ],
   };

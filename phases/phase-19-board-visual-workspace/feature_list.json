@@ -554,7 +554,8 @@
       "design_ref": "",
       "verification": [
         "pnpm --filter @repo/contracts exec vitest run tests/board-operation-contract.test.ts tests/board-event-model.test.ts",
-        "pnpm --filter api exec vitest run tests/whiteboard/operation-actor-parity.test.ts tests/whiteboard/operation-idempotency-acl.test.ts"
+        "pnpm --filter api exec vitest run --config vitest.whiteboard-unit.config.ts tests/whiteboard/operation-actor-parity.test.ts tests/whiteboard/operation-idempotency-acl.test.ts",
+        "pnpm exec tsx .harness/scripts/with-test-isolation.ts -- pnpm --filter api exec vitest run tests/whiteboard/rate-limit-rls.test.ts"
       ],
       "evidence": "",
       "notes": "Iteration 8 / integration。共享热点 packages/contracts/src/whiteboard.ts、whiteboard-core commands、apps/api Board operation controller；Fabric 私有字段不得进入公开契约。"
@@ -578,7 +579,7 @@
       "wave": 8,
       "design_ref": "ui-preview/board-fabric-surface/s01-fabric-board.png",
       "verification": [
-        "pnpm --filter api exec vitest run tests/whiteboard/ai-proposal-provenance.test.ts tests/whiteboard/ai-proposal-revision-conflict.test.ts",
+        "pnpm --filter api exec vitest run --config vitest.whiteboard-unit.config.ts tests/whiteboard/ai-proposal-provenance.test.ts tests/whiteboard/ai-proposal-revision-conflict.test.ts",
         "pnpm --filter web exec playwright test -c playwright.config.ts -g 'AI clustering <=2 actions'"
       ],
       "evidence": "",
@@ -628,8 +629,8 @@
       "wave": 9,
       "design_ref": "",
       "verification": [
-        "pnpm --filter api exec vitest run tests/whiteboard/blob-pointer-atomicity.test.ts tests/whiteboard/blob-retention-gc.test.ts tests/whiteboard/blob-backup-restore.test.ts",
-        "pnpm --filter api exec vitest run tests/whiteboard/pgsql-metadata-only-growth.test.ts"
+        "pnpm exec tsx .harness/scripts/with-test-isolation.ts -- pnpm --filter api exec vitest run tests/whiteboard/blob-pointer-atomicity.test.ts tests/whiteboard/blob-retention-gc.test.ts tests/whiteboard/blob-backup-restore.test.ts",
+        "pnpm exec tsx .harness/scripts/with-test-isolation.ts -- pnpm --filter api exec vitest run tests/whiteboard/pgsql-metadata-only-growth.test.ts"
       ],
       "evidence": "",
       "notes": "Iteration 9 / integration。共享热点 Board blob repository、filesystem/S3 backend、PG metadata schema、GC/backup jobs；Fabric JSON 永不落盘。"
@@ -655,7 +656,7 @@
       "wave": 9,
       "design_ref": "ui-preview/board-fabric-surface/s01-fabric-board.png",
       "verification": [
-        "pnpm --filter api exec vitest run tests/whiteboard/miro-mural-import-conformance.test.ts tests/whiteboard/import-security-boundary.test.ts",
+        "pnpm exec tsx .harness/scripts/with-test-isolation.ts -- pnpm --filter api exec vitest run tests/whiteboard/miro-mural-import-conformance.test.ts tests/whiteboard/import-security-boundary.test.ts",
         "pnpm --filter web exec playwright test -c playwright.config.ts -g 'Miro Mural import report'"
       ],
       "evidence": "",
@@ -680,9 +681,10 @@
       "wave": 9,
       "design_ref": "ui-preview/board-fabric-surface/s01-fabric-board.png",
       "verification": [
-        "pnpm --filter api exec vitest run tests/whiteboard/meeting-room-viewport-revision.test.ts",
+        "pnpm --filter api exec vitest run --config vitest.whiteboard-unit.config.ts tests/whiteboard/meeting-room-viewport-revision.test.ts",
         "pnpm --filter web exec playwright test -c playwright.config.ts -g 'meeting room follow'",
-        "pnpm --filter api exec vitest run tests/whiteboard/meeting-room-soak-gate.test.ts"
+        "pnpm --filter api exec vitest run --config vitest.whiteboard-unit.config.ts tests/whiteboard/meeting-room-soak-gate.test.ts",
+        "pnpm exec tsx .harness/scripts/with-test-isolation.ts -- pnpm --filter api exec vitest run tests/whiteboard/presentation-concurrency-pg.test.ts"
       ],
       "evidence": "",
       "notes": "Iteration 9 / integration；has_ui=true。共享热点 meeting-room session/API、Board viewport controller、signed soak ledger；目标 p95 ≤3000ms。"

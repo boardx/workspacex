@@ -1,0 +1,38 @@
+{
+  "widgets": [
+    {
+      "id": "a",
+      "type": "shape",
+      "shape": "diamond",
+      "x": 0,
+      "y": 0,
+      "width": 180,
+      "height": 100,
+      "text": "Decide"
+    },
+    {
+      "id": "b",
+      "type": "shape",
+      "shape": "rectangle",
+      "x": 300,
+      "y": 0,
+      "width": 180,
+      "height": 100,
+      "text": "Act"
+    },
+    {
+      "id": "e",
+      "type": "connector",
+      "startWidget": {
+        "id": "a"
+      },
+      "endWidget": {
+        "id": "b"
+      },
+      "text": "yes",
+      "metadata": {
+        "semanticRelation": "causes"
+      }
+    }
+  ]
+}

@@ -182,6 +182,12 @@ async function runOnce(options: ExecuteScriptOptions, paths: Paths): Promise<Exe
       // 判断要能如实反映"这套环境到底有没有中文字体"，空串会让它以为有。
       ...(options.cjkFontPath ? { SKILL_SANDBOX_CJK_FONT: options.cjkFontPath } : {}),
       PATH: "/usr/bin:/bin",
+      // ⚠ 本地版里沙箱自己就是 Electron-as-Node（desktop 的 node 垫片），于是
+      //   `process.execPath` 是 Electron 本体。干净环境里少了这一个变量，子进程起的是
+      //   **GUI 应用**而不是 Node：退出码 0、stdout 空、没有文件——每个技能脚本都
+      //   「成功」地什么也没做（安装版实机 2026-09-27，连 console.log 都没有输出）。
+      //   对真正的 node 二进制它是无害的，所以无条件带上。
+      ELECTRON_RUN_AS_NODE: "1",
     },
     stdio: ["ignore", "pipe", "pipe"],
     // 自成进程组，超时时可以整组杀掉，不给"起了孙进程就杀不干净"留缝。

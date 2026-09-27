@@ -18,12 +18,13 @@ function fixture() {
       if (objects.has(key)) throw { status: 409, code: 'FileAlreadyExists' };
       objects.set(key, { bytes: Buffer.from(bytes), headers: {
         'content-length': String(bytes.length), 'content-type': options.mime,
-        'x-oss-meta-sha256': options.headers['x-oss-meta-sha256']!,
+        'x-oss-meta-sha256': options.headers['x-oss-meta-sha256']!, etag:createHash('md5').update(bytes).digest('hex'),
       } });
     },
     async get(key) { if (error) throw error; const o = objects.get(key); if (!o) throw { status: 404, code: 'NoSuchKey' }; return { content: Buffer.from(o.bytes), headers: o.headers }; },
     async head(key) { if (error) throw error; const o = objects.get(key); if (!o) throw { status: 404, code: 'NoSuchKey' }; return { headers: o.headers }; },
-    async delete(key) { if (error) throw error; objects.delete(key); },
+    async delete(key,options) { if (error) throw error;const current=objects.get(key);if(options?.headers?.['If-Match']&&options.headers['If-Match']!==current?.headers.etag)throw{code:'PreconditionFailed'};objects.delete(key); },
+    async list(input){return{objects:[...objects].filter(([key])=>key.startsWith(input.prefix)).map(([name,value])=>({name,size:value.bytes.length,lastModified:new Date().toISOString(),etag:value.headers.etag!}))};},
   };
   const store = new OssObjectStore(client, 'test-bucket', 'deployments/a');
   const purge = new OssPhysicalPurge(client, 'test-bucket', 'deployments/a');
@@ -37,7 +38,7 @@ describe('OSS ObjectStore contract', () => {
     const bytes = Buffer.from('文件\u0000binary');
     await f.store.putOnce('org-a/file.txt', bytes, 'text/plain; charset=utf-8');
     expect(await f.store.get('org-a/file.txt')).toEqual(bytes);
-    expect(await f.store.head('org-a/file.txt')).toEqual({ sizeBytes: bytes.length, mime: 'text/plain; charset=utf-8' });
+    expect(await f.store.head('org-a/file.txt')).toMatchObject({sizeBytes:bytes.length,mime:'text/plain; charset=utf-8',versionTag:expect.any(String)});
     expect([...f.objects.keys()]).toEqual(['deployments/a/org-a/file.txt']);
   });
   it('permits exactly one concurrent write and preserves the winner', async () => {
@@ -84,6 +85,7 @@ describe('OSS ObjectStore contract', () => {
     expect(await f.purge.purgeAll(['key', 'missing'])).toEqual([{ objectKey: 'key', deleted: true }, { objectKey: 'missing', deleted: true }]);
     expect(await f.store.get('key')).toBeNull(); expect(await other.get('key')).toEqual(Buffer.from('b'));
   });
+  it('lists versioned inventory only under the requested tenant prefix',async()=>{const f=fixture();await f.store.putOnce('whiteboards/tenants/a/one',Buffer.from('a'),'text/plain');await f.store.putOnce('whiteboards/tenants/b/two',Buffer.from('bb'),'text/plain');const page=await f.store.list('whiteboards/tenants/a/');expect(page.objects).toMatchObject([{key:'whiteboards/tenants/a/one',sizeBytes:1,versionTag:expect.any(String)}]);});
   it('never leaks upstream secrets through adapter errors', async () => {
     const f = fixture(); f.setError(new Error('SECRET credential URL'));
     await expect(f.store.putOnce('key', Buffer.from('x'), 'text/plain')).rejects.toThrow('OSS unavailable');

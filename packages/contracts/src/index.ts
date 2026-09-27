@@ -120,3 +120,8 @@ export * as crmContacts from "./crm-contacts";
 export * as whiteboard from "./whiteboard";
 export * as whiteboardDocument from "./whiteboard-document";
 export * as whiteboardSync from "./whiteboard-sync";
+export * as whiteboardCollaboration from "./whiteboard-collaboration";
+export * as whiteboardImport from "./whiteboard-import";
+export * as whiteboardOperation from "./whiteboard-operation";
+
+export * as whiteboardOrganize from "./whiteboard-organize";

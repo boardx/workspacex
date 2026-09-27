@@ -169,3 +169,31 @@ test("production Board library manages, duplicates, filters and deletes durable 
   expect((await apiFetch(api, token, "GET", `/whiteboards/${copy.id}`)).status()).toBe(404);
   cleanupBoards.delete(copy.id);
 });
+
+test("Board navigation retains shell in library and only editor is fullscreen", async ({ page, request: api }, testInfo) => {
+  await page.setViewportSize({ width: 1280, height: 800 });
+  const token = cleanupToken = await login(page);
+  const board = await apiJson<Board>(api, token, "POST", "/whiteboards", { requestId: randomUUID(), name: `Navigation-${randomUUID()}` });
+  cleanupBoards.add(board.id);
+  await page.getByTestId("rail-whiteboard").click();
+  await expect(page).toHaveURL(/\/studio\/board$/);
+  await expect(page.getByTestId("rail-whiteboard")).toBeVisible();
+  await expect(page.getByTestId("rail-whiteboard")).toHaveAttribute("aria-current", "page");
+  await expect(page.getByTestId("whiteboard-library")).toBeVisible();
+  await expect(page.getByTestId(`board-card-${board.id}`)).toBeVisible();
+  await page.screenshot({ path: testInfo.outputPath("board-library-with-navigation.png") });
+  await page.getByTestId(`board-open-${board.id}`).click();
+  await expect(page).toHaveURL(new RegExp(`/studio/board/${board.id}$`));
+  await expect(page.getByText(/^已同步$/)).toBeVisible({ timeout: 30_000 });
+  await expect(page.getByTestId("rail-whiteboard")).not.toBeVisible();
+  const editor = await page.getByTestId("collaborative-editor").boundingBox();
+  expect(editor).toEqual({ x: 0, y: 0, width: 1280, height: 800 });
+  await page.screenshot({ path: testInfo.outputPath("board-editor-fullscreen.png") });
+  await page.getByRole("button", { name: "返回白板", exact: true }).click();
+  await expect(page).toHaveURL(/\/studio\/board$/);
+  await expect(page.getByTestId("rail-whiteboard")).toBeVisible();
+  await expect(page.getByTestId(`board-card-${board.id}`)).toBeVisible();
+  await page.reload();
+  await expect(page.getByTestId("rail-whiteboard")).toBeVisible();
+  await expect(page.getByTestId("whiteboard-library")).toBeVisible();
+});

@@ -80,6 +80,30 @@ const ALLOWLIST = new Map([
     "#3967: Yjs document state belongs to a private whiteboard whose owner/member roles cannot be represented by the generic acl_bindings ObjectRef; its org-wide fallback would weaken privacy. Every operation uses withTenant, locks the board FOR SHARE or FOR UPDATE, binds membership and idempotency to the acting user, and authorizes before reading or mutating snapshots/updates. Scope is exactly whiteboards, whiteboard_members, whiteboard_documents and whiteboard_updates. tests/whiteboard/collaboration-repository-guard.test.ts mechanically enforces that SQL, transaction, lock, tenant, ACL and ordering premise and contains mutation counterexamples. Real PostgreSQL and websocket coverage lives in collaboration-persistence.test.ts, collaboration-transaction.test.ts and collaboration-ws.test.ts. Remove this entry if the guard or those integration proofs disappear.",
   ],
   [
+    "src/infrastructure/whiteboard/pg-import-repository.ts",
+    "Board imports inherit the private board owner/member ACL and have no acl_bindings ref; the generic fallback would weaken them to org-wide. WhiteboardImportService calls boards.get before every repository read/write, denies viewers for mutation, and hides nonmembers as NOT_FOUND. The repository uses withTenant and scopes every statement by org_id+board_id+import id; it returns only import metadata/report, never source or image bytes. tests/whiteboard/import-repository-guard.test.ts mechanically pins the table scope, tenant predicates and service authorization ordering; import-service.test.ts proves wrong-tenant denial and idempotent execution. Remove this entry with those guards/tests.",
+  ],
+  [
+    "src/infrastructure/whiteboard/pg-export-repository.ts",
+    "Board exports inherit the private board owner/member ACL and have no acl_bindings ref; the generic fallback would weaken them to org-wide. WhiteboardImportService calls boards.get before creation and download, denies viewers and archived boards, and hides nonmembers as NOT_FOUND. This repository uses withTenant and scopes every statement by org_id+board_id+export id; it stores and returns only immutable ObjectStore pointer/digest/size/head metadata, never package bytes. tests/whiteboard/export-repository-guard.test.ts pins this boundary and import-service.test.ts proves ACL, archived, idempotency, digest, pointer, and round-trip behavior. Remove this entry with those guards/tests.",
+  ],
+  [
+    "src/infrastructure/whiteboard/pg-recovery-metadata.ts",
+    "Checkpoint/recovery rows inherit the private board owner/member ACL and are manifest/audit metadata, never bytes. Every public method enters withTenant and performs the locked owner/member lookup before reading; restore is owner-only and CASes the current head. tests/whiteboard/recovery-repository-guard.test.ts pins table scope, tenant predicates, access ordering and absence of snapshot bytes; recovery-metadata.test.ts proves idempotent restore before changed-head CAS. Remove this entry with those guards/tests.",
+  ],
+  [
+    "src/infrastructure/whiteboard/pg-operation-repository.ts",
+    "Board operation receipts/events inherit the private whiteboard owner/member ACL and cannot use the generic acl_bindings fallback, which would weaken them to org-wide. The application binds the authenticated principal to human/delegated service/AI identity and role before mutation; this repository's locked head query independently requires owner/member equality, event reads call canRead first, every predicate carries org_id+board_id, and writes are append-only audit rows in the owning collaboration transaction. tests/whiteboard/operation-repository-guard.test.ts mechanically pins table scope, predicates, read ordering and actor/role checks; operation-service.test.ts proves delegation, role, revision and idempotency denial. Remove this exception with either guard.",
+  ],
+  [
+    "src/infrastructure/whiteboard/pg-proposal-repository.ts",
+    "Durable Board proposals inherit the private Board owner/member ACL. WhiteboardProposalService checks/locks the Board through WhiteboardOperationAuditRepository before create/confirm and binds every read to org+board+proposal+owner; confirmation re-enters the same authorized atomic operation transaction. tests/whiteboard/proposal-presentation-repository-guard.test.ts pins ordering and predicates; AI proposal named tests pin expiry/digest/provenance. Remove with those guards.",
+  ],
+  [
+    "src/infrastructure/whiteboard/pg-presentation-repository.ts",
+    "Meeting state and room identities inherit private Board membership. WhiteboardPresentationService authorizes Board access before reads/writes, binds room reconnect to owner+token hash, checks handoff targets against Board membership/registered room identity, and uses org+board+room predicates. tests/whiteboard/proposal-presentation-repository-guard.test.ts pins these guards and meeting-room named tests pin revision behavior. Remove with those guards.",
+  ],
+  [
     "src/infrastructure/survey/pg-survey-attachment-repository.ts",
     "#3760 personal survey attachments have no ACL object. Every public read first locks and validates the frozen publication secret/status/expiry, then the upload capability scoped to that publication, question and unclaimed session; owner reads require survey_workspaces.owner_id equality and claimed response_id. claimSurveyAttachments executes within the answer aggregate transaction after publication and answer validation, locks the capability and binds all question/attachment IDs atomically. All SQL uses withTenant/RLS; cleanup has no disclosure and only deletes expired unclaimed objects. tests/survey/survey-attachments.test.ts proves actual HTTP/PG/object-store owner denial, cross-session/question denial, expiry, closed publications, transactional rollback, replay and safe cleanup. Remove this exception if those tests or guards are removed or project sharing is introduced.",
   ],

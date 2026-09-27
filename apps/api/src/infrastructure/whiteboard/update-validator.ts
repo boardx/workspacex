@@ -4,7 +4,9 @@ import { WHITEBOARD_SYNC } from '@repo/contracts/whiteboard-sync';
 import { WHITEBOARD_UPDATE_LIMITS } from '@repo/whiteboard-core';
 import { WhiteboardCollaborationError, type ValidatedWhiteboardUpdate, type WhiteboardUpdateValidator } from '../../application/whiteboard/collaboration-ports';
 
-export const WHITEBOARD_VALIDATOR_LIMITS = { vectorBytes: WHITEBOARD_SYNC.stateVectorBytes, commandBytes: 262144, workerHeapMb: 128, timeoutMs: 5000, concurrent: 4, queued: 64, queuedBytes: 64 * 1024 * 1024, queueWaitMs: 10000 } as const;
+// 10k document writes clone the Yjs graph: 128 MiB exhausts the worker heap.
+// Two 256 MiB workers retain the previous aggregate 512 MiB old-generation cap.
+export const WHITEBOARD_VALIDATOR_LIMITS = { vectorBytes: WHITEBOARD_SYNC.stateVectorBytes, commandBytes: 262144, workerHeapMb: 256, timeoutMs: 5000, concurrent: 2, queued: 64, queuedBytes: 64 * 1024 * 1024, queueWaitMs: 10000 } as const;
 /** FIFO admission is bounded by count, retained input bytes and waiting time. */
 export class WhiteboardValidationQueue {
   private active = 0;

@@ -209,6 +209,10 @@ export interface PersonalClaimOriginRow {
   readonly sourceClaimId: string;
   readonly threadId: string;
   readonly projectId: string | null;
+  /** issue #4302：原结论最早一条支撑消息的时间（ISO）；没有消息证据为 null */
+  readonly saidAt: string | null;
+  /** issue #4302：这个来源是系统自动记下的（#4283 derived_from 边 created_by = model） */
+  readonly autoCopied: boolean;
 }
 
 export const KNOWLEDGE_READ_PORT = Symbol("KnowledgeReadPort");

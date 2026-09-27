@@ -57,6 +57,7 @@ export interface DiagramSavedSource {
   readonly markdown: string;
   /** ISO 时间戳（landing 行 created_at），提示条「X 前」的数据源。 */
   readonly savedAt: string;
+  readonly immutableRevision?: string;
 }
 
 /** 「X 前」相对时间。保存时间在未来/解析失败时如实退回绝对时间，不编一个「刚刚」。 */

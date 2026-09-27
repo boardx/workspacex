@@ -83,6 +83,7 @@ const fixtureEnv = {
   FULLSTACK_E2E_PROJECT_ID: FULLSTACK_E2E.projectId,
   FULLSTACK_E2E_PROJECT_NAME: FULLSTACK_E2E.projectName,
   FULLSTACK_E2E_ARTIFACT_ID: FULLSTACK_E2E.artifactId,
+  FULLSTACK_E2E_BOARD_ARTIFACT_ID: FULLSTACK_E2E.boardArtifactId,
   FULLSTACK_E2E_SENTINEL_FILE: FULLSTACK_E2E.sentinelFile,
   FULLSTACK_E2E_ADMIN_EMAIL: FULLSTACK_E2E.adminEmail,
   FULLSTACK_E2E_ADMIN_PASSWORD: FULLSTACK_E2E.adminPassword,
@@ -397,6 +398,8 @@ export default defineConfig({
         "core-journey-04-canvas-template-lifecycle-chat.spec.ts",
         // BV01 owns its Board lifecycle and can run after the seeded empty-state assertions.
         "board-fabric-surface.spec.ts",
+        // BV12–BV14 exercise canonical layout commands against the real Board stack.
+        "board-selection-layout.spec.ts",
         // Board library mutations create their own resources and remove them in a strict hook.
         // Keep them after the seeded catalog-empty assertions, alongside the Fabric lifecycle.
         "board-library-management.spec.ts",
@@ -405,6 +408,9 @@ export default defineConfig({
         // Iteration 04 owns rich visual objects and verifies their canonical state across
         // two clients, undo/redo, and a persisted reload boundary.
         "board-visual-content.spec.ts",
+        // Iteration 05 owns Panels, Groups, semantic Connectors, layer operations,
+        // rotated transforms, and cross-client spatial persistence.
+        "board-spatial-relationships.spec.ts",
       ],
       grepInvert: EMPTY_DB_TAG_RE,
       dependencies: ["seeded"],

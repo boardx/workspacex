@@ -32,6 +32,16 @@ describe('whiteboard content kernel', () => {
     Y.applyUpdate(b, updates[1]); Y.applyUpdate(b, updates[1]); Y.applyUpdate(b, updates[0]); Y.applyUpdate(b, updates[0]);
     expect(readObjects(b)).toEqual(readObjects(a));
   });
+  it('updates attached connector geometry from rotated edge midpoints in the canonical apply path', () => {
+    const doc = createWhiteboardDocument();
+    const endpoint = { ...note('a'), geometry: { x: 10, y: 20, width: 100, height: 80, rotation: 90 } };
+    const target = { ...note('b'), geometry: { x: 300, y: 20, width: 100, height: 80, rotation: 0 } };
+    const edge = { ...note('edge'), kind: 'connector' as const, connector: { from: 'a', to: 'b', fromAnchor: 'right' as const, toAnchor: 'left' as const, type: 'straight' as const, startStyle: 'none' as const, endStyle: 'arrow' as const, lineStyle: 'solid' as const, label: '', semanticRelation: '' } };
+    executeCommands(doc, [endpoint, target, edge].map(object => ({ type: 'create' as const, object })), {});
+    executeCommands(doc, [{ type: 'geometry', id: 'a', geometry: { x: 100, y: 200, width: 100, height: 80, rotation: 180 } }], {});
+    expect(readObjects(doc).find(object => object.id === 'edge')?.geometry).toMatchObject({ x: 0, y: 60, width: 300, height: 100 });
+    doc.destroy();
+  });
   it('late edits cannot resurrect deletions and dangling connectors are filtered', () => {
     const a = createWhiteboardDocument(); create(a); create(a, 'other');
     executeCommands(a, [{ type: 'create', object: { ...note('edge'), kind: 'connector', connector: { from: 'note', to: 'other' } } }], {});
@@ -68,7 +78,7 @@ describe('whiteboard content kernel', () => {
   });
   it('rejects oversized batches and rich text outside the plain-text contract', () => {
     const doc = createWhiteboardDocument();
-    expect(() => executeCommands(doc, Array.from({ length: 201 }, (_, n) => ({ type: 'create', object: note(`note-${n}`) })), {})).toThrow();
+    expect(() => executeCommands(doc, Array.from({ length: 1001 }, (_, n) => ({ type: 'create', object: note(`note-${n}`) })), {})).toThrow();
     expect(readObjects(doc)).toEqual([]); create(doc);
     const item = doc.getMap<Y.Map<unknown>>('objects').get('note')!;
     (item.get('text') as Y.Text).format(0, 1, { link: 'javascript:alert(1)' });
@@ -93,14 +103,15 @@ describe('whiteboard content kernel', () => {
     executeCommands(b, [{ type: 'text', id: restoredId, index: 2, deleteCount: 0, insert: '同事' }], {});
     sync(a, b); expect(undo.undo()).toBe('conflict'); expect(readObjects(a)[0].text).toContain('同事');
   });
-  it('rejects text undo after a remote change and round-trips a local deletion', () => {
+  it('undoes local text and restores deletion tombstones with the original identity', () => {
     const a = createWhiteboardDocument(); create(a); const b = cloneDocument(a), undo = new WhiteboardUndo(a);
     undo.execute([{ type: 'text', id: 'note', index: 2, deleteCount: 0, insert: '甲' }]);
     executeCommands(b, [{ type: 'text', id: 'note', index: 2, deleteCount: 0, insert: '乙' }], {}); sync(a, b);
-    expect(undo.undo()).toBe('conflict'); expect(readObjects(a)[0].text).toContain('甲'); expect(readObjects(a)[0].text).toContain('乙');
-    const clean = createWhiteboardDocument(); create(clean); const deletion = new WhiteboardUndo(clean);
-    deletion.execute([{ type: 'delete', id: 'note' }]); expect(readObjects(clean)).toEqual([]);
-    expect(deletion.undo()).toBe('undone'); expect(readObjects(clean)).toHaveLength(1);
-    expect(deletion.redo()).toBe(true); expect(readObjects(clean)).toEqual([]);
+    expect(undo.undo()).toBe('undone'); expect(readObjects(a)[0].text).toBe('你好乙');
+    expect(undo.redo()).toBe(true); expect(readObjects(a)[0].text).toContain('甲');
+    undo.execute([{ type: 'delete', id: 'note' }]); expect(readObjects(a)).toEqual([]);
+    expect(undo.undo('undo-delete-gesture')).toBe('undone');expect(readObjects(a)[0]).toMatchObject({id:'note',text:expect.stringContaining('甲')});
+    expect(undo.redo('redo-delete-gesture')).toBe(true);expect(readObjects(a)).toEqual([]);
+    executeCommands(a,[{type:'restore',id:'note'}],{});expect(readObjects(a)[0]?.id).toBe('note');
   });
 });

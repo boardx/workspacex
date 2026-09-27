@@ -40,6 +40,17 @@ export interface PgliteHandle {
   dumpDatabase(): Promise<Uint8Array>;
   /** 表不存在时返回 null，不要返回 0：备份收据上「0 条」和「这张表没有」不是一回事。 */
   countRows(table: string): Promise<number | null>;
+  /**
+   * 还在跑（或等人）的 AI 任务有几个。
+   *
+   * 用途专一的方法，不是给 `countRows` 开一个任意 WHERE 的口子——那会破坏它
+   * 「表名不进字符串拼接」的纪律。这里的 SQL 一个字节都不来自外部输入。
+   *
+   * 非终态取自 `AgentRunStatus`：`queued` / `running` / `writeback_pending` / `paused`。
+   * `paused` 也算「在跑」——它是 run 停在一个待人裁决的工具调用前，
+   * 把它当成空闲会让更新在用户正等着做决定的时候把进程换掉。
+   */
+  countActiveRuns(): Promise<number | null>;
   stop(): Promise<void>;
 }
 
@@ -83,6 +94,17 @@ export async function startPgliteServer(opts: PgliteServerOptions): Promise<Pgli
         return typeof n === "number" ? n : typeof n === "string" ? Number(n) : null;
       } catch {
         return null;   // 表不存在 / 权限不足：如实说「没有」，不要编 0
+      }
+    },
+    async countActiveRuns() {
+      try {
+        const r = await db.query<{ n: number | string }>(
+          "SELECT count(*)::int AS n FROM agent_runs WHERE status IN ('queued','running','writeback_pending','paused')",
+        );
+        const n = r.rows[0]?.n;
+        return typeof n === "number" ? n : typeof n === "string" ? Number(n) : null;
+      } catch {
+        return null;   // 表不存在/读不到：如实说「不知道」，不要返回 0 让调用方以为空闲
       }
     },
     async stop() {

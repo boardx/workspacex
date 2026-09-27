@@ -1343,6 +1343,8 @@ export const operations = {
       markdown: z.string(),
       /** 与 `listThreadArtifacts` 同义：draft 无冻结版本 ⇒ null。 */
       version: z.number().int().positive().nullable(),
+      /** Immutable artifact-version identity used by Board handoff authorization. */
+      immutableRevision: z.string().regex(/^artifact-v1:[1-9][0-9]*$/),
       /** ISO 时间戳，读回提示条「X 时间前」的数据源（landing 行的 created_at）。 */
       savedAt: z.string(),
       /** `chat_artifact_landings.created_by`。 */

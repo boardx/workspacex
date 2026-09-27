@@ -1,15 +1,17 @@
+import { createHash } from 'node:crypto';
 import { act, cleanup, createEvent, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { createWhiteboardDocument, executeCommands, readObjects } from "@repo/whiteboard-core";
 import type { BoardFabricObject } from "@/components/whiteboard/fabric/board-fabric-object";
 
+vi.mock("@/components/whiteboard/board-comments",()=>({listBoardCommentThreads:async()=>[],dispatchBoardCommentCommand:vi.fn()}));
 vi.mock("@/components/whiteboard/fabric/board-fabric-surface", () => ({
   BoardFabricSurface: ({ objects, onSelectionChange, onDrawingComplete, onCanvasClick }: {
     objects: readonly BoardFabricObject[];
     onSelectionChange: (ids: string[], source: "canvas") => void;
     onDrawingComplete?: (input: { tool: "pen" | "eraser"; points: Array<{ x: number; y: number; pressure: number }> }) => void;
     onCanvasClick?: (point: { x: number; y: number }) => void;
-  }) => <div data-testid="board-fabric-surface">
+  }) => <div data-testid="board-fabric-surface"><output data-testid="image-preview">{objects.filter(object=>object.kind==="image").map(object=>object.imageAssetUrl).join(",")}</output>
     <button data-testid="select-first" onClick={() => objects[0] && onSelectionChange([objects[0].id], "canvas")}>select</button>
     <button data-testid="draw-stroke" onClick={() => onDrawingComplete?.({ tool: "pen", points: [{ x: 10, y: 20, pressure: .2 }, { x: 50, y: 60, pressure: .9 }] })}>draw</button>
     <button data-testid="erase-stroke" onClick={() => onDrawingComplete?.({ tool: "eraser", points: [{ x: 20, y: 30, pressure: .5 }, { x: 40, y: 50, pressure: .7 }] })}>erase</button>
@@ -27,6 +29,16 @@ async function readBlobBytes(blob: Blob): Promise<Uint8Array> {
 }
 beforeEach(() => {
   objectUrls.clear(); revokeObjectUrl.mockClear();
+  localStorage.setItem('wsx.sessionToken','test-token');
+  const persisted=new Map<string,Uint8Array>();
+  vi.stubGlobal('fetch',vi.fn(async(url:RequestInfo|URL,init?:RequestInit)=>{
+    if(init?.method==='POST'&&String(url).endsWith('/assets')){
+      const file=(init.body as FormData).get('file') as Blob,bytes=await readBlobBytes(file),digest=createHash('sha256').update(bytes).digest('hex'),assetId=`board-image-${digest}`,view=new DataView(bytes.buffer,bytes.byteOffset,bytes.byteLength);persisted.set(assetId,bytes);
+      return Response.json({assetId,mimeType:file.type,magicMimeType:file.type,byteSize:bytes.length,contentDigest:`sha256:${digest}`,intrinsicWidth:view.getUint32(16),intrinsicHeight:view.getUint32(20),persistence:'durable'});
+    }
+    const id=String(url).split('/').at(-2),bytes=id?persisted.get(id):undefined;
+    return bytes?new Response(new Uint8Array(bytes),{headers:{'content-type':'image/png'}}):new Response(null,{status:404});
+  }));
   vi.stubGlobal("URL", class extends globalThis.URL {
     static createObjectURL(blob: Blob) { const url = `blob:verified-${objectUrls.size + 1}`; objectUrls.set(url, blob); return url; }
     static revokeObjectURL(url: string) { revokeObjectUrl(url); }
@@ -69,6 +81,7 @@ async function setupView() {
   const view = render(<CollaborativeEditor boardId="content-board" clientId="content-client" doc={doc} readOnly={false} title="内容板" status="已连接" />);
   return { doc, ...view };
 }
+function openAppearance() { const trigger = screen.getByTestId("board-inspector-appearance"); if (trigger.getAttribute("aria-expanded") !== "true") fireEvent.click(trigger); }
 async function setup() { return (await setupView()).doc; }
 
 it("creates a real shape and structured Tile from the touch-first dock", async () => {
@@ -83,6 +96,7 @@ it("creates a real shape and structured Tile from the touch-first dock", async (
   expect(records.some((object) => object.extensionData?.contentObject && (object.extensionData.contentObject as { variant?: string }).variant === "diamond")).toBe(true);
   expect(records.some((object) => object.extensionData?.contentObject && (object.extensionData.contentObject as { type?: string }).type === "tile")).toBe(true);
   expect(screen.getByTestId("board-context-toolbar")).toBeVisible();
+  openAppearance();
   fireEvent.click(screen.getByRole("button", { name: "编辑字段" }));
   fireEvent.change(screen.getByTestId("board-structured-title"), { target: { value: "访谈记录" } });
   fireEvent.change(screen.getByTestId("board-structured-details"), { target: { value: JSON.stringify({ description: "直接编辑", fields: [{ key: "owner", label: "负责人", value: "Grace" }], tags: ["research"], status: "active", link: null, actions: ["open"] }) } });
@@ -122,17 +136,18 @@ it("keeps an unsupported image file recoverable without creating a broken object
   doc.destroy();
 });
 
-it("creates a verified local-session image without writing bytes or blob/data URLs into the shared document", async () => {
+it("creates a verified durable image without writing bytes or blob/data URLs into the shared document", async () => {
   const { doc, unmount } = await setupView();
   const input = screen.getByTestId("board-image-input");
   fireEvent.change(input, { target: { files: [new File([byteBuffer(png())], "photo.png", { type: "image/png" })] } });
   await waitFor(() => expect(readObjects(doc)).toHaveLength(1));
   const image = readObjects(doc)[0]!;
   expect(image.kind).toBe("image");
-  expect(image.extensionData?.contentObject).toMatchObject({ type: "image", status: "ready", assetId: expect.stringMatching(/^local-session-/), sourceUrl: null, fileName: "photo.png", intrinsicWidth: 32, intrinsicHeight: 24, persistence: "local-session" });
+  expect(image.extensionData?.contentObject).toMatchObject({ type: "image", status: "ready", assetId: expect.stringMatching(/^board-image-/), sourceUrl: null, fileName: "photo.png", intrinsicWidth: 32, intrinsicHeight: 24, persistence: "durable" });
   expect(JSON.stringify(image)).not.toContain("data:image");
   expect(JSON.stringify(image)).not.toContain("blob:");
-  expect(screen.getByText(/当前浏览器会话中验证并显示/)).toBeVisible();
+  expect(screen.getByText(/图片已持久化/)).toBeVisible();
+  openAppearance();
   expect(screen.getByRole("link", { name: "下载" })).toHaveAttribute("href", "blob:verified-1");
   fireEvent.click(screen.getByRole("button", { name: "替换" }));
   await waitFor(() => expect(screen.getByText("替换图片")).toBeVisible());
@@ -141,13 +156,17 @@ it("creates a verified local-session image without writing bytes or blob/data UR
   expect(readObjects(doc)).toHaveLength(1);
   expect(readObjects(doc)[0]).toMatchObject({ id: image.id, extensionData: { contentObject: { replacementOf: image.id, intrinsicWidth: 64, intrinsicHeight: 48 } } });
   expect(revokeObjectUrl).not.toHaveBeenCalled();
+  openAppearance();
   expect(screen.getByRole("link", { name: "下载" })).toHaveAttribute("href", "blob:verified-2");
   fireEvent.click(screen.getByRole("button", { name: "撤销" }));
   await waitFor(() => expect((readObjects(doc)[0]?.extensionData?.contentObject as { fileName?: string } | undefined)?.fileName).toBe("photo.png"));
+  openAppearance();
   expect(screen.getByRole("link", { name: "下载" })).toHaveAttribute("href", "blob:verified-1");
   fireEvent.click(screen.getByRole("button", { name: "重做" }));
   await waitFor(() => expect((readObjects(doc)[0]?.extensionData?.contentObject as { fileName?: string } | undefined)?.fileName).toBe("replacement.png"));
+  openAppearance();
   expect(screen.getByRole("link", { name: "下载" })).toHaveAttribute("href", "blob:verified-2");
+  fireEvent.click(screen.getByTestId("board-inspector-actions"));
   fireEvent.click(screen.getByRole("button", { name: "删除" }));
   expect(revokeObjectUrl).not.toHaveBeenCalled();
   unmount();
@@ -179,6 +198,7 @@ it("retains a shared image asset across duplicate deletion and remote bulk delet
   expect(readObjects(doc)).toHaveLength(2);
   const assetIds = readObjects(doc).map((object) => (object.extensionData?.contentObject as { assetId?: string }).assetId);
   expect(new Set(assetIds).size).toBe(1);
+  fireEvent.click(screen.getByTestId("board-inspector-actions"));
   fireEvent.click(screen.getByRole("button", { name: "删除" }));
   expect(readObjects(doc)).toHaveLength(1);
   expect(revokeObjectUrl).not.toHaveBeenCalled();
@@ -190,7 +210,7 @@ it("retains a shared image asset across duplicate deletion and remote bulk delet
   doc.destroy();
 });
 
-it("uses the verified local-session path for clipboard paste", async () => {
+it("uses the verified durable path for clipboard paste", async () => {
   const doc = await setup();
   const pasted = new File([byteBuffer(png(20, 10))], "paste.png", { type: "image/png" });
   fireEvent.paste(screen.getByTestId("collaborative-editor"), { clipboardData: { files: [pasted], getData: () => "" } });
@@ -199,7 +219,7 @@ it("uses the verified local-session path for clipboard paste", async () => {
   doc.destroy();
 });
 
-it("uses the verified local-session path for file drop", async () => {
+it("uses the verified durable path for file drop", async () => {
   const doc = await setup();
   const dropped = new File([byteBuffer(png(40, 30))], "drop.png", { type: "image/png" });
   const target = screen.getByTestId("collaborative-editor"), drop = createEvent.drop(target);
@@ -234,22 +254,24 @@ it("preserves both endpoints for 513-point and very long deterministic drawing i
   }
 });
 
-it("validates HTTPS image MIME, size, and magic bytes before storing a durable URL reference", async () => {
+it("validates HTTPS image MIME, size, and magic bytes before storing a durable asset reference", async () => {
   const bytes = png(48, 36);
-  vi.stubGlobal("fetch", vi.fn(async () => new Response(byteBuffer(bytes), { status: 206, headers: { "content-type": "image/png", "content-range": `bytes 0-${bytes.length - 1}/${bytes.length}`, "content-length": String(bytes.length) } })));
+  const assets=fetch;vi.stubGlobal("fetch", vi.fn(async (url:RequestInfo|URL,init?:RequestInit) => String(url).startsWith("https://assets.example.com/")?new Response(byteBuffer(bytes), { status: 206, headers: { "content-type": "image/png", "content-range": `bytes 0-${bytes.length - 1}/${bytes.length}`, "content-length": String(bytes.length) } }):assets(url,init)));
   const doc = await setup();
   fireEvent.click(screen.getByTestId("board-add-image"));
   fireEvent.change(screen.getByTestId("board-image-url"), { target: { value: "https://assets.example.com/photo.png" } });
   fireEvent.click(screen.getByTestId("board-image-url-apply"));
   await waitFor(() => expect(readObjects(doc)).toHaveLength(1));
-  expect(readObjects(doc)[0]?.extensionData?.contentObject).toMatchObject({ type: "image", status: "ready", sourceUrl: "https://assets.example.com/photo.png", assetId: expect.stringMatching(/^local-session-/), mimeType: "image/png", byteSize: bytes.length, intrinsicWidth: 48, intrinsicHeight: 36, contentDigest: expect.stringMatching(/^sha256:[a-f0-9]{64}$/), magicMimeType: "image/png", persistence: "local-session" });
+  expect(readObjects(doc)[0]?.extensionData?.contentObject).toMatchObject({ type: "image", status: "ready", sourceUrl: null, assetId: expect.stringMatching(/^board-image-/), mimeType: "image/png", byteSize: bytes.length, intrinsicWidth: 48, intrinsicHeight: 36, contentDigest: expect.stringMatching(/^sha256:[a-f0-9]{64}$/), magicMimeType: "image/png", persistence: "durable" });
+  openAppearance();
   fireEvent.click(screen.getByRole("button", { name: "裁剪" }));
   fireEvent.click(screen.getByRole("button", { name: "透明度" }));
   fireEvent.click(screen.getByRole("button", { name: "边框" }));
   fireEvent.click(screen.getByRole("button", { name: "圆角" }));
   expect(readObjects(doc)[0]?.extensionData?.contentObject).toMatchObject({ crop: { x: .1, y: .1, width: .8, height: .8 }, opacity: .6, borderWidth: 2, cornerRadius: 20 });
+  openAppearance();
   expect(screen.getByRole("link", { name: "下载" })).toHaveAttribute("href", "blob:verified-1");
-  expect(fetch).toHaveBeenCalledTimes(1);
+  expect(fetch).toHaveBeenCalledTimes(3);
   expect(fetch).toHaveBeenCalledWith("https://assets.example.com/photo.png", expect.objectContaining({ credentials: "omit", redirect: "error", referrerPolicy: "no-referrer", headers: { Range: "bytes=0-26214399" } }));
   doc.destroy();
 });
@@ -367,6 +389,7 @@ it("applies contextual color and duplicates with a 24px offset", async () => {
   const doc = await setup();
   fireEvent.click(screen.getByTestId("board-add-shape"));
   const source = readObjects(doc)[0]!;
+  openAppearance();
   fireEvent.click(screen.getByLabelText("填充色 #93C5FD"));
   expect(readObjects(doc).find((item) => item.id === source.id)?.extensionData?.contentObject).toMatchObject({ fill: "#93C5FD" });
   fireEvent.click(screen.getByRole("button", { name: "边框样式" }));
@@ -391,4 +414,27 @@ it("instantiates a template as one stable object set", async () => {
   expect(instance).toBeTruthy();
   expect(objects.map((object) => object.id).sort()).toEqual([`${instance}-tile-1`, `${instance}-tile-2`, `${instance}-tile-3`]);
   doc.destroy();
+});
+
+it("rehydrates a persisted image in a fresh editor session",async()=>{
+  const {doc,unmount}=await setupView();
+  fireEvent.change(screen.getByTestId('board-image-input'),{target:{files:[new File([byteBuffer(png())],'shared.png',{type:'image/png'})]}});
+  await waitFor(()=>expect(screen.getByTestId('image-preview').textContent).toMatch(/^blob:/));
+  const first=screen.getByTestId('image-preview').textContent,assetId=(readObjects(doc)[0]!.extensionData!.contentObject as {assetId:string}).assetId;
+  unmount();expect(objectUrls.size).toBe(0);
+  const {CollaborativeEditor}=await import('@/components/whiteboard/collaborative-editor');
+  const peer=render(<CollaborativeEditor boardId="content-board" clientId="peer-client" currentUserId="peer" doc={doc} readOnly title="Peer" status="已连接"/>);
+  await waitFor(()=>expect(screen.getByTestId('image-preview').textContent).toMatch(/^blob:/));
+  expect(vi.mocked(fetch).mock.calls.filter(([url])=>String(url).includes(`/${assetId}/content`))).toHaveLength(2);
+  expect(first).toMatch(/^blob:/);peer.unmount();expect(objectUrls.size).toBe(0);doc.destroy();
+});
+it("never creates ready canonical content when durable upload fails",async()=>{
+  vi.stubGlobal('fetch',vi.fn(async()=>new Response(null,{status:503})));
+  const {doc,unmount}=await setupView();fireEvent.change(screen.getByTestId('board-image-input'),{target:{files:[new File([byteBuffer(png())],'fail.png',{type:'image/png'})]}});
+  await waitFor(()=>expect(screen.getByText(/图片未保存/)).toBeVisible());expect(readObjects(doc)).toEqual([]);expect(objectUrls.size).toBe(0);unmount();doc.destroy();
+});
+it("exposes the import callback in the editor header",async()=>{
+  const {CollaborativeEditor}=await import('@/components/whiteboard/collaborative-editor'),doc=createWhiteboardDocument(),onImport=vi.fn();
+  const view=render(<CollaborativeEditor boardId="content-board" clientId="client" doc={doc} readOnly={false} title="Board" status="已连接" onImport={onImport}/>);
+  const button=screen.getByTestId('board-import-open');expect(button.closest('header')).not.toBeNull();fireEvent.click(button);expect(onImport).toHaveBeenCalledOnce();view.unmount();doc.destroy();
 });

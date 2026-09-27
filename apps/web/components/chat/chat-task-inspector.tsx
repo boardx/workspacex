@@ -114,6 +114,9 @@ export interface ChatTaskInspectorProps {
   readonly bearer?: string;
   /** 已上传但还没随消息发出的材料条数（composer 附件区），与已落库材料一起算「材料」。 */
   readonly pendingMaterialsCount: number;
+  /** 正在上传、还没成功的材料条数——人类实测：从这个页签点「+」上传时，进度只出现在
+   *  composer 里，「材料」这边在传完之前毫无反馈。默认 0（未接线时行为不变）。 */
+  readonly uploadingMaterialsCount?: number;
   /**
    * issue #3347 —— 「材料」页签的上传入口（点击 + 拖拽）。
    *
@@ -169,6 +172,7 @@ export function ChatTaskInspector(props: ChatTaskInspectorProps): JSX.Element {
   const {
     hasSelection, threadId, artifacts, materials, loading,
     artifactsError, materialsError, onRetry, onOpenArtifact, pendingMaterialsCount,
+    uploadingMaterialsCount = 0,
     planTodos, isRunning, runPhaseLabel, runStartedAt, roster,
     attachUploadPort = null, uploadDisabledReason = null, showKnowledge = false,
   } = props;
@@ -551,6 +555,7 @@ export function ChatTaskInspector(props: ChatTaskInspectorProps): JSX.Element {
               uploadNotice={uploadNotice}
               readOnlyReason={uploadDisabledReason}
               pendingCount={pendingMaterialsCount}
+              uploadingCount={uploadingMaterialsCount}
               dropActive={dropActive}
             />
           ) : activeTab === "artifacts" ? (

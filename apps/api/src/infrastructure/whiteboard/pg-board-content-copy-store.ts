@@ -1,13 +1,16 @@
 import { createHash, randomUUID } from 'node:crypto';
 import { whiteboard as C } from '@repo/contracts';
 import type { z } from 'zod';
-import { WHITEBOARD_UPDATE_LIMITS } from '@repo/whiteboard-core';
+import { WHITEBOARD_UPDATE_LIMITS, createWhiteboardDocument, readObjects, readContentObject, validateDocument } from '@repo/whiteboard-core';
+import * as Y from 'yjs';
+import { WhiteboardAssetMetadata } from '@repo/contracts/whiteboard-asset';
+import { ObjectExistsError, type ObjectStore } from '../../application/artifact/ports';
+import type { PgWhiteboardCollaborationStore } from './pg-collaboration-store';
 import type { Principal } from '../../domain/principal';
 import type { DatabasePort, TenantSession } from '../../application/ports/database.port';
 import type { BoardContentCopyPort, CapturedBoardContent, PreparedBoardContent } from '../../application/whiteboard/board-content-copy-port';
 import { WhiteboardResourceError, type DuplicateBoard } from '../../application/whiteboard/ports';
 
-type SourceRow = { owner_id: string; role: string | null; epoch: number; seq: string; snapshot: Buffer };
 type JobRow = {
   request_hash: string; source_board_id: string; target_board_id: string | null; source_epoch: number | null; source_seq: string | null;
   object_count: number | null; connector_count: number | null; asset_count: number | null; status: string;
@@ -43,9 +46,10 @@ function receipt(input: DuplicateBoard, sourceBoardId: string, job: Pick<JobRow,
   });
 }
 
-/** Legacy adapter: canonical content is still held by whiteboard_documents. */
+/** Blob-first copy: immutable verified bodies precede atomic tenant-scoped pointer publication. */
 export class PgBoardContentCopyStore implements BoardContentCopyPort {
-  constructor(private readonly db: DatabasePort) {}
+  constructor(private readonly db: DatabasePort, private readonly collaboration: Pick<PgWhiteboardCollaborationStore, 'loadInTransaction'>,
+    private readonly objects: Pick<ObjectStore, 'putOnce' | 'get' | 'head'>) {}
 
   async duplicate(p: Principal, sourceBoardId: string, input: DuplicateBoard, prepare: (captured: CapturedBoardContent) => PreparedBoardContent): Promise<C.DuplicateBoardResult> {
     const hash = requestHash(sourceBoardId, input);
@@ -88,7 +92,9 @@ export class PgBoardContentCopyStore implements BoardContentCopyPort {
       // A duplicate snapshot is the target's immutable baseline, not a replayed
       // source update. It therefore starts at epoch 1 / seq 0; the first accepted
       // edit advances to seq 1 through the normal collaboration transaction.
-      await session.query(`INSERT INTO whiteboard_documents(org_id,board_id,epoch,seq,snapshot) VALUES($1,$2,1,0,$3)`, [p.orgId,targetBoardId,Buffer.from(prepared.snapshot)]);
+      await this.copyImageAssets(session,p,sourceBoardId,targetBoardId,prepared.snapshot);
+      const ref = await this.putVerified(`${this.prefix(p,targetBoardId)}/epochs/1/snapshots/0-${this.digest(prepared.snapshot)}.yjs`,prepared.snapshot,'application/vnd.yjs-update');
+      await session.query(`INSERT INTO whiteboard_documents(org_id,board_id,epoch,seq,snapshot,manifest_version,object_key,content_hash,byte_size) VALUES($1,$2,1,0,NULL,1,$3,$4,$5)`, [p.orgId,targetBoardId,ref.key,ref.hash,ref.size]);
       await session.query(`UPDATE whiteboard_duplicate_requests SET target_board_id=$4,source_epoch=$5,source_seq=$6,object_count=$7,connector_count=$8,asset_count=$9,status='completed',updated_at=now()
         WHERE org_id=$1 AND actor_id=$2 AND request_id=$3`, [p.orgId,p.userId,input.requestId,targetBoardId,captured.source.epoch,captured.source.seq,
         prepared.objectCount,prepared.connectorCount,prepared.assetCount]);
@@ -123,14 +129,49 @@ export class PgBoardContentCopyStore implements BoardContentCopyPort {
       FROM whiteboards b LEFT JOIN whiteboard_members m ON m.org_id=b.org_id AND m.board_id=b.id AND m.user_id=$2
       WHERE b.org_id=$1 AND b.id=$3 AND (b.owner_id=$2 OR m.role='editor') FOR SHARE OF b`, [p.orgId,p.userId,sourceBoardId]);
     if (!['owner','editor'].includes(locked.rows[0]?.role ?? '')) throw new WhiteboardResourceError('NOT_FOUND');
-    await session.query(`INSERT INTO whiteboard_documents(org_id,board_id) VALUES($1,$2) ON CONFLICT(org_id,board_id) DO NOTHING`, [p.orgId,sourceBoardId]);
-    const content = await session.query<Pick<SourceRow,'epoch'|'seq'|'snapshot'>>(`SELECT epoch,seq,snapshot FROM whiteboard_documents
-      WHERE org_id=$1 AND board_id=$2 FOR SHARE`, [p.orgId,sourceBoardId]);
-    const row = content.rows[0];
-    if (!row) throw new WhiteboardResourceError('COPY_INTEGRITY_FAILED');
-    const seq = Number(row.seq);
-    if (!Number.isSafeInteger(seq) || seq < 0) throw new WhiteboardResourceError('COPY_INTEGRITY_FAILED');
-    return { source: { epoch: row.epoch, seq }, snapshot: new Uint8Array(row.snapshot) };
+    const content = await this.collaboration.loadInTransaction(session,p,sourceBoardId);
+    if (!Number.isSafeInteger(content.seq) || content.seq < 0 || !Number.isSafeInteger(content.epoch) || content.epoch < 1) throw new WhiteboardResourceError('COPY_INTEGRITY_FAILED');
+    return { source: { epoch: content.epoch, seq: content.seq }, snapshot: new Uint8Array(content.update) };
+  }
+
+  private digest(bytes: Uint8Array | string) { return createHash('sha256').update(bytes).digest('hex'); }
+  private prefix(p: Principal, boardId: string) { return `whiteboards/tenants/${this.digest(p.orgId).slice(0,32)}/boards/${boardId}`; }
+  private async putVerified(key: string, bytes: Uint8Array, mime: string) {
+    const hash = this.digest(bytes);
+    try { await this.objects.putOnce(key,new Uint8Array(bytes),mime); }
+    catch (error) { if (!(error instanceof ObjectExistsError)) throw new WhiteboardResourceError('COPY_INTEGRITY_FAILED'); }
+    const [readback,head] = await Promise.all([this.objects.get(key),this.objects.head(key)]);
+    if (!readback || !head || head.mime !== mime || head.sizeBytes !== bytes.byteLength || readback.byteLength !== bytes.byteLength || this.digest(readback) !== hash) throw new WhiteboardResourceError('COPY_INTEGRITY_FAILED');
+    return {key,hash,size:bytes.byteLength};
+  }
+  private async copyImageAssets(session: TenantSession, p: Principal, sourceBoardId: string, targetBoardId: string, snapshot: Uint8Array) {
+    const doc = createWhiteboardDocument();
+    try {
+      Y.applyUpdate(doc,snapshot); validateDocument(doc);
+      const copied = new Set<string>();
+      for (const object of readObjects(doc)) {
+        if (object.kind !== 'image') continue;
+        const image = readContentObject(object);
+        // Session blobs or source-board URLs would produce an apparently successful but unreadable duplicate.
+        if (!image || image.type !== 'image' || image.status !== 'ready' || image.persistence !== 'durable' || !image.assetId || image.sourceUrl) throw new WhiteboardResourceError('COPY_INTEGRITY_FAILED');
+        if (copied.has(image.assetId)) continue;
+        const result = await session.query<{object_key:string;metadata:unknown}>(`SELECT a.object_key,a.metadata FROM whiteboard_image_assets a
+          JOIN whiteboard_asset_refs r ON r.org_id=a.org_id AND r.board_id=a.board_id AND r.object_key=a.object_key
+          WHERE a.org_id=$1 AND a.board_id=$2 AND a.asset_id=$3 AND r.state='active' AND r.released_at IS NULL FOR SHARE OF a,r`, [p.orgId,sourceBoardId,image.assetId]);
+        const row = result.rows[0]; if (!row) throw new WhiteboardResourceError('COPY_INTEGRITY_FAILED');
+        const metadata = WhiteboardAssetMetadata.parse(row.metadata), hash = metadata.contentDigest.slice(7);
+        if (metadata.assetId !== image.assetId || metadata.assetId !== `board-image-${hash}` || metadata.contentDigest !== image.contentDigest || metadata.byteSize !== image.byteSize || metadata.mimeType !== image.mimeType || metadata.intrinsicWidth !== image.intrinsicWidth || metadata.intrinsicHeight !== image.intrinsicHeight
+          || row.object_key !== `${this.prefix(p,sourceBoardId)}/assets/${hash}`) throw new WhiteboardResourceError('COPY_INTEGRITY_FAILED');
+        const [bytes,head] = await Promise.all([this.objects.get(row.object_key),this.objects.head(row.object_key)]);
+        if (!bytes || !head || head.mime !== metadata.mimeType || bytes.byteLength !== metadata.byteSize || head.sizeBytes !== bytes.byteLength || this.digest(bytes) !== hash) throw new WhiteboardResourceError('COPY_INTEGRITY_FAILED');
+        const target = await this.putVerified(`${this.prefix(p,targetBoardId)}/assets/${hash}`,bytes,metadata.mimeType);
+        await session.query(`INSERT INTO whiteboard_asset_refs(org_id,board_id,object_key,content_hash,byte_size,state,activated_at)
+          VALUES($1,$2,$3,$4,$5,'active',now())`,[p.orgId,targetBoardId,target.key,target.hash,target.size]);
+        await session.query(`INSERT INTO whiteboard_image_assets(org_id,board_id,asset_id,object_key,metadata)
+          VALUES($1,$2,$3,$4,$5::jsonb)`,[p.orgId,targetBoardId,metadata.assetId,target.key,JSON.stringify(metadata)]);
+        copied.add(image.assetId);
+      }
+    } finally {doc.destroy();}
   }
 
   private async assertTagsUnchanged(session: TenantSession, p: Principal, sourceBoardId: string, lockedTagIds: string[]): Promise<void> {

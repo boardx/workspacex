@@ -5,7 +5,7 @@
  */
 export const whiteboardPermissionBoundaries = new Map([
   ['src/infrastructure/whiteboard/pg-board-content-copy-store.ts', {
-    tables: ['whiteboard_duplicate_requests','whiteboards','whiteboard_members','whiteboard_tag_bindings','whiteboard_tags','whiteboard_documents','unnest'],
+    tables: ['whiteboard_duplicate_requests','whiteboards','whiteboard_members','whiteboard_tag_bindings','whiteboard_tags','whiteboard_documents','whiteboard_asset_refs','whiteboard_image_assets','unnest'],
     reason: '#4242 canonical Board duplication is guarded by tests/whiteboard/board-content-copy-guard.test.ts: one tenant transaction performs actor-visible preflight, locks active tags before the source Board, captures an explicit document version, verifies tag stability, prepares canonical bytes, and publishes an actor-owned independent target.',
     checks: [
       /return this\.db\.withTenant\(p\.orgId, async session =>/,
@@ -15,11 +15,15 @@ export const whiteboardPermissionBoundaries = new Map([
       /\(b\.owner_id=\$2 OR m\.role='editor'\) FOR SHARE OF b/,
       /!\['owner','editor'\]\.includes\(visible\.rows\[0\]\?\.role \?\? ''\)/,
       /!\['owner','editor'\]\.includes\(locked\.rows\[0\]\?\.role \?\? ''\)/,
-      /SELECT epoch,seq,snapshot FROM whiteboard_documents[\s\S]*WHERE org_id=\$1 AND board_id=\$2 FOR SHARE/,
+      /this\.collaboration\.loadInTransaction\(session,p,sourceBoardId\)/,
       /input\.expectedSource[\s\S]*captured\.source\.epoch[\s\S]*captured\.source\.seq/,
       /prepared = prepare\(captured\)[\s\S]*INSERT INTO whiteboards/,
       /INSERT INTO whiteboards\(id,org_id,owner_id,request_id,name,lifecycle_revision,tags_revision\)[\s\S]*VALUES\(\$1,\$2,\$3,\$1,\$4,0,0\)[\s\S]*\[targetBoardId,p\.orgId,p\.userId,input\.targetName\]/,
-      /INSERT INTO whiteboard_documents\(org_id,board_id,epoch,seq,snapshot\) VALUES\(\$1,\$2,1,0,\$3\)[\s\S]*Buffer\.from\(prepared\.snapshot\)/,
+      /INSERT INTO whiteboard_documents\(org_id,board_id,epoch,seq,snapshot,manifest_version,object_key,content_hash,byte_size\) VALUES\(\$1,\$2,1,0,NULL,1,\$3,\$4,\$5\)[\s\S]*\[p\.orgId,targetBoardId,ref\.key,ref\.hash,ref\.size\]/,
+      /await this\.copyImageAssets\(session,p,sourceBoardId,targetBoardId,prepared\.snapshot\)/,
+      /await this\.putVerified[\s\S]*INSERT INTO whiteboard_documents/,
+      /a\.org_id=\$1 AND a\.board_id=\$2 AND a\.asset_id=\$3 AND r\.state='active' AND r\.released_at IS NULL FOR SHARE OF a,r/,
+      /this\.digest\(readback\) !== hash/,
       /WHERE b\.org_id=\$1 AND b\.id=\$3 AND b\.owner_id=\$2/,
     ],
     forbidden: [

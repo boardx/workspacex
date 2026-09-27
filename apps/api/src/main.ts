@@ -1,6 +1,7 @@
 import { WHITEBOARD_COLLABORATION_STORE } from './application/whiteboard/collaboration-ports';
 import { WHITEBOARD_REPOSITORY } from './application/whiteboard/ports';
 import { attachWhiteboardGateway } from './interface/ws/whiteboard.gateway';
+import { PgWhiteboardPresenceIdentity } from './infrastructure/whiteboard/pg-whiteboard-presence-identity';
 /**
  * Process entry point (the other half of the composition root). See the note at the top of
  * `kernel.module.ts` about why the composition root belongs to no layer.
@@ -9,6 +10,7 @@ import "reflect-metadata";
 import { json, type Request, type Response, type NextFunction } from "express";
 import { PayloadTooLargeException } from "@nestjs/common";
 import { operations as skillFileEdit, SKILL_FILE_EDIT_BODY_MAX_BYTES } from "@repo/contracts/skill-file-edit";
+import { WHITEBOARD_IMPORT_LIMITS } from "@repo/contracts/whiteboard-import";
 import { realpathSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { NestFactory } from "@nestjs/core";
@@ -93,6 +95,12 @@ export async function createApp(): Promise<NestExpressApplication> {
       }
       next(error);
     }));
+  const whiteboardImportParser=json({limit:Math.ceil(WHITEBOARD_IMPORT_LIMITS.uploadBytes*4/3)+16*1024});
+  app.getHttpAdapter().getInstance().post('/whiteboards/:boardId/imports',
+    (req:Request,res:Response,next:NextFunction)=>whiteboardImportParser(req,res,(error?:unknown)=>{
+      if(typeof error==='object'&&error!==null&&'type' in error&&error.type==='entity.too.large'){next(new PayloadTooLargeException({reasonCode:'PAYLOAD_TOO_LARGE'}));return;}
+      next(error);
+    }));
 
   app.get<DebugRecorder>(DEBUG_TRACE_PORT).start();
   return app;
@@ -164,6 +172,7 @@ export function attachStreamingSurfaces(app: NestExpressApplication): void {
     principals: app.get(PRINCIPAL_RESOLVER_PORT),
     boards: app.get(WHITEBOARD_REPOSITORY),
     store: app.get(WHITEBOARD_COLLABORATION_STORE),
+    identities:new PgWhiteboardPresenceIdentity(app.get(DATABASE_PORT)),
   });
   attachAsrGateway(app.getHttpServer(), {
     principals: app.get(PRINCIPAL_RESOLVER_PORT),

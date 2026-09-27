@@ -365,10 +365,19 @@ export function useChatAttachments(opts: {
   /** 已上传附件的 serverId（发送时作为 attachmentIds）——由上面那一份派生，不另数一遍。 */
   const uploadedIds = React.useMemo(() => uploadedAttachments.map((a) => a.id), [uploadedAttachments]);
 
+  /**
+   * issue #3347 后续（人类实测：从右栏「材料」页签的「+」传文件，上传中的进度卡只出现
+   * 在 composer 里——「材料 (0)」这边在文件真正上传完之前一个字都不说，用户在右栏点的
+   * 动作，反馈却出现在屏幕另一端）。`hasUploading` 早就有了，但只是个布尔值，材料面板
+   * 想说清楚「正在传几个」得自己数——从这里派生出计数，不新起第二份判断。
+   */
+  const uploadingCount = React.useMemo(() => attachments.filter((a) => a.status === "uploading").length, [attachments]);
+
   return {
     attachments, banner, dragActive, confirmingId, fileInputRef,
     atLimit: attachments.length >= MAX_ATTACHMENTS,
     hasUploading: attachments.some((a) => a.status === "uploading"),
+    uploadingCount,
     uploadedIds, uploadedAttachments,
     dragHandlers,
     pickFiles, retry, removeAttachment, clear,

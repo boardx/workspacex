@@ -9,7 +9,7 @@ const tagSource = readFileSync(new URL('../../src/infrastructure/whiteboard/pg-w
 const boundarySource = readFileSync(new URL('../../scripts/whiteboard-permission-boundaries.mjs',import.meta.url),'utf8');
 const kernelSource = readFileSync(new URL('../../src/kernel.module.ts',import.meta.url),'utf8');
 const targetPath = 'src/infrastructure/whiteboard/pg-board-content-copy-store.ts';
-const tenantTables = new Set(['org_memberships','whiteboards','whiteboard_members','whiteboard_documents','whiteboard_duplicate_requests','whiteboard_tag_bindings','whiteboard_tags']);
+const tenantTables = new Set(['org_memberships','whiteboards','whiteboard_members','whiteboard_documents','whiteboard_duplicate_requests','whiteboard_tag_bindings','whiteboard_tags','whiteboard_asset_refs','whiteboard_image_assets']);
 const sqlTables = (code: string) => [...code
   .replace(/\/\*[\s\S]*?\*\//g,'')
   .replace(/\/\/.*$/gm,'')
@@ -18,7 +18,7 @@ const sqlTables = (code: string) => [...code
 
 function audit(code: string): string[] {
   const errors: string[] = [], allowed = new Set([
-    'whiteboards','whiteboard_members','whiteboard_documents','whiteboard_duplicate_requests','whiteboard_tag_bindings','whiteboard_tags','unnest',
+    'whiteboards','whiteboard_members','whiteboard_documents','whiteboard_duplicate_requests','whiteboard_tag_bindings','whiteboard_tags','whiteboard_asset_refs','whiteboard_image_assets','unnest',
   ]);
   for (const table of sqlTables(code)) if (!allowed.has(table)) errors.push(`unexpected table ${table}`);
   if (code.includes('withoutTenant')) errors.push('withoutTenant');
@@ -27,8 +27,7 @@ function audit(code: string): string[] {
   if ([...code.matchAll(/b\.org_id=\$1 AND b\.id=\$3 AND \(b\.owner_id=\$2 OR m\.role='editor'\)/g)].length !== 3) errors.push('owner-editor authorization at every source check');
   if ([...code.matchAll(/!\['owner','editor'\]\.includes\([^\n]+\)/g)].length !== 2) errors.push('viewer rejection after source reads');
   if (!/m\.org_id=b\.org_id AND m\.board_id=b\.id AND m\.user_id=\$2/.test(code)) errors.push('membership scope');
-  if (!/INSERT INTO whiteboard_documents\(org_id,board_id\).*ON CONFLICT\(org_id,board_id\) DO NOTHING/s.test(code)) errors.push('source document tenant init');
-  if (!/SELECT epoch,seq,snapshot FROM whiteboard_documents[\s\S]*WHERE org_id=\$1 AND board_id=\$2 FOR SHARE/.test(code)) errors.push('versioned source capture');
+  if (!/this\.collaboration\.loadInTransaction\(session,p,sourceBoardId\)/.test(code)) errors.push('versioned source capture');
   if (!/ON CONFLICT\(org_id,actor_id,request_id\) DO NOTHING RETURNING job_id/.test(code)) errors.push('concurrent idempotency claim');
   if (!/job\.request_hash !== hash \|\| job\.source_board_id !== sourceBoardId/.test(code)) errors.push('replay payload binding');
   if (!/job\.status !== 'completed' \|\| !job\.target_board_id/.test(code)) errors.push('completed-only replay');
@@ -40,7 +39,7 @@ function audit(code: string): string[] {
   if (code.indexOf('const captured = await this.capture') > code.indexOf('const targetBoardId = randomUUID()')) errors.push('capture before target');
   if (code.indexOf('prepared = prepare(captured)') > code.indexOf('INSERT INTO whiteboards')) errors.push('canonical prepare before target');
   if (!/INSERT INTO whiteboards\(id,org_id,owner_id,request_id,name,lifecycle_revision,tags_revision\)[\s\S]*VALUES\(\$1,\$2,\$3,\$1,\$4,0,0\)[\s\S]*\[targetBoardId,p\.orgId,p\.userId,input\.targetName\]/.test(code)) errors.push('target ownership and lifecycle baseline');
-  if (!/INSERT INTO whiteboard_documents\(org_id,board_id,epoch,seq,snapshot\) VALUES\(\$1,\$2,1,0,\$3\)[\s\S]*Buffer\.from\(prepared\.snapshot\)/.test(code)) errors.push('independent target baseline');
+  if (!/INSERT INTO whiteboard_documents\(org_id,board_id,epoch,seq,snapshot,manifest_version,object_key,content_hash,byte_size\) VALUES\(\$1,\$2,1,0,NULL,1,\$3,\$4,\$5\)[\s\S]*\[p\.orgId,targetBoardId,ref\.key,ref\.hash,ref\.size\]/.test(code)) errors.push('independent target baseline');
   if (/INSERT INTO whiteboard_updates/i.test(code)) errors.push('source update-log copy');
   if (!/WHERE b\.org_id=\$1 AND b\.id=\$3 AND b\.owner_id=\$2/.test(code)) errors.push('target receipt actor scope');
   return errors;
@@ -56,10 +55,11 @@ describe('board content-copy permission boundary', () => {
     expect(productionAudit(source)).toEqual([]);
     expect(boundarySource).toContain(targetPath);
     expect(boundarySource).toContain('tests/whiteboard/board-content-copy-guard.test.ts');
-    expect(kernelSource).toMatch(/provide: BOARD_CONTENT_COPY_PORT,[\s\S]*new PgBoardContentCopyStore\(db\)[\s\S]*provide: DUPLICATE_BOARD_SERVICE,[\s\S]*new DuplicateBoard\(content\)[\s\S]*inject: \[BOARD_CONTENT_COPY_PORT\]/);
+    expect(kernelSource).toMatch(/provide: BOARD_CONTENT_COPY_PORT,[\s\S]*new PgBoardContentCopyStore\(db,\s*collaboration,\s*objects\)[\s\S]*provide: DUPLICATE_BOARD_SERVICE,[\s\S]*new DuplicateBoard\(content\)[\s\S]*inject: \[BOARD_CONTENT_COPY_PORT\]/);
   });
 
   it.each([
+    ['blob-backed capture', (code: string) => code.replace('this.collaboration.loadInTransaction(session,p,sourceBoardId)', 'this.collaboration.loadInTransaction(session,p,"other")')],
     ['source membership', (code: string) => code.replaceAll('m.user_id=$2','m.user_id=$4')],
     ['viewer authorization', (code: string) => code.replaceAll("m.role='editor'","m.user_id IS NOT NULL")],
     ['tenant transaction', (code: string) => code.replace('this.db.withTenant','this.db.withoutTenant')],
@@ -71,7 +71,7 @@ describe('board content-copy permission boundary', () => {
     )],
     ['target ownership', (code: string) => code.replace('[targetBoardId,p.orgId,p.userId,input.targetName]','[targetBoardId,p.orgId,"other",input.targetName]')],
     ['target lifecycle baseline', (code: string) => code.replace('VALUES($1,$2,$3,$1,$4,0,0)','VALUES($1,$2,$3,$1,$4,99,0)')],
-    ['target version axis', (code: string) => code.replace('VALUES($1,$2,1,0,$3)','VALUES($1,$2,captured.source.epoch,captured.source.seq,$3)')],
+    ['target version axis', (code: string) => code.replace('VALUES($1,$2,1,0,NULL,1,$3,$4,$5)','VALUES($1,$2,9,9,NULL,1,$3,$4,$5)')],
   ])('detects removal of %s', (_label, mutate) => {
     const changed = mutate(source);
     expect([...audit(changed),...productionAudit(changed)]).not.toEqual([]);

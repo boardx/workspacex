@@ -4,7 +4,7 @@ import { executeCommands, objectMap, readObjects, tombstones, validateDocument }
 import { WhiteboardCommandOrigin } from './command-port';
 
 const HISTORY = Symbol('whiteboard-history');
-const COMPENSATION = Symbol('whiteboard-history-compensation');
+const COMPENSATION: { receiptGestureId?: string } = {};
 type HistorySnapshot = { ids: string[]; before: Record<string, string>; after: Record<string, string> };
 type StructuralHistory = {
   action: 'create' | 'delete';
@@ -61,21 +61,25 @@ export class WhiteboardUndo {
   }
   execute(input: unknown, transactionOrigin: unknown = this.origin): void {
     const commands = WhiteboardCommandBatch.parse(input);
-    const ids = [...new Set(commands.map(command => command.type === 'create' ? command.object.id : command.id))];
+    const beforeObjects = readObjects(this.doc);
+    const requestedIds = commands.map(command => command.type === 'create' ? command.object.id : command.id);
+    const ids = [...new Set([...requestedIds, ...beforeObjects.map(object => object.id)])];
     const before = this.snapshot(ids);
     this.executing = true;
     try { executeCommands(this.doc, commands, transactionOrigin); }
     finally { this.executing = false; }
     const after = this.snapshot(ids);
+    // Cascading connector deletions belong to the same reversible gesture.
+    const changedIds = ids.filter(id => before[id] !== after[id]);
     const item = this.manager.undoStack.at(-1);
     if (!item) throw new Error('HISTORY_NOT_CAPTURED');
-    item.meta.set(HISTORY, { ids, before, after } satisfies HistorySnapshot);
+    item.meta.set(HISTORY, { ids: changedIds, before, after } satisfies HistorySnapshot);
     const pureCreate = commands.every(command => command.type === 'create');
     const pureDelete = commands.every(command => command.type === 'delete');
     if (pureCreate || pureDelete) {
       this.manager.undoStack.pop();
       const source = pureCreate ? after : before;
-      const objects = ids.map(id => JSON.parse(source[id] ?? 'null')).filter(Boolean);
+      const objects = changedIds.map(id => JSON.parse(source[id] ?? 'null')).filter(Boolean);
       this.undoHistory.push({ type: 'structural', value: { action: pureCreate ? 'create' : 'delete', objects } });
     } else this.undoHistory.push({ type: 'manager', item });
     this.redoHistory = [];
@@ -88,8 +92,9 @@ export class WhiteboardUndo {
       ...structuredClone(object), id: mapping.get(object.id)!, restoredFrom: object.id,
       parentId: object.parentId ? mapping.get(object.parentId) ?? object.parentId : null,
       ...(object.connector ? { connector: {
-        from: mapping.get(object.connector.from) ?? object.connector.from,
-        to: mapping.get(object.connector.to) ?? object.connector.to,
+        ...object.connector,
+        ...(object.connector.from ? { from: mapping.get(object.connector.from) ?? object.connector.from } : {}),
+        ...(object.connector.to ? { to: mapping.get(object.connector.to) ?? object.connector.to } : {}),
       } } : {}),
     }));
     executeCommands(this.doc, recreated.map(object => ({ type: 'create' as const, object })), COMPENSATION);
@@ -100,10 +105,21 @@ export class WhiteboardUndo {
     if (entry.action === 'create') {
       const live = new Map(readObjects(this.doc).map(object => [object.id, object]));
       if (!entry.objects.every(object => JSON.stringify(live.get(object.id) ?? null) === JSON.stringify(object))) throw new Error('STRUCTURAL_HISTORY_CONFLICT');
-      executeCommands(this.doc, entry.objects.map(object => ({ type: 'delete' as const, id: object.id })), COMPENSATION);
+      const ids = new Set(entry.objects.map(object => object.id));
+      const depth = (object: (typeof entry.objects)[number]): number => {
+        let value = 0, parentId = object.parentId;
+        while (parentId && ids.has(parentId)) { value += 1; parentId = live.get(parentId)?.parentId ?? null; }
+        return value;
+      };
+      // Remove relations and deepest descendants before their copied parents.
+      // This keeps structural validation valid for an atomic subgraph undo.
+      const deletionOrder = [...entry.objects].sort((left, right) =>
+        Number(right.kind === 'connector') - Number(left.kind === 'connector') || depth(right) - depth(left));
+      executeCommands(this.doc, deletionOrder.map(object => ({ type: 'delete' as const, id: object.id })), COMPENSATION);
       return entry;
     }
-    return { ...entry, objects: this.recreate(entry.objects) };
+    executeCommands(this.doc, entry.objects.map(object => ({type: 'restore' as const, id: object.id})), COMPENSATION);
+    return entry;
   }
 
   private redoStructural(entry: StructuralHistory): StructuralHistory {
@@ -145,47 +161,53 @@ export class WhiteboardUndo {
     if (!history) return false;
     const expected = direction === 'undo' ? history.after : history.before;
     const current = this.snapshot(history.ids);
-    return history.ids.every(id => current[id] === expected[id]);
+    const withoutText = (value: string | undefined) => { const object = JSON.parse(value ?? 'null'); if (object) delete object.text; return JSON.stringify(object); };
+    const textOnly = history.ids.every(id => withoutText(history.before[id]) === withoutText(history.after[id]));
+    return history.ids.every(id => current[id] === expected[id] || (textOnly && withoutText(current[id]) === withoutText(expected[id])));
   }
-  private applyOne(direction: 'undo' | 'redo'): void {
+  private applyOne(direction: 'undo' | 'redo', receiptGestureId?: string): void {
     // Yjs normally skips no-op entries. Never let it silently cross a separately
     // validated history entry in the same operation.
     const key = direction === 'undo' ? 'undoStack' : 'redoStack';
     const stack = this.manager[key], item = stack.at(-1)!;
     const history = item.meta.get(HISTORY);
     this.manager[key] = [item];
+    const receiptOrigin = this.manager as Y.UndoManager & {receiptGestureId?: string};
+    receiptOrigin.receiptGestureId = receiptGestureId;
     try {
       if (direction === 'undo') this.manager.undo(); else this.manager.redo();
       const opposite = direction === 'undo' ? this.manager.redoStack.at(-1) : this.manager.undoStack.at(-1);
       if (opposite && history) opposite.meta.set(HISTORY, history);
     }
-    finally { this.manager[key] = [...stack.slice(0, -1), ...this.manager[key]]; }
+    finally { delete receiptOrigin.receiptGestureId; this.manager[key] = [...stack.slice(0, -1), ...this.manager[key]]; }
   }
-  undo(): 'undone' | 'empty' | 'conflict' {
+  undo(receiptGestureId?: string): 'undone' | 'empty' | 'conflict' {
     const entry = this.undoHistory.at(-1);
     if (!entry) return 'empty';
     if (entry.type === 'manager') {
       const item = this.manager.undoStack.at(-1);
       if (item !== entry.item || !this.matchesSnapshot(item, 'undo') || !this.canApply(item, 'undo')) return 'conflict';
-      this.applyOne('undo');
+      this.applyOne('undo', receiptGestureId);
       entry.item = this.manager.redoStack.at(-1)!;
     } else {
-      try { entry.value = this.undoStructural(entry.value); }
+      try { COMPENSATION.receiptGestureId = receiptGestureId; entry.value = this.undoStructural(entry.value); }
       catch { return 'conflict'; }
+      finally { delete COMPENSATION.receiptGestureId; }
     }
     this.undoHistory.pop(); this.redoHistory.push(entry); return 'undone';
   }
-  redo(): boolean {
+  redo(receiptGestureId?: string): boolean {
     const entry = this.redoHistory.at(-1);
     if (!entry) return false;
     if (entry.type === 'manager') {
       const item = this.manager.redoStack.at(-1);
       if (item !== entry.item || !this.matchesSnapshot(item, 'redo') || !this.canApply(item, 'redo')) return false;
-      this.applyOne('redo');
+      this.applyOne('redo', receiptGestureId);
       entry.item = this.manager.undoStack.at(-1)!;
     } else {
-      try { entry.value = this.redoStructural(entry.value); }
+      try { COMPENSATION.receiptGestureId = receiptGestureId; entry.value = this.redoStructural(entry.value); }
       catch { return false; }
+      finally { delete COMPENSATION.receiptGestureId; }
     }
     this.redoHistory.pop(); this.undoHistory.push(entry); return true;
   }

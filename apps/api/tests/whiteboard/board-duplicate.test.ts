@@ -67,7 +67,7 @@ type State = {
   lockedTagIds: string[];
   currentTagIds: string[];
 };
-function database(snapshot: Uint8Array, sourceRole: 'owner'|'editor'|'viewer'|Array<'owner'|'editor'|'viewer'> = 'owner'): { db: DatabasePort; state: State } {
+function database(snapshot: Uint8Array, sourceRole: 'owner'|'editor'|'viewer'|Array<'owner'|'editor'|'viewer'> = 'owner'): { db: DatabasePort; state: State; snapshot: Uint8Array } {
   const state: State = {queries:[],lockedTagIds:[],currentTagIds:[]};
   const sourceRoles = Array.isArray(sourceRole) ? sourceRole : [sourceRole];
   let sourceAccess = 0;
@@ -93,12 +93,21 @@ function database(snapshot: Uint8Array, sourceRole: 'owner'|'editor'|'viewer'|Ar
     }] as R[]};
     return {rows:[] as R[]};
   } };
-  return { state, db: { withTenant: async (_org,fn) => fn(session), withoutTenant: async () => { throw new Error('not allowed'); }, close: async () => {} } };
+  return { state, snapshot, db: { withTenant: async (_org,fn) => fn(session), withoutTenant: async () => { throw new Error('not allowed'); }, close: async () => {} } };
 }
 
-describe('PgBoardContentCopyStore legacy adapter', () => {
+function copyStore(fixture: ReturnType<typeof database>) {
+  const bodies = new Map<string, {bytes: Uint8Array; mime: string}>();
+  return new PgBoardContentCopyStore(fixture.db, {loadInTransaction: async () => ({epoch: 4, seq: 12, update: fixture.snapshot, role: 'owner', archived: false})}, {
+    putOnce: async (key, bytes, mime) => {bodies.set(key, {bytes: new Uint8Array(bytes), mime});},
+    get: async key => bodies.get(key)?.bytes ?? null,
+    head: async key => {const value = bodies.get(key); return value ? {sizeBytes: value.bytes.byteLength, mime: value.mime} : null;},
+  });
+}
+
+describe('PgBoardContentCopyStore object-backed adapter', () => {
   it('rejects a viewer before locking content or creating a target', async () => {
-    const fixture = database(sourceSnapshot(),'viewer'), store = new PgBoardContentCopyStore(fixture.db);
+    const fixture = database(sourceSnapshot(),'viewer'), store = copyStore(fixture);
     await expect(store.duplicate(principal,sourceBoardId,input(),() => {
       throw new Error('viewer must not prepare content');
     })).rejects.toMatchObject({code:'NOT_FOUND'});
@@ -108,7 +117,7 @@ describe('PgBoardContentCopyStore legacy adapter', () => {
   });
 
   it('rechecks write authority under the source Board lock', async () => {
-    const fixture = database(sourceSnapshot(),['editor','viewer']), store = new PgBoardContentCopyStore(fixture.db);
+    const fixture = database(sourceSnapshot(),['editor','viewer']), store = copyStore(fixture);
     await expect(store.duplicate(principal,sourceBoardId,input(),() => {
       throw new Error('revoked editor must not prepare content');
     })).rejects.toMatchObject({code:'NOT_FOUND'});
@@ -119,14 +128,14 @@ describe('PgBoardContentCopyStore legacy adapter', () => {
 
   it('captures an explicit source version and publishes a fresh epoch=1 seq=0 document atomically', async () => {
     const source = sourceSnapshot(), fixture = database(source), request = input();
-    const store = new PgBoardContentCopyStore(fixture.db);
+    const store = copyStore(fixture);
     const result = await store.duplicate(principal,sourceBoardId,request,(captured: CapturedBoardContent) => {
       expect(captured.source).toEqual({epoch:4,seq:12});
       return {snapshot:new Uint8Array([0,0]),objectCount:1,connectorCount:0,assetCount:0};
     });
     expect(result.receipt).toMatchObject({sourceEpoch:4,sourceSeq:12,objectCount:1});
     const targetWrite = fixture.state.queries.find(item => item.sql.startsWith('INSERT INTO whiteboard_documents') && item.sql.includes('epoch,seq,snapshot'));
-    expect(targetWrite?.sql).toContain('VALUES($1,$2,1,0,$3)');
+    expect(targetWrite?.sql).toContain('VALUES($1,$2,1,0,NULL,1,$3,$4,$5)');
     expect(targetWrite?.params[1]).toBe(fixture.state.targetId);
     expect(result.board.lifecycleRevision).toBe(0);
     expect(fixture.state.queries.some(item => item.sql.includes('INSERT INTO whiteboard_updates'))).toBe(false);
@@ -137,7 +146,7 @@ describe('PgBoardContentCopyStore legacy adapter', () => {
   });
 
   it('checks the locked source version before preparing or creating a target', async () => {
-    const fixture = database(sourceSnapshot()), store = new PgBoardContentCopyStore(fixture.db), request = input();
+    const fixture = database(sourceSnapshot()), store = copyStore(fixture), request = input();
     let prepared = false;
     await expect(store.duplicate(principal,sourceBoardId,{...request,expectedSource:{epoch:4,seq:11}},() => {
       prepared = true; return {snapshot:new Uint8Array([0,0]),objectCount:0,connectorCount:0,assetCount:0};
@@ -148,7 +157,7 @@ describe('PgBoardContentCopyStore legacy adapter', () => {
   });
 
   it('aborts when tag membership changes between tag and board locks', async () => {
-    const fixture = database(sourceSnapshot()), store = new PgBoardContentCopyStore(fixture.db), request = input();
+    const fixture = database(sourceSnapshot()), store = copyStore(fixture), request = input();
     fixture.state.lockedTagIds = [randomUUID()]; fixture.state.currentTagIds = [randomUUID()];
     let prepared = false;
     await expect(store.duplicate(principal,sourceBoardId,request,() => {
@@ -159,7 +168,7 @@ describe('PgBoardContentCopyStore legacy adapter', () => {
   });
 
   it('returns a completed request without recapturing or rewriting content', async () => {
-    const fixture = database(sourceSnapshot()), request = input(), store = new PgBoardContentCopyStore(fixture.db), targetId = randomUUID();
+    const fixture = database(sourceSnapshot()), request = input(), store = copyStore(fixture), targetId = randomUUID();
     const first = await store.duplicate(principal,sourceBoardId,request,() => ({snapshot:new Uint8Array([0,0]),objectCount:1,connectorCount:0,assetCount:0}));
     fixture.state.job!.request_hash = fixture.state.queries.find(item => item.sql.startsWith('INSERT INTO whiteboard_duplicate_requests'))?.params[4] as string;
     fixture.state.targetId = targetId; fixture.state.job!.target_board_id = targetId; fixture.state.queries.length = 0;
@@ -170,7 +179,7 @@ describe('PgBoardContentCopyStore legacy adapter', () => {
   });
 
   it('rejects reuse of a request id for different duplicate input', async () => {
-    const fixture = database(sourceSnapshot()), request = input(), store = new PgBoardContentCopyStore(fixture.db);
+    const fixture = database(sourceSnapshot()), request = input(), store = copyStore(fixture);
     await store.duplicate(principal,sourceBoardId,request,() => ({snapshot:new Uint8Array([0,0]),objectCount:1,connectorCount:0,assetCount:0}));
     fixture.state.job!.request_hash = fixture.state.queries.find(item => item.sql.startsWith('INSERT INTO whiteboard_duplicate_requests'))?.params[4] as string;
     await expect(store.duplicate(principal,sourceBoardId,{...request,targetName:'Different'},() => { throw new Error('no'); })).rejects.toMatchObject({code:'IDEMPOTENCY_CONFLICT'});

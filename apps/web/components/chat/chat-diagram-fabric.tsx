@@ -3,7 +3,7 @@ import * as React from "react";
 import { Maximize2, Save, Check, History } from "lucide-react";
 import { Canvas as FabricCanvas } from "fabric";
 import {
-  markdownToCanvas,
+  markdownToCanvas,extractModel,type DiagramModel,
   fitToContent,
   wrapAsMermaidBlock,
 } from "@repo/fabric-markdown";
@@ -15,6 +15,7 @@ import { fetchLatestSavedDiagramSource } from "@/lib/chat/diagram-readback";
 import { landAsArtifact, describeMessageFailure } from "@/lib/live-chat";
 import { ChatGraphVersionHistory } from "./chat-graph-version-history";
 import { useSampledFenceCode } from "@/lib/canvas/streaming-fence-sample";
+import {ChatDiagramBoardHandoff}from'./chat-diagram-board-handoff';import{useOptionalSession}from'@/components/session/session-provider';
 
 /**
  * 单个 ```mermaid 围栏在 AI 气泡内的 **fabric 渲染**（VZ-02，替换 VZ-01 的静态 SVG）。
@@ -125,6 +126,7 @@ export function ChatDiagramFabric({
   const [savedSource, setSavedSource] =
     React.useState<(DiagramSavedSource & { artifactId?: string }) | null>(null);
   const [historyOpen, setHistoryOpen] = React.useState(false);
+  const [renderedModel,setRenderedModel]=React.useState<DiagramModel|null>(null);const session=useOptionalSession();
   const [openingReadback, setOpeningReadback] = React.useState(false);
   // 只读预览（气泡里那张小图）实际要画的源——优先用「这次会话里最新保存版」（无论
   // 是 G1 从服务端读回的，还是本地演示保存后 modal 关闭时带回来的），没有保存版
@@ -237,8 +239,12 @@ export function ChatDiagramFabric({
         },
         bearer,
       );
-      // 记住这次落进的产物 id，于是同一次会话里连存三次 = 一份图谱的三个版本。
-      setSavedSource({
+      // Board handoff must carry the immutable server revision, never an inferred client
+      // timestamp/version. Read the just-landed artifact back through the same visibility path.
+      const verified = await fetchLatestSavedDiagramSource({
+        threadId: threadId!, messageId: messageId!, projectId: projectId ?? null, bearer,
+      });
+      setSavedSource(verified ?? {
         markdown: previewCode,
         savedAt: new Date().toISOString(),
         artifactId: landed.artifactId,
@@ -339,6 +345,8 @@ export function ChatDiagramFabric({
         onQuickSave={handleQuickSave}
         canShowHistory={canQuickSave}
         onOpenHistory={() => setHistoryOpen(true)}
+        onRenderedModel={setRenderedModel}
+        boardHandoff={<ChatDiagramBoardHandoff model={renderedModel} artifactId={savedSource?.artifactId} sourceRevision={savedSource?.immutableRevision} orgId={session?.session?.currentOrgId}/>}
       />
 
       {historyOpen && threadId !== undefined && (
@@ -360,7 +368,12 @@ export function ChatDiagramFabric({
             // 的源——这样退出全屏后气泡里的只读预览立刻跟着变，不用等重新拉整个
             // 消息列表（这条链路目前也不会真的把编辑写回 chat_messages，见调用方
             // 文件头「G1 读回」注释）。
-            if (result) setSavedSource({ markdown: result.markdown, savedAt: new Date().toISOString() });
+            if (result) {
+              setSavedSource({ markdown: result.markdown, savedAt: new Date().toISOString() });
+              if (threadId && messageId) void fetchLatestSavedDiagramSource({
+                threadId, messageId, projectId: projectId ?? null, bearer,
+              }).then(verified => { if (verified) setSavedSource(verified); });
+            }
             setMaximized(false);
           }}
           threadId={threadId}
@@ -382,7 +395,7 @@ export function ChatDiagramFabric({
  */
 function DiagramCanvasBody({
   previewCode, closed, inView, containerRef, openMaximized, openingReadback,
-  canQuickSave, quickSaveState, onQuickSave, canShowHistory, onOpenHistory,
+  canQuickSave, quickSaveState, onQuickSave, canShowHistory, onOpenHistory,onRenderedModel,boardHandoff,
 }: {
   previewCode: string;
   /** 见 `ChatDiagramFabric` 同名 prop：`false` 时绝不判错，只停在加载态。 */
@@ -399,6 +412,8 @@ function DiagramCanvasBody({
   /** 与 `canQuickSave` 同一条判据：没有稳定身份就没有版本线可看，不画这个入口。 */
   canShowHistory: boolean;
   onOpenHistory: () => void;
+  onRenderedModel:(model:DiagramModel)=>void;
+  boardHandoff:React.ReactNode;
 }) {
   const canvasElRef = React.useRef<HTMLCanvasElement>(null);
   const fabricRef = React.useRef<FabricCanvas | null>(null);
@@ -474,6 +489,7 @@ function DiagramCanvasBody({
           obj.evented = false;
         });
         fitToContent(canvas, { padding: 24 });
+        onRenderedModel(extractModel(canvas));
         canvas.requestRenderAll();
         everReadyRef.current = true;
         setReady(true);
@@ -553,6 +569,7 @@ function DiagramCanvasBody({
                   : "保存"}
           </Button>
         ) : null}
+        {boardHandoff}
         {canShowHistory ? (
           <Button
             type="button"

@@ -9,6 +9,7 @@ export const FULLSTACK_E2E = {
   userId: `user-fullstack-${scope}`,
   projectId: `project-fullstack-${scope}`,
   artifactId: `artifact-fullstack-${scope}`,
+  boardArtifactId: `artifact-board-layout-${scope}`,
   projectName: `Fullstack sentinel project ${scope}`,
   sentinelFile: `FULLSTACK_SENTINEL_${scope}.md`,
 
