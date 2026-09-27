@@ -69,8 +69,13 @@ it("partialFailurePreservesMarkdown and retry appends a new document version", a
   });
   let calls = 0;
   const partial = "# 研究分析\r\n\r\n## 已生成目标\r\n理解备课行为。\r\n";
-  const deps = { repo: new PgDigitalInterviewRepository(db), scope: new PgInterviewScopeRepository(db), decisions: new UuidDecisionIdFactory(), reader: new PgInterviewMarkdownReader(db), modelProvider: "test", modelId: "test", model: { complete: async () => {
+  const deps = { repo: new PgDigitalInterviewRepository(db), scope: new PgInterviewScopeRepository(db), decisions: new UuidDecisionIdFactory(), reader: new PgInterviewMarkdownReader(db), modelProvider: "test", modelId: "test", model: { complete: async (request: { user: string; system: string }) => {
     calls += 1;
+    if (calls === 2) {
+      expect(request.user).toContain(partial);
+      expect(request.user).toContain("未确认");
+      expect(request.system).toContain("续写");
+    }
     return calls === 1 ? { text: partial, truncated: true } : { text: `${partial}\r\n## 待验证假设\r\n效率是否提升需验证。` };
   } } };
   const input = { orgId: toOrgId(ORG), viewerUserId: USER, interviewId: "itv-f02-visible", step: "analysis" as const, expectedVersion: 1, expectedDocumentVersion: 0 };
@@ -81,9 +86,26 @@ it("partialFailurePreservesMarkdown and retry appends a new document version", a
   expect(restored.states.find((state: { documentId: string }) => state.documentId === document.documentId)).toMatchObject({ status: "failed", failure: { code: "AI_GENERATION_UNAVAILABLE", retryable: true } });
   const retried = await generateInterviewMarkdown(deps, { ...input, expectedVersion: restored.version, expectedDocumentVersion: document.version });
   expect(retried.documents.find((doc) => doc.step === "analysis")?.version).toBe(2);
+  expect(retried.documents.find((doc) => doc.step === "analysis")?.markdown).toBe(`${partial}\r\n## 待验证假设\r\n效率是否提升需验证。`);
   expect(calls).toBe(2);
   const archived = await db.withTenant(toOrgId(ORG), (session) => session.query<{ markdown: string }>("SELECT markdown FROM digital_interview_artifact_versions WHERE org_id=$1 AND artifact_id=$2", [ORG, document.documentId]));
   expect(archived.rows[0]?.markdown).toBe(partial);
+});
+
+it.each(["confirmed", "completed"] as const)("rejects %s generation targets before invoking the model", async (status) => {
+  await db.withTenant(toOrgId(ORG), async (session) => {
+    await session.query(`INSERT INTO digital_interview_revisions(org_id,id,interview_id,revision_number,created_by) VALUES($1,'revision-api-immutable-4476','itv-f02-visible',1,$2)`, [ORG, USER]);
+    for (const step of ["intake", "analysis"] as const) {
+      await appendInterviewMarkdownDocument(session, { orgId: toOrgId(ORG), interviewId: "itv-f02-visible", revisionId: "revision-api-immutable-4476", step, title: step, markdown: `# ${step}`, evidenceMode: "simulated", references: [], expectedVersion: 0, status: step === "analysis" ? status : "confirmed" });
+    }
+  });
+  let calls = 0;
+  const reader = new PgInterviewMarkdownReader(db);
+  const before = (await reader.readCurrent(toOrgId(ORG), "itv-f02-visible"))!;
+  const deps = { repo: new PgDigitalInterviewRepository(db), scope: new PgInterviewScopeRepository(db), decisions: new UuidDecisionIdFactory(), reader, modelProvider: "test", modelId: "test", model: { complete: async () => { calls++; return { text: "# 不应生成" }; } } };
+  await expect(generateInterviewMarkdown(deps, { orgId: toOrgId(ORG), viewerUserId: USER, interviewId: "itv-f02-visible", step: "analysis", expectedVersion: before.version, expectedDocumentVersion: 1 })).rejects.toThrow("DIGITAL_INTERVIEW_STEP_INVALID");
+  expect(calls).toBe(0);
+  expect(await reader.readCurrent(toOrgId(ORG), "itv-f02-visible")).toEqual(before);
 });
 
 it("modelConsumesConfirmedMarkdown through the real source repository and saves raw generated analysis", async () => {
