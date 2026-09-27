@@ -18,7 +18,7 @@ export interface BackupMaintenancePort {
  release(p:Principal,request:Extract<MaintenanceRequest,{action:'release-pins'}>,expectedHash:string,cutoff:Date,requestHash:string):Promise<MaintenanceReceipt>;
  recover(p:Principal,request:Extract<MaintenanceRequest,{action:'recover-manifest'}>,expectedHash:string,ref:BackupBlob,requestHash:string):Promise<MaintenanceReceipt>;
 }
-const fail=(code:string):never=>{throw new BackupMaintenanceError(code);};
+function fail(code:string):never{throw new BackupMaintenanceError(code);}
 export function validateMaintenanceState(state:MaintenanceState,request:MaintenanceRequest,now:Date){
  if(state.backup.status!=='verified'||!state.backup.manifestHash)fail('BACKUP_NOT_VERIFIED');
  if(request.action==='release-pins'){

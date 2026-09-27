@@ -26,7 +26,7 @@ function fixture(){
   else if(!sql.startsWith('INSERT INTO whiteboard_backup_maintenance_receipts'))throw Error(`Unexpected maintenance SQL: ${sql}`);
   return{rows,rowCount:rows.length};
  }} as unknown as TenantSession;
- const db={withTenant:async(org:string,fn:(s:TenantSession)=>Promise<unknown>)=>{expect(org).toBe(p.orgId);const value=await fn(session);state.committed=true;return value;}} as DatabasePort;
+ const db={withTenant:async(org:string,fn:(s:TenantSession)=>Promise<unknown>)=>{expect(org).toBe(p.orgId);const value=await fn(session);state.committed=true;return value;}} as unknown as DatabasePort;
  return{repo:new PgBackupMaintenance(db),state,calls,manifest,blob,manifestHash:backupHash(JSON.stringify(manifest))};
 }
 const release={action:'release-pins' as const,backupId,requestId,retentionDays:30};
