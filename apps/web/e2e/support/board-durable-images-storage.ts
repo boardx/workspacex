@@ -1,11 +1,13 @@
 import { createRequire } from 'node:module';
 import { resolve } from 'node:path';
 import { strict as assert } from 'node:assert';
-import type {PgConfig} from '../../../api/src/infrastructure/db/pg-config';
+// Structural boundary only: appConfig below remains the runtime configuration
+// authority. Do not pull the API deployment graph into Next's type program.
+type EvidencePgConnection = {readonly host:string;readonly port:number;readonly database:string;readonly user:string;readonly password:string};
 import {pathToFileURL} from 'node:url';
 
 /** Guard before connecting; the application role preserves tenant RLS. */
-export function isolatedImageEvidenceConfig(config:PgConfig,env:NodeJS.ProcessEnv=process.env):PgConfig {
+export function isolatedImageEvidenceConfig(config:EvidencePgConnection,env:NodeJS.ProcessEnv=process.env):EvidencePgConnection {
   assert(env.WORKSPACEX_ISOLATION_ID && /^wsx_[a-f0-9]{20}$/.test(env.WORKSPACEX_DB??''),'ISOLATED_STORAGE_EVIDENCE_REQUIRED');
   assert(!env.WORKSPACEX_DEPLOY_PROFILE,'LOCAL_STORAGE_EVIDENCE_REQUIRED');
   assert.equal(config.database,env.WORKSPACEX_DB,'STORAGE_DATABASE_MISMATCH');
@@ -32,7 +34,7 @@ SELECT json_build_object(
 ); ROLLBACK;`;
   // Resolve the runtime's installed driver without introducing a web dependency.
   const {Client}=createRequire(resolve(__dirname,'../../../api/package.json'))('pg') as {
-    Client:new(config:PgConfig)=>{connect():Promise<void>;query(sql:string):Promise<Array<{rows:Array<Record<string,unknown>>}>>;end():Promise<void>};
+    Client:new(config:EvidencePgConnection)=>{connect():Promise<void>;query(sql:string):Promise<Array<{rows:Array<Record<string,unknown>>}>>;end():Promise<void>};
   };
   const client=new Client(config);
   let result:Array<{rows:Array<Record<string,unknown>>}>;
@@ -58,9 +60,9 @@ export function assertImageStorageEvidence(evidence: {assets:Array<{boardId:stri
   return evidence;
 }
 
-export async function imageEvidenceConnectionConfig():Promise<PgConfig>{
+export async function imageEvidenceConnectionConfig():Promise<EvidencePgConnection>{
   const {tsImport}=createRequire(resolve(__dirname,'../../package.json'))('tsx/esm/api') as {tsImport:(url:string,parent:string)=>Promise<unknown>};
   const configUrl=pathToFileURL(resolve(__dirname,'../../../api/src/infrastructure/db/pg-config.ts')).href;
-  const {appConfig}=await tsImport(configUrl,pathToFileURL(__filename).href) as {appConfig:()=>PgConfig};
+  const {appConfig}=await tsImport(configUrl,pathToFileURL(__filename).href) as {appConfig:()=>EvidencePgConnection};
   return isolatedImageEvidenceConfig(appConfig());
 }
