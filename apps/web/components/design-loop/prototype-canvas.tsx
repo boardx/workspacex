@@ -1080,7 +1080,9 @@ function StatusBar({ label }: { label: string }) {
   return (
     <div className="flex shrink-0 items-center justify-between px-5 pt-1.5 text-9 font-medium text-card-foreground/80" aria-hidden data-chrome="status">
       <span>9:41</span>
-      <span className="truncate px-2 text-card-foreground/45">{label}</span>
+      {/* 页名：比「9:41」淡一档，但不能低于 AA——45% 时浅色原型上只有 2.99（#4331 U5，普通用户评测集量出）。
+          70% ⇒ 浅色 6.8 / 深色 8.1。 */}
+      <span className="truncate px-2 text-card-foreground/70">{label}</span>
       <span className="flex items-center gap-0.5">
         <span className="inline-block h-1.5 w-2.5 rounded-sm bg-current opacity-70" />
         <span className="inline-block h-1.5 w-1.5 rounded-full bg-current opacity-70" />
