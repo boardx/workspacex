@@ -1,7 +1,22 @@
-import {describe,expect,it} from 'vitest';
-import {BOARD_ACCEPTANCE_RUBRIC,evaluateBoardAcceptance,type BoardLaneEvidence} from '@/lib/board-acceptance-rubric';
-const sha='a'.repeat(40),row=(lane:BoardLaneEvidence['lane']):BoardLaneEvidence=>({lane,sha,command:`verify ${lane}`,startedAt:'2026-09-27T00:00:00.000Z',endedAt:'2026-09-27T00:01:00.000Z',exitCode:0,environment:'ci',artifactSha256:'b'.repeat(64),counterproof:true});
-describe('Board nine point rubric',()=>{
-  it('requires every production lane on one exact SHA with a counterproof',()=>{const rows=BOARD_ACCEPTANCE_RUBRIC.requiredLanes.map(row);expect(evaluateBoardAcceptance(sha,rows)).toEqual({approved:true,score:9,failures:[]});for(const omitted of BOARD_ACCEPTANCE_RUBRIC.requiredLanes){const result=evaluateBoardAcceptance(sha,rows.filter(value=>value.lane!==omitted));expect(result.approved).toBe(false);expect(result.score).toBeNull();expect(result.failures).toContain(`MISSING:${omitted}`);}});
-  it('never rounds partial evidence up to nine',()=>{const rows=BOARD_ACCEPTANCE_RUBRIC.requiredLanes.map(row);rows[0]={...rows[0]!,sha:'c'.repeat(40)};rows[1]={...rows[1]!,counterproof:false};expect(evaluateBoardAcceptance(sha,rows)).toMatchObject({approved:false,score:null,failures:['SHA_MISMATCH:journeys','NO_COUNTERPROOF:performance-1k']});});
+import {describe, expect, it} from 'vitest';
+import {BOARD_ACCEPTANCE_RUBRIC, evaluateBoardAcceptance, type BoardLaneEvidence} from '@/lib/board-acceptance-rubric';
+const sha = 'a'.repeat(40);
+const row = (lane: BoardLaneEvidence['lane']): BoardLaneEvidence => ({lane, sha, buildSha: sha, dirty: false, status: 'passed',
+  command: `verify ${lane}`, startedAt: '2026-09-27T00:00:00Z', endedAt: '2026-09-27T00:01:00Z',
+  exitCode: 0, environment: 'unit-fixture', artifactSha256: 'b'.repeat(64), counterproof: true});
+describe('acceptance metadata never grants an experience score', () => {
+  it('stays closed even for perfect-looking metadata until real producers are integrated', () => {
+    const result = evaluateBoardAcceptance(sha, BOARD_ACCEPTANCE_RUBRIC.requiredLanes.map(row));
+    expect(result).toMatchObject({approved: false, score: null, metadataValid: true});
+    expect(result.failures).toContain('PRODUCER_NOT_INTEGRATED:meeting-room');
+    expect(result.failures).toContain('PRODUCER_NOT_INTEGRATED:visual');
+  });
+  it('rejects duplicate, malformed dates, dirty trees and mismatched builds', () => {
+    const rows = BOARD_ACCEPTANCE_RUBRIC.requiredLanes.map(row);
+    rows[0]!.endedAt = 'invalid'; rows[1]!.dirty = true; rows[2]!.buildSha = 'c'.repeat(40);
+    rows.push(row('visual'));
+    const result = evaluateBoardAcceptance(sha, rows);
+    expect(result.metadataValid).toBe(false);
+    expect(result.failures).toEqual(expect.arrayContaining(['INVALID_TIME:journeys', 'IDENTITY_MISMATCH:performance-1k', 'IDENTITY_MISMATCH:performance-5k', 'DUPLICATE:visual']));
+  });
 });

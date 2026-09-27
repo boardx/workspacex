@@ -1,6 +1,36 @@
-import{createHash}from'node:crypto';import{readFile}from'node:fs/promises';
-const required=['journeys','performance-1k','performance-5k','performance-10k','collaboration-50','storage','import','accessibility','security','api-ws-objectstore'];
-const [manifestPath,sha]=process.argv.slice(2);if(!manifestPath||!/^[a-f0-9]{40}$/.test(sha??''))throw new Error('usage: verify-board-acceptance-evidence.mjs <manifest.json> <exact-sha>');
-const manifest=JSON.parse(await readFile(manifestPath,'utf8'));if(!Array.isArray(manifest))throw new Error('BOARD_ACCEPTANCE_MANIFEST_INVALID');const failures=[];
-for(const lane of required){const row=manifest.find(value=>value?.lane===lane);if(!row){failures.push(`MISSING:${lane}`);continue;}if(row.sha!==sha)failures.push(`SHA_MISMATCH:${lane}`);if(row.exitCode!==0)failures.push(`FAILED:${lane}`);if(row.counterproof!==true)failures.push(`NO_COUNTERPROOF:${lane}`);if(typeof row.artifactPath!=='string'||typeof row.artifactSha256!=='string'){failures.push(`MISSING_ARTIFACT:${lane}`);continue;}try{const bytes=await readFile(row.artifactPath),actual=createHash('sha256').update(bytes).digest('hex');if(actual!==row.artifactSha256)failures.push(`ARTIFACT_HASH_MISMATCH:${lane}`);}catch{failures.push(`ARTIFACT_UNREADABLE:${lane}`);}if(!row.startedAt||!row.endedAt||Date.parse(row.endedAt)<Date.parse(row.startedAt))failures.push(`INVALID_TIME:${lane}`);}
-if(failures.length){console.error(JSON.stringify({approved:false,score:null,sha,failures},null,2));process.exitCode=1;}else process.stdout.write(`${JSON.stringify({approved:true,score:9,sha,lanes:required},null,2)}\n`);
+import {createHash} from 'node:crypto';
+import {readFile} from 'node:fs/promises';
+import {boardAcceptanceMatrix, requiredBoardAcceptanceLanes} from './board-acceptance-matrix.mjs';
+
+export async function verifyBoardAcceptanceEvidence(manifest, sha) {
+  const failures = [];
+  if (!/^[a-f0-9]{40}$/.test(sha ?? '') || !Array.isArray(manifest)) return {approved: false, score: null, failures: ['INVALID_MANIFEST']};
+  for (const lane of requiredBoardAcceptanceLanes) {
+    const matches = manifest.filter(row => row?.lane === lane);
+    if (matches.length !== 1) { failures.push(`${matches.length ? 'DUPLICATE' : 'MISSING'}:${lane}`); continue; }
+    const row = matches[0];
+    if (row.sha !== sha || row.buildSha !== sha || row.dirty !== false) failures.push(`IDENTITY_MISMATCH:${lane}`);
+    if (row.status !== 'passed' || row.exitCode !== 0) failures.push(`NOT_PASSED:${lane}`);
+    if (row.counterproof !== true) failures.push(`NO_COUNTERPROOF:${lane}`);
+    if (typeof row.command !== 'string' || !row.command.trim() || typeof row.environment !== 'string' || !row.environment.trim()) failures.push(`MISSING_CONTEXT:${lane}`);
+    const start = Date.parse(row.startedAt), end = Date.parse(row.endedAt);
+    if (!Number.isFinite(start) || !Number.isFinite(end) || end < start) failures.push(`INVALID_TIME:${lane}`);
+    if (typeof row.artifactPath !== 'string' || !/^[a-f0-9]{64}$/.test(row.artifactSha256 ?? '')) failures.push(`MISSING_ARTIFACT:${lane}`);
+    else {
+      try { if (createHash('sha256').update(await readFile(row.artifactPath)).digest('hex') !== row.artifactSha256) failures.push(`ARTIFACT_HASH_MISMATCH:${lane}`); }
+      catch { failures.push(`ARTIFACT_UNREADABLE:${lane}`); }
+    }
+  }
+  for (const row of manifest) if (!requiredBoardAcceptanceLanes.includes(row?.lane)) failures.push(`UNKNOWN:${row?.lane}`);
+  // Hashing arbitrary text is not validation of its claims. Stay closed until the
+  // per-lane runtime/build attestation and artifact result validators are integrated.
+  for (const entry of boardAcceptanceMatrix) if (!entry.command) failures.push(`PRODUCER_NOT_INTEGRATED:${entry.lane}`);
+  return {approved: false, score: null, sha, failures};
+}
+if (process.argv[1] && import.meta.url === new URL(`file://${process.argv[1]}`).href) {
+  const [manifestPath, sha] = process.argv.slice(2);
+  if (!manifestPath) throw new Error('usage: verify-board-acceptance-evidence.mjs <manifest.json> <exact-sha>');
+  const result = await verifyBoardAcceptanceEvidence(JSON.parse(await readFile(manifestPath, 'utf8')), sha);
+  console.log(JSON.stringify(result, null, 2));
+  process.exitCode = 1;
+}

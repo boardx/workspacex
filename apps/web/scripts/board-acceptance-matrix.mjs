@@ -1,12 +1,19 @@
+/** These lanes are deliberately unavailable until a real producer is integrated.
+ * Validator/fixture unit tests are NOT production acceptance commands.
+ */
 export const boardAcceptanceMatrix = [
-  {lane:'journeys',command:['pnpm','--filter','web','exec','playwright','test','--config','e2e/board-three-browsers.config.ts','e2e/board-final-acceptance.spec.ts']},
-  {lane:'performance-1k',command:['pnpm','--filter','web','exec','vitest','run','tests/performance/board-fabric-5k-mixed.test.ts']},
-  {lane:'performance-5k',command:['pnpm','--filter','web','exec','vitest','run','tests/performance/board-fabric-5k-mixed.test.ts']},
-  {lane:'performance-10k',command:['pnpm','--filter','web','exec','vitest','run','tests/performance/board-fabric-10k-report.test.ts']},
-  {lane:'collaboration-50',command:['pnpm','--filter','api','exec','vitest','run','--config','vitest.whiteboard-unit.config.ts','tests/whiteboard/collaboration-50-browser-soak-ledger.test.ts','tests/whiteboard/recovery-revoke-blob-ledger.test.ts']},
-  {lane:'storage',command:['pnpm','--filter','web','exec','playwright','test','--config','e2e/board-three-browsers.config.ts','e2e/board-import-storage.spec.ts']},
-  {lane:'import',command:['pnpm','--filter','web','exec','playwright','test','--config','e2e/board-three-browsers.config.ts','e2e/board-import-storage.spec.ts']},
-  {lane:'accessibility',command:['pnpm','--filter','web','exec','playwright','test','--config','e2e/board-three-browsers.config.ts','e2e/board-accessibility-input.spec.ts']},
-  {lane:'security',command:['pnpm','--filter','web','exec','playwright','test','--config','e2e/board-three-browsers.config.ts','e2e/board-security.spec.ts']},
-  {lane:'api-ws-objectstore',command:['pnpm','--filter','web','exec','playwright','test','--config','e2e/board-three-browsers.config.ts','e2e/board-collaboration-load.spec.ts','e2e/board-security.spec.ts']},
-];
+  ['journeys', 'Six real journeys with action counts, result assertions and traces'],
+  ['performance-1k', 'Real persisted 1k Fabric/Yjs board and thresholded browser measurements'],
+  ['performance-5k', 'Real persisted 5k Fabric/Yjs board and thresholded browser measurements'],
+  ['performance-10k', 'Real persisted 10k Fabric/Yjs board and thresholded browser measurements'],
+  ['collaboration-50', '50 clients, 20 active writers, >=30 minute observed signed ledger'],
+  ['storage', 'PostgreSQL metadata/ObjectStore content, corruption and ACK recovery'],
+  ['import', 'Miro and Mural imports, losses report and export round trip'],
+  ['accessibility', 'Keyboard, screenreader, touch/pen, 200/400% reflow and three browsers'],
+  ['security', 'Tenant ACL, revocation, API/WS/ObjectStore negative cases'],
+  ['api-ws-objectstore', 'Cross-layer persistence and convergence'],
+  ['visual', 'Before/after screenshots at three viewports, >=90/100 and each dimension >=80%, no blockers'],
+  ['meeting-room', 'Real meeting-room lifecycle with >=30 minute observed signed ledger'],
+].map(([lane, requirement]) => ({lane, requirement, status: 'not-run', command: null,
+  reason: 'REAL_PRODUCER_NOT_INTEGRATED'}));
+export const requiredBoardAcceptanceLanes = boardAcceptanceMatrix.map(entry => entry.lane);
