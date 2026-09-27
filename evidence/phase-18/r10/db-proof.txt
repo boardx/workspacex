@@ -1,0 +1,92 @@
+Pager usage is off.
+== org extraction gate row
+         org_id         | enabled 
+------------------------+---------
+ org-kg-experience-eval | t
+(1 row)
+
+== threads (project_id / visibility / creator)
+                    id                    |         project_id         | visibility_scope |     created_by     |          title          
+------------------------------------------+----------------------------+------------------+--------------------+-------------------------
+ thr-e0cce286-5523-4cf7-b85d-f493af92df08 |                            | private          | user-kg-eval-owner | 我决定关注 211 高校
+ thr-0c7e21ac-1e32-4b9a-9330-102314957aaa | project-kg-experience-eval | plenary          | user-kg-eval-owner | 项目群聊 r10 决定
+ thr-567f3150-0dd3-4340-9cda-bd439d6f4e06 | project-kg-experience-eval | plenary          | user-kg-eval-owner | 项目群聊 r10 报告
+ thr-fcd52c0c-794a-4475-b022-82329d057f39 |                            | private          | user-kg-eval-owner | 改成关注 985 高校吧
+ thr-efa6317b-a2e5-4d66-96e1-1bd10b054edb |                            | private          | user-kg-eval-owner | 开始写报告吧
+ thr-61645f7b-a788-480f-ba5a-cc880e4acee6 |                            | private          | user-kg-eval-owner | 改成关注 C9 吧
+ thr-acab23d8-104a-48b5-849f-f12650fd25f3 |                            | private          | user-kg-eval-owner | 开始写报告吧
+ thr-f71312f5-04ba-42ee-a2dd-1f7750c1ad46 |                            | private          | user-kg-eval-owner | 改成关注985高校，我反对
+(8 rows)
+
+== decisions (scope / status / revoked / reason / supersedes)
+                   id                   |  scope_kind  |                  scope                   |        statement        |   status   | revoked | revocation_reason | created_by | supersedes_claim_id 
+----------------------------------------+--------------+------------------------------------------+-------------------------+------------+---------+-------------------+------------+---------------------
+ clm_1c3878927dc2401ca883a734f4bc86de   | chat_session | thr-e0cce286-5523-4cf7-b85d-f493af92df08 | 我决定关注 211 高校     | proposed   | f       |                   | model      | 
+ act_18b681570f17419ab219de5cce31ad23-p | personal     | user-kg-eval-owner                       | 我决定关注 211 高校     | proposed   | f       |                   | model      | 
+ clm_d3dd0042e76d4019b3efa44b653452b2   | chat_session | thr-0c7e21ac-1e32-4b9a-9330-102314957aaa | 我决定关注双一流高校    | proposed   | f       |                   | model      | 
+ clm_a9988cc1d34241dd984460bf83948a1a   | chat_session | thr-fcd52c0c-794a-4475-b022-82329d057f39 | 改成关注 985 高校       | proposed   | f       |                   | model      | 
+ act_2e0bfe696c794a90a99630140c335213-p | personal     | user-kg-eval-owner                       | 改成关注 985 高校       | superseded | t       | user_revoked      | model      | 
+ clm_5d7146e4938e425bbc517ed620dba44d   | chat_session | thr-61645f7b-a788-480f-ba5a-cc880e4acee6 | 改成关注 C9             | proposed   | f       |                   | model      | 
+ act_6db2999edca24323a9d446b7573fdcdf-p | personal     | user-kg-eval-owner                       | 改成关注 C9             | proposed   | f       |                   | model      | 
+ clm_877dedb70373418cb572d0b9e0c1761a   | chat_session | thr-f71312f5-04ba-42ee-a2dd-1f7750c1ad46 | 改成关注985高校，我反对 | proposed   | f       |                   | model      | 
+ act_5b6673c7f6244eecb5728bbb4266eaaa-p | personal     | user-kg-eval-owner                       | 改成关注985高校，我反对 | proposed   | f       |                   | model      | 
+(9 rows)
+
+== derived_from edges (personal copy -> session source)
+                personal                |                source                |   status    | created_by 
+----------------------------------------+--------------------------------------+-------------+------------
+ act_18b681570f17419ab219de5cce31ad23-p | clm_1c3878927dc2401ca883a734f4bc86de | active      | model
+ act_2e0bfe696c794a90a99630140c335213-p | clm_a9988cc1d34241dd984460bf83948a1a | invalidated | model
+ act_6db2999edca24323a9d446b7573fdcdf-p | clm_5d7146e4938e425bbc517ed620dba44d | active      | model
+ act_5b6673c7f6244eecb5728bbb4266eaaa-p | clm_877dedb70373418cb572d0b9e0c1761a | active      | model
+(4 rows)
+
+== kg_supersede_notices (#4290 auto)
+                   id                   |                thread_id                 |       newer       |        older        | older_scope | status |     undone_by      
+----------------------------------------+------------------------------------------+-------------------+---------------------+-------------+--------+--------------------
+ act_8e6ef9ef2ea9496e8668a0e30a2ad845-0 | thr-fcd52c0c-794a-4475-b022-82329d057f39 | 改成关注 985 高校 | 我决定关注 211 高校 | personal    | undone | user-kg-eval-owner
+(1 row)
+
+== kg_conflict_prompts (#4290 card; expect exactly one possible_change, resolved keep_both, none for the 「我反对」 sentence)
+                   id                    |                thread_id                 |      kind       |    newer    |       older       |  status   |    resolved_by     
+-----------------------------------------+------------------------------------------+-----------------+-------------+-------------------+-----------+--------------------
+ act_79b06ac8b83d4c2999cc5085f00e7618-c0 | thr-61645f7b-a788-480f-ba5a-cc880e4acee6 | possible_change | 改成关注 C9 | 改成关注 985 高校 | kept_both | user-kg-eval-owner
+(1 row)
+
+== kg_turn_recalls (thread -> requester -> recalled claim ids)
+                thread_id                 | requester_user_id  |                                      claim_ids                                       
+------------------------------------------+--------------------+--------------------------------------------------------------------------------------
+ thr-0c7e21ac-1e32-4b9a-9330-102314957aaa | user-kg-eval-owner | ["act_18b681570f17419ab219de5cce31ad23-p"]
+ thr-567f3150-0dd3-4340-9cda-bd439d6f4e06 | user-kg-eval-owner | ["act_18b681570f17419ab219de5cce31ad23-p"]
+ thr-fcd52c0c-794a-4475-b022-82329d057f39 | user-kg-eval-owner | ["act_18b681570f17419ab219de5cce31ad23-p"]
+ thr-efa6317b-a2e5-4d66-96e1-1bd10b054edb | user-kg-eval-owner | ["act_2e0bfe696c794a90a99630140c335213-p"]
+ thr-61645f7b-a788-480f-ba5a-cc880e4acee6 | user-kg-eval-owner | ["act_2e0bfe696c794a90a99630140c335213-p"]
+ thr-acab23d8-104a-48b5-849f-f12650fd25f3 | user-kg-eval-owner | ["act_6db2999edca24323a9d446b7573fdcdf-p", "act_2e0bfe696c794a90a99630140c335213-p"]
+ thr-f71312f5-04ba-42ee-a2dd-1f7750c1ad46 | user-kg-eval-owner | ["act_2e0bfe696c794a90a99630140c335213-p", "act_6db2999edca24323a9d446b7573fdcdf-p"]
+(7 rows)
+
+== agent answers: extraction queue leftovers and claims evidenced by them (project answers must be 0 / 0)
+                  id                  |                thread_id                 |         project_id         | queued | claims_from_it |                                                   body                                                    
+--------------------------------------+------------------------------------------+----------------------------+--------+----------------+-----------------------------------------------------------------------------------------------------------
+ 5ec853da-80fc-42cc-a73c-ef4cb698b3e6 | thr-e0cce286-5523-4cf7-b85d-f493af92df08 |                            |      0 |              0 | 好的，收到。
+ b52291ce-91d9-4564-892a-66f92032e1c6 | thr-0c7e21ac-1e32-4b9a-9330-102314957aaa | project-kg-experience-eval |      0 |              0 | 根据之前的对话：我决定关注 211 高校（来自个人空间知识，最早见于你 09/27 的对话）。
+ 6a285834-ae75-47bc-80aa-5aae6192a2e3 | thr-567f3150-0dd3-4340-9cda-bd439d6f4e06 | project-kg-experience-eval |      0 |              0 | 根据之前的对话：我决定关注 211 高校（来自个人空间知识，最早见于你 09/27 的对话）。
+ 5b00fc4a-09ea-407d-ae3e-3a02a66eb4b9 | thr-fcd52c0c-794a-4475-b022-82329d057f39 |                            |      0 |              0 | 根据之前的对话：我决定关注 211 高校（来自个人空间知识，最早见于你 09/27 的对话）。
+ 8bf33e2f-d789-44ed-8c0c-046d0cc9a007 | thr-efa6317b-a2e5-4d66-96e1-1bd10b054edb |                            |      0 |              0 | 根据之前的对话：改成关注 985 高校（来自个人空间知识，最早见于你 09/27 的对话）。
+ 0cc6dffa-f8d3-455e-87b9-31233e03e0dd | thr-61645f7b-a788-480f-ba5a-cc880e4acee6 |                            |      0 |              0 | 根据之前的对话：改成关注 985 高校（来自个人空间知识，最早见于你 09/27 的对话）。
+ 61900730-e56c-494b-8c7b-5d56952f6337 | thr-acab23d8-104a-48b5-849f-f12650fd25f3 |                            |      0 |              0 | 根据之前的对话：改成关注 C9（来自个人空间知识，最早见于你 09/27 的对话）；改成关注 985 高校（来自个人空间
+ e121a840-687a-4405-986c-4007abfcd62f | thr-f71312f5-04ba-42ee-a2dd-1f7750c1ad46 |                            |      0 |              0 | 根据之前的对话：改成关注 985 高校（来自个人空间知识，最早见于你 09/27 的对话）；改成关注 C9（来自个人空间
+(8 rows)
+
+== human actions (audit)
+  scope_kind  |   action_type   | actor_kind | outcome  |          created_at           
+--------------+-----------------+------------+----------+-------------------------------
+ chat_session | resolveConflict | human      | accepted | 2026-09-27 01:39:37.540903+00
+ chat_session | undoSupersede   | human      | accepted | 2026-09-27 01:39:49.715853+00
+ personal     | undoSupersede   | human      | accepted | 2026-09-27 01:39:49.715853+00
+ personal     | undoAutoCopy    | human      | accepted | 2026-09-27 01:39:49.967178+00
+(4 rows)
+
+== API log: extraction gate lines (#4284; b52291ce… = A's answer in the project decision thread, 6a285834… = A's 「开始写报告吧」 answer)
+{"level":"info","msg":"kg extraction skipped: project-thread answer used personal memory","traceId":"kg-extraction","orgId":"org-kg-experience-eval","messageId":"b52291ce-91d9-4564-892a-66f92032e1c6","threadId":"thr-0c7e21ac-1e32-4b9a-9330-102314957aaa","outsideRecallItems":1}
+{"level":"info","msg":"kg extraction skipped: project-thread answer used personal memory","traceId":"kg-extraction","orgId":"org-kg-experience-eval","messageId":"6a285834-ae75-47bc-80aa-5aae6192a2e3","threadId":"thr-567f3150-0dd3-4340-9cda-bd439d6f4e06","outsideRecallItems":1}

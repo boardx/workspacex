@@ -1,0 +1,39 @@
+{
+  "says": {
+    "R10-4283-P1-211": {
+      "say": "我决定关注 211 高校",
+      "extract": {
+        "entities": [],
+        "claims": [ { "statement": "我决定关注 211 高校", "kind": "decision", "confidence": 0.9, "about": [], "decidedBy": null, "quote": "我决定关注 211 高校" } ]
+      }
+    },
+    "R10-4283-project-decision": {
+      "say": "我决定关注双一流高校",
+      "extract": {
+        "entities": [],
+        "claims": [ { "statement": "我决定关注双一流高校", "kind": "decision", "confidence": 0.9, "about": [], "decidedBy": null, "quote": "我决定关注双一流高校" } ]
+      }
+    },
+    "R10-4290-auto-985": {
+      "say": "改成关注 985 高校吧",
+      "extract": {
+        "entities": [],
+        "claims": [ { "statement": "改成关注 985 高校", "kind": "decision", "confidence": 0.9, "about": [], "decidedBy": null, "quote": "改成关注 985 高校吧" } ]
+      }
+    },
+    "R10-4290-card-C9": {
+      "say": "改成关注 C9 吧",
+      "extract": {
+        "entities": [],
+        "claims": [ { "statement": "改成关注 C9", "kind": "decision", "confidence": 0.9, "about": [], "decidedBy": null, "quote": "改成关注 C9 吧" } ]
+      }
+    },
+    "R10-4290-none": {
+      "say": "改成关注985高校，我反对",
+      "extract": {
+        "entities": [],
+        "claims": [ { "statement": "改成关注985高校，我反对", "kind": "decision", "confidence": 0.9, "about": [], "decidedBy": null, "quote": "改成关注985高校，我反对" } ]
+      }
+    }
+  }
+}
