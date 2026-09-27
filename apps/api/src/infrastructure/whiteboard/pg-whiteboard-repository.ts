@@ -131,6 +131,23 @@ export class PgWhiteboardRepository implements WhiteboardRepository {
     });
   }
 
+  async mentionableMembers(p: Principal, id: string) {
+    return this.db.withTenant(p.orgId, async session => {
+      // One statement binds directory disclosure and both caller/target access to
+      // the same tenant snapshot. The owner-only management endpoint stays unchanged.
+      const result = await session.query<{items: unknown[]}>(`SELECT COALESCE((
+        SELECT jsonb_agg(jsonb_build_object('userId',c.user_id,'displayName',c.display_name) ORDER BY c.display_name,c.user_id)
+        FROM org_memberships om JOIN credentials c ON c.user_id=om.user_id
+        WHERE om.org_id=b.org_id AND length(trim(c.display_name))>0
+          AND (c.user_id=b.owner_id OR EXISTS (SELECT 1 FROM whiteboard_members target
+            WHERE target.org_id=b.org_id AND target.board_id=b.id AND target.user_id=c.user_id))
+      ),'[]'::jsonb) AS items FROM whiteboards b ${membership}
+        WHERE b.org_id=$1 AND b.id=$3 AND ${visible}
+          AND EXISTS (SELECT 1 FROM org_memberships caller WHERE caller.org_id=b.org_id AND caller.user_id=$2)`, [p.orgId,p.userId,id]);
+      return result.rows[0] ? C.operations.mentionableMembers.out.parse(result.rows[0]).items : null;
+    });
+  }
+
   async members(p: Principal, id: string): Promise<Member[] | null> {
     return this.db.withTenant(p.orgId, async session => {
       const board = await session.query(`SELECT id FROM whiteboards WHERE org_id=$1 AND owner_id=$2 AND id=$3 FOR SHARE`, [p.orgId,p.userId,id]);

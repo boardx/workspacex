@@ -6,7 +6,7 @@ import { CollaborativeEditor } from '@/components/whiteboard/collaborative-edito
 import { textSplice } from '@/components/whiteboard/use-whiteboard-document';
 import type { BoardFabricGeometry, BoardFabricObject } from '@/components/whiteboard/fabric/board-fabric-object';
 const commentHarness=vi.hoisted(()=>({threads:[] as unknown[],dispatch:vi.fn()}));
-vi.mock('@/components/whiteboard/board-comments',()=>({listBoardCommentThreads:async()=>commentHarness.threads,dispatchBoardCommentCommand:(...args:unknown[])=>commentHarness.dispatch(...args)}));
+vi.mock('@/components/whiteboard/board-comments',()=>({listBoardMentionableMembers:async()=>[{userId:"other",displayName:"李四"}],listBoardCommentThreads:async()=>commentHarness.threads,dispatchBoardCommentCommand:(...args:unknown[])=>commentHarness.dispatch(...args)}));
 beforeEach(()=>{commentHarness.threads=[];commentHarness.dispatch.mockReset().mockResolvedValue({operationId:'accepted',replayed:false,threads:[]});});
 vi.mock('@/components/whiteboard/fabric/board-fabric-surface', () => ({
   BoardFabricSurface: ({ objects, onObjectTransform, onSelectionChange }: { objects: readonly BoardFabricObject[]; onObjectTransform: (id: string, geometry: BoardFabricGeometry) => boolean | Promise<boolean>; onSelectionChange: (ids: string[], source: 'canvas') => void }) => <div data-testid="board-fabric-surface"><canvas data-testid="board-fabric-canvas" />{objects.map((object) => <span key={object.id} data-projected-id={object.id} />)}{objects[0] ? <button data-testid="fabric-transform-first" onClick={(event) => { const result = onObjectTransform(objects[0]!.id, { ...objects[0]!.geometry, x: 345 }); event.currentTarget.dataset.accepted = String(result); }}>transform</button> : null}<button data-testid="fabric-select-all" onClick={() => onSelectionChange(objects.map((object) => object.id), 'canvas')}>select all</button></div>,
@@ -216,8 +216,9 @@ it('commenter can start another discussion on an already commented object while 
  const view=render(<CollaborativeEditor {...props}/>);fireEvent.click(screen.getByTestId('fabric-select-all'));fireEvent.click(screen.getByRole('button',{name:'评论'}));
  expect(screen.getByTestId('board-comments-panel')).toHaveClass('max-h-[calc(100%-7rem)]');
  await screen.findByText(/Existing discussion/);fireEvent.change(screen.getByLabelText('评论内容'),{target:{value:'Another discussion'}});
+ const memberSearch=screen.getByRole('combobox',{name:'提及成员'});await waitFor(()=>expect(memberSearch).toBeEnabled());fireEvent.change(memberSearch,{target:{value:'李四'}});fireEvent.keyDown(memberSearch,{key:'Enter'});expect(screen.getByRole('button',{name:'移除提及 李四'})).toBeTruthy();
  expect(screen.getByRole('button',{name:'发布评论'})).toBeEnabled();expect(screen.getByTestId('board-add-sticky')).toBeDisabled();
- fireEvent.click(screen.getByRole('button',{name:'发布评论'}));await waitFor(()=>expect(commentHarness.dispatch).toHaveBeenCalledWith('board-test',expect.objectContaining({type:'create-comment',objectId:'commented-note',body:'Another discussion'})));
+ fireEvent.click(screen.getByRole('button',{name:'发布评论'}));await waitFor(()=>expect(commentHarness.dispatch).toHaveBeenCalledWith('board-test',expect.objectContaining({type:'create-comment',objectId:'commented-note',body:'Another discussion',mentions:[{userId:'other'}]})));
  view.rerender(<CollaborativeEditor {...props} role="viewer"/>);fireEvent.change(screen.getByLabelText('评论内容'),{target:{value:'Forbidden'}});expect(screen.getByRole('button',{name:'发布评论'})).toBeDisabled();
  view.rerender(<CollaborativeEditor {...props} commentsReadOnly/>);expect(screen.getByRole('button',{name:'发布评论'})).toBeDisabled();
  expect(screen.getByTestId('collaborative-editor')).toHaveClass('relative','h-full');expect(screen.getByTestId('collaborative-editor')).not.toHaveClass('fixed');
