@@ -1,4 +1,4 @@
-import { applyAcknowledgedHistory, readBoardProjection } from "./support/board-history-acceptance";
+import { applyAcknowledgedHistory, boardProjectionWithoutIdentity, readBoardProjection } from "./support/board-history-acceptance";
 import {BOARD_SYNCED_STATUS} from "./support/board-sync-status";
 import { randomUUID } from "node:crypto";
 import { expect, request as playwrightRequest, test, type APIRequestContext, type Page } from "@playwright/test";
@@ -98,6 +98,7 @@ test("brainstorm input creates twenty connected ideas and one-operation bulk und
   await expect(peer.getByTestId("board-a11y-mirror").getByRole("button")).toHaveCount(20);
 
   const beforeLastCreation = await readBoardProjection(page);
+  const beforeLastCreationIds = new Set(beforeLastCreation.map(object => object.id));
   await expect.poll(() => readBoardProjection(peer)).toEqual(beforeLastCreation);
   await page.keyboard.press("Shift+N");
   await page.getByTestId("board-bulk-text").fill("Research\nDesign\nPrototype");
@@ -106,7 +107,9 @@ test("brainstorm input creates twenty connected ideas and one-operation bulk und
   await expect(peer.getByTestId("board-a11y-mirror").getByRole("button")).toHaveCount(23);
 
   const afterLastCreation = await readBoardProjection(page);
-  expect(afterLastCreation.filter(object => !beforeLastCreation.some(before => before.id === object.id))).toHaveLength(3);
+  const createdBulk = afterLastCreation.filter(object => !beforeLastCreationIds.has(object.id));
+  expect(createdBulk).toHaveLength(3);
+  expect(createdBulk.map(object => object.text).sort()).toEqual(["图形：Design", "图形：Prototype", "图形：Research"]);
   await expect.poll(() => readBoardProjection(peer)).toEqual(afterLastCreation);
   await applyAcknowledgedHistory(page, "撤销");
   await expect(outline.getByRole("button")).toHaveCount(20);
@@ -116,12 +119,16 @@ test("brainstorm input creates twenty connected ideas and one-operation bulk und
   await applyAcknowledgedHistory(page, "重做");
   await expect(outline.getByRole("button")).toHaveCount(23);
   await expect(peer.getByTestId("board-a11y-mirror").getByRole("button")).toHaveCount(23);
-  await expect.poll(() => readBoardProjection(page)).toEqual(afterLastCreation);
-  await expect.poll(() => readBoardProjection(peer)).toEqual(afterLastCreation);
+  const afterRedo = await readBoardProjection(page);
+  expect(afterRedo.filter(object => beforeLastCreationIds.has(object.id))).toEqual(beforeLastCreation);
+  const redoneBulk = afterRedo.filter(object => !beforeLastCreationIds.has(object.id));
+  expect(redoneBulk).toHaveLength(3);
+  expect(boardProjectionWithoutIdentity(redoneBulk)).toEqual(boardProjectionWithoutIdentity(createdBulk));
+  await expect.poll(() => readBoardProjection(peer)).toEqual(afterRedo);
   await peer.close();
 
   await page.reload();
   await expect(page.getByText(BOARD_SYNCED_STATUS)).toBeVisible({ timeout: 30_000 });
   await expect(page.getByTestId("board-a11y-mirror").getByRole("button")).toHaveCount(23);
-  await expect.poll(() => readBoardProjection(page)).toEqual(afterLastCreation);
+  await expect.poll(() => readBoardProjection(page)).toEqual(afterRedo);
 });

@@ -25,3 +25,11 @@ export async function readBoardProjection(page: Page) {
     start: element.getAttribute('data-connector-start'), end: element.getAttribute('data-connector-end'),
   })).sort((a, b) => (a.id ?? '').localeCompare(b.id ?? '')));
 }
+
+/** Creation redo may mint fresh identities to avoid reviving a Yjs tombstone.
+ * Compare its content separately from identity, while callers still assert that
+ * untouched objects retain their original IDs. */
+export function boardProjectionWithoutIdentity(projection: Awaited<ReturnType<typeof readBoardProjection>>) {
+  return projection.map(({ id: _id, ...object }) => object)
+    .sort((a, b) => (JSON.stringify(a) ?? '').localeCompare(JSON.stringify(b) ?? ''));
+}

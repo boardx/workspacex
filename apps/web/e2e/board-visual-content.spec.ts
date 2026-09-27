@@ -1,4 +1,4 @@
-import { applyAcknowledgedHistory, readBoardProjection } from "./support/board-history-acceptance";
+import { applyAcknowledgedHistory, boardProjectionWithoutIdentity, readBoardProjection } from "./support/board-history-acceptance";
 import {BOARD_SYNCED_STATUS} from "./support/board-sync-status";
 import { randomUUID } from "node:crypto";
 import { expect, request as playwrightRequest, test, type APIRequestContext, type Page } from "@playwright/test";
@@ -79,6 +79,7 @@ test("Shape Draw Image and Tile share one canonical collaborative surface", asyn
   await expect(page.getByTestId("board-a11y-mirror").getByRole("button")).toHaveCount(3);
   await expect(page.getByText(BOARD_SYNCED_STATUS)).toBeVisible({ timeout: 30_000 });
   const beforeLastCreation = await readBoardProjection(page);
+  const beforeLastCreationIds = new Set(beforeLastCreation.map(object => object.id));
 
   // Let Chromium encode the fixture so the test exercises a genuinely decodable PNG
   // instead of relying on a hand-copied base64 payload with uncertain chunk CRCs.
@@ -107,13 +108,18 @@ test("Shape Draw Image and Tile share one canonical collaborative surface", asyn
   await applyAcknowledgedHistory(page, "重做");
   await expect(outline).toHaveCount(4);
   await expect(peer.getByTestId("board-a11y-mirror").getByRole("button")).toHaveCount(4);
-  await expect.poll(() => readBoardProjection(page)).toEqual(afterLastCreation);
-  await expect.poll(() => readBoardProjection(peer)).toEqual(afterLastCreation);
+  const afterRedo = await readBoardProjection(page);
+  expect(afterRedo.filter(object => beforeLastCreationIds.has(object.id))).toEqual(beforeLastCreation);
+  const redoneImage = afterRedo.filter(object => !beforeLastCreationIds.has(object.id));
+  expect(redoneImage).toHaveLength(1);
+  expect(redoneImage[0]!.kind).toBe("image");
+  expect(boardProjectionWithoutIdentity(redoneImage)).toEqual(boardProjectionWithoutIdentity(added));
+  await expect.poll(() => readBoardProjection(peer)).toEqual(afterRedo);
   await peer.close();
 
   await page.reload();
   await expect(page.getByText(BOARD_SYNCED_STATUS)).toBeVisible({ timeout: 30_000 });
   await expect(page.getByTestId("board-a11y-mirror").getByRole("button")).toHaveCount(4);
-  await expect.poll(() => readBoardProjection(page)).toEqual(afterLastCreation);
+  await expect.poll(() => readBoardProjection(page)).toEqual(afterRedo);
   await expect(page.getByRole("button", { name: "图形：research.png" })).toHaveAttribute("aria-description", /图片需在当前会话重新验证/);
 });
