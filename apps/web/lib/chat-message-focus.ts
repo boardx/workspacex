@@ -13,6 +13,12 @@ import * as React from "react";
 export const FOCUS_MESSAGE_PARAM = "focusMessage";
 export const MESSAGE_ANCHOR_ATTR = "data-kg-message-id";
 export const SOURCE_HIGHLIGHT_ATTR = "data-kg-source-highlight";
+/**
+ * 高亮一条消息时从它身上冒泡出去的事件：消息区（`use-timeline-scroll.ts`）收到就放开「贴底跟随」。
+ * 不放开的话，打开原对话后回答下方的引用 / 「已记下」异步长出来，贴底的 ResizeObserver 把刚滚到眼前的
+ * 原消息又拽回底部——高亮了却不在眼前（F15 评测 E4.c2 / c3，#4279）。
+ */
+export const MESSAGE_FOCUS_EVENT = "wx:chat-message-focus";
 /** 高亮的样子：一圈主色描边（ring = box-shadow），不只是颜色深浅，一眼看得出是「这一条」。 */
 const HIGHLIGHT_CLASSES = ["rounded-md", "ring-2", "ring-ring", "ring-offset-4", "ring-offset-background"];
 
@@ -39,6 +45,8 @@ export function highlightChatMessage(messageId: string, root: ParentNode = docum
   }
   target.setAttribute(SOURCE_HIGHLIGHT_ATTR, "true");
   target.classList.add(...HIGHLIGHT_CLASSES);
+  // 先让消息区放开贴底，再滚：顺序反过来，这次滚动引起的 scroll 事件会被当成贴底途中而吞掉。
+  target.dispatchEvent(new CustomEvent(MESSAGE_FOCUS_EVENT, { bubbles: true }));
   target.scrollIntoView?.({ block: "center" });
   return true;
 }
