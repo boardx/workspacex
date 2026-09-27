@@ -14,7 +14,7 @@
 
 ## 2. 现状与颜色（2026-09-27）
 
-当前交付记录：R1–R5 已合入 main（R5：#4308，merge `73ee23b7a`）。R6 的布局命令与 Alt 拖复制已通过主 session 真实验收；指针吸附、Smart Layout 仍待通过；Fabric ActiveSelection 坐标漂移修复 `a67f306fd` 已通过 47 项测试及 typecheck，尚待浏览器复验。用户最新截图明确否决当前视觉体验，因此 R6 新增专属 UI worker 与视觉阻断门，已有合并不代表视觉达标。R7 实现与独立复核完成；R8 最新 `de47eceb8` 已关闭此前独立复核阻断，仍待主 session 集成验收；R9 实现与独立安全复核完成；R10 验收脚手架已有实现，但最终验收尚未执行。以上来自本会话交付记录与本地提交；本次 GitHub 查询网络失败，未将缓存记录冒充新一轮远端验证。
+当前交付记录：R1–R5 已合入 main（R5：#4308，merge `73ee23b7a`）。R6 的布局命令与 Alt 拖复制已通过主 session 真实验收；指针吸附、Smart Layout 仍待通过；Fabric ActiveSelection 坐标漂移修复 `a67f306fd` 已通过 47 项测试及 typecheck，尚待浏览器复验。用户最新截图明确否决当前视觉体验，因此 R6 新增专属 UI worker 与视觉阻断门，已有合并不代表视觉达标。R7 实现与独立复核完成；R8 最新 `de47eceb8` 已关闭此前独立复核阻断，仍待主 session 集成验收；R9 实现与独立安全复核完成；R10 独立复核不通过：原负载/性能 lane 连接合成样本单测，核心旅程缺真实结果断言；正在将验证器改为 fail-closed 并补真实执行路径，不计作验收通过。以上来自本会话交付记录与本地提交；本次 GitHub 查询网络失败，未将缓存记录冒充新一轮远端验证。
 
 颜色口径：绿色=已合入 main；黄色=主 session 正在验收；蓝色=实现与独立复核完成、等待集成；橙色=正在补实现或复核；灰色=待开始；紫色=P2 后续路线。状态只由 PR、exact SHA、CI 和主 session 动态证据支撑。
 
@@ -30,7 +30,7 @@ flowchart LR
   R6 --> R7["R7 团队可靠性<br/>实现 + 独立复核完成"]:::ready
   R7 --> R8["R8 存储与迁移<br/>实现 + 独立复核完成"]:::ready
   R8 --> R9["R9 AI / API / Chat / 会议室<br/>实现 + 独立安全复核完成"]:::ready
-  R9 --> R10["R10 同一 SHA 总验收<br/>六旅程 / 指标 / 性能 / 恢复 / 无障碍"]:::todo
+  R9 --> R10["R10 同一 SHA 总验收<br/>修复占位验收 / 真实负载与证据"]:::blocked
   R10 --> P2["P2 扩展路线<br/>Diagram / Mind Map / Kanban / Timeline<br/>Journey / Database / Agent与Live Data Tile"]:::future
   classDef merged fill:#dcfce7,stroke:#16a34a,color:#14532d
   classDef accepting fill:#fef3c7,stroke:#d97706,color:#78350f
@@ -138,7 +138,7 @@ flowchart LR
 | Iteration 07 | R7 团队可靠性 | 🔵 实现与独立复核完成 | 同上，多客户端/撤权/恢复链路 |
 | Iteration 08 | R8 存储与迁移 | 🔵 阻断已修复并独立复核，待主 session 集成验收 | 同上，PG正文边界、迁移与恢复演练 |
 | Iteration 09 | R9 AI/API/Chat/会议室 | 🔵 实现与独立安全复核完成，等待前序集成 | 同上，Agent完整操作与长时会议室 |
-| Iteration 10 | R10 总验收 | ⚪ 待前九轮汇合 | 六旅程与所有硬门在统一SHA通过 |
+| Iteration 10 | R10 总验收 | 🔴 独立复核不通过；修复占位验收，待前九轮汇合 | 六旅程与所有硬门在统一SHA通过 |
 
 每个iteration PR关联该轮所有issue，逐项列出需求、实现、证据和未完成项；不能仅因部分模块通过就关闭整轮。子agent分支不单独创建主交付PR，修复提交继续进入同一轮PR。存在共享热点或依赖时分批集成，PR数量不成为降低范围或跳过验收的理由。跨轮预研可并行，正式实现仍遵守依赖；最终合并须有用户明确授权。
 
@@ -194,3 +194,12 @@ flowchart TD
 **截图矩阵由主 session 执行：** 空白板、Sticky 单选、Sticky 编辑、Text 中英文长文、混合多选、Panel/Connector、右侧精确属性主动展开、底部四核心工具展开。每个状态记录上述三个视口；同一 board/zoom/数据保留前后对比，附操作录像或 trace、commit SHA 与失败项。截图只能证明视觉，保存/协作/撤销仍须真实 E2E。
 
 专属 UI worker 只交付组件、组件测试和 commit；不启动完整 Docker、不执行最终浏览器验收。修复归入 R6 同一个 iteration PR；R7–R9 新增界面同样受本门约束，R10 统一复验，不能因前轮已合并免检。
+
+
+### 最新修复证据（尚未退出验收门）
+
+- R6 UI `1bd4cde04`：紧凑上下文栏、按需互斥属性面板、底部核心工具；50 项组件测试与 typecheck 通过。
+- R6 字形 `6c74e8817`：容器 resize 不再非均匀拉伸文字；51 项渲染相关测试与 typecheck 通过。
+- 独立复核仍阻断：选中对象被平移出视口时浮条越界；批量 canonical patch 重复拆装 ActiveSelection 导致平方级开销。已交回对应 worker；单测绿色不能抵扣。
+- 主 session 的真实吸附/同步/Undo 诊断通过；完整最终回归尚未通过。三视口视觉规格已提交 `bf073f69b`，待修复收齐后执行并人工查看截图。
+- R10 复核问题已记录 [#4257](https://github.com/boardx/workspacex/issues/4257#issuecomment-5852224985)；真实 50 客户端长时运行、性能、完整旅程与安全恢复证据仍待补齐，禁止自动打九分。
