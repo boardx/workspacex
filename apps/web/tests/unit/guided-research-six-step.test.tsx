@@ -2,8 +2,17 @@ import { render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { GuidedResearchSixStepShell } from "@/components/research-studio/guided-research-six-step-shell";
 import { GUIDED_RESEARCH_SIX_STEPS, toGuidedResearchVisualStage } from "@/lib/guided-research-six-step";
+const sessionMock = vi.hoisted(() => ({ identity: null as null | { displayName: string; avatarUrl: string | null } }));
+vi.mock("@/components/session/session-provider", () => ({ useOptionalSession: () => ({ identity: sessionMock.identity }) }));
 
 describe("six-step Deep Research shell", () => {
+  it("uses the signed-in identity for the header profile without inventing a prototype user", () => {
+    sessionMock.identity = { displayName: "实际研究用户", avatarUrl: null };
+    render(<GuidedResearchSixStepShell current="topic" available={["import", "topic"]} onNavigate={vi.fn()} main={<div>研究信息</div>} />);
+    expect(screen.getByRole("link", { name: "个人资料：实际研究用户" })).toHaveAttribute("href", "/profile");
+    expect(screen.queryByText("张晓明")).not.toBeInTheDocument();
+    sessionMock.identity = null;
+  });
   it("maps the runtime node and available nodes into the approved six-stage vocabulary", () => {
     const stage = toGuidedResearchVisualStage({ currentNode: "outline", availableNodes: ["brief", "directions", "outline"] });
 
