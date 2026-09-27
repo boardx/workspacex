@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { Archive, Grid2X2, List, Plus, Search, Tag, X } from 'lucide-react';
 import { whiteboard as C } from '@repo/contracts';
 import { BoardCardAction, BoardCardMenu } from './board-card-menu';
+import { BoardCreateDialog } from './board-create-dialog';
 import { BoardTagManager } from './board-tag-manager';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -32,17 +33,17 @@ export function WhiteboardLibrary() {
   const [query, setQuery] = useState(''), [debouncedQuery, setDebouncedQuery] = useState(''), [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [archiveFilter, setArchiveFilter] = useState<'active' | 'archived'>('active'), [view, setView] = useState<'grid' | 'list'>('grid');
   const [nextCursor, setNextCursor] = useState<string | null>(null);
-  const [newName, setNewName] = useState(''), [dialogName, setDialogName] = useState(''), [tagName, setTagName] = useState('');
+  const [showCreate, setShowCreate] = useState(false);
+  const [dialogName, setDialogName] = useState(''), [tagName, setTagName] = useState('');
   const [tagEdits, setTagEdits] = useState<Record<string, string>>({}), [deletingTagId, setDeletingTagId] = useState<string | null>(null);
   const [dialog, setDialog] = useState<BoardDialog>(null), [tagBoard, setTagBoard] = useState<api.Board | null>(null), [showTagCatalog, setShowTagCatalog] = useState(false);
   const [busy, setBusy] = useState(false), [loadingBoards, setLoadingBoards] = useState(true), [loaded, setLoaded] = useState(false), [error, setError] = useState<Failure | null>(null), [listError, setListError] = useState<Failure | null>(null), [tagError, setTagError] = useState<Failure | null>(null), [notice, setNotice] = useState('');
   const [reloadBoards, setReloadBoards] = useState(0), [reloadTags, setReloadTags] = useState(0);
-  const [pendingCreate, setPendingCreate] = useState<api.CreateBoardInput | null>(null), pendingCreateRef = useRef<api.CreateBoardInput | null>(null);
   const [pendingTagCreate, setPendingTagCreate] = useState<PendingTagRequest<{ name: string }> | null>(null), pendingTagCreateRef = useRef<PendingTagRequest<{ name: string }> | null>(null);
   const pendingTagRenames = useRef(new Map<string, PendingTagRequest<{ name: string; expectedRevision: number }>>()), pendingTagDeletes = useRef(new Map<string, PendingTagRequest<{ expectedRevision: number }>>());
   const [, renderPendingTags] = useState(0), [, renderPendingDuplicates] = useState(0), pendingMutation = useRef<{ key: string; requestId: string } | null>(null);
   const pendingDuplicates = useRef(new Map<string, PendingDuplicate>());
-  const returnFocus = useRef<HTMLElement | null>(null), createInput = useRef<HTMLInputElement>(null);
+  const returnFocus = useRef<HTMLElement | null>(null), createInput = useRef<HTMLButtonElement>(null);
   const boardSequence = useRef(0), tagSequence = useRef(0);
   const querySignature = `${debouncedQuery}\u0000${selectedTags.join(',')}\u0000${archiveFilter}`;
   const listSnapshot = useRef<{ signature: string; query: string; tagIds: string[]; archived: 'active' | 'archived' }>({ signature: querySignature, query: '', tagIds: [], archived: 'active' });
@@ -73,19 +74,6 @@ export function WhiteboardLibrary() {
   const closeDialog = () => {
     setDialog(null); setTagBoard(null); setShowTagCatalog(false); setDialogName('');
     restoreFocus();
-  };
-  const create = (event: FormEvent) => {
-    event.preventDefault();
-    const existing = pendingCreateRef.current;
-    if (!existing && !C.Board.shape.name.safeParse(newName).success) return setError({ kind: 'invalid', message: '请输入 1–200 字的白板名称。' });
-    const input = existing ?? { requestId: crypto.randomUUID(), name: newName.trim() };
-    if (!existing) { pendingCreateRef.current = input; setPendingCreate(input); }
-    void run(async () => {
-      try {
-        const board = await api.createBoard(input);
-        pendingCreateRef.current = null; setPendingCreate(null); router.push(EDITOR_PATH(board.id));
-      } catch (cause) { if (isDefiniteRejection(cause)) { pendingCreateRef.current = null; setPendingCreate(null); } throw cause; }
-    });
   };
   const loadMore = () => void run(async () => {
     if (!nextCursor) return;
@@ -165,7 +153,7 @@ export function WhiteboardLibrary() {
 
   return <main data-testid="whiteboard-library" className="min-h-full bg-background px-4 py-8 md:px-8 lg:px-12">
     <div className="mx-auto w-full max-w-7xl space-y-7">
-      <header className="flex flex-wrap items-end gap-4"><div className="min-w-0 flex-1"><p className="mb-1 text-12 font-medium uppercase tracking-[0.16em] text-muted-foreground">Visual workspace</p><h1 className="text-32 font-semibold tracking-tight">Board</h1><p className="mt-1 text-14 text-muted-foreground">把想法、关系和团队协作放在同一个无限画布。</p></div><form className="flex min-w-72 gap-2" onSubmit={create}><Input ref={createInput} data-testid="board-create-name" value={pendingCreate?.name ?? newName} onChange={event => setNewName(event.target.value)} placeholder="新白板名称" maxLength={200} disabled={busy || !!pendingCreate} /><Button type="submit" data-testid="board-create" disabled={busy}><Plus className="mr-1 size-4" aria-hidden />{pendingCreate ? `重试创建“${pendingCreate.name}”` : '新建并打开'}</Button></form></header>
+      <header className="flex flex-wrap items-end gap-4"><div className="min-w-0 flex-1"><p className="mb-1 text-12 font-medium uppercase tracking-[0.16em] text-muted-foreground">Visual workspace</p><h1 className="text-32 font-semibold tracking-tight">Board</h1><p className="mt-1 text-14 text-muted-foreground">把想法、关系和团队协作放在同一个无限画布。</p></div><Button ref={createInput} type="button" data-testid="board-create" variant="primary" className="min-h-11" disabled={busy} onClick={() => setShowCreate(true)}><Plus className="mr-1 size-4" aria-hidden />新建白板</Button></header>
       {error && <div data-testid={error.kind === 'invalid' ? 'err-board-form' : RESERVED_STATE_TESTID[error.kind]} role="alert" className="flex items-center justify-between rounded-control bg-destructive p-3 text-13 text-destructive-foreground"><span>{error.message}</span><Button size="icon" variant="ghost" aria-label="关闭错误" onClick={() => setError(null)}><X className="size-4" /></Button></div>}
       {listError && <div data-testid="board-list-error" role="alert" className="flex flex-wrap items-center justify-between gap-2 rounded-control bg-destructive p-3 text-13 text-destructive-foreground"><span>{listError.message}</span><Button data-testid="board-list-retry" variant="outline" onClick={() => setReloadBoards(value => value + 1)}>重试加载白板</Button></div>}
       {tagError && <div data-testid="board-tags-error" role="alert" className="flex flex-wrap items-center justify-between gap-2 rounded-control border border-border p-3 text-13"><span>标签暂时无法加载，白板列表仍可使用。</span><Button data-testid="board-tags-retry" variant="outline" onClick={() => setReloadTags(value => value + 1)}>重试标签</Button></div>}
@@ -181,6 +169,7 @@ export function WhiteboardLibrary() {
       </article>)}</div>}
       {!busy && !loadingBoards && !listError && nextCursor && <div className="flex justify-center"><Button variant="outline" data-testid="board-load-more" onClick={loadMore}>加载更多</Button></div>}
     </div>
+    <BoardCreateDialog open={showCreate} tags={tags} tagsUnavailable={!!tagError} onRetryTags={() => setReloadTags(value => value + 1)} onTag={tag => setTags(value => [...value.filter(item => item.id !== tag.id), tag])} onRestoreFocus={() => createInput.current?.focus()} onClose={message => { setShowCreate(false); setNotice(message); setReloadBoards(value => value + 1); }} onCreated={board => router.push(EDITOR_PATH(board.id))} />
     {tagBoard && <BoardTagManager board={tagBoard} tags={tags} busy={busy} onClose={closeDialog} onSave={tagIds => saveTags(tagBoard, tagIds)} />}
     {dialog && <Dialog open onOpenChange={open => { if (!open && !busy) closeDialog(); }}><DialogContent data-testid={`board-${dialog.action}-dialog`}><DialogHeader><DialogTitle>{dialog.action === 'rename' ? '重命名白板' : dialog.action === 'duplicate' ? '创建白板副本' : '永久删除白板'}</DialogTitle><DialogDescription>{dialog.action === 'delete' ? '此操作无法撤销。画布内容、协作记录与关联数据将永久删除。' : dialog.action === 'duplicate' ? '副本拥有独立内容，之后的修改不会影响原白板。' : '新名称会对有权限的协作者显示。'}</DialogDescription></DialogHeader>{dialog.action !== 'delete' && <Input autoFocus data-testid="board-dialog-name" value={dialogDuplicate?.targetName ?? dialogName} maxLength={200} disabled={busy || !!dialogDuplicate} onChange={event => setDialogName(event.target.value)} />}<DialogFooter><Button variant="outline" disabled={busy} onClick={closeDialog}>取消</Button><Button data-testid="board-dialog-confirm" variant={dialog.action === 'delete' ? 'destructive' : 'primary'} disabled={busy} onClick={mutateBoard}>{dialog.action === 'delete' ? '永久删除' : dialogDuplicate ? `重试创建“${dialogDuplicate.targetName}”` : dialog.action === 'duplicate' ? '创建副本' : '保存'}</Button></DialogFooter></DialogContent></Dialog>}
     {showTagCatalog && <Dialog open onOpenChange={open => { if (!open && !busy) closeDialog(); }}><DialogContent data-testid="board-tag-catalog-dialog"><DialogHeader><DialogTitle>组织标签</DialogTitle><DialogDescription>创建稳定标签，用于跨白板管理与筛选。删除会从所有白板解绑。</DialogDescription></DialogHeader><form className="flex gap-2" onSubmit={createTag}><Input data-testid="board-tag-name" value={pendingTagCreate?.payload.name ?? tagName} maxLength={40} disabled={busy || !!pendingTagCreate} onChange={event => setTagName(event.target.value)} placeholder="标签名称"/><Button type="submit" data-testid="board-tag-create" disabled={busy}>{pendingTagCreate ? `重试创建“${pendingTagCreate.payload.name}”` : '创建'}</Button></form><ul className="max-h-64 space-y-2 overflow-auto">{tags.map(tag => { const renamePending = pendingTagRenames.current.get(tag.id), deletePending = pendingTagDeletes.current.get(tag.id); return <li key={tag.id} className="flex min-h-11 flex-wrap items-center gap-2 rounded-control border border-border p-2"><Input aria-label={`${tag.name} 标签名称`} value={renamePending?.payload.name ?? tagEdits[tag.id] ?? tag.name} maxLength={40} disabled={busy || !!renamePending || !!deletePending} onChange={event => setTagEdits(value => ({ ...value, [tag.id]: event.target.value }))}/><Button size="sm" variant="outline" disabled={busy || !!deletePending || (!renamePending && (tagEdits[tag.id] ?? tag.name).trim() === tag.name)} onClick={() => saveTagName(tag)}>{renamePending ? `重试“${renamePending.payload.name}”` : '重命名'}</Button><Button size="sm" variant={deletingTagId === tag.id ? 'destructive' : 'ghost'} disabled={busy || !!renamePending} onClick={() => removeTag(tag)}>{deletePending ? '重试删除' : deletingTagId === tag.id ? '确认删除' : '删除'}</Button></li>; })}</ul><DialogFooter><Button onClick={closeDialog}>完成</Button></DialogFooter></DialogContent></Dialog>}
