@@ -1,3 +1,4 @@
+import {validateJourneyArtifact} from './board-journey-policy.mjs';
 import {validateBoardObservationArtifact,validateRuntimeBinding} from './board-observation-policy.mjs';
 import {validateBoardSoakArtifact} from './board-soak-policy.mjs';
 import {createHash} from 'node:crypto';
@@ -27,7 +28,8 @@ export async function verifyBoardAcceptanceEvidence(manifest, sha) {
         const bytes = await readFile(row.artifactPath);
         if (createHash('sha256').update(bytes).digest('hex') !== row.artifactSha256) failures.push(`ARTIFACT_HASH_MISMATCH:${lane}`);
         const report=JSON.parse(bytes.toString());
-        if(['meeting-room','visual','accessibility'].includes(lane)){const validation=await validateBoardObservationArtifact(report,lane,sha,row);failures.push(...[...validation.failures,...validation.pending].map(f=>`${f}:${lane}`));}
+        if(lane==='journeys'){const validation=await validateJourneyArtifact(report,sha,row);failures.push(...[...validation.failures,...validation.pending].map(f=>`${f}:${lane}`));}
+        else if(['meeting-room','visual','accessibility'].includes(lane)){const validation=await validateBoardObservationArtifact(report,lane,sha,row);failures.push(...[...validation.failures,...validation.pending].map(f=>`${f}:${lane}`));}
         else if(boardAcceptanceMatrix.find(e=>e.lane===lane)?.command)failures.push(...validateRuntimeBinding(report.runtimeIdentity,sha,row).map(f=>`${f}:${lane}`));
         if (lane === 'collaboration-50') {
           const validation = await validateBoardSoakArtifact(JSON.parse(bytes.toString()), sha);

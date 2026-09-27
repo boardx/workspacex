@@ -1,8 +1,9 @@
 import {randomUUID} from 'node:crypto';
-import {expect, test} from '@playwright/test';
+import {expect} from '@playwright/test';
+import {test,assertJourneyReload} from './board-journey-evidence';
 import type {WhiteboardCommand} from '@repo/whiteboard-core';
 import {FULLSTACK_E2E} from './fullstack-smoke-fixture';
-import {archiveAcceptanceBoard, assertReload, boardApi, boardHead, boardLogin, canonicalRows,
+import {archiveAcceptanceBoard, boardApi, boardHead, boardLogin, canonicalRows,
   connectByHandles, connectorsBound, createAcceptanceBoard, createCommands, dragObject,
   gridValid, object, openBoard, operate, provenance, selectAll} from './board-acceptance-support';
 
@@ -37,7 +38,7 @@ test('Brainstorm: double-click then 20 ideas by Tab; first <5s and first 10 <30s
     expect(rows).toHaveLength(20); expect(rows.every(row => row.kind === 'sticky')).toBe(true);
     expect(rows.map(row => row.text).sort()).toEqual(Array.from({length: 20}, (_, i) => `Idea ${String(i + 1).padStart(2, '0')}`));
     await test.info().attach('brainstorm-20', {body: await page.screenshot(), contentType: 'image/png'});
-    await assertReload(page, id, rows);
+    await assertJourneyReload(page, id, rows, request, token);
   } finally { await archiveAcceptanceBoard(request, token, id); }
 });
 
@@ -58,7 +59,7 @@ test('Organize: 20 scattered stickies -> equal-gap grid in <=2 actions', async (
     await expect.poll(() => canonicalRows(page)).toEqual(before);
     await page.getByRole('button', {name: '重做', exact: true}).click();
     await expect.poll(() => canonicalRows(page)).toEqual(after);
-    await assertReload(page, id, after);
+    await assertJourneyReload(page, id, after, request, token);
   } finally { await archiveAcceptanceBoard(request, token, id); }
 });
 
@@ -83,7 +84,7 @@ test('Panel: drag 10 unparented objects inside, then move the whole container', 
       expect(next.geometry).toEqual({...prior.geometry, x: prior.geometry.x + 80, y: prior.geometry.y + 60});
       if (next.id !== panel.id) expect(next.parentId).toBe(panel.id);
     }
-    await assertReload(page, id, after);
+    await assertJourneyReload(page, id, after, request, token);
   } finally { await archiveAcceptanceBoard(request, token, id); }
 });
 
@@ -104,7 +105,7 @@ test('Diagram: A->B->C via two-click connections remain attached after each shap
       expect(rows.filter(row => row.kind === 'connector')).not.toEqual(before);
       expect(rows.filter(row => row.kind === 'connector').map(row => [row.from, row.to]).sort()).toEqual([['A', 'B'], ['B', 'C']]);
     }
-    await assertReload(page, id, rows);
+    await assertJourneyReload(page, id, rows, request, token);
   } finally { await archiveAcceptanceBoard(request, token, id); }
 });
 
@@ -146,7 +147,7 @@ test('Visual Research: valid screenshot in one paste mixed with Sticky/Text/Arro
     const mixed = await canonicalRows(page);
     expect(mixed).toHaveLength(5); expect(connectorsBound(mixed)).toBe(true);
     expect(mixed.find(row => row.kind === 'text')?.text).toBe('Interview summary');
-    await assertReload(page, id, mixed);
+    await assertJourneyReload(page, id, mixed, request, token);
     await expect(page.getByTestId(`board-a11y-object-${image.id}`)).toHaveAttribute('aria-description', /图片已验证/, {timeout: 30_000});
   } finally { await archiveAcceptanceBoard(request, token, id); }
 });
@@ -210,7 +211,7 @@ test('AI Ready API: delegated CRUD + pre-generated 30-note proposal transaction 
       verifiedScope: 'pre-generated proposal confirmation and delegated API transactions',
       unverifiedRequirements: ['real-model text reading', 'semantic theme inference', 'cluster naming', 'end-to-end AI Organize <=2 actions'],
     }), contentType: 'application/json'});
-    await assertReload(page, id, clustered);
+    await assertJourneyReload(page, id, clustered, request, token);
     const events = await (await boardApi(request, token, 'GET', `/v1/whiteboards/${id}/events?afterSeq=0&limit=100`)).json() as {events: Array<{type: string; actor: {kind: string; actorId: string}}>};
     expect(events.events.some(event => event.type === 'AIOrganized' && event.actor.kind === 'ai' && event.actor.actorId === FULLSTACK_E2E.agentId)).toBe(true);
 
@@ -224,7 +225,7 @@ test('AI Ready API: delegated CRUD + pre-generated 30-note proposal transaction 
     // API undo, not a claim that the editor's Undo button is already wired to it.
     await operate(request, token, id, confirmed.undoReceipt.commands);
     await expect.poll(() => canonicalRows(page)).toEqual(beforeProposal);
-    await assertReload(page, id, beforeProposal);
+    await assertJourneyReload(page, id, beforeProposal, request, token);
   } finally { await archiveAcceptanceBoard(request, token, id); }
 });
 // Performance belongs to its dedicated real-browser lanes. No fabricated report DOM or fixture-only benchmark here.

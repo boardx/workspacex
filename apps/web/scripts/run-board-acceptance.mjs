@@ -1,3 +1,4 @@
+import {validateJourneyArtifact} from './board-journey-policy.mjs';
 import {validateBoardObservationArtifact, validateRuntimeBinding} from './board-observation-policy.mjs';
 import {validateBoardSoakArtifact} from './board-soak-policy.mjs';
 import {execFileSync, spawnSync} from 'node:child_process';
@@ -40,8 +41,8 @@ if (process.argv.includes('--list')) {
     try {
       const bytes = readFileSync(artifactPath), report = JSON.parse(bytes.toString());
       row.artifactSha256 = createHash('sha256').update(bytes).digest('hex');
-      const observation=['meeting-room','visual','accessibility'].includes(entry.lane);
-      const validation = observation ? await validateBoardObservationArtifact(report,entry.lane,sha,row) : entry.lane === 'collaboration-50' ? await validateBoardSoakArtifact(report, sha) : validateBoardPerformanceArtifact(report, boardPerformancePolicy(root), sha, Number(entry.lane.match(/(\d+)k$/)[1]) * 1000);
+      const observation=['journeys','meeting-room','visual','accessibility'].includes(entry.lane);
+      const validation = entry.lane==='journeys' ? await validateJourneyArtifact(report,sha,row) : observation ? await validateBoardObservationArtifact(report,entry.lane,sha,row) : entry.lane === 'collaboration-50' ? await validateBoardSoakArtifact(report, sha) : validateBoardPerformanceArtifact(report, boardPerformancePolicy(root), sha, Number(entry.lane.match(/(\d+)k$/)[1]) * 1000);
       row.buildSha = (report.runtimeIdentity ?? report.runtimeAfter ?? report.reports?.[0]?.runtimeIdentity)?.buildSha ?? null; row.failures = validation.failures;
       if(!observation)row.failures.push(...validateRuntimeBinding(report.runtimeIdentity,sha,row));
       row.pending=validation.pending??[];

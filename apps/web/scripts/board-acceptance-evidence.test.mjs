@@ -12,7 +12,7 @@ test('only integrated real performance and soak producers are executable; no val
   assert.equal(boardAcceptanceMatrix.length, 12);
   assert.ok(boardAcceptanceMatrix.every(entry => entry.status === 'not-run'));
   const executable = boardAcceptanceMatrix.filter(entry => entry.command);
-  assert.equal(executable.length, 7);
+  assert.equal(executable.length, 8);
   assert.ok(executable.every(entry => (entry.command.includes('e2e/board-performance-acceptance.config.ts') || entry.command.includes('playwright.board-soak-acceptance.config.ts') || entry.command.includes('apps/web/scripts/run-board-observation-producer.mjs')) && !entry.command.includes('vitest')));
 });
 test('arbitrary hashed logs and forged success metadata cannot grant approval', async () => {
