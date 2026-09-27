@@ -14,47 +14,55 @@ test('same-browser tabs drain a shared durable outbox without duplicate commits'
  // Keep the suite-level 180s budget so fixture setup and cleanup cannot consume
  // the dedicated 45s drain SLA and then close the API context before archiving.
  test.setTimeout(180_000);
+ page.setDefaultTimeout(15_000);
+ page.setDefaultNavigationTimeout(15_000);
  const api=process.env.WHITEBOARD_API_URL??`http://127.0.0.1:${process.env.WORKSPACEX_API_PORT}`;
  if(!process.env.WHITEBOARD_API_URL&&!process.env.WORKSPACEX_API_PORT)throw new Error('Isolated API URL required');
  const metadata=createSpatialWsMetadataRecorder();metadata.observe(page,'original');
  const http:Array<{method:string;path:string;status:number}>=[];
- let token='',boardId='',archived=false;const evidence:Record<string,unknown>={drainSlaMs:DRAIN_SLA_MS,http};
- const call=async(method:string,path:string,data?:unknown)=>{const response=await request.fetch(`${api}${path}`,{method,data,headers:{Authorization:`Bearer ${token}`}});const status=response.status();const safePath=new URL(path,'http://diagnostic.invalid').pathname;
+ const startedAt=performance.now();const milestones:Array<{name:string;elapsedMs:number}>=[];
+ const mark=(name:string)=>milestones.push({name,elapsedMs:Math.round(performance.now()-startedAt)});
+ let token='',boardId='',archived=false,peer:Page|undefined;const evidence:Record<string,unknown>={drainSlaMs:DRAIN_SLA_MS,http,milestones};
+ const call=async(method:string,path:string,data?:unknown)=>{const safePath=new URL(path,'http://diagnostic.invalid').pathname,index=http.push({method,path:safePath,status:0})-1;const response=await request.fetch(`${api}${path}`,{method,data,timeout:15_000,headers:{Authorization:`Bearer ${token}`}});const status=response.status();http[index]!.status=status;
   // Record only routing metadata, never credentials, request/response bodies or query strings.
-  http.push({method,path:safePath,status});
   expect(response.ok(),`Board fixture HTTP ${method} ${safePath}: ${status}`).toBe(true);return response.json();};
  const rows=(tab:Page)=>tab.locator('[data-testid="board-a11y-mirror"] li').evaluateAll(elements=>elements.map(element=>{const item=element as HTMLElement;return{id:item.dataset.objectId,kind:item.dataset.objectKind,geometry:item.dataset.geometry,parentId:item.dataset.parentId,zIndex:item.dataset.zIndex,text:item.querySelector('button')?.textContent};}).sort((a,b)=>String(a.id).localeCompare(String(b.id))));
  const synced=(tab:Page)=>tab.getByText(/^已同步(?: · 序列 \d+)?$/);
  try{
-  await page.goto('/login');await page.getByTestId('login-email').fill(F.adminEmail);await page.getByTestId('login-password').fill(F.adminPassword);await page.getByTestId('login-submit').click();await expect(page).toHaveURL(/\/projects$/);
+  await page.goto('/login');await page.getByTestId('login-email').fill(F.adminEmail);await page.getByTestId('login-password').fill(F.adminPassword);await page.getByTestId('login-submit').click();await expect(page).toHaveURL(/\/projects$/);mark('authenticated');
   token=(await page.evaluate(key=>localStorage.getItem(key),SESSION_TOKEN_STORAGE_KEY))!;
-  const board=await call('POST','/whiteboards',CreateBoard.parse({requestId:randomUUID(),name:'Same-browser durable outbox'}));boardId=board.id;
-  await page.goto(`/studio/board/${boardId}`);await expect(synced(page)).toBeVisible();
-  const initial=await call('POST',`/whiteboards/${boardId}/checkpoints`,{requestId:randomUUID()});expect(initial.manifest.seq).toBe(0);
+  const board=await call('POST','/whiteboards',CreateBoard.parse({requestId:randomUUID(),name:'Same-browser durable outbox'}));boardId=board.id;mark('board-created');
+  await page.goto(`/studio/board/${boardId}`);await expect(synced(page)).toBeVisible();mark('board-opened');
+  const initial=await call('POST',`/whiteboards/${boardId}/checkpoints`,{requestId:randomUUID()});expect(initial.manifest.seq).toBe(0);mark('initial-checkpoint');
   for(let index=0;index<8;index++)await page.getByTestId('board-add-panel').click();
   await expect(page.getByTestId('board-a11y-mirror').getByRole('button')).toHaveCount(8);
+  mark('panels-created');
   const actions=page.getByRole('dialog',{name:'更多操作',exact:true});if(!await actions.isVisible())await page.getByRole('button',{name:'更多操作',exact:true}).click();
   await actions.getByRole('button',{name:'精确属性',exact:true}).click();
   const title=page.getByRole('textbox',{name:'区域标题',exact:true});await title.press('End');await title.pressSequentially('shared-tab-proof');
   const pending=page.getByText(/^\d+ 项修改等待服务器确认$/);await expect(pending).toBeVisible();evidence.pendingBeforePeer=await pending.textContent();
+  mark('local-updates-queued');
   const expected=await rows(page);expect(new Set(expected.map(row=>row.id)).size).toBe(8);expect(expected.some(row=>row.text?.includes('shared-tab-proof'))).toBe(true);
   const started=performance.now(),deadline=started+DRAIN_SLA_MS;
-  const peer=await page.context().newPage();metadata.observe(peer,'peer');await peer.goto(`/studio/board/${boardId}`);
+  const testPeer=await page.context().newPage();peer=testPeer;testPeer.setDefaultTimeout(15_000);testPeer.setDefaultNavigationTimeout(15_000);metadata.observe(testPeer,'peer');await testPeer.goto(`/studio/board/${boardId}`);mark('peer-opened');
   const remaining=()=>Math.max(1,deadline-performance.now());
-  await expect(synced(page)).toBeVisible({timeout:remaining()});await expect(synced(peer)).toBeVisible({timeout:remaining()});
-  await expect.poll(()=>rows(peer),{timeout:remaining()}).toEqual(expected);expect(await rows(page)).toEqual(expected);
+  await expect(synced(page)).toBeVisible({timeout:remaining()});await expect(synced(testPeer)).toBeVisible({timeout:remaining()});
+  await expect.poll(()=>rows(testPeer),{timeout:remaining()}).toEqual(expected);expect(await rows(page)).toEqual(expected);
+  mark('peer-converged');
   evidence.drainMs=performance.now()-started;expect(evidence.drainMs).toBeLessThanOrEqual(DRAIN_SLA_MS);
   const final=await call('POST',`/whiteboards/${boardId}/checkpoints`,{requestId:randomUUID()});expect(final.manifest.epoch).toBe(initial.manifest.epoch);
   const transport=metadata.snapshot();expect(transport.dropped).toBe(0);expect(sharedOutboxProof(transport.events,initial.manifest.seq,final.manifest.seq)).toEqual([]);
   evidence.revisions={before:initial.manifest.seq,after:final.manifest.seq,epoch:final.manifest.epoch};
-  await Promise.all([page.reload(),peer.reload()]);
-  for(const tab of [page,peer]){await expect(synced(tab)).toBeVisible({timeout:10_000});await expect.poll(()=>rows(tab),{timeout:10_000}).toEqual(expected);}
+  await Promise.all([page.reload(),testPeer.reload()]);
+  mark('both-reloaded');
+  for(const tab of [page,testPeer]){await expect(synced(tab)).toBeVisible({timeout:10_000});await expect.poll(()=>rows(tab),{timeout:10_000}).toEqual(expected);}
   const afterReload=await call('POST',`/whiteboards/${boardId}/checkpoints`,{requestId:randomUUID()});expect(afterReload.manifest.seq).toBe(final.manifest.seq);
   expect(metadata.snapshot().dropped).toBe(0);expect(sharedOutboxProof(metadata.snapshot().events,initial.manifest.seq,afterReload.manifest.seq)).toEqual([]);
   evidence.afterReloadSeq=afterReload.manifest.seq;evidence.objectIds=expected.map(row=>row.id);evidence.status='passed';
-  await peer.close();
+  await testPeer.close();peer=undefined;
  }finally{
+  await peer?.close().catch(()=>undefined);
+  if(boardId&&token&&!archived){try{const board=await call('GET',`/whiteboards/${boardId}`);if(!board.archived){await call('PATCH',`/whiteboards/${boardId}`,{archived:true,expectedLifecycleRevision:board.lifecycleRevision});archived=true;}}catch(error){evidence.cleanupError=String(error);}}
   await info.attach('same-browser-outbox-evidence',{body:Buffer.from(JSON.stringify({...evidence,transport:metadata.snapshot()})),contentType:'application/json'});
-  if(boardId&&token&&!archived){const board=await call('GET',`/whiteboards/${boardId}`);if(!board.archived){await call('PATCH',`/whiteboards/${boardId}`,{archived:true,expectedLifecycleRevision:board.lifecycleRevision});archived=true;}}
  }
 });
