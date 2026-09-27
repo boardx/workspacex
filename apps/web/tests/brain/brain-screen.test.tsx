@@ -91,7 +91,8 @@ describe("大脑页：真实数据", () => {
     stubNetwork(real(PERSONAL, OVERVIEW));
     render(<BrainScreen />);
     await screen.findByTestId("brain-personal");
-    expect(paths().sort()).toEqual(["/knowledge-graph/me/overview", "/knowledge-graph/personal"]);
+    // issue #4360：「关于我」另读一次开场简报的偏好（关掉过才显示「重新打开」）——同样是真实接口。
+    expect(paths().sort()).toEqual(["/knowledge-graph/briefing", "/knowledge-graph/me/overview", "/knowledge-graph/personal"]);
     expect(screen.getByTestId("brain-tab-personal-count").textContent).toBe("3");
     expect(screen.getByTestId("brain-tab-sessions-count").textContent).toBe("2");
     expect(screen.getAllByTestId("brain-personal-item")).toHaveLength(3);
@@ -106,7 +107,9 @@ describe("大脑页：真实数据", () => {
   it("每条长期记忆都能点回出自的对话，并直接打开那一条的来源；来源看不到了就如实说", async () => {
     stubNetwork(real(PERSONAL, OVERVIEW));
     render(<BrainScreen />);
-    const links = await screen.findAllByTestId("brain-origin-link");
+    await screen.findAllByTestId("brain-origin-link");
+    // 只看「我的长期记忆」列表（issue #4360 起「关于我」里描述你的条目也各带一份同样的链接）。
+    const links = within(screen.getByTestId("brain-personal")).getAllByTestId("brain-origin-link");
     expect(links.map((a) => a.getAttribute("href"))).toEqual([
       "/chat/thr-1?memory=c-1",
       "/chat/thr-2?projectId=prj-1&memory=c-2",
@@ -115,7 +118,7 @@ describe("大脑页：真实数据", () => {
     expect(readChatMemoryRequest("?memory=1")).toEqual({ claimId: null });
     expect(readChatMemoryRequest("")).toBeNull();
     // p-3 没有来源会话（例如原话被删、或那一条在对话里被忘掉）
-    expect(screen.getAllByTestId("brain-origin-gone")).toHaveLength(1);
+    expect(within(screen.getByTestId("brain-personal")).getAllByTestId("brain-origin-gone")).toHaveLength(1);
   });
 
   it("搜索与类型筛选只作用于列表；没有匹配时说一句人话", async () => {

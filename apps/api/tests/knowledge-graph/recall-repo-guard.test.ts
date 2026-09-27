@@ -115,7 +115,8 @@ describe("F08 会话记忆召回读取的豁免前提", () => {
     const exec = readFileSync(join(API, "src/application/agent-run/execute-run.ts"), "utf8");
     expect(exec).toMatch(/turnKnowledgeContext\(deps\.knowledge, deps\.memoryCards, \{ orgId, run \}, deps\.log\)/);
     const rk = strip(readFileSync(join(API, "src/application/knowledge-graph/recall-knowledge.ts"), "utf8"));
-    expect(rk).toMatch(/knowledgeMemoryFor\(knowledge, \{ orgId, userId: run\.requesterUserId, threadId: run\.threadId, query: run\.inputText, runId: run\.runId \}, log\)/);
+    // issue #4360：画像摘要只进个人对话——「是不是个人对话」同样只取自 run（run.projectId）。
+    expect(rk).toMatch(/knowledgeMemoryFor\(knowledge, \{ orgId, userId: run\.requesterUserId, threadId: run\.threadId, query: run\.inputText, runId: run\.runId, personalThread: run\.projectId === null \|\| run\.projectId === "" \}, log\)/);
     expect(rk).toMatch(/memoryCardFor\(knowledge, cards, \{\s*orgId, userId: run\.requesterUserId, threadId: run\.threadId, runId: run\.runId, messageId: run\.inputMessageId, text: run\.inputText,\s*\}, log\)/);
     // memoryCardFor 读候选集只拿 id 去开卡：卡上的内容由 kg_open_memory_card 在数据库里按会话 / 本人个人空间复核后才写
     expect(rk).toMatch(/const \{ claims \} = await knowledge\.candidates\(input\.orgId, input\.userId, input\.threadId\);/);

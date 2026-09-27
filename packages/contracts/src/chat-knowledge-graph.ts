@@ -68,7 +68,12 @@ export function isSelfIntentClaimKind(kind: KgClaimKind | null | undefined): boo
 export const KgClaimRelation = z.enum(["supported_by", "may_shorten", "blocks", "hard_constraint", "candidate_for"]);
 export type KgClaimRelation = z.infer<typeof KgClaimRelation>;
 
-export const KgStructuralRelation = z.enum(["mentions", "about", "derived_from", "supersedes", "belongs_to", "decided_by"]);
+/**
+ * `serves_goal`（issue #4360，S5「关于我」）：个人空间里的一条决定 / 待办 → 本人的一个目标（src = 决定 / 待办，
+ * dst = 目标，两端同属一个人的个人空间）。模型提议、只有高把握才自动挂（`KG_GOAL_LINK_MIN_CONFIDENCE`）；
+ * 本人可以在「关于我」里改挂 / 摘掉。一条决定 / 待办同一时刻最多挂一个目标。
+ */
+export const KgStructuralRelation = z.enum(["mentions", "about", "derived_from", "supersedes", "belongs_to", "decided_by", "serves_goal"]);
 export type KgStructuralRelation = z.infer<typeof KgStructuralRelation>;
 
 export const KgRelation = z.union([KgClaimRelation, KgStructuralRelation]);
@@ -440,6 +445,90 @@ export type KgPersonalReplacedClaim = z.infer<typeof KgPersonalReplacedClaim>;
 export const KG_BRAIN_THREADS_LIMIT = 50;
 
 /* ────────────────────────────────────────────────────────────────────── *
+ * 二·五、「关于我」画像与新会话开场简报（issue #4360 / #4362，S5，待人类签核）
+ * ────────────────────────────────────────────────────────────────────── */
+
+/**
+ * 「关于我」四组（issue #4360）。分组规则只有 `kgProfileSection` 一份实现：/brain 的「关于我」、召回时每轮带上的
+ * 画像摘要都从这里判，不各写一份。
+ *   - goals：目标（`goal`）；preferences：偏好（`preference`）；
+ *   - identity「约束与身份」：本人以第一人称单数说自己的事实 / 风险（「我是中学老师」「我每周只有周末有空」）——
+ *     没有单独的结论类型，按类型 + 句式判；「我们…」是集体口吻，不算；
+ *   - doing「在做的事」：个人空间里的决定与待办（可以挂到某个目标下，`serves_goal`）。
+ * 其余（关于别人 / 别的事的事实、猜测）不进画像，仍在长期记忆的列表里。
+ */
+export const KgProfileSection = z.enum(["goals", "preferences", "identity", "doing"]);
+export type KgProfileSection = z.infer<typeof KgProfileSection>;
+export const KG_PROFILE_SECTION_LABEL_ZH: Record<KgProfileSection, string> = {
+  goals: "目标",
+  preferences: "偏好",
+  identity: "约束与身份",
+  doing: "在做的事",
+};
+
+/** 一条个人空间结论属于「关于我」的哪一组；不属于画像 ⇒ null。 */
+export function kgProfileSection(kind: KgClaimKind, statement: string): KgProfileSection | null {
+  if (kind === "goal") return "goals";
+  if (kind === "preference") return "preferences";
+  if (kind === "decision" || kind === "todo") return "doing";
+  if (kind === "fact" || kind === "risk") return /^我(?!们)/.test(statement.normalize("NFKC").trim()) ? "identity" : null;
+  return null;
+}
+
+/** 开场简报（issue #4362）的三段。 */
+export const KgBriefingSection = z.enum(["recent", "open_todos", "unresolved"]);
+export type KgBriefingSection = z.infer<typeof KgBriefingSection>;
+export const KG_BRIEFING_SECTION_LABEL_ZH: Record<KgBriefingSection, string> = {
+  recent: "上次在做的事",
+  open_todos: "没做完的待办",
+  unresolved: "还没定下来的",
+};
+/** 简报的上限：条数、每条原文字数、续上预填字数——简报是开场的一眼，不是第二个记忆面板（token 上限）。 */
+export const KG_BRIEFING_MAX_ITEMS = 6;
+export const KG_BRIEFING_STATEMENT_MAX_CHARS = 80;
+export const KG_BRIEFING_PROMPT_MAX_CHARS = 240;
+
+export const KgBriefingItem = z.object({
+  /** 稳定 id（埋点用）：`<section>:<claimId 或 promptId>` */
+  itemId: z.string(),
+  section: KgBriefingSection,
+  kind: KgClaimKind,
+  /** unresolved 段：这张卡是矛盾卡还是「可能改口」卡（#4290）；其余段为 null */
+  cardKind: KgConflictPromptKind.nullable(),
+  /** 原文（超长截断，带省略号） */
+  statement: z.string().min(1),
+  /** unresolved 段：另一条说法（旧的那条）；其余段为 null */
+  counterpart: z.object({ claimId: z.string(), statement: z.string() }).strict().nullable(),
+  /** 这条决定 / 待办挂在哪个目标下（`serves_goal`）；没挂为 null */
+  goal: z.object({ claimId: z.string(), statement: z.string() }).strict().nullable(),
+  /** 最早说出来的时间（ISO），界面显示「来自你 M/D 的对话」 */
+  saidAt: z.string().nullable(),
+  /**
+   * 引用：续上时预填的首问所依据的那条记忆。`threadId` 只给查看者本人的个人对话（点开看原话）；
+   * 来自别处（项目会话晋升来的等）为 null。
+   */
+  cite: z.object({
+    claimId: z.string(),
+    scope: z.enum(["chat_session", "personal"]),
+    threadId: z.string().nullable(),
+  }).strict(),
+  /** 「续上」预填进输入框的首问（服务端生成，逐字引用记忆原文） */
+  resumePrompt: z.string().min(1).max(KG_BRIEFING_PROMPT_MAX_CHARS),
+}).strict();
+export type KgBriefingItem = z.infer<typeof KgBriefingItem>;
+
+export const KgSessionBriefing = z.object({
+  /** 本人关掉了开场简报（偏好记在服务端）⇒ true，此时 items 恒为空 */
+  dismissed: z.boolean(),
+  items: z.array(KgBriefingItem).max(KG_BRIEFING_MAX_ITEMS),
+}).strict();
+export type KgSessionBriefing = z.infer<typeof KgSessionBriefing>;
+
+/** 简报埋点（北极星指标用）：展示、采纳（点了「续上」）、关闭。 */
+export const KgBriefingEvent = z.enum(["shown", "accepted", "dismissed"]);
+export type KgBriefingEvent = z.infer<typeof KgBriefingEvent>;
+
+/* ────────────────────────────────────────────────────────────────────── *
  * 三、封闭错误码（usecases.md 各 UC 的 err 行）
  * ────────────────────────────────────────────────────────────────────── */
 
@@ -767,5 +856,58 @@ export const knowledgeGraph = {
     in: SetPlatformExtractionSettingInput,
     out: KgDeploymentExtractionSetting,
     err: ["NOT_PLATFORM_SUPERUSER"] as const,
+  },
+
+  /**
+   * issue #4360「关于我」：本人把个人空间里的一条决定 / 待办挂到自己的一个目标下（`goalClaimId`），或摘掉（null）。
+   * 人的动作（Agent 身份拒绝）；两端都必须是调用者本人个人空间里的活结论、类型对得上，否则同一个 `KG_CLAIM_NOT_FOUND`。
+   * 一条同一时刻最多挂一个目标：改挂 = 旧的那条边失效、新建一条。
+   */
+  setGoalLink: {
+    method: "PUT", path: "/knowledge-graph/personal/claims/:claimId/goal",
+    in: z.object({ claimId: z.string(), goalClaimId: z.string().nullable() }).strict(),
+    out: z.object({ claimId: z.string(), goalClaimId: z.string().nullable() }).strict(),
+    err: ["KG_NOT_VISIBLE", "KG_CLAIM_NOT_FOUND", "KG_ACTOR_NOT_HUMAN"] as const,
+  },
+
+  /**
+   * issue #4360「关于我」：直接改写本人个人空间里的一条（人的动作）。新说法记成「你确认过」的新一条、旧的那条被它取代
+   * （/brain 折叠显示「取代了：…」）；来源（derived_from）、挂接（serves_goal，两个方向）一并转到新的一条上——
+   * 改一个目标，挂在它下面的决定 / 待办跟着走。有矛盾的那条要先在对话里处理矛盾（`KG_CONTESTED_NEEDS_RESOLUTION`）。
+   */
+  revisePersonalClaim: {
+    method: "POST", path: "/knowledge-graph/personal/claims/:claimId/revise",
+    in: z.object({ claimId: z.string(), statement: z.string().trim().min(1).max(2000) }).strict(),
+    out: z.object({ claimId: z.string() }).strict(),
+    err: ["KG_NOT_VISIBLE", "KG_CLAIM_NOT_FOUND", "KG_ACTOR_NOT_HUMAN", "KG_CONTESTED_NEEDS_RESOLUTION"] as const,
+  },
+
+  /**
+   * issue #4362：新个人对话空状态里的开场简报——只读查看者本人个人空间（长期记忆 + 本人个人对话里记下的待办 +
+   * 本人个人对话里还开着的矛盾 / 可能改口卡），不读别人、不读项目会话。有上限（`KG_BRIEFING_*`），服务端有查询超时；
+   * 没有可说的 ⇒ items 为空（界面不显示）。本人关掉过 ⇒ `dismissed: true`、items 为空。
+   */
+  getSessionBriefing: {
+    method: "GET", path: "/knowledge-graph/briefing",
+    in: z.object({}).strict(),
+    out: KgSessionBriefing,
+    err: ["KG_NOT_VISIBLE"] as const,
+  },
+  /** 关掉 / 重新打开开场简报（本人的偏好，记在服务端）。 */
+  setSessionBriefingPreference: {
+    method: "PUT", path: "/knowledge-graph/briefing/preference",
+    in: z.object({ dismissed: z.boolean() }).strict(),
+    out: z.object({ dismissed: z.boolean() }).strict(),
+    err: ["KG_NOT_VISIBLE"] as const,
+  },
+  /** 简报埋点：展示 / 采纳 / 关闭。只记本人自己的一行，不回任何内容。 */
+  recordSessionBriefingEvent: {
+    method: "POST", path: "/knowledge-graph/briefing/events",
+    in: z.object({
+      event: KgBriefingEvent,
+      itemIds: z.array(z.string().max(200)).max(KG_BRIEFING_MAX_ITEMS),
+    }).strict(),
+    out: z.object({ recorded: z.literal(true) }).strict(),
+    err: ["KG_NOT_VISIBLE"] as const,
   },
 } as const;

@@ -144,6 +144,12 @@ unless noted.
 - [ ] **#4290 rules** (§「待签核确认（issue #4181…）」 item 5, L195–208). Explicit change only, same author only. Auto
   applies only to the allowlisted `explicit` and aligned `same_kind` tiers, `frame_only` gives a card, and
   retraction, question and verdict give nothing. Only the thread creator can undo in project threads.
+- [ ] **S5 contract additions for #4360 / #4362** (`packages/contracts/src/chat-knowledge-graph.ts`; human said treat as
+  approved, sign off later). New structural relation `serves_goal` (personal decision / todo → own goal, model-proposed
+  and auto-attached only at confidence ≥ 0.8); `kgProfileSection` (目标 / 偏好 / 约束与身份 / 在做的事); ops
+  `setGoalLink`, `revisePersonalClaim` (new claim `accepted`, old one `superseded` with reason `user_revised`, edges move
+  with it), `getSessionBriefing` / `setSessionBriefingPreference` / `recordSessionBriefingEvent`; migration
+  `20260927130000`. Evidence: [`evidence/phase-18/s5/`](../s5/README.md).
 - [ ] **Eval rubric amendments R1–R3**
   ([`rubric-lock.json`](../../kg-experience-eval/rubric-lock.json) `amendments`,
   [`README.md`](../../kg-experience-eval/README.md) round table). R1: E4 「原话」 accepts any corpus sentence, and

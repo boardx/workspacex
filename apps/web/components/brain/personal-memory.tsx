@@ -245,7 +245,8 @@ function originLabel(origins: readonly PersonalClaimOrigin[]): string {
   return saidAt === null ? "来自对话" : personalOriginLabel({ scope: "personal", saidAt }) ?? "来自对话";
 }
 
-function OriginLinks({ origins }: { origins: readonly PersonalClaimOrigin[] }) {
+/** issue #4360：「关于我」同样用它显示「来自你 {M/D} 的对话」与跳回原话的链接（同一份实现）。 */
+export function OriginLinks({ origins }: { origins: readonly PersonalClaimOrigin[] }) {
   if (origins.length === 0) {
     return (
       <p className="text-11 text-muted-foreground" data-testid="brain-origin-gone">

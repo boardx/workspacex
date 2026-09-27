@@ -29,7 +29,7 @@
  *   的历史消息补进来，只有「整理本会话」那条路（uc-18-3 A1，`requestReindex`），不是等它
  *   自己排上。
  */
-import { Inject, Injectable, type OnModuleDestroy, type OnModuleInit } from "@nestjs/common";
+import { Inject, Injectable, Optional, type OnModuleDestroy, type OnModuleInit } from "@nestjs/common";
 import { newKgId } from "../../application/knowledge-graph/ids";
 import { drainConflictCloses } from "../../application/knowledge-graph/detect-conflicts";
 import { runExtractionTick, type ExtractionTickResult } from "../../application/knowledge-graph/extract-message-knowledge";
@@ -38,6 +38,7 @@ import {
   type KgAutoCopyPort, type KgConflictPort, type KgExtractionQueuePort, type KgExtractionSourcePort, type KnowledgeExtractorPort, type OntologyStorePort,
 } from "../../application/knowledge-graph/ports";
 import { LOGGER_PORT, type LoggerPort } from "../../application/ports/logger.port";
+import { KG_GOAL_LINK_PORT, KG_GOAL_LINK_PROPOSER_PORT, type GoalLinkPort, type GoalLinkProposerPort } from "../../application/knowledge-graph/profile-ports";
 import { KG_EXTRACTION_MODEL_CONFIG, type KgExtractionModelConfig } from "./kg-extraction-model-config";
 
 export const KG_EXTRACTION_POLL_INTERVAL_MS = 2_000;
@@ -56,6 +57,9 @@ export class KgExtractionWorker implements OnModuleInit, OnModuleDestroy {
     @Inject(KG_CONFLICT_PORT) private readonly conflicts: KgConflictPort,
     @Inject(KG_AUTO_COPY_PORT) private readonly autoCopy: KgAutoCopyPort,
     @Inject(LOGGER_PORT) private readonly logger: LoggerPort,
+    /** issue #4360：新记下的决定 / 待办挂到本人目标下（模型提议、高把握才挂）。生产合成必定注入。 */
+    @Optional() @Inject(KG_GOAL_LINK_PORT) private readonly goalLinks?: GoalLinkPort,
+    @Optional() @Inject(KG_GOAL_LINK_PROPOSER_PORT) private readonly goalProposer?: GoalLinkProposerPort,
   ) {}
 
   onModuleInit(): void {
@@ -77,6 +81,7 @@ export class KgExtractionWorker implements OnModuleInit, OnModuleDestroy {
       const tick = await runExtractionTick({
         queue: this.queue, source: this.source, extractor: this.extractor, store: this.store,
         conflicts: this.conflicts, autoCopy: this.autoCopy, logger: this.logger, newId: newKgId,
+        ...(this.goalLinks !== undefined && this.goalProposer !== undefined ? { goalLinks: { goalLinks: this.goalLinks, proposer: this.goalProposer } } : {}),
       });
       // issue #4343：有处理过消息的一轮留一条计数，「跑了但一条没记下」（empty）与「没跑」（没有这行）分得开。
       if (tick.processed > 0) this.logger.info("kg extraction tick", { traceId: "kg-extraction", ...tick });

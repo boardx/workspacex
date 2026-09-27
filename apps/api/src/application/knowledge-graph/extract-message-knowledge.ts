@@ -14,6 +14,7 @@ import type { LoggerPort } from "../ports/logger.port";
 import { buildExtractionBatch, KG_EXTRACTION_PIPELINE_VERSION } from "../../domain/knowledge-graph/extraction";
 import { applyOntologyBatch } from "./apply-ontology-batch";
 import { copyAuthorDecisions } from "./auto-copy-decisions";
+import { proposeGoalLinks, type GoalLinkDeps } from "./profile";
 import { detectConflicts, detectSupersedes } from "./detect-conflicts";
 import type {
   KgAutoCopyPort, KgConflictPort, KgExtractionJob, KgExtractionQueuePort, KgExtractionSourcePort, KnowledgeExtractorPort, OntologyStorePort,
@@ -32,6 +33,11 @@ export interface ExtractionDeps {
   readonly conflicts: KgConflictPort;
   /** issue #4283：必填——没有它就不该跑抽取（否则「本人的决定会自动记下」这件事会悄悄不发生）。 */
   readonly autoCopy: KgAutoCopyPort;
+  /**
+   * issue #4360：自动记入之后，模型提议把新记下的决定 / 待办挂到作者本人的哪个目标下（只有高把握才挂，见 profile.ts）。
+   * 可选：没接（只测别的环节的构造点）⇒ 不挂，不影响抽取。
+   */
+  readonly goalLinks?: Pick<GoalLinkDeps, "goalLinks" | "proposer">;
   readonly logger: LoggerPort;
   readonly newId: (prefix: "obj" | "clm" | "edg" | "act") => string;
 }
@@ -96,6 +102,16 @@ export async function extractJob(deps: ExtractionDeps, job: KgExtractionJob): Pr
   // 同理：重试时再跑一遍无害（已复制过的不再是候选）。判矛盾、取代之后跑：被标成冲突的新条不会被带进个人空间，
   // 被取代的旧条在复制之前已经定下来。
   await copyAuthorDecisions({ autoCopy: deps.autoCopy, logger: deps.logger, newId: deps.newId }, job);
+  // issue #4360：挂目标只是锦上添花——出任何错都只记日志，这条消息照常算写成（不重试整条抽取）。
+  if (deps.goalLinks !== undefined) {
+    try {
+      await proposeGoalLinks({ ...deps.goalLinks, logger: deps.logger, newId: deps.newId }, job);
+    } catch (e) {
+      deps.logger.info("kg goal link step failed", {
+        traceId: "kg-extraction", orgId: job.orgId, messageId: job.messageId, detail: e instanceof Error ? e.message : "unexpected goal link failure",
+      });
+    }
+  }
   return "written";
 }
 

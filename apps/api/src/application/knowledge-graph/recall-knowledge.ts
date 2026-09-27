@@ -7,6 +7,7 @@
 import type { OrgId } from "../../domain/org-id";
 import { detectMemoryIntent, forgetMatches } from "../../domain/knowledge-graph/memory-intent";
 import { buildKnowledgeContextMessage, fuseRecall, graphSeeds, type KnowledgeRecall } from "../../domain/knowledge-graph/recall";
+import { withProfileSummary } from "../../domain/knowledge-graph/profile";
 import { newKgId } from "./ids";
 import type { KnowledgeRecallPort, MemoryCardPort } from "./ports";
 
@@ -15,7 +16,11 @@ export const KG_RECALL_LIMIT = 8;
 
 export async function recallThreadKnowledge(
   port: KnowledgeRecallPort,
-  input: { readonly orgId: OrgId; readonly userId: string; readonly threadId: string; readonly query: string },
+  input: {
+    readonly orgId: OrgId; readonly userId: string; readonly threadId: string; readonly query: string;
+    /** issue #4360：这一轮在发起人本人的个人对话里 ⇒ 另带画像摘要（有界，见 domain/knowledge-graph/profile.ts）。 */
+    readonly personalThread?: boolean;
+  },
   log: (message: string, detail: Record<string, unknown>) => void,
 ): Promise<KnowledgeRecall> {
   const { claims, objects } = await port.candidates(input.orgId, input.userId, input.threadId);
@@ -31,7 +36,8 @@ export async function recallThreadKnowledge(
       graph = null;
     }
   }
-  return fuseRecall({ query: input.query, claims, objects, graph, limit: KG_RECALL_LIMIT });
+  const recall = fuseRecall({ query: input.query, claims, objects, graph, limit: KG_RECALL_LIMIT });
+  return input.personalThread === true ? withProfileSummary(recall, claims) : recall;
 }
 
 /**
@@ -41,7 +47,7 @@ export async function recallThreadKnowledge(
  */
 export async function knowledgeMemoryFor(
   port: KnowledgeRecallPort,
-  input: { readonly orgId: OrgId; readonly userId: string; readonly threadId: string; readonly query: string; readonly runId: string },
+  input: { readonly orgId: OrgId; readonly userId: string; readonly threadId: string; readonly query: string; readonly runId: string; readonly personalThread?: boolean },
   log: (message: string, detail: Record<string, unknown>) => void,
 ): Promise<string | null> {
   try {
@@ -168,12 +174,15 @@ export async function turnKnowledgeContext(
     readonly run: {
       readonly requesterUserId: string; readonly threadId: string; readonly inputText: string;
       readonly runId: string; readonly inputMessageId: string;
+      /** 个人对话 ⇒ null（或空串，同 execute-run.ts 的判法）；issue #4360 的画像摘要只进个人对话。 */
+      readonly projectId?: string | null;
     };
   },
   log: (message: string, detail: Record<string, unknown>) => void,
 ): Promise<readonly string[]> {
   const { orgId, run } = input;
-  const memory = await knowledgeMemoryFor(knowledge, { orgId, userId: run.requesterUserId, threadId: run.threadId, query: run.inputText, runId: run.runId }, log);
+  // issue #4360：画像摘要只进个人对话（run.projectId 为空，同 execute-run.ts 的判法）；这个判断同样只取自 run。
+  const memory = await knowledgeMemoryFor(knowledge, { orgId, userId: run.requesterUserId, threadId: run.threadId, query: run.inputText, runId: run.runId, personalThread: run.projectId === null || run.projectId === "" }, log);
   const card = cards === undefined ? null : await memoryCardFor(knowledge, cards, {
     orgId, userId: run.requesterUserId, threadId: run.threadId, runId: run.runId, messageId: run.inputMessageId, text: run.inputText,
   }, log);

@@ -6,7 +6,7 @@
  */
 import {
   BadRequestException, Body, ConflictException, Controller, ForbiddenException, Get, HttpCode, Inject,
-  NotFoundException, Param, Post, Put, ServiceUnavailableException,
+  NotFoundException, Optional, Param, Post, Put, ServiceUnavailableException,
 } from "@nestjs/common";
 import { knowledgeGraph as KG } from "@repo/contracts";
 import { AuthzUnavailableError } from "../../application/chat/resolve-visibility";
@@ -23,6 +23,13 @@ import {
   type HumanActionPort, type KgAutoCopyPort, type KgDeploymentExtractionSettingsPort, type KgExtractionModelConfig, type KgOrgExtractionSettingsPort, type KnowledgeReadPort, type MemoryCardPort, type PromotionPort,
 } from "../../application/knowledge-graph/ports";
 import { newKgId } from "../../application/knowledge-graph/ids";
+import { revisePersonalClaim, setGoalLink } from "../../application/knowledge-graph/profile";
+import {
+  KG_GOAL_LINK_PORT, KG_SESSION_BRIEFING_PORT, type GoalLinkPort, type SessionBriefingPort,
+} from "../../application/knowledge-graph/profile-ports";
+import {
+  getSessionBriefing, recordSessionBriefingEvent, setSessionBriefingPreference,
+} from "../../application/knowledge-graph/session-briefing";
 import { getBrainOverview, getPersonalKnowledge } from "../../application/knowledge-graph/read-personal-knowledge";
 import {
   KgReadError, getClaimSources, getMessageExtraction, getThreadKnowledge, getTurnMemory, type KnowledgeReadDeps,
@@ -49,6 +56,10 @@ export class KnowledgeGraphController {
     @Inject(MEMORY_CARD_PORT) private readonly cards?: MemoryCardPort,
     /** issue #4283 撤销自动记进个人空间的决定。生产合成必定注入；只测别的接口的构造点可以不给（此时这条接口回 503）。 */
     @Inject(KG_AUTO_COPY_PORT) private readonly autoCopy?: KgAutoCopyPort,
+    /** issue #4360「关于我」挂目标 / 改写。生产合成必定注入；只测别的接口的构造点可以不给（此时这两条接口回 503）。 */
+    @Optional() @Inject(KG_GOAL_LINK_PORT) private readonly goalLinks?: GoalLinkPort,
+    /** issue #4362 开场简报。同上：没注入 ⇒ 503，不假装成功。 */
+    @Optional() @Inject(KG_SESSION_BRIEFING_PORT) private readonly briefing?: SessionBriefingPort,
   ) {}
 
   private get deps(): KnowledgeReadDeps {
@@ -185,6 +196,62 @@ export class KnowledgeGraphController {
       { ...this.deps, cards, newId: newKgId },
       { ...v, actorKind: "human", cardId, decision, ...(claimIds !== undefined ? { claimIds } : {}), ...(editedStatement !== undefined ? { editedStatement } : {}) },
     ));
+  }
+
+  /** issue #4360 setGoalLink —— 「关于我」里把一条决定 / 待办挂到本人的目标下，或摘掉（人的动作） */
+  @Put("/knowledge-graph/personal/claims/:claimId/goal")
+  goalLink(@CurrentPrincipal() principal: Principal, @Param("claimId") claimId: string, @Body() body: unknown) {
+    const parsed = KG.knowledgeGraph.setGoalLink.in.safeParse({ ...(body as object), claimId });
+    if (!parsed.success) throw new BadRequestException({ reasonCode: "KG_INVALID_REQUEST" });
+    const goalLinks = this.goalLinks;
+    if (goalLinks === undefined) throw new ServiceUnavailableException("goal_links_unavailable");
+    return this.run(principal, (v) => setGoalLink(
+      { ...this.deps, goalLinks, newId: newKgId },
+      { ...v, actorKind: "human", claimId: parsed.data.claimId, goalClaimId: parsed.data.goalClaimId },
+    ));
+  }
+
+  /** issue #4360 revisePersonalClaim —— 「关于我」里直接改写本人个人空间的一条（人的动作） */
+  @Post("/knowledge-graph/personal/claims/:claimId/revise")
+  @HttpCode(200)
+  revisePersonal(@CurrentPrincipal() principal: Principal, @Param("claimId") claimId: string, @Body() body: unknown) {
+    const parsed = KG.knowledgeGraph.revisePersonalClaim.in.safeParse({ ...(body as object), claimId });
+    if (!parsed.success) throw new BadRequestException({ reasonCode: "KG_INVALID_REQUEST" });
+    const goalLinks = this.goalLinks;
+    if (goalLinks === undefined) throw new ServiceUnavailableException("goal_links_unavailable");
+    return this.run(principal, (v) => revisePersonalClaim(
+      { ...this.deps, goalLinks, newId: newKgId },
+      { ...v, actorKind: "human", claimId: parsed.data.claimId, statement: parsed.data.statement },
+    ));
+  }
+
+  /** issue #4362 getSessionBriefing —— 新个人对话的开场简报（只读本人个人空间） */
+  @Get("/knowledge-graph/briefing")
+  sessionBriefing(@CurrentPrincipal() principal: Principal) {
+    const briefing = this.briefing;
+    if (briefing === undefined) throw new ServiceUnavailableException("briefing_unavailable");
+    return this.run(principal, (v) => getSessionBriefing({ ...this.deps, briefing }, v));
+  }
+
+  /** issue #4362 setSessionBriefingPreference —— 关掉 / 重新打开开场简报 */
+  @Put("/knowledge-graph/briefing/preference")
+  briefingPreference(@CurrentPrincipal() principal: Principal, @Body() body: unknown) {
+    const parsed = KG.knowledgeGraph.setSessionBriefingPreference.in.safeParse(body);
+    if (!parsed.success) throw new BadRequestException({ reasonCode: "KG_INVALID_REQUEST" });
+    const briefing = this.briefing;
+    if (briefing === undefined) throw new ServiceUnavailableException("briefing_unavailable");
+    return this.run(principal, (v) => setSessionBriefingPreference({ ...this.deps, briefing }, { ...v, dismissed: parsed.data.dismissed }));
+  }
+
+  /** issue #4362 recordSessionBriefingEvent —— 简报埋点（展示 / 采纳 / 关闭） */
+  @Post("/knowledge-graph/briefing/events")
+  @HttpCode(200)
+  briefingEvent(@CurrentPrincipal() principal: Principal, @Body() body: unknown) {
+    const parsed = KG.knowledgeGraph.recordSessionBriefingEvent.in.safeParse(body);
+    if (!parsed.success) throw new BadRequestException({ reasonCode: "KG_INVALID_REQUEST" });
+    const briefing = this.briefing;
+    if (briefing === undefined) throw new ServiceUnavailableException("briefing_unavailable");
+    return this.run(principal, (v) => recordSessionBriefingEvent({ ...this.deps, briefing }, { ...v, event: parsed.data.event, itemIds: parsed.data.itemIds }));
   }
 
   /**

@@ -637,6 +637,10 @@ import { ModelKnowledgeExtractor } from "./infrastructure/knowledge-graph/model-
 import { PgKgExtraction } from "./infrastructure/knowledge-graph/pg-kg-extraction";
 import { PgKgConflict } from "./infrastructure/knowledge-graph/pg-kg-conflict";
 import { PgKgAutoCopy } from "./infrastructure/knowledge-graph/pg-kg-auto-copy";
+import { PgKgProfile } from "./infrastructure/knowledge-graph/pg-kg-profile";
+import { PgSessionBriefing } from "./infrastructure/knowledge-graph/pg-session-briefing";
+import { ModelGoalLinker } from "./infrastructure/knowledge-graph/model-goal-linker";
+import { KG_GOAL_LINK_PORT, KG_GOAL_LINK_PROPOSER_PORT, KG_SESSION_BRIEFING_PORT } from "./application/knowledge-graph/profile-ports";
 import { PgMemoryCard } from "./infrastructure/knowledge-graph/pg-memory-card";
 import { KgProjectionWorker } from "./infrastructure/knowledge-graph/kg-projection-worker";
 import { PgGraphProjection } from "./infrastructure/knowledge-graph/pg-graph-projection";
@@ -3056,6 +3060,14 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
       useFactory: (model: ModelCallPort, config: KgExtractionModelConfig, logger: LoggerPort) => new ModelKnowledgeExtractor(model, config, logger),
       inject: [MODEL_CALL_PORT, KG_EXTRACTION_MODEL_CONFIG, LOGGER_PORT],
     },
+    // issue #4360 / #4362（S5）：「关于我」挂目标 / 改写（只调数据库函数）、模型提议挂哪个目标、开场简报（只读本人个人空间）。
+    { provide: KG_GOAL_LINK_PORT, useFactory: (db: DatabasePort) => new PgKgProfile(db), inject: [DATABASE_PORT] },
+    {
+      provide: KG_GOAL_LINK_PROPOSER_PORT,
+      useFactory: (model: ModelCallPort, config: KgExtractionModelConfig, logger: LoggerPort) => new ModelGoalLinker(model, config, logger),
+      inject: [MODEL_CALL_PORT, KG_EXTRACTION_MODEL_CONFIG, LOGGER_PORT],
+    },
+    { provide: KG_SESSION_BRIEFING_PORT, useFactory: (db: DatabasePort) => new PgSessionBriefing(db), inject: [DATABASE_PORT] },
     KgExtractionWorker,
     // F09：知识面板 / 来源抽屉 / 每轮记忆行的读口。传入的仍只是 provider 是否配置（启动参数，
     // 构造时定住）；部署开关的现值 `PgKnowledgeRead` 自己每次调用时现查（见该类头注——
