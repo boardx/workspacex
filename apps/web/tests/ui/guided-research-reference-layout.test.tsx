@@ -8,6 +8,16 @@ import { GuidedResearchReportWorkspace } from "@/components/research-studio/guid
 import { GuidedResearchSixStepShell } from "@/components/research-studio/guided-research-six-step-shell";
 
 describe("guided research reference layout", () => {
+  it("renders unavailable steps as circular indicators, not disabled button tiles", () => {
+    const navigate = vi.fn();
+    render(<GuidedResearchSixStepShell current="import" available={["import"]} onNavigate={navigate} main="需求" />);
+    const indicator = screen.getByTestId("research-step-topic");
+    expect(indicator).toHaveAttribute("aria-disabled", "true");
+    expect(indicator.tagName).toBe("SPAN");
+    expect(screen.queryByRole("button", { name: /2确认研究主题/ })).not.toBeInTheDocument();
+    fireEvent.click(indicator);
+    expect(navigate).not.toHaveBeenCalled();
+  });
   it("requires explicit discard before header navigation leaves unsaved content", () => {
     const back = vi.fn();
     const navigate = vi.fn();
