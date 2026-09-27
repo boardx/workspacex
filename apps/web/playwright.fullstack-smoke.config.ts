@@ -412,7 +412,19 @@ export default defineConfig({
         "board-spatial-relationships.spec.ts",
       ],
       grepInvert: EMPTY_DB_TAG_RE,
+      dependencies: ["seeded", "board-collaboration-regressions"],
+    },
+    {
+      // In the CI seeded-github-import dependency closure, after empty-catalog checks.
+      // The lock-wait producer needs privileged fixture setup on the SAME isolated PG;
+      // keep both collaboration regressions serial, ahead of other Board mutations.
+      name: "board-collaboration-regressions",
+      testMatch: ["board-acl-race.spec.ts", "board-shared-outbox.spec.ts"],
       dependencies: ["seeded"],
+      workers: 1,
+      fullyParallel: false,
+      timeout: 180_000, // ACL subprocess already has its own bounded 150s deadline.
+      retries: 0,
     },
     {
       /**
