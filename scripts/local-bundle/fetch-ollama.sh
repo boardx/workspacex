@@ -27,7 +27,9 @@ echo "downloading $URL"
 curl -fL --retry 3 -o "$TMP/$ASSET" "$URL"
 case "$ASSET" in
   *.tgz) tar -xzf "$TMP/$ASSET" -C "$TMP" ;;
-  *.zip) unzip -q "$TMP/$ASSET" -d "$TMP" ;;
+  # Git Bash 不一定带 unzip（windows-latest 上就没有保证）；PowerShell 的 Expand-Archive 一定在。
+  *.zip) if command -v unzip >/dev/null 2>&1; then unzip -q "$TMP/$ASSET" -d "$TMP"
+         else powershell -NoProfile -Command "Expand-Archive -LiteralPath '$(cygpath -w "$TMP/$ASSET")' -DestinationPath '$(cygpath -w "$TMP")' -Force"; fi ;;
 esac
 BIN="$(find "$TMP" -maxdepth 3 -type f \( -name ollama -o -name ollama.exe \) | head -1)"
 [ -n "$BIN" ] || { echo "no ollama binary in $ASSET" >&2; exit 1; }

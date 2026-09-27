@@ -102,6 +102,19 @@ export const SurveyReportTemplateSchema = z
     }
   });
 export type SurveyReportTemplate = z.infer<typeof SurveyReportTemplateSchema>;
+/** Default report projection used only when the author skipped optional template design. */
+export function createDefaultSurveyReportTemplate(title: string, questions: SurveyWorkflowQuestion[], responses?: SurveyResponse[]): SurveyReportTemplate {
+  return SurveyReportTemplateSchema.parse({id:'default-report',title:`${title}分析报告`,sections:[{
+    id:'default-answers',title:'答卷概览',blocks:questions.filter(question => !['description','page_break'].includes(question.type)).filter(question => !responses || responses.some(response => {
+      if (response.analysis === 'excluded' || response.quality !== 'normal') return false;
+      const matching = response.answers.filter(answer => answer.questionId === question.id);
+      const answers = Object.fromEntries(response.answers.map(answer => [answer.questionId, answer.value]));
+      return matching.length === 1 && acceptedAnswer(question, matching[0]!.value) !== undefined && visibleSurveyQuestions(questions, answers).some(visible => visible.id === question.id);
+    })).map(question => ({
+      id:`default-block-${question.id}`,title:question.title,type:'table',questionIds:[question.id],statistic:surveyQuestionStatistics(question)[0]!,samplePolicy:'valid',minGroupSize:8,
+    })),
+  }]});
+}
 export type SurveyReportBlock = z.infer<typeof SurveyReportBlockSchema>;
 export const SurveyReportRowSchema = z.object({
   label: z.string(),

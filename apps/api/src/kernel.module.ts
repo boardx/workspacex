@@ -835,6 +835,9 @@ import { PgProjectRepository } from "./infrastructure/project/pg-project-reposit
 import { PgProjectListRepository } from "./infrastructure/project/pg-project-list-repository";
 import { PgAgendaSegmentRepository } from "./infrastructure/project/pg-agenda-segment-repository";
 import { PgProjectOverviewRepository } from "./infrastructure/project/pg-project-overview-repository";
+// 项目中枢 B2-S1（#4425）：项目资源关联（`project_resource_links` + 四类聚合读）。
+import { PROJECT_RESOURCE_REPOSITORY } from "./application/project/project-resource-ports";
+import { PgProjectResourceRepository } from "./infrastructure/project/pg-project-resource-repository";
 import { PgProjectArchiveRepository } from "./infrastructure/project/pg-project-archive-repository";
 // BP-08（本次新增）：`BLUEPRINT_REFERENCE_REPOSITORY`——只读，独立 provider（`createProject`
 // 判 blueprintVersionId 合不合法时用）；见 `application/project/ports.ts` 与
@@ -850,6 +853,11 @@ import { PgInviteTokenMemberResolver } from "./infrastructure/project/pg-invite-
 import { TEMPORARY_GRANT_REPOSITORY } from "./application/identity/temporary-grant-ports";
 import { PgTemporaryGrantRepository } from "./infrastructure/identity/pg-temporary-grant-repository";
 import { ProjectController } from "./interface/controllers/project.controller";
+// B2-S5（#4429）：设置页「AI 权限」——侧表 `project_ai_settings`，独立 provider + 独立 controller，
+// 见 `application/project/project-ai-settings-ports.ts` 与 `pg-project-ai-settings-repository.ts` 文件头。
+import { PROJECT_AI_SETTINGS_REPOSITORY } from "./application/project/project-ai-settings-ports";
+import { PgProjectAiSettingsRepository } from "./infrastructure/project/pg-project-ai-settings-repository";
+import { ProjectAiSettingsController } from "./interface/controllers/project-ai-settings.controller";
 // F141 (asset-governance bundle): the asset directory's two READ routes (`GetAssetDirectory` /
 // `ReadAssetFile`). Scope is 2/6 AssetKinds (skill / agent, AG4) -- see the fixture repository's
 // header for why phase-1 has no persisted file store to back this yet.
@@ -1075,6 +1083,7 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
     FilesRetentionController,
     DeviceSessionController,
     ProjectController,
+    ProjectAiSettingsController,
     AssetDirectoryController,
     AssetGovernanceController,
     CanvasTemplateController,
@@ -2663,6 +2672,12 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
       useFactory: (db: DatabasePort) => new PgProjectOverviewRepository(db),
       inject: [DATABASE_PORT],
     },
+    // 项目中枢 B2-S1（#4425）：`ProjectResourcePort` 的生产实现（`project.controller.ts` 消费）。
+    {
+      provide: PROJECT_RESOURCE_REPOSITORY,
+      useFactory: (db: DatabasePort) => new PgProjectResourceRepository(db),
+      inject: [DATABASE_PORT],
+    },
     // F141 → #785: `skill` now reads/writes real Postgres (`skills`/`skill_versions`/
     // `skill_version_files`, model A) via `PgAssetFileRepository`; every other kind (incl.
     // `agent`, AG4) still delegates to the fixture -- see `pg-asset-file-repository.ts`'s
@@ -2702,6 +2717,12 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
     {
       provide: PROJECT_TAGS_REPOSITORY,
       useFactory: (db: DatabasePort) => new PgProjectTagsRepository(db),
+      inject: [DATABASE_PORT],
+    },
+    // B2-S5（#4429）：独立 provider，见 `pg-project-ai-settings-repository.ts` 文件头。
+    {
+      provide: PROJECT_AI_SETTINGS_REPOSITORY,
+      useFactory: (db: DatabasePort) => new PgProjectAiSettingsRepository(db),
       inject: [DATABASE_PORT],
     },
     // #728 D4：独立 provider，见 `pg-project-name-lookup.ts` 文件头。

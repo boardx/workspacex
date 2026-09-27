@@ -16,6 +16,7 @@ import {
 } from "@/lib/interview-api";
 import { cn } from "@/lib/utils";
 import { DigitalInterviewCreateModal } from "./digital-interview-create-modal";
+import { ProjectBreadcrumb } from "@/components/project/project-breadcrumb";
 import { listMockDigitalInterviewDrafts, type MockDigitalInterviewDraft } from "@/lib/mock/digital-interview-drafts";
 import { InterviewHistoryCardActions } from "./interview-history-card-actions";
 import {
@@ -48,10 +49,13 @@ export function InterviewStudioHome({
   initialTab = "history",
   initialCreateOpen = false,
   includeMockPreviews = false,
+  projectId = null,
 }: {
   initialTab?: Tab;
   initialCreateOpen?: boolean;
   includeMockPreviews?: boolean;
+  /** 项目中枢 B2-S2：从项目「研究洞察 › 用户洞察」带 `?projectId=` 进来，新建访谈直接带项目 scope。 */
+  projectId?: string | null;
 }) {
   const [query, setQuery] = React.useState("");
   const [sort, setSort] = React.useState<HistorySort>("recent");
@@ -131,6 +135,7 @@ export function InterviewStudioHome({
   return (
     <main className="min-w-0 flex-1 overflow-y-auto bg-background">
       <div data-testid="itv-home-page" className="mx-auto w-full max-w-screen-2xl px-5 py-6 md:px-8 lg:px-10">
+        <ProjectBreadcrumb projectId={projectId} sub="itv" className="mb-4" />
         <StudioHistoryHeader business="访谈" description="回看或继续历史访谈，也可以选择一位数字专家快速开始对话。" count={history.kind === "ready" ? history.items.length : undefined} createTestId="itv-create" onCreate={() => setCreateOpen(true)} />
 
         <div role="tablist" aria-label="访谈内容" className="mt-6 flex gap-6 border-b border-border">
@@ -169,7 +174,7 @@ export function InterviewStudioHome({
           </section>
         )}
       </div>
-      <DigitalInterviewCreateModal open={createOpen} onOpenChange={setCreateOpen} />
+      <DigitalInterviewCreateModal open={createOpen} onOpenChange={setCreateOpen} projectId={projectId} />
     </main>
   );
 }

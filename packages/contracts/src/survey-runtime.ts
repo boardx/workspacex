@@ -12,7 +12,7 @@ import {
   SurveyReportTemplateSchema,
   CompiledSurveyReportSchema,
 } from "./survey-report";
-import { SurveyCompiledDraftSchema, SurveySourceDocumentSchema } from "./survey-source";
+import { SurveyCompiledDraftSchema, SurveySourceDocumentSchema, SurveyTagsSchema } from "./survey-source";
 
 export const SurveySourceStateSchema = z.object({
   documents: z.object({
@@ -35,6 +35,7 @@ export const SurveySourceSaveCommandSchema = z.object({
 
 export const SurveyDraftInputSchema = z.object({
   title: z.string().trim().min(1).max(200),
+  tags: SurveyTagsSchema.optional(),
   questions: z
     .array(
       SurveyWorkflowQuestionSchema.extend({
