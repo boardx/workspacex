@@ -1,4 +1,5 @@
 "use client";
+import { readFabricInput, panFabricViewport, type FabricInput } from "./fabric-input";
 import {fitBoardContent,type BoardFitInsets} from "../board-chrome-fit";
 
 import * as React from "react";
@@ -612,7 +613,10 @@ export function BoardFabricSurface({ objects, selectedObjectIds, readOnly, tool,
       callbacksRef.current.onPanelHoverChange?.(parent?.id ?? null);
     };
     let panning = false;
-    let last = { x: 0, y: 0 };
+    let last: FabricInput | null = null;
+    let activeInput: string | null = null;
+    let panStart: typeof canvas.viewportTransform | null = null;
+    let penSample: FabricInput | null = null;
     let drawing: { tool: DrawingTool; points: Array<{ x: number; y: number; pressure: number }> } | null = null;
     let drawingPreview: TaggedFabricObject[] = [];
     const exposeDrawingPreviewCount = () => { host.dataset.drawingPreviewSegments = String(drawingPreview.length); };
@@ -629,15 +633,44 @@ export function BoardFabricSurface({ objects, selectedObjectIds, readOnly, tool,
     };
     cancelDrawingRef.current = cancelDrawing;
     const activeDrawingTool = (): DrawingTool => stateRef.current.tool === "erase" ? "eraser" : stateRef.current.tool.replace("draw-", "") as DrawingTool;
-    const pressureOf = (event: TPointerEventInfo) => typeof (event.e as PointerEvent).pressure === "number" ? (event.e as PointerEvent).pressure : .5;
+    // Fabric may emit compatibility MouseEvents for a native pen. Capture the
+    // matching native sample without registering a second drawing gesture.
+    const observePen = (event: PointerEvent) => {
+      if (event.pointerType === "pen" && event.isPrimary && (activeInput || host.contains(event.target as Node))) penSample = readFabricInput(event);
+      else if (event.type === "pointerdown") penSample = null;
+    };
+    const pressureOf = (input: FabricInput) => input.id === "mouse" && penSample && penSample.x === input.x && penSample.y === input.y ? penSample.pressure : input.pressure;
+    const cancelInput = () => {
+      if (panning && panStart) { canvas.setViewportTransform(panStart); canvas.requestRenderAll(); }
+      panning = false;
+      cancelDrawing();
+      duplicateGesture = null;
+      activeInput = null;
+      last = null;
+      panStart = null;
+      penSample = null;
+    };
+    const nativeCancel = (event: Event) => {
+      if (activeInput && (readFabricInput(event as TouchEvent | PointerEvent, activeInput) || (event.type === "pointercancel" && activeInput === "mouse" && (event as PointerEvent).isPrimary !== false && ((event as PointerEvent).pointerType === "mouse" || penSample?.id === `pointer:${(event as PointerEvent).pointerId}`)))) cancelInput();
+    };
+    const inputDocument = element.ownerDocument;
+    inputDocument.addEventListener("pointerdown", observePen, true);
+    inputDocument.addEventListener("pointermove", observePen, true);
+    inputDocument.addEventListener("touchcancel", nativeCancel, true);
+    inputDocument.addEventListener("pointercancel", nativeCancel, true);
     const pointerDown = (event: TPointerEventInfo) => {
+      if (activeInput) return;
+      const input = readFabricInput(event.e);
+      if (!input) return;
       const point = canvas.getScenePoint(event.e);
+      if (![point.x, point.y].every(Number.isFinite)) return;
+      activeInput = input.id;
       const ids = selectedObjectIdsRef.current.filter((id) => { const canonical = canonicalRef.current.get(id); return canonical && !canonical.locked && canonical.kind !== "placeholder"; });
       duplicateGesture = (event.e as MouseEvent).altKey && ids.length ? { ids, start: { x: point.x, y: point.y }, current: { x: point.x, y: point.y }, handled: false } : null;
       if ((stateRef.current.tool.startsWith("draw-") || stateRef.current.tool === "erase") && !stateRef.current.readOnly) {
         const pointer = canvas.getScenePoint(event.e);
         cancelDrawing();
-        drawing = { tool: activeDrawingTool(), points: [{ x: pointer.x, y: pointer.y, pressure: pressureOf(event) }] };
+        drawing = { tool: activeDrawingTool(), points: [{ x: pointer.x, y: pointer.y, pressure: pressureOf(input) }] };
         return;
       }
       if (stateRef.current.tool === "select" && !event.target) {
@@ -645,9 +678,9 @@ export function BoardFabricSurface({ objects, selectedObjectIds, readOnly, tool,
         callbacksRef.current.onCanvasClick?.({ x: pointer.x, y: pointer.y });
       }
       if (stateRef.current.tool !== "hand") return;
-      const pointer = event.e as MouseEvent;
       panning = true;
-      last = { x: pointer.clientX, y: pointer.clientY };
+      panStart = [...canvas.viewportTransform];
+      last = input;
     };
     const doubleClick = (event: TPointerEventInfo) => {
       const target = event.target as TaggedFabricObject | undefined;
@@ -659,11 +692,16 @@ export function BoardFabricSurface({ objects, selectedObjectIds, readOnly, tool,
       }
     };
     const pointerMove = (event: TPointerEventInfo) => {
+      if (!activeInput) return;
+      const input = readFabricInput(event.e, activeInput);
+      if (!input) return;
+      const scene = canvas.getScenePoint(event.e);
+      if (![scene.x, scene.y].every(Number.isFinite)) return;
       if (duplicateGesture && !duplicateGesture.handled) { const point = canvas.getScenePoint(event.e); duplicateGesture.current = { x: point.x, y: point.y }; }
       if (drawing) {
         const pointer = canvas.getScenePoint(event.e);
         const previous = drawing.points.at(-1)!;
-        const next = { x: pointer.x, y: pointer.y, pressure: pressureOf(event) };
+        const next = { x: pointer.x, y: pointer.y, pressure: pressureOf(input) };
         drawing.points.push(next);
         const style = drawingToolStyle(drawing.tool);
         const pressure = Math.max(.1, (previous.pressure + next.pressure) / 2);
@@ -679,14 +717,20 @@ export function BoardFabricSurface({ objects, selectedObjectIds, readOnly, tool,
         return;
       }
       if (!panning) return;
-      const pointer = event.e as MouseEvent;
-      const transform = [...canvas.viewportTransform] as typeof canvas.viewportTransform;
-      transform[4] += pointer.clientX - last.x;
-      transform[5] += pointer.clientY - last.y;
-      last = { x: pointer.clientX, y: pointer.clientY };
-      canvas.setViewportTransform(transform);
+      if (!last) return;
+      const transform = panFabricViewport(canvas.viewportTransform, last, input);
+      if (!transform) { cancelInput(); return; }
+      last = input;
+      canvas.setViewportTransform(transform as typeof canvas.viewportTransform);
     };
     const pointerUp = (event: TPointerEventInfo) => {
+      if (!activeInput || !readFabricInput(event.e, activeInput)) return;
+      if (event.e.type === "touchcancel" || event.e.type === "pointercancel") { cancelInput(); return; }
+      const scene = canvas.getScenePoint(event.e);
+      if (![scene.x, scene.y].every(Number.isFinite)) { cancelInput(); return; }
+      activeInput = null;
+      last = null;
+      panStart = null;
       if (duplicateGesture && !duplicateGesture.handled) {
         const gesture = duplicateGesture;
         const point = canvas.getScenePoint(event.e);
@@ -718,6 +762,7 @@ export function BoardFabricSurface({ objects, selectedObjectIds, readOnly, tool,
       if (!panning) return;
       panning = false;
       const transform = canvas.viewportTransform;
+      if (![...transform, canvas.getZoom()].every(Number.isFinite)) return;
       callbacksRef.current.onViewportChange({ ...stateRef.current.viewport, zoom: canvas.getZoom(), panX: transform[4], panY: transform[5] }, "pan");
     };
     const wheel = (event: TPointerEventInfo<WheelEvent>) => {
@@ -745,6 +790,10 @@ export function BoardFabricSurface({ objects, selectedObjectIds, readOnly, tool,
     return () => {
       disposed = true;
       cancelDrawingRef.current = () => undefined;
+      inputDocument.removeEventListener("pointerdown", observePen, true);
+      inputDocument.removeEventListener("pointermove", observePen, true);
+      inputDocument.removeEventListener("touchcancel", nativeCancel, true);
+      inputDocument.removeEventListener("pointercancel", nativeCancel, true);
       resizeObserver.disconnect();
       canvas.dispose();
       canvasRef.current = null;

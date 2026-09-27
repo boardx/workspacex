@@ -67,6 +67,7 @@ vi.mock("fabric", async (importOriginal) => {
     dispose() {}
     requestRenderAll() {}
     setDimensions() {}
+    getScenePoint(event: {clientX?:number;clientY?:number;touches?:Array<{clientX:number;clientY:number}>;changedTouches?:Array<{clientX:number;clientY:number}>}) { const p=event.changedTouches?.[0]??event.touches?.[0]??event;return {x:p.clientX,y:p.clientY}; }
     setViewportTransform(value: number[]) { this.viewportTransform = value; }
     getWidth() { return 1200; }
     getHeight() { return 720; }
@@ -186,4 +187,30 @@ describe("Board Fabric event-to-command boundary", () => {
     expect(projected.top).toBe(base.geometry.y);
     expect(projected.angle).toBe(base.geometry.rotation);
   });
+});
+
+const finger=(x:number,y:number,id=7,force=.6)=>({identifier:id,clientX:x,clientY:y,force});
+it("pans the Fabric default touch path with finite screen delta and only primary release",()=>{
+ fabricHarness.state.canvases.length=0;const events=callbacks();render(createElement(BoardFabricSurface,{objects:[],selectedObjectIds:[],readOnly:false,tool:"hand",viewport,...events}));const canvas=mountedCanvas();
+ canvas.emit("mouse:down",{e:{type:"touchstart",touches:[finger(100,120)]}});
+ canvas.emit("mouse:move",{e:{type:"touchmove",touches:[finger(140,150)]}});
+ canvas.emit("mouse:up",{e:{type:"touchend",changedTouches:[finger(1,2,8)]}});
+ expect(events.onViewportChange).not.toHaveBeenCalled();
+ canvas.emit("mouse:up",{e:{type:"touchend",touches:[],changedTouches:[finger(140,150)]}});
+ expect(events.onViewportChange).toHaveBeenCalledTimes(1);expect(events.onViewportChange).toHaveBeenCalledWith({...viewport,panX:40,panY:30},"pan");
+});
+it("cancel discards drawing and permits a subsequent touch gesture",()=>{
+ fabricHarness.state.canvases.length=0;const events=callbacks(),onDrawingComplete=vi.fn();render(createElement(BoardFabricSurface,{objects:[],selectedObjectIds:[],readOnly:false,tool:"draw-pen",viewport,...events,onDrawingComplete}));const canvas=mountedCanvas();
+ canvas.emit("mouse:down",{e:{type:"touchstart",touches:[finger(1,2)]}});canvas.emit("mouse:move",{e:{type:"touchmove",touches:[finger(3,4)]}});
+ const cancel=new Event("touchcancel");Object.defineProperty(cancel,"changedTouches",{value:[finger(3,4)]});document.dispatchEvent(cancel);
+ canvas.emit("mouse:up",{e:{type:"touchend",changedTouches:[finger(3,4)]}});expect(onDrawingComplete).not.toHaveBeenCalled();
+ canvas.emit("mouse:down",{e:{type:"touchstart",touches:[finger(10,20,9,.8)]}});canvas.emit("mouse:move",{e:{type:"touchmove",touches:[finger(30,40,9,.9)]}});canvas.emit("mouse:up",{e:{type:"touchend",changedTouches:[finger(30,40,9)]}});
+ expect(onDrawingComplete).toHaveBeenCalledTimes(1);expect(onDrawingComplete).toHaveBeenCalledWith({tool:"pen",points:[{x:10,y:20,pressure:.8},{x:30,y:40,pressure:.9}]});
+});
+
+it("reads real pen pressure alongside compatibility mouse events without changing Fabric mode",()=>{
+ fabricHarness.state.canvases.length=0;const onDrawingComplete=vi.fn();const view=render(createElement(BoardFabricSurface,{objects:[],selectedObjectIds:[],readOnly:false,tool:"draw-pen",viewport,...callbacks(),onDrawingComplete}));const canvas=mountedCanvas(),element=view.container.querySelector("canvas")!;
+ const pen=(type:string,x:number,y:number,pressure:number)=>{const event=new Event(type,{bubbles:true});Object.assign(event,{pointerType:"pen",pointerId:3,isPrimary:true,clientX:x,clientY:y,pressure});element.dispatchEvent(event);};
+ pen("pointerdown",10,20,.25);canvas.emit("mouse:down",{e:{type:"mousedown",clientX:10,clientY:20}});pen("pointermove",30,40,.75);canvas.emit("mouse:move",{e:{type:"mousemove",clientX:30,clientY:40}});canvas.emit("mouse:up",{e:{type:"mouseup",clientX:30,clientY:40}});
+ expect(onDrawingComplete).toHaveBeenCalledWith({tool:"pen",points:[{x:10,y:20,pressure:.25},{x:30,y:40,pressure:.75}]});view.unmount();
 });
