@@ -16,7 +16,14 @@
     "e2e": "playwright test",
     "e2e:trace-geometry": "playwright test --config playwright.trace-geometry.config.ts",
     "e2e:kg-experience": "node scripts/run-kg-experience-eval.mjs",
-    "e2e:kg-experience:score": "node e2e/kg-experience-eval/score.mjs"
+    "e2e:kg-experience:score": "node e2e/kg-experience-eval/score.mjs",
+    "ci:board:journeys": "node scripts/run-board-ci-lane.mjs journeys -- pnpm --filter web exec playwright test --config e2e/board-journey-acceptance.config.ts",
+    "ci:board:security": "node scripts/run-board-ci-lane.mjs security -- pnpm --filter web exec playwright test --config e2e/board-security-acceptance.config.ts",
+    "ci:board:visual": "node scripts/run-board-ci-lane.mjs visual -- pnpm --filter web exec playwright test --config e2e/board-visual-accessibility-acceptance.config.ts",
+    "ci:board:storage": "node scripts/run-board-ci-lane.mjs storage -- pnpm --filter web exec playwright test --config playwright.board-storage-ci.config.ts",
+    "ci:board:performance": "node scripts/run-board-ci-lane.mjs performance -- pnpm --filter web exec playwright test --config e2e/board-performance-acceptance.config.ts",
+    "ci:board:collaboration-50": "node scripts/run-board-ci-lane.mjs collaboration-50 -- pnpm --filter web exec playwright test --config playwright.board-soak-acceptance.config.ts",
+    "ci:board:meeting-room": "node scripts/run-board-ci-lane.mjs meeting-room -- pnpm --filter web exec playwright test --config playwright.board-meeting-room-acceptance.config.ts"
   },
   "dependencies": {
     "@ag-ui/client": "0.0.57",
