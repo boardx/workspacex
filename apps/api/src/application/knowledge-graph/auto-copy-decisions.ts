@@ -7,7 +7,8 @@
  * 分工：
  *   - 数据库（迁移 20260926131000）决定**写进谁的空间**：只看证据消息的作者，结论的全部支持证据必须都是
  *     这个人本人在本会话里说的话——别人的话不会进你的空间，你的话也不会进别人的；
- *   - 这里决定**哪些算决定**：`decisionLike()`（唯一的词表，宁可漏不可误），非决定类照旧要手动晋升；
+ *   - 这里决定**哪些算决定**：`decisionLike()`（唯一的词表，宁可漏不可误）；issue #4343 起，本人的目标 / 偏好
+ *     （`selfIntentLike()`：goal / preference 类型 + 第一人称句式门）同样复制；其余照旧要手动晋升；
  *   - 去重复用 F11 的 `dedupAgainstPersonal`：同一句话（归一后相同）⇒ 合并进已有那条，不复制第二份；
  *     只是「相近」的 ⇒ 另记一条（没有人可以问「合并还是并存」，合并会丢掉新说法；副本仍可一键撤销）。
  *
@@ -16,6 +17,7 @@
 import type { OrgId } from "../../domain/org-id";
 import { decisionLike } from "../../domain/knowledge-graph/decision-claim";
 import { dedupAgainstPersonal } from "../../domain/knowledge-graph/promotion";
+import { selfIntentLike } from "../../domain/knowledge-graph/self-intent-claim";
 import type { LoggerPort } from "../ports/logger.port";
 import { KgAutoCopyRejected, KgHumanActionError, type KgAutoCopyPort } from "./ports";
 import { visibleThread, type KnowledgeReadDeps } from "./read-thread-knowledge";
@@ -26,7 +28,7 @@ export interface AutoCopyDeps {
   readonly newId: (prefix: "act") => string;
 }
 
-/** 返回这条消息记进作者个人空间的决定条数（新建 + 合并）。 */
+/** 返回这条消息记进作者个人空间的决定 / 目标 / 偏好条数（新建 + 合并）。 */
 export async function copyAuthorDecisions(
   deps: AutoCopyDeps,
   job: { readonly orgId: OrgId; readonly threadId: string; readonly messageId: string },
@@ -36,7 +38,8 @@ export async function copyAuthorDecisions(
   const personal = [...c.personal];
   let copied = 0;
   for (const claim of c.fresh) {
-    if (!decisionLike(claim.statement)) continue;
+    // issue #4343：本人说的目标 / 偏好（类型 + 保守句式门，self-intent-claim.ts）与决定走同一条复制路。
+    if (!decisionLike(claim.statement) && !selfIntentLike(claim.kind, claim.statement)) continue;
     // 每条都拿更新过的个人空间判：同一条消息里说了两遍同一个决定，也只落一份。
     const verdict = dedupAgainstPersonal(claim.statement, personal);
     const merge = verdict.kind === "duplicate";

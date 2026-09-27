@@ -11,7 +11,7 @@
  * - round 7（#4284 收口）：项目会话里用过个人记忆的那一轮的 agent 回答不抽（见 extractJob）。
  */
 import type { LoggerPort } from "../ports/logger.port";
-import { buildExtractionBatch } from "../../domain/knowledge-graph/extraction";
+import { buildExtractionBatch, KG_EXTRACTION_PIPELINE_VERSION } from "../../domain/knowledge-graph/extraction";
 import { applyOntologyBatch } from "./apply-ontology-batch";
 import { copyAuthorDecisions } from "./auto-copy-decisions";
 import { detectConflicts, detectSupersedes } from "./detect-conflicts";
@@ -39,12 +39,21 @@ export interface ExtractionDeps {
 export interface ExtractionTickResult {
   readonly processed: number;
   readonly written: number;
+  /** issue #4343：跑完了但没有可记的（含消息已删、执行器拒收）。processed = written + empty + skipped + failed。 */
+  readonly empty: number;
+  /** 按规则不抽的（round 7：项目会话里用了个人记忆的那一轮回答）。 */
+  readonly skipped: number;
   readonly failed: number;
 }
 
 export async function extractJob(deps: ExtractionDeps, job: KgExtractionJob): Promise<"written" | "empty" | "skipped"> {
   const loaded = await deps.source.loadMessage(job.orgId, job.messageId, KG_EXTRACTION_CONTEXT_TURNS);
-  if (loaded === null) return "empty";  // 消息已被删：没有东西可抽
+  if (loaded === null) {  // 消息已被删：没有东西可抽
+    deps.logger.info("kg extraction empty", {
+      traceId: "kg-extraction", orgId: job.orgId, messageId: job.messageId, threadId: job.threadId, reason: "message_gone",
+    });
+    return "empty";
+  }
   // round 7（#4284 收口）：项目会话里，agent 的回答若是在用了**提问者个人记忆**的那一轮写出来的，正文可能复述
   // 个人记忆；抽出来就成了全体成员可见、可召回的 chat_session 结论。这种回答不抽（任务照常完成、不重试），
   // 记一条日志说明原因。判定 fail closed：这一轮召回里只要有一条不能证明属于本会话的条目就跳过。个人会话不受影响。
@@ -63,7 +72,16 @@ export async function extractJob(deps: ExtractionDeps, job: KgExtractionJob): Pr
     threadId: job.threadId, messageId: job.messageId, messageBody: loaded.message.body,
     result, known, newId: deps.newId,
   });
-  if (batch === null) return "empty";
+  if (batch === null) {
+    // issue #4343 / #4350：「空」必须看得见——模型合法地回了「没有可记的」（或回的全被丢弃）；解析不出已经在
+    // extractor 里抛错走重试。之前这里静默返回：「我的目标是探索未来教育」一条没记下，界面照样显示「已整理到最新」。
+    deps.logger.info("kg extraction empty", {
+      traceId: "kg-extraction", orgId: job.orgId, messageId: job.messageId, threadId: job.threadId, reason: "no_candidates",
+      authorKind: loaded.message.authorKind, pipelineVersion: KG_EXTRACTION_PIPELINE_VERSION,
+      entities: result.entities.length, claims: result.claims.length,
+    });
+    return "empty";
+  }
   const out = await applyOntologyBatch(deps.store, job.orgId, null, batch);
   if (out.outcome === "rejected") {
     // 执行器拒了（已留痕）：这是抽取产物的问题，重试同一份产物没有意义。
@@ -82,11 +100,19 @@ export async function extractJob(deps: ExtractionDeps, job: KgExtractionJob): Pr
   return "written";
 }
 
-export async function runExtractionTick(deps: ExtractionDeps): Promise<ExtractionTickResult> {
+/**
+ * issue #4350：`abandoned()` 为真 ⇒ 这一轮已被 worker 的 watchdog 放弃（下一轮已经可以开始）——不再认领新的
+ * org 批次。已经认领到手的任务照常做完：它们还在自己的租约里，complete / fail 带着围栏令牌，迟到也不会动到
+ * 别人重新认领的行。
+ */
+export async function runExtractionTick(deps: ExtractionDeps, abandoned: () => boolean = () => false): Promise<ExtractionTickResult> {
   let processed = 0;
   let written = 0;
+  let empty = 0;
+  let skipped = 0;
   let failed = 0;
   for (const orgId of await deps.queue.pendingOrgs()) {
+    if (abandoned()) break;
     let jobs: readonly KgExtractionJob[];
     try {
       jobs = await deps.queue.claim(orgId, KG_EXTRACTION_BATCH);
@@ -97,15 +123,18 @@ export async function runExtractionTick(deps: ExtractionDeps): Promise<Extractio
     for (const job of jobs) {
       processed += 1;
       try {
-        if ((await extractJob(deps, job)) === "written") written += 1;
-        await deps.queue.complete(orgId, job.messageId);
+        const outcome = await extractJob(deps, job);
+        if (outcome === "written") written += 1;
+        else if (outcome === "empty") empty += 1;
+        else skipped += 1;
+        await deps.queue.complete(orgId, job.messageId, job.attempts);
       } catch (err) {
         failed += 1;
         const message = err instanceof Error ? err.message : String(err);
         deps.logger.error("kg extraction failed", { traceId: "kg-extraction", orgId, messageId: job.messageId, attempts: job.attempts, err });
-        await deps.queue.fail(orgId, job.messageId, message).catch(() => undefined);
+        await deps.queue.fail(orgId, job.messageId, message, job.attempts).catch(() => undefined);
       }
     }
   }
-  return { processed, written, failed };
+  return { processed, written, empty, skipped, failed };
 }

@@ -55,6 +55,7 @@ import { TOOL_TRACE_MESSAGE_HEADER_PREFIX } from "../src/application/agent-run/t
 import { RUN_SCRIPT_PROTOCOL_PROMPT } from "../src/application/skill/run-script-with-retries";
 import { FOLLOWUP_SUGGESTIONS_SYSTEM_PROMPT } from "../src/application/chat/generate-followup-suggestions";
 import { CANVAS_GUIDANCE_HEADER } from "../src/application/agent-run/canvas-template-guidance";
+import { KG_EXTRACTION_SYSTEM_PROMPT } from "../src/infrastructure/knowledge-graph/model-knowledge-extractor";
 
 /**
  * F154 L2 摘要伪消息的**唯一事实源**是 `execute-run.ts` 里那一行字面量
@@ -327,6 +328,18 @@ function trialRunScriptReply(sampleInput: string): string {
     "```",
   ].join("\n");
 }
+
+/**
+ * issue #4350 —— 记忆抽取请求（system prompt 逐字是 `KG_EXTRACTION_SYSTEM_PROMPT`）回一个**合法的空抽取**。
+ * 抽取器现在把解析不了的回复当失败重试；回显正文会让每个 loopback 栈都堆出「失败」行和重试调用。
+ * 需要真实抽取内容的评测走 `loopback-kg-eval-model-provider.ts`，不走这里。
+ */
+function isKgExtractionRequest(messages: CompletionRequest["messages"]): boolean {
+  const system = (messages ?? []).find((message) => message.role === "system")?.content;
+  return typeof system === "string" && system.includes(KG_EXTRACTION_SYSTEM_PROMPT);
+}
+
+const EMPTY_KG_EXTRACTION_REPLY = JSON.stringify({ entities: [], claims: [] });
 
 /**
  * UIUX 对标 CopilotKit gap #2（issue #712）—— 同 `isTrialRunRequest` 一个纪律：
@@ -610,7 +623,9 @@ const server = createServer((req, res) => {
      *
      * 影响面：正文里不带那个哨兵的请求，走到的分支与改动前逐字节相同。
      */
-    const fullText = researchReply ?? (isFollowUpSuggestionsRequest(parsed.messages)
+    const fullText = researchReply ?? (isKgExtractionRequest(parsed.messages)
+      ? EMPTY_KG_EXTRACTION_REPLY
+      : isFollowUpSuggestionsRequest(parsed.messages)
       ? followUpSuggestionsReply(parsed.messages)
       : canvasGuidanceReachedModel(parsed.messages, echoed)
       ? canvasGuidanceReply(echoed)

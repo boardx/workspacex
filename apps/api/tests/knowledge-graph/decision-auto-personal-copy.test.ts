@@ -145,7 +145,7 @@ describe("issue #4283: 本人的决定自动记进本人个人空间", () => {
     const ex = await extraction(a, A1, "m-i4283-a1");
     expect(ex.status).toBe(200);
     expect(KG.knowledgeGraph.getMessageExtraction.out.safeParse(ex.body).success).toBe(true);
-    expect(ex.body.claims).toEqual([{ claimId: src.id, statement: A_DECISION, personalCopyClaimId: rows[0]!.id }]);
+    expect(ex.body.claims).toEqual([{ claimId: src.id, statement: A_DECISION, kind: "decision", personalCopyClaimId: rows[0]!.id }]);
   });
 
   it("非决定类不复制，仍要手动晋升", async () => {
@@ -193,7 +193,7 @@ describe("issue #4283: 本人的决定自动记进本人个人空间", () => {
     const s3 = await threadClaim(A3, A_DECISION);
     expect((await derivedFrom(rows[0]!.id)).map((d) => d.dst_id).sort()).toEqual([s1.id, s3.id].sort());
     const ex = await extraction(a, A3, "m-i4283-a3");
-    expect(ex.body.claims).toEqual([{ claimId: s3.id, statement: A_DECISION, personalCopyClaimId: rows[0]!.id }]);
+    expect(ex.body.claims).toEqual([{ claimId: s3.id, statement: A_DECISION, kind: "decision", personalCopyClaimId: rows[0]!.id }]);
   });
 
   it("撤销合并过的那一份里的一个来源 ⇒ 只摘掉这个来源，副本留着（仍由另一次说法支撑）", async () => {
