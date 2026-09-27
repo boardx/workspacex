@@ -5,10 +5,11 @@ import { MessagesSquare, Plus } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Select } from "@/components/ui/select";
 import { SectionTitle } from "./parts";
 import { ApiError, getStoredSessionToken } from "@/lib/api-client";
 import { httpFailureText } from "@/lib/http-failure-text";
-import { listThreads, createProjectThread, type ListThreadsOut } from "@/lib/live-chat";
+import { listThreads, createProjectThread, getThread, setThreadVisibility, type ListThreadsOut } from "@/lib/live-chat";
 import { CHAT_VISIBILITY_LABEL } from "@/lib/chat-visibility";
 
 /**
@@ -19,24 +20,47 @@ import { CHAT_VISIBILITY_LABEL } from "@/lib/chat-visibility";
  * 写：「新建对话」→ `createProjectThread(projectId)`（`projectId` 非空 ⇒ 线程属于本项目，
  *     可见范围取服务端默认），成功后**直接进入**该线程（`/chat/<id>?projectId=`）。
  * 每张卡片链到 `/chat/<id>?projectId=<projectId>`——chat 壳层用 `?projectId` 把线程列表限定到本项目。
+ * 分享（R5）：每张卡上的「可见范围」下拉 → `getThread` 取当前 version → `setThreadVisibility`
+ *     （op=setVisibility；服务端只放行创建者或引导师，别人得到 403 `NO_WRITE_ROLE`，这里如实显示）
+ *     → 重拉列表。可选范围：组员私聊 / 本组共享 / 全场。
  */
+const SHARE_SCOPES = ["member-private", "group-shared", "plenary"] as const;
+type ShareScope = (typeof SHARE_SCOPES)[number];
 export function ProjectConversations({ projectId, canWrite }: { projectId: string; canWrite: boolean }) {
   const router = useRouter();
   const [data, setData] = React.useState<ListThreadsOut | null>(null);
   const [loading, setLoading] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
   const [creating, setCreating] = React.useState(false);
+  const [sharing, setSharing] = React.useState<string | null>(null);
+  const [shareError, setShareError] = React.useState<string | null>(null);
 
-  React.useEffect(() => {
+  const load = React.useCallback(async () => {
     if (!getStoredSessionToken()) { setData(null); return; }
-    let cancelled = false;
     setLoading(true); setError(null);
-    listThreads(projectId)
-      .then((out) => { if (!cancelled) setData(out); })
-      .catch((e: unknown) => { if (!cancelled) setError(describeFailure(e)); })
-      .finally(() => { if (!cancelled) setLoading(false); });
-    return () => { cancelled = true; };
+    try {
+      setData(await listThreads(projectId));
+    } catch (e) {
+      setError(describeFailure(e));
+    } finally {
+      setLoading(false);
+    }
   }, [projectId]);
+
+  React.useEffect(() => { void load(); }, [load]);
+
+  async function share(threadId: string, scope: ShareScope) {
+    setSharing(threadId); setShareError(null);
+    try {
+      const current = await getThread(threadId, projectId);
+      await setThreadVisibility(threadId, projectId, scope, current.thread.version);
+      await load();
+    } catch (e) {
+      setShareError(describeFailure(e));
+    } finally {
+      setSharing(null);
+    }
+  }
 
   const threadHref = (id: string) => `/chat/${encodeURIComponent(id)}?projectId=${encodeURIComponent(projectId)}`;
 
@@ -65,6 +89,9 @@ export function ProjectConversations({ projectId, canWrite }: { projectId: strin
         )}
       </div>
 
+      {shareError !== null && (
+        <p className="text-11 text-destructive" data-testid="project-conversations-share-error">{shareError}</p>
+      )}
       {error !== null ? (
         <Card><p className="p-4 text-11 text-destructive" data-testid="project-conversations-error">{error}</p></Card>
       ) : loading && data === null ? (
@@ -95,7 +122,20 @@ export function ProjectConversations({ projectId, canWrite }: { projectId: strin
                         <div className="truncate text-12 font-medium">{c.title}</div>
                         {c.subtitle && <div className="truncate text-10 text-muted-foreground">{c.subtitle}</div>}
                       </div>
-                      <Badge tone="outline">{CHAT_VISIBILITY_LABEL[c.visibilityScope] ?? c.visibilityScope}</Badge>
+                      {canWrite ? (
+                        <span onClick={(e) => e.preventDefault()}>
+                          <Select
+                            data-testid={`project-conversation-share-${c.id}`}
+                            value={c.visibilityScope}
+                            disabled={sharing === c.id}
+                            onValueChange={(v) => void share(c.id, v as ShareScope)}
+                            options={SHARE_SCOPES.map((k) => ({ value: k, label: CHAT_VISIBILITY_LABEL[k] }))}
+                            className="min-w-[7rem]"
+                          />
+                        </span>
+                      ) : (
+                        <Badge tone="outline">{CHAT_VISIBILITY_LABEL[c.visibilityScope] ?? c.visibilityScope}</Badge>
+                      )}
                       {c.artifactCount > 0 && <Badge tone="neutral">产物 {c.artifactCount}</Badge>}
                     </a>
                   </li>
@@ -113,6 +153,8 @@ function describeFailure(e: unknown): string {
   if (e instanceof ApiError) {
     switch (e.reasonCode) {
       case "NO_PROJECT_ROLE": return "你不在这个项目里，看不到项目内的对话。";
+      case "NO_WRITE_ROLE": return "只有这条对话的创建者或本项目引导师能改它的可见范围。";
+      case "VERSION_CHANGED": return "这条对话刚被别人改过，列表已刷新，请再试一次。";
       case "PROJECT_ARCHIVED": return "项目已归档，不能再新建对话。";
       case "AUTH_SERVICE_UNAVAILABLE": return "身份校验服务暂时不可用，请稍后重试。";
     }

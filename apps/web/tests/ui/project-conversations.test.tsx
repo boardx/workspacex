@@ -11,6 +11,8 @@ import { ApiError, SESSION_TOKEN_STORAGE_KEY } from "@/lib/api-client";
 
 const listThreads = vi.fn();
 const createProjectThread = vi.fn();
+const getThread = vi.fn();
+const setThreadVisibility = vi.fn();
 const pushMock = vi.fn();
 
 vi.mock("next/navigation", () => ({
@@ -21,6 +23,8 @@ vi.mock("@/lib/live-chat", async (orig) => ({
   ...(await orig<typeof import("@/lib/live-chat")>()),
   listThreads: (...a: unknown[]) => listThreads(...a),
   createProjectThread: (...a: unknown[]) => createProjectThread(...a),
+  getThread: (...a: unknown[]) => getThread(...a),
+  setThreadVisibility: (...a: unknown[]) => setThreadVisibility(...a),
 }));
 
 import { TabResearch } from "@/components/project/tab-research";
@@ -38,7 +42,7 @@ const THREADS = { groups: [
 describe("R4 研究洞察 › 对话", () => {
   beforeEach(() => {
     window.localStorage.setItem(SESSION_TOKEN_STORAGE_KEY, "tok");
-    listThreads.mockReset(); createProjectThread.mockReset(); pushMock.mockReset();
+    listThreads.mockReset(); createProjectThread.mockReset(); getThread.mockReset(); setThreadVisibility.mockReset(); pushMock.mockReset();
     listThreads.mockResolvedValue(THREADS);
   });
 
@@ -81,5 +85,34 @@ describe("R4 研究洞察 › 对话", () => {
     listThreads.mockRejectedValue(new ApiError(403, "NO_PROJECT_ROLE", {}));
     render(<TabResearch view="facilitator" sub="conv" projectId="p1" />);
     expect(await screen.findByTestId("project-conversations-error")).toHaveTextContent("你不在这个项目里");
+  });
+
+  it("分享（R5）：改可见范围 = getThread 取 version → setThreadVisibility → 重拉列表", async () => {
+    getThread.mockResolvedValue({ thread: { version: 5 } });
+    setThreadVisibility.mockResolvedValue({ threadId: "t1", version: 6, auditEventId: "ev", impactScope: null });
+    render(<TabResearch view="facilitator" sub="conv" projectId="p1" />);
+    await screen.findByTestId("project-conversation-t1");
+    expect(screen.getByTestId("project-conversation-share-t1")).toBeInTheDocument();
+    fireEvent.keyDown(screen.getByTestId("project-conversation-share-t1"), { key: "Enter" });
+    fireEvent.click(await screen.findByRole("menuitemradio", { name: /^全场$/ }));
+    await waitFor(() => expect(setThreadVisibility).toHaveBeenCalledWith("t1", "p1", "plenary", 5));
+    expect(getThread).toHaveBeenCalledWith("t1", "p1");
+    await waitFor(() => expect(listThreads).toHaveBeenCalledTimes(2));
+  });
+
+  it("分享被服务端拒（NO_WRITE_ROLE）：如实显示，不假装成功", async () => {
+    getThread.mockResolvedValue({ thread: { version: 5 } });
+    setThreadVisibility.mockRejectedValue(new ApiError(403, "NO_WRITE_ROLE", {}));
+    render(<TabResearch view="member" sub="conv" projectId="p1" />);
+    await screen.findByTestId("project-conversation-t1");
+    fireEvent.keyDown(screen.getByTestId("project-conversation-share-t1"), { key: "Enter" });
+    fireEvent.click(await screen.findByRole("menuitemradio", { name: /^全场$/ }));
+    expect(await screen.findByTestId("project-conversations-share-error")).toHaveTextContent("创建者或本项目引导师");
+  });
+
+  it("观察者：可见范围只是徽标，没有分享控件", async () => {
+    render(<TabResearch view="observer" sub="conv" projectId="p1" />);
+    await screen.findByTestId("project-conversation-t1");
+    expect(screen.queryByTestId("project-conversation-share-t1")).toBeNull();
   });
 });
