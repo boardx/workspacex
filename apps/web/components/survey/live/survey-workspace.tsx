@@ -166,11 +166,10 @@ export function LiveSurveyWorkspace({
       setNotice("报告模板已保存");
       return await surveyRequest(`/surveys/${next.id}`, {}, SurveyRuntimeSchema);
     }
-    await surveyRequest(`/surveys/${next.id}/source`, { method: "PUT", body: {
+    const persisted = await surveyRequest(`/surveys/${next.id}/source`, { method: "PUT", body: {
       expectedVersion: next.version,
       documents: { design: markdown, publication: next.source?.documents.publication.markdown ?? "# 发布与回收\n", reportTemplate: serializeSurveyReportTemplateMarkdown(parsed.data.template) },
-    } });
-    const persisted = await surveyRequest(`/surveys/${next.id}`, {}, SurveyRuntimeSchema);
+    } }, SurveyRuntimeSchema);
     accept(persisted);
     setNotice("修改已保存");
     if (surveyId === "new") router.replace(`/studio/survey/${next.id}?step=${step}`);
@@ -220,6 +219,10 @@ export function LiveSurveyWorkspace({
     setRepairQuestionId(targetQuestionId ?? null);
     window.history.replaceState(null, "", `?step=${next}`);
   };
+  const parsedDesign = parseSurveyDesignMarkdown(markdown);
+  const projectedInSync = !!draft && parsedDesign.ok &&
+    parsedDesign.draft.title === draft.title &&
+    JSON.stringify(parsedDesign.draft.questions) === JSON.stringify(draft.questions);
   return (
     <main className="min-w-0 bg-background">
       <header className="flex flex-wrap items-center gap-3 border-b border-border bg-card p-4">
@@ -320,9 +323,10 @@ export function LiveSurveyWorkspace({
             <textarea aria-label="远端 Markdown" className="min-h-48 w-full rounded-md border border-border p-3 font-mono text-13" readOnly value={remoteVersion.source?.documents.design.markdown ?? serializeSurveyDesignMarkdown(remoteVersion)} />
             <Button disabled={busy} onClick={() => {
               setRuntime(remoteVersion);
+              setDraft((local) => local ? { ...local, template: remoteVersion.template } : local);
               setSavedMarkdown(remoteVersion.source?.documents.design.markdown ?? serializeSurveyDesignMarkdown(remoteVersion));
               setConflicted(false); setRemoteVersion(null); setError("");
-              setNotice("已保留本地版本，请校对后保存；尚未覆盖远端内容。");
+              setNotice("已保留本地设计与远端报告模板，请校对后保存；尚未覆盖远端内容。");
             }}>确认保留本地版本</Button>
             <Button variant="outline" disabled={busy} onClick={() => {
               if (window.confirm("使用远端版本将丢弃当前本地修改，继续吗？")) accept(remoteVersion);
@@ -339,6 +343,8 @@ export function LiveSurveyWorkspace({
                 if (!result.ok) { setError(result.diagnostics.map((entry) => `第 ${entry.line} 行：${entry.message}`).join("；")); return; }
                 setError(""); setDraft({ ...draft, title: result.draft.title, questions: result.draft.questions });
               }} />
+            <fieldset disabled={!projectedInSync}>
+            {!projectedInSync && <p className="px-5 text-12 text-muted-foreground">请先预览并应用 Markdown，再编辑题目或应用模板，避免覆盖未应用内容。</p>}
             <SurveyTemplateActions kind="question" draft={draft} onApply={(next) => { setDraft(next); setMarkdown(serializeSurveyDesignMarkdown(next)); }} locked={!!runtime?.publication} disabled={busy} />
             <SurveyQuestionEditor
               questions={draft.questions}
@@ -346,6 +352,7 @@ export function LiveSurveyWorkspace({
               selectedQuestionId={repairQuestionId}
               onChange={(questions) => { const next = { ...draft, questions }; setDraft(next); setMarkdown(serializeSurveyDesignMarkdown(next)); }}
             />
+            </fieldset>
           </>)}
           {step === "template" && (<>
             <SurveyTemplateActions kind="report" draft={draft} onApply={setDraft} disabled={busy} />
