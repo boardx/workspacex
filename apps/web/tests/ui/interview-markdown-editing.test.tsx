@@ -7,6 +7,15 @@ import { InterviewMarkdownEditingStep } from "@/components/itv/interview-markdow
 import { MOCK_DIGITAL_EXPERTS } from "@/lib/mock/digital-expert-personas";
 afterEach(() => { cleanup(); vi.unstubAllGlobals(); vi.unstubAllEnvs(); });
 const source = { documentId: "edit-doc", step: "experts" as const, version: 1, contentHash: "a".repeat(64), evidenceMode: "simulated" as const, references: [], markdown: "# 专家\n" };
+it("outline controls reorder raw sibling groups and retain stable question references", () => {
+  const first = "## [背景](#question-one)\n\n原文  \n\n";
+  const second = "## [反例](#question-two)\n\n保留反例\n";
+  const change = vi.fn();
+  render(<InterviewOutlineStep document={{ ...source, step: "outline", markdown: first + second }} pending={false} onChange={change} onSave={vi.fn()} onConfirm={vi.fn()} onGenerate={vi.fn()} />);
+  expect(screen.getByRole("button", { name: "上移当前分组" })).toBeDisabled();
+  fireEvent.click(screen.getByRole("button", { name: "下移当前分组" }));
+  expect(change).toHaveBeenCalledWith(second + first);
+});
 it("a save conflict does not silently rebase local text onto another editor's version", async () => {
   vi.stubEnv("NEXT_PUBLIC_API_URL", "http://localhost:4100"); vi.stubEnv("NEXT_PUBLIC_API_PATH_PREFIX", "");
   const writes: { expectedVersion: number; expectedDocumentVersion: number }[] = [];
