@@ -1525,7 +1525,7 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
     { provide: IN_FLIGHT_CALLS, useClass: InMemoryInFlightCalls },
     // File byte and compliance dependencies share the configured storage backend.
     ...storageProviders, ...deletionProviders,
-    {provide:WHITEBOARD_GC_RUNTIME,useFactory:(db:DatabasePort,objects:ObjectStore,purge:PhysicalPurgePort)=>new WhiteboardGcRuntime(db,objects,purge as PhysicalPurgePort&Required<Pick<PhysicalPurgePort,'purgeExact'>>),inject:[DATABASE_PORT,OBJECT_STORE,PHYSICAL_PURGE_PORT]},
+    {provide:WHITEBOARD_GC_RUNTIME,useFactory:(db:DatabasePort,objects:ObjectStore,purge:PhysicalPurgePort)=>new WhiteboardGcRuntime(db,objects as unknown as import('./application/whiteboard/object-retention').WhiteboardObjectInventory,purge as PhysicalPurgePort&Required<Pick<PhysicalPurgePort,'purgeExact'>>),inject:[DATABASE_PORT,OBJECT_STORE,PHYSICAL_PURGE_PORT]},
     { provide: EMBEDDING_PORT, useFactory: langChainEmbeddingClientFromEnv },
     {
       provide: RERANK_PORT,

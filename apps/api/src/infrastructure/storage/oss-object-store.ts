@@ -9,6 +9,7 @@ export interface OssClientPort {
   get(key: string): Promise<{ content: Buffer; headers: Record<string, string> }>;
   head(key: string): Promise<{ headers: Record<string, string> }>;
   delete(key: string,options?:{headers?:Record<string,string>}): Promise<void>;
+  list(input:{prefix:string;marker?:string;maxKeys:number}):Promise<{objects:Array<{name:string;size:number;lastModified:string;etag:string}>;nextMarker?:string}>;
 }
 
 const unavailable = () => new ObjectStoreUnavailableError("OSS unavailable");
@@ -98,6 +99,7 @@ export class OssObjectStore implements ObjectStore {
       throw unavailable();
     }
   }
+  async list(prefix:string,cursor?:string){const normalized=prefix.replace(/\/$/,''),namespaced=this.key(normalized),page=await this.client.list({prefix:`${namespaced}/`,marker:cursor?this.key(cursor):undefined,maxKeys:1000});const deploymentPrefix=namespaced.slice(0,namespaced.length-normalized.length);return{objects:page.objects.map(object=>({key:object.name.slice(deploymentPrefix.length),lastModified:new Date(object.lastModified),sizeBytes:object.size,versionTag:object.etag})),cursor:page.nextMarker?.slice(deploymentPrefix.length)};}
 }
 
 /** Separate compliance capability. Ordinary ObjectStore users cannot delete objects. */

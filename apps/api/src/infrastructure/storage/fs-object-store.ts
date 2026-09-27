@@ -21,8 +21,8 @@
  * object-lock -- configuration, not code. Stating this here rather than letting the passing
  * `putOnce` test imply the invariant is discharged.
  */
-import { mkdir, readFile, stat, writeFile } from "node:fs/promises";
-import { dirname } from "node:path";
+import { mkdir, readFile, readdir, stat, writeFile } from "node:fs/promises";
+import { dirname,relative,sep } from "node:path";
 import { ObjectExistsError, ObjectStoreUnavailableError, type ObjectStore } from "../../application/artifact/ports";
 import { resolveObjectPath } from "./object-store-path";
 
@@ -68,6 +68,7 @@ export class FsObjectStore implements ObjectStore {
       throw new ObjectStoreUnavailableError(`heading ${key}`);
     }
   }
+  async list(prefix:string,cursor?:string){const found:Array<{path:string;key:string}>=[],walk=async(dir:string)=>{for(const entry of await readdir(dir,{withFileTypes:true}).catch(()=>[])){const path=`${dir}/${entry.name}`;if(entry.isDirectory())await walk(path);else if(!entry.name.endsWith('.mime')&&!entry.name.includes('.purging-')){const key=relative(this.root,dirname(path)).split(sep).join('/');if(key.startsWith(prefix))found.push({path,key});}}};await walk(this.root);found.sort((a,b)=>a.key.localeCompare(b.key));const start=cursor?Math.max(0,found.findIndex(item=>item.key>cursor)):0,page=found.slice(start,start+1000),objects=[];for(const item of page){const s=await stat(item.path);objects.push({key:item.key,lastModified:s.mtime,sizeBytes:s.size,versionTag:`${s.dev}:${s.ino}:${s.mtimeMs}:${s.size}`});}return{objects,cursor:found.length>start+page.length?page.at(-1)?.key:undefined};}
 
   /**
    * Map a storage key to a path under the root. Delegates to `resolveObjectPath` (extracted
