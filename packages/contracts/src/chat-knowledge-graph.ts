@@ -46,7 +46,7 @@ export type KgObjectKind = z.infer<typeof KgObjectKind>;
  * issue #4343（人类决定 2026-09-27）加 `goal` / `preference` 两类：用户**本人**明确说出的目标 / 意图
  * （「我的目标是…」「我想…」「我希望…」）与偏好（「我更喜欢…」）。之前的五类里没有它们，于是「我的目标是探索
  * 未来教育」抽取跑完一条都没记下。分成两类而不是合一：界面标签（目标 / 偏好）与模型判别都更清楚，
- * 数据库 CHECK（迁移 20260927110000）与本枚举逐项对账。
+ * 数据库 CHECK（迁移 20260927310000）与本枚举逐项对账。
  */
 export const KgClaimKind = z.enum(["fact", "hypothesis", "decision", "todo", "risk", "goal", "preference"]);
 export type KgClaimKind = z.infer<typeof KgClaimKind>;

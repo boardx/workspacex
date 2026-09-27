@@ -25,7 +25,7 @@ const pairs = (v: unknown): { id: string; statement: string }[] =>
     .filter((x) => typeof x.id === "string" && typeof x.statement === "string")
     .map((x) => ({ id: x.id as string, statement: x.statement as string }));
 /**
- * issue #4343：候选带类型（迁移 20260927110000）。类型认不出（枚举外 / 缺失）⇒ 这一条丢掉，不猜成某一类：
+ * issue #4343：候选带类型（迁移 20260927310000）。类型认不出（枚举外 / 缺失）⇒ 这一条丢掉，不猜成某一类：
  * 猜错的代价是把一句话当成目标写进别人看不到、但会每轮强制召回的个人空间（fail closed）。
  */
 const kinded = (v: unknown): { id: string; statement: string; kind: KG.KgClaimKind }[] =>
