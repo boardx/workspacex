@@ -48,6 +48,7 @@ export default defineConfig({ resolve:{alias:{
     'tests/whiteboard/resource-repository-guard.test.ts',
     'tests/whiteboard/tag-repository-guard.test.ts',
     'tests/whiteboard/joint-drill-diagnostics.test.ts',
+    'tests/whiteboard/storage-backfill.test.ts',
   ],
   maxWorkers: 1, minWorkers: 1, testTimeout: 10_000,
 } });
