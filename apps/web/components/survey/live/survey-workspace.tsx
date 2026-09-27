@@ -1,5 +1,6 @@
 "use client";
 import * as React from "react";
+import { parseSurveyDesignMarkdown, serializeSurveyDesignMarkdown, serializeSurveyReportTemplateMarkdown } from "@repo/contracts/survey-source";
 import { useSurveyUnsavedNavigation } from "@/lib/survey/use-unsaved-navigation";
 import { useRouter } from "next/navigation";
 import { survey } from "@repo/contracts";
@@ -25,15 +26,14 @@ import {
   printSurveyReport,
 } from "../report/report-export";
 import { SurveyQuestionEditor } from "./question-editor";
+import { MarkdownSurveyEditor } from "./markdown-survey-editor";
 import { SurveyTemplateActions } from "../library/template-actions";
 import { LiveResponseList } from "./response-list";
 import { assessPublishReadiness } from "@/lib/survey/publish-readiness";
 const STEPS = [
   ["design", "设计问卷"],
-  ["template", "报告模板"],
   ["publish", "发布回收"],
   ["responses", "查看答卷"],
-  ["report", "分析报告"],
 ] as const;
 const BLOCKER_MESSAGES: Record<SurveyPublishBlocker["code"], string> = {
   QUESTIONS_EMPTY: "问卷至少需要一道题",
@@ -68,10 +68,15 @@ export function LiveSurveyWorkspace({
   const [step, setStep] = React.useState(initialStep);
   const [repairQuestionId, setRepairQuestionId] = React.useState<string | null>(null);
   const [expires, setExpires] = React.useState("");
+  const [markdown, setMarkdown] = React.useState("");
+  const [savedMarkdown, setSavedMarkdown] = React.useState("");
   const reportRef = React.useRef<HTMLDivElement>(null);
   const lock = React.useRef(false);
   const accept = React.useCallback((value: SurveyRuntime) => {
     setRuntime(value);
+    const text = value.source?.documents.design.markdown ?? serializeSurveyDesignMarkdown(value);
+    setMarkdown(text);
+    setSavedMarkdown(text);
     setDraft({
       title: value.title,
       questions: value.questions,
@@ -88,6 +93,7 @@ export function LiveSurveyWorkspace({
     setDraft(null);
     if (surveyId === "new") {
       setDraft(emptyDraft());
+      setMarkdown("# 未命名问卷\n\n## q1 [text]\n请填写您的意见\n");
       return;
     }
     void surveyRequest(`/surveys/${encodeURIComponent(surveyId)}`, {}, SurveyRuntimeSchema)
@@ -102,6 +108,7 @@ export function LiveSurveyWorkspace({
     };
   }, [surveyId, accept]);
   const dirty =
+    markdown !== savedMarkdown ||
     !!draft &&
     (!runtime ||
       JSON.stringify(draft) !==
@@ -133,20 +140,31 @@ export function LiveSurveyWorkspace({
   };
   const save = async () => {
     if (!draft) throw new Error("尚未加载问卷");
-    const parsed = SurveyDraftInputSchema.safeParse(draft);
+    const sourceParsed = parseSurveyDesignMarkdown(markdown);
+    if (!sourceParsed.ok) throw new Error(sourceParsed.diagnostics.map((entry) => `第 ${entry.line} 行：${entry.message}`).join("；"));
+    const parsed = SurveyDraftInputSchema.safeParse({ ...draft, title: sourceParsed.draft.title, questions: sourceParsed.draft.questions });
     if (!parsed.success)
       throw new Error("请填写问卷、章节及内容标题，并检查选项和图片地址。");
-    const next = await surveyRequest(runtime ? `/surveys/${runtime.id}` : "/surveys", {
-        method: runtime ? "PUT" : "POST",
+    const next = runtime ?? await surveyRequest("/surveys", {
+        method: "POST",
         body: {
           ...parsed.data,
-          ...(runtime ? { expectedVersion: runtime.version } : {}),
         },
       }, SurveyRuntimeSchema);
-    accept(next);
+    if (next.publication) {
+      accept(await surveyRequest(`/surveys/${next.id}`, { method: "PUT", body: { ...parsed.data, expectedVersion: next.version } }, SurveyRuntimeSchema));
+      setNotice("报告模板已保存");
+      return await surveyRequest(`/surveys/${next.id}`, {}, SurveyRuntimeSchema);
+    }
+    await surveyRequest(`/surveys/${next.id}/source`, { method: "PUT", body: {
+      expectedVersion: next.version,
+      documents: { design: markdown, publication: next.source?.documents.publication.markdown ?? "# 发布与回收\n", reportTemplate: serializeSurveyReportTemplateMarkdown(parsed.data.template) },
+    } });
+    const persisted = await surveyRequest(`/surveys/${next.id}`, {}, SurveyRuntimeSchema);
+    accept(persisted);
     setNotice("修改已保存");
     if (!runtime) router.replace(`/studio/survey/${next.id}?step=${step}`);
-    return next;
+    return persisted;
   };
   const command = async (name: string, extra: Record<string, unknown> = {}) => {
     const current = dirty ? await save() : runtime;
@@ -210,7 +228,7 @@ export function LiveSurveyWorkspace({
             disabled={busy || !draft}
             value={draft?.title ?? ""}
             onChange={(e) =>
-              draft && setDraft({ ...draft, title: e.target.value })
+              draft && (() => { const next = { ...draft, title: e.target.value }; setDraft(next); setMarkdown((text) => text.replace(/^#\s+.*$/m, `# ${e.target.value}`)); })()
             }
           />
           <p className="mt-1 text-10 text-muted-foreground">
@@ -221,6 +239,11 @@ export function LiveSurveyWorkspace({
                 : "正在加载"}
           </p>
         </div>
+        <Button
+          variant="outline"
+          onClick={() => selectStep("template")}
+        >设计报告模板（可选）</Button>
+        {runtime && <Button variant="outline" onClick={() => selectStep("report")}>分析报告（可选）</Button>}
         <Button
           variant="outline"
           disabled={busy || !runtime}
@@ -280,12 +303,17 @@ export function LiveSurveyWorkspace({
       {draft && (
         <fieldset disabled={busy} className="min-w-0">
           {step === "design" && (<>
-            <SurveyTemplateActions kind="question" draft={draft} onApply={setDraft} locked={!!runtime?.publication} disabled={busy} />
+            <MarkdownSurveyEditor value={markdown} locked={!!runtime?.publication} onChange={setMarkdown} onPreview={() => {
+                const result = parseSurveyDesignMarkdown(markdown);
+                if (!result.ok) { setError(result.diagnostics.map((entry) => `第 ${entry.line} 行：${entry.message}`).join("；")); return; }
+                setError(""); setDraft({ ...draft, title: result.draft.title, questions: result.draft.questions });
+              }} />
+            <SurveyTemplateActions kind="question" draft={draft} onApply={(next) => { setDraft(next); setMarkdown(serializeSurveyDesignMarkdown(next)); }} locked={!!runtime?.publication} disabled={busy} />
             <SurveyQuestionEditor
               questions={draft.questions}
               locked={!!runtime?.publication}
               selectedQuestionId={repairQuestionId}
-              onChange={(questions) => setDraft({ ...draft, questions })}
+              onChange={(questions) => { const next = { ...draft, questions }; setDraft(next); setMarkdown(serializeSurveyDesignMarkdown(next)); }}
             />
           </>)}
           {step === "template" && (<>
