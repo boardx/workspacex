@@ -16,7 +16,7 @@ describe('trusted operation snapshot compensation',()=>{
   expect(readObjects(doc)).toEqual(expected);expect(value.get('text')).toBe(text);expect(value.get('style')).toBe(style);
   const validator=new WorkerWhiteboardUpdateValidator();
   const restored=await validator.compensate(changed,before);
-  expect(await validator.objects(restored.snapshot)).toEqual(expected);
+  expect(await validator.objects(restored.snapshot)).toEqual(expected);expect(restored.objectIds.slice().sort()).toEqual(expected.map(object=>object.id).sort());
   await expect(validator.validate(changed,restored.update)).rejects.toMatchObject({code:'VALIDATION_FAILED'});
   doc.destroy();
  });
@@ -25,7 +25,7 @@ describe('trusted operation snapshot compensation',()=>{
   const initial=await validator.commands(new Uint8Array([0,0]),[{type:'create',object:{...note('p'),kind:'frame'}},{type:'create',object:note('child')}]);
   const expected=await validator.objects(initial.snapshot);
   const changed=await validator.commands(initial.snapshot,[{type:'parent',id:'child',parentId:'p',orderKey:'1'},{type:'geometry',id:'child',geometry:{...note('child').geometry,x:40,y:70}},{type:'style',id:'child',style:{fill:'#ffffff'}},{type:'state',id:'child',locked:true}]);
-  const restored=await validator.compensate(changed.snapshot,initial.snapshot);expect(await validator.objects(restored.snapshot)).toEqual(expected);
+  const restored=await validator.compensate(changed.snapshot,initial.snapshot);expect(await validator.objects(restored.snapshot)).toEqual(expected);expect(restored.objectIds.slice().sort()).toEqual(expected.map(object=>object.id).sort());
  });
  it('rejects a before-image containing identity absent from the authoritative document',async()=>{
   const original=createWhiteboardDocument();executeCommands(original,[{type:'create',object:note('foreign')}],{});
