@@ -12,6 +12,16 @@ beforeEach(()=>{vi.stubGlobal('crypto',webcrypto);vi.spyOn(URL,'createObjectURL'
 afterEach(()=>{vi.restoreAllMocks();vi.unstubAllGlobals();});
 const content=()=>new Response(bytes,{headers:{'content-type':'image/png'}});
 describe('durable image session',()=>{
+ it('calls the default browser fetch with its global receiver for upload and authenticated readback',async()=>{
+  const receivers:unknown[]=[];
+  vi.stubGlobal('fetch',function(this:unknown,_url:RequestInfo|URL,init?:RequestInit){
+   receivers.push(this);if(this!==globalThis)throw new TypeError('Illegal invocation');
+   return Promise.resolve(init?.method==='POST'?Response.json(metadata):content());
+  });
+  const session=new BoardDurableImageSession('board',()=>{});
+  await expect(session.upload(new Blob([bytes],{type:'image/png'}),'image.png')).resolves.toEqual(metadata);
+  expect(receivers).toEqual([globalThis,globalThis]);expect(session.get(metadata.assetId)).toBeDefined();session.dispose();
+ });
  it('uploads authenticated multipart and verifies delivered bytes before returning ready metadata',async()=>{const fetcher=vi.fn(async(_url:RequestInfo|URL,init?:RequestInit)=>init?.method==='POST'?Response.json(metadata):content());const session=new BoardDurableImageSession('board',()=>{},fetcher);expect(await session.upload(new Blob([bytes],{type:'image/png'}),'image.png')).toEqual(metadata);expect(fetcher).toHaveBeenCalledTimes(2);expect(fetcher.mock.calls[0]?.[1]?.body).toBeInstanceOf(FormData);expect(fetcher.mock.calls[0]?.[1]?.headers).toMatchObject({Authorization:'Bearer test-token'});expect(session.get(metadata.assetId)?.objectUrl).toMatch(/^blob:/);session.dispose();});
  it('refresh and peer create new authenticated reads; canonical state has no transient URL',async()=>{const fetcher=vi.fn(async()=>content()),first=new BoardDurableImageSession('board',()=>{},fetcher);await first.ensure(metadata);const oldUrl=first.get(metadata.assetId)!.objectUrl;expect(toBoardFabricObjects([object],id=>first.get(id)?.objectUrl)[0]?.imageAssetUrl).toBe(oldUrl);first.dispose();const peer=new BoardDurableImageSession('board',()=>{},fetcher);expect(peer.get(metadata.assetId)).toBeUndefined();await peer.ensure(metadata);expect(fetcher).toHaveBeenCalledTimes(2);expect(peer.get(metadata.assetId)!.objectUrl).not.toBe(oldUrl);expect(JSON.stringify(object)).not.toContain('blob:');peer.dispose();});
  it('does not reuse a same-digest handle across boards',async()=>{const fetcher=vi.fn(async(_url:RequestInfo|URL)=>content()),a=new BoardDurableImageSession('a',()=>{},fetcher),b=new BoardDurableImageSession('b',()=>{},fetcher);await a.ensure(metadata);await b.ensure(metadata);expect(fetcher.mock.calls.map(call=>String(call[0]))).toEqual([expect.stringContaining('/whiteboards/a/'),expect.stringContaining('/whiteboards/b/')]);a.dispose();b.dispose();});

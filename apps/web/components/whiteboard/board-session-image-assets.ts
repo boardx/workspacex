@@ -50,7 +50,7 @@ export class BoardDurableImageSession {
   private readonly controller = new AbortController();
   private bytes = 0;
   private closed = false;
-  constructor(private readonly boardId: string, private readonly changed: () => void, private readonly fetcher: typeof fetch = fetch) {}
+  constructor(private readonly boardId: string, private readonly changed: () => void, private readonly fetcher: typeof fetch = (...args) => globalThis.fetch(...args)) {}
   get(assetId: string | null | undefined) { return assetId ? this.cache.get(assetId) : undefined; }
   private async request(path: string, init: RequestInit = {}) {
     if(this.closed) throw new Error('IMAGE_SESSION_CLOSED');
