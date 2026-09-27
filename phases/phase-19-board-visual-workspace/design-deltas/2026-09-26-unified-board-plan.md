@@ -14,7 +14,7 @@
 
 ## 2. 现状与颜色（2026-09-27）
 
-当前交付记录（2026-09-27 实时核对）：R1–R6 已合入 main；R6 PR #4313 经机械门禁 READY_TO_MERGE 后合入，merge `a04fa21914e9b3f8fea822a3adc9c54629e7a97b`。R7 最新真实协作仍为2/4通过，重新授权已恢复，但已有评论对象的新讨论按钮及重连按钮遮挡仍待修复。R8 真实上传、读取、解码与Fabric像素已通过前置断言，导出权限修复正在重跑；真实Miro/Mural兼容、迁移/恢复仍未完成。R9最终runtime锁修复已获独立代码复核，真实PG并发及真实模型待验。R10已建立真实验收执行路径，但未执行的lane不计通过，九分尚未证明。
+当前交付记录（2026-09-27 实时核对）：R1–R6 已合入 main；R6 PR #4313 经机械门禁 READY_TO_MERGE 后合入，merge `a04fa21914e9b3f8fea822a3adc9c54629e7a97b`。R7 最新真实协作仍为2/4通过，评论权限和横幅布局已修；本地删除Undo与服务端不可变墓碑冲突已复现，正在实现保留原ID的授权恢复通道。R8 真实上传、读取、解码与Fabric像素已通过前置断言，导出权限修复正在重跑；真实Miro/Mural兼容、迁移/恢复仍未完成。R9最终runtime锁修复已获独立代码复核，真实PG双连接验证通过；真实模型浏览器链路仍在执行。R10已建立真实验收执行路径，但未执行的lane不计通过，九分尚未证明。
 
 颜色口径：绿色=已合入 main；黄色=主 session 正在验收；蓝色=实现与独立复核完成、等待集成；橙色=正在补实现或复核；灰色=待开始；紫色=P2 后续路线。状态只由 PR、exact SHA、CI 和主 session 动态证据支撑。
 
@@ -26,10 +26,10 @@ flowchart LR
   R2 --> R3["R3 Sticky / Text<br/>PR #4286 ✅"]:::merged
   R3 --> R4["R4 内容对象<br/>PR #4292 ✅"]:::merged
   R4 --> R5["R5 空间与关系<br/>PR #4308 ✅"]:::merged
-  R5 --> R6["R6 编辑与组织<br/>6项视觉/导航 + 4项空间通过 · #4313已合入"]:::done
-  R6 --> R7["R7 团队可靠性<br/>2/4真实场景通过 · 修复断网/重新授权"]:::accepting
-  R7 --> R8["R8 存储与迁移<br/>图片持久化真实验收中 · 迁移/恢复待验"]:::working
-  R8 --> R9["R9 AI / API / Chat / 会议室<br/>模型聚类/整体Undo已实现 · 安全复核与真实模型待验"]:::working
+  R5 --> R6["R6 编辑与组织<br/>6项视觉/导航 + 4项空间通过 · #4313已合入"]:::merged
+  R6 --> R7["R7 团队可靠性<br/>2/4真实场景通过 · 授权删除Undo修复中"]:::accepting
+  R7 --> R8["R8 存储与迁移<br/>官方Miro/Mural适配已实现 · 图片/联合备份验收中"]:::working
+  R8 --> R9["R9 AI / API / Chat / 会议室<br/>真实PG并发锁通过 · 真实模型链路验收中"]:::working
   R9 --> R10["R10 同一 SHA 总验收<br/>修复占位验收 / 真实负载与证据"]:::blocked
   R10 --> P2["P2 扩展路线<br/>Diagram / Mind Map / Kanban / Timeline<br/>Journey / Database / Agent与Live Data Tile"]:::future
   classDef merged fill:#dcfce7,stroke:#16a34a,color:#14532d
@@ -135,9 +135,9 @@ flowchart LR
 | Iteration 04 | R4 内容对象 | ✅ PR #4292 已合入 | 同上，逐对象创建/编辑/保存/协作验收 |
 | Iteration 05 | R5 空间与关系 | ✅ PR #4308 已合入 | 同上，Panel及绑定Connector旅程 |
 | Iteration 06 | R6 编辑与组织 | ✅ 6项视觉/导航、4项空间通过；[PR #4313](https://github.com/boardx/workspacex/pull/4313) 已合入 | 同上，Grid整理、快捷键与布局Undo |
-| Iteration 07 | R7 团队可靠性 | 🟡 最新真实验收2/4通过；已有线程评论、重连按钮遮挡修复中 | 同上，多客户端/撤权/恢复链路 |
+| Iteration 07 | R7 团队可靠性 | 🟡 最新真实验收2/4通过；授权删除Undo及降权重连修复中 | 同上，多客户端/撤权/恢复链路 |
 | Iteration 08 | R8 存储与迁移 | 🟠 图片前端持久化已集成并正在主session验收；迁移/恢复待验 | 同上，PG正文边界、迁移与恢复演练 |
-| Iteration 09 | R9 AI/API/Chat/会议室 | 🟠 完整runtimePin锁修复独立复核通过；真实PG并发及模型待验 | 同上，Agent完整操作与长时会议室 |
+| Iteration 09 | R9 AI/API/Chat/会议室 | 🟠 完整runtimePin独立复核及真实PG并发通过；真实模型待验 | 同上，Agent完整操作与长时会议室 |
 | Iteration 10 | R10 总验收 | 🔴 真实验收执行路径已补齐；待前九轮汇合后运行，不计九分 | 六旅程与所有硬门在统一SHA通过 |
 
 每个iteration PR关联该轮所有issue，逐项列出需求、实现、证据和未完成项；不能仅因部分模块通过就关闭整轮。子agent分支不单独创建主交付PR，修复提交继续进入同一轮PR。存在共享热点或依赖时分批集成，PR数量不成为降低范围或跳过验收的理由。跨轮预研可并行，正式实现仍遵守依赖；最终合并须有用户明确授权。
@@ -231,3 +231,11 @@ R10 已补真实 producer：六旅程 `fca257584`、50客户端30分钟 `3ccff94
 - R7：`bde254b1d` 主session真实运行2/4通过。fresh授权恢复已走通；失败定位到已有线程禁止新评论和全屏编辑器覆盖重连栏，正在修复。
 - R8：`a2df8f6c2` 去除不可变导出记录不必要的FOR UPDATE，不扩大app_rw权限；真实图片链路复验中。独立导入审计暴露格式、静默截断、loss与回导缺口，另开隔离工作树修复，未标兼容完成。
 - R9：`cb2147f80` 最终事务锁定发布版本和registry，完整pin校验；独立复核20项unit通过，真实双连接PG锁与模型仍待主session执行。
+
+
+### 2026-09-27 真实验收继续推进（13:43 CST）
+
+- R7：`6e6cc8dd5`评论实际提交与持久化已走通，但整组仍2/4；原ID删除Undo被raw Yjs validator的不可变墓碑规则拒绝，须补本人删除receipt绑定的服务端恢复操作，不能放宽防伪或丢弃评论/外部引用。`eeca9d40b`同时修正banner下创建/跟随中心与评论面板高度，待下一次浏览器复验。
+- R8：`34614d5e8`修正HTMLImage异步加载后Fabric父Group缓存未失效，实际像素验收未放宽；`325b3389e`/`7c2d9b3d6`整合Miro和官方Mural REST adapter，48项API/core复验通过；不等于真实厂商白板迁移通过。`c452557cb`加入真实PG+FS migration/rollback/growth/GC验收脚本，尚未运行。联合备份与评论正文blob化继续开发。
+- R9：`c508b466b9f840eaa9819cada63d9229b19c1015`主session实际PG双连接验收通过：app_rw权限、tenant/delegator拒绝、发布/禁用等待commit、探针零持久写均经数据库验证。模型验收仅使用内置30条虚构便利贴，自动审批已在确认数据范围后放行；真实模型结果尚未产生。
+- 完整九分仍未证明；本轮不新增主交付PR、不改变一轮一个PR规则，不把执行脚本/单测视为E2E结果。
