@@ -10,6 +10,20 @@ const document = {
 };
 
 describe("访谈 Markdown 正文单源", () => {
+  it("expert block includes nested sections until the next sibling expert", () => {
+    const raw = "## [甲](#expert-a)\n\n简介\n\n### 局限\n\n不能替代真人。\n\n## [乙](#expert-b)\n\n乙的资料。";
+    const blocks = parseInterviewMarkdown({ ...document, markdown: raw }).blocks;
+    expect(raw.slice(blocks[0]!.start, blocks[0]!.end)).toContain("不能替代真人。");
+    expect(blocks[0]!.end).toBe(blocks[2]!.start);
+  });
+  it("projects editable block ranges and stable links without rewriting CRLF content", () => {
+    const raw = "前言\r\n\r\n## [护理专家](#expert-nurse-7)\r\n\r\n夜班经验。\r\n\r\n## [核心问题](#question-q-9)\r\n\r\n最近一次遗漏是什么？\r\n";
+    const blocks = parseInterviewMarkdown({ ...document, markdown: raw }).blocks;
+    expect(blocks).toHaveLength(2);
+    expect(blocks[0]?.links).toEqual([{ text: "护理专家", url: "#expert-nurse-7" }]);
+    expect(raw.slice(blocks[1]!.start, blocks[1]!.end)).toBe("## [核心问题](#question-q-9)\r\n\r\n最近一次遗漏是什么？\r\n");
+    expect(Object.isFrozen(blocks[0])).toBe(true);
+  });
   it("sharesEvidenceModesWithPersistedArtifacts", () => {
     expect(InterviewMarkdownDocument.innerType().shape.evidenceMode)
       .toBe(DigitalInterviewArtifact.innerType().shape.evidenceMode);

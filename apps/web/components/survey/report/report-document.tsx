@@ -97,7 +97,7 @@ export function SurveyReportDocument({
   return (
     <article
       data-testid="survey-report-document"
-      className="mx-auto max-w-5xl bg-background p-6 font-sans text-background-foreground sm:p-10"
+      className="mx-auto max-w-5xl border border-border bg-card p-6 font-sans text-card-foreground shadow-sm sm:p-10"
     >
       <h1 className="mb-10 border-b border-border pb-6 text-24 font-bold leading-relaxed">{report.title}</h1>
       {report.sampleSummary && <p className="mb-6 text-12 text-muted-foreground" data-testid="survey-report-sample-summary">

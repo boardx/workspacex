@@ -308,9 +308,11 @@
     "DigitalInterviewController": {
       "useCases": [
         "interview/errors",
+        "interview/generate-interview-markdown",
         "interview/list-digital-interviews",
         "interview/manage-digital-interview",
-        "interview/quick-digital-interview"
+        "interview/quick-digital-interview",
+        "interview/read-interview-markdown"
       ]
     },
     "DocumentGenerationAutoApproveController": {
@@ -2262,6 +2264,7 @@
         "apps/web/lib/live-identity.ts",
         "apps/web/lib/live-org-admin.ts",
         "apps/web/lib/live-platform-access.ts",
+        "apps/web/lib/live-project-resources.ts",
         "apps/web/lib/live-projects.ts",
         "apps/web/lib/live-recording.ts"
       ],

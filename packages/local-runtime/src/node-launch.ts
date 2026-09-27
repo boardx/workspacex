@@ -9,6 +9,7 @@
  * ⚠ 桌面版里 `process.execPath` 是 Electron 本体：不带 ELECTRON_RUN_AS_NODE=1 起的是一个
  *   GUI，退出码 0、什么都不做（技能沙箱正是这么「成功」了几个月，#4306）。所以这里一并带上。
  */
+import { createRequire } from "node:module";
 import { join } from "node:path";
 
 export interface NodeLaunch {
@@ -21,11 +22,19 @@ export function nodeEnv(): Record<string, string> {
   return process.versions.electron ? { ELECTRON_RUN_AS_NODE: "1" } : {};
 }
 
-export function tsxLaunch(repoRoot: string, args: readonly string[]): NodeLaunch {
-  return { command: process.execPath, args: [join(repoRoot, "node_modules", "tsx", "dist", "cli.mjs"), ...args], env: nodeEnv() };
+/**
+ * 包的入口按 Node 自己的解析规则找，不写死目录形状（#4315）：pnpm 默认布局下 next 在
+ * apps/web/node_modules 里，Windows 打包用的 hoisted 布局下它被提到根上——写死的路径在
+ * windows-latest 上 MODULE_NOT_FOUND。从「谁依赖它」的那个包出发 resolve，两种布局都对。
+ */
+function resolveFrom(pkgDir: string, specifier: string): string {
+  return createRequire(join(pkgDir, "package.json")).resolve(specifier);
 }
 
-/** pnpm 不提升：`next` 在 apps/web 自己的 node_modules 里。 */
+export function tsxLaunch(repoRoot: string, args: readonly string[]): NodeLaunch {
+  return { command: process.execPath, args: [resolveFrom(repoRoot, "tsx/cli"), ...args], env: nodeEnv() };
+}
+
 export function nextLaunch(repoRoot: string, args: readonly string[]): NodeLaunch {
-  return { command: process.execPath, args: [join(repoRoot, "apps", "web", "node_modules", "next", "dist", "bin", "next"), ...args], env: nodeEnv() };
+  return { command: process.execPath, args: [resolveFrom(join(repoRoot, "apps", "web"), "next/dist/bin/next"), ...args], env: nodeEnv() };
 }

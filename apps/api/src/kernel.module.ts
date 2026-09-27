@@ -394,6 +394,9 @@ import {
   DIGITAL_INTERVIEW_RUNTIME,
 } from "./application/interview/workflow/digital-interview-runtime.port";
 import { PgDigitalInterviewRepository } from "./infrastructure/interview/pg-digital-interview-repository";
+import { PgInterviewMarkdownReader } from "./infrastructure/interview/pg-interview-markdown-reader";
+import { INTERVIEW_MARKDOWN_READER } from "./application/interview/read-interview-markdown";
+import { INTERVIEW_MARKDOWN_GENERATOR, generateInterviewMarkdown } from "./application/interview/generate-interview-markdown";
 import { PgDigitalInterviewEffects } from "./infrastructure/interview/workflow/pg-digital-interview-effects";
 import { readDigitalInterviewModelConfig } from "./infrastructure/interview/workflow/digital-interview-model-config";
 import {
@@ -2374,6 +2377,26 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
       provide: DIGITAL_INTERVIEW_REPOSITORY,
       useFactory: (db: DatabasePort) => new PgDigitalInterviewRepository(db),
       inject: [DATABASE_PORT],
+    },
+    {
+      provide: INTERVIEW_MARKDOWN_READER,
+      useFactory: (db: DatabasePort) => new PgInterviewMarkdownReader(db),
+      inject: [DATABASE_PORT],
+    },
+    {
+      provide: INTERVIEW_MARKDOWN_GENERATOR,
+      useFactory: (
+        repo: import("./application/interview/digital-interview-ports").DigitalInterviewRepository,
+        scope: import("./application/interview/ports").InterviewScopeRepository,
+        decisions: import("./application/identity/ports").DecisionIdFactory,
+        reader: import("./application/interview/read-interview-markdown").InterviewMarkdownReader,
+        model: ModelCallPort,
+      ) => {
+        const config = readDigitalInterviewModelConfig();
+        return { generate: (input: import("./application/interview/generate-interview-markdown").GenerateMarkdownInput) =>
+          generateInterviewMarkdown({ repo, scope, decisions, reader, model, modelProvider: config.provider, modelId: config.modelId }, input) };
+      },
+      inject: [DIGITAL_INTERVIEW_REPOSITORY, INTERVIEW_SCOPE_REPOSITORY, DECISION_ID_FACTORY, INTERVIEW_MARKDOWN_READER, MODEL_CALL_PORT],
     },
     {
       provide: DIGITAL_INTERVIEW_EFFECTS,

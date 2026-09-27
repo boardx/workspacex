@@ -7,9 +7,11 @@ import { surveyRequest } from "@/lib/survey/runtime-client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ProjectBreadcrumb, withProjectId } from "@/components/project/project-breadcrumb";
+import { linkProjectResource } from "@/lib/live-project-resources";
+import { CreateSurveyDialog } from "./create-survey-dialog";
 /**
  * `projectId`（项目中枢 B2-S2）：从项目「研究洞察 › 问卷」带 `?projectId=` 进来时，顶部挂「返回项目」
- * 面包屑，「创建问卷」入口续上 `projectId`，让工作台创建成功后能把问卷挂回该项目。
+ * 面包屑；新建弹窗建成后先把问卷挂回该项目，再带 `projectId` 进工作台。
  */
 export function LiveSurveyLibrary({ projectId = null }: { projectId?: string | null }) {
   const router = useRouter();
@@ -17,7 +19,8 @@ export function LiveSurveyLibrary({ projectId = null }: { projectId?: string | n
   const [busy, setBusy] = React.useState(true);
   const [error, setError] = React.useState("");
   const [query, setQuery] = React.useState("");
-  const visibleItems = items.filter((item) => item.title.toLocaleLowerCase().includes(query.trim().toLocaleLowerCase())).sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
+  const [creating,setCreating]=React.useState(false);
+  const visibleItems = items.filter((item) => [item.title,...(item.tags??[])].some(text=>text.toLocaleLowerCase().includes(query.trim().toLocaleLowerCase()))).sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
   const refresh = React.useCallback(async () => {
     setBusy(true);
     setError("");
@@ -60,12 +63,12 @@ export function LiveSurveyLibrary({ projectId = null }: { projectId?: string | n
           <h1 className="mt-2 text-24 font-semibold">我的问卷</h1>
           <p className="mt-2 text-13 text-muted-foreground">创建、发布并收集你的问卷，轻松获取真实反馈。</p>
         </div>
-        <div className="flex flex-wrap gap-2"><Link className="inline-flex min-h-8 items-center rounded-control border border-border bg-card px-3 text-13 font-medium text-card-foreground" href="/studio/survey?tab=modules">问卷模板</Link><Link className="inline-flex min-h-8 items-center rounded-control border border-border bg-card px-3 text-13 font-medium text-card-foreground" href="/studio/survey?tab=reports">报告模板</Link><Button onClick={() => router.push(withProjectId("/studio/survey/new?step=design", projectId))}>新建问卷</Button></div>
+        <div className="flex flex-wrap gap-2"><Link className="inline-flex min-h-8 items-center rounded-control border border-border bg-card px-3 text-13 font-medium text-card-foreground" href="/studio/survey?tab=modules">问卷模板</Link><Link className="inline-flex min-h-8 items-center rounded-control border border-border bg-card px-3 text-13 font-medium text-card-foreground" href="/studio/survey?tab=reports">报告模板</Link><Button onClick={() => setCreating(true)}>新建问卷</Button></div>
       </header>
       <div className="flex gap-2">
         <Input
           aria-label="搜索问卷"
-          placeholder="搜索问卷名称"
+          placeholder="搜索问卷名称、标签或关键词"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
         />
@@ -96,6 +99,7 @@ export function LiveSurveyLibrary({ projectId = null }: { projectId?: string | n
               >
                 {item.title}
               </Link>
+              {!!item.tags?.length&&<div className="mt-3 flex flex-wrap gap-2">{item.tags.map(tag=><span key={tag} className="rounded bg-muted px-2 py-1 text-12 text-muted-foreground">{tag}</span>)}</div>}
               <p className="mt-3 text-12 text-muted-foreground">
                 {item.questions.length} 道题 · {item.responses.length} 份答卷 ·{" "}
                 <span data-testid={`survey-status-${item.id}`}>{item.publication?.status === "collecting"
@@ -126,8 +130,13 @@ export function LiveSurveyLibrary({ projectId = null }: { projectId?: string | n
       </div>
       {!busy && !error && items.length > 0 && visibleItems.length === 0 && <p role="status" className="py-12 text-center text-muted-foreground">没有符合筛选条件的问卷</p>}
       {!busy && !error && items.length === 0 && (
-        <div className="space-y-4 py-16 text-center"><h2 className="text-18 font-semibold">还没有问卷</h2><p className="text-muted-foreground">从空白问卷或现有模板开始，三步完成设计、回收与答卷查看。</p><Button onClick={() => router.push("/studio/survey/new?step=design")}>新建问卷</Button></div>
+        <div className="space-y-4 py-16 text-center"><h2 className="text-18 font-semibold">还没有问卷</h2><p className="text-muted-foreground">从空白问卷或现有模板开始，三步完成设计、回收与答卷查看。</p><Button onClick={() => setCreating(true)}>新建问卷</Button></div>
       )}
+      <CreateSurveyDialog open={creating} onOpenChange={setCreating} onCreated={async (id) => {
+        // 挂失败不回滚问卷（问卷已存在），项目页可用「关联已有问卷」补挂。
+        if (projectId) { try { await linkProjectResource({ projectId, kind: "survey", resourceId: id }); } catch { /* 项目页可补挂 */ } }
+        router.push(withProjectId(`/studio/survey/${id}?step=design`, projectId));
+      }} />
     </main>
   );
 }

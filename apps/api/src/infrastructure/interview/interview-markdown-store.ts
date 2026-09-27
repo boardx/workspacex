@@ -6,6 +6,28 @@ import type { OrgId } from "../../domain/org-id";
 import { guard, type Guarded } from "../../application/security/permission-filter";
 
 type Document = interviewMarkdown.InterviewMarkdownDocument;
+
+/** Shared write visibility predicate. Parameters: $1 org, $2 interview, $3 actor;
+ * session alias s. Consumers still lock the row and disclose reads through Guarded.
+ */
+export const DIGITAL_INTERVIEW_ACTOR_VISIBILITY = `
+  EXISTS (
+    SELECT 1 FROM org_memberships om
+     WHERE om.org_id=$1 AND om.user_id=$3
+  )
+  AND (
+    s.created_by=$3
+    OR EXISTS (
+      SELECT 1 FROM interview_collaborators ic
+       WHERE ic.org_id=$1 AND ic.interview_id=s.id AND ic.user_id=$3
+    )
+    OR (
+      s.project_id IS NOT NULL AND EXISTS (
+        SELECT 1 FROM project_memberships pm
+         WHERE pm.org_id=$1 AND pm.project_id=s.project_id AND pm.user_id=$3
+      )
+    )
+  )`;
 type Artifact = z.infer<typeof interview.DigitalInterviewArtifact>;
 type SourceRow = {
   artifact_id: string; step: Document["step"]; version_number: number;
