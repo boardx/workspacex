@@ -11,6 +11,8 @@ import {
   ChatMaterialsDropOverlay, useFileDropSurface, type ChatMaterialsUploadPort,
 } from "@/components/chat/chat-composer-attachments";
 import { AgentPlanPanel, type PlanTodo } from "@/components/chat/agent-plan-panel";
+import { PlanStepActionList } from "@/components/chat/plan-step-action-list";
+import type { PlanStepAction } from "@/lib/chat-workbench/trace-plan";
 import { ThreadKnowledgeTab, useThreadKnowledge } from "@/components/chat/knowledge/thread-knowledge-tab";
 import { onOpenClaimSources, onOpenKnowledgePanel, requestOpenClaimSources } from "@/lib/knowledge-graph-events";
 import { readChatMemoryRequest } from "@/lib/chat-memory-link";
@@ -117,6 +119,10 @@ export interface ChatTaskInspectorProps {
   /** 正在上传、还没成功的材料条数——人类实测：从这个页签点「+」上传时，进度只出现在
    *  composer 里，「材料」这边在传完之前毫无反馈。默认 0（未接线时行为不变）。 */
   readonly uploadingMaterialsCount?: number;
+  /** 2026-09-27 计划显示统一 —— 最近一轮里每步计划下做过的动作（键 = 步骤文本）。
+   *  右栏「进度」页签是三处计划里讲**细节**的那一处：底部面板讲进行到哪、带控制，消息流讲
+   *  本轮结束时的快照，这里讲每一步具体做了什么。不传 = 只列步骤（此前行为）。 */
+  readonly planStepActions?: ReadonlyMap<string, readonly PlanStepAction[]>;
   /**
    * issue #3347 —— 「材料」页签的上传入口（点击 + 拖拽）。
    *
@@ -172,7 +178,7 @@ export function ChatTaskInspector(props: ChatTaskInspectorProps): JSX.Element {
   const {
     hasSelection, threadId, artifacts, materials, loading,
     artifactsError, materialsError, onRetry, onOpenArtifact, pendingMaterialsCount,
-    uploadingMaterialsCount = 0,
+    uploadingMaterialsCount = 0, planStepActions,
     planTodos, isRunning, runPhaseLabel, runStartedAt, roster,
     attachUploadPort = null, uploadDisabledReason = null, showKnowledge = false,
   } = props;
@@ -546,6 +552,7 @@ export function ChatTaskInspector(props: ChatTaskInspectorProps): JSX.Element {
               isRunning={isRunning}
               runPhaseLabel={runPhaseLabel}
               runElapsedSeconds={runElapsedSeconds}
+              stepActions={planStepActions}
             />
           ) : activeTab === "materials" ? (
             <ChatMaterialsPanel
@@ -653,12 +660,13 @@ export function ChatTaskInspector(props: ChatTaskInspectorProps): JSX.Element {
  * 工具调用的在途态——人类 2026-08-10 已裁决不做那个）。
  */
 function ProgressTab({
-  planTodos, isRunning, runPhaseLabel, runElapsedSeconds,
+  planTodos, isRunning, runPhaseLabel, runElapsedSeconds, stepActions,
 }: {
   planTodos: readonly PlanTodo[] | null;
   isRunning: boolean;
   runPhaseLabel: string | null;
   runElapsedSeconds: number | null;
+  stepActions?: ReadonlyMap<string, readonly PlanStepAction[]>;
 }) {
   const todos = planTodos !== null && planTodos.length > 0 ? planTodos : null;
   if (todos === null && !isRunning) {
@@ -689,6 +697,7 @@ function ProgressTab({
             stateSnapshotTodos={[...todos]}
             panelTestId="chat-task-workbench-plan-panel"
             stepTestId="chat-task-workbench-plan-step"
+            renderStepDetail={stepActions === undefined ? undefined : (todo) => <PlanStepActionList todo={todo} actions={stepActions.get(todo.content.trim()) ?? []} />}
           />
         </>
       )}
