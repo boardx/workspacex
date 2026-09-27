@@ -10,11 +10,11 @@ test("research persists all five model-backed steps through the real UI, API and
   await page.goto("/research");
   await expect(page.getByTestId("research-home-page")).toHaveAttribute("data-reference-layout", "research-list");
   await page.getByTestId("research-create").click();
-  await page.getByTestId("research-create-name").fill("研究全链路验证");
-  await page.getByTestId("research-create-submit").click();
   await expect(page).toHaveURL(/\/research\/new$/);
   await expect(page.getByTestId("shell-rail")).not.toBeVisible();
   await expect(page.getByTestId("research-workspace-header")).toBeVisible();
+  await page.getByText("完善研究信息", { exact: true }).click();
+  await page.getByTestId("research-brief-topic").fill("研究全链路验证");
   await page.getByTestId("research-brief-goal").fill("核对储能并网政策");
   let releaseGeneration!: () => void;
   const generationGate = new Promise<void>((resolve) => { releaseGeneration = resolve; });
@@ -26,7 +26,7 @@ test("research persists all five model-backed steps through the real UI, API and
   await page.getByTestId("research-confirm-brief").click();
   try {
     await expect(page.getByTestId("research-step-loading")).toBeVisible();
-    await expect(page.getByRole("button", { name: /确认研究主题/ })).toHaveAttribute("aria-current", "step");
+    await expect(page.getByTestId("research-step-topic")).toHaveAttribute("aria-current", "step");
     await page.screenshot({ path: testInfo.outputPath("research-next-step-loading.png"), fullPage: true });
   } finally { releaseGeneration(); }
   await expect(page.getByRole("heading", { name: "确认研究主题", exact: true })).toBeVisible();
