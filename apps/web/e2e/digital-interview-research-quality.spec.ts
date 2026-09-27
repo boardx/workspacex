@@ -38,6 +38,10 @@ test("expert avatar changes persist, reset and fit desktop/tablet/mobile", async
   await editor.getByRole("button", { name: "机器人头像" }).click();
   await editor.getByRole("button", { name: "保存头像" }).click();
   await expect(page.getByTestId("itv-expert-detail-dialog").getByRole("img")).toHaveAttribute("data-avatar-key", "robot");
+  await page.goto(`/itv/experts/${encodeURIComponent(expert.expertId)}`);
+  await expect(page.getByTestId("itv-expert-detail").getByRole("img")).toHaveAttribute("data-avatar-key", "robot");
+  await expect(page.getByRole("button", { name: `修改${expert.displayName}头像` })).toBeVisible();
+  await page.goto("/itv/itv-quality-e2e/experts");
   await page.reload();
   await page.getByTestId(`itv-expert-detail-trigger-${expert.expertId}`).click();
   await expect(page.getByTestId("itv-expert-detail-dialog").getByRole("img")).toHaveAttribute("data-avatar-key", "robot");

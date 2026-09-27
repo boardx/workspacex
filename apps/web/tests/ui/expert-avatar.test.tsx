@@ -2,11 +2,20 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import { ExpertAvatar, ExpertAvatarEditor } from "@/components/itv/expert-avatar";
 import { AVATAR_KEYS, defaultExpertAvatar, avatarStorageKey } from "@/lib/interview-expert-avatar";
+import { DigitalExpertDetail } from "@/components/itv/digital-expert-detail";
+import { MOCK_DIGITAL_EXPERTS } from "@/lib/mock/digital-expert-personas";
 
 beforeEach(() => localStorage.clear());
 afterEach(() => { cleanup(); vi.restoreAllMocks(); });
 
 describe("expert SVG avatars", () => {
+  it("shows saved avatars and editing on the standalone expert detail route", () => {
+    const expert = MOCK_DIGITAL_EXPERTS[0]!;
+    localStorage.setItem(avatarStorageKey(expert.expertId), "robot");
+    render(<DigitalExpertDetail expertId={expert.expertId} />);
+    expect(screen.getByRole("img").getAttribute("data-avatar-key")).toBe("robot");
+    expect(screen.getByRole("button", { name: `修改${expert.displayName}头像` })).not.toBeNull();
+  });
   it("binds stable defaults to identity, not display name", () => {
     expect(AVATAR_KEYS).toHaveLength(25);
     expect(AVATAR_KEYS).toContain(defaultExpertAvatar("expert-1"));
