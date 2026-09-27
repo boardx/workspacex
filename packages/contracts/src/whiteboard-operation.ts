@@ -132,6 +132,7 @@ export const WhiteboardAIProposalAction = z.discriminatedUnion('type', [
   z.object({ type: z.literal('connect'), objectIds: z.array(WhiteboardObjectId).min(2).max(WHITEBOARD_OPERATION_LIMITS.proposalObjects), commands: z.array(WhiteboardCommand).min(1).max(WHITEBOARD_OPERATION_LIMITS.commands) }).strict(),
 ]);
 export const WhiteboardAIProposal = z.object({
+  runtimePin: z.object({model:z.string().min(1),skill:z.string().min(1),agentVersionId:z.string().min(1)}).strict().optional(),
   proposalId: z.string().uuid(), boardId: BoardId, createdBy: WhiteboardOperationActor,
   baseRevision: Revision, baseObjectDigests: z.record(z.string().regex(/^object-v1:[a-f0-9]{64}$/)),
   action: WhiteboardAIProposalAction, provenance: WhiteboardOperationProvenance,

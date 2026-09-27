@@ -3008,8 +3008,8 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
     },
     {
       provide: WHITEBOARD_PROPOSAL_SERVICE,
-      useFactory: (db: DatabasePort, collaboration: PgWhiteboardCollaborationStore, operations: WhiteboardOperationService) => new WhiteboardProposalService(db,collaboration,new PgWhiteboardOperationRepository(),new PgWhiteboardProposalRepository(),operations),
-      inject: [DATABASE_PORT, WHITEBOARD_COLLABORATION_STORE, WHITEBOARD_OPERATION_SERVICE],
+      useFactory: (db: DatabasePort, collaboration: PgWhiteboardCollaborationStore, operations: WhiteboardOperationService, agents:PublishedAgentReader) => new WhiteboardProposalService(db,collaboration,new PgWhiteboardOperationRepository(),new PgWhiteboardProposalRepository(),operations,undefined,agents),
+      inject: [DATABASE_PORT, WHITEBOARD_COLLABORATION_STORE, WHITEBOARD_OPERATION_SERVICE,PUBLISHED_AGENT_READER],
     },
     {
       provide: WHITEBOARD_ORGANIZE_SERVICE,

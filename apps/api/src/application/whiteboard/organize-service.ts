@@ -63,9 +63,9 @@ export class WhiteboardOrganizeService {
       if(completion.cancelled||completion.paused||completion.interrupted)throw new WhiteboardOperationError('DEPENDENCY_UNAVAILABLE');text=completion.text;
     }catch{throw new WhiteboardOperationError('DEPENDENCY_UNAVAILABLE');}finally{if(timer)clearTimeout(timer);}
     let generated:ReturnType<typeof clusterCommands>;try{generated=clusterCommands(objects,JSON.parse(text));}catch{throw new WhiteboardOperationError('VALIDATION_FAILED');}
-    const latest=await this.runtime(principal,input.actorId);if(latest.snapshot.agentVersionId!==snapshot.agentVersionId)throw new WhiteboardOperationError('STALE_REVISION');
+    const latest=await this.runtime(principal,input.actorId);if(latest.snapshot.agentVersionId!==snapshot.agentVersionId||latest.registered.model!==registered.model||latest.registered.skill!==registered.skill)throw new WhiteboardOperationError('STALE_REVISION');
     await this.authorize(principal,boardId);
     return this.proposals.create(principal,boardId,{proposalId:input.requestId,actorId:input.actorId,baseRevision:input.expectedRevision,
-      action:{type:'cluster',objectIds:input.objectIds,...generated},provenance:{source:'ai-proposal',model:registered.model,skill:registered.skill,sourceArtifactId:null,sourceRevision:null,layoutHash:null,inputObjectIds:input.objectIds}});
+      action:{type:'cluster',objectIds:input.objectIds,...generated},provenance:{source:'ai-proposal',model:registered.model,skill:registered.skill,sourceArtifactId:null,sourceRevision:null,layoutHash:null,inputObjectIds:input.objectIds}},{model:registered.model!,skill:registered.skill!,agentVersionId:snapshot.agentVersionId});
   }
 }
