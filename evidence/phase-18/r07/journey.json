@@ -1,0 +1,142 @@
+{
+  "ids": {
+    "p4283A": "thr-c73b4b78-77fc-4b4c-a8b5-8d1e679beef0",
+    "c211Session": "clm_0bfad5d05f574713bc75885a796c6fe4",
+    "c211Personal": "act_4fbea1a0fbad4e35a4f69c86f58f5436-p",
+    "p4283B": "thr-b142145b-5f94-4f75-9273-1f2e056903d6",
+    "p4283C": "thr-862c5bd6-dcf1-41a5-ba0d-7cb8c07c100b",
+    "p4284A": "thr-3bf3c9e5-d647-437a-9403-0771ea75e03a",
+    "c985Session": "clm_5dc04a9dcf1340b28674c1320fbc2163",
+    "c985Personal": "act_e2b7ae91cd394aefa3c7b40cfc6b6024-p",
+    "p4284Control": "thr-196d2548-ae98-4738-95ee-1ea9dfb1cdc4",
+    "project": "thr-f1645ba2-1d39-4041-8019-dbf5bd0f3d7c",
+    "projectAnswer": "be71c39f-869f-45d8-bba9-3146d3163e80"
+  },
+  "s4283_1": {
+    "answerId": "bfd9c43e-c390-4a40-ab63-dd31f4c91386",
+    "chip": "已记下：我决定关注 211 高校\n·\n已记入个人记忆\n·\n撤销"
+  },
+  "s4283_1_personal": [
+    {
+      "id": "act_4fbea1a0fbad4e35a4f69c86f58f5436-p",
+      "statement": "我决定关注 211 高校",
+      "status": "proposed"
+    }
+  ],
+  "s4283_2": {
+    "answerId": "b6934b8f-88c0-4cae-af51-6be468ee9e18",
+    "text": "根据之前的对话：我决定关注 211 高校（来自个人空间知识，最早见于你 09/26 的对话）。",
+    "recalled": [
+      {
+        "claimId": "act_4fbea1a0fbad4e35a4f69c86f58f5436-p",
+        "statement": "我决定关注 211 高校",
+        "triState": "pending",
+        "scope": "personal",
+        "saidAt": "2026-09-26T14:30:33.862Z",
+        "channels": [
+          "claim"
+        ],
+        "retrievalReasons": [
+          "recall"
+        ],
+        "score": 0,
+        "graphPath": null
+      }
+    ],
+    "footer": "根据之前的对话：我决定关注 211 高校（来自个人空间知识，最早见于你 09/26 的对话）。\n\n[1]\n我决定关注 211 高校\nAI 记下的\n来自你 9/26 的对话\n为什么用到它\n\n正在记…"
+  },
+  "s4283_3": {
+    "personalAfterUndo": [],
+    "sessionClaimsAfterUndo": []
+  },
+  "s4283_4": {
+    "answerId": "566d84f1-5525-4f45-a5a9-0c514a3c0e62",
+    "text": "好的，收到。",
+    "recalled": [],
+    "footer": "好的，收到。\n\n正在记…"
+  },
+  "s4284_2": {
+    "answerId": "5d236b9d-b754-4f96-8b3e-9cf9c3844e5b",
+    "text": "根据之前的对话：我决定关注 985 高校（来自个人空间知识，最早见于你 09/26 的对话）。"
+  },
+  "s4284_2_claim": {
+    "id": "clm_9589e8d468d944f7bbbd19a4c74eb95c",
+    "scope": {
+      "kind": "chat_session",
+      "id": "thr-196d2548-ae98-4738-95ee-1ea9dfb1cdc4"
+    },
+    "kind": "fact",
+    "statement": "关注名单已经定下来了",
+    "status": "proposed",
+    "triState": "pending",
+    "confidence": 0.9,
+    "createdBy": "model",
+    "reviewedBy": null,
+    "supersedesClaimId": null,
+    "derivedFromClaimId": null,
+    "aboutObjectIds": [],
+    "supportingCount": 1,
+    "contradictingCount": 0,
+    "createdAt": "2026-09-26T14:30:59.919Z"
+  },
+  "s4284_3": {
+    "answerId": "be71c39f-869f-45d8-bba9-3146d3163e80",
+    "text": "根据之前的对话：我决定关注 985 高校（来自个人空间知识，最早见于你 09/26 的对话）。",
+    "recalledForA": [
+      {
+        "claimId": "act_e2b7ae91cd394aefa3c7b40cfc6b6024-p",
+        "statement": "我决定关注 985 高校",
+        "triState": "pending",
+        "scope": "personal",
+        "saidAt": "2026-09-26T14:30:53.994Z",
+        "channels": [
+          "claim"
+        ],
+        "retrievalReasons": [
+          "recall"
+        ],
+        "score": 0,
+        "graphPath": null
+      }
+    ],
+    "footerForA": "根据之前的对话：我决定关注 985 高校（来自个人空间知识，最早见于你 09/26 的对话）。\n\n[1]\n我决定关注 985 高校\nAI 记下的\n来自你 9/26 的对话\n为什么用到它\n\n正在记…"
+  },
+  "s4284_4": {
+    "answerTextSeenByB": "根据之前的对话：我决定关注 985 高校（来自个人空间知识，最早见于你 09/26 的对话）。",
+    "citationChipsForB": "",
+    "recalledForB": [],
+    "extractionForB": {
+      "status": 200,
+      "body": {
+        "claims": []
+      }
+    },
+    "panelClaimsForB": [],
+    "panelClaimsForA": [],
+    "sourcesOfAPersonalForB": {
+      "status": 404,
+      "body": {
+        "error": "not_found",
+        "traceId": "4db55b90-ed52-4d82-9291-ef8e60de1da7",
+        "reasonCode": "KG_CLAIM_NOT_FOUND"
+      }
+    },
+    "sourcesOfASessionForB": {
+      "status": 404,
+      "body": {
+        "error": "not_found",
+        "traceId": "7064d2fa-378b-4868-b21d-3f3a58339739",
+        "reasonCode": "KG_CLAIM_NOT_FOUND"
+      }
+    },
+    "sourcesOfMissingForB": {
+      "status": 404,
+      "body": {
+        "error": "not_found",
+        "traceId": "1d68bceb-729f-4ba3-8d99-b6bf86824609",
+        "reasonCode": "KG_CLAIM_NOT_FOUND"
+      }
+    },
+    "panelUiTextForB": "记忆（0）\n只读\n会话成员可见\n\n已整理到最新\n\n对话里提到的人、决定和事实会自动记在这里，你什么都不用做。现在还没有——先聊几句。"
+  }
+}

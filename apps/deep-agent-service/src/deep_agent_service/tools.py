@@ -221,6 +221,23 @@ def _chunk_text(chunk) -> str:
     return ""
 
 
+# 2026-09-25 真实模型实测（"生成一个交互式的网页，来介绍设计思维"）：聊天里出现了一段
+# 英文旁白——"Now let me create the bundle.html (self-contained copy) and compute
+# hashes:"——混在中文对话里，看起来像编排模型自己在说话，其实是 `web-artifact` 技能
+# 自己那次聚焦调用（下面这个函数）产出的英文叙述。
+#
+# 根因：LangChain 的 `Runnable.stream()` 不显式传 `config` 时，会用
+# `ensure_config()` 去读**环境态**（`contextvars`）里挂着的那一份——图执行期间，
+# LangGraph 往这个环境态里挂的正是"把 token 转发进这次 run 的 SSE 流"的回调。
+# `_focused_call` 调用 `model.stream(messages)` 时没传 `config`，于是这次**技能内部**
+# 的子调用，跟编排模型自己说话共用了同一条转发通道——子调用产出的每一个 token
+# （包括模型在写代码前用英文起的头"Now let me..."）都被转发成了用户能看见的对话内容。
+# 反证见 `tests/test_tools.py`：装一个假的环境态回调，不传 `config` 时它收到 token，
+# 传 `config={"callbacks": []}` 后它一个 token 都收不到——这就是下面这行 `config=`
+# 存在的全部理由，删掉它这条反证立刻转红。
+_ISOLATED_STREAM_CONFIG = {"callbacks": [], "tags": ["deep_agent_focused_skill_call"]}
+
+
 def _focused_call(model, system_prompt: str, task: str, progress, skill_name: str) -> str:
     """#3322 —— 聚焦模型调用改成**流式**，好让它中途能报进展。
 
@@ -230,6 +247,8 @@ def _focused_call(model, system_prompt: str, task: str, progress, skill_name: st
     ⚠ 模型对象**没有** `.stream`（本仓测试里的鸭子替身就是这样）时退回 `.invoke`，行为与
     本 feature 之前逐字相同、一条进展都不发。这不是静默降级：没有流就是真的没有中间信号，
     这里不替它编一个。
+
+    ⚠ `stream()` 必须显式传 `config=_ISOLATED_STREAM_CONFIG`——理由见上面那段模块级注释。
     """
     messages = [
         {"role": "system", "content": system_prompt},
@@ -237,12 +256,17 @@ def _focused_call(model, system_prompt: str, task: str, progress, skill_name: st
     ]
     stream = getattr(model, "stream", None)
     if stream is None:
+        # `.invoke()` 分支只有测试用的鸭子替身会走到（它们没有 `.stream`），
+        # 那些替身的签名是 `invoke(self, messages)`——单个位置参数，不接受
+        # `config` kwarg。真模型永远走下面 `stream()` 那条分支，这里保持原样
+        # 不加 `config`，不为了"看起来一致"去改一个没有真实泄漏风险
+        # （非流式、一次性返回）的分支，反而炸掉所有既有测试。
         response = model.invoke(messages)
         return response.content if isinstance(response.content, str) else str(response.content)
     parts: list[str] = []
     total = 0
     progress.emit(f"技能「{skill_name}」已开始生成…", force=True)
-    for chunk in stream(messages):
+    for chunk in stream(messages, config=_ISOLATED_STREAM_CONFIG):
         piece = _chunk_text(chunk)
         if not piece:
             continue

@@ -47,6 +47,7 @@ import {
   survey,
   wave2Runtime,
   whiteboardImport,
+  whiteboard,
 } from "@repo/contracts";
 import type { Response } from "express";
 import { errorDetailOf, LOGGER_PORT, type LoggerPort } from "../../application/ports/logger.port";
@@ -541,7 +542,16 @@ function permissionReasonOf(exception: HttpException): { reasonCode?: string; cu
    * 仍是闭集：枚举外的 `KG_*` 字符串到不了客户端。
    */
   const knowledgeGraphError = knowledgeGraph.KgErrorCode.safeParse(raw);
-  return knowledgeGraphError.success ? { reasonCode: knowledgeGraphError.data } : {};
+  if (knowledgeGraphError.success) return { reasonCode: knowledgeGraphError.data };
+
+  /**
+   * Board resource mutations use these closed codes to distinguish recoverable conflicts:
+   * a stale revision can be refreshed and retried, while permanent deletion first requires
+   * archiving.  Keep the global error boundary closed by parsing the contract enum instead
+   * of forwarding an exception message or arbitrary response field.
+   */
+  const whiteboardError = whiteboard.WhiteboardErrorCode.safeParse(raw);
+  return whiteboardError.success ? { reasonCode: whiteboardError.data } : {};
 }
 
 /**

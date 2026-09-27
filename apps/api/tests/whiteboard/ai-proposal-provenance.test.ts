@@ -1,3 +1,5 @@
 import{describe,expect,it}from'vitest';import{inverse}from'../../src/application/whiteboard/proposal-service';import type{WhiteboardObject}from'@repo/contracts/whiteboard-document';
 const note:WhiteboardObject={id:'n1',schemaVersion:1,kind:'sticky',geometry:{x:1,y:2,width:100,height:100,rotation:0},text:'before',style:{fill:'#fff'},parentId:null,orderKey:''};
 describe('AI proposal undo provenance',()=>{it('builds a reverse-ordered executable receipt from authoritative pre-confirm objects',()=>{const commands=[{type:'geometry' as const,id:'n1',geometry:{...note.geometry,x:300}},{type:'text' as const,id:'n1',index:0,deleteCount:6,insert:'after'}];expect(inverse(commands,new Map([[note.id,note]]))).toEqual([{type:'text',id:'n1',index:0,deleteCount:5,insert:'before'},{type:'geometry',id:'n1',geometry:note.geometry}]);});});
+
+it('undo deletion restores the retained canonical object instead of recreating its tombstoned id',()=>{expect(inverse([{type:'delete',id:note.id}],new Map([[note.id,note]]))).toEqual([{type:'restore',id:note.id}]);expect(inverse([{type:'restore',id:note.id}],new Map())).toEqual([{type:'delete',id:note.id}]);});

@@ -1,5 +1,8 @@
-export type BoardFabricKind = "sticky" | "text" | "rectangle" | "ellipse" | "placeholder";
-export type BoardFabricTool = "select" | "hand";
+import type { BoardContentData } from "../board-content-adapter";
+import type { ConnectorAnchor, ConnectorLineStyle, ConnectorTip, ConnectorType, PanelMode } from "@repo/whiteboard-core";
+
+export type BoardFabricKind = "sticky" | "text" | "rectangle" | "ellipse" | "shape" | "drawing" | "image" | "card" | "panel" | "group" | "connector" | "placeholder";
+export type BoardFabricTool = "select" | "hand" | "draw-pen" | "draw-marker" | "draw-highlighter" | "erase";
 
 export interface BoardProjectionIssue {
   code: "BOARD_OBJECT_UNSUPPORTED" | "BOARD_PROJECTION_FAILED";
@@ -20,6 +23,10 @@ export interface BoardFabricStyle {
   textColor: string;
   stroke?: string;
   strokeWidth?: number;
+  borderStyle?: "solid" | "dashed" | "dotted";
+  opacity?: number;
+  radius?: number;
+  verticalAlignment?: "top" | "middle" | "bottom";
   fontSize?: number;
   /** Validated thinking-input typography. Optional for legacy canonical objects. */
   textPreset?: "title" | "heading" | "subheading" | "body" | "caption";
@@ -38,6 +45,28 @@ export interface BoardFabricStickyAppearance {
   sizingMode: "auto-height" | "fixed" | "auto-size";
 }
 
+export interface BoardFabricPanelAppearance {
+  title: string;
+  mode: PanelMode;
+  autoExpand: boolean;
+  clipContent: boolean;
+}
+
+export interface BoardFabricConnectorAppearance {
+  from?: string;
+  to?: string;
+  fromAnchor: ConnectorAnchor;
+  toAnchor: ConnectorAnchor;
+  type: ConnectorType;
+  startStyle: ConnectorTip;
+  endStyle: ConnectorTip;
+  lineStyle: ConnectorLineStyle;
+  label: string;
+  semanticRelation: string;
+  start: { x: number; y: number };
+  end: { x: number; y: number };
+}
+
 export interface BoardFabricObject {
   id: string;
   kind: BoardFabricKind;
@@ -48,8 +77,15 @@ export interface BoardFabricObject {
   content: { text: string };
   /** Renderer-only sticky shape and resize behavior derived from canonical extension data. */
   sticky?: BoardFabricStickyAppearance;
+  /** Validated content-object payload. Never contains unvalidated extension data. */
+  boardContent?: BoardContentData;
+  /** Verified browser-local bytes. Fabric must never fall back to boardContent.sourceUrl. */
+  imageAssetUrl?: string;
+  panel?: BoardFabricPanelAppearance;
+  connector?: BoardFabricConnectorAppearance;
   parentId?: string;
   locked?: boolean;
+  zIndex?: number;
   /** Renderer-only diagnostic. It is derived from canonical content and is never persisted. */
   projectionIssue?: BoardProjectionIssue;
 }

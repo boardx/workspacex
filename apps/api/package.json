@@ -84,6 +84,7 @@
     "playwright": "1.63.0-alpha-2026-08-31",
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.1",
+    "sharp": "0.34.5",
     "undici": "7.28.0",
     "ws": "^8.18.0",
     "yjs": "13.6.32",

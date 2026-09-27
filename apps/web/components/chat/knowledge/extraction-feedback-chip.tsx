@@ -3,7 +3,8 @@
 import * as React from "react";
 import { Sparkles } from "lucide-react";
 import {
-  applyHumanAction, fetchMessageExtraction, fetchThreadKnowledge, knowledgeGraphErrorCode,
+  applyHumanAction, fetchMessageExtraction, fetchThreadKnowledge, knowledgeGraphErrorCode, undoAutoPersonalCopy,
+  type MessageExtraction,
 } from "@/lib/knowledge-graph-api";
 import { describeHumanActionFailure } from "@/lib/knowledge-graph-failure";
 import { truncateStatement } from "@/lib/knowledge-graph-recall";
@@ -41,6 +42,16 @@ import { TURN_MEMORY_REPOLL_DELAYS_MS } from "./turn-memory-line";
  * 会话里对同一条消息反复闪现，已经处理过的 claimId 在这个组件实例的本地状态里排除，
  * 不持久化到别处（同 `ConflictPromptCard`/`AnswerMemoryLine` 对「已处理」只在本地状态里
  * 记一次的既有做法，见两者头注）。
+ *
+ * ## issue #4283：「已记入个人记忆」
+ *
+ * 本人说出的决定会被系统自动记进**本人**的个人空间（仍是「AI 记下的」，未确认）。`personalCopyClaimId`
+ * 非空时这一行多一句「已记入个人记忆」，撤销按钮也对作者本人出现（哪怕他不是会话所有者）。点「撤销」：
+ *   1. 先撤个人空间那份（`undoAutoPersonalCopy`）——这是人类决定里点名必须能撤的那一半；
+ *   2. 再在调用者是会话所有者时撤会话里的原结论（F10 `revokeClaim`，与改动前同一条路）。
+ * 所有者点一下两份都撤——「撤销」的意思就是「别记这句话」；不是所有者的作者只撤自己空间里那份（会话的知识
+ * 归会话所有者，F10 R5）。顺序上先撤个人副本：第二步撞上版本冲突时，最要紧的那份已经撤掉，再点一次
+ * 第一步读到 `KG_CLAIM_NOT_FOUND` 视为已撤、直接走第二步。
  */
 export function ExtractionFeedbackChip({
   threadId,
@@ -49,7 +60,7 @@ export function ExtractionFeedbackChip({
   readonly threadId: string;
   readonly messageId: string;
 }) {
-  const [claims, setClaims] = React.useState<readonly { readonly claimId: string; readonly statement: string }[]>([]);
+  const [claims, setClaims] = React.useState<MessageExtraction["claims"]>([]);
   const [handled, setHandled] = React.useState<ReadonlySet<string>>(() => new Set());
   const [undoingId, setUndoingId] = React.useState<string | null>(null);
   const [errorFor, setErrorFor] = React.useState<Readonly<Record<string, string>>>({});
@@ -87,7 +98,7 @@ export function ExtractionFeedbackChip({
     };
   }, [threadId, messageId]);
 
-  const undo = React.useCallback(async (claimId: string): Promise<void> => {
+  const undo = React.useCallback(async (claimId: string, personalCopyClaimId: string | null): Promise<void> => {
     setUndoingId(claimId);
     setErrorFor((cur) => {
       if (!(claimId in cur)) return cur;
@@ -96,10 +107,20 @@ export function ExtractionFeedbackChip({
       return next;
     });
     try {
-      // 版本号点击时现取：同 `AnswerMemoryLine.undo` 的既有纪律，拿快照里的旧版本号
-      // 去撤销第一次必撞 KG_REVISION_CHANGED。
-      const revision = (await fetchThreadKnowledge(threadId)).revision;
-      await applyHumanAction(threadId, revision, { type: "revokeClaim", claimId });
+      if (personalCopyClaimId !== null) {
+        try {
+          await undoAutoPersonalCopy(threadId, claimId);
+        } catch (e) {
+          // 已经不在（别处撤过 / 已确认过）：视为这一步已完成，不报错。
+          if (knowledgeGraphErrorCode(e) !== "KG_CLAIM_NOT_FOUND") throw e;
+        }
+      }
+      if (canUndo) {
+        // 版本号点击时现取：同 `AnswerMemoryLine.undo` 的既有纪律，拿快照里的旧版本号
+        // 去撤销第一次必撞 KG_REVISION_CHANGED。
+        const revision = (await fetchThreadKnowledge(threadId)).revision;
+        await applyHumanAction(threadId, revision, { type: "revokeClaim", claimId });
+      }
       setHandled((cur) => (cur.has(claimId) ? cur : new Set(cur).add(claimId)));
     } catch (e) {
       if (knowledgeGraphErrorCode(e) === "KG_CLAIM_NOT_FOUND") {
@@ -111,7 +132,7 @@ export function ExtractionFeedbackChip({
       setUndoingId(null);
       requestKnowledgeReload(threadId);
     }
-  }, [threadId]);
+  }, [threadId, canUndo]);
 
   const visible = claims.filter((c) => !handled.has(c.claimId));
   if (visible.length === 0) return null;
@@ -123,7 +144,13 @@ export function ExtractionFeedbackChip({
           <p className="flex items-center gap-1 text-10 text-muted-foreground" data-testid={`kg-extraction-line-${c.claimId}`}>
             <Sparkles aria-hidden className="h-3 w-3" />
             已记下：{truncateStatement(c.statement)}
-            {canUndo ? (
+            {c.personalCopyClaimId !== null ? (
+              <>
+                <span aria-hidden>·</span>
+                <span data-testid={`kg-extraction-personal-${c.claimId}`}>已记入个人记忆</span>
+              </>
+            ) : null}
+            {canUndo || c.personalCopyClaimId !== null ? (
               <>
                 <span aria-hidden>·</span>
                 <button
@@ -131,7 +158,7 @@ export function ExtractionFeedbackChip({
                   className="text-muted-foreground underline-offset-2 transition-colors duration-base hover:underline disabled:cursor-not-allowed disabled:text-disabled-foreground disabled:hover:no-underline"
                   data-testid={`kg-extraction-undo-${c.claimId}`}
                   disabled={undoingId === c.claimId}
-                  onClick={() => void undo(c.claimId)}
+                  onClick={() => void undo(c.claimId, c.personalCopyClaimId)}
                 >
                   {undoingId === c.claimId ? "撤销中…" : "撤销"}
                 </button>

@@ -20,7 +20,7 @@ export class WhiteboardOperationError extends Error {
 export type WhiteboardRateLimitedEntry='operation'|'artifact-handoff'|'events'|'objects'|'head'|'proposal-create'|'proposal-read'|'proposal-cancel'|'proposal-confirm'|'room-join'|'presentation-read'|'presentation-command';
 function collaborationError(error:unknown):never{
   if(!(error instanceof WhiteboardCollaborationError))throw error;
-  const code=error.code==='STALE_EPOCH'?'STALE_REVISION':error.code==='INTEGRITY_FAILED'||error.code==='VALIDATOR_UNAVAILABLE'?'DEPENDENCY_UNAVAILABLE':error.code;
+  const code=error.code==='COMMENT_CONFLICT'||error.code==='INVALID_MENTION'?'VALIDATION_FAILED':error.code==='STALE_EPOCH'?'STALE_REVISION':error.code==='INTEGRITY_FAILED'||error.code==='VALIDATOR_UNAVAILABLE'?'DEPENDENCY_UNAVAILABLE':error.code;
   throw new WhiteboardOperationError(code);
 }
 const canonical=(value:unknown):string=>Array.isArray(value)?`[${value.map(canonical).join(',')}]`:value&&typeof value==='object'?`{${Object.entries(value as Record<string,unknown>).sort(([a],[b])=>a.localeCompare(b)).map(([k,v])=>`${JSON.stringify(k)}:${canonical(v)}`).join(',')}}`:JSON.stringify(value);

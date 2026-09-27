@@ -23,8 +23,8 @@ import { describeMessageFailure, landAsArtifact } from "@/lib/live-chat";
  *
  * ## 只提供 `mode: "draft"`
  *
- * `live`/`pinned` 要求非空 citations，而 citations 的写入路径目前不存在——提供那两个
- * 选项就是摆一个必炸的按钮。这条判断是从旧轨道原样搬过来的，不是本次新下的结论。
+ * `live`/`pinned` 要求消息挂有非空 citations（I-33）。自 #4230 起引用已有写入路径，
+ * 但并非每条消息都有引用；按消息判定可用模式尚未实现，因此这里仍只提供 draft。
  */
 
 /** 落地只需要消息的这两个字段；刻意不认任何一条轨道自己的消息类型。 */

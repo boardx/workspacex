@@ -120,19 +120,11 @@ test("用户可从模板完整走通创建、发布、答题、查看答卷和�
   await expect(page.getByTestId("survey-report-generated-at")).toBeVisible();
   await expect(report.locator("[data-chart] svg").first()).toContainText("2");
 
-  const download = page.waitForEvent("download");
-  await page.getByRole("button", { name: "导出 Word" }).click();
-  const word = await download;
-  expect(word.suggestedFilename()).toMatch(/\.docx$/);
-  const wordStream = await word.createReadStream();
-  expect(wordStream).not.toBeNull();
-  const chunks: Buffer[] = [];
-  for await (const chunk of wordStream!) {
-    chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
-  }
-  const wordBytes = Buffer.concat(chunks);
-  expect(wordBytes.byteLength).toBeGreaterThan(1_024);
-  expect(wordBytes.subarray(0, 4)).toEqual(Buffer.from([0x50, 0x4b, 0x03, 0x04]));
+  await expect(page.getByTestId("survey-report-share-privacy-warning")).toHaveText(
+    "纳入分析的样本不足 8 份，无法导出或共享报告",
+  );
+  await expect(page.getByRole("button", { name: "导出 Word" })).toBeDisabled();
+  await expect(page.getByRole("button", { name: "导出 PDF" })).toBeDisabled();
 
   await page.getByRole("button", { name: "← 返回列表" }).click();
   await expect(page).toHaveURL(/\/studio\/survey$/);

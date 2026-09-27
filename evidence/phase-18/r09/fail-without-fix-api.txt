@@ -1,0 +1,27 @@
+   × F16: 长期记忆里的旧说法 > 个人线程里与自己长期记忆冲突 ⇒ 出卡（旧条是个人空间那条）；以新的为准 ⇒ 长期记忆里旧的失效、记进新的 204ms
+   × issue #4302: 大脑页的长期记忆——时间、折叠的取代历史、忘掉 / 撤销取代 > A1「我决定关注 211 高校」自动记入长期记忆；来源带说出它的时间，标明是自动记下的 271ms
+   × issue #4302: 大脑页的长期记忆——时间、折叠的取代历史、忘掉 / 撤销取代 > B1「改成关注 985 高校吧」：活记忆只剩 985（口径不变）；211 折叠在 985 下面，带撤销（B1 上那次取代） 239ms
+   × issue #4302: 大脑页的长期记忆——时间、折叠的取代历史、忘掉 / 撤销取代 > 只读本人：同组织的另一位成员读到的长期记忆是空的，也动不了 A 的撤销 18ms
+   × issue #4302: 大脑页的长期记忆——时间、折叠的取代历史、忘掉 / 撤销取代 > 撤销取代（replaced.undo 给的对话 + noticeId）：211 恢复，两条都在，没有折叠行 19ms
+   × issue #4302: 大脑页的长期记忆——时间、折叠的取代历史、忘掉 / 撤销取代 > 忘掉 985（仍是「AI 记下的」、自动记下）⇒ undoAutoPersonalCopy：长期记忆里没了，对话里那条还在 40ms
+   × issue #4302: 大脑页的长期记忆——时间、折叠的取代历史、忘掉 / 撤销取代 > 忘掉确认过的一条 ⇒ 在来源对话上 revokeClaim：长期记忆里那份经 F07 级联一起失效，不出现在折叠历史里 234ms
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 7 ⎯⎯⎯⎯⎯⎯⎯
+AssertionError: [{"code":"invalid_type","expected":"array","received":"undefined","path":["replaced"],"message":"Required"}]: expected false to be true // Object.is equality
+AssertionError: [{"code":"invalid_type","expected":"array","received":"undefined","path":["replaced"],"message":"Required"}]: expected false to be true // Object.is equality
+AssertionError: [{"code":"invalid_type","expected":"array","received":"undefined","path":["replaced"],"message":"Required"}]: expected false to be true // Object.is equality
+AssertionError: [{"code":"invalid_type","expected":"array","received":"undefined","path":["replaced"],"message":"Required"}]: expected false to be true // Object.is equality
+AssertionError: [{"code":"invalid_type","expected":"string","received":"undefined","path":["personalOrigins",0,"saidAt"],"message":"Required"},{"code":"invalid_type","expected":"boolean","received":"undefined","path":["personalOrigins",0,"autoCopied"],"message":"Required"}]: expected false to be true // Object.is equality
+AssertionError: [{"code":"invalid_type","expected":"array","received":"undefined","path":["replaced"],"message":"Required"}]: expected false to be true // Object.is equality
+      Tests  7 failed | 39 passed (46)
+
+# ── 第 9 轮 review 修复：行为反证（F07 只数活的 derived_from 边）──
+# 做法：在已迁移到修复后的库 r09fix 上重新执行旧的 20260924250000_kg_f07_invalidation.sql（把 kg_cascade_claim_revocation 换回旧口径），
+# 跑新加的复现用例 tests/knowledge-graph/brain-forget-detached-source.test.ts；再执行 20260927100000_kg_f07_active_sources_only.sql 恢复后同一用例 2/2 通过。
+# 旧口径（被撤销自动记入摘掉的 B1 仍算活来源）：忘掉后那条长期记忆仍活着 ⇒ 失败
+   × issue #4302 review: 被摘掉的来源不再撑着长期记忆（F07 只数活的 derived_from 边） > A1 + B1 → 一条两个来源；B1 撤销（detached）；A1 确认；大脑页忘掉 ⇒ 长期记忆那份真的没了，B1 的对话结论不动 445ms
+     → expected [ Array(1) ] to not include 'act_a102a3db24384f538b212d7d6aa86d51-p'
+   ✓ issue #4302 review: 被摘掉的来源不再撑着长期记忆（F07 只数活的 derived_from 边） > 改口取代里的新决定被忘掉、长期记忆那份靠别的来源还活着 ⇒ 不再给「撤销取代」 305ms
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+ FAIL  tests/knowledge-graph/brain-forget-detached-source.test.ts > issue #4302 review: 被摘掉的来源不再撑着长期记忆（F07 只数活的 derived_from 边） > A1 + B1 → 一条两个来源；B1 撤销（detached）；A1 确认；大脑页忘掉 ⇒ 长期记忆那份真的没了，B1 的对话结论不动
+      Tests  1 failed | 1 passed (2)
+# 恢复修复后：Tests  2 passed (2)

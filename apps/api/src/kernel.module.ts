@@ -1,16 +1,25 @@
 import {WHITEBOARD_ORGANIZE_SERVICE,WhiteboardOrganizeService} from './application/whiteboard/organize-service';
 import {PgBoardOrganizeActorDirectory} from './infrastructure/whiteboard/pg-organize-actor-directory';
-import { WHITEBOARD_COLLABORATION_STORE, WHITEBOARD_UPDATE_VALIDATOR } from './application/whiteboard/collaboration-ports';
+import { WhiteboardAssetsController } from './interface/controllers/whiteboard-assets.controller';
+import { WHITEBOARD_IMAGE_ASSETS, WhiteboardImageAssets } from './application/whiteboard/image-assets';
+import { PgBoardImageAssets } from './infrastructure/whiteboard/pg-image-assets';
+import { SharpBoardImageVerifier } from './infrastructure/whiteboard/image-verifier';
+import { WHITEBOARD_COLLABORATION_STORE, WHITEBOARD_COMMENT_STORE, WHITEBOARD_RECOVERY_SERVICE, WHITEBOARD_UPDATE_VALIDATOR, type WhiteboardCollaborationStore, type WhiteboardUpdateValidator } from './application/whiteboard/collaboration-ports';
 import { PgWhiteboardCollaborationStore } from './infrastructure/whiteboard/pg-collaboration-store';
+import { PgWhiteboardCommentStore } from './infrastructure/whiteboard/pg-whiteboard-comment-store';
+import { PgWhiteboardRecoveryAdapter } from './infrastructure/whiteboard/pg-whiteboard-recovery';
 import { WorkerWhiteboardUpdateValidator } from './infrastructure/whiteboard/update-validator';
-import { WhiteboardController } from './interface/controllers/whiteboard.controller';
-import { WHITEBOARD_REPOSITORY } from './application/whiteboard/ports';
+import { WhiteboardController, WhiteboardTagController } from './interface/controllers/whiteboard.controller';
+import { WHITEBOARD_REPOSITORY, WHITEBOARD_TAG_REPOSITORY } from './application/whiteboard/ports';
+import { DUPLICATE_BOARD_SERVICE } from './application/whiteboard/ports';
+import { BOARD_CONTENT_COPY_PORT, type BoardContentCopyPort } from './application/whiteboard/board-content-copy-port';
+import { DuplicateBoard } from './application/whiteboard/duplicate-board';
 import { PgWhiteboardRepository } from './infrastructure/whiteboard/pg-whiteboard-repository';
 import { WhiteboardImportController } from './interface/controllers/whiteboard-import.controller';
 import { WHITEBOARD_IMPORT_SERVICE, WhiteboardImportService } from './application/whiteboard/import-service';
+import { WHITEBOARD_OBJECT_INVENTORY,type WhiteboardObjectInventory } from './application/whiteboard/object-retention';
 import { PgWhiteboardImportRepository } from './infrastructure/whiteboard/pg-import-repository';
-import { WHITEBOARD_RECOVERY_SERVICE, WhiteboardRecoveryService } from './application/whiteboard/recovery-service';
-import { CollaborationSnapshotSource, PgWhiteboardRecoveryMetadata } from './infrastructure/whiteboard/pg-recovery-metadata';
+import { WhiteboardRecoveryService } from './application/whiteboard/recovery-service';
 import { WHITEBOARD_OPERATION_SERVICE, WhiteboardOperationService } from './application/whiteboard/operation-service';
 import { WhiteboardOperationController } from './interface/controllers/whiteboard-operation.controller';
 import { PgWhiteboardOperationRepository } from './infrastructure/whiteboard/pg-operation-repository';
@@ -18,6 +27,10 @@ import { WHITEBOARD_PROPOSAL_SERVICE, WhiteboardProposalService } from './applic
 import { PgWhiteboardProposalRepository } from './infrastructure/whiteboard/pg-proposal-repository';
 import { WHITEBOARD_PRESENTATION_SERVICE, WhiteboardPresentationService } from './application/whiteboard/presentation-service';
 import { PgWhiteboardPresentationRepository } from './infrastructure/whiteboard/pg-presentation-repository';
+import { PgWhiteboardExportRepository } from './infrastructure/whiteboard/pg-export-repository';
+import { WHITEBOARD_GC_RUNTIME,WhiteboardGcRuntime } from './infrastructure/whiteboard/object-gc-runtime';
+import { PgWhiteboardTagRepository } from './infrastructure/whiteboard/pg-whiteboard-tag-repository';
+import { PgBoardContentCopyStore } from './infrastructure/whiteboard/pg-board-content-copy-store';
 import { SurveyAttachmentRateLimitGuard, SURVEY_ATTACHMENT_RATE_LIMITER, SURVEY_ATTACHMENT_REQUESTS_PER_MINUTE } from "./interface/guards/survey-attachment-rate-limit.guard";
 import { SurveyUploadCapabilityGuard, SurveyAttachmentController } from "./interface/controllers/survey-attachment.controller";
 import { PgSurveyAttachmentRepository } from "./infrastructure/survey/pg-survey-attachment-repository";
@@ -624,11 +637,15 @@ import { PgTelemetryFacts } from "./infrastructure/telemetry/pg-telemetry-facts"
 import { HttpTelemetryTransport } from "./infrastructure/telemetry/http-telemetry-transport";
 import { TelemetryReportWorker } from "./infrastructure/telemetry/telemetry-report-worker";
 import {
+  DEV_PROJECTION_SYNC_CONFIG, DEV_PROJECTION_SYNC_RUNNER, DevProcessProjectionSyncWorker,
+  readDevProjectionSyncConfig, scriptProjectionSyncRunner,
+} from "./infrastructure/retrieval/dev-process-projection-sync-worker";
+import {
   FIRST_VALUE_FACT_STORE, FIRST_VALUE_RECORDER, FirstValueRecorder, type FirstValueFactStore,
 } from "./application/first-value/first-value-recorder";
 import { PgFirstValueFacts } from "./infrastructure/first-value/pg-first-value-facts";
 import { FirstValueController } from "./interface/controllers/first-value.controller";
-import { GRAPH_PROJECTION_PORT, KG_CONFLICT_PORT, KG_DEPLOYMENT_EXTRACTION_SETTINGS_PORT, KG_EXTRACTION_QUEUE_PORT, KG_EXTRACTION_SOURCE_PORT, KG_ORG_EXTRACTION_SETTINGS_PORT, HUMAN_ACTION_PORT, KNOWLEDGE_EXTRACTOR_PORT, KNOWLEDGE_READ_PORT, MEMORY_CARD_PORT, ONTOLOGY_STORE_PORT, PROMOTION_PORT } from "./application/knowledge-graph/ports";
+import { GRAPH_PROJECTION_PORT, KG_AUTO_COPY_PORT, KG_CONFLICT_PORT, KG_DEPLOYMENT_EXTRACTION_SETTINGS_PORT, KG_EXTRACTION_QUEUE_PORT, KG_EXTRACTION_SOURCE_PORT, KG_ORG_EXTRACTION_SETTINGS_PORT, HUMAN_ACTION_PORT, KNOWLEDGE_EXTRACTOR_PORT, KNOWLEDGE_READ_PORT, MEMORY_CARD_PORT, ONTOLOGY_STORE_PORT, PROMOTION_PORT } from "./application/knowledge-graph/ports";
 import { PgPromotion } from "./infrastructure/knowledge-graph/pg-promotion";
 import { PgHumanAction } from "./infrastructure/knowledge-graph/pg-human-action";
 import { KnowledgeGraphController } from "./interface/controllers/knowledge-graph.controller";
@@ -641,6 +658,7 @@ import { KG_EXTRACTION_MODEL_CONFIG, readKgExtractionModelConfig, type KgExtract
 import { ModelKnowledgeExtractor } from "./infrastructure/knowledge-graph/model-knowledge-extractor";
 import { PgKgExtraction } from "./infrastructure/knowledge-graph/pg-kg-extraction";
 import { PgKgConflict } from "./infrastructure/knowledge-graph/pg-kg-conflict";
+import { PgKgAutoCopy } from "./infrastructure/knowledge-graph/pg-kg-auto-copy";
 import { PgMemoryCard } from "./infrastructure/knowledge-graph/pg-memory-card";
 import { KgProjectionWorker } from "./infrastructure/knowledge-graph/kg-projection-worker";
 import { PgGraphProjection } from "./infrastructure/knowledge-graph/pg-graph-projection";
@@ -1106,6 +1124,8 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
     WhiteboardController,
     WhiteboardOperationController,
     WhiteboardImportController,
+    WhiteboardAssetsController,
+    WhiteboardTagController,
     PublicDesignShareController,
     SystemMailController,
     SystemUptimeController,
@@ -1534,6 +1554,7 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
     { provide: IN_FLIGHT_CALLS, useClass: InMemoryInFlightCalls },
     // File byte and compliance dependencies share the configured storage backend.
     ...storageProviders, ...deletionProviders,
+    {provide:WHITEBOARD_GC_RUNTIME,useFactory:(db:DatabasePort,objects:WhiteboardObjectInventory,purge:PhysicalPurgePort)=>new WhiteboardGcRuntime(db,objects,purge as PhysicalPurgePort&Required<Pick<PhysicalPurgePort,'purgeExact'>>),inject:[DATABASE_PORT,WHITEBOARD_OBJECT_INVENTORY,PHYSICAL_PURGE_PORT]},
     { provide: EMBEDDING_PORT, useFactory: langChainEmbeddingClientFromEnv },
     {
       provide: RERANK_PORT,
@@ -2946,18 +2967,38 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
       inject: [DATABASE_PORT, OBJECT_STORE],
     },
     {
+      provide: WHITEBOARD_COMMENT_STORE,
+      useFactory: (db:DatabasePort,validator:WhiteboardUpdateValidator,collaboration:WhiteboardCollaborationStore)=>new PgWhiteboardCommentStore(db,validator,undefined,collaboration),
+      inject:[DATABASE_PORT,WHITEBOARD_UPDATE_VALIDATOR,WHITEBOARD_COLLABORATION_STORE],
+    },
+    {
+      provide: WHITEBOARD_RECOVERY_SERVICE,
+      useFactory:(db:DatabasePort,collaboration:WhiteboardCollaborationStore,objects:ObjectStore)=>{const adapter=new PgWhiteboardRecoveryAdapter(db,collaboration,objects);return new WhiteboardRecoveryService(adapter,adapter,objects);},
+      inject:[DATABASE_PORT,WHITEBOARD_COLLABORATION_STORE,OBJECT_STORE],
+    },
+    {
       provide: WHITEBOARD_REPOSITORY,
       useFactory: (db: DatabasePort) => new PgWhiteboardRepository(db),
       inject: [DATABASE_PORT],
     },
     {
-      provide: WHITEBOARD_IMPORT_SERVICE,
-      useFactory: (boards: PgWhiteboardRepository, collaboration: PgWhiteboardCollaborationStore, db: DatabasePort, objects: ObjectStore) => new WhiteboardImportService(boards,new PgWhiteboardImportRepository(db),collaboration,objects),
-      inject: [WHITEBOARD_REPOSITORY, WHITEBOARD_COLLABORATION_STORE, DATABASE_PORT, OBJECT_STORE],
+      provide: WHITEBOARD_IMAGE_ASSETS,
+      useFactory: (boards: PgWhiteboardRepository, db: DatabasePort, objects: ObjectStore) => new WhiteboardImageAssets(boards, new PgBoardImageAssets(db), objects, new SharpBoardImageVerifier()),
+      inject: [WHITEBOARD_REPOSITORY, DATABASE_PORT, OBJECT_STORE],
     },
     {
-      provide: WHITEBOARD_RECOVERY_SERVICE,
-      useFactory: (db: DatabasePort, collaboration: PgWhiteboardCollaborationStore, objects: ObjectStore) => new WhiteboardRecoveryService(new PgWhiteboardRecoveryMetadata(db),new CollaborationSnapshotSource(collaboration),objects),
+      provide: WHITEBOARD_IMPORT_SERVICE,
+      useFactory: (boards: PgWhiteboardRepository, collaboration: PgWhiteboardCollaborationStore, db: DatabasePort, objects: ObjectStore, images: WhiteboardImageAssets) => new WhiteboardImportService(boards,new PgWhiteboardImportRepository(db),collaboration,objects,new PgWhiteboardExportRepository(db),undefined,images),
+      inject: [WHITEBOARD_REPOSITORY, WHITEBOARD_COLLABORATION_STORE, DATABASE_PORT, OBJECT_STORE, WHITEBOARD_IMAGE_ASSETS],
+    },
+    {
+      provide: WHITEBOARD_TAG_REPOSITORY,
+      useFactory: (db: DatabasePort) => new PgWhiteboardTagRepository(db),
+      inject: [DATABASE_PORT],
+    },
+    {
+      provide: BOARD_CONTENT_COPY_PORT,
+      useFactory: (db: DatabasePort, collaboration: PgWhiteboardCollaborationStore, objects: ObjectStore) => new PgBoardContentCopyStore(db, collaboration, objects),
       inject: [DATABASE_PORT, WHITEBOARD_COLLABORATION_STORE, OBJECT_STORE],
     },
     {
@@ -2979,6 +3020,11 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
       provide: WHITEBOARD_PRESENTATION_SERVICE,
       useFactory: (db: DatabasePort) => new WhiteboardPresentationService(db,new PgWhiteboardOperationRepository(),new PgWhiteboardPresentationRepository()),
       inject: [DATABASE_PORT],
+    },
+    {
+      provide: DUPLICATE_BOARD_SERVICE,
+      useFactory: (content: BoardContentCopyPort) => new DuplicateBoard(content),
+      inject: [BOARD_CONTENT_COPY_PORT],
     },
     {
       provide: DESIGN_PROJECT_REPOSITORY,
@@ -3056,6 +3102,10 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
       inject: [FIRST_VALUE_FACT_STORE, LOGGER_PORT],
     },
     TelemetryReportWorker,
+    // D12：开发过程投影同步（默认关，WSX_DEV_PROJECTION_SYNC_ORG 打开；幂等，失败只记日志）。
+    { provide: DEV_PROJECTION_SYNC_CONFIG, useFactory: () => readDevProjectionSyncConfig() },
+    { provide: DEV_PROJECTION_SYNC_RUNNER, useValue: scriptProjectionSyncRunner },
+    DevProcessProjectionSyncWorker,
     // Phase 18（ADR-114）：本体唯一写入口（F03）+ AGE 投影 worker（F04，outbox → 各 org 的图）。
     { provide: ONTOLOGY_STORE_PORT, useFactory: (db: DatabasePort) => new PgOntologyStore(db), inject: [DATABASE_PORT] },
     { provide: GRAPH_PROJECTION_PORT, useFactory: (db: DatabasePort) => new PgGraphProjection(db), inject: [DATABASE_PORT] },
@@ -3065,6 +3115,8 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
     { provide: KG_EXTRACTION_QUEUE_PORT, useFactory: (db: DatabasePort) => new PgKgExtraction(db), inject: [DATABASE_PORT] },
     { provide: KG_EXTRACTION_SOURCE_PORT, useExisting: KG_EXTRACTION_QUEUE_PORT },
     { provide: KG_CONFLICT_PORT, useFactory: (db: DatabasePort) => new PgKgConflict(db), inject: [DATABASE_PORT] },
+    // issue #4283：本人说的决定自动记进本人个人空间（系统写，目标空间由数据库按证据作者推出）+ 本人撤销。
+    { provide: KG_AUTO_COPY_PORT, useFactory: (db: DatabasePort) => new PgKgAutoCopy(db), inject: [DATABASE_PORT] },
     {
       provide: KNOWLEDGE_EXTRACTOR_PORT,
       useFactory: (model: ModelCallPort, config: KgExtractionModelConfig, logger: LoggerPort) => new ModelKnowledgeExtractor(model, config, logger),

@@ -42,6 +42,8 @@ import type {
 import { BlueprintBindingFailedError } from "../../application/project/ports";
 import type { ProjectKind } from "../../domain/project/create-project-rules";
 import { SUBTYPE_TABLE } from "../../domain/project/subtype-tables";
+import type { OrgId } from "../../domain/org-id";
+import type { SampleProjectMarker } from "../../application/project/sample-project/ensure-sample-project";
 
 interface ProjectRow {
   id: string;
@@ -49,7 +51,7 @@ interface ProjectRow {
   status: "active" | "archived";
 }
 
-export class PgProjectRepository implements ProjectRepository {
+export class PgProjectRepository implements ProjectRepository, SampleProjectMarker {
   constructor(
     private readonly db: DatabasePort,
     private readonly ids: IdFactory,
@@ -165,6 +167,19 @@ export class PgProjectRepository implements ProjectRepository {
 
       const row = created.rows[0]!;
       return { id: row.id, kind: row.kind, status: row.status, created: true };
+    });
+  }
+
+  /**
+   * #4245 —— 示例项目的持久标记。只被 `ensureSampleProject` 调（紧跟本文件的 `create` 之后），
+   * 仍是纯 INSERT，不读任何租户行；`ON CONFLICT DO NOTHING` ⇒ 补种/续跑重复调用是空操作。
+   */
+  async markSampleProject(orgId: OrgId, projectId: string): Promise<void> {
+    await this.db.withTenant(orgId, async (s) => {
+      await s.query(
+        `INSERT INTO sample_projects (project_id, org_id) VALUES ($1, $2) ON CONFLICT DO NOTHING`,
+        [projectId, orgId],
+      );
     });
   }
 }

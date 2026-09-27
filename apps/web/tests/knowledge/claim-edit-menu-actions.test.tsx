@@ -400,6 +400,7 @@ describe("回答下「撤销」：逐条忘掉本轮记下的", () => {
           captured: [{ claimId: "c-fact", statement: "客户 B 需要中文界面。" }, { claimId: "c-todo", statement: "赵六整理发版清单。" }],
           pending: false,
           prompt: null,
+          supersede: null,
           recalled: [],
           recallDegraded: false,
         });

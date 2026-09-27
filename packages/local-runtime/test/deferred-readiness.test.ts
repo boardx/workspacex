@@ -46,6 +46,16 @@ describe("不挡首屏的就绪等待", () => {
     expect(block).toContain("onServiceHealth?.(h)");
   });
 
+  it("模型探测排在选模型之后——探的是真正在服务的那个模型（#3872 R21）", () => {
+    // 排在前面时探的是配置里的 qwen3.5:4b，而 mac-arm64 只带 qwen3.5:4b-mlx：每次启动
+    // 十秒后报一条假的「模型起不来」。动态证据在 PR 里（装好的应用的日志），这里挡回退。
+    const choose = src.indexOf("const chosen = preferredChatModel(");
+    const probe = src.search(/deferredReady\.push\(\{\s*name: "model"/);
+    expect(choose, "找不到选模型那一句").toBeGreaterThan(0);
+    expect(probe, "找不到模型探测那一段").toBeGreaterThan(0);
+    expect(probe).toBeGreaterThan(choose);
+  });
+
   it("我们自己关应用时不把那些失败当故障报出去", () => {
     // 退出时这些等待必然失败（进程被停了），报出去就是每次退出弹一个假警报。
     const block = src.slice(src.indexOf("for (const d of deferredReady)"));

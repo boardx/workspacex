@@ -1,8 +1,55 @@
 export { createWhiteboardDocument, cloneDocument, readObjects, validateDocument, executeCommands, copyObjects } from './document';
 export { BoardCommandPort, WhiteboardCommandOrigin, type BoardCommandAccepted, type BoardCommandEnvelope } from './command-port';
 export { WhiteboardUndo } from './undo';
-export { WhiteboardObject, WhiteboardGeometry, WhiteboardStyle, WhiteboardCommand, WhiteboardCommandBatch, WHITEBOARD_LIMITS } from '@repo/contracts/whiteboard-document';
+export { WhiteboardObject, WhiteboardGeometry, WhiteboardStyle, WhiteboardCommand, WhiteboardCommandBatch, WhiteboardLayoutCommand, WhiteboardLayoutKind, WHITEBOARD_LIMITS } from '@repo/contracts/whiteboard-document';
 export { prepareWhiteboardUpdate, WHITEBOARD_UPDATE_LIMITS } from './update';
+export { duplicateWhiteboardSnapshot, type DuplicatedWhiteboardSnapshot } from './duplicate';
+export { geometryBoundsInLocalSpace, localPointFromScene, rotatedAnchorPoint, rotatedGeometryCorners, scenePointFromLocal, type SpatialAnchor, type SpatialPoint } from './spatial-geometry';
+export {
+  WhiteboardCommentService, WhiteboardPresenceRegistry, checkpointHash, verifyCheckpoint, restoredHead,
+  type CollaborationAccepted, type CollaborationActor, type CollaborationDependencies,
+  type PresenceInput, type PresenceState,
+} from './collaboration';
+export {
+  ContentObjectCommandPort,
+  SHAPE_SEMANTICS,
+  SHAPE_VARIANTS,
+  appendDrawingStroke,
+  createContentObject,
+  createContentObjectEnvelope,
+  drawingEraserLayers,
+  instantiateTemplateEnvelope,
+  parseContentObject,
+  readContentObject,
+  semanticContentTitle,
+  updateDrawingStroke,
+  validateContentExtension,
+  validateSafeExtensionTree,
+  type BorderStyle,
+  type CanonicalContentObject,
+  type ContentObjectAccepted,
+  type ContentObjectCommandEnvelope,
+  type ContentObjectCreatedAccepted,
+  type ContentObjectEvent,
+  type ContentObjectType,
+  type CreateContentObjectInput,
+  type DrawingContent,
+  type DrawingStroke,
+  type DrawingTool,
+  type IconContent,
+  type ImageContent,
+  type InstantiateTemplateInput,
+  type ReplaceContentObjectCommand,
+  type ShapeContent,
+  type ShapeVariant,
+  type StrokePoint,
+  type TableContent,
+  type TemplateContent,
+  type TemplateObjectBlueprint,
+  type TileContent,
+  type TileField,
+  type WebTileContent,
+} from './content-objects';
 export {
   SpatialRelationshipCommandPort,
   type ConnectorAnchor,
@@ -19,41 +66,26 @@ export {
 } from './spatial-relationships';
 export { parsePanelMetadata, readPanelMetadata, type FlowDirection, type PanelMetadata, type PanelMode } from './spatial-model';
 export {
-  WhiteboardCommentService, WhiteboardPresenceRegistry, checkpointHash, verifyCheckpoint, restoredHead,
-  type CollaborationAccepted, type CollaborationActor, type CollaborationDependencies,
-  type PresenceInput, type PresenceState,
-} from './collaboration';
-export {
-  ContentObjectCommandPort,
-  SHAPE_VARIANTS,
-  createContentObject,
-  createContentObjectEnvelope,
-  parseContentObject,
-  readContentObject,
-  validateContentExtension,
-  type BorderStyle,
-  type CanonicalContentObject,
-  type ContentObjectAccepted,
-  type ContentObjectCommandEnvelope,
-  type ContentObjectCreatedAccepted,
-  type ContentObjectEvent,
-  type ContentObjectType,
-  type CreateContentObjectInput,
-  type DrawingContent,
-  type DrawingStroke,
-  type DrawingTool,
-  type IconContent,
-  type ImageContent,
-  type ReplaceContentObjectCommand,
-  type ShapeContent,
-  type ShapeVariant,
-  type StrokePoint,
-  type TableContent,
-  type TemplateContent,
-  type TileContent,
-  type TileField,
-  type WebTileContent,
-} from './content-objects';
+  DEFAULT_LAYOUT_GAP,
+  SelectionLayoutCommandPort,
+  arrangeObjects,
+  calculateSnapGuides,
+  calculateRotationSnap,
+  canonicalSceneBounds,
+  createLayoutPreconditions,
+  resolveSelection,
+  type LayoutCommandAccepted,
+  type LayoutCommandEnvelope,
+  type LayoutGeometryState,
+  type LayoutPrecondition,
+  type LayoutPreview,
+  type ObjectsArrangedEvent,
+  type SelectionResolution,
+  type SnapGuide,
+  type SnapMeasurement,
+  type SnapResult,
+  type RotationSnapResult,
+} from './selection-layout';
 export {
   STICKY_COLOR_PRESETS,
   beginComposition,
@@ -86,7 +118,7 @@ export {
   type ThinkingInputGeometry,
   type ThinkingPaste,
 } from './thinking-input';
-export { mapImportedBoard, type ImportedBoardItem, type ImportMappingIssue, type ImportMappingResult, type ImportSource } from './import-mapping';
+export { mapImportedBoard, type ImportedBoardItem, type ImportMappingIssue, type ImportMappingOutcome, type ImportMappingResult, type ImportSource } from './import-mapping';
 export { WhiteboardOperationKernel, digestWhiteboardObject, stableBoardDigest, type BoardHead, type BoardOperationAuthorizer, type OperationIds } from './operation-kernel';
 export { WhiteboardAIProposalManager, proposalCommands } from './ai-proposal';
 export { computeRenderedLayoutHash, renderedLayoutToCommands, verifyRenderedDiagramLayout } from './artifact-handoff';

@@ -55,6 +55,7 @@ export const TOOL_LABEL: Record<string, string> = {
   wx_document_parse: "解析文档",
   wx_knowledge_search: "检索知识库",
   wx_knowledge_read: "读取知识库",
+  wx_cite: "标注引用来源",
   wx_memory_search: "检索记忆",
   wx_memory_write: "记录记忆",
   wx_memory_delete: "删除记忆",

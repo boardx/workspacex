@@ -1,0 +1,12 @@
+{
+  "note": "随产品分发、许可证不在允许清单内但已登记的包（#4262）。按 名字@版本 + 许可证原文 匹配，许可证或版本一变就重新变红。reason 里写「待人类确认」的是 agent 登记的存量，不是法务结论。",
+  "reviewed": [
+    { "package": "@edge-runtime/primitives@4.1.0", "license": "MPL-2.0", "reason": "待人类确认。经 @copilotkit/channels-core 把 vitest 写进生产依赖带入（上游打包错误），见 docs/research/oss-dependency-licenses-2026-09-24.md。MPL 文件级 copyleft，原样分发只需保留声明。" },
+    { "package": "@edge-runtime/vm@3.2.0", "license": "MPL-2.0", "reason": "待人类确认。同上一条。" },
+    { "package": "@fontsource-variable/bitter@5.3.0", "license": "OFL-1.1", "reason": "待人类确认。字体许可，允许随软件再分发，不得单独售卖字体。" },
+    { "package": "@fontsource-variable/jetbrains-mono@5.3.0", "license": "OFL-1.1", "reason": "待人类确认。同上一条。" },
+    { "package": "@fontsource-variable/noto-sans-sc@5.3.0", "license": "OFL-1.1", "reason": "待人类确认。同上一条。" },
+    { "package": "buffers@0.1.1", "license": null, "reason": "待人类确认。未声明任何许可证（经 binary@0.3.0 进来），盘点报告「留给人的三件事」第 1 条。" },
+    { "package": "caniuse-lite@1.0.30001806", "license": "CC-BY-4.0", "reason": "待人类确认。浏览器兼容数据，CC-BY 只要求署名。版本频繁更新，升级后需重新登记。" }
+  ]
+}

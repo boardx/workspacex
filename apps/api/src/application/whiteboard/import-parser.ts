@@ -6,15 +6,18 @@ export class UnsafeWhiteboardImport extends Error {
   constructor(readonly code: 'UNSUPPORTED_FORMAT' | 'UNSAFE_ARCHIVE' | 'PAYLOAD_TOO_LARGE') { super(code); }
 }
 export interface ParsedImportAsset { path: string; bytes: Uint8Array; mime: 'image/jpeg' | 'image/png' | 'image/webp' | 'image/gif'; }
-export interface ParsedWhiteboardImport { items: ImportedBoardItem[]; assets: ParsedImportAsset[]; skipped: string[]; }
+export interface ParsedWhiteboardImport { items: ImportedBoardItem[]; assets: ParsedImportAsset[]; skipped: string[]; sourceIdentity:{boardId:string|null;revision:string|null}; }
 type R = Record<string, unknown>;
 type SourceContext = { sourceVersion?: string; sourceBoardId?: string };
 type ZipEntry = { name: string; flags: number; method: number; crc: number; compressedSize: number; size: number; localOffset: number; directory: boolean };
+const UNSUPPORTED_ZIP_FLAGS = 0x2061; // encrypted, patched data, strong encryption, encrypted central directory
 const record = (value: unknown): R => value && typeof value === 'object' && !Array.isArray(value) ? value as R : {};
 const str = (...values: unknown[]) => String(values.find(value => typeof value === 'string' || typeof value === 'number') ?? '');
 const num = (fallback: number, ...values: unknown[]) => { const value = values.find(value => typeof value === 'number' || (typeof value === 'string' && value.trim() !== '')); const parsed = Number(value); return Number.isFinite(parsed) ? parsed : fallback; };
 const nullable = (...values: unknown[]) => { const value = str(...values); return value ? value : null; };
 const safeMetadata = (value: R): R => Object.fromEntries(Object.entries(value).filter(([key, entry]) => ['semanticRelation', 'tags', 'status', 'sourceVersion', 'sourceBoardId'].includes(key) && (typeof entry === 'string' || (Array.isArray(entry) && entry.every(v => typeof v === 'string')))).slice(0, 20));
+const identity=(items:ImportedBoardItem[])=>{const metadata=record(items[0]?.metadata),boardId=nullable(metadata.sourceBoardId),revision=nullable(metadata.sourceVersion);return{boardId,revision};};
+function jsonIdentity(bytes:Uint8Array){try{const root=record(JSON.parse(new TextDecoder('utf-8',{fatal:true}).decode(bytes))),board=record(root.board),mural=record(root.mural);return{boardId:nullable(board.id,mural.id,root.boardId),revision:nullable(root.exportVersion,root.version,root.schemaVersion)};}catch{return{boardId:null,revision:null};}}
 
 function typeOf(raw: string): ImportedBoardItem['type'] {
   const value = raw.toLowerCase().replace(/[ _-]/g, '');
@@ -24,6 +27,7 @@ function typeOf(raw: string): ImportedBoardItem['type'] {
   if (['connector', 'arrow', 'line'].includes(value)) return 'connector';
   if (['image', 'picture'].includes(value)) return 'image';
   if (['frame', 'area', 'panel', 'section'].includes(value)) return 'panel';
+  if (['group', 'cluster'].includes(value)) return 'group';
   if (['card', 'tile'].includes(value)) return 'tile';
   return 'unsupported';
 }
@@ -98,7 +102,7 @@ function readZipDirectory(bytes: Uint8Array): { entries: ZipEntry[]; centralOffs
     if (offset + 46 > eocd || view.getUint32(offset, true) !== 0x02014b50) throw new UnsafeWhiteboardImport('UNSAFE_ARCHIVE');
     const flags = view.getUint16(offset + 8, true), method = view.getUint16(offset + 10, true), crc = view.getUint32(offset + 16, true), compressedSize = view.getUint32(offset + 20, true), size = view.getUint32(offset + 24, true);
     const nameLength = view.getUint16(offset + 28, true), extraLength = view.getUint16(offset + 30, true), commentLength = view.getUint16(offset + 32, true), external = view.getUint32(offset + 38, true), localOffset = view.getUint32(offset + 42, true), end = offset + 46 + nameLength + extraLength + commentLength;
-    if (end > eocd || flags & 1 || ![0, 8].includes(method) || [compressedSize, size, localOffset].includes(0xffffffff) || (external >>> 16 & 0o170000) === 0o120000) throw new UnsafeWhiteboardImport('UNSAFE_ARCHIVE');
+    if (end > eocd || (flags & UNSUPPORTED_ZIP_FLAGS) !== 0 || ![0, 8].includes(method) || [compressedSize, size, localOffset].includes(0xffffffff) || (external >>> 16 & 0o170000) === 0o120000) throw new UnsafeWhiteboardImport('UNSAFE_ARCHIVE');
     let name: string; try { name = new TextDecoder('utf-8', { fatal: true }).decode(bytes.subarray(offset + 46, offset + 46 + nameLength)); } catch { throw new UnsafeWhiteboardImport('UNSAFE_ARCHIVE'); }
     const directory = name.endsWith('/');
     if (!safePath(directory ? name.slice(0, -1) : name) || names.has(name)) throw new UnsafeWhiteboardImport('UNSAFE_ARCHIVE'); names.add(name);
@@ -128,7 +132,7 @@ async function parseZip(bytes: Uint8Array, source: WhiteboardImportSource): Prom
   const assets: ParsedImportAsset[] = [], skipped: string[] = [];
   for (const file of files.filter(file => file !== document)) { const data = extractZipEntry(bytes, file, directory.centralOffset), mime = imageMime(data); if (mime) assets.push({ path: file.name, bytes: data, mime }); else skipped.push(file.name); }
   const byPath = new Map(assets.map(asset => [asset.path, asset])); for (const item of items) if (item.assetRef) { const asset = byPath.get(item.assetRef); item.assetRef = asset?.path ?? null; item.assetMime = asset?.mime ?? null; }
-  return { items, assets, skipped };
+  return { items, assets, skipped, sourceIdentity:document.name.toLowerCase().endsWith('.json')?jsonIdentity(documentBytes):identity(items) };
 }
 export async function parseWhiteboardImport(bytes: Uint8Array, mime: 'application/json' | 'text/csv' | 'application/zip', source: WhiteboardImportSource): Promise<ParsedWhiteboardImport> {
   if (bytes.byteLength < 1 || bytes.byteLength > L.uploadBytes) throw new UnsafeWhiteboardImport('PAYLOAD_TOO_LARGE');
@@ -136,5 +140,5 @@ export async function parseWhiteboardImport(bytes: Uint8Array, mime: 'applicatio
   if (bytes.some(value => value === 0)) throw new UnsafeWhiteboardImport('UNSUPPORTED_FORMAT');
   const items = mime === 'application/json' ? parseJson(bytes, source) : parseCsv(bytes, source);
   for (const item of items) if (item.assetRef) { item.assetRef = null; item.assetMime = null; }
-  return { items, assets: [], skipped: [] };
+  return { items, assets: [], skipped: [], sourceIdentity:mime==='application/json'?jsonIdentity(bytes):identity(items) };
 }
