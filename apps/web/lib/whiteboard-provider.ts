@@ -40,6 +40,7 @@ export class WhiteboardProvider {
   constructor(private doc: Y.Doc, private boardId: string, private onState: (state: WhiteboardConnectionState) => void, outbox?: WhiteboardDurableOutbox | null) {
     this.outbox = outbox === undefined ? createWhiteboardOutbox(boardId) : outbox;
     doc.on('update', this.onUpdate);
+    if (typeof window !== 'undefined') { window.addEventListener('offline', this.onOffline); window.addEventListener('online', this.onOnline); }
     this.sessionTimer = setInterval(() => {
       const next = getStoredSessionToken();
       if (next === this.token) return;
@@ -110,8 +111,20 @@ export class WhiteboardProvider {
       const message = this.latestPresence; this.latestPresence = null; this.send(message);
     }, 50);
   }
+  private onOffline = () => {
+    if (this.stopped) return;
+    if (this.timer) clearTimeout(this.timer);
+    if (this.handshake) clearTimeout(this.handshake);
+    // Browser offline mode does not reliably close an existing WebSocket.
+    // Detach it before closing so a delayed close cannot schedule a stale retry.
+    const socket = this.socket; this.socket = null; this.ready = false; this.inFlight.clear();
+    this.publish({ phase: 'offline', peers: [], reason: 'CONNECTION_LOST' });
+    socket?.close();
+  };
+  private onOnline = () => { if (!this.stopped) this.retryNow(); };
   private connect(reason: string | null = null) {
     if (this.stopped) return;
+    if (typeof navigator !== 'undefined' && navigator.onLine === false) { this.publish({ phase: 'offline', reason: 'CONNECTION_LOST' }); return; }
     if (!this.token || getStoredSessionToken() !== this.token) { this.block('SESSION_CHANGED'); return; }
     this.ready = false; this.inFlight.clear(); this.publish({ phase: this.epoch ? 'offline' : 'connecting', reason, retryAttempt: this.retry });
     const socket = new WebSocket(apiWebSocketUrl(WHITEBOARD_SYNC.path.replace(':boardId', encodeURIComponent(this.boardId))), [WHITEBOARD_SYNC.protocol, WHITEBOARD_SYNC.bearerSubprotocolPrefix + this.token]);
@@ -188,5 +201,5 @@ export class WhiteboardProvider {
     this.publish({ phase: 'blocked', role: 'viewer', peers: [], reason });
     if (persistRevocation && token && outbox) void outbox.revoke(token).finally(()=>outbox.close());
   }
-  close(closeOutbox = true) { if (this.presenceTimer) clearTimeout(this.presenceTimer); this.stopped = true; this.ready = false; this.inFlight.clear(); if (this.timer) clearTimeout(this.timer); if (this.handshake) clearTimeout(this.handshake); clearInterval(this.sessionTimer); this.doc.off('update', this.onUpdate); this.socket?.close(); if(closeOutbox)this.outbox?.close(); }
+  close(closeOutbox = true) { if (typeof window !== 'undefined') { window.removeEventListener('offline', this.onOffline); window.removeEventListener('online', this.onOnline); } if (this.presenceTimer) clearTimeout(this.presenceTimer); this.stopped = true; this.ready = false; this.inFlight.clear(); if (this.timer) clearTimeout(this.timer); if (this.handshake) clearTimeout(this.handshake); clearInterval(this.sessionTimer); this.doc.off('update', this.onUpdate); this.socket?.close(); if(closeOutbox)this.outbox?.close(); }
 }

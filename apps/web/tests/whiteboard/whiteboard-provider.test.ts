@@ -248,3 +248,23 @@ it('rejects an unsolicited ACK instead of allowing it to drain unsent work', () 
   expect(updates(socket)).toHaveLength(8);
   provider.close(); doc.destroy(); server.destroy();
 });
+
+it('browser offline detaches a still-open socket and online replays pending changes', () => {
+  const browserEvents = new EventTarget(); vi.stubGlobal('window', browserEvents);
+  const doc = createWhiteboardDocument(), server = createWhiteboardDocument();
+  let state: WhiteboardConnectionState | undefined;
+  const provider = new WhiteboardProvider(doc, 'offline-events', value => { state = value; }, null);
+  const first = Socket.sockets[0]!; first.onopen?.(); sync(first, server);
+  browserEvents.dispatchEvent(new Event('offline'));
+  expect(state?.phase).toBe('offline'); expect(first.readyState).toBe(3);
+  burst(doc, 1); expect(state?.pending).toBe(1); expect(updates(first)).toHaveLength(0);
+  // Late close from the detached socket must not create a competing connection.
+  first.onclose?.({code:1006}); vi.advanceTimersByTime(15000); expect(Socket.sockets).toHaveLength(1);
+  browserEvents.dispatchEvent(new Event('online'));
+  const second = Socket.sockets[1]!; second.onopen?.(); sync(second, server);
+  const pending = updates(second)[0]!; expect(pending).toBeDefined();
+  second.message({type:'ack',updateId:pending.updateId,gestureId:pending.gestureId,seq:1});
+  expect(state?.pending).toBe(0); expect(state?.phase).toBe('online');
+  provider.close(); browserEvents.dispatchEvent(new Event('online')); expect(Socket.sockets).toHaveLength(2);
+  doc.destroy(); server.destroy();
+});
