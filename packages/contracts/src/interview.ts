@@ -822,7 +822,10 @@ export const DigitalInterviewWorkflowView = DigitalInterview.extend({
     evidenceCoverage: [],
   }),
   reportReview: DigitalInterviewReportReview.nullable().default(null),
-  artifacts: DigitalInterviewArtifacts.optional(),
+  // Every workflow projection carries the Markdown artifact collection. Empty is the
+  // explicit, recoverable state for a newly-created or pre-migration interview; an
+  // omitted field would force clients to invent a second source of truth.
+  artifacts: DigitalInterviewArtifacts.default([]),
 }).strict();
 
 /*
