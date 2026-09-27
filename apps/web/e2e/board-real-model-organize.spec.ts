@@ -56,6 +56,9 @@ test('real model reads 30 notes → named clusters preview → atomic confirm �
   expect(parentCommands.map(command=>command.id).sort()).toEqual(before.objects.map(object=>object.id).sort());
   expect(new Set(parentCommands.map(command=>command.id)).size).toBe(30);
   await expect(page.getByTestId('board-ai-proposal')).toBeVisible();expect(await snapshot()).toEqual(before);
+  await expect(page.getByTestId('board-ai-proposal').locator('details')).not.toHaveAttribute('open','');
+  const readViewport=(target:Page)=>target.getByTestId('board-fabric-surface').evaluate(el=>({zoom:el.getAttribute('data-viewport-zoom'),x:el.getAttribute('data-viewport-pan-x'),y:el.getAttribute('data-viewport-pan-y')}));
+  const peerViewportBefore=await readViewport(peer);
   await testInfo.attach('preview',{body:await page.screenshot(),contentType:'image/png'});
   await page.getByTestId('board-ai-confirm').click();
   await expect.poll(async()=>(await snapshot()).objects.filter(object=>object.kind==='frame').length).toBe(panels.length);
@@ -63,6 +66,10 @@ test('real model reads 30 notes → named clusters preview → atomic confirm �
   for(const panel of panels)await expect(peer.getByRole('button',{name:`图形：${panel.text}`,exact:true})).toHaveCount(1);
   await testInfo.attach('peer-confirmed-canvas',{body:await peer.screenshot(),contentType:'image/png'});
   evidence.applied=applied;
+  await expect.poll(async()=>{const view=await readViewport(page),box=await page.getByTestId('board-fabric-surface').boundingBox();if(!box)return false;const zoom=Number(view.zoom),x=Number(view.x),y=Number(view.y);return panels.every(panel=>panel.geometry.x*zoom+x>=16&&panel.geometry.y*zoom+y>=72&&(panel.geometry.x+panel.geometry.width)*zoom+x<=box.width-16&&(panel.geometry.y+panel.geometry.height)*zoom+y<=box.height-96);}).toBe(true);
+  expect(await readViewport(peer)).toEqual(peerViewportBefore);
+  await testInfo.attach('initiator-fitted-canvas',{body:await page.screenshot(),contentType:'image/png'});
+  await page.getByRole('button',{name:'AI 整理选项和状态',exact:true}).click();
   await page.getByTestId('board-ai-undo').click();await expect.poll(async()=>semanticSnapshot((await snapshot()).objects)).toEqual(semanticSnapshot(before.objects));
   const undone=await snapshot();expect(undone.revision.seq).toBe(applied.revision.seq+1);evidence.undone=undone;
   for(const panel of panels)await expect(peer.getByRole('button',{name:`图形：${panel.text}`,exact:true})).toHaveCount(0);
