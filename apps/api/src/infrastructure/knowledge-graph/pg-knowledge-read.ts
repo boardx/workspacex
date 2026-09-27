@@ -328,13 +328,13 @@ export class PgKnowledgeRead implements KnowledgeReadPort {
       // issue #4283 `personal_copy`：**请求者本人**个人空间里、由这条结论自动记下（derived_from 边 created_by = model）、
       // 仍是「AI 记下的」（proposed）那一份——反馈条据此显示「已记入个人记忆」并给撤销。scope_id = 请求者本人，
       // RLS 也只放本人的个人空间（I-14）：别人看这条消息，读不到作者的个人空间，这一列恒为 null。
-      const r = await s.query<{ id: string; statement: string; personal_copy: string | null }>(
+      const r = await s.query<{ id: string; statement: string; claim_kind: KG.KgClaimKind | null; personal_copy: string | null }>(
         `WITH msg AS (
            SELECT cm.id FROM chat_messages cm
             WHERE cm.org_id = $1 AND cm.thread_id = $2
               AND (cm.id = $3 OR (cm.author_kind = 'human' AND cm.author_id = $4 AND cm.client_message_id::text = $3))
          )
-         SELECT c.id, c.statement,
+         SELECT c.id, c.statement, c.claim_kind,
                 (SELECT p.id FROM ontology_edges d JOIN claims p ON p.id = d.src_id AND p.org_id = d.org_id
                   WHERE d.org_id = c.org_id AND d.relation = 'derived_from' AND d.src_kind = 'claim' AND d.dst_kind = 'claim'
                     AND d.dst_id = c.id AND d.status = 'active' AND d.created_by = 'model'
@@ -347,7 +347,9 @@ export class PgKnowledgeRead implements KnowledgeReadPort {
           ORDER BY c.created_at, c.id`,
         [orgId, thread.threadId, messageId, userId],
       );
-      return { claims: r.rows.map((x) => ({ claimId: x.id, statement: x.statement, personalCopyClaimId: x.personal_copy })) };
+      return {
+        claims: r.rows.map((x) => ({ claimId: x.id, statement: x.statement, kind: x.claim_kind ?? "fact", personalCopyClaimId: x.personal_copy })),
+      };
     });
     return guard(threadRef(thread), data);
   }
@@ -720,9 +722,11 @@ async function readTurnRecall(
     const [kind, id] = [k.slice(0, k.indexOf(":")), k.slice(k.indexOf(":") + 1)];
     if (kind === "claim") claimKeys.add(id); else if (kind === "object") objectKeys.add(id);
   }
-  const claims = await s.query<{ id: string; statement: string; status: string; scope_kind: "chat_session" | "personal"; said_at: Date | null }>(
+  const claims = await s.query<{
+    id: string; statement: string; claim_kind: KG.KgClaimKind | null; status: string; scope_kind: "chat_session" | "personal"; said_at: Date | null;
+  }>(
     // 别的个人对话里记下的，对这一轮来说是「来自你之前的对话」：按个人空间报（界面据此标「来自你 {日期} 的对话」）。
-    `SELECT c.id, c.statement, c.status,
+    `SELECT c.id, c.statement, c.claim_kind, c.status,
             CASE WHEN c.scope_kind = 'chat_session' AND c.scope_id <> $3 THEN 'personal' ELSE c.scope_kind END AS scope_kind,
             (SELECT min(m.created_at) FROM claim_message_evidence e JOIN chat_messages m ON m.id = e.message_id AND m.org_id = e.org_id
               WHERE e.claim_id = c.id AND e.stance = 'supporting') AS said_at
@@ -756,7 +760,7 @@ async function readTurnRecall(
       graphPath = hops.every((h) => h !== null) ? hops as NonNullable<(typeof hops)[number]>[] : null;
     }
     recalled.push({
-      claimId: c.id, statement: c.statement, triState: tri, scope: c.scope_kind,
+      claimId: c.id, statement: c.statement, kind: c.claim_kind ?? "fact", triState: tri, scope: c.scope_kind,
       saidAt: c.said_at?.toISOString() ?? null,
       channels: item.channels.filter((x): x is RecalledMemory["channels"][number] => CP.RetrievalChannel.safeParse(x).success),
       retrievalReasons: item.retrievalReasons.filter((x): x is RecalledMemory["retrievalReasons"][number] => CP.FilterAction.safeParse(x).success),

@@ -40,9 +40,25 @@ export const KgObjectKind = z.enum([
 ]);
 export type KgObjectKind = z.infer<typeof KgObjectKind>;
 
-/** 结论类型：封闭枚举（uc-18-1 R7-2、S0-5）。 */
-export const KgClaimKind = z.enum(["fact", "hypothesis", "decision", "todo", "risk"]);
+/**
+ * 结论类型：封闭枚举（uc-18-1 R7-2、S0-5）。
+ *
+ * issue #4343（人类决定 2026-09-27）加 `goal` / `preference` 两类：用户**本人**明确说出的目标 / 意图
+ * （「我的目标是…」「我想…」「我希望…」）与偏好（「我更喜欢…」）。之前的五类里没有它们，于是「我的目标是探索
+ * 未来教育」抽取跑完一条都没记下。分成两类而不是合一：界面标签（目标 / 偏好）与模型判别都更清楚，
+ * 数据库 CHECK（迁移 20260927110000）与本枚举逐项对账。
+ */
+export const KgClaimKind = z.enum(["fact", "hypothesis", "decision", "todo", "risk", "goal", "preference"]);
 export type KgClaimKind = z.infer<typeof KgClaimKind>;
+
+/**
+ * issue #4343：「本人意向类」结论——作者本人说的会自动记进本人个人空间（同 #4283 的决定），并在每一轮强制召回
+ * （同 #4181 的决定，名额另计）。唯一事实源：抽取、自动复制、召回都从这里判，不各写一份。
+ */
+export const KG_SELF_INTENT_CLAIM_KINDS = ["goal", "preference"] as const satisfies readonly KgClaimKind[];
+export function isSelfIntentClaimKind(kind: KgClaimKind | null | undefined): boolean {
+  return kind != null && (KG_SELF_INTENT_CLAIM_KINDS as readonly KgClaimKind[]).includes(kind);
+}
 
 /**
  * 关系：两个封闭枚举，按端点类型分开。
@@ -302,6 +318,8 @@ export type KgMemoryCard = z.infer<typeof KgMemoryCard>;
 export const KgRecalledMemory = z.object({
   claimId: z.string(),
   statement: z.string(),
+  /** issue #4343：引用 chip 上标类型（目标 / 偏好 / 决定 …）；库里 claim_kind 为空的旧行按 fact。 */
+  kind: KgClaimKind,
   triState: KgTriState,
   scope: z.enum(["chat_session", "personal"]),
   /** 这条最早被说出来的时间（ISO）；个人空间的条目界面显示为「来自你 {日期} 的对话」 */
@@ -343,8 +361,10 @@ export const KgMessageExtraction = z.object({
   claims: z.array(z.object({
     claimId: z.string(),
     statement: z.string(),
+    /** issue #4343：反馈条上标类型（「已记下 · 目标：…」）；库里 claim_kind 为空的旧行按 fact。 */
+    kind: KgClaimKind,
     /**
-     * issue #4283（人类决定 2026-09-26）：这条是作者本人说的「决定」，已自动记进**请求者本人**的个人空间，
+     * issue #4283（人类决定 2026-09-26）：这条是作者本人说的「决定」（#4343 起也含目标 / 偏好），已自动记进**请求者本人**的个人空间，
      * 且那一份仍是「AI 记下的」（未确认）——反馈条显示「已记入个人记忆」、撤销走 `undoAutoPersonalCopy`。
      * 其余情况（不是决定类、不是请求者本人说的、副本已撤销 / 已确认、看的人不是作者）⇒ null。
      */
