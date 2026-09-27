@@ -3,6 +3,14 @@ import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { createWhiteboardDocument, executeCommands, readObjects } from "@repo/whiteboard-core";
 import type { BoardFabricObject } from "@/components/whiteboard/fabric/board-fabric-object";
 
+// Keep comment/directory queries at their API boundary so the fetch spy exclusively
+// exercises image transport; never fulfill a member request with image bytes.
+vi.mock("@/components/whiteboard/board-comments", async (importOriginal) => ({
+  ...await importOriginal<typeof import("@/components/whiteboard/board-comments")>(),
+  listBoardMentionableMembers: vi.fn(async () => []),
+  listBoardCommentThreads: vi.fn(async () => []),
+}));
+
 vi.mock("@/components/whiteboard/fabric/board-fabric-surface", () => ({
   BoardFabricSurface: ({ objects, onSelectionChange, onDrawingComplete, onCanvasClick }: {
     objects: readonly BoardFabricObject[];
@@ -267,7 +275,8 @@ it("validates HTTPS image MIME, size, and magic bytes before storing a durable U
 it("aborts and discards a remote image fetch that completes after editor unmount", async () => {
   const bytes = png(48, 36);
   let resolveFetch!: (value: Response) => void;
-  const fetcher = vi.fn((_url: string, init?: RequestInit) => new Promise<Response>((resolve) => {
+  const fetcher = vi.fn((url: string, init?: RequestInit) => new Promise<Response>((resolve) => {
+    expect(url).toBe("https://assets.example.com/late.png");
     resolveFetch = resolve;
     expect(init?.signal).toBeInstanceOf(AbortSignal);
   }));
