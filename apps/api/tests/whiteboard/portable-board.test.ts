@@ -19,12 +19,13 @@ import {PgBoardImageAssets} from '../../src/infrastructure/whiteboard/pg-image-a
 import {toOrgId} from '../../src/domain/org-id';
 const roots:string[]=[];afterEach(async()=>{await Promise.all(roots.splice(0).map(path=>rm(path,{recursive:true,force:true})));});
 const base=(id:string):WhiteboardObject=>({id,schemaVersion:1,kind:'sticky',text:'中文 + English',style:{fill:'#FFF4A3'},parentId:null,orderKey:id,geometry:{x:10,y:20,width:180,height:120,rotation:17}});
-async function fixture(templateOnly=false){
+async function fixture(templateOnly=false,includeShape=false){
  const root=await mkdtemp(join(tmpdir(),'portable-board-'));roots.push(root);const objects=new FsObjectStore(root),verifier=new SharpBoardImageVerifier(),source=randomUUID(),target=randomUUID();
  const p={orgId:toOrgId('source-tenant'),userId:'owner'},targetP={orgId:toOrgId('target-tenant'),userId:'target-owner'};
  const png=await sharp({create:{width:64,height:48,channels:4,background:'#ff3300'}}).png().toBuffer(),asset=await verifier.verify(png,'image/png');
  const image:WhiteboardObject={...base('image'),kind:'image',text:'',extensionData:{contentObject:{version:1,type:'image',status:'ready',...asset.metadata,sourceUrl:null,crop:{x:.1,y:.2,width:.7,height:.6},opacity:.8,borderColor:'#112233',borderWidth:2,cornerRadius:6,fileName:'real.png',replacementOf:null,failureCode:null}}};
  const sourceDoc=createWhiteboardDocument();executeCommands(sourceDoc,[{type:'create',object:{...base('frame'),kind:'frame'}},{type:'create',object:{...base('note'),parentId:'frame',locked:true}},{type:'create',object:image},{type:'create',object:{...base('edge'),kind:'connector',connector:{from:'note',to:'image',type:'straight',startStyle:'none',endStyle:'arrow',lineStyle:'solid',label:'connect'}}}],{});
+ if(includeShape)executeCommands(sourceDoc,[{type:'create',object:{...base('diamond'),kind:'rectangle',extensionData:{contentObject:{version:1,type:'shape',variant:'diamond',fill:'#ffffff',borderColor:'#000000',borderWidth:1,borderStyle:'solid',opacity:1,radius:0,textColor:'#000000',horizontalAlign:'center',verticalAlign:'middle'}}}}],{});
  if(templateOnly){executeCommands(sourceDoc,[{type:'delete',id:'image'},{type:'create',object:{...base('template'),kind:'extension',text:'Reusable image',extensionData:{contentObject:{version:1,type:'template',templateId:'fixture',name:'Reusable image',versionId:'v1',parameters:{},objects:[{localId:'photo',geometry:image.geometry,content:image.extensionData!.contentObject}]}}}}],{});}
  let targetDoc=createWhiteboardDocument(),seq=0,fail=false,allowed=true,revokeAtLock=false;const queries:string[]=[];const receipts=new Map<string,any>(),publishedAssets:any[]=[];
  const sourceKey=`whiteboards/tenants/${portableHash(p.orgId).slice(0,32)}/boards/${source}/assets/${asset.metadata.contentDigest.slice(7)}`;await objects.putOnce(sourceKey,png,'image/png');
@@ -81,4 +82,15 @@ it('includes and rebinds media used only inside a template blueprint',async()=>{
  await f.service.import(f.targetP,f.target,{requestId:randomUUID(),expectedEpoch:1,file:{sizeBytes:out.sizeBytes,sha256:out.sha256,contentBase64:out.contentBase64}});
  const template=f.getTarget().find(object=>object.kind==='extension')!;expect((template.extensionData!.contentObject as any).objects[0].content).toMatchObject({type:'image',persistence:'durable',sourceUrl:null});expect(f.publishedAssets.find(asset=>asset.metadata).key).toContain(`/boards/${f.target}/assets/`);
  await expect(f.service.import(f.targetP,f.target,{requestId:randomUUID(),expectedEpoch:1,file:upload({format:'workspacex.board.v1',objects:bundle.objects.content})})).rejects.toMatchObject({code:'UNSUPPORTED_FORMAT'});
+});
+
+it('preserves complete stored content without materializing read-time shape or image defaults',async()=>{
+ const f=await fixture(false,true),exported=await f.service.export(f.p,f.source),bundle=JSON.parse(Buffer.from(exported.contentBase64,'base64').toString());
+ expect(bundle.objects.content).toEqual(f.sourceObjects);
+ expect(bundle.objects.content.find((o:WhiteboardObject)=>o.id==='diamond').extensionData.contentObject).not.toHaveProperty('semanticRole');
+ expect(bundle.objects.content.find((o:WhiteboardObject)=>o.id==='image').extensionData.contentObject).not.toHaveProperty('retryCount');
+ const requestId=randomUUID();await f.service.import(f.targetP,f.target,{requestId,expectedEpoch:1,file:upload(bundle)});
+ const mapped=new Map(f.sourceObjects.map(object=>[object.id,`portable_${portableHash(`${requestId}:${object.id}`).slice(0,32)}`]));
+ const expected=f.sourceObjects.map(original=>{const object=structuredClone(original);object.id=mapped.get(original.id)!;object.parentId=original.parentId?mapped.get(original.parentId)!:null;if(object.connector)object.connector={...object.connector,from:object.connector.from?mapped.get(object.connector.from):undefined,to:object.connector.to?mapped.get(object.connector.to):undefined};return object;}).sort((a,b)=>a.orderKey.localeCompare(b.orderKey)||a.id.localeCompare(b.id));
+ expect(f.getTarget()).toEqual(expected);
 });

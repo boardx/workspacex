@@ -17,7 +17,10 @@ const encode=(value:unknown)=>Buffer.from(JSON.stringify(value));
 function decode(value:string){if(!/^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/.test(value))throw new Fault('INVALID_UPLOAD');return Buffer.from(value,'base64');}
 function file(bytes:Uint8Array){if(!bytes.length||bytes.length>WHITEBOARD_IMPORT_LIMITS.uploadBytes)throw new Fault('PAYLOAD_TOO_LARGE');return{sizeBytes:bytes.length,sha256:portableHash(bytes),contentBase64:Buffer.from(bytes).toString('base64')};}
 function mapImages(object:WhiteboardObject,map:(image:ImageContent)=>ImageContent):WhiteboardObject{
- const content=readContentObject(object);if(object.kind==='image'&&content?.type!=='image')throw new Fault('INVALID_UPLOAD');if(!content)return object;
+ const validated=readContentObject(object);if(object.kind==='image'&&validated?.type!=='image')throw new Fault('INVALID_UPLOAD');if(!validated)return object;
+ // Validation may supply read-time defaults. Portable transport preserves the
+ // stored representation; only explicit image migration fields may change.
+ const content=structuredClone(object.extensionData!.contentObject) as CanonicalContentObject;
  const visit=(item:CanonicalContentObject):CanonicalContentObject=>{
   if(item.type==='tile'&&item.coverAssetId)throw new Fault('UNSUPPORTED_FORMAT');
   if(item.type==='image')return map(item);
