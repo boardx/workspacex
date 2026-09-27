@@ -72,7 +72,7 @@ const DECISION_VERBS = "决定|选定|聚焦|确定|改为|改成|定为|敲定|
 const DECISION_VERB = new RegExp(DECISION_VERBS);
 
 /** 句末疑问语气：「…吗」「…呢」「…是不是」——是在问，不是在陈述一个已经做出的决定。 */
-const QUESTION_TAIL = /(?:吗|呢|么|对吗|是吗|好吗|行吗|是不是|对不对|是否)\s*[。.!！~～]*$/;
+export const QUESTION_TAIL = /(?:吗|呢|么|对吗|是吗|好吗|行吗|是不是|对不对|是否)\s*[。.!！~～]*$/;
 
 /** 假设 / 条件句前缀：说的是一个还没发生的条件，不是已经拍板的决定。 */
 const HYPOTHETICAL_LEAD = /^(?:如果|假如|假设|要是|倘若|假使|万一)/;

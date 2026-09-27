@@ -138,8 +138,13 @@ export class PgKnowledgeRead implements KnowledgeReadPort {
            FROM kg_extraction_queue WHERE org_id = $1 AND thread_id = $2 ORDER BY enqueued_at`,
         [...scope, KG_EXTRACTION_LEASE_SECONDS],
       );
-      const failed = queue.rows.filter((q) => q.attempts >= KG_EXTRACTION_MAX_ATTEMPTS);
-      const active = queue.rows.filter((q) => q.attempts < KG_EXTRACTION_MAX_ATTEMPTS);
+      // issue #4350：分桶与认领条件（`pg-kg-extraction.ts` 的 claim）对齐——
+      //   running = 租约还活着（不论第几次：第 3 次尝试进行中的行以前被算成「失败」）；
+      //   failed  = 次数用完 AND 没有活着的租约（认领条件 `attempts < 3` 再也不会放出它）；
+      //   queued  = 其余：次数没用完、没人持有（含退避中、含租约已过期等着被重新认领的）。
+      const running = queue.rows.filter((q) => q.locked);
+      const failed = queue.rows.filter((q) => !q.locked && q.attempts >= KG_EXTRACTION_MAX_ATTEMPTS);
+      const queued = queue.rows.filter((q) => !q.locked && q.attempts < KG_EXTRACTION_MAX_ATTEMPTS);
       // 用户直接交办更正（2026-09-25）：这个会话所在组织现在是不是真的在抽——provider 已配置
       // AND 部署开关打开了 AND 该组织没关（`kg_org_extraction_settings`，默认值见 `KgOrgExtractionSettingsPort.getEnabled`）。
       // 与触发器 `kg_enqueue_extraction` 的三道闸门同一条件，供面板区分「队列空 = 已整理到
@@ -173,8 +178,8 @@ export class PgKnowledgeRead implements KnowledgeReadPort {
             relation: e.relation, createdBy: e.created_by,
           })),
         ingestion: {
-          queued: active.filter((q) => !q.locked).length,
-          running: active.filter((q) => q.locked).length,
+          queued: queued.length,
+          running: running.length,
           failed: failed.length,
           failures: failed.map((q) => ({ sourceKind: "chat_message" as const, sourceRef: q.message_id, reason: "retries_exhausted" as const })),
         },
@@ -328,13 +333,13 @@ export class PgKnowledgeRead implements KnowledgeReadPort {
       // issue #4283 `personal_copy`：**请求者本人**个人空间里、由这条结论自动记下（derived_from 边 created_by = model）、
       // 仍是「AI 记下的」（proposed）那一份——反馈条据此显示「已记入个人记忆」并给撤销。scope_id = 请求者本人，
       // RLS 也只放本人的个人空间（I-14）：别人看这条消息，读不到作者的个人空间，这一列恒为 null。
-      const r = await s.query<{ id: string; statement: string; personal_copy: string | null }>(
+      const r = await s.query<{ id: string; statement: string; claim_kind: KG.KgClaimKind | null; personal_copy: string | null }>(
         `WITH msg AS (
            SELECT cm.id FROM chat_messages cm
             WHERE cm.org_id = $1 AND cm.thread_id = $2
               AND (cm.id = $3 OR (cm.author_kind = 'human' AND cm.author_id = $4 AND cm.client_message_id::text = $3))
          )
-         SELECT c.id, c.statement,
+         SELECT c.id, c.statement, c.claim_kind,
                 (SELECT p.id FROM ontology_edges d JOIN claims p ON p.id = d.src_id AND p.org_id = d.org_id
                   WHERE d.org_id = c.org_id AND d.relation = 'derived_from' AND d.src_kind = 'claim' AND d.dst_kind = 'claim'
                     AND d.dst_id = c.id AND d.status = 'active' AND d.created_by = 'model'
@@ -347,7 +352,9 @@ export class PgKnowledgeRead implements KnowledgeReadPort {
           ORDER BY c.created_at, c.id`,
         [orgId, thread.threadId, messageId, userId],
       );
-      return { claims: r.rows.map((x) => ({ claimId: x.id, statement: x.statement, personalCopyClaimId: x.personal_copy })) };
+      return {
+        claims: r.rows.map((x) => ({ claimId: x.id, statement: x.statement, kind: x.claim_kind ?? "fact", personalCopyClaimId: x.personal_copy })),
+      };
     });
     return guard(threadRef(thread), data);
   }
@@ -720,9 +727,11 @@ async function readTurnRecall(
     const [kind, id] = [k.slice(0, k.indexOf(":")), k.slice(k.indexOf(":") + 1)];
     if (kind === "claim") claimKeys.add(id); else if (kind === "object") objectKeys.add(id);
   }
-  const claims = await s.query<{ id: string; statement: string; status: string; scope_kind: "chat_session" | "personal"; said_at: Date | null }>(
+  const claims = await s.query<{
+    id: string; statement: string; claim_kind: KG.KgClaimKind | null; status: string; scope_kind: "chat_session" | "personal"; said_at: Date | null;
+  }>(
     // 别的个人对话里记下的，对这一轮来说是「来自你之前的对话」：按个人空间报（界面据此标「来自你 {日期} 的对话」）。
-    `SELECT c.id, c.statement, c.status,
+    `SELECT c.id, c.statement, c.claim_kind, c.status,
             CASE WHEN c.scope_kind = 'chat_session' AND c.scope_id <> $3 THEN 'personal' ELSE c.scope_kind END AS scope_kind,
             (SELECT min(m.created_at) FROM claim_message_evidence e JOIN chat_messages m ON m.id = e.message_id AND m.org_id = e.org_id
               WHERE e.claim_id = c.id AND e.stance = 'supporting') AS said_at
@@ -756,7 +765,7 @@ async function readTurnRecall(
       graphPath = hops.every((h) => h !== null) ? hops as NonNullable<(typeof hops)[number]>[] : null;
     }
     recalled.push({
-      claimId: c.id, statement: c.statement, triState: tri, scope: c.scope_kind,
+      claimId: c.id, statement: c.statement, kind: c.claim_kind ?? "fact", triState: tri, scope: c.scope_kind,
       saidAt: c.said_at?.toISOString() ?? null,
       channels: item.channels.filter((x): x is RecalledMemory["channels"][number] => CP.RetrievalChannel.safeParse(x).success),
       retrievalReasons: item.retrievalReasons.filter((x): x is RecalledMemory["retrievalReasons"][number] => CP.FilterAction.safeParse(x).success),

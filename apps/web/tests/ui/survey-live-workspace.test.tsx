@@ -17,7 +17,7 @@ describe('live survey workspace persistence',()=>{
   expect(screen.getByRole('button',{name:'新增题目'})).toBeDisabled();
   expect(source).toHaveValue('# 导入内容\n\n## q2 [open]\n新问题\n');
  });
- it('preserves the remote report template when keeping only the local design after a conflict',async()=>{
+ it('preserves the local report template when keeping the local version after a conflict',async()=>{
   const {SurveyConflictError}=await import('@/lib/survey/runtime-client');
   const remote=runtime({version:5,template:{id:'remote',title:'远端报告模板',sections:[]}});
   request.mockResolvedValueOnce(runtime()).mockRejectedValueOnce(new SurveyConflictError(null)).mockResolvedValueOnce(remote).mockResolvedValueOnce({...remote,version:6});
@@ -30,13 +30,19 @@ describe('live survey workspace persistence',()=>{
   fireEvent.click(await screen.findByRole('button',{name:'确认保留本地版本'}));
   fireEvent.click(screen.getByRole('button',{name:'保存修改'}));
   await screen.findByText('修改已保存');
-  expect(request).toHaveBeenLastCalledWith('/surveys/saved-survey/source',expect.objectContaining({body:expect.objectContaining({expectedVersion:5,documents:expect.objectContaining({reportTemplate:expect.stringContaining('远端报告模板')})})}),expect.anything());
+  expect(request).toHaveBeenLastCalledWith('/surveys/saved-survey/source',expect.objectContaining({body:expect.objectContaining({expectedVersion:5,documents:expect.objectContaining({reportTemplate:expect.stringContaining('模板报告')})})}),expect.anything());
+ });
+ it('inserts replacement tokens in survey names literally',async()=>{
+  request.mockResolvedValueOnce(runtime());render(<LiveSurveyWorkspace surveyId="saved-survey"/>);
+  fireEvent.change(await screen.findByLabelText('问卷名称'),{target:{value:'标题 $& 测试'}});
+  expect((screen.getByLabelText('问卷 Markdown') as HTMLTextAreaElement).value).toContain('# 标题 $& 测试');
  });
  it('reuses the created draft when saving its source fails',async()=>{
   request.mockResolvedValueOnce(runtime({id:'created-draft',version:1,title:'未命名问卷'})).mockRejectedValueOnce(new Error('源文档暂时保存失败'));
   render(<LiveSurveyWorkspace surveyId="new"/>);
   fireEvent.click(await screen.findByRole('button',{name:'保存修改'}));
   await screen.findByRole('alert');
+  expect(router.replace).toHaveBeenCalledWith('/studio/survey/created-draft?step=design');
   request.mockResolvedValueOnce(runtime({id:'created-draft',version:2,title:'未命名问卷'}));
   fireEvent.click(screen.getByRole('button',{name:'保存修改'}));
   await screen.findByText('修改已保存');

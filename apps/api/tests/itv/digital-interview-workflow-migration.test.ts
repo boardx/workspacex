@@ -70,6 +70,7 @@ describe("F04 digital interview workflow migration", () => {
     const client = new pg.Client(migrationConfig());
     await client.connect();
     try {
+      await client.query("BEGIN");
       await client.query(sql);
       await client.query(sql);
       const tables = await client.query<{ count: string }>(
@@ -79,6 +80,7 @@ describe("F04 digital interview workflow migration", () => {
       );
       expect(Number(tables.rows[0]?.count)).toBe(QUALITY_TABLES.length);
     } finally {
+      await client.query("ROLLBACK");
       await client.end();
     }
   });
@@ -198,6 +200,9 @@ describe("F04 digital interview workflow migration", () => {
     const client = new pg.Client(migrationConfig());
     await client.connect();
     try {
+      // Historical DDL may restore obsolete constraints. Test replay inside a
+      // transaction so the next suite still observes the fully upgraded schema.
+      await client.query("BEGIN");
       await client.query(sql);
       await client.query(sql);
       const tables = await client.query<{ count: string }>(
@@ -208,6 +213,7 @@ describe("F04 digital interview workflow migration", () => {
       );
       expect(Number(tables.rows[0]?.count)).toBe(BUSINESS_TABLES.length);
     } finally {
+      await client.query("ROLLBACK");
       await client.end();
     }
   });
