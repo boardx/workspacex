@@ -228,7 +228,7 @@ export function TurnMemoryLine({ threadId, messageId }: { threadId: string; mess
           recalled={turn.recalled}
           recallDegraded={turn.recallDegraded}
           {...(turn.cited !== undefined ? { cited: turn.cited } : {})}
-          canCorrect={canEdit}
+          canCorrect={canEdit && turn.canCorrect === true}
           onJump={jumpToSource}
           onCorrect={correct}
         />

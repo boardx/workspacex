@@ -129,15 +129,21 @@ describe("点开一条引用：原话 + 跳到原消息 + 纠正", () => {
     expect(await screen.findByTestId("kg-cite-done-c-db")).toHaveTextContent("已改成新的说法");
   });
 
-  it("「已过时」一点就执行；失败时把人话显示出来、按钮恢复", async () => {
+  it("「已过时」要先确认（review F4）：点「已过时」不执行，「取消」收起；「确认」才执行；失败时把人话显示出来、可以再来", async () => {
     const onCorrect = vi.fn()
       .mockRejectedValueOnce(new Error("这条已经不在了，刷新后再看看。"))
       .mockResolvedValueOnce({ outcome: "expired", newClaimId: null });
     render(<AnswerKnowledgeFooter recalled={[DECIDE]} recallDegraded={false} onOpenSource={() => {}} onJump={() => Promise.resolve(true)} canCorrect onCorrect={onCorrect} />);
     fireEvent.click(screen.getByTestId("kg-citation-c-db"));
     fireEvent.click(screen.getByTestId("kg-cite-expired-c-db"));
-    expect(await screen.findByTestId("kg-cite-error-c-db")).toHaveTextContent("这条已经不在了");
+    expect(onCorrect).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByTestId("kg-cite-expire-cancel-c-db"));
+    expect(screen.queryByTestId("kg-cite-expire-confirm-panel-c-db")).not.toBeInTheDocument();
+    expect(onCorrect).not.toHaveBeenCalled();
     fireEvent.click(screen.getByTestId("kg-cite-expired-c-db"));
+    fireEvent.click(screen.getByTestId("kg-cite-expire-confirm-c-db"));
+    expect(await screen.findByTestId("kg-cite-error-c-db")).toHaveTextContent("这条已经不在了");
+    fireEvent.click(screen.getByTestId("kg-cite-expire-confirm-c-db"));
     expect(await screen.findByTestId("kg-cite-done-c-db")).toHaveTextContent("已标为过时");
     expect(onCorrect).toHaveBeenLastCalledWith("c-db", "expired", undefined);
   });
@@ -159,14 +165,16 @@ function json(body: unknown, status = 200): Response {
 
 describe("TurnMemoryLine：服务端的 cited → chip；纠正走 correctCitation", () => {
   const calls: { path: string; method: string; body: unknown }[] = [];
+  let turnCanCorrect = true;
   beforeEach(() => {
     calls.length = 0;
+    turnCanCorrect = true;
     window.localStorage.clear();
     window.localStorage.setItem(SESSION_TOKEN_STORAGE_KEY, "tok-s7");
     vi.stubGlobal("fetch", vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
       const path = new URL(typeof input === "string" ? input : input.toString()).pathname;
       calls.push({ path, method: init?.method ?? "GET", body: init?.body === undefined ? null : JSON.parse(String(init.body)) });
-      if (path === TURN_PATH) return json(turn({ recalled: [DECIDE, UNUSED], cited: ["c-db"] }));
+      if (path === TURN_PATH) return json(turn({ recalled: [DECIDE, UNUSED], cited: ["c-db"], canCorrect: turnCanCorrect }));
       if (path === CORRECT_PATH) return json({ outcome: "expired", newClaimId: null });
       throw new Error(`unexpected fetch: ${path}`);
     }));
@@ -183,8 +191,19 @@ describe("TurnMemoryLine：服务端的 cited → chip；纠正走 correctCitati
     expect(screen.queryByTestId("kg-citation-c-unused")).not.toBeInTheDocument();
     fireEvent.click(chip);
     fireEvent.click(screen.getByTestId("kg-cite-expired-c-db"));
+    fireEvent.click(screen.getByTestId("kg-cite-expire-confirm-c-db"));
     expect(await screen.findByTestId("kg-cite-done-c-db")).toBeInTheDocument();
     expect(calls.find((c) => c.path === CORRECT_PATH)).toEqual({ path: CORRECT_PATH, method: "POST", body: { kind: "expired" } });
+  });
+
+  it("所有者、但不是这一轮的提问人（服务端 canCorrect=false，review F6）：展开里没有纠正入口", async () => {
+    turnCanCorrect = false;
+    act(() => publishKnowledgeSnapshot({ threadId: THREAD, canEdit: true, revision: 3 }));
+    render(<TurnMemoryLine threadId={THREAD} messageId="msg-9" />);
+    fireEvent.click(await screen.findByTestId("kg-citation-c-db"));
+    expect(screen.getByTestId("kg-cite-detail-c-db")).toBeInTheDocument();
+    expect(screen.queryByTestId("kg-cite-wrong-c-db")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("kg-cite-expired-c-db")).not.toBeInTheDocument();
   });
 
   it("不是所有者（快照 canEdit=false）：展开里没有纠正入口", async () => {

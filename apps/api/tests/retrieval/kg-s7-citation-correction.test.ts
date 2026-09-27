@@ -93,6 +93,7 @@ describe("S7：引用 chip 由服务端对账", () => {
     const out = await read(fx.B, answer);
     expect(out.recalled.map((r) => r.claimId)).toEqual([fx.personalClaimId, "clm-s7-unused"]);
     expect(out.cited).toEqual([fx.personalClaimId]);
+    expect(out.canCorrect).toBe(true);
     const [sClaim] = await sqlRows<{ id: string }>(
       "SELECT id FROM claims WHERE org_id = $1 AND scope_kind = 'chat_session' AND scope_id = $2 AND statement = '客户 A 的合同在法务那里'", [ORG, fx.S]);
     expect(sClaim).toBeDefined();
@@ -116,6 +117,9 @@ describe("S7：越权防护", () => {
     const [shared] = await sqlRows<{ id: string }>(
       "SELECT id FROM claims WHERE org_id = $1 AND scope_kind = 'chat_session' AND scope_id = $2 AND revoked_at IS NULL LIMIT 1", [ORG, fx.S]);
     const sAnswer = await turnWith(fx.S, "run-s7-member", [shared!.id], "客户 A 的合同在法务那里。", "u-member");
+    // review F6：界面据 canCorrect 给不给入口——提问的成员不是所有者、所有者不是这一轮的提问人 ⇒ 都是 false
+    expect((await read(fx.S, sAnswer, "u-member")).canCorrect).toBe(false);
+    expect((await read(fx.S, sAnswer, "u-owner")).canCorrect).toBe(false);
     expect(await rejected(correctCitation(deps, { userId: "u-member", orgId: ORG_ID, threadId: fx.S, messageId: sAnswer, claimId: shared!.id, kind: "wrong" })))
       .toBe("KG_NOT_OWNER");
     // 所有者也不能替别人那一轮纠正：数据库核的是「这一轮的提问人」
@@ -190,16 +194,105 @@ describe("S7：纠正之后下一轮不再用它", () => {
   });
 });
 
+/**
+ * review F1：会话里的原说法 ⇄ 它记进本人长期记忆的副本（derived_from）是「一家」。纠正任何一份，整家都不再被召回，
+ * 新说法只落一份（落在长期记忆里），也不带 derived_from（review F2）。
+ */
+async function family(tag: string, statement: string) {
+  const session = `clm-s7-fam-${tag}-s`;
+  const personal = `clm-s7-fam-${tag}-p`;
+  await insertClaim(session, statement, { kind: "chat_session", id: fx.A });
+  await insertClaim(personal, statement, { kind: "personal", id: "u-owner" });
+  await asOwner(async (c) => {
+    for (const id of [session, personal]) {
+      await c.query(
+        "INSERT INTO claim_message_evidence (claim_id, org_id, message_id, stance, excerpt) VALUES ($1, $2, $3, 'supporting', $4)",
+        [id, ORG, `m-${fx.A}`, statement]);
+    }
+    await c.query(
+      `INSERT INTO ontology_edges (id, org_id, src_kind, src_id, dst_kind, dst_id, relation, created_by, scope_kind, scope_id)
+       VALUES ($1, $2, 'claim', $3, 'claim', $4, 'derived_from', 'model', 'personal', 'u-owner')`,
+      [`edge-s7-fam-${tag}`, ORG, personal, session]);
+  });
+  return { session, personal };
+}
+const live = (statement: string) => sqlRows<{ id: string; scope_kind: string }>(
+  "SELECT id, scope_kind FROM claims WHERE org_id = $1 AND statement = $2 AND revoked_at IS NULL AND status <> 'superseded' ORDER BY id",
+  [ORG, statement]);
+
+describe("S7 review F1：纠正落在整家（会话原说法 ⇄ 长期记忆副本）", () => {
+  it("在原对话里纠正会话那条（带新说法）⇒ 长期记忆副本也不再生效；新说法只一份、在长期记忆里；两个对话下一轮都只用新说法", async () => {
+    const OLD = "客户 A 要求报价单用美元";
+    const NEW = "客户 A 要求报价单用人民币";
+    const f = await family("a", OLD);
+    const q = "客户 A 对报价单有什么要求？";
+    expect(await recallText(fx.B, q, "run-s7-fa-pre")).toContain(OLD);
+    const answer = await turnWith(fx.A, "run-s7-fa", [f.session], `你说过：${OLD}。`);
+    expect((await read(fx.A, answer)).cited).toEqual([f.session]);
+    const out = await correctCitation(deps, {
+      userId: "u-owner", orgId: ORG_ID, threadId: fx.A, messageId: answer, claimId: f.session, kind: "wrong", replacement: NEW,
+    });
+    expect(out.outcome).toBe("superseded");
+    expect(await live(OLD)).toEqual([]);
+    expect(await live(NEW)).toEqual([{ id: out.newClaimId, scope_kind: "personal" }]);
+    for (const [thread, run] of [[fx.A, "run-s7-fa-a"], [fx.B, "run-s7-fa-b"]] as const) {
+      const next = await recallText(thread, q, run);
+      expect(next).toContain(NEW);
+      expect(next).not.toContain(OLD);
+      expect(next!.split(NEW).length - 1).toBe(1);
+    }
+    // F2：新说法不带 derived_from；证据保留（来源抽屉 / 跳回原消息还能用）
+    const edges = await sqlRows<{ n: string }>(
+      "SELECT count(*) AS n FROM ontology_edges WHERE org_id = $1 AND relation = 'derived_from' AND (src_id = $2 OR dst_id = $2)", [ORG, out.newClaimId]);
+    expect(edges[0]!.n).toBe("0");
+    const ev = await sqlRows<{ message_id: string }>("SELECT message_id FROM claim_message_evidence WHERE claim_id = $1", [out.newClaimId]);
+    expect(ev).toEqual([{ message_id: `m-${fx.A}` }]);
+    const [neu] = await sqlRows<{ supersedes_claim_id: string }>("SELECT supersedes_claim_id FROM claims WHERE id = $1", [out.newClaimId]);
+    expect(neu!.supersedes_claim_id).toBe(f.personal);
+  });
+
+  it("在新对话里纠正长期记忆那份（带新说法）⇒ 原对话里的会话那条也不再生效，原对话下一轮只用新说法（不重复）", async () => {
+    const OLD = "客户 A 要求合同一式三份";
+    const NEW = "客户 A 要求合同一式两份";
+    const f = await family("b", OLD);
+    const q = "客户 A 对合同份数有什么要求？";
+    expect(await recallText(fx.A, q, "run-s7-fb-pre")).toContain(OLD);
+    const answer = await turnWith(fx.B, "run-s7-fb", [f.personal], `你说过：${OLD}。`);
+    const out = await correctCitation(deps, {
+      userId: "u-owner", orgId: ORG_ID, threadId: fx.B, messageId: answer, claimId: f.personal, kind: "wrong", replacement: NEW,
+    });
+    expect(await live(OLD)).toEqual([]);
+    expect(await live(NEW)).toEqual([{ id: out.newClaimId, scope_kind: "personal" }]);
+    const next = await recallText(fx.A, q, "run-s7-fb-a");
+    expect(next).toContain(NEW);
+    expect(next).not.toContain(OLD);
+    expect(next!.split(NEW).length - 1).toBe(1);
+  });
+
+  it("「这条不对」不带新说法 / 「已过时」纠正长期记忆那份 ⇒ 原对话里那条一起失效（反过来同样）", async () => {
+    const f1 = await family("c", "客户 A 要求周报用英文");
+    const a1 = await turnWith(fx.B, "run-s7-fc", [f1.personal], "你说过：客户 A 要求周报用英文。");
+    await correctCitation(deps, { userId: "u-owner", orgId: ORG_ID, threadId: fx.B, messageId: a1, claimId: f1.personal, kind: "wrong" });
+    expect(await live("客户 A 要求周报用英文")).toEqual([]);
+    const f2 = await family("d", "客户 A 要求月报抄送财务");
+    const a2 = await turnWith(fx.A, "run-s7-fd", [f2.session], "你说过：客户 A 要求月报抄送财务。");
+    await correctCitation(deps, { userId: "u-owner", orgId: ORG_ID, threadId: fx.A, messageId: a2, claimId: f2.session, kind: "expired" });
+    expect(await live("客户 A 要求月报抄送财务")).toEqual([]);
+    expect(await recallText(fx.B, "客户 A 对月报有什么要求？", "run-s7-fd-b")).not.toContain("客户 A 要求月报抄送财务");
+  });
+});
+
 describe("S7：纠正率 = 纠正 / 被引用", () => {
   it("按同一个对账判据复算被引用次数；纠正按种类计数；只算本人的", async () => {
     const citedRuns = await sqlRows<{ n: string }>(
       "SELECT count(*) AS n FROM kg_citation_corrections WHERE org_id = $1 AND user_id = 'u-owner'", [ORG]);
-    expect(citedRuns[0]!.n).toBe("3");
+    expect(citedRuns[0]!.n).toBe("7");
     const m = await getCitationMetrics(deps, { userId: "u-owner", orgId: ORG_ID });
-    // 本人提问的回答里被引用过的：recon(1) + authz(1) + notcited(1) + badreq(1) + inv(1) + lang(1) + meet(1) = 7；none 那一轮 0
-    expect(m.citedUses).toBe(7);
-    expect(m.corrections).toEqual({ wrong: 2, expired: 1 });
-    expect(m.correctionRate).toBeCloseTo(3 / 7, 4);
+    // 本人提问的回答里被引用过的：recon + authz + notcited + badreq + inv + lang + meet（7）+ 一家的四轮 fa/fb/fc/fd（4）= 11；
+    // none 那一轮 0。纠正过的那条现在已失效，但它当时被引用过，照样算在分母里。
+    expect(m.citedUses).toBe(11);
+    expect(m.corrections).toEqual({ wrong: 5, expired: 2 });
+    expect(m.correctionRate).toBeCloseTo(7 / 11, 4);
     expect(m.windowDays).toBe(30);
     // 别人：没有纠正、没有被引用（u-member 那一轮的引用不算到 u-owner 头上，反之亦然）
     const other = await getCitationMetrics(deps, { userId: "u-member", orgId: ORG_ID });

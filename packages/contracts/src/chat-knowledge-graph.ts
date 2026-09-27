@@ -355,6 +355,12 @@ export const KgTurnMemory = z.object({
    * （判据见 apps/api/src/domain/knowledge-graph/citation.ts）。可省略只为兼容 S7 之前的读者：省略 ⇒ 按 `recalled` 全部。
    */
   cited: z.array(z.string()).optional(),
+  /**
+   * S7 review F6：查看者能不能在这一轮的引用上点「这条不对」/「已过时」——是这条对话的所有者、**且**是这一轮的提问人
+   * （服务端 `correctCitation` 同一判据）。`cited` 里的每一条都在查看者能改的作用域里（`recalled` 已按查看者过滤）。
+   * 省略 ⇒ 按 false（不给入口，免得点了被拒）。
+   */
+  canCorrect: z.boolean().optional(),
 }).strict();
 export type KgTurnMemory = z.infer<typeof KgTurnMemory>;
 

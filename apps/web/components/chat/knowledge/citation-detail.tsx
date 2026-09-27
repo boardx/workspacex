@@ -27,7 +27,8 @@ export type CitationCorrect = (kind: CitationCorrectionKind, replacement?: strin
  *   · 不填 ⇒ 出 F17 的**忘掉卡**（同一个 `MemoryCard`，只列这一条）；点「忘掉」才生效。
  *   · 填了 ⇒ 出 #4290 的**改口卡**（同一个 `ConflictPromptCard`，`possible_change`：「用〈新〉取代〈旧〉？」）；点「取代」才生效，
  *     「两条都保留」= 什么都不改。
- * - 「已过时」：一点就生效（`expireClaim`）。
+ * - 「已过时」：先问一句「确认这条已过时？」，点「确认」才生效（`expireClaim`；S6 #4492 落地前它会撤掉这条，
+ *   所以不做一点就生效——review F4）。
  * - 执行都经 `onCorrect`（`correctCitation`，服务端再核一遍这是不是这一轮的引用、你是不是所有者兼提问人）；
  *   失败时抛出的 Error 带给人看的话，卡片 / 按钮原样恢复。
  * - `canCorrect = false`（不是所有者）：只有原话和「跳到原消息」，没有纠正入口。
@@ -46,7 +47,7 @@ export function CitationDetail({
   onCorrect?: CitationCorrect;
 }) {
   const id = memory.claimId;
-  const [mode, setMode] = React.useState<"idle" | "wrong">("idle");
+  const [mode, setMode] = React.useState<"idle" | "wrong" | "expire">("idle");
   const [replacement, setReplacement] = React.useState("");
   const [done, setDone] = React.useState<CitationCorrection["outcome"] | null>(null);
   const [busy, setBusy] = React.useState(false);
@@ -108,7 +109,14 @@ export function CitationDetail({
                 <ThumbsDown aria-hidden className="mr-1 h-3 w-3" />
                 这条不对
               </Button>
-              <Button size="xs" variant="outline" disabled={busy} data-testid={`kg-cite-expired-${id}`} onClick={() => void expire()}>
+              <Button
+                size="xs"
+                variant="outline"
+                aria-expanded={mode === "expire"}
+                disabled={busy}
+                data-testid={`kg-cite-expired-${id}`}
+                onClick={() => { setNote(null); setMode((m) => (m === "expire" ? "idle" : "expire")); }}
+              >
                 <Clock3 aria-hidden className="mr-1 h-3 w-3" />
                 已过时
               </Button>
@@ -116,6 +124,18 @@ export function CitationDetail({
           ) : null}
         </div>
       )}
+
+      {correctable && done === null && mode === "expire" ? (
+        <div className="flex flex-wrap items-center gap-1.5 rounded-md border border-warning bg-warning-tint p-2" data-testid={`kg-cite-expire-confirm-panel-${id}`}>
+          <span className="text-10 text-warning-tint-foreground">确认这条已经过时？之后的回答不再用它。</span>
+          <Button size="xs" variant="destructive" disabled={busy} data-testid={`kg-cite-expire-confirm-${id}`} onClick={() => void expire()}>
+            确认
+          </Button>
+          <Button size="xs" variant="ghost" disabled={busy} data-testid={`kg-cite-expire-cancel-${id}`} onClick={() => setMode("idle")}>
+            取消
+          </Button>
+        </div>
+      ) : null}
 
       {correctable && done === null && mode === "wrong" ? (
         <div className="flex flex-col gap-1" data-testid={`kg-cite-wrong-panel-${id}`}>

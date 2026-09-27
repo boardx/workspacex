@@ -39,6 +39,33 @@ describe("reconcileCitations", () => {
   });
 });
 
+describe("reconcileCitations：兄弟结论（review F3）——共享的部分分不出是哪条，要靠各自独有的单元", () => {
+  it.each([
+    ["日期", "发布日期是9月20日", "发布日期是10月1日", "好的，发布日期是9月20日。"],
+    ["金额", "预算是50万", "预算是80万", "按你说的，预算是50万。"],
+    ["名字", "负责人是张三", "负责人是李四", "负责人是张三，有事找他。"],
+    ["否定", "决定用MySQL", "决定不用MySQL", "你之前决定用MySQL。"],
+    ["否定（反过来）", "决定不用MySQL", "决定用MySQL", "你之前决定不用MySQL。"],
+  ])("%s：两条都召回，回答只用了其中一条 ⇒ 只出那一条", (_k, used, sibling, answer) => {
+    expect(reconcileCitations(answer, [R("sib", sibling), R("used", used)])).toEqual(["used"]);
+  });
+
+  it("两条都说到了 ⇒ 两条都出", () => {
+    expect(reconcileCitations("原定发布日期是9月20日，后来改成发布日期是10月1日。",
+      [R("a", "发布日期是9月20日"), R("b", "发布日期是10月1日")])).toEqual(["a", "b"]);
+  });
+
+  it("没有兄弟时同样挡住：数字对不上 / 被说反 ⇒ 不算用到", () => {
+    expect(reconcileCitations("预算是80万。", [R("c", "预算是50万")])).toEqual([]);
+    expect(reconcileCitations("你决定不用MySQL。", [R("c", "决定用MySQL")])).toEqual([]);
+    expect(reconcileCitations("你决定用MySQL。", [R("c", "决定不用MySQL")])).toEqual([]);
+  });
+
+  it("单个汉字不算单元：「月」「日」「万」凑不出用到", () => {
+    expect(reconcileCitations("这个月的日程已经排满，预计一万步。", [R("c", "月日万")])).toEqual([]);
+  });
+});
+
 describe("citationCorrectionRate", () => {
   it("没有被引用过 ⇒ null；否则 纠正 / 引用（4 位小数）", () => {
     expect(citationCorrectionRate(0, 0)).toBeNull();

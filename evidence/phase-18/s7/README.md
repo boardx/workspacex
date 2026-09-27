@@ -44,8 +44,8 @@ Branch `s7` from origin/main `5f0b835a0`. Epic #4359, round S7.
 ## Contract (treated as approved, sign off later)
 
 `KgTurnMemory.cited` (optional), `KgCitationCorrectionKind`, `correctCitation`, `getCitationMetrics`. These are listed
-in [`../r10/README.md`](../r10/README.md) §3.2. Migration `20260927470000_kg_s7_citation_corrections.sql` sorts after
-origin/main's newest (`20260927310000`).
+in [`../r10/README.md`](../r10/README.md) §3.2. Migration `20260928190000_kg_s7_citation_corrections.sql` sorts after
+origin/main's newest (`20260928150000`, after merging main on the review round).
 
 ## Tests
 
@@ -86,7 +86,7 @@ The journey is written and committed: [`harness/journey.spec.ts.txt`](harness/jo
   and metrics show wrong 1 / expired 1;
 - privacy: another member gets 403/404.
 
-The stack came up: db `s7e2e` migrated (including `20260927470000`) and seeded, the API on 59143, the unmodified
+The stack came up: db `s7e2e` migrated (including `20260928190000`) and seeded, the API on 59143, the unmodified
 loopback on 59142, and redis on 59145. The web never served `/chat`:
 
 1. Attempt 1: `next dev` compiled `/login` in 47 s. The `/chat` compile then outlasted the 180 s navigation timeout, and
@@ -103,3 +103,50 @@ the two `.txt` files into `apps/web`, then `stack.sh pw`.
 
 All stacks were stopped and the temporary databases (`s7e2e`, `s7t`, `s7tnomig`) were dropped. The temporary spec,
 config and `.next-kg-eval` were removed, and the `tsconfig.json` include that `next dev` adds was reverted.
+
+## Review round (PR #4490 at 46aa93289 → REVISE)
+
+This round merged origin/main first. The migration was renamed `20260927470000` → `20260928190000` (slot assigned by the coordinator) so it still sorts
+after main's newest (`20260928150000`).
+
+- **F1 — correcting a claim corrects its whole family.** `kg_correct_citation` now gathers a "family": the clicked claim
+  plus every live claim linked to it through **active `derived_from` edges**, in both directions and transitively.
+  Only claims the owner may correct are included: this thread's, their own personal space, and their own other
+  personal threads. Project memory (L2) is deliberately left out; it belongs to all members.
+  - Forget and expire apply to the whole family.
+  - A correction with new wording creates **one** new claim. It goes into the personal space if the family has a
+    personal copy (so every thread recalls it), otherwise into the clicked claim's scope. It supersedes the family
+    member in the same scope (the anchor, which becomes `superseded` like `reviseClaim`), and the rest of the family is
+    revoked.
+  - All involved scopes are locked in a fixed order (sessions before personal), and each touched scope gets its own
+    audit row.
+  - Regression tests (`kg-s7-citation-correction.test.ts`, describe 「S7 review F1」) use a real thread claim plus
+    a derived personal copy and cover both directions: correcting the thread claim, and correcting the personal copy.
+    Each checks that the old wording is live nowhere, the new wording exists exactly once, and the next turn in both
+    threads recalls only the new wording, once. They also cover forget and expire across the family.
+- **F2 — `derived_from` is not carried over; evidence is kept.** No `derived_from` edge goes to the new claim (a test
+  checks this). **Decision: keep the evidence.** The family's evidence messages are copied onto the new claim with
+  duplicates removed. The wording changed, not where the fact came from (same as F10 `reviseClaim`, I-5). Also, a
+  personal-space claim can only be opened in the source drawer, or jumped from to the source message, through its
+  evidence threads; without evidence the new claim would be a citation nobody can open. The fact that a person
+  corrected it is recorded in `ontology_actions` (`via = citation`, with both claim ids).
+- **F3 — citations: no more false positives on sibling claims.** Changes in `reconcileCitations` / `answerUsesStatement`:
+  - A single Chinese character no longer counts as a match unit.
+  - Every number in the claim must appear in the answer.
+  - Negation must match: a negated claim needs its negation in the answer, and an answer that turns 「用」 into 「不用」
+    does not count.
+  - Siblings: when two recalled claims share at least 50% of their units, each needs one of its **own** units in the
+    answer (a number, a name, a negation…).
+  - Regression tests cover all four reported pairs (date, amount, name, negation in both directions), the both-used
+    case, the no-sibling number and negation cases, and the single-character case.
+- **F4 (interim) — 「已过时」 now asks for confirmation** (「确认这条已经过时？」 then 确认 / 取消). Rewriting it as
+  `valid_to = now()`, and copying `valid_to` / `due_at` / `todo_status` on supersede, waits for S6 (#4492) to reach
+  main. `TODO(#4363)` markers are at both places in the migration.
+- **F6 — buttons only for people the server will accept.** `getTurnMemory.canCorrect` (optional, part of the
+  sign-off-later contract list) is true only when the viewer owns the thread **and** asked this turn, which is the
+  same rule `kg_correct_citation` enforces. Every cited claim is already in a scope that viewer can correct, because
+  `recalled` is filtered per viewer. The web shows 「这条不对」 / 「已过时」 only when `canEdit && canCorrect`.
+- **F5** (golden-set wiring, browser journey): follow-ups, handled by the coordinator.
+
+Results: API 26/26 (`citation-reconcile` 14 + `kg-s7-citation-correction` 12); web 30/30 (`citation-correction` 13 +
+`answer-memory-citations` 17). Fail-without-fix for each fix: [`fail-without-fix-review.txt`](fail-without-fix-review.txt).
