@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import { expect, request as playwrightRequest, test, type APIRequestContext, type Page } from "@playwright/test";
 import { SESSION_TOKEN_STORAGE_KEY } from "../lib/api-client";
 import { FULLSTACK_E2E } from "./fullstack-smoke-fixture";
+import { spatialDragPosition, spatialPointerDrag } from "./support/board-spatial-pointer";
 
 /** Iteration 05 real-browser acceptance. Root session runs this against isolated API/PG/WS services. */
 test.describe.configure({ mode: "default", timeout: 120_000 });
@@ -63,8 +64,9 @@ async function dragObject(page: Page, row: ReturnType<typeof objectRow>, dx: num
     y: geometry.y + localX * Math.sin(angle) + localY * Math.cos(angle),
   };
   const start = { x: box.x + panX + sceneCenter.x * zoom, y: box.y + panY + sceneCenter.y * zoom };
-  await page.mouse.move(start.x, start.y); await page.mouse.down(); await page.mouse.move(start.x + dx * zoom, start.y + dy * zoom, { steps: 10 }); await page.mouse.up();
-  const expected = outcome === "commit" ? { x: geometry.x + dx, y: geometry.y + dy } : { x: geometry.x, y: geometry.y };
+  const { from, to } = spatialPointerDrag(start, { x: dx, y: dy }, zoom);
+  await page.mouse.move(from.x, from.y); await page.mouse.down(); await page.mouse.move(to.x, to.y, { steps: 10 }); await page.mouse.up();
+  const expected = outcome === "commit" ? spatialDragPosition(geometry, from, to, zoom) : { x: geometry.x, y: geometry.y };
   await expect.poll(async () => { const next = await geometryOf(row); return { x: next.x, y: next.y }; }).toEqual(expected);
 }
 async function openInspector(page: Page, properties = false) {
