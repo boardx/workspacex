@@ -9,6 +9,7 @@ import { toolUrl } from "@/lib/chat-workbench/external-url";
 import { requestOpenInRightPanel } from "@/lib/chat-workbench/panel-document";
 import { RunTraceLivePreview } from "./run-trace-live-preview";
 import { planFromTrace } from "@/lib/chat-workbench/trace-plan";
+import { LivePlanContext } from "@/lib/chat-workbench/live-plan-context";
 import { AgentPlanPanel } from "@/components/chat/agent-plan-panel";
 import { SubtaskRunLivePanel } from "@/components/chat/subtask-run-live-panel";
 import { RunTraceLiveStrip } from "@/components/chat/workbench/run-trace-live-strip";
@@ -128,6 +129,11 @@ export function RunTracePanel({ runId, events, running = false, expanded: contro
   const status = [...events].reverse().find((event) => event.kind === "status");
   const legacy = events.every((event) => event.source === "legacy");
   const active = !legacy && (status?.kind === "status" ? status.status === "running" : running);
+  // 进行中：读底部面板那份账本（同一份数据），底部展开时让位（同一时刻只一份完整列表）。
+  // 结束后：本轮自己的计划快照。见 `LivePlanContext` 头注。
+  const livePlan = React.useContext(LivePlanContext);
+  const shownTodos = active && livePlan.todos !== null ? [...livePlan.todos] : planTodos;
+  const showPlanHere = shownTodos !== null && !(active && livePlan.todos !== null && livePlan.expanded);
   React.useEffect(() => {
     if (!active) return;
     const timer = window.setInterval(() => setNow(Date.now()), 1000);
@@ -183,9 +189,9 @@ export function RunTracePanel({ runId, events, running = false, expanded: contro
         也看不到——v2 这条链的计划面板吃的是 AG-UI STATE_SNAPSHOT / 计划账本，
         deep-agent provider 两样都不走。而那份计划其实就在这次工具调用的 args 里，
         已经在浏览器手上了。用「既有的」AgentPlanPanel 渲染，不另画一套。 */}
-    {planTodos !== null ? (
+    {showPlanHere && shownTodos !== null ? (
       <div className="mb-1.5" data-testid="run-trace-plan">
-        <AgentPlanPanel steps={[]} stateSnapshotTodos={planTodos} />
+        <AgentPlanPanel steps={[]} stateSnapshotTodos={shownTodos} />
       </div>
     ) : null}
     {!expanded && <RunTraceLivePreview entries={entries} active={active} hasAssistantText={hasAssistantText} />}
