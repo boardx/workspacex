@@ -350,6 +350,15 @@ import { PgInterviewScopeRepository } from "./infrastructure/interview/pg-interv
 import { PgInterviewAttachmentRepository } from "./infrastructure/interview/pg-interview-attachment-repository";
 import { InterviewScopeController } from "./interface/controllers/interview-scope.controller";
 import { DigitalInterviewController } from "./interface/controllers/digital-interview.controller";
+import { ExpertAvatarPreferenceController } from "./interface/controllers/expert-avatar-preference.controller";
+import { InterviewMarkdownReportReviewController } from "./interface/controllers/interview-markdown-report-review.controller";
+import { InterviewMarkdownAttachmentController } from "./interface/controllers/interview-markdown-attachment.controller";
+import { INTERVIEW_MARKDOWN_ATTACHMENTS } from "./application/interview/interview-markdown-attachment.port";
+import { PgInterviewMarkdownAttachmentRepository } from "./infrastructure/interview/pg-interview-markdown-attachment-repository";
+import { INTERVIEW_MARKDOWN_REPORT_REVIEW_REPOSITORY } from "./application/interview/interview-markdown-report-review.port";
+import { PgInterviewMarkdownReportReviewRepository } from "./infrastructure/interview/pg-interview-markdown-report-review-repository";
+import { EXPERT_AVATAR_PREFERENCE_REPOSITORY } from "./application/interview/expert-avatar-preference.port";
+import { PgExpertAvatarPreferenceRepository } from "./infrastructure/interview/pg-expert-avatar-preference-repository";
 // F01 (phase-06 · 06-itv insight sub-bundle): 洞察写路径持久化——extractQuotes /
 // generateCandidateInsights / confirmInsight 三个算子真正接线到 Postgres。
 import { InterviewInsightController } from "./interface/controllers/interview-insight.controller";
@@ -400,6 +409,9 @@ import { PgDigitalInterviewRepository } from "./infrastructure/interview/pg-digi
 import { PgInterviewMarkdownReader } from "./infrastructure/interview/pg-interview-markdown-reader";
 import { INTERVIEW_MARKDOWN_READER } from "./application/interview/read-interview-markdown";
 import { INTERVIEW_MARKDOWN_GENERATOR, generateInterviewMarkdown } from "./application/interview/generate-interview-markdown";
+import { INTERVIEW_MARKDOWN_EXECUTION, type MarkdownExecutionInput } from "./application/interview/interview-markdown-execution.port";
+import { executeInterviewMarkdown } from "./application/interview/execute-interview-markdown";
+import { PgInterviewMarkdownExecutionStore } from "./infrastructure/interview/pg-interview-markdown-execution-store";
 import { PgDigitalInterviewEffects } from "./infrastructure/interview/workflow/pg-digital-interview-effects";
 import { readDigitalInterviewModelConfig } from "./infrastructure/interview/workflow/digital-interview-model-config";
 import {
@@ -1064,7 +1076,10 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
     EvidenceWithdrawalController,
     AuthOrgController,
     OrgAdminScopeController,
+    InterviewMarkdownAttachmentController,
     DigitalInterviewController,
+    ExpertAvatarPreferenceController,
+    InterviewMarkdownReportReviewController,
     GuidedResearchController,
     InterviewScopeController,
     InterviewInsightController,
@@ -1137,6 +1152,9 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
     ModelController,
   ],
   providers: [
+    { provide: EXPERT_AVATAR_PREFERENCE_REPOSITORY, useFactory: (db: DatabasePort) => new PgExpertAvatarPreferenceRepository(db), inject: [DATABASE_PORT] },
+    { provide: INTERVIEW_MARKDOWN_REPORT_REVIEW_REPOSITORY, useFactory: (db: DatabasePort) => new PgInterviewMarkdownReportReviewRepository(db), inject: [DATABASE_PORT] },
+    { provide: INTERVIEW_MARKDOWN_ATTACHMENTS, useFactory:(db:DatabasePort)=>new PgInterviewMarkdownAttachmentRepository(db),inject:[DATABASE_PORT] },
     { provide: SURVEY_TEMPLATE_REPOSITORY, useExisting: SURVEY_REPOSITORY },
     SurveySubmissionRateLimitGuard, SurveyUploadCapabilityGuard, SurveyAttachmentRateLimitGuard,
     { provide: SURVEY_ATTACHMENT_SERVICE, inject: [DATABASE_PORT, OBJECT_STORE, PHYSICAL_PURGE_PORT], useFactory: (db: DatabasePort, store: ObjectStore, purge: PhysicalPurgePort) => new SurveyAttachmentService(new PgSurveyAttachmentRepository(db), store, purge) },
@@ -2400,6 +2418,22 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
           generateInterviewMarkdown({ repo, scope, decisions, reader, model, modelProvider: config.provider, modelId: config.modelId }, input) };
       },
       inject: [DIGITAL_INTERVIEW_REPOSITORY, INTERVIEW_SCOPE_REPOSITORY, DECISION_ID_FACTORY, INTERVIEW_MARKDOWN_READER, MODEL_CALL_PORT],
+    },
+    {
+      provide: INTERVIEW_MARKDOWN_EXECUTION,
+      useFactory: (
+        db: DatabasePort,
+        repo: import("./application/interview/digital-interview-ports").DigitalInterviewRepository,
+        scope: import("./application/interview/ports").InterviewScopeRepository,
+        decisions: import("./application/identity/ports").DecisionIdFactory,
+        reader: import("./application/interview/read-interview-markdown").InterviewMarkdownReader,
+        model: ModelCallPort,
+      ) => {
+        const config=readDigitalInterviewModelConfig();
+        const store=new PgInterviewMarkdownExecutionStore(db);
+        return {execute:(input:MarkdownExecutionInput)=>executeInterviewMarkdown({repo,scope,decisions,reader,store,model,modelProvider:config.provider,modelId:config.modelId},input)};
+      },
+      inject: [DATABASE_PORT,DIGITAL_INTERVIEW_REPOSITORY,INTERVIEW_SCOPE_REPOSITORY,DECISION_ID_FACTORY,INTERVIEW_MARKDOWN_READER,MODEL_CALL_PORT],
     },
     {
       provide: DIGITAL_INTERVIEW_EFFECTS,

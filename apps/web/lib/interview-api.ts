@@ -63,12 +63,7 @@ export function sendQuickDigitalInterviewMessage(
   );
 }
 
-export function createDigitalInterviewDraft(input: CreateDigitalInterviewDraftInput) {
-  return apiRequest<DigitalInterviewWorkflowView>("/interviews/digital", {
-    method: "POST",
-    body: input,
-  });
-}
+export { createDigitalInterviewDraft } from "./live-interview-metadata";
 
 export function loadDigitalInterview(interviewId: string) {
   if (interviewId.startsWith("mock-batch-")) {

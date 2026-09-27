@@ -844,6 +844,8 @@ export const DigitalInterviewHistoryRow = DigitalInterviewDraftInput.extend({
   completedExpertCount: z.number().int().nonnegative(),
   primaryAction: DigitalInterviewPrimaryAction,
   updatedAt: z.string().datetime(),
+  /** Canonical source navigation; absent for the retained legacy workflow. */
+  sourceStep: DigitalInterviewArtifactStep.optional(),
 }).strict();
 
 export const QuickDigitalInterviewMessage = z.object({

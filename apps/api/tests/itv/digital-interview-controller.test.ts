@@ -25,6 +25,33 @@ let db: PgDatabase;
 
 const auth = { "x-kernel-test-principal": `${USER}:${ORG}` };
 
+it("authorizes interview before multipart parsing and stores uploaded Markdown only as a draft",async()=>{
+  const headers={...auth,"content-type":"multipart/form-data; boundary=broken-boundary"};
+  const hidden=await fetch(`${base}/interviews/digital/itv-f02-same-org-hidden/markdown/attachments?expectedVersion=1&expectedDocumentVersion=0`,{method:"POST",headers,body:"malformed multipart without file"});
+  expect(hidden.status).toBe(404);
+  await db.withTenant(toOrgId(ORG),s=>s.query(`INSERT INTO digital_interview_revisions(org_id,id,interview_id,revision_number,created_by) VALUES($1,'revision-api-upload-4483','itv-f02-visible',1,$2)`,[ORG,USER]));
+  const form=new FormData();form.append("file",new Blob(["# 上传需求\r\n中文 🧪"],{type:"text/markdown"}),"需求.md");
+  const uploaded=await fetch(`${base}/interviews/digital/itv-f02-visible/markdown/attachments?expectedVersion=1&expectedDocumentVersion=0`,{method:"POST",headers:auth,body:form});
+  expect(uploaded.status).toBe(201);
+  const result=await uploaded.json();expect(result.original.filename).toBe("需求.md");expect(result.source.documents[0].markdown).toContain("# 上传需求\r\n中文 🧪");
+  expect(result.source.states[0].status).toBe("draft");expect(result.source.version).toBe(2);
+});
+
+it("source revision endpoint copies confirmed bytes as an editable branch and rejects stale or denied requests",async()=>{
+  await db.withTenant(toOrgId(ORG),async session=>{
+    await session.query(`INSERT INTO digital_interview_revisions(org_id,id,interview_id,revision_number,created_by) VALUES($1,'revision-api-branch-4483','itv-f02-visible',1,$2)`,[ORG,USER]);
+    await appendInterviewMarkdownDocument(session,{orgId:toOrgId(ORG),interviewId:"itv-f02-visible",revisionId:"revision-api-branch-4483",step:"intake",title:"需求",markdown:"# 原文\r\n中文 🧪",evidenceMode:"simulated",references:[],expectedVersion:0});
+  });
+  const headers={...auth,"content-type":"application/json"};
+  const request=(id:string,expectedVersion:number)=>fetch(`${base}/interviews/digital/${id}/markdown/revision`,{method:"POST",headers,body:JSON.stringify({expectedVersion,fromStep:"intake"})});
+  expect((await request("itv-f02-same-org-hidden",1)).status).toBe(404);
+  expect((await request("itv-f02-visible",2)).status).toBe(409);
+  const response=await request("itv-f02-visible",1);expect(response.status).toBe(201);
+  const source=await response.json();expect(source.execution).toBeNull();expect(source.version).toBe(2);
+  expect(source.revisionId).not.toBe("revision-api-branch-4483");expect(source.documents[0].markdown).toBe("# 原文\r\n中文 🧪");
+  expect(source.states[0].status).toBe("draft");
+});
+
 it("initialization is an explicit authorized POST and ordinary GET remains read-only", async () => {
   const path = `${base}/interviews/digital/itv-f02-visible/markdown`;
   const before = await (await fetch(path, { headers: auth })).json();
