@@ -31,29 +31,69 @@ function typeOf(raw: string): ImportedBoardItem['type'] {
   if (['card', 'tile'].includes(value)) return 'tile';
   return 'unsupported';
 }
+function plainText(value:string):string {
+  return value.replace(/<br\s*\/?>(?:\r?\n)?/gi,'\n').replace(/<\/(?:p|div|li)>/gi,'\n').replace(/<[^>]*>/g,'').replace(/&(?:amp|lt|gt|quot|apos|nbsp);|&#(?:x[0-9a-f]+|[0-9]+);/gi,entity=>{
+    const named:Record<string,string>={'&amp;':'&','&lt;':'<','&gt;':'>','&quot;':'"','&apos;':"'",'&nbsp;':' '};
+    if(named[entity.toLowerCase()])return named[entity.toLowerCase()]!;
+    const n=entity[2]?.toLowerCase()==='x'?parseInt(entity.slice(3,-1),16):Number(entity.slice(2,-1));
+    return Number.isInteger(n)&&n>0&&n<=0x10ffff?String.fromCodePoint(n):entity;
+  }).trimEnd();
+}
 function normalize(raw: unknown, index: number, source: WhiteboardImportSource, context: SourceContext = {}): ImportedBoardItem {
-  const value = record(raw), position = record(value.position), geometry = record(value.geometry), size = record(value.size), style = record(value.style), content = record(value.content);
+  const value = record(raw), position = record(value.position), geometry = record(value.geometry), size = record(value.size), style = record(value.style), content = record(value.content), data = record(value.data);
   const sourceType = str(value.type, value.kind, value.widgetType) || 'unknown', type = typeOf(sourceType);
-  const start = record(value.startWidget), end = record(value.endWidget), from = record(value.connectedFrom), to = record(value.connectedTo);
+  const start = record(value.startItem ?? value.startWidget), end = record(value.endItem ?? value.endWidget), from = record(value.connectedFrom), to = record(value.connectedTo);
+  const rest = source === 'miro' && Object.keys(data).length > 0;
+  const width = num(200,value.width,size.width,geometry.width), height = num(120,value.height,size.height,geometry.height);
+  const centered = source === 'miro' && (rest || position.origin === 'center');
+  const rawText = str(value.text,value.title,data.content,data.title,content.text,content.plainText);
+  const losses:string[]=[];
+  if(!Number.isFinite(num(NaN,value.width,size.width,geometry.width))||!Number.isFinite(num(NaN,value.height,size.height,geometry.height)))losses.push('Missing source dimensions were replaced with default container dimensions.');
+  if(rest&&/<[^>]+>/.test(rawText)) losses.push('Rich text formatting was converted to plain text.');
+  if(rawText.length>20_000) losses.push('Text was truncated to 20000 characters.');
+  if(type==='connector') losses.push('Connector routing, endpoint styles and anchors were normalized to a straight arrow.');
+  if(Object.keys(style).some(key=>!['backgroundColor','fillColor','shape'].includes(key))) losses.push('Source typography and unsupported style properties were not preserved.');
   return {
+    losses,
     sourceId: str(value.id, value.widgetId, `${source}-${index}`).slice(0, 256), sourceType: sourceType.slice(0, 128), type,
-    x: num(0, value.x, position.x, geometry.x), y: num(0, value.y, position.y, geometry.y), width: num(200, value.width, size.width, geometry.width), height: num(120, value.height, size.height, geometry.height), rotation: num(0, value.rotation, geometry.rotation),
-    text: str(value.text, value.title, content.text, content.plainText).slice(0, 20_000), color: nullable(value.color, value.backgroundColor, style.backgroundColor, style.fillColor),
-    shape: nullable(value.shape, value.shapeType, style.shape, type === 'shape' ? sourceType : null),
+    x: num(0, value.x, position.x, geometry.x)-(centered?width/2:0), y: num(0, value.y, position.y, geometry.y)-(centered?height/2:0), width, height, rotation: num(0, value.rotation, geometry.rotation),
+    text: (rest?plainText(rawText):rawText).slice(0, 20_000), color: nullable(value.color, value.backgroundColor, style.backgroundColor, style.fillColor),
+    shape: nullable(value.shape, value.shapeType, data.shape, style.shape, type === 'shape' ? sourceType : null),
     parentSourceId: nullable(value.parentId, record(value.parent).id), fromSourceId: nullable(value.fromId, value.startId, start.id, from.id), toSourceId: nullable(value.toId, value.endId, end.id, to.id),
     zIndex: Math.trunc(num(index, value.zIndex, value.order)), assetRef: nullable(value.assetPath, value.imagePath, value.fileName, record(value.asset).path), assetMime: null,
-    metadata: safeMetadata({ ...record(value.metadata), semanticRelation: value.semanticRelation, ...context }),
+    metadata: safeMetadata({ ...record(value.metadata), semanticRelation: value.semanticRelation ?? record(value.metadata).semanticRelation, ...context }),
   };
 }
 function parseJson(bytes: Uint8Array, source: WhiteboardImportSource): ImportedBoardItem[] {
   let body: unknown; try { body = JSON.parse(new TextDecoder('utf-8', { fatal: true }).decode(bytes)); } catch { throw new UnsafeWhiteboardImport('UNSUPPORTED_FORMAT'); }
   const root = record(body), board = record(root.board), mural = record(root.mural), data = record(root.data);
   const candidate = source === 'miro'
-    ? root.widgets ?? root.items ?? root.objects ?? data.widgets ?? data.items ?? board.widgets ?? board.items
-    : root.items ?? root.widgets ?? root.objects ?? mural.widgets ?? mural.items ?? data.widgets ?? data.items;
+    ? (Array.isArray(root.data)?root.data:undefined) ?? root.widgets ?? root.items ?? root.objects ?? data.widgets ?? data.items ?? board.widgets ?? board.items
+    : root.items ?? (Array.isArray(root.data)?root.data:undefined) ?? root.widgets ?? root.objects ?? mural.widgets ?? mural.items ?? data.widgets ?? data.items;
   if (!Array.isArray(candidate)) throw new UnsafeWhiteboardImport('UNSUPPORTED_FORMAT');
   const context = { sourceVersion: nullable(root.exportVersion, root.version, root.schemaVersion) ?? undefined, sourceBoardId: nullable(board.id, mural.id, root.boardId) ?? undefined };
-  return candidate.map((value, index) => normalize(value, index, source, context));
+  // A single paginated response cannot be represented as a complete migration.
+  if(record(root.links).next || root.cursor) throw new UnsafeWhiteboardImport('UNSUPPORTED_FORMAT');
+  const sourceItems:unknown[]=source==='miro'&&Array.isArray(root.connectors)?[...candidate,...root.connectors]:candidate;
+  const items = sourceItems.map((value,index)=>normalize(value,index,source,context));
+  if(items.length>L.objects)return items; // The mapper rejects the entire oversized batch.
+  const byId=new Map(items.map((item,index)=>[item.sourceId,index]));
+  const resolved=new Set<number>(), resolving=new Set<number>();
+  function resolve(index:number):void {
+    if(resolved.has(index))return;
+    if(resolving.has(index))throw new UnsafeWhiteboardImport('UNSUPPORTED_FORMAT');
+    resolving.add(index);
+    const item=items[index]!,position=record(record(sourceItems[index]).position);
+    if(source==='miro'&&position.relativeTo==='parent_top_left'){
+      const parent=item.parentSourceId?byId.get(item.parentSourceId):undefined;
+      if(parent===undefined)throw new UnsafeWhiteboardImport('UNSUPPORTED_FORMAT');
+      resolve(parent); const container=items[parent]!;
+      if(container.rotation!==0)throw new UnsafeWhiteboardImport('UNSUPPORTED_FORMAT');
+      item.x+=container.x;item.y+=container.y;
+    } else if(position.relativeTo && !['canvas_center','parent_top_left'].includes(String(position.relativeTo))) throw new UnsafeWhiteboardImport('UNSUPPORTED_FORMAT');
+    resolving.delete(index);resolved.add(index);
+  }
+  items.forEach((_,index)=>resolve(index));return items;
 }
 function csvRows(text: string): string[][] {
   const rows: string[][] = []; let row: string[] = [], field = '', quoted = false;
@@ -62,8 +102,13 @@ function csvRows(text: string): string[][] {
 }
 function parseCsv(bytes: Uint8Array, source: WhiteboardImportSource): ImportedBoardItem[] {
   let text: string; try { text = new TextDecoder('utf-8', { fatal: true }).decode(bytes); } catch { throw new UnsafeWhiteboardImport('UNSUPPORTED_FORMAT'); }
-  const rows = csvRows(text); if (rows.length < 2) throw new UnsafeWhiteboardImport('UNSUPPORTED_FORMAT');
-  const header = rows[0]!.map(value => value.trim()), objects = rows.slice(1).filter(row => row.some(Boolean)).map(row => Object.fromEntries(header.map((key, index) => [key, row[index] ?? ''])));
+  const rows = csvRows(text); if (rows.length < 1) throw new UnsafeWhiteboardImport('UNSUPPORTED_FORMAT');
+  const header = rows[0]!.map(value => value.trim());
+  if(!header.includes('type')&&!header.includes('kind')&&!header.includes('widgetType')) return rows.filter(row=>row.some(Boolean)).map((row,index)=>{
+    const item=normalize({id:`${source}-csv-${index}`,type:'text',text:row.join(' · '),x:(index%5)*240,y:Math.floor(index/5)*160,width:220,height:140},index,source);
+    item.losses=[...(item.losses??[]),'Text-only CSV: original positions, object types, relationships and formatting are unavailable; rows were placed in a new grid.'];return item;
+  });
+  const objects = rows.slice(1).filter(row => row.some(Boolean)).map(row => Object.fromEntries(header.map((key, index) => [key, row[index] ?? ''])));
   return objects.map((value, index) => normalize(value, index, source));
 }
 function safePath(path: string): boolean { return path.length > 0 && path.length <= 512 && !path.includes('\\') && !path.includes('\0') && !path.startsWith('/') && !/^[a-z]:/i.test(path) && path.split('/').length <= L.pathDepth && path.split('/').every(part => part && part !== '.' && part !== '..'); }

@@ -1,0 +1,32 @@
+import { cleanup,fireEvent,render,screen,waitFor } from '@testing-library/react';
+import { afterEach,expect,it,vi } from 'vitest';
+import { BoardImportPanel } from '../../components/whiteboard/board-import-panel';
+const mocks=vi.hoisted(()=>({upload:vi.fn(),preflight:vi.fn(),execute:vi.fn()}));
+vi.mock('../../lib/live-whiteboard-import',()=>({uploadWhiteboardImport:mocks.upload,preflightWhiteboardImport:mocks.preflight,executeWhiteboardImport:mocks.execute}));
+afterEach(()=>{cleanup();vi.resetAllMocks();vi.unstubAllGlobals();});
+it('reuses the same write identity and epoch after an ambiguous network failure',async()=>{
+ let n=0;vi.stubGlobal('crypto',{randomUUID:()=>`id-${++n}`,subtle:{digest:async()=>new ArrayBuffer(32)}});
+ const report={importId:'import',counts:{accepted:1},items:[],issues:[],executable:true};
+ mocks.upload.mockResolvedValue({importId:'import'});mocks.preflight.mockResolvedValue(report);mocks.execute.mockRejectedValueOnce(new Error('network lost')).mockResolvedValueOnce({report});
+ const {rerender}=render(<BoardImportPanel boardId="board" expectedEpoch={2} onClose={()=>{}}/>);
+ const file=new File(['{}'],'board.json');Object.defineProperty(file,'arrayBuffer',{value:async()=>new ArrayBuffer(2)});
+ fireEvent.change(screen.getByTestId('board-import-file'),{target:{files:[file]}});
+ fireEvent.click(screen.getByTestId('board-import-submit'));
+ await waitFor(()=>expect(screen.getByRole('alert').textContent).toBe('network lost'));
+ rerender(<BoardImportPanel boardId="board" expectedEpoch={3} onClose={()=>{}}/>);
+ fireEvent.click(screen.getByTestId('board-import-submit'));
+ await waitFor(()=>expect(mocks.execute).toHaveBeenCalledTimes(2));
+ expect(mocks.execute.mock.calls[1]).toEqual(mocks.execute.mock.calls[0]);
+ expect(mocks.execute.mock.calls[1]?.[3]).toBe(2);
+ expect(mocks.upload.mock.calls[1]?.[1].requestId).toBe(mocks.upload.mock.calls[0]?.[1].requestId);
+ expect(mocks.preflight.mock.calls[1]).toEqual(mocks.preflight.mock.calls[0]);
+});
+it('shows the all-or-nothing limit report without executing and labels RTB unsupported',async()=>{
+ vi.stubGlobal('crypto',{randomUUID:()=> 'id',subtle:{digest:async()=>new ArrayBuffer(32)}});
+ mocks.upload.mockResolvedValue({importId:'import'});mocks.preflight.mockResolvedValue({importId:'import',counts:{accepted:0},items:[],issues:[{code:'OBJECT_LIMIT',detail:'201 objects rejected; nothing imported'}],executable:false});
+ render(<BoardImportPanel boardId="board" expectedEpoch={1} onClose={()=>{}}/>);
+ expect(screen.getByText(/不支持 RTB/)).toBeTruthy();
+ const file=new File(['{}'],'board.json');Object.defineProperty(file,'arrayBuffer',{value:async()=>new ArrayBuffer(2)});
+ fireEvent.change(screen.getByTestId('board-import-file'),{target:{files:[file]}});fireEvent.click(screen.getByTestId('board-import-submit'));
+ await screen.findByText('201 objects rejected; nothing imported');expect(mocks.execute).not.toHaveBeenCalled();
+});

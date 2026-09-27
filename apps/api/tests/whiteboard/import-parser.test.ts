@@ -9,13 +9,13 @@ const crc32=(bytes:Uint8Array)=>{let crc=0xffffffff;for(const byte of bytes){crc
 const png=(width=32,height=24)=>{const bytes=new Uint8Array(45),view=new DataView(bytes.buffer);bytes.set(Buffer.from('89504e470d0a1a0a','hex'));view.setUint32(8,13);bytes.set(new TextEncoder().encode('IHDR'),12);view.setUint32(16,width);view.setUint32(20,height);bytes[24]=8;bytes[25]=6;view.setUint32(29,crc32(bytes.subarray(12,29)));bytes.set(new TextEncoder().encode('IEND'),37);view.setUint32(41,crc32(bytes.subarray(37,41)));return bytes;};
 const centralOffset=(bytes:Uint8Array)=>{const view=new DataView(bytes.buffer,bytes.byteOffset,bytes.byteLength);for(let offset=bytes.length-22;offset>=0;offset--)if(view.getUint32(offset,true)===0x06054b50)return view.getUint32(offset+16,true);throw new Error('fixture');};
 const withEntryFlag=(bytes:Uint8Array,flag:number)=>{const mutated=new Uint8Array(bytes),view=new DataView(mutated.buffer),central=centralOffset(mutated),local=view.getUint32(central+42,true);view.setUint16(central+8,view.getUint16(central+8,true)|flag,true);view.setUint16(local+6,view.getUint16(local+6,true)|flag,true);return mutated;};
-describe.each(['miro','mural'] as const)('%s representative imports',source=>{
+describe.each(['miro','mural'] as const)('%s normalized fixture imports',source=>{
   it('reads a brainstorming JSON fixture',async()=>{const parsed=await parseWhiteboardImport(await fixture(source,'brainstorm.json'),'application/json',source);expect(parsed.items).toHaveLength(2);expect(parsed.items.every(item=>item.type==='sticky')).toBe(true);});
   it('reads a diagram JSON fixture with attached connector semantics',async()=>{const parsed=await parseWhiteboardImport(await fixture(source,'diagram.json'),'application/json',source);expect(parsed.items.map(item=>item.type)).toEqual(['shape','shape','connector']);expect(parsed.items[2]).toMatchObject({fromSourceId:'a',toSourceId:'b'});});
   it('reads a workshop CSV fixture with panel hierarchy',async()=>{const parsed=await parseWhiteboardImport(await fixture(source,'workshop.csv'),'text/csv',source);expect(parsed.items).toHaveLength(3);expect(parsed.items[0]?.type).toBe('panel');expect(parsed.items[1]?.parentSourceId).toBe(parsed.items[0]?.sourceId);});
 });
-describe.each(['miro','mural'] as const)('%s versioned archive exports',source=>{
-  it('reads nested vendor data and preserves export provenance',async()=>{const document=await fixture(source,'archive.json'),zip=new JSZip();zip.file('export/board.json',document);zip.file('assets/interview.png',png());const parsed=await parseWhiteboardImport(await zip.generateAsync({type:'uint8array'}),'application/zip',source);expect(parsed.items.length).toBeGreaterThanOrEqual(5);expect(parsed.items[0]?.metadata).toMatchObject({sourceVersion:expect.any(String),sourceBoardId:expect.any(String)});if(source==='mural')expect(parsed.items.find(item=>item.sourceId==='circle-1')).toMatchObject({type:'shape',shape:'circle'});});
+describe.each(['miro','mural'] as const)('%s normalized archive fixtures',source=>{
+  it('reads nested normalized data and preserves declared provenance',async()=>{const document=await fixture(source,'archive.json'),zip=new JSZip();zip.file('export/board.json',document);zip.file('assets/interview.png',png());const parsed=await parseWhiteboardImport(await zip.generateAsync({type:'uint8array'}),'application/zip',source);expect(parsed.items.length).toBeGreaterThanOrEqual(5);expect(parsed.items[0]?.metadata).toMatchObject({sourceVersion:expect.any(String),sourceBoardId:expect.any(String)});if(source==='mural')expect(parsed.items.find(item=>item.sourceId==='circle-1')).toMatchObject({type:'shape',shape:'circle'});});
 });
 it('accepts bounded ZIP with verified raster asset and rejects traversal',async()=>{
   const zip=new JSZip();zip.file('board.json',JSON.stringify({widgets:[{id:'image',type:'image',fileName:'assets/p.png'}]}));zip.file('assets/p.png',png());
@@ -49,3 +49,27 @@ it('rejects compression bombs before inflate and rejects forged sizes or CRCs',a
 it('does not accept truncated image magic as an asset',async()=>{const zip=new JSZip();zip.file('board.json',JSON.stringify({widgets:[{id:'image',type:'image',fileName:'assets/p.png'}]}));zip.file('assets/p.png',Buffer.from('89504e470d0a1a0a00000000','hex'));const parsed=await parseWhiteboardImport(await zip.generateAsync({type:'uint8array'}),'application/zip','miro');expect(parsed.assets).toEqual([]);expect(parsed.skipped).toContain('assets/p.png');expect(parsed.items[0]?.assetRef).toBeNull();});
 it('rejects MIME confusion and NUL text',async()=>{await expect(parseWhiteboardImport(new TextEncoder().encode('{}'),'application/zip','miro')).rejects.toMatchObject({code:'UNSUPPORTED_FORMAT'});await expect(parseWhiteboardImport(new Uint8Array([0]),'application/json','mural')).rejects.toMatchObject({code:'UNSUPPORTED_FORMAT'});});
 it.each(['miro','mural'] as const)('preserves %s group containers',async source=>{const root=source==='miro'?{widgets:[{id:'g',type:'group'},{id:'n',type:'sticker',parentId:'g'}]}:{items:[{id:'g',type:'cluster'},{id:'n',type:'sticky note',parentId:'g'}]};const parsed=await parseWhiteboardImport(new TextEncoder().encode(JSON.stringify(root)),'application/json',source);expect(parsed.items).toMatchObject([{sourceId:'g',type:'group'},{sourceId:'n',type:'sticky',parentSourceId:'g'}]);});
+
+// Contract examples derived from public REST documentation, not vendor-export evidence.
+describe('Miro REST and text-only CSV adapters',()=>{
+  const json=(value:unknown)=>parseWhiteboardImport(Buffer.from(JSON.stringify(value)),'application/json','miro');
+  it('reads data arrays, plain text and center-origin world geometry',async()=>{
+    const result=await json({data:[{id:'n',type:'sticky_note',data:{content:'<p>你好 &amp; hello</p>'},position:{x:400,y:300,origin:'center'},geometry:{width:200,height:100}}]});
+    expect(result.items[0]).toMatchObject({type:'sticky',text:'你好 & hello',x:300,y:250,width:200,height:100});
+    expect(result.items[0]?.losses).toContain('Rich text formatting was converted to plain text.');
+  });
+  it('resolves parent-top-left coordinates independent of source order',async()=>{
+    const result=await json({data:[{id:'n',type:'sticky_note',data:{content:'child'},parent:{id:'f'},position:{x:100,y:80,relativeTo:'parent_top_left'},geometry:{width:80,height:40}},{id:'f',type:'frame',data:{title:'frame'},position:{x:500,y:400},geometry:{width:400,height:300}}]});
+    expect(result.items[0]).toMatchObject({x:360,y:310,parentSourceId:'f'});
+  });
+  it('rejects incomplete pages and unresolved relative geometry',async()=>{
+    await expect(json({data:[],links:{next:'https://api.miro.com/next'}})).rejects.toMatchObject({code:'UNSUPPORTED_FORMAT'});
+    await expect(json({data:[{id:'n',type:'sticky_note',data:{content:'child'},position:{relativeTo:'parent_top_left'},parent:{id:'absent'}}]})).rejects.toMatchObject({code:'UNSUPPORTED_FORMAT'});
+  });
+  it('preserves every nonempty text CSV row including first row and quoted newlines',async()=>{
+    const result=await parseWhiteboardImport(Buffer.from('第一张便签\n"second\nline"\n'),'text/csv','miro');
+    expect(result.items.map(item=>item.text)).toEqual(['第一张便签','second\nline']);
+    expect(result.items[1]).toMatchObject({type:'text',x:240,y:0});
+    expect(result.items.every(item=>item.losses?.length)).toBe(true);
+  });
+});
