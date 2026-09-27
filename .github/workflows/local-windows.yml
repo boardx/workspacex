@@ -114,7 +114,10 @@ jobs:
         with:
           node-version-file: .nvmrc
           cache: pnpm
-      - run: pnpm install --frozen-lockfile
+      # hoisted（扁平）而不是 pnpm 默认的隔离布局：Windows 上后者是一张 junction 网、目标全是
+      # 构建机绝对路径；electron-builder 原样搬进包里，7-Zip 跟进去打不完（实测 80+ 分钟），
+      # 打完了在用户机器上也指向不存在的地方（#4315）。
+      - run: pnpm install --frozen-lockfile --config.node-linker=hoisted
       - uses: astral-sh/setup-uv@v7.0.0
 
       - name: assets — Ollama (Windows)
@@ -140,6 +143,8 @@ jobs:
       - name: dist:win — main + web + build info
         working-directory: apps/desktop
         run: pnpm run build:main && pnpm run build:web && pnpm run build:info
+      - name: dist:win — materialize remaining links (workspace @repo/*)
+        run: node scripts/local-bundle/materialize-links.mjs
       - name: dist:win — electron-builder (zip, store)
         working-directory: apps/desktop
         env:
@@ -156,6 +161,9 @@ jobs:
           DEST="$RUNNER_TEMP/installed"; UD="$RUNNER_TEMP/userdata"; rm -rf "$DEST" "$UD"; mkdir -p "$DEST"
           powershell -NoProfile -Command "Expand-Archive -LiteralPath '$(cygpath -w "$ZIP")' -DestinationPath '$(cygpath -w "$DEST")' -Force"
           EXE="$(find "$DEST" -maxdepth 2 -name WorkspaceX.exe | head -1)"; echo "exe=$EXE"
+          # 构建树里的依赖藏起来：包里若还有指向构建机的东西，这里就起不来（「解压到别处」本身
+          # 发现不了——构建机上那些绝对路径仍然存在）。
+          for d in node_modules apps/*/node_modules packages/*/node_modules; do [ -d "$d" ] && mv "$d" "$d.hidden-for-smoke"; done
           "$EXE" --user-data-dir="$(cygpath -w "$UD")" > "$RUNNER_TEMP/app-stdout.log" 2>&1 &
           LOG="$UD/local/desktop.log"; ready=0
           for i in $(seq 1 450); do grep -q "\[boot\] ready" "$LOG" 2>/dev/null && { ready=1; echo "boot ready after ${i}x2s"; break; }; grep -q "启动失败" "$LOG" 2>/dev/null && break; sleep 2; done

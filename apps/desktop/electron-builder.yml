@@ -70,10 +70,15 @@ extraResources:
       #   静默失效。所以这一组每加一条都要重新打包并**真的把应用跑起来**验证，
       #   而不是「看着不像运行时依赖」就删。验证方式见 evidence 里 R16 那一节。
       - "!node_modules/.pnpm/electron@*/**"
+      - "!**/node_modules/electron/**"   # hoisted 布局（Windows 打包用，#4315）
       - "!node_modules/.pnpm/app-builder-bin@*/**"
+      - "!**/node_modules/app-builder-bin/**"   # hoisted 布局（Windows 打包用，#4315）
       - "!node_modules/.pnpm/workerd@*/**"
+      - "!**/node_modules/workerd/**"   # hoisted 布局（Windows 打包用，#4315）
       - "!node_modules/.pnpm/@cloudflare+workerd-*/**"
+      - "!**/node_modules/@cloudflare/workerd-*/**"   # hoisted 布局（Windows 打包用，#4315）
       - "!node_modules/.pnpm/typescript@*/**"
+      - "!**/node_modules/typescript/**"   # hoisted 布局（Windows 打包用，#4315）
 
       # ── 文件**个数**（不是字节）：那 38 秒首启税的嫌疑变量（#3872 R17）────────
       #
@@ -106,10 +111,15 @@ extraResources:
       #                         客户端库，生产构建已打进 .next/static；
       #                         `.next/server` 里对这四个包**零引用**（grep 实测）。
       - "!node_modules/.pnpm/monaco-editor@*/**"
+      - "!**/node_modules/monaco-editor/**"   # hoisted 布局（Windows 打包用，#4315）
       - "!node_modules/.pnpm/@next+swc-*/**"
+      - "!**/node_modules/@next/swc-*/**"   # hoisted 布局（Windows 打包用，#4315）
       - "!node_modules/.pnpm/mermaid@*/**"
+      - "!**/node_modules/mermaid/**"   # hoisted 布局（Windows 打包用，#4315）
       - "!node_modules/.pnpm/echarts@*/**"
+      - "!**/node_modules/echarts/**"   # hoisted 布局（Windows 打包用，#4315）
       - "!node_modules/.pnpm/lucide-react@*/**"
+      - "!**/node_modules/lucide-react/**"   # hoisted 布局（Windows 打包用，#4315）
   - from: build/logo.png
     to: logo.png
   # commit short SHA + build time, shown on the startup page next to the version (#3749)
