@@ -10,6 +10,10 @@ The root session ran four real full-stack browser paths against isolated Postgre
 pnpm exec tsx .harness/scripts/with-test-isolation.ts -- pnpm --filter web exec playwright test --config playwright.fullstack-smoke.config.ts --no-deps --project=seeded-github-import board-spatial-relationships.spec.ts
 4 passed (2.8m); isolated stack cleanup passed
 
+After the independent review found a Fabric selection-reconciliation callback risk, the root session added callback suppression plus a canonical-selection unit assertion and reran the affected real-browser path:
+pnpm exec tsx .harness/scripts/with-test-isolation.ts -- pnpm --filter web exec playwright test --config playwright.fullstack-smoke.config.ts --no-deps --project=seeded-github-import board-spatial-relationships.spec.ts --grep "selection transform locks"
+1 passed (1.6m); isolated stack cleanup passed
+
 pnpm --filter whiteboard-core test
 8 files, 89 tests passed
 pnpm --filter whiteboard-core typecheck
