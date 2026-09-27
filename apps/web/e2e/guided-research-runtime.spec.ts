@@ -26,7 +26,8 @@ test("research persists all five model-backed steps through the real UI, API and
   await page.getByTestId("research-confirm-brief").click();
   try {
     await expect(page.getByTestId("research-step-loading")).toBeVisible();
-    await expect(page.getByTestId("research-step-topic")).toHaveAttribute("aria-current", "step");
+    await expect(page.getByTestId("research-step-topic")).toHaveAttribute("aria-disabled", "true");
+    await expect(page.getByRole("button", { name: "1 导入需求", exact: true })).toHaveAttribute("aria-current", "step");
     await page.screenshot({ path: testInfo.outputPath("research-next-step-loading.png"), fullPage: true });
   } finally { releaseGeneration(); }
   await expect(page.getByRole("heading", { name: "确认研究主题", exact: true })).toBeVisible();
