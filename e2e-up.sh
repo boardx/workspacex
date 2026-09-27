@@ -100,7 +100,8 @@ fi
 #   而后者正是我们花了三天才发现的那类问题。要跑 legacy 请显式
 #   `E2E_DEEP_AGENT_CHAIN=legacy`，这样证据里写着的就是你真的选了它。
 # API 与 deep-agent 之间的内部密钥：两边必须同一个值，所以在这里生成一次。
-DEEP_AGENT_INTERNAL_KEY="${DEEP_AGENT_SERVICE_INTERNAL_KEY:-e2e-internal-key-not-a-secret}"DEEP_AGENT_BASE_URL=""
+DEEP_AGENT_INTERNAL_KEY="${DEEP_AGENT_SERVICE_INTERNAL_KEY:-e2e-internal-key-not-a-secret}"
+DEEP_AGENT_BASE_URL=""
 if [ "$DEEP_AGENT_CHAIN" = "native" ]; then
   DA_UVICORN="${REPO_ROOT}/apps/deep-agent-service/.venv/bin/uvicorn"
   if [ ! -x "$DA_UVICORN" ]; then
