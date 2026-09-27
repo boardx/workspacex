@@ -41,11 +41,11 @@ function eventType(commands:readonly WhiteboardCommand[],source:string):Event['t
 /** Durable public API adapter. The collaboration write, audit receipt and event append share one tenant transaction. */
 export class WhiteboardOperationService {
   constructor(private readonly db:DatabasePort,private readonly collaboration:WhiteboardCollaborationStore,private readonly audit:WhiteboardOperationAuditRepository,private readonly now=()=>new Date(),private readonly objects?:Pick<ObjectStore,'get'>,private readonly validator?:Pick<WhiteboardUpdateValidator,'objects'>){}
-  async execute(principal:Principal,boardId:string,untrusted:unknown):Promise<Receipt>{
+  async execute(principal:Principal,boardId:string,untrusted:unknown,expectedRuntime?:{model:string;skill:string}):Promise<Receipt>{
     const request=WhiteboardOperationRequest.parse(untrusted);
     return this.db.withTenant(principal.orgId,session=>this.executeInTransaction(session,principal,boardId,request));
   }
-  async executeInTransaction(session:TenantSession,principal:Principal,boardId:string,untrusted:unknown):Promise<Receipt>{
+  async executeInTransaction(session:TenantSession,principal:Principal,boardId:string,untrusted:unknown,expectedRuntime?:{model:string;skill:string}):Promise<Receipt>{
       const requested=WhiteboardOperationRequest.parse(untrusted);
       if(requested.boardId!==boardId||requested.actor.orgId!==principal.orgId)throw new WhiteboardOperationError('FORBIDDEN');
       const head=await this.audit.lockHead(session,principal,boardId);
@@ -61,6 +61,7 @@ export class WhiteboardOperationService {
         if(!registered||registered.kind!==requested.actor.kind||!registered.scopes.includes('board:write'))throw new WhiteboardOperationError('FORBIDDEN');
         actor={kind:registered.kind,actorId:registered.actorId,orgId:principal.orgId,role:head.actorRole,scopes:registered.scopes,delegatedBy:registered.delegatedBy};
       }
+      if(expectedRuntime&&(!registered||registered.model!==expectedRuntime.model||registered.skill!==expectedRuntime.skill))throw new WhiteboardOperationError('STALE_REVISION');
       const provenance={...requested.provenance,model:registered?.model??null,skill:registered?.skill??null};
       const request=WhiteboardOperationRequest.parse({...requested,actor,provenance});
       if(request.provenance.source==='chat-artifact'&&(!request.provenance.sourceArtifactId||!request.provenance.sourceRevision||!request.provenance.layoutHash||!await this.audit.canReadArtifact(session,principal,request.provenance.sourceArtifactId,request.provenance.sourceRevision,request.provenance.layoutHash)))throw new WhiteboardOperationError('FORBIDDEN');

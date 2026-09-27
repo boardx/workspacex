@@ -33,7 +33,7 @@ export function fixture(){const session=new Session();const db:DatabasePort={wit
     canRead:async()=>true,events:async()=>session.events as never[],
     resolveActor:async()=>({actorId:'agent-1',kind:'ai',delegatedBy:'user-1',scopes:['board:read','board:write'],model:'gpt',skill:'cluster'}),canReadArtifact:async()=>true,readArtifactSource:async()=>null,issueArtifactLayoutBinding:async()=>{},
   };
-  return{session,service:new WhiteboardOperationService(db,collaboration,audit,()=>new Date('2026-09-26T00:00:00.000Z'))};}
+  return{session,audit,collaboration,service:new WhiteboardOperationService(db,collaboration,audit,()=>new Date('2026-09-26T00:00:00.000Z'))};}
 
 describe('versioned Board operation API application service',()=>{
   it('ships tenant-forced append-only audit/event storage',()=>{const sql=readFileSync(new URL('../../migrations/20260926163000_whiteboard_operation_api.sql',import.meta.url),'utf8');expect(sql).toContain('FORCE ROW LEVEL SECURITY');expect(sql).toContain('GRANT SELECT,INSERT');expect(sql).not.toContain('GRANT SELECT, INSERT, UPDATE, DELETE');expect(sql).toContain('kernel_apply_org_freeze_policies');});
