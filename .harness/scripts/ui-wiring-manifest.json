@@ -442,7 +442,9 @@
         "knowledge-graph/auto-copy-decisions",
         "knowledge-graph/ids",
         "knowledge-graph/promote-to-personal",
+        "knowledge-graph/promote-to-project",
         "knowledge-graph/read-personal-knowledge",
+        "knowledge-graph/read-project-knowledge",
         "knowledge-graph/read-thread-knowledge"
       ]
     },
@@ -547,6 +549,14 @@
         "project/render-role-view",
         "project/unarchive-project",
         "project/update-project-tags"
+      ]
+    },
+    "ProjectInviteController": {
+      "useCases": [
+        "auth/issue-invite-link",
+        "auth/org-invite-errors",
+        "auth/revoke-invite-links",
+        "project/accept-project-invite"
       ]
     },
     "ProvenanceController": {
@@ -756,6 +766,7 @@
         "OrgInviteLinkController",
         "PlatformAccessController",
         "ProjectController",
+        "ProjectInviteController",
         "PublicDesignShareController",
         "ToolPermissionGrantController"
       ]
@@ -849,6 +860,7 @@
         "OrgInviteLinkController",
         "PlatformAccessController",
         "ProjectController",
+        "ProjectInviteController",
         "PublicDesignShareController",
         "RecordingController",
         "SkillController",
@@ -933,6 +945,7 @@
         "OrgInviteLinkController",
         "PlatformAccessController",
         "ProjectController",
+        "ProjectInviteController",
         "PublicDesignShareController",
         "RecordingController",
         "SkillController",
@@ -1146,6 +1159,7 @@
         "OrgInviteLinkController",
         "PlatformAccessController",
         "ProjectController",
+        "ProjectInviteController",
         "PublicDesignShareController",
         "RecordingController",
         "SkillController",
@@ -1454,6 +1468,7 @@
         "OrgInviteLinkController",
         "PlatformAccessController",
         "ProjectController",
+        "ProjectInviteController",
         "PublicDesignShareController",
         "SkillFileEditController",
         "ToolPermissionGrantController"
@@ -1642,6 +1657,7 @@
         "OrgInviteLinkController",
         "PlatformAccessController",
         "ProjectController",
+        "ProjectInviteController",
         "PublicDesignShareController",
         "ToolPermissionGrantController"
       ]
@@ -1731,6 +1747,7 @@
         "OrgInviteLinkController",
         "PlatformAccessController",
         "ProjectController",
+        "ProjectInviteController",
         "PublicDesignShareController",
         "ToolPermissionGrantController"
       ]
@@ -1747,6 +1764,8 @@
         "apps/web/lib/live-identity.ts",
         "apps/web/lib/live-org-admin.ts",
         "apps/web/lib/live-platform-access.ts",
+        "apps/web/lib/live-project-invite.ts",
+        "apps/web/lib/live-project-members.ts",
         "apps/web/lib/live-project-prep.ts",
         "apps/web/lib/live-projects.ts",
         "apps/web/lib/live-provenance.ts",
@@ -1799,6 +1818,7 @@
         "OrgInviteLinkController",
         "PlatformAccessController",
         "ProjectController",
+        "ProjectInviteController",
         "ProvenanceController",
         "PublicDesignShareController",
         "ToolPermissionGrantController"
@@ -1816,6 +1836,26 @@
       "screen": "apps/web/app/projects/[projectId]/files/page.tsx",
       "mocks": [
         "apps/web/lib/mock/files.ts"
+      ]
+    },
+    "/projects/join": {
+      "kind": "wired",
+      "screen": "apps/web/app/projects/join/page.tsx",
+      "adapters": [
+        "apps/web/lib/live-project-invite.ts"
+      ],
+      "contracts": [
+        "org-admin"
+      ],
+      "controllers": [
+        "CheckinBoardController",
+        "DeviceSessionController",
+        "OrgAdminManagementController",
+        "OrgAdminScopeController",
+        "OrgInviteController",
+        "OrgInviteLinkController",
+        "ProjectController",
+        "ProjectInviteController"
       ]
     },
     "/rec": {
@@ -1908,6 +1948,7 @@
         "OrgInviteLinkController",
         "PlatformAccessController",
         "ProjectController",
+        "ProjectInviteController",
         "PublicDesignShareController",
         "ToolPermissionGrantController",
         "WhiteboardController",
@@ -1969,6 +2010,7 @@
         "OrgInviteLinkController",
         "PlatformAccessController",
         "ProjectController",
+        "ProjectInviteController",
         "PublicDesignShareController",
         "ToolPermissionGrantController",
         "WhiteboardController",
@@ -2034,6 +2076,7 @@
         "OrgInviteLinkController",
         "PlatformAccessController",
         "ProjectController",
+        "ProjectInviteController",
         "PublicDesignShareController",
         "ToolPermissionGrantController"
       ]
@@ -2118,6 +2161,7 @@
         "OrgInviteLinkController",
         "PlatformAccessController",
         "ProjectController",
+        "ProjectInviteController",
         "PublicDesignShareController",
         "ToolPermissionGrantController"
       ]
@@ -2194,6 +2238,7 @@
         "OrgInviteLinkController",
         "PlatformAccessController",
         "ProjectController",
+        "ProjectInviteController",
         "PublicDesignShareController",
         "ToolPermissionGrantController"
       ]
@@ -2251,6 +2296,7 @@
         "OrgInviteLinkController",
         "PlatformAccessController",
         "ProjectController",
+        "ProjectInviteController",
         "PublicDesignShareController",
         "ToolPermissionGrantController"
       ]
@@ -2308,6 +2354,7 @@
         "OrgInviteLinkController",
         "PlatformAccessController",
         "ProjectController",
+        "ProjectInviteController",
         "PublicDesignShareController",
         "ToolPermissionGrantController"
       ]
@@ -2365,6 +2412,7 @@
         "OrgInviteLinkController",
         "PlatformAccessController",
         "ProjectController",
+        "ProjectInviteController",
         "PublicDesignShareController",
         "ToolPermissionGrantController"
       ]

@@ -6,13 +6,15 @@ import type { SurveyRuntime } from "@repo/contracts/survey-runtime";
 import { surveyRequest } from "@/lib/survey/runtime-client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { CreateSurveyDialog } from "./create-survey-dialog";
 export function LiveSurveyLibrary() {
   const router = useRouter();
   const [items, setItems] = React.useState<SurveyRuntime[]>([]);
   const [busy, setBusy] = React.useState(true);
   const [error, setError] = React.useState("");
   const [query, setQuery] = React.useState("");
-  const visibleItems = items.filter((item) => item.title.toLocaleLowerCase().includes(query.trim().toLocaleLowerCase())).sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
+  const [creating,setCreating]=React.useState(false);
+  const visibleItems = items.filter((item) => [item.title,...(item.tags??[])].some(text=>text.toLocaleLowerCase().includes(query.trim().toLocaleLowerCase()))).sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
   const refresh = React.useCallback(async () => {
     setBusy(true);
     setError("");
@@ -54,12 +56,12 @@ export function LiveSurveyLibrary() {
           <h1 className="mt-2 text-24 font-semibold">我的问卷</h1>
           <p className="mt-2 text-13 text-muted-foreground">创建、发布并收集你的问卷，轻松获取真实反馈。</p>
         </div>
-        <div className="flex flex-wrap gap-2"><Link className="inline-flex min-h-8 items-center rounded-control border border-border bg-card px-3 text-13 font-medium text-card-foreground" href="/studio/survey?tab=modules">问卷模板</Link><Link className="inline-flex min-h-8 items-center rounded-control border border-border bg-card px-3 text-13 font-medium text-card-foreground" href="/studio/survey?tab=reports">报告模板</Link><Button onClick={() => router.push("/studio/survey/new?step=design")}>新建问卷</Button></div>
+        <div className="flex flex-wrap gap-2"><Link className="inline-flex min-h-8 items-center rounded-control border border-border bg-card px-3 text-13 font-medium text-card-foreground" href="/studio/survey?tab=modules">问卷模板</Link><Link className="inline-flex min-h-8 items-center rounded-control border border-border bg-card px-3 text-13 font-medium text-card-foreground" href="/studio/survey?tab=reports">报告模板</Link><Button onClick={() => setCreating(true)}>新建问卷</Button></div>
       </header>
       <div className="flex gap-2">
         <Input
           aria-label="搜索问卷"
-          placeholder="搜索问卷名称"
+          placeholder="搜索问卷名称、标签或关键词"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
         />
@@ -90,6 +92,7 @@ export function LiveSurveyLibrary() {
               >
                 {item.title}
               </Link>
+              {!!item.tags?.length&&<div className="mt-3 flex flex-wrap gap-2">{item.tags.map(tag=><span key={tag} className="rounded bg-muted px-2 py-1 text-12 text-muted-foreground">{tag}</span>)}</div>}
               <p className="mt-3 text-12 text-muted-foreground">
                 {item.questions.length} 道题 · {item.responses.length} 份答卷 ·{" "}
                 <span data-testid={`survey-status-${item.id}`}>{item.publication?.status === "collecting"
@@ -120,8 +123,9 @@ export function LiveSurveyLibrary() {
       </div>
       {!busy && !error && items.length > 0 && visibleItems.length === 0 && <p role="status" className="py-12 text-center text-muted-foreground">没有符合筛选条件的问卷</p>}
       {!busy && !error && items.length === 0 && (
-        <div className="space-y-4 py-16 text-center"><h2 className="text-18 font-semibold">还没有问卷</h2><p className="text-muted-foreground">从空白问卷或现有模板开始，三步完成设计、回收与答卷查看。</p><Button onClick={() => router.push("/studio/survey/new?step=design")}>新建问卷</Button></div>
+        <div className="space-y-4 py-16 text-center"><h2 className="text-18 font-semibold">还没有问卷</h2><p className="text-muted-foreground">从空白问卷或现有模板开始，三步完成设计、回收与答卷查看。</p><Button onClick={() => setCreating(true)}>新建问卷</Button></div>
       )}
+      <CreateSurveyDialog open={creating} onOpenChange={setCreating} onCreated={id=>router.push(`/studio/survey/${id}?step=design`)} />
     </main>
   );
 }

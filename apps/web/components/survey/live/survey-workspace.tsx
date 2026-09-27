@@ -28,7 +28,10 @@ import {
 } from "../report/report-export";
 import { SurveyQuestionEditor } from "./question-editor";
 import { MarkdownSurveyEditor } from "./markdown-survey-editor";
+import { downloadReportMarkdown, surveyReportMarkdown } from "../report/report-markdown";
 import { CollectionOverview } from "./collection-overview";
+import { SurveyShareCode } from "./share-code";
+import { useSurveyAutosave } from "./use-survey-autosave";
 import { SurveyTemplateActions } from "../library/template-actions";
 import { LiveResponseList } from "./response-list";
 import { assessPublishReadiness } from "@/lib/survey/publish-readiness";
@@ -72,6 +75,7 @@ export function LiveSurveyWorkspace({
   const [expires, setExpires] = React.useState("");
   const [markdown, setMarkdown] = React.useState("");
   const [savedMarkdown, setSavedMarkdown] = React.useState("");
+  const [markdownNeedsApply, setMarkdownNeedsApply] = React.useState(false);
   const [conflicted, setConflicted] = React.useState(false);
   const [remoteVersion, setRemoteVersion] = React.useState<SurveyRuntime | null>(null);
   const reportRef = React.useRef<HTMLDivElement>(null);
@@ -83,8 +87,10 @@ export function LiveSurveyWorkspace({
     const text = value.source?.documents.design.markdown ?? serializeSurveyDesignMarkdown(value);
     setMarkdown(text);
     setSavedMarkdown(text);
+    setMarkdownNeedsApply(false);
     setDraft({
       title: value.title,
+      tags: value.tags,
       questions: value.questions,
       template: value.template,
     });
@@ -120,6 +126,7 @@ export function LiveSurveyWorkspace({
       JSON.stringify(draft) !==
         JSON.stringify({
           title: runtime.title,
+          tags: runtime.tags,
           questions: runtime.questions,
           template: runtime.template,
         }));
@@ -149,7 +156,8 @@ export function LiveSurveyWorkspace({
     if (!draft) throw new Error("尚未加载问卷");
     const sourceParsed = parseSurveyDesignMarkdown(markdown);
     if (!sourceParsed.ok) throw new Error(sourceParsed.diagnostics.map((entry) => `第 ${entry.line} 行：${entry.message}`).join("；"));
-    const parsed = SurveyDraftInputSchema.safeParse({ ...draft, title: sourceParsed.draft.title, questions: sourceParsed.draft.questions });
+    if (markdownNeedsApply) throw new Error("请先校对并应用 Markdown，再保存或发布。");
+    const parsed = SurveyDraftInputSchema.safeParse({ ...draft, title: sourceParsed.draft.title, tags: sourceParsed.draft.tags, questions: sourceParsed.draft.questions });
     if (!parsed.success)
       throw new Error("请填写问卷、章节及内容标题，并检查选项和图片地址。");
     const next = runtime ?? await surveyRequest("/surveys", {
@@ -165,9 +173,10 @@ export function LiveSurveyWorkspace({
       router.replace(`/studio/survey/${next.id}?step=${step}`);
     }
     if (next.publication) {
-      accept(await surveyRequest(`/surveys/${next.id}`, { method: "PUT", body: { ...parsed.data, expectedVersion: next.version } }, SurveyRuntimeSchema));
+      const persisted = await surveyRequest(`/surveys/${next.id}`, { method: "PUT", body: { ...parsed.data, expectedVersion: next.version } }, SurveyRuntimeSchema);
+      accept(persisted);
       setNotice("报告模板已保存");
-      return await surveyRequest(`/surveys/${next.id}`, {}, SurveyRuntimeSchema);
+      return persisted;
     }
     const persisted = await surveyRequest(`/surveys/${next.id}/source`, { method: "PUT", body: {
       expectedVersion: next.version,
@@ -222,10 +231,11 @@ export function LiveSurveyWorkspace({
     setRepairQuestionId(targetQuestionId ?? null);
     window.history.replaceState(null, "", `?step=${next}`);
   };
-  const parsedDesign = parseSurveyDesignMarkdown(markdown);
-  const projectedInSync = !!draft && parsedDesign.ok &&
-    parsedDesign.draft.title === draft.title &&
-    JSON.stringify(parsedDesign.draft.questions) === JSON.stringify(draft.questions);
+  const projectedInSync = !!draft && !markdownNeedsApply;
+  const autosaveEligible = !!runtime && !runtime.publication && step === "design" && dirty &&
+    !busy && !error && !conflicted && projectedInSync && parseSurveyDesignMarkdown(markdown).ok;
+  useSurveyAutosave(autosaveEligible ? JSON.stringify([runtime?.version, markdown, draft?.template]) : null,
+    () => execute(async () => { await save(); }));
   return (
     <main className="min-w-0 bg-background">
       <header className="flex flex-wrap items-center gap-3 border-b border-border bg-card p-4">
@@ -278,6 +288,8 @@ export function LiveSurveyWorkspace({
           {busy ? "处理中…" : "保存修改"}
         </Button>
       </header>
+      {step === 'design' && <div className="flex justify-end border-b border-border px-5 py-3"><Button disabled={!draft || busy} onClick={() => selectStep('publish')}>前往发布回收</Button></div>}
+      {step === "design" && <p role="status" className="px-5 py-2 text-12 text-muted-foreground">{busy ? "正在保存或处理…" : error ? "保存失败，请检查并重试" : autosaveEligible ? "等待自动保存…" : dirty ? "有未保存修改；未应用内容请先校对" : "所有修改已保存"}</p>}
       <nav
         aria-label="问卷工作流"
         className="flex overflow-auto border-b border-border bg-card"
@@ -340,15 +352,18 @@ export function LiveSurveyWorkspace({
       {draft && (
         <fieldset disabled={busy} className="min-w-0">
           {step === "design" && (<>
-            <MarkdownSurveyEditor value={markdown} locked={!!runtime?.publication} onChange={setMarkdown} onPreview={() => {
+            <MarkdownSurveyEditor value={markdown} locked={!!runtime?.publication} onChange={(text) => { setMarkdown(text); setMarkdownNeedsApply(true); }} onPreview={() => {
                 const result = parseSurveyDesignMarkdown(markdown);
                 if (!result.ok) { setError(result.diagnostics.map((entry) => `第 ${entry.line} 行：${entry.message}`).join("；")); return; }
-                setError(""); setDraft({ ...draft, title: result.draft.title, questions: result.draft.questions });
+                setError(""); setDraft({ ...draft, title: result.draft.title, tags: result.draft.tags, questions: result.draft.questions });
+                setMarkdownNeedsApply(false);
               }} />
             <fieldset disabled={!projectedInSync}>
             {!projectedInSync && <p className="px-5 text-12 text-muted-foreground">请先预览并应用 Markdown，再编辑题目或应用模板，避免覆盖未应用内容。</p>}
             <SurveyTemplateActions kind="question" draft={draft} onApply={(next) => { setDraft(next); setMarkdown(serializeSurveyDesignMarkdown(next)); }} locked={!!runtime?.publication} disabled={busy} />
             <SurveyQuestionEditor
+              studioLayout
+              disabled={busy || !projectedInSync}
               questions={draft.questions}
               locked={!!runtime?.publication}
               selectedQuestionId={repairQuestionId}
@@ -475,6 +490,7 @@ export function LiveSurveyWorkspace({
                     )}
                   </p>
                   <Input aria-label="答题链接" readOnly value={link} />
+                  <SurveyShareCode link={link} />
                   <div className="flex flex-wrap gap-2">
                     <Button
                       variant="outline"
@@ -580,6 +596,7 @@ export function LiveSurveyWorkspace({
                 </Button>
                 {runtime?.report && (
                   <>
+                    <Button variant="outline" disabled={!!reportShareBlockedReason} onClick={() => void execute(async () => { downloadReportMarkdown(runtime.report!); })}>导出 Markdown</Button>
                     <Button
                       variant="outline"
                       disabled={!!reportShareBlockedReason}
@@ -622,7 +639,7 @@ export function LiveSurveyWorkspace({
               )}
               {!runtime?.report && (
                 <p className="rounded-md bg-muted p-4 text-12">
-                  先设计报告模板并回收答卷，再按模板生成报告。
+                  分析报告是可选项，不影响发布和回收。可以使用默认报告模板，也可以按需设计模板。
                 </p>
               )}
               {compiled?.issues.length ? (
@@ -644,8 +661,14 @@ export function LiveSurveyWorkspace({
                   </p>
                 )}
               {runtime?.report && (
+                <div className="rounded-lg bg-muted p-3 sm:p-6">
+                  <details className="mb-4 rounded-md border border-border bg-card p-3">
+                    <summary className="cursor-pointer text-13">报告 Markdown</summary>
+                    <textarea aria-label="报告 Markdown" readOnly className="mt-3 min-h-48 w-full rounded-md border border-border bg-card p-3 font-mono text-12" value={surveyReportMarkdown(runtime.report)} />
+                  </details>
                 <div ref={reportRef}>
                   <SurveyReportDocument report={runtime.report} />
+                </div>
                 </div>
               )}
             </section>

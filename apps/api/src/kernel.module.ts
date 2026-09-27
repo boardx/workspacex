@@ -394,6 +394,9 @@ import {
   DIGITAL_INTERVIEW_RUNTIME,
 } from "./application/interview/workflow/digital-interview-runtime.port";
 import { PgDigitalInterviewRepository } from "./infrastructure/interview/pg-digital-interview-repository";
+import { PgInterviewMarkdownReader } from "./infrastructure/interview/pg-interview-markdown-reader";
+import { INTERVIEW_MARKDOWN_READER } from "./application/interview/read-interview-markdown";
+import { INTERVIEW_MARKDOWN_GENERATOR, generateInterviewMarkdown } from "./application/interview/generate-interview-markdown";
 import { PgDigitalInterviewEffects } from "./infrastructure/interview/workflow/pg-digital-interview-effects";
 import { readDigitalInterviewModelConfig } from "./infrastructure/interview/workflow/digital-interview-model-config";
 import {
@@ -716,6 +719,10 @@ import { LIVE_SESSION_REPOSITORY } from "./application/auth/live-session-ports";
 import { PgLiveSessionRepository } from "./infrastructure/auth/pg-live-session-repository";
 import { newLiveSessionId } from "./domain/auth/live-session";
 import { CheckinBoardController } from "./interface/controllers/checkin-board.controller";
+// 项目中枢 R2：项目邀请链接（签发 / 撤销 / 被邀请者自助接受）。F15 用例与仓储早已实现，此前无路由。
+import { ProjectInviteController } from "./interface/controllers/project-invite.controller";
+import { INVITE_LINK_REPOSITORY } from "./application/auth/invite-link-ports";
+import { PgInviteLinkRepository } from "./infrastructure/auth/pg-invite-link-repository";
 // F11（phase-01 / UC-1.6 R10）：双人复核 + 配额硬阻断 + 成员移除。
 // ⚠ 建在 F10 的 org_invites 之上，不重开新地基：`ORG_INVITE_REPOSITORY` 复用同一个实例
 //   （`PgOrgInviteRepository` 新增了 `reviewAdminInvite` 方法，不是第二个仓储）。
@@ -1056,6 +1063,7 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
     OrgInviteController,
     OrgInviteLinkController,
     CheckinBoardController,
+    ProjectInviteController,
     OrgAdminManagementController,
     PlatformAccessController,
     PlatformMemberController,
@@ -2362,6 +2370,26 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
       inject: [DATABASE_PORT],
     },
     {
+      provide: INTERVIEW_MARKDOWN_READER,
+      useFactory: (db: DatabasePort) => new PgInterviewMarkdownReader(db),
+      inject: [DATABASE_PORT],
+    },
+    {
+      provide: INTERVIEW_MARKDOWN_GENERATOR,
+      useFactory: (
+        repo: import("./application/interview/digital-interview-ports").DigitalInterviewRepository,
+        scope: import("./application/interview/ports").InterviewScopeRepository,
+        decisions: import("./application/identity/ports").DecisionIdFactory,
+        reader: import("./application/interview/read-interview-markdown").InterviewMarkdownReader,
+        model: ModelCallPort,
+      ) => {
+        const config = readDigitalInterviewModelConfig();
+        return { generate: (input: import("./application/interview/generate-interview-markdown").GenerateMarkdownInput) =>
+          generateInterviewMarkdown({ repo, scope, decisions, reader, model, modelProvider: config.provider, modelId: config.modelId }, input) };
+      },
+      inject: [DIGITAL_INTERVIEW_REPOSITORY, INTERVIEW_SCOPE_REPOSITORY, DECISION_ID_FACTORY, INTERVIEW_MARKDOWN_READER, MODEL_CALL_PORT],
+    },
+    {
       provide: DIGITAL_INTERVIEW_EFFECTS,
       useFactory: (
         db: DatabasePort,
@@ -2540,6 +2568,12 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
     {
       provide: ORG_INVITE_LINK_REPOSITORY,
       useFactory: (db: DatabasePort) => new PgOrgInviteLinkRepository(db),
+      inject: [DATABASE_PORT],
+    },
+    // 项目中枢 R2：F15 `InviteLinkRepository` 的生产实现（`project-invite.controller.ts` 消费）。
+    {
+      provide: INVITE_LINK_REPOSITORY,
+      useFactory: (db: DatabasePort) => new PgInviteLinkRepository(db),
       inject: [DATABASE_PORT],
     },
     // F05（phase-10 group-checkin 束）：`LiveSessionRepository` 的生产实现——

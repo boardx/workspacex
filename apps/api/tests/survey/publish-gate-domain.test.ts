@@ -17,6 +17,9 @@ const question = (input: {
 });
 
 describe("survey publish gate", () => {
+  it('allows a valid survey to publish without an optional report template',()=>{
+    expect(evaluateSurveyForPublish({questions:[question({id:'q1',title:'您的建议是什么？',type:'open'})],template:{id:'optional',title:'可选报告',sections:[]}})).toEqual([]);
+  });
   it("returns every blocker in stable code and subject order", () => {
     const blockers = evaluateSurveyForPublish({
       questions: [

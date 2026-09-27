@@ -11,7 +11,7 @@ import { contextPack as CP, knowledgeGraph as KG } from "@repo/contracts";
 import type { DatabasePort, TenantSession } from "../../application/ports/database.port";
 import type {
   ClaimSourcesData, KnowledgeReadPort, KnowledgeThreadRef, MessageExtractionData, PersonalClaimOriginRow,
-  PersonalKnowledgeData, ThreadKnowledgeCounts, ThreadKnowledgeData, TurnMemoryData,
+  PersonalKnowledgeData, ProjectKnowledgeData, ThreadKnowledgeCounts, ThreadKnowledgeData, TurnMemoryData,
 } from "../../application/knowledge-graph/ports";
 import { guard, type Guarded } from "../../application/security/permission-filter";
 import type { OrgId } from "../../domain/org-id";
@@ -458,6 +458,61 @@ export class PgKnowledgeRead implements KnowledgeReadPort {
         return { threadId: t.id, counts: guard(threadRef({ threadId: t.id, projectId: t.project_id }), row) };
       });
     });
+  }
+
+  /** 项目中枢 R8：项目记忆（L2）。与 `personalKnowledge` 同一组查询，作用域换成 ('project', projectId)。 */
+  async projectKnowledge(orgId: OrgId, userId: string, projectId: string): Promise<Guarded<ProjectKnowledgeData>> {
+    const data = await this.inTenant(orgId, userId, async (s): Promise<ProjectKnowledgeData> => {
+      const scope = [orgId, projectId];
+      const objects = await s.query<{
+        id: string; object_kind: ProjectKnowledgeData["objects"][number]["kind"]; name: string; aliases: string[];
+        created_by: ProjectKnowledgeData["objects"][number]["createdBy"]; claim_count: string;
+      }>(
+        `SELECT o.id, o.object_kind, o.name, o.aliases, o.created_by,
+                (SELECT count(DISTINCT c.id) FROM ontology_edges e JOIN claims c ON c.id = e.src_id AND c.org_id = e.org_id
+                  WHERE e.org_id = o.org_id AND e.src_kind = 'claim' AND e.dst_kind = 'object' AND e.dst_id = o.id
+                    AND e.status = 'active' AND ${LIVE_CLAIM}) AS claim_count
+           FROM ontology_objects o
+          WHERE o.org_id = $1 AND o.scope_kind = 'project' AND o.scope_id = $2 AND o.merged_into IS NULL
+          ORDER BY o.created_at, o.id`, scope,
+      );
+      const claims = await s.query<ClaimRow>(
+        `SELECT ${CLAIM_COLUMNS} FROM claims c
+          WHERE c.org_id = $1 AND c.scope_kind = 'project' AND c.scope_id = $2 AND ${LIVE_CLAIM}
+          ORDER BY c.created_at, c.id`, scope,
+      );
+      const liveClaims = claims.rows.map(toClaim).filter((c): c is KgClaim => c !== null);
+      const liveObjects = objects.rows.filter((o) => Number(o.claim_count) > 0);
+      const live = new Set([...liveObjects.map((o) => `object:${o.id}`), ...liveClaims.map((c) => `claim:${c.id}`)]);
+      const edges = await s.query<{
+        id: string; src_kind: "object" | "claim"; src_id: string; dst_kind: "object" | "claim"; dst_id: string;
+        relation: ProjectKnowledgeData["edges"][number]["relation"]; created_by: ProjectKnowledgeData["edges"][number]["createdBy"];
+      }>(
+        `SELECT id, src_kind, src_id, dst_kind, dst_id, relation, created_by FROM ontology_edges
+          WHERE org_id = $1 AND scope_kind = 'project' AND scope_id = $2 AND status = 'active'
+            AND src_kind IN ('object', 'claim') AND dst_kind IN ('object', 'claim')
+          ORDER BY created_at, id`, scope,
+      );
+      const revision = await s.query<{ n: string }>(
+        `SELECT count(*) AS n FROM ontology_actions
+          WHERE org_id = $1 AND scope_kind = 'project' AND scope_id = $2 AND outcome = 'accepted'`, scope,
+      );
+      return {
+        revision: Number(revision.rows[0]!.n),
+        objects: liveObjects.map((o) => ({
+          id: o.id, scope: { kind: "project" as const, id: projectId }, kind: o.object_kind, name: o.name,
+          aliases: o.aliases, createdBy: o.created_by, claimCount: Number(o.claim_count),
+        })),
+        claims: liveClaims,
+        edges: edges.rows
+          .filter((e) => live.has(`${e.src_kind}:${e.src_id}`) && live.has(`${e.dst_kind}:${e.dst_id}`))
+          .map((e) => ({
+            id: e.id, src: { kind: e.src_kind, id: e.src_id }, dst: { kind: e.dst_kind, id: e.dst_id },
+            relation: e.relation, createdBy: e.created_by,
+          })),
+      };
+    });
+    return guard({ kind: "project", id: projectId }, data);
   }
 
   async personalClaimOrigins(orgId: OrgId, userId: string) {
