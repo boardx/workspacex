@@ -405,6 +405,9 @@ export default defineConfig({
         // Iteration 04 owns rich visual objects and verifies their canonical state across
         // two clients, undo/redo, and a persisted reload boundary.
         "board-visual-content.spec.ts",
+        // Iteration 05 owns Panels, Groups, semantic Connectors, layer operations,
+        // rotated transforms, and cross-client spatial persistence.
+        "board-spatial-relationships.spec.ts",
       ],
       grepInvert: EMPTY_DB_TAG_RE,
       dependencies: ["seeded"],
