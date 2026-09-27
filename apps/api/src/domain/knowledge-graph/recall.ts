@@ -16,6 +16,7 @@
 import type { contextPack as CP, knowledgeGraph as KG } from "@repo/contracts";
 import type { z } from "zod";
 import { decisionLike, DECISION_RECALL_LIMIT } from "./decision-claim";
+import { selfIntentLike, SELF_INTENT_RECALL_LIMIT } from "./self-intent-claim";
 import { normalizeName } from "./extraction";
 
 export type RecallChannel = z.infer<typeof CP.RetrievalChannel>;
@@ -280,10 +281,19 @@ export function fuseRecall(input: FuseInput): KnowledgeRecall {
   //   4. **来源照实标**：强制带上的条目保留原 `claim.scope`，个人空间那条在给模型的材料里照样是
   //      「来自个人空间知识」、在 turn memory（F13）里 scope = "personal"，与打分进来的 L1 条目同一个标签。
   const forcedIds = new Set(items.map((i) => i.claim.id));
-  const decisionForced: RecallItem[] = input.claims
+  const newestFirst = (a: RecallClaim, b: RecallClaim) => (b.saidAt ?? "").localeCompare(a.saidAt ?? "") || a.id.localeCompare(b.id);
+  const decisionPicked = input.claims
     .filter((c) => !forcedIds.has(c.id) && forcedDecisionScope(c) && decisionLike(c.statement))
-    .sort((a, b) => (b.saidAt ?? "").localeCompare(a.saidAt ?? "") || a.id.localeCompare(b.id))
-    .slice(0, DECISION_RECALL_LIMIT)
+    .sort(newestFirst)
+    .slice(0, DECISION_RECALL_LIMIT);
+  // issue #4343：本人的目标 / 偏好同样每一轮带上（同一来源边界 `forcedDecisionScope`），名额 `SELF_INTENT_RECALL_LIMIT`
+  // 另计、不与决定类抢（理由见 self-intent-claim.ts）；一条既像决定又是目标的，已经按决定带上就不再算一次。
+  const decisionIds = new Set(decisionPicked.map((c) => c.id));
+  const selfIntentPicked = input.claims
+    .filter((c) => !forcedIds.has(c.id) && !decisionIds.has(c.id) && forcedDecisionScope(c) && selfIntentLike(c.kind, c.statement))
+    .sort(newestFirst)
+    .slice(0, SELF_INTENT_RECALL_LIMIT);
+  const decisionForced: RecallItem[] = [...decisionPicked, ...selfIntentPicked]
     .map((claim) => ({
       claim,
       // "claim" 通道本来就是给「已复核的结论 / 决定」用的（见 `domain/retrieval/channel-plan.ts` 同名通道的注释），

@@ -14,7 +14,8 @@ import { knowledgeGraph as KG } from "@repo/contracts";
 import type { OntologyBatch, OntologyClaimInput, OntologyEdgeInput, OntologyObjectInput } from "./ontology-batch";
 
 /** 幂等键的一半（I-7）。抽取逻辑（prompt / 解析 / 实体解析）改了就升版本：同一消息会按新版本重跑一次。 */
-export const KG_EXTRACTION_PIPELINE_VERSION = "kg-extract@1";
+/** kg-extract@2（issue #4343）：prompt 与 schema 加了 goal / preference 两类。 */
+export const KG_EXTRACTION_PIPELINE_VERSION = "kg-extract@2";
 
 export interface ExtractedEntity {
   readonly name: string;

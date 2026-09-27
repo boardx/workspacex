@@ -8,12 +8,13 @@ import {
 } from "@/lib/knowledge-graph-api";
 import { describeHumanActionFailure } from "@/lib/knowledge-graph-failure";
 import { truncateStatement } from "@/lib/knowledge-graph-recall";
+import { KG_CLAIM_KIND_LABEL_ZH } from "@/lib/knowledge-graph-view";
 import { requestKnowledgeReload, useKnowledgeSnapshot } from "@/lib/knowledge-graph-events";
 import { TURN_MEMORY_REPOLL_DELAYS_MS } from "./turn-memory-line";
 
 /**
  * issue #4180 —— 发送这条消息的用户下方，一句「刚被抽取出新知识」的轻量反馈：
- * 「已记下：{claim 摘要} · 撤销」。
+ * 「已记下{类型}：{claim 摘要} · 撤销」（issue #4343 起带类型：「已记下目标：…」「已记下决定：…」）。
  *
  * ## 这不是 F09 的 `TurnMemoryLine`
  *
@@ -143,7 +144,10 @@ export function ExtractionFeedbackChip({
         <div key={c.claimId} className="flex flex-col gap-0.5">
           <p className="flex items-center gap-1 text-10 text-muted-foreground" data-testid={`kg-extraction-line-${c.claimId}`}>
             <Sparkles aria-hidden className="h-3 w-3" />
-            已记下：{truncateStatement(c.statement)}
+            {/* 一整段放进同一个 span：这一行是 flex + gap，分开的文字节点之间会被拉出空隙（「已记下 目标 ：」）。 */}
+            <span>
+              已记下<span data-testid={`kg-extraction-kind-${c.claimId}`}>{KG_CLAIM_KIND_LABEL_ZH[c.kind]}</span>：{truncateStatement(c.statement)}
+            </span>
             {c.personalCopyClaimId !== null ? (
               <>
                 <span aria-hidden>·</span>

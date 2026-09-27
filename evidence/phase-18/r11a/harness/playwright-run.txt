@@ -1,0 +1,9 @@
+
+Running 4 tests using 1 worker
+
+  ✓  1 e2e/r11a/journey.spec.ts:37:5 › 1: personal thread 「我的目标是探索未来教育」 → chip 「已记下目标：…· 已记入个人记忆」 → panel shows it under 目标 (16.3s)
+  ✓  2 e2e/r11a/journey.spec.ts:64:5 › 2: new personal thread 「帮我规划一下」 → the answer uses the goal; citation chip 目标 · 来自你…的对话 (2.7s)
+  ✓  3 e2e/r11a/journey.spec.ts:88:5 › 3: /brain shows the goal under 目标 (11.9s)
+  ✓  4 e2e/r11a/journey.spec.ts:99:5 › privacy: another member of the same org does not see the goal (5.2s)
+
+  4 passed (47.0s)

@@ -53,7 +53,7 @@ describe("issue #4350: kg extraction worker watchdog", () => {
     expect(h.errors).toContain("kg extraction tick exceeded watchdog; abandoned so the next tick can run");
     // 下一轮不被卡住的那一轮挡住（修之前：runOnce 在 running=true 时直接返回 null，永远）
     orgs = [];
-    expect(await h.worker.runOnce()).toEqual({ processed: 0, written: 0, failed: 0 });
+    expect(await h.worker.runOnce()).toEqual({ processed: 0, written: 0, empty: 0, skipped: 0, failed: 0 });
   });
 
   it("被放弃的那一轮后来又动起来：做完手里已认领的任务（带围栏令牌），但不再认领下一个 org", async () => {
@@ -72,7 +72,7 @@ describe("issue #4350: kg extraction worker watchdog", () => {
 
   it("正常的一轮不受 watchdog 影响", async () => {
     const h = harness({ orgs: () => [A], extract: async () => EMPTY_EXTRACTION });
-    expect(await h.worker.runOnce()).toEqual({ processed: 1, written: 0, failed: 0 });
+    expect(await h.worker.runOnce()).toEqual({ processed: 1, written: 0, empty: 1, skipped: 0, failed: 0 });
     expect(h.errors).toEqual([]);
   });
 
