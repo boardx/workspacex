@@ -28,7 +28,8 @@ export async function migrateInterviewMarkdown(session: TenantSession, orgId: Or
   if (!workflow) return guard({ kind: "interview", id: interviewId }, undefined);
   const migrated = await readInterviewMarkdownDocuments(session, orgId, interviewId, workflow.revisionId);
   const bodies: Partial<Record<interviewMarkdown.InterviewMarkdownDocument["step"], string>> = {
-    intake: workflow.researchBrief ? `${workflow.topic ?? ""}\n\n# 研究需求详情\n\n${legacyMarkdown(workflow.researchBrief)}` : workflow.topic ?? "",
+    intake: workflow.topic ?? "",
+    analysis: workflow.researchBrief ? `# 研究分析\n\n${legacyMarkdown(workflow.researchBrief)}` : "",
     experts: workflow.expertCandidates.length ? `# 专家画像\n\n${legacyMarkdown(workflow.expertCandidates)}` : "",
     outline: workflow.questions.length || workflow.questionCandidates.length
       ? `# 访谈问题\n\n${legacyMarkdown(workflow.questions.length ? workflow.questions : workflow.questionCandidates)}` : "",

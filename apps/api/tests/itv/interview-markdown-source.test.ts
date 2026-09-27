@@ -45,17 +45,20 @@ beforeEach(async () => {
 });
 
 describe("Markdown source persistence", () => {
-  it("migration preserves detailed legacy brief alongside a thin artifact projection", async () => {
+  it("migration separates original intake from detailed analysis and preserves thin projections", async () => {
     await db.withTenant(ORG, async (session) => {
       const brief = { decision: "决定试点学校", learningGoals: [{ goalId: "g1", statement: "了解教师工作负担" }], targetRoles: ["乡村教师"], outOfScope: ["不比较考试分数"], successCriteria: ["形成可验证的试点标准"] };
       await session.query(`INSERT INTO digital_interview_research_briefs(org_id,id,interview_id,revision_id,brief,rule_version,request_id,created_by) VALUES($1,'brief-md-4382',$2,$3,$4,'v1','request-md-4382',$5)`, [ORG, ID, REV, brief, `${ORG}-owner`]);
       await session.query(`INSERT INTO digital_interview_artifact_versions(org_id,artifact_id,interview_id,revision_id,step,version_number,title,markdown,status,evidence_mode) VALUES($1,'thin-intake-4382',$2,$3,'intake',1,'需求','# 简略需求','confirmed','simulated')`, [ORG, ID, REV]);
       await migrateInterviewMarkdown(session, ORG, ID);
-      const markdown = (await readDocuments(session)).find((doc) => doc.step === "intake")!.markdown;
-      expect(markdown).toContain("乡村教师");
-      expect(markdown).toContain("形成可验证的试点标准");
-      expect(markdown).toContain("# 简略需求");
-      expect(markdown).toContain(RAW);
+      const docs = await readDocuments(session);
+      const intake = docs.find((doc) => doc.step === "intake")!.markdown;
+      const analysis = docs.find((doc) => doc.step === "analysis")?.markdown;
+      expect(analysis).toContain("乡村教师");
+      expect(analysis).toContain("形成可验证的试点标准");
+      expect(intake).toContain("# 简略需求");
+      expect(intake).toContain(RAW);
+      expect(intake).not.toContain("乡村教师");
     });
   });
   it("migrationIsIdempotent and preserves original Markdown bytes", async () => {

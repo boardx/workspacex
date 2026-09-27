@@ -12,6 +12,9 @@ changes, table deletion, permission grant changes, or automatic backfill in GET.
 - Revision locking and expected-version checks reject stale writes.
 - Migration is idempotent and retains legacy detailed fields, original Markdown,
   failed report status/partial text, and unconfirmed question drafts.
+- Raw requirements stay in intake; research brief fields migrate to analysis.
+- Upstream reconfirmation carries source hashes and controlled references into
+  the new revision for inherited steps, without changing their document bodies.
 - Legacy fields remain available for rollback. They are not deleted by this change.
 
 ## Verification
@@ -33,6 +36,15 @@ source module, incorrect failed-report promotion, unchecked source corruption,
 loss of detailed brief fields, and omitted draft question candidates.
 Final focused regression passed 3 files / 21 tests, including all 8 source tests.
 API typecheck passed after the final changes. The latest SHA is recorded in the PR.
+Post-main full regression initially timed out twice in HTTP setup; isolated
+setup rerun passed 8/8 without modifying assertions or timeouts. The next full
+run passed those HTTP cases but caught the newly added analysis regression,
+before its fix. Final review-fix results are recorded in the PR, not inferred
+from these intermediate runs.
+
+Review regressions: analysis/intake separation and inherited hash/reference
+preservation each failed before the fix; combined source + LangGraph regression
+then passed 2 files / 23 tests. API typecheck passed on these fixes.
 
 Historical migration tests now wrap replay in BEGIN/ROLLBACK: replaying an old
 schema must not restore obsolete constraints for subsequent fixtures.
