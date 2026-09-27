@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   commitWhiteboardOutboxRebind,
   whiteboardOutboxRecoveryView,
+  whiteboardOutboxTokenRevoked,
   type CipherRow,
   type WhiteboardOutboxRebindJournal,
   type WhiteboardOutboxRebindTransaction,
@@ -20,11 +21,13 @@ const row = (id: string, tokenHash: string): CipherRow => ({
 type DurableState = {
   rows: Map<string, CipherRow>;
   journal: WhiteboardOutboxRebindJournal | null;
+  retired: Set<string>;
 };
 
 function transaction(state: DurableState, failAt: number | null): WhiteboardOutboxRebindTransaction {
   const stagedRows = new Map(state.rows);
   let stagedJournal = state.journal;
+  const stagedRetired = new Set(state.retired);
   let boundary = 0;
   let aborted = false;
   const fault = () => {
@@ -39,6 +42,10 @@ function transaction(state: DurableState, failAt: number | null): WhiteboardOutb
       fault();
       stagedRows.delete(id);
     },
+    retireSource() {
+      fault();
+      if (stagedJournal) stagedRetired.add(stagedJournal.fromHash);
+    },
     clearJournal() {
       fault();
       stagedJournal = null;
@@ -51,6 +58,7 @@ function transaction(state: DurableState, failAt: number | null): WhiteboardOutb
       if (!aborted) {
         state.rows = stagedRows;
         state.journal = stagedJournal;
+        state.retired = stagedRetired;
       }
     }),
   };
@@ -68,11 +76,12 @@ describe("encrypted outbox authentication rebind", () => {
       createdAt: 1,
     };
 
-    // put x2, delete x2, journal clear, and transaction commit are all faulted.
-    for (let failAt = 0; failAt < 6; failAt++) {
+    // put x2, delete x2, source retirement, journal clear, and transaction commit are all faulted.
+    for (let failAt = 0; failAt < 7; failAt++) {
       const state: DurableState = {
         rows: new Map(source.map((value) => [value.id, value])),
         journal: preparedJournal,
+        retired: new Set(),
       };
       await expect(commitWhiteboardOutboxRebind(source, replacements, transaction(state, failAt))).rejects.toThrow("injected");
 
@@ -80,7 +89,9 @@ describe("encrypted outbox authentication rebind", () => {
       // prepared alias and the intact source generation rather than a mixed generation.
       expect([...state.rows.keys()].sort()).toEqual(["old:a", "old:b"]);
       expect(state.journal).toEqual(preparedJournal);
+      expect(state.retired).toEqual(new Set());
       expect(whiteboardOutboxRecoveryView([...state.rows.values()], state.journal, "old")).toEqual({ revoked: true, rows: [] });
+      expect(whiteboardOutboxTokenRevoked(state.journal, state.retired.has("old"), "old")).toBe(true);
       expect(whiteboardOutboxRecoveryView([...state.rows.values()], state.journal, "new").rows.map((item) => item.id).sort()).toEqual([
         "old:a",
         "old:b",
@@ -89,9 +100,15 @@ describe("encrypted outbox authentication rebind", () => {
       // Simulate restore(newToken) in the reopened instance finishing the journal.
       await commitWhiteboardOutboxRebind(source, replacements, transaction(state, null));
       expect(state.journal).toBeNull();
+      expect(state.retired).toEqual(new Set(["old"]));
       expect([...state.rows.keys()].sort()).toEqual(["new:a", "new:b"]);
       expect(whiteboardOutboxRecoveryView([...state.rows.values()], state.journal, "new").rows).toHaveLength(2);
       expect(whiteboardOutboxRecoveryView([...state.rows.values()], state.journal, "old").rows).toHaveLength(0);
+      // A reopened instance applies this same generation predicate in restore,
+      // persist, and acknowledge. The old credential stays rejected after the
+      // journal is gone while the new credential restores every update.
+      expect(whiteboardOutboxTokenRevoked(state.journal, state.retired.has("old"), "old")).toBe(true);
+      expect(whiteboardOutboxTokenRevoked(state.journal, state.retired.has("new"), "new")).toBe(false);
     }
   });
 
@@ -101,10 +118,34 @@ describe("encrypted outbox authentication rebind", () => {
     const state: DurableState = {
       rows: new Map(source.map((value) => [value.id, value])),
       journal: { id: "board", boardId: "board", fromHash: "old", toHash: "new", createdAt: 1 },
+      retired: new Set(),
     };
     await commitWhiteboardOutboxRebind(source, replacements, transaction(state, null));
     expect(state.journal).toBeNull();
     expect([...state.rows.keys()].sort()).toEqual(["new:a", "new:b"]);
     expect([...state.rows.values()].every((value) => value.tokenHash === "new")).toBe(true);
+    expect(state.retired).toEqual(new Set(["old"]));
+  });
+
+  it("keeps the retired generation rejected by restore, persist, and acknowledge after reopen", async () => {
+    const source = [row("old:a", "old"), row("old:b", "old")];
+    const replacements = [row("new:a", "new"), row("new:b", "new")];
+    const state: DurableState = {
+      rows: new Map(source.map((value) => [value.id, value])),
+      journal: { id: "board", boardId: "board", fromHash: "old", toHash: "new", createdAt: 1 },
+      retired: new Set(),
+    };
+
+    await commitWhiteboardOutboxRebind(source, replacements, transaction(state, null));
+
+    // Reopen: only durable rows/tombstones remain; the prepared journal is gone.
+    expect(state.journal).toBeNull();
+    expect(whiteboardOutboxTokenRevoked(state.journal, state.retired.has("old"), "old")).toBe(true);
+    expect(whiteboardOutboxTokenRevoked(state.journal, state.retired.has("new"), "new")).toBe(false);
+    expect(whiteboardOutboxRecoveryView([...state.rows.values()], state.journal, "old").rows).toEqual([]);
+    expect(whiteboardOutboxRecoveryView([...state.rows.values()], state.journal, "new").rows.map((value) => value.id).sort()).toEqual([
+      "new:a",
+      "new:b",
+    ]);
   });
 });
