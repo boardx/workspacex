@@ -10,6 +10,7 @@ export interface ImportedBoardItem {
   zIndex: number; assetRef: string | null; metadata: Record<string, unknown>;
   assetMetadata?: WhiteboardAssetMetadata;
   losses?: string[];
+  unsupportedReason?: string;
   assetMime: 'image/jpeg'|'image/png'|'image/webp'|'image/gif'|null;
 }
 export interface ImportMappingIssue { code: 'UNSUPPORTED_ITEM'|'INVALID_REFERENCE'|'OBJECT_LIMIT'|'ASSET_MISSING'|'VALUE_NORMALIZED'; sourceId: string|null; sourceType: string|null; detail: string; }
@@ -62,7 +63,7 @@ export function mapImportedBoard(source:ImportSource, requestId:string, input:re
   const emitted=new Map<string,{id:string;kind:WhiteboardObject['kind'];object:WhiteboardObject;item:ImportedBoardItem}>();
   for(const [index,item] of selected.entries()){
     if(duplicates.has(item))continue;
-    if(item.type==='unsupported'){issues.push({code:'UNSUPPORTED_ITEM',sourceId:item.sourceId,sourceType:item.sourceType,detail:`${item.sourceType} is not supported`});continue;}
+    if(item.type==='unsupported'){issues.push({code:'UNSUPPORTED_ITEM',sourceId:item.sourceId,sourceType:item.sourceType,detail:item.unsupportedReason??`${item.sourceType} is not supported`});continue;}
     if(item.type==='connector') continue;
     const id=`import_${requestId.replace(/-/g,'').slice(0,12)}_${index}`,object=importedObject(id,item,source,null,issues);
     if(object)emitted.set(item.sourceId,{id,kind:object.kind,object,item});

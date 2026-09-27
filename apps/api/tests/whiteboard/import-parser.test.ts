@@ -1,6 +1,7 @@
 import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import JSZip from 'jszip';
+import { mapImportedBoard } from '@repo/whiteboard-core';
 import { describe,expect,it } from 'vitest';
 import { parseWhiteboardImport } from '../../src/application/whiteboard/import-parser';
 
@@ -72,4 +73,39 @@ describe('Miro REST and text-only CSV adapters',()=>{
     expect(result.items[1]).toMatchObject({type:'text',x:240,y:0});
     expect(result.items.every(item=>item.losses?.length)).toBe(true);
   });
+});
+
+describe('Mural public v1 widgets response contract',()=>{
+  const parse=(value:unknown)=>parseWhiteboardImport(Buffer.from(JSON.stringify(value)),'application/json','mural');
+  it('accepts value widgets and resolves parent-relative top-left geometry',async()=>{
+    const result=await parse({value:[{id:'note',type:'sticky note',x:20,y:30,width:100,height:80,parentId:'area',text:'fallback',htmlText:'<b>讨论</b> &amp; plan',stackingOrder:9,style:{backgroundColor:'#FFCC00FF'}},{id:'area',type:'area',x:400,y:500,width:600,height:400,title:'Workshop'}]});
+    expect(result.items[0]).toMatchObject({x:420,y:530,type:'sticky',text:'讨论 & plan',color:'#FFCC00',zIndex:9,parentSourceId:'area'});
+  });
+  it('maps arrow endpoint references and label while reporting routing loss',async()=>{
+    const result=await parse({value:[{id:'a',type:'arrow',x:0,y:0,width:100,height:10,startRefId:'left',endRefId:'right',label:{labels:[{text:'causes',x:0,y:0,width:20,height:10},{text:'effect',x:30,y:0,width:20,height:10}]},arrowType:'curved',tip:'double',style:{strokeColor:'#123456FF'}}]});
+    expect(result.items[0]).toMatchObject({type:'connector',fromSourceId:'left',toSourceId:'right',text:'causes\neffect',color:'#123456'});
+    expect(result.items[0]?.losses?.join(' ')).toContain('routing');
+  });
+  it('rejects unfinished pages and unresolved or cyclic parents',async()=>{
+    await expect(parse({value:[],next:'opaque-token'})).rejects.toMatchObject({code:'UNSUPPORTED_FORMAT'});
+    await expect(parse({value:[{id:'a',type:'text',parentId:'absent'}]})).rejects.toMatchObject({code:'UNSUPPORTED_FORMAT'});
+    await expect(parse({value:[{id:'a',type:'area',parentId:'b'},{id:'b',type:'area',parentId:'a'}]})).rejects.toMatchObject({code:'UNSUPPORTED_FORMAT'});
+  });
+  it('keeps unsupported and hidden widgets explicit and never imports remote image bytes',async()=>{
+    const result=await parse({value:[{id:'c',type:'comment',text:'thread'},{id:'f',type:'file'},{id:'secret',type:'sticky note',hidden:true,text:'private'},{id:'img',type:'image',url:'https://vendor.example/expiring.png',naturalWidth:200,naturalHeight:100}]});
+    expect(result.items.map(item=>item.type)).toEqual(['unsupported','unsupported','unsupported','image']);
+    expect(result.items[2]?.unsupportedReason).toContain('Hidden');expect(result.items[3]?.assetRef).toBeNull();expect(result.assets).toEqual([]);
+  });
+});
+
+it('maps a complete Mural public response into canonical relationships and per-record losses',async()=>{
+ const raw={value:[{id:'area',type:'area',x:100,y:200,width:500,height:400},{id:'note',type:'sticky note',parentId:'area',x:10,y:20,width:100,height:80,text:'A',style:{backgroundColor:'#ABCDEF80'}},{id:'shape',type:'shape',shape:'diamond',x:700,y:200,width:100,height:100,text:'B'},{id:'arrow',type:'arrow',x:0,y:0,width:100,height:10,startRefId:'note',endRefId:'shape'},{id:'file',type:'file'},{id:'secret',type:'area',hidden:true,x:0,y:0,width:500,height:300},{id:'child',type:'text',parentId:'secret',x:1,y:1,width:100,height:80,text:'hidden child'}]};
+ const parsed=await parseWhiteboardImport(Buffer.from(JSON.stringify(raw)),'application/json','mural');
+ const mapped=mapImportedBoard('mural','11111111-1111-4111-8111-111111111111',parsed.items);
+ const objects=mapped.commands.flatMap(command=>command.type==='create'?[command.object]:[]);
+ expect(objects).toHaveLength(4);expect(objects[1]).toMatchObject({parentId:objects[0]!.id,geometry:{x:110,y:220},style:{fill:'#ABCDEF'}});
+ expect(objects[3]?.connector).toMatchObject({from:objects[1]!.id,to:objects[2]!.id});
+ expect(mapped.outcomes.filter(item=>item.outcome==='skipped').map(item=>item.sourceId)).toEqual(['file','secret','child']);
+ expect(mapped.outcomes.find(item=>item.sourceId==='note')).toMatchObject({outcome:'downgraded'});
+ expect(mapped.issues.find(item=>item.sourceId==='child')?.detail).toContain('visibility');
 });

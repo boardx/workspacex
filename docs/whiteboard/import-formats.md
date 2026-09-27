@@ -16,9 +16,25 @@ Sources: [REST v1/v2 comparison](https://developers.miro.com/docs/rest-api-compa
 
 CSV with explicit `type`/`kind`/`widgetType` and geometry columns uses the existing normalized adapter. Other CSV is treated as text-only: every nonempty row, including the first row, becomes a text object in a new grid. No vendor header is guessed. Cells are joined with a separator; quoted multiline text is preserved. Every row reports that original geometry, types and relationships are unavailable. Miro's official CSV is a text export, not a full-fidelity board backup: [export documentation](https://help.miro.com/hc/en-us/articles/360017572754-How-to-export-your-board).
 
-## Mural and normalized packages
+## Mural public REST v1
 
-Mural currently accepts the documented-in-code normalized items/widgets representation (id, type, x/y, width/height, text, parentId, fromId/toId, assetPath). This is not a claim of compatibility with every Mural native export or API revision. Real anonymized vendor board packages are still required for acceptance. ZIP assets must pass existing path, expansion, magic, decoding and digest checks.
+Users with an OAuth token containing `murals:read` can retrieve
+`GET https://app.mural.co/api/public/v1/murals/{muralId}/widgets`.
+The official paginated response is `{value:[widgets],next?:token}`. Follow `next` with unchanged filters/limit until the field is absent, then concatenate the `value` arrays into one complete `{value:[...]}` JSON file. Do not upload only the final page. A file still containing `next` is rejected. The endpoint explicitly excludes drawings; an API collection therefore cannot reproduce drawings absent from its response.
+
+The adapter reads the actual REST discriminator types: area, arrow, sticky note, shape, text and image; comments, files, icons and other unsupported records receive individual skipped outcomes. `htmlText` takes priority over `text` and is flattened with a loss report. `x/y` are top-left coordinates relative to `parentId`; nested areas are resolved to canonical world coordinates. `stackingOrder` is preserved. Eight-digit RGBA fills retain RGB; nonopaque alpha is reported as a loss. Arrow `startRefId`/`endRefId` become endpoint references and `label.labels[].text` becomes a multiline canonical label; routing and label positioning are reported as normalized. Missing endpoints fail individually. Hidden/invisible widgets and their descendants are skipped rather than exposing restricted content on a visible canonical object.
+
+Image REST responses supply expiring `url` values (possibly null when download is restricted), not embedded bytes. The importer does not fetch these URLs. To import images, obtain authorized original bytes while available and package them in ZIP with explicit per-widget `assetPath`; missing bytes fail that image with ASSET_MISSING. Local image assets pass the existing decoding, path, expansion and digest validation. No arbitrary URL-fetching backend is introduced.
+
+The legacy normalized items/widgets representation remains accepted. Public-schema tests are not captured real-user exports; three actual migration boards and visual acceptance are still pending.
+
+Official sources checked 2026-09-27:
+- [Get widgets](https://developers.mural.co/public/reference/getmuralwidgets): its embedded public OpenAPI `document.api.schema` defines `PaginatedList`, `Widget` and the concrete widget schemas.
+- [Pagination](https://developers.mural.co/public/docs/pagination).
+- [Shape text and parent-relative geometry](https://developers.mural.co/public/reference/updateshapewidget).
+- [Arrow references](https://developers.mural.co/public/reference/createarrow).
+- [Image fields](https://developers.mural.co/public/reference/createimage); the GET schema additionally defines expiring `url` and cropping `mask`.
+
 
 ## Atomicity and retries
 
@@ -27,3 +43,10 @@ Mural currently accepts the documented-in-code normalized items/widgets represen
 ## Verification boundary
 
 Parser and mapping tests are executable contract examples derived from public documentation, not captured vendor exports. Existing synthetic brainstorm/diagram/workshop fixtures do not prove three real migration boards. Real fullstack migration, image loading, peer refresh and standard-export/reimport equivalence remain acceptance work. Native canonical export is currently not a portable image bundle and is not advertised as lossless reimport.
+
+## Next bounded task: portable canonical roundtrip
+
+1. Add a versioned canonical package discriminator separate from vendor adapters. Validate each object using the existing canonical schema rather than flattening it through vendor normalization. Remap IDs, parent IDs and connector endpoints as one graph; preserve contentObject, spatial settings, styles, text, geometry and locks.
+2. Export an immutable manifest and ZIP containing only referenced, authorized durable image bytes. Read each asset through board-scoped ACL/integrity checks, verify digest and dimensions, deduplicate by content digest, and record original asset IDs to manifest entries. Keep ObjectStore keys and credentials out of the portable manifest. Enforce current ZIP/byte/atomic limits before writes.
+3. Import verified package images into the destination board's existing image service, remap only image asset references, then publish canonical commands under an idempotent request. Define failure cleanup/lease behavior before exposing the package API. Treat missing/corrupt image entries as explicit failures, never ready placeholders.
+4. Test source→export→fresh board import with nested frames, styled multilingual text, rotated geometry, connected shapes and raster pixels. Compare remapped canonical graphs, original image digests/decoded dimensions, refresh/peer loading, same-request replay, cross-board ACL and source deletion independence. This is distinct from the current JSON export's metadata download test.

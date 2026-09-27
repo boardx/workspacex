@@ -26,7 +26,7 @@ export function BoardImportPanel({boardId,expectedEpoch,onClose}:{boardId:string
   return <aside data-testid="board-import-panel" className="absolute right-4 top-4 z-50 w-[min(28rem,calc(100%-2rem))] space-y-3 rounded-container border border-border bg-card p-4 shadow-lg">
     <div className="flex items-center justify-between"><h2 className="text-16 font-semibold">导入 Miro / Mural</h2><Button variant="ghost" onClick={onClose}>关闭</Button></div>
     <label className="block text-12">来源<select data-testid="board-import-source" className="ml-2 rounded-control border p-2" value={source} onChange={event=>setSource(event.target.value as 'miro'|'mural')}><option value="miro">Miro</option><option value="mural">Mural</option></select></label>
-    <p className="text-12 text-muted-foreground">支持完整 Miro REST JSON、约定格式 Mural JSON、文字 CSV 和附图 ZIP。CSV 仅恢复文字并重新排布；不支持 RTB 备份。单次最多 {WHITEBOARD_IMPORT_LIMITS.objects} 个对象，超限整批拒绝。</p>
+    <p className="text-12 text-muted-foreground">支持完整 Miro REST JSON、Mural REST widgets JSON、文字 CSV 和附图 ZIP。CSV 仅恢复文字并重新排布；不支持 RTB 备份。单次最多 {WHITEBOARD_IMPORT_LIMITS.objects} 个对象，超限整批拒绝。</p>
     <input data-testid="board-import-file" aria-label="选择导出文件" type="file" accept=".json,.csv,.zip" onChange={event=>setFile(event.target.files?.[0]??null)}/>
     <Button data-testid="board-import-submit" disabled={busy||!file} onClick={()=>void run()}>{busy?'处理中…':'预检并导入'}</Button>
     <p role="status" data-testid="board-import-progress" className="text-12 text-muted-foreground">{status}</p>{error&&<p role="alert" className="text-12 text-destructive">{error}</p>}
