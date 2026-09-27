@@ -7,7 +7,7 @@ import type { OrgId } from "../../domain/org-id";
 import type { Guarded } from "../security/permission-filter";
 import type { OntologyBatch, OntologyRejectCode } from "../../domain/knowledge-graph/ontology-batch";
 import type { ExtractionResult, KnownObject } from "../../domain/knowledge-graph/extraction";
-import type { GraphHit, GraphHop, RecallClaim, RecallObject } from "../../domain/knowledge-graph/recall";
+import type { GraphHit, GraphHop, RecallClaim, RecallObject, VectorHit } from "../../domain/knowledge-graph/recall";
 import type { ConfirmedClaim, ConflictPair, FreshClaim } from "../../domain/knowledge-graph/conflict";
 import type { LiveDecision, SupersedeFresh } from "../../domain/knowledge-graph/decision-supersede";
 
@@ -235,6 +235,16 @@ export interface KnowledgeRecallPort {
   }>;
   /** AGE 邻域（只有 id 与关系）。AGE 不可用时抛错——调用方记为图路不可用。 */
   graphNeighbors(orgId: OrgId, seedKeys: readonly string[]): Promise<readonly GraphHit[]>;
+  /**
+   * S9（#4366）向量通道：问题的嵌入与候选结论（claimIds，来自 candidates）的嵌入按余弦取前 limit 条。
+   * `claimIds` 可以是还在读的候选集（Promise）：问题的嵌入与读候选集同时进行，这一轮只多等较慢的那一个。
+   * 读身份 = 发起人（个人空间的向量 RLS 只放本人）。返回 null ⇒ 这个部署没配置嵌入模型（通道未启用，不是故障）；
+   * 嵌入服务 / 库出错 ⇒ 抛错，调用方记为向量通道故障、降级为字面 + 图。
+   * 可选：没有实现它的端口 ⇒ 等同未配置。
+   */
+  vectorNeighbors?(
+    orgId: OrgId, userId: string, query: string, claimIds: readonly string[] | Promise<readonly string[]>, limit: number,
+  ): Promise<readonly VectorHit[] | null>;
   /** F13：记下这一轮用到了哪些记忆（只存 id 与召回理由），回答下方的引用从这里读。 */
   recordTurn(orgId: OrgId, record: TurnRecallRecord): Promise<void>;
 }
@@ -254,6 +264,35 @@ export interface TurnRecallRecord {
 }
 
 export const KNOWLEDGE_RECALL_PORT = Symbol("KnowledgeRecallPort");
+
+// ─────────────────────────────── S9 结论 / 实体的嵌入流水线（#4366） ───────────────────────────────
+
+/** 一个待嵌入的目标（kg_embedding_pending 的一行）。`content` 只交给嵌入模型，不回任何请求方。 */
+export interface KgEmbeddingTarget {
+  readonly targetKind: "claim" | "object";
+  readonly targetId: string;
+  readonly content: string;
+  /** 取出时文本的 md5：写回时数据库核对，文本在这之间变了 ⇒ 不写旧文本的向量。 */
+  readonly contentMd5: string;
+  /** 本轮看到的最大 outbox id（bigint 的十进制串）：写回 / 失败只处理到它为止。 */
+  readonly maxId: string;
+}
+
+export interface KgEmbeddingQueuePort {
+  /** 有待嵌入目标的 org（只有 id）。 */
+  pendingOrgs(): Promise<readonly OrgId[]>;
+  pending(orgId: OrgId, limit: number): Promise<readonly KgEmbeddingTarget[]>;
+  /** 写回一个向量；`stale` ⇒ 文本已变 / 目标已不活，没写（已出队）。模型未登记 / 维度不符 ⇒ 抛错。 */
+  write(
+    orgId: OrgId, target: KgEmbeddingTarget, model: { readonly model: string; readonly modelVersion: string }, embedding: readonly number[],
+  ): Promise<"written" | "stale">;
+  /** 单个目标失败记一次（`code` 是固定错误码，不含正文）。 */
+  fail(orgId: OrgId, target: KgEmbeddingTarget, code: string): Promise<void>;
+  /** 超过重试上限、不再自动重试的目标数（全局，只有数字）。 */
+  deadCount(): Promise<number>;
+}
+
+export const KG_EMBEDDING_QUEUE_PORT = Symbol("KgEmbeddingQueuePort");
 
 // ─────────────────────────────── F10 人工编辑动作 ───────────────────────────────
 
