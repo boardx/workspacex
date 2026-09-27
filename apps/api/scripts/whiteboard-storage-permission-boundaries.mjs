@@ -78,17 +78,49 @@ export const whiteboardStoragePermissionBoundaries=new Map([
  }],
 ]);
 const compact=value=>value.replace(/\s+/g,'');
+// Only the method body or its directly returned withTenant callback is an
+// execution scope. Nested conditionals/closures are never evidence of admission.
+function executionRoot(node){
+ if(!node.body)return undefined;
+ for(const statement of node.body.statements??[]){
+  if(!ts.isReturnStatement(statement)||!statement.expression)continue;
+  const expression=statement.expression;
+  if(ts.isCallExpression(expression)&&ts.isPropertyAccessExpression(expression.expression)&&expression.expression.getText()==='this.db.withTenant'){
+   const callback=expression.arguments[1];
+   if(callback&&ts.isArrowFunction(callback))return callback.body;
+  }
+ }
+ return node.body;
+}
+const transparent=new Set([ts.SyntaxKind.AwaitExpression,ts.SyntaxKind.ExpressionStatement,ts.SyntaxKind.VariableDeclaration,ts.SyntaxKind.VariableDeclarationList,ts.SyntaxKind.VariableStatement,ts.SyntaxKind.ReturnStatement,ts.SyntaxKind.SpreadAssignment,ts.SyntaxKind.PropertyAssignment,ts.SyntaxKind.ObjectLiteralExpression,ts.SyntaxKind.ParenthesizedExpression,ts.SyntaxKind.AsExpression,ts.SyntaxKind.NonNullExpression]);
+function direct(node,root){
+ for(let parent=node.parent;parent;parent=parent.parent){if(parent===root)return true;if(!transparent.has(parent.kind))return false;}
+ return false;
+}
+function queryMember(node){return (ts.isPropertyAccessExpression(node)&&node.name.text==='query')||(ts.isElementAccessExpression(node)&&node.argumentExpression&&ts.isStringLiteralLike(node.argumentExpression)&&node.argumentExpression.text==='query');}
 function parse(source){
  const file=ts.createSourceFile('boundary.ts',source,ts.ScriptTarget.Latest,true);
- const printer=ts.createPrinter({removeComments:true});const methods=new Map();let totalQueries=0;
+ const printer=ts.createPrinter({removeComments:true});const methods=new Map();let totalQueries=0;const unsafe=[];
+ const printed=node=>compact(printer.printNode(ts.EmitHint.Unspecified,node,file));
+ const isQuery=node=>ts.isCallExpression(node)&&queryMember(node.expression);
  function visit(node){
-  if(ts.isCallExpression(node)&&ts.isPropertyAccessExpression(node.expression)&&node.expression.name.text==='query')totalQueries++;
+  if(isQuery(node))totalQueries++;
+  if(queryMember(node)&&!(ts.isCallExpression(node.parent)&&node.parent.expression===node))unsafe.push('escaped query method');
+  if(ts.isElementAccessExpression(node)&&!queryMember(node)&&!ts.isNumericLiteral(node.argumentExpression))unsafe.push('untracked computed member');
+  if(ts.isBindingElement(node)&&(node.propertyName??node.name).getText(file)==='query')unsafe.push('destructured query alias');
+  if(ts.isStringLiteralLike(node)&&node.text==='query'&&!ts.isElementAccessExpression(node.parent))unsafe.push('indirect query lookup');
   if((ts.isMethodDeclaration(node)||ts.isFunctionDeclaration(node))&&node.name){
-   let queries=0;function count(n){if(ts.isCallExpression(n)&&ts.isPropertyAccessExpression(n.expression)&&n.expression.name.text==='query')queries++;ts.forEachChild(n,count);}count(node);
-   methods.set(node.name.getText(file),{source:compact(printer.printNode(ts.EmitHint.Unspecified,node,file)),queries});
+   const root=executionRoot(node);let queries=0;const calls=[],guards=[];
+   function count(n){
+    if(isQuery(n))queries++;
+    if(ts.isCallExpression(n)&&direct(n,root))calls.push({text:printed(n),awaited:ts.isAwaitExpression(n.parent),pos:n.pos});
+    if(ts.isIfStatement(n)&&n.parent===root)guards.push(printed(n));
+    ts.forEachChild(n,count);
+   }count(node);
+   methods.set(node.name.getText(file),{source:printed(node),queries,calls,guards});
   }
   ts.forEachChild(node,visit);
- }visit(file);return{methods,totalQueries,source:compact(printer.printFile(file))};
+ }visit(file);return{methods,totalQueries,unsafe,source:compact(printer.printFile(file))};
 }
 function auditMethods(path,actual,expected,exact,failures){
  if(exact&&(actual.size!==Object.keys(expected).length||[...actual.keys()].some(name=>!expected[name])))failures.push(`${path}: method inventory changed`);
@@ -96,15 +128,25 @@ function auditMethods(path,actual,expected,exact,failures){
   const found=actual.get(name);if(!found){failures.push(`${path}: missing method ${name}`);continue;}
   if(found.queries!==rule.queries)failures.push(`${path}: ${name} query count changed`);
   for(const required of rule.required)if(!found.source.includes(compact(required)))failures.push(`${path}: ${name} invariant missing (${required})`);
+  // Every ordered `await authority(...)` must be an actually executed direct
+  // await, not matching text inside if(false), a ternary, or an uncalled closure.
+  let position=-1;
+  for(const required of rule.ordered.filter(value=>value.startsWith('await '))){
+   const call=compact(required.slice(6));const actualCall=found.calls.find(value=>value.awaited&&value.pos>position&&value.text===call);
+   if(!actualCall)failures.push(`${path}: ${name} non-direct authorization (${required})`);else position=actualCall.pos;
+  }
+  for(const required of rule.required.filter(value=>compact(value).startsWith('if(')&&!compact(value).startsWith('if(row.request_hash'))){
+   if(!found.guards.some(guard=>guard.startsWith(compact(required))))failures.push(`${path}: ${name} non-direct denial guard (${required})`);
+  }
   let offset=0;for(const required of rule.ordered){const index=found.source.indexOf(compact(required),offset);if(index<0){failures.push(`${path}: ${name} authorization order missing (${required})`);break;}offset=index+compact(required).length;}
  }
 }
 export function verifyWhiteboardStoragePermissionBoundaries(read){
  const failures=[];
  for(const [path,rule] of whiteboardStoragePermissionBoundaries){
-  const parsed=parse(read(path));if(parsed.totalQueries!==[...parsed.methods.values()].reduce((sum,method)=>sum+method.queries,0))failures.push(`${path}: query outside admitted methods`);auditMethods(path,parsed.methods,rule.methods,true,failures);
+  const parsed=parse(read(path));for(const reason of parsed.unsafe)failures.push(`${path}: ${reason}`);if(parsed.totalQueries!==[...parsed.methods.values()].reduce((sum,method)=>sum+method.queries,0))failures.push(`${path}: query outside admitted methods`);auditMethods(path,parsed.methods,rule.methods,true,failures);
   for(const required of rule.required??[])if(!parsed.source.includes(compact(required)))failures.push(`${path}: authority dependency missing (${required})`);
-  for(const [related,methods]of Object.entries(rule.related??{}))auditMethods(path,parse(read(related)).methods,methods,false,failures);
+  for(const [related,methods]of Object.entries(rule.related??{})){const dependency=parse(read(related));for(const reason of dependency.unsafe)failures.push(`${path}: ${reason}`);auditMethods(path,dependency.methods,methods,false,failures);}
  }
  return failures;
 }

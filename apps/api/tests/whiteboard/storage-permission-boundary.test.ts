@@ -1,7 +1,9 @@
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
+// @ts-expect-error production lint helpers are intentionally plain ESM.
 import { whiteboardStoragePermissionBoundaries, verifyWhiteboardStoragePermissionBoundaries } from '../../scripts/whiteboard-storage-permission-boundaries.mjs';
+// @ts-expect-error production lint helpers are intentionally plain ESM.
 import { verifyWhiteboardPermissionBoundaries } from '../../scripts/whiteboard-permission-boundaries.mjs';
 const root=resolve(__dirname,'../..');
 const path=(name:string)=>`src/infrastructure/whiteboard/${name}.ts`;
@@ -47,6 +49,29 @@ describe('precise storage adapter permission admission',()=>{
   ['image active reference','pg-image-assets',"AND r.state='active' AND r.released_at IS NULL",''],
  ] as const)('rejects removal of %s',(_name,file,from,to)=>{
   expect(audit(path(file),source=>source.replace(from,to)).length).toBeGreaterThan(0);
+ });
+ it.each([
+  ['dead branch','if(false){await lockBoardStorageMaintenance(s,p);}'],
+  ['conditional branch','if(after){await lockBoardStorageMaintenance(s,p);}'],
+  ['uncalled closure','const later=async()=>{await lockBoardStorageMaintenance(s,p);};'],
+  ['unawaited call','lockBoardStorageMaintenance(s,p);'],
+  ['short circuit','false && await lockBoardStorageMaintenance(s,p);'],
+ ] as const)('rejects %s authorization',(_name,replacement)=>{
+  expect(audit(path('pg-storage-backfill'),source=>source.replace('await lockBoardStorageMaintenance(s,p);',replacement)).length).toBeGreaterThan(0);
+ });
+ it.each([
+  "await session['query']('SELECT metadata FROM whiteboard_image_assets');",
+  "const q=session.query;await q('SELECT metadata FROM whiteboard_image_assets');",
+  "const {query:q}=session;await q('SELECT metadata FROM whiteboard_image_assets');",
+  "const q=session['q'+'uery'];await q('SELECT metadata FROM whiteboard_image_assets');",
+  "const q=Reflect.get(session,'query');await q('SELECT metadata FROM whiteboard_image_assets');",
+  "const alias=session;const q=alias['q'+'uery'];await q('SELECT metadata FROM whiteboard_image_assets');",
+ ] as const)('rejects computed/aliased query bypass %s',injection=>{
+  expect(audit(path('pg-image-assets'),source=>source.replace('const row = result.rows[0];',injection+'const row = result.rows[0];')).length).toBeGreaterThan(0);
+ });
+ it('rejects hiding the actual owner denial in a dead branch',()=>{
+  const guard="if(!board.rows[0]||(!member.administrator&&board.rows[0].owner_id!==p.userId))throw new StorageBackfillError('NOT_FOUND');";
+  expect(audit(path('storage-maintenance-access'),source=>source.replace(guard,`if(false){${guard}}`)).length).toBeGreaterThan(0);
  });
  it('does not accept authorization only mentioned in a comment',()=>{
   expect(audit(path('pg-storage-backfill'),source=>source.replace('await lockBoardStorageMaintenance(s,p);','/* await lockBoardStorageMaintenance(s,p); */')).length).toBeGreaterThan(0);
