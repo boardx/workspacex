@@ -1,3 +1,4 @@
+import type { WhiteboardAssetMetadata } from '@repo/contracts/whiteboard-asset';
 import type { WhiteboardCommand, WhiteboardObject } from '@repo/contracts/whiteboard-document';
 
 export type ImportSource = 'miro' | 'mural';
@@ -6,6 +7,7 @@ export interface ImportedBoardItem {
   x: number; y: number; width: number; height: number; rotation: number; text: string; color: string | null;
   shape: string | null; parentSourceId: string | null; fromSourceId: string | null; toSourceId: string | null;
   zIndex: number; assetRef: string | null; metadata: Record<string, unknown>;
+  assetMetadata?: WhiteboardAssetMetadata;
   assetMime: 'image/jpeg'|'image/png'|'image/webp'|'image/gif'|null;
 }
 export interface ImportMappingIssue { code: 'UNSUPPORTED_ITEM'|'INVALID_REFERENCE'|'OBJECT_LIMIT'|'ASSET_MISSING'|'VALUE_NORMALIZED'; sourceId: string|null; sourceType: string|null; detail: string; }
@@ -41,8 +43,8 @@ function importedObject(id:string,item:ImportedBoardItem,source:ImportSource,par
   if(item.type==='group') return {...base,kind:'group',style:{},extensionData:{import:imported}};
   if(item.type==='tile') return {...base,kind:'extension',style:{fill:color(item.color,'#FFFFFF',issues,item)},extensionData:{import:imported,contentObject:{version:1,type:'tile',tileType:'data',title:item.text.slice(0,300)||'Imported item',description:'',icon:null,coverAssetId:null,fields:[],tags:[],link:null,status:null,actions:[]}}};
   if(item.type==='image') {
-    if(!item.assetRef){issues.push({code:'ASSET_MISSING',sourceId:item.sourceId,sourceType:item.sourceType,detail:'Image has no verified asset'});return null;}
-    return {...base,kind:'image',style:{},extensionData:{import:imported,contentObject:{version:1,type:'image',status:'ready',assetId:item.assetRef,sourceUrl:null,mimeType:item.assetMime??'image/png',intrinsicWidth:Math.max(1,Math.round(base.geometry.width)),intrinsicHeight:Math.max(1,Math.round(base.geometry.height)),crop:{x:0,y:0,width:1,height:1},opacity:1,borderColor:'#000000',borderWidth:0,cornerRadius:0,fileName:item.sourceId,replacementOf:null,failureCode:null}}};
+    if(!item.assetRef || !item.assetMetadata){issues.push({code:'ASSET_MISSING',sourceId:item.sourceId,sourceType:item.sourceType,detail:'Image has no verified asset'});return null;}
+    return {...base,kind:'image',style:{},extensionData:{import:imported,contentObject:{version:1,type:'image',status:'ready',...item.assetMetadata,sourceUrl:null,crop:{x:0,y:0,width:1,height:1},opacity:1,borderColor:'#000000',borderWidth:0,cornerRadius:0,fileName:(item.sourceId==='.'||item.sourceId==='..'?'Imported image':item.sourceId).replace(/[/\\\x00-\x1f]/g,'_').slice(0,255)||'Imported image',replacementOf:null,failureCode:null}}};
   }
   return null;
 }

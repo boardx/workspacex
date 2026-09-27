@@ -1,3 +1,7 @@
+import { WhiteboardAssetsController } from './interface/controllers/whiteboard-assets.controller';
+import { WHITEBOARD_IMAGE_ASSETS, WhiteboardImageAssets } from './application/whiteboard/image-assets';
+import { PgBoardImageAssets } from './infrastructure/whiteboard/pg-image-assets';
+import { SharpBoardImageVerifier } from './infrastructure/whiteboard/image-verifier';
 import { WHITEBOARD_COLLABORATION_STORE, WHITEBOARD_UPDATE_VALIDATOR } from './application/whiteboard/collaboration-ports';
 import { PgWhiteboardCollaborationStore } from './infrastructure/whiteboard/pg-collaboration-store';
 import { WorkerWhiteboardUpdateValidator } from './infrastructure/whiteboard/update-validator';
@@ -1099,6 +1103,7 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
     DesignWorkbenchController,
     WhiteboardController,
     WhiteboardImportController,
+    WhiteboardAssetsController,
     PublicDesignShareController,
     SystemMailController,
     SystemUptimeController,
@@ -2945,9 +2950,14 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
       inject: [DATABASE_PORT],
     },
     {
+      provide: WHITEBOARD_IMAGE_ASSETS,
+      useFactory: (boards: PgWhiteboardRepository, db: DatabasePort, objects: ObjectStore) => new WhiteboardImageAssets(boards, new PgBoardImageAssets(db), objects, new SharpBoardImageVerifier()),
+      inject: [WHITEBOARD_REPOSITORY, DATABASE_PORT, OBJECT_STORE],
+    },
+    {
       provide: WHITEBOARD_IMPORT_SERVICE,
-      useFactory: (boards: PgWhiteboardRepository, collaboration: PgWhiteboardCollaborationStore, db: DatabasePort, objects: ObjectStore) => new WhiteboardImportService(boards,new PgWhiteboardImportRepository(db),collaboration,objects,new PgWhiteboardExportRepository(db)),
-      inject: [WHITEBOARD_REPOSITORY, WHITEBOARD_COLLABORATION_STORE, DATABASE_PORT, OBJECT_STORE],
+      useFactory: (boards: PgWhiteboardRepository, collaboration: PgWhiteboardCollaborationStore, db: DatabasePort, objects: ObjectStore, images: WhiteboardImageAssets) => new WhiteboardImportService(boards,new PgWhiteboardImportRepository(db),collaboration,objects,new PgWhiteboardExportRepository(db),undefined,images),
+      inject: [WHITEBOARD_REPOSITORY, WHITEBOARD_COLLABORATION_STORE, DATABASE_PORT, OBJECT_STORE, WHITEBOARD_IMAGE_ASSETS],
     },
     {
       provide: WHITEBOARD_RECOVERY_SERVICE,
