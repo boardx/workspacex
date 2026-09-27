@@ -854,7 +854,11 @@ export function BoardFabricSurface({ objects, selectedObjectIds, readOnly, tool,
 
   const selectFromOutline = React.useCallback((objectId: string) => onSelectionChange([objectId], "outline"), [onSelectionChange]);
   return (
-    <div ref={hostRef} className={className ?? "relative h-full w-full overflow-hidden bg-background"} style={boardDotGridStyle(viewport)} data-testid="board-fabric-surface"
+    <div ref={hostRef} tabIndex={0} onPointerDownCapture={(event) => {
+      // Fabric's upper canvas is generated imperatively and is not focusable.
+      // Keep keyboard shortcuts within this board after a real canvas gesture.
+      if (event.target instanceof HTMLCanvasElement) event.currentTarget.focus({ preventScroll: true });
+    }} className={className ?? "relative h-full w-full overflow-hidden bg-background"} style={boardDotGridStyle(viewport)} data-testid="board-fabric-surface"
       data-viewport-zoom={clampBoardZoom(viewport.zoom)} data-viewport-pan-x={viewport.panX} data-viewport-pan-y={viewport.panY}
       data-selection-scene={selectionScene ? JSON.stringify(selectionScene) : undefined}
       data-object-scenes={JSON.stringify(objectScenes)}

@@ -663,3 +663,18 @@ describe("BoardFabricSurface", () => {
     expect(onViewportChange).not.toHaveBeenCalled();
   });
 });
+
+it('focuses the real surface DOM from canvas pointerdown so keyboard all-selection reaches the editor',async()=>{
+ const {CollaborativeEditor}=await import('@/components/whiteboard/collaborative-editor');
+ const {createWhiteboardDocument,executeCommands}=await import('@repo/whiteboard-core');
+ const doc=createWhiteboardDocument();executeCommands(doc,[0,1].map(i=>({type:'create' as const,object:{id:`focus-${i}`,schemaVersion:1 as const,kind:'sticky' as const,geometry:{x:i*200,y:0,width:180,height:140,rotation:0},text:`focus ${i}`,style:{},parentId:null,orderKey:String(i)}})),'seed');
+ render(<CollaborativeEditor boardId="board-focus" clientId="client-focus" doc={doc} readOnly={false} title="白板" status="已连接"/>);
+ const surface=screen.getByTestId('board-fabric-surface'),canvas=screen.getByTestId('board-fabric-canvas');
+ (document.activeElement as HTMLElement).blur();expect(document.activeElement).toBe(document.body);
+ fireEvent.pointerDown(canvas,{button:0});expect(document.activeElement).toBe(surface);
+ expect(fireEvent.keyDown(document.activeElement!,{key:'a',ctrlKey:true})).toBe(false);
+ expect(screen.getByTestId('board-a11y-selection-announcement')).toHaveTextContent('已选择 2 个对象');
+ const upper=document.createElement('canvas');upper.className='upper-canvas';surface.append(upper);(document.activeElement as HTMLElement).blur();fireEvent.pointerDown(upper,{button:0});expect(document.activeElement).toBe(surface);upper.remove();
+ const input=document.createElement('textarea');surface.append(input);input.focus();fireEvent.pointerDown(input,{button:0});
+ expect(document.activeElement).toBe(input);expect(fireEvent.keyDown(document.activeElement!,{key:'a',ctrlKey:true})).toBe(true);input.remove();doc.destroy();
+});
