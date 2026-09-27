@@ -150,7 +150,7 @@ export const WhiteboardPresentationCommand = z.discriminatedUnion('type', [
 ]);
 export type WhiteboardPresentationCommand = z.infer<typeof WhiteboardPresentationCommand>;
 export const WhiteboardPresentationRequest = z.object({
-  roomId: z.string().min(1).max(200), command: WhiteboardPresentationCommand,
+  roomId: z.string().min(1).max(200), reconnectToken: z.string().min(32).max(512).nullable().default(null), command: WhiteboardPresentationCommand,
 }).strict();
 export const WhiteboardRoomJoin = z.object({
   roomId: z.string().min(1).max(200), deviceId: z.string().min(1).max(200),

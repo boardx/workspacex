@@ -49,6 +49,11 @@ CREATE TABLE IF NOT EXISTS whiteboard_presentation_sessions (
   state jsonb NOT NULL, updated_at timestamptz NOT NULL DEFAULT now(), PRIMARY KEY(org_id,board_id,room_id),
   FOREIGN KEY(org_id,board_id) REFERENCES whiteboards(org_id,id) ON DELETE CASCADE
 );
+CREATE TABLE IF NOT EXISTS whiteboard_artifact_layout_bindings (
+  org_id text NOT NULL, artifact_id text NOT NULL, artifact_version_id text NOT NULL,
+  layout_digest text NOT NULL CHECK(layout_digest ~ '^layout-v1:[a-f0-9]{64}$'), created_at timestamptz NOT NULL DEFAULT now(),
+  PRIMARY KEY(org_id,artifact_id,artifact_version_id), FOREIGN KEY(artifact_version_id) REFERENCES artifact_versions(id) ON DELETE CASCADE
+);
 ALTER TABLE whiteboard_operations ENABLE ROW LEVEL SECURITY;
 ALTER TABLE whiteboard_operation_events ENABLE ROW LEVEL SECURITY;
 ALTER TABLE whiteboard_operations FORCE ROW LEVEL SECURITY;
@@ -57,13 +62,15 @@ ALTER TABLE whiteboard_actor_identities ENABLE ROW LEVEL SECURITY; ALTER TABLE w
 ALTER TABLE whiteboard_ai_proposals ENABLE ROW LEVEL SECURITY; ALTER TABLE whiteboard_ai_proposals FORCE ROW LEVEL SECURITY;
 ALTER TABLE whiteboard_room_identities ENABLE ROW LEVEL SECURITY; ALTER TABLE whiteboard_room_identities FORCE ROW LEVEL SECURITY;
 ALTER TABLE whiteboard_presentation_sessions ENABLE ROW LEVEL SECURITY; ALTER TABLE whiteboard_presentation_sessions FORCE ROW LEVEL SECURITY;
+ALTER TABLE whiteboard_artifact_layout_bindings ENABLE ROW LEVEL SECURITY; ALTER TABLE whiteboard_artifact_layout_bindings FORCE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS whiteboard_operations_tenant ON whiteboard_operations;
 CREATE POLICY whiteboard_operations_tenant ON whiteboard_operations USING (org_id=current_setting('app.current_org',true)) WITH CHECK (org_id=current_setting('app.current_org',true));
 DROP POLICY IF EXISTS whiteboard_operation_events_tenant ON whiteboard_operation_events;
 CREATE POLICY whiteboard_operation_events_tenant ON whiteboard_operation_events USING (org_id=current_setting('app.current_org',true)) WITH CHECK (org_id=current_setting('app.current_org',true));
-DO $$ DECLARE t text; BEGIN FOREACH t IN ARRAY ARRAY['whiteboard_actor_identities','whiteboard_ai_proposals','whiteboard_room_identities','whiteboard_presentation_sessions'] LOOP EXECUTE format('DROP POLICY IF EXISTS %I_tenant ON %I',t,t); EXECUTE format('CREATE POLICY %I_tenant ON %I USING (org_id=current_setting(''app.current_org'',true)) WITH CHECK (org_id=current_setting(''app.current_org'',true))',t,t); END LOOP; END $$;
-REVOKE ALL ON whiteboard_operations,whiteboard_operation_events,whiteboard_actor_identities,whiteboard_ai_proposals,whiteboard_room_identities,whiteboard_presentation_sessions FROM app_rw;
+DO $$ DECLARE t text; BEGIN FOREACH t IN ARRAY ARRAY['whiteboard_actor_identities','whiteboard_ai_proposals','whiteboard_room_identities','whiteboard_presentation_sessions','whiteboard_artifact_layout_bindings'] LOOP EXECUTE format('DROP POLICY IF EXISTS %I_tenant ON %I',t,t); EXECUTE format('CREATE POLICY %I_tenant ON %I USING (org_id=current_setting(''app.current_org'',true)) WITH CHECK (org_id=current_setting(''app.current_org'',true))',t,t); END LOOP; END $$;
+REVOKE ALL ON whiteboard_operations,whiteboard_operation_events,whiteboard_actor_identities,whiteboard_ai_proposals,whiteboard_room_identities,whiteboard_presentation_sessions,whiteboard_artifact_layout_bindings FROM app_rw;
 GRANT SELECT,INSERT ON whiteboard_operations,whiteboard_operation_events TO app_rw;
 GRANT SELECT,INSERT,UPDATE ON whiteboard_ai_proposals,whiteboard_room_identities,whiteboard_presentation_sessions TO app_rw;
+GRANT SELECT,INSERT ON whiteboard_artifact_layout_bindings TO app_rw;
 GRANT SELECT ON whiteboard_actor_identities TO app_rw;
 SELECT kernel_apply_org_freeze_policies();

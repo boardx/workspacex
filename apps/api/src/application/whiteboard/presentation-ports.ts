@@ -3,5 +3,6 @@ export interface WhiteboardPresentationRepository{
  load(session:TenantSession,principal:Principal,boardId:string,roomId:string,lock:boolean):Promise<WhiteboardPresentationState|null>;
  save(session:TenantSession,principal:Principal,state:WhiteboardPresentationState):Promise<void>;
  join(session:TenantSession,principal:Principal,boardId:string,input:{roomId:string;deviceId:string;deviceKind:'personal'|'meeting-display';reconnectToken:string|null},token:string):Promise<{actorId:string;connectionRevision:number}>;
+ authorizeActor(session:TenantSession,principal:Principal,boardId:string,roomId:string,actorId:string,reconnectToken:string|null):Promise<boolean>;
  canTarget(session:TenantSession,principal:Principal,boardId:string,roomId:string,actorId:string):Promise<boolean>;
 }
