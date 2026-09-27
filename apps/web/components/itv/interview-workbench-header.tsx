@@ -46,6 +46,15 @@ export function InterviewWorkbenchHeader({
       </div>
     </div>
     <div className="mt-5 flex flex-wrap gap-3 border-t border-border pt-4 text-xs text-muted-foreground"><span data-testid="itv-workflow-status">状态：{status}</span><span data-testid="itv-workflow-version">版本 {version}</span>{topic && <span data-testid="itv-persisted-topic">已确认主题：{topic}</span>}</div>
-    <div data-testid="itv-workbench-navigation"><ol data-testid="itv-workbench-timeline" className="mt-5 grid gap-2 sm:grid-cols-2 lg:grid-cols-6">{steps.map((step, index) => <li key={step.id}><Button data-testid={`itv-workbench-step-${step.id}`} type="button" variant={activeStep === step.id ? "primary" : "outline"} aria-current={activeStep === step.id ? "step" : undefined} onClick={() => onStepChange(step.id)} className="h-auto w-full justify-start whitespace-normal px-3 py-3 text-left"><span className="mr-2 grid size-6 shrink-0 place-items-center rounded-full bg-background/20 text-xs">{index + 1}</span><span><span className="block text-sm">{step.label}</span><span className="mt-1 block text-xs font-normal opacity-80">{step.detail}</span></span></Button></li>)}</ol></div>
+    <nav aria-label="访谈步骤" data-testid="itv-workbench-navigation" className="mt-6 overflow-x-auto pb-2">
+      <ol data-testid="itv-workbench-timeline" className="flex min-w-max items-start lg:min-w-0">{steps.map((step, index) => <li key={step.id} className="relative min-w-36 flex-1 lg:min-w-0">
+        {index < steps.length - 1 && <span aria-hidden className="absolute left-1/2 right-[-50%] top-6 h-px bg-border" />}
+        <button data-testid={`itv-workbench-step-${step.id}`} type="button" aria-current={activeStep === step.id ? "step" : undefined} onClick={() => onStepChange(step.id)} className="relative flex w-full flex-col items-center gap-3 rounded-lg px-3 py-1 text-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+          <span className={`grid size-11 place-items-center rounded-full border text-lg font-semibold ${activeStep === step.id ? "border-foreground bg-foreground text-background ring-4 ring-muted" : "border-border bg-card text-muted-foreground"}`}>{index + 1}</span>
+          <span className={activeStep === step.id ? "text-sm font-semibold text-foreground" : "text-sm text-muted-foreground"}>{step.label}</span>
+          <span className="sr-only">{step.detail}</span>
+        </button>
+      </li>)}</ol>
+    </nav>
   </header>;
 }

@@ -90,6 +90,7 @@ export function LiveSurveyWorkspace({
     setMarkdownNeedsApply(false);
     setDraft({
       title: value.title,
+      tags: value.tags,
       questions: value.questions,
       template: value.template,
     });
@@ -125,6 +126,7 @@ export function LiveSurveyWorkspace({
       JSON.stringify(draft) !==
         JSON.stringify({
           title: runtime.title,
+          tags: runtime.tags,
           questions: runtime.questions,
           template: runtime.template,
         }));
@@ -155,7 +157,7 @@ export function LiveSurveyWorkspace({
     const sourceParsed = parseSurveyDesignMarkdown(markdown);
     if (!sourceParsed.ok) throw new Error(sourceParsed.diagnostics.map((entry) => `第 ${entry.line} 行：${entry.message}`).join("；"));
     if (markdownNeedsApply) throw new Error("请先校对并应用 Markdown，再保存或发布。");
-    const parsed = SurveyDraftInputSchema.safeParse({ ...draft, title: sourceParsed.draft.title, questions: sourceParsed.draft.questions });
+    const parsed = SurveyDraftInputSchema.safeParse({ ...draft, title: sourceParsed.draft.title, tags: sourceParsed.draft.tags, questions: sourceParsed.draft.questions });
     if (!parsed.success)
       throw new Error("请填写问卷、章节及内容标题，并检查选项和图片地址。");
     const next = runtime ?? await surveyRequest("/surveys", {
@@ -353,7 +355,7 @@ export function LiveSurveyWorkspace({
             <MarkdownSurveyEditor value={markdown} locked={!!runtime?.publication} onChange={(text) => { setMarkdown(text); setMarkdownNeedsApply(true); }} onPreview={() => {
                 const result = parseSurveyDesignMarkdown(markdown);
                 if (!result.ok) { setError(result.diagnostics.map((entry) => `第 ${entry.line} 行：${entry.message}`).join("；")); return; }
-                setError(""); setDraft({ ...draft, title: result.draft.title, questions: result.draft.questions });
+                setError(""); setDraft({ ...draft, title: result.draft.title, tags: result.draft.tags, questions: result.draft.questions });
                 setMarkdownNeedsApply(false);
               }} />
             <fieldset disabled={!projectedInSync}>
@@ -361,6 +363,7 @@ export function LiveSurveyWorkspace({
             <SurveyTemplateActions kind="question" draft={draft} onApply={(next) => { setDraft(next); setMarkdown(serializeSurveyDesignMarkdown(next)); }} locked={!!runtime?.publication} disabled={busy} />
             <SurveyQuestionEditor
               studioLayout
+              disabled={busy || !projectedInSync}
               questions={draft.questions}
               locked={!!runtime?.publication}
               selectedQuestionId={repairQuestionId}

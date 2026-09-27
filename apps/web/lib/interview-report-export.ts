@@ -1,6 +1,6 @@
 import type { DigitalInterviewWorkflowView } from "./interview-api";
 
-type Report = NonNullable<DigitalInterviewWorkflowView["report"]>;
+type Report = Pick<NonNullable<DigitalInterviewWorkflowView["report"]>, "title" | "executiveSummary" | "markdown">;
 type EvidenceMode = DigitalInterviewWorkflowView["studyEvidenceMode"];
 type ReportEvidenceEligibility = DigitalInterviewWorkflowView["reportEvidenceEligibility"];
 
