@@ -92,6 +92,12 @@ export function fetchProjectKnowledge(projectId: string, signal?: AbortSignal): 
   return getParsed(`/knowledge-graph/projects/${seg(projectId)}`, knowledgeGraph.getProjectKnowledge.out, signal);
 }
 
+/** B2-S4：组织大脑（组织记忆 L3）。任何组织成员可读；外人 403 `KG_NOT_VISIBLE`。 */
+export type OrgKnowledge = z.infer<typeof knowledgeGraph.getOrgKnowledge.out>;
+export function fetchOrgKnowledge(signal?: AbortSignal): Promise<OrgKnowledge> {
+  return getParsed("/knowledge-graph/org", knowledgeGraph.getOrgKnowledge.out, signal);
+}
+
 export function fetchThreadKnowledge(threadId: string, signal?: AbortSignal): Promise<ThreadKnowledge> {
   return getParsed(`/knowledge-graph/threads/${seg(threadId)}`, knowledgeGraph.getThreadKnowledge.out, signal);
 }
@@ -196,6 +202,28 @@ export function promoteToProject(
   return getParsed(
     `/knowledge-graph/threads/${seg(threadId)}/promote-to-project`,
     knowledgeGraph.promoteToProject.out,
+    undefined,
+    { method: "POST", body: { claimIds: input.claimIds, ...(input.choices ? { choices: input.choices } : {}) } },
+  );
+}
+
+/**
+ * B2-S4：记到组织记忆（L2 → L3）。`claimIds` 是项目大脑（`getProjectKnowledge.claims`）里的 id；与 `promoteToProject`
+ * 同一套逐条结果形状。服务端只放行本组织 lead / admin（`KG_NOT_OWNER`）。
+ */
+export function promoteToOrg(
+  projectId: string,
+  claimIds: readonly string[],
+  choices?: readonly PromotionChoice[],
+): Promise<PromotionResults> {
+  const input = knowledgeGraph.promoteToOrg.in.parse({
+    projectId,
+    claimIds: [...claimIds],
+    ...(choices && choices.length > 0 ? { choices: [...choices] } : {}),
+  });
+  return getParsed(
+    `/knowledge-graph/projects/${seg(projectId)}/promote-to-org`,
+    knowledgeGraph.promoteToOrg.out,
     undefined,
     { method: "POST", body: { claimIds: input.claimIds, ...(input.choices ? { choices: input.choices } : {}) } },
   );

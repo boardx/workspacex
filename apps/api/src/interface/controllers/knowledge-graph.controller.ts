@@ -18,7 +18,9 @@ import { actOnMemoryCard } from "../../application/knowledge-graph/act-on-memory
 import { applyHumanAction } from "../../application/knowledge-graph/apply-human-action";
 import { undoAutoPersonalCopy } from "../../application/knowledge-graph/auto-copy-decisions";
 import { listPromotionNominations, promoteToPersonal } from "../../application/knowledge-graph/promote-to-personal";
+import { promoteToOrg } from "../../application/knowledge-graph/promote-to-org";
 import { promoteToProject } from "../../application/knowledge-graph/promote-to-project";
+import { getOrgKnowledge } from "../../application/knowledge-graph/read-org-knowledge";
 import { getProjectKnowledge } from "../../application/knowledge-graph/read-project-knowledge";
 import {
   HUMAN_ACTION_PORT, KG_AUTO_COPY_PORT, KG_DEPLOYMENT_EXTRACTION_SETTINGS_PORT, KG_EXTRACTION_MODEL_CONFIG, KG_ORG_EXTRACTION_SETTINGS_PORT, KNOWLEDGE_READ_PORT, KgHumanActionError, MEMORY_CARD_PORT, PROMOTION_PORT,
@@ -175,6 +177,28 @@ export class KnowledgeGraphController {
     return this.run(principal, (v) => promoteToProject(
       { ...this.deps, promotion: this.promotion, newId: newKgId },
       { ...v, threadId, claimIds: parsed.data.claimIds, ...(parsed.data.choices ? { choices: parsed.data.choices } : {}) },
+    ));
+  }
+
+  /** B2-S4 getOrgKnowledge —— 组织大脑只读（任何组织成员；非成员 KG_NOT_VISIBLE 403） */
+  @Get("/knowledge-graph/org")
+  orgKnowledge(@CurrentPrincipal() principal: Principal) {
+    return this.run(principal, (v) => getOrgKnowledge(this.deps, v));
+  }
+
+  /** B2-S4 promoteToOrg —— 「记到组织记忆」（逐条部分成功；本组织 lead / admin，否则 KG_NOT_OWNER 403） */
+  @Post("/knowledge-graph/projects/:projectId/promote-to-org")
+  @HttpCode(200)
+  promoteOrg(@CurrentPrincipal() principal: Principal, @Param("projectId") projectId: string, @Body() body: unknown) {
+    const raw = (body ?? {}) as { claimIds?: unknown };
+    if (Array.isArray(raw.claimIds) && raw.claimIds.length > KG.KG_PROMOTE_MAX_BATCH) {
+      throw new BadRequestException({ reasonCode: "KG_PROMOTE_BATCH_TOO_LARGE" });
+    }
+    const parsed = KG.knowledgeGraph.promoteToOrg.in.safeParse({ ...(body as object), projectId });
+    if (!parsed.success) throw new BadRequestException({ reasonCode: "KG_INVALID_REQUEST" });
+    return this.run(principal, (v) => promoteToOrg(
+      { ...this.deps, promotion: this.promotion, newId: newKgId },
+      { ...v, projectId: parsed.data.projectId, claimIds: parsed.data.claimIds, ...(parsed.data.choices ? { choices: parsed.data.choices } : {}) },
     ));
   }
 

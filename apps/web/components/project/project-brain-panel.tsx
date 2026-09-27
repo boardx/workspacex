@@ -7,7 +7,10 @@ import { SectionTitle } from "./parts";
 import { getStoredSessionToken } from "@/lib/api-client";
 import { KG_TRI_STATE_LABEL_ZH, type KgClaimKind, type KgClaim } from "@repo/contracts/chat-knowledge-graph";
 import { KG_CLAIM_KIND_LABEL_ZH } from "@/lib/knowledge-graph-view";
-import { fetchClaimSources, fetchProjectKnowledge, knowledgeGraphErrorCode, type ProjectKnowledge } from "@/lib/knowledge-graph-api";
+import {
+  fetchClaimSources, fetchProjectKnowledge, knowledgeGraphErrorCode, promoteToOrg,
+  type ProjectKnowledge, type PromotionChoice, type PromotionResults,
+} from "@/lib/knowledge-graph-api";
 import { httpFailureText } from "@/lib/http-failure-text";
 import { ApiError } from "@/lib/api-client";
 import { ClaimSourceDrawer } from "@/components/chat/knowledge/claim-source-drawer";
@@ -24,6 +27,9 @@ import { useClaimSourcesDrawer } from "@/components/chat/knowledge/knowledge-pan
  * R9（推理）：分组之上先摆「假设与矛盾」——`kind = hypothesis` 的按 支持 − 反对 证据数排序（还没站住的
  * 在前），`triState = conflict` 的单列「有矛盾」；每条可点「来源」打开既有的来源抽屉（`getClaimSources`
  * 对项目结论回链到证据会话，只对项目成员）。
+ *
+ * B2-S4（#4428）：服务端 `canPromoteToOrg`（组织 lead / admin）为 true 时，每条多一个「记到组织记忆」按钮
+ * （`promoteToOrg`，L2 → L3）；逐条显示结果，相近时让人选合并 / 并存。旧响应没有这个字段 ⇒ 没有入口。
  */
 const KIND_ORDER: readonly KgClaimKind[] = ["decision", "fact", "hypothesis", "risk", "todo"];
 
@@ -50,6 +56,7 @@ export function ProjectBrainPanel({ projectId }: { projectId: string }) {
     .filter((g) => g.claims.length > 0);
   const reasoning = reasoningView(data?.claims ?? []);
   const drawer = useClaimSourcesDrawer(loadSources);
+  const org = useOrgPromotion(projectId, data?.canPromoteToOrg === true);
 
   return (
     <section data-testid="project-brain">
@@ -80,7 +87,7 @@ export function ProjectBrainPanel({ projectId }: { projectId: string }) {
                   <div className="flex flex-col gap-1" data-testid="project-brain-conflicts">
                     <span className="text-10 text-muted-foreground">有矛盾——两边都有证据，还没人定</span>
                     <ul className="flex flex-col gap-1">
-                      {reasoning.conflicts.map((c) => <ClaimRow key={c.id} claim={c} onOpenSources={drawer.open} />)}
+                      {reasoning.conflicts.map((c) => <ClaimRow key={c.id} claim={c} onOpenSources={drawer.open} org={org} />)}
                     </ul>
                   </div>
                 ) : null}
@@ -88,7 +95,7 @@ export function ProjectBrainPanel({ projectId }: { projectId: string }) {
                   <div className="flex flex-col gap-1" data-testid="project-brain-hypotheses">
                     <span className="text-10 text-muted-foreground">猜测——按证据强弱排，站得最不稳的在前</span>
                     <ul className="flex flex-col gap-1">
-                      {reasoning.hypotheses.map((c) => <ClaimRow key={c.id} claim={c} onOpenSources={drawer.open} />)}
+                      {reasoning.hypotheses.map((c) => <ClaimRow key={c.id} claim={c} onOpenSources={drawer.open} org={org} />)}
                     </ul>
                   </div>
                 ) : null}
@@ -101,7 +108,7 @@ export function ProjectBrainPanel({ projectId }: { projectId: string }) {
                   <span className="font-mono text-10 text-muted-foreground">{g.claims.length}</span>
                 </div>
                 <ul className="flex flex-col gap-1">
-                  {g.claims.map((c) => <ClaimRow key={c.id} claim={c} onOpenSources={drawer.open} />)}
+                  {g.claims.map((c) => <ClaimRow key={c.id} claim={c} onOpenSources={drawer.open} org={org} />)}
                 </ul>
               </div>
             ))}
@@ -136,18 +143,95 @@ export function reasoningView(claims: readonly KgClaim[]): { conflicts: KgClaim[
   return conflicts.length === 0 && hypotheses.length === 0 ? null : { conflicts, hypotheses };
 }
 
-function ClaimRow({ claim, onOpenSources }: { claim: KgClaim; onOpenSources: (claimId: string) => void }) {
+type OrgPromotionState =
+  | { readonly kind: "busy" }
+  | { readonly kind: "done"; readonly result: PromotionResults["results"][number] }
+  | { readonly kind: "failed"; readonly text: string };
+
+interface OrgPromotion {
+  /** 服务端说这个人能记到组织记忆（组织 lead / admin）；false ⇒ 不出入口 */
+  readonly enabled: boolean;
+  readonly states: ReadonlyMap<string, OrgPromotionState>;
+  readonly promote: (claimId: string, choice?: PromotionChoice["choice"]) => void;
+}
+
+/** 「记到组织记忆」：一次记一条，逐条保存结果；相近（needs_choice）时把选择再交回同一接口。 */
+function useOrgPromotion(projectId: string, enabled: boolean): OrgPromotion {
+  const [states, setStates] = React.useState<ReadonlyMap<string, OrgPromotionState>>(new Map());
+  const set = React.useCallback((claimId: string, state: OrgPromotionState) => {
+    setStates((prev) => new Map(prev).set(claimId, state));
+  }, []);
+  const promote = React.useCallback((claimId: string, choice?: PromotionChoice["choice"]) => {
+    set(claimId, { kind: "busy" });
+    void promoteToOrg(projectId, [claimId], choice ? [{ claimId, choice }] : undefined)
+      .then((out) => {
+        const result = out.results.find((r) => r.claimId === claimId);
+        if (result === undefined) set(claimId, { kind: "failed", text: "服务端没有返回这一条的结果。" });
+        else set(claimId, { kind: "done", result });
+      })
+      .catch((e: unknown) => set(claimId, { kind: "failed", text: describePromoteFailure(e) }));
+  }, [projectId, set]);
+  return { enabled, states, promote };
+}
+
+function ClaimRow({ claim, onOpenSources, org }: { claim: KgClaim; onOpenSources: (claimId: string) => void; org: OrgPromotion }) {
   const tone = claim.triState === "confirmed" ? "success" : claim.triState === "conflict" ? "danger" : "warning";
+  const state = org.states.get(claim.id);
   return (
-    <li className="flex items-start gap-2 text-11" data-testid={`project-brain-claim-${claim.id}`}>
-      <span className="min-w-0 flex-1 leading-relaxed">{claim.statement}</span>
-      <Badge tone={tone === "success" ? "primary" : "outline"}>{KG_TRI_STATE_LABEL_ZH[claim.triState]}</Badge>
-      <span className="shrink-0 font-mono text-10 text-muted-foreground" title="支持 / 反对的证据数">
-        +{claim.supportingCount} / −{claim.contradictingCount}
-      </span>
-      <Button size="xs" variant="ghost" onClick={() => onOpenSources(claim.id)} data-testid={`project-brain-sources-${claim.id}`}>来源</Button>
+    <li className="flex flex-col gap-1 text-11" data-testid={`project-brain-claim-${claim.id}`}>
+      <div className="flex items-start gap-2">
+        <span className="min-w-0 flex-1 leading-relaxed">{claim.statement}</span>
+        <Badge tone={tone === "success" ? "primary" : "outline"}>{KG_TRI_STATE_LABEL_ZH[claim.triState]}</Badge>
+        <span className="shrink-0 font-mono text-10 text-muted-foreground" title="支持 / 反对的证据数">
+          +{claim.supportingCount} / −{claim.contradictingCount}
+        </span>
+        <Button size="xs" variant="ghost" onClick={() => onOpenSources(claim.id)} data-testid={`project-brain-sources-${claim.id}`}>来源</Button>
+        {org.enabled && state?.kind !== "done" ? (
+          <Button
+            size="xs"
+            variant="outline"
+            disabled={state?.kind === "busy"}
+            onClick={() => org.promote(claim.id)}
+            data-testid={`project-brain-promote-org-${claim.id}`}
+          >
+            记到组织记忆
+          </Button>
+        ) : null}
+      </div>
+      {state !== undefined && state.kind !== "busy" ? (
+        <div className="flex items-center gap-2 text-10 text-muted-foreground" data-testid={`project-brain-promote-org-result-${claim.id}`}>
+          <span>{state.kind === "failed" ? state.text : describePromoteResult(state.result)}</span>
+          {state.kind === "done" && state.result.outcome === "needs_choice" ? (
+            <>
+              <Button size="xs" variant="outline" onClick={() => org.promote(claim.id, "merge")} data-testid={`project-brain-promote-org-merge-${claim.id}`}>合并</Button>
+              <Button size="xs" variant="ghost" onClick={() => org.promote(claim.id, "coexist")} data-testid={`project-brain-promote-org-coexist-${claim.id}`}>分开记</Button>
+            </>
+          ) : null}
+        </div>
+      ) : null}
     </li>
   );
+}
+
+function describePromoteResult(r: PromotionResults["results"][number]): string {
+  switch (r.outcome) {
+    case "promoted": return "已记到组织记忆。";
+    case "merged_into_existing": return "组织记忆里已有同一条，已合并。";
+    case "coexisting": return "已作为单独一条记到组织记忆。";
+    case "needs_choice": return "组织记忆里已有相近的一条，要合并还是分开记？";
+    case "rejected":
+      if (r.code === "KG_EVIDENCE_REVOKED") return "它的出处已经不在了，记不了。";
+      if (r.code === "KG_CONTESTED_NEEDS_RESOLUTION") return "这条有矛盾，先解决再记。";
+      return "这条不在项目记忆里。";
+  }
+}
+
+function describePromoteFailure(e: unknown): string {
+  const code = knowledgeGraphErrorCode(e);
+  if (code === "KG_NOT_OWNER") return "只有组织负责人或管理员能记到组织记忆。";
+  if (code === "KG_NOT_VISIBLE") return "你看不到这个项目，记不了。";
+  if (e instanceof ApiError) return httpFailureText(e.status);
+  return e instanceof Error ? e.message : "没记上，请稍后重试。";
 }
 
 function describeFailure(e: unknown): string {
