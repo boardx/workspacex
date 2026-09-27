@@ -255,10 +255,11 @@ export const DESIGN_FEW_SHOT =
  *   （两处都是给模型/门控用的同一组数，契约测试 `prototype-quality.test.ts` 钉住阈值。）
  */
 export const DESIGN_QUALITY_BAR =
-  " 每一页画完会被自动打分，不达标会被打回重画。评分看这八条，先照着做：" +
+  " 每一页画完会被自动打分，不达标会被打回重画。评分主要看下面这几条，先照着做：" +
   "①元素数 ≥ 12（少于 12 个渲染出来几乎是空的）；②至少三档 text.variant（title/subtitle/body/caption/label）；" +
   "③没有空容器（stack/card/grid 里必须有孩子）；④至少有一个可操作控件；⑤同一句文案不要出现三次以上；" +
-  "⑥整页**恰好一个** variant:\"primary\" 的按钮；⑦不要占位文案（「标题1」「示例文本」「TODO」「xxx」「Lorem ipsum」都算）。";
+  "⑥整页**恰好一个** variant:\"primary\" 的按钮；⑦不要占位文案（「标题1」「示例文本」「TODO」「xxx」「Lorem ipsum」都算）；" +
+  "⑧同一处不要有 3 张以上结构相同的内容卡片（一票否决，别处再好也会打回；「emoji + 一个词」的选项格子不算）。";
 
 export const DESIGN_CHAT_SYSTEM_PROMPT =
   "你是 PM 设计工作台里的设计协作助手，像一个能直接画原型的设计师。用户（产品经理）在和你讨论一个设计项目：" +

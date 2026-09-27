@@ -271,6 +271,60 @@ function deadEnds(
   };
 }
 
+/**
+ * M9 一排结构相同的内容卡片（issue #4327；`frontend-design` skill「AI 生成设计扎堆的特征」第 4 类）。
+ *
+ * 提示词（`DESIGN_PRINCIPLES` ⑭）早就写了「不要把内容切成一排结构相同的 card」，但提示词是
+ * **建议**：真实生成里模型照样会这么画，而这道门里没有对应指标，违反了也不会被打回重画。
+ *
+ * ## 口径（按真实生成数据校准，别放宽也别收紧）
+ *
+ * 同一容器里 ≥ 3 张**结构相同**（子树类型序列一致）的 card，且每张是「内容卡」：
+ *   · 叶子 ≥ 3 个（标题 + 说明 + 元信息这种切块），或
+ *   · 带 image（一排同样的配图——用户截图里那种）。
+ * **不算**：「emoji + 一个词」这种 ≤ 2 个叶子的选项格子（情绪选择、日历格）。那是正常的选择控件，
+ * 真实数据里两次被旧口径误判成套路——判据误伤合格的页，门迟早被调松或被无视。
+ */
+function repeatedCards(nodes: readonly designPrototype.PrototypeNode[]): QualityDeduction {
+  const shape = (n: designPrototype.PrototypeNode): string =>
+    designPrototype.isPrototypeContainer(n) ? `${n.type}(${n.children.map(shape).join(",")})` : n.type;
+  const leaves = (n: designPrototype.PrototypeNode): designPrototype.PrototypeNode[] => {
+    // spacer / divider 是间距与分隔，不是内容——日历格「数字 + 留白 + 标签」不该被数成三块内容。
+    if (n.type === "spacer" || n.type === "divider") return [];
+    if (!designPrototype.isPrototypeContainer(n) || n.children.length === 0) return designPrototype.isPrototypeContainer(n) ? [] : [n];
+    return n.children.flatMap(leaves);
+  };
+  let worst = 0;
+  for (const n of nodes) {
+    if (!designPrototype.isPrototypeContainer(n)) continue;
+    const groups = new Map<string, number>();
+    for (const c of n.children) {
+      if (c.type !== "card") continue;
+      const ls = leaves(c);
+      if (ls.length < 3 && !ls.some((l) => l.type === "image")) continue;
+      const k = shape(c);
+      groups.set(k, (groups.get(k) ?? 0) + 1);
+    }
+    for (const count of groups.values()) worst = Math.max(worst, count);
+  }
+  if (worst < 3) return { metric: "repeatedCards", score: 1, hint: "" };
+  return {
+    metric: "repeatedCards",
+    score: 0,
+    hint: `有 ${String(worst)} 张结构相同的内容卡片一张接一张——这是最常见的生成套路。` +
+      "三项以上同类内容改成 list（items 主标题 / detail 补充 / trailing 右侧值），" +
+      "或让最重要的那张独占一行、内容更多，其余收进 list。",
+  };
+}
+
+/**
+ * 一票否决的指标：命中就把总分压到线下（触发带反馈重画），**不参与加权平均**。
+ *
+ * 为什么不给它一个权重：加进 WEIGHTS 会让既有每页的分数都平移（夹具与回归测试钉着具体分数），
+ * 而且加权平均会把它摊薄——一页别处都好、只有这一处套路，照样 90 分放行，等于没门。
+ */
+const VETO_METRICS: ReadonlySet<string> = new Set(["repeatedCards"]);
+
 const WEIGHTS: Readonly<Record<string, number>> = {
   substance: 0.2, hierarchy: 0.15, emptyContainers: 0.12, affordance: 0.12, duplicateCopy: 0.07,
   // 迭代 16：新加的三条——它们量的是「像不像人做的」「点不点得动」，
@@ -302,8 +356,11 @@ export function scorePrototypeScreen(
     substance(nodes), hierarchy(nodes), emptyContainers(nodes), affordance(nodes), duplicateCopy(nodes),
     primaryFocus(nodes), placeholderCopy(nodes),
     deadEnds(nodes, context?.links, context?.screenCount ?? 1),
+    repeatedCards(nodes),
   ];
-  const total = Math.round(parts.reduce((sum, p) => sum + p.score * (WEIGHTS[p.metric] ?? 0), 0) * 100);
+  const weighted = Math.round(parts.reduce((sum, p) => sum + p.score * (WEIGHTS[p.metric] ?? 0), 0) * 100);
+  const vetoed = parts.some((p) => VETO_METRICS.has(p.metric) && p.score < 1);
+  const total = vetoed ? Math.min(weighted, PROTOTYPE_QUALITY_THRESHOLD - 1) : weighted;
   const hints = parts.filter((p) => p.hint !== "").map((p) => `· ${p.hint}`);
   return {
     total,
