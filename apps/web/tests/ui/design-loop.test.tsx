@@ -1687,8 +1687,26 @@ describe("⑨ PM 设计工作台首页：真栈 listMyProjects / createProject /
       render(<DesignDetailScreen projectId="p1" />);
       await screen.findByTestId("design-detail-phone-tree");
       fireEvent.click(screen.getByTestId("design-detail-view-single"));
+      // design-delta `novice-progressive-disclosure`：图层树要用才出现——这组用例测的是树本身，先主动打开。
+      fireEvent.click(screen.getByTestId("design-detail-side-toggle"));
       return posted;
     };
+
+    it("#4331 U2 默认不摊开图层树，只有一句怎么改的提示；在画布上选中一个元素，树才出现", async () => {
+      apiRequest.mockImplementation(async (path: string, opts?: { method?: string }) => {
+        if (path === "/pm-designs" && (opts?.method ?? "GET") === "GET") return { items: [treeProject()] };
+        throw new Error(`unexpected ${path} ${opts?.method}`);
+      });
+      render(<DesignDetailScreen projectId="p1" />);
+      await screen.findByTestId("design-detail-phone-tree");
+      fireEvent.click(screen.getByTestId("design-detail-view-single"));
+      // ⭐ 反证锚点：把图层树改回编辑态常驻 ⇒ 这两条红（首屏又是一整棵「纵向布局 / 卡片」）。
+      expect(screen.queryByTestId("design-layers")).toBeNull();
+      expect(screen.getByTestId("design-detail-side-hint")).toHaveTextContent("点画布上的任意一处");
+      fireEvent.click(within(screen.getByTestId("design-detail-phone")).getByText("甲"));
+      expect(await screen.findByTestId("design-layers")).toBeTruthy();
+      expect(screen.queryByTestId("design-detail-side-hint")).toBeNull();
+    });
 
     it("图层面板列出整棵树、按层级缩进，点一行就选中", async () => {
       await mount();
@@ -4611,6 +4629,7 @@ describe("迭代 32：画板上的手感——别把用户调好的视图冲掉�
     // ⭐ 反证锚点：改回「图层」⇒ 这条红。
     await openBoard(["一"]);
     fireEvent.click(screen.getByTestId("design-detail-view-single"));
+    fireEvent.click(screen.getByTestId("design-detail-side-toggle"));
     const title = await screen.findByTestId("design-layers-title");
     expect(title.textContent).toContain("页面结构");
     expect(title.textContent).toMatch(/\d+ 块/);
