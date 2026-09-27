@@ -380,8 +380,34 @@ export const KgTurnMemory = z.object({
   recalled: z.array(KgRecalledMemory),
   /** 本轮计划走关联查询（图）但它没能执行：界面显示「这次没能查全你的记忆…」那一行（R4-E1） */
   recallDegraded: z.boolean(),
+  /**
+   * S7（#4364，待签核：按已批准处理、事后补签）：这条回答**真的用到了**的那几条（引用 chip），按召回名次。
+   * 服务端对账：恒为 `recalled[].claimId` 的子集——模型在回答里提到的、却不在本轮召回集合里的说法不会出现在这里
+   * （判据见 apps/api/src/domain/knowledge-graph/citation.ts）。可省略只为兼容 S7 之前的读者：省略 ⇒ 按 `recalled` 全部。
+   */
+  cited: z.array(z.string()).optional(),
+  /**
+   * S7 review F6：查看者能不能在这一轮的引用上点「这条不对」/「已过时」——是这条对话的所有者、**且**是这一轮的提问人
+   * （服务端 `correctCitation` 同一判据）。这是「这一轮」的判据，不是每一条的：能不能改某一条还看它的作用域——
+   * 本对话的、查看者本人长期记忆 / 本人其他个人对话的可以改；项目 / 组织记忆（L2 / L3）不能在这里改（服务端拒）。
+   * 今天 `recalled` 只会出现前两种（读侧 `readTurnRecall` 的可见性过滤不放 L2 / L3），界面仍按作用域再挡一次
+   * （`CITATION_CORRECTABLE_SCOPES`），免得日后召回里放进了 L2 / L3 却给出点了会被拒的按钮（delta review L5）。
+   * 省略 ⇒ 按 false（不给入口，免得点了被拒）。
+   */
+  canCorrect: z.boolean().optional(),
 }).strict();
 export type KgTurnMemory = z.infer<typeof KgTurnMemory>;
+
+/**
+ * S7（#4364）：回答下引用 chip 上的两个纠正动作（只给对话所有者、且是这一轮的提问人）。
+ * - `wrong`「这条不对」：没给 `replacement` ⇒ 忘掉（同 F17 忘掉卡的效果）；给了 ⇒ 用新说法取代旧的（旧的不再召回）。
+ * - `expired`「已过时」：这条过期了（`expireClaim`）。S6（#4363）的 `valid_until` 落地前，按撤回执行。
+ * 两种都记一条纠正事件：纠正率 = 纠正次数 / 被引用次数（`getCitationMetrics`）。
+ */
+export const KgCitationCorrectionKind = z.enum(["wrong", "expired"]);
+/** 引用 chip 上能被纠正的结论作用域（`KgRecalledMemory.scope`）；其余一律不给纠正入口（服务端同样拒）。 */
+export const CITATION_CORRECTABLE_SCOPES = ["chat_session", "personal"] as const satisfies readonly KgRecalledMemory["scope"][];
+export type KgCitationCorrectionKind = z.infer<typeof KgCitationCorrectionKind>;
 
 /**
  * issue #4180 —— 这条消息（用户自己发的那条）刚被抽取出的、还活着的结论：发送下方
@@ -852,6 +878,49 @@ export const knowledgeGraph = {
     in: z.object({ claimId: z.string(), status: KgTodoStatus }).strict(),
     out: z.object({ claimId: z.string(), status: KgTodoStatus, claimIds: z.array(z.string()) }).strict(),
     err: ["KG_CLAIM_NOT_FOUND", "KG_ACTOR_NOT_HUMAN"] as const,
+  },
+
+  /**
+   * S7（#4364，待签核：按已批准处理、事后补签）：纠正回答下的一条引用（「这条不对」/「已过时」）。人的动作；
+   * 只给对话所有者、且是这一轮的提问人（`KG_NOT_OWNER`）。`claimId` 必须是这一轮**对账后**的引用之一
+   * （`getTurnMemory.cited`），否则同一个 `KG_CLAIM_NOT_FOUND`（不泄露别的结论是否存在）。
+   * `replacement` 只配 `wrong`（配 `expired` ⇒ 400 `KG_INVALID_REQUEST`）。结果：`forgotten`（忘掉）/ `superseded`（新说法 `newClaimId` 取代旧的）/ `expired`。
+   */
+  correctCitation: {
+    method: "POST", path: "/knowledge-graph/threads/:threadId/messages/:messageId/citations/:claimId/correction",
+    in: z.object({
+      threadId: z.string(),
+      messageId: z.string(),
+      claimId: z.string(),
+      kind: KgCitationCorrectionKind,
+      replacement: z.string().trim().min(1).max(2000).optional(),
+    }).strict(),
+    out: z.object({
+      outcome: z.enum(["forgotten", "superseded", "expired"]),
+      newClaimId: z.string().nullable(),
+    }).strict(),
+    err: ["KG_THREAD_NOT_FOUND", "KG_NOT_VISIBLE", "KG_NOT_OWNER", "KG_CLAIM_NOT_FOUND", "KG_ACTOR_NOT_HUMAN"] as const,
+  },
+
+  /**
+   * S7（#4364，待签核：按已批准处理、事后补签）：本人的引用纠正率——质量信号（黄金集 / 北极星面板读它）。
+   * 口径：最近 `windowDays` 天里本人提问的回答，`citedUses` = 对账后的引用条数合计（同 `getTurnMemory.cited` 的判据），
+   * `corrections` = 本人对引用点的「这条不对」/「已过时」次数；`correctionRate` = 纠正 / 引用，没有引用时为 null。
+   * 只读本人的（个人空间的结论只给本人，I-14）；不是组织成员 ⇒ 全 0，不是错误。
+   */
+  getCitationMetrics: {
+    method: "GET", path: "/knowledge-graph/me/citation-metrics",
+    in: z.object({}).strict(),
+    out: z.object({
+      windowDays: z.number().int().positive(),
+      citedUses: z.number().int().nonnegative(),
+      corrections: z.object({
+        wrong: z.number().int().nonnegative(),
+        expired: z.number().int().nonnegative(),
+      }).strict(),
+      correctionRate: z.number().min(0).nullable(),
+    }).strict(),
+    err: [] as const,
   },
 
   /** UC-KG-12：对「记住 / 忘掉」确认卡做决定（人的动作；Agent 身份拒绝） */
