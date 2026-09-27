@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import { expect, request as playwrightRequest, test, type APIRequestContext, type Page } from "@playwright/test";
 import { SESSION_TOKEN_STORAGE_KEY } from "../lib/api-client";
 import { FULLSTACK_E2E } from "./fullstack-smoke-fixture";
+import { createSpatialWsMetadataRecorder } from "./support/board-spatial-ws-metadata";
 import { spatialDragPosition, spatialPointerDrag } from "./support/board-spatial-pointer";
 
 /** Iteration 05 real-browser acceptance. Root session runs this against isolated API/PG/WS services. */
@@ -27,7 +28,12 @@ async function apiCall(api: APIRequestContext, token: string, method: string, pa
   expect(response.ok()).toBe(true); return response;
 }
 let cleanup: { id: string; token: string } | undefined;
-test.afterEach(async () => {
+let transportMetadata: ReturnType<typeof createSpatialWsMetadataRecorder> | undefined;
+test.afterEach(async ({}, testInfo) => {
+  const recorder = transportMetadata; transportMetadata = undefined;
+  if (recorder && testInfo.status !== testInfo.expectedStatus) {
+    await testInfo.attach("board-spatial-ws-metadata", { body: Buffer.from(JSON.stringify(recorder.snapshot(), null, 2)), contentType: "application/json" });
+  }
   if (!cleanup) return;
   const target = cleanup; cleanup = undefined;
   const api = await playwrightRequest.newContext();
@@ -89,11 +95,13 @@ async function boardRows(page: Page) {
 }
 
 test("multi-select transform, Panel clip/expand, connector preservation, and total z-order survive reload", async ({ page, request }) => {
+  transportMetadata = createSpatialWsMetadataRecorder();
+  transportMetadata.observe(page, "original");
   const token = await login(page);
   const created = await apiCall(request, token, "POST", "/whiteboards", { requestId: randomUUID(), name: `Spatial ${randomUUID()}` });
   const boardId = (await created.json() as { id: string }).id; cleanup = { id: boardId, token };
   await page.goto(`/studio/board/${boardId}`);
-  await expect(page.getByText(/^已同步$/)).toBeVisible();
+  await expect(page.getByText(/^已同步(?: · 序列 \d+)?$/)).toBeVisible();
 
   const outline = page.getByTestId("board-a11y-mirror").getByRole("button");
   await page.getByTestId("board-add-panel").click();
@@ -202,13 +210,14 @@ test("multi-select transform, Panel clip/expand, connector preservation, and tot
   await expect(connector).toHaveAttribute("data-connector-from", "");
   await expect(connector).toHaveAttribute("data-connector-to", secondId);
   const peer = await page.context().newPage();
-  await peer.goto(`/studio/board/${boardId}`); await expect(peer.getByText(/^已同步$/)).toBeVisible();
+  transportMetadata.observe(peer, "peer");
+  await peer.goto(`/studio/board/${boardId}`); await expect(peer.getByText(/^已同步(?: · 序列 \d+)?$/)).toBeVisible();
   await expect.poll(() => boardRows(peer)).toEqual(await boardRows(page));
 
   const expectedRows = await boardRows(page);
   await expect.poll(() => boardRows(peer)).toEqual(expectedRows);
 
-  await page.reload(); await expect(page.getByText(/^已同步$/)).toBeVisible();
+  await page.reload(); await expect(page.getByText(/^已同步(?: · 序列 \d+)?$/)).toBeVisible();
   await expect(page.getByTestId("board-a11y-mirror").getByRole("button")).toHaveCount(3);
   const reloadedRows = await boardRows(page);
   expect(reloadedRows).toEqual(expectedRows);
@@ -221,7 +230,7 @@ async function openEmptyBoard(page: Page, request: APIRequestContext, prefix: st
   const boardId = (await created.json() as { id: string }).id;
   cleanup = { id: boardId, token };
   await page.goto(`/studio/board/${boardId}`);
-  await expect(page.getByText(/^已同步$/)).toBeVisible();
+  await expect(page.getByText(/^已同步(?: · 序列 \d+)?$/)).toBeVisible();
   return boardId;
 }
 
