@@ -111,7 +111,7 @@ export function createDefaultSurveyReportTemplate(title: string, questions: Surv
       const answers = Object.fromEntries(response.answers.map(answer => [answer.questionId, answer.value]));
       return matching.length === 1 && acceptedAnswer(question, matching[0]!.value) !== undefined && visibleSurveyQuestions(questions, answers).some(visible => visible.id === question.id);
     })).map(question => ({
-      id:`default-block-${question.id}`,title:question.title,type:'table',questionIds:[question.id],statistic:'responses',samplePolicy:'valid',minGroupSize:8,
+      id:`default-block-${question.id}`,title:question.title,type:'table',questionIds:[question.id],statistic:surveyQuestionStatistics(question)[0]!,samplePolicy:'valid',minGroupSize:8,
     })),
   }]});
 }
