@@ -23,5 +23,14 @@ export function CollectionOverview({ runtime }: { runtime: SurveyRuntime }) {
       <p className="text-13">匿名填写：{runtime.anonymity === "anonymous" ? "开启" : "关闭"}</p>
       <p className="text-12 text-muted-foreground">填写者使用冻结的发布版本；历史答卷不会被草稿编辑覆盖。</p>
     </section>
+    <section aria-label="最近回收动态" className="rounded-lg border border-border bg-card p-5 lg:col-span-2">
+      <h2 className="text-16 font-semibold">最近回收动态</h2>
+      {runtime.responses.length === 0 ? <p className="mt-3 text-13 text-muted-foreground">暂无答卷。分享问卷链接后，真实提交会显示在这里。</p> : <ul className="mt-3 divide-y divide-border">
+        {[...runtime.responses].sort((a, b) => Date.parse(b.submittedAt) - Date.parse(a.submittedAt)).slice(0, 5).map((response) => <li key={response.id} className="flex flex-wrap justify-between gap-2 py-3 text-13">
+          <span>答卷 {response.id} 已提交</span>
+          <time dateTime={response.submittedAt} className="text-muted-foreground">{new Date(response.submittedAt).toLocaleString("zh-CN")}</time>
+        </li>)}
+      </ul>}
+    </section>
   </div>;
 }
