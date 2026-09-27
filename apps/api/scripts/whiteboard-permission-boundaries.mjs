@@ -38,7 +38,8 @@ export const whiteboardPermissionBoundaries = new Map([
       /INSERT INTO whiteboard_documents\(org_id,board_id,epoch,seq,snapshot,manifest_version,object_key,content_hash,byte_size\) VALUES\(\$1,\$2,1,0,NULL,1,\$3,\$4,\$5\)[\s\S]*\[p\.orgId,targetBoardId,ref\.key,ref\.hash,ref\.size\]/,
       /await this\.copyImageAssets\(session,p,sourceBoardId,targetBoardId,prepared\.snapshot\)/,
       /await this\.putVerified[\s\S]*INSERT INTO whiteboard_documents/,
-      /a\.org_id=\$1 AND a\.board_id=\$2 AND a\.asset_id=\$3 AND r\.state='active' AND r\.released_at IS NULL FOR SHARE OF a,r/,
+      // Image metadata is immutable (SELECT-only); lock the mutable active reference.
+      /a\.org_id=\$1 AND a\.board_id=\$2 AND a\.asset_id=\$3 AND r\.state='active' AND r\.released_at IS NULL FOR SHARE OF r/,
       /this\.digest\(readback\) !== hash/,
       /WHERE b\.org_id=\$1 AND b\.id=\$3 AND b\.owner_id=\$2/,
     ],
