@@ -12,15 +12,15 @@ describe("human confirmation in the durable model-backed workflow", () => {
     vi.mocked(executeResearchRuntime).mockResolvedValue({ ...runtimeFixture("outline"), version: 5 });
     render(<GuidedResearchLive sessionId="grs-live" onBack={vi.fn()} />);
     fireEvent.change(await screen.findByDisplayValue("政策方向"), { target: { value: "人工编辑方向" } });
-    fireEvent.click(screen.getByRole("button", { name: "确认并继续" }));
+    fireEvent.click(screen.getByRole("button", { name: "下一步：研究计划" }));
     await waitFor(() => expect(executeResearchRuntime).toHaveBeenCalledWith(expect.objectContaining({ node: "directions", action: "confirm", expectedVersion: 4, draft: { node: "directions", value: [expect.objectContaining({ title: "人工编辑方向" })] } })));
     expect(await screen.findByDisplayValue("政策章节")).toBeInTheDocument();
   });
   it("disables confirmation when every direction is disabled", async () => {
     vi.mocked(getResearchRuntime).mockResolvedValue(runtimeFixture("directions"));
     render(<GuidedResearchLive sessionId="grs-live" onBack={vi.fn()} />);
-    fireEvent.click(await screen.findByRole("checkbox"));
-    expect(screen.getByRole("button", { name: "确认并继续" })).toBeDisabled();
+    fireEvent.click(await screen.findByRole("checkbox", { name: "纳入研究" }));
+    expect(screen.getByRole("button", { name: "下一步：研究计划" })).toBeDisabled();
   });
   it("rejects an empty outline and confirms a complete edited outline", async () => {
     vi.mocked(getResearchRuntime).mockResolvedValue(runtimeFixture("outline"));

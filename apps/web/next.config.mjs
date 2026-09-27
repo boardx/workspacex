@@ -471,6 +471,17 @@ export default {
       // 都打不到后端，不只是本地 e2e。
       { source: `${prefix}/workshops/:path*`, destination: `${apiOrigin}/workshops/:path*` },
       // 引导式研究的历史集合与全部检查点共享 `/research` 前缀。
+      // Dynamic workflow pages resolve after afterFiles. In the empty-prefix proxy
+      // lane, release only the six UI stages before the API wildcard; API namespaces
+      // remain open-ended. research-rewrite.test.ts checks this list against the
+      // authoritative GUIDED_RESEARCH_SIX_STEPS and every research API contract.
+      // The legacy GET /research/:researchId/plan shares the plan page path.
+      // apiRequest explicitly sends Accept: application/json; preserve that API
+      // before releasing HTML/RSC navigation to the frontend page.
+      ...(!prefix ? [{ source: "/research/:researchId/plan", destination: `${apiOrigin}/research/:researchId/plan`,
+        has: [{ type: "header", key: "accept", value: "application/json" }] }] : []),
+      ...(!prefix ? ["import", "topic", "plan", "research", "chapters", "report"]
+        .map((stage) => ({ source: `/research/:sessionId/${stage}`, destination: `/research/:sessionId/${stage}` })) : []),
       // 两条都必须存在：集合列表/创建命中裸路径，恢复、方向与大纲命中深路径。
       { source: `${prefix}/research`, destination: `${apiOrigin}/research` },
       { source: `${prefix}/research/:path*`, destination: `${apiOrigin}/research/:path*` },

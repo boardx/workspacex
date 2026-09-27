@@ -5,6 +5,7 @@ import { resolveRsScreen, resolveRsView } from "@/lib/mock/research-studio";
 import { resolveGuidedResearchStep } from "@/lib/mock/guided-research";
 import { GuidedResearchEffortBudgetPreview } from "@/components/research-studio/guided-research-effort-budget-preview";
 import { GuidedResearchTrustConsolePreview } from "@/components/research-studio/guided-research-trust-console-preview";
+import { GuidedResearchPrototypePreview } from "@/components/research-studio/guided-research-prototype-preview";
 
 /**
  * 研究 Studio（phase-01 契约束 `research` / M24）—— UI 先行原型。
@@ -21,7 +22,7 @@ import { GuidedResearchTrustConsolePreview } from "@/components/research-studio/
 export default function ResearchPage({
   searchParams,
 }: {
-  searchParams: { state?: string; as?: string; screen?: string; sub?: string; org?: string; flow?: string; session?: string; preview?: string };
+  searchParams: { state?: string; as?: string; screen?: string; sub?: string; org?: string; flow?: string; session?: string; preview?: string; stage?: string };
 }) {
   const uiState = resolvePreviewState(searchParams.state);
   const view = resolveRsView(searchParams.as);
@@ -36,6 +37,9 @@ export default function ResearchPage({
   }
   if ((process.env.NODE_ENV !== "production" || process.env.FULLSTACK_E2E_PREVIEWS === "1") && searchParams.preview === "trust-console") {
     return <GuidedResearchTrustConsolePreview />;
+  }
+  if ((process.env.NODE_ENV !== "production" || process.env.FULLSTACK_E2E_PREVIEWS === "1") && searchParams.preview === "prototype-fidelity") {
+    return <GuidedResearchPrototypePreview stage={searchParams.stage} />;
   }
 
   return (
