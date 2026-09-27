@@ -166,6 +166,12 @@ unless noted.
   turn time (no dependency on the extraction model), including the automatic tier.
   - [x] **Decided (human, 2026-09-27): 「选 A」** — 「我改主意了」 keeps writing (supersede, auto copy) even when
     extraction is switched off at the org or deployment level (PR #4493 review M1). Code unchanged.
+- [ ] **S10 #4367 「分享到项目…」 (UC-KG-15)**, treated as approved, sign off later. New contract ops
+  `listProjectShareTargets` / `shareToProject` / `unshareFromProject`, new error codes `KG_PROJECT_NOT_FOUND` (404) and
+  `KG_PROJECT_READ_ONLY` (403), `getProjectKnowledge.sharedFromPersonal`, and `KgRecalledMemory.scope` now includes
+  `project` plus `sharedByName`. Open points: observers cannot share but are in the audience; a revoked original
+  also revokes its project copies; no near-duplicate merge on share. Migration `20260928200000`. Evidence:
+  [`../s10/`](../s10/).
 - [ ] Also open in the same file:
   - F17 card-state semantics (L105–110);
   - the F15 cross-session recall scope and the **E9 403 vs I-3 404** conflict (L181–184), which is the E9.c2 red;
