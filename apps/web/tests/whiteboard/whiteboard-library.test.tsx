@@ -53,7 +53,7 @@ describe('Board library', () => {
     await screen.findByTestId('board-create-error'); expect(push).not.toHaveBeenCalled();
     fireEvent.click(screen.getByRole('button', { name: '返回列表，保留白板' }));
     await screen.findByText('白板已创建并保留，标签尚未保存。再次打开新建窗口可继续。');
-    fireEvent.click(screen.getByTestId('board-create')); fireEvent.click(screen.getByTestId('board-create-confirm'));
+    fireEvent.click(screen.getByTestId('board-create')); expect(screen.getByTestId('board-create-confirm')).toHaveFocus(); fireEvent.click(screen.getByTestId('board-create-confirm'));
     if (mode === 'conflict') { await screen.findByText('白板标签已由其他协作者更新。请返回列表查看，当前操作不会覆盖他们的修改。'); expect(push).not.toHaveBeenCalled(); }
     else await waitFor(() => expect(push).toHaveBeenCalled());
     expect(api.createBoard).toHaveBeenCalledTimes(1); expect(api.updateBoard).toHaveBeenCalledTimes(mode === 'retry' ? 2 : 1);

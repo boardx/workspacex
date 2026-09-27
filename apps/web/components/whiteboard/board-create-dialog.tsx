@@ -18,7 +18,7 @@ export function BoardCreateDialog({ open, tags, tagsUnavailable, onRetryTags, on
   const [pending, setPending] = useState<api.CreateBoardInput | null>(null), [created, setCreated] = useState<api.Board | null>(null);
   const [pendingTag, setPendingTag] = useState<{ requestId: string; name: string } | null>(null);
   const [busy, setBusy] = useState(false), [error, setError] = useState('');
-  const inFlight = useRef(false), nameInput = useRef<HTMLInputElement>(null);
+  const inFlight = useRef(false), nameInput = useRef<HTMLInputElement>(null), confirmButton = useRef<HTMLButtonElement>(null);
   const frozen = !!pending || !!created;
   const close = () => {
     if (inFlight.current) return;
@@ -58,7 +58,7 @@ export function BoardCreateDialog({ open, tags, tagsUnavailable, onRetryTags, on
     } catch { setError(board ? '白板已创建，但标签尚未确认保存。重试只会继续保存标签，不会新建白板。' : '暂时无法确认创建结果，请重试。'); }
     finally { inFlight.current = false; setBusy(false); }
   };
-  return <Dialog open={open} onOpenChange={next => { if (!next) close(); }}><DialogContent data-testid="board-create-dialog" className="max-h-[85dvh] w-[calc(100%-2rem)] overflow-y-auto motion-reduce:transition-none sm:max-w-lg" onOpenAutoFocus={event => { event.preventDefault(); nameInput.current?.focus(); nameInput.current?.select(); }} onCloseAutoFocus={event => { event.preventDefault(); onRestoreFocus(); }} onInteractOutside={event => { if (busy) event.preventDefault(); }}>
+  return <Dialog open={open} onOpenChange={next => { if (!next) close(); }}><DialogContent data-testid="board-create-dialog" className="max-h-[85dvh] w-[calc(100%-2rem)] overflow-y-auto motion-reduce:transition-none sm:max-w-lg" onOpenAutoFocus={event => { event.preventDefault(); if (frozen) confirmButton.current?.focus(); else { nameInput.current?.focus(); nameInput.current?.select(); } }} onCloseAutoFocus={event => { event.preventDefault(); onRestoreFocus(); }} onInteractOutside={event => { if (busy) event.preventDefault(); }}>
     <DialogHeader><DialogTitle>新建白板</DialogTitle><DialogDescription>给想法一个空间。标签可帮助团队快速找到它，也可以稍后添加。</DialogDescription></DialogHeader>
     <form className="space-y-5" onSubmit={event => { event.preventDefault(); void submit(); }}>
       <div className="space-y-2"><label htmlFor="new-board-name" className="text-14 font-medium">白板名称</label><Input id="new-board-name" ref={nameInput} data-testid="board-create-name" value={name} onChange={event => setName(event.target.value)} maxLength={200} disabled={busy || frozen} className="min-h-11" /></div>
@@ -71,7 +71,7 @@ export function BoardCreateDialog({ open, tags, tagsUnavailable, onRetryTags, on
       </fieldset>
       {pendingTag && <div className="space-y-2 rounded-control border border-border p-3 text-13"><p>标签“{pendingTag.name}”的创建结果尚未确认。可以重试确认，或不关联该标签继续；组织中可能已保留该标签。</p><div className="flex flex-wrap gap-2"><Button type="button" variant="outline" disabled={busy} onClick={() => void addTag()}>重试添加标签</Button><Button type="button" variant="ghost" disabled={busy} onClick={() => { setPendingTag(null); setSearch(''); setError(''); }}>不关联此标签，继续</Button></div></div>}
       {error && <p role="alert" data-testid="board-create-error" className="rounded-control border border-destructive p-3 text-13">{error}</p>}
-      <DialogFooter><Button type="button" variant="outline" className="min-h-11" disabled={busy} onClick={close}>{created ? '返回列表，保留白板' : '取消'}</Button><Button type="submit" className="min-h-11" variant="primary" data-testid="board-create-confirm" disabled={busy || !!pendingTag}>{busy ? '正在保存…' : created ? '重试保存并打开' : pending ? '重试创建并打开' : '创建并打开'}</Button></DialogFooter>
+      <DialogFooter><Button type="button" variant="outline" className="min-h-11" disabled={busy} onClick={close}>{created ? '返回列表，保留白板' : '取消'}</Button><Button ref={confirmButton} type="submit" className="min-h-11" variant="primary" data-testid="board-create-confirm" disabled={busy || !!pendingTag}>{busy ? '正在保存…' : created ? '重试保存并打开' : pending ? '重试创建并打开' : '创建并打开'}</Button></DialogFooter>
     </form>
   </DialogContent></Dialog>;
 }
