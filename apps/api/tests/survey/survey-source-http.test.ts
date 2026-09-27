@@ -50,6 +50,7 @@ it('does not let another member generate a proposal from an owned transcription'
  expect((await request('/surveys/markdown-proposals','POST',{text:'客户体验',transcriptionId:recording.sessionId})).status).toBe(503);
 });
 
+
 it('issues an HttpOnly publication cookie and serializes concurrent browser submissions', async () => {
   const created=await request('/surveys','POST',{title:'浏览器限答',questions:[{id:'q1',order:1,chapterId:'general',title:'意见',type:'open',required:true}],template:{id:'r',title:'报告',sections:[]}});
   let model:SurveyRuntime=await created.json();
