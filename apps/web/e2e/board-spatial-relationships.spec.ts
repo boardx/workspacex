@@ -209,8 +209,13 @@ test("multi-select transform, Panel clip/expand, connector preservation, and tot
   await expect(page.getByTestId("board-a11y-mirror").getByRole("button")).toHaveCount(3);
   await expect(connector).toHaveAttribute("data-connector-from", "");
   await expect(connector).toHaveAttribute("data-connector-to", secondId);
-  const peer = await page.context().newPage();
+  // Verify persisted convergence, not another tab replaying the same IndexedDB outbox.
+  await expect(page.getByText(/^已同步(?: · 序列 \d+)?$/)).toBeVisible();
+  const peerContext = await page.context().browser()!.newContext({ baseURL: new URL(page.url()).origin });
+  const peer = await peerContext.newPage();
   transportMetadata.observe(peer, "peer");
+  try {
+  await login(peer);
   await peer.goto(`/studio/board/${boardId}`); await expect(peer.getByText(/^已同步(?: · 序列 \d+)?$/)).toBeVisible();
   await expect.poll(() => boardRows(peer)).toEqual(await boardRows(page));
 
@@ -221,7 +226,7 @@ test("multi-select transform, Panel clip/expand, connector preservation, and tot
   await expect(page.getByTestId("board-a11y-mirror").getByRole("button")).toHaveCount(3);
   const reloadedRows = await boardRows(page);
   expect(reloadedRows).toEqual(expectedRows);
-  await peer.close();
+  } finally { await peerContext.close(); }
 });
 
 async function openEmptyBoard(page: Page, request: APIRequestContext, prefix: string) {
@@ -254,7 +259,11 @@ test("selection transform locks", async ({ page, request }) => {
   const transform = await canvasTransform(page);
   const start = { x: transform.box.x + transform.panX + (freeBefore.x + freeBefore.width / 4) * transform.zoom, y: transform.box.y + transform.panY + (freeBefore.y + freeBefore.height / 2) * transform.zoom };
   await page.mouse.move(start.x, start.y); await page.mouse.down(); await page.mouse.move(start.x + 90 * transform.zoom, start.y + 60 * transform.zoom, { steps: 10 }); await page.mouse.up();
-  await expect.poll(() => geometryOf(free)).toMatchObject({ x: freeBefore.x + 90, y: freeBefore.y + 60 });
+  // The proposed bottom move falls within the existing five-CSS-pixel guide
+  // threshold of the locked object's bottom edge; assert the exact snapped result.
+  const snappedY = lockedBefore.y + lockedBefore.height;
+  expect(Math.abs(freeBefore.y + 60 - snappedY) * transform.zoom).toBeLessThanOrEqual(5);
+  await expect.poll(() => geometryOf(free)).toMatchObject({ x: freeBefore.x + 90, y: snappedY });
   expect(await geometryOf(locked)).toEqual(lockedBefore);
   await page.getByRole("button", { name: "撤销", exact: true }).click();
   await expect.poll(() => geometryOf(free)).toEqual(freeBefore);
