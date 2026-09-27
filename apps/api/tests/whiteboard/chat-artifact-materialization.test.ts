@@ -40,13 +40,17 @@ describe('real Chat materialization integrity at Board handoff',()=>{
     const audit={readArtifactSource:async()=>source,issueArtifactLayoutBinding:async()=>{},canReadArtifact:async()=>true,lockHead:async()=>({epoch:1,seq:0,actorRole:'owner'}),replay:async()=>null,append:async()=>{}} as unknown as WhiteboardOperationAuditRepository;
     const db={withTenant:async(_org:unknown,fn:(session:object)=>unknown)=>fn({})} as unknown as DatabasePort;
     const collaboration={writeCommandsInTransaction:write} as unknown as WhiteboardCollaborationStore;
-    const service=new WhiteboardOperationService(db,collaboration,audit,undefined,store);
+    const record = vi.fn(async()=>{});
+    const service=new WhiteboardOperationService(db,collaboration,audit,undefined,store,undefined,{
+      capture:async()=>({epoch:1,seq:0,key:'fixture-before',hash:'fixture-hash',bytes:0,comments:[]}),record,
+      get:async()=>null,readBefore:async()=>new Uint8Array(),checkComments:async()=>{},restoreComments:async()=>{},
+    });
     const body={schemaVersion:1 as const,artifactId:source.chatMaterialization!.artifactId,orgId:principal.orgId,sourceRevision:'artifact-v1:1',diagramKind:'flowchart' as const,objects:[{sourceId:'n',kind:'node' as const,geometry:{x:50,y:40,width:100,height:50,rotation:0},text:'trusted',style:{shape:'rect',direction:'TD'},fromSourceId:null,toSourceId:null}],selectedSourceIds:[]};
     const request={requestId:'00000000-0000-4000-8000-000000000031',expectedRevision:{epoch:1,seq:0},layout:{...body,layoutHash:computeRenderedLayoutHash(body)},offset:{x:0,y:0}};
     await expect(service.handoff(principal,'00000000-0000-4000-8000-000000000030',request)).resolves.toMatchObject({revision:{seq:1}});
-    expect(write).toHaveBeenCalledTimes(1);
+    expect(write).toHaveBeenCalledTimes(1); expect(record).toHaveBeenCalledTimes(1);
     await writeFile(resolveObjectPath(root,storageKey({...source.chatMaterialization!,fileName:'provenance.json'})),'tampered');
     await expect(service.handoff(principal,'00000000-0000-4000-8000-000000000030',{...request,requestId:'00000000-0000-4000-8000-000000000032'})).rejects.toMatchObject({code:'DEPENDENCY_UNAVAILABLE'});
-    expect(write).toHaveBeenCalledTimes(1);
+    expect(write).toHaveBeenCalledTimes(1); expect(record).toHaveBeenCalledTimes(1);
   });
 });
