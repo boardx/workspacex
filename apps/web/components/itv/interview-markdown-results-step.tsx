@@ -1,6 +1,6 @@
 "use client";
 import * as React from "react";
-import { loadInterviewMarkdown, confirmInterviewMarkdown, generateInterviewMarkdown, type InterviewMarkdownEnvelope } from "@/lib/interview-markdown-api";
+import { initializeInterviewMarkdown, loadInterviewMarkdown, confirmInterviewMarkdown, generateInterviewMarkdown, type InterviewMarkdownEnvelope } from "@/lib/interview-markdown-api";
 import type { DigitalInterviewWorkflowView } from "@/lib/interview-api";
 import { Button } from "@/components/ui/button";
 import { InterviewRunsStep } from "./interview-runs-step";
@@ -21,7 +21,9 @@ export function InterviewMarkdownResultsStep({ interviewId, step, runs, onVersio
     const reload = () => void loadInterviewMarkdown(interviewId, controller.signal).then((next) => {
       if (!controller.signal.aborted) { setSource(next); callbacks.current.onVersionChange(next.version); setError(""); }
     }).catch(() => { if (!controller.signal.aborted) setError("文档载入失败；已显示的内容保留，请重试。"); });
-    reload();
+    void initializeInterviewMarkdown(interviewId, controller.signal).then((next) => {
+      if (!controller.signal.aborted) { setSource(next); callbacks.current.onVersionChange(next.version); }
+    }).catch(() => { if (!controller.signal.aborted) setError("文档初始化失败；请重试，不会用空编辑器替代旧材料。"); });
     const interval = step === "runs" ? window.setInterval(reload, 5000) : undefined;
     return () => { controller.abort(); if (interval !== undefined) window.clearInterval(interval); };
   }, [interviewId, step]);
