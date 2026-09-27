@@ -50,6 +50,8 @@ const CONFIRM_BATCH_MAX = 50;
 export interface KnowledgePanelWriteActions {
   readonly apply: (action: KgHumanAction) => Promise<void>;
   readonly onPromote?: PromoteFn;
+  /** 项目中枢 R7：记到项目大脑（`promoteToProject`）。服务端 `canPromoteToProject` 时才传。 */
+  readonly onPromoteToProject?: PromoteFn;
   readonly onReindex?: () => void;
 }
 
@@ -140,6 +142,11 @@ export function KnowledgePanel({
   });
   const promoResult = promo.result;
   const promoteClaims = canPromote ? (ids: string[]) => { void promo.run(ids); } : undefined;
+  // 项目中枢 R7：记到项目大脑——独立的一条晋升流（结果、忙碌各自一份），与个人那条互不影响。
+  const onPromoteToProject = writeActions?.onPromoteToProject;
+  const canPromoteProject = (data?.canPromoteToProject ?? false) && onPromoteToProject !== undefined;
+  const promoP = usePromotionFlow({ onPromote: canPromoteProject ? onPromoteToProject : undefined, onError: setActionError });
+  const promotedToProject = promoP.result?.results.filter((r) => r.outcome === "promoted" || r.outcome === "merged_into_existing" || r.outcome === "coexisting").length ?? 0;
   const shownNominations = canPromote && !nominationsDismissed
     ? visibleNominations(nominations, data?.claims ?? [], promoResult)
     : null;
@@ -231,11 +238,12 @@ export function KnowledgePanel({
         {/* issue #4179（F17 手动入口 ②）—— 手打一句话，走同一条「记住」确认卡路径 */}
         {editable ? <RememberQuickAdd /> : null}
 
-        {/* 记到长期记忆入口（仅个人线程 canPromote） */}
-        {data && canPromote && data.claims.length > 0 ? (
+        {/* 记到长期记忆入口（个人线程 canPromote）/ 记到项目大脑入口（项目线程 canPromoteToProject，R7） */}
+        {data && (canPromote || canPromoteProject) && data.claims.length > 0 ? (
           <div className="flex flex-wrap items-center gap-1.5">
             {selectMode ? (
               <>
+                {canPromote ? (
                 <Button
                   size="xs"
                   disabled={selectedIds.length === 0 || selectedIds.length > KG_PROMOTE_MAX_BATCH || promo.busy}
@@ -248,6 +256,22 @@ export function KnowledgePanel({
                 >
                   记到我的长期记忆（{selectedIds.length}）
                 </Button>
+                ) : null}
+                {canPromoteProject ? (
+                <Button
+                  size="xs"
+                  variant={canPromote ? "outline" : undefined}
+                  disabled={selectedIds.length === 0 || selectedIds.length > KG_PROMOTE_MAX_BATCH || promoP.busy}
+                  data-testid="kg-promote-project-submit"
+                  onClick={() => {
+                    void promoP.run(selectedIds);
+                    setSelectMode(false);
+                    setSelected({});
+                  }}
+                >
+                  记到项目大脑（{selectedIds.length}）
+                </Button>
+                ) : null}
                 <Button size="xs" variant="ghost" data-testid="kg-promote-cancel" onClick={() => { setSelectMode(false); setSelected({}); }}>
                   取消
                 </Button>
@@ -259,11 +283,14 @@ export function KnowledgePanel({
                 </span>
               </>
             ) : (
-              <Button size="xs" variant="outline" disabled={promo.busy} data-testid="kg-promote-enter" onClick={() => setSelectMode(true)}>
-                {promo.busy ? <Loader2 aria-hidden className="h-3 w-3 animate-spin" /> : null}
-                记到我的长期记忆…
+              <Button size="xs" variant="outline" disabled={promo.busy || promoP.busy} data-testid="kg-promote-enter" onClick={() => setSelectMode(true)}>
+                {promo.busy || promoP.busy ? <Loader2 aria-hidden className="h-3 w-3 animate-spin" /> : null}
+                {canPromote ? "记到我的长期记忆…" : "记到项目大脑…"}
               </Button>
             )}
+            {promotedToProject > 0 ? (
+              <span className="text-10 text-muted-foreground" data-testid="kg-promote-project-result">已记到项目大脑 {promotedToProject} 条</span>
+            ) : null}
           </div>
         ) : null}
       </div>

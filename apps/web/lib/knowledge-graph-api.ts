@@ -173,6 +173,28 @@ export function promoteToPersonal(
   );
 }
 
+/**
+ * 项目中枢 R7：记到项目大脑（L0 → L2）。与 `promoteToPersonal` 同一套逐条结果形状；
+ * 服务端只放行线程创建者或本项目引导师（`KG_NOT_OWNER`），个人线程 `KG_SCOPE_NOT_PROJECT`。
+ */
+export function promoteToProject(
+  threadId: string,
+  claimIds: readonly string[],
+  choices?: readonly PromotionChoice[],
+): Promise<PromotionResults> {
+  const input = knowledgeGraph.promoteToProject.in.parse({
+    threadId,
+    claimIds: [...claimIds],
+    ...(choices && choices.length > 0 ? { choices: [...choices] } : {}),
+  });
+  return getParsed(
+    `/knowledge-graph/threads/${seg(threadId)}/promote-to-project`,
+    knowledgeGraph.promoteToProject.out,
+    undefined,
+    { method: "POST", body: { claimIds: input.claimIds, ...(input.choices ? { choices: input.choices } : {}) } },
+  );
+}
+
 /** UC-KG-6：AI 提名「值得记住」的条目。只读——提名本身不改任何东西，记不记由人点。 */
 export function listPromotionNominations(threadId: string, signal?: AbortSignal): Promise<PromotionNominations> {
   return getParsed(
