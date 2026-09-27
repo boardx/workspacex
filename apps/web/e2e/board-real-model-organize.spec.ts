@@ -1,4 +1,4 @@
-import {createHash} from 'node:crypto';
+import {createHash,randomUUID} from 'node:crypto';
 import {expect,test,type Page} from '@playwright/test';
 import type {WhiteboardObject} from '@repo/contracts/whiteboard-document';
 import type {WhiteboardAIProposal} from '@repo/contracts/whiteboard-operation';
@@ -29,7 +29,7 @@ test('real model reads 30 notes → named clusters preview → atomic confirm �
  const errors:string[]=[];page.on('pageerror',error=>errors.push(error.message));
  async function api(method:string,path:string,data?:unknown){const response=await request.fetch(`${apiBase}${path}`,{method,headers:{Authorization:`Bearer ${token}`},data});expect(response.ok(),`${method} ${path}: HTTP ${response.status()}`).toBe(true);return response;}
  try{
-  boardId=(await(await api('POST','/whiteboards',{name:`Real AI acceptance ${Date.now()}`})).json()).id;
+  boardId=(await(await api('POST','/whiteboards',{requestId:randomUUID(),name:`Real AI acceptance ${Date.now()}`})).json()).id;
   const available=await(await api('GET',`/v1/whiteboards/${boardId}/ai-organize/actors`)).json();
   const actors=Array.isArray(available)?available:available.actors;
   const actor=actors.find((value:{model:string;actorId:string})=>value.model===expectedModel&&(!process.env.BOARD_REAL_MODEL_ACTOR_ID||value.actorId===process.env.BOARD_REAL_MODEL_ACTOR_ID));
