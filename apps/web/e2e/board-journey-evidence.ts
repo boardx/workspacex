@@ -2,7 +2,7 @@ import {test as base,expect,type Page} from '@playwright/test';
 import {createHash} from 'node:crypto';
 import {writeFile} from 'node:fs/promises';
 import {observeRuntimeChunks,runtimeSourceIdentity,verifyRuntimeIdentity} from './board-runtime-evidence';
-import {assertReload as reload,boardApi} from './board-acceptance-support';
+import {assertReload as reload,boardApi,canonicalBoardSnapshot} from './board-acceptance-support';
 const digest=(bytes:string|Buffer)=>createHash('sha256').update(bytes).digest('hex');
 export const test=base.extend<{journeyEvidence:void}>({journeyEvidence:[async({page,request},use,info)=>{
  const sha=runtimeSourceIdentity(),chunks=observeRuntimeChunks(page),cdp=await page.context().newCDPSession(page);
@@ -25,10 +25,10 @@ export const test=base.extend<{journeyEvidence:void}>({journeyEvidence:[async({p
 /** Require the persisted canonical API to agree with the independently observed browser after reload. */
 export async function assertJourneyReload(page:Page,id:string,rows:Parameters<typeof reload>[2],request:Parameters<typeof boardApi>[0],token:string){
  await reload(page,id,rows);
- const response=await boardApi(request,token,'GET',`/v1/whiteboards/${id}/objects`);
- const snapshot=await response.json();
- expect(snapshot.boardId).toBe(id);expect(snapshot.archived).toBe(false);
+ const snapshot=await canonicalBoardSnapshot(request,token,id);
+ const metadata=await (await boardApi(request,token,'GET',`/whiteboards/${id}`)).json();
+ expect(snapshot.boardId).toBe(id);expect(metadata.archived).toBe(false);
  expect(snapshot.objects.map((o:{id:string})=>o.id).sort()).toEqual(rows.map(r=>r.id).sort());
- for(const row of rows){const object=snapshot.objects.find((o:{id:string})=>o.id===row.id);expect(object.text).toBe(row.text);expect(object.geometry).toEqual(row.geometry);expect(object.parentId??'').toBe(row.parentId);}
+ for(const row of rows){const object=snapshot.objects.find((o:{id:string})=>o.id===row.id);expect(object!.text).toBe(row.text);expect(object!.geometry).toEqual(row.geometry);expect(object!.parentId??'').toBe(row.parentId);}
  await test.info().attach('canonical-reload-result',{body:JSON.stringify({boardId:id,revision:snapshot.revision,objects:snapshot.objects,browserRows:rows}),contentType:'application/json'});
 }

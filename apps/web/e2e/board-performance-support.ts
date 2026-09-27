@@ -2,13 +2,11 @@ import {performance} from 'node:perf_hooks';
 import type {APIRequestContext, Page} from '@playwright/test';
 import {expect} from '@playwright/test';
 import type {WhiteboardObject} from '@repo/whiteboard-core';
-import {boardApi, boardHead, createCommands, object, operate} from './board-acceptance-support';
+import {canonicalBoardSnapshot, boardApi, boardHead, createCommands, object, operate} from './board-acceptance-support';
 import {sha256} from './board-runtime-evidence';
 
 export async function canonicalSnapshot(api: APIRequestContext, token: string, id: string) {
-  return (await (await boardApi(api, token, 'GET', `/v1/whiteboards/${id}/objects`)).json()) as {
-    boardId: string; revision: {epoch: number; seq: number}; objects: WhiteboardObject[];
-  };
+  return canonicalBoardSnapshot(api, token, id);
 }
 export function mixedDataset(count: number, uploadedImage: WhiteboardObject): WhiteboardObject[] {
   if (![1000, 5000, 10000].includes(count) || uploadedImage.kind !== 'image') throw new Error('INVALID_PERFORMANCE_DATASET');

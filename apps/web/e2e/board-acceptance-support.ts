@@ -1,5 +1,5 @@
 import {expect, type APIRequestContext, type Page} from '@playwright/test';
-import {randomUUID} from 'node:crypto';
+import {createHash,randomUUID} from 'node:crypto';
 import type {WhiteboardCommand, WhiteboardObject} from '@repo/whiteboard-core';
 import {SESSION_TOKEN_STORAGE_KEY} from '../lib/api-client';
 import {FULLSTACK_E2E} from './fullstack-smoke-fixture';
@@ -16,6 +16,28 @@ export async function boardApi(api: APIRequestContext, token: string, method: st
   const response = await api.fetch(`${apiOrigin()}${path}`, {method, headers: {authorization: `Bearer ${token}`}, data});
   expect(response.ok(), `${method} ${path}: ${response.status()} ${await response.text()}`).toBe(true);
   return response;
+}
+/** Human owner/editor canonical read through the authenticated durable standard export API.
+ * Agent reads continue to use /objects with their genuinely delegated actorId.
+ */
+export async function canonicalBoardSnapshot(api: APIRequestContext, token: string, id: string) {
+  const exported = await (await boardApi(api, token, 'POST', `/whiteboards/${id}/imports/standard-export`, {requestId: randomUUID()})).json();
+  expect(exported.boardId).toBe(id);
+  expect(exported.downloadPath).toBe(`/whiteboards/${id}/imports/standard-export/${exported.exportId}`);
+  const downloaded = await (await boardApi(api, token, 'GET', exported.downloadPath)).json();
+  for (const key of ['format', 'exportId', 'boardId', 'epoch', 'seq', 'sha256', 'sizeBytes', 'objectKey']) {
+    expect(downloaded[key], `export/download ${key}`).toEqual(exported[key]);
+  }
+  expect(typeof downloaded.contentBase64).toBe('string');
+  const bytes = Buffer.from(downloaded.contentBase64, 'base64');
+  expect(bytes.length).toBe(exported.sizeBytes);
+  expect(createHash('sha256').update(bytes).digest('hex')).toBe(exported.sha256);
+  const content = JSON.parse(bytes.toString('utf8')) as {format: string; board: {id: string; epoch: number; seq: number}; objects: WhiteboardObject[]};
+  expect(content.format).toBe('workspacex.board.v1');
+  expect(content.board).toEqual({id, epoch: exported.epoch, seq: exported.seq});
+  expect(Array.isArray(content.objects)).toBe(true);
+  expect(new Set(content.objects.map(object => object.id)).size).toBe(content.objects.length);
+  return {boardId: id, revision: {epoch: content.board.epoch, seq: content.board.seq}, objects: content.objects};
 }
 export async function createAcceptanceBoard(api: APIRequestContext, token: string, name: string) {
   return (await (await boardApi(api, token, 'POST', '/whiteboards', {requestId: randomUUID(), name})).json() as {id: string}).id;

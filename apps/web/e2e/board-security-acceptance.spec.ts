@@ -34,21 +34,22 @@ test('security real tenant API WS and durable image authorization counterproofs'
   const command=(userId:string)=>({apiVersion:'2026-09-01',requestId:randomUUID(),boardId:board,expectedRevision:baseline.revision,actor:{kind:'human',actorId:userId,orgId:F.orgId,role:'owner',scopes:['board:read','board:write'],delegatedBy:null},commands:createCommands([object('forbidden-write','sticky',500,500)]),provenance:provenance('human')});
   const doc=createWhiteboardDocument();executeCommands(doc,createCommands([object('forbidden-ws','sticky',500,500)]),'security-counterproof');const update=Buffer.from(Y.encodeStateAsUpdate(doc)).toString('base64');doc.destroy();
   for(const [role,token,userId,peer]of [['viewer',viewer,F.leadUserId,peers[0]!],['commenter',commenter,F.adminUserId,peers[1]!]] as const){
-   await http(`${role}-read`,token,`/v1/whiteboards/${board}/objects`,'GET',undefined,[200]);
+   // Human HTTP ACL read; the following genuine socket sync separately proves content access.
+   await http(`${role}-read`,token,`/v1/whiteboards/${board}/head`,'GET',undefined,[200]);
    await http(`${role}-write`,token,`/v1/whiteboards/${board}/operations`,'POST',command(userId),[403]);
    const ws=await securitySocket(peer,token,board,update);record(`${role}-ws-write`,ws);expect(ws.sync).toBe(true);expect(ws.ack).toBe(false);expect(ws.error).toBe('FORBIDDEN');
   }
-  await http('tenant-read',outsider,`/v1/whiteboards/${board}/objects`);await http('tenant-image',outsider,imagePath);
+  await http('tenant-read',outsider,`/v1/whiteboards/${board}/head`);await http('tenant-image',outsider,imagePath);
   const ownerWs=await securitySocket(page,owner,board);record('owner-ws',ownerWs);expect(ownerWs.sync).toBe(true);
   const tenantWs=await securitySocket(peers[2]!,outsider,board);record('tenant-ws',tenantWs);expect(tenantWs.sync).toBe(false);expect(tenantWs.closed||tenantWs.error!==null).toBe(true);
   await http('cross-board-image',owner,`/whiteboards/${other}/assets/${asset.assetId}/content`);
   await peers[0]!.goto(`/studio/board/${board}`);await expect(peers[0]!.getByTestId('collaborative-editor')).toBeVisible();await expect(peers[0]!.getByText(/^已同步/)).toBeVisible();
   await boardApi(request,owner,'DELETE',`/whiteboards/${board}/members/${F.leadUserId}`);await expect(peers[0]!.getByTestId('denied')).toBeVisible();await expect(peers[0]!.getByTestId('collaborative-editor')).toHaveCount(0);record('revoked-live-view',{cleared:true});
-  await http('revoked-image',viewer,imagePath);await http('revoked-read',viewer,`/v1/whiteboards/${board}/objects`);
+  await http('revoked-image',viewer,imagePath);await http('revoked-read',viewer,`/v1/whiteboards/${board}/head`);
   const revokedWs=await securitySocket(peers[0]!,viewer,board);record('revoked-ws',revokedWs);expect(revokedWs.sync).toBe(false);
-  const expiry=await shortLivedSecuritySession();await http('expiry-positive',expiry.token,`/v1/whiteboards/${board}/objects`,'GET',undefined,[200]);
+  const expiry=await shortLivedSecuritySession();await http('expiry-positive',expiry.token,`/v1/whiteboards/${board}/head`,'GET',undefined,[200]);
   await new Promise(resolve=>setTimeout(resolve,Math.max(0,expiry.expiresAt-Date.now()+250)));record('expiry-window',{issuedAt:expiry.issuedAt,expiresAt:expiry.expiresAt,observedAt:Date.now()});
-  await http('expired-read',expiry.token,`/v1/whiteboards/${board}/objects`,'GET',undefined,[401]);await http('expired-image',expiry.token,imagePath,'GET',undefined,[401]);
+  await http('expired-read',expiry.token,`/v1/whiteboards/${board}/head`,'GET',undefined,[401]);await http('expired-image',expiry.token,imagePath,'GET',undefined,[401]);
   const expiredWs=await securitySocket(page,expiry.token,board);record('expired-ws',expiredWs);expect(expiredWs.sync).toBe(false);
   const after=await canonicalSnapshot(request,owner,board);expect(after).toEqual(baseline);record('no-unauthorized-mutation',{before:baseline,after});
   const runtimeAfter=await verifyRuntimeIdentity(request,sha,runtimeBefore.chunks);
