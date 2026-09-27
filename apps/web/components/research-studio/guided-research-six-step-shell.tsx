@@ -1,5 +1,8 @@
 import * as React from "react";
-import { ArrowLeft, Check, Search, Bot } from "lucide-react";
+import { ArrowLeft, Check, Search, Bot, UserRound } from "lucide-react";
+import Image from "next/image";
+import Link from "next/link";
+import { useOptionalSession } from "@/components/session/session-provider";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
@@ -37,6 +40,7 @@ export function GuidedResearchSixStepShell({
   sessionId?: string;
   hasUnsavedChanges?: boolean;
 }) {
+  const identity = useOptionalSession()?.identity;
   const currentIndex = GUIDED_RESEARCH_SIX_STEPS.findIndex((item) => item.id === current);
   const [internalAssistantOpen, setInternalAssistantOpen] = React.useState(false);
   const assistantOpen = controlledAssistantOpen ?? internalAssistantOpen;
@@ -55,7 +59,7 @@ export function GuidedResearchSixStepShell({
   return (
     <div className="min-h-dvh min-w-0 bg-muted/20" data-testid="guided-research-six-step-shell" data-layout="deep-research-desktop" data-reference-layout="prototype-desktop">
       <header className="top-0 z-20 bg-background/95 backdrop-blur md:sticky" data-testid="research-workspace-header">
-        <div className="border-b bg-card px-6 py-4 lg:px-10"><div className="mx-auto flex max-w-[1440px] items-center justify-between gap-4"><div className="flex items-center gap-4"><Search className="size-11 rounded-lg bg-primary p-2 text-primary-foreground" /><span className="text-2xl font-bold">Deep Research</span><span className="hidden rounded bg-muted px-4 py-1 text-base text-muted-foreground sm:block">智能研究平台</span></div>{onBack && <Button variant="outline" data-testid="research-flow-back" onClick={() => requestLeave(onBack)}><ArrowLeft className="mr-2 size-4" />返回研究列表</Button>}</div></div>
+        <div className="border-b bg-card px-6 py-4 lg:px-10"><div className="mx-auto flex max-w-[1440px] items-center justify-between gap-4"><div className="flex items-center gap-4"><Search className="size-11 rounded-lg bg-primary p-2 text-primary-foreground" /><span className="text-2xl font-bold">Deep Research</span><span className="hidden rounded bg-muted px-4 py-1 text-base text-muted-foreground sm:block">智能研究平台</span></div><div className="flex items-center gap-4">{onBack && <Button variant="outline" data-testid="research-flow-back" onClick={() => requestLeave(onBack)}><ArrowLeft className="mr-2 size-4" />返回研究列表</Button>}{identity && <Link href="/profile" aria-label={`个人资料：${identity.displayName}`} onClick={(event) => { if (hasUnsavedChanges) { event.preventDefault(); requestLeave(() => window.location.assign("/profile")); } }} className="flex min-w-0 items-center gap-3 rounded-lg p-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">{identity.avatarUrl ? <Image src={identity.avatarUrl} alt="" width={44} height={44} unoptimized className="size-11 rounded-full object-cover" /> : <UserRound aria-hidden className="size-11 rounded-full bg-muted p-2" />}<span className="hidden max-w-40 truncate text-lg font-semibold xl:block">{identity.displayName}</span></Link>}</div></div></div>
         <div className="mx-auto max-w-[1440px] px-6 pt-8 lg:px-10"><h1 className="text-3xl font-bold tracking-tight md:text-[48px]">{SCREEN_COPY[current][0]}</h1><p className="mt-3 text-base leading-relaxed text-muted-foreground md:text-[22px]">{SCREEN_COPY[current][1]}</p>
           <nav aria-label="研究步骤" data-testid="research-flow-progress" data-reference-variant="monochrome-stepper" className="mt-5 pb-5">
           <ol className="flex flex-wrap items-center gap-y-3 lg:flex-nowrap">
