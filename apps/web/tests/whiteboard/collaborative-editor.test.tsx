@@ -38,7 +38,7 @@ it('routes a completed Fabric transform through one identifiable canonical trans
   expect(readObjects(doc)[0]!.text).toBe('协作文字');
   act(() => executeCommands(doc, [{ type: 'text', id, index: 4, deleteCount: 0, insert: '远端' }], 'remote'));
   expect(screen.getByLabelText('对象文字')).toHaveValue('协作文字远端');
-  fireEvent.click(screen.getByText('撤销', { exact: true }));
+  fireEvent.click(screen.getByRole('button', {name: '撤销'}));
   expect(readObjects(doc)[0]!.text).toContain('远端');
   doc.destroy();
 });
@@ -63,7 +63,7 @@ it('read-only disables mutation controls and does not alter the document', () =>
   render(<CollaborativeEditor boardId="board-test" clientId="client-test" doc={doc} readOnly title="只读白板" status="已连接" />);
   expect(screen.getByTestId('board-add-sticky')).toBeDisabled();
   expect(screen.getByTestId('board-add-draw')).toBeDisabled();
-  expect(screen.getByText('粘贴', { exact: true })).toBeDisabled();
+  expect(screen.getByRole('button', {name: '粘贴'})).toBeDisabled();
   expect(screen.getByLabelText('白板名称')).toBeDisabled();
   fireEvent.click(screen.getByTestId('board-add-sticky'));
   expect(readObjects(doc)).toEqual([]); doc.destroy();
@@ -71,9 +71,9 @@ it('read-only disables mutation controls and does not alter the document', () =>
 it('undoes and redoes object creation as one local operation', () => {
   const doc = createWhiteboardDocument();
   render(<CollaborativeEditor boardId="board-test" clientId="client-test" doc={doc} readOnly={false} title="白板" status="已连接" />);
-  fireEvent.click(screen.getByTestId('board-add-sticky')); fireEvent.click(screen.getByText('撤销', { exact: true }));
+  fireEvent.click(screen.getByTestId('board-add-sticky')); fireEvent.click(screen.getByRole('button', {name: '撤销'}));
   expect(readObjects(doc)).toHaveLength(0); expect(screen.getByText('已撤销本地修改')).toBeVisible();
-  fireEvent.click(screen.getByText('重做', { exact: true }));
+  fireEvent.click(screen.getByRole('button', {name: '重做'}));
   expect(readObjects(doc)).toHaveLength(1); expect(screen.getByText('已重做本地修改')).toBeVisible(); doc.destroy();
 });
 it('IME keeps remote text and preserves the uncommitted composition draft', () => {
@@ -96,7 +96,7 @@ it('reports world coordinates after zoom and renders server peer cursors/selecti
   expect(screen.getByTestId('peer-cursor-other')).toHaveStyle({left:'30px',top:'40px'});
   expect(screen.getByTestId('peer-selection-other-peer-note')).toHaveStyle({left:'10px',top:'20px'});
   expect(screen.queryByTestId('peer-cursor-me')).not.toBeInTheDocument();
-  fireEvent.click(screen.getByText('放大',{exact:true}));
+  fireEvent.click(screen.getByRole('button', {name: '放大'}));
   fireEvent(screen.getByTestId('board-live-surface'),new MouseEvent('pointermove',{bubbles:true,clientX:110,clientY:220}));
   expect(positions.at(-1)?.x).toBeCloseTo(100); expect(positions.at(-1)?.y).toBeCloseTo(200);
   doc.destroy();
@@ -107,6 +107,7 @@ it('exposes every multi-selection layout action and commits grid as one canonica
   executeCommands(doc, [0, 1, 2, 3].map((index) => ({ type: 'create' as const, object: { id: `layout-${index}`, schemaVersion: 1 as const, kind: 'sticky' as const, geometry: { x: index * 37, y: index * 19, width: 100, height: 80, rotation: 0 }, text: String(index), style: {}, parentId: null, orderKey: String(index) } })), 'seed');
   render(<CollaborativeEditor boardId="board-test" clientId="client-test" doc={doc} readOnly={false} title="白板" status="已连接" />);
   fireEvent.click(screen.getByTestId('fabric-select-all'));
+  fireEvent.click(screen.getByRole('button', {name: '布局'}));
   for (const kind of ['align-left', 'align-center', 'align-right', 'align-top', 'align-middle', 'align-bottom', 'distribute-horizontal', 'distribute-vertical', 'equal-width', 'equal-height', 'equal-size', 'grid', 'row', 'column', 'tidy-up']) expect(screen.getByTestId(`board-layout-${kind}`)).toBeEnabled();
   fireEvent.change(screen.getByLabelText('布局间距'), { target: { value: '24' } });
   fireEvent.change(screen.getByLabelText('网格列数'), { target: { value: '2' } });
@@ -116,7 +117,7 @@ it('exposes every multi-selection layout action and commits grid as one canonica
   const arranged = readObjects(doc);
   expect(arranged.map((object) => [object.geometry.x, object.geometry.y])).toEqual([[0, 0], [124, 0], [0, 104], [124, 104]]);
   expect(transactions).toHaveLength(1);
-  fireEvent.click(screen.getByText('撤销', { exact: true }));
+  fireEvent.click(screen.getByRole('button', {name: '撤销'}));
   expect(readObjects(doc).map((object) => object.geometry.x)).toEqual([0, 37, 74, 111]);
   doc.destroy();
 });
@@ -126,12 +127,13 @@ it('smart layout preview is zero-write, cancelable, applicable and conflict guar
   executeCommands(doc, [0, 1, 2].map(index => ({ type: 'create' as const, object: { id: `smart-${index}`, schemaVersion: 1 as const, kind: 'sticky' as const, geometry: { x: index * 51, y: index * 37, width: 100, height: 80, rotation: 0 }, text: String(index), style: {}, parentId: null, orderKey: String(index) } })), 'seed');
   render(<CollaborativeEditor boardId="board-test" clientId="client-test" doc={doc} readOnly={false} title="白板" status="已连接" />);
   fireEvent.click(screen.getByTestId('fabric-select-all'));
+  fireEvent.click(screen.getByRole('button', {name: '布局'}));
   const before = readObjects(doc);
   fireEvent.click(screen.getByTestId('board-layout-smart-preview'));
   expect(screen.getByTestId('board-layout-preview')).toBeVisible();
   expect(readObjects(doc)).toEqual(before);
-  expect(screen.getByText('撤销', { exact: true })).toBeDisabled();
-  expect(screen.getByText('删除选中', { exact: true })).toBeDisabled();
+  expect(screen.getByRole('button', {name: '撤销'})).toBeDisabled();
+  expect(screen.getByRole('button', {name: '删除选中'})).toBeDisabled();
   expect(screen.getByTestId('board-add-sticky')).toBeDisabled();
   expect(screen.getByTestId('board-layout-grid')).toBeDisabled();
   fireEvent.click(screen.getByTestId('fabric-transform-first'));
@@ -161,6 +163,7 @@ it('disables contextual layout when the board or any selected object is locked',
   ], 'seed');
   const view = render(<CollaborativeEditor boardId="board-test" clientId="client-test" doc={doc} readOnly={false} title="白板" status="已连接" />);
   fireEvent.click(screen.getByTestId('fabric-select-all'));
+  fireEvent.click(screen.getByRole('button', {name: '布局'}));
   expect(screen.getByTestId('board-layout-grid')).toBeDisabled();
   view.rerender(<CollaborativeEditor boardId="board-test" clientId="client-test" doc={doc} readOnly title="白板" status="已连接" />);
   expect(screen.getByTestId('board-layout-align-left')).toBeDisabled();
@@ -175,7 +178,7 @@ it.each([
   vi.spyOn(WhiteboardUndo.prototype, 'undo').mockReturnValue(result);
   const doc = createWhiteboardDocument();
   render(<CollaborativeEditor boardId="board-test" clientId="client-test" doc={doc} readOnly={false} title="白板" status="已连接" />);
-  fireEvent.click(screen.getByText('撤销', { exact: true }));
+  fireEvent.click(screen.getByRole('button', {name: '撤销'}));
   expect(screen.getByText(message, { exact: true })).toBeVisible();
   if (result !== 'undone') expect(screen.queryByText('已撤销本地修改', { exact: true })).toBeNull();
   doc.destroy();
@@ -184,7 +187,7 @@ it.each([true, false])('announces redo success only when core returns %s', resul
   vi.spyOn(WhiteboardUndo.prototype, 'redo').mockReturnValue(result);
   const doc = createWhiteboardDocument();
   render(<CollaborativeEditor boardId="board-test" clientId="client-test" doc={doc} readOnly={false} title="白板" status="已连接" />);
-  fireEvent.click(screen.getByText('重做', { exact: true }));
+  fireEvent.click(screen.getByRole('button', {name: '重做'}));
   expect(screen.getByText(result ? '已重做本地修改' : '未重做：没有可重做的本地修改，或当前画板存在冲突。', { exact: true })).toBeVisible();
   if (!result) expect(screen.queryByText('已重做本地修改', { exact: true })).toBeNull();
   doc.destroy();
