@@ -81,7 +81,7 @@ async function judgeScreen(page: Page, name: keyof typeof CLUTTER_BUDGET): Promi
 async function contrast(page: Page, id: string): Promise<void> {
   const r = await page.evaluate(auditTextContrast, { aaNormal: AA_NORMAL, aaLarge: AA_LARGE });
   record(`access.contrast.${id}`, "access", r.examined > 10 && r.fail.length === 0,
-    r.examined <= 10 ? `只审到 ${String(r.examined)} 个元素，拒绝下判断` : r.fail.length === 0 ? `审了 ${String(r.examined)} 个元素，全部达到 AA` : `${String(r.fail.length)} 处低于 AA：${r.fail.slice(0, 3).map((h) => `「${h.sample}」${String(h.ratio)}`).join("；")}`);
+    r.examined <= 10 ? `只审到 ${String(r.examined)} 个元素，拒绝下判断` : r.fail.length === 0 ? `审了 ${String(r.examined)} 个元素，全部达到 AA` : `${String(r.fail.length)} 处低于 AA：${r.fail.slice(0, 4).map((h) => `「${h.sample}」${String(h.ratio)}（${h.fg} on ${h.bg}，${h.tag}${h.testid ? `[${h.testid}]` : ""}）`).join("；")}`);
 }
 
 /**
