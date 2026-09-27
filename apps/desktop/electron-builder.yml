@@ -133,6 +133,9 @@ win:
   # 绕开它的现成办法是换一个第三方编的 NSISBI 二进制、在构建机上下载执行——
   # 没审计过的东西不进发布链。真要安装程序时二选一：审计后用 NSISBI，
   # 或「小安装程序 + 模型包首启导入」（model-import.ts 已经会从目录导入）。
+  # 不压缩：包里大头是 GGUF 权重与 onnx，本身几乎压不动；默认压缩在 windows-latest 上把
+  # dist:win 拖到一小时以上（实测），换来的体积差可以忽略。
+  compression: store
   target:
     - target: zip
       arch: [x64]
