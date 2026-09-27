@@ -28,6 +28,7 @@ export const ListBoards = z.object({
     z.string().trim().max(200).optional(),
   ),
   tagIds: BoardTagIds.optional(),
+  untagged: z.enum(['true', 'false']).optional(),
   archived: z.enum(['active', 'archived', 'all']).default('active'),
   limit: z.coerce.number().int().min(1).max(100).default(30),
   cursor: z.string().min(1).max(4096).optional(),
