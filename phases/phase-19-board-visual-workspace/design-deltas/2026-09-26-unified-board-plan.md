@@ -29,9 +29,9 @@ flowchart LR
   R3 --> R4["R4 内容对象<br/>PR #4292 ✅"]:::merged
   R4 --> R5["R5 空间与关系<br/>PR #4308 ✅"]:::merged
   R5 --> R6["R6 编辑与组织<br/>6项视觉/导航 + 4项空间通过 · #4313已合入"]:::merged
-  R6 --> R7["R7 团队可靠性<br/>预计9/28验收 · 9/29前PR门禁<br/>四空间通过 · outbox验收中 · 协作待回归"]:::accepting
-  R7 --> R8["R8 存储与迁移<br/>预计9/29–30验收<br/>sourceHistory已集成 · 真实源板为0 · 恢复待验"]:::working
-  R8 --> R9["R9 AI / API / Chat / 会议室<br/>预计9/29–30验收<br/>多尺寸UI通过 · 视觉修整/Chat/会议室待验"]:::working
+  R6 --> R7["R7 团队可靠性<br/>预计9/28验收 · 9/29前PR门禁<br/>四空间/六协作/outbox通过 · PR #4393 CI中"]:::accepting
+  R7 --> R8["R8 存储与迁移<br/>预计9/29–30验收<br/>9个历史文件恢复通过 · 真实源板为0"]:::working
+  R8 --> R9["R9 AI / API / Chat / 会议室<br/>预计9/29–30验收<br/>紧凑UI/提案恢复通过 · Chat/会议室待验"]:::working
   R9 --> R10["R10 同一 SHA 总验收<br/>预计9/30–10/2收敛<br/>统一负载/视觉/安全/恢复与CI"]:::blocked
   R10 --> P2["P2 扩展路线<br/>Diagram / Mind Map / Kanban / Timeline<br/>Journey / Database / Agent与Live Data Tile"]:::future
   classDef merged fill:#dcfce7,stroke:#16a34a,color:#14532d
