@@ -279,7 +279,8 @@ describe("F168 guided research home live data", () => {
     fireEvent.change(screen.getByTestId("research-brief-goal"), { target: { value: "核对具体政策" } });
     fireEvent.click(screen.getByTestId("research-confirm-brief"));
     expect(screen.getByTestId("research-step-loading")).toHaveTextContent("正在生成研究方向");
-    expect(screen.getByRole("button", { name: /确认研究主题/ })).toHaveAttribute("aria-current", "step");
+    expect(screen.getByTestId("research-step-topic")).toHaveAttribute("aria-current", "step");
+    expect(screen.getByTestId("research-step-topic")).toHaveAttribute("aria-disabled", "true");
     await waitFor(() => expect(executeResearchRuntime).toHaveBeenCalledTimes(1));
     expect(executeResearchRuntime).toHaveBeenCalledWith(expect.objectContaining({
       sessionId: "grs-entry", node: "brief", action: "confirm", expectedVersion: 0,
