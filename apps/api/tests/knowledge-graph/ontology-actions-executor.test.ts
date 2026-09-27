@@ -81,7 +81,7 @@ describe("F03: 执行器主路径", () => {
     expect(await count("claims", b.claims[0]!.id)).toBe(0);
     const a = await action(b.actionId);
     expect(a).toMatchObject({ outcome: "rejected", reject_code: "KG_SCOPE_NOT_ENABLED" });
-    expect(a!.reject_reason).toMatch(/org/);
+    expect(a!.reject_reason).toMatch(/platform/);
   });
 
   it("批内任一条不合格 ⇒ 整批不落（同一事务），不会留下半批", async () => {
