@@ -99,6 +99,9 @@ import { StandardBrowserToolsController } from "./interface/controllers/standard
 import { STANDARD_MEMORY_PROOF } from "./application/agent-run/standard-memory-proof";
 import { PgStandardMemoryProof } from "./infrastructure/agent-run/pg-standard-memory-proof";
 import { StandardMemoryProofController } from "./interface/controllers/standard-memory-proof.controller";
+import { STANDARD_REMEMBER } from "./application/agent-run/standard-remember";
+import { PgStandardRemember } from "./infrastructure/agent-run/pg-standard-remember";
+import { StandardRememberController } from "./interface/controllers/standard-remember.controller";
 import { createStandardWebService } from "./infrastructure/agent-run/standard-web-service";
 import { StandardWebToolsController } from "./interface/controllers/standard-web-tools.controller";
 import { NATIVE_OUTPUT_STAGING, type NativeOutputStaging } from "./application/agent-run/native-output-staging";
@@ -623,7 +626,7 @@ import {
 } from "./application/first-value/first-value-recorder";
 import { PgFirstValueFacts } from "./infrastructure/first-value/pg-first-value-facts";
 import { FirstValueController } from "./interface/controllers/first-value.controller";
-import { GRAPH_PROJECTION_PORT, KG_AUTO_COPY_PORT, KG_CONFLICT_PORT, KG_DEPLOYMENT_EXTRACTION_SETTINGS_PORT, KG_EXTRACTION_QUEUE_PORT, KG_EXTRACTION_SOURCE_PORT, KG_ORG_EXTRACTION_SETTINGS_PORT, HUMAN_ACTION_PORT, KNOWLEDGE_EXTRACTOR_PORT, KNOWLEDGE_READ_PORT, MEMORY_CARD_PORT, ONTOLOGY_STORE_PORT, PROMOTION_PORT } from "./application/knowledge-graph/ports";
+import { GRAPH_PROJECTION_PORT, KG_AUTO_COPY_PORT, KG_CONFLICT_PORT, KG_DEPLOYMENT_EXTRACTION_SETTINGS_PORT, KG_EXTRACTION_QUEUE_PORT, KG_EXTRACTION_SOURCE_PORT, KG_ORG_EXTRACTION_SETTINGS_PORT, HUMAN_ACTION_PORT, KNOWLEDGE_EXTRACTOR_PORT, KNOWLEDGE_READ_PORT, MEMORY_CARD_PORT, type MemoryCardPort, ONTOLOGY_STORE_PORT, PROMOTION_PORT } from "./application/knowledge-graph/ports";
 import { PgPromotion } from "./infrastructure/knowledge-graph/pg-promotion";
 import { PgHumanAction } from "./infrastructure/knowledge-graph/pg-human-action";
 import { KnowledgeGraphController } from "./interface/controllers/knowledge-graph.controller";
@@ -1076,7 +1079,7 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
     ToolPermissionGrantController,
     DocumentGenerationAutoApproveController,
     StandardArtifactDownloadController, StandardRunStatusController, StandardRunCancelController,
-    ArtifactIndexingController, NativeFileDelegationController, ScheduleNotificationsController, StandardAudioController, StandardImageController, StandardScheduleController, SkillDraftController, SkillArtifactImportController, McpExecutionSnapshotController, NativeSessionController, NativeOutputStagingController, StandardWebToolsController, StandardBrowserToolsController, StandardMemoryProofController, StandardContextToolsController, StandardCanvasToolsController, StandardDocumentToolsController, StandardSubtaskToolsController, StandardSqlSourceController,
+    ArtifactIndexingController, NativeFileDelegationController, ScheduleNotificationsController, StandardAudioController, StandardImageController, StandardScheduleController, SkillDraftController, SkillArtifactImportController, McpExecutionSnapshotController, NativeSessionController, NativeOutputStagingController, StandardWebToolsController, StandardBrowserToolsController, StandardMemoryProofController, StandardRememberController, StandardContextToolsController, StandardCanvasToolsController, StandardDocumentToolsController, StandardSubtaskToolsController, StandardSqlSourceController,
     AgentArtifactController,
     ThreadMessageQueueController,
     NotificationsController,
@@ -2267,6 +2270,13 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
       useFactory: (db: DatabasePort, authority: ToolExecutionAuthority, repo: IdentityRepository, ids: DecisionIdFactory, chat: ChatRepository) =>
         new PgStandardMemoryProof(db, authority, { repo, ids, chat }),
       inject: [DATABASE_PORT, TOOL_EXECUTION_AUTHORITY, IDENTITY_REPOSITORY, DECISION_ID_FACTORY, CHAT_REPOSITORY],
+    },
+    {
+      // issue #4344：agent 的记忆工具 `wx_remember` = 在这一轮上开 F17 的「记住」确认卡（同一个 MEMORY_CARD_PORT）。
+      provide: STANDARD_REMEMBER,
+      useFactory: (db: DatabasePort, authority: ToolExecutionAuthority, repo: IdentityRepository, ids: DecisionIdFactory, chat: ChatRepository, cards: MemoryCardPort, runs: AgentRunStore) =>
+        new PgStandardRemember(db, authority, { repo, ids, chat }, cards, runs),
+      inject: [DATABASE_PORT, TOOL_EXECUTION_AUTHORITY, IDENTITY_REPOSITORY, DECISION_ID_FACTORY, CHAT_REPOSITORY, MEMORY_CARD_PORT, AGENT_RUN_STORE],
     },
     {
       provide: NATIVE_OUTPUT_STAGING,
