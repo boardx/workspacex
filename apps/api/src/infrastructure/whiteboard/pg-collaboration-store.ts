@@ -4,10 +4,10 @@ import { WhiteboardCommandBatch } from '@repo/contracts/whiteboard-document';
 import type { Principal } from '../../domain/principal';
 import { assertPrincipal } from '../../domain/principal';
 import type { DatabasePort, TenantSession } from '../../application/ports/database.port';
-import { WhiteboardCollaborationError as Fault, type WhiteboardCollaborationStore, type WhiteboardCommandsInput, type WhiteboardUpdateInput, type WhiteboardUpdateAck, type WhiteboardPendingUpdate, type WhiteboardSyncState, type WhiteboardSyncHead, type WhiteboardUpdateValidator, type ValidatedWhiteboardUpdate } from '../../application/whiteboard/collaboration-ports';
+import { WhiteboardCollaborationError as Fault, type WhiteboardDeletionProof, type WhiteboardRestoreDeletionInput, type WhiteboardCollaborationStore, type WhiteboardCommandsInput, type WhiteboardUpdateInput, type WhiteboardUpdateAck, type WhiteboardPendingUpdate, type WhiteboardSyncState, type WhiteboardSyncHead, type WhiteboardUpdateValidator, type ValidatedWhiteboardUpdate } from '../../application/whiteboard/collaboration-ports';
 import { WorkerWhiteboardUpdateValidator, WHITEBOARD_VALIDATOR_LIMITS } from './update-validator';
 import { WHITEBOARD_UPDATE_LIMITS } from '@repo/whiteboard-core';
-import { WHITEBOARD_SYNC } from '@repo/contracts/whiteboard-sync';
+import { WhiteboardClientMessage, WHITEBOARD_SYNC } from '@repo/contracts/whiteboard-sync';
 
 type DocumentRow = { epoch: number; seq: string; snapshot: Buffer };
 type Access = { role: C.Board['role']; archived: boolean };
@@ -71,6 +71,34 @@ export class PgWhiteboardCollaborationStore implements WhiteboardCollaborationSt
     const update = new Uint8Array(input.update);
     return this.commit(p, boardId, input.epoch, input.updateId, input.gestureId, HASH(Buffer.concat([Buffer.from(`update:${input.gestureId}:`), Buffer.from(update)])), snapshot => this.validator.validate(snapshot, update));
   }
+  async restoreDeletion(p:Principal,boardId:string,input:WhiteboardRestoreDeletionInput):Promise<WhiteboardUpdateAck>{
+    validIds(p,boardId,input.updateId,input.epoch);
+    const parsed=WhiteboardClientMessage.safeParse({type:'restore-deletion',...input});
+    if(!parsed.success)throw new Fault('VALIDATION_FAILED');
+    const hash=HASH(`restore-deletion:${JSON.stringify(canonical(input))}`);
+    return this.db.withTenant(p.orgId,async session=>{
+      await this.access(session,p,boardId,true);const head=await this.document(session,p,boardId,true);
+      if(head.epoch!==input.epoch)throw new Fault('STALE_EPOCH');
+      const result=await session.query<{proof:WhiteboardDeletionProof[];comments:Array<{id:string;status:string;revision:number}>;restored_update_id:string|null}>(
+        'SELECT proof,comments,restored_update_id FROM whiteboard_deletion_receipts WHERE org_id=$1 AND board_id=$2 AND epoch=$3 AND actor_id=$4 AND delete_gesture_id=$5 FOR UPDATE',[p.orgId,boardId,input.epoch,p.userId,input.deleteGestureId]);
+      const receipt=result.rows[0];if(!receipt)throw new Fault('FORBIDDEN');
+      if(receipt.restored_update_id&&receipt.restored_update_id!==input.updateId)throw new Fault('IDEMPOTENCY_CONFLICT');
+      if(JSON.stringify(receipt.proof.map(item=>item.id).sort())!==JSON.stringify([...input.objectIds].sort()))throw new Fault('FORBIDDEN');
+      if(!this.validator.restoreDeletion)throw new Fault('VALIDATOR_UNAVAILABLE');
+      if(!receipt.restored_update_id)for(const comment of receipt.comments){
+        const current=await session.query<{status:string;revision:number}>('SELECT status,revision FROM whiteboard_comment_threads WHERE org_id=$1 AND board_id=$2 AND id=$3 FOR UPDATE',[p.orgId,boardId,comment.id]);
+        if(current.rows[0]?.status!=='object-deleted'||Number(current.rows[0]?.revision)!==comment.revision+1)throw new Fault('COMMENT_CONFLICT');
+      }
+      const {durability:_,...ack}=await this.commitInTransaction(session,p,boardId,input.epoch,input.updateId,input.gestureId,hash,snapshot=>this.validator.restoreDeletion!(snapshot,receipt.proof));
+      if(!ack.replayed){
+        for(const comment of receipt.comments)await session.query(`UPDATE whiteboard_comment_threads SET status=$4,revision=revision+1,payload=jsonb_set(jsonb_set(jsonb_set(payload,'{status}',to_jsonb($4::text)),'{revision}',to_jsonb(revision+1)),'{archivedAt}','null'::jsonb),updated_at=now() WHERE org_id=$1 AND board_id=$2 AND id=$3`,[p.orgId,boardId,comment.id,comment.status]);
+        await session.query('UPDATE whiteboard_deletion_receipts SET restored_update_id=$6 WHERE org_id=$1 AND board_id=$2 AND epoch=$3 AND actor_id=$4 AND delete_gesture_id=$5',[p.orgId,boardId,input.epoch,p.userId,input.deleteGestureId,input.updateId]);
+        const event={type:'ObjectDeletionUndone',eventId:randomUUID(),operationId:input.updateId,boardId,actorId:p.userId,objectIds:receipt.proof.map(item=>item.id),deleteGestureId:input.deleteGestureId,occurredAt:new Date().toISOString()};
+        await session.query('INSERT INTO whiteboard_collaboration_events(org_id,board_id,event_id,actor_id,event_type,payload) VALUES($1,$2,$3,$4,$5,$6::jsonb)',[p.orgId,boardId,event.eventId,p.userId,event.type,JSON.stringify(event)]);
+      }
+      return ack;
+    });
+  }
   async writeCommands(p: Principal, boardId: string, input: WhiteboardCommandsInput): Promise<WhiteboardUpdateAck> {
     validIds(p, boardId, input.requestId, input.epoch);
     const { durability: _pending, ...ack } = await this.db.withTenant(p.orgId, session => this.writeCommandsInTransaction(session, p, boardId, input));
@@ -108,11 +136,15 @@ export class PgWhiteboardCollaborationStore implements WhiteboardCollaborationSt
     await session.query(`INSERT INTO whiteboard_updates(org_id,board_id,epoch,seq,actor_id,update_id,request_hash,update) VALUES($1,$2,$3,$4,$5,$6,$7,$8)`, [p.orgId, boardId, epoch, seq, p.userId, updateId, hash, Buffer.from(accepted.update)]);
     await session.query(`UPDATE whiteboard_documents SET seq=$3,snapshot=$4,updated_at=now() WHERE org_id=$1 AND board_id=$2`, [p.orgId, boardId, seq, Buffer.from(accepted.snapshot)]);
     const liveObjectIds=await this.validator.objectIds(accepted.snapshot);
-    const orphaned=await session.query<{id:string;object_id:string}>(`SELECT id,object_id FROM whiteboard_comment_threads WHERE org_id=$1 AND board_id=$2 AND status<>'object-deleted' AND NOT(object_id=ANY($3::text[])) FOR UPDATE`,[p.orgId,boardId,liveObjectIds]);
+    const orphaned=await session.query<{id:string;object_id:string;status:string;revision:number}>(`SELECT id,object_id,status,revision FROM whiteboard_comment_threads WHERE org_id=$1 AND board_id=$2 AND status<>'object-deleted' AND NOT(object_id=ANY($3::text[])) FOR UPDATE`,[p.orgId,boardId,liveObjectIds]);
     if(orphaned.rows.length){
       const archivedAt=new Date().toISOString();
       await session.query(`UPDATE whiteboard_comment_threads SET status='object-deleted',revision=revision+1,payload=jsonb_set(jsonb_set(jsonb_set(payload,'{status}','"object-deleted"'::jsonb),'{revision}',to_jsonb(revision+1)),'{archivedAt}',to_jsonb($4::text)),updated_at=now() WHERE org_id=$1 AND board_id=$2 AND id=ANY($3::uuid[])`,[p.orgId,boardId,orphaned.rows.map(row=>row.id),archivedAt]);
       for(const objectId of new Set(orphaned.rows.map(row=>row.object_id))){const event={type:'ObjectCommentsArchived',eventId:randomUUID(),operationId:updateId,boardId,objectId,threadIds:orphaned.rows.filter(row=>row.object_id===objectId).map(row=>row.id),actorId:p.userId,occurredAt:archivedAt};await session.query(`INSERT INTO whiteboard_collaboration_events(org_id,board_id,event_id,actor_id,event_type,payload) VALUES($1,$2,$3,$4,$5,$6::jsonb)`,[p.orgId,boardId,event.eventId,p.userId,event.type,JSON.stringify(event)]);}
+    }
+    if(accepted.deletions?.length){
+      const inserted=await session.query(`INSERT INTO whiteboard_deletion_receipts(org_id,board_id,epoch,actor_id,delete_gesture_id,delete_update_id,deletion_seq,proof,comments) VALUES($1,$2,$3,$4,$5,$6,$7,$8::jsonb,$9::jsonb) ON CONFLICT DO NOTHING RETURNING delete_update_id`,[p.orgId,boardId,epoch,p.userId,gestureId,updateId,seq,JSON.stringify(accepted.deletions),JSON.stringify(orphaned.rows.filter(row=>accepted.deletions!.some(proof=>proof.id===row.object_id)).map(row=>({id:row.id,status:row.status,revision:Number(row.revision)})))]);
+      if(!inserted.rows.length)throw new Fault('IDEMPOTENCY_CONFLICT');
     }
     await session.query(`UPDATE whiteboards SET updated_at=now() WHERE org_id=$1 AND id=$2`, [p.orgId, boardId]);
     return { durability: 'pending', epoch, seq, updateId, gestureId, replayed: false, update: accepted.update };

@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { BoardId, BoardRole } from './whiteboard';
-import { WhiteboardObjectId } from './whiteboard-document';
+import { WhiteboardObjectId, WHITEBOARD_LIMITS } from './whiteboard-document';
 
 export const WHITEBOARD_COLLABORATION_LIMITS = {
   commentChars: 4000, mentions: 50, commentsPerThread: 500, threadsPerObject: 500,
@@ -37,6 +37,7 @@ export const WhiteboardCommentCommand = z.discriminatedUnion('type', [
 export type WhiteboardCommentCommand = z.infer<typeof WhiteboardCommentCommand>;
 
 export const WhiteboardCollaborationEvent = z.discriminatedUnion('type', [
+  z.object({type:z.literal('ObjectDeletionUndone'),eventId:z.string().uuid(),operationId:z.string().uuid(),boardId:BoardId,actorId:ActorId,objectIds:z.array(WhiteboardObjectId).max(WHITEBOARD_LIMITS.objects),deleteGestureId:z.string().min(1).max(256),occurredAt:z.string().datetime()}).strict(),
   z.object({ type: z.literal('CommentCreated'), eventId: z.string().uuid(), operationId: z.string().uuid(), boardId: BoardId, threadId: WhiteboardCommentThreadId, commentId: WhiteboardCommentId, objectId: WhiteboardObjectId.nullable(), worldPosition: z.object({ x: z.number().finite(), y: z.number().finite() }).strict().nullable(), actorId: ActorId, occurredAt: z.string().datetime() }).strict(),
   z.object({ type: z.literal('CommentReplied'), eventId: z.string().uuid(), operationId: z.string().uuid(), boardId: BoardId, threadId: WhiteboardCommentThreadId, commentId: WhiteboardCommentId, objectId: WhiteboardObjectId.nullable(), worldPosition: z.object({ x: z.number().finite(), y: z.number().finite() }).strict().nullable(), actorId: ActorId, occurredAt: z.string().datetime() }).strict(),
   z.object({ type: z.literal('CommentResolved'), eventId: z.string().uuid(), operationId: z.string().uuid(), boardId: BoardId, threadId: WhiteboardCommentThreadId, resolved: z.boolean(), actorId: ActorId, occurredAt: z.string().datetime() }).strict(),

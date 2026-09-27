@@ -1,7 +1,7 @@
-import { WHITEBOARD_SYNC, WhiteboardClientMessage, type WhiteboardClientMessage as ClientMessage } from "@repo/contracts/whiteboard-sync";
+import { WHITEBOARD_SYNC, WhiteboardClientMessage, type WhiteboardPendingMessage } from "@repo/contracts/whiteboard-sync";
 
-type Update = Extract<ClientMessage, { type: "update" }>;
-export type CipherRow = { id: string; boardId: string; tokenHash: string; iv: ArrayBuffer; ciphertext: ArrayBuffer; byteSize: number; createdAt: number };
+type Update = WhiteboardPendingMessage;
+export type CipherRow = { id: string; boardId: string; tokenHash: string; iv: ArrayBuffer; ciphertext: ArrayBuffer; byteSize: number; createdAt: number; sequence?:number };
 type Tombstone = { id: string; boardId: string; tokenHash: string; revokedAt: number };
 export type WhiteboardOutboxRebindJournal = { id:string;boardId:string;fromHash:string;toHash:string;createdAt:number };
 const DB_NAME = "workspacex-whiteboard-outbox-v1", DB_VERSION = 2;
@@ -104,9 +104,9 @@ export class IndexedDbEncryptedWhiteboardOutbox implements WhiteboardDurableOutb
     const key=await this.key(),rows=(await request(db.transaction("updates").objectStore("updates").index("board").getAll(this.boardId)) as CipherRow[]).filter(row=>row.tokenHash===journal.fromHash),replacements:CipherRow[]=[];
     for(const row of rows){
       const plaintext=await crypto.subtle.decrypt({name:"AES-GCM",iv:row.iv,additionalData:bytes(`${row.boardId}:${row.tokenHash}`)},key,row.ciphertext);
-      const parsed=WhiteboardClientMessage.safeParse(JSON.parse(new TextDecoder().decode(plaintext)));if(!parsed.success||parsed.data.type!=="update")throw new Error("OUTBOX_CORRUPT");
+      const parsed=WhiteboardClientMessage.safeParse(JSON.parse(new TextDecoder().decode(plaintext)));if(!parsed.success||(parsed.data.type!=="update"&&parsed.data.type!=="restore-deletion"))throw new Error("OUTBOX_CORRUPT");
       const iv=crypto.getRandomValues(new Uint8Array(12)),ciphertext=await crypto.subtle.encrypt({name:"AES-GCM",iv,additionalData:bytes(`${this.boardId}:${journal.toHash}`)},key,plaintext);
-      replacements.push({id:this.id(journal.toHash,parsed.data.updateId),boardId:this.boardId,tokenHash:journal.toHash,iv:iv.buffer,ciphertext,byteSize:plaintext.byteLength,createdAt:row.createdAt});
+      replacements.push({id:this.id(journal.toHash,parsed.data.updateId),boardId:this.boardId,tokenHash:journal.toHash,iv:iv.buffer,ciphertext,byteSize:plaintext.byteLength,createdAt:row.createdAt,...(row.sequence===undefined?{}:{sequence:row.sequence})});
     }
     const tx=db.transaction(["updates","tombstones","rebinds"],"readwrite"),store=tx.objectStore("updates"),tombstones=tx.objectStore("tombstones"),rebinds=tx.objectStore("rebinds");
     const done=transactionDone(tx);
@@ -140,13 +140,13 @@ export class IndexedDbEncryptedWhiteboardOutbox implements WhiteboardDurableOutb
     if(journal?.toHash===hash){await this.finishRebind(db,journal);return this.restoreInternal(token);}
     if(whiteboardOutboxTokenRevoked(journal??null,Boolean(retiredRow),hash)) return { revoked: true, updates: [] };
     const key = await this.key(), updates: Update[] = [];
-    for (const row of recovery.rows.sort((a,b) => a.createdAt-b.createdAt)) {
+    for (const row of recovery.rows.sort((a,b) => a.sequence!==undefined&&b.sequence!==undefined?a.sequence-b.sequence:a.sequence===undefined&&b.sequence!==undefined?-1:a.sequence!==undefined&&b.sequence===undefined?1:a.createdAt-b.createdAt)) {
       const plaintext = await crypto.subtle.decrypt({ name: "AES-GCM", iv: row.iv, additionalData: bytes(`${row.boardId}:${row.tokenHash}`) }, key, row.ciphertext);
       const parsed = WhiteboardClientMessage.safeParse(JSON.parse(new TextDecoder().decode(plaintext)));
-      if (!parsed.success || parsed.data.type !== "update") throw new Error("OUTBOX_CORRUPT");
-      updates.push(parsed.data);
+      if (!parsed.success || (parsed.data.type!=="update"&&parsed.data.type!=="restore-deletion")) throw new Error("OUTBOX_CORRUPT");
+      updates.push(parsed.data as Update);
     }
-    if (updates.length > WHITEBOARD_SYNC.pendingUpdates || updates.reduce((sum,item)=>sum+item.update.length,0) > WHITEBOARD_SYNC.pendingBytes) throw new Error("OUTBOX_LIMIT");
+    if (updates.length > WHITEBOARD_SYNC.pendingUpdates || updates.reduce((sum,item)=>sum+JSON.stringify(item).length,0) > WHITEBOARD_SYNC.pendingBytes) throw new Error("OUTBOX_LIMIT");
     return { revoked: false, updates };
   }
   restore(token:string){return this.exclusive(()=>this.restoreInternal(token));}
@@ -157,12 +157,17 @@ export class IndexedDbEncryptedWhiteboardOutbox implements WhiteboardDurableOutb
     const ciphertext = await crypto.subtle.encrypt({ name: "AES-GCM", iv, additionalData: bytes(`${this.boardId}:${hash}`) }, key, plaintext);
     // The generation check and write share one transaction so a second tab cannot
     // commit an old-token row after a successful rebind retires that generation.
-    const tx = db.transaction(["updates","tombstones","rebinds"], "readwrite"),done=transactionDone(tx);
+    const tx = db.transaction(["updates","tombstones","rebinds","meta"], "readwrite"),done=transactionDone(tx);
     const retiredRequest=request(tx.objectStore("tombstones").get(this.id(hash)));
     const journalRequest=request(tx.objectStore("rebinds").get(this.boardId)) as Promise<WhiteboardOutboxRebindJournal|undefined>;
     const [retiredRow,journal]=await Promise.all([retiredRequest,journalRequest]),retired=Boolean(retiredRow);
     if(whiteboardOutboxTokenRevoked(journal??null,retired,hash)){tx.abort();await done.catch(()=>undefined);throw new Error("OUTBOX_REVOKED");}
-    tx.objectStore("updates").put({ id: this.id(hash, update.updateId), boardId: this.boardId, tokenHash: hash, iv: iv.buffer, ciphertext, byteSize: plaintext.byteLength, createdAt: Date.now() } satisfies CipherRow);
+    const rowId=this.id(hash,update.updateId),sequenceKey=`queue-sequence:${this.boardId}`;
+    const [oldRow,counter]=await Promise.all([request(tx.objectStore('updates').get(rowId)) as Promise<CipherRow|undefined>,request(tx.objectStore('meta').get(sequenceKey))]);
+    const sequence=oldRow?.sequence??(typeof counter==='number'?counter:0)+1;
+    if(!Number.isSafeInteger(sequence)||sequence<1){tx.abort();await done.catch(()=>undefined);throw new Error('OUTBOX_SEQUENCE_LIMIT');}
+    tx.objectStore('meta').put(Math.max(typeof counter==='number'?counter:0,sequence),sequenceKey);
+    tx.objectStore("updates").put({ id: rowId, boardId: this.boardId, tokenHash: hash, iv: iv.buffer, ciphertext, byteSize: plaintext.byteLength, createdAt: oldRow?.createdAt??Date.now(),sequence } satisfies CipherRow);
     await done;
   }
   persist(token:string,update:Update){return this.exclusive(()=>this.persistInternal(token,update));}

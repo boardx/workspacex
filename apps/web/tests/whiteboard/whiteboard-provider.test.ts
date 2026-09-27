@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import * as Y from 'yjs';
-import { createWhiteboardDocument, executeCommands, readObjects } from '@repo/whiteboard-core';
+import { createWhiteboardDocument, executeCommands, readObjects, WhiteboardUndo } from '@repo/whiteboard-core';
 import { WhiteboardProvider, bytesToBase64, type WhiteboardConnectionState } from '@/lib/whiteboard-provider';
 import type { WhiteboardDurableOutbox } from '@/lib/whiteboard-outbox';
 const auth = vi.hoisted(() => ({ token: 'test-session' as string | null }));
@@ -308,4 +308,35 @@ it.each(['oversized','aggregate','malformed'])('rejects %s inbound data before d
  else if(mode==='malformed')socket.onmessage?.({data:'{"type":"not-a-message"}'});
  else{const frame={type:'sync',epoch:1,seq:0,update:'AAAA'.repeat(1200000),role:'editor',archived:false};socket.message(frame);socket.message(frame);}
  expect(state).toMatchObject({phase:'blocked',reason:'PROTOCOL_ERROR'});release();await vi.advanceTimersByTimeAsync(0);expect(readObjects(doc)).toEqual([]);provider.close();doc.destroy();server.destroy();
+});
+
+it('orders offline original-ID Undo intent after delete ACK and before subsequent edits',async()=>{
+ const server=createWhiteboardDocument();executeCommands(server,[{type:'create',object:sticky('undo-proof')}],{});
+ const doc=createWhiteboardDocument(),outbox=new DurableMemoryOutbox();let state:WhiteboardConnectionState|undefined;
+ const provider=new WhiteboardProvider(doc,'undo-proof-board',value=>{state=value;},outbox);await vi.advanceTimersByTimeAsync(0);const first=Socket.sockets[0]!;sync(first,server);
+ first.onclose?.({code:1006});
+ const origin={gestureId:'delete-proof'},undo=new WhiteboardUndo(doc,origin);
+ undo.execute([{type:'delete',id:'undo-proof'}]);expect(undo.undo('restore-proof')).toBe('undone');
+ executeCommands(doc,[{type:'text',id:'undo-proof',index:0,deleteCount:0,insert:'after '}],{gestureId:'after-proof'});
+ await vi.advanceTimersByTimeAsync(0);expect(outbox.updates.get('test-session')?.map(item=>item.type)).toEqual(['update','restore-deletion','update']);
+ const saved=outbox.updates.get('test-session')!;expect(saved[1]).toMatchObject({deleteGestureId:'delete-proof',gestureId:'restore-proof',objectIds:['undo-proof']});expect(saved[1]).not.toHaveProperty('update');
+ await vi.advanceTimersByTimeAsync(500);const second=Socket.sockets[1]!;sync(second,server);
+ expect(messages(second).map(item=>item.type)).toEqual(['update']);
+ second.message({type:'ack',updateId:saved[0].updateId,gestureId:saved[0].gestureId,seq:1});
+ expect(messages(second).map(item=>item.type)).toEqual(['update','restore-deletion']);
+ second.message({type:'ack',updateId:saved[1].updateId,gestureId:saved[1].gestureId,seq:2});
+ expect(state?.lastAckReceipt).toMatchObject({gestureId:'restore-proof',seq:2});expect(messages(second).map(item=>item.type)).toEqual(['update','restore-deletion','update']);
+ second.message({type:'ack',updateId:saved[2].updateId,gestureId:saved[2].gestureId,seq:3});await vi.advanceTimersByTimeAsync(0);
+ expect(outbox.updates.get('test-session')).toEqual([]);expect(readObjects(doc)[0]).toMatchObject({id:'undo-proof',text:'after undo-proof'});
+ provider.close();undo.destroy();doc.destroy();server.destroy();
+});
+it('reopened provider restores queued same-ID intent from the authoritative tombstoned snapshot',async()=>{
+ const server=createWhiteboardDocument();executeCommands(server,[{type:'create',object:sticky('restored-after-crash')},{type:'delete',id:'restored-after-crash'}],{});
+ const intent={type:'restore-deletion' as const,epoch:1,updateId:crypto.randomUUID(),gestureId:'undo-after-crash',deleteGestureId:'already-acked-delete',objectIds:['restored-after-crash']};
+ const outbox=new DurableMemoryOutbox();outbox.updates.set('test-session',[intent]);
+ const doc=createWhiteboardDocument();let state:WhiteboardConnectionState|undefined;const provider=new WhiteboardProvider(doc,'reopen',value=>{state=value;},outbox);await vi.advanceTimersByTimeAsync(0);
+ expect(readObjects(doc)).toEqual([]);const socket=Socket.sockets[0]!;sync(socket,server,1,9);
+ expect(readObjects(doc)[0]?.id).toBe('restored-after-crash');expect(JSON.parse(socket.sent[0]!)).toEqual(intent);
+ socket.message({type:'ack',updateId:intent.updateId,gestureId:intent.gestureId,seq:10});await vi.advanceTimersByTimeAsync(0);expect(state?.phase).toBe('online');expect(state?.lastAckReceipt?.gestureId).toBe('undo-after-crash');expect(outbox.updates.get('test-session')).toEqual([]);
+ provider.close();doc.destroy();server.destroy();
 });

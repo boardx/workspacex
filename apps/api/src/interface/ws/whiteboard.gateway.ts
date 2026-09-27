@@ -80,7 +80,8 @@ export function attachWhiteboardGateway(server: Server, deps: WhiteboardGatewayD
               const viewport=collaborationAdvances?message.viewport:peer.presence.viewport;
               peer.presence=WhiteboardPresence.parse({...peer.presence,cursor:message.cursor,selected:message.selected,editingObjectId:message.editingObjectId ?? null,viewport,presenting:collaborationAdvances?(message.presenting??peer.presence.presenting):peer.presence.presenting,followingActorId:collaborationAdvances?(message.followingActorId===undefined?peer.presence.followingActorId:message.followingActorId):peer.presence.followingActorId,expiresAt:new Date(Date.now()+WHITEBOARD_COLLABORATION_LIMITS.presenceTtlMs).toISOString()}); presence(peer); return;
             }
-            const ack=await deps.store.append(principal,boardId,{...message,update:decoded(message.update)});
+            if(message.type==='restore-deletion'&&!deps.store.restoreDeletion)throw new WhiteboardCollaborationError('VALIDATOR_UNAVAILABLE');
+            const ack=message.type==='restore-deletion'?await deps.store.restoreDeletion!(principal,boardId,message):await deps.store.append(principal,boardId,{...message,update:decoded(message.update)});
             // ACK is durability only and never advances client document state. Queue
             // it before a potentially large catch-up diff so backpressure stays fail-closed.
             send(ws,{type:'ack',updateId:ack.updateId,gestureId:ack.gestureId,seq:ack.seq});

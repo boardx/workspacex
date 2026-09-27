@@ -4,10 +4,11 @@ import { executeCommands, objectMap, readObjects, tombstones, validateDocument }
 import { WhiteboardCommandOrigin } from './command-port';
 
 const HISTORY = Symbol('whiteboard-history');
-const COMPENSATION: { receiptGestureId?: string } = {};
+const COMPENSATION: { receiptGestureId?: string; restoreDeletion?:{deleteGestureId:string;objectIds:string[]} } = {};
 type HistorySnapshot = { ids: string[]; before: Record<string, string>; after: Record<string, string> };
 type StructuralHistory = {
   action: 'create' | 'delete';
+  deleteGestureId?:string;
   objects: ReturnType<typeof readObjects>;
 };
 type HistoryEntry = { type: 'manager'; item: StackItem } | { type: 'structural'; value: StructuralHistory };
@@ -46,7 +47,7 @@ export class WhiteboardUndo {
     const pureDelete = ids.every(id => beforeById.has(id) && !afterById.has(id));
     if (pureCreate || pureDelete) {
       this.manager.undoStack.pop();
-      this.undoHistory.push({ type: 'structural', value: { action: pureCreate ? 'create' : 'delete', objects: ids.map(id => (pureCreate ? afterById : beforeById).get(id)!).filter(Boolean) } });
+      this.undoHistory.push({ type: 'structural', value: { action: pureCreate ? 'create' : 'delete', deleteGestureId:transaction.origin.gestureId, objects: ids.map(id => (pureCreate ? afterById : beforeById).get(id)!).filter(Boolean) } });
     } else this.undoHistory.push({ type: 'manager', item });
     this.redoHistory = [];
   };
@@ -80,7 +81,7 @@ export class WhiteboardUndo {
       this.manager.undoStack.pop();
       const source = pureCreate ? after : before;
       const objects = changedIds.map(id => JSON.parse(source[id] ?? 'null')).filter(Boolean);
-      this.undoHistory.push({ type: 'structural', value: { action: pureCreate ? 'create' : 'delete', objects } });
+      this.undoHistory.push({ type: 'structural', value: { action: pureCreate ? 'create' : 'delete', deleteGestureId:typeof transactionOrigin==='object'&&transactionOrigin!==null&&'gestureId' in transactionOrigin?String(transactionOrigin.gestureId):undefined, objects } });
     } else this.undoHistory.push({ type: 'manager', item });
     this.redoHistory = [];
   }
@@ -118,7 +119,8 @@ export class WhiteboardUndo {
       executeCommands(this.doc, deletionOrder.map(object => ({ type: 'delete' as const, id: object.id })), COMPENSATION);
       return entry;
     }
-    executeCommands(this.doc, entry.objects.map(object => ({type: 'restore' as const, id: object.id})), COMPENSATION);
+    if(entry.deleteGestureId)COMPENSATION.restoreDeletion={deleteGestureId:entry.deleteGestureId,objectIds:entry.objects.map(object=>object.id)};
+    try{executeCommands(this.doc, entry.objects.map(object => ({type: 'restore' as const, id: object.id})), COMPENSATION);}finally{delete COMPENSATION.restoreDeletion;}
     return entry;
   }
 
@@ -126,8 +128,12 @@ export class WhiteboardUndo {
     if (entry.action === 'create') return { ...entry, objects: this.recreate(entry.objects) };
     const live = new Map(readObjects(this.doc).map(object => [object.id, object]));
     if (!entry.objects.every(object => JSON.stringify(live.get(object.id) ?? null) === JSON.stringify(object))) throw new Error('STRUCTURAL_HISTORY_CONFLICT');
-    executeCommands(this.doc, entry.objects.map(object => ({ type: 'delete' as const, id: object.id })), COMPENSATION);
-    return entry;
+    // Delete relations before endpoints, and descendants before parents.
+    const byId=new Map(entry.objects.map(object=>[object.id,object]));
+    const depth=(id:string):number=>{let count=0,parent=byId.get(id)?.parentId;while(parent&&byId.has(parent)){count++;parent=byId.get(parent)?.parentId;}return count;};
+    const ordered=[...entry.objects].sort((a,b)=>Number(b.kind==='connector')-Number(a.kind==='connector')||depth(b.id)-depth(a.id));
+    executeCommands(this.doc, ordered.map(object => ({ type: 'delete' as const, id: object.id })), COMPENSATION);
+    return {...entry,deleteGestureId:COMPENSATION.receiptGestureId};
   }
   /** Pinned Yjs adapter: redone links and stack ranges are local metadata, absent from encoded updates. */
   private canApply(item: StackItem, direction: 'undo' | 'redo'): boolean {
@@ -152,6 +158,12 @@ export class WhiteboardUndo {
       const result = direction === 'undo' ? trial.undo() : trial.redo();
       if (!result) return false;
       validateDocument(candidate);
+      // A mixed Yjs history item has no isolated delete receipt. Never emit a
+      // raw tombstone clear; keep the history intact until a typed compound
+      // compensation protocol can validate every accompanying field change.
+      for (const [id, deleted] of tombstones(this.doc)) {
+        if (deleted && tombstones(candidate).get(id) !== true) return false;
+      }
       return true;
     } catch { return false; }
     finally { trial?.destroy(); candidate.destroy(); }

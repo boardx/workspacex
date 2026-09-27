@@ -2,7 +2,7 @@ import { Worker } from 'node:worker_threads';
 import { WhiteboardCommandBatch, type WhiteboardCommand, type WhiteboardObject } from '@repo/contracts/whiteboard-document';
 import { WHITEBOARD_SYNC } from '@repo/contracts/whiteboard-sync';
 import { WHITEBOARD_UPDATE_LIMITS } from '@repo/whiteboard-core';
-import { WhiteboardCollaborationError, type ValidatedWhiteboardUpdate, type WhiteboardUpdateValidator } from '../../application/whiteboard/collaboration-ports';
+import { WhiteboardCollaborationError, type WhiteboardDeletionProof, type ValidatedWhiteboardUpdate, type WhiteboardUpdateValidator } from '../../application/whiteboard/collaboration-ports';
 
 export const WHITEBOARD_VALIDATOR_LIMITS = { vectorBytes: WHITEBOARD_SYNC.stateVectorBytes, commandBytes: 262144, workerHeapMb: 128, timeoutMs: 5000, concurrent: 4, queued: 64, queuedBytes: 64 * 1024 * 1024, queueWaitMs: 10000 } as const;
 /** FIFO admission is bounded by count, retained input bytes and waiting time. */
@@ -40,6 +40,10 @@ function assertBytes(value: Uint8Array, max: number): void {
 /** Each invocation gets a fresh, disposable heap. No document state is retained. */
 export class WorkerWhiteboardUpdateValidator implements WhiteboardUpdateValidator {
   constructor(private readonly timeoutMs: number = WHITEBOARD_VALIDATOR_LIMITS.timeoutMs) {}
+  async restoreDeletion(snapshot:Uint8Array,proof:WhiteboardDeletionProof[]):Promise<ValidatedWhiteboardUpdate>{
+    if(Buffer.byteLength(JSON.stringify(proof))>WHITEBOARD_UPDATE_LIMITS.documentBytes)throw new WhiteboardCollaborationError('VALIDATION_FAILED');
+    return this.run({mode:'restore-deletion',snapshot,proof}) as Promise<ValidatedWhiteboardUpdate>;
+  }
   async objects(snapshot: Uint8Array): Promise<WhiteboardObject[]> {
     return this.run({ mode: 'objects', snapshot }) as Promise<WhiteboardObject[]>;
   }

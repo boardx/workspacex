@@ -11,6 +11,7 @@ export default defineConfig({ test: {
     'tests/whiteboard/recovery-service.test.ts',
     'tests/whiteboard/trusted-comment-store.test.ts',
     'tests/whiteboard/undo-tombstone-restore.test.ts',
+    'tests/whiteboard/collaboration-repository-guard.test.ts',
     'tests/whiteboard/board-content-copy-guard.test.ts',
     'tests/whiteboard/board-duplicate.test.ts',
     'tests/whiteboard/library-cursor.test.ts',

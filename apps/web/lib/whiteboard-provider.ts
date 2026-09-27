@@ -1,5 +1,6 @@
 import * as Y from 'yjs';
-import { WHITEBOARD_SYNC, WhiteboardServerMessage, type WhiteboardClientMessage } from '@repo/contracts/whiteboard-sync';
+import {executeCommands} from '@repo/whiteboard-core';
+import { WHITEBOARD_SYNC, WhiteboardServerMessage, type WhiteboardClientMessage, type WhiteboardPendingMessage } from '@repo/contracts/whiteboard-sync';
 import { apiWebSocketUrl, getStoredSessionToken } from './api-client';
 import { createWhiteboardOutbox, type WhiteboardDurableOutbox } from './whiteboard-outbox';
 export type WhiteboardConnectionState = {
@@ -35,7 +36,7 @@ export class WhiteboardProvider {
   private readonly retryableClose = new WeakSet<WebSocket>();
   private inFlight = new Set<string>();
   private persisted = new Set<string>();
-  private pending: Extract<WhiteboardClientMessage, { type: 'update' }>[] = [];
+  private pending: WhiteboardPendingMessage[] = [];
   private state: WhiteboardConnectionState = { phase: 'connecting', pending: 0, role: 'viewer', archived: false, peers: [], reason: null, retryAttempt: 0, duplicateAcks: 0, lastAckSequence: null, lastAckReceipt:null };
   constructor(private doc: Y.Doc, private boardId: string, private onState: (state: WhiteboardConnectionState) => void, outbox?: WhiteboardDurableOutbox | null) {
     this.outbox = outbox === undefined ? createWhiteboardOutbox(boardId) : outbox;
@@ -77,7 +78,7 @@ export class WhiteboardProvider {
       if (this.stopped || token !== this.token) return;
       if (restored.revoked) { this.needsReauthorization=true;this.pending=[];this.persisted.clear();this.doc.transact(()=>{this.doc.getMap('objects').clear();this.doc.getMap('deletedObjects').clear();},REMOTE);this.connect('FRESH_AUTH_REQUIRED');return; }
       this.pending = restored.updates; this.persisted = new Set(restored.updates.map(item => item.updateId));
-      for (const item of restored.updates) Y.applyUpdate(this.doc, base64ToBytes(item.update), REMOTE);
+      for (const item of restored.updates) if(item.type==='update')Y.applyUpdate(this.doc, base64ToBytes(item.update), REMOTE);
       this.publish({ pending: this.pending.length }); this.connect(restored.updates.length ? 'RESTORED_OUTBOX' : null);
     } catch { this.block('OUTBOX_CORRUPT', false); }
   }
@@ -86,8 +87,9 @@ export class WhiteboardProvider {
     if (origin === REMOTE || this.stopped) return;
     if (!this.epoch || !['owner','editor'].includes(this.state.role) || this.state.archived) { this.block('WRITE_DENIED'); return; }
     const gestureId=typeof origin==='object'&&origin!==null&&'gestureId' in origin&&typeof origin.gestureId==='string'?origin.gestureId:typeof origin==='object'&&origin!==null&&'receiptGestureId' in origin&&typeof origin.receiptGestureId==='string'?origin.receiptGestureId:crypto.randomUUID();
-    const message: Extract<WhiteboardClientMessage, { type: 'update' }> = { type: 'update', epoch: this.epoch, updateId: crypto.randomUUID(), gestureId, update: bytesToBase64(update) };
-    const bytes = this.pending.reduce((sum, item) => sum + item.update.length, 0) + message.update.length;
+    const intent=typeof origin==='object'&&origin!==null&&'restoreDeletion' in origin?origin.restoreDeletion as {deleteGestureId:string;objectIds:string[]}|undefined:undefined;
+    const message:WhiteboardPendingMessage=intent?{type:'restore-deletion',epoch:this.epoch,updateId:crypto.randomUUID(),gestureId,deleteGestureId:intent.deleteGestureId,objectIds:[...intent.objectIds]}:{ type: 'update', epoch: this.epoch, updateId: crypto.randomUUID(), gestureId, update: bytesToBase64(update) };
+    const bytes = this.pending.reduce((sum, item) => sum + JSON.stringify(item).length, 0) + JSON.stringify(message).length;
     if (this.pending.length >= WHITEBOARD_SYNC.pendingUpdates || bytes > WHITEBOARD_SYNC.pendingBytes) { this.block('PENDING_LIMIT'); return; }
     this.pending.push(message); this.publish({});
     if(!this.outbox){this.persisted.add(message.updateId);this.drain();return;}
@@ -97,12 +99,17 @@ export class WhiteboardProvider {
   private send(message: WhiteboardClientMessage) { if (this.socket?.readyState === WebSocket.OPEN) this.socket.send(JSON.stringify(message)); }
   private drain() {
     if (!this.ready || this.stopped || this.refreshingToken !== null) return;
+    // A restore is an ordered server command: predecessor delete ACK first, and
+    // no subsequent raw edit may overtake the authoritative restoration ACK.
+    if(this.pending.some(item=>item.type==='restore-deletion'&&this.inFlight.has(item.updateId)))return;
     for (const message of this.pending) {
       if (this.inFlight.size >= OUTBOUND_UPDATE_WINDOW) break;
       if (this.inFlight.has(message.updateId)) continue;
       if (!this.persisted.has(message.updateId)) break;
       if (this.socket?.readyState !== WebSocket.OPEN) break;
+      if(message.type==='restore-deletion'&&this.inFlight.size)return;
       this.send(message); this.inFlight.add(message.updateId);
+      if(message.type==='restore-deletion')return;
     }
   }
   private schedulePresence() {
@@ -157,7 +164,13 @@ export class WhiteboardProvider {
           if (this.epoch !== null && this.epoch !== message.epoch) { this.block('STALE_EPOCH'); return; }
           if (this.seq !== null && message.seq < this.seq) { this.block('STALE_SEQUENCE'); return; }
           if ((!['owner','editor'].includes(message.role) || message.archived) && this.pending.length) { this.block('WRITE_DENIED'); return; }
-          Y.applyUpdate(this.doc, base64ToBytes(message.update), REMOTE); this.epoch = message.epoch; this.seq = message.seq; this.ready = true; this.retry = 0;
+          Y.applyUpdate(this.doc, base64ToBytes(message.update), REMOTE);
+          for(const pending of this.pending)if(pending.type==='restore-deletion'){
+            const missing=pending.objectIds.filter(id=>!this.doc.getMap('objects').has(id));if(missing.length)throw new Error('RESTORE_OBJECT_MISSING');
+            const deleted=pending.objectIds.filter(id=>this.doc.getMap('deletedObjects').has(id));
+            if(deleted.length)executeCommands(this.doc,deleted.map(id=>({type:'restore',id})),REMOTE);
+          }
+          this.epoch = message.epoch; this.seq = message.seq; this.ready = true; this.retry = 0;
           clearTimeout(handshake);
           this.publish({ phase: 'online', role: message.role, archived: message.archived, reason: null, retryAttempt: 0 });
           this.inFlight.clear(); this.drain(); if (!this.pending.length) this.schedulePresence();

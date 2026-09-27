@@ -22,3 +22,21 @@ describe('real IndexedDB transactions across independent outbox instances',()=>{
   const fresh=new IndexedDbEncryptedWhiteboardOutbox('board');expect(await fresh.restore('token')).toEqual({revoked:false,updates:[accepted]});old.close();a.close();b.close();fresh.close();
  });
 });
+
+it('encrypts a typed restoration through close/reopen and token rebind, with the same immutable receipt identity',async()=>{
+ const first=new IndexedDbEncryptedWhiteboardOutbox('restore-board'),intent={type:'restore-deletion' as const,epoch:1,updateId:crypto.randomUUID(),gestureId:'undo',deleteGestureId:'delete',objectIds:['note','edge']};
+ await first.persist('old',intent);first.close();const second=new IndexedDbEncryptedWhiteboardOutbox('restore-board');
+ expect(await second.restore('old')).toEqual({revoked:false,updates:[intent]});await second.rebind('old','new');
+ const third=new IndexedDbEncryptedWhiteboardOutbox('restore-board');expect(await third.restore('new')).toEqual({revoked:false,updates:[intent]});expect((await third.restore('old')).revoked).toBe(true);
+ await third.acknowledge('new',intent.updateId);expect((await third.restore('new')).updates).toEqual([]);second.close();third.close();
+});
+
+it('same-millisecond delete, restore and later edit preserve FIFO through reopen and rebind',async()=>{
+ vi.spyOn(Date,'now').mockReturnValue(123456);
+ const first=new IndexedDbEncryptedWhiteboardOutbox('fifo-board');
+ const deleted={...update(),updateId:'ffffffff-ffff-4fff-8fff-ffffffffffff',gestureId:'delete'};
+ const restore={type:'restore-deletion' as const,epoch:1,updateId:'00000000-0000-4000-8000-000000000001',gestureId:'undo',deleteGestureId:'delete',objectIds:['note']};
+ const later={...update(),updateId:'00000000-0000-4000-8000-000000000000'};
+ await first.persist('old',deleted);await first.persist('old',restore);await first.persist('old',later);await first.persist('old',deleted);first.close();
+ const second=new IndexedDbEncryptedWhiteboardOutbox('fifo-board');expect((await second.restore('old')).updates).toEqual([deleted,restore,later]);await second.rebind('old','new');expect((await second.restore('new')).updates).toEqual([deleted,restore,later]);second.close();
+});
