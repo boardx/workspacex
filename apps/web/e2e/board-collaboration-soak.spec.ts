@@ -1,6 +1,6 @@
 import {expect, test, type BrowserContext} from '@playwright/test';
 import {createHash} from 'node:crypto';
-import {writeFile} from 'node:fs/promises';
+import {readFile, writeFile} from 'node:fs/promises';
 import {performance} from 'node:perf_hooks';
 import {setTimeout as delay} from 'node:timers/promises';
 import {BOARD_SOAK_REQUIREMENTS, nextBoardChain, signBoardSoakLedger, verifyBoardSoakLedger, type BoardAck, type BoardSoakSample} from '../../api/scripts/board-acceptance-ledger';
@@ -140,6 +140,11 @@ test('Board 50 independent browser contexts 20 writers real 30 minute soak', asy
       transport: clients.flatMap(client => client.events), acknowledgementTimings: rawAcks}, null, 2));
     await testInfo.attach('board-soak-ledger', {path: testInfo.outputPath('board-soak-ledger.json'), contentType: 'application/json'});
     await testInfo.attach('board-soak-runtime', {path: testInfo.outputPath('board-soak-runtime.json'), contentType: 'application/json'});
+    if (process.env.BOARD_SOAK_REPORT_PATH) {
+      const reference = async (name: string) => {const path = testInfo.outputPath(name); return {path, sha256: createHash('sha256').update(await readFile(path)).digest('hex')};};
+      await writeFile(process.env.BOARD_SOAK_REPORT_PATH, JSON.stringify({version: 1, kind: 'board-collaboration-soak', runtimeIdentity: runtimeAfter,
+        ledger: await reference('board-soak-ledger.json'), runtime: await reference('board-soak-runtime.json')}, null, 2));
+    }
     completed = true;
   } finally {
     if (!completed) {

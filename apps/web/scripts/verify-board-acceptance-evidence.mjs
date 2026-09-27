@@ -1,3 +1,4 @@
+import {validateBoardSoakArtifact} from './board-soak-policy.mjs';
 import {createHash} from 'node:crypto';
 import {readFile} from 'node:fs/promises';
 import {resolve} from 'node:path';
@@ -22,6 +23,10 @@ export async function verifyBoardAcceptanceEvidence(manifest, sha) {
       try {
         const bytes = await readFile(row.artifactPath);
         if (createHash('sha256').update(bytes).digest('hex') !== row.artifactSha256) failures.push(`ARTIFACT_HASH_MISMATCH:${lane}`);
+        if (lane === 'collaboration-50') {
+          const validation = await validateBoardSoakArtifact(JSON.parse(bytes.toString()), sha);
+          failures.push(...validation.failures.map(failure => `${failure}:${lane}`));
+        }
         if (lane.startsWith('performance-')) {
           const report = JSON.parse(bytes.toString());
           const validation = validateBoardPerformanceArtifact(report, boardPerformancePolicy(resolve(import.meta.dirname, '../../..')), sha, Number(lane.match(/(\d+)k$/)[1]) * 1000);
