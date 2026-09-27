@@ -59,7 +59,16 @@ export const UploadWhiteboardImport = z.object({
 }).strict();
 export const WhiteboardImportAction = z.object({ requestId: z.string().uuid() }).strict();
 export const ExecuteWhiteboardImport = WhiteboardImportAction.extend({ expectedEpoch: z.number().int().positive() }).strict();
-export const StandardWhiteboardExport = z.object({format:z.literal('workspacex.board.v1'),boardId:BoardId,epoch:z.number().int().positive(),seq:z.number().int().nonnegative(),sha256:z.string().regex(/^[a-f0-9]{64}$/),fileName:z.string(),contentBase64:z.string()}).strict();
+export const StandardWhiteboardExportRequest = z.object({ requestId: z.string().uuid() }).strict();
+export const StandardWhiteboardExport = z.object({
+  format:z.literal('workspacex.board.v1'), exportId:z.string().uuid(), boardId:BoardId,
+  epoch:z.number().int().positive(), seq:z.number().int().nonnegative(),
+  sha256:z.string().regex(/^[a-f0-9]{64}$/), sizeBytes:z.number().int().positive(),
+  fileName:z.string().min(1).max(255), objectKey:z.string().min(1).max(2048),
+  downloadPath:z.string().startsWith('/whiteboards/'), replayed:z.boolean(),
+  contentBase64:z.string().optional(),
+}).strict();
+export const StandardWhiteboardExportDownload = StandardWhiteboardExport.omit({ replayed:true }).extend({ contentBase64:z.string().min(4) }).strict();
 
 export const operations = {
   upload: { method: 'POST', path: '/whiteboards/:boardId/imports', in: UploadWhiteboardImport, out: WhiteboardImportStatus, err: WhiteboardImportFailure.options },
@@ -67,5 +76,6 @@ export const operations = {
   execute: { method: 'POST', path: '/whiteboards/:boardId/imports/:importId/execute', in: ExecuteWhiteboardImport, out: z.object({ status: WhiteboardImportStatus, report: WhiteboardImportReport, epoch: z.number().int().positive(), seq: z.number().int().nonnegative(), replayed: z.boolean() }).strict(), err: WhiteboardImportFailure.options },
   status: { method: 'GET', path: '/whiteboards/:boardId/imports/:importId', in: z.object({ boardId: BoardId, importId: WhiteboardImportId }).strict(), out: WhiteboardImportStatus, err: WhiteboardImportFailure.options },
   report: { method: 'GET', path: '/whiteboards/:boardId/imports/:importId/report', in: z.object({ boardId: BoardId, importId: WhiteboardImportId }).strict(), out: WhiteboardImportReport, err: WhiteboardImportFailure.options },
-  standardExport:{method:'GET',path:'/whiteboards/:boardId/imports/standard-export',in:z.object({boardId:BoardId}).strict(),out:StandardWhiteboardExport,err:WhiteboardImportFailure.options},
+  standardExport:{method:'POST',path:'/whiteboards/:boardId/imports/standard-export',in:StandardWhiteboardExportRequest,out:StandardWhiteboardExport,err:WhiteboardImportFailure.options},
+  downloadStandardExport:{method:'GET',path:'/whiteboards/:boardId/imports/standard-export/:exportId',in:z.object({boardId:BoardId,exportId:z.string().uuid()}).strict(),out:StandardWhiteboardExportDownload,err:WhiteboardImportFailure.options},
 } as const;

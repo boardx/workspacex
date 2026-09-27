@@ -83,6 +83,10 @@ const ALLOWLIST = new Map([
     "Board imports inherit the private board owner/member ACL and have no acl_bindings ref; the generic fallback would weaken them to org-wide. WhiteboardImportService calls boards.get before every repository read/write, denies viewers for mutation, and hides nonmembers as NOT_FOUND. The repository uses withTenant and scopes every statement by org_id+board_id+import id; it returns only import metadata/report, never source or image bytes. tests/whiteboard/import-repository-guard.test.ts mechanically pins the table scope, tenant predicates and service authorization ordering; import-service.test.ts proves wrong-tenant denial and idempotent execution. Remove this entry with those guards/tests.",
   ],
   [
+    "src/infrastructure/whiteboard/pg-export-repository.ts",
+    "Board exports inherit the private board owner/member ACL and have no acl_bindings ref; the generic fallback would weaken them to org-wide. WhiteboardImportService calls boards.get before creation and download, denies viewers and archived boards, and hides nonmembers as NOT_FOUND. This repository uses withTenant and scopes every statement by org_id+board_id+export id; it stores and returns only immutable ObjectStore pointer/digest/size/head metadata, never package bytes. tests/whiteboard/export-repository-guard.test.ts pins this boundary and import-service.test.ts proves ACL, archived, idempotency, digest, pointer, and round-trip behavior. Remove this entry with those guards/tests.",
+  ],
+  [
     "src/infrastructure/whiteboard/pg-recovery-metadata.ts",
     "Checkpoint/recovery rows inherit the private board owner/member ACL and are manifest/audit metadata, never bytes. Every public method enters withTenant and performs the locked owner/member lookup before reading; restore is owner-only and CASes the current head. tests/whiteboard/recovery-repository-guard.test.ts pins table scope, tenant predicates, access ordering and absence of snapshot bytes; recovery-metadata.test.ts proves idempotent restore before changed-head CAS. Remove this entry with those guards/tests.",
   ],

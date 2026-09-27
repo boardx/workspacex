@@ -26,7 +26,7 @@ CREATE OR REPLACE FUNCTION whiteboard_guard_object_root() RETURNS trigger LANGUA
 DECLARE k text:=to_jsonb(NEW)->>TG_ARGV[0];
 BEGIN
   IF k IS NULL THEN RETURN NEW; END IF;
-  PERFORM pg_advisory_xact_lock(hashtextextended(NEW.org_id||chr(0)||k,0));
+  PERFORM pg_advisory_xact_lock(hashtextextended(NEW.org_id||chr(31)||k,0));
   IF EXISTS(SELECT 1 FROM whiteboard_object_purge_receipts WHERE org_id=NEW.org_id AND object_key=k AND status IN('purging','deleted')) THEN RAISE EXCEPTION 'WHITEBOARD_OBJECT_PURGE_FENCED' USING ERRCODE='55000'; END IF;
   RETURN NEW;
 END $$;

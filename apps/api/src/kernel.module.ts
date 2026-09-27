@@ -8,6 +8,7 @@ import { WhiteboardImportController } from './interface/controllers/whiteboard-i
 import { WHITEBOARD_IMPORT_SERVICE, WhiteboardImportService } from './application/whiteboard/import-service';
 import { WHITEBOARD_OBJECT_INVENTORY,type WhiteboardObjectInventory } from './application/whiteboard/object-retention';
 import { PgWhiteboardImportRepository } from './infrastructure/whiteboard/pg-import-repository';
+import { PgWhiteboardExportRepository } from './infrastructure/whiteboard/pg-export-repository';
 import { WHITEBOARD_GC_RUNTIME,WhiteboardGcRuntime } from './infrastructure/whiteboard/object-gc-runtime';
 import { WHITEBOARD_RECOVERY_SERVICE, WhiteboardRecoveryService } from './application/whiteboard/recovery-service';
 import { CollaborationSnapshotSource, PgWhiteboardRecoveryMetadata } from './infrastructure/whiteboard/pg-recovery-metadata';
@@ -2945,7 +2946,7 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
     },
     {
       provide: WHITEBOARD_IMPORT_SERVICE,
-      useFactory: (boards: PgWhiteboardRepository, collaboration: PgWhiteboardCollaborationStore, db: DatabasePort, objects: ObjectStore) => new WhiteboardImportService(boards,new PgWhiteboardImportRepository(db),collaboration,objects),
+      useFactory: (boards: PgWhiteboardRepository, collaboration: PgWhiteboardCollaborationStore, db: DatabasePort, objects: ObjectStore) => new WhiteboardImportService(boards,new PgWhiteboardImportRepository(db),collaboration,objects,new PgWhiteboardExportRepository(db)),
       inject: [WHITEBOARD_REPOSITORY, WHITEBOARD_COLLABORATION_STORE, DATABASE_PORT, OBJECT_STORE],
     },
     {
