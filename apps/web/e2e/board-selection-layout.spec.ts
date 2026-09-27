@@ -206,9 +206,11 @@ test.describe("organize <=2 actions", () => {
         const operations = ["align-left", "align-center", "align-right", "align-top", "align-middle", "align-bottom", "distribute-horizontal", "distribute-vertical", "equal-width", "equal-height", "equal-size", "grid", "row", "column", "tidy-up"] as const;
         for (const operation of operations) await test.step(operation, async () => {
           await marqueeAll(page);
+          await page.getByTestId("board-inspector-layout").click();
           await page.getByTestId("board-layout-gap").fill("24");
           await page.getByTestId("board-layout-columns").fill("3");
           await page.getByTestId(`board-layout-${operation}`).click();
+          await page.getByRole("button", { name: "关闭布局", exact: true }).click();
           await expect.poll(async () => (await geometry(page)) !== original).toBe(true);
           const arranged = await geometry(page);
           expect(layoutSemantics(operation, arranged, original), `${operation} must satisfy its geometry semantics`).toBe(true);
@@ -314,16 +316,22 @@ test.describe("organize <=2 actions", () => {
       test.setTimeout(180_000);
       const { secondContext, second, original } = await setupMixedBoard(page, request, browser, baseURL);
       try {
-        await marqueeAll(page); await page.getByTestId("board-layout-smart-preview").click();
+        await marqueeAll(page); await page.getByTestId("board-inspector-layout").click();
+        await page.getByTestId("board-layout-smart-preview").click();
+        await page.getByRole("button", { name: "关闭布局", exact: true }).click();
         await expect(page.getByTestId("board-layout-preview")).toBeVisible(); await expect.poll(() => geometry(page)).not.toBe(original); await expect.poll(() => geometry(second)).toBe(original);
         await page.getByTestId("board-layout-preview-cancel").click(); await expect.poll(() => geometry(page)).toBe(original);
+        await page.getByTestId("board-inspector-layout").click();
         await page.getByTestId("board-layout-smart-preview").click();
+        await page.getByRole("button", { name: "关闭布局", exact: true }).click();
         await expect.poll(() => geometry(page)).not.toBe(original);
         const confirmedPreview = await geometry(page);
         await page.getByTestId("board-layout-preview-apply").click(); await expect(page.getByText("智能布局已应用。", { exact: true })).toBeVisible();
         await expect.poll(() => geometry(page)).toBe(confirmedPreview); await expect.poll(() => geometry(second)).toBe(confirmedPreview);
         await page.getByText("撤销", { exact: true }).click(); await expect.poll(() => geometry(page)).toBe(original); await expect.poll(() => geometry(second)).toBe(original);
+        await page.getByTestId("board-inspector-layout").click();
         await page.getByTestId("board-layout-smart-preview").click();
+        await page.getByRole("button", { name: "关闭布局", exact: true }).click();
         const remoteObject = second.getByTestId("board-a11y-mirror").getByRole("button").first(); await remoteObject.focus(); await remoteObject.press("Enter");
         const remoteId = (await remoteObject.getAttribute("data-testid"))!.replace("board-a11y-object-", "");
         await second.getByLabel("对象文字", { exact: true }).fill("并发修改后的对象");
