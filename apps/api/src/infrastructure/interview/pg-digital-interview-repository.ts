@@ -28,6 +28,7 @@ import {
 
 import { DIGITAL_REPORT_STALE_SQL } from "./workflow/digital-report-lease";
 import { interview } from "@repo/contracts";
+import { readInterviewMarkdownDocuments } from "./interview-markdown-store";
 
 /** Shared by history, status filtering and detail reads (session table alias: s). */
 const DIGITAL_INTERVIEW_READ_STATUS_SQL = `CASE
@@ -567,6 +568,9 @@ export async function readDigitalInterviewWorkflow(
   ]);
 
   const reportRow = reports.rows[0];
+  // Marked sources are verified before any consumer sees their body. Legacy rows
+  // remain readable during the additive rollout without mutation in this GET.
+  await readInterviewMarkdownDocuments(session, orgId, interviewId, row.revision_id);
   const stale = reportRow?.stale ?? false;
   const status = row.digital_status as DigitalInterviewStatusName;
   const scope = row.project_id !== null

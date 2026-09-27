@@ -18,6 +18,8 @@ import { actOnMemoryCard } from "../../application/knowledge-graph/act-on-memory
 import { applyHumanAction } from "../../application/knowledge-graph/apply-human-action";
 import { undoAutoPersonalCopy } from "../../application/knowledge-graph/auto-copy-decisions";
 import { listPromotionNominations, promoteToPersonal } from "../../application/knowledge-graph/promote-to-personal";
+import { promoteToProject } from "../../application/knowledge-graph/promote-to-project";
+import { getProjectKnowledge } from "../../application/knowledge-graph/read-project-knowledge";
 import {
   HUMAN_ACTION_PORT, KG_AUTO_COPY_PORT, KG_DEPLOYMENT_EXTRACTION_SETTINGS_PORT, KG_EXTRACTION_MODEL_CONFIG, KG_ORG_EXTRACTION_SETTINGS_PORT, KNOWLEDGE_READ_PORT, KgHumanActionError, MEMORY_CARD_PORT, PROMOTION_PORT,
   type HumanActionPort, type KgAutoCopyPort, type KgDeploymentExtractionSettingsPort, type KgExtractionModelConfig, type KgOrgExtractionSettingsPort, type KnowledgeReadPort, type MemoryCardPort, type PromotionPort,
@@ -68,7 +70,7 @@ export class KnowledgeGraphController {
       }
       if (e instanceof KgHumanActionError) {
         const body = { reasonCode: e.code };
-        if (e.code === "KG_NOT_OWNER" || e.code === "KG_ACTOR_NOT_HUMAN" || e.code === "KG_SCOPE_NOT_PERSONAL") throw new ForbiddenException(body);
+        if (e.code === "KG_NOT_OWNER" || e.code === "KG_ACTOR_NOT_HUMAN" || e.code === "KG_SCOPE_NOT_PERSONAL" || e.code === "KG_SCOPE_NOT_PROJECT") throw new ForbiddenException(body);
         if (e.code === "KG_PROMOTE_BATCH_TOO_LARGE" || e.code === "KG_INVALID_REQUEST") throw new BadRequestException(body);
         if (e.code === "KG_REVISION_CHANGED" || e.code === "KG_CONTESTED_NEEDS_RESOLUTION" || e.code === "KG_CARD_STALE") {
           throw new ConflictException(body);
@@ -147,6 +149,30 @@ export class KnowledgeGraphController {
     const parsed = KG.knowledgeGraph.promoteToPersonal.in.safeParse({ ...(body as object), threadId });
     if (!parsed.success) throw new BadRequestException({ reasonCode: "KG_INVALID_REQUEST" });
     return this.run(principal, (v) => promoteToPersonal(
+      { ...this.deps, promotion: this.promotion, newId: newKgId },
+      { ...v, threadId, claimIds: parsed.data.claimIds, ...(parsed.data.choices ? { choices: parsed.data.choices } : {}) },
+    ));
+  }
+
+  /** 项目中枢 R8 getProjectKnowledge —— 项目大脑只读（项目成员；非成员 KG_NOT_VISIBLE 403） */
+  @Get("/knowledge-graph/projects/:projectId")
+  projectKnowledge(@CurrentPrincipal() principal: Principal, @Param("projectId") projectId: string) {
+    const parsed = KG.knowledgeGraph.getProjectKnowledge.in.safeParse({ projectId });
+    if (!parsed.success) throw new BadRequestException({ reasonCode: "KG_INVALID_REQUEST" });
+    return this.run(principal, (v) => getProjectKnowledge(this.deps, { ...v, projectId: parsed.data.projectId }));
+  }
+
+  /** 项目中枢 R7 promoteToProject —— 「记到项目大脑」（逐条部分成功；创建者或本项目引导师） */
+  @Post("/knowledge-graph/threads/:threadId/promote-to-project")
+  @HttpCode(200)
+  promoteProject(@CurrentPrincipal() principal: Principal, @Param("threadId") threadId: string, @Body() body: unknown) {
+    const raw = (body ?? {}) as { claimIds?: unknown };
+    if (Array.isArray(raw.claimIds) && raw.claimIds.length > KG.KG_PROMOTE_MAX_BATCH) {
+      throw new BadRequestException({ reasonCode: "KG_PROMOTE_BATCH_TOO_LARGE" });
+    }
+    const parsed = KG.knowledgeGraph.promoteToProject.in.safeParse({ ...(body as object), threadId });
+    if (!parsed.success) throw new BadRequestException({ reasonCode: "KG_INVALID_REQUEST" });
+    return this.run(principal, (v) => promoteToProject(
       { ...this.deps, promotion: this.promotion, newId: newKgId },
       { ...v, threadId, claimIds: parsed.data.claimIds, ...(parsed.data.choices ? { choices: parsed.data.choices } : {}) },
     ));

@@ -283,7 +283,7 @@ describe("F168 guided research home live data", () => {
     fireEvent.change(screen.getByTestId("research-brief-goal"), { target: { value: "核对具体政策" } });
     fireEvent.click(screen.getByTestId("research-confirm-brief"));
     expect(screen.getByTestId("research-step-loading")).toHaveTextContent("正在生成研究方向");
-    expect(screen.getByRole("button", { name: "2. 研究方向" })).toHaveAttribute("aria-current", "step");
+    expect(screen.getByRole("button", { name: /确认研究主题/ })).toHaveAttribute("aria-current", "step");
     await waitFor(() => expect(executeResearchRuntime).toHaveBeenCalledTimes(1));
     expect(executeResearchRuntime).toHaveBeenCalledWith(expect.objectContaining({
       sessionId: "grs-entry", node: "brief", action: "confirm", expectedVersion: 0,
@@ -418,7 +418,7 @@ it("returns a URL-opened report to history without reopening the stale session p
   getResearchRuntime.mockImplementation(async (sessionId: string) => runtimeFixture("report", sessionId));
   const view = render(<GuidedResearchFlow step="home" sessionId="grs-opened" />);
   await screen.findByTestId("research-report-document");
-  fireEvent.click(screen.getByRole("button", { name: "返回" }));
+  fireEvent.click(screen.getByRole("button", { name: "返回研究列表" }));
   expect(await screen.findByTestId("research-home-page")).toBeInTheDocument();
   expect(window.location.pathname + window.location.search).toBe("/research");
   view.rerender(<GuidedResearchFlow step="home" sessionId="grs-opened" />);
