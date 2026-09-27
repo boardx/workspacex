@@ -268,3 +268,74 @@ describe("M6 主操作：破坏性动作也是主操作（迭代 18）", () => {
     expect(scorePrototypeScreen(page).parts.find((p) => p.metric === "primaryFocus")?.score).toBe(1);
   });
 });
+
+/**
+ * M9（#4327）—— 一排结构相同的内容卡片。形状全部取自真实模型生成（qwen3.8-max）的原样子树，
+ * 两个方向各有真实样本：该判的（二手书的书卡）与不该判的（情绪选择的 emoji 格子）。
+ */
+describe("M9 一排结构相同的内容卡片（一票否决）", () => {
+  const card = (children: N[]): N => ({ type: "card", children }) as unknown as N;
+  const grid = (children: N[]): N => ({ type: "grid", props: { columns: 2 }, children }) as unknown as N;
+  const image = (alt: string): N => ({ type: "image", props: { alt, kind: "photo" } }) as unknown as N;
+  const badge = (label: string): N => ({ type: "badge", props: { label } }) as unknown as N;
+  /** 一页别处都合格（过线），只看 M9 这一处。 */
+  const goodPage = (extra: N): N => stack([
+    text("二手书集市", "title"), text("本周新上架 24 本", "caption"), text("推荐", "label"),
+    button("发布闲置", "primary"), button("筛选", "ghost"),
+    { type: "input", props: { placeholder: "搜书名或作者" } } as unknown as N,
+    text("说明", "body"), text("离你最近的卖家", "body"), text("价格", "body"), extra,
+  ]);
+  const bookCard = (title: string, price: string): N =>
+    card([image(`${title}封面`), stack([text(title, "body"), text("九成新", "caption"), stack([text(price), badge("比新书省70%")])])]);
+  const moodTile = (emoji: string, label: string): N => card([stack([text(emoji), text(label)])]);
+
+  it("⭐ 反证锚点：4 张一样的书卡（真实样本形状）⇒ 判 0，总分压到线下，反馈给出 list 的改法", () => {
+    const report = scorePrototypeScreen(goodPage(grid(["高等数学", "百年孤独", "考研词汇", "Python"].map((t) => bookCard(t, "¥12")))));
+    expect(report.parts.find((p) => p.metric === "repeatedCards")?.score).toBe(0);
+    expect(report.total).toBeLessThan(PROTOTYPE_QUALITY_THRESHOLD);
+    expect(report.feedback).toContain("4 张结构相同的内容卡片");
+    expect(report.feedback).toContain("list");
+  });
+
+  it("一票否决：同一页去掉那排卡片就过线——压分只来自 M9，不是别的指标", () => {
+    expect(scorePrototypeScreen(goodPage(text("没有卡片", "body"))).total).toBeGreaterThanOrEqual(PROTOTYPE_QUALITY_THRESHOLD);
+  });
+
+  it("不误伤：「emoji + 一个词」的选项格子（真实样本：情绪选择 6 格）⇒ 满分", () => {
+    const tiles = grid([["😊", "平静"], ["😟", "焦虑"], ["😢", "低落"], ["😠", "烦躁"], ["🥰", "开心"], ["😴", "疲惫"]].map(([e, l]) => moodTile(e!, l!)));
+    expect(scorePrototypeScreen(goodPage(tiles)).parts.find((p) => p.metric === "repeatedCards")?.score).toBe(1);
+  });
+
+  it("不误伤：日历格「数字 + 留白 + 心情标签」（真实样本）⇒ spacer 不算内容，满分", () => {
+    const spacer = { type: "spacer", props: { size: "sm" } } as unknown as N;
+    const cells = grid([["1", "平静"], ["2", "开心"], ["3", "低落"], ["4", "焦虑"], ["5", "开心"]].map(([d, m]) => card([text(d!), spacer, badge(m!)])));
+    expect(scorePrototypeScreen(goodPage(cells)).parts.find((p) => p.metric === "repeatedCards")?.score).toBe(1);
+  });
+
+  it("带配图的格子即使叶子少也算（用户截图那种：同一张配图配不同的字）", () => {
+    const tiles = grid(["平静", "开心", "焦虑"].map((l) => card([image("心情配图"), text(l)])));
+    expect(scorePrototypeScreen(goodPage(tiles)).parts.find((p) => p.metric === "repeatedCards")?.score).toBe(0);
+  });
+
+  it("两张一样的卡、或三张结构各不相同 ⇒ 不判", () => {
+    const two = grid([bookCard("A", "¥1"), bookCard("B", "¥2")]);
+    const mixed = stack([bookCard("A", "¥1"), card([text("a"), text("b"), text("c"), text("d")]), card([image("x"), text("y"), badge("z")])]);
+    for (const extra of [two, mixed]) expect(scorePrototypeScreen(goodPage(extra)).parts.find((p) => p.metric === "repeatedCards")?.score).toBe(1);
+  });
+});
+
+describe("M1 内容量把画布里的元素算进去（design-delta `prototype-board`）", () => {
+  it("⭐ 导航栏 + 按钮 + 一块摆了 12 张便签的画布 ⇒ 内容量满分，不被判「几乎是空的」", () => {
+    const items = Array.from({ length: 12 }, (_, i) => ({ kind: "sticky", text: `真实想法 ${String(i + 1)}`, x: 10 + (i % 4) * 25, y: 20 + Math.floor(i / 4) * 30 }));
+    const page = stack([
+      { type: "navbar", props: { title: "Q3 头脑风暴" } } as unknown as N,
+      button("添加便签", "primary"),
+      { type: "board", props: { items } } as unknown as N,
+    ]);
+    expect(scorePrototypeScreen(page).parts.find((p) => p.metric === "substance")?.score).toBe(1);
+  });
+  it("画布是空的 ⇒ 照样按节点数扣", () => {
+    const page = stack([{ type: "navbar", props: { title: "空白板" } } as unknown as N, { type: "board", props: { items: [] } } as unknown as N]);
+    expect(scorePrototypeScreen(page).parts.find((p) => p.metric === "substance")?.score).toBeLessThan(1);
+  });
+});

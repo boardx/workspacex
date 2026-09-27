@@ -19,6 +19,9 @@ import { ChildCancellationNotice, latestCancelledRun } from "@/components/chat/w
 import { useRunCancellation } from "@/lib/chat-workbench/use-run-cancellation";
 import { useRunTraceTail } from "@/lib/chat-workbench/use-run-trace-tail";
 import { useRunTrace } from "@/lib/chat-workbench/use-run-trace";
+import { traceEntries } from "@/lib/chat-workbench/run-trace";
+import { actionsByPlanStep, type PlanStepAction } from "@/lib/chat-workbench/trace-plan";
+import { LivePlanContext, NO_LIVE_PLAN, type LivePlan } from "@/lib/chat-workbench/live-plan-context";
 import { useTemplateRecommendations, readTemplateSuggestionDismissed } from "@/lib/chat-workbench/use-template-recommendations";
 import { useTimelineScroll } from "@/lib/chat-workbench/use-timeline-scroll";
 import {
@@ -125,6 +128,8 @@ export function CopilotKitV2PanelBody({
   onPlanTodosChange,
   onRunStateChange,
   onPendingMaterialsChange,
+  onUploadingMaterialsChange,
+  onPlanStepActionsChange,
   onAttachUploadPortChange,
   threadAttachments = null,
   archived = false,
@@ -178,6 +183,12 @@ export function CopilotKitV2PanelBody({
     readonly startedAt: number | null; readonly recoveryDiagnostic?: string | null;
   }) => void;
   onPendingMaterialsChange?: (count: number) => void;
+  /** 人类实测：右栏「材料」页签点「+」上传时，进度只出现在 composer 里，「材料」这边
+   * 在上传完成前毫无反馈——用户在右栏动作，回应却出现在屏幕另一端。这个回调把
+   * "正在传几个"实时递给外壳，转给「材料」面板显示。 */
+  onUploadingMaterialsChange?: (count: number) => void;
+  /** 2026-09-27 计划显示统一 —— 最近一轮里每一步计划下做过的动作，供右栏「进度」页签按步展开。 */
+  onPlanStepActionsChange?: (actions: ReadonlyMap<string, readonly PlanStepAction[]>) => void;
   /** issue #3347 —— 见下方 `attachUploadPort` 的文档：右栏「材料」页签的上传能力面。 */
   onAttachUploadPortChange?: (port: ChatMaterialsUploadPort) => void;
   /** issue #2046（CK-P2）—— 见外层 `CopilotKitV2Panel` 同名 prop。 */
@@ -277,6 +288,7 @@ export function CopilotKitV2PanelBody({
    * 账本还没追上、或这条失败根本没有计划可恢复时为 `false`，横幅行为与改动前逐字一致。
    */
   const [planStepRecoveryOffered, setPlanStepRecoveryOffered] = React.useState(false);
+  const [livePlan, setLivePlan] = React.useState<LivePlan>(NO_LIVE_PLAN);
   /**
    * issue #2130（TW-P0-5①），回指 #2068 —— composer 的 `<textarea>` ref，
    * `/技能`/`@Agent` 两个快捷入口用它读光标位置 + 插入后把焦点还给输入框。
@@ -1403,6 +1415,25 @@ export function CopilotKitV2PanelBody({
   React.useEffect(() => {
     onPendingMaterialsChange?.(pendingMaterialsCount);
   }, [pendingMaterialsCount, onPendingMaterialsChange]);
+  /** 见 `chat-composer-attachments.tsx` 的 `uploadingCount` 头注——右栏「材料」页签
+   * 从这里知道"正在传几个"，不是只在传完之后才有反馈。 */
+  const uploadingMaterialsCount = attach.uploadingCount;
+  React.useEffect(() => {
+    onUploadingMaterialsChange?.(uploadingMaterialsCount);
+  }, [uploadingMaterialsCount, onUploadingMaterialsChange]);
+  /** 最近一轮带计划的执行过程 → 每步动作（见 `actionsByPlanStep`）。取**最后一条**有计划的 run：
+   * 右栏看的是当前这份计划，与账本（线程最新计划）对得上。 */
+  const planStepActions = React.useMemo(() => {
+    const runs = Object.values(runTrace.events);
+    for (let i = runs.length - 1; i >= 0; i -= 1) {
+      const actions = actionsByPlanStep(traceEntries(runs[i] ?? []));
+      if (actions.size > 0) return actions;
+    }
+    return new Map<string, readonly PlanStepAction[]>();
+  }, [runTrace.events]);
+  React.useEffect(() => {
+    onPlanStepActionsChange?.(planStepActions);
+  }, [planStepActions, onPlanStepActionsChange]);
 
   /**
    * issue #3347 —— 把 composer 这**同一个**附件控制器的最小上传能力面交给外壳，
@@ -1987,6 +2018,7 @@ export function CopilotKitV2PanelBody({
                         pendingRunId: pendingPermission?.runId ?? null }}>
                       {pendingPermission ? <RestoredRunApproval canWrite={canDecide} key={pendingPermission.key} runId={pendingPermission.runId} bearer={sessionToken ?? undefined} /> : null}
                       <UserMessageAttachmentsCtx.Provider value={userMessageAttachmentsContextValue}>
+                      <LivePlanContext.Provider value={livePlan}>
                       <TaskTimeline
                         onResendInterjection={resendInterjection}
                         events={runTrace.events}
@@ -1999,6 +2031,7 @@ export function CopilotKitV2PanelBody({
                         assistantMessage={V2AssistantMessage}
                         userMessage={V2UserMessage}
                       />
+                      </LivePlanContext.Provider>
                       </UserMessageAttachmentsCtx.Provider>
                       </InterruptRenderContext.Provider>
                     </ProducedFilesCtx.Provider>
@@ -2056,7 +2089,7 @@ export function CopilotKitV2PanelBody({
             对 AG-UI 事件流完全不可见（见该组件 `onRunDispatched` 的头注）。把契约回的
             真实 runId 接到 `pendingRunId` 上，交给既有的权威读去判断它现在是什么状态
             ——这条 run 撞上工具权限门时，审批卡才有机会挂出来。 */}
-        <CopilotKitV2PlanControl projectId={projectId} canWrite={canWrite} threadId={resolvedChatThreadId} refetchSignal={planLedgerRefetchTick} onRunDispatched={setPendingRunId} onStepRecoveryOfferedChange={setPlanStepRecoveryOffered} />
+        <CopilotKitV2PlanControl projectId={projectId} canWrite={canWrite} threadId={resolvedChatThreadId} refetchSignal={planLedgerRefetchTick} onRunDispatched={setPendingRunId} onStepRecoveryOfferedChange={setPlanStepRecoveryOffered} onLivePlanChange={setLivePlan} />
         {/* issue #2039（第 2 轮 gap #3，uiux-standards U3/6c）——错误此前是一行裸红字
             浮在 composer 上方，无背景/图标/层级。改成结构化 alert 卡；文案与状态机
             一行未动，只动展示层。 */}

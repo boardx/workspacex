@@ -1,9 +1,9 @@
-import { validateTextAttributes, type WhiteboardObject } from "@repo/whiteboard-core";
+import { readPanelMetadata, rotatedAnchorPoint, validateTextAttributes, type WhiteboardObject } from "@repo/whiteboard-core";
 import type { BoardFabricObject, BoardFabricKind, BoardFabricStickyAppearance, BoardFabricStyle } from "./fabric/board-fabric-object";
 import { readBoardContent } from "./board-content-adapter";
 import { getBoardSessionImageAsset } from "./board-session-image-assets";
 
-const SUPPORTED_KINDS = new Set<WhiteboardObject["kind"]>(["sticky", "text", "rectangle", "ellipse"]);
+const SUPPORTED_KINDS = new Set<WhiteboardObject["kind"]>(["sticky", "text", "rectangle", "ellipse", "frame", "group", "connector"]);
 
 function projectionRevision(object: Omit<BoardFabricObject, "revision">): number {
   const value = JSON.stringify(object);
@@ -83,6 +83,7 @@ function projectedTextStyle(object: WhiteboardObject): Partial<BoardFabricStyle>
 
 /** Pure adapter: derives disposable renderer input from whiteboard-core canonical objects. */
 export function toBoardFabricObjects(objects: readonly WhiteboardObject[]): BoardFabricObject[] {
+  const byId = new Map(objects.map((object) => [object.id, object]));
   return objects.map((object) => {
     const content = readBoardContent(object);
     const contentKind: BoardFabricKind | undefined = content?.type === "shape" ? "shape" : content?.type === "drawing" ? "drawing" : content?.type === "image" ? "image" : content ? "card" : undefined;
@@ -90,11 +91,11 @@ export function toBoardFabricObjects(objects: readonly WhiteboardObject[]): Boar
     const sticky = projectedSticky(object);
     const projected: Omit<BoardFabricObject, "revision"> = {
       id: object.id,
-      kind: contentKind ?? (supported ? object.kind as BoardFabricKind : "placeholder"),
+      kind: contentKind ?? (supported ? (object.kind === "frame" ? "panel" : object.kind) as BoardFabricKind : "placeholder"),
       orderKey: object.orderKey || object.id,
       geometry: { ...object.geometry },
       style: supported ? {
-        fill: content?.type === "shape" ? content.fill : sticky?.fill ?? object.style.fill ?? (object.kind === "sticky" ? "#F8D76E" : "#F4F4F5"),
+        fill: content?.type === "shape" ? content.fill : sticky?.fill ?? object.style.fill ?? (object.kind === "sticky" ? "#F8D76E" : object.kind === "frame" ? "rgba(248,250,252,0.76)" : ["group", "connector"].includes(object.kind) ? "transparent" : "#F4F4F5"),
         textColor: content?.type === "shape" ? content.textColor : object.style.color ?? "#29261E",
         stroke: content?.type === "shape" ? content.borderColor : object.style.stroke,
         strokeWidth: content?.type === "shape" ? content.borderWidth : undefined,
@@ -117,8 +118,28 @@ export function toBoardFabricObjects(objects: readonly WhiteboardObject[]): Boar
       sticky: supported ? sticky?.appearance : undefined,
       boardContent: content,
       imageAssetUrl: content?.type === "image" ? getBoardSessionImageAsset(content.assetId)?.objectUrl : undefined,
+      panel: object.kind === "frame" ? (() => {
+        const panel = readPanelMetadata(object);
+        return panel ? { title: object.text, mode: panel.mode, autoExpand: panel.autoExpand, clipContent: panel.clipContent } : undefined;
+      })() : undefined,
+      connector: object.kind === "connector" && object.connector ? (() => {
+        const from = object.connector!.from ? byId.get(object.connector!.from) : undefined;
+        const to = object.connector!.to ? byId.get(object.connector!.to) : undefined;
+        const fromAnchor = object.connector!.fromAnchor ?? "right", toAnchor = object.connector!.toAnchor ?? "left";
+        const start = from ? rotatedAnchorPoint(from, fromAnchor) : object.connector!.fromPoint;
+        const end = to ? rotatedAnchorPoint(to, toAnchor) : object.connector!.toPoint;
+        if (!start || !end) return undefined;
+        return {
+          ...(from ? { from: from.id } : {}), ...(to ? { to: to.id } : {}), fromAnchor, toAnchor,
+          type: object.connector!.type ?? "straight", startStyle: object.connector!.startStyle ?? "none",
+          endStyle: object.connector!.endStyle ?? "arrow", lineStyle: object.connector!.lineStyle ?? "solid",
+          label: object.connector!.label ?? object.text, semanticRelation: object.connector!.semanticRelation ?? "",
+          start, end,
+        };
+      })() : undefined,
       parentId: object.parentId ?? undefined,
-      locked: supported ? undefined : true,
+      locked: supported ? Boolean(object.locked) : true,
+      zIndex: object.zIndex ?? 0,
       projectionIssue: supported ? undefined : {
         code: "BOARD_OBJECT_UNSUPPORTED" as const,
         sourceKind: object.kind,

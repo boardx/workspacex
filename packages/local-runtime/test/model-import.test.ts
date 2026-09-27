@@ -59,6 +59,9 @@ describe("blob 的摘要就写在文件名里", () => {
   it("不是这个形状就说不知道，不瞎猜", () => {
     expect(digestFromBlobPath("/x/blobs/sha256-short")).toBeNull();
     expect(digestFromBlobPath("/x/manifests/qwen/4b")).toBeNull();
+    // Windows 路径：只认 `/` 时这里是 null，调用方就跳过摘要校验、坏 blob 照收（windows-latest 实测）。
+    expect(digestFromBlobPath(`C:\\Users\\u\\models\\blobs\\sha256-${"b".repeat(64)}`)).toBe("b".repeat(64));
+    expect(digestFromBlobPath(`C:\\x\\blobs\\xsha256-${"b".repeat(64)}`)).toBeNull();
   });
 });
 

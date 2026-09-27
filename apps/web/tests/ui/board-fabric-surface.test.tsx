@@ -8,6 +8,9 @@ interface MockProjectedObject {
   selectable: boolean; evented: boolean;
   mockKind?: string; children?: MockProjectedObject[]; controls?: Record<string, boolean>;
   fontFamily?: string; fontSize?: number; fontWeight?: number; fontStyle?: string; underline?: boolean; textAlign?: string; lineHeight?: number; fill?: string; hoverCursor?: string; lockScalingX?: boolean; lockScalingY?: boolean;
+  clipPath?: unknown;
+  matrix?: number[];
+  calcTransformMatrix: () => number[];
 }
 
 const probe = vi.hoisted(() => ({
@@ -15,13 +18,16 @@ const probe = vi.hoisted(() => ({
   objects: [] as MockProjectedObject[],
   handlers: new Map<string, (event: { target?: MockProjectedObject; e?: MouseEvent }) => void>(),
   activeId: null as string | null,
+  emitSelectionOnSet: false,
   zoom: 1,
   clearCalls: 0,
   renderCalls: 0,
   moveCalls: 0,
+  active: null as MockProjectedObject | null,
   primitiveKinds: [] as string[],
   imageSources: [] as string[],
   imageOptions: [] as Record<string, unknown>[],
+
 }));
 
 vi.mock("fabric", () => {
@@ -31,10 +37,19 @@ vi.mock("fabric", () => {
     selectable = true; evented = true;
     controls?: Record<string, boolean>;
     constructor(first?: unknown, second: Record<string, unknown> = {}) { if (first && typeof first === "object" && !Array.isArray(first)) Object.assign(this, first); if (typeof first === "string") Object.assign(this, { text: first }); Object.assign(this, second); }
+    matrix?: number[];
     set(values: Record<string, unknown>) { Object.assign(this, values); return this; }
     setControlsVisibility(values: Record<string, boolean>) { this.controls = { ...values }; return this; }
     setCoords() {}
     getBoundingRect() { return { left: this.left, top: this.top, width: this.width * this.scaleX, height: this.height * this.scaleY }; }
+    getTotalAngle() { return this.angle; }
+    calcTransformMatrix() {
+      if (this.matrix) return this.matrix;
+      const radians = this.angle * Math.PI / 180, width = this.width * this.scaleX, height = this.height * this.scaleY;
+      return [Math.cos(radians) * this.scaleX, Math.sin(radians) * this.scaleX, -Math.sin(radians) * this.scaleY, Math.cos(radians) * this.scaleY,
+        this.left + Math.cos(radians) * width / 2 - Math.sin(radians) * height / 2,
+        this.top + Math.sin(radians) * width / 2 + Math.cos(radians) * height / 2];
+    }
   }
   class MockRect extends MockObject { mockKind = "rect"; constructor(first?: unknown, second?: Record<string, unknown>) { super(undefined, second ?? (first as Record<string, unknown>)); probe.primitiveKinds.push("Rect"); } }
   class MockCircle extends MockObject { mockKind = "circle"; constructor(first?: unknown, second?: Record<string, unknown>) { super(first, second); probe.primitiveKinds.push("Circle"); } }
@@ -64,13 +79,16 @@ vi.mock("fabric", () => {
     setViewportTransform(value: number[]) { this.viewportTransform = value; probe.zoom = value[0] ?? 1; }
     getWidth() { return 1200; } getHeight() { return 800; } getZoom() { return probe.zoom; }
     zoomToPoint(_point: unknown, value: number) { probe.zoom = value; }
-    getScenePoint() { return { x: 123, y: 234 }; }
-    setActiveObject(object: MockProjectedObject) { probe.activeId = object.data?.boardObjectId ?? null; }
-    discardActiveObject() { probe.activeId = null; }
-    getActiveObject() { return probe.objects.find((object) => object.data?.boardObjectId === probe.activeId); }
+    getScenePoint(event?: MouseEvent) { return event && (event.clientX || event.clientY) ? { x: event.clientX, y: event.clientY } : { x: 123, y: 234 }; }
+    setActiveObject(object: MockProjectedObject) { probe.active = object; probe.activeId = object.data?.boardObjectId ?? null; if (probe.emitSelectionOnSet) probe.handlers.get("selection:updated")?.({ target: object }); }
+    discardActiveObject() { probe.active = null; probe.activeId = null; }
+    getActiveObject() { return probe.active ?? probe.objects.find((object) => object.data?.boardObjectId === probe.activeId); }
     clear() { probe.clearCalls += 1; }
   }
-  return { Canvas, Rect: MockRect, Circle: MockCircle, Path: MockPath, FabricImage: MockImage, Textbox: MockTextbox, Group: MockGroup, Point: MockObject };
+  class ActiveSelection extends MockObject { constructor(public objects: MockProjectedObject[]) { super(); } getObjects() { return this.objects; } setControlsVisibility() { return this; } }
+  const util = { qrDecompose: (matrix: number[] & { angle?: number }) => ({ angle: matrix.angle ?? Math.atan2(matrix[1] ?? 0, matrix[0] ?? 1) * 180 / Math.PI, scaleX: Math.hypot(matrix[0] ?? 1, matrix[1] ?? 0), scaleY: Math.hypot(matrix[2] ?? 0, matrix[3] ?? 1), translateX: matrix[4] ?? 0, translateY: matrix[5] ?? 0, skewX: 0, skewY: 0 }) };
+  return { ActiveSelection, Canvas, Rect: MockRect, Circle: MockCircle, Line: MockObject, Path: MockPath, FabricImage: MockImage, Triangle: MockObject, Textbox: MockTextbox, Group: MockGroup, Point: MockObject, util };
+
 });
 
 class ResizeObserverMock { observe() {} disconnect() {} }
@@ -81,7 +99,7 @@ vi.stubGlobal("Image", class {
   get src() { return this.value; }
 });
 
-import { BoardFabricSurface } from "@/components/whiteboard/fabric/board-fabric-surface";
+import { BoardFabricSurface, connectorTipAngles } from "@/components/whiteboard/fabric/board-fabric-surface";
 
 const OBJECTS: readonly BoardFabricObject[] = [
   { id: "s-1", kind: "sticky", revision: 1, orderKey: "a", geometry: { x: 40, y: 60, width: 220, height: 180, rotation: 0 }, style: { fill: "#F8D76E", textColor: "#29261E" }, content: { text: "一个观察" } },
@@ -94,7 +112,18 @@ function renderSurface(overrides: Partial<React.ComponentProps<typeof BoardFabri
 }
 
 describe("BoardFabricSurface", () => {
-  beforeEach(() => { probe.instances = 0; probe.objects.length = 0; probe.handlers.clear(); probe.activeId = null; probe.zoom = 1; probe.clearCalls = 0; probe.renderCalls = 0; probe.moveCalls = 0; probe.primitiveKinds.length = 0; probe.imageSources.length = 0; probe.imageOptions.length = 0; });
+  beforeEach(() => { probe.instances = 0; probe.objects.length = 0; probe.handlers.clear(); probe.active = null; probe.activeId = null; probe.emitSelectionOnSet = false; probe.zoom = 1; probe.clearCalls = 0; probe.renderCalls = 0; probe.moveCalls = 0; probe.primitiveKinds.length = 0; probe.imageSources.length = 0; probe.imageOptions.length = 0; });
+
+
+  it("orients connector tips from each final path tangent", () => {
+    expect(connectorTipAngles("straight", -50, -30, 50, 30)).toEqual({ start: expect.any(Number), end: expect.any(Number) });
+    const elbow = connectorTipAngles("elbow", -50, -30, 50, 30);
+    expect(elbow.start % 360).not.toBe(elbow.end % 360);
+    const curve = connectorTipAngles("curve", -50, -30, 50, 30);
+    expect(curve.start % 360).toBe(270);
+    expect(curve.end % 360).toBe(90);
+  });
+
 
   it("projects canonical-like objects into one Fabric Canvas without DOM object replicas", () => {
     const { container } = renderSurface();
@@ -123,6 +152,29 @@ describe("BoardFabricSurface", () => {
     expect(probe.imageSources).toEqual(["blob:verified-image"]);
     expect(probe.imageSources).not.toContain(ready.boardContent?.type === "image" ? ready.boardContent.sourceUrl : "");
     expect(probe.imageOptions[0]).toMatchObject({ cropX: 100, cropY: 30, width: 200, height: 240, opacity: .7, clipPath: expect.objectContaining({ rx: expect.any(Number), ry: expect.any(Number) }) });
+  });
+
+  it.each(["needs", ""])("renders endpoint-driven connector with label %j and transparent hit testing", (label) => {
+    const panel: BoardFabricObject = { ...OBJECTS[0]!, id: "panel", kind: "panel", zIndex: -1, panel: { title: "Research", mode: "grid", autoExpand: true, clipContent: false } };
+    const edge: BoardFabricObject = { ...OBJECTS[0]!, id: "edge", kind: "connector", zIndex: 2, content: { text: "needs" }, connector: { from: "s-1", to: "r-1", fromAnchor: "right", toAnchor: "left", type: "curve", startStyle: "none", endStyle: "arrow", lineStyle: "dashed", label, semanticRelation: "needs", start: { x: 260, y: 150 }, end: { x: 360, y: 150 } } };
+    renderSurface({ objects: [OBJECTS[0]!, OBJECTS[1]!, panel, edge] });
+    expect(probe.objects.map((object) => object.data?.boardObjectId)).toEqual(["panel", "s-1", "r-1", "edge"]);
+    expect(probe.objects.find((object) => object.data?.boardObjectId === "edge")?.children?.filter(child => child.mockKind === "textbox")).toHaveLength(label ? 1 : 0);
+    expect(probe.objects.find((object) => object.data?.boardObjectId === "edge")).toMatchObject({ selectable: true, evented: true, perPixelTargetFind: true, lockMovementX: true, lockMovementY: true, lockScalingX: true, lockScalingY: true, lockRotation: true, hasControls: false });
+  });
+
+  it("highlights and reparents nested Panels at the completed Fabric gesture boundary", () => {
+    const parent: BoardFabricObject = { ...OBJECTS[0]!, id: "parent", kind: "panel", geometry: { x: 0, y: 0, width: 500, height: 400, rotation: 0 }, panel: { title: "Parent", mode: "freeform", autoExpand: true, clipContent: false } };
+    const child: BoardFabricObject = { ...OBJECTS[0]!, id: "child", kind: "panel", geometry: { x: 600, y: 0, width: 180, height: 140, rotation: 0 }, panel: { title: "Child", mode: "flow", autoExpand: true, clipContent: false } };
+    const onPanelHoverChange = vi.fn(), onObjectReparent = vi.fn();
+    renderSurface({ objects: [parent, child], onObjectTransform: vi.fn(() => true), onPanelHoverChange, onObjectReparent });
+    const projected = probe.objects.find((object) => object.data?.boardObjectId === "child")!;
+    projected.left = 120; projected.top = 100;
+    probe.handlers.get("object:moving")?.({ target: projected });
+    expect(onPanelHoverChange).toHaveBeenCalledWith("parent");
+    probe.handlers.get("object:modified")?.({ target: projected });
+    expect(onObjectReparent).toHaveBeenCalledWith("child", "parent");
+    expect(onPanelHoverChange).toHaveBeenLastCalledWith(null);
   });
 
   it("converts a dragged dock tool drop into world coordinates without creating renderer-owned state", () => {
@@ -222,6 +274,27 @@ describe("BoardFabricSurface", () => {
     expect(screen.getByTestId("board-a11y-object-r-1")).toHaveAttribute("aria-pressed", "true");
   });
 
+  it("keeps Fabric ActiveSelection callbacks in canonical controlled-selection order", () => {
+    const onSelectionChange = vi.fn();
+    renderSurface({ selectedObjectIds: ["r-1", "s-1"], onSelectionChange });
+    expect(probe.active).not.toBeNull();
+    probe.handlers.get("selection:updated")?.({ target: probe.active! });
+    expect(onSelectionChange).toHaveBeenCalledWith(["r-1", "s-1"], "canvas");
+  });
+
+  it("renders alignment guides and equal 24 px spacing while an object moves", async () => {
+    const spaced: BoardFabricObject[] = [
+      { ...OBJECTS[0]!, id: "left", geometry: { x: 0, y: 60, width: 100, height: 80, rotation: 0 } },
+      { ...OBJECTS[0]!, id: "moving", geometry: { x: 124, y: 60, width: 100, height: 80, rotation: 0 } },
+      { ...OBJECTS[0]!, id: "right", geometry: { x: 248, y: 60, width: 100, height: 80, rotation: 0 } },
+    ];
+    renderSurface({ objects: spaced, selectedObjectIds: ["moving"] });
+    const moving = probe.objects.find((object) => object.data?.boardObjectId === "moving")!;
+    act(() => probe.handlers.get("object:moving")?.({ target: moving }));
+    expect(await screen.findByTestId("board-smart-guides")).toBeVisible();
+    expect(screen.getAllByTestId("board-spacing-measurement").map((node) => node.textContent)).toContain("24 px");
+  });
+
   it("commits one normalized geometry callback at gesture end and blocks viewer writes", () => {
     const onObjectTransform = vi.fn();
     const writable = renderSurface({ onObjectTransform });
@@ -237,6 +310,150 @@ describe("BoardFabricSurface", () => {
     probe.handlers.get("object:modified")?.({ target: probe.objects[0]! });
     expect(onObjectTransform).not.toHaveBeenCalled();
     expect(probe.objects.every((object) => !object.selectable && !object.evented)).toBe(true);
+  });
+
+  it("commits ActiveSelection move/resize/rotate as one canonical batch", () => {
+    const onObjectsTransform = vi.fn(() => true);
+    renderSurface({ selectedObjectIds: ["s-1", "r-1"], onObjectsTransform });
+    expect(probe.active).not.toBeNull();
+    probe.objects[0]!.left = 120; probe.objects[0]!.top = 140; probe.objects[0]!.scaleX = 1.5;
+    probe.objects[1]!.left = 420; probe.objects[1]!.top = 180; probe.objects[1]!.scaleY = 1.25;
+    probe.handlers.get("object:modified")?.({ target: probe.active! });
+    expect(onObjectsTransform).toHaveBeenCalledOnce();
+    expect(onObjectsTransform).toHaveBeenCalledWith([
+      expect.objectContaining({ id: "s-1", geometry: expect.objectContaining({ x: 120, y: 140, width: OBJECTS[0]!.geometry.width * 1.5 }) }),
+      expect.objectContaining({ id: "r-1", geometry: expect.objectContaining({ height: OBJECTS[1]!.geometry.height * 1.25, rotation: 5 }) }),
+    ], { duplicate: false });
+  });
+
+  it("exposes read-only per-object Fabric scene bounds for pointer acceptance probes", () => {
+    renderSurface();
+    const scenes = JSON.parse(screen.getByTestId("board-fabric-surface").getAttribute("data-object-scenes")!) as Array<{ id: string; left: number; top: number; width: number; height: number }>;
+    expect(scenes.find(value => value.id === "s-1")).toEqual({ id: "s-1", left: 40, top: 60, width: expect.closeTo(220), height: 180 });
+    expect(scenes.find(value => value.id === "r-1")).toEqual({ id: "r-1", left: 360, top: 80, width: 240, height: 140 });
+  });
+
+  it("shows guides for resize and ActiveSelection, with Alt bypass", async () => {
+    const target = { ...OBJECTS[0]!, id: "target", geometry: { ...OBJECTS[0]!.geometry, x: 100, y: 0 } };
+    renderSurface({ objects: [...OBJECTS, target], selectedObjectIds: ["s-1", "r-1"] });
+    probe.objects[0]!.left = 140;
+    act(() => probe.handlers.get("object:scaling")?.({ target: probe.objects[0] }));
+    expect(await screen.findByTestId("board-smart-guides")).toBeVisible();
+    act(() => probe.handlers.get("object:scaling")?.({ target: probe.objects[0], e: new MouseEvent("mousemove", { altKey: true }) }));
+    expect(screen.queryByTestId("board-smart-guides")).toBeNull();
+    probe.active!.scaleX = 1.7; probe.active!.scaleY = .6;
+    act(() => probe.handlers.get("object:scaling")?.({ target: probe.active! }));
+    expect(probe.active!.scaleX).toBe(probe.active!.scaleY);
+    act(() => probe.handlers.get("object:moving")?.({ target: probe.active! }));
+    expect(screen.getByTestId("board-smart-guides")).toBeVisible();
+  });
+
+  it("snaps rotation angles and keeps distance threshold in screen pixels", async () => {
+    const first = renderSurface({ selectedObjectIds: ["s-1"], viewport: { ...VIEWPORT, zoom: 2 } });
+    const moving = probe.objects[0]!;
+    moving.left = 136; moving.angle = 44;
+    act(() => probe.handlers.get("object:moving")?.({ target: moving }));
+    expect(screen.queryByTestId("board-smart-guides")).toBeNull();
+    act(() => probe.handlers.get("object:rotating")?.({ target: moving }));
+    expect(moving.angle).toBe(45);
+    first.unmount();
+
+    probe.objects.length = 0; probe.handlers.clear();
+    renderSurface({ selectedObjectIds: ["s-1"], viewport: { ...VIEWPORT, zoom: .5 } });
+    const zoomedOut = probe.objects[0]!;
+    zoomedOut.left = 136;
+    act(() => probe.handlers.get("object:moving")?.({ target: zoomedOut }));
+    expect(await screen.findByTestId("board-smart-guides")).toBeVisible();
+  });
+
+  it("commits an ActiveSelection as one batch and restores every member when rejected", () => {
+    const onObjectsTransform = vi.fn((_items: readonly unknown[]) => false);
+    renderSurface({ selectedObjectIds: ["s-1", "r-1"], onObjectsTransform });
+    const [sticky, rectangle] = probe.objects;
+    sticky!.left = 500; rectangle!.left = 700;
+    probe.handlers.get("object:modified")?.({ target: { getObjects: () => [sticky, rectangle] } as unknown as MockProjectedObject });
+    expect(onObjectsTransform).toHaveBeenCalledOnce();
+    expect(onObjectsTransform.mock.calls[0]?.[0]).toHaveLength(2);
+    expect(sticky!.left).toBe(OBJECTS[0]!.geometry.x);
+    expect(rectangle!.left).toBe(OBJECTS[1]!.geometry.x);
+  });
+
+  it("keeps locked ActiveSelection members selectable but excludes them from the canonical transform", () => {
+    const locked = { ...OBJECTS[1]!, id: "locked", locked: true };
+    const onObjectsTransform = vi.fn(() => true);
+    const onSelectionChange = vi.fn();
+    probe.emitSelectionOnSet = true;
+    renderSurface({ objects: [OBJECTS[0]!, locked], selectedObjectIds: ["s-1", "locked"], onObjectsTransform, onSelectionChange });
+    const free = probe.objects.find((object) => object.data?.boardObjectId === "s-1")!;
+    const frozen = probe.objects.find((object) => object.data?.boardObjectId === "locked")!;
+    expect(frozen).toMatchObject({ selectable: true, evented: true, lockMovementX: true, lockScalingX: true, lockRotation: true });
+    expect(probe.activeId).toBe("s-1");
+    expect(onSelectionChange).not.toHaveBeenCalled();
+    free.left = 500; frozen.left = 800;
+    probe.handlers.get("object:modified")?.({ target: { getObjects: () => [free, frozen] } as unknown as MockProjectedObject });
+    expect(onObjectsTransform).toHaveBeenCalledWith([expect.objectContaining({ id: "s-1" })], { duplicate: false });
+    expect(frozen.left).toBe(locked.geometry.x);
+  });
+
+  it("writes ActiveSelection members from their total scene matrix and total angle", () => {
+    const onObjectsTransform = vi.fn(() => true);
+    renderSurface({ selectedObjectIds: ["s-1", "r-1"], onObjectsTransform });
+    const [sticky, rectangle] = probe.objects;
+    const rotation = 30, radians = rotation * Math.PI / 180, width = sticky!.width * 2, height = sticky!.height * 2;
+    const x = 300, y = 200;
+    sticky!.angle = rotation;
+    sticky!.matrix = [Math.cos(radians) * 2, Math.sin(radians) * 2, -Math.sin(radians) * 2, Math.cos(radians) * 2,
+      x + Math.cos(radians) * width / 2 - Math.sin(radians) * height / 2,
+      y + Math.sin(radians) * width / 2 + Math.cos(radians) * height / 2];
+    rectangle!.matrix = rectangle!.calcTransformMatrix();
+    probe.handlers.get("object:modified")?.({ target: { getObjects: () => [sticky, rectangle] } as unknown as MockProjectedObject });
+    expect(onObjectsTransform).toHaveBeenCalledWith(expect.arrayContaining([expect.objectContaining({ id: "s-1", geometry: { x, y, width, height, rotation } })]), { duplicate: false });
+  });
+
+  it("chooses the visually topmost overlapping Panel as the reparent target", () => {
+    const lower: BoardFabricObject = { ...OBJECTS[0]!, id: "lower", kind: "panel", zIndex: 1, geometry: { x: 0, y: 0, width: 500, height: 400, rotation: 0 }, panel: { title: "Lower", mode: "freeform", autoExpand: false, clipContent: false } };
+    const upper: BoardFabricObject = { ...lower, id: "upper", zIndex: 9, panel: { ...lower.panel!, title: "Upper" } };
+    const child: BoardFabricObject = { ...OBJECTS[0]!, id: "child", zIndex: 10, geometry: { x: 600, y: 20, width: 100, height: 80, rotation: 0 } };
+    const onObjectsTransform = vi.fn(() => true);
+    renderSurface({ objects: [upper, child, lower], onObjectsTransform });
+    const projected = probe.objects.find((object) => object.data?.boardObjectId === "child")!;
+    projected.left = 100; projected.top = 100;
+    probe.handlers.get("object:modified")?.({ target: projected });
+    expect(onObjectsTransform).toHaveBeenCalledWith([expect.objectContaining({ id: "child", parentId: "upper" })], { duplicate: false });
+  });
+
+  it("marks an Option/Alt completed drag as a canonical duplicate gesture", () => {
+    const onObjectsTransform = vi.fn(() => true);
+    renderSurface({ onObjectsTransform });
+    const sticky = probe.objects[0]!;
+    sticky.left += 24; sticky.top += 24;
+    probe.handlers.get("object:modified")?.({ target: sticky, e: new MouseEvent("mouseup", { altKey: true }) });
+    expect(onObjectsTransform).toHaveBeenCalledWith([expect.objectContaining({ id: "s-1" })], { duplicate: true });
+  });
+
+  it("captures an Alt ActiveSelection at pointer-down and duplicates every member even when Fabric omits object:modified", () => {
+    const onObjectsTransform = vi.fn(() => true);
+    renderSurface({ selectedObjectIds: ["s-1", "r-1"], onObjectsTransform });
+    const original = probe.objects.map(object => ({ left: object.left, top: object.top }));
+    probe.handlers.get("mouse:down")?.({ target: probe.active!, e: new MouseEvent("mousedown", { altKey: true, clientX: 100, clientY: 120 }) } as never);
+    probe.handlers.get("mouse:move")?.({ target: probe.active!, e: new MouseEvent("mousemove", { clientX: 142, clientY: 148 }) } as never);
+    probe.handlers.get("mouse:up")?.({ target: probe.active!, e: new MouseEvent("mouseup", { clientX: 142, clientY: 148 }) } as never);
+    expect(onObjectsTransform).toHaveBeenCalledOnce();
+    expect(onObjectsTransform).toHaveBeenCalledWith([
+      expect.objectContaining({ id: "s-1", geometry: expect.objectContaining({ x: OBJECTS[0]!.geometry.x + 42, y: OBJECTS[0]!.geometry.y + 28 }) }),
+      expect.objectContaining({ id: "r-1", geometry: expect.objectContaining({ x: OBJECTS[1]!.geometry.x + 42, y: OBJECTS[1]!.geometry.y + 28 }) }),
+    ], { duplicate: true });
+    expect(probe.objects.map(object => ({ left: object.left, top: object.top }))).toEqual(original);
+  });
+
+  it("applies an absolute Fabric clipPath only to children of clip-enabled Panels", () => {
+    const panel: BoardFabricObject = { ...OBJECTS[0]!, id: "panel", kind: "panel", geometry: { ...OBJECTS[0]!.geometry, rotation: 30 }, panel: { title: "Clip", mode: "freeform", autoExpand: false, clipContent: true } };
+    const child: BoardFabricObject = { ...OBJECTS[1]!, id: "child", parentId: "panel" };
+    renderSurface({ objects: [panel, child] });
+    expect(probe.objects.find((object) => object.data?.boardObjectId === "child")?.clipPath).toBeTruthy();
+    expect(probe.objects.find((object) => object.data?.boardObjectId === "child")?.clipPath).toMatchObject({ angle: 30, originX: "left", originY: "top", absolutePositioned: true });
+    expect(probe.objects.find((object) => object.data?.boardObjectId === "panel")?.clipPath).toBeUndefined();
+
   });
 
   it("rolls a rejected transform back to canonical geometry without losing selection", () => {

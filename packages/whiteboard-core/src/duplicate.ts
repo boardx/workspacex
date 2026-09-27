@@ -75,7 +75,7 @@ export function duplicateWhiteboardSnapshot(sourceSnapshot: Uint8Array, newId: (
     }
     const copies = dependencyOrder(objects).map(item => {
       if (item.parentId !== null && !mapping.has(item.parentId)) throw new Error('INVALID_DUPLICATE_REFERENCE');
-      if (item.connector && (!mapping.has(item.connector.from) || !mapping.has(item.connector.to))) throw new Error('INVALID_DUPLICATE_REFERENCE');
+      if (item.connector && ((item.connector.from && !mapping.has(item.connector.from)) || (item.connector.to && !mapping.has(item.connector.to)))) throw new Error('INVALID_DUPLICATE_REFERENCE');
       const copy = structuredClone(item);
       // The receipt carries source Board/version provenance. Keeping an object-level
       // restoredFrom would leave a dangling source identity in the independent target.
@@ -83,7 +83,11 @@ export function duplicateWhiteboardSnapshot(sourceSnapshot: Uint8Array, newId: (
       return WhiteboardObject.parse({
         ...copy, id: mapping.get(item.id),
         parentId: item.parentId === null ? null : mapping.get(item.parentId),
-        ...(item.connector ? { connector: { from: mapping.get(item.connector.from), to: mapping.get(item.connector.to) } } : {}),
+        ...(item.connector ? { connector: {
+          ...copy.connector,
+          ...(item.connector.from ? { from: mapping.get(item.connector.from) } : {}),
+          ...(item.connector.to ? { to: mapping.get(item.connector.to) } : {}),
+        } } : {}),
       });
     });
     for (let offset = 0; offset < copies.length; offset += WHITEBOARD_LIMITS.batch) {

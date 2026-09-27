@@ -352,8 +352,17 @@ export const memoryCardForgetOpen: MemoryCard = {
 /** U-5 矛盾提醒（uc-18-6 D）：新说法与「你确认过」的一条冲突 */
 export const conflictPromptNormal: ConflictPrompt = {
   promptId: "prompt-conflict-1",
+  kind: "conflict",
   newerClaim: { id: "clm-conflict-date-b", statement: "上线改到下周三（10/1）。" },
   olderClaim: { id: "clm-conflict-date-a", statement: "9/29 上线", saidAt: "2026-09-20T00:00:00Z" },
+};
+
+/** issue #4290：本人低把握的改口（只有框架动词相同）——不自动取代，卡上问「用〈新〉取代〈旧〉？」 */
+export const conflictPromptPossibleChange: ConflictPrompt = {
+  promptId: "prompt-change-1",
+  kind: "possible_change",
+  newerClaim: { id: "clm-change-985", statement: "改成关注 985" },
+  olderClaim: { id: "clm-change-211", statement: "我决定关注 211 高校", saidAt: "2026-09-24T00:00:00Z" },
 };
 
 /** U-1：本轮记下了 2 条，带一张矛盾卡（一轮最多一张主动卡片） */
@@ -365,6 +374,7 @@ export const turnMemoryWithConflict: TurnMemory = {
   ],
   pending: false,
   prompt: { type: "conflict", conflict: conflictPromptNormal },
+  supersede: null,
   recalled: [],
   recallDegraded: false,
 };
@@ -379,6 +389,7 @@ export const turnMemoryWithRememberCard: TurnMemory = {
   ],
   pending: false,
   prompt: { type: "memory_card", card: memoryCardRememberOpen },
+  supersede: null,
   recalled: [],
   recallDegraded: false,
 };
@@ -392,6 +403,7 @@ export const turnMemoryCapturedOnly: TurnMemory = {
   ],
   pending: false,
   prompt: null,
+  supersede: null,
   recalled: [],
   recallDegraded: false,
 };
@@ -402,6 +414,7 @@ export const turnMemoryPending: TurnMemory = {
   captured: [],
   pending: true,
   prompt: null,
+  supersede: null,
   recalled: [],
   recallDegraded: false,
 };

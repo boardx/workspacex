@@ -6,6 +6,7 @@ import { Check, Search, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
+import { ExpertAvatarEditor } from "@/components/itv/expert-avatar";
 import {
   MOCK_DIGITAL_EXPERTS,
 } from "@/lib/mock/digital-expert-personas";
@@ -102,6 +103,7 @@ export function ExpertPickerDialog({
                     disabled={isOriginal}
                     onChange={(event) => toggle(expert.expertId, event.currentTarget.checked)}
                   />
+                  <ExpertAvatarEditor expertId={expert.expertId} displayName={expert.displayName} compact />
                   <div className="min-w-0 flex-1">
                     <div className="flex flex-wrap items-center gap-2"><strong>{expert.displayName}</strong><span className="rounded-full bg-primary/10 px-2 py-0.5 text-[11px] text-primary">{expert.category}</span>{isOriginal && <span className="inline-flex items-center gap-1 text-xs text-muted-foreground"><Check className="size-3" aria-hidden />已添加</span>}</div>
                     <p className="mt-1 text-xs text-muted-foreground">{expert.role}</p>

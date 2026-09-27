@@ -25,7 +25,10 @@ export class PgHumanAction implements HumanActionPort {
         await s.query("SELECT set_config('app.current_user_id', $1, true)", [userId]);
         const r = await s.query<{ r: { revision: number; action_id: string } }>(
           // F16：矛盾提醒的出口单独一个函数（同样的所有者 / 会话锁 / revision 前置），见迁移 20260924290000。
-          input.action.type === "resolveConflict" ? "SELECT kg_resolve_conflict($1::jsonb) AS r" : "SELECT kg_apply_human_action($1::jsonb) AS r",
+          // #4290：撤销一次改口取代同样单独一个函数（迁移 20260926140000）。
+          input.action.type === "resolveConflict" ? "SELECT kg_resolve_conflict($1::jsonb) AS r"
+            : input.action.type === "undoSupersede" ? "SELECT kg_undo_supersede($1::jsonb) AS r"
+              : "SELECT kg_apply_human_action($1::jsonb) AS r",
           [JSON.stringify({ action_id: input.actionId, thread_id: input.threadId, based_on_revision: input.basedOnRevision, action: input.action })],
         );
         // F16：一个动作可能连带结束冲突（kg_conflict_close_on_change 各记一条动作），版本号按落表后重数。

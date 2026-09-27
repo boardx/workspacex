@@ -2,7 +2,7 @@
 import asyncio
 import httpx
 import pytest
-from langchain_core.messages import AIMessage
+from langchain_core.messages import AIMessage, ToolMessage
 from deep_agent_service import native_factory as factory
 from deep_agent_service import standard_browser_tools as browser
 from deep_agent_service.native_graph import create_native_graph
@@ -50,6 +50,11 @@ def test_native_browser_unknown_action_is_dispatched_once(monkeypatch):
     graph=create_native_graph(m,sandbox=adapter,pinned_skills=[],tools=browser.standard_browser_tools(),
         interrupt_on={},tool_authority=FakeAuthority())
     async def run():return await graph.ainvoke({'messages':[{'role':'user','content':'click'}]},{'configurable':{'disable_task_auto_classify':True}})
-    with pytest.raises(browser.StandardBrowserError):asyncio.run(run())
+    # 2026-09-27：「只派发一次」原样保留（calls==1）；unknown outcome 不再掀翻整条 run，
+    # 而是作为 status="error" 的 ToolMessage 交还模型（它可以先截图看页面状态，而不是
+    # 盲目再点一次）。见 `native_graph._ReportToolOutcomeFailures`。
+    result=asyncio.run(run())
     assert len(calls)==1
+    failed=[m for m in result['messages'] if isinstance(m,ToolMessage) and m.tool_call_id=='real-browser-call']
+    assert len(failed)==1 and failed[0].status=='error' and 'unknown outcome' in str(failed[0].content)
     adapter._client.close()

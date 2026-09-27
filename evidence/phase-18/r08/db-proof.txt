@@ -1,0 +1,28 @@
+                   id                   |  scope_kind  |        scope         |      statement      |  status  | revoked | revocation_reason | supersedes_claim_id 
+----------------------------------------+--------------+----------------------+---------------------+----------+---------+-------------------+---------------------
+ clm_4ec821269180474ba87f172edf07f7a8   | chat_session | thr-e2117d2c-ceb7-4a | 我决定关注 211 高校 | accepted | f       |                   | 
+ act_3c2dc9d907fb4c1cae86c1195fe23746-p | personal     | user-kg-eval-owner   | 我决定关注 211 高校 | accepted | f       |                   | 
+ clm_73cf2617a8c0462cab6f0100baaeb9b6   | chat_session | thr-8795a6cb-d163-4a | 改成关注 985 高校   | accepted | f       |                   | 
+ act_ed0e8fa573e04c9ebc9d942ed8ec9f65-p | personal     | user-kg-eval-owner   | 改成关注 985 高校   | accepted | f       |                   | 
+(4 rows)
+
+                   id                   |                thread_id                 |            newer_claim_id            |             older_claim_id             | status |     undone_by      |                                                                                                    restore                                                                                                     
+----------------------------------------+------------------------------------------+--------------------------------------+----------------------------------------+--------+--------------------+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ act_79844890671e43378ee0ab22d1166011-0 | thr-8795a6cb-d163-4a48-b74f-684b9ca3bafe | clm_73cf2617a8c0462cab6f0100baaeb9b6 | act_3c2dc9d907fb4c1cae86c1195fe23746-p | undone | user-kg-eval-owner | {"edges": ["act_3c2dc9d907fb4c1cae86c1195fe23746-d", "act_3c2dc9d907fb4c1cae86c1195fe23746-e1"], "claims": [{"id": "act_3c2dc9d907fb4c1cae86c1195fe23746-p", "status": "accepted"}], "newer_supersedes": null}
+(1 row)
+
+                   id                    |  scope_kind  | actor_kind |       actor_id        |    action_type    | outcome  
+-----------------------------------------+--------------+------------+-----------------------+-------------------+----------
+ act_79844890671e43378ee0ab22d1166011    | chat_session | system     | kg-supersede-detector | supersedeDecision | accepted
+ act_79844890671e43378ee0ab22d1166011-l1 | personal     | system     | kg-supersede-detector | supersedeDecision | accepted
+ act_3f19799e39bd45bc84845db09914f373    | chat_session | human      | user-kg-eval-owner    | undoSupersede     | accepted
+ act_3f19799e39bd45bc84845db09914f373-l1 | personal     | human      | user-kg-eval-owner    | undoSupersede     | accepted
+(4 rows)
+
+                run_id                |                                                                                                                                           items                                                                                                                                            
+--------------------------------------+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ cbba2fa4-cdb0-4c05-94e2-891ca4cb0932 | [{"score": 0.01639364262295082, "claimId": "act_3c2dc9d907fb4c1cae86c1195fe23746-p", "channels": ["fts"], "graphPath": null, "retrievalReasons": ["recall"]}]
+ 585afe01-2e8d-4007-be1d-de3719ebd12e | [{"score": 0, "claimId": "act_ed0e8fa573e04c9ebc9d942ed8ec9f65-p", "channels": ["claim"], "graphPath": null, "retrievalReasons": ["recall"]}]
+ 1abdcc2c-3f36-44c4-9711-bfd7fd535077 | [{"score": 0, "claimId": "act_ed0e8fa573e04c9ebc9d942ed8ec9f65-p", "channels": ["claim"], "graphPath": null, "retrievalReasons": ["recall"]}, {"score": 0, "claimId": "act_3c2dc9d907fb4c1cae86c1195fe23746-p", "channels": ["claim"], "graphPath": null, "retrievalReasons": ["recall"]}]
+(3 rows)
+

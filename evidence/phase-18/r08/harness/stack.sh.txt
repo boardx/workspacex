@@ -1,0 +1,21 @@
+#!/bin/bash
+# usage: stack.sh redis|model|migrate|seed|api|web|pw
+S=/tmp/claude-0/-home-user-workspacex/0c400fb8-dfbe-5051-bf5c-eba2226be75a/scratchpad
+source $S/r08-own/env.sh
+case "$1" in
+  redis) exec redis-server --port $REDIS_PORT --save "" --appendonly no --dir $S/r08-own ;;
+  model) cd $WT/apps/api && LOOPBACK_KG_EVAL_PROVIDER_PORT=$WORKSPACEX_MODEL_PROVIDER_PORT LOOPBACK_KG_EVAL_CASES=$WT/apps/web/e2e/r08-4290/cases-r08.json exec npx tsx scripts/loopback-kg-eval-model-provider.ts ;;
+  migrate) cd $WT/apps/api && exec pnpm -s run migrate ;;
+  seed) cd $WT/apps/api && npx tsx scripts/seed-kg-experience-eval.ts && npx tsx scripts/r08-post-seed.ts ;;
+  api) cd $WT/apps/api && PORT=$WORKSPACEX_API_PORT KERNEL_MODEL_PROVIDER=$KG_EVAL_MODEL_PROVIDER \
+      KERNEL_MODEL_BASE_URL=http://127.0.0.1:$WORKSPACEX_MODEL_PROVIDER_PORT KERNEL_MODEL_API_KEY=kg-eval-loopback-key-not-a-secret \
+      KERNEL_KG_EXTRACTION_MODEL_ID=$KG_EVAL_MODEL_ID KERNEL_FOLLOWUP_SUGGESTIONS_MODEL_ID=$KG_EVAL_MODEL_ID \
+      KERNEL_MODEL_STREAM_ENABLED=1 KG_EXTRACTION_ENABLED=1 MODEL_CREDENTIAL_KEY=kg-eval-credential-key-not-a-secret \
+      exec npx tsx src/main.ts ;;
+  web) cd $WT/apps/web && NEXT_PUBLIC_API_URL=http://127.0.0.1:$WORKSPACEX_WEB_PORT NEXT_PUBLIC_API_PATH_PREFIX=/__fullstack_api \
+      NEXT_PUBLIC_API_WS_URL=http://127.0.0.1:$WORKSPACEX_API_PORT FULLSTACK_E2E_API_ORIGIN=http://127.0.0.1:$WORKSPACEX_API_PORT \
+      NEXT_DIST_DIR=.next-r08 NEXT_FONT_GOOGLE_MOCKED_RESPONSES=$WT/apps/web/e2e/support/google-fonts-mock.cjs \
+      exec npx next dev -p $WORKSPACEX_WEB_PORT ;;
+  pw) cd $WT/apps/web && PW_EXECUTABLE=/opt/pw-browsers/chromium-1194/chrome-linux/chrome exec npx playwright test -c playwright.r08-4290.config.ts ;;
+  psql) shift; exec psql -U postgres "$@" ;;
+esac

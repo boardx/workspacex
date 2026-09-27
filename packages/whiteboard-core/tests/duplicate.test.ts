@@ -49,8 +49,8 @@ describe('duplicateWhiteboardSnapshot', () => {
       expect(item.restoredFrom).toBeUndefined();
       if (item.parentId) expect(sourceIds.has(item.parentId)).toBe(false);
       if (item.connector) {
-        expect(sourceIds.has(item.connector.from)).toBe(false);
-        expect(sourceIds.has(item.connector.to)).toBe(false);
+        if (item.connector.from) expect(sourceIds.has(item.connector.from)).toBe(false);
+        if (item.connector.to) expect(sourceIds.has(item.connector.to)).toBe(false);
       }
     }
     validateDocument(target);
@@ -82,11 +82,14 @@ describe('duplicateWhiteboardSnapshot', () => {
     source.destroy();
   });
 
-  it('fails the whole copy for a live connector whose endpoint is deleted', () => {
+  it('duplicates the remaining graph after endpoint deletion cascades to its connector', () => {
     const source = sourceDocument();
     executeCommands(source, [{ type: 'delete', id: 'peer' }], 'source');
-    expect(() => duplicateWhiteboardSnapshot(Y.encodeStateAsUpdate(source), id => `new_${id}`)).toThrow('INVALID_DUPLICATE_REFERENCE');
-    source.destroy();
+    const result = duplicateWhiteboardSnapshot(Y.encodeStateAsUpdate(source), id => `new_${id}`);
+    const target = createWhiteboardDocument();
+    Y.applyUpdate(target, result.snapshot);
+    expect(readObjects(target).find(item => item.id === 'new_edge')).toBeUndefined();
+    source.destroy(); target.destroy();
   });
 
   it.each([

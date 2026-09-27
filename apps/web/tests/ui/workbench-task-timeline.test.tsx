@@ -152,10 +152,14 @@ describe("framework task timeline", () => {
       { ...base, seq: 2, kind: "tool_end", toolCallId: "tool-sd", toolName: "search_documents", result: "找到资料", ok: true },
     ];
     // `finish()` 之后的真实次序：合成气泡在前，回答正文被撤回后追加到队尾。
+    // 2026-09-27：只调工具、不说话、已由执行轨迹承载的气泡现在整条不进 DOM（提问后大片空白
+    // 的修法，见 `isInvisibleToolOnlyMessage`）——那样三条合成气泡不占位，两个方向的面板都落在
+    // 同一格，本用例就无法区分锚点对错了。锚点仍然要紧：合成气泡里若是**决策工具**（会画确认卡），
+    // 它照样可见，面板落在它前面还是后面用户看得见。所以这里用决策工具让气泡保持可见，判据不变。
     const messages = [
       { id: "user", role: "user" as const, content: "取证：请展示多步执行" },
       ...toolIds.map((id) => ({ id, role: "assistant" as const, content: "",
-        toolCalls: [{ id, type: "function" as const, function: { name: "search_documents", arguments: "{}" } }] })),
+        toolCalls: [{ id, type: "function" as const, function: { name: "call_skill", arguments: "{}" } }] })),
       { id: "answer", role: "assistant" as const, content: "最终结论" },
     ];
     const messageRuns = Object.fromEntries([...toolIds, "answer"].map((id) => [id, "run-a"]));

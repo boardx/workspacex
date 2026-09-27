@@ -84,6 +84,11 @@
         "agent-run/trial-run-agent"
       ]
     },
+    "ApplyBlueprintController": {
+      "useCases": [
+        "templates/apply-blueprint"
+      ]
+    },
     "ArtifactBindingController": {
       "useCases": [
         "artifact/bind-to-project-step",
@@ -109,7 +114,8 @@
         "auth/errors",
         "auth/inspect-password-reset-throttle",
         "auth/login",
-        "auth/password-reset"
+        "auth/password-reset",
+        "first-value/first-value-recorder"
       ]
     },
     "AuthOrgController": {
@@ -128,7 +134,32 @@
         "agent/ensure-image-gen-agent",
         "auth/bootstrap-first-user",
         "auth/errors",
-        "auth/register-new-account"
+        "auth/register-new-account",
+        "project/sample-project/ensure-sample-project"
+      ]
+    },
+    "BlueprintChangeRequestController": {
+      "useCases": [
+        "templates/compute-deviations",
+        "templates/submit-blueprint-change-request"
+      ]
+    },
+    "BlueprintController": {
+      "useCases": [
+        "live-collab/get-viewer-options",
+        "security/permission-filter",
+        "templates/create-blueprint",
+        "templates/get-initialization-preview",
+        "templates/get-interview-subjects",
+        "templates/get-project-grouping",
+        "templates/get-project-prep",
+        "templates/get-project-topic",
+        "templates/get-workflow-orchestration",
+        "templates/save-and-sync-topic",
+        "templates/save-as-org-template",
+        "templates/switch-workflow-template",
+        "templates/update-grouping",
+        "templates/update-interview-subjects"
       ]
     },
     "CanvasInstanceController": {
@@ -185,7 +216,8 @@
         "chat/get-thread",
         "chat/list-thread-attachments",
         "chat/resolve-visibility",
-        "chat/upload-attachment"
+        "chat/upload-attachment",
+        "first-value/first-value-recorder"
       ]
     },
     "ChatController": {
@@ -216,7 +248,8 @@
         "chat/start-preset-instance",
         "chat/summarize-persona-from-thread",
         "chat/update-agent-roster",
-        "chat/upsert-preset"
+        "chat/upsert-preset",
+        "first-value/first-value-recorder"
       ]
     },
     "ChatFollowUpSuggestionsController": {
@@ -252,6 +285,8 @@
         "design-workbench/create-project",
         "design-workbench/delete-project",
         "design-workbench/design-chat-model",
+        "design-workbench/design-comments",
+        "design-workbench/design-variants",
         "design-workbench/import-thread",
         "design-workbench/intake-questions",
         "design-workbench/list-my-projects",
@@ -399,6 +434,18 @@
       "useCases": [],
       "note": "内核探针：只做一次 `SELECT 1` 级别的连通性自检（直接用 DATABASE_PORT），没有业务用例——它本来就不该经 application 层。"
     },
+    "KnowledgeGraphController": {
+      "useCases": [
+        "chat/resolve-visibility",
+        "knowledge-graph/act-on-memory-card",
+        "knowledge-graph/apply-human-action",
+        "knowledge-graph/auto-copy-decisions",
+        "knowledge-graph/ids",
+        "knowledge-graph/promote-to-personal",
+        "knowledge-graph/read-personal-knowledge",
+        "knowledge-graph/read-thread-knowledge"
+      ]
+    },
     "LocalExportController": {
       "useCases": [
         "identity/errors",
@@ -407,6 +454,7 @@
     },
     "LocalOrgController": {
       "useCases": [
+        "identity/egress-ledger",
         "identity/errors",
         "identity/invoke-local-model",
         "identity/personal-local-org"
@@ -501,6 +549,12 @@
         "project/update-project-tags"
       ]
     },
+    "ProvenanceController": {
+      "useCases": [
+        "identity/switch-organization",
+        "provenance/query-provenance"
+      ]
+    },
     "PublicDesignShareController": {
       "useCases": [
         "chat/get-thread",
@@ -510,6 +564,8 @@
         "design-workbench/create-project",
         "design-workbench/delete-project",
         "design-workbench/design-chat-model",
+        "design-workbench/design-comments",
+        "design-workbench/design-variants",
         "design-workbench/import-thread",
         "design-workbench/intake-questions",
         "design-workbench/list-my-projects",
@@ -577,16 +633,9 @@
       "useCases": [],
       "note": "Resource metadata CRUD: direct typed repository port; tenant and owner/member predicates are enforced atomically in PgWhiteboardRepository, validated by real PostgreSQL and HTTP negative tests (#3926). Content collaboration is a separate use case."
     },
-    "KnowledgeGraphController": {
-      "useCases": [
-        "chat/resolve-visibility",
-        "knowledge-graph/act-on-memory-card",
-        "knowledge-graph/apply-human-action",
-        "knowledge-graph/ids",
-        "knowledge-graph/promote-to-personal",
-        "knowledge-graph/read-personal-knowledge",
-        "knowledge-graph/read-thread-knowledge"
-      ]
+    "WhiteboardTagController": {
+      "useCases": [],
+      "note": "白板标签的增删改查：直接调 WHITEBOARD_TAG_REPOSITORY（list/create/rename/delete），入参由 ZodBodyPipe 按 whiteboard 契约校验，没有跨聚合编排，没有独立用例模块。"
     },
     "GuidedResearchController": {
       "useCases": [
@@ -661,6 +710,7 @@
         "apps/web/lib/live-asr-draft.ts",
         "apps/web/lib/live-chat.ts",
         "apps/web/lib/live-feedback.ts",
+        "apps/web/lib/live-identity.ts",
         "apps/web/lib/live-org-admin.ts",
         "apps/web/lib/live-platform-access.ts",
         "apps/web/lib/live-projects.ts",
@@ -735,6 +785,7 @@
         "apps/web/lib/live-chat.ts",
         "apps/web/lib/live-feedback.ts",
         "apps/web/lib/live-files.ts",
+        "apps/web/lib/live-identity.ts",
         "apps/web/lib/live-message-rating.ts",
         "apps/web/lib/live-org-admin.ts",
         "apps/web/lib/live-platform-access.ts",
@@ -818,6 +869,7 @@
         "apps/web/lib/live-chat.ts",
         "apps/web/lib/live-feedback.ts",
         "apps/web/lib/live-files.ts",
+        "apps/web/lib/live-identity.ts",
         "apps/web/lib/live-message-rating.ts",
         "apps/web/lib/live-org-admin.ts",
         "apps/web/lib/live-platform-access.ts",
@@ -1030,6 +1082,7 @@
         "apps/web/lib/live-chat.ts",
         "apps/web/lib/live-feedback.ts",
         "apps/web/lib/live-files.ts",
+        "apps/web/lib/live-identity.ts",
         "apps/web/lib/live-message-rating.ts",
         "apps/web/lib/live-org-admin.ts",
         "apps/web/lib/live-platform-access.ts",
@@ -1167,6 +1220,16 @@
     "/itv": {
       "kind": "mock",
       "screen": "apps/web/app/itv/page.tsx",
+      "mocks": [
+        "apps/web/lib/mock/digital-expert-personas.ts",
+        "apps/web/lib/mock/digital-interview-drafts.ts",
+        "apps/web/lib/mock/experts-persona.json",
+        "apps/web/lib/mock/quick-digital-interview.ts"
+      ]
+    },
+    "/itv/[interviewId]/[stage]": {
+      "kind": "mock",
+      "screen": "apps/web/app/itv/[interviewId]/[stage]/page.tsx",
       "mocks": [
         "apps/web/lib/mock/digital-expert-personas.ts",
         "apps/web/lib/mock/digital-interview-drafts.ts",
@@ -1343,6 +1406,7 @@
         "apps/web/lib/live-capabilities.ts",
         "apps/web/lib/live-chat.ts",
         "apps/web/lib/live-feedback.ts",
+        "apps/web/lib/live-identity.ts",
         "apps/web/lib/live-org-admin.ts",
         "apps/web/lib/live-platform-access.ts",
         "apps/web/lib/live-projects.ts",
@@ -1611,7 +1675,6 @@
       "kind": "mock",
       "screen": "apps/web/app/project/new/page.tsx",
       "mocks": [
-        "apps/web/lib/mock/project.ts",
         "apps/web/lib/mock/tpl.ts"
       ]
     },
@@ -1622,6 +1685,7 @@
         "apps/web/lib/live-asr-draft.ts",
         "apps/web/lib/live-chat.ts",
         "apps/web/lib/live-feedback.ts",
+        "apps/web/lib/live-identity.ts",
         "apps/web/lib/live-org-admin.ts",
         "apps/web/lib/live-platform-access.ts",
         "apps/web/lib/live-projects.ts",
@@ -1672,10 +1736,72 @@
       ]
     },
     "/projects/[projectId]": {
-      "kind": "mock",
+      "kind": "wired",
       "screen": "apps/web/app/projects/[projectId]/page.tsx",
-      "mocks": [
-        "apps/web/lib/mock/project.ts"
+      "adapters": [
+        "apps/web/lib/live-asr-draft.ts",
+        "apps/web/lib/live-chat.ts",
+        "apps/web/lib/live-checkin.ts",
+        "apps/web/lib/live-collab-viewer-role.ts",
+        "apps/web/lib/live-feedback.ts",
+        "apps/web/lib/live-identity.ts",
+        "apps/web/lib/live-org-admin.ts",
+        "apps/web/lib/live-platform-access.ts",
+        "apps/web/lib/live-project-prep.ts",
+        "apps/web/lib/live-projects.ts",
+        "apps/web/lib/live-provenance.ts",
+        "apps/web/lib/live-recording.ts",
+        "apps/web/lib/live-workflow-orchestration.ts"
+      ],
+      "contracts": [
+        "agent-defaults",
+        "artifact",
+        "chat",
+        "chat-file-upload",
+        "chat-knowledge-graph",
+        "design-workbench",
+        "feedback-loop",
+        "identity",
+        "org-admin",
+        "plan-permissions",
+        "platform-members",
+        "project",
+        "provenance",
+        "templates",
+        "viewer-role"
+      ],
+      "controllers": [
+        "AgentRunController",
+        "ApplyBlueprintController",
+        "ArtifactBindingController",
+        "ArtifactReferenceController",
+        "BlueprintChangeRequestController",
+        "BlueprintController",
+        "CapabilityController",
+        "ChatAttachmentController",
+        "ChatController",
+        "ChatFollowUpSuggestionsController",
+        "CheckinBoardController",
+        "CopilotkitAguiController",
+        "DesignWorkbenchController",
+        "DeviceSessionController",
+        "DocumentGenerationAutoApproveController",
+        "EvidenceWithdrawalController",
+        "FeedbackController",
+        "IdentityController",
+        "KernelProbeController",
+        "KnowledgeGraphController",
+        "LocalExportController",
+        "LocalOrgController",
+        "OrgAdminManagementController",
+        "OrgAdminScopeController",
+        "OrgInviteController",
+        "OrgInviteLinkController",
+        "PlatformAccessController",
+        "ProjectController",
+        "ProvenanceController",
+        "PublicDesignShareController",
+        "ToolPermissionGrantController"
       ]
     },
     "/projects/[projectId]/canvas": {
@@ -1707,7 +1833,6 @@
       "mocks": [
         "apps/web/lib/mock/guided-research-demo-state.ts",
         "apps/web/lib/mock/guided-research.ts",
-        "apps/web/lib/mock/project.ts",
         "apps/web/lib/mock/research-studio.ts"
       ]
     },
@@ -1735,6 +1860,7 @@
         "apps/web/lib/live-asr-draft.ts",
         "apps/web/lib/live-chat.ts",
         "apps/web/lib/live-feedback.ts",
+        "apps/web/lib/live-identity.ts",
         "apps/web/lib/live-org-admin.ts",
         "apps/web/lib/live-platform-access.ts",
         "apps/web/lib/live-projects.ts",
@@ -1784,7 +1910,8 @@
         "ProjectController",
         "PublicDesignShareController",
         "ToolPermissionGrantController",
-        "WhiteboardController"
+        "WhiteboardController",
+        "WhiteboardTagController"
       ]
     },
     "/studio/board/[boardId]": {
@@ -1794,6 +1921,7 @@
         "apps/web/lib/live-asr-draft.ts",
         "apps/web/lib/live-chat.ts",
         "apps/web/lib/live-feedback.ts",
+        "apps/web/lib/live-identity.ts",
         "apps/web/lib/live-org-admin.ts",
         "apps/web/lib/live-platform-access.ts",
         "apps/web/lib/live-projects.ts",
@@ -1843,7 +1971,8 @@
         "ProjectController",
         "PublicDesignShareController",
         "ToolPermissionGrantController",
-        "WhiteboardController"
+        "WhiteboardController",
+        "WhiteboardTagController"
       ]
     },
     "/studio/design-workbench": {
@@ -1854,6 +1983,7 @@
         "apps/web/lib/live-chat.ts",
         "apps/web/lib/live-design-workbench.ts",
         "apps/web/lib/live-feedback.ts",
+        "apps/web/lib/live-identity.ts",
         "apps/web/lib/live-inbox.ts",
         "apps/web/lib/live-org-admin.ts",
         "apps/web/lib/live-platform-access.ts",
@@ -1942,6 +2072,7 @@
         "apps/web/lib/live-asr-draft.ts",
         "apps/web/lib/live-chat.ts",
         "apps/web/lib/live-feedback.ts",
+        "apps/web/lib/live-identity.ts",
         "apps/web/lib/live-org-admin.ts",
         "apps/web/lib/live-platform-access.ts",
         "apps/web/lib/live-projects.ts",
@@ -2017,6 +2148,7 @@
         "apps/web/lib/live-asr-draft.ts",
         "apps/web/lib/live-chat.ts",
         "apps/web/lib/live-feedback.ts",
+        "apps/web/lib/live-identity.ts",
         "apps/web/lib/live-org-admin.ts",
         "apps/web/lib/live-platform-access.ts",
         "apps/web/lib/live-projects.ts",
@@ -2073,6 +2205,7 @@
         "apps/web/lib/live-asr-draft.ts",
         "apps/web/lib/live-chat.ts",
         "apps/web/lib/live-feedback.ts",
+        "apps/web/lib/live-identity.ts",
         "apps/web/lib/live-org-admin.ts",
         "apps/web/lib/live-platform-access.ts",
         "apps/web/lib/live-projects.ts",
@@ -2129,6 +2262,7 @@
         "apps/web/lib/live-asr-draft.ts",
         "apps/web/lib/live-chat.ts",
         "apps/web/lib/live-feedback.ts",
+        "apps/web/lib/live-identity.ts",
         "apps/web/lib/live-org-admin.ts",
         "apps/web/lib/live-platform-access.ts",
         "apps/web/lib/live-projects.ts",
@@ -2185,6 +2319,7 @@
         "apps/web/lib/live-asr-draft.ts",
         "apps/web/lib/live-chat.ts",
         "apps/web/lib/live-feedback.ts",
+        "apps/web/lib/live-identity.ts",
         "apps/web/lib/live-org-admin.ts",
         "apps/web/lib/live-platform-access.ts",
         "apps/web/lib/live-projects.ts",

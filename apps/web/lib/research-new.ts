@@ -10,7 +10,7 @@
  *
  * ## 这里**没有**什么
  * · **没有** `canStartResearch` 的第二份角色表。角色与「能不能写」的单一事实源是
- *   `lib/mock/project.ts` 的 `ROLE_CAN_WRITE`（四视角投影），本文件从它派生。
+ *   `lib/project-workbench.ts` 的 `ROLE_CAN_WRITE`（四视角投影），本文件从它派生。
  *   写第二份 `{ observer: false }` 就是本仓已踩过五次的「同一事实声明在两处」。
  * · **没有**七项配置的默认值。它们的单一事实源是 `lib/mock/research-studio.ts`
  *   的 `RS_CONFIG_DEFAULT`（`uc-24-1` R3 表逐项机械抽取，R7.5「不得自行改向」）。
@@ -18,7 +18,7 @@
  * · **没有** `sourcePrefs` 的 `.min(1)`。来源全不选的语义是 **Q-5 未裁**，
  *   契约 `ResearchConfig.sourcePrefs` 刻意没有 `.min(1)`，本文件不替它裁。
  */
-import { ROLE_CAN_WRITE, type ProjectRole } from "@/lib/mock/project";
+import { ROLE_CAN_WRITE, type ProjectRole } from "@/lib/project-workbench";
 import type { RsConfig } from "@/lib/mock/research-studio";
 
 /**
