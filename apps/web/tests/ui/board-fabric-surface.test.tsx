@@ -79,7 +79,7 @@ vi.mock("fabric", () => {
     setViewportTransform(value: number[]) { this.viewportTransform = value; probe.zoom = value[0] ?? 1; }
     getWidth() { return 1200; } getHeight() { return 800; } getZoom() { return probe.zoom; }
     zoomToPoint(_point: unknown, value: number) { probe.zoom = value; }
-    getScenePoint() { return { x: 123, y: 234 }; }
+    getScenePoint(event?: MouseEvent) { return event && (event.clientX || event.clientY) ? { x: event.clientX, y: event.clientY } : { x: 123, y: 234 }; }
     setActiveObject(object: MockProjectedObject) { probe.active = object; probe.activeId = object.data?.boardObjectId ?? null; if (probe.emitSelectionOnSet) probe.handlers.get("selection:updated")?.({ target: object }); }
     discardActiveObject() { probe.active = null; probe.activeId = null; }
     getActiveObject() { return probe.active ?? probe.objects.find((object) => object.data?.boardObjectId === probe.activeId); }
@@ -421,6 +421,21 @@ describe("BoardFabricSurface", () => {
     sticky.left += 24; sticky.top += 24;
     probe.handlers.get("object:modified")?.({ target: sticky, e: new MouseEvent("mouseup", { altKey: true }) });
     expect(onObjectsTransform).toHaveBeenCalledWith([expect.objectContaining({ id: "s-1" })], { duplicate: true });
+  });
+
+  it("captures an Alt ActiveSelection at pointer-down and duplicates every member even when Fabric omits object:modified", () => {
+    const onObjectsTransform = vi.fn(() => true);
+    renderSurface({ selectedObjectIds: ["s-1", "r-1"], onObjectsTransform });
+    const original = probe.objects.map(object => ({ left: object.left, top: object.top }));
+    probe.handlers.get("mouse:down")?.({ target: probe.active!, e: new MouseEvent("mousedown", { altKey: true, clientX: 100, clientY: 120 }) } as never);
+    probe.handlers.get("mouse:move")?.({ target: probe.active!, e: new MouseEvent("mousemove", { clientX: 142, clientY: 148 }) } as never);
+    probe.handlers.get("mouse:up")?.({ target: probe.active!, e: new MouseEvent("mouseup", { clientX: 142, clientY: 148 }) } as never);
+    expect(onObjectsTransform).toHaveBeenCalledOnce();
+    expect(onObjectsTransform).toHaveBeenCalledWith([
+      expect.objectContaining({ id: "s-1", geometry: expect.objectContaining({ x: OBJECTS[0]!.geometry.x + 42, y: OBJECTS[0]!.geometry.y + 28 }) }),
+      expect.objectContaining({ id: "r-1", geometry: expect.objectContaining({ x: OBJECTS[1]!.geometry.x + 42, y: OBJECTS[1]!.geometry.y + 28 }) }),
+    ], { duplicate: true });
+    expect(probe.objects.map(object => ({ left: object.left, top: object.top }))).toEqual(original);
   });
 
   it("applies an absolute Fabric clipPath only to children of clip-enabled Panels", () => {

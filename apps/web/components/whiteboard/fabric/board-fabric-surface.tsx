@@ -381,7 +381,7 @@ export function BoardFabricSurface({ objects, selectedObjectIds, readOnly, tool,
       for (const object of canvas.getObjects() as TaggedFabricObject[]) if (object.data?.boardObjectId && activeIds.delete(object.data.boardObjectId)) stable.push(object.data.boardObjectId);
       callbacksRef.current.onSelectionChange(stable, "canvas");
     };
-    let duplicateGesture = false;
+    let duplicateGesture: { ids: string[]; start: { x: number; y: number }; current: { x: number; y: number }; handled: boolean } | null = null;
     const topmostPanelAt = (point: { x: number; y: number }, excludedId: string) => {
       for (const projected of [...canvas.getObjects()].reverse() as TaggedFabricObject[]) {
         const panelId = projected.data?.boardObjectId;
@@ -443,7 +443,9 @@ export function BoardFabricSurface({ objects, selectedObjectIds, readOnly, tool,
       setSnapPreview(null);
       const target = event.target as TaggedFabricObject | undefined;
       if (!target) return;
-      const members = target.data?.boardObjectId ? [target] : ("getObjects" in target && typeof target.getObjects === "function" ? target.getObjects() as TaggedFabricObject[] : []);
+      const capturedDuplicate = duplicateGesture && !duplicateGesture.handled ? duplicateGesture : null;
+      const capturedMembers = capturedDuplicate?.ids.flatMap((id) => { const member = registryRef.current.get(id); return member ? [member] : []; });
+      const members = capturedMembers?.length ? capturedMembers : target.data?.boardObjectId ? [target] : ("getObjects" in target && typeof target.getObjects === "function" ? target.getObjects() as TaggedFabricObject[] : []);
       const canonicals = members.flatMap((member) => { const id = member.data?.boardObjectId; const canonical = id ? canonicalRef.current.get(id) : undefined; return id && canonical ? [{ id, member, canonical }] : []; });
       if (!canonicals.length) return;
       const movableCanonicals = canonicals.filter(({ canonical }) => !canonical.locked && canonical.kind !== "placeholder");
@@ -453,7 +455,9 @@ export function BoardFabricSurface({ objects, selectedObjectIds, readOnly, tool,
         return;
       }
       for (const { member, canonical } of canonicals) if (canonical.locked || canonical.kind === "placeholder") applyCanonicalObject(member, canonical, true);
+      const duplicateOffset = capturedDuplicate ? { x: capturedDuplicate.current.x - capturedDuplicate.start.x, y: capturedDuplicate.current.y - capturedDuplicate.start.y } : null;
       const transforms = movableCanonicals.map(({ id, member, canonical }) => {
+        if (duplicateOffset) return { id, geometry: { ...canonical.geometry, x: canonical.geometry.x + duplicateOffset.x, y: canonical.geometry.y + duplicateOffset.y }, parentId: canonical.parentId ?? null };
         const bounds = members.length > 1 ? geometryFromFabricSceneTransform(member) : geometryFromFabric(member, canonical);
         const center = { x: bounds.x + bounds.width / 2, y: bounds.y + bounds.height / 2 };
         const parent = topmostPanelAt(center, id);
@@ -474,8 +478,8 @@ export function BoardFabricSurface({ objects, selectedObjectIds, readOnly, tool,
         canvas.requestRenderAll();
       };
       try {
-        const duplicate = Boolean((event as { e?: MouseEvent }).e?.altKey) || duplicateGesture;
-        duplicateGesture = false;
+        const duplicate = Boolean((event as { e?: MouseEvent }).e?.altKey) || Boolean(capturedDuplicate);
+        if (capturedDuplicate) capturedDuplicate.handled = true;
         const accepted = callbacksRef.current.onObjectsTransform
           ? callbacksRef.current.onObjectsTransform(transforms, { duplicate })
           : callbacksRef.current.onObjectTransform(transforms[0]!.id, transforms[0]!.geometry);
@@ -487,13 +491,14 @@ export function BoardFabricSurface({ objects, selectedObjectIds, readOnly, tool,
           }
         };
         if (typeof accepted === "boolean") {
-          if (!accepted) restoreCanonicalGeometry();
-          else commitLegacyParent();
+          if (!accepted || duplicate) restoreCanonicalGeometry();
+          if (accepted && !duplicate) commitLegacyParent();
           callbacksRef.current.onPanelHoverChange?.(null);
           return;
         }
         void accepted.then((resolved) => {
-          if (!resolved) restoreCanonicalGeometry(); else commitLegacyParent();
+          if (!resolved || duplicate) restoreCanonicalGeometry();
+          if (resolved && !duplicate) commitLegacyParent();
           callbacksRef.current.onPanelHoverChange?.(null);
         }, () => { restoreCanonicalGeometry(); callbacksRef.current.onPanelHoverChange?.(null); });
       } catch {
@@ -516,7 +521,9 @@ export function BoardFabricSurface({ objects, selectedObjectIds, readOnly, tool,
     let drawing: Array<{ x: number; y: number; pressure: number }> | null = null;
     const pressureOf = (event: TPointerEventInfo) => typeof (event.e as PointerEvent).pressure === "number" ? (event.e as PointerEvent).pressure : .5;
     const pointerDown = (event: TPointerEventInfo) => {
-      duplicateGesture = Boolean((event.e as MouseEvent).altKey);
+      const point = canvas.getScenePoint(event.e);
+      const ids = selectedObjectIdsRef.current.filter((id) => { const canonical = canonicalRef.current.get(id); return canonical && !canonical.locked && canonical.kind !== "placeholder"; });
+      duplicateGesture = (event.e as MouseEvent).altKey && ids.length ? { ids, start: { x: point.x, y: point.y }, current: { x: point.x, y: point.y }, handled: false } : null;
       if ((stateRef.current.tool.startsWith("draw-") || stateRef.current.tool === "erase") && !stateRef.current.readOnly) {
         const pointer = canvas.getScenePoint(event.e);
         drawing = [{ x: pointer.x, y: pointer.y, pressure: pressureOf(event) }];
@@ -541,6 +548,7 @@ export function BoardFabricSurface({ objects, selectedObjectIds, readOnly, tool,
       }
     };
     const pointerMove = (event: TPointerEventInfo) => {
+      if (duplicateGesture && !duplicateGesture.handled) { const point = canvas.getScenePoint(event.e); duplicateGesture.current = { x: point.x, y: point.y }; }
       if (drawing) { const pointer = canvas.getScenePoint(event.e); drawing.push({ x: pointer.x, y: pointer.y, pressure: pressureOf(event) }); return; }
       if (!panning) return;
       const pointer = event.e as MouseEvent;
@@ -550,7 +558,27 @@ export function BoardFabricSurface({ objects, selectedObjectIds, readOnly, tool,
       last = { x: pointer.clientX, y: pointer.clientY };
       canvas.setViewportTransform(transform);
     };
-    const pointerUp = () => {
+    const pointerUp = (event: TPointerEventInfo) => {
+      if (duplicateGesture && !duplicateGesture.handled) {
+        const gesture = duplicateGesture;
+        const point = canvas.getScenePoint(event.e);
+        gesture.current = { x: point.x, y: point.y };
+        const offset = { x: gesture.current.x - gesture.start.x, y: gesture.current.y - gesture.start.y };
+        if (Math.abs(offset.x) > .5 || Math.abs(offset.y) > .5) {
+          const transforms = gesture.ids.flatMap((id) => {
+            const canonical = canonicalRef.current.get(id);
+            return canonical ? [{ id, geometry: { ...canonical.geometry, x: canonical.geometry.x + offset.x, y: canonical.geometry.y + offset.y }, parentId: canonical.parentId ?? null }] : [];
+          });
+          gesture.handled = true;
+          try { callbacksRef.current.onObjectsTransform?.(transforms, { duplicate: true }); }
+          catch { /* The canonical editor reports the rejected operation; the projection is restored below. */ }
+          finally {
+            for (const id of gesture.ids) { const canonical = canonicalRef.current.get(id), member = registryRef.current.get(id); if (canonical && member) applyCanonicalObject(member, canonical, stateRef.current.readOnly); }
+            canvas.requestRenderAll();
+          }
+        }
+      }
+      duplicateGesture = null;
       if (drawing) {
         const completed = drawing; drawing = null;
         if (completed.length > 1) callbacksRef.current.onDrawingComplete?.({ tool: stateRef.current.tool === "erase" ? "eraser" : stateRef.current.tool.replace("draw-", "") as "pen" | "marker" | "highlighter", points: completed });
