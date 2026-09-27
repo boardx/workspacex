@@ -131,7 +131,7 @@ describe("S9: 应用层——向量通道并行、有时限、失败降级", () 
 
   it("只把候选集的 id 交给向量通道，命中进入融合", async () => {
     let seen: readonly string[] = [];
-    const r = await run(base({ vectorNeighbors: async (_o, _u, _q, ids) => { seen = ids; return [{ claimId: "launch", similarity: 0.8 }]; } }));
+    const r = await run(base({ vectorNeighbors: async (_o, _u, _q, ids) => { seen = await ids; return [{ claimId: "launch", similarity: 0.8 }]; } }));
     expect(seen).toEqual(["launch", "budget"]);
     expect(r.items.find((i) => i.claim.id === "launch")?.channels).toContain("vector");
   });
@@ -148,6 +148,23 @@ describe("S9: 应用层——向量通道并行、有时限、失败降级", () 
     logs.length = 0;
     await run(base({ vectorNeighbors: async () => { throw new Error(`duplicate key value violates … (${PARAPHRASE})`); } }));
     expect(logs[0]!.detail).toEqual({ threadId: "t", code: "kg_vector_recall_failed" });
+  });
+
+  it("问题的嵌入与读候选集并行：候选集还没读完，向量通道就已经开始；时限从候选集读完算起", async () => {
+    const order: string[] = [];
+    let release!: () => void;
+    const gate = new Promise<void>((r) => { release = r; });
+    const port = base({
+      candidates: async () => { order.push("candidates:start"); await gate; order.push("candidates:done"); return { claims: [LAUNCH, BUDGET], objects: [zhang] }; },
+      vectorNeighbors: async (_o, _u, _q, ids) => { order.push("vector:start"); await ids; return [{ claimId: "launch", similarity: 0.8 }]; },
+    });
+    const p = run(port);
+    await new Promise((r) => setTimeout(r, KG_VECTOR_RECALL_TIMEOUT_MS + 100)); // 候选集读得比向量时限还久
+    expect(order).toEqual(["candidates:start", "vector:start"]);
+    release();
+    const r = await p;
+    expect(r.degraded).toEqual([]);
+    expect(r.items.find((i) => i.claim.id === "launch")?.channels).toContain("vector");
   });
 
   it(`向量通道超过 ${KG_VECTOR_RECALL_TIMEOUT_MS}ms ⇒ 按超时降级，这一轮不等它；与图路并行（总耗时≈较慢的一路）`, async () => {

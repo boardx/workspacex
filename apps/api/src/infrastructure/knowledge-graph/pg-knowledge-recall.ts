@@ -145,7 +145,7 @@ export class PgKnowledgeRecall implements KnowledgeRecallPort {
   /**
    * S9（#4366）向量通道：问题嵌入 ↔ 候选结论的嵌入，余弦最近的前 `limit` 条。
    *
-   * - 只在 `claimIds`（本轮候选集，candidates 的结果）里找，返回的也只有 id 与相似度——与图路同一形状，
+   * - 只在 `claimIds`（本轮候选集，candidates 的结果；可以是还在读的 Promise）里找，返回的也只有 id 与相似度——与图路同一形状，
    *   作用域不会被向量放宽；读之前设 app.current_user_id = 发起人，object_embeddings 的 target_visible 策略
    *   只放本人看得见的目标的向量（I-14）。
    * - 查询形状对得上每个登记模型的 HNSW 部分表达式索引（F05，`hnsw-ann.ts`）：pgvector ≥ 0.8 开迭代扫描，
@@ -154,12 +154,14 @@ export class PgKnowledgeRecall implements KnowledgeRecallPort {
    *   按故障报、降级，不当成「没有相似的」静默略过）。嵌入服务 / 库出错照原样抛，调用方降级。
    */
   async vectorNeighbors(
-    orgId: OrgId, userId: string, query: string, claimIds: readonly string[], limit: number,
+    orgId: OrgId, userId: string, query: string, candidateIds: readonly string[] | Promise<readonly string[]>, limit: number,
   ): Promise<readonly VectorHit[] | null> {
     if (this.embeddings === null) return null;
-    if (claimIds.length === 0 || limit < 1) return [];
+    if (limit < 1 || (Array.isArray(candidateIds) && candidateIds.length === 0)) return [];
     const model = { model: this.embeddings.model, modelVersion: this.embeddings.modelVersion };
-    const q = await this.embeddings.embed(query);
+    // 嵌入问题与读候选集并行（候选集还在读时就开始嵌入）。
+    const [claimIds, q] = await Promise.all([candidateIds, this.embeddings.embed(query)]);
+    if (claimIds.length === 0) return [];
     // pgvector 的文本输入格式就是 JSON 数组的写法。
     const vec = JSON.stringify(q);
     return this.db.withTenant(orgId, async (s) => {

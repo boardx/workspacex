@@ -154,8 +154,11 @@ describe("F08 会话记忆召回读取的豁免前提", () => {
     expect(code.match(/\bobject_embeddings\b/g)).toHaveLength(1);
     expect(code).toMatch(/async vectorNeighbors\([\s\S]*?return this\.db\.withTenant\(orgId, async \(s\) => \{\s*await s\.query\("SELECT set_config\('app\.current_user_id', \$1, true\)", \[userId\]\);/);
     expect(code).toMatch(/`SELECT oe\.target_id AS id, 1 - \(\$\{order\}\) AS similarity FROM object_embeddings oe\s+WHERE oe\.org_id = \$1 AND oe\.target_kind = 'claim' AND oe\.model = \$2 AND oe\.model_version = \$3\s+AND oe\.target_id = ANY\(\$5::text\[\]\)\s+ORDER BY \$\{order\} LIMIT \$6`,\s*\[orgId, model\.model, model\.modelVersion, vec, claimIds, limit\],/);
-    // 候选 id 为空 ⇒ 一条都不查（ANY('{}') 本来也是空，但不要为空集白跑一次嵌入）
-    expect(code).toMatch(/if \(claimIds\.length === 0 \|\| limit < 1\) return \[\];/);
+    // 候选 id 只能来自调用方给的那一份（数组或还在读的候选集）；为空 ⇒ 一条都不查
+    expect(code).toMatch(/const \[claimIds, q\] = await Promise\.all\(\[candidateIds, this\.embeddings\.embed\(query\)\]\);\s*if \(claimIds\.length === 0\) return \[\];/);
+    // recall-knowledge.ts 交进来的候选 id 就是同一轮 candidates 的结果
+    const rk = strip(readFileSync(join(API, "src/application/knowledge-graph/recall-knowledge.ts"), "utf8"));
+    expect(rk).toMatch(/const candidates = port\.candidates\(input\.orgId, input\.userId, input\.threadId\);\s*const ids = candidates\.then\(\(c\) => c\.claims\.map\(\(x\) => x\.id\)\);/);
   });
 
   it("(f) kg_turn_recalls 只写不读：一条 INSERT … ON CONFLICT (run_id)，写的是调用方给的这一个 run", () => {

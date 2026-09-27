@@ -22,7 +22,15 @@ export async function recallThreadKnowledge(
   input: { readonly orgId: OrgId; readonly userId: string; readonly threadId: string; readonly query: string },
   log: (message: string, detail: Record<string, unknown>) => void,
 ): Promise<KnowledgeRecall> {
-  const { claims, objects } = await port.candidates(input.orgId, input.userId, input.threadId);
+  // S9（#4366）：候选集一开始读，向量通道就开始嵌入问题（两者并行）；SQL 仍只在候选 id 里找。
+  const candidates = port.candidates(input.orgId, input.userId, input.threadId);
+  const ids = candidates.then((c) => c.claims.map((x) => x.id));
+  const vectorP = vectorChannel(port, input, ids, log);
+  // 候选集读失败时这两个派生的 Promise 也会失败：它们的结果不再有人等，吞掉以免成为未处理的拒绝
+  //（召回整体失败由 await candidates 抛出、调用方降级）。
+  ids.catch(() => undefined);
+  vectorP.catch(() => undefined);
+  const { claims, objects } = await candidates;
   const seeds = graphSeeds(input.query, objects);
   const graphChannel = async (): Promise<Awaited<ReturnType<KnowledgeRecallPort["graphNeighbors"]>> | null> => {
     if (seeds.length === 0) return [];
@@ -36,7 +44,7 @@ export async function recallThreadKnowledge(
     }
   };
   // S9（#4366）：两路并行，一轮的等待是较慢的那一路，不是两路相加。
-  const [graph, vector] = await Promise.all([graphChannel(), vectorChannel(port, input, claims.map((c) => c.id), log)]);
+  const [graph, vector] = await Promise.all([graphChannel(), vectorP]);
   return fuseRecall({ query: input.query, claims, objects, graph, ...(vector === undefined ? {} : { vector }), limit: KG_RECALL_LIMIT });
 }
 
@@ -53,14 +61,17 @@ export const KG_VECTOR_RECALL_TIMEOUT_MS = 400;
 async function vectorChannel(
   port: KnowledgeRecallPort,
   input: { readonly orgId: OrgId; readonly userId: string; readonly threadId: string; readonly query: string },
-  claimIds: readonly string[],
+  claimIds: Promise<readonly string[]>,
   log: (message: string, detail: Record<string, unknown>) => void,
 ): Promise<readonly VectorHit[] | null | undefined> {
   if (port.vectorNeighbors === undefined) return undefined;
   let timer: ReturnType<typeof setTimeout> | undefined;
-  const timeout = new Promise<never>((_, reject) => {
-    timer = setTimeout(() => reject(new Error("kg_vector_recall_timeout")), KG_VECTOR_RECALL_TIMEOUT_MS);
-  });
+  let settled = false;
+  // 时限从候选集读完算起（向量通道比字面 / 图多出来的等待不超过它）；读候选集本身的时间不算在向量头上。
+  const timeout = claimIds.then(() => new Promise<never>((_, reject) => {
+    if (!settled) timer = setTimeout(() => reject(new Error("kg_vector_recall_timeout")), KG_VECTOR_RECALL_TIMEOUT_MS);
+  }));
+  timeout.catch(() => undefined);
   try {
     const hits = await Promise.race([
       port.vectorNeighbors(input.orgId, input.userId, input.query, claimIds, VECTOR_RECALL_TOP_K),
@@ -77,6 +88,7 @@ async function vectorChannel(
     });
     return null;
   } finally {
+    settled = true;
     clearTimeout(timer);
   }
 }

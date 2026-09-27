@@ -229,12 +229,13 @@ export interface KnowledgeRecallPort {
   graphNeighbors(orgId: OrgId, seedKeys: readonly string[]): Promise<readonly GraphHit[]>;
   /**
    * S9（#4366）向量通道：问题的嵌入与候选结论（claimIds，来自 candidates）的嵌入按余弦取前 limit 条。
+   * `claimIds` 可以是还在读的候选集（Promise）：问题的嵌入与读候选集同时进行，这一轮只多等较慢的那一个。
    * 读身份 = 发起人（个人空间的向量 RLS 只放本人）。返回 null ⇒ 这个部署没配置嵌入模型（通道未启用，不是故障）；
    * 嵌入服务 / 库出错 ⇒ 抛错，调用方记为向量通道故障、降级为字面 + 图。
    * 可选：没有实现它的端口 ⇒ 等同未配置。
    */
   vectorNeighbors?(
-    orgId: OrgId, userId: string, query: string, claimIds: readonly string[], limit: number,
+    orgId: OrgId, userId: string, query: string, claimIds: readonly string[] | Promise<readonly string[]>, limit: number,
   ): Promise<readonly VectorHit[] | null>;
   /** F13：记下这一轮用到了哪些记忆（只存 id 与召回理由），回答下方的引用从这里读。 */
   recordTurn(orgId: OrgId, record: TurnRecallRecord): Promise<void>;
