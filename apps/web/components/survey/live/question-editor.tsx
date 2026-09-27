@@ -15,6 +15,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { moveItem } from "@/lib/survey/report-template";
 import { SurveyQuestionSettings } from "./question-settings";
 import { SurveyQuestionRenderer } from "./question-renderer";
+import { ResponsiveDesignerPanel } from "./responsive-designer-panel";
 export function SurveyQuestionEditor({
   questions,
   onChange,
@@ -207,6 +208,7 @@ export function SurveyQuestionEditor({
       <div
         className={`grid min-w-0 gap-6 ${preview ? "xl:grid-cols-[14rem_minmax(0,1fr)_minmax(0,1fr)]" : "lg:grid-cols-[16rem_minmax(0,1fr)]"}`}
       >
+        <ResponsiveDesignerPanel title="题目大纲" enabled={studioLayout}>
         <aside className="min-w-0">
           <h2 className="mb-3 text-14 font-semibold">
             题目目录 · {questions.length}
@@ -262,6 +264,8 @@ export function SurveyQuestionEditor({
             </div>
           )}
         </aside>
+        </ResponsiveDesignerPanel>
+        <ResponsiveDesignerPanel title="题目设置" enabled={studioLayout}>
         <section aria-label="题目设置" className={`min-w-0 space-y-4 ${studioLayout && preview ? 'xl:order-3' : ''}`}>
           {locked && (
             <p className="rounded-md bg-muted p-3 text-12">
@@ -491,6 +495,7 @@ export function SurveyQuestionEditor({
             </p>
           )}
         </section>
+        </ResponsiveDesignerPanel>
         {preview && !overviewFirst && (
           <aside aria-label="实时预览" className={`min-w-0 space-y-4 ${studioLayout ? 'xl:order-2' : ''}`}>
             <div className="flex gap-2">
