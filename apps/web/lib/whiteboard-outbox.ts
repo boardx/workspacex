@@ -86,11 +86,17 @@ export class IndexedDbEncryptedWhiteboardOutbox implements WhiteboardDurableOutb
     this.generations.set(base,next);
   });}
   private async key(): Promise<CryptoKey> {
-    const db = await this.db, tx = db.transaction("meta", "readwrite"), store = tx.objectStore("meta");
-    let key = await request(store.get("aes-key")) as CryptoKey | undefined;
-    if (!key) { key = await crypto.subtle.generateKey({ name: "AES-GCM", length: 256 }, false, ["encrypt", "decrypt"]); store.put(key, "aes-key"); }
-    await transactionDone(tx); return key;
+    const db=await this.db;
+    const existing=await request(db.transaction('meta').objectStore('meta').get('aes-key')) as CryptoKey|undefined;
+    if(existing)return existing;
+    // Crypto must not suspend a live IDB transaction. Competing tabs choose the
+    // first committed key under a second readwrite transaction.
+    const generated=await crypto.subtle.generateKey({name:'AES-GCM',length:256},false,['encrypt','decrypt']);
+    const tx=db.transaction('meta','readwrite'),done=transactionDone(tx),store=tx.objectStore('meta');
+    const winner=await request(store.get('aes-key')) as CryptoKey|undefined;
+    if(!winner)store.put(generated,'aes-key');await done;return winner??generated;
   }
+
   private id(hash: string, updateId?: string) { return `${this.boardId}:${hash}${updateId ? `:${updateId}` : ""}`; }
   private async journal(db:IDBDatabase){return await request(db.transaction("rebinds").objectStore("rebinds").get(this.boardId)) as WhiteboardOutboxRebindJournal|undefined;}
   private async isRetired(db:IDBDatabase,hash:string){return Boolean(await request(db.transaction("tombstones").objectStore("tombstones").get(this.id(hash))));}
@@ -103,13 +109,20 @@ export class IndexedDbEncryptedWhiteboardOutbox implements WhiteboardDurableOutb
       replacements.push({id:this.id(journal.toHash,parsed.data.updateId),boardId:this.boardId,tokenHash:journal.toHash,iv:iv.buffer,ciphertext,byteSize:plaintext.byteLength,createdAt:row.createdAt});
     }
     const tx=db.transaction(["updates","tombstones","rebinds"],"readwrite"),store=tx.objectStore("updates"),tombstones=tx.objectStore("tombstones"),rebinds=tx.objectStore("rebinds");
+    const done=transactionDone(tx);
+    const currentRequest=request(rebinds.get(this.boardId)) as Promise<WhiteboardOutboxRebindJournal|undefined>;
+    const sourceRequest=request(tombstones.get(this.id(journal.fromHash))),targetRequest=request(tombstones.get(this.id(journal.toHash)));
+    const [current,sourceRetired,targetRetired]=await Promise.all([currentRequest,sourceRequest,targetRequest]);
+    if(!current||current.id!==journal.id||current.boardId!==journal.boardId||current.fromHash!==journal.fromHash||current.toHash!==journal.toHash||current.createdAt!==journal.createdAt||sourceRetired||targetRetired){
+      tx.abort();await done.catch(()=>undefined);throw new Error('OUTBOX_REVOKED');
+    }
     await commitWhiteboardOutboxRebind(rows,replacements,{
       put:row=>{store.put(row);},
       delete:id=>{store.delete(id);},
       retireSource:()=>{tombstones.put({id:this.id(journal.fromHash),boardId:this.boardId,tokenHash:journal.fromHash,revokedAt:Date.now()} satisfies Tombstone);},
       clearJournal:()=>{rebinds.delete(journal.id);},
       abort:()=>tx.abort(),
-      done:transactionDone(tx),
+      done,
     });
   }
   private exclusive<T>(operation:()=>Promise<T>):Promise<T>{const next=this.tail.then(operation,operation);this.tail=next.then(()=>undefined,()=>undefined);return next;}

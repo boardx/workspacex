@@ -70,6 +70,7 @@ export class WhiteboardProvider {
     return next;
   }
   private needsReauthorization=false;
+  private pendingReauthorization:Promise<void>|null=null;
   private async restoreOutbox(token: string) {
     try {
       const restored = await this.outbox!.restore(token);
@@ -130,9 +131,9 @@ export class WhiteboardProvider {
     this.ready = false; this.inFlight.clear(); this.publish({ phase: this.epoch ? 'offline' : 'connecting', reason, retryAttempt: this.retry });
     const socket = new WebSocket(apiWebSocketUrl(WHITEBOARD_SYNC.path.replace(':boardId', encodeURIComponent(this.boardId))), [WHITEBOARD_SYNC.protocol, WHITEBOARD_SYNC.bearerSubprotocolPrefix + this.token]);
     this.socket = socket;
-    this.handshake = setTimeout(() => socket.close(), 10000);
-    socket.onopen = () => this.send({ type: 'hello', stateVector: bytesToBase64(Y.encodeStateVector(this.doc)), ...(this.epoch && this.seq !== null ? { resume: { epoch: this.epoch, seq: this.seq } } : {}) });
-    let reauthorizing=false;const deferredMessages:MessageEvent[]=[];
+    const handshake=setTimeout(()=>{if(!this.stopped&&this.socket===socket)socket.close();},10000);this.handshake=handshake;
+    socket.onopen = () => {if(this.stopped||this.socket!==socket)return;socket.send(JSON.stringify({ type: 'hello', stateVector: bytesToBase64(Y.encodeStateVector(this.doc)), ...(this.epoch && this.seq !== null ? { resume: { epoch: this.epoch, seq: this.seq } } : {}) }));};
+    let reauthorizing=false,cancelled=false,deferredBytes=0;const deferredMessages:MessageEvent[]=[];
     const handleMessage = (event:MessageEvent) => {
       if (this.stopped || this.socket !== socket) return;
       try {
@@ -144,10 +145,12 @@ export class WhiteboardProvider {
         if (message.type === 'sync' && this.needsReauthorization) {
           if(!this.outbox?.reauthorize||!this.token){this.block('OUTBOX_REVOKED',false);return;}
           reauthorizing=true;const token=this.token;
-          void this.queuePersistence(()=>this.outbox!.reauthorize!(token)).then(()=>{
-            if(this.stopped||this.socket!==socket||this.token!==token)return;
-            this.needsReauthorization=false;reauthorizing=false;handleMessage(event);
-            for(const deferred of deferredMessages.splice(0))handleMessage(deferred);
+          const authorization=this.pendingReauthorization??=this.queuePersistence(()=>this.outbox!.reauthorize!(token));
+          void authorization.then(()=>{
+            if(!this.stopped&&this.token===token){this.needsReauthorization=false;this.pendingReauthorization=null;}
+            if(cancelled||this.stopped||this.socket!==socket||this.token!==token)return;
+            reauthorizing=false;handleMessage(event);
+            deferredBytes=0;for(const deferred of deferredMessages.splice(0))handleMessage(deferred);
           }).catch(()=>this.block('OUTBOX_REAUTHORIZATION_FAILED',false));return;
         }
         if (message.type === 'sync') {
@@ -155,7 +158,7 @@ export class WhiteboardProvider {
           if (this.seq !== null && message.seq < this.seq) { this.block('STALE_SEQUENCE'); return; }
           if ((!['owner','editor'].includes(message.role) || message.archived) && this.pending.length) { this.block('WRITE_DENIED'); return; }
           Y.applyUpdate(this.doc, base64ToBytes(message.update), REMOTE); this.epoch = message.epoch; this.seq = message.seq; this.ready = true; this.retry = 0;
-          if (this.handshake) clearTimeout(this.handshake);
+          clearTimeout(handshake);
           this.publish({ phase: 'online', role: message.role, archived: message.archived, reason: null, retryAttempt: 0 });
           this.inFlight.clear(); this.drain(); if (!this.pending.length) this.schedulePresence();
         } else if (message.type === 'update') {
@@ -186,17 +189,32 @@ export class WhiteboardProvider {
         } else if (message.type === 'presence') this.publish({ peers: message.peers });
       } catch { this.block('PROTOCOL_ERROR'); }
     };
-    socket.onmessage=event=>{if(reauthorizing){if(deferredMessages.length>=WHITEBOARD_SYNC.pendingUpdates){this.block('PROTOCOL_ERROR');return;}deferredMessages.push(event);}else handleMessage(event);};
+    socket.onmessage=event=>{
+      if(this.stopped||this.socket!==socket)return;
+      try{
+        if(typeof event.data!=='string'||event.data.length>WHITEBOARD_SYNC.outboundDocumentFrameBytes)throw new Error('FRAME_LIMIT');
+        const size=new TextEncoder().encode(event.data).byteLength;if(size>WHITEBOARD_SYNC.outboundDocumentFrameBytes)throw new Error('FRAME_LIMIT');
+        const message=WhiteboardServerMessage.parse(JSON.parse(event.data));
+        if(reauthorizing){
+          // Never queue authorization loss behind an earlier successful sync.
+          if((message.type==='error'&&!message.recoverable)||(message.type==='recovery'&&['access-revoked','board-archived','reload-required'].includes(message.disposition))){
+            cancelled=true;deferredMessages.length=0;deferredBytes=0;handleMessage(event);return;
+          }
+          if(deferredMessages.length>=WHITEBOARD_SYNC.pendingUpdates||deferredBytes+size>WHITEBOARD_SYNC.pendingBytes)throw new Error('FRAME_LIMIT');
+          deferredBytes+=size;deferredMessages.push(event);
+        }else handleMessage(event);
+      }catch{cancelled=true;deferredMessages.length=0;deferredBytes=0;this.block('PROTOCOL_ERROR');}
+    };
     socket.onclose = event => {
-      if (this.handshake) clearTimeout(this.handshake);
       if (this.stopped || this.socket !== socket) return;
+      clearTimeout(handshake);cancelled=true;deferredMessages.length=0;deferredBytes=0;
       this.ready = false; this.inFlight.clear();
       if ([1008, 4001, 4003, 4401, 4403].includes(event.code) && !this.retryableClose.has(socket)) { this.block('ACCESS_DENIED'); return; }
       const delay = Math.min(15000, 500 * 2 ** Math.min(this.retry++, 5));
       this.publish({ phase: 'offline', peers: [], reason: this.state.reason ?? 'CONNECTION_LOST', retryAttempt: this.retry });
       this.timer = setTimeout(() => this.connect('RETRYING'), delay);
     };
-    socket.onerror = () => socket.close();
+    socket.onerror = () => {if(!this.stopped&&this.socket===socket)socket.close();};
   }
   awareness(cursor: { x: number; y: number } | null, selected: string[], editingObjectId: string | null = null, collaboration?: {viewport:{centerX:number;centerY:number;zoom:number;revision:number};presenting:boolean;followingActorId:string|null}) {
     if (!this.ready || this.stopped || (cursor && (!Number.isFinite(cursor.x) || !Number.isFinite(cursor.y)))) return;

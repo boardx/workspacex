@@ -290,3 +290,22 @@ it('does not publish fresh sync when another tab wins reauthorization CAS',async
  const provider=new WhiteboardProvider(doc,'board-1',value=>{state=value;},Object.assign(outbox,{reauthorize}));await vi.advanceTimersByTimeAsync(0);sync(Socket.sockets[0]!,server);await vi.advanceTimersByTimeAsync(0);
  expect(state).toMatchObject({phase:'blocked',reason:'OUTBOX_REAUTHORIZATION_FAILED'});expect(readObjects(doc)).toEqual([]);expect(updates(Socket.sockets[0]!)).toEqual([]);provider.close();doc.destroy();server.destroy();
 });
+it.each(['error','recovery'])('handles terminal %s immediately while reauthorization is pending',async(kind)=>{
+ const outbox=new DurableMemoryOutbox();outbox.revoked.add('test-session');let release!:()=>void;const gate=new Promise<void>(resolve=>{release=resolve;});const reauthorize=vi.fn(()=>gate);
+ const doc=createWhiteboardDocument(),server=createWhiteboardDocument();executeCommands(server,[{type:'create',object:sticky('must-never-display')}],{});const states:WhiteboardConnectionState[]=[];
+ const provider=new WhiteboardProvider(doc,'board-1',state=>states.push(state),Object.assign(outbox,{reauthorize}));await vi.advanceTimersByTimeAsync(0);const socket=Socket.sockets[0]!;sync(socket,server);await vi.advanceTimersByTimeAsync(0);
+ socket.message(kind==='error'?{type:'error',code:'ACCESS_REVOKED',recoverable:false}:{type:'recovery',code:'ACCESS_REVOKED',disposition:'access-revoked'});
+ expect(states.at(-1)?.phase).toBe('blocked');expect(readObjects(doc)).toEqual([]);release();await vi.advanceTimersByTimeAsync(0);expect(states.some(state=>state.phase==='online')).toBe(false);expect(readObjects(doc)).toEqual([]);provider.close();doc.destroy();server.destroy();
+});
+it('ignores stale socket open/close without sending hello or clearing the new handshake',()=>{
+ const doc=createWhiteboardDocument(),provider=new WhiteboardProvider(doc,'board-1',()=>{},null),old=Socket.sockets[0]!;provider.retryNow();const current=Socket.sockets[1]!;
+ old.onopen?.();old.onclose?.({code:1000});expect(current.sent).toEqual([]);vi.advanceTimersByTime(10000);expect(current.readyState).toBe(3);provider.close();doc.destroy();
+});
+it.each(['oversized','aggregate','malformed'])('rejects %s inbound data before deferred queue admission',async(mode)=>{
+ const outbox=new DurableMemoryOutbox();outbox.revoked.add('test-session');let release!:()=>void;const gate=new Promise<void>(resolve=>{release=resolve;});const doc=createWhiteboardDocument(),server=createWhiteboardDocument();let state!:WhiteboardConnectionState;
+ const provider=new WhiteboardProvider(doc,'board-1',value=>{state=value;},Object.assign(outbox,{reauthorize:()=>gate}));await vi.advanceTimersByTimeAsync(0);const socket=Socket.sockets[0]!;sync(socket,server);await vi.advanceTimersByTimeAsync(0);
+ if(mode==='oversized')socket.onmessage?.({data:'x'.repeat(48*1024*1024+1)});
+ else if(mode==='malformed')socket.onmessage?.({data:'{"type":"not-a-message"}'});
+ else{const frame={type:'sync',epoch:1,seq:0,update:'AAAA'.repeat(1200000),role:'editor',archived:false};socket.message(frame);socket.message(frame);}
+ expect(state).toMatchObject({phase:'blocked',reason:'PROTOCOL_ERROR'});release();await vi.advanceTimersByTimeAsync(0);expect(readObjects(doc)).toEqual([]);provider.close();doc.destroy();server.destroy();
+});
