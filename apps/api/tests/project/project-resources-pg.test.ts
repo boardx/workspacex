@@ -20,7 +20,7 @@ import { appConfig } from "../../src/infrastructure/db/pg-config";
 import { CountingDecisionIdFactory } from "../../src/infrastructure/identity/in-memory-session-store";
 import { PgIdentityRepository } from "../../src/infrastructure/identity/pg-identity-repository";
 import { PgProjectResourceRepository } from "../../src/infrastructure/project/pg-project-resource-repository";
-import { addOrgMember, addProjectMember, asApp, ensureDatabase, migrateOnce, resetOrgs, seedOrg } from "../support/db";
+import { addOrgMember, addProjectMember, asApp, asOwner, ensureDatabase, migrateOnce, resetOrgs, seedOrg } from "../support/db";
 
 const HOOK_TIMEOUT_MS = 120_000;
 const ORG = "org-b2s1-pg";
@@ -158,7 +158,9 @@ describe("PgProjectResourceRepository（真实 PG）", () => {
 
   it("资源被删后链接行悬空，读侧自然过滤（计数随之归零）", async () => {
     await linkProjectResource(deps, { ...asUser(OWNER), kind: "guided_research", resourceId: "g1" });
-    await asApp(ORG, (c) => c.query("DELETE FROM guided_research_sessions WHERE org_id = $1 AND id = 'g1'", [ORG]));
+    // `guided_research_sessions` 对 app_rw 只放 SELECT/INSERT（F168/F169：会话只增不删），
+    // 「资源被删」这一格只能由表 owner 模拟——读侧过滤悬空链接与谁删的无关。
+    await asOwner((c) => c.query("DELETE FROM guided_research_sessions WHERE org_id = $1 AND id = 'g1'", [ORG]));
     expect((await listProjectResources(deps, asUser(OWNER))).counts.guided_research).toBe(0);
   });
 
