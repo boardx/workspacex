@@ -94,3 +94,81 @@ jobs:
         run: |
           echo "unit=${{ steps.unit.outcome }} python=${{ steps.python.outcome }} webbuild=${{ steps.webbuild.outcome }} up=${{ steps.up.outcome }}"
           [ "${{ steps.unit.outcome }}" = success ] && [ "${{ steps.python.outcome }}" = success ] && [ "${{ steps.webbuild.outcome }}" = success ] && [ "${{ steps.up.outcome }}" = success ]
+
+  # 便携包：真正交给用户的那个东西（#4315）。核心栈那个 job 证明代码能在 Windows 上跑；
+  # 这个 job 证明**打出来的包**能跑——解压到一个与构建目录无关的地方，用它自己的
+  # WorkspaceX.exe 起来，等它写下 [boot] ready，再打 healthz。产物存在 ≠ 能起来。
+  portable:
+    runs-on: windows-latest
+    timeout-minutes: 150
+    if: github.event_name == 'workflow_dispatch' || contains(github.event.pull_request.labels.*.name, 'windows-package')
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v5
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4.4.0
+      - name: Setup Node
+        uses: actions/setup-node@v5
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - uses: astral-sh/setup-uv@v7.0.0
+
+      - name: assets — Ollama (Windows)
+        run: OLLAMA_TARGET=windows-amd64 bash scripts/local-bundle/fetch-ollama.sh && du -sh apps/desktop/bin
+      - name: assets — relocatable Python
+        run: bash scripts/local-bundle/bundle-python.sh "$GITHUB_WORKSPACE/apps/desktop/python" 2>&1 | tail -3
+      - name: assets — models (GGUF chat + embedding, no 2b)
+        run: |
+          STORE="$RUNNER_TEMP/ollama-store"; mkdir -p "$STORE"
+          OLLAMA_MODELS="$STORE" OLLAMA_HOST=127.0.0.1:11499 apps/desktop/bin/ollama.exe serve > "$RUNNER_TEMP/ollama-pull.log" 2>&1 &
+          for i in $(seq 1 60); do curl -fs http://127.0.0.1:11499/api/tags >/dev/null && break; sleep 1; done
+          for m in qwen3.5:4b qwen3-embedding:0.6b; do OLLAMA_HOST=127.0.0.1:11499 apps/desktop/bin/ollama.exe pull "$m" 2>&1 | tail -1; done
+          ( cd packages/local-runtime && pnpm exec tsx src/cli.ts export-models --source "$STORE" --dest "$GITHUB_WORKSPACE/apps/desktop/models" --models qwen3.5:4b,qwen3-embedding:0.6b )
+          taskkill //IM ollama.exe //F //T || true
+          du -sh apps/desktop/models
+      - name: assets — speech model + sandbox modules
+        run: |
+          bash scripts/local-bundle/bundle-asr-model.sh "$RUNNER_TEMP/asr-src" | tail -1
+          bash scripts/local-bundle/prepare-sandbox-modules.sh | tail -1
+
+      - name: dist:win (portable zip)
+        working-directory: apps/desktop
+        run: pnpm run dist:win 2>&1 | tail -30; exit ${PIPESTATUS[0]}
+
+      - name: smoke — unzip elsewhere, launch, wait for [boot] ready
+        id: smoke
+        run: |
+          ZIP="$(ls apps/desktop/release/*.zip | head -1)"; ls -la "$ZIP"
+          DEST="$RUNNER_TEMP/installed"; UD="$RUNNER_TEMP/userdata"; rm -rf "$DEST" "$UD"; mkdir -p "$DEST"
+          powershell -NoProfile -Command "Expand-Archive -LiteralPath '$(cygpath -w "$ZIP")' -DestinationPath '$(cygpath -w "$DEST")' -Force"
+          EXE="$(find "$DEST" -maxdepth 2 -name WorkspaceX.exe | head -1)"; echo "exe=$EXE"
+          "$EXE" --user-data-dir="$(cygpath -w "$UD")" > "$RUNNER_TEMP/app-stdout.log" 2>&1 &
+          LOG="$UD/local/desktop.log"; ready=0
+          for i in $(seq 1 450); do grep -q "\[boot\] ready" "$LOG" 2>/dev/null && { ready=1; echo "boot ready after ${i}x2s"; break; }; grep -q "启动失败" "$LOG" 2>/dev/null && break; sleep 2; done
+          sleep 30
+          grep -E "\[boot\] ready|启动失败|\[model\]|改用|收掉" "$LOG" | head -20 || true
+          api=$(curl -s -o /dev/null -w '%{http_code}' --max-time 5 http://127.0.0.1:3200/healthz); web=$(curl -s -o /dev/null -w '%{http_code}' --max-time 5 http://127.0.0.1:3100/); agent=$(curl -s -o /dev/null -w '%{http_code}' --max-time 5 http://127.0.0.1:2024/healthz)
+          echo "ready=$ready api=$api web=$web deep-agent=$agent"
+          model_ok=0; grep -q "\[model\] .* 就绪" "$LOG" && model_ok=1; echo "chat model answered=$model_ok"
+          taskkill //IM WorkspaceX.exe //F //T || true
+          [ $ready = 1 ] && [ "$api" = 200 ] && [ "$web" != 000 ] && [ "$agent" = 200 ] && [ $model_ok = 1 ]
+      - name: collect logs
+        if: always()
+        run: |
+          mkdir -p "$RUNNER_TEMP/out"; cp "$RUNNER_TEMP"/*.log "$RUNNER_TEMP/out/" 2>/dev/null || true
+          cp -r "$RUNNER_TEMP/userdata/local/desktop.log" "$RUNNER_TEMP/userdata/local/logs" "$RUNNER_TEMP/out/" 2>/dev/null || true
+      - uses: actions/upload-artifact@v6
+        if: always()
+        with:
+          name: local-windows-portable-logs
+          path: ${{ runner.temp }}/out
+      - uses: actions/upload-artifact@v6
+        if: steps.smoke.outcome == 'success'
+        with:
+          name: WorkspaceX-windows-x64-portable
+          path: apps/desktop/release/*.zip
+          compression-level: 0

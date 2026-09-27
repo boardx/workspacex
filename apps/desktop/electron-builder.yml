@@ -128,6 +128,11 @@ mac:
   category: public.app-category.productivity
   identity: null
 win:
+  # 先出**便携包**（zip：解压即用），不出 NSIS 安装程序（#4315）。
+  # NSIS 有 2 GB 硬上限（electron-builder#2086/#8399），而本包带着模型约 7 GB。
+  # 绕开它的现成办法是换一个第三方编的 NSISBI 二进制、在构建机上下载执行——
+  # 没审计过的东西不进发布链。真要安装程序时二选一：审计后用 NSISBI，
+  # 或「小安装程序 + 模型包首启导入」（model-import.ts 已经会从目录导入）。
   target:
-    - target: nsis
+    - target: zip
       arch: [x64]

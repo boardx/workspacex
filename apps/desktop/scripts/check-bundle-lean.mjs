@@ -26,7 +26,9 @@ const FORBIDDEN = [
 ];
 
 const app = process.argv[2] ?? "release/mac-arm64/WorkspaceX.app";
-const pnpmDir = join(app, "Contents/Resources/bundle/node_modules/.pnpm");
+// mac：WorkspaceX.app/Contents/Resources；Windows：win-unpacked/resources（#4315）。
+const resources = app.endsWith(".app") ? join(app, "Contents/Resources") : join(app, "resources");
+const pnpmDir = join(resources, "bundle/node_modules/.pnpm");
 if (!existsSync(pnpmDir)) {
   console.error(`找不到 ${pnpmDir} —— 先打包，或把 .app 路径作为第一个参数传进来`);
   process.exit(2);
@@ -56,7 +58,7 @@ const mb = (p) => {
 const REQUIRED = ["pptxgenjs", "docx", "exceljs", "pdf-lib"].map(
   (m) => `apps/skill-sandbox/preinstalled/node_modules/${m}/package.json`,
 );
-const bundle = join(app, "Contents/Resources/bundle");
+const bundle = join(resources, "bundle");
 const missing = REQUIRED.filter((r) => !existsSync(join(bundle, r)));
 if (missing.length > 0) {
   console.error("❌ 包里缺运行时要的东西：");
