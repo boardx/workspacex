@@ -25,6 +25,16 @@ afterEach(cleanup);
 async function openMenu(item: api.Board = board) { fireEvent.pointerDown(await screen.findByTestId(`board-menu-${item.id}`), { button: 0 }); }
 
 describe('Board library', () => {
+  it('requests untagged boards from the server and clears that filter when selecting a tag', async () => {
+    render(<WhiteboardLibrary />); await screen.findByTestId('empty');
+    fireEvent.click(screen.getByRole('button', {name:'无标签', exact:true}));
+    await waitFor(() => expect(api.listBoards).toHaveBeenLastCalledWith(expect.objectContaining({untagged:'true',tagIds:[]}),expect.any(AbortSignal)));
+    expect(screen.getByRole('button', {name:'无标签',exact:true})).toHaveAttribute('aria-pressed','true');
+    fireEvent.click(screen.getByTestId(`board-filter-tag-${tag.id}`));
+    await waitFor(() => expect(api.listBoards).toHaveBeenLastCalledWith(expect.objectContaining({untagged:'false',tagIds:[tag.id]}),expect.any(AbortSignal)));
+    fireEvent.click(screen.getByRole('button', {name:'全部标签',exact:true}));
+    await waitFor(() => expect(api.listBoards).toHaveBeenLastCalledWith(expect.objectContaining({untagged:'false',tagIds:[]}),expect.any(AbortSignal)));
+  });
   it('creates once with a durable request id and enters the full-screen editor', async () => {
     vi.mocked(api.createBoard).mockRejectedValueOnce(new Error('private')).mockResolvedValueOnce(board);
     render(<WhiteboardLibrary />); await screen.findByTestId('empty');
@@ -114,7 +124,7 @@ describe('Board library', () => {
   it('opens editor from the card while the three-dot menu stays action-only', async () => {
     vi.mocked(api.listBoards).mockResolvedValue(result([board])); render(<WhiteboardLibrary />);
     expect(await screen.findByTestId(`board-open-${board.id}`)).toHaveAttribute('href', `/studio/board/${board.id}`);
-    expect(screen.getByTestId(`board-thumbnail-empty-${board.id}`)).toHaveTextContent('暂无缩略图'); expect(screen.getByTestId(`board-thumbnail-empty-${board.id}`)).not.toHaveClass('bg-gradient-to-br');
+    expect(screen.getByTestId(`board-thumbnail-empty-${board.id}`)).toHaveTextContent('预览尚未生成'); expect(screen.getByTestId(`board-thumbnail-empty-${board.id}`)).not.toHaveClass('bg-gradient-to-br');
     await openMenu(); fireEvent.click(await screen.findByTestId(`board-action-rename-${board.id}`)); expect(await screen.findByTestId('board-rename-dialog')).toBeInTheDocument(); expect(push).not.toHaveBeenCalled();
   });
   it('updates board tags with the current CAS revision', async () => {
