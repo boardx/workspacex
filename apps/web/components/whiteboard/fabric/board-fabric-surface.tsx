@@ -17,8 +17,17 @@ import {
 import { representableWorldGeometry } from "./fabric-transform";
 
 type TaggedFabricObject = FabricObject & {
-  data?: { boardObjectId?: string; adapterKind?: BoardFabricObject["kind"]; renderedRevision?: number; projectionFailure?: boolean; stickyVariant?: BoardFabricStickyAppearance["variant"]; sizingMode?: BoardFabricStickyAppearance["sizingMode"] };
+  data?: { boardObjectId?: string; adapterKind?: BoardFabricObject["kind"]; renderedRevision?: number; projectionFailure?: boolean; stickyVariant?: BoardFabricStickyAppearance["variant"]; sizingMode?: BoardFabricStickyAppearance["sizingMode"]; drawingPreview?: boolean };
 };
+
+type DrawingTool = "pen" | "marker" | "highlighter" | "eraser";
+
+function previewStyle(tool: DrawingTool): { color: string; width: number; opacity: number; dash?: number[] } {
+  if (tool === "marker") return { color: "#2563EB", width: 8, opacity: .85 };
+  if (tool === "highlighter") return { color: "#FACC15", width: 18, opacity: .35 };
+  if (tool === "eraser") return { color: "#EF4444", width: 20, opacity: .45, dash: [6, 4] };
+  return { color: "#18181B", width: 3, opacity: 1 };
+}
 
 export function connectorTipAngles(type: "straight" | "elbow" | "curve", x1: number, y1: number, x2: number, y2: number): { start: number; end: number } {
   const tangent = type === "straight"
@@ -399,6 +408,7 @@ export function BoardFabricSurface({ objects, selectedObjectIds, readOnly, tool,
   const selectedObjectIdsRef = React.useRef(selectedObjectIds);
   const reconcilingSelectionRef = React.useRef(false);
   const renderFrameRef = React.useRef<number | null>(null);
+  const cancelDrawingRef = React.useRef<() => void>(() => undefined);
   const callbacksRef = React.useRef({ onSelectionChange, onObjectTransform, onObjectsTransform, onViewportChange, onCanvasClick, onCanvasDoubleClick, onObjectDoubleClick, onToolDrop, onDrawingComplete, onPanelHoverChange, onObjectReparent, onObjectHoverChange });
   const stateRef = React.useRef({ readOnly, tool, viewport });
   callbacksRef.current = { onSelectionChange, onObjectTransform, onObjectsTransform, onViewportChange, onCanvasClick, onCanvasDoubleClick, onObjectDoubleClick, onToolDrop, onDrawingComplete, onPanelHoverChange, onObjectReparent, onObjectHoverChange };
@@ -583,7 +593,20 @@ export function BoardFabricSurface({ objects, selectedObjectIds, readOnly, tool,
     };
     let panning = false;
     let last = { x: 0, y: 0 };
-    let drawing: Array<{ x: number; y: number; pressure: number }> | null = null;
+    let drawing: { tool: DrawingTool; points: Array<{ x: number; y: number; pressure: number }> } | null = null;
+    let drawingPreview: TaggedFabricObject[] = [];
+    const clearDrawingPreview = () => {
+      if (!drawingPreview.length) return;
+      for (const segment of drawingPreview) canvas.remove(segment);
+      drawingPreview = [];
+      canvas.requestRenderAll();
+    };
+    const cancelDrawing = () => {
+      drawing = null;
+      clearDrawingPreview();
+    };
+    cancelDrawingRef.current = cancelDrawing;
+    const activeDrawingTool = (): DrawingTool => stateRef.current.tool === "erase" ? "eraser" : stateRef.current.tool.replace("draw-", "") as DrawingTool;
     const pressureOf = (event: TPointerEventInfo) => typeof (event.e as PointerEvent).pressure === "number" ? (event.e as PointerEvent).pressure : .5;
     const pointerDown = (event: TPointerEventInfo) => {
       const point = canvas.getScenePoint(event.e);
@@ -591,7 +614,8 @@ export function BoardFabricSurface({ objects, selectedObjectIds, readOnly, tool,
       duplicateGesture = (event.e as MouseEvent).altKey && ids.length ? { ids, start: { x: point.x, y: point.y }, current: { x: point.x, y: point.y }, handled: false } : null;
       if ((stateRef.current.tool.startsWith("draw-") || stateRef.current.tool === "erase") && !stateRef.current.readOnly) {
         const pointer = canvas.getScenePoint(event.e);
-        drawing = [{ x: pointer.x, y: pointer.y, pressure: pressureOf(event) }];
+        cancelDrawing();
+        drawing = { tool: activeDrawingTool(), points: [{ x: pointer.x, y: pointer.y, pressure: pressureOf(event) }] };
         return;
       }
       if (stateRef.current.tool === "select" && !event.target) {
@@ -614,7 +638,23 @@ export function BoardFabricSurface({ objects, selectedObjectIds, readOnly, tool,
     };
     const pointerMove = (event: TPointerEventInfo) => {
       if (duplicateGesture && !duplicateGesture.handled) { const point = canvas.getScenePoint(event.e); duplicateGesture.current = { x: point.x, y: point.y }; }
-      if (drawing) { const pointer = canvas.getScenePoint(event.e); drawing.push({ x: pointer.x, y: pointer.y, pressure: pressureOf(event) }); return; }
+      if (drawing) {
+        const pointer = canvas.getScenePoint(event.e);
+        const previous = drawing.points.at(-1)!;
+        const next = { x: pointer.x, y: pointer.y, pressure: pressureOf(event) };
+        drawing.points.push(next);
+        const style = previewStyle(drawing.tool);
+        const pressure = Math.max(.1, (previous.pressure + next.pressure) / 2);
+        const segment = new Path(`M ${previous.x} ${previous.y} L ${next.x} ${next.y}`, {
+          fill: "", stroke: style.color, strokeWidth: style.width * (.35 + pressure * .65), opacity: style.opacity,
+          strokeDashArray: style.dash, strokeLineCap: "round", strokeLineJoin: "round", selectable: false, evented: false,
+        }) as TaggedFabricObject;
+        segment.data = { drawingPreview: true };
+        drawingPreview.push(segment);
+        canvas.add(segment);
+        canvas.requestRenderAll();
+        return;
+      }
       if (!panning) return;
       const pointer = event.e as MouseEvent;
       const transform = [...canvas.viewportTransform] as typeof canvas.viewportTransform;
@@ -648,7 +688,8 @@ export function BoardFabricSurface({ objects, selectedObjectIds, readOnly, tool,
       duplicateGesture = null;
       if (drawing) {
         const completed = drawing; drawing = null;
-        if (completed.length > 1) callbacksRef.current.onDrawingComplete?.({ tool: stateRef.current.tool === "erase" ? "eraser" : stateRef.current.tool.replace("draw-", "") as "pen" | "marker" | "highlighter", points: completed });
+        clearDrawingPreview();
+        if (completed.points.length > 1) callbacksRef.current.onDrawingComplete?.({ tool: completed.tool, points: completed.points });
         return;
       }
       if (!panning) return;
@@ -680,6 +721,7 @@ export function BoardFabricSurface({ objects, selectedObjectIds, readOnly, tool,
     canvas.on("mouse:out", () => callbacksRef.current.onObjectHoverChange?.(null));
     return () => {
       disposed = true;
+      cancelDrawingRef.current = () => undefined;
       resizeObserver.disconnect();
       canvas.dispose();
       canvasRef.current = null;
@@ -756,6 +798,7 @@ export function BoardFabricSurface({ objects, selectedObjectIds, readOnly, tool,
   React.useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
+    cancelDrawingRef.current();
     canvas.selection = tool === "select" && !readOnly;
     canvas.defaultCursor = tool === "hand" ? "grab" : tool.startsWith("draw-") ? "crosshair" : tool === "erase" ? "cell" : "default";
     for (const [id, projected] of registryRef.current) {
@@ -842,6 +885,8 @@ export function BoardFabricSurface({ objects, selectedObjectIds, readOnly, tool,
       data-viewport-zoom={clampBoardZoom(viewport.zoom)} data-viewport-pan-x={viewport.panX} data-viewport-pan-y={viewport.panY}
       data-selection-scene={selectionScene ? JSON.stringify(selectionScene) : undefined}
       data-object-scenes={JSON.stringify(objectScenes)}
+      onPointerCancel={() => cancelDrawingRef.current()}
+      onLostPointerCapture={() => cancelDrawingRef.current()}
       onDragOver={(event) => { if (event.dataTransfer.types.includes("application/x-workspacex-board-tool")) { event.preventDefault(); event.dataTransfer.dropEffect = "copy"; } }}
       onDrop={(event) => {
         const payload = event.dataTransfer.getData("application/x-workspacex-board-tool");

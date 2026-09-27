@@ -3,13 +3,14 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { BoardFabricObject, BoardViewport } from "@/components/whiteboard/fabric/board-fabric-object";
 
 interface MockProjectedObject {
-  data?: { boardObjectId?: string; adapterKind?: string; stickyVariant?: string; sizingMode?: string };
+  data?: { boardObjectId?: string; adapterKind?: string; stickyVariant?: string; sizingMode?: string; drawingPreview?: boolean };
   left: number; top: number; width: number; height: number; scaleX: number; scaleY: number; angle: number;
   selectable: boolean; evented: boolean;
   mockKind?: string; children?: MockProjectedObject[]; controls?: Record<string, boolean>;
   fontFamily?: string; fontSize?: number; fontWeight?: number; fontStyle?: string; underline?: boolean; textAlign?: string; lineHeight?: number; fill?: string; hoverCursor?: string; lockScalingX?: boolean; lockScalingY?: boolean;
   clipPath?: unknown;
   matrix?: number[];
+  text?: string; strokeWidth?: number; opacity?: number;
   calcTransformMatrix: () => number[];
 }
 
@@ -132,6 +133,41 @@ describe("BoardFabricSurface", () => {
     expect(probe.objects.map((object) => object.data?.boardObjectId)).toEqual(["s-1", "r-1"]);
     expect(container.querySelector('[data-testid^="whiteboard-object-"]')).toBeNull();
     expect(probe.clearCalls).toBe(0);
+  });
+
+  it("renders a pressure-aware Fabric draft while drawing and clears it on cancel or completion", () => {
+    const onDrawingComplete = vi.fn();
+    renderSurface({ tool: "draw-pen", onDrawingComplete });
+    const pointer = (type: string, x: number, y: number, pressure: number) => {
+      const event = new MouseEvent(type, { clientX: x, clientY: y });
+      Object.defineProperty(event, "pressure", { value: pressure });
+      return event;
+    };
+
+    probe.handlers.get("mouse:down")?.({ e: pointer("pointerdown", 10, 20, .2) } as never);
+    probe.handlers.get("mouse:move")?.({ e: pointer("pointermove", 30, 40, .5) } as never);
+    probe.handlers.get("mouse:move")?.({ e: pointer("pointermove", 60, 80, .9) } as never);
+
+    const preview = probe.objects.filter((object) => object.data?.drawingPreview);
+    expect(preview).toHaveLength(2);
+    expect(preview.map((segment) => segment.text)).toEqual(["M 10 20 L 30 40", "M 30 40 L 60 80"]);
+    expect(preview[1]!.strokeWidth).toBeGreaterThan(preview[0]!.strokeWidth!);
+    expect(onDrawingComplete).not.toHaveBeenCalled();
+
+    fireEvent.pointerCancel(screen.getByTestId("board-fabric-surface"));
+    expect(probe.objects.some((object) => object.data?.drawingPreview)).toBe(false);
+    expect(onDrawingComplete).not.toHaveBeenCalled();
+
+    probe.handlers.get("mouse:down")?.({ e: pointer("pointerdown", 100, 120, .3) } as never);
+    probe.handlers.get("mouse:move")?.({ e: pointer("pointermove", 140, 160, .8) } as never);
+    expect(probe.objects.some((object) => object.data?.drawingPreview)).toBe(true);
+    probe.handlers.get("mouse:up")?.({ e: pointer("pointerup", 140, 160, 0) } as never);
+    expect(probe.objects.some((object) => object.data?.drawingPreview)).toBe(false);
+    expect(onDrawingComplete).toHaveBeenCalledOnce();
+    expect(onDrawingComplete).toHaveBeenCalledWith({ tool: "pen", points: [
+      { x: 100, y: 120, pressure: .3 },
+      { x: 140, y: 160, pressure: .8 },
+    ] });
   });
 
   it("constructs dedicated Fabric projections for shape, vector drawing, image state, and structured card", () => {
