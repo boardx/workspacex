@@ -338,6 +338,7 @@ test.describe("organize <=2 actions", () => {
         await second.getByLabel("对象文字", { exact: true }).fill("并发修改后的对象");
         const afterRemoteEdit = JSON.stringify(parseGeometry(original).map(value => value.id === remoteId ? { ...value, text: "并发修改后的对象" } : value));
         await expect.poll(() => geometry(second)).toBe(afterRemoteEdit);
+        await expect(page.getByTestId(`board-a11y-object-${remoteId}`)).toHaveText("并发修改后的对象");
         await page.getByTestId("board-layout-preview-apply").click();
         await expect(page.getByText("应用失败：预览后对象已被其他协作者修改。", { exact: true })).toBeVisible();
         await expect.poll(() => geometry(page)).toBe(afterRemoteEdit);
@@ -370,6 +371,19 @@ test("visual acceptance: compact selection in three viewports", async ({ page, r
         expect(bounds!.x + bounds!.width).toBeLessThanOrEqual(viewport.width);
         expect(bounds!.y + bounds!.height).toBeLessThanOrEqual(viewport.height);
         expect(bounds!.height, "selection must not expose a full property form").toBeLessThanOrEqual(64);
+        if (kind === "text") {
+          const textHit = await page.evaluate((id) => {
+            const surface = document.querySelector<HTMLElement>('[data-testid="board-fabric-surface"]')!;
+            const canvas = surface.querySelector<HTMLCanvasElement>('canvas[data-fabric="top"]')!;
+            const scene = (JSON.parse(surface.dataset.objectScenes!) as Array<{ id: string; left: number; top: number }>).find(value => value.id === id)!;
+            const bounds = canvas.getBoundingClientRect(), zoom = Number(surface.dataset.viewportZoom);
+            const x = bounds.x + Number(surface.dataset.viewportPanX) + (scene.left + 16) * zoom;
+            const y = bounds.y + Number(surface.dataset.viewportPanY) + (scene.top + 12) * zoom;
+            const hit = document.elementFromPoint(x, y);
+            return { visible: x >= 0 && y >= 0 && x < innerWidth && y < innerHeight, covered: Boolean(hit?.closest('[data-board-chrome], header, [data-testid="board-context-toolbar"]')) };
+          }, object.id);
+          expect(textHit, "selected text must remain visible beneath global and contextual controls").toEqual({ visible: true, covered: false });
+        }
         const uncovered = await page.evaluate(() => {
           const canvas = document.querySelector<HTMLCanvasElement>('[data-testid="board-fabric-surface"] canvas[data-fabric="top"]')!;
           const rect = canvas.getBoundingClientRect(); let free = 0, total = 0;
