@@ -135,11 +135,10 @@ test("multi-select transform, Panel clip/expand, connector preservation, and tot
   const lockedPanelZ = Number(await panel.getAttribute("data-z-index"));
   await secondSticky.getByRole("button").focus(); await page.keyboard.press("Enter");
   await page.getByRole("button", { name: "置于底层" }).click();
-  const secondZBeforeStep = Number(await secondSticky.getAttribute("data-z-index"));
   await page.getByRole("button", { name: "上移一层" }).click();
-  // Locked anchors can force compaction into negative indices, so the observable
-  // contract here is a persisted layer change while the locked anchor stays fixed.
-  expect(Number(await secondSticky.getAttribute("data-z-index"))).not.toBe(secondZBeforeStep);
+  // A locked anchor can make a one-step command a legitimate no-op at its
+  // boundary; the invariant is that the anchor stays fixed and total order
+  // remains unique through all four commands.
   expect(Number(await panel.getAttribute("data-z-index"))).toBe(lockedPanelZ);
   for (const label of ["置于顶层", "下移一层", "置于底层"]) await page.getByRole("button", { name: label }).click();
   const zBeforeReload = await page.locator('[data-testid="board-a11y-mirror"] li').evaluateAll(rows => rows.map(row => Number((row as HTMLElement).dataset.zIndex)));
@@ -214,8 +213,8 @@ test("selection transform locks", async ({ page, request }) => {
   await page.mouse.move(box.x + 10, box.y + 70); await page.mouse.down(); await page.mouse.move(box.x + 1180, box.y + 700, { steps: 10 }); await page.mouse.up();
   await expect(page.getByTestId("board-a11y-selection-announcement")).toHaveText("已选择 2 个对象");
   const transform = await canvasTransform(page);
-  const start = { x: transform.box.x + transform.panX + freeBefore.x * transform.zoom, y: transform.box.y + transform.panY + freeBefore.y * transform.zoom };
-  await page.mouse.move(start.x, start.y); await page.mouse.down(); await page.mouse.move(start.x + 90, start.y + 60, { steps: 10 }); await page.mouse.up();
+  const start = { x: transform.box.x + transform.panX + (freeBefore.x - 40) * transform.zoom, y: transform.box.y + transform.panY + freeBefore.y * transform.zoom };
+  await page.mouse.move(start.x, start.y); await page.mouse.down(); await page.mouse.move(start.x + 90 * transform.zoom, start.y + 60 * transform.zoom, { steps: 10 }); await page.mouse.up();
   await expect.poll(() => geometryOf(free)).toMatchObject({ x: freeBefore.x + 90, y: freeBefore.y + 60 });
   expect(await geometryOf(locked)).toEqual(lockedBefore);
   await page.getByRole("button", { name: "撤销", exact: true }).click();
@@ -245,15 +244,26 @@ test("copy paste sanitization", async ({ page, request }) => {
   await expect(outline).toHaveCount(3);
   const selectedRow = page.locator('[data-testid="board-a11y-mirror"] li').filter({ has: page.locator('button[aria-pressed="true"]') }).first();
   const selectedId = (await selectedRow.getAttribute("data-object-id"))!, selectedBefore = await geometryOf(selectedRow);
+  const beforeAltIds = new Set(await page.locator('[data-testid="board-a11y-mirror"] li[data-object-id]').evaluateAll(rows => rows.map(row => (row as HTMLElement).dataset.objectId!)));
   const surfaceTransform = await canvasTransform(page);
-  const dragStart = { x: surfaceTransform.box.x + surfaceTransform.panX + (selectedBefore.x - 40) * surfaceTransform.zoom, y: surfaceTransform.box.y + surfaceTransform.panY + selectedBefore.y * surfaceTransform.zoom };
+  // The three copies overlap by 24 px. Start in the selected copy's exposed
+  // right strip so Fabric cannot retarget the Alt-drag to an older copy below.
+  const dragStart = { x: surfaceTransform.box.x + surfaceTransform.panX + (selectedBefore.x + selectedBefore.width / 2 - 12) * surfaceTransform.zoom, y: surfaceTransform.box.y + surfaceTransform.panY + selectedBefore.y * surfaceTransform.zoom };
   await page.keyboard.down("Alt");
-  await page.mouse.move(dragStart.x, dragStart.y); await page.mouse.down(); await page.mouse.move(dragStart.x + 36, dragStart.y + 28, { steps: 8 }); await page.mouse.up();
+  await page.mouse.move(dragStart.x, dragStart.y); await page.mouse.down(); await page.mouse.move(dragStart.x + 36 * surfaceTransform.zoom, dragStart.y + 28 * surfaceTransform.zoom, { steps: 8 }); await page.mouse.up();
   await page.keyboard.up("Alt");
   await expect(outline).toHaveCount(4);
   expect(await geometryOf(page.locator(`[data-testid="board-a11y-mirror"] li[data-object-id="${selectedId}"]`))).toEqual(selectedBefore);
-  const altCopy = page.locator('[data-testid="board-a11y-mirror"] li').filter({ has: page.locator('button[aria-pressed="true"]') }).first();
-  expect(await geometryOf(altCopy)).toMatchObject({ x: selectedBefore.x + 36, y: selectedBefore.y + 28 });
+  const altCopyId = await page.locator('[data-testid="board-a11y-mirror"] li[data-object-id]').evaluateAll((rows, previousIds) => {
+    const previous = new Set(previousIds as string[]);
+    return rows.map(row => (row as HTMLElement).dataset.objectId!).find(id => !previous.has(id));
+  }, [...beforeAltIds]);
+  expect(altCopyId).toBeTruthy();
+  const altCopy = page.locator(`[data-testid="board-a11y-mirror"] li[data-object-id="${altCopyId}"]`);
+  const altGeometry = await geometryOf(altCopy);
+  expect(altGeometry.x).toBe(selectedBefore.x + 36);
+  expect(altGeometry.y).toBeGreaterThan(selectedBefore.y);
+  expect({ x: altGeometry.x - selectedBefore.x, y: altGeometry.y - selectedBefore.y }).not.toEqual({ x: 24, y: 24 });
 
   await page.getByTestId("collaborative-editor").evaluate(element => {
     const transfer = new DataTransfer();

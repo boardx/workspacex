@@ -57,3 +57,14 @@ it("explains readonly command unavailability through the toolbar description", (
   expect(screen.getByTestId("board-command-availability")).toHaveTextContent("修改命令不可用：当前白板为只读。");
   doc.destroy();
 });
+
+it("hides mutating single-object controls when the selected object is locked", () => {
+  const doc = createWhiteboardDocument();
+  executeCommands(doc, [{ type: "create", object: { ...sticky, locked: true } }], "seed");
+  render(<CollaborativeThinkingEditor boardId="board" clientId="editor" doc={doc} readOnly={false} title="Board" status="已连接" />);
+  fireEvent.click(screen.getByTestId("select-one"));
+  expect(screen.queryByTestId("board-context-toolbar")).toBeNull();
+  expect(screen.getByTestId("board-spatial-duplicate")).toBeDisabled();
+  expect(screen.getByTestId("board-spatial-duplicate")).toHaveAttribute("title", "选择中包含锁定对象");
+  doc.destroy();
+});

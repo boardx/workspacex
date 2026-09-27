@@ -303,6 +303,7 @@ describe("BoardFabricSurface", () => {
     const free = probe.objects.find((object) => object.data?.boardObjectId === "s-1")!;
     const frozen = probe.objects.find((object) => object.data?.boardObjectId === "locked")!;
     expect(frozen).toMatchObject({ selectable: true, evented: true, lockMovementX: true, lockScalingX: true, lockRotation: true });
+    expect(probe.activeId).toBe("s-1");
     free.left = 500; frozen.left = 800;
     probe.handlers.get("object:modified")?.({ target: { getObjects: () => [free, frozen] } as unknown as MockProjectedObject });
     expect(onObjectsTransform).toHaveBeenCalledWith([expect.objectContaining({ id: "s-1" })], { duplicate: false });

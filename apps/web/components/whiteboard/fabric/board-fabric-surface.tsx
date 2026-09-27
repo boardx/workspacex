@@ -245,8 +245,10 @@ function applyCanonicalObject(projected: TaggedFabricObject, object: BoardFabric
     angle: object.geometry.rotation,
     scaleX: object.geometry.width / naturalWidth,
     scaleY: object.geometry.height / naturalHeight,
-    selectable: !readOnly && !object.locked && object.kind !== "placeholder" && object.kind !== "connector",
-    evented: !readOnly && !object.locked && object.kind !== "placeholder",
+    // Locked objects remain selectable for inspection and mixed selections;
+    // the lock flags below prevent every Fabric transform.
+    selectable: !readOnly && object.kind !== "placeholder" && object.kind !== "connector",
+    evented: !readOnly && object.kind !== "placeholder",
     hasControls: object.kind !== "connector",
     lockMovementX: object.kind === "connector",
     lockMovementY: object.kind === "connector",
@@ -611,7 +613,14 @@ export function BoardFabricSurface({ objects, selectedObjectIds, readOnly, tool,
     const canvas = canvasRef.current;
     if (!canvas) return;
     const projected = selectedObjectIds.flatMap((id) => { const object = registryRef.current.get(id); return object ? [object] : []; });
-    if (projected.length > 1) canvas.setActiveObject(new ActiveSelection(projected, { canvas }));
+    const transformable = projected.filter((object) => {
+      const canonical = canonicalRef.current.get(object.data?.boardObjectId ?? "");
+      return canonical && !canonical.locked && canonical.kind !== "placeholder" && canonical.kind !== "connector";
+    });
+    // Keep locked objects in the canonical selection for inspection, while the
+    // Fabric transform boundary previews and moves only the unlocked subset.
+    if (projected.length > 1 && transformable.length > 1) canvas.setActiveObject(new ActiveSelection(transformable, { canvas }));
+    else if (projected.length > 1 && transformable[0]) canvas.setActiveObject(transformable[0]);
     else if (projected[0]) canvas.setActiveObject(projected[0]);
     else canvas.discardActiveObject();
     scheduleRender();

@@ -343,7 +343,7 @@ export function CollaborativeThinkingEditor({ boardId, clientId, doc, readOnly, 
   const announceCursor = (event: PointerEvent<HTMLDivElement>) => { const bounds = event.currentTarget.getBoundingClientRect(); onAwareness?.({ x: (event.clientX - bounds.left - viewport.panX) / viewport.zoom, y: (event.clientY - bounds.top - viewport.panY) / viewport.zoom }, selected); };
   const selectedObject = selected.length === 1 ? model.objects.find((object) => object.id === selected[0]) : undefined;
   const selectedContent = selectedObject ? readContentObject(selectedObject) : null;
-  const contextObject = selected.length === 1 ? model.objects.find((candidate) => candidate.id === selected[0] && (candidate.kind === "sticky" || candidate.kind === "text")) : undefined;
+  const contextObject = selected.length === 1 ? model.objects.find((candidate) => candidate.id === selected[0] && !candidate.locked && (candidate.kind === "sticky" || candidate.kind === "text")) : undefined;
   const commitDrawing = (drawingTool: DrawingTool, points: Array<{ x: number; y: number; pressure: number }>) => {
     const styles: Record<DrawingTool, { color: string; width: number; opacity: number }> = { pen: { color: "#18181B", width: 3, opacity: 1 }, marker: { color: "#2563EB", width: 8, opacity: .9 }, highlighter: { color: "#FACC15", width: 20, opacity: .35 }, eraser: { color: "#FFFFFF", width: 24, opacity: 1 } };
     const draft: DrawingStroke = { id: crypto.randomUUID(), tool: drawingTool, points, ...styles[drawingTool], ...(drawingTool === "eraser" && selectedContent?.type === "drawing" ? { erases: selectedContent.strokes.filter((item) => item.tool !== "eraser").map((item) => item.id) } : {}) };
