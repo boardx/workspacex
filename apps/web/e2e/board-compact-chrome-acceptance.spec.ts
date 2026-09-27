@@ -21,15 +21,26 @@ test('real thirty-note Board keeps compact chrome and intentional connection han
    const header=(await page.getByTestId('board-editor-header').boundingBox())!,navigation=(await page.getByTestId('board-navigation-controls').boundingBox())!,selection=(await page.getByTestId('board-selection-layout-toolbar').boundingBox())!;
    expect(header.height).toBeLessThanOrEqual(72);expect(header.width).toBeLessThanOrEqual(width);const dock=(await page.getByTestId('board-creation-dock').boundingBox())!;expect(selection.y+selection.height).toBeLessThan(dock.y);expect(navigation.y).toBeGreaterThanOrEqual(header.y+header.height);expect(navigation.y).toBeLessThan(160);expect(navigation.x).toBeGreaterThanOrEqual(0);expect(navigation.x+navigation.width).toBeLessThanOrEqual(width);
    await expect.poll(async()=>{const surface=page.getByTestId('board-fabric-surface'),view=await surface.evaluate(el=>({z:Number(el.getAttribute('data-viewport-zoom')),x:Number(el.getAttribute('data-viewport-pan-x')),y:Number(el.getAttribute('data-viewport-pan-y'))}));return 100*view.z+view.x>=31&&1300*view.z+view.x<=width-31&&100*view.z+view.y>=header.y+header.height+15&&896*view.z+view.y<=dock.y-11;}).toBe(true);
-   await info.attach(`compact-chrome-${width}`,{body:await page.screenshot(),contentType:'image/png'});
+   await info.attach(`compact-chrome-${width}`,{path:await page.screenshot({path:info.outputPath(`compact-chrome-${width}.png`)}).then(()=>info.outputPath(`compact-chrome-${width}.png`)),contentType:'image/png'});
    await page.getByRole('button',{name:'图形：想法 2',exact:true}).click();await page.keyboard.press('Escape');
    await expect(page.getByTestId('board-context-toolbar')).toBeVisible();
    await page.getByTestId('board-add-sticky').click();await expect(page.getByTestId('board-sticky-picker')).toBeVisible();
    const palette=(await page.getByTestId('board-sticky-picker').boundingBox())!,stickyTool=(await page.getByTestId('board-add-sticky').boundingBox())!;
    expect(palette.y+palette.height).toBeLessThan(stickyTool.y);expect(palette.x).toBeGreaterThanOrEqual(0);expect(palette.x+palette.width).toBeLessThanOrEqual(width);
-   await info.attach(`reference-selection-palette-${width}`,{body:await page.screenshot(),contentType:'image/png'});
+   await info.attach(`reference-selection-palette-${width}`,{path:await page.screenshot({path:info.outputPath(`reference-selection-palette-${width}.png`)}).then(()=>info.outputPath(`reference-selection-palette-${width}.png`)),contentType:'image/png'});
   }
   await page.getByTestId('board-tool-select').click();await page.keyboard.press('ControlOrMeta+a');
+  await page.setViewportSize({width:390,height:844});
+  const mobileHeader=page.getByTestId('board-editor-header');
+  for(const button of await mobileHeader.getByRole('button').all()){
+   if(!await button.isVisible())continue;
+   const bounds=await button.boundingBox();expect(bounds).not.toBeNull();expect(bounds!.x).toBeGreaterThanOrEqual(0);expect(bounds!.x+bounds!.width).toBeLessThanOrEqual(390);
+  }
+  await page.getByRole('button',{name:'更多白板操作',exact:true}).click();
+  await expect(page.getByRole('region',{name:'在线成员',exact:true})).toBeVisible();
+  await page.screenshot({path:info.outputPath('reference-mobile-390.png')});
+  await info.attach('reference-mobile-390',{path:info.outputPath('reference-mobile-390.png'),contentType:'image/png'});
+  await page.keyboard.press('Escape');await page.setViewportSize({width:1440,height:900});
   // Explicit connection intent remains available without relying on hover.
   await page.getByTestId('board-add-connector').click();await expect(page.locator('[data-testid^="connector-handle-"]')).toHaveCount(120);
   await page.getByTestId('board-tool-select').click();await expect(page.locator('[data-testid^="connector-handle-"]')).toHaveCount(0);
