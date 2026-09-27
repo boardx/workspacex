@@ -35,7 +35,7 @@ type SourceRow = {
   evidence_mode: Document["evidenceMode"];
   controlled_references: Document["references"];
 };
-function hash(markdown: string): string {
+export function interviewMarkdownContentHash(markdown: string): string {
   return createHash("sha256").update(markdown, "utf8").digest("hex");
 }
 
@@ -50,7 +50,7 @@ export async function readInterviewMarkdownDocuments(
       ORDER BY step,version_number DESC`, [orgId, interviewId, revisionId],
   );
   const documents = result.rows.map((row) => {
-    if (row.content_hash !== hash(row.markdown)) throw new Error("MARKDOWN_CONTENT_INTEGRITY_FAILED");
+    if (row.content_hash !== interviewMarkdownContentHash(row.markdown)) throw new Error("MARKDOWN_CONTENT_INTEGRITY_FAILED");
     return interviewMarkdown.InterviewMarkdownDocument.parse({
       documentId: row.artifact_id, step: row.step, version: row.version_number,
       markdown: row.markdown, contentHash: row.content_hash,
@@ -85,7 +85,7 @@ export async function appendInterviewMarkdownDocument(session: TenantSession, in
   if (current.rows[0]?.version !== input.expectedVersion) throw new Error("MARKDOWN_VERSION_CONFLICT");
   const document = interviewMarkdown.InterviewMarkdownDocument.parse({
     documentId: `md-${randomUUID()}`, step: input.step, version: input.expectedVersion + 1,
-    markdown: input.markdown, contentHash: hash(input.markdown),
+    markdown: input.markdown, contentHash: interviewMarkdownContentHash(input.markdown),
     evidenceMode: input.evidenceMode, references: input.references,
   });
   if (!input.title.trim() || !input.markdown.trim()) throw new Error("MARKDOWN_DOCUMENT_EMPTY");

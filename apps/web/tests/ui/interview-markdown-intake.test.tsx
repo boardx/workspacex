@@ -11,20 +11,29 @@ it("native file input saves imported Markdown through the sole source API", asyn
   vi.stubEnv("NEXT_PUBLIC_API_URL", "http://localhost:4100"); vi.stubEnv("NEXT_PUBLIC_API_PATH_PREFIX", "");
   const document = { documentId: "intake-file", step: "intake", version: 1, contentHash: "a".repeat(64), evidenceMode: "simulated", references: [], markdown: raw };
   const writes: { markdown: string }[] = [];
-  vi.stubGlobal("fetch", async (_url: string, init: RequestInit) => {
+  const imported = "## 原始材料\r\n\r\n保留 **原文**。";
+  let uploaded = false;
+  const source = () => ({ interviewId: "itv-file", revisionId: "rev-file", version: uploaded ? 2 : 1, documents: [{ ...document, version: uploaded ? 2 : 1, markdown: uploaded ? raw + "\n\n" + imported : raw }], states: [{ documentId: document.documentId, status: "draft", failure: null }] });
+  vi.stubGlobal("fetch", async (url: string, init: RequestInit) => {
+    if (url.includes("/attachments")) {
+      expect(init.body).toBeInstanceOf(FormData);
+      uploaded = true;
+      return new Response(JSON.stringify({ source: source(), original: { assetId: "asset-file", filename: "材料.md", mime: "text/markdown", bytes: 100, sha256: "b".repeat(64) } }));
+    }
     if (init.method === "POST") writes.push(JSON.parse(String(init.body)));
-    return new Response(JSON.stringify({ interviewId: "itv-file", revisionId: "rev-file", version: 1, documents: [document], states: [{ documentId: document.documentId, status: "draft", failure: null }] }));
+    return new Response(JSON.stringify(source()));
   });
   render(<InterviewMarkdownPlanningStep interviewId="itv-file" step="intake" onVersionChange={vi.fn()} onDirtyChange={vi.fn()} onContinue={vi.fn()} />);
   const input = screen.getByRole("textbox", { name: "研究需求 Markdown" });
   await waitFor(() => expect(input).toBeEnabled());
-  const imported = "## 原始材料\r\n\r\n保留 **原文**。";
-  const file = { name: "材料.md", size: 100, arrayBuffer: async () => new TextEncoder().encode(imported).buffer };
+  const file = new File([imported], "材料.md", { type: "text/markdown" });
   fireEvent.change(screen.getByLabelText("导入研究文件"), { target: { files: [file] } });
   await waitFor(() => expect(input).toHaveValue((raw + "\n\n" + imported).replaceAll("\r\n", "\n")));
   fireEvent.click(screen.getByRole("button", { name: "保存草稿" }));
-  await waitFor(() => expect(writes).toHaveLength(1));
-  expect(writes[0]?.markdown).toBe(raw + "\n\n" + imported);
+  // Upload already atomically saved the source draft; saving unchanged text creates no JSON copy.
+  await waitFor(() => expect(screen.getByRole("button", { name: "保存草稿" })).toBeEnabled());
+  expect(writes).toHaveLength(0);
+  expect(source().documents[0]?.markdown).toBe(raw + "\n\n" + imported);
 });
 function Intake({ onImportFile, onVoice }: { onImportFile?: (file: File) => Promise<string>; onVoice?: () => Promise<string> }) {
   const [markdown, setMarkdown] = React.useState(raw);
