@@ -15,6 +15,8 @@ export const WHITEBOARD_OPERATION_SERVICE = Symbol('WhiteboardOperationService')
 export class WhiteboardOperationError extends Error {
   constructor(readonly code: 'FORBIDDEN'|'STALE_REVISION'|'IDEMPOTENCY_CONFLICT'|'NOT_FOUND'|'VALIDATION_FAILED'|'ARCHIVED'|'RATE_LIMITED'|'DEPENDENCY_UNAVAILABLE') { super(code); }
 }
+const rateWindows=new Map<string,{started:number;count:number}>();
+export function assertWhiteboardRateLimit(principal:Principal,boardId:string,now=Date.now()){const key=`${principal.orgId}:${principal.userId}:${boardId}`,prior=rateWindows.get(key),window=prior&&now-prior.started<60_000?prior:{started:now,count:0};if(window.count>=120)throw new WhiteboardOperationError('RATE_LIMITED');window.count++;rateWindows.set(key,window);}
 function collaborationError(error:unknown):never{
   if(!(error instanceof WhiteboardCollaborationError))throw error;
   const code=error.code==='STALE_EPOCH'?'STALE_REVISION':error.code==='INTEGRITY_FAILED'||error.code==='VALIDATOR_UNAVAILABLE'?'DEPENDENCY_UNAVAILABLE':error.code;
@@ -39,6 +41,7 @@ function eventType(commands:readonly WhiteboardCommand[],source:string):Event['t
 export class WhiteboardOperationService {
   constructor(private readonly db:DatabasePort,private readonly collaboration:WhiteboardCollaborationStore,private readonly audit:WhiteboardOperationAuditRepository,private readonly now=()=>new Date()){}
   async execute(principal:Principal,boardId:string,untrusted:unknown):Promise<Receipt>{
+    assertWhiteboardRateLimit(principal,boardId);
     const request=WhiteboardOperationRequest.parse(untrusted);
     return this.db.withTenant(principal.orgId,session=>this.executeInTransaction(session,principal,boardId,request));
   }

@@ -22,6 +22,7 @@ export interface SavedDiagramSource {
    * 版本线就断了。
    */
   readonly artifactId: string;
+  readonly immutableRevision: string;
 }
 
 export async function fetchLatestSavedDiagramSource(input: {
@@ -71,7 +72,7 @@ export async function fetchLatestSavedDiagramSource(input: {
         // 调用方传 `accepts` 就是在声明「这份源必须属于这个围栏」；候选数量是 1 不改变
         // 这句话，判否就返回 null，由调用方退回原始消息文本（本来就存在的诚实降级）。
         if (!input.accepts || input.accepts({ markdown: source.markdown, title: candidate.title })) {
-          return { markdown: source.markdown, savedAt: source.savedAt, artifactId: candidate.artifactId };
+          return { markdown: source.markdown, savedAt: source.savedAt, artifactId: candidate.artifactId, immutableRevision: source.immutableRevision };
         }
       } catch {
         // Another user's draft and a missing artifact intentionally share the same

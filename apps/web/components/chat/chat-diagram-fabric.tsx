@@ -342,7 +342,7 @@ export function ChatDiagramFabric({
         canShowHistory={canQuickSave}
         onOpenHistory={() => setHistoryOpen(true)}
         onRenderedModel={setRenderedModel}
-        boardHandoff={<ChatDiagramBoardHandoff model={renderedModel} artifactId={savedSource?.artifactId} sourceRevision={savedSource?.savedAt} orgId={session?.session?.currentOrgId}/>}
+        boardHandoff={<ChatDiagramBoardHandoff model={renderedModel} artifactId={savedSource?.artifactId} sourceRevision={savedSource?.immutableRevision} orgId={session?.session?.currentOrgId}/>}
       />
 
       {historyOpen && threadId !== undefined && (

@@ -39,6 +39,7 @@ export interface GetThreadArtifactSourceInput {
 export interface GetThreadArtifactSourceResult {
   readonly markdown: string;
   readonly version: number | null;
+  readonly immutableRevision: string;
   readonly savedAt: string;
   readonly savedBy: string;
 }
@@ -79,6 +80,7 @@ export async function getThreadArtifactSource(
     markdown,
     // 与 `listThreadArtifacts` 同义：只有 pinned 有恒为正数的版本号，draft ⇒ null。
     version: landing.mode === "pinned" ? 1 : null,
+    immutableRevision: `artifact-v1:${await deps.artifacts.headVersionNumber(orgId, artifactId)}`,
     savedAt: landing.createdAt,
     savedBy: landing.createdBy,
   };
