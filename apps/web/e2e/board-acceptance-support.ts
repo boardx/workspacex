@@ -5,7 +5,7 @@ import {SESSION_TOKEN_STORAGE_KEY} from '../lib/api-client';
 import {FULLSTACK_E2E} from './fullstack-smoke-fixture';
 
 export const apiOrigin = () => `http://127.0.0.1:${process.env.WORKSPACEX_API_PORT}`;
-export async function boardLogin(page: Page, email = FULLSTACK_E2E.email, password = FULLSTACK_E2E.password) {
+export async function boardLogin(page: Page, email: string = FULLSTACK_E2E.email, password: string = FULLSTACK_E2E.password) {
   await page.goto('/login'); await page.getByTestId('login-email').fill(email);
   await page.getByTestId('login-password').fill(password); await page.getByTestId('login-submit').click();
   await expect(page).toHaveURL(/\/projects$/);

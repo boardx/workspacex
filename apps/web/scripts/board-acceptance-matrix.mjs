@@ -1,4 +1,4 @@
-/** These lanes are deliberately unavailable until a real producer is integrated.
+/** Only lanes with an integrated real producer receive an executable command.
  * Validator/fixture unit tests are NOT production acceptance commands.
  */
 export const boardAcceptanceMatrix = [
@@ -14,6 +14,12 @@ export const boardAcceptanceMatrix = [
   ['api-ws-objectstore', 'Cross-layer persistence and convergence'],
   ['visual', 'Before/after screenshots at three viewports, >=90/100 and each dimension >=80%, no blockers'],
   ['meeting-room', 'Real meeting-room lifecycle with >=30 minute observed signed ledger'],
-].map(([lane, requirement]) => ({lane, requirement, status: 'not-run', command: null,
-  reason: 'REAL_PRODUCER_NOT_INTEGRATED'}));
+].map(([lane, requirement]) => {
+  const size = lane.match(/^performance-(1|5|10)k$/)?.[1];
+  return {lane, requirement, status: 'not-run',
+    command: size ? ['pnpm', 'exec', 'tsx', '.harness/scripts/with-test-isolation.ts', '--',
+      'pnpm', '--filter', 'web', 'exec', 'playwright', 'test', '--config', 'e2e/board-performance-acceptance.config.ts',
+      '--grep', `^fabric ${size}k performance:`] : null,
+    reason: size ? 'REAL_PRODUCER_READY_NOT_EXECUTED' : 'REAL_PRODUCER_NOT_INTEGRATED'};
+});
 export const requiredBoardAcceptanceLanes = boardAcceptanceMatrix.map(entry => entry.lane);

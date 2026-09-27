@@ -1,5 +1,7 @@
 import {createHash} from 'node:crypto';
 import {readFile} from 'node:fs/promises';
+import {resolve} from 'node:path';
+import {boardPerformancePolicy, validateBoardPerformanceArtifact} from './board-performance-policy.mjs';
 import {boardAcceptanceMatrix, requiredBoardAcceptanceLanes} from './board-acceptance-matrix.mjs';
 
 export async function verifyBoardAcceptanceEvidence(manifest, sha) {
@@ -17,7 +19,20 @@ export async function verifyBoardAcceptanceEvidence(manifest, sha) {
     if (!Number.isFinite(start) || !Number.isFinite(end) || end < start) failures.push(`INVALID_TIME:${lane}`);
     if (typeof row.artifactPath !== 'string' || !/^[a-f0-9]{64}$/.test(row.artifactSha256 ?? '')) failures.push(`MISSING_ARTIFACT:${lane}`);
     else {
-      try { if (createHash('sha256').update(await readFile(row.artifactPath)).digest('hex') !== row.artifactSha256) failures.push(`ARTIFACT_HASH_MISMATCH:${lane}`); }
+      try {
+        const bytes = await readFile(row.artifactPath);
+        if (createHash('sha256').update(bytes).digest('hex') !== row.artifactSha256) failures.push(`ARTIFACT_HASH_MISMATCH:${lane}`);
+        if (lane.startsWith('performance-')) {
+          const report = JSON.parse(bytes.toString());
+          const validation = validateBoardPerformanceArtifact(report, boardPerformancePolicy(resolve(import.meta.dirname, '../../..')), sha, Number(lane.match(/(\d+)k$/)[1]) * 1000);
+          failures.push(...validation.failures.map(failure => `${failure}:${lane}`));
+          if (validation.budgetStatus !== 'engineering-targets') failures.push(`UNBUDGETED_SCALE:${lane}`);
+          for (const entry of [report.trace, ...report.loadTraces]) {
+            const trace = await readFile(entry.path);
+            if (createHash('sha256').update(trace).digest('hex') !== entry.sha256 || !JSON.parse(trace.toString()).traceEvents?.length) failures.push(`INVALID_BROWSER_TRACE:${lane}`);
+          }
+        }
+      }
       catch { failures.push(`ARTIFACT_UNREADABLE:${lane}`); }
     }
   }
