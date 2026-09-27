@@ -171,7 +171,7 @@ export function validateRoomRevocationProof(report: RoomArtifact): string[] {
       && item.monotonicMs >= revoked.monotonicMs && item.monotonicMs <= event.monotonicMs
       && event.monotonicMs - item.monotonicMs <= ROOM_REQUIREMENTS.maxGapMs
       && Math.abs(Date.parse(item.at) - Date.parse(event.at) - (item.monotonicMs - event.monotonicMs)) <= 2000
-      && (method === 'GET' || (item.command?.actorId === actorId && item.command.type === 'claim-presenter' && item.command.expectedRevision === event.before)));
+      && (method === 'GET' || (item.command !== undefined && item.command.actorId === actorId && item.command.type === 'claim-presenter' && item.command.expectedRevision === event.before)));
     if (!event || !receipt || event.before !== event.after || event.before !== revoked.after) failures.push(`MISSING_BOUND_REVOKED_${method}`);
   }
   return failures;

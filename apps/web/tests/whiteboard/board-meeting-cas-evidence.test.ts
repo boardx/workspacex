@@ -13,7 +13,7 @@ function fixture(): RoomArtifact {
     const body = {...clock,receiptId,state:value,displays:['display','follower'].map(actorId=>({actorId,viewport:value.viewport,contentHash:'e'.repeat(64)}))};
     chain = roomHash({previous:chain,sample:body}); samples.push({...body,chainHash:chain});
   }
-  const events = requiredRoomEvents.map((type,index)=>{
+  const events: RoomLedger['events'] = requiredRoomEvents.map((type,index)=>{
     const time = type==='claim'?-2000:type==='follow'?-1000:type==='disconnect'?900000:type==='reconnect'?901000:1800000+index*1000;
     return {at:at(time),monotonicMs:time,type,before:361,after:361,detail:type==='reconnect'?{previousTokenHash:'f'.repeat(64),nextTokenHash:'e'.repeat(64)}:{type},detailHash:roomHash(type==='reconnect'?{previousTokenHash:'f'.repeat(64),nextTokenHash:'e'.repeat(64)}:{type}),...(type==='cas-conflict'?{status:409}:type.startsWith('revoked-')?{status:403}:{})};
   });
