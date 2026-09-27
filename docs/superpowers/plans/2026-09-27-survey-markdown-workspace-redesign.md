@@ -26,11 +26,14 @@ Human instructed continuous implementation without waiting for earlier PR merges
 | #4416 | #4417 | Collection dashboard and real collection metrics/activity. |
 | #4418 | #4422 | Adjacent response list/details, excluded-sample filters and Markdown export. |
 | #4421 | #4424 | Optional report, Markdown projection/export and paper-like report display. |
-| #4423 | Pending | Default designer preview/settings, local QR generation, template-free publish/default report, integrated acceptance. |
+| #4423 | #4432 | Default designer preview/settings, local QR generation, template-free publish/default report, integrated acceptance. |
+| #4433 | Pending | Debounced autosave for applied valid unpublished existing drafts, explicit conflict/error recovery. |
 
 Fresh integrated seeded Playwright passed both template lifecycle and blank Markdown lifecycle again after independent review fixes (2 tests, 3m52s including cleanup). Desktop/mobile response screenshots are test artifacts. Review caught visual-editor locking on empty/space-containing titles and default report rejection for unanswered optional questions; regressions reproduce before fixes and pass afterward. All 29 survey UI files / 252 tests, 26 source/report contract tests and 15 isolated API regressions pass; API/web typechecks pass. CI on #4415/#4417 exposed two outdated publishing test fixtures/selectors; both corrected locally (7 publishing tests pass), with propagation to earlier branches still pending.
 
-Not yet delivered: real AI natural-language/PDF/voice extraction, name/tag creation dialog with persisted tags, automatic save, on-demand outline/settings drawers, draft derivation and republishing, repeat-response/success-page controls. These are remaining work, not completed widgets; no fabricated AI, settings, metadata or industry benchmarks are shown.
+Autosave implementation for #4433 is verified by 16 workspace regressions and a fresh actual browser run (2 lifecycles, 2m55s including cleanup) with visual editing → automatic save → reload persistence → publication → respondent submission. Invalid/unapplied/new/published/error/conflict states are excluded; version conflicts keep the local content without repeated retries. Full web suite: 620 files / 5318 tests passed, 5 skipped; 6 tests in `tests/whiteboard/board-content-tools.test.tsx` failed on local Node 22.14 WebCrypto rejecting a jsdom-realm ArrayBuffer. Isolated rerun reproduces all six; whiteboard implementation/tests have no diff against `origin/main`. This is not a full-suite-green claim and no unrelated whiteboard production code is changed. Earlier publishing test corrections have been pushed to #4415 and #4417; new CI is running.
+
+Not yet delivered: real AI natural-language/PDF/voice extraction, name/tag creation dialog with persisted tags, on-demand outline/settings drawers, draft derivation and republishing, repeat-response/success-page controls. These are remaining work, not completed widgets; no fabricated AI, settings, metadata or industry benchmarks are shown.
 
 | Order | Remaining delivery | Acceptance / current status |
 | --- | --- | --- |

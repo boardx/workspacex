@@ -31,6 +31,7 @@ import { MarkdownSurveyEditor } from "./markdown-survey-editor";
 import { downloadReportMarkdown, surveyReportMarkdown } from "../report/report-markdown";
 import { CollectionOverview } from "./collection-overview";
 import { SurveyShareCode } from "./share-code";
+import { useSurveyAutosave } from "./use-survey-autosave";
 import { SurveyTemplateActions } from "../library/template-actions";
 import { LiveResponseList } from "./response-list";
 import { assessPublishReadiness } from "@/lib/survey/publish-readiness";
@@ -224,6 +225,10 @@ export function LiveSurveyWorkspace({
     window.history.replaceState(null, "", `?step=${next}`);
   };
   const projectedInSync = !!draft && !markdownNeedsApply;
+  const autosaveEligible = !!runtime && !runtime.publication && step === "design" && dirty &&
+    !busy && !error && !conflicted && projectedInSync && parseSurveyDesignMarkdown(markdown).ok;
+  useSurveyAutosave(autosaveEligible ? JSON.stringify([runtime?.version, markdown, draft?.template]) : null,
+    () => execute(async () => { await save(); }));
   return (
     <main className="min-w-0 bg-background">
       <header className="flex flex-wrap items-center gap-3 border-b border-border bg-card p-4">
@@ -277,6 +282,7 @@ export function LiveSurveyWorkspace({
         </Button>
       </header>
       {step === 'design' && <div className="flex justify-end border-b border-border px-5 py-3"><Button disabled={!draft || busy} onClick={() => selectStep('publish')}>前往发布回收</Button></div>}
+      {step === "design" && <p role="status" className="px-5 py-2 text-12 text-muted-foreground">{busy ? "正在保存或处理…" : error ? "保存失败，请检查并重试" : autosaveEligible ? "等待自动保存…" : dirty ? "有未保存修改；未应用内容请先校对" : "所有修改已保存"}</p>}
       <nav
         aria-label="问卷工作流"
         className="flex overflow-auto border-b border-border bg-card"
