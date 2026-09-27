@@ -1,0 +1,207 @@
+{
+  "kind": "board-agent-api",
+  "sha": "64ab59e7492c6850e2f3c89a9716c4a364ab58da",
+  "startedAt": "2026-09-27T07:01:57.129Z",
+  "finishedAt": "2026-09-27T07:02:35.123Z",
+  "steps": [
+    {
+      "name": "Create",
+      "operationId": "e9fbeb95-67c7-4af5-93ac-8fc904efaf56",
+      "revision": {
+        "epoch": 1,
+        "seq": 1
+      },
+      "canonicalHash": "c7df713a24cdd2b194e0c305b2b27b6dadea16fcbe65e5ee8f28418025c13cf9"
+    },
+    {
+      "name": "Idempotency conflict",
+      "zeroWrites": true
+    },
+    {
+      "name": "Update",
+      "operationId": "d9109244-09e0-4278-a9cc-c28e8591cce4",
+      "revision": {
+        "epoch": 1,
+        "seq": 2
+      },
+      "canonicalHash": "43213f6f255003e59df7764dd1eecd0460c6f47d4e0f8a5bde68d6faccdc4d5e"
+    },
+    {
+      "name": "Move",
+      "operationId": "ae0cb7be-a92e-4bb9-9cbc-ed7ae7328def",
+      "revision": {
+        "epoch": 1,
+        "seq": 3
+      },
+      "canonicalHash": "36fd36821bc308550de4cb0059f3056fb9a2a736bc3757815101e3b512782a4a"
+    },
+    {
+      "name": "Arrange",
+      "operationId": "a5c7ad6b-ac87-4abb-8274-3a6bc762aa7b",
+      "revision": {
+        "epoch": 1,
+        "seq": 4
+      },
+      "canonicalHash": "54b5e4cd41b4d2517d1dd54865e77e7b76219326288ab122d8cbb7d20c7ef667"
+    },
+    {
+      "name": "Connect",
+      "operationId": "bc47e9b7-d071-4f9a-bbad-36a6ab4fe9cc",
+      "revision": {
+        "epoch": 1,
+        "seq": 5
+      },
+      "canonicalHash": "700e3b39f0dbcf902e923b32ecde2be8f2007052711ab4b7f0a107116d2df9a3"
+    },
+    {
+      "name": "Move connected endpoint",
+      "operationId": "983a9256-a301-4a77-b270-47778ad04bd9",
+      "revision": {
+        "epoch": 1,
+        "seq": 6
+      },
+      "canonicalHash": "3b15ca7e10dcb8e1568097f3fbfc945f1cd759b8740d895b36df60f18c07bb99"
+    },
+    {
+      "name": "Delete",
+      "operationId": "9445ca76-9fba-4a1c-948f-3e422884cd00",
+      "revision": {
+        "epoch": 1,
+        "seq": 7
+      },
+      "canonicalHash": "3053ddf43233d9883a2d74f3efd16ca4e4dcd452db19457e4a3712044f7268bd"
+    },
+    {
+      "name": "Authoritative receipt Undo and Redo retain original object/connector IDs",
+      "undo": "75b72ebb-ffbd-4748-b49c-1fb2e258e90b",
+      "redo": "d44328c1-e7df-4fa9-9040-a76164531f29"
+    },
+    {
+      "name": "Client-supplied inverse denied",
+      "zeroWrites": true
+    },
+    {
+      "name": "Stale Undo cannot overwrite later work",
+      "zeroWrites": true
+    },
+    {
+      "name": "Foreign delegation",
+      "zeroWrites": true
+    },
+    {
+      "name": "Missing write scope",
+      "zeroWrites": true
+    },
+    {
+      "name": "Wrong tenant envelope",
+      "zeroWrites": true
+    },
+    {
+      "name": "Stale CAS",
+      "zeroWrites": true
+    },
+    {
+      "name": "Viewer write denied",
+      "zeroWrites": true
+    },
+    {
+      "name": "Post-recovery event",
+      "operationId": "6895cefe-3491-44ac-b4d9-e77f5cbe7242",
+      "revision": {
+        "epoch": 2,
+        "seq": 1
+      },
+      "canonicalHash": "b9fc936dac38d265c05e95ae1a1a687f83f296fd4d7526bb8aeb5fb17986f8d8"
+    },
+    {
+      "name": "Revoked viewer Read",
+      "zeroWrites": true
+    },
+    {
+      "name": "Revoked viewer events",
+      "zeroWrites": true
+    },
+    {
+      "name": "Disabled actor events",
+      "zeroWrites": true
+    },
+    {
+      "name": "Disabled actor Read",
+      "zeroWrites": true
+    },
+    {
+      "name": "Create receipt Undo/Redo",
+      "boardId": "41d6d734-8f7a-4a26-8a4f-94f341c43052",
+      "operationId": "4ddbc0ea-6dd0-48f0-8f2a-9cc681256c3f",
+      "undoId": "d5b80b14-69b3-4cff-bb0e-dd80c87b4bf8",
+      "redoId": "6ec4280f-608c-4d88-abc5-32c6b4b7685f",
+      "beforeHash": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "afterHash": "2a099da9b401eddce421bffef0aed7d695738b8a11637494a4358e6cb54d0abd"
+    },
+    {
+      "name": "Update receipt Undo/Redo",
+      "boardId": "41d6d734-8f7a-4a26-8a4f-94f341c43052",
+      "operationId": "7b758c92-eee5-4d0c-a6ad-6704616d4ce6",
+      "undoId": "52060676-8590-4b14-a175-fb1189ccd40a",
+      "redoId": "85a86703-13aa-433e-b8a0-337dc64030a7",
+      "beforeHash": "2a099da9b401eddce421bffef0aed7d695738b8a11637494a4358e6cb54d0abd",
+      "afterHash": "1a32b438266168d5db9a3d73314ee2417d97c5b35dff72a89a8291c8b6c98318"
+    },
+    {
+      "name": "Move receipt Undo/Redo",
+      "boardId": "41d6d734-8f7a-4a26-8a4f-94f341c43052",
+      "operationId": "aa21c2b6-144f-45ce-961c-cf4555fa6853",
+      "undoId": "d8197b2c-1a83-42c3-a3d1-5289c0789185",
+      "redoId": "b2abcb87-0c5f-4254-94f6-96149c279917",
+      "beforeHash": "1a32b438266168d5db9a3d73314ee2417d97c5b35dff72a89a8291c8b6c98318",
+      "afterHash": "767dea5c1a496b9e6aacb6cff28743a32a36239c14ea6bb9f7d5606ea4668dbd"
+    },
+    {
+      "name": "Arrange receipt Undo/Redo",
+      "boardId": "41d6d734-8f7a-4a26-8a4f-94f341c43052",
+      "operationId": "d1dc5e3d-95a2-4d9b-b192-1be6719779ed",
+      "undoId": "ef0cbc28-f015-4be4-aae3-4effd14efb1a",
+      "redoId": "f690bbd9-43a2-4454-b9f8-caffd8e38a10",
+      "beforeHash": "767dea5c1a496b9e6aacb6cff28743a32a36239c14ea6bb9f7d5606ea4668dbd",
+      "afterHash": "8ef03deba53bc789ec10f68c8c741c3cfac3c9f9ca6bcc4c8822d5355f552f71"
+    },
+    {
+      "name": "Connect receipt Undo/Redo",
+      "boardId": "41d6d734-8f7a-4a26-8a4f-94f341c43052",
+      "operationId": "7f4ec291-128f-4867-97f0-03e5af0f069e",
+      "undoId": "2cfeb902-99ae-49ba-aa55-9cf5fec932ce",
+      "redoId": "71cf691d-2d9a-4344-8f30-05be58024ac6",
+      "beforeHash": "8ef03deba53bc789ec10f68c8c741c3cfac3c9f9ca6bcc4c8822d5355f552f71",
+      "afterHash": "2f4718a63de373b5cbb48e8cf1af1822b6508bda7d71eb52a6af17536f48bb4b"
+    },
+    {
+      "name": "Parent receipt Undo/Redo",
+      "boardId": "41d6d734-8f7a-4a26-8a4f-94f341c43052",
+      "operationId": "96fd21e7-c087-430f-a8eb-4899dfc87351",
+      "undoId": "48bbe33a-ef03-4fbe-a95b-b9da22b141af",
+      "redoId": "f17eaa03-851e-48c1-b582-0a2cb55d8c78",
+      "beforeHash": "2f4718a63de373b5cbb48e8cf1af1822b6508bda7d71eb52a6af17536f48bb4b",
+      "afterHash": "196442f4c22dc3fa31fe8672a84258100011a4fde649e04734ac91dfe8148c71"
+    },
+    {
+      "name": "Delete with attached relationship receipt Undo/Redo",
+      "boardId": "41d6d734-8f7a-4a26-8a4f-94f341c43052",
+      "operationId": "3f3f49ea-5e0f-4e79-a7de-1bdac37ccdda",
+      "undoId": "07c3eeb1-055f-4022-8938-f3d1e36804c1",
+      "redoId": "ccbe7d0c-b5fa-4167-84c3-8e50c787b2be",
+      "beforeHash": "196442f4c22dc3fa31fe8672a84258100011a4fde649e04734ac91dfe8148c71",
+      "afterHash": "2d120a191d6d50c75446f5d4d566248281afe91e8d621d0de03a78fc2147800a"
+    }
+  ],
+  "eventCount": 10,
+  "finalRevision": {
+    "epoch": 2,
+    "seq": 1
+  },
+  "notCovered": [
+    "real model generation",
+    "browser projection"
+  ],
+  "httpCallCount": 140,
+  "rawEvidenceSha256": "80c48e54f9ef96319d5f5be348429f7e7f94768daa7f8d5115c467d233efe0f6"
+}
