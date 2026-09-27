@@ -68,10 +68,16 @@ async function dragObject(page: Page, row: ReturnType<typeof objectRow>, dx: num
   await expect.poll(async () => { const next = await geometryOf(row); return { x: next.x, y: next.y }; }).toEqual(expected);
 }
 async function openInspector(page: Page, properties = false) {
-  const expand = page.getByTestId("board-inspector-expand");
-  if (await expand.count()) await expand.click();
   const dialog = page.getByRole("dialog", { name: "更多操作", exact: true });
-  if (!await dialog.isVisible()) await page.getByRole("button", { name: "更多操作", exact: true }).click();
+  if (!await dialog.isVisible()) {
+    const trigger = page.getByRole("button", { name: "更多操作", exact: true });
+    if (await trigger.count()) await trigger.click();
+    else {
+      const expand = page.getByTestId("board-inspector-expand");
+      if (await expand.count()) await expand.click();
+      await page.getByRole("button", { name: "更多操作", exact: true }).click();
+    }
+  }
   await dialog.getByRole("button", { name: properties ? "精确属性" : "操作", exact: true }).click();
 }
 async function clickObjectAction(page: Page, name: string) {
