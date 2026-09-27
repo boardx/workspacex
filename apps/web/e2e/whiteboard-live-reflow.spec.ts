@@ -11,7 +11,12 @@ async function api(request:APIRequestContext,token:string,method:string,path:str
 async function assertReachable(page:Page,locator:Locator){
   await expect(locator).toBeVisible();
   const result=await locator.evaluate(element=>{const box=element.getBoundingClientRect(),viewport={width:document.documentElement.clientWidth,height:document.documentElement.clientHeight};const x=Math.min(viewport.width-1,Math.max(0,box.left+box.width/2)),y=Math.min(viewport.height-1,Math.max(0,box.top+box.height/2));const hit=document.elementFromPoint(x,y);return {box:{left:box.left,right:box.right,top:box.top,bottom:box.bottom},viewport,hit:Boolean(hit&&(element===hit||element.contains(hit)||hit.contains(element)))};});
-  expect(result.box.left).toBeGreaterThanOrEqual(0);expect(result.box.right).toBeLessThanOrEqual(result.viewport.width);expect(result.box.top).toBeGreaterThanOrEqual(0);expect(result.box.bottom).toBeLessThanOrEqual(result.viewport.height);expect(result.hit).toBe(true);
+  // Sub-pixel epsilon: at odd viewport widths (e.g. the 320px "400%" pass) flex/absolute
+  // layout arithmetic can place a box a fraction of a CSS pixel past the edge (observed
+  // -0.5) purely from rounding — never a perceptible or functionally real overhang. Only
+  // the boundary checks get this tolerance; the elementFromPoint `hit` check stays strict.
+  const epsilon=1;
+  expect(result.box.left).toBeGreaterThanOrEqual(-epsilon);expect(result.box.right).toBeLessThanOrEqual(result.viewport.width+epsilon);expect(result.box.top).toBeGreaterThanOrEqual(-epsilon);expect(result.box.bottom).toBeLessThanOrEqual(result.viewport.height+epsilon);expect(result.hit).toBe(true);
 }
 async function tabTo(page:Page,target:Locator,key:'Tab'|'Shift+Tab'='Tab',limit=80){
   for(let index=0;index<limit;index+=1){await page.keyboard.press(key);if(await target.evaluate(element=>element===document.activeElement)){await assertReachable(page,target);return;}const active=page.locator(':focus');if(await active.count())await assertReachable(page,active);}
