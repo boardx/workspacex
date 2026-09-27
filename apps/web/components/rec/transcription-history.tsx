@@ -30,10 +30,22 @@ import { CreateTranscriptionDialog, type NewTranscriptionDraft } from "./create-
 import { DeleteTranscriptionDialog } from "./delete-transcription-dialog";
 import { EditTranscriptionDialog } from "./edit-transcription-dialog";
 import { RealtimeTranscriptionWorkspace } from "./realtime-transcription-workspace";
+import { ProjectBreadcrumb } from "@/components/project/project-breadcrumb";
+import { linkProjectResource } from "@/lib/live-project-resources";
 
 type ActiveTag = string | undefined;
 
-export function TranscriptionHistory({ uiState }: { uiState: UiState }) {
+/**
+ * 项目中枢 B2-S2 的三个可选入参：
+ * - `projectId`：从项目「研究洞察 › 录音转写」带 `?projectId=` 进来；新建成功后 `linkProjectResource`
+ *   挂回项目，顶部挂「返回项目」面包屑。
+ * - `initialCreateOpen`：`?create=1` 直接打开新建弹窗（项目页「在本项目中新建」）。
+ * - `initialSessionId`：`?session=<id>` 直达某条转写（项目页资源列表链过来）——转写没有独立详情路由，
+ *   这里在挂载后按 id 读取并进入工作区。
+ */
+export function TranscriptionHistory({ uiState, projectId = null, initialCreateOpen = false, initialSessionId = null }: {
+  uiState: UiState; projectId?: string | null; initialCreateOpen?: boolean; initialSessionId?: string | null;
+}) {
   const sessionContext = useOptionalSession();
   /**
    * #1057 —— bearer 只有一条来源：真实 SessionProvider 的会话。
@@ -58,7 +70,7 @@ export function TranscriptionHistory({ uiState }: { uiState: UiState }) {
   const [tags, setTags] = React.useState<readonly string[]>([]);
   const [sort, setSort] = React.useState<HistorySort>("recent");
   const [query, setQuery] = React.useState("");
-  const [createOpen, setCreateOpen] = React.useState(false);
+  const [createOpen, setCreateOpen] = React.useState(initialCreateOpen);
   const [editItem, setEditItem] = React.useState<TranscriptionHistoryItem | null>(null);
   const [deleteItem, setDeleteItem] = React.useState<TranscriptionHistoryItem | null>(null);
   const [notice, setNotice] = React.useState<string | null>(null);
@@ -115,6 +127,13 @@ export function TranscriptionHistory({ uiState }: { uiState: UiState }) {
     }, sessionToken);
     const created = toHistoryItem(summary);
     setItems((current) => [created, ...current]);
+    if (projectId) {
+      try {
+        await linkProjectResource({ projectId, kind: "personal_transcription", resourceId: summary.sessionId });
+      } catch {
+        setOperationError("PROJECT_LINK_FAILED");
+      }
+    }
     setNotice(`已创建“${draft.name}”，正在进入实时转录`);
     setActiveSession({ ...summary, content: "" });
     await refreshTags().catch(() => setOperationError("TRANSCRIPTION_TAGS_FAILED"));
@@ -270,6 +289,17 @@ export function TranscriptionHistory({ uiState }: { uiState: UiState }) {
 
   React.useEffect(() => () => { void streamRef.current?.stop().catch(() => undefined); }, []);
 
+  // `?session=<id>` 直达：只在挂载时读一次；读不到就留在列表并如实报错。
+  React.useEffect(() => {
+    if (!initialSessionId) return;
+    let active = true;
+    readPersonalTranscription(initialSessionId, sessionToken)
+      .then((detail) => { if (active) setActiveSession(detail); })
+      .catch(() => { if (active) setOperationError("TRANSCRIPTION_READ_FAILED"); });
+    return () => { active = false; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- 只按 URL 进入时的 id 读一次
+  }, [initialSessionId]);
+
   if (activeSession) {
     return <RealtimeTranscriptionWorkspace session={activeSession} streamState={streamState}
       interimSegment={interimSegment} flowState={flowState} errorMessage={streamError} reconnectableError={reconnectableError}
@@ -284,6 +314,7 @@ export function TranscriptionHistory({ uiState }: { uiState: UiState }) {
   return (
     <section data-testid="rec-history-page" className="min-h-full bg-background px-5 py-6 md:px-8 lg:px-10">
       <div className="mx-auto flex w-full max-w-screen-2xl flex-col gap-6">
+        <ProjectBreadcrumb projectId={projectId} sub="transcript" className="" />
         <StudioHistoryHeader business="转录" description="跨项目的全部历史转录。打开任意一条以查看内容、总结与洞察。" count={items.length} countTestId="rec-history-count" createTestId="rec-create-open" onCreate={() => setCreateOpen(true)} />
         <StudioHistoryFilters business="转录" prefix="rec-history" tags={tags} selectedTag={activeTag} onTagChange={setActiveTag} query={query} onQueryChange={setQuery} sort={sort} onSortChange={setSort} />
 

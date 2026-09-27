@@ -6,7 +6,12 @@ import type { SurveyRuntime } from "@repo/contracts/survey-runtime";
 import { surveyRequest } from "@/lib/survey/runtime-client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-export function LiveSurveyLibrary() {
+import { ProjectBreadcrumb, withProjectId } from "@/components/project/project-breadcrumb";
+/**
+ * `projectId`（项目中枢 B2-S2）：从项目「研究洞察 › 问卷」带 `?projectId=` 进来时，顶部挂「返回项目」
+ * 面包屑，「创建问卷」入口续上 `projectId`，让工作台创建成功后能把问卷挂回该项目。
+ */
+export function LiveSurveyLibrary({ projectId = null }: { projectId?: string | null }) {
   const router = useRouter();
   const [items, setItems] = React.useState<SurveyRuntime[]>([]);
   const [busy, setBusy] = React.useState(true);
@@ -48,13 +53,14 @@ export function LiveSurveyLibrary() {
   };
   return (
     <main className="mx-auto max-w-6xl space-y-6 p-6">
+      <ProjectBreadcrumb projectId={projectId} sub="survey" className="" />
       <header className="flex flex-wrap items-center justify-between gap-4">
         <div>
           <p className="text-11 text-muted-foreground">Studio / 问卷</p>
           <h1 className="mt-2 text-24 font-semibold">我的问卷</h1>
           <p className="mt-2 text-13 text-muted-foreground">创建、发布并收集你的问卷，轻松获取真实反馈。</p>
         </div>
-        <div className="flex flex-wrap gap-2"><Link className="inline-flex min-h-8 items-center rounded-control border border-border bg-card px-3 text-13 font-medium text-card-foreground" href="/studio/survey?tab=modules">问卷模板</Link><Link className="inline-flex min-h-8 items-center rounded-control border border-border bg-card px-3 text-13 font-medium text-card-foreground" href="/studio/survey?tab=reports">报告模板</Link><Button onClick={() => router.push("/studio/survey/new?step=design")}>新建问卷</Button></div>
+        <div className="flex flex-wrap gap-2"><Link className="inline-flex min-h-8 items-center rounded-control border border-border bg-card px-3 text-13 font-medium text-card-foreground" href="/studio/survey?tab=modules">问卷模板</Link><Link className="inline-flex min-h-8 items-center rounded-control border border-border bg-card px-3 text-13 font-medium text-card-foreground" href="/studio/survey?tab=reports">报告模板</Link><Button onClick={() => router.push(withProjectId("/studio/survey/new?step=design", projectId))}>新建问卷</Button></div>
       </header>
       <div className="flex gap-2">
         <Input
