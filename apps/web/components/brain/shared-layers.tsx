@@ -19,8 +19,8 @@ const LAYERS = [
 ];
 
 /**
- * 项目与组织两层：本阶段没有开放（契约 `KG_SCOPES_ENABLED_PHASE_18` 只有对话与个人两级），
- * 所以如实写「尚未开放」，不摆示例数字、不演示台账。开放以后由真实数据接进来。
+ * 项目与组织两层的开放状态只看契约 `KG_SCOPES_ENABLED_PHASE_18`（项目中枢 R7 放开项目，B2-S4 #4428 放开组织）。
+ * 没开放的如实写「尚未开放」，不摆示例数字、不演示台账；开放的只说怎么用，真实内容各自在项目大脑 / 组织大脑接口里。
  */
 export function SharedLayers() {
   return (
@@ -45,7 +45,11 @@ export function SharedLayers() {
               <p className="text-11 text-muted-foreground" data-testid="brain-layer-project-hint">
                 在项目对话的知识面板里点「记到项目大脑」，记下的内容就进入该项目的记忆；项目里的对话会自动想起它。
               </p>
-            ) : null}
+            ) : (
+              <p className="text-11 text-muted-foreground" data-testid="brain-layer-org-hint">
+                组织负责人或管理员在项目大脑里点「记到组织记忆」，那一条就进入整个组织的记忆，组织里的每个成员都看得到。
+              </p>
+            )}
           </div>
         );
       })}

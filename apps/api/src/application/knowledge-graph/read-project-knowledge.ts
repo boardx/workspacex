@@ -4,6 +4,7 @@
  * 判定：① 必须是项目成员（`project_memberships`，观察者也算——项目记忆本就是给全体成员的）；
  * ② 再走 `authorize(read.published)` 对着项目对象本身（组织层 / 冻结 / 管理员未提升等既有判定），
  * 用它的决策去 disclose。两道门任一不过 ⇒ `KG_NOT_VISIBLE`（403，同个人空间：不泄露第二次存在性）。
+ * B2-S4：响应多带 `canPromoteToOrg`（组织 lead / admin），项目大脑面板据此决定出不出「记到组织记忆」的入口。
  */
 import { knowledgeGraph as KG } from "@repo/contracts";
 import type { z } from "zod";
@@ -12,6 +13,7 @@ import type { PermissionDecision } from "../../domain/identity/permission-decisi
 import { authorize } from "../identity/authorize";
 import { AuthzUnavailableError } from "../chat/resolve-visibility";
 import { discloseDecided, isDisclosed } from "../security/permission-filter";
+import { canPromoteToOrg, orgMembershipOf } from "./read-org-knowledge";
 import { KgReadError, type KnowledgeReadDeps } from "./read-thread-knowledge";
 
 interface Viewer {
@@ -46,5 +48,9 @@ export async function getProjectKnowledge(
   const guarded = await deps.knowledge.projectKnowledge(input.orgId, input.userId, input.projectId);
   const d = discloseDecided(guarded, base);
   if (!isDisclosed(d)) throw new KgReadError("KG_NOT_VISIBLE");
-  return { scope: { kind: "project", id: input.projectId }, ...d.payload };
+  // B2-S4：组织 lead / admin 才有「记到组织记忆」的入口（判据的唯一说明处在 read-org-knowledge.ts）。
+  return {
+    scope: { kind: "project", id: input.projectId }, ...d.payload,
+    canPromoteToOrg: canPromoteToOrg(await orgMembershipOf(deps, input)),
+  };
 }

@@ -33,7 +33,8 @@ export type KgScopeKind = z.infer<typeof KgScopeKind>;
 
 /** Phase 18 允许写入 / 读取的作用域。其余成员在本阶段一律 `KG_SCOPE_NOT_ENABLED`。 */
 /** 项目中枢 R7（2026-09-27，用户直接交办）放开第三级 `project`（L2）：项目线程的结论可晋升到项目记忆、项目内对话可召回。 */
-export const KG_SCOPES_ENABLED_PHASE_18 = ["chat_session", "personal", "project"] as const satisfies readonly KgScopeKind[];
+/** B2-S4（issue #4428）放开第四级 `org`（L3）：组织 lead / admin 可把项目记忆晋升到组织记忆，组织成员可读。 */
+export const KG_SCOPES_ENABLED_PHASE_18 = ["chat_session", "personal", "project", "org"] as const satisfies readonly KgScopeKind[];
 
 /** 实体类型：封闭枚举（uc-18-1 R7-1、S0-5）。新增走 ADR。 */
 export const KgObjectKind = z.enum([
@@ -640,6 +641,29 @@ export const knowledgeGraph = {
     ] as const,
   },
 
+  /**
+   * B2-S4（issue #4428）：晋升到**组织记忆**（L2 → L3，复制 + derived_from 连边，与 `promoteToProject` 同构）。
+   * 来源是一个项目的项目记忆里的结论（`claimIds` 是 `getProjectKnowledge.claims` 里的 id）；只有本组织 lead / admin
+   * 可做（`KG_NOT_OWNER`）——组织记忆是替整个组织记下，项目引导师也不够。`KG_NOT_VISIBLE`：调用者看不到这个项目。
+   * 结果形状复用 `KgPromotionItemResult`——`personalClaimId` 字段在这里装的是**组织层**结论 id；不在项目记忆里的
+   * 条目逐条 `KG_CLAIM_NOT_FOUND`。
+   */
+  promoteToOrg: {
+    method: "POST", path: "/knowledge-graph/projects/:projectId/promote-to-org",
+    in: z.object({
+      projectId: z.string(),
+      claimIds: z.array(z.string()).min(1).max(KG_PROMOTE_MAX_BATCH),
+      choices: z.array(z.object({
+        claimId: z.string(),
+        choice: z.enum(["merge", "coexist"]),
+      }).strict()).optional(),
+    }).strict(),
+    out: z.object({ results: z.array(KgPromotionItemResult) }).strict(),
+    err: [
+      "KG_NOT_VISIBLE", "KG_NOT_OWNER", "KG_ACTOR_NOT_HUMAN", "KG_CLAIM_NOT_FOUND", "KG_PROMOTE_BATCH_TOO_LARGE",
+    ] as const,
+  },
+
   /** UC-KG-6：AI 提名「值得记住」（只提名，不执行；uc-18-4 A1） */
   listPromotionNominations: {
     method: "GET", path: "/knowledge-graph/threads/:threadId/nominations",
@@ -725,6 +749,25 @@ export const knowledgeGraph = {
   getProjectKnowledge: {
     method: "GET", path: "/knowledge-graph/projects/:projectId",
     in: z.object({ projectId: z.string() }).strict(),
+    out: z.object({
+      scope: KgScope,
+      revision: z.number().int().nonnegative(),
+      objects: z.array(KgObject),
+      claims: z.array(KgClaim),
+      edges: z.array(KgEdge),
+      /** B2-S4：调用者是本组织 lead / admin，可以把这里的条目记到组织记忆（`promoteToOrg`）；缺省 = 不能（旧响应）。 */
+      canPromoteToOrg: z.boolean().optional(),
+    }).strict(),
+    err: ["KG_NOT_VISIBLE"] as const,
+  },
+
+  /**
+   * B2-S4（issue #4428）：**组织大脑**只读——本组织的组织记忆（L3：由 `promoteToOrg` 晋升来的结论 / 实体 / 边）。
+   * 任何组织成员可读；不是（或已不是）组织成员 `KG_NOT_VISIBLE`（403）。空组织返回空数组，不是错误。
+   */
+  getOrgKnowledge: {
+    method: "GET", path: "/knowledge-graph/org",
+    in: z.object({}).strict(),
     out: z.object({
       scope: KgScope,
       revision: z.number().int().nonnegative(),

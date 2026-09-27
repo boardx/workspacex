@@ -192,6 +192,11 @@ export interface KnowledgeReadPort {
    */
   projectKnowledge(orgId: OrgId, userId: string, projectId: string): Promise<Guarded<ProjectKnowledgeData>>;
   /**
+   * B2-S4（issue #4428）：组织记忆（L3）的活结论 / 实体 / 边。guard ref 是组织空间的合成 id（`project:org:<orgId>`，
+   * 同 `personalSpaceRef` 的做法——组织记忆没有 acl_bindings 行）；调用方交出「查看者是组织成员」的判定才拿得到。
+   */
+  orgKnowledge(orgId: OrgId, userId: string): Promise<Guarded<OrgKnowledgeData>>;
+  /**
    * 大脑页：本人创建的、有活结论的会话（候选，最近活动倒序，从第 `offset` 个起最多 `limit` 个）。
    * 分页是为了让调用方在可见性过滤**之后**凑够上限。
    * `threadId` 是路由事实（同 `claimRoute`）；计数按该会话的 guard ref 包好——调用方逐个判会话可见性后才拿得到。
@@ -206,7 +211,8 @@ export interface KnowledgeReadPort {
 }
 
 export type PersonalKnowledgeData = Omit<z.infer<typeof KG.knowledgeGraph.getPersonalKnowledge.out>, "scope">;
-export type ProjectKnowledgeData = Omit<z.infer<typeof KG.knowledgeGraph.getProjectKnowledge.out>, "scope">;
+export type ProjectKnowledgeData = Omit<z.infer<typeof KG.knowledgeGraph.getProjectKnowledge.out>, "scope" | "canPromoteToOrg">;
+export type OrgKnowledgeData = Omit<z.infer<typeof KG.knowledgeGraph.getOrgKnowledge.out>, "scope">;
 
 /** 一个会话的知识计数（标题等展示字段在判定通过后另取）。 */
 export interface ThreadKnowledgeCounts {
@@ -355,6 +361,15 @@ export interface PromotionPort {
   /** 项目中枢 R7：晋升到项目记忆（`kg_promote_claim_to_project`）。返回 L2 结论 id。 */
   promoteToProject(orgId: OrgId, userId: string, input: {
     readonly actionId: string; readonly threadId: string; readonly claimId: string;
+    readonly mode: "new" | "merge"; readonly targetClaimId?: string;
+  }): Promise<string>;
+  /** B2-S4：一个项目的项目记忆里这些 id 对应的活结论（晋升到组织记忆的来源），guard ref 是项目本身。 */
+  projectSourceClaims(orgId: OrgId, userId: string, projectId: string, claimIds: readonly string[]): Promise<Guarded<readonly { readonly id: string; readonly statement: string }[]>>;
+  /** B2-S4：组织记忆里的活结论（去重用），guard ref 是组织空间的合成 id（`project:org:<orgId>`，同 `KnowledgeReadPort.orgKnowledge`）。 */
+  orgClaims(orgId: OrgId, userId: string): Promise<Guarded<readonly { readonly id: string; readonly statement: string }[]>>;
+  /** B2-S4：晋升到组织记忆（`kg_promote_claim_to_org`）。返回 L3 结论 id。 */
+  promoteToOrg(orgId: OrgId, userId: string, input: {
+    readonly actionId: string; readonly projectId: string; readonly claimId: string;
     readonly mode: "new" | "merge"; readonly targetClaimId?: string;
   }): Promise<string>;
 }
