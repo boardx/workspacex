@@ -170,19 +170,25 @@ function placementMap(selection: SelectionResolution, input: WhiteboardLayoutCom
     if (items.length < 3) throw new Error('DISTRIBUTION_REQUIRES_THREE');
     const horizontal = input.kind === 'distribute-horizontal';
     const ordered = [...items].sort((a, b) => horizontal
-      ? bounds.get(a.id)!.left - bounds.get(b.id)!.left || a.id.localeCompare(b.id)
-      : bounds.get(a.id)!.top - bounds.get(b.id)!.top || a.id.localeCompare(b.id));
+      ? bounds.get(a.id)!.left - bounds.get(b.id)!.left || bounds.get(a.id)!.top - bounds.get(b.id)!.top || a.id.localeCompare(b.id)
+      : bounds.get(a.id)!.top - bounds.get(b.id)!.top || bounds.get(a.id)!.left - bounds.get(b.id)!.left || a.id.localeCompare(b.id));
     const first = ordered[0]!, last = ordered.at(-1)!;
     const span = horizontal
       ? bounds.get(last.id)!.right - bounds.get(first.id)!.left
       : bounds.get(last.id)!.bottom - bounds.get(first.id)!.top;
     const occupied = ordered.reduce((sum, item) => sum + (horizontal ? bounds.get(item.id)!.width : bounds.get(item.id)!.height), 0);
-    const gap = (span - occupied) / (ordered.length - 1);
+    // Equal edge gaps cannot remain stable when the current endpoint span is
+    // smaller than the occupied extent: a negative gap makes later objects
+    // cross earlier ones. Expand from the leading endpoint with a zero gap in
+    // that case; otherwise preserve both endpoints exactly.
+    const rawGap = (span - occupied) / (ordered.length - 1);
+    const gap = Math.max(0, rawGap);
     let cursor = horizontal ? bounds.get(first.id)!.left : bounds.get(first.id)!.top;
     ordered.forEach((item, index) => {
-      if (index === 0 || index === ordered.length - 1) return;
+      if (index === 0) return;
       const previous = ordered[index - 1]!;
       cursor += (horizontal ? bounds.get(previous.id)!.width : bounds.get(previous.id)!.height) + gap;
+      if (index === ordered.length - 1 && rawGap >= 0) return;
       const visual = bounds.get(item.id)!;
       set(item, horizontal ? item.geometry.x + cursor - visual.left : item.geometry.x, horizontal ? item.geometry.y : item.geometry.y + cursor - visual.top);
     });

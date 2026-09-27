@@ -113,6 +113,21 @@ describe('canonical layout calculations', () => {
     expect(() => arrangeObjects(objects.slice(0, 2), command('distribute-vertical', ['middle', 'last']))).toThrow('DISTRIBUTION_REQUIRES_THREE');
   });
 
+  it('distributes mixed-height overlapping objects by equal outer-edge gaps without reordering them', () => {
+    const objects = [
+      note('tall', 60, 20, { geometry: geometry(60, 20, 100, 180) }),
+      note('text', 0, 0, { geometry: geometry(0, 0, 320, 96) }),
+      note('short', 20, 10, { geometry: geometry(20, 10, 140, 40) }),
+    ];
+    const after = arrangeObjects(objects, command('distribute-vertical', ['tall', 'short', 'text']));
+    const visual = [...after].sort((a, b) => a.geometry.y - b.geometry.y);
+    expect(visual.map(value => value.id)).toEqual(['text', 'short', 'tall']);
+    expect(visual.map(value => value.geometry.y)).toEqual([0, 96, 136]);
+    const gaps = visual.slice(1).map((value, index) => value.geometry.y - (visual[index]!.geometry.y + visual[index]!.geometry.height));
+    expect(gaps).toEqual([0, 0]);
+    expect(Object.fromEntries(after.map(value => [value.id, [value.geometry.width, value.geometry.height]]))).toEqual({ tall: [100, 180], text: [320, 96], short: [140, 40] });
+  });
+
   it('lays out row, column and configurable grid with a 24px default gap', () => {
     const objects = [note('b', 200, 100, { geometry: geometry(200, 100, 50, 60) }), note('a', 0, 0, { geometry: geometry(0, 0, 100, 80) }), note('c', 500, 300, { geometry: geometry(500, 300, 70, 40) })];
     expect(arrangeObjects(objects, command('row', ['b', 'a', 'c'])).map(value => value.geometry)).toEqual([
