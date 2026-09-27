@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import type { SurveyRuntime } from '@repo/contracts/survey-runtime';
 import { serializeSurveyPublicationMarkdown } from '@repo/contracts/survey-source';
 import { LiveSurveyWorkspace } from '@/components/survey/live/survey-workspace';
@@ -10,6 +10,17 @@ vi.mock('next/navigation',()=>({useRouter:()=>router}));
 const runtime=(patch:Partial<SurveyRuntime>={}):SurveyRuntime=>({id:'saved-survey',title:'已保存问卷',version:4,status:'draft',anonymity:'anonymous',answerRevision:0,reportBasisAnswerRevision:null,updatedAt:'2026-09-20T10:00:00.000Z',questions:[{id:'q1',title:'真实问题',type:'single',chapterId:'general',order:1,required:true,options:['甲','乙']}],template:{id:'template',title:'模板报告',sections:[]},responses:[],publication:null,report:null,reportBasisVersion:null,reportGeneratedAt:null,...patch});
 beforeEach(()=>{request.mockReset();router.replace.mockReset();router.push.mockReset();});
 describe('live survey workspace persistence',()=>{
+ it('preserves existing tags in canonical Markdown when applying an AI proposal without tags',async()=>{
+  const original=runtime({tags:['客户调研']});
+  request.mockResolvedValueOnce(original).mockResolvedValueOnce({markdown:'# AI 客户反馈\n\n## feedback [open]\n请描述体验\n',execution:{id:'85f6e172-8b43-4a75-a917-0e91742d1e8c',provider:'test',modelId:'model',generatedAt:'2026-09-28T00:00:00.000Z'},source:{kind:'text',sha256:'a'.repeat(64)}}).mockResolvedValueOnce(runtime({title:'AI 客户反馈',tags:['客户调研'],version:5}));
+  render(<LiveSurveyWorkspace surveyId="saved-survey"/>);
+  fireEvent.change(await screen.findByLabelText('问卷需求'),{target:{value:'客户体验'}});
+  fireEvent.click(screen.getByRole('button',{name:'生成问卷'}));
+  await screen.findByLabelText('AI 提案 Markdown');
+  fireEvent.click(screen.getByRole('button',{name:'应用到问卷'}));
+  await screen.findByText('修改已保存',{}, {timeout:4000});
+  expect(request).toHaveBeenLastCalledWith('/surveys/saved-survey/source',expect.objectContaining({body:expect.objectContaining({documents:expect.objectContaining({design:expect.stringContaining('客户调研')})})}),expect.anything());
+ });
  it('saves repeat policy and success Markdown through canonical publication source',async()=>{
   request.mockResolvedValueOnce(runtime()).mockResolvedValueOnce(runtime({version:5}));
   render(<LiveSurveyWorkspace surveyId="saved-survey" initialStep="publish"/>);
@@ -29,14 +40,20 @@ describe('live survey workspace persistence',()=>{
  });
  it('does not repeatedly save after an automatic version conflict or discard local content',async()=>{
   const {SurveyConflictError}=await import('@/lib/survey/runtime-client');
-  request.mockResolvedValueOnce(runtime()).mockRejectedValueOnce(new SurveyConflictError(null));
+ request.mockResolvedValueOnce(runtime()).mockRejectedValueOnce(new SurveyConflictError(null));
   render(<LiveSurveyWorkspace surveyId="saved-survey"/>);
-  fireEvent.change(await screen.findByLabelText('问卷名称'),{target:{value:'保留我的标题'}});
-  await screen.findByRole('alert',{}, {timeout:4000});
-  expect(screen.getByLabelText('问卷名称')).toHaveValue('保留我的标题');
-  expect(screen.getByRole('button',{name:'读取最新版本并保留我的修改'})).toBeInTheDocument();
-  await new Promise(resolve=>setTimeout(resolve,1700));
-  expect(request).toHaveBeenCalledTimes(2);
+  const title=await screen.findByLabelText('问卷名称');
+  // Advance the real debounce logic without wall-clock sleeps competing with builds.
+  vi.useFakeTimers();
+  try {
+   fireEvent.change(title,{target:{value:'保留我的标题'}});
+   await act(async()=>{await vi.advanceTimersByTimeAsync(1600);});
+   expect(screen.getByRole('alert')).toBeInTheDocument();
+   expect(screen.getByLabelText('问卷名称')).toHaveValue('保留我的标题');
+   expect(screen.getByRole('button',{name:'读取最新版本并保留我的修改'})).toBeInTheDocument();
+   await act(async()=>{await vi.advanceTimersByTimeAsync(1700);});
+   expect(request).toHaveBeenCalledTimes(2);
+  } finally {vi.useRealTimers();}
  });
  it('does not manually save or publish valid Markdown before explicit application',async()=>{
   request.mockResolvedValueOnce(runtime());render(<LiveSurveyWorkspace surveyId="saved-survey"/>);

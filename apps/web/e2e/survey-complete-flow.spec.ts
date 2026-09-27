@@ -3,6 +3,27 @@ import { FULLSTACK_E2E } from "./fullstack-smoke-fixture";
 
 const TEMPLATE_TITLE = "会议反馈调查";
 
+test('AI 提案先校对再应用并保存为 Markdown',async({page})=>{
+ test.setTimeout(120000);await loginAsAdmin(page);await page.goto('/studio/survey');
+ await page.getByRole('button',{name:'新建问卷',exact:true}).click();
+ await page.getByLabel('问卷名称').fill('AI 校对验收');
+ await page.getByLabel('标签',{exact:true}).fill('客户调研');await page.getByLabel('标签',{exact:true}).press('Enter');
+ await page.getByRole('button',{name:'下一步',exact:true}).click();
+ await page.getByLabel('问卷需求').fill('调查客户最近一次使用体验');
+ await page.getByLabel('上传问卷文件').setInputFiles({name:'研究目标.md',mimeType:'text/markdown',buffer:Buffer.from('研究软件用户近期的真实产品体验')});
+ await expect(page.getByText(/研究目标.md/)).toBeVisible();
+ await page.getByRole('button',{name:'生成问卷',exact:true}).click();
+ const dialog=page.getByRole('dialog',{name:'Markdown 预览与校对'});
+ await expect(dialog).toBeVisible();
+ await expect(dialog.getByLabel('AI 提案 Markdown')).toHaveValue(/#/);
+ await dialog.getByLabel('AI 提案 Markdown').fill('# AI 校对验收\n\n## feedback [open]\n请描述具体建议\n');
+ await dialog.getByRole('button',{name:'应用到问卷',exact:true}).click();
+ await expect(page.getByLabel('问卷 Markdown',{exact:true})).toHaveValue(/具体建议/);
+ await expect(page.getByRole('status').filter({hasText:'所有修改已保存'})).toBeVisible();
+ await page.reload();await expect(page.getByLabel('问卷 Markdown',{exact:true})).toHaveValue(/具体建议/);
+ await expect(page.getByLabel('问卷 Markdown',{exact:true})).toHaveValue(/客户调研/);
+});
+
 async function loginAsAdmin(page: Page) {
   await page.goto("/login");
   await page.getByTestId("login-email").fill(FULLSTACK_E2E.adminEmail);

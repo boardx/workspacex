@@ -598,6 +598,12 @@ const server = createServer((req, res) => {
     // 围栏，前面多一行回显不影响它。
     const researchSystem = parsed.messages?.find((message) => message.role === "system")?.content;
     const researchReply = guidedResearchReply(typeof researchSystem === "string" ? researchSystem : "", echoed);
+    // Explicit deterministic browser lane, never used as a production model fallback.
+    let surveyReply:string|null=null;
+    try{const input=JSON.parse(echoed) as {operation?:string};
+      if(input.operation==='survey_markdown_proposal'&&typeof researchSystem==='string'&&researchSystem.includes('专业问卷设计师'))
+        surveyReply='# 客户体验调查\n\n## experience [open]\n请描述最近一次使用体验\n';
+    }catch{ /* Other model requests retain their existing reply path. */ }
     /*
      * ## 分支顺序按「判定条件有多specific」排，不是按写下来的先后
      *
@@ -623,7 +629,7 @@ const server = createServer((req, res) => {
      *
      * 影响面：正文里不带那个哨兵的请求，走到的分支与改动前逐字节相同。
      */
-    const fullText = researchReply ?? (isKgExtractionRequest(parsed.messages)
+    const fullText = surveyReply ?? researchReply ?? (isKgExtractionRequest(parsed.messages)
       ? EMPTY_KG_EXTRACTION_REPLY
       : isFollowUpSuggestionsRequest(parsed.messages)
       ? followUpSuggestionsReply(parsed.messages)

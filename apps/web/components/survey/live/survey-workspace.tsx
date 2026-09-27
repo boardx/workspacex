@@ -30,6 +30,7 @@ import {
 } from "../report/report-export";
 import { SurveyQuestionEditor } from "./question-editor";
 import { MarkdownSurveyEditor } from "./markdown-survey-editor";
+import { SurveyAiProposal } from './ai-proposal';
 import { downloadReportMarkdown, surveyReportMarkdown } from "../report/report-markdown";
 import { CollectionOverview } from "./collection-overview";
 import { SurveyShareCode } from "./share-code";
@@ -376,6 +377,13 @@ export function LiveSurveyWorkspace({
       {draft && (
         <fieldset disabled={busy} className="min-w-0">
           {step === "design" && (<>
+            <SurveyAiProposal locked={!!runtime?.publication} onApply={text=>{
+              const result=parseSurveyDesignMarkdown(text);if(!result.ok)return;
+              const canonical=result.draft.tags===undefined&&draft.tags?.length
+                ? `${text.trimEnd()}\n\n\`\`\`survey-tags\n${JSON.stringify(draft.tags)}\n\`\`\`\n` : text;
+              setMarkdown(canonical);setMarkdownNeedsApply(false);setError('');
+              setDraft({...draft,title:result.draft.title,tags:result.draft.tags??draft.tags,questions:result.draft.questions});
+            }}/>
             <MarkdownSurveyEditor value={markdown} locked={!!runtime?.publication} onChange={(text) => { setMarkdown(text); setMarkdownNeedsApply(true); }} onPreview={() => {
                 const result = parseSurveyDesignMarkdown(markdown);
                 if (!result.ok) { setError(result.diagnostics.map((entry) => `第 ${entry.line} 行：${entry.message}`).join("；")); return; }

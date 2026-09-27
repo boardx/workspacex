@@ -194,6 +194,7 @@ const modelProviderEnv = {
    * 那条用例会诚实地红在"没配置"而不是"接线错了"，两种红不该混在一起排查。
    */
   KERNEL_SKILL_TRIALRUN_MODEL_ID: FULLSTACK_E2E.agentModelId,
+  KERNEL_SURVEY_MODEL_ID: FULLSTACK_E2E.agentModelId,
 };
 
 export default defineConfig({
