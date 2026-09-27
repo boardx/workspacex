@@ -8,7 +8,7 @@ export function ResearchChapterTasks({ state }: { state: GuidedResearchRuntime }
     const running = tasks.some((task) => task.status === "running");
     const failed = tasks.some((task) => task.status === "failed");
     const done = tasks.length > 0 && completed === tasks.length;
-    return <li key={chapter.id} className={`flex gap-4 py-5 ${running ? "rounded-lg border bg-muted/30 px-4" : ""}`}><span className={`flex size-11 shrink-0 items-center justify-center rounded-full border text-xl ${running ? "bg-primary text-primary-foreground" : "bg-muted/40"}`}>{index + 1}</span><div className="min-w-0 flex-1"><h3 className="text-base font-semibold">{chapter.title}</h3><p className="mt-1 text-sm text-muted-foreground">{done ? "已完成" : failed ? "检索失败" : running ? "正在研究" : "待开始"} · {completed}/{tasks.length} 个任务</p>{running && <progress aria-label={`${chapter.title}任务进度`} value={completed} max={tasks.length || 1} className="mt-3 h-2 w-full accent-primary" />}</div>{done ? <CheckCircle2 className="mt-2 size-5 text-muted-foreground" /> : <Circle className="mt-2 size-5 text-muted-foreground" />}</li>;
+    return <li key={chapter.id} className={`flex gap-4 py-5 ${running ? "rounded-lg border bg-muted/30 px-4" : ""}`}><span className={`flex size-11 shrink-0 items-center justify-center rounded-full border text-xl ${running ? "bg-primary text-primary-foreground" : "bg-muted/40"}`}>{index + 1}</span><div className="min-w-0 flex-1"><h3 className="text-lg font-semibold">{chapter.title}</h3><p className="mt-1 text-base text-muted-foreground">{done ? "已完成" : failed ? "检索失败" : running ? "正在研究" : "待开始"} · {completed}/{tasks.length} 个任务</p>{running && <progress aria-label={`${chapter.title}任务进度`} value={completed} max={tasks.length || 1} className="mt-3 h-2 w-full accent-primary" />}</div>{done ? <CheckCircle2 className="mt-2 size-5 text-muted-foreground" /> : <Circle className="mt-2 size-5 text-muted-foreground" />}</li>;
   })}</ol>;
 }
 export const researchStageLabels = { planning: "规划研究任务", searching: "检索资料", reading: "阅读资料", validating: "核查证据", organizing: "整理来源证据", writing: "撰写报告章节", reviewing: "检查分析与证据质量", synthesizing: "综合研究结论" } as const;
@@ -22,7 +22,7 @@ export function GuidedResearchRuntimeProgress({ state }: { state: GuidedResearch
   const processed = succeeded + failed;
   const total = searching ? state.tasks.length || progress.total : progress.total;
   return <section className="space-y-2 rounded-lg border border-border bg-card p-4" data-testid="research-runtime-progress">
-    <p role="status" aria-live="polite" className="text-12 font-medium">{researchStageLabels[progress.stage]} · {searching ? `已处理 ${processed} / ${total} · 成功 ${succeeded} · 失败 ${failed}` : `${progress.completed} / ${progress.total}`}{!state.busy && state.errorCode ? " · 已暂停" : ""}</p>
+    <p role="status" aria-live="polite" className="text-base font-medium">{researchStageLabels[progress.stage]} · {searching ? `已处理 ${processed} / ${total} · 成功 ${succeeded} · 失败 ${failed}` : `${progress.completed} / ${progress.total}`}{!state.busy && state.errorCode ? " · 已暂停" : ""}</p>
     {title && <p className="text-12 text-muted-foreground">{title}</p>}
     {total > 0 && <progress className="h-2 w-full accent-primary" value={searching ? succeeded : progress.completed} max={total} aria-label={searching ? "检索成功任务" : researchStageLabels[progress.stage]} />}
     {searching && failed > 0 && <p className="text-12 text-destructive">{failed} 项检索失败，尚未取得所需资料。</p>}
@@ -30,8 +30,8 @@ export function GuidedResearchRuntimeProgress({ state }: { state: GuidedResearch
 }
 export function GuidedResearchPlanDetails({ state, errors }: { state: GuidedResearchRuntime; errors: Record<string, string> }) {
   return <div className="space-y-3">
-    {state.researchPlan && <details className="rounded-lg border border-border bg-card p-4" data-testid="research-plan-details"><summary className="cursor-pointer text-12 font-medium">研究计划</summary><div className="mt-3 space-y-3 text-12"><div><h3 className="font-semibold">研究问题</h3><p className="mt-1 whitespace-pre-wrap">{state.researchPlan.optimizedQuestion}</p></div><div><h3 className="font-semibold">执行思路</h3><p className="mt-1 whitespace-pre-wrap">{state.researchPlan.overview}</p></div></div></details>}
-    <details className="rounded-lg border border-border bg-card p-4"><summary className="cursor-pointer text-12 font-medium">检索任务明细 · {state.tasks.length} 项</summary><div className="mt-3 space-y-3">{state.tasks.map((task) => <section key={task.id} className="space-y-2 rounded-md border border-border p-3 text-12" data-testid="research-task-details">
+    {state.researchPlan && <details className="rounded-lg border border-border bg-card p-4" data-testid="research-plan-details"><summary className="cursor-pointer text-base font-medium">研究计划</summary><div className="mt-3 space-y-3 text-12"><div><h3 className="font-semibold">研究问题</h3><p className="mt-1 whitespace-pre-wrap">{state.researchPlan.optimizedQuestion}</p></div><div><h3 className="font-semibold">执行思路</h3><p className="mt-1 whitespace-pre-wrap">{state.researchPlan.overview}</p></div></div></details>}
+    <details className="rounded-lg border border-border bg-card p-4"><summary className="cursor-pointer text-base font-medium">检索任务明细 · {state.tasks.length} 项</summary><div className="mt-3 space-y-3">{state.tasks.map((task) => <section key={task.id} className="space-y-2 rounded-md border border-border p-3 text-12" data-testid="research-task-details">
       <h3 className="font-medium">{task.title || task.query}</h3>
       {task.objective && <p className="whitespace-pre-wrap">{task.objective}</p>}
       <p className="break-words text-muted-foreground">原始检索词：{task.query}</p>
