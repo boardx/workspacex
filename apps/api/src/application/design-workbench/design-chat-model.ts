@@ -29,6 +29,7 @@ import type { ModelCallPort } from "../agent-run/ports";
 import { ModelCallError } from "../agent-run/ports";
 import type { FeedbackStructureModelConfig } from "../feedback/structure-feedback-draft";
 import type { DesignProjectRow } from "./project-ports";
+import { describeScreenIssues, normalizeScreenCandidate, parseScreenJson } from "./prototype-screen-repair";
 
 export type AiReplySource = z.infer<typeof designAiCollab.AiReplySource>;
 export type DesignChatWriteback = z.infer<typeof designAiCollab.DesignChatWriteback>;
@@ -519,6 +520,16 @@ export const SIMPLER_SCREEN_HINT =
   "列表最多 3 项，去掉次要的装饰性区块。宁可简单也要**完整输出**。";
 
 /** JSON 能不能解析——截断判据的另一半（provider 没报 finish_reason 时靠它）。 */
+/** 同 `canParse`，但用单页那条会配平括号的解析（#4321）。 */
+function canParseScreen(text: string): boolean {
+  try {
+    parseScreenJson(text);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 function canParse(text: string): boolean {
   try {
     extractJsonObject(text);
@@ -792,7 +803,9 @@ export class ModelDesignChatReplier implements DesignChatModel {
       return null;
     }
     // 截断 / JSON 不完整 ⇒ 同一页再来一次，但**要求画简单一点**（换了个请求，不是原样重试）。
-    if (one.truncated || !canParse(one.text)) {
+    // #4321：多/少一个括号不算截断——`parseScreenJson` 会配平；只有真截断（或配平了也解析不了）
+    // 才走「画简单点」，否则一个多余的 `}` 就会把这页换成更简陋的版本。
+    if (one.truncated || !canParseScreen(one.text)) {
       this.deps.log("design chat: screen round truncated, retrying smaller", { index: i, truncated: one.truncated });
       try {
         one = await this.callModel(context + SIMPLER_SCREEN_HINT, DESIGN_CHAT_REPAIR_TIMEOUT_MS, DESIGN_ONE_SCREEN_SYSTEM_PROMPT, ctx.refImages);
@@ -805,18 +818,33 @@ export class ModelDesignChatReplier implements DesignChatModel {
         return null;
       }
     }
-    let parsed: unknown;
-    try {
-      parsed = extractJsonObject(one.text);
-    } catch {
-      this.deps.log("design chat: screen round output was not parseable JSON", { index: i, length: one.text.length });
-      return null;
-    }
-    const screen = { ...(parsed as Record<string, unknown>), frame: entry.frame };
-    // 逐页过契约：这一页不合法就只丢这一页，不连累别的页。
+    let screen = this.acceptScreen(one.text, entry.frame, i);
+    if (screen === null) return null;
+    // #4321：过不了契约 ⇒ 先保守修正（`prototype-screen-repair.ts`），仍不合法再**带着具体哪里错**
+    // 重问一次；还不行才丢这一页（只丢这一页，不连累别的页）。在这之前是直接丢——
+    // 实测一半的页因为 `children: []`、多一个 `}` 这种小错没了，画布上一片空。
     if (!designPrototype.PrototypeScreen.safeParse(screen).success) {
-      this.deps.log("design chat: screen rejected by contract", { index: i });
-      return null;
+      const issues = describeScreenIssues(screen);
+      this.deps.log("design chat: screen rejected by contract, asking again with issues", { index: i, issues });
+      let again: { text: string; truncated: boolean };
+      try {
+        again = await this.callModel(
+          `${context}\n\n刚才这一页有几处不符合组件格式：\n${issues.map((l) => `- ${l}`).join("\n")}\n\n` +
+            `请只修正这几处、其余内容保持不变，重新输出「${entry.frame}」这一页。`,
+          DESIGN_CHAT_REPAIR_TIMEOUT_MS,
+          DESIGN_ONE_SCREEN_SYSTEM_PROMPT,
+          ctx.refImages,
+        );
+      } catch (e) {
+        this.deps.log("design chat: contract retry failed", { index: i, detail: e instanceof Error ? e.message : "unknown" });
+        return null;
+      }
+      const retried = again.truncated ? null : this.acceptScreen(again.text, entry.frame, i);
+      if (retried === null || !designPrototype.PrototypeScreen.safeParse(retried).success) {
+        this.deps.log("design chat: screen rejected by contract", { index: i, issues: retried === null ? ["重问的输出解析不了或被截断"] : describeScreenIssues(retried) });
+        return null;
+      }
+      screen = retried;
     }
 
     // 质量自审 + 定向重问一次（issue #3340 定下的三条纪律，逐字不变）。
@@ -846,6 +874,21 @@ export class ModelDesignChatReplier implements DesignChatModel {
     return best.screen;
   }
 
+  /** 解析单页输出并做保守修正（#4321）；解析不了 ⇒ null。**不**判契约，调用方判。 */
+  private acceptScreen(text: string, frame: string, index: number): Record<string, unknown> | null {
+    let parsed: unknown;
+    try {
+      parsed = parseScreenJson(text);
+    } catch {
+      this.deps.log("design chat: screen round output was not parseable JSON", { index, length: text.length });
+      return null;
+    }
+    if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) return null;
+    const { screen, fixes } = normalizeScreenCandidate({ ...(parsed as Record<string, unknown>), frame });
+    if (fixes.length > 0) this.deps.log("design chat: screen normalized", { index, fixes: fixes.slice(0, 8), count: fixes.length });
+    return screen;
+  }
+
   /**
    * issue #3340：带着**具体缺什么**把同一页重问一次。失败/不合法 ⇒ 返回 null（保留原来那版）。
    * 与截断降级重试（`SIMPLER_SCREEN_HINT`，方向是更简陋）刻意相反：这一条要求补足。
@@ -864,8 +907,7 @@ export class ModelDesignChatReplier implements DesignChatModel {
         ctx.refImages,
       );
       if (one.truncated) return null;
-      const parsed = extractJsonObject(one.text) as Record<string, unknown>;
-      const screen = { ...parsed, frame };
+      const screen = normalizeScreenCandidate({ ...(parseScreenJson(one.text) as Record<string, unknown>), frame }).screen;
       return designPrototype.PrototypeScreen.safeParse(screen).success ? screen : null;
     } catch (e) {
       this.deps.log("design chat: quality retry failed", { detail: e instanceof Error ? e.message : "unknown" });
