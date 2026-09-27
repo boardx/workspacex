@@ -32,6 +32,7 @@ it("shows Sticky-only direct controls and makes every mutating control unavailab
   rerender(<ObjectContextToolbar {...props} readOnly />);
   expect(screen.getByTestId("context-sticky-circle")).toBeDisabled();
   expect(screen.getByTestId("sticky-quick-color-yellow")).toBeDisabled();
+  fireEvent.click(screen.getByTestId("board-inspector-expand"));
   fireEvent.click(screen.getByTestId("board-widget-advanced-format").querySelector("summary")!);
   expect(screen.getByLabelText("便利贴自定义颜色")).toBeDisabled();
 });
@@ -40,7 +41,9 @@ it("provides adjustable inspector size, compact geometry disclosure and grouped 
   const onGeometryChange = vi.fn();
   render(<BoardSelectedObjectPanel object={sticky} title="Idea" typeLabel="便利贴" readOnly={false} onClose={vi.fn()} onGeometryChange={onGeometryChange}><button type="button">样式操作</button></BoardSelectedObjectPanel>);
   const panel = screen.getByTestId("board-context-toolbar");
-  expect(panel).toHaveAttribute("aria-label", "便利贴属性");
+  expect(panel).toHaveAttribute("aria-label", "便利贴快捷工具");
+  expect(panel).toHaveAttribute("data-expanded", "false");
+  fireEvent.click(screen.getByTestId("board-inspector-expand"));
   expect(screen.getByTestId("board-inspector-scroll-content")).toBeVisible();
   const width = screen.getByTestId("board-inspector-resize");
   expect(width).toHaveAttribute("aria-valuenow", "368");
@@ -75,6 +78,7 @@ it("groups the selected widget's frequent actions separately from detailed prope
   expect(screen.getByTestId("board-sticky-inspector-style")).toBeVisible();
   expect(screen.getByTestId("board-widget-quick-format")).toBeVisible();
   expect(screen.getByTestId("sticky-quick-color-yellow")).toBeVisible();
+  fireEvent.click(screen.getByTestId("board-inspector-expand"));
   expect(screen.getByTestId("board-widget-advanced-format")).not.toHaveAttribute("open");
   expect(screen.getByTestId("board-inspector-geometry")).not.toHaveAttribute("open");
   fireEvent.click(screen.getByTestId("board-widget-advanced-format").querySelector("summary")!);
@@ -88,6 +92,7 @@ it("exposes the selected Text's common formatting and object actions before deta
   expect(screen.getByTestId("board-widget-quick-format")).toBeVisible();
   expect(screen.getByTestId("board-text-quick-bold")).toBeVisible();
   expect(screen.getByTestId("board-text-quick-align")).toBeVisible();
+  fireEvent.click(screen.getByTestId("board-inspector-expand"));
   expect(screen.getByTestId("board-widget-advanced-format")).not.toHaveAttribute("open");
   fireEvent.click(screen.getByTestId("board-widget-advanced-format").querySelector("summary")!);
   expect(screen.getByTestId("board-inspector-text")).toBeVisible();
@@ -99,6 +104,7 @@ it("shows shape-specific fill controls and common duplicate/delete actions for s
   const shape: WhiteboardObject = { ...sticky, id: "shape", kind: "rectangle", text: "Plan", style: { fill: "#FFFFFF", stroke: "#111111" } };
   const onStyleChange = vi.fn();
   render(<ObjectContextToolbar object={shape} readOnly={false} actorId="me" onStickyChange={vi.fn()} onTextChange={vi.fn()} onStyleChange={onStyleChange} onExperienceChange={vi.fn()} onGeometryChange={vi.fn()} onClose={vi.fn()} onFutureAction={vi.fn()} onDuplicate={vi.fn()} onDelete={vi.fn()} />);
+  fireEvent.click(screen.getByTestId("board-inspector-expand"));
   expect(screen.getByRole("heading", { name: "Plan" })).toBeVisible();
   expect(screen.getByTestId("board-generic-quick-format")).toBeVisible();
   fireEvent.change(screen.getByTestId("board-object-fill-color"), { target: { value: "#FF0000" } });
@@ -116,7 +122,7 @@ it("opens the matching object menu when a shape is selected on the Fabric board"
   render(<CollaborativeThinkingEditor boardId="board" clientId="web" doc={doc} readOnly={false} title="Board" status="已连接" />);
   fireEvent.click(screen.getByTestId("select-one"));
   const panel = screen.getByTestId("board-context-toolbar");
-  expect(panel).toHaveAttribute("aria-label", "形状属性");
+  expect(panel).toHaveAttribute("aria-label", "形状快捷工具");
   expect(panel.style.left).toMatch(/px$/);
   expect(panel.style.top).toMatch(/px$/);
   expect(screen.getByTestId("board-object-fill-color")).toBeVisible();
@@ -131,8 +137,9 @@ it("keeps the image edit menu as the single floating inspector for selected imag
   fireEvent.click(screen.getByTestId("select-one"));
   expect(screen.getAllByTestId("board-context-toolbar")).toHaveLength(1);
   const panel = screen.getByTestId("board-context-toolbar");
-  expect(panel).toHaveAttribute("aria-label", "图片属性");
+  expect(panel).toHaveAttribute("aria-label", "图片快捷工具");
   expect(panel.style.left).toMatch(/px$/);
+  fireEvent.click(screen.getByTestId("board-inspector-expand"));
   fireEvent.click(screen.getByTestId("board-inspector-appearance"));
   expect(screen.getByRole("button", { name: "裁剪" })).toBeVisible();
   doc.destroy();
@@ -144,6 +151,7 @@ it("derives command availability from selection count and hides single-object co
   render(<CollaborativeThinkingEditor boardId="board" clientId="web" doc={doc} readOnly={false} title="Board" status="已连接" />);
   fireEvent.click(screen.getByTestId("select-one"));
   expect(screen.queryByTestId("board-shared-properties")).toBeNull();
+  fireEvent.click(screen.getByTestId("board-inspector-expand"));
   fireEvent.click(screen.getByRole("button", { name: "更多操作" }));
   expect(screen.getByTestId("board-context-toolbar")).toBeVisible();
   expect(within(screen.getByTestId("board-spatial-toolbar")).getByRole("button", { name: "组合" })).toBeDisabled();
@@ -162,6 +170,7 @@ it("explains readonly command unavailability through the toolbar description", (
   render(<CollaborativeThinkingEditor boardId="board" clientId="viewer" doc={doc} readOnly title="Board" status="已连接" />);
   fireEvent.click(screen.getByTestId("select-one"));
   expect(screen.queryByTestId("board-shared-properties")).toBeNull();
+  fireEvent.click(screen.getByTestId("board-inspector-expand"));
   fireEvent.click(screen.getByRole("button", { name: "更多操作" }));
   expect(screen.getByTestId("board-spatial-duplicate")).toBeDisabled();
   expect(screen.getByTestId("board-spatial-duplicate")).toHaveAttribute("title", "当前白板为只读");

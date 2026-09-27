@@ -1,7 +1,7 @@
 "use client";
 
 import { useRef, useState, type PointerEvent, type ReactNode, type KeyboardEvent, type CSSProperties, type Ref } from "react";
-import { MoveDiagonal2, X } from "lucide-react";
+import { ChevronDown, MoveDiagonal2, SlidersHorizontal, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import type { WhiteboardGeometry, WhiteboardObject } from "@repo/whiteboard-core";
@@ -20,18 +20,21 @@ interface BoardSelectedObjectPanelProps {
   onGeometryChange: (geometry: WhiteboardGeometry) => void;
   panelRef?: Ref<HTMLElement>;
   floatingStyle?: CSSProperties;
+  compactActions?: ReactNode;
   children: ReactNode;
 }
 
 /** Resizable, scrollable inspector keeps selection controls in one predictable place. */
-export function BoardSelectedObjectPanel({ title, typeLabel, object, readOnly, onClose, onGeometryChange, panelRef, floatingStyle, children }: BoardSelectedObjectPanelProps) {
+export function BoardSelectedObjectPanel({ title, typeLabel, object, readOnly, onClose, onGeometryChange, panelRef, floatingStyle, compactActions, children }: BoardSelectedObjectPanelProps) {
+  const [expanded, setExpanded] = useState(false);
   const [width, setWidth] = useState(368);
   const [height, setHeight] = useState(520);
   const maxWidth = Math.min(WIDTH_MAX, typeof window === "undefined" ? WIDTH_MAX : Math.max(1, window.innerWidth - 32));
   const minWidth = Math.min(WIDTH_MIN, maxWidth);
   const maxHeight = Math.min(HEIGHT_MAX, typeof window === "undefined" ? 720 : Math.max(1, Math.round(window.innerHeight * 0.8)));
   const minHeight = Math.min(HEIGHT_MIN, maxHeight);
-  const responsiveFloatingStyle = typeof window !== "undefined" && window.innerWidth <= 640 ? undefined : floatingStyle;
+  const isNarrow = typeof window !== "undefined" && window.innerWidth <= 640;
+  const responsiveFloatingStyle = isNarrow ? undefined : floatingStyle;
   const drag = useRef<{ pointerX: number; pointerY: number; width: number; height: number; axis: "x" | "y" } | null>(null);
   const resizeStart = (event: PointerEvent<HTMLDivElement>) => {
     event.preventDefault();
@@ -60,10 +63,15 @@ export function BoardSelectedObjectPanel({ title, typeLabel, object, readOnly, o
     onGeometryChange(next);
   };
 
-  return <aside ref={panelRef} data-testid="board-context-toolbar" data-board-selected-object-panel="true" aria-label={`${typeLabel}属性`} className="absolute right-4 top-16 z-40 flex h-[min(var(--board-inspector-height),80vh)] max-h-[80vh] w-[min(var(--board-inspector-width),calc(100vw-2rem))] flex-col overflow-hidden rounded-2xl border border-border bg-card/95 shadow-xl backdrop-blur max-sm:bottom-20 max-sm:left-4 max-sm:right-4 max-sm:top-auto max-sm:max-h-[72vh] max-sm:w-auto" style={{ "--board-inspector-width": `${width}px`, "--board-inspector-height": `${height}px`, ...responsiveFloatingStyle } as CSSProperties}>
+  return <aside ref={panelRef} data-testid="board-context-toolbar" data-board-selected-object-panel="true" data-expanded={expanded} aria-label={`${typeLabel}${expanded ? "属性" : "快捷工具"}`} className={expanded ? "absolute right-4 top-16 z-40 flex h-[min(var(--board-inspector-height),80vh)] max-h-[80vh] w-[min(var(--board-inspector-width),calc(100vw-2rem))] flex-col overflow-hidden rounded-2xl border border-border bg-card/95 shadow-xl backdrop-blur max-sm:bottom-20 max-sm:left-4 max-sm:right-4 max-sm:top-auto max-sm:max-h-[72vh] max-sm:w-auto" : "absolute z-40 max-w-[calc(100vw-2rem)] overflow-hidden rounded-2xl border border-border bg-card/95 p-1 shadow-xl backdrop-blur"} style={expanded ? { "--board-inspector-width": `${width}px`, "--board-inspector-height": `${height}px` } as CSSProperties : responsiveFloatingStyle}>
+    {!expanded ? <div className="flex min-h-12 max-w-full items-center gap-1 overflow-hidden">
+      <div className="min-w-0 flex-1 overflow-x-auto">{compactActions ?? <span className="px-2 text-12 font-medium">{title || "未命名对象"}</span>}</div>
+      <Button type="button" variant="ghost" size="icon" data-testid="board-inspector-expand" aria-label={`编辑${typeLabel}属性`} title="打开详细属性" aria-expanded={false} onClick={() => setExpanded(true)}><SlidersHorizontal className="h-4 w-4" /></Button>
+      <Button type="button" variant="ghost" size="icon" data-testid="board-inspector-close" aria-label="取消选择" onClick={onClose}><X className="h-4 w-4" /></Button>
+    </div> : <>
     <div className="flex shrink-0 items-center justify-between gap-3 border-b border-border bg-card/90 px-3 py-2.5">
-      <div className="min-w-0"><p className="text-11 font-medium uppercase tracking-wide text-muted-foreground">{typeLabel} · 属性</p><h2 className="truncate text-15 font-semibold">{title || "未命名对象"}</h2></div>
-      <Button type="button" variant="ghost" size="icon" data-testid="board-inspector-close" aria-label="关闭对象属性" onClick={onClose}><X className="h-4 w-4" /></Button>
+      <div className="min-w-0"><p className="text-11 font-medium tracking-wide text-muted-foreground">{typeLabel} · 属性</p><h2 className="truncate text-15 font-semibold">{title || "未命名对象"}</h2></div>
+      <div className="flex items-center gap-1"><Button type="button" variant="ghost" size="sm" data-testid="board-inspector-collapse" aria-label="收起属性" onClick={() => setExpanded(false)}><ChevronDown className="h-4 w-4" />收起</Button><Button type="button" variant="ghost" size="icon" data-testid="board-inspector-close" aria-label="取消选择" onClick={onClose}><X className="h-4 w-4" /></Button></div>
     </div>
     <div className="min-h-0 flex-1 space-y-3 overflow-y-auto p-3" data-testid="board-inspector-scroll-content">
       <details data-testid="board-inspector-geometry" className="group rounded-xl border border-border bg-background/70">
@@ -76,5 +84,6 @@ export function BoardSelectedObjectPanel({ title, typeLabel, object, readOnly, o
     </div>
     <div role="separator" aria-label="调整属性面板宽度" aria-orientation="vertical" aria-valuemin={minWidth} aria-valuemax={maxWidth} aria-valuenow={Math.round(width)} tabIndex={0} data-testid="board-inspector-resize" onPointerDown={resizeStart} onPointerMove={resizeMove} onPointerUp={resizeEnd} onPointerCancel={resizeEnd} onLostPointerCapture={resizeEnd} onKeyDown={resizeKey} className="absolute bottom-2 left-0 top-16 z-10 flex w-6 cursor-ew-resize touch-none items-center justify-center rounded-full bg-transparent transition-colors hover:bg-primary/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"><span className="h-10 w-1 rounded-full bg-border" /></div>
     <div role="separator" aria-label="调整属性面板高度" aria-orientation="horizontal" aria-valuemin={minHeight} aria-valuemax={maxHeight} aria-valuenow={Math.round(height)} tabIndex={0} data-testid="board-inspector-resize-height" onPointerDown={(event) => { event.preventDefault(); drag.current = { pointerX: event.clientX, pointerY: event.clientY, width, height, axis: "y" }; event.currentTarget.setPointerCapture(event.pointerId); }} onPointerMove={resizeMove} onPointerUp={resizeEnd} onPointerCancel={resizeEnd} onLostPointerCapture={resizeEnd} onKeyDown={(event) => { if (event.key !== "ArrowUp" && event.key !== "ArrowDown") return; event.preventDefault(); setHeight((current) => Math.max(minHeight, Math.min(maxHeight, current + (event.key === "ArrowDown" ? 24 : -24)))); }} className="absolute bottom-0 left-1/2 z-10 flex h-6 w-20 -translate-x-1/2 cursor-ns-resize touch-none items-center justify-center rounded-full bg-transparent transition-colors hover:bg-primary/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"><span className="h-1 w-10 rounded-full bg-border" /></div>
+    </>}
   </aside>;
 }

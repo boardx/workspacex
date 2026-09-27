@@ -30,7 +30,7 @@ class ResizeObserverMock { observe() {} disconnect() {} }
 globalThis.ResizeObserver = ResizeObserverMock as unknown as typeof ResizeObserver;
 afterEach(() => cleanup());
 
-function openActions() { const trigger = screen.getByTestId("board-inspector-actions"); if (trigger.getAttribute("aria-expanded") !== "true") fireEvent.click(trigger); const tab = screen.getByRole("button", { name: "操作" }); fireEvent.click(tab); }
+function openActions() { const properties = screen.queryByTestId("board-inspector-expand"); if (properties) fireEvent.click(properties); const trigger = screen.getByTestId("board-inspector-actions"); if (trigger.getAttribute("aria-expanded") !== "true") fireEvent.click(trigger); const tab = screen.getByRole("button", { name: "操作" }); fireEvent.click(tab); }
 function openProperties() { openActions(); fireEvent.click(screen.getByTestId("board-properties-open")); }
 
 function mount() {

@@ -11,13 +11,16 @@ class ResizeObserverMock { observe() {} disconnect() {} }
 beforeEach(() => { vi.stubGlobal("ResizeObserver", ResizeObserverMock); vi.stubGlobal("innerWidth", 1024); vi.stubGlobal("innerHeight", 768); camera = { zoom: 1, panX: 0, panY: 0, fitRequest: 0 }; });
 afterEach(() => { cleanup(); vi.restoreAllMocks(); vi.unstubAllGlobals(); });
 
-it("keeps the selected-object inspector open and keyboard-resizable beside the canvas", () => {
+it("keeps selection compact until properties are opened, then keyboard-resizes the inspector", () => {
   const doc = createWhiteboardDocument();
   render(<CollaborativeThinkingEditor boardId="board" clientId="web" doc={doc} readOnly={false} title="Board" status="已连接" />);
   fireEvent.click(screen.getByTestId("board-add-sticky"));
   fireEvent.click(screen.getByTestId("test-create"));
   const panel = screen.getByTestId("board-context-toolbar");
   expect(panel).toHaveAttribute("data-board-selected-object-panel", "true");
+  expect(panel).toHaveAttribute("data-expanded", "false");
+  expect(panel).toHaveClass("max-w-[calc(100vw-2rem)]");
+  fireEvent.click(screen.getByTestId("board-inspector-expand"));
   expect(panel).toHaveClass("right-4", "top-16");
   const resize = screen.getByTestId("board-inspector-resize");
   fireEvent.keyDown(resize, { key: "ArrowLeft" });
