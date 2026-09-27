@@ -1,5 +1,12 @@
 import { expect, it } from 'vitest';
 import { createDefaultSurveyReportTemplate, compileSurveyReport } from '../src/survey-report';
+import { createSurveyQuestion, SURVEY_QUESTION_TYPES, surveyQuestionStatistics } from '../src/survey-question-types';
+it.each(SURVEY_QUESTION_TYPES)('uses a registry-supported default statistic for $type',({type})=>{
+ const question=createSurveyQuestion(type,'q1',1);
+ const blocks=createDefaultSurveyReportTemplate('调查',[question]).sections[0]!.blocks;
+ if (['description','page_break'].includes(type)) expect(blocks).toEqual([]);
+ else expect(surveyQuestionStatistics(question)).toContain(blocks[0]!.statistic);
+});
 it('builds a default optional report from real answer questions only',()=>{
  const questions=[{id:'q1',order:1,chapterId:'g',title:'实际意见',type:'open' as const,required:false,options:[]}];
  const template=createDefaultSurveyReportTemplate('调查',questions);
