@@ -197,3 +197,54 @@ test("Board navigation retains shell in library and only editor is fullscreen", 
   await expect(page.getByTestId("rail-whiteboard")).toBeVisible();
   await expect(page.getByTestId("whiteboard-library")).toBeVisible();
 });
+
+test('new Board dialog saves optional existing and new tags before opening', async ({ page, request: api }, testInfo) => {
+  const token = cleanupToken = await login(page);
+  const suffix = randomUUID().slice(0, 8);
+  const tag = await apiJson<Tag>(api, token, 'POST', '/whiteboard-tags', { requestId: randomUUID(), name: `Existing-${suffix}` });
+  cleanupTags.set(tag.id, tag.revision);
+  await page.goto('/studio/board');
+  const trigger = page.getByTestId('board-create');
+  await trigger.click();
+  const dialog = page.getByTestId('board-create-dialog');
+  const name = page.getByTestId('board-create-name');
+  await expect(name).toHaveValue('未命名白板');
+  expect(await name.evaluate((element: HTMLInputElement) => [element.selectionStart, element.selectionEnd])).toEqual([0, 5]);
+  await page.keyboard.press('Escape'); await expect(dialog).not.toBeVisible(); await expect(trigger).toBeFocused();
+  await trigger.click();
+  const defaultResponse = page.waitForResponse(response => response.request().method() === 'POST' && response.url().endsWith('/whiteboards'));
+  await page.getByTestId('board-create-confirm').click();
+  const defaultCreatedResponse = await defaultResponse; expect(defaultCreatedResponse.ok()).toBe(true);
+  const defaultBoard = await defaultCreatedResponse.json() as Board; cleanupBoards.add(defaultBoard.id);
+  await expect(page).toHaveURL(new RegExp(`/studio/board/${defaultBoard.id}$`));
+  const defaultPersisted = await apiJson<Board>(api, token, 'GET', `/whiteboards/${defaultBoard.id}`);
+  expect(defaultPersisted.name).toBe('未命名白板'); expect(defaultPersisted.tagIds).toEqual([]);
+  await page.goto('/studio/board');
+  await trigger.click(); await name.fill(`Dialog-${suffix}`);
+  await dialog.getByRole('checkbox', { name: tag.name, exact: true }).check();
+  const newTagName = `New-${suffix}`;
+  await dialog.getByRole('textbox', { name: '搜索或添加标签' }).fill(newTagName);
+  await page.getByTestId('board-create-confirm').click();
+  await expect(page.getByTestId('board-create-error')).toContainText('标签输入尚未完成');
+  const tagResponse = page.waitForResponse(response => response.request().method() === 'POST' && response.url().endsWith('/whiteboard-tags'));
+  await dialog.getByRole('button', { name: `添加标签“${newTagName}”`, exact: true }).click();
+  const createdTagResponse = await tagResponse; expect(createdTagResponse.ok()).toBe(true);
+  const added = await createdTagResponse.json() as Tag; cleanupTags.set(added.id, added.revision);
+  await expect(dialog.getByRole('checkbox', { name: newTagName, exact: true })).toBeChecked();
+  await expect(page.getByTestId('board-create-error')).not.toBeVisible();
+  for (const size of [{ width: 1440, height: 900 }, { width: 390, height: 844 }]) {
+    await page.setViewportSize(size);
+    const bounds = await dialog.boundingBox(); expect(bounds).not.toBeNull();
+    expect(bounds!.x).toBeGreaterThanOrEqual(0); expect(bounds!.x + bounds!.width).toBeLessThanOrEqual(size.width);
+    await page.getByTestId('board-create-confirm').scrollIntoViewIfNeeded();
+    await expect(page.getByTestId('board-create-confirm')).toBeInViewport();
+    await testInfo.attach(`create-dialog-${size.width}`, { body: await page.screenshot(), contentType: 'image/png' });
+  }
+  const createdResponse = page.waitForResponse(response => response.request().method() === 'POST' && response.url().endsWith('/whiteboards'));
+  await page.getByTestId('board-create-confirm').click();
+  const response = await createdResponse; expect(response.ok()).toBe(true);
+  const created = await response.json() as Board; cleanupBoards.add(created.id);
+  await expect(page).toHaveURL(new RegExp(`/studio/board/${created.id}$`));
+  const persisted = await apiJson<Board>(api, token, 'GET', `/whiteboards/${created.id}`);
+  expect(persisted.name).toBe(`Dialog-${suffix}`); expect([...persisted.tagIds].sort()).toEqual([tag.id, added.id].sort());
+});
