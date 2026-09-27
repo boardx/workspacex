@@ -14,7 +14,7 @@
 
 ## 2. 现状与颜色（2026-09-27）
 
-当前交付记录（2026-09-27 17:05 核对）：R1–R6 已合入 main。R7 六项真实 PG ACL 竞态及六项浏览器协作场景已通过（e512a387d）；空间回归发现亚像素舍入问题，产品修复与指针坐标测试修复已集成到 0467a1ce4，主会话四项空间回归正在运行，整轮仍未通过。R8 已整合 R7 到 f2687a992，前后端类型检查通过，评论存储 26 项、gateway 7 项针对性测试通过；证据已记录于 8b636f2b4。权限静态门反证修复与独立复核已通过，但同一 SHA 浏览器、跨租户导入与真实 Miro/Mural 源板仍待验收。R9 已集成 Chat 运行时类型断言和会议室证据绑定修复到 301c47e31，主会话会议室针对性测试 13/13 通过；真实模型/API 的既有证据不代替最终参考 UI、Chat 三类图和 30 分钟会议室验收。R10 全量负载、视觉、安全、恢复尚未完成，不能宣称九分。
+当前交付记录（2026-09-27 17:51 核对）：R1–R6 已合入 main。R7 在 4adf18ab8 的四项真实空间回归全部通过（证据 42fd7e5b1），单 worker 校验优化已通过 API 类型检查；六项协作旧证据为 e512a387d，仍需新版本回归，双标签页共享 outbox 验收正在主会话运行。R8 当前 db2b173f4，备份已纳入 sourceHistory，但非零 AI 历史的联合恢复仍待实测；真实 Miro/Mural 账户样本数量仍为 0，正在补浏览器本地 canonical 与 portable 往返断言。R9 已整合 R8，0d3024a8d 的真实 30 便利贴 UI 场景通过 1024/1280/1440/390 验收，7 张截图入库 f0de845e3；截图发现色板过大与 Logo 过小，修复 7b4b889fe 待重新截图。AI proposal 文件化与联合恢复 producer 已整合但真实恢复演练待跑；single-worker 适配候选 5458d46bd 正在独立复核。Chat 三类图与 30 分钟会议室、R10 全量负载/视觉/安全/恢复仍未完成，不能宣称九分。
 
 追加 UI 交付：新建 Board 默认标题与可选标签 PR #4337 已通过主会话浏览器、独立复核和 CI，已合入 main（8270388ae）。列表隐藏 Workspace 顶栏、保留导航、卡片改版与服务端无标签分页 PR #4340 已通过四项真实浏览器场景（ff257e58c）及 1440/390 截图检查；最终 304cb5b79 独立增量复核通过，已合入 main（baaef1e97，GitHub 当前状态 MERGED）。卡片当前明确显示预览占位，真实缩略图仍是缺口。
 
@@ -29,9 +29,9 @@ flowchart LR
   R3 --> R4["R4 内容对象<br/>PR #4292 ✅"]:::merged
   R4 --> R5["R5 空间与关系<br/>PR #4308 ✅"]:::merged
   R5 --> R6["R6 编辑与组织<br/>6项视觉/导航 + 4项空间通过 · #4313已合入"]:::merged
-  R6 --> R7["R7 团队可靠性<br/>预计9/28验收 · 9/29前PR门禁<br/>六ACL/六协作通过 · 四空间回归中"]:::accepting
-  R7 --> R8["R8 存储与迁移<br/>预计9/29–30验收<br/>合并类型检查通过 · 跨租户/真实源板待验"]:::working
-  R8 --> R9["R9 AI / API / Chat / 会议室<br/>预计9/29–30验收<br/>真实模型/API通过 · 视觉/Chat/会议室待验"]:::working
+  R6 --> R7["R7 团队可靠性<br/>预计9/28验收 · 9/29前PR门禁<br/>四空间通过 · outbox验收中 · 协作待回归"]:::accepting
+  R7 --> R8["R8 存储与迁移<br/>预计9/29–30验收<br/>sourceHistory已集成 · 真实源板为0 · 恢复待验"]:::working
+  R8 --> R9["R9 AI / API / Chat / 会议室<br/>预计9/29–30验收<br/>多尺寸UI通过 · 视觉修整/Chat/会议室待验"]:::working
   R9 --> R10["R10 同一 SHA 总验收<br/>预计9/30–10/2收敛<br/>统一负载/视觉/安全/恢复与CI"]:::blocked
   R10 --> P2["P2 扩展路线<br/>Diagram / Mind Map / Kanban / Timeline<br/>Journey / Database / Agent与Live Data Tile"]:::future
   classDef merged fill:#dcfce7,stroke:#16a34a,color:#14532d
@@ -82,10 +82,10 @@ R1–R6 为已交付，不再虚设未来完成时间；其原有全量需求仍
 
 ```mermaid
 flowchart TB
-  START["9/27 14:20 起 · 三个子agent + 主会话"] --> A["Agent A · 9B<br/>事件/API候选已交付<br/>通用Undo预计9/27 16:00"]
-  START --> B["Agent B · 8E<br/>导入诊断与损失报告<br/>候选预计9/27 14:48"]
-  START --> C["Agent C · 8G<br/>分批迁移候选已交付<br/>pin/回滚预计9/27 16:00–16:30"]
-  START --> M["主会话 · 串行真实验收<br/>协作四场景已通过<br/>图片/导入验收中→AI"]
+  START["9/27 17:51 · 三个子agent + 主会话"] --> A["Agent A · R9协作适配<br/>5458d46bd已交付"]
+  START --> B["Agent B · 8E<br/>浏览器本地canonical / portable往返<br/>预计18:15–18:25候选"]
+  START --> C["Agent C · 独立复核<br/>R9 single-worker适配<br/>预计18:05候选结论"]
+  START --> M["主会话 · 串行真实验收<br/>四空间与多尺寸UI通过<br/>共享outbox→协作回归→恢复"]
   A --> A2["9/28–29 · Agent API / 会议室"]
   B --> B2["9/28–29 · Miro/Mural / Chat / 开源示例"]
   C --> C2["9/28–29 · backfill / pin清理 / 视觉与无障碍"]
