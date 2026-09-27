@@ -432,7 +432,7 @@ function promotionSummaryText(result: PromotionResults): string {
 /**
  * 来源抽屉的取数状态。换一条时丢弃上一条的在途结果（按请求代次），不让慢响应覆盖新选中的那条。
  */
-function useClaimSourcesDrawer(loadSources: ((claimId: string) => Promise<ClaimSources>) | undefined) {
+export function useClaimSourcesDrawer(loadSources: ((claimId: string) => Promise<ClaimSources>) | undefined) {
   const [claim, setClaim] = React.useState<string | null>(null);
   const [data, setData] = React.useState<ClaimSources | null>(null);
   const [loading, setLoading] = React.useState(false);
