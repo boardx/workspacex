@@ -44,7 +44,7 @@ export interface BoardFabricSurfaceProps {
   /** Fired once at Fabric's gesture completion boundary, never for projection patches. */
   /** Returns whether the canonical command accepted the gesture. Rejection restores the projection. */
   onObjectTransform: (objectId: string, geometry: BoardFabricGeometry) => boolean | Promise<boolean>;
-  onObjectsTransform?: (items: readonly { id: string; geometry: BoardFabricGeometry; parentId?: string | null }[]) => boolean | Promise<boolean>;
+  onObjectsTransform?: (items: readonly { id: string; geometry: BoardFabricGeometry; parentId?: string | null }[], options?: { duplicate: boolean }) => boolean | Promise<boolean>;
   onViewportChange: (viewport: BoardViewport, source: BoardViewportSource) => void;
   onCanvasClick?: (point: { x: number; y: number }) => void;
   onCanvasDoubleClick?: (point: { x: number; y: number }) => void;
@@ -77,7 +77,7 @@ function applyResizePolicy(projected: TaggedFabricObject, object: BoardFabricObj
   const autoSize = sticky?.sizingMode === "auto-size";
   const autoHeight = sticky?.sizingMode === "auto-height";
   const proportional = sticky?.variant === "square" || sticky?.variant === "circle";
-  projected.set({ lockScalingX: autoSize, lockScalingY: autoSize, hoverCursor: object.style.link ? "pointer" : "move" });
+  projected.set({ lockScalingX: Boolean(object.locked) || autoSize, lockScalingY: Boolean(object.locked) || autoSize, lockMovementX: Boolean(object.locked), lockMovementY: Boolean(object.locked), lockRotation: Boolean(object.locked), hoverCursor: object.locked ? "not-allowed" : object.style.link ? "pointer" : "move" });
   projected.setControlsVisibility({
     mtr: true,
     ml: !autoSize && !proportional,
@@ -204,8 +204,10 @@ function createFabricObject(object: BoardFabricObject): TaggedFabricObject {
     top: object.geometry.y,
     angle: object.geometry.rotation,
     data: { boardObjectId: object.id, adapterKind: object.kind, renderedRevision: object.revision, stickyVariant: object.sticky?.variant, sizingMode: object.sticky?.sizingMode },
-    selectable: !object.locked && object.kind !== "placeholder",
-    evented: !object.locked && object.kind !== "placeholder",
+    selectable: object.kind !== "placeholder",
+    evented: object.kind !== "placeholder",
+    lockMovementX: Boolean(object.locked), lockMovementY: Boolean(object.locked),
+    lockScalingX: Boolean(object.locked), lockScalingY: Boolean(object.locked), lockRotation: Boolean(object.locked),
   });
   applyResizePolicy(projected, object);
   projected.setCoords();
@@ -366,6 +368,7 @@ export function BoardFabricSurface({ objects, selectedObjectIds, readOnly, tool,
         : [];
       callbacksRef.current.onSelectionChange(id ? [id] : nested, "canvas");
     };
+    let duplicateGesture = false;
     const topmostPanelAt = (point: { x: number; y: number }, excludedId: string) => {
       for (const projected of [...canvas.getObjects()].reverse() as TaggedFabricObject[]) {
         const panelId = projected.data?.boardObjectId;
@@ -385,12 +388,14 @@ export function BoardFabricSurface({ objects, selectedObjectIds, readOnly, tool,
       const members = target.data?.boardObjectId ? [target] : ("getObjects" in target && typeof target.getObjects === "function" ? target.getObjects() as TaggedFabricObject[] : []);
       const canonicals = members.flatMap((member) => { const id = member.data?.boardObjectId; const canonical = id ? canonicalRef.current.get(id) : undefined; return id && canonical ? [{ id, member, canonical }] : []; });
       if (!canonicals.length) return;
-      if (stateRef.current.readOnly || canonicals.some(({ canonical }) => canonical.locked || canonical.kind === "placeholder")) {
+      const movableCanonicals = canonicals.filter(({ canonical }) => !canonical.locked && canonical.kind !== "placeholder");
+      if (stateRef.current.readOnly || !movableCanonicals.length) {
         for (const { member, canonical } of canonicals) applyCanonicalObject(member, canonical, true);
         canvas.requestRenderAll();
         return;
       }
-      const transforms = canonicals.map(({ id, member, canonical }) => {
+      for (const { member, canonical } of canonicals) if (canonical.locked || canonical.kind === "placeholder") applyCanonicalObject(member, canonical, true);
+      const transforms = movableCanonicals.map(({ id, member, canonical }) => {
         const bounds = members.length > 1 ? geometryFromFabricSceneTransform(member) : geometryFromFabric(member, canonical);
         const center = { x: bounds.x + bounds.width / 2, y: bounds.y + bounds.height / 2 };
         const parent = topmostPanelAt(center, id);
@@ -411,8 +416,10 @@ export function BoardFabricSurface({ objects, selectedObjectIds, readOnly, tool,
         canvas.requestRenderAll();
       };
       try {
+        const duplicate = Boolean((event as { e?: MouseEvent }).e?.altKey) || duplicateGesture;
+        duplicateGesture = false;
         const accepted = callbacksRef.current.onObjectsTransform
-          ? callbacksRef.current.onObjectsTransform(transforms)
+          ? callbacksRef.current.onObjectsTransform(transforms, { duplicate })
           : callbacksRef.current.onObjectTransform(transforms[0]!.id, transforms[0]!.geometry);
         const commitLegacyParent = () => {
           if (callbacksRef.current.onObjectsTransform) return;
@@ -451,6 +458,7 @@ export function BoardFabricSurface({ objects, selectedObjectIds, readOnly, tool,
     let drawing: Array<{ x: number; y: number; pressure: number }> | null = null;
     const pressureOf = (event: TPointerEventInfo) => typeof (event.e as PointerEvent).pressure === "number" ? (event.e as PointerEvent).pressure : .5;
     const pointerDown = (event: TPointerEventInfo) => {
+      duplicateGesture = Boolean((event.e as MouseEvent).altKey);
       if ((stateRef.current.tool.startsWith("draw-") || stateRef.current.tool === "erase") && !stateRef.current.readOnly) {
         const pointer = canvas.getScenePoint(event.e);
         drawing = [{ x: pointer.x, y: pointer.y, pressure: pressureOf(event) }];
@@ -591,9 +599,10 @@ export function BoardFabricSurface({ objects, selectedObjectIds, readOnly, tool,
     canvas.defaultCursor = tool === "hand" ? "grab" : tool.startsWith("draw-") ? "crosshair" : tool === "erase" ? "cell" : "default";
     for (const [id, projected] of registryRef.current) {
       const canonical = canonicalRef.current.get(id);
-      const editable = !readOnly && tool === "select" && !canonical?.locked && canonical?.kind !== "placeholder";
-      const evented = !readOnly && tool === "select" && !canonical?.locked && canonical?.kind !== "placeholder";
-      projected.set({ selectable: editable, evented });
+      const selectable = !readOnly && tool === "select" && canonical?.kind !== "placeholder";
+      const evented = !readOnly && tool === "select" && canonical?.kind !== "placeholder";
+      const autoSize = canonical?.kind === "sticky" && canonical.sticky?.sizingMode === "auto-size";
+      projected.set({ selectable, evented, lockMovementX: Boolean(canonical?.locked), lockMovementY: Boolean(canonical?.locked), lockScalingX: Boolean(canonical?.locked) || autoSize, lockScalingY: Boolean(canonical?.locked) || autoSize, lockRotation: Boolean(canonical?.locked) });
     }
     canvas.requestRenderAll();
   }, [readOnly, tool]);

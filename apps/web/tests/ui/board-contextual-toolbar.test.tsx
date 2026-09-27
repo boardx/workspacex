@@ -39,8 +39,21 @@ it("derives command availability from selection count and hides single-object co
   fireEvent.click(screen.getByTestId("select-one"));
   expect(screen.getByTestId("board-context-toolbar")).toBeVisible();
   expect(within(screen.getByTestId("board-spatial-toolbar")).getByRole("button", { name: "组合" })).toBeDisabled();
+  expect(within(screen.getByTestId("board-spatial-toolbar")).getByRole("button", { name: "组合" })).toHaveAttribute("title", "至少选择 2 个对象");
+  expect(screen.getByText("组合不可用：至少选择 2 个对象。")).toHaveClass("sr-only");
   fireEvent.click(screen.getByTestId("select-two"));
   expect(screen.queryByTestId("board-context-toolbar")).toBeNull();
   expect(within(screen.getByTestId("board-spatial-toolbar")).getByRole("button", { name: "组合" })).toBeEnabled();
+  doc.destroy();
+});
+
+it("explains readonly command unavailability through the toolbar description", () => {
+  const doc = createWhiteboardDocument();
+  executeCommands(doc, [{ type: "create", object: sticky }], "seed");
+  render(<CollaborativeThinkingEditor boardId="board" clientId="viewer" doc={doc} readOnly title="Board" status="已连接" />);
+  fireEvent.click(screen.getByTestId("select-one"));
+  expect(screen.getByTestId("board-spatial-duplicate")).toBeDisabled();
+  expect(screen.getByTestId("board-spatial-duplicate")).toHaveAttribute("title", "当前白板为只读");
+  expect(screen.getByTestId("board-command-availability")).toHaveTextContent("修改命令不可用：当前白板为只读。");
   doc.destroy();
 });

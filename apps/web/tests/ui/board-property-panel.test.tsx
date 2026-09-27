@@ -5,7 +5,7 @@ import { CollaborativeThinkingEditor } from "@/components/whiteboard/collaborati
 import type { BoardFabricObject } from "@/components/whiteboard/fabric/board-fabric-object";
 
 vi.mock("@/components/whiteboard/fabric/board-fabric-surface", () => ({
-  BoardFabricSurface: ({ objects, onSelectionChange }: { objects: readonly BoardFabricObject[]; onSelectionChange: (ids: readonly string[], source: "canvas") => void }) => <div>{objects.map((object) => <button key={object.id} data-testid={`select-${object.id}`} onClick={() => onSelectionChange([object.id], "canvas")}>{object.id}</button>)}</div>,
+  BoardFabricSurface: ({ objects, onSelectionChange }: { objects: readonly BoardFabricObject[]; onSelectionChange: (ids: readonly string[], source: "canvas") => void }) => <div>{objects.map((object) => <button key={object.id} data-testid={`select-${object.id}`} onClick={() => onSelectionChange([object.id], "canvas")}>{object.id}</button>)}<button data-testid="select-all" onClick={() => onSelectionChange(objects.map((object) => object.id), "canvas")}>all</button></div>,
 }));
 class ResizeObserverMock { observe() {} disconnect() {} }
 vi.stubGlobal("ResizeObserver", ResizeObserverMock);
@@ -42,5 +42,17 @@ it("shows relationship-specific fields and disables precise edits after locking"
   act(() => { port.dispatch({ boardId: "board", clientId: "seed", gestureId: "lock", command: { type: "set-locked", objectIds: ["edge"], locked: true } }); });
   expect(screen.getByLabelText("连接标签")).toBeDisabled();
   expect(screen.getByLabelText("连接路径")).toBeDisabled();
+  doc.destroy();
+});
+
+it("shows shared geometry and explicit mixed values for heterogeneous selections", () => {
+  const { doc } = seed();
+  render(<CollaborativeThinkingEditor boardId="board" clientId="web" doc={doc} readOnly={false} title="Board" status="已连接" />);
+  fireEvent.click(screen.getByTestId("select-all"));
+  expect(screen.getByTestId("board-shared-properties")).toHaveAccessibleName("所选对象共有属性");
+  expect(screen.getByLabelText("共有属性 类型")).toHaveValue("混合");
+  expect(screen.getByLabelText("共有属性 X")).toHaveValue("混合");
+  expect(screen.queryByTestId("board-panel-properties")).toBeNull();
+  expect(screen.queryByTestId("board-connector-properties")).toBeNull();
   doc.destroy();
 });

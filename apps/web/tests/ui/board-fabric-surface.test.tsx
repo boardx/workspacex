@@ -296,6 +296,19 @@ describe("BoardFabricSurface", () => {
     expect(rectangle!.left).toBe(OBJECTS[1]!.geometry.x);
   });
 
+  it("keeps locked ActiveSelection members selectable but excludes them from the canonical transform", () => {
+    const locked = { ...OBJECTS[1]!, id: "locked", locked: true };
+    const onObjectsTransform = vi.fn(() => true);
+    renderSurface({ objects: [OBJECTS[0]!, locked], selectedObjectIds: ["s-1", "locked"], onObjectsTransform });
+    const free = probe.objects.find((object) => object.data?.boardObjectId === "s-1")!;
+    const frozen = probe.objects.find((object) => object.data?.boardObjectId === "locked")!;
+    expect(frozen).toMatchObject({ selectable: true, evented: true, lockMovementX: true, lockScalingX: true, lockRotation: true });
+    free.left = 500; frozen.left = 800;
+    probe.handlers.get("object:modified")?.({ target: { getObjects: () => [free, frozen] } as unknown as MockProjectedObject });
+    expect(onObjectsTransform).toHaveBeenCalledWith([expect.objectContaining({ id: "s-1" })], { duplicate: false });
+    expect(frozen.left).toBe(locked.geometry.x);
+  });
+
   it("writes ActiveSelection members from their total scene matrix and total angle", () => {
     const onObjectsTransform = vi.fn(() => true);
     renderSurface({ selectedObjectIds: ["s-1", "r-1"], onObjectsTransform });
@@ -308,7 +321,7 @@ describe("BoardFabricSurface", () => {
       y + Math.sin(radians) * width / 2 + Math.cos(radians) * height / 2];
     rectangle!.matrix = rectangle!.calcTransformMatrix();
     probe.handlers.get("object:modified")?.({ target: { getObjects: () => [sticky, rectangle] } as unknown as MockProjectedObject });
-    expect(onObjectsTransform).toHaveBeenCalledWith(expect.arrayContaining([expect.objectContaining({ id: "s-1", geometry: { x, y, width, height, rotation } })]));
+    expect(onObjectsTransform).toHaveBeenCalledWith(expect.arrayContaining([expect.objectContaining({ id: "s-1", geometry: { x, y, width, height, rotation } })]), { duplicate: false });
   });
 
   it("chooses the visually topmost overlapping Panel as the reparent target", () => {
@@ -320,7 +333,16 @@ describe("BoardFabricSurface", () => {
     const projected = probe.objects.find((object) => object.data?.boardObjectId === "child")!;
     projected.left = 100; projected.top = 100;
     probe.handlers.get("object:modified")?.({ target: projected });
-    expect(onObjectsTransform).toHaveBeenCalledWith([expect.objectContaining({ id: "child", parentId: "upper" })]);
+    expect(onObjectsTransform).toHaveBeenCalledWith([expect.objectContaining({ id: "child", parentId: "upper" })], { duplicate: false });
+  });
+
+  it("marks an Option/Alt completed drag as a canonical duplicate gesture", () => {
+    const onObjectsTransform = vi.fn(() => true);
+    renderSurface({ onObjectsTransform });
+    const sticky = probe.objects[0]!;
+    sticky.left += 24; sticky.top += 24;
+    probe.handlers.get("object:modified")?.({ target: sticky, e: new MouseEvent("mouseup", { altKey: true }) });
+    expect(onObjectsTransform).toHaveBeenCalledWith([expect.objectContaining({ id: "s-1" })], { duplicate: true });
   });
 
   it("applies an absolute Fabric clipPath only to children of clip-enabled Panels", () => {

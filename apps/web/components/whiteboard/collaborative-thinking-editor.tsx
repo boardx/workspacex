@@ -98,7 +98,7 @@ export function CollaborativeThinkingEditor({ boardId, clientId, doc, readOnly, 
     try { const accepted = spatialPort.dispatch({ boardId, clientId, gestureId: crypto.randomUUID(), command }); if (!accepted) { setNotice("操作未应用：命令通道尚未就绪，请重试。"); return false; } setNotice(""); return true; }
     catch (error) { setNotice(error instanceof Error && error.message === "OBJECT_LOCKED" ? "对象已锁定，不能移动、调整、编辑或批量操作。" : error instanceof Error && error.message === "SPATIAL_COMMAND_REJECTED" ? "操作未应用：命令通道尚未就绪，请重试。" : "空间操作未应用：对象可能已变化，请重试。"); return false; }
   }, [boardId, clientId, readOnly, spatialPort]);
-  const duplicateRoots = useCallback((rootIds: string[]): boolean => {
+  const duplicateRoots = useCallback((rootIds: string[], offset = { x: 24, y: 24 }): boolean => {
     const roots = rootIds.filter((id) => !rootIds.some((other) => model.objects.find((object) => object.id === id)?.parentId === other));
     const closure = new Set(roots); let changed = true;
     while (changed) { changed = false; for (const object of model.objects) if (object.parentId && closure.has(object.parentId) && !closure.has(object.id)) { closure.add(object.id); changed = true; } }
@@ -108,7 +108,7 @@ export function CollaborativeThinkingEditor({ boardId, clientId, doc, readOnly, 
       if (attachedIds.length > 0 && attachedIds.every((id) => closure.has(id))) closure.add(object.id);
     }
     const newIds = Object.fromEntries([...closure].map((id) => [id, crypto.randomUUID()]));
-    if (!executeSpatial({ type: "duplicate-subgraph", rootIds: roots, newIds })) return false;
+    if (!executeSpatial({ type: "duplicate-subgraph", rootIds: roots, newIds, offset })) return false;
     setSelected(roots.map((id) => newIds[id]!).filter(Boolean)); return true;
   }, [executeSpatial, model.objects]);
   const beginEditing = useCallback((id: string) => { const object = readObjects(doc).find((candidate) => candidate.id === id); if (!object) return; setSelected([id]); setEditing({ id, initial: object.text }); }, [doc]);
@@ -231,16 +231,24 @@ export function CollaborativeThinkingEditor({ boardId, clientId, doc, readOnly, 
     } }]);
   }, [doc, execute, readOnly]);
 
-  const handleTransforms = useCallback((items: readonly { id: string; geometry: WhiteboardObject["geometry"]; parentId?: string | null }[]): boolean => {
+  const handleTransforms = useCallback((items: readonly { id: string; geometry: WhiteboardObject["geometry"]; parentId?: string | null }[], options?: { duplicate: boolean }): boolean => {
     const current = new Map(readObjects(doc).map((candidate) => [candidate.id, candidate]));
-    if (!items.length || items.some((item) => !current.get(item.id) || current.get(item.id)!.locked)) { setNotice("选择中有对象已锁定，整次变换未应用。"); return false; }
+    const movable = items.filter((item) => current.get(item.id) && !current.get(item.id)!.locked);
+    if (!movable.length) { setNotice("所选对象均已锁定，没有可变换的对象。"); return false; }
+    if (options?.duplicate) {
+      const first = movable[0]!, before = current.get(first.id)!.geometry;
+      const duplicated = duplicateRoots(movable.map((item) => item.id), { x: first.geometry.x - before.x, y: first.geometry.y - before.y });
+      if (duplicated) setNotice(`已复制并移动 ${movable.length} 个对象；锁定对象保持不变。`);
+      return duplicated;
+    }
     try {
-      const accepted = spatialPort.dispatch({ boardId, clientId, gestureId: crypto.randomUUID(), command: { type: "transform", items: items.map((item) => ({ ...item, geometry: { ...item.geometry } })) }, preconditions: items.map((item) => ({ id: item.id, geometry: current.get(item.id)!.geometry, parentId: current.get(item.id)!.parentId, locked: false })) });
+      const accepted = spatialPort.dispatch({ boardId, clientId, gestureId: crypto.randomUUID(), command: { type: "transform", items: movable.map((item) => ({ ...item, geometry: { ...item.geometry } })) }, preconditions: movable.map((item) => ({ id: item.id, geometry: current.get(item.id)!.geometry, parentId: current.get(item.id)!.parentId, locked: false })) });
       if (!accepted) { setNotice("操作未应用：命令通道尚未就绪，请重试。"); return false; }
-      setNotice(items.length > 1 ? `已用一次操作更新 ${items.length} 个对象。` : "对象位置已更新。");
+      const skipped = items.length - movable.length;
+      setNotice(skipped ? `已用一次操作更新 ${movable.length} 个对象；跳过 ${skipped} 个锁定对象。` : movable.length > 1 ? `已用一次操作更新 ${movable.length} 个对象。` : "对象位置已更新。");
       return Boolean(accepted.operationId);
     } catch (error) { setNotice(error instanceof Error && error.message === "OBJECT_LOCKED" ? "选择中有对象已锁定，整次变换未应用。" : error instanceof Error && error.message === "SPATIAL_COMMAND_REJECTED" ? "操作未应用：命令通道尚未就绪，请重试。" : "空间操作未应用：对象可能已变化，请重试。"); return false; }
-  }, [boardId, clientId, doc, spatialPort]);
+  }, [boardId, clientId, doc, duplicateRoots, spatialPort]);
   const handleTransform = useCallback((id: string, geometry: WhiteboardObject["geometry"]): boolean => handleTransforms([{ id, geometry }]), [handleTransforms]);
   const deleteSelection = useCallback((connectors: "cascade" | "preserve-free" = "cascade") => {
     if (!selected.length) return;
@@ -259,8 +267,8 @@ export function CollaborativeThinkingEditor({ boardId, clientId, doc, readOnly, 
 
   const selectedObjects = model.objects.filter((object) => selected.includes(object.id));
   const primary = selectedObjects[0];
-  const selectedPanel = primary?.kind === "frame" ? primary : null;
-  const selectedConnector = primary?.kind === "connector" ? primary : null;
+  const selectedPanel = selectedObjects.length === 1 && primary?.kind === "frame" ? primary : null;
+  const selectedConnector = selectedObjects.length === 1 && primary?.kind === "connector" ? primary : null;
   const panelMetadata = selectedPanel ? readPanelMetadata(selectedPanel) : null;
   const connectorRelationship: ConnectorRelationship | null = selectedConnector?.connector ? {
     ...(selectedConnector.connector.from ? { from: selectedConnector.connector.from } : { fromPoint: selectedConnector.connector.fromPoint! }),
@@ -271,14 +279,23 @@ export function CollaborativeThinkingEditor({ boardId, clientId, doc, readOnly, 
     label: selectedConnector.connector.label ?? selectedConnector.text, semanticRelation: selectedConnector.connector.semanticRelation ?? "",
   } : null;
   const selectionLocked = selectedObjects.some((object) => object.locked);
+  const allSelectionLocked = selectedObjects.length > 0 && selectedObjects.every((object) => object.locked);
+  const sharedValue = <K extends keyof WhiteboardObject["geometry"]>(key: K): string => {
+    const values = selectedObjects.map((object) => object.geometry[key]);
+    return values.length && values.every((value) => value === values[0]) ? String(values[0]) : "混合";
+  };
+  const commandReason = (minimum = 1, rejectsLocked = true): string => readOnly ? "当前白板为只读" : selectedObjects.length < minimum ? `至少选择 ${minimum} 个对象` : rejectsLocked && selectionLocked ? "选择中包含锁定对象" : "";
   const updateConnector = (patch: Partial<ConnectorRelationship>) => { if (selectedConnector && connectorRelationship) executeSpatial({ type: "update-connector", id: selectedConnector.id, relationship: { ...connectorRelationship, ...patch } }); };
   const updatePanel = (patch: Partial<PanelMetadata>) => { if (selectedPanel && panelMetadata) executeSpatial({ type: "update-panel", id: selectedPanel.id, panel: { ...panelMetadata, ...patch } }); };
 
   useEffect(() => { const keydown = (event: KeyboardEvent) => { if (isEditableTarget(event.target) || event.altKey) return; const key = event.key.toLowerCase();
+    if ((event.metaKey || event.ctrlKey) && key === "c") { if (selected.length) { event.preventDefault(); clipboard.current = [...selected]; setNotice("已复制到当前白板剪贴板"); } return; }
+    if ((event.metaKey || event.ctrlKey) && key === "v") { if (!readOnly && clipboard.current.length) { event.preventDefault(); duplicateRoots(clipboard.current); } return; }
+    if ((event.metaKey || event.ctrlKey) && key === "d") { if (!readOnly && selected.length) { event.preventDefault(); duplicateRoots(selected); } return; }
     if ((event.metaKey || event.ctrlKey) && key === "g") { event.preventDefault(); if (event.shiftKey && selected.length === 1) executeSpatial({ type: "ungroup", id: selected[0]! }); else if (selected.length > 1) { const id = crypto.randomUUID(); if (executeSpatial({ type: "group", id, objectIds: selected })) setSelected([id]); } return; }
     if (event.metaKey || event.ctrlKey) return;
     if (key === "v") { setTool("select"); setCreationTool(null); } else if (key === "h" || event.code === "Space") { event.preventDefault(); setTool("hand"); setCreationTool(null); } else if (key === "n" && event.shiftKey) { event.preventDefault(); if (!readOnly) setBulk(""); } else if (key === "n") { event.preventDefault(); const requested = { kind: "sticky", variant: "square" } as const; setTool("select"); setCreationTool(requested); createStickyAt(centerPoint(viewport), requested.variant); } else if (key === "t") { event.preventDefault(); const requested = { kind: "text", preset: "body" } as const; setTool("select"); setCreationTool(requested); createTextAt(centerPoint(viewport), requested.preset); } else if (key === "s") { event.preventDefault(); const requested = { kind: "shape", variant: "rounded-rectangle" } as const; setTool("select"); setCreationTool(requested); createShapeAt(centerPoint(viewport), requested.variant); } else if (key === "p") { event.preventDefault(); setCreationTool(null); setTool("draw-pen"); } else if (key === "i") { event.preventDefault(); imageInput.current?.click(); } else if (key === "f") { event.preventDefault(); const requested = { kind: "panel", mode: "freeform" } as const; setTool("select"); setCreationTool(requested); createPanelAt(centerPoint(viewport), requested.mode); } else if (key === "c") { event.preventDefault(); setTool("select"); setCreationTool({ kind: "connector", connectorType: "straight" }); }
-  }; window.addEventListener("keydown", keydown); return () => window.removeEventListener("keydown", keydown); }, [createPanelAt, createShapeAt, createStickyAt, createTextAt, executeSpatial, readOnly, selected, viewport]);
+  }; window.addEventListener("keydown", keydown); return () => window.removeEventListener("keydown", keydown); }, [createPanelAt, createShapeAt, createStickyAt, createTextAt, duplicateRoots, executeSpatial, readOnly, selected, viewport]);
 
   const editingObject = editing ? model.objects.find((candidate) => candidate.id === editing.id) : undefined;
   const commitVerifiedImage = useCallback((verified: VerifiedBoardImage, fileName: string, point: Point, targetId?: string, sourceUrl: string | null = null) => {
@@ -321,7 +338,7 @@ export function CollaborativeThinkingEditor({ boardId, clientId, doc, readOnly, 
     } catch (error) { if (!mounted.current || generation !== imageRequestGeneration.current) return; const code = error instanceof Error ? error.message : "IMAGE_FETCH_FAILED"; setNotice(code === "IMAGE_TOO_LARGE" ? "图片超过 25MB，未添加。" : code === "IMAGE_MAGIC_INVALID" ? "图片内容与声明格式不一致，未添加。" : "无法读取该 HTTPS 图片。请检查地址、跨域权限和文件格式。"); }
     finally { if (imageAbort.current === controller) imageAbort.current = null; if (mounted.current && generation === imageRequestGeneration.current) setImageBusy(false); }
   }, [commitVerifiedImage, imageDialog?.targetId, imageUrl, viewport]);
-  const handlePaste = (event: ClipboardEvent<HTMLElement>) => { if (readOnly || isEditableTarget(event.target)) return; const image = Array.from(event.clipboardData.files ?? []).find((file) => file.type.startsWith("image/")); if (image) { event.preventDefault(); importImage(image); return; } const value = event.clipboardData.getData("text/plain"); if (!value.includes("\n")) return; try { parseThinkingPaste(value); event.preventDefault(); setPasteChoice({ text: value, point: centerPoint(viewport) }); } catch { /* Preserve normal paste. */ } };
+  const handlePaste = (event: ClipboardEvent<HTMLElement>) => { if (readOnly || isEditableTarget(event.target)) return; const image = Array.from(event.clipboardData.files ?? []).find((file) => file.type.startsWith("image/")); if (image) { event.preventDefault(); importImage(image); return; } const value = event.clipboardData.getData("text/plain"); if (!value.trim()) return; try { const parsed = parseThinkingPaste(value); event.preventDefault(); if (value.includes("\n")) setPasteChoice({ text: value, point: centerPoint(viewport) }); else createTextAt(centerPoint(viewport), "body", parsed.text); } catch { /* Preserve normal paste. */ } };
   const handleFileDrop = (event: DragEvent<HTMLElement>) => { const image = Array.from(event.dataTransfer?.files ?? []).find((file) => file.type.startsWith("image/")); if (!image || readOnly) return; event.preventDefault(); const bounds = event.currentTarget.getBoundingClientRect(); importImage(image, { x: (event.clientX - bounds.left - viewport.panX) / viewport.zoom, y: (event.clientY - bounds.top - viewport.panY) / viewport.zoom }); };
   const announceCursor = (event: PointerEvent<HTMLDivElement>) => { const bounds = event.currentTarget.getBoundingClientRect(); onAwareness?.({ x: (event.clientX - bounds.left - viewport.panX) / viewport.zoom, y: (event.clientY - bounds.top - viewport.panY) / viewport.zoom }, selected); };
   const selectedObject = selected.length === 1 ? model.objects.find((object) => object.id === selected[0]) : undefined;
@@ -385,26 +402,35 @@ export function CollaborativeThinkingEditor({ boardId, clientId, doc, readOnly, 
     <Dialog open={pasteChoice !== null} onOpenChange={(open) => { if (!open) setPasteChoice(null); }}><DialogContent closeTestId="board-paste-close"><DialogTitle>如何放入这些内容？</DialogTitle><DialogDescription>检测到多行文字。你可以保留为一段文字，或把每一行变成独立便利贴。</DialogDescription><div className="grid gap-2"><Button onClick={() => { if (pasteChoice) { createTextAt(pasteChoice.point, "body", parseThinkingPaste(pasteChoice.text).text); setPasteChoice(null); } }}>粘贴为文字</Button><Button variant="primary" data-testid="board-paste-stickies" onClick={() => { if (pasteChoice) { const parsed = parseThinkingPaste(pasteChoice.text); createStickyBatch(parsed.stickies, pasteChoice.point); setPasteChoice(null); } }}>创建 {pasteChoice ? parseThinkingPaste(pasteChoice.text).stickies.length : 0} 张便利贴</Button><Button onClick={() => { if (pasteChoice) { const parsed = parseThinkingPaste(pasteChoice.text); createTextAt(pasteChoice.point, "body", parsed.list.map((line) => `• ${line}`).join("\n")); setPasteChoice(null); } }}>创建列表</Button></div></DialogContent></Dialog>
     <Dialog open={structuredDraft !== null} onOpenChange={(open) => { if (!open) setStructuredDraft(null); }}><DialogContent closeTestId="board-structured-close"><DialogTitle>编辑结构化对象</DialogTitle><DialogDescription>标题与字段会一起写回 canonical 对象；字段 JSON 必须符合当前对象类型。</DialogDescription><Input data-testid="board-structured-title" aria-label="结构标题" value={structuredDraft?.title ?? ""} onChange={(event) => setStructuredDraft((current) => current ? { ...current, title: event.target.value } : current)} /><Textarea data-testid="board-structured-details" aria-label="结构字段 JSON" rows={10} value={structuredDraft?.details ?? ""} onChange={(event) => setStructuredDraft((current) => current ? { ...current, details: event.target.value } : current)} /><div className="flex justify-end gap-2"><Button onClick={() => setStructuredDraft(null)}>取消</Button><Button variant="primary" data-testid="board-structured-save" onClick={saveStructuredEdit}>保存字段</Button></div></DialogContent></Dialog>
     <Dialog open={imageDialog !== null} onOpenChange={(open) => { if (!open) setImageDialog(null); }}><DialogContent closeTestId="board-image-close"><DialogTitle>{imageDialog?.targetId ? "替换图片" : "添加图片"}</DialogTitle><DialogDescription>使用可长期访问的 HTTPS 图片地址，或选择本地文件。地址与本地文件都会校验大小、格式、文件签名和真实尺寸。文件先保存在当前浏览器会话；连接资产服务后可持久化给其他成员。</DialogDescription><Input data-testid="board-image-url" aria-label="HTTPS 图片地址" value={imageUrl} onChange={(event) => setImageUrl(event.target.value)} placeholder="https://…/image.png" /><div className="flex justify-end gap-2"><Button onClick={() => imageInput.current?.click()}>选择本地图片</Button><Button variant="primary" disabled={imageBusy || !imageUrl} data-testid="board-image-url-apply" onClick={() => void importRemoteImage()}>{imageBusy ? "验证中" : "添加图片"}</Button></div></DialogContent></Dialog>
-    {selected.length ? <div data-testid="board-spatial-toolbar" className="absolute left-1/2 top-16 z-30 flex -translate-x-1/2 flex-wrap items-center gap-1 rounded-xl border border-border bg-card/95 p-1.5 shadow-xl backdrop-blur">
-      <Button disabled={readOnly || selectionLocked || selected.length < 2} onClick={() => { const id = crypto.randomUUID(); if (executeSpatial({ type: "group", id, objectIds: selected })) setSelected([id]); }}>组合</Button>
-      <Button disabled={readOnly || selectionLocked || primary?.kind !== "group"} onClick={() => { if (primary && executeSpatial({ type: "ungroup", id: primary.id })) setSelected([]); }}>取消组合</Button>
-      <Button disabled={readOnly || selectionLocked} onClick={() => executeSpatial({ type: "layer", objectIds: selected, action: "bring-forward" })}>上移一层</Button>
-      <Button disabled={readOnly || selectionLocked} onClick={() => executeSpatial({ type: "layer", objectIds: selected, action: "bring-to-front" })}>置于顶层</Button>
-      <Button disabled={readOnly || selectionLocked} onClick={() => executeSpatial({ type: "layer", objectIds: selected, action: "send-backward" })}>下移一层</Button>
-      <Button disabled={readOnly || selectionLocked} onClick={() => executeSpatial({ type: "layer", objectIds: selected, action: "send-to-back" })}>置于底层</Button>
-      <Button disabled={readOnly} onClick={() => executeSpatial({ type: "set-locked", objectIds: selected, locked: !selectedObjects.every((object) => object.locked) })}>{selectedObjects.every((object) => object.locked) ? "解锁" : "锁定"}</Button>
-      <Button disabled={readOnly || selectionLocked} data-testid="board-spatial-duplicate" onClick={() => duplicateRoots(selected)}>复制副本</Button>
+    {selected.length ? <div data-testid="board-spatial-toolbar" aria-describedby="board-command-availability" className="absolute left-1/2 top-16 z-30 flex -translate-x-1/2 flex-wrap items-center gap-1 rounded-xl border border-border bg-card/95 p-1.5 shadow-xl backdrop-blur">
+      <Button title={commandReason(2)} disabled={readOnly || selectionLocked || selected.length < 2} onClick={() => { const id = crypto.randomUUID(); if (executeSpatial({ type: "group", id, objectIds: selected })) setSelected([id]); }}>组合</Button>
+      <Button title={readOnly ? "当前白板为只读" : selectionLocked ? "选择中包含锁定对象" : primary?.kind !== "group" ? "请选择一个组合对象" : ""} disabled={readOnly || selectionLocked || primary?.kind !== "group"} onClick={() => { if (primary && executeSpatial({ type: "ungroup", id: primary.id })) setSelected([]); }}>取消组合</Button>
+      <Button title={commandReason()} disabled={readOnly || selectionLocked} onClick={() => executeSpatial({ type: "layer", objectIds: selected, action: "bring-forward" })}>上移一层</Button>
+      <Button title={commandReason()} disabled={readOnly || selectionLocked} onClick={() => executeSpatial({ type: "layer", objectIds: selected, action: "bring-to-front" })}>置于顶层</Button>
+      <Button title={commandReason()} disabled={readOnly || selectionLocked} onClick={() => executeSpatial({ type: "layer", objectIds: selected, action: "send-backward" })}>下移一层</Button>
+      <Button title={commandReason()} disabled={readOnly || selectionLocked} onClick={() => executeSpatial({ type: "layer", objectIds: selected, action: "send-to-back" })}>置于底层</Button>
+      <Button title={readOnly ? "当前白板为只读" : ""} disabled={readOnly} onClick={() => executeSpatial({ type: "set-locked", objectIds: selected, locked: !allSelectionLocked })}>{allSelectionLocked ? "解锁" : "锁定"}</Button>
+      <Button title={commandReason()} disabled={readOnly || selectionLocked} data-testid="board-spatial-duplicate" onClick={() => duplicateRoots(selected)}>复制副本</Button>
       <Button disabled={readOnly || selectionLocked || selected.some((id) => model.objects.find((object) => object.id === id)?.kind === "connector")} data-testid="board-delete-preserve-connectors" onClick={() => deleteSelection("preserve-free")}>删除并保留连接</Button>
       <Button disabled={readOnly || selectionLocked} onClick={() => { if (selectedPanel) setPanelDelete(selectedPanel.id); else deleteSelection(); }}>删除</Button>
+      <span id="board-command-availability" data-testid="board-command-availability" className="sr-only">{readOnly ? "修改命令不可用：当前白板为只读。" : selectionLocked ? "部分命令不可用：选择中包含锁定对象。" : selected.length < 2 ? "组合不可用：至少选择 2 个对象。" : "当前选择可执行批量命令。"}</span>
     </div> : null}
-    {selectedPanel && panelMetadata ? <aside data-testid="board-panel-properties" className="absolute right-4 top-20 z-30 w-72 space-y-3 rounded-2xl border border-border bg-card/95 p-4 shadow-xl backdrop-blur">
+    {selected.length ? <aside data-testid="board-shared-properties" className="absolute right-4 top-20 z-30 w-72 space-y-3 rounded-2xl border border-border bg-card/95 p-4 shadow-xl backdrop-blur" aria-label="所选对象共有属性">
+      <h2 className="text-16 font-semibold">{selected.length === 1 ? "对象属性" : `${selected.length} 个对象的共有属性`}</h2>
+      <p className="text-12 text-muted-foreground">{selectionLocked ? allSelectionLocked ? "全部对象已锁定" : "包含锁定对象；批量变换会跳过锁定对象" : "对象均可编辑"}</p>
+      <div className="grid grid-cols-2 gap-2">
+        {(["x", "y", "width", "height", "rotation"] as const).map((key) => <label key={key} className="grid gap-1 text-12">{key.toUpperCase()}<Input aria-label={`共有属性 ${key.toUpperCase()}`} readOnly value={sharedValue(key)} /></label>)}
+      </div>
+      <label className="grid gap-1 text-12">类型<Input aria-label="共有属性 类型" readOnly value={selectedObjects.every((object) => object.kind === primary?.kind) ? primary?.kind ?? "" : "混合"} /></label>
+    </aside> : null}
+    {selectedPanel && panelMetadata ? <aside data-testid="board-panel-properties" className="absolute right-4 top-[29rem] z-30 w-72 space-y-3 rounded-2xl border border-border bg-card/95 p-4 shadow-xl backdrop-blur">
       <h2 className="text-16 font-semibold">区域设置</h2><label className="grid gap-1 text-12">标题<Input aria-label="区域标题" value={selectedPanel.text} disabled={readOnly || selectedPanel.locked} onChange={(event) => executeSpatial({ type: "update-panel", id: selectedPanel.id, panel: panelMetadata, text: event.target.value })} /></label>
       <label className="grid gap-1 text-12">布局<select aria-label="区域布局" className="h-10 rounded-control border border-border bg-background px-2" value={panelMetadata.mode} disabled={readOnly || selectedPanel.locked} onChange={(event) => updatePanel({ mode: event.target.value as PanelMetadata["mode"] })}><option value="freeform">自由布局</option><option value="grid">网格</option><option value="flow">流程</option></select></label>
       <label className="flex items-center justify-between text-13">自动扩展<input aria-label="区域自动扩展" type="checkbox" checked={panelMetadata.autoExpand} disabled={readOnly || selectedPanel.locked || panelMetadata.clipContent} onChange={(event) => updatePanel({ autoExpand: event.target.checked })} /></label>
       <label className="flex items-center justify-between text-13">裁剪内容<input aria-label="区域裁剪内容" type="checkbox" checked={panelMetadata.clipContent} disabled={readOnly || selectedPanel.locked || panelMetadata.autoExpand} onChange={(event) => updatePanel({ clipContent: event.target.checked })} /></label>
       <Button disabled={readOnly || selectedPanel.locked || panelMetadata.mode === "freeform"} onClick={() => executeSpatial({ type: "arrange-panel", id: selectedPanel.id })}>重新排列内容</Button>
     </aside> : null}
-    {selectedConnector && connectorRelationship ? <aside data-testid="board-connector-properties" className="absolute right-4 top-20 z-30 w-72 space-y-3 rounded-2xl border border-border bg-card/95 p-4 shadow-xl backdrop-blur">
+    {selectedConnector && connectorRelationship ? <aside data-testid="board-connector-properties" className="absolute right-4 top-[29rem] z-30 w-72 space-y-3 rounded-2xl border border-border bg-card/95 p-4 shadow-xl backdrop-blur">
       <h2 className="text-16 font-semibold">关系设置</h2><label className="grid gap-1 text-12">标签<Input aria-label="连接标签" value={connectorRelationship.label} disabled={readOnly || selectedConnector.locked} onChange={(event) => updateConnector({ label: event.target.value })} /></label><label className="grid gap-1 text-12">语义关系<Input aria-label="语义关系" placeholder="例如 depends_on" value={connectorRelationship.semanticRelation} disabled={readOnly || selectedConnector.locked} onChange={(event) => updateConnector({ semanticRelation: event.target.value })} /></label>
       <label className="grid gap-1 text-12">路径<select aria-label="连接路径" value={connectorRelationship.type} disabled={readOnly || selectedConnector.locked} onChange={(event) => updateConnector({ type: event.target.value as ConnectorRelationship["type"] })}><option value="straight">直线</option><option value="elbow">折线</option><option value="curve">曲线</option></select></label>
       <label className="grid gap-1 text-12">线型<select aria-label="连接线型" value={connectorRelationship.lineStyle} disabled={readOnly || selectedConnector.locked} onChange={(event) => updateConnector({ lineStyle: event.target.value as ConnectorLineStyle })}><option value="solid">实线</option><option value="dashed">虚线</option><option value="dotted">点线</option></select></label>
