@@ -167,9 +167,7 @@ test.afterEach(async () => {
   } finally { await api.dispose(); }
 });
 
-test.describe("organize <=2 actions", () => {
-test.describe("snap guideline zoom", () => {
-test("smart layout confirm cancel", async ({ page, request, browser, baseURL }) => {
+async function setupMixedBoard(page: Page, request: APIRequestContext, browser: import("@playwright/test").Browser, baseURL: string | undefined) {
   await page.setViewportSize({ width: 1440, height: 900 });
   const token = await login(page);
   const created = await apiRequest(request, token, "POST", "/whiteboards", { requestId: randomUUID(), name: `Selection layout ${randomUUID()}` });
@@ -177,32 +175,36 @@ test("smart layout confirm cancel", async ({ page, request, browser, baseURL }) 
   cleanup = { id: boardId, token };
   const secondContext = await browser.newContext({ baseURL, viewport: { width: 1440, height: 900 } });
   const second = await secondContext.newPage();
-  try {
-    await page.goto(`/studio/board/${boardId}`);
-    await expect(page.getByText(/^已同步$/)).toBeVisible({ timeout: 30_000 });
-    await page.keyboard.press("Shift+N");
-    await page.getByTestId("board-bulk-text").fill("一\n二\n三\n四\n五\n六");
-    await page.getByTestId("board-bulk-apply").click();
-    await expect(page.getByTestId("board-a11y-mirror").getByRole("button")).toHaveCount(6);
-    await page.keyboard.press("t");
-    const textEditor = page.getByLabel("对象文字", { exact: true });
-    await expect(textEditor).toBeVisible();
-    await textEditor.fill("研究标题");
-    await textEditor.press("Escape");
-    await expect(page.getByTestId("board-a11y-mirror").getByRole("button")).toHaveCount(7);
-    await expect(page.getByTestId("board-a11y-mirror").getByRole("button", { name: "图形：研究标题" })).toBeVisible();
+  await page.goto(`/studio/board/${boardId}`);
+  await expect(page.getByText(/^已同步$/)).toBeVisible({ timeout: 30_000 });
+  await page.keyboard.press("Shift+N");
+  await page.getByTestId("board-bulk-text").fill("一\n二\n三\n四\n五\n六");
+  await page.getByTestId("board-bulk-apply").click();
+  await expect(page.getByTestId("board-a11y-mirror").getByRole("button")).toHaveCount(6);
+  await page.keyboard.press("t");
+  const textEditor = page.getByLabel("对象文字", { exact: true });
+  await expect(textEditor).toBeVisible();
+  await textEditor.fill("研究标题");
+  await textEditor.press("Escape");
+  await expect(page.getByTestId("board-a11y-mirror").getByRole("button")).toHaveCount(7);
+  await expect(page.getByTestId("board-a11y-mirror").getByRole("button", { name: "图形：研究标题" })).toBeVisible();
+  await login(second);
+  await second.goto(`/studio/board/${boardId}`);
+  await expect(second.getByText(/^已同步$/)).toBeVisible({ timeout: 30_000 });
+  await expect(second.getByTestId("board-a11y-mirror").getByRole("button")).toHaveCount(7);
+  const original = await geometry(page);
+  await expect.poll(() => geometry(second)).toBe(original);
+  return { secondContext, second, original };
+}
 
-    await login(second);
-    await second.goto(`/studio/board/${boardId}`);
-    await expect(second.getByText(/^已同步$/)).toBeVisible({ timeout: 30_000 });
-    await expect(second.getByTestId("board-a11y-mirror").getByRole("button")).toHaveCount(7);
-    const original = await geometry(page);
-    await expect.poll(() => geometry(second)).toBe(original);
-
-    await test.step("15 layout commands converge and undo", async () => {
-      const operations = ["align-left", "align-center", "align-right", "align-top", "align-middle", "align-bottom", "distribute-horizontal", "distribute-vertical", "equal-width", "equal-height", "equal-size", "grid", "row", "column", "tidy-up"] as const;
-      for (const operation of operations) {
-        await test.step(operation, async () => {
+test.describe("organize <=2 actions", () => {
+  test.describe("snap guideline zoom", () => {
+    test("15 layout commands converge and undo", async ({ page, request, browser, baseURL }) => {
+      test.setTimeout(480_000);
+      const { secondContext, second, original } = await setupMixedBoard(page, request, browser, baseURL);
+      try {
+        const operations = ["align-left", "align-center", "align-right", "align-top", "align-middle", "align-bottom", "distribute-horizontal", "distribute-vertical", "equal-width", "equal-height", "equal-size", "grid", "row", "column", "tidy-up"] as const;
+        for (const operation of operations) await test.step(operation, async () => {
           await marqueeAll(page);
           await page.getByTestId("board-layout-gap").fill("24");
           await page.getByTestId("board-layout-columns").fill("3");
@@ -215,142 +217,107 @@ test("smart layout confirm cancel", async ({ page, request, browser, baseURL }) 
           await expect.poll(() => geometry(page)).toBe(original);
           await expect.poll(() => geometry(second)).toBe(original);
         });
-      }
+      } finally { await secondContext.close(); }
     });
 
-    // Alt/Option-dragging a real Fabric ActiveSelection duplicates the whole
-    // selection as one canonical batch. Originals stay in place and one undo
-    // removes every duplicate.
-    await test.step("Alt-drag duplicates ActiveSelection atomically and undoes", async () => {
-    await marqueeAll(page);
-    const beforeGroupDrag = parseGeometry(await geometry(page));
-    const fabricSurface = page.getByTestId("board-fabric-surface");
-    const canvasBounds = await fabricSurface.locator('canvas[data-fabric="top"]').boundingBox();
-    expect(canvasBounds).not.toBeNull();
-    const zoom = Number(await fabricSurface.getAttribute("data-viewport-zoom"));
-    const panX = Number(await fabricSurface.getAttribute("data-viewport-pan-x"));
-    const panY = Number(await fabricSurface.getAttribute("data-viewport-pan-y"));
-    const selectionScene = JSON.parse((await fabricSurface.getAttribute("data-selection-scene"))!) as { bounds: { left: number; top: number; width: number; height: number }; hitPoints: Array<{ x: number; y: number }> };
-    const toScreen = (point: { x: number; y: number }) => ({ x: canvasBounds!.x + panX + point.x * zoom, y: canvasBounds!.y + panY + point.y * zoom });
-    const candidates = [
-      toScreen({ x: selectionScene.bounds.left + selectionScene.bounds.width / 2, y: selectionScene.bounds.top + selectionScene.bounds.height / 2 }),
-      ...selectionScene.hitPoints.map(toScreen),
-    ];
-    const groupStart = await page.evaluate((points) => points.find((point) => (document.elementFromPoint(point.x, point.y) as HTMLElement | null)?.dataset.fabric === "top") ?? null, candidates);
-    expect(groupStart, "at least one selected Fabric object centre must be interactively reachable").not.toBeNull();
-    const selectionTopLeft = toScreen({ x: selectionScene.bounds.left, y: selectionScene.bounds.top });
-    const selectionBottomRight = toScreen({ x: selectionScene.bounds.left + selectionScene.bounds.width, y: selectionScene.bounds.top + selectionScene.bounds.height });
-    expect(groupStart!.x).toBeGreaterThanOrEqual(selectionTopLeft.x);
-    expect(groupStart!.x).toBeLessThanOrEqual(selectionBottomRight.x);
-    expect(groupStart!.y).toBeGreaterThanOrEqual(selectionTopLeft.y);
-    expect(groupStart!.y).toBeLessThanOrEqual(selectionBottomRight.y);
-    await page.keyboard.down("Alt");
-    await page.mouse.move(groupStart!.x, groupStart!.y); await page.mouse.down();
-    await page.mouse.move(groupStart!.x + 42, groupStart!.y + 28, { steps: 8 }); await page.mouse.up();
-    await page.keyboard.up("Alt");
-    await expect.poll(async () => parseGeometry(await geometry(page)).length).toBe(14);
-    const afterGroupDrag = parseGeometry(await geometry(page));
-    const originalIds = new Set(beforeGroupDrag.map(value => value.id));
-    const originalsAfter = afterGroupDrag.filter(value => originalIds.has(value.id));
-    const duplicates = afterGroupDrag.filter(value => !originalIds.has(value.id));
-    expect(originalsAfter).toHaveLength(7);
-    expect(duplicates).toHaveLength(7);
-    for (const before of beforeGroupDrag) {
-      const unchanged = originalsAfter.find(value => value.id === before.id);
-      expect(unchanged && closeGeometry(unchanged, before), `Alt-drag must not move original ${before.id}`).toBe(true);
-    }
-    const deltas = beforeGroupDrag.map(before => {
-      const matches = duplicates.filter(value => value.kind === before.kind && value.text === before.text);
-      expect(matches, `Alt-drag must make one duplicate of ${before.kind}:${before.text}`).toHaveLength(1);
-      const duplicate = matches[0]!;
-      expect(closeGeometry({ ...duplicate, x: before.x, y: before.y }, before), `duplicate ${duplicate.id} must preserve size and rotation`).toBe(true);
-      return { x: duplicate.x - before.x, y: duplicate.y - before.y };
-    });
-    expect(deltas.every(delta => Math.abs(delta.x - deltas[0]!.x) <= 1 && Math.abs(delta.y - deltas[0]!.y) <= 1 && Math.abs(delta.x) > 1)).toBe(true);
-    const duplicatedGeometry = JSON.stringify(afterGroupDrag.sort((a, b) => String(a.id).localeCompare(String(b.id))));
-    await expect.poll(() => geometry(second)).toBe(duplicatedGeometry);
-    await page.getByText("撤销", { exact: true }).click();
-    await expect.poll(() => geometry(page)).toBe(original);
-    await expect.poll(() => geometry(second)).toBe(original);
+    test("Alt-drag duplicates ActiveSelection, converges and undoes", async ({ page, request, browser, baseURL }) => {
+      test.setTimeout(180_000);
+      const { secondContext, second, original } = await setupMixedBoard(page, request, browser, baseURL);
+      try {
+        await marqueeAll(page);
+        const beforeGroupDrag = parseGeometry(await geometry(page));
+        const fabricSurface = page.getByTestId("board-fabric-surface");
+        const canvasBounds = await fabricSurface.locator('canvas[data-fabric="top"]').boundingBox();
+        expect(canvasBounds).not.toBeNull();
+        const zoom = Number(await fabricSurface.getAttribute("data-viewport-zoom"));
+        const panX = Number(await fabricSurface.getAttribute("data-viewport-pan-x"));
+        const panY = Number(await fabricSurface.getAttribute("data-viewport-pan-y"));
+        const selectionScene = JSON.parse((await fabricSurface.getAttribute("data-selection-scene"))!) as { bounds: { left: number; top: number; width: number; height: number }; hitPoints: Array<{ x: number; y: number }> };
+        const toScreen = (point: { x: number; y: number }) => ({ x: canvasBounds!.x + panX + point.x * zoom, y: canvasBounds!.y + panY + point.y * zoom });
+        const candidates = [toScreen({ x: selectionScene.bounds.left + selectionScene.bounds.width / 2, y: selectionScene.bounds.top + selectionScene.bounds.height / 2 }), ...selectionScene.hitPoints.map(toScreen)];
+        const groupStart = await page.evaluate((points) => points.find((point) => (document.elementFromPoint(point.x, point.y) as HTMLElement | null)?.dataset.fabric === "top") ?? null, candidates);
+        expect(groupStart, "at least one selected Fabric object centre must be interactively reachable").not.toBeNull();
+        const selectionTopLeft = toScreen({ x: selectionScene.bounds.left, y: selectionScene.bounds.top });
+        const selectionBottomRight = toScreen({ x: selectionScene.bounds.left + selectionScene.bounds.width, y: selectionScene.bounds.top + selectionScene.bounds.height });
+        expect(groupStart!.x).toBeGreaterThanOrEqual(selectionTopLeft.x); expect(groupStart!.x).toBeLessThanOrEqual(selectionBottomRight.x);
+        expect(groupStart!.y).toBeGreaterThanOrEqual(selectionTopLeft.y); expect(groupStart!.y).toBeLessThanOrEqual(selectionBottomRight.y);
+        await page.keyboard.down("Alt");
+        await page.mouse.move(groupStart!.x, groupStart!.y); await page.mouse.down();
+        await page.mouse.move(groupStart!.x + 42, groupStart!.y + 28, { steps: 8 }); await page.mouse.up();
+        await page.keyboard.up("Alt");
+        await expect.poll(async () => parseGeometry(await geometry(page)).length).toBe(14);
+        const afterGroupDrag = parseGeometry(await geometry(page));
+        const originalIds = new Set(beforeGroupDrag.map(value => value.id));
+        const originalsAfter = afterGroupDrag.filter(value => originalIds.has(value.id));
+        const duplicates = afterGroupDrag.filter(value => !originalIds.has(value.id));
+        expect(originalsAfter).toHaveLength(7); expect(duplicates).toHaveLength(7);
+        for (const before of beforeGroupDrag) {
+          const unchanged = originalsAfter.find(value => value.id === before.id);
+          expect(unchanged && closeGeometry(unchanged, before), `Alt-drag must not move original ${before.id}`).toBe(true);
+        }
+        const deltas = beforeGroupDrag.map(before => {
+          const matches = duplicates.filter(value => value.kind === before.kind && value.text === before.text);
+          expect(matches, `Alt-drag must make one duplicate of ${before.kind}:${before.text}`).toHaveLength(1);
+          const duplicate = matches[0]!;
+          expect(closeGeometry({ ...duplicate, x: before.x, y: before.y }, before), `duplicate ${duplicate.id} must preserve size and rotation`).toBe(true);
+          return { x: duplicate.x - before.x, y: duplicate.y - before.y };
+        });
+        expect(deltas.every(delta => Math.abs(delta.x - deltas[0]!.x) <= 1 && Math.abs(delta.y - deltas[0]!.y) <= 1 && Math.abs(delta.x) > 1)).toBe(true);
+        await expect.poll(() => geometry(second)).toBe(JSON.stringify(afterGroupDrag.sort((a, b) => String(a.id).localeCompare(String(b.id)))));
+        await page.getByText("撤销", { exact: true }).click();
+        await expect.poll(() => geometry(page)).toBe(original); await expect.poll(() => geometry(second)).toBe(original);
+      } finally { await secondContext.close(); }
     });
 
-    // A real Fabric pointer drag exposes a smart guide and persists the snapped world-space position.
-    await test.step("pointer snap guide converges and undoes", async () => {
-    const snapBefore = parseGeometry(original);
-    const source = snapBefore[0]!, target = snapBefore[1]!;
-    await page.getByTestId(`board-a11y-object-${source.id}`).click();
-    await page.evaluate(() => new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve()))));
-    const currentSurface = page.getByTestId("board-fabric-surface");
-    const currentCanvas = currentSurface.locator('canvas[data-fabric="top"]');
-    const currentCanvasBounds = await currentCanvas.boundingBox();
-    expect(currentCanvasBounds).not.toBeNull();
-    const currentZoom = Number(await currentSurface.getAttribute("data-viewport-zoom"));
-    const currentPanX = Number(await currentSurface.getAttribute("data-viewport-pan-x"));
-    const currentPanY = Number(await currentSurface.getAttribute("data-viewport-pan-y"));
-    const scenes = JSON.parse((await currentSurface.getAttribute("data-object-scenes"))!) as Array<{ id: string; left: number; top: number; width: number; height: number }>;
-    const sourceScene = scenes.find(value => value.id === source.id), targetScene = scenes.find(value => value.id === target.id);
-    expect(sourceScene, `Fabric scene probe must contain source ${source.id}`).toBeTruthy();
-    expect(targetScene, `Fabric scene probe must contain target ${target.id}`).toBeTruthy();
-    const sceneToScreen = (point: { x: number; y: number }) => ({ x: currentCanvasBounds!.x + currentPanX + point.x * currentZoom, y: currentCanvasBounds!.y + currentPanY + point.y * currentZoom });
-    const sourceCenter = sceneToScreen({ x: sourceScene!.left + sourceScene!.width / 2, y: sourceScene!.top + sourceScene!.height / 2 });
-    const sourceTopLeft = sceneToScreen({ x: sourceScene!.left, y: sourceScene!.top });
-    const sourceBottomRight = sceneToScreen({ x: sourceScene!.left + sourceScene!.width, y: sourceScene!.top + sourceScene!.height });
-    expect(sourceCenter.x).toBeGreaterThanOrEqual(sourceTopLeft.x); expect(sourceCenter.x).toBeLessThanOrEqual(sourceBottomRight.x);
-    expect(sourceCenter.y).toBeGreaterThanOrEqual(sourceTopLeft.y); expect(sourceCenter.y).toBeLessThanOrEqual(sourceBottomRight.y);
-    const sourceHit = await page.evaluate((point) => { const element = document.elementFromPoint(point.x, point.y) as HTMLElement | null; return { fabric: element?.dataset.fabric ?? null, insideSurface: Boolean(element?.closest('[data-testid="board-fabric-surface"]')) }; }, sourceCenter);
-    expect(sourceHit).toEqual({ fabric: "top", insideSurface: true });
-    const snapDestination = sceneToScreen({ x: sourceScene!.left + sourceScene!.width / 2 + 56 / currentZoom, y: targetScene!.top + sourceScene!.height / 2 + 3 / currentZoom });
-    await page.mouse.move(sourceCenter.x, sourceCenter.y); await page.mouse.down();
-    await page.mouse.move(snapDestination.x, snapDestination.y, { steps: 12 });
-    await expect(page.getByTestId("board-smart-guides")).toBeVisible({ timeout: 10_000 });
-    await page.mouse.up();
-    const snapAfter = parseGeometry(await geometry(page));
-    const snappedSource = snapAfter.find(value => value.id === source.id)!;
-    expect(Math.abs(snappedSource.y - target.y)).toBeLessThanOrEqual(1);
-    expect(closeGeometry(snappedSource, source)).toBe(false);
-    await expect.poll(() => geometry(second)).toBe(JSON.stringify(snapAfter.sort((a, b) => String(a.id).localeCompare(String(b.id)))));
-    await page.getByText("撤销", { exact: true }).click();
-    await expect.poll(() => geometry(page)).toBe(original);
-    await expect.poll(() => geometry(second)).toBe(original);
+    test("pointer snap guide converges and undoes", async ({ page, request, browser, baseURL }) => {
+      test.setTimeout(120_000);
+      const { secondContext, second, original } = await setupMixedBoard(page, request, browser, baseURL);
+      try {
+        const snapBefore = parseGeometry(original), source = snapBefore[0]!, target = snapBefore[1]!;
+        await page.getByTestId(`board-a11y-object-${source.id}`).click();
+        await page.evaluate(() => new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve()))));
+        const currentSurface = page.getByTestId("board-fabric-surface"), currentCanvas = currentSurface.locator('canvas[data-fabric="top"]');
+        const currentCanvasBounds = await currentCanvas.boundingBox(); expect(currentCanvasBounds).not.toBeNull();
+        const currentZoom = Number(await currentSurface.getAttribute("data-viewport-zoom"));
+        const currentPanX = Number(await currentSurface.getAttribute("data-viewport-pan-x"));
+        const currentPanY = Number(await currentSurface.getAttribute("data-viewport-pan-y"));
+        const scenes = JSON.parse((await currentSurface.getAttribute("data-object-scenes"))!) as Array<{ id: string; left: number; top: number; width: number; height: number }>;
+        const sourceScene = scenes.find(value => value.id === source.id), targetScene = scenes.find(value => value.id === target.id);
+        expect(sourceScene).toBeTruthy(); expect(targetScene).toBeTruthy();
+        const sceneToScreen = (point: { x: number; y: number }) => ({ x: currentCanvasBounds!.x + currentPanX + point.x * currentZoom, y: currentCanvasBounds!.y + currentPanY + point.y * currentZoom });
+        const sourceCenter = sceneToScreen({ x: sourceScene!.left + sourceScene!.width / 2, y: sourceScene!.top + sourceScene!.height / 2 });
+        const sourceTopLeft = sceneToScreen({ x: sourceScene!.left, y: sourceScene!.top }), sourceBottomRight = sceneToScreen({ x: sourceScene!.left + sourceScene!.width, y: sourceScene!.top + sourceScene!.height });
+        expect(sourceCenter.x).toBeGreaterThanOrEqual(sourceTopLeft.x); expect(sourceCenter.x).toBeLessThanOrEqual(sourceBottomRight.x);
+        expect(sourceCenter.y).toBeGreaterThanOrEqual(sourceTopLeft.y); expect(sourceCenter.y).toBeLessThanOrEqual(sourceBottomRight.y);
+        const sourceHit = await page.evaluate((point) => { const element = document.elementFromPoint(point.x, point.y) as HTMLElement | null; return { fabric: element?.dataset.fabric ?? null, insideSurface: Boolean(element?.closest('[data-testid="board-fabric-surface"]')) }; }, sourceCenter);
+        expect(sourceHit).toEqual({ fabric: "top", insideSurface: true });
+        const destination = sceneToScreen({ x: sourceScene!.left + sourceScene!.width / 2 + 56 / currentZoom, y: targetScene!.top + sourceScene!.height / 2 + 3 / currentZoom });
+        await page.mouse.move(sourceCenter.x, sourceCenter.y); await page.mouse.down(); await page.mouse.move(destination.x, destination.y, { steps: 12 });
+        await expect(page.getByTestId("board-smart-guides")).toBeVisible({ timeout: 10_000 }); await page.mouse.up();
+        const snapAfter = parseGeometry(await geometry(page)), snappedSource = snapAfter.find(value => value.id === source.id)!;
+        expect(Math.abs(snappedSource.y - target.y)).toBeLessThanOrEqual(1); expect(closeGeometry(snappedSource, source)).toBe(false);
+        await expect.poll(() => geometry(second)).toBe(JSON.stringify(snapAfter.sort((a, b) => String(a.id).localeCompare(String(b.id)))));
+        await page.getByText("撤销", { exact: true }).click(); await expect.poll(() => geometry(page)).toBe(original); await expect.poll(() => geometry(second)).toBe(original);
+      } finally { await secondContext.close(); }
     });
 
-    await test.step("smart preview cancel apply and undo", async () => {
-    await marqueeAll(page);
-    await page.getByTestId("board-layout-smart-preview").click();
-    await expect(page.getByTestId("board-layout-preview")).toBeVisible();
-    await expect.poll(() => geometry(page)).not.toBe(original);
-    await expect.poll(() => geometry(second)).toBe(original);
-    await page.getByTestId("board-layout-preview-cancel").click();
-    await expect.poll(() => geometry(page)).toBe(original);
-
-    await page.getByTestId("board-layout-smart-preview").click();
-    const confirmedPreview = await geometry(page);
-    expect(confirmedPreview).not.toBe(original);
-    await page.getByTestId("board-layout-preview-apply").click();
-    await expect(page.getByText("智能布局已应用。", { exact: true })).toBeVisible();
-    await expect.poll(() => geometry(page)).toBe(confirmedPreview);
-    await expect.poll(() => geometry(second)).toBe(confirmedPreview);
-    await page.getByText("撤销", { exact: true }).click();
-    await expect.poll(() => geometry(page)).toBe(original);
-    await expect.poll(() => geometry(second)).toBe(original);
+    test("smart preview cancel apply undo CAS and reload", async ({ page, request, browser, baseURL }) => {
+      test.setTimeout(180_000);
+      const { secondContext, second, original } = await setupMixedBoard(page, request, browser, baseURL);
+      try {
+        await marqueeAll(page); await page.getByTestId("board-layout-smart-preview").click();
+        await expect(page.getByTestId("board-layout-preview")).toBeVisible(); await expect.poll(() => geometry(page)).not.toBe(original); await expect.poll(() => geometry(second)).toBe(original);
+        await page.getByTestId("board-layout-preview-cancel").click(); await expect.poll(() => geometry(page)).toBe(original);
+        await page.getByTestId("board-layout-smart-preview").click(); const confirmedPreview = await geometry(page); expect(confirmedPreview).not.toBe(original);
+        await page.getByTestId("board-layout-preview-apply").click(); await expect(page.getByText("智能布局已应用。", { exact: true })).toBeVisible();
+        await expect.poll(() => geometry(page)).toBe(confirmedPreview); await expect.poll(() => geometry(second)).toBe(confirmedPreview);
+        await page.getByText("撤销", { exact: true }).click(); await expect.poll(() => geometry(page)).toBe(original); await expect.poll(() => geometry(second)).toBe(original);
+        await page.getByTestId("board-layout-smart-preview").click();
+        const remoteObject = second.getByTestId("board-a11y-mirror").getByRole("button").first(); await remoteObject.focus(); await remoteObject.press("Enter");
+        await second.getByLabel("对象文字", { exact: true }).fill("并发修改后的对象"); await page.getByTestId("board-layout-preview-apply").click();
+        await expect(page.getByText("应用失败：预览后对象已被其他协作者修改。", { exact: true })).toBeVisible(); await expect.poll(() => geometry(page)).toBe(original);
+        await page.reload(); await expect(page.getByText(/^已同步$/)).toBeVisible({ timeout: 30_000 }); await expect.poll(() => geometry(page)).toBe(original);
+      } finally { await secondContext.close(); }
     });
-
-    await test.step("smart preview CAS rejects concurrent edits and survives reload", async () => {
-    await page.getByTestId("board-layout-smart-preview").click();
-    const remoteObject = second.getByTestId("board-a11y-mirror").getByRole("button").first();
-    await remoteObject.focus(); await remoteObject.press("Enter");
-    await second.getByLabel("对象文字", { exact: true }).fill("并发修改后的对象");
-    await page.getByTestId("board-layout-preview-apply").click();
-    await expect(page.getByText("应用失败：预览后对象已被其他协作者修改。", { exact: true })).toBeVisible();
-    await expect.poll(() => geometry(page)).toBe(original);
-
-    await page.reload();
-    await expect(page.getByText(/^已同步$/)).toBeVisible({ timeout: 30_000 });
-    await expect.poll(() => geometry(page)).toBe(original);
-    });
-  } finally {
-    await secondContext.close();
-  }
-});
-});
+  });
 });
