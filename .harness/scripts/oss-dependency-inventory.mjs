@@ -159,7 +159,7 @@ const rows = [];
 for (const [key, { name, version }] of pkgs) {
   const license = resolveLicense(name, version);
   const installed = storeIndex.has(key) || existsSync(join(ROOT, "node_modules", name, "package.json"));
-  rows.push({ key, name, version, license, shipped: shipped.has(key), source: license ? "local" : null,
+  rows.push({ key, name, version, license, installed, shipped: shipped.has(key), source: license ? "local" : null,
     reason: license ? null : installed ? "已安装但 package.json 未声明许可证" : "本机未安装（多为其他平台专属包）" });
 }
 
@@ -205,6 +205,8 @@ const report = {
   needsReview: review.map((r) => ({ name: r.name, version: r.version, license: r.license, shipped: r.shipped })),
   unresolvedList: unresolved.map((r) => ({ name: r.name, version: r.version, reason: r.reason })),
   licenseHistogram: Object.fromEntries([...byLicense].sort((a, b) => b[1] - a[1])),
+  // 逐包明细：lint-third-party-license.mjs 按它判允许清单（#4262）
+  packages: rows.map((r) => ({ name: r.name, version: r.version, license: r.license, shipped: r.shipped, installed: r.installed })),
 };
 
 const jsonIdx = process.argv.indexOf("--json");

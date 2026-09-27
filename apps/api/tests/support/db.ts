@@ -285,6 +285,14 @@ export async function seedOrg(opts: {
         seatQuota,
       ],
     );
+    // 组织级记忆抽取开关默认开（迁移 20260926100000，默认值的唯一说明在
+    // `KgOrgExtractionSettingsPort.getEnabled`）。部署级开关自 20260925120000 起也默认开，
+    // 于是任何测试组织里的每条聊天消息都会排进 `kg_extraction_queue`，而任何配置了
+    // `KERNEL_MODEL_PROVIDER` 的测试 app 都会起 `KgExtractionWorker` 轮询、对回环模型多打
+    // 抽取调用——很多套件在数模型调用次数。所以测试组织在这里**显式关掉**（与管理员关掉
+    // 同一形状），保持非 KG 套件的行为不变；KG 测试用 `kg-extraction-fixtures.ts` 的
+    // `enableExtraction(orgId)` upsert 成 true，要测「没有行 = 默认开」的用例自己删掉这一行。
+    await c.query("INSERT INTO kg_org_extraction_settings (org_id, enabled, updated_by) VALUES ($1, false, 'test-fixture')", [orgId]);
     for (const t of teamNames) {
       const id = `${orgId}-team-${t}`;
       await c.query("INSERT INTO teams (id, org_id, name) VALUES ($1, $2, $3)", [id, orgId, t]);

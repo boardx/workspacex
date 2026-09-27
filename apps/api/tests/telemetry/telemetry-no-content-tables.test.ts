@@ -32,15 +32,15 @@ describe("上报方不读客户内容表", () => {
     }
   });
 
-  it("自检：一旦 SQL 读 chat_messages，门会红", () => {
-    expect(violations("SELECT count(*) FROM chat_messages m JOIN organizations o ON o.id = m.org_id")).toEqual(["chat_messages"]);
+  it("自检：一旦 SQL 读 chat_messages（或直接 JOIN 已移出白名单的 organizations），门会红", () => {
+    expect(violations("SELECT count(*) FROM chat_messages m JOIN organizations o ON o.id = m.org_id")).toEqual(["chat_messages", "organizations"]);
   });
 
-  it("personal-local 排除落在 SQL 层：凡按组织计数的查询都 JOIN organizations 且限定 kind = 'organization'", () => {
-    const src = readFileSync(SRC, "utf8");
-    const perOrg = [...src.matchAll(/`([^`]*\bFROM\s+ingestion_outbox[^`]*)`/g)].map((m) => m[1]!);
-    expect(perOrg.length).toBeGreaterThan(0);
-    for (const sql of perOrg) expect(sql).toMatch(/JOIN organizations o ON o\.id = \w+\.org_id AND o\.kind = 'organization'/);
+  it("按组织计数的租户表（RLS FORCE）不在本文件直读：queueDepth 只经 kernel_queue_depth_for_report()（#4225）", () => {
+    const tables = referencedTables(readFileSync(SRC, "utf8"));
+    expect(tables).toContain("kernel_queue_depth_for_report");
+    expect(tables).not.toContain("ingestion_outbox");
+    expect(tables).not.toContain("organizations");
   });
 
   it("状态仓储只碰自己的单行表", () => {
@@ -63,9 +63,8 @@ export function nonAggregateTenantSql(src: string): string[] {
 }
 
 describe("读租户表只做聚合计数", () => {
-  it("pg-telemetry-facts.ts 里读 ingestion_outbox/organizations 的 SQL 全是 count(*)", () => {
+  it("pg-telemetry-facts.ts 里若有读 ingestion_outbox/organizations 的 SQL，全是 count(*)", () => {
     const src = readFileSync(SRC, "utf8");
-    expect(src).toMatch(/ingestion_outbox/);
     expect(nonAggregateTenantSql(src)).toEqual([]);
   });
 

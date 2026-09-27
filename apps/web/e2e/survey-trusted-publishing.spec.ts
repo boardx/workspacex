@@ -152,4 +152,7 @@ test("管理员可在真实答卷页排除测试答卷且保留审计理由", as
   await page.getByRole("button", { name: "生成报告" }).click();
   await expect(page.getByTestId("survey-report-sample-summary")).toHaveText(/总答卷 2 · 待复核 0 · 已排除 1 · 纳入分析 1/);
   await expect(page.getByTestId("survey-report-block-sample-recommendation-distribution")).toHaveText(/实际样本量 1/);
+  await expect(page.getByTestId("survey-report-share-privacy-warning")).toHaveText(/纳入分析的样本不足 8 份/);
+  await expect(page.getByRole("button", { name: "导出 Word" })).toBeDisabled();
+  await expect(page.getByRole("button", { name: "导出 PDF" })).toBeDisabled();
 });

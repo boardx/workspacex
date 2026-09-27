@@ -34,8 +34,8 @@ import { newKgId } from "../../application/knowledge-graph/ids";
 import { drainConflictCloses } from "../../application/knowledge-graph/detect-conflicts";
 import { runExtractionTick, type ExtractionTickResult } from "../../application/knowledge-graph/extract-message-knowledge";
 import {
-  KG_CONFLICT_PORT, KG_EXTRACTION_QUEUE_PORT, KG_EXTRACTION_SOURCE_PORT, KNOWLEDGE_EXTRACTOR_PORT, ONTOLOGY_STORE_PORT,
-  type KgConflictPort, type KgExtractionQueuePort, type KgExtractionSourcePort, type KnowledgeExtractorPort, type OntologyStorePort,
+  KG_AUTO_COPY_PORT, KG_CONFLICT_PORT, KG_EXTRACTION_QUEUE_PORT, KG_EXTRACTION_SOURCE_PORT, KNOWLEDGE_EXTRACTOR_PORT, ONTOLOGY_STORE_PORT,
+  type KgAutoCopyPort, type KgConflictPort, type KgExtractionQueuePort, type KgExtractionSourcePort, type KnowledgeExtractorPort, type OntologyStorePort,
 } from "../../application/knowledge-graph/ports";
 import { LOGGER_PORT, type LoggerPort } from "../../application/ports/logger.port";
 import { KG_EXTRACTION_MODEL_CONFIG, type KgExtractionModelConfig } from "./kg-extraction-model-config";
@@ -54,6 +54,7 @@ export class KgExtractionWorker implements OnModuleInit, OnModuleDestroy {
     @Inject(KNOWLEDGE_EXTRACTOR_PORT) private readonly extractor: KnowledgeExtractorPort,
     @Inject(ONTOLOGY_STORE_PORT) private readonly store: OntologyStorePort,
     @Inject(KG_CONFLICT_PORT) private readonly conflicts: KgConflictPort,
+    @Inject(KG_AUTO_COPY_PORT) private readonly autoCopy: KgAutoCopyPort,
     @Inject(LOGGER_PORT) private readonly logger: LoggerPort,
   ) {}
 
@@ -75,7 +76,7 @@ export class KgExtractionWorker implements OnModuleInit, OnModuleDestroy {
     try {
       const tick = await runExtractionTick({
         queue: this.queue, source: this.source, extractor: this.extractor, store: this.store,
-        conflicts: this.conflicts, logger: this.logger, newId: newKgId,
+        conflicts: this.conflicts, autoCopy: this.autoCopy, logger: this.logger, newId: newKgId,
       });
       // F16：每一轮都排空「结束冲突」的待办（与有没有新消息无关）
       await drainConflictCloses({ conflicts: this.conflicts, logger: this.logger });

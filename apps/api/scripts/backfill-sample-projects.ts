@@ -5,8 +5,9 @@
  * （RLS 故意挡住应用角色做这种读），真正的写入走 `createSampleProjectSeeder` ——与
  * `/auth/bootstrap`、`/auth/register-open` 逐字相同的写路径（`ensureSampleProject`）。
  *
- * 候选：非平台组织、有 admin、且**没有**带「内置示例」标签的项目（含已归档——用户归档
- * 即删除，不种回来）。离线：只碰 PostgreSQL 与已配置的对象存储；索引由 ingestion worker
+ * 候选：非平台组织、有 admin、且**没有** `sample_projects` 标记行（#4245）。已带「内置示例」
+ * 标签（含已归档——用户归档即删除，不种回来）但没有标记行的存量组织，`ensureSampleProject`
+ * 走早返回分支只补写标记、不再种。离线：只碰 PostgreSQL 与已配置的对象存储；索引由 ingestion worker
  * 之后在本地异步完成。
  */
 import { isCliEntry } from "./cli-entry";
@@ -14,7 +15,6 @@ import pg from "pg";
 import { migrationConfig, appConfig } from "../src/infrastructure/db/pg-config";
 import { PgDatabase } from "../src/infrastructure/db/pg-database";
 import { PLATFORM_ORG_ID, toOrgId } from "../src/domain/org-id";
-import { SAMPLE_PROJECT_TAG } from "../src/application/project/sample-project/sample-project-content";
 import { createSampleProjectSeeder } from "../src/infrastructure/project/sample-project-seeder";
 import { createObjectStore } from "../src/infrastructure/storage/create-object-store";
 
@@ -36,9 +36,9 @@ export async function backfillSampleProjects(): Promise<SampleProjectBackfillRep
                 WHERE m.org_id = o.id AND m.org_role = 'admin'
                 ORDER BY m.user_id ASC LIMIT 1) AS actor_id
          FROM organizations o
-        WHERE o.id <> $2
-          AND NOT EXISTS (SELECT 1 FROM project_tags t WHERE t.org_id = o.id AND t.tag = $1)`,
-      [SAMPLE_PROJECT_TAG, PLATFORM_ORG_ID],
+        WHERE o.id <> $1
+          AND NOT EXISTS (SELECT 1 FROM sample_projects s WHERE s.org_id = o.id)`,
+      [PLATFORM_ORG_ID],
     );
     candidates = rows
       .filter((r): r is { org_id: string; actor_id: string } => r.actor_id !== null)

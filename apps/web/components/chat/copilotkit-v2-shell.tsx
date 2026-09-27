@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { ThreadCitationsProvider } from "@/components/chat/message-citations";
 import { useRouter } from "next/navigation";
 import { Lock } from "lucide-react";
 import { CopilotKitV2Panel } from "@/components/chat/copilotkit-v2-panel";
@@ -1046,6 +1047,7 @@ export function CopilotKitV2Shell({
     readonly startedAt: number | null; readonly recoveryDiagnostic?: string | null;
   }>({ isRunning: false, phaseLabel: null, startedAt: null });
   const [pendingMaterialsCount, setPendingMaterialsCount] = React.useState(0);
+  const [uploadingMaterialsCount, setUploadingMaterialsCount] = React.useState(0);
 
   /**
    * 向壳层登记「这条会话有活在跑」。壳层切换组织之前要回答「切走会怎样」，
@@ -1291,6 +1293,8 @@ export function CopilotKitV2Shell({
             这层补 `min-h-0 flex-1` 让面板继续占满剩余高度，不然 flex-col 默认按
             内容撑高，消息区会失去可滚动的固定高度。 */}
         <div className="min-h-0 flex-1">
+        {/* issue #4244：助手消息引用来自同一次 `getThread`（`onMessageSent` 会重读）。 */}
+        <ThreadCitationsProvider messages={threadDetail?.messages}>
         <CopilotKitV2Panel
           key={panelMountKey}
           chatThreadId={selectedThreadId}
@@ -1315,6 +1319,7 @@ export function CopilotKitV2Shell({
           onPlanTodosChange={setPlanTodos}
           onRunStateChange={setRunState}
           onPendingMaterialsChange={setPendingMaterialsCount}
+          onUploadingMaterialsChange={setUploadingMaterialsCount}
           /* issue #3347 —— 右栏「材料」页签的上传入口（点击 + 拖拽）要用的正是
              composer 那一个（同一个）附件控制器。面板把它的最小能力面上报到这里，外壳
              原样转给 `ChatTaskInspector`；外壳不自己 `useChatAttachments`——那会造出
@@ -1326,6 +1331,7 @@ export function CopilotKitV2Shell({
           canDecide={canWriteThread && (personalOwnerCanDecide || threadDetail?.capabilities.includes("approval.decide") === true)}
           canGeneratePersona={canGeneratePersona}
         />
+        </ThreadCitationsProvider>
         </div>
       </div>
       {/* issue #2068（TW-P0-4）—— 右栏从「产物 + 材料」固定两段堆叠换成四页签动态
@@ -1351,6 +1357,7 @@ export function CopilotKitV2Shell({
         onRetry={() => void loadRightPanel()}
         onOpenArtifact={(item) => setOpenArtifact({ artifactId: item.artifactId, title: item.title })}
         pendingMaterialsCount={pendingMaterialsCount}
+        uploadingMaterialsCount={uploadingMaterialsCount}
         attachUploadPort={attachUploadPort}
         /* issue #3347 —— 只读/归档时上传入口禁用并写出理由，理由与 composer 底部
            那行同源（`canWriteThread`/`archived`）。服务端本就按 `composer.send` 能力

@@ -20,8 +20,8 @@ export class PgKgOrgExtractionSettings implements KgOrgExtractionSettingsPort {
       const r = await s.query<{ enabled: boolean }>(
         "SELECT enabled FROM kg_org_extraction_settings WHERE org_id = $1", [orgId],
       );
-      // 没有行 = 从未设置过 = 默认关（新组织不默认抽取对话内容）。
-      return r.rows[0]?.enabled ?? false;
+      // 默认值的单一说明在 `KgOrgExtractionSettingsPort.getEnabled` 的注释里（没有行 ⇒ 开）。
+      return r.rows[0]?.enabled ?? true;
     });
   }
 

@@ -55,7 +55,7 @@ describe("F06 interview answers to report", () => {
     render(<PersistentDigitalInterviewWorkflow initialView={reportView} />);
 
     expect(await screen.findByTestId("itv-report-decision-brief")).toHaveTextContent("决策摘要");
-    expect(screen.getByTestId("itv-evidence-review-empty")).toHaveTextContent("尚无可展示的目标与专家证据覆盖");
+    expect(screen.getByTestId("itv-evidence-review-blocked")).toHaveTextContent("尚无可展示的目标与专家证据覆盖");
     expect(screen.queryByRole("table")).toBeNull();
   });
 

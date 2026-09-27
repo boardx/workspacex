@@ -34,6 +34,7 @@ import type { DatabasePort } from "../../application/ports/database.port";
 import { PLATFORM_ORG_ID } from "../../domain/org-id";
 import type { OrgId } from "../../domain/org-id";
 import { guard, type Guarded } from "../../application/security/permission-filter";
+import { numberRunCitations, type RunCitation } from "../../application/agent-run/standard-cite";
 import type {
   AgentRunStore, AppendedRunDelta, AppendedRunStep, ClaimOutcome, HistoryAttachmentMeta,
   PendingWriteback, PinnedSkillContent, RunDelta, RunFailureCode, RunFailureReason, RunLifecycleStatus, RunOutputFile,
@@ -766,9 +767,10 @@ export class PgAgentRunRepository implements AgentRunStore {
         id: string; thread_id: string; input_message_id: string;
         agent_id: string; model_output: string; writeback_attempts: number;
         model_output_files: readonly RunOutputFile[] | null;
+        cited_sources: readonly RunCitation[] | null;
       }>(
         `SELECT id, thread_id, input_message_id, agent_id, model_output, writeback_attempts,
-                model_output_files
+                model_output_files, cited_sources
            FROM agent_runs
           WHERE org_id=$1 AND status='writeback_pending' AND model_output IS NOT NULL
           ORDER BY created_at, id
@@ -785,7 +787,30 @@ export class PgAgentRunRepository implements AgentRunStore {
         // #1624：列有 `DEFAULT '[]'`，但历史行与任何读不到的情况一律折成空数组——
         // "没有产物"是安全的默认，猜一个文件名会让写回去挂一个不存在的附件。
         files: row.model_output_files ?? [],
+        // #4227：`wx_cite` 在本 run 上记下的引用，折叠重复后按首次出现编号 1..n。
+        citations: numberRunCitations(row.cited_sources),
       }));
+    });
+  }
+
+  /**
+   * #4227 —— `wx_cite` 的 run 引用账本。一条 UPDATE：只在 `running` 态追加，已有 key 不重复
+   * 追加（重复引用在记录时就折叠），返回追加后全部 key 的顺序，供工具回报角标编号。
+   */
+  appendRunCitations(orgId: OrgId, runId: string, items: readonly RunCitation[]): Promise<readonly string[] | null> {
+    return this.db.withTenant(orgId, async (s) => {
+      const r = await s.query<{ keys: string[] | null }>(
+        `UPDATE agent_runs
+            SET cited_sources = cited_sources || COALESCE((
+              SELECT jsonb_agg(x ORDER BY o) FROM jsonb_array_elements($3::jsonb) WITH ORDINALITY AS t(x, o)
+               WHERE NOT EXISTS (SELECT 1 FROM jsonb_array_elements(agent_runs.cited_sources) e WHERE e->>'key' = x->>'key')
+            ), '[]'::jsonb)
+          WHERE org_id=$1 AND id=$2 AND status='running'
+          RETURNING ARRAY(SELECT e->>'key' FROM jsonb_array_elements(cited_sources) WITH ORDINALITY AS t(e, o) ORDER BY o) AS keys`,
+        [orgId, runId, JSON.stringify(items)],
+      );
+      const row = r.rows[0];
+      return row ? (row.keys ?? []) : null;
     });
   }
 

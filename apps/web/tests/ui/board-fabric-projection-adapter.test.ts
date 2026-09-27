@@ -104,7 +104,7 @@ describe("Board canonical-to-Fabric projection adapter", () => {
   });
 
   it("keeps unsupported canonical objects visible as locked placeholders with the same identity", () => {
-    const source = [canonical("supported", "sticky"), canonical("future", "frame")];
+    const source = [canonical("supported", "sticky"), canonical("future", "image")];
 
     const projected = toBoardFabricObjects(source);
 
@@ -115,18 +115,43 @@ describe("Board canonical-to-Fabric projection adapter", () => {
       kind: "placeholder",
       locked: true,
       geometry: source[1]!.geometry,
-      projectionIssue: { code: "BOARD_OBJECT_UNSUPPORTED", sourceKind: "frame" },
+      projectionIssue: { code: "BOARD_OBJECT_UNSUPPORTED", sourceKind: "image" },
     });
-    expect(projected[1]!.content.text).toContain("暂不支持“frame”对象");
-    expect(source[1]).toMatchObject({ id: "future", kind: "frame", text: "frame content" });
+    expect(projected[1]!.content.text).toContain("暂不支持“image”对象");
+    expect(source[1]).toMatchObject({ id: "future", kind: "image", text: "image content" });
   });
 
   it("projects every currently unsupported canonical kind instead of silently filtering records", () => {
-    const kinds = ["frame", "group", "connector", "image", "drawing", "extension"] as const;
+    const kinds = ["image", "drawing", "extension"] as const;
     const projected = toBoardFabricObjects(kinds.map((kind) => canonical(`object-${kind}`, kind)));
 
     expect(projected.map((object) => object.id)).toEqual(kinds.map((kind) => `object-${kind}`));
     expect(projected.every((object) => object.kind === "placeholder" && object.locked)).toBe(true);
     expect(projected.map((object) => object.projectionIssue?.sourceKind)).toEqual(kinds);
+  });
+
+  it("projects validated content extensions into dedicated Fabric renderer kinds", () => {
+    const content = [
+      { objectKind: "extension", boardContent: { version: 1, type: "shape", variant: "diamond", fill: "#FFFFFF", borderColor: "#111111", borderWidth: 1, borderStyle: "solid", opacity: 1, radius: 0, textColor: "#111111", horizontalAlign: "center", verticalAlign: "middle" }, expected: "shape" },
+      { objectKind: "drawing", boardContent: { version: 1, type: "drawing", strokes: [{ id: "stroke", tool: "pen", points: [{ x: 1, y: 2, pressure: .2 }, { x: 4, y: 6, pressure: .9 }], color: "#111111", width: 3, opacity: 1 }] }, expected: "drawing" },
+      { objectKind: "image", boardContent: { version: 1, type: "image", status: "ready", assetId: "asset-1", sourceUrl: "https://example.com/sample.png", mimeType: "image/png", intrinsicWidth: 10, intrinsicHeight: 10, crop: { x: 0, y: 0, width: 1, height: 1 }, opacity: 1, borderColor: "#FFFFFF", borderWidth: 0, cornerRadius: 0, fileName: "sample.png", replacementOf: null, failureCode: null, byteSize: 10, contentDigest: `sha256:${"a".repeat(64)}`, magicMimeType: "image/png", retryCount: 0 }, expected: "image" },
+      { objectKind: "extension", boardContent: { version: 1, type: "tile", tileType: "document", title: "访谈", description: "研究材料", icon: null, coverAssetId: null, fields: [], tags: [], link: null, status: null, actions: [] }, expected: "card" },
+    ] as const;
+    const projected = toBoardFabricObjects(content.map((item, index) => ({ ...canonical(`content-${index}`, item.objectKind), extensionData: { contentObject: item.boardContent } })));
+    expect(projected.map((item) => item.kind)).toEqual(content.map((item) => item.expected));
+    expect(projected.map((item) => item.boardContent?.type)).toEqual(["shape", "drawing", "image", "tile"]);
+    expect(projected[0]?.style).toMatchObject({ fill: "#FFFFFF", stroke: "#111111", borderStyle: "solid", opacity: 1, radius: 0, alignment: "center", verticalAlignment: "middle" });
+  });
+
+  it("projects panels, groups and semantic connectors as renderer data without Fabric ownership", () => {
+    const frame = { ...canonical("panel", "frame"), text: "Research", zIndex: 2, extensionData: { spatial: { version: 1, mode: "grid", autoExpand: true, clipContent: false, padding: 24, gap: 24, columns: 3, flowDirection: "horizontal" } } } as WhiteboardObject;
+    const group = { ...canonical("group", "group"), zIndex: 3 };
+    const a = { ...canonical("a", "sticky"), geometry: { x: 10, y: 20, width: 100, height: 80, rotation: 90 } };
+    const b = { ...canonical("b", "sticky"), geometry: { x: 300, y: 100, width: 100, height: 80, rotation: 0 } };
+    const connector = { ...canonical("edge", "connector"), zIndex: 4, connector: { from: "a", to: "b", fromAnchor: "right", toAnchor: "left", type: "curve", startStyle: "circle", endStyle: "arrow", lineStyle: "dashed", label: "needs", semanticRelation: "needs" } } as WhiteboardObject;
+    const projected = toBoardFabricObjects([frame, group, a, b, connector]);
+    expect(projected[0]).toMatchObject({ kind: "panel", zIndex: 2, panel: { title: "Research", mode: "grid", autoExpand: true } });
+    expect(projected[1]).toMatchObject({ kind: "group", zIndex: 3 });
+    expect(projected[4]).toMatchObject({ kind: "connector", zIndex: 4, connector: { from: "a", to: "b", type: "curve", label: "needs", semanticRelation: "needs", start: { x: -30, y: 120 }, end: { x: 300, y: 140 } } });
   });
 });

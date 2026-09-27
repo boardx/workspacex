@@ -1,0 +1,64 @@
+/**
+ * #4247 UI (cherry-picked from 244d0827d, uncommitted): platform operator turns the deployment-level extraction
+ * switch off on /platform-admin/ops-status; the org page then says the deployment has not enabled it; turn it back on.
+ * The owner account is a platform operator via PLATFORM_SUPERUSER_EMAILS and an org admin (fixture adjustment).
+ */
+import { mkdirSync, writeFileSync } from "node:fs";
+import path from "node:path";
+import { expect, test, type Page } from "@playwright/test";
+import { KG_EVAL } from "../kg-experience-eval/fixture";
+import { apiGet, login } from "../kg-experience-eval/eval-helpers";
+
+const OUT = path.resolve(__dirname, "../../../../evidence/phase-18/r03");
+mkdirSync(OUT, { recursive: true });
+const record: Record<string, unknown> = {};
+const shot = (page: Page, name: string) => page.screenshot({ path: path.join(OUT, `${name}.png`), fullPage: true });
+
+async function orgPage(page: Page) {
+  await page.goto("/org-admin/profile");
+  const section = page.getByTestId("knowledge-extraction-toggle");
+  await expect(section).toBeVisible();
+  await section.scrollIntoViewIfNeeded();
+  return section;
+}
+
+test("#4247: deployment switch off → org page says not enabled → back on", async ({ page }) => {
+  await login(page, KG_EVAL.owner);
+
+  let section = await orgPage(page);
+  await expect(page.getByTestId("knowledge-extraction-not-capable")).toHaveCount(0);
+  record.orgBefore = (await section.innerText()).trim();
+  await shot(page, "4247-1-org-page-before");
+
+  await page.goto("/platform-admin/ops-status");
+  const panel = page.getByTestId("admin-platform-extraction");
+  await expect(panel).toBeVisible();
+  await expect(page.getByTestId("admin-platform-extraction-provider-configured")).toBeVisible();
+  await expect(page.getByTestId("admin-platform-extraction-state")).toHaveText("已开启");
+  await panel.scrollIntoViewIfNeeded();
+  await shot(page, "4247-2-ops-status-on");
+  await page.getByTestId("admin-platform-extraction-toggle").click();
+  await expect(page.getByTestId("admin-platform-extraction-state")).toHaveText("已关闭");
+  await expect(page.getByTestId("admin-platform-extraction-save-failed")).toHaveCount(0);
+  record.apiAfterOff = (await apiGet(page, "/platform/knowledge-graph/extraction-setting"));
+  await shot(page, "4247-3-ops-status-off");
+
+  section = await orgPage(page);
+  const notCapable = page.getByTestId("knowledge-extraction-not-capable");
+  await expect(notCapable).toBeVisible();
+  record.orgWhenOff = (await section.innerText()).trim();
+  await shot(page, "4247-4-org-page-deployment-off");
+
+  await page.goto("/platform-admin/ops-status");
+  await expect(page.getByTestId("admin-platform-extraction-state")).toHaveText("已关闭");
+  await page.getByTestId("admin-platform-extraction-toggle").click();
+  await expect(page.getByTestId("admin-platform-extraction-state")).toHaveText("已开启");
+  await page.getByTestId("admin-platform-extraction").scrollIntoViewIfNeeded();
+  await shot(page, "4247-5-ops-status-back-on");
+
+  section = await orgPage(page);
+  await expect(page.getByTestId("knowledge-extraction-not-capable")).toHaveCount(0);
+  record.orgAfter = (await section.innerText()).trim();
+  await shot(page, "4247-6-org-page-after");
+  writeFileSync(path.join(OUT, "4247.json"), `${JSON.stringify(record, null, 2)}\n`);
+});

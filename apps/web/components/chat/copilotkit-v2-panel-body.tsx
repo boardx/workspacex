@@ -125,6 +125,7 @@ export function CopilotKitV2PanelBody({
   onPlanTodosChange,
   onRunStateChange,
   onPendingMaterialsChange,
+  onUploadingMaterialsChange,
   onAttachUploadPortChange,
   threadAttachments = null,
   archived = false,
@@ -178,6 +179,10 @@ export function CopilotKitV2PanelBody({
     readonly startedAt: number | null; readonly recoveryDiagnostic?: string | null;
   }) => void;
   onPendingMaterialsChange?: (count: number) => void;
+  /** 人类实测：右栏「材料」页签点「+」上传时，进度只出现在 composer 里，「材料」这边
+   * 在上传完成前毫无反馈——用户在右栏动作，回应却出现在屏幕另一端。这个回调把
+   * "正在传几个"实时递给外壳，转给「材料」面板显示。 */
+  onUploadingMaterialsChange?: (count: number) => void;
   /** issue #3347 —— 见下方 `attachUploadPort` 的文档：右栏「材料」页签的上传能力面。 */
   onAttachUploadPortChange?: (port: ChatMaterialsUploadPort) => void;
   /** issue #2046（CK-P2）—— 见外层 `CopilotKitV2Panel` 同名 prop。 */
@@ -1403,6 +1408,12 @@ export function CopilotKitV2PanelBody({
   React.useEffect(() => {
     onPendingMaterialsChange?.(pendingMaterialsCount);
   }, [pendingMaterialsCount, onPendingMaterialsChange]);
+  /** 见 `chat-composer-attachments.tsx` 的 `uploadingCount` 头注——右栏「材料」页签
+   * 从这里知道"正在传几个"，不是只在传完之后才有反馈。 */
+  const uploadingMaterialsCount = attach.uploadingCount;
+  React.useEffect(() => {
+    onUploadingMaterialsChange?.(uploadingMaterialsCount);
+  }, [uploadingMaterialsCount, onUploadingMaterialsChange]);
 
   /**
    * issue #3347 —— 把 composer 这**同一个**附件控制器的最小上传能力面交给外壳，

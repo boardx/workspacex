@@ -29,6 +29,11 @@ class DeferredRebindOutbox extends DurableMemoryOutbox {
   finish(){this.release();}
   override async rebind(from:string,to:string){this.start();await this.gate;await super.rebind(from,to);}
 }
+const sticky = (id: string) => ({ id, kind: 'sticky' as const, schemaVersion: 1 as const, geometry: { x: 0, y: 0, width: 180, height: 140, rotation: 0 }, text: id, style: {}, parentId: null, orderKey: '' });
+const messages = (socket: Socket) => socket.sent.map(value => JSON.parse(value) as { type: string; updateId?: string; gestureId?: string });
+const updates = (socket: Socket) => messages(socket).filter((value): value is { type: 'update'; updateId: string; gestureId: string } => value.type === 'update' && typeof value.updateId === 'string');
+const sync = (socket: Socket, server: Y.Doc, epoch = 1, seq = 0) => socket.message({ type: 'sync', epoch, seq, update: bytesToBase64(Y.encodeStateAsUpdate(server)), role: 'editor', archived: false });
+const burst = (doc: Y.Doc, count: number) => { for (let index = 0; index < count; index++) executeCommands(doc, [{ type: 'create', object: sticky(`note-${index}`) }], 'local'); };
 beforeEach(() => { vi.useFakeTimers(); Socket.sockets = []; auth.token = 'test-session'; vi.stubGlobal('WebSocket', Socket); });
 afterEach(() => { vi.unstubAllGlobals(); vi.useRealTimers(); });
 it('handshakes before writes, only ACK clears pending, and reconnect replays same updateId', () => {
@@ -130,7 +135,7 @@ it('fails closed when the in-page offline replay queue reaches its bounded updat
   socket.message({type:'sync',epoch:1,seq:0,update:bytesToBase64(Y.encodeStateAsUpdate(server)),role:'editor',archived:false});
   socket.onclose?.({code:1006});
   for(let index=0;index<201 && state.phase!=='blocked';index++) executeCommands(doc,[{type:'create',object:{id:`n-${index}`,kind:'sticky',schemaVersion:1,geometry:{x:index,y:0,width:1,height:1,rotation:0},text:'x',style:{},parentId:null,orderKey:String(index)}}],`offline-${index}`);
-  expect(state).toMatchObject({phase:'blocked',reason:'PENDING_LIMIT',pending:0});
+  expect(state).toMatchObject({phase:'blocked',reason:'PENDING_LIMIT',pending:200});
   expect(readObjects(doc)).toEqual([]);provider.close();doc.destroy();server.destroy();
 });
 it('ignores a replayed peer update without regressing sequence, then accepts a newer update', () => {
@@ -170,4 +175,76 @@ it('persists an authentication tombstone and refuses stale document restore afte
   const provider=new WhiteboardProvider(doc,'board-1',value=>{state=value;},outbox);await vi.advanceTimersByTimeAsync(0);Socket.sockets[0]!.message({type:'error',code:'ACCESS_REVOKED',recoverable:false});await vi.advanceTimersByTimeAsync(0);
   expect(outbox.revoked.has('test-session')).toBe(true);expect(state).toMatchObject({phase:'blocked',reason:'ACCESS_REVOKED'});provider.close();doc.destroy();
   const stale=createWhiteboardDocument();let restored!:WhiteboardConnectionState;new WhiteboardProvider(stale,'board-1',value=>{restored=value;},outbox);await vi.advanceTimersByTimeAsync(0);expect(restored).toMatchObject({phase:'blocked',reason:'ACCESS_REVOKED'});expect(Socket.sockets).toHaveLength(1);stale.destroy();
+});
+
+it('keeps forty burst updates pending while draining no more than eight unacknowledged frames', () => {
+  const doc=createWhiteboardDocument(),server=createWhiteboardDocument();let state:WhiteboardConnectionState|undefined;
+  const provider=new WhiteboardProvider(doc,'board-1',value=>{state=value;}),socket=Socket.sockets[0]!;
+  sync(socket,server);burst(doc,40);
+  expect(state?.pending).toBe(40);expect(updates(socket)).toHaveLength(8);
+
+  const acknowledged=new Set<string>();
+  while(acknowledged.size<40){
+    const outstanding=updates(socket).filter(message=>!acknowledged.has(message.updateId));
+    expect(outstanding.length).toBeGreaterThan(0);expect(outstanding.length).toBeLessThanOrEqual(8);
+    const next=outstanding[0]!;acknowledged.add(next.updateId);
+    socket.message({type:'ack',updateId:next.updateId,gestureId:next.gestureId,seq:acknowledged.size});
+  }
+  expect(updates(socket)).toHaveLength(40);expect(new Set(updates(socket).map(message=>message.updateId)).size).toBe(40);
+  expect(state?.pending).toBe(0);
+  provider.close();doc.destroy();server.destroy();
+});
+
+it('reconnects by replaying only unacknowledged updates with their original IDs and FIFO order', () => {
+  const doc=createWhiteboardDocument(),server=createWhiteboardDocument();let state:WhiteboardConnectionState|undefined;
+  const provider=new WhiteboardProvider(doc,'board-1',value=>{state=value;}),first=Socket.sockets[0]!;
+  sync(first,server);burst(doc,12);
+  const initial=updates(first);expect(initial).toHaveLength(8);
+  for(let index=0;index<3;index++) first.message({type:'ack',updateId:initial[index]!.updateId,gestureId:initial[index]!.gestureId,seq:index+1});
+  const beforeDisconnect=updates(first);expect(beforeDisconnect).toHaveLength(11);expect(state?.pending).toBe(9);
+  first.onclose?.({code:1006});vi.advanceTimersByTime(500);
+  const second=Socket.sockets[1]!;second.onopen?.();sync(second,server,1,3);
+  const replayed=updates(second);expect(replayed).toHaveLength(8);
+  expect(replayed.map(message=>message.updateId)).toEqual(beforeDisconnect.slice(3,11).map(message=>message.updateId));
+  expect(state?.pending).toBe(9);
+  provider.close();doc.destroy();server.destroy();
+});
+
+it('holds latest awareness behind durable writes so presence cannot consume the protocol window', () => {
+  const doc=createWhiteboardDocument(),server=createWhiteboardDocument();
+  const provider=new WhiteboardProvider(doc,'board-1',()=>{}),socket=Socket.sockets[0]!;
+  sync(socket,server);burst(doc,40);
+  for(let index=0;index<20;index++) provider.awareness({x:index,y:index+1},[`note-${index}`]);
+  vi.advanceTimersByTime(50);expect(messages(socket).filter(message=>message.type==='awareness')).toEqual([]);
+  const acknowledged=new Set<string>();
+  while(acknowledged.size<40){
+    const next=updates(socket).find(message=>!acknowledged.has(message.updateId))!;
+    acknowledged.add(next.updateId);socket.message({type:'ack',updateId:next.updateId,gestureId:next.gestureId,seq:acknowledged.size});
+  }
+  vi.advanceTimersByTime(50);
+  expect(messages(socket).filter(message=>message.type==='awareness')).toEqual([{type:'awareness',cursor:{x:19,y:20},selected:['note-19'],editingObjectId:null,viewport:null,presenting:false,followingActorId:null}]);
+  provider.close();doc.destroy();server.destroy();
+});
+
+it('keeps every unacknowledged update visible in pending state when a protocol error blocks the board', () => {
+  const doc=createWhiteboardDocument(),server=createWhiteboardDocument();let state:WhiteboardConnectionState|undefined;
+  const provider=new WhiteboardProvider(doc,'board-1',value=>{state=value;}),socket=Socket.sockets[0]!;
+  sync(socket,server);burst(doc,10);
+  const first=updates(socket);socket.message({type:'ack',updateId:first[0]!.updateId,gestureId:first[0]!.gestureId,seq:1});socket.message({type:'ack',updateId:first[1]!.updateId,gestureId:first[1]!.gestureId,seq:2});
+  expect(state?.pending).toBe(8);
+  socket.message({type:'error',code:'PROTOCOL_LIMIT',recoverable:false});
+  expect(state).toMatchObject({phase:'blocked',pending:8,reason:'PROTOCOL_LIMIT'});expect(readObjects(doc)).toEqual([]);
+  vi.advanceTimersByTime(60000);expect(Socket.sockets).toHaveLength(1);
+  provider.close();doc.destroy();server.destroy();
+});
+
+it('rejects an unsolicited ACK instead of allowing it to drain unsent work', () => {
+  const doc = createWhiteboardDocument(), server = createWhiteboardDocument(); let state!: WhiteboardConnectionState;
+  const provider = new WhiteboardProvider(doc, 'board-1', value => {state = value;}), socket = Socket.sockets[0]!;
+  sync(socket, server); burst(doc, 12);
+  expect(updates(socket)).toHaveLength(8);
+  socket.message({type: 'ack', updateId: crypto.randomUUID(), gestureId: crypto.randomUUID(), seq: 1});
+  expect(state).toMatchObject({phase: 'blocked', reason: 'ACK_CONFLICT', pending: 12});
+  expect(updates(socket)).toHaveLength(8);
+  provider.close(); doc.destroy(); server.destroy();
 });

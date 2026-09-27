@@ -9,6 +9,7 @@ import type { OntologyBatch, OntologyRejectCode } from "../../domain/knowledge-g
 import type { ExtractionResult, KnownObject } from "../../domain/knowledge-graph/extraction";
 import type { GraphHit, GraphHop, RecallClaim, RecallObject } from "../../domain/knowledge-graph/recall";
 import type { ConfirmedClaim, ConflictPair, FreshClaim } from "../../domain/knowledge-graph/conflict";
+import type { LiveDecision, SupersedeFresh } from "../../domain/knowledge-graph/decision-supersede";
 
 export interface AppliedBatch {
   readonly actionId: string;
@@ -114,6 +115,13 @@ export interface KgExtractionSourcePort {
   loadMessage(orgId: OrgId, messageId: string, contextTurns: number): Promise<{ readonly message: KgMessage; readonly context: readonly KgMessage[] } | null>;
   /** 本会话已有的实体（实体解析用）。 */
   knownObjects(orgId: OrgId, threadId: string): Promise<readonly KnownObject[]>;
+  /**
+   * round 7（#4284 收口）：这条消息若是**项目会话里 agent 的回答**，产出它的那个 run 在这一轮召回（`kg_turn_recalls`）里
+   * 用到了多少条**不能证明属于本会话**的记忆（本会话 = `chat_session` 作用域、`scope_id` = 该消息的 thread）。
+   * 个人空间条目在这里一律算「不能证明」（worker 不以任何用户身份读，RLS 本来就不放 personal 行）——fail closed。
+   * 不是 agent 回答 / 不在项目会话 / 这一轮没有召回记录 ⇒ 0。只回一个数，不回任何内容。
+   */
+  projectAnswerOutsideRecallCount(orgId: OrgId, messageId: string): Promise<number>;
 }
 
 export interface KnowledgeExtractorPort {
@@ -201,6 +209,10 @@ export interface PersonalClaimOriginRow {
   readonly sourceClaimId: string;
   readonly threadId: string;
   readonly projectId: string | null;
+  /** issue #4302：原结论最早一条支撑消息的时间（ISO）；没有消息证据为 null */
+  readonly saidAt: string | null;
+  /** issue #4302：这个来源是系统自动记下的（#4283 derived_from 边 created_by = model） */
+  readonly autoCopied: boolean;
 }
 
 export const KNOWLEDGE_READ_PORT = Symbol("KnowledgeReadPort");
@@ -289,6 +301,49 @@ export interface PromotionPort {
 
 export const PROMOTION_PORT = Symbol("PromotionPort");
 
+// ─────────────────────────────── issue #4283 本人的决定自动记进本人个人空间 ───────────────────────────────
+
+/** 数据库拒绝一次自动复制的码（迁移 20260926131000 `kg_auto_copy_decision`）。逐条记日志、跳过，不让整条抽取任务失败。 */
+export type KgAutoCopyRejectCode =
+  | "KG_NOT_AUTHOR" | "KG_NOT_OWNER" | "KG_CLAIM_NOT_FOUND" | "KG_CONTESTED_NEEDS_RESOLUTION"
+  | "KG_EVIDENCE_REVOKED" | "KG_SCOPE_NOT_ENABLED";
+
+export class KgAutoCopyRejected extends Error {
+  constructor(readonly code: KgAutoCopyRejectCode, message?: string) {
+    super(message ?? code);
+  }
+}
+
+/**
+ * 系统把「作者本人说的决定」复制到作者本人个人空间，以及本人撤销那份副本。实现只调数据库函数：
+ * 目标空间由数据库从证据消息的作者推出（调用方给不出、也改不了），见迁移头注。
+ */
+export interface KgAutoCopyPort {
+  /**
+   * 这条消息刚抽出的、可以复制的结论（模型提出、全部证据都是作者本人的话、还没复制过），以及作者本人
+   * 个人空间的活结论（去重用）。消息不是成员本人说的 ⇒ `author = null`、两边都空。
+   */
+  candidates(orgId: OrgId, threadId: string, messageId: string): Promise<{
+    readonly author: string | null;
+    readonly fresh: readonly { readonly id: string; readonly statement: string }[];
+    readonly personal: readonly { readonly id: string; readonly statement: string }[];
+  }>;
+  /** 执行一次复制；被数据库拒绝时抛 `KgAutoCopyRejected`。返回个人空间那条的 id（merge 时 = 目标）。 */
+  copy(orgId: OrgId, input: {
+    readonly actionId: string; readonly threadId: string; readonly messageId: string; readonly claimId: string;
+    readonly mode: "new" | "merge"; readonly targetClaimId?: string;
+  }): Promise<string>;
+  /**
+   * 人的动作：撤销本人个人空间里由 `claimId`（会话原结论）自动记下、仍是「AI 记下的」那一份。
+   * 找不到（别人的 / 不存在 / 已确认过 / 已撤销）⇒ `KgHumanActionError("KG_CLAIM_NOT_FOUND")`。
+   */
+  undo(orgId: OrgId, userId: string, input: { readonly actionId: string; readonly threadId: string; readonly claimId: string }): Promise<{
+    readonly personalClaimId: string; readonly outcome: "revoked" | "detached";
+  }>;
+}
+
+export const KG_AUTO_COPY_PORT = Symbol("KgAutoCopyPort");
+
 // ─────────────────────────────── F16 矛盾提醒 ───────────────────────────────
 
 /**
@@ -314,6 +369,26 @@ export interface KgConflictPort {
    */
   pendingCloseOrgs(): Promise<readonly OrgId[]>;
   drainCloseOne(orgId: OrgId): Promise<boolean>;
+  /**
+   * Issue #4290：明确改口的取代（迁移 20260926140000）。候选 = 这条消息刚抽出的决定（带消息作者）+ 还活着的旧决定
+   * （本会话的；个人线程里再加所有者本人个人空间的，各带作者）。判定在 domain/knowledge-graph/decision-supersede.ts。
+   */
+  supersedeCandidates(orgId: OrgId, threadId: string, messageId: string): Promise<{
+    readonly fresh: readonly SupersedeFresh[];
+    readonly live: readonly LiveDecision[];
+  }>;
+  /**
+   * 复核后落表，返回开了几张（取代提示 + 卡）；复核不过的跳过。
+   * `supersedes`（高把握）：旧决定 superseded、开一张可撤销的取代提示；
+   * `prompts`（低把握 frame_only）：只开一张 F16 卡（kind = possible_change），两条都不改状态。
+   */
+  applySupersedes(orgId: OrgId, input: {
+    readonly actionId: string;
+    readonly threadId: string;
+    readonly messageId: string;
+    readonly supersedes: readonly { readonly newer: string; readonly olders: readonly string[] }[];
+    readonly prompts: readonly { readonly newer: string; readonly older: string }[];
+  }): Promise<number>;
 }
 
 export const KG_CONFLICT_PORT = Symbol("KgConflictPort");
@@ -373,7 +448,11 @@ export const MEMORY_CARD_PORT = Symbol("MemoryCardPort");
  * 与 `tool-permission-grant.controller.ts` 同名方法同一实现思路）。
  */
 export interface KgOrgExtractionSettingsPort {
-  /** 没有行 = 从未设置过 = 默认关（新组织不默认抽取对话内容）。 */
+  /**
+   * 没有行 = 从未设置过 = **默认开**（人类指令「默认是打开的」，迁移 20260926100000；
+   * 触发器 `kg_enqueue_extraction` 同一条件：只有显式 `enabled = false` 的行才拦）。
+   * 这是「组织级默认值」的唯一说明处，其余注释只引用这里。
+   */
   getEnabled(orgId: OrgId): Promise<boolean>;
   /** upsert；返回写入后的现值（防御性——不假设调用方传的就是落库的）。 */
   setEnabled(orgId: OrgId, enabled: boolean, updatedByUserId: string): Promise<boolean>;

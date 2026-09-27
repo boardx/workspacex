@@ -1,0 +1,8 @@
+"改成关注 985 高校" [ '我决定关注 211 高校' ] [ 'same_kind' ] {"supersedes":[{"newerClaimId":"n","olderClaimId":"a"}],"prompts":[]}
+"改成关注 C9" [ '改成关注 985 高校' ] [ 'frame_only' ] {"supersedes":[],"prompts":[{"newerClaimId":"n","olderClaimId":"b"}]}
+"改成关注 C9 吧" [ '改成关注 985 高校' ] [ 'frame_only' ] {"supersedes":[],"prompts":[{"newerClaimId":"n","olderClaimId":"b"}]}
+"改成关注985高校，我反对" [ '改成关注 985 高校', '改成关注 C9' ] [ null, null ] {"supersedes":[],"prompts":[]}
+"改成关注985高校，我反对" [ '改成关注 C9' ] [ null ] {"supersedes":[],"prompts":[]}
+"改成关注985高校" [ '改成关注 C9' ] [ 'frame_only' ] {"supersedes":[],"prompts":[{"newerClaimId":"n","olderClaimId":"c"}]}
+"改成关注985高校，我反对" [ '我决定关注 211 高校' ] [ null ] {"supersedes":[],"prompts":[]}
+"改成关注985高校" [ '我决定关注 211 高校' ] [ 'same_kind' ] {"supersedes":[{"newerClaimId":"n","olderClaimId":"a"}],"prompts":[]}

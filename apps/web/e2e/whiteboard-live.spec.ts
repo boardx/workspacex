@@ -52,7 +52,8 @@ test('realtime presence field convergence',async({browser,request:api,baseURL})=
     });
     await test.step('create the board and grant editor/viewer access',async()=>{
       const created=await request(api,ownerToken!,'POST','/whiteboards',{requestId:randomUUID(),name:`Live collaboration ${randomUUID()}`});
-      boardId=(await created.json() as {id:string}).id;
+      const board=await created.json() as {id:string;lifecycleRevision:number};
+      boardId=board.id;
       await Promise.all([
         request(api,ownerToken!,'PUT',`/whiteboards/${boardId}/members`,{userId:required('WHITEBOARD_EDITOR_USER_ID'),role:'editor'}),
         request(api,ownerToken!,'PUT',`/whiteboards/${boardId}/members`,{userId:required('WHITEBOARD_VIEWER_USER_ID'),role:'viewer'}),
