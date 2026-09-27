@@ -372,7 +372,8 @@ export interface KgAutoCopyPort {
    */
   candidates(orgId: OrgId, threadId: string, messageId: string): Promise<{
     readonly author: string | null;
-    readonly fresh: readonly { readonly id: string; readonly statement: string }[];
+    /** issue #4343：`kind` 是这条结论的类型（库里为空按 fact），应用层据此认目标 / 偏好。 */
+    readonly fresh: readonly { readonly id: string; readonly statement: string; readonly kind: KG.KgClaimKind }[];
     readonly personal: readonly { readonly id: string; readonly statement: string }[];
   }>;
   /** 执行一次复制；被数据库拒绝时抛 `KgAutoCopyRejected`。返回个人空间那条的 id（merge 时 = 目标）。 */

@@ -178,6 +178,26 @@ describe("lib/knowledge-graph-api", () => {
 
 /* ── 面板 ─────────────────────────────────────────────────────────── */
 
+describe("记忆面板：issue #4343 目标 / 偏好", () => {
+  it("本人的目标、偏好各成一组，标题是「目标」「偏好」，排在决定之后、事实之前", async () => {
+    const claims = [
+      ...CLAIMS,
+      claim("c-goal", "goal", "我的目标是探索未来教育", "proposed"),
+      claim("c-pref", "preference", "我更喜欢简洁的回答", "proposed"),
+    ];
+    stubNetwork((p) => (p.startsWith("/knowledge-graph/threads/") ? json(knowledge({ claims })) : undefined));
+    render(<Harness threadId={THREAD} />);
+    await screen.findByTestId("kg-list");
+    const goal = screen.getByTestId("kg-group-goal");
+    expect(goal).toHaveTextContent("目标");
+    expect(within(goal).getByText("我的目标是探索未来教育")).toBeInTheDocument();
+    expect(within(screen.getByTestId("kg-group-preference")).getByText("我更喜欢简洁的回答")).toBeInTheDocument();
+    expect(screen.getByTestId("kg-group-preference")).toHaveTextContent("偏好");
+    const order = [...screen.getByTestId("kg-list").querySelectorAll("[data-testid^='kg-group-']")].map((s) => s.getAttribute("data-testid"));
+    expect(order.slice(0, 4)).toEqual(["kg-group-decision", "kg-group-goal", "kg-group-preference", "kg-group-fact"]);
+  });
+});
+
 describe("记忆面板（真实数据）", () => {
   it("加载态 → 按类型分组，带三态徽标与来源计数；头部常驻可见范围「仅你可见」", async () => {
     let release: (r: Response) => void = () => {};
