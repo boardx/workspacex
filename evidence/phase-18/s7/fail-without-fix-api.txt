@@ -1,0 +1,59 @@
+===== reverted to origin/main: apps/api/src/infrastructure/knowledge-graph/pg-knowledge-read.ts (turn memory has no server-reconciled `cited`)
+   × S7：引用 chip 由服务端对账 > chip = 召回集合 ∩ 回答真的用到的；回答里提到没被召回的说法（库里真有的 / 编的）不出 chip 197ms
+   × S7：引用 chip 由服务端对账 > 回答没用到任何召回的记忆 ⇒ 没有 chip（召回照旧列在「为什么用到它」里） 215ms
+   ✓ S7：越权防护 > 别人的会话 ⇒ 看不见（KG_THREAD_NOT_FOUND）；项目会话里不是所有者的成员 ⇒ KG_NOT_OWNER 494ms
+   ✓ S7：越权防护 > 不是这一轮的引用（召回了没用到 / 根本没召回）⇒ KG_CLAIM_NOT_FOUND；绕过应用层直接调数据库也一样 407ms
+   × S7：纠正之后下一轮不再用它 > 「这条不对」（没给新说法）⇒ 忘掉：下一轮召回不再带它，之前那条回答下也不再引用 506ms
+   × S7：纠正之后下一轮不再用它 > 「这条不对」+ 新说法 ⇒ 取代：下一轮用新说法，旧说法不再出现；证据挂到新说法上 162ms
+   × S7：纠正之后下一轮不再用它 > 「已过时」⇒ expireClaim（#4363 前按撤回执行）：下一轮不再用它 168ms
+   × S7：纠正率 = 纠正 / 被引用 > 按同一个对账判据复算被引用次数；纠正按种类计数；只算本人的 17ms
+ ✓ tests/knowledge-graph/citation-reconcile.test.ts (6 tests) 5ms
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 6 ⎯⎯⎯⎯⎯⎯⎯
+AssertionError: expected undefined to deeply equal [ Array(1) ]
+AssertionError: expected undefined to deeply equal []
+AssertionError: expected undefined to deeply equal [ 'clm-s7-invoice' ]
+Error: KG_CLAIM_NOT_FOUND
+Error: KG_CLAIM_NOT_FOUND
+AssertionError: expected '0' to be '3' // Object.is equality
+ Test Files  1 failed | 1 passed (2)
+      Tests  6 failed | 9 passed (15)
+===== apps/api/src/domain/knowledge-graph/citation.ts: reconcileCitations returns the whole recall set (no answer-vs-recall check)
+73:  return [...new Set(recalled.map((r) => r.claimId))];
+   × S7：引用 chip 由服务端对账 > chip = 召回集合 ∩ 回答真的用到的；回答里提到没被召回的说法（库里真有的 / 编的）不出 chip 171ms
+   × S7：引用 chip 由服务端对账 > 回答没用到任何召回的记忆 ⇒ 没有 chip（召回照旧列在「为什么用到它」里） 80ms
+   ✓ S7：越权防护 > 别人的会话 ⇒ 看不见（KG_THREAD_NOT_FOUND）；项目会话里不是所有者的成员 ⇒ KG_NOT_OWNER 508ms
+   × S7：越权防护 > 不是这一轮的引用（召回了没用到 / 根本没召回）⇒ KG_CLAIM_NOT_FOUND；绕过应用层直接调数据库也一样 105ms
+   ✓ S7：纠正之后下一轮不再用它 > 「这条不对」（没给新说法）⇒ 忘掉：下一轮召回不再带它，之前那条回答下也不再引用 545ms
+   × S7：纠正率 = 纠正 / 被引用 > 按同一个对账判据复算被引用次数；纠正按种类计数；只算本人的 26ms
+   × reconcileCitations > 模型提到一条没被召回的说法 ⇒ 不会出现（候选只有召回集合） 8ms
+   × reconcileCitations > 召回了但回答没用到 ⇒ 不出；只沾一两个常见字的也不算 3ms
+   × reconcileCitations > 空回答 / 空召回 ⇒ 空；同一 id 只出一次 1ms
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 7 ⎯⎯⎯⎯⎯⎯⎯
+AssertionError: expected [ 'c1' ] to deeply equal []
+AssertionError: expected [ 'c1', 'c2' ] to deeply equal []
+AssertionError: expected [ 'c1' ] to deeply equal []
+AssertionError: expected [ …(2) ] to deeply equal [ Array(1) ]
+AssertionError: expected [ Array(1) ] to deeply equal []
+AssertionError: expected 'resolved' to be 'KG_CLAIM_NOT_FOUND' // Object.is equality
+AssertionError: expected '4' to be '3' // Object.is equality
+ Test Files  2 failed (2)
+      Tests  7 failed | 8 passed (15)
+===== fresh db s7tnomig without apps/api/migrations/20260927470000_kg_s7_citation_corrections.sql
+   × S7：越权防护 > 别人的会话 ⇒ 看不见（KG_THREAD_NOT_FOUND）；项目会话里不是所有者的成员 ⇒ KG_NOT_OWNER 357ms
+   × S7：越权防护 > 不是这一轮的引用（召回了没用到 / 根本没召回）⇒ KG_CLAIM_NOT_FOUND；绕过应用层直接调数据库也一样 255ms
+   × S7：纠正之后下一轮不再用它 > 「这条不对」（没给新说法）⇒ 忘掉：下一轮召回不再带它，之前那条回答下也不再引用 740ms
+   × S7：纠正之后下一轮不再用它 > 「这条不对」+ 新说法 ⇒ 取代：下一轮用新说法，旧说法不再出现；证据挂到新说法上 231ms
+   × S7：纠正之后下一轮不再用它 > 「已过时」⇒ expireClaim（#4363 前按撤回执行）：下一轮不再用它 161ms
+   × S7：纠正率 = 纠正 / 被引用 > 按同一个对账判据复算被引用次数；纠正按种类计数；只算本人的 20ms
+ ✓ tests/knowledge-graph/citation-reconcile.test.ts (6 tests) 14ms
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 6 ⎯⎯⎯⎯⎯⎯⎯
+ Test Files  1 failed | 1 passed (2)
+      Tests  6 failed | 9 passed (15)
+===== all restored
+ ✓ tests/retrieval/kg-s7-citation-correction.test.ts (9 tests) 3882ms
+   ✓ S7：引用 chip 由服务端对账 > chip = 召回集合 ∩ 回答真的用到的；回答里提到没被召回的说法（库里真有的 / 编的）不出 chip 329ms
+   ✓ S7：纠正之后下一轮不再用它 > 「这条不对」（没给新说法）⇒ 忘掉：下一轮召回不再带它，之前那条回答下也不再引用 417ms
+ ✓ tests/knowledge-graph/citation-reconcile.test.ts (6 tests) 6ms
+ Test Files  2 passed (2)
+      Tests  15 passed (15)
+DONE

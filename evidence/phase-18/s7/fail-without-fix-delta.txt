@@ -1,0 +1,18 @@
+===== D1/L1/L4: kg_correct_citation as at 36871e76b (TEMP table, walk filtered only at the end, family edges not invalidated first) — fresh db
+   × S7 review F1：纠正落在整家（会话原说法 ⇄ 长期记忆副本） > 在原对话里纠正会话那条（带新说法）⇒ 长期记忆副本也不再生效；新说法只一份、在长期记忆里；两个对话下一轮都只用新说法 250ms
+   × S7 delta review：一家只走本人能改的节点（L1）；函数里没有临时表（D1） > 项目记忆（L2）的副本、别人的副本不动；只能经 L2 才连得上的本人长期记忆也不动 156ms
+   × S7 delta review：一家只走本人能改的节点（L1）；函数里没有临时表（D1） > kg_correct_citation 不建临时表（调用方预先建一张同名 TEMP 表也顶替不了什么） 10ms
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 3 ⎯⎯⎯⎯⎯⎯⎯
+ Test Files  1 failed (1)
+      Tests  3 failed | 11 passed (14)
+===== L5 (web): answer-knowledge-footer.tsx as at 36871e76b (no per-scope gate)
+   × 点开一条引用：原话 + 跳到原消息 + 纠正 > 作用域不在可纠正之列（例如日后召回里出现的项目记忆，delta review L5）：所有者也不给纠正入口 17ms
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+ Test Files  1 failed (1)
+      Tests  1 failed | 13 passed (14)
+===== all restored
+ Test Files  2 passed (2)
+      Tests  28 passed (28)
+ Test Files  2 passed (2)
+      Tests  31 passed (31)
+DONE

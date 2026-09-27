@@ -1,0 +1,41 @@
+
+Running 7 tests using 1 worker
+
+  ✘  1 e2e/s7/journey.spec.ts:43:5 › 0: thread A — two own decisions are remembered (and auto-copied to personal memory) (19.0m)
+  -  2 e2e/s7/journey.spec.ts:51:5 › 1 chip: new thread B — the answer cites exactly the recalled memories it used, 「依据你…的决定」
+  -  3 e2e/s7/journey.spec.ts:72:5 › 2 jump: click the chip → the claim expands; 「跳到原消息」 opens thread A with the source message highlighted
+  -  4 e2e/s7/journey.spec.ts:97:5 › 3 这条不对: owner → forget card (only this memory) → 忘掉
+  -  5 e2e/s7/journey.spec.ts:112:5 › 4 已过时: owner → the meeting decision is marked expired
+  -  6 e2e/s7/journey.spec.ts:122:5 › 5 next turn: the same question no longer uses either memory; no chip; metrics count the corrections
+  -  7 e2e/s7/journey.spec.ts:146:5 › privacy: another member cannot correct the owner's citation (thread not visible)
+
+
+  1) e2e/s7/journey.spec.ts:43:5 › 0: thread A — two own decisions are remembered (and auto-copied to personal memory) 
+
+    Test timeout of 600000ms exceeded.
+
+    TimeoutError: page.goto: Timeout 180000ms exceeded.
+    Call log:
+      - navigating to "http://127.0.0.1:29144/chat", waiting until "load"
+
+
+       at ../kg-experience-eval/eval-helpers.ts:46
+
+      44 | export async function newThread(page: Page): Promise<string> {
+      45 |   if (!new URL(page.url()).pathname.startsWith("/chat")) {
+    > 46 |     await page.goto("/chat");
+         |                ^
+      47 |   }
+      48 |   const create = page.getByTestId("chat-thread-create");
+      49 |   await expect(create).toBeVisible();
+        at newThread (/home/user/workspacex/.claude/worktrees/agent-a29e93edc7b87f773/apps/web/e2e/kg-experience-eval/eval-helpers.ts:46:16)
+        at /home/user/workspacex/.claude/worktrees/agent-a29e93edc7b87f773/apps/web/e2e/s7/journey.spec.ts:44:32
+
+    Error Context: test-results/s7/artifacts/journey-0-thread-A-—-two-o-e2f97--copied-to-personal-memory-/error-context.md
+
+    Error Context: test-results/s7/artifacts/journey-0-thread-A-—-two-o-e2f97--copied-to-personal-memory-/error-context.md
+
+  1 failed
+    e2e/s7/journey.spec.ts:43:5 › 0: thread A — two own decisions are remembered (and auto-copied to personal memory) 
+  6 did not run
+EXIT 1

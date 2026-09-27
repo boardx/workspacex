@@ -1,0 +1,18 @@
+{
+  "says": {
+    "S7-DB": {
+      "say": "我决定主库用 PostgreSQL",
+      "extract": {
+        "entities": [],
+        "claims": [ { "statement": "我决定主库用 PostgreSQL", "kind": "decision", "confidence": 0.9, "about": [], "decidedBy": null, "quote": "我决定主库用 PostgreSQL" } ]
+      }
+    },
+    "S7-MEETING": {
+      "say": "我决定每周五开例会",
+      "extract": {
+        "entities": [],
+        "claims": [ { "statement": "我决定每周五开例会", "kind": "decision", "confidence": 0.9, "about": [], "decidedBy": null, "quote": "我决定每周五开例会" } ]
+      }
+    }
+  }
+}
