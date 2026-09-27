@@ -163,7 +163,9 @@ export class WhiteboardProvider {
         if (message.type === 'sync') {
           if (this.epoch !== null && this.epoch !== message.epoch) { this.block('STALE_EPOCH'); return; }
           if (this.seq !== null && message.seq < this.seq) { this.block('STALE_SEQUENCE'); return; }
-          if ((!['owner','editor'].includes(message.role) || message.archived) && this.pending.length) { this.block('WRITE_DENIED'); return; }
+          // Fresh server authorization explicitly rejected this generation's writes.
+          // Regrant must start empty instead of reviving rejected delete/undo intents.
+          if ((!['owner','editor'].includes(message.role) || message.archived) && this.pending.length) { this.block('WRITE_DENIED', true); return; }
           Y.applyUpdate(this.doc, base64ToBytes(message.update), REMOTE);
           if(this.pendingPreviewNeedsReplay){
             for(const pending of this.pending){
