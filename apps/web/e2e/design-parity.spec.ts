@@ -270,6 +270,8 @@ test.describe("R7 直接编辑（#3933）", () => {
     await page.getByTestId("design-detail-redo").click();
     await expect(phone).toContainText("年度会员 · 旗舰版");
 
+    // design-delta `novice-progressive-disclosure`：图层面板要用才出现——先在画布上选中那个元素。
+    await phone.locator('[data-node-id="r7-agree"]').click();
     await page.getByTestId("design-layer-r7-agree").dragTo(page.getByTestId("design-layer-r7-tabs"));
     await expect.poll(async () => {
       const a = await phone.locator('[data-node-id="r7-agree"]').boundingBox();

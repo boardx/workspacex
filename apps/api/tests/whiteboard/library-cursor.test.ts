@@ -14,6 +14,12 @@ describe('whiteboard list cursor', () => {
     expect(() => codec.decode({...principal,userId:'other'},{...input,cursor:encoded})).toThrowError(expect.objectContaining({code:'CURSOR_FILTER_MISMATCH'}));
     expect(() => codec.decode(principal,{...input,query:'other',cursor:encoded})).toThrowError(WhiteboardResourceError);
   });
+  it('binds untagged filtering to pagination so a cursor cannot cross result sets', () => {
+    const filter = { ...input, tagIds: [], untagged: 'true' as const };
+    const cursor = codec.encode(principal, filter, {updatedAt:'2026-09-26T00:00:00.000Z',id:'9fe596a7-34bb-4fc5-8782-42fa6c4f3c98'});
+    expect(codec.decode(principal, {...filter, cursor})).not.toBeNull();
+    expect(() => codec.decode(principal, {...filter, untagged:'false', cursor})).toThrowError(expect.objectContaining({code:'CURSOR_FILTER_MISMATCH'}));
+  });
   it('rejects tampering without parsing untrusted pagination state', () => {
     const encoded = codec.encode(principal,input,{updatedAt:'2026-09-26T00:00:00.000Z',id:'9fe596a7-34bb-4fc5-8782-42fa6c4f3c98'});
     expect(() => codec.decode(principal,{...input,cursor:`${encoded}x`})).toThrowError(expect.objectContaining({code:'CURSOR_INVALID'}));

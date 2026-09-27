@@ -86,3 +86,25 @@ describe("describeScreenIssues —— 重问时说清是哪个节点哪个字段
     expect(lines.join("\n")).not.toContain("Invalid input");
   });
 });
+
+describe("纯图标按钮补文字（白板工具栏，2026-09-27 实测）", () => {
+  it("⭐ button{icon:edit, label:\"\"} ⇒ 文字补成「编辑」，整页过契约", () => {
+    const screen = { frame: "x", root: { type: "stack", children: [
+      { type: "button", props: { icon: "edit", label: "", variant: "ghost" } },
+      { type: "button", props: { icon: "link" } },
+    ] } };
+    expect(valid(screen)).toBe(false);
+    const { screen: out } = normalizeScreenCandidate(screen);
+    const kids = (out.root as { children: { props: { label: string } }[] }).children;
+    expect(kids.map((k) => k.props.label)).toEqual(["编辑", "链接"]);
+    expect(valid(out)).toBe(true);
+  });
+  it("图标名不在闭集里 ⇒ 不补（留给带报错的重问），不编一个名字", () => {
+    const screen = { frame: "x", root: { type: "stack", children: [{ type: "button", props: { icon: "lasso", label: "" } }] } };
+    const { screen: out } = normalizeScreenCandidate(screen);
+    expect(((out.root as { children: { props: Record<string, unknown> }[] }).children[0]!.props).label).toBeUndefined();
+  });
+  it("补的文字来自契约里图标的中文名（与属性面板同一张表），闭集里每个图标都有", () => {
+    for (const icon of designPrototype.PrototypeIcon.options) expect(designPrototype.prototypeOptionLabel("button", "icon", icon), icon).not.toBe(icon);
+  });
+});

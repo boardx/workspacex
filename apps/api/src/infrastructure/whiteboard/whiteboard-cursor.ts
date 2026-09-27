@@ -4,11 +4,11 @@ import type { ListBoards } from '../../application/whiteboard/ports';
 import { WhiteboardResourceError } from '../../application/whiteboard/ports';
 
 type CursorPayload = {
-  v: 1; orgId: string; userId: string; query: string | null; tagIds: string[]; archived: string; limit: number;
+  untagged?: string; v: 1; orgId: string; userId: string; query: string | null; tagIds: string[]; archived: string; limit: number;
   updatedAt: string; id: string;
 };
 const canonicalFilter = (p: Principal, input: ListBoards) => ({
-  orgId: p.orgId, userId: p.userId, query: input.query ?? null, tagIds: input.tagIds ?? [], archived: input.archived, limit: input.limit,
+  untagged: input.untagged ?? 'false', orgId: p.orgId, userId: p.userId, query: input.query ?? null, tagIds: input.tagIds ?? [], archived: input.archived, limit: input.limit,
 });
 export class WhiteboardCursorCodec {
   constructor(private readonly secret: string = whiteboardCursorSecret()) {
@@ -29,7 +29,7 @@ export class WhiteboardCursorCodec {
     catch { throw new WhiteboardResourceError('CURSOR_INVALID'); }
     const filter = canonicalFilter(p, input);
     if (payload.v !== 1 || payload.orgId !== filter.orgId || payload.userId !== filter.userId || payload.query !== filter.query
-      || payload.archived !== filter.archived || payload.limit !== filter.limit || JSON.stringify(payload.tagIds) !== JSON.stringify(filter.tagIds)) {
+      || (payload.untagged ?? 'false') !== filter.untagged || payload.archived !== filter.archived || payload.limit !== filter.limit || JSON.stringify(payload.tagIds) !== JSON.stringify(filter.tagIds)) {
       throw new WhiteboardResourceError('CURSOR_FILTER_MISMATCH');
     }
     if (!/^\d{4}-\d{2}-\d{2}T/.test(payload.updatedAt) || !/^[0-9a-f-]{36}$/i.test(payload.id)) throw new WhiteboardResourceError('CURSOR_INVALID');
