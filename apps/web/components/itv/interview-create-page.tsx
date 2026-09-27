@@ -2,7 +2,7 @@
 import * as React from "react";
 import { chatFileUpload } from "@repo/contracts";
 import { useRouter } from "next/navigation";
-import { createDigitalInterviewDraft } from "@/lib/interview-api";
+import { createDigitalInterviewDraft } from "@/lib/live-interview-metadata";
 import { getStoredSessionToken } from "@/lib/api-client";
 import { initializeInterviewMarkdown, saveInterviewMarkdown, confirmInterviewMarkdown, generateInterviewMarkdown, uploadInterviewMarkdownAttachment } from "@/lib/interview-markdown-api";
 import { importInterviewTextFile } from "@/lib/interview-text-import";

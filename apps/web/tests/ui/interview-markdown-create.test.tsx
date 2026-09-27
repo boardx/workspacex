@@ -5,7 +5,7 @@ import { InterviewCreatePage } from "@/components/itv/interview-create-page";
 import type { InterviewMarkdownEnvelope } from "@/lib/interview-markdown-api";
 const mocks = vi.hoisted(() => ({ push: vi.fn(), create: vi.fn(), initializeInterviewMarkdown: vi.fn(), saveInterviewMarkdown: vi.fn(), confirmInterviewMarkdown: vi.fn(), generateInterviewMarkdown: vi.fn(), uploadInterviewMarkdownAttachment: vi.fn() }));
 vi.mock("next/navigation", () => ({ useRouter: () => ({ push: mocks.push }) }));
-vi.mock("@/lib/interview-api", () => ({ createDigitalInterviewDraft: mocks.create }));
+vi.mock("@/lib/live-interview-metadata", () => ({ createDigitalInterviewDraft: mocks.create }));
 vi.mock("@/lib/interview-markdown-api", () => mocks);
 const markdown = "# 夜班交接研究\n\n保留 **用户原话** 与[资料](#source-night)。";
 const empty: InterviewMarkdownEnvelope = { interviewId: "new-source-7", revisionId: "revision-new-7", version: 1, documents: [], states: [], execution: null, review: null };
