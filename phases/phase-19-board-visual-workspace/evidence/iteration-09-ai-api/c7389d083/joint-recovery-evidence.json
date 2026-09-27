@@ -1,0 +1,28 @@
+{
+  "version": 1,
+  "sourceDatabase": "wsx_e05686bc124824399e77",
+  "targetDatabase": "wsx_drill_7341d398776242dfb8f3",
+  "boardId": "50b8c266-7f57-4921-a705-71fcb7575915",
+  "backupId": "061fa5c9-9865-42a2-bc44-01391af199d7",
+  "manifestHash": "b2c20bd97d780e6a060328adb99d21cb823ddfad442d0c8916449487beaca96c",
+  "pgDumpHash": "57bcfea5b1c08ddc61172b74439b1c533c8ceb8e36a8fb39387c224f0d8e4b62",
+  "sourceRevision": {
+    "epoch": 1,
+    "seq": 5
+  },
+  "restored": {
+    "epoch": 1,
+    "seq": 0,
+    "objectCount": 1,
+    "canonicalStateHash": "5164aed013a8f0b10b444b5e18c01a8efa20497e98065160632db640e7b755b4",
+    "imageCount": 0,
+    "commentThreadCount": 0,
+    "sourceHistoryBlobCount": 9
+  },
+  "archiveRoot": "/private/tmp/board-proposal-proof-20260927-1805/joint/archive",
+  "targetRoot": "/private/tmp/board-proposal-proof-20260927-1805/joint/restored-objects",
+  "pgBodyNull": true,
+  "executedAt": "2026-09-27T10:03:09.001Z",
+  "scope": "selected-board-from-restored-pg-and-independent-archive",
+  "cleanup": "Target DB and drill directory retained for main-session inspection; no source deletion performed."
+}
