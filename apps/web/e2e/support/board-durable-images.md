@@ -8,8 +8,8 @@ or lead accounts (device sessions may invalidate each other).
 Required environment: `WORKSPACEX_ISOLATION_ID` matching seed-fullstack-smoke,
 `WORKSPACEX_WEB_PORT` (or `WHITEBOARD_WEB_URL`), `WORKSPACEX_API_PORT` (or
 `WHITEBOARD_API_URL`), and the isolated `PGHOST`, `PGPORT`, `PGDATABASE`, `PGUSER`,
-`PGPASSWORD`. A local `psql` executable is needed; `WHITEBOARD_PSQL_BIN` may name
-its absolute path. The PG connection needs SELECT on board documents, updates,
+`PGPASSWORD`. The producer resolves the API package’s already-installed `pg` driver through
+`createRequire`; no psql executable or extra dependency is needed. The PG connection needs SELECT on board documents, updates,
 image assets and asset refs. The producer opens a read-only transaction with the
 fixture tenant context; it does not disable RLS or mutate storage.
 
@@ -40,3 +40,13 @@ Passing the five producer unit tests and Playwright collection does **not** cert
 browser, PG or ObjectStore runtime acceptance. The attached evidence is produced
 only by the real run. Boards are created through the API and archived on cleanup;
 the source is permanently deleted only after its duplicate has been verified.
+
+## Fresh fullstack lane
+
+For a fresh isolated run, use
+`e2e/support/board-durable-images-fullstack.config.ts` instead. It inherits the
+existing `playwright.fullstack-smoke.config.ts` API/web/seed orchestration and all
+its required isolation environment variables. Run it through the repository’s
+normal isolation wrapper with apps/web as cwd; do not start a parallel hand-built
+stack. `--list` only collects; omitting `--list` starts the inherited fullstack
+services, so actual execution belongs to the coordinating session.

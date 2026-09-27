@@ -1,8 +1,9 @@
-import { execFile } from 'node:child_process';
+import { createRequire } from 'node:module';
+import { resolve } from 'node:path';
 import { strict as assert } from 'node:assert';
 
 /** Read-only producer. Uses the same isolated PG* environment as the running API;
- * requires psql, never starts services and never writes fixtures to the database. */
+ * uses the API package’s existing pg driver; never starts services or writes fixtures. */
 export async function produceImageStorageEvidence(orgId: string, boardIds: string[], assetId: string) {
   for(const variable of ['PGHOST','PGPORT','PGDATABASE']) assert(process.env[variable],`Isolated ${variable} required for storage evidence`);
   assert(boardIds.length > 0 && boardIds.every(id => /^[0-9a-f-]{36}$/i.test(id)));
@@ -15,12 +16,15 @@ SELECT json_build_object(
  'inlineUpdates',(SELECT count(*) FROM whiteboard_updates WHERE org_id=${literal(orgId)} AND board_id IN (${boardIds.map(literal).join(',')}) AND ("update" IS NOT NULL OR update_object_key IS NULL)),
  'binaryAssetColumns',(SELECT count(*) FROM information_schema.columns WHERE table_name='whiteboard_image_assets' AND data_type='bytea')
 ); ROLLBACK;`;
-  // Pipe SQL to stdin: credentials and SQL are never embedded in shell commands.
-  const run = execFile(process.env.WHITEBOARD_PSQL_BIN ?? 'psql', ['-X', '-q', '-A', '-t', '-v', 'ON_ERROR_STOP=1'], { env: process.env, maxBuffer: 1024 * 1024 });
-  const completed = new Promise<string>((resolve, reject) => { let output = '', error = ''; run.stdout?.on('data', chunk => output += chunk); run.stderr?.on('data', chunk => error += chunk); run.on('error', reject); run.on('close', code => code === 0 ? resolve(output) : reject(new Error(`Storage producer psql failed (${code}): ${error}`))); });
-  run.stdin?.end(sql);
-  const lines = (await completed).trim().split('\n');
-  const evidence = JSON.parse(lines.find(line => line.startsWith('{')) ?? 'null') as {
+  // Resolve the runtime's installed driver without introducing a web dependency.
+  const {Client}=createRequire(resolve(__dirname,'../../../api/package.json'))('pg') as {
+    Client:new()=>{connect():Promise<void>;query(sql:string):Promise<Array<{rows:Array<Record<string,unknown>>}>>;end():Promise<void>};
+  };
+  const client=new Client();
+  let result:Array<{rows:Array<Record<string,unknown>>}>;
+  try{await client.connect();result=await client.query(sql);}finally{await client.end();}
+  const payload=result.flatMap(part=>part.rows).find(row=>'json_build_object' in row)?.json_build_object;
+  const evidence = payload as {
     assets: Array<{boardId:string;key:string;metadata:Record<string,unknown>;active:boolean}>;
     documents: Array<{boardId:string;epoch:number;seq:number;key:string;hash:string;size:number;bodyIsNull:boolean}>;
     inlineUpdates:number; binaryAssetColumns:number;
