@@ -137,7 +137,7 @@ beforeAll(async () => {
   await addChatMessage({ orgId: ORG, id: "m-s5-ptodo", threadId: P1, body: `${PROJECT_TODO}。`, authorId: USER_A });
   await addChatMessage({ orgId: ORG, id: "m-s5-bgoal", threadId: B1, body: B_GOAL, authorId: USER_B });
   await settle();
-}, 240_000);
+}, 600_000);
 
 afterAll(async () => {
   await e?.app.close();

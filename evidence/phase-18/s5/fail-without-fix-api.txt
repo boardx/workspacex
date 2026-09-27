@@ -1,0 +1,42 @@
+# API fail-without-fix (branch s5, base 8f30e70ff). Each block: one piece of the change undone, the S5 API test files run, failing tests listed, file restored.
+# Blocks with 'skipped' hit the 240 s beforeAll timeout while the machine was overloaded (load 100+); recall and leak were re-run afterwards (end of file).
+===== reverted to base (8f30e70ff2116603807a449cbc013fefbefaeb18): src/application/knowledge-graph/recall-knowledge.ts — no profile summary in recall
+===== reverted to base (8f30e70ff2116603807a449cbc013fefbefaeb18): src/application/knowledge-graph/extract-message-knowledge.ts — no goal-link step after auto copy
+   × issue #4360: 目标 → 决定 / 待办的挂接 > 模型高把握 ⇒ 新记下的决定由系统挂到本人的目标下；低把握 ⇒ 不挂（留日志）
+   × issue #4362: 新会话开场简报 > A：最近的目标与决定（决定带挂着的目标）、本人个人对话里的待办；不含项目会话的待办、不含别人的
+   × issue #4360: 改写 / 忘掉会级联 > 改写目标 ⇒ 新说法「你确认过」、旧的折叠为「取代了」；挂在它下面的决定跟着走；下一轮召回用新说法
+      Tests  3 failed | 22 passed (25)
+===== reverted to base (8f30e70ff2116603807a449cbc013fefbefaeb18): src/infrastructure/knowledge-graph/pg-knowledge-read.ts — revised personal claim not folded as replaced
+   × issue #4360: 改写 / 忘掉会级联 > 改写目标 ⇒ 新说法「你确认过」、旧的折叠为「取代了」；挂在它下面的决定跟着走；下一轮召回用新说法
+      Tests  1 failed | 24 passed (25)
+===== mutation in src/application/knowledge-graph/profile.ts — confidence gate removed (low-confidence proposals attach)
+   × issue #4360: 目标 → 决定 / 待办的挂接 > 模型高把握 ⇒ 新记下的决定由系统挂到本人的目标下；低把握 ⇒ 不挂（留日志）
+   × #4360 模型提议挂哪个目标：只有高把握才挂 > 低把握 / 没有目标 / 编了个不存在的目标 / 读不懂 ⇒ 不挂，留日志说明原因
+      Tests  2 failed | 23 passed (25)
+===== mutation in src/infrastructure/knowledge-graph/pg-session-briefing.ts — briefing todos not limited to the viewer's own personal threads
+      Tests  14 passed | 11 skipped (25)
+===== mutation in src/domain/knowledge-graph/briefing.ts — briefing composes nothing
+   × #4362 开场简报组装 > 三段有界：最近的目标与决定、没做完的待办、还没定下来的；决定带挂着的目标；续上首问逐字引用原文、引用指回那条
+   × #4362 开场简报组装 > 有矛盾的条目不放进「上次在做的事」；超长原文截断
+      Tests  2 failed | 12 passed | 11 skipped (25)
+===== migration 20260927130000 absent (fresh db)
+   × issue #4360: 目标 → 决定 / 待办的挂接 > 模型高把握 ⇒ 新记下的决定由系统挂到本人的目标下；低把握 ⇒ 不挂（留日志）
+   × issue #4360: 目标 → 决定 / 待办的挂接 > 本人可以手动挂 / 摘；别人碰不到（同一个 404），挂到不是目标的条目上也不行
+   × issue #4362: 新会话开场简报 > 没有任何记忆的人 ⇒ 空（界面不显示）
+   × issue #4362: 新会话开场简报 > A：最近的目标与决定（决定带挂着的目标）、本人个人对话里的待办；不含项目会话的待办、不含别人的
+   × issue #4362: 新会话开场简报 > 还开着的「可能改口」卡进「还没定下来的」；卡处理掉之后就不在了
+   × issue #4362: 新会话开场简报 > 续上：把待办的首问在新对话里发出去 ⇒ 回答用到它，这一轮的引用正是简报引用的那一条
+   × issue #4362: 新会话开场简报 > 关掉会记住（只对本人）；重新打开又有；埋点只记本人自己的
+   × issue #4360: 改写 / 忘掉会级联 > 改写目标 ⇒ 新说法「你确认过」、旧的折叠为「取代了」；挂在它下面的决定跟着走；下一轮召回用新说法
+   × issue #4360: 改写 / 忘掉会级联 > 忘掉目标（/brain 的既有动作：在来源对话里忘掉原话）⇒ 长期记忆里那条失效、挂接一起失效；简报与召回都不再有它
+      Tests  9 failed | 16 passed (25)
+
+===== re-run: reverted recall-knowledge.ts — no profile summary in recall
+   × issue #4360: 画像摘要每轮带上（只进本人的个人对话） > 把「我是一名中学语文老师」记进长期记忆后，新个人对话里一句无关的话也带上它（claim 通道、引用指回它）
+      Tests  1 failed | 24 passed (25)
+===== re-run (beforeAll timeout 600 s): mutation in pg-session-briefing.ts — briefing todos not limited to the viewer's own personal threads
+   × issue #4362: 新会话开场简报 > 没有任何记忆的人 ⇒ 空（界面不显示） 33ms
+   × issue #4362: 新会话开场简报 > A：最近的目标与决定（决定带挂着的目标）、本人个人对话里的待办；不含项目会话的待办、不含别人的 84ms
+   × issue #4362: 新会话开场简报 > 续上：把待办的首问在新对话里发出去 ⇒ 回答用到它，这一轮的引用正是简报引用的那一条 224ms
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 3 ⎯⎯⎯⎯⎯⎯⎯
+      Tests  3 failed | 8 passed (11)
