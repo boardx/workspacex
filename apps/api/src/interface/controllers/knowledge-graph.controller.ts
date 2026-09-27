@@ -14,7 +14,7 @@ import { CHAT_REPOSITORY, type ChatRepository } from "../../application/chat/por
 import {
   DECISION_ID_FACTORY, IDENTITY_REPOSITORY, type DecisionIdFactory, type IdentityRepository,
 } from "../../application/identity/ports";
-import { actOnMemoryCard } from "../../application/knowledge-graph/act-on-memory-card";
+import { actOnMemoryCard, undoMemoryCard } from "../../application/knowledge-graph/act-on-memory-card";
 import { applyHumanAction } from "../../application/knowledge-graph/apply-human-action";
 import { undoAutoPersonalCopy } from "../../application/knowledge-graph/auto-copy-decisions";
 import { listPromotionNominations, promoteToPersonal } from "../../application/knowledge-graph/promote-to-personal";
@@ -185,6 +185,17 @@ export class KnowledgeGraphController {
       { ...this.deps, cards, newId: newKgId },
       { ...v, actorKind: "human", cardId, decision, ...(claimIds !== undefined ? { claimIds } : {}), ...(editedStatement !== undefined ? { editedStatement } : {}) },
     ));
+  }
+
+  /** UC-KG-12b undoMemoryCard（issue #4361）—— 已生效的「忘掉」卡上的「撤销」（人的动作） */
+  @Post("/knowledge-graph/cards/:cardId/undo")
+  @HttpCode(200)
+  undoCard(@CurrentPrincipal() principal: Principal, @Param("cardId") cardId: string) {
+    const parsed = KG.knowledgeGraph.undoMemoryCard.in.safeParse({ cardId });
+    if (!parsed.success) throw new BadRequestException({ reasonCode: "KG_INVALID_REQUEST" });
+    const cards = this.cards;
+    if (cards === undefined) throw new ServiceUnavailableException("memory_cards_unavailable");
+    return this.run(principal, (v) => undoMemoryCard({ ...this.deps, cards, newId: newKgId }, { ...v, actorKind: "human", cardId: parsed.data.cardId }));
   }
 
   /**

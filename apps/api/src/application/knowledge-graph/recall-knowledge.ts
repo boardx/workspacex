@@ -4,9 +4,11 @@
  * 失败**降级**、不 fail run（同 L3 文件检索的纪律）：候选集读不到 ⇒ 这轮不带记忆；图路读不到 ⇒
  * 只用字面召回，并在计划里记 graph.available = false，给模型的材料里带上降级说明（R4-E1）。
  */
+import { knowledgeGraph as KG } from "@repo/contracts";
 import type { OrgId } from "../../domain/org-id";
-import { detectMemoryIntent, forgetMatches } from "../../domain/knowledge-graph/memory-intent";
-import { buildKnowledgeContextMessage, fuseRecall, graphSeeds, type KnowledgeRecall } from "../../domain/knowledge-graph/recall";
+import { detectMemoryIntent, forgetMatches, MEMORY_CARD_MAX_ITEMS } from "../../domain/knowledge-graph/memory-intent";
+import { buildKnowledgeContextMessage, fuseRecall, graphSeeds, type KnowledgeRecall, type RecallClaim } from "../../domain/knowledge-graph/recall";
+import { changeOfMindFor, type ChangeMindPorts } from "./change-mind";
 import { newKgId } from "./ids";
 import type { KnowledgeRecallPort, MemoryCardPort } from "./ports";
 
@@ -98,8 +100,14 @@ const oneLine = (s: string) => s.replace(/\s+/g, " ").trim();
  *
  * **Agent 只出卡，不执行**（R7-1、I-17）：这里只开 open 的卡，不碰任何一条记忆；记不记、忘不忘由人点
  * （actOnMemoryCard，执行身份是点击的人）。意图识别是确定的前缀规则（domain/knowledge-graph/memory-intent.ts），
- * 不确定就不出卡（A1）。忘掉卡的候选与召回同一份（本会话 + 个人线程里本人的个人空间），
- * 列的正是「下一轮会被召回的」那些。
+ * 不确定就不出卡（A1）。
+ *
+ * #4361（phase-18 S4）：
+ *   - 忘掉卡的候选 = 本人个人空间里召回得到的全部（本会话 + 长期记忆 + 本人别的个人对话里记下的，F15 同一个口径），
+ *     不再只限本会话与长期记忆；只在本人的个人对话里开（项目会话 ⇒ 不出卡、如实说明，不碰项目层的记忆）；
+ *     点了「忘掉」之后可以撤销（undoMemoryCard）。
+ *   - 「你记得我什么」⇒ 一张清单卡（kind = overview，按种类分组、每条带来源对话），给模型的是同一份分组清单；
+ *   - 「我改主意了，改成 Y」⇒ R8 的改口取代，确定地走一遍（change-mind.ts；需要 `change` 端口，没接 ⇒ 不做）。
  *
  * 返回给模型的一句说明（放在上下文里）：卡已经出了、还没生效，别说「已经记住 / 忘掉了」；
  * 忘掉却一条也没找到 ⇒ 一句**有条件的**说明（A2，见 no_items 分支）。没有意图 / 不是所有者 ⇒ null。
@@ -113,6 +121,7 @@ export async function memoryCardFor(
     readonly runId: string; readonly messageId: string; readonly text: string;
   },
   log: (message: string, detail: Record<string, unknown>) => void,
+  change?: ChangeMindPorts,
 ): Promise<string | null> {
   const intent = detectMemoryIntent(input.text);
   if (intent === null) return null;
@@ -131,14 +140,24 @@ export async function memoryCardFor(
       }
       return null;
     }
+    if (intent.kind === "change") {
+      if (change === undefined) return null;
+      return await changeOfMindFor(cards, change, {
+        orgId: input.orgId, userId: input.userId, threadId: input.threadId, messageId: input.messageId,
+        text: input.text, statement: intent.statement,
+      }, async () => (await knowledge.candidates(input.orgId, input.userId, input.threadId)).claims);
+    }
     const { claims } = await knowledge.candidates(input.orgId, input.userId, input.threadId);
-    // 忘掉卡只列本会话与长期记忆里的（卡的执行在数据库里只认这两处）；本人其他个人对话里记下的（F15 跨会话召回），
-    // 要到那个对话里去忘——已知缺口，见 evidence/kg-experience-eval/README.md。
-    const matches = forgetMatches(intent.target, claims.filter((c) => c.originThreadId === undefined));
+    if (intent.kind === "overview") return await overviewCardFor(cards, base, input.orgId, claims);
+    // 忘掉卡列本人个人空间里召回得到的全部（本会话 + 长期记忆 + 本人别的个人对话）；数据库逐条复核它们都在本人个人空间里。
+    const matches = forgetMatches(intent.target, claims);
     // 0 条也交给数据库：不是所有者 ⇒ not_owner（什么都不说），是所有者 ⇒ no_items（照实说没找到）。
     const r = await cards.open(input.orgId, { ...base, kind: "forget", target: intent.target, claimIds: matches.map((c) => c.id) });
     if (r.outcome === "opened") {
       return `【记忆卡片】用户想让你忘掉「${oneLine(intent.target)}」。系统已在这条回答下方列出相关的记忆（默认全选），用户点「忘掉」之后才会生效——现在还没有忘，不要说「已经忘掉了」。`;
+    }
+    if (r.outcome === "not_personal") {
+      return "【记忆卡片】用户想让你忘掉某条记忆，但管理长期记忆只能在用户自己的个人对话里做（这里是项目对话，项目里的记忆不在这里改）；请如实告诉用户，这次没有忘掉任何东西。";
     }
     // uc-18-6 R4-A2：「忘掉」匹配到 0 条 ⇒ 回答「没找到相关的记忆」，不出卡片。但前缀规则挡不尽「忘掉之前聊的」
     // 「忘掉格式要求」这类说的是这次对话 / 要求本身的话——所以不下命令，只给一句有条件的说明：真是在让忘掉记忆，
@@ -156,6 +175,39 @@ export async function memoryCardFor(
 }
 
 /**
+ * #4361「你记得我什么」：本人个人空间里召回得到的记忆，按种类（契约 `KG_CLAIM_KIND_DISPLAY_ORDER`）排好，前 20 条上卡；
+ * 给模型的是同一份按种类分组的清单（全部，最多 60 条），让它照着分组回答、每组点出来自哪里。
+ */
+export const OVERVIEW_CONTEXT_MAX = 60;
+
+async function overviewCardFor(
+  cards: MemoryCardPort,
+  base: { readonly cardId: string; readonly threadId: string; readonly runId: string; readonly messageId: string; readonly requesterUserId: string },
+  orgId: OrgId,
+  claims: readonly RecallClaim[],
+): Promise<string | null> {
+  const rank = (k: RecallClaim["kind"]) => KG.KG_CLAIM_KIND_DISPLAY_ORDER.indexOf(k);
+  const ordered = [...claims].sort((a, b) => rank(a.kind) - rank(b.kind) || (b.saidAt ?? "").localeCompare(a.saidAt ?? "") || a.id.localeCompare(b.id));
+  const r = await cards.open(orgId, { ...base, kind: "overview", claimIds: ordered.slice(0, MEMORY_CARD_MAX_ITEMS).map((c) => c.id) });
+  if (r.outcome === "not_personal") {
+    return "【记忆卡片】用户在问你记得他什么。长期记忆只能在用户自己的个人对话里查看（这里是项目对话，别的成员也看得到回答）；请如实告诉用户去个人对话或「大脑」页查看，不要在这里列出他的个人记忆。";
+  }
+  if (r.outcome === "no_items") {
+    return "【记忆卡片】用户在问你记得他什么。长期记忆里现在没有关于他的内容；请如实告诉他还没有记住任何事，可以说「记住：…」让你记下来。";
+  }
+  if (r.outcome !== "opened") return null;
+  const groups = KG.KG_CLAIM_KIND_DISPLAY_ORDER
+    .map((kind) => ({ kind, items: ordered.slice(0, OVERVIEW_CONTEXT_MAX).filter((c) => c.kind === kind) }))
+    .filter((g) => g.items.length > 0)
+    .map((g) => `${KG.KG_CLAIM_KIND_LABEL_ZH[g.kind]}：\n${g.items.map((c) => `- ${oneLine(c.statement)}（${sourceOf(c)}）`).join("\n")}`);
+  return `【记忆卡片】用户在问你记得他什么。系统已在这条回答下方放了一张按种类分组的清单，每条都能跳到原来的对话。请按下面的分组如实概括，不要编造清单以外的内容：\n${groups.join("\n")}`;
+}
+
+/** 给模型看的出处：本对话 / 长期记忆 / 本人另一个对话（链接在卡上，这里只说在哪）。 */
+const sourceOf = (c: RecallClaim): string =>
+  c.originThreadId !== undefined ? "你的另一个对话" : c.scope === "personal" ? "长期记忆" : "本对话";
+
+/**
  * 执行器的唯一入口（execute-run.ts 只调它）：这一轮交给模型的记忆材料，按放进 history 的先后排好——
  * 先是 F17 的卡片说明（没接卡片端口 / 没有明确意图 ⇒ 没有），再是 F08 的【记忆】召回材料（没命中 ⇒ 没有）。
  * 读身份恒为这一轮的发起人、会话恒为这一轮所在的会话（run.requesterUserId / run.threadId）。两样都降级不 fail run。
@@ -171,11 +223,13 @@ export async function turnKnowledgeContext(
     };
   },
   log: (message: string, detail: Record<string, unknown>) => void,
+  change?: ChangeMindPorts,
 ): Promise<readonly string[]> {
   const { orgId, run } = input;
-  const memory = await knowledgeMemoryFor(knowledge, { orgId, userId: run.requesterUserId, threadId: run.threadId, query: run.inputText, runId: run.runId }, log);
+  // 卡片先于召回：#4361「改主意」在这一步就可能取代掉旧决定，召回要读取代之后的样子（不再把旧说法交给模型）。
   const card = cards === undefined ? null : await memoryCardFor(knowledge, cards, {
     orgId, userId: run.requesterUserId, threadId: run.threadId, runId: run.runId, messageId: run.inputMessageId, text: run.inputText,
-  }, log);
+  }, log, change);
+  const memory = await knowledgeMemoryFor(knowledge, { orgId, userId: run.requesterUserId, threadId: run.threadId, query: run.inputText, runId: run.runId }, log);
   return [card, memory].filter((x): x is string => x !== null);
 }

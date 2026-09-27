@@ -608,19 +608,27 @@ async function readTurnSupersede(
 }
 
 type MemoryCard = Extract<NonNullable<TurnMemoryData["prompt"]>, { type: "memory_card" }>["card"];
-interface StoredCardItem { claimId: string | null; statement: string; scope: "chat_session" | "personal"; basis: string | null }
+interface StoredCardItem {
+  claimId: string | null; statement: string; scope: "chat_session" | "personal"; basis: string | null;
+  /** #4361：忘掉 / 查看卡上的会话结论所在的会话（本人别的个人线程）；缺省 = 卡所在的会话 */
+  threadId?: string | null;
+  /** #4361 overview：种类与来源会话 */
+  claimKind?: MemoryCard["items"][number]["claimKind"]; sourceThreadId?: string | null;
+}
 
 /**
  * F17：这一轮的「记住 / 忘掉」确认卡（U-4）。经回答的 agent_run_id 找到执行器为这一轮开的那张。
  * 按查看者读：个人空间的条目只给卡的主人（RLS 也这么判——卡上有个人空间条目时只有主人读得到这张卡），
  * 过滤完一条不剩 ⇒ 不出卡。还开着的卡在这里判「过期」（E2）：条目在出卡之后被改过 / 忘掉了 ⇒ stale。
  * 已记住的卡按现在的事实读（rememberedCard）：能不能撤销、长期记忆里还有没有它。
+ * #4361：忘掉卡的条目可以在本人别的个人线程里（只给卡的主人）；overview 卡（「你记得我什么」）按现在的事实过滤——
+ * 已经忘掉 / 被取代的不再列，每条带种类与来源会话（查看者本人的个人线程才给标题与链接）；撤销过的忘掉卡读作 undone。
  */
 async function readTurnMemoryCard(
   s: TenantSession, orgId: OrgId, viewer: string, threadId: string, messageId: string,
 ): Promise<MemoryCard | null> {
   const r = await s.query<{
-    id: string; kind: MemoryCard["kind"]; items: StoredCardItem[]; status: "open" | "done" | "dismissed"; created_by: string;
+    id: string; kind: MemoryCard["kind"]; items: StoredCardItem[]; status: "open" | "done" | "dismissed" | "undone"; created_by: string;
     remembered_claim_id: string | null; remembered_personal_id: string | null; claim_created: boolean; personal_created: boolean;
   }>(
     `SELECT k.id, k.kind, k.items, k.status, k.created_by, k.remembered_claim_id, k.remembered_personal_id,
@@ -631,22 +639,55 @@ async function readTurnMemoryCard(
   );
   const row = r.rows[0];
   if (row === undefined) return null;
-  const items = row.items.filter((i) => i.scope === "chat_session" || row.created_by === viewer);
+  const owner = row.created_by === viewer;
+  const items = row.items.filter((i) => (i.scope === "chat_session" && (i.threadId ?? threadId) === threadId) || owner);
   if (items.length === 0) return null;
   const ids = items.flatMap((i) => (i.claimId === null ? [] : [i.claimId]));
+  const otherThreads = owner ? [...new Set(items.flatMap((i) => (i.threadId !== undefined && i.threadId !== null && i.threadId !== threadId ? [i.threadId] : [])))] : [];
   const live = await s.query<{ id: string; basis: string }>(
     `SELECT c.id, kg_claim_basis(c.statement) AS basis FROM claims c
       WHERE c.org_id = $1 AND c.id = ANY($2::text[]) AND ${LIVE_CLAIM}
-        AND ((c.scope_kind = 'chat_session' AND c.scope_id = $3) OR (c.scope_kind = 'personal' AND c.scope_id = $4))`,
-    [orgId, ids, threadId, viewer],
+        AND ((c.scope_kind = 'chat_session' AND (c.scope_id = $3 OR c.scope_id = ANY($5::text[])))
+          OR (c.scope_kind = 'personal' AND c.scope_id = $4))`,
+    [orgId, ids, threadId, viewer, otherThreads],
   );
   const basisOf = new Map(live.rows.map((c) => [c.id, c.basis]));
+  if (row.kind === "overview") return overviewCard(s, orgId, viewer, row.id, items, basisOf);
   if (row.status === "open") {
     const stale = items.some((i) => i.claimId !== null && basisOf.get(i.claimId) !== i.basis);
     return { cardId: row.id, kind: row.kind, items: items.map((i) => ({ claimId: i.claimId, statement: i.statement })), state: stale ? "stale" : "open" };
   }
   if (row.kind === "remember" && row.status === "done") return rememberedCard(s, orgId, viewer, row, items[0]!.statement, basisOf);
   return { cardId: row.id, kind: row.kind, state: row.status, items: items.map((i) => ({ claimId: i.claimId, statement: i.statement })) };
+}
+
+/**
+ * #4361「你记得我什么」：出卡时的清单，按现在的事实过滤（忘掉 / 取代 / 改写过的不再列——说法变了的按现在的说法不在清单里，
+ * 不列旧说法）。来源会话只给查看者本人的个人线程（标题现读）；看不到 ⇒ null。一条不剩 ⇒ 不出卡。
+ */
+async function overviewCard(
+  s: TenantSession, orgId: OrgId, viewer: string, cardId: string, items: readonly StoredCardItem[], basisOf: ReadonlyMap<string, string>,
+): Promise<MemoryCard | null> {
+  const kept = items.filter((i) => i.claimId !== null && basisOf.get(i.claimId) === i.basis);
+  if (kept.length === 0) return null;
+  const sources = [...new Set(kept.flatMap((i) => (i.sourceThreadId ? [i.sourceThreadId] : [])))];
+  const titles = await s.query<{ id: string; title: string | null }>(
+    `SELECT t.id, t.title FROM chat_threads t
+      WHERE t.org_id = $1 AND t.id = ANY($2::text[]) AND t.created_by = $3 AND t.project_id IS NULL`,
+    [orgId, sources, viewer],
+  );
+  const titleOf = new Map(titles.rows.map((t) => [t.id, t.title ?? ""]));
+  return {
+    cardId, kind: "overview", state: "open",
+    items: kept.map((i) => {
+      const title = i.sourceThreadId ? titleOf.get(i.sourceThreadId) : undefined;
+      return {
+        claimId: i.claimId, statement: i.statement,
+        ...(i.claimKind !== undefined ? { claimKind: i.claimKind } : {}),
+        source: title === undefined ? null : { threadId: i.sourceThreadId!, title: title === "" ? "未命名对话" : title },
+      };
+    }),
+  };
 }
 
 /**

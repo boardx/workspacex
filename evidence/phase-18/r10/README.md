@@ -149,6 +149,17 @@ unless noted.
   [`README.md`](../../kg-experience-eval/README.md) round table). R1: E4 「原话」 accepts any corpus sentence, and
   `say()` waits for 「发送」. R2: tightening only (non-empty excerpt, same claim). R3: the seed re-enables extraction,
   authorised 2026-09-26. R4 added no amendment.
+- [ ] **#4361 (S4) manage memory in the conversation — signed-contract changes, treated as approved, sign off later**
+  ([`../s4/README.md`](../s4/README.md)). Contract `chat-knowledge-graph.ts`: `KgMemoryCard.kind` gains `overview`
+  (「你记得我什么」, a no-action list grouped by kind; items carry `claimKind` + `source`), `KgMemoryCard.state` gains
+  `undone`, new op `undoMemoryCard` (POST `/knowledge-graph/cards/:cardId/undo`), and `KG_CLAIM_KIND_LABEL_ZH` /
+  `KG_CLAIM_KIND_DISPLAY_ORDER` move into the contract (single source for the panel, the list card and the model
+  prompt). Behaviour changes to F17 (UC-KG-12, uc-18-6 B): the forget card now **only opens in the requester's own
+  personal threads** (a project thread gets no card and a plain explanation; F17 used to list the project thread's
+  claims); its candidates are the whole personal space (long-term memory + all own personal threads, the F15 scope),
+  not only this thread + long-term memory; forgetting a long-term item also forgets its live `derived_from` sources in
+  the requester's own personal threads; a done forget card is undoable. 「我改主意了，改成 Y」 runs the #4290 rules at
+  turn time (no dependency on the extraction model), including the automatic tier, even when org extraction is off.
 - [ ] Also open in the same file:
   - F17 card-state semantics (L105–110);
   - the F15 cross-session recall scope and the **E9 403 vs I-3 404** conflict (L181–184), which is the E9.c2 red;
