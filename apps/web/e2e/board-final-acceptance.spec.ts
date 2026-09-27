@@ -152,7 +152,7 @@ test('Visual Research: valid screenshot in one paste mixed with Sticky/Text/Arro
 });
 
 // This requires the R9 delegated Agent API. No API capability is substituted by DOM observations.
-test('AI Ready: delegated Agent CRUD/move/arrange/connect + confirm 30-note clustering', async ({page, request}) => {
+test('AI Ready API: delegated CRUD + pre-generated 30-note proposal transaction (not model clustering)', async ({page, request}) => {
   const token = await boardLogin(page), id = await createAcceptanceBoard(request, token, 'Acceptance AI');
   try {
     const notes = Array.from({length: 30}, (_, index) => object(`ai-note-${index}`, 'sticky', 100 + index % 6 * 230, 100 + Math.floor(index / 6) * 220, `Theme ${index % 3}: idea ${index}`));
@@ -187,7 +187,12 @@ test('AI Ready: delegated Agent CRUD/move/arrange/connect + confirm 30-note clus
     await page.goto(`/studio/board/${id}?proposal=${proposalId}`);
     await expect(page.getByTestId('board-ai-proposal')).toBeVisible();
     expect(await canonicalRows(page)).toEqual(beforeProposal);
+    const confirmation = page.waitForResponse(response => response.request().method() === 'POST'
+      && response.url().endsWith(`/v1/whiteboards/${id}/ai-proposals/${proposalId}/confirm`));
     await page.getByTestId('board-ai-confirm').click();
+    const confirmationResponse = await confirmation; expect(confirmationResponse.ok()).toBe(true);
+    const confirmed = await confirmationResponse.json() as {undoReceipt: {commands: WhiteboardCommand[]}};
+    expect(confirmed.undoReceipt.commands.length).toBeGreaterThan(0);
     await expect(page.getByTestId('board-ai-proposal')).toHaveCount(0);
     await expect.poll(async () => (await canonicalRows(page)).length).toBe(33);
     const clustered = await canonicalRows(page);
@@ -198,7 +203,13 @@ test('AI Ready: delegated Agent CRUD/move/arrange/connect + confirm 30-note clus
       expect(clustered.find(row => row.id === `cluster-${group}`)?.text).toBe(panels[group]!.text);
     }
     await metric('prepared-proposal-confirm-actions', 1, 2);
-    // This measures confirmation, not live model inference. The producer supplied a deterministic proposal.
+    // This measures confirmation only, NOT the PRD's complete <=2-action AI Organize journey.
+    // Real model reading 30 texts, semantic theme inference/naming and proposal generation
+    // remain a separate UNVERIFIED requirement; this deterministic fixture cannot satisfy it.
+    await test.info().attach('ai-organize-coverage-boundary', {body: JSON.stringify({
+      verifiedScope: 'pre-generated proposal confirmation and delegated API transactions',
+      unverifiedRequirements: ['real-model text reading', 'semantic theme inference', 'cluster naming', 'end-to-end AI Organize <=2 actions'],
+    }), contentType: 'application/json'});
     await assertReload(page, id, clustered);
     const events = await (await boardApi(request, token, 'GET', `/v1/whiteboards/${id}/events?afterSeq=0&limit=100`)).json() as {events: Array<{type: string; actor: {kind: string; actorId: string}}>};
     expect(events.events.some(event => event.type === 'AIOrganized' && event.actor.kind === 'ai' && event.actor.actorId === FULLSTACK_E2E.agentId)).toBe(true);
@@ -209,6 +220,11 @@ test('AI Ready: delegated Agent CRUD/move/arrange/connect + confirm 30-note clus
     expect(snapshot.boardId).toBe(id); expect(snapshot.role).toBe('owner'); expect(snapshot.archived).toBe(false); expect(snapshot.revision).toEqual(await boardHead(request, token, id));
     expect(snapshot.objects).toHaveLength(33);
     expect(snapshot.objects.find(value => value.id === 'ai-note-0')).toMatchObject({text: 'Updated agent idea', parentId: 'cluster-0'});
+    // Execute the server-issued inverse as one operation. This proves receipt-based
+    // API undo, not a claim that the editor's Undo button is already wired to it.
+    await operate(request, token, id, confirmed.undoReceipt.commands);
+    await expect.poll(() => canonicalRows(page)).toEqual(beforeProposal);
+    await assertReload(page, id, beforeProposal);
   } finally { await archiveAcceptanceBoard(request, token, id); }
 });
 // Performance belongs to its dedicated real-browser lanes. No fabricated report DOM or fixture-only benchmark here.
