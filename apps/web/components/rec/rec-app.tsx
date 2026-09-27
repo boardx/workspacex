@@ -27,7 +27,8 @@ export function RecApp({
   screen: RecScreen;
   carrier: Carrier;
   view: RecView;
-  qs: { as?: string; carrier?: string; org?: string; mode?: string };
+  /** `projectId` / `create` / `session`：项目中枢 B2-S2 的往返参数（见 `TranscriptionHistory`）。 */
+  qs: { as?: string; carrier?: string; org?: string; mode?: string; projectId?: string; create?: string; session?: string };
 }) {
   if (qs.mode === "project") {
     return (
@@ -46,7 +47,7 @@ export function RecApp({
   }
   return (
     <AppShell previewRole={null}>
-      <TranscriptionHistory uiState={uiState} />
+      <TranscriptionHistory uiState={uiState} projectId={qs.projectId ?? null} initialCreateOpen={qs.create === "1"} initialSessionId={qs.session ?? null} />
     </AppShell>
   );
 }

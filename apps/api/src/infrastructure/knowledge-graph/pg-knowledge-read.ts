@@ -11,7 +11,7 @@ import { contextPack as CP, knowledgeGraph as KG } from "@repo/contracts";
 import type { DatabasePort, TenantSession } from "../../application/ports/database.port";
 import type {
   ClaimSourcesData, KnowledgeReadPort, KnowledgeThreadRef, MessageExtractionData, PersonalClaimOriginRow,
-  PersonalKnowledgeData, ProjectKnowledgeData, ThreadKnowledgeCounts, ThreadKnowledgeData, TurnMemoryData,
+  OrgKnowledgeData, PersonalKnowledgeData, ProjectKnowledgeData, ThreadKnowledgeCounts, ThreadKnowledgeData, TurnMemoryData,
 } from "../../application/knowledge-graph/ports";
 import { guard, type Guarded } from "../../application/security/permission-filter";
 import type { OrgId } from "../../domain/org-id";
@@ -24,6 +24,8 @@ const threadRef = (t: KnowledgeThreadRef) => ({ kind: "project" as const, id: t.
 
 /** 本人个人空间的 guard ref —— 与 resolve-visibility 个人线程判定用的合成 id 同一个（`personal:<userId>`）。 */
 export const personalSpaceRef = (userId: string) => ({ kind: "project" as const, id: `personal:${userId}` });
+/** B2-S4：组织记忆的 guard ref —— 同 `personalSpaceRef` 的做法（组织记忆没有 acl_bindings 行），合成 id `org:<orgId>`。 */
+export const orgSpaceRef = (orgId: OrgId) => ({ kind: "project" as const, id: `org:${orgId}` });
 
 /** 「活着的」结论：未撤销、未被取代（与 F04 kg_live_vertices 同一条口径）。 */
 const LIVE_CLAIM = "c.revoked_at IS NULL AND c.status <> 'superseded'";
@@ -462,8 +464,18 @@ export class PgKnowledgeRead implements KnowledgeReadPort {
 
   /** 项目中枢 R8：项目记忆（L2）。与 `personalKnowledge` 同一组查询，作用域换成 ('project', projectId)。 */
   async projectKnowledge(orgId: OrgId, userId: string, projectId: string): Promise<Guarded<ProjectKnowledgeData>> {
-    const data = await this.inTenant(orgId, userId, async (s): Promise<ProjectKnowledgeData> => {
-      const scope = [orgId, projectId];
+    return guard({ kind: "project", id: projectId }, await this.sharedScopeKnowledge(orgId, userId, "project", projectId));
+  }
+
+  /** B2-S4（issue #4428）：组织记忆（L3）。同一组查询，作用域换成 ('org', orgId)；ref 是组织空间的合成 id。 */
+  async orgKnowledge(orgId: OrgId, userId: string): Promise<Guarded<OrgKnowledgeData>> {
+    return guard(orgSpaceRef(orgId), await this.sharedScopeKnowledge(orgId, userId, "org", orgId));
+  }
+
+  /** 项目记忆 / 组织记忆共用的读：一个共享作用域里的活结论 / 有活结论引用的实体 / 两端都活着的边 / 版本号。 */
+  private sharedScopeKnowledge(orgId: OrgId, userId: string, scopeKind: "project" | "org", scopeId: string): Promise<ProjectKnowledgeData> {
+    return this.inTenant(orgId, userId, async (s): Promise<ProjectKnowledgeData> => {
+      const scope = [orgId, scopeKind, scopeId];
       const objects = await s.query<{
         id: string; object_kind: ProjectKnowledgeData["objects"][number]["kind"]; name: string; aliases: string[];
         created_by: ProjectKnowledgeData["objects"][number]["createdBy"]; claim_count: string;
@@ -473,12 +485,12 @@ export class PgKnowledgeRead implements KnowledgeReadPort {
                   WHERE e.org_id = o.org_id AND e.src_kind = 'claim' AND e.dst_kind = 'object' AND e.dst_id = o.id
                     AND e.status = 'active' AND ${LIVE_CLAIM}) AS claim_count
            FROM ontology_objects o
-          WHERE o.org_id = $1 AND o.scope_kind = 'project' AND o.scope_id = $2 AND o.merged_into IS NULL
+          WHERE o.org_id = $1 AND o.scope_kind = $2 AND o.scope_id = $3 AND o.merged_into IS NULL
           ORDER BY o.created_at, o.id`, scope,
       );
       const claims = await s.query<ClaimRow>(
         `SELECT ${CLAIM_COLUMNS} FROM claims c
-          WHERE c.org_id = $1 AND c.scope_kind = 'project' AND c.scope_id = $2 AND ${LIVE_CLAIM}
+          WHERE c.org_id = $1 AND c.scope_kind = $2 AND c.scope_id = $3 AND ${LIVE_CLAIM}
           ORDER BY c.created_at, c.id`, scope,
       );
       const liveClaims = claims.rows.map(toClaim).filter((c): c is KgClaim => c !== null);
@@ -489,18 +501,18 @@ export class PgKnowledgeRead implements KnowledgeReadPort {
         relation: ProjectKnowledgeData["edges"][number]["relation"]; created_by: ProjectKnowledgeData["edges"][number]["createdBy"];
       }>(
         `SELECT id, src_kind, src_id, dst_kind, dst_id, relation, created_by FROM ontology_edges
-          WHERE org_id = $1 AND scope_kind = 'project' AND scope_id = $2 AND status = 'active'
+          WHERE org_id = $1 AND scope_kind = $2 AND scope_id = $3 AND status = 'active'
             AND src_kind IN ('object', 'claim') AND dst_kind IN ('object', 'claim')
           ORDER BY created_at, id`, scope,
       );
       const revision = await s.query<{ n: string }>(
         `SELECT count(*) AS n FROM ontology_actions
-          WHERE org_id = $1 AND scope_kind = 'project' AND scope_id = $2 AND outcome = 'accepted'`, scope,
+          WHERE org_id = $1 AND scope_kind = $2 AND scope_id = $3 AND outcome = 'accepted'`, scope,
       );
       return {
         revision: Number(revision.rows[0]!.n),
         objects: liveObjects.map((o) => ({
-          id: o.id, scope: { kind: "project" as const, id: projectId }, kind: o.object_kind, name: o.name,
+          id: o.id, scope: { kind: scopeKind, id: scopeId }, kind: o.object_kind, name: o.name,
           aliases: o.aliases, createdBy: o.created_by, claimCount: Number(o.claim_count),
         })),
         claims: liveClaims,
@@ -512,7 +524,6 @@ export class PgKnowledgeRead implements KnowledgeReadPort {
           })),
       };
     });
-    return guard({ kind: "project", id: projectId }, data);
   }
 
   async personalClaimOrigins(orgId: OrgId, userId: string) {

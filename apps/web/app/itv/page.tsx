@@ -21,6 +21,7 @@ export default function ItvPage({
     tab?: string;
     create?: string;
     preview?: string;
+    projectId?: string;
   };
 }) {
   return (
@@ -29,6 +30,7 @@ export default function ItvPage({
         initialTab={searchParams.tab === "experts" ? "experts" : "history"}
         initialCreateOpen={searchParams.create === "1"}
         includeMockPreviews={searchParams.preview === "mock"}
+        projectId={searchParams.projectId ?? null}
       />
     </AppShell>
   );

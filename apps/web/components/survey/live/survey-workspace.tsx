@@ -3,6 +3,8 @@ import * as React from "react";
 import { parseSurveyDesignMarkdown, serializeSurveyDesignMarkdown, serializeSurveyReportTemplateMarkdown } from "@repo/contracts/survey-source";
 import { useSurveyUnsavedNavigation } from "@/lib/survey/use-unsaved-navigation";
 import { useRouter } from "next/navigation";
+import { projectResearchHref, withProjectId } from "@/components/project/project-breadcrumb";
+import { linkProjectResource } from "@/lib/live-project-resources";
 import { survey } from "@repo/contracts";
 import { surveyReportShareBlockedReason } from "@repo/contracts/survey-report";
 import {
@@ -58,9 +60,15 @@ function emptyDraft(): SurveyDraftInput {
 export function LiveSurveyWorkspace({
   surveyId,
   initialStep = "design",
+  projectId = null,
 }: {
   surveyId: string;
   initialStep?: string;
+  /**
+   * 项目中枢 B2-S2：带 `?projectId=` 进来的新建问卷，首次 `POST /surveys` 成功后立即
+   * `linkProjectResource` 挂到该项目；挂失败不回滚问卷（问卷已经存在），只提示。
+   */
+  projectId?: string | null;
 }) {
   const router = useRouter();
   const [runtime, setRuntime] = React.useState<SurveyRuntime | null>(null);
@@ -185,7 +193,17 @@ export function LiveSurveyWorkspace({
     } }, SurveyRuntimeSchema);
     accept(persisted);
     setNotice("修改已保存");
-    if (surveyId === "new") router.replace(`/studio/survey/${next.id}?step=${step}`);
+    if (surveyId === "new") {
+      if (projectId) {
+        try {
+          await linkProjectResource({ projectId, kind: "survey", resourceId: next.id });
+          setNotice("问卷已创建并挂到项目");
+        } catch {
+          setNotice("问卷已创建，但挂到项目失败——可回到项目页用「关联已有问卷」补挂");
+        }
+      }
+      router.replace(withProjectId(`/studio/survey/${next.id}?step=${step}`, projectId));
+    }
     return persisted;
   };
   const command = async (name: string, extra: Record<string, unknown> = {}) => {
@@ -244,10 +262,10 @@ export function LiveSurveyWorkspace({
           variant="ghost"
           onClick={() => {
             if (!dirty || window.confirm("离开将放弃未保存修改，继续吗？"))
-              router.push("/studio/survey");
+              router.push(projectId ? projectResearchHref(projectId, "survey") : "/studio/survey");
           }}
         >
-          ← 返回列表
+          {projectId ? "← 返回项目" : "← 返回列表"}
         </Button>
         <div className="min-w-48 flex-1">
           <Input
