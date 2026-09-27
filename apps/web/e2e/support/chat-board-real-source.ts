@@ -17,11 +17,13 @@ const digest = (value: string) => createHash('sha256').update(value).digest('hex
 export function assertDiagramText(family: DiagramFamily, text: string) {
   const blocks = extractMermaidBlocks(text);
   expect(blocks, 'Exactly one real generated diagram is required; never choose a convenient earlier preview.').toHaveLength(1);
-  expect(blocks[0].closed).toBe(true);
-  if (family === 'persona') expect(blocks[0].lang).toBe('persona');
+  const block = blocks[0];
+  if (!block) throw new Error('REAL_CHAT_DIAGRAM_BLOCK_MISSING');
+  expect(block.closed).toBe(true);
+  if (family === 'persona') expect(block.lang).toBe('persona');
   else {
-    expect(blocks[0].lang).toBe('mermaid');
-    expect(blocks[0].code.trim()).toMatch(family === 'flowchart' ? /^(?:flowchart|graph)\s/ : /^sequenceDiagram\b/);
+    expect(block.lang).toBe('mermaid');
+    expect(block.code.trim()).toMatch(family === 'flowchart' ? /^(?:flowchart|graph)\s/ : /^sequenceDiagram\b/);
   }
 }
 
@@ -39,7 +41,8 @@ export async function generateChatBoardSource(page: Page, family: DiagramFamily,
   await page.getByTestId('copilotkit-v2-send').click();
   await wire; // actual runtime transport, not a synthetic message write
   await expect(page).toHaveURL(/\/chat\/[^/?#]+/, { timeout: 90_000 });
-  const threadId = /\/chat\/([^/?#]+)/.exec(page.url())![1];
+  const threadId = /\/chat\/([^/?#]+)/.exec(page.url())?.[1];
+  if (!threadId) throw new Error('REAL_CHAT_THREAD_ID_MISSING');
   let inputMessageId: string | undefined;
   let reply: ReturnType<typeof Chat.listMessages.out.parse>['messages'][number] | undefined;
   await expect.poll(async () => {
@@ -59,14 +62,17 @@ export async function generateChatBoardSource(page: Page, family: DiagramFamily,
     reply = candidates[0];
     return true;
   }, { timeout: REAL_MODEL_SMOKE.runTimeoutMs, intervals: [1000, 2000] }).toBe(true);
-  expect(reply).toBeTruthy();
-  assertDiagramText(family, reply!.text);
-  const runResponse = await authedJson(page, `/agent-runs/${encodeURIComponent(reply!.agentRunId!)}`);
+  const persistedReply = reply;
+  if (!persistedReply || !persistedReply.agentRunId || !inputMessageId) {
+    throw new Error('REAL_CHAT_PERSISTED_REPLY_OR_RUN_MISSING');
+  }
+  assertDiagramText(family, persistedReply.text);
+  const runResponse = await authedJson(page, `/agent-runs/${encodeURIComponent(persistedReply.agentRunId)}`);
   expect(runResponse.ok, `Read actual model run HTTP ${runResponse.status}`).toBe(true);
   const run = AgentRunView.parse(runResponse.json);
   expect(run.threadId).toBe(threadId);
   expect(run.inputMessageId).toBe(inputMessageId);
-  expect(run.resultMessageId).toBe(reply!.id);
+  expect(run.resultMessageId).toBe(persistedReply.id);
   expect(run.status).toBe('succeeded');
   const actualModel = `${run.modelProvider}/${run.modelId}`;
   expect(actualModel).toBe(expectedModel);
@@ -78,9 +84,9 @@ export async function generateChatBoardSource(page: Page, family: DiagramFamily,
   await expect(page.getByTestId(`${prefix}-fabric`).locator('canvas').first()).toBeVisible();
   const reread = await authedJson(page, `/chat/threads/${encodeURIComponent(threadId)}/messages?limit=100`);
   expect(reread.ok).toBe(true);
-  expect(Chat.listMessages.out.parse(reread.json).messages.find(message => message.id === reply!.id)?.text).toBe(reply!.text);
+  expect(Chat.listMessages.out.parse(reread.json).messages.find(message => message.id === persistedReply.id)?.text).toBe(persistedReply.text);
   return {
     family, chatUrl: `/chat/${encodeURIComponent(threadId)}`,
-    provenance: { threadId, messageId: reply!.id, runId: run.runId, agentId: run.agentId, agentVersionId: run.agentVersionId, model: actualModel, promptHash: digest(prompt), assistantHash: digest(reply!.text), elapsedMs: Date.now() - started },
+    provenance: { threadId, messageId: persistedReply.id, runId: run.runId, agentId: run.agentId, agentVersionId: run.agentVersionId, model: actualModel, promptHash: digest(prompt), assistantHash: digest(persistedReply.text), elapsedMs: Date.now() - started },
   };
 }
