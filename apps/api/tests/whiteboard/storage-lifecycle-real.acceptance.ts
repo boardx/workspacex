@@ -7,13 +7,14 @@ import { beforeAll, afterAll, expect, it } from 'vitest';
 import * as Y from 'yjs';
 import { createWhiteboardDocument, readObjects, type WhiteboardCommand } from '@repo/whiteboard-core';
 import { PgDatabase } from '../../src/infrastructure/db/pg-database';
-import { appConfig } from '../../src/infrastructure/db/pg-config';
+import { appConfig, migrationConfig } from '../../src/infrastructure/db/pg-config';
 import { PgWhiteboardRepository } from '../../src/infrastructure/whiteboard/pg-whiteboard-repository';
 import { PgWhiteboardCollaborationStore } from '../../src/infrastructure/whiteboard/pg-collaboration-store';
 import { PgWhiteboardRecoveryAdapter } from '../../src/infrastructure/whiteboard/pg-whiteboard-recovery';
 import { WhiteboardRecoveryService } from '../../src/application/whiteboard/recovery-service';
 import { WorkerWhiteboardUpdateValidator } from '../../src/infrastructure/whiteboard/update-validator';
 import { PgWhiteboardCommentStore } from '../../src/infrastructure/whiteboard/pg-whiteboard-comment-store';
+import { resolveObjectPath } from '../../src/infrastructure/storage/object-store-path';
 import { FsObjectStore } from '../../src/infrastructure/storage/fs-object-store';
 import { toOrgId } from '../../src/domain/org-id';
 import type { DatabasePort } from '../../src/application/ports/database.port';
@@ -33,14 +34,18 @@ beforeAll(async()=>{
 afterAll(async()=>{await db?.close();if(root){await resetOrgs(orgId);await rm(root,{recursive:true,force:true});}});
 it('migrates actual legacy PG bodies, clears bytes, and is idempotent across a fresh connection',async()=>{
   const b=await board();await write(b.id,[note('legacy')]);const before=await canonical(b.id);
-  await db.withTenant(orgId,async s=>{
+  const legacyWriter=new PgDatabase(migrationConfig());
+  try{await legacyWriter.withTenant(orgId,async s=>{
     const docs=await s.query<{object_key:string}>('SELECT object_key FROM whiteboard_documents WHERE org_id=$1 AND board_id=$2',[orgId,b.id]);
     const bytes=await fs.get(docs.rows[0]!.object_key);expect(bytes).not.toBeNull();
     await s.query('UPDATE whiteboard_documents SET snapshot=$3,object_key=NULL,content_hash=NULL,byte_size=NULL,manifest_version=NULL WHERE org_id=$1 AND board_id=$2',[orgId,b.id,Buffer.from(bytes!)]);
     const updates=await s.query<{update_object_key:string;seq:string}>('SELECT update_object_key,seq::text FROM whiteboard_updates WHERE org_id=$1 AND board_id=$2',[orgId,b.id]);
     for(const u of updates.rows)await s.query('UPDATE whiteboard_updates SET update=$4,update_object_key=NULL,update_hash=NULL,update_size=NULL WHERE org_id=$1 AND board_id=$2 AND seq=$3',[orgId,b.id,u.seq,Buffer.from((await fs.get(u.update_object_key))!)]);
-  });
+  });}finally{await legacyWriter.close();}
+  await expect(db.withTenant(orgId,s=>s.query("UPDATE whiteboard_updates SET update=NULL,update_object_key='wrong',update_hash=$3,update_size=1 WHERE org_id=$1 AND board_id=$2",[orgId,b.id,'0'.repeat(64)]))).rejects.toMatchObject({code:'23514'});
+  await expect(db.withTenant(orgId,s=>s.query("UPDATE whiteboard_updates SET request_hash=$3 WHERE org_id=$1 AND board_id=$2",[orgId,b.id,'0'.repeat(64)]))).rejects.toMatchObject({code:'42501'});
   await store.load(owner,b.id);expect(await store.backfillLegacyBoard(owner,b.id)).toEqual({migrated:1,remaining:0});expect(await store.backfillLegacyBoard(owner,b.id)).toEqual({migrated:0,remaining:0});
+  await expect(db.withTenant(orgId,s=>s.query('UPDATE whiteboard_updates SET update_hash=update_hash WHERE org_id=$1 AND board_id=$2',[orgId,b.id]))).rejects.toMatchObject({code:'23514'});
   expect(await canonical(b.id)).toEqual(before);
   const migrated=await db.withTenant(orgId,s=>s.query<{body_null:boolean}>('SELECT snapshot IS NULL AND object_key IS NOT NULL body_null FROM whiteboard_documents WHERE org_id=$1 AND board_id=$2',[orgId,b.id]));expect(migrated.rows[0]!.body_null).toBe(true);
   const bodies=await db.withTenant(orgId,s=>s.query<{n:string}>('SELECT count(*)::text n FROM whiteboard_updates WHERE org_id=$1 AND board_id=$2 AND (update IS NOT NULL OR update_object_key IS NULL)',[orgId,b.id]));expect(bodies.rows[0]!.n).toBe('0');
@@ -77,7 +82,7 @@ it('marks and physically purges a real orphan through PG fences while retaining 
   const tenant=createHash('sha256').update(orgId).digest('hex').slice(0,32),key=`whiteboards/tenants/${tenant}/boards/${b.id}/orphan.yjs`;
   await fs.putOnce(key,new Uint8Array([1,2,3]),'application/vnd.yjs-update');
   // Historical orphan fixture: production grace remains one day, no wall-clock SLA claim.
-  const old=new Date(Date.now()-3*86400000);await utimes(join(root,key),old,old);
+  const old=new Date(Date.now()-3*86400000);await utimes(resolveObjectPath(root,key),old,old);
   const roots=new PgWhiteboardObjectRetentionRepository(db),before=await roots.roots(orgId),gc=new WhiteboardObjectGarbageCollector(roots,fs);
   expect((await gc.collect(orgId,tenant,randomUUID())).marked).toBeGreaterThanOrEqual(1);
   expect(await fs.get(key)).not.toBeNull();
@@ -104,14 +109,14 @@ it('restores a joint metadata/body backup after source removal using independent
     const captured=await repository.read(owner,backupId),key=captured.manifest.snapshot.key;
     await db.withTenant(orgId,s=>s.query('DELETE FROM whiteboards WHERE org_id=$1 AND id=$2',[orgId,b.id]));
     const pinned=await db.withTenant(orgId,s=>s.query<{rooted:boolean}>('SELECT whiteboard_object_is_rooted($1,$2) rooted',[orgId,key]));expect(pinned.rows[0]!.rooted).toBe(true);
-    await rm(join(root,key));for(const thread of captured.manifest.comments)await rm(join(root,thread.blob.key));expect(await fs.get(key)).toBeNull();
+    await rm(resolveObjectPath(root,key));for(const thread of captured.manifest.comments)await rm(resolveObjectPath(root,thread.blob.key));expect(await fs.get(key)).toBeNull();
     const target=randomUUID();expect(await service.restore(owner,backupId,target)).toEqual({boardId:target,replayed:false});expect((await canonical(target)).objects).toEqual(before.objects);
     const fresh=new PgDatabase(appConfig());try{const live=makeStore(fresh),restoredComments=await new PgWhiteboardCommentStore(fresh,new WorkerWhiteboardUpdateValidator(),undefined,live,fs).list(viewer,target);expect(restoredComments[0]!.comments[0]!.body).toBe('Restorable comment body');expect(restoredComments[0]!.boardId).toBe(target);const rows=await fresh.withTenant(orgId,s=>s.query<{payload:unknown}>('SELECT payload FROM whiteboard_comment_threads WHERE org_id=$1 AND board_id=$2',[orgId,target]));expect(JSON.stringify(rows.rows)).not.toContain('Restorable comment body');}finally{await fresh.close();}
     expect(await service.restore(owner,backupId,target)).toEqual({boardId:target,replayed:true});
     const sourceManifest=await db.withTenant(orgId,s=>s.query<{null_body:boolean}>('SELECT snapshot IS NULL null_body FROM whiteboard_documents WHERE org_id=$1 AND board_id=$2',[orgId,target]));expect(sourceManifest.rows[0]!.null_body).toBe(true);
     await write(target,[note('editable-after-disaster')]);expect((await canonical(target)).seq).toBe(1);
     const archiveKey=`board-backups/${(await import('../../src/application/whiteboard/board-backup')).backupTenant(orgId)}/${backupId}/blobs/${captured.manifest.snapshot.hash}`;
-    await rm(join(archiveRoot,archiveKey));const rejectedTarget=randomUUID();await expect(service.restore(owner,backupId,rejectedTarget)).rejects.toThrow('BACKUP_INTEGRITY_FAILED');
+    await rm(resolveObjectPath(archiveRoot,archiveKey));const rejectedTarget=randomUUID();await expect(service.restore(owner,backupId,rejectedTarget)).rejects.toThrow('BACKUP_INTEGRITY_FAILED');
     const absent=await db.withTenant(orgId,s=>s.query('SELECT id FROM whiteboards WHERE org_id=$1 AND id=$2',[orgId,rejectedTarget]));expect(absent.rows).toHaveLength(0);
   }finally{await rm(archiveRoot,{recursive:true,force:true});}
 });
