@@ -103,7 +103,27 @@ function parse(source){
  const printer=ts.createPrinter({removeComments:true});const methods=new Map();let totalQueries=0;const unsafe=[];
  const printed=node=>compact(printer.printNode(ts.EmitHint.Unspecified,node,file));
  const isQuery=node=>ts.isCallExpression(node)&&queryMember(node.expression);
+ // Authority names must resolve to their imported binding, never a local no-op.
+ // Reject rebinding/declaration shadowing conservatively across the admitted file.
+ const authorities=new Set(['lockBoardStorageMaintenance','lockStorageOperatorMembership','canExportOrganization','assertPrincipal']);
+ const protectedMembers=new Set(['access','state','replay','verifiedBytes','prefix','counts','db','boards','repository','collaboration','comments','assets']);
+ function boundNames(name){return ts.isIdentifier(name)?[name.text]:ts.isObjectBindingPattern(name)||ts.isArrayBindingPattern(name)?name.elements.flatMap(element=>ts.isBindingElement(element)?boundNames(element.name):[]):[];}
+ function protectedTarget(node){
+  if(ts.isIdentifier(node))return authorities.has(node.text);
+  if(ts.isPropertyAccessExpression(node))return protectedMembers.has(node.name.text)||['query','withTenant'].includes(node.name.text);
+  return false;
+ }
+
  function visit(node){
+  if(ts.isImportSpecifier(node)&&authorities.has(node.name.text)&&node.propertyName&&node.propertyName.text!==node.name.text)unsafe.push('aliased authority import');
+  if((ts.isVariableDeclaration(node)||ts.isParameter(node)||ts.isBindingElement(node)||ts.isFunctionDeclaration(node)||ts.isClassDeclaration(node))&&node.name&&boundNames(node.name).some(name=>authorities.has(name))){
+   // The two helper function declarations are the authority implementation itself.
+   const authorityDefinition=ts.isFunctionDeclaration(node)&&node.parent===file&&['lockStorageOperatorMembership','lockBoardStorageMaintenance'].includes(node.name.text);
+   if(!authorityDefinition)unsafe.push('shadowed authority binding');
+  }
+  if(ts.isBinaryExpression(node)&&node.operatorToken.kind>=ts.SyntaxKind.FirstAssignment&&node.operatorToken.kind<=ts.SyntaxKind.LastAssignment&&protectedTarget(node.left))unsafe.push('rebound authority');
+  if(ts.isPropertyDeclaration(node)&&node.name&&protectedMembers.has(node.name.getText(file))&&node.initializer)unsafe.push('overridden authority member');
+  if(ts.isCallExpression(node)&&['Object.assign','Object.defineProperty','Object.defineProperties','Reflect.set','Reflect.defineProperty','Object.setPrototypeOf','Reflect.setPrototypeOf'].includes(node.expression.getText(file)))unsafe.push('dynamic authority mutation');
   if(isQuery(node))totalQueries++;
   if(queryMember(node)&&!(ts.isCallExpression(node.parent)&&node.parent.expression===node))unsafe.push('escaped query method');
   if(ts.isElementAccessExpression(node)&&!queryMember(node)&&!ts.isNumericLiteral(node.argumentExpression))unsafe.push('untracked computed member');
@@ -117,6 +137,7 @@ function parse(source){
     if(ts.isIfStatement(n)&&n.parent===root)guards.push(printed(n));
     ts.forEachChild(n,count);
    }count(node);
+   if(methods.has(node.name.getText(file)))unsafe.push('duplicate authority method');
    methods.set(node.name.getText(file),{source:printed(node),queries,calls,guards});
   }
   ts.forEachChild(node,visit);

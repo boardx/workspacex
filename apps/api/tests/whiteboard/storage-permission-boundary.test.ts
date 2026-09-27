@@ -51,6 +51,24 @@ describe('precise storage adapter permission admission',()=>{
   expect(audit(path(file),source=>source.replace(from,to)).length).toBeGreaterThan(0);
  });
  it.each([
+  'const lockBoardStorageMaintenance=async(...args:unknown[])=>{};',
+  'const {lockBoardStorageMaintenance}=untrusted;',
+  'lockBoardStorageMaintenance=async()=>{};',
+ ] as const)('rejects authority shadow/rebinding %s',injection=>{
+  expect(audit(path('pg-storage-backfill'),source=>source.replace('await lockBoardStorageMaintenance(s,p);',injection+'await lockBoardStorageMaintenance(s,p);')).length).toBeGreaterThan(0);
+ });
+ it('rejects importing another export under the trusted name',()=>{
+  expect(audit(path('pg-storage-backfill'),source=>source.replace('import {lockBoardStorageMaintenance}', 'import {noop as lockBoardStorageMaintenance}')).length).toBeGreaterThan(0);
+ });
+ it.each([
+  'this.state=async()=>({});',
+  'const self=this;self.state=async()=>({});',
+  "Object.assign(this,{state:async()=>({})});",
+  "Object.defineProperty(this,'state',{value:async()=>({})});",
+ ] as const)('rejects receiver authority replacement %s',injection=>{
+  expect(audit(path('pg-backup-maintenance'),source=>source.replace('const state=await this.state(s,p,request),replay',injection+'const state=await this.state(s,p,request),replay')).length).toBeGreaterThan(0);
+ });
+ it.each([
   ['dead branch','if(false){await lockBoardStorageMaintenance(s,p);}'],
   ['conditional branch','if(after){await lockBoardStorageMaintenance(s,p);}'],
   ['uncalled closure','const later=async()=>{await lockBoardStorageMaintenance(s,p);};'],
