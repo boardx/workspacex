@@ -23,6 +23,7 @@ import { humanBytes, humanEta } from "./model-import";
 import { PortsInUseError } from "./startup-failure";
 import { chooseOllama, ollamaBinaryVersion, runningOllamaVersion } from "./ollama-version";
 import { ensureDatabaseExists, startPgliteServer, type PgliteHandle } from "./pglite-server";
+import { clearLedger, reapLedger, recordChild, startedAt } from "./child-ledger";
 import {
   assertPortFree, stopListenerOnPort, killTree, startManaged, portInUse, type SpawnSpec,
   waitForHttp, waitForHttpOrExit, runToCompletion, type Managed,
@@ -90,6 +91,7 @@ export async function up(opts: UpOptions): Promise<RunningStack> {
   const managed: Managed[] = [];
   /** 每个子进程的启动规格——重启时要用同一份，不能现编。 */
   const specs: SpawnSpec[] = [];
+  const ledgerFile = join(c.dataDir, "run", "children.json");
   const supervised: Supervised[] = [];
   /**
    * 不挡首屏的就绪等待（#3872 R7）。
@@ -105,9 +107,17 @@ export async function up(opts: UpOptions): Promise<RunningStack> {
   const deferredReady: Array<{ name: string; wait: Promise<void> }> = [];
   const healthById = new Map<string, ServiceHealth>();
   /** 起一个被记录在案的子进程；规格留着，重启时要用同一份。 */
+  /** 起子进程并记进台账：主进程被硬杀时它会变成孤儿，下一次启动凭这一笔替它收尸（child-ledger.ts）。 */
+  const startRecorded = (spec: SpawnSpec): Managed => {
+    const m = startManaged(spec, log);
+    const pid = m.child.pid;
+    const started = pid === undefined ? null : startedAt(pid);
+    if (pid !== undefined && started !== null) recordChild(ledgerFile, { name: spec.name, pid, started });
+    return m;
+  };
   const spawn = (spec: SpawnSpec): Managed => {
     specs.push(spec);
-    const m = startManaged(spec, log);
+    const m = startRecorded(spec);
     managed.push(m);
     return m;
   };
@@ -121,6 +131,7 @@ export async function up(opts: UpOptions): Promise<RunningStack> {
     for (const s of [...supervised].reverse()) await s.stop();
     for (const m of [...managed].reverse()) if (m.child.exitCode === null) await m.stop();
     await pg?.stop();
+    clearLedger(ledgerFile);
   };
   // If the supervisor itself dies (uncaught error, SIGKILL is the one thing we cannot catch),
   // the children must not outlive it: an orphaned sandbox/API keeps its port and the next
@@ -138,6 +149,10 @@ export async function up(opts: UpOptions): Promise<RunningStack> {
   //   180000ms" three minutes into the boot, which reads exactly like a slow machine --
   //   and the second start after a hard kill is the common case, not the exotic one.
   //   Ollama is excluded on purpose: a user's own `ollama serve` is reused, not a conflict.
+  // 上一轮被硬杀留下的孤儿先收掉（只收台账里、启动时刻对得上的——不碰别人的进程），
+  // 否则下面的端口检查会把「我们自己的尸体」报成「另一个 WorkspaceX 在跑」。
+  const reaped = await reapLedger(ledgerFile);
+  if (reaped.length > 0) log(`[up] 上一次没有正常退出，收掉了残留的：${reaped.join("、")}`);
   await assertPortsFree(c, opts.webMode ?? "dev");
 
   try {
@@ -475,7 +490,7 @@ export async function up(opts: UpOptions): Promise<RunningStack> {
       const spec = specs[i]!;
       if (m.child.exitCode !== null) continue;   // 启动阶段就已经死了的，不进监督
       supervised.push(superviseManaged({
-        spec, log, initial: m,
+        spec, log, initial: m, start: startRecorded,
         onHealth: (h) => {
           healthById.set(h.name, h);
           if (h.state !== "running" && h.message !== null) {
