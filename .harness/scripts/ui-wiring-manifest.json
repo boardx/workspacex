@@ -391,6 +391,14 @@
         "files/set-retention-policy"
       ]
     },
+    "GuidedResearchController": {
+      "useCases": [
+        "research/guided-research-skill",
+        "research/guided-runtime-service",
+        "research/guided-workflow-service",
+        "security/permission-filter"
+      ]
+    },
     "IdentityController": {
       "useCases": [
         "identity/authorize",
@@ -1775,6 +1783,7 @@
         "apps/web/lib/live-collab-viewer-role.ts",
         "apps/web/lib/live-digital-interview.ts",
         "apps/web/lib/live-feedback.ts",
+        "apps/web/lib/live-guided-research-api.ts",
         "apps/web/lib/live-identity.ts",
         "apps/web/lib/live-org-admin.ts",
         "apps/web/lib/live-personal-transcriptions.ts",
@@ -1807,6 +1816,7 @@
         "platform-members",
         "project",
         "provenance",
+        "research",
         "templates",
         "viewer-role"
       ],
@@ -1829,6 +1839,7 @@
         "DocumentGenerationAutoApproveController",
         "EvidenceWithdrawalController",
         "FeedbackController",
+        "GuidedResearchController",
         "IdentityController",
         "InterviewInsightController",
         "InterviewScopeController",
@@ -1900,6 +1911,32 @@
         "apps/web/lib/mock/guided-research-demo-state.ts",
         "apps/web/lib/mock/guided-research.ts",
         "apps/web/lib/mock/research-studio.ts"
+      ]
+    },
+    "/research/[sessionId]/[stage]": {
+      "kind": "wired",
+      "screen": "apps/web/app/research/[sessionId]/[stage]/page.tsx",
+      "adapters": [
+        "apps/web/lib/live-guided-research-api.ts"
+      ],
+      "contracts": [
+        "research"
+      ],
+      "controllers": [
+        "GuidedResearchController"
+      ]
+    },
+    "/research/new": {
+      "kind": "wired",
+      "screen": "apps/web/app/research/new/page.tsx",
+      "adapters": [
+        "apps/web/lib/live-guided-research-api.ts"
+      ],
+      "contracts": [
+        "research"
+      ],
+      "controllers": [
+        "GuidedResearchController"
       ]
     },
     "/session": {
