@@ -1,0 +1,25 @@
+{
+  "testedCommit": "bd2e1192c",
+  "executor": "main session",
+  "date": "2026-09-27",
+  "result": "passed",
+  "tenants": 2,
+  "boards": 3,
+  "migratedRows": 12,
+  "batches": 13,
+  "assertions": [
+    "dry-run zero mutations",
+    "whole-batch row budget <= 1",
+    "cursor convergence",
+    "archived state preserved",
+    "fresh canonical equality",
+    "PG comment payload excludes content body",
+    "idempotent rerun",
+    "cross-tenant and unauthorized user rejected"
+  ],
+  "command": "pnpm exec tsx .harness/scripts/with-test-isolation.ts -- pnpm --filter api exec vitest run --config vitest.board-backfill-acceptance.config.ts",
+  "logSha256": "377041a1224c48d1de1d8e73ed9e08ff41f532552b1c6d8f81db543d95b8217e",
+  "limitations": [
+    "seeded local PostgreSQL and filesystem; not production-volume migration"
+  ]
+}

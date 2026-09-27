@@ -1,0 +1,25 @@
+{
+  "version": 1,
+  "sourceDatabase": "wsx_86f9ddec65faf27d8198",
+  "targetDatabase": "wsx_drill_03165ac3a6de4fe9806d",
+  "boardId": "ca14f3ba-7b3c-4369-9e61-712f3b1ae239",
+  "backupId": "ac7589b8-6b28-4120-a89e-4ca70d65e1ab",
+  "manifestHash": "6747227df2e1a1b09ecee037e5595add5d46203e9bd2aa2e1c3f2448bd6e0522",
+  "pgDumpHash": "ad04449c5bf765816b81f881b8a06f06fa9253d2cc9f8c0f713b590bd930b1f9",
+  "sourceRevision": {
+    "epoch": 1,
+    "seq": 1
+  },
+  "restored": {
+    "epoch": 1,
+    "seq": 0,
+    "objectCount": 2,
+    "canonicalStateHash": "262c63d0ea2542e504d644225fb52f1f502026f3d7cfd920f59239c275359df2",
+    "imageCount": 1,
+    "commentThreadCount": 1
+  },
+  "pgBodyNull": true,
+  "executedAt": "2026-09-27T06:30:22.382Z",
+  "scope": "selected-board-from-restored-pg-and-independent-archive",
+  "testedCommit": "8e0c5b90f33e6e2f688b618fd4f23d3097056ddd"
+}

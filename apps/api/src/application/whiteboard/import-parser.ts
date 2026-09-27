@@ -46,16 +46,19 @@ function normalize(raw: unknown, index: number, source: WhiteboardImportSource, 
   const rest = source === 'miro' && Object.keys(data).length > 0;
   const width = num(200,value.width,size.width,geometry.width), height = num(120,value.height,size.height,geometry.height);
   const centered = source === 'miro' && (rest || position.origin === 'center');
-  const richText=rest||(source==='mural'&&typeof value.htmlText==='string');
+  const captions=source==='miro'&&Array.isArray(value.captions)?value.captions.map(caption=>str(record(caption).content)).join('\n'):undefined;
+  const richText=rest||captions!==undefined||(source==='mural'&&typeof value.htmlText==='string');
   const arrowLabels=record(value.label).labels;
   const labelText=Array.isArray(arrowLabels)?arrowLabels.map(label=>str(record(label).text)).join('\n'):undefined;
-  const rawText = str(source==='mural'?value.htmlText:undefined,value.text,labelText,record(value.label).text,value.title,data.content,data.title,content.text,content.plainText);
+  const rawText = str(source==='mural'?value.htmlText:undefined,value.text,captions,labelText,record(value.label).text,value.title,data.content,data.title,content.text,content.plainText);
   const losses:string[]=[];
   let color=nullable(value.color,value.backgroundColor,style.backgroundColor,style.fillColor,type==='connector'?style.strokeColor:type==='text'?style.fontColor:undefined);
   if(context.muralRest&&color&&/^#[0-9a-f]{8}$/i.test(color)){if(!/ff$/i.test(color))losses.push('Color alpha was normalized to opaque.');color=color.slice(0,7);}
   if(!Number.isFinite(num(NaN,value.width,size.width,geometry.width))||!Number.isFinite(num(NaN,value.height,size.height,geometry.height)))losses.push('Missing source dimensions were replaced with default container dimensions.');
   if(richText&&/<[^>]+>/.test(rawText)) losses.push('Rich text formatting was converted to plain text.');
-  if(rawText.length>20_000) losses.push('Text was truncated to 20000 characters.');
+  const normalizedText=richText?plainText(rawText):rawText;
+  if(normalizedText.length>20_000) losses.push('Text was truncated to 20000 characters.');
+  if(type==='connector'&&normalizedText.length>1000)losses.push('Connector label was truncated to 1000 characters.');
   if(context.muralRest&&type==='image'&&(value.mask||value.border||value.caption||value.description))losses.push('Image crop, border, caption and description are not preserved.');
   if(context.muralRest&&type==='sticky'&&value.shape&&value.shape!=='rectangle')losses.push('Sticky note shape was normalized to a rectangle.');
   if(context.muralRest&&value.layout&&value.layout!=='free')losses.push('Mural area layout was converted to a freeform frame.');
@@ -66,7 +69,7 @@ function normalize(raw: unknown, index: number, source: WhiteboardImportSource, 
     losses,unsupportedReason:hidden?'Hidden or invisible Mural widgets are not imported because canonical visibility cannot preserve that restriction.':undefined,
     sourceId: str(value.id, value.widgetId, `${source}-${index}`).slice(0, 256), sourceType: sourceType.slice(0, 128), type,
     x: num(0, value.x, position.x, geometry.x)-(centered?width/2:0), y: num(0, value.y, position.y, geometry.y)-(centered?height/2:0), width, height, rotation: num(0, value.rotation, geometry.rotation),
-    text: (richText?plainText(rawText):rawText).slice(0, 20_000), color,
+    text: normalizedText.slice(0, 20_000), color,
     shape: nullable(value.shape, value.shapeType, data.shape, style.shape, type === 'shape' ? sourceType : null),
     parentSourceId: nullable(value.parentId, record(value.parent).id), fromSourceId: nullable(value.fromId, value.startId, value.startRefId, start.id, from.id), toSourceId: nullable(value.toId, value.endId, value.endRefId, end.id, to.id),
     zIndex: Math.trunc(num(index, value.zIndex, value.stackingOrder, value.order)), assetRef: nullable(value.assetPath, value.imagePath, value.fileName, record(value.asset).path), assetMime: null,

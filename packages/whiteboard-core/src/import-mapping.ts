@@ -57,7 +57,9 @@ function importedObject(id:string,item:ImportedBoardItem,source:ImportSource,par
 export function mapImportedBoard(source:ImportSource, requestId:string, input:readonly ImportedBoardItem[], limit:number=WHITEBOARD_IMPORT_LIMITS.objects):ImportMappingResult {
   const issues:ImportMappingIssue[]=[], commands:WhiteboardCommand[]=[], selected=input.slice(0,limit);
   if(input.length>limit) return {commands:[],issues:[{code:'OBJECT_LIMIT',sourceId:null,sourceType:null,detail:`Import rejected: ${input.length} objects exceed the atomic limit of ${limit}; no objects were imported. Split the source board before retrying.`}],outcomes:[],discovered:input.length,accepted:0,unsupported:input.length,assets:0};
-  for(const item of selected) for(const detail of item.type==='unsupported'?[]:item.losses??[]) issues.push({code:'VALUE_NORMALIZED',sourceId:item.sourceId,sourceType:item.sourceType,detail});
+  // One complete bounded entry per source object keeps dense style losses below
+  // the report budget without silently dropping individual loss descriptions.
+  for(const item of selected){const losses=item.type==='unsupported'?[]:item.losses??[];if(losses.length)issues.push({code:'VALUE_NORMALIZED',sourceId:item.sourceId,sourceType:item.sourceType,detail:losses.join(' ')});}
   const seenSourceIds=new Set<string>(),duplicates=new Set<ImportedBoardItem>();
   for(const item of selected){if(seenSourceIds.has(item.sourceId)){duplicates.add(item);issues.push({code:'INVALID_REFERENCE',sourceId:item.sourceId,sourceType:item.sourceType,detail:'Duplicate source id was skipped'});}else seenSourceIds.add(item.sourceId);}
   const emitted=new Map<string,{id:string;kind:WhiteboardObject['kind'];object:WhiteboardObject;item:ImportedBoardItem}>();

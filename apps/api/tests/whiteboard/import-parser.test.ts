@@ -109,3 +109,38 @@ it('maps a complete Mural public response into canonical relationships and per-r
  expect(mapped.outcomes.find(item=>item.sourceId==='note')).toMatchObject({outcome:'downgraded'});
  expect(mapped.issues.find(item=>item.sourceId==='child')?.detail).toContain('visibility');
 });
+
+it('preserves Miro REST connector captions and reports label truncation',async()=>{
+ const data={items:[{id:'a',type:'shape'},{id:'b',type:'shape'}],connectors:[{id:'edge',type:'connector',startItem:{id:'a'},endItem:{id:'b'},captions:[{content:'<p>决策 &amp; choice</p>'},{content:'<b>next</b>'}]}]};
+ const parsed=await parseWhiteboardImport(Buffer.from(JSON.stringify(data)),'application/json','miro');expect(parsed.items[2]?.text).toBe('决策 & choice\n\nnext');
+ const mapped=mapImportedBoard('miro','req',parsed.items);expect(mapped.commands.at(-1)).toMatchObject({object:{connector:{label:'决策 & choice\n\nnext'}}});
+ data.connectors[0]!.captions=[{content:'x'.repeat(1001)}];const long=await parseWhiteboardImport(Buffer.from(JSON.stringify(data)),'application/json','miro');expect(long.items[2]?.losses).toContain('Connector label was truncated to 1000 characters.');
+});
+it('keeps every detailed downgrade in a bounded report for 200 style-rich source items',async()=>{
+ const value=Array.from({length:200},(_,i)=>({id:String(i),type:'sticky note',htmlText:'<b>format</b>',backgroundColor:'#ffffff80',shape:'circle',layout:'grid',instruction:'note',locked:true,style:{fontSize:18}}));
+ const parsed=await parseWhiteboardImport(Buffer.from(JSON.stringify({value})),'application/json','mural'),mapped=mapImportedBoard('mural','report',parsed.items);
+ const {whiteboardImport:C}=await import('@repo/contracts');
+ const report=C.WhiteboardImportReport.parse({importId:'00000000-0000-4000-8000-000000000001',counts:{discovered:200,accepted:mapped.accepted,unsupported:mapped.unsupported,assets:0},issues:mapped.issues,items:mapped.outcomes,exportFormat:'workspacex.whiteboard-import-report.v1',executable:true});
+ expect(report.items).toHaveLength(200);expect(report.issues.length).toBeLessThanOrEqual(C.WHITEBOARD_IMPORT_LIMITS.issues);
+ for(const item of parsed.items)for(const loss of item.losses!)expect(report.issues.filter(issue=>issue.sourceId===item.sourceId).map(issue=>issue.detail).join(' ')).toContain(loss);
+});
+
+it.each(['miro-workshop','mural-diagram','miro-media'] as const)('maps the independently inventoried %s schema fixture including every loss',async name=>{
+ const {loadVendorSchemaFixture}=await import('../../../web/e2e/support/board-vendor-schema-fixtures');
+ const {assertVendorMigration}=await import('../../../web/e2e/support/board-vendor-import-producer');
+ const {SharpBoardImageVerifier}=await import('../../src/infrastructure/whiteboard/image-verifier');
+ const f=await loadVendorSchemaFixture(name),parsed=await parseWhiteboardImport(f.bytes,f.mime,f.source);
+ for(const asset of parsed.assets){const verified=await new SharpBoardImageVerifier().verify(asset.bytes,asset.mime);for(const item of parsed.items.filter(item=>item.assetRef===asset.path))item.assetMetadata=verified.metadata;}
+ const mapped=mapImportedBoard(f.source,'00000000-0000-4000-8000-000000000001',parsed.items);
+ assertVendorMigration(f,{counts:{discovered:mapped.discovered,accepted:mapped.accepted,unsupported:mapped.unsupported},items:mapped.outcomes,issues:mapped.issues},mapped.commands.flatMap(command=>command.type==='create'?[command.object]:[]));
+ const {createWhiteboardDocument,executeCommands,readObjects}=await import('@repo/whiteboard-core');const doc=createWhiteboardDocument();executeCommands(doc,mapped.commands,{});expect(readObjects(doc)).toHaveLength(mapped.accepted);doc.destroy();
+});
+it('pins fixture provenance hashes and cannot mistake synthetic inventory for real exports',async()=>{
+ const {createHash}=await import('node:crypto');const root=join(process.cwd(),'tests/fixtures/whiteboard-import'),manifest=JSON.parse(await readFile(join(root,'provenance.json'),'utf8'));
+ expect(manifest.realAccountBoards).toBe(0);for(const file of manifest.files){expect(file.capturedFromAccount).toBe(false);expect(createHash('sha256').update(await readFile(join(root,file.path))).digest('hex')).toBe(file.sha256);}
+});
+it('the migration evidence checker rejects geometry corruption and an omitted failed item',async()=>{
+ const {loadVendorSchemaFixture}=await import('../../../web/e2e/support/board-vendor-schema-fixtures'),{assertVendorMigration}=await import('../../../web/e2e/support/board-vendor-import-producer');
+ const f=await loadVendorSchemaFixture('mural-diagram'),parsed=await parseWhiteboardImport(f.bytes,f.mime,f.source),mapped=mapImportedBoard(f.source,'proof',parsed.items),objects=mapped.commands.flatMap(command=>command.type==='create'?[command.object]:[]),report={counts:{discovered:mapped.discovered,accepted:mapped.accepted,unsupported:mapped.unsupported},items:mapped.outcomes,issues:mapped.issues};
+ const changed=structuredClone(objects);changed[0]!.geometry.x+=1;expect(()=>assertVendorMigration(f,report,changed)).toThrow();expect(()=>assertVendorMigration(f,{...report,items:report.items.filter(item=>item.sourceId!=='missing-image')},objects)).toThrow();
+});

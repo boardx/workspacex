@@ -42,11 +42,8 @@ Official sources checked 2026-09-27:
 
 ## Verification boundary
 
-Parser and mapping tests are executable contract examples derived from public documentation, not captured vendor exports. Existing synthetic brainstorm/diagram/workshop fixtures do not prove three real migration boards. Real fullstack migration, image loading, peer refresh and standard-export/reimport equivalence remain acceptance work. Native canonical export is currently not a portable image bundle and is not advertised as lossless reimport.
+Parser and mapping tests are executable contract examples derived from public documentation, not captured vendor exports. Existing synthetic brainstorm/diagram/workshop fixtures do not prove three real migration boards. Real fullstack migration, image loading, peer refresh and standard-export/reimport equivalence remain acceptance work. The legacy standard JSON export has no media; use the separate portable-bundle API for canonical objects plus images.
 
-## Next bounded task: portable canonical roundtrip
+## Portable canonical roundtrip
 
-1. Add a versioned canonical package discriminator separate from vendor adapters. Validate each object using the existing canonical schema rather than flattening it through vendor normalization. Remap IDs, parent IDs and connector endpoints as one graph; preserve contentObject, spatial settings, styles, text, geometry and locks.
-2. Export an immutable manifest and ZIP containing only referenced, authorized durable image bytes. Read each asset through board-scoped ACL/integrity checks, verify digest and dimensions, deduplicate by content digest, and record original asset IDs to manifest entries. Keep ObjectStore keys and credentials out of the portable manifest. Enforce current ZIP/byte/atomic limits before writes.
-3. Import verified package images into the destination board's existing image service, remap only image asset references, then publish canonical commands under an idempotent request. Define failure cleanup/lease behavior before exposing the package API. Treat missing/corrupt image entries as explicit failures, never ready placeholders.
-4. Test source→export→fresh board import with nested frames, styled multilingual text, rotated geometry, connected shapes and raster pixels. Compare remapped canonical graphs, original image digests/decoded dimensions, refresh/peer loading, same-request replay, cross-board ACL and source deletion independence. This is distinct from the current JSON export's metadata download test.
+The separate versioned canonical+image package is documented in [portable-bundle.md](portable-bundle.md). It is not a vendor decoder and does not make Miro/Mural conversions lossless. The captured-source inventory, diagnostic fixtures and real-stack acceptance producer are tracked in [vendor-migration-evidence.md](vendor-migration-evidence.md); three real-account source boards remain unverified.

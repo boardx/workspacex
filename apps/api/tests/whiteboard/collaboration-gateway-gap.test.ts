@@ -113,6 +113,7 @@ it.each([
   const store:WhiteboardCollaborationStore={
     head:async()=>{throw failure==='DEPENDENCY_UNAVAILABLE'?new Error('store unavailable'):new WhiteboardCollaborationError(failure);},
     load:async()=>({epoch:1,seq:0,role:'viewer',archived:false,update:Y.encodeStateAsUpdate(doc)}),
+    loadInTransaction:async()=>({epoch:1,seq:0,role:'viewer',archived:false,update:Y.encodeStateAsUpdate(doc)}),
     append:async()=>{throw new Error('unused');},writeCommands:async()=>{throw new Error('unused');},writeCommandsInTransaction:async()=>{throw new Error('unused');},
   };
   const boards:WhiteboardRepository={get:async()=>({id:boardId,name:'monitor',ownerId:'owner',role:'viewer',archived:false,lifecycleRevision:0,tagIds:[],tagsRevision:0,createdAt:new Date().toISOString(),updatedAt:new Date().toISOString()}),list:async()=>({items:[],nextCursor:null}),permanentlyDelete:async()=>null,create:async()=>{throw new Error('unused');},update:async()=>null,members:async()=>null,putMember:async()=>false,removeMember:async()=>false};
