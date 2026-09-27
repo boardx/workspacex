@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { useOptionalSession } from "@/components/session/session-provider";
 import { ApiError } from "@/lib/api-client";
+import { httpFailureText } from "@/lib/http-failure-text";
 import { acceptProjectInvite, PROJECT_JOIN_PAGE_PATH, PROJECT_INVITE_TOKEN_PARAM } from "@/lib/live-project-invite";
 
 /**
@@ -95,7 +96,7 @@ function describeFailure(e: unknown): string {
         return "身份校验服务暂时不可用，请稍后重试。";
     }
     if (e.status === 401) return "登录已失效，请重新登录后再打开链接。";
-    return `${e.reasonCode ?? "加入失败"}（HTTP ${e.status}）`;
+    return httpFailureText(e.status);
   }
   return e instanceof Error ? e.message : "加入失败，请稍后重试。";
 }

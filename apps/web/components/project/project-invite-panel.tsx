@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { SectionTitle } from "./parts";
 import { ApiError } from "@/lib/api-client";
+import { httpFailureText } from "@/lib/http-failure-text";
 import {
   issueProjectInviteLink, revokeProjectInviteLinks, buildProjectInviteLink,
   PARTICIPANT_IDENTITY_LABEL, INVITE_LINK_VALIDITY_LABEL,
@@ -148,7 +149,7 @@ function describeFailure(e: unknown): string {
       case "AUTH_SERVICE_UNAVAILABLE": return "身份校验服务暂时不可用，请稍后重试。";
     }
     if (e.status === 401) return "登录已失效，请重新登录。";
-    return `${e.reasonCode ?? "操作失败"}（HTTP ${e.status}）`;
+    return httpFailureText(e.status);
   }
   return e instanceof Error ? e.message : "操作失败，请稍后重试。";
 }
