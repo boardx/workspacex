@@ -1,11 +1,25 @@
 import { createRequire } from 'node:module';
 import { resolve } from 'node:path';
 import { strict as assert } from 'node:assert';
+import type {PgConfig} from '../../../api/src/infrastructure/db/pg-config';
+import {pathToFileURL} from 'node:url';
+
+/** Guard before connecting; the application role preserves tenant RLS. */
+export function isolatedImageEvidenceConfig(config:PgConfig,env:NodeJS.ProcessEnv=process.env):PgConfig {
+  assert(env.WORKSPACEX_ISOLATION_ID && /^wsx_[a-f0-9]{20}$/.test(env.WORKSPACEX_DB??''),'ISOLATED_STORAGE_EVIDENCE_REQUIRED');
+  assert(!env.WORKSPACEX_DEPLOY_PROFILE,'LOCAL_STORAGE_EVIDENCE_REQUIRED');
+  assert.equal(config.database,env.WORKSPACEX_DB,'STORAGE_DATABASE_MISMATCH');
+  assert.equal(config.database,env.PGDATABASE,'STORAGE_DATABASE_MISMATCH');
+  assert(env.PGPORT && /^[0-9]+$/.test(env.PGPORT),'STORAGE_PORT_REQUIRED');
+  assert.equal(String(config.port),env.PGPORT,'STORAGE_PORT_MISMATCH');
+  assert(['localhost','127.0.0.1','::1'].includes(config.host),'LOCAL_STORAGE_HOST_REQUIRED');
+  return config;
+}
 
 /** Read-only producer. Uses the same isolated PG* environment as the running API;
  * uses the API package’s existing pg driver; never starts services or writes fixtures. */
 export async function produceImageStorageEvidence(orgId: string, boardIds: string[], assetId: string) {
-  for(const variable of ['PGHOST','PGPORT','PGDATABASE']) assert(process.env[variable],`Isolated ${variable} required for storage evidence`);
+  const config=await imageEvidenceConnectionConfig();
   assert(boardIds.length > 0 && boardIds.every(id => /^[0-9a-f-]{36}$/i.test(id)));
   const literal = (value: string) => `'${value.replaceAll("'", "''")}'`;
   const sql = `BEGIN READ ONLY;
@@ -18,9 +32,9 @@ SELECT json_build_object(
 ); ROLLBACK;`;
   // Resolve the runtime's installed driver without introducing a web dependency.
   const {Client}=createRequire(resolve(__dirname,'../../../api/package.json'))('pg') as {
-    Client:new()=>{connect():Promise<void>;query(sql:string):Promise<Array<{rows:Array<Record<string,unknown>>}>>;end():Promise<void>};
+    Client:new(config:PgConfig)=>{connect():Promise<void>;query(sql:string):Promise<Array<{rows:Array<Record<string,unknown>>}>>;end():Promise<void>};
   };
-  const client=new Client();
+  const client=new Client(config);
   let result:Array<{rows:Array<Record<string,unknown>>}>;
   try{await client.connect();result=await client.query(sql);}finally{await client.end();}
   const payload=result.flatMap(part=>part.rows).find(row=>'json_build_object' in row)?.json_build_object;
@@ -42,4 +56,11 @@ export function assertImageStorageEvidence(evidence: {assets:Array<{boardId:stri
   for(const asset of evidence.assets){assert(asset.active);assert(asset.key.includes(`/boards/${asset.boardId}/assets/`));assert.equal(asset.metadata.assetId,assetId);assert.equal(asset.metadata.persistence,'durable');assert(!JSON.stringify(asset.metadata).includes('base64'));}
   for(const document of evidence.documents){assert(document.bodyIsNull);assert(document.key?.includes(`/boards/${document.boardId}/`));assert.match(document.hash,/^[a-f0-9]{64}$/);assert(Number(document.size)>0);}
   return evidence;
+}
+
+export async function imageEvidenceConnectionConfig():Promise<PgConfig>{
+  const {tsImport}=createRequire(resolve(__dirname,'../../package.json'))('tsx/esm/api') as {tsImport:(url:string,parent:string)=>Promise<unknown>};
+  const configUrl=pathToFileURL(resolve(__dirname,'../../../api/src/infrastructure/db/pg-config.ts')).href;
+  const {appConfig}=await tsImport(configUrl,pathToFileURL(__filename).href) as {appConfig:()=>PgConfig};
+  return isolatedImageEvidenceConfig(appConfig());
 }
