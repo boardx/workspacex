@@ -69,9 +69,11 @@ afterAll(async () => {
 beforeEach(async () => {
   await resetOrgs(ORG, OTHER);
   await seedOrg({ orgId: ORG, projectId: P_A });
+  // 第二个容器也得是 workshop：`project_memberships` 的复合外键 (project_id, kind) 只认
+  // workshop（F128 迁移 20260801190000），research_project 容器挂不上项目成员（CI 实录 23503）。
   await asApp(ORG, async (c) => {
-    await c.query("INSERT INTO projects (id, org_id, name, kind) VALUES ($1, $2, 'B', 'research_project')", [P_B, ORG]);
-    await c.query("INSERT INTO research_projects (id, org_id) VALUES ($1, $2)", [P_B, ORG]);
+    await c.query("INSERT INTO projects (id, org_id, name, kind) VALUES ($1, $2, 'B', 'workshop')", [P_B, ORG]);
+    await c.query("INSERT INTO workshops (id, org_id) VALUES ($1, $2)", [P_B, ORG]);
   });
   await addOrgMember(ORG, OWNER, "consultant", null);
   await addOrgMember(ORG, OBSERVER, "consultant", null);
