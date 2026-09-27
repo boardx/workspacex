@@ -139,7 +139,10 @@ test('realtime presence field convergence',async({browser,request:api,baseURL})=
       await owner.getByTestId('board-present-viewport').click();const presenter=editor.getByTitle(/正在演示/);await expect(presenter).toBeVisible({timeout:20_000});await presenter.click();await owner.getByTestId('board-zoom-in').click();await expect(editor.getByTestId('board-zoom-value')).toHaveText('110%',{timeout:20_000});
       await editor.getByRole('button',{name:'评论',exact:true}).click();
       await editor.getByLabel('评论内容').fill('请一起核对这个结论');
-      await editor.getByLabel('提及成员').fill(required('WHITEBOARD_OWNER_USER_ID'));
+      const directory=await(await request(api,ownerToken!,'GET',`/whiteboards/${boardId}/mentionable-members`)).json() as {items:Array<{userId:string;displayName:string}>};
+      const mentionedOwner=directory.items.find(item=>item.userId===required('WHITEBOARD_OWNER_USER_ID'));expect(mentionedOwner).toBeTruthy();
+      await editor.getByRole('combobox',{name:'提及成员'}).fill(mentionedOwner!.displayName);
+      await editor.getByRole('option',{name:mentionedOwner!.displayName,exact:true}).click();
       await editor.getByRole('button',{name:'发布评论'}).click();
       const indicator=owner.locator('[data-testid^="board-comment-indicator-"]');await expect(indicator).toHaveCount(1,{timeout:20_000});await indicator.click();
       await expect(owner.getByText('请一起核对这个结论')).toBeVisible();
@@ -302,4 +305,33 @@ test('confirmed downgrade retires offline delete undo redo before a later regran
     await expect.poll(queued).toBe(0);
     await owner.goto(`/studio/board/${boardId}`);await synced(owner);await expect(owner.getByTestId('board-a11y-object-kept-target')).toHaveAccessibleName('图形：Server retained idea');
   }finally{try{await editorContext.setOffline(false);if(boardId&&token)await archiveBoard(api,token,boardId);}finally{await Promise.all([ownerContext.close(),editorContext.close()]);}}
+});
+
+test('structural undo and redo keep connectors added later by another editor',async({browser,request:api,baseURL})=>{
+ const ownerContext=await browser.newContext({baseURL}),editorContext=await browser.newContext({baseURL});
+ const owner=await ownerContext.newPage(),editor=await editorContext.newPage();let boardId:string|undefined,token:string|undefined;
+ try{
+  const tokens=await Promise.all([login(owner,'OWNER'),login(editor,'EDITOR')]);token=tokens[0];const editorToken=tokens[1]!;
+  boardId=(await(await request(api,token,'POST','/whiteboards',{requestId:randomUUID(),name:`Peer relationship ${randomUUID()}`})).json() as {id:string}).id;
+  await request(api,token,'PUT',`/whiteboards/${boardId}/members`,{userId:required('WHITEBOARD_EDITOR_USER_ID'),role:'editor'});
+  await owner.goto(`/studio/board/${boardId}`);await synced(owner);await owner.getByTestId('board-add-sticky').click();await owner.keyboard.press('Escape');await synced(owner);
+  const source=owner.getByTestId('board-a11y-mirror').getByRole('button');await expect(source).toHaveCount(1);
+  const sourceId=(await source.getAttribute('data-testid'))!.replace('board-a11y-object-','');
+  const geometry={x:400,y:200,width:180,height:180,rotation:0};
+  const peer={id:'peer-node',schemaVersion:1,kind:'sticky',geometry,text:'Peer idea',style:{},parentId:null,orderKey:'peer'};
+  const edge=(id:string)=>({...peer,id,kind:'connector',text:'Peer relationship',connector:{from:sourceId,to:peer.id,semanticRelation:'references'}});
+  await request(api,editorToken,'POST',`/whiteboards/${boardId}/commands`,{requestId:randomUUID(),epoch:1,commands:[{type:'create',object:peer},{type:'create',object:edge('peer-edge')}]});
+  await expect(owner.getByTestId('board-a11y-object-peer-edge')).toBeAttached();
+  await owner.getByRole('button',{name:'撤销',exact:true}).click();await expect(owner.getByText('未撤销：当前画板与这次修改存在冲突，请核对后再操作。')).toBeVisible();
+  await expect(owner.getByTestId(`board-a11y-object-${sourceId}`)).toBeAttached();await expect(owner.getByTestId('board-a11y-object-peer-edge')).toBeAttached();
+  const target=owner.getByTestId(`board-a11y-object-${sourceId}`);await target.focus();await target.press('Enter');await owner.getByRole('button',{name:'删除选中',exact:true}).click();await expect(target).toHaveCount(0);await synced(owner);
+  await owner.getByRole('button',{name:'撤销',exact:true}).click();await expect(target).toBeAttached();await expect(owner.getByText(/撤销已由服务器确认/)).toBeVisible();
+  await request(api,editorToken,'POST',`/whiteboards/${boardId}/commands`,{requestId:randomUUID(),epoch:1,commands:[{type:'create',object:edge('later-edge')}]});
+  await expect(owner.getByTestId('board-a11y-object-later-edge')).toBeAttached();
+  await owner.getByRole('button',{name:'重做',exact:true}).click();await expect(owner.getByText('未重做：没有可重做的本地修改，或当前画板存在冲突。')).toBeVisible();
+  for(const page of [owner,editor]){
+    await page.goto(`/studio/board/${boardId}`);await synced(page);
+    for(const id of [sourceId,'peer-node','peer-edge','later-edge'])await expect(page.getByTestId(`board-a11y-object-${id}`)).toBeAttached();
+  }
+ }finally{try{if(boardId&&token)await archiveBoard(api,token,boardId);}finally{await Promise.all([ownerContext.close(),editorContext.close()]);}}
 });
