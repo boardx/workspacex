@@ -3,6 +3,7 @@ import { Card } from "@/components/ui/card";
 import { SectionTitle, ObserverNotice } from "./parts";
 import { ROLE_CAN_WRITE, observerHidden, type ProjectRole } from "@/lib/project-workbench";
 import { ProjectConversations } from "./project-conversations";
+import { ProjectBrainPanel } from "./project-brain-panel";
 
 /**
  * 研究洞察（原型 isWsRov）—— 研究 / 访谈 / 问卷 / 深度研究在项目下的汇总投影。
@@ -16,6 +17,7 @@ import { ProjectConversations } from "./project-conversations";
  * ⚠ 观察者显著更少：原始洞察库与未验证假设是内部研究过程，整块消失。
  * ⚠ 项目中枢 R4：左侧子导航真的切内容了——`sub === "conv"` 渲染本项目的真实对话列表
  *   （`ProjectConversations`，含「在本项目中新建对话」）；其余子项仍是研究总览的空态。
+ * ⚠ 项目中枢 R8：研究总览新增「项目大脑」面板（`ProjectBrainPanel`）——项目记忆 L2 的真实结论，按类型分组。
  */
 export function TabResearch({ view, readOnly = false, sub = null, projectId }: {
   view: ProjectRole; readOnly?: boolean; sub?: string | null; projectId?: string;
@@ -29,6 +31,8 @@ export function TabResearch({ view, readOnly = false, sub = null, projectId }: {
       <p className="rounded-md border border-border bg-panel px-3 py-2 text-11 text-muted-foreground">
         本屏将汇总研究 / 访谈 / 问卷 / 深度研究在本项目下的产出。这些能力尚未挂到项目上，暂无可汇总的真实数据。
       </p>
+
+      {projectId ? <ProjectBrainPanel projectId={projectId} /> : null}
 
       {isObserver ? (
         <ObserverNotice

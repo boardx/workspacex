@@ -718,6 +718,24 @@ export const knowledgeGraph = {
   },
 
   /**
+   * 项目中枢 R8：**项目大脑**只读——一个项目的项目记忆（L2：由「记到项目大脑」晋升来的结论 / 实体 / 边）。
+   * 项目成员可读（含观察者：项目记忆本就是给全体成员的）；非成员 `KG_NOT_VISIBLE`（403，同个人空间：
+   * 项目的存在性由项目自己的路由回答，这里不再泄露第二次）。空项目返回空数组，不是错误。
+   */
+  getProjectKnowledge: {
+    method: "GET", path: "/knowledge-graph/projects/:projectId",
+    in: z.object({ projectId: z.string() }).strict(),
+    out: z.object({
+      scope: KgScope,
+      revision: z.number().int().nonnegative(),
+      objects: z.array(KgObject),
+      claims: z.array(KgClaim),
+      edges: z.array(KgEdge),
+    }).strict(),
+    err: ["KG_NOT_VISIBLE"] as const,
+  },
+
+  /**
    * UC-KG-13 大脑页（/brain）概况：本人创建的、记下了知识的会话（每个会话一行计数），
    * 以及个人空间结论各自来自哪个会话。只读聚合；每个会话逐个经会话可见性判定，
    * 看不见的会话（被移出项目等）不出现。2026-09-24 人类指令「取消所有的 mockup 的数据」。
