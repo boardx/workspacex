@@ -16,6 +16,7 @@ export default defineConfig({ resolve:{alias:{
   '@repo/whiteboard-core':resolve(__dirname,'../../packages/whiteboard-core/src/index.ts'),
 }},test: {
   include: [
+    'tests/whiteboard/proposal-storage-drill.test.ts',
     'tests/whiteboard/proposal-body-storage.test.ts',
     'tests/whiteboard/operation-undo-store.test.ts',
     'tests/whiteboard/operation-compensation-worker.test.ts',
