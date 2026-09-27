@@ -14,7 +14,7 @@
 
 ## 2. 现状与颜色（2026-09-27）
 
-当前交付记录（2026-09-27 18:33 核对）：R1–R6 已合入 main。R7 PR #4393 已推送 cd7399728；四空间、六协作、共享 outbox 及 CI 接线两项真实回归通过，独立复核通过，原失败 verify-control-plane 已转绿，其余 CI 尚在运行，未合并。R8/R9 已通过 9 个历史文件的 PG+文件联合恢复、紧凑便利贴菜单截图验收和三类合成 vendor 数据 portable 完整往返；真实 Miro/Mural 账户样本仍为 0。R10 七条 CI lane 候选 9d0a9c5a6 正在独立复核，嵌套配置启动目录已修复。1k 性能首次因目录错误、第二次因 ENOSPC 在构建阶段失败，均无性能通过证据；旧缓存清理释放约 12GB，Docker 引擎恢复和残留栈清理待完成。Chat 三类图、30 分钟会议室、50 人长时负载和统一视觉/安全/恢复验收仍有缺口，不能宣称九分。
+当前交付记录（2026-09-27 19:28 核对）：R1–R6 已合入 main。R7 PR #4393 当前 1aef36355；前轮真实四空间、六协作、共享 outbox 及 CI 接线回归通过，新增同步状态和全屏边界测试修复已独立复核，最新 fullstack CI 正在运行，未合并。R8/R9 已通过 9 个历史文件的 PG+文件联合恢复、紧凑便利贴菜单截图验收和三类合成 vendor 数据 portable 完整往返；真实 Miro/Mural 账户样本仍为 0。R10 集成树 095b936c8，新增 CI lane 与真实模型固定命令已有独立复核；触摸验收现要求有限坐标、精确位移和 pinch 放大，Web 类型检查通过。发现实际 TouchEvent 坐标读取缺陷和缺失的双指缩放，正在并行修复。Docker 引擎仍不可用，残留栈清理及真实性能验收未完成。Chat 三类图、30 分钟会议室、50 人长时负载和统一视觉/安全/恢复验收仍有缺口，不能宣称九分。
 
 追加 UI 交付：新建 Board 默认标题与可选标签 PR #4337 已通过主会话浏览器、独立复核和 CI，已合入 main（8270388ae）。列表隐藏 Workspace 顶栏、保留导航、卡片改版与服务端无标签分页 PR #4340 已通过四项真实浏览器场景（ff257e58c）及 1440/390 截图检查；最终 304cb5b79 独立增量复核通过，已合入 main（baaef1e97，GitHub 当前状态 MERGED）。卡片当前明确显示预览占位，真实缩略图仍是缺口。
 
@@ -32,7 +32,7 @@ flowchart LR
   R6 --> R7["R7 团队可靠性<br/>预计9/28验收 · 9/29前PR门禁<br/>四空间/六协作/outbox通过 · PR #4393 CI中"]:::accepting
   R7 --> R8["R8 存储与迁移<br/>预计9/29–30验收<br/>9个历史文件恢复通过 · 真实源板为0"]:::working
   R8 --> R9["R9 AI / API / Chat / 会议室<br/>预计9/29–30验收<br/>紧凑UI/提案恢复通过 · Chat/会议室待验"]:::working
-  R9 --> R10["R10 同一 SHA 总验收<br/>预计9/30–10/2收敛<br/>7条CI复核中 · Docker恢复后跑性能"]:::working
+  R9 --> R10["R10 同一 SHA 总验收<br/>预计9/30–10/2收敛<br/>触摸输入修复中 · Docker恢复后跑性能"]:::working
   R10 --> P2["P2 扩展路线<br/>Diagram / Mind Map / Kanban / Timeline<br/>Journey / Database / Agent与Live Data Tile"]:::future
   classDef merged fill:#dcfce7,stroke:#16a34a,color:#14532d
   classDef accepting fill:#fef3c7,stroke:#d97706,color:#78350f
@@ -82,24 +82,19 @@ R1–R6 为已交付，不再虚设未来完成时间；其原有全量需求仍
 
 ```mermaid
 flowchart TB
-  START["9/27 17:51 · 三个子agent + 主会话"] --> A["Agent A · R9协作适配<br/>5458d46bd已交付"]
-  START --> B["Agent B · 8E<br/>浏览器本地canonical / portable往返<br/>预计18:15–18:25候选"]
-  START --> C["Agent C · 独立复核<br/>R9 single-worker适配<br/>预计18:05候选结论"]
-  START --> M["主会话 · 串行真实验收<br/>四空间与多尺寸UI通过<br/>共享outbox→协作回归→恢复"]
-  A --> A2["9/28–29 · Agent API / 会议室"]
-  B --> B2["9/28–29 · Miro/Mural / Chat / 开源示例"]
-  C --> C2["9/28–29 · backfill / pin清理 / 视觉与无障碍"]
-  A2 --> JOIN["9/29–30 · 同一SHA整合"]
-  B2 --> JOIN
-  C2 --> JOIN
+  START["9/27 19:28 · 三个子agent + 主会话"] --> A["Agent A · 双指缩放计算与反证<br/>候选预计19:45；尚未验收"]:::active
+  START --> B["Agent B · 受保护main真实模型CI<br/>候选预计19:45；保留凭据隔离"]:::active
+  START --> C["Agent C · TouchEvent/取消/压感修复<br/>候选预计19:40；不启动完整环境"]:::active
+  START --> M["主会话 · R7 CI与独立复核<br/>触摸有限值/80×40位移断言已提交<br/>Docker恢复后串行真实验收"]:::testing
+  A --> REVIEW["交叉独立复核 → 主会话集成"]:::planned
+  B --> REVIEW
+  C --> REVIEW
+  REVIEW --> JOIN["统一SHA：触摸/真实模型/性能/恢复"]:::planned
   M --> JOIN
-  JOIN --> ACCEPT["9/30–10/2 · R10总验收、缺陷修复、CI<br/>通过完整门槛才认定9分"]
+  JOIN --> ACCEPT["9/30–10/2估计窗口，非完成承诺<br/>全量验收通过后才能认定9分"]:::planned
   classDef active fill:#ffedd5,stroke:#ea580c,color:#7c2d12
   classDef testing fill:#fef3c7,stroke:#d97706,color:#78350f
   classDef planned fill:#f1f5f9,stroke:#64748b,color:#334155
-  class A,B,C active
-  class M testing
-  class A2,B2,C2,JOIN,ACCEPT planned
 ```
 
 并行规则：每个worker一个当前包，交付后才接下一包；独立worktree避免覆盖。同一热点文件、迁移时间戳、共享契约先协调再集成。单位检查可并行，重型类型检查错峰；完整Docker/浏览器/E2E只由主会话一次一套执行。PR/CI审查可与不依赖它的开发并行，但最终验收只能针对实际整合SHA。
