@@ -189,8 +189,18 @@ test("multi-select transform, Panel clip/expand, connector preservation, and tot
   const movedStart = JSON.parse((await connector.getAttribute("data-connector-start"))!) as { x: number; y: number };
   const movedEnd = JSON.parse((await connector.getAttribute("data-connector-end"))!) as { x: number; y: number };
   const lineViewport = await canvasTransform(page);
-  await page.mouse.click(lineViewport.box.x + lineViewport.panX + (movedStart.x + movedEnd.x) / 2 * lineViewport.zoom,
-    lineViewport.box.y + lineViewport.panY + (movedStart.y + movedEnd.y) / 2 * lineViewport.zoom);
+  // The selected Sticky's floating toolbar can cover the midpoint. Click a
+  // visible stroke point, not the overlay; keep the actual Fabric hit assertion.
+  const strokePoints = [.5, .35, .65, .25, .75].map(t => ({
+    x: lineViewport.box.x + lineViewport.panX + (movedStart.x + (movedEnd.x - movedStart.x) * t) * lineViewport.zoom,
+    y: lineViewport.box.y + lineViewport.panY + (movedStart.y + (movedEnd.y - movedStart.y) * t) * lineViewport.zoom,
+  }));
+  const strokePoint = await page.evaluate(points => points.find(point => {
+    const target = document.elementFromPoint(point.x, point.y);
+    return target?.tagName === "CANVAS" && Boolean(target.closest('[data-testid="board-fabric-surface"]'));
+  }), strokePoints);
+  expect(strokePoint, "connector stroke must have an unobscured canvas hit point").toBeDefined();
+  await page.mouse.click(strokePoint!.x, strokePoint!.y);
   await expect(connector.getByRole("button")).toHaveAttribute("aria-pressed", "true");
   await expect(page.getByTestId("board-a11y-selection-announcement")).toHaveText("已选择 1 个对象");
   await firstSticky.getByRole("button").focus(); await page.keyboard.press("Enter");
