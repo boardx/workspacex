@@ -91,6 +91,7 @@ import { buildDeepAgentKernelFields } from "./deep-agent-kernel-fields";
 import type { ToolPermissionGrantStore } from "./tool-permission-grants";
 import { checkPendingInterjection, takeInterjectionForKernel } from "./interjection-handling";
 import type { InterjectionStore } from "./interjection-store";
+import { REMEMBER_TOOL_GUIDANCE } from "./standard-remember";
 
 /**
  * #709 -- token-budget-aware multi-turn context.
@@ -482,7 +483,7 @@ export function buildSystemPrompt(
   skills: readonly { readonly versionId: string; readonly stableName: string; readonly content: string }[],
   canvasGuidance?: string | null,
   mode: "full" | "deep-agent-catalog" | "native" = "full",
-  options: { readonly visualization?: boolean } = {},
+  options: { readonly visualization?: boolean; readonly remember?: boolean } = {},
 ): string {
   const skillParts = skills.length === 0 || mode === "native" ? []
     : mode === "deep-agent-catalog" ? [buildDeepAgentSkillCatalogBlock(skills)]
@@ -490,6 +491,8 @@ export function buildSystemPrompt(
   // default true: every existing caller keeps a byte-identical prompt
   const parts = [instructions, ...skillParts, ...(options.visualization === false ? [] : [VISUALIZATION_GUIDANCE])];
   if (canvasGuidance) parts.push(canvasGuidance);
+  // issue #4344：`wx_remember` 只在原生执行档里有（NATIVE_PROFILE_TOOLS）；其余模式缺省不拼，逐字节不变。
+  if (options.remember === true && mode === "native") parts.push(REMEMBER_TOOL_GUIDANCE);
   return parts.join("\n\n");
 }
 
@@ -628,6 +631,8 @@ async function executeClaimed(
       // same switch as the canvas dictionary: in `matched` mode the mermaid rules ride along
       // only when the message asks for a diagram (#3749 B1.2)
       visualization: (deps.canvasTemplates?.mode ?? "all") === "all" || mentionsDiagramIntent(run.inputText),
+      // #4344：本轮挂了工具（画布请求一个工具都不挂）才告诉模型怎么用 `wx_remember`。
+      remember: !canvasRequested,
     });
     /*
      * #1624 —— 告诉模型它**真的能执行代码**。

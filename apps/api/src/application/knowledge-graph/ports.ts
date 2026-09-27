@@ -454,11 +454,21 @@ export interface MemoryCardPort {
     readonly messageId: string;
     readonly requesterUserId: string;
     readonly kind: "remember" | "forget";
+    /**
+     * 谁提的卡上的字（issue #4344，缺省 user_message）：user_message = 用户消息以「记住：…」开头，数据库核对字出自这条消息；
+     * agent_tool = agent 的 `wx_remember` 工具，只开记住卡，字由用户在卡上确认 / 改字（迁移 20260927300000）。
+     */
+    readonly origin?: "user_message" | "agent_tool";
     readonly statement?: string;
     /** 忘掉卡：用户说要忘掉的那段话（数据库核对它出自这条消息） */
     readonly target?: string;
     readonly claimIds?: readonly string[];
-  }): Promise<{ readonly outcome: MemoryCardOpenOutcome; readonly cardId: string | null }>;
+  }): Promise<{
+    readonly outcome: MemoryCardOpenOutcome;
+    readonly cardId: string | null;
+    /** opened 时：这一轮本来就有卡（前缀入口先开了 / 同一 run 重试），这次没有新开。 */
+    readonly reused: boolean;
+  }>;
   /** 路由事实：卡属于哪个会话（不回内容）；查不到 ⇒ null。 */
   cardThread(orgId: OrgId, userId: string, cardId: string): Promise<string | null>;
   /** 人的决定；被拒时抛 `KgHumanActionError`。 */

@@ -56,6 +56,9 @@ export const TOOL_LABEL: Record<string, string> = {
   wx_knowledge_search: "检索知识库",
   wx_knowledge_read: "读取知识库",
   wx_cite: "标注引用来源",
+  // #4344：agent 唯一的记忆工具——只在回答下方放一张「记住」确认卡，用户点了才记。
+  wx_remember: "提议记住（待你确认）",
+  // 已退役（#4344），留着是为了旧 run 的轨迹仍显示中文名。
   wx_memory_search: "检索记忆",
   wx_memory_write: "记录记忆",
   wx_memory_delete: "删除记忆",
@@ -120,7 +123,7 @@ export function toolObject(name: string, args: unknown): string | null {
   if (path !== null) return clamp(basename(path));
   const url = pick("url", "href");
   if (url !== null) return clamp(hostOf(url));
-  const query = pick("query", "q", "pattern", "search", "keyword", "description", "command", "sql", "prompt", "subject", "title", "name");
+  const query = pick("query", "q", "pattern", "search", "keyword", "description", "command", "sql", "prompt", "subject", "title", "name", "statement");
   if (query !== null) return clamp(query);
   return null;
 }
