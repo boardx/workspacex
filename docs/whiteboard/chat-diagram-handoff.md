@@ -10,7 +10,7 @@
 
 ## 权限
 
-Chat source 搬运与 Chat source 重开共用 `canReadChatArtifactSource` → `resolveVisibility`。原线程不可见/已删除拒绝；draft 即使组织层允许也仅 landing 创建者可读。既有布局 binding 重放再次检查。迁移 `20260928000500_whiteboard_artifact_layout_variants.sql` 允许同一不可变版本保存多个逐次验证的 layout digest；不替换旧记录。普通非 Chat artifact 仍沿既有 artifact ACL；不从前端 URL 取源字节。
+Chat source 搬运与 Chat source 重开共用 `canReadChatArtifactSource` → `resolveVisibility`。原线程不可见/已删除拒绝；draft 即使组织层允许也仅 landing 创建者可读。既有布局 binding 重放再次检查。迁移 `20260928000500_whiteboard_artifact_layout_variants.sql` 允许同一不可变版本保存多个逐次验证的 layout digest；不替换旧记录。普通非 Chat artifact 仍沿既有 artifact ACL；不从前端 URL 取源字节。真实 Chat 版本的 hash 是 materialization plan 中 content.md 与 provenance.json 的有序组合摘要；读取复用 requiredFiles/storageKey/versionContentHash，并验证全部文件，不能把它当 content.md 的单文件 SHA。
 
 ## 当前边界（不能宣称已覆盖）
 

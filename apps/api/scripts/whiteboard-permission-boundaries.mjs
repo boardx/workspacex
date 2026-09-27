@@ -5,12 +5,14 @@
  */
 export const whiteboardPermissionBoundaries = new Map([
   ['src/infrastructure/whiteboard/chat-artifact-access.ts', {
-    tables: ['chat_artifact_landings','chat_threads'],
+    tables: ['chat_artifact_landings','chat_threads','provenance_events'],
     reason: '#4256 ids-only Chat artifact locator returns only a policy boolean; content authority is the existing Chat resolveVisibility and draft-source policy, using the operation tenant transaction.',
     checks: [
       /SELECT l\.thread_id,t\.id AS existing_thread_id,t\.project_id,l\.mode,l\.created_by FROM chat_artifact_landings l/,
       /LEFT JOIN chat_threads t ON t\.org_id=l\.org_id AND t\.id=l\.thread_id/,
       /WHERE l\.org_id=\$1 AND l\.artifact_id=\$2/,
+      /SELECT 1 FROM provenance_events WHERE org_id=\$1 AND target_kind='artifact' AND target_id=\$2 AND type='generated' AND detail \? 'threadId'/,
+      /return former\.rows\.length \? false : null/,
       /if \(!landing\.existing_thread_id\) return false/,
       /if \(orgId !== principal\.orgId\) throw/,
       /return fn\(session\)/,

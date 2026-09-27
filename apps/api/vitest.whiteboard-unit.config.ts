@@ -17,6 +17,7 @@ export default defineConfig({ resolve:{alias:{
   include: [
     'tests/whiteboard/operation-undo-store.test.ts',
     'tests/whiteboard/operation-compensation-worker.test.ts',
+    'tests/whiteboard/chat-artifact-materialization.test.ts',
     'tests/whiteboard/chat-artifact-access.test.ts',
     'tests/whiteboard/real-model-fixture-guard.test.ts',
     'tests/whiteboard/organize-service.test.ts',

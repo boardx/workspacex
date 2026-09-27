@@ -91,6 +91,22 @@ export async function produceChatBoardThreeDiagramEvidence(input: {
     await page.goto(`/studio/board/${boardId}`);
     await expect(page.getByTestId('board-fabric-canvas')).toBeVisible();
     await page.reload();
+    const surface=page.getByTestId('board-fabric-surface');
+    await expect.poll(async()=>JSON.parse(await surface.getAttribute('data-object-scenes') ?? '[]').map((object:{id:string})=>object.id).sort()).toEqual(snapshot.objects.map(object=>object.id).sort());
+    await page.getByTestId('board-zoom-fit-board').click();
+    const paintedNode=snapshot.objects.find(object=>object.kind!=='connector' && object.text.trim().length>0)!;
+    expect(paintedNode).toBeTruthy();
+    await expect.poll(async()=>surface.evaluate((host,geometry)=>{
+      const canvas=host.querySelector('canvas')!;const rect=canvas.getBoundingClientRect(),context=canvas.getContext('2d')!;
+      const zoom=Number(host.getAttribute('data-viewport-zoom')),panX=Number(host.getAttribute('data-viewport-pan-x')),panY=Number(host.getAttribute('data-viewport-pan-y'));
+      const ratio=canvas.width/rect.width;
+      const x=Math.max(0,Math.floor((geometry.x*zoom+panX)*ratio)),y=Math.max(0,Math.floor((geometry.y*zoom+panY)*ratio));
+      const width=Math.min(canvas.width-x,Math.max(1,Math.ceil(geometry.width*zoom*ratio))),height=Math.min(canvas.height-y,Math.max(1,Math.ceil(geometry.height*zoom*ratio)));
+      if(width<=0||height<=0)return 0;
+      const pixels=context.getImageData(x,y,width,height).data;let ink=0;
+      for(let index=0;index<pixels.length;index+=4)if(pixels[index+3]!>200 && pixels[index]!+pixels[index+1]!+pixels[index+2]!<650)ink++;
+      return ink;
+    },paintedNode.geometry)).toBeGreaterThan(5);
     await page.getByTestId('board-diagram-source-export').click();
     await expect(page.getByTestId('board-diagram-source')).toHaveValue(`\`\`\`${source.family==='persona'?'persona':'mermaid'}\n${code}\n\`\`\``);
     evidence.push({family:source.family,boardId,artifactId:request.layout.artifactId,sourceRevision:request.layout.sourceRevision,layoutHash:request.layout.layoutHash,revision:snapshot.revision,canonicalObjects:snapshot.objects.length,source:code});

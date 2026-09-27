@@ -14,7 +14,12 @@ export async function chatArtifactAccess(session: TenantSession, principal: Prin
     WHERE l.org_id=$1 AND l.artifact_id=$2 ORDER BY l.created_at DESC LIMIT 1`,
     [principal.orgId, artifactId]);
   const landing = result.rows[0];
-  if (!landing) return null;
+  if (!landing) {
+    // Thread deletion cascades its landing rows. The immutable generated event
+    // keeps that artifact classified as Chat source: never fall back to generic ACL.
+    const former=await session.query(`SELECT 1 FROM provenance_events WHERE org_id=$1 AND target_kind='artifact' AND target_id=$2 AND type='generated' AND detail ? 'threadId' LIMIT 1`,[principal.orgId,artifactId]);
+    return former.rows.length ? false : null;
+  }
   if (!landing.existing_thread_id) return false;
   const db: DatabasePort = {
     withTenant: async (orgId, fn) => {

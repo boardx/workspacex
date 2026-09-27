@@ -2,6 +2,7 @@ import type { WhiteboardOperationEvent, WhiteboardOperationReceipt } from '@repo
 import type { Principal } from '../../domain/principal';
 import type { TenantSession } from '../ports/database.port';
 
+export interface BoardArtifactSource { versionId:string; objectKey:string; contentHash:string; chatMaterialization?:{orgId:string;artifactId:string;versionNumber:number} }
 export interface WhiteboardOperationHead { epoch:number;seq:number;actorRole:'owner'|'editor'|'viewer'|'commenter';archived?:boolean }
 export interface RegisteredBoardActor { actorId:string;kind:'service'|'ai';delegatedBy:string;scopes:('board:read'|'board:write'|'board:present'|'artifact:read')[];model:string|null;skill:string|null }
 export interface WhiteboardOperationAuditRepository {
@@ -13,6 +14,6 @@ export interface WhiteboardOperationAuditRepository {
   lockRuntimeActor?(session:TenantSession,principal:Principal,actorId:string):Promise<{actor:RegisteredBoardActor;agentVersionId:string;model:string;skillVersionIds:string[]}|null>;
   resolveActor(session:TenantSession,principal:Principal,actorId:string):Promise<RegisteredBoardActor|null>;
   canReadArtifact(session:TenantSession,principal:Principal,artifactId:string,revision:string,layoutHash:string):Promise<boolean>;
-  readArtifactSource(session:TenantSession,principal:Principal,artifactId:string,revision:string):Promise<{versionId:string;objectKey:string;contentHash:string}|null>;
+  readArtifactSource(session:TenantSession,principal:Principal,artifactId:string,revision:string):Promise<BoardArtifactSource|null>;
   issueArtifactLayoutBinding(session:TenantSession,principal:Principal,artifactId:string,versionId:string,layoutHash:string):Promise<void>;
 }

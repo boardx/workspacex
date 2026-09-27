@@ -29,6 +29,11 @@ describe('Chat source transport uses the existing source visibility boundary', (
     const db=session({thread_id:'thread',existing_thread_id:null,project_id:null,mode:'draft',created_by:'user'});
     expect(await chatArtifactAccess(db,principal,'artifact')).toBe(false);
   });
+  it('does not fall back to generic artifact ownership after deletion cascaded the Chat landing',async()=>{
+    const query=vi.fn(async(sql:string)=>({rows:sql.includes('provenance_events')?[{}]:[]}));
+    expect(await chatArtifactAccess({query} as TenantSession,principal,'artifact')).toBe(false);
+    expect(query).toHaveBeenCalledTimes(2);
+  });
   it.each(['readArtifactSource','canReadArtifact'] as const)('%s rechecks the Chat policy before reading bytes or an existing layout binding', async method => {
     policy.mockResolvedValue({kind:'denied'});
     const db=session({thread_id:'thread',existing_thread_id:'thread',project_id:'project',mode:'pinned',created_by:'user'});
@@ -36,6 +41,12 @@ describe('Chat source transport uses the existing source visibility boundary', (
     const result=method==='readArtifactSource'?await repository.readArtifactSource(db,principal,'artifact','artifact-v1:1'):await repository.canReadArtifact(db,principal,'artifact','artifact-v1:1','layout');
     expect(result).toBe(method==='readArtifactSource'?null:false);
     expect(db.query).toHaveBeenCalledTimes(1);
+  });
+  it('marks an authorized Chat source for real materialization integrity verification', async()=>{
+    policy.mockResolvedValue({kind:'allow'});
+    const query=vi.fn(async(sql:string)=>({rows:sql.includes('chat_artifact_landings')?[{thread_id:'thread',existing_thread_id:'thread',project_id:'project',mode:'draft',created_by:'user'}]:[{version_id:'v7',object_key:'org/artifacts/artifact/v7/content.md',content_hash:'version-digest',version_number:7}]}));
+    const result=await new PgWhiteboardOperationRepository().readArtifactSource({query} as TenantSession,principal,'artifact','artifact-v1:7');
+    expect(result).toMatchObject({chatMaterialization:{orgId:'org',artifactId:'artifact',versionNumber:7}});
   });
   it('stores layout variants idempotently without replacing the previously verified digest', async () => {
     const values=new Set<string>();
