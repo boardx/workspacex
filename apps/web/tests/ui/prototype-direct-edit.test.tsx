@@ -132,14 +132,19 @@ describe("重做", () => {
     });
     render(<DesignDetailScreen projectId="p1" />);
     await screen.findByTestId("design-detail");
-    const redoBtn = screen.getByTestId("design-detail-redo");
-    expect((redoBtn as HTMLButtonElement).disabled).toBe(true);
+    // design-delta `novice-progressive-disclosure`：重做收进「更多」（Radix 菜单，禁用走 data-disabled；选中一项后菜单关上）。
+    const redoItem = async (): Promise<HTMLElement> => {
+      if (screen.queryByTestId("design-detail-more-menu") === null) fireEvent.pointerDown(screen.getByTestId("design-detail-more"), { button: 0, ctrlKey: false });
+      return screen.findByTestId("design-detail-redo");
+    };
+    expect(await redoItem()).toHaveAttribute("data-disabled");
+    fireEvent.keyDown(screen.getByTestId("design-detail-more-menu"), { key: "Escape" });
     fireEvent.click(screen.getByTestId("design-detail-undo"));
     await waitFor(() => expect(restored).toEqual(["v1"]));
-    await waitFor(() => expect((screen.getByTestId("design-detail-redo") as HTMLButtonElement).disabled).toBe(false));
+    await waitFor(async () => expect(await redoItem()).not.toHaveAttribute("data-disabled"));
     // ⭐ 反证锚点：重做不按「撤销之前那一版」恢复（比如又恢复一次倒数第二版）⇒ 这里拿到的不是 v2。
-    fireEvent.click(screen.getByTestId("design-detail-redo"));
+    fireEvent.click(await redoItem());
     await waitFor(() => expect(restored).toEqual(["v1", "v2"]));
-    await waitFor(() => expect((screen.getByTestId("design-detail-redo") as HTMLButtonElement).disabled).toBe(true));
+    await waitFor(async () => expect(await redoItem()).toHaveAttribute("data-disabled"));
   });
 });

@@ -28,7 +28,8 @@ Human instructed continuous implementation without waiting for earlier PR merges
 | #4421 | #4424 | Optional report, Markdown projection/export and paper-like report display. |
 | #4423 | #4432 | Default designer preview/settings, local QR generation, template-free publish/default report, integrated acceptance. |
 | #4433 | #4435 | Debounced autosave for applied valid unpublished existing drafts, explicit conflict/error recovery. |
-| #4436 | Pending | Named creation dialog, blank/Markdown/template entries, canonical persisted Markdown tags and tag search. |
+| #4436 | #4443 | Named creation dialog, blank/Markdown/template entries, canonical persisted Markdown tags and tag search. |
+| #4441 | Pending | On-demand narrow-screen outline/settings panels, retained selection and edits, inline desktop studio. |
 
 Fresh integrated seeded Playwright passed both template lifecycle and blank Markdown lifecycle again after independent review fixes (2 tests, 3m52s including cleanup). Desktop/mobile response screenshots are test artifacts. Review caught visual-editor locking on empty/space-containing titles and default report rejection for unanswered optional questions; regressions reproduce before fixes and pass afterward. All 29 survey UI files / 252 tests, 26 source/report contract tests and 15 isolated API regressions pass; API/web typechecks pass. CI on #4415/#4417 exposed two outdated publishing test fixtures/selectors; both corrected locally (7 publishing tests pass), with propagation to earlier branches still pending.
 
@@ -36,7 +37,9 @@ Autosave implementation for #4433 is verified by 16 workspace regressions and a 
 
 Creation dialog and tags (#4436): three fresh real-browser lifecycles passed (2m11s including cleanup), including named/tagged creation, reload persistence, automatic save, publication, respondent submission, default report, and template-dialog creation. All 29 survey UI files / 256 tests and 10 source compiler tests passed. API lifecycle/HTTP tests: 9 passed, including a regression reproducing then fixing tag loss when a legacy structured-save client omits tags. Tags are serialized in the canonical `survey-tags` Markdown fence, not stored in a browser-only metadata model. No status filter or top-right import action was introduced.
 
-Not yet delivered: real AI natural-language/PDF/voice extraction, on-demand outline/settings drawers, draft derivation and republishing, repeat-response/success-page controls. These are remaining work, not completed widgets; no fabricated AI, settings, metadata or industry benchmarks are shown.
+Responsive designer (#4441): RED reproduced always-mounted mobile settings; 91 focused regressions passed after implementing accessible on-demand panels. Fresh seeded browser: 3 lifecycles passed (2m52s including cleanup), with 390px outline selection, settings edit/close, autosave, reload persistence and the same publication/response/report flow. Desktop panels remain inline; the question editor is mounted only once in either presentation.
+
+Not yet delivered: real AI natural-language/PDF/voice extraction, draft derivation and republishing, repeat-response/success-page controls. These are remaining work, not completed widgets; no fabricated AI, settings, metadata or industry benchmarks are shown.
 
 | Order | Remaining delivery | Acceptance / current status |
 | --- | --- | --- |
