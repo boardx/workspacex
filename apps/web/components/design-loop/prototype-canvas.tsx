@@ -8,6 +8,7 @@
  * 颜色/圆角/字号全走 `.dark` token（`app/globals.css`），不写字面量——`lint-design.sh` U5/U11 门控。
  * 渲染表按 `PrototypeNodeType` 穷举：契约加了新原语这里编译不过，不会静默渲染成空。
  */
+import { navbarSide, type NavbarSide } from "@/lib/prototype-navbar";
 import * as React from "react";
 import { CommentPins, type CommentPin } from "./comment-pins";
 import {
@@ -18,6 +19,7 @@ import {
   Download, Upload, Plus, Pencil, Trash2, X as XIcon, RefreshCw, Play, Pause, Eye,
   ShoppingCart, CreditCard, BarChart3, Calendar, Clock, MapPin, Mail, Phone, Info, AlertTriangle,
   type LucideIcon,
+  MousePointer2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { PrototypeLink, PrototypeNode } from "@/lib/live-design-workbench";
@@ -356,6 +358,29 @@ const ALIGN: Record<"start" | "center" | "end" | "between", string> = {
  * 所以纵向 `start` = 块级子项拉伸（同「未指定 align」），**行内性质**的子项（非通栏按钮、
  * chip、badge、头像）贴左、保持内容宽——`button.full` 仍然有意义。横向 `start` 不变。
  */
+function NavSide({ side }: { side: NavbarSide | null }): React.ReactElement | null {
+  if (side === null) return null;
+  if ("text" in side) return <>{side.text}</>;
+  const Icon = ICONS[side.icon];
+  return <Icon role="img" aria-label={side.label} data-nav-icon={side.icon} className="h-4 w-4 shrink-0" />;
+}
+/**
+ * 纵向 stack 的 `align:"center"`（2026-09-27 用户截图：「添加便签」整页缩成画面正中一小条，导航栏也被挤到中间）。
+ *
+ * 真实生成 79 页里 17 页写了它。映射成 `items-center justify-center` 有两处错：
+ *   · 交叉轴：块级子项（导航栏 / 列表 / 卡片 / 输入框）缩成内容宽——与 #4322 的 `align:start` 同一个病；
+ *   · 主轴：整栏内容**竖直居中**，页根这样写就把导航栏推到屏幕中间。
+ * 所以纵向 center = 块级拉伸、文字居中、行内子项居中；**竖直居中只在这一栏里没有导航栏 / 底部导航时**
+ * 才做（那种通常是空态、登录这类本来就该居中的一块）。
+ */
+function columnCenter(children: readonly designPrototype.PrototypeNode[] | undefined): string {
+  const hasChrome = (children ?? []).some((c) => c.type === "navbar" || c.type === "bottomnav");
+  return cn(
+    "items-stretch text-center [&>[data-proto=button]]:self-center [&>[data-proto=chip]]:self-center",
+    "[&>[data-proto=badge]]:self-center [&>[data-proto=avatar]]:self-center",
+    !hasChrome && "justify-center",
+  );
+}
 const COLUMN_START = "items-stretch justify-start " +
   "[&>[data-proto=button]]:self-start [&>[data-proto=chip]]:self-start " +
   "[&>[data-proto=badge]]:self-start [&>[data-proto=avatar]]:self-start";
@@ -456,6 +481,7 @@ const BADGE_TONE: Record<"neutral" | "info" | "success" | "warning" | "danger", 
  * ——同这个文件头注对渲染表的既有纪律。
  */
 export const ICONS: Record<designPrototype.PrototypeIcon, LucideIcon> = {
+  cursor: MousePointer2,
   home: Home, search: Search, menu: Menu, more: MoreHorizontal, settings: Settings,
   filter: SlidersHorizontal, grid: LayoutGrid, list: ListIcon, back: ArrowLeft, forward: ArrowRight,
   user: User, users: Users, bell: Bell, message: MessageCircle, send: Send, share: Share2,
@@ -711,6 +737,7 @@ function Node({ node }: { node: PrototypeNode }): React.ReactElement {
             sc.gap(p.gap ?? "sm"), sc.pad(p.padding ?? "none"),
             // 未指定 align：纵向拉伸子项占满宽度（手机屏里的行天然通栏），横向居中对齐。
             p.align === "start" && p.direction !== "row" ? COLUMN_START
+              : p.align === "center" && p.direction !== "row" ? columnCenter(node.children)
               : p.align !== undefined ? ALIGN[p.align] : p.direction === "row" ? "items-center" : "items-stretch",
             p.fill === true && "flex-1 overflow-y-auto",
             // 横向排布里输入框吃掉剩余宽度（消息输入区那种「输入框 + 按钮」），按钮等保持内容宽。
@@ -737,9 +764,10 @@ function Node({ node }: { node: PrototypeNode }): React.ReactElement {
     case "navbar":
       return (
         <div className="flex h-9 items-center justify-between border-b border-border px-1 text-12" data-proto="navbar" {...tap}>
-          <ItemTap id={node.id} item={0} className="w-10 truncate text-muted-foreground">{node.props.left ?? ""}</ItemTap>
+          {/* 左右两侧是图标名（back / search…）就画图标，不把英文单词印在导航栏上——见 `lib/prototype-navbar.ts`。 */}
+          <ItemTap id={node.id} item={0} className="flex w-10 items-center truncate text-muted-foreground"><NavSide side={navbarSide(node.props.left)} /></ItemTap>
           <span className="truncate font-semibold">{node.props.title}</span>
-          <ItemTap id={node.id} item={1} className="w-10 truncate text-right text-primary">{node.props.right ?? ""}</ItemTap>
+          <ItemTap id={node.id} item={1} className="flex w-10 items-center justify-end truncate text-right text-primary"><NavSide side={navbarSide(node.props.right)} /></ItemTap>
         </div>
       );
     case "text": {
@@ -929,6 +957,9 @@ function Node({ node }: { node: PrototypeNode }): React.ReactElement {
     }
     case "chart":
       return <Chart node={node} tap={tap} />;
+    /* ── design-delta `prototype-board`：自由画布（白板 / 思维导图 / 流程图） ── */
+    case "board":
+      return <Board node={node} tap={tap} />;
     /* ── 对标 R5（#3933）：落地页的分区与页脚 ── */
     case "section": {
       const p = node.props ?? {};
@@ -1006,6 +1037,69 @@ function Node({ node }: { node: PrototypeNode }): React.ReactElement {
  * labels 与 values 不等长 ⇒ 画较短的那一组（契约不要求等长）。
  * 读屏器读的是 `aria-label` 里逐点的「标签 数值单位」，不是一串 div。
  */
+/**
+ * design-delta `prototype-board`——自由画布。坐标是**元素中心**相对画布的百分比，所以换设备 / 缩放不跑位；
+ * 连线用 SVG（`preserveAspectRatio="none"` + `non-scaling-stroke`，拉伸不改线宽），元素与光标用 HTML。
+ */
+const BOARD_HEIGHT: Record<"sm" | "md" | "lg" | "fill", string> = { sm: "h-40", md: "h-64", lg: "h-96", fill: "min-h-64 flex-1" };
+const BOARD_DEFAULT_W: Record<"sticky" | "shape" | "text", number> = { sticky: 24, shape: 20, text: 30 };
+function Board({ node, tap }: { node: Extract<PrototypeNode, { type: "board" }>; tap: Record<string, unknown> }): React.ReactElement {
+  const p = node.props;
+  const links = (p.links ?? []).filter((l) => l.from < p.items.length && l.to < p.items.length);
+  const summary = `画布：${p.items.map((i) => i.text).filter((t) => t !== "").join("、")}`.slice(0, 300);
+  return (
+    <div
+      className={cn("relative w-full shrink-0 overflow-hidden rounded-card border border-border bg-panel", BOARD_HEIGHT[p.height ?? "md"])}
+      style={p.grid === false ? undefined : { backgroundImage: "radial-gradient(hsl(var(--border)) 1px, transparent 1px)", backgroundSize: "12px 12px" }}
+      role="img" aria-label={summary}
+      data-proto="board" {...tap}
+    >
+      <svg viewBox="0 0 100 100" preserveAspectRatio="none" className="pointer-events-none absolute inset-0 h-full w-full text-muted-foreground" aria-hidden>
+        {links.map((l, i) => {
+          const a = p.items[l.from]!; const b = p.items[l.to]!;
+          return <line key={i} x1={a.x} y1={a.y} x2={b.x} y2={b.y} stroke="currentColor" strokeWidth={1.5} vectorEffect="non-scaling-stroke" data-board-link={i} />;
+        })}
+      </svg>
+      {links.map((l, i) => l.label === undefined ? null : (
+        <span key={`l${i}`} className="absolute -translate-x-1/2 -translate-y-1/2 rounded-control bg-card px-1 text-9 text-muted-foreground"
+          style={{ left: `${(p.items[l.from]!.x + p.items[l.to]!.x) / 2}%`, top: `${(p.items[l.from]!.y + p.items[l.to]!.y) / 2}%` }}>{l.label}</span>
+      ))}
+      {p.items.map((it, i) => {
+        const color = designPrototype.PROTOTYPE_BOARD_COLORS[it.color ?? (it.kind === "sticky" ? "yellow" : "gray")];
+        const pos = { left: `${it.x}%`, top: `${it.y}%`, width: `${it.w ?? BOARD_DEFAULT_W[it.kind]}%` };
+        if (it.kind === "text") {
+          return <span key={i} className="absolute -translate-x-1/2 -translate-y-1/2 text-center text-11 font-medium" style={pos} data-board-item={i} data-board-kind="text">{it.text}</span>;
+        }
+        const shape = it.kind === "shape" ? (it.shape ?? "round") : "sticky";
+        return (
+          <div
+            key={i}
+            className={cn(
+              "absolute flex -translate-x-1/2 -translate-y-1/2 flex-col justify-center gap-0.5 break-words px-1.5 py-1 text-10 leading-snug",
+              shape === "sticky" && "min-h-10 rounded-sm shadow-sm",
+              shape === "rect" && "min-h-8 rounded-sm border border-current text-center",
+              shape === "round" && "min-h-8 rounded-card border border-current text-center",
+              shape === "circle" && "aspect-square items-center rounded-full border border-current text-center",
+              shape === "diamond" && "aspect-square items-center text-center [clip-path:polygon(50%_0,100%_50%,50%_100%,0_50%)]",
+            )}
+            style={{ ...pos, backgroundColor: `hsl(${color.bg})`, color: `hsl(${color.fg})` }}
+            data-board-item={i} data-board-kind={it.kind}
+          >
+            <span>{it.text}</span>
+            {it.author !== undefined && <span className="self-end text-9 opacity-80">{it.author}</span>}
+          </div>
+        );
+      })}
+      {(p.cursors ?? []).map((c, i) => (
+        <span key={`c${i}`} className="pointer-events-none absolute flex items-start gap-0.5" style={{ left: `${c.x}%`, top: `${c.y}%` }} data-board-cursor={c.name}>
+          <MousePointer2 aria-hidden className="h-3 w-3 fill-primary text-primary" />
+          <span className="rounded-control bg-primary px-1 text-9 text-primary-foreground">{c.name}</span>
+        </span>
+      ))}
+    </div>
+  );
+}
+
 function Chart({ node, tap }: { node: Extract<PrototypeNode, { type: "chart" }>; tap: Record<string, unknown> }): React.ReactElement {
   const p = node.props;
   const n = Math.min(p.labels.length, p.values.length);
@@ -1080,7 +1174,9 @@ function StatusBar({ label }: { label: string }) {
   return (
     <div className="flex shrink-0 items-center justify-between px-5 pt-1.5 text-9 font-medium text-card-foreground/80" aria-hidden data-chrome="status">
       <span>9:41</span>
-      <span className="truncate px-2 text-card-foreground/45">{label}</span>
+      {/* 页名：比「9:41」淡一档，但不能低于 AA——45% 时浅色原型上只有 2.99（#4331 U5，普通用户评测集量出）。
+          70% ⇒ 浅色 6.8 / 深色 8.1。 */}
+      <span className="truncate px-2 text-card-foreground/70">{label}</span>
       <span className="flex items-center gap-0.5">
         <span className="inline-block h-1.5 w-2.5 rounded-sm bg-current opacity-70" />
         <span className="inline-block h-1.5 w-1.5 rounded-full bg-current opacity-70" />

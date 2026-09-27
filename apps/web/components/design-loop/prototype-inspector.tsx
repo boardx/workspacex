@@ -69,7 +69,8 @@ function toDraft(node: PrototypeNode): Draft {
   for (const f of FIELDS[node.type]) {
     // 深度 S10：图不走草稿——选了就生效（`setImage`）。放进草稿的话，同一节点刷新时草稿里那份旧 src
     // 会被 diff 成「删掉它」，下一次「应用」就把刚上传的图静悄悄删了。
-    if (f.kind === "image") continue;
+    // design-delta `prototype-board`：结构化字段（画布的便签 / 连线）不进草稿——放进去会被当成字符串写回，毁掉数据。
+    if (f.kind === "image" || f.kind === "structured") continue;
     const v = p[f.key];
     if (f.kind === "lines") d[f.key] = Array.isArray(v) ? (v as string[]).join("\n") : "";
     else if (f.kind === "rows") d[f.key] = rowsToText(v);
@@ -90,7 +91,7 @@ function diff(node: PrototypeNode, draft: Draft): Record<string, unknown> {
   const before = toDraft(node);
   const out: Record<string, unknown> = {};
   for (const f of FIELDS[node.type]) {
-    if (f.kind === "image") continue; // 见 `toDraft`
+    if (f.kind === "image" || f.kind === "structured") continue; // 见 `toDraft`
     const a = before[f.key];
     const b = draft[f.key];
     if (a === b) continue;
@@ -306,6 +307,11 @@ export function PrototypeInspector({
           {(f.kind === "multiline" || f.kind === "lines" || f.kind === "rows" || f.kind === "numbers") && <Textarea id={fieldId(f.key)} rows={f.kind === "multiline" ? 3 : f.kind === "rows" ? 6 : 4} placeholder={f.kind === "lines" ? "一行一项" : f.kind === "rows" ? "一行一条，格子用 | 隔开" : f.kind === "numbers" ? "一行一个数" : undefined} value={String(draft[f.key] ?? "")} onChange={(e) => setDraft({ ...draft, [f.key]: e.target.value })} disabled={busy} data-testid={`design-inspector-${f.key}`} />}
           {f.kind === "number" && <Input id={fieldId(f.key)} type="number" min={0} value={draft[f.key] === undefined ? "" : String(draft[f.key])} onChange={(e) => setDraft({ ...draft, [f.key]: e.target.value === "" ? undefined : Number(e.target.value) })} disabled={busy} data-testid={`design-inspector-${f.key}`} />}
           {f.kind === "image" && <InspectorImageField id={fieldId(f.key)} src={typeof propsOf(node)[f.key] === "string" ? String(propsOf(node)[f.key]) : undefined} busy={busy} onChange={setImage} />}
+          {f.kind === "structured" && (
+            <p id={fieldId(f.key)} className="text-11 text-muted-foreground" data-testid={`design-inspector-structured-${f.key}`}>
+              {Array.isArray(propsOf(node)[f.key]) ? `${String((propsOf(node)[f.key] as unknown[]).length)} 项` : "没有"}——要增删或挪动，直接在左边对话里说（比如「加一张便签：会后整理要手抄」）。
+            </p>
+          )}
           {f.kind === "bool" && <input id={fieldId(f.key)} type="checkbox" checked={draft[f.key] === true} onChange={(e) => setDraft({ ...draft, [f.key]: e.target.checked })} disabled={busy} className="h-3.5 w-3.5 accent-primary" data-testid={`design-inspector-${f.key}`} />}
           {f.kind === "enum" && (
             <select
