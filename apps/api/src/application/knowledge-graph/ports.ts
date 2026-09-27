@@ -99,8 +99,13 @@ export interface KgExtractionQueuePort {
   pendingOrgs(): Promise<readonly OrgId[]>;
   /** 认领本 org 的一批任务（带租约：worker 崩了，租约过期后别的 worker 可以重新认领）。 */
   claim(orgId: OrgId, limit: number): Promise<readonly KgExtractionJob[]>;
-  complete(orgId: OrgId, messageId: string): Promise<void>;
-  fail(orgId: OrgId, messageId: string, error: string): Promise<void>;
+  /**
+   * issue #4350：`attempts` 是认领时拿到的次数（`KgExtractionJob.attempts`），当作租约的**围栏令牌**：给了它，
+   * 只有这一行仍停在这次认领上时才生效——被 watchdog 放弃、租约过期后又被重新认领的旧任务，迟到的
+   * complete / fail 不会删掉 / 解锁新认领正在处理的那一行。不给 ⇒ 不围栏。
+   */
+  complete(orgId: OrgId, messageId: string, attempts?: number): Promise<void>;
+  fail(orgId: OrgId, messageId: string, error: string, attempts?: number): Promise<void>;
 }
 
 export interface KgMessage {
@@ -125,7 +130,10 @@ export interface KgExtractionSourcePort {
 }
 
 export interface KnowledgeExtractorPort {
-  /** 模型调用失败 ⇒ 抛错（任务稍后重试）；模型回了东西但解析不出 ⇒ 返回空结果（不重试）。 */
+  /**
+   * 模型调用失败 ⇒ 抛错（任务稍后重试）；模型回了东西但解析不出 ⇒ **也抛错**（issue #4350：同样重试，三次后
+   * 面板显示「失败」，不再当成「没有可记的」悄悄出队）；合法的空结果 ⇒ 返回空结果（出队，不重试）。
+   */
   extract(input: { readonly message: KgMessage; readonly context: readonly KgMessage[] }): Promise<ExtractionResult>;
 }
 

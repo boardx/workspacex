@@ -325,7 +325,8 @@ export function ChatTaskInspector(props: ChatTaskInspectorProps): JSX.Element {
    * phase-18 F09 —— 「记忆」页签的数据（`getThreadKnowledge`）。选中线程后在 effect 里取一次
    * （不阻塞首帧），角标显示 `claims.length`；每次点开页签再刷新一次，看到的是最新整理结果。
    */
-  const knowledge = useThreadKnowledge(showKnowledge ? threadId : null);
+  // issue #4350：「整理中」轮询只在「记忆」页签真的摆在前台时跑（页签切走 / 右栏收起 ⇒ 暂停；点回来 selectTab 会先重读一次）。
+  const knowledge = useThreadKnowledge(showKnowledge ? threadId : null, { active: activeTab === "memory" && !collapsed });
   // F15：记忆来源抽屉「跳到原消息」打开别的对话时带 `?focusMessage=`：消息加载出来后高亮它。
   useFocusMessageFromUrl(showKnowledge ? threadId : null);
   const knowledgeCount = knowledge.status === "ready" && knowledge.data !== null ? knowledge.data.claims.length : null;
