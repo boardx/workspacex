@@ -8,6 +8,7 @@
  * 颜色/圆角/字号全走 `.dark` token（`app/globals.css`），不写字面量——`lint-design.sh` U5/U11 门控。
  * 渲染表按 `PrototypeNodeType` 穷举：契约加了新原语这里编译不过，不会静默渲染成空。
  */
+import { navbarSide, type NavbarSide } from "@/lib/prototype-navbar";
 import * as React from "react";
 import { CommentPins, type CommentPin } from "./comment-pins";
 import {
@@ -356,6 +357,29 @@ const ALIGN: Record<"start" | "center" | "end" | "between", string> = {
  * 所以纵向 `start` = 块级子项拉伸（同「未指定 align」），**行内性质**的子项（非通栏按钮、
  * chip、badge、头像）贴左、保持内容宽——`button.full` 仍然有意义。横向 `start` 不变。
  */
+function NavSide({ side }: { side: NavbarSide | null }): React.ReactElement | null {
+  if (side === null) return null;
+  if ("text" in side) return <>{side.text}</>;
+  const Icon = ICONS[side.icon];
+  return <Icon role="img" aria-label={side.label} data-nav-icon={side.icon} className="h-4 w-4 shrink-0" />;
+}
+/**
+ * 纵向 stack 的 `align:"center"`（2026-09-27 用户截图：「添加便签」整页缩成画面正中一小条，导航栏也被挤到中间）。
+ *
+ * 真实生成 79 页里 17 页写了它。映射成 `items-center justify-center` 有两处错：
+ *   · 交叉轴：块级子项（导航栏 / 列表 / 卡片 / 输入框）缩成内容宽——与 #4322 的 `align:start` 同一个病；
+ *   · 主轴：整栏内容**竖直居中**，页根这样写就把导航栏推到屏幕中间。
+ * 所以纵向 center = 块级拉伸、文字居中、行内子项居中；**竖直居中只在这一栏里没有导航栏 / 底部导航时**
+ * 才做（那种通常是空态、登录这类本来就该居中的一块）。
+ */
+function columnCenter(children: readonly designPrototype.PrototypeNode[] | undefined): string {
+  const hasChrome = (children ?? []).some((c) => c.type === "navbar" || c.type === "bottomnav");
+  return cn(
+    "items-stretch text-center [&>[data-proto=button]]:self-center [&>[data-proto=chip]]:self-center",
+    "[&>[data-proto=badge]]:self-center [&>[data-proto=avatar]]:self-center",
+    !hasChrome && "justify-center",
+  );
+}
 const COLUMN_START = "items-stretch justify-start " +
   "[&>[data-proto=button]]:self-start [&>[data-proto=chip]]:self-start " +
   "[&>[data-proto=badge]]:self-start [&>[data-proto=avatar]]:self-start";
@@ -711,6 +735,7 @@ function Node({ node }: { node: PrototypeNode }): React.ReactElement {
             sc.gap(p.gap ?? "sm"), sc.pad(p.padding ?? "none"),
             // 未指定 align：纵向拉伸子项占满宽度（手机屏里的行天然通栏），横向居中对齐。
             p.align === "start" && p.direction !== "row" ? COLUMN_START
+              : p.align === "center" && p.direction !== "row" ? columnCenter(node.children)
               : p.align !== undefined ? ALIGN[p.align] : p.direction === "row" ? "items-center" : "items-stretch",
             p.fill === true && "flex-1 overflow-y-auto",
             // 横向排布里输入框吃掉剩余宽度（消息输入区那种「输入框 + 按钮」），按钮等保持内容宽。
@@ -737,9 +762,10 @@ function Node({ node }: { node: PrototypeNode }): React.ReactElement {
     case "navbar":
       return (
         <div className="flex h-9 items-center justify-between border-b border-border px-1 text-12" data-proto="navbar" {...tap}>
-          <ItemTap id={node.id} item={0} className="w-10 truncate text-muted-foreground">{node.props.left ?? ""}</ItemTap>
+          {/* 左右两侧是图标名（back / search…）就画图标，不把英文单词印在导航栏上——见 `lib/prototype-navbar.ts`。 */}
+          <ItemTap id={node.id} item={0} className="flex w-10 items-center truncate text-muted-foreground"><NavSide side={navbarSide(node.props.left)} /></ItemTap>
           <span className="truncate font-semibold">{node.props.title}</span>
-          <ItemTap id={node.id} item={1} className="w-10 truncate text-right text-primary">{node.props.right ?? ""}</ItemTap>
+          <ItemTap id={node.id} item={1} className="flex w-10 items-center justify-end truncate text-right text-primary"><NavSide side={navbarSide(node.props.right)} /></ItemTap>
         </div>
       );
     case "text": {

@@ -14,6 +14,7 @@
  * - 文字一律以 JSX 表达式里的 JSON 字符串输出（`{"…"}`）：模型写的文案里出现 `{`、`<` 都不会
  *   把生成的代码弄坏，也不存在注入。
  */
+import { navbarSide } from "./prototype-navbar";
 import { designPrototype, designWorkbench } from "@repo/contracts";
 import type { DesignProject } from "@/lib/live-design-workbench";
 import { GAP_BY_DENSITY, PAD_BY_DENSITY, RADIUS_BY_SCALE, SPACE_BY_DENSITY, guessNavIcon } from "@/components/design-loop/prototype-canvas";
@@ -79,6 +80,14 @@ interface Ctx {
 }
 
 const str = (s: string): string => `{${JSON.stringify(s)}}`;
+/** 导航栏左右两侧：图标名画图标（与画布同一条规则，见 `prototype-navbar.ts`），否则是文字。 */
+function navSideJsx(value: string | undefined, ctx: Ctx): string {
+  const side = navbarSide(value);
+  if (side === null) return "";
+  if ("text" in side) return str(side.text);
+  const svg = ctx.icon(side.icon);
+  return svg === "" ? str(side.label) : `<span role="img" aria-label=${str(side.label)}>${svg}</span>`;
+}
 const cls = (...c: readonly (string | false | undefined)[]): string => `className="${c.filter(Boolean).join(" ")}"`;
 const pad = (depth: number): string => "  ".repeat(depth);
 
@@ -174,9 +183,9 @@ function node(n: Node, depth: number, ctx: Ctx): string {
     case "navbar": {
       const p = n.props;
       return el(depth, "header", cls("flex h-12 items-center justify-between border-b px-4", pal.border) + link, [
-        `${pad(d)}<span className="w-12 text-sm">${p.left === undefined ? "" : str(p.left)}</span>`,
+        `${pad(d)}<span className="flex w-12 items-center text-sm">${navSideJsx(p.left, ctx)}</span>`,
         `${pad(d)}<span className="text-sm font-semibold">${str(p.title)}</span>`,
-        `${pad(d)}<span className="w-12 text-right text-sm">${p.right === undefined ? "" : str(p.right)}</span>`,
+        `${pad(d)}<span className="flex w-12 items-center justify-end text-sm">${navSideJsx(p.right, ctx)}</span>`,
       ]);
     }
     case "text": {
