@@ -31,7 +31,7 @@ export async function listDigitalInterviews(
       orgRole: membership.orgRole as OrgRole | null,
       viewerTeamId: membership.teamId,
     }));
-    return isDisclosed(disclosed) ? [disclosed.payload] : [];
+    return isDisclosed(disclosed) && (!input.status || disclosed.payload.status===input.status) ? [disclosed.payload] : [];
   });
   return {
     items: visible.map((row) => ({
@@ -46,6 +46,7 @@ export async function listDigitalInterviews(
       completedExpertCount: row.completedExpertCount,
       primaryAction: projectDigitalInterviewState(row.status).primaryAction,
       updatedAt: row.updatedAt,
+      ...(row.sourceStep?{sourceStep:row.sourceStep}:{}),
     })),
   };
 }

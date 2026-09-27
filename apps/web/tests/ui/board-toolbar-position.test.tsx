@@ -1,45 +1,34 @@
-import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
-import { createWhiteboardDocument, readObjects, SpatialRelationshipCommandPort } from "@repo/whiteboard-core";
+import { createWhiteboardDocument } from "@repo/whiteboard-core";
 import { CollaborativeThinkingEditor } from "@/components/whiteboard/collaborative-thinking-editor";
 import { boardToolbarPosition } from "@/components/whiteboard/use-board-toolbar-position";
 import type { BoardViewport } from "@/components/whiteboard/fabric/board-fabric-object";
 
 let camera: BoardViewport;
-vi.mock("@/components/whiteboard/fabric/board-fabric-surface", () => ({ BoardFabricSurface: ({ onViewportChange }: { onViewportChange: (viewport: BoardViewport) => void }) => <button data-testid="test-camera" onClick={() => onViewportChange(camera)}>camera</button> }));
+vi.mock("@/components/whiteboard/fabric/board-fabric-surface", () => ({ BoardFabricSurface: ({ onViewportChange,onCanvasClick }: { onCanvasClick:(point:{x:number;y:number})=>void;onViewportChange: (viewport: BoardViewport) => void }) => <><button data-testid="test-create" onClick={()=>onCanvasClick({x:400,y:300})}>place</button><button data-testid="test-camera" onClick={() => onViewportChange(camera)}>camera</button></> }));
 class ResizeObserverMock { observe() {} disconnect() {} }
 beforeEach(() => { vi.stubGlobal("ResizeObserver", ResizeObserverMock); vi.stubGlobal("innerWidth", 1024); vi.stubGlobal("innerHeight", 768); camera = { zoom: 1, panX: 0, panY: 0, fitRequest: 0 }; });
 afterEach(() => { cleanup(); vi.restoreAllMocks(); vi.unstubAllGlobals(); });
 
-const cases = [
-  { edge: "below viewport", x: 300, y: 900, zoom: 1 },
-  { edge: "above viewport", x: 300, y: -900, zoom: 1 },
-  { edge: "left of viewport", x: -900, y: 300, zoom: 1 },
-  { edge: "right of viewport", x: 1900, y: 300, zoom: 1 },
-  { edge: "zoomed lower right", x: 700, y: 500, zoom: 8 },
-  { edge: "zoomed upper left", x: -700, y: -500, zoom: 8 },
-];
-for (const kind of ["sticky", "shape"] as const) {
-  it.each(cases)(`${kind} toolbar stays fully inside the safe area at $edge`, ({ x, y, zoom }) => {
-    const doc = createWhiteboardDocument();
-    render(<CollaborativeThinkingEditor boardId="board" clientId="web" doc={doc} readOnly={false} title="Board" status="已连接" />);
-    fireEvent.click(screen.getByTestId(`board-add-${kind}`));
-    const object = readObjects(doc)[0]!;
-    act(() => { new SpatialRelationshipCommandPort(doc).dispatch({ boardId: "board", clientId: "test", gestureId: "edge", command: { type: "transform", items: [{ id: object.id, geometry: { ...object.geometry, x, y } }] } }); });
-    camera = { ...camera, zoom };
-    fireEvent.click(screen.getByTestId("test-camera"));
-    const toolbar = screen.getByTestId("board-context-toolbar");
-    expect(Number.parseFloat(toolbar.style.left)).toBeGreaterThanOrEqual(16);
-    expect(Number.parseFloat(toolbar.style.left) + 460).toBeLessThanOrEqual(1024 - 16);
-    expect(Number.parseFloat(toolbar.style.top)).toBeGreaterThanOrEqual(72);
-    expect(Number.parseFloat(toolbar.style.top) + 54).toBeLessThanOrEqual(768 - 112);
-    // Resize must update both toolbar paths without waiting for any document mutation.
-    act(() => { vi.stubGlobal("innerWidth", 640); vi.stubGlobal("innerHeight", 480); window.dispatchEvent(new Event("resize")); });
-    expect(Number.parseFloat(toolbar.style.left) + 460).toBeLessThanOrEqual(640 - 16);
-    expect(Number.parseFloat(toolbar.style.top) + 54).toBeLessThanOrEqual(480 - 112);
-    doc.destroy();
-  });
-}
+it("keeps selection compact until properties are opened, then keyboard-resizes the inspector", () => {
+  const doc = createWhiteboardDocument();
+  render(<CollaborativeThinkingEditor boardId="board" clientId="web" doc={doc} readOnly={false} title="Board" status="已连接" />);
+  fireEvent.click(screen.getByTestId("board-add-sticky"));
+  fireEvent.click(screen.getByTestId("test-create"));
+  const panel = screen.getByTestId("board-context-toolbar");
+  expect(panel).toHaveAttribute("data-board-selected-object-panel", "true");
+  expect(panel).toHaveAttribute("data-expanded", "false");
+  expect(panel).toHaveClass("max-w-[calc(100vw-2rem)]");
+  fireEvent.click(screen.getByTestId("board-inspector-expand"));
+  expect(panel).toHaveClass("right-4", "top-16");
+  const resize = screen.getByTestId("board-inspector-resize");
+  fireEvent.keyDown(resize, { key: "ArrowLeft" });
+  expect(resize).toHaveAttribute("aria-valuenow", "344");
+  fireEvent.click(screen.getByTestId("board-inspector-close"));
+  expect(screen.queryByTestId("board-context-toolbar")).toBeNull();
+  doc.destroy();
+});
 
 it("places the full measured toolbar above an object or below it when the header prevents that", () => {
   const viewport = { zoom: 1, panX: 0, panY: 0, fitRequest: 0 };
@@ -58,23 +47,4 @@ it.each([{ width: 1440, height: 900 }, { width: 1280, height: 720 }, { width: 10
   const style = boardToolbarPosition(geometry, viewport, size, { width: 440, height: 54 }, controls);
   const rect = { x: Number(style.left), y: Number(style.top), width: 440, height: 54 };
   for (const obstacle of [...controls, geometry]) expect(intersects(rect, obstacle)).toBe(false);
-});
-
-for (const kind of ["sticky", "shape"] as const) it(`${kind} reads measured chrome in offset-parent coordinates and avoids it`, () => {
-  vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockImplementation(function (this: HTMLElement) {
-    const chrome = this.dataset.boardChrome;
-    if (chrome) { const control = controls[chrome === "editing" ? 0 : 1]!; return DOMRect.fromRect({ x: control.x + 80, y: control.y + 40, width: control.width, height: control.height }); }
-    if (this.dataset.testid === "collaborative-editor") return DOMRect.fromRect({ x: 80, y: 40, width: 1024, height: 768 });
-    if (this.dataset.testid === "board-context-toolbar") return DOMRect.fromRect({ width: 440, height: 54 });
-    return DOMRect.fromRect({});
-  });
-  const doc = createWhiteboardDocument();
-  render(<CollaborativeThinkingEditor boardId="board" clientId="web" doc={doc} readOnly={false} title="Board" status="已连接" />);
-  fireEvent.click(screen.getByTestId(`board-add-${kind}`));
-  const object = readObjects(doc)[0]!, geometry = { ...object.geometry, x: 160, y: 200 };
-  act(() => { new SpatialRelationshipCommandPort(doc).dispatch({ boardId: "board", clientId: "test", gestureId: "chrome", command: { type: "transform", items: [{ id: object.id, geometry }] } }); });
-  const toolbar = screen.getByTestId("board-context-toolbar");
-  const rect = { x: Number.parseFloat(toolbar.style.left), y: Number.parseFloat(toolbar.style.top), width: 440, height: 54 };
-  for (const obstacle of [...controls, geometry]) expect(intersects(rect, obstacle)).toBe(false);
-  doc.destroy();
 });

@@ -12,12 +12,14 @@
  *   - 真的跑 `next build`（生产构建），不是捡工作树里碰巧存在的 .next。
  */
 import { execFileSync, spawnSync } from "node:child_process";
+import { createRequire } from "node:module";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..", "..", "..");
-const tsxCli = join(ROOT, "node_modules", "tsx", "dist", "cli.mjs");
-const nextCli = join(ROOT, "apps", "web", "node_modules", "next", "dist", "bin", "next");
+// 按 Node 的解析规则找入口：hoisted 布局（Windows 打包）下 next 在根上，不在 apps/web 里（#4315）。
+const tsxCli = createRequire(join(ROOT, "package.json")).resolve("tsx/cli");
+const nextCli = createRequire(join(ROOT, "apps", "web", "package.json")).resolve("next/dist/bin/next");
 
 const out = execFileSync(process.execPath, [tsxCli, join(ROOT, "packages", "local-runtime", "src", "cli.ts"), "web-build-env"], {
   encoding: "utf8",

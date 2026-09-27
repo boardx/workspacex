@@ -11,6 +11,7 @@ describe('isolated whiteboard Yjs validator', () => {
     const result = await validator.commands(empty, [create]);
     const doc = createWhiteboardDocument(); Y.applyUpdate(doc, result.snapshot);
     expect(readObjects(doc)[0]?.text).toBe('你好');
+    expect(result.objectIds).toEqual(['n']);
     const update = await validator.diff(result.snapshot, Y.encodeStateVector(doc));
     expect(update.byteLength).toBe(2);
     doc.destroy();
@@ -22,6 +23,7 @@ describe('isolated whiteboard Yjs validator', () => {
     executeCommands(peer, [{ type: 'text', id: 'n', index: 2, deleteCount: 0, insert: '协作' }], {});
     const result = await validator.validate(initial.snapshot, Y.encodeStateAsUpdate(peer, before));
     const restored = createWhiteboardDocument(); Y.applyUpdate(restored, result.snapshot);
+    expect(result.objectIds).toEqual(['n']);
     expect(readObjects(restored)[0]?.text).toBe('你好协作'); peer.destroy(); restored.destroy();
   });
   it('returns only live object IDs through the isolated validator', async () => {

@@ -190,6 +190,8 @@ test('空白 Markdown 问卷无需报告模板即可发布并生成默认报告'
   await page.setViewportSize({width:1440,height:900});
   await expect(page.getByLabel('问卷 Markdown',{exact:true})).toHaveValue(/"体验"/);
   await page.getByRole('button',{name:'前往发布回收'}).click();
+  await page.getByRole('checkbox',{name:'同一浏览器限答一次'}).check();
+  await page.getByLabel('成功页 Markdown',{exact:true}).fill('# 提交成功\n\n**感谢您的具体建议**');
   await page.getByRole('button',{name:'检查发布条件'}).click();
   await expect(page.getByText('发布准备已完成')).toBeVisible();
   await page.getByRole('button',{name:'开始回收'}).click();
@@ -198,7 +200,12 @@ test('空白 Markdown 问卷无需报告模板即可发布并生成默认报告'
   await respondent.getByRole('textbox',{name:'请留下具体建议'}).fill('保持流程简单');
   await respondent.getByRole('radio',{name:'满意',exact:true}).check();
   await respondent.getByRole('button',{name:'提交答卷'}).click();
-  await expect(respondent.getByRole('status')).toContainText('提交成功');await context.close();
+  await expect(respondent.getByRole('status')).toContainText('感谢您的具体建议');
+  await respondent.reload();
+  await expect(respondent.getByRole('heading',{name:'提交成功',exact:true})).toBeVisible();
+  await expect(respondent.getByRole('button',{name:'提交答卷'})).not.toBeVisible();
+  await respondent.screenshot({path:test.info().outputPath('frozen-success-markdown.png')});
+  await context.close();
   await page.getByRole('button',{name:'刷新',exact:true}).click();
   await page.getByRole('button',{name:'3. 查看答卷'}).click();
   await page.getByRole('button',{name:'查看完整答卷'}).click();
@@ -206,6 +213,27 @@ test('空白 Markdown 问卷无需报告模板即可发布并生成默认报告'
   await page.getByRole('button',{name:'分析报告（可选）'}).click();await page.getByRole('button',{name:'生成报告',exact:true}).click();
   await expect(page.getByTestId('survey-report-document')).toContainText('简明反馈调查分析报告');
   await expect(page.getByLabel('报告 Markdown')).toHaveValue(/保持流程简单/);
+  const originalUrl=page.url().split('?')[0]!;
+  await page.getByRole('button',{name:'复制为新草稿'}).click();
+  await page.getByRole('button',{name:'确认创建新草稿'}).click();
+  await expect(page.getByLabel('问卷名称')).toHaveValue('简明反馈调查（新草稿）');
+  expect(page.url().split('?')[0]).not.toBe(originalUrl);
+  await expect(page.getByLabel('问卷 Markdown')).toHaveValue(/"体验"/);
+  await page.getByLabel('问题内容',{exact:true}).fill('新版本建议');
+  await expect(page.getByRole('button',{name:'保存修改'})).toBeDisabled();
+  await page.getByRole('button',{name:'前往发布回收'}).click();
+  await page.getByRole('button',{name:'检查发布条件'}).click();
+  await expect(page.getByText('发布准备已完成')).toBeVisible();
+  await page.getByRole('button',{name:'开始回收'}).click();
+  const newLink=await page.getByLabel('答题链接').inputValue();
+  expect(newLink).not.toBe(link);
+  const oldContext=await browser.newContext();const oldPage=await oldContext.newPage();await oldPage.goto(link);
+  await expect(oldPage.getByRole('textbox',{name:'请留下具体建议'})).toBeVisible();
+  await expect(oldPage.getByRole('textbox',{name:'新版本建议'})).not.toBeVisible();
+  await oldContext.close();
+  await page.goto(`${originalUrl}?step=responses`);
+  await page.getByRole('button',{name:'查看完整答卷'}).click();
+  await expect(page.getByRole('region',{name:'答卷详情'})).toContainText('保持流程简单');
 });
 
 test('新建弹窗可从真实模板创建并在刷新后保留名称',async({page})=>{

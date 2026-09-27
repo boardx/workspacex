@@ -3,6 +3,7 @@ import { unified } from "unified";
 import remarkParse from "remark-parse";
 import remarkGfm from "remark-gfm";
 import { DigitalInterviewArtifact, DigitalInterviewArtifactStep } from "./interview";
+import { InterviewMarkdownReportReview } from "./interview-markdown-report-review";
 
 /** Research body is kept verbatim; references are controlled metadata, not model claims. */
 export const InterviewMarkdownDocument = z.object({
@@ -29,6 +30,24 @@ export const InterviewMarkdownDocument = z.object({
 });
 export type InterviewMarkdownDocument = z.infer<typeof InterviewMarkdownDocument>;
 
+export const InterviewMarkdownExecution = z.object({
+  status: z.enum(["running", "paused", "failed", "completed"]),
+  tasks: z.array(z.object({
+    expertId: z.string().regex(/^[a-zA-Z0-9_-]+$/u),
+    status: z.enum(["pending", "running", "failed", "completed"]),
+    errorCode: z.string().nullable(),
+  }).strict()),
+}).strict();
+export const ExecuteInterviewMarkdown = z.object({
+  expectedVersion: z.number().int().positive(),
+  action: z.enum(["start", "advance", "pause", "resume", "retry"]),
+}).strict();
+export const BranchInterviewMarkdownRevision = z.object({
+  expectedVersion:z.number().int().positive(),
+  fromStep:z.enum(["intake","analysis","experts","outline"]),
+}).strict();
+export const InterviewMarkdownOriginalAttachment=z.object({assetId:z.string().min(1),filename:z.string().min(1).max(255),mime:z.string().min(1),bytes:z.number().int().positive(),sha256:z.string().regex(/^[a-f0-9]{64}$/u)}).strict();
+
 export const InterviewMarkdownEnvelope = z.object({
   interviewId: z.string().min(1),
   revisionId: z.string().min(1).nullable(),
@@ -39,7 +58,38 @@ export const InterviewMarkdownEnvelope = z.object({
     status: DigitalInterviewArtifact.innerType().shape.status,
     failure: DigitalInterviewArtifact.innerType().shape.failure,
   }).strict()),
+  execution: InterviewMarkdownExecution.nullable().default(null),
+  review: InterviewMarkdownReportReview.nullable().default(null),
 }).strict();
+export const InterviewMarkdownAttachmentResult=z.object({source:InterviewMarkdownEnvelope,original:InterviewMarkdownOriginalAttachment}).strict();
+
+/** Read-only navigation/history projection; confirmation comes exclusively from metadata. */
+export function projectInterviewMarkdownProgress(source: z.infer<typeof InterviewMarkdownEnvelope>) {
+  const statusOf=(step:InterviewMarkdownDocument["step"])=>{
+    const doc=source.documents.find(document=>document.step===step);
+    return source.states.find(state=>state.documentId===doc?.documentId)?.status;
+  };
+  const confirmed=(step:InterviewMarkdownDocument["step"])=>["confirmed","completed"].includes(statusOf(step)??"");
+  const order=["report","runs","outline","experts","analysis","intake"] as const;
+  const failed=order.find(step=>statusOf(step)==="failed");
+  if(failed) return {step:failed,status:"failed" as const};
+  if(source.execution?.status==="failed") return {step:"runs" as const,status:"failed" as const};
+  if(source.documents.some(doc=>doc.step==="report") && (source.execution?.status==="completed" || confirmed("runs"))) return {step:"report" as const,status:"completed" as const};
+  if(source.execution?.status==="completed" || confirmed("runs")) return {step:"runs" as const,status:"report_pending" as const};
+  if(source.execution) return {step:"runs" as const,status:"running" as const};
+  if(confirmed("outline")) return {step:"runs" as const,status:"questions_pending" as const};
+  if(source.documents.some(doc=>doc.step==="outline") || confirmed("experts")) return {step:"outline" as const,status:"questions_pending" as const};
+  if(source.documents.some(doc=>doc.step==="experts") || confirmed("analysis")) return {step:"experts" as const,status:"experts_pending" as const};
+  if(source.documents.some(doc=>doc.step==="analysis") || confirmed("intake")) return {step:"analysis" as const,status:"topic_pending" as const};
+  return {step:"intake" as const,status:"draft" as const};
+}
+
+export function projectInterviewMarkdownExperts(document:InterviewMarkdownDocument) {
+  return parseInterviewMarkdown(document).blocks.flatMap(block=>{
+    const link=block.links.find(item=>/^#expert-[a-zA-Z0-9_-]+$/u.test(item.url));
+    return link?[{expertId:link.url.slice(8),displayName:link.text,headingId:block.headingId}]:[];
+  });
+}
 
 /** Draft editing cannot set evidence, confirmation, references, or approval metadata. */
 export const SaveInterviewMarkdownDraft = z.object({

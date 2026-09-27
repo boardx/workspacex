@@ -20,9 +20,11 @@ STORE="${OLLAMA_MODELS:-$HOME/.ollama/models}"
 #   所以这条路径的文案必须说人话、给出路——见 up.ts 里那条 warning。
 #
 # 要改回「两份都带」：MODELS="qwen3.5:4b,qwen3.5:4b-mlx,..." 覆盖即可，不用改代码。
+# 不带 qwen3.5:2b（人类决策 2026-09-27「不要加 2b 的模型」；16 GB 上它与聊天模型来回换入换出，
+# 实测是负收益——见 up.ts 的 preferredMetaModel）。
 case "$(uname -s)-$(uname -m)" in
-  Darwin-arm64) DEFAULT_MODELS="qwen3.5:4b-mlx,qwen3.5:2b,qwen3-embedding:0.6b" ;;
-  *)            DEFAULT_MODELS="qwen3.5:4b,qwen3.5:2b,qwen3-embedding:0.6b" ;;
+  Darwin-arm64) DEFAULT_MODELS="qwen3.5:4b-mlx,qwen3-embedding:0.6b" ;;
+  *)            DEFAULT_MODELS="qwen3.5:4b,qwen3-embedding:0.6b" ;;
 esac
 MODELS="${MODELS:-$DEFAULT_MODELS}"
 command -v ollama >/dev/null || { echo "ollama CLI not found; install Ollama first" >&2; exit 1; }

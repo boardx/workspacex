@@ -1,9 +1,10 @@
 "use client";
 
 import * as React from "react";
-import { ApiError } from "@/lib/api-client";
+import { chatFileUpload } from "@repo/contracts";
+import { ApiError, getStoredSessionToken } from "@/lib/api-client";
 import { initializeInterviewMarkdown, loadInterviewMarkdown, saveInterviewMarkdown, confirmInterviewMarkdown, generateInterviewMarkdown,
-  type InterviewMarkdownEnvelope } from "@/lib/interview-markdown-api";
+  uploadInterviewMarkdownAttachment, type InterviewMarkdownEnvelope } from "@/lib/interview-markdown-api";
 import { Button } from "@/components/ui/button";
 import { InterviewIntakeStep } from "./interview-intake-step";
 import { InterviewAnalysisStep } from "./interview-analysis-step";
@@ -84,11 +85,20 @@ export function InterviewMarkdownPlanningStep({ interviewId, step, onVersionChan
     }));
   }
   const analysis = source?.documents.find((document) => document.step === "analysis") ?? null;
+  const intake = source?.documents.find((document) => document.step === "intake");
+  const intakeImmutable = Boolean(intake && source?.states.some((state) => state.documentId === intake.documentId && ["confirmed", "completed"].includes(state.status)));
   const failure = analysis && source?.states.find((state) => state.documentId === analysis.documentId)?.status === "failed"
     ? "分析生成未完成" : null;
   return <div>
     {error && <div role="alert" className="mb-5 rounded-xl border border-destructive/20 bg-destructive/5 p-4 text-sm text-destructive"><p>{error}</p><Button className="mt-3" variant="outline" disabled={pending} onClick={() => void action(async () => { receive(await loadInterviewMarkdown(interviewId)); })}>重新载入已保存版本（保留编辑文字）</Button></div>}
-    {step === "intake" ? <InterviewIntakeStep markdown={markdown} pending={pending} onImportFile={importInterviewTextFile} onChange={(text) => { setMarkdown(text); callbacks.current.onDirtyChange(true); }}
+    {step === "intake" && intakeImmutable && <p role="status" className="mb-4 text-sm text-muted-foreground">已确认需求只读，不能覆盖原文。可继续查看分析；修改研究内容需要新修订。</p>}
+    {step === "intake" ? <InterviewIntakeStep voiceSessionToken={getStoredSessionToken() ?? undefined} markdown={markdown} pending={pending} readOnly={intakeImmutable} onImportFile={importInterviewTextFile} onUploadFile={async (file) => {
+      if (intakeImmutable) throw new Error("已确认需求需要创建新修订");
+      if (file.size > chatFileUpload.ATTACHMENT_SYNC_EXTRACTION_MAX_BYTES) throw new Error("研究文件不能超过同步提取上限");
+      const current = await saveIntake(await loadInterviewMarkdown(interviewId));
+      const result = await uploadInterviewMarkdownAttachment(interviewId, file, { expectedVersion: current.version, expectedDocumentVersion: current.documents.find((doc) => doc.step === "intake")?.version ?? 0 });
+      receive(result.source); setMarkdown(result.source.documents.find((doc) => doc.step === "intake")?.markdown ?? markdown); callbacks.current.onDirtyChange(false);
+    }} onChange={(text) => { setMarkdown(text); callbacks.current.onDirtyChange(true); }}
       onSave={() => action(async () => { await saveIntake(source ?? await loadInterviewMarkdown(interviewId)); })}
       onConfirm={() => action(async () => {
         const saved = await saveIntake(source ?? await loadInterviewMarkdown(interviewId));
