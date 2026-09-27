@@ -35,6 +35,7 @@ import { CollectionOverview } from "./collection-overview";
 import { SurveyShareCode } from "./share-code";
 import { useSurveyAutosave } from "./use-survey-autosave";
 import { SurveyDraftCopy } from "./survey-draft-copy";
+import { SurveyCollectionSettingsEditor } from './collection-settings';
 import { SurveyTemplateActions } from "../library/template-actions";
 import { LiveResponseList } from "./response-list";
 import { assessPublishReadiness } from "@/lib/survey/publish-readiness";
@@ -84,6 +85,7 @@ export function LiveSurveyWorkspace({
   const [expires, setExpires] = React.useState("");
   const [markdown, setMarkdown] = React.useState("");
   const [savedMarkdown, setSavedMarkdown] = React.useState("");
+  const [publicationMarkdown,setPublicationMarkdown]=React.useState('# 发布与回收\n');
   const [markdownNeedsApply, setMarkdownNeedsApply] = React.useState(false);
   const [conflicted, setConflicted] = React.useState(false);
   const [remoteVersion, setRemoteVersion] = React.useState<SurveyRuntime | null>(null);
@@ -96,6 +98,7 @@ export function LiveSurveyWorkspace({
     const text = value.source?.documents.design.markdown ?? serializeSurveyDesignMarkdown(value);
     setMarkdown(text);
     setSavedMarkdown(text);
+    setPublicationMarkdown(value.publication?.sourceSnapshot?.documents.publication.markdown ?? value.source?.documents.publication.markdown ?? '# 发布与回收\n');
     setMarkdownNeedsApply(false);
     setDraft({
       title: value.title,
@@ -129,6 +132,7 @@ export function LiveSurveyWorkspace({
     };
   }, [surveyId, accept]);
   const dirty =
+    publicationMarkdown !== (runtime?.publication?.sourceSnapshot?.documents.publication.markdown ?? runtime?.source?.documents.publication.markdown ?? '# 发布与回收\n') ||
     markdown !== savedMarkdown ||
     !!draft &&
     (!runtime ||
@@ -189,7 +193,7 @@ export function LiveSurveyWorkspace({
     }
     const persisted = await surveyRequest(`/surveys/${next.id}/source`, { method: "PUT", body: {
       expectedVersion: next.version,
-      documents: { design: markdown, publication: next.source?.documents.publication.markdown ?? "# 发布与回收\n", reportTemplate: serializeSurveyReportTemplateMarkdown(parsed.data.template) },
+      documents: { design: markdown, publication: publicationMarkdown, reportTemplate: serializeSurveyReportTemplateMarkdown(parsed.data.template) },
     } }, SurveyRuntimeSchema);
     accept(persisted);
     setNotice("修改已保存");
@@ -411,6 +415,7 @@ export function LiveSurveyWorkspace({
           {step === "publish" && (
             <section className="mx-auto max-w-6xl space-y-5 p-6">
               <h1 className="text-20 font-semibold">发布与回收</h1>
+              <SurveyCollectionSettingsEditor markdown={publicationMarkdown} locked={busy || !!runtime?.publication} onChange={setPublicationMarkdown}/>
               <p className="text-12 text-muted-foreground">
                 先检查设计质量，再明确开始回收。开始回收后题目与匿名方式固定，报告模板仍可继续编辑。
               </p>

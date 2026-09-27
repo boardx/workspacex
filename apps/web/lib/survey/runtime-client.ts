@@ -15,6 +15,8 @@ export class SurveyConflictError extends Error {
     super(
       reasonCode === "ANONYMITY_IMMUTABLE"
         ? "问卷开始回收后不能修改匿名方式。"
+        : reasonCode === 'SURVEY_ALREADY_SUBMITTED'
+          ? '此浏览器已经提交过答卷，感谢您的参与。'
         : reasonCode === "INVALID_TRANSITION"
           ? "问卷状态已变化，请刷新后重试。"
           : "数据已更新，请刷新后重试。当前未保存的修改仍保留。",
