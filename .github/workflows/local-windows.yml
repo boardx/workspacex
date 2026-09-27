@@ -1,0 +1,80 @@
+# local-windows.yml —— 本地版在真 Windows 上能不能起来（#4315）。
+#
+# 为什么要有这个：人类要 0.3.0 同时出 Windows 安装包，而本地版的运行时与打包脚本是按
+# macOS/POSIX 写的（sh 垫片、`:` 路径分隔、lsof/ps、进程组）。在 mac 上交叉编
+# `electron-builder --win` 会得到一个装得上、跑不起来的安装包——包里带的是 mac 的
+# 原生模块。所以判据只能在真 Windows 上取：先让核心栈（PGlite + 迁移 + 种子 + api）
+# 在 windows-latest 上起来，再逐步加 web / deep-agent / 模型 / 打包。
+#
+# 第一版刻意「红了也往下跑」：每一步的失败都是移植清单上的一项，一次跑完看全貌，
+# 比修一个推一次省得多。判定写在最后一步，只有它决定这个 job 的颜色。
+name: local-windows
+
+on:
+  pull_request:
+    paths:
+      - 'packages/local-runtime/**'
+      - 'apps/desktop/**'
+      - 'scripts/local-bundle/**'
+      - '.github/workflows/local-windows.yml'
+  workflow_dispatch:
+
+concurrency:
+  group: local-windows-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  core-stack:
+    runs-on: windows-latest
+    timeout-minutes: 45
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v5
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4.4.0
+      - name: Setup Node
+        uses: actions/setup-node@v5
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+
+      - name: local-runtime unit tests
+        id: unit
+        continue-on-error: true
+        working-directory: packages/local-runtime
+        run: pnpm exec vitest run --reporter=verbose 2>&1 | tee "$RUNNER_TEMP/unit.log"; exit ${PIPESTATUS[0]}
+
+      - name: up --web none --no-pull (core stack)
+        id: up
+        continue-on-error: true
+        run: |
+          DATA="$RUNNER_TEMP/wsx-data"
+          ( cd packages/local-runtime && pnpm exec tsx src/cli.ts up --data-dir "$DATA" --web none --no-pull > "$RUNNER_TEMP/up.log" 2>&1 ) &
+          ok=0
+          for i in $(seq 1 180); do
+            if curl -fsS --max-time 3 http://127.0.0.1:3200/healthz >/dev/null 2>&1; then ok=1; echo "api healthz ok after ${i}x2s"; break; fi
+            sleep 2
+          done
+          tail -80 "$RUNNER_TEMP/up.log"
+          [ "$ok" = 1 ]
+
+      - name: collect logs
+        if: always()
+        run: |
+          mkdir -p "$RUNNER_TEMP/out"
+          cp "$RUNNER_TEMP"/*.log "$RUNNER_TEMP/out/" 2>/dev/null || true
+          cp -r "$RUNNER_TEMP/wsx-data/logs" "$RUNNER_TEMP/out/service-logs" 2>/dev/null || true
+      - uses: actions/upload-artifact@v6
+        if: always()
+        with:
+          name: local-windows-logs
+          path: ${{ runner.temp }}/out
+
+      - name: verdict
+        if: always()
+        run: |
+          echo "unit=${{ steps.unit.outcome }} up=${{ steps.up.outcome }}"
+          [ "${{ steps.unit.outcome }}" = success ] && [ "${{ steps.up.outcome }}" = success ]
