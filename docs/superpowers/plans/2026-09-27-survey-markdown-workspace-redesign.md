@@ -18,8 +18,8 @@ Continue in the existing worktree `/Users/shenyangjun/.codex/worktrees/survey-wo
 
 | Order | Remaining delivery | Acceptance / current status |
 | --- | --- | --- |
-| 1 | Home navigation and cards — #4297 | Implemented; no homepage status filter, no top-right Markdown import. Focused UI/type checks passed. Submit PR. |
-| 2 | Markdown design — #4378 | Source save and three-stage navigation implemented; finish component extraction, Markdown preview/correction, conflict recovery and import/create entry. Do not claim complete from the basic editor alone. |
+| 1 | Home navigation and cards — #4297 | Merged in PR #4383, main commit a77615305. No homepage status filter or top-right Markdown import. |
+| 2 | Markdown design — #4378 | Source save, three-stage navigation, correction modal, conflict comparison, safe creation retry and design-area Markdown upload implemented. 19 related UI tests and typecheck passed; fresh browser verification running. AI file/voice generation and visual designer fidelity remain separate follow-ups, not silently claimed delivered. |
 | 3 | Publish and collect | Two-column collection dashboard, real settings, link/QR sharing, immutable published revision, readiness and stop-collection confirmation. |
 | 4 | Response review | Table + adjacent details, search/pagination, valid/review/excluded filtering, explicit exclusion reason and exports; no fabricated metadata. |
 | 5 | Optional templates and reports | Contextual template/report actions, Markdown report source and paper-like report layout, protected sample threshold, real Word/PDF export. |

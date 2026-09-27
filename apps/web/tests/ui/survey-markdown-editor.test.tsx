@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { expect, it, vi } from "vitest";
 import { MarkdownSurveyEditor } from "@/components/survey/live/markdown-survey-editor";
 
@@ -11,4 +11,14 @@ it("reviews Markdown before explicitly applying it to the survey", () => {
   expect(apply).not.toHaveBeenCalled();
   fireEvent.click(screen.getByRole("button", { name: "应用到问卷" }));
   expect(apply).toHaveBeenCalledOnce();
+});
+
+it("reads a Markdown file into the editable source without applying it", async () => {
+  const change = vi.fn();
+  const apply = vi.fn();
+  render(<MarkdownSurveyEditor value="" locked={false} onChange={change} onPreview={apply} />);
+  const file = new File(["# 导入调查\n\n## q1 [open]\n意见？"], "survey.md", {type:"text/markdown"});
+  fireEvent.change(screen.getByLabelText("上传 Markdown 文件"), {target:{files:[file]}});
+  await waitFor(() => expect(change).toHaveBeenCalledWith(expect.stringContaining("# 导入调查")));
+  expect(apply).not.toHaveBeenCalled();
 });

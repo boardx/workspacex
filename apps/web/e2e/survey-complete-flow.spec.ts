@@ -64,6 +64,11 @@ test("用户可从模板完整走通创建、发布、答题、查看答卷和�
   await expect(page.getByText("2. 会议日期", { exact: true })).toBeVisible();
   await expect(page.getByText("8. 下次会议最值得改进的地方是什么？", { exact: true })).toBeVisible();
 
+  const source = await page.getByLabel("问卷 Markdown", { exact: true }).inputValue();
+  await page.getByLabel("上传 Markdown 文件").setInputFiles({
+    name: "survey.md", mimeType: "text/markdown", buffer: Buffer.from(source),
+  });
+  await expect(page.getByLabel("问卷 Markdown", { exact: true })).toHaveValue(source);
   await page.getByRole("button", { name: "校对并预览题目" }).click();
   const correction = page.getByRole("dialog", { name: "Markdown 预览与校对" });
   await expect(correction.getByRole("region", { name: "问卷渲染预览" })).toContainText("共 8 道题");

@@ -13,6 +13,8 @@ export function MarkdownSurveyEditor({ value, locked, onChange, onPreview }: {
   onPreview: () => void;
 }) {
   const [reviewing, setReviewing] = React.useState(false);
+  const [fileError, setFileError] = React.useState("");
+  const fileRead = React.useRef(0);
   const parsed = React.useMemo(() => parseSurveyDesignMarkdown(value), [value]);
   return (
     <details className="mx-auto max-w-6xl rounded-lg border border-border bg-card p-5" open>
@@ -22,6 +24,27 @@ export function MarkdownSurveyEditor({ value, locked, onChange, onPreview }: {
           {locked ? "已发布题目已冻结，保留历史答卷对应的版本。" : "编辑 Markdown，校对题目预览后保存。模板和手工编辑也使用同一份源文档。"}
         </p>
         <textarea aria-label="问卷 Markdown" className="min-h-64 w-full rounded-md border border-border bg-background p-4 font-mono text-13" value={value} readOnly={locked} onChange={(event) => onChange(event.target.value)} />
+        {!locked && <label className="block text-13">
+          上传 Markdown 文件
+          <input type="file" accept=".md,.markdown,text/markdown" className="mt-2 block max-w-full text-12" onChange={(event) => {
+            const file = event.target.files?.[0];
+            const readId = ++fileRead.current;
+            event.target.value = "";
+            setFileError("");
+            if (!file) return;
+            if (!/\.(md|markdown)$/i.test(file.name) || file.size > 262144) {
+              setFileError("请选择不超过 256 KB 的 Markdown 文件。"); return;
+            }
+            const reader = new FileReader();
+            reader.onload = () => {
+              if (readId !== fileRead.current) return;
+              onChange(String(reader.result ?? "").replace(/^\uFEFF/, ""));
+            };
+            reader.onerror = () => { if (readId === fileRead.current) setFileError("文件读取失败，请重新选择。"); };
+            reader.readAsText(file, "UTF-8");
+          }} />
+        </label>}
+        {fileError && <p role="alert" className="text-12 text-destructive">{fileError}</p>}
         <Button variant="outline" onClick={() => setReviewing(true)}>校对并预览题目</Button>
         <Dialog open={reviewing} onOpenChange={setReviewing}>
           <DialogContent className="max-h-[85vh] max-w-5xl overflow-auto">
