@@ -1,6 +1,6 @@
 import { updateDigitalInterviewMetadata, deleteDigitalInterview } from "../../application/interview/manage-digital-interview";
 import { BadRequestException, Body, ConflictException, Controller, Delete, Patch, Get, Inject, Optional, NotFoundException, Param, Post, Query, Res, ServiceUnavailableException } from "@nestjs/common";
-import { INTERVIEW_MARKDOWN_READER, readInterviewMarkdown, saveInterviewMarkdownDraft, confirmInterviewMarkdownDraft, type InterviewMarkdownReader } from "../../application/interview/read-interview-markdown";
+import { INTERVIEW_MARKDOWN_READER, initializeInterviewMarkdown, readInterviewMarkdown, saveInterviewMarkdownDraft, confirmInterviewMarkdownDraft, type InterviewMarkdownReader } from "../../application/interview/read-interview-markdown";
 import { INTERVIEW_MARKDOWN_GENERATOR, type InterviewMarkdownGenerator } from "../../application/interview/generate-interview-markdown";
 import type { Response } from "express";
 import { interview as C, interviewMarkdown } from "@repo/contracts";
@@ -66,6 +66,16 @@ export class DigitalInterviewController {
       return await readInterviewMarkdown({ ...this.deps(), reader: this.markdownReader }, {
         orgId: toOrgId(principal.orgId), viewerUserId: principal.userId, interviewId,
       });
+    } catch (error) { return this.translate(error); }
+  }
+
+  @Post("/:interviewId/markdown/initialize")
+  async initializeMarkdown(@CurrentPrincipal() principal: Principal, @Param("interviewId") interviewId: string, @Body() body: unknown) {
+    assertPrincipal(principal);
+    const input = this.parse(interviewMarkdown.InitializeInterviewMarkdown, body);
+    if (!this.markdownReader) throw new ServiceUnavailableException();
+    try {
+      return await initializeInterviewMarkdown({ ...this.deps(), reader: this.markdownReader }, { ...input, orgId: toOrgId(principal.orgId), viewerUserId: principal.userId, interviewId });
     } catch (error) { return this.translate(error); }
   }
 

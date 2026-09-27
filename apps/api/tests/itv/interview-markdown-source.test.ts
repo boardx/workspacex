@@ -4,11 +4,12 @@ import { PgDatabase } from "../../src/infrastructure/db/pg-database";
 import { appConfig } from "../../src/infrastructure/db/pg-config";
 import { PgDigitalInterviewRepository } from "../../src/infrastructure/interview/pg-digital-interview-repository";
 import { toOrgId } from "../../src/domain/org-id";
-import { ensureDatabase, migrateOnce, resetOrgs, seedOrg, asOwner } from "../support/db";
+import { ensureDatabase, migrateOnce, resetOrgs, seedOrg, asOwner, addOrgMember } from "../support/db";
 import { migrateInterviewMarkdown, readInterviewMarkdownDocuments, appendInterviewMarkdownDocument } from "../../src/infrastructure/interview/interview-markdown-migration";
 import { discloseDecided, isDisclosed } from "../../src/application/security/permission-filter";
 import { decideInterviewVisibility } from "../../src/domain/interview/visibility-decision";
 import type { TenantSession } from "../../src/application/ports/database.port";
+import { PgInterviewMarkdownReader } from "../../src/infrastructure/interview/pg-interview-markdown-reader";
 
 const ORG = toOrgId("org-markdown-source-4382");
 const OTHER = toOrgId("org-markdown-other-4382");
@@ -45,6 +46,19 @@ beforeEach(async () => {
 });
 
 describe("Markdown source persistence", () => {
+  it("explicit initialization hydrates legacy Markdown once and rejects a stale baseline", async () => {
+    await addOrgMember(ORG, `${ORG}-owner`, "consultant", null);
+    const reader = new PgInterviewMarkdownReader(db);
+    const version = (await reader.readCurrent(ORG, ID))!.version;
+    await reader.initialize({ orgId: ORG, interviewId: ID, actorId: `${ORG}-owner`, expectedVersion: version });
+    const hydrated = (await reader.readCurrent(ORG, ID))!;
+    expect(hydrated.version).toBe(version + 1);
+    await db.withTenant(ORG, async (session) => expect((await readDocuments(session)).find((doc) => doc.step === "intake")?.markdown).toBe(RAW));
+    await reader.initialize({ orgId: ORG, interviewId: ID, actorId: `${ORG}-owner`, expectedVersion: hydrated.version });
+    expect((await reader.readCurrent(ORG, ID))!.version).toBe(hydrated.version);
+    await expect(reader.initialize({ orgId: ORG, interviewId: ID, actorId: `${ORG}-owner`, expectedVersion: version })).rejects.toThrow("CONCURRENT_MODIFICATION");
+    await expect(reader.initialize({ orgId: ORG, interviewId: ID, actorId: `${OTHER}-owner`, expectedVersion: hydrated.version })).rejects.toThrow();
+  });
   it("migration separates original intake from detailed analysis and preserves thin projections", async () => {
     await db.withTenant(ORG, async (session) => {
       const brief = { decision: "决定试点学校", learningGoals: [{ goalId: "g1", statement: "了解教师工作负担" }], targetRoles: ["乡村教师"], outOfScope: ["不比较考试分数"], successCriteria: ["形成可验证的试点标准"] };

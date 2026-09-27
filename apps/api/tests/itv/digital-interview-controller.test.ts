@@ -25,6 +25,24 @@ let db: PgDatabase;
 
 const auth = { "x-kernel-test-principal": `${USER}:${ORG}` };
 
+it("initialization is an explicit authorized POST and ordinary GET remains read-only", async () => {
+  const path = `${base}/interviews/digital/itv-f02-visible/markdown`;
+  const before = await (await fetch(path, { headers: auth })).json();
+  expect(before.documents).toEqual([]);
+  expect(before.version).toBe(1);
+  const headers = { ...auth, "content-type": "application/json" };
+  const response = await fetch(`${path}/initialize`, { method: "POST", headers, body: JSON.stringify({ expectedVersion: 1 }) });
+  expect(response.status).toBe(201);
+  const result = await response.json();
+  expect(result.revisionId).toBeTruthy();
+  expect(result.version).toBe(2);
+  const second = await fetch(`${path}/initialize`, { method: "POST", headers, body: JSON.stringify({ expectedVersion: 2 }) });
+  expect((await second.json()).version).toBe(2);
+  for (const id of ["itv-f02-same-org-hidden", "itv-f02-hidden", "missing-initialize"]) {
+    expect((await fetch(`${base}/interviews/digital/${id}/markdown/initialize`, { method: "POST", headers, body: JSON.stringify({ expectedVersion: 1 }) })).status).toBe(404);
+  }
+});
+
 it("confirmation appends an immutable source version and keeps raw Markdown unchanged", async () => {
   await db.withTenant(toOrgId(ORG), (session) => session.query(`INSERT INTO digital_interview_revisions(org_id,id,interview_id,revision_number,created_by) VALUES($1,'revision-api-confirm-4400','itv-f02-visible',1,$2)`, [ORG, USER]));
   const markdown = "# 需求\r\n\r\n教师上次备课 🧪\r\n";

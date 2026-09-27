@@ -1,7 +1,7 @@
 "use client";
 import * as React from "react";
 import { loadDigitalExperts, type DigitalExpertCatalogRow } from "@/lib/interview-api";
-import { loadInterviewMarkdown, saveInterviewMarkdown, confirmInterviewMarkdown, generateInterviewMarkdown,
+import { initializeInterviewMarkdown, loadInterviewMarkdown, saveInterviewMarkdown, confirmInterviewMarkdown, generateInterviewMarkdown,
   type InterviewMarkdownEnvelope, type InterviewMarkdownDocument } from "@/lib/interview-markdown-api";
 import { ApiError } from "@/lib/api-client";
 import { Button } from "@/components/ui/button";
@@ -23,7 +23,7 @@ export function InterviewMarkdownEditingStep({ interviewId, step, onVersionChang
   React.useEffect(() => {
     const controller = new AbortController();
     setPending(true); setError(""); setDirectory([]);
-    void loadInterviewMarkdown(interviewId, controller.signal).then((next) => {
+    void initializeInterviewMarkdown(interviewId, controller.signal).then((next) => {
       if (controller.signal.aborted) return;
       setSource(next); setMarkdown(next.documents.find((doc) => doc.step === step)?.markdown ?? "");
       callbacks.current.onVersionChange(next.version); callbacks.current.onDirtyChange(false);
@@ -38,7 +38,9 @@ export function InterviewMarkdownEditingStep({ interviewId, step, onVersionChang
     setPending(true); setError("");
     try { await operation(); }
     catch (cause) {
-      try { receive(await loadInterviewMarkdown(interviewId)); } catch { /* Retain editable draft. */ }
+      if (!(cause instanceof ApiError && cause.status === 409)) {
+        try { receive(await loadInterviewMarkdown(interviewId)); } catch { /* Retain editable draft. */ }
+      }
       setError(cause instanceof ApiError && cause.status === 409 ? "版本冲突或文档已确认；当前编辑保留，不能覆盖确认版本。" : "操作未完成，当前编辑保留。请重试。");
     } finally { setPending(false); }
   }

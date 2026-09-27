@@ -17,6 +17,12 @@ async function sourceRequest(path: string, body?: unknown, signal?: AbortSignal)
 export function loadInterviewMarkdown(interviewId: string, signal?: AbortSignal) {
   return sourceRequest(sourcePath(interviewId), undefined, signal);
 }
+/** Explicit, authorized initialization is separate from the read-only GET. */
+export async function initializeInterviewMarkdown(interviewId: string, signal?: AbortSignal) {
+  const current = await loadInterviewMarkdown(interviewId, signal);
+  if (current.documents.length) return current;
+  return sourceRequest(`${sourcePath(interviewId)}/initialize`, interviewMarkdown.InitializeInterviewMarkdown.parse({ expectedVersion: current.version }), signal);
+}
 export function saveInterviewMarkdown(interviewId: string, step: Step,
   input: z.infer<typeof interviewMarkdown.SaveInterviewMarkdownDraft>) {
   return sourceRequest(sourcePath(interviewId, step), interviewMarkdown.SaveInterviewMarkdownDraft.parse(input));

@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
-import { loadInterviewMarkdown, saveInterviewMarkdown, confirmInterviewMarkdown, generateInterviewMarkdown } from "@/lib/interview-markdown-api";
+import { initializeInterviewMarkdown, loadInterviewMarkdown, saveInterviewMarkdown, confirmInterviewMarkdown, generateInterviewMarkdown } from "@/lib/interview-markdown-api";
 
 const markdown = "# 需求\r\n\r\n中文 🧪 `a_b`\r\n| 问题 | 场景 |\r\n| --- | --- |\r\n| 备课 | 教师 |\r\n";
 const envelope = { interviewId: "itv-md-ui", revisionId: "revision-ui", version: 4,
@@ -8,6 +8,15 @@ const envelope = { interviewId: "itv-md-ui", revisionId: "revision-ui", version:
   states: [{ documentId: "document-ui", status: "draft", failure: null }] };
 beforeEach(() => { vi.stubEnv("NEXT_PUBLIC_API_URL", "http://localhost:4100"); vi.stubEnv("NEXT_PUBLIC_API_PATH_PREFIX", ""); });
 afterEach(() => { vi.unstubAllGlobals(); vi.unstubAllEnvs(); });
+it("empty legacy source is hydrated by explicit versioned initialization", async () => {
+  const writes: unknown[] = [];
+  vi.stubGlobal("fetch", async (url: string, init: RequestInit) => {
+    if (init.method === "POST") { expect(url).toContain("/markdown/initialize"); writes.push(JSON.parse(String(init.body))); return new Response(JSON.stringify(envelope)); }
+    return new Response(JSON.stringify({ ...envelope, documents: [], states: [] }));
+  });
+  expect((await initializeInterviewMarkdown("itv-md-ui")).documents[0]?.markdown).toBe(markdown);
+  expect(writes).toEqual([{ expectedVersion: 4 }]);
+});
 
 it("importsTextAsMarkdown preserves raw bytes through the draft API", async () => {
   let captured: RequestInit | undefined;

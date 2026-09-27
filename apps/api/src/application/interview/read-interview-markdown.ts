@@ -8,6 +8,7 @@ import type { z } from "zod";
 
 export const INTERVIEW_MARKDOWN_READER = Symbol("InterviewMarkdownReader");
 export interface InterviewMarkdownReader {
+  initialize(input: z.infer<typeof interviewMarkdown.InitializeInterviewMarkdown> & { orgId: OrgId; interviewId: string; actorId: string }): Promise<void>;
   saveDraft(input: z.infer<typeof interviewMarkdown.SaveInterviewMarkdownDraft> & {
     orgId: OrgId; interviewId: string; actorId: string;
     step: interviewMarkdown.InterviewMarkdownDocument["step"];
@@ -21,6 +22,12 @@ export interface InterviewMarkdownReader {
     documents: Guarded<interviewMarkdown.InterviewMarkdownDocument[]>;
     states: z.infer<typeof interviewMarkdown.InterviewMarkdownEnvelope>["states"];
   } | null>;
+}
+
+export async function initializeInterviewMarkdown(deps: GetDigitalInterviewDeps & { reader: InterviewMarkdownReader }, input: z.infer<typeof interviewMarkdown.InitializeInterviewMarkdown> & { orgId: OrgId; viewerUserId: string; interviewId: string }) {
+  await authorizeDigitalInterview(deps, input);
+  await deps.reader.initialize({ ...input, actorId: input.viewerUserId });
+  return readInterviewMarkdown(deps, input);
 }
 
 export async function confirmInterviewMarkdownDraft(
