@@ -52,13 +52,14 @@ async function dragObject(page: Page, row: ReturnType<typeof objectRow>, dx: num
   await expect(page.getByTestId("board-a11y-selection-announcement")).toHaveText("已选择 1 个对象");
   await page.evaluate(() => new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve()))));
   const geometry = await geometryOf(row), { box, zoom, panX, panY } = await canvasTransform(page);
-  // Iteration 05 Fabric Groups still use center origins; Iteration 06 normalizes
-  // the adapter boundary to canonical top-left coordinates.
-  // Use the left interior quarter: the centered contextual/property toolbar
-  // can cover the visual centre, while the bottom dock covers lower points.
+  // Canonical geometry is top-left based. Close direct text editing before
+  // dragging the interior so the pointer reaches Fabric instead of the textarea.
+  await page.keyboard.press("Escape");
+  const angle = geometry.rotation * Math.PI / 180;
+  const localX = geometry.width / 4, localY = geometry.height / 2;
   const sceneCenter = {
-    x: geometry.x - Math.min(40, geometry.width / 4),
-    y: geometry.y,
+    x: geometry.x + localX * Math.cos(angle) - localY * Math.sin(angle),
+    y: geometry.y + localX * Math.sin(angle) + localY * Math.cos(angle),
   };
   const start = { x: box.x + panX + sceneCenter.x * zoom, y: box.y + panY + sceneCenter.y * zoom };
   await page.mouse.move(start.x, start.y); await page.mouse.down(); await page.mouse.move(start.x + dx * zoom, start.y + dy * zoom, { steps: 10 }); await page.mouse.up();
