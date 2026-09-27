@@ -69,11 +69,12 @@ export class WhiteboardProvider {
     this.persistenceTail=next.catch(()=>undefined);
     return next;
   }
+  private needsReauthorization=false;
   private async restoreOutbox(token: string) {
     try {
       const restored = await this.outbox!.restore(token);
       if (this.stopped || token !== this.token) return;
-      if (restored.revoked) { this.block('ACCESS_REVOKED', false); return; }
+      if (restored.revoked) { this.needsReauthorization=true;this.pending=[];this.persisted.clear();this.doc.transact(()=>{this.doc.getMap('objects').clear();this.doc.getMap('deletedObjects').clear();},REMOTE);this.connect('FRESH_AUTH_REQUIRED');return; }
       this.pending = restored.updates; this.persisted = new Set(restored.updates.map(item => item.updateId));
       for (const item of restored.updates) Y.applyUpdate(this.doc, base64ToBytes(item.update), REMOTE);
       this.publish({ pending: this.pending.length }); this.connect(restored.updates.length ? 'RESTORED_OUTBOX' : null);
@@ -131,13 +132,23 @@ export class WhiteboardProvider {
     this.socket = socket;
     this.handshake = setTimeout(() => socket.close(), 10000);
     socket.onopen = () => this.send({ type: 'hello', stateVector: bytesToBase64(Y.encodeStateVector(this.doc)), ...(this.epoch && this.seq !== null ? { resume: { epoch: this.epoch, seq: this.seq } } : {}) });
-    socket.onmessage = event => {
+    let reauthorizing=false;const deferredMessages:MessageEvent[]=[];
+    const handleMessage = (event:MessageEvent) => {
       if (this.stopped || this.socket !== socket) return;
       try {
         const message = WhiteboardServerMessage.parse(JSON.parse(String(event.data)));
         if (message.type === 'error') {
           if (message.recoverable) { this.retryableClose.add(socket); this.publish({ phase: 'offline', reason: message.code }); socket.close(); return; }
           this.block(message.code); return;
+        }
+        if (message.type === 'sync' && this.needsReauthorization) {
+          if(!this.outbox?.reauthorize||!this.token){this.block('OUTBOX_REVOKED',false);return;}
+          reauthorizing=true;const token=this.token;
+          void this.queuePersistence(()=>this.outbox!.reauthorize!(token)).then(()=>{
+            if(this.stopped||this.socket!==socket||this.token!==token)return;
+            this.needsReauthorization=false;reauthorizing=false;handleMessage(event);
+            for(const deferred of deferredMessages.splice(0))handleMessage(deferred);
+          }).catch(()=>this.block('OUTBOX_REAUTHORIZATION_FAILED',false));return;
         }
         if (message.type === 'sync') {
           if (this.epoch !== null && this.epoch !== message.epoch) { this.block('STALE_EPOCH'); return; }
@@ -175,6 +186,7 @@ export class WhiteboardProvider {
         } else if (message.type === 'presence') this.publish({ peers: message.peers });
       } catch { this.block('PROTOCOL_ERROR'); }
     };
+    socket.onmessage=event=>{if(reauthorizing){if(deferredMessages.length>=WHITEBOARD_SYNC.pendingUpdates){this.block('PROTOCOL_ERROR');return;}deferredMessages.push(event);}else handleMessage(event);};
     socket.onclose = event => {
       if (this.handshake) clearTimeout(this.handshake);
       if (this.stopped || this.socket !== socket) return;

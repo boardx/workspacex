@@ -174,7 +174,7 @@ it('persists an authentication tombstone and refuses stale document restore afte
   const outbox=new DurableMemoryOutbox(),doc=createWhiteboardDocument();let state!:WhiteboardConnectionState;
   const provider=new WhiteboardProvider(doc,'board-1',value=>{state=value;},outbox);await vi.advanceTimersByTimeAsync(0);Socket.sockets[0]!.message({type:'error',code:'ACCESS_REVOKED',recoverable:false});await vi.advanceTimersByTimeAsync(0);
   expect(outbox.revoked.has('test-session')).toBe(true);expect(state).toMatchObject({phase:'blocked',reason:'ACCESS_REVOKED'});provider.close();doc.destroy();
-  const stale=createWhiteboardDocument();let restored!:WhiteboardConnectionState;new WhiteboardProvider(stale,'board-1',value=>{restored=value;},outbox);await vi.advanceTimersByTimeAsync(0);expect(restored).toMatchObject({phase:'blocked',reason:'ACCESS_REVOKED'});expect(Socket.sockets).toHaveLength(1);stale.destroy();
+  const stale=createWhiteboardDocument();let restored!:WhiteboardConnectionState;const restarted=new WhiteboardProvider(stale,'board-1',value=>{restored=value;},outbox);await vi.advanceTimersByTimeAsync(0);expect(restored.phase).toBe('connecting');expect(readObjects(stale)).toEqual([]);expect(Socket.sockets).toHaveLength(2);Socket.sockets[1]!.message({type:'error',code:'ACCESS_REVOKED',recoverable:false});expect(restored).toMatchObject({phase:'blocked',reason:'ACCESS_REVOKED'});restarted.close();stale.destroy();
 });
 
 it('keeps forty burst updates pending while draining no more than eight unacknowledged frames', () => {
@@ -267,4 +267,26 @@ it('browser offline detaches a still-open socket and online replays pending chan
   expect(state?.pending).toBe(0); expect(state?.phase).toBe('online');
   provider.close(); browserEvents.dispatchEvent(new Event('online')); expect(Socket.sockets).toHaveLength(2);
   doc.destroy(); server.destroy();
+});
+
+it('reauthorizes an empty revoked provider only after fresh sync and discards all retired writes',async()=>{
+ const outbox=new DurableMemoryOutbox();outbox.revoked.add('test-session');
+ const old=createWhiteboardDocument();executeCommands(old,[{type:'create',object:sticky('retired-secret')}],{});
+ outbox.updates.set('test-session',[{type:'update',epoch:1,updateId:crypto.randomUUID(),gestureId:crypto.randomUUID(),update:bytesToBase64(Y.encodeStateAsUpdate(old))}]);
+ let release!:()=>void;const gate=new Promise<void>(resolve=>{release=resolve;});
+ const reauthorize=vi.fn(async()=>{await gate;outbox.updates.set('test-session',[]);});
+ const durable:WhiteboardDurableOutbox=Object.assign(outbox,{reauthorize});
+ const doc=createWhiteboardDocument(),server=createWhiteboardDocument();executeCommands(server,[{type:'create',object:sticky('fresh-server-object')}],{});
+ let state!:WhiteboardConnectionState;const provider=new WhiteboardProvider(doc,'board-1',value=>{state=value;},durable);await vi.advanceTimersByTimeAsync(0);
+ const socket=Socket.sockets[0]!;socket.onopen?.();expect(messages(socket).map(value=>value.type)).toEqual(['hello']);expect(readObjects(doc)).toEqual([]);expect(reauthorize).not.toHaveBeenCalled();
+ socket.message({type:'sync',epoch:1,seq:2,update:bytesToBase64(Y.encodeStateAsUpdate(server)),role:'commenter',archived:false});await vi.advanceTimersByTimeAsync(0);
+ expect(reauthorize).toHaveBeenCalledOnce();expect(readObjects(doc)).toEqual([]);expect(state.phase).toBe('connecting');expect(updates(socket)).toEqual([]);
+ release();await vi.advanceTimersByTimeAsync(0);expect(state).toMatchObject({phase:'online',role:'commenter',pending:0});expect(readObjects(doc).map(value=>value.id)).toEqual(['fresh-server-object']);expect(updates(socket)).toEqual([]);
+ provider.close();old.destroy();doc.destroy();server.destroy();
+});
+it('does not publish fresh sync when another tab wins reauthorization CAS',async()=>{
+ const outbox=new DurableMemoryOutbox();outbox.revoked.add('test-session');const reauthorize=vi.fn(async()=>{throw new Error('OUTBOX_GENERATION_CHANGED');});
+ const doc=createWhiteboardDocument(),server=createWhiteboardDocument();let state!:WhiteboardConnectionState;
+ const provider=new WhiteboardProvider(doc,'board-1',value=>{state=value;},Object.assign(outbox,{reauthorize}));await vi.advanceTimersByTimeAsync(0);sync(Socket.sockets[0]!,server);await vi.advanceTimersByTimeAsync(0);
+ expect(state).toMatchObject({phase:'blocked',reason:'OUTBOX_REAUTHORIZATION_FAILED'});expect(readObjects(doc)).toEqual([]);expect(updates(Socket.sockets[0]!)).toEqual([]);provider.close();doc.destroy();server.destroy();
 });
