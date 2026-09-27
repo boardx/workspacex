@@ -204,8 +204,12 @@ test("smart layout confirm cancel", async ({ page, request, browser, baseURL }) 
     await page.getByTestId("board-bulk-apply").click();
     await expect(page.getByTestId("board-a11y-mirror").getByRole("button")).toHaveCount(6);
     await page.keyboard.press("t");
-    await page.keyboard.press("Escape");
+    const textEditor = page.getByLabel("对象文字", { exact: true });
+    await expect(textEditor).toBeVisible();
+    await textEditor.fill("研究标题");
+    await textEditor.press("Escape");
     await expect(page.getByTestId("board-a11y-mirror").getByRole("button")).toHaveCount(7);
+    await expect(page.getByTestId("board-a11y-mirror").getByRole("button", { name: "图形：研究标题" })).toBeVisible();
 
     await login(second);
     await second.goto(`/studio/board/${boardId}`);
