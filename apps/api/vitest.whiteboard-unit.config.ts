@@ -3,6 +3,7 @@ import { resolve } from 'node:path';
 
 /** Whiteboard collaboration counterproofs that use only in-memory ports and loopback. */
 export default defineConfig({ resolve:{alias:{
+  '@repo/contracts/whiteboard-portable':resolve(__dirname,'../../packages/contracts/src/whiteboard-portable.ts'),
   '@repo/contracts/skill-file-edit':resolve(__dirname,'../../packages/contracts/src/skill-file-edit.ts'),
   '@repo/contracts/whiteboard-asset':resolve(__dirname,'../../packages/contracts/src/whiteboard-asset.ts'),
   '@repo/contracts/whiteboard-import':resolve(__dirname,'../../packages/contracts/src/whiteboard-import.ts'),
@@ -23,6 +24,7 @@ export default defineConfig({ resolve:{alias:{
     'tests/whiteboard/recovery-service.test.ts',
     'tests/whiteboard/object-manifest-store.test.ts',
     'tests/whiteboard/import-parser.test.ts',
+    'tests/whiteboard/portable-board.test.ts',
     'tests/whiteboard/import-service.test.ts',
     'tests/whiteboard/image-assets.test.ts',
     'tests/whiteboard/recovery-metadata.test.ts',

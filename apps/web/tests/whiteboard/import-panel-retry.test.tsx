@@ -1,8 +1,8 @@
 import { cleanup,fireEvent,render,screen,waitFor } from '@testing-library/react';
 import { afterEach,expect,it,vi } from 'vitest';
 import { BoardImportPanel } from '../../components/whiteboard/board-import-panel';
-const mocks=vi.hoisted(()=>({upload:vi.fn(),preflight:vi.fn(),execute:vi.fn()}));
-vi.mock('../../lib/live-whiteboard-import',()=>({uploadWhiteboardImport:mocks.upload,preflightWhiteboardImport:mocks.preflight,executeWhiteboardImport:mocks.execute}));
+const mocks=vi.hoisted(()=>({upload:vi.fn(),preflight:vi.fn(),execute:vi.fn(),portable:vi.fn(),exportPortable:vi.fn()}));
+vi.mock('../../lib/live-whiteboard-import',()=>({uploadWhiteboardImport:mocks.upload,preflightWhiteboardImport:mocks.preflight,executeWhiteboardImport:mocks.execute,importPortableBoard:mocks.portable,exportPortableBoard:mocks.exportPortable}));
 afterEach(()=>{cleanup();vi.resetAllMocks();vi.unstubAllGlobals();});
 it('reuses the same write identity and epoch after an ambiguous network failure',async()=>{
  let n=0;vi.stubGlobal('crypto',{randomUUID:()=>`id-${++n}`,subtle:{digest:async()=>new ArrayBuffer(32)}});
@@ -29,4 +29,15 @@ it('shows the all-or-nothing limit report without executing and labels RTB unsup
  const file=new File(['{}'],'board.json');Object.defineProperty(file,'arrayBuffer',{value:async()=>new ArrayBuffer(2)});
  fireEvent.change(screen.getByTestId('board-import-file'),{target:{files:[file]}});fireEvent.click(screen.getByTestId('board-import-submit'));
  await screen.findByText('201 objects rejected; nothing imported');expect(mocks.execute).not.toHaveBeenCalled();
+});
+
+it('retries a portable package with the same identity without entering vendor conversion',async()=>{
+ let n=0;vi.stubGlobal('crypto',{randomUUID:()=>`id-${++n}`,subtle:{digest:async()=>new ArrayBuffer(32)}});
+ mocks.portable.mockRejectedValueOnce(new Error('ack lost')).mockResolvedValueOnce({objectCount:401,assetCount:1});
+ const {rerender}=render(<BoardImportPanel boardId="target" expectedEpoch={2} onClose={()=>{}}/>);
+ fireEvent.change(screen.getByTestId('board-import-source'),{target:{value:'workspacex'}});
+ const file=new File(['{}'],'board.board.json');Object.defineProperty(file,'arrayBuffer',{value:async()=>new ArrayBuffer(2)});
+ fireEvent.change(screen.getByTestId('board-import-file'),{target:{files:[file]}});fireEvent.click(screen.getByTestId('board-import-submit'));
+ await screen.findByText('ack lost');rerender(<BoardImportPanel boardId="target" expectedEpoch={3} onClose={()=>{}}/>);fireEvent.click(screen.getByTestId('board-import-submit'));
+ await screen.findByText('导入完成 · 401 个对象 · 1 张图片');expect(mocks.portable.mock.calls[1]).toEqual(mocks.portable.mock.calls[0]);expect(mocks.upload).not.toHaveBeenCalled();expect(mocks.execute).not.toHaveBeenCalled();
 });
