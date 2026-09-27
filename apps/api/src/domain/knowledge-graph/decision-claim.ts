@@ -66,7 +66,7 @@ export const DECISION_RECALL_LIMIT = 3;
 const MIN_STATEMENT_LENGTH = 4;
 
 /** 决定性动词：issue 原文六个 + 项目里已经在用的「拍板/敲定」近义词（见 `recall.ts` 的 `WHO_DECIDED`）。 */
-const DECISION_VERBS = "决定|选定|聚焦|确定|改为|改成|定为|敲定|拍板";
+export const DECISION_VERBS = "决定|选定|聚焦|确定|改为|改成|定为|敲定|拍板";
 
 /** 命中决定性动词，作触发的第一道门槛。 */
 const DECISION_VERB = new RegExp(DECISION_VERBS);
