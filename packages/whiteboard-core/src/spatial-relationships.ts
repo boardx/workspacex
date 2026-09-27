@@ -16,6 +16,8 @@ export interface ConnectorRelationship {
   to?: string;
   fromPoint?: { x: number; y: number };
   toPoint?: { x: number; y: number };
+  fromOffset?: {x:number;y:number};
+  toOffset?: {x:number;y:number};
   fromAnchor: ConnectorAnchor;
   toAnchor: ConnectorAnchor;
   type: ConnectorType;
@@ -117,6 +119,8 @@ function relation(input: ConnectorRelationship): ConnectorRelationship {
   if (!input || typeof input !== 'object') throw new Error('CONNECTOR_INVALID');
   const validPoint = (point: unknown) => Boolean(point && typeof point === 'object' && Number.isFinite((point as { x?: unknown }).x) && Number.isFinite((point as { y?: unknown }).y));
   if (Boolean(input.from) === validPoint(input.fromPoint) || Boolean(input.to) === validPoint(input.toPoint)
+    || (input.fromOffset!==undefined&&(!input.from||!validPoint(input.fromOffset)))
+    || (input.toOffset!==undefined&&(!input.to||!validPoint(input.toOffset)))
     || !['top', 'right', 'bottom', 'left', 'center'].includes(input.fromAnchor)
     || !['top', 'right', 'bottom', 'left', 'center'].includes(input.toAnchor)
     || !['straight', 'elbow', 'curve'].includes(input.type)
@@ -128,8 +132,17 @@ function relation(input: ConnectorRelationship): ConnectorRelationship {
   return structuredClone(input);
 }
 
+function assertConnectorTargets(from:WhiteboardObject|null,to:WhiteboardObject|null,value:ConnectorRelationship){
+  if(from?.kind==='connector'||to?.kind==='connector')throw new Error('CONNECTOR_ENDPOINT_INVALID');
+  if(from&&to&&from.id===to.id){
+    if(!value.fromOffset||!value.toOffset)throw new Error('CONNECTOR_ENDPOINT_INVALID');
+    const start=rotatedAnchorPoint(from,value.fromAnchor,value.fromOffset),end=rotatedAnchorPoint(to,value.toAnchor,value.toOffset);
+    if(start.x===end.x&&start.y===end.y)throw new Error('CONNECTOR_ENDPOINT_INVALID');
+  }
+}
+
 function connectorGeometry(from: WhiteboardObject, to: WhiteboardObject, value: ConnectorRelationship): WhiteboardGeometry {
-  const start = rotatedAnchorPoint(from, value.fromAnchor), end = rotatedAnchorPoint(to, value.toAnchor);
+  const start = rotatedAnchorPoint(from, value.fromAnchor, value.fromOffset), end = rotatedAnchorPoint(to, value.toAnchor, value.toOffset);
   return { x: Math.min(start.x, end.x), y: Math.min(start.y, end.y), width: Math.max(1, Math.abs(end.x - start.x)), height: Math.max(1, Math.abs(end.y - start.y)), rotation: 0 };
 }
 
@@ -137,7 +150,7 @@ function relationshipPoint(snapshot: Snapshot, value: ConnectorRelationship, end
   const id = value[end];
   if (!id) return structuredClone(value[end === 'from' ? 'fromPoint' : 'toPoint']!);
   const target = proposed.get(id) ?? object(snapshot, id);
-  return rotatedAnchorPoint(target, value[end === 'from' ? 'fromAnchor' : 'toAnchor']);
+  return rotatedAnchorPoint(target, value[end === 'from' ? 'fromAnchor' : 'toAnchor'], value[end === 'from' ? 'fromOffset' : 'toOffset']);
 }
 
 function relationshipGeometry(snapshot: Snapshot, value: ConnectorRelationship, proposed = new Map<string, WhiteboardObject>()): WhiteboardGeometry {
@@ -205,8 +218,8 @@ function deleteObjects(snapshot: Snapshot, ids: readonly string[], connectorPoli
   } else {
     for (const item of attached) {
       const value = normalizeConnector(item.connector!);
-      if (value.from && selected.has(value.from)) { const endpoint = object(snapshot, value.from); delete value.from; value.fromPoint = rotatedAnchorPoint(endpoint, value.fromAnchor); }
-      if (value.to && selected.has(value.to)) { const endpoint = object(snapshot, value.to); delete value.to; value.toPoint = rotatedAnchorPoint(endpoint, value.toAnchor); }
+      if (value.from && selected.has(value.from)) { const endpoint = object(snapshot, value.from); delete value.from; value.fromPoint = rotatedAnchorPoint(endpoint, value.fromAnchor, value.fromOffset); delete value.fromOffset; }
+      if (value.to && selected.has(value.to)) { const endpoint = object(snapshot, value.to); delete value.to; value.toPoint = rotatedAnchorPoint(endpoint, value.toAnchor, value.toOffset); delete value.toOffset; }
       commands.push({ type: 'connector', id: item.id, connector: value });
     }
   }
@@ -443,14 +456,14 @@ function build(snapshot: Snapshot, command: SpatialCommand): { commands: Whitebo
   }
   if (command.type === 'create-connector') {
     const value = relation(command.relationship), from = value.from ? object(snapshot, value.from) : null, to = value.to ? object(snapshot, value.to) : null; ensureUnlocked(...[from, to].filter((item): item is WhiteboardObject => Boolean(item)));
-    if (from?.kind === 'connector' || to?.kind === 'connector' || (from && to && from.id === to.id)) throw new Error('CONNECTOR_ENDPOINT_INVALID');
+    assertConnectorTargets(from,to,value);
     return { commands: [{ type: 'create', object: { id: command.id, schemaVersion: 1, kind: 'connector', geometry: relationshipGeometry(snapshot, value), text: value.label, style: {}, parentId: null, orderKey: '', locked: false, zIndex: command.zIndex ?? Math.max(from ? layerOf(from) : 0, to ? layerOf(to) : 0) + 1, connector: value } }], events: [event('ConnectorCreated', [command.id])] };
   }
   if (command.type === 'update-connector') {
     const target = object(snapshot, command.id); ensureUnlocked(target);
     if (target.kind !== 'connector') throw new Error('CONNECTOR_KIND_REQUIRED');
     const value = relation(command.relationship), from = value.from ? object(snapshot, value.from) : null, to = value.to ? object(snapshot, value.to) : null;
-    if (from?.kind === 'connector' || to?.kind === 'connector' || (from && to && from.id === to.id)) throw new Error('CONNECTOR_ENDPOINT_INVALID');
+    assertConnectorTargets(from,to,value);
     return { commands: [{ type: 'connector', id: target.id, connector: value }, { type: 'geometry', id: target.id, geometry: relationshipGeometry(snapshot, value) }, { type: 'text', id: target.id, index: 0, deleteCount: target.text.length, insert: value.label }], events: [event('ConnectorUpdated', [target.id])] };
   }
   if (command.type === 'delete-objects') return deleteObjects(snapshot, command.ids, command.connectors ?? 'cascade');
@@ -458,7 +471,7 @@ function build(snapshot: Snapshot, command: SpatialCommand): { commands: Whitebo
 }
 
 function normalizeConnector(value: NonNullable<WhiteboardObject['connector']>): ConnectorRelationship {
-  return relation({ ...(value.from ? { from: value.from } : { fromPoint: value.fromPoint! }), ...(value.to ? { to: value.to } : { toPoint: value.toPoint! }), fromAnchor: value.fromAnchor ?? 'right', toAnchor: value.toAnchor ?? 'left', type: value.type ?? 'straight', startStyle: value.startStyle ?? 'none', endStyle: value.endStyle ?? 'arrow', lineStyle: value.lineStyle ?? 'solid', label: value.label ?? '', semanticRelation: value.semanticRelation ?? '' });
+  return relation({ ...(value.fromOffset?{fromOffset:value.fromOffset}:{}), ...(value.toOffset?{toOffset:value.toOffset}:{}), ...(value.from ? { from: value.from } : { fromPoint: value.fromPoint! }), ...(value.to ? { to: value.to } : { toPoint: value.toPoint! }), fromAnchor: value.fromAnchor ?? 'right', toAnchor: value.toAnchor ?? 'left', type: value.type ?? 'straight', startStyle: value.startStyle ?? 'none', endStyle: value.endStyle ?? 'arrow', lineStyle: value.lineStyle ?? 'solid', label: value.label ?? '', semanticRelation: value.semanticRelation ?? '' });
 }
 
 function copyObjectsForSnapshot(snapshot: Snapshot, ids: string[], newId: (oldId: string) => string): WhiteboardObject[] {

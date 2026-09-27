@@ -28,14 +28,14 @@ export function rotatedGeometryCorners(geometry: WhiteboardGeometry): SpatialPoi
   ];
 }
 
-export function rotatedAnchorPoint(value: Pick<WhiteboardObject, 'geometry'>, anchor: SpatialAnchor): SpatialPoint {
+export function rotatedAnchorPoint(value: Pick<WhiteboardObject, 'geometry'>, anchor: SpatialAnchor, offset: SpatialPoint = {x:0,y:0}): SpatialPoint {
   const { width, height } = value.geometry;
   const local = anchor === 'top' ? { x: width / 2, y: 0 }
     : anchor === 'right' ? { x: width, y: height / 2 }
       : anchor === 'bottom' ? { x: width / 2, y: height }
         : anchor === 'left' ? { x: 0, y: height / 2 }
           : { x: width / 2, y: height / 2 };
-  return scenePointFromLocal(value.geometry, local);
+  return scenePointFromLocal(value.geometry, {x:local.x+offset.x,y:local.y+offset.y});
 }
 
 export function geometryBoundsInLocalSpace(child: WhiteboardGeometry, parent: WhiteboardGeometry) {

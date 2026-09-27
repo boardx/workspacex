@@ -16,7 +16,7 @@ Chat source 搬运与 Chat source 重开共用 `canReadChatArtifactSource` → `
 
 仓库当前没有任何应用注册 `setTemplateBackgroundProvider`，默认 persona 是原生节点。非默认 `image` 节点、其它 Mermaid 家族明确拒绝，绝不把图片转成空矩形。新增 PDF 背景须另接经鉴权的来源与 Board asset 上传/引用，不能直接相信任意 src。
 
-Sequence 消息目前用 canonical free endpoints，参与者关联在来源元数据中；整体图平移保持布局，但单独移动参与者不会动态调整消息端点。这需要后续扩展 lifeline attachment 契约。只有三图真实浏览器验收通过后才能声明本用户旅程通过。
+Sequence 消息、self-loop 回程和 lifeline 使用 canonical attached endpoints：`from/to` 绑定参与者，`fromOffset/toOffset` 是相对 bottom anchor 的局部像素位移，由 `WhiteboardConnector` 单源契约校验。它保留捕获的初始世界坐标和每条消息的相对时序 Y；移动、缩放或旋转参与者时按同一局部坐标函数更新端点，单独垂直移动一位参与者时仅该端的 Y 随动，不把消息吸到标题中心。删除并保留连接会将当前解析结果转为 free endpoint 并移除 offset；普通无 offset 的自连线仍拒绝。只有三图真实浏览器验收通过后才能声明本用户旅程通过。
 
 ## 主会话真实验收
 

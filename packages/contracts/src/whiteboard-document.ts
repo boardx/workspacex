@@ -90,6 +90,8 @@ const WhiteboardPoint = z.object({ x: z.number().finite().min(-1000000).max(1000
 export const WhiteboardConnector = z.object({
   from: WhiteboardObjectId.optional(), to: WhiteboardObjectId.optional(),
   fromPoint: WhiteboardPoint.optional(), toPoint: WhiteboardPoint.optional(),
+  /** Local pixel displacement from the attached anchor, rotated with its object. */
+  fromOffset: WhiteboardPoint.optional(), toOffset: WhiteboardPoint.optional(),
   fromAnchor: z.enum(['top', 'right', 'bottom', 'left', 'center']).optional(),
   toAnchor: z.enum(['top', 'right', 'bottom', 'left', 'center']).optional(),
   type: z.enum(['straight', 'elbow', 'curve']).optional(),
@@ -98,6 +100,8 @@ export const WhiteboardConnector = z.object({
   lineStyle: z.enum(['solid', 'dashed', 'dotted']).optional(),
   label: z.string().max(1000).optional(), semanticRelation: z.string().max(256).optional(),
 }).strict().superRefine((connector, ctx) => {
+  if (connector.fromOffset && !connector.from) ctx.addIssue({code:z.ZodIssueCode.custom,message:'Offset requires attached from endpoint'});
+  if (connector.toOffset && !connector.to) ctx.addIssue({code:z.ZodIssueCode.custom,message:'Offset requires attached to endpoint'});
   if (Boolean(connector.from) === Boolean(connector.fromPoint)) ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'Connector from endpoint must be attached or free' });
   if (Boolean(connector.to) === Boolean(connector.toPoint)) ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'Connector to endpoint must be attached or free' });
 });

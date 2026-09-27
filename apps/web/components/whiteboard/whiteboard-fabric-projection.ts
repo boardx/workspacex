@@ -126,8 +126,8 @@ export function toBoardFabricObjects(objects: readonly WhiteboardObject[], image
         const from = object.connector!.from ? byId.get(object.connector!.from) : undefined;
         const to = object.connector!.to ? byId.get(object.connector!.to) : undefined;
         const fromAnchor = object.connector!.fromAnchor ?? "right", toAnchor = object.connector!.toAnchor ?? "left";
-        const start = from ? rotatedAnchorPoint(from, fromAnchor) : object.connector!.fromPoint;
-        const end = to ? rotatedAnchorPoint(to, toAnchor) : object.connector!.toPoint;
+        const start = from ? rotatedAnchorPoint(from, fromAnchor, object.connector!.fromOffset) : object.connector!.fromPoint;
+        const end = to ? rotatedAnchorPoint(to, toAnchor, object.connector!.toOffset) : object.connector!.toPoint;
         if (!start || !end) return undefined;
         return {
           ...(from ? { from: from.id } : {}), ...(to ? { to: to.id } : {}), fromAnchor, toAnchor,

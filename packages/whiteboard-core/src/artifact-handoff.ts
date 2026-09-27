@@ -1,6 +1,7 @@
 import { RenderedDiagramLayout, type RenderedDiagramLayout as Layout, type WhiteboardOperationActor } from '@repo/contracts/whiteboard-operation';
 import type { WhiteboardCommand, WhiteboardObject } from '@repo/contracts/whiteboard-document';
 import type { ShapeContent, ShapeVariant } from './content-object-model';
+import {localPointFromScene} from './spatial-geometry';
 import { stableBoardDigest } from './operation-kernel';
 
 function safeId(value: string): string { return value.replace(/[^a-zA-Z0-9_-]/g, '_').slice(0, 80); }
@@ -23,6 +24,12 @@ export function renderedLayoutToCommands(input: unknown, actor: WhiteboardOperat
   const included = new Set(selectedObjects.map(object => object.sourceId));
   const id = (sourceId: string) => `artifact_${safeId(layout.artifactId)}_${safeId(sourceId)}`;
   if (new Set(selectedObjects.map(object => id(object.sourceId))).size !== selectedObjects.length) throw new Error('BOARD_ARTIFACT_ID_COLLISION');
+  const bySource=new Map(layout.objects.map(object=>[object.sourceId,object]));
+  const attach=(sourceId:string,point:{x:number;y:number})=>{
+    const target=bySource.get(sourceId);if(!target||target.kind!=='node')throw new Error('BOARD_ARTIFACT_DANGLING_EDGE');
+    const local=localPointFromScene(target.geometry,{x:point.x-offset.x,y:point.y-offset.y});
+    return {id:id(sourceId),offset:{x:local.x-target.geometry.width/2,y:local.y-target.geometry.height}};
+  };
   const commands: WhiteboardCommand[] = [];
   const generatedIds = new Set(selectedObjects.map(object => id(object.sourceId)));
   for (const [sourceIndex, source] of selectedObjects.entries()) {
@@ -35,7 +42,7 @@ export function renderedLayoutToCommands(input: unknown, actor: WhiteboardOperat
       style: { fill: typeof source.style.fill === 'string' ? source.style.fill : undefined, stroke: typeof source.style.stroke === 'string' ? source.style.stroke : undefined,
         color: typeof source.style.color === 'string' ? source.style.color : undefined, fontSize: typeof source.style.fontSize === 'number' ? source.style.fontSize : undefined },
       parentId: null, orderKey: String(sourceIndex).padStart(8, '0'),
-      ...(source.kind === 'edge' ? { connector: connectorFor(source, id, offset) } : {}),
+      ...(source.kind === 'edge' ? { connector: connectorFor(source, id, offset, attach) } : {}),
       extensionData: { content: { version: 1, type: 'artifact', artifactId: layout.artifactId, sourceId: source.sourceId, sourceRevision: layout.sourceRevision, layoutHash: layout.layoutHash, originalKind: source.kind, originalStyle: source.style, diagramKind: layout.diagramKind, orgId: layout.orgId, offset, fromSourceId: source.fromSourceId, toSourceId: source.toSourceId } },
     };
     if (source.kind === 'node' && !['text', 'sticky'].includes(String(source.style.shape))) {
@@ -46,31 +53,34 @@ export function renderedLayoutToCommands(input: unknown, actor: WhiteboardOperat
     }
     if (object.kind === 'text') object.extensionData!.thinkingInput = { text: { preset: 'body', fontSize: object.style.fontSize ?? 13, color: object.style.color ?? '#1e293b', bold: source.style.bold === true, alignment: ['left','center','right'].includes(String(source.style.alignment)) ? source.style.alignment : 'center' } };
     commands.push({ type: 'create', object });
-    if (source.kind === 'edge' && typeof source.style.selfLoopWidth === 'number' && source.style.selfLoopWidth > 0 && object.connector?.toPoint && object.connector.fromPoint) {
+    if (source.kind === 'edge' && typeof source.style.selfLoopWidth === 'number' && source.style.selfLoopWidth > 0 && object.connector?.fromOffset && object.connector.toOffset) {
       const helperId = `${object.id}_return`;
       if (generatedIds.has(helperId)) throw new Error('BOARD_ARTIFACT_ID_COLLISION');
       generatedIds.add(helperId);
-      const fromPoint = object.connector.toPoint;
-      const toPoint = { x: object.connector.fromPoint.x, y: fromPoint.y };
-      commands.push({ type: 'create', object: { id: helperId, schemaVersion: 1, kind: 'connector', geometry: { x: toPoint.x, y: toPoint.y, width: source.style.selfLoopWidth, height: 1, rotation: 0 }, text: '', style: object.style, parentId: null, orderKey: `${object.orderKey}-return`, connector: { fromPoint, toPoint, type: 'straight', endStyle: 'arrow', lineStyle: object.connector.lineStyle }, extensionData: { content: {type:'artifact-helper',artifactId:layout.artifactId,sourceId:source.sourceId,role:'message-return'} } } });
+      const fromPoint = {x:Number(source.style.toX)+offset.x+source.style.selfLoopWidth,y:Number(source.style.toY)+offset.y};
+      const toPoint = { x:Number(source.style.fromX)+offset.x,y:fromPoint.y };
+      const from=attach(source.fromSourceId!,fromPoint),to=attach(source.toSourceId!,toPoint);
+      commands.push({ type: 'create', object: { id: helperId, schemaVersion: 1, kind: 'connector', geometry: { x: toPoint.x, y: toPoint.y, width: source.style.selfLoopWidth, height: 1, rotation: 0 }, text: '', style: object.style, parentId: null, orderKey: `${object.orderKey}-return`, connector: { from:from.id,to:to.id,fromAnchor:'bottom',toAnchor:'bottom',fromOffset:from.offset,toOffset:to.offset, type: 'straight', endStyle: 'arrow', lineStyle: object.connector.lineStyle }, extensionData: { content: {type:'artifact-helper',artifactId:layout.artifactId,sourceId:source.sourceId,role:'message-return'} } } });
     }
     if (source.kind === 'node' && source.style.shape === 'participant' && typeof source.style.lifelineHeight === 'number' && source.style.lifelineHeight > 0) {
       const helperId = `${id(source.sourceId)}_lifeline`;
       if (generatedIds.has(helperId)) throw new Error('BOARD_ARTIFACT_ID_COLLISION');
       generatedIds.add(helperId);
       const x = object.geometry.x + object.geometry.width / 2, y = object.geometry.y + object.geometry.height;
-      commands.push({ type: 'create', object: { id: helperId, schemaVersion: 1, kind: 'connector', geometry: { x, y, width: 1, height: source.style.lifelineHeight, rotation: 0 }, text: '', style: { stroke: '#64748b' }, parentId: null, orderKey: `${object.orderKey}-lifeline`, connector: { fromPoint: { x, y }, toPoint: { x, y: y + source.style.lifelineHeight }, type: 'straight', endStyle: 'none', lineStyle: 'dashed' }, extensionData: { content: { type: 'artifact-helper', artifactId: layout.artifactId, sourceId: source.sourceId, role: 'lifeline' } } } });
+      commands.push({ type: 'create', object: { id: helperId, schemaVersion: 1, kind: 'connector', geometry: { x, y, width: 1, height: source.style.lifelineHeight, rotation: 0 }, text: '', style: { stroke: '#64748b' }, parentId: null, orderKey: `${object.orderKey}-lifeline`, connector: { from:object.id,to:object.id,fromAnchor:'bottom',toAnchor:'bottom',fromOffset:attach(source.sourceId,{x,y}).offset,toOffset:attach(source.sourceId,{x,y:y+source.style.lifelineHeight}).offset, type: 'straight', endStyle: 'none', lineStyle: 'dashed' }, extensionData: { content: { type: 'artifact-helper', artifactId: layout.artifactId, sourceId: source.sourceId, role: 'lifeline' } } } });
     }
   }
   return commands;
 }
 
-function connectorFor(source: Layout['objects'][number], id: (sourceId: string) => string, offset: {x:number;y:number}): NonNullable<WhiteboardObject['connector']> {
+function connectorFor(source: Layout['objects'][number], id: (sourceId: string) => string, offset: {x:number;y:number},attach:(sourceId:string,point:{x:number;y:number})=>{id:string;offset:{x:number;y:number}}): NonNullable<WhiteboardObject['connector']> {
   if (source.text.length > 1000) throw new Error('BOARD_ARTIFACT_CONNECTOR_LABEL_TOO_LONG');
   const style = source.style;
   const sequence = ['seqY', 'fromX', 'fromY', 'toX', 'toY'].every(key => typeof style[key] === 'number');
+  const from=sequence?attach(source.fromSourceId!,{x:Number(style.fromX)+offset.x,y:Number(style.fromY)+offset.y}):null;
+  const to=sequence?attach(source.toSourceId!,{x:Number(style.toX)+offset.x+(typeof style.selfLoopWidth==='number'?style.selfLoopWidth:0),y:Number(style.toY)+offset.y}):null;
   return {
-    ...(sequence ? { fromPoint: { x: Number(style.fromX) + offset.x, y: Number(style.fromY) + offset.y }, toPoint: { x: Number(style.toX) + offset.x + (typeof style.selfLoopWidth === 'number' ? style.selfLoopWidth : 0), y: Number(style.toY) + offset.y } } : { from: id(source.fromSourceId!), to: id(source.toSourceId!) }),
+    ...(from&&to?{from:from.id,to:to.id,fromAnchor:'bottom' as const,toAnchor:'bottom' as const,fromOffset:from.offset,toOffset:to.offset}:{from:id(source.fromSourceId!),to:id(source.toSourceId!)}),
     type: sequence && source.fromSourceId === source.toSourceId ? 'elbow' : 'straight',
     endStyle: typeof style.selfLoopWidth === 'number' || style.edgeKind === 'open' ? 'none' : 'arrow',
     lineStyle: style.edgeKind === 'dotted' ? 'dotted' : 'solid', label: source.text,

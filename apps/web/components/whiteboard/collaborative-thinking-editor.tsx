@@ -330,6 +330,8 @@ export function CollaborativeThinkingEditor({ organizeFitRequest, dockExtension,
   const selectedConnector = selectedObjects.length === 1 && primary?.kind === "connector" ? primary : null;
   const panelMetadata = selectedPanel ? readPanelMetadata(selectedPanel) : null;
   const connectorRelationship: ConnectorRelationship | null = selectedConnector?.connector ? {
+    ...(selectedConnector.connector.fromOffset?{fromOffset:selectedConnector.connector.fromOffset}:{}),
+    ...(selectedConnector.connector.toOffset?{toOffset:selectedConnector.connector.toOffset}:{}),
     ...(selectedConnector.connector.from ? { from: selectedConnector.connector.from } : { fromPoint: selectedConnector.connector.fromPoint! }),
     ...(selectedConnector.connector.to ? { to: selectedConnector.connector.to } : { toPoint: selectedConnector.connector.toPoint! }),
     fromAnchor: selectedConnector.connector.fromAnchor ?? "right", toAnchor: selectedConnector.connector.toAnchor ?? "left",

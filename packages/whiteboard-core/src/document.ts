@@ -101,8 +101,8 @@ function apply(doc: Y.Doc, commands: WhiteboardCommand[]): void {
         if (!edge.connector || (edge.connector.from !== command.id && edge.connector.to !== command.id)) continue;
         const from = edge.connector.from ? decode(edge.connector.from, objects.get(edge.connector.from)!) : null;
         const to = edge.connector.to ? decode(edge.connector.to, objects.get(edge.connector.to)!) : null;
-        const start = from ? rotatedAnchorPoint(from, edge.connector.fromAnchor ?? 'center') : edge.connector.fromPoint!;
-        const end = to ? rotatedAnchorPoint(to, edge.connector.toAnchor ?? 'center') : edge.connector.toPoint!;
+        const start = from ? rotatedAnchorPoint(from, edge.connector.fromAnchor ?? 'center', edge.connector.fromOffset) : edge.connector.fromPoint!;
+        const end = to ? rotatedAnchorPoint(to, edge.connector.toAnchor ?? 'center', edge.connector.toOffset) : edge.connector.toPoint!;
         value.set('geometry', { x: Math.min(start.x, end.x), y: Math.min(start.y, end.y), width: Math.max(1, Math.abs(end.x - start.x)), height: Math.max(1, Math.abs(end.y - start.y)), rotation: 0 });
       }
     }

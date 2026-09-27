@@ -1,3 +1,4 @@
+import {rotatedAnchorPoint} from '@repo/whiteboard-core';
 import type { DiagramModel } from '@repo/fabric-markdown/model';
 
 /** Rebuild editable source from current canonical objects. Coordinates remain in Board
@@ -11,6 +12,7 @@ export function diagramModelFromBoardObjects(objects: import('@repo/contracts/wh
   const first = source[0]!.extensionData!.content as Record<string, unknown>;
   const kind = first.diagramKind === 'sequence' ? 'sequence' : first.diagramKind === 'persona' ? 'template' : 'flowchart';
   const model: DiagramModel = { kind, direction: 'TD', nodes: [], edges: [] };
+  const byId=new Map(objects.map(object=>[object.id,object]));
   const ids = new Map(source.map(object => [object.id, String((object.extensionData!.content as Record<string, unknown>).sourceId)]));
   const lifelines=new Map(objects.flatMap(object=>{
     const extra=object.extensionData?.content as Record<string,unknown>|undefined;
@@ -44,7 +46,7 @@ export function diagramModelFromBoardObjects(objects: import('@repo/contracts/wh
       model.edges.push({ id: sourceId, source: from, target: to, kind: object.connector?.lineStyle==='dotted' || object.connector?.lineStyle==='dashed' ? 'dotted' : object.connector?.endStyle==='none' && typeof style.selfLoopWidth!=='number' ? 'open' : style.edgeKind==='dotted' || style.edgeKind==='open' ? 'arrow' : style.edgeKind as DiagramModel['edges'][number]['kind'], label: (object.connector?.label ?? object.text) || undefined,
         ...(data === undefined ? {} : { data }),
         ...(typeof style.order === 'number' ? { order: style.order } : {}),
-        ...(typeof style.seqY === 'number' ? { seqY: object.connector?.fromPoint?.y ?? object.geometry.y } : {}),
+        ...(typeof style.seqY === 'number' ? { seqY: object.connector?.from && byId.has(object.connector.from) ? rotatedAnchorPoint(byId.get(object.connector.from)!,object.connector.fromAnchor??'center',object.connector.fromOffset).y : object.connector?.fromPoint?.y ?? object.geometry.y } : {}),
         ...(typeof style.sourceLabel === 'string' ? { sourceLabel: style.sourceLabel } : {}),
         ...(typeof style.targetLabel === 'string' ? { targetLabel: style.targetLabel } : {}),
       });
