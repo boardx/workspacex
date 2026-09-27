@@ -6,11 +6,11 @@ import type { WhiteboardOperationAuditRepository } from '../../src/application/w
 import { toOrgId } from '../../src/domain/org-id';
 import { readFileSync } from 'node:fs';
 
-const boardId='00000000-0000-4000-8000-000000000001',requestId='00000000-0000-4000-8000-000000000002';
-const principal={orgId:toOrgId('org-1'),userId:'user-1'};
+export const boardId='00000000-0000-4000-8000-000000000001',requestId='00000000-0000-4000-8000-000000000002';
+export const principal={orgId:toOrgId('org-1'),userId:'user-1'};
 const actor={kind:'ai',actorId:'agent-1',orgId:'org-1',role:'editor',scopes:['board:read','board:write'],delegatedBy:'user-1'};
 const object={id:'n1',schemaVersion:1,kind:'sticky',geometry:{x:0,y:0,width:100,height:100,rotation:0},text:'idea',style:{},parentId:null,orderKey:''};
-const request={apiVersion:'2026-09-01',requestId,boardId,expectedRevision:{epoch:1,seq:0},actor,commands:[{type:'create',object}],provenance:{source:'ai-proposal',model:'gpt',skill:'cluster',inputObjectIds:[]}};
+export const request={apiVersion:'2026-09-01',requestId,boardId,expectedRevision:{epoch:1,seq:0},actor,commands:[{type:'create',object}],provenance:{source:'ai-proposal',model:'gpt',skill:'cluster',inputObjectIds:[]}};
 
 class Session implements TenantSession{
   operations=new Map<string,{request_hash:string;receipt:unknown}>();events:unknown[]=[];queries:string[]=[];
@@ -24,7 +24,7 @@ class Session implements TenantSession{
     throw new Error(`unexpected SQL ${sql}`);
   }
 }
-function fixture(){const session=new Session();const db:DatabasePort={withTenant:async(_org,fn)=>fn(session),withoutTenant:async fn=>fn(session),close:async()=>{}};
+export function fixture(){const session=new Session();const db:DatabasePort={withTenant:async(_org,fn)=>fn(session),withoutTenant:async fn=>fn(session),close:async()=>{}};
   const collaboration={writeCommandsInTransaction:async()=>({durability:'pending' as const,epoch:1,seq:1,updateId:requestId,replayed:false,update:new Uint8Array([1])})} as unknown as WhiteboardCollaborationStore;
   const audit:WhiteboardOperationAuditRepository={
     replay:async(_s,_p,_b,id)=>{session.queries.push('audit.replay');const value=session.operations.get(id);return value?{requestHash:value.request_hash,receipt:value.receipt as never}:null;},
