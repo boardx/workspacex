@@ -46,11 +46,11 @@ describe("Survey route layout", () => {
     expect(screen.queryByTestId("survey-design-question-Q01")).not.toBeInTheDocument();
     expect(screen.queryByRole("heading",{name:"不应显示"})).not.toBeInTheDocument();
   });
-  it("通过路由布局把 Survey 二级菜单和页面内容传入共用外壳", () => {
+  it("通过路由布局保留共用外壳和页面内容，不再显示 Survey 二级菜单", () => {
     render(<SurveyLayout><div data-testid="survey-route-child">问卷列表内容</div></SurveyLayout>);
 
     expect(screen.getByTestId("shared-app-shell")).toBeInTheDocument();
-    expect(screen.getByTestId("survey-section-nav")).toBeInTheDocument();
+    expect(screen.queryByTestId("survey-section-nav")).not.toBeInTheDocument();
     expect(screen.getByTestId("survey-route-child")).toBeInTheDocument();
   });
 

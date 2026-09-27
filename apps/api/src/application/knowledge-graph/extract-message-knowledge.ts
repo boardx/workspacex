@@ -73,11 +73,12 @@ export async function extractJob(deps: ExtractionDeps, job: KgExtractionJob): Pr
     result, known, newId: deps.newId,
   });
   if (batch === null) {
-    // issue #4343：抽取跑了、模型什么都没回（或回的全被丢弃）——记一条，和「根本没跑」分得开。
-    // 之前这里静默返回：「我的目标是探索未来教育」一条没记下，界面照样显示「已整理到最新」，日志里什么都没有。
+    // issue #4343 / #4350：「空」必须看得见——模型合法地回了「没有可记的」（或回的全被丢弃）；解析不出已经在
+    // extractor 里抛错走重试。之前这里静默返回：「我的目标是探索未来教育」一条没记下，界面照样显示「已整理到最新」。
     deps.logger.info("kg extraction empty", {
       traceId: "kg-extraction", orgId: job.orgId, messageId: job.messageId, threadId: job.threadId, reason: "no_candidates",
       authorKind: loaded.message.authorKind, pipelineVersion: KG_EXTRACTION_PIPELINE_VERSION,
+      entities: result.entities.length, claims: result.claims.length,
     });
     return "empty";
   }
@@ -99,13 +100,19 @@ export async function extractJob(deps: ExtractionDeps, job: KgExtractionJob): Pr
   return "written";
 }
 
-export async function runExtractionTick(deps: ExtractionDeps): Promise<ExtractionTickResult> {
+/**
+ * issue #4350：`abandoned()` 为真 ⇒ 这一轮已被 worker 的 watchdog 放弃（下一轮已经可以开始）——不再认领新的
+ * org 批次。已经认领到手的任务照常做完：它们还在自己的租约里，complete / fail 带着围栏令牌，迟到也不会动到
+ * 别人重新认领的行。
+ */
+export async function runExtractionTick(deps: ExtractionDeps, abandoned: () => boolean = () => false): Promise<ExtractionTickResult> {
   let processed = 0;
   let written = 0;
   let empty = 0;
   let skipped = 0;
   let failed = 0;
   for (const orgId of await deps.queue.pendingOrgs()) {
+    if (abandoned()) break;
     let jobs: readonly KgExtractionJob[];
     try {
       jobs = await deps.queue.claim(orgId, KG_EXTRACTION_BATCH);
@@ -120,12 +127,12 @@ export async function runExtractionTick(deps: ExtractionDeps): Promise<Extractio
         if (outcome === "written") written += 1;
         else if (outcome === "empty") empty += 1;
         else skipped += 1;
-        await deps.queue.complete(orgId, job.messageId);
+        await deps.queue.complete(orgId, job.messageId, job.attempts);
       } catch (err) {
         failed += 1;
         const message = err instanceof Error ? err.message : String(err);
         deps.logger.error("kg extraction failed", { traceId: "kg-extraction", orgId, messageId: job.messageId, attempts: job.attempts, err });
-        await deps.queue.fail(orgId, job.messageId, message).catch(() => undefined);
+        await deps.queue.fail(orgId, job.messageId, message, job.attempts).catch(() => undefined);
       }
     }
   }

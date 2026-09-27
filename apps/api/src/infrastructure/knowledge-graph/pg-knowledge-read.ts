@@ -138,8 +138,13 @@ export class PgKnowledgeRead implements KnowledgeReadPort {
            FROM kg_extraction_queue WHERE org_id = $1 AND thread_id = $2 ORDER BY enqueued_at`,
         [...scope, KG_EXTRACTION_LEASE_SECONDS],
       );
-      const failed = queue.rows.filter((q) => q.attempts >= KG_EXTRACTION_MAX_ATTEMPTS);
-      const active = queue.rows.filter((q) => q.attempts < KG_EXTRACTION_MAX_ATTEMPTS);
+      // issue #4350：分桶与认领条件（`pg-kg-extraction.ts` 的 claim）对齐——
+      //   running = 租约还活着（不论第几次：第 3 次尝试进行中的行以前被算成「失败」）；
+      //   failed  = 次数用完 AND 没有活着的租约（认领条件 `attempts < 3` 再也不会放出它）；
+      //   queued  = 其余：次数没用完、没人持有（含退避中、含租约已过期等着被重新认领的）。
+      const running = queue.rows.filter((q) => q.locked);
+      const failed = queue.rows.filter((q) => !q.locked && q.attempts >= KG_EXTRACTION_MAX_ATTEMPTS);
+      const queued = queue.rows.filter((q) => !q.locked && q.attempts < KG_EXTRACTION_MAX_ATTEMPTS);
       // 用户直接交办更正（2026-09-25）：这个会话所在组织现在是不是真的在抽——provider 已配置
       // AND 部署开关打开了 AND 该组织没关（`kg_org_extraction_settings`，默认值见 `KgOrgExtractionSettingsPort.getEnabled`）。
       // 与触发器 `kg_enqueue_extraction` 的三道闸门同一条件，供面板区分「队列空 = 已整理到
@@ -173,8 +178,8 @@ export class PgKnowledgeRead implements KnowledgeReadPort {
             relation: e.relation, createdBy: e.created_by,
           })),
         ingestion: {
-          queued: active.filter((q) => !q.locked).length,
-          running: active.filter((q) => q.locked).length,
+          queued: queued.length,
+          running: running.length,
           failed: failed.length,
           failures: failed.map((q) => ({ sourceKind: "chat_message" as const, sourceRef: q.message_id, reason: "retries_exhausted" as const })),
         },
