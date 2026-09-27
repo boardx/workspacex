@@ -15,8 +15,10 @@ From the integrated repository root, in the **main session**:
 BOARD_PROPOSAL_STORAGE_DRILL=1 \
 BOARD_PROPOSAL_DRILL_DIRECTORY="/private/tmp/board-proposal-proof-$(date +%s)" \
 pnpm exec tsx .harness/scripts/with-test-isolation.ts -- \
-  pnpm --filter api exec tsx scripts/board-proposal-storage-drill.ts
+  sh -c 'docker compose -f apps/api/docker-compose.dev.yml -p "$COMPOSE_PROJECT_NAME" up -d --wait postgres && pnpm --filter api exec tsx scripts/board-proposal-storage-drill.ts'
 ```
+
+The wrapper reserves the isolation environment and owns cleanup; it does not start PostgreSQL. Start the owned postgres service and run the producer inside the same wrapper child, as above. The producer intentionally refuses an absent or mismatched container before any DB mutation.
 
 Use a fresh non-existing private directory. The script invokes the official `ensureDatabase`/migration/organization fixture helpers and verifies that the PostgreSQL container belongs to `COMPOSE_PROJECT_NAME`. It derives the container ID rather than requiring a manually copied value. If `STARTER_POSTGRES_CONTAINER` is supplied, it must match that owned container. Local isolated `wsx_<20 hex>` database identity and loopback PG host are mandatory; deployment profiles are rejected.
 
