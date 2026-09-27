@@ -22,6 +22,9 @@ it("edits canonical Panel properties and enforces mutually exclusive layout cont
   const { doc } = seed();
   render(<CollaborativeThinkingEditor boardId="board" clientId="web" doc={doc} readOnly={false} title="Board" status="已连接" />);
   fireEvent.click(screen.getByTestId("select-panel"));
+  expect(screen.queryByTestId("board-shared-properties")).toBeNull();
+  fireEvent.click(screen.getByRole("button", { name: "更多操作" }));
+  fireEvent.click(screen.getByRole("button", { name: "精确属性" }));
   expect(screen.getByTestId("board-panel-properties")).toBeVisible();
   expect(screen.getByLabelText("区域布局")).toHaveValue("grid");
   expect(screen.getByLabelText("区域裁剪内容")).toBeDisabled();
@@ -34,6 +37,9 @@ it("shows relationship-specific fields and disables precise edits after locking"
   const { doc, port } = seed();
   render(<CollaborativeThinkingEditor boardId="board" clientId="web" doc={doc} readOnly={false} title="Board" status="已连接" />);
   fireEvent.click(screen.getByTestId("select-edge"));
+  expect(screen.queryByTestId("board-shared-properties")).toBeNull();
+  fireEvent.click(screen.getByRole("button", { name: "更多操作" }));
+  fireEvent.click(screen.getByRole("button", { name: "精确属性" }));
   expect(screen.getByTestId("board-connector-properties")).toBeVisible();
   expect(screen.getByLabelText("连接标签")).toHaveValue("needs");
   expect(screen.queryByTestId("board-panel-properties")).toBeNull();
@@ -49,6 +55,9 @@ it("shows shared geometry and explicit mixed values for heterogeneous selections
   const { doc } = seed();
   render(<CollaborativeThinkingEditor boardId="board" clientId="web" doc={doc} readOnly={false} title="Board" status="已连接" />);
   fireEvent.click(screen.getByTestId("select-all"));
+  expect(screen.queryByTestId("board-shared-properties")).toBeNull();
+  fireEvent.click(screen.getByRole("button", { name: "更多操作" }));
+  fireEvent.click(screen.getByRole("button", { name: "精确属性" }));
   expect(screen.getByTestId("board-shared-properties")).toHaveAccessibleName("所选对象共有属性");
   expect(screen.getByLabelText("共有属性 类型")).toHaveValue("混合");
   expect(screen.getByLabelText("共有属性 X")).toHaveValue("混合");

@@ -1,0 +1,21 @@
+{
+  "testedSha": "8ebed5f373582c6b68ccc42b3b50b828b89ab499",
+  "run": "run-mujckp52-99460df3-c1ac5dd6be17",
+  "result": "4 passed (2.1m)",
+  "executedBy": "root session",
+  "localLogSha256": "b156224e53457c02da9cb3bcb6f1d3dddcfcd6b0c80d7cca38ae5b3c0d5af02a",
+  "scope": [
+    "Panel clipping and expansion",
+    "connector transparent bounds pass-through and visible stroke selection",
+    "connector endpoint preservation and reload",
+    "locked mixed selection and undo",
+    "copy paste sanitization and exact Alt-drag displacement",
+    "contextual controls availability"
+  ],
+  "notProven": [
+    "full visual matrix 9/10",
+    "touch and stylus hardware",
+    "50-client soak",
+    "label and arrow-tip independent pixel hit matrix"
+  ]
+}

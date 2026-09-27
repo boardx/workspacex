@@ -148,12 +148,23 @@ describe('groups, copies, layers and locks', () => {
     const group = readObjects(doc).find(value => value.id === 'group')!;
     expect(group.kind).toBe('group'); expect(group).not.toHaveProperty('extensionData');
     dispatch(port, 'edge', { type: 'create-connector', id: 'edge', relationship });
-    const accepted = dispatch(port, 'copy', { type: 'duplicate-subgraph', rootIds: ['group'], newIds: { group: 'group2', a: 'a2', b: 'b2', edge: 'edge2' } });
+    const undo = new WhiteboardUndo(doc);
+    const originals = readObjects(doc).map(value => ({ ...value, geometry: { ...value.geometry }, connector: value.connector ? { ...value.connector } : undefined }));
+    const accepted = dispatch(port, 'copy', { type: 'duplicate-subgraph', rootIds: ['group'], newIds: { group: 'group2', a: 'a2', b: 'b2', edge: 'edge2' }, offset: { x: 42, y: 28 } });
     expect(accepted.events[0]).toMatchObject({ type: 'ObjectsDuplicated', objectIds: expect.arrayContaining(['group2', 'a2', 'b2', 'edge2']) });
     expect(readObjects(doc).find(value => value.id === 'edge2')?.connector).toMatchObject({ from: 'a2', to: 'b2', semanticRelation: 'depends_on' });
+    for (const original of originals) expect(readObjects(doc).find(value => value.id === original.id)).toEqual(original);
+    for (const [sourceId, duplicateId] of [['a', 'a2'], ['b', 'b2'], ['group', 'group2']] as const) {
+      const source = readObjects(doc).find(value => value.id === sourceId)!;
+      const duplicate = readObjects(doc).find(value => value.id === duplicateId)!;
+      expect({ x: duplicate.geometry.x - source.geometry.x, y: duplicate.geometry.y - source.geometry.y }).toEqual({ x: 42, y: 28 });
+    }
+    expect(undo.undo()).toBe('undone');
+    expect(readObjects(doc)).toEqual(originals);
+    expect(undo.redo()).toBe(true);
     dispatch(port, 'ungroup', { type: 'ungroup', id: 'group' });
     expect(readObjects(doc).find(value => value.id === 'a')).toMatchObject({ parentId: null, geometry: geometry(0, 0) });
-    doc.destroy();
+    undo.destroy(); doc.destroy();
   });
 
   it('supports all four layer commands and rejects every ordinary mutation of locked objects atomically', () => {

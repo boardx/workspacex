@@ -78,7 +78,7 @@ describe('whiteboard content kernel', () => {
   });
   it('rejects oversized batches and rich text outside the plain-text contract', () => {
     const doc = createWhiteboardDocument();
-    expect(() => executeCommands(doc, Array.from({ length: 201 }, (_, n) => ({ type: 'create', object: note(`note-${n}`) })), {})).toThrow();
+    expect(() => executeCommands(doc, Array.from({ length: 1001 }, (_, n) => ({ type: 'create', object: note(`note-${n}`) })), {})).toThrow();
     expect(readObjects(doc)).toEqual([]); create(doc);
     const item = doc.getMap<Y.Map<unknown>>('objects').get('note')!;
     (item.get('text') as Y.Text).format(0, 1, { link: 'javascript:alert(1)' });

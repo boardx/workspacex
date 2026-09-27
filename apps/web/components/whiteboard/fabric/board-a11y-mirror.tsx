@@ -49,6 +49,7 @@ export function BoardA11yMirror({ objects, selectedObjectIds, onSelect, readOnly
       <ul className="mt-2 space-y-1" aria-label="白板对象">
         {orderedObjects.map((object) => (
           <li key={object.id} data-object-id={object.id} data-object-kind={object.kind} data-geometry={JSON.stringify(object.geometry)} data-parent-id={object.parentId ?? ""} data-z-index={object.zIndex ?? 0}
+            data-x={object.geometry.x} data-y={object.geometry.y} data-width={object.geometry.width} data-height={object.geometry.height} data-rotation={object.geometry.rotation}
             data-clip-parent-id={object.parentId && byId.get(object.parentId)?.panel?.clipContent ? object.parentId : undefined}
             data-connector-from={object.connector?.from ?? ""} data-connector-to={object.connector?.to ?? ""}
             data-connector-start={object.connector ? JSON.stringify(object.connector.start) : undefined} data-connector-end={object.connector ? JSON.stringify(object.connector.end) : undefined}>
