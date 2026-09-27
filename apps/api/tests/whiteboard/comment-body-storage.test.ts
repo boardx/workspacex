@@ -23,7 +23,7 @@ async function fixture(){
  const requests:any[]=[{actor_id:p.userId,request_id:command.requestId,request_hash:'unused',response:structuredClone(accepted),response_object_key:null,response_hash:null,response_bytes:null}];
  const queries:Array<{sql:string;params:readonly unknown[]}>=[];
  const session:TenantSession={async query<R>(sql:string,params:readonly unknown[]=[]){queries.push({sql,params});let result:unknown[]=[];
-  if(sql.includes('CASE WHEN b.owner_id'))result=allowed?[{owner_id:p.userId,archived:false,role:'owner'}]:[];
+  if(sql.includes('SELECT owner_id,archived FROM whiteboards'))result=allowed?[{owner_id:p.userId,archived:false,role:'owner'}]:[];
   else if(sql.includes('FROM whiteboard_comment_threads'))result=rows.filter(row=>!sql.includes('body_object_key IS NULL')||!row.body_object_key);
   else if(sql.includes('FROM whiteboard_comment_requests'))result=requests.filter(row=>!sql.includes('response_object_key IS NULL')||!row.response_object_key);
   else if(sql.startsWith('UPDATE whiteboard_comment_threads')){const row=rows.find(row=>row.id===params[2]);Object.assign(row,{payload:JSON.parse(String(params[3])),body_object_key:params[4],body_hash:params[5],body_bytes:params[6]});}

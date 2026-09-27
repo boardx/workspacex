@@ -19,7 +19,8 @@ it('binds the authenticated actor, audits once, replays idempotently and keeps v
   const boardId=randomUUID(),threadId=randomUUID(),commentId=randomUUID(),requestId=randomUUID(),principal={orgId:toOrgId('trusted-comments'),userId:'owner'};
   let role='owner',savedRequest:{request_id:string;hash:string;response:unknown;response_object_key:string;response_hash:string;response_bytes:number}|null=null;const threads:any[]=[],events:unknown[]=[];
   const session={query:async(sql:string,params:any[]=[])=>{
-    if(sql.includes('CASE WHEN b.owner_id'))return{rows:[{owner_id:'owner',archived:false,role}]};
+    if(sql.includes('SELECT owner_id,archived FROM whiteboards'))return{rows:[{owner_id:'owner',archived:false}]};
+    if(sql.includes('SELECT role FROM whiteboard_members'))return{rows:[{role}]};
     if(sql.includes('SELECT request_hash,'))return{rows:savedRequest&&savedRequest.request_id===params[3]?[{...savedRequest,request_hash:savedRequest.hash}]:[]};
     if(sql.includes('response_object_key IS NULL'))return{rows:[]};
     if(sql.includes('body_object_key IS NULL'))return{rows:[]};
@@ -46,3 +47,38 @@ it('binds the authenticated actor, audits once, replays idempotently and keeps v
   role='commenter';savedRequest=null;const world={...command,requestId:randomUUID(),threadId:randomUUID(),commentId:randomUUID(),objectId:null,worldPosition:{x:42,y:-12}};const commented=await store.dispatch({...principal,userId:'commenter'},boardId,world);expect(commented.threads[0]).toMatchObject({objectId:null,worldPosition:{x:42,y:-12}});
   role='viewer';await expect(store.dispatch({...principal,userId:'viewer'},boardId,{...command,requestId:randomUUID(),threadId:randomUUID(),commentId:randomUUID()})).rejects.toEqual(expect.objectContaining<Partial<WhiteboardCollaborationError>>({code:'FORBIDDEN'}));
 });
+
+// The lock waiter starts while the old role exists. Only a new statement after
+// lock acquisition may observe the role committed by the preceding transaction.
+for(const operation of ['list','new-command','replay'] as const)for(const roleAfter of [null,'viewer'] as const){
+  it(`checks fresh membership after lock wait for ${operation}, role=${roleAfter}`,async()=>{
+    let release!:()=>void,entered!:()=>void;
+    const locked=new Promise<void>(resolve=>{entered=resolve;});
+    const gate=new Promise<void>(resolve=>{release=resolve;});
+    const sqls:string[]=[];let role:string|null='commenter';
+    const session={query:async(sql:string)=>{
+      sqls.push(sql);
+      if(sql.includes('FROM whiteboards')){
+        expect(sql).not.toContain('JOIN');expect(sql).toContain('FOR UPDATE');
+        entered();await gate;return{rows:[{owner_id:'owner',archived:false}]};
+      }
+      if(sql.includes('SELECT role FROM whiteboard_members'))return{rows:role?[{role}]:[]};
+      if(sql.includes('FROM whiteboard_comment_threads')||sql.includes('FROM whiteboard_comment_requests'))return{rows:[]};
+      throw new Error('Unauthorized content or replay SQL reached');
+    }} as unknown as TenantSession;
+    const db={withTenant:async(_org:string,work:(s:TenantSession)=>Promise<unknown>)=>work(session)} as unknown as DatabasePort;
+    const store=new PgWhiteboardCommentStore(db,{} as WhiteboardUpdateValidator);
+    const principal={orgId:toOrgId('fresh-comment-acl'),userId:'member'},boardId=randomUUID();
+    const command={type:'create-comment' as const,requestId:randomUUID(),threadId:randomUUID(),commentId:randomUUID(),objectId:null,worldPosition:{x:1,y:2},body:'not published',mentions:[],expectedRevision:0 as const};
+    // Replay has an existing receipt in the real-PG producer. Here any receipt
+    // query is forbidden before the newly committed ACL has been checked.
+    const pending=operation==='list'?store.list(principal,boardId):store.dispatch(principal,boardId,command);
+    const result=pending.then(value=>({value}),error=>({error}));
+    await locked;expect(sqls).toHaveLength(1);role=roleAfter;release();
+    const outcome=await result;
+    if(operation==='list'&&roleAfter==='viewer')expect(outcome).toEqual({value:[]});
+    else expect(outcome).toMatchObject({error:{code:roleAfter===null?'NOT_FOUND':'FORBIDDEN'}});
+    expect(sqls[1]).toContain('SELECT role FROM whiteboard_members');
+    if(operation!=='list'||roleAfter===null)expect(sqls.every(sql=>!sql.includes('comment_requests')&&!sql.startsWith('INSERT'))).toBe(true);
+  });
+}
