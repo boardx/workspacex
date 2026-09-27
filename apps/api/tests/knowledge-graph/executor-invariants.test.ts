@@ -131,7 +131,8 @@ describe("F03 SECURITY DEFINER 硬化", () => {
 });
 
 describe("F03 I-1 / I-14：作用域", () => {
-  it.each(["project", "org", "platform"] as const)("scope=%s ⇒ KG_SCOPE_NOT_ENABLED（数据库与应用层都拒）", async (kind) => {
+  // 项目中枢 R7 起 `project` 已放开（同上一条对账用例），这里只剩 org / platform 两个还关着的。
+  it.each(["org", "platform"] as const)("scope=%s ⇒ KG_SCOPE_NOT_ENABLED（数据库与应用层都拒）", async (kind) => {
     const b = modelBatch(ORG, seg, { scope: { kind, id: "x" } });
     await expect(rawApply(b)).rejects.toThrow(/KG_SCOPE_NOT_ENABLED/);
     expect(validateOntologyBatch(b, null)).toMatchObject({ ok: false, code: "KG_SCOPE_NOT_ENABLED" });
