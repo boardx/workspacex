@@ -502,6 +502,11 @@ export default {
       // 不遮挡任何前端路由。
       { source: `${prefix}/org-invites`, destination: `${apiOrigin}/org-invites` },
       { source: `${prefix}/org-invites/:path*`, destination: `${apiOrigin}/org-invites/:path*` },
+      // 项目中枢 R2 / R10：项目邀请落地页 `/projects/join?t=` 打 `POST /project-invites/accept`。
+      // 真栈 e2e（旅程⑥）第一次跑就撞上：缺这条，前端拿到 Next 的 404 HTML，落地页停在错误态。
+      // 同 `/org-invites` 的做法，裸前缀与 `:path*` 各一条。
+      { source: `${prefix}/project-invites`, destination: `${apiOrigin}/project-invites` },
+      { source: `${prefix}/project-invites/:path*`, destination: `${apiOrigin}/project-invites/:path*` },
       // F977：`PlanControlController` 是 `@Controller()`（空前缀），路径是裸的
       // `GET /plan-control/threads/:threadId/ledger` —— 与上面 `/agent-runs`、
       // `/threads`、`/copilotkit` 同一个形状、同一个坑（lint-rewrite-coverage 实测
