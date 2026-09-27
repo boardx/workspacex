@@ -6,15 +6,20 @@ export function boardPerformancePolicy(root) {
   const collaborationPath = 'phases/phase-19-board-visual-workspace/requirements/05-collaboration-history.md';
   const collaboration = readFileSync(resolve(root, collaborationPath), 'utf8');
   const number = (text, regex, name) => {const found = text.match(regex); if (!found) throw new Error(`PERFORMANCE_POLICY_SOURCE_CHANGED:${name}`); return Number(found[1]);};
+  const scalePolicyPath = 'phases/phase-19-board-visual-workspace/design-deltas/2026-09-27-performance-scale-budget.md';
+  const scalePolicy = readFileSync(resolve(root, scalePolicyPath), 'utf8');
+  const scales = scalePolicy.match(/applicable-object-counts: ([0-9, ]+)/)?.[1].split(',').map(value => Number(value.trim()));
+  if (!scales || JSON.stringify(scales) !== '[1000,5000,10000]') throw new Error('PERFORMANCE_POLICY_SOURCE_CHANGED:scales');
   return {
-    baseline: {source: `${baselinePath}#R9`, status: 'proposed-baseline-used-as-current-engineering-target-not-human-signoff', applicableObjectCounts: [5000],
+    scaleDecision: {source: scalePolicyPath, status: 'current-engineering-design-not-prd-or-human-signoff', extendedObjectCounts: [1000, 10000]},
+    baseline: {source: `${baselinePath}#R9`, status: 'proposed-baseline-used-as-current-engineering-target-not-human-signoff', applicableObjectCounts: scales,
       coldLoadP95Ms: number(baseline, /非缓存进入基准板 p95 ≤(\d+) 秒/, 'cold') * 1000,
       localFeedbackP95Ms: number(baseline, /本地键入\/拖动响应 p95 ≤(\d+)ms/, 'feedback'),
       dragFpsMinimum: number(baseline, /持续拖动帧率 ≥(\d+)fps/, 'fps'),
       reconnectMs: number(baseline, /恢复网络后 (\d+) 秒内收敛/, 'recovery') * 1000},
     convergence: {source: `${collaborationPath}#R9`, p95Ms: number(collaboration, /同步 p95 ≤(\d+)ms/, 'convergence'),
       scope: 'two-peer engineering check; does not replace 50-client 30-minute soak'},
-    unbudgetedObjectCounts: [1000, 10000],
+    unbudgetedObjectCounts: [],
   };
 }
 export const percentile95 = samples => {
@@ -47,12 +52,13 @@ export function validateBoardPerformanceArtifact(report, policy, expectedSha, ex
   if (!/^[a-f0-9]{64}$/.test(report?.trace?.sha256 ?? '') || !report?.trace?.path) failures.push('BROWSER_TRACE');
   if (!failures.length) {
     if (percentile95(report.samples.convergenceMs) > policy.convergence.p95Ms) failures.push('CONVERGENCE_BUDGET');
-    if (expectedCount === 5000) {
+    if (policy.baseline.applicableObjectCounts.includes(expectedCount)) {
       if (percentile95(report.samples.coldLoadMs) > policy.baseline.coldLoadP95Ms) failures.push('COLD_LOAD_BUDGET');
+      if (percentile95(report.samples.warmLoadMs) > policy.baseline.coldLoadP95Ms) failures.push('WARM_LOAD_BUDGET');
       if (percentile95(report.samples.dragFeedbackMs) > policy.baseline.localFeedbackP95Ms || percentile95(report.samples.textFeedbackMs) > policy.baseline.localFeedbackP95Ms) failures.push('LOCAL_FEEDBACK_BUDGET');
-      if (1000 / percentile95(report.samples.dragFrameMs) < policy.baseline.dragFpsMinimum) failures.push('DRAG_FPS_BUDGET');
+      if (percentile95(report.samples.dragFrameMs) > 1000 / policy.baseline.dragFpsMinimum) failures.push('DRAG_FPS_BUDGET');
       if (Math.max(...report.samples.reconnectMs) > policy.baseline.reconnectMs) failures.push('RECONNECT_BUDGET');
     }
   }
-  return {valid: failures.length === 0, failures, score: null, budgetStatus: expectedCount === 5000 ? 'engineering-targets' : 'measurement-only-unbudgeted', policy};
+  return {valid: failures.length === 0, failures, score: null, budgetStatus: policy.baseline.applicableObjectCounts.includes(expectedCount) ? 'engineering-targets' : 'measurement-only-unbudgeted', policy};
 }

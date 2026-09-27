@@ -20,13 +20,14 @@ test('budgets come from named repository sources and retain proposed status', ()
   assert.equal(policy.baseline.coldLoadP95Ms, 5000); assert.equal(policy.baseline.localFeedbackP95Ms, 50);
   assert.equal(policy.baseline.dragFpsMinimum, 30); assert.equal(policy.baseline.reconnectMs, 10000);
   assert.equal(policy.convergence.p95Ms, 300); assert.match(policy.baseline.status, /not-human-signoff/);
-  assert.deepEqual(policy.unbudgetedObjectCounts, [1000, 10000]);
+  assert.deepEqual(policy.unbudgetedObjectCounts, []); assert.deepEqual(policy.baseline.applicableObjectCounts, [1000, 5000, 10000]);
+  assert.match(policy.scaleDecision.status, /not-prd-or-human-signoff/);
 });
-test('does not manufacture scale budgets or round any performance result to nine', () => {
+test('uses explicitly designed uniform scale budgets without awarding nine', () => {
   assert.equal(validateBoardPerformanceArtifact(fixture(), policy, sha, 5000).valid, true);
   for (const count of [1000, 10000]) {
     const result = validateBoardPerformanceArtifact(fixture(count), policy, sha, count);
-    assert.equal(result.valid, true); assert.equal(result.budgetStatus, 'measurement-only-unbudgeted'); assert.equal(result.score, null);
+    assert.equal(result.valid, true); assert.equal(result.budgetStatus, 'engineering-targets'); assert.equal(result.score, null);
   }
 });
 test('rejects poor actual samples rather than trusting producer summary flags', () => {
@@ -45,3 +46,14 @@ test('p95 is nearest-rank over all samples; non-finite/missing observations fail
   assert.equal(percentile95(Array.from({length: 20}, (_, i) => i + 1)), 19);
   assert.throws(() => percentile95([])); assert.throws(() => percentile95([NaN]));
 });
+
+for (const count of [1000, 5000, 10000]) {
+ test(`all numerical gates apply at ${count}, including warm loads`, () => {
+  const cases = [['coldLoadMs',5001,'COLD_LOAD_BUDGET'],['warmLoadMs',5001,'WARM_LOAD_BUDGET'],['dragFeedbackMs',51,'LOCAL_FEEDBACK_BUDGET'],['textFeedbackMs',51,'LOCAL_FEEDBACK_BUDGET'],['dragFrameMs',34,'DRAG_FPS_BUDGET'],['convergenceMs',301,'CONVERGENCE_BUDGET'],['reconnectMs',10001,'RECONNECT_BUDGET']];
+  for (const [key,value,code] of cases) {const report=fixture(count); report.samples[key]=Array(5).fill(value); const result=validateBoardPerformanceArtifact(report,policy,sha,count);assert.equal(result.valid,false);assert.ok(result.failures.includes(code),`${count}:${key}`);}
+ });
+ test(`inclusive budget boundaries pass at ${count} without inventing memory gates`, () => {
+  const report=fixture(count);Object.assign(report.samples,{coldLoadMs:Array(5).fill(5000),warmLoadMs:Array(5).fill(5000),dragFeedbackMs:[50],textFeedbackMs:[50],dragFrameMs:[1000/30],convergenceMs:[300],reconnectMs:[10000],heapBytes:[9e9]});report.retainedHeapBytes=9e9;report.longTasks=[{duration:1000}];
+  const result=validateBoardPerformanceArtifact(report,policy,sha,count);assert.equal(result.valid,true);assert.equal(result.score,null);
+ });
+}
