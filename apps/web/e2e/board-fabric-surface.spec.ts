@@ -197,7 +197,8 @@ test("selected object inspector adapts to each widget and a narrow editor", asyn
   await page.keyboard.press("Escape");
   await selectLatestAndExpand();
   await expect(inspector).toContainText("文字");
-  await expect(page.locator('[aria-label="文字快捷样式"]')).toBeVisible();
+  await expect(page.getByTestId("board-widget-content-actions")).toBeVisible();
+  await expect(page.getByRole("button", { name: "编辑文字" })).toBeVisible();
   await capture("selected-text-inspector");
   await page.getByTestId("board-inspector-close").click();
 
