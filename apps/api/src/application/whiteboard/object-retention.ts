@@ -54,7 +54,7 @@ export class WhiteboardObjectGarbageCollector {
 
 /** The only whiteboard component allowed to cross the immutable ObjectStore boundary. */
 export class WhiteboardObjectSweeper {
-  constructor(private readonly repository:WhiteboardObjectSweepRepository,private readonly objects:Pick<ObjectStore,'head'>,private readonly purge:PhysicalPurgePort){}
+  constructor(private readonly repository:WhiteboardObjectSweepRepository,private readonly objects:Pick<ObjectStore,'head'>,private readonly purge:PhysicalPurgePort&Required<Pick<PhysicalPurgePort,'purgeExact'>>){}
   async purgeOne(orgId:string,objectKey:string,expectedLastModified:Date){
     const claim=await this.repository.claim(orgId,objectKey,expectedLastModified);if(!claim)return{status:'rescued' as const};
     const head=await this.objects.head(objectKey);
@@ -62,7 +62,7 @@ export class WhiteboardObjectSweeper {
       await this.repository.finish(orgId,claim,{deleted:false,error:'OBJECT_VERSION_CHANGED'});return{status:'rescued' as const};
     }
     if(!await this.repository.confirm(orgId,claim)){await this.repository.finish(orgId,claim,{deleted:false,error:'ROOT_OR_GENERATION_CHANGED'});return{status:'rescued' as const};}
-    try{const result=await this.purge.purgeAll([objectKey]),deleted=result[0]?.deleted===true;if(!deleted)throw new Error('OBJECT_PURGE_FAILED');await this.repository.finish(orgId,claim,{deleted:true});return{status:'deleted' as const,receiptId:claim.receiptId};}
+    try{const result=await this.purge.purgeExact(objectKey,claim.versionTag);if(!result.versionMatched){await this.repository.finish(orgId,claim,{deleted:false,error:'OBJECT_VERSION_CHANGED'});return{status:'rescued' as const};}if(!result.deleted)throw new Error('OBJECT_PURGE_FAILED');await this.repository.finish(orgId,claim,{deleted:true});return{status:'deleted' as const,receiptId:claim.receiptId};}
     catch(error){await this.repository.finish(orgId,claim,{deleted:false,error:error instanceof Error?error.message:'OBJECT_PURGE_FAILED'});return{status:'retry' as const,receiptId:claim.receiptId};}
   }
   async run(orgId:string,limit=100){const candidates=await this.repository.retryable(orgId,limit),outcomes=[];for(const candidate of candidates)outcomes.push(await this.purgeOne(orgId,candidate.objectKey,candidate.objectLastModified));return outcomes;}

@@ -16,7 +16,7 @@
  * changes when that implementation arrives -- same relationship `FsObjectStore`'s header
  * describes for `putOnce`/`get`/`head`.
  */
-import { unlink } from "node:fs/promises";
+import { rename,stat,unlink } from "node:fs/promises";
 import type { PhysicalPurgePort } from "../../application/files/physical-delete-ports";
 import { resolveObjectPath } from "./object-store-path";
 
@@ -46,5 +46,9 @@ export class FsPhysicalPurge implements PhysicalPurgePort {
       }
     }
     return outcomes;
+  }
+  async purgeExact(key:string,versionTag:string){
+    const path=resolveObjectPath(this.root,key),quarantine=`${path}.purging-${process.pid}-${Date.now()}`;
+    try{const before=await stat(path),actual=`${before.dev}:${before.ino}:${before.mtimeMs}:${before.size}`;if(actual!==versionTag)return{objectKey:key,deleted:false,versionMatched:false};await rename(path,quarantine);const moved=await stat(quarantine),movedTag=`${moved.dev}:${moved.ino}:${moved.mtimeMs}:${moved.size}`;if(movedTag!==versionTag){await rename(quarantine,path).catch(()=>undefined);return{objectKey:key,deleted:false,versionMatched:false};}await unlink(quarantine);await unlink(`${path}.mime`).catch(()=>undefined);return{objectKey:key,deleted:true,versionMatched:true};}catch(error){if((error as NodeJS.ErrnoException).code==='ENOENT')return{objectKey:key,deleted:true,versionMatched:true};return{objectKey:key,deleted:false,versionMatched:true};}
   }
 }

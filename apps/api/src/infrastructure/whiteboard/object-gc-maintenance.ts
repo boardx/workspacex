@@ -9,7 +9,7 @@ import { PgWhiteboardObjectSweepRepository } from './pg-object-retention';
  * function never enumerates tenants and the ordinary request graph never receives purge.
  */
 export async function maintainWhiteboardObjectPurge(
-  db:DatabasePort,objects:Pick<ObjectStore,'head'>,purge:PhysicalPurgePort,orgId:string,limit=100,
+  db:DatabasePort,objects:Pick<ObjectStore,'head'>,purge:PhysicalPurgePort&Required<Pick<PhysicalPurgePort,'purgeExact'>>,orgId:string,limit=100,
 ){
   if(!Number.isSafeInteger(limit)||limit<1||limit>1000)throw new Error('WHITEBOARD_GC_INVALID_LIMIT');
   return new WhiteboardObjectSweeper(new PgWhiteboardObjectSweepRepository(db),objects,purge).run(orgId,limit);

@@ -7,6 +7,7 @@ import { PgWhiteboardRepository } from './infrastructure/whiteboard/pg-whiteboar
 import { WhiteboardImportController } from './interface/controllers/whiteboard-import.controller';
 import { WHITEBOARD_IMPORT_SERVICE, WhiteboardImportService } from './application/whiteboard/import-service';
 import { PgWhiteboardImportRepository } from './infrastructure/whiteboard/pg-import-repository';
+import { WHITEBOARD_GC_RUNTIME,WhiteboardGcRuntime } from './infrastructure/whiteboard/object-gc-runtime';
 import { WHITEBOARD_RECOVERY_SERVICE, WhiteboardRecoveryService } from './application/whiteboard/recovery-service';
 import { CollaborationSnapshotSource, PgWhiteboardRecoveryMetadata } from './infrastructure/whiteboard/pg-recovery-metadata';
 import { SurveyAttachmentRateLimitGuard, SURVEY_ATTACHMENT_RATE_LIMITER, SURVEY_ATTACHMENT_REQUESTS_PER_MINUTE } from "./interface/guards/survey-attachment-rate-limit.guard";
@@ -1524,6 +1525,7 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
     { provide: IN_FLIGHT_CALLS, useClass: InMemoryInFlightCalls },
     // File byte and compliance dependencies share the configured storage backend.
     ...storageProviders, ...deletionProviders,
+    {provide:WHITEBOARD_GC_RUNTIME,useFactory:(db:DatabasePort,objects:ObjectStore,purge:PhysicalPurgePort)=>new WhiteboardGcRuntime(db,objects,purge as PhysicalPurgePort&Required<Pick<PhysicalPurgePort,'purgeExact'>>),inject:[DATABASE_PORT,OBJECT_STORE,PHYSICAL_PURGE_PORT]},
     { provide: EMBEDDING_PORT, useFactory: langChainEmbeddingClientFromEnv },
     {
       provide: RERANK_PORT,

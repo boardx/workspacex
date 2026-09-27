@@ -13,6 +13,7 @@ CREATE TABLE IF NOT EXISTS whiteboard_asset_refs(org_id text NOT NULL,board_id u
 ALTER TABLE whiteboard_asset_refs ADD COLUMN IF NOT EXISTS import_id uuid;
 ALTER TABLE whiteboard_asset_refs ADD COLUMN IF NOT EXISTS state text NOT NULL DEFAULT 'active';
 ALTER TABLE whiteboard_asset_refs ADD COLUMN IF NOT EXISTS activated_at timestamptz;
+ALTER TABLE whiteboard_asset_refs ADD COLUMN IF NOT EXISTS lease_expires_at timestamptz;
 ALTER TABLE whiteboard_asset_refs DROP CONSTRAINT IF EXISTS whiteboard_asset_refs_state_check;
 ALTER TABLE whiteboard_asset_refs ADD CONSTRAINT whiteboard_asset_refs_state_check CHECK(state IN('pending','active'));
 CREATE TABLE IF NOT EXISTS whiteboard_object_tombstones(org_id text NOT NULL,object_key text NOT NULL,size_bytes bigint NOT NULL CHECK(size_bytes>=0),object_last_modified timestamptz NOT NULL,marked_at timestamptz NOT NULL,swept_at timestamptz,rescued_at timestamptz,PRIMARY KEY(org_id,object_key));
@@ -21,6 +22,26 @@ ALTER TABLE whiteboard_object_tombstones ADD COLUMN IF NOT EXISTS version_tag te
 CREATE TABLE IF NOT EXISTS whiteboard_object_gc_runs(org_id text NOT NULL,run_id uuid NOT NULL,roots integer NOT NULL,scanned integer NOT NULL,marked integer NOT NULL,swept integer NOT NULL,retained integer NOT NULL,candidate_bytes bigint NOT NULL,result jsonb NOT NULL,created_at timestamptz NOT NULL DEFAULT now(),PRIMARY KEY(org_id,run_id));
 CREATE TABLE IF NOT EXISTS whiteboard_object_purge_receipts(org_id text NOT NULL,object_key text NOT NULL,generation integer NOT NULL,receipt_id uuid NOT NULL,status text NOT NULL CHECK(status IN('purging','failed','deleted')),attempts integer NOT NULL DEFAULT 1,last_error text,deleted_at timestamptz,updated_at timestamptz NOT NULL DEFAULT now(),PRIMARY KEY(org_id,object_key,generation),UNIQUE(receipt_id));
 CREATE TABLE IF NOT EXISTS whiteboard_object_gc_audit(id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,org_id text NOT NULL,object_key text NOT NULL,generation integer NOT NULL,receipt_id uuid,event text NOT NULL,detail jsonb NOT NULL,created_at timestamptz NOT NULL DEFAULT now());
+CREATE OR REPLACE FUNCTION whiteboard_guard_object_root() RETURNS trigger LANGUAGE plpgsql AS $$
+DECLARE k text:=to_jsonb(NEW)->>TG_ARGV[0];
+BEGIN
+  IF k IS NULL THEN RETURN NEW; END IF;
+  PERFORM pg_advisory_xact_lock(hashtextextended(NEW.org_id||chr(0)||k,0));
+  IF EXISTS(SELECT 1 FROM whiteboard_object_purge_receipts WHERE org_id=NEW.org_id AND object_key=k AND status IN('purging','deleted')) THEN RAISE EXCEPTION 'WHITEBOARD_OBJECT_PURGE_FENCED' USING ERRCODE='55000'; END IF;
+  RETURN NEW;
+END $$;
+DROP TRIGGER IF EXISTS whiteboard_document_root_guard ON whiteboard_documents;
+CREATE TRIGGER whiteboard_document_root_guard BEFORE INSERT OR UPDATE OF object_key ON whiteboard_documents FOR EACH ROW EXECUTE FUNCTION whiteboard_guard_object_root('object_key');
+DROP TRIGGER IF EXISTS whiteboard_update_root_guard ON whiteboard_updates;
+CREATE TRIGGER whiteboard_update_root_guard BEFORE INSERT OR UPDATE OF update_object_key ON whiteboard_updates FOR EACH ROW EXECUTE FUNCTION whiteboard_guard_object_root('update_object_key');
+DROP TRIGGER IF EXISTS whiteboard_checkpoint_root_guard ON whiteboard_checkpoints;
+CREATE TRIGGER whiteboard_checkpoint_root_guard BEFORE INSERT OR UPDATE OF object_key ON whiteboard_checkpoints FOR EACH ROW EXECUTE FUNCTION whiteboard_guard_object_root('object_key');
+DROP TRIGGER IF EXISTS whiteboard_import_root_guard ON whiteboard_imports;
+CREATE TRIGGER whiteboard_import_root_guard BEFORE INSERT OR UPDATE OF source_object_key ON whiteboard_imports FOR EACH ROW EXECUTE FUNCTION whiteboard_guard_object_root('source_object_key');
+DROP TRIGGER IF EXISTS whiteboard_asset_root_guard ON whiteboard_asset_refs;
+CREATE TRIGGER whiteboard_asset_root_guard BEFORE INSERT OR UPDATE OF object_key ON whiteboard_asset_refs FOR EACH ROW EXECUTE FUNCTION whiteboard_guard_object_root('object_key');
+CREATE OR REPLACE FUNCTION whiteboard_object_is_rooted(p_org text,p_key text) RETURNS boolean LANGUAGE sql STABLE AS $$ SELECT EXISTS(SELECT 1 FROM whiteboard_documents WHERE org_id=p_org AND object_key=p_key) OR EXISTS(SELECT 1 FROM whiteboard_updates WHERE org_id=p_org AND update_object_key=p_key) OR EXISTS(SELECT 1 FROM whiteboard_checkpoints WHERE org_id=p_org AND object_key=p_key) OR EXISTS(SELECT 1 FROM whiteboard_imports WHERE org_id=p_org AND source_object_key=p_key) OR EXISTS(SELECT 1 FROM whiteboard_asset_refs WHERE org_id=p_org AND object_key=p_key AND released_at IS NULL AND (state='active' OR lease_expires_at>now())) $$;
+CREATE OR REPLACE FUNCTION whiteboard_object_roots(p_org text) RETURNS TABLE(object_key text,kind text) LANGUAGE sql STABLE AS $$ SELECT object_key,'document' FROM whiteboard_documents WHERE org_id=p_org AND object_key IS NOT NULL UNION SELECT update_object_key,'update' FROM whiteboard_updates WHERE org_id=p_org AND update_object_key IS NOT NULL UNION SELECT object_key,'checkpoint' FROM whiteboard_checkpoints WHERE org_id=p_org UNION SELECT source_object_key,'import' FROM whiteboard_imports WHERE org_id=p_org UNION SELECT object_key,'asset' FROM whiteboard_asset_refs WHERE org_id=p_org AND released_at IS NULL AND (state='active' OR lease_expires_at>now()) $$;
 ALTER TABLE whiteboard_asset_refs ENABLE ROW LEVEL SECURITY; ALTER TABLE whiteboard_asset_refs FORCE ROW LEVEL SECURITY;
 ALTER TABLE whiteboard_object_tombstones ENABLE ROW LEVEL SECURITY; ALTER TABLE whiteboard_object_tombstones FORCE ROW LEVEL SECURITY;
 ALTER TABLE whiteboard_object_gc_runs ENABLE ROW LEVEL SECURITY; ALTER TABLE whiteboard_object_gc_runs FORCE ROW LEVEL SECURITY;

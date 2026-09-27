@@ -8,7 +8,7 @@ export interface OssClientPort {
   put(key: string, bytes: Buffer, options: { mime: string; headers: Record<string, string> }): Promise<void>;
   get(key: string): Promise<{ content: Buffer; headers: Record<string, string> }>;
   head(key: string): Promise<{ headers: Record<string, string> }>;
-  delete(key: string): Promise<void>;
+  delete(key: string,options?:{headers?:Record<string,string>}): Promise<void>;
 }
 
 const unavailable = () => new ObjectStoreUnavailableError("OSS unavailable");
@@ -125,4 +125,5 @@ export class OssPhysicalPurge implements PhysicalPurgePort {
     }
     return results;
   }
+  async purgeExact(key:string,versionTag:string){const objectKey=this.key(key);try{await assertCompatible(this.client,this.bucket);const current=await this.client.head(objectKey),etag=current.headers.etag;if(etag!==versionTag)return{objectKey:key,deleted:false,versionMatched:false};await this.client.delete(objectKey,{headers:{'If-Match':versionTag}});try{await this.client.head(objectKey);return{objectKey:key,deleted:false,versionMatched:true};}catch(error){if(!missing(error))throw error;return{objectKey:key,deleted:true,versionMatched:true};}}catch(error){if(missing(error))return{objectKey:key,deleted:true,versionMatched:true};if(failureCode(error)==='PreconditionFailed')return{objectKey:key,deleted:false,versionMatched:false};return{objectKey:key,deleted:false,versionMatched:true};}}
 }

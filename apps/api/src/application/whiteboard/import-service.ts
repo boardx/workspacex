@@ -20,6 +20,7 @@ export interface WhiteboardImportRepository {
   claimExecution(principal:Principal,record:WhiteboardImportRecord,input:{requestId:string;requestHash:string}):Promise<{record:WhiteboardImportRecord;conflict:boolean}>;
   releaseExecution(principal:Principal,record:WhiteboardImportRecord,input:{requestId:string;requestHash:string}):Promise<void>;
   reserveAssets(principal:Principal,record:WhiteboardImportRecord,assets:Array<{objectKey:string;contentHash:string;byteSize:number}>):Promise<void>;
+  releaseExpiredAssets(principal:Principal,now:Date):Promise<number>;
   complete(principal:Principal,record:WhiteboardImportRecord,input:{requestId:string;requestHash:string;epoch:number;seq:number;report:ImportReport;assetRefs:Array<{objectKey:string;contentHash:string;byteSize:number}>}):Promise<WhiteboardImportRecord>;
 }
 export class WhiteboardImportError extends Error { constructor(readonly code:C.WhiteboardImportFailure){super(code);this.name='WhiteboardImportError';} }
