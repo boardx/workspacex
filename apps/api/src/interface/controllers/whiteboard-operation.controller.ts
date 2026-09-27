@@ -1,3 +1,4 @@
+import {WHITEBOARD_ORGANIZE_SERVICE,type WhiteboardOrganizeService} from '../../application/whiteboard/organize-service';
 import { BadRequestException, Body, ConflictException, Controller, ForbiddenException, Get, HttpException, HttpStatus, Inject, NotFoundException, Param, ParseUUIDPipe, Post, Query, ServiceUnavailableException } from '@nestjs/common';
 import type { Principal } from '../../domain/principal';
 import { assertPrincipal } from '../../domain/principal';
@@ -10,7 +11,7 @@ import {DATABASE_PORT,type DatabasePort} from '../../application/ports/database.
 /** Versioned public Board API. Service/API/AI callers use the same actor-bound operation envelope. */
 @Controller('v1/whiteboards/:boardId')
 export class WhiteboardOperationController {
-  constructor(@Inject(WHITEBOARD_OPERATION_SERVICE)private readonly service:WhiteboardOperationService,@Inject(WHITEBOARD_PROPOSAL_SERVICE)private readonly proposals:WhiteboardProposalService,@Inject(WHITEBOARD_PRESENTATION_SERVICE)private readonly presentation:WhiteboardPresentationService,@Inject(DATABASE_PORT)private readonly db:DatabasePort){}
+  constructor(@Inject(WHITEBOARD_OPERATION_SERVICE)private readonly service:WhiteboardOperationService,@Inject(WHITEBOARD_PROPOSAL_SERVICE)private readonly proposals:WhiteboardProposalService,@Inject(WHITEBOARD_PRESENTATION_SERVICE)private readonly presentation:WhiteboardPresentationService,@Inject(DATABASE_PORT)private readonly db:DatabasePort,@Inject(WHITEBOARD_ORGANIZE_SERVICE)private readonly organizeService?:WhiteboardOrganizeService){}
   @Post('operations')
   async execute(@CurrentPrincipal()principal:Principal,@Param('boardId',new ParseUUIDPipe())boardId:string,@Body()body:unknown){assertPrincipal(principal);try{await this.limit(principal,boardId,'operation');return await this.service.execute(principal,boardId,body);}catch(error){this.rethrow(error);}}
   @Post('artifact-handoffs') async artifactHandoff(@CurrentPrincipal()p:Principal,@Param('boardId',new ParseUUIDPipe())b:string,@Body()body:unknown){try{await this.limit(p,b,'artifact-handoff');return await this.service.handoff(p,b,body);}catch(error){this.rethrow(error);}}
@@ -19,6 +20,9 @@ export class WhiteboardOperationController {
   @Get('objects')
   async readObjects(@CurrentPrincipal()p:Principal,@Param('boardId',new ParseUUIDPipe())b:string,@Query()query:unknown){assertPrincipal(p);try{await this.limit(p,b,'objects');return await this.service.readObjects(p,b,query);}catch(error){this.rethrow(error);}}
   @Get('head') async head(@CurrentPrincipal()p:Principal,@Param('boardId',new ParseUUIDPipe())b:string){try{await this.limit(p,b,'head');return await this.service.head(p,b);}catch(error){this.rethrow(error);}}
+  @Get('ai-organize/actors') async organizeActors(@CurrentPrincipal()p:Principal,@Param('boardId',new ParseUUIDPipe())b:string){try{await this.limit(p,b,'proposal-read');if(!this.organizeService)throw new WhiteboardOperationError('DEPENDENCY_UNAVAILABLE');return await this.organizeService.actors(p,b);}catch(error){this.rethrow(error);}}
+  @Post('ai-organize') async organize(@CurrentPrincipal()p:Principal,@Param('boardId',new ParseUUIDPipe())b:string,@Body()body:unknown){try{await this.limit(p,b,'proposal-create');if(!this.organizeService)throw new WhiteboardOperationError('DEPENDENCY_UNAVAILABLE');return await this.organizeService.organize(p,b,body);}catch(error){this.rethrow(error);}}
+  @Post('ai-proposals/:proposalId/undo') async undoProposal(@CurrentPrincipal()p:Principal,@Param('boardId',new ParseUUIDPipe())b:string,@Param('proposalId',new ParseUUIDPipe())id:string,@Body()body:unknown){try{await this.limit(p,b,'operation');return await this.proposals.undo(p,b,id,body);}catch(error){this.rethrow(error);}}
   @Post('ai-proposals') async createProposal(@CurrentPrincipal()p:Principal,@Param('boardId',new ParseUUIDPipe())b:string,@Body()body:unknown){try{await this.limit(p,b,'proposal-create');return await this.proposals.create(p,b,body);}catch(error){this.rethrow(error);}}
   @Get('ai-proposals/:proposalId') async readProposal(@CurrentPrincipal()p:Principal,@Param('boardId',new ParseUUIDPipe())b:string,@Param('proposalId',new ParseUUIDPipe())id:string){try{await this.limit(p,b,'proposal-read');return await this.proposals.read(p,b,id);}catch(error){this.rethrow(error);}}
   @Post('ai-proposals/:proposalId/cancel') async cancelProposal(@CurrentPrincipal()p:Principal,@Param('boardId',new ParseUUIDPipe())b:string,@Param('proposalId',new ParseUUIDPipe())id:string,@Body()body:unknown){try{await this.limit(p,b,'proposal-cancel');return await this.proposals.cancel(p,b,id,body);}catch(error){this.rethrow(error);}}

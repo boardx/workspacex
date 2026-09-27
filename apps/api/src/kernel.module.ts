@@ -1,3 +1,5 @@
+import {WHITEBOARD_ORGANIZE_SERVICE,WhiteboardOrganizeService} from './application/whiteboard/organize-service';
+import {PgBoardOrganizeActorDirectory} from './infrastructure/whiteboard/pg-organize-actor-directory';
 import { WHITEBOARD_COLLABORATION_STORE, WHITEBOARD_UPDATE_VALIDATOR } from './application/whiteboard/collaboration-ports';
 import { PgWhiteboardCollaborationStore } from './infrastructure/whiteboard/pg-collaboration-store';
 import { WorkerWhiteboardUpdateValidator } from './infrastructure/whiteboard/update-validator';
@@ -2967,6 +2969,11 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
       provide: WHITEBOARD_PROPOSAL_SERVICE,
       useFactory: (db: DatabasePort, collaboration: PgWhiteboardCollaborationStore, operations: WhiteboardOperationService) => new WhiteboardProposalService(db,collaboration,new PgWhiteboardOperationRepository(),new PgWhiteboardProposalRepository(),operations),
       inject: [DATABASE_PORT, WHITEBOARD_COLLABORATION_STORE, WHITEBOARD_OPERATION_SERVICE],
+    },
+    {
+      provide: WHITEBOARD_ORGANIZE_SERVICE,
+      useFactory: (db:DatabasePort,collaboration:PgWhiteboardCollaborationStore,proposals:WhiteboardProposalService,agents:PublishedAgentReader,skills:AgentRunStore,model:ModelCallPort)=>new WhiteboardOrganizeService(db,new PgWhiteboardOperationRepository(),collaboration,proposals,agents,skills,model,new PgBoardOrganizeActorDirectory(db)),
+      inject:[DATABASE_PORT,WHITEBOARD_COLLABORATION_STORE,WHITEBOARD_PROPOSAL_SERVICE,PUBLISHED_AGENT_READER,AGENT_RUN_STORE,MODEL_CALL_PORT],
     },
     {
       provide: WHITEBOARD_PRESENTATION_SERVICE,

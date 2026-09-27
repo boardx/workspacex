@@ -122,3 +122,5 @@ export * as whiteboardSync from "./whiteboard-sync";
 export * as whiteboardCollaboration from "./whiteboard-collaboration";
 export * as whiteboardImport from "./whiteboard-import";
 export * as whiteboardOperation from "./whiteboard-operation";
+
+export * as whiteboardOrganize from "./whiteboard-organize";
