@@ -9,6 +9,28 @@ import { FULLSTACK_E2E } from './fullstack-smoke-fixture';
 /** Real services only: no route interception, business mocks or injected test principals. */
 test.describe.configure({ mode: 'default', timeout: 120_000 });
 test.use({ actionTimeout: 15_000 });
+// Diagnostic evidence deliberately excludes payloads, URLs and authentication headers.
+const transportEvidence: Array<Record<string, unknown>> = [];
+test.beforeEach(() => { transportEvidence.length = 0; });
+test.afterEach(async ({}, info) => {
+  await info.attach('transport-status', { body: JSON.stringify(transportEvidence), contentType: 'application/json' });
+});
+function observeTransport(page: Page, actor: string) {
+  page.on('websocket', socket => {
+    socket.on('framereceived', event => {
+      try {
+        const message = JSON.parse(String(event.payload)) as Record<string, unknown>;
+        if (!['sync', 'error', 'recovery', 'ack'].includes(String(message.type))) return;
+        const entry: Record<string, unknown> = { actor, at: Date.now(), type: message.type };
+        for (const key of ['code', 'recoverable', 'disposition', 'epoch', 'seq', 'role']) {
+          const value = message[key];
+          if (typeof value === 'number' || typeof value === 'boolean' || (typeof value === 'string' && /^[A-Za-z0-9_-]{1,80}$/.test(value))) entry[key] = value;
+        }
+        if (transportEvidence.length < 500) transportEvidence.push(entry);
+      } catch { /* Non-protocol frames are not persisted. */ }
+    });
+  });
+}
 const fullstackFallbacks: Record<string, string | undefined> = {
   WHITEBOARD_OWNER_EMAIL: FULLSTACK_E2E.adminEmail,
   WHITEBOARD_OWNER_PASSWORD: FULLSTACK_E2E.adminPassword,
@@ -25,6 +47,7 @@ const fullstackFallbacks: Record<string, string | undefined> = {
 };
 function required(name: string): string { const value=process.env[name]??fullstackFallbacks[name]; if(!value)throw new Error(`Missing real whiteboard E2E fixture: ${name}; see e2e/whiteboard-live-fixture.md`);return value; }
 async function login(page: Page, actor: 'OWNER'|'EDITOR'|'VIEWER') {
+  observeTransport(page, actor);
   await page.goto('/login');
   await page.getByTestId('login-email').fill(required(`WHITEBOARD_${actor}_EMAIL`));
   await page.getByTestId('login-password').fill(required(`WHITEBOARD_${actor}_PASSWORD`));
