@@ -35,6 +35,10 @@ async function request(api: APIRequestContext, token: string, method: string, pa
   const response=await api.fetch(`${required('WHITEBOARD_API_URL').replace(/\/$/,'')}${path}`,{method,headers:{Authorization:`Bearer ${token}`},data});
   expect(response.ok(),`${method} ${path} returned ${response.status()}`).toBe(true);return response;
 }
+async function archiveBoard(api: APIRequestContext, token: string, boardId: string) {
+  const current = await (await request(api, token, 'GET', `/whiteboards/${boardId}`)).json() as {archived: boolean; lifecycleRevision: number};
+  if (!current.archived) await request(api, token, 'PATCH', `/whiteboards/${boardId}`, {archived: true, expectedLifecycleRevision: current.lifecycleRevision});
+}
 async function synced(page:Page){await expect(page.getByTestId('collaborative-editor')).toBeVisible({timeout:30_000});await expect(page.getByText(/^已同步(?: · 只读)?$/)).toBeVisible({timeout:30_000});}
 
 test('realtime presence field convergence',async({browser,request:api,baseURL})=>{
@@ -80,6 +84,14 @@ test('realtime presence field convergence',async({browser,request:api,baseURL})=
       ]);
       expect(geometryResult,{message:geometryResult.body}).toMatchObject({ok:true});expect(textResult,{message:textResult.body}).toMatchObject({ok:true});
 
+      // Observe live propagation first: reloading alone could hide broken WebSocket delivery.
+      for (const page of [owner, editor, viewer]) {
+        const live = page.getByTestId(`board-a11y-object-${objectId}`);
+        await expect(live).toHaveAccessibleName('图形：另一位成员的中文修改', {timeout: 20_000});
+        await expect(page.locator(`[data-object-id="${objectId}"]`)).toHaveAttribute('data-world-x', '640');
+        await expect(page.locator(`[data-object-id="${objectId}"]`)).toHaveAttribute('data-world-y', '360');
+        await expect(page.locator(`[data-object-id="${objectId}"]`)).toHaveAttribute('data-world-rotation', '9');
+      }
       // Both independent contexts reload from the authoritative log, then a second reload
       // proves the merged fields survive checkpoint/update reconstruction.
       await Promise.all([owner.reload(),editor.reload()]);await Promise.all([synced(owner),synced(editor)]);
@@ -96,10 +108,10 @@ test('realtime presence field convergence',async({browser,request:api,baseURL})=
     await test.step('show identity-aware presence and synchronize object comments',async()=>{
       const surface=editor.getByTestId('board-live-surface'),bounds=await surface.boundingBox();expect(bounds).not.toBeNull();
       await editor.mouse.move(bounds!.x+420,bounds!.y+320);
-      const editorCursor=owner.locator('[data-testid^="peer-cursor-"]');await expect(editorCursor).toBeVisible({timeout:20_000});await expect(editorCursor).toHaveAccessibleName(/的光标$/);
+      const editorCursor=owner.getByTestId(`peer-cursor-${required('WHITEBOARD_EDITOR_USER_ID')}`);await expect(editorCursor).toBeVisible({timeout:20_000});await expect(editorCursor).toHaveAccessibleName(/的光标$/);
       await expect(owner.locator('[data-testid^="peer-selection-"]')).toHaveAccessibleName(/正在编辑另一位成员的中文修改/);
       await owner.getByTestId('board-present-viewport').click();const presenter=editor.getByTitle(/正在演示/);await expect(presenter).toBeVisible({timeout:20_000});await presenter.click();await owner.getByTestId('board-zoom-in').click();await expect(editor.getByTestId('board-zoom-value')).toHaveText('110%',{timeout:20_000});
-      await editor.getByRole('button',{name:'评论'}).click();
+      await editor.getByRole('button',{name:'评论',exact:true}).click();
       await editor.getByLabel('评论内容').fill('请一起核对这个结论');
       await editor.getByLabel('提及成员').fill(required('WHITEBOARD_OWNER_USER_ID'));
       await editor.getByRole('button',{name:'发布评论'}).click();
@@ -115,13 +127,13 @@ test('realtime presence field convergence',async({browser,request:api,baseURL})=
       await expect(viewerNote).toBeVisible({timeout:20_000});
       await expect(viewer.getByTestId('board-add-sticky')).toBeDisabled();
       await viewerNote.focus();await viewerNote.press('Enter');await expect(viewer.getByLabel('对象文字',{exact:true})).toBeDisabled();
-      await viewer.getByRole('button',{name:'评论'}).click();await viewer.getByLabel('评论内容').fill('viewer cannot publish');await expect(viewer.getByRole('button',{name:'发布评论'})).toBeDisabled();
+      await viewer.getByRole('button',{name:'评论',exact:true}).click();await viewer.getByLabel('评论内容').fill('viewer cannot publish');await expect(viewer.getByRole('button',{name:'发布评论'})).toBeDisabled();
     });
     await test.step('grant independent commenter access and persist a world-position anchored thread',async()=>{
       await request(api,ownerToken!,'PUT',`/whiteboards/${boardId}/members`,{userId:required('WHITEBOARD_VIEWER_USER_ID'),role:'commenter'});
       await expect(viewer.getByTestId('denied')).toBeVisible({timeout:30_000});await viewer.reload();await synced(viewer);
       const note=viewer.getByRole('button',{name:'图形：另一位成员的中文修改',exact:true});await note.focus();await note.press('Enter');
-      await expect(viewer.getByLabel('对象文字',{exact:true})).toBeDisabled();await viewer.getByRole('button',{name:'评论'}).click();await viewer.getByLabel('评论内容').fill('commenter can discuss without editing');await expect(viewer.getByRole('button',{name:'发布评论'})).toBeEnabled();
+      await expect(viewer.getByLabel('对象文字',{exact:true})).toBeDisabled();await viewer.getByRole('button',{name:'评论',exact:true}).click();await viewer.getByLabel('评论内容').fill('commenter can discuss without editing');await expect(viewer.getByRole('button',{name:'发布评论'})).toBeEnabled();
       const worldBody={type:'create-comment',requestId:randomUUID(),threadId:randomUUID(),commentId:randomUUID(),objectId:null,worldPosition:{x:640,y:360},body:'world anchored discussion',mentions:[],expectedRevision:0};
       await request(api,viewerToken!,'POST',`/whiteboards/${boardId}/comments/commands`,worldBody);
       const comments=await request(api,viewerToken!,'GET',`/whiteboards/${boardId}/comments`);expect((await comments.json() as {items:Array<{objectId:string|null;worldPosition:{x:number;y:number}|null}>}).items).toContainEqual(expect.objectContaining({objectId:null,worldPosition:{x:640,y:360}}));
@@ -133,9 +145,13 @@ test('realtime presence field convergence',async({browser,request:api,baseURL})=
       await expect(editor.getByTestId('denied')).toBeVisible({timeout:30_000});
       await expect(editor.getByTestId('collaborative-editor')).toHaveCount(0);
       await expect(editor.getByRole('button',{name:'图形：另一位成员的中文修改',exact:true})).toHaveCount(0);
+      const revokedWrite = await api.post(`${required('WHITEBOARD_API_URL')}/whiteboards/${boardId}/commands`, {
+        headers: {Authorization: `Bearer ${editorToken}`}, data: {requestId: randomUUID(), epoch: 1, commands: [{type: 'style', id: 'revoked-attempt', style: {fill: '#ffffff'}}]},
+      });
+      expect(revokedWrite.status()).toBe(403);
     });
   }finally{
-    try { if(boardId&&ownerToken)await request(api,ownerToken,'PATCH',`/whiteboards/${boardId}`,{archived:true}); }
+    try { if(boardId&&ownerToken)await archiveBoard(api,ownerToken,boardId); }
     finally { await Promise.all([ownerContext.close(),editorContext.close(),viewerContext.close()]); }
   }
 });
@@ -150,7 +166,7 @@ test('comments anchor ACL',async({browser,request:api,baseURL})=>{
     await owner.goto(`/studio/board/${boardId}`);await commenter.goto(`/studio/board/${boardId}`);await Promise.all([synced(owner),synced(commenter)]);
     await owner.getByTestId('board-add-sticky').click();await owner.getByLabel('对象文字',{exact:true}).fill('comment anchor target');await synced(owner);
     const target=commenter.getByRole('button',{name:'图形：comment anchor target',exact:true});await expect(target).toBeVisible({timeout:20_000});await target.focus();await target.press('Enter');
-    await expect(commenter.getByLabel('对象文字',{exact:true})).toBeDisabled();await commenter.getByRole('button',{name:'评论'}).click();await commenter.getByLabel('评论内容').fill('object anchored by commenter');await commenter.getByRole('button',{name:'发布评论'}).click();
+    await expect(commenter.getByLabel('对象文字',{exact:true})).toBeDisabled();await commenter.getByRole('button',{name:'评论',exact:true}).click();await commenter.getByLabel('评论内容').fill('object anchored by commenter');await commenter.getByRole('button',{name:'发布评论'}).click();
     await owner.reload();await synced(owner);const indicator=owner.locator('[data-testid^="board-comment-indicator-"]');await expect(indicator).toHaveCount(1,{timeout:20_000});await indicator.click();await expect(owner.getByText('object anchored by commenter')).toBeVisible();
     const worldBody={type:'create-comment',requestId:randomUUID(),threadId:randomUUID(),commentId:randomUUID(),objectId:null,worldPosition:{x:320,y:240},body:'world anchor',mentions:[],expectedRevision:0};
     await request(api,commenterToken,'POST',`/whiteboards/${boardId}/comments/commands`,worldBody);
@@ -158,7 +174,7 @@ test('comments anchor ACL',async({browser,request:api,baseURL})=>{
     expect(items).toContainEqual(expect.objectContaining({objectId:null,worldPosition:{x:320,y:240}}));
     await request(api,ownerToken,'PUT',`/whiteboards/${boardId}/members`,{userId:required('WHITEBOARD_VIEWER_USER_ID'),role:'viewer'});await expect(commenter.getByTestId('denied')).toBeVisible({timeout:30_000});
     const denied=await api.post(`${required('WHITEBOARD_API_URL').replace(/\/$/,'')}/whiteboards/${boardId}/comments/commands`,{headers:{Authorization:`Bearer ${commenterToken}`},data:{...worldBody,requestId:randomUUID(),threadId:randomUUID(),commentId:randomUUID()}});expect(denied.status()).toBe(403);
-  }finally{try{if(boardId&&ownerToken)await request(api,ownerToken,'PATCH',`/whiteboards/${boardId}`,{archived:true});}finally{await Promise.all([ownerContext.close(),commenterContext.close()]);}}
+  }finally{try{if(boardId&&ownerToken)await archiveBoard(api,ownerToken,boardId);}finally{await Promise.all([ownerContext.close(),commenterContext.close()]);}}
 });
 
 test('undo offline reconnect recovery',async({browser,request:api,baseURL})=>{
@@ -173,8 +189,8 @@ test('undo offline reconnect recovery',async({browser,request:api,baseURL})=>{
     await owner.goto(`/studio/board/${boardId}`);await synced(owner);
     await expect(owner.getByTestId('board-a11y-object-undo-target')).toBeVisible();await expect(owner.getByTestId('board-a11y-object-undo-edge')).toBeAttached();
     await context.setOffline(true);await expect(owner.getByText(/连接中断/)).toBeVisible({timeout:20_000});
-    const target=owner.getByTestId('board-a11y-object-undo-target');await target.focus();await target.press('Enter');await owner.getByRole('button',{name:'删除选中'}).click();await expect(target).toHaveCount(0);
-    await owner.getByRole('button',{name:'撤销'}).click();await expect(owner.getByTestId('board-a11y-object-undo-target')).toBeAttached();await expect(owner.getByText('撤销已在本地应用，正在等待服务器确认')).toBeVisible();
+    const target=owner.getByTestId('board-a11y-object-undo-target');await target.focus();await target.press('Enter');await owner.getByRole('button',{name:'删除选中'}).click();await expect(target).toHaveCount(0);await expect(owner.getByTestId('board-a11y-object-undo-edge')).toHaveCount(0);
+    await owner.getByRole('button',{name:'撤销',exact:true}).click();await expect(owner.getByTestId('board-a11y-object-undo-target')).toBeAttached();await expect(owner.getByTestId('board-a11y-object-undo-edge')).toBeAttached();await expect(owner.getByText('撤销已在本地应用，正在等待服务器确认')).toBeVisible();
     await context.setOffline(false);await owner.getByTestId('board-retry-sync').click();await expect(owner.getByText(/撤销已由服务器确认 · 序列/)).toBeVisible({timeout:30_000});
     await owner.reload();await synced(owner);await expect(owner.getByTestId('board-a11y-object-undo-target')).toBeAttached();await expect(owner.getByTestId('board-a11y-object-undo-edge')).toBeAttached();
     const baseCheckpoint=await request(api,token,'POST',`/whiteboards/${boardId}/checkpoints`,{requestId:randomUUID()}),baseManifest=(await baseCheckpoint.json() as {manifest:{checkpointId:string;epoch:number;seq:number}}).manifest;
@@ -184,5 +200,50 @@ test('undo offline reconnect recovery',async({browser,request:api,baseURL})=>{
     const restoredResponse=await request(api,token,'POST',`/whiteboards/${boardId}/checkpoints/${corruptManifest.checkpointId}/restore`,{requestId:randomUUID(),expectedEpoch:corruptManifest.epoch,expectedSeq:corruptManifest.seq});
     const restored=await restoredResponse.json() as {auditEvents:Array<{type:string;fallbackCheckpointId?:string;requestedCheckpointId?:string}>};expect(restored.auditEvents).toContainEqual(expect.objectContaining({type:'CheckpointFallbackUsed',fallbackCheckpointId:baseManifest.checkpointId,requestedCheckpointId:corruptManifest.checkpointId}));
     await owner.reload();await synced(owner);await expect(owner.getByTestId('board-a11y-object-undo-target')).toBeAttached();await expect(owner.getByTestId('board-a11y-object-undo-edge')).toBeAttached();
-  }finally{try{await context.setOffline(false);if(boardId&&token)await request(api,token,'PATCH',`/whiteboards/${boardId}`,{archived:true});}finally{await context.close();}}
+  }finally{try{await context.setOffline(false);if(boardId&&token)await archiveBoard(api,token,boardId);}finally{await context.close();}}
+});
+
+
+test('multi-user undo redo preserves the other editor and survives reload', async ({browser, request: api, baseURL}) => {
+  const ownerContext = await browser.newContext({baseURL}), editorContext = await browser.newContext({baseURL});
+  const owner = await ownerContext.newPage(), editor = await editorContext.newPage();
+  let boardId: string | undefined, token: string | undefined;
+  try {
+    [token] = await Promise.all([login(owner, 'OWNER'), login(editor, 'EDITOR')]);
+    boardId = (await (await request(api, token, 'POST', '/whiteboards', {requestId: randomUUID(), name: `Independent undo ${randomUUID()}`})).json() as {id: string}).id;
+    await request(api, token, 'PUT', `/whiteboards/${boardId}/members`, {userId: required('WHITEBOARD_EDITOR_USER_ID'), role: 'editor'});
+    await request(api, token, 'POST', `/whiteboards/${boardId}/commands`, {requestId: randomUUID(), epoch: 1, commands: ['owner', 'editor'].map((actor, index) => ({type: 'create', object: {
+      id: `${actor}-note`, schemaVersion: 1, kind: 'sticky', geometry: {x: 120 + index * 240, y: 180, width: 180, height: 140, rotation: 0},
+      text: `${actor} original`, style: {}, parentId: null, orderKey: actor,
+    }}))});
+    await Promise.all([owner, editor].map(async page => {await page.goto(`/studio/board/${boardId}`); await synced(page);}));
+    const assertBoth = async (ownerText: string, editorText: string) => {
+      for (const page of [owner, editor]) {
+        await expect(page.getByTestId('board-a11y-object-owner-note')).toHaveAccessibleName(`图形：${ownerText}`, {timeout: 20_000});
+        await expect(page.getByTestId('board-a11y-object-editor-note')).toHaveAccessibleName(`图形：${editorText}`, {timeout: 20_000});
+      }
+    };
+    const edit = async (page: Page, id: string, text: string) => {
+      const note = page.getByTestId(`board-a11y-object-${id}`); await note.focus(); await note.press('Enter');
+      await page.getByLabel('对象文字', {exact: true}).fill(text);
+      await page.getByLabel('对象文字', {exact: true}).press('Escape'); await synced(page);
+    };
+    await edit(owner, 'owner-note', 'owner changed');
+    await assertBoth('owner changed', 'editor original');
+    await edit(editor, 'editor-note', 'editor changed');
+    await assertBoth('owner changed', 'editor changed');
+    await owner.getByRole('button', {name: '撤销', exact: true}).click();
+    await assertBoth('owner original', 'editor changed');
+    await editor.getByRole('button', {name: '撤销', exact: true}).click();
+    await assertBoth('owner original', 'editor original');
+    await owner.getByRole('button', {name: '重做', exact: true}).click();
+    await assertBoth('owner changed', 'editor original');
+    await editor.getByRole('button', {name: '重做', exact: true}).click();
+    await assertBoth('owner changed', 'editor changed');
+    await Promise.all([owner, editor].map(async page => {await page.reload(); await synced(page);}));
+    await assertBoth('owner changed', 'editor changed');
+  } finally {
+    try {if (boardId && token) await archiveBoard(api, token, boardId);}
+    finally {await Promise.all([ownerContext.close(), editorContext.close()]);}
+  }
 });
