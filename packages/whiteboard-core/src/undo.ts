@@ -136,6 +136,23 @@ export class WhiteboardUndo {
     return recreated;
   }
 
+  private deleteStructural(objects: ReturnType<typeof readObjects>): void {
+    const ids = new Set(objects.map(object => object.id));
+    const commands = objects.map(object => ({ type: 'delete' as const, id: object.id }));
+    // Canonical deletion cascades relationships. History may only remove the
+    // objects captured by its original gesture, never a later peer relationship.
+    const before = readObjects(this.doc).filter(object => !ids.has(object.id));
+    const trial = cloneDocument(this.doc);
+    try {
+      executeCommands(trial, commands, {});
+      const after = new Map(readObjects(trial).map(object => [object.id, object]));
+      if (before.some(object => JSON.stringify(after.get(object.id) ?? null) !== JSON.stringify(object))) {
+        throw new Error('STRUCTURAL_HISTORY_CONFLICT');
+      }
+    } finally { trial.destroy(); }
+    executeCommands(this.doc, commands, COMPENSATION);
+  }
+
   private undoStructural(entry: StructuralHistory): StructuralHistory {
     if (entry.action === 'create') {
       const live = new Map(readObjects(this.doc).map(object => [object.id, object]));
@@ -150,7 +167,7 @@ export class WhiteboardUndo {
       // This keeps structural validation valid for an atomic subgraph undo.
       const deletionOrder = [...entry.objects].sort((left, right) =>
         Number(right.kind === 'connector') - Number(left.kind === 'connector') || depth(right) - depth(left));
-      executeCommands(this.doc, deletionOrder.map(object => ({ type: 'delete' as const, id: object.id })), COMPENSATION);
+      this.deleteStructural(deletionOrder);
       return entry;
     }
     if(entry.deleteGestureId)COMPENSATION.restoreDeletion={deleteGestureId:entry.deleteGestureId,objectIds:entry.objects.map(object=>object.id)};
@@ -166,7 +183,7 @@ export class WhiteboardUndo {
     const byId=new Map(entry.objects.map(object=>[object.id,object]));
     const depth=(id:string):number=>{let count=0,parent=byId.get(id)?.parentId;while(parent&&byId.has(parent)){count++;parent=byId.get(parent)?.parentId;}return count;};
     const ordered=[...entry.objects].sort((a,b)=>Number(b.kind==='connector')-Number(a.kind==='connector')||depth(b.id)-depth(a.id));
-    executeCommands(this.doc, ordered.map(object => ({ type: 'delete' as const, id: object.id })), COMPENSATION);
+    this.deleteStructural(ordered);
     return {...entry,deleteGestureId:COMPENSATION.receiptGestureId};
   }
   /** Pinned Yjs adapter: redone links and stack ranges are local metadata, absent from encoded updates. */
