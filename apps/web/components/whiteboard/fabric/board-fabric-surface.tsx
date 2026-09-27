@@ -336,6 +336,7 @@ export function BoardFabricSurface({ objects, selectedObjectIds, readOnly, tool,
   const renderedRef = React.useRef(new Map<string, BoardFabricObject>());
   const [renderedObjects, setRenderedObjects] = React.useState<readonly BoardFabricObject[]>(objects);
   const [snapPreview, setSnapPreview] = React.useState<SnapResult | null>(null);
+  const [selectionScene, setSelectionScene] = React.useState<{ bounds: { left: number; top: number; width: number; height: number }; hitPoints: Array<{ x: number; y: number }> } | null>(null);
   const selectedObjectIdsRef = React.useRef(selectedObjectIds);
   const reconcilingSelectionRef = React.useRef(false);
   const renderFrameRef = React.useRef<number | null>(null);
@@ -689,6 +690,11 @@ export function BoardFabricSurface({ objects, selectedObjectIds, readOnly, tool,
     } finally {
       reconcilingSelectionRef.current = false;
     }
+    const active = canvas.getActiveObject();
+    if (active && transformable.length > 1) {
+      const bounds = active.getBoundingRect();
+      setSelectionScene({ bounds, hitPoints: transformable.map((object) => { const item = object.getBoundingRect(); return { x: item.left + item.width / 2, y: item.top + item.height / 2 }; }) });
+    } else setSelectionScene(null);
     scheduleRender();
   }, [objects, scheduleRender, selectedObjectIds]);
 
@@ -733,6 +739,7 @@ export function BoardFabricSurface({ objects, selectedObjectIds, readOnly, tool,
   return (
     <div ref={hostRef} className={className ?? "relative h-full w-full overflow-hidden bg-muted/30"} data-testid="board-fabric-surface"
       data-viewport-zoom={clampBoardZoom(viewport.zoom)} data-viewport-pan-x={viewport.panX} data-viewport-pan-y={viewport.panY}
+      data-selection-scene={selectionScene ? JSON.stringify(selectionScene) : undefined}
       onDragOver={(event) => { if (event.dataTransfer.types.includes("application/x-workspacex-board-tool")) { event.preventDefault(); event.dataTransfer.dropEffect = "copy"; } }}
       onDrop={(event) => {
         const payload = event.dataTransfer.getData("application/x-workspacex-board-tool");

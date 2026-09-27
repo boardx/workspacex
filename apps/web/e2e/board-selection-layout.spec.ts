@@ -217,17 +217,26 @@ test("smart layout confirm cancel", async ({ page, request, browser, baseURL }) 
     // A real Fabric ActiveSelection drag writes every child as one canonical batch and one undo unit.
     await marqueeAll(page);
     const beforeGroupDrag = parseGeometry(await geometry(page));
-    const canvasBounds = await page.getByTestId("board-fabric-canvas").boundingBox();
+    const fabricSurface = page.getByTestId("board-fabric-surface");
+    const canvasBounds = await fabricSurface.locator('canvas[data-fabric="top"]').boundingBox();
     expect(canvasBounds).not.toBeNull();
-    const zoom = Number((await page.getByTestId("board-zoom-value").textContent())?.replace("%", "")) / 100;
-    const groupLeft = Math.min(...beforeGroupDrag.map(value => value.x));
-    const groupTop = Math.min(...beforeGroupDrag.map(value => value.y));
-    const groupRight = Math.max(...beforeGroupDrag.map(value => value.x + value.width));
-    const groupBottom = Math.max(...beforeGroupDrag.map(value => value.y + value.height));
-    const groupStart = { x: canvasBounds!.x + (groupLeft + groupRight) / 2 * zoom, y: canvasBounds!.y + (groupTop + groupBottom) / 2 * zoom };
+    const zoom = Number(await fabricSurface.getAttribute("data-viewport-zoom"));
+    const panX = Number(await fabricSurface.getAttribute("data-viewport-pan-x"));
+    const panY = Number(await fabricSurface.getAttribute("data-viewport-pan-y"));
+    const selectionScene = JSON.parse((await fabricSurface.getAttribute("data-selection-scene"))!) as { bounds: { left: number; top: number; width: number; height: number }; hitPoints: Array<{ x: number; y: number }> };
+    const toScreen = (point: { x: number; y: number }) => ({ x: canvasBounds!.x + panX + point.x * zoom, y: canvasBounds!.y + panY + point.y * zoom });
+    const candidates = selectionScene.hitPoints.map(toScreen);
+    const groupStart = await page.evaluate((points) => points.find((point) => (document.elementFromPoint(point.x, point.y) as HTMLElement | null)?.dataset.fabric === "top") ?? null, candidates);
+    expect(groupStart, "at least one selected Fabric object centre must be interactively reachable").not.toBeNull();
+    const selectionTopLeft = toScreen({ x: selectionScene.bounds.left, y: selectionScene.bounds.top });
+    const selectionBottomRight = toScreen({ x: selectionScene.bounds.left + selectionScene.bounds.width, y: selectionScene.bounds.top + selectionScene.bounds.height });
+    expect(groupStart!.x).toBeGreaterThanOrEqual(selectionTopLeft.x);
+    expect(groupStart!.x).toBeLessThanOrEqual(selectionBottomRight.x);
+    expect(groupStart!.y).toBeGreaterThanOrEqual(selectionTopLeft.y);
+    expect(groupStart!.y).toBeLessThanOrEqual(selectionBottomRight.y);
     await page.keyboard.down("Alt");
-    await page.mouse.move(groupStart.x, groupStart.y); await page.mouse.down();
-    await page.mouse.move(groupStart.x + 42, groupStart.y + 28, { steps: 8 }); await page.mouse.up();
+    await page.mouse.move(groupStart!.x, groupStart!.y); await page.mouse.down();
+    await page.mouse.move(groupStart!.x + 42, groupStart!.y + 28, { steps: 8 }); await page.mouse.up();
     await page.keyboard.up("Alt");
     const afterGroupDrag = parseGeometry(await geometry(page));
     const deltas = afterGroupDrag.map(value => {
