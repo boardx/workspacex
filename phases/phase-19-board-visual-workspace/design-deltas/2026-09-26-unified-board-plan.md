@@ -14,7 +14,7 @@
 
 ## 2. 现状与颜色（2026-09-27）
 
-当前交付记录：R1–R5 已合入 main（R5：#4308，merge `73ee23b7a`）。R6 的布局命令与 Alt 拖复制已通过主 session 真实验收；指针吸附、Smart Layout 仍待通过；Fabric ActiveSelection 坐标漂移修复 `a67f306fd` 已通过 47 项测试及 typecheck，尚待浏览器复验。用户最新截图明确否决当前视觉体验，因此 R6 新增专属 UI worker 与视觉阻断门，已有合并不代表视觉达标。R7 实现与独立复核完成；R8 最新 `de47eceb8` 已关闭此前独立复核阻断，仍待主 session 集成验收；R9 实现与独立安全复核完成；R10 独立复核不通过：原负载/性能 lane 连接合成样本单测，核心旅程缺真实结果断言；正在将验证器改为 fail-closed 并补真实执行路径，不计作验收通过。以上来自本会话交付记录与本地提交；本次 GitHub 查询网络失败，未将缓存记录冒充新一轮远端验证。
+当前交付记录（2026-09-27 实时核对）：R1–R6 已合入 main；R6 PR #4313 经机械门禁 READY_TO_MERGE 后合入，merge `a04fa21914e9b3f8fea822a3adc9c54629e7a97b`。R7 最新真实协作仍为2/4通过，重新授权已恢复，但已有评论对象的新讨论按钮及重连按钮遮挡仍待修复。R8 真实上传、读取、解码与Fabric像素已通过前置断言，导出权限修复正在重跑；真实Miro/Mural兼容、迁移/恢复仍未完成。R9最终runtime锁修复已获独立代码复核，真实PG并发及真实模型待验。R10已建立真实验收执行路径，但未执行的lane不计通过，九分尚未证明。
 
 颜色口径：绿色=已合入 main；黄色=主 session 正在验收；蓝色=实现与独立复核完成、等待集成；橙色=正在补实现或复核；灰色=待开始；紫色=P2 后续路线。状态只由 PR、exact SHA、CI 和主 session 动态证据支撑。
 
@@ -26,7 +26,7 @@ flowchart LR
   R2 --> R3["R3 Sticky / Text<br/>PR #4286 ✅"]:::merged
   R3 --> R4["R4 内容对象<br/>PR #4292 ✅"]:::merged
   R4 --> R5["R5 空间与关系<br/>PR #4308 ✅"]:::merged
-  R5 --> R6["R6 编辑与组织<br/>6项视觉/导航 + 4项空间通过 · PR #4313 CI"]:::accepting
+  R5 --> R6["R6 编辑与组织<br/>6项视觉/导航 + 4项空间通过 · #4313已合入"]:::done
   R6 --> R7["R7 团队可靠性<br/>2/4真实场景通过 · 修复断网/重新授权"]:::accepting
   R7 --> R8["R8 存储与迁移<br/>图片持久化真实验收中 · 迁移/恢复待验"]:::working
   R8 --> R9["R9 AI / API / Chat / 会议室<br/>模型聚类/整体Undo已实现 · 安全复核与真实模型待验"]:::working
@@ -134,17 +134,17 @@ flowchart LR
 | Iteration 03 | R3 Sticky/Text | ✅ PR #4286 已合入 | 同上，并完成Brainstorm旅程与输入指标 |
 | Iteration 04 | R4 内容对象 | ✅ PR #4292 已合入 | 同上，逐对象创建/编辑/保存/协作验收 |
 | Iteration 05 | R5 空间与关系 | ✅ PR #4308 已合入 | 同上，Panel及绑定Connector旅程 |
-| Iteration 06 | R6 编辑与组织 | 🟡 6项视觉/导航、4项空间通过；[PR #4313](https://github.com/boardx/workspacex/pull/4313) CI中 | 同上，Grid整理、快捷键与布局Undo |
-| Iteration 07 | R7 团队可靠性 | 🟡 真实验收2/4通过；断网/重新授权修复待复验 | 同上，多客户端/撤权/恢复链路 |
+| Iteration 06 | R6 编辑与组织 | ✅ 6项视觉/导航、4项空间通过；[PR #4313](https://github.com/boardx/workspacex/pull/4313) 已合入 | 同上，Grid整理、快捷键与布局Undo |
+| Iteration 07 | R7 团队可靠性 | 🟡 最新真实验收2/4通过；已有线程评论、重连按钮遮挡修复中 | 同上，多客户端/撤权/恢复链路 |
 | Iteration 08 | R8 存储与迁移 | 🟠 图片前端持久化已集成并正在主session验收；迁移/恢复待验 | 同上，PG正文边界、迁移与恢复演练 |
-| Iteration 09 | R9 AI/API/Chat/会议室 | 🟠 真实模型调用与整体Undo已实现；ACL/锁序/runtimePin修复待复核及真实验收 | 同上，Agent完整操作与长时会议室 |
-| Iteration 10 | R10 总验收 | 🔴 独立复核不通过；修复占位验收，待前九轮汇合 | 六旅程与所有硬门在统一SHA通过 |
+| Iteration 09 | R9 AI/API/Chat/会议室 | 🟠 完整runtimePin锁修复独立复核通过；真实PG并发及模型待验 | 同上，Agent完整操作与长时会议室 |
+| Iteration 10 | R10 总验收 | 🔴 真实验收执行路径已补齐；待前九轮汇合后运行，不计九分 | 六旅程与所有硬门在统一SHA通过 |
 
 每个iteration PR关联该轮所有issue，逐项列出需求、实现、证据和未完成项；不能仅因部分模块通过就关闭整轮。子agent分支不单独创建主交付PR，修复提交继续进入同一轮PR。存在共享热点或依赖时分批集成，PR数量不成为降低范围或跳过验收的理由。跨轮预研可并行，正式实现仍遵守依赖；最终合并须有用户明确授权。
 
 ## 10. 当前执行队列
 
-1. R6 主 session 六项真实验收通过，PR #4313 等待 CI；列表导航保留，只有文档编辑器全屏。三视口截图已归档，完整九分视觉矩阵继续在 R10验收。
+1. R6 主 session 六项视觉/导航与四项空间验收通过，PR #4313 已合入；列表导航保留，只有文档编辑器全屏。三视口截图已归档，完整九分视觉矩阵继续在 R10验收。
 2. R6 合入后依次集成 R7；主 session 执行双浏览器 presence/comment、离线重连、撤权与多人 Undo/Redo。
 3. R8 已完成上述修复与独立复核；接下来做主 session PostgreSQL/ObjectStore/迁移/备份恢复验收。
 4. R9 在 R8 后执行 Chat 图形 handoff、AI proposal/一次 Undo、统一限流、会议室跟随与真实 30 分钟 signed-ledger soak。
@@ -223,3 +223,11 @@ R10 已补真实 producer：六旅程 `fca257584`、50客户端30分钟 `3ccff94
 - R8：`a95ba9959`主session正在执行上传/readback/刷新/peer/撤权/复制后源删除及PG指针验收。测试尚未终结，不能标通过。
 - R9：`5de517e81`整合AI/room与R8，`3a36a3c79`修复独立review发现的proposal freshACL、锁序、model/skill/version来源绑定；真实模型fixture与调用仍待主session执行。
 - R10：`af6cc980a`已有9条可执行lane，新增journeys/meeting-room/security等真实producer；只是代码与静态/单元通过，真实长时负载、全量安全、人工视觉/读屏/硬件证据仍未完成。
+
+
+### 2026-09-27 合并及失败路径更新
+
+- R6：#4313 已于05:21:59 UTC合入main；尚未把合并冒充devapp已部署。
+- R7：`bde254b1d` 主session真实运行2/4通过。fresh授权恢复已走通；失败定位到已有线程禁止新评论和全屏编辑器覆盖重连栏，正在修复。
+- R8：`a2df8f6c2` 去除不可变导出记录不必要的FOR UPDATE，不扩大app_rw权限；真实图片链路复验中。独立导入审计暴露格式、静默截断、loss与回导缺口，另开隔离工作树修复，未标兼容完成。
+- R9：`cb2147f80` 最终事务锁定发布版本和registry，完整pin校验；独立复核20项unit通过，真实双连接PG锁与模型仍待主session执行。
