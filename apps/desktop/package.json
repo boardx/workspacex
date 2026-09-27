@@ -11,7 +11,7 @@
     "build:main": "esbuild src/main.ts --bundle --platform=node --format=cjs --external:electron --external:@electric-sql/pglite --external:@electric-sql/pglite-pgvector --external:@electric-sql/pglite-socket --outfile=dist/main.cjs",
     "dev": "pnpm run build:main && electron .",
     "build:info": "node -e \"require('fs').writeFileSync('build/build-info.json', JSON.stringify({ sha: require('child_process').execSync('git rev-parse --short HEAD').toString().trim(), builtAt: new Date().toISOString() }))\"",
-    "dist:mac": "pnpm run build:main && pnpm run build:web && pnpm run build:info && electron-builder --mac --config electron-builder.yml",
+    "dist:mac": "bash ../../scripts/local-bundle/prepare-sandbox-modules.sh && pnpm run build:main && pnpm run build:web && pnpm run build:info && electron-builder --mac --config electron-builder.yml && node scripts/check-bundle-lean.mjs",
     "dist:win": "pnpm run build:main && pnpm run build:web && electron-builder --win --config electron-builder.yml",
     "typecheck": "tsc --noEmit",
     "lint": "echo 'lint: ok'",
