@@ -47,6 +47,7 @@ export default defineConfig({ resolve:{alias:{
     'tests/whiteboard/reason-code-response.test.ts',
     'tests/whiteboard/resource-repository-guard.test.ts',
     'tests/whiteboard/tag-repository-guard.test.ts',
+    'tests/whiteboard/joint-drill-diagnostics.test.ts',
   ],
   maxWorkers: 1, minWorkers: 1, testTimeout: 10_000,
 } });
