@@ -587,6 +587,14 @@
         "knowledge-graph/read-personal-knowledge",
         "knowledge-graph/read-thread-knowledge"
       ]
+    },
+    "GuidedResearchController": {
+      "useCases": [
+        "research/guided-research-skill",
+        "research/guided-runtime-service",
+        "research/guided-workflow-service",
+        "security/permission-filter"
+      ]
     }
   },
   "routes": {
@@ -2262,6 +2270,32 @@
         "apps/web/lib/mock/admin.ts",
         "apps/web/lib/mock/asset-governance.ts",
         "apps/web/lib/mock/canvas.ts"
+      ]
+    },
+    "/research/[sessionId]/[stage]": {
+      "kind": "wired",
+      "screen": "apps/web/app/research/[sessionId]/[stage]/page.tsx",
+      "adapters": [
+        "apps/web/lib/live-guided-research-api.ts"
+      ],
+      "contracts": [
+        "research"
+      ],
+      "controllers": [
+        "GuidedResearchController"
+      ]
+    },
+    "/research/new": {
+      "kind": "wired",
+      "screen": "apps/web/app/research/new/page.tsx",
+      "adapters": [
+        "apps/web/lib/live-guided-research-api.ts"
+      ],
+      "contracts": [
+        "research"
+      ],
+      "controllers": [
+        "GuidedResearchController"
       ]
     }
   }
