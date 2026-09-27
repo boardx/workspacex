@@ -3,7 +3,7 @@ import type {Principal} from '../../domain/principal';
 import type {ObjectStore} from '../artifact/ports';
 import {ObjectExistsError} from '../artifact/ports';
 import {backupHash,backupTenant,validateBackupManifest,type BackupRecord,type BackupBlob} from './board-backup';
-const id=z.string().uuid(),hash=z.string().regex(/^[a-f0-9]{64}$/);
+const id=z.string().uuid();
 export const MaintenanceRequest=z.discriminatedUnion('action',[
  z.object({action:z.literal('release-pins'),backupId:id,requestId:id,retentionDays:z.number().int().min(1).max(36500).default(30)}).strict(),
  z.object({action:z.literal('recover-manifest'),backupId:id,requestId:id,boardId:id,expectedEpoch:z.number().int().positive(),expectedSeq:z.number().int().nonnegative().max(Number.MAX_SAFE_INTEGER),targetVersion:z.literal(1)}).strict(),

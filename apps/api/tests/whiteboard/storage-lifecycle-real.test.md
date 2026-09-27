@@ -22,9 +22,9 @@ Joint Board backup now has a separate real scenario: create comments and viewer 
 For actual loss of PG as well, `scripts/board-joint-recovery-drill.ts` composes the existing system PG dump/restore path with the Board archive. See the protocol document for explicit local-only opt-in and cleanup. Neither the real suite nor the dual-media drill has been executed by this worker.
 
 Remaining boundaries:
-1. Backup pins are retained indefinitely, including failed attempts; there is no automatic release/cleanup policy yet.
-2. Storage-format rollback after acknowledged ObjectStore-primary writes (no PG mirror/reverse migration operator). Transaction rollback is independently tested, not a substitute.
-3. Automated enumeration/backfill across all tenant Boards; backfillLegacyBoard remains a bounded per-board hook.
+1. Verified backup pin release now has an explicit dry-run-first operator and a separate real maintenance lane; see `vitest.board-maintenance-acceptance.config.ts` and the storage-maintenance safety document. Failed/unverified captures remain pinned intentionally.
+2. Same-content filesystem manifest v1 pointer repair is available through the maintenance operator. Arbitrary format downgrade and FS→PG body rollback remain unsupported; transaction rollback does not substitute for either.
+3. Explicit multi-tenant scoped backfill now has a resumable operator and `vitest.board-backfill-acceptance.config.ts`; actual execution evidence belongs to that separate lane.
 4. Remote OSS/S3 and entire-site identity/org remapping are not supported by this same-tenant selected-Board restore.
 5. Historical Undo/outbox requests/checkpoints are not replayed into the new Board; current document and complete comment threads are restored instead.
 

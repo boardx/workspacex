@@ -28,6 +28,41 @@ Provide explicit IDs, `BOARD_STORAGE_MAINTENANCE_OPERATOR=1`, existing `BOARD_OB
 
 Main-session real PG/FsObjectStore acceptance will cover retained live roots, released backup-only roots, independent pins, active restore refusal, revoked permission, missing/corrupt archive, metadata-only pointer recovery, stale revision refusal and replay. Implementation workers do not run DB/Docker/browser acceptance.
 
-## WIP checkpoint — priority switch to issue #4335
+## Verification and operator commands
 
-Implementation currently includes service, PG repository, CLI, migration and 15 new unit cases; 36 focused/regression tests pass. **Not ready to merge:** API typecheck, dedicated repository permission/concurrency counterproofs and the main-session real PG producer remain outstanding. No DB/Docker/browser validation has run. Continue this package after the newly requested Create Board dialog.
+On the main session's already-running **isolated local** API database, with the standard isolation/PG environment loaded:
+
+```sh
+pnpm --filter api exec vitest run --config vitest.board-maintenance-acceptance.config.ts
+```
+
+This producer validates local/isolation restrictions **while loading the config, before the shared DB global setup can connect**. It uses real PostgreSQL transactions and separate primary/archive FsObjectStore roots. It seeds only synthetic tenants, cleans those tenants and temporary roots, and prints metadata-only `BOARD_MAINTENANCE_GC` / `BOARD_MAINTENANCE_RECOVERY` records. Historical backup/file/tombstone timestamps are fixtures; they do not claim that the retention interval elapsed during execution. The worker does not run this command.
+
+Coverage: young backup rejection; active owner/admin versus viewer/foreign/revoked principal; dry-run zero mutation; replay after fresh permission check; two backups protecting one obsolete snapshot; live document/update/comment roots and the active asset-root family used by generic Undo; real mark/sweep and physical orphan deletion; archive restore after pin release; corrupt archive and restore-started-before-final-release refusal; missing snapshot repaired without PG body bytes or revision changes; a real canonical write between archive validation and pointer publication rejecting stale recovery. Generic Undo operation semantics themselves remain covered by its own lane; the retention producer verifies its shared root family, not a fabricated AI operation.
+
+Operator release (set the normal DB credentials and both filesystem root environment variables without printing them):
+
+```sh
+BOARD_STORAGE_MAINTENANCE_OPERATOR=1 pnpm --filter api exec tsx scripts/board-storage-maintenance.ts release-pins --org "$ORG_ID" --actor "$ACTOR_ID" --backup "$BACKUP_ID" --request "$REQUEST_ID" --retention-days 30
+# Review the dry-run, then repeat with the same request ID and --execute.
+```
+
+Pointer recovery uses the same opt-in and `recover-manifest --org ... --actor ... --backup ... --request ... --board ... --expected-epoch ... --expected-seq ... --target-version 1`. It also defaults to dry-run. An identical completed request replays its original receipt; use a new request ID for a later retention pass (for example after a newly completed restore creates more pins). A request ID cannot be reused with different options or a different actor.
+
+Focused checks without DB:
+
+```sh
+pnpm --filter api exec vitest run --config vitest.whiteboard-unit.config.ts tests/whiteboard/backup-maintenance.test.ts tests/whiteboard/backup-maintenance-repository.test.ts tests/whiteboard/storage-backfill.test.ts tests/whiteboard/board-backup.test.ts
+pnpm --filter api exec tsc --noEmit
+```
+
+## Remaining storage-format rollback boundaries
+
+- Implemented: same-content filesystem manifest v1 pointer recovery, verified immutable bytes, fresh authority, final revision/hash CAS and idempotent receipt. This is a compatibility repair, **not** arbitrary historical state rollback.
+- Historical content recovery is supported through the existing verified archive restore into a new Board. The maintenance tool does not replace a live Board with an older snapshot.
+- No v2 format exists here, so a v2→v1 converter and old-binary compatibility matrix are not implemented. Unknown versions fail closed. A future format change must supply a tested FS-to-FS conversion and deployment stop-write/cutover protocol before claiming reversible downgrade.
+- No FS→PG body migration is provided: user-required filesystem content storage remains invariant.
+- In-place repair of missing image/comment blobs is not provided; use full archive restoration into a new Board. Failed/unverified captures retain their pins until an independently verified archive exists; they are never purged merely because they are old.
+- PostgreSQL-loss recovery continues to require the joint PG-backup + independent archive drill. This maintenance lane assumes the trusted PG manifest metadata survived or was restored and does not substitute for that drill.
+
+Candidate validation is recorded in the handoff; real PG acceptance remains pending the main session's execution and exact-SHA evidence.
