@@ -233,23 +233,33 @@ function shapePath(variant: string, width: number, height: number): string {
   return `M ${-x} ${-y} L ${x * .55} ${-y} L ${x} ${-y * .55} L ${x} ${y} L ${-x} ${y} Z`;
 }
 
-export function applyCanonicalObject(projected: TaggedFabricObject, object: BoardFabricObject, readOnly: boolean): void {
-  const selection = projected.group instanceof ActiveSelection ? projected.group : undefined;
-  const members = selection?.getObjects();
-  // Leave the selection plane before restoring scene geometry. Keeping the same
-  // ActiveSelection instance avoids canvas selection events and preserves mixed
-  // locked selections. Rebuild its bounds after every canonical patch, including
-  // asynchronous rejection and duplicate restoration.
-  selection?.removeAll();
+/** Detach each selection once for an entire projection transaction. */
+export function withCanonicalProjectionBatch(
+  objects: Iterable<TaggedFabricObject>,
+  patch: () => void,
+  resolveMember: (member: TaggedFabricObject) => TaggedFabricObject | undefined = (member) => member,
+): void {
+  const selections = new Map<ActiveSelection, TaggedFabricObject[]>();
+  for (const object of objects) {
+    if (object.group instanceof ActiveSelection && !selections.has(object.group)) {
+      selections.set(object.group, object.group.getObjects());
+    }
+  }
+  for (const selection of selections.keys()) selection.removeAll();
   try {
-    applyCanonicalObjectInScene(projected, object, readOnly);
+    patch();
   } finally {
-    if (selection && members) {
+    for (const [selection, previousMembers] of selections) {
+      const members = previousMembers.flatMap((member) => { const current = resolveMember(member); return current ? [current] : []; });
       selection.set({ angle: 0, scaleX: 1, scaleY: 1, skewX: 0, skewY: 0, flipX: false, flipY: false });
       selection.add(...members);
       selection.setCoords();
     }
   }
+}
+
+export function applyCanonicalObject(projected: TaggedFabricObject, object: BoardFabricObject, readOnly: boolean): void {
+  withCanonicalProjectionBatch([projected], () => applyCanonicalObjectInScene(projected, object, readOnly));
 }
 
 function applyCanonicalObjectInScene(projected: TaggedFabricObject, object: BoardFabricObject, readOnly: boolean): void {
@@ -499,11 +509,15 @@ export function BoardFabricSurface({ objects, selectedObjectIds, readOnly, tool,
       if (!canonicals.length) return;
       const movableCanonicals = canonicals.filter(({ canonical }) => !canonical.locked && canonical.kind !== "placeholder");
       if (stateRef.current.readOnly || !movableCanonicals.length) {
-        for (const { member, canonical } of canonicals) applyCanonicalObject(member, canonical, true);
+        withCanonicalProjectionBatch(members, () => {
+          for (const { member, canonical } of canonicals) applyCanonicalObject(member, canonical, true);
+        });
         canvas.requestRenderAll();
         return;
       }
-      for (const { member, canonical } of canonicals) if (canonical.locked || canonical.kind === "placeholder") applyCanonicalObject(member, canonical, true);
+      withCanonicalProjectionBatch(canonicals.filter(({ canonical }) => canonical.locked || canonical.kind === "placeholder").map(({ member }) => member), () => {
+        for (const { member, canonical } of canonicals) if (canonical.locked || canonical.kind === "placeholder") applyCanonicalObject(member, canonical, true);
+      });
       const duplicateOffset = capturedDuplicate ? { x: capturedDuplicate.current.x - capturedDuplicate.start.x, y: capturedDuplicate.current.y - capturedDuplicate.start.y } : null;
       const transforms = movableCanonicals.map(({ id, member, canonical }) => {
         if (duplicateOffset) return { id, geometry: { ...canonical.geometry, x: canonical.geometry.x + duplicateOffset.x, y: canonical.geometry.y + duplicateOffset.y }, parentId: canonical.parentId ?? null };
@@ -519,11 +533,13 @@ export function BoardFabricSurface({ objects, selectedObjectIds, readOnly, tool,
         // A delayed result must never mutate a replacement projection. When the
         // object still exists, restore the latest canonical revision so remote
         // updates that arrived while the command was pending are preserved.
-        for (const { id, member } of canonicals) {
-          if (registryRef.current.get(id) !== member) continue;
-          const latestCanonical = canonicalRef.current.get(id);
-          if (latestCanonical) applyCanonicalObject(member, latestCanonical, stateRef.current.readOnly);
-        }
+        withCanonicalProjectionBatch(canonicals.map(({ member }) => member), () => {
+          for (const { id, member } of canonicals) {
+            if (registryRef.current.get(id) !== member) continue;
+            const latestCanonical = canonicalRef.current.get(id);
+            if (latestCanonical) applyCanonicalObject(member, latestCanonical, stateRef.current.readOnly);
+          }
+        });
         canvas.requestRenderAll();
       };
       try {
@@ -622,7 +638,9 @@ export function BoardFabricSurface({ objects, selectedObjectIds, readOnly, tool,
           try { callbacksRef.current.onObjectsTransform?.(transforms, { duplicate: true }); }
           catch { /* The canonical editor reports the rejected operation; the projection is restored below. */ }
           finally {
-            for (const id of gesture.ids) { const canonical = canonicalRef.current.get(id), member = registryRef.current.get(id); if (canonical && member) applyCanonicalObject(member, canonical, stateRef.current.readOnly); }
+            withCanonicalProjectionBatch(gesture.ids.flatMap((id) => { const member = registryRef.current.get(id); return member ? [member] : []; }), () => {
+              for (const id of gesture.ids) { const canonical = canonicalRef.current.get(id), member = registryRef.current.get(id); if (canonical && member) applyCanonicalObject(member, canonical, stateRef.current.readOnly); }
+            });
             canvas.requestRenderAll();
           }
         }
@@ -675,56 +693,61 @@ export function BoardFabricSurface({ objects, selectedObjectIds, readOnly, tool,
   React.useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
-    const incoming = new Map(objects.map((object) => [object.id, object]));
-    for (const [id, projected] of registryRef.current) {
-      if (!incoming.has(id)) {
-        canvas.remove(projected);
-        registryRef.current.delete(id);
-        renderedRef.current.delete(id);
+    withCanonicalProjectionBatch(registryRef.current.values(), () => {
+      const incoming = new Map(objects.map((object) => [object.id, object]));
+      for (const [id, projected] of registryRef.current) {
+        if (!incoming.has(id)) {
+          canvas.remove(projected);
+          registryRef.current.delete(id);
+          renderedRef.current.delete(id);
+        }
       }
-    }
-    const kindOrder = (object: BoardFabricObject) => object.kind === "panel" ? 0 : object.kind === "connector" ? 3 : object.kind === "group" ? 2 : 1;
-    const orderedObjects = [...objects].sort((left, right) => (left.zIndex ?? 0) - (right.zIndex ?? 0) || kindOrder(left) - kindOrder(right) || left.orderKey.localeCompare(right.orderKey));
-    const nextRendered: BoardFabricObject[] = [];
-    for (const object of orderedObjects) {
-      const current = registryRef.current.get(object.id);
-      const failedAtThisRevision = current?.data?.projectionFailure === true && current.data.renderedRevision === object.revision;
-      let rendered = failedAtThisRevision ? renderedRef.current.get(object.id) ?? projectionFailureObject(object) : object;
-      const stickyShapeChanged = current?.data?.stickyVariant !== object.sticky?.variant;
-      const richProjectionChanged = Boolean(current && current.data?.renderedRevision !== object.revision && ["shape", "drawing", "image", "card"].includes(object.kind));
-      const connectorProjectionChanged = Boolean(current && current.data?.renderedRevision !== object.revision && object.kind === "connector");
-      if (!current || (!failedAtThisRevision && (current.data?.adapterKind !== object.kind || stickyShapeChanged || richProjectionChanged || connectorProjectionChanged))) {
-        if (current) canvas.remove(current);
-        const entry = createProjectionEntry(object, readOnly);
-        rendered = entry.rendered;
-        registryRef.current.set(object.id, entry.projected);
-        canvas.add(entry.projected);
-      } else if (!failedAtThisRevision && (current.data?.renderedRevision !== object.revision || current.selectable === readOnly)) {
-        try {
-          applyCanonicalObject(current, object, readOnly);
-        } catch {
-          canvas.remove(current);
-          const entry = createProjectionEntry(projectionFailureObject(object), true);
-          entry.projected.data = { ...entry.projected.data, boardObjectId: object.id, renderedRevision: object.revision, projectionFailure: true };
+      const kindOrder = (object: BoardFabricObject) => object.kind === "panel" ? 0 : object.kind === "connector" ? 3 : object.kind === "group" ? 2 : 1;
+      const orderedObjects = [...objects].sort((left, right) => (left.zIndex ?? 0) - (right.zIndex ?? 0) || kindOrder(left) - kindOrder(right) || left.orderKey.localeCompare(right.orderKey));
+      const nextRendered: BoardFabricObject[] = [];
+      for (const object of orderedObjects) {
+        const current = registryRef.current.get(object.id);
+        const failedAtThisRevision = current?.data?.projectionFailure === true && current.data.renderedRevision === object.revision;
+        let rendered = failedAtThisRevision ? renderedRef.current.get(object.id) ?? projectionFailureObject(object) : object;
+        const stickyShapeChanged = current?.data?.stickyVariant !== object.sticky?.variant;
+        const richProjectionChanged = Boolean(current && current.data?.renderedRevision !== object.revision && ["shape", "drawing", "image", "card"].includes(object.kind));
+        const connectorProjectionChanged = Boolean(current && current.data?.renderedRevision !== object.revision && object.kind === "connector");
+        if (!current || (!failedAtThisRevision && (current.data?.adapterKind !== object.kind || stickyShapeChanged || richProjectionChanged || connectorProjectionChanged))) {
+          if (current) canvas.remove(current);
+          const entry = createProjectionEntry(object, readOnly);
           rendered = entry.rendered;
           registryRef.current.set(object.id, entry.projected);
           canvas.add(entry.projected);
+        } else if (!failedAtThisRevision && (current.data?.renderedRevision !== object.revision || current.selectable === readOnly)) {
+          try {
+            applyCanonicalObject(current, object, readOnly);
+          } catch {
+            canvas.remove(current);
+            const entry = createProjectionEntry(projectionFailureObject(object), true);
+            entry.projected.data = { ...entry.projected.data, boardObjectId: object.id, renderedRevision: object.revision, projectionFailure: true };
+            rendered = entry.rendered;
+            registryRef.current.set(object.id, entry.projected);
+            canvas.add(entry.projected);
+          }
         }
+        renderedRef.current.set(object.id, rendered);
+        nextRendered.push(rendered);
       }
-      renderedRef.current.set(object.id, rendered);
-      nextRendered.push(rendered);
-    }
-    canonicalRef.current = new Map(nextRendered.map((object) => [object.id, object]));
-    setRenderedObjects(nextRendered);
-    orderedObjects.forEach((object, index) => {
-      const projected = registryRef.current.get(object.id);
-      if (projected) {
-        canvas.moveObjectTo(projected, index);
-        const parent = object.parentId ? incoming.get(object.parentId) : undefined;
-        if (parent?.kind === "panel" && parent.panel?.clipContent) {
-          projected.clipPath = new Rect({ left: parent.geometry.x, top: parent.geometry.y, width: parent.geometry.width, height: parent.geometry.height, angle: parent.geometry.rotation, originX: "left", originY: "top", absolutePositioned: true });
-        } else projected.clipPath = undefined;
-      }
+      canonicalRef.current = new Map(nextRendered.map((object) => [object.id, object]));
+      setRenderedObjects(nextRendered);
+      orderedObjects.forEach((object, index) => {
+        const projected = registryRef.current.get(object.id);
+        if (projected) {
+          canvas.moveObjectTo(projected, index);
+          const parent = object.parentId ? incoming.get(object.parentId) : undefined;
+          if (parent?.kind === "panel" && parent.panel?.clipContent) {
+            projected.clipPath = new Rect({ left: parent.geometry.x, top: parent.geometry.y, width: parent.geometry.width, height: parent.geometry.height, angle: parent.geometry.rotation, originX: "left", originY: "top", absolutePositioned: true });
+          } else projected.clipPath = undefined;
+        }
+      });
+    }, (member) => {
+      const id = member.data?.boardObjectId;
+      return id ? registryRef.current.get(id) : undefined;
     });
     setObjectScenes([...registryRef.current].map(([id, projected]) => ({ id, ...projected.getBoundingRect() })));
     scheduleRender();

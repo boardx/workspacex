@@ -1,7 +1,7 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { ActiveSelection, Group, Rect } from "fabric";
 import { canonicalSceneBounds } from "@repo/whiteboard-core";
-import { applyCanonicalObject } from "@/components/whiteboard/fabric/board-fabric-surface";
+import { applyCanonicalObject, withCanonicalProjectionBatch } from "@/components/whiteboard/fabric/board-fabric-surface";
 import type { BoardFabricObject } from "@/components/whiteboard/fabric/board-fabric-object";
 import { representableWorldGeometry } from "@/components/whiteboard/fabric/fabric-transform";
 
@@ -78,5 +78,37 @@ describe("canonical projection inside a real ActiveSelection", () => {
       objects.forEach((object, index) => expect(representableWorldGeometry(object)).toEqual(records[index]!.geometry));
       for (const [key, value] of Object.entries(initial)) expect(boundsAndFit(objects)[key as keyof typeof initial]).toBeCloseTo(value, 7);
     }
+  });
+});
+
+
+describe("batched canonical projection", () => {
+  it.each([2, 500])("rebuilds a %s-member selection once and preserves every world geometry", (count) => {
+    const records: BoardFabricObject[] = Array.from({ length: count }, (_, index) => ({
+      id: `batch-${index}`, kind: "rectangle", revision: 2, orderKey: String(index),
+      geometry: { x: 560 + index * 120, y: 200 + index % 7 * 100, width: 100, height: 80, rotation: index % 3 * 15 },
+      style: { fill: "#ffffff", textColor: "#000000" }, content: { text: "" },
+    }));
+    const objects = records.map((record) => {
+      const object = new Rect({ width: 100, height: 80, strokeWidth: 0 });
+      applyCanonicalObject(object, record, false);
+      return object;
+    });
+    const selection = new ActiveSelection(objects);
+    selection.set({ left: selection.left + 400, angle: 20, scaleX: 1.5, scaleY: .8 });
+    selection.setCoords();
+    const detach = vi.spyOn(selection, "removeAll"), rebuild = vi.spyOn(selection, "add");
+    withCanonicalProjectionBatch(objects, () => {
+      objects.forEach((object, index) => applyCanonicalObject(object, records[index]!, false));
+    });
+    expect(detach).toHaveBeenCalledTimes(1);
+    expect(rebuild).toHaveBeenCalledTimes(1);
+    expect(rebuild.mock.calls[0]).toHaveLength(count);
+    objects.forEach((object, index) => {
+      expect(object.group).toBe(selection);
+      expect(representableWorldGeometry(object)).toEqual(records[index]!.geometry);
+    });
+    selection.onDeselect();
+    objects.forEach((object, index) => expect(representableWorldGeometry(object)).toEqual(records[index]!.geometry));
   });
 });
