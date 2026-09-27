@@ -82,6 +82,7 @@ export const SUB_NAV: Partial<Record<ProjectTab, { section: string; items: Array
       { key: "survey", label: "问卷" },
       { key: "itv", label: "用户洞察" },
       { key: "research", label: "深度研究" },
+      { key: "transcript", label: "录音转写" },
     ],
   },
   prep: {

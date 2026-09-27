@@ -10,15 +10,22 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { ApiError } from "@/lib/api-client";
 import { createDigitalInterviewDraft, type InterviewScope } from "@/lib/interview-api";
+import { withProjectId } from "@/components/project/project-breadcrumb";
 
 const INDEPENDENT_SCOPE: InterviewScope = { kind: "none", projectId: null, researchProjectId: null };
 const DEFAULT_INTERVIEW_NAME = "未命名访谈";
 
-export function DigitalInterviewCreateModal({ open, onOpenChange }: {
+export function DigitalInterviewCreateModal({ open, onOpenChange, projectId = null }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  /**
+   * 项目中枢 B2-S2：有 `projectId` 时创建 scope 为 `{ kind: "project", projectId }`——访谈表自带
+   * `project_id`，不走链接表；创建后进入 setup 页也续上 `?projectId=` 让面包屑能回项目。
+   */
+  projectId?: string | null;
 }) {
   const { push } = useRouter();
+  const scope: InterviewScope = projectId ? { kind: "project", projectId, researchProjectId: null } : INDEPENDENT_SCOPE;
   const [name, setName] = React.useState(DEFAULT_INTERVIEW_NAME);
   const [tags, setTags] = React.useState<string[]>([]);
   const [tagDraft, setTagDraft] = React.useState("");
@@ -48,7 +55,7 @@ export function DigitalInterviewCreateModal({ open, onOpenChange }: {
     if (!name.trim() || busy) return;
     const pending = tagDraft.trim();
     const nextTags = pending && !tags.includes(pending) && tags.length < 5 ? [...tags, pending] : tags;
-    const payload = { name: name.trim(), tags: nextTags, scope: INDEPENDENT_SCOPE };
+    const payload = { name: name.trim(), tags: nextTags, scope };
     const fingerprint = JSON.stringify(payload);
     if (requestAttempt.current?.fingerprint !== fingerprint) {
       requestAttempt.current = { fingerprint, requestId: crypto.randomUUID() };
@@ -58,7 +65,7 @@ export function DigitalInterviewCreateModal({ open, onOpenChange }: {
     try {
       const created = await createDigitalInterviewDraft({ ...payload, requestId: requestAttempt.current.requestId });
       close();
-      push(`/itv/${created.interviewId}/setup`);
+      push(withProjectId(`/itv/${created.interviewId}/setup`, projectId));
     } catch (cause) {
       setError(cause instanceof ApiError ? cause.reasonCode ?? cause.message : cause instanceof Error ? cause.message : "DEPENDENCY_UNAVAILABLE");
       setBusy(false);
@@ -90,7 +97,7 @@ export function DigitalInterviewCreateModal({ open, onOpenChange }: {
               </div>
               <p className="text-11 text-muted-foreground">标签可选，最多 5 个</p>
             </div>
-            <div data-testid="itv-create-scope" className="rounded-lg border border-border bg-muted/40 px-3 py-2 text-12 text-muted-foreground"><span className="font-medium text-background-foreground">访谈范围：</span>独立访谈</div>
+            <div data-testid="itv-create-scope" className="rounded-lg border border-border bg-muted/40 px-3 py-2 text-12 text-muted-foreground"><span className="font-medium text-background-foreground">访谈范围：</span>{projectId ? "本项目访谈" : "独立访谈"}</div>
             {error && <p role="alert" className="text-12 text-destructive">创建失败：{error}。当前输入已保留，可重试。</p>}
             <div className="mt-2 flex justify-end gap-3">
               <Button type="button" variant="outline" size="lg" className="min-w-24" onClick={close}>取消</Button>

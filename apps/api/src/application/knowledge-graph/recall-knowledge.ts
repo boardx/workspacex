@@ -3,10 +3,14 @@
  *
  * 失败**降级**、不 fail run（同 L3 文件检索的纪律）：候选集读不到 ⇒ 这轮不带记忆；图路读不到 ⇒
  * 只用字面召回，并在计划里记 graph.available = false，给模型的材料里带上降级说明（R4-E1）。
+ * S9（#4366）：向量通道与图路并行、有时限（KG_VECTOR_RECALL_TIMEOUT_MS）；没配置嵌入模型 ⇒ 未启用（不提醒）；
+ * 配置了但失败 / 超时 ⇒ 这一轮降级为字面 + 图，同样如实说明。
  */
 import type { OrgId } from "../../domain/org-id";
 import { detectMemoryIntent, forgetMatches } from "../../domain/knowledge-graph/memory-intent";
-import { buildKnowledgeContextMessage, fuseRecall, graphSeeds, type KnowledgeRecall } from "../../domain/knowledge-graph/recall";
+import {
+  buildKnowledgeContextMessage, fuseRecall, graphSeeds, recallDegraded, VECTOR_RECALL_TOP_K, type KnowledgeRecall, type VectorHit,
+} from "../../domain/knowledge-graph/recall";
 import { newKgId } from "./ids";
 import type { KnowledgeRecallPort, MemoryCardPort } from "./ports";
 
@@ -18,20 +22,75 @@ export async function recallThreadKnowledge(
   input: { readonly orgId: OrgId; readonly userId: string; readonly threadId: string; readonly query: string },
   log: (message: string, detail: Record<string, unknown>) => void,
 ): Promise<KnowledgeRecall> {
-  const { claims, objects } = await port.candidates(input.orgId, input.userId, input.threadId);
+  // S9（#4366）：候选集一开始读，向量通道就开始嵌入问题（两者并行）；SQL 仍只在候选 id 里找。
+  const candidates = port.candidates(input.orgId, input.userId, input.threadId);
+  const ids = candidates.then((c) => c.claims.map((x) => x.id));
+  const vectorP = vectorChannel(port, input, ids, log);
+  // 候选集读失败时这两个派生的 Promise 也会失败：它们的结果不再有人等，吞掉以免成为未处理的拒绝
+  //（召回整体失败由 await candidates 抛出、调用方降级）。
+  ids.catch(() => undefined);
+  vectorP.catch(() => undefined);
+  const { claims, objects } = await candidates;
   const seeds = graphSeeds(input.query, objects);
-  let graph: Awaited<ReturnType<KnowledgeRecallPort["graphNeighbors"]>> | null = [];
-  if (seeds.length > 0) {
+  const graphChannel = async (): Promise<Awaited<ReturnType<KnowledgeRecallPort["graphNeighbors"]>> | null> => {
+    if (seeds.length === 0) return [];
     try {
-      graph = await port.graphNeighbors(input.orgId, seeds.map((id) => `object:${id}`));
+      return await port.graphNeighbors(input.orgId, seeds.map((id) => `object:${id}`));
     } catch (e) {
       log("knowledge recall graph channel unavailable, continuing without it", {
         threadId: input.threadId, detail: e instanceof Error ? e.message : "unexpected graph failure",
       });
-      graph = null;
+      return null;
     }
+  };
+  // S9（#4366）：两路并行，一轮的等待是较慢的那一路，不是两路相加。
+  const [graph, vector] = await Promise.all([graphChannel(), vectorP]);
+  return fuseRecall({ query: input.query, claims, objects, graph, ...(vector === undefined ? {} : { vector }), limit: KG_RECALL_LIMIT });
+}
+
+/**
+ * 向量通道一轮的时间上限（嵌入问题 + HNSW 查询）。超过就按故障降级：这一轮只用字面 + 图，并告诉用户可能不完整——
+ * 记忆不能拖住回答的首字（06-UX R3-8 / E10）。
+ */
+export const KG_VECTOR_RECALL_TIMEOUT_MS = 400;
+
+/**
+ * S9（#4366）向量通道：没实现 / 没配置 ⇒ undefined（未启用，不提醒）；成功 ⇒ 命中；失败或超时 ⇒ null（故障，降级）。
+ * 失败只记固定形状的原因码，不记问题原文。
+ */
+async function vectorChannel(
+  port: KnowledgeRecallPort,
+  input: { readonly orgId: OrgId; readonly userId: string; readonly threadId: string; readonly query: string },
+  claimIds: Promise<readonly string[]>,
+  log: (message: string, detail: Record<string, unknown>) => void,
+): Promise<readonly VectorHit[] | null | undefined> {
+  if (port.vectorNeighbors === undefined) return undefined;
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  let settled = false;
+  // 时限从候选集读完算起（向量通道比字面 / 图多出来的等待不超过它）；读候选集本身的时间不算在向量头上。
+  const timeout = claimIds.then(() => new Promise<never>((_, reject) => {
+    if (!settled) timer = setTimeout(() => reject(new Error("kg_vector_recall_timeout")), KG_VECTOR_RECALL_TIMEOUT_MS);
+  }));
+  timeout.catch(() => undefined);
+  try {
+    const hits = await Promise.race([
+      port.vectorNeighbors(input.orgId, input.userId, input.query, claimIds, VECTOR_RECALL_TOP_K),
+      timeout,
+    ]);
+    return hits === null ? undefined : hits;
+  } catch (e) {
+    // 错误自带的 code（如 VectorDimensionMismatchError 的 vector_query_dimension_mismatch）优先，其次是固定形状的 message。
+    const own = (e as { code?: unknown } | null)?.code;
+    const m = typeof own === "string" && /^vector_[a-z_]+$/.test(own) ? own : e instanceof Error ? e.message : "";
+    log("knowledge recall vector channel unavailable, continuing with text and graph only", {
+      threadId: input.threadId,
+      code: /^(?:embedding_[a-z_]+|kg_vector_[a-z_]+|vector_[a-z_]+)$/.test(m) ? m : "kg_vector_recall_failed",
+    });
+    return null;
+  } finally {
+    settled = true;
+    clearTimeout(timer);
   }
-  return fuseRecall({ query: input.query, claims, objects, graph, limit: KG_RECALL_LIMIT });
 }
 
 /**
@@ -73,7 +132,9 @@ async function recordTurn(
   recall: KnowledgeRecall,
   log: (message: string, detail: Record<string, unknown>) => void,
 ): Promise<boolean> {
-  const graphDegraded = recall.plan.some((p) => p.channel === "graph" && !p.available);
+  // S9（#4366）：列名沿用 F13 的 graph_degraded，读侧早已按「这一轮召回降级」（recallDegraded）解释——
+  // 图路或向量通道任一**故障**都记 true（没配置向量不算），回答下方那一行「这次没能查全你的记忆」照常出现。
+  const graphDegraded = recallDegraded(recall);
   if (recall.items.length === 0 && !graphDegraded) return true;
   try {
     await port.recordTurn(input.orgId, {

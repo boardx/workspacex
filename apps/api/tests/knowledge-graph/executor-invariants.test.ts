@@ -5,7 +5,7 @@
  * - I-3 模型不直写：app_rw 直接 INSERT / UPDATE 带作用域的结论、边、证据 ⇒ KG_WRITE_OUTSIDE_EXECUTOR
  * - I-4 模型最高 proposed ⇒ KG_ACTOR_NOT_HUMAN
  * - I-5 必须挂证据 ⇒ KG_EVIDENCE_REQUIRED
- * - I-1 作用域白名单 ⇒ project / org / platform 返回 KG_SCOPE_NOT_ENABLED
+ * - I-1 作用域白名单 ⇒ platform 返回 KG_SCOPE_NOT_ENABLED（project / org 已分别由 R7 / B2-S4 放开；org 只放行人）
  * - I-14 个人空间只有本人能写 ⇒ KG_NOT_OWNER
  */
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
@@ -131,10 +131,18 @@ describe("F03 SECURITY DEFINER 硬化", () => {
 });
 
 describe("F03 I-1 / I-14：作用域", () => {
-  it.each(["project", "org", "platform"] as const)("scope=%s ⇒ KG_SCOPE_NOT_ENABLED（数据库与应用层都拒）", async (kind) => {
+  // 项目中枢 R7 放开 `project`、B2-S4（#4428）放开 `org`（同下一条对账用例），这里只剩 platform 还关着。
+  it.each(["platform"] as const)("scope=%s ⇒ KG_SCOPE_NOT_ENABLED（数据库与应用层都拒）", async (kind) => {
     const b = modelBatch(ORG, seg, { scope: { kind, id: "x" } });
     await expect(rawApply(b)).rejects.toThrow(/KG_SCOPE_NOT_ENABLED/);
     expect(validateOntologyBatch(b, null)).toMatchObject({ ok: false, code: "KG_SCOPE_NOT_ENABLED" });
+  });
+
+  it("B2-S4：org 作用域只由人写——模型 / 系统批次在应用层 KG_ACTOR_NOT_HUMAN（组织记忆只经 kg_promote_claim_to_org 进入）", () => {
+    for (const actor of ["model", "system"] as const) {
+      const b = modelBatch(ORG, seg, { scope: { kind: "org", id: ORG }, actor: { kind: actor, id: "kg-extractor" } });
+      expect(validateOntologyBatch(b, null)).toMatchObject({ ok: false, code: "KG_ACTOR_NOT_HUMAN" });
+    }
   });
 
   it("应用层的白名单与数据库 kg_scope_enabled 逐项一致（外扩时两处必须一起改）", async () => {

@@ -73,6 +73,13 @@ import { addProjectMember } from "../../application/project/add-project-member";
 import { changeProjectRole } from "../../application/project/change-project-role";
 import { removeProjectMember } from "../../application/project/remove-project-member";
 import { listProjectMembers } from "../../application/project/list-project-members";
+import { listProjectResources } from "../../application/project/list-project-resources";
+import { linkProjectResource } from "../../application/project/link-project-resource";
+import { unlinkProjectResource } from "../../application/project/unlink-project-resource";
+import {
+  PROJECT_RESOURCE_REPOSITORY,
+  type ProjectResourcePort,
+} from "../../application/project/project-resource-ports";
 import {
   ProjectArchiveBlockedByActiveSegmentError,
   ProjectError,
@@ -166,6 +173,12 @@ export const ADD_PROJECT_MEMBER_SCHEMA = C.operations.addProjectMember.in;
 export const CHANGE_PROJECT_ROLE_SCHEMA = C.operations.changeProjectRole.in;
 export const REMOVE_PROJECT_MEMBER_SCHEMA = C.operations.removeProjectMember.in;
 
+/** 项目中枢 B2-S1（#4425）：项目资源关联三条的入参契约。 */
+export const LIST_PROJECT_RESOURCES_SCHEMA = C.operations.listProjectResources.in;
+export const LINK_PROJECT_RESOURCE_SCHEMA = C.operations.linkProjectResource.in;
+export const UNLINK_PROJECT_RESOURCE_SCHEMA = C.operations.unlinkProjectResource.in;
+type LinkResourceBody = z.infer<typeof C.operations.linkProjectResource.in>;
+
 type AddMemberBody = z.infer<typeof C.operations.addProjectMember.in>;
 type ChangeRoleBody = z.infer<typeof C.operations.changeProjectRole.in>;
 
@@ -197,6 +210,7 @@ export class ProjectController {
     @Inject(TEMPORARY_GRANT_REPOSITORY) private readonly grants: TemporaryGrantRepository,
     @Inject(CLOCK) private readonly clock: Clock,
     @Inject(BLUEPRINT_REFERENCE_REPOSITORY) private readonly blueprintReference: BlueprintReferenceRepository,
+    @Inject(PROJECT_RESOURCE_REPOSITORY) private readonly projectResources: ProjectResourcePort,
   ) {}
 
   /**
@@ -814,6 +828,94 @@ export class ProjectController {
         throw new ForbiddenException({ reasonCode: e.reasonCode });
       }
       throw e;
+    }
+  }
+  /**
+   * 项目中枢 B2-S1（#4425）：项目资源关联三条。路径取契约符号（`C.operations.*.path`），
+   * 不复写字面量。拒绝面：`AUTH_SERVICE_UNAVAILABLE` → 503；`RESOURCE_NOT_FOUND` → 404
+   * （「不存在」与「不是你的」同一个出口）；其余 → 403。`orgId` 取自 `principal.orgId`。
+   */
+  private get resourceDeps() {
+    return { auth: { repo: this.identity, ids: this.decisions }, resources: this.projectResources };
+  }
+
+  private static rethrowResourceError(e: unknown): never {
+    if (e instanceof ProjectError) {
+      if (e.reasonCode === "AUTH_SERVICE_UNAVAILABLE") {
+        throw new ServiceUnavailableException({ reasonCode: e.reasonCode });
+      }
+      if (e.reasonCode === "RESOURCE_NOT_FOUND") {
+        throw new NotFoundException({ reasonCode: e.reasonCode });
+      }
+      throw new ForbiddenException({ reasonCode: e.reasonCode });
+    }
+    throw e;
+  }
+
+  @Get(C.operations.listProjectResources.path)
+  async listResources(
+    @CurrentPrincipal() principal: Principal,
+    @Param("projectId") projectId: string,
+  ) {
+    assertPrincipal(principal);
+    const input = new ZodBodyPipe(LIST_PROJECT_RESOURCES_SCHEMA).transform({ projectId }) as { projectId: string };
+    try {
+      const result = await listProjectResources(this.resourceDeps, {
+        userId: principal.userId,
+        orgId: principal.orgId,
+        projectId: input.projectId,
+      });
+      return C.operations.listProjectResources.out.parse(result);
+    } catch (e) {
+      ProjectController.rethrowResourceError(e);
+    }
+  }
+
+  @Post(C.operations.linkProjectResource.path)
+  async linkResource(
+    @CurrentPrincipal() principal: Principal,
+    @Param("projectId") projectId: string,
+    @Body(new ZodBodyPipe(LINK_PROJECT_RESOURCE_SCHEMA)) body: LinkResourceBody,
+  ) {
+    assertPrincipal(principal);
+    if (body.projectId !== projectId) throw new BadRequestException("project_id_mismatch");
+    try {
+      const result = await linkProjectResource(this.resourceDeps, {
+        userId: principal.userId,
+        orgId: principal.orgId,
+        projectId,
+        kind: body.kind,
+        resourceId: body.resourceId,
+      });
+      return C.operations.linkProjectResource.out.parse(result);
+    } catch (e) {
+      ProjectController.rethrowResourceError(e);
+    }
+  }
+
+  @Delete(C.operations.unlinkProjectResource.path)
+  async unlinkResource(
+    @CurrentPrincipal() principal: Principal,
+    @Param("projectId") projectId: string,
+    @Param("kind") kind: string,
+    @Param("resourceId") resourceId: string,
+  ) {
+    assertPrincipal(principal);
+    // 路径里的 `kind` 也要过契约枚举——一个不在闭合枚举里的 kind 是 400，不是查一张不存在的表。
+    const input = new ZodBodyPipe(UNLINK_PROJECT_RESOURCE_SCHEMA).transform({ projectId, kind, resourceId }) as z.infer<
+      typeof UNLINK_PROJECT_RESOURCE_SCHEMA
+    >;
+    try {
+      const result = await unlinkProjectResource(this.resourceDeps, {
+        userId: principal.userId,
+        orgId: principal.orgId,
+        projectId: input.projectId,
+        kind: input.kind,
+        resourceId: input.resourceId,
+      });
+      return C.operations.unlinkProjectResource.out.parse(result);
+    } catch (e) {
+      ProjectController.rethrowResourceError(e);
     }
   }
 }

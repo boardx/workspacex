@@ -263,7 +263,12 @@ export function PrototypeBoard({
         data-testid="design-detail-board-stage"
       >
         {frames.map((label, i) => (
-          <div key={`${i}-${label}`} className="flex flex-col gap-1.5" data-testid={`design-detail-board-frame-${i}`} data-board-frame={i}>
+          <div
+            key={`${i}-${label}`} className="flex flex-col gap-1.5" data-testid={`design-detail-board-frame-${i}`} data-board-frame={i}
+            // design-delta `novice-progressive-disclosure`：画板视图不再显示页签条（每页上方已有标题），
+            // 「现在是哪一页」由这里说——读屏与评测都靠它。
+            aria-current={i === activeFrame ? "page" : undefined} data-frame-label={label}
+          >
             <button
               type="button"
               data-board-title
@@ -334,7 +339,7 @@ export function PrototypeBoard({
         <button type="button" aria-label="缩小" title="缩小（快捷键 −）" disabled={view.k <= MIN + 1e-6} onClick={() => zoomAt(1 / STEP)} className="rounded-control p-1 transition-colors duration-fast hover:bg-panel disabled:text-disabled-foreground" data-testid="design-detail-zoom-out"><Minus aria-hidden className="h-3.5 w-3.5" /></button>
         <button type="button" title="回到实际大小（快捷键 0）" onClick={() => { touched.current = true; setView((v) => ({ ...v, k: 1 })); }} className="min-w-10 rounded-control text-center text-10 text-muted-foreground transition-colors duration-fast hover:bg-panel" data-testid="design-detail-zoom-level">{Math.round(view.k * 100)}%</button>
         <button type="button" aria-label="放大" title="放大（快捷键 ＝）" disabled={view.k >= MAX - 1e-6} onClick={() => zoomAt(STEP)} className="rounded-control p-1 transition-colors duration-fast hover:bg-panel disabled:text-disabled-foreground" data-testid="design-detail-zoom-in"><Plus aria-hidden className="h-3.5 w-3.5" /></button>
-        <button type="button" aria-label="实际大小" title="回到实际大小（快捷键 0）" onClick={() => { touched.current = true; setView((v) => ({ ...v, k: 1 })); }} className="rounded-control p-1 transition-colors duration-fast hover:bg-panel" data-testid="design-detail-zoom-reset"><Scan aria-hidden className="h-3.5 w-3.5" /></button>
+        {/* design-delta `novice-progressive-disclosure`：原来这里还有一颗「实际大小」图标——与左边的百分比做同一件事（回到 100%），重复的一颗删掉。 */}
         <button type="button" aria-label="适应画板" title="缩到刚好看全所有页；方向键可以平移" onClick={() => { touched.current = false; fit(); }} className="rounded-control p-1 transition-colors duration-fast hover:bg-panel" data-testid="design-detail-zoom-fit"><Maximize2 aria-hidden className="h-3.5 w-3.5" /></button>
       </div>
     </div>

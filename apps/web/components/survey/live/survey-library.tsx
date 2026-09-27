@@ -6,8 +6,14 @@ import type { SurveyRuntime } from "@repo/contracts/survey-runtime";
 import { surveyRequest } from "@/lib/survey/runtime-client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { ProjectBreadcrumb, withProjectId } from "@/components/project/project-breadcrumb";
+import { linkProjectResource } from "@/lib/live-project-resources";
 import { CreateSurveyDialog } from "./create-survey-dialog";
-export function LiveSurveyLibrary() {
+/**
+ * `projectId`（项目中枢 B2-S2）：从项目「研究洞察 › 问卷」带 `?projectId=` 进来时，顶部挂「返回项目」
+ * 面包屑；新建弹窗建成后先把问卷挂回该项目，再带 `projectId` 进工作台。
+ */
+export function LiveSurveyLibrary({ projectId = null }: { projectId?: string | null }) {
   const router = useRouter();
   const [items, setItems] = React.useState<SurveyRuntime[]>([]);
   const [busy, setBusy] = React.useState(true);
@@ -50,6 +56,7 @@ export function LiveSurveyLibrary() {
   };
   return (
     <main className="mx-auto max-w-6xl space-y-6 p-6">
+      <ProjectBreadcrumb projectId={projectId} sub="survey" className="" />
       <header className="flex flex-wrap items-center justify-between gap-4">
         <div>
           <p className="text-11 text-muted-foreground">Studio / 问卷</p>
@@ -125,7 +132,11 @@ export function LiveSurveyLibrary() {
       {!busy && !error && items.length === 0 && (
         <div className="space-y-4 py-16 text-center"><h2 className="text-18 font-semibold">还没有问卷</h2><p className="text-muted-foreground">从空白问卷或现有模板开始，三步完成设计、回收与答卷查看。</p><Button onClick={() => setCreating(true)}>新建问卷</Button></div>
       )}
-      <CreateSurveyDialog open={creating} onOpenChange={setCreating} onCreated={id=>router.push(`/studio/survey/${id}?step=design`)} />
+      <CreateSurveyDialog open={creating} onOpenChange={setCreating} onCreated={async (id) => {
+        // 挂失败不回滚问卷（问卷已存在），项目页可用「关联已有问卷」补挂。
+        if (projectId) { try { await linkProjectResource({ projectId, kind: "survey", resourceId: id }); } catch { /* 项目页可补挂 */ } }
+        router.push(withProjectId(`/studio/survey/${id}?step=design`, projectId));
+      }} />
     </main>
   );
 }

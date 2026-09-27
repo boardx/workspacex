@@ -6,6 +6,7 @@
  * - `undo`：人的动作，声明 app.current_user_id = 登录用户，数据库只在这个人自己的空间里找。
  * 数据库的拒绝码翻成结构化错误（复制：`KgAutoCopyRejected`；撤销：`KgHumanActionError`）；其余错误原样抛出。
  */
+import { knowledgeGraph as KG } from "@repo/contracts";
 import type { DatabasePort } from "../../application/ports/database.port";
 import {
   KgAutoCopyRejected, KgHumanActionError, type KgAutoCopyPort, type KgAutoCopyRejectCode, type KgHumanActionErrorCode,
@@ -18,11 +19,21 @@ const COPY_CODES: readonly KgAutoCopyRejectCode[] = [
 ];
 const UNDO_CODES: readonly KgHumanActionErrorCode[] = ["KG_ACTOR_NOT_HUMAN", "KG_CLAIM_NOT_FOUND"];
 
-type Row = { id?: unknown; statement?: unknown };
+type Row = { id?: unknown; statement?: unknown; kind?: unknown };
 const pairs = (v: unknown): { id: string; statement: string }[] =>
   (Array.isArray(v) ? (v as Row[]) : [])
     .filter((x) => typeof x.id === "string" && typeof x.statement === "string")
     .map((x) => ({ id: x.id as string, statement: x.statement as string }));
+/**
+ * issue #4343：候选带类型（迁移 20260927310000）。类型认不出（枚举外 / 缺失）⇒ 这一条丢掉，不猜成某一类：
+ * 猜错的代价是把一句话当成目标写进别人看不到、但会每轮强制召回的个人空间（fail closed）。
+ */
+const kinded = (v: unknown): { id: string; statement: string; kind: KG.KgClaimKind }[] =>
+  (Array.isArray(v) ? (v as Row[]) : []).flatMap((x) => {
+    const kind = KG.KgClaimKind.safeParse(x.kind);
+    return typeof x.id === "string" && typeof x.statement === "string" && kind.success
+      ? [{ id: x.id, statement: x.statement, kind: kind.data }] : [];
+  });
 
 const messageOf = (e: unknown): string => (e instanceof Error ? e.message : "");
 
@@ -34,7 +45,7 @@ export class PgKgAutoCopy implements KgAutoCopyPort {
       s.query<{ c: { author?: unknown; fresh?: unknown; personal?: unknown } }>("SELECT kg_auto_copy_candidates($1, $2) AS c", [threadId, messageId]));
     const out = r.rows[0]?.c ?? {};
     const author = typeof out.author === "string" && out.author !== "" ? out.author : null;
-    return author === null ? { author, fresh: [], personal: [] } : { author, fresh: pairs(out.fresh), personal: pairs(out.personal) };
+    return author === null ? { author, fresh: [], personal: [] } : { author, fresh: kinded(out.fresh), personal: pairs(out.personal) };
   }
 
   async copy(orgId: OrgId, input: {

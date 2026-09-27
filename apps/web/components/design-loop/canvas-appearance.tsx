@@ -62,7 +62,7 @@ function Segmented<T extends string>({ options, value, label, onPick, kind, prev
 export function CanvasAppearance({
   theme, onTheme, accent, accentOptions, accentLabel, accentSwatch, onAccent,
   brand, onBrand, font, onFont, radius, onRadius, density, onDensity,
-  devices, deviceId, onDevice, landscape, onLandscape, rotatable,
+  devices, deviceId, onDevice, landscape, onLandscape, rotatable, open: openProp, onOpenChange, hideTrigger = false,
 }: {
   readonly theme: "light" | "dark";
   readonly onTheme: (t: "light" | "dark") => void;
@@ -87,8 +87,20 @@ export function CanvasAppearance({
   readonly landscape: boolean;
   readonly onLandscape: () => void;
   readonly rotatable: boolean;
+  /**
+   * design-delta `novice-progressive-disclosure`：「外观」收进详情页的「更多」菜单——由菜单项打开，
+   * 自带的触发按钮不再出现在首屏。三个都不传 ⇒ 行为与之前逐字相同。
+   */
+  readonly open?: boolean;
+  readonly onOpenChange?: (open: boolean) => void;
+  readonly hideTrigger?: boolean;
 }): React.ReactElement {
-  const [open, setOpen] = React.useState(false);
+  const [innerOpen, setInnerOpen] = React.useState(false);
+  const open = openProp ?? innerOpen;
+  const setOpen = React.useCallback((v: boolean | ((o: boolean) => boolean)): void => {
+    const next = typeof v === "function" ? v(open) : v;
+    if (onOpenChange !== undefined) onOpenChange(next); else setInnerOpen(next);
+  }, [open, onOpenChange]);
   // 品牌色输入框自己的草稿：边打边校验，合法且回车/失焦才提交——打到一半（#FF5）不该把画布刷成别的色。
   const [brandDraft, setBrandDraft] = React.useState(brand ?? "");
   React.useEffect(() => setBrandDraft(brand ?? ""), [brand]);
@@ -109,11 +121,11 @@ export function CanvasAppearance({
     document.addEventListener("mousedown", onDown);
     document.addEventListener("keydown", onKey);
     return () => { document.removeEventListener("mousedown", onDown); document.removeEventListener("keydown", onKey); };
-  }, [open]);
+  }, [open, setOpen]);
 
   return (
     <div className="relative" ref={boxRef}>
-      <button
+      {!hideTrigger && <button
         type="button"
         onClick={() => setOpen((v) => !v)}
         aria-expanded={open}
@@ -131,7 +143,7 @@ export function CanvasAppearance({
           className={cn("h-2.5 w-2.5 rounded-full border border-border", accent === "neutral" && "bg-muted")}
           style={accent === "neutral" ? undefined : { backgroundColor: `hsl(${accentSwatch[accent] ?? ""})` }}
         />
-      </button>
+      </button>}
 
       {open && (
         <div
