@@ -586,7 +586,7 @@ function ProjectAccessDenied({ code, projectId }: { code: string; projectId: str
 function renderTab(
   tab: ProjectTab,
   view: ProjectRole,
-  _sub: string | null,
+  sub: string | null,
   orgDisabled: boolean,
   projectId: string,
   liveProject: ProjectListItem | null,
@@ -630,7 +630,7 @@ function renderTab(
           liveOverviewError={liveOverviewError}
         />
       );
-    case "research": return <TabResearch view={view} readOnly={orgDisabled} />;
+    case "research": return <TabResearch view={view} readOnly={orgDisabled} sub={sub} projectId={projectId} />;
     case "prep":
       return (
         <TabPrep
