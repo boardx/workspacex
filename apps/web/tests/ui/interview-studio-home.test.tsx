@@ -11,6 +11,7 @@ vi.mock("@/components/session/session-provider", () => ({
 }));
 
 import { InterviewStudioHome } from "@/components/itv/interview-studio-home";
+import { avatarStorageKey } from "@/lib/interview-expert-avatar";
 import { DigitalInterviewSetup } from "@/components/itv/digital-interview-setup";
 import {
   createMockDigitalInterviewDraft,
@@ -74,6 +75,14 @@ describe("F02 第 3 组 UI：访谈 Studio 首屏", () => {
   });
 
   afterEach(() => vi.unstubAllGlobals());
+
+  it("renders saved SVG avatars and edit controls in the expert directory", async () => {
+    localStorage.setItem(avatarStorageKey(catalogExpert.expertId), "robot");
+    render(<InterviewStudioHome initialTab="experts" />);
+    const card = await screen.findByTestId(`itv-expert-card-${catalogExpert.expertId}`);
+    expect(within(card).getByRole("img")).toHaveAttribute("data-avatar-key", "robot");
+    expect(within(card).getByRole("button", { name: `修改${catalogExpert.displayName}头像` })).toBeVisible();
+  });
 
   it("默认显示历史卡，一级标签只有历史访谈与专家列表，新建按钮完整单行", async () => {
     render(<InterviewStudioHome initialTab="history" />);
