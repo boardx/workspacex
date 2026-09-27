@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { spatialDragPosition, spatialPointerDrag } from "../../e2e/support/board-spatial-pointer";
+import { spatialDragPosition, spatialPointerDrag, spatialMicroPosition } from "../../e2e/support/board-spatial-pointer";
 
 describe("spatial browser pointer coordinates", () => {
   it("explains the retained Chromium trace without tolerating a product offset", () => {
@@ -30,4 +30,10 @@ describe("spatial browser pointer coordinates", () => {
       expect(() => spatialDragPosition({ x: 0, y: 0 }, { x: 0, y: 0 }, { x: 1, y: 1 }, zoom)).toThrow();
     }
   });
+});
+
+it("removes representation tails but rejects every different canonical micro-unit", () => {
+ const expected = spatialMicroPosition({x:1221.59129,y:614.714405});
+ expect(spatialMicroPosition({x:1221.59129,y:614.7144049999999})).toEqual(expected);
+ for (const y of [614.714406,614.5,615]) expect(spatialMicroPosition({x:1221.59129,y})).not.toEqual(expected);
 });

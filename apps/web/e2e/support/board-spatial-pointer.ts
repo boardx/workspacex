@@ -16,3 +16,9 @@ export function spatialDragPosition(origin: Point, from: Point, to: Point, zoom:
   const canonical = (value: number) => Math.round(value * 1_000_000) / 1_000_000;
   return { x: canonical(origin.x + (to.x - from.x) / zoom), y: canonical(origin.y + (to.y - from.y) / zoom) };
 }
+
+/** Compare on the canonical micro-unit grid, not IEEE-754 representation tails. */
+export function spatialMicroPosition(point: Point): Point {
+  if (!Number.isFinite(point.x) || !Number.isFinite(point.y)) throw new Error("Invalid spatial position");
+  return { x: Math.round(point.x * 1_000_000), y: Math.round(point.y * 1_000_000) };
+}
