@@ -34,6 +34,7 @@ export default defineConfig({ resolve:{alias:{
     'tests/whiteboard/miro-mural-import-conformance.test.ts',
     'tests/whiteboard/import-security-boundary.test.ts',
     'tests/whiteboard/trusted-comment-store.test.ts',
+    'tests/whiteboard/comment-body-storage.test.ts',
     'tests/whiteboard/undo-tombstone-restore.test.ts',
     'tests/whiteboard/board-content-copy-guard.test.ts',
     'tests/whiteboard/board-content-copy-objectstore.test.ts',
