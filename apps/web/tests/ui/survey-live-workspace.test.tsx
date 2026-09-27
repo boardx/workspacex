@@ -9,6 +9,25 @@ vi.mock('next/navigation',()=>({useRouter:()=>router}));
 const runtime=(patch:Partial<SurveyRuntime>={}):SurveyRuntime=>({id:'saved-survey',title:'已保存问卷',version:4,status:'draft',anonymity:'anonymous',answerRevision:0,reportBasisAnswerRevision:null,updatedAt:'2026-09-20T10:00:00.000Z',questions:[{id:'q1',title:'真实问题',type:'single',chapterId:'general',order:1,required:true,options:['甲','乙']}],template:{id:'template',title:'模板报告',sections:[]},responses:[],publication:null,report:null,reportBasisVersion:null,reportGeneratedAt:null,...patch});
 beforeEach(()=>{request.mockReset();router.replace.mockReset();router.push.mockReset();});
 describe('live survey workspace persistence',()=>{
+ it('automatically persists applied valid changes on an existing draft',async()=>{
+  request.mockResolvedValueOnce(runtime()).mockResolvedValueOnce(runtime({title:'自动保存后的标题',version:5}));
+  render(<LiveSurveyWorkspace surveyId="saved-survey"/>);
+  fireEvent.change(await screen.findByLabelText('问卷名称'),{target:{value:'自动保存后的标题'}});
+  expect(await screen.findByText('修改已保存',{}, {timeout:4000})).toBeInTheDocument();
+  expect(screen.getByLabelText('问卷名称')).toHaveValue('自动保存后的标题');
+  expect(request).toHaveBeenLastCalledWith('/surveys/saved-survey/source',expect.objectContaining({method:'PUT',body:expect.objectContaining({expectedVersion:4,documents:expect.objectContaining({design:expect.stringContaining('# 自动保存后的标题')})})}),expect.anything());
+ });
+ it('does not repeatedly save after an automatic version conflict or discard local content',async()=>{
+  const {SurveyConflictError}=await import('@/lib/survey/runtime-client');
+  request.mockResolvedValueOnce(runtime()).mockRejectedValueOnce(new SurveyConflictError(null));
+  render(<LiveSurveyWorkspace surveyId="saved-survey"/>);
+  fireEvent.change(await screen.findByLabelText('问卷名称'),{target:{value:'保留我的标题'}});
+  await screen.findByRole('alert',{}, {timeout:4000});
+  expect(screen.getByLabelText('问卷名称')).toHaveValue('保留我的标题');
+  expect(screen.getByRole('button',{name:'读取最新版本并保留我的修改'})).toBeInTheDocument();
+  await new Promise(resolve=>setTimeout(resolve,1700));
+  expect(request).toHaveBeenCalledTimes(2);
+ });
  it('does not manually save or publish valid Markdown before explicit application',async()=>{
   request.mockResolvedValueOnce(runtime());render(<LiveSurveyWorkspace surveyId="saved-survey"/>);
   const source=await screen.findByLabelText('问卷 Markdown');
@@ -52,6 +71,8 @@ describe('live survey workspace persistence',()=>{
   fireEvent.change(source,{target:{value:'# 导入内容\n\n## q2 [open]\n新问题\n'}});
   expect(screen.getByRole('button',{name:'新增题目'})).toBeDisabled();
   expect(source).toHaveValue('# 导入内容\n\n## q2 [open]\n新问题\n');
+  await new Promise(resolve=>setTimeout(resolve,1700));
+  expect(request).toHaveBeenCalledTimes(1);
  });
  it('preserves the local report template when keeping the local version after a conflict',async()=>{
   const {SurveyConflictError}=await import('@/lib/survey/runtime-client');

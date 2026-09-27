@@ -27,6 +27,7 @@ import { assertFindingSources, deriveApprovalEligibility } from "../../../domain
 import { canApproveReport } from "../../../domain/interview/research-quality";
 import { toOrgId, type OrgId } from "../../../domain/org-id";
 import { readDigitalInterviewWorkflow } from "../pg-digital-interview-repository";
+import { DIGITAL_INTERVIEW_ACTOR_VISIBILITY } from "../interview-markdown-store";
 
 import { DIGITAL_REPORT_STALE_SQL } from "./digital-report-lease";
 import { completeInterviewRunAnswers, InvalidInterviewAnswersError } from "./interview-run-answers";
@@ -62,25 +63,6 @@ interface LockedInterviewRow {
   revision_id: string;
   revision_number: number;
 }
-
-const DIGITAL_INTERVIEW_ACTOR_VISIBILITY = `
-  EXISTS (
-    SELECT 1 FROM org_memberships om
-     WHERE om.org_id=$1 AND om.user_id=$3
-  )
-  AND (
-    s.created_by=$3
-    OR EXISTS (
-      SELECT 1 FROM interview_collaborators ic
-       WHERE ic.org_id=$1 AND ic.interview_id=s.id AND ic.user_id=$3
-    )
-    OR (
-      s.project_id IS NOT NULL AND EXISTS (
-        SELECT 1 FROM project_memberships pm
-         WHERE pm.org_id=$1 AND pm.project_id=s.project_id AND pm.user_id=$3
-      )
-    )
-  )`;
 
 interface GeneratedInterviewExpert {
   readonly displayName: string;
