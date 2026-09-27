@@ -41,11 +41,11 @@ function eventType(commands:readonly WhiteboardCommand[],source:string):Event['t
 /** Durable public API adapter. The collaboration write, audit receipt and event append share one tenant transaction. */
 export class WhiteboardOperationService {
   constructor(private readonly db:DatabasePort,private readonly collaboration:WhiteboardCollaborationStore,private readonly audit:WhiteboardOperationAuditRepository,private readonly now=()=>new Date(),private readonly objects?:Pick<ObjectStore,'get'>,private readonly validator?:Pick<WhiteboardUpdateValidator,'objects'>){}
-  async execute(principal:Principal,boardId:string,untrusted:unknown,expectedRuntime?:{model:string;skill:string}):Promise<Receipt>{
+  async execute(principal:Principal,boardId:string,untrusted:unknown,expectedRuntime?:{model:string;skill:string;agentVersionId:string}):Promise<Receipt>{
     const request=WhiteboardOperationRequest.parse(untrusted);
-    return this.db.withTenant(principal.orgId,session=>this.executeInTransaction(session,principal,boardId,request));
+    return this.db.withTenant(principal.orgId,session=>this.executeInTransaction(session,principal,boardId,request,expectedRuntime));
   }
-  async executeInTransaction(session:TenantSession,principal:Principal,boardId:string,untrusted:unknown,expectedRuntime?:{model:string;skill:string}):Promise<Receipt>{
+  async executeInTransaction(session:TenantSession,principal:Principal,boardId:string,untrusted:unknown,expectedRuntime?:{model:string;skill:string;agentVersionId:string}):Promise<Receipt>{
       const requested=WhiteboardOperationRequest.parse(untrusted);
       if(requested.boardId!==boardId||requested.actor.orgId!==principal.orgId)throw new WhiteboardOperationError('FORBIDDEN');
       const head=await this.audit.lockHead(session,principal,boardId);
@@ -57,7 +57,12 @@ export class WhiteboardOperationService {
         actor={kind:'human',actorId:principal.userId,orgId:principal.orgId,role:head.actorRole,scopes:['board:read','board:write','board:present','artifact:read'],delegatedBy:null};
       }else{
         if(requested.actor.delegatedBy!==principal.userId)throw new WhiteboardOperationError('FORBIDDEN');
-        registered=await this.audit.resolveActor(session,principal,requested.actor.actorId);
+        if(expectedRuntime){
+          if(!this.audit.lockRuntimeActor)throw new WhiteboardOperationError('DEPENDENCY_UNAVAILABLE');
+          const binding=await this.audit.lockRuntimeActor(session,principal,requested.actor.actorId);
+          if(!binding||binding.agentVersionId!==expectedRuntime.agentVersionId||binding.model!==expectedRuntime.model||!binding.skillVersionIds.includes(expectedRuntime.skill))throw new WhiteboardOperationError('STALE_REVISION');
+          registered=binding.actor;
+        }else registered=await this.audit.resolveActor(session,principal,requested.actor.actorId);
         if(!registered||registered.kind!==requested.actor.kind||!registered.scopes.includes('board:write'))throw new WhiteboardOperationError('FORBIDDEN');
         actor={kind:registered.kind,actorId:registered.actorId,orgId:principal.orgId,role:head.actorRole,scopes:registered.scopes,delegatedBy:registered.delegatedBy};
       }

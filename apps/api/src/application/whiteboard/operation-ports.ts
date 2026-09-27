@@ -10,6 +10,7 @@ export interface WhiteboardOperationAuditRepository {
   append(session:TenantSession,principal:Principal,input:{requestHash:string;receipt:WhiteboardOperationReceipt;event:WhiteboardOperationEvent}):Promise<void>;
   canRead(session:TenantSession,principal:Principal,boardId:string):Promise<boolean>;
   events(session:TenantSession,principal:Principal,boardId:string,afterSeq:number,limit:number):Promise<WhiteboardOperationEvent[]>;
+  lockRuntimeActor?(session:TenantSession,principal:Principal,actorId:string):Promise<{actor:RegisteredBoardActor;agentVersionId:string;model:string;skillVersionIds:string[]}|null>;
   resolveActor(session:TenantSession,principal:Principal,actorId:string):Promise<RegisteredBoardActor|null>;
   canReadArtifact(session:TenantSession,principal:Principal,artifactId:string,revision:string,layoutHash:string):Promise<boolean>;
   readArtifactSource(session:TenantSession,principal:Principal,artifactId:string,revision:string):Promise<{versionId:string;objectKey:string;contentHash:string}|null>;

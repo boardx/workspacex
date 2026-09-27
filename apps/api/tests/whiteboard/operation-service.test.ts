@@ -33,6 +33,7 @@ export function fixture(){const session=new Session();const db:DatabasePort={wit
     canRead:async()=>true,events:async()=>session.events as never[],
     resolveActor:async()=>({actorId:'agent-1',kind:'ai',delegatedBy:'user-1',scopes:['board:read','board:write'],model:'gpt',skill:'cluster'}),canReadArtifact:async()=>true,readArtifactSource:async()=>null,issueArtifactLayoutBinding:async()=>{},
   };
+  audit.lockRuntimeActor=async(s,p,id)=>{const actor=await audit.resolveActor(s,p,id);return actor?{actor,agentVersionId:'v1',model:actor.model!,skillVersionIds:[actor.skill!]}:null;};
   return{session,audit,collaboration,service:new WhiteboardOperationService(db,collaboration,audit,()=>new Date('2026-09-26T00:00:00.000Z'))};}
 
 describe('versioned Board operation API application service',()=>{
