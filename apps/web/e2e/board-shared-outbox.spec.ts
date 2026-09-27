@@ -1,4 +1,5 @@
 import {randomUUID} from 'node:crypto';
+import {CreateBoard} from '@repo/contracts/whiteboard';
 import {expect,test,type Page} from '@playwright/test';
 import {FULLSTACK_E2E as F} from './fullstack-smoke-fixture';
 import {SESSION_TOKEN_STORAGE_KEY} from '../lib/api-client';
@@ -14,14 +15,18 @@ test('same-browser tabs drain a shared durable outbox without duplicate commits'
  const api=process.env.WHITEBOARD_API_URL??`http://127.0.0.1:${process.env.WORKSPACEX_API_PORT}`;
  if(!process.env.WHITEBOARD_API_URL&&!process.env.WORKSPACEX_API_PORT)throw new Error('Isolated API URL required');
  const metadata=createSpatialWsMetadataRecorder();metadata.observe(page,'original');
- let token='',boardId='',archived=false;const evidence:Record<string,unknown>={drainSlaMs:DRAIN_SLA_MS};
- const call=async(method:string,path:string,data?:unknown)=>{const response=await request.fetch(`${api}${path}`,{method,data,headers:{Authorization:`Bearer ${token}`}});expect(response.ok()).toBe(true);return response.json();};
+ const http:Array<{method:string;path:string;status:number}>=[];
+ let token='',boardId='',archived=false;const evidence:Record<string,unknown>={drainSlaMs:DRAIN_SLA_MS,http};
+ const call=async(method:string,path:string,data?:unknown)=>{const response=await request.fetch(`${api}${path}`,{method,data,headers:{Authorization:`Bearer ${token}`}});const status=response.status();const safePath=new URL(path,'http://diagnostic.invalid').pathname;
+  // Record only routing metadata, never credentials, request/response bodies or query strings.
+  http.push({method,path:safePath,status});
+  expect(response.ok(),`Board fixture HTTP ${method} ${safePath}: ${status}`).toBe(true);return response.json();};
  const rows=(tab:Page)=>tab.locator('[data-testid="board-a11y-mirror"] li').evaluateAll(elements=>elements.map(element=>{const item=element as HTMLElement;return{id:item.dataset.objectId,kind:item.dataset.objectKind,geometry:item.dataset.geometry,parentId:item.dataset.parentId,zIndex:item.dataset.zIndex,text:item.querySelector('button')?.textContent};}).sort((a,b)=>String(a.id).localeCompare(String(b.id))));
  const synced=(tab:Page)=>tab.getByText(/^已同步(?: · 序列 \d+)?$/);
  try{
   await page.goto('/login');await page.getByTestId('login-email').fill(F.adminEmail);await page.getByTestId('login-password').fill(F.adminPassword);await page.getByTestId('login-submit').click();await expect(page).toHaveURL(/\/projects$/);
   token=(await page.evaluate(key=>localStorage.getItem(key),SESSION_TOKEN_STORAGE_KEY))!;
-  const board=await call('POST','/whiteboards',{requestId:randomUUID(),title:'Same-browser durable outbox'});boardId=board.id;
+  const board=await call('POST','/whiteboards',CreateBoard.parse({requestId:randomUUID(),name:'Same-browser durable outbox'}));boardId=board.id;
   await page.goto(`/studio/board/${boardId}`);await expect(synced(page)).toBeVisible();
   const initial=await call('POST',`/whiteboards/${boardId}/checkpoints`,{requestId:randomUUID()});expect(initial.manifest.seq).toBe(0);
   for(let index=0;index<8;index++)await page.getByTestId('board-add-panel').click();
