@@ -14,7 +14,7 @@
 
 ## 2. 现状与颜色（2026-09-27）
 
-当前交付记录（2026-09-27 19:28 核对）：R1–R6 已合入 main。R7 PR #4393 当前 1aef36355；前轮真实四空间、六协作、共享 outbox 及 CI 接线回归通过，新增同步状态和全屏边界测试修复已独立复核，最新 fullstack CI 正在运行，未合并。R8/R9 已通过 9 个历史文件的 PG+文件联合恢复、紧凑便利贴菜单截图验收和三类合成 vendor 数据 portable 完整往返；真实 Miro/Mural 账户样本仍为 0。R10 集成树 095b936c8，新增 CI lane 与真实模型固定命令已有独立复核；触摸验收现要求有限坐标、精确位移和 pinch 放大，Web 类型检查通过。发现实际 TouchEvent 坐标读取缺陷和缺失的双指缩放，正在并行修复。Docker 引擎仍不可用，残留栈清理及真实性能验收未完成。Chat 三类图、30 分钟会议室、50 人长时负载和统一视觉/安全/恢复验收仍有缺口，不能宣称九分。
+当前交付记录（2026-09-27 20:05 核对）：R1–R6 已合入 main。R7 PR #4393 当前 441b83993；上一轮 CI 发现三个旧断言，已独立复核修正全屏分区与服务器确认撤销文案，并加强原对象 ID/几何/协作者/刷新一致性，新 CI 正在执行，未合并。R8/R9 已通过部分 PG+文件联合恢复及合成 vendor portable 往返，真实 Miro/Mural 账户样本仍为 0。R10 已集成触摸坐标、取消回滚、双指锚定缩放、实时笔迹和 Sticky 自由缩放/Tab 间距修复。主会话真实 Chromium 组件验证了触摸、笔迹预览、对象取消像素复位及 Shift 角点操作；这些不代替后端、多人和物理设备验收。真实模型五项目接线、13 项策略测试和 spec coverage 门禁通过，但未完成新一轮真实模型执行。Panel 祖先裁剪候选正在补退化交集边界，尚未集成；卡片真实缩略图仍无完整链路，正在设计。Docker 引擎仍不可用，真实性能、50 人长时、会议室及完整安全恢复验收未完成，不能宣称九分。
 
 追加 UI 交付：新建 Board 默认标题与可选标签 PR #4337 已通过主会话浏览器、独立复核和 CI，已合入 main（8270388ae）。列表隐藏 Workspace 顶栏、保留导航、卡片改版与服务端无标签分页 PR #4340 已通过四项真实浏览器场景（ff257e58c）及 1440/390 截图检查；最终 304cb5b79 独立增量复核通过，已合入 main（baaef1e97，GitHub 当前状态 MERGED）。卡片当前明确显示预览占位，真实缩略图仍是缺口。
 
@@ -32,7 +32,7 @@ flowchart LR
   R6 --> R7["R7 团队可靠性<br/>预计9/28验收 · 9/29前PR门禁<br/>四空间/六协作/outbox通过 · PR #4393 CI中"]:::accepting
   R7 --> R8["R8 存储与迁移<br/>预计9/29–30验收<br/>9个历史文件恢复通过 · 真实源板为0"]:::working
   R8 --> R9["R9 AI / API / Chat / 会议室<br/>预计9/29–30验收<br/>紧凑UI/提案恢复通过 · Chat/会议室待验"]:::working
-  R9 --> R10["R10 同一 SHA 总验收<br/>预计9/30–10/2收敛<br/>触摸输入修复中 · Docker恢复后跑性能"]:::working
+  R9 --> R10["R10 同一 SHA 总验收<br/>预计9/30–10/2收敛<br/>触摸/笔迹组件已验 · Panel修复中"]:::working
   R10 --> P2["P2 扩展路线<br/>Diagram / Mind Map / Kanban / Timeline<br/>Journey / Database / Agent与Live Data Tile"]:::future
   classDef merged fill:#dcfce7,stroke:#16a34a,color:#14532d
   classDef accepting fill:#fef3c7,stroke:#d97706,color:#78350f
@@ -82,14 +82,14 @@ R1–R6 为已交付，不再虚设未来完成时间；其原有全量需求仍
 
 ```mermaid
 flowchart TB
-  START["9/27 19:28 · 三个子agent + 主会话"] --> A["Agent A · 双指缩放计算与反证<br/>候选预计19:45；尚未验收"]:::active
-  START --> B["Agent B · 受保护main真实模型CI<br/>候选预计19:45；保留凭据隔离"]:::active
-  START --> C["Agent C · TouchEvent/取消/压感修复<br/>候选预计19:40；不启动完整环境"]:::active
-  START --> M["主会话 · R7 CI与独立复核<br/>触摸有限值/80×40位移断言已提交<br/>Docker恢复后串行真实验收"]:::testing
-  A --> REVIEW["交叉独立复核 → 主会话集成"]:::planned
+  START["9/27 20:05 · 三个子agent + 主会话"] --> A["Agent A · 真缩略图完整链路设计<br/>设计候选预计20:20；尚未实现"]:::active
+  START --> B["Agent B · Panel独立复核<br/>退化交集补丁交付后复核"]:::active
+  START --> C["Agent C · Panel裁剪边界<br/>候选预计20:15；待主验收"]:::active
+  START --> M["主会话 · R7 CI / 真实浏览器组件验证<br/>触摸、实时笔迹、Shift缩放已验<br/>Docker恢复后完整后端验收"]:::testing
+  A --> REVIEW["独立复核 → 主会话集成"]:::planned
   B --> REVIEW
   C --> REVIEW
-  REVIEW --> JOIN["统一SHA：触摸/真实模型/性能/恢复"]:::planned
+  REVIEW --> JOIN["统一SHA：缩略图/真实模型/性能/恢复"]:::planned
   M --> JOIN
   JOIN --> ACCEPT["9/30–10/2估计窗口，非完成承诺<br/>全量验收通过后才能认定9分"]:::planned
   classDef active fill:#ffedd5,stroke:#ea580c,color:#7c2d12
