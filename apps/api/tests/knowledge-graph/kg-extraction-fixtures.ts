@@ -34,6 +34,43 @@ export async function enableExtraction(...orgIds: readonly string[]): Promise<vo
   }
 }
 
+/**
+ * 反证式探针（issue #4279）：这个组织里**现在**发一条聊天消息，会不会真的排进抽取队列。
+ *
+ * 不复述两道闸门的条件（那份事实只在触发器 `kg_enqueue_extraction` 里），而是直接问它：
+ * 在一个最终 ROLLBACK 的事务里插一条会话 + 一条人话，看 `kg_extraction_queue` 有没有这一条。
+ * 什么都不留下。没排进去就抛——#4239 让 `seedOrg` 写了显式 `enabled = false` 之后，
+ * F15 评测种子忘了重新打开，评测环境从此一条记忆都形不成，却没有任何东西变红。
+ */
+export async function assertExtractionActive(orgId: string): Promise<void> {
+  const probe = newKgId("kg-extraction-probe");
+  const queued = await asOwner(async (c) => {
+    await c.query("BEGIN");
+    try {
+      await c.query(
+        `INSERT INTO chat_threads (id, org_id, project_id, visibility_scope, created_by)
+         VALUES ($1, $2, NULL, 'private', $3)`,
+        [probe, orgId, `${probe}-user`],
+      );
+      await c.query(
+        `INSERT INTO chat_messages (id, org_id, thread_id, author_kind, author_id, body)
+         VALUES ($1, $2, $1, 'human', $3, 'extraction probe')`,
+        [probe, orgId, `${probe}-user`],
+      );
+      const r = await c.query("SELECT 1 FROM kg_extraction_queue WHERE message_id = $1", [probe]);
+      return r.rowCount === 1;
+    } finally {
+      await c.query("ROLLBACK");
+    }
+  });
+  if (!queued) {
+    throw new Error(
+      `knowledge extraction is not active for org ${orgId}: a probe message was not enqueued ` +
+      "(deployment switch kg_extraction_state or org switch kg_org_extraction_settings is off)",
+    );
+  }
+}
+
 export async function seedThread(orgId: string, threadIds: readonly string[]): Promise<void> {
   ensureDatabase();
   await migrateOnce();
