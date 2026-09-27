@@ -28,6 +28,7 @@ import {
 } from "../report/report-export";
 import { SurveyQuestionEditor } from "./question-editor";
 import { MarkdownSurveyEditor } from "./markdown-survey-editor";
+import { CollectionOverview } from "./collection-overview";
 import { SurveyTemplateActions } from "../library/template-actions";
 import { LiveResponseList } from "./response-list";
 import { assessPublishReadiness } from "@/lib/survey/publish-readiness";
@@ -159,7 +160,10 @@ export function LiveSurveyWorkspace({
       }, SurveyRuntimeSchema);
     // Retain the created identity even if the following source mutation fails.
     // A retry must update that draft rather than POST a duplicate survey.
-    if (!runtime) setRuntime(next);
+    if (!runtime) {
+      setRuntime(next);
+      router.replace(`/studio/survey/${next.id}?step=${step}`);
+    }
     if (next.publication) {
       accept(await surveyRequest(`/surveys/${next.id}`, { method: "PUT", body: { ...parsed.data, expectedVersion: next.version } }, SurveyRuntimeSchema));
       setNotice("报告模板已保存");
@@ -371,7 +375,7 @@ export function LiveSurveyWorkspace({
             />
           </>)}
           {step === "publish" && (
-            <section className="mx-auto max-w-3xl space-y-5 p-6">
+            <section className="mx-auto max-w-6xl space-y-5 p-6">
               <h1 className="text-20 font-semibold">发布与回收</h1>
               <p className="text-12 text-muted-foreground">
                 先检查设计质量，再明确开始回收。开始回收后题目与匿名方式固定，报告模板仍可继续编辑。
@@ -455,6 +459,7 @@ export function LiveSurveyWorkspace({
                 </section>
               ) : runtime?.publication ? (
                 <>
+                  <CollectionOverview runtime={runtime} />
                   <p className="text-14">
                     {runtime.publication.status === "closed"
                       ? "已停止回收"

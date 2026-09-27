@@ -37,6 +37,7 @@ describe('live survey workspace persistence',()=>{
   render(<LiveSurveyWorkspace surveyId="new"/>);
   fireEvent.click(await screen.findByRole('button',{name:'保存修改'}));
   await screen.findByRole('alert');
+  expect(router.replace).toHaveBeenCalledWith('/studio/survey/created-draft?step=design');
   request.mockResolvedValueOnce(runtime({id:'created-draft',version:2,title:'未命名问卷'}));
   fireEvent.click(screen.getByRole('button',{name:'保存修改'}));
   await screen.findByText('修改已保存');
@@ -121,6 +122,9 @@ describe('live survey workspace persistence',()=>{
   render(<LiveSurveyWorkspace surveyId="saved-survey" initialStep="publish"/>);
   expect(await screen.findByLabelText('答题链接')).toHaveValue('http://localhost:3000/surveys/collecting-link');
   expect(screen.getByRole('button',{name:'复制答题链接'})).toBeEnabled();
+  expect(screen.getByRole('region',{name:'回收数据'})).toHaveTextContent('已收到答卷');
+  expect(screen.getByRole('region',{name:'回收设置'})).toHaveTextContent('发布版本 v4');
+  expect(screen.getByRole('region',{name:'最近回收动态'})).toHaveTextContent('暂无答卷');
  });
  it('does not replace a failed load with prototype questions',async()=>{
   request.mockRejectedValueOnce(new Error('问卷不存在或无访问权限'));
