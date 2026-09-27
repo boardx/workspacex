@@ -209,14 +209,32 @@ export function parseSurveyReportTemplateMarkdown(markdown: string): SurveyRepor
   return { ok: true, template: parsed.data };
 }
 
+export const SurveyCollectionSettingsSchema = z.object({
+  responseLimitScope: z.enum(['none', 'browser']).default('none'),
+  successMessageMarkdown: z.string().trim().min(1).max(10000).default('提交成功，感谢您的参与。'),
+}).strict();
+export type SurveyCollectionSettings = z.infer<typeof SurveyCollectionSettingsSchema>;
+
 export type SurveyPublicationParseResult =
-  | { ok: true }
+  | { ok: true; settings: SurveyCollectionSettings }
   | { ok: false; diagnostics: SurveySourceDiagnostic[] };
 
 export function parseSurveyPublicationMarkdown(markdown: string): SurveyPublicationParseResult {
-  return /^#\s+\S/.test(markdown.replace(/\r\n/g, "\n"))
-    ? { ok: true }
-    : { ok: false, diagnostics: [diagnostic("DOCUMENT_SYNTAX", "发布设置需要一级标题", 1)] };
+  const lines = markdown.replace(/\r\n/g, "\n").split('\n');
+  if (!/^#\s+\S/.test(lines[0] ?? ''))
+    return { ok: false, diagnostics: [diagnostic("DOCUMENT_SYNTAX", "发布设置需要一级标题", 1)] };
+  const fences = lines.filter(line => /^```survey-publication\s*$/.test(line));
+  if (fences.length > 1)
+    return {ok:false, diagnostics:[diagnostic('DOCUMENT_SYNTAX','发布设置只允许一个配置块',1)]};
+  const fenced = fencedJson(lines, line => /^```survey-publication\s*$/.test(line));
+  const settings = SurveyCollectionSettingsSchema.safeParse(fenced.value ?? {});
+  if (fenced.diagnostic || !settings.success)
+    return {ok:false, diagnostics:[diagnostic('DOCUMENT_SYNTAX','发布设置配置无效：仅支持浏览器限答与有效成功页 Markdown',1)]};
+  return {ok:true, settings:settings.data};
+}
+
+export function serializeSurveyPublicationMarkdown(settings: SurveyCollectionSettings): string {
+  return `# 发布与回收\n\n\`\`\`survey-publication\n${stableJson(SurveyCollectionSettingsSchema.parse(settings))}\n\`\`\`\n`;
 }
 
 /** A stable, dependency-free 256-bit fingerprint for source snapshot identity. */

@@ -12,7 +12,7 @@
 import { app, BrowserWindow, dialog, Menu, shell } from "electron";
 import { execFileSync } from "node:child_process";
 import { appendFileSync, existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
-import { join } from "node:path";
+import { delimiter, join } from "node:path";
 import {
   checkWebBuild, dataDirAdvice, dataDirAdviceBody, diagnoseStartupFailure, localSessionUrl,
   resolveLocalConfig, restoreIntoDataDir, runDoctor, signInLocal, stopListenerOnPort, up,
@@ -161,9 +161,14 @@ function progressHtml(lines: string[], state: { startedAt: number; failed: boole
 function ensureNodeOnPath(): void {
   const shimDir = join(app.getPath("userData"), "bin");
   mkdirSync(shimDir, { recursive: true });
-  const shim = join(shimDir, "node");
-  writeFileSync(shim, `#!/bin/sh\nexport ELECTRON_RUN_AS_NODE=1\nexec "${process.execPath}" "$@"\n`, { mode: 0o755 });
-  process.env.PATH = `${shimDir}:${process.env.PATH ?? "/usr/bin:/bin"}`;
+  // Windows（#4315）：sh 脚本在那里不是可执行文件，要 node.cmd；PATH 分隔符是 `;`——
+  // 写死 `:` 会把 shimDir 和原 PATH 的第一项粘成一个不存在的目录，两个都丢。
+  if (process.platform === "win32") {
+    writeFileSync(join(shimDir, "node.cmd"), `@echo off\r\nset ELECTRON_RUN_AS_NODE=1\r\n"${process.execPath}" %*\r\n`);
+  } else {
+    writeFileSync(join(shimDir, "node"), `#!/bin/sh\nexport ELECTRON_RUN_AS_NODE=1\nexec "${process.execPath}" "$@"\n`, { mode: 0o755 });
+  }
+  process.env.PATH = `${shimDir}${delimiter}${process.env.PATH ?? "/usr/bin:/bin"}`;
 }
 
 /** The alpha DMGs were named "WorkspaceX Local"; keep those users' data when the product name changed (2026-09-17). */

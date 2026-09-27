@@ -19,6 +19,8 @@ const getProjectOverview = vi.fn();
 const findProject = vi.fn();
 const listAgendaSegments = vi.fn(async () => []);
 
+// B2-S3：研究总览用到 next/navigation 的 useRouter（安排真人验证后跳转），测试环境没有 app router，给个替身。
+vi.mock("next/navigation", () => ({ usePathname: () => "/projects/p1", useRouter: () => ({ push: vi.fn(), replace: vi.fn() }), useSearchParams: () => new URLSearchParams() }));
 vi.mock("@/components/shell/app-shell", () => ({
   AppShell: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
 }));

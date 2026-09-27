@@ -8,9 +8,13 @@ import { interviewMarkdown } from "@repo/contracts";
 import type { z } from "zod";
 import { migrateInterviewMarkdown } from "./interview-markdown-migration";
 import { randomUUID } from "node:crypto";
+import { branchMarkdownRevision } from "./branch-interview-markdown-revision";
+import { readInterviewMarkdownReportReview } from "./pg-interview-markdown-report-review-repository";
 
 export class PgInterviewMarkdownReader implements InterviewMarkdownReader {
   constructor(private readonly db: DatabasePort) {}
+
+  branch(input:Parameters<InterviewMarkdownReader["branch"]>[0]) { return branchMarkdownRevision(this.db,input); }
 
   initialize(input: Parameters<InterviewMarkdownReader["initialize"]>[0]) {
     return this.db.withTenant(input.orgId, async (session) => {
@@ -56,7 +60,7 @@ export class PgInterviewMarkdownReader implements InterviewMarkdownReader {
           orgId: input.orgId, interviewId: input.interviewId, revisionId: row.revision_id,
           step: input.step, title: input.step, markdown: input.markdown,
           evidenceMode: previous.rows[0]?.evidence_mode ?? "simulated",
-          references: previous.rows[0]?.controlled_references ?? [],
+          references: input.references ?? previous.rows[0]?.controlled_references ?? [],
           expectedVersion: input.expectedDocumentVersion, status: input.confirm ? "confirmed" : input.failure ? "failed" : "draft",
           failure: input.failure ?? null,
         });
@@ -90,7 +94,10 @@ export class PgInterviewMarkdownReader implements InterviewMarkdownReader {
          WHERE org_id=$1 AND interview_id=$2 AND revision_id=$3 AND content_source IS NOT NULL
          ORDER BY step,version_number DESC`, [orgId, interviewId, row.revision_id],
       ) : { rows: [] };
-      return { version: Number(row.version), revisionId: row.revision_id, documents, states: states.rows };
+      const execution = row.revision_id ? (await session.query<{status:string;tasks:unknown}>(`SELECT status,tasks FROM interview_markdown_execution WHERE org_id=$1 AND revision_id=$2`,[orgId,row.revision_id])).rows[0] : null;
+      return { version: Number(row.version), revisionId: row.revision_id, documents, states: states.rows,
+        review:row.revision_id?await readInterviewMarkdownReportReview(session,orgId,interviewId,row.revision_id):guard({kind:"interview",id:interviewId},null),
+        execution: execution ? interviewMarkdown.InterviewMarkdownExecution.parse(execution) : null };
     });
   }
 }

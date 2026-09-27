@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
-import { initializeInterviewMarkdown, loadInterviewMarkdown, saveInterviewMarkdown, confirmInterviewMarkdown, generateInterviewMarkdown } from "@/lib/interview-markdown-api";
+import { initializeInterviewMarkdown, loadInterviewMarkdown, saveInterviewMarkdown, confirmInterviewMarkdown, generateInterviewMarkdown, uploadInterviewMarkdownAttachment } from "@/lib/interview-markdown-api";
 
 const markdown = "# 需求\r\n\r\n中文 🧪 `a_b`\r\n| 问题 | 场景 |\r\n| --- | --- |\r\n| 备课 | 教师 |\r\n";
 const envelope = { interviewId: "itv-md-ui", revisionId: "revision-ui", version: 4,
@@ -47,4 +47,22 @@ it("confirmation and generation send versions only, not client evidence or resea
 it("rejects a malformed source response instead of silently rendering partial metadata", async () => {
   vi.stubGlobal("fetch", async () => new Response(JSON.stringify({ ...envelope, documents: [{ ...envelope.documents[0], evidenceMode: "approved" }] })));
   await expect(loadInterviewMarkdown("itv-md-ui")).rejects.toThrow();
+});
+it("uploads original bytes as multipart and receives canonical draft without implicit confirmation", async () => {
+  const original = { assetId: "asset-file", filename: "需求.csv", mime: "text/csv", bytes: 5, sha256: "a".repeat(64) };
+  const file = new File(["a,b\n1"], original.filename, { type: original.mime });
+  const request = vi.fn(async (url: string, init: RequestInit) => {
+    expect(new URL(url).pathname).toBe("/interviews/digital/itv-md-ui/markdown/attachments");
+    expect(new URL(url).searchParams.get("expectedVersion")).toBe("4");
+    expect(new URL(url).searchParams.get("expectedDocumentVersion")).toBe("2");
+    expect(init.body).toBeInstanceOf(FormData);
+    expect((init.body as FormData).get("file")).toBe(file);
+    expect(init.headers).not.toHaveProperty("Content-Type");
+    return new Response(JSON.stringify({ source: envelope, original }));
+  });
+  vi.stubGlobal("fetch", request);
+  const result = await uploadInterviewMarkdownAttachment("itv-md-ui", file, { expectedVersion: 4, expectedDocumentVersion: 2 });
+  expect(result.source.documents[0]?.markdown).toBe(markdown);
+  expect(result.source.states[0]?.status).toBe("draft");
+  expect(request).toHaveBeenCalledTimes(1);
 });

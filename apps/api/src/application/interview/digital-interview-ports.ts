@@ -23,6 +23,7 @@ export interface StoredDigitalInterviewListItem extends StoredDigitalInterview {
   readonly completedExpertCount: number;
   readonly updatedAt: string;
   readonly kind: "quick" | "batch";
+  readonly sourceStep?: import("@repo/contracts").interviewMarkdown.InterviewMarkdownDocument["step"];
 }
 
 export interface StoredDigitalExpert {

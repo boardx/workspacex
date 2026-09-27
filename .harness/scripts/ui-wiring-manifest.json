@@ -308,9 +308,11 @@
     "DigitalInterviewController": {
       "useCases": [
         "interview/errors",
+        "interview/generate-interview-markdown",
         "interview/list-digital-interviews",
         "interview/manage-digital-interview",
-        "interview/quick-digital-interview"
+        "interview/quick-digital-interview",
+        "interview/read-interview-markdown"
       ]
     },
     "DocumentGenerationAutoApproveController": {
@@ -391,6 +393,14 @@
         "files/set-retention-policy"
       ]
     },
+    "GuidedResearchController": {
+      "useCases": [
+        "research/guided-research-skill",
+        "research/guided-runtime-service",
+        "research/guided-workflow-service",
+        "security/permission-filter"
+      ]
+    },
     "IdentityController": {
       "useCases": [
         "identity/authorize",
@@ -441,8 +451,10 @@
         "knowledge-graph/apply-human-action",
         "knowledge-graph/auto-copy-decisions",
         "knowledge-graph/ids",
+        "knowledge-graph/promote-to-org",
         "knowledge-graph/promote-to-personal",
         "knowledge-graph/promote-to-project",
+        "knowledge-graph/read-org-knowledge",
         "knowledge-graph/read-personal-knowledge",
         "knowledge-graph/read-project-knowledge",
         "knowledge-graph/read-thread-knowledge"
@@ -530,6 +542,13 @@
       "useCases": [],
       "note": "只读访问位：回答「当前 principal 是不是平台管理员」，直接读 CREDENTIAL/PLATFORM_ADMIN 仓储，没有独立用例模块。"
     },
+    "ProjectAiSettingsController": {
+      "useCases": [
+        "project/errors",
+        "project/get-project-ai-settings",
+        "project/update-project-ai-settings"
+      ]
+    },
     "ProjectController": {
       "useCases": [
         "project/add-project-member",
@@ -541,13 +560,16 @@
         "project/create-project",
         "project/errors",
         "project/get-project-overview",
+        "project/link-project-resource",
         "project/list-agenda-segments",
         "project/list-project-members",
+        "project/list-project-resources",
         "project/list-projects",
         "project/preview-as-role",
         "project/remove-project-member",
         "project/render-role-view",
         "project/unarchive-project",
+        "project/unlink-project-resource",
         "project/update-project-tags"
       ]
     },
@@ -646,14 +668,6 @@
     "WhiteboardTagController": {
       "useCases": [],
       "note": "白板标签的增删改查：直接调 WHITEBOARD_TAG_REPOSITORY（list/create/rename/delete），入参由 ZodBodyPipe 按 whiteboard 契约校验，没有跨聚合编排，没有独立用例模块。"
-    },
-    "GuidedResearchController": {
-      "useCases": [
-        "research/guided-research-skill",
-        "research/guided-runtime-service",
-        "research/guided-workflow-service",
-        "security/permission-filter"
-      ]
     }
   },
   "routes": {
@@ -765,6 +779,7 @@
         "OrgInviteController",
         "OrgInviteLinkController",
         "PlatformAccessController",
+        "ProjectAiSettingsController",
         "ProjectController",
         "ProjectInviteController",
         "PublicDesignShareController",
@@ -859,6 +874,7 @@
         "OrgInviteController",
         "OrgInviteLinkController",
         "PlatformAccessController",
+        "ProjectAiSettingsController",
         "ProjectController",
         "ProjectInviteController",
         "PublicDesignShareController",
@@ -944,6 +960,7 @@
         "OrgInviteController",
         "OrgInviteLinkController",
         "PlatformAccessController",
+        "ProjectAiSettingsController",
         "ProjectController",
         "ProjectInviteController",
         "PublicDesignShareController",
@@ -1158,6 +1175,7 @@
         "OrgInviteController",
         "OrgInviteLinkController",
         "PlatformAccessController",
+        "ProjectAiSettingsController",
         "ProjectController",
         "ProjectInviteController",
         "PublicDesignShareController",
@@ -1191,6 +1209,7 @@
         "ChatFollowUpSuggestionsController",
         "CopilotkitAguiController",
         "EvidenceWithdrawalController",
+        "ProjectAiSettingsController",
         "ProjectController"
       ]
     },
@@ -1292,8 +1311,68 @@
       ]
     },
     "/itv/new": {
-      "kind": "shell",
-      "screen": "apps/web/app/itv/new/page.tsx"
+      "kind": "wired",
+      "screen": "apps/web/app/itv/new/page.tsx",
+      "adapters": [
+        "apps/web/lib/live-asr-draft.ts",
+        "apps/web/lib/live-chat.ts",
+        "apps/web/lib/live-feedback.ts",
+        "apps/web/lib/live-identity.ts",
+        "apps/web/lib/live-interview-metadata.ts",
+        "apps/web/lib/live-org-admin.ts",
+        "apps/web/lib/live-platform-access.ts",
+        "apps/web/lib/live-projects.ts",
+        "apps/web/lib/live-recording.ts"
+      ],
+      "contracts": [
+        "agent-defaults",
+        "artifact",
+        "chat",
+        "chat-file-upload",
+        "chat-knowledge-graph",
+        "design-workbench",
+        "feedback-loop",
+        "identity",
+        "interview",
+        "org-admin",
+        "plan-permissions",
+        "platform-members",
+        "project"
+      ],
+      "controllers": [
+        "AgentRunController",
+        "ArtifactBindingController",
+        "ArtifactReferenceController",
+        "CapabilityController",
+        "ChatAttachmentController",
+        "ChatController",
+        "ChatFollowUpSuggestionsController",
+        "CheckinBoardController",
+        "CopilotkitAguiController",
+        "DesignWorkbenchController",
+        "DeviceSessionController",
+        "DigitalInterviewController",
+        "DocumentGenerationAutoApproveController",
+        "EvidenceWithdrawalController",
+        "FeedbackController",
+        "IdentityController",
+        "InterviewInsightController",
+        "InterviewScopeController",
+        "KernelProbeController",
+        "KnowledgeGraphController",
+        "LocalExportController",
+        "LocalOrgController",
+        "OrgAdminManagementController",
+        "OrgAdminScopeController",
+        "OrgInviteController",
+        "OrgInviteLinkController",
+        "PlatformAccessController",
+        "ProjectAiSettingsController",
+        "ProjectController",
+        "ProjectInviteController",
+        "PublicDesignShareController",
+        "ToolPermissionGrantController"
+      ]
     },
     "/itv/quick/[interviewId]": {
       "kind": "mock",
@@ -1467,6 +1546,7 @@
         "OrgInviteController",
         "OrgInviteLinkController",
         "PlatformAccessController",
+        "ProjectAiSettingsController",
         "ProjectController",
         "ProjectInviteController",
         "PublicDesignShareController",
@@ -1656,6 +1736,7 @@
         "OrgInviteController",
         "OrgInviteLinkController",
         "PlatformAccessController",
+        "ProjectAiSettingsController",
         "ProjectController",
         "ProjectInviteController",
         "PublicDesignShareController",
@@ -1684,6 +1765,7 @@
         "ArtifactBindingController",
         "ArtifactReferenceController",
         "EvidenceWithdrawalController",
+        "ProjectAiSettingsController",
         "ProjectController"
       ]
     },
@@ -1746,6 +1828,7 @@
         "OrgInviteController",
         "OrgInviteLinkController",
         "PlatformAccessController",
+        "ProjectAiSettingsController",
         "ProjectController",
         "ProjectInviteController",
         "PublicDesignShareController",
@@ -1760,32 +1843,42 @@
         "apps/web/lib/live-chat.ts",
         "apps/web/lib/live-checkin.ts",
         "apps/web/lib/live-collab-viewer-role.ts",
+        "apps/web/lib/live-digital-interview.ts",
         "apps/web/lib/live-feedback.ts",
+        "apps/web/lib/live-guided-research-api.ts",
         "apps/web/lib/live-identity.ts",
         "apps/web/lib/live-org-admin.ts",
+        "apps/web/lib/live-personal-transcriptions.ts",
         "apps/web/lib/live-platform-access.ts",
+        "apps/web/lib/live-project-ai-settings.ts",
         "apps/web/lib/live-project-invite.ts",
         "apps/web/lib/live-project-members.ts",
         "apps/web/lib/live-project-prep.ts",
+        "apps/web/lib/live-project-resources.ts",
         "apps/web/lib/live-projects.ts",
         "apps/web/lib/live-provenance.ts",
         "apps/web/lib/live-recording.ts",
+        "apps/web/lib/live-tasks.ts",
         "apps/web/lib/live-workflow-orchestration.ts"
       ],
       "contracts": [
         "agent-defaults",
         "artifact",
+        "board",
         "chat",
         "chat-file-upload",
         "chat-knowledge-graph",
         "design-workbench",
         "feedback-loop",
         "identity",
+        "interview",
         "org-admin",
+        "personal-realtime-transcription",
         "plan-permissions",
         "platform-members",
         "project",
         "provenance",
+        "research",
         "templates",
         "viewer-role"
       ],
@@ -1804,10 +1897,14 @@
         "CopilotkitAguiController",
         "DesignWorkbenchController",
         "DeviceSessionController",
+        "DigitalInterviewController",
         "DocumentGenerationAutoApproveController",
         "EvidenceWithdrawalController",
         "FeedbackController",
+        "GuidedResearchController",
         "IdentityController",
+        "InterviewInsightController",
+        "InterviewScopeController",
         "KernelProbeController",
         "KnowledgeGraphController",
         "LocalExportController",
@@ -1817,10 +1914,12 @@
         "OrgInviteController",
         "OrgInviteLinkController",
         "PlatformAccessController",
+        "ProjectAiSettingsController",
         "ProjectController",
         "ProjectInviteController",
         "ProvenanceController",
         "PublicDesignShareController",
+        "RecordingController",
         "ToolPermissionGrantController"
       ]
     },
@@ -1874,6 +1973,32 @@
         "apps/web/lib/mock/guided-research-demo-state.ts",
         "apps/web/lib/mock/guided-research.ts",
         "apps/web/lib/mock/research-studio.ts"
+      ]
+    },
+    "/research/[sessionId]/[stage]": {
+      "kind": "wired",
+      "screen": "apps/web/app/research/[sessionId]/[stage]/page.tsx",
+      "adapters": [
+        "apps/web/lib/live-guided-research-api.ts"
+      ],
+      "contracts": [
+        "research"
+      ],
+      "controllers": [
+        "GuidedResearchController"
+      ]
+    },
+    "/research/new": {
+      "kind": "wired",
+      "screen": "apps/web/app/research/new/page.tsx",
+      "adapters": [
+        "apps/web/lib/live-guided-research-api.ts"
+      ],
+      "contracts": [
+        "research"
+      ],
+      "controllers": [
+        "GuidedResearchController"
       ]
     },
     "/session": {
@@ -1947,6 +2072,7 @@
         "OrgInviteController",
         "OrgInviteLinkController",
         "PlatformAccessController",
+        "ProjectAiSettingsController",
         "ProjectController",
         "ProjectInviteController",
         "PublicDesignShareController",
@@ -2009,6 +2135,7 @@
         "OrgInviteController",
         "OrgInviteLinkController",
         "PlatformAccessController",
+        "ProjectAiSettingsController",
         "ProjectController",
         "ProjectInviteController",
         "PublicDesignShareController",
@@ -2075,6 +2202,7 @@
         "OrgInviteController",
         "OrgInviteLinkController",
         "PlatformAccessController",
+        "ProjectAiSettingsController",
         "ProjectController",
         "ProjectInviteController",
         "PublicDesignShareController",
@@ -2160,6 +2288,7 @@
         "OrgInviteController",
         "OrgInviteLinkController",
         "PlatformAccessController",
+        "ProjectAiSettingsController",
         "ProjectController",
         "ProjectInviteController",
         "PublicDesignShareController",
@@ -2195,6 +2324,7 @@
         "apps/web/lib/live-identity.ts",
         "apps/web/lib/live-org-admin.ts",
         "apps/web/lib/live-platform-access.ts",
+        "apps/web/lib/live-project-resources.ts",
         "apps/web/lib/live-projects.ts",
         "apps/web/lib/live-recording.ts"
       ],
@@ -2237,6 +2367,7 @@
         "OrgInviteController",
         "OrgInviteLinkController",
         "PlatformAccessController",
+        "ProjectAiSettingsController",
         "ProjectController",
         "ProjectInviteController",
         "PublicDesignShareController",
@@ -2253,6 +2384,7 @@
         "apps/web/lib/live-identity.ts",
         "apps/web/lib/live-org-admin.ts",
         "apps/web/lib/live-platform-access.ts",
+        "apps/web/lib/live-project-resources.ts",
         "apps/web/lib/live-projects.ts",
         "apps/web/lib/live-recording.ts"
       ],
@@ -2295,6 +2427,7 @@
         "OrgInviteController",
         "OrgInviteLinkController",
         "PlatformAccessController",
+        "ProjectAiSettingsController",
         "ProjectController",
         "ProjectInviteController",
         "PublicDesignShareController",
@@ -2353,6 +2486,7 @@
         "OrgInviteController",
         "OrgInviteLinkController",
         "PlatformAccessController",
+        "ProjectAiSettingsController",
         "ProjectController",
         "ProjectInviteController",
         "PublicDesignShareController",
@@ -2411,6 +2545,7 @@
         "OrgInviteController",
         "OrgInviteLinkController",
         "PlatformAccessController",
+        "ProjectAiSettingsController",
         "ProjectController",
         "ProjectInviteController",
         "PublicDesignShareController",
@@ -2453,32 +2588,6 @@
         "apps/web/lib/mock/admin.ts",
         "apps/web/lib/mock/asset-governance.ts",
         "apps/web/lib/mock/canvas.ts"
-      ]
-    },
-    "/research/[sessionId]/[stage]": {
-      "kind": "wired",
-      "screen": "apps/web/app/research/[sessionId]/[stage]/page.tsx",
-      "adapters": [
-        "apps/web/lib/live-guided-research-api.ts"
-      ],
-      "contracts": [
-        "research"
-      ],
-      "controllers": [
-        "GuidedResearchController"
-      ]
-    },
-    "/research/new": {
-      "kind": "wired",
-      "screen": "apps/web/app/research/new/page.tsx",
-      "adapters": [
-        "apps/web/lib/live-guided-research-api.ts"
-      ],
-      "contracts": [
-        "research"
-      ],
-      "controllers": [
-        "GuidedResearchController"
       ]
     }
   }

@@ -1,0 +1,86 @@
+import * as React from "react";
+import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { afterEach, beforeEach, expect, it, vi } from "vitest";
+import type { AsrDraftStreamHandlers } from "@/lib/live-asr-draft";
+import { InterviewVoiceInput } from "@/components/itv/interview-voice-input";
+import { InterviewIntakeStep } from "@/components/itv/interview-intake-step";
+const { open } = vi.hoisted(() => ({ open: vi.fn() }));
+vi.mock("@/lib/live-asr-draft", async (original) => ({ ...await original<typeof import("@/lib/live-asr-draft")>(), openAsrDraftStream: open }));
+let handlers: AsrDraftStreamHandlers;
+beforeEach(() => {
+  open.mockReset(); localStorage.clear();
+  vi.stubGlobal("WebSocket", class {}); vi.stubGlobal("AudioContext", class {});
+  Object.defineProperty(navigator, "mediaDevices", { configurable: true, value: { getUserMedia: vi.fn() } });
+  open.mockImplementation(async (value: AsrDraftStreamHandlers) => { handlers = value; return { stop: async () => undefined }; });
+});
+afterEach(() => { cleanup(); vi.unstubAllGlobals(); vi.useRealTimers(); });
+it("keeps interim text local and appends final stop text exactly once", async () => {
+  const append = vi.fn(); const busy = vi.fn();
+  render(<InterviewVoiceInput sessionToken="voice-session" onAppend={append} onBusyChange={busy} />);
+  fireEvent.click(screen.getByRole("button", { name: "语音输入" }));
+  await screen.findByRole("button", { name: "停止并追加文字" });
+  act(() => { handlers.onPartial("正在识别的临时文字"); });
+  expect(append).not.toHaveBeenCalled(); expect(busy).toHaveBeenLastCalledWith(true);
+  act(() => { handlers.onFinal("最终确认文字。"); });
+  fireEvent.click(screen.getByRole("button", { name: "停止并追加文字" }));
+  act(() => { handlers.onFinal("尾帧文字。"); handlers.onFinished(); });
+  await waitFor(() => expect(append).toHaveBeenCalledTimes(1));
+  expect(append).toHaveBeenCalledWith("最终确认文字 尾帧文字。");
+  act(() => { handlers.onFinished(); });
+  expect(append).toHaveBeenCalledTimes(1); expect(busy).toHaveBeenLastCalledWith(false);
+});
+it("cancel discards the recording without changing parent Markdown", async () => {
+  const append = vi.fn();
+  render(<InterviewVoiceInput sessionToken="voice-session" onAppend={append} />);
+  fireEvent.click(screen.getByRole("button", { name: "语音输入" }));
+  await screen.findByRole("button", { name: "取消语音输入" });
+  act(() => { handlers.onFinal("不要加入父文档。"); });
+  fireEvent.click(screen.getByRole("button", { name: "取消语音输入" }));
+  act(() => { handlers.onFinal("迟到文字。"); handlers.onFinished(); });
+  expect(append).not.toHaveBeenCalled();
+});
+it("confirmed source disables microphone and an unconfigured provider reports its actual failure", async () => {
+  const view = render(<InterviewVoiceInput sessionToken="voice-session" readOnly onAppend={vi.fn()} />);
+  expect(screen.getByRole("button", { name: "语音输入" })).toBeDisabled();
+  view.rerender(<InterviewVoiceInput sessionToken="voice-session" onAppend={vi.fn()} />);
+  fireEvent.click(screen.getByRole("button", { name: "语音输入" }));
+  await screen.findByRole("button", { name: "停止并追加文字" });
+  act(() => { handlers.onError("ASR_NOT_CONFIGURED"); });
+  expect(screen.getByRole("alert")).toHaveTextContent("尚未配置语音转写服务");
+});
+it("intake prevents save and confirmation during capture and appends into its existing Markdown", async () => {
+  const change = vi.fn(); const save = vi.fn(); const confirm = vi.fn();
+  render(<InterviewIntakeStep markdown="# 已有研究需求" onChange={change} onSave={save} onConfirm={confirm} pending={false} voiceSessionToken="voice-session" />);
+  fireEvent.click(screen.getByRole("button", { name: "语音输入" }));
+  await screen.findByRole("button", { name: "停止并追加文字" });
+  expect(screen.getByRole("button", { name: "保存草稿" })).toBeDisabled();
+  expect(screen.getByRole("button", { name: "正在处理…" })).toBeDisabled();
+  act(() => { handlers.onFinal("真实语音补充。"); });
+  fireEvent.click(screen.getByRole("button", { name: "停止并追加文字" }));
+  act(() => { handlers.onFinished(); });
+  await waitFor(() => expect(change).toHaveBeenCalledWith("# 已有研究需求\n\n真实语音补充。"));
+  expect(save).not.toHaveBeenCalled(); expect(confirm).not.toHaveBeenCalled();
+});
+it("provider error requires explicit review to append confirmed text and recovery cannot duplicate it", async () => {
+  const append = vi.fn();
+  render(<InterviewVoiceInput sessionToken="voice-session" onAppend={append} />);
+  fireEvent.click(screen.getByRole("button", { name: "语音输入" }));
+  await screen.findByRole("button", { name: "停止并追加文字" });
+  act(() => { handlers.onFinal("已确认内容。"); handlers.onPartial("不能保留的临时片段"); handlers.onError("ASR_PROVIDER_UNAVAILABLE"); });
+  expect(append).not.toHaveBeenCalled();
+  expect(screen.getByText("已确认内容。")).toBeVisible();
+  fireEvent.click(screen.getByRole("button", { name: "保留已确认转录" }));
+  expect(append).toHaveBeenCalledWith("已确认内容。");
+  expect(screen.queryByRole("button", { name: "保留已确认转录" })).not.toBeInTheDocument();
+});
+it("a provider ending capture before the user clicks stop still offers confirmed text for explicit review", async () => {
+  const append = vi.fn();
+  render(<InterviewVoiceInput sessionToken="voice-session" onAppend={append} />);
+  fireEvent.click(screen.getByRole("button", { name: "语音输入" }));
+  await screen.findByRole("button", { name: "停止并追加文字" });
+  act(() => { handlers.onFinal("供应商结束前已确认文字。"); handlers.onFinished(); });
+  expect(append).not.toHaveBeenCalled();
+  expect(screen.getByRole("button", { name: "保留已确认转录" })).toBeEnabled();
+  fireEvent.click(screen.getByRole("button", { name: "保留已确认转录" }));
+  expect(append).toHaveBeenCalledWith("供应商结束前已确认文字。");
+});

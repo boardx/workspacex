@@ -3,6 +3,8 @@ import * as React from "react";
 import { parseSurveyDesignMarkdown, serializeSurveyDesignMarkdown, serializeSurveyReportTemplateMarkdown } from "@repo/contracts/survey-source";
 import { useSurveyUnsavedNavigation } from "@/lib/survey/use-unsaved-navigation";
 import { useRouter } from "next/navigation";
+import { projectResearchHref, withProjectId } from "@/components/project/project-breadcrumb";
+import { linkProjectResource } from "@/lib/live-project-resources";
 import { survey } from "@repo/contracts";
 import { surveyReportShareBlockedReason } from "@repo/contracts/survey-report";
 import {
@@ -32,6 +34,8 @@ import { downloadReportMarkdown, surveyReportMarkdown } from "../report/report-m
 import { CollectionOverview } from "./collection-overview";
 import { SurveyShareCode } from "./share-code";
 import { useSurveyAutosave } from "./use-survey-autosave";
+import { SurveyDraftCopy } from "./survey-draft-copy";
+import { SurveyCollectionSettingsEditor } from './collection-settings';
 import { SurveyTemplateActions } from "../library/template-actions";
 import { LiveResponseList } from "./response-list";
 import { assessPublishReadiness } from "@/lib/survey/publish-readiness";
@@ -57,9 +61,15 @@ function emptyDraft(): SurveyDraftInput {
 export function LiveSurveyWorkspace({
   surveyId,
   initialStep = "design",
+  projectId = null,
 }: {
   surveyId: string;
   initialStep?: string;
+  /**
+   * 项目中枢 B2-S2：带 `?projectId=` 进来的新建问卷，首次 `POST /surveys` 成功后立即
+   * `linkProjectResource` 挂到该项目；挂失败不回滚问卷（问卷已经存在），只提示。
+   */
+  projectId?: string | null;
 }) {
   const router = useRouter();
   const [runtime, setRuntime] = React.useState<SurveyRuntime | null>(null);
@@ -75,6 +85,7 @@ export function LiveSurveyWorkspace({
   const [expires, setExpires] = React.useState("");
   const [markdown, setMarkdown] = React.useState("");
   const [savedMarkdown, setSavedMarkdown] = React.useState("");
+  const [publicationMarkdown,setPublicationMarkdown]=React.useState('# 发布与回收\n');
   const [markdownNeedsApply, setMarkdownNeedsApply] = React.useState(false);
   const [conflicted, setConflicted] = React.useState(false);
   const [remoteVersion, setRemoteVersion] = React.useState<SurveyRuntime | null>(null);
@@ -87,6 +98,7 @@ export function LiveSurveyWorkspace({
     const text = value.source?.documents.design.markdown ?? serializeSurveyDesignMarkdown(value);
     setMarkdown(text);
     setSavedMarkdown(text);
+    setPublicationMarkdown(value.publication?.sourceSnapshot?.documents.publication.markdown ?? value.source?.documents.publication.markdown ?? '# 发布与回收\n');
     setMarkdownNeedsApply(false);
     setDraft({
       title: value.title,
@@ -120,6 +132,7 @@ export function LiveSurveyWorkspace({
     };
   }, [surveyId, accept]);
   const dirty =
+    publicationMarkdown !== (runtime?.publication?.sourceSnapshot?.documents.publication.markdown ?? runtime?.source?.documents.publication.markdown ?? '# 发布与回收\n') ||
     markdown !== savedMarkdown ||
     !!draft &&
     (!runtime ||
@@ -180,11 +193,21 @@ export function LiveSurveyWorkspace({
     }
     const persisted = await surveyRequest(`/surveys/${next.id}/source`, { method: "PUT", body: {
       expectedVersion: next.version,
-      documents: { design: markdown, publication: next.source?.documents.publication.markdown ?? "# 发布与回收\n", reportTemplate: serializeSurveyReportTemplateMarkdown(parsed.data.template) },
+      documents: { design: markdown, publication: publicationMarkdown, reportTemplate: serializeSurveyReportTemplateMarkdown(parsed.data.template) },
     } }, SurveyRuntimeSchema);
     accept(persisted);
     setNotice("修改已保存");
-    if (surveyId === "new") router.replace(`/studio/survey/${next.id}?step=${step}`);
+    if (surveyId === "new") {
+      if (projectId) {
+        try {
+          await linkProjectResource({ projectId, kind: "survey", resourceId: next.id });
+          setNotice("问卷已创建并挂到项目");
+        } catch {
+          setNotice("问卷已创建，但挂到项目失败——可回到项目页用「关联已有问卷」补挂");
+        }
+      }
+      router.replace(withProjectId(`/studio/survey/${next.id}?step=${step}`, projectId));
+    }
     return persisted;
   };
   const command = async (name: string, extra: Record<string, unknown> = {}) => {
@@ -243,10 +266,10 @@ export function LiveSurveyWorkspace({
           variant="ghost"
           onClick={() => {
             if (!dirty || window.confirm("离开将放弃未保存修改，继续吗？"))
-              router.push("/studio/survey");
+              router.push(projectId ? projectResearchHref(projectId, "survey") : "/studio/survey");
           }}
         >
-          ← 返回列表
+          {projectId ? "← 返回项目" : "← 返回列表"}
         </Button>
         <div className="min-w-48 flex-1">
           <Input
@@ -270,6 +293,7 @@ export function LiveSurveyWorkspace({
           onClick={() => selectStep("template")}
         >设计报告模板（可选）</Button>
         {runtime && <Button variant="outline" onClick={() => selectStep("report")}>分析报告（可选）</Button>}
+        {runtime?.publication && <SurveyDraftCopy runtime={runtime} disabled={busy} onCreated={id => router.push(`/studio/survey/${id}?step=design`)} />}
         <Button
           variant="outline"
           disabled={busy || !runtime}
@@ -391,6 +415,7 @@ export function LiveSurveyWorkspace({
           {step === "publish" && (
             <section className="mx-auto max-w-6xl space-y-5 p-6">
               <h1 className="text-20 font-semibold">发布与回收</h1>
+              <SurveyCollectionSettingsEditor markdown={publicationMarkdown} locked={busy || !!runtime?.publication} onChange={setPublicationMarkdown}/>
               <p className="text-12 text-muted-foreground">
                 先检查设计质量，再明确开始回收。开始回收后题目与匿名方式固定，报告模板仍可继续编辑。
               </p>

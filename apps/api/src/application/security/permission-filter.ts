@@ -138,6 +138,9 @@ function toAclRef(ref: ObjectRef): AclObjectRef {
         `(application/feedback/drafts/draft-attachment-decision) and discloseDecided().`,
     );
   }
+  if (ref.kind === "whiteboard") {
+    throw new Error(`whiteboard "${ref.id}" is governed by its owner/member role. Use decideWhiteboardAccess and discloseDecided().`);
+  }
   return { kind: ref.kind, id: ref.id };
 }
 
