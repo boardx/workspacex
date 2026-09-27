@@ -215,7 +215,7 @@ test.describe("organize <=2 actions", () => {
           const arranged = await geometry(page);
           expect(layoutSemantics(operation, arranged, original), `${operation} must satisfy its geometry semantics`).toBe(true);
           await expect.poll(() => geometry(second)).toBe(arranged);
-          await page.getByText("撤销", { exact: true }).click();
+          await page.getByRole("button", { name: "撤销", exact: true }).click();
           await expect.poll(() => geometry(page)).toBe(original);
           await expect.poll(() => geometry(second)).toBe(original);
         });
@@ -266,7 +266,7 @@ test.describe("organize <=2 actions", () => {
         });
         expect(deltas.every(delta => Math.abs(delta.x - deltas[0]!.x) <= 1 && Math.abs(delta.y - deltas[0]!.y) <= 1 && Math.abs(delta.x) > 1)).toBe(true);
         await expect.poll(() => geometry(second)).toBe(JSON.stringify(afterGroupDrag.sort((a, b) => String(a.id).localeCompare(String(b.id)))));
-        await page.getByText("撤销", { exact: true }).click();
+        await page.getByRole("button", { name: "撤销", exact: true }).click();
         await expect.poll(() => geometry(page)).toBe(original); await expect.poll(() => geometry(second)).toBe(original);
       } finally { await secondContext.close(); }
     });
@@ -308,7 +308,7 @@ test.describe("organize <=2 actions", () => {
         const snapAfter = parseGeometry(await geometry(page)), snappedSource = snapAfter.find(value => value.id === source.id)!;
         expect(Math.abs(snappedSource.y - target.y)).toBeLessThanOrEqual(1); expect(closeGeometry(snappedSource, source)).toBe(false);
         await expect.poll(() => geometry(second)).toBe(JSON.stringify(snapAfter.sort((a, b) => String(a.id).localeCompare(String(b.id)))));
-        await page.getByText("撤销", { exact: true }).click(); await expect.poll(() => geometry(page)).toBe(original); await expect.poll(() => geometry(second)).toBe(original);
+        await page.getByRole("button", { name: "撤销", exact: true }).click(); await expect.poll(() => geometry(page)).toBe(original); await expect.poll(() => geometry(second)).toBe(original);
       } finally { await secondContext.close(); }
     });
 
@@ -328,7 +328,7 @@ test.describe("organize <=2 actions", () => {
         const confirmedPreview = await geometry(page);
         await page.getByTestId("board-layout-preview-apply").click(); await expect(page.getByText("智能布局已应用。", { exact: true })).toBeVisible();
         await expect.poll(() => geometry(page)).toBe(confirmedPreview); await expect.poll(() => geometry(second)).toBe(confirmedPreview);
-        await page.getByText("撤销", { exact: true }).click(); await expect.poll(() => geometry(page)).toBe(original); await expect.poll(() => geometry(second)).toBe(original);
+        await page.getByRole("button", { name: "撤销", exact: true }).click(); await expect.poll(() => geometry(page)).toBe(original); await expect.poll(() => geometry(second)).toBe(original);
         await page.getByTestId("board-inspector-layout").click();
         await page.getByTestId("board-layout-smart-preview").click();
         await page.getByRole("button", { name: "关闭布局", exact: true }).click();
