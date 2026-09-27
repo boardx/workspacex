@@ -28,8 +28,8 @@ describe("six-step Deep Research shell", () => {
 
     expect(screen.getByTestId("guided-research-six-step-shell")).toHaveAttribute("data-layout", "deep-research-desktop");
     expect(screen.queryByRole("button", { name: /^研究列表$/ })).not.toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /生成报告/ })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /资料研究/ })).toBeDisabled();
+    expect(screen.getByTestId("research-step-report")).toBeInTheDocument();
+    expect(screen.getByTestId("research-step-research")).toHaveAttribute("aria-disabled", "true");
     screen.getByRole("button", { name: /确认研究主题/ }).click();
     expect(onNavigate).toHaveBeenCalledWith("topic");
   });

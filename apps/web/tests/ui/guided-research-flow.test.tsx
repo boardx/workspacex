@@ -43,7 +43,7 @@ describe("guided research session routing and lifecycle", () => {
     expect(screen.queryByTestId("research-report")).not.toBeInTheDocument();
     resolve(runtimeFixture("directions"));
     expect(await screen.findByDisplayValue("政策方向")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /生成报告$/ })).toBeDisabled();
+    expect(screen.getByTestId("research-step-report")).toHaveAttribute("aria-disabled", "true");
   });
   it("hides a previous session immediately when the replacement is loading or unavailable", async () => {
     vi.mocked(getResearchRuntime).mockResolvedValueOnce(runtimeFixture("brief"));
@@ -72,7 +72,7 @@ describe("guided research session routing and lifecycle", () => {
     fireEvent.change(await screen.findByDisplayValue("储能研究"), { target: { value: "新的政策研究" } });
     fireEvent.click(screen.getByRole("button", { name: "保存草稿" }));
     await waitFor(() => expect(executeResearchRuntime).toHaveBeenCalledWith(expect.objectContaining({ sessionId: "grs-live", node: "brief", action: "save", expectedVersion: 4, draft: { node: "brief", value: expect.objectContaining({ topic: "新的政策研究" }) } })));
-    await waitFor(() => expect(screen.getByRole("button", { name: /生成报告$/ })).toBeDisabled());
+    await waitFor(() => expect(screen.getByTestId("research-step-report")).toHaveAttribute("aria-disabled", "true"));
   });
   it.each(["directions", "outline"] as const)("keeps generated %s editable before confirmation", async (node) => {
     vi.mocked(getResearchRuntime).mockResolvedValue(runtimeFixture(node));
