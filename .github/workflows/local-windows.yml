@@ -47,6 +47,12 @@ jobs:
         working-directory: packages/local-runtime
         run: pnpm exec vitest run --reporter=verbose 2>&1 | tee "$RUNNER_TEMP/unit.log"; exit ${PIPESTATUS[0]}
 
+      - uses: astral-sh/setup-uv@v7.0.0
+      - name: bundle relocatable Python for deep-agent
+        id: python
+        continue-on-error: true
+        run: bash scripts/local-bundle/bundle-python.sh "$RUNNER_TEMP/python" 2>&1 | tail -20; exit ${PIPESTATUS[0]}
+
       - name: build web (production, local API baked in)
         id: webbuild
         continue-on-error: true
@@ -58,16 +64,18 @@ jobs:
         continue-on-error: true
         run: |
           DATA="$RUNNER_TEMP/wsx-data"
-          ( cd packages/local-runtime && pnpm exec tsx src/cli.ts up --data-dir "$DATA" --web start --no-pull > "$RUNNER_TEMP/up.log" 2>&1 ) &
-          api=0; web=0
+          ( cd packages/local-runtime && pnpm exec tsx src/cli.ts up --data-dir "$DATA" --web start --no-pull --bundle-python "$RUNNER_TEMP/python" > "$RUNNER_TEMP/up.log" 2>&1 ) &
+          api=0; web=0; agent=0
           for i in $(seq 1 240); do
             [ $api = 0 ] && curl -fsS --max-time 3 http://127.0.0.1:3200/healthz >/dev/null 2>&1 && { api=1; echo "api healthz ok after ${i}x2s"; }
             [ $web = 0 ] && [ "$(curl -s -o /dev/null -w '%{http_code}' --max-time 5 http://127.0.0.1:3100/)" -lt 500 ] 2>/dev/null && [ "$(curl -s -o /dev/null -w '%{http_code}' --max-time 5 http://127.0.0.1:3100/)" != 000 ] && { web=1; echo "web answers after ${i}x2s: $(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:3100/)"; }
-            [ $api = 1 ] && [ $web = 1 ] && break
+            [ $agent = 0 ] && curl -fsS --max-time 3 http://127.0.0.1:2024/healthz >/dev/null 2>&1 && { agent=1; echo "deep-agent healthz ok after ${i}x2s"; }
+            [ $api = 1 ] && [ $web = 1 ] && [ $agent = 1 ] && break
             sleep 2
           done
           tail -60 "$RUNNER_TEMP/up.log"
-          [ $api = 1 ] && [ $web = 1 ]
+          echo "api=$api web=$web deep-agent=$agent"
+          [ $api = 1 ] && [ $web = 1 ] && [ $agent = 1 ]
 
       - name: collect logs
         if: always()
@@ -84,5 +92,5 @@ jobs:
       - name: verdict
         if: always()
         run: |
-          echo "unit=${{ steps.unit.outcome }} webbuild=${{ steps.webbuild.outcome }} up=${{ steps.up.outcome }}"
-          [ "${{ steps.unit.outcome }}" = success ] && [ "${{ steps.webbuild.outcome }}" = success ] && [ "${{ steps.up.outcome }}" = success ]
+          echo "unit=${{ steps.unit.outcome }} python=${{ steps.python.outcome }} webbuild=${{ steps.webbuild.outcome }} up=${{ steps.up.outcome }}"
+          [ "${{ steps.unit.outcome }}" = success ] && [ "${{ steps.python.outcome }}" = success ] && [ "${{ steps.webbuild.outcome }}" = success ] && [ "${{ steps.up.outcome }}" = success ]

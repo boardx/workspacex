@@ -23,6 +23,10 @@ PY_VERSION="${PY_VERSION:-3.11}"
 PYPI_INDEX_URL="${PYPI_INDEX_URL:-https://pypi.org/simple}"
 
 command -v uv >/dev/null 2>&1 || { echo "uv not found: https://docs.astral.sh/uv/" >&2; exit 1; }
+# Windows（Git Bash）：python-build-standalone 的布局不同——python.exe 在根上、标准库在 Lib\，
+# 没有 bin/ 也没有 dylib（#4315）。运行时那边（config.ts resolveDeepAgentLaunch）本来就按
+# cpython/python.exe 找，这里只让打包产出同一个形状。
+case "$(uname -s)" in MINGW*|MSYS*|CYGWIN*) WIN=1 ;; *) WIN=0 ;; esac
 
 # 1. interpreter: uv's managed CPython is python-build-standalone (relocatable install tree)
 uv python install "$PY_VERSION" >/dev/null
@@ -30,21 +34,21 @@ SRC_PY="$(uv python find --managed-python "$PY_VERSION")"        # .../cpython-3
 # `uv python find` answers through the version alias (cpython-3.11-… -> cpython-3.11.16-…), a
 # symlink; `pwd -P` + copying the directory CONTENTS keeps the copy from being that symlink
 # (first cut of this script shipped a symlink into the build machine's uv store, 2026-09-17).
-SRC_DIR="$(cd "$(dirname "$SRC_PY")/.." && pwd -P)"
+if [ "$WIN" = 1 ]; then SRC_DIR="$(cd "$(dirname "$SRC_PY")" && pwd -P)"; else SRC_DIR="$(cd "$(dirname "$SRC_PY")/.." && pwd -P)"; fi
 rm -rf "$OUT"; mkdir -p "$OUT/cpython"
 cp -R "$SRC_DIR/." "$OUT/cpython/"
 # trim what a runtime never needs (tests, headers, static libs, idle/tk) -- ~30 MB
-PYLIB="$OUT/cpython/lib/python$PY_VERSION"
+if [ "$WIN" = 1 ]; then PYLIB="$OUT/cpython/Lib"; else PYLIB="$OUT/cpython/lib/python$PY_VERSION"; fi
 rm -rf "$OUT/cpython/include" "$OUT/cpython/share" "$PYLIB/test" "$PYLIB/idlelib" "$PYLIB/tkinter" "$PYLIB/turtledemo" \
        "$PYLIB/ensurepip" "$PYLIB/lib2to3" "$PYLIB/config-$PY_VERSION"*/libpython*.a 2>/dev/null || true
 find "$OUT/cpython" -name '__pycache__' -type d -prune -exec rm -rf {} +
-PY="$OUT/cpython/bin/python$PY_VERSION"
+if [ "$WIN" = 1 ]; then PY="$OUT/cpython/python.exe"; else PY="$OUT/cpython/bin/python$PY_VERSION"; fi
 
 # 2. dependencies: frozen lock -> plain --target site dir (no venv, no shebangs)
 cd "$SVC"
 uv export --frozen --no-dev --no-emit-project --format requirements-txt --output-file "$OUT/requirements.lock" >/dev/null
 uv pip install --python "$PY" --target "$OUT/site" --require-hashes --no-cache --default-index "$PYPI_INDEX_URL" -r "$OUT/requirements.lock" >/dev/null
-rm -rf "$OUT/site/bin"                      # console scripts carry absolute shebangs; unused
+rm -rf "$OUT/site/bin" "$OUT/site/Scripts" # console scripts carry absolute shebangs / exe launchers; unused
 find "$OUT/site" -name '__pycache__' -type d -prune -exec rm -rf {} +
 
 # 3. counter-proof: nothing links or points outside the tree; no build-machine path inside;
@@ -69,9 +73,11 @@ if [ -f "$OUT/cpython/lib/libpython$PY_VERSION.dylib" ]; then
 fi
 TMP="$(mktemp -d)"; trap 'rm -rf "$TMP"' EXIT
 cp -R "$OUT" "$TMP/moved"; mkdir -p "$TMP/home"
-HOME="$TMP/home" PYTHONNOUSERSITE=1 PYTHONPATH="$TMP/moved/site:$SVC/src" \
-  "$TMP/moved/cpython/bin/python$PY_VERSION" -c "
+if [ "$WIN" = 1 ]; then MOVED_PY="$TMP/moved/cpython/python.exe"; PPATH="$(cygpath -w "$TMP/moved/site");$(cygpath -w "$SVC/src")"; MOVED_REAL="$(cygpath -w "$TMP/moved")";
+else MOVED_PY="$TMP/moved/cpython/bin/python$PY_VERSION"; PPATH="$TMP/moved/site:$SVC/src"; MOVED_REAL="$TMP/moved"; fi
+HOME="$TMP/home" PYTHONNOUSERSITE=1 PYTHONPATH="$PPATH" \
+  "$MOVED_PY" -c "
 import sys, uvicorn, deepagents, langgraph, psycopg, deep_agent_service.http_app
-import os; assert os.path.realpath(sys.prefix).startswith(os.path.realpath('$TMP/moved')), 'prefix still points at the build machine: ' + sys.prefix
+import os; assert os.path.realpath(sys.prefix).lower().startswith(os.path.realpath(r'$MOVED_REAL').lower()), 'prefix still points at the build machine: ' + sys.prefix
 print('relocatable python ok:', sys.version.split()[0], 'prefix', sys.prefix)"
 echo "deep-agent-service relocatable runtime ready: $OUT ($(du -sh "$OUT" | cut -f1))"
