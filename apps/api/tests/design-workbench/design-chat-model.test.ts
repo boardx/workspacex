@@ -308,18 +308,56 @@ describe("迭代 12：分页生成", () => {
     expect(out.text).toContain("没画出来");
   });
 
-  it("V38 某页 JSON 坏掉 / 不过契约 ⇒ 同样只丢那一页", async () => {
+  it("V38 某页 JSON 坏掉 / 不过契约（带着报错重问一次仍不过）⇒ 同样只丢那一页", async () => {
+    // #4321 起过不了契约会带着具体报错**重问一次**，所以要让 B 两次都不合法，这条才在测「彻底失败」。
     const frames = ["A", "B", "C"];
-    let n = 0;
-    const { r } = replier(async () => {
-      n += 1;
-      if (n === 1) return { text: outlineJson(frames) };
-      if (n === 3) return { text: '{"frame":"B","root":{"type":"iframe"}}' };   // 类型不在闭集
-      return { text: screenJson(frames[n - 2]!) };
+    const { r, model } = replier(async (input) => {
+      if (input.system === DESIGN_OUTLINE_SYSTEM_PROMPT) return { text: outlineJson(frames) };
+      const which = Number(input.user.match(/现在只画第 (\d+) 页/)?.[1]);
+      if (which === 1) return { text: '{"frame":"B","root":{"type":"iframe"}}' };   // 类型不在闭集，修正层不猜
+      return { text: screenJson(frames[which]!) };
     });
     const out = await r.reply(EMPTY);
     expect(out.pagedScreens?.map((s) => s.frame)).toEqual(["A", "B", "C"]);
     expect(out.pagedScreens?.map((s) => s.root !== undefined)).toEqual([true, false, true]);
+    expect(model.complete).toHaveBeenCalledTimes(1 + 3 + 1);   // 骨架 + 三页 + B 的一次重问
+  });
+
+  /**
+   * #4321 —— 真实生成约一半的页因为机械小错被丢掉。两条路：能无损修的直接修（不花调用），
+   * 修不了的带着**哪个节点哪个字段错了**重问一次。
+   */
+  it("V70 叶子带空 children、多一个右括号 ⇒ 保守修正后直接收下，不重问、不降级成「画简单点」", async () => {
+    const frames = ["A"];
+    const leafWithEmptyChildren = screenJson("A").replace('{"type":"divider"}', '{"type":"divider","children":[]}');
+    const { r, model } = replier(async (input) => {
+      if (input.system === DESIGN_OUTLINE_SYSTEM_PROMPT) return { text: outlineJson(frames) };
+      return { text: leafWithEmptyChildren + "}" };   // 多一个 }
+    });
+    const out = await r.reply(EMPTY);
+    // ⭐ 反证锚点：去掉修正层 ⇒ 这页会先被当成截断降级重问、再被契约拒掉，root 为空。
+    expect(out.pagedScreens?.[0]?.root).toBeDefined();
+    expect(model.complete).toHaveBeenCalledTimes(2);   // 骨架 + 一页，没有任何重问
+    for (const call of model.complete.mock.calls) expect(String(call[0].user)).not.toContain("不符合组件格式");
+  });
+
+  it("V70 修正层修不了的（图标名不在闭集）⇒ 重问时原话说出是哪个节点哪个字段；重问合法就收下", async () => {
+    const frames = ["A"];
+    let pageCalls = 0;
+    const badIcon = screenJson("A").replace('"active":0}', '"active":0,"icons":["home","rocket-ship","user"]}');
+    const { r, model } = replier(async (input) => {
+      if (input.system === DESIGN_OUTLINE_SYSTEM_PROMPT) return { text: outlineJson(frames) };
+      pageCalls += 1;
+      return { text: pageCalls === 1 ? badIcon : screenJson("A") };
+    });
+    const out = await r.reply(EMPTY);
+    expect(out.pagedScreens?.[0]?.root).toBeDefined();
+    const retryPrompt = String(model.complete.mock.calls.at(-1)![0].user);
+    expect(retryPrompt).toContain("不符合组件格式");
+    expect(retryPrompt).toContain("bottomnav");
+    expect(retryPrompt).toContain("rocket-ship");
+    // 不把几十项的图标清单抄回去——系统提示里已经有了。
+    expect(retryPrompt).not.toContain("'settings'");
   });
 
   it("V40 骨架轮被截断 ⇒ MODEL_OUTPUT_TRUNCATED；全部页都失败 ⇒ 也是退路，不写半套", async () => {
