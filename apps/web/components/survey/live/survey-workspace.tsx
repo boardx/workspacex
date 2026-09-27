@@ -1,5 +1,6 @@
 "use client";
 import * as React from "react";
+import { parseSurveyDesignMarkdown, serializeSurveyDesignMarkdown, serializeSurveyReportTemplateMarkdown } from "@repo/contracts/survey-source";
 import { useSurveyUnsavedNavigation } from "@/lib/survey/use-unsaved-navigation";
 import { useRouter } from "next/navigation";
 import { survey } from "@repo/contracts";
@@ -17,6 +18,7 @@ import {
   surveyRequest,
   SurveyPublishBlockedError,
   SurveySystemError,
+  SurveyConflictError,
 } from "@/lib/survey/runtime-client";
 import { FlexibleReportEditor } from "../report/template-editor";
 import { SurveyReportDocument } from "../report/report-document";
@@ -25,15 +27,14 @@ import {
   printSurveyReport,
 } from "../report/report-export";
 import { SurveyQuestionEditor } from "./question-editor";
+import { MarkdownSurveyEditor } from "./markdown-survey-editor";
 import { SurveyTemplateActions } from "../library/template-actions";
 import { LiveResponseList } from "./response-list";
 import { assessPublishReadiness } from "@/lib/survey/publish-readiness";
 const STEPS = [
   ["design", "设计问卷"],
-  ["template", "报告模板"],
   ["publish", "发布回收"],
   ["responses", "查看答卷"],
-  ["report", "分析报告"],
 ] as const;
 const BLOCKER_MESSAGES: Record<SurveyPublishBlocker["code"], string> = {
   QUESTIONS_EMPTY: "问卷至少需要一道题",
@@ -68,10 +69,19 @@ export function LiveSurveyWorkspace({
   const [step, setStep] = React.useState(initialStep);
   const [repairQuestionId, setRepairQuestionId] = React.useState<string | null>(null);
   const [expires, setExpires] = React.useState("");
+  const [markdown, setMarkdown] = React.useState("");
+  const [savedMarkdown, setSavedMarkdown] = React.useState("");
+  const [conflicted, setConflicted] = React.useState(false);
+  const [remoteVersion, setRemoteVersion] = React.useState<SurveyRuntime | null>(null);
   const reportRef = React.useRef<HTMLDivElement>(null);
   const lock = React.useRef(false);
   const accept = React.useCallback((value: SurveyRuntime) => {
     setRuntime(value);
+    setConflicted(false);
+    setRemoteVersion(null);
+    const text = value.source?.documents.design.markdown ?? serializeSurveyDesignMarkdown(value);
+    setMarkdown(text);
+    setSavedMarkdown(text);
     setDraft({
       title: value.title,
       questions: value.questions,
@@ -88,6 +98,7 @@ export function LiveSurveyWorkspace({
     setDraft(null);
     if (surveyId === "new") {
       setDraft(emptyDraft());
+      setMarkdown("# 未命名问卷\n\n## q1 [open]\n请填写您的意见\n");
       return;
     }
     void surveyRequest(`/surveys/${encodeURIComponent(surveyId)}`, {}, SurveyRuntimeSchema)
@@ -102,6 +113,7 @@ export function LiveSurveyWorkspace({
     };
   }, [surveyId, accept]);
   const dirty =
+    markdown !== savedMarkdown ||
     !!draft &&
     (!runtime ||
       JSON.stringify(draft) !==
@@ -123,6 +135,7 @@ export function LiveSurveyWorkspace({
     } catch (e) {
       if (e instanceof SurveyPublishBlockedError) setBlockers(e.blockers);
       else {
+        setConflicted(e instanceof SurveyConflictError);
         setError(e instanceof Error ? e.message : "操作失败，请重试");
         setRetryable(e instanceof SurveySystemError);
       }
@@ -133,20 +146,33 @@ export function LiveSurveyWorkspace({
   };
   const save = async () => {
     if (!draft) throw new Error("尚未加载问卷");
-    const parsed = SurveyDraftInputSchema.safeParse(draft);
+    const sourceParsed = parseSurveyDesignMarkdown(markdown);
+    if (!sourceParsed.ok) throw new Error(sourceParsed.diagnostics.map((entry) => `第 ${entry.line} 行：${entry.message}`).join("；"));
+    const parsed = SurveyDraftInputSchema.safeParse({ ...draft, title: sourceParsed.draft.title, questions: sourceParsed.draft.questions });
     if (!parsed.success)
       throw new Error("请填写问卷、章节及内容标题，并检查选项和图片地址。");
-    const next = await surveyRequest(runtime ? `/surveys/${runtime.id}` : "/surveys", {
-        method: runtime ? "PUT" : "POST",
+    const next = runtime ?? await surveyRequest("/surveys", {
+        method: "POST",
         body: {
           ...parsed.data,
-          ...(runtime ? { expectedVersion: runtime.version } : {}),
         },
       }, SurveyRuntimeSchema);
-    accept(next);
+    // Retain the created identity even if the following source mutation fails.
+    // A retry must update that draft rather than POST a duplicate survey.
+    if (!runtime) setRuntime(next);
+    if (next.publication) {
+      accept(await surveyRequest(`/surveys/${next.id}`, { method: "PUT", body: { ...parsed.data, expectedVersion: next.version } }, SurveyRuntimeSchema));
+      setNotice("报告模板已保存");
+      return await surveyRequest(`/surveys/${next.id}`, {}, SurveyRuntimeSchema);
+    }
+    const persisted = await surveyRequest(`/surveys/${next.id}/source`, { method: "PUT", body: {
+      expectedVersion: next.version,
+      documents: { design: markdown, publication: next.source?.documents.publication.markdown ?? "# 发布与回收\n", reportTemplate: serializeSurveyReportTemplateMarkdown(parsed.data.template) },
+    } }, SurveyRuntimeSchema);
+    accept(persisted);
     setNotice("修改已保存");
-    if (!runtime) router.replace(`/studio/survey/${next.id}?step=${step}`);
-    return next;
+    if (surveyId === "new") router.replace(`/studio/survey/${next.id}?step=${step}`);
+    return persisted;
   };
   const command = async (name: string, extra: Record<string, unknown> = {}) => {
     const current = dirty ? await save() : runtime;
@@ -192,6 +218,10 @@ export function LiveSurveyWorkspace({
     setRepairQuestionId(targetQuestionId ?? null);
     window.history.replaceState(null, "", `?step=${next}`);
   };
+  const parsedDesign = parseSurveyDesignMarkdown(markdown);
+  const projectedInSync = !!draft && parsedDesign.ok &&
+    parsedDesign.draft.title === draft.title &&
+    JSON.stringify(parsedDesign.draft.questions) === JSON.stringify(draft.questions);
   return (
     <main className="min-w-0 bg-background">
       <header className="flex flex-wrap items-center gap-3 border-b border-border bg-card p-4">
@@ -210,7 +240,7 @@ export function LiveSurveyWorkspace({
             disabled={busy || !draft}
             value={draft?.title ?? ""}
             onChange={(e) =>
-              draft && setDraft({ ...draft, title: e.target.value })
+              draft && (() => { const next = { ...draft, title: e.target.value }; setDraft(next); setMarkdown((text) => text.replace(/^#\s+.*$/m, `# ${e.target.value}`)); })()
             }
           />
           <p className="mt-1 text-10 text-muted-foreground">
@@ -221,6 +251,11 @@ export function LiveSurveyWorkspace({
                 : "正在加载"}
           </p>
         </div>
+        <Button
+          variant="outline"
+          onClick={() => selectStep("template")}
+        >设计报告模板（可选）</Button>
+        {runtime && <Button variant="outline" onClick={() => selectStep("report")}>分析报告（可选）</Button>}
         <Button
           variant="outline"
           disabled={busy || !runtime}
@@ -276,17 +311,47 @@ export function LiveSurveyWorkspace({
           {notice}
         </p>
       )}
+      {conflicted && runtime && (
+        <section className="m-5 space-y-3 rounded-lg border border-border bg-card p-4" aria-label="版本冲突处理">
+          <p>本地修改仍保留。先读取远端内容进行对比，再明确选择要保留的版本。</p>
+          <Button variant="outline" disabled={busy} onClick={() => void execute(async () => {
+            const latest = await surveyRequest(`/surveys/${runtime.id}`, {}, SurveyRuntimeSchema);
+            setRemoteVersion(latest);
+          })}>读取最新版本并保留我的修改</Button>
+          {remoteVersion && <>
+            <textarea aria-label="远端 Markdown" className="min-h-48 w-full rounded-md border border-border p-3 font-mono text-13" readOnly value={remoteVersion.source?.documents.design.markdown ?? serializeSurveyDesignMarkdown(remoteVersion)} />
+            <Button disabled={busy} onClick={() => {
+              setRuntime(remoteVersion);
+              setDraft((local) => local ? { ...local, template: remoteVersion.template } : local);
+              setSavedMarkdown(remoteVersion.source?.documents.design.markdown ?? serializeSurveyDesignMarkdown(remoteVersion));
+              setConflicted(false); setRemoteVersion(null); setError("");
+              setNotice("已保留本地设计与远端报告模板，请校对后保存；尚未覆盖远端内容。");
+            }}>确认保留本地版本</Button>
+            <Button variant="outline" disabled={busy} onClick={() => {
+              if (window.confirm("使用远端版本将丢弃当前本地修改，继续吗？")) accept(remoteVersion);
+            }}>使用远端版本</Button>
+          </>}
+        </section>
+      )}
       {!draft && !error && <p className="p-8">正在加载问卷…</p>}
       {draft && (
         <fieldset disabled={busy} className="min-w-0">
           {step === "design" && (<>
-            <SurveyTemplateActions kind="question" draft={draft} onApply={setDraft} locked={!!runtime?.publication} disabled={busy} />
+            <MarkdownSurveyEditor value={markdown} locked={!!runtime?.publication} onChange={setMarkdown} onPreview={() => {
+                const result = parseSurveyDesignMarkdown(markdown);
+                if (!result.ok) { setError(result.diagnostics.map((entry) => `第 ${entry.line} 行：${entry.message}`).join("；")); return; }
+                setError(""); setDraft({ ...draft, title: result.draft.title, questions: result.draft.questions });
+              }} />
+            <fieldset disabled={!projectedInSync}>
+            {!projectedInSync && <p className="px-5 text-12 text-muted-foreground">请先预览并应用 Markdown，再编辑题目或应用模板，避免覆盖未应用内容。</p>}
+            <SurveyTemplateActions kind="question" draft={draft} onApply={(next) => { setDraft(next); setMarkdown(serializeSurveyDesignMarkdown(next)); }} locked={!!runtime?.publication} disabled={busy} />
             <SurveyQuestionEditor
               questions={draft.questions}
               locked={!!runtime?.publication}
               selectedQuestionId={repairQuestionId}
-              onChange={(questions) => setDraft({ ...draft, questions })}
+              onChange={(questions) => { const next = { ...draft, questions }; setDraft(next); setMarkdown(serializeSurveyDesignMarkdown(next)); }}
             />
+            </fieldset>
           </>)}
           {step === "template" && (<>
             <SurveyTemplateActions kind="report" draft={draft} onApply={setDraft} disabled={busy} />
