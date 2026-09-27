@@ -190,6 +190,31 @@ export async function createProjectThread(projectId: string, title: string | nul
   });
 }
 
+/**
+ * 项目中枢 R5 —— 分享：改一条项目线程的可见范围（`mutateThread` op=setVisibility）。
+ * `expectedVersion` 来自 `getThread(...).version`（乐观并发，服务端不静默覆盖）。
+ */
+export async function setThreadVisibility(
+  threadId: string,
+  projectId: string,
+  visibilityScope: "member-private" | "group-shared" | "plenary",
+  expectedVersion: number,
+): Promise<MutateThreadOut> {
+  return apiRequest<MutateThreadOut>(chat.operations.mutateThread.path, {
+    method: "POST",
+    body: {
+      op: "setVisibility",
+      projectId,
+      threadId,
+      groupId: null,
+      title: null,
+      visibilityScope,
+      expectedVersion,
+      reason: null,
+    },
+  });
+}
+
 export async function getAgentPanel(
   threadId: string,
   /** `null` = 个人线程（issue #2052 / CK-P7）——不传这个 query 参数，controller 把
