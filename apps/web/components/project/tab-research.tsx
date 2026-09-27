@@ -1,7 +1,8 @@
 "use client";
 import { Card } from "@/components/ui/card";
 import { SectionTitle, ObserverNotice } from "./parts";
-import { observerHidden, type ProjectRole } from "@/lib/project-workbench";
+import { ROLE_CAN_WRITE, observerHidden, type ProjectRole } from "@/lib/project-workbench";
+import { ProjectConversations } from "./project-conversations";
 
 /**
  * 研究洞察（原型 isWsRov）—— 研究 / 访谈 / 问卷 / 深度研究在项目下的汇总投影。
@@ -13,9 +14,16 @@ import { observerHidden, type ProjectRole } from "@/lib/project-workbench";
  *   - 假设：全仓没有项目级「假设」实体（KG 的 hypothesis claim 尚未开放项目作用域）。
  *   接真实数据是「项目中枢」计划的后续轮次，本版不显示编造内容。
  * ⚠ 观察者显著更少：原始洞察库与未验证假设是内部研究过程，整块消失。
+ * ⚠ 项目中枢 R4：左侧子导航真的切内容了——`sub === "conv"` 渲染本项目的真实对话列表
+ *   （`ProjectConversations`，含「在本项目中新建对话」）；其余子项仍是研究总览的空态。
  */
-export function TabResearch({ view }: { view: ProjectRole; readOnly?: boolean }) {
+export function TabResearch({ view, readOnly = false, sub = null, projectId }: {
+  view: ProjectRole; readOnly?: boolean; sub?: string | null; projectId?: string;
+}) {
   const isObserver = observerHidden(view);
+  if (sub === "conv" && projectId) {
+    return <ProjectConversations projectId={projectId} canWrite={ROLE_CAN_WRITE[view] && !readOnly} />;
+  }
   return (
     <div className="mx-auto flex max-w-4xl flex-col gap-5 p-6" data-testid="project-research">
       <p className="rounded-md border border-border bg-panel px-3 py-2 text-11 text-muted-foreground">
