@@ -60,10 +60,11 @@ export type InterviewMarkdownProjection = Readonly<{
   sections: readonly Readonly<{ headingId: string | null; text: string }>[];
   entries: readonly Readonly<{ headingId: string | null; text: string }>[];
   anchors: readonly Readonly<InterviewMarkdownDocument["references"][number]>[];
+  blocks: readonly Readonly<{ headingId: string; depth: number; title: string; start: number; contentStart: number; end: number; links: readonly Readonly<{ text: string; url: string }>[] }>[];
 }>;
 
 const parser = unified().use(remarkParse).use(remarkGfm);
-type MarkdownNode = { type: string; value?: string; depth?: number; children?: MarkdownNode[] };
+type MarkdownNode = { type: string; value?: string; depth?: number; url?: string; position?: { start: { offset?: number }; end: { offset?: number } }; children?: MarkdownNode[] };
 
 function plainText(node: MarkdownNode): string {
   if (node.type === "html") return "";
@@ -78,6 +79,7 @@ export function parseInterviewMarkdown(input: InterviewMarkdownDocument): Interv
   const headings: { id: string; depth: number; text: string }[] = [];
   const sections: { headingId: string | null; text: string }[] = [];
   const entries: { headingId: string | null; text: string }[] = [];
+  const blocks: { headingId: string; depth: number; title: string; start: number; contentStart: number; end: number; links: readonly Readonly<{ text: string; url: string }>[] }[] = [];
   let headingId: string | null = null;
   let sectionText: string[] = [];
   function finishSection(): void {
@@ -90,6 +92,16 @@ export function parseInterviewMarkdown(input: InterviewMarkdownDocument): Interv
       finishSection();
       headingId = `section-${headings.length + 1}`;
       headings.push({ id: headingId, depth: node.depth!, text: plainText(node) });
+      const start = node.position?.start.offset ?? 0;
+      if (blocks.length) blocks[blocks.length - 1]!.end = start;
+      const links: { text: string; url: string }[] = [];
+      function collectLinks(child: MarkdownNode): void {
+        if (child.type === "link" && child.url) links.push({ text: plainText(child), url: child.url });
+        child.children?.forEach(collectLinks);
+      }
+      collectLinks(node);
+      blocks.push({ headingId, depth: node.depth!, title: plainText(node), start, contentStart: node.position?.end.offset ?? start,
+        end: document.markdown.length, links: Object.freeze(links.map((link) => Object.freeze(link))) });
     }
     if (node.type === "listItem") entries.push({ headingId, text: plainText(node) });
     node.children?.forEach((child) => visit(child));
@@ -108,5 +120,6 @@ export function parseInterviewMarkdown(input: InterviewMarkdownDocument): Interv
     sections: Object.freeze(sections.map((section) => Object.freeze(section))),
     entries: Object.freeze(entries.map((entry) => Object.freeze(entry))),
     anchors: Object.freeze(document.references.map((reference) => Object.freeze({ ...reference }))),
+    blocks: Object.freeze(blocks.map((block) => Object.freeze(block))),
   });
 }
