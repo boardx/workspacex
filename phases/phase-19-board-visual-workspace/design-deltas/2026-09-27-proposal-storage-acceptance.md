@@ -33,3 +33,9 @@ Use a fresh non-existing private directory. The script invokes the official `ens
 Evidence is written only after all checks pass to `<directory>/proposal-storage-evidence.json`; the child drill writes `<directory>/joint/evidence.json`. Output contains IDs, hashes, counts and status, not bodies, credentials or connection strings. Failure diagnostics contain only stage and safe error code.
 
 The wrapper owns stack cleanup. The source/target test databases and private output directories are deliberately identified for root inspection; do not delete another session's stack or data. This producer must run in a dedicated isolation rather than alongside writers to the same Board; source-history/PG snapshot mismatch must fail closed.
+
+### Review correction: connection binding and portable authority
+
+Before importing fixture helpers or calling `ensureDatabase`, the producer derives the expected isolation identity from the canonical repository path and wrapper seed using `deriveTestIsolation`. It inspects only compose project/service labels, running state and published `5432/tcp` bindings, then matches the actual endpoint against both application and migration configurations. A port, project, seed or database mismatch stops before any DB creation/migration. No container environment or connection secret is collected.
+
+Portable export now reads the original source Board, which still owns verified proposal and generic Undo history after the restored generic Undo executes. Imported content must equal that current source state. The target must contain zero old authority rows and actual attempts to read/undo the source proposal or undo the source operation must each return `NOT_FOUND`; any success, stale-revision or dependency error fails. Target revision and canonical update hash must remain unchanged. Seven light tests cover these gates; real DB execution remains the main session's responsibility.

@@ -21,7 +21,7 @@ import { WhiteboardOperationService } from '../src/application/whiteboard/operat
 import { WhiteboardProposalService } from '../src/application/whiteboard/proposal-service';
 import { toOrgId } from '../src/domain/org-id';
 import type { Principal } from '../src/domain/principal';
-import { assertProposalStorageDrill,assertRestoredDatabase,requireEvidence,proposalDrillFailure } from './board-proposal-storage-drill-guards';
+import { assertProposalDatabaseBinding,requireNotFound,assertProposalStorageDrill,assertRestoredDatabase,requireEvidence,proposalDrillFailure } from './board-proposal-storage-drill-guards';
 const hash=(value:Uint8Array|string)=>createHash('sha256').update(value).digest('hex');
 const textBefore='SYNTHETIC_ORIGINAL_PROPOSAL_TEXT',textAfter='SYNTHETIC_AI_PROPOSAL_TEXT',textFinal='SYNTHETIC_GENERIC_OPERATION_TEXT';
 let stage='preflight';
@@ -50,13 +50,15 @@ async function main(){
  const directory=resolve(process.env.BOARD_PROPOSAL_DRILL_DIRECTORY!);await mkdir(directory,{mode:0o700});
  requireEvidence(((await stat(directory)).mode&0o077)===0,'PRIVATE_DRILL_DIRECTORY_REQUIRED');
  const primaryRoot=join(directory,'primary'),jointRoot=join(directory,'joint');await mkdir(primaryRoot,{mode:0o700});
- // Official isolated fixture helpers; executed only after all environment/container checks.
+ stage='verify-database-binding';
+ const container=execFileSync('docker',['compose','-f',join(apiDir,'docker-compose.dev.yml'),'-p',process.env.COMPOSE_PROJECT_NAME!,'ps','-q','postgres'],{encoding:'utf8'}).trim();
+ requireEvidence(/^[a-f0-9]{12,64}$/.test(container),'CONTAINER_OWNERSHIP_MISMATCH');
+ // Select only non-secret inspect fields; never collect container environment.
+ const inspected=JSON.parse(execFileSync('docker',['inspect','--format','{"project":{{json (index .Config.Labels "com.docker.compose.project")}},"service":{{json (index .Config.Labels "com.docker.compose.service")}},"running":{{json .State.Running}},"ports":{{json (index .NetworkSettings.Ports "5432/tcp")}}}',container],{encoding:'utf8'}));
+ assertProposalDatabaseBinding(process.env,resolve(apiDir,'../..'),{...inspected,id:container,ports:inspected.ports??[]},[appConfig(),migrationConfig()]);
+ // Import official helpers only after container/connection verification succeeds.
  const {ensureDatabase,migrateOnce,seedOrg,addOrgMember}=await import('../tests/support/db');
  stage='migrate-fixture';ensureDatabase();
- const container=execFileSync('docker',['compose','-f',join(apiDir,'docker-compose.dev.yml'),'-p',process.env.COMPOSE_PROJECT_NAME!,'ps','-q','postgres'],{encoding:'utf8'}).trim();
- requireEvidence(container&&(!process.env.STARTER_POSTGRES_CONTAINER||process.env.STARTER_POSTGRES_CONTAINER===container),'CONTAINER_OWNERSHIP_MISMATCH');
- const owned=execFileSync('docker',['inspect','--format','{{ index .Config.Labels "com.docker.compose.project" }}',container],{encoding:'utf8'}).trim();
- requireEvidence(owned===process.env.COMPOSE_PROJECT_NAME,'CONTAINER_OWNERSHIP_MISMATCH');
  await migrateOnce();
  const orgId=toOrgId(`proposal-drill-${randomUUID()}`),owner=`proposal-owner-${randomUUID()}`,actorId=`storage-fixture-agent-${randomUUID()}`,p={orgId,userId:owner};
  await seedOrg({orgId,projectId:`proposal-project-${randomUUID()}`});await addOrgMember(orgId,owner,'consultant',null);
@@ -146,13 +148,20 @@ async function main(){
   ]);
   const boards=new PgWhiteboardRepository(restoredDb),images=new PgBoardImageAssets(restoredDb),verifier=new SharpBoardImageVerifier();
   const portable=new PortableBoardService(boards,s.collaboration,new WorkerWhiteboardUpdateValidator(),new WhiteboardImageAssets(boards,images,restoredObjects,verifier),verifier,new PgPortableBoard(restoredDb,s.collaboration,restoredObjects,images));
-  const bundle=await portable.export(p,joint.boardId),portableBoard=(await boards.create(p,{requestId:randomUUID(),name:'Synthetic portable authority isolation'})).id;
+  const bundle=await portable.export(p,boardId),portableBoard=(await boards.create(p,{requestId:randomUUID(),name:'Synthetic portable authority isolation'})).id;
   await portable.import(p,portableBoard,{requestId:randomUUID(),expectedEpoch:1,file:{sizeBytes:bundle.sizeBytes,sha256:bundle.sha256,contentBase64:bundle.contentBase64}});
   const portableCounts=await restoredDb.withTenant(orgId,t=>t.query<{proposals:string;undos:string;operations:string}>(`SELECT (SELECT count(*)::text FROM whiteboard_ai_proposals WHERE org_id=$1 AND board_id=$2) AS proposals,(SELECT count(*)::text FROM whiteboard_operation_undo WHERE org_id=$1 AND board_id=$2) AS undos,(SELECT count(*)::text FROM whiteboard_operations WHERE org_id=$1 AND board_id=$2) AS operations`,[orgId,portableBoard]));
   requireEvidence(portableCounts.rows[0]?.proposals==='0'&&portableCounts.rows[0]?.undos==='0'&&portableCounts.rows[0]?.operations==='0','PORTABLE_AI_AUTHORITY_COPIED');
   const portableState=await s.collaboration.load(p,portableBoard),portableDoc=createWhiteboardDocument();
-  try{Y.applyUpdate(portableDoc,portableState.update);requireEvidence(readObjects(portableDoc).length===1&&readObjects(portableDoc)[0]?.text===textFinal,'PORTABLE_CONTENT_CHANGED');}finally{portableDoc.destroy();}
-  const evidence={version:1,status:'passed',executedAt:new Date().toISOString(),scope:'synthetic-storage-fixture-not-model-inference',orgId,sourceBoardId:boardId,newBoardId:joint.boardId,portableBoardId:portableBoard,proposalId,genericOperationId,proposalCount:references.length,sourceHistoryBlobCount:joint.restored.sourceHistoryBlobCount,proposalDigest:confirmedDigest,undoBeforeHash:beforeHash,manifestHash:joint.manifestHash,pgDumpHash:joint.pgDumpHash,checks:{pgPayloadEmpty:true,verifiedProposalFiles:true,legacyRollbackObserved:true,legacyRootRolledBack:true,legacyRetryMigrated:true,plaintextWriterRejected:true,proposalUndoApplied:true,restoredProposalReadable:true,restoredUndoApplied:true,newBoardOldAuthorityRows:counts.rows[0],portableOldAuthorityRows:portableCounts.rows[0]},cleanup:'Isolated source/target DB and private drill directory retained for root inspection.'};
+  try{Y.applyUpdate(portableDoc,portableState.update);requireEvidence(readObjects(portableDoc).length===1&&readObjects(portableDoc)[0]?.text===textAfter,'PORTABLE_CONTENT_CHANGED');}finally{portableDoc.destroy();}
+  stage='verify-portable-old-authority-rejected';
+  const portableRevision={epoch:portableState.epoch,seq:portableState.seq};
+  await requireNotFound(()=>s.proposals.read(p,portableBoard,proposalId));
+  await requireNotFound(()=>s.proposals.undo(p,portableBoard,proposalId,{requestId:randomUUID(),expectedRevision:portableRevision}));
+  await requireNotFound(()=>s.operations.undo(p,portableBoard,genericOperationId,{expectedRevision:portableRevision}));
+  const unchanged=await s.collaboration.load(p,portableBoard);
+  requireEvidence(unchanged.epoch===portableState.epoch&&unchanged.seq===portableState.seq&&hash(unchanged.update)===hash(portableState.update),'PORTABLE_REJECTED_AUTHORITY_MUTATED_CONTENT');
+  const evidence={version:1,status:'passed',executedAt:new Date().toISOString(),scope:'synthetic-storage-fixture-not-model-inference',orgId,sourceBoardId:boardId,newBoardId:joint.boardId,portableBoardId:portableBoard,proposalId,genericOperationId,proposalCount:references.length,sourceHistoryBlobCount:joint.restored.sourceHistoryBlobCount,proposalDigest:confirmedDigest,undoBeforeHash:beforeHash,manifestHash:joint.manifestHash,pgDumpHash:joint.pgDumpHash,checks:{pgPayloadEmpty:true,verifiedProposalFiles:true,legacyRollbackObserved:true,legacyRootRolledBack:true,legacyRetryMigrated:true,plaintextWriterRejected:true,proposalUndoApplied:true,restoredProposalReadable:true,restoredUndoApplied:true,newBoardOldAuthorityRows:counts.rows[0],portableOldAuthorityRows:portableCounts.rows[0],portableOldAuthorityRequestsRejected:true},cleanup:'Isolated source/target DB and private drill directory retained for root inspection.'};
   await writeFile(join(directory,'proposal-storage-evidence.json'),JSON.stringify(evidence,null,2)+'\n',{flag:'wx',mode:0o600});process.stdout.write(JSON.stringify(evidence)+'\n');
  }finally{await restoredDb.close();}
 }
