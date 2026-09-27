@@ -14,7 +14,7 @@
 
 ## 2. 现状与颜色（2026-09-27）
 
-当前按 iteration 的真实交付状态记录：R1–R5 已经独立复核、主 session 集成验收与 CI 通过并合入 `main`（R5：PR #4308，merge `73ee23b7a`）；R6 已吸收 R5 的 canonical selection/undo 语义，第一次真实浏览器验收发现框选坐标和归档清理两个 E2E 规格缺陷，正在保持“7 对象”断言不变完成修复；R7 已完成实现和独立复核，等待 R6 合入后做主 session 集成验收；R8 的真实 PostgreSQL 增长测试已补齐，但独立复核发现物理 GC 的 root/object-version TOCTOU、生产调度接线、pending root 租约及标准导出 roundtrip 仍是阻断，正在修复；R9 已完成实现和最终独立安全复核，等待 R8 合入后做主 session 的真实 API/浏览器/30 分钟会议室验收；R10 等前九轮汇合到同一集成 SHA 后执行总验收。
+当前交付记录：R1–R5 已合入 main（R5：#4308，merge `73ee23b7a`）。R6 的布局命令与 Alt 拖复制已通过主 session 真实验收；指针吸附、Smart Layout 仍待通过；Fabric ActiveSelection 坐标漂移修复 `a67f306fd` 已通过 47 项测试及 typecheck，尚待浏览器复验。用户最新截图明确否决当前视觉体验，因此 R6 新增专属 UI worker 与视觉阻断门，已有合并不代表视觉达标。R7 实现与独立复核完成；R8 最新 `de47eceb8` 已关闭此前独立复核阻断，仍待主 session 集成验收；R9 实现与独立安全复核完成；R10 验收脚手架已有实现，但最终验收尚未执行。以上来自本会话交付记录与本地提交；本次 GitHub 查询网络失败，未将缓存记录冒充新一轮远端验证。
 
 颜色口径：绿色=已合入 main；黄色=主 session 正在验收；蓝色=实现与独立复核完成、等待集成；橙色=正在补实现或复核；灰色=待开始；紫色=P2 后续路线。状态只由 PR、exact SHA、CI 和主 session 动态证据支撑。
 
@@ -26,9 +26,9 @@ flowchart LR
   R2 --> R3["R3 Sticky / Text<br/>PR #4286 ✅"]:::merged
   R3 --> R4["R4 内容对象<br/>PR #4292 ✅"]:::merged
   R4 --> R5["R5 空间与关系<br/>PR #4308 ✅"]:::merged
-  R5 --> R6["R6 编辑与组织<br/>修复真实E2E规格并复验"]:::working
+  R5 --> R6["R6 编辑与组织<br/>UI重整 + 坐标修复复验"]:::working
   R6 --> R7["R7 团队可靠性<br/>实现 + 独立复核完成"]:::ready
-  R7 --> R8["R8 存储与迁移<br/>修复GC竞态/调度/租约/roundtrip"]:::blocked
+  R7 --> R8["R8 存储与迁移<br/>实现 + 独立复核完成"]:::ready
   R8 --> R9["R9 AI / API / Chat / 会议室<br/>实现 + 独立安全复核完成"]:::ready
   R9 --> R10["R10 同一 SHA 总验收<br/>六旅程 / 指标 / 性能 / 恢复 / 无障碍"]:::todo
   R10 --> P2["P2 扩展路线<br/>Diagram / Mind Map / Kanban / Timeline<br/>Journey / Database / Agent与Live Data Tile"]:::future
@@ -134,9 +134,9 @@ flowchart LR
 | Iteration 03 | R3 Sticky/Text | ✅ PR #4286 已合入 | 同上，并完成Brainstorm旅程与输入指标 |
 | Iteration 04 | R4 内容对象 | ✅ PR #4292 已合入 | 同上，逐对象创建/编辑/保存/协作验收 |
 | Iteration 05 | R5 空间与关系 | ✅ PR #4308 已合入 | 同上，Panel及绑定Connector旅程 |
-| Iteration 06 | R6 编辑与组织 | 🟠 已集成 R5；修复真实E2E坐标/清理规格并复验 | 同上，Grid整理、快捷键与布局Undo |
+| Iteration 06 | R6 编辑与组织 | 🟠 UI 专属 worker 开发；坐标修复待真实复验 | 同上，Grid整理、快捷键与布局Undo |
 | Iteration 07 | R7 团队可靠性 | 🔵 实现与独立复核完成 | 同上，多客户端/撤权/恢复链路 |
-| Iteration 08 | R8 存储与迁移 | 🔴 独立复核阻断：GC竞态/调度/pending租约/export roundtrip | 同上，PG正文边界、迁移与恢复演练 |
+| Iteration 08 | R8 存储与迁移 | 🔵 阻断已修复并独立复核，待主 session 集成验收 | 同上，PG正文边界、迁移与恢复演练 |
 | Iteration 09 | R9 AI/API/Chat/会议室 | 🔵 实现与独立安全复核完成，等待前序集成 | 同上，Agent完整操作与长时会议室 |
 | Iteration 10 | R10 总验收 | ⚪ 待前九轮汇合 | 六旅程与所有硬门在统一SHA通过 |
 
@@ -144,10 +144,53 @@ flowchart LR
 
 ## 10. 当前执行队列
 
-1. 保持 7 对象选择断言不变，修复 R6 验收规格的 Fabric pan/zoom 坐标换算与 lifecycleRevision 清理，再重跑真实布局 E2E并创建本轮PR。
+1. R6 并行推进 UI 重整与真实 Fabric 坐标修复复验；主 session 收齐后验收指针吸附、Smart Layout 和下列视觉门，再创建本轮 PR。
 2. R6 合入后依次集成 R7；主 session 执行双浏览器 presence/comment、离线重连、撤权与多人 Undo/Redo。
-3. R8 先关闭独立复核列出的物理删除竞态、conditional version delete、生产调度、pending lease 和 export roundtrip，再做主 session PostgreSQL/ObjectStore/迁移/备份恢复验收。
+3. R8 已完成上述修复与独立复核；接下来做主 session PostgreSQL/ObjectStore/迁移/备份恢复验收。
 4. R9 在 R8 后执行 Chat 图形 handoff、AI proposal/一次 Undo、统一限流、会议室跟随与真实 30 分钟 signed-ledger soak。
 5. R10 只在前九轮同一集成 SHA 上启动；统一跑六旅程、P0/P1追溯、1k/5k/10k、50客户端、安全、无障碍、触摸与灾备门。
 
 设计材料索引：[Library API](./2026-09-26-library-api-design.md)、[存储接入与恢复](./2026-09-26-storage-integration-acceptance.md)、[正式集成验收](./2026-09-26-workspace-acceptance-matrix.md)、[原BV真实依赖图](./2026-09-26-mermaid-execution-plan.md)。本计划不构成人类签核或合并授权。
+
+
+## 11. 视觉体验阻断门（2026-09-27 用户截图反馈）
+
+用户对当前截图的体验评价为 **0 分**；不以功能数量抵扣。问题基线：巨大表单遮住上半画布、多个浮层重叠、精确属性默认展开、底部重复样式条、文字明显形变。以下是待实现与待验收的目标，不是已通过报告。
+
+```mermaid
+flowchart TD
+  BAD["当前截图：用户评价 0 分<br/>遮挡 / 重复菜单 / 文字形变"]:::fail
+  BAD --> UI["专属 UI 子 agent · R6<br/>紧凑上下文栏 / 按需属性 / 底部触摸 dock"]:::doing
+  BAD --> GEO["Fabric 坐标修复<br/>单测通过，待真实复验"]:::review
+  UI --> ROOT["主 session 同一 SHA 集成<br/>真实交互 + 前后同场景截图"]:::wait
+  GEO --> ROOT
+  ROOT --> GATE{"视觉硬门与六旅程均通过？"}
+  GATE -->|否| FIX["退回责任 worker<br/>不能用功能测试抵扣"]:::fail
+  FIX --> ROOT
+  GATE -->|是| SCORE["评分 ≥90/100 且各项 ≥80%<br/>才可报告达到 9 分目标"]:::target
+  SCORE --> FINAL["R10 统一回归<br/>所有对象类型 / 三视口 / 触摸 / 键盘"]:::wait
+  classDef fail fill:#fee2e2,stroke:#dc2626,color:#7f1d1d
+  classDef doing fill:#ffedd5,stroke:#ea580c,color:#7c2d12
+  classDef review fill:#fef3c7,stroke:#d97706,color:#78350f
+  classDef wait fill:#f1f5f9,stroke:#64748b,color:#334155
+  classDef target fill:#dbeafe,stroke:#2563eb,color:#1e3a8a
+```
+
+### 可见、可操作的评分表
+
+| 维度 | 权重 | 九分目标的验收证据 |
+|---|---:|---|
+| 画布优先与浮层布局 | 25 | 默认无属性大表单；仅一个上下文操作栏；工具不相互重叠、不挡住当前编辑文字；常规单选时画布至少 80% 面积未被 UI 浮层遮挡 |
+| 文字与对象视觉稳定 | 20 | 中英文、多行、长文在缩放/Resize/多选/布局/撤销/刷新后无非预期拉伸、裁切、跳位；截图与 canonical 几何对照 |
+| 便利贴思考主流程 | 20 | 双击直接输入、连续 Tab、颜色/形状/尺寸低成本切换、20 张整理；沿用第 8 节指标阈值，不另放宽 |
+| 工具层级与触摸操作 | 15 | Sticky/Shape/Draw/Connector 一级可达；主触摸目标至少 44×44 CSS px；低频操作按需展开；无重复常驻样式栏 |
+| 状态反馈与操作恢复 | 10 | 选中/编辑/锁定/同步/失败可区分；Escape 收起临时浮层；Undo 后视觉与数据一致；动画响应操作并尊重 reduced motion |
+| 响应式与无障碍 | 10 | 1440×900、1280×720、1024×768 下无工具遮挡/溢出；键盘可操作、焦点可见；触摸无 hover 依赖；400% reflow 按既有无障碍门验收 |
+
+评分逐项附通过/失败断言与截图，未验收不得记满分；≥90/100 且每一维不少于该维权重的 80% 才达到目标。该分数是本项目验收量表，不声称客观等同 Mural 用户满意度。
+
+**一票否决：** 正文形变或丢失；浮层盖住正在编辑的文字；主工具无法点击；选择/布局后对象跳走；工具栏溢出导致关键操作不可达；数据未保存却显示成功。任一存在，不得报告九分，即使总分达到阈值。
+
+**截图矩阵由主 session 执行：** 空白板、Sticky 单选、Sticky 编辑、Text 中英文长文、混合多选、Panel/Connector、右侧精确属性主动展开、底部四核心工具展开。每个状态记录上述三个视口；同一 board/zoom/数据保留前后对比，附操作录像或 trace、commit SHA 与失败项。截图只能证明视觉，保存/协作/撤销仍须真实 E2E。
+
+专属 UI worker 只交付组件、组件测试和 commit；不启动完整 Docker、不执行最终浏览器验收。修复归入 R6 同一个 iteration PR；R7–R9 新增界面同样受本门约束，R10 统一复验，不能因前轮已合并免检。
