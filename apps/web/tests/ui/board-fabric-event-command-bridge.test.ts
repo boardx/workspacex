@@ -64,6 +64,7 @@ vi.mock("fabric", async (importOriginal) => {
     emit(name: string, event: { target?: InstanceType<typeof MockFabricObject>; e?: unknown } = {}) {
       for (const handler of this.handlers.get(name) ?? []) handler(event);
     }
+    _onTouchEnd() {}
     dispose() {}
     requestRenderAll() {}
     setDimensions() {}

@@ -1,5 +1,5 @@
 "use client";
-import { readFabricInput, panFabricViewport, type FabricInput } from "./fabric-input";
+import { finishCancelledFabricTouch, panFabricViewport, readFabricInput, type FabricInput } from "./fabric-input";
 import {fitBoardContent,type BoardFitInsets} from "../board-chrome-fit";
 
 import * as React from "react";
@@ -651,7 +651,10 @@ export function BoardFabricSurface({ objects, selectedObjectIds, readOnly, tool,
       penSample = null;
     };
     const nativeCancel = (event: Event) => {
-      if (activeInput && (readFabricInput(event as TouchEvent | PointerEvent, activeInput) || (event.type === "pointercancel" && activeInput === "mouse" && (event as PointerEvent).isPrimary !== false && ((event as PointerEvent).pointerType === "mouse" || penSample?.id === `pointer:${(event as PointerEvent).pointerId}`)))) cancelInput();
+      if (activeInput && (readFabricInput(event as TouchEvent | PointerEvent, activeInput) || (event.type === "pointercancel" && activeInput === "mouse" && (event as PointerEvent).isPrimary !== false && ((event as PointerEvent).pointerType === "mouse" || penSample?.id === `pointer:${(event as PointerEvent).pointerId}`)))) {
+        cancelInput();
+        if (event.type === "touchcancel") finishCancelledFabricTouch(canvas,event as TouchEvent);
+      }
     };
     const inputDocument = element.ownerDocument;
     inputDocument.addEventListener("pointerdown", observePen, true);

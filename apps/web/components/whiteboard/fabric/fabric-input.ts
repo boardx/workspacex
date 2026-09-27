@@ -1,3 +1,4 @@
+import type {Canvas} from "fabric";
 /** Fabric's default event mode emits MouseEvent OR TouchEvent, not always PointerEvent. */
 type Contact = {identifier:number;clientX:number;clientY:number;force?:number};
 type Input = {type?:string;clientX?:number;clientY?:number;pointerId?:number;pointerType?:string;isPrimary?:boolean;button?:number;pressure?:number;touches?:ArrayLike<Contact>;changedTouches?:ArrayLike<Contact>};
@@ -22,4 +23,10 @@ export function panFabricViewport(transform:readonly number[],previous:FabricInp
  if(previous.id!==next.id||transform.length!==6||![...transform,previous.x,previous.y,next.x,next.y].every(Number.isFinite))return null;
  const value=[...transform];value[4]!+=next.x-previous.x;value[5]!+=next.y-previous.y;
  return value.every(Number.isFinite)?value:null;
+}
+
+/** Keep Fabric 7's touch teardown paired with its own touchstart listener. */
+export function finishCancelledFabricTouch(canvas:Pick<Canvas,"_currentTransform"|"_onTouchEnd">,event:TouchEvent):void {
+ canvas._currentTransform=null;
+ canvas._onTouchEnd({type:"touchend",target:event.target,touches:[],changedTouches:event.changedTouches,preventDefault:()=>{},stopPropagation:()=>{}} as unknown as TouchEvent);
 }
