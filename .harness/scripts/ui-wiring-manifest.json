@@ -1755,18 +1755,22 @@
         "apps/web/lib/live-feedback.ts",
         "apps/web/lib/live-identity.ts",
         "apps/web/lib/live-org-admin.ts",
+        "apps/web/lib/live-personal-transcriptions.ts",
         "apps/web/lib/live-platform-access.ts",
         "apps/web/lib/live-project-invite.ts",
         "apps/web/lib/live-project-members.ts",
         "apps/web/lib/live-project-prep.ts",
+        "apps/web/lib/live-project-resources.ts",
         "apps/web/lib/live-projects.ts",
         "apps/web/lib/live-provenance.ts",
         "apps/web/lib/live-recording.ts",
+        "apps/web/lib/live-tasks.ts",
         "apps/web/lib/live-workflow-orchestration.ts"
       ],
       "contracts": [
         "agent-defaults",
         "artifact",
+        "board",
         "chat",
         "chat-file-upload",
         "chat-knowledge-graph",
@@ -1774,6 +1778,7 @@
         "feedback-loop",
         "identity",
         "org-admin",
+        "personal-realtime-transcription",
         "plan-permissions",
         "platform-members",
         "project",
@@ -1813,6 +1818,7 @@
         "ProjectInviteController",
         "ProvenanceController",
         "PublicDesignShareController",
+        "RecordingController",
         "ToolPermissionGrantController"
       ]
     },
@@ -2245,6 +2251,7 @@
         "apps/web/lib/live-identity.ts",
         "apps/web/lib/live-org-admin.ts",
         "apps/web/lib/live-platform-access.ts",
+        "apps/web/lib/live-project-resources.ts",
         "apps/web/lib/live-projects.ts",
         "apps/web/lib/live-recording.ts"
       ],

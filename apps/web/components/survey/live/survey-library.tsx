@@ -6,7 +6,12 @@ import type { SurveyRuntime } from "@repo/contracts/survey-runtime";
 import { surveyRequest } from "@/lib/survey/runtime-client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-export function LiveSurveyLibrary() {
+import { ProjectBreadcrumb, withProjectId } from "@/components/project/project-breadcrumb";
+/**
+ * `projectId`（项目中枢 B2-S2）：从项目「研究洞察 › 问卷」带 `?projectId=` 进来时，顶部挂「返回项目」
+ * 面包屑，「创建问卷」入口续上 `projectId`，让工作台创建成功后能把问卷挂回该项目。
+ */
+export function LiveSurveyLibrary({ projectId = null }: { projectId?: string | null }) {
   const router = useRouter();
   const [items, setItems] = React.useState<SurveyRuntime[]>([]);
   const [busy, setBusy] = React.useState(true);
@@ -43,12 +48,13 @@ export function LiveSurveyLibrary() {
   };
   return (
     <main className="mx-auto max-w-6xl space-y-6 p-6">
+      <ProjectBreadcrumb projectId={projectId} sub="survey" className="" />
       <header className="flex items-center justify-between">
         <div>
           <p className="text-11 text-muted-foreground">Studio / 问卷</p>
           <h1 className="mt-2 text-24 font-semibold">我的问卷</h1>
         </div>
-        <div className="flex flex-wrap gap-2"><Button variant="outline" onClick={() => router.push("/studio/survey?tab=modules")}>从模板创建</Button><Button onClick={() => router.push("/studio/survey/new")}>创建问卷</Button></div>
+        <div className="flex flex-wrap gap-2"><Button variant="outline" onClick={() => router.push("/studio/survey?tab=modules")}>从模板创建</Button><Button onClick={() => router.push(withProjectId("/studio/survey/new", projectId))}>创建问卷</Button></div>
       </header>
       <div className="flex gap-2">
         <Input

@@ -58,6 +58,8 @@ import {
   type GuidedResearchDemoState,
 } from "@/lib/mock/guided-research-demo-state";
 import { clampGuidedResearchStep, maxGuidedResearchStep } from "@/lib/guided-research-stage";
+import { ProjectBreadcrumb, withProjectId } from "@/components/project/project-breadcrumb";
+import { linkProjectResource } from "@/lib/live-project-resources";
 import { clearResearchSkillState } from "@/lib/guided-research-skill-state";
 import { GuidedResearchSkillAssistant } from "./guided-research-skill-assistant";
 import { GuidedResearchStepLayout } from "./guided-research-step-layout";
@@ -182,10 +184,16 @@ export function GuidedResearchFlow({
   step,
   sessionId,
   onStepChange,
+  projectId = null,
 }: {
   step: GuidedResearchStep;
   sessionId?: string;
   onStepChange?: (step: GuidedResearchStep, sessionId?: string) => void;
+  /**
+   * 项目中枢 B2-S2：从项目「研究洞察 › 深度研究」带 `?projectId=` 进来。新建会话成功后
+   * `linkProjectResource` 挂回项目；站内 replaceState 的地址续上 `projectId`，面包屑不断。
+   */
+  projectId?: string | null;
 }) {
   const [restoredStep, setRestoredStep] = React.useState(() => clampSessionlessStep(step, sessionId));
   const [activeSessionId, setActiveSessionId] = React.useState(sessionId);
@@ -210,7 +218,7 @@ export function GuidedResearchFlow({
     if (onStepChange) return onStepChange(next, targetSessionId);
     setRestoredStep(next);
     setActiveSessionId(targetSessionId);
-    window.history.replaceState({}, "", targetSessionId ? `/research?session=${encodeURIComponent(targetSessionId)}` : "/research");
+    window.history.replaceState({}, "", withProjectId(targetSessionId ? `/research?session=${encodeURIComponent(targetSessionId)}` : "/research", projectId));
   };
 
   const hasCurrentSessionSnapshot = sessionSnapshot?.sessionId === activeSessionId;
@@ -220,10 +228,11 @@ export function GuidedResearchFlow({
   // URL props initialize navigation; local Back must be able to clear them.
   const routeChanged = routeInput.sessionId !== sessionId || routeInput.step !== step;
   const runtimeSessionId = routeChanged ? sessionId : activeSessionId;
-  if (runtimeSessionId) return <div className="p-4"><GuidedResearchLive sessionId={runtimeSessionId} initialNode={runtimeSessionId !== sessionId || step === "home" ? undefined : step === "search" ? "research" : step} onBack={() => navigate("home")} /></div>;
+  if (runtimeSessionId) return <div className="p-4"><ProjectBreadcrumb projectId={projectId} sub="research" className="mb-2" /><GuidedResearchLive sessionId={runtimeSessionId} initialNode={runtimeSessionId !== sessionId || step === "home" ? undefined : step === "search" ? "research" : step} onBack={() => navigate("home")} /></div>;
 
   return (
     <div className={restoredStep === "home" ? undefined : "p-4"}>
+    <ProjectBreadcrumb projectId={projectId} sub="research" className={restoredStep === "home" ? undefined : "mb-2"} />
     <div
       className="mx-auto flex w-full max-w-none flex-col gap-4 pb-8"
       data-testid={restorationBlocked ? "research-session-restore" : `research-flow-${restoredStep}`}
@@ -246,7 +255,7 @@ export function GuidedResearchFlow({
             </div>
           )}
           {restoredStep === "home" && <ResearchHome onNavigate={navigate} />}
-          {restoredStep === "brief" && <BriefScreen onPending={setEntryPending} sessionId={activeSessionId} session={sessionSnapshot} workflow={workflowSnapshot} onSession={setSessionSnapshot} onWorkflow={setWorkflowSnapshot} onNavigate={navigate} />}
+          {restoredStep === "brief" && <BriefScreen onPending={setEntryPending} projectId={projectId} sessionId={activeSessionId} session={sessionSnapshot} workflow={workflowSnapshot} onSession={setSessionSnapshot} onWorkflow={setWorkflowSnapshot} onNavigate={navigate} />}
           {restoredStep === "directions" && <DirectionsScreen sessionId={activeSessionId} session={sessionSnapshot} workflow={workflowSnapshot} onSession={setSessionSnapshot} onWorkflow={setWorkflowSnapshot} onNavigate={navigate} />}
           {restoredStep === "outline" && <OutlineScreen sessionId={activeSessionId} session={sessionSnapshot} workflow={workflowSnapshot} onSession={setSessionSnapshot} onWorkflow={setWorkflowSnapshot} onNavigate={navigate} />}
           {restoredStep === "search" && <SearchScreen sessionId={activeSessionId} session={sessionSnapshot} workflow={workflowSnapshot} onSession={setSessionSnapshot} onWorkflow={setWorkflowSnapshot} onNavigate={navigate} />}
@@ -405,8 +414,9 @@ function pendingCreateIdempotencyKey(intent: GuidedResearchCreateDraft & { brief
   return { key: generated, storageKey };
 }
 
-function BriefScreen({ sessionId, session, workflow, onSession, onWorkflow, onNavigate, onPending }: {
+function BriefScreen({ sessionId, session, workflow, onSession, onWorkflow, onNavigate, onPending, projectId = null }: {
   onPending: (pending: boolean) => void;
+  projectId?: string | null;
   sessionId?: string;
   session: GuidedResearchSession | null;
   workflow: GuidedResearchWorkflowProjection | null;
@@ -464,6 +474,11 @@ function BriefScreen({ sessionId, session, workflow, onSession, onWorkflow, onNa
       const pending = pendingCreateIdempotencyKey({ ...createDraft, brief });
       const createdSession = await createGuidedResearchSession({ ...createDraft, tags: [...createDraft.tags], idempotencyKey: pending.key, collaboratorUserIds: [], brief });
       if (!active.current) return;
+      // 项目中枢 B2-S2：会话已存在就先挂回项目；挂失败不影响研究流程（项目页可用「关联已有」补挂）。
+      if (projectId) {
+        try { await linkProjectResource({ projectId, kind: "guided_research", resourceId: createdSession.sessionId }); } catch { /* 项目页可补挂 */ }
+        if (!active.current) return;
+      }
       // Once creation has returned an id, recovery belongs to that session. Never
       // create or replay a model command merely because its response was lost.
       let runtime;

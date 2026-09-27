@@ -33,7 +33,7 @@ const SCREEN_ICON: Record<RsScreen, React.ComponentType<{ className?: string }>>
 };
 
 export function ResearchStudioApp({
-  identity, uiState, screen, view, sub, flow, guidedSessionId, qs,
+  identity, uiState, screen, view, sub, flow, guidedSessionId, qs, projectId = null,
 }: {
   identity?: Identity;
   uiState: UiState;
@@ -43,6 +43,8 @@ export function ResearchStudioApp({
   flow?: GuidedResearchStep;
   guidedSessionId?: string;
   qs: { as?: string; flow?: string };
+  /** 项目中枢 B2-S2：从项目页带 `?projectId=` 进来，新建的研究会话挂回该项目。 */
+  projectId?: string | null;
 }) {
   const href = (o: Partial<{ as: string; state: string; screen: string; sub: string }>) => {
     const p = new URLSearchParams();
@@ -64,7 +66,7 @@ export function ResearchStudioApp({
       <div className="flex h-full min-h-0 flex-col">
         {!flow && <PreviewControls screen={screen} view={view} uiState={uiState} href={href} />}
         <div className={cn("min-h-0 flex-1 overflow-y-auto", !flow && "p-4")} data-testid="rs-main">
-          {flow && <GuidedResearchFlow step={flow} sessionId={guidedSessionId} />}
+          {flow && <GuidedResearchFlow step={flow} sessionId={guidedSessionId} projectId={projectId} />}
           {!flow && screen === "list" && <RsListScreen state={uiState} view={view} sub={sub} href={href} />}
           {!flow && screen === "plan" && <RsPlanScreen state={uiState} view={view} sub={sub} />}
           {!flow && screen === "new" && <RsNewScreen state={uiState} view={view} sub={sub} />}
