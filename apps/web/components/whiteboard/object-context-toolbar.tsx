@@ -5,6 +5,7 @@ import { Bot, Link2, MessageCircle, Plus, Tag, X } from "lucide-react";
 import { STICKY_COLOR_PRESETS, type StickyVariant, type TextAttributes, type TextStylePreset, type WhiteboardObject } from "@repo/whiteboard-core";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { useBoardToolbarPosition } from "./use-board-toolbar-position";
 import { BoardToolPopover } from "./board-tool-popover";
 import type { BoardViewport } from "./fabric/board-fabric-object";
 
@@ -48,15 +49,8 @@ export function ObjectContextToolbar({ object, viewport, readOnly, actorId, onSt
   const addTag = () => { const tag = tagDraft.trim().slice(0, 32); if (!tag || experience.tags.includes(tag) || experience.tags.length >= 20) return; onExperienceChange({ ...experience, tags: [...experience.tags, tag] }); setTagDraft(""); };
   const toggleReaction = (emoji: string) => { const actors = experience.reactions[emoji] ?? [], active = actors.includes(actorId); onExperienceChange({ ...experience, reactions: { ...experience.reactions, [emoji]: active ? actors.filter((id) => id !== actorId) : [...actors, actorId] } }); };
   const savePreview = () => { try { const parsed = new URL(linkUrl); if (!["http:", "https:"].includes(parsed.protocol)) return; onExperienceChange({ ...experience, linkPreview: { url: parsed.toString(), title: linkTitle.trim() || parsed.hostname, description: linkDescription.trim().slice(0, 240) } }); } catch { /* Invalid URL remains editable without mutating canonical data. */ } };
-  const [windowSize, setWindowSize] = useState({ width: 1024, height: 768 });
-  useEffect(() => { const update = () => setWindowSize({ width: window.innerWidth, height: window.innerHeight }); update(); window.addEventListener("resize", update); return () => window.removeEventListener("resize", update); }, []);
-  const width = Math.min(460, windowSize.width - 32);
-  const objectTop = object.geometry.y * viewport.zoom + viewport.panY;
-  const objectBottom = (object.geometry.y + object.geometry.height) * viewport.zoom + viewport.panY;
-  const left = Math.max(16, Math.min(windowSize.width - width - 16, (object.geometry.x + object.geometry.width / 2) * viewport.zoom + viewport.panX - width / 2));
-  const top = objectTop >= 132 ? objectTop - 64 : Math.min(windowSize.height - 176, Math.max(72, objectBottom + 12));
-  const style = { left, top, maxWidth: width };
-  return <aside data-testid="board-context-toolbar" aria-label={`${object.kind === "sticky" ? "便利贴" : "文字"}快捷工具`} className="absolute z-30 flex items-center gap-1 rounded-2xl border border-border bg-card/95 p-1 shadow-lg backdrop-blur" style={style}>
+  const position = useBoardToolbarPosition(object.geometry, viewport);
+  return <aside ref={position.ref} data-testid="board-context-toolbar" aria-label={`${object.kind === "sticky" ? "便利贴" : "文字"}快捷工具`} className="absolute z-30 flex items-center gap-1 overflow-auto rounded-2xl border border-border bg-card/95 p-1 shadow-lg backdrop-blur" style={position.style}>
     <BoardToolPopover label={object.kind === "sticky" ? "便利贴样式" : "文字样式"}>
     {object.kind === "sticky" ? <div className="flex flex-wrap items-center gap-2">
       <span className="text-12 text-muted-foreground">颜色</span>{Object.entries(STICKY_COLOR_PRESETS).map(([name, color]) => <button key={name} type="button" data-testid={`sticky-color-${name}`} aria-label={`便利贴颜色 ${name}`} disabled={readOnly} onClick={() => onStickyChange({ color })} className="h-7 w-7 rounded-full border border-border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:bg-disabled" style={{ backgroundColor: color }} />)}
