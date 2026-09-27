@@ -32,6 +32,13 @@ vi.mock("@/lib/live-project-invite", async (orig) => ({
   acceptProjectInvite: (...a: unknown[]) => acceptProjectInvite(...a),
 }));
 
+vi.mock("@/lib/live-project-ai-settings", async (orig) => ({
+  ...(await orig<typeof import("@/lib/live-project-ai-settings")>()),
+  // B2-S5：设置 tab 现在还挂了「AI 权限」面板，这里只让它安静地拿到默认值，不是本文件的被测对象。
+  getProjectAiSettings: vi.fn().mockResolvedValue({ projectId: "p1", allowedSources: ["chat", "transcript", "survey", "interview", "research"], updatedAt: null, updatedBy: null }),
+  updateProjectAiSettings: vi.fn(),
+}));
+
 import { TabSettings } from "@/components/project/tab-settings";
 import { ProjectJoinScreen } from "@/components/project/project-join-screen";
 
