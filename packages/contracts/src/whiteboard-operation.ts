@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { BoardId, BoardRole } from './whiteboard';
-import { WhiteboardCommand, WhiteboardObjectId } from './whiteboard-document';
+import { WhiteboardCommand, WhiteboardObject, WhiteboardObjectId, WHITEBOARD_LIMITS } from './whiteboard-document';
 
 export const WHITEBOARD_OPERATION_LIMITS = {
   commands: 200,
@@ -14,6 +14,14 @@ export const WHITEBOARD_OPERATION_LIMITS = {
 
 const ActorId = z.string().min(1).max(200);
 const Revision = z.object({ epoch: z.number().int().positive(), seq: z.number().int().nonnegative() }).strict();
+/** Full canonical snapshot: bounded by the existing board object/document limits. */
+export const WhiteboardObjectsQuery = z.object({ actorId: ActorId }).strict();
+export const WhiteboardObjectsSnapshot = z.object({
+  boardId: BoardId, revision: Revision, role: BoardRole, archived: z.boolean(),
+  objects: z.array(WhiteboardObject).max(WHITEBOARD_LIMITS.objects),
+}).strict();
+export type WhiteboardObjectsSnapshot = z.infer<typeof WhiteboardObjectsSnapshot>;
+
 export const WhiteboardOperationActor = z.object({
   kind: z.enum(['human', 'service', 'ai']),
   actorId: ActorId,
@@ -177,6 +185,7 @@ export type WhiteboardPointerCapability = z.infer<typeof WhiteboardPointerCapabi
 
 /** Transport metadata derives from the same schemas; adapters only substitute path parameters. */
 export const whiteboardOperationOperations = {
+  readObjects: { method: 'GET', path: '/v1/whiteboards/:boardId/objects', input: WhiteboardObjectsQuery, output: WhiteboardObjectsSnapshot },
   execute: { method: 'POST', path: '/v1/whiteboards/:boardId/operations', input: WhiteboardOperationRequest, output: WhiteboardOperationReceipt },
   events: { method: 'GET', path: '/v1/whiteboards/:boardId/events', input: WhiteboardEventCursor, output: WhiteboardEventPage },
   createProposal: { method: 'POST', path: '/v1/whiteboards/:boardId/ai-proposals', input: WhiteboardAIProposalCreate, output: WhiteboardAIProposal },

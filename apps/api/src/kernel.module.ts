@@ -2960,8 +2960,8 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
     },
     {
       provide: WHITEBOARD_OPERATION_SERVICE,
-      useFactory: (db: DatabasePort, collaboration: PgWhiteboardCollaborationStore,objects:ObjectStore) => new WhiteboardOperationService(db, collaboration, new PgWhiteboardOperationRepository(),undefined,objects),
-      inject: [DATABASE_PORT, WHITEBOARD_COLLABORATION_STORE,OBJECT_STORE],
+      useFactory: (db: DatabasePort, collaboration: PgWhiteboardCollaborationStore,objects:ObjectStore,validator:WorkerWhiteboardUpdateValidator) => new WhiteboardOperationService(db, collaboration, new PgWhiteboardOperationRepository(),undefined,objects,validator),
+      inject: [DATABASE_PORT, WHITEBOARD_COLLABORATION_STORE,OBJECT_STORE,WHITEBOARD_UPDATE_VALIDATOR],
     },
     {
       provide: WHITEBOARD_PROPOSAL_SERVICE,

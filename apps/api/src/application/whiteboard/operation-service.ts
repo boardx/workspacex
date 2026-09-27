@@ -1,6 +1,6 @@
 import { createHash, randomUUID } from 'node:crypto';
 import {
-  WhiteboardArtifactHandoff, WhiteboardEventCursor, WhiteboardOperationRequest, WhiteboardOperationReceipt,
+  WhiteboardObjectsQuery, WhiteboardObjectsSnapshot, WhiteboardArtifactHandoff, WhiteboardEventCursor, WhiteboardOperationRequest, WhiteboardOperationReceipt,
   type WhiteboardOperationEvent as Event, type WhiteboardOperationReceipt as Receipt,
 } from '@repo/contracts/whiteboard-operation';
 import type { WhiteboardCommand } from '@repo/contracts/whiteboard-document';
@@ -9,7 +9,7 @@ import type { DatabasePort } from '../ports/database.port';
 import type { TenantSession } from '../ports/database.port';
 import type {ObjectStore} from '../artifact/ports';
 import {artifactSourceMatchesLayout} from '../../domain/whiteboard/artifact-layout-source-verifier';
-import { WhiteboardCollaborationError, type WhiteboardCollaborationStore } from './collaboration-ports';
+import { WhiteboardCollaborationError, type WhiteboardCollaborationStore, type WhiteboardUpdateValidator } from './collaboration-ports';
 import type { RegisteredBoardActor, WhiteboardOperationAuditRepository } from './operation-ports';
 import {renderedLayoutToCommands} from '@repo/whiteboard-core';
 
@@ -17,7 +17,7 @@ export const WHITEBOARD_OPERATION_SERVICE = Symbol('WhiteboardOperationService')
 export class WhiteboardOperationError extends Error {
   constructor(readonly code: 'FORBIDDEN'|'STALE_REVISION'|'IDEMPOTENCY_CONFLICT'|'NOT_FOUND'|'VALIDATION_FAILED'|'ARCHIVED'|'RATE_LIMITED'|'DEPENDENCY_UNAVAILABLE') { super(code); }
 }
-export type WhiteboardRateLimitedEntry='operation'|'artifact-handoff'|'events'|'head'|'proposal-create'|'proposal-read'|'proposal-cancel'|'proposal-confirm'|'room-join'|'presentation-read'|'presentation-command';
+export type WhiteboardRateLimitedEntry='operation'|'artifact-handoff'|'events'|'objects'|'head'|'proposal-create'|'proposal-read'|'proposal-cancel'|'proposal-confirm'|'room-join'|'presentation-read'|'presentation-command';
 function collaborationError(error:unknown):never{
   if(!(error instanceof WhiteboardCollaborationError))throw error;
   const code=error.code==='STALE_EPOCH'?'STALE_REVISION':error.code==='INTEGRITY_FAILED'||error.code==='VALIDATOR_UNAVAILABLE'?'DEPENDENCY_UNAVAILABLE':error.code;
@@ -40,7 +40,7 @@ function eventType(commands:readonly WhiteboardCommand[],source:string):Event['t
 
 /** Durable public API adapter. The collaboration write, audit receipt and event append share one tenant transaction. */
 export class WhiteboardOperationService {
-  constructor(private readonly db:DatabasePort,private readonly collaboration:WhiteboardCollaborationStore,private readonly audit:WhiteboardOperationAuditRepository,private readonly now=()=>new Date(),private readonly objects?:Pick<ObjectStore,'get'>){}
+  constructor(private readonly db:DatabasePort,private readonly collaboration:WhiteboardCollaborationStore,private readonly audit:WhiteboardOperationAuditRepository,private readonly now=()=>new Date(),private readonly objects?:Pick<ObjectStore,'get'>,private readonly validator?:Pick<WhiteboardUpdateValidator,'objects'>){}
   async execute(principal:Principal,boardId:string,untrusted:unknown):Promise<Receipt>{
     const request=WhiteboardOperationRequest.parse(untrusted);
     return this.db.withTenant(principal.orgId,session=>this.executeInTransaction(session,principal,boardId,request));
@@ -83,6 +83,22 @@ export class WhiteboardOperationService {
       if(!await this.audit.canRead(session,principal,boardId))throw new WhiteboardOperationError('NOT_FOUND');
       const events=await this.audit.events(session,principal,boardId,cursor.afterSeq,cursor.limit);
       return{boardId,events,nextSeq:events.at(-1)?.revision.seq??cursor.afterSeq};
+    });
+  }
+  async readObjects(principal:Principal,boardId:string,untrusted:unknown):Promise<WhiteboardObjectsSnapshot> {
+    const query = WhiteboardObjectsQuery.parse(untrusted);
+    return this.db.withTenant(principal.orgId, async session => {
+      const actor = await this.audit.resolveActor(session, principal, query.actorId);
+      if (!actor || actor.delegatedBy !== principal.userId || !actor.scopes.includes('board:read')) {
+        throw new WhiteboardOperationError('FORBIDDEN');
+      }
+      if (!this.validator) throw new WhiteboardOperationError('DEPENDENCY_UNAVAILABLE');
+      // The store checks fresh board membership while holding the board lock,
+      // then reads one immutable, integrity-verified snapshot and its revision.
+      const snapshot = await this.collaboration.loadInTransaction(session, principal, boardId).catch(collaborationError);
+      const objects = await this.validator.objects(snapshot.update).catch(collaborationError);
+      return WhiteboardObjectsSnapshot.parse({ boardId, revision: { epoch: snapshot.epoch, seq: snapshot.seq },
+        role: snapshot.role, archived: snapshot.archived, objects });
     });
   }
   async head(principal:Principal,boardId:string){return this.db.withTenant(principal.orgId,async session=>{const value=await this.audit.lockHead(session,principal,boardId);if(!value)throw new WhiteboardOperationError('NOT_FOUND');return{epoch:value.epoch,seq:value.seq,role:value.actorRole};});}

@@ -39,3 +39,32 @@ transaction and one structural undo step.
 
 The upload route uses a route-local JSON parser sized for the reviewed 32 MiB binary limit plus
 base64 overhead. Other API routes keep Express's default body limit.
+
+## Agent canonical object read
+
+`GET /v1/whiteboards/:boardId/objects?actorId=<registered-actor-id>` uses the normal
+Bearer principal and the shared 120 requests/minute board/principal API bucket. The actor
+must be enabled, belong to the principal's tenant, be delegated by that principal and have
+`board:read`. Owner, editor and viewer board membership can read; archived boards remain
+readable. Missing or inaccessible boards return 404; invalid/disabled actors and missing
+read scope return 403. Caller-supplied role/scopes are not accepted.
+
+The response is `{ boardId, revision: { epoch, seq }, role, archived, objects }`.
+`objects` contains complete canonical objects (including text, geometry, parentId, style and
+connector data), excluding tombstones and dangling connectors. It never includes the storage
+manifest, ObjectStore key or raw Yjs bytes. The role and revision come from the same locked
+snapshot read as the content. Feed `revision` into the next operation's `expectedRevision`;
+a concurrent edit is rejected by the existing stale-revision guard.
+
+This is one full snapshot, not a paginated live traversal: the existing canonical limit is
+5,000 objects and the persisted Yjs document limit is 32 MiB. JSON encoding can be larger than
+the binary snapshot. Reading all objects in one response avoids mixing revisions across
+pages or silently omitting later objects. ObjectStore integrity checks precede bounded worker
+validation/decoding; dependency or integrity failure is fail-closed (503). No DOM or Fabric
+projection is involved.
+
+The existing 5,000-object validation limit currently conflicts with the planned 10,000-object
+acceptance board. This read endpoint does not increase or independently redefine it: the
+single source is `WHITEBOARD_LIMITS.objects` in `packages/contracts/src/whiteboard-document.ts`,
+enforced by `validateDocument` for both reads and writes. Raising it requires a coordinated
+capacity change and verification of snapshot, struct-count and validator worker budgets.
