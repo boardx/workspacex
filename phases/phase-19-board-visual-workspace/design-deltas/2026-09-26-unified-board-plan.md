@@ -14,9 +14,54 @@
 
 ## 2. 现状与颜色
 
-现有证据只支持：正式 Fabric/协作分支的基础能力，以及新浏览页、便利贴增强的局部预览验收。六条正式 PRD 旅程完整通过记录为 0/6。之前的 26 项局部测试不能换算为产品完成百分比。
+截至 2026-09-28，功能单源 `feature_list.json` 有 32 项、共 167 点：BV01（5点）为 `in_progress`，其余 31 项（162点）为 `not_started`。这不是产品完成百分比；既有能力与局部预览不能抵扣未通过正式退出门的功能。
 
-图中蓝色表示可复用的局部实现/证据；橙色表示本轮需完成的设计或契约；灰色表示待实现/验收；紫色表示明确保留的 P2。绿色仅用于完整验收通过且满足仓库完成定义的交付，本计划不使用绿色。
+近期 UI 交付 PR [#4488](https://github.com/boardx/workspacex/pull/4488) 仍为 OPEN，当前 head `73c51bf`。远端全仓编译/typecheck/lint、control-plane、merge-gate 通过；但 `verify-affected` 与 `fullstack-smoke` 失败，后者 118 项通过、1 项新加的对象属性面板浏览器断言失败（Text 快捷样式控件定位不到）。backend-gates 当时仍有 shard 运行，不能据此视为绿。该 PR 是局部 UI 交付，不代表 R1–R10 中任何一轮已完成；不得合并直到失败修复、独立复核和 CI 全绿。
+
+按 167 点、最多 3 条相互独立的开发线并行、每轮一个 PR，以及主 session 集中端到端验收估算：**开发与集成约 8–12 周，含 CI/返修/迁移验收缓冲约 10–14 周日历时间**。这是假设每周持续投入并且 issue/契约门可及时就绪的区间，不是承诺日期；R1/R2 的实测吞吐、依赖和 CI 返修会校准后续轮次。
+
+图中蓝色表示已通过的局部检查；黄色表示仍在运行的检查；红色表示当前失败且必须修复；橙色表示排期估算；灰色表示待实现/验收；紫色表示明确保留的 P2。只有整轮退出门、主 session 验收、独立复核与仓库完成定义均通过时，才能标绿色。
+
+### 当前进度与交付估算（滚动预测）
+
+```mermaid
+flowchart LR
+  A["BV01–BV32：32项 / 167点<br/>BV01 进行中；其余31项未开始"]:::risk
+  B["PR #4488 局部 UI<br/>OPEN；head 73c51bf"]:::risk
+  C["已通过：全仓编译、类型检查、lint<br/>control-plane、merge-gate"]:::done
+  D["失败：verify-affected<br/>对象面板 Text 快捷样式断言"]:::fail
+  E["失败：fullstack-smoke<br/>118通过 / 1失败；需修复后重跑"]:::fail
+  F["后台门：backend-gates<br/>采样时仍在运行"]:::wait
+  G["修复 + 主 session 浏览器复验<br/>再重跑完整 CI 与独立复核"]:::next
+  A --> G
+  B --> G
+  C --> G
+  D --> G
+  E --> G
+  F --> G
+  classDef done fill:#dcfce7,stroke:#16a34a,color:#14532d
+  classDef wait fill:#fef3c7,stroke:#d97706,color:#78350f
+  classDef fail fill:#fee2e2,stroke:#dc2626,color:#7f1d1d
+  classDef risk fill:#ffedd5,stroke:#ea580c,color:#7c2d12
+  classDef next fill:#dbeafe,stroke:#2563eb,color:#1e3a8a
+```
+
+各轮区间是带依赖交付的日历工作周估算，轮内独立模块可并行；跨轮预研可以提前，但不能绕过依赖/签核，也不能把未验收工作算作完成。
+
+| Iteration | 主范围 | 估算 | 可并行工作面（最多三条开发线） |
+|---|---|---:|---|
+| R1 | Fabric/Yjs对象与命令边界、无限画布、Undo/Event、BlobStore接口 | 1–2周 | 画布/领域模型；协作投影；存储端口与契约 |
+| R2 | Board浏览、标签、Duplicate、归档/删除 | 0.5–1周 | 浏览UI；API与权限；复制生命周期测试 |
+| R3 | Sticky/Text、连续输入、批量与粘贴 | 1–1.5周 | Sticky交互；Text编辑；输入/IME与撤销验收 |
+| R4 | Shape、Draw、Image、Tile | 1–1.5周 | Shape/Tile；矢量Draw；Image入口/存储 |
+| R5 | Panel、Group、Layer、Lock、绑定Connector | 1–1.5周 | Panel；Connector；层级/锁与关系测试 |
+| R6 | 多选、快捷键、对齐/分布、Smart Layout | 0.75–1.25周 | 选择与快捷键；布局算法；UI/Undo集成 |
+| R7 | Presence、评论、多人撤销、离线/恢复 | 1–1.5周 | Presence；评论；恢复/撤销语义 |
+| R8 | 文件存储迁移、备份恢复、Miro/Mural导入导出 | 1.5–2周 | Blob/PG迁移；导入器；备份与数据对账 |
+| R9 | API、AI proposals、Chat图插入、会议室跟随 | 1–1.5周 | API/事件；AI与Chat；Presenter/触屏 |
+| R10 | 六旅程、性能、长时协作、安全、可访问性、总验收 | 1–1.5周 | 性能；a11y/恢复；集成验收与独立复核 |
+
+并行后的关键路径约 8–12 周；每轮一个 PR 带来的 CI 队列、返修和 R8/R10 高风险验收缓冲约 2 周，形成 **10–14 周** 当前区间。PR #4488 的当前红灯修复是眼前门槛，不计作 R1 已完成。
 
 ## 3. 总体 Mermaid：先统一基础，再并行交付
 
