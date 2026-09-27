@@ -684,7 +684,7 @@ function renderTab(
         />
       );
     case "todo": return <TabTodo view={view} readOnly={orgDisabled} />;
-    case "settings": return <TabSettings view={view} readOnly={orgDisabled} />;
+    case "settings": return <TabSettings view={view} readOnly={orgDisabled} projectId={projectId} />;
   }
 }
 
