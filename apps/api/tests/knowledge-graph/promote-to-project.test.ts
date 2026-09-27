@@ -128,10 +128,12 @@ describe("R7 记到项目大脑", () => {
     expect(await sql(`SELECT id FROM claims WHERE org_id = '${ORG}' AND scope_kind = 'project' AND statement = '客户把交付确定性排在价格之前'`)).toHaveLength(1);
   });
 
-  it("召回：同项目另一条线程的候选集里出现项目记忆（scope=project）；个人线程里不出现", async () => {
+  it("召回：同项目另一条线程的候选集里出现项目记忆（scope=project）；从本线程晋升出去的那条不重复；个人线程里不出现", async () => {
     const inB = await recall.candidates(ORG_ID, "u-fac", T_B);
-    expect(inB.claims.filter((c) => c.scope === "project").map((c) => c.statement).sort())
-      .toEqual(["客户把交付确定性排在价格之前", "并网周期是首要阻碍"].sort());
+    // 「客户把交付确定性排在价格之前」在 B 里已作为本会话结论（chat_session）进候选；它合并进的那条项目记忆
+    // 由 B 的这条 derived_from 连回，按 L1 同款规则不再重复一份。只有从别的线程记进项目大脑的才以 project 出现。
+    expect(inB.claims.filter((c) => c.scope === "project").map((c) => c.statement)).toEqual(["并网周期是首要阻碍"]);
+    expect(inB.claims.filter((c) => c.scope === "chat_session").map((c) => c.statement)).toContain("客户把交付确定性排在价格之前");
     const inPersonal = await recall.candidates(ORG_ID, "u-creator", T_P);
     expect(inPersonal.claims.filter((c) => c.scope === "project")).toHaveLength(0);
   });
