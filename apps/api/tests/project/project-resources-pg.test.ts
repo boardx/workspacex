@@ -35,7 +35,11 @@ let db: PgDatabase;
 let repo: PgProjectResourceRepository;
 let deps: Parameters<typeof listProjectResources>[0];
 
-async function seedResources(orgId: string, owner: string): Promise<void> {
+/**
+ * `researchId`：`guided_research_sessions.id` 是全局主键（F168 迁移），不像问卷 / 转写按 (org_id, id)
+ * 分租户，另一租户的深研会话必须换 id；跨租户反证只用问卷 `s1`，不受影响。
+ */
+async function seedResources(orgId: string, owner: string, researchId = "g1"): Promise<void> {
   await asApp(orgId, async (c) => {
     await c.query(
       `INSERT INTO survey_workspaces (org_id, id, owner_id, document) VALUES ($1, 's1', $2, $3::jsonb)`,
@@ -43,8 +47,8 @@ async function seedResources(orgId: string, owner: string): Promise<void> {
     );
     await c.query(
       `INSERT INTO guided_research_sessions (id, org_id, owner_user_id, idempotency_key, title, brief, stage, resume_stage)
-       VALUES ('g1', $1, $2, 'k1', '研究一', '{}'::jsonb, 'outline', 'outline')`,
-      [orgId, owner],
+       VALUES ($3, $1, $2, $4, '研究一', '{}'::jsonb, 'outline', 'outline')`,
+      [orgId, owner, researchId, `k-${researchId}`],
     );
     await c.query(
       `INSERT INTO personal_transcriptions (id, org_id, owner_user_id, name, status) VALUES ('t1', $1, $2, '转写一', 'idle')`,
@@ -83,7 +87,7 @@ beforeEach(async () => {
   await seedResources(ORG, OWNER);
   // 另一租户：同 id 的资源与同名成员，用来证明 org_id 谓词 + RLS 生效。
   await seedOrg({ orgId: OTHER, projectId: `${OTHER}-p` });
-  await seedResources(OTHER, OWNER);
+  await seedResources(OTHER, OWNER, `${OTHER}-g1`);
   await asApp(ORG, (c) =>
     c.query(
       `INSERT INTO interview_sessions (id, org_id, project_id, source_kind, title, created_by, digital_status)
