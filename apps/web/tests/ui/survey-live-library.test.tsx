@@ -18,6 +18,21 @@ const survey = (patch = {}) => ({
 beforeEach(() => { request.mockReset(); push.mockReset(); });
 
 describe("LiveSurveyLibrary", () => {
+  it("creates a named draft with a pending tag and navigates only after persistence", async () => {
+    request.mockResolvedValueOnce([]).mockResolvedValueOnce(survey({id:'created',title:'产品调研',tags:['产品'],publication:null}));
+    render(<LiveSurveyLibrary />);await screen.findByRole('heading',{name:'还没有问卷'});
+    fireEvent.click(screen.getAllByRole('button',{name:'新建问卷'})[0]!);
+    fireEvent.change(screen.getByLabelText('问卷名称'),{target:{value:'产品调研'}});
+    fireEvent.change(screen.getByLabelText('标签'),{target:{value:'产品'}});
+    fireEvent.click(screen.getByRole('button',{name:'下一步'}));
+    await waitFor(()=>expect(push).toHaveBeenCalledWith('/studio/survey/created?step=design'));
+    expect(request).toHaveBeenLastCalledWith('/surveys',expect.objectContaining({method:'POST',body:expect.objectContaining({title:'产品调研',tags:['产品'],questions:[]})}),expect.anything());
+  });
+  it("searches actual persisted tags as well as survey names", async () => {
+    request.mockResolvedValueOnce([survey({tags:['组织诊断']})]);render(<LiveSurveyLibrary />);
+    await screen.findByTestId('survey-status-survey-1');fireEvent.change(screen.getByLabelText('搜索问卷'),{target:{value:'组织诊断'}});
+    expect(screen.getByRole('link',{name:'客户满意度'})).toBeInTheDocument();
+  });
   it("counts included pending-review responses using the report sample basis", async () => {
     request.mockResolvedValueOnce([survey({responses:[
       {id:"r1",quality:"normal",analysis:"included"},

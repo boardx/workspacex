@@ -32,7 +32,9 @@ export const KgScopeKind = z.enum(["chat_session", "personal", "project", "org",
 export type KgScopeKind = z.infer<typeof KgScopeKind>;
 
 /** Phase 18 允许写入 / 读取的作用域。其余成员在本阶段一律 `KG_SCOPE_NOT_ENABLED`。 */
-export const KG_SCOPES_ENABLED_PHASE_18 = ["chat_session", "personal"] as const satisfies readonly KgScopeKind[];
+/** 项目中枢 R7（2026-09-27，用户直接交办）放开第三级 `project`（L2）：项目线程的结论可晋升到项目记忆、项目内对话可召回。 */
+/** B2-S4（issue #4428）放开第四级 `org`（L3）：组织 lead / admin 可把项目记忆晋升到组织记忆，组织成员可读。 */
+export const KG_SCOPES_ENABLED_PHASE_18 = ["chat_session", "personal", "project", "org"] as const satisfies readonly KgScopeKind[];
 
 /** 实体类型：封闭枚举（uc-18-1 R7-1、S0-5）。新增走 ADR。 */
 export const KgObjectKind = z.enum([
@@ -40,9 +42,25 @@ export const KgObjectKind = z.enum([
 ]);
 export type KgObjectKind = z.infer<typeof KgObjectKind>;
 
-/** 结论类型：封闭枚举（uc-18-1 R7-2、S0-5）。 */
-export const KgClaimKind = z.enum(["fact", "hypothesis", "decision", "todo", "risk"]);
+/**
+ * 结论类型：封闭枚举（uc-18-1 R7-2、S0-5）。
+ *
+ * issue #4343（人类决定 2026-09-27）加 `goal` / `preference` 两类：用户**本人**明确说出的目标 / 意图
+ * （「我的目标是…」「我想…」「我希望…」）与偏好（「我更喜欢…」）。之前的五类里没有它们，于是「我的目标是探索
+ * 未来教育」抽取跑完一条都没记下。分成两类而不是合一：界面标签（目标 / 偏好）与模型判别都更清楚，
+ * 数据库 CHECK（迁移 20260927310000）与本枚举逐项对账。
+ */
+export const KgClaimKind = z.enum(["fact", "hypothesis", "decision", "todo", "risk", "goal", "preference"]);
 export type KgClaimKind = z.infer<typeof KgClaimKind>;
+
+/**
+ * issue #4343：「本人意向类」结论——作者本人说的会自动记进本人个人空间（同 #4283 的决定），并在每一轮强制召回
+ * （同 #4181 的决定，名额另计）。唯一事实源：抽取、自动复制、召回都从这里判，不各写一份。
+ */
+export const KG_SELF_INTENT_CLAIM_KINDS = ["goal", "preference"] as const satisfies readonly KgClaimKind[];
+export function isSelfIntentClaimKind(kind: KgClaimKind | null | undefined): boolean {
+  return kind != null && (KG_SELF_INTENT_CLAIM_KINDS as readonly KgClaimKind[]).includes(kind);
+}
 
 /**
  * 关系：两个封闭枚举，按端点类型分开。
@@ -302,10 +320,18 @@ export type KgMemoryCard = z.infer<typeof KgMemoryCard>;
 export const KgRecalledMemory = z.object({
   claimId: z.string(),
   statement: z.string(),
+  /** issue #4343：引用 chip 上标类型（目标 / 偏好 / 决定 …）；库里 claim_kind 为空的旧行按 fact。 */
+  kind: KgClaimKind,
   triState: KgTriState,
-  scope: z.enum(["chat_session", "personal"]),
+  /** S10（#4367）起含 `project`：项目会话里用到的项目记忆（全体项目成员可见）。 */
+  scope: z.enum(["chat_session", "personal", "project"]),
   /** 这条最早被说出来的时间（ISO）；个人空间的条目界面显示为「来自你 {日期} 的对话」 */
   saidAt: z.string().nullable(),
+  /**
+   * S10（#4367）：项目记忆里由某人从**个人记忆**分享来的那条 ⇒ 分享人的显示名（没有显示名为空串，界面说「项目成员」），
+   * 界面标「由 X 分享自个人记忆」；其余（本会话、个人空间、从项目对话记进项目大脑的）省略或 null。
+   */
+  sharedByName: z.string().nullable().optional(),
   channels: z.array(RetrievalChannel),
   retrievalReasons: z.array(FilterAction),
   score: z.number(),
@@ -343,8 +369,10 @@ export const KgMessageExtraction = z.object({
   claims: z.array(z.object({
     claimId: z.string(),
     statement: z.string(),
+    /** issue #4343：反馈条上标类型（「已记下 · 目标：…」）；库里 claim_kind 为空的旧行按 fact。 */
+    kind: KgClaimKind,
     /**
-     * issue #4283（人类决定 2026-09-26）：这条是作者本人说的「决定」，已自动记进**请求者本人**的个人空间，
+     * issue #4283（人类决定 2026-09-26）：这条是作者本人说的「决定」（#4343 起也含目标 / 偏好），已自动记进**请求者本人**的个人空间，
      * 且那一份仍是「AI 记下的」（未确认）——反馈条显示「已记入个人记忆」、撤销走 `undoAutoPersonalCopy`。
      * 其余情况（不是决定类、不是请求者本人说的、副本已撤销 / 已确认、看的人不是作者）⇒ null。
      */
@@ -416,6 +444,34 @@ export const KgPersonalReplacedClaim = z.object({
 }).strict();
 export type KgPersonalReplacedClaim = z.infer<typeof KgPersonalReplacedClaim>;
 
+/**
+ * S10（#4367）「分享到项目…」的一个目标项目 + 范围预览：确认之前先说清**谁会看到**。
+ * `audience` 最多 `KG_SHARE_AUDIENCE_PREVIEW_MAX` 人（按显示名排序），`audienceCount` 是全部成员数（含观察者：项目记忆给全体成员看）。
+ */
+export const KG_SHARE_AUDIENCE_PREVIEW_MAX = 50;
+export const KgProjectShareTarget = z.object({
+  projectId: z.string(),
+  name: z.string(),
+  audience: z.array(z.object({ userId: z.string(), displayName: z.string() }).strict()).max(KG_SHARE_AUDIENCE_PREVIEW_MAX),
+  audienceCount: z.number().int().nonnegative(),
+  /** 已经分享到这个项目 ⇒ 项目里那份的 id（可撤回）；没分享 ⇒ null */
+  sharedClaimId: z.string().nullable(),
+}).strict();
+export type KgProjectShareTarget = z.infer<typeof KgProjectShareTarget>;
+
+/**
+ * S10（#4367）：分享来的项目记忆的出处说法——「由 X 分享自个人记忆」（没有显示名说「项目成员」）。
+ * 单一事实源：给模型的【记忆】材料（api domain/knowledge-graph/recall.ts）与界面（引用 chip、项目大脑）都用这一个。
+ */
+export function sharedFromPersonalLabelZh(name: string): string {
+  const n = name.trim();
+  return `由 ${n === "" ? "项目成员" : n} 分享自个人记忆`;
+}
+
+/** S10（#4367）：项目记忆里一条由成员从个人记忆分享来的结论 ⇒ 分享人显示名（没有显示名为空串）。 */
+export const KgProjectSharedFrom = z.object({ claimId: z.string(), sharedByName: z.string() }).strict();
+export type KgProjectSharedFrom = z.infer<typeof KgProjectSharedFrom>;
+
 /** 大脑页最多列出的会话数（按最近活动倒序）。 */
 export const KG_BRAIN_THREADS_LIMIT = 50;
 
@@ -433,6 +489,8 @@ export const KgErrorCode = z.enum([
   "KG_CONTESTED_NEEDS_RESOLUTION",
   "KG_ACTOR_NOT_HUMAN",
   "KG_SCOPE_NOT_PERSONAL",
+  /** 项目中枢 R7：`promoteToProject` 只对项目线程（个人线程没有项目可记）。 */
+  "KG_SCOPE_NOT_PROJECT",
   "KG_SCOPE_NOT_ENABLED",
   "KG_EVIDENCE_REVOKED",
   "KG_PROMOTE_BATCH_TOO_LARGE",
@@ -440,6 +498,10 @@ export const KgErrorCode = z.enum([
   "KG_CARD_NOT_FOUND",
   "KG_CARD_STALE",
   "KG_PROMPT_NOT_FOUND",
+  /** S10（#4367）「分享到项目…」：目标项目不存在，或分享人不是它的成员（同一个出口，不泄露存在性；HTTP 404）。 */
+  "KG_PROJECT_NOT_FOUND",
+  /** S10（#4367）：分享人在目标项目里只是观察者（只有 read.published），或项目已归档（HTTP 403）。 */
+  "KG_PROJECT_READ_ONLY",
   /** issue #4178 —— `setKnowledgeExtractionSetting` 仅组织 admin，同 `plan-permissions`
    *  `StandingToolGrantError.NOT_ORG_ADMIN` 同一判据（`org_memberships.orgRole !== 'admin'`）。 */
   "KG_NOT_ORG_ADMIN",
@@ -528,6 +590,8 @@ export const knowledgeGraph = {
       canEdit: z.boolean(),
       /** 会话是否个人线程 —— 前端据此渲染「存入个人空间」（uc-18-4 E2） */
       canPromote: z.boolean(),
+      /** 项目中枢 R7：「记到项目大脑」入口——项目线程，且调用者是创建者或本项目引导师。旧响应无此字段 ⇒ 视为 false。 */
+      canPromoteToProject: z.boolean().optional(),
       /** U-6：面板头部常驻的可见范围说明 —— 仅你可见 / 会话成员可见 */
       visibility: KgVisibility,
       /**
@@ -613,6 +677,92 @@ export const knowledgeGraph = {
     ] as const,
   },
 
+  /**
+   * S10（#4367）「分享到项目…」第一步：这条个人结论能分享到哪些项目、每个项目里**谁会看到**（范围预览）。
+   * 只有这条个人结论的主人能读；别人的个人结论与不存在同一个出口 `KG_CLAIM_NOT_FOUND`（404，人类决定 2026-09-27）。
+   * `targets`：本人是成员（且不是观察者）、未归档的项目；`sharedClaimId` 非空 ⇒ 已经分享过，项目里那份可撤回。
+   */
+  listProjectShareTargets: {
+    method: "GET", path: "/knowledge-graph/personal/claims/:claimId/share-targets",
+    in: z.object({ claimId: z.string() }).strict(),
+    out: z.object({
+      claimId: z.string(),
+      statement: z.string(),
+      targets: z.array(KgProjectShareTarget),
+    }).strict(),
+    err: ["KG_CLAIM_NOT_FOUND"] as const,
+  },
+
+  /**
+   * S10（#4367）：把本人的一条个人结论**显式**分享到项目记忆（L1 → L2 派生副本，derived_from 连回，保留作者）。
+   * 个人空间原件不动。已经分享过 ⇒ `already_shared`，交回那一份（幂等）。
+   */
+  shareToProject: {
+    method: "POST", path: "/knowledge-graph/personal/claims/:claimId/share",
+    in: z.object({ claimId: z.string(), projectId: z.string() }).strict(),
+    out: z.object({ projectClaimId: z.string(), outcome: z.enum(["shared", "already_shared"]) }).strict(),
+    err: [
+      "KG_CLAIM_NOT_FOUND", "KG_PROJECT_NOT_FOUND", "KG_PROJECT_READ_ONLY", "KG_CONTESTED_NEEDS_RESOLUTION", "KG_ACTOR_NOT_HUMAN",
+      "KG_SCOPE_NOT_ENABLED",
+    ] as const,
+  },
+
+  /**
+   * S10（#4367）：撤回分享——项目里那份失效（F07 级联收掉它的边），个人空间原件不动。
+   * 只有主人能撤；没分享过 / 已撤回 ⇒ `KG_CLAIM_NOT_FOUND`。
+   */
+  unshareFromProject: {
+    method: "POST", path: "/knowledge-graph/personal/claims/:claimId/unshare",
+    in: z.object({ claimId: z.string(), projectId: z.string() }).strict(),
+    out: z.object({ projectClaimId: z.string() }).strict(),
+    err: ["KG_CLAIM_NOT_FOUND", "KG_ACTOR_NOT_HUMAN"] as const,
+  },
+
+  /**
+   * 项目中枢 R7：晋升到**项目记忆**（L0 → L2，复制 + derived_from 连边，与 `promoteToPersonal` 同构）。
+   * 只对项目线程；创建者或本项目引导师可做（同 R5 分享的判据：看得见 ≠ 能替项目记下）。
+   * 结果形状复用 `KgPromotionItemResult`——`personalClaimId` 字段在这里装的是**项目层**结论 id（不另开一套形状）。
+   */
+  promoteToProject: {
+    method: "POST", path: "/knowledge-graph/threads/:threadId/promote-to-project",
+    in: z.object({
+      threadId: z.string(),
+      claimIds: z.array(z.string()).min(1).max(KG_PROMOTE_MAX_BATCH),
+      choices: z.array(z.object({
+        claimId: z.string(),
+        choice: z.enum(["merge", "coexist"]),
+      }).strict()).optional(),
+    }).strict(),
+    out: z.object({ results: z.array(KgPromotionItemResult) }).strict(),
+    err: [
+      "KG_THREAD_NOT_FOUND", "KG_NOT_VISIBLE", "KG_NOT_OWNER", "KG_ACTOR_NOT_HUMAN",
+      "KG_SCOPE_NOT_PROJECT", "KG_PROMOTE_BATCH_TOO_LARGE",
+    ] as const,
+  },
+
+  /**
+   * B2-S4（issue #4428）：晋升到**组织记忆**（L2 → L3，复制 + derived_from 连边，与 `promoteToProject` 同构）。
+   * 来源是一个项目的项目记忆里的结论（`claimIds` 是 `getProjectKnowledge.claims` 里的 id）；只有本组织 lead / admin
+   * 可做（`KG_NOT_OWNER`）——组织记忆是替整个组织记下，项目引导师也不够。`KG_NOT_VISIBLE`：调用者看不到这个项目。
+   * 结果形状复用 `KgPromotionItemResult`——`personalClaimId` 字段在这里装的是**组织层**结论 id；不在项目记忆里的
+   * 条目逐条 `KG_CLAIM_NOT_FOUND`。
+   */
+  promoteToOrg: {
+    method: "POST", path: "/knowledge-graph/projects/:projectId/promote-to-org",
+    in: z.object({
+      projectId: z.string(),
+      claimIds: z.array(z.string()).min(1).max(KG_PROMOTE_MAX_BATCH),
+      choices: z.array(z.object({
+        claimId: z.string(),
+        choice: z.enum(["merge", "coexist"]),
+      }).strict()).optional(),
+    }).strict(),
+    out: z.object({ results: z.array(KgPromotionItemResult) }).strict(),
+    err: [
+      "KG_NOT_VISIBLE", "KG_NOT_OWNER", "KG_ACTOR_NOT_HUMAN", "KG_CLAIM_NOT_FOUND", "KG_PROMOTE_BATCH_TOO_LARGE",
+    ] as const,
+  },
+
   /** UC-KG-6：AI 提名「值得记住」（只提名，不执行；uc-18-4 A1） */
   listPromotionNominations: {
     method: "GET", path: "/knowledge-graph/threads/:threadId/nominations",
@@ -687,6 +837,45 @@ export const knowledgeGraph = {
       replaced: z.array(KgPersonalReplacedClaim),
     }).strict(),
     /** 调用者不是（或已不是）当前组织成员（HTTP 403）。空间里没有内容不是错误，返回空。 */
+    err: ["KG_NOT_VISIBLE"] as const,
+  },
+
+  /**
+   * 项目中枢 R8：**项目大脑**只读——一个项目的项目记忆（L2：由「记到项目大脑」晋升来的结论 / 实体 / 边）。
+   * 项目成员可读（含观察者：项目记忆本就是给全体成员的）；非成员 `KG_NOT_VISIBLE`（403，同个人空间：
+   * 项目的存在性由项目自己的路由回答，这里不再泄露第二次）。空项目返回空数组，不是错误。
+   */
+  getProjectKnowledge: {
+    method: "GET", path: "/knowledge-graph/projects/:projectId",
+    in: z.object({ projectId: z.string() }).strict(),
+    out: z.object({
+      scope: KgScope,
+      revision: z.number().int().nonnegative(),
+      objects: z.array(KgObject),
+      claims: z.array(KgClaim),
+      edges: z.array(KgEdge),
+      /** B2-S4：调用者是本组织 lead / admin，可以把这里的条目记到组织记忆（`promoteToOrg`）；缺省 = 不能（旧响应）。 */
+      canPromoteToOrg: z.boolean().optional(),
+      /** S10（#4367）：`claims` 里由成员从个人记忆分享来的那些 ⇒ 分享人（界面标「由 X 分享自个人记忆」）；缺省 = 没有（旧响应） */
+      sharedFromPersonal: z.array(KgProjectSharedFrom).optional(),
+    }).strict(),
+    err: ["KG_NOT_VISIBLE"] as const,
+  },
+
+  /**
+   * B2-S4（issue #4428）：**组织大脑**只读——本组织的组织记忆（L3：由 `promoteToOrg` 晋升来的结论 / 实体 / 边）。
+   * 任何组织成员可读；不是（或已不是）组织成员 `KG_NOT_VISIBLE`（403）。空组织返回空数组，不是错误。
+   */
+  getOrgKnowledge: {
+    method: "GET", path: "/knowledge-graph/org",
+    in: z.object({}).strict(),
+    out: z.object({
+      scope: KgScope,
+      revision: z.number().int().nonnegative(),
+      objects: z.array(KgObject),
+      claims: z.array(KgClaim),
+      edges: z.array(KgEdge),
+    }).strict(),
     err: ["KG_NOT_VISIBLE"] as const,
   },
 

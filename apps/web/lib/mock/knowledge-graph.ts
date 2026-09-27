@@ -448,6 +448,7 @@ export const recalledMemoriesNormal: KgRecalledMemory[] = [
   {
     claimId: "clm-decision-launch",
     statement: "张三决定 v2 版本下周一（9/29）上线。",
+    kind: "decision",
     triState: "confirmed",
     scope: "chat_session",
     saidAt: "2026-09-22T02:10:00Z",
@@ -459,6 +460,7 @@ export const recalledMemoriesNormal: KgRecalledMemory[] = [
   {
     claimId: "clm-fact-custa",
     statement: "客户 A 要求 v2 必须在本季度内交付。",
+    kind: "fact",
     triState: "confirmed",
     scope: "chat_session",
     saidAt: "2026-09-22T02:14:00Z",
@@ -470,6 +472,7 @@ export const recalledMemoriesNormal: KgRecalledMemory[] = [
   {
     claimId: "clm-todo-migrate",
     statement: "李四负责在上线前完成数据迁移演练。",
+    kind: "todo",
     triState: "pending",
     scope: "chat_session",
     saidAt: "2026-09-23T09:12:00Z",
@@ -485,6 +488,7 @@ export const recalledMemoriesPersonal: KgRecalledMemory[] = [
   {
     claimId: "clm-personal-custa",
     statement: "客户 A 要求 v2 本季度交付。",
+    kind: "fact",
     triState: "confirmed",
     scope: "personal",
     // 9/20 下午（UTC+8），界面按本地时区显示月/日

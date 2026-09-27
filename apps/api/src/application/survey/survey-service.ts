@@ -1,4 +1,5 @@
 import { isDeepStrictEqual } from "node:util";
+import { browserProof, browserProofHash } from './browser-proof';
 import {
   createHash,
   randomBytes,
@@ -6,6 +7,7 @@ import {
   timingSafeEqual,
 } from "node:crypto";
 import { survey } from "@repo/contracts";
+import { createDefaultSurveyReportTemplate } from "@repo/contracts/survey-report";
 import {
   validateSurveyQuestions,
   validateSurveyAnswer,
@@ -39,7 +41,8 @@ import {
 export interface SurveyRecord {
   ownerId: string;
   model: SurveyRuntime;
-  receipts: Record<string, { hash: string; responseId: string }>;
+  receipts: Record<string, { hash: string; responseId: string; browserHash?: string }>;
+  browserProofKey?: string;
 }
 export interface SurveyAttachmentClaim {
   publicationVersion: number;
@@ -80,6 +83,8 @@ export class SurveyError extends Error {
       | "expired"
       | "invalid_answers"
       | "submission_conflict"
+      | "already_submitted"
+      | "invalid_browser_proof"
       | "invalid_report"
       | "capacity_reached"
       | "invalid_source"
@@ -255,14 +260,20 @@ export class SurveyService {
         m.status = transitionSurveyStatus(m.status, "withdraw");
       }
       m.title = input.title;
+      m.tags = input.tags ?? m.tags;
       m.questions = preserveTrustedCertification(input.questions, m.questions);
       m.template = input.template;
+      const publishedDesign = m.publication ? m.source?.documents.design : undefined;
       m.source = this.sourceFromDraft(
-        { ...input, questions: m.questions },
+        { ...input, tags: m.tags, questions: m.questions },
         this.now().toISOString(),
         (m.source?.compiledVersion ?? 0) + 1,
         m.source?.documents,
       );
+      if (publishedDesign) {
+        m.source.documents.design = publishedDesign;
+        m.source.contentHash = sourceContentHash(Object.values(m.source.documents));
+      }
     });
   }
   saveSource(
@@ -293,6 +304,7 @@ export class SurveyService {
       };
       model.source = { documents: nextDocuments, compiledVersion: revision, contentHash: sourceContentHash(Object.values(nextDocuments)) };
       model.title = design.draft.title;
+      model.tags = design.draft.tags;
       model.questions = preserveTrustedCertification(design.draft.questions, model.questions);
       model.template = reportTemplate.template;
       if (model.status === "ready")
@@ -349,7 +361,7 @@ export class SurveyService {
       expiresAt: end.toISOString(),
       sourceSnapshot: model.source ? {
         documents: structuredClone(model.source.documents),
-        compiled: { title: model.title, questions: structuredClone(model.questions), template: structuredClone(model.template) },
+        compiled: { title: model.title, tags: model.tags, questions: structuredClone(model.questions), template: structuredClone(model.template) },
         contentHash: model.source.contentHash,
       } : undefined,
     };
@@ -510,7 +522,7 @@ export class SurveyService {
       const responses = m.responses;
       if (!responses.length) throw new SurveyError("invalid_report");
       const report = survey.compileSurveyReport(
-        m.template,
+        m.template.sections.length ? m.template : createDefaultSurveyReportTemplate(m.title, m.publication?.questions ?? m.questions, responses),
         m.publication?.questions ?? m.questions,
         responses,
       );
@@ -561,21 +573,49 @@ export class SurveyService {
         questions: p.questions,
         version: p.version,
         expiresAt: p.expiresAt,
+        ...this.collectionSettings(p),
       };
     });
   }
-  submit(token: string, input: SurveySubmissionInput) {
+  private collectionSettings(publication: NonNullable<SurveyRuntime['publication']>) {
+    const parsed = parseSurveyPublicationMarkdown(publication.sourceSnapshot?.documents.publication.markdown ?? '# 发布设置\n');
+    if (!parsed.ok) throw new SurveyError('invalid_source', parsed.diagnostics);
+    return parsed.settings;
+  }
+  openPublic(token: string, proof?: string) {
+    const [orgId,id]=this.locate(token);
+    return this.transact(orgId,id,r=>{
+      const p=this.publicRecord(r,token); const settings=this.collectionSettings(p);
+      let signedProof: string | undefined;
+      let alreadySubmitted=false;
+      if(settings.responseLimitScope==='browser') {
+        r.browserProofKey ??= randomBytes(32).toString('hex');
+        // Do not silently rotate malformed presented proofs to bypass a recorded limit.
+        if(proof && !browserProofHash(r.browserProofKey,token,proof)) throw new SurveyError('invalid_browser_proof');
+        signedProof=browserProof(r.browserProofKey,token,proof);
+        const browserHash=browserProofHash(r.browserProofKey,token,signedProof);
+        alreadySubmitted=Object.values(r.receipts).some(receipt=>receipt.browserHash===browserHash);
+      }
+      return {data:{id,title:p.sourceSnapshot?.compiled.title ?? r.model.title,questions:p.questions,version:p.version,expiresAt:p.expiresAt,...settings,alreadySubmitted},browserProof:signedProof};
+    });
+  }
+  submit(token: string, input: SurveySubmissionInput, proof?: string) {
     const [orgId, id] = this.locate(token);
     return this.transact(orgId, id, (r, transaction) => {
       const p = this.publicRecord(r, token);
       const fingerprint = hash(JSON.stringify(input)).toString("hex");
       const receiptKey = hash(input.submissionId).toString("hex");
       const receipt = r.receipts[receiptKey];
+      const settings=this.collectionSettings(p);
+      const browserHash=settings.responseLimitScope==='browser'
+        ? browserProofHash(r.browserProofKey ?? '',token,proof) : null;
+      if(settings.responseLimitScope==='browser' && !browserHash) throw new SurveyError('invalid_browser_proof');
       if (receipt) {
-        if (receipt.hash !== fingerprint)
+        if (receipt.hash !== fingerprint || receipt.browserHash && receipt.browserHash !== browserHash)
           throw new SurveyError("submission_conflict");
         return { responseId: receipt.responseId, replayed: true };
       }
+      if(browserHash && Object.values(r.receipts).some(receipt=>receipt.browserHash===browserHash)) throw new SurveyError('already_submitted');
       if (
         r.model.responses.length >= 10000 ||
         Buffer.byteLength(JSON.stringify(r)) +
@@ -621,7 +661,7 @@ export class SurveyService {
           durationSeconds: input.durationSeconds,
           answers: input.answers,
         });
-        r.receipts[receiptKey] = { hash: fingerprint, responseId };
+        r.receipts[receiptKey] = { hash: fingerprint, responseId, ...(browserHash ? {browserHash} : {}) };
         r.model.answerRevision++;
         r.model.updatedAt = this.now().toISOString();
         return { responseId, replayed: false };

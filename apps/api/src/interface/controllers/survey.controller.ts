@@ -1,6 +1,8 @@
 import { SurveyTemplateInputSchema, SurveyTemplateSaveInputSchema, SurveyTemplateKindSchema } from "@repo/contracts/survey-template-library";
 import { SurveyTemplateService, SURVEY_TEMPLATE_REPOSITORY, type SurveyTemplateRepository } from "../../application/survey/survey-template-service";
 import { SurveySubmissionRateLimitGuard } from "../guards/survey-submission-rate-limit.guard";
+import { createHash } from 'node:crypto';
+import type { Request, Response } from 'express';
 import {
   BadRequestException,
   Body,
@@ -16,6 +18,8 @@ import {
   Post,
   Put,
   Query,
+  Req,
+  Res,
   UnprocessableEntityException,
   UseGuards,
 } from "@nestjs/common";
@@ -66,6 +70,7 @@ async function run<T>(work: () => Promise<T>): Promise<T> {
       throw new ConflictException({ reasonCode: "INVALID_TRANSITION" });
     if (e.code === "submission_conflict")
       throw new ConflictException(e.code);
+    if (e.code === 'already_submitted') throw new ConflictException({reasonCode:'SURVEY_ALREADY_SUBMITTED'});
     if (e.code === "invalid_source")
       throw new BadRequestException({
         reasonCode: "SURVEY_SOURCE_INVALID",
@@ -274,14 +279,27 @@ export class PublicSurveyController {
   constructor(@Inject(SURVEY_REPOSITORY) repo: SurveyRepository) {
     this.service = new SurveyService(repo);
   }
-  @Public() @Get("/:token") get(@Param("token") token: string) {
-    return run(() => this.service.publicGet(token));
+  private cookieName(token:string) { return `survey_browser_${createHash('sha256').update(token).digest('hex').slice(0,24)}`; }
+  private proof(token:string, req:Request) {
+    const name=this.cookieName(token);
+    const entry=req.headers.cookie?.split(';').map(part=>part.trim()).find(part=>part.startsWith(`${name}=`));
+    return entry?.slice(name.length+1);
+  }
+  @Public() @Get("/:token") get(@Param("token") token: string, @Req() req:Request, @Res({passthrough:true}) res:Response) {
+    return run(async () => {
+      const result=await this.service.openPublic(token,this.proof(token,req));
+      res.setHeader('Cache-Control','private, no-store');
+      if(result.browserProof) res.cookie(this.cookieName(token),result.browserProof,{
+        httpOnly:true,secure:process.env.NODE_ENV==='production' || req.secure,sameSite:'lax',path:'/',expires:new Date(result.data.expiresAt),
+      });
+      return result.data;
+    });
   }
   @Public()
   @UseGuards(SurveySubmissionRateLimitGuard)
   @Post("/:token/responses")
-  submit(@Param("token") token: string, @Body() body: unknown) {
+  submit(@Param("token") token: string, @Body() body: unknown, @Req() req:Request) {
     const input = parse(SurveySubmissionInputSchema, body);
-    return run(() => this.service.submit(token, input));
+    return run(() => this.service.submit(token, input,this.proof(token,req)));
   }
 }

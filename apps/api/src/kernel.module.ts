@@ -1,5 +1,8 @@
-import { WHITEBOARD_COLLABORATION_STORE, WHITEBOARD_UPDATE_VALIDATOR } from './application/whiteboard/collaboration-ports';
+import { WHITEBOARD_COLLABORATION_STORE, WHITEBOARD_COMMENT_STORE, WHITEBOARD_RECOVERY_SERVICE, WHITEBOARD_UPDATE_VALIDATOR, type WhiteboardCollaborationStore, type WhiteboardUpdateValidator } from './application/whiteboard/collaboration-ports';
 import { PgWhiteboardCollaborationStore } from './infrastructure/whiteboard/pg-collaboration-store';
+import { PgWhiteboardCommentStore } from './infrastructure/whiteboard/pg-whiteboard-comment-store';
+import { PgWhiteboardRecoveryAdapter } from './infrastructure/whiteboard/pg-whiteboard-recovery';
+import { WhiteboardRecoveryService } from './application/whiteboard/recovery-service';
 import { WorkerWhiteboardUpdateValidator } from './infrastructure/whiteboard/update-validator';
 import { WhiteboardController, WhiteboardTagController } from './interface/controllers/whiteboard.controller';
 import { WHITEBOARD_REPOSITORY, WHITEBOARD_TAG_REPOSITORY } from './application/whiteboard/ports';
@@ -347,6 +350,15 @@ import { PgInterviewScopeRepository } from "./infrastructure/interview/pg-interv
 import { PgInterviewAttachmentRepository } from "./infrastructure/interview/pg-interview-attachment-repository";
 import { InterviewScopeController } from "./interface/controllers/interview-scope.controller";
 import { DigitalInterviewController } from "./interface/controllers/digital-interview.controller";
+import { ExpertAvatarPreferenceController } from "./interface/controllers/expert-avatar-preference.controller";
+import { InterviewMarkdownReportReviewController } from "./interface/controllers/interview-markdown-report-review.controller";
+import { InterviewMarkdownAttachmentController } from "./interface/controllers/interview-markdown-attachment.controller";
+import { INTERVIEW_MARKDOWN_ATTACHMENTS } from "./application/interview/interview-markdown-attachment.port";
+import { PgInterviewMarkdownAttachmentRepository } from "./infrastructure/interview/pg-interview-markdown-attachment-repository";
+import { INTERVIEW_MARKDOWN_REPORT_REVIEW_REPOSITORY } from "./application/interview/interview-markdown-report-review.port";
+import { PgInterviewMarkdownReportReviewRepository } from "./infrastructure/interview/pg-interview-markdown-report-review-repository";
+import { EXPERT_AVATAR_PREFERENCE_REPOSITORY } from "./application/interview/expert-avatar-preference.port";
+import { PgExpertAvatarPreferenceRepository } from "./infrastructure/interview/pg-expert-avatar-preference-repository";
 // F01 (phase-06 · 06-itv insight sub-bundle): 洞察写路径持久化——extractQuotes /
 // generateCandidateInsights / confirmInsight 三个算子真正接线到 Postgres。
 import { InterviewInsightController } from "./interface/controllers/interview-insight.controller";
@@ -394,6 +406,12 @@ import {
   DIGITAL_INTERVIEW_RUNTIME,
 } from "./application/interview/workflow/digital-interview-runtime.port";
 import { PgDigitalInterviewRepository } from "./infrastructure/interview/pg-digital-interview-repository";
+import { PgInterviewMarkdownReader } from "./infrastructure/interview/pg-interview-markdown-reader";
+import { INTERVIEW_MARKDOWN_READER } from "./application/interview/read-interview-markdown";
+import { INTERVIEW_MARKDOWN_GENERATOR, generateInterviewMarkdown } from "./application/interview/generate-interview-markdown";
+import { INTERVIEW_MARKDOWN_EXECUTION, type MarkdownExecutionInput } from "./application/interview/interview-markdown-execution.port";
+import { executeInterviewMarkdown } from "./application/interview/execute-interview-markdown";
+import { PgInterviewMarkdownExecutionStore } from "./infrastructure/interview/pg-interview-markdown-execution-store";
 import { PgDigitalInterviewEffects } from "./infrastructure/interview/workflow/pg-digital-interview-effects";
 import { readDigitalInterviewModelConfig } from "./infrastructure/interview/workflow/digital-interview-model-config";
 import {
@@ -630,6 +648,9 @@ import { GRAPH_PROJECTION_PORT, KG_AUTO_COPY_PORT, KG_EMBEDDING_QUEUE_PORT, KG_C
 import { PgPromotion } from "./infrastructure/knowledge-graph/pg-promotion";
 import { PgHumanAction } from "./infrastructure/knowledge-graph/pg-human-action";
 import { KnowledgeGraphController } from "./interface/controllers/knowledge-graph.controller";
+import { KnowledgeShareController } from "./interface/controllers/knowledge-share.controller";
+import { PROJECT_SHARE_PORT } from "./application/knowledge-graph/share-to-project";
+import { PgProjectShare } from "./infrastructure/knowledge-graph/pg-project-share";
 import { PlatformExtractionSettingController } from "./interface/controllers/platform-extraction-setting.controller";
 import { PgKnowledgeRead } from "./infrastructure/knowledge-graph/pg-knowledge-read";
 import { PgKgOrgExtractionSettings } from "./infrastructure/knowledge-graph/pg-kg-org-extraction-settings";
@@ -716,6 +737,10 @@ import { LIVE_SESSION_REPOSITORY } from "./application/auth/live-session-ports";
 import { PgLiveSessionRepository } from "./infrastructure/auth/pg-live-session-repository";
 import { newLiveSessionId } from "./domain/auth/live-session";
 import { CheckinBoardController } from "./interface/controllers/checkin-board.controller";
+// 项目中枢 R2：项目邀请链接（签发 / 撤销 / 被邀请者自助接受）。F15 用例与仓储早已实现，此前无路由。
+import { ProjectInviteController } from "./interface/controllers/project-invite.controller";
+import { INVITE_LINK_REPOSITORY } from "./application/auth/invite-link-ports";
+import { PgInviteLinkRepository } from "./infrastructure/auth/pg-invite-link-repository";
 // F11（phase-01 / UC-1.6 R10）：双人复核 + 配额硬阻断 + 成员移除。
 // ⚠ 建在 F10 的 org_invites 之上，不重开新地基：`ORG_INVITE_REPOSITORY` 复用同一个实例
 //   （`PgOrgInviteRepository` 新增了 `reviewAdminInvite` 方法，不是第二个仓储）。
@@ -828,6 +853,9 @@ import { PgProjectRepository } from "./infrastructure/project/pg-project-reposit
 import { PgProjectListRepository } from "./infrastructure/project/pg-project-list-repository";
 import { PgAgendaSegmentRepository } from "./infrastructure/project/pg-agenda-segment-repository";
 import { PgProjectOverviewRepository } from "./infrastructure/project/pg-project-overview-repository";
+// 项目中枢 B2-S1（#4425）：项目资源关联（`project_resource_links` + 四类聚合读）。
+import { PROJECT_RESOURCE_REPOSITORY } from "./application/project/project-resource-ports";
+import { PgProjectResourceRepository } from "./infrastructure/project/pg-project-resource-repository";
 import { PgProjectArchiveRepository } from "./infrastructure/project/pg-project-archive-repository";
 // BP-08（本次新增）：`BLUEPRINT_REFERENCE_REPOSITORY`——只读，独立 provider（`createProject`
 // 判 blueprintVersionId 合不合法时用）；见 `application/project/ports.ts` 与
@@ -843,6 +871,11 @@ import { PgInviteTokenMemberResolver } from "./infrastructure/project/pg-invite-
 import { TEMPORARY_GRANT_REPOSITORY } from "./application/identity/temporary-grant-ports";
 import { PgTemporaryGrantRepository } from "./infrastructure/identity/pg-temporary-grant-repository";
 import { ProjectController } from "./interface/controllers/project.controller";
+// B2-S5（#4429）：设置页「AI 权限」——侧表 `project_ai_settings`，独立 provider + 独立 controller，
+// 见 `application/project/project-ai-settings-ports.ts` 与 `pg-project-ai-settings-repository.ts` 文件头。
+import { PROJECT_AI_SETTINGS_REPOSITORY } from "./application/project/project-ai-settings-ports";
+import { PgProjectAiSettingsRepository } from "./infrastructure/project/pg-project-ai-settings-repository";
+import { ProjectAiSettingsController } from "./interface/controllers/project-ai-settings.controller";
 // F141 (asset-governance bundle): the asset directory's two READ routes (`GetAssetDirectory` /
 // `ReadAssetFile`). Scope is 2/6 AssetKinds (skill / agent, AG4) -- see the fixture repository's
 // header for why phase-1 has no persisted file store to back this yet.
@@ -1020,6 +1053,7 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
 @Module({
   controllers: [
     KnowledgeGraphController,
+    KnowledgeShareController,
     PlatformExtractionSettingController,
     SurveyController, PublicSurveyController, SurveyAttachmentController,
     HealthController,
@@ -1046,7 +1080,10 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
     EvidenceWithdrawalController,
     AuthOrgController,
     OrgAdminScopeController,
+    InterviewMarkdownAttachmentController,
     DigitalInterviewController,
+    ExpertAvatarPreferenceController,
+    InterviewMarkdownReportReviewController,
     GuidedResearchController,
     InterviewScopeController,
     InterviewInsightController,
@@ -1056,6 +1093,7 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
     OrgInviteController,
     OrgInviteLinkController,
     CheckinBoardController,
+    ProjectInviteController,
     OrgAdminManagementController,
     PlatformAccessController,
     PlatformMemberController,
@@ -1067,6 +1105,7 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
     FilesRetentionController,
     DeviceSessionController,
     ProjectController,
+    ProjectAiSettingsController,
     AssetDirectoryController,
     AssetGovernanceController,
     CanvasTemplateController,
@@ -1117,6 +1156,9 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
     ModelController,
   ],
   providers: [
+    { provide: EXPERT_AVATAR_PREFERENCE_REPOSITORY, useFactory: (db: DatabasePort) => new PgExpertAvatarPreferenceRepository(db), inject: [DATABASE_PORT] },
+    { provide: INTERVIEW_MARKDOWN_REPORT_REVIEW_REPOSITORY, useFactory: (db: DatabasePort) => new PgInterviewMarkdownReportReviewRepository(db), inject: [DATABASE_PORT] },
+    { provide: INTERVIEW_MARKDOWN_ATTACHMENTS, useFactory:(db:DatabasePort)=>new PgInterviewMarkdownAttachmentRepository(db),inject:[DATABASE_PORT] },
     { provide: SURVEY_TEMPLATE_REPOSITORY, useExisting: SURVEY_REPOSITORY },
     SurveySubmissionRateLimitGuard, SurveyUploadCapabilityGuard, SurveyAttachmentRateLimitGuard,
     { provide: SURVEY_ATTACHMENT_SERVICE, inject: [DATABASE_PORT, OBJECT_STORE, PHYSICAL_PURGE_PORT], useFactory: (db: DatabasePort, store: ObjectStore, purge: PhysicalPurgePort) => new SurveyAttachmentService(new PgSurveyAttachmentRepository(db), store, purge) },
@@ -2362,6 +2404,42 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
       inject: [DATABASE_PORT],
     },
     {
+      provide: INTERVIEW_MARKDOWN_READER,
+      useFactory: (db: DatabasePort) => new PgInterviewMarkdownReader(db),
+      inject: [DATABASE_PORT],
+    },
+    {
+      provide: INTERVIEW_MARKDOWN_GENERATOR,
+      useFactory: (
+        repo: import("./application/interview/digital-interview-ports").DigitalInterviewRepository,
+        scope: import("./application/interview/ports").InterviewScopeRepository,
+        decisions: import("./application/identity/ports").DecisionIdFactory,
+        reader: import("./application/interview/read-interview-markdown").InterviewMarkdownReader,
+        model: ModelCallPort,
+      ) => {
+        const config = readDigitalInterviewModelConfig();
+        return { generate: (input: import("./application/interview/generate-interview-markdown").GenerateMarkdownInput) =>
+          generateInterviewMarkdown({ repo, scope, decisions, reader, model, modelProvider: config.provider, modelId: config.modelId }, input) };
+      },
+      inject: [DIGITAL_INTERVIEW_REPOSITORY, INTERVIEW_SCOPE_REPOSITORY, DECISION_ID_FACTORY, INTERVIEW_MARKDOWN_READER, MODEL_CALL_PORT],
+    },
+    {
+      provide: INTERVIEW_MARKDOWN_EXECUTION,
+      useFactory: (
+        db: DatabasePort,
+        repo: import("./application/interview/digital-interview-ports").DigitalInterviewRepository,
+        scope: import("./application/interview/ports").InterviewScopeRepository,
+        decisions: import("./application/identity/ports").DecisionIdFactory,
+        reader: import("./application/interview/read-interview-markdown").InterviewMarkdownReader,
+        model: ModelCallPort,
+      ) => {
+        const config=readDigitalInterviewModelConfig();
+        const store=new PgInterviewMarkdownExecutionStore(db);
+        return {execute:(input:MarkdownExecutionInput)=>executeInterviewMarkdown({repo,scope,decisions,reader,store,model,modelProvider:config.provider,modelId:config.modelId},input)};
+      },
+      inject: [DATABASE_PORT,DIGITAL_INTERVIEW_REPOSITORY,INTERVIEW_SCOPE_REPOSITORY,DECISION_ID_FACTORY,INTERVIEW_MARKDOWN_READER,MODEL_CALL_PORT],
+    },
+    {
       provide: DIGITAL_INTERVIEW_EFFECTS,
       useFactory: (
         db: DatabasePort,
@@ -2542,6 +2620,12 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
       useFactory: (db: DatabasePort) => new PgOrgInviteLinkRepository(db),
       inject: [DATABASE_PORT],
     },
+    // 项目中枢 R2：F15 `InviteLinkRepository` 的生产实现（`project-invite.controller.ts` 消费）。
+    {
+      provide: INVITE_LINK_REPOSITORY,
+      useFactory: (db: DatabasePort) => new PgInviteLinkRepository(db),
+      inject: [DATABASE_PORT],
+    },
     // F05（phase-10 group-checkin 束）：`LiveSessionRepository` 的生产实现——
     // `checkin-board.controller.ts` 消费的 `board()` 就是这里落的库。
     {
@@ -2629,6 +2713,12 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
       useFactory: (db: DatabasePort) => new PgProjectOverviewRepository(db),
       inject: [DATABASE_PORT],
     },
+    // 项目中枢 B2-S1（#4425）：`ProjectResourcePort` 的生产实现（`project.controller.ts` 消费）。
+    {
+      provide: PROJECT_RESOURCE_REPOSITORY,
+      useFactory: (db: DatabasePort) => new PgProjectResourceRepository(db),
+      inject: [DATABASE_PORT],
+    },
     // F141 → #785: `skill` now reads/writes real Postgres (`skills`/`skill_versions`/
     // `skill_version_files`, model A) via `PgAssetFileRepository`; every other kind (incl.
     // `agent`, AG4) still delegates to the fixture -- see `pg-asset-file-repository.ts`'s
@@ -2668,6 +2758,12 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
     {
       provide: PROJECT_TAGS_REPOSITORY,
       useFactory: (db: DatabasePort) => new PgProjectTagsRepository(db),
+      inject: [DATABASE_PORT],
+    },
+    // B2-S5（#4429）：独立 provider，见 `pg-project-ai-settings-repository.ts` 文件头。
+    {
+      provide: PROJECT_AI_SETTINGS_REPOSITORY,
+      useFactory: (db: DatabasePort) => new PgProjectAiSettingsRepository(db),
       inject: [DATABASE_PORT],
     },
     // #728 D4：独立 provider，见 `pg-project-name-lookup.ts` 文件头。
@@ -2955,6 +3051,16 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
       inject: [DATABASE_PORT],
     },
     {
+      provide: WHITEBOARD_COMMENT_STORE,
+      useFactory: (db:DatabasePort,validator:WhiteboardUpdateValidator)=>new PgWhiteboardCommentStore(db,validator),
+      inject:[DATABASE_PORT,WHITEBOARD_UPDATE_VALIDATOR],
+    },
+    {
+      provide: WHITEBOARD_RECOVERY_SERVICE,
+      useFactory:(db:DatabasePort,collaboration:WhiteboardCollaborationStore,objects:ObjectStore)=>{const adapter=new PgWhiteboardRecoveryAdapter(db,collaboration);return new WhiteboardRecoveryService(adapter,adapter,objects);},
+      inject:[DATABASE_PORT,WHITEBOARD_COLLABORATION_STORE,OBJECT_STORE],
+    },
+    {
       provide: WHITEBOARD_REPOSITORY,
       useFactory: (db: DatabasePort) => new PgWhiteboardRepository(db),
       inject: [DATABASE_PORT],
@@ -3095,6 +3201,8 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
     { provide: HUMAN_ACTION_PORT, useFactory: (db: DatabasePort) => new PgHumanAction(db), inject: [DATABASE_PORT] },
     // F11：晋升到个人空间（只经 kg_promote_claim 落表）。
     { provide: PROMOTION_PORT, useFactory: (db: DatabasePort) => new PgPromotion(db), inject: [DATABASE_PORT] },
+    // S10（#4367）：「分享到项目…」（只经 kg_share_claim_to_project / kg_unshare_claim_from_project 落表）。
+    { provide: PROJECT_SHARE_PORT, useFactory: (db: DatabasePort) => new PgProjectShare(db), inject: [DATABASE_PORT] },
     // F17：「记住 / 忘掉」确认卡（只经 kg_open_memory_card / kg_act_on_memory_card 落表）。
     { provide: MEMORY_CARD_PORT, useFactory: (db: DatabasePort) => new PgMemoryCard(db), inject: [DATABASE_PORT] },
     {

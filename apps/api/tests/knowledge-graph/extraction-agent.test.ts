@@ -115,8 +115,8 @@ describe("F06: 抽取 Agent", () => {
     expect(await runExtractionTick(deps)).toMatchObject({ written: 0, failed: 0, processed: 1 });
     expect(await q("SELECT 1 FROM kg_extraction_queue WHERE message_id = 'm-valid-empty'")).toHaveLength(0);
     expect(infos).toContainEqual({
-      msg: "kg extraction empty: nothing to remember",
-      fields: expect.objectContaining({ messageId: "m-valid-empty", threadId: T2 }),
+      msg: "kg extraction empty",
+      fields: expect.objectContaining({ messageId: "m-valid-empty", threadId: T2, reason: "no_candidates" }),
     });
   });
 

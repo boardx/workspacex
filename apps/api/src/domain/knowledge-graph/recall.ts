@@ -13,9 +13,10 @@
  * 融合用 RRF（与 domain/retrieval/rrf.ts 同一个 k），再按「直接命中（字面 / 向量）→ 贴切度 → 融合分」重排，
  * 最后按三态加一点权：你确认过的优先于 AI 记下的。
  */
-import type { contextPack as CP, knowledgeGraph as KG } from "@repo/contracts";
+import { knowledgeGraph as KG, type contextPack as CP } from "@repo/contracts";
 import type { z } from "zod";
 import { decisionLike, DECISION_RECALL_LIMIT } from "./decision-claim";
+import { selfIntentLike, SELF_INTENT_RECALL_LIMIT } from "./self-intent-claim";
 import { normalizeName } from "./extraction";
 
 export type RecallChannel = z.infer<typeof CP.RetrievalChannel>;
@@ -38,10 +39,13 @@ export interface RecallClaim {
    * 这条结论对这一轮来说属于哪里：本会话（L0）或本人个人空间（F12 的 L1，以及 F15 起本人其他个人对话里记下的——
    * 「个人空间 = 同一用户全部个人线程」S0-2=A，06-UX R2 M1「开新会话不用重新交代背景」）。
    */
-  readonly scope: "chat_session" | "personal";
+  readonly scope: "chat_session" | "personal" | "project";
   /** 记在本人另一个个人对话里（不是本会话、也不是长期记忆）⇒ 那个对话的 id；其余 ⇒ 省略。 */
   readonly originThreadId?: string;
+  /** S10（#4367）：项目记忆里由成员从个人记忆分享来的 ⇒ 分享人显示名（没有显示名为空串）；其余 ⇒ 省略。 */
+  readonly sharedByName?: string;
 }
+
 
 export interface GraphHop {
   readonly src: string;
@@ -180,7 +184,7 @@ function sharedRank<T>(sorted: readonly T[], i: number, key: (x: T) => number): 
  * originThreadId 有值）的不认。所有权不在这里判——候选集已按 F12 的条件只含本人的 L1（见 fuseRecall 注释）。
  */
 export function forcedDecisionScope(c: RecallClaim): boolean {
-  return c.originThreadId === undefined && (c.scope === "chat_session" || c.scope === "personal");
+  return c.originThreadId === undefined && (c.scope === "chat_session" || c.scope === "personal" || c.scope === "project");
 }
 
 export function fuseRecall(input: FuseInput): KnowledgeRecall {
@@ -280,10 +284,19 @@ export function fuseRecall(input: FuseInput): KnowledgeRecall {
   //   4. **来源照实标**：强制带上的条目保留原 `claim.scope`，个人空间那条在给模型的材料里照样是
   //      「来自个人空间知识」、在 turn memory（F13）里 scope = "personal"，与打分进来的 L1 条目同一个标签。
   const forcedIds = new Set(items.map((i) => i.claim.id));
-  const decisionForced: RecallItem[] = input.claims
+  const newestFirst = (a: RecallClaim, b: RecallClaim) => (b.saidAt ?? "").localeCompare(a.saidAt ?? "") || a.id.localeCompare(b.id);
+  const decisionPicked = input.claims
     .filter((c) => !forcedIds.has(c.id) && forcedDecisionScope(c) && decisionLike(c.statement))
-    .sort((a, b) => (b.saidAt ?? "").localeCompare(a.saidAt ?? "") || a.id.localeCompare(b.id))
-    .slice(0, DECISION_RECALL_LIMIT)
+    .sort(newestFirst)
+    .slice(0, DECISION_RECALL_LIMIT);
+  // issue #4343：本人的目标 / 偏好同样每一轮带上（同一来源边界 `forcedDecisionScope`），名额 `SELF_INTENT_RECALL_LIMIT`
+  // 另计、不与决定类抢（理由见 self-intent-claim.ts）；一条既像决定又是目标的，已经按决定带上就不再算一次。
+  const decisionIds = new Set(decisionPicked.map((c) => c.id));
+  const selfIntentPicked = input.claims
+    .filter((c) => !forcedIds.has(c.id) && !decisionIds.has(c.id) && forcedDecisionScope(c) && selfIntentLike(c.kind, c.statement))
+    .sort(newestFirst)
+    .slice(0, SELF_INTENT_RECALL_LIMIT);
+  const decisionForced: RecallItem[] = [...decisionPicked, ...selfIntentPicked]
     .map((claim) => ({
       claim,
       // "claim" 通道本来就是给「已复核的结论 / 决定」用的（见 `domain/retrieval/channel-plan.ts` 同名通道的注释），
@@ -347,12 +360,16 @@ export function buildKnowledgeContextMessage(recall: KnowledgeRecall): string | 
     // F12：个人空间（L1）的结论来自别的会话，要说清楚，模型才能在回答里标「来自个人空间知识」。
     const when = i.claim.scope === "personal"
       ? `（来自个人空间知识${day === null ? "" : `，最早见于你 ${day} 的对话`}）`
-      : day === null ? "" : `（本会话 ${day} 的对话）`;
+      : i.claim.scope === "project" && i.claim.sharedByName !== undefined
+        ? `（来自项目记忆，${oneLine(KG.sharedFromPersonalLabelZh(i.claim.sharedByName))}）`
+      : i.claim.scope === "project"
+        ? `（来自项目记忆${day === null ? "" : `，最早见于 ${day} 的项目对话`}）`
+        : day === null ? "" : `（本会话 ${day} 的对话）`;
     // 结论原文进上下文前压成一行：原文里的换行不能伪造出材料里的其他行（降级说明、「系统：」之类）。
     return `- [${TRI_LABEL[i.claim.triState]}] ${oneLine(i.claim.statement)}${when}`;
   });
   return [
-    "【记忆】以下是之前对话里记下的、与本轮问题相关的内容。「AI 记下的」尚未经用户确认，引用时要说明；「有矛盾」的两条都要提到；标了「来自个人空间知识」的，引用时也照样标出。",
+    "【记忆】以下是之前对话里记下的、与本轮问题相关的内容。「AI 记下的」尚未经用户确认，引用时要说明；「有矛盾」的两条都要提到；标了「来自个人空间知识」的，引用时也照样标出；标了「由 X 分享自个人记忆」的，引用时说明是 X 分享的。",
     ...lines,
     ...notices.map((n) => `（${n}）`),
   ].join("\n");
