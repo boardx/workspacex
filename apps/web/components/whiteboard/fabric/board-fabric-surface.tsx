@@ -140,7 +140,7 @@ export function createFabricObject(object: BoardFabricObject): TaggedFabricObjec
       const scaleX = object.geometry.width / naturalWidth, scaleY = object.geometry.height / naturalHeight;
       const clipPath = new Rect({ width: naturalWidth, height: naturalHeight, rx: object.boardContent.cornerRadius / Math.max(scaleX, .0001), ry: object.boardContent.cornerRadius / Math.max(scaleY, .0001), originX: "center", originY: "center" });
       const bitmap = new FabricImage(image, { cropX: object.boardContent.intrinsicWidth * crop.x, cropY: object.boardContent.intrinsicHeight * crop.y, width: naturalWidth, height: naturalHeight, scaleX, scaleY, opacity: object.boardContent.opacity, originX: "center", originY: "center", clipPath });
-      image.onload = () => { bitmap.setElement(image, { width: naturalWidth, height: naturalHeight }); bitmap.canvas?.requestRenderAll(); };
+      image.onload = () => { bitmap.setElement(image, { width: naturalWidth, height: naturalHeight }); bitmap.set('dirty', true); bitmap.canvas?.requestRenderAll(); };
       image.src = object.imageAssetUrl;
       projected = new Group([new Rect({ width: object.geometry.width, height: object.geometry.height, rx: object.boardContent.cornerRadius, ry: object.boardContent.cornerRadius, fill: "#F4F4F5", stroke: object.boardContent.borderColor, strokeWidth: object.boardContent.borderWidth, originX: "center", originY: "center" }), bitmap]);
     } else {
