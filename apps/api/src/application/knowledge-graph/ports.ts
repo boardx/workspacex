@@ -481,7 +481,8 @@ export interface MemoryCardPort {
     readonly runId: string;
     readonly messageId: string;
     readonly requesterUserId: string;
-    readonly kind: "remember" | "forget";
+    /** #4361：overview =「你记得我什么」的清单卡（claimIds 按显示顺序；没有动作）。 */
+    readonly kind: "remember" | "forget" | "overview";
     /**
      * 谁提的卡上的字（issue #4344，缺省 user_message）：user_message = 用户消息以「记住：…」开头，数据库核对字出自这条消息；
      * agent_tool = agent 的 `wx_remember` 工具，只开记住卡，字由用户在卡上确认 / 改字（迁移 20260927300000）。
@@ -508,6 +509,20 @@ export interface MemoryCardPort {
     readonly claimIds?: readonly string[];
     readonly editedStatement?: string;
   }): Promise<{ readonly card: MemoryCardData; readonly actionIds: readonly string[] }>;
+  /**
+   * #4361：撤销一张已生效的忘掉卡（人的动作；`kg_undo_memory_card`）。被拒时抛 `KgHumanActionError`
+   * （已撤销 / 没生效 / 不是忘掉卡 ⇒ KG_CARD_STALE）。
+   */
+  undo(orgId: OrgId, userId: string, input: {
+    readonly actionId: string;
+    readonly cardId: string;
+    readonly actorKind: "human" | "agent";
+  }): Promise<{ readonly card: MemoryCardData; readonly actionIds: readonly string[] }>;
+  /**
+   * #4361「改主意」的范围闸门（`kg_memory_manage_ok`）：这条消息是不是个人线程的所有者本人在这个线程里说的。
+   * 不是 ⇒ 改口这条路什么都不做（不碰项目层 / 别人的记忆）。
+   */
+  personalTurn(orgId: OrgId, input: { readonly threadId: string; readonly messageId: string; readonly requesterUserId: string }): Promise<boolean>;
 }
 
 export const MEMORY_CARD_PORT = Symbol("MemoryCardPort");

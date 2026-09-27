@@ -257,6 +257,18 @@ export function actOnMemoryCard(
   });
 }
 
+/**
+ * UC-KG-12b（issue #4361）：撤销一张已生效的「忘掉」卡——这张卡忘掉的记忆恢复（连同长期记忆里的副本）。
+ * 执行身份是点击的人；别人的卡 / 不存在的卡同一个 404（KG_CARD_NOT_FOUND）。
+ */
+export function undoMemoryCard(cardId: string): Promise<MemoryCardResult> {
+  const input = knowledgeGraph.undoMemoryCard.in.parse({ cardId });
+  return getParsed(`/knowledge-graph/cards/${seg(input.cardId)}/undo`, knowledgeGraph.undoMemoryCard.out, undefined, {
+    method: "POST",
+    body: {},
+  });
+}
+
 /* ── 大脑页（/brain）：本人的长期记忆 + 各对话的记忆概况 ───────────────────────── */
 
 export type PersonalKnowledge = z.infer<typeof knowledgeGraph.getPersonalKnowledge.out>;

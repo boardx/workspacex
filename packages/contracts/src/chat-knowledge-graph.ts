@@ -51,6 +51,25 @@ export type KgObjectKind = z.infer<typeof KgObjectKind>;
  */
 export const KgClaimKind = z.enum(["fact", "hypothesis", "decision", "todo", "risk", "goal", "preference"]);
 export type KgClaimKind = z.infer<typeof KgClaimKind>;
+/**
+ * 结论种类的中文文案，单一事实源（用词表：结论 → 事实 / 猜测 / 决定 / 待办 / 风险 / 目标 / 偏好）。前端面板与
+ * 「你记得我什么」的分组、后端给模型的记忆清单（#4361）都用这一份，不另建映射表。
+ */
+export const KG_CLAIM_KIND_LABEL_ZH: Record<KgClaimKind, string> = {
+  fact: "事实",
+  hypothesis: "猜测",
+  decision: "决定",
+  todo: "待办",
+  risk: "风险",
+  // issue #4343：本人说的目标 / 意图、偏好
+  goal: "目标",
+  preference: "偏好",
+};
+/**
+ * 按种类分组显示 / 计数的先后（会话记忆面板、/brain 与「你记得我什么」同一个次序）：决定最先，其次本人的目标、
+ * 偏好，再是事实……漏排一个类型 = 那一类永远不渲染（#4343 之前的五值表就会这样吞掉目标）；单测拿枚举逐项核对。
+ */
+export const KG_CLAIM_KIND_DISPLAY_ORDER: readonly KgClaimKind[] = ["decision", "goal", "preference", "fact", "todo", "risk", "hypothesis"];
 
 /**
  * issue #4343：「本人意向类」结论——作者本人说的会自动记进本人个人空间（同 #4283 的决定），并在每一轮强制召回
@@ -298,16 +317,28 @@ export type KgSupersedeNotice = z.infer<typeof KgSupersedeNotice>;
 /**
  * U-4 对话里的「记住 / 忘掉」确认卡（uc-18-6 A/B）。
  * **Agent 只生成卡片，不执行**：执行只经 `actOnMemoryCard`，身份是点击的人（I-15）。
+ *
+ * Issue #4361（phase-18 S4「在对话里管理记忆」，**待签核、先按已批准执行**，见 evidence/phase-18/r10/README.md）：
+ * - `kind = overview`：「你记得我什么」——本人个人空间里的记忆清单（最多 20 条），按种类分组显示、每条带来源会话；
+ *   没有任何动作（`actOnMemoryCard` 对它答 KG_INVALID_REQUEST），`state` 恒为 open；读的时候按现在的事实过滤（忘掉的不再列）。
+ *   这种卡的条目带 `claimKind` 与 `source`；其余两种卡不带。
+ * - `state = undone`：忘掉卡生效之后点了「撤销」（`undoMemoryCard`），忘掉的那些已恢复。
+ * - 忘掉卡与 overview 卡只在请求者本人的个人线程里出现，条目只来自本人个人空间（长期记忆 + 本人全部个人线程），
+ *   不碰项目层与别人的记忆。
  */
 export const KgMemoryCard = z.object({
   cardId: z.string(),
-  kind: z.enum(["remember", "forget"]),
+  kind: z.enum(["remember", "forget", "overview"]),
   items: z.array(z.object({
     /** remember 且内容尚未入图时为 null（执行时按 statement 新建一条 human 结论） */
     claimId: z.string().nullable(),
     statement: z.string().min(1).max(2000),
+    /** overview：这条记忆的种类（界面按它分组） */
+    claimKind: KgClaimKind.optional(),
+    /** overview：这条记忆来自本人的哪个对话（跳过去看原话）；来源对话已不在 / 看不到 ⇒ null */
+    source: z.object({ threadId: z.string(), title: z.string() }).strict().nullable().optional(),
   }).strict()).min(1).max(20),
-  state: z.enum(["open", "done", "dismissed", "stale"]),
+  state: z.enum(["open", "done", "dismissed", "stale", "undone"]),
 }).strict();
 export type KgMemoryCard = z.infer<typeof KgMemoryCard>;
 
@@ -732,6 +763,18 @@ export const knowledgeGraph = {
     }).strict(),
     out: z.object({ card: KgMemoryCard, actionIds: z.array(z.string()) }).strict(),
     err: ["KG_CARD_NOT_FOUND", "KG_CARD_STALE", "KG_NOT_OWNER", "KG_ACTOR_NOT_HUMAN", "KG_CONTESTED_NEEDS_RESOLUTION"] as const,
+  },
+
+  /**
+   * UC-KG-12b（issue #4361）：撤销一张已生效的「忘掉」卡（人的动作；Agent 身份拒绝）。只恢复这张卡忘掉的、
+   * 现在仍是「因忘掉而失效」的那些（连同 F07 级联一起收掉的长期记忆副本与关系）；卡转 `undone`。
+   * 别人的卡 / 不存在的卡同一个出口 KG_CARD_NOT_FOUND（404，不泄露存在性）；已撤销 / 没生效 / 不是忘掉卡 ⇒ KG_CARD_STALE。
+   */
+  undoMemoryCard: {
+    method: "POST", path: "/knowledge-graph/cards/:cardId/undo",
+    in: z.object({ cardId: z.string() }).strict(),
+    out: z.object({ card: KgMemoryCard, actionIds: z.array(z.string()) }).strict(),
+    err: ["KG_CARD_NOT_FOUND", "KG_CARD_STALE", "KG_NOT_OWNER", "KG_ACTOR_NOT_HUMAN"] as const,
   },
 
   /** UC-KG-7：读本人个人空间（L1）的知识 —— 只有本人 */
