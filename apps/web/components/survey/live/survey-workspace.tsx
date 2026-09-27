@@ -28,6 +28,7 @@ import {
 } from "../report/report-export";
 import { SurveyQuestionEditor } from "./question-editor";
 import { MarkdownSurveyEditor } from "./markdown-survey-editor";
+import { downloadReportMarkdown, surveyReportMarkdown } from "../report/report-markdown";
 import { CollectionOverview } from "./collection-overview";
 import { SurveyTemplateActions } from "../library/template-actions";
 import { LiveResponseList } from "./response-list";
@@ -578,6 +579,7 @@ export function LiveSurveyWorkspace({
                 </Button>
                 {runtime?.report && (
                   <>
+                    <Button variant="outline" disabled={!!reportShareBlockedReason} onClick={() => void execute(async () => { downloadReportMarkdown(runtime.report!); })}>导出 Markdown</Button>
                     <Button
                       variant="outline"
                       disabled={!!reportShareBlockedReason}
@@ -620,7 +622,7 @@ export function LiveSurveyWorkspace({
               )}
               {!runtime?.report && (
                 <p className="rounded-md bg-muted p-4 text-12">
-                  先设计报告模板并回收答卷，再按模板生成报告。
+                  分析报告是可选项，不影响发布和回收。可以使用默认报告模板，也可以按需设计模板。
                 </p>
               )}
               {compiled?.issues.length ? (
@@ -642,8 +644,14 @@ export function LiveSurveyWorkspace({
                   </p>
                 )}
               {runtime?.report && (
+                <div className="rounded-lg bg-muted p-3 sm:p-6">
+                  <details className="mb-4 rounded-md border border-border bg-card p-3">
+                    <summary className="cursor-pointer text-13">报告 Markdown</summary>
+                    <textarea aria-label="报告 Markdown" readOnly className="mt-3 min-h-48 w-full rounded-md border border-border bg-card p-3 font-mono text-12" value={surveyReportMarkdown(runtime.report)} />
+                  </details>
                 <div ref={reportRef}>
                   <SurveyReportDocument report={runtime.report} />
+                </div>
                 </div>
               )}
             </section>
