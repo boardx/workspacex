@@ -69,6 +69,7 @@ async function setupView() {
   const view = render(<CollaborativeEditor boardId="content-board" clientId="content-client" doc={doc} readOnly={false} title="内容板" status="已连接" />);
   return { doc, ...view };
 }
+function openAppearance() { const trigger = screen.getByTestId("board-inspector-appearance"); if (trigger.getAttribute("aria-expanded") !== "true") fireEvent.click(trigger); }
 async function setup() { return (await setupView()).doc; }
 
 it("creates a real shape and structured Tile from the touch-first dock", async () => {
@@ -83,6 +84,7 @@ it("creates a real shape and structured Tile from the touch-first dock", async (
   expect(records.some((object) => object.extensionData?.contentObject && (object.extensionData.contentObject as { variant?: string }).variant === "diamond")).toBe(true);
   expect(records.some((object) => object.extensionData?.contentObject && (object.extensionData.contentObject as { type?: string }).type === "tile")).toBe(true);
   expect(screen.getByTestId("board-context-toolbar")).toBeVisible();
+  openAppearance();
   fireEvent.click(screen.getByRole("button", { name: "编辑字段" }));
   fireEvent.change(screen.getByTestId("board-structured-title"), { target: { value: "访谈记录" } });
   fireEvent.change(screen.getByTestId("board-structured-details"), { target: { value: JSON.stringify({ description: "直接编辑", fields: [{ key: "owner", label: "负责人", value: "Grace" }], tags: ["research"], status: "active", link: null, actions: ["open"] }) } });
@@ -133,6 +135,7 @@ it("creates a verified local-session image without writing bytes or blob/data UR
   expect(JSON.stringify(image)).not.toContain("data:image");
   expect(JSON.stringify(image)).not.toContain("blob:");
   expect(screen.getByText(/当前浏览器会话中验证并显示/)).toBeVisible();
+  openAppearance();
   expect(screen.getByRole("link", { name: "下载" })).toHaveAttribute("href", "blob:verified-1");
   fireEvent.click(screen.getByRole("button", { name: "替换" }));
   await waitFor(() => expect(screen.getByText("替换图片")).toBeVisible());
@@ -141,13 +144,17 @@ it("creates a verified local-session image without writing bytes or blob/data UR
   expect(readObjects(doc)).toHaveLength(1);
   expect(readObjects(doc)[0]).toMatchObject({ id: image.id, extensionData: { contentObject: { replacementOf: image.id, intrinsicWidth: 64, intrinsicHeight: 48 } } });
   expect(revokeObjectUrl).not.toHaveBeenCalled();
+  openAppearance();
   expect(screen.getByRole("link", { name: "下载" })).toHaveAttribute("href", "blob:verified-2");
   fireEvent.click(screen.getByRole("button", { name: "撤销" }));
   await waitFor(() => expect((readObjects(doc)[0]?.extensionData?.contentObject as { fileName?: string } | undefined)?.fileName).toBe("photo.png"));
+  openAppearance();
   expect(screen.getByRole("link", { name: "下载" })).toHaveAttribute("href", "blob:verified-1");
   fireEvent.click(screen.getByRole("button", { name: "重做" }));
   await waitFor(() => expect((readObjects(doc)[0]?.extensionData?.contentObject as { fileName?: string } | undefined)?.fileName).toBe("replacement.png"));
+  openAppearance();
   expect(screen.getByRole("link", { name: "下载" })).toHaveAttribute("href", "blob:verified-2");
+  fireEvent.click(screen.getByTestId("board-inspector-actions"));
   fireEvent.click(screen.getByRole("button", { name: "删除" }));
   expect(revokeObjectUrl).not.toHaveBeenCalled();
   unmount();
@@ -179,6 +186,7 @@ it("retains a shared image asset across duplicate deletion and remote bulk delet
   expect(readObjects(doc)).toHaveLength(2);
   const assetIds = readObjects(doc).map((object) => (object.extensionData?.contentObject as { assetId?: string }).assetId);
   expect(new Set(assetIds).size).toBe(1);
+  fireEvent.click(screen.getByTestId("board-inspector-actions"));
   fireEvent.click(screen.getByRole("button", { name: "删除" }));
   expect(readObjects(doc)).toHaveLength(1);
   expect(revokeObjectUrl).not.toHaveBeenCalled();
@@ -243,11 +251,13 @@ it("validates HTTPS image MIME, size, and magic bytes before storing a durable U
   fireEvent.click(screen.getByTestId("board-image-url-apply"));
   await waitFor(() => expect(readObjects(doc)).toHaveLength(1));
   expect(readObjects(doc)[0]?.extensionData?.contentObject).toMatchObject({ type: "image", status: "ready", sourceUrl: "https://assets.example.com/photo.png", assetId: expect.stringMatching(/^local-session-/), mimeType: "image/png", byteSize: bytes.length, intrinsicWidth: 48, intrinsicHeight: 36, contentDigest: expect.stringMatching(/^sha256:[a-f0-9]{64}$/), magicMimeType: "image/png", persistence: "local-session" });
+  openAppearance();
   fireEvent.click(screen.getByRole("button", { name: "裁剪" }));
   fireEvent.click(screen.getByRole("button", { name: "透明度" }));
   fireEvent.click(screen.getByRole("button", { name: "边框" }));
   fireEvent.click(screen.getByRole("button", { name: "圆角" }));
   expect(readObjects(doc)[0]?.extensionData?.contentObject).toMatchObject({ crop: { x: .1, y: .1, width: .8, height: .8 }, opacity: .6, borderWidth: 2, cornerRadius: 20 });
+  openAppearance();
   expect(screen.getByRole("link", { name: "下载" })).toHaveAttribute("href", "blob:verified-1");
   expect(fetch).toHaveBeenCalledTimes(1);
   expect(fetch).toHaveBeenCalledWith("https://assets.example.com/photo.png", expect.objectContaining({ credentials: "omit", redirect: "error", referrerPolicy: "no-referrer", headers: { Range: "bytes=0-26214399" } }));
@@ -367,6 +377,7 @@ it("applies contextual color and duplicates with a 24px offset", async () => {
   const doc = await setup();
   fireEvent.click(screen.getByTestId("board-add-shape"));
   const source = readObjects(doc)[0]!;
+  openAppearance();
   fireEvent.click(screen.getByLabelText("填充色 #93C5FD"));
   expect(readObjects(doc).find((item) => item.id === source.id)?.extensionData?.contentObject).toMatchObject({ fill: "#93C5FD" });
   fireEvent.click(screen.getByRole("button", { name: "边框样式" }));

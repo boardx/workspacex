@@ -30,6 +30,9 @@ class ResizeObserverMock { observe() {} disconnect() {} }
 globalThis.ResizeObserver = ResizeObserverMock as unknown as typeof ResizeObserver;
 afterEach(() => cleanup());
 
+function openActions() { const trigger = screen.getByTestId("board-inspector-actions"); if (trigger.getAttribute("aria-expanded") !== "true") fireEvent.click(trigger); const tab = screen.getByRole("button", { name: "操作" }); fireEvent.click(tab); }
+function openProperties() { openActions(); fireEvent.click(screen.getByTestId("board-properties-open")); }
+
 function mount() {
   const doc = createWhiteboardDocument();
   render(<CollaborativeEditor boardId="spatial-board" clientId="web" doc={doc} readOnly={false} title="Spatial" status="已连接" />);
@@ -48,6 +51,7 @@ it("creates and edits a semantic Panel, highlights a drop target, and reparents 
   const sticky = readObjects(doc).find((object) => object.kind === "sticky")!;
   expect(panel.extensionData?.spatial).toMatchObject({ mode: "freeform", autoExpand: true, clipContent: false });
   fireEvent.click(screen.getByTestId(`mock-select-${panel.id}`));
+  openProperties();
   fireEvent.change(screen.getByLabelText("区域标题"), { target: { value: "Research findings" } });
   fireEvent.change(screen.getByLabelText("区域布局"), { target: { value: "flow" } });
   expect(readObjects(doc).find((object) => object.id === panel.id)?.text).toBe("Research findings");
@@ -65,12 +69,15 @@ it("locks objects against transform and exposes both explicit Panel deletion out
   const panel = readObjects(doc).find((object) => object.kind === "frame")!, sticky = readObjects(doc).find((object) => object.kind === "sticky")!;
   fireEvent.click(screen.getByTestId("mock-reparent"));
   fireEvent.click(screen.getByTestId(`mock-select-${sticky.id}`));
+  openActions();
   fireEvent.click(within(screen.getByTestId("board-spatial-toolbar")).getByText("锁定"));
   const before = readObjects(doc).find((object) => object.id === sticky.id)!.geometry;
   fireEvent.click(screen.getByTestId("mock-transform-selected"));
   expect(readObjects(doc).find((object) => object.id === sticky.id)?.geometry).toEqual(before);
+  openActions();
   fireEvent.click(within(screen.getByTestId("board-spatial-toolbar")).getByText("解锁"));
   fireEvent.click(screen.getByTestId(`mock-select-${panel.id}`));
+  openActions();
   fireEvent.click(within(screen.getByTestId("board-spatial-toolbar")).getByText("删除"));
   fireEvent.click(screen.getByTestId("board-panel-delete-preserve"));
   expect(readObjects(doc).find((object) => object.id === panel.id)).toBeUndefined();
@@ -79,6 +86,7 @@ it("locks objects against transform and exposes both explicit Panel deletion out
   const port = new SpatialRelationshipCommandPort(doc), panel2 = "panel2";
   act(() => { port.dispatch({ boardId: "spatial-board", clientId: "fixture", gestureId: "p2", command: { type: "create-panel", id: panel2, geometry: { x: 0, y: 0, width: 400, height: 300, rotation: 0 }, panel: { version: 1, mode: "freeform", autoExpand: false, clipContent: false, padding: 24, gap: 24, columns: 3, flowDirection: "horizontal" } } }); port.dispatch({ boardId: "spatial-board", clientId: "fixture", gestureId: "r2", command: { type: "reparent", id: sticky.id, parentId: panel2 } }); });
   fireEvent.click(screen.getByTestId(`mock-select-${panel2}`));
+  openActions();
   fireEvent.click(within(screen.getByTestId("board-spatial-toolbar")).getByText("删除"));
   fireEvent.click(screen.getByTestId("board-panel-delete-cascade"));
   expect(readObjects(doc).find((object) => object.id === sticky.id)).toBeUndefined();
@@ -106,6 +114,7 @@ it("creates a semantic connector from handles, updates its label/styles, and fol
   fireEvent.click(screen.getByTestId("mock-transform-selected"));
   expect(readObjects(doc).find((object) => object.id === edge.id)?.geometry).not.toEqual(before);
   fireEvent.click(screen.getByTestId(`mock-select-${edge.id}`));
+  openProperties();
   fireEvent.change(screen.getByLabelText("连接标签"), { target: { value: "depends on" } });
   fireEvent.change(screen.getByLabelText("语义关系"), { target: { value: "depends_on" } });
   fireEvent.change(screen.getByLabelText("连接路径"), { target: { value: "curve" } });
@@ -113,7 +122,9 @@ it("creates a semantic connector from handles, updates its label/styles, and fol
   fireEvent.change(screen.getByLabelText("连接起点"), { target: { value: "circle" } });
   fireEvent.change(screen.getByLabelText("连接终点"), { target: { value: "diamond" } });
   expect(readObjects(doc).find((object) => object.id === edge.id)?.connector).toMatchObject({ label: "depends on", semanticRelation: "depends_on", type: "curve", lineStyle: "dotted", startStyle: "circle", endStyle: "diamond" });
+  openActions();
   fireEvent.click(within(screen.getByTestId("board-spatial-toolbar")).getByText("锁定"));
+  openProperties();
   expect(screen.getByLabelText("连接标签")).toBeDisabled();
   expect(screen.getByLabelText("连接路径")).toBeDisabled();
   expect(screen.getByLabelText("连接线型")).toBeDisabled();
@@ -127,15 +138,19 @@ it("groups, layers, duplicates the full subgraph, and ungroups through canonical
   fireEvent.click(screen.getByTestId("mock-create-a")); fireEvent.keyDown(screen.getByLabelText("对象文字"), { key: "Escape" });
   fireEvent.click(screen.getByTestId("mock-create-b")); fireEvent.keyDown(screen.getByLabelText("对象文字"), { key: "Escape" });
   fireEvent.click(screen.getByTestId("mock-select-stickies"));
+  openActions();
   fireEvent.click(within(screen.getByTestId("board-spatial-toolbar")).getByText("组合"));
   const original = readObjects(doc).find((object) => object.kind === "group")!;
   expect(readObjects(doc).filter((object) => object.kind === "sticky").every((object) => object.parentId === original.id)).toBe(true);
+  openActions();
   fireEvent.click(screen.getByTestId("board-spatial-duplicate"));
   expect(readObjects(doc).filter((object) => object.kind === "group")).toHaveLength(2);
   expect(readObjects(doc).filter((object) => object.kind === "sticky")).toHaveLength(4);
+  openActions();
   fireEvent.click(within(screen.getByTestId("board-spatial-toolbar")).getByText("置于顶层"));
   const duplicate = readObjects(doc).filter((object) => object.kind === "group").find((object) => object.id !== original.id)!;
   expect(duplicate.zIndex).toBeGreaterThanOrEqual(original.zIndex ?? 0);
+  openActions();
   fireEvent.click(within(screen.getByTestId("board-spatial-toolbar")).getByText("取消组合"));
   expect(readObjects(doc).filter((object) => object.kind === "group")).toHaveLength(1);
   expect(readObjects(doc).filter((object) => object.kind === "sticky" && object.parentId === null)).toHaveLength(2);
@@ -153,11 +168,12 @@ it("preflights multi-delete and commits preserve-free endpoints in one UI transa
   });
   fireEvent.click(screen.getByTestId("mock-select-stickies"));
   const before = readObjects(doc);
-  fireEvent.click(screen.getByText("删除选中", { exact: true }));
+  fireEvent.click(screen.getByRole("button", { name: "删除选中" }));
   expect(readObjects(doc)).toEqual(before);
   act(() => port.dispatch({ boardId: "spatial-board", clientId: "fixture", gestureId: "unlock-edge", command: { type: "set-locked", objectIds: ["edge"], locked: false } }));
   const transactions: Y.Transaction[] = [];
   doc.on("afterTransaction", transaction => { if (transaction.origin instanceof WhiteboardCommandOrigin) transactions.push(transaction); });
+  openActions();
   fireEvent.click(screen.getByTestId("board-delete-preserve-connectors"));
   expect(readObjects(doc)).toHaveLength(1);
   expect(readObjects(doc)[0]).toMatchObject({ id: "edge", connector: { fromPoint: expect.any(Object), toPoint: expect.any(Object) } });

@@ -20,7 +20,9 @@ const sticky: WhiteboardObject = { id: "sticky", schemaVersion: 1, kind: "sticky
 it("shows Sticky-only direct controls and makes every mutating control unavailable in readonly mode", () => {
   const onStickyChange = vi.fn(), onExperienceChange = vi.fn();
   const { rerender } = render(<ObjectContextToolbar object={sticky} viewport={{ zoom: 1, panX: 0, panY: 0, fitRequest: 0 }} readOnly={false} actorId="me" onStickyChange={onStickyChange} onTextChange={vi.fn()} onExperienceChange={onExperienceChange} onFutureAction={vi.fn()} />);
-  const toolbar = screen.getByRole("complementary", { name: "便利贴快捷工具" });
+  expect(screen.queryByLabelText("新标签")).toBeNull();
+  fireEvent.click(screen.getByRole("button", { name: "便利贴样式" }));
+  const toolbar = screen.getByRole("dialog", { name: "便利贴样式" });
   expect(within(toolbar).getByTestId("sticky-color-yellow")).toBeEnabled();
   expect(within(toolbar).getByTestId("context-sticky-circle")).toBeEnabled();
   expect(within(toolbar).queryByLabelText("字号")).toBeNull();
@@ -37,11 +39,14 @@ it("derives command availability from selection count and hides single-object co
   executeCommands(doc, [{ type: "create", object: sticky }, { type: "create", object: { ...sticky, id: "sticky-2", orderKey: "b", geometry: { ...sticky.geometry, x: 240 } } }], "seed");
   render(<CollaborativeThinkingEditor boardId="board" clientId="web" doc={doc} readOnly={false} title="Board" status="已连接" />);
   fireEvent.click(screen.getByTestId("select-one"));
+  expect(screen.queryByTestId("board-shared-properties")).toBeNull();
+  fireEvent.click(screen.getByRole("button", { name: "更多操作" }));
   expect(screen.getByTestId("board-context-toolbar")).toBeVisible();
   expect(within(screen.getByTestId("board-spatial-toolbar")).getByRole("button", { name: "组合" })).toBeDisabled();
   expect(within(screen.getByTestId("board-spatial-toolbar")).getByRole("button", { name: "组合" })).toHaveAttribute("title", "至少选择 2 个对象");
   expect(screen.getByText("组合不可用：至少选择 2 个对象。")).toHaveClass("sr-only");
   fireEvent.click(screen.getByTestId("select-two"));
+  fireEvent.click(screen.getByRole("button", { name: "更多操作" }));
   expect(screen.queryByTestId("board-context-toolbar")).toBeNull();
   expect(within(screen.getByTestId("board-spatial-toolbar")).getByRole("button", { name: "组合" })).toBeEnabled();
   doc.destroy();
@@ -52,6 +57,8 @@ it("explains readonly command unavailability through the toolbar description", (
   executeCommands(doc, [{ type: "create", object: sticky }], "seed");
   render(<CollaborativeThinkingEditor boardId="board" clientId="viewer" doc={doc} readOnly title="Board" status="已连接" />);
   fireEvent.click(screen.getByTestId("select-one"));
+  expect(screen.queryByTestId("board-shared-properties")).toBeNull();
+  fireEvent.click(screen.getByRole("button", { name: "更多操作" }));
   expect(screen.getByTestId("board-spatial-duplicate")).toBeDisabled();
   expect(screen.getByTestId("board-spatial-duplicate")).toHaveAttribute("title", "当前白板为只读");
   expect(screen.getByTestId("board-command-availability")).toHaveTextContent("修改命令不可用：当前白板为只读。");
@@ -63,6 +70,8 @@ it("hides mutating single-object controls when the selected object is locked", (
   executeCommands(doc, [{ type: "create", object: { ...sticky, locked: true } }], "seed");
   render(<CollaborativeThinkingEditor boardId="board" clientId="editor" doc={doc} readOnly={false} title="Board" status="已连接" />);
   fireEvent.click(screen.getByTestId("select-one"));
+  expect(screen.queryByTestId("board-shared-properties")).toBeNull();
+  fireEvent.click(screen.getByRole("button", { name: "更多操作" }));
   expect(screen.queryByTestId("board-context-toolbar")).toBeNull();
   expect(screen.getByTestId("board-spatial-duplicate")).toBeDisabled();
   expect(screen.getByTestId("board-spatial-duplicate")).toHaveAttribute("title", "选择中包含锁定对象");
