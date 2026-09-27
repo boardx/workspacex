@@ -1,0 +1,459 @@
+{
+  "ids": {
+    "P1": "thr-e0cce286-5523-4cf7-b85d-f493af92df08",
+    "c211Session": "clm_1c3878927dc2401ca883a734f4bc86de",
+    "p211": "act_18b681570f17419ab219de5cce31ad23-p",
+    "T1": "thr-0c7e21ac-1e32-4b9a-9330-102314957aaa",
+    "cProj": "clm_d3dd0042e76d4019b3efa44b653452b2",
+    "T2": "thr-567f3150-0dd3-4340-9cda-bd439d6f4e06",
+    "projectAnswer": "6a285834-ae75-47bc-80aa-5aae6192a2e3",
+    "P2": "thr-fcd52c0c-794a-4475-b022-82329d057f39",
+    "answerP2": "5b00fc4a-09ea-407d-ae3e-3a02a66eb4b9",
+    "p985": "act_2e0bfe696c794a90a99630140c335213-p",
+    "P3": "thr-efa6317b-a2e5-4d66-96e1-1bd10b054edb",
+    "P4": "thr-61645f7b-a788-480f-ba5a-cc880e4acee6",
+    "answerP4": "0cc6dffa-f8d3-455e-87b9-31233e03e0dd",
+    "P5": "thr-acab23d8-104a-48b5-849f-f12650fd25f3",
+    "P6": "thr-f71312f5-04ba-42ee-a2dd-1f7750c1ad46",
+    "cNone": "clm_877dedb70373418cb572d0b9e0c1761a"
+  },
+  "s4283_a": {
+    "answerId": "5ec853da-80fc-42cc-a73c-ef4cb698b3e6",
+    "chip": "已记下：我决定关注 211 高校\n·\n已记入个人记忆\n·\n撤销",
+    "personal": [
+      {
+        "id": "act_18b681570f17419ab219de5cce31ad23-p",
+        "statement": "我决定关注 211 高校",
+        "status": "proposed"
+      }
+    ]
+  },
+  "s4283_a_brain": [
+    "我决定关注 211 高校"
+  ],
+  "s4283_b": {
+    "answerId": "b52291ce-91d9-4564-892a-66f92032e1c6",
+    "chip": "已记下：我决定关注双一流高校\n·\n撤销",
+    "personal": [
+      {
+        "id": "act_18b681570f17419ab219de5cce31ad23-p",
+        "statement": "我决定关注 211 高校",
+        "status": "proposed"
+      }
+    ],
+    "projectClaims": [
+      {
+        "id": "clm_d3dd0042e76d4019b3efa44b653452b2",
+        "scope": {
+          "kind": "chat_session",
+          "id": "thr-0c7e21ac-1e32-4b9a-9330-102314957aaa"
+        },
+        "kind": "decision",
+        "statement": "我决定关注双一流高校",
+        "status": "proposed",
+        "triState": "pending",
+        "confidence": 0.9,
+        "createdBy": "model",
+        "reviewedBy": null,
+        "supersedesClaimId": null,
+        "derivedFromClaimId": null,
+        "aboutObjectIds": [],
+        "supportingCount": 1,
+        "contradictingCount": 0,
+        "createdAt": "2026-09-27T01:38:21.563Z"
+      }
+    ]
+  },
+  "s4284_a": {
+    "answerId": "6a285834-ae75-47bc-80aa-5aae6192a2e3",
+    "text": "根据之前的对话：我决定关注 211 高校（来自个人空间知识，最早见于你 09/27 的对话）。",
+    "recalledForA": [
+      {
+        "claimId": "act_18b681570f17419ab219de5cce31ad23-p",
+        "statement": "我决定关注 211 高校",
+        "triState": "pending",
+        "scope": "personal",
+        "saidAt": "2026-09-27T01:38:02.980Z",
+        "channels": [
+          "claim"
+        ],
+        "retrievalReasons": [
+          "recall"
+        ],
+        "score": 0,
+        "graphPath": null
+      }
+    ],
+    "footerForA": "根据之前的对话：我决定关注 211 高校（来自个人空间知识，最早见于你 09/27 的对话）。\n\n[1]\n我决定关注 211 高校\nAI 记下的\n来自你 9/27 的对话\n为什么用到它\n\n正在记…"
+  },
+  "s4284_b": {
+    "answerTextSeenByB": "根据之前的对话：我决定关注 211 高校（来自个人空间知识，最早见于你 09/27 的对话）。",
+    "citationChipsForB": "",
+    "recalledForB": [],
+    "extractionForB": {
+      "status": 200,
+      "body": {
+        "claims": []
+      }
+    },
+    "panelClaimsForB": [],
+    "panelClaimsForA": [],
+    "sourcesOfAPersonalForB": {
+      "status": 404,
+      "body": {
+        "error": "not_found",
+        "traceId": "ab3abe9a-652a-428c-9157-670715cb99e5",
+        "reasonCode": "KG_CLAIM_NOT_FOUND"
+      }
+    },
+    "sourcesOfMissingForB": {
+      "status": 404,
+      "body": {
+        "error": "not_found",
+        "traceId": "4c936754-c687-474a-9e1c-c00fe0895c0f",
+        "reasonCode": "KG_CLAIM_NOT_FOUND"
+      }
+    },
+    "panelUiTextForB": "记忆（0）\n只读\n会话成员可见\n\n已整理到最新\n\n对话里提到的人、决定和事实会自动记在这里，你什么都不用做。现在还没有——先聊几句。"
+  },
+  "s4290_auto": {
+    "answerId": "5b00fc4a-09ea-407d-ae3e-3a02a66eb4b9",
+    "notice": {
+      "noticeId": "act_8e6ef9ef2ea9496e8668a0e30a2ad845-0",
+      "newerClaim": {
+        "id": "clm_a9988cc1d34241dd984460bf83948a1a",
+        "statement": "改成关注 985 高校"
+      },
+      "olderClaim": {
+        "id": "act_18b681570f17419ab219de5cce31ad23-p",
+        "statement": "我决定关注 211 高校"
+      },
+      "state": "applied"
+    },
+    "line": "已用〈改成关注 985 高校〉取代〈我决定关注 211 高校〉\n·\n撤销",
+    "personal": {
+      "scope": {
+        "kind": "personal",
+        "id": "user-kg-eval-owner"
+      },
+      "revision": 3,
+      "objects": [],
+      "claims": [
+        {
+          "id": "act_2e0bfe696c794a90a99630140c335213-p",
+          "scope": {
+            "kind": "personal",
+            "id": "user-kg-eval-owner"
+          },
+          "kind": "decision",
+          "statement": "改成关注 985 高校",
+          "status": "proposed",
+          "triState": "pending",
+          "confidence": 0.9,
+          "createdBy": "model",
+          "reviewedBy": null,
+          "supersedesClaimId": null,
+          "derivedFromClaimId": "clm_a9988cc1d34241dd984460bf83948a1a",
+          "aboutObjectIds": [],
+          "supportingCount": 1,
+          "contradictingCount": 0,
+          "createdAt": "2026-09-27T01:39:13.625Z"
+        }
+      ],
+      "edges": [],
+      "replaced": [
+        {
+          "byClaimId": "act_2e0bfe696c794a90a99630140c335213-p",
+          "replaces": {
+            "claimId": "act_18b681570f17419ab219de5cce31ad23-p",
+            "statement": "我决定关注 211 高校"
+          },
+          "undo": {
+            "threadId": "thr-fcd52c0c-794a-4475-b022-82329d057f39",
+            "noticeId": "act_8e6ef9ef2ea9496e8668a0e30a2ad845-0"
+          }
+        }
+      ]
+    }
+  },
+  "s4290_auto_P3": {
+    "answerId": "8bf33e2f-d789-44ed-8c0c-046d0cc9a007",
+    "text": "根据之前的对话：改成关注 985 高校（来自个人空间知识，最早见于你 09/27 的对话）。",
+    "recalled": [
+      {
+        "claimId": "act_2e0bfe696c794a90a99630140c335213-p",
+        "statement": "改成关注 985 高校",
+        "triState": "pending",
+        "scope": "personal",
+        "saidAt": "2026-09-27T01:39:12.460Z",
+        "channels": [
+          "claim"
+        ],
+        "retrievalReasons": [
+          "recall"
+        ],
+        "score": 0,
+        "graphPath": null
+      }
+    ]
+  },
+  "s4290_card": {
+    "answerId": "0cc6dffa-f8d3-455e-87b9-31233e03e0dd",
+    "prompt": {
+      "type": "conflict",
+      "conflict": {
+        "promptId": "act_79b06ac8b83d4c2999cc5085f00e7618-c0",
+        "kind": "possible_change",
+        "newerClaim": {
+          "id": "clm_5d7146e4938e425bbc517ed620dba44d",
+          "statement": "改成关注 C9"
+        },
+        "olderClaim": {
+          "id": "act_2e0bfe696c794a90a99630140c335213-p",
+          "statement": "改成关注 985 高校",
+          "saidAt": "2026-09-27T01:39:12.460Z"
+        }
+      }
+    },
+    "cardText": "用〈改成关注 C9〉取代〈改成关注 985 高校〉？\n\n取代\n两条都保留",
+    "personalWhileOpen": [
+      {
+        "id": "act_2e0bfe696c794a90a99630140c335213-p",
+        "statement": "改成关注 985 高校",
+        "status": "proposed"
+      },
+      {
+        "id": "act_6db2999edca24323a9d446b7573fdcdf-p",
+        "statement": "改成关注 C9",
+        "status": "proposed"
+      }
+    ]
+  },
+  "s4290_card_P5": {
+    "answerId": "61900730-e56c-494b-8c7b-5d56952f6337",
+    "text": "根据之前的对话：改成关注 C9（来自个人空间知识，最早见于你 09/27 的对话）；改成关注 985 高校（来自个人空间知识，最早见于你 09/27 的对话）。",
+    "recalled": [
+      {
+        "claimId": "act_6db2999edca24323a9d446b7573fdcdf-p",
+        "statement": "改成关注 C9",
+        "triState": "pending",
+        "scope": "personal",
+        "saidAt": "2026-09-27T01:39:27.951Z",
+        "channels": [
+          "claim"
+        ],
+        "retrievalReasons": [
+          "recall"
+        ],
+        "score": 0,
+        "graphPath": null
+      },
+      {
+        "claimId": "act_2e0bfe696c794a90a99630140c335213-p",
+        "statement": "改成关注 985 高校",
+        "triState": "pending",
+        "scope": "personal",
+        "saidAt": "2026-09-27T01:39:12.460Z",
+        "channels": [
+          "claim"
+        ],
+        "retrievalReasons": [
+          "recall"
+        ],
+        "score": 0,
+        "graphPath": null
+      }
+    ]
+  },
+  "s4290_card_choice": {
+    "choice": "keep_both (两条都保留)",
+    "resolvedLine": "两条都保留了",
+    "personalAfter": [
+      {
+        "id": "act_2e0bfe696c794a90a99630140c335213-p",
+        "statement": "改成关注 985 高校",
+        "status": "proposed"
+      },
+      {
+        "id": "act_6db2999edca24323a9d446b7573fdcdf-p",
+        "statement": "改成关注 C9",
+        "status": "proposed"
+      }
+    ]
+  },
+  "s4290_none": {
+    "answerId": "e121a840-687a-4405-986c-4007abfcd62f",
+    "turnMemory": {
+      "supersede": null,
+      "prompt": null
+    },
+    "personal": [
+      {
+        "id": "act_2e0bfe696c794a90a99630140c335213-p",
+        "statement": "改成关注 985 高校",
+        "status": "proposed"
+      },
+      {
+        "id": "act_6db2999edca24323a9d446b7573fdcdf-p",
+        "statement": "改成关注 C9",
+        "status": "proposed"
+      },
+      {
+        "id": "act_5b6673c7f6244eecb5728bbb4266eaaa-p",
+        "statement": "改成关注985高校，我反对",
+        "status": "proposed"
+      }
+    ],
+    "footer": "根据之前的对话：改成关注 985 高校（来自个人空间知识，最早见于你 09/27 的对话）；改成关注 C9（来自个人空间知识，最早见于你 09/27 的对话）。\n\n[1]\n改成关注 985 高校\nAI 记下的\n来自你 9/27 的对话\n[2]\n改成关注 C9\nAI 记下的\n来自你 9/27 的对话\n为什么用到它\n\n已记下 1 条\n·\n查看\n·\n撤销"
+  },
+  "s4302_a": {
+    "items": [
+      "改成关注 985 高校",
+      "改成关注 C9",
+      "改成关注985高校，我反对"
+    ],
+    "originTime": "来自你 9/27 的对话",
+    "rowText": "改成关注 985 高校\n\nAI 记下的\n来自你 9/27 的对话\n改成关注 985 高校吧\n点开看原话\n取代了：我决定关注 211 高校\n撤销取代\n忘掉这条"
+  },
+  "s4302_b_afterUndo": {
+    "items": [
+      "我决定关注 211 高校",
+      "改成关注 985 高校",
+      "改成关注 C9",
+      "改成关注985高校，我反对"
+    ],
+    "personal": {
+      "scope": {
+        "kind": "personal",
+        "id": "user-kg-eval-owner"
+      },
+      "revision": 7,
+      "objects": [],
+      "claims": [
+        {
+          "id": "act_18b681570f17419ab219de5cce31ad23-p",
+          "scope": {
+            "kind": "personal",
+            "id": "user-kg-eval-owner"
+          },
+          "kind": "decision",
+          "statement": "我决定关注 211 高校",
+          "status": "proposed",
+          "triState": "pending",
+          "confidence": 0.9,
+          "createdBy": "model",
+          "reviewedBy": null,
+          "supersedesClaimId": null,
+          "derivedFromClaimId": "clm_1c3878927dc2401ca883a734f4bc86de",
+          "aboutObjectIds": [],
+          "supportingCount": 1,
+          "contradictingCount": 0,
+          "createdAt": "2026-09-27T01:38:03.638Z"
+        },
+        {
+          "id": "act_2e0bfe696c794a90a99630140c335213-p",
+          "scope": {
+            "kind": "personal",
+            "id": "user-kg-eval-owner"
+          },
+          "kind": "decision",
+          "statement": "改成关注 985 高校",
+          "status": "proposed",
+          "triState": "pending",
+          "confidence": 0.9,
+          "createdBy": "model",
+          "reviewedBy": null,
+          "supersedesClaimId": null,
+          "derivedFromClaimId": "clm_a9988cc1d34241dd984460bf83948a1a",
+          "aboutObjectIds": [],
+          "supportingCount": 1,
+          "contradictingCount": 0,
+          "createdAt": "2026-09-27T01:39:13.625Z"
+        },
+        {
+          "id": "act_6db2999edca24323a9d446b7573fdcdf-p",
+          "scope": {
+            "kind": "personal",
+            "id": "user-kg-eval-owner"
+          },
+          "kind": "decision",
+          "statement": "改成关注 C9",
+          "status": "proposed",
+          "triState": "pending",
+          "confidence": 0.9,
+          "createdBy": "model",
+          "reviewedBy": null,
+          "supersedesClaimId": null,
+          "derivedFromClaimId": "clm_5d7146e4938e425bbc517ed620dba44d",
+          "aboutObjectIds": [],
+          "supportingCount": 1,
+          "contradictingCount": 0,
+          "createdAt": "2026-09-27T01:39:29.635Z"
+        },
+        {
+          "id": "act_5b6673c7f6244eecb5728bbb4266eaaa-p",
+          "scope": {
+            "kind": "personal",
+            "id": "user-kg-eval-owner"
+          },
+          "kind": "decision",
+          "statement": "改成关注985高校，我反对",
+          "status": "proposed",
+          "triState": "pending",
+          "confidence": 0.9,
+          "createdBy": "model",
+          "reviewedBy": null,
+          "supersedesClaimId": null,
+          "derivedFromClaimId": "clm_877dedb70373418cb572d0b9e0c1761a",
+          "aboutObjectIds": [],
+          "supportingCount": 1,
+          "contradictingCount": 0,
+          "createdAt": "2026-09-27T01:39:41.633Z"
+        }
+      ],
+      "edges": [],
+      "replaced": []
+    }
+  },
+  "s4302_b_afterForgetReload": {
+    "items": [
+      "我决定关注 211 高校",
+      "改成关注 C9",
+      "改成关注985高校，我反对"
+    ],
+    "personal": [
+      {
+        "id": "act_18b681570f17419ab219de5cce31ad23-p",
+        "statement": "我决定关注 211 高校",
+        "status": "proposed"
+      },
+      {
+        "id": "act_6db2999edca24323a9d446b7573fdcdf-p",
+        "statement": "改成关注 C9",
+        "status": "proposed"
+      },
+      {
+        "id": "act_5b6673c7f6244eecb5728bbb4266eaaa-p",
+        "statement": "改成关注985高校，我反对",
+        "status": "proposed"
+      }
+    ]
+  },
+  "s4302_c": {
+    "personalForB": {
+      "scope": {
+        "kind": "personal",
+        "id": "user-kg-eval-other"
+      },
+      "revision": 0,
+      "objects": [],
+      "claims": [],
+      "edges": [],
+      "replaced": []
+    },
+    "overviewForB": {
+      "threads": [],
+      "personalOrigins": []
+    }
+  }
+}
