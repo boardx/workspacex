@@ -1,0 +1,18 @@
+#!/bin/sh
+# Second pass: wsx_s6_nf2 is now fully migrated (fixed). Put back the pre-S6 kg_apply_supersedes and drop the
+# copy-inheritance trigger in THAT DB only, confirm with a catalog query, then run the two test files.
+set -u
+S=/tmp/claude-0/-home-user-workspacex/0c400fb8-dfbe-5051-bf5c-eba2226be75a/scratchpad/s6-nofix-sql
+T=/tmp/claude-0/-home-user-workspacex/0c400fb8-dfbe-5051-bf5c-eba2226be75a/scratchpad/s6test.sh
+DB=wsx_s6_nf2
+P="psql -h 127.0.0.1 -p 55432 -U postgres -d $DB -v ON_ERROR_STOP=1"
+export PGPASSWORD=postgres_dev
+{
+  echo "== migrations applied (last 3)"; $P -Atc "SELECT name FROM schema_migrations ORDER BY name DESC LIMIT 3" 2>&1 || $P -Atc "SELECT * FROM pg_tables WHERE tablename ILIKE '%migration%'"
+  echo "== revert kg_apply_supersedes to 20260926140000"; $P -f $S/old-kg_apply_supersedes.sql
+  echo "== drop trigger"; $P -c "DROP TRIGGER kg_copy_inherits_time_trg ON ontology_edges"
+  echo "== check: fixed line present in function body?"; $P -Atc "SELECT position('d.status = ''active'')) s' IN prosrc) > 0 FROM pg_proc WHERE proname = 'kg_apply_supersedes'"
+  echo "== check: trigger exists?"; $P -Atc "SELECT count(*) FROM pg_trigger WHERE tgname = 'kg_copy_inherits_time_trg'"
+} > $S/revert2.log 2>&1
+sh $T $DB $S/nofix2.out tests/knowledge-graph/supersede-active-derived-from.test.ts tests/knowledge-graph/time-dimension.test.ts --testTimeout=900000 --hookTimeout=1800000
+echo ALLDONE >> $S/nofix2.out
