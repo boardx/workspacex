@@ -7,6 +7,27 @@ import { InterviewMarkdownEditingStep } from "@/components/itv/interview-markdow
 import { MOCK_DIGITAL_EXPERTS } from "@/lib/mock/digital-expert-personas";
 afterEach(() => { cleanup(); vi.unstubAllGlobals(); vi.unstubAllEnvs(); });
 const source = { documentId: "edit-doc", step: "experts" as const, version: 1, contentHash: "a".repeat(64), evidenceMode: "simulated" as const, references: [], markdown: "# 专家\n" };
+it("a save conflict does not silently rebase local text onto another editor's version", async () => {
+  vi.stubEnv("NEXT_PUBLIC_API_URL", "http://localhost:4100"); vi.stubEnv("NEXT_PUBLIC_API_PATH_PREFIX", "");
+  const writes: { expectedVersion: number; expectedDocumentVersion: number }[] = [];
+  let gets = 0;
+  vi.stubGlobal("fetch", async (url: string, init: RequestInit) => {
+    if (url.endsWith("/digital/experts")) return new Response(JSON.stringify({ items: [] }));
+    if (init.method === "POST") { writes.push(JSON.parse(String(init.body))); return new Response(JSON.stringify({ message: "conflict" }), { status: 409 }); }
+    gets++;
+    return new Response(JSON.stringify({ interviewId: "itv-edits", revisionId: "rev-edits", version: gets > 1 ? 2 : 1, documents: [{ ...source, version: gets > 1 ? 2 : 1 }], states: [{ documentId: source.documentId, status: "draft", failure: null }] }));
+  });
+  render(<InterviewMarkdownEditingStep interviewId="itv-edits" step="experts" onVersionChange={vi.fn()} onDirtyChange={vi.fn()} onContinue={vi.fn()} />);
+  const input = await screen.findByRole("textbox", { name: "专家文档 Markdown" });
+  await vi.waitFor(() => expect(input).toBeEnabled());
+  fireEvent.change(input, { target: { value: "# 专家\n\n本地画像" } });
+  fireEvent.click(screen.getByRole("button", { name: "保存专家草稿" }));
+  await screen.findByRole("alert");
+  await vi.waitFor(() => expect(screen.getByRole("button", { name: "保存专家草稿" })).toBeEnabled());
+  fireEvent.click(screen.getByRole("button", { name: "保存专家草稿" }));
+  await vi.waitFor(() => expect(writes).toHaveLength(2));
+  expect(writes.map((write) => [write.expectedVersion, write.expectedDocumentVersion])).toEqual([[1, 1], [1, 1]]);
+});
 it("expert search filters the supplied directory rather than showing a fallback mock list", () => {
   render(<InterviewExpertsStep document={source} directory={MOCK_DIGITAL_EXPERTS.slice(0, 2)} pending={false} onChange={vi.fn()} onSave={vi.fn()} onConfirm={vi.fn()} onGenerate={vi.fn()} />);
   fireEvent.change(screen.getByRole("textbox", { name: "搜索专家" }), { target: { value: "不存在的夜班专家" } });

@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import { ApiError } from "@/lib/api-client";
-import { loadInterviewMarkdown, saveInterviewMarkdown, confirmInterviewMarkdown, generateInterviewMarkdown,
+import { initializeInterviewMarkdown, loadInterviewMarkdown, saveInterviewMarkdown, confirmInterviewMarkdown, generateInterviewMarkdown,
   type InterviewMarkdownEnvelope } from "@/lib/interview-markdown-api";
 import { Button } from "@/components/ui/button";
 import { InterviewIntakeStep } from "./interview-intake-step";
@@ -34,7 +34,7 @@ export function InterviewMarkdownPlanningStep({ interviewId, step, onVersionChan
   React.useEffect(() => {
     const controller = new AbortController();
     setPending(true); setError("");
-    void loadInterviewMarkdown(interviewId, controller.signal).then((next) => {
+    void initializeInterviewMarkdown(interviewId, controller.signal).then((next) => {
       if (controller.signal.aborted) return;
       setSource(next); setMarkdown(next.documents.find((doc) => doc.step === "intake")?.markdown ?? "");
       callbacks.current.onVersionChange(next.version);
@@ -51,7 +51,9 @@ export function InterviewMarkdownPlanningStep({ interviewId, step, onVersionChan
     catch (cause) {
       // A failed provider response may still have appended a partial document.
       // Refresh its version before retry; never replace the user's editable intake.
-      try { receive(await loadInterviewMarkdown(interviewId)); } catch { /* Preserve the original failure and local draft. */ }
+      if (!(cause instanceof ApiError && cause.status === 409)) {
+        try { receive(await loadInterviewMarkdown(interviewId)); } catch { /* Preserve the original failure and local draft. */ }
+      }
       showError(cause);
     }
     finally { setPending(false); }

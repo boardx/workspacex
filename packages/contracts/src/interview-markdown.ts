@@ -50,6 +50,7 @@ export const SaveInterviewMarkdownDraft = z.object({
 
 export const InterviewMarkdownGenerationStep = z.enum(["analysis", "experts", "outline", "report"]);
 export const GenerateInterviewMarkdown = SaveInterviewMarkdownDraft.omit({ markdown: true });
+export const InitializeInterviewMarkdown = GenerateInterviewMarkdown.omit({ expectedDocumentVersion: true });
 export const ConfirmInterviewMarkdown = GenerateInterviewMarkdown.extend({
   expectedDocumentVersion: z.number().int().positive(),
 });
@@ -93,7 +94,6 @@ export function parseInterviewMarkdown(input: InterviewMarkdownDocument): Interv
       headingId = `section-${headings.length + 1}`;
       headings.push({ id: headingId, depth: node.depth!, text: plainText(node) });
       const start = node.position?.start.offset ?? 0;
-      if (blocks.length) blocks[blocks.length - 1]!.end = start;
       const links: { text: string; url: string }[] = [];
       function collectLinks(child: MarkdownNode): void {
         if (child.type === "link" && child.url) links.push({ text: plainText(child), url: child.url });
@@ -114,6 +114,9 @@ export function parseInterviewMarkdown(input: InterviewMarkdownDocument): Interv
     }
   }
   finishSection();
+  for (const [index, block] of blocks.entries()) {
+    block.end = blocks.slice(index + 1).find((next) => next.depth <= block.depth)?.start ?? document.markdown.length;
+  }
   return Object.freeze({
     evidenceMode: document.evidenceMode,
     headings: Object.freeze(headings.map((heading) => Object.freeze(heading))),

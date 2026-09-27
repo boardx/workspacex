@@ -6,9 +6,25 @@ import { appendInterviewMarkdownDocument, readInterviewMarkdownDocuments, DIGITA
 import { DigitalInterviewWorkflowError } from "../../application/interview/workflow/digital-interview-runtime.port";
 import { interviewMarkdown } from "@repo/contracts";
 import type { z } from "zod";
+import { migrateInterviewMarkdown } from "./interview-markdown-migration";
+import { randomUUID } from "node:crypto";
 
 export class PgInterviewMarkdownReader implements InterviewMarkdownReader {
   constructor(private readonly db: DatabasePort) {}
+
+  initialize(input: Parameters<InterviewMarkdownReader["initialize"]>[0]) {
+    return this.db.withTenant(input.orgId, async (session) => {
+      const current = await session.query<{ version: string }>(`SELECT s.version FROM interview_sessions s WHERE s.org_id=$1 AND s.id=$2 AND ${DIGITAL_INTERVIEW_ACTOR_VISIBILITY} FOR UPDATE OF s`, [input.orgId, input.interviewId, input.actorId]);
+      if (!current.rows[0]) throw new DigitalInterviewWorkflowError("PERMISSION_REVOKED_MIDWAY");
+      if (Number(current.rows[0].version) !== input.expectedVersion) throw new DigitalInterviewWorkflowError("CONCURRENT_MODIFICATION");
+      const revision = await session.query(`SELECT id FROM digital_interview_revisions WHERE org_id=$1 AND interview_id=$2 AND is_current`, [input.orgId, input.interviewId]);
+      if (!revision.rows.length) await session.query(`INSERT INTO digital_interview_revisions(org_id,id,interview_id,revision_number,created_by) VALUES($1,$2,$3,1,$4)`, [input.orgId, `rev-${randomUUID()}`, input.interviewId, input.actorId]);
+      const count = () => session.query<{ count: string }>(`SELECT count(*)::text AS count FROM digital_interview_artifact_versions WHERE org_id=$1 AND interview_id=$2 AND content_source IS NOT NULL`, [input.orgId, input.interviewId]);
+      const before = (await count()).rows[0]!.count;
+      await migrateInterviewMarkdown(session, input.orgId, input.interviewId);
+      if (!revision.rows.length || (await count()).rows[0]!.count !== before) await session.query(`UPDATE interview_sessions SET version=version+1,updated_at=now() WHERE org_id=$1 AND id=$2`, [input.orgId, input.interviewId]);
+    });
+  }
 
   saveDraft(input: Parameters<InterviewMarkdownReader["saveDraft"]>[0]) {
     return this.db.withTenant(input.orgId, async (session) => {
