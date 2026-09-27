@@ -46,3 +46,13 @@ Ready-to-run diagnostic lane (root isolation wrapper required): `pnpm --dir apps
 - Three diagnostic Playwright tests collected with `--list`; no services/browser started.
 - Web `tsc --noEmit`: passed.
 - API `tsc --noEmit`: one pre-existing base error remains in `tests/whiteboard/collaboration-gateway-gap.test.ts:113` (mock missing required `loadInTransaction`). No vendor-change type errors remain. The coordinator is handling that separate collaboration test; this is not reported as an API typecheck pass.
+
+## Browser-local and portable roundtrip follow-up
+
+The producer now reads each browser's existing accessibility mirror after initial load, owner reload and independent peer load. It compares the entire local object inventory, projected kind, full geometry, text, parent IDs, z-order, connector endpoint IDs and resolved endpoint points against the previously checked canonical inventory. Missing/extra/duplicate objects or stale geometry/text/relationships fail. This observes the local projection; it does not pretend the mirror exposes every canonical style field. The 15-second local assertion budget is bounded and adds no network interception.
+
+It then performs authenticated portable export, verifies package/object/media hashes and bytes, imports into a fresh Board and repeats the exact request to verify idempotency. After normalizing only newly assigned object/reference IDs by retained vendor source identity, every canonical field must match. Each accepted image requires an independent source byte/pixel expectation, and authenticated source and target image bytes must be identical. The target owner initial load/reload and independent peer again pass local model and real canvas pixel checks. Source and roundtrip screenshots are separately attached; evidence includes both Board IDs and local-state hashes. Existing total test timeout remains unchanged.
+
+Focused counterexamples in `apps/web/tests/whiteboard/vendor-local-proof.test.ts` reject missing, duplicated, stale and misrelated local objects and lossy canonical roundtrips. These unit results are not browser execution. Three captured real-account source boards remain absent; schema-derived runs continue to report `diagnostic-only`.
+
+Worker verification for this follow-up: 22 focused unit/DOM checks passed; the three diagnostic Playwright cases collected with `--list`; `git diff --check` passed. No Docker, browser or full typecheck was run. The DOM check renders the actual accessibility mirror and deliberately corrupts its text/endpoint attributes to prove local-state drift is rejected.

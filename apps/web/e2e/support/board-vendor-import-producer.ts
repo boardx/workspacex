@@ -3,6 +3,8 @@ import {createHash,randomUUID} from 'node:crypto';
 import {createRequire} from 'node:module';
 import {resolve} from 'node:path';
 import {expect,type APIRequestContext,type Page} from '@playwright/test';
+import type {WhiteboardObject} from '@repo/contracts/whiteboard-document';
+import {assertVendorLocalObjects,assertPortableCanonicalRoundtrip,readVendorLocalNodes,type VendorLocalObject} from './board-vendor-local-proof';
 export type VendorExpected={sourceId:string;outcome:'success'|'downgraded'|'skipped'|'failed';reasonCode?:string;kind?:string;text?:string;zIndex?:number;style?:Record<string,unknown>;geometry?:{x:number;y:number;width:number;height:number;rotation:number};parentSourceId?:string|null;fromSourceId?:string;toSourceId?:string;lossIncludes?:string[]};
 export type VendorMigrationFixture={source:'miro'|'mural';name:string;mime:'application/json'|'application/zip'|'text/csv';bytes:Buffer;sha256:string;classification:'captured-account-export'|'schema-derived-synthetic';sourceEvidence:string[];expected:VendorExpected[];media?:Array<{sourceId:string;sha256:string;width:number;height:number;pixelProbe:[number,number,number]}>};
 const hash=(bytes:Uint8Array)=>createHash('sha256').update(bytes).digest('hex');
@@ -33,13 +35,60 @@ export async function produceVendorMigrationEvidence(input:{api:APIRequestContex
  const requestId=randomUUID(),execute={requestId,expectedEpoch:1};const accepted=await(await call('POST',`${path}/${uploaded.importId}/execute`,execute)).json();
  const replay=await(await call('POST',`${path}/${uploaded.importId}/execute`,execute)).json();assert.equal(replay.replayed,true);assert.equal(replay.seq,accepted.seq);
  const report=await(await call('GET',`${path}/${uploaded.importId}/report`)).json();assert.deepEqual(report,accepted.report);assert.deepEqual(report,preflight);
- const canonical=async()=>{const exported=await(await call('POST',`${path}/standard-export`,{requestId:randomUUID()})).json(),download=await(await call('GET',exported.downloadPath)).json(),bytes=Buffer.from(download.contentBase64,'base64');assert.equal(hash(bytes),download.sha256);return JSON.parse(bytes.toString());};
+ const canonical=async(targetBoardId=board.id):Promise<{objects:WhiteboardObject[]}>=>{const exported=await(await call('POST',`/whiteboards/${targetBoardId}/imports/standard-export`,{requestId:randomUUID()})).json(),download=await(await call('GET',exported.downloadPath)).json(),bytes=Buffer.from(download.contentBase64,'base64');assert.equal(hash(bytes),download.sha256);return JSON.parse(bytes.toString());};
  const document=await canonical();assertVendorMigration(f,report,document.objects);const images=[];
+ const imageSourceIds=document.objects.filter(o=>o.kind==='image').map(o=>(o.extensionData?.import as {sourceId:string}).sourceId).sort();
+ assert.deepEqual((f.media??[]).map(m=>m.sourceId).sort(),imageSourceIds,'every accepted image requires independent byte/pixel expectations');
  const sharp=createRequire(resolve(__dirname,'../../../api/package.json'))('sharp') as (bytes:Uint8Array)=>{raw():{toBuffer(options:{resolveWithObject:true}):Promise<{data:Buffer;info:{width:number;height:number;channels:number}}>}};
- for(const media of f.media??[]){const object=document.objects.find((o:any)=>o.extensionData?.import?.sourceId===media.sourceId),asset=object?.extensionData?.contentObject;assert.equal(asset?.status,'ready');const response=await call('GET',`/whiteboards/${board.id}/assets/${asset.assetId}/content`),bytes=await response.body();assert.equal(hash(bytes),media.sha256);const pixels=await sharp(bytes).raw().toBuffer({resolveWithObject:true});assert.equal(pixels.info.width,media.width);assert.equal(pixels.info.height,media.height);let probe=0;for(let i=0;i<pixels.data.length;i+=pixels.info.channels)if(media.pixelProbe.every((value,index)=>pixels.data[i+index]===value))probe++;assert(probe>100,'pixel probe must occur in the actual source image');images.push({assetId:asset.assetId,sha256:media.sha256,pixelHash:hash(pixels.data)});}
+ for(const media of f.media??[]){const object=document.objects.find((o:any)=>o.extensionData?.import?.sourceId===media.sourceId),asset=object?.extensionData?.contentObject as {status?:string;assetId?:string}|undefined;assert(asset);assert.equal(asset.status,'ready');const response=await call('GET',`/whiteboards/${board.id}/assets/${asset.assetId}/content`),bytes=await response.body();assert.equal(hash(bytes),media.sha256);const pixels=await sharp(bytes).raw().toBuffer({resolveWithObject:true});assert.equal(pixels.info.width,media.width);assert.equal(pixels.info.height,media.height);let probe=0;for(let i=0;i<pixels.data.length;i+=pixels.info.channels)if(media.pixelProbe.every((value,index)=>pixels.data[i+index]===value))probe++;assert(probe>100,'pixel probe must occur in the actual source image');images.push({assetId:asset.assetId,sha256:media.sha256,pixelHash:hash(pixels.data)});}
  await call('PUT',`/whiteboards/${board.id}/members`,{userId:input.peerUserId,role:'editor'});
- const verifyPage=async(page:Page)=>{await expect(page.getByTestId('collaborative-editor')).toBeVisible();await expect(page.getByText(/^已同步/)).toBeVisible();await page.getByTestId('board-zoom-fit-board').click();for(const media of f.media??[])await expect.poll(()=>page.locator('canvas.lower-canvas').evaluateAll((elements,rgb)=>elements.some(element=>{const c=element as HTMLCanvasElement,ctx=c.getContext('2d');if(!ctx)return false;const bytes=ctx.getImageData(0,0,c.width,c.height).data;let n=0;for(let i=0;i<bytes.length;i+=4)if(bytes[i]===rgb[0]&&bytes[i+1]===rgb[1]&&bytes[i+2]===rgb[2]&&bytes[i+3]===255)n++;return n>100;}),media.pixelProbe)).toBe(true);};
- await input.owner.goto(`/studio/board/${board.id}`);await verifyPage(input.owner);await input.owner.reload();await verifyPage(input.owner);await input.peer.goto(`/studio/board/${board.id}`);await verifyPage(input.peer);
+ const verifyPage=async(page:Page,expected:WhiteboardObject[])=>{await expect(page.getByTestId('collaborative-editor')).toBeVisible();await expect(page.getByText(/^已同步/)).toBeVisible();await page.getByTestId('board-zoom-fit-board').click();
+ // Observe this page's local rendered model, never refetch the server as a substitute.
+ await expect(async()=>assertVendorLocalObjects(await readVendorLocalObjects(page),expected)).toPass({timeout:15_000});
+ for(const media of f.media??[])await expect.poll(()=>page.locator('canvas.lower-canvas').evaluateAll((elements,rgb)=>elements.some(element=>{const c=element as HTMLCanvasElement,ctx=c.getContext('2d');if(!ctx)return false;const bytes=ctx.getImageData(0,0,c.width,c.height).data;let n=0;for(let i=0;i<bytes.length;i+=4)if(bytes[i]===rgb[0]&&bytes[i+1]===rgb[1]&&bytes[i+2]===rgb[2]&&bytes[i+3]===255)n++;return n>100;}),media.pixelProbe)).toBe(true);};
+ await input.owner.goto(`/studio/board/${board.id}`);await verifyPage(input.owner,document.objects);const initialLocal=await readVendorLocalObjects(input.owner);
+ await input.owner.reload();await verifyPage(input.owner,document.objects);const reloadedLocal=await readVendorLocalObjects(input.owner);
+ await input.peer.goto(`/studio/board/${board.id}`);await verifyPage(input.peer,document.objects);const peerLocal=await readVendorLocalObjects(input.peer);
  assert.deepEqual((await canonical()).objects,document.objects);
- return{boardId:board.id,sourceHash:f.sha256,classification:f.classification,realBoardAcceptance:f.classification==='captured-account-export'?'requires-source-evidence-review':'diagnostic-only',sourceEvidence:f.sourceEvidence,accepted,replay,report,images,ownerScreenshot:await input.owner.screenshot(),peerScreenshot:await input.peer.screenshot()};
+ const ownerScreenshot=await input.owner.screenshot(),peerScreenshot=await input.peer.screenshot();
+ // Exercise the media-bearing public package, not the legacy media-free JSON export.
+ const portable=await(await call('POST',`/whiteboards/${board.id}/portable/export`)).json();
+ const bundleBytes=Buffer.from(portable.contentBase64,'base64');assert.equal(bundleBytes.length,portable.sizeBytes);assert.equal(hash(bundleBytes),portable.sha256);
+ const bundle=JSON.parse(bundleBytes.toString('utf8'));assert.equal(bundle.format,'workspacex.board.bundle.v1');
+ assert.deepEqual(bundle.objects.content,document.objects);const objectBytes=Buffer.from(JSON.stringify(bundle.objects.content));assert.equal(bundle.objects.sizeBytes,objectBytes.length);assert.equal(bundle.objects.sha256,hash(objectBytes));
+ assert.equal(bundle.media.length,new Set(document.objects.filter(o=>o.kind==='image').map(o=>(o.extensionData?.contentObject as {assetId:string}).assetId)).size);
+ const roundtripBoard=await(await call('POST','/whiteboards',{requestId:randomUUID(),name:`Migration roundtrip ${randomUUID()}`})).json();
+ const portableInput={requestId:randomUUID(),expectedEpoch:1,file:{sizeBytes:portable.sizeBytes,sha256:portable.sha256,contentBase64:portable.contentBase64}};
+ const portableAccepted=await(await call('POST',`/whiteboards/${roundtripBoard.id}/portable/import`,portableInput)).json();
+ const portableReplay=await(await call('POST',`/whiteboards/${roundtripBoard.id}/portable/import`,portableInput)).json();
+ assert.equal(portableReplay.replayed,true);assert.equal(portableReplay.epoch,portableAccepted.epoch);assert.equal(portableReplay.seq,portableAccepted.seq);
+ const roundtrip=await canonical(roundtripBoard.id);assertPortableCanonicalRoundtrip(document.objects,roundtrip.objects);
+ const mediaRoundtrip=[];
+ for(const source of document.objects.filter(o=>o.kind==='image')){
+  const sourceIdentity=(source.extensionData?.import as {sourceId:string}).sourceId;
+  const target=roundtrip.objects.find(o=>(o.extensionData?.import as {sourceId?:string})?.sourceId===sourceIdentity);assert(target);
+  const assetId=(o:WhiteboardObject)=>(o.extensionData?.contentObject as {assetId:string}).assetId;
+  const sourceBytes=await(await call('GET',`/whiteboards/${board.id}/assets/${assetId(source)}/content`)).body();
+  const targetBytes=await(await call('GET',`/whiteboards/${roundtripBoard.id}/assets/${assetId(target)}/content`)).body();
+  assert.deepEqual(targetBytes,sourceBytes,'portable target authenticated image bytes changed');
+  const entry=bundle.media.filter((m:{assetId:string})=>m.assetId===assetId(source));assert.equal(entry.length,1);
+  assert.deepEqual(Buffer.from(entry[0].contentBase64,'base64'),sourceBytes);assert.equal(entry[0].sha256,hash(sourceBytes));assert.equal(entry[0].sizeBytes,sourceBytes.length);
+  mediaRoundtrip.push({sourceId:sourceIdentity,sha256:hash(targetBytes),sizeBytes:targetBytes.length});
+ }
+ await call('PUT',`/whiteboards/${roundtripBoard.id}/members`,{userId:input.peerUserId,role:'editor'});
+ await input.owner.goto(`/studio/board/${roundtripBoard.id}`);await verifyPage(input.owner,roundtrip.objects);
+ await input.owner.reload();await verifyPage(input.owner,roundtrip.objects);const roundtripOwnerLocal=await readVendorLocalObjects(input.owner);
+ await input.peer.goto(`/studio/board/${roundtripBoard.id}`);await verifyPage(input.peer,roundtrip.objects);const roundtripPeerLocal=await readVendorLocalObjects(input.peer);
+ assert.deepEqual((await canonical(roundtripBoard.id)).objects,roundtrip.objects);
+ const localHash=(rows:VendorLocalObject[])=>hash(Buffer.from(JSON.stringify(rows)));
+ return{boardId:board.id,roundtripBoardId:roundtripBoard.id,sourceHash:f.sha256,classification:f.classification,realBoardAcceptance:f.classification==='captured-account-export'?'requires-source-evidence-review':'diagnostic-only',sourceEvidence:f.sourceEvidence,accepted,replay,report,images,
+  localEvidence:{objectCount:document.objects.length,initialHash:localHash(initialLocal),reloadedHash:localHash(reloadedLocal),peerHash:localHash(peerLocal)},
+  portableEvidence:{bundleSha256:portable.sha256,accepted:portableAccepted,replay:portableReplay,media:mediaRoundtrip,ownerLocalHash:localHash(roundtripOwnerLocal),peerLocalHash:localHash(roundtripPeerLocal)},
+  ownerScreenshot,peerScreenshot,roundtripOwnerScreenshot:await input.owner.screenshot(),roundtripPeerScreenshot:await input.peer.screenshot()};
+}
+
+/** Read only the live page's existing accessibility mirror. No test injection,
+ * global Y.Doc hooks, server fetches or production adapter imports are used. */
+export async function readVendorLocalObjects(page:Page):Promise<VendorLocalObject[]>{
+ return page.getByTestId('board-a11y-mirror').locator('li[data-object-id]').evaluateAll(readVendorLocalNodes);
 }
