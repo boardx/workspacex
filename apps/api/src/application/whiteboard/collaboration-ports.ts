@@ -35,7 +35,8 @@ export interface WhiteboardCommentStore {
 }
 export interface WhiteboardPresenceIdentity { displayName:string; avatarUrl:string|null; principalKind:'user'|'agent'; }
 export interface WhiteboardPresenceIdentityResolver { resolve(principal:Principal):Promise<WhiteboardPresenceIdentity>; }
-export interface ValidatedWhiteboardUpdate { snapshot: Uint8Array; update: Uint8Array; deletions?:WhiteboardDeletionProof[];deletionChanges?:WhiteboardDeletionChange[]; }
+/** Live IDs derived inside the same isolated validation as snapshot; not client-supplied. */
+export interface ValidatedWhiteboardUpdate { objectIds: string[]; snapshot: Uint8Array; update: Uint8Array; deletions?:WhiteboardDeletionProof[];deletionChanges?:WhiteboardDeletionChange[]; }
 /** Untrusted decoding/validation must be isolated from the API event loop. */
 export interface WhiteboardUpdateValidator {
   restoreDeletion?(snapshot:Uint8Array,proof:WhiteboardDeletionProof[],changes?:WhiteboardDeletionChange[],inverseUpdate?:Uint8Array):Promise<ValidatedWhiteboardUpdate>;

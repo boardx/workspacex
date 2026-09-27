@@ -1,6 +1,6 @@
 import { createHash, randomUUID } from 'node:crypto';
 import { whiteboard as C } from '@repo/contracts';
-import { WhiteboardCommandBatch } from '@repo/contracts/whiteboard-document';
+import { WhiteboardCommandBatch, WhiteboardObjectId, WHITEBOARD_LIMITS } from '@repo/contracts/whiteboard-document';
 import type { Principal } from '../../domain/principal';
 import { assertPrincipal } from '../../domain/principal';
 import type { DatabasePort, TenantSession } from '../../application/ports/database.port';
@@ -133,9 +133,12 @@ export class PgWhiteboardCollaborationStore implements WhiteboardCollaborationSt
     if (Number(count.rows[0]?.count ?? 0) >= this.acceptedUpdatesPerMinute) throw new Fault('RATE_LIMITED');
     const accepted = await validate(doc.snapshot), seq = Number(doc.seq) + 1;
     if (!Number.isSafeInteger(seq) || accepted.snapshot.byteLength > WHITEBOARD_UPDATE_LIMITS.documentBytes || accepted.update.byteLength > WHITEBOARD_SYNC.persistedUpdateBytes) throw new Fault('VALIDATION_FAILED');
+    if (!Array.isArray(accepted.objectIds) || accepted.objectIds.length > WHITEBOARD_LIMITS.objects || new Set(accepted.objectIds).size !== accepted.objectIds.length || accepted.objectIds.some(id => !WhiteboardObjectId.safeParse(id).success)) throw new Fault('VALIDATION_FAILED');
     await session.query(`INSERT INTO whiteboard_updates(org_id,board_id,epoch,seq,actor_id,update_id,request_hash,update) VALUES($1,$2,$3,$4,$5,$6,$7,$8)`, [p.orgId, boardId, epoch, seq, p.userId, updateId, hash, Buffer.from(accepted.update)]);
     await session.query(`UPDATE whiteboard_documents SET seq=$3,snapshot=$4,updated_at=now() WHERE org_id=$1 AND board_id=$2`, [p.orgId, boardId, seq, Buffer.from(accepted.snapshot)]);
-    const liveObjectIds=await this.validator.objectIds(accepted.snapshot);
+    // IDs come from the same fully validated worker document, avoiding a second
+    // disposable worker startup while holding the Board transaction lock.
+    const liveObjectIds=accepted.objectIds;
     const orphaned=await session.query<{id:string;object_id:string;status:string;revision:number}>(`SELECT id,object_id,status,revision FROM whiteboard_comment_threads WHERE org_id=$1 AND board_id=$2 AND status<>'object-deleted' AND NOT(object_id=ANY($3::text[])) FOR UPDATE`,[p.orgId,boardId,liveObjectIds]);
     if(orphaned.rows.length){
       const archivedAt=new Date().toISOString();

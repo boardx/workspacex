@@ -22,6 +22,8 @@ it('real validator worker restores only the exact authoritative deletion proof a
  const deletion=await validator.commands(Y.encodeStateAsUpdate(doc),[{type:'delete',id:'target'}]);
  expect(deletion.deletions?.map(p=>p.id).sort()).toEqual(['edge','target']);
  const restored=await validator.restoreDeletion(deletion.snapshot,deletion.deletions!);
+ expect(deletion.objectIds).toEqual(['peer']);
+ expect([...restored.objectIds].sort()).toEqual(['edge','peer','target']);
  const result=createWhiteboardDocument();Y.applyUpdate(result,restored.snapshot);expect(readObjects(result).map(o=>o.id).sort()).toEqual(['edge','peer','target']);
  const authority=createWhiteboardDocument();Y.applyUpdate(authority,deletion.snapshot);
  expect(()=>prepareWhiteboardUpdate(authority,restored.update)).toThrow('TOMBSTONE_CHANGED');
@@ -57,7 +59,7 @@ function restoreFixture(){
   else if(sql.startsWith('INSERT INTO whiteboard_deletion_receipts'))rows=[{delete_update_id:args[5]}];
   return{rows:rows as R[]};
  }};
- const validator:WhiteboardUpdateValidator={objects:async()=>[],objectIds:async()=>['note'],diff:async s=>s,validate:async()=>{throw new Error('raw validator must not restore')},commands:async()=>{throw new Error('proof required')},restoreDeletion:async()=>({snapshot:new Uint8Array([0,0]),update:new Uint8Array([0,0])})};
+ const validator:WhiteboardUpdateValidator={objects:async()=>[],objectIds:async()=>['note'],diff:async s=>s,validate:async()=>{throw new Error('raw validator must not restore')},commands:async()=>{throw new Error('proof required')},restoreDeletion:async()=>({objectIds:['note'],snapshot:new Uint8Array([0,0]),update:new Uint8Array([0,0])})};
  const db:DatabasePort={withTenant:async(_org,run)=>{try{const result=await run(session);state.committed=true;return result;}catch(e){writes.length=0;throw e;}},withoutTenant:async()=>{throw new Error('tenant required')},close:async()=>{}};
  return{principal,boardId,input,receipt,state,writes,params,validator,store:new PgWhiteboardCollaborationStore(db,validator)};
 }
@@ -131,7 +133,7 @@ it('atomically compensates mixed deletion, text, parent and creation with before
 
 it('persists only actor-bound deletion integrity metadata in the same accepted update transaction',async()=>{
  const f=restoreFixture(),proof=f.receipt.proof;
- f.validator.validate=async()=>({snapshot:new Uint8Array([0,0]),update:new Uint8Array([0,0]),deletions:proof,deletionChanges:[{id:'note',before:'before-digest',after:null}]});
+ f.validator.validate=async()=>({objectIds:[],snapshot:new Uint8Array([0,0]),update:new Uint8Array([0,0]),deletions:proof,deletionChanges:[{id:'note',before:'before-digest',after:null}]});
  const ack=await f.store.append(f.principal,f.boardId,{epoch:1,updateId:f.input.updateId,gestureId:'delete-integrity',update:new Uint8Array([0,0])});
  expect(ack.seq).toBe(5);expect(f.state.committed).toBe(true);
  const metadata=f.params.find(args=>args[4]==='delete-integrity'&&args.length===10)!;
