@@ -65,6 +65,13 @@ export const LOCAL_ENV_PARITY: readonly ParityGroup[] = [
       "KERNEL_GUIDED_RESEARCH_MODEL_PROVIDER",
       "KERNEL_DIGITAL_INTERVIEW_SKILL_MODEL_ID",
       "KERNEL_ERROR_LOG_SUMMARY_MODEL_ID", "KERNEL_SKILL_TRIALRUN_MODEL_ID",
+      // 知识抽取模型（2026-09-24 加入 API）：不设时回落 KERNEL_DEFAULT_AGENT_MODEL_ID →
+      // KERNEL_MODEL_ID，本地版把前者设成本地聊天模型，所以抽取就用本地模型——正确，且不出网。
+      "KERNEL_KG_EXTRACTION_MODEL_ID",
+      // 白板分页游标的签名密钥（2026-09-26 加入 API）：不设时用 HMAC 从 MODEL_CREDENTIAL_KEY
+      // 派生一把用途隔离的密钥，而本地版每次安装都自己生成 MODEL_CREDENTIAL_KEY。
+      // **不设才是对的**：再设一把等于多一份要保管、会漂移的密钥，安全性不增反降。
+      "WHITEBOARD_CURSOR_SECRET",
       "KERNEL_DEEP_AGENT_POLL_INTERVAL_MS",
       "KERNEL_DESIGN_CHAT_TIMEOUT_MS", "KERNEL_KEEP_LOGS",
       "KERNEL_MODEL_MAX_OUTPUT_TOKENS", "KERNEL_MODEL_TIMEOUT_MS",

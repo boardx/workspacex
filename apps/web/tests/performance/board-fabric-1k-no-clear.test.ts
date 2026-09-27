@@ -16,10 +16,13 @@ const fabricHarness = vi.hoisted(() => {
     angle = 0;
     selectable = true;
     evented = true;
-    constructor(_value?: unknown, options: Record<string, unknown> = {}) {
+    constructor(value?: unknown, options: Record<string, unknown> = {}) {
       state.fabricObjectsCreated += 1;
+      this.children = Array.isArray(value) ? value : [];
       Object.assign(this, options);
     }
+    getObjects() { return this.children; }
+    private children: MockFabricObject[] = [];
     set(values: Record<string, unknown>) { Object.assign(this, values); return this; }
     setControlsVisibility() { return this; }
     setCoords() {}
@@ -34,7 +37,8 @@ const fabricHarness = vi.hoisted(() => {
   return { state, MockFabricObject };
 });
 
-vi.mock("fabric", () => {
+vi.mock("fabric", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("fabric")>();
   const MockFabricObject = fabricHarness.MockFabricObject;
   class Canvas {
     objects: InstanceType<typeof MockFabricObject>[] = [];
@@ -60,10 +64,13 @@ vi.mock("fabric", () => {
     getHeight() { return 720; }
     getZoom() { return this.viewportTransform[0]; }
     zoomToPoint() {}
-    setActiveObject() {}
-    discardActiveObject() {}
+    private active?: InstanceType<typeof MockFabricObject>;
+    setActiveObject(object: InstanceType<typeof MockFabricObject>) { this.active = object; }
+    discardActiveObject() { this.active = undefined; }
+    getActiveObject() { return this.active; }
   }
   return {
+    ...actual,
     Canvas,
     Circle: MockFabricObject,
     Group: MockFabricObject,

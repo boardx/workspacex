@@ -88,8 +88,9 @@ export class WhiteboardUndo {
       ...structuredClone(object), id: mapping.get(object.id)!, restoredFrom: object.id,
       parentId: object.parentId ? mapping.get(object.parentId) ?? object.parentId : null,
       ...(object.connector ? { connector: {
-        from: mapping.get(object.connector.from) ?? object.connector.from,
-        to: mapping.get(object.connector.to) ?? object.connector.to,
+        ...object.connector,
+        ...(object.connector.from ? { from: mapping.get(object.connector.from) ?? object.connector.from } : {}),
+        ...(object.connector.to ? { to: mapping.get(object.connector.to) ?? object.connector.to } : {}),
       } } : {}),
     }));
     executeCommands(this.doc, recreated.map(object => ({ type: 'create' as const, object })), COMPENSATION);
@@ -100,7 +101,17 @@ export class WhiteboardUndo {
     if (entry.action === 'create') {
       const live = new Map(readObjects(this.doc).map(object => [object.id, object]));
       if (!entry.objects.every(object => JSON.stringify(live.get(object.id) ?? null) === JSON.stringify(object))) throw new Error('STRUCTURAL_HISTORY_CONFLICT');
-      executeCommands(this.doc, entry.objects.map(object => ({ type: 'delete' as const, id: object.id })), COMPENSATION);
+      const ids = new Set(entry.objects.map(object => object.id));
+      const depth = (object: (typeof entry.objects)[number]): number => {
+        let value = 0, parentId = object.parentId;
+        while (parentId && ids.has(parentId)) { value += 1; parentId = live.get(parentId)?.parentId ?? null; }
+        return value;
+      };
+      // Remove relations and deepest descendants before their copied parents.
+      // This keeps structural validation valid for an atomic subgraph undo.
+      const deletionOrder = [...entry.objects].sort((left, right) =>
+        Number(right.kind === 'connector') - Number(left.kind === 'connector') || depth(right) - depth(left));
+      executeCommands(this.doc, deletionOrder.map(object => ({ type: 'delete' as const, id: object.id })), COMPENSATION);
       return entry;
     }
     return { ...entry, objects: this.recreate(entry.objects) };

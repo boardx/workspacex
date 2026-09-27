@@ -75,9 +75,8 @@ DISPATCH: dict[str, tuple[str, str, dict]] = {
     "browser_click": ("/standard-browser/invoke", "raises", {"pageRef": PAGE_REF, "elementRef": ELEMENT_REF}),
     "browser_fill_form": ("/standard-browser/invoke", "raises", {"pageRef": PAGE_REF, "fields": [{"ref": ELEMENT_REF, "value": SENTINEL}]}),
     "browser_take_screenshot": ("/standard-browser/invoke", "raises", {"pageRef": PAGE_REF}),
-    "wx_memory_search": ("/memory/source-proof", "raises", {"query": SENTINEL}),
-    "wx_memory_write": ("/memory/source-proof", "raises", {"text": SENTINEL, "sourceMessageId": SENTINEL, "idempotencyKey": "idem-key"}),
-    "wx_memory_delete": ("/memory/source-proof", "raises", {"memoryId": BINDING, "expectedRevision": 1}),
+    # #4344：wx_memory_* 退役，记忆只剩 wx_remember（开 F17 确认卡）。
+    "wx_remember": ("/remember/invoke", "raises", {"statement": SENTINEL}),
     "wx_knowledge_search": ("/standard-context/invoke", "returns-refusal", {"query": SENTINEL}),
     "wx_knowledge_read": ("/standard-context/invoke", "returns-refusal", {"sourceId": SENTINEL, "versionId": "v1"}),
     "wx_project_list": ("/standard-context/invoke", "returns-refusal", {"query": SENTINEL}),

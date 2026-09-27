@@ -252,7 +252,7 @@ describe("点引用 chip：打开那一条的来源抽屉", () => {
 
 function turn(overrides: Partial<TurnMemory> = {}): TurnMemory {
   return knowledgeGraph.getTurnMemory.out.parse({
-    messageId: "msg-7", captured: [], pending: false, prompt: null, recalled: [], recallDegraded: false, ...overrides,
+    messageId: "msg-7", captured: [], pending: false, prompt: null, supersede: null, recalled: [], recallDegraded: false, ...overrides,
   });
 }
 function json(body: unknown, status = 200): Response {

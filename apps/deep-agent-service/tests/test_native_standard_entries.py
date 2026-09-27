@@ -2,7 +2,7 @@
 import asyncio
 import httpx
 import pytest
-from langchain_core.messages import AIMessage
+from langchain_core.messages import AIMessage, ToolMessage
 from deep_agent_service import native_factory as factory
 from deep_agent_service.standard_artifact_download import artifact_download_tool
 from deep_agent_service.standard_run_status import run_status_tool
@@ -59,6 +59,14 @@ def test_unknown_entry_outcome_is_never_replayed(monkeypatch,module,name,args):
         sandbox=adapter,pinned_skills=[],tools=entry_tools(),interrupt_on={},tool_authority=FakeAuthority())
     async def run():return await graph.ainvoke({'messages':[{'role':'user','content':'call'}]},{'configurable':{'disable_task_auto_classify':True}})
     try:
-        with pytest.raises(error):asyncio.run(run())
+        # 2026-09-27：「不重放」这条不变量原样保留（calls==1）。变的只是观测方式——
+        # 此前 unknown outcome 会掀翻整条 run（`ToolRetryMiddleware` 对不重试的异常直接
+        # re-raise、跳过 on_failure），用户看到的是 tool_call_unresolved，模型连失败都
+        # 没看见。现在它作为 status="error" 的 ToolMessage 交还模型，run 照常收尾。
+        # 见 `native_graph._ReportToolOutcomeFailures` 与 test_native_tool_failure_reporting.py。
+        result=asyncio.run(run())
         assert len(calls)==1
+        failed=[m for m in result['messages'] if isinstance(m,ToolMessage) and m.tool_call_id=='real-entry']
+        assert len(failed)==1 and failed[0].status=='error' and 'unknown' in str(failed[0].content)
+        assert result['messages'][-1].content=='done'
     finally:adapter._client.close()

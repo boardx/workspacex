@@ -2,7 +2,7 @@
 import * as React from "react";
 import { Card } from "@/components/ui/card";
 import { SectionTitle, StatChip } from "./parts";
-import { ROLE_CAN_WRITE, ROLE_STAGE_CONTROL, type ProjectRole } from "@/lib/mock/project";
+import { ROLE_CAN_WRITE, ROLE_STAGE_CONTROL, type ProjectRole } from "@/lib/project-workbench";
 import { BACKFLOW_BADGE_LABEL, type ProjectOverview } from "@/lib/live-projects";
 import type { QueryProvenanceOut, ProvenanceEventType } from "@/lib/live-provenance";
 
@@ -10,7 +10,7 @@ import type { QueryProvenanceOut, ProvenanceEventType } from "@/lib/live-provena
  * 成果沉淀（原型 isWsAfter，F964 接真）—— 项目结论 / 假设状态 / 成果去向 /
  * 发布结论 / 候选决策 / 审计与反馈。
  *
- * ⚠ **这次的接线不是「全部接真」，是按 `lib/mock/project.ts` 头注（第 22-26 行）
+ * ⚠ **这次的接线不是「全部接真」，是按（现已删除的）`lib/mock/project.ts` 头注（第 22-26 行）
  *   逐条核实契约有没有出处，分两类处理**——同 F172（`tab-overview.tsx`）与 F963
  *   （`tab-live.tsx`）建立的纪律：把有出处的接真，把没出处的编造数据整块降级为
  *   如实空态，不让两者同屏并列、用户分不清真假。
@@ -23,7 +23,7 @@ import type { QueryProvenanceOut, ProvenanceEventType } from "@/lib/live-provena
  *     的审计检索面，`live-provenance.ts` 头注「不许另造」），按 `targetKind:"project"`
  *     + `targetId` 收窄到本项目。
  *
- * 降级为如实空态的四块（`lib/mock/project.ts` 第 22-26 行逐条标注「契约未建模」）：
+ * 降级为如实空态的四块（原 `lib/mock/project.ts` 第 22-26 行逐条标注「契约未建模」）：
  *   · **项目结论**（结论文本 + 签字人）—— 全仓没有「项目结论」这个实体，`provenance`
  *     只记事件不记结论文本，`getProjectOverview` 白名单四件里没有它。
  *   · **假设状态**（已验证/待验证/已推翻计数）—— 全仓 grep `hypothesis`/「假设状态」

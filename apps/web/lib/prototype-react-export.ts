@@ -14,6 +14,7 @@
  * - 文字一律以 JSX 表达式里的 JSON 字符串输出（`{"…"}`）：模型写的文案里出现 `{`、`<` 都不会
  *   把生成的代码弄坏，也不存在注入。
  */
+import { navbarSide } from "./prototype-navbar";
 import { designPrototype, designWorkbench } from "@repo/contracts";
 import type { DesignProject } from "@/lib/live-design-workbench";
 import { GAP_BY_DENSITY, PAD_BY_DENSITY, RADIUS_BY_SCALE, SPACE_BY_DENSITY, guessNavIcon } from "@/components/design-loop/prototype-canvas";
@@ -79,6 +80,14 @@ interface Ctx {
 }
 
 const str = (s: string): string => `{${JSON.stringify(s)}}`;
+/** 导航栏左右两侧：图标名画图标（与画布同一条规则，见 `prototype-navbar.ts`），否则是文字。 */
+function navSideJsx(value: string | undefined, ctx: Ctx): string {
+  const side = navbarSide(value);
+  if (side === null) return "";
+  if ("text" in side) return str(side.text);
+  const svg = ctx.icon(side.icon);
+  return svg === "" ? str(side.label) : `<span role="img" aria-label=${str(side.label)}>${svg}</span>`;
+}
 const cls = (...c: readonly (string | false | undefined)[]): string => `className="${c.filter(Boolean).join(" ")}"`;
 const pad = (depth: number): string => "  ".repeat(depth);
 
@@ -174,9 +183,9 @@ function node(n: Node, depth: number, ctx: Ctx): string {
     case "navbar": {
       const p = n.props;
       return el(depth, "header", cls("flex h-12 items-center justify-between border-b px-4", pal.border) + link, [
-        `${pad(d)}<span className="w-12 text-sm">${p.left === undefined ? "" : str(p.left)}</span>`,
+        `${pad(d)}<span className="flex w-12 items-center text-sm">${navSideJsx(p.left, ctx)}</span>`,
         `${pad(d)}<span className="text-sm font-semibold">${str(p.title)}</span>`,
-        `${pad(d)}<span className="w-12 text-right text-sm">${p.right === undefined ? "" : str(p.right)}</span>`,
+        `${pad(d)}<span className="flex w-12 items-center justify-end text-sm">${navSideJsx(p.right, ctx)}</span>`,
       ]);
     }
     case "text": {
@@ -315,6 +324,27 @@ function node(n: Node, depth: number, ctx: Ctx): string {
         el(d, "div", cls("flex h-32 items-end gap-2"), values.map((v, i) =>
           `${pad(d + 1)}<div title=${str(`${p.labels[i] ?? ""}: ${v}${p.unit ?? ""}`)} className="flex-1 rounded-t bg-[hsl(var(--primary))]" style={{ height: "${Math.max(2, ((v - Math.min(min, 0)) / span) * 100).toFixed(1)}%" }} />`)),
         labels]);
+    }
+    // design-delta `prototype-board`：与画布同一套几何——坐标是元素中心的百分比，连线 SVG 拉伸不改线宽。
+    case "board": {
+      const p = n.props;
+      const H = { sm: "h-40", md: "h-64", lg: "h-96", fill: "min-h-64 flex-1" }[p.height ?? "md"];
+      const W = { sticky: 24, shape: 20, text: 30 } as const;
+      const lines = (p.links ?? []).filter((l) => l.from < p.items.length && l.to < p.items.length).map((l) => {
+        const a = p.items[l.from]!; const b = p.items[l.to]!;
+        return `<line x1="${a.x}" y1="${a.y}" x2="${b.x}" y2="${b.y}" stroke="currentColor" strokeWidth={1.5} vectorEffect="non-scaling-stroke" />`;
+      }).join("");
+      const kids = [
+        `${pad(d)}<svg viewBox="0 0 100 100" preserveAspectRatio="none" className="pointer-events-none absolute inset-0 h-full w-full ${pal.muted}" aria-hidden>${lines}</svg>`,
+        ...p.items.map((it) => {
+          const c = designPrototype.PROTOTYPE_BOARD_COLORS[it.color ?? (it.kind === "sticky" ? "yellow" : "gray")];
+          const style = `{{ left: "${it.x}%", top: "${it.y}%", width: "${it.w ?? W[it.kind]}%"${it.kind === "text" ? "" : `, backgroundColor: "hsl(${c.bg})", color: "hsl(${c.fg})"`} }}`;
+          const shape = it.kind === "sticky" ? "rounded-sm p-2 text-xs shadow-sm" : it.kind === "shape" ? (it.shape === "circle" ? "aspect-square rounded-full p-2 text-center text-xs" : "rounded-lg border p-2 text-center text-xs") : "text-center text-sm font-medium";
+          return `${pad(d)}<div className="absolute -translate-x-1/2 -translate-y-1/2 ${shape}" style=${style}>${str(it.text)}${it.author !== undefined ? `<div className="text-right text-[10px] opacity-80">${str(it.author)}</div>` : ""}</div>`;
+        }),
+        ...(p.cursors ?? []).map((c) => `${pad(d)}<span className="pointer-events-none absolute rounded bg-[hsl(var(--primary))] px-1 text-[10px] text-[hsl(var(--primary-foreground))]" style={{ left: "${c.x}%", top: "${c.y}%" }}>${str(c.name)}</span>`),
+      ];
+      return el(depth, "div", `role="img" aria-label=${str(`画布：${p.items.map((i) => i.text).join("、")}`.slice(0, 200))} ${cls(`relative w-full overflow-hidden rounded-lg border ${H}`, pal.border)}${p.grid === false ? "" : ` style={{ backgroundImage: "radial-gradient(hsl(var(--border)) 1px, transparent 1px)", backgroundSize: "12px 12px" }}`}`, kids);
     }
     case "select": {
       const p = n.props;

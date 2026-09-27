@@ -20,6 +20,7 @@ import { onKnowledgeReload, publishKnowledgeSnapshot } from "@/lib/knowledge-gra
 const THREAD = "thr-kg-conflict";
 const PROMPT: KgConflictPrompt = {
   promptId: "kgp-1",
+  kind: "conflict",
   newerClaim: { id: "c-new", statement: "项目A 上线改到 10/1" },
   olderClaim: { id: "c-old", statement: "项目A 9/29 上线", saidAt: "2026-09-20T04:00:00Z" },
 };
@@ -136,7 +137,7 @@ beforeEach(() => {
     const path = new URL(typeof input === "string" ? input : input.toString()).pathname;
     if (path === `/knowledge-graph/threads/${THREAD}/messages/msg-9/memory`) {
       return json(knowledgeGraph.getTurnMemory.out.parse({
-        messageId: "msg-9", captured: [], pending: false, recalled: [], recallDegraded: false,
+        messageId: "msg-9", captured: [], pending: false, supersede: null, recalled: [], recallDegraded: false,
         prompt: server.prompt === null ? null : { type: "conflict", conflict: server.prompt },
       }));
     }
@@ -240,5 +241,56 @@ describe("TurnMemoryLine：本轮的矛盾提醒卡", () => {
     await waitFor(() => expect(fetchMock).toHaveBeenCalled());
     await new Promise((r) => setTimeout(r, 0));
     expect(container).toBeEmptyDOMElement();
+  });
+});
+
+/* ── issue #4290：低把握改口（kind = possible_change）——同一张卡、两种出口 ── */
+
+const CHANGE: KgConflictPrompt = {
+  promptId: "kgp-change",
+  kind: "possible_change",
+  newerClaim: { id: "c-985", statement: "改成关注 985" },
+  olderClaim: { id: "c-211", statement: "我决定关注 211 高校", saidAt: "2026-09-24T04:00:00Z" },
+};
+
+describe("ConflictPromptCard（possible_change）：「用〈新〉取代〈旧〉？」", () => {
+  it("问法与两个出口：[取代] / [两条都保留]，没有「忽略」", () => {
+    render(<ConflictPromptCard prompt={CHANGE} canResolve onResolve={vi.fn()} />);
+    expect(screen.getByTestId("kg-conflict-text")).toHaveTextContent("用〈改成关注 985〉取代〈我决定关注 211 高校〉？");
+    expect(screen.getByTestId("kg-conflict-keep-new")).toHaveTextContent("取代");
+    expect(screen.getByTestId("kg-conflict-keep-both")).toHaveTextContent("两条都保留");
+    expect(screen.queryByTestId("kg-conflict-ignore")).not.toBeInTheDocument();
+    expect(screen.getAllByRole("button")).toHaveLength(2);
+  });
+
+  it.each([
+    ["kg-conflict-keep-new", "keep_new", "已取代"],
+    ["kg-conflict-keep-both", "keep_both", "两条都保留了"],
+  ] as const)("点 %s ⇒ 直接交出 %s（不问适用条件）", async (testId, resolution, note) => {
+    const onResolve = vi.fn(async () => {});
+    render(<ConflictPromptCard prompt={CHANGE} canResolve onResolve={onResolve} />);
+    fireEvent.click(screen.getByTestId(testId));
+    expect(await screen.findByTestId("kg-conflict-resolved")).toHaveTextContent(note);
+    expect(onResolve).toHaveBeenCalledWith(resolution, undefined);
+    expect(screen.queryByTestId("kg-conflict-both-conditions")).not.toBeInTheDocument();
+  });
+
+  it("不是对话创建者：只有问句，没有按钮", () => {
+    render(<ConflictPromptCard prompt={CHANGE} canResolve={false} onResolve={vi.fn()} />);
+    expect(screen.getByTestId("kg-conflict-text")).toBeInTheDocument();
+    expect(screen.queryAllByRole("button")).toEqual([]);
+  });
+
+  it.each([
+    ["kg-conflict-keep-new", { type: "resolveConflict", promptId: "kgp-change", resolution: "keep_new" }],
+    ["kg-conflict-keep-both", { type: "resolveConflict", promptId: "kgp-change", resolution: "keep_both" }],
+  ] as const)("经 TurnMemoryLine：点 %s ⇒ 请求体（契约校验）不带 conditions", async (testId, action) => {
+    owner();
+    server.prompt = CHANGE;
+    render(<TurnMemoryLine threadId={THREAD} messageId="msg-9" />);
+    fireEvent.click(await screen.findByTestId(testId));
+    await screen.findByTestId("kg-conflict-resolved");
+    expect(server.actions).toEqual([{ basedOnRevision: 4, action }]);
+    expect(knowledgeGraph.applyHumanAction.in.safeParse({ threadId: THREAD, ...server.actions[0] }).success).toBe(true);
   });
 });

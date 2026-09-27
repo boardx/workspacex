@@ -14,6 +14,7 @@ import { drainConflictCloses } from "../../src/application/knowledge-graph/detec
 import { runExtractionTick, type ExtractionDeps } from "../../src/application/knowledge-graph/extract-message-knowledge";
 import { newKgId } from "../../src/application/knowledge-graph/ids";
 import { promoteToPersonal } from "../../src/application/knowledge-graph/promote-to-personal";
+import { getPersonalKnowledge } from "../../src/application/knowledge-graph/read-personal-knowledge";
 import { getThreadKnowledge, getTurnMemory } from "../../src/application/knowledge-graph/read-thread-knowledge";
 import { findConflicts, isConflict, normalizeNumber, type ConfirmedClaim, type FreshClaim } from "../../src/domain/knowledge-graph/conflict";
 import { toOrgId } from "../../src/domain/org-id";
@@ -209,6 +210,7 @@ describe("F16: 当轮出卡（V3）", () => {
       "SELECT min(m.created_at) AS at FROM claim_message_evidence e JOIN chat_messages m ON m.id = e.message_id WHERE e.claim_id = $1 AND e.stance = 'supporting'", [older.id]);
     expect(prompt).toEqual({
       promptId: expect.any(String),
+      kind: "conflict",
       newerClaim: { id: newer.id, statement: "项目A 上线改到 10/1" },
       olderClaim: { id: older.id, statement: "项目A 9/29 上线", saidAt: nineTwentyNine!.at.toISOString() },
     });
@@ -380,6 +382,10 @@ describe("F16: 长期记忆里的旧说法", () => {
       `SELECT c.id, c.status, c.supersedes_claim_id FROM claims c JOIN ontology_edges d ON d.src_id = c.id AND d.relation = 'derived_from' AND d.dst_id = $1
         WHERE c.scope_kind = 'personal' AND c.scope_id = 'u-owner'`, [newer]);
     expect(l1).toMatchObject({ status: "accepted", supersedes_claim_id: olderId });
+    // issue #4302：大脑页把长期记忆里被「以新的为准」取代的旧条折叠在新的那条下面；这种取代没有撤销动作 ⇒ undo 为 null
+    const brain = await getPersonalKnowledge(deps, { userId: "u-owner", orgId: ORG_ID });
+    expect(brain.claims.map((c) => c.id)).not.toContain(olderId);
+    expect(brain.replaced).toContainEqual({ byClaimId: l1!.id, replaces: { claimId: olderId, statement: "项目P 9/29 发布" }, undo: null });
   });
 });
 
@@ -780,6 +786,8 @@ describe("F16: 判定用的读写口只调两个数据库函数", () => {
     expect([...code.matchAll(/"(SELECT [^"]*)"/g)].map((m) => m[1])).toEqual([
       "SELECT set_config('app.current_user_id', coalesce(kg_thread_owner($1), ''), true)",
       "SELECT kg_conflict_candidates($1, $2) AS c", "SELECT kg_open_conflicts($1::jsonb) AS n",
+      // #4290：明确改口的取代，同样只调数据库函数（迁移 20260926140000）
+      "SELECT kg_supersede_candidates($1, $2) AS c", "SELECT kg_apply_supersedes($1::jsonb) AS n",
       "SELECT kg_conflict_close_pending_orgs() AS org", "SELECT kg_conflict_close_drain() AS done",
     ]);
     expect(code).not.toMatch(/\b(?:FROM|JOIN|UPDATE|INTO)\s+[a-z_]+/i);

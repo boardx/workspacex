@@ -1,0 +1,15 @@
+
+Running 10 tests using 1 worker
+
+  ✓   1 e2e/r10/journey.spec.ts:102:5 › 4283-a: P1 「我决定关注 211 高校」 → chip 「已记下 · 已记入个人记忆 · 撤销」, decision in A's /brain (2.3m)
+  ✓   2 e2e/r10/journey.spec.ts:123:5 › 4283-b: a decision A states in a shared project thread is NOT copied into A's personal space (13.6s)
+  ✓   3 e2e/r10/journey.spec.ts:139:5 › 4284-a: A in a shared project thread 「开始写报告吧」 → A's answer uses 211, A sees the citation (6.9s)
+  ✓   4 e2e/r10/journey.spec.ts:152:5 › 4284-b: B sees no citation, no personal item, nothing in the panel; the project gains no claim from A's answer (31.2s)
+  ✓   5 e2e/r10/journey.spec.ts:193:5 › 4290-auto: P2 「改成关注 985 高校吧」 → 「已用…取代… · 撤销」; new P3 recalls only 985 (15.9s)
+  ✓   6 e2e/r10/journey.spec.ts:219:5 › 4290-card: 「改成关注 C9 吧」 (frame_only, low confidence) → card 「用〈新〉取代〈旧〉？」; both recalled until A picks 两条都保留 (14.1s)
+  ✓   7 e2e/r10/journey.spec.ts:257:5 › 4290-none: 「改成关注985高校，我反对」 → no supersede and no card (10.4s)
+  ✓   8 e2e/r10/journey.spec.ts:275:5 › 4302-a: /brain shows 985 with 「来自你 M/D 的对话」 and folded 「取代了：…211…」 (1.6s)
+  ✓   9 e2e/r10/journey.spec.ts:291:5 › 4302-b: 撤销取代 → 211 returns; 忘掉 985 → gone after reload (1.5s)
+  ✓  10 e2e/r10/journey.spec.ts:316:5 › 4302-c: B's /brain shows none of A's items (1.2s)
+
+  10 passed (4.1m)

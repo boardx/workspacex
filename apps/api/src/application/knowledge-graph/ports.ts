@@ -9,6 +9,7 @@ import type { OntologyBatch, OntologyRejectCode } from "../../domain/knowledge-g
 import type { ExtractionResult, KnownObject } from "../../domain/knowledge-graph/extraction";
 import type { GraphHit, GraphHop, RecallClaim, RecallObject } from "../../domain/knowledge-graph/recall";
 import type { ConfirmedClaim, ConflictPair, FreshClaim } from "../../domain/knowledge-graph/conflict";
+import type { LiveDecision, SupersedeFresh } from "../../domain/knowledge-graph/decision-supersede";
 
 export interface AppliedBatch {
   readonly actionId: string;
@@ -208,6 +209,10 @@ export interface PersonalClaimOriginRow {
   readonly sourceClaimId: string;
   readonly threadId: string;
   readonly projectId: string | null;
+  /** issue #4302：原结论最早一条支撑消息的时间（ISO）；没有消息证据为 null */
+  readonly saidAt: string | null;
+  /** issue #4302：这个来源是系统自动记下的（#4283 derived_from 边 created_by = model） */
+  readonly autoCopied: boolean;
 }
 
 export const KNOWLEDGE_READ_PORT = Symbol("KnowledgeReadPort");
@@ -364,6 +369,26 @@ export interface KgConflictPort {
    */
   pendingCloseOrgs(): Promise<readonly OrgId[]>;
   drainCloseOne(orgId: OrgId): Promise<boolean>;
+  /**
+   * Issue #4290：明确改口的取代（迁移 20260926140000）。候选 = 这条消息刚抽出的决定（带消息作者）+ 还活着的旧决定
+   * （本会话的；个人线程里再加所有者本人个人空间的，各带作者）。判定在 domain/knowledge-graph/decision-supersede.ts。
+   */
+  supersedeCandidates(orgId: OrgId, threadId: string, messageId: string): Promise<{
+    readonly fresh: readonly SupersedeFresh[];
+    readonly live: readonly LiveDecision[];
+  }>;
+  /**
+   * 复核后落表，返回开了几张（取代提示 + 卡）；复核不过的跳过。
+   * `supersedes`（高把握）：旧决定 superseded、开一张可撤销的取代提示；
+   * `prompts`（低把握 frame_only）：只开一张 F16 卡（kind = possible_change），两条都不改状态。
+   */
+  applySupersedes(orgId: OrgId, input: {
+    readonly actionId: string;
+    readonly threadId: string;
+    readonly messageId: string;
+    readonly supersedes: readonly { readonly newer: string; readonly olders: readonly string[] }[];
+    readonly prompts: readonly { readonly newer: string; readonly older: string }[];
+  }): Promise<number>;
 }
 
 export const KG_CONFLICT_PORT = Symbol("KgConflictPort");
@@ -390,11 +415,21 @@ export interface MemoryCardPort {
     readonly messageId: string;
     readonly requesterUserId: string;
     readonly kind: "remember" | "forget";
+    /**
+     * 谁提的卡上的字（issue #4344，缺省 user_message）：user_message = 用户消息以「记住：…」开头，数据库核对字出自这条消息；
+     * agent_tool = agent 的 `wx_remember` 工具，只开记住卡，字由用户在卡上确认 / 改字（迁移 20260927300000）。
+     */
+    readonly origin?: "user_message" | "agent_tool";
     readonly statement?: string;
     /** 忘掉卡：用户说要忘掉的那段话（数据库核对它出自这条消息） */
     readonly target?: string;
     readonly claimIds?: readonly string[];
-  }): Promise<{ readonly outcome: MemoryCardOpenOutcome; readonly cardId: string | null }>;
+  }): Promise<{
+    readonly outcome: MemoryCardOpenOutcome;
+    readonly cardId: string | null;
+    /** opened 时：这一轮本来就有卡（前缀入口先开了 / 同一 run 重试），这次没有新开。 */
+    readonly reused: boolean;
+  }>;
   /** 路由事实：卡属于哪个会话（不回内容）；查不到 ⇒ null。 */
   cardThread(orgId: OrgId, userId: string, cardId: string): Promise<string | null>;
   /** 人的决定；被拒时抛 `KgHumanActionError`。 */
