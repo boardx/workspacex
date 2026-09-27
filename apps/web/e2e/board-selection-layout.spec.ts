@@ -34,11 +34,12 @@ async function apiRequest(api: APIRequestContext, token: string, method: string,
 async function geometry(page: Page): Promise<string> {
   return page.getByTestId("board-a11y-mirror").locator("li[data-object-id]").evaluateAll((items) => JSON.stringify(items.map((item, order) => ({
     id: item.getAttribute("data-object-id"), x: Number(item.getAttribute("data-x")), y: Number(item.getAttribute("data-y")),
-    width: Number(item.getAttribute("data-width")), height: Number(item.getAttribute("data-height")), rotation: Number(item.getAttribute("data-rotation")), order,
+    width: Number(item.getAttribute("data-width")), height: Number(item.getAttribute("data-height")), rotation: Number(item.getAttribute("data-rotation")),
+    kind: item.getAttribute("data-object-kind"), text: item.querySelector("button")?.textContent ?? "", order,
   })).sort((a, b) => String(a.id).localeCompare(String(b.id)))));
 }
 
-type Geometry = { id: string | null; x: number; y: number; width: number; height: number; rotation: number; order: number };
+type Geometry = { id: string | null; x: number; y: number; width: number; height: number; rotation: number; kind: string | null; text: string; order: number };
 function parseGeometry(serialized: string): Geometry[] { return JSON.parse(serialized) as Geometry[]; }
 
 function gridSemantics(values: Geometry[], original: Geometry[], preserveOrder: "selection" | "visual"): boolean {
@@ -214,7 +215,9 @@ test("smart layout confirm cancel", async ({ page, request, browser, baseURL }) 
       await expect.poll(() => geometry(second)).toBe(original);
     }
 
-    // A real Fabric ActiveSelection drag writes every child as one canonical batch and one undo unit.
+    // Alt/Option-dragging a real Fabric ActiveSelection duplicates the whole
+    // selection as one canonical batch. Originals stay in place and one undo
+    // removes every duplicate.
     await marqueeAll(page);
     const beforeGroupDrag = parseGeometry(await geometry(page));
     const fabricSurface = page.getByTestId("board-fabric-surface");
@@ -225,7 +228,10 @@ test("smart layout confirm cancel", async ({ page, request, browser, baseURL }) 
     const panY = Number(await fabricSurface.getAttribute("data-viewport-pan-y"));
     const selectionScene = JSON.parse((await fabricSurface.getAttribute("data-selection-scene"))!) as { bounds: { left: number; top: number; width: number; height: number }; hitPoints: Array<{ x: number; y: number }> };
     const toScreen = (point: { x: number; y: number }) => ({ x: canvasBounds!.x + panX + point.x * zoom, y: canvasBounds!.y + panY + point.y * zoom });
-    const candidates = selectionScene.hitPoints.map(toScreen);
+    const candidates = [
+      toScreen({ x: selectionScene.bounds.left + selectionScene.bounds.width / 2, y: selectionScene.bounds.top + selectionScene.bounds.height / 2 }),
+      ...selectionScene.hitPoints.map(toScreen),
+    ];
     const groupStart = await page.evaluate((points) => points.find((point) => (document.elementFromPoint(point.x, point.y) as HTMLElement | null)?.dataset.fabric === "top") ?? null, candidates);
     expect(groupStart, "at least one selected Fabric object centre must be interactively reachable").not.toBeNull();
     const selectionTopLeft = toScreen({ x: selectionScene.bounds.left, y: selectionScene.bounds.top });
@@ -238,13 +244,27 @@ test("smart layout confirm cancel", async ({ page, request, browser, baseURL }) 
     await page.mouse.move(groupStart!.x, groupStart!.y); await page.mouse.down();
     await page.mouse.move(groupStart!.x + 42, groupStart!.y + 28, { steps: 8 }); await page.mouse.up();
     await page.keyboard.up("Alt");
+    await expect.poll(async () => parseGeometry(await geometry(page)).length).toBe(14);
     const afterGroupDrag = parseGeometry(await geometry(page));
-    const deltas = afterGroupDrag.map(value => {
-      const before = beforeGroupDrag.find(candidate => candidate.id === value.id)!;
-      return { x: value.x - before.x, y: value.y - before.y };
+    const originalIds = new Set(beforeGroupDrag.map(value => value.id));
+    const originalsAfter = afterGroupDrag.filter(value => originalIds.has(value.id));
+    const duplicates = afterGroupDrag.filter(value => !originalIds.has(value.id));
+    expect(originalsAfter).toHaveLength(7);
+    expect(duplicates).toHaveLength(7);
+    for (const before of beforeGroupDrag) {
+      const unchanged = originalsAfter.find(value => value.id === before.id);
+      expect(unchanged && closeGeometry(unchanged, before), `Alt-drag must not move original ${before.id}`).toBe(true);
+    }
+    const deltas = beforeGroupDrag.map(before => {
+      const matches = duplicates.filter(value => value.kind === before.kind && value.text === before.text);
+      expect(matches, `Alt-drag must make one duplicate of ${before.kind}:${before.text}`).toHaveLength(1);
+      const duplicate = matches[0]!;
+      expect(closeGeometry({ ...duplicate, x: before.x, y: before.y }, before), `duplicate ${duplicate.id} must preserve size and rotation`).toBe(true);
+      return { x: duplicate.x - before.x, y: duplicate.y - before.y };
     });
     expect(deltas.every(delta => Math.abs(delta.x - deltas[0]!.x) <= 1 && Math.abs(delta.y - deltas[0]!.y) <= 1 && Math.abs(delta.x) > 1)).toBe(true);
-    await expect.poll(() => geometry(second)).toBe(JSON.stringify(afterGroupDrag.sort((a, b) => String(a.id).localeCompare(String(b.id)))));
+    const duplicatedGeometry = JSON.stringify(afterGroupDrag.sort((a, b) => String(a.id).localeCompare(String(b.id))));
+    await expect.poll(() => geometry(second)).toBe(duplicatedGeometry);
     await page.getByText("撤销", { exact: true }).click();
     await expect.poll(() => geometry(page)).toBe(original);
     await expect.poll(() => geometry(second)).toBe(original);
