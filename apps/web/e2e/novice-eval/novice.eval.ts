@@ -163,7 +163,15 @@ test("J2 新建：写一句话 → 等待时知道在干什么 → 看到原型�
   await judgeScreen(page, "detail");
   await contrast(page, "detail");
 
-  // J4 预览：进预览 → 点原型里的主按钮 → 应该到第 2 页。
+  // J4 预览：进预览 → 点原型里的主按钮 → 「当前页」应该换到第 2 页。
+  // ⚠ 不能用「第 2 页的标题出现在画布上」判：画板视图四页并排，那个标题一直都在，判据恒真。
+  //   读「当前是哪一页」（页签的选中态 / 画板上标记为当前的那一块），并先确认点之前是第 1 页。
+  const currentFrame = async (): Promise<string | null> => page.evaluate(() => {
+    const tab = document.querySelector("[data-testid^='design-detail-frame-'][aria-pressed='true']");
+    if (tab !== null) return (tab as HTMLElement).innerText.trim();
+    const board = document.querySelector("[data-board-frame][aria-current='page']");
+    return board?.getAttribute("data-frame-label") ?? null;
+  });
   let pSteps = 0;
   const preview = await findByLabel(page, "button", /预览|试一试|演示/);
   if (preview === null) {
@@ -171,10 +179,12 @@ test("J2 新建：写一句话 → 等待时知道在干什么 → 看到原型�
   } else {
     await preview.click(); pSteps++;
     await page.waitForTimeout(600);
+    const before = await currentFrame();
     await page.getByTestId("design-detail-canvas").getByText("记录今天的心情").first().click(); pSteps++;
-    const secondNav = (recorded.prototype[1] as { children?: { type: string; props?: { title?: string } }[] }).children?.find((c) => c.type === "navbar")?.props?.title ?? recorded.frames[1]!;
-    const jumped = await page.getByTestId("design-detail-canvas").getByText(secondNav).first().isVisible({ timeout: 5000 }).catch(() => false);
-    record("task.preview", "task", jumped, jumped ? `预览里点按钮跳到了「${secondNav}」` : "预览里点了按钮，没跳到下一页");
+    await page.waitForTimeout(800);
+    const after = await currentFrame();
+    const jumped = before === recorded.frames[0] && after === recorded.frames[1];
+    record("task.preview", "task", jumped, jumped ? `预览里点按钮从「${before}」跳到了「${after}」` : `预览里点了按钮，当前页 ${String(before)} → ${String(after)}（应为「${recorded.frames[0]}」→「${recorded.frames[1]}」）`);
     record("steps.preview", "steps", pSteps <= STEP_BUDGET.preview, `预览用了 ${String(pSteps)} 步（预算 ${String(STEP_BUDGET.preview)}）`);
   }
   });
