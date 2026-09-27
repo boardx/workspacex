@@ -160,7 +160,10 @@ export function LiveSurveyWorkspace({
       }, SurveyRuntimeSchema);
     // Retain the created identity even if the following source mutation fails.
     // A retry must update that draft rather than POST a duplicate survey.
-    if (!runtime) setRuntime(next);
+    if (!runtime) {
+      setRuntime(next);
+      router.replace(`/studio/survey/${next.id}?step=${step}`);
+    }
     if (next.publication) {
       accept(await surveyRequest(`/surveys/${next.id}`, { method: "PUT", body: { ...parsed.data, expectedVersion: next.version } }, SurveyRuntimeSchema));
       setNotice("报告模板已保存");

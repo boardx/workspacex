@@ -37,6 +37,7 @@ describe('live survey workspace persistence',()=>{
   render(<LiveSurveyWorkspace surveyId="new"/>);
   fireEvent.click(await screen.findByRole('button',{name:'保存修改'}));
   await screen.findByRole('alert');
+  expect(router.replace).toHaveBeenCalledWith('/studio/survey/created-draft?step=design');
   request.mockResolvedValueOnce(runtime({id:'created-draft',version:2,title:'未命名问卷'}));
   fireEvent.click(screen.getByRole('button',{name:'保存修改'}));
   await screen.findByText('修改已保存');
