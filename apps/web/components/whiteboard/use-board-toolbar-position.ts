@@ -45,6 +45,7 @@ export function useBoardToolbarPosition(geometry: Geometry | undefined, viewport
   const [windowSize, setWindowSize] = useState<Size>({ width: 1024, height: 768 });
   const [chrome, setChrome] = useState<Rect[]>([]);
   const [toolbarSize, setToolbarSize] = useState<Size>({ width: 460, height: 54 });
+  const hasGeometry = Boolean(geometry);
   useLayoutEffect(() => {
     const update = () => {
       const parent = ref.current?.offsetParent ?? ref.current?.closest('[data-testid="collaborative-editor"]');
@@ -61,6 +62,6 @@ export function useBoardToolbarPosition(geometry: Geometry | undefined, viewport
     document.querySelectorAll("[data-board-chrome]").forEach((element) => observer?.observe(element));
     window.addEventListener("resize", update);
     return () => { observer?.disconnect(); window.removeEventListener("resize", update); };
-  }, [Boolean(geometry)]);
+  }, [hasGeometry]);
   return { ref, style: geometry ? boardToolbarPosition(geometry, viewport, windowSize, toolbarSize, chrome) : undefined };
 }
