@@ -6,7 +6,7 @@ import { CollaborativeEditor } from '@/components/whiteboard/collaborative-edito
 import { textSplice } from '@/components/whiteboard/use-whiteboard-document';
 import type { BoardFabricGeometry, BoardFabricObject, BoardViewport, BoardViewportSource } from '@/components/whiteboard/fabric/board-fabric-object';
 vi.mock('@/components/whiteboard/fabric/board-fabric-surface', () => ({
-  BoardFabricSurface: ({ objects, onCanvasClick, onObjectTransform, onSelectionChange, onViewportChange, viewport }: { onCanvasClick:(point:{x:number;y:number})=>void;objects: readonly BoardFabricObject[]; viewport: BoardViewport; onViewportChange:(viewport:BoardViewport,source:BoardViewportSource)=>void; onObjectTransform: (id: string, geometry: BoardFabricGeometry) => boolean | Promise<boolean>; onSelectionChange: (ids: string[], source: 'canvas') => void }) => <div data-testid="board-fabric-surface"><canvas data-testid="board-fabric-canvas" /><button data-testid="fabric-place" onClick={()=>onCanvasClick({x:400,y:300})}>place</button><output data-testid="mock-viewport">{JSON.stringify(viewport)}</output>{(["pan","wheel","controlled","fit"] as const).map(source=><button key={source} data-testid={`viewport-${source}`} onClick={()=>onViewportChange({...viewport,panX:99},source)}>{source}</button>)}{objects.map((object) => <span key={object.id} data-projected-id={object.id} />)}{objects[0] ? <button data-testid="fabric-transform-first" onClick={(event) => { const result = onObjectTransform(objects[0]!.id, { ...objects[0]!.geometry, x: 345 }); event.currentTarget.dataset.accepted = String(result); }}>transform</button> : null}<button data-testid="fabric-select-all" onClick={() => onSelectionChange(objects.map((object) => object.id), 'canvas')}>select all</button></div>,
+  BoardFabricSurface: ({ objects, selectedObjectIds, onCanvasClick, onObjectTransform, onSelectionChange, onViewportChange, viewport }: { selectedObjectIds:readonly string[]; onCanvasClick:(point:{x:number;y:number})=>void;objects: readonly BoardFabricObject[]; viewport: BoardViewport; onViewportChange:(viewport:BoardViewport,source:BoardViewportSource)=>void; onObjectTransform: (id: string, geometry: BoardFabricGeometry) => boolean | Promise<boolean>; onSelectionChange: (ids: string[], source: 'canvas') => void }) => <div data-testid="board-fabric-surface"><output data-testid="mock-selected">{JSON.stringify(selectedObjectIds)}</output><canvas data-testid="board-fabric-canvas" /><button data-testid="fabric-place" onClick={()=>onCanvasClick({x:400,y:300})}>place</button><output data-testid="mock-viewport">{JSON.stringify(viewport)}</output>{(["pan","wheel","controlled","fit"] as const).map(source=><button key={source} data-testid={`viewport-${source}`} onClick={()=>onViewportChange({...viewport,panX:99},source)}>{source}</button>)}{objects.map((object) => <span key={object.id} data-projected-id={object.id} />)}{objects[0] ? <button data-testid="fabric-transform-first" onClick={(event) => { const result = onObjectTransform(objects[0]!.id, { ...objects[0]!.geometry, x: 345 }); event.currentTarget.dataset.accepted = String(result); }}>transform</button> : null}<button data-testid="fabric-select-all" onClick={() => onSelectionChange(objects.map((object) => object.id), 'canvas')}>select all</button></div>,
 }));
 class ResizeObserverMock { observe() {} disconnect() {} }
 globalThis.ResizeObserver = ResizeObserverMock as unknown as typeof ResizeObserver;
@@ -227,4 +227,32 @@ it('manual pan and wheel leave room follow; remote and fit projections do not', 
  expect(JSON.parse(screen.getByTestId('mock-viewport').textContent!)).toMatchObject({panX:99});
  fireEvent.click(screen.getByTestId('viewport-wheel'));expect(leave).toHaveBeenCalledTimes(2);
  view.unmount();doc.destroy();
+});
+
+it.each(['ctrlKey','metaKey'] as const)('selects Board objects from dock focus with %s without changing the document',modifier=>{
+ const doc=createWhiteboardDocument();
+ executeCommands(doc,[0,1,2].map(i=>({type:'create' as const,object:{id:`select-${i}`,schemaVersion:1 as const,kind:'sticky' as const,geometry:{x:i*200,y:0,width:180,height:140,rotation:0},text:`note ${i}`,style:{},parentId:null,orderKey:String(i)}})),'seed');
+ render(<CollaborativeEditor boardId="board-test" clientId="client-test" doc={doc} readOnly={false} title="白板" status="已连接"/>);
+ const updates=vi.fn();doc.on('update',updates);
+ const dock=screen.getByTestId('board-tool-select');dock.focus();
+ expect(fireEvent.keyDown(dock,{key:'a',[modifier]:true})).toBe(false);
+ expect(JSON.parse(screen.getByTestId('mock-selected').textContent!)).toEqual(['select-0','select-1','select-2']);
+ expect(updates).not.toHaveBeenCalled();doc.destroy();
+});
+it('preserves native editing select-all and respects an already-handled canvas event',()=>{
+ const doc=createWhiteboardDocument();executeCommands(doc,[{type:'create',object:{id:'note',schemaVersion:1,kind:'sticky',geometry:{x:0,y:0,width:100,height:100,rotation:0},text:'text',style:{},parentId:null,orderKey:'0'}}],'seed');
+ render(<CollaborativeEditor boardId="board-test" clientId="client-test" doc={doc} readOnly={false} title="白板" status="已连接"/>);
+ const editor=screen.getByTestId('collaborative-editor');
+ for(const element of [document.createElement('input'),document.createElement('textarea'),document.createElement('select')]){
+  editor.append(element);expect(fireEvent.keyDown(element,{key:'a',ctrlKey:true})).toBe(true);element.remove();
+ }
+ const editable=document.createElement('div'),child=document.createElement('span');editable.setAttribute('contenteditable','true');editable.append(child);editor.append(editable);
+ expect(fireEvent.keyDown(child,{key:'a',metaKey:true})).toBe(true);editable.remove();
+ expect(fireEvent.keyDown(document.body,{key:'a',ctrlKey:true})).toBe(true);
+ expect(fireEvent.keyDown(screen.getByTestId('board-tool-select'),{key:'a',ctrlKey:true,isComposing:true})).toBe(true);
+ expect(fireEvent.keyDown(screen.getByTestId('board-tool-select'),{key:'a',ctrlKey:true,shiftKey:true})).toBe(true);
+ const handled=new KeyboardEvent('keydown',{key:'a',ctrlKey:true,bubbles:true,cancelable:true});handled.preventDefault();fireEvent(screen.getByTestId('board-fabric-canvas'),handled);
+ expect(JSON.parse(screen.getByTestId('mock-selected').textContent!)).toEqual([]);
+ expect(fireEvent.keyDown(screen.getByTestId('board-fabric-canvas'),{key:'a',ctrlKey:true})).toBe(false);
+ expect(JSON.parse(screen.getByTestId('mock-selected').textContent!)).toEqual(['note']);doc.destroy();
 });

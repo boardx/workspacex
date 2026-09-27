@@ -1,5 +1,6 @@
 "use client";
 
+import { boardSelectAllIds } from './board-select-all';
 import { useCallback, useEffect, useMemo, useRef, useState, type ClipboardEvent, type DragEvent, type PointerEvent } from "react";
 import { Undo2, Redo2, Copy, Clipboard, Trash2, MoreHorizontal } from "lucide-react";
 import * as Y from "yjs";
@@ -42,7 +43,7 @@ const stickySize = (variant: StickyVariant) => variant === "rectangle" ? { width
 const centerPoint = (viewport: BoardViewport): Point => ({ x: (window.innerWidth / 2 - viewport.panX) / viewport.zoom, y: (window.innerHeight / 2 - viewport.panY) / viewport.zoom });
 const topLeft = (point: Point, width: number, height: number) => ({ x: point.x - width / 2, y: point.y - height / 2, width, height, rotation: 0 });
 const drawingBounds = (points: ReadonlyArray<Point>) => { const xs = points.map((point) => point.x), ys = points.map((point) => point.y); const x = Math.min(...xs), y = Math.min(...ys); return { x, y, width: Math.max(1, Math.max(...xs) - x), height: Math.max(1, Math.max(...ys) - y), rotation: 0 }; };
-const isEditableTarget = (target: EventTarget | null) => target instanceof HTMLElement && (target.isContentEditable || ["INPUT", "TEXTAREA", "SELECT"].includes(target.tagName));
+const isEditableTarget = (target: EventTarget | null) => target instanceof HTMLElement && (target.isContentEditable || Boolean(target.closest('[contenteditable="true"], [contenteditable=""], [contenteditable="plaintext-only"]')) || ["INPUT", "TEXTAREA", "SELECT"].includes(target.tagName));
 const record = (value: unknown): Record<string, unknown> => value && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : {};
 const DRAWING_EXTENSION_BUDGET = 14_000;
 
@@ -350,13 +351,17 @@ export function CollaborativeThinkingEditor({ organizeFitRequest, dockExtension,
   const updatePanel = (patch: Partial<PanelMetadata>) => { if (selectedPanel && panelMetadata) executeSpatial({ type: "update-panel", id: selectedPanel.id, panel: { ...panelMetadata, ...patch } }); };
 
   useEffect(() => { const keydown = (event: KeyboardEvent) => { if (isEditableTarget(event.target) || event.altKey) return; const key = event.key.toLowerCase();
+    if ((event.metaKey || event.ctrlKey) && key === "a") {
+      if (event.defaultPrevented || event.isComposing || event.shiftKey || !(event.target instanceof Node) || !chromeHost.current?.contains(event.target)) return;
+      event.preventDefault(); setSelected(boardSelectAllIds(model.objects, objects)); return;
+    }
     if ((event.metaKey || event.ctrlKey) && key === "c") { if (selected.length) { event.preventDefault(); clipboard.current = [...selected]; setNotice("已复制到当前白板剪贴板"); } return; }
     if ((event.metaKey || event.ctrlKey) && key === "v") { if (!readOnly && clipboard.current.length) { event.preventDefault(); duplicateRoots(clipboard.current); } return; }
     if ((event.metaKey || event.ctrlKey) && key === "d") { if (!readOnly && selected.length) { event.preventDefault(); duplicateRoots(selected); } return; }
     if ((event.metaKey || event.ctrlKey) && key === "g") { event.preventDefault(); if (event.shiftKey && selected.length === 1) executeSpatial({ type: "ungroup", id: selected[0]! }); else if (selected.length > 1) { const id = crypto.randomUUID(); if (executeSpatial({ type: "group", id, objectIds: selected })) setSelected([id]); } return; }
     if (event.metaKey || event.ctrlKey) return;
     if (key === "v") { setTool("select"); setCreationTool(null); } else if (key === "h" || event.code === "Space") { event.preventDefault(); setTool("hand"); setCreationTool(null); } else if (key === "n" && event.shiftKey) { event.preventDefault(); if (!readOnly) setBulk(""); } else if (key === "n") { event.preventDefault(); const requested = { kind: "sticky", variant: "square" } as const; setTool("select"); setCreationTool(requested); createStickyAt(centerPoint(viewport), requested.variant); } else if (key === "t") { event.preventDefault(); const requested = { kind: "text", preset: "body" } as const; setTool("select"); setCreationTool(requested); createTextAt(centerPoint(viewport), requested.preset); } else if (key === "s") { event.preventDefault(); const requested = { kind: "shape", variant: "rounded-rectangle" } as const; setTool("select"); setCreationTool(requested); createShapeAt(centerPoint(viewport), requested.variant); } else if (key === "p") { event.preventDefault(); setCreationTool(null); setTool("draw-pen"); } else if (key === "i") { event.preventDefault(); imageInput.current?.click(); } else if (key === "f") { event.preventDefault(); const requested = { kind: "panel", mode: "freeform" } as const; setTool("select"); setCreationTool(requested); createPanelAt(centerPoint(viewport), requested.mode); } else if (key === "c") { event.preventDefault(); setTool("select"); setCreationTool({ kind: "connector", connectorType: "straight" }); }
-  }; window.addEventListener("keydown", keydown); return () => window.removeEventListener("keydown", keydown); }, [createPanelAt, createShapeAt, createStickyAt, createTextAt, duplicateRoots, executeSpatial, readOnly, selected, viewport]);
+  }; window.addEventListener("keydown", keydown); return () => window.removeEventListener("keydown", keydown); }, [createPanelAt, createShapeAt, createStickyAt, createTextAt, duplicateRoots, executeSpatial, model.objects, objects, readOnly, selected, viewport]);
 
   const editingObject = editing ? model.objects.find((candidate) => candidate.id === editing.id) : undefined;
   const actorId = currentUserId ?? clientId;
