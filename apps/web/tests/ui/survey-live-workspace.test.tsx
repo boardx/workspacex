@@ -9,6 +9,19 @@ vi.mock('next/navigation',()=>({useRouter:()=>router}));
 const runtime=(patch:Partial<SurveyRuntime>={}):SurveyRuntime=>({id:'saved-survey',title:'已保存问卷',version:4,status:'draft',anonymity:'anonymous',answerRevision:0,reportBasisAnswerRevision:null,updatedAt:'2026-09-20T10:00:00.000Z',questions:[{id:'q1',title:'真实问题',type:'single',chapterId:'general',order:1,required:true,options:['甲','乙']}],template:{id:'template',title:'模板报告',sections:[]},responses:[],publication:null,report:null,reportBasisVersion:null,reportGeneratedAt:null,...patch});
 beforeEach(()=>{request.mockReset();router.replace.mockReset();router.push.mockReset();});
 describe('live survey workspace persistence',()=>{
+ it('loads the conflicting remote version without discarding local Markdown',async()=>{
+  const {SurveyConflictError}=await import('@/lib/survey/runtime-client');
+  request.mockResolvedValueOnce(runtime()).mockRejectedValueOnce(new SurveyConflictError(null)).mockResolvedValueOnce(runtime({version:5,title:'其他人的修改'}));
+  render(<LiveSurveyWorkspace surveyId="saved-survey"/>);
+  await screen.findByDisplayValue('已保存问卷');
+  fireEvent.change(screen.getByLabelText('问卷名称'),{target:{value:'我的修改'}});
+  fireEvent.click(screen.getByRole('button',{name:'保存修改'}));
+  await screen.findByRole('alert');
+  fireEvent.click(screen.getByRole('button',{name:'读取最新版本并保留我的修改'}));
+  expect((await screen.findByLabelText('远端 Markdown') as HTMLTextAreaElement).value).toContain('# 其他人的修改');
+  expect((screen.getByLabelText('问卷 Markdown') as HTMLTextAreaElement).value).toContain('# 我的修改');
+  expect(screen.getByRole('button',{name:'确认保留本地版本'})).toBeEnabled();
+ });
  it('keeps only the three primary steps and rejects invalid Markdown without saving',async()=>{
   request.mockResolvedValueOnce(runtime());
   render(<LiveSurveyWorkspace surveyId="saved-survey"/>);

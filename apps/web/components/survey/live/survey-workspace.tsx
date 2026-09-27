@@ -18,6 +18,7 @@ import {
   surveyRequest,
   SurveyPublishBlockedError,
   SurveySystemError,
+  SurveyConflictError,
 } from "@/lib/survey/runtime-client";
 import { FlexibleReportEditor } from "../report/template-editor";
 import { SurveyReportDocument } from "../report/report-document";
@@ -70,10 +71,14 @@ export function LiveSurveyWorkspace({
   const [expires, setExpires] = React.useState("");
   const [markdown, setMarkdown] = React.useState("");
   const [savedMarkdown, setSavedMarkdown] = React.useState("");
+  const [conflicted, setConflicted] = React.useState(false);
+  const [remoteVersion, setRemoteVersion] = React.useState<SurveyRuntime | null>(null);
   const reportRef = React.useRef<HTMLDivElement>(null);
   const lock = React.useRef(false);
   const accept = React.useCallback((value: SurveyRuntime) => {
     setRuntime(value);
+    setConflicted(false);
+    setRemoteVersion(null);
     const text = value.source?.documents.design.markdown ?? serializeSurveyDesignMarkdown(value);
     setMarkdown(text);
     setSavedMarkdown(text);
@@ -130,6 +135,7 @@ export function LiveSurveyWorkspace({
     } catch (e) {
       if (e instanceof SurveyPublishBlockedError) setBlockers(e.blockers);
       else {
+        setConflicted(e instanceof SurveyConflictError);
         setError(e instanceof Error ? e.message : "操作失败，请重试");
         setRetryable(e instanceof SurveySystemError);
       }
@@ -298,6 +304,27 @@ export function LiveSurveyWorkspace({
         <p role="status" className="px-5 pt-3 text-12 text-success">
           {notice}
         </p>
+      )}
+      {conflicted && runtime && (
+        <section className="m-5 space-y-3 rounded-lg border border-border bg-card p-4" aria-label="版本冲突处理">
+          <p>本地修改仍保留。先读取远端内容进行对比，再明确选择要保留的版本。</p>
+          <Button variant="outline" disabled={busy} onClick={() => void execute(async () => {
+            const latest = await surveyRequest(`/surveys/${runtime.id}`, {}, SurveyRuntimeSchema);
+            setRemoteVersion(latest);
+          })}>读取最新版本并保留我的修改</Button>
+          {remoteVersion && <>
+            <textarea aria-label="远端 Markdown" className="min-h-48 w-full rounded-md border border-border p-3 font-mono text-13" readOnly value={remoteVersion.source?.documents.design.markdown ?? serializeSurveyDesignMarkdown(remoteVersion)} />
+            <Button disabled={busy} onClick={() => {
+              setRuntime(remoteVersion);
+              setSavedMarkdown(remoteVersion.source?.documents.design.markdown ?? serializeSurveyDesignMarkdown(remoteVersion));
+              setConflicted(false); setRemoteVersion(null); setError("");
+              setNotice("已保留本地版本，请校对后保存；尚未覆盖远端内容。");
+            }}>确认保留本地版本</Button>
+            <Button variant="outline" disabled={busy} onClick={() => {
+              if (window.confirm("使用远端版本将丢弃当前本地修改，继续吗？")) accept(remoteVersion);
+            }}>使用远端版本</Button>
+          </>}
+        </section>
       )}
       {!draft && !error && <p className="p-8">正在加载问卷…</p>}
       {draft && (
