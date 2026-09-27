@@ -275,7 +275,8 @@ test.describe("organize <=2 actions", () => {
       try {
         const snapBefore = parseGeometry(original);
         const stickies = snapBefore.filter(value => value.kind === "sticky").sort((a, b) => a.y - b.y || a.x - b.x);
-        const source = stickies[0]!, target = stickies[1]!;
+        const source = stickies.at(-1)!, target = stickies[0]!;
+        expect(source.y).not.toBe(target.y);
         await page.getByTestId("board-tool-select").click();
         await page.getByTestId("board-zoom-fit-board").click();
         const sourceOutline = page.getByTestId(`board-a11y-object-${source.id}`);
@@ -301,6 +302,7 @@ test.describe("organize <=2 actions", () => {
         const destination = sceneToScreen({ x: sourceScene!.left + sourceScene!.width / 2 + 56 / currentZoom, y: targetScene!.top + sourceScene!.height / 2 + 3 / currentZoom });
         await page.mouse.move(sourceCenter.x, sourceCenter.y); await page.mouse.down(); await page.mouse.move(destination.x, destination.y, { steps: 12 });
         await expect(page.getByTestId("board-smart-guides")).toBeVisible({ timeout: 10_000 }); await page.mouse.up();
+        await expect.poll(() => geometry(page)).not.toBe(original);
         const snapAfter = parseGeometry(await geometry(page)), snappedSource = snapAfter.find(value => value.id === source.id)!;
         expect(Math.abs(snappedSource.y - target.y)).toBeLessThanOrEqual(1); expect(closeGeometry(snappedSource, source)).toBe(false);
         await expect.poll(() => geometry(second)).toBe(JSON.stringify(snapAfter.sort((a, b) => String(a.id).localeCompare(String(b.id)))));
@@ -315,16 +317,67 @@ test.describe("organize <=2 actions", () => {
         await marqueeAll(page); await page.getByTestId("board-layout-smart-preview").click();
         await expect(page.getByTestId("board-layout-preview")).toBeVisible(); await expect.poll(() => geometry(page)).not.toBe(original); await expect.poll(() => geometry(second)).toBe(original);
         await page.getByTestId("board-layout-preview-cancel").click(); await expect.poll(() => geometry(page)).toBe(original);
-        await page.getByTestId("board-layout-smart-preview").click(); const confirmedPreview = await geometry(page); expect(confirmedPreview).not.toBe(original);
+        await page.getByTestId("board-layout-smart-preview").click();
+        await expect.poll(() => geometry(page)).not.toBe(original);
+        const confirmedPreview = await geometry(page);
         await page.getByTestId("board-layout-preview-apply").click(); await expect(page.getByText("智能布局已应用。", { exact: true })).toBeVisible();
         await expect.poll(() => geometry(page)).toBe(confirmedPreview); await expect.poll(() => geometry(second)).toBe(confirmedPreview);
         await page.getByText("撤销", { exact: true }).click(); await expect.poll(() => geometry(page)).toBe(original); await expect.poll(() => geometry(second)).toBe(original);
         await page.getByTestId("board-layout-smart-preview").click();
         const remoteObject = second.getByTestId("board-a11y-mirror").getByRole("button").first(); await remoteObject.focus(); await remoteObject.press("Enter");
-        await second.getByLabel("对象文字", { exact: true }).fill("并发修改后的对象"); await page.getByTestId("board-layout-preview-apply").click();
-        await expect(page.getByText("应用失败：预览后对象已被其他协作者修改。", { exact: true })).toBeVisible(); await expect.poll(() => geometry(page)).toBe(original);
-        await page.reload(); await expect(page.getByText(/^已同步$/)).toBeVisible({ timeout: 30_000 }); await expect.poll(() => geometry(page)).toBe(original);
+        const remoteId = (await remoteObject.getAttribute("data-testid"))!.replace("board-a11y-object-", "");
+        await second.getByLabel("对象文字", { exact: true }).fill("并发修改后的对象");
+        const afterRemoteEdit = JSON.stringify(parseGeometry(original).map(value => value.id === remoteId ? { ...value, text: "并发修改后的对象" } : value));
+        await expect.poll(() => geometry(second)).toBe(afterRemoteEdit);
+        await page.getByTestId("board-layout-preview-apply").click();
+        await expect(page.getByText("应用失败：预览后对象已被其他协作者修改。", { exact: true })).toBeVisible();
+        await expect.poll(() => geometry(page)).toBe(afterRemoteEdit);
+        await page.reload(); await expect(page.getByText(/^已同步$/)).toBeVisible({ timeout: 30_000 });
+        await expect.poll(() => geometry(page)).toBe(afterRemoteEdit);
       } finally { await secondContext.close(); }
     });
   });
+});
+
+// These checks are a geometry/interaction guard, not a substitute for reviewing
+// the attached screenshots against the visual acceptance rubric.
+test("visual acceptance: compact selection in three viewports", async ({ page, request, browser, baseURL }, testInfo) => {
+  test.setTimeout(180_000);
+  const { secondContext, original } = await setupMixedBoard(page, request, browser, baseURL);
+  try {
+    for (const viewport of [{ width: 1440, height: 900 }, { width: 1280, height: 720 }, { width: 1024, height: 768 }]) {
+      await page.setViewportSize(viewport);
+      await page.getByTestId("board-zoom-fit-board").click();
+      for (const kind of ["sticky", "text"] as const) {
+        const object = parseGeometry(original).find(value => value.kind === kind)!;
+        const outline = page.getByTestId(`board-a11y-object-${object.id}`);
+        await outline.focus(); await outline.press("Enter");
+        await page.getByTestId("board-tool-select").focus();
+        const toolbar = page.getByTestId("board-context-toolbar");
+        await expect(toolbar).toHaveCount(1); await expect(toolbar).toBeVisible();
+        await expect(page.getByTestId("board-shared-properties")).not.toBeVisible();
+        const bounds = await toolbar.boundingBox(); expect(bounds).not.toBeNull();
+        expect(bounds!.x).toBeGreaterThanOrEqual(0); expect(bounds!.y).toBeGreaterThanOrEqual(0);
+        expect(bounds!.x + bounds!.width).toBeLessThanOrEqual(viewport.width);
+        expect(bounds!.y + bounds!.height).toBeLessThanOrEqual(viewport.height);
+        expect(bounds!.height, "selection must not expose a full property form").toBeLessThanOrEqual(64);
+        const uncovered = await page.evaluate(() => {
+          const canvas = document.querySelector<HTMLCanvasElement>('[data-testid="board-fabric-surface"] canvas[data-fabric="top"]')!;
+          const rect = canvas.getBoundingClientRect(); let free = 0, total = 0;
+          for (let y = rect.top + 8; y < rect.bottom; y += 16) for (let x = rect.left + 8; x < rect.right; x += 16) {
+            total++; if (document.elementFromPoint(x, y) === canvas) free++;
+          }
+          return free / total;
+        });
+        expect(uncovered, "normal selection must leave at least 80% canvas uncovered").toBeGreaterThanOrEqual(.8);
+        for (const tool of ["sticky", "shape", "draw", "connector"]) {
+          const button = page.getByTestId(`board-add-${tool}`);
+          await expect(button).toBeVisible(); const target = await button.boundingBox();
+          expect(target!.width).toBeGreaterThanOrEqual(44); expect(target!.height).toBeGreaterThanOrEqual(44);
+        }
+        await testInfo.attach(`${viewport.width}x${viewport.height}-${kind}-selected`, { body: await page.screenshot(), contentType: "image/png" });
+      }
+    }
+    await expect.poll(() => geometry(page)).toBe(original);
+  } finally { await secondContext.close(); }
 });
