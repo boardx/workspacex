@@ -41,6 +41,10 @@ export function SharedLayers() {
               <p className="text-11 text-muted-foreground">
                 现在还不能用。开放以后，你可以把长期记忆里的内容分享到这里。
               </p>
+            ) : l.scope === "project" ? (
+              <p className="text-11 text-muted-foreground" data-testid="brain-layer-project-hint">
+                在项目对话的知识面板里点「记到项目大脑」，记下的内容就进入该项目的记忆；项目里的对话会自动想起它。
+              </p>
             ) : null}
           </div>
         );

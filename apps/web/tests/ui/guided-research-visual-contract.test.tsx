@@ -95,7 +95,7 @@ describe("F180 signed guided-research visual contract", () => {
     render(<GuidedResearchFlow step="search" sessionId="grs-visual" />);
 
     const progress = await screen.findByTestId("research-flow-progress");
-    expect(progress).toHaveClass("rounded-lg", "border");
+    expect(progress).toHaveAttribute("data-reference-variant", "monochrome-stepper");
     const flow = screen.getByTestId("research-flow-search");
     expect(flow).toHaveAttribute("data-layout", "signed-desktop");
     expect(flow).toHaveClass("max-w-none");
@@ -106,7 +106,7 @@ describe("F180 signed guided-research visual contract", () => {
     expect(within(progress).getAllByRole("button")).toHaveLength(6);
   });
 
-  it("keeps a one-third contextual Skill workspace with one main editor on guided steps", async () => {
+  it("keeps one work canvas and a collapsible assistant on guided steps", async () => {
     for (const step of ["brief", "directions", "outline", "search"] as const) {
       if (step !== "brief") api.getResearchRuntime.mockResolvedValueOnce(sessionAt(step));
       const view = render(
@@ -120,8 +120,9 @@ describe("F180 signed guided-research visual contract", () => {
           qs={{}}
         />,
       );
-      await screen.findByTestId("research-skill-assistant");
-      expect(screen.getByTestId("research-step-main")).toBeInTheDocument();
+      fireEvent.click(await screen.findByRole("button", { name: /AI 助手/ }));
+      expect(screen.getByTestId("guided-research-six-step-assistant")).toBeVisible();
+      expect(screen.getByTestId("guided-research-six-step-main")).toBeInTheDocument();
       expect(screen.queryByTestId("shell-left-panel")).not.toBeInTheDocument();
       for (const label of ["研究 Studio 列表", "研究计划详情", "新建深度研究", "研究主题详情", "现场深度研究"]) {
         expect(screen.queryByText(label)).not.toBeInTheDocument();
@@ -135,8 +136,8 @@ describe("F180 signed guided-research visual contract", () => {
     render(<GuidedResearchFlow step="report" sessionId="grs-visual" />);
 
     await screen.findByTestId("research-flow-report");
-    const assistant = screen.getByTestId("research-skill-assistant");
-    expect(assistant.closest("[data-layout]")).toHaveAttribute("data-layout", "report-reading");
+    fireEvent.click(screen.getByRole("button", { name: /AI 助手/ }));
+    expect(screen.getByTestId("guided-research-six-step-assistant")).toBeVisible();
     expect(screen.getByTestId("research-report")).toBeInTheDocument();
   });
 
@@ -144,7 +145,7 @@ describe("F180 signed guided-research visual contract", () => {
     api.getResearchRuntime.mockResolvedValueOnce(sessionAt("directions"));
     const directions = render(<GuidedResearchFlow step="directions" sessionId="grs-visual" />);
     await screen.findByTestId("research-flow-directions");
-    for (const futureStep of ["研究计划", "资料研究", "研究报告"]) {
+    for (const futureStep of ["研究计划", "资料研究", "生成报告"]) {
       expect(within(screen.getByRole("navigation", { name: "研究步骤" })).getByRole("button", { name: new RegExp(futureStep) })).toBeDisabled();
     }
     directions.unmount();
@@ -153,7 +154,9 @@ describe("F180 signed guided-research visual contract", () => {
     const search = render(<GuidedResearchFlow step="search" sessionId="grs-visual" />);
     await screen.findByTestId("research-flow-search");
     expect(search.container).not.toHaveTextContent("演示检索结果");
-    expect(screen.getByRole("link", { name: "Official policy" })).toHaveAttribute("href", "https://example.org/policy");
+    for (const sourceLink of within(screen.getByTestId("guided-research-source-evidence")).getAllByRole("link", { name: "Official policy" })) {
+      expect(sourceLink).toHaveAttribute("href", "https://example.org/policy");
+    }
     search.unmount();
 
     api.getResearchRuntime.mockResolvedValueOnce(sessionAt("report"));
@@ -168,6 +171,7 @@ describe("F180 signed guided-research visual contract", () => {
     const search = render(<GuidedResearchFlow step="search" sessionId="grs-visual" />);
     await screen.findByTestId("research-flow-search");
     expect(screen.queryByRole("heading", { name: "研究检索进度" })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByText("查看全部来源与 Markdown"));
     expect(screen.getByTestId("research-sources")).toBeVisible();
     expect(screen.getByTestId("guided-research-source-workspace")).toBeVisible();
 
@@ -177,7 +181,7 @@ describe("F180 signed guided-research visual contract", () => {
     await screen.findByTestId("research-flow-report");
     const report = screen.getByTestId("research-report");
     expect(report).toHaveAttribute("data-layout", "full-width-report");
-    expect(screen.getByRole("heading", { name: "目录" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "报告目录" })).toBeInTheDocument();
     expect(screen.getAllByRole("heading", { name: "政策研究报告" }).length).toBeGreaterThan(0);
   });
 });
