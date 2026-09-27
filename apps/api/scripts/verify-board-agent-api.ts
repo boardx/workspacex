@@ -17,6 +17,7 @@ export function assertAgentApiTarget(env:NodeJS.ProcessEnv){
 const hash=(value:unknown)=>createHash('sha256').update(JSON.stringify(value)).digest('hex');
 const geometry=(x:number,y=0)=>({x,y,width:180,height:140,rotation:0});
 const note=(id:string,x=0)=>({id,schemaVersion:1 as const,kind:'sticky' as const,geometry:geometry(x),text:id,style:{fill:'#FFF2A8'},parentId:null,orderKey:id});
+let diagnostic:{stage:string;method?:string;path?:string;status?:number}={stage:'target-validation'};
 export async function runAgentApiAcceptance(){
  const origin=assertAgentApiTarget(process.env),output=process.env.BOARD_AGENT_API_EVIDENCE!;
  await assert.rejects(access(output),{code:'ENOENT'});
@@ -26,7 +27,9 @@ export async function runAgentApiAcceptance(){
  const marker=process.env.BOARD_API_RUNTIME_MARKER!,startedAt=new Date().toISOString();
  const calls:Array<{method:string;path:string;status:number;responseHash:string}>=[];
  async function call(token:string|null,method:string,path:string,data?:unknown,status:number|number[]=200){
+  diagnostic={stage:'http-request',method,path:path.replace(/[a-f0-9]{8}-[a-f0-9-]{27,}/g,'<id>')};
   const response=await fetch(`${origin}${path}`,{method,headers:{'Content-Type':'application/json',...(token?{Authorization:`Bearer ${token}`}:{})},...(data===undefined?{}:{body:JSON.stringify(data)}),signal:AbortSignal.timeout(15000)});
+  diagnostic={...diagnostic,stage:'http-response',status:response.status};
   const body=await response.json();assert.ok((Array.isArray(status)?status:[status]).includes(response.status),`${method} ${path}: unexpected HTTP ${response.status}`);
   if(!path.includes('/auth/'))calls.push({method,path,status:response.status,responseHash:hash(body)});
   return body;
@@ -118,4 +121,4 @@ export async function runAgentApiAcceptance(){
  }
  await writeFile(output,JSON.stringify(evidence,null,2),{flag:'wx',mode:0o600});
 }
-if(process.env.BOARD_AGENT_API_ACCEPTANCE_RUN==='1')runAgentApiAcceptance().then(()=>console.log('Board Agent API acceptance completed; inspect evidence for explicit coverage.')).catch(()=>{console.error('Board Agent API acceptance failed; credentials and response bodies suppressed.');process.exitCode=1;});
+if(process.env.BOARD_AGENT_API_ACCEPTANCE_RUN==='1')runAgentApiAcceptance().then(()=>console.log('Board Agent API acceptance completed; inspect evidence for explicit coverage.')).catch((error:unknown)=>{const value=error as {name?:string;code?:string;stack?:string};console.error('Board Agent API acceptance failed',JSON.stringify({...diagnostic,errorType:['AssertionError','AbortError','TimeoutError'].includes(value.name??'')?value.name:'Error',code:/^[A-Z0-9_]{1,40}$/.test(value.code??'')?value.code:undefined,sourceLine:value.stack?.match(/verify-board-agent-api\.ts:(\d+):\d+/)?.[1]}));process.exitCode=1;});
