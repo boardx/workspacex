@@ -2,22 +2,30 @@ import {createHash,randomUUID} from 'node:crypto';
 import {WhiteboardOperationReceipt} from '@repo/contracts/whiteboard-operation';
 import type {Principal} from '../../domain/principal';
 import type {TenantSession} from '../../application/ports/database.port';
-import type {ObjectStore} from '../../application/artifact/ports';
+import {ObjectExistsError, type ObjectStore} from '../../application/artifact/ports';
+import {canonicalSnapshotKey,validSnapshotReference} from './snapshot-reference';
 import type {WhiteboardCollaborationStore} from '../../application/whiteboard/collaboration-ports';
 import type {WhiteboardOperationUndoStore,OperationBeforeReference,StoredOperationUndo,UndoCommentState} from '../../application/whiteboard/operation-undo-ports';
 import {WhiteboardOperationError as Fault} from '../../application/whiteboard/operation-service';
-import {WHITEBOARD_SYNC} from '@repo/contracts/whiteboard-sync';
 const hash=(bytes:Uint8Array|string)=>createHash('sha256').update(bytes).digest('hex');
 /** Reuses the immutable canonical pre-operation snapshot. PG stores references and
  * comment status metadata only; existing asset roots fence GC for retained Undo. */
 export class PgWhiteboardOperationUndoStore implements WhiteboardOperationUndoStore{
- constructor(private collaboration:WhiteboardCollaborationStore,private objects:Pick<ObjectStore,'get'>){}
+ constructor(private collaboration:WhiteboardCollaborationStore,private objects:Pick<ObjectStore,'get'|'putOnce'>){}
  async capture(session:TenantSession,p:Principal,boardId:string):Promise<OperationBeforeReference>{
-  await this.collaboration.loadInTransaction(session,p,boardId);
+  const snapshot=await this.collaboration.loadInTransaction(session,p,boardId);
   const result=await session.query<{epoch:number;seq:string;object_key:string;content_hash:string;byte_size:string}>('SELECT epoch,seq::text,object_key,content_hash,byte_size::text FROM whiteboard_documents WHERE org_id=$1 AND board_id=$2',[p.orgId,boardId]);
   const row=result.rows[0];if(!row?.object_key)throw new Fault('DEPENDENCY_UNAVAILABLE');
+  const before={epoch:row.epoch,seq:Number(row.seq),key:row.object_key,hash:row.content_hash,bytes:Number(row.byte_size)};
+  if(!validSnapshotReference(p.orgId,boardId,before,true)||snapshot.epoch!==before.epoch||snapshot.seq!==before.seq||snapshot.update.byteLength!==before.bytes||hash(snapshot.update)!==before.hash)throw new Fault('DEPENDENCY_UNAVAILABLE');
+  const key=canonicalSnapshotKey(p.orgId,boardId,before);
+  if(before.key!==key){
+   try{await this.objects.putOnce(key,new Uint8Array(snapshot.update),'application/vnd.yjs-update');}catch(error){if(!(error instanceof ObjectExistsError))throw new Fault('DEPENDENCY_UNAVAILABLE');}
+   // Immutable-write conflicts are safe only after byte-for-byte integrity readback.
+   await this.readBefore(p,boardId,{...before,key,comments:[]});
+  }
   const comments=await session.query<UndoCommentState>("SELECT id,status,revision FROM whiteboard_comment_threads WHERE org_id=$1 AND board_id=$2 AND status<>'object-deleted'",[p.orgId,boardId]);
-  return{epoch:row.epoch,seq:Number(row.seq),key:row.object_key,hash:row.content_hash,bytes:Number(row.byte_size),comments:comments.rows.map(value=>({...value,revision:Number(value.revision)}))};
+  return{...before,key,comments:comments.rows.map(value=>({...value,revision:Number(value.revision)}))};
  }
  async record(session:TenantSession,p:Principal,receipt:WhiteboardOperationReceipt,before:OperationBeforeReference){
   const current=before.comments.length?await session.query<UndoCommentState>('SELECT id,status,revision FROM whiteboard_comment_threads WHERE org_id=$1 AND board_id=$2 AND id=ANY($3::uuid[])',[p.orgId,receipt.boardId,before.comments.map(c=>c.id)]):{rows:[]};
@@ -30,8 +38,7 @@ export class PgWhiteboardOperationUndoStore implements WhiteboardOperationUndoSt
   const row=rows.rows[0];return row?{ownerUserId:row.owner_user_id,undoId:row.undo_id,receipt:WhiteboardOperationReceipt.parse(row.receipt),before:{epoch:row.before_epoch,seq:Number(row.before_seq),key:row.object_key,hash:row.content_hash,bytes:Number(row.byte_size),comments:row.comments}}:null;
  }
  async readBefore(p:Principal,boardId:string,value:OperationBeforeReference){
-  const expected=`whiteboards/tenants/${hash(p.orgId).slice(0,32)}/boards/${boardId}/epochs/${value.epoch}/snapshots/${value.seq}-${value.hash}.yjs`;
-  if(value.key!==expected||!Number.isSafeInteger(value.bytes)||value.bytes<1||value.bytes>WHITEBOARD_SYNC.documentBytes)throw new Fault('DEPENDENCY_UNAVAILABLE');
+  if(!validSnapshotReference(p.orgId,boardId,value))throw new Fault('DEPENDENCY_UNAVAILABLE');
   let bytes:Uint8Array|null;try{bytes=await this.objects.get(value.key);}catch{throw new Fault('DEPENDENCY_UNAVAILABLE');}
   if(!bytes||bytes.byteLength!==value.bytes||hash(bytes)!==value.hash)throw new Fault('DEPENDENCY_UNAVAILABLE');return bytes;
  }

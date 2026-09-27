@@ -27,3 +27,10 @@ it.each(['commenter','viewer','archived'] as const)('also denies ordinary receip
  f.audit.lockHead=async()=>({epoch:1,seq:1,actorRole:mode==='archived'?'editor':mode,archived:mode==='archived'});
  await expect(f.service.execute(principal,boardId,request)).rejects.toMatchObject({code:mode==='archived'?'ARCHIVED':'FORBIDDEN'});expect(f.session.events).toHaveLength(1);
 });
+it('does not write commands or publish an operation receipt when before-image materialization fails',async()=>{
+ const f=fixture(),write=vi.fn(f.collaboration.writeCommandsInTransaction),append=vi.fn(f.audit.append),record=vi.fn(f.undoStore.record);
+ f.collaboration.writeCommandsInTransaction=write;f.audit.append=append;f.undoStore.record=record;
+ f.undoStore.capture=async()=>{throw new Error('snapshot write/readback unavailable');};
+ await expect(f.service.execute(principal,boardId,request)).rejects.toThrow('snapshot write/readback unavailable');
+ expect(write).not.toHaveBeenCalled();expect(append).not.toHaveBeenCalled();expect(record).not.toHaveBeenCalled();expect(f.session.events).toEqual([]);
+});
