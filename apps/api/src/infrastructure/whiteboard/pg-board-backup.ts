@@ -25,7 +25,7 @@ export class PgBoardBackupRepository implements BoardBackupRepository {
     const found=await s.query<{source_board_id:string}>(`SELECT source_board_id FROM whiteboard_backups WHERE org_id=$1 AND backup_id=$2 AND actor_id=$3`,[p.orgId,id,p.userId]);if(!found.rows[0])missing();
     await this.actor(s,p,found.rows[0]!.source_board_id,true);return this.record(s,p,id);
   }
-  private async pins(s:TenantSession,p:Principal,backupId:string,keys:string[]){for(const key of [...new Set(keys)].sort())await s.query(`INSERT INTO whiteboard_backup_pins(org_id,backup_id,object_key) VALUES($1,$2,$3) ON CONFLICT DO NOTHING`,[p.orgId,backupId,key]);}
+  private async pins(s:TenantSession,p:Principal,backupId:string,keys:string[]){for(const key of [...new Set(keys)].sort())await s.query(`INSERT INTO whiteboard_backup_pins(org_id,backup_id,object_key) VALUES($1,$2,$3) ON CONFLICT(org_id,backup_id,object_key) DO UPDATE SET released_at=NULL`,[p.orgId,backupId,key]);}
   async capture(p:Principal,boardId:string,backupId:string){return this.db.withTenant(p.orgId,async s=>{
     // Match library mutation lock order: taxonomy before Board, then backup metadata/pins.
     const tags=await s.query<{id:string;name:string;revision:number}>(`SELECT t.id,t.name,t.revision FROM whiteboard_tags t JOIN whiteboard_tag_bindings bt ON bt.org_id=t.org_id AND bt.tag_id=t.id JOIN whiteboards b ON b.org_id=bt.org_id AND b.id=bt.board_id WHERE t.org_id=$1 AND b.id=$2 AND b.owner_id=$3 AND t.deleted_at IS NULL ORDER BY t.id FOR SHARE OF t`,[p.orgId,boardId,p.userId]);
