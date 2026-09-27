@@ -231,7 +231,26 @@ function shapePath(variant: string, width: number, height: number): string {
   return `M ${-x} ${-y} L ${x * .55} ${-y} L ${x} ${-y * .55} L ${x} ${y} L ${-x} ${y} Z`;
 }
 
-function applyCanonicalObject(projected: TaggedFabricObject, object: BoardFabricObject, readOnly: boolean): void {
+export function applyCanonicalObject(projected: TaggedFabricObject, object: BoardFabricObject, readOnly: boolean): void {
+  const selection = projected.group instanceof ActiveSelection ? projected.group : undefined;
+  const members = selection?.getObjects();
+  // Leave the selection plane before restoring scene geometry. Keeping the same
+  // ActiveSelection instance avoids canvas selection events and preserves mixed
+  // locked selections. Rebuild its bounds after every canonical patch, including
+  // asynchronous rejection and duplicate restoration.
+  selection?.removeAll();
+  try {
+    applyCanonicalObjectInScene(projected, object, readOnly);
+  } finally {
+    if (selection && members) {
+      selection.set({ angle: 0, scaleX: 1, scaleY: 1, skewX: 0, skewY: 0, flipX: false, flipY: false });
+      selection.add(...members);
+      selection.setCoords();
+    }
+  }
+}
+
+function applyCanonicalObjectInScene(projected: TaggedFabricObject, object: BoardFabricObject, readOnly: boolean): void {
   const richText = textOptionsFor(object, { fontSize: object.kind === "text" ? 24 : 20, alignment: object.kind === "text" ? "left" : "center" });
   if (object.kind === "text") {
     projected.set({ text: object.content.text, ...richText });
@@ -250,6 +269,10 @@ function applyCanonicalObject(projected: TaggedFabricObject, object: BoardFabric
     angle: object.geometry.rotation,
     scaleX: object.geometry.width / naturalWidth,
     scaleY: object.geometry.height / naturalHeight,
+    skewX: 0,
+    skewY: 0,
+    flipX: false,
+    flipY: false,
     // Locked objects remain selectable for inspection and mixed selections;
     // the lock flags below prevent every Fabric transform.
     selectable: !readOnly && object.kind !== "placeholder" && object.kind !== "connector",

@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { ActiveSelection, Group, Rect } from "fabric";
 import { canonicalSceneBounds } from "@repo/whiteboard-core";
+import { applyCanonicalObject } from "@/components/whiteboard/fabric/board-fabric-surface";
+import type { BoardFabricObject } from "@/components/whiteboard/fabric/board-fabric-object";
 import { representableWorldGeometry } from "@/components/whiteboard/fabric/fabric-transform";
 
 describe("Board Fabric canonical coordinate contract", () => {
@@ -35,5 +37,46 @@ describe("ActiveSelection canonical transform boundary", () => {
     const selection = new ActiveSelection([rotated, plain]);
     selection.set({ scaleX: 1.4, scaleY: 1.4, angle: 15 }); selection.setCoords();
     expect(representableWorldGeometry(rotated)).toMatchObject({ width: expect.any(Number), height: expect.any(Number), rotation: 50 });
+  });
+});
+
+
+describe("canonical projection inside a real ActiveSelection", () => {
+  const records: BoardFabricObject[] = [560, 1536].map((x, index) => ({
+    id: `object-${index}`, kind: "shape", revision: 1, orderKey: String(index),
+    geometry: { x, y: 200 + index * 200, width: 100, height: 80, rotation: 0 },
+    style: { fill: "#ffffff", textColor: "#000000" }, content: { text: "" },
+  }));
+  const boundsAndFit = (objects: Rect[]) => {
+    const bounds = objects.map((object) => object.getBoundingRect());
+    const left = Math.min(...bounds.map((bound) => bound.left));
+    const top = Math.min(...bounds.map((bound) => bound.top));
+    const right = Math.max(...bounds.map((bound) => bound.left + bound.width));
+    const bottom = Math.max(...bounds.map((bound) => bound.top + bound.height));
+    const zoom = Math.min(1104 / (right - left), 704 / (bottom - top));
+    return { left, top, right, bottom, zoom, panX: (1200 - (right - left) * zoom) / 2 - left * zoom, panY: (800 - (bottom - top) * zoom) / 2 - top * zoom };
+  };
+
+  it.each([false, true])("keeps world bounds and Fit stable through repeated grouped canonical patches (transformed=%s)", (transformed) => {
+    const objects = records.map((record) => {
+      const object = new Rect({ width: 100, height: 80, strokeWidth: 0 });
+      applyCanonicalObject(object, record, false);
+      return object;
+    });
+    const initial = boundsAndFit(objects);
+    for (let iteration = 0; iteration < 8; iteration++) {
+      const selection = new ActiveSelection(objects);
+      if (transformed) selection.set({ left: selection.left + 150, top: selection.top - 70, angle: 32, scaleX: 1.7, scaleY: 0.8 });
+      selection.setCoords();
+      objects.forEach((object, index) => applyCanonicalObject(object, { ...records[index]!, revision: iteration + 2 }, false));
+      objects.forEach((object, index) => {
+        expect(object.group).toBe(selection);
+        expect(representableWorldGeometry(object)).toEqual(records[index]!.geometry);
+      });
+      for (const [key, value] of Object.entries(initial)) expect(boundsAndFit(objects)[key as keyof typeof initial]).toBeCloseTo(value, 7);
+      selection.onDeselect();
+      objects.forEach((object, index) => expect(representableWorldGeometry(object)).toEqual(records[index]!.geometry));
+      for (const [key, value] of Object.entries(initial)) expect(boundsAndFit(objects)[key as keyof typeof initial]).toBeCloseTo(value, 7);
+    }
   });
 });
