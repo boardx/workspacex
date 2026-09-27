@@ -1755,6 +1755,7 @@
         "apps/web/lib/live-org-admin.ts",
         "apps/web/lib/live-platform-access.ts",
         "apps/web/lib/live-project-invite.ts",
+        "apps/web/lib/live-project-members.ts",
         "apps/web/lib/live-project-prep.ts",
         "apps/web/lib/live-projects.ts",
         "apps/web/lib/live-provenance.ts",
