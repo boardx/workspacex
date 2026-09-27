@@ -148,10 +148,10 @@ it("edits sticky appearance through canonical commands while preserving future e
   fireEvent.change(screen.getByTestId("sticky-sizing"), { target: { value: "fixed" } });
   const updated = readObjects(doc)[0]!;
   expect(updated.geometry).toMatchObject({ width: 180, height: 180 });
-  expect(updated.style.fill).toBe("#BBDDF8");
+  expect(updated.style.fill).toBe("#C6DDFF");
   expect(updated.extensionData).toMatchObject({
     plugin: { keep: true },
-    thinkingInput: { future: "root", sticky: { future: "sticky", variant: "circle", sizing: "fixed", color: "#BBDDF8" } },
+    thinkingInput: { future: "root", sticky: { future: "sticky", variant: "circle", sizing: "fixed", color: "#C6DDFF" } },
   });
   doc.destroy();
 });

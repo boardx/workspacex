@@ -1,5 +1,6 @@
 import { act, createEvent, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { BOARD_FABRIC_VISUAL } from "@/components/whiteboard/fabric/board-fabric-visual";
 import type { BoardFabricObject, BoardViewport } from "@/components/whiteboard/fabric/board-fabric-object";
 
 interface MockProjectedObject {
@@ -114,6 +115,17 @@ function renderSurface(overrides: Partial<React.ComponentProps<typeof BoardFabri
 describe("BoardFabricSurface", () => {
   beforeEach(() => { probe.instances = 0; probe.objects.length = 0; probe.handlers.clear(); probe.active = null; probe.activeId = null; probe.emitSelectionOnSet = false; probe.zoom = 1; probe.clearCalls = 0; probe.renderCalls = 0; probe.moveCalls = 0; probe.primitiveKinds.length = 0; probe.imageSources.length = 0; probe.imageOptions.length = 0; });
 
+
+  it("renders sticky paper, blue corners and a world-anchored grid without changing persisted appearance", () => {
+    renderSurface({ objects: [{ ...OBJECTS[0]!, sticky: { variant: "square", sizingMode: "auto-height" } }], selectedObjectIds: ["s-1"] });
+    const sticky = probe.objects[0]!;
+    expect(sticky).toMatchObject(BOARD_FABRIC_VISUAL.selection);
+    expect(sticky.controls).toMatchObject({ tl: true, tr: true, bl: true, br: true, ml: false, mr: false });
+    expect(sticky.children![0]).toMatchObject({ fill: "#F8D76E", rx: 2, shadow: BOARD_FABRIC_VISUAL.sticky.shadow });
+    expect(sticky.children![1]).toMatchObject({ fontFamily: BOARD_FABRIC_VISUAL.fontFamily });
+    expect(screen.getByTestId("board-fabric-surface")).toHaveStyle({ backgroundSize: "24px 24px", backgroundPosition: "-12px -12px" });
+    expect(probe.objects).toHaveLength(1);
+  });
 
   it("orients connector tips from each final path tangent", () => {
     expect(connectorTipAngles("straight", -50, -30, 50, 30)).toEqual({ start: expect.any(Number), end: expect.any(Number) });

@@ -15,6 +15,7 @@ import {
   type BoardViewport,
   type BoardViewportSource,
 } from "./board-fabric-object";
+import { BOARD_FABRIC_VISUAL, boardDotGridStyle } from "./board-fabric-visual";
 import { representableWorldGeometry } from "./fabric-transform";
 
 type TaggedFabricObject = FabricObject & {
@@ -63,7 +64,7 @@ export interface BoardFabricSurfaceProps {
 function textOptionsFor(object: BoardFabricObject, defaults: { fontSize: number; alignment: "left" | "center" | "right" }) {
   const linked = Boolean(object.style.link);
   return {
-    fontFamily: object.style.fontFamily ?? "Noto Sans SC, sans-serif",
+    fontFamily: object.style.fontFamily ?? BOARD_FABRIC_VISUAL.fontFamily,
     fontSize: object.style.fontSize ?? defaults.fontSize,
     fontWeight: object.style.bold ? 700 : 400,
     fontStyle: object.style.italic ? "italic" as const : "normal" as const,
@@ -87,10 +88,10 @@ function applyResizePolicy(projected: TaggedFabricObject, object: BoardFabricObj
     mr: !autoSize && !proportional,
     mt: !autoSize && !autoHeight && !proportional,
     mb: !autoSize && !autoHeight && !proportional,
-    tl: !autoSize && !autoHeight,
-    tr: !autoSize && !autoHeight,
-    bl: !autoSize && !autoHeight,
-    br: !autoSize && !autoHeight,
+    tl: !autoSize && (!autoHeight || proportional),
+    tr: !autoSize && (!autoHeight || proportional),
+    bl: !autoSize && (!autoHeight || proportional),
+    br: !autoSize && (!autoHeight || proportional),
   });
 }
 
@@ -198,13 +199,14 @@ export function createFabricObject(object: BoardFabricObject): TaggedFabricObjec
       new Textbox(object.content.text, { ...textOptions, width: Math.max(24, Math.min(object.geometry.width, object.geometry.height) - 40) }),
     ]);
   } else {
-    const cornerRadius = object.kind === "sticky" ? 6 : 12;
+    const cornerRadius = object.kind === "sticky" ? BOARD_FABRIC_VISUAL.sticky.radius : 12;
     projected = new Group([
       new Rect({ width: object.geometry.width, height: object.geometry.height, rx: cornerRadius, ry: cornerRadius, fill: object.style.fill, stroke: object.style.stroke, strokeWidth: object.style.strokeWidth ?? 0, originX: "center", originY: "center" }),
       new Textbox(object.content.text, textOptions),
     ]);
   }
   projected.set({
+    ...BOARD_FABRIC_VISUAL.selection,
     left: object.geometry.x,
     top: object.geometry.y,
     originX: "left",
@@ -216,6 +218,9 @@ export function createFabricObject(object: BoardFabricObject): TaggedFabricObjec
     lockMovementX: Boolean(object.locked), lockMovementY: Boolean(object.locked),
     lockScalingX: Boolean(object.locked), lockScalingY: Boolean(object.locked), lockRotation: Boolean(object.locked),
   });
+  if (object.kind === "sticky" && "getObjects" in projected && typeof projected.getObjects === "function") {
+    projected.getObjects()[0]?.set({ shadow: BOARD_FABRIC_VISUAL.sticky.shadow });
+  }
   applyResizePolicy(projected, object);
   projected.setCoords();
   return projected;
@@ -299,6 +304,7 @@ function applyCanonicalObjectInScene(projected: TaggedFabricObject, object: Boar
   const naturalWidth = projected.width || object.geometry.width;
   const naturalHeight = projected.height || object.geometry.height;
   projected.set({
+    ...BOARD_FABRIC_VISUAL.selection,
     left: object.geometry.x,
     top: object.geometry.y,
     originX: "left",
@@ -319,6 +325,9 @@ function applyCanonicalObjectInScene(projected: TaggedFabricObject, object: Boar
     lockMovementY: object.kind === "connector",
     data: { boardObjectId: object.id, adapterKind: object.kind, renderedRevision: object.revision, stickyVariant: object.sticky?.variant, sizingMode: object.sticky?.sizingMode },
   });
+  if (object.kind === "sticky" && "getObjects" in projected && typeof projected.getObjects === "function") {
+    projected.getObjects()[0]?.set({ shadow: BOARD_FABRIC_VISUAL.sticky.shadow });
+  }
   applyResizePolicy(projected, object);
   projected.setCoords();
 }
@@ -421,7 +430,7 @@ export function BoardFabricSurface({ objects, selectedObjectIds, readOnly, tool,
     const registry = registryRef.current;
     const rendered = renderedRef.current;
     let disposed = false;
-    const canvas = new Canvas(element, { selection: !stateRef.current.readOnly, preserveObjectStacking: true, uniformScaling: true });
+    const canvas = new Canvas(element, { ...BOARD_FABRIC_VISUAL.marquee, selection: !stateRef.current.readOnly, preserveObjectStacking: true, uniformScaling: true });
     canvasRef.current = canvas;
     const resize = () => {
       canvas.setDimensions({ width: host.clientWidth || 1200, height: host.clientHeight || 720 });
@@ -783,7 +792,7 @@ export function BoardFabricSurface({ objects, selectedObjectIds, readOnly, tool,
     reconcilingSelectionRef.current = true;
     try {
       if (projected.length > 1 && transformable.length > 1) {
-        const activeSelection = new ActiveSelection(transformable, { canvas });
+        const activeSelection = new ActiveSelection(transformable, { canvas, ...BOARD_FABRIC_VISUAL.selection });
         activeSelection.setControlsVisibility({ ml: false, mr: false, mt: false, mb: false });
         canvas.setActiveObject(activeSelection);
       }
@@ -838,7 +847,7 @@ export function BoardFabricSurface({ objects, selectedObjectIds, readOnly, tool,
 
   const selectFromOutline = React.useCallback((objectId: string) => onSelectionChange([objectId], "outline"), [onSelectionChange]);
   return (
-    <div ref={hostRef} className={className ?? "relative h-full w-full overflow-hidden bg-muted/30"} data-testid="board-fabric-surface"
+    <div ref={hostRef} className={className ?? "relative h-full w-full overflow-hidden bg-background"} style={boardDotGridStyle(viewport)} data-testid="board-fabric-surface"
       data-viewport-zoom={clampBoardZoom(viewport.zoom)} data-viewport-pan-x={viewport.panX} data-viewport-pan-y={viewport.panY}
       data-selection-scene={selectionScene ? JSON.stringify(selectionScene) : undefined}
       data-object-scenes={JSON.stringify(objectScenes)}
