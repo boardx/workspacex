@@ -13,6 +13,7 @@ export function GuidedResearchPlanPanel({
   materials,
   onConfirm,
   disabled,
+  editDisabled = disabled,
   onEdit,
   onBack,
 }: {
@@ -23,10 +24,11 @@ export function GuidedResearchPlanPanel({
   materials?: React.ReactNode;
   onConfirm: () => void;
   disabled: boolean;
+  editDisabled?: boolean;
   onEdit?: (field: ResearchPlanField) => void;
   onBack?: () => void;
 }) {
-  const edit = (field: ResearchPlanField, title: string) => onEdit && <Button variant="outline" className="absolute right-6 top-6 h-10 px-4 text-base" aria-label={`编辑${title}`} disabled={disabled} onClick={() => onEdit(field)}><Pencil className="mr-2 size-4" aria-hidden />编辑</Button>;
+  const edit = (field: ResearchPlanField, title: string) => onEdit && <Button variant="outline" className="absolute right-6 top-6 h-10 px-4 text-base" aria-label={`编辑${title}`} disabled={editDisabled} onClick={() => onEdit(field)}><Pencil className="mr-2 size-4" aria-hidden />编辑</Button>;
   return <section className="space-y-5" data-testid="guided-research-plan-panel" data-reference-layout="plan-cards">
     <Card className="relative shadow-sm">{edit("plan", "研究方向")}<CardHeader className="p-6 pb-4"><CardTitle className="flex items-center gap-4 pr-24 text-[24px]"><Target className="size-12 rounded-xl bg-muted p-2" />研究方向</CardTitle><p className="pl-16 text-lg leading-relaxed text-muted-foreground">明确本次研究的具体方向和范围，确保研究内容聚焦且有深度。</p></CardHeader><CardContent className="px-6 pb-6 text-lg leading-relaxed">{plan}</CardContent></Card>
     <div className="grid gap-5 lg:grid-cols-2">
