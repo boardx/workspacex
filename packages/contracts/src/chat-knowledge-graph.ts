@@ -384,8 +384,37 @@ export const KgPersonalClaimOrigin = z.object({
   threadId: z.string(),
   projectId: z.string().nullable(),
   threadTitle: z.string(),
+  /**
+   * issue #4302：原结论最早被说出来的时间（ISO，支撑它的最早一条消息）——界面显示「来自你 {M/D} 的对话」，
+   * 与 `KgRecalledMemory.saidAt` 同一口径；读不到（原话只剩附件片段）为 null。
+   */
+  saidAt: z.string().nullable(),
+  /**
+   * issue #4302：这一个来源是系统自动记下的（#4283，derived_from 边由模型建立），不是人点「记到我的长期记忆」。
+   * 大脑页「忘掉这条」据此选既有动作：仍是「AI 记下的」且来源是自动记下的 ⇒ `undoAutoPersonalCopy`（只拿掉长期记忆里那份）；
+   * 其余 ⇒ 在来源对话里 `applyHumanAction{revokeClaim}`（F07 级联让长期记忆里那份一起失效）。
+   */
+  autoCopied: z.boolean(),
 }).strict();
 export type KgPersonalClaimOrigin = z.infer<typeof KgPersonalClaimOrigin>;
+
+/**
+ * issue #4302（人类决定 2026-09-26「折叠的历史」）：长期记忆里被**改口取代**的一条，折叠在取代它的那条活记忆下面
+ * （界面一行「取代了：〈旧〉」）。被忘掉 / 撤回 / 原话被删的不在这里（不显示）。只读查看者本人的个人空间。
+ * 旧的那条没有第二个状态字段：它就是 `status = superseded` 的那条（`claimTriState` 为 null，不进 `claims`）。
+ */
+export const KgPersonalReplacedClaim = z.object({
+  /** 取代它的那条（`getPersonalKnowledge.claims` 里活着的一条） */
+  byClaimId: z.string(),
+  replaces: z.object({ claimId: z.string(), statement: z.string() }).strict(),
+  /**
+   * 能撤销时：说出改口的那个对话（查看者本人的个人对话）与那次取代的提示（`KgSupersedeNotice.noticeId`）——
+   * 「撤销取代」= 在那个对话上 `applyHumanAction{undoSupersede, noticeId}`，与对话里那一行「撤销」同一个动作。
+   * 不是自动取代（矛盾卡上选了「以新的为准」）、或那个对话已不是本人的 ⇒ null（只显示，不给撤销）。
+   */
+  undo: z.object({ threadId: z.string(), noticeId: KgSupersedeNotice.shape.noticeId }).strict().nullable(),
+}).strict();
+export type KgPersonalReplacedClaim = z.infer<typeof KgPersonalReplacedClaim>;
 
 /** 大脑页最多列出的会话数（按最近活动倒序）。 */
 export const KG_BRAIN_THREADS_LIMIT = 50;
@@ -654,6 +683,8 @@ export const knowledgeGraph = {
       objects: z.array(KgObject),
       claims: z.array(KgClaim),
       edges: z.array(KgEdge),
+      /** issue #4302：被改口取代的旧记忆，各自挂在取代它的活记忆下（折叠显示）；撤回 / 忘掉的不在里面 */
+      replaced: z.array(KgPersonalReplacedClaim),
     }).strict(),
     /** 调用者不是（或已不是）当前组织成员（HTTP 403）。空间里没有内容不是错误，返回空。 */
     err: ["KG_NOT_VISIBLE"] as const,
