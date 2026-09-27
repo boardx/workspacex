@@ -15,7 +15,7 @@ const threadRef = (t: KnowledgeThreadRef) => ({ kind: "project" as const, id: t.
 const LIVE = "c.revoked_at IS NULL AND c.status <> 'superseded'";
 const CODES: readonly KgHumanActionErrorCode[] = [
   "KG_NOT_OWNER", "KG_ACTOR_NOT_HUMAN", "KG_SCOPE_NOT_PERSONAL", "KG_CLAIM_NOT_FOUND",
-  "KG_CONTESTED_NEEDS_RESOLUTION", "KG_EVIDENCE_REVOKED",
+  "KG_CONTESTED_NEEDS_RESOLUTION", "KG_EVIDENCE_REVOKED", "KG_SCOPE_NOT_PROJECT",
 ];
 
 export class PgPromotion implements PromotionPort {
@@ -62,6 +62,35 @@ export class PgPromotion implements PromotionPort {
       [orgId, thread.threadId, userId],
     ));
     return guard(threadRef(thread), rows.rows);
+  }
+
+  /** 项目中枢 R7：项目记忆里的活结论。guard 的 ref 是项目本身——只有能看这条线程（⇒ 项目成员）的人拿得到。 */
+  async projectClaims(orgId: OrgId, userId: string, thread: KnowledgeThreadRef) {
+    const rows = thread.projectId === null ? { rows: [] as { id: string; statement: string }[] } : await this.asUser(orgId, userId, (s) => s.query<{ id: string; statement: string }>(
+      `SELECT c.id, c.statement FROM claims c
+        WHERE c.org_id = $1 AND c.scope_kind = 'project' AND c.scope_id = $2 AND ${LIVE} ORDER BY c.created_at, c.id`,
+      [orgId, thread.projectId],
+    ));
+    return guard(threadRef(thread), rows.rows);
+  }
+
+  async promoteToProject(orgId: OrgId, userId: string, input: {
+    readonly actionId: string; readonly threadId: string; readonly claimId: string; readonly mode: "new" | "merge"; readonly targetClaimId?: string;
+  }): Promise<string> {
+    try {
+      return await this.asUser(orgId, userId, async (s) => {
+        const r = await s.query<{ id: string }>("SELECT kg_promote_claim_to_project($1::jsonb) AS id", [JSON.stringify({
+          action_id: input.actionId, thread_id: input.threadId, claim_id: input.claimId, mode: input.mode,
+          target_claim_id: input.targetClaimId ?? null,
+        })]);
+        return r.rows[0]!.id;
+      });
+    } catch (e) {
+      const message = e instanceof Error ? e.message : "";
+      const code = CODES.find((c) => message.startsWith(c));
+      if (code !== undefined) throw new KgHumanActionError(code, message);
+      throw e;
+    }
   }
 
   async promote(orgId: OrgId, userId: string, input: {
