@@ -50,6 +50,7 @@ export const FONT = { title: 18, section: 14, body: 13, small: 11 } as const;
  * mermaid parser sizes lifelines against it.
  */
 export const SEQ_SELF_MESSAGE_DROP = 28;
+export const SEQ_SELF_MESSAGE_WIDTH = 56;
 
 export const RADIUS = { node: 8, card: 6 } as const;
 export const STROKE_W = { normal: 1.5, strong: 2 } as const;

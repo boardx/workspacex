@@ -4,6 +4,22 @@
  * while the production lint can prove the actor, tenant, locking and replay invariants.
  */
 export const whiteboardPermissionBoundaries = new Map([
+  ['src/infrastructure/whiteboard/chat-artifact-access.ts', {
+    tables: ['chat_artifact_landings','chat_threads'],
+    reason: '#4256 ids-only Chat artifact locator returns only a policy boolean; content authority is the existing Chat resolveVisibility and draft-source policy, using the operation tenant transaction.',
+    checks: [
+      /SELECT l\.thread_id,t\.id AS existing_thread_id,t\.project_id,l\.mode,l\.created_by FROM chat_artifact_landings l/,
+      /LEFT JOIN chat_threads t ON t\.org_id=l\.org_id AND t\.id=l\.thread_id/,
+      /WHERE l\.org_id=\$1 AND l\.artifact_id=\$2/,
+      /if \(!landing\.existing_thread_id\) return false/,
+      /if \(orgId !== principal\.orgId\) throw/,
+      /return fn\(session\)/,
+      /return canReadChatArtifactSource\(/,
+      /userId: principal\.userId, orgId: principal\.orgId, projectId: landing\.project_id/,
+      /mode: landing\.mode, createdBy: landing\.created_by/,
+    ],
+    forbidden: [/SELECT \*/, /return landing\b/, /object_storage_key/, /payload/, /markdown/],
+  }],
   ['src/infrastructure/whiteboard/pg-board-content-copy-store.ts', {
     tables: ['whiteboard_duplicate_requests','whiteboards','whiteboard_members','whiteboard_tag_bindings','whiteboard_tags','whiteboard_documents','whiteboard_asset_refs','whiteboard_image_assets','unnest'],
     reason: '#4242 canonical Board duplication is guarded by tests/whiteboard/board-content-copy-guard.test.ts: one tenant transaction performs actor-visible preflight, locks active tags before the source Board, captures an explicit document version, verifies tag stability, prepares canonical bytes, and publishes an actor-owned independent target.',

@@ -16,7 +16,8 @@ import type { OrgId } from "../../domain/org-id";
 import { storageKey } from "../../domain/artifact/materialization";
 import type { ArtifactRepository, ObjectStore } from "../artifact/ports";
 import type { ArtifactLandingRepository } from "./artifact-landing-ports";
-import { resolveVisibility, type ResolveVisibilityDeps } from "./resolve-visibility";
+import type { ResolveVisibilityDeps } from "./resolve-visibility";
+import { canReadChatArtifactSource } from "./artifact-source-access";
 import { ThreadNotVisibleError } from "./get-thread";
 
 export class ArtifactSourceStorageUnavailableError extends Error {}
@@ -50,16 +51,10 @@ export async function getThreadArtifactSource(
 ): Promise<GetThreadArtifactSourceResult> {
   const { userId, orgId, projectId, threadId, artifactId } = input;
 
-  const outcome = await resolveVisibility(deps, { userId, orgId, projectId, threadId });
-  if (outcome.kind !== "allow") throw new ThreadNotVisibleError();
-
   const landing = await deps.landings.findLatestByThreadAndArtifact(orgId, threadId, artifactId);
-  if (landing === null) throw new ThreadNotVisibleError();
-  // I-36：草稿仅创建者可见——包括对项目/组织管理员，没有角色例外
-  // （与 `list-thread-artifacts.ts` 的过滤逐字同一条规则）。
-  if (landing.mode === "draft" && landing.createdBy !== userId) {
-    throw new ThreadNotVisibleError();
-  }
+  if (landing === null || !await canReadChatArtifactSource(deps, {
+    userId, orgId, projectId, threadId, mode: landing.mode, createdBy: landing.createdBy,
+  })) throw new ThreadNotVisibleError();
 
   // 每次落地都是一份新 artifact（`land-as-artifact.ts` 文件头），版本号照理恒为 1；
   // 仍从版本表读 head 而不写死 1——写死是第二份「版本怎么编号」的声明。

@@ -1,3 +1,4 @@
+import { templateToModel } from '@repo/fabric-markdown/templates';
 import { extractMermaidBlocks } from '@repo/fabric-markdown/markdown';
 import { modelToMermaid } from '@repo/fabric-markdown/mermaid-serializer';
 import type { DiagramModel, DiagramNode, DiagramEdge, Direction, EdgeKind, NodeShape } from '@repo/fabric-markdown/model';
@@ -34,17 +35,29 @@ export function artifactSourceMatchesLayout(bytes:Uint8Array,layout:RenderedDiag
       const candidateShape=object.style['shape'];
       if(typeof candidateShape!=='string'||!SHAPES.has(candidateShape as NodeShape))return false;
       meta??=jsonRecord(object.style['modelMetaJson']);
-      nodes.push({id:object.sourceId,label:object.text,shape:candidateShape as NodeShape,x:object.geometry.x+object.geometry.width/2,y:object.geometry.y+object.geometry.height/2,width:object.geometry.width,height:object.geometry.height,...(jsonRecord(object.style['dataJson'])===undefined?{}:{data:jsonRecord(object.style['dataJson'])})});
+      nodes.push({id:object.sourceId,label:object.text,shape:candidateShape as NodeShape,x:object.geometry.x+object.geometry.width/2,y:object.geometry.y+object.geometry.height/2,width:object.geometry.width,height:object.geometry.height,...(typeof object.style['lifelineHeight']==='number'?{lifelineHeight:object.style['lifelineHeight']}:{}),...(jsonRecord(object.style['dataJson'])===undefined?{}:{data:jsonRecord(object.style['dataJson'])})});
     }else if(object.kind==='edge'){
       if(!object.fromSourceId||!object.toSourceId)return false;
       const candidateKind=object.style['edgeKind'];
       if(typeof candidateKind!=='string'||!EDGE_KINDS.has(candidateKind as EdgeKind))return false;
-      edges.push({id:object.sourceId,source:object.fromSourceId,target:object.toSourceId,label:object.text||undefined,kind:candidateKind as EdgeKind,...(typeof object.style['order']==='number'?{order:object.style['order']}:{}),...(typeof object.style['seqY']==='number'?{seqY:object.style['seqY']}:{}),...(jsonRecord(object.style['dataJson'])===undefined?{}:{data:jsonRecord(object.style['dataJson'])})});
+      edges.push({id:object.sourceId,source:object.fromSourceId,target:object.toSourceId,label:object.text||undefined,kind:candidateKind as EdgeKind,...(typeof object.style['sourceLabel']==='string'?{sourceLabel:object.style['sourceLabel']}:{}),...(typeof object.style['targetLabel']==='string'?{targetLabel:object.style['targetLabel']}:{}),...(typeof object.style['order']==='number'?{order:object.style['order']}:{}),...(typeof object.style['seqY']==='number'?{seqY:object.style['seqY']}:{}),...(jsonRecord(object.style['dataJson'])===undefined?{}:{data:jsonRecord(object.style['dataJson'])})});
     }else return false;
   }
   const kind:DiagramModel['kind']=layout.diagramKind==='sequence'?'sequence':layout.diagramKind==='persona'?'template':'flowchart';
   const reconstructed:DiagramModel={kind,direction,nodes,edges,...(meta===undefined?{}:{meta})};
   const block=blocks[0]!;
   const expectedLang=layout.diagramKind==='persona'?'persona':'mermaid';
-  return block.lang===expectedLang&&normalized(block.code)===normalized(modelToMermaid(reconstructed));
+  const languageMatches=block.lang===expectedLang || (layout.diagramKind==='persona' && block.lang==='canvas');
+  if(!languageMatches || normalized(block.code)!==normalized(modelToMermaid(reconstructed)))return false;
+  if(layout.diagramKind==='persona'){
+    // Template serializers intentionally ignore decorative nodes. Those nodes still
+    // become visible Board content, so bind their logical text/roles to the real
+    // template expansion too; otherwise arbitrary extra labels could claim provenance.
+    try {
+      const expected=templateToModel(block.code,'persona');
+      const profile=(node:DiagramNode)=>JSON.stringify({shape:node.shape,label:node.label,role:node.data?.['role']??null,key:node.data?.['key']??null,name:node.data?.['name']??null});
+      if(JSON.stringify(nodes.map(profile).sort())!==JSON.stringify(expected.nodes.map(profile).sort()))return false;
+    }catch{return false;}
+  }
+  return true;
 }
