@@ -44,7 +44,7 @@ it('keeps Undo metadata append-only and tenant-frozen without inline object cont
 it.each(['checkpoints','restores','recovered'])('captures restored %s content as an epoch-bound immutable Undo image',async kind=>{
  const id='00000000-0000-4000-8000-000000000001', prefix=reference.key.split('/epochs/')[0];
  const key=kind==='recovered'?`${prefix}/epochs/1/recovered/${id}-${reference.hash}.yjs`:`${prefix}/${kind}/${id}-${reference.hash}.yjs`;
- const blobs=new Map([[key,bytes]]),get=vi.fn(async(k:string)=>blobs.get(k)??null),putOnce=vi.fn(async(k:string,b:Uint8Array)=>{blobs.set(k,b);});
+ const blobs=new Map<string,Uint8Array>([[key,bytes]]),get=vi.fn(async(k:string)=>blobs.get(k)??null),putOnce=vi.fn(async(k:string,b:Uint8Array)=>{blobs.set(k,b);});
  const query=vi.fn(async(sql:string)=>({rows:sql.includes('FROM whiteboard_documents')?[{epoch:1,seq:'0',object_key:key,content_hash:reference.hash,byte_size:'2'}]:[]}));
  const store=new PgWhiteboardOperationUndoStore({loadInTransaction:async()=>({epoch:1,seq:0,update:bytes})} as any,{get,putOnce} as any);
  const captured=await store.capture({query} as any,p,board);
