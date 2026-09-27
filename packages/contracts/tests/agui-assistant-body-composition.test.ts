@@ -23,4 +23,14 @@ describe("composeAguiAssistantBodies（一轮若干段助手正文 → 一段）
     expect(composeAguiAssistantBodies(["结果是 X。", "补充：结果是 X。"])).toBe("结果是 X。\n\n补充：结果是 X。");
     expect(composeAguiAssistantBodies(["完整的回答。还有下文。", "完整的回答。"])).toBe("完整的回答。还有下文。\n\n完整的回答。");
   });
+
+  it("#4391 评审：前一段不是完整的一句时，只是字符前缀相同不算重说，两段都留", () => {
+    expect(composeAguiAssistantBodies(["步骤 1", "步骤 10 已完成"])).toBe("步骤 1\n\n步骤 10 已完成");
+    expect(composeAguiAssistantBodies(["好的", "好的，我来处理。"])).toBe("好的\n\n好的，我来处理。");
+    expect(composeAguiAssistantBodies(["结果", "结果如下：X。"])).toBe("结果\n\n结果如下：X。");
+  });
+
+  it("前一段在接缝处以空白断开，也算完整的一行被重说", () => {
+    expect(composeAguiAssistantBodies(["正在查询", "正在查询\n查到了：X。"])).toBe("正在查询\n查到了：X。");
+  });
 });

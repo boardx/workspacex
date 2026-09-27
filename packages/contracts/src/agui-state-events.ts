@@ -324,10 +324,21 @@ export function composeAguiAssistantBodies(bodies: readonly string[]): string {
   for (const raw of bodies) {
     const body = raw.trim();
     if (body === "" || kept.includes(body)) continue;
-    kept = kept.filter((earlier) => !body.startsWith(earlier));
+    kept = kept.filter((earlier) => !isRestatedAtBoundary(earlier, body));
     kept.push(body);
   }
   return kept.join("\n\n");
+}
+
+const SENTENCE_END = /[。！？!?.…：:；;]$/u;
+
+/**
+ * 「后一段以前一段开头」只有在前一段是完整的一句/一行时才算重说：前一段以句末标点收尾，或后一段在
+ * 接缝处是空白。否则「步骤 1」会被「步骤 10 已完成」吞掉、「好的」会被「好的，我来……」吞掉（#4391 评审）。
+ */
+function isRestatedAtBoundary(earlier: string, body: string): boolean {
+  if (body.length <= earlier.length || !body.startsWith(earlier)) return false;
+  return SENTENCE_END.test(earlier) || /\s/u.test(body.charAt(earlier.length));
 }
 
 /**
