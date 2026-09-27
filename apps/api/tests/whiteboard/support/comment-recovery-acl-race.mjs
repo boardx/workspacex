@@ -14,6 +14,11 @@ const required=name=>{const value=process.env[name];assert(value,`Missing ${name
 assert.equal(required('BOARD_ACL_RACE_ISOLATED'),'1');
 const api=required('BOARD_ACL_API_URL').replace(/\/$/,''),owner=required('BOARD_ACL_OWNER_TOKEN'),member=required('BOARD_ACL_MEMBER_TOKEN');
 const orgId=required('BOARD_ACL_ORG_ID'),memberId=required('BOARD_ACL_MEMBER_ID');
+assert(process.env.WORKSPACEX_ISOLATION_ID && /^wsx_[a-f0-9]{20}$/.test(process.env.WORKSPACEX_DB ?? ''));
+assert.equal(process.env.PGDATABASE,process.env.WORKSPACEX_DB);
+assert(['localhost','127.0.0.1','::1'].includes(process.env.PGHOST));
+assert(['localhost','127.0.0.1','[::1]'].includes(new URL(api).hostname));
+assert(!process.env.WORKSPACEX_DEPLOY_PROFILE);
 const pool=new Pool({max:5});let boardId;
 const call=async(token,method,path,body)=>{
  const response=await fetch(`${api}${path}`,{method,headers:{Authorization:`Bearer ${token}`,'Content-Type':'application/json'},...(body?{body:JSON.stringify(body)}:{})});
@@ -21,7 +26,7 @@ const call=async(token,method,path,body)=>{
 };
 const ok=async(...args)=>{const result=await call(...args);assert(result.status>=200&&result.status<300,`API setup failed ${result.status}`);return result;};
 const sleep=ms=>new Promise(resolve=>setTimeout(resolve,ms));
-const withTenant=async(tenant,work)=>{const client=await pool.connect();try{await client.query('BEGIN');await client.query("SELECT set_config('app.current_org',$1,true)",[tenant]);const value=await work(client);await client.query('COMMIT');return value;}catch(error){await client.query('ROLLBACK');throw error;}finally{client.release();}};
+const withTenant=async(tenant,work)=>{const client=await pool.connect();try{await client.query('BEGIN');await client.query('SET LOCAL ROLE app_rw');await client.query("SELECT set_config('app.current_org',$1,true)",[tenant]);const value=await work(client);await client.query('COMMIT');return value;}catch(error){await client.query('ROLLBACK');throw error;}finally{client.release();}};
 const evidence=[];
 async function lockedRace(name,mutation,operation,verify){
  await ok(owner,'PUT',`/whiteboards/${boardId}/members`,{userId:memberId,role:'editor'});
