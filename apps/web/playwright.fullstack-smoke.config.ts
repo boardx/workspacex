@@ -395,6 +395,9 @@ export default defineConfig({
         "skill-agent-import-usecase-audit.spec.ts",
         "core-journey-03-skill-lifecycle-chat.spec.ts",
         "core-journey-04-canvas-template-lifecycle-chat.spec.ts",
+        // 项目中枢 R10：邀请 → 加入 → 建 chat → 分享 → 项目大脑。有状态（把种子 member 真的加进
+        // sentinel 项目、留下一条全场 chat），同旅程 ③ ④ 排在这条链。
+        "core-journey-06-project-invite-chat-share.spec.ts",
         // BV01 owns its Board lifecycle and can run after the seeded empty-state assertions.
         "board-fabric-surface.spec.ts",
         // BV12–BV14 exercise canonical layout commands against the real Board stack.

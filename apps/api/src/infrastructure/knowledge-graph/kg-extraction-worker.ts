@@ -120,6 +120,8 @@ export class KgExtractionWorker implements OnModuleInit, OnModuleDestroy {
         queue: this.queue, source: this.source, extractor: this.extractor, store: this.store,
         conflicts: this.conflicts, autoCopy: this.autoCopy, logger: this.logger, newId: newKgId,
       }, () => abandoned);
+      // issue #4343：有处理过消息的一轮留一条计数，「跑了但一条没记下」（empty）与「没跑」（没有这行）分得开。
+      if (tick.processed > 0) this.logger.info("kg extraction tick", { traceId: "kg-extraction", ...tick });
       // F16：每一轮都排空「结束冲突」的待办（与有没有新消息无关）
       if (!abandoned) await drainConflictCloses({ conflicts: this.conflicts, logger: this.logger });
       return tick;

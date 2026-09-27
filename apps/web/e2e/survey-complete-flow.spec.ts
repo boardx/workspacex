@@ -64,12 +64,23 @@ test("用户可从模板完整走通创建、发布、答题、查看答卷和�
   await expect(page.getByText("2. 会议日期", { exact: true })).toBeVisible();
   await expect(page.getByText("8. 下次会议最值得改进的地方是什么？", { exact: true })).toBeVisible();
 
-  await page.getByRole("button", { name: "2. 报告模板" }).click();
+  const source = await page.getByLabel("问卷 Markdown", { exact: true }).inputValue();
+  await page.getByLabel("上传 Markdown 文件").setInputFiles({
+    name: "survey.md", mimeType: "text/markdown", buffer: Buffer.from(source),
+  });
+  await expect(page.getByLabel("问卷 Markdown", { exact: true })).toHaveValue(source);
+  await page.getByRole("button", { name: "校对并预览题目" }).click();
+  const correction = page.getByRole("dialog", { name: "Markdown 预览与校对" });
+  await expect(correction.getByRole("region", { name: "问卷渲染预览" })).toContainText("共 8 道题");
+  await correction.getByRole("button", { name: "应用到问卷" }).click();
+  await expect(correction).not.toBeVisible();
+
+  await page.getByRole("button", { name: "设计报告模板（可选）" }).click();
   await expect(page.getByText("报告章节 · 4")).toBeVisible();
   await expect(page.getByLabel("报告标题")).toHaveValue("会议反馈调查分析报告");
   await expect(page.getByRole("button", { name: "预览完整报告" })).toBeVisible();
 
-  await page.getByRole("button", { name: "3. 发布回收" }).click();
+  await page.getByRole("button", { name: "2. 发布回收" }).click();
   await page.getByRole("button", { name: "检查发布条件" }).click();
   await expect(page.getByText("发布准备已完成")).toBeVisible();
   await page.getByRole("button", { name: "开始回收" }).click();
@@ -85,14 +96,14 @@ test("用户可从模板完整走通创建、发布、答题、查看答卷和�
 
   await page.getByRole("button", { name: "刷新" }).click();
   await expect(page.getByText(/正在回收 · 1 份答卷/)).toBeVisible();
-  await page.getByRole("button", { name: "4. 查看答卷" }).click();
+  await page.getByRole("button", { name: "3. 查看答卷" }).click();
   await expect(page.getByText("1 份答卷", { exact: true })).toBeVisible();
   await page.getByRole("button", { name: "查看完整答卷" }).click();
   await expect(page.getByRole("region", { name: "答卷详情" })).toContainText(
     "季度产品复盘会",
   );
 
-  await page.getByRole("button", { name: "5. 分析报告" }).click();
+  await page.getByRole("button", { name: "分析报告（可选）" }).click();
   await page.getByRole("button", { name: "生成报告" }).click();
   const report = page.getByTestId("survey-report-document");
   await expect(report).toBeVisible();
