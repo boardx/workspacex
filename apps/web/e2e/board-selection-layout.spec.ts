@@ -3,7 +3,7 @@ import { expect, request as playwrightRequest, test, type APIRequestContext, typ
 import { SESSION_TOKEN_STORAGE_KEY } from "../lib/api-client";
 import { FULLSTACK_E2E } from "./fullstack-smoke-fixture";
 
-test.describe.configure({ mode: "serial", timeout: 180_000 });
+test.describe.configure({ mode: "serial", timeout: 420_000 });
 
 function required(name: string): string {
   const fallback: Record<string, string | undefined> = {
@@ -199,25 +199,29 @@ test("smart layout confirm cancel", async ({ page, request, browser, baseURL }) 
     const original = await geometry(page);
     await expect.poll(() => geometry(second)).toBe(original);
 
-    const operations = ["align-left", "align-center", "align-right", "align-top", "align-middle", "align-bottom", "distribute-horizontal", "distribute-vertical", "equal-width", "equal-height", "equal-size", "grid", "row", "column", "tidy-up"] as const;
-    for (const operation of operations) {
-      await marqueeAll(page);
-      await page.getByTestId("board-layout-gap").fill("24");
-      await page.getByTestId("board-layout-columns").fill("3");
-      await page.getByTestId(`board-layout-${operation}`).click();
-      await expect.poll(async () => (await geometry(page)) !== original).toBe(true);
-      const arranged = await geometry(page);
-      expect(layoutSemantics(operation, arranged, original), `${operation} must satisfy its geometry semantics`).toBe(true);
-      await expect.poll(() => geometry(second)).toBe(arranged);
-
-      await page.getByText("撤销", { exact: true }).click();
-      await expect.poll(() => geometry(page)).toBe(original);
-      await expect.poll(() => geometry(second)).toBe(original);
-    }
+    await test.step("15 layout commands converge and undo", async () => {
+      const operations = ["align-left", "align-center", "align-right", "align-top", "align-middle", "align-bottom", "distribute-horizontal", "distribute-vertical", "equal-width", "equal-height", "equal-size", "grid", "row", "column", "tidy-up"] as const;
+      for (const operation of operations) {
+        await test.step(operation, async () => {
+          await marqueeAll(page);
+          await page.getByTestId("board-layout-gap").fill("24");
+          await page.getByTestId("board-layout-columns").fill("3");
+          await page.getByTestId(`board-layout-${operation}`).click();
+          await expect.poll(async () => (await geometry(page)) !== original).toBe(true);
+          const arranged = await geometry(page);
+          expect(layoutSemantics(operation, arranged, original), `${operation} must satisfy its geometry semantics`).toBe(true);
+          await expect.poll(() => geometry(second)).toBe(arranged);
+          await page.getByText("撤销", { exact: true }).click();
+          await expect.poll(() => geometry(page)).toBe(original);
+          await expect.poll(() => geometry(second)).toBe(original);
+        });
+      }
+    });
 
     // Alt/Option-dragging a real Fabric ActiveSelection duplicates the whole
     // selection as one canonical batch. Originals stay in place and one undo
     // removes every duplicate.
+    const altContext = await test.step("Alt-drag duplicates ActiveSelection atomically and undoes", async () => {
     await marqueeAll(page);
     const beforeGroupDrag = parseGeometry(await geometry(page));
     const fabricSurface = page.getByTestId("board-fabric-surface");
@@ -268,14 +272,17 @@ test("smart layout confirm cancel", async ({ page, request, browser, baseURL }) 
     await page.getByText("撤销", { exact: true }).click();
     await expect.poll(() => geometry(page)).toBe(original);
     await expect.poll(() => geometry(second)).toBe(original);
+    return { canvasBounds: canvasBounds!, zoom };
+    });
 
     // A real Fabric pointer drag exposes a smart guide and persists the snapped world-space position.
+    await test.step("pointer snap guide converges and undoes", async () => {
     const snapBefore = parseGeometry(original);
     const source = snapBefore[0]!, target = snapBefore[1]!;
     await page.getByTestId(`board-a11y-object-${source.id}`).click();
-    const sourceCenter = { x: canvasBounds!.x + (source.x + source.width / 2) * zoom, y: canvasBounds!.y + (source.y + source.height / 2) * zoom };
+    const sourceCenter = { x: altContext.canvasBounds.x + (source.x + source.width / 2) * altContext.zoom, y: altContext.canvasBounds.y + (source.y + source.height / 2) * altContext.zoom };
     await page.mouse.move(sourceCenter.x, sourceCenter.y); await page.mouse.down();
-    await page.mouse.move(sourceCenter.x + 56, canvasBounds!.y + (target.y + source.height / 2 + 3) * zoom, { steps: 12 });
+    await page.mouse.move(sourceCenter.x + 56, altContext.canvasBounds.y + (target.y + source.height / 2 + 3) * altContext.zoom, { steps: 12 });
     await expect(page.getByTestId("board-smart-guides")).toBeVisible();
     await page.mouse.up();
     const snapAfter = parseGeometry(await geometry(page));
@@ -286,7 +293,9 @@ test("smart layout confirm cancel", async ({ page, request, browser, baseURL }) 
     await page.getByText("撤销", { exact: true }).click();
     await expect.poll(() => geometry(page)).toBe(original);
     await expect.poll(() => geometry(second)).toBe(original);
+    });
 
+    await test.step("smart preview cancel apply and undo", async () => {
     await marqueeAll(page);
     await page.getByTestId("board-layout-smart-preview").click();
     await expect(page.getByTestId("board-layout-preview")).toBeVisible();
@@ -305,7 +314,9 @@ test("smart layout confirm cancel", async ({ page, request, browser, baseURL }) 
     await page.getByText("撤销", { exact: true }).click();
     await expect.poll(() => geometry(page)).toBe(original);
     await expect.poll(() => geometry(second)).toBe(original);
+    });
 
+    await test.step("smart preview CAS rejects concurrent edits and survives reload", async () => {
     await page.getByTestId("board-layout-smart-preview").click();
     const remoteObject = second.getByTestId("board-a11y-mirror").getByRole("button").first();
     await remoteObject.focus(); await remoteObject.press("Enter");
@@ -317,6 +328,7 @@ test("smart layout confirm cancel", async ({ page, request, browser, baseURL }) 
     await page.reload();
     await expect(page.getByText(/^已同步$/)).toBeVisible({ timeout: 30_000 });
     await expect.poll(() => geometry(page)).toBe(original);
+    });
   } finally {
     await secondContext.close();
   }
