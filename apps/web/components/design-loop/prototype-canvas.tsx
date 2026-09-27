@@ -18,6 +18,7 @@ import {
   Download, Upload, Plus, Pencil, Trash2, X as XIcon, RefreshCw, Play, Pause, Eye,
   ShoppingCart, CreditCard, BarChart3, Calendar, Clock, MapPin, Mail, Phone, Info, AlertTriangle,
   type LucideIcon,
+  MousePointer2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { PrototypeLink, PrototypeNode } from "@/lib/live-design-workbench";
@@ -456,6 +457,7 @@ const BADGE_TONE: Record<"neutral" | "info" | "success" | "warning" | "danger", 
  * ——同这个文件头注对渲染表的既有纪律。
  */
 export const ICONS: Record<designPrototype.PrototypeIcon, LucideIcon> = {
+  cursor: MousePointer2,
   home: Home, search: Search, menu: Menu, more: MoreHorizontal, settings: Settings,
   filter: SlidersHorizontal, grid: LayoutGrid, list: ListIcon, back: ArrowLeft, forward: ArrowRight,
   user: User, users: Users, bell: Bell, message: MessageCircle, send: Send, share: Share2,
@@ -929,6 +931,9 @@ function Node({ node }: { node: PrototypeNode }): React.ReactElement {
     }
     case "chart":
       return <Chart node={node} tap={tap} />;
+    /* ── design-delta `prototype-board`：自由画布（白板 / 思维导图 / 流程图） ── */
+    case "board":
+      return <Board node={node} tap={tap} />;
     /* ── 对标 R5（#3933）：落地页的分区与页脚 ── */
     case "section": {
       const p = node.props ?? {};
@@ -1006,6 +1011,69 @@ function Node({ node }: { node: PrototypeNode }): React.ReactElement {
  * labels 与 values 不等长 ⇒ 画较短的那一组（契约不要求等长）。
  * 读屏器读的是 `aria-label` 里逐点的「标签 数值单位」，不是一串 div。
  */
+/**
+ * design-delta `prototype-board`——自由画布。坐标是**元素中心**相对画布的百分比，所以换设备 / 缩放不跑位；
+ * 连线用 SVG（`preserveAspectRatio="none"` + `non-scaling-stroke`，拉伸不改线宽），元素与光标用 HTML。
+ */
+const BOARD_HEIGHT: Record<"sm" | "md" | "lg" | "fill", string> = { sm: "h-40", md: "h-64", lg: "h-96", fill: "min-h-64 flex-1" };
+const BOARD_DEFAULT_W: Record<"sticky" | "shape" | "text", number> = { sticky: 24, shape: 20, text: 30 };
+function Board({ node, tap }: { node: Extract<PrototypeNode, { type: "board" }>; tap: Record<string, unknown> }): React.ReactElement {
+  const p = node.props;
+  const links = (p.links ?? []).filter((l) => l.from < p.items.length && l.to < p.items.length);
+  const summary = `画布：${p.items.map((i) => i.text).filter((t) => t !== "").join("、")}`.slice(0, 300);
+  return (
+    <div
+      className={cn("relative w-full shrink-0 overflow-hidden rounded-card border border-border bg-panel", BOARD_HEIGHT[p.height ?? "md"])}
+      style={p.grid === false ? undefined : { backgroundImage: "radial-gradient(hsl(var(--border)) 1px, transparent 1px)", backgroundSize: "12px 12px" }}
+      role="img" aria-label={summary}
+      data-proto="board" {...tap}
+    >
+      <svg viewBox="0 0 100 100" preserveAspectRatio="none" className="pointer-events-none absolute inset-0 h-full w-full text-muted-foreground" aria-hidden>
+        {links.map((l, i) => {
+          const a = p.items[l.from]!; const b = p.items[l.to]!;
+          return <line key={i} x1={a.x} y1={a.y} x2={b.x} y2={b.y} stroke="currentColor" strokeWidth={1.5} vectorEffect="non-scaling-stroke" data-board-link={i} />;
+        })}
+      </svg>
+      {links.map((l, i) => l.label === undefined ? null : (
+        <span key={`l${i}`} className="absolute -translate-x-1/2 -translate-y-1/2 rounded-control bg-card px-1 text-9 text-muted-foreground"
+          style={{ left: `${(p.items[l.from]!.x + p.items[l.to]!.x) / 2}%`, top: `${(p.items[l.from]!.y + p.items[l.to]!.y) / 2}%` }}>{l.label}</span>
+      ))}
+      {p.items.map((it, i) => {
+        const color = designPrototype.PROTOTYPE_BOARD_COLORS[it.color ?? (it.kind === "sticky" ? "yellow" : "gray")];
+        const pos = { left: `${it.x}%`, top: `${it.y}%`, width: `${it.w ?? BOARD_DEFAULT_W[it.kind]}%` };
+        if (it.kind === "text") {
+          return <span key={i} className="absolute -translate-x-1/2 -translate-y-1/2 text-center text-11 font-medium" style={pos} data-board-item={i} data-board-kind="text">{it.text}</span>;
+        }
+        const shape = it.kind === "shape" ? (it.shape ?? "round") : "sticky";
+        return (
+          <div
+            key={i}
+            className={cn(
+              "absolute flex -translate-x-1/2 -translate-y-1/2 flex-col justify-center gap-0.5 break-words px-1.5 py-1 text-10 leading-snug",
+              shape === "sticky" && "min-h-10 rounded-sm shadow-sm",
+              shape === "rect" && "min-h-8 rounded-sm border border-current text-center",
+              shape === "round" && "min-h-8 rounded-card border border-current text-center",
+              shape === "circle" && "aspect-square items-center rounded-full border border-current text-center",
+              shape === "diamond" && "aspect-square items-center text-center [clip-path:polygon(50%_0,100%_50%,50%_100%,0_50%)]",
+            )}
+            style={{ ...pos, backgroundColor: `hsl(${color.bg})`, color: `hsl(${color.fg})` }}
+            data-board-item={i} data-board-kind={it.kind}
+          >
+            <span>{it.text}</span>
+            {it.author !== undefined && <span className="self-end text-9 opacity-80">{it.author}</span>}
+          </div>
+        );
+      })}
+      {(p.cursors ?? []).map((c, i) => (
+        <span key={`c${i}`} className="pointer-events-none absolute flex items-start gap-0.5" style={{ left: `${c.x}%`, top: `${c.y}%` }} data-board-cursor={c.name}>
+          <MousePointer2 aria-hidden className="h-3 w-3 fill-primary text-primary" />
+          <span className="rounded-control bg-primary px-1 text-9 text-primary-foreground">{c.name}</span>
+        </span>
+      ))}
+    </div>
+  );
+}
+
 function Chart({ node, tap }: { node: Extract<PrototypeNode, { type: "chart" }>; tap: Record<string, unknown> }): React.ReactElement {
   const p = node.props;
   const n = Math.min(p.labels.length, p.values.length);
