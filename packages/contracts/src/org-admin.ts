@@ -1098,6 +1098,45 @@ export const operations = {
   },
 
   /**
+   * `AcceptProjectInvite` —— **已登录的组织成员**用一条项目邀请链接把自己加进项目
+   * （项目中枢 R2，用户直接交办 2026-09-27）。
+   *
+   * 与 `joinByGroupLink`（免注册 · 手机号名单 · 建访客身份）是两条不同的进场路径：
+   * 这里的调用者已经有账号、已经是本组织成员，要的只是「项目是受邀才能进的容器」这一步——
+   * 核销令牌（F15 `consume`，一次性 / 撤销 / 过期判定全在那一条 WHERE 里）→ 以链接记录的
+   * `projectRole` 落一行 `project_memberships`。两步在同一个用例里，调用方不需要再打
+   * `addProjectMember(subject: inviteToken)` 第二枪。
+   *
+   * ⚠ `orgId` 取自 principal；令牌所属组织与 principal 所在组织不一致 ⇒ `INVITE_NOT_FOUND`
+   *   （不泄露别的组织有没有这条链接）。
+   * ⚠ 已经是成员 ⇒ **不是错误**：`alreadyMember: true` 幂等返回（重复点同一条链接不弹红条）。
+   * ⚠ 项目已归档 ⇒ `FORBIDDEN`（归档冻结在 PG RESTRICTIVE 策略，见 `archiveProject`）。
+   */
+  acceptProjectInvite: {
+    method: "POST",
+    path: "/project-invites/accept",
+    in: z.object({ token: z.string().min(1) }).strict(),
+    out: z
+      .object({
+        projectId: z.string(),
+        projectRole: ProjectRole,
+        groupId: z.string().nullable(),
+        alreadyMember: z.boolean(),
+      })
+      .strict(),
+    err: [
+      "LINK_TOKEN_REQUIRED",
+      "INVITE_NOT_FOUND",
+      "LINK_REVOKED",
+      "LINK_EXPIRED",
+      "LINK_ALREADY_USED",
+      "NO_ORG_MEMBERSHIP",
+      "FORBIDDEN",
+      "AUTH_SERVICE_UNAVAILABLE",
+    ] as const,
+  },
+
+  /**
    * `BroadcastInvites` —— 群发
    *
    * 🔴 **不得把部分失败呈现为整批成功**（E4）。`delivered` 与 `failed` **同时**返回，

@@ -32,6 +32,15 @@ function setup() {
 }
 
 describe("survey Markdown source lifecycle", () => {
+  it('preserves authored design Markdown when updating a published report template',async()=>{
+    const {service}=setup();const created=await service.create(org,owner,draft);
+    const design=`${created.source!.documents.design.markdown}\n<!-- 原始校对备注 -->\n`;
+    const saved=await service.saveSource(org,owner,created.id,created.version,{design,publication:'# 发布设置\n',reportTemplate:reportTemplateMarkdown});
+    const published=await service.publish(org,owner,saved.id,saved.version);
+    const updated=await service.save(org,owner,published.id,published.version,{title:published.title,questions:published.questions,template:{...published.template,title:'更新的报告'}});
+    expect(updated.source!.documents.design.markdown).toBe(design);
+    expect(updated.publication!.sourceSnapshot).toEqual(published.publication!.sourceSnapshot);
+  });
   it("bootstraps an equivalent design source for a legacy structured draft", async () => {
     const { service } = setup();
     const created = await service.create(org, owner, draft);

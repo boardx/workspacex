@@ -72,14 +72,15 @@ describe("F03: 执行器主路径", () => {
   });
 
   it("被拒的批次：一行都不落，审计里记 rejected + 原因", async () => {
-    const b = modelBatch(ORG, seg, { scope: { kind: "project", id: `${ORG}-p` } });
+    // 项目中枢 R7 起 `project` 作用域已放开，这里用仍关着的 `org` 作被拒样本（executor-invariants 对账两处白名单一致）。
+    const b = modelBatch(ORG, seg, { scope: { kind: "org", id: ORG } });
     const out = await applyOntologyBatch(store, ORG_ID, null, b);
     expect(out).toMatchObject({ outcome: "rejected", rejected: { code: "KG_SCOPE_NOT_ENABLED" } });
     expect(await count("ontology_objects", b.objects[0]!.id)).toBe(0);
     expect(await count("claims", b.claims[0]!.id)).toBe(0);
     const a = await action(b.actionId);
     expect(a).toMatchObject({ outcome: "rejected", reject_code: "KG_SCOPE_NOT_ENABLED" });
-    expect(a!.reject_reason).toMatch(/project/);
+    expect(a!.reject_reason).toMatch(/org/);
   });
 
   it("批内任一条不合格 ⇒ 整批不落（同一事务），不会留下半批", async () => {
