@@ -399,6 +399,17 @@ export default defineConfig({
         "board-fabric-surface.spec.ts",
         // BV12–BV14 exercise canonical layout commands against the real Board stack.
         "board-selection-layout.spec.ts",
+        // Board library mutations create their own resources and remove them in a strict hook.
+        // Keep them after the seeded catalog-empty assertions, alongside the Fabric lifecycle.
+        "board-library-management.spec.ts",
+        // Iteration 03 owns continuous Sticky/Text input and batch operation boundaries.
+        "board-thinking-input.spec.ts",
+        // Iteration 04 owns rich visual objects and verifies their canonical state across
+        // two clients, undo/redo, and a persisted reload boundary.
+        "board-visual-content.spec.ts",
+        // Iteration 05 owns Panels, Groups, semantic Connectors, layer operations,
+        // rotated transforms, and cross-client spatial persistence.
+        "board-spatial-relationships.spec.ts",
       ],
       grepInvert: EMPTY_DB_TAG_RE,
       dependencies: ["seeded"],

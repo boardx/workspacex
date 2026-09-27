@@ -27,9 +27,14 @@ Drawing, Image, Tile/WebTile, Table, Icon and Template strict structured data.
 `createContentObjectEnvelope` returns one ordinary create command.
 `ContentObjectCommandPort` replaces rich metadata atomically under the same
 stable caller identity and returns a typed before/after event. Both paths retain
-unknown JSON extension fields for forward-compatible plugins. Renderers should
+unknown inert JSON extension fields for forward-compatible plugins. The shared
+validator recursively rejects binary values and `data:`/`blob:` strings on
+create, replace and remote-update validation. Structured titles are mirrored to
+the outer collaborative text in the same transaction. Renderers should
 call `readContentObject` and project its typed result; they must composite eraser
-strokes from the retained vectors rather than flattening drawings into bitmaps.
+strokes against their explicit `erases` target IDs from the retained vectors
+rather than flattening drawings into bitmaps. `instantiateTemplateEnvelope`
+creates a template's caller-ID-mapped object set in one replay-safe envelope.
 
 Spatial and relationship editing uses `SpatialRelationshipCommandPort`. A Web or
 Fabric projection reads `parentId`, `locked`, `zIndex` and `connector` directly
@@ -42,21 +47,12 @@ and Group membership always uses `parentId`, so the same operations are availabl
 to UI, API and AI callers. Mutations of locked objects are rejected at the lowest
 command boundary, including indirect connector or container changes.
 
-`SelectionLayoutCommandPort` is the shared UI/API/Agent arrangement boundary. It
-keeps caller selection order, rejects hidden, locked, nested, and mixed-parent
-selections, and commits Align, Distribute, Grid, Row, Column, or Tidy Up as one
-Yjs transaction and one undo item. `ObjectsArranged` records the layout kind and
-before/after geometry for every changed object, including moved descendants and
-attached connectors. `calculateSnapGuides` is the renderer-independent model for
-edge/center guides and equal-spacing measurements.
-
-`WhiteboardUndo` tracks only its own origin. Creation undo returns
-`creation-requires-explicit-delete` without changing anything, even when no peer
-edit is currently visible: a collaborator's edit may still be in flight. The UI
-must explain this and offer a separate confirmed delete command. Deletion uses
-monotonic tombstones and cannot be undone by removing them. Restore means creating
-a new ID with `restoredFrom`. This deliberately conservative behavior satisfies
-collaborator preservation without pretending a local observation is a global lock.
+`WhiteboardUndo` groups one accepted local command batch into one history item and
+tracks both objects and tombstones. Create, edit and delete batches can therefore
+be undone and redone atomically, including bulk creation. Before applying history,
+the adapter compares every touched object with the state produced by that item and
+validates the operation against a clone. A later remote change to any touched
+object rejects the undo or redo instead of overwriting collaborator work.
 
 **Security boundary:** `validateDocument` validates semantic content, not arbitrary
 Yjs binary structure/resource usage. Never expose raw `Y.applyUpdate` to anonymous

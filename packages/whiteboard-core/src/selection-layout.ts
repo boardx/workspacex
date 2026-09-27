@@ -343,7 +343,7 @@ function build(current: Snapshot, input: WhiteboardLayoutCommand, allowNoChange 
 function mutationIds(current: Snapshot, built: ReturnType<typeof build>): string[] {
   const ids = new Set(built.commands.map(command => command.id));
   for (const object of current.objects) {
-    if (object.connector && (ids.has(object.connector.from) || ids.has(object.connector.to))) ids.add(object.id);
+    if (object.connector && [object.connector.from, object.connector.to].some((endpoint) => endpoint !== undefined && ids.has(endpoint))) ids.add(object.id);
   }
   return [...ids];
 }

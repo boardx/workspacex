@@ -11,6 +11,11 @@ class Socket {
   send(data: string) { this.sent.push(data); } close() { this.readyState = 3; }
   message(value: unknown) { this.onmessage?.({ data: JSON.stringify(value) }); }
 }
+const sticky = (id: string) => ({ id, kind: 'sticky' as const, schemaVersion: 1 as const, geometry: { x: 0, y: 0, width: 180, height: 140, rotation: 0 }, text: id, style: {}, parentId: null, orderKey: '' });
+const messages = (socket: Socket) => socket.sent.map(value => JSON.parse(value) as { type: string; updateId?: string });
+const updates = (socket: Socket) => messages(socket).filter((value): value is { type: 'update'; updateId: string } => value.type === 'update' && typeof value.updateId === 'string');
+const sync = (socket: Socket, server: Y.Doc, epoch = 1, seq = 0) => socket.message({ type: 'sync', epoch, seq, update: bytesToBase64(Y.encodeStateAsUpdate(server)), role: 'editor', archived: false });
+const burst = (doc: Y.Doc, count: number) => { for (let index = 0; index < count; index++) executeCommands(doc, [{ type: 'create', object: sticky(`note-${index}`) }], 'local'); };
 beforeEach(() => { vi.useFakeTimers(); Socket.sockets = []; vi.stubGlobal('WebSocket', Socket); });
 afterEach(() => { vi.unstubAllGlobals(); vi.useRealTimers(); });
 it('handshakes before writes, only ACK clears pending, and reconnect replays same updateId', () => {
@@ -63,5 +68,66 @@ it('does not let an ACK skip document sequences that still need to arrive', () =
   executeCommands(server,[{type:'create',object:{id:'external-seq-2',kind:'sticky',schemaVersion:1,geometry:{x:1,y:0,width:1,height:1,rotation:0},text:'external',style:{},parentId:null,orderKey:''}}],{});
   socket.message({type:'update',epoch:1,seq:3,update:bytesToBase64(Y.encodeStateAsUpdate(server,Y.encodeStateVector(doc)))});
   expect(readObjects(doc).map(object=>object.id).sort()).toEqual(['external-seq-2','local-seq-3','seq-1']);
+  provider.close();doc.destroy();server.destroy();
+});
+
+it('keeps forty burst updates pending while draining no more than eight unacknowledged frames', () => {
+  const doc=createWhiteboardDocument(),server=createWhiteboardDocument();let state:WhiteboardConnectionState|undefined;
+  const provider=new WhiteboardProvider(doc,'board-1',value=>{state=value;}),socket=Socket.sockets[0]!;
+  sync(socket,server);burst(doc,40);
+  expect(state?.pending).toBe(40);expect(updates(socket)).toHaveLength(8);
+  socket.message({type:'ack',updateId:crypto.randomUUID(),seq:1});expect(state?.pending).toBe(40);
+  const acknowledged=new Set<string>();
+  while(acknowledged.size<40){
+    const outstanding=updates(socket).filter(message=>!acknowledged.has(message.updateId));
+    expect(outstanding.length).toBeGreaterThan(0);expect(outstanding.length).toBeLessThanOrEqual(8);
+    const next=outstanding[0]!;acknowledged.add(next.updateId);
+    socket.message({type:'ack',updateId:next.updateId,seq:acknowledged.size});
+  }
+  expect(updates(socket)).toHaveLength(40);expect(new Set(updates(socket).map(message=>message.updateId)).size).toBe(40);
+  expect(state?.pending).toBe(0);
+  provider.close();doc.destroy();server.destroy();
+});
+
+it('reconnects by replaying only unacknowledged updates with their original IDs and FIFO order', () => {
+  const doc=createWhiteboardDocument(),server=createWhiteboardDocument();let state:WhiteboardConnectionState|undefined;
+  const provider=new WhiteboardProvider(doc,'board-1',value=>{state=value;}),first=Socket.sockets[0]!;
+  sync(first,server);burst(doc,12);
+  const initial=updates(first);expect(initial).toHaveLength(8);
+  for(let index=0;index<3;index++) first.message({type:'ack',updateId:initial[index]!.updateId,seq:index+1});
+  const beforeDisconnect=updates(first);expect(beforeDisconnect).toHaveLength(11);expect(state?.pending).toBe(9);
+  first.onclose?.({code:1006});vi.advanceTimersByTime(500);
+  const second=Socket.sockets[1]!;second.onopen?.();sync(second,server,1,3);
+  const replayed=updates(second);expect(replayed).toHaveLength(8);
+  expect(replayed.map(message=>message.updateId)).toEqual(beforeDisconnect.slice(3,11).map(message=>message.updateId));
+  expect(state?.pending).toBe(9);
+  provider.close();doc.destroy();server.destroy();
+});
+
+it('holds latest awareness behind durable writes so presence cannot consume the protocol window', () => {
+  const doc=createWhiteboardDocument(),server=createWhiteboardDocument();
+  const provider=new WhiteboardProvider(doc,'board-1',()=>{}),socket=Socket.sockets[0]!;
+  sync(socket,server);burst(doc,40);
+  for(let index=0;index<20;index++) provider.awareness({x:index,y:index+1},[`note-${index}`]);
+  vi.advanceTimersByTime(50);expect(messages(socket).filter(message=>message.type==='awareness')).toEqual([]);
+  const acknowledged=new Set<string>();
+  while(acknowledged.size<40){
+    const next=updates(socket).find(message=>!acknowledged.has(message.updateId))!;
+    acknowledged.add(next.updateId);socket.message({type:'ack',updateId:next.updateId,seq:acknowledged.size});
+  }
+  vi.advanceTimersByTime(50);
+  expect(messages(socket).filter(message=>message.type==='awareness')).toEqual([{type:'awareness',cursor:{x:19,y:20},selected:['note-19']}]);
+  provider.close();doc.destroy();server.destroy();
+});
+
+it('keeps every unacknowledged update visible in pending state when a protocol error blocks the board', () => {
+  const doc=createWhiteboardDocument(),server=createWhiteboardDocument();let state:WhiteboardConnectionState|undefined;
+  const provider=new WhiteboardProvider(doc,'board-1',value=>{state=value;}),socket=Socket.sockets[0]!;
+  sync(socket,server);burst(doc,10);
+  const first=updates(socket);socket.message({type:'ack',updateId:first[0]!.updateId,seq:1});socket.message({type:'ack',updateId:first[1]!.updateId,seq:2});
+  expect(state?.pending).toBe(8);
+  socket.message({type:'error',code:'PROTOCOL_LIMIT'});
+  expect(state).toMatchObject({phase:'blocked',pending:8,reason:'PROTOCOL_LIMIT'});expect(readObjects(doc)).toEqual([]);
+  vi.advanceTimersByTime(60000);expect(Socket.sockets).toHaveLength(1);
   provider.close();doc.destroy();server.destroy();
 });
