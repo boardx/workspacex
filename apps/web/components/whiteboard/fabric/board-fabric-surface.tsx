@@ -358,7 +358,7 @@ function createProjectionEntry(object: BoardFabricObject, readOnly: boolean): { 
   }
 }
 
-function geometryFromFabric(projected: TaggedFabricObject, canonical?: BoardFabricObject, useSceneBounds = false): BoardFabricGeometry {
+export function geometryFromFabric(projected: TaggedFabricObject, canonical?: BoardFabricObject, useSceneBounds = false): BoardFabricGeometry {
   const scene = useSceneBounds ? projected.getBoundingRect() : null;
   const geometry = {
     x: Math.round(scene?.left ?? projected.left),
@@ -371,7 +371,9 @@ function geometryFromFabric(projected: TaggedFabricObject, canonical?: BoardFabr
     if (canonical.sticky?.sizingMode === "auto-size") {
       geometry.width = canonical.geometry.width;
       geometry.height = canonical.geometry.height;
-    } else if (canonical.sticky?.sizingMode === "auto-height") {
+    // Proportional corner gestures own both dimensions. Restoring the old height
+    // before normalizing the square would prevent every shrinking gesture.
+    } else if (canonical.sticky?.sizingMode === "auto-height" && canonical.sticky.variant !== "square" && canonical.sticky.variant !== "circle") {
       geometry.height = canonical.geometry.height;
     }
     if (canonical.sticky?.variant === "square" || canonical.sticky?.variant === "circle") {
