@@ -32,6 +32,8 @@ export default defineConfig({ resolve:{alias:{
     'tests/whiteboard/import-repository-guard.test.ts',
     'tests/whiteboard/recovery-repository-guard.test.ts',
     'tests/whiteboard/operation-service.test.ts',
+    'tests/whiteboard/operation-event-cursor.test.ts',
+    'tests/whiteboard/agent-api-producer-guard.test.ts',
     'tests/whiteboard/objects-read.test.ts',
     'tests/whiteboard/validator-capacity.test.ts',
     'tests/whiteboard/update-validator.test.ts',

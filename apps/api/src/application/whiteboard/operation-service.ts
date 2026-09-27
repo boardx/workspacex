@@ -86,9 +86,13 @@ export class WhiteboardOperationService {
   async events(principal:Principal,boardId:string,untrusted:unknown){
     const cursor=WhiteboardEventCursor.parse(untrusted);
     return this.db.withTenant(principal.orgId,async session=>{
+      if(cursor.actorId){
+        const actor=await this.audit.resolveActor(session,principal,cursor.actorId);
+        if(!actor||actor.delegatedBy!==principal.userId||!actor.scopes.includes('board:read'))throw new WhiteboardOperationError('FORBIDDEN');
+      }
       if(!await this.audit.canRead(session,principal,boardId))throw new WhiteboardOperationError('NOT_FOUND');
-      const events=await this.audit.events(session,principal,boardId,cursor.afterSeq,cursor.limit);
-      return{boardId,events,nextSeq:events.at(-1)?.revision.seq??cursor.afterSeq};
+      const events=await this.audit.events(session,principal,boardId,cursor.afterSeq,cursor.limit,cursor.afterEpoch);
+      return{boardId,events,nextEpoch:events.at(-1)?.revision.epoch??cursor.afterEpoch,nextSeq:events.at(-1)?.revision.seq??cursor.afterSeq};
     });
   }
   async readObjects(principal:Principal,boardId:string,untrusted:unknown):Promise<WhiteboardObjectsSnapshot> {

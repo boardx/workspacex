@@ -86,11 +86,14 @@ export type WhiteboardUndoReceipt=z.infer<typeof WhiteboardUndoReceipt>;
 export const WhiteboardAIConfirmReceipt=WhiteboardOperationReceipt.extend({undoReceipt:WhiteboardUndoReceipt});
 
 export const WhiteboardEventCursor = z.object({
+  actorId: ActorId.optional(),
+  afterEpoch: z.number().int().positive().default(1),
   afterSeq: z.number().int().nonnegative().default(0),
   limit: z.number().int().positive().max(WHITEBOARD_OPERATION_LIMITS.eventPage).default(100),
 }).strict();
 export const WhiteboardEventPage = z.object({
   boardId: BoardId, events: z.array(WhiteboardOperationEvent).max(WHITEBOARD_OPERATION_LIMITS.eventPage),
+  nextEpoch: z.number().int().positive(),
   nextSeq: z.number().int().nonnegative(),
 }).strict();
 
