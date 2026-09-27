@@ -68,7 +68,8 @@ describe("R4 研究洞察 › 对话", () => {
     await screen.findByTestId("project-conversations-list");
     fireEvent.click(screen.getByTestId("project-conversations-new"));
     await waitFor(() => expect(pushMock).toHaveBeenCalledWith("/chat/t-new?projectId=p1"));
-    expect(createProjectThread).toHaveBeenCalledWith("p1", null);
+    // 项目线程空标题会被服务端 422（人类裁决），一键新建必须带默认名。
+    expect(createProjectThread).toHaveBeenCalledWith("p1", "新对话");
   });
 
   it("观察者：只读，没有新建按钮", async () => {

@@ -26,6 +26,9 @@ import { CHAT_VISIBILITY_LABEL } from "@/lib/chat-visibility";
  */
 const SHARE_SCOPES = ["member-private", "group-shared", "plenary"] as const;
 type ShareScope = (typeof SHARE_SCOPES)[number];
+/** 一键新建的默认标题——与个人线程的服务端默认名同字，用户进线程后可改。 */
+export const DEFAULT_PROJECT_THREAD_TITLE = "新对话";
+
 export function ProjectConversations({ projectId, canWrite }: { projectId: string; canWrite: boolean }) {
   const router = useRouter();
   const [data, setData] = React.useState<ListThreadsOut | null>(null);
@@ -67,7 +70,10 @@ export function ProjectConversations({ projectId, canWrite }: { projectId: strin
   async function create() {
     setCreating(true); setError(null);
     try {
-      const out = await createProjectThread(projectId, null);
+      // 项目线程 create 空标题是 422 TITLE_INVALID（2026-08-11 人类裁决，
+      // `thread-badge-single-source.test.ts` 钉住；只有个人线程留空才起默认名）——
+      // 「一键新建」在这里起同一个默认名，进入线程后可改名。
+      const out = await createProjectThread(projectId, DEFAULT_PROJECT_THREAD_TITLE);
       router.push(threadHref(out.threadId));
     } catch (e) {
       setError(describeFailure(e));
