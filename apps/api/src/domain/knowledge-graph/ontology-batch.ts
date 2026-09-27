@@ -13,7 +13,7 @@ export type KgScopeKind = KG.KgScopeKind;
 export type OntologyActorKind = "human" | "model" | "system";
 
 /** 本阶段开放的作用域（I-1）。与迁移里 `kg_scope_enabled` 是同一判断，外扩时两处一起改（有测试对账）。 */
-export const ENABLED_KG_SCOPES: readonly KgScopeKind[] = ["chat_session", "personal"];
+export const ENABLED_KG_SCOPES: readonly KgScopeKind[] = ["chat_session", "personal", "project"];
 
 export interface OntologyObjectInput {
   readonly id: string;

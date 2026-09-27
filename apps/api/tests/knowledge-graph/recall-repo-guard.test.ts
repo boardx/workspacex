@@ -41,7 +41,7 @@ describe("F08 会话记忆召回读取的豁免前提", () => {
     expect(code).not.toMatch(/withoutTenant/);
   });
 
-  it("(c) 结论与实体只有三种来源：本会话（scope_id = threadId）、发起人本人的个人空间（scope_id = userId）、发起人本人的其他个人对话（F15）；读之前设 app.current_user_id = 发起人", () => {
+  it("(c) 结论与实体只有四种来源：本会话（scope_id = threadId）、发起人本人的个人空间（scope_id = userId）、发起人本人的其他个人对话（F15）、本项目的项目记忆（项目中枢 R7，只在项目会话里）；读之前设 app.current_user_id = 发起人", () => {
     expect(code).toMatch(/FROM claims c\s+WHERE c\.org_id = \$1 AND c\.scope_kind = 'chat_session' AND c\.scope_id = \$2 AND \$\{LIVE\}`,\s*\[orgId, threadId\]/);
     expect(code).toMatch(/FROM claims c\s+WHERE c\.org_id = \$1 AND c\.scope_kind = 'personal' AND c\.scope_id = \$3 AND \$\{LIVE\}[^`]*`,\s*\[orgId, threadId, userId\]/);
     expect(code).toMatch(/FROM ontology_objects\s+WHERE org_id = \$1 AND scope_kind = 'chat_session' AND scope_id = \$2 AND merged_into IS NULL`,\s*\[orgId, threadId\]/);
@@ -51,15 +51,20 @@ describe("F08 会话记忆召回读取的豁免前提", () => {
     // 所以召回它们不会把任何别人看不到的东西交给这一轮的模型。条件逐字钉住：
     expect(code).toMatch(/SELECT \$\{CLAIM_COLUMNS\}, c\.scope_id AS thread_id, kg_claim_basis\(c\.statement\) AS basis FROM claims c\s+JOIN chat_threads t ON t\.org_id = c\.org_id AND t\.id = c\.scope_id\s+WHERE c\.org_id = \$1 AND c\.scope_kind = 'chat_session' AND c\.scope_id <> \$2 AND \$\{LIVE\}\s+AND t\.project_id IS NULL AND t\.created_by = \$3 AND NOT t\.archived/);
     expect(code).toMatch(/FROM ontology_objects o\s+JOIN chat_threads t ON t\.org_id = o\.org_id AND t\.id = o\.scope_id\s+WHERE o\.org_id = \$1 AND o\.scope_kind = 'chat_session' AND o\.scope_id <> \$2 AND o\.merged_into IS NULL\s+AND t\.project_id IS NULL AND t\.created_by = \$3 AND NOT t\.archived`,\s*\[orgId, threadId, userId\]/);
-    expect(code.match(/FROM claims c\b/g)).toHaveLength(3);
-    expect(code.match(/FROM ontology_objects\b/g)).toHaveLength(3);
-    // 另外只允许三个去重子查询里的 `JOIN claims src` / `JOIN claims l1` / `FROM claims p`（判断「长期记忆里有没有它」，不取任何列）
-    expect(code.match(/\bclaims\s+(?!c\b)\w+/g)).toEqual(["claims src", "claims l1", "claims p", "claims x", "claims x"]);
+    // 项目中枢 R7（L2）：第四种来源只能是**当前项目会话所属项目**的项目记忆（`scope_id` = 该线程的 project_id），
+    // 且只在项目会话里读（`projectId === null` ⇒ 一行不读）；能走到这里的人已经过了「你能进这个项目线程」的判定。
+    expect(code).toMatch(/const projectId = here\?\.personal === false \? here\.project_id : null;/);
+    expect(code).toMatch(/const project = projectId === null \? \{ rows: \[\] as Row\[\] \} : await s\.query<Row>\(\s*`SELECT \$\{CLAIM_COLUMNS\} FROM claims c\s+WHERE c\.org_id = \$1 AND c\.scope_kind = 'project' AND c\.scope_id = \$3 AND \$\{LIVE\}[^`]*`,\s*\[orgId, threadId, projectId\]/);
+    expect(code).toMatch(/const projectObjects = projectId === null \? \{ rows: \[\] as \{ id: string; name: string; aliases: string\[\] \}\[\] \} : await s\.query[^`]*`SELECT id, name, aliases FROM ontology_objects\s+WHERE org_id = \$1 AND scope_kind = 'project' AND scope_id = \$2 AND merged_into IS NULL`,\s*\[orgId, projectId\]/);
+    expect(code.match(/FROM claims c\b/g)).toHaveLength(4);
+    expect(code.match(/FROM ontology_objects\b/g)).toHaveLength(4);
+    // 另外只允许去重子查询里的 `JOIN claims src`（L1 / L2 各一次）/ `JOIN claims l1` / `FROM claims p`（判断「长期记忆里有没有它」，不取任何列）
+    expect(code.match(/\bclaims\s+(?!c\b)\w+/g)).toEqual(["claims src", "claims l1", "claims p", "claims x", "claims x", "claims src"]);
     // 改过的说了算：本会话里有同一件事、或本人哪个个人对话里把它忘掉 / 取代了 ⇒ 不从别的对话再拿（只判存在，不取列）
     expect(code).toMatch(/NOT EXISTS \(\s*SELECT 1 FROM claims x\s+WHERE x\.org_id = c\.org_id AND x\.scope_kind = 'chat_session' AND x\.scope_id = \$2\s+AND kg_claim_basis\(x\.statement\) = kg_claim_basis\(c\.statement\)\)/);
     expect(code).toMatch(/NOT EXISTS \(\s*SELECT 1 FROM claims x JOIN chat_threads tx ON tx\.org_id = x\.org_id AND tx\.id = x\.scope_id\s+WHERE x\.org_id = c\.org_id AND x\.scope_kind = 'chat_session' AND kg_claim_basis\(x\.statement\) = kg_claim_basis\(c\.statement\)\s+AND tx\.project_id IS NULL AND tx\.created_by = \$3 AND NOT \(x\.revoked_at IS NULL AND x\.status <> 'superseded'\)\)/);
     expect(code).toMatch(/NOT EXISTS \(\s*SELECT 1 FROM claims p\s+WHERE p\.org_id = c\.org_id AND p\.scope_kind = 'personal' AND p\.scope_id = \$3\s+AND kg_claim_basis\(p\.statement\) = kg_claim_basis\(c\.statement\)\)/);
-    expect(code.match(/\bontology_edges\b/g)).toHaveLength(2);
+    expect(code.match(/\bontology_edges\b/g)).toHaveLength(3);
     expect(code).toMatch(/NOT EXISTS \(\s*SELECT 1 FROM ontology_edges d JOIN claims src/);
     expect(code).toMatch(/NOT EXISTS \(\s*SELECT 1 FROM ontology_edges d JOIN claims l1 ON l1\.id = d\.src_id AND l1\.org_id = d\.org_id\s+WHERE d\.org_id = c\.org_id AND d\.dst_kind = 'claim' AND d\.dst_id = c\.id AND d\.relation = 'derived_from'\s+AND l1\.scope_kind = 'personal' AND l1\.scope_id = \$3\)/);
     expect(code).toMatch(/async candidates\(orgId: OrgId, userId: string, threadId: string\) \{\s*return this\.db\.withTenant\(orgId, async \(s\) => \{\s*await s\.query\("SELECT set_config\('app\.current_user_id', \$1, true\)", \[userId\]\);/);
@@ -69,7 +74,8 @@ describe("F08 会话记忆召回读取的豁免前提", () => {
     // 判定 1 次 + 其他个人对话的结论 / 实体各 JOIN 一次 + 「改过的说了算」子查询 JOIN 一次
     expect(code.match(/\bchat_threads\b/g)).toHaveLength(4);
     // 判定只取两个布尔（无项目？本人创建？），不取会话的内容列
-    expect(code).toMatch(/`SELECT t\.project_id IS NULL AS personal, t\.created_by = \$3 AS mine FROM chat_threads t WHERE t\.org_id = \$1 AND t\.id = \$2`,\s*\[orgId, threadId, userId\]/);
+    // 项目中枢 R7 起多取 `t.project_id`（第四种来源要知道是哪个项目）——仍不取会话的任何内容列
+    expect(code).toMatch(/`SELECT t\.project_id IS NULL AS personal, t\.created_by = \$3 AS mine, t\.project_id FROM chat_threads t WHERE t\.org_id = \$1 AND t\.id = \$2`,\s*\[orgId, threadId, userId\]/);
     expect(code).toMatch(/const inPersonalThread = here\?\.personal === true && here\.mine === true;/);
     expect(code).toMatch(/const withL1 = here\?\.personal === false \|\| inPersonalThread;/);
     expect(code).toMatch(/const personal = !withL1 \? \{ rows: \[\] as Row\[\] \} : await s\.query/);
@@ -80,7 +86,7 @@ describe("F08 会话记忆召回读取的豁免前提", () => {
 
   it("(c3) 活结论的口径钉死（F07 失效级联靠它）；chat_messages 只在「这条是哪天说的」那个证据子查询里", () => {
     expect(code).toMatch(/^const LIVE = "c\.revoked_at IS NULL AND c\.status <> 'superseded'";$/m);
-    expect(code.match(/AND \$\{LIVE\}/g)).toHaveLength(3);
+    expect(code.match(/AND \$\{LIVE\}/g)).toHaveLength(4);
     expect(code.match(/\bchat_messages\b/g)).toHaveLength(1);
     expect(code).toMatch(/\(SELECT min\(m\.created_at\) FROM claim_message_evidence e JOIN chat_messages m ON m\.id = e\.message_id AND m\.org_id = e\.org_id\s+WHERE e\.claim_id = c\.id AND e\.stance = 'supporting'\) AS said_at/);
   });
@@ -124,17 +130,17 @@ describe("F08 会话记忆召回读取的豁免前提", () => {
     expect(rk).toMatch(/claimIds: matches\.map\(\(c\) => c\.id\)/);
   });
 
-  it("(g) 豁免条目的前提文字与这里钉住的一致（三种来源、chat_threads 四次、取行各三条），改代码不许只改一边", () => {
+  it("(g) 豁免条目的前提文字与这里钉住的一致（四种来源、chat_threads 四次、取行各四条），改代码不许只改一边", () => {
     const lint = readFileSync(join(API, "scripts/lint-permission-paths.mjs"), "utf8");
     const entry = lint.slice(lint.indexOf('"src/infrastructure/knowledge-graph/pg-knowledge-recall.ts"'));
     const text = entry.slice(0, entry.indexOf("\n  ],"));
-    expect(text).toContain("召回只读三种来源");
+    expect(text).toContain("召回只读四种来源");
     expect(text).toContain("`chat_threads` 恰好出现四次");
-    expect(text).toContain("`claims` 与 `ontology_objects` 的取行各恰好三条");
+    expect(text).toContain("`claims` 与 `ontology_objects` 的取行各恰好四条");
     expect(text).toContain("tests/retrieval/kg-own-personal-threads-recall.test.ts");
     expect(code.match(/\bchat_threads\b/g)).toHaveLength(4);
-    expect(code.match(/FROM claims c\b/g)).toHaveLength(3);
-    expect(code.match(/FROM ontology_objects\b/g)).toHaveLength(3);
+    expect(code.match(/FROM claims c\b/g)).toHaveLength(4);
+    expect(code.match(/FROM ontology_objects\b/g)).toHaveLength(4);
   });
 
   it("(e) 类成员只有端口要求的三个方法——不能悄悄多出一个读全组织的方法（不论 async / 修饰符 / 箭头属性 / getter / 缩进）", () => {
