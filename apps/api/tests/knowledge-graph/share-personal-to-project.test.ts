@@ -285,6 +285,31 @@ describe("S10 分享到项目：个人结论显式提升到项目层", () => {
     expect(await liveCopy(copyA)).toEqual({ live: false, reason: "personal_source_revoked" });
   });
 
+  it("整合带 S8 的 kg.consolidation_keep 标记（说法不同）：副本改挂到标记指向的那条", async () => {
+    const r = await owner.post<{ projectClaimId: string; outcome: string }>(sharePath(ids.personal), { projectId: P1 });
+    expect(r.body.outcome).toBe("shared");
+    const copyC = r.body.projectClaimId;
+    const KEPT2 = "clm-s10-kept-2";
+    const OTHER_TEXT = "交付确定性是客户 A 最在意的一点";
+    await sql(`INSERT INTO claims (id, org_id, statement, status, tsv, claim_kind, confidence, created_by, reviewed_by,
+                                   scope_kind, scope_id, valid_from)
+               VALUES ($1, $2, $3, 'accepted', to_tsvector('simple', $3), 'fact', 1, 'human', $4, 'personal', $4, now())`,
+      [KEPT2, ORG, OTHER_TEXT, OWNER]);
+    // 与 S8 kg_consolidation_apply_merges 同一形状：同一事务里先设标记，再失效败者
+    await asOwner(async (c) => {
+      await c.query("BEGIN");
+      await c.query("SELECT set_config('kg.consolidation_keep', $1, true)", [KEPT2]);
+      await c.query("UPDATE claims SET status = 'superseded', revoked_at = now(), revocation_reason = 'consolidated_duplicate', updated_at = now() WHERE id = $1", [ids.personal]);
+      await c.query("COMMIT");
+    });
+    expect(await liveCopy(copyC)).toEqual({ live: true, reason: null });
+    expect(await derivedTo(copyC)).toEqual([{ dst_id: KEPT2 }]);
+    // 收尾：败者回来；留下的那条被忘掉 ⇒ 挂在它下面的副本失效
+    await undoRevoke(ids.personal);
+    await revokeAs(KEPT2, "user_forgot");
+    expect(await liveCopy(copyC)).toEqual({ live: false, reason: "personal_source_revoked" });
+  });
+
   it("忘掉（S4 'user_forgot'）⇒ 副本失效；撤销忘掉 ⇒ 副本恢复（边也回来、出处照旧）；主人自己撤回的那份不恢复", async () => {
     const r = await owner.post<{ projectClaimId: string; outcome: string }>(sharePath(ids.personal), { projectId: P1 });
     expect(r.body.outcome).toBe("shared");
