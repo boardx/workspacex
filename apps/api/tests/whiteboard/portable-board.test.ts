@@ -19,17 +19,19 @@ import {PgBoardImageAssets} from '../../src/infrastructure/whiteboard/pg-image-a
 import {toOrgId} from '../../src/domain/org-id';
 const roots:string[]=[];afterEach(async()=>{await Promise.all(roots.splice(0).map(path=>rm(path,{recursive:true,force:true})));});
 const base=(id:string):WhiteboardObject=>({id,schemaVersion:1,kind:'sticky',text:'中文 + English',style:{fill:'#FFF4A3'},parentId:null,orderKey:id,geometry:{x:10,y:20,width:180,height:120,rotation:17}});
-async function fixture(){
+async function fixture(templateOnly=false){
  const root=await mkdtemp(join(tmpdir(),'portable-board-'));roots.push(root);const objects=new FsObjectStore(root),verifier=new SharpBoardImageVerifier(),source=randomUUID(),target=randomUUID();
  const p={orgId:toOrgId('source-tenant'),userId:'owner'},targetP={orgId:toOrgId('target-tenant'),userId:'target-owner'};
  const png=await sharp({create:{width:64,height:48,channels:4,background:'#ff3300'}}).png().toBuffer(),asset=await verifier.verify(png,'image/png');
  const image:WhiteboardObject={...base('image'),kind:'image',text:'',extensionData:{contentObject:{version:1,type:'image',status:'ready',...asset.metadata,sourceUrl:null,crop:{x:.1,y:.2,width:.7,height:.6},opacity:.8,borderColor:'#112233',borderWidth:2,cornerRadius:6,fileName:'real.png',replacementOf:null,failureCode:null}}};
  const sourceDoc=createWhiteboardDocument();executeCommands(sourceDoc,[{type:'create',object:{...base('frame'),kind:'frame'}},{type:'create',object:{...base('note'),parentId:'frame',locked:true}},{type:'create',object:image},{type:'create',object:{...base('edge'),kind:'connector',connector:{from:'note',to:'image',type:'straight',startStyle:'none',endStyle:'arrow',lineStyle:'solid',label:'connect'}}}],{});
- let targetDoc=createWhiteboardDocument(),seq=0,fail=false,allowed=true;const receipts=new Map<string,any>(),publishedAssets:any[]=[];
+ if(templateOnly){executeCommands(sourceDoc,[{type:'delete',id:'image'},{type:'create',object:{...base('template'),kind:'extension',text:'Reusable image',extensionData:{contentObject:{version:1,type:'template',templateId:'fixture',name:'Reusable image',versionId:'v1',parameters:{},objects:[{localId:'photo',geometry:image.geometry,content:image.extensionData!.contentObject}]}}}}],{});}
+ let targetDoc=createWhiteboardDocument(),seq=0,fail=false,allowed=true,revokeAtLock=false;const queries:string[]=[];const receipts=new Map<string,any>(),publishedAssets:any[]=[];
  const sourceKey=`whiteboards/tenants/${portableHash(p.orgId).slice(0,32)}/boards/${source}/assets/${asset.metadata.contentDigest.slice(7)}`;await objects.putOnce(sourceKey,png,'image/png');
  const boards={get:async(principal:typeof p,id:string)=>allowed&&((id===source&&principal.orgId===p.orgId)||(id===target&&principal.orgId===targetP.orgId))?{id,role:'owner',archived:false}:null} as unknown as WhiteboardRepository;
- const session:TenantSession={async query<R>(sql:string,values:readonly unknown[]=[]){let rows:unknown[]=[];
-  if(sql.startsWith('SELECT b.archived'))rows=allowed?[{role:'owner',archived:false}]:[];
+ const session:TenantSession={async query<R>(sql:string,values:readonly unknown[]=[]){let rows:unknown[]=[];queries.push(sql);
+  if(sql.startsWith('SELECT owner_id'))rows=allowed?[{owner_id:revokeAtLock?'different-owner':targetP.userId,archived:false}]:[];
+  else if(sql.startsWith('SELECT role'))rows=revokeAtLock?[]:[{role:'editor'}];
   else if(sql.startsWith('SELECT request_hash'))rows=receipts.has(String(values[3]))?[receipts.get(String(values[3]))]:[];
   else if(sql.startsWith('INSERT INTO whiteboard_portable_imports'))receipts.set(String(values[3]),{request_hash:values[4],epoch:values[5],seq:String(values[6]),object_count:values[7],asset_count:values[8]});
   else if(sql.startsWith('INSERT INTO whiteboard_asset_refs'))publishedAssets.push({key:values[2]});
@@ -40,7 +42,7 @@ async function fixture(){
  const images=new WhiteboardImageAssets(boards,{get:async()=>({objectKey:sourceKey,metadata:asset.metadata}),save:async()=>{}},objects,verifier);
  const validator={objects:async(update:Uint8Array)=>{const doc=createWhiteboardDocument();Y.applyUpdate(doc,update);const result=readObjects(doc);doc.destroy();return result;}} as WhiteboardUpdateValidator;
  const service=new PortableBoardService(boards,collaboration,validator,images,verifier,new PgPortableBoard(db,collaboration,objects,new PgBoardImageAssets(db)));
- return{service,p,targetP,source,target,objects,png,sourceKey,publishedAssets,sourceObjects:readObjects(sourceDoc),getTarget:()=>readObjects(targetDoc),failCommit:()=>{fail=true;},deny:()=>{allowed=false;}};
+ return{service,p,targetP,source,target,objects,png,sourceKey,publishedAssets,sourceObjects:readObjects(sourceDoc),getTarget:()=>readObjects(targetDoc),queries,revokeWhileWaitingForBoardLock:()=>{revokeAtLock=true;},failCommit:()=>{fail=true;},deny:()=>{allowed=false;}};
 }
 const upload=(body:unknown)=>{const bytes=Buffer.from(JSON.stringify(body));return{sizeBytes:bytes.length,sha256:portableHash(bytes),contentBase64:bytes.toString('base64')};};
 it('round-trips canonical geometry, hierarchy, connector and real image bytes across tenants',async()=>{
@@ -66,4 +68,17 @@ it('keeps legacy standard JSON import without media and checks fresh ACL',async(
 it('publishes multiple small command batches atomically without truncating a larger board',async()=>{
  const f=await fixture(),objects=Array.from({length:401},(_,index)=>base(`note-${index}`));
  const result=await f.service.import(f.targetP,f.target,{requestId:randomUUID(),expectedEpoch:1,file:upload({format:'workspacex.board.v1',objects})});expect(result).toMatchObject({objectCount:401,seq:3});expect(f.getTarget()).toHaveLength(401);
+});
+
+it('reads membership only after the board lock and rejects a revocation committed while waiting',async()=>{
+ const f=await fixture(),out=await f.service.export(f.p,f.source);f.revokeWhileWaitingForBoardLock();
+ await expect(f.service.import(f.targetP,f.target,{requestId:randomUUID(),expectedEpoch:1,file:{sizeBytes:out.sizeBytes,sha256:out.sha256,contentBase64:out.contentBase64}})).rejects.toMatchObject({code:'NOT_FOUND'});
+ expect(f.queries).toHaveLength(2);expect(f.queries[0]).toMatch(/^SELECT owner_id.*FOR UPDATE$/);expect(f.queries[1]).toMatch(/^SELECT role FROM whiteboard_members/);expect(f.getTarget()).toEqual([]);expect(f.publishedAssets).toEqual([]);
+});
+
+it('includes and rebinds media used only inside a template blueprint',async()=>{
+ const f=await fixture(true),out=await f.service.export(f.p,f.source),bundle=JSON.parse(Buffer.from(out.contentBase64,'base64').toString());expect(bundle.media).toHaveLength(1);
+ await f.service.import(f.targetP,f.target,{requestId:randomUUID(),expectedEpoch:1,file:{sizeBytes:out.sizeBytes,sha256:out.sha256,contentBase64:out.contentBase64}});
+ const template=f.getTarget().find(object=>object.kind==='extension')!;expect((template.extensionData!.contentObject as any).objects[0].content).toMatchObject({type:'image',persistence:'durable',sourceUrl:null});expect(f.publishedAssets.find(asset=>asset.metadata).key).toContain(`/boards/${f.target}/assets/`);
+ await expect(f.service.import(f.targetP,f.target,{requestId:randomUUID(),expectedEpoch:1,file:upload({format:'workspacex.board.v1',objects:bundle.objects.content})})).rejects.toMatchObject({code:'UNSUPPORTED_FORMAT'});
 });

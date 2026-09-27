@@ -2,7 +2,7 @@ import {createHash} from 'node:crypto';
 import {PortableBoardBundle,PortableImportRequest,PortableImportResult,PortableExportResult} from '@repo/contracts/whiteboard-portable';
 import {WHITEBOARD_IMPORT_LIMITS} from '@repo/contracts/whiteboard-import';
 import {WHITEBOARD_LIMITS,WhiteboardObject,type WhiteboardCommand} from '@repo/contracts/whiteboard-document';
-import {readContentObject} from '@repo/whiteboard-core';
+import {readContentObject,type CanonicalContentObject,type ImageContent} from '@repo/whiteboard-core';
 import type {Principal} from '../../domain/principal';
 import {assertPrincipal} from '../../domain/principal';
 import type {WhiteboardRepository} from './ports';
@@ -16,7 +16,17 @@ export const portableHash=(bytes:Uint8Array|string)=>createHash('sha256').update
 const encode=(value:unknown)=>Buffer.from(JSON.stringify(value));
 function decode(value:string){if(!/^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/.test(value))throw new Fault('INVALID_UPLOAD');return Buffer.from(value,'base64');}
 function file(bytes:Uint8Array){if(!bytes.length||bytes.length>WHITEBOARD_IMPORT_LIMITS.uploadBytes)throw new Fault('PAYLOAD_TOO_LARGE');return{sizeBytes:bytes.length,sha256:portableHash(bytes),contentBase64:Buffer.from(bytes).toString('base64')};}
-function imageContent(object:WhiteboardObject){const content=readContentObject(object);if(content?.type==='tile'&&content.coverAssetId)throw new Fault('UNSUPPORTED_FORMAT');if(object.kind==='image'&&content?.type!=='image')throw new Fault('INVALID_UPLOAD');return content?.type==='image'?content:null;}
+function mapImages(object:WhiteboardObject,map:(image:ImageContent)=>ImageContent):WhiteboardObject{
+ const content=readContentObject(object);if(object.kind==='image'&&content?.type!=='image')throw new Fault('INVALID_UPLOAD');if(!content)return object;
+ const visit=(item:CanonicalContentObject):CanonicalContentObject=>{
+  if(item.type==='tile'&&item.coverAssetId)throw new Fault('UNSUPPORTED_FORMAT');
+  if(item.type==='image')return map(item);
+  if(item.type==='template')return{...item,objects:item.objects?.map(child=>({...child,content:visit(child.content) as typeof child.content}))};
+  return item;
+ };
+ return{...object,extensionData:{...object.extensionData,contentObject:visit(content)}};
+}
+function imageContents(object:WhiteboardObject){const images:ImageContent[]=[];mapImages(object,image=>{images.push(image);return image;});return images;}
 function validateGraph(objects:WhiteboardObject[]){
  const byId=new Map(objects.map(object=>[object.id,object]));if(byId.size!==objects.length)throw new Fault('INVALID_UPLOAD');
  const done=new Set<string>(),visiting=new Set<string>(),ordered:WhiteboardObject[]=[];
@@ -30,10 +40,10 @@ export class PortableBoardService {
  async export(p:Principal,boardId:string){
   await this.access(p,boardId);const state=await this.collaboration.load(p,boardId),objects=await this.validator.objects(state.update);validateGraph(objects);
   const media:ReturnType<typeof PortableBoardBundle.parse>['media']=[],seen=new Set<string>();let encodedBudget=encode(objects).length;if(encodedBudget>WHITEBOARD_IMPORT_LIMITS.uploadBytes)throw new Fault('PAYLOAD_TOO_LARGE');
-  for(const object of objects){const image=imageContent(object);if(!image)continue;if(image.status!=='ready'||!image.assetId)throw new Fault('UNSUPPORTED_FORMAT');if(seen.has(image.assetId))continue;seen.add(image.assetId);if(seen.size>WHITEBOARD_IMPORT_LIMITS.files)throw new Fault('PAYLOAD_TOO_LARGE');
+  for(const image of objects.flatMap(imageContents)){if(image.status!=='ready'||!image.assetId)throw new Fault('UNSUPPORTED_FORMAT');if(seen.has(image.assetId))continue;seen.add(image.assetId);if(seen.size>WHITEBOARD_IMPORT_LIMITS.files)throw new Fault('PAYLOAD_TOO_LARGE');
    const asset=await this.images.read(p,boardId,image.assetId);encodedBudget+=4*Math.ceil(asset.bytes.length/3);if(encodedBudget>WHITEBOARD_IMPORT_LIMITS.uploadBytes)throw new Fault('PAYLOAD_TOO_LARGE');const sha256=portableHash(asset.bytes);if(asset.metadata.mimeType==='image/svg+xml')throw new Fault('UNSUPPORTED_FORMAT');media.push({path:`images/${sha256}`,assetId:image.assetId,mime:asset.metadata.mimeType,...file(asset.bytes)});
   }
-  const canonical=objects.map(object=>{const image=imageContent(object);return image?{...object,extensionData:{...object.extensionData,contentObject:{...image,sourceUrl:null}}}:object;});
+  const canonical=objects.map(object=>mapImages(object,image=>({...image,sourceUrl:null})));
   const objectBytes=encode(canonical),bundle=PortableBoardBundle.parse({format:'workspacex.board.bundle.v1',revision:{epoch:state.epoch,seq:state.seq},objects:{path:'objects.json',sha256:portableHash(objectBytes),sizeBytes:objectBytes.length,content:canonical},media});
   await this.access(p,boardId);return PortableExportResult.parse({...file(encode(bundle)),fileName:`board-e${state.epoch}-s${state.seq}.board.json`,mime:'application/json'});
  }
@@ -42,14 +52,14 @@ export class PortableBoardService {
   let value:unknown;try{value=JSON.parse(new TextDecoder('utf-8',{fatal:true}).decode(bytes));}catch{throw new Fault('INVALID_UPLOAD');}
   let objects:WhiteboardObject[],media:ReturnType<typeof PortableBoardBundle.parse>['media']=[];
   if(value&&typeof value==='object'&&'format' in value&&value.format==='workspacex.board.v1'){
-   const legacy=value as {objects?:unknown};if(!Array.isArray(legacy.objects)||legacy.objects.length>WHITEBOARD_LIMITS.objects)throw new Fault('INVALID_UPLOAD');objects=legacy.objects.map(object=>WhiteboardObject.parse(object));if(objects.some(object=>object.kind==='image'))throw new Fault('UNSUPPORTED_FORMAT');
+   const legacy=value as {objects?:unknown};if(!Array.isArray(legacy.objects)||legacy.objects.length>WHITEBOARD_LIMITS.objects)throw new Fault('INVALID_UPLOAD');objects=legacy.objects.map(object=>WhiteboardObject.parse(object));if(objects.some(object=>imageContents(object).length>0))throw new Fault('UNSUPPORTED_FORMAT');
   }else{const parsed=PortableBoardBundle.safeParse(value);if(!parsed.success)throw new Fault('INVALID_UPLOAD');const bundle=parsed.data,objectBytes=encode(bundle.objects.content);if(objectBytes.length!==bundle.objects.sizeBytes||portableHash(objectBytes)!==bundle.objects.sha256)throw new Fault('INTEGRITY_FAILED');objects=bundle.objects.content;media=bundle.media;}
   if(!objects.length)throw new Fault('INVALID_UPLOAD');objects=validateGraph(objects);
   const verified:VerifiedBoardImage[]=[],assets=new Map<string,VerifiedBoardImage>(),paths=new Set<string>();let total=encode(objects).length;
   for(const entry of media){if(assets.has(entry.assetId)||paths.has(entry.path)||entry.path!==`images/${entry.sha256}`)throw new Fault('INVALID_UPLOAD');paths.add(entry.path);const imageBytes=decode(entry.contentBase64);total+=imageBytes.length;if(total>WHITEBOARD_IMPORT_LIMITS.uploadBytes)throw new Fault('PAYLOAD_TOO_LARGE');if(imageBytes.length!==entry.sizeBytes||portableHash(imageBytes)!==entry.sha256)throw new Fault('INTEGRITY_FAILED');const result=await this.verifier.verify(imageBytes,entry.mime);if(result.metadata.contentDigest!==`sha256:${entry.sha256}`)throw new Fault('INTEGRITY_FAILED');assets.set(entry.assetId,result);verified.push(result);}
   const used=new Set<string>();const ids=new Map(objects.map(object=>[object.id,`portable_${portableHash(`${input.requestId}:${object.id}`).slice(0,32)}`]));
   const commands:WhiteboardCommand[]=objects.map(original=>{
-   const object=structuredClone(original),image=imageContent(object);if(image){const asset=image.assetId?assets.get(image.assetId):undefined;if(image.status!=='ready'||!asset)throw new Fault('INVALID_UPLOAD');used.add(image.assetId!);object.extensionData={...object.extensionData,contentObject:{...image,...asset.metadata,sourceUrl:null,replacementOf:null}};}
+   const object=mapImages(structuredClone(original),image=>{const asset=image.assetId?assets.get(image.assetId):undefined;if(image.status!=='ready'||!asset)throw new Fault('INVALID_UPLOAD');used.add(image.assetId!);return{...image,...asset.metadata,sourceUrl:null,replacementOf:null};});
    object.id=ids.get(original.id)!;object.parentId=original.parentId?ids.get(original.parentId)!:null;if(object.connector)object.connector={...object.connector,from:object.connector.from?ids.get(object.connector.from)!:undefined,to:object.connector.to?ids.get(object.connector.to)!:undefined};delete object.restoredFrom;
    return{type:'create',object:WhiteboardObject.parse(object)};
   });

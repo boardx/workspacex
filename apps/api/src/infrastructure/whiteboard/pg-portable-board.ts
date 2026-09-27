@@ -14,8 +14,14 @@ export class PgPortableBoard implements PortablePublish {
  constructor(private readonly db:DatabasePort,private readonly collaboration:WhiteboardCollaborationStore,private readonly objects:Pick<ObjectStore,'putOnce'|'get'|'head'>,private readonly assets:PgBoardImageAssets){}
  async publish(p:Principal,boardId:string,input:Parameters<PortablePublish['publish']>[2]):Promise<PortableAck>{
   return this.db.withTenant(p.orgId,async session=>{
-   const access=await session.query<{role:string;archived:boolean}>(`SELECT b.archived,CASE WHEN b.owner_id=$3 THEN 'owner' ELSE m.role END AS role FROM whiteboards b LEFT JOIN whiteboard_members m ON m.org_id=b.org_id AND m.board_id=b.id AND m.user_id=$3 WHERE b.org_id=$1 AND b.id=$2 FOR UPDATE OF b`,[p.orgId,boardId,p.userId]);
-   const board=access.rows[0];if(!board||!C.BoardRole.safeParse(board.role).success)throw new Fault('NOT_FOUND');if(!['owner','editor'].includes(board.role))throw new Fault('FORBIDDEN');if(board.archived)throw new Fault('ARCHIVED');
+   // Lock first, then read membership in a new READ COMMITTED statement snapshot.
+   // A revoker may have held this lock while removing membership without changing
+   // the board tuple, so a joined lookup in the locking statement is stale.
+   const access=await session.query<{owner_id:string;archived:boolean}>(`SELECT owner_id,archived FROM whiteboards WHERE org_id=$1 AND id=$2 FOR UPDATE`,[p.orgId,boardId]);
+   const board=access.rows[0];if(!board)throw new Fault('NOT_FOUND');
+   const member=board.owner_id===p.userId?null:await session.query<{role:string}>(`SELECT role FROM whiteboard_members WHERE org_id=$1 AND board_id=$2 AND user_id=$3`,[p.orgId,boardId,p.userId]);
+   const role=board.owner_id===p.userId?'owner':member?.rows[0]?.role;
+   if(!C.BoardRole.safeParse(role).success)throw new Fault('NOT_FOUND');if(!['owner','editor'].includes(role!))throw new Fault('FORBIDDEN');if(board.archived)throw new Fault('ARCHIVED');
    const replay=await session.query<{request_hash:string;epoch:number;seq:string;object_count:number;asset_count:number}>(`SELECT request_hash,epoch,seq::text,object_count,asset_count FROM whiteboard_portable_imports WHERE org_id=$1 AND board_id=$2 AND actor_id=$3 AND request_id=$4`,[p.orgId,boardId,p.userId,input.requestId]);
    if(replay.rows[0]){const row=replay.rows[0];if(row.request_hash!==input.requestHash)throw new Fault('IDEMPOTENCY_CONFLICT');return{epoch:row.epoch,seq:Number(row.seq),objectCount:row.object_count,assetCount:row.asset_count,replayed:true};}
    const records=[];
