@@ -24,6 +24,7 @@ import { exportModels } from "./model-bundle";
 import { createBackup, RECEIPT_TABLES } from "./backup";
 import { restoreIntoDataDir } from "./restore";
 import { verifyBackup } from "./backup";
+import { applyUpdate, makeUpdatePackage, readBundleVersion, rollbackBundle } from "./update-package";
 import { startPgliteServer, ensureDatabaseExists } from "./pglite-server";
 import { DB_OWNER_ROLE } from "./config";
 
@@ -130,6 +131,41 @@ if (cmd === "doctor") {
     } finally { await pg.stop(); }
   }
   void RECEIPT_TABLES;
+} else if (cmd === "make-update" || cmd === "update" || cmd === "rollback") {
+  /*
+    离线更新的可脚本化入口（#3872 R20）。与桌面菜单共用 local-runtime 的核心，
+    这里只负责读参数和说人话——同 backup/restore 一个模式。
+
+      make-update --from <目录> --to <输出目录> --version x.y.z [--summary 一句话]
+      update      --bundle <bundle 目录> --from <更新包目录> --shell-version x.y.z
+      rollback    --bundle <bundle 目录> --shell-version x.y.z
+
+    update / rollback 要求应用是**停着的**：bundle 正被 tsx 读着时换掉它，是 PGlite
+    单会话那一类事故的同一个形状。历史记在 <data-dir>/update-history.json。
+  */
+  const history = join(dataDir, "update-history.json");
+  if (cmd === "make-update") {
+    const from = flag("from"), to = flag("to"), version = flag("version");
+    if (!from || !to || !version) { console.error("make-update 需要 --from --to --version"); process.exit(2); }
+    const m = await makeUpdatePackage({ fromDir: resolve(from), outDir: resolve(to), version, ...(flag("summary") ? { summary: flag("summary")! } : {}) });
+    console.log(`✅ 更新包 ${m.version}：${String(Object.keys(m.files).length)} 个文件，已写到 ${resolve(to)}`);
+  } else {
+    const bundle = flag("bundle"), shell = flag("shell-version");
+    if (!bundle || !shell) { console.error(`${cmd} 需要 --bundle --shell-version`); process.exit(2); }
+    const before = await readBundleVersion(resolve(bundle), shell);
+    if (cmd === "update") {
+      const from = flag("from");
+      if (!from) { console.error("update 需要 --from <更新包目录>"); process.exit(2); }
+      const r = await applyUpdate({ bundleDir: resolve(bundle), packageDir: resolve(from), shellVersion: shell, historyPath: history });
+      if (!r.ok) { console.error(`没有更新（应用没有被改动）：${r.reason}`); process.exit(1); }
+      console.log(`✅ ${r.from} → ${r.to}，校验 ${String(r.files)} 个文件；上一版留在 ${r.keptAt}`);
+    } else {
+      const r = await rollbackBundle({ bundleDir: resolve(bundle), shellVersion: shell, historyPath: history });
+      if (!r.ok) { console.error(r.reason); process.exit(1); }
+      console.log(`✅ 回滚 ${r.from} → ${r.to}；${r.from} 留在 ${r.keptAt}`);
+    }
+    console.log(`   bundle 版本：${before} → ${await readBundleVersion(resolve(bundle), shell)}`);
+  }
 } else if (cmd === "export-models") {
   // Build-machine step (scripts/local-bundle/fetch-models.sh): copy the configured models out
   // of an Ollama store into the bundle dir that electron-builder ships as resources/models.
@@ -139,6 +175,6 @@ if (cmd === "doctor") {
   const models = (flag("models") ?? `${c.chatModel},${c.embeddingModel}`).split(",").filter(Boolean);
   for (const r of exportModels(source, dest, models)) console.log(`exported ${r.model}: ${r.blobs} blob(s), ${(r.bytes / 1024 / 1024).toFixed(0)} MB -> ${dest}`);
 } else {
-  console.log("usage: local-runtime up|doctor|env|web-build-env|backup|restore|export-models [--data-dir <path>] [--repo-root <path>] [--web dev|start|none] [--no-pull] [--models-bundle <dir>] [--source <store>] [--dest <dir>] [--models a,b] [--to <dir>] [--from <dir>]");
+  console.log("usage: local-runtime up|doctor|env|web-build-env|backup|restore|make-update|update|rollback|export-models [--data-dir <path>] [--repo-root <path>] [--web dev|start|none] [--no-pull] [--models-bundle <dir>] [--source <store>] [--dest <dir>] [--models a,b] [--to <dir>] [--from <dir>]");
   process.exit(cmd === "help" ? 0 : 2);
 }

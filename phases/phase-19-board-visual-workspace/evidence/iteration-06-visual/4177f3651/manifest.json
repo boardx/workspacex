@@ -1,0 +1,59 @@
+{
+  "testedSha": "4177f3651ce228e929baab7b25197c2cc3d522d0",
+  "run": "run-muj9vkkf-db44f4dc-9c2687f2f38a",
+  "result": "5 passed",
+  "screenshots": [
+    {
+      "path": "1024x768-sticky-selected.png",
+      "sha256": "c85a322e20b5d1d4b9aa71672d4d7aa21a335d33e5289a3249e8f6288f5e8830"
+    },
+    {
+      "path": "1024x768-text-selected.png",
+      "sha256": "6b9e80ed18cbd1315db16e74acb154b2ec8bd19d7ec6411b8a929542233ede32"
+    },
+    {
+      "path": "1280x720-sticky-selected.png",
+      "sha256": "6065fd3235159a341b50c05c4f407168f04384b4c0c276dae3cbae2efda54084"
+    },
+    {
+      "path": "1280x720-text-selected.png",
+      "sha256": "8b3134f1e252d93210e11c33c45e6f15cdb6a6a66549472587e9e3bd8e1ba1d1"
+    },
+    {
+      "path": "1440x900-sticky-selected.png",
+      "sha256": "b0b15fc5c4f78b06daee3d038e3c20924eeff221e7d8ae15c512b6daeb725299"
+    },
+    {
+      "path": "1440x900-text-selected.png",
+      "sha256": "43e193c536eda8002a6931294c71030454aa2372a8f6d02f4ea54fbf6ae76255"
+    }
+  ],
+  "localTraces": [
+    {
+      "path": "apps/web/test-results/fullstack-smoke/board-selection-layout-org-2dd45-l-apply-undo-CAS-and-reload-seeded-github-import/trace.zip",
+      "sha256": "83ed89a701b62bac366b3e52774abb5628deab7e895df65ada8cde68b5c192ed",
+      "zipIntegrity": "passed"
+    },
+    {
+      "path": "apps/web/test-results/fullstack-smoke/board-selection-layout-org-65801--commands-converge-and-undo-seeded-github-import/trace.zip",
+      "sha256": "b11498286c6bca396c8e917cac2dd908ca255d65bec16857859dc3665642bfcf",
+      "zipIntegrity": "passed"
+    },
+    {
+      "path": "apps/web/test-results/fullstack-smoke/board-selection-layout-org-e8a21-ection-converges-and-undoes-seeded-github-import/trace.zip",
+      "sha256": "535dac27efc694338012f112cd9be7fc3b86327070d2aeb821ff1686a1434078",
+      "zipIntegrity": "passed"
+    },
+    {
+      "path": "apps/web/test-results/fullstack-smoke/board-selection-layout-org-fbadf--guide-converges-and-undoes-seeded-github-import/trace.zip",
+      "sha256": "99f34ba25e47c9bd399379c92228932954075e9decc77d8a2e7fa35a883d663a",
+      "zipIntegrity": "passed"
+    },
+    {
+      "path": "apps/web/test-results/fullstack-smoke/board-selection-layout-vis-7bcc1-election-in-three-viewports-seeded-github-import/trace.zip",
+      "sha256": "c2f2775c2d89814129caffc693200e523476da44e74e1fb7e0c6dd1c9e0de582",
+      "zipIntegrity": "passed"
+    }
+  ],
+  "scope": "R6 Chromium layout and six screenshots; not full nine-point acceptance"
+}

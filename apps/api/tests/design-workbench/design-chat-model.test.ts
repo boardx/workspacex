@@ -467,6 +467,7 @@ describe("V67 视觉判据进设计原则，且与 frontend-design skill 不是�
       "全流程同名",
       "空态是一句邀请",
       "破折号标签",
+      "一排结构相同的 card",
     ];
     const leaked = OWNED_BY_PRINCIPLES.filter((phrase) => skill.includes(phrase));
     // ⭐ 反证：把其中任一句抄进 SKILL.md ⇒ 这条红。这就是那条「只在一处」的门。
@@ -515,6 +516,33 @@ describe("V68 并列选项别用同一个占位图形区分；配色指南补心
     }
     // 而新增的这几句确实至少各自对应了一个真实档位（不是空话）。
     expect(Object.values(promptAccentColorWords).some((w) => sentence.includes(w))).toBe(true);
+  });
+});
+
+/**
+ * frontend-design skill 里有两条判据当初（#3125）没翻译进来，而它们正是用户截图里那种丑法：
+ *   · 「AI 生成设计扎堆的特征」第 4 类——内容切成一排一模一样的圆角卡片；
+ *   · 首屏「大数字配小标签」本身就是默认做法，重点该放这个题材里最有代表性的东西。
+ * #4198 修的是卡片里的配图，卡片网格这个结构本身没人管。
+ */
+describe("V69 相同卡片排一排、stat 大数字当重点——两条默认套路进设计原则", () => {
+  it("点名「一排结构相同的 card」是套路，并给出这套原语能做到的替代（list / chip / 主次差别）", () => {
+    // ⭐ 反证锚点：删掉这句 ⇒ 这条红。
+    expect(DESIGN_PRINCIPLES).toContain("不要把内容切成一排结构相同的 card");
+    for (const s of ["list（三段式）", "主次有差别", "不要全页一个 radius"]) expect(DESIGN_PRINCIPLES).toContain(s);
+  });
+
+  it("视觉重点那条说清 stat 大数字是默认做法，只有核心就是那个数时才用", () => {
+    // ⭐ 反证锚点：删掉这句 ⇒ 这条红——⑧ 会退回到把「关键数字」当成无条件的正当选项。
+    expect(DESIGN_PRINCIPLES).toContain("最有代表性的东西");
+    expect(DESIGN_PRINCIPLES).toContain("「一排 stat 大数字配小标签」是最常见的默认做法");
+  });
+
+  it("两处生成提示词都真的带上了（整页生成 + 分页每页轮）", () => {
+    for (const prompt of [DESIGN_CHAT_SYSTEM_PROMPT, DESIGN_ONE_SCREEN_SYSTEM_PROMPT]) {
+      expect(prompt).toContain("不要把内容切成一排结构相同的 card");
+      expect(prompt).toContain("最常见的默认做法");
+    }
   });
 });
 
