@@ -13,8 +13,10 @@
 import { knowledgeGraph as KG } from "@repo/contracts";
 import type { DatabasePort } from "../../application/ports/database.port";
 import type { KnowledgeRecallPort, TurnRecallRecord } from "../../application/knowledge-graph/ports";
-import type { GraphHit, GraphHop, RecallClaim, RecallObject } from "../../domain/knowledge-graph/recall";
+import type { EmbeddingPort } from "../../application/retrieval/ports";
+import type { GraphHit, GraphHop, RecallClaim, RecallObject, VectorHit } from "../../domain/knowledge-graph/recall";
 import type { OrgId } from "../../domain/org-id";
+import { annOrder, annThenExact, exactOrder, prepareAnn } from "../retrieval/hnsw-ann";
 
 const stripKind = (key: string) => key.slice(key.indexOf(":") + 1);
 const LIVE = "c.revoked_at IS NULL AND c.status <> 'superseded'";
@@ -24,7 +26,8 @@ const CLAIM_COLUMNS = `c.id, c.statement, c.status, c.claim_kind,
     WHERE e.claim_id = c.id AND e.stance = 'supporting') AS said_at`;
 
 export class PgKnowledgeRecall implements KnowledgeRecallPort {
-  constructor(private readonly db: DatabasePort) {}
+  /** `embeddings`：部署的嵌入模型（F10 同一个 EMBEDDING_PORT）；null ⇒ 向量通道未配置（S9，#4366）。 */
+  constructor(private readonly db: DatabasePort, private readonly embeddings: EmbeddingPort | null = null) {}
 
   async candidates(orgId: OrgId, userId: string, threadId: string) {
     return this.db.withTenant(orgId, async (s) => {
@@ -156,6 +159,45 @@ export class PgKnowledgeRecall implements KnowledgeRecallPort {
       const rels = [row.rel1, row.rel2, row.rel3].filter((x): x is string => x !== null);
       const path: GraphHop[] = rels.map((relation, i) => ({ src: nodes[i]!, relation, dst: nodes[i + 1]! }));
       return { claimId: stripKind(row.claim_key), path };
+    });
+  }
+
+  /**
+   * S9（#4366）向量通道：问题嵌入 ↔ 候选结论的嵌入，余弦最近的前 `limit` 条。
+   *
+   * - 只在 `claimIds`（本轮候选集，candidates 的结果；可以是还在读的 Promise）里找，返回的也只有 id 与相似度——与图路同一形状，
+   *   作用域不会被向量放宽；读之前设 app.current_user_id = 发起人，object_embeddings 的 target_visible 策略
+   *   只放本人看得见的目标的向量（I-14）。
+   * - 查询形状对得上每个登记模型的 HNSW 部分表达式索引（F05，`hnsw-ann.ts`）：pgvector ≥ 0.8 开迭代扫描，
+   *   取不满 k 条按精确扫描补全；候选集过滤很严时由规划器选 btree 预过滤 + 精确排序，两者结果都正确。
+   * - 没配置嵌入模型 ⇒ null（未启用）。配置了但模型没登记 ⇒ 抛 `embedding_model_not_registered`（部署配错了，
+   *   按故障报、降级，不当成「没有相似的」静默略过）。嵌入服务 / 库出错照原样抛，调用方降级。
+   */
+  async vectorNeighbors(
+    orgId: OrgId, userId: string, query: string, candidateIds: readonly string[] | Promise<readonly string[]>, limit: number,
+  ): Promise<readonly VectorHit[] | null> {
+    if (this.embeddings === null) return null;
+    if (limit < 1 || (Array.isArray(candidateIds) && candidateIds.length === 0)) return [];
+    const model = { model: this.embeddings.model, modelVersion: this.embeddings.modelVersion };
+    // 嵌入问题与读候选集并行（候选集还在读时就开始嵌入）。
+    const [claimIds, q] = await Promise.all([candidateIds, this.embeddings.embed(query)]);
+    if (claimIds.length === 0) return [];
+    // pgvector 的文本输入格式就是 JSON 数组的写法。
+    const vec = JSON.stringify(q);
+    return this.db.withTenant(orgId, async (s) => {
+      await s.query("SELECT set_config('app.current_user_id', $1, true)", [userId]);
+      await s.query("SELECT set_config('statement_timeout', '1000', true)");
+      const ann = await prepareAnn(s, model, q, limit);
+      if (ann === null) throw new Error("embedding_model_not_registered");
+      const run = async (order: string) => (await s.query<{ id: string; similarity: number }>(
+        `SELECT oe.target_id AS id, 1 - (${order}) AS similarity FROM object_embeddings oe
+          WHERE oe.org_id = $1 AND oe.target_kind = 'claim' AND oe.model = $2 AND oe.model_version = $3
+            AND oe.target_id = ANY($5::text[])
+          ORDER BY ${order} LIMIT $6`,
+        [orgId, model.model, model.modelVersion, vec, claimIds, limit],
+      )).rows;
+      const r = await annThenExact(limit, () => run(annOrder("oe.embedding", "$4", ann.dims)), () => run(exactOrder("oe.embedding", "$4")));
+      return r.rows.map((x) => ({ claimId: x.id, similarity: Number(x.similarity) }));
     });
   }
 
