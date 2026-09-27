@@ -77,31 +77,38 @@ test("fabric surface viewport", async ({ page, request: api }) => {
   const canvas = page.getByTestId("board-fabric-canvas");
   await expect(surface).toBeVisible();
   await expect(canvas).toBeVisible();
-  const bounds = await surface.boundingBox();
-  expect(bounds).not.toBeNull();
-  // Fullscreen belongs to the Board shell, including its visible sync/recovery
-  // status. Fabric fills the remaining editor region, not the status banner.
-  // Measure every boundary; a hardcoded banner allowance could hide app chrome.
-  const region = page.getByTestId("board-editor-region");
-  const shellBounds = await region.locator("..").boundingBox();
-  const regionBounds = await region.boundingBox();
-  const bannerBounds = await page.getByTestId("board-sync-banner").boundingBox();
-  const viewport = page.viewportSize()!;
-  expect(shellBounds).not.toBeNull();
-  expect(regionBounds).not.toBeNull();
-  expect(bannerBounds).not.toBeNull();
-  for (const [actual, expected] of [
-    [shellBounds!.x, 0], [shellBounds!.y, 0],
-    [shellBounds!.width, viewport.width], [shellBounds!.height, viewport.height],
-    [bannerBounds!.x, 0], [bannerBounds!.y, 0], [bannerBounds!.width, viewport.width],
-    [regionBounds!.x, 0], [regionBounds!.width, viewport.width],
-    [regionBounds!.y, bannerBounds!.y + bannerBounds!.height],
-    [regionBounds!.y + regionBounds!.height, viewport.height],
-    [bounds!.x, regionBounds!.x], [bounds!.y, regionBounds!.y],
-    [bounds!.width, regionBounds!.width], [bounds!.height, regionBounds!.height],
-  ]) expect(Math.abs(actual! - expected!)).toBeLessThanOrEqual(1);
-  expect(regionBounds!.height).toBeGreaterThan(0);
-  expect(bannerBounds!.height).toBeGreaterThan(0);
+  const assertViewportBounds = async () => {
+    const bounds = await surface.boundingBox();
+    expect(bounds).not.toBeNull();
+    // Fullscreen belongs to the Board shell, including its visible sync/recovery
+    // status. Fabric fills the remaining editor region, not the status banner.
+    // Measure every boundary; a hardcoded banner allowance could hide app chrome.
+    const region = page.getByTestId("board-editor-region");
+    const shellBounds = await region.locator("..").boundingBox();
+    const regionBounds = await region.boundingBox();
+    const bannerBounds = await page.getByTestId("board-sync-banner").boundingBox();
+    const viewport = page.viewportSize()!;
+    expect(shellBounds).not.toBeNull();
+    expect(regionBounds).not.toBeNull();
+    expect(bannerBounds).not.toBeNull();
+    for (const [actual, expected] of [
+      [shellBounds!.x, 0], [shellBounds!.y, 0],
+      [shellBounds!.width, viewport.width], [shellBounds!.height, viewport.height],
+      [bannerBounds!.x, 0], [bannerBounds!.y, 0], [bannerBounds!.width, viewport.width],
+      [regionBounds!.x, 0], [regionBounds!.width, viewport.width],
+      [regionBounds!.y, bannerBounds!.y + bannerBounds!.height],
+      [regionBounds!.y + regionBounds!.height, viewport.height],
+      [bounds!.x, regionBounds!.x], [bounds!.y, regionBounds!.y],
+      [bounds!.width, regionBounds!.width], [bounds!.height, regionBounds!.height],
+    ]) expect(Math.abs(actual! - expected!)).toBeLessThanOrEqual(1);
+    expect(regionBounds!.height).toBeGreaterThan(0);
+    expect(bannerBounds!.height).toBeGreaterThan(0);
+  };
+  await expect(assertViewportBounds).toPass({timeout: 5000});
+  await page.setViewportSize({width: 1024, height: 768});
+  await expect(assertViewportBounds).toPass({timeout: 5000});
+  await page.setViewportSize({width: 1280, height: 800});
+  await expect(assertViewportBounds).toPass({timeout: 5000});
 
   await expect(page.locator('[data-testid^="whiteboard-object-"]')).toHaveCount(0);
   const mirror = page.getByTestId("board-a11y-mirror");
