@@ -24,6 +24,7 @@ import { PortsInUseError } from "./startup-failure";
 import { chooseOllama, ollamaBinaryVersion, runningOllamaVersion } from "./ollama-version";
 import { ensureDatabaseExists, startPgliteServer, type PgliteHandle } from "./pglite-server";
 import { clearLedger, reapLedger, recordChild, startedAt } from "./child-ledger";
+import { relocateInternalPorts } from "./internal-ports";
 import {
   assertPortFree, stopListenerOnPort, killTree, startManaged, portInUse, type SpawnSpec,
   waitForHttp, waitForHttpOrExit, runToCompletion, type Managed,
@@ -113,6 +114,18 @@ export async function up(opts: UpOptions): Promise<RunningStack> {
    *   失败会让整个 `up()` 抛错；现在失败变成一条具名的健康事件。
    */
   const deferredReady: Array<{ name: string; wait: Promise<void> }> = [];
+  /*
+    ⚠ 登记的那一刻就挂上处理器（#3872 R23）。真正的处理器在 up() 快结束时才挂，
+      中间还隔着好几个 await——延后的等待在这之前失败（实测：--no-pull、库里没有模型，
+      模型探测几十毫秒就 404），就是一个没人接的 rejection，Node 直接把**整个 up() 进程**
+      打死：界面、api、数据库一起没了，只因为一个本来「不挡界面」的探测失败。
+      这里只是让它「有人接」；失败照样由后面那段报到健康通道，原 promise 不变。
+  */
+  const pushDeferred = deferredReady.push.bind(deferredReady);
+  deferredReady.push = (...items) => {
+    for (const it of items) it.wait.catch(() => undefined);
+    return pushDeferred(...items);
+  };
   const healthById = new Map<string, ServiceHealth>();
   /** 起一个被记录在案的子进程；规格留着，重启时要用同一份。 */
   /** 起子进程并记进台账：主进程被硬杀时它会变成孤儿，下一次启动凭这一笔替它收尸（child-ledger.ts）。 */
@@ -161,6 +174,10 @@ export async function up(opts: UpOptions): Promise<RunningStack> {
   // 否则下面的端口检查会把「我们自己的尸体」报成「另一个 WorkspaceX 在跑」。
   const reaped = await reapLedger(ledgerFile);
   if (reaped.length > 0) log(`[up] 上一次没有正常退出，收掉了残留的：${reaped.join("、")}`);
+  // 收完自己的尸体之后仍被占的内部端口，是别的程序的——换个号，别让用户卡在一个他不认识的端口上。
+  const relocated = await relocateInternalPorts(c.ports, (p) => portInUse(p));
+  for (const m of relocated.moved) log(`[up] 端口 ${m.from}（${m.name}）被别的程序占用，改用 ${m.to}`);
+  if (relocated.moved.length > 0) c = { ...c, ports: relocated.ports };
   await assertPortsFree(c, opts.webMode ?? "dev");
 
   try {

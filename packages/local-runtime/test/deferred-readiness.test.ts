@@ -56,6 +56,18 @@ describe("不挡首屏的就绪等待", () => {
     expect(probe).toBeGreaterThan(choose);
   });
 
+  it("延后的等待一登记就有人接——否则早失败会把整个 up() 进程打死（#3872 R23）", () => {
+    // 实测：--no-pull 且库里没有模型，模型探测几十毫秒就 404，真正的处理器还没挂上，
+    // Node 以 unhandled rejection 退出，api/数据库一起没了。
+    const decl = src.indexOf("const deferredReady: Array<");
+    const firstPush = src.search(/deferredReady\.push\(\{/);
+    const wrap = src.indexOf("deferredReady.push = (");
+    expect(decl, "找不到 deferredReady 的声明").toBeGreaterThan(0);
+    expect(wrap, "push 没有被包一层").toBeGreaterThan(decl);
+    expect(wrap, "包装必须在第一次登记之前").toBeLessThan(firstPush);
+    expect(src.slice(wrap, wrap + 200)).toContain(".wait.catch(");
+  });
+
   it("我们自己关应用时不把那些失败当故障报出去", () => {
     // 退出时这些等待必然失败（进程被停了），报出去就是每次退出弹一个假警报。
     const block = src.slice(src.indexOf("for (const d of deferredReady)"));
