@@ -87,6 +87,7 @@ export function AgentPlanPanel({
   stateSnapshotTodos = null,
   panelTestId = "agent-plan-panel",
   stepTestId = null,
+  renderStepDetail,
 }: {
   steps: readonly Step[];
   /** DA-17／Line D3 -- STATE_SNAPSHOT 已解析好的 todos，非 null 时优先于 `steps` 派生。
@@ -100,6 +101,9 @@ export function AgentPlanPanel({
   panelTestId?: string;
   /** 非 null 时，每个步骤额外挂这个 testid（既有的 `agent-plan-item-{i}` 不变）。 */
   stepTestId?: string | null;
+  /** 2026-09-27 计划显示统一 —— 右栏「进度」页签按步展开细节用（每步做过的动作）。
+   *  不传时每一项的 DOM 与此前逐字相同。 */
+  renderStepDetail?: (todo: PlanTodo, index: number) => React.ReactNode;
 }) {
   const todos = stateSnapshotTodos ?? derivePlanTodos(steps);
   if (todos === null) return null;
@@ -123,15 +127,29 @@ export function AgentPlanPanel({
             data-plan-index={i}
             data-plan-status={todo.status}
           >
-            <StatusIcon status={todo.status} />
-            <span
-              className={cn(
-                "min-w-0 flex-1 truncate",
-                todo.status === "completed" && "text-muted-foreground line-through",
-              )}
-            >
-              {todo.content}
-            </span>
+            {renderStepDetail === undefined ? (
+              <>
+                <StatusIcon status={todo.status} />
+                <span
+                  className={cn(
+                    "min-w-0 flex-1 truncate",
+                    todo.status === "completed" && "text-muted-foreground line-through",
+                  )}
+                >
+                  {todo.content}
+                </span>
+              </>
+            ) : (
+              <div className="flex min-w-0 flex-1 flex-col gap-1">
+                <div className="flex min-w-0 items-center gap-2">
+                  <StatusIcon status={todo.status} />
+                  <span className={cn("min-w-0 flex-1 truncate", todo.status === "completed" && "text-muted-foreground")}>
+                    {todo.content}
+                  </span>
+                </div>
+                {renderStepDetail(todo, i)}
+              </div>
+            )}
           </li>
         ))}
       </ol>

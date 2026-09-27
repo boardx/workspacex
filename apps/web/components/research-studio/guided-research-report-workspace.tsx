@@ -7,12 +7,11 @@ export function GuidedResearchReportWorkspace({ actions, contents, document, met
   metrics: React.ReactNode;
   limitation: React.ReactNode;
 }) {
-  return <section className="space-y-5" data-testid="guided-research-report-workspace">
-    <header className="flex flex-wrap items-center justify-between gap-3"><div><p className="text-12 font-medium text-primary">步骤 6 · 研究报告</p><h1 className="mt-1 text-24 font-semibold">研究报告</h1></div><div className="flex flex-wrap gap-2">{actions}</div></header>
-    <div className="grid min-w-0 gap-5 xl:grid-cols-[13rem_minmax(0,1fr)_15rem]">
-      <aside className="rounded-xl border border-border bg-card p-4 xl:sticky xl:top-4 xl:h-fit" data-testid="guided-research-report-contents"><h2 className="text-sm font-semibold">报告目录</h2><div className="mt-3">{contents}</div></aside>
-      <main className="min-w-0 rounded-xl border border-border bg-card p-4 sm:p-6" data-testid="guided-research-report-body">{document}</main>
-      <aside className="space-y-4"><section className="rounded-xl border border-border bg-card p-4" data-testid="guided-research-report-metrics"><h2 className="text-sm font-semibold">质量与来源</h2><div className="mt-3">{metrics}</div></section><section className="rounded-xl border border-destructive/40 bg-muted p-4" data-testid="guided-research-report-limitation"><h2 className="text-sm font-semibold">证据限制</h2><div className="mt-3 text-sm">{limitation}</div></section></aside>
+  return <section className="space-y-5" data-testid="guided-research-report-workspace" data-reference-layout="report-document">
+    {actions && <div className="flex flex-wrap justify-end gap-3">{actions}</div>}
+    <div className="grid min-w-0 gap-5 xl:grid-cols-[minmax(16rem,0.75fr)_minmax(0,2fr)]">
+      <aside className="rounded-xl border border-border bg-card p-6 shadow-sm xl:sticky xl:top-52 xl:h-fit" data-testid="guided-research-report-contents"><h2 className="text-3xl font-bold">报告目录</h2><div className="mt-5 text-base leading-loose">{contents}</div></aside>
+      <main className="min-w-0 rounded-xl border bg-card p-4 shadow-sm sm:p-6" data-testid="guided-research-report-body">{metrics && <div data-testid="guided-research-report-metrics" className="mb-6 rounded-lg border bg-muted/20 p-5">{metrics}</div>}{document}<div data-testid="guided-research-report-limitation" className="mt-6 border-t pt-5">{limitation}</div></main>
     </div>
   </section>;
 }

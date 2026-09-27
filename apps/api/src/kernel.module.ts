@@ -99,6 +99,9 @@ import { StandardBrowserToolsController } from "./interface/controllers/standard
 import { STANDARD_MEMORY_PROOF } from "./application/agent-run/standard-memory-proof";
 import { PgStandardMemoryProof } from "./infrastructure/agent-run/pg-standard-memory-proof";
 import { StandardMemoryProofController } from "./interface/controllers/standard-memory-proof.controller";
+import { STANDARD_REMEMBER } from "./application/agent-run/standard-remember";
+import { PgStandardRemember } from "./infrastructure/agent-run/pg-standard-remember";
+import { StandardRememberController } from "./interface/controllers/standard-remember.controller";
 import { createStandardWebService } from "./infrastructure/agent-run/standard-web-service";
 import { StandardWebToolsController } from "./interface/controllers/standard-web-tools.controller";
 import { NATIVE_OUTPUT_STAGING, type NativeOutputStaging } from "./application/agent-run/native-output-staging";
@@ -623,7 +626,7 @@ import {
 } from "./application/first-value/first-value-recorder";
 import { PgFirstValueFacts } from "./infrastructure/first-value/pg-first-value-facts";
 import { FirstValueController } from "./interface/controllers/first-value.controller";
-import { GRAPH_PROJECTION_PORT, KG_AUTO_COPY_PORT, KG_CONFLICT_PORT, KG_DEPLOYMENT_EXTRACTION_SETTINGS_PORT, KG_EXTRACTION_QUEUE_PORT, KG_EXTRACTION_SOURCE_PORT, KG_ORG_EXTRACTION_SETTINGS_PORT, HUMAN_ACTION_PORT, KNOWLEDGE_EXTRACTOR_PORT, KNOWLEDGE_READ_PORT, MEMORY_CARD_PORT, ONTOLOGY_STORE_PORT, PROMOTION_PORT } from "./application/knowledge-graph/ports";
+import { GRAPH_PROJECTION_PORT, KG_AUTO_COPY_PORT, KG_EMBEDDING_QUEUE_PORT, KG_CONFLICT_PORT, KG_DEPLOYMENT_EXTRACTION_SETTINGS_PORT, KG_EXTRACTION_QUEUE_PORT, KG_EXTRACTION_SOURCE_PORT, KG_ORG_EXTRACTION_SETTINGS_PORT, HUMAN_ACTION_PORT, KNOWLEDGE_EXTRACTOR_PORT, KNOWLEDGE_READ_PORT, MEMORY_CARD_PORT, type MemoryCardPort, ONTOLOGY_STORE_PORT, PROMOTION_PORT } from "./application/knowledge-graph/ports";
 import { PgPromotion } from "./infrastructure/knowledge-graph/pg-promotion";
 import { PgHumanAction } from "./infrastructure/knowledge-graph/pg-human-action";
 import { KnowledgeGraphController } from "./interface/controllers/knowledge-graph.controller";
@@ -639,6 +642,8 @@ import { PgKgConflict } from "./infrastructure/knowledge-graph/pg-kg-conflict";
 import { PgKgAutoCopy } from "./infrastructure/knowledge-graph/pg-kg-auto-copy";
 import { PgMemoryCard } from "./infrastructure/knowledge-graph/pg-memory-card";
 import { KgProjectionWorker } from "./infrastructure/knowledge-graph/kg-projection-worker";
+import { KgEmbeddingWorker } from "./infrastructure/knowledge-graph/kg-embedding-worker";
+import { PgKgEmbeddingQueue } from "./infrastructure/knowledge-graph/pg-kg-embedding";
 import { PgGraphProjection } from "./infrastructure/knowledge-graph/pg-graph-projection";
 import { PgOntologyStore } from "./infrastructure/knowledge-graph/pg-ontology-store";
 import { PgKnowledgeRecall } from "./infrastructure/knowledge-graph/pg-knowledge-recall";
@@ -1076,7 +1081,7 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
     ToolPermissionGrantController,
     DocumentGenerationAutoApproveController,
     StandardArtifactDownloadController, StandardRunStatusController, StandardRunCancelController,
-    ArtifactIndexingController, NativeFileDelegationController, ScheduleNotificationsController, StandardAudioController, StandardImageController, StandardScheduleController, SkillDraftController, SkillArtifactImportController, McpExecutionSnapshotController, NativeSessionController, NativeOutputStagingController, StandardWebToolsController, StandardBrowserToolsController, StandardMemoryProofController, StandardContextToolsController, StandardCanvasToolsController, StandardDocumentToolsController, StandardSubtaskToolsController, StandardSqlSourceController,
+    ArtifactIndexingController, NativeFileDelegationController, ScheduleNotificationsController, StandardAudioController, StandardImageController, StandardScheduleController, SkillDraftController, SkillArtifactImportController, McpExecutionSnapshotController, NativeSessionController, NativeOutputStagingController, StandardWebToolsController, StandardBrowserToolsController, StandardMemoryProofController, StandardRememberController, StandardContextToolsController, StandardCanvasToolsController, StandardDocumentToolsController, StandardSubtaskToolsController, StandardSqlSourceController,
     AgentArtifactController,
     ThreadMessageQueueController,
     NotificationsController,
@@ -2041,6 +2046,7 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
         interjections: InterjectionStore, artifactContinuations: ArtifactContinuationReader, nativeSessions: NativeSessionOwner | null, nativeOutputs: NativeOutputStaging | null,
         carryOver: InterjectionCarryOverDelivery,
         firstValue: FirstValueRecorder,
+        embeddings: EmbeddingPort | null,
       ) =>
         new AgentRunExecutor(
           runs, model, logger, process.env.KERNEL_AGENT_RUN_AUTOSTART !== "0", usage,
@@ -2087,7 +2093,8 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
           // 不是运行期的偶然。
           carryOver,
           // Phase 18 F08：会话知识召回（uc-18-2），同上面每一个一样由合成期决定。
-          new PgKnowledgeRecall(db),
+          // S9（#4366）：向量通道用部署已有的 EMBEDDING_PORT（F10 检索同一个）；没配置 ⇒ null，通道未启用。
+          new PgKnowledgeRecall(db, embeddings),
           // Phase 18 F17：对话里「记住 / 忘掉」只开确认卡（uc-18-6 A / B），同上。
           new PgMemoryCard(db),
           // E3：回答引用写进 `chat_citations`（走既有 PgChatRepository 的租户内写口）+ 价值时刻。
@@ -2098,7 +2105,7 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
         IDENTITY_REPOSITORY, CANVAS_TEMPLATE_REPOSITORY, DECISION_ID_FACTORY, OBJECT_STORE,
         SKILL_SANDBOX_PORT, RUN_EVENT_BUS, TOOL_PERMISSION_GRANT_STORE,
         INTERJECTION_STORE, ARTIFACT_CONTINUATION_READER, NATIVE_SESSION_OWNER, NATIVE_OUTPUT_STAGING,
-        INTERJECTION_CARRY_OVER_DELIVERY, FIRST_VALUE_RECORDER,
+        INTERJECTION_CARRY_OVER_DELIVERY, FIRST_VALUE_RECORDER, EMBEDDING_PORT,
       ],
     },
     // issue #3405 —— 带入投递的唯一实现。走 chat 受理的唯一入口 `acceptHumanMessage`，
@@ -2267,6 +2274,13 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
       useFactory: (db: DatabasePort, authority: ToolExecutionAuthority, repo: IdentityRepository, ids: DecisionIdFactory, chat: ChatRepository) =>
         new PgStandardMemoryProof(db, authority, { repo, ids, chat }),
       inject: [DATABASE_PORT, TOOL_EXECUTION_AUTHORITY, IDENTITY_REPOSITORY, DECISION_ID_FACTORY, CHAT_REPOSITORY],
+    },
+    {
+      // issue #4344：agent 的记忆工具 `wx_remember` = 在这一轮上开 F17 的「记住」确认卡（同一个 MEMORY_CARD_PORT）。
+      provide: STANDARD_REMEMBER,
+      useFactory: (db: DatabasePort, authority: ToolExecutionAuthority, repo: IdentityRepository, ids: DecisionIdFactory, chat: ChatRepository, cards: MemoryCardPort, runs: AgentRunStore) =>
+        new PgStandardRemember(db, authority, { repo, ids, chat }, cards, runs),
+      inject: [DATABASE_PORT, TOOL_EXECUTION_AUTHORITY, IDENTITY_REPOSITORY, DECISION_ID_FACTORY, CHAT_REPOSITORY, MEMORY_CARD_PORT, AGENT_RUN_STORE],
     },
     {
       provide: NATIVE_OUTPUT_STAGING,
@@ -3044,6 +3058,9 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
     { provide: ONTOLOGY_STORE_PORT, useFactory: (db: DatabasePort) => new PgOntologyStore(db), inject: [DATABASE_PORT] },
     { provide: GRAPH_PROJECTION_PORT, useFactory: (db: DatabasePort) => new PgGraphProjection(db), inject: [DATABASE_PORT] },
     KgProjectionWorker,
+    // S9（#4366）：结论 / 实体的嵌入流水线（outbox → EMBEDDING_PORT → object_embeddings）；没配置嵌入模型 ⇒ worker 不启动。
+    { provide: KG_EMBEDDING_QUEUE_PORT, useFactory: (db: DatabasePort) => new PgKgEmbeddingQueue(db), inject: [DATABASE_PORT] },
+    KgEmbeddingWorker,
     // F06：会话消息 → 知识抽取（模型只提出，经执行器落表）。
     { provide: KG_EXTRACTION_MODEL_CONFIG, useFactory: () => readKgExtractionModelConfig() },
     { provide: KG_EXTRACTION_QUEUE_PORT, useFactory: (db: DatabasePort) => new PgKgExtraction(db), inject: [DATABASE_PORT] },

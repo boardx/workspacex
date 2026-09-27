@@ -4,7 +4,7 @@ import { Bot, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
-import type { ProjectRole } from "@/lib/mock/project";
+import type { ProjectRole } from "@/lib/project-workbench";
 import {
   RS_KINDS, RS_DEPTHS, RS_SOURCES, RS_INTERNAL_SOURCES, RS_DELIVERABLES,
   RS_GROUPS, RS_NODES, RS_CONFIG_DEFAULT, buildPreview, type RsConfig,

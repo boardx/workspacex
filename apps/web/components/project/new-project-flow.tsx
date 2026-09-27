@@ -10,7 +10,7 @@ import { ApiError } from "@/lib/api-client";
 import { useSession } from "@/components/session/session-provider";
 import { createProject } from "@/lib/live-projects";
 import { listBlueprints, BLUEPRINT_STATE_LABEL, DURATION_TIER_LABEL, type BlueprintRow } from "@/lib/live-blueprints";
-import { NEWPROJECT } from "@/lib/mock/project";
+import { NEW_PROJECT_OPTIONS } from "@/lib/project-workbench";
 import { INIT_CATEGORIES } from "@/lib/mock/tpl";
 import { Badge } from "@/components/ui/badge";
 
@@ -57,8 +57,7 @@ export function NewProjectFlow() {
   const [name, setName] = React.useState("");
   const [busy, setBusy] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
-  const d = NEWPROJECT.defaults;
-  const src = NEWPROJECT.linkedSources;
+  const src = NEW_PROJECT_OPTIONS.linkedSources;
 
   // 蓝本目录：真实 `GET /blueprints`，见文件头注「蓝本目录为什么改成真数据了」。
   const [blueprints, setBlueprints] = React.useState<BlueprintRow[] | null>(null);
@@ -196,7 +195,7 @@ export function NewProjectFlow() {
             </div>
           ) : null}
           <div className="mt-2.5 grid grid-cols-1 gap-2.5 sm:grid-cols-2" data-testid="project-new-scratch">
-            {NEWPROJECT.scratchOptions.map((o) => {
+            {NEW_PROJECT_OPTIONS.scratchOptions.map((o) => {
               // 「从空白开始」是本版真实走的那条路径；「复制一场」同样没有后端。
               const active = o.id === "scratch";
               return (
@@ -219,7 +218,7 @@ export function NewProjectFlow() {
               );
             })}
           </div>
-          <p className="mt-2 text-10 leading-relaxed text-muted-foreground">{NEWPROJECT.blueprintNote}</p>
+          <p className="mt-2 text-10 leading-relaxed text-muted-foreground">{NEW_PROJECT_OPTIONS.blueprintNote}</p>
         </section>
 
         {/* 步骤 2：主题与时长 */}
@@ -233,7 +232,7 @@ export function NewProjectFlow() {
               <Input
                 value={name}
                 onChange={(e) => setName(e.target.value)}
-                placeholder={d.name}
+                placeholder="给这场工作坊起个名字"
                 aria-label="项目名称"
                 data-testid="project-new-name"
                 className="h-9 text-12"
@@ -244,7 +243,7 @@ export function NewProjectFlow() {
             <Field label={src.label}>
               <div className="flex h-9 items-center gap-2 rounded-md border border-border bg-card px-3 opacity-60" data-testid="project-new-linked-source">
                 <Link2 aria-hidden className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-                <span className="min-w-0 flex-1 truncate text-12">{src.value}</span>
+                <span className="min-w-0 flex-1 truncate text-12 text-muted-foreground">{src.placeholder}</span>
               </div>
               <div
                 data-testid="project-new-linked-source-note"
@@ -257,16 +256,15 @@ export function NewProjectFlow() {
 
             <Field label="时长档位">
               <div className="flex flex-wrap gap-1.5 opacity-60" data-testid="project-new-duration">
-                {d.durationTiers.map((t) => {
-                  const dashed = "dashed" in t && t.dashed;
+                {NEW_PROJECT_OPTIONS.durationTiers.map((t) => {
+                  const dashed = t.dashed;
                   return (
                     <span
                       key={t.id}
                       data-testid={`project-new-duration-${t.id}`}
                       className={[
                         "grid h-7 place-items-center rounded-md border px-3 text-11",
-                        dashed ? "border-dashed border-border text-muted-foreground" : "",
-                        t.on ? "border-primary bg-primary text-primary-foreground font-medium" : "border-border",
+                        dashed ? "border-dashed border-border text-muted-foreground" : "border-border",
                       ].join(" ")}
                     >
                       {t.label}
@@ -278,10 +276,10 @@ export function NewProjectFlow() {
 
             <div className="flex flex-col gap-3.5 sm:flex-row">
               <Field label="日期与开始时间" className="flex-1">
-                <div className="flex h-8 items-center rounded-md border border-border bg-card px-3 font-mono text-11 opacity-60" data-testid="project-new-datetime">{d.datetime}</div>
+                <div className="flex h-8 items-center rounded-md border border-border bg-card px-3 font-mono text-11 opacity-60" data-testid="project-new-datetime">未设置</div>
               </Field>
               <Field label="参与人数（决定分几组）" className="flex-1">
-                <div className="flex h-8 items-center rounded-md border border-border bg-card px-3 text-11 opacity-60" data-testid="project-new-headcount">{d.headcount}</div>
+                <div className="flex h-8 items-center rounded-md border border-border bg-card px-3 text-11 opacity-60" data-testid="project-new-headcount">未设置</div>
               </Field>
             </div>
 

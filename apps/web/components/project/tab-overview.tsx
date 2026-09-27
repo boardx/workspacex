@@ -5,15 +5,13 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { SectionTitle, MetaSep, ObserverNotice } from "./parts";
 /**
- * F172：本文件对 `lib/mock/project` 的依赖从 9 个符号收到 4 个。
- * 去掉的五个（`OVERVIEW_STATUS` / `CURRENT_SEGMENT` / `OVERVIEW_TODOS` / `ACTIVITY_FEED` /
- * `PROJECT_ROLE_LABEL`）全部是**编造的展示数据**，契约里没有出处。
- * 留下的四个是别的东西：`PROJECT_HEADER`（页头文案）、`PROJECT_SURFACES`（工作面导航入口，
- * F317 已裁它只是一排跳转）、`ROLE_CAN_WRITE` / `observerHidden`（前端角色投影规则）。
+ * F172 删掉了编造的状态条 / 当前环节 / 待办 / 动态；`lib/mock/project.ts` 删除时又去掉了
+ * 虚构的「研究问题」大标题与组织名 / 引导师 / 汇报日期（契约里没有出处，所有项目一样）。
+ * 剩下的都来自 `@/lib/project-workbench`：工作面导航入口与前端角色投影规则，不是数据。
  */
 import {
-  PROJECT_HEADER, PROJECT_SURFACES, ROLE_CAN_WRITE, observerHidden, type ProjectRole,
-} from "@/lib/mock/project";
+  PROJECT_SURFACES, ROLE_CAN_WRITE, observerHidden, type ProjectRole,
+} from "@/lib/project-workbench";
 import {
   PROJECT_KIND_LABEL, PROJECT_STATUS_LABEL, BACKFLOW_BADGE_LABEL,
   type ProjectListItem, type ProjectOverview,
@@ -101,7 +99,7 @@ function OverviewErrorNotice({ code, testId, retryTestId }: { code: string; test
  * ⚠ 用「就绪检查 3/3」而非「准备度 %」：后者口径 uc-2-2 已登记 [待确认]，不在本域编分母。
  * ⚠ 观察者显著更少：当前环节分工、待办、动态属**内部协作视图**，整块消失（不是变灰）。
  *
- * ⚠ 「工作面」清单（F317 折入，见 `lib/mock/project.ts` `PROJECT_SURFACES` 头注）
+ * ⚠ 「工作面」清单（F317 折入，见 `lib/project-workbench.ts` `PROJECT_SURFACES` 头注）
  *   不随观察者裁剪消失——它只是一排跳转入口，目标屏各自的权限判定在各自屏内做。
  *
  * ⚠ F353：概览新增一块「项目基本信息」，接的是真实 `GET /projects`（按 id 在
@@ -124,7 +122,7 @@ function OverviewErrorNotice({ code, testId, retryTestId }: { code: string; test
  *     · 现场状态条：五项收敛到有出处的两项（环节 / 角色人数），阶段·就绪检查·计时删除；
  *     · 待办 / 最新动态：全仓无对应端点（待办属 PJ-21），整块降级为如实空态；
  *     · 工作面：保留（F317 已裁它只是一排跳转入口，不是数据展示）。
- *   ⇒ 本文件对 `lib/mock/project` 的依赖由 9 个符号收到 4 个，且剩下的四个都不是假数据。
+ *   ⇒ 剩下的都不是假数据（见文件顶部头注）。
  *   ⚠ 上面第 26-28 行那段「原型转译」的描述写的是**改动前**的形态，保留作沿革；
  *     以本条为准。
  *
@@ -266,18 +264,6 @@ export function TabOverview({
           </p>
         )}
       </section>
-
-      {/* 项目在研究的问题（mock，非本次范围）*/}
-      <header className="flex flex-col gap-2">
-        <h2 className="max-w-2xl text-18 font-semibold leading-snug" data-testid="project-overview-question">
-          {PROJECT_HEADER.question}
-        </h2>
-        <div className="flex flex-wrap items-center gap-3 text-11 text-muted-foreground">
-          <span>{PROJECT_HEADER.org}集团</span>
-          <span>引导师 {PROJECT_HEADER.facilitatorName}</span>
-          <span>{PROJECT_HEADER.reportDate}</span>
-        </div>
-      </header>
 
       {/*
         现场状态条（聚合，四视角都能看）—— F172：只画有出处的两项。
