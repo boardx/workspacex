@@ -1,3 +1,4 @@
+import {validateBoardObservationArtifact, validateRuntimeBinding} from './board-observation-policy.mjs';
 import {validateBoardSoakArtifact} from './board-soak-policy.mjs';
 import {execFileSync, spawnSync} from 'node:child_process';
 import {mkdirSync, readFileSync, rmSync, writeFileSync} from 'node:fs';
@@ -25,23 +26,26 @@ if (process.argv.includes('--list')) {
       rows.push({lane: entry.lane, sha, dirty: false, buildSha: null, status: 'not-run', reason: entry.reason, requirement: entry.requirement}); continue;
     }
     if (git('rev-parse', 'HEAD') !== sha || git('status', '--porcelain', '--untracked-files=all')) throw new Error('SOURCE_CHANGED_DURING_ACCEPTANCE');
-    if (entry.lane === 'collaboration-50' && (process.env.BOARD_ACCEPTANCE_LEDGER_KEY?.length ?? 0) < 32) throw new Error('LEDGER_KEY_REQUIRED');
-    const startedAt = new Date().toISOString(), artifactPath = resolve(output, `${entry.lane}.json`);
+    if (['collaboration-50','meeting-room'].includes(entry.lane) && (process.env.BOARD_ACCEPTANCE_LEDGER_KEY?.length ?? 0) < 32) throw new Error('LEDGER_KEY_REQUIRED');
+    const runtimeMarker=randomUUID(), startedAt = new Date().toISOString(), artifactPath = resolve(output, `${entry.lane}.json`);
     rmSync(artifactPath, {force: true}); // A prior successful report must not survive this attempt.
     const result = spawnSync(entry.command[0], entry.command.slice(1), {cwd: root, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024,
       env: {...process.env, BOARD_ACCEPTANCE_SHA: sha, BOARD_PERFORMANCE_LANE: entry.lane,
-        BOARD_ACCEPTANCE_RUNTIME_MARKER: randomUUID(), BOARD_ACCEPTANCE_RUNTIME_STARTED_AT: startedAt,
-        BOARD_SOAK_REPORT_PATH: artifactPath, BOARD_PERFORMANCE_REPORT_PATH: artifactPath}});
+        BOARD_ACCEPTANCE_RUNTIME_MARKER: runtimeMarker, BOARD_ACCEPTANCE_RUNTIME_STARTED_AT: startedAt,
+        BOARD_OBSERVATION_REPORT_PATH: artifactPath, BOARD_SOAK_REPORT_PATH: artifactPath, BOARD_PERFORMANCE_REPORT_PATH: artifactPath}});
     writeFileSync(resolve(output, `${entry.lane}.log`), `${result.stdout ?? ''}${result.stderr ?? ''}`);
     const row = {lane: entry.lane, sha, buildSha: null, dirty: false, status: 'failed', command: entry.command.join(' '),
-      startedAt, endedAt: new Date().toISOString(), exitCode: result.status ?? 1, environment: process.env.BOARD_ACCEPTANCE_ENVIRONMENT ?? 'local-isolated-fullstack',
+      runtimeMarker, startedAt, endedAt: new Date().toISOString(), exitCode: result.status ?? 1, environment: process.env.BOARD_ACCEPTANCE_ENVIRONMENT ?? 'local-isolated-fullstack',
       artifactPath, artifactSha256: null, counterproof: false, failures: []};
     try {
       const bytes = readFileSync(artifactPath), report = JSON.parse(bytes.toString());
       row.artifactSha256 = createHash('sha256').update(bytes).digest('hex');
-      const validation = entry.lane === 'collaboration-50' ? await validateBoardSoakArtifact(report, sha) : validateBoardPerformanceArtifact(report, boardPerformancePolicy(root), sha, Number(entry.lane.match(/(\d+)k$/)[1]) * 1000);
-      row.buildSha = report.runtimeIdentity?.buildSha ?? null; row.failures = validation.failures;
-      if (result.status === 0 && validation.valid) row.status = validation.budgetStatus === 'engineering-targets' ? 'passed' : 'measured-unbudgeted';
+      const observation=['meeting-room','visual','accessibility'].includes(entry.lane);
+      const validation = observation ? await validateBoardObservationArtifact(report,entry.lane,sha,row) : entry.lane === 'collaboration-50' ? await validateBoardSoakArtifact(report, sha) : validateBoardPerformanceArtifact(report, boardPerformancePolicy(root), sha, Number(entry.lane.match(/(\d+)k$/)[1]) * 1000);
+      row.buildSha = (report.runtimeIdentity ?? report.runtimeAfter ?? report.reports?.[0]?.runtimeIdentity)?.buildSha ?? null; row.failures = validation.failures;
+      if(!observation)row.failures.push(...validateRuntimeBinding(report.runtimeIdentity,sha,row));
+      row.pending=validation.pending??[];
+      if (result.status === 0 && validation.valid && !row.failures.length) row.status = validation.budgetStatus === 'engineering-targets' ? 'passed' : observation ? 'pending-independent-acceptance' : 'measured-unbudgeted';
     } catch {row.failures.push('MISSING_OR_INVALID_REAL_REPORT');}
     if (git('rev-parse', 'HEAD') !== sha || git('status', '--porcelain', '--untracked-files=all')) {row.status = 'failed'; row.dirty = true; row.failures.push('SOURCE_CHANGED_DURING_ACCEPTANCE');}
     rows.push(row);

@@ -47,7 +47,7 @@ async function check(mutate = () => {}, reportMutate = () => {}, suppliedKey = k
 test('UNIT synthetic valid structure does not award score; matrix runs actual browser producer', async () => {
   const result = await check(); assert.deepEqual(result.failures,[]); assert.equal(result.valid,true); assert.equal(result.score,null);
   assert.ok(boardAcceptanceMatrix.find(row => row.lane === 'collaboration-50').command.includes('playwright.board-soak-acceptance.config.ts'));
-  assert.equal(boardAcceptanceMatrix.find(row => row.lane === 'meeting-room').command,null);
+  assert.ok(boardAcceptanceMatrix.find(row => row.lane === 'meeting-room').command.includes('apps/web/scripts/run-board-observation-producer.mjs'));
 });
 for (const [name, mutate, expected] of [
   ['forged signature',d=>{d.ledger.signature='f'.repeat(64);},'SOAK_SIGNED_LEDGER'],

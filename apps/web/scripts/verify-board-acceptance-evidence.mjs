@@ -1,3 +1,4 @@
+import {validateBoardObservationArtifact,validateRuntimeBinding} from './board-observation-policy.mjs';
 import {validateBoardSoakArtifact} from './board-soak-policy.mjs';
 import {createHash} from 'node:crypto';
 import {readFile} from 'node:fs/promises';
@@ -12,6 +13,8 @@ export async function verifyBoardAcceptanceEvidence(manifest, sha) {
     const matches = manifest.filter(row => row?.lane === lane);
     if (matches.length !== 1) { failures.push(`${matches.length ? 'DUPLICATE' : 'MISSING'}:${lane}`); continue; }
     const row = matches[0];
+    const expectedCommand=boardAcceptanceMatrix.find(entry=>entry.lane===lane)?.command;
+    if(expectedCommand&&row.command!==expectedCommand.join(' '))failures.push(`COMMAND_MISMATCH:${lane}`);
     if (row.sha !== sha || row.buildSha !== sha || row.dirty !== false) failures.push(`IDENTITY_MISMATCH:${lane}`);
     if (row.status !== 'passed' || row.exitCode !== 0) failures.push(`NOT_PASSED:${lane}`);
     if (row.counterproof !== true) failures.push(`NO_COUNTERPROOF:${lane}`);
@@ -23,6 +26,9 @@ export async function verifyBoardAcceptanceEvidence(manifest, sha) {
       try {
         const bytes = await readFile(row.artifactPath);
         if (createHash('sha256').update(bytes).digest('hex') !== row.artifactSha256) failures.push(`ARTIFACT_HASH_MISMATCH:${lane}`);
+        const report=JSON.parse(bytes.toString());
+        if(['meeting-room','visual','accessibility'].includes(lane)){const validation=await validateBoardObservationArtifact(report,lane,sha,row);failures.push(...[...validation.failures,...validation.pending].map(f=>`${f}:${lane}`));}
+        else if(boardAcceptanceMatrix.find(e=>e.lane===lane)?.command)failures.push(...validateRuntimeBinding(report.runtimeIdentity,sha,row).map(f=>`${f}:${lane}`));
         if (lane === 'collaboration-50') {
           const validation = await validateBoardSoakArtifact(JSON.parse(bytes.toString()), sha);
           failures.push(...validation.failures.map(failure => `${failure}:${lane}`));

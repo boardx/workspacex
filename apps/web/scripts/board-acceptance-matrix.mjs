@@ -19,7 +19,7 @@ export const boardAcceptanceMatrix = [
   return {lane, requirement, status: 'not-run',
     command: size ? ['pnpm', 'exec', 'tsx', '.harness/scripts/with-test-isolation.ts', '--',
       'pnpm', '--filter', 'web', 'exec', 'playwright', 'test', '--config', 'e2e/board-performance-acceptance.config.ts',
-      '--grep', `^fabric ${size}k performance:`] : lane === 'collaboration-50' ? ['pnpm', 'exec', 'tsx', '.harness/scripts/with-test-isolation.ts', '--', 'pnpm', '--filter', 'web', 'exec', 'playwright', 'test', '--config', 'playwright.board-soak-acceptance.config.ts'] : null,
-    reason: size || lane === 'collaboration-50' ? 'REAL_PRODUCER_READY_NOT_EXECUTED' : 'REAL_PRODUCER_NOT_INTEGRATED'};
+      '--grep', `^fabric ${size}k performance:`] : lane === 'collaboration-50' ? ['pnpm', 'exec', 'tsx', '.harness/scripts/with-test-isolation.ts', '--', 'pnpm', '--filter', 'web', 'exec', 'playwright', 'test', '--config', 'playwright.board-soak-acceptance.config.ts'] : ['meeting-room','visual','accessibility'].includes(lane) ? ['pnpm','exec','tsx','.harness/scripts/with-test-isolation.ts','--','node','apps/web/scripts/run-board-observation-producer.mjs',lane] : null,
+    reason: size || ['collaboration-50','meeting-room','visual','accessibility'].includes(lane) ? 'REAL_PRODUCER_READY_NOT_EXECUTED' : 'REAL_PRODUCER_NOT_INTEGRATED'};
 });
 export const requiredBoardAcceptanceLanes = boardAcceptanceMatrix.map(entry => entry.lane);
