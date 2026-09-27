@@ -27,11 +27,14 @@ const USER_B = "u-i4363-b";
 const P1 = "thr-i4363-p1";
 const P2 = "thr-i4363-p2";
 const P3 = "thr-i4363-p3";
+const P4 = "thr-i4363-p4";
 
 const TRIP_OLD = "这周我在上海出差";
 const WORK = "到年底我在北京工作";
 const DEC_OLD = "这周先关注 211 高校";
 const TODO = "下个月之前交报告";
+const TODO2 = "这周交月度总结";
+const STAY = "到年底我住在杭州";
 
 const reply = (statement: string, kind: string, timeExpr: string | null) => JSON.stringify({
   entities: [],
@@ -42,6 +45,8 @@ const MODEL = () => loopbackModel([
   [WORK, reply(WORK, "fact", "到年底")],
   [DEC_OLD, reply("我决定这周先关注 211 高校", "decision", "这周")],
   [TODO, reply(TODO, "todo", "下个月之前")],
+  [TODO2, reply(TODO2, "todo", "这周")],
+  [STAY, reply(STAY, "fact", "到年底")],
 ]).model;
 
 type Personal = import("zod").infer<typeof KG.knowledgeGraph.getPersonalKnowledge.out>;
@@ -69,8 +74,8 @@ async function say(id: string, threadId: string, body: string, daysAgo = 0): Pro
   await settle();
 }
 
-async function thread(threadId: string, api: Client = a): Promise<ThreadKnowledgeBody & { claims: KG.KgClaim[] }> {
-  const k = await api.get<ThreadKnowledgeBody & { claims: KG.KgClaim[] }>(`/knowledge-graph/threads/${threadId}`);
+async function thread(threadId: string, api: Client = a): Promise<Omit<ThreadKnowledgeBody, "claims"> & { claims: KG.KgClaim[] }> {
+  const k = await api.get<Omit<ThreadKnowledgeBody, "claims"> & { claims: KG.KgClaim[] }>(`/knowledge-graph/threads/${threadId}`);
   expect(k.status, JSON.stringify(k.body)).toBe(200);
   const parsed = KG.knowledgeGraph.getThreadKnowledge.out.safeParse(k.body);
   expect(parsed.success, parsed.success ? "" : JSON.stringify(parsed.error.issues)).toBe(true);
@@ -95,7 +100,7 @@ beforeAll(async () => {
   const fx = await seedOrg({ orgId: ORG, projectId: `${ORG}-p` });
   await enableExtraction(ORG);
   for (const u of [USER_A, USER_B]) await addOrgMember(ORG, u, "consultant", fx.teams.energy!);
-  for (const id of [P1, P2, P3]) {
+  for (const id of [P1, P2, P3, P4]) {
     await addChatThread({ orgId: ORG, id, projectId: null, visibilityScope: "private", createdBy: USER_A, title: id });
   }
   a = client(e, USER_A, ORG);
@@ -191,9 +196,41 @@ describe("issue #4363：待办状态（只有所有者能改）", () => {
   }, 180_000);
 });
 
+describe("issue #4363 review（#4492）：改写一条结论不丢时间字段", () => {
+  it("做完了、带截止的待办改个说法：新条仍是「做完了」、截止不变；带「到年底」有效期的事实改写后有效期不变", async () => {
+    await say("m-i4363-todo2", P4, `${TODO2}。`);
+    await say("m-i4363-stay", P4, `${STAY}。`);
+    let k = await thread(P4);
+    const todo = k.claims.find((c) => c.statement === TODO2)!;
+    const stay = k.claims.find((c) => c.statement === STAY)!;
+    expect(todo).toMatchObject({ todoStatus: "open", dueAt: expect.any(String) });
+    expect(stay).toMatchObject({ validUntil: expect.any(String), expired: false });
+    expect((await setTodo(a, todo.id, "done")).status).toBe(200);
+
+    const revise = async (claimId: string, statement: string) => {
+      const { revision } = await thread(P4);
+      const r = await a.post(`/knowledge-graph/threads/${P4}/actions`, { basedOnRevision: revision, action: { type: "reviseClaim", claimId, statement } });
+      expect(r.status, JSON.stringify(r.body)).toBe(200);
+    };
+    await revise(todo.id, "这周交月度总结（含附录）");
+    await revise(stay.id, "到年底我一直住在杭州");
+    k = await thread(P4);
+    const todo2 = k.claims.find((c) => c.statement === "这周交月度总结（含附录）")!;
+    const stay2 = k.claims.find((c) => c.statement === "到年底我一直住在杭州")!;
+    expect(k.claims.map((c) => c.id)).not.toContain(todo.id);
+    // 修之前：todoStatus = "open"、dueAt = null；validUntil = null
+    expect(todo2).toMatchObject({ kind: "todo", todoStatus: "done", dueAt: todo.dueAt, supersedesClaimId: todo.id });
+    expect(stay2).toMatchObject({ validUntil: stay.validUntil, expired: false, supersedesClaimId: stay.id });
+    const [row] = await asOwner(async (c) => (await c.query<{ same: boolean }>(
+      "SELECT n.valid_from = o.valid_from AS same FROM claims n JOIN claims o ON o.id = n.supersedes_claim_id WHERE n.org_id = $1 AND n.id = $2",
+      [ORG, stay2.id])).rows);
+    expect(row!.same).toBe(true);
+  }, 180_000);
+});
+
 describe("issue #4363：迁移回填", () => {
   it("迁移之前记下的待办（todo_status 为空）由迁移里的回填语句补成 open；非待办不动", async () => {
-    const sql = readFileSync(fileURLToPath(new URL("../../migrations/20260927400000_kg_s6_time_dimension.sql", import.meta.url)), "utf8");
+    const sql = readFileSync(fileURLToPath(new URL("../../migrations/20260927420000_kg_s6_time_dimension.sql", import.meta.url)), "utf8");
     const backfill = /^UPDATE claims SET todo_status = 'open' WHERE [^;]+;/m.exec(sql)?.[0];
     expect(backfill).toBeDefined();
     const legacy = "clm-i4363-legacy-todo";

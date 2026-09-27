@@ -55,7 +55,7 @@ BEGIN
   -- 只在这是副本的第一个 derived_from 来源时继承（合并进已有副本不改副本）
   IF EXISTS (SELECT 1 FROM ontology_edges d
               WHERE d.org_id = NEW.org_id AND d.src_kind = 'claim' AND d.src_id = NEW.src_id AND d.relation = 'derived_from'
-                AND d.dst_kind = 'claim' AND d.id <> NEW.id) THEN
+                AND d.dst_kind = 'claim' AND d.id <> NEW.id AND d.status = 'active') THEN
     RETURN NEW;
   END IF;
   UPDATE claims p
@@ -75,6 +75,45 @@ DROP TRIGGER IF EXISTS kg_copy_inherits_time_trg ON ontology_edges;
 CREATE TRIGGER kg_copy_inherits_time_trg AFTER INSERT ON ontology_edges
   FOR EACH ROW WHEN (NEW.relation = 'derived_from' AND NEW.src_kind = 'claim' AND NEW.dst_kind = 'claim')
   EXECUTE FUNCTION kg_copy_inherits_time();
+
+-- ─────────────────────────────── ⑤ 改写一条结论不丢时间字段（#4492 review） ───────────────────────────────
+-- F10 reviseClaim（20260924220000）插一条新结论（supersedes_claim_id = 旧条），只写 valid_from = now()：
+-- 改个说法，做完了的待办会变回「还没做」、丢掉截止，「这周」的有效期会变成长期有效。
+-- 规则：新行带着 supersedes_claim_id、且自己**没有任何**时间字段（valid_to / due_at 都空）⇒ 照抄旧条的
+--   valid_to、due_at；旧条有有效期窗口时 valid_from 也照抄（改的是说法，不是「从什么时候起成立」——窗口保持原样，
+--   也保证 valid_from < valid_to）；旧条长期有效时 valid_from 保持新行自己的（now()，即记录时间，同 F03）。
+--   待办状态：新旧都是待办 ⇒ 照抄旧条的状态（done / dropped 不因改写复活）。
+-- 只在 INSERT 时判；新行自己带了时间字段（将来的调用方明确给了）⇒ 尊重新行，一个字段都不抄。
+-- F17 记忆卡的 editedStatement 不走这里：那是用户在卡上改过的「记住：…」原话，落成一条新结论（没有 supersedes_claim_id，
+-- 也没有可继承的旧条）；时间说法由它自己的抽取产生，不是改写。
+CREATE OR REPLACE FUNCTION kg_revise_inherits_time() RETURNS trigger
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = pg_catalog, public, pg_temp
+AS $$
+DECLARE
+  v_old record;
+BEGIN
+  IF NEW.supersedes_claim_id IS NULL OR NEW.valid_to IS NOT NULL OR NEW.due_at IS NOT NULL THEN
+    RETURN NEW;
+  END IF;
+  SELECT c.claim_kind, c.valid_from, c.valid_to, c.due_at, c.todo_status INTO v_old
+    FROM claims c WHERE c.org_id = NEW.org_id AND c.id = NEW.supersedes_claim_id;
+  IF NOT FOUND THEN RETURN NEW; END IF;
+  IF v_old.valid_to IS NOT NULL THEN
+    NEW.valid_from := v_old.valid_from;
+    NEW.valid_to := v_old.valid_to;
+  END IF;
+  NEW.due_at := v_old.due_at;
+  IF NEW.claim_kind = 'todo' AND v_old.claim_kind = 'todo' AND NEW.todo_status IS NULL THEN
+    NEW.todo_status := v_old.todo_status;
+  END IF;
+  RETURN NEW;
+END;
+$$;
+-- 触发器按名字顺序执行：本触发器（kg_revise…）先于 kg_todo_status_default_trg，抄来的状态不会被补成 open。
+DROP TRIGGER IF EXISTS kg_revise_inherits_time_trg ON claims;
+CREATE TRIGGER kg_revise_inherits_time_trg BEFORE INSERT ON claims
+  FOR EACH ROW WHEN (NEW.supersedes_claim_id IS NOT NULL) EXECUTE FUNCTION kg_revise_inherits_time();
+REVOKE ALL ON FUNCTION kg_revise_inherits_time() FROM PUBLIC;
 
 -- ─────────────────────────────── ② 改待办状态（人的动作） ───────────────────────────────
 -- p = { action_id, claim_id, status }。返回 { claim_id, status, claim_ids }（claim_ids = 一起改了的，含它自己）。

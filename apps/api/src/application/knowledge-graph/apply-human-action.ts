@@ -37,7 +37,7 @@ export async function applyHumanAction(
  * issue #4363（S6）：改一条待办的状态（open / done / dropped）。人的动作（I-15）：接口层只有人类会话能到这里
  * （actorKind 恒为 human），其余入口一律 agent、拒绝。所有者判定在数据库（kg_set_todo_status）：会话里的 = 会话创建者，
  * 个人空间的 = 空间主人；其余（含看不见）同一个 KG_CLAIM_NOT_FOUND，探测不到别人的记忆。
- * 对话里说「那个做完了」（S4 的改口意图）走的也是这同一个领域操作。
+ * 对话里说「那个做完了」尚未接线：后续由 S4 的改口意图调用这同一个领域操作（未实现）。
  */
 export async function setTodoStatus(
   deps: { readonly actions: HumanActionPort; readonly newId: (prefix: "act") => string },

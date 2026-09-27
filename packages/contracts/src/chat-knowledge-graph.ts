@@ -55,7 +55,7 @@ export type KgClaimKind = z.infer<typeof KgClaimKind>;
 
 /**
  * issue #4363（S6）：待办的状态。只有 `kind = todo` 的结论有（其余为 null）；新记下的待办是 open。
- * 数据库 CHECK（迁移 20260927400000 claims_todo_status_chk）与本枚举逐项对账。
+ * 数据库 CHECK（迁移 20260927420000 claims_todo_status_chk）与本枚举逐项对账。
  */
 export const KgTodoStatus = z.enum(["open", "done", "dropped"]);
 export type KgTodoStatus = z.infer<typeof KgTodoStatus>;
@@ -766,7 +766,7 @@ export const knowledgeGraph = {
    * issue #4363（S6）：改一条待办的状态（open / done / dropped；人的动作，Agent 身份拒绝）。**只有所有者**：
    * 会话里的待办 = 会话创建者，个人空间的 = 空间主人。同一件待办在会话与个人空间各有一份（derived_from 相连）时一起改，
    * `claimIds` 列出实际改到的（含它自己）。不存在 / 不是待办 / 已失效 / 不是所有者 ⇒ 同一个 `KG_CLAIM_NOT_FOUND`
-   * （不让人探测别人的会话或空间里有没有这条）。对话里「那个做完了」走 S4 的改口路径，最终落到同一个领域操作。
+   * （不让人探测别人的会话或空间里有没有这条）。对话里说「那个做完了」尚未接线（后续工作：S4 的改口意图应调用同一个领域操作）。
    */
   setTodoStatus: {
     method: "POST", path: "/knowledge-graph/claims/:claimId/todo-status",
