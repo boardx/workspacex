@@ -149,7 +149,13 @@ jobs:
         working-directory: apps/desktop
         env:
           DEBUG: electron-builder
-        run: pnpm exec electron-builder --win --config electron-builder.yml
+        # hoisted 布局下 electron 不在 apps/desktop/node_modules 里，electron-builder 自己算不出版本
+        # （实测 "Cannot compute electron version"）。从实际装上的包里按 Node 解析读出来传进去——
+        # 不在配置里写死第二份版本号（锁文件才是那一份）。
+        run: |
+          EV="$(node -p "require(require('node:module').createRequire(process.cwd() + '/package.json').resolve('electron/package.json')).version")"
+          echo "electron $EV"
+          pnpm exec electron-builder --win --config electron-builder.yml -c.electronVersion="$EV"
       - name: dist:win — bundle check
         working-directory: apps/desktop
         run: node scripts/check-bundle-lean.mjs release/win-unpacked && du -sh release/win-unpacked release/*.zip
