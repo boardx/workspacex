@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { InterviewMarkdownDocument, parseInterviewMarkdown } from "../src/interview-markdown";
+import { DigitalInterviewArtifact } from "../src/interview";
 
 const markdown = "# 教育研究\r\n\r\n## 核心发现\r\n\r\n| 用户 | 观点 |\r\n| --- | --- |\r\n| 学生 | 保留 **自主性** |\r\n\r\n```md\r\n## 不是章节\r\n```\r\n";
 const document = {
@@ -9,6 +10,19 @@ const document = {
 };
 
 describe("访谈 Markdown 正文单源", () => {
+  it("sharesEvidenceModesWithPersistedArtifacts", () => {
+    expect(InterviewMarkdownDocument.innerType().shape.evidenceMode)
+      .toBe(DigitalInterviewArtifact.innerType().shape.evidenceMode);
+  });
+
+  it("nestedHeadingsStayInTheirContainingSection", () => {
+    const result = parseInterviewMarkdown({ ...document, markdown: "> intro\n> # inner\n> body\n\n## Next\n\nfinal" });
+    expect(result.headings.map(({ text }) => text)).toEqual(["Next"]);
+    expect(result.sections).toEqual([
+      { headingId: null, text: "intro\ninner\nbody" },
+      { headingId: "section-1", text: "final" },
+    ]);
+  });
   it("roundTripsMarkdownExactly", () => {
     expect(InterviewMarkdownDocument.parse(document).markdown).toBe(markdown);
     const projection = parseInterviewMarkdown(document);

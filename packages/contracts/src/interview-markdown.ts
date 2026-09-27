@@ -2,7 +2,7 @@ import { z } from "zod";
 import { unified } from "unified";
 import remarkParse from "remark-parse";
 import remarkGfm from "remark-gfm";
-import { DigitalInterviewArtifactStep } from "./interview";
+import { DigitalInterviewArtifact, DigitalInterviewArtifactStep } from "./interview";
 
 /** Research body is kept verbatim; references are controlled metadata, not model claims. */
 export const InterviewMarkdownDocument = z.object({
@@ -11,7 +11,7 @@ export const InterviewMarkdownDocument = z.object({
   version: z.number().int().positive(),
   markdown: z.string(),
   contentHash: z.string().regex(/^[a-f0-9]{64}$/u),
-  evidenceMode: z.enum(["simulated", "participant", "mixed"]),
+  evidenceMode: DigitalInterviewArtifact.innerType().shape.evidenceMode,
   references: z.array(z.object({
     anchor: z.string().regex(/^[a-zA-Z0-9][a-zA-Z0-9_-]*$/u),
     documentId: z.string().min(1).refine((value) => value.trim().length > 0, "documentId cannot be blank"),
@@ -59,17 +59,18 @@ export function parseInterviewMarkdown(input: InterviewMarkdownDocument): Interv
     if (headingId !== null || sectionText.length) sections.push({ headingId, text: sectionText.join("\n\n") });
     sectionText = [];
   }
-  function visit(node: MarkdownNode): void {
-    if (node.type === "heading") {
+  // Nested headings are content of their enclosing block, not document sections.
+  function visit(node: MarkdownNode, topLevel = false): void {
+    if (topLevel && node.type === "heading") {
       finishSection();
       headingId = `section-${headings.length + 1}`;
       headings.push({ id: headingId, depth: node.depth!, text: plainText(node) });
     }
     if (node.type === "listItem") entries.push({ headingId, text: plainText(node) });
-    node.children?.forEach(visit);
+    node.children?.forEach((child) => visit(child));
   }
   for (const node of tree.children ?? []) {
-    visit(node);
+    visit(node, true);
     if (node.type !== "heading") {
       const text = plainText(node);
       if (text) sectionText.push(text);
