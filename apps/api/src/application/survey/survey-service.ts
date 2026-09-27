@@ -6,6 +6,7 @@ import {
   timingSafeEqual,
 } from "node:crypto";
 import { survey } from "@repo/contracts";
+import { createDefaultSurveyReportTemplate } from "@repo/contracts/survey-report";
 import {
   validateSurveyQuestions,
   validateSurveyAnswer,
@@ -255,14 +256,20 @@ export class SurveyService {
         m.status = transitionSurveyStatus(m.status, "withdraw");
       }
       m.title = input.title;
+      m.tags = input.tags ?? m.tags;
       m.questions = preserveTrustedCertification(input.questions, m.questions);
       m.template = input.template;
+      const publishedDesign = m.publication ? m.source?.documents.design : undefined;
       m.source = this.sourceFromDraft(
-        { ...input, questions: m.questions },
+        { ...input, tags: m.tags, questions: m.questions },
         this.now().toISOString(),
         (m.source?.compiledVersion ?? 0) + 1,
         m.source?.documents,
       );
+      if (publishedDesign) {
+        m.source.documents.design = publishedDesign;
+        m.source.contentHash = sourceContentHash(Object.values(m.source.documents));
+      }
     });
   }
   saveSource(
@@ -293,6 +300,7 @@ export class SurveyService {
       };
       model.source = { documents: nextDocuments, compiledVersion: revision, contentHash: sourceContentHash(Object.values(nextDocuments)) };
       model.title = design.draft.title;
+      model.tags = design.draft.tags;
       model.questions = preserveTrustedCertification(design.draft.questions, model.questions);
       model.template = reportTemplate.template;
       if (model.status === "ready")
@@ -349,7 +357,7 @@ export class SurveyService {
       expiresAt: end.toISOString(),
       sourceSnapshot: model.source ? {
         documents: structuredClone(model.source.documents),
-        compiled: { title: model.title, questions: structuredClone(model.questions), template: structuredClone(model.template) },
+        compiled: { title: model.title, tags: model.tags, questions: structuredClone(model.questions), template: structuredClone(model.template) },
         contentHash: model.source.contentHash,
       } : undefined,
     };
@@ -510,7 +518,7 @@ export class SurveyService {
       const responses = m.responses;
       if (!responses.length) throw new SurveyError("invalid_report");
       const report = survey.compileSurveyReport(
-        m.template,
+        m.template.sections.length ? m.template : createDefaultSurveyReportTemplate(m.title, m.publication?.questions ?? m.questions, responses),
         m.publication?.questions ?? m.questions,
         responses,
       );
