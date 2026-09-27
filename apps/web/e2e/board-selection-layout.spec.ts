@@ -98,6 +98,9 @@ function closeGeometry(left: Geometry, right: Geometry, epsilon = 1): boolean {
 }
 
 async function marqueeAll(page: Page): Promise<void> {
+  const selectTool = page.getByTestId("board-tool-select");
+  await selectTool.click();
+  await expect(selectTool).toHaveAttribute("aria-pressed", "true");
   await page.getByTestId("board-zoom-fit-board").click();
   await page.evaluate(() => new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve()))));
   const objects = parseGeometry(await geometry(page));
@@ -124,8 +127,14 @@ async function marqueeAll(page: Page): Promise<void> {
   expect(start.y).toBeGreaterThanOrEqual(box!.y);
   expect(end.x).toBeLessThanOrEqual(box!.x + box!.width);
   expect(end.y).toBeLessThanOrEqual(box!.y + box!.height);
+  const hitSurfaces = await page.evaluate(([startPoint, endPoint]) => [startPoint, endPoint].map((point) => {
+    const element = document.elementFromPoint(point.x, point.y) as HTMLElement | null;
+    return { fabric: element?.dataset.fabric ?? null, insideSurface: Boolean(element?.closest('[data-testid="board-fabric-surface"]')) };
+  }), [start, end] as const);
+  expect(hitSurfaces).toEqual([{ fabric: "top", insideSurface: true }, { fabric: "top", insideSurface: true }]);
   await page.keyboard.press("Escape");
   await page.mouse.click(start.x, start.y);
+  await expect(page.getByTestId("board-a11y-selection-announcement")).toHaveText("未选择对象");
   await page.mouse.move(start.x, start.y);
   await page.mouse.down();
   await page.mouse.move(end.x, end.y, { steps: 12 });
