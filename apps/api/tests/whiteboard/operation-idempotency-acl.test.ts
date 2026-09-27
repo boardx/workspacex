@@ -1,0 +1,3 @@
+import{readFileSync}from'node:fs';import{describe,expect,it}from'vitest';
+const service=readFileSync(new URL('../../src/application/whiteboard/operation-service.ts',import.meta.url),'utf8'),core=readFileSync(new URL('../../../../packages/whiteboard-core/src/operation-kernel.ts',import.meta.url),'utf8');
+describe('operation idempotency and ACL',()=>{it('authorizes before replay in server and core and verifies artifact ACL',()=>{expect(service.indexOf('audit.lockHead')).toBeLessThan(service.indexOf('audit.replay'));expect(service.indexOf('canReadArtifact')).toBeLessThan(service.indexOf('audit.replay'));expect(core.indexOf('this.authorize')).toBeLessThan(core.indexOf('this.accepted.get'));});});

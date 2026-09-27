@@ -23,7 +23,9 @@ export default defineConfig({ resolve:{alias:{
     'tests/whiteboard/import-repository-guard.test.ts',
     'tests/whiteboard/recovery-repository-guard.test.ts',
     'tests/whiteboard/operation-service.test.ts',
-    'tests/whiteboard/operation-repository-guard.test.ts',
+      'tests/whiteboard/operation-repository-guard.test.ts',
+      'tests/whiteboard/operation-actor-parity.test.ts','tests/whiteboard/operation-idempotency-acl.test.ts','tests/whiteboard/ai-proposal-provenance.test.ts','tests/whiteboard/ai-proposal-revision-conflict.test.ts','tests/whiteboard/meeting-room-viewport-revision.test.ts','tests/whiteboard/meeting-room-soak-gate.test.ts',
+      'tests/whiteboard/proposal-presentation-repository-guard.test.ts',
   ],
   maxWorkers: 1, minWorkers: 1, testTimeout: 10_000,
 } });

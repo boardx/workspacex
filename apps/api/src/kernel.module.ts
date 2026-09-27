@@ -12,6 +12,10 @@ import { CollaborationSnapshotSource, PgWhiteboardRecoveryMetadata } from './inf
 import { WHITEBOARD_OPERATION_SERVICE, WhiteboardOperationService } from './application/whiteboard/operation-service';
 import { WhiteboardOperationController } from './interface/controllers/whiteboard-operation.controller';
 import { PgWhiteboardOperationRepository } from './infrastructure/whiteboard/pg-operation-repository';
+import { WHITEBOARD_PROPOSAL_SERVICE, WhiteboardProposalService } from './application/whiteboard/proposal-service';
+import { PgWhiteboardProposalRepository } from './infrastructure/whiteboard/pg-proposal-repository';
+import { WHITEBOARD_PRESENTATION_SERVICE, WhiteboardPresentationService } from './application/whiteboard/presentation-service';
+import { PgWhiteboardPresentationRepository } from './infrastructure/whiteboard/pg-presentation-repository';
 import { SurveyAttachmentRateLimitGuard, SURVEY_ATTACHMENT_RATE_LIMITER, SURVEY_ATTACHMENT_REQUESTS_PER_MINUTE } from "./interface/guards/survey-attachment-rate-limit.guard";
 import { SurveyUploadCapabilityGuard, SurveyAttachmentController } from "./interface/controllers/survey-attachment.controller";
 import { PgSurveyAttachmentRepository } from "./infrastructure/survey/pg-survey-attachment-repository";
@@ -2958,6 +2962,16 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
       provide: WHITEBOARD_OPERATION_SERVICE,
       useFactory: (db: DatabasePort, collaboration: PgWhiteboardCollaborationStore) => new WhiteboardOperationService(db, collaboration, new PgWhiteboardOperationRepository()),
       inject: [DATABASE_PORT, WHITEBOARD_COLLABORATION_STORE],
+    },
+    {
+      provide: WHITEBOARD_PROPOSAL_SERVICE,
+      useFactory: (db: DatabasePort, collaboration: PgWhiteboardCollaborationStore, operations: WhiteboardOperationService) => new WhiteboardProposalService(db,collaboration,new PgWhiteboardOperationRepository(),new PgWhiteboardProposalRepository(),operations),
+      inject: [DATABASE_PORT, WHITEBOARD_COLLABORATION_STORE, WHITEBOARD_OPERATION_SERVICE],
+    },
+    {
+      provide: WHITEBOARD_PRESENTATION_SERVICE,
+      useFactory: (db: DatabasePort) => new WhiteboardPresentationService(db,new PgWhiteboardOperationRepository(),new PgWhiteboardPresentationRepository()),
+      inject: [DATABASE_PORT],
     },
     {
       provide: DESIGN_PROJECT_REPOSITORY,

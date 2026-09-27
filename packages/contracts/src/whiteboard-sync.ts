@@ -3,6 +3,7 @@ import { WhiteboardObjectId } from './whiteboard-document';
 import { BoardRole } from './whiteboard';
 import { operations as streamingOperations } from './streaming-transport';
 import { WHITEBOARD_COLLABORATION_LIMITS, WhiteboardRecoveryCode, WhiteboardResumeDisposition } from './whiteboard-collaboration';
+import { WhiteboardPointerCapability } from './whiteboard-operation';
 const inboundUpdateBytes = 64 * 1024;
 const persistedUpdateBytes = 1024 * 1024;
 const stateVectorBytes = 8 * 1024;
@@ -47,12 +48,12 @@ const contributorColor = z.string().regex(/^#[0-9a-fA-F]{6}$/);
 export const WhiteboardClientMessage = z.discriminatedUnion('type', [
   z.object({ type: z.literal('hello'), stateVector: stateVectorBase64, resume: z.object({ epoch, seq }).strict().optional() }).strict(),
   z.object({ type: z.literal('update'), epoch, updateId: z.string().uuid(), update: updateBase64 }).strict(),
-  z.object({ type: z.literal('awareness'), cursor, selected, editingObjectId: editingObjectId.optional() }).strict(),
+  z.object({ type: z.literal('awareness'), cursor, selected, editingObjectId: editingObjectId.optional(), pointer: WhiteboardPointerCapability.nullable().optional() }).strict(),
 ]);
 export type WhiteboardClientMessage = z.infer<typeof WhiteboardClientMessage>;
 export const WhiteboardPresence = z.object({
   actorId: z.string().min(1).max(200), displayName: z.string().min(1).max(WHITEBOARD_COLLABORATION_LIMITS.displayNameChars),
-  contributorColor, cursor, selected, editingObjectId, expiresAt: z.string().datetime(),
+  contributorColor, cursor, selected, editingObjectId, pointer: WhiteboardPointerCapability.nullable().optional(), expiresAt: z.string().datetime(),
 }).strict();
 export const WhiteboardServerMessage = z.discriminatedUnion('type', [
   z.object({ type: z.literal('sync'), epoch, seq, update: documentBase64, role: BoardRole, archived: z.boolean() }).strict(),

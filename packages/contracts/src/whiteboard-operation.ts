@@ -105,6 +105,10 @@ export const RenderedDiagramLayout = z.object({
   layoutHash: z.string().regex(/^layout-v1:[a-f0-9]{64}$/),
 }).strict();
 export type RenderedDiagramLayout = z.infer<typeof RenderedDiagramLayout>;
+export const WhiteboardArtifactHandoff = z.object({
+  requestId:z.string().uuid(),expectedRevision:Revision,layout:RenderedDiagramLayout,
+  offset:z.object({x:z.number().finite(),y:z.number().finite()}).strict(),
+}).strict();
 
 export const WhiteboardAIProposalAction = z.discriminatedUnion('type', [
   z.object({ type: z.literal('generate'), commands: z.array(WhiteboardCommand).min(1).max(WHITEBOARD_OPERATION_LIMITS.commands) }).strict(),
@@ -120,6 +124,14 @@ export const WhiteboardAIProposal = z.object({
   status: z.enum(['preview', 'cancelled', 'confirmed']), createdAt: z.string().datetime(), expiresAt: z.string().datetime(),
 }).strict();
 export type WhiteboardAIProposal = z.infer<typeof WhiteboardAIProposal>;
+export const WhiteboardAIProposalCreate = z.object({
+  proposalId: z.string().uuid(), actorId: ActorId, baseRevision: Revision,
+  action: WhiteboardAIProposalAction,
+  provenance: WhiteboardOperationProvenance,
+}).strict();
+export const WhiteboardAIProposalDecision = z.object({
+  requestId: z.string().uuid(), expectedRevision: Revision,
+}).strict();
 
 export const WhiteboardViewport = z.object({ x: z.number().finite(), y: z.number().finite(), zoom: z.number().finite().min(.05).max(8) }).strict();
 export const WhiteboardPresentationState = z.object({
@@ -137,6 +149,18 @@ export const WhiteboardPresentationCommand = z.discriminatedUnion('type', [
   z.object({ type: z.literal('handoff'), actorId: ActorId, toActorId: ActorId, expectedRevision: z.number().int().nonnegative() }).strict(),
 ]);
 export type WhiteboardPresentationCommand = z.infer<typeof WhiteboardPresentationCommand>;
+export const WhiteboardPresentationRequest = z.object({
+  roomId: z.string().min(1).max(200), command: WhiteboardPresentationCommand,
+}).strict();
+export const WhiteboardRoomJoin = z.object({
+  roomId: z.string().min(1).max(200), deviceId: z.string().min(1).max(200),
+  deviceKind: z.enum(['personal','meeting-display']), reconnectToken: z.string().min(32).max(512).nullable().default(null),
+}).strict();
+export const WhiteboardRoomIdentity = z.object({
+  roomId: z.string().min(1).max(200), actorId: ActorId, deviceId: z.string().min(1).max(200),
+  deviceKind: z.enum(['personal','meeting-display']), reconnectToken: z.string().min(32).max(512),
+  connectionRevision: z.number().int().positive(),
+}).strict();
 export const WhiteboardPointerCapability = z.object({
   pointerType: z.enum(['mouse', 'touch', 'pen']), pressure: z.number().min(0).max(1),
   tiltX: z.number().min(-90).max(90).default(0), tiltY: z.number().min(-90).max(90).default(0),
@@ -148,4 +172,10 @@ export type WhiteboardPointerCapability = z.infer<typeof WhiteboardPointerCapabi
 export const whiteboardOperationOperations = {
   execute: { method: 'POST', path: '/v1/whiteboards/:boardId/operations', input: WhiteboardOperationRequest, output: WhiteboardOperationReceipt },
   events: { method: 'GET', path: '/v1/whiteboards/:boardId/events', input: WhiteboardEventCursor, output: WhiteboardEventPage },
+  createProposal: { method: 'POST', path: '/v1/whiteboards/:boardId/ai-proposals', input: WhiteboardAIProposalCreate, output: WhiteboardAIProposal },
+  cancelProposal: { method: 'POST', path: '/v1/whiteboards/:boardId/ai-proposals/:proposalId/cancel', input: WhiteboardAIProposalDecision, output: WhiteboardAIProposal },
+  confirmProposal: { method: 'POST', path: '/v1/whiteboards/:boardId/ai-proposals/:proposalId/confirm', input: WhiteboardAIProposalDecision, output: WhiteboardOperationReceipt },
+  presentation: { method: 'POST', path: '/v1/whiteboards/:boardId/presentation', input: WhiteboardPresentationRequest, output: WhiteboardPresentationState },
+  joinRoom: { method: 'POST', path: '/v1/whiteboards/:boardId/rooms/join', input: WhiteboardRoomJoin, output: WhiteboardRoomIdentity },
+  artifactHandoff: { method: 'POST', path: '/v1/whiteboards/:boardId/artifact-handoffs', input: WhiteboardArtifactHandoff, output: WhiteboardOperationReceipt },
 } as const;

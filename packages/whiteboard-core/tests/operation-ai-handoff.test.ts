@@ -69,6 +69,7 @@ describe('shared human/service/AI operation kernel', () => {
     expect(() => manager.confirm(proposal.proposalId, '00000000-0000-4000-8000-000000000034', actor.actorId)).toThrow('BOARD_AI_PROPOSAL_CONFLICT');
     doc.destroy();
   });
+  it('binds proposal idempotency to actor and payload',()=>{const{doc,value}=kernel();const manager=new WhiteboardAIProposalManager(value,()=>new Date('2026-09-26T00:00:00.000Z')),input={proposalId:'00000000-0000-4000-8000-000000000099',boardId,actor,action:{type:'generate' as const,commands:[{type:'create' as const,object:{id:'new',schemaVersion:1 as const,kind:'sticky' as const,geometry,text:'new',style:{},parentId:null,orderKey:''}}]},provenance};expect(manager.preview(input).proposalId).toBe(input.proposalId);expect(manager.preview(input).proposalId).toBe(input.proposalId);expect(()=>manager.preview({...input,actor:{...actor,actorId:'other'}})).toThrow('IDEMPOTENCY_CONFLICT');expect(()=>manager.preview({...input,action:{...input.action,commands:[{type:'create',object:{...input.action.commands[0]!.object,text:'changed'}}]}})).toThrow('IDEMPOTENCY_CONFLICT');doc.destroy();});
 });
 
 describe('Chat artifact handoff and meeting-room presentation', () => {

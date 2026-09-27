@@ -42,7 +42,7 @@ export function attachWhiteboardGateway(server: Server, deps: WhiteboardGatewayD
       const board=await deps.boards.get(principal,boardId); if (!board) { refuse(404); return; }
       if ([...peers].filter(p=>p.boardId===boardId && p.principal.orgId===principal.orgId).length>=50) { refuse(429); return; }
       wss.handleUpgrade(request,socket,head,ws=>{
-        const peer:Peer={ws,principal,boardId,token,ready:false,epoch:0,seq:0,role:board.role,archived:board.archived,mirror:new Y.Doc(),presence:WhiteboardPresence.parse({actorId:principal.userId,displayName:principal.userId,contributorColor:color(principal.userId),cursor:null,selected:[],editingObjectId:null,expiresAt:new Date(Date.now()+WHITEBOARD_COLLABORATION_LIMITS.presenceTtlMs).toISOString()}),checking:false};
+        const peer:Peer={ws,principal,boardId,token,ready:false,epoch:0,seq:0,role:board.role,archived:board.archived,mirror:new Y.Doc(),presence:WhiteboardPresence.parse({actorId:principal.userId,displayName:principal.userId,contributorColor:color(principal.userId),cursor:null,selected:[],editingObjectId:null,pointer:null,expiresAt:new Date(Date.now()+WHITEBOARD_COLLABORATION_LIMITS.presenceTtlMs).toISOString()}),checking:false};
         peers.add(peer);
         const deadline=setTimeout(()=>ws.close(4408,'handshake timeout'),10000);
         let queue=Promise.resolve(), waiting=0, awarenessAt=0;
@@ -71,7 +71,7 @@ export function attachWhiteboardGateway(server: Server, deps: WhiteboardGatewayD
             if(!peer.ready) { fail(ws,'HELLO_REQUIRED'); return; }
             if(message.type==='awareness') {
               if(Date.now()-awarenessAt<WHITEBOARD_COLLABORATION_LIMITS.presenceMinimumIntervalMs) return; awarenessAt=Date.now();
-              peer.presence=WhiteboardPresence.parse({...peer.presence,cursor:message.cursor,selected:message.selected,editingObjectId:message.editingObjectId ?? null,expiresAt:new Date(Date.now()+WHITEBOARD_COLLABORATION_LIMITS.presenceTtlMs).toISOString()}); presence(peer); return;
+              peer.presence=WhiteboardPresence.parse({...peer.presence,cursor:message.cursor,selected:message.selected,editingObjectId:message.editingObjectId ?? null,pointer:message.pointer??null,expiresAt:new Date(Date.now()+WHITEBOARD_COLLABORATION_LIMITS.presenceTtlMs).toISOString()}); presence(peer); return;
             }
             const ack=await deps.store.append(principal,boardId,{...message,update:decoded(message.update)});
             // ACK is durability only and never advances client document state. Queue

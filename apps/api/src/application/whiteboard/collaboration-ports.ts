@@ -14,10 +14,11 @@ export interface WhiteboardUpdateAck { epoch: number; seq: number; updateId: str
 /** Never broadcast or acknowledge before the owning outer transaction commits. */
 export interface WhiteboardPendingUpdate extends WhiteboardUpdateAck { durability: 'pending'; }
 export interface WhiteboardUpdateInput { epoch: number; updateId: string; update: Uint8Array; }
-export interface WhiteboardCommandsInput { epoch: number; requestId: string; commands: WhiteboardCommand[]; }
+export interface WhiteboardCommandsInput { epoch: number; requestId: string; commands: WhiteboardCommand[]; actorId?: string; }
 export interface WhiteboardCollaborationStore {
   head(principal: Principal, boardId: string): Promise<WhiteboardSyncHead>;
   load(principal: Principal, boardId: string, stateVector?: Uint8Array): Promise<WhiteboardSyncState>;
+  loadInTransaction(session:TenantSession,principal:Principal,boardId:string):Promise<WhiteboardSyncState>;
   append(principal: Principal, boardId: string, input: WhiteboardUpdateInput): Promise<WhiteboardUpdateAck>;
   writeCommandsInTransaction(session: TenantSession, principal: Principal, boardId: string, input: WhiteboardCommandsInput): Promise<WhiteboardPendingUpdate>;
   writeCommands(principal: Principal, boardId: string, input: WhiteboardCommandsInput): Promise<WhiteboardUpdateAck>;

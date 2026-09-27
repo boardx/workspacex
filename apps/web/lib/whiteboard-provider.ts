@@ -82,9 +82,9 @@ export class WhiteboardProvider {
     };
     socket.onerror = () => socket.close();
   }
-  awareness(cursor: { x: number; y: number } | null, selected: string[]) {
+  awareness(cursor: { x: number; y: number } | null, selected: string[], pointer: Extract<WhiteboardClientMessage,{type:'awareness'}>['pointer']=null) {
     if (!this.ready || this.stopped || (cursor && (!Number.isFinite(cursor.x) || !Number.isFinite(cursor.y)))) return;
-    this.latestPresence = { type: 'awareness', cursor, selected: selected.slice(0,200) };
+    this.latestPresence = { type: 'awareness', cursor, selected: selected.slice(0,200), pointer };
     if (this.presenceTimer) return;
     this.presenceTimer = setTimeout(() => { this.presenceTimer = null; if (this.ready && !this.stopped && this.latestPresence) this.send(this.latestPresence); }, 50);
   }

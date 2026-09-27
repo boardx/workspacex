@@ -1,0 +1,3 @@
+import{readFileSync}from'node:fs';import{describe,expect,it}from'vitest';
+const source=readFileSync(new URL('../../src/application/whiteboard/proposal-service.ts',import.meta.url),'utf8'),migration=readFileSync(new URL('../../migrations/20260926163000_whiteboard_operation_api.sql',import.meta.url),'utf8');
+describe('durable AI proposal provenance',()=>{it('persists owner-bound zero-write preview with registered model and skill snapshots',()=>{expect(migration).toContain('whiteboard_ai_proposals');expect(source).toContain("registered.kind!=='ai'");expect(source).toContain('model:registered.model');expect(source).toContain('skill:registered.skill');expect(source).toContain('baseObjectDigests');});});

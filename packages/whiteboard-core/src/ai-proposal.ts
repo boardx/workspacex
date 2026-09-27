@@ -6,18 +6,20 @@ import {
   type WhiteboardOperationReceipt,
 } from '@repo/contracts/whiteboard-operation';
 import type { WhiteboardCommand } from '@repo/contracts/whiteboard-document';
-import { digestWhiteboardObject, type WhiteboardOperationKernel } from './operation-kernel';
+import { digestWhiteboardObject, stableBoardDigest, type WhiteboardOperationKernel } from './operation-kernel';
 
 export class WhiteboardAIProposalManager {
   private readonly proposals = new Map<string, Proposal>();
+  private readonly proposalInputs = new Map<string, string>();
   constructor(private readonly kernel: WhiteboardOperationKernel, private readonly now: () => Date = () => new Date()) {}
   preview(input: {
     proposalId: string; boardId: string; actor: WhiteboardOperationActor;
     action: Proposal['action']; provenance: Proposal['provenance']; ttlMs?: number;
   }): Proposal {
     if (input.actor.kind !== 'ai' || !input.actor.scopes.includes('board:write')) throw new Error('BOARD_AI_PROPOSAL_FORBIDDEN');
+    const inputDigest=stableBoardDigest('object-v1',{boardId:input.boardId,actor:input.actor,action:input.action,provenance:input.provenance});
     const prior = this.proposals.get(input.proposalId);
-    if (prior) return structuredClone(prior);
+    if (prior) { if(this.proposalInputs.get(input.proposalId)!==inputDigest)throw new Error('BOARD_AI_PROPOSAL_IDEMPOTENCY_CONFLICT'); return structuredClone(prior); }
     const referenced = new Set<string>();
     for (const command of input.action.commands) {
       if (command.type !== 'create') referenced.add(command.id);
@@ -32,6 +34,7 @@ export class WhiteboardAIProposalManager {
       action: input.action, provenance: WhiteboardOperationProvenance.parse({ ...input.provenance, source: 'ai-proposal' }),
       status: 'preview', createdAt: createdAt.toISOString(), expiresAt: expiresAt.toISOString() });
     this.proposals.set(proposal.proposalId, structuredClone(proposal));
+    this.proposalInputs.set(proposal.proposalId,inputDigest);
     return structuredClone(proposal); // Preview is deliberately a zero-write operation.
   }
   cancel(proposalId: string, actorId: string): Proposal {

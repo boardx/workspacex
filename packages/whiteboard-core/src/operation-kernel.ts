@@ -61,12 +61,12 @@ export class WhiteboardOperationKernel {
   dispatch(untrusted: unknown): WhiteboardOperationReceiptValue {
     const request = WhiteboardOperationRequest.parse(untrusted);
     const payload = canonical(request);
+    if (!request.actor.scopes.includes('board:write') || !this.authorize(request.actor, request.boardId, request.commands)) throw new Error('BOARD_OPERATION_FORBIDDEN');
     const previous = this.accepted.get(request.requestId);
     if (previous) {
       if (previous.payload !== payload) throw new Error('BOARD_OPERATION_IDEMPOTENCY_CONFLICT');
       return structuredClone({ ...previous.receipt, replayed: true });
     }
-    if (!request.actor.scopes.includes('board:write') || !this.authorize(request.actor, request.boardId, request.commands)) throw new Error('BOARD_OPERATION_FORBIDDEN');
     if (request.expectedRevision.epoch !== this.head.epoch || request.expectedRevision.seq !== this.head.seq) throw new Error('BOARD_OPERATION_STALE_REVISION');
     const id = this.makeIds();
     executeCommands(this.doc, request.commands, new WhiteboardCommandOrigin(request.boardId,request.actor.actorId,request.requestId,id.operationId,id.operationId));

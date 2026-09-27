@@ -1,0 +1,2 @@
+import{describe,expect,it}from'vitest';import{WhiteboardOperationEvent,WhiteboardEventCursor}from'../src/whiteboard-operation';
+describe('Board event model',()=>{it('requires stable identity, actor, revision, provenance and bounded cursor',()=>{expect(WhiteboardOperationEvent.safeParse({}).success).toBe(false);expect(WhiteboardEventCursor.parse({afterSeq:4,limit:20})).toEqual({afterSeq:4,limit:20});expect(WhiteboardEventCursor.safeParse({afterSeq:0,limit:501}).success).toBe(false);});});

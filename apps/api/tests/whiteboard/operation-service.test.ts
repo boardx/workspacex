@@ -31,6 +31,7 @@ function fixture(){const session=new Session();const db:DatabasePort={withTenant
     lockHead:async()=>{session.queries.push('audit.lockHead');return{epoch:1,seq:0,actorRole:'editor'};},
     append:async(_s,_p,input)=>{session.queries.push('audit.append.operation');session.operations.set(input.receipt.requestId,{request_hash:input.requestHash,receipt:input.receipt});session.queries.push('audit.append.event');session.events.push(input.event);},
     canRead:async()=>true,events:async()=>session.events as never[],
+    resolveActor:async()=>({actorId:'agent-1',kind:'ai',delegatedBy:'user-1',scopes:['board:read','board:write'],model:'gpt',skill:'cluster'}),canReadArtifact:async()=>true,
   };
   return{session,service:new WhiteboardOperationService(db,collaboration,audit,()=>new Date('2026-09-26T00:00:00.000Z'))};}
 
@@ -46,7 +47,7 @@ describe('versioned Board operation API application service',()=>{
   });
   it('fails closed for impersonation and stale revisions',async()=>{const{service}=fixture();
     await expect(service.execute(principal,boardId,{...request,actor:{...actor,delegatedBy:'other'}})).rejects.toBeInstanceOf(WhiteboardOperationError);
-    await expect(service.execute(principal,boardId,{...request,actor:{...actor,role:'owner'}})).rejects.toMatchObject({code:'FORBIDDEN'});
+    expect((await service.execute(principal,boardId,{...request,actor:{...actor,role:'owner',scopes:[]}})).events[0]?.actor).toMatchObject({role:'editor',scopes:['board:read','board:write']});
     await expect(service.execute(principal,boardId,{...request,requestId:'00000000-0000-4000-8000-000000000003',expectedRevision:{epoch:1,seq:9}})).rejects.toMatchObject({code:'STALE_REVISION'});
   });
   it('serves ordered event subscriptions from an explicit cursor',async()=>{const{service}=fixture();await service.execute(principal,boardId,request);const page=await service.events(principal,boardId,{afterSeq:0,limit:10});expect(page.events).toHaveLength(1);expect(page.nextSeq).toBe(1);});

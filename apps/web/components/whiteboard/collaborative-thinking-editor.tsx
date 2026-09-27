@@ -18,14 +18,14 @@ import { textSplice, useWhiteboardDocument } from "./use-whiteboard-document";
 type Point = { x: number; y: number };
 type EditSession = { id: string; initial: string };
 type PasteChoice = { text: string; point: Point } | null;
-export interface CollaborativeThinkingEditorProps { boardId: string; clientId: string; doc: Y.Doc; readOnly: boolean; title: string; status: string; onTitleChange?: (title: string) => void; onBack?: () => void; onSelectionChange?: (ids: string[]) => void; onAwareness?: (cursor: Point | null, ids: string[]) => void; peers?: WhiteboardConnectionState["peers"]; currentUserId?: string; }
+export interface CollaborativeThinkingEditorProps { boardId: string; clientId: string; doc: Y.Doc; readOnly: boolean; title: string; status: string; onTitleChange?: (title: string) => void; onBack?: () => void; onSelectionChange?: (ids: string[]) => void; onAwareness?: (cursor: Point | null, ids: string[], pointer?:{pointerType:'mouse'|'touch'|'pen';pressure:number;tiltX:number;tiltY:number;roomIdentity:null;reconnectToken:null}) => void; peers?: WhiteboardConnectionState["peers"]; currentUserId?: string; followViewport?:{x:number;y:number;zoom:number}|null; onViewportObserved?:(viewport:{x:number;y:number;zoom:number})=>void; }
 
 const stickySize = (variant: StickyVariant) => variant === "rectangle" ? { width: 240, height: 150 } : { width: 180, height: 180 };
 const centerPoint = (viewport: BoardViewport): Point => ({ x: (window.innerWidth / 2 - viewport.panX) / viewport.zoom, y: (window.innerHeight / 2 - viewport.panY) / viewport.zoom });
 const topLeft = (point: Point, width: number, height: number) => ({ x: point.x - width / 2, y: point.y - height / 2, width, height, rotation: 0 });
 const isEditableTarget = (target: EventTarget | null) => target instanceof HTMLElement && (target.isContentEditable || ["INPUT", "TEXTAREA", "SELECT"].includes(target.tagName));
 
-export function CollaborativeThinkingEditor({ boardId, clientId, doc, readOnly, title, status, onTitleChange, onBack, onSelectionChange, onAwareness, peers = [], currentUserId }: CollaborativeThinkingEditorProps) {
+export function CollaborativeThinkingEditor({ boardId, clientId, doc, readOnly, title, status, onTitleChange, onBack, onSelectionChange, onAwareness, peers = [], currentUserId,followViewport,onViewportObserved }: CollaborativeThinkingEditorProps) {
   const model = useWhiteboardDocument(doc, readOnly);
   const objects = useMemo(() => toBoardFabricObjects(model.objects), [model.objects]);
   const visibleObjectIdKey = objects.map((object) => object.id).join("\u0000");
@@ -34,6 +34,8 @@ export function CollaborativeThinkingEditor({ boardId, clientId, doc, readOnly, 
   const [notice, setNotice] = useState(""), [editing, setEditing] = useState<EditSession | null>(null), [conflictedDraft, setConflictedDraft] = useState<string | null>(null);
   const [bulk, setBulk] = useState<string | null>(null), [pasteChoice, setPasteChoice] = useState<PasteChoice>(null);
   const clipboard = useRef<WhiteboardObject[]>([]);
+  useEffect(()=>{if(followViewport)setViewport(current=>({...current,panX:followViewport.x,panY:followViewport.y,zoom:clampBoardZoom(followViewport.zoom)}));},[followViewport]);
+  useEffect(()=>{onViewportObserved?.({x:viewport.panX,y:viewport.panY,zoom:viewport.zoom});},[onViewportObserved,viewport.panX,viewport.panY,viewport.zoom]);
 
   useEffect(() => { onSelectionChange?.(selected); onAwareness?.(null, selected); }, [onAwareness, onSelectionChange, selected]);
   useEffect(() => { const ids = new Set(visibleObjectIdKey ? visibleObjectIdKey.split("\u0000") : []); setSelected((current) => current.filter((id) => ids.has(id))); setEditing((current) => current && ids.has(current.id) ? current : null); }, [visibleObjectIdKey]);
@@ -77,7 +79,7 @@ export function CollaborativeThinkingEditor({ boardId, clientId, doc, readOnly, 
 
   const editingObject = editing ? model.objects.find((candidate) => candidate.id === editing.id) : undefined;
   const handlePaste = (event: ClipboardEvent<HTMLElement>) => { if (readOnly || isEditableTarget(event.target)) return; const value = event.clipboardData.getData("text/plain"); if (!value.includes("\n")) return; try { parseThinkingPaste(value); event.preventDefault(); setPasteChoice({ text: value, point: centerPoint(viewport) }); } catch { /* Preserve normal paste. */ } };
-  const announceCursor = (event: PointerEvent<HTMLDivElement>) => { const bounds = event.currentTarget.getBoundingClientRect(); onAwareness?.({ x: (event.clientX - bounds.left - viewport.panX) / viewport.zoom, y: (event.clientY - bounds.top - viewport.panY) / viewport.zoom }, selected); };
+  const announceCursor = (event: PointerEvent<HTMLDivElement>) => { const bounds = event.currentTarget.getBoundingClientRect(); onAwareness?.({ x: (event.clientX - bounds.left - viewport.panX) / viewport.zoom, y: (event.clientY - bounds.top - viewport.panY) / viewport.zoom }, selected,{pointerType:event.pointerType==='pen'?'pen':event.pointerType==='touch'?'touch':'mouse',pressure:event.pointerType==='mouse'?0:event.pressure,tiltX:event.tiltX,tiltY:event.tiltY,roomIdentity:null,reconnectToken:null}); };
   return <section data-testid="collaborative-editor" className="fixed inset-0 overflow-hidden bg-background text-foreground" onPaste={handlePaste}>
     <div data-testid="board-live-surface" className="absolute inset-0" onPointerMove={announceCursor} onPointerLeave={() => onAwareness?.(null, selected)}>
       <BoardFabricSurface objects={objects} selectedObjectIds={selected} readOnly={readOnly} tool={tool} viewport={viewport} onSelectionChange={(ids, source) => { setSelected([...ids]); if (source === "outline" && ids[0]) beginEditing(ids[0]); }} onObjectTransform={(id, geometry) => execute([{ type: "geometry", id, geometry }])} onViewportChange={setViewport} onCanvasClick={createFromTool} onCanvasDoubleClick={(point) => { if (!readOnly && !creationTool) createStickyAt(point); }} onObjectDoubleClick={beginEditing} onToolDrop={(point, payload) => { try { const requested = JSON.parse(payload) as BoardCreationTool; createFromTool(point, requested); } catch { setNotice("无法识别拖入的白板工具。"); } }} className="absolute inset-0 overflow-hidden bg-panel-alt" />

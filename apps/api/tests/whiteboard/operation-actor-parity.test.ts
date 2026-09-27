@@ -1,0 +1,3 @@
+import{readFileSync}from'node:fs';import{describe,expect,it}from'vitest';
+const service=readFileSync(new URL('../../src/application/whiteboard/operation-service.ts',import.meta.url),'utf8'),store=readFileSync(new URL('../../src/infrastructure/whiteboard/pg-collaboration-store.ts',import.meta.url),'utf8');
+describe('operation actor parity',()=>{it('resolves non-human identity and snapshots server provenance before collaboration/audit attribution',()=>{expect(service).toContain('this.audit.resolveActor');expect(service).toContain('registered?.model');expect(service).toContain('registered?.skill');expect(service).toContain('actorId:actor.actorId');expect(store).toContain('attributedActorId');});});
