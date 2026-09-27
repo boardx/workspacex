@@ -87,6 +87,12 @@ it("locks objects against transform and exposes both explicit Panel deletion out
   act(() => { port.dispatch({ boardId: "spatial-board", clientId: "fixture", gestureId: "p2", command: { type: "create-panel", id: panel2, geometry: { x: 0, y: 0, width: 400, height: 300, rotation: 0 }, panel: { version: 1, mode: "freeform", autoExpand: false, clipContent: false, padding: 24, gap: 24, columns: 3, flowDirection: "horizontal" } } }); port.dispatch({ boardId: "spatial-board", clientId: "fixture", gestureId: "r2", command: { type: "reparent", id: sticky.id, parentId: panel2 } }); });
   fireEvent.click(screen.getByTestId(`mock-select-${panel2}`));
   openActions();
+  fireEvent.click(within(screen.getByTestId("board-spatial-toolbar")).getByText("锁定"));
+  expect(readObjects(doc).find((object) => object.id === panel2)?.locked).toBe(true);
+  openActions();
+  fireEvent.click(within(screen.getByTestId("board-spatial-toolbar")).getByText("解锁"));
+  expect(readObjects(doc).find((object) => object.id === panel2)?.locked).toBe(false);
+  openActions();
   fireEvent.click(within(screen.getByTestId("board-spatial-toolbar")).getByText("删除"));
   fireEvent.click(screen.getByTestId("board-panel-delete-cascade"));
   expect(readObjects(doc).find((object) => object.id === sticky.id)).toBeUndefined();

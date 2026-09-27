@@ -78,6 +78,7 @@ test("Shape Draw Image and Tile share one canonical collaborative surface", asyn
   // instead of relying on a hand-copied base64 payload with uncertain chunk CRCs.
   const png = await page.screenshot({ clip: { x: 0, y: 0, width: 32, height: 32 } });
   await page.getByTestId("board-image-input").setInputFiles({ name: "research.png", mimeType: "image/png", buffer: png });
+  await expect(page.getByText(/图片已在当前浏览器会话中验证并显示/)).toBeVisible({ timeout: 15_000 });
 
   const outline = page.getByTestId("board-a11y-mirror").getByRole("button");
   await expect(outline).toHaveCount(4);
