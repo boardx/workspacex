@@ -23,7 +23,7 @@ it('binds the authenticated actor, audits once, replays idempotently and keeps v
     if(sql.includes('SELECT role FROM whiteboard_members'))return{rows:[{role}]};
     if(sql.includes('SELECT request_hash,response'))return{rows:savedRequest?[{request_hash:savedRequest.hash,response:savedRequest.response}]:[]};
     if(sql.includes('SELECT snapshot FROM whiteboard_documents'))return{rows:[{snapshot:Buffer.from([0,0])}]};
-    if(sql.includes('SELECT user_id FROM whiteboard_members'))return{rows:[{user_id:'owner'},{user_id:'mentioned'}]};
+    if(sql.includes('SELECT om.user_id FROM org_memberships'))return{rows:[{user_id:'owner'},{user_id:'mentioned'}]};
     if(sql.includes('SELECT payload FROM whiteboard_comment_threads'))return{rows:threads.map(payload=>({payload}))};
     if(sql.startsWith('INSERT INTO whiteboard_comment_threads')){threads.splice(0,threads.length,JSON.parse(params[6]));return{rows:[]};}
     if(sql.startsWith('INSERT INTO whiteboard_collaboration_events')){events.push(JSON.parse(params[5]));return{rows:[]};}
@@ -130,5 +130,30 @@ for(const role of ['viewer','commenter','editor','owner'])for(const archived of 
       await expect(pending).rejects.toMatchObject({code:'FORBIDDEN'});
       expect(sqls.some(sql=>sql.includes('whiteboard_checkpoints')||sql.startsWith('INSERT'))).toBe(false);
     }else{await expect(pending).resolves.toMatchObject({replayed:false});expect(sqls.filter(sql=>sql.startsWith('INSERT'))).toHaveLength(2);}
+  });
+}
+
+for (const excluded of ['removed-from-org','different-board-member']) {
+  it(`rejects ${excluded} at final mention validation before writing`, async () => {
+    const boardId=randomUUID(), principal={orgId:toOrgId('mention-final-acl'),userId:'owner'};
+    const writes:string[]=[];
+    const session={query:async(sql:string,params:unknown[]=[])=>{
+      if(sql.includes('SELECT owner_id,archived'))return{rows:[{owner_id:'owner',archived:false}]};
+      if(sql.includes('SELECT request_hash,response'))return{rows:[]};
+      if(sql.includes('SELECT snapshot'))return{rows:[{snapshot:Buffer.from([0,0])}]};
+      if(sql.includes('SELECT om.user_id')){
+        expect(params).toEqual([principal.orgId,boardId]);
+        expect(sql).toContain('om.org_id=$1');expect(sql).toContain('m.board_id=$2 AND m.user_id=om.user_id');
+        expect(sql).toContain('b.id=$2 AND b.owner_id=om.user_id');expect(sql).toContain('FOR SHARE OF om');
+        return{rows:[{user_id:'owner'}]};
+      }
+      if(sql.includes('SELECT payload'))return{rows:[]};
+      if(sql.startsWith('INSERT'))writes.push(sql);
+      throw new Error('Unexpected write');
+    }} as unknown as TenantSession;
+    const db={withTenant:async(_org:unknown,work:(session:TenantSession)=>Promise<unknown>)=>work(session)} as unknown as DatabasePort;
+    const store=new PgWhiteboardCommentStore(db,{objectIds:async()=>['note']} as unknown as WhiteboardUpdateValidator);
+    await expect(store.dispatch(principal,boardId,{type:'create-comment',requestId:randomUUID(),threadId:randomUUID(),commentId:randomUUID(),objectId:'note',worldPosition:null,body:'restricted',mentions:[{userId:excluded}],expectedRevision:0})).rejects.toMatchObject({code:'INVALID_MENTION'});
+    expect(writes).toEqual([]);
   });
 }
