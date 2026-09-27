@@ -1,10 +1,10 @@
 export const GUIDED_RESEARCH_SIX_STEPS = [
-  { id: "list", label: "研究列表" },
   { id: "import", label: "导入需求" },
   { id: "topic", label: "确认研究主题" },
   { id: "plan", label: "研究计划" },
   { id: "research", label: "资料研究" },
-  { id: "report", label: "研究报告" },
+  { id: "chapters", label: "报告章节" },
+  { id: "report", label: "生成报告" },
 ] as const;
 
 export type GuidedResearchVisualStage = (typeof GUIDED_RESEARCH_SIX_STEPS)[number]["id"];
@@ -24,6 +24,6 @@ export function toGuidedResearchVisualStage(runtime: { currentNode: RuntimeNode;
 } {
   return {
     current: nodeToStage[runtime.currentNode],
-    available: runtime.availableNodes.map((node) => nodeToStage[node]),
+    available: runtime.availableNodes.flatMap((node) => node === "report" ? ["chapters", "report"] as const : [nodeToStage[node]]),
   };
 }
