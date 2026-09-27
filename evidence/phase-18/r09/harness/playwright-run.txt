@@ -1,0 +1,7 @@
+Running 5 tests using 1 worker
+  ✓  1 e2e/r09/journey.spec.ts:50:5 › setup: thread A 「我决定关注 211 高校」, thread B 「改成关注 985 高校吧」 (same_kind ⇒ auto supersede) (2.4m)
+  ✓  2 e2e/r09/journey.spec.ts:68:5 › 1: /brain shows 985 with 「来自你 M/D 的对话」 and a folded 「取代了：我决定关注 211 高校」 (7.9s)
+  ✓  3 e2e/r09/journey.spec.ts:85:5 › 2: 撤销取代 → 211 is live again and both show (301ms)
+  ✓  4 e2e/r09/journey.spec.ts:103:5 › 3: 忘掉 985 → 985 disappears (and stays gone after a reload) (1.3s)
+  ✓  5 e2e/r09/journey.spec.ts:129:5 › privacy: another member of the same org reads an empty personal space (9.9s)
+  5 passed (3.0m)

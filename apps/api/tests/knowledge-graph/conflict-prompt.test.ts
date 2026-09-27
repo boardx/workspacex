@@ -14,6 +14,7 @@ import { drainConflictCloses } from "../../src/application/knowledge-graph/detec
 import { runExtractionTick, type ExtractionDeps } from "../../src/application/knowledge-graph/extract-message-knowledge";
 import { newKgId } from "../../src/application/knowledge-graph/ids";
 import { promoteToPersonal } from "../../src/application/knowledge-graph/promote-to-personal";
+import { getPersonalKnowledge } from "../../src/application/knowledge-graph/read-personal-knowledge";
 import { getThreadKnowledge, getTurnMemory } from "../../src/application/knowledge-graph/read-thread-knowledge";
 import { findConflicts, isConflict, normalizeNumber, type ConfirmedClaim, type FreshClaim } from "../../src/domain/knowledge-graph/conflict";
 import { toOrgId } from "../../src/domain/org-id";
@@ -381,6 +382,10 @@ describe("F16: 长期记忆里的旧说法", () => {
       `SELECT c.id, c.status, c.supersedes_claim_id FROM claims c JOIN ontology_edges d ON d.src_id = c.id AND d.relation = 'derived_from' AND d.dst_id = $1
         WHERE c.scope_kind = 'personal' AND c.scope_id = 'u-owner'`, [newer]);
     expect(l1).toMatchObject({ status: "accepted", supersedes_claim_id: olderId });
+    // issue #4302：大脑页把长期记忆里被「以新的为准」取代的旧条折叠在新的那条下面；这种取代没有撤销动作 ⇒ undo 为 null
+    const brain = await getPersonalKnowledge(deps, { userId: "u-owner", orgId: ORG_ID });
+    expect(brain.claims.map((c) => c.id)).not.toContain(olderId);
+    expect(brain.replaced).toContainEqual({ byClaimId: l1!.id, replaces: { claimId: olderId, statement: "项目P 9/29 发布" }, undo: null });
   });
 });
 

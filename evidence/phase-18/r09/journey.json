@@ -1,0 +1,234 @@
+{
+  "ids": {
+    "threadA": "thr-4fd9710c-0bb5-45a3-a232-2584ef5dcf55",
+    "p211": "act_0e8df6603cb149d39f1ccffa17f11c7a-p",
+    "threadB": "thr-d49586c9-8d3b-4056-b69b-c472fe064abc",
+    "p985": "act_118ff4c8863942c59418c603dfb423c3-p"
+  },
+  "a": {
+    "answer": "好的，收到。"
+  },
+  "b": {
+    "answer": "根据之前的对话：我决定关注 211 高校（来自个人空间知识，最早见于你 09/27 的对话）。"
+  },
+  "afterChange": {
+    "personal": {
+      "scope": {
+        "kind": "personal",
+        "id": "user-kg-eval-owner"
+      },
+      "revision": 3,
+      "objects": [],
+      "claims": [
+        {
+          "id": "act_118ff4c8863942c59418c603dfb423c3-p",
+          "scope": {
+            "kind": "personal",
+            "id": "user-kg-eval-owner"
+          },
+          "kind": "decision",
+          "statement": "改成关注 985 高校",
+          "status": "proposed",
+          "triState": "pending",
+          "confidence": 0.9,
+          "createdBy": "model",
+          "reviewedBy": null,
+          "supersedesClaimId": null,
+          "derivedFromClaimId": "clm_9b47b767185f4e4a815f0b0790eb50cb",
+          "aboutObjectIds": [],
+          "supportingCount": 1,
+          "contradictingCount": 0,
+          "createdAt": "2026-09-27T00:20:19.932Z"
+        }
+      ],
+      "edges": [],
+      "replaced": [
+        {
+          "byClaimId": "act_118ff4c8863942c59418c603dfb423c3-p",
+          "replaces": {
+            "claimId": "act_0e8df6603cb149d39f1ccffa17f11c7a-p",
+            "statement": "我决定关注 211 高校"
+          },
+          "undo": {
+            "threadId": "thr-d49586c9-8d3b-4056-b69b-c472fe064abc",
+            "noticeId": "act_598379d7c55f4ebb9e54bac0d0ba38e5-0"
+          }
+        }
+      ]
+    },
+    "overview": {
+      "threads": [
+        {
+          "threadId": "thr-d49586c9-8d3b-4056-b69b-c472fe064abc",
+          "projectId": null,
+          "title": "改成关注 985 高校吧",
+          "lastActivityAt": "2026-09-27T00:20:18.126Z",
+          "claims": 1,
+          "pending": 1,
+          "confirmed": 0,
+          "conflict": 0,
+          "objects": 0
+        },
+        {
+          "threadId": "thr-4fd9710c-0bb5-45a3-a232-2584ef5dcf55",
+          "projectId": null,
+          "title": "我决定关注 211 高校",
+          "lastActivityAt": "2026-09-27T00:19:21.666Z",
+          "claims": 1,
+          "pending": 1,
+          "confirmed": 0,
+          "conflict": 0,
+          "objects": 0
+        }
+      ],
+      "personalOrigins": [
+        {
+          "personalClaimId": "act_118ff4c8863942c59418c603dfb423c3-p",
+          "sourceClaimId": "clm_9b47b767185f4e4a815f0b0790eb50cb",
+          "threadId": "thr-d49586c9-8d3b-4056-b69b-c472fe064abc",
+          "projectId": null,
+          "saidAt": "2026-09-27T00:20:18.781Z",
+          "autoCopied": true,
+          "threadTitle": "改成关注 985 高校吧"
+        }
+      ]
+    }
+  },
+  "s1": {
+    "items": [
+      "改成关注 985 高校"
+    ],
+    "originTime": "来自你 9/27 的对话",
+    "folded": "取代了：我决定关注 211 高校",
+    "rowText": "改成关注 985 高校\n\nAI 记下的\n来自你 9/27 的对话\n改成关注 985 高校吧\n点开看原话\n取代了：我决定关注 211 高校\n撤销取代\n忘掉这条"
+  },
+  "s2_request": {
+    "basedOnRevision": 2,
+    "action": {
+      "type": "undoSupersede",
+      "noticeId": "act_598379d7c55f4ebb9e54bac0d0ba38e5-0"
+    }
+  },
+  "s2": {
+    "items": [
+      "我决定关注 211 高校",
+      "改成关注 985 高校"
+    ],
+    "personal": {
+      "scope": {
+        "kind": "personal",
+        "id": "user-kg-eval-owner"
+      },
+      "revision": 4,
+      "objects": [],
+      "claims": [
+        {
+          "id": "act_0e8df6603cb149d39f1ccffa17f11c7a-p",
+          "scope": {
+            "kind": "personal",
+            "id": "user-kg-eval-owner"
+          },
+          "kind": "decision",
+          "statement": "我决定关注 211 高校",
+          "status": "proposed",
+          "triState": "pending",
+          "confidence": 0.9,
+          "createdBy": "model",
+          "reviewedBy": null,
+          "supersedesClaimId": null,
+          "derivedFromClaimId": "clm_b114209af7fb446181b43636e02c7484",
+          "aboutObjectIds": [],
+          "supportingCount": 1,
+          "contradictingCount": 0,
+          "createdAt": "2026-09-27T00:20:17.933Z"
+        },
+        {
+          "id": "act_118ff4c8863942c59418c603dfb423c3-p",
+          "scope": {
+            "kind": "personal",
+            "id": "user-kg-eval-owner"
+          },
+          "kind": "decision",
+          "statement": "改成关注 985 高校",
+          "status": "proposed",
+          "triState": "pending",
+          "confidence": 0.9,
+          "createdBy": "model",
+          "reviewedBy": null,
+          "supersedesClaimId": null,
+          "derivedFromClaimId": "clm_9b47b767185f4e4a815f0b0790eb50cb",
+          "aboutObjectIds": [],
+          "supportingCount": 1,
+          "contradictingCount": 0,
+          "createdAt": "2026-09-27T00:20:19.932Z"
+        }
+      ],
+      "edges": [],
+      "replaced": []
+    }
+  },
+  "s3_request": {
+    "url": "/__fullstack_api/knowledge-graph/threads/thr-d49586c9-8d3b-4056-b69b-c472fe064abc/claims/clm_9b47b767185f4e4a815f0b0790eb50cb/personal-copy/undo",
+    "response": {
+      "personalClaimId": "act_118ff4c8863942c59418c603dfb423c3-p",
+      "outcome": "revoked"
+    }
+  },
+  "s3": {
+    "itemsAfterReload": [
+      "我决定关注 211 高校"
+    ],
+    "personal": {
+      "scope": {
+        "kind": "personal",
+        "id": "user-kg-eval-owner"
+      },
+      "revision": 5,
+      "objects": [],
+      "claims": [
+        {
+          "id": "act_0e8df6603cb149d39f1ccffa17f11c7a-p",
+          "scope": {
+            "kind": "personal",
+            "id": "user-kg-eval-owner"
+          },
+          "kind": "decision",
+          "statement": "我决定关注 211 高校",
+          "status": "proposed",
+          "triState": "pending",
+          "confidence": 0.9,
+          "createdBy": "model",
+          "reviewedBy": null,
+          "supersedesClaimId": null,
+          "derivedFromClaimId": "clm_b114209af7fb446181b43636e02c7484",
+          "aboutObjectIds": [],
+          "supportingCount": 1,
+          "contradictingCount": 0,
+          "createdAt": "2026-09-27T00:20:17.933Z"
+        }
+      ],
+      "edges": [],
+      "replaced": []
+    }
+  },
+  "s3_threadB": [
+    "改成关注 985 高校"
+  ],
+  "privacy": {
+    "other": {
+      "scope": {
+        "kind": "personal",
+        "id": "user-kg-eval-other"
+      },
+      "revision": 0,
+      "objects": [],
+      "claims": [],
+      "edges": [],
+      "replaced": []
+    },
+    "overview": {
+      "threads": [],
+      "personalOrigins": []
+    }
+  }
+}

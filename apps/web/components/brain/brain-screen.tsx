@@ -13,7 +13,8 @@ import { useBrainData, type BrainData } from "./use-brain-data";
 /**
  * 大脑（/brain）—— 只显示登录者自己的真实记忆（2026-09-24 人类指令「取消所有的 mockup 的数据」）。
  *
- *   · 我的长期记忆：个人空间里记下的每一条（按类型），每条能点回它出自的对话；
+ *   · 我的长期记忆：个人空间里记下的每一条（按类型），带「来自你 {M/D} 的对话」、每条能点回它出自的对话；
+ *     被改口取代的旧记忆折叠在新的那条下面；可以「忘掉这条」「撤销取代」（issue #4302，人类决定 2026-09-26）；
  *   · 对话里的记忆：每个记下了东西的对话一行计数，点进去就是那个对话的「记忆」页签；
  *   · 项目与组织：本阶段没有开放，如实说「尚未开放」，不摆示例数字。
  *
@@ -23,12 +24,12 @@ import { useBrainData, type BrainData } from "./use-brain-data";
 export function BrainScreen() {
   const { session } = useSession();
   if (!session) throw new Error("BrainScreen requires an authenticated session");
-  const { state, reload } = useBrainData(session.currentOrgId);
-  return <BrainView state={state} reload={reload} />;
+  const { state, reload, refresh } = useBrainData(session.currentOrgId);
+  return <BrainView state={state} reload={reload} refresh={refresh} />;
 }
 
 /** 与取数分开，方便对每一种状态单独渲染（组件测试直接喂状态）。 */
-export function BrainView({ state, reload }: { state: BrainData; reload: () => void }) {
+export function BrainView({ state, reload, refresh }: { state: BrainData; reload: () => void; refresh: () => Promise<void> }) {
   const [tab, setTab] = React.useState("personal");
 
   return (
@@ -81,7 +82,12 @@ export function BrainView({ state, reload }: { state: BrainData; reload: () => v
             <TabsTrigger value="shared" data-testid="brain-tab-shared">项目与组织</TabsTrigger>
           </TabsList>
           <TabsContent value="personal">
-            <PersonalMemory personal={state.personal} origins={state.overview.personalOrigins} onShowSessions={() => setTab("sessions")} />
+            <PersonalMemory
+              personal={state.personal}
+              origins={state.overview.personalOrigins}
+              onShowSessions={() => setTab("sessions")}
+              onChanged={refresh}
+            />
           </TabsContent>
           <TabsContent value="sessions">
             <SessionMemory threads={state.overview.threads} />

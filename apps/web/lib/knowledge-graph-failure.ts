@@ -90,3 +90,20 @@ export function describeMemoryCardFailure(e: unknown): string {
   if (code === null) return "没能完成这次操作，请稍后重试。";
   return MEMORY_CARD_FAILURE_ZH[code] ?? HUMAN_ACTION_FAILURE_ZH[code];
 }
+
+/**
+ * issue #4302 —— 大脑页（/brain）「忘掉这条」「撤销取代」失败时的人话。这两个动作复用对话里的既有动作，
+ * 多数码沿用编辑动作那一句；这几句按大脑页的处境改说法（这里没有「提醒」，修改发生在出自的那个对话上）。
+ */
+const BRAIN_ACTION_FAILURE_ZH: Partial<Record<KnowledgeGraphErrorCode, string>> = {
+  KG_CLAIM_NOT_FOUND: "这一条已经变了（可能在对话里被改过或忘掉了），已为你刷新列表。",
+  KG_PROMPT_NOT_FOUND: "这次改口已经撤销过了，已为你刷新列表。",
+  KG_THREAD_NOT_FOUND: "出自的那个对话已经不在了，没法在这里修改。",
+  KG_NOT_OWNER: "只有你自己的对话里记下的，才能在这里修改。",
+};
+
+export function describeBrainActionFailure(e: unknown): string {
+  const code = knowledgeGraphErrorCode(e);
+  if (code === null) return "没能完成，请稍后重试。";
+  return BRAIN_ACTION_FAILURE_ZH[code] ?? HUMAN_ACTION_FAILURE_ZH[code];
+}

@@ -121,19 +121,33 @@ KG_PROMPT_NOT_FOUND             矛盾提醒不存在或已处理
 
 ## UC-KG-7 读个人空间 `getPersonalKnowledge`
 - **in**：`{}`
-- **out**：本人 L1 的 `{ scope, revision, objects, claims, edges }`（孤立实体不下发，同 UC-KG-1）
+- **out**：本人 L1 的 `{ scope, revision, objects, claims, edges, replaced }`（孤立实体不下发，同 UC-KG-1）
+  - `replaced`（issue #4302）：本人 L1 里**被改口取代**的旧条 `{ byClaimId, replaces: { claimId, statement }, undo: { threadId, noticeId } | null }`，
+    挂在取代它的那条活结论下。`claims` 的活口径不变（`revoked_at IS NULL AND status <> 'superseded'`），这是单独一支投影，
+    只收 `revocation_reason ∈ { decision_changed（#4290 自动取代）, conflict_keep_new（F16「以新的为准」）}`；
+    忘掉 / 撤回 / 原话被删的一概不出。`undo` 只在 #4290 自动取代、且那次取代的提示仍是 applied、说出改口的对话是本人个人对话时给出。
 - **pre**：已登录，且是当前组织成员。
 - **err**：`KG_NOT_VISIBLE`（不是 / 已不是当前组织成员，HTTP 403）。没有内容不是错误，返回空。
 - 消费方：`/brain`「我的长期记忆」（见 UC-KG-13）。
+- **人类决定（2026-09-26，issue #4302「折叠的历史」）**：活着的每条标「来自你 {M/D} 的对话」与三态（AI 记下的 / 你确认过的）；
+  被取代的旧条**折叠**在取代它的那条下面，一行「取代了：〈旧〉」；**撤销（忘掉）的不显示**；只读查看者本人的个人空间。
 
 ## UC-KG-13 大脑页概况 `getBrainOverview`（`/brain`）
 - **in**：`{}`
 - **out**：`{ threads[], personalOrigins[] }`
   - `threads`：调用者**本人创建**、且有活结论的会话，每个一行计数 `{ threadId, projectId, title, lastActivityAt, claims, pending, confirmed, conflict, objects }`，按最近活动倒序，至多 `KG_BRAIN_THREADS_LIMIT`（50）个；只有计数与标题，不带结论正文。
-  - `personalOrigins`：本人 L1 每条结论经 `derived_from` 指回的 L0 原结论与其所在会话 `{ personalClaimId, sourceClaimId, threadId, projectId, threadTitle }`；一条 L1 合并过多个会话时有多行。
+  - `personalOrigins`：本人 L1 每条结论经 `derived_from` 指回的 L0 原结论与其所在会话 `{ personalClaimId, sourceClaimId, threadId, projectId, threadTitle, saidAt, autoCopied }`；一条 L1 合并过多个会话时有多行。
+    `saidAt`（#4302）= 原结论最早一条支撑消息的时间（同 `KgRecalledMemory.saidAt` 口径）；`autoCopied`（#4302）= 这个来源是 #4283 自动记下的（边由模型建立）。
 - **pre**：已登录。
 - **err**：无。每个会话逐个经 `chat` 束 UC-0 可见性判定（与打开会话同一个判定），看不见的会话整行不出现、也不暴露标题；不是组织成员 ⇒ 两个数组都为空。上限作用在**判定之后**：看不见的会话不会把看得见的挤出这一页。
-- 语义：只读聚合，不写任何东西。项目 / 组织两级本阶段不开放（I-1），`/brain` 上显示「尚未开放」，不调用任何接口。
+- 语义：本 UC 本身只读聚合，不写任何东西。项目 / 组织两级本阶段不开放（I-1），`/brain` 上显示「尚未开放」，不调用任何接口。
+- **人类决定（2026-09-26，issue #4302）：`/brain` 从「只读」改为「可忘掉 / 撤销取代」**——不加新的后端语义，两个按钮都复用既有动作：
+  - 「忘掉这条」（每条活的长期记忆）：逐个来源（`personalOrigins`）执行——这条仍是「AI 记下的」且来源 `autoCopied` ⇒ UC-KG-14
+    `undoAutoPersonalCopy(threadId, sourceClaimId)`（只拿掉长期记忆那份，对话里那条不动）；其余（你确认过的 / 手动记下的）⇒
+    在来源对话上 UC-KG-3 `revokeClaim(sourceClaimId)`（与对话「记忆」页签的「忘掉这条」同一动作，F07 级联让 L1 在所有来源都失效后一起失效）。
+    没有来源（出自的对话已不在）⇒ 不给按钮。
+  - 「撤销取代」（折叠的旧条）：在 `replaced.undo.threadId` 上 UC-KG-3 `undoSupersede(noticeId)`（#4290，与对话里那一行「撤销」同一动作）。
+  - 两者都先读那个对话的 `revision`（`getThreadKnowledge`）再提交；成功后静默重读，失败则回滚界面并说原因（`describeBrainActionFailure`）。
 - 来由：`/brain` 此前整屏是 `lib/mock/brain.ts` 的示例数字；2026-09-24 人类指令「取消所有的 mockup 的数据」，改为只读 UC-KG-7 + 本 UC 的真实数据。
 - ⚠ **待人类签核时一并确认**：`design-signoff.md` §二.3 问「`getPersonalKnowledge` 保留还是删掉」——`/brain`「我的长期记忆」现在就在用它（本 UC 与 UC-KG-7 一起），删掉则大脑页失去长期记忆这一栏。本文件不改 `design-signoff.md`，请签核人在那里裁决。
 

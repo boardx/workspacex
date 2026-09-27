@@ -25,6 +25,8 @@ import { BrainScreen } from "@/components/brain/brain-screen";
 
 const ME = "u-me";
 const PSCOPE = { kind: "personal", id: ME } as const;
+/** 正午（UTC）：任何常见时区下都还是 9/26 */
+const SAID_0926 = "2026-09-26T12:00:00Z";
 
 function claim(id: string, kind: KgClaim["kind"], statement: string, derivedFrom: string | null): KgClaim {
   return {
@@ -45,6 +47,7 @@ const PERSONAL: PersonalKnowledge = knowledgeGraph.getPersonalKnowledge.out.pars
     claim("p-3", "risk", "测试环境不稳定", null),
   ],
   edges: [],
+  replaced: [],
 });
 const OVERVIEW: BrainOverview = knowledgeGraph.getBrainOverview.out.parse({
   threads: [
@@ -52,20 +55,20 @@ const OVERVIEW: BrainOverview = knowledgeGraph.getBrainOverview.out.parse({
     { threadId: "thr-2", projectId: "prj-1", title: "项目周会", lastActivityAt: "2026-09-23T08:00:00Z", claims: 1, pending: 1, confirmed: 0, conflict: 0, objects: 0 },
   ],
   personalOrigins: [
-    { personalClaimId: "p-1", sourceClaimId: "c-1", threadId: "thr-1", projectId: null, threadTitle: "v2 上线安排" },
-    { personalClaimId: "p-2", sourceClaimId: "c-2", threadId: "thr-2", projectId: "prj-1", threadTitle: "项目周会" },
+    { personalClaimId: "p-1", sourceClaimId: "c-1", threadId: "thr-1", projectId: null, threadTitle: "v2 上线安排", saidAt: SAID_0926, autoCopied: false },
+    { personalClaimId: "p-2", sourceClaimId: "c-2", threadId: "thr-2", projectId: "prj-1", threadTitle: "项目周会", saidAt: null, autoCopied: false },
   ],
 });
-const EMPTY_PERSONAL: PersonalKnowledge = { scope: PSCOPE, revision: 0, objects: [], claims: [], edges: [] };
+const EMPTY_PERSONAL: PersonalKnowledge = { scope: PSCOPE, revision: 0, objects: [], claims: [], edges: [], replaced: [] };
 const EMPTY_OVERVIEW: BrainOverview = { threads: [], personalOrigins: [] };
 
 /* ── 网络桩 ───────────────────────────────────────────────────────── */
 const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status, headers: { "Content-Type": "application/json" } });
 let fetchMock: ReturnType<typeof vi.fn>;
-function stubNetwork(route: (path: string) => Response | Promise<Response | undefined> | undefined): void {
-  fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+function stubNetwork(route: (path: string, init?: RequestInit) => Response | Promise<Response | undefined> | undefined): void {
+  fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
     const url = typeof input === "string" ? input : input.toString();
-    const res = await route(new URL(url, "http://localhost").pathname);
+    const res = await route(new URL(url, "http://localhost").pathname, init);
     if (!res) throw new Error(`unexpected fetch: ${url}`);
     return res;
   });
@@ -202,6 +205,155 @@ describe("大脑页：真实数据", () => {
     }
     await waitFor(() => expect(screen.getByTestId("brain-shared")).toBeTruthy());
     const copy = text(container);
+    for (const w of KG_BANNED_USER_FACING_WORDS) expect(copy).not.toContain(w);
+  });
+});
+
+/* ── issue #4302：时间、折叠的取代历史、忘掉 / 撤销取代 ─────────────────── */
+
+const pending = (id: string, statement: string, derivedFrom: string): KgClaim =>
+  ({ ...claim(id, "decision", statement, derivedFrom), status: "proposed", triState: "pending", createdBy: "model", reviewedBy: null });
+const OLD_211 = "我决定关注 211 高校";
+const NEW_985 = "改成关注 985 高校";
+const FRONT = "我决定用 React 做前端";
+const UNDO = { threadId: "thr-b", noticeId: "sn-1" };
+/** 改口之后：985 活着（AI 记下的），211 折叠在它下面。 */
+const AFTER_CHANGE: PersonalKnowledge = knowledgeGraph.getPersonalKnowledge.out.parse({
+  scope: PSCOPE, revision: 5, objects: [], edges: [],
+  claims: [pending("p-985", NEW_985, "c-985"), claim("p-front", "decision", FRONT, "c-front")],
+  replaced: [{ byClaimId: "p-985", replaces: { claimId: "p-211", statement: OLD_211 }, undo: UNDO }],
+});
+const AFTER_CHANGE_OVERVIEW: BrainOverview = knowledgeGraph.getBrainOverview.out.parse({
+  threads: [],
+  personalOrigins: [
+    { personalClaimId: "p-985", sourceClaimId: "c-985", threadId: "thr-b", projectId: null, threadTitle: "选校 B", saidAt: SAID_0926, autoCopied: true },
+    { personalClaimId: "p-front", sourceClaimId: "c-front", threadId: "thr-c", projectId: null, threadTitle: "前端", saidAt: "2026-09-20T12:00:00Z", autoCopied: true },
+  ],
+});
+/** 撤销取代之后：两条都活着，没有折叠行。 */
+const AFTER_UNDO: PersonalKnowledge = { ...AFTER_CHANGE, claims: [pending("p-211", OLD_211, "c-211"), ...AFTER_CHANGE.claims], replaced: [] };
+const threadKnowledge = (threadId: string, revision: number) => knowledgeGraph.getThreadKnowledge.out.parse({
+  scope: { kind: "chat_session", id: threadId }, revision, objects: [], claims: [], edges: [],
+  ingestion: { queued: 0, running: 0, failed: 0, failures: [] },
+  canEdit: true, canPromote: true, visibility: "owner_only", extractionActive: true,
+});
+const failure = (reasonCode: string, status: number) => json({ error: "x", traceId: "t", reasonCode }, status);
+const writes = () => fetchMock.mock.calls
+  .filter(([, init]) => (init as RequestInit | undefined)?.method === "POST")
+  .map(([u, init]) => ({ path: new URL(String(u), "http://localhost").pathname, body: JSON.parse(String((init as RequestInit).body)) as unknown }));
+const itemOf = (statement: string) => {
+  const li = screen.getAllByTestId("brain-personal-item").find((x) => x.querySelector("p")?.textContent === statement);
+  if (li === undefined) throw new Error(`no item「${statement}」`);
+  return li;
+};
+const statements = () => screen.getAllByTestId("brain-personal-item").map((li) => li.querySelector("p")?.textContent);
+const THREAD_PATH = /^\/knowledge-graph\/threads\/([^/]+)$/;
+
+/** 服务端：读 personal / overview 时给 `state` 的现值；POST 按 `onWrite` 回；读对话给版本号 7。 */
+function brainServer(onWrite: (path: string, body: unknown) => Response | Promise<Response>) {
+  const state = { personal: AFTER_CHANGE, overview: AFTER_CHANGE_OVERVIEW };
+  stubNetwork(async (p, init) => {
+    if (p === "/knowledge-graph/personal") return json(state.personal);
+    if (p === "/knowledge-graph/me/overview") return json(state.overview);
+    if (init?.method === "POST") return onWrite(p, JSON.parse(String(init.body)));
+    const t = THREAD_PATH.exec(p);
+    return t ? json(threadKnowledge(t[1]!, 7)) : undefined;
+  });
+  return state;
+}
+
+describe("大脑页：跨会话的长期记忆（issue #4302）", () => {
+  it("每条带「来自你 {M/D} 的对话」；来源没有时间时只说「来自对话」", async () => {
+    stubNetwork(real(PERSONAL, OVERVIEW));
+    render(<BrainScreen />);
+    await screen.findByTestId("brain-personal");
+    expect(within(itemOf("v2 下周一上线")).getByTestId("brain-origin-time").textContent).toBe("来自你 9/26 的对话");
+    expect(within(itemOf("老张负责测试")).getByTestId("brain-origin-time").textContent).toBe("来自对话");
+  });
+
+  it("被改口取代的旧记忆折叠在新的那条下面（「取代了：…」），不单独成一条；没有撤销的不给按钮", async () => {
+    const noUndo = { ...AFTER_CHANGE, replaced: [{ ...AFTER_CHANGE.replaced[0]!, undo: null }] };
+    stubNetwork(real(noUndo, AFTER_CHANGE_OVERVIEW));
+    render(<BrainScreen />);
+    await screen.findByTestId("brain-personal");
+    expect(statements()).toEqual([NEW_985, FRONT]);
+    expect(screen.getByTestId("brain-tab-personal-count").textContent).toBe("2");
+    const folded = within(itemOf(NEW_985)).getByTestId("brain-replaced");
+    expect(within(folded).getByTestId("brain-replaced-text").textContent).toBe(`取代了：${OLD_211}`);
+    expect(within(folded).queryByTestId("brain-undo-supersede")).toBeNull();
+    expect(within(itemOf(FRONT)).queryByTestId("brain-replaced")).toBeNull();
+  });
+
+  it("撤销取代 = 在说出改口的那个对话上 undoSupersede（带那个对话的最新版本号）；成功后列表刷新，两条都在", async () => {
+    const state = brainServer(() => { state.personal = AFTER_UNDO; return json({ revision: 8, actionId: "act-1" }); });
+    render(<BrainScreen />);
+    fireEvent.click(await screen.findByTestId("brain-undo-supersede"));
+    await waitFor(() => expect(statements()).toEqual([OLD_211, NEW_985, FRONT]));
+    expect(writes()).toEqual([{ path: "/knowledge-graph/threads/thr-b/actions", body: { basedOnRevision: 7, action: { type: "undoSupersede", noticeId: "sn-1" } } }]);
+    expect(paths()).toContain("/knowledge-graph/threads/thr-b");
+    expect(screen.queryByTestId("brain-replaced")).toBeNull();
+    expect(screen.queryByTestId("brain-action-error")).toBeNull();
+  });
+
+  it("忘掉仍是「AI 记下的」自动记下的一条 ⇒ undoAutoPersonalCopy（只拿掉长期记忆里那份）；成功后它不见了", async () => {
+    const state = brainServer(() => {
+      state.personal = { ...AFTER_CHANGE, claims: AFTER_CHANGE.claims.filter((c) => c.id !== "p-985"), replaced: [] };
+      return json({ personalClaimId: "p-985", outcome: "revoked" });
+    });
+    render(<BrainScreen />);
+    await screen.findByTestId("brain-personal");
+    fireEvent.click(within(itemOf(NEW_985)).getByTestId("brain-forget"));
+    await waitFor(() => expect(statements()).toEqual([FRONT]));
+    expect(writes()).toEqual([{ path: "/knowledge-graph/threads/thr-b/claims/c-985/personal-copy/undo", body: {} }]);
+    expect(screen.getByTestId("brain-tab-personal-count").textContent).toBe("1");
+  });
+
+  it("忘掉你确认过的一条 ⇒ 在出自的对话上 revokeClaim 那条原话记下的（与对话里的「忘掉这条」同一个动作）", async () => {
+    const state = brainServer(() => {
+      state.personal = { ...AFTER_CHANGE, claims: AFTER_CHANGE.claims.filter((c) => c.id !== "p-front") };
+      return json({ revision: 8, actionId: "act-2" });
+    });
+    render(<BrainScreen />);
+    await screen.findByTestId("brain-personal");
+    fireEvent.click(within(itemOf(FRONT)).getByTestId("brain-forget"));
+    await waitFor(() => expect(statements()).toEqual([NEW_985]));
+    expect(writes()).toEqual([{ path: "/knowledge-graph/threads/thr-c/actions", body: { basedOnRevision: 7, action: { type: "revokeClaim", claimId: "c-front" } } }]);
+  });
+
+  it("忘掉失败 ⇒ 点下去先消失，失败后放回原处，并在那一条下面说原因（不出现内部码）", async () => {
+    let release!: () => void;
+    const gate = new Promise<void>((r) => { release = r; });
+    brainServer(async () => { await gate; return new Response("<html>bad gateway</html>", { status: 502 }); });
+    render(<BrainScreen />);
+    await screen.findByTestId("brain-personal");
+    fireEvent.click(within(itemOf(NEW_985)).getByTestId("brain-forget"));
+    await waitFor(() => expect(statements()).toEqual([FRONT]));
+    release();
+    const err = await screen.findByTestId("brain-action-error");
+    expect(statements()).toEqual([NEW_985, FRONT]);
+    expect(within(itemOf(NEW_985)).getByTestId("brain-action-error")).toBe(err);
+    expect(err.textContent).toBe("没能完成，请稍后重试。");
+    expect(err.textContent).not.toMatch(/KG_|502/);
+  });
+
+  it("撤销取代失败（已经撤销过了）⇒ 折叠行放回来，说清原因并重读列表", async () => {
+    brainServer(() => failure("KG_PROMPT_NOT_FOUND", 404));
+    render(<BrainScreen />);
+    fireEvent.click(await screen.findByTestId("brain-undo-supersede"));
+    const err = await screen.findByTestId("brain-action-error");
+    expect(err.textContent).toBe("这次改口已经撤销过了，已为你刷新列表。");
+    expect(within(itemOf(NEW_985)).getByTestId("brain-replaced-text").textContent).toBe(`取代了：${OLD_211}`);
+    // 失败后重读过一次：初次一份 + 重读一份
+    await waitFor(() => expect(paths().filter((p) => p === "/knowledge-graph/personal")).toHaveLength(2));
+  });
+
+  it("新加的文字同样不出现内部术语", async () => {
+    stubNetwork(real(AFTER_CHANGE, AFTER_CHANGE_OVERVIEW));
+    const { container } = render(<BrainScreen />);
+    await screen.findByTestId("brain-replaced");
+    const copy = text(container);
+    expect(copy).toContain("忘掉这条");
+    expect(copy).toContain("撤销取代");
     for (const w of KG_BANNED_USER_FACING_WORDS) expect(copy).not.toContain(w);
   });
 });

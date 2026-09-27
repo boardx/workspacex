@@ -1,0 +1,15 @@
+   × F16: 长期记忆里的旧说法 > 个人线程里与自己长期记忆冲突 ⇒ 出卡（旧条是个人空间那条）；以新的为准 ⇒ 长期记忆里旧的失效、记进新的 204ms
+   × issue #4302: 大脑页的长期记忆——时间、折叠的取代历史、忘掉 / 撤销取代 > A1「我决定关注 211 高校」自动记入长期记忆；来源带说出它的时间，标明是自动记下的 271ms
+   × issue #4302: 大脑页的长期记忆——时间、折叠的取代历史、忘掉 / 撤销取代 > B1「改成关注 985 高校吧」：活记忆只剩 985（口径不变）；211 折叠在 985 下面，带撤销（B1 上那次取代） 239ms
+   × issue #4302: 大脑页的长期记忆——时间、折叠的取代历史、忘掉 / 撤销取代 > 只读本人：同组织的另一位成员读到的长期记忆是空的，也动不了 A 的撤销 18ms
+   × issue #4302: 大脑页的长期记忆——时间、折叠的取代历史、忘掉 / 撤销取代 > 撤销取代（replaced.undo 给的对话 + noticeId）：211 恢复，两条都在，没有折叠行 19ms
+   × issue #4302: 大脑页的长期记忆——时间、折叠的取代历史、忘掉 / 撤销取代 > 忘掉 985（仍是「AI 记下的」、自动记下）⇒ undoAutoPersonalCopy：长期记忆里没了，对话里那条还在 40ms
+   × issue #4302: 大脑页的长期记忆——时间、折叠的取代历史、忘掉 / 撤销取代 > 忘掉确认过的一条 ⇒ 在来源对话上 revokeClaim：长期记忆里那份经 F07 级联一起失效，不出现在折叠历史里 234ms
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 7 ⎯⎯⎯⎯⎯⎯⎯
+AssertionError: [{"code":"invalid_type","expected":"array","received":"undefined","path":["replaced"],"message":"Required"}]: expected false to be true // Object.is equality
+AssertionError: [{"code":"invalid_type","expected":"array","received":"undefined","path":["replaced"],"message":"Required"}]: expected false to be true // Object.is equality
+AssertionError: [{"code":"invalid_type","expected":"array","received":"undefined","path":["replaced"],"message":"Required"}]: expected false to be true // Object.is equality
+AssertionError: [{"code":"invalid_type","expected":"array","received":"undefined","path":["replaced"],"message":"Required"}]: expected false to be true // Object.is equality
+AssertionError: [{"code":"invalid_type","expected":"string","received":"undefined","path":["personalOrigins",0,"saidAt"],"message":"Required"},{"code":"invalid_type","expected":"boolean","received":"undefined","path":["personalOrigins",0,"autoCopied"],"message":"Required"}]: expected false to be true // Object.is equality
+AssertionError: [{"code":"invalid_type","expected":"array","received":"undefined","path":["replaced"],"message":"Required"}]: expected false to be true // Object.is equality
+      Tests  7 failed | 39 passed (46)
