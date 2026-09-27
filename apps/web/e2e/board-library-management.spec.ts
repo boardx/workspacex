@@ -1,3 +1,4 @@
+import {BOARD_SYNCED_STATUS} from "./support/board-sync-status";
 import { randomUUID } from "node:crypto";
 import { expect, request as playwrightRequest, test, type APIRequestContext, type Page } from "@playwright/test";
 import { SESSION_TOKEN_STORAGE_KEY } from "../lib/api-client";
@@ -97,10 +98,10 @@ test("production Board library manages, duplicates, filters and deletes durable 
   await apiJson<Board>(api, token, "PATCH", `/whiteboards/${oneTag.id}`, { tagIds: [alpha.id], expectedTagsRevision: oneTag.tagsRevision });
 
   await page.goto(`/studio/board/${source.id}`);
-  await expect(page.getByText(/^已同步$/)).toBeVisible({ timeout: 30_000 });
+  await expect(page.getByText(BOARD_SYNCED_STATUS)).toBeVisible({ timeout: 30_000 });
   await page.getByTestId("board-add-sticky").click();
   await expect(page.getByTestId("board-a11y-mirror").getByRole("button")).toHaveCount(1);
-  await expect(page.getByText(/^已同步$/)).toBeVisible({ timeout: 30_000 });
+  await expect(page.getByText(BOARD_SYNCED_STATUS)).toBeVisible({ timeout: 30_000 });
 
   const retryId = randomUUID(), retryPayload = { requestId: retryId, targetName: `RetryCopy-${suffix}` };
   const firstRetry = await apiJson<{ board: Board; receipt: { requestId: string; objectCount: number } }>(api, token, "POST", `/whiteboards/${source.id}/duplicates`, retryPayload);
@@ -136,14 +137,14 @@ test("production Board library manages, duplicates, filters and deletes durable 
   cleanupBoards.add(copy.id);
 
   await page.goto(`/studio/board/${copy.id}`);
-  await expect(page.getByText(/^已同步$/)).toBeVisible({ timeout: 30_000 });
+  await expect(page.getByText(BOARD_SYNCED_STATUS)).toBeVisible({ timeout: 30_000 });
   await expect(page.getByTestId("board-a11y-mirror").getByRole("button")).toHaveCount(1);
   await page.goto(`/studio/board/${source.id}`);
-  await expect(page.getByText(/^已同步$/)).toBeVisible({ timeout: 30_000 });
+  await expect(page.getByText(BOARD_SYNCED_STATUS)).toBeVisible({ timeout: 30_000 });
   await page.getByTestId("board-add-sticky").click();
   await expect(page.getByTestId("board-a11y-mirror").getByRole("button")).toHaveCount(2);
   await page.goto(`/studio/board/${copy.id}`);
-  await expect(page.getByText(/^已同步$/)).toBeVisible({ timeout: 30_000 });
+  await expect(page.getByText(BOARD_SYNCED_STATUS)).toBeVisible({ timeout: 30_000 });
   await expect(page.getByTestId("board-a11y-mirror").getByRole("button")).toHaveCount(1);
 
   await page.goto("/studio/board");
@@ -184,7 +185,7 @@ test("Board navigation retains shell in library and only editor is fullscreen", 
   await page.screenshot({ path: testInfo.outputPath("board-library-with-navigation.png") });
   await page.getByTestId(`board-open-${board.id}`).click();
   await expect(page).toHaveURL(new RegExp(`/studio/board/${board.id}$`));
-  await expect(page.getByText(/^已同步$/)).toBeVisible({ timeout: 30_000 });
+  await expect(page.getByText(BOARD_SYNCED_STATUS)).toBeVisible({ timeout: 30_000 });
   await expect(page.getByTestId("rail-whiteboard")).not.toBeVisible();
   const editor = await page.getByTestId("collaborative-editor").boundingBox();
   expect(editor).toEqual({ x: 0, y: 0, width: 1280, height: 800 });

@@ -1,3 +1,4 @@
+import {BOARD_SYNCED_STATUS} from "./support/board-sync-status";
 import { randomUUID } from "node:crypto";
 import { expect, request as playwrightRequest, test, type APIRequestContext, type Page } from "@playwright/test";
 import { SESSION_TOKEN_STORAGE_KEY } from "../lib/api-client";
@@ -59,7 +60,7 @@ test("Shape Draw Image and Tile share one canonical collaborative surface", asyn
   const board = await created.json() as Board;
   cleanup = { boardId: board.id, token };
   await page.goto(`/studio/board/${board.id}`);
-  await expect(page.getByText(/^已同步$/)).toBeVisible({ timeout: 30_000 });
+  await expect(page.getByText(BOARD_SYNCED_STATUS)).toBeVisible({ timeout: 30_000 });
 
   await page.getByTestId("board-add-shape").click();
   await page.getByTestId("board-add-more").click();
@@ -81,11 +82,11 @@ test("Shape Draw Image and Tile share one canonical collaborative surface", asyn
 
   const outline = page.getByTestId("board-a11y-mirror").getByRole("button");
   await expect(outline).toHaveCount(4);
-  await expect(page.getByText(/^已同步$/)).toBeVisible({ timeout: 30_000 });
+  await expect(page.getByText(BOARD_SYNCED_STATUS)).toBeVisible({ timeout: 30_000 });
 
   const peer = await context.newPage();
   await peer.goto(`/studio/board/${board.id}`);
-  await expect(peer.getByText(/^已同步$/)).toBeVisible({ timeout: 30_000 });
+  await expect(peer.getByText(BOARD_SYNCED_STATUS)).toBeVisible({ timeout: 30_000 });
   await expect(peer.getByTestId("board-a11y-mirror").getByRole("button")).toHaveCount(4);
 
   await page.getByRole("button", { name: "撤销" }).click();
@@ -98,7 +99,7 @@ test("Shape Draw Image and Tile share one canonical collaborative surface", asyn
   await peer.close();
 
   await page.reload();
-  await expect(page.getByText(/^已同步$/)).toBeVisible({ timeout: 30_000 });
+  await expect(page.getByText(BOARD_SYNCED_STATUS)).toBeVisible({ timeout: 30_000 });
   await expect(page.getByTestId("board-a11y-mirror").getByRole("button")).toHaveCount(4);
   await expect(page.getByRole("button", { name: "图形：research.png" })).toHaveAttribute("aria-description", /图片需在当前会话重新验证/);
 });

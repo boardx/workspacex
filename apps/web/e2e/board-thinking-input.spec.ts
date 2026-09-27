@@ -1,3 +1,4 @@
+import {BOARD_SYNCED_STATUS} from "./support/board-sync-status";
 import { randomUUID } from "node:crypto";
 import { expect, request as playwrightRequest, test, type APIRequestContext, type Page } from "@playwright/test";
 import { SESSION_TOKEN_STORAGE_KEY } from "../lib/api-client";
@@ -76,7 +77,7 @@ test("brainstorm input creates twenty connected ideas and one-operation bulk und
   cleanup = { boardId: board.id, token };
 
   await page.goto(`/studio/board/${board.id}`);
-  await expect(page.getByText(/^已同步$/)).toBeVisible({ timeout: 30_000 });
+  await expect(page.getByText(BOARD_SYNCED_STATUS)).toBeVisible({ timeout: 30_000 });
   await page.getByTestId("board-add-sticky").click();
   const editor = page.getByTestId("board-thinking-editor");
   await expect(editor).toBeFocused();
@@ -88,11 +89,11 @@ test("brainstorm input creates twenty connected ideas and one-operation bulk und
   const outline = page.getByTestId("board-a11y-mirror");
   await expect(outline.getByRole("button")).toHaveCount(20);
   await expect(outline.getByRole("button", { name: "图形：想法 20" })).toBeAttached();
-  await expect(page.getByText(/^已同步$/)).toBeVisible({ timeout: 30_000 });
+  await expect(page.getByText(BOARD_SYNCED_STATUS)).toBeVisible({ timeout: 30_000 });
 
   const peer = await context.newPage();
   await peer.goto(`/studio/board/${board.id}`);
-  await expect(peer.getByText(/^已同步$/)).toBeVisible({ timeout: 30_000 });
+  await expect(peer.getByText(BOARD_SYNCED_STATUS)).toBeVisible({ timeout: 30_000 });
   await expect(peer.getByTestId("board-a11y-mirror").getByRole("button")).toHaveCount(20);
 
   await page.keyboard.press("Shift+N");
@@ -111,6 +112,6 @@ test("brainstorm input creates twenty connected ideas and one-operation bulk und
   await peer.close();
 
   await page.reload();
-  await expect(page.getByText(/^已同步$/)).toBeVisible({ timeout: 30_000 });
+  await expect(page.getByText(BOARD_SYNCED_STATUS)).toBeVisible({ timeout: 30_000 });
   await expect(page.getByTestId("board-a11y-mirror").getByRole("button")).toHaveCount(23);
 });
