@@ -646,6 +646,14 @@
     "WhiteboardTagController": {
       "useCases": [],
       "note": "白板标签的增删改查：直接调 WHITEBOARD_TAG_REPOSITORY（list/create/rename/delete），入参由 ZodBodyPipe 按 whiteboard 契约校验，没有跨聚合编排，没有独立用例模块。"
+    },
+    "GuidedResearchController": {
+      "useCases": [
+        "research/guided-research-skill",
+        "research/guided-runtime-service",
+        "research/guided-workflow-service",
+        "security/permission-filter"
+      ]
     }
   },
   "routes": {
@@ -2445,6 +2453,32 @@
         "apps/web/lib/mock/admin.ts",
         "apps/web/lib/mock/asset-governance.ts",
         "apps/web/lib/mock/canvas.ts"
+      ]
+    },
+    "/research/[sessionId]/[stage]": {
+      "kind": "wired",
+      "screen": "apps/web/app/research/[sessionId]/[stage]/page.tsx",
+      "adapters": [
+        "apps/web/lib/live-guided-research-api.ts"
+      ],
+      "contracts": [
+        "research"
+      ],
+      "controllers": [
+        "GuidedResearchController"
+      ]
+    },
+    "/research/new": {
+      "kind": "wired",
+      "screen": "apps/web/app/research/new/page.tsx",
+      "adapters": [
+        "apps/web/lib/live-guided-research-api.ts"
+      ],
+      "contracts": [
+        "research"
+      ],
+      "controllers": [
+        "GuidedResearchController"
       ]
     }
   }

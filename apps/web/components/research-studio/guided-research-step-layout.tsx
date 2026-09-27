@@ -1,9 +1,12 @@
 import * as React from "react";
+import { Bot } from "lucide-react";
+import { Button } from "@/components/ui/button";
 
 export function GuidedResearchStepLayout({
   assistant,
   wideMain = false,
   reading = false,
+  floatingAssistant = false,
   assistantOpen,
   onAssistantOpenChange,
   children,
@@ -11,6 +14,7 @@ export function GuidedResearchStepLayout({
   assistant?: React.ReactNode;
   wideMain?: boolean;
   reading?: boolean;
+  floatingAssistant?: boolean;
   assistantOpen?: boolean;
   onAssistantOpenChange?: (open: boolean) => void;
   children: React.ReactNode;
@@ -18,6 +22,13 @@ export function GuidedResearchStepLayout({
   const [internalAssistantOpen, setInternalAssistantOpen] = React.useState(false);
   const reportAssistantOpen = assistantOpen ?? internalAssistantOpen;
   const setReportAssistantOpen = onAssistantOpenChange ?? setInternalAssistantOpen;
+  if (floatingAssistant) return <div className="min-w-0">
+    <main className="min-w-0" data-testid="research-step-main">{children}</main>
+    {assistant && <div className="fixed bottom-5 left-5 z-40 max-w-[calc(100vw-2.5rem)] md:left-10">
+      <Button variant="primary" className="h-12 rounded-full px-5 text-lg shadow-lg" aria-expanded={reportAssistantOpen} onClick={() => setReportAssistantOpen(!reportAssistantOpen)}><Bot className="mr-2 size-6" />AI 助手</Button>
+      {reportAssistantOpen && <aside data-testid="guided-research-six-step-assistant" className="absolute bottom-14 left-0 h-[min(32rem,70vh)] w-80 overflow-auto rounded-xl border border-border bg-card shadow-xl">{assistant}</aside>}
+    </div>}
+  </div>;
   if (reading) return <div className="min-w-0 space-y-4" data-layout="report-reading">
     <div className={reportAssistantOpen ? "grid min-w-0 gap-8 lg:grid-cols-[18rem_minmax(0,1fr)]" : "min-w-0"}>
       <aside id="report-assistant" hidden={!reportAssistantOpen} className="min-w-0 lg:sticky lg:top-4 lg:h-[calc(100vh-9rem)]">{assistant}</aside>
