@@ -38,7 +38,34 @@ export interface ThreadKnowledgeState {
  *   并清空旧数据——旧线程的记忆挂在新线程的页签上，比空白更坏。
  * - 失败进错误态并带契约错误码，不回退任何本地数据。
  */
-export function useThreadKnowledge(threadId: string | null): ThreadKnowledgeState {
+/**
+ * issue #4350 —— 「整理中」期间的轮询节奏：队列里还有排队中 / 进行中的消息（`ingestion.queued + running > 0`）
+ * 就按这个退避序列重读，最后一档封顶反复用；从开始轮询算起超过 `KNOWLEDGE_POLL_MAX_MS` 就停（人再点开页签 /
+ * 切回窗口会重新计时）。没有待整理的消息时一次都不轮询。
+ */
+export const KNOWLEDGE_POLL_DELAYS_MS: readonly number[] = [3_000, 5_000, 10_000, 20_000, 30_000];
+export const KNOWLEDGE_POLL_MAX_MS = 10 * 60_000;
+
+function useDocumentVisible(): boolean {
+  const [visible, setVisible] = React.useState(() => typeof document === "undefined" || document.visibilityState !== "hidden");
+  React.useEffect(() => {
+    if (typeof document === "undefined") return undefined;
+    const onChange = () => setVisible(document.visibilityState !== "hidden");
+    document.addEventListener("visibilitychange", onChange);
+    return () => document.removeEventListener("visibilitychange", onChange);
+  }, []);
+  return visible;
+}
+
+export interface ThreadKnowledgeOptions {
+  /**
+   * 「记忆」页签此刻是否在前台。false ⇒ 暂停「整理中」轮询（不影响首次读取与各种显式重读）。默认 true。
+   */
+  readonly active?: boolean;
+}
+
+export function useThreadKnowledge(threadId: string | null, options: ThreadKnowledgeOptions = {}): ThreadKnowledgeState {
+  const active = options.active ?? true;
   const [state, setState] = React.useState<Omit<ThreadKnowledgeState, "reload">>({
     threadId: null,
     status: "loading",
@@ -99,6 +126,29 @@ export function useThreadKnowledge(threadId: string | null): ThreadKnowledgeStat
   }, [threadId, readyData]);
   // 卸载（换壳 / 离开 /chat）时撤回快照：不留一个「你是所有者」的旧结论给别的屏读到。
   React.useEffect(() => () => { publishKnowledgeSnapshot(null); }, []);
+
+  // issue #4350：「整理中（N 条）」期间自己重读，直到队列清空——以前只在换线程 / 点页签 / 人撤销时重读，
+  // 面板会一直停在「整理中」。每次读回新数据（不论是轮询还是别的重读触发的）都按退避序列排下一次；
+  // 页签不在前台或窗口被隐藏 ⇒ 暂停（计时归零，回来后从头开始）；读失败 ⇒ readyData 为空，停。
+  const documentVisible = useDocumentVisible();
+  const pending = readyData === null ? 0 : readyData.ingestion.queued + readyData.ingestion.running;
+  const polling = threadId !== null && active && documentVisible && pending > 0;
+  const pollStep = React.useRef(0);
+  const pollStartedAt = React.useRef<number | null>(null);
+  React.useEffect(() => {
+    if (!polling || threadId === null) {
+      pollStep.current = 0;
+      pollStartedAt.current = null;
+      return undefined;
+    }
+    const now = Date.now();
+    if (pollStartedAt.current === null) pollStartedAt.current = now;
+    if (now - pollStartedAt.current >= KNOWLEDGE_POLL_MAX_MS) return undefined;
+    const delay = KNOWLEDGE_POLL_DELAYS_MS[Math.min(pollStep.current, KNOWLEDGE_POLL_DELAYS_MS.length - 1)]!;
+    pollStep.current += 1;
+    const timer = setTimeout(() => load(threadId), delay);
+    return () => clearTimeout(timer);
+  }, [polling, threadId, readyData, load]);
 
   // 渲染期再核一次线程：effect 还没跑的那一帧里，state 可能仍是上一条线程的。
   const current = state.threadId === threadId ? state : { threadId, status: "loading" as const, data: null, errorCode: null };

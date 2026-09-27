@@ -7,8 +7,11 @@
  *     二字组重合打分，不依赖 tsvector。
  *   - graph（关联）：问题里提到的实体（graphSeeds）→ AGE 邻域里的结论。**只加分**：图路命中但与问题
  *     毫无字面关联的结论，排在字面命中之后；关掉图路，结果集仍然合理（R7-2）。
- *   - vector：本阶段没有嵌入流水线（F05 不在 MVP），记为 available = false，不静默略过（R4-E2）。
- * 融合用 RRF（与 domain/retrieval/rrf.ts 同一个 k），最后按三态加一点权：你确认过的优先于 AI 记下的。
+ *   - vector（S9，#4366）：问题的嵌入 ↔ 候选结论的嵌入（object_embeddings，pgvector HNSW），余弦够高才算命中。
+ *     没配置嵌入模型 ⇒ available = false（未启用，不提醒）；配置了但这轮失败 ⇒ available = false 且记入
+ *     `degraded`，降级为字面 + 图，并如实告诉用户（R4-E1）。
+ * 融合用 RRF（与 domain/retrieval/rrf.ts 同一个 k），再按「直接命中（字面 / 向量）→ 贴切度 → 融合分」重排，
+ * 最后按三态加一点权：你确认过的优先于 AI 记下的。
  */
 import type { contextPack as CP, knowledgeGraph as KG } from "@repo/contracts";
 import type { z } from "zod";
@@ -52,6 +55,12 @@ export interface GraphHit {
   readonly path: readonly GraphHop[];
 }
 
+/** S9（#4366）向量通道的一条命中：候选集里的结论 + 与问题的余弦相似度（-1..1）。 */
+export interface VectorHit {
+  readonly claimId: string;
+  readonly similarity: number;
+}
+
 export interface RecallItem {
   readonly claim: RecallClaim;
   readonly channels: readonly RecallChannel[];
@@ -74,6 +83,11 @@ export interface KnowledgeRecall {
   readonly plan: readonly RecallChannelPlan[];
   /** 问题里解析出的实体（给可解释性 / 测试看）。 */
   readonly graphSeeds: readonly string[];
+  /**
+   * S9（#4366）：这一轮**出了故障**的通道（配置了、执行了、失败了）。与 plan 的 `available = false` 不同：
+   * 没配置嵌入模型的部署，vector 也是 available = false，但那不是故障、不该每轮提醒用户。
+   */
+  readonly degraded?: readonly RecallChannel[];
 }
 
 const RRF_K = 60;
@@ -133,10 +147,26 @@ export interface FuseInput {
   readonly objects: readonly RecallObject[];
   /** null ⇒ 图路这次没执行（AGE 不可用）。 */
   readonly graph: readonly GraphHit[] | null;
+  /**
+   * S9（#4366）向量通道：数组 ⇒ 执行了（按相似度的命中，已限定在候选集里、已截到 top-k）；
+   * null ⇒ 配置了但这次失败（嵌入服务挂了 / 超时 / 维度不符）——降级为字面 + 图，并如实告诉用户；
+   * 省略 ⇒ 这个部署没配置嵌入模型（通道未启用，不是故障）。
+   */
+  readonly vector?: readonly VectorHit[] | null;
   readonly limit: number;
   /** 字面分数低于它的不算字面命中。 */
   readonly minLexical?: number;
+  /** 相似度低于它的不算向量命中（默认 VECTOR_MIN_SIMILARITY）。 */
+  readonly minSimilarity?: number;
 }
+
+/**
+ * 向量命中的相似度下限（余弦）。低于它的「最近邻」只是「没那么远」，不是「相关」：不进召回。
+ * 取值偏保守（宁可漏给字面 / 图，也不把无关的记忆塞给模型——06-UX R3「不打扰」）。
+ */
+export const VECTOR_MIN_SIMILARITY = 0.35;
+/** 向量通道每轮最多取多少条（top-k，SQL 侧 LIMIT 与这里一致）。 */
+export const VECTOR_RECALL_TOP_K = 8;
 
 /** 排好序的列表里第 i 项的竞争名次：与前面同分的项共用最前那一项的名次。 */
 function sharedRank<T>(sorted: readonly T[], i: number, key: (x: T) => number): number {
@@ -186,6 +216,23 @@ export function fuseRecall(input: FuseInput): KnowledgeRecall {
   // 图路权重 0.5：同一名次上永远比字面命中少一半——只加分，不压过字面。
   graphRanked.forEach((h, i) => add(h.claimId, "graph", sharedRank(graphRanked, i, (y) => y.path.length), 0.5));
 
+  // S9（#4366）向量通道：与图路同一条纪律——只认候选集里的（图 / 向量表里是全 org 的 id，作用域由候选集决定），
+  // 相似度够才算命中，按相似度排名、截到 top-k，权重与字面相同（换了说法的同一件事，字面抓不到，靠它）。
+  const minSimilarity = input.minSimilarity ?? VECTOR_MIN_SIMILARITY;
+  const vectorBest = new Map<string, number>();
+  for (const h of input.vector ?? []) {
+    if (!byId.has(h.claimId) || !Number.isFinite(h.similarity) || h.similarity < minSimilarity) continue;
+    vectorBest.set(h.claimId, Math.max(vectorBest.get(h.claimId) ?? -1, h.similarity));
+  }
+  const vectorRanked = [...vectorBest.entries()]
+    .map(([claimId, s]) => ({ claimId, s }))
+    .sort((a, b) => b.s - a.s || a.claimId.localeCompare(b.claimId))
+    .slice(0, VECTOR_RECALL_TOP_K);
+  vectorRanked.forEach((h, i) => add(h.claimId, "vector", sharedRank(vectorRanked, i, (y) => y.s), 1));
+  // 重排用的「贴切度」：字面分与相似度取大（两者都在 0..1）。没有向量通道时它就是字面分——排序与 S9 之前逐条相同。
+  const relevance = (id: string) => Math.max(lexScore.get(id) ?? 0, vectorBest.get(id) ?? 0);
+  const direct = (ch: readonly RecallChannel[]) => ch.includes("fts") || ch.includes("vector");
+
   const items: RecallItem[] = [...score.entries()]
     .map(([id, s]) => {
       const claim = byId.get(id)!;
@@ -203,8 +250,10 @@ export function fuseRecall(input: FuseInput): KnowledgeRecall {
     // 图路只加分（R7-2）：有字面命中的一律排在只有图路命中的前面；字面命中的之间先比字面分，图路只在字面分相同的
     // 几条之间抬名次（F15 评测 E5.c2 量出来：刚改过的一条还没投影进图，一个人人都提到的实体——「北极星项目」——
     // 给其余几十条都加了图路分，字面最贴切的那条反被挤出前 8）。
-    .sort((a, b) => Number(b.channels.includes("fts")) - Number(a.channels.includes("fts"))
-      || (lexScore.get(b.claim.id) ?? 0) - (lexScore.get(a.claim.id) ?? 0)
+    // S9（#4366）：「直接命中」= 字面或向量（问题与这条本身说的是一件事）；直接命中之间按贴切度（字面分 / 相似度取大），
+    // 再按融合分（RRF）。图路仍然只加分。
+    .sort((a, b) => Number(direct(b.channels)) - Number(direct(a.channels))
+      || relevance(b.claim.id) - relevance(a.claim.id)
       || b.score - a.score || a.claim.id.localeCompare(b.claim.id))
     .slice(0, input.limit);
 
@@ -250,13 +299,16 @@ export function fuseRecall(input: FuseInput): KnowledgeRecall {
 
   const allItems = [...items, ...decisionForced];
   const hits = (ch: RecallChannel) => allItems.filter((i) => i.channels.includes(ch)).length;
+  const vectorOn = Array.isArray(input.vector);
   return {
     items: allItems,
     graphSeeds: seeds,
+    degraded: [...(input.graph === null ? ["graph" as const] : []), ...(input.vector === null ? ["vector" as const] : [])],
     plan: [
       { channel: "fts", weight: 1, hitCount: hits("fts"), available: true },
       { channel: "graph", weight: 0.5, hitCount: input.graph === null ? 0 : hits("graph"), available: input.graph !== null },
-      { channel: "vector", weight: 0, hitCount: 0, available: false },
+      // S9（#4366）：配置了嵌入模型且这次执行成功 ⇒ available；没配置（省略）或失败（null）⇒ 不可用、hitCount = 0（D-I1）。
+      { channel: "vector", weight: vectorOn ? 1 : 0, hitCount: vectorOn ? hits("vector") : 0, available: vectorOn },
       // 决定类强制召回不是一路真正的检索通道（不排序、不参与融合），但同样需要不静默：这里如实报告
       // 命中了几条，供 F13 的回执与测试观察，不需要「不可用」这种降级状态（纯函数，不会失败）。
       { channel: "claim", weight: 0, hitCount: decisionForced.length, available: true },
@@ -266,6 +318,13 @@ export function fuseRecall(input: FuseInput): KnowledgeRecall {
 
 /** 06-UX R5 的原话：图或向量不可用时对用户说的那一句。 */
 export const RECALL_DEGRADED_NOTICE = "这次没能查全你的记忆（关联查询暂不可用），回答可能不完整";
+/** S9（#4366）：向量通道（界面上叫「相似」）出了故障时的同一句话，括号里说清是哪一路。 */
+export const VECTOR_RECALL_DEGRADED_NOTICE = "这次没能查全你的记忆（相似查询暂不可用），回答可能不完整";
+
+/** S9（#4366）：这一轮有没有哪一路**故障**（不是「没配置」）——回答下方那一行说明与 F13 记录都看它。 */
+export function recallDegraded(recall: KnowledgeRecall): boolean {
+  return recall.plan.some((p) => p.channel === "graph" && !p.available) || (recall.degraded ?? []).includes("vector");
+}
 
 const oneLine = (s: string) => s.replace(/\s+/g, " ").trim();
 
@@ -278,8 +337,11 @@ const TRI_LABEL: Record<KG.KgTriState, string> = { pending: "AI 记下的", conf
 export function buildKnowledgeContextMessage(recall: KnowledgeRecall): string | null {
   // 图路只在「问题里有已知实体」时才会执行；它执行失败 ⇒ plan 里 graph.available = false。
   const graphDown = recall.plan.some((p) => p.channel === "graph" && !p.available);
-  // 一条也没召回到：图路正常 ⇒ 不塞空壳；图路坏了 ⇒ 仍要告诉模型「可能不完整」，不静默降级（R4-E1）。
-  if (recall.items.length === 0) return graphDown ? `【记忆】（${RECALL_DEGRADED_NOTICE}）` : null;
+  // S9（#4366）：向量通道配置了却失败 ⇒ 同样如实说（没配置不说：那不是故障）。
+  const vectorDown = (recall.degraded ?? []).includes("vector");
+  const notices = [...(graphDown ? [RECALL_DEGRADED_NOTICE] : []), ...(vectorDown ? [VECTOR_RECALL_DEGRADED_NOTICE] : [])];
+  // 一条也没召回到：各路正常 ⇒ 不塞空壳；有一路坏了 ⇒ 仍要告诉模型「可能不完整」，不静默降级（R4-E1）。
+  if (recall.items.length === 0) return notices.length > 0 ? notices.map((n) => `【记忆】（${n}）`).join("\n") : null;
   const lines = recall.items.map((i) => {
     const day = i.claim.saidAt === null ? null : i.claim.saidAt.slice(5, 10).replace("-", "/");
     // F12：个人空间（L1）的结论来自别的会话，要说清楚，模型才能在回答里标「来自个人空间知识」。
@@ -294,6 +356,6 @@ export function buildKnowledgeContextMessage(recall: KnowledgeRecall): string | 
   return [
     "【记忆】以下是之前对话里记下的、与本轮问题相关的内容。「AI 记下的」尚未经用户确认，引用时要说明；「有矛盾」的两条都要提到；标了「来自个人空间知识」的，引用时也照样标出。",
     ...lines,
-    ...(graphDown ? [`（${RECALL_DEGRADED_NOTICE}）`] : []),
+    ...notices.map((n) => `（${n}）`),
   ].join("\n");
 }
