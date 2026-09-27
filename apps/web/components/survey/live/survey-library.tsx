@@ -12,6 +12,7 @@ export function LiveSurveyLibrary() {
   const [busy, setBusy] = React.useState(true);
   const [error, setError] = React.useState("");
   const [query, setQuery] = React.useState("");
+  const visibleItems = items.filter((item) => item.title.toLocaleLowerCase().includes(query.trim().toLocaleLowerCase())).sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
   const refresh = React.useCallback(async () => {
     setBusy(true);
     setError("");
@@ -41,14 +42,19 @@ export function LiveSurveyLibrary() {
       setBusy(false);
     }
   };
+  const open = (item: SurveyRuntime) => {
+    const step = item.status === "collecting" || item.status === "closed" ? "responses" : "design";
+    router.push(`/studio/survey/${item.id}?step=${step}`);
+  };
   return (
     <main className="mx-auto max-w-6xl space-y-6 p-6">
-      <header className="flex items-center justify-between">
+      <header className="flex flex-wrap items-center justify-between gap-4">
         <div>
           <p className="text-11 text-muted-foreground">Studio / 问卷</p>
           <h1 className="mt-2 text-24 font-semibold">我的问卷</h1>
+          <p className="mt-2 text-13 text-muted-foreground">创建、发布并收集你的问卷，轻松获取真实反馈。</p>
         </div>
-        <div className="flex flex-wrap gap-2"><Button variant="outline" onClick={() => router.push("/studio/survey?tab=modules")}>从模板创建</Button><Button onClick={() => router.push("/studio/survey/new")}>创建问卷</Button></div>
+        <div className="flex flex-wrap gap-2"><Link className="inline-flex min-h-8 items-center rounded-control border border-border bg-card px-3 text-13 font-medium text-card-foreground" href="/studio/survey?tab=modules">问卷模板</Link><Link className="inline-flex min-h-8 items-center rounded-control border border-border bg-card px-3 text-13 font-medium text-card-foreground" href="/studio/survey?tab=reports">报告模板</Link><Button onClick={() => router.push("/studio/survey/new?step=design")}>新建问卷</Button></div>
       </header>
       <div className="flex gap-2">
         <Input
@@ -71,13 +77,12 @@ export function LiveSurveyLibrary() {
         </p>
       )}
       {busy && <p role="status">正在加载…</p>}
-      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-        {items
-          .filter((item) => item.title.includes(query))
+      <div className="grid gap-4 lg:grid-cols-2">
+        {visibleItems
           .map((item) => (
             <article
               key={item.id}
-              className="rounded-lg border border-border bg-card p-5"
+              className="rounded-lg border border-border bg-card p-6"
             >
               <Link
                 className="text-16 font-semibold"
@@ -87,19 +92,20 @@ export function LiveSurveyLibrary() {
               </Link>
               <p className="mt-3 text-12 text-muted-foreground">
                 {item.questions.length} 道题 · {item.responses.length} 份答卷 ·{" "}
-                {item.publication?.status === "collecting"
+                <span data-testid={`survey-status-${item.id}`}>{item.publication?.status === "collecting"
                   ? "回收中"
                   : item.publication
                     ? "已关闭"
-                    : "未发布"}
+                    : item.status === "ready" ? "待发布" : "草稿"}</span>
               </p>
+              <div className="mt-5 grid grid-cols-3 divide-x divide-border text-center">
+                <div><p className="text-20 font-semibold">{item.questions.length}</p><p className="text-12 text-muted-foreground">题目数</p></div>
+                <div><p className="text-20 font-semibold">{item.responses.length}</p><p className="text-12 text-muted-foreground">答卷数</p></div>
+                <div><p className="text-20 font-semibold">{item.responses.filter((response) => response.analysis !== "excluded").length}</p><p className="text-12 text-muted-foreground">纳入分析</p></div>
+              </div>
+              <p className="mt-5 text-12 text-muted-foreground">最近更新：{new Date(item.updatedAt).toLocaleString("zh-CN")}</p>
               <div className="mt-5 flex justify-between">
-                <Link
-                  className="text-12 text-primary"
-                  href={`/studio/survey/${item.id}`}
-                >
-                  打开问卷 →
-                </Link>
+                <Button variant="outline" size="xs" onClick={() => open(item)}>{item.status === "collecting" || item.status === "closed" ? "查看答卷" : "继续设计"}</Button>
                 <Button
                   variant="ghost"
                   size="xs"
@@ -112,8 +118,9 @@ export function LiveSurveyLibrary() {
             </article>
           ))}
       </div>
+      {!busy && !error && items.length > 0 && visibleItems.length === 0 && <p role="status" className="py-12 text-center text-muted-foreground">没有符合筛选条件的问卷</p>}
       {!busy && !error && items.length === 0 && (
-        <div className="space-y-4 py-16 text-center"><p className="text-muted-foreground">还没有问卷，可以使用内置模板开始，也可以创建空白问卷。</p><Link className="inline-block rounded-md border border-border px-4 py-2 text-13 transition-colors hover:bg-accent" href="/studio/survey?tab=modules">浏览问卷模板</Link><Link className="ml-3 inline-block rounded-md border border-border px-4 py-2 text-13 transition-colors hover:bg-accent" href="/studio/survey?tab=reports">浏览报告模板</Link></div>
+        <div className="space-y-4 py-16 text-center"><h2 className="text-18 font-semibold">还没有问卷</h2><p className="text-muted-foreground">从空白问卷或现有模板开始，三步完成设计、回收与答卷查看。</p><Button onClick={() => router.push("/studio/survey/new?step=design")}>新建问卷</Button></div>
       )}
     </main>
   );
