@@ -177,6 +177,10 @@ test("multi-select transform, Panel clip/expand, connector preservation, and tot
   expect(connectorStart.x).toBeCloseTo(expectedStart.x, 5); expect(connectorStart.y).toBeCloseTo(expectedStart.y, 5);
   expect(connectorEnd.x).toBeCloseTo(expectedEnd.x, 5); expect(connectorEnd.y).toBeCloseTo(expectedEnd.y, 5);
   const connectorStartBeforeMove = await connector.getAttribute("data-connector-start");
+  // Auto-expand moved the child beyond the initial viewport; fit the complete
+  // board before a real pointer gesture so the browser can hit its interior.
+  await page.getByTestId("board-zoom-fit-board").click();
+  await expect.poll(async () => Number(await page.getByTestId("board-fabric-surface").getAttribute("data-viewport-zoom"))).toBeLessThan(1);
   await dragObject(page, firstSticky, 40, 30);
   await expect(connector).not.toHaveAttribute("data-connector-start", connectorStartBeforeMove!);
   await firstSticky.getByRole("button").focus(); await page.keyboard.press("Enter");
@@ -212,7 +216,6 @@ async function openEmptyBoard(page: Page, request: APIRequestContext, prefix: st
 test("selection transform locks", async ({ page, request }) => {
   await openEmptyBoard(page, request, "Selection locks");
   await page.getByTestId("board-add-sticky").click();
-  await page.keyboard.press("Escape");
   await page.getByTestId("board-sticky-square").dragTo(page.getByTestId("board-fabric-surface"), { targetPosition: { x: 950, y: 470 } });
   await page.getByTestId("board-tool-select").click();
   const stickies = page.locator('[data-testid="board-a11y-mirror"] li[data-object-kind="sticky"]');
@@ -222,6 +225,7 @@ test("selection transform locks", async ({ page, request }) => {
   await locked.getByRole("button").focus();
   await page.keyboard.press("Enter");
   await clickObjectAction(page, "锁定");
+  await openInspector(page);
   await expect(page.getByTestId("board-spatial-duplicate")).toBeDisabled();
   const canvas = page.getByTestId("board-fabric-canvas"), box = (await canvas.boundingBox())!;
   await page.mouse.move(box.x + 10, box.y + 70); await page.mouse.down(); await page.mouse.move(box.x + 1180, box.y + 700, { steps: 10 }); await page.mouse.up();
@@ -307,6 +311,7 @@ test("contextual controls availability", async ({ page, request }) => {
   await openInspector(page);
   await expect(spatial.getByRole("button", { name: "复制副本", exact: true })).toBeEnabled();
   await clickObjectAction(page, "锁定");
+  await openInspector(page);
   await expect(spatial.getByRole("button", { name: "复制副本", exact: true })).toBeDisabled();
   await expect(spatial.getByRole("button", { name: "复制副本", exact: true })).toHaveAttribute("title", "选择中包含锁定对象");
   await expect(page.getByRole("complementary", { name: "便利贴快捷工具" })).toHaveCount(0);
