@@ -5,6 +5,7 @@ import { History, Lock, MessageSquare, Search } from "lucide-react";
 import type { KgClaimKind } from "@repo/contracts/chat-knowledge-graph";
 import { ClaimTriStateBadge } from "@/components/chat/knowledge/claim-tri-state-badge";
 import { StateShell } from "@/components/state/state-shell";
+import { ShareToProject } from "@/components/brain/share-to-project";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -187,8 +188,10 @@ export function PersonalMemory({
                               ) : null}
                             </div>
                           ))}
-                          {canForget ? (
-                            <div className="flex justify-end">
+                          <div className="flex justify-end gap-1">
+                            {/* S10（#4367）：显式分享到项目（先看范围，再确认；可撤回） */}
+                            <ShareToProject claimId={c.id} testIdPrefix="brain-share" />
+                            {canForget ? (
                               <Button
                                 size="xs"
                                 variant="ghost"
@@ -198,8 +201,8 @@ export function PersonalMemory({
                               >
                                 忘掉这条
                               </Button>
-                            </div>
-                          ) : null}
+                            ) : null}
+                          </div>
                           {error?.claimId === c.id ? (
                             <p role="alert" className="text-11 text-destructive" data-testid="brain-action-error">{error.message}</p>
                           ) : null}

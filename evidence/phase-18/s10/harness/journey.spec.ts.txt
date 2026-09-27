@@ -1,0 +1,167 @@
+/**
+ * S10 (issue #4367): 「分享到项目…」 real-browser journey on a local stack (API + `next dev` + the KG-eval loopback model,
+ * UNMODIFIED, fed `cases-s10.json`). Copied to apps/web/e2e/s10/ for the run and removed afterwards.
+ *
+ * A = 王经理 (owner), B = 隔壁同事 (other), both in the seeded project. C = 新同事 is an org member NOT in the project.
+ *   1. A says a decision in a personal chat → #4283 copies it into A's long-term memory.
+ *   2. A asks in a shared project chat → the answer cites A's personal memory; clicking the chip opens the source drawer in
+ *      the chat panel, which offers 「分享到项目…」 with a scope preview (checked, then closed).
+ *   3. A shares it from /brain: preview (who will see it) → confirm.
+ *   4. B asks in the same project chat → answer and its citation chip carry 「由 王经理 分享自个人记忆」; B's project brain shows it.
+ *   5. B and C get 404 on A's personal claim; C cannot read the project brain.
+ *   6. A revokes → gone from B's project brain; A's /brain still has the original.
+ */
+import { mkdirSync, writeFileSync } from "node:fs";
+import path from "node:path";
+import { expect, test, type Browser, type Page } from "@playwright/test";
+import { KG_EVAL } from "../kg-experience-eval/fixture";
+import { apiGet, login, newThread, say } from "../kg-experience-eval/eval-helpers";
+
+const OUT = path.resolve(__dirname, "../../../../evidence/phase-18/s10");
+mkdirSync(OUT, { recursive: true });
+const D211 = "我决定关注 211 高校";
+const ASK = "开始写报告吧";
+const LABEL = "由 王经理 分享自个人记忆";
+const record: Record<string, unknown> = {};
+const ids: Record<string, string> = {};
+const shot = (page: Page, name: string) => page.screenshot({ path: path.join(OUT, `${name}.png`), fullPage: false });
+const dump = () => writeFileSync(path.join(OUT, "journey.json"), `${JSON.stringify(record, null, 2)}\n`);
+const projectId = KG_EVAL.projectId;
+const orgId = KG_EVAL.orgId;
+
+async function loggedIn(browser: Browser, account: typeof KG_EVAL.owner): Promise<Page> {
+  const p = await (await browser.newContext()).newPage();
+  await login(p, account);
+  return p;
+}
+async function sharedProjectThread(page: Page, title: string): Promise<string> {
+  const token = await page.evaluate(() => localStorage.getItem("wsx.sessionToken"));
+  const res = await page.request.post("/__fullstack_api/chat/threads/mutate", {
+    headers: { Authorization: `Bearer ${token}` },
+    data: { op: "create", projectId, threadId: null, groupId: null, title, visibilityScope: "plenary", expectedVersion: null, reason: null },
+  });
+  expect(res.status(), await res.text()).toBe(200);
+  return ((await res.json()) as { threadId: string }).threadId;
+}
+async function openProjectThread(page: Page, threadId: string): Promise<void> {
+  await page.goto(`/chat/${encodeURIComponent(threadId)}?projectId=${encodeURIComponent(projectId)}`);
+  await expect(page.getByTestId("copilotkit-v2-input")).toBeVisible({ timeout: 60_000 });
+}
+const brainItem = (page: Page, statement: string) =>
+  page.getByTestId("brain-personal-item").filter({ has: page.locator("p", { hasText: statement }) });
+const projectBrainUrl = `/projects/${encodeURIComponent(projectId)}?org=${encodeURIComponent(orgId)}&tab=research`;
+
+test.describe.configure({ mode: "serial" });
+let a: Page;
+let b: Page;
+let c: Page;
+
+test.beforeAll(async ({ browser }) => {
+  record.ids = ids;
+  a = await loggedIn(browser, KG_EVAL.owner);
+});
+test.afterAll(() => dump());
+
+test("1. A's personal decision lands in A's long-term memory", async () => {
+  ids.personalThread = await newThread(a);
+  await say(a, D211);
+  await expect.poll(async () => {
+    const p = (await apiGet(a, "/knowledge-graph/personal")).body as { claims: Array<{ id: string; statement: string }> };
+    ids.personal = p.claims.find((x) => x.statement === D211)?.id ?? "";
+    return ids.personal;
+  }, { timeout: 90_000, intervals: [1000] }).not.toBe("");
+});
+
+test("2. chat panel: the personal citation opens the source drawer, which offers 「分享到项目…」 with a scope preview", async () => {
+  ids.projectThread = await sharedProjectThread(a, "S10 项目群聊");
+  await openProjectThread(a, ids.projectThread);
+  const t = await say(a, ASK);
+  const chip = a.getByTestId(`kg-citation-${ids.personal}`);
+  await expect(chip).toBeVisible({ timeout: 60_000 });
+  await expect(a.getByTestId(`kg-from-personal-${ids.personal}`)).toBeVisible();
+  record.aTurnBeforeShare = { answerId: t.answerId, footer: (await a.getByTestId("kg-answer-footer").last().innerText()).trim() };
+  await chip.click();
+  const open = a.getByTestId("kg-share-open");
+  await expect(open).toBeVisible({ timeout: 60_000 });
+  await open.click();
+  const dialog = a.getByTestId("kg-share-dialog");
+  await expect(dialog.getByTestId(`kg-share-target-${projectId}`)).toBeVisible({ timeout: 60_000 });
+  await expect(dialog.getByTestId("kg-share-audience")).toContainText("确认后能看到它的人");
+  record.chatPanelPreview = (await dialog.getByTestId("kg-share-audience").innerText()).trim();
+  await shot(a, "01-chat-drawer-share-preview");
+  await dialog.getByTestId("kg-share-close").click();
+});
+
+test("3. /brain: preview who will see it, then confirm", async () => {
+  await a.goto("/brain");
+  const item = brainItem(a, D211);
+  await expect(item).toBeVisible({ timeout: 60_000 });
+  await item.getByTestId("brain-share-open").click();
+  const dialog = a.getByTestId("brain-share-dialog");
+  const audience = dialog.getByTestId("brain-share-audience");
+  await expect(audience).toBeVisible({ timeout: 60_000 });
+  record.brainPreview = { audience: (await audience.innerText()).trim(), members: await dialog.getByTestId("brain-share-audience-member").allInnerTexts() };
+  await shot(a, "02-brain-share-preview");
+  await dialog.getByTestId("brain-share-confirm").click();
+  await expect(dialog.getByTestId("brain-share-status")).toContainText("已分享到", { timeout: 60_000 });
+  await expect(dialog.getByTestId(`brain-share-shared-${projectId}`)).toBeVisible();
+  record.brainShared = (await dialog.getByTestId("brain-share-status").innerText()).trim();
+  const targets = (await apiGet(a, `/knowledge-graph/personal/claims/${ids.personal}/share-targets`)).body as { targets: Array<{ projectId: string; sharedClaimId: string | null }> };
+  ids.copy = targets.targets.find((x) => x.projectId === projectId)?.sharedClaimId ?? "";
+  expect(ids.copy).not.toBe("");
+  await shot(a, "03-brain-shared");
+  await dialog.getByTestId("brain-share-close").click();
+});
+
+test("4. B (project member) is answered with it, labelled 「由 王经理 分享自个人记忆」, and sees it in the project brain", async ({ browser }) => {
+  b = await loggedIn(browser, KG_EVAL.other);
+  await openProjectThread(b, ids.projectThread);
+  const t = await say(b, ASK);
+  const badge = b.getByTestId(`kg-from-project-${ids.copy}`);
+  await expect(badge).toHaveText(LABEL, { timeout: 60_000 });
+  const mem = await apiGet(b, `/knowledge-graph/threads/${ids.projectThread}/messages/${t.answerId}/memory`);
+  record.bTurn = { answerId: t.answerId, answer: t.text, recalled: (mem.body as { recalled: unknown }).recalled };
+  expect(t.text).toContain(LABEL);
+  await shot(b, "04-B-answer-cites-shared");
+  await b.goto(projectBrainUrl);
+  const row = b.getByTestId(`project-brain-shared-by-${ids.copy}`);
+  await expect(row).toHaveText(LABEL, { timeout: 90_000 });
+  record.bProjectBrain = (await b.getByTestId("project-brain").innerText()).trim();
+  await row.scrollIntoViewIfNeeded();
+  await shot(b, "05-B-project-brain-shared");
+});
+
+test("5. authorization: B and C get 404 on A's personal claim; C (not in the project) cannot read the project brain", async ({ browser }) => {
+  c = await loggedIn(browser, KG_EVAL.newbie);
+  const results: Record<string, unknown> = {};
+  for (const [who, page] of [["B", b], ["C", c]] as const) {
+    const r = await apiGet(page, `/knowledge-graph/personal/claims/${ids.personal}/share-targets`);
+    const missing = await apiGet(page, "/knowledge-graph/personal/claims/clm-no-such/share-targets");
+    expect(r.status).toBe(404);
+    expect((r.body as { reasonCode: string }).reasonCode).toBe((missing.body as { reasonCode: string }).reasonCode);
+    results[who] = { status: r.status, body: r.body };
+  }
+  const brain = await apiGet(c, `/knowledge-graph/projects/${projectId}`);
+  expect(brain.status).toBe(403);
+  results.cProjectBrain = { status: brain.status, body: brain.body };
+  record.authorization = results;
+});
+
+test("6. A revokes: gone from B's project brain, A's original stays", async () => {
+  await a.goto("/brain");
+  const item = brainItem(a, D211);
+  await item.getByTestId("brain-share-open").click();
+  const dialog = a.getByTestId("brain-share-dialog");
+  await expect(dialog.getByTestId("brain-share-revoke")).toBeVisible({ timeout: 60_000 });
+  await dialog.getByTestId("brain-share-revoke").click();
+  await expect(dialog.getByTestId("brain-share-status")).toContainText("已从", { timeout: 60_000 });
+  record.revoked = (await dialog.getByTestId("brain-share-status").innerText()).trim();
+  await shot(a, "06-brain-revoked");
+  await dialog.getByTestId("brain-share-close").click();
+  await expect(brainItem(a, D211)).toBeVisible();
+  await b.goto(projectBrainUrl);
+  await expect(b.getByTestId("project-brain")).toBeVisible({ timeout: 60_000 });
+  await expect(b.getByTestId(`project-brain-claim-${ids.copy}`)).toHaveCount(0, { timeout: 60_000 });
+  record.bProjectBrainAfter = (await b.getByTestId("project-brain").innerText()).trim();
+  await shot(b, "07-B-project-brain-after-revoke");
+});
