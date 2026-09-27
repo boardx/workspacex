@@ -14,7 +14,7 @@
 
 ## 2. 现状与颜色（2026-09-27）
 
-当前按 iteration 的真实交付状态记录：R1–R4 已经独立复核、CI 通过并合入 `main`；R5 的主 session PostgreSQL、对象存储、API 与真实浏览器集成验收已通过，PR #4308 正等待剩余 CI 后自动合入；R6–R7 已完成实现和独立复核，R6 正在吸收 R5 的 canonical selection/undo 语义，随后依次做主 session 集成验收；R8 的真实 PostgreSQL 增长测试已补齐，但独立复核发现物理 GC 的 root/object-version TOCTOU、生产调度接线、pending root 租约及标准导出 roundtrip 仍是阻断，正在修复；R9 已完成实现和最终独立安全复核，等待 R8 合入后做主 session 的真实 API/浏览器/30 分钟会议室验收；R10 等前九轮汇合到同一集成 SHA 后执行总验收。
+当前按 iteration 的真实交付状态记录：R1–R5 已经独立复核、主 session 集成验收与 CI 通过并合入 `main`（R5：PR #4308，merge `73ee23b7a`）；R6 已吸收 R5 的 canonical selection/undo 语义，第一次真实浏览器验收发现框选坐标和归档清理两个 E2E 规格缺陷，正在保持“7 对象”断言不变完成修复；R7 已完成实现和独立复核，等待 R6 合入后做主 session 集成验收；R8 的真实 PostgreSQL 增长测试已补齐，但独立复核发现物理 GC 的 root/object-version TOCTOU、生产调度接线、pending root 租约及标准导出 roundtrip 仍是阻断，正在修复；R9 已完成实现和最终独立安全复核，等待 R8 合入后做主 session 的真实 API/浏览器/30 分钟会议室验收；R10 等前九轮汇合到同一集成 SHA 后执行总验收。
 
 颜色口径：绿色=已合入 main；黄色=主 session 正在验收；蓝色=实现与独立复核完成、等待集成；橙色=正在补实现或复核；灰色=待开始；紫色=P2 后续路线。状态只由 PR、exact SHA、CI 和主 session 动态证据支撑。
 
@@ -25,8 +25,8 @@ flowchart LR
   R1["R1 统一基础<br/>PR #4241 ✅"]:::merged --> R2["R2 浏览管理<br/>PR #4280 ✅"]:::merged
   R2 --> R3["R3 Sticky / Text<br/>PR #4286 ✅"]:::merged
   R3 --> R4["R4 内容对象<br/>PR #4292 ✅"]:::merged
-  R4 --> R5["R5 空间与关系<br/>PR #4308：主验收通过，CI中"]:::accepting
-  R5 --> R6["R6 编辑与组织<br/>吸收R5语义并集成"]:::working
+  R4 --> R5["R5 空间与关系<br/>PR #4308 ✅"]:::merged
+  R5 --> R6["R6 编辑与组织<br/>修复真实E2E规格并复验"]:::working
   R6 --> R7["R7 团队可靠性<br/>实现 + 独立复核完成"]:::ready
   R7 --> R8["R8 存储与迁移<br/>修复GC竞态/调度/租约/roundtrip"]:::blocked
   R8 --> R9["R9 AI / API / Chat / 会议室<br/>实现 + 独立安全复核完成"]:::ready
@@ -133,8 +133,8 @@ flowchart LR
 | Iteration 02 | R2 浏览管理 | ✅ PR #4280 已合入 | 同上，并覆盖完整API与失败路径 |
 | Iteration 03 | R3 Sticky/Text | ✅ PR #4286 已合入 | 同上，并完成Brainstorm旅程与输入指标 |
 | Iteration 04 | R4 内容对象 | ✅ PR #4292 已合入 | 同上，逐对象创建/编辑/保存/协作验收 |
-| Iteration 05 | R5 空间与关系 | 🟡 PR #4308：主验收通过，等待剩余 CI 自动合入 | 同上，Panel及绑定Connector旅程 |
-| Iteration 06 | R6 编辑与组织 | 🟠 正在吸收 R5 canonical selection/undo 语义 | 同上，Grid整理、快捷键与布局Undo |
+| Iteration 05 | R5 空间与关系 | ✅ PR #4308 已合入 | 同上，Panel及绑定Connector旅程 |
+| Iteration 06 | R6 编辑与组织 | 🟠 已集成 R5；修复真实E2E坐标/清理规格并复验 | 同上，Grid整理、快捷键与布局Undo |
 | Iteration 07 | R7 团队可靠性 | 🔵 实现与独立复核完成 | 同上，多客户端/撤权/恢复链路 |
 | Iteration 08 | R8 存储与迁移 | 🔴 独立复核阻断：GC竞态/调度/pending租约/export roundtrip | 同上，PG正文边界、迁移与恢复演练 |
 | Iteration 09 | R9 AI/API/Chat/会议室 | 🔵 实现与独立安全复核完成，等待前序集成 | 同上，Agent完整操作与长时会议室 |
@@ -144,7 +144,7 @@ flowchart LR
 
 ## 10. 当前执行队列
 
-1. PR #4308 剩余 CI 全绿后自动合入 R5，并用合入后的 `main` 完成 R6 冲突消解和真实布局 E2E。
+1. 保持 7 对象选择断言不变，修复 R6 验收规格的 Fabric pan/zoom 坐标换算与 lifecycleRevision 清理，再重跑真实布局 E2E并创建本轮PR。
 2. R6 合入后依次集成 R7；主 session 执行双浏览器 presence/comment、离线重连、撤权与多人 Undo/Redo。
 3. R8 先关闭独立复核列出的物理删除竞态、conditional version delete、生产调度、pending lease 和 export roundtrip，再做主 session PostgreSQL/ObjectStore/迁移/备份恢复验收。
 4. R9 在 R8 后执行 Chat 图形 handoff、AI proposal/一次 Undo、统一限流、会议室跟随与真实 30 分钟 signed-ledger soak。
