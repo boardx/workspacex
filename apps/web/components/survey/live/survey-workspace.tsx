@@ -32,6 +32,7 @@ import { downloadReportMarkdown, surveyReportMarkdown } from "../report/report-m
 import { CollectionOverview } from "./collection-overview";
 import { SurveyShareCode } from "./share-code";
 import { useSurveyAutosave } from "./use-survey-autosave";
+import { SurveyDraftCopy } from "./survey-draft-copy";
 import { SurveyTemplateActions } from "../library/template-actions";
 import { LiveResponseList } from "./response-list";
 import { assessPublishReadiness } from "@/lib/survey/publish-readiness";
@@ -265,6 +266,7 @@ export function LiveSurveyWorkspace({
           onClick={() => selectStep("template")}
         >设计报告模板（可选）</Button>
         {runtime && <Button variant="outline" onClick={() => selectStep("report")}>分析报告（可选）</Button>}
+        {runtime?.publication && <SurveyDraftCopy runtime={runtime} disabled={busy} onCreated={id => router.push(`/studio/survey/${id}?step=design`)} />}
         <Button
           variant="outline"
           disabled={busy || !runtime}

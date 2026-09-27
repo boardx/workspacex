@@ -29,7 +29,8 @@ Human instructed continuous implementation without waiting for earlier PR merges
 | #4423 | #4432 | Default designer preview/settings, local QR generation, template-free publish/default report, integrated acceptance. |
 | #4433 | #4435 | Debounced autosave for applied valid unpublished existing drafts, explicit conflict/error recovery. |
 | #4436 | #4443 | Named creation dialog, blank/Markdown/template entries, canonical persisted Markdown tags and tag search. |
-| #4441 | Pending | On-demand narrow-screen outline/settings panels, retained selection and edits, inline desktop studio. |
+| #4441 | #4446 | On-demand narrow-screen outline/settings panels, retained selection and edits, inline desktop studio. |
+| #4445 | Pending | Copy frozen published questions into an independent editable draft, without migrating answers or altering the old link. |
 
 Fresh integrated seeded Playwright passed both template lifecycle and blank Markdown lifecycle again after independent review fixes (2 tests, 3m52s including cleanup). Desktop/mobile response screenshots are test artifacts. Review caught visual-editor locking on empty/space-containing titles and default report rejection for unanswered optional questions; regressions reproduce before fixes and pass afterward. All 29 survey UI files / 252 tests, 26 source/report contract tests and 15 isolated API regressions pass; API/web typechecks pass. CI on #4415/#4417 exposed two outdated publishing test fixtures/selectors; both corrected locally (7 publishing tests pass), with propagation to earlier branches still pending.
 
@@ -39,7 +40,9 @@ Creation dialog and tags (#4436): three fresh real-browser lifecycles passed (2m
 
 Responsive designer (#4441): RED reproduced always-mounted mobile settings; 91 focused regressions passed after implementing accessible on-demand panels. Fresh seeded browser: 3 lifecycles passed (2m52s including cleanup), with 390px outline selection, settings edit/close, autosave, reload persistence and the same publication/response/report flow. Desktop panels remain inline; the question editor is mounted only once in either presentation.
 
-Not yet delivered: real AI natural-language/PDF/voice extraction, draft derivation and republishing, repeat-response/success-page controls. These are remaining work, not completed widgets; no fabricated AI, settings, metadata or industry benchmarks are shown.
+Draft derivation (#4445): 18 focused tests passed, covering frozen published rather than newer draft questions, copied metadata, no migrated answers/publication and failed-create retry without navigation. Fresh real browser: 3 lifecycles passed (3m17s including cleanup), including copying a published survey, independently editing and publishing the copy under a different link, then verifying the original link still renders the original question and the original answer is retained. Existing authenticated create contracts and canonical source generation are reused, with no new controller/repository.
+
+Not yet delivered: real AI natural-language/PDF/voice extraction and repeat-response/success-page controls. No survey AI-generation operation or repeat/success fields exist in the current signed survey API surface; backend extensions require an explicit design delta rather than browser-only switches. These are remaining work, not completed widgets; no fabricated AI, settings, metadata or industry benchmarks are shown.
 
 | Order | Remaining delivery | Acceptance / current status |
 | --- | --- | --- |
