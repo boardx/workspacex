@@ -78,7 +78,7 @@ test('realtime presence field convergence',async({browser,request:api,baseURL})=
       const commandFromBrowser=async(page:Page,token:string,commands:unknown[])=>page.evaluate(async({apiUrl,tokenValue,currentBoardId,requestId,commandsValue})=>{
         const response=await fetch(`${apiUrl.replace(/\/$/,'')}/whiteboards/${currentBoardId}/commands`,{method:'POST',headers:{Authorization:`Bearer ${tokenValue}`,'Content-Type':'application/json'},body:JSON.stringify({requestId,epoch:1,commands:commandsValue})});
         return{ok:response.ok,status:response.status,body:await response.text()};
-      },{apiUrl:required('WHITEBOARD_API_URL'),tokenValue:token,currentBoardId:boardId!,requestId:randomUUID(),commandsValue:commands});
+      },{apiUrl:process.env.WHITEBOARD_BROWSER_API_URL ?? '/__fullstack_api',tokenValue:token,currentBoardId:boardId!,requestId:randomUUID(),commandsValue:commands});
       const [geometryResult,textResult]=await Promise.all([
         commandFromBrowser(owner,ownerToken!,[{type:'geometry',id:objectId,geometry:{x:640,y:360,width:180,height:140,rotation:9}}]),
         commandFromBrowser(editor,editorToken!,[{type:'text',id:objectId,index:0,deleteCount:'团队中文协作便签'.length,insert:'另一位成员的中文修改'}]),
