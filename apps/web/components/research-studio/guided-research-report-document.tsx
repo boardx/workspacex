@@ -28,7 +28,7 @@ export function ResearchReportMarkdown({ text, references }: { text: string; ref
   </div>;
 }
 
-function chapterBody(body: string, title: string) {
+export function chapterBody(body: string, title: string) {
   const heading = /^\s*#{1,6}\s+([^\n]+)\n+/.exec(body);
   return heading && heading[1]!.trim() === title.trim() ? body.slice(heading[0].length) : body;
 }
