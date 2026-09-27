@@ -14,6 +14,7 @@ const HUMAN_ACTION_FAILURE_ZH: Record<KnowledgeGraphErrorCode, string> = {
   KG_THREAD_NOT_FOUND: "这条对话不存在或已被删除。",
   KG_NOT_VISIBLE: "你没有这条对话的访问权限。",
   KG_NOT_OWNER: "只有对话的创建者可以修改这里的记忆。",
+  KG_SCOPE_NOT_PROJECT: "只有项目里的对话才能记到项目大脑。",
   KG_REVISION_CHANGED: "内容已变化，已为你刷新到最新，请再操作一次。",
   KG_CLAIM_NOT_FOUND: "这一条已经不在了，已为你刷新列表。",
   KG_OBJECT_NOT_FOUND: "相关的人和事已经不在了，已为你刷新列表。",

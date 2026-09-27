@@ -1,0 +1,108 @@
+/**
+ * Round r11a (#4343) on a real local stack: the user's own goal is remembered, copied to personal memory and recalled.
+ *
+ * Model: the deterministic KG-eval loopback (`apps/api/scripts/loopback-kg-eval-model-provider.ts`, unmodified) fed
+ * `cases-r11a.json`: 「我的目标是探索未来教育」 extracts one `goal`. Everything else — extraction worker, #4283 auto
+ * personal copy (extended to goals), forced recall (goal budget), read paths, chip / panel / citation / brain UI — is the
+ * product path. Copied to apps/web/e2e/r11a/ for the run and removed after.
+ */
+import { mkdirSync, writeFileSync } from "node:fs";
+import path from "node:path";
+import { expect, test, type Page } from "@playwright/test";
+import { KG_EVAL } from "../kg-experience-eval/fixture";
+import { apiGet, login, newThread, openMemoryPanel, say } from "../kg-experience-eval/eval-helpers";
+
+const OUT = path.resolve(__dirname, "../../../../evidence/phase-18/r11a");
+mkdirSync(OUT, { recursive: true });
+const GOAL = "我的目标是探索未来教育";
+const PLAN = "帮我规划一下";
+const record: Record<string, unknown> = {};
+const ids: Record<string, string> = {};
+const shot = (page: Page, name: string) => page.screenshot({ path: path.join(OUT, `${name}.png`), fullPage: true });
+const dump = () => writeFileSync(path.join(OUT, "journey.json"), `${JSON.stringify(record, null, 2)}\n`);
+
+interface Personal { claims: Array<{ id: string; statement: string; kind: string; status: string; triState: string }> }
+const personal = async (page: Page) => (await apiGet(page, "/knowledge-graph/personal")).body as Personal;
+
+test.describe.configure({ mode: "serial" });
+let owner: Page;
+
+test.beforeAll(async ({ browser }) => {
+  record.ids = ids;
+  owner = await (await browser.newContext()).newPage();
+  await login(owner, KG_EVAL.owner);
+});
+test.afterAll(() => dump());
+
+test("1: personal thread 「我的目标是探索未来教育」 → chip 「已记下目标：…· 已记入个人记忆」 → panel shows it under 目标", async () => {
+  ids.threadA = await newThread(owner);
+  const turn = await say(owner, GOAL);
+  record.s1_answer = turn.text;
+  const chip = owner.locator("[data-testid^='kg-extraction-line-']").filter({ hasText: GOAL });
+  await expect(chip).toBeVisible({ timeout: 60_000 });
+  await expect(chip).toContainText(`已记下目标：${GOAL}`);
+  await expect(chip.locator("[data-testid^='kg-extraction-personal-']")).toHaveText("已记入个人记忆");
+  record.s1_chip = await chip.innerText();
+  const extraction = (await apiGet(owner, `/knowledge-graph/threads/${ids.threadA}`)).body as { claims: Array<{ id: string; kind: string; statement: string }> };
+  record.s1_threadClaims = extraction.claims;
+  expect(extraction.claims.map((c) => [c.kind, c.statement])).toEqual([["goal", GOAL]]);
+  await shot(owner, "1a-chip-goal-recorded");
+
+  const panel = await openMemoryPanel(owner);
+  const group = panel.getByTestId("kg-group-goal");
+  await expect(group).toBeVisible({ timeout: 30_000 });
+  await expect(group).toContainText("目标");
+  await expect(group).toContainText(GOAL);
+  record.s1_panelGroup = await group.innerText();
+  await shot(owner, "1b-panel-goal-group");
+
+  await expect.poll(async () => (await personal(owner)).claims.map((c) => [c.kind, c.statement, c.triState]), { timeout: 60_000 })
+    .toEqual([["goal", GOAL, "pending"]]);
+  record.s1_personal = await personal(owner);
+});
+
+test("2: new personal thread 「帮我规划一下」 → the answer uses the goal; citation chip 目标 · 来自你…的对话", async () => {
+  ids.threadB = await newThread(owner);
+  const turn = await say(owner, PLAN);
+  record.s2_answer = turn.text;
+  expect(turn.text).toContain(GOAL);
+  const block = turn.answer.locator("xpath=..");
+  await expect(block.getByTestId("kg-answer-footer")).toBeVisible({ timeout: 30_000 });
+  const chip = block.locator(
+    "[data-testid^='kg-citation-']:not([data-testid='kg-citation-chips']):not([data-testid^='kg-citation-pending-']):not([data-testid^='kg-citation-conflict-'])",
+    { hasText: GOAL },
+  );
+  await expect(chip).toBeVisible();
+  const claimId = (await chip.getAttribute("data-testid"))!.replace("kg-citation-", "");
+  await expect(block.getByTestId(`kg-cite-kind-${claimId}`)).toHaveText("目标");
+  await expect(block.getByTestId(`kg-from-personal-${claimId}`)).toContainText("来自你");
+  record.s2_chip = await chip.innerText();
+  const mem = (await apiGet(owner, `/knowledge-graph/threads/${ids.threadB}/messages/${turn.answerId}/memory`)).body as {
+    recalled: Array<{ statement: string; kind: string; scope: string; channels: string[] }>;
+  };
+  record.s2_recalled = mem.recalled;
+  expect(mem.recalled.find((m) => m.statement === GOAL)).toMatchObject({ kind: "goal", scope: "personal", channels: ["claim"] });
+  await shot(owner, "2-new-thread-plan-uses-goal");
+});
+
+test("3: /brain shows the goal under 目标", async () => {
+  await owner.goto("/brain");
+  await expect(owner.getByTestId("brain-personal")).toBeVisible({ timeout: 60_000 });
+  const group = owner.getByTestId("brain-personal-group-goal");
+  await expect(group.locator("h2")).toHaveText("目标 · 1");
+  await expect(group).toContainText(GOAL);
+  await expect(owner.getByTestId("brain-kind-goal")).toHaveText("目标 1");
+  record.s3_group = await group.innerText();
+  await shot(owner, "3-brain-goal");
+});
+
+test("privacy: another member of the same org does not see the goal", async ({ browser }) => {
+  const other = await (await browser.newContext()).newPage();
+  await login(other, KG_EVAL.other);
+  const p = await personal(other);
+  record.privacy = p;
+  expect(JSON.stringify(p)).not.toContain(GOAL);
+  await other.goto("/brain");
+  await expect(other.getByTestId("brain-personal-empty")).toBeVisible({ timeout: 60_000 });
+  await shot(other, "4-other-member-empty");
+});

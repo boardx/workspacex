@@ -14,6 +14,7 @@ import {
   truncateStatement,
 } from "@/lib/knowledge-graph-recall";
 import { requestOpenClaimSources } from "@/lib/knowledge-graph-events";
+import { KG_CLAIM_KIND_LABEL_ZH } from "@/lib/knowledge-graph-view";
 
 /**
  * phase-18 F13 —— 回答下方：这次用到了哪些记忆、为什么（uc-18-2 R8 / E1，uc-18-4 R3-6）。
@@ -72,6 +73,8 @@ export function AnswerKnowledgeFooter({
                   className="inline-flex max-w-full items-center gap-1 rounded-control border border-border bg-card px-1.5 py-0.5 text-10 text-card-foreground transition-colors duration-base hover:bg-muted"
                 >
                   <span className="text-muted-foreground">[{i + 1}]</span>
+                  {/* issue #4343：类型（目标 / 偏好 / 决定 …）。testid 不用 kg-citation- 前缀：那个前缀留给 chip 本身。 */}
+                  <span className="shrink-0 text-muted-foreground" data-testid={`kg-cite-kind-${m.claimId}`}>{KG_CLAIM_KIND_LABEL_ZH[m.kind]}</span>
                   <span className="truncate">{truncateStatement(m.statement)}</span>
                   {m.triState === "pending" ? (
                     <Badge tone="warning" data-testid={`kg-citation-pending-${m.claimId}`}>{KG_TRI_STATE_LABEL_ZH.pending}</Badge>

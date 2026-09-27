@@ -77,7 +77,9 @@ const CHAT_LIFECYCLE_AUDIT_TYPE = {
    */
   pin: "thread-pinned",
   unpin: "thread-unpinned",
-} as const satisfies Record<"create" | "rename" | "delete" | "pin" | "unpin", ProvenanceEventKind>;
+  /** 项目中枢 R5：分享 = 改可见范围。同一张映射表。 */
+  setVisibility: "thread-visibility-changed",
+} as const satisfies Record<MutateThreadInput["op"], ProvenanceEventKind>;
 
 /**
  * 越权尝试也必须留痕（V8）。
@@ -96,6 +98,18 @@ export class VersionChangedError extends Error {
     super("version_changed");
   }
 }
+/**
+ * 项目中枢 R5：`setVisibility` 的入参不成立——不是项目线程、或目标范围不在
+ * `member-private` / `group-shared` / `plenary` 之内。契约 `mutateThread.err` 没有为它单开码
+ * （同 `project_id_mismatch` 的处理：controller 落成不带码的 400），不借用 `TITLE_INVALID`。
+ */
+export class VisibilityScopeInvalidError extends Error {
+  constructor() {
+    super("setVisibility rejected: not a project thread, or target scope not in member-private/group-shared/plenary");
+    this.name = "VisibilityScopeInvalidError";
+  }
+}
+
 export class TitleInvalidError extends Error {
   constructor() {
     super("title_invalid");
@@ -116,7 +130,7 @@ export interface MutateThreadDeps extends ResolveVisibilityDeps {
 export interface MutateThreadInput {
   readonly userId: string;
   readonly orgId: OrgId;
-  readonly op: "create" | "rename" | "delete" | "pin" | "unpin";
+  readonly op: "create" | "rename" | "delete" | "pin" | "unpin" | "setVisibility";
   readonly projectId: string | null;
   readonly threadId: string | null;
   readonly groupId: string | null;
@@ -313,6 +327,33 @@ async function mutateExisting(
       await auditRefusal(deps, input, realProjectId, "NO_WRITE_ROLE");
       throw new NoWriteRoleError();
     }
+  }
+
+  if (input.op === "setVisibility") {
+    // 项目中枢 R5：分享 = 改可见范围。只对项目线程；个人线程的 `private` 是它的定义，不是一个可改的档。
+    if (realProjectId === null) throw new VisibilityScopeInvalidError();
+    const scope = input.visibilityScope;
+    if (scope !== "member-private" && scope !== "group-shared" && scope !== "plenary") {
+      throw new VisibilityScopeInvalidError();
+    }
+    // 谁能改：创建者本人，或本项目引导师。别人「看得见」不等于「能把它分享给更多人」——
+    // 组员把组长的私聊设成全场，就是把别人的东西公开。拒绝同样写审计（V8）。
+    const isCreator = outcome.thread.createdBy === input.userId;
+    const isFacilitator = outcome.actor.projectRole === "facilitator";
+    if (!isCreator && !isFacilitator) {
+      await auditRefusal(deps, input, realProjectId, "NO_WRITE_ROLE");
+      throw new NoWriteRoleError();
+    }
+    const version = await deps.chat.setThreadVisibility(input.orgId, threadId, scope, expectedVersion);
+    if (version === null) throw new VersionChangedError();
+    const auditEventId = await deps.provenance.append({
+      orgId: input.orgId,
+      type: CHAT_LIFECYCLE_AUDIT_TYPE.setVisibility,
+      actorId: input.userId,
+      target: { kind: "thread", id: threadId },
+      detail: { projectId: realProjectId, from: outcome.thread.visibilityScope, to: scope, version },
+    });
+    return { threadId, version, auditEventId, impactScope: null };
   }
 
   if (input.op === "rename") {

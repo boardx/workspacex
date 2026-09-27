@@ -1,0 +1,11 @@
+{
+  "says": {
+    "R11A-GOAL": {
+      "say": "我的目标是探索未来教育",
+      "extract": {
+        "entities": [],
+        "claims": [ { "statement": "我的目标是探索未来教育", "kind": "goal", "confidence": 0.9, "about": [], "decidedBy": null, "quote": "我的目标是探索未来教育" } ]
+      }
+    }
+  }
+}
