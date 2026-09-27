@@ -3,6 +3,7 @@ import { resolve } from 'node:path';
 
 /** Whiteboard collaboration counterproofs that use only in-memory ports and loopback. */
 export default defineConfig({ resolve:{alias:{
+  '@repo/contracts/skill-file-edit':resolve(__dirname,'../../packages/contracts/src/skill-file-edit.ts'),
   '@repo/contracts/whiteboard-asset':resolve(__dirname,'../../packages/contracts/src/whiteboard-asset.ts'),
   '@repo/contracts/whiteboard-import':resolve(__dirname,'../../packages/contracts/src/whiteboard-import.ts'),
   '@repo/contracts/whiteboard-document':resolve(__dirname,'../../packages/contracts/src/whiteboard-document.ts'),
@@ -13,8 +14,10 @@ export default defineConfig({ resolve:{alias:{
 }},test: {
   include: [
     'tests/whiteboard/collaboration-budget.test.ts',
+    'tests/whiteboard/collaboration-forward-migration.test.ts',
     'tests/whiteboard/collaboration-gateway-gap.test.ts',
     'tests/whiteboard/collaboration-transaction.test.ts',
+    'tests/whiteboard/offline-checkpoint-recovery.test.ts',
     'tests/whiteboard/recovery-service.test.ts',
     'tests/whiteboard/object-manifest-store.test.ts',
     'tests/whiteboard/import-parser.test.ts',
@@ -28,6 +31,17 @@ export default defineConfig({ resolve:{alias:{
     'tests/whiteboard/blob-backup-restore.test.ts',
     'tests/whiteboard/miro-mural-import-conformance.test.ts',
     'tests/whiteboard/import-security-boundary.test.ts',
+    'tests/whiteboard/trusted-comment-store.test.ts',
+    'tests/whiteboard/undo-tombstone-restore.test.ts',
+    'tests/whiteboard/board-content-copy-guard.test.ts',
+    'tests/whiteboard/board-content-copy-objectstore.test.ts',
+    'tests/whiteboard/board-duplicate.test.ts',
+    'tests/whiteboard/library-cursor.test.ts',
+    'tests/whiteboard/library-management-static.test.ts',
+    'tests/whiteboard/lifecycle-cas.test.ts',
+    'tests/whiteboard/reason-code-response.test.ts',
+    'tests/whiteboard/resource-repository-guard.test.ts',
+    'tests/whiteboard/tag-repository-guard.test.ts',
   ],
   maxWorkers: 1, minWorkers: 1, testTimeout: 10_000,
 } });

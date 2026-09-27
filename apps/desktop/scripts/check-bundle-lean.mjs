@@ -45,6 +45,26 @@ const mb = (p) => {
   return Math.round(total / 1024 / 1024);
 };
 
+/**
+ * 反过来：**必须在**的东西（#3872 R21）。
+ *
+ * 技能沙箱的预装模块（pptxgenjs/docx/exceljs/pdf-lib）只有跑过
+ * scripts/local-bundle/prepare-sandbox-modules.sh 才存在，而打包从来没跑它——于是装好的
+ * 应用启动时只在日志里说一句「SKILL_SANDBOX_MODULES_DIR 未配置」，所有 Word/PPT/Excel/PDF
+ * 产出静默全灭（实机 2026-09-27）。少一个运行时要的东西，比多一个大件糟得多，所以同样让构建红。
+ */
+const REQUIRED = ["pptxgenjs", "docx", "exceljs", "pdf-lib"].map(
+  (m) => `apps/skill-sandbox/preinstalled/node_modules/${m}/package.json`,
+);
+const bundle = join(app, "Contents/Resources/bundle");
+const missing = REQUIRED.filter((r) => !existsSync(join(bundle, r)));
+if (missing.length > 0) {
+  console.error("❌ 包里缺运行时要的东西：");
+  for (const m of missing) console.error(`   ${m}`);
+  console.error("\n先跑 scripts/local-bundle/prepare-sandbox-modules.sh 再打包（dist:mac 已经会自动跑）。");
+  process.exit(1);
+}
+
 const entries = readdirSync(pnpmDir);
 const offenders = entries.filter((e) => FORBIDDEN.some((f) => e.startsWith(f)));
 if (offenders.length > 0) {
@@ -53,4 +73,4 @@ if (offenders.length > 0) {
   console.error("\n在 apps/desktop/electron-builder.yml 的 filter 里加对应的 ! 规则（并写清为什么运行时不需要）。");
   process.exit(1);
 }
-console.log(`✅ ${entries.length} 个包，没有发现运行时用不到的大件`);
+console.log(`✅ ${entries.length} 个包，没有发现运行时用不到的大件；技能沙箱预装模块都在`);

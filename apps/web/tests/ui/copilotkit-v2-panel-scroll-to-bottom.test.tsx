@@ -61,6 +61,7 @@ import { CopilotKit } from "@copilotkit/react-core/v2";
 import { SESSION_TOKEN_STORAGE_KEY } from "@/lib/api-client";
 import { CopilotKitV2AgentSelectionProvider } from "@/lib/copilotkit-v2-agent-selection";
 import { CopilotKitV2Panel, isScrolledNearBottom, SCROLL_BOTTOM_THRESHOLD_PX } from "@/components/chat/copilotkit-v2-panel";
+import { highlightChatMessage, SOURCE_HIGHLIGHT_ATTR } from "@/lib/chat-message-focus";
 
 function mount() {
   return render(
@@ -141,6 +142,36 @@ describe("CopilotKitV2Panel 消息区跳到最新（issue #2071）", () => {
     expect(container.classList.contains("relative")).toBe(true);
     // 反证同一条事实的另一面：容器外那层包装仍然是 FAB 的定位层（既有 #2096 契约不变）。
     expect(container.parentElement?.classList.contains("relative")).toBe(true);
+  });
+
+  /**
+   * #4279（F15 记忆体验评测 E4.c2 / c3）—— 来源抽屉「跳到原消息」把原话高亮、滚到眼前，但消息区仍在
+   * 「贴底跟随」：打开原对话后回答下方的引用 / 「已记下」异步长出来，ResizeObserver 把人拽回底部，
+   * 高亮的那条不在眼前。滚到某条消息 = 用户要看那里，贴底跟随必须放开；而且放开要赶在那次滚动的
+   * `scroll` 事件之前（自动跟随刚置位的程序化标记会把它当成「贴底途中」吞掉）。
+   */
+  it("跳到原消息（高亮某条）放开贴底跟随：之后的滚动不被当成贴底途中吞掉，不再被拽回底部", async () => {
+    mount();
+    const container = await waitFor(() => screen.getByTestId("copilotkit-v2-messages"));
+    await screen.findByTestId("chat-user-message-text");
+    // 贴底，且刚有一次程序化贴底滚动（程序化标记置位中）——真栈里是历史 / 引用加载时 ResizeObserver 的跟随；
+    // 这里用同一条置位入口（Ctrl+End）确定性地制造它（jsdom 没有 ResizeObserver）。
+    const scrollToSpy = stubLayout(container, { scrollHeight: 2000, scrollTop: 1500, clientHeight: 500 });
+    fireEvent.keyDown(window, { key: "End", ctrlKey: true });
+    expect(scrollToSpy).toHaveBeenCalled();
+    expect(screen.queryByTestId("copilotkit-v2-scroll-to-bottom")).toBeNull();
+
+    expect(highlightChatMessage("cm-1")).toBe(true);
+    expect(container.querySelector(`[${SOURCE_HIGHLIGHT_ATTR}]`)?.textContent).toContain("你好");
+    // scrollIntoView 引起的 scroll 事件：位置离开底部。
+    (container as HTMLElement & { scrollTop: number }).scrollTop = 200;
+    fireEvent.scroll(container);
+
+    // 修复前：isAtBottom 恒 true，按钮不出现，之后任何内容长高都把人拽回底部。
+    expect(await screen.findByTestId("copilotkit-v2-scroll-to-bottom")).toBeInTheDocument();
+    scrollToSpy.mockClear();
+    fireEvent.scroll(container);
+    expect(scrollToSpy).not.toHaveBeenCalled();
   });
 
   // 2026-09-02 人类实测："滚到底部的那个箭头的逻辑是错误的"——两条回归钉子。

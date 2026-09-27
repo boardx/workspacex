@@ -1,4 +1,4 @@
-import { createHash } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
 import { whiteboard as C } from '@repo/contracts';
 import { WhiteboardCommandBatch } from '@repo/contracts/whiteboard-document';
 import type { Principal } from '../../domain/principal';
@@ -101,13 +101,13 @@ export class PgWhiteboardCollaborationStore implements WhiteboardCollaborationSt
     const role = row.owner_id === p.userId ? 'owner' : members?.rows[0]?.role;
     if (!role) throw new Fault('NOT_FOUND');
     const parsed = C.BoardRole.safeParse(role); if (!parsed.success) throw new Fault('FORBIDDEN');
-    if (write && parsed.data === 'viewer') throw new Fault('FORBIDDEN');
+    if (write && parsed.data !== 'owner' && parsed.data !== 'editor') throw new Fault('FORBIDDEN');
     if (write && row.archived) throw new Fault('ARCHIVED');
     return { role: parsed.data, archived: row.archived };
   }
-  private async document(session: TenantSession, p: Principal, boardId: string): Promise<DocumentRow> {
+  private async document(session: TenantSession, p: Principal, boardId: string, forUpdate = false): Promise<DocumentRow> {
     await session.query(`INSERT INTO whiteboard_documents(org_id,board_id) VALUES($1,$2) ON CONFLICT(org_id,board_id) DO NOTHING`, [p.orgId, boardId]);
-    const result = await session.query<DocumentRow>(`SELECT epoch,seq,snapshot,object_key,content_hash,byte_size::text FROM whiteboard_documents WHERE org_id=$1 AND board_id=$2`, [p.orgId, boardId]);
+    const result = await session.query<DocumentRow>(`SELECT epoch,seq,snapshot,object_key,content_hash,byte_size::text FROM whiteboard_documents WHERE org_id=$1 AND board_id=$2${forUpdate ? ' FOR UPDATE' : ''}`, [p.orgId, boardId]);
     const row = result.rows[0]; if (!row) throw new Fault('NOT_FOUND'); return row;
   }
   async head(p: Principal, boardId: string): Promise<WhiteboardSyncHead> {
@@ -123,12 +123,15 @@ export class PgWhiteboardCollaborationStore implements WhiteboardCollaborationSt
     validIds(p, boardId);
     if (vector && (!(vector instanceof Uint8Array) || vector.byteLength > WHITEBOARD_VALIDATOR_LIMITS.vectorBytes)) throw new Fault('VALIDATION_FAILED');
     const stateVector = vector ? new Uint8Array(vector) : undefined;
-    return this.db.withTenant(p.orgId, async session => {
-      const access = await this.access(session, p, boardId, false), doc = await this.document(session, p, boardId);
-      const snapshot = await this.documentBytes(session, p, boardId, doc);
-      return { ...access, epoch: doc.epoch, seq: Number(doc.seq), update: await this.validator.diff(snapshot, stateVector) };
-    });
+    return this.db.withTenant(p.orgId, session => this.loadInTransaction(session,p,boardId,stateVector));
   }
+  async loadInTransaction(session:TenantSession,p:Principal,boardId:string,stateVector?:Uint8Array):Promise<WhiteboardSyncState> {
+    validIds(p,boardId);
+    const access=await this.access(session,p,boardId,false),doc=await this.document(session,p,boardId);
+    const snapshot=await this.documentBytes(session,p,boardId,doc);
+    return {...access,epoch:doc.epoch,seq:Number(doc.seq),update:await this.validator.diff(snapshot,stateVector)};
+  }
+
   /** Tenant-scoped bounded worker hook for rows that may never be replayed naturally. */
   async backfillLegacyBoard(p: Principal, boardId: string, maxRows = 100): Promise<{ migrated: number; remaining: number }> {
     validIds(p,boardId);if(!this.objects)throw new Fault('DEPENDENCY_UNAVAILABLE');if(!Number.isSafeInteger(maxRows)||maxRows<1||maxRows>1000)throw new Fault('VALIDATION_FAILED');
@@ -144,7 +147,7 @@ export class PgWhiteboardCollaborationStore implements WhiteboardCollaborationSt
     validIds(p, boardId, input.updateId, input.epoch);
     if (!(input.update instanceof Uint8Array) || input.update.byteLength < 1 || input.update.byteLength > WHITEBOARD_UPDATE_LIMITS.bytes) throw new Fault('VALIDATION_FAILED');
     const update = new Uint8Array(input.update);
-    return this.commit(p, boardId, input.epoch, input.updateId, HASH(Buffer.concat([Buffer.from('update:'), Buffer.from(update)])), snapshot => this.validator.validate(snapshot, update));
+    return this.commit(p, boardId, input.epoch, input.updateId, input.gestureId, HASH(Buffer.concat([Buffer.from(`update:${input.gestureId}:`), Buffer.from(update)])), snapshot => this.validator.validate(snapshot, update),HASH(Buffer.concat([Buffer.from('update:'),Buffer.from(update)])));
   }
   async writeCommands(p: Principal, boardId: string, input: WhiteboardCommandsInput): Promise<WhiteboardUpdateAck> {
     validIds(p, boardId, input.requestId, input.epoch);
@@ -157,22 +160,25 @@ export class PgWhiteboardCollaborationStore implements WhiteboardCollaborationSt
     if (Buffer.byteLength(JSON.stringify(input.commands)) > WHITEBOARD_VALIDATOR_LIMITS.commandBytes) throw new Fault('VALIDATION_FAILED');
     const parsed = WhiteboardCommandBatch.safeParse(input.commands); if (!parsed.success) throw new Fault('VALIDATION_FAILED');
     const commands = structuredClone(parsed.data);
-    return this.commitInTransaction(session, p, boardId, input.epoch, input.requestId, HASH(`commands:${JSON.stringify(canonical(commands))}`), snapshot => this.validator.commands(snapshot, commands));
+    return this.commitInTransaction(session, p, boardId, input.epoch, input.requestId, input.requestId, HASH(`commands:${JSON.stringify(canonical(commands))}`), snapshot => this.validator.commands(snapshot, commands));
   }
-  private async commit(p: Principal, boardId: string, epoch: number, updateId: string, hash: string, validate: (snapshot: Uint8Array) => Promise<ValidatedWhiteboardUpdate>): Promise<WhiteboardUpdateAck> {
-    const { durability: _pending, ...ack } = await this.db.withTenant(p.orgId, session => this.commitInTransaction(session, p, boardId, epoch, updateId, hash, validate));
+  private async commit(p: Principal, boardId: string, epoch: number, updateId: string, gestureId: string, hash: string, validate: (snapshot: Uint8Array) => Promise<ValidatedWhiteboardUpdate>, legacyHash?:string): Promise<WhiteboardUpdateAck> {
+    const { durability: _pending, ...ack } = await this.db.withTenant(p.orgId, session => this.commitInTransaction(session, p, boardId, epoch, updateId, gestureId, hash, validate, legacyHash));
     return ack;
   }
-  private async commitInTransaction(session: TenantSession, p: Principal, boardId: string, epoch: number, updateId: string, hash: string, validate: (snapshot: Uint8Array) => Promise<ValidatedWhiteboardUpdate>): Promise<WhiteboardPendingUpdate> {
+  private async commitInTransaction(session: TenantSession, p: Principal, boardId: string, epoch: number, updateId: string, gestureId: string, hash: string, validate: (snapshot: Uint8Array) => Promise<ValidatedWhiteboardUpdate>, legacyHash?:string): Promise<WhiteboardPendingUpdate> {
     await this.access(session, p, boardId, true);
-    const doc = await this.document(session, p, boardId);
+    // Serialize writers at the canonical document row. Each field command is then
+    // calculated from the latest committed Yjs snapshot, so concurrent commands
+    // issued from the same browser-visible base merge instead of overwriting it.
+    const doc = await this.document(session, p, boardId, true);
     if (doc.epoch !== epoch) throw new Fault('STALE_EPOCH');
     const previous = await session.query<UpdateRow>(`SELECT seq,request_hash,update,update_object_key,update_hash,update_size::text FROM whiteboard_updates WHERE org_id=$1 AND board_id=$2 AND epoch=$3 AND actor_id=$4 AND update_id=$5`, [p.orgId, boardId, epoch, p.userId, updateId]);
     const replay = previous.rows[0];
     if (replay) {
-      if (replay.request_hash !== hash) throw new Fault('IDEMPOTENCY_CONFLICT');
+      if (replay.request_hash !== hash && replay.request_hash !== legacyHash) throw new Fault('IDEMPOTENCY_CONFLICT');
       const replayBytes = await this.updateBytes(session, p, boardId, epoch, p.userId, updateId, replay);
-      return { durability: 'pending', epoch, seq: Number(replay.seq), updateId, replayed: true, update: replayBytes };
+      return { durability: 'pending', epoch, seq: Number(replay.seq), updateId, gestureId, replayed: true, update: replayBytes };
     }
     const count = await session.query<{ count: string }>(`SELECT count(*)::text AS count FROM whiteboard_updates WHERE org_id=$1 AND board_id=$2 AND actor_id=$3 AND created_at>clock_timestamp()-interval '1 minute'`, [p.orgId, boardId, p.userId]);
     if (Number(count.rows[0]?.count ?? 0) >= this.acceptedUpdatesPerMinute) throw new Fault('RATE_LIMITED');
@@ -186,7 +192,14 @@ export class PgWhiteboardCollaborationStore implements WhiteboardCollaborationSt
     ]);
     await session.query(`INSERT INTO whiteboard_updates(org_id,board_id,epoch,seq,actor_id,update_id,request_hash,update,update_object_key,update_hash,update_size) VALUES($1,$2,$3,$4,$5,$6,$7,NULL,$8,$9,$10)`, [p.orgId, boardId, epoch, seq, p.userId, updateId, hash, updateRef.key, updateRef.hash, updateRef.size]);
     await session.query(`UPDATE whiteboard_documents SET seq=$3,snapshot=NULL,manifest_version=1,object_key=$4,content_hash=$5,byte_size=$6,updated_at=now() WHERE org_id=$1 AND board_id=$2`, [p.orgId, boardId, seq, snapshotRef.key, snapshotRef.hash, snapshotRef.size]);
+    const liveObjectIds=await this.validator.objectIds(accepted.snapshot);
+    const orphaned=await session.query<{id:string;object_id:string}>(`SELECT id,object_id FROM whiteboard_comment_threads WHERE org_id=$1 AND board_id=$2 AND status<>'object-deleted' AND NOT(object_id=ANY($3::text[])) FOR UPDATE`,[p.orgId,boardId,liveObjectIds]);
+    if(orphaned.rows.length){
+      const archivedAt=new Date().toISOString();
+      await session.query(`UPDATE whiteboard_comment_threads SET status='object-deleted',revision=revision+1,payload=jsonb_set(jsonb_set(jsonb_set(payload,'{status}','"object-deleted"'::jsonb),'{revision}',to_jsonb(revision+1)),'{archivedAt}',to_jsonb($4::text)),updated_at=now() WHERE org_id=$1 AND board_id=$2 AND id=ANY($3::uuid[])`,[p.orgId,boardId,orphaned.rows.map(row=>row.id),archivedAt]);
+      for(const objectId of new Set(orphaned.rows.map(row=>row.object_id))){const event={type:'ObjectCommentsArchived',eventId:randomUUID(),operationId:updateId,boardId,objectId,threadIds:orphaned.rows.filter(row=>row.object_id===objectId).map(row=>row.id),actorId:p.userId,occurredAt:archivedAt};await session.query(`INSERT INTO whiteboard_collaboration_events(org_id,board_id,event_id,actor_id,event_type,payload) VALUES($1,$2,$3,$4,$5,$6::jsonb)`,[p.orgId,boardId,event.eventId,p.userId,event.type,JSON.stringify(event)]);}
+    }
     await session.query(`UPDATE whiteboards SET updated_at=now() WHERE org_id=$1 AND id=$2`, [p.orgId, boardId]);
-    return { durability: 'pending', epoch, seq, updateId, replayed: false, update: accepted.update };
+    return { durability: 'pending', epoch, seq, updateId, gestureId, replayed: false, update: accepted.update };
   }
 }

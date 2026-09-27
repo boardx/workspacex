@@ -20,7 +20,7 @@ export type BrainData =
   | { readonly status: "denied" }
   | { readonly status: "failed" };
 
-export function useBrainData(orgId: string): { state: BrainData; reload: () => void } {
+export function useBrainData(orgId: string): { state: BrainData; reload: () => void; refresh: () => Promise<PersonalKnowledge> } {
   const [state, setState] = React.useState<BrainData>({ status: "loading" });
   const [nonce, setNonce] = React.useState(0);
 
@@ -38,5 +38,15 @@ export function useBrainData(orgId: string): { state: BrainData; reload: () => v
   }, [orgId, nonce]);
 
   const reload = React.useCallback(() => setNonce((n) => n + 1), []);
-  return { state, reload };
+  /**
+   * issue #4302：大脑页上改过之后（忘掉 / 撤销取代）静默重读——不回到加载态（列表、搜索词、行内提示都留着），
+   * 读成功才换数据；读失败抛给调用方（它已经在显示这次动作的结果，不把整页打进错误态）。
+   * 返回重读到的长期记忆：调用方据此核对动作是否真的生效（#4302 review：忘掉后那条仍活着就如实说）。
+   */
+  const refresh = React.useCallback(async () => {
+    const [personal, overview] = await Promise.all([fetchPersonalKnowledge(), fetchBrainOverview()]);
+    setState({ status: "ready", personal, overview });
+    return personal;
+  }, []);
+  return { state, reload, refresh };
 }

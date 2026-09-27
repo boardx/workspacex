@@ -21,7 +21,7 @@ export class WhiteboardImageAssets {
   private async access(p: Principal, boardId: string, write: boolean) {
     const board = await this.boards.get(p, boardId);
     if (!board) throw new WhiteboardImageError('NOT_FOUND');
-    if (write && (board.role === 'viewer' || board.archived)) throw new WhiteboardImageError('FORBIDDEN');
+    if (write && (!['owner','editor'].includes(board.role) || board.archived)) throw new WhiteboardImageError('FORBIDDEN');
   }
   private prefix(p: Principal, boardId: string) {
     return `whiteboards/tenants/${createHash('sha256').update(p.orgId).digest('hex').slice(0,32)}/boards/${boardId}/assets/`;

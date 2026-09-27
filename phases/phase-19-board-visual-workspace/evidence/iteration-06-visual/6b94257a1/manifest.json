@@ -1,0 +1,15 @@
+{
+  "testedSha": "6b94257a12f0d0e437f6e8a810a4bb6bffa98efa",
+  "run": "run-muja4uo0-c618fa42-4efc318b5180",
+  "result": "6 passed (2.3m)",
+  "files": {
+    "1024x768-sticky-selected.png": "ac89e4ed55a46c432b775461ffb44ac55a066e3b9e91633ac7ed059632306de4",
+    "1024x768-text-selected.png": "9e35aaaee501bb216ee5fbd955a5584b19d27e21c8e53451cd70a3ffded8f98d",
+    "board-editor-fullscreen.png": "be6721090484e5fc718817d72f4ac5980db18f4addd943b63f3370d7d33475e4",
+    "1280x720-sticky-selected.png": "fa89a2af0577f9ce7f1724fb62e7739ec574aac2f8bde64497624c2ef3c9496a",
+    "1440x900-sticky-selected.png": "42d9a2836cb0a63a68dc6aa1d91749eb6e61b502613fe5221dd2795955b63bde",
+    "board-library-with-navigation.png": "026ae4c0c51b52e6b08b2d80f71f5051f052f578fac790b35721ec4d0add0dc2",
+    "1440x900-text-selected.png": "c438f221a03c9352a6a74c058e823477453aced1097dc72c9bc2836f5627616e",
+    "1280x720-text-selected.png": "935fe2794bf19b8739f3d9c2532cdc9491edf46ed17b84e9f6aa3330484ba9e3"
+  }
+}

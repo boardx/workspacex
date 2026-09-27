@@ -51,7 +51,7 @@ describe('whiteboard collaboration durable transactions', () => {
     Y.applyUpdate(a, loaded.update); Y.applyUpdate(b, loaded.update); const vector = Y.encodeStateVector(a);
     executeCommands(a, [{ type: 'text', id: 'n', index: 2, deleteCount: 0, insert: '甲' }], {});
     executeCommands(b, [{ type: 'text', id: 'n', index: 2, deleteCount: 0, insert: '乙' }], {});
-    await Promise.all([a, b].map(doc => store.append(owner, board.id, { epoch: 1, updateId: randomUUID(), update: Y.encodeStateAsUpdate(doc, vector) })));
+    await Promise.all([a, b].map(doc => {const id=randomUUID();return store.append(owner, board.id, { epoch: 1, updateId: id, gestureId:id, update: Y.encodeStateAsUpdate(doc, vector) });}));
     const final = await store.load(owner, board.id, Y.encodeStateVector(a)); Y.applyUpdate(a, final.update);
     expect(final.seq).toBe(3); expect(readObjects(a)[0]?.text).toContain('甲'); expect(readObjects(a)[0]?.text).toContain('乙'); a.destroy(); b.destroy();
   });
@@ -65,7 +65,7 @@ describe('whiteboard collaboration durable transactions', () => {
     await store.writeCommands(editor, board.id, input); await repo.removeMember(owner, board.id, editor.userId);
     await expect(store.load(editor, board.id)).rejects.toMatchObject({ code: 'NOT_FOUND' });
     await expect(store.writeCommands(editor, board.id, input)).rejects.toMatchObject({ code: 'NOT_FOUND' });
-    await repo.update(owner, board.id, { archived: true });
+    await repo.update(owner, board.id, { archived: true, expectedLifecycleRevision: board.lifecycleRevision });
     await expect(store.writeCommands(owner, board.id, input)).rejects.toMatchObject({ code: 'ARCHIVED' });
     expect((await store.load(viewer, board.id)).archived).toBe(true);
   });
@@ -87,7 +87,7 @@ describe('whiteboard collaboration durable transactions', () => {
   });
   it('rejected updates leave no sequence and rate limits allow idempotent replay', async () => {
     const board = await createBoard(), limited = new PgWhiteboardCollaborationStore(db, new WorkerWhiteboardUpdateValidator(), 1,objects);
-    await expect(store.append(owner, board.id, { epoch: 1, updateId: randomUUID(), update: new Uint8Array([255]) })).rejects.toMatchObject({ code: 'VALIDATION_FAILED' });
+    {const id=randomUUID();await expect(store.append(owner, board.id, { epoch: 1, updateId: id, gestureId:id, update: new Uint8Array([255]) })).rejects.toMatchObject({ code: 'VALIDATION_FAILED' });}
     expect((await store.load(owner, board.id)).seq).toBe(0);
     const input = { epoch: 1, requestId: randomUUID(), commands: [command('a')] };
     await limited.writeCommands(owner, board.id, input);

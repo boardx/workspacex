@@ -55,8 +55,11 @@ export interface TelemetryFactsSource {
 }
 
 export interface TelemetryTransport {
-  /** 发一次。任何失败都以 `{ ok: false }` 返回，不抛。 */
-  post(endpoint: string, body: string, timeoutMs: number): Promise<{ ok: boolean }>;
+  /**
+   * 发一次。任何失败都以 `{ ok: false }` 返回，不抛。
+   * `installSecret` 作 `Authorization: Bearer` 发出——收集端校验 sha256(密钥) === instanceId（#4249 契约测试发现此前从未发送）。
+   */
+  post(endpoint: string, body: string, timeoutMs: number, installSecret: string): Promise<{ ok: boolean }>;
 }
 
 /** 部署配置（来源见 `infrastructure/telemetry/telemetry-config.ts`，环境变量名的单点在那里）。 */

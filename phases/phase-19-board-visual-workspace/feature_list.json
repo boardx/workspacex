@@ -648,7 +648,8 @@
       "depends_on": [
         "BV13",
         "BV23",
-        "BV26"
+        "BV26",
+        "BV10"
       ],
       "points": 8,
       "wave": 9,
@@ -698,7 +699,8 @@
       "sprint": null,
       "owner": null,
       "depends_on": [
-        "BV27"
+        "BV27",
+        "BV10"
       ],
       "points": 8,
       "wave": 10,
@@ -749,7 +751,8 @@
       "owner": null,
       "depends_on": [
         "BV03",
-        "BV21"
+        "BV21",
+        "BV09"
       ],
       "points": 8,
       "wave": 10,

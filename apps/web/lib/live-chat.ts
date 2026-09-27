@@ -240,10 +240,9 @@ export async function listThreadArtifacts(
 
 /**
  * 把一条消息落地为 Artifact（issue #708）——`POST /chat/threads/:threadId/artifacts`。
- * ⚠ 调用方目前**只应该传 `mode: "draft"`**：`live`/`pinned` 要求消息挂有非空
- * citations（I-33），而 citations 的写入路径目前不存在（`get-thread.ts` 的
- * `toMessage()` 恒 `citations: []`），传 `live`/`pinned` 会 100% 命中
- * `MISSING_PROVENANCE_BACKLINK`——这不是本函数的限制，是后端契约现状。
+ * ⚠ `live`/`pinned` 要求消息挂有非空 citations（I-33）；对没有引用的消息传它们会命中
+ * `MISSING_PROVENANCE_BACKLINK`——这不是本函数的限制，是后端契约。引用本身自 #4230 起
+ * 由 `getThread` 的 `messages[].citations` 下发。
  */
 export async function landAsArtifact(
   threadId: string,

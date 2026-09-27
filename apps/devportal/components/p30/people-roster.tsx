@@ -1,15 +1,11 @@
-"use client";
-// W5 /p/:slug/people 花名册（p30 UI 先行原型，UC-03 / UC-05③）。
-// 👤→🤖 两段式缩进树：成员行（角色徽章/在做什么）→ 名下 agents 缩进 → 点号 sub 再缩进。
-// 👤/🤖 计数分开；行悬停卡显示完整 @handle/agent-name（D6）。
-// ⚠️ 全部 mock（lib/mock/p30.ts）；真实实现时按项目 slug 拉取花名册。
-import { useState } from "react";
+// W5 /p/:slug/people 花名册（UC-03 / UC-05③）——真实数据：服务端 lib/people-roster.ts
+// 聚合 PlatformDirectory memberships + registry.yaml + coord-gateway 租约后以 props 注入
+// （已脱离 lib/mock/p30.ts）。👤→🤖 两段式缩进树：成员行 → 名下 agents 缩进 → 点号 sub 再缩进。
+// 👤/🤖 计数分开；行悬停卡显示完整标识与归属链（D6）。
 import { Badge } from "@/components/ui/badge";
 import { HeartbeatDot } from "@/components/portal/heartbeat-dot";
-import { EmptyState, IdentityChip, LoadingSkeleton, PrototypeHeader, useMockLoading } from "@/components/p30/shared";
-import { MOCK_ROSTER, rosterCounts, type RosterAgentNode, type RosterMember } from "@/lib/mock/p30";
-
-const HEARTBEAT_MIN = { fresh: 1, aging: 12, stale: 42 } as const;
+import { EmptyState, IdentityChip } from "@/components/p30/shared";
+import { rosterCounts, type RosterAgentNode, type RosterMember, type RosterResult } from "@/lib/people-roster";
 
 const ROLE_BADGE: Record<RosterMember["role"], "default" | "secondary" | "outline"> = {
   owner: "default",
@@ -43,12 +39,12 @@ function AgentRow({ node, depth, ownerHandle }: { node: RosterAgentNode; depth: 
         tabIndex={0}
         className={`group relative flex flex-wrap items-center gap-2 rounded-8 border-l-2 border-l-tag-purple py-1.5 pr-2 transition-colors hover:bg-surface-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${depth === 1 ? "ml-8 pl-3" : "ml-16 pl-3"}`}
       >
-        <HeartbeatDot minutes={HEARTBEAT_MIN[node.heartbeat]} />
+        {node.heartbeatMin !== null && <HeartbeatDot minutes={node.heartbeatMin} />}
         <IdentityChip kind="agent" className="font-mono">
-          {node.id.split("/")[1] ?? node.id}
+          {node.id}
         </IdentityChip>
         {depth === 2 && <span className="text-11 text-muted-foreground">sub</span>}
-        <span className={`min-w-0 flex-1 truncate text-12 ${node.heartbeat === "stale" ? "text-destructive" : "text-muted-foreground"}`}>{node.doing}</span>
+        <span className="min-w-0 flex-1 truncate text-12 text-muted-foreground">{node.resource ? `租约 ${node.resource}` : "空闲（无活跃租约）"}</span>
         <HoverCard lines={[node.id, `owner：@${ownerHandle}${depth === 2 ? ` · parent：${node.id.split(".")[0] ?? ""}` : ""}`]} />
       </li>
       {node.subs.map((s) => (
@@ -69,10 +65,9 @@ function MemberBlock({ m }: { m: RosterMember }) {
         <IdentityChip kind="human">@{m.handle}</IdentityChip>
         <span className="text-13 font-medium text-foreground">{m.name}</span>
         <Badge variant={ROLE_BADGE[m.role]} className="text-11">{m.role}</Badge>
-        <Badge variant="outline" className="text-11">{m.trust}</Badge>
-        <span className="min-w-0 flex-1 truncate text-12 text-muted-foreground">{m.doing}</span>
-        <span className="shrink-0 text-11 text-muted-foreground">🤖 ×{m.agents.reduce((n, a) => n + 1 + a.subs.length, 0)}</span>
-        <HoverCard lines={[`@${m.handle} · ${m.name}`, `${m.role} · 信任级 ${m.trust}`]} />
+        <span className="min-w-0 flex-1" />
+        <span className="shrink-0 text-11 text-muted-foreground">🤖 ×{rosterCounts([m]).agents}</span>
+        <HoverCard lines={[`@${m.handle} · ${m.name}`, m.role]} />
       </div>
       <ul className="mt-1 space-y-1">
         {m.agents.map((a) => (
@@ -83,20 +78,16 @@ function MemberBlock({ m }: { m: RosterMember }) {
   );
 }
 
-export function PeopleRoster({ slug }: { slug: string }) {
-  const loading = useMockLoading();
-  const [emptyDemo, setEmptyDemo] = useState(false);
-  const roster = emptyDemo ? [] : MOCK_ROSTER;
+export function PeopleRoster({ slug, result }: { slug: string; result: RosterResult }) {
+  const roster = result.state === "ok" ? result.members : [];
   const counts = rosterCounts(roster);
 
   return (
     <div className="mx-auto max-w-content space-y-4 px-6 pb-14 pt-7 md:px-9">
-      <PrototypeHeader
-        title="花名册"
-        subtitle={`项目工作区 /p/${slug} · 人类是一等实体：👤 与 🤖 严格区分，owner 与 parent 两条关系并存`}
-        emptyDemo={emptyDemo}
-        onToggleEmptyDemo={() => setEmptyDemo((v) => !v)}
-      />
+      <div>
+        <h1 className="text-21 font-bold text-foreground">花名册</h1>
+        <p className="mt-1 text-13 text-muted-foreground">项目工作区 /p/{slug} · 人类是一等实体：👤 与 🤖 严格区分，owner 与 parent 两条关系并存</p>
+      </div>
 
       <div className="flex items-center gap-2">
         <IdentityChip kind="project">{slug}</IdentityChip>
@@ -109,8 +100,14 @@ export function PeopleRoster({ slug }: { slug: string }) {
         <span className="text-11 text-muted-foreground">（分开计数，UC-03；悬停任一行看完整标识）</span>
       </div>
 
-      {loading ? (
-        <LoadingSkeleton rows={6} />
+      {result.state === "ok" && result.degradedHeartbeat && (
+        <p data-testid="roster-heartbeat-degraded" className="text-12 text-destructive">coord-gateway 租约暂不可读——agent 心跳与在做什么暂缺。</p>
+      )}
+
+      {result.state === "unconfigured" ? (
+        <EmptyState testid="roster-unconfigured">平台目录未配置（COORD_GATEWAY_URL / COORD_API_TOKEN），暂无花名册数据。</EmptyState>
+      ) : result.state === "degraded" ? (
+        <EmptyState testid="roster-degraded">平台目录暂时不可达，花名册读取失败——稍后刷新重试。</EmptyState>
       ) : roster.length === 0 ? (
         <EmptyState testid="roster-empty">这个项目还没有成员——从公开主页（P2）招募，或用接入向导邀请。</EmptyState>
       ) : (

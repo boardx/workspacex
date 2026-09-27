@@ -59,6 +59,11 @@
       "round": "R2",
       "hash": "0ecdc8fcdeadb2b15c52d4b0f4fc53195ae40c26e8f5ac0283a657985c3c1bd8",
       "reason": "评审 N7，只收紧不放宽：E4 引用点开后的摘录必须非空（空串是任何原话的子串，R1 的判据会放过它），且抽屉里打开的那一条的原文必须就是这个引用的原文（不是随便哪一条的来源）。"
+    },
+    {
+      "round": "R3",
+      "hash": "3796053d1d1bd05dac14433e4beea45317befd46717bce7b284596de946733b1",
+      "reason": "评测种子一处修正，不改任何检查、判据、语料或打分（#4279）：#4239 起 seedOrg 给新组织写一行 enabled=false 的组织级抽取开关，评测种子因此让评测组织整场不抽取——E2/E3 的引用与冲突卡跟着消失（R3 前重跑 7.6）。种子现在按测试夹具 enableExtraction 显式打开评测组织的抽取（upsert enabled=true），与生产默认「开」一致；指纹变化只来自 scripts/seed-kg-experience-eval.ts 这一处。人类 2026-09-26 授权登记本修订。"
     }
   ]
 }

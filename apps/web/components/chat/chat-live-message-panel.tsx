@@ -9,6 +9,7 @@ import { FeedbackButton } from "@/components/feedback/feedback-button";
 // 换成本仓 `MarkdownMessage`——同样渲 markdown，且识别 ```mermaid 围栏渲成图（白名单闸门 +
 // 诚实错误态）。原型侧（ai-message.tsx）已随 #1020 落档，这里让它在**可达面**对用户生效。
 import { MarkdownMessage } from "@/components/chat/markdown-message";
+import { CitationList, PersistedMessageCitationScope } from "@/components/chat/message-citations";
 // issue #2050 —— 落地为产物的状态机与展示件，与 CopilotKit v2 轨道共用同一份。
 // 2026-08-27 起展示件拆成 Trigger（图标，进消息动作条）+ Panel（表单/完成态，仍是块级），
 // 见 `message-landing.tsx` 文件头。
@@ -307,9 +308,8 @@ export function ChatLiveMessagePanel({
   const [streamingText, setStreamingText] = React.useState("");
   /**
    * 十项 UX 缺口第 5 项（issue #708）—— 「落地为产物（草稿）」的按消息状态。
-   * ⚠ 只允许 `mode: "draft"`：`live`/`pinned` 要求消息挂有非空 citations（I-33），
-   *   而 citations 的写入路径目前不存在（见 `land-as-artifact.ts` 与本组件顶部
-   *   `landAsArtifact` 的引入注释），提供那两个选项会摆一个必炸的按钮。
+   * ⚠ 只提供 `mode: "draft"`：`live`/`pinned` 要求消息挂有非空 citations（I-33），
+   *   而并非每条消息都有引用；按消息判定可用模式不在本面板的范围内（见 `message-landing.tsx`）。
    */
   const landing = useMessageLanding({ threadId, bearer, onArtifactLanded });
   const generation = React.useRef(0);
@@ -1198,11 +1198,12 @@ export function ChatLiveMessagePanel({
                     {isAgent ? <MessageThinkingChain agentRunId={message.agentRunId} bearer={bearer} /> : null}
                     {/*
                       context-engine 可用性补口——L1/L2/L3/F190 四层组装出的上下文此前对
-                      用户完全不可见（本文件其它地方的既有注释："citations 的写入路径目前
-                      不存在"）。与上面 `MessageThinkingChain` 同一套挂法：跟着消息本身走，
+                      用户完全不可见。与上面 `MessageThinkingChain` 同一套挂法：跟着消息本身走，
                       不是跟着"当前是否有一个 run 在跑"这个瞬时状态走。
                     */}
                     {isAgent ? <MessageContextSnapshot agentRunId={message.agentRunId} bearer={bearer} /> : null}
+                    {/* issue #4244：`getThread` 下发的引用——正文 `[n]` 可点 + 气泡下方紧凑列表；无引用时不建作用域、渲染不变。 */}
+                    <PersistedMessageCitationScope messageId={isAgent ? message.id : null}>
                     <div
                       className={`rounded-2xl px-3.5 py-2.5 text-12 leading-relaxed ${
                         isAgent
@@ -1241,6 +1242,8 @@ export function ChatLiveMessagePanel({
                         <p className="whitespace-pre-wrap">{message.text}</p>
                       )}
                     </div>
+                    <CitationList />
+                    </PersistedMessageCitationScope>
                     {/*
                       2026-08-16 人类实测反馈：动作条从身份行（气泡上方）挪到气泡下方，
                       对标 Claude Code——回复读完才看到"复制/反馈/评分"，不与身份行的

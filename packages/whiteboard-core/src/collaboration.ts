@@ -30,7 +30,9 @@ const canonical = (value: unknown): string => JSON.stringify(canonicalValue(valu
 export class WhiteboardCommentService {
   private readonly threads = new Map<string, WhiteboardCommentThread>();
   private readonly requests = new Map<string, Replay>();
-  constructor(private readonly boardId: string, private readonly dependencies: CollaborationDependencies) {}
+  constructor(private readonly boardId: string, private readonly dependencies: CollaborationDependencies, initialThreads: readonly WhiteboardCommentThread[] = []) {
+    for (const value of initialThreads) { const thread=WhiteboardCommentThread.parse(value); if(thread.boardId!==boardId||this.threads.has(thread.id))throw new Error('COMMENT_CONFLICT');this.threads.set(thread.id,clone(thread)); }
+  }
 
   list(actor: CollaborationActor, includeObjectDeleted = false): WhiteboardCommentThread[] {
     this.actor(actor);
@@ -41,6 +43,7 @@ export class WhiteboardCommentService {
 
   dispatch(actor: CollaborationActor, raw: unknown): CollaborationAccepted {
     this.actor(actor);
+    if (actor.role === 'viewer') throw new Error('FORBIDDEN');
     const command = WhiteboardCommentCommand.parse(raw);
     const key = `${actor.actorId}:${command.requestId}`, payload = canonical(command);
     const replay = this.requests.get(key);
@@ -52,20 +55,20 @@ export class WhiteboardCommentService {
     const events: WhiteboardCollaborationEvent[] = [];
     const changed: WhiteboardCommentThread[] = [];
     if (command.type === 'create-comment') {
-      if (!this.dependencies.objectExists(command.objectId)) throw new Error('OBJECT_NOT_FOUND');
+      if (command.objectId !== null && !this.dependencies.objectExists(command.objectId)) throw new Error('OBJECT_NOT_FOUND');
       if (this.threads.has(command.threadId)) throw new Error('COMMENT_CONFLICT');
-      if ([...this.threads.values()].filter(thread=>thread.objectId===command.objectId).length>=WHITEBOARD_COLLABORATION_LIMITS.threadsPerObject) throw new Error('COMMENT_LIMIT');
+      if ([...this.threads.values()].filter(thread=>thread.objectId===command.objectId && (command.objectId !== null || JSON.stringify(thread.worldPosition)===JSON.stringify(command.worldPosition))).length>=WHITEBOARD_COLLABORATION_LIMITS.threadsPerObject) throw new Error('COMMENT_LIMIT');
       this.mentions(command.mentions.map(value => value.userId));
       const thread = WhiteboardCommentThread.parse({
-        id: command.threadId, boardId: this.boardId, objectId: command.objectId, status: 'open', revision: 1,
+        id: command.threadId, boardId: this.boardId, objectId: command.objectId, worldPosition: command.worldPosition, status: 'open', revision: 1,
         resolvedBy: null, resolvedAt: null, archivedAt: null,
-        comments: [{ id: command.commentId, threadId: command.threadId, boardId: this.boardId, objectId: command.objectId,
+        comments: [{ id: command.commentId, threadId: command.threadId, boardId: this.boardId, objectId: command.objectId, worldPosition: command.worldPosition,
           parentCommentId: null, authorId: actor.actorId, body: command.body, mentions: command.mentions, createdAt: now, deletedAt: null }],
       });
       this.threads.set(thread.id, thread); changed.push(thread);
-      events.push(this.event('CommentCreated', actor.actorId, operationId, now, { threadId: thread.id, commentId: command.commentId, objectId: thread.objectId }));
+      events.push(this.event('CommentCreated', actor.actorId, operationId, now, { threadId: thread.id, commentId: command.commentId, objectId: thread.objectId, worldPosition: thread.worldPosition }));
     } else if (command.type === 'archive-object-comments') {
-      if (actor.role === 'viewer') throw new Error('FORBIDDEN');
+      if (actor.role === 'commenter') throw new Error('FORBIDDEN');
       const affected = [...this.threads.values()].filter(thread => thread.objectId === command.objectId && thread.status !== 'object-deleted');
       for (const thread of affected) {
         thread.status = 'object-deleted'; thread.archivedAt = now; thread.revision++; changed.push(thread);
@@ -80,13 +83,12 @@ export class WhiteboardCommentService {
         if (thread.comments.length >= WHITEBOARD_COLLABORATION_LIMITS.commentsPerThread) throw new Error('COMMENT_LIMIT');
         if (thread.comments.some(value => value.id === command.commentId)) throw new Error('COMMENT_CONFLICT');
         this.mentions(command.mentions.map(value => value.userId));
-        thread.comments.push({ id: command.commentId, threadId: thread.id, boardId: this.boardId, objectId: thread.objectId,
+        thread.comments.push({ id: command.commentId, threadId: thread.id, boardId: this.boardId, objectId: thread.objectId, worldPosition: thread.worldPosition,
           parentCommentId: thread.comments[0]!.id, authorId: actor.actorId, body: command.body,
           mentions: clone(command.mentions), createdAt: now, deletedAt: null });
         thread.revision++; changed.push(thread);
-        events.push(this.event('CommentReplied', actor.actorId, operationId, now, { threadId: thread.id, commentId: command.commentId, objectId: thread.objectId }));
+        events.push(this.event('CommentReplied', actor.actorId, operationId, now, { threadId: thread.id, commentId: command.commentId, objectId: thread.objectId, worldPosition: thread.worldPosition }));
       } else if (command.type === 'resolve') {
-        if (actor.role === 'viewer') throw new Error('FORBIDDEN');
         thread.status = command.resolved ? 'resolved' : 'open'; thread.resolvedBy = command.resolved ? actor.actorId : null;
         thread.resolvedAt = command.resolved ? now : null; thread.revision++; changed.push(thread);
         events.push(this.event('CommentResolved', actor.actorId, operationId, now, { threadId: thread.id, resolved: command.resolved }));
@@ -105,7 +107,7 @@ export class WhiteboardCommentService {
   }
 
   private actor(actor: CollaborationActor): void {
-    if (!actor?.actorId || actor.actorId.length > 200 || !['owner', 'editor', 'viewer'].includes(actor.role)) throw new Error('FORBIDDEN');
+    if (!actor?.actorId || actor.actorId.length > 200 || !['owner', 'editor', 'commenter', 'viewer'].includes(actor.role)) throw new Error('FORBIDDEN');
   }
   private mentions(ids: string[]): void {
     if (new Set(ids).size !== ids.length || ids.some(id => !this.dependencies.isMentionable(id))) throw new Error('INVALID_MENTION');

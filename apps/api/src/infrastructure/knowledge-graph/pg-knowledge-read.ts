@@ -141,7 +141,7 @@ export class PgKnowledgeRead implements KnowledgeReadPort {
       const failed = queue.rows.filter((q) => q.attempts >= KG_EXTRACTION_MAX_ATTEMPTS);
       const active = queue.rows.filter((q) => q.attempts < KG_EXTRACTION_MAX_ATTEMPTS);
       // 用户直接交办更正（2026-09-25）：这个会话所在组织现在是不是真的在抽——provider 已配置
-      // AND 部署开关打开了 AND 该组织打开了（`kg_org_extraction_settings`，没有行 = 默认关）。
+      // AND 部署开关打开了 AND 该组织没关（`kg_org_extraction_settings`，默认值见 `KgOrgExtractionSettingsPort.getEnabled`）。
       // 与触发器 `kg_enqueue_extraction` 的三道闸门同一条件，供面板区分「队列空 = 已整理到
       // 最新」与「压根没开」。provider 没配置时短路，不必再查库。
       // 部署开关直接在这个已开着的 tenant session 里查（`kg_extraction_state` 没有 RLS、
@@ -158,7 +158,7 @@ export class PgKnowledgeRead implements KnowledgeReadPort {
             "SELECT enabled FROM kg_org_extraction_settings WHERE org_id = $1", [orgId],
           )
         : null;
-      const extractionActive = orgSetting !== null && (orgSetting.rows[0]?.enabled ?? false);
+      const extractionActive = orgSetting !== null && (orgSetting.rows[0]?.enabled ?? true);
       return {
         revision: Number(revision.rows[0]!.n),
         objects: objects.rows.map((o) => ({
@@ -289,11 +289,14 @@ export class PgKnowledgeRead implements KnowledgeReadPort {
       // I-18：一轮至多一张主动卡，冲突卡优先。用户明确要求的「记住 / 忘掉」卡不丢：矛盾处理完（提醒不再 open），
       // 同一轮回答下就轮到它。
       const card = conflict === null ? await readTurnMemoryCard(s, orgId, userId, thread.threadId, messageId) : null;
+      // #4290：改口取代提示是一行附注，不占主动卡的名额（I-18 只管卡片）
+      const supersede = await readTurnSupersede(s, orgId, userId, thread.threadId, ids);
       return {
         messageId,
         captured: captured.rows.map((c) => ({ claimId: c.id, statement: c.statement })),
         pending: Number(pending.rows[0]!.n) > 0,
         prompt: conflict !== null ? { type: "conflict" as const, conflict } : card !== null ? { type: "memory_card" as const, card } : null,
+        supersede,
         ...recall,
       };
     });
@@ -310,21 +313,41 @@ export class PgKnowledgeRead implements KnowledgeReadPort {
    * `scope_kind = 'chat_session' AND scope_id = $2` 还额外保证了即使跳过这层
    * 也只会看见挂在**这个**会话下的结论，不会读到别的会话的结论内容——两层防御，同
    * `claimSources`/`turnMemory` 对「消息必须先查得到才有下文」的既有纪律。
+   *
+   * issue #4271 —— `messageId` 也可以是**请求者自己**发的那条人类消息的 `client_message_id`。
+   * 本会话刚发出去的用户消息在前端只有视图 id（= 发送时带上的 `clientMessageId`）：身份索引
+   * （`copilotkit-v2-message-identity.ts`）只把 assistant 的流式 id 映射到落库 id，从不映射
+   * 人类消息，于是反馈条拿着 `clientMessageId` 来问，旧查询按 `cm.id` 精确相等永远查不到，
+   * 反馈条恒不出现（真浏览器复现，round 3）。别名只认 `author_kind = 'human' AND author_id = 请求者`：
+   * 别人的 `clientMessageId` 解析不出任何消息，不扩大可见面。
    */
   async messageExtraction(orgId: OrgId, userId: string, thread: KnowledgeThreadRef, messageId: string): Promise<Guarded<MessageExtractionData>> {
     const data = await this.inTenant(orgId, userId, async (s): Promise<MessageExtractionData> => {
       // 不用 DISTINCT：join 键 (claim_id, message_id, stance) 恰是 claim_message_evidence 的主键，
       // 一条 claim 对同一条消息、同一个 stance 至多一行证据，天然不会重复。
-      const r = await s.query<{ id: string; statement: string }>(
-        `SELECT c.id, c.statement FROM claims c
+      // issue #4283 `personal_copy`：**请求者本人**个人空间里、由这条结论自动记下（derived_from 边 created_by = model）、
+      // 仍是「AI 记下的」（proposed）那一份——反馈条据此显示「已记入个人记忆」并给撤销。scope_id = 请求者本人，
+      // RLS 也只放本人的个人空间（I-14）：别人看这条消息，读不到作者的个人空间，这一列恒为 null。
+      const r = await s.query<{ id: string; statement: string; personal_copy: string | null }>(
+        `WITH msg AS (
+           SELECT cm.id FROM chat_messages cm
+            WHERE cm.org_id = $1 AND cm.thread_id = $2
+              AND (cm.id = $3 OR (cm.author_kind = 'human' AND cm.author_id = $4 AND cm.client_message_id::text = $3))
+         )
+         SELECT c.id, c.statement,
+                (SELECT p.id FROM ontology_edges d JOIN claims p ON p.id = d.src_id AND p.org_id = d.org_id
+                  WHERE d.org_id = c.org_id AND d.relation = 'derived_from' AND d.src_kind = 'claim' AND d.dst_kind = 'claim'
+                    AND d.dst_id = c.id AND d.status = 'active' AND d.created_by = 'model'
+                    AND p.scope_kind = 'personal' AND p.scope_id = $4 AND p.revoked_at IS NULL AND p.status = 'proposed'
+                  ORDER BY p.id LIMIT 1) AS personal_copy
+           FROM claims c
            JOIN claim_message_evidence m ON m.claim_id = c.id AND m.org_id = c.org_id
           WHERE c.org_id = $1 AND c.scope_kind = 'chat_session' AND c.scope_id = $2 AND ${LIVE_CLAIM}
-            AND m.stance = 'supporting' AND m.message_id = $3
-            AND EXISTS (SELECT 1 FROM chat_messages cm WHERE cm.org_id = $1 AND cm.thread_id = $2 AND cm.id = $3)
+            AND m.stance = 'supporting' AND m.message_id IN (SELECT id FROM msg)
           ORDER BY c.created_at, c.id`,
-        [orgId, thread.threadId, messageId],
+        [orgId, thread.threadId, messageId, userId],
       );
-      return { claims: r.rows.map((x) => ({ claimId: x.id, statement: x.statement })) };
+      return { claims: r.rows.map((x) => ({ claimId: x.id, statement: x.statement, personalCopyClaimId: x.personal_copy })) };
     });
     return guard(threadRef(thread), data);
   }
@@ -366,6 +389,7 @@ export class PgKnowledgeRead implements KnowledgeReadPort {
         `SELECT count(*) AS n FROM ontology_actions
           WHERE org_id = $1 AND scope_kind = 'personal' AND scope_id = $2 AND outcome = 'accepted'`, scope,
       );
+      const replaced = await readPersonalReplaced(s, orgId, userId, new Set(liveClaims.map((c) => c.id)));
       return {
         revision: Number(revision.rows[0]!.n),
         // 孤立实体（没有活结论引用）不下发（契约 KgObject.claimCount 注释）。
@@ -380,6 +404,7 @@ export class PgKnowledgeRead implements KnowledgeReadPort {
             id: e.id, src: { kind: e.src_kind, id: e.src_id }, dst: { kind: e.dst_kind, id: e.dst_id },
             relation: e.relation, createdBy: e.created_by,
           })),
+        replaced,
       };
     });
     return guard(personalSpaceRef(userId), data);
@@ -430,8 +455,13 @@ export class PgKnowledgeRead implements KnowledgeReadPort {
 
   async personalClaimOrigins(orgId: OrgId, userId: string) {
     return this.inTenant(orgId, userId, async (s) => {
-      const r = await s.query<{ personal_id: string; source_id: string; thread_id: string; project_id: string | null }>(
-        `SELECT c.id AS personal_id, src.id AS source_id, t.id AS thread_id, t.project_id
+      const r = await s.query<{
+        personal_id: string; source_id: string; thread_id: string; project_id: string | null; said_at: Date | null; auto_copied: boolean;
+      }>(
+        // said_at 与 readTurnRecall 同一口径（支撑它的最早一条消息）；auto_copied = #4283 自动记下的来源（边由模型建立）。
+        `SELECT c.id AS personal_id, src.id AS source_id, t.id AS thread_id, t.project_id, d.created_by = 'model' AS auto_copied,
+                (SELECT min(m.created_at) FROM claim_message_evidence e JOIN chat_messages m ON m.id = e.message_id AND m.org_id = e.org_id
+                  WHERE e.claim_id = src.id AND e.stance = 'supporting') AS said_at
            FROM claims c
            JOIN ontology_edges d ON d.org_id = c.org_id AND d.src_kind = 'claim' AND d.src_id = c.id
                                 AND d.dst_kind = 'claim' AND d.relation = 'derived_from' AND d.status = 'active'
@@ -442,11 +472,63 @@ export class PgKnowledgeRead implements KnowledgeReadPort {
         [orgId, userId],
       );
       return r.rows.map((x) => {
-        const row: PersonalClaimOriginRow = { personalClaimId: x.personal_id, sourceClaimId: x.source_id, threadId: x.thread_id, projectId: x.project_id };
+        const row: PersonalClaimOriginRow = {
+          personalClaimId: x.personal_id, sourceClaimId: x.source_id, threadId: x.thread_id, projectId: x.project_id,
+          saidAt: x.said_at?.toISOString() ?? null, autoCopied: x.auto_copied,
+        };
         return { threadId: x.thread_id, origin: guard(threadRef({ threadId: x.thread_id, projectId: x.project_id }), row) };
       });
     });
   }
+}
+
+/**
+ * issue #4302（人类决定 2026-09-26「折叠的历史」）：查看者本人个人空间里**被改口取代**的旧记忆，挂到取代它的那条活记忆下。
+ * 这是 `LIVE_CLAIM` 之外单独的一支投影——活记忆的口径（`claims`）一个字不变，这里只多读「取代」这一种失效：
+ *
+ *   - #4290 明确改口自动取代（revocation_reason = decision_changed）：经那次取代的提示（kg_supersede_notices，仍是 applied，
+ *     撤销快照里有这一条）找到新决定；新决定本身在个人空间、或它在查看者个人空间里的活副本（derived_from）就是挂靠的那条。
+ *     提示所在对话是查看者本人的个人对话、且那次改口的新决定本身还活着 ⇒ 给出撤销（同对话里那一行「撤销」：
+ *     applyHumanAction{undoSupersede}）；新决定已被忘掉 / 撤回 ⇒ 不给撤销（#4302 review：不引向一次注定落空的撤销）。
+ *   - F16 矛盾卡「以新的为准」（conflict_keep_new）：挂靠的是 supersedes_claim_id 指向它的那条活记忆；没有撤销动作 ⇒ 只显示。
+ *
+ * 忘掉 / 撤回 / 原话被删（user_forgot、user_revoked、source_deleted……）不在这里：人类决定「撤销的不显示」。
+ * 取代它的那条也已经不在了 ⇒ 没有可挂靠的，不显示。只按 scope_id = 查看者读（RLS 同样只放本人的个人空间行，I-14）。
+ */
+async function readPersonalReplaced(
+  s: TenantSession, orgId: OrgId, viewer: string, live: ReadonlySet<string>,
+): Promise<PersonalKnowledgeData["replaced"]> {
+  const r = await s.query<{ old_id: string; old_statement: string; live_id: string; notice_id: string | null; thread_id: string | null }>(
+    `SELECT DISTINCT ON (o.id) o.id AS old_id, o.statement AS old_statement, l.id AS live_id,
+            CASE WHEN t.id IS NOT NULL AND EXISTS (SELECT 1 FROM claims n WHERE n.org_id = x.org_id AND n.id = x.newer_claim_id
+                                                     AND n.revoked_at IS NULL AND n.status <> 'superseded')
+                 THEN x.id END AS notice_id, t.id AS thread_id
+       FROM claims o
+       LEFT JOIN kg_supersede_notices x
+              ON x.org_id = o.org_id AND x.status = 'applied' AND o.revocation_reason = 'decision_changed'
+             AND x.restore->'claims' @> jsonb_build_array(jsonb_build_object('id', o.id))
+       LEFT JOIN chat_threads t ON t.org_id = x.org_id AND t.id = x.thread_id AND t.created_by = $2 AND t.project_id IS NULL
+       JOIN claims l ON l.org_id = o.org_id AND l.scope_kind = 'personal' AND l.scope_id = $2
+                    AND l.revoked_at IS NULL AND l.status <> 'superseded'
+                    AND ((x.id IS NOT NULL
+                          AND (l.id = x.newer_claim_id
+                               OR EXISTS (SELECT 1 FROM ontology_edges d
+                                           WHERE d.org_id = l.org_id AND d.src_kind = 'claim' AND d.src_id = l.id AND d.relation = 'derived_from'
+                                             AND d.dst_kind = 'claim' AND d.dst_id = x.newer_claim_id AND d.status = 'active')))
+                      OR (o.revocation_reason = 'conflict_keep_new' AND l.supersedes_claim_id = o.id))
+      WHERE o.org_id = $1 AND o.scope_kind = 'personal' AND o.scope_id = $2
+        AND o.revoked_at IS NOT NULL AND o.status = 'superseded'
+        AND o.revocation_reason IN ('decision_changed', 'conflict_keep_new')
+      ORDER BY o.id, (x.id IS NULL), l.created_at, l.id`,
+    [orgId, viewer],
+  );
+  return r.rows
+    .filter((x) => live.has(x.live_id))
+    .map((x) => ({
+      byClaimId: x.live_id,
+      replaces: { claimId: x.old_id, statement: x.old_statement },
+      undo: x.notice_id !== null && x.thread_id !== null ? { threadId: x.thread_id, noticeId: x.notice_id } : null,
+    }));
 }
 
 type ConflictPrompt = Extract<NonNullable<TurnMemoryData["prompt"]>, { type: "conflict" }>["conflict"];
@@ -462,9 +544,9 @@ async function readTurnConflict(
 ): Promise<ConflictPrompt | null> {
   if (turnMessageIds.length === 0) return null;
   const r = await s.query<{
-    id: string; newer_id: string; newer_statement: string; older_id: string; older_statement: string; said_at: Date;
+    id: string; kind: "conflict" | "possible_change"; newer_id: string; newer_statement: string; older_id: string; older_statement: string; said_at: Date;
   }>(
-    `SELECT p.id, n.id AS newer_id, n.statement AS newer_statement, o.id AS older_id, o.statement AS older_statement,
+    `SELECT p.id, p.kind, n.id AS newer_id, n.statement AS newer_statement, o.id AS older_id, o.statement AS older_statement,
             coalesce((SELECT min(m.created_at) FROM claim_message_evidence e
                         JOIN chat_messages m ON m.id = e.message_id AND m.org_id = e.org_id
                        WHERE e.claim_id = o.id AND e.org_id = o.org_id AND e.stance = 'supporting'), o.created_at) AS said_at
@@ -483,8 +565,45 @@ async function readTurnConflict(
   if (row === undefined) return null;
   return {
     promptId: row.id,
+    kind: row.kind,
     newerClaim: { id: row.newer_id, statement: row.newer_statement },
     olderClaim: { id: row.older_id, statement: row.older_statement, saidAt: row.said_at.toISOString() },
+  };
+}
+
+type SupersedeNotice = NonNullable<TurnMemoryData["supersede"]>;
+
+/**
+ * #4290：这一轮的改口取代提示（「已用〈新〉取代〈旧〉 · 撤销」）。挂在这一轮的消息上、取最早开的一张。
+ * 按查看者读：新决定是本会话的；旧决定是本会话的，或查看者本人个人空间的（RLS 也这么判——提示的可见性跟随两条结论）。
+ * applied 只在旧决定现在仍是「因这次改口而失效」时出（别处又改过 ⇒ 这一行说的事已经不成立，不出）；撤销过的读作 undone。
+ */
+async function readTurnSupersede(
+  s: TenantSession, orgId: OrgId, viewer: string, threadId: string, turnMessageIds: readonly string[],
+): Promise<SupersedeNotice | null> {
+  if (turnMessageIds.length === 0) return null;
+  const r = await s.query<{
+    id: string; status: "applied" | "undone"; newer_id: string; newer_statement: string; older_id: string; older_statement: string;
+  }>(
+    `SELECT x.id, x.status, n.id AS newer_id, n.statement AS newer_statement, o.id AS older_id, o.statement AS older_statement
+       FROM kg_supersede_notices x
+       JOIN claims n ON n.id = x.newer_claim_id AND n.org_id = x.org_id
+       JOIN claims o ON o.id = x.older_claim_id AND o.org_id = x.org_id
+      WHERE x.org_id = $1 AND x.thread_id = $2 AND x.message_id = ANY($3::text[])
+        AND n.scope_kind = 'chat_session' AND n.scope_id = $2
+        AND ((o.scope_kind = 'chat_session' AND o.scope_id = $2) OR (o.scope_kind = 'personal' AND o.scope_id = $4))
+        AND (x.status = 'undone' OR (o.revoked_at IS NOT NULL AND o.revocation_reason = 'decision_changed'))
+      ORDER BY x.created_at, x.id
+      LIMIT 1`,
+    [orgId, threadId, [...turnMessageIds], viewer],
+  );
+  const row = r.rows[0];
+  if (row === undefined) return null;
+  return {
+    noticeId: row.id,
+    newerClaim: { id: row.newer_id, statement: row.newer_statement },
+    olderClaim: { id: row.older_id, statement: row.older_statement },
+    state: row.status,
   };
 }
 
@@ -561,7 +680,7 @@ async function rememberedCard(
 
 type RecalledMemory = TurnMemoryData["recalled"][number];
 interface StoredRecallItem {
-  claimId: string; channels: string[]; retrievalReasons: string[]; score: number;
+  claimId: string; channels: string[]; retrievalReasons: string[]; score: number | null;
   graphPath: { src: string; relation: string; dst: string }[] | null;
 }
 
@@ -569,12 +688,17 @@ interface StoredRecallItem {
  * F13：这条回答用到的记忆。按查看者重新读 canonical：只要本会话的、或查看者本人个人空间的活结论
  * （别人的个人空间 RLS 本来就读不到，这里再按 scope_id 限定一次）；已失效的自然不在。
  * 图路径的端点换成查看者看得到的名字；有一端看不到就整条不给。
+ *
+ * issue #4284：项目会话里提问者本人的个人记忆也会被召回，而项目会话多人可见。持久化照实记（本人回看要用），
+ * **读的时候按查看者过滤**：个人空间的条目（L1、F15 本人其他个人对话里的）只给**这一轮的提问者本人**看——
+ * 查看者不是提问者 ⇒ 连它的原文、id、图路径标签都不出（别人的个人空间 RLS 也不放；而查看者自己的个人条目
+ * 出现在别人那一轮里只可能是记录被污染，同样不给）。选读侧而不是写侧：对已经落库的旧行、被污染的行同样成立。
  */
 async function readTurnRecall(
   s: TenantSession, orgId: OrgId, viewer: string, threadId: string, messageId: string,
 ): Promise<Pick<TurnMemoryData, "recalled" | "recallDegraded">> {
-  const r = await s.query<{ items: StoredRecallItem[]; graph_degraded: boolean }>(
-    `SELECT r.items, r.graph_degraded FROM kg_turn_recalls r
+  const r = await s.query<{ items: StoredRecallItem[]; graph_degraded: boolean; requester_user_id: string }>(
+    `SELECT r.items, r.graph_degraded, r.requester_user_id FROM kg_turn_recalls r
        JOIN chat_messages m ON m.org_id = r.org_id AND m.agent_run_id = r.run_id
       WHERE m.org_id = $1 AND m.thread_id = $2 AND m.id = $3 AND r.thread_id = $2`,
     [orgId, threadId, messageId],
@@ -585,8 +709,11 @@ async function readTurnRecall(
   const ownPersonal = `EXISTS (SELECT 1 FROM chat_threads here, chat_threads t
       WHERE here.org_id = c.org_id AND here.id = $3 AND here.project_id IS NULL AND here.created_by = $4
         AND t.org_id = c.org_id AND t.id = c.scope_id AND t.project_id IS NULL AND t.created_by = $4 AND NOT t.archived)`;
-  const visible = `((c.scope_kind = 'chat_session' AND c.scope_id = $3) OR (c.scope_kind = 'personal' AND c.scope_id = $4)
-    OR (c.scope_kind = 'chat_session' AND ${ownPersonal}))`;
+  // $5：查看者就是这一轮的提问者。个人空间的条目只在这时才可见（issue #4284，见函数头注）。
+  const visible = `((c.scope_kind = 'chat_session' AND c.scope_id = $3)
+    OR ($5::boolean AND c.scope_kind = 'personal' AND c.scope_id = $4)
+    OR ($5::boolean AND c.scope_kind = 'chat_session' AND ${ownPersonal}))`;
+  const viewerIsRequester = row.requester_user_id === viewer;
   const claimKeys = new Set(row.items.map((i) => i.claimId));
   const objectKeys = new Set<string>();
   for (const i of row.items) for (const h of i.graphPath ?? []) for (const k of [h.src, h.dst]) {
@@ -601,12 +728,12 @@ async function readTurnRecall(
               WHERE e.claim_id = c.id AND e.stance = 'supporting') AS said_at
        FROM claims c
       WHERE c.org_id = $1 AND c.id = ANY($2::text[]) AND ${LIVE_CLAIM} AND ${visible}`,
-    [orgId, [...claimKeys], threadId, viewer],
+    [orgId, [...claimKeys], threadId, viewer, viewerIsRequester],
   );
   const objects = await s.query<{ id: string; name: string }>(
     `SELECT c.id, c.name FROM ontology_objects c
       WHERE c.org_id = $1 AND c.id = ANY($2::text[]) AND c.merged_into IS NULL AND ${visible}`,
-    [orgId, [...objectKeys], threadId, viewer],
+    [orgId, [...objectKeys], threadId, viewer, viewerIsRequester],
   );
   const claimById = new Map(claims.rows.map((c) => [c.id, c]));
   const label = new Map<string, string>([
@@ -633,7 +760,8 @@ async function readTurnRecall(
       saidAt: c.said_at?.toISOString() ?? null,
       channels: item.channels.filter((x): x is RecalledMemory["channels"][number] => CP.RetrievalChannel.safeParse(x).success),
       retrievalReasons: item.retrievalReasons.filter((x): x is RecalledMemory["retrievalReasons"][number] => CP.FilterAction.safeParse(x).success),
-      score: item.score,
+      // issue #4271：修复前决定类强制召回写进库的是 Infinity → jsonb null；读出来按「没打分」给 0，守住契约。
+      score: typeof item.score === "number" && Number.isFinite(item.score) ? item.score : 0,
       graphPath,
     });
   }

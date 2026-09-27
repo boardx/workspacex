@@ -15,6 +15,7 @@ import { agentDefaults } from "@repo/contracts";
 import { createHash } from "node:crypto";
 import { BcryptPasswordHasher } from "../src/infrastructure/auth/bcrypt-password-hasher";
 import { addOrgMember, asApp, asOwner, ensureDatabase, migrateOnce, resetOrgs, seedOrg } from "../tests/support/db";
+import { assertExtractionActive, enableExtraction } from "../tests/knowledge-graph/kg-extraction-fixtures";
 
 if (process.env.KG_EVAL_FIXTURE !== "1") throw new Error("KG_EVAL_FIXTURE=1 is required");
 const required = (name: string): string => {
@@ -47,6 +48,11 @@ await asOwner(async (c) => {
 });
 await seedOrg({ orgId, projectId, teamNames: ["kg-eval"], groupNames: ["g"] });
 for (const a of accounts) await addOrgMember(orgId, a.userId, "consultant", null);
+// `seedOrg` 给测试组织写了显式 `enabled = false` 的抽取开关（#4239，隔离非 KG 套件）。评测要的正是
+// 抽取：记忆全部由用例聊出来，关着就一条记忆都形不成（#4279）。与 KG 测试同一个入口打开，
+// 然后用一条回滚掉的探针消息证明它真的会排队——没开就在这里失败，不让评测在空记忆上照跑。
+await enableExtraction(orgId);
+await assertExtractionActive(orgId);
 
 const hasher = new BcryptPasswordHasher();
 for (const a of accounts) {

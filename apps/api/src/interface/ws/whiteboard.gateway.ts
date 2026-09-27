@@ -5,11 +5,11 @@ import { WHITEBOARD_SYNC, WhiteboardClientMessage, type WhiteboardServerMessage,
 import { WHITEBOARD_COLLABORATION_LIMITS } from '@repo/contracts/whiteboard-collaboration';
 import type { PrincipalResolverPort } from '../../application/ports/principal-resolver.port';
 import type { WhiteboardRepository } from '../../application/whiteboard/ports';
-import { WhiteboardCollaborationError, type WhiteboardCollaborationStore } from '../../application/whiteboard/collaboration-ports';
+import { WhiteboardCollaborationError, type WhiteboardCollaborationStore, type WhiteboardPresenceIdentityResolver } from '../../application/whiteboard/collaboration-ports';
 import type { Principal } from '../../domain/principal';
 
 type Peer = { ws: WebSocket; principal: Principal; boardId: string; token: string; ready: boolean; epoch: number; seq: number; role: string; archived: boolean; mirror: Y.Doc; presence: ReturnType<typeof WhiteboardPresence.parse>; checking: boolean };
-export interface WhiteboardGatewayDeps { principals: PrincipalResolverPort; boards: WhiteboardRepository; store: WhiteboardCollaborationStore; }
+export interface WhiteboardGatewayDeps { principals: PrincipalResolverPort; boards: WhiteboardRepository; store: WhiteboardCollaborationStore; identities?:WhiteboardPresenceIdentityResolver; }
 const encoded = (b: Uint8Array) => Buffer.from(b).toString('base64');
 const decoded = (s: string) => new Uint8Array(Buffer.from(s, 'base64'));
 /** Bounded WS transport. Database serializes writers; only committed updates are broadcast. */
@@ -39,10 +39,10 @@ export function attachWhiteboardGateway(server: Server, deps: WhiteboardGatewayD
     const token=credential.slice(WHITEBOARD_SYNC.bearerSubprotocolPrefix.length), boardId=match[1]!;
     void (async()=>{
       const principal=await deps.principals.resolve({authorization:`Bearer ${token}`}); if (!principal) { refuse(401); return; }
-      const board=await deps.boards.get(principal,boardId); if (!board) { refuse(404); return; }
+      const [board,identity]=await Promise.all([deps.boards.get(principal,boardId),deps.identities?.resolve(principal)??Promise.resolve({displayName:principal.userId,avatarUrl:null,principalKind:'user' as const})]); if (!board) { refuse(404); return; }
       if ([...peers].filter(p=>p.boardId===boardId && p.principal.orgId===principal.orgId).length>=50) { refuse(429); return; }
       wss.handleUpgrade(request,socket,head,ws=>{
-        const peer:Peer={ws,principal,boardId,token,ready:false,epoch:0,seq:0,role:board.role,archived:board.archived,mirror:new Y.Doc(),presence:WhiteboardPresence.parse({actorId:principal.userId,displayName:principal.userId,contributorColor:color(principal.userId),cursor:null,selected:[],editingObjectId:null,expiresAt:new Date(Date.now()+WHITEBOARD_COLLABORATION_LIMITS.presenceTtlMs).toISOString()}),checking:false};
+        const peer:Peer={ws,principal,boardId,token,ready:false,epoch:0,seq:0,role:board.role,archived:board.archived,mirror:new Y.Doc(),presence:WhiteboardPresence.parse({actorId:principal.userId,...identity,contributorColor:color(principal.userId),cursor:null,selected:[],editingObjectId:null,viewport:null,presenting:false,followingActorId:null,expiresAt:new Date(Date.now()+WHITEBOARD_COLLABORATION_LIMITS.presenceTtlMs).toISOString()}),checking:false};
         peers.add(peer);
         const deadline=setTimeout(()=>ws.close(4408,'handshake timeout'),10000);
         let queue=Promise.resolve(), waiting=0, awarenessAt=0;
@@ -71,12 +71,14 @@ export function attachWhiteboardGateway(server: Server, deps: WhiteboardGatewayD
             if(!peer.ready) { fail(ws,'HELLO_REQUIRED'); return; }
             if(message.type==='awareness') {
               if(Date.now()-awarenessAt<WHITEBOARD_COLLABORATION_LIMITS.presenceMinimumIntervalMs) return; awarenessAt=Date.now();
-              peer.presence=WhiteboardPresence.parse({...peer.presence,cursor:message.cursor,selected:message.selected,editingObjectId:message.editingObjectId ?? null,expiresAt:new Date(Date.now()+WHITEBOARD_COLLABORATION_LIMITS.presenceTtlMs).toISOString()}); presence(peer); return;
+              const collaborationAdvances=Boolean(message.viewport&&(!peer.presence.viewport||message.viewport.revision>peer.presence.viewport.revision));
+              const viewport=collaborationAdvances?message.viewport:peer.presence.viewport;
+              peer.presence=WhiteboardPresence.parse({...peer.presence,cursor:message.cursor,selected:message.selected,editingObjectId:message.editingObjectId ?? null,viewport,presenting:collaborationAdvances?(message.presenting??peer.presence.presenting):peer.presence.presenting,followingActorId:collaborationAdvances?(message.followingActorId===undefined?peer.presence.followingActorId:message.followingActorId):peer.presence.followingActorId,expiresAt:new Date(Date.now()+WHITEBOARD_COLLABORATION_LIMITS.presenceTtlMs).toISOString()}); presence(peer); return;
             }
             const ack=await deps.store.append(principal,boardId,{...message,update:decoded(message.update)});
             // ACK is durability only and never advances client document state. Queue
             // it before a potentially large catch-up diff so backpressure stays fail-closed.
-            send(ws,{type:'ack',updateId:ack.updateId,seq:ack.seq});
+            send(ws,{type:'ack',updateId:ack.updateId,gestureId:ack.gestureId,seq:ack.seq});
             if(!ack.replayed) {
               for(const target of group(peer)) {
                 if(target.epoch!==ack.epoch) { fail(target.ws,'STALE_EPOCH'); continue; }
@@ -96,7 +98,8 @@ export function attachWhiteboardGateway(server: Server, deps: WhiteboardGatewayD
             }
           }).catch(error=>{
             const code=error instanceof WhiteboardCollaborationError?error.code:'DEPENDENCY_UNAVAILABLE';
-            fail(ws,code==='NOT_FOUND'?'ACCESS_REVOKED':code==='ARCHIVED'?'BOARD_ARCHIVED':code==='INTEGRITY_FAILED'?'DEPENDENCY_UNAVAILABLE':code);
+            const transportCode=code==='NOT_FOUND'?'ACCESS_REVOKED':code==='ARCHIVED'?'BOARD_ARCHIVED':code==='INTEGRITY_FAILED'?'DEPENDENCY_UNAVAILABLE':code==='COMMENT_CONFLICT'||code==='INVALID_MENTION'?'VALIDATION_FAILED':code;
+            fail(ws,transportCode);
           }).finally(()=>{waiting--;});
         });
         ws.on('error',()=>ws.close());

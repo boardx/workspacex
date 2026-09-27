@@ -1,0 +1,91 @@
+# self-host-upgrade-drill.yml —— 自托管升级演练（backlog E7 / issue #4263）。
+#
+# 逻辑全在 scripts/self-host-upgrade-drill.sh（人也能在本机跑同一条）；本文件只负责
+# 选出「旧版本」= PR 的 merge-base（即改动前的 main），然后调脚本。
+#
+# 不碰任何 secret：演练 env 由脚本随机生成、结束即删。托管 runner，一次性沙箱。
+# 只在改到自托管升级面的 PR 上跑（paths 过滤）——它起完整依赖栈并构建两遍镜像，
+# 每个 PR 都跑不划算；手动触发可指定任意旧版本。
+name: self-host-upgrade-drill
+
+on:
+  pull_request:
+    paths:
+      - compose.yaml
+      - selfhost.env.example
+      - apps/api/docker-compose.deploy.yml
+      - apps/api/docker-compose.minio-image.yml
+      - apps/api/docker/**
+      - apps/api/migrations/**
+      - apps/skill-sandbox/Dockerfile
+      - apps/skill-sandbox/security/**
+      - '**/Dockerfile'
+      - scripts/upgrade.sh
+      - scripts/self-host-upgrade-drill.sh
+      - packages/cloud-deploy/src/starter-backup*
+      - .github/workflows/self-host-upgrade-drill.yml
+  workflow_dispatch:
+    inputs:
+      old_ref:
+        description: 'Old version to upgrade from (tag/commit). Empty = merge-base with origin/main, or HEAD~1 on main'
+        type: string
+        default: ''
+
+concurrency:
+  group: self-host-upgrade-drill-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  drill:
+    runs-on: ubuntu-latest
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4.4.0
+      - name: Setup Node
+        uses: actions/setup-node@v5
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+
+      - name: Resolve old version
+        id: old
+        env:
+          INPUT_OLD_REF: ${{ inputs.old_ref }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: |
+          set -euo pipefail
+          if [ -n "${INPUT_OLD_REF:-}" ]; then
+            old="$(git rev-parse --verify "${INPUT_OLD_REF}^{commit}")"
+          elif [ -n "${BASE_SHA:-}" ]; then
+            old="$(git merge-base "$BASE_SHA" HEAD)"
+          else
+            old="$(git merge-base origin/main HEAD)"
+            [ "$old" != "$(git rev-parse HEAD)" ] || old="$(git rev-parse HEAD~1)"
+          fi
+          echo "sha=$old" >> "$GITHUB_OUTPUT"
+          echo "old=$old new=$(git rev-parse HEAD)"
+
+      - name: Upgrade drill
+        env:
+          DRILL_LOG_DIR: ${{ runner.temp }}/drill-logs
+        run: bash scripts/self-host-upgrade-drill.sh --old-ref "${{ steps.old.outputs.sha }}" --new-ref HEAD
+
+      - name: Upload drill logs
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: self-host-upgrade-drill-logs
+          path: ${{ runner.temp }}/drill-logs
+          if-no-files-found: ignore
+
+      - name: Release compose stack (safety net)
+        if: always()
+        run: docker compose -p workspacex down -v --remove-orphans || true

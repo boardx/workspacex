@@ -7,7 +7,7 @@ function fixture() {
   let at = 0;
   const objects = new Set(['note']);
   const service = new WhiteboardCommentService(boardId, {
-    objectExists: id => objects.has(id), isMentionable: id => ['owner', 'editor', 'viewer'].includes(id),
+      objectExists: id => objects.has(id), isMentionable: id => ['owner', 'editor', 'commenter', 'viewer'].includes(id),
     now: () => new Date('2026-09-26T00:00:00.000Z'), uuid: () => ids[at++]!,
   });
   return { service, objects };
@@ -17,10 +17,10 @@ describe('whiteboard object comments', () => {
   it('lets every member comment and reply with stable identity, CAS and idempotency', () => {
     const { service } = fixture();
     const create = { type: 'create-comment' as const, requestId: ids[0], threadId: ids[1], commentId: ids[2], objectId: 'note', body: '问题', mentions: [{ userId: 'editor' }], expectedRevision: 0 as const };
-    const accepted = service.dispatch({ actorId: 'viewer', role: 'viewer' }, create);
+    const accepted = service.dispatch({ actorId: 'commenter', role: 'commenter' }, create);
     expect(accepted.events[0]).toMatchObject({ type: 'CommentCreated', objectId: 'note' });
-    expect(service.dispatch({ actorId: 'viewer', role: 'viewer' }, create)).toMatchObject({ replayed: true, operationId: accepted.operationId });
-    expect(() => service.dispatch({ actorId: 'viewer', role: 'viewer' }, { ...create, body: 'changed' })).toThrow('IDEMPOTENCY_CONFLICT');
+    expect(service.dispatch({ actorId: 'commenter', role: 'commenter' }, create)).toMatchObject({ replayed: true, operationId: accepted.operationId });
+    expect(() => service.dispatch({ actorId: 'commenter', role: 'commenter' }, { ...create, body: 'changed' })).toThrow('IDEMPOTENCY_CONFLICT');
     const reply = service.dispatch({ actorId: 'editor', role: 'editor' }, { type: 'reply', requestId: ids[3], threadId: ids[1], commentId: ids[4], body: '回答', mentions: [], expectedRevision: 1 });
     expect(reply.threads[0]).toMatchObject({ revision: 2, comments: [{ id: ids[2] }, { id: ids[4], parentCommentId: ids[2] }] });
     expect(() => service.dispatch({ actorId: 'editor', role: 'editor' }, { type: 'resolve', requestId: ids[5], threadId: ids[1], resolved: true, expectedRevision: 1 })).toThrow('COMMENT_CONFLICT');
@@ -28,9 +28,9 @@ describe('whiteboard object comments', () => {
 
   it('enforces resolve/delete permissions and preserves redacted tombstones', () => {
     const { service } = fixture();
-    service.dispatch({ actorId: 'viewer', role: 'viewer' }, { type: 'create-comment', requestId: ids[0], threadId: ids[1], commentId: ids[2], objectId: 'note', body: 'secret', mentions: [], expectedRevision: 0 });
+    service.dispatch({ actorId: 'commenter', role: 'commenter' }, { type: 'create-comment', requestId: ids[0], threadId: ids[1], commentId: ids[2], objectId: 'note', body: 'secret', mentions: [], expectedRevision: 0 });
     expect(() => service.dispatch({ actorId: 'viewer', role: 'viewer' }, { type: 'resolve', requestId: ids[3], threadId: ids[1], resolved: true, expectedRevision: 1 })).toThrow('FORBIDDEN');
-    const deleted = service.dispatch({ actorId: 'viewer', role: 'viewer' }, { type: 'delete-comment', requestId: ids[4], threadId: ids[1], commentId: ids[2], expectedRevision: 1 });
+    const deleted = service.dispatch({ actorId: 'commenter', role: 'commenter' }, { type: 'delete-comment', requestId: ids[4], threadId: ids[1], commentId: ids[2], expectedRevision: 1 });
     expect(deleted.threads[0]?.comments[0]).toMatchObject({ body: '[deleted]', mentions: [], deletedAt: '2026-09-26T00:00:00.000Z' });
     const resolved = service.dispatch({ actorId: 'owner', role: 'owner' }, { type: 'resolve', requestId: ids[5], threadId: ids[1], resolved: true, expectedRevision: 2 });
     expect(resolved.events[0]).toMatchObject({ type: 'CommentResolved', resolved: true });
@@ -51,6 +51,14 @@ describe('whiteboard object comments', () => {
     const base = { type: 'create-comment' as const, requestId: ids[0], threadId: ids[1], commentId: ids[2], objectId: 'missing', body: 'x', mentions: [], expectedRevision: 0 as const };
     expect(() => service.dispatch({ actorId: 'owner', role: 'owner' }, base)).toThrow('OBJECT_NOT_FOUND');
     expect(() => service.dispatch({ actorId: 'owner', role: 'owner' }, { ...base, objectId: 'note', mentions: [{ userId: 'outsider' }] })).toThrow('INVALID_MENTION');
+  });
+  it('keeps commenter independent from viewer and supports a stable world-position anchor',()=>{
+    const {service}=fixture();
+    const command={type:'create-comment' as const,requestId:ids[0],threadId:ids[1],commentId:ids[2],objectId:null,worldPosition:{x:120,y:-30},body:'canvas-level',mentions:[],expectedRevision:0 as const};
+    expect(()=>service.dispatch({actorId:'viewer',role:'viewer'},command)).toThrow('FORBIDDEN');
+    const accepted=service.dispatch({actorId:'commenter',role:'commenter'},command);
+    expect(accepted.threads[0]).toMatchObject({objectId:null,worldPosition:{x:120,y:-30}});
+    expect(accepted.events[0]).toMatchObject({type:'CommentCreated',objectId:null,worldPosition:{x:120,y:-30}});
   });
 });
 
@@ -73,4 +81,3 @@ describe('transient presence and recovery manifests', () => {
     expect(() => restoredHead({ epoch: 2, seq: 20 }, manifest)).toThrow('CHECKPOINT_AHEAD');
   });
 });
-

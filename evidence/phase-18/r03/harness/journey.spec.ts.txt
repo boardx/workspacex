@@ -1,0 +1,217 @@
+/**
+ * Issue #4271 round 3: 「我决定关注 211 高校」 end to end in a real browser against a real local stack.
+ *
+ * Model is the deterministic KG-eval loopback (`apps/api/scripts/loopback-kg-eval-model-provider.ts`),
+ * fed a one-sentence corpus so that extracting exactly 「我决定关注 211 高校」 returns one decision claim
+ * (it plays "an extraction model that read this sentence right"); chat answers only echo the 【记忆】 the
+ * executor actually handed the model that turn. Everything else — extraction worker, projection, recall,
+ * `kg_turn_recalls`, the chip, the panel, promotion, /brain — is the real product path.
+ *
+ * Order: A (steps 1-4, then 7a undo) · B (5 remember + 6 promote) · C (6 new thread recalls, /brain) ·
+ * 7b forget the promoted one · D (new thread no longer recalls, /brain no longer shows).
+ */
+import { mkdirSync, writeFileSync } from "node:fs";
+import path from "node:path";
+import { expect, test, type Page } from "@playwright/test";
+import { KG_EVAL } from "../kg-experience-eval/fixture";
+import { apiGet, login, newThread, openMemoryPanel, say } from "../kg-experience-eval/eval-helpers";
+
+const OUT = path.resolve(__dirname, "../../../../evidence/phase-18/r03");
+mkdirSync(OUT, { recursive: true });
+const DECISION = "我决定关注 211 高校";
+const record: Record<string, unknown> = {};
+const shot = (page: Page, name: string) => page.screenshot({ path: path.join(OUT, `${name}.png`), fullPage: false });
+const dump = () => writeFileSync(path.join(OUT, "journey.json"), `${JSON.stringify(record, null, 2)}\n`);
+
+interface Claim { id: string; statement: string; status: string; kind?: string }
+interface TurnMemory { recalled: Array<{ claimId: string; statement: string; scope: string; channels: string[] }> }
+interface Personal { claims: Claim[] }
+
+async function threadClaims(page: Page, threadId: string) {
+  const r = await apiGet(page, `/knowledge-graph/threads/${threadId}`);
+  return r.body as { extractionActive: boolean; claims: Claim[]; ingestion: unknown };
+}
+async function turnMemory(page: Page, threadId: string, answerId: string) {
+  return (await apiGet(page, `/knowledge-graph/threads/${threadId}/messages/${answerId}/memory`)).body as TurnMemory;
+}
+async function personal(page: Page) {
+  return ((await apiGet(page, "/knowledge-graph/personal")).body as Personal).claims.map((c) => ({ id: c.id, statement: c.statement, status: c.status }));
+}
+async function waitClaim(page: Page, threadId: string, pred: (c: Claim) => boolean) {
+  let hit: Claim | undefined;
+  await expect.poll(async () => { hit = (await threadClaims(page, threadId)).claims.find(pred); return hit !== undefined; }, { timeout: 30_000 }).toBe(true);
+  return hit!;
+}
+async function acceptRememberCard(page: Page, label: string) {
+  const card = page.getByTestId("kg-card-remember").last();
+  await expect(card).toBeVisible({ timeout: 60_000 });
+  await shot(page, `${label}-card`);
+  await card.getByTestId("kg-card-accept").click();
+  await expect(page.getByTestId("kg-card-done").last()).toBeVisible();
+  await shot(page, `${label}-done`);
+}
+
+test.describe.configure({ mode: "serial" });
+let page: Page;
+const ids: Record<string, string> = {};
+
+test.beforeAll(async ({ browser }) => {
+  page = await browser.newPage();
+  const kgCalls: string[] = [];
+  page.on("response", (r) => {
+    if (/\/knowledge-graph\//.test(r.url())) kgCalls.push(`${r.status()} ${r.request().method()} ${new URL(r.url()).pathname}`);
+  });
+  record.kgCalls = kgCalls;
+  record.ids = ids;
+  await login(page, KG_EVAL.owner);
+});
+test.afterAll(() => dump());
+
+test("steps 1-4: decision is recorded with feedback, shown honestly, and recalled next turn", async () => {
+  ids.threadA = await newThread(page);
+  const t1 = await say(page, DECISION);
+  record.A_turn1 = { answerId: t1.answerId, text: t1.text };
+
+  // Step 2: the chip under the user's own message says what was recorded, with undo.
+  const answeredAt = Date.now();
+  const chip = page.getByTestId("kg-extraction-feedback");
+  await expect(chip).toBeVisible({ timeout: 30_000 });
+  record.A_chipVisibleMsAfterAnswer = Date.now() - answeredAt;
+  await expect(chip).toContainText(`已记下：${DECISION}`);
+  await expect(chip.getByRole("button", { name: "撤销" })).toBeVisible();
+  record.A_chipText = (await chip.innerText()).trim();
+  await shot(page, "01-02-chip-after-send");
+
+  // Step 3: the panel lists it; status is honest (not 「自动记忆未开启」).
+  const panel = await openMemoryPanel(page);
+  await expect(panel).toContainText(DECISION);
+  await expect(page.getByTestId("kg-ingestion-inactive")).toHaveCount(0);
+  await expect(page.getByTestId("kg-ingestion-idle")).toHaveText("已整理到最新");
+  const tk = await threadClaims(page, ids.threadA);
+  record.A_threadKnowledge = { extractionActive: tk.extractionActive, ingestion: tk.ingestion, claims: tk.claims.map((c) => ({ id: c.id, statement: c.statement, status: c.status, kind: c.kind })) };
+  expect(tk.extractionActive).toBe(true);
+  const claim = tk.claims.find((c) => c.statement === DECISION)!;
+  expect(claim.kind).toBe("decision");
+  ids.claimA = claim.id;
+  await shot(page, "03-panel-lists-claim");
+
+  // Step 4: an unrelated next turn still has the decision in the model's context.
+  const t2 = await say(page, "开始写报告吧");
+  const mem = await turnMemory(page, ids.threadA, t2.answerId);
+  record.A_turn2 = { answerId: t2.answerId, text: t2.text, recalled: mem.recalled };
+  expect(mem.recalled.map((r) => r.claimId)).toContain(ids.claimA);
+  expect(t2.text).toContain(DECISION);
+  await shot(page, "04-next-turn-recalls-decision");
+});
+
+test("step 7a: undo on the chip removes it from the panel and from recall", async () => {
+  const undo = page.getByTestId(`kg-extraction-undo-${ids.claimA}`);
+  await undo.click();
+  await expect(page.getByTestId("kg-extraction-feedback")).toHaveCount(0);
+  const panel = await openMemoryPanel(page);
+  await expect(panel.getByTestId(`kg-claim-${ids.claimA}`)).toHaveCount(0);
+  const tk = await threadClaims(page, ids.threadA);
+  record.A_afterUndo_claims = tk.claims.map((c) => c.statement);
+  expect(tk.claims.find((c) => c.id === ids.claimA)).toBeUndefined();
+  await shot(page, "07a-after-chip-undo-panel");
+  const t3 = await say(page, "开始写报告吧");
+  const mem = await turnMemory(page, ids.threadA, t3.answerId);
+  record.A_turn3_afterUndo = { answerId: t3.answerId, text: t3.text, recalled: mem.recalled };
+  expect(mem.recalled.map((r) => r.claimId)).not.toContain(ids.claimA);
+  expect(t3.text).not.toContain("211");
+  await shot(page, "07a-after-undo-next-turn");
+});
+
+test("step 5: 「记住这句」 and 「+ 记一条」 both land in long-term memory", async () => {
+  ids.threadB = await newThread(page);
+  await say(page, DECISION);
+  const claimB = await waitClaim(page, ids.threadB, (c) => c.statement === DECISION);
+  ids.claimB = claimB.id;
+  await expect(page.getByTestId("kg-extraction-feedback")).toContainText(DECISION);
+
+  const sentence = "报告截止日期是 10 月 15 日";
+  await say(page, sentence);
+  const bubble = page.getByTestId("copilot-user-message").filter({ hasText: sentence }).last();
+  await bubble.hover();
+  const remember = page.getByTestId("chat-message-remember").last();
+  await expect(remember).toBeVisible();
+  await shot(page, "05a-remember-this-hover");
+  await remember.click();
+  await acceptRememberCard(page, "05a-remember-this");
+
+  await openMemoryPanel(page);
+  await page.getByTestId("kg-remember-quick-add-open").click();
+  const typed = "报告只写中文版";
+  await page.getByTestId("kg-remember-quick-add-input").fill(typed);
+  await shot(page, "05b-quick-add-form");
+  await page.getByTestId("kg-remember-quick-add-submit").click();
+  await acceptRememberCard(page, "05b-quick-add");
+
+  const p = await personal(page);
+  record.B_personalAfterStep5 = p;
+  expect(p.map((c) => c.statement)).toEqual(expect.arrayContaining([sentence, typed]));
+});
+
+test("step 6: promote the decision to personal space; a new thread recalls it; /brain shows real data", async () => {
+  await page.goto(`/chat/${ids.threadB}`);
+  await openMemoryPanel(page);
+  await page.getByTestId("kg-promote-enter").click();
+  await page.getByTestId(`kg-claim-select-${ids.claimB}`).check();
+  await page.getByTestId("kg-promote-submit").click();
+  await expect(page.getByTestId("kg-promotion-summary")).toContainText("已记到长期记忆 1 条");
+  await shot(page, "06a-promoted");
+  const p = await personal(page);
+  record.B_personalAfterPromote = p;
+  const promoted = p.find((c) => c.statement === DECISION);
+  expect(promoted).toBeTruthy();
+  ids.personalDecision = promoted!.id;
+
+  ids.threadC = await newThread(page);
+  const q = await say(page, "我关注哪类高校？");
+  const memQ = await turnMemory(page, ids.threadC, q.answerId);
+  record.C_question = { answerId: q.answerId, text: q.text, recalled: memQ.recalled };
+  expect(q.text).toContain(DECISION);
+  await shot(page, "06b-new-thread-recalls");
+  // Not asserted (reported): does an unrelated turn in a NEW thread also carry the decision?
+  const w = await say(page, "开始写报告吧");
+  const memW = await turnMemory(page, ids.threadC, w.answerId);
+  record.C_unrelated = { answerId: w.answerId, text: w.text, recalled: memW.recalled };
+  await shot(page, "06c-new-thread-unrelated-turn");
+
+  await page.goto("/brain");
+  await expect(page.getByTestId("brain-screen")).toBeVisible();
+  const items = page.getByTestId("brain-personal-item");
+  // Statement line only (each item also shows its origin thread title, which here is the same sentence).
+  await expect(items.locator("p", { hasText: DECISION })).toHaveCount(1);
+  await expect(page.getByTestId("brain-screen")).not.toContainText("示例");
+  record.brain_personalCount = await page.getByTestId("brain-tab-personal-count").innerText();
+  record.brain_items = await items.allInnerTexts();
+  record.brain_overview = (await apiGet(page, "/knowledge-graph/me/overview")).body;
+  await shot(page, "06d-brain-personal");
+});
+
+test("step 7b: forgetting the decision removes the promoted copy from recall and /brain", async () => {
+  await page.goto(`/chat/${ids.threadB}`);
+  const panel = await openMemoryPanel(page);
+  await panel.getByTestId(`kg-row-no-${ids.claimB}`).click();
+  await shot(page, "07b-forget-options");
+  await panel.getByTestId(`kg-row-forget-${ids.claimB}`).click();
+  await expect(panel.getByTestId(`kg-claim-${ids.claimB}`)).toHaveCount(0);
+  await shot(page, "07b-forgotten-panel");
+  const p = await personal(page);
+  record.personalAfterForget = p;
+  expect(p.map((c) => c.statement)).not.toContain(DECISION);
+
+  ids.threadD = await newThread(page);
+  const q = await say(page, "我关注哪类高校？");
+  const mem = await turnMemory(page, ids.threadD, q.answerId);
+  record.D_question = { answerId: q.answerId, text: q.text, recalled: mem.recalled };
+  expect(q.text).not.toContain("211");
+  await shot(page, "07b-new-thread-no-recall");
+
+  await page.goto("/brain");
+  await expect(page.getByTestId("brain-screen")).toBeVisible();
+  await expect(page.getByTestId("brain-personal-item").first()).toBeVisible();
+  await expect(page.getByTestId("brain-personal-item").locator("p", { hasText: DECISION })).toHaveCount(0);
+  await shot(page, "07b-brain-after-forget");
+});
