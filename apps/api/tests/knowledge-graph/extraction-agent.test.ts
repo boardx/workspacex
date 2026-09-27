@@ -189,7 +189,7 @@ describe("F06: 解析容错", () => {
       ],
     });
     expect(r.entities.map((e) => e.name)).toEqual(["张三"]);
-    expect(r.claims).toEqual([{ statement: "张三负责 v2", kind: "fact", confidence: 1, about: ["张三"], decidedBy: null, quote: "" }]);
+    expect(r.claims).toEqual([{ statement: "张三负责 v2", kind: "fact", confidence: 1, about: ["张三"], decidedBy: null, quote: "", timeExpr: null }]);
     expect(parseExtraction("not an object")).toEqual({ entities: [], claims: [] });
   });
 });

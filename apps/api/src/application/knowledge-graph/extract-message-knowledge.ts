@@ -70,6 +70,8 @@ export async function extractJob(deps: ExtractionDeps, job: KgExtractionJob): Pr
   const known = await deps.source.knownObjects(job.orgId, job.threadId);
   const batch = buildExtractionBatch({
     threadId: job.threadId, messageId: job.messageId, messageBody: loaded.message.body,
+    // issue #4363（S6）：「这周」「到年底」按说这句话的时间换算（不是按抽取任务跑的时间）
+    ...(loaded.message.createdAt === undefined ? {} : { messageAt: loaded.message.createdAt }),
     result, known, newId: deps.newId,
   });
   if (batch === null) {

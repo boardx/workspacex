@@ -21,7 +21,7 @@ import { annOrder, annThenExact, exactOrder, prepareAnn } from "../retrieval/hns
 const stripKind = (key: string) => key.slice(key.indexOf(":") + 1);
 const LIVE = "c.revoked_at IS NULL AND c.status <> 'superseded'";
 /** 「这条是哪天说的」：最早一条支持证据消息的时间（L1 的证据消息在原会话里）。 */
-const CLAIM_COLUMNS = `c.id, c.statement, c.status, c.claim_kind,
+const CLAIM_COLUMNS = `c.id, c.statement, c.status, c.claim_kind, c.valid_to, c.todo_status,
   (SELECT min(m.created_at) FROM claim_message_evidence e JOIN chat_messages m ON m.id = e.message_id AND m.org_id = e.org_id
     WHERE e.claim_id = c.id AND e.stance = 'supporting') AS said_at`;
 
@@ -32,7 +32,10 @@ export class PgKnowledgeRecall implements KnowledgeRecallPort {
   async candidates(orgId: OrgId, userId: string, threadId: string) {
     return this.db.withTenant(orgId, async (s) => {
       await s.query("SELECT set_config('app.current_user_id', $1, true)", [userId]);
-      type Row = { id: string; statement: string; status: string; claim_kind: RecallClaim["kind"] | null; said_at: Date | null };
+      type Row = {
+        id: string; statement: string; status: string; claim_kind: RecallClaim["kind"] | null; said_at: Date | null;
+        valid_to: Date | null; todo_status: RecallClaim["todoStatus"];
+      };
       const session = await s.query<Row>(
         `SELECT ${CLAIM_COLUMNS} FROM claims c
           WHERE c.org_id = $1 AND c.scope_kind = 'chat_session' AND c.scope_id = $2 AND ${LIVE}`,
@@ -131,6 +134,8 @@ export class PgKnowledgeRecall implements KnowledgeRecallPort {
         const tri = KG.claimTriState(c.status as Parameters<typeof KG.claimTriState>[0]);
         return tri === null ? [] : [{
           id: c.id, statement: c.statement, kind: c.claim_kind ?? "fact", triState: tri, saidAt: c.said_at?.toISOString() ?? null, scope,
+          // issue #4363（S6）：过期 / 「不做了」由 fuseRecall 的 recallable 统一排除（判定只有一处，SQL 里不另写一份）
+          validUntil: c.valid_to?.toISOString() ?? null, todoStatus: c.todo_status ?? null,
           ...(c.thread_id === undefined ? {} : { originThreadId: c.thread_id }),
         }];
       };

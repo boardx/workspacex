@@ -54,6 +54,20 @@ export const KgClaimKind = z.enum(["fact", "hypothesis", "decision", "todo", "ri
 export type KgClaimKind = z.infer<typeof KgClaimKind>;
 
 /**
+ * issue #4363（S6）：待办的状态。只有 `kind = todo` 的结论有（其余为 null）；新记下的待办是 open。
+ * 数据库 CHECK（迁移 20260927400000 claims_todo_status_chk）与本枚举逐项对账。
+ */
+export const KgTodoStatus = z.enum(["open", "done", "dropped"]);
+export type KgTodoStatus = z.infer<typeof KgTodoStatus>;
+
+/** 待办状态的界面文案（单源，同 KG_TRI_STATE_LABEL_ZH）。 */
+export const KG_TODO_STATUS_LABEL_ZH: Record<KgTodoStatus, string> = {
+  open: "还没做",
+  done: "做完了",
+  dropped: "不做了",
+};
+
+/**
  * issue #4343：「本人意向类」结论——作者本人说的会自动记进本人个人空间（同 #4283 的决定），并在每一轮强制召回
  * （同 #4181 的决定，名额另计）。唯一事实源：抽取、自动复制、召回都从这里判，不各写一份。
  */
@@ -190,6 +204,17 @@ export const KgClaim = z.object({
   supportingCount: z.number().int().nonnegative(),
   contradictingCount: z.number().int().nonnegative(),
   createdAt: z.string(),
+  /**
+   * issue #4363（S6）：有效期的终点（ISO，左闭右开：到这一刻就不再成立）；长期有效为 null。
+   * 抽取时由原话里的时间说法（「这周」「到年底」）换算。可选：旧客户端 / 不带时间维度的读口省略。
+   */
+  validUntil: z.string().nullable().optional(),
+  /** issue #4363（S6）：服务端按读的那一刻算好的「已过期」（validUntil 已过）。过期的仍在列表里（标「已过期」），只是不再被召回。 */
+  expired: z.boolean().optional(),
+  /** issue #4363（S6）：待办状态（只有 kind = todo 有）；其余类别为 null。 */
+  todoStatus: KgTodoStatus.nullable().optional(),
+  /** issue #4363（S6）：待办的截止日期（ISO，左闭右开）；没说截止为 null。 */
+  dueAt: z.string().nullable().optional(),
 }).strict();
 export type KgClaim = z.infer<typeof KgClaim>;
 
@@ -435,6 +460,14 @@ export const KgPersonalReplacedClaim = z.object({
    * 不是自动取代（矛盾卡上选了「以新的为准」）、或那个对话已不是本人的 ⇒ null（只显示，不给撤销）。
    */
   undo: z.object({ threadId: z.string(), noticeId: KgSupersedeNotice.shape.noticeId }).strict().nullable(),
+  /**
+   * issue #4363（S6）：链式取代历史（211 → 985 → 清华）里这一条离活记忆有几步：1 = 直接被 `byClaimId` 取代，
+   * 2 = 被「取代了它的那条」再取代……同一 `byClaimId` 下按 step 从小到大就是从新到旧。只有 step = 1 的可能给撤销
+   * （撤销更早的一环，要先撤销后面那一环——同 #4302：不引向一次注定落空的撤销）。省略 = 1（旧服务端）。
+   */
+  step: z.number().int().min(1).optional(),
+  /** issue #4363（S6）：直接取代它的那一条（step = 1 时就是 `byClaimId` 那条；更早的一环是链上下一条，已不再生效）。 */
+  replacedBy: z.object({ claimId: z.string(), statement: z.string() }).strict().optional(),
 }).strict();
 export type KgPersonalReplacedClaim = z.infer<typeof KgPersonalReplacedClaim>;
 
@@ -727,6 +760,19 @@ export const knowledgeGraph = {
     in: z.object({ threadId: z.string(), claimId: z.string() }).strict(),
     out: z.object({ personalClaimId: z.string(), outcome: z.enum(["revoked", "detached"]) }).strict(),
     err: ["KG_THREAD_NOT_FOUND", "KG_NOT_VISIBLE", "KG_CLAIM_NOT_FOUND", "KG_ACTOR_NOT_HUMAN"] as const,
+  },
+
+  /**
+   * issue #4363（S6）：改一条待办的状态（open / done / dropped；人的动作，Agent 身份拒绝）。**只有所有者**：
+   * 会话里的待办 = 会话创建者，个人空间的 = 空间主人。同一件待办在会话与个人空间各有一份（derived_from 相连）时一起改，
+   * `claimIds` 列出实际改到的（含它自己）。不存在 / 不是待办 / 已失效 / 不是所有者 ⇒ 同一个 `KG_CLAIM_NOT_FOUND`
+   * （不让人探测别人的会话或空间里有没有这条）。对话里「那个做完了」走 S4 的改口路径，最终落到同一个领域操作。
+   */
+  setTodoStatus: {
+    method: "POST", path: "/knowledge-graph/claims/:claimId/todo-status",
+    in: z.object({ claimId: z.string(), status: KgTodoStatus }).strict(),
+    out: z.object({ claimId: z.string(), status: KgTodoStatus, claimIds: z.array(z.string()) }).strict(),
+    err: ["KG_CLAIM_NOT_FOUND", "KG_ACTOR_NOT_HUMAN"] as const,
   },
 
   /** UC-KG-12：对「记住 / 忘掉」确认卡做决定（人的动作；Agent 身份拒绝） */
