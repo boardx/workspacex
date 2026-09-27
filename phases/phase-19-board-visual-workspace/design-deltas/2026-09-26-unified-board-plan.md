@@ -26,10 +26,10 @@ flowchart LR
   R2 --> R3["R3 Sticky / Text<br/>PR #4286 ✅"]:::merged
   R3 --> R4["R4 内容对象<br/>PR #4292 ✅"]:::merged
   R4 --> R5["R5 空间与关系<br/>PR #4308 ✅"]:::merged
-  R5 --> R6["R6 编辑与组织<br/>6项局部通过 · 空间回归复验 · PR #4313"]:::accepting
-  R6 --> R7["R7 团队可靠性<br/>集成已复核 · 浏览器复验中"]:::accepting
-  R7 --> R8["R8 存储与迁移<br/>图片持久化/恢复/复制补齐"]:::working
-  R8 --> R9["R9 AI / API / Chat / 会议室<br/>补真实模型聚类与服务端Undo"]:::working
+  R5 --> R6["R6 编辑与组织<br/>6项视觉/导航 + 4项空间通过 · PR #4313 CI"]:::accepting
+  R6 --> R7["R7 团队可靠性<br/>2/4真实场景通过 · 修复断网/重新授权"]:::accepting
+  R7 --> R8["R8 存储与迁移<br/>图片持久化真实验收中 · 迁移/恢复待验"]:::working
+  R8 --> R9["R9 AI / API / Chat / 会议室<br/>模型聚类/整体Undo已实现 · 安全复核与真实模型待验"]:::working
   R9 --> R10["R10 同一 SHA 总验收<br/>修复占位验收 / 真实负载与证据"]:::blocked
   R10 --> P2["P2 扩展路线<br/>Diagram / Mind Map / Kanban / Timeline<br/>Journey / Database / Agent与Live Data Tile"]:::future
   classDef merged fill:#dcfce7,stroke:#16a34a,color:#14532d
@@ -134,10 +134,10 @@ flowchart LR
 | Iteration 03 | R3 Sticky/Text | ✅ PR #4286 已合入 | 同上，并完成Brainstorm旅程与输入指标 |
 | Iteration 04 | R4 内容对象 | ✅ PR #4292 已合入 | 同上，逐对象创建/编辑/保存/协作验收 |
 | Iteration 05 | R5 空间与关系 | ✅ PR #4308 已合入 | 同上，Panel及绑定Connector旅程 |
-| Iteration 06 | R6 编辑与组织 | 🟡 6项局部通过，空间回归仍在复验；[PR #4313](https://github.com/boardx/workspacex/pull/4313) CI中 | 同上，Grid整理、快捷键与布局Undo |
-| Iteration 07 | R7 团队可靠性 | 🟡 集成独立复核通过，浏览器验收未完成 | 同上，多客户端/撤权/恢复链路 |
-| Iteration 08 | R8 存储与迁移 | 🟠 已集成；补图片前端持久化、复制/恢复ObjectStore路径 | 同上，PG正文边界、迁移与恢复演练 |
-| Iteration 09 | R9 AI/API/Chat/会议室 | 🟠 安全API局部已复核；真实模型聚类与服务端Undo未完成 | 同上，Agent完整操作与长时会议室 |
+| Iteration 06 | R6 编辑与组织 | 🟡 6项视觉/导航、4项空间通过；[PR #4313](https://github.com/boardx/workspacex/pull/4313) CI中 | 同上，Grid整理、快捷键与布局Undo |
+| Iteration 07 | R7 团队可靠性 | 🟡 真实验收2/4通过；断网/重新授权修复待复验 | 同上，多客户端/撤权/恢复链路 |
+| Iteration 08 | R8 存储与迁移 | 🟠 图片前端持久化已集成并正在主session验收；迁移/恢复待验 | 同上，PG正文边界、迁移与恢复演练 |
+| Iteration 09 | R9 AI/API/Chat/会议室 | 🟠 真实模型调用与整体Undo已实现；ACL/锁序/runtimePin修复待复核及真实验收 | 同上，Agent完整操作与长时会议室 |
 | Iteration 10 | R10 总验收 | 🔴 独立复核不通过；修复占位验收，待前九轮汇合 | 六旅程与所有硬门在统一SHA通过 |
 
 每个iteration PR关联该轮所有issue，逐项列出需求、实现、证据和未完成项；不能仅因部分模块通过就关闭整轮。子agent分支不单独创建主交付PR，修复提交继续进入同一轮PR。存在共享热点或依赖时分批集成，PR数量不成为降低范围或跳过验收的理由。跨轮预研可并行，正式实现仍遵守依赖；最终合并须有用户明确授权。
@@ -215,3 +215,11 @@ R10 已补真实 producer：六旅程 `fca257584`、50客户端30分钟 `3ccff94
 - R8：集成ada4ac398，copy/comment/recovery改对象存储路径并桥接checkpoint schema；图片前端接线、真实PG迁移与回滚待验收。
 - R9：proposal接收客户端命令不等于真实模型聚类；receipt存储不等于编辑器Undo。两处已分派补齐；真实Chat三图交接也待验收。
 - R10：性能/50client/visual-a11y producer不等于实际通过；会议室producer仍在补齐。原生缩放/真机/读屏器与主观评分不能由CSS/仿真代替。
+
+### 2026-09-27 最新动态验收（覆盖前述历史状态）
+
+- R6：`8ebed5f37` 主session空间4/4通过（2.1m），实际修复connector透明bbox拦截Sticky拖动，同时验证可见线条可选中；`ade5e680a`仅归档脱敏摘要，PR #4313等待CI。历史6项视觉/导航证据继续有效，但不是完整9分视觉矩阵。
+- R7：`6f756119a`主session真实协作2/4通过，发现offline仍显示同步及权限变更后tombstone阻止fresh授权；`f3283ae0e`+`432a0b399`修复网络事件与隔代outbox，27项unit绿，独立复核及主session重跑待完成。
+- R8：`a95ba9959`主session正在执行上传/readback/刷新/peer/撤权/复制后源删除及PG指针验收。测试尚未终结，不能标通过。
+- R9：`5de517e81`整合AI/room与R8，`3a36a3c79`修复独立review发现的proposal freshACL、锁序、model/skill/version来源绑定；真实模型fixture与调用仍待主session执行。
+- R10：`af6cc980a`已有9条可执行lane，新增journeys/meeting-room/security等真实producer；只是代码与静态/单元通过，真实长时负载、全量安全、人工视觉/读屏/硬件证据仍未完成。
