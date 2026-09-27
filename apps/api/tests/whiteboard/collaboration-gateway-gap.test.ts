@@ -111,7 +111,7 @@ it.each([
 ] as const)('classifies monitor failure %s without leaving revoked clients retrying', async (failure, code, recoverable) => {
   const boardId=randomUUID(), principal={orgId:toOrgId('gateway-monitor-test'),userId:'reader'}, doc=createWhiteboardDocument();
   const store:WhiteboardCollaborationStore={
-    head:async()=>{throw new WhiteboardCollaborationError(failure);},
+    head:async()=>{throw failure==='DEPENDENCY_UNAVAILABLE'?new Error('store unavailable'):new WhiteboardCollaborationError(failure);},
     load:async()=>({epoch:1,seq:0,role:'viewer',archived:false,update:Y.encodeStateAsUpdate(doc)}),
     append:async()=>{throw new Error('unused');},writeCommands:async()=>{throw new Error('unused');},writeCommandsInTransaction:async()=>{throw new Error('unused');},
   };
