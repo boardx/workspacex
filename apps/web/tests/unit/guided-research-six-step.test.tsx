@@ -41,4 +41,8 @@ describe("six-step Deep Research shell", () => {
     expect(screen.queryByText("研究档案")).not.toBeInTheDocument();
     expect(screen.getByTestId("guided-research-six-step-shell").firstElementChild).not.toHaveClass("xl:grid-cols-[11rem_minmax(0,1fr)_16rem]");
   });
+  it("presents the current screen title in the shared header alongside step navigation", () => {
+    render(<GuidedResearchSixStepShell current="import" available={["import"]} onNavigate={vi.fn()} main={<div>输入需求</div>} />);
+    expect(screen.getByTestId("research-workspace-header")).toContainElement(screen.getByRole("heading", { level: 1, name: "新建研究" }));
+  });
 });

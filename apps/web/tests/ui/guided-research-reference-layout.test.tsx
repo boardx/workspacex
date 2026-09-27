@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { GuidedResearchEntryPanel } from "@/components/research-studio/guided-research-entry-panel";
 import { GuidedResearchTopicPanel } from "@/components/research-studio/guided-research-topic-panel";
@@ -8,6 +8,18 @@ import { GuidedResearchReportWorkspace } from "@/components/research-studio/guid
 import { GuidedResearchSixStepShell } from "@/components/research-studio/guided-research-six-step-shell";
 
 describe("guided research reference layout", () => {
+  it("places topic navigation inside the information card", () => {
+    render(<GuidedResearchTopicPanel workspace="表单" actions={<button>下一步：研究计划</button>} />);
+    expect(screen.getByTestId("research-topic-card")).toContainElement(screen.getByRole("button", { name: "下一步：研究计划" }));
+  });
+  it("offers an edit action on each of the five plan cards", () => {
+    const edit = vi.fn();
+    render(<GuidedResearchPlanPanel plan="计划" questions="问题" sourceScope="来源" onConfirm={vi.fn()} onEdit={edit} disabled={false} />);
+    for (const [label, field] of [["研究方向", "plan"], ["核心问题", "questions"], ["成功标准", "criteria"], ["资料范围", "materials"], ["来源范围", "sources"]]) {
+      fireEvent.click(screen.getByRole("button", { name: `编辑${label}` }));
+      expect(edit).toHaveBeenLastCalledWith(field);
+    }
+  });
   it("uses the reference-style six-step canvas instead of a generic document shell", () => {
     render(<GuidedResearchSixStepShell
       current="topic"
@@ -19,29 +31,31 @@ describe("guided research reference layout", () => {
     />);
 
     expect(screen.getByTestId("guided-research-six-step-shell")).toHaveAttribute("data-reference-layout", "prototype-desktop");
-    expect(screen.getByTestId("research-flow-progress")).toHaveAttribute("data-reference-variant", "blue-stepper");
-    expect(screen.getByTestId("guided-research-six-step-main").parentElement).toHaveAttribute("data-reference-region", "work-canvas");
-    expect(screen.getByTestId("guided-research-six-step-assistant")).toHaveAttribute("data-reference-region", "assistant-rail");
+    expect(screen.getByTestId("research-flow-progress")).toHaveAttribute("data-reference-variant", "monochrome-stepper");
+    expect(screen.getByTestId("guided-research-six-step-main")).toHaveAttribute("data-reference-region", "work-canvas");
+    fireEvent.click(screen.getByRole("button", { name: /AI 助手/ }));
+    expect(screen.getByTestId("guided-research-six-step-assistant")).toHaveTextContent("研究助手");
   });
 
   it("offers truthful import routes around the brief workspace", () => {
     render(<GuidedResearchEntryPanel brief={<div>研究需求 Markdown</div>} onContinue={vi.fn()} onRegenerate={vi.fn()} onSave={vi.fn()} disabled={false} />);
 
     expect(screen.getByTestId("guided-research-import-panel")).toBeInTheDocument();
-    expect(screen.getByTestId("guided-research-import-panel")).toHaveAttribute("data-reference-layout", "three-entry-cards");
-    expect(screen.getByRole("button", { name: "选择文件" })).toBeDisabled();
-    expect(screen.getByRole("button", { name: "开始录音" })).toBeDisabled();
-    expect(screen.getByText("当前环境尚未配置文件导入")).toBeInTheDocument();
-    expect(screen.getByText("当前环境尚未配置实时录音")).toBeInTheDocument();
+    expect(screen.getByTestId("guided-research-import-panel")).toHaveAttribute("data-reference-layout", "intake-workspace");
+    expect(screen.getByRole("button", { name: "上传文件" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "录音" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "上传文件" })).toHaveAttribute("title", "当前环境尚未配置文件导入");
+    expect(screen.getByRole("button", { name: "录音" })).toHaveAttribute("title", "当前环境尚未配置实时录音");
     expect(screen.getByText("研究需求 Markdown")).toBeInTheDocument();
   });
 
-  it("keeps topic editing beside an explicit assistant region", () => {
+  it("keeps topic editing beside the reference tips rather than a nested assistant", () => {
     render(<GuidedResearchTopicPanel workspace={<div>确认研究主题</div>} assistant={<div>主题助手建议</div>} />);
 
     expect(screen.getByTestId("guided-research-topic-panel")).toBeInTheDocument();
     expect(screen.getByTestId("guided-research-topic-panel")).toHaveAttribute("data-reference-layout", "topic-workspace");
-    expect(screen.getByTestId("guided-research-topic-assistant")).toHaveTextContent("主题助手建议");
+    expect(screen.getByRole("heading", { name: "小提示" })).toBeInTheDocument();
+    expect(screen.queryByText("主题助手建议")).not.toBeInTheDocument();
     expect(screen.getByText("确认研究主题")).toBeInTheDocument();
   });
 
@@ -50,7 +64,7 @@ describe("guided research reference layout", () => {
 
     expect(screen.getByTestId("guided-research-plan-panel")).toBeInTheDocument();
     expect(screen.getByTestId("guided-research-plan-panel")).toHaveAttribute("data-reference-layout", "plan-cards");
-    expect(screen.getByRole("heading", { name: "研究计划" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "研究方向" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "核心问题" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "资料范围" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "开始研究" })).toBeDisabled();

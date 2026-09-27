@@ -1,8 +1,9 @@
 "use client";
 
 import * as React from "react";
-import { StudioHistoryFilters, StudioHistoryCreateCard, type HistorySort } from "@/components/studio/studio-history";
+import { StudioHistoryCreateCard, type HistorySort } from "@/components/studio/studio-history";
 import { ResearchHistoryCard } from "./research-history-card";
+import { ResearchPrototypeTips } from "./research-prototype-tips";
 import { GuidedResearchSixStepShell } from "./guided-research-six-step-shell";
 import { StudioHistoryManagement } from "@/components/studio/studio-history-management";
 import { GuidedResearchLive } from "./guided-research-live";
@@ -10,7 +11,7 @@ import { ResearchLoading, ResearchProgress } from "./guided-research-presentatio
 import {
   ArrowLeft, ArrowRight, BookOpen, Check, CheckCircle2, Circle, Download,
   FileSearch, FileText, Globe2, GripVertical, ListTree, Loader2, Pencil,
-  LockKeyhole, Plus, Search, Sparkles, Target, Trash2,
+  LockKeyhole, Plus, Search, Sparkles, Target, Trash2, Mic, Upload,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -359,16 +360,15 @@ function ResearchHome({ onNavigate }: { onNavigate: (step: GuidedResearchStep, s
     `${item.title} ${item.brief.goal} ${item.tags.join(" ")}`.toLocaleLowerCase().includes(query.trim().toLocaleLowerCase()))
     .sort((a, b) => (Date.parse(b.updatedAt) - Date.parse(a.updatedAt)) * (sort === "recent" ? 1 : -1));
   return <section data-testid="research-home-page" data-reference-layout="research-list" className="mx-auto flex w-full max-w-screen-2xl flex-col gap-6 px-5 py-6 md:px-8 lg:px-10">
-    <header className="flex flex-col gap-5 border-b border-border pb-5 md:flex-row md:items-end md:justify-between">
+    <header className="flex flex-col gap-5 md:flex-row md:items-center md:justify-between">
       <div className="min-w-0 space-y-2">
-        <p className="flex items-center gap-2 text-12 font-semibold text-primary"><Sparkles className="size-4" aria-hidden />Deep Research</p>
-        <div className="flex items-baseline gap-2"><h1 className="text-4xl font-bold tracking-tight">研究列表</h1>{history && <span className="text-13 text-muted-foreground">{history.length} 个研究项目</span>}</div>
-        <p className="max-w-2xl text-12 leading-relaxed text-muted-foreground">统一管理研究项目；每个结论都回到真实来源，证据不足时明确保留缺口。</p>
+        <div className="flex items-baseline gap-2"><h1 className="text-4xl font-bold tracking-tight md:text-5xl">研究列表</h1>{history && <span className="text-sm text-muted-foreground">{history.length} 个研究项目</span>}</div>
+        <p className="max-w-2xl text-lg leading-relaxed text-muted-foreground">从问题出发，深入研究，获得可执行的洞察。</p>
       </div>
-      <Button type="button" variant="primary" size="lg" data-testid="research-create" onClick={() => setCreateOpen(true)}><Plus className="size-4" aria-hidden />新建研究</Button>
+      <div className="flex gap-3"><label className="relative flex-1 md:w-72"><span className="sr-only">搜索研究</span><Search className="absolute left-4 top-4 size-5 text-muted-foreground" aria-hidden /><Input data-testid="research-history-search" maxLength={100} value={query} onChange={event => setQuery(event.target.value)} placeholder="搜索研究主题、关键词或内容…" className="h-12 pl-12 text-base" /></label><Button type="button" variant="primary" className="h-12 px-5 text-base" data-testid="research-create" onClick={() => setCreateOpen(true)}><Plus className="size-5" aria-hidden />新建研究</Button></div>
     </header>
-    {history && history.length > 0 && <GuidedResearchHomeSummary sessions={history} selectedFilter={statusFilter} onFilterChange={setStatusFilter} />}
-    <StudioHistoryFilters business="研究" prefix="research-history" tags={tags} selectedTag={selectedTag} onTagChange={setSelectedTag} query={query} onQueryChange={setQuery} sort={sort} onSortChange={setSort} />
+    <div className="flex flex-wrap items-center gap-3" aria-label="按标签筛选研究"><Button className="rounded-full px-5" variant={selectedTag === undefined ? "primary" : "outline"} aria-pressed={selectedTag === undefined} data-testid="research-history-tag-all" onClick={() => setSelectedTag(undefined)}>全部标签</Button>{tags.map(tag => <Button key={tag} className="rounded-full px-5" variant={selectedTag === tag ? "primary" : "outline"} aria-pressed={selectedTag === tag} data-testid={`research-history-tag-${tag}`} onClick={() => setSelectedTag(tag)}>{tag}</Button>)}<Button variant="ghost" className="ml-auto" data-testid="research-history-sort" aria-label={`当前${sort === "recent" ? "最近更新" : "最早更新"}，点击切换排序`} onClick={() => setSort(sort === "recent" ? "oldest" : "recent")}>{sort === "recent" ? "最近更新" : "最早更新"}</Button></div>
+    {history && history.length > 0 && <details><summary className="cursor-pointer text-sm text-muted-foreground">研究状态筛选</summary><div className="mt-3"><GuidedResearchHomeSummary sessions={history} selectedFilter={statusFilter} onFilterChange={setStatusFilter} /></div></details>}
     {notice && <p role="status" data-testid="research-history-saved" className="text-12 text-success">{notice}</p>}
     <section className="space-y-3" data-testid="research-history" aria-label="历史研究">
       {history === null && !loadFailed && <div data-testid="research-history-loading" className="grid animate-pulse gap-4 md:grid-cols-2 xl:grid-cols-4">{[1,2,3,4].map(key => <div key={key} className="h-64 rounded-lg bg-muted" />)}</div>}
@@ -537,18 +537,23 @@ function BriefScreen({ sessionId, session, workflow, onSession, onWorkflow, onNa
       }
     >
       {submitting ? <ResearchLoading node="directions" /> : <div className="flex min-w-0 flex-col gap-4" data-density="compact-step">
-      <PageHeading eyebrow="Step 1 · Research brief" title="确认研究主题与范围" description="先把问题边界说清楚。后续生成的研究方向、大纲和检索词都会以这份 brief 为准。" />
       {sessionId && <p className="rounded-md border border-warning/30 bg-warning/5 p-3 text-12 text-warning-foreground">重新确认后，后续演示结果将重新生成。</p>}
-      <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_19rem]">
-        <Card><CardContent className="space-y-4 p-4">
-          <Field label="研究主题" hint="用一句话说明要研究什么"><Input value={brief.topic} onChange={(event) => patch("topic", event.target.value)} data-testid="research-brief-topic" aria-label="研究主题" /></Field>
-          <Field label="研究目标" hint="最终希望做出什么判断"><Textarea value={brief.goal} onChange={(event) => patch("goal", event.target.value)} data-testid="research-brief-goal" aria-label="研究目标" /></Field>
+      <div className="grid gap-4 lg:grid-cols-[minmax(0,2.05fr)_minmax(19rem,1fr)]">
+        <Card className="rounded-xl"><CardContent className="space-y-5 p-6 lg:p-7">
+          <h2 className="text-3xl font-bold">告诉 AI 你想研究什么</h2>
+          <div className="rounded-lg border border-border p-5">
+            <Textarea value={brief.goal} maxLength={2000} onChange={(event) => patch("goal", event.target.value)} data-testid="research-brief-goal" aria-label="研究目标" className="min-h-72 resize-none border-0 p-0 text-lg leading-8 shadow-none focus-visible:ring-0 lg:min-h-80" placeholder={"请描述你的研究需求，例如：\n\n• 研究目标：你希望解决什么问题？\n• 研究区域 / 对象：研究的行业、地区、人群或具体对象是？\n• 时间范围：关注的时间段是什么？\n• 重点关注：你最关心哪些方面？\n• 关键问题：你希望从研究中获得哪些核心结论或答案？\n\n你也可以直接粘贴相关文档内容。"} />
+            <div className="mt-5 flex items-center gap-4"><Button variant="outline" disabled title="当前环境尚未配置实时录音"><Mic className="mr-2 size-5" />录音</Button><Button variant="outline" disabled title="当前环境尚未配置文件导入"><Upload className="mr-2 size-5" />上传文件</Button><span className="ml-auto text-sm text-muted-foreground">{brief.goal.length} / 2000</span></div>
+          </div>
+          <details className="text-sm"><summary className="cursor-pointer text-muted-foreground">完善研究信息</summary><div className="mt-4 space-y-4">
+          <Field label="研究主题"><Input value={brief.topic} onChange={(event) => patch("topic", event.target.value)} data-testid="research-brief-topic" aria-label="研究主题" /></Field>
           <div className="grid gap-4 md:grid-cols-2"><Field label="时间范围"><Input value={brief.timeRange} onChange={(event) => patch("timeRange", event.target.value)} data-testid="research-brief-time" aria-label="时间范围" /></Field><Field label="地域范围"><Input value={brief.region} onChange={(event) => patch("region", event.target.value)} data-testid="research-brief-region" aria-label="地域范围" /></Field></div>
           <Field label="重点关注"><Textarea value={brief.focus} onChange={(event) => patch("focus", event.target.value)} data-testid="research-brief-focus" aria-label="重点关注" /></Field>
+          </div></details>
           {submitFailed && <p className="text-11 text-destructive" role="alert">研究创建失败，请重试。再次提交不会重复创建。</p>}
-          <div className="flex justify-end"><Button variant="primary" disabled={submitting || !brief.topic.trim() || !brief.goal.trim()} onClick={() => void confirm()} data-testid="research-confirm-brief">{submitting ? "正在创建…" : "确认并生成研究方向"}<ArrowRight className="h-4 w-4" aria-hidden /></Button></div>
+          <div className="flex justify-end"><Button variant="primary" className="h-12 px-6 text-base" disabled={submitting || !brief.topic.trim() || !brief.goal.trim()} onClick={() => void confirm()} data-testid="research-confirm-brief">{submitting ? "正在创建…" : "下一步：确认研究主题"}<ArrowRight className="h-5 w-5" aria-hidden /></Button></div>
         </CardContent></Card>
-        <Card className="h-fit"><CardHeader><CardTitle className="flex items-center gap-2 text-14"><Target className="h-4 w-4" aria-hidden />本次研究将回答</CardTitle></CardHeader><CardContent className="space-y-3 text-11 leading-relaxed text-muted-foreground"><p>哪些欧洲市场同时具备增长、政策与并网确定性？</p><p>适合以自建、合资还是渠道合作进入？</p><p>未来 90 天最优先验证哪些假设？</p><div className="rounded-md border border-border bg-muted p-3 text-10">可在下一步逐条修改或删除 AI 建议的研究方向。</div></CardContent></Card>
+        <ResearchPrototypeTips />
       </div>
       </div>}
     </GuidedResearchStepLayout>
