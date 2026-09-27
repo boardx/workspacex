@@ -1,0 +1,6 @@
+{
+  "records": [
+    "BOARD_MAINTENANCE_GC {\"sharedBackupRetained\":true,\"liveRootsPreserved\":true,\"undoAssetRootPreserved\":true,\"physicalOrphanDeleted\":true,\"archiveRestoreAfterRelease\":true}",
+    "BOARD_MAINTENANCE_RECOVERY {\"freshClientEqual\":true,\"pgBodyNull\":true,\"concurrentEditProtected\":true}"
+  ]
+}

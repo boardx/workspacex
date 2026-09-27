@@ -16,6 +16,9 @@ import { DUPLICATE_BOARD_SERVICE } from './application/whiteboard/ports';
 import { BOARD_CONTENT_COPY_PORT, type BoardContentCopyPort } from './application/whiteboard/board-content-copy-port';
 import { DuplicateBoard } from './application/whiteboard/duplicate-board';
 import { PgWhiteboardRepository } from './infrastructure/whiteboard/pg-whiteboard-repository';
+import { WhiteboardPortableController } from './interface/controllers/whiteboard-portable.controller';
+import { PortableBoardService,WHITEBOARD_PORTABLE_SERVICE } from './application/whiteboard/portable-board';
+import { PgPortableBoard } from './infrastructure/whiteboard/pg-portable-board';
 import { WhiteboardImportController } from './interface/controllers/whiteboard-import.controller';
 import { WHITEBOARD_IMPORT_SERVICE, WhiteboardImportService } from './application/whiteboard/import-service';
 import { WHITEBOARD_OBJECT_INVENTORY,type WhiteboardObjectInventory } from './application/whiteboard/object-retention';
@@ -1125,6 +1128,7 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
     WhiteboardController,
     WhiteboardOperationController,
     WhiteboardImportController,
+    WhiteboardPortableController,
     WhiteboardAssetsController,
     WhiteboardTagController,
     PublicDesignShareController,
@@ -2969,8 +2973,8 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
     },
     {
       provide: WHITEBOARD_COMMENT_STORE,
-      useFactory: (db:DatabasePort,validator:WhiteboardUpdateValidator,collaboration:WhiteboardCollaborationStore)=>new PgWhiteboardCommentStore(db,validator,undefined,collaboration),
-      inject:[DATABASE_PORT,WHITEBOARD_UPDATE_VALIDATOR,WHITEBOARD_COLLABORATION_STORE],
+      useFactory: (db:DatabasePort,validator:WhiteboardUpdateValidator,collaboration:WhiteboardCollaborationStore,objects:ObjectStore)=>new PgWhiteboardCommentStore(db,validator,undefined,collaboration,objects),
+      inject:[DATABASE_PORT,WHITEBOARD_UPDATE_VALIDATOR,WHITEBOARD_COLLABORATION_STORE,OBJECT_STORE],
     },
     {
       provide: WHITEBOARD_RECOVERY_SERVICE,
@@ -2986,6 +2990,11 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
       provide: WHITEBOARD_IMAGE_ASSETS,
       useFactory: (boards: PgWhiteboardRepository, db: DatabasePort, objects: ObjectStore) => new WhiteboardImageAssets(boards, new PgBoardImageAssets(db), objects, new SharpBoardImageVerifier()),
       inject: [WHITEBOARD_REPOSITORY, DATABASE_PORT, OBJECT_STORE],
+    },
+    {
+      provide: WHITEBOARD_PORTABLE_SERVICE,
+      useFactory:(boards:PgWhiteboardRepository,collaboration:PgWhiteboardCollaborationStore,validator:WhiteboardUpdateValidator,db:DatabasePort,objects:ObjectStore,images:WhiteboardImageAssets)=>new PortableBoardService(boards,collaboration,validator,images,new SharpBoardImageVerifier(),new PgPortableBoard(db,collaboration,objects,new PgBoardImageAssets(db))),
+      inject:[WHITEBOARD_REPOSITORY,WHITEBOARD_COLLABORATION_STORE,WHITEBOARD_UPDATE_VALIDATOR,DATABASE_PORT,OBJECT_STORE,WHITEBOARD_IMAGE_ASSETS],
     },
     {
       provide: WHITEBOARD_IMPORT_SERVICE,

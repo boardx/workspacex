@@ -1176,6 +1176,16 @@
         "apps/web/lib/mock/quick-digital-interview.ts"
       ]
     },
+    "/itv/[interviewId]/[stage]": {
+      "kind": "mock",
+      "screen": "apps/web/app/itv/[interviewId]/[stage]/page.tsx",
+      "mocks": [
+        "apps/web/lib/mock/digital-expert-personas.ts",
+        "apps/web/lib/mock/digital-interview-drafts.ts",
+        "apps/web/lib/mock/experts-persona.json",
+        "apps/web/lib/mock/quick-digital-interview.ts"
+      ]
+    },
     "/itv/experts/[expertId]": {
       "kind": "mock",
       "screen": "apps/web/app/itv/experts/[expertId]/page.tsx",

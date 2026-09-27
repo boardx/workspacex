@@ -1,6 +1,6 @@
 import { expect, it } from 'vitest';
 import * as Y from 'yjs';
-import { createWhiteboardDocument, executeCommands, readObjects, validateDocument, WhiteboardUndo } from '../src';
+import { createWhiteboardDocument, executeCommands, readObjects, validateDocument, WhiteboardUndo, WhiteboardCommandOrigin } from '../src';
 const object = (id: string, parentId: string | null = null) => ({ id, schemaVersion: 1, kind: 'group', geometry: { x: 0, y: 0, width: 100, height: 100, rotation: 0 }, text: '', style: {}, parentId, orderKey: '' });
 const parent = (id: string, parentId: string | null) => ({ type: 'parent', id, parentId, orderKey: '' });
 function groups(child = true): Y.Doc {
@@ -53,4 +53,86 @@ it('round-trips a 100-object create batch as one history item', () => {
   expect(undo.undo()).toBe('undone'); expect(readObjects(doc)).toEqual([]);
   expect(undo.undo()).toBe('empty');
   expect(undo.redo()).toBe(true); expect(readObjects(doc)).toHaveLength(100);
+});
+
+it('rejects mixed deletion compensation before changing local state or emitting a raw tombstone clear', () => {
+  const doc = groups(false), undo = new WhiteboardUndo(doc);
+  undo.execute([{ type: 'delete', id: 'a' }, { type: 'text', id: 'b', index: 0, deleteCount: 0, insert: 'mixed' }]);
+  const before = Y.encodeStateAsUpdate(doc); let updates = 0;
+  doc.on('update', () => updates++);
+  expect(undo.undo()).toBe('conflict');
+  expect(undo.undo()).toBe('conflict');
+  expect(updates).toBe(0);
+  expect(Y.encodeStateAsUpdate(doc)).toEqual(before);
+  expect(readObjects(doc)).toMatchObject([{ id: 'b', text: 'mixed' }]);
+});
+
+it('repeated original-ID delete undo references the new redo receipt and keeps relations intact', () => {
+  const doc=groups(), origin=new WhiteboardCommandOrigin('board','client','initial-delete','operation','transaction');
+  executeCommands(doc,[{type:'create',object:{...object('edge'),kind:'connector',connector:{from:'a',to:'b'}}}],{});
+  const undo=new WhiteboardUndo(doc,origin), intents:unknown[]=[];
+  doc.on('update',(_update:Uint8Array,eventOrigin:unknown)=>{
+    const value=eventOrigin as {restoreDeletion?:unknown};
+    if(value?.restoreDeletion)intents.push(structuredClone(value.restoreDeletion));
+  });
+  undo.execute([{type:'delete',id:'edge'},{type:'delete',id:'b'},{type:'delete',id:'a'}]);
+  expect(undo.undo('first-undo')).toBe('undone');
+  expect(undo.redo('second-delete')).toBe(true);
+  expect(undo.undo('second-undo')).toBe('undone');
+  expect(intents).toEqual([
+    {deleteGestureId:'initial-delete',objectIds:expect.arrayContaining(['a','b','edge'])},
+    {deleteGestureId:'second-delete',objectIds:expect.arrayContaining(['a','b','edge'])},
+  ]);
+  expect(readObjects(doc).map(o=>o.id).sort()).toEqual(['a','b','edge']);
+  expect(readObjects(doc).find(o=>o.id==='b')?.parentId).toBe('a');
+});
+
+for (const direction of ['undo', 'redo'] as const) for (const reverse of [false, true]) {
+  it(`${direction} rejects a later peer connector (${reverse ? 'incoming' : 'outgoing'}) without consuming history`, () => {
+    const doc = createWhiteboardDocument();
+    executeCommands(doc, [{ type: 'create', object: object('remote-node') }], {});
+    const undo = new WhiteboardUndo(doc);
+    undo.execute([{ type: 'create', object: object('local-node') }]);
+    if (direction === 'redo') {
+      undo.execute([{ type: 'delete', id: 'local-node' }]);
+      expect(undo.undo()).toBe('undone');
+    }
+    const peer = cloneDocumentForPeer(doc);
+    executeCommands(peer, [{ type: 'create', object: {
+      ...object('remote-edge'), kind: 'connector',
+      connector: reverse ? { from: 'remote-node', to: 'local-node' } : { from: 'local-node', to: 'remote-node' },
+    } }], {});
+    Y.applyUpdate(doc, Y.encodeStateAsUpdate(peer), {});
+    const before = Y.encodeStateAsUpdate(doc); let updates = 0;
+    doc.on('update', () => updates++);
+    for (let attempt = 0; attempt < 2; attempt++) {
+      expect(direction === 'undo' ? undo.undo() : undo.redo()).toBe(direction === 'undo' ? 'conflict' : false);
+      expect(Y.encodeStateAsUpdate(doc)).toEqual(before);
+      expect(updates).toBe(0);
+      expect(readObjects(doc).map(value => value.id).sort()).toEqual(['local-node', 'remote-edge', 'remote-node']);
+      validateDocument(doc);
+    }
+    executeCommands(doc, [{ type: 'delete', id: 'remote-edge' }], {});
+    expect(direction === 'undo' ? undo.undo() : undo.redo()).toBe(direction === 'undo' ? 'undone' : true);
+    expect(readObjects(doc).map(value => value.id)).toEqual(['remote-node']);
+    undo.destroy(); peer.destroy(); doc.destroy();
+  });
+}
+function cloneDocumentForPeer(doc: Y.Doc): Y.Doc {
+  const peer = createWhiteboardDocument();
+  Y.applyUpdate(peer, Y.encodeStateAsUpdate(doc));
+  return peer;
+}
+
+it('normal endpoint deletion still cascades its connector as one reversible gesture', () => {
+  const doc = groups(false);
+  executeCommands(doc, [{ type: 'create', object: { ...object('edge'), kind: 'connector', connector: { from: 'a', to: 'b' } } }], {});
+  const undo = new WhiteboardUndo(doc);
+  undo.execute([{ type: 'delete', id: 'a' }]);
+  expect(readObjects(doc).map(value => value.id)).toEqual(['b']);
+  expect(undo.undo()).toBe('undone');
+  expect(readObjects(doc).map(value => value.id).sort()).toEqual(['a', 'b', 'edge']);
+  expect(undo.redo()).toBe(true);
+  expect(readObjects(doc).map(value => value.id)).toEqual(['b']);
+  validateDocument(doc); undo.destroy(); doc.destroy();
 });

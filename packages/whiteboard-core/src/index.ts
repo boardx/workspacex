@@ -1,4 +1,4 @@
-export { createWhiteboardDocument, cloneDocument, readObjects, validateDocument, executeCommands, copyObjects } from './document';
+export { createWhiteboardDocument, cloneDocument, readObjects, readStoredObject, validateDocument, executeCommands, copyObjects } from './document';
 export { BoardCommandPort, WhiteboardCommandOrigin, type BoardCommandAccepted, type BoardCommandEnvelope } from './command-port';
 export { WhiteboardUndo } from './undo';
 export { WhiteboardObject, WhiteboardGeometry, WhiteboardStyle, WhiteboardCommand, WhiteboardCommandBatch, WhiteboardLayoutCommand, WhiteboardLayoutKind, WHITEBOARD_LIMITS } from '@repo/contracts/whiteboard-document';

@@ -2,12 +2,36 @@ import { randomUUID } from 'node:crypto';
 import { writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { resolveObjectPath } from '../../api/src/infrastructure/storage/object-store-path';
 import { expect, test, type Page, type APIRequestContext } from '@playwright/test';
 import { SESSION_TOKEN_STORAGE_KEY } from '../lib/api-client';
 import { FULLSTACK_E2E } from './fullstack-smoke-fixture';
 
 /** Real services only: no route interception, business mocks or injected test principals. */
-test.describe.configure({ mode: 'serial', timeout: 120_000 });
+test.describe.configure({ mode: 'default', timeout: 120_000 });
+test.use({ actionTimeout: 15_000 });
+// Diagnostic evidence deliberately excludes payloads, URLs and authentication headers.
+const transportEvidence: Array<Record<string, unknown>> = [];
+test.beforeEach(() => { transportEvidence.length = 0; });
+test.afterEach(async ({}, info) => {
+  await info.attach('transport-status', { body: JSON.stringify(transportEvidence), contentType: 'application/json' });
+});
+function observeTransport(page: Page, actor: string) {
+  page.on('websocket', socket => {
+    socket.on('framereceived', event => {
+      try {
+        const message = JSON.parse(String(event.payload)) as Record<string, unknown>;
+        if (!['sync', 'error', 'recovery', 'ack'].includes(String(message.type))) return;
+        const entry: Record<string, unknown> = { actor, at: Date.now(), type: message.type };
+        for (const key of ['code', 'recoverable', 'disposition', 'epoch', 'seq', 'role']) {
+          const value = message[key];
+          if (typeof value === 'number' || typeof value === 'boolean' || (typeof value === 'string' && /^[A-Za-z0-9_-]{1,80}$/.test(value))) entry[key] = value;
+        }
+        if (transportEvidence.length < 500) transportEvidence.push(entry);
+      } catch { /* Non-protocol frames are not persisted. */ }
+    });
+  });
+}
 const fullstackFallbacks: Record<string, string | undefined> = {
   WHITEBOARD_OWNER_EMAIL: FULLSTACK_E2E.adminEmail,
   WHITEBOARD_OWNER_PASSWORD: FULLSTACK_E2E.adminPassword,
@@ -24,6 +48,7 @@ const fullstackFallbacks: Record<string, string | undefined> = {
 };
 function required(name: string): string { const value=process.env[name]??fullstackFallbacks[name]; if(!value)throw new Error(`Missing real whiteboard E2E fixture: ${name}; see e2e/whiteboard-live-fixture.md`);return value; }
 async function login(page: Page, actor: 'OWNER'|'EDITOR'|'VIEWER') {
+  observeTransport(page, actor);
   await page.goto('/login');
   await page.getByTestId('login-email').fill(required(`WHITEBOARD_${actor}_EMAIL`));
   await page.getByTestId('login-password').fill(required(`WHITEBOARD_${actor}_PASSWORD`));
@@ -39,7 +64,7 @@ async function archiveBoard(api: APIRequestContext, token: string, boardId: stri
   const current = await (await request(api, token, 'GET', `/whiteboards/${boardId}`)).json() as {archived: boolean; lifecycleRevision: number};
   if (!current.archived) await request(api, token, 'PATCH', `/whiteboards/${boardId}`, {archived: true, expectedLifecycleRevision: current.lifecycleRevision});
 }
-async function synced(page:Page){await expect(page.getByTestId('collaborative-editor')).toBeVisible({timeout:30_000});await expect(page.getByText(/^已同步(?: · 只读)?$/)).toBeVisible({timeout:30_000});}
+async function synced(page:Page){await expect(page.getByTestId('collaborative-editor')).toBeVisible({timeout:30_000});await expect(page.getByText(/^已同步(?: · 序列 \d+)?(?: · 只读)?$/)).toBeVisible({timeout:30_000});}
 
 test('realtime presence field convergence',async({browser,request:api,baseURL})=>{
   const ownerContext=await browser.newContext({baseURL}),editorContext=await browser.newContext({baseURL}),viewerContext=await browser.newContext({baseURL});
@@ -78,7 +103,7 @@ test('realtime presence field convergence',async({browser,request:api,baseURL})=
       const commandFromBrowser=async(page:Page,token:string,commands:unknown[])=>page.evaluate(async({apiUrl,tokenValue,currentBoardId,requestId,commandsValue})=>{
         const response=await fetch(`${apiUrl.replace(/\/$/,'')}/whiteboards/${currentBoardId}/commands`,{method:'POST',headers:{Authorization:`Bearer ${tokenValue}`,'Content-Type':'application/json'},body:JSON.stringify({requestId,epoch:1,commands:commandsValue})});
         return{ok:response.ok,status:response.status,body:await response.text()};
-      },{apiUrl:required('WHITEBOARD_API_URL'),tokenValue:token,currentBoardId:boardId!,requestId:randomUUID(),commandsValue:commands});
+      },{apiUrl:process.env.WHITEBOARD_BROWSER_API_URL ?? '/__fullstack_api',tokenValue:token,currentBoardId:boardId!,requestId:randomUUID(),commandsValue:commands});
       const [geometryResult,textResult]=await Promise.all([
         commandFromBrowser(owner,ownerToken!,[{type:'geometry',id:objectId,geometry:{x:640,y:360,width:180,height:140,rotation:9}}]),
         commandFromBrowser(editor,editorToken!,[{type:'text',id:objectId,index:0,deleteCount:'团队中文协作便签'.length,insert:'另一位成员的中文修改'}]),
@@ -114,7 +139,10 @@ test('realtime presence field convergence',async({browser,request:api,baseURL})=
       await owner.getByTestId('board-present-viewport').click();const presenter=editor.getByTitle(/正在演示/);await expect(presenter).toBeVisible({timeout:20_000});await presenter.click();await owner.getByTestId('board-zoom-in').click();await expect(editor.getByTestId('board-zoom-value')).toHaveText('110%',{timeout:20_000});
       await editor.getByRole('button',{name:'评论',exact:true}).click();
       await editor.getByLabel('评论内容').fill('请一起核对这个结论');
-      await editor.getByLabel('提及成员').fill(required('WHITEBOARD_OWNER_USER_ID'));
+      const directory=await(await request(api,ownerToken!,'GET',`/whiteboards/${boardId}/mentionable-members`)).json() as {items:Array<{userId:string;displayName:string}>};
+      const mentionedOwner=directory.items.find(item=>item.userId===required('WHITEBOARD_OWNER_USER_ID'));expect(mentionedOwner).toBeTruthy();
+      await editor.getByRole('combobox',{name:'提及成员'}).fill(mentionedOwner!.displayName);
+      await editor.getByRole('option',{name:mentionedOwner!.displayName,exact:true}).click();
       await editor.getByRole('button',{name:'发布评论'}).click();
       const indicator=owner.locator('[data-testid^="board-comment-indicator-"]');await expect(indicator).toHaveCount(1,{timeout:20_000});await indicator.click();
       await expect(owner.getByText('请一起核对这个结论')).toBeVisible();
@@ -134,7 +162,7 @@ test('realtime presence field convergence',async({browser,request:api,baseURL})=
       await request(api,ownerToken!,'PUT',`/whiteboards/${boardId}/members`,{userId:required('WHITEBOARD_VIEWER_USER_ID'),role:'commenter'});
       await expect(viewer.getByTestId('denied')).toBeVisible({timeout:30_000});await viewer.reload();await synced(viewer);
       const note=viewer.getByRole('button',{name:'图形：另一位成员的中文修改',exact:true});await note.focus();await note.press('Enter');
-      await expect(viewer.getByLabel('对象文字',{exact:true})).toBeDisabled();await viewer.getByRole('button',{name:'评论',exact:true}).click();await viewer.getByLabel('评论内容').fill('commenter can discuss without editing');await expect(viewer.getByRole('button',{name:'发布评论'})).toBeEnabled();
+      await expect(viewer.getByLabel('对象文字',{exact:true})).toBeDisabled();await viewer.getByRole('button',{name:'评论',exact:true}).click();await viewer.getByLabel('评论内容').fill('commenter can discuss without editing');await expect(viewer.getByRole('button',{name:'发布评论'})).toBeEnabled();await viewer.getByRole('button',{name:'发布评论'}).click();await expect(viewer.getByLabel('评论内容')).toHaveValue('');await expect(viewer.getByText('评论已由服务器持久化并确认。')).toBeVisible();
       const worldBody={type:'create-comment',requestId:randomUUID(),threadId:randomUUID(),commentId:randomUUID(),objectId:null,worldPosition:{x:640,y:360},body:'world anchored discussion',mentions:[],expectedRevision:0};
       await request(api,viewerToken!,'POST',`/whiteboards/${boardId}/comments/commands`,worldBody);
       const comments=await request(api,viewerToken!,'GET',`/whiteboards/${boardId}/comments`);expect((await comments.json() as {items:Array<{objectId:string|null;worldPosition:{x:number;y:number}|null}>}).items).toContainEqual(expect.objectContaining({objectId:null,worldPosition:{x:640,y:360}}));
@@ -149,7 +177,8 @@ test('realtime presence field convergence',async({browser,request:api,baseURL})=
       const revokedWrite = await api.post(`${required('WHITEBOARD_API_URL')}/whiteboards/${boardId}/commands`, {
         headers: {Authorization: `Bearer ${editorToken}`}, data: {requestId: randomUUID(), epoch: 1, commands: [{type: 'style', id: 'revoked-attempt', style: {fill: '#ffffff'}}]},
       });
-      expect(revokedWrite.status()).toBe(403);
+      // A removed member cannot discover whether this Board exists.
+      expect(revokedWrite.status()).toBe(404);
     });
   }finally{
     try { if(boardId&&ownerToken)await archiveBoard(api,ownerToken,boardId); }
@@ -192,12 +221,12 @@ test('undo offline reconnect recovery',async({browser,request:api,baseURL})=>{
     await context.setOffline(true);await expect(owner.getByText(/连接中断/)).toBeVisible({timeout:20_000});
     const target=owner.getByTestId('board-a11y-object-undo-target');await target.focus();await target.press('Enter');await owner.getByRole('button',{name:'删除选中'}).click();await expect(target).toHaveCount(0);await expect(owner.getByTestId('board-a11y-object-undo-edge')).toHaveCount(0);
     await owner.getByRole('button',{name:'撤销',exact:true}).click();await expect(owner.getByTestId('board-a11y-object-undo-target')).toBeAttached();await expect(owner.getByTestId('board-a11y-object-undo-edge')).toBeAttached();await expect(owner.getByText('撤销已在本地应用，正在等待服务器确认')).toBeVisible();
-    await context.setOffline(false);await owner.getByTestId('board-retry-sync').click();await expect(owner.getByText(/撤销已由服务器确认 · 序列/)).toBeVisible({timeout:30_000});
+    await context.setOffline(false);await expect(owner.getByText(/撤销已由服务器确认 · 序列/)).toBeVisible({timeout:30_000});
     await owner.reload();await synced(owner);await expect(owner.getByTestId('board-a11y-object-undo-target')).toBeAttached();await expect(owner.getByTestId('board-a11y-object-undo-edge')).toBeAttached();
     const baseCheckpoint=await request(api,token,'POST',`/whiteboards/${boardId}/checkpoints`,{requestId:randomUUID()}),baseManifest=(await baseCheckpoint.json() as {manifest:{checkpointId:string;epoch:number;seq:number}}).manifest;
     await request(api,token,'POST',`/whiteboards/${boardId}/commands`,{requestId:randomUUID(),epoch:baseManifest.epoch,commands:[{type:'style',id:'undo-target',style:{fill:'#fde68a'}}]});
     const corruptCheckpoint=await request(api,token,'POST',`/whiteboards/${boardId}/checkpoints`,{requestId:randomUUID()}),corruptManifest=(await corruptCheckpoint.json() as {manifest:{checkpointId:string;epoch:number;seq:number;objectKey:string}}).manifest;
-    const objectRoot=process.env.WORKSPACEX_OBJECT_ROOT??join(tmpdir(),'workspacex-objects');await writeFile(join(objectRoot,corruptManifest.objectKey),new Uint8Array([9,9,9]));
+    const objectRoot=process.env.WORKSPACEX_OBJECT_ROOT??join(tmpdir(),'workspacex-objects');await writeFile(resolveObjectPath(objectRoot,corruptManifest.objectKey),new Uint8Array([9,9,9]));
     const restoredResponse=await request(api,token,'POST',`/whiteboards/${boardId}/checkpoints/${corruptManifest.checkpointId}/restore`,{requestId:randomUUID(),expectedEpoch:corruptManifest.epoch,expectedSeq:corruptManifest.seq});
     const restored=await restoredResponse.json() as {auditEvents:Array<{type:string;fallbackCheckpointId?:string;requestedCheckpointId?:string}>};expect(restored.auditEvents).toContainEqual(expect.objectContaining({type:'CheckpointFallbackUsed',fallbackCheckpointId:baseManifest.checkpointId,requestedCheckpointId:corruptManifest.checkpointId}));
     await owner.reload();await synced(owner);await expect(owner.getByTestId('board-a11y-object-undo-target')).toBeAttached();await expect(owner.getByTestId('board-a11y-object-undo-edge')).toBeAttached();
@@ -247,4 +276,62 @@ test('multi-user undo redo preserves the other editor and survives reload', asyn
     try {if (boardId && token) await archiveBoard(api, token, boardId);}
     finally {await Promise.all([ownerContext.close(), editorContext.close()]);}
   }
+});
+
+test('confirmed downgrade retires offline delete undo redo before a later regrant',async({browser,request:api,baseURL})=>{
+  const ownerContext=await browser.newContext({baseURL}),editorContext=await browser.newContext({baseURL});
+  const owner=await ownerContext.newPage(),editor=await editorContext.newPage();let boardId:string|undefined,token:string|undefined;
+  try{
+    [token]=await Promise.all([login(owner,'OWNER'),login(editor,'EDITOR')]);
+    boardId=(await(await request(api,token,'POST','/whiteboards',{requestId:randomUUID(),name:`Rejected offline draft ${randomUUID()}`})).json() as {id:string}).id;
+    await request(api,token,'PUT',`/whiteboards/${boardId}/members`,{userId:required('WHITEBOARD_EDITOR_USER_ID'),role:'editor'});
+    await request(api,token,'POST',`/whiteboards/${boardId}/commands`,{requestId:randomUUID(),epoch:1,commands:[{type:'create',object:{id:'kept-target',schemaVersion:1,kind:'sticky',geometry:{x:100,y:160,width:180,height:180,rotation:0},text:'Server retained idea',style:{},parentId:null,orderKey:'a'}}]});
+    await editor.goto(`/studio/board/${boardId}`);await synced(editor);
+    await editorContext.setOffline(true);await expect(editor.getByText(/连接中断/)).toBeVisible({timeout:20000});
+    const target=editor.getByTestId('board-a11y-object-kept-target');await target.focus();await target.press('Enter');
+    await editor.getByRole('button',{name:'删除选中',exact:true}).click();await expect(target).toHaveCount(0);
+    await editor.getByRole('button',{name:'撤销',exact:true}).click();await expect(target).toBeAttached();
+    await editor.getByRole('button',{name:'重做',exact:true}).click();await expect(target).toHaveCount(0);
+    const queued=()=>editor.evaluate(id=>new Promise<number>((resolve,reject)=>{
+      const open=indexedDB.open('workspacex-whiteboard-outbox-v1');open.onerror=()=>reject(open.error);
+      open.onsuccess=()=>{const db=open.result,transaction=db.transaction('updates','readonly'),count=transaction.objectStore('updates').index('board').count(id);count.onsuccess=()=>resolve(count.result);count.onerror=()=>reject(count.error);transaction.oncomplete=()=>db.close();};
+    }),boardId!);
+    await expect.poll(queued).toBe(3);
+    await request(api,token,'PUT',`/whiteboards/${boardId}/members`,{userId:required('WHITEBOARD_EDITOR_USER_ID'),role:'viewer'});
+    await editorContext.setOffline(false);await expect(editor.getByTestId('denied')).toBeVisible({timeout:30000});
+    await expect.poll(queued).toBe(0);
+    await request(api,token,'PUT',`/whiteboards/${boardId}/members`,{userId:required('WHITEBOARD_EDITOR_USER_ID'),role:'editor'});
+    await editor.reload();await synced(editor);await expect(target).toHaveAccessibleName('图形：Server retained idea');
+    await expect.poll(queued).toBe(0);
+    await owner.goto(`/studio/board/${boardId}`);await synced(owner);await expect(owner.getByTestId('board-a11y-object-kept-target')).toHaveAccessibleName('图形：Server retained idea');
+  }finally{try{await editorContext.setOffline(false);if(boardId&&token)await archiveBoard(api,token,boardId);}finally{await Promise.all([ownerContext.close(),editorContext.close()]);}}
+});
+
+test('structural undo and redo keep connectors added later by another editor',async({browser,request:api,baseURL})=>{
+ const ownerContext=await browser.newContext({baseURL}),editorContext=await browser.newContext({baseURL});
+ const owner=await ownerContext.newPage(),editor=await editorContext.newPage();let boardId:string|undefined,token:string|undefined;
+ try{
+  const tokens=await Promise.all([login(owner,'OWNER'),login(editor,'EDITOR')]);token=tokens[0];const editorToken=tokens[1]!;
+  boardId=(await(await request(api,token,'POST','/whiteboards',{requestId:randomUUID(),name:`Peer relationship ${randomUUID()}`})).json() as {id:string}).id;
+  await request(api,token,'PUT',`/whiteboards/${boardId}/members`,{userId:required('WHITEBOARD_EDITOR_USER_ID'),role:'editor'});
+  await owner.goto(`/studio/board/${boardId}`);await synced(owner);await owner.getByTestId('board-add-sticky').click();await owner.keyboard.press('Escape');await synced(owner);
+  const source=owner.getByTestId('board-a11y-mirror').getByRole('button');await expect(source).toHaveCount(1);
+  const sourceId=(await source.getAttribute('data-testid'))!.replace('board-a11y-object-','');
+  const geometry={x:400,y:200,width:180,height:180,rotation:0};
+  const peer={id:'peer-node',schemaVersion:1,kind:'sticky',geometry,text:'Peer idea',style:{},parentId:null,orderKey:'peer'};
+  const edge=(id:string)=>({...peer,id,kind:'connector',text:'Peer relationship',connector:{from:sourceId,to:peer.id,semanticRelation:'references'}});
+  await request(api,editorToken,'POST',`/whiteboards/${boardId}/commands`,{requestId:randomUUID(),epoch:1,commands:[{type:'create',object:peer},{type:'create',object:edge('peer-edge')}]});
+  await expect(owner.getByTestId('board-a11y-object-peer-edge')).toBeAttached();
+  await owner.getByRole('button',{name:'撤销',exact:true}).click();await expect(owner.getByText('未撤销：当前画板与这次修改存在冲突，请核对后再操作。')).toBeVisible();
+  await expect(owner.getByTestId(`board-a11y-object-${sourceId}`)).toBeAttached();await expect(owner.getByTestId('board-a11y-object-peer-edge')).toBeAttached();
+  const target=owner.getByTestId(`board-a11y-object-${sourceId}`);await target.focus();await target.press('Enter');await owner.getByRole('button',{name:'删除选中',exact:true}).click();await expect(target).toHaveCount(0);await synced(owner);
+  await owner.getByRole('button',{name:'撤销',exact:true}).click();await expect(target).toBeAttached();await expect(owner.getByText(/撤销已由服务器确认/)).toBeVisible();
+  await request(api,editorToken,'POST',`/whiteboards/${boardId}/commands`,{requestId:randomUUID(),epoch:1,commands:[{type:'create',object:edge('later-edge')}]});
+  await expect(owner.getByTestId('board-a11y-object-later-edge')).toBeAttached();
+  await owner.getByRole('button',{name:'重做',exact:true}).click();await expect(owner.getByText('未重做：没有可重做的本地修改，或当前画板存在冲突。')).toBeVisible();
+  for(const page of [owner,editor]){
+    await page.goto(`/studio/board/${boardId}`);await synced(page);
+    for(const id of [sourceId,'peer-node','peer-edge','later-edge'])await expect(page.getByTestId(`board-a11y-object-${id}`)).toBeAttached();
+  }
+ }finally{try{if(boardId&&token)await archiveBoard(api,token,boardId);}finally{await Promise.all([ownerContext.close(),editorContext.close()]);}}
 });

@@ -1,0 +1,18 @@
+{
+  "testedCommit": "ff2f4d2e0",
+  "date": "2026-09-27",
+  "executor": "main session",
+  "passed": 2,
+  "logSha256": "14781d53bdd5131269d8e3328339e3b03e4a7090507e759b063eec2f3e69a79f",
+  "scenarios": [
+    "durable image bytes survive refresh, independent peer, revoke and source deletion",
+    "portable nested board and media survive import, refresh, peer, and locked revocation"
+  ],
+  "command": "pnpm exec tsx .harness/scripts/with-test-isolation.ts -- pnpm --filter web exec playwright test --config e2e/support/board-durable-images-fullstack.config.ts --workers=1",
+  "limits": [
+    "same-instance same-tenant distinct-user peer; cross-tenant portable import not proven",
+    "vendor fixtures not part of this run",
+    "not final integration SHA"
+  ],
+  "cleanup": "owned isolation cleanup completed"
+}

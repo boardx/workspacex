@@ -1,5 +1,5 @@
 import * as Y from 'yjs';
-import { WHITEBOARD_SYNC, WhiteboardServerMessage, type WhiteboardClientMessage } from '@repo/contracts/whiteboard-sync';
+import { WHITEBOARD_SYNC, WhiteboardServerMessage, type WhiteboardClientMessage, type WhiteboardPendingMessage } from '@repo/contracts/whiteboard-sync';
 import { apiWebSocketUrl, getStoredSessionToken } from './api-client';
 import { createWhiteboardOutbox, type WhiteboardDurableOutbox } from './whiteboard-outbox';
 export type WhiteboardConnectionState = {
@@ -35,11 +35,12 @@ export class WhiteboardProvider {
   private readonly retryableClose = new WeakSet<WebSocket>();
   private inFlight = new Set<string>();
   private persisted = new Set<string>();
-  private pending: Extract<WhiteboardClientMessage, { type: 'update' }>[] = [];
+  private pending: WhiteboardPendingMessage[] = [];
   private state: WhiteboardConnectionState = { phase: 'connecting', pending: 0, role: 'viewer', archived: false, epoch: null, peers: [], reason: null, retryAttempt: 0, duplicateAcks: 0, lastAckSequence: null, lastAckReceipt:null };
   constructor(private doc: Y.Doc, private boardId: string, private onState: (state: WhiteboardConnectionState) => void, outbox?: WhiteboardDurableOutbox | null) {
     this.outbox = outbox === undefined ? createWhiteboardOutbox(boardId) : outbox;
     doc.on('update', this.onUpdate);
+    if (typeof window !== 'undefined') { window.addEventListener('offline', this.onOffline); window.addEventListener('online', this.onOnline); }
     this.sessionTimer = setInterval(() => {
       const next = getStoredSessionToken();
       if (next === this.token) return;
@@ -68,13 +69,16 @@ export class WhiteboardProvider {
     this.persistenceTail=next.catch(()=>undefined);
     return next;
   }
+  private needsReauthorization=false;
+  private pendingReauthorization:Promise<void>|null=null;
+  private pendingPreviewNeedsReplay=false;
   private async restoreOutbox(token: string) {
     try {
       const restored = await this.outbox!.restore(token);
       if (this.stopped || token !== this.token) return;
-      if (restored.revoked) { this.block('ACCESS_REVOKED', false); return; }
+      if (restored.revoked) { this.needsReauthorization=true;this.pending=[];this.persisted.clear();this.doc.transact(()=>{this.doc.getMap('objects').clear();this.doc.getMap('deletedObjects').clear();},REMOTE);this.connect('FRESH_AUTH_REQUIRED');return; }
       this.pending = restored.updates; this.persisted = new Set(restored.updates.map(item => item.updateId));
-      for (const item of restored.updates) Y.applyUpdate(this.doc, base64ToBytes(item.update), REMOTE);
+      this.pendingPreviewNeedsReplay=restored.updates.length>0;
       this.publish({ pending: this.pending.length }); this.connect(restored.updates.length ? 'RESTORED_OUTBOX' : null);
     } catch { this.block('OUTBOX_CORRUPT', false); }
   }
@@ -83,8 +87,9 @@ export class WhiteboardProvider {
     if (origin === REMOTE || this.stopped) return;
     if (!this.epoch || !['owner','editor'].includes(this.state.role) || this.state.archived) { this.block('WRITE_DENIED'); return; }
     const gestureId=typeof origin==='object'&&origin!==null&&'gestureId' in origin&&typeof origin.gestureId==='string'?origin.gestureId:typeof origin==='object'&&origin!==null&&'receiptGestureId' in origin&&typeof origin.receiptGestureId==='string'?origin.receiptGestureId:crypto.randomUUID();
-    const message: Extract<WhiteboardClientMessage, { type: 'update' }> = { type: 'update', epoch: this.epoch, updateId: crypto.randomUUID(), gestureId, update: bytesToBase64(update) };
-    const bytes = this.pending.reduce((sum, item) => sum + item.update.length, 0) + message.update.length;
+    const intent=typeof origin==='object'&&origin!==null&&'restoreDeletion' in origin?origin.restoreDeletion as {deleteGestureId:string;objectIds:string[];includeInverse?:boolean}|undefined:undefined;
+    const message:WhiteboardPendingMessage=intent?{type:'restore-deletion',epoch:this.epoch,updateId:crypto.randomUUID(),gestureId,deleteGestureId:intent.deleteGestureId,objectIds:[...intent.objectIds],inverseUpdate:bytesToBase64(update)}:{ type: 'update', epoch: this.epoch, updateId: crypto.randomUUID(), gestureId, update: bytesToBase64(update) };
+    const bytes = this.pending.reduce((sum, item) => sum + JSON.stringify(item).length, 0) + JSON.stringify(message).length;
     if (this.pending.length >= WHITEBOARD_SYNC.pendingUpdates || bytes > WHITEBOARD_SYNC.pendingBytes) { this.block('PENDING_LIMIT'); return; }
     this.pending.push(message); this.publish({});
     if(!this.outbox){this.persisted.add(message.updateId);this.drain();return;}
@@ -94,12 +99,17 @@ export class WhiteboardProvider {
   private send(message: WhiteboardClientMessage) { if (this.socket?.readyState === WebSocket.OPEN) this.socket.send(JSON.stringify(message)); }
   private drain() {
     if (!this.ready || this.stopped || this.refreshingToken !== null) return;
+    // A restore is an ordered server command: predecessor delete ACK first, and
+    // no subsequent raw edit may overtake the authoritative restoration ACK.
+    if(this.pending.some(item=>item.type==='restore-deletion'&&this.inFlight.has(item.updateId)))return;
     for (const message of this.pending) {
       if (this.inFlight.size >= OUTBOUND_UPDATE_WINDOW) break;
       if (this.inFlight.has(message.updateId)) continue;
       if (!this.persisted.has(message.updateId)) break;
       if (this.socket?.readyState !== WebSocket.OPEN) break;
+      if(message.type==='restore-deletion'&&this.inFlight.size)return;
       this.send(message); this.inFlight.add(message.updateId);
+      if(message.type==='restore-deletion')return;
     }
   }
   private schedulePresence() {
@@ -110,15 +120,28 @@ export class WhiteboardProvider {
       const message = this.latestPresence; this.latestPresence = null; this.send(message);
     }, 50);
   }
+  private onOffline = () => {
+    if (this.stopped) return;
+    if (this.timer) clearTimeout(this.timer);
+    if (this.handshake) clearTimeout(this.handshake);
+    // Browser offline mode does not reliably close an existing WebSocket.
+    // Detach it before closing so a delayed close cannot schedule a stale retry.
+    const socket = this.socket; this.socket = null; this.ready = false; this.inFlight.clear();
+    this.publish({ phase: 'offline', peers: [], reason: 'CONNECTION_LOST' });
+    socket?.close();
+  };
+  private onOnline = () => { if (!this.stopped) this.retryNow(); };
   private connect(reason: string | null = null) {
     if (this.stopped) return;
+    if (typeof navigator !== 'undefined' && navigator.onLine === false) { this.publish({ phase: 'offline', reason: 'CONNECTION_LOST' }); return; }
     if (!this.token || getStoredSessionToken() !== this.token) { this.block('SESSION_CHANGED'); return; }
     this.ready = false; this.inFlight.clear(); this.publish({ phase: this.epoch ? 'offline' : 'connecting', reason, retryAttempt: this.retry });
     const socket = new WebSocket(apiWebSocketUrl(WHITEBOARD_SYNC.path.replace(':boardId', encodeURIComponent(this.boardId))), [WHITEBOARD_SYNC.protocol, WHITEBOARD_SYNC.bearerSubprotocolPrefix + this.token]);
     this.socket = socket;
-    this.handshake = setTimeout(() => socket.close(), 10000);
-    socket.onopen = () => this.send({ type: 'hello', stateVector: bytesToBase64(Y.encodeStateVector(this.doc)), ...(this.epoch && this.seq !== null ? { resume: { epoch: this.epoch, seq: this.seq } } : {}) });
-    socket.onmessage = event => {
+    const handshake=setTimeout(()=>{if(!this.stopped&&this.socket===socket)socket.close();},10000);this.handshake=handshake;
+    socket.onopen = () => {if(this.stopped||this.socket!==socket)return;socket.send(JSON.stringify({ type: 'hello', stateVector: bytesToBase64(Y.encodeStateVector(this.doc)), ...(this.epoch && this.seq !== null ? { resume: { epoch: this.epoch, seq: this.seq } } : {}) }));};
+    let reauthorizing=false,cancelled=false,deferredBytes=0;const deferredMessages:MessageEvent[]=[];
+    const handleMessage = (event:MessageEvent) => {
       if (this.stopped || this.socket !== socket) return;
       try {
         const message = WhiteboardServerMessage.parse(JSON.parse(String(event.data)));
@@ -126,12 +149,36 @@ export class WhiteboardProvider {
           if (message.recoverable) { this.retryableClose.add(socket); this.publish({ phase: 'offline', reason: message.code }); socket.close(); return; }
           this.block(message.code); return;
         }
+        if (message.type === 'sync' && this.needsReauthorization) {
+          if(!this.outbox?.reauthorize||!this.token){this.block('OUTBOX_REVOKED',false);return;}
+          reauthorizing=true;const token=this.token;
+          const authorization=this.pendingReauthorization??=this.queuePersistence(()=>this.outbox!.reauthorize!(token));
+          void authorization.then(()=>{
+            if(!this.stopped&&this.token===token){this.needsReauthorization=false;this.pendingReauthorization=null;}
+            if(cancelled||this.stopped||this.socket!==socket||this.token!==token)return;
+            reauthorizing=false;handleMessage(event);
+            deferredBytes=0;for(const deferred of deferredMessages.splice(0))handleMessage(deferred);
+          }).catch(()=>this.block('OUTBOX_REAUTHORIZATION_FAILED',false));return;
+        }
         if (message.type === 'sync') {
           if (this.epoch !== null && this.epoch !== message.epoch) { this.block('STALE_EPOCH'); return; }
           if (this.seq !== null && message.seq < this.seq) { this.block('STALE_SEQUENCE'); return; }
-          if ((!['owner','editor'].includes(message.role) || message.archived) && this.pending.length) { this.block('WRITE_DENIED'); return; }
-          Y.applyUpdate(this.doc, base64ToBytes(message.update), REMOTE); this.epoch = message.epoch; this.seq = message.seq; this.ready = true; this.retry = 0;
-          if (this.handshake) clearTimeout(this.handshake);
+          // Fresh server authorization explicitly rejected this generation's writes.
+          // Regrant must start empty instead of reviving rejected delete/undo intents.
+          if ((!['owner','editor'].includes(message.role) || message.archived) && this.pending.length) { this.block('WRITE_DENIED', true); return; }
+          Y.applyUpdate(this.doc, base64ToBytes(message.update), REMOTE);
+          if(this.pendingPreviewNeedsReplay){
+            for(const pending of this.pending){
+              const delta=pending.type==='update'?pending.update:pending.inverseUpdate;
+              // Legacy intents without an exact inverse cannot safely replay
+              // over a later redo tombstone. Preserve the draft and fail closed.
+              if(!delta)throw new Error('RESTORE_PREVIEW_MISSING');
+              Y.applyUpdate(this.doc,base64ToBytes(delta),REMOTE);
+            }
+            this.pendingPreviewNeedsReplay=false;
+          }
+          this.epoch = message.epoch; this.seq = message.seq; this.ready = true; this.retry = 0;
+          clearTimeout(handshake);
           this.publish({ phase: 'online', role: message.role, archived: message.archived, epoch: message.epoch, reason: null, retryAttempt: 0 });
           this.inFlight.clear(); this.drain(); if (!this.pending.length) this.schedulePresence();
         } else if (message.type === 'update') {
@@ -162,16 +209,32 @@ export class WhiteboardProvider {
         } else if (message.type === 'presence') this.publish({ peers: message.peers });
       } catch { this.block('PROTOCOL_ERROR'); }
     };
+    socket.onmessage=event=>{
+      if(this.stopped||this.socket!==socket)return;
+      try{
+        if(typeof event.data!=='string'||event.data.length>WHITEBOARD_SYNC.outboundDocumentFrameBytes)throw new Error('FRAME_LIMIT');
+        const size=new TextEncoder().encode(event.data).byteLength;if(size>WHITEBOARD_SYNC.outboundDocumentFrameBytes)throw new Error('FRAME_LIMIT');
+        const message=WhiteboardServerMessage.parse(JSON.parse(event.data));
+        if(reauthorizing){
+          // Never queue authorization loss behind an earlier successful sync.
+          if((message.type==='error'&&!message.recoverable)||(message.type==='recovery'&&['access-revoked','board-archived','reload-required'].includes(message.disposition))){
+            cancelled=true;deferredMessages.length=0;deferredBytes=0;handleMessage(event);return;
+          }
+          if(deferredMessages.length>=WHITEBOARD_SYNC.pendingUpdates||deferredBytes+size>WHITEBOARD_SYNC.pendingBytes)throw new Error('FRAME_LIMIT');
+          deferredBytes+=size;deferredMessages.push(event);
+        }else handleMessage(event);
+      }catch{cancelled=true;deferredMessages.length=0;deferredBytes=0;this.block('PROTOCOL_ERROR');}
+    };
     socket.onclose = event => {
-      if (this.handshake) clearTimeout(this.handshake);
       if (this.stopped || this.socket !== socket) return;
+      clearTimeout(handshake);cancelled=true;deferredMessages.length=0;deferredBytes=0;
       this.ready = false; this.inFlight.clear();
       if ([1008, 4001, 4003, 4401, 4403].includes(event.code) && !this.retryableClose.has(socket)) { this.block('ACCESS_DENIED'); return; }
       const delay = Math.min(15000, 500 * 2 ** Math.min(this.retry++, 5));
       this.publish({ phase: 'offline', peers: [], reason: this.state.reason ?? 'CONNECTION_LOST', retryAttempt: this.retry });
       this.timer = setTimeout(() => this.connect('RETRYING'), delay);
     };
-    socket.onerror = () => socket.close();
+    socket.onerror = () => {if(!this.stopped&&this.socket===socket)socket.close();};
   }
   awareness(cursor: { x: number; y: number } | null, selected: string[], editingObjectId: string | null = null, collaboration?: {viewport:{centerX:number;centerY:number;zoom:number;revision:number};presenting:boolean;followingActorId:string|null}, pointer: Extract<WhiteboardClientMessage,{type:"awareness"}>["pointer"]=null) {
     if (!this.ready || this.stopped || (cursor && (!Number.isFinite(cursor.x) || !Number.isFinite(cursor.y)))) return;
@@ -188,5 +251,5 @@ export class WhiteboardProvider {
     this.publish({ phase: 'blocked', role: 'viewer', peers: [], reason });
     if (persistRevocation && token && outbox) void outbox.revoke(token).finally(()=>outbox.close());
   }
-  close(closeOutbox = true) { if (this.presenceTimer) clearTimeout(this.presenceTimer); this.stopped = true; this.ready = false; this.inFlight.clear(); if (this.timer) clearTimeout(this.timer); if (this.handshake) clearTimeout(this.handshake); clearInterval(this.sessionTimer); this.doc.off('update', this.onUpdate); this.socket?.close(); if(closeOutbox)this.outbox?.close(); }
+  close(closeOutbox = true) { if (typeof window !== 'undefined') { window.removeEventListener('offline', this.onOffline); window.removeEventListener('online', this.onOnline); } if (this.presenceTimer) clearTimeout(this.presenceTimer); this.stopped = true; this.ready = false; this.inFlight.clear(); if (this.timer) clearTimeout(this.timer); if (this.handshake) clearTimeout(this.handshake); clearInterval(this.sessionTimer); this.doc.off('update', this.onUpdate); this.socket?.close(); if(closeOutbox)this.outbox?.close(); }
 }

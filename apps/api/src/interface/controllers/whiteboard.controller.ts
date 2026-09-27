@@ -78,6 +78,10 @@ export class WhiteboardController {
     assertPrincipal(p); try { const result=await this.repo.permanentlyDelete(p,id,input); if (!result) throw new NotFoundException(); return result; }
     catch (error) { resourceError(error); }
   }
+  @Get(':boardId/mentionable-members')
+  async mentionableMembers(@CurrentPrincipal() p: Principal, @Param('boardId',new ParseUUIDPipe()) id: string) {
+    assertPrincipal(p); const items=await this.repo.mentionableMembers(p,id); if (!items) throw new NotFoundException(); return C.operations.mentionableMembers.out.parse({items});
+  }
   @Get(':boardId/members')
   async members(@CurrentPrincipal() p: Principal, @Param('boardId',new ParseUUIDPipe()) id: string) {
     assertPrincipal(p); const items=await this.repo.members(p,id); if (!items) throw new NotFoundException(); return {items};

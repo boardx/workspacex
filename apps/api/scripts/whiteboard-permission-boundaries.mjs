@@ -1,3 +1,4 @@
+import {whiteboardStoragePermissionBoundaries,verifyWhiteboardStoragePermissionBoundaries} from './whiteboard-storage-permission-boundaries.mjs';
 /**
  * Private Board metadata and content operations cannot use the generic acl_bindings
  * filter: their authority is the Board owner/member relation. These are admitted only
@@ -22,6 +23,23 @@ export const whiteboardPermissionBoundaries = new Map([
     ],
     forbidden: [/SELECT \*/, /return landing\b/, /object_storage_key/, /payload/, /markdown/],
   }],
+  ...whiteboardStoragePermissionBoundaries,
+  ['src/infrastructure/whiteboard/pg-board-backup.ts', {
+    tables: ['org_memberships','whiteboards','whiteboard_members','whiteboard_tags','whiteboard_tag_bindings','whiteboard_documents','whiteboard_image_assets','whiteboard_asset_refs','whiteboard_comment_threads','whiteboard_backups','whiteboard_backup_pins','whiteboard_backup_restores'],
+    reason: '#4255 Board backup is owner-only, rechecks tenant membership/source ownership before capture/read/retry/restore; blobs precede pointer publication, durable pins share GC fences. Unit and real storage acceptance cover failure boundaries.',
+    checks: [
+      /assertPrincipal\(p\)/,
+      /FROM org_memberships WHERE org_id=\$1 AND user_id=\$2 FOR SHARE/,
+      /SELECT owner_id FROM whiteboards WHERE org_id=\$1 AND id=\$2 FOR UPDATE/,
+      /owner_id!==p.userId/,
+      /FROM whiteboard_backups WHERE org_id=\$1 AND backup_id=\$2 AND actor_id=\$3 FOR UPDATE/,
+      /await this.actor\(s,p,found.rows\[0\]!\.source_board_id,true\);return this.record/,
+      /this.collaboration.loadInTransaction\(s,p,boardId\)/,
+      /INSERT INTO whiteboard_backup_pins/,
+      /INSERT INTO whiteboard_documents[\s\S]*VALUES\(\$1,\$2,1,0,NULL,1,\$3,\$4,\$5\)/,
+    ],
+    forbidden: [/INSERT INTO whiteboard_updates/i],
+  }],
   ['src/infrastructure/whiteboard/pg-board-content-copy-store.ts', {
     tables: ['whiteboard_duplicate_requests','whiteboards','whiteboard_members','whiteboard_tag_bindings','whiteboard_tags','whiteboard_documents','whiteboard_asset_refs','whiteboard_image_assets','unnest'],
     reason: '#4242 canonical Board duplication is guarded by tests/whiteboard/board-content-copy-guard.test.ts: one tenant transaction performs actor-visible preflight, locks active tags before the source Board, captures an explicit document version, verifies tag stability, prepares canonical bytes, and publishes an actor-owned independent target.',
@@ -40,7 +58,8 @@ export const whiteboardPermissionBoundaries = new Map([
       /INSERT INTO whiteboard_documents\(org_id,board_id,epoch,seq,snapshot,manifest_version,object_key,content_hash,byte_size\) VALUES\(\$1,\$2,1,0,NULL,1,\$3,\$4,\$5\)[\s\S]*\[p\.orgId,targetBoardId,ref\.key,ref\.hash,ref\.size\]/,
       /await this\.copyImageAssets\(session,p,sourceBoardId,targetBoardId,prepared\.snapshot\)/,
       /await this\.putVerified[\s\S]*INSERT INTO whiteboard_documents/,
-      /a\.org_id=\$1 AND a\.board_id=\$2 AND a\.asset_id=\$3 AND r\.state='active' AND r\.released_at IS NULL FOR SHARE OF a,r/,
+      // Image metadata is immutable (SELECT-only); lock the mutable active reference.
+      /a\.org_id=\$1 AND a\.board_id=\$2 AND a\.asset_id=\$3 AND r\.state='active' AND r\.released_at IS NULL FOR SHARE OF r/,
       /this\.digest\(readback\) !== hash/,
       /WHERE b\.org_id=\$1 AND b\.id=\$3 AND b\.owner_id=\$2/,
     ],
@@ -76,5 +95,6 @@ export function verifyWhiteboardPermissionBoundaries(read, tenantTables) {
     for (const pattern of rule.checks) if (!pattern.test(source)) failures.push(`${path}: authority invariant missing (${pattern})`);
     for (const pattern of rule.forbidden ?? []) if (pattern.test(source)) failures.push(`${path}: forbidden copy path present (${pattern})`);
   }
+  failures.push(...verifyWhiteboardStoragePermissionBoundaries(read));
   return failures;
 }

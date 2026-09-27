@@ -6,8 +6,10 @@ import { join } from "node:path";
 import { z } from "zod";
 
 const identifier = z.string().regex(/^[a-z][a-z0-9_]{0,62}$/);
+// This tool authenticates to an existing database; credential-strength policy belongs
+// to provisioning (data-secrets / starter-maintenance), not backup availability.
 const Target = z.object({ container: z.string().regex(/^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$/), database: identifier,
-  user: z.string().regex(/^[a-zA-Z_][a-zA-Z0-9_]{0,62}$/), password: z.string().min(16).max(4096) });
+  user: z.string().regex(/^[a-zA-Z_][a-zA-Z0-9_]{0,62}$/), password: z.string().min(1).max(4096).refine(value=>!value.includes("\0")) });
 export type StarterBackupTarget = z.infer<typeof Target>;
 export const StarterBackupManifestSchema = z.object({ schemaVersion: z.literal(1), format: z.literal("postgres-custom"), postgresMajor: z.literal(16),
   database: identifier, sha256: z.string().regex(/^[a-f0-9]{64}$/), bytes: z.number().int().positive(), createdAt: z.string().datetime() }).strict();

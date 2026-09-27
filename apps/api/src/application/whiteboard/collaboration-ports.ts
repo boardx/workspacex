@@ -18,8 +18,12 @@ export interface WhiteboardUpdateAck { epoch: number; seq: number; updateId: str
 export interface WhiteboardPendingUpdate extends WhiteboardUpdateAck { durability: 'pending'; }
 export interface WhiteboardUpdateInput { epoch: number; updateId: string; gestureId: string; update: Uint8Array; }
 export interface WhiteboardCommandsInput { epoch: number; requestId: string; commands: WhiteboardCommand[]; actorId?: string; }
+export interface WhiteboardDeletionProof {id:string;digest:string;tombstone:{client:number;clock:number};}
+export interface WhiteboardDeletionChange {id:string;before:string|null;after:string|null;}
+export interface WhiteboardRestoreDeletionInput {epoch:number;updateId:string;gestureId:string;deleteGestureId:string;objectIds:string[];inverseUpdate?:string;}
 export interface WhiteboardCollaborationStore {
   compensateInTransaction?(session:TenantSession,principal:Principal,boardId:string,input:{epoch:number;requestId:string;actorId:string;before:Uint8Array}):Promise<WhiteboardPendingUpdate>;
+  restoreDeletion?(principal:Principal,boardId:string,input:WhiteboardRestoreDeletionInput):Promise<WhiteboardUpdateAck>;
   head(principal: Principal, boardId: string): Promise<WhiteboardSyncHead>;
   load(principal: Principal, boardId: string, stateVector?: Uint8Array): Promise<WhiteboardSyncState>;
   loadInTransaction(session:TenantSession,principal:Principal,boardId:string,stateVector?:Uint8Array):Promise<WhiteboardSyncState>;
@@ -33,10 +37,11 @@ export interface WhiteboardCommentStore {
 }
 export interface WhiteboardPresenceIdentity { displayName:string; avatarUrl:string|null; principalKind:'user'|'agent'; }
 export interface WhiteboardPresenceIdentityResolver { resolve(principal:Principal):Promise<WhiteboardPresenceIdentity>; }
-export interface ValidatedWhiteboardUpdate { snapshot: Uint8Array; update: Uint8Array; }
+export interface ValidatedWhiteboardUpdate { snapshot: Uint8Array; update: Uint8Array; deletions?:WhiteboardDeletionProof[];deletionChanges?:WhiteboardDeletionChange[]; }
 /** Untrusted decoding/validation must be isolated from the API event loop. */
 export interface WhiteboardUpdateValidator {
   compensate?(snapshot:Uint8Array,before:Uint8Array):Promise<ValidatedWhiteboardUpdate>;
+  restoreDeletion?(snapshot:Uint8Array,proof:WhiteboardDeletionProof[],changes?:WhiteboardDeletionChange[],inverseUpdate?:Uint8Array):Promise<ValidatedWhiteboardUpdate>;
   objects(snapshot: Uint8Array): Promise<WhiteboardObject[]>;
   objectIds(snapshot: Uint8Array): Promise<string[]>;
   validate(snapshot: Uint8Array, update: Uint8Array): Promise<ValidatedWhiteboardUpdate>;

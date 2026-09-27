@@ -82,6 +82,21 @@ export interface ExecuteScriptOptions {
   readonly cjkFontPath?: string;
 }
 
+/**
+ * 去掉 Node 权限模型每次启动都打的那两行实验性提示（#3872 R22）。
+ *
+ * 它是**我们**加的 `--experimental-permission` 引出来的，不是脚本的输出，却原样进了
+ * 回喂给模型的 stderr——每次运行都有，模型据此以为脚本出了问题（安装版实机每条
+ * `/run` 结果都带着它）。只去掉这一对固定的行；脚本自己发出的警告（包括别的
+ * ExperimentalWarning）一行不动。不用 `--no-warnings`：那会连脚本的警告一起吞掉。
+ */
+export function dropPermissionNotice(stderr: string): string {
+  return stderr.replace(
+    /^\(node:\d+\) ExperimentalWarning: Permission is an experimental feature[^\n]*\n(?:\(Use `[^`\n]*--trace-warnings[^\n]*\n)?/m,
+    "",
+  );
+}
+
 /** 截断到字节上限，并明确告诉模型「这里被截断了」——不假装输出就这么长。 */
 function truncate(buffers: readonly Buffer[]): string {
   const joined = Buffer.concat(buffers);
@@ -221,7 +236,7 @@ async function runOnce(options: ExecuteScriptOptions, paths: Paths): Promise<Exe
   return {
     exitCode,
     stdout: truncate(stdoutChunks),
-    stderr: truncate(stderrChunks),
+    stderr: dropPermissionNotice(truncate(stderrChunks)),
     files,
     timedOut,
     durationMs: Date.now() - paths.startedAt,

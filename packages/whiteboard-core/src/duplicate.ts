@@ -1,4 +1,5 @@
 import * as Y from 'yjs';
+import { parseContentObject } from './content-object-model';
 import { WhiteboardObject, WhiteboardObjectId, WHITEBOARD_LIMITS, type WhiteboardObject as WhiteboardObjectValue } from '@repo/contracts/whiteboard-document';
 import { createWhiteboardDocument, executeCommands, objectMap, tombstones, validateDocument } from './document';
 
@@ -71,7 +72,14 @@ export function duplicateWhiteboardSnapshot(sourceSnapshot: Uint8Array, newId: (
       if (targetIds.has(id)) throw new Error('DUPLICATE_ID_COLLISION');
       mapping.set(item.id, id);
       targetIds.add(id);
-      if (item.extensionData !== undefined) assertNoOpaqueReference(item.extensionData, sourceIds);
+      if (item.extensionData !== undefined) {
+        for (const [key, value] of Object.entries(item.extensionData)) {
+          // This canonical envelope is a typed value, not a board-object reference.
+          // Validate its exact schema and still inspect its fields for opaque references.
+          if (key === 'contentObject') assertNoOpaqueReference(parseContentObject(value), sourceIds);
+          else assertNoOpaqueReference(value, sourceIds, key);
+        }
+      }
     }
     const copies = dependencyOrder(objects).map(item => {
       if (item.parentId !== null && !mapping.has(item.parentId)) throw new Error('INVALID_DUPLICATE_REFERENCE');

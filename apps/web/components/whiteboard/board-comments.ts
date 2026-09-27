@@ -1,3 +1,4 @@
+import { whiteboard as BoardContract } from '@repo/contracts';
 import { WhiteboardCommentCommand, WhiteboardCommentThread, whiteboardCollaborationOperations as Operations, type WhiteboardCommentThread as CommentThread } from "@repo/contracts/whiteboard-collaboration";
 import { apiRequest } from "@/lib/api-client";
 
@@ -10,4 +11,10 @@ export async function dispatchBoardCommentCommand(boardId:string,command:unknown
   const response=await apiRequest<unknown>(Operations.dispatchComment.path.replace(":boardId",encodeURIComponent(boardId)),{method:"POST",body:parsed});
   const accepted=Operations.dispatchComment.out.parse(response);
   return {operationId:accepted.operationId,replayed:accepted.replayed,threads:accepted.threads.map(item=>WhiteboardCommentThread.parse(item))};
+}
+
+export type BoardMentionMember = { userId: string; displayName: string };
+export async function listBoardMentionableMembers(boardId:string,signal?:AbortSignal):Promise<BoardMentionMember[]> {
+  const operation=BoardContract.operations.mentionableMembers;
+  return operation.out.parse(await apiRequest(operation.path.replace(':boardId',encodeURIComponent(boardId)),{signal})).items;
 }

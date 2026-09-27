@@ -16,6 +16,7 @@ import {
   type BoardViewportSource,
 } from "./board-fabric-object";
 import { BOARD_FABRIC_VISUAL, boardDotGridStyle } from "./board-fabric-visual";
+import { connectorInteraction } from "./connector-interaction";
 import { representableWorldGeometry } from "./fabric-transform";
 
 type TaggedFabricObject = FabricObject & {
@@ -81,7 +82,7 @@ function applyResizePolicy(projected: TaggedFabricObject, object: BoardFabricObj
   const autoSize = sticky?.sizingMode === "auto-size";
   const autoHeight = sticky?.sizingMode === "auto-height";
   const proportional = sticky?.variant === "square" || sticky?.variant === "circle";
-  projected.set({ lockScalingX: Boolean(object.locked) || autoSize, lockScalingY: Boolean(object.locked) || autoSize, lockMovementX: Boolean(object.locked), lockMovementY: Boolean(object.locked), lockRotation: Boolean(object.locked), hoverCursor: object.locked ? "not-allowed" : object.style.link ? "pointer" : "move" });
+  projected.set({ lockScalingX: Boolean(object.locked) || autoSize, lockScalingY: Boolean(object.locked) || autoSize, lockMovementX: Boolean(object.locked), lockMovementY: Boolean(object.locked), lockRotation: Boolean(object.locked), hoverCursor: object.locked ? "not-allowed" : object.style.link ? "pointer" : "move", ...connectorInteraction(object.kind) });
   projected.setControlsVisibility({
     mtr: true,
     ml: !autoSize && !proportional,
@@ -125,7 +126,8 @@ export function createFabricObject(object: BoardFabricObject): TaggedFabricObjec
     const angles = connectorTipAngles(type, x1, y1, x2, y2);
     const startTip = tip(startStyle, x1, y1, angles.start), endTip = tip(endStyle, x2, y2, angles.end);
     if (startTip) tips.push(startTip); if (endTip) tips.push(endTip);
-    projected = new Group([line, ...tips, new Textbox(label, { ...textOptions, width: Math.max(80, width), fontSize: 13, backgroundColor: "#FFFFFF" })]);
+    const labels = label.trim() ? [new Textbox(label, { ...textOptions, width: Math.max(80, width), fontSize: 13, backgroundColor: "#FFFFFF" })] : [];
+    projected = new Group([line, ...tips, ...labels], connectorInteraction(object.kind));
   } else if (object.kind === "drawing" && object.boardContent?.type === "drawing") {
     const eraserTargets = new Map(drawingEraserLayers(object.boardContent).map((layer) => [layer.stroke.id, new Set(layer.targetStrokeIds)]));
     projected = new Group(object.boardContent.strokes.flatMap((stroke) => stroke.points.slice(1).map((point, index) => {
@@ -143,7 +145,7 @@ export function createFabricObject(object: BoardFabricObject): TaggedFabricObjec
       const scaleX = object.geometry.width / naturalWidth, scaleY = object.geometry.height / naturalHeight;
       const clipPath = new Rect({ width: naturalWidth, height: naturalHeight, rx: object.boardContent.cornerRadius / Math.max(scaleX, .0001), ry: object.boardContent.cornerRadius / Math.max(scaleY, .0001), originX: "center", originY: "center" });
       const bitmap = new FabricImage(image, { cropX: object.boardContent.intrinsicWidth * crop.x, cropY: object.boardContent.intrinsicHeight * crop.y, width: naturalWidth, height: naturalHeight, scaleX, scaleY, opacity: object.boardContent.opacity, originX: "center", originY: "center", clipPath });
-      image.onload = () => { bitmap.setElement(image, { width: naturalWidth, height: naturalHeight }); bitmap.canvas?.requestRenderAll(); };
+      image.onload = () => { bitmap.setElement(image, { width: naturalWidth, height: naturalHeight }); bitmap.set('dirty', true); bitmap.canvas?.requestRenderAll(); };
       image.src = object.imageAssetUrl;
       projected = new Group([new Rect({ width: object.geometry.width, height: object.geometry.height, rx: object.boardContent.cornerRadius, ry: object.boardContent.cornerRadius, fill: "#F4F4F5", stroke: object.boardContent.borderColor, strokeWidth: object.boardContent.borderWidth, originX: "center", originY: "center" }), bitmap]);
     } else {
@@ -318,7 +320,7 @@ function applyCanonicalObjectInScene(projected: TaggedFabricObject, object: Boar
     flipY: false,
     // Locked objects remain selectable for inspection and mixed selections;
     // the lock flags below prevent every Fabric transform.
-    selectable: !readOnly && object.kind !== "placeholder" && object.kind !== "connector",
+    selectable: !readOnly && object.kind !== "placeholder",
     evented: !readOnly && object.kind !== "placeholder",
     hasControls: object.kind !== "connector",
     lockMovementX: object.kind === "connector",
@@ -781,7 +783,7 @@ export function BoardFabricSurface({ objects, selectedObjectIds, readOnly, tool,
       const selectable = !readOnly && tool === "select" && canonical?.kind !== "placeholder";
       const evented = !readOnly && tool === "select" && canonical?.kind !== "placeholder";
       const autoSize = canonical?.kind === "sticky" && canonical.sticky?.sizingMode === "auto-size";
-      projected.set({ selectable, evented, lockMovementX: Boolean(canonical?.locked), lockMovementY: Boolean(canonical?.locked), lockScalingX: Boolean(canonical?.locked) || autoSize, lockScalingY: Boolean(canonical?.locked) || autoSize, lockRotation: Boolean(canonical?.locked) });
+      projected.set({ selectable, evented, lockMovementX: Boolean(canonical?.locked), lockMovementY: Boolean(canonical?.locked), lockScalingX: Boolean(canonical?.locked) || autoSize, lockScalingY: Boolean(canonical?.locked) || autoSize, lockRotation: Boolean(canonical?.locked), ...connectorInteraction(canonical?.kind ?? "") });
     }
     canvas.requestRenderAll();
   }, [readOnly, tool]);

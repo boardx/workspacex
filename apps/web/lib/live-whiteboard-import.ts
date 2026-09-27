@@ -13,3 +13,6 @@ export async function preflightWhiteboardImport(boardId:string,importId:string,r
 export async function executeWhiteboardImport(boardId:string,importId:string,requestId:string,expectedEpoch:number) {
   return apiRequest<{status:ImportStatus;report:WhiteboardImportReport;epoch:number;seq:number;replayed:boolean}>(`${root(boardId)}/${encodeURIComponent(importId)}/execute`,{method:'POST',body:{requestId,expectedEpoch}});
 }
+
+export async function exportPortableBoard(boardId:string){return apiRequest<{fileName:string;mime:'application/json';contentBase64:string;sha256:string;sizeBytes:number}>(`/whiteboards/${encodeURIComponent(boardId)}/portable/export`,{method:'POST',body:{}});}
+export async function importPortableBoard(boardId:string,input:unknown){return apiRequest<{epoch:number;seq:number;replayed:boolean;objectCount:number;assetCount:number}>(`/whiteboards/${encodeURIComponent(boardId)}/portable/import`,{method:'POST',body:input});}
