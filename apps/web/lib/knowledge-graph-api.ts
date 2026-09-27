@@ -67,7 +67,7 @@ export function knowledgeGraphErrorCode(e: unknown): KnowledgeGraphErrorCode | n
   return e instanceof KnowledgeGraphError ? e.code : toKnowledgeGraphError(e).code;
 }
 
-async function getParsed<T>(
+export async function getParsed<T>(
   path: string,
   schema: z.ZodType<T>,
   signal?: AbortSignal,

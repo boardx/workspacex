@@ -648,6 +648,9 @@ import { GRAPH_PROJECTION_PORT, KG_AUTO_COPY_PORT, KG_EMBEDDING_QUEUE_PORT, KG_C
 import { PgPromotion } from "./infrastructure/knowledge-graph/pg-promotion";
 import { PgHumanAction } from "./infrastructure/knowledge-graph/pg-human-action";
 import { KnowledgeGraphController } from "./interface/controllers/knowledge-graph.controller";
+import { KnowledgeShareController } from "./interface/controllers/knowledge-share.controller";
+import { PROJECT_SHARE_PORT } from "./application/knowledge-graph/share-to-project";
+import { PgProjectShare } from "./infrastructure/knowledge-graph/pg-project-share";
 import { PlatformExtractionSettingController } from "./interface/controllers/platform-extraction-setting.controller";
 // S8（#4365）：记忆整合 + 「值得记」门控 + 抽取 SLO。
 import { PlatformMemoryOpsController } from "./interface/controllers/platform-memory-ops.controller";
@@ -1061,6 +1064,7 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
 @Module({
   controllers: [
     KnowledgeGraphController,
+    KnowledgeShareController,
     PlatformExtractionSettingController,
     PlatformMemoryOpsController,
     KnowledgeConsolidationController,
@@ -3222,6 +3226,8 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
     { provide: HUMAN_ACTION_PORT, useFactory: (db: DatabasePort) => new PgHumanAction(db), inject: [DATABASE_PORT] },
     // F11：晋升到个人空间（只经 kg_promote_claim 落表）。
     { provide: PROMOTION_PORT, useFactory: (db: DatabasePort) => new PgPromotion(db), inject: [DATABASE_PORT] },
+    // S10（#4367）：「分享到项目…」（只经 kg_share_claim_to_project / kg_unshare_claim_from_project 落表）。
+    { provide: PROJECT_SHARE_PORT, useFactory: (db: DatabasePort) => new PgProjectShare(db), inject: [DATABASE_PORT] },
     // F17：「记住 / 忘掉」确认卡（只经 kg_open_memory_card / kg_act_on_memory_card 落表）。
     { provide: MEMORY_CARD_PORT, useFactory: (db: DatabasePort) => new PgMemoryCard(db), inject: [DATABASE_PORT] },
     {

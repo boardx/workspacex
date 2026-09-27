@@ -7,6 +7,7 @@ import { SectionTitle } from "./parts";
 import { getStoredSessionToken } from "@/lib/api-client";
 import { KG_TRI_STATE_LABEL_ZH, type KgClaimKind, type KgClaim } from "@repo/contracts/chat-knowledge-graph";
 import { KG_CLAIM_KIND_LABEL_ZH } from "@/lib/knowledge-graph-view";
+import { sharedFromPersonalLabelZh as sharedFromPersonalLabel } from "@repo/contracts/chat-knowledge-graph";
 import {
   fetchClaimSources, fetchProjectKnowledge, knowledgeGraphErrorCode, promoteToOrg,
   type ProjectKnowledge, type PromotionChoice, type PromotionResults,
@@ -31,7 +32,8 @@ import { useClaimSourcesDrawer } from "@/components/chat/knowledge/knowledge-pan
  * B2-S4（#4428）：服务端 `canPromoteToOrg`（组织 lead / admin）为 true 时，每条多一个「记到组织记忆」按钮
  * （`promoteToOrg`，L2 → L3）；逐条显示结果，相近时让人选合并 / 并存。旧响应没有这个字段 ⇒ 没有入口。
  */
-const KIND_ORDER: readonly KgClaimKind[] = ["decision", "fact", "hypothesis", "risk", "todo"];
+// S10（#4367）：成员可以把个人记忆里的目标 / 偏好分享进来，这两类也要列出来（否则分享了却看不见）。
+const KIND_ORDER: readonly KgClaimKind[] = ["decision", "fact", "hypothesis", "risk", "todo", "goal", "preference"];
 
 export function ProjectBrainPanel({ projectId }: { projectId: string }) {
   const [data, setData] = React.useState<ProjectKnowledge | null>(null);
@@ -57,6 +59,10 @@ export function ProjectBrainPanel({ projectId }: { projectId: string }) {
   const reasoning = reasoningView(data?.claims ?? []);
   const drawer = useClaimSourcesDrawer(loadSources);
   const org = useOrgPromotion(projectId, data?.canPromoteToOrg === true);
+  const sharedBy = React.useMemo(
+    () => new Map((data?.sharedFromPersonal ?? []).map((x) => [x.claimId, x.sharedByName] as const)),
+    [data?.sharedFromPersonal],
+  );
 
   return (
     <section data-testid="project-brain">
@@ -73,7 +79,7 @@ export function ProjectBrainPanel({ projectId }: { projectId: string }) {
           <p className="p-4 text-11 text-muted-foreground" data-testid="project-brain-anonymous">请先登录。</p>
         ) : groups.length === 0 ? (
           <p className="p-4 text-11 leading-relaxed text-muted-foreground" data-testid="project-brain-empty">
-            这个项目还没有记下任何东西。在项目对话的知识面板里点「记到项目大脑」，记下的内容会出现在这里，项目里的对话也会自动想起它。
+            这个项目还没有记下任何东西。在项目对话的知识面板里点「记到项目大脑」，或在个人记忆里点「分享到项目…」，记下的内容会出现在这里，项目里的对话也会自动想起它。
           </p>
         ) : (
           <div className="flex flex-col divide-y divide-border" data-testid="project-brain-groups">
@@ -87,7 +93,7 @@ export function ProjectBrainPanel({ projectId }: { projectId: string }) {
                   <div className="flex flex-col gap-1" data-testid="project-brain-conflicts">
                     <span className="text-10 text-muted-foreground">有矛盾——两边都有证据，还没人定</span>
                     <ul className="flex flex-col gap-1">
-                      {reasoning.conflicts.map((c) => <ClaimRow key={c.id} claim={c} onOpenSources={drawer.open} org={org} />)}
+                      {reasoning.conflicts.map((c) => <ClaimRow key={c.id} claim={c} sharedBy={sharedBy.get(c.id)} onOpenSources={drawer.open} org={org} />)}
                     </ul>
                   </div>
                 ) : null}
@@ -95,7 +101,7 @@ export function ProjectBrainPanel({ projectId }: { projectId: string }) {
                   <div className="flex flex-col gap-1" data-testid="project-brain-hypotheses">
                     <span className="text-10 text-muted-foreground">猜测——按证据强弱排，站得最不稳的在前</span>
                     <ul className="flex flex-col gap-1">
-                      {reasoning.hypotheses.map((c) => <ClaimRow key={c.id} claim={c} onOpenSources={drawer.open} org={org} />)}
+                      {reasoning.hypotheses.map((c) => <ClaimRow key={c.id} claim={c} sharedBy={sharedBy.get(c.id)} onOpenSources={drawer.open} org={org} />)}
                     </ul>
                   </div>
                 ) : null}
@@ -108,7 +114,7 @@ export function ProjectBrainPanel({ projectId }: { projectId: string }) {
                   <span className="font-mono text-10 text-muted-foreground">{g.claims.length}</span>
                 </div>
                 <ul className="flex flex-col gap-1">
-                  {g.claims.map((c) => <ClaimRow key={c.id} claim={c} onOpenSources={drawer.open} org={org} />)}
+                  {g.claims.map((c) => <ClaimRow key={c.id} claim={c} sharedBy={sharedBy.get(c.id)} onOpenSources={drawer.open} org={org} />)}
                 </ul>
               </div>
             ))}
@@ -174,18 +180,26 @@ function useOrgPromotion(projectId: string, enabled: boolean): OrgPromotion {
   return { enabled, states, promote };
 }
 
-function ClaimRow({ claim, onOpenSources, org }: { claim: KgClaim; onOpenSources: (claimId: string) => void; org: OrgPromotion }) {
+function ClaimRow({ claim, sharedBy, onOpenSources, org }: { claim: KgClaim; sharedBy?: string; onOpenSources: (claimId: string) => void; org: OrgPromotion }) {
   const tone = claim.triState === "confirmed" ? "success" : claim.triState === "conflict" ? "danger" : "warning";
   const state = org.states.get(claim.id);
   return (
     <li className="flex flex-col gap-1 text-11" data-testid={`project-brain-claim-${claim.id}`}>
       <div className="flex items-start gap-2">
-        <span className="min-w-0 flex-1 leading-relaxed">{claim.statement}</span>
+        <span className="flex min-w-0 flex-1 flex-col gap-0.5 leading-relaxed">
+          <span>{claim.statement}</span>
+          {sharedBy !== undefined ? (
+            <span className="text-10 text-muted-foreground" data-testid={`project-brain-shared-by-${claim.id}`}>{sharedFromPersonalLabel(sharedBy)}</span>
+          ) : null}
+        </span>
         <Badge tone={tone === "success" ? "primary" : "outline"}>{KG_TRI_STATE_LABEL_ZH[claim.triState]}</Badge>
         <span className="shrink-0 font-mono text-10 text-muted-foreground" title="支持 / 反对的证据数">
           +{claim.supportingCount} / −{claim.contradictingCount}
         </span>
-        <Button size="xs" variant="ghost" onClick={() => onOpenSources(claim.id)} data-testid={`project-brain-sources-${claim.id}`}>来源</Button>
+        {/* S10：分享来的那条，证据在分享人的个人对话里，别人打不开（R9 口径 404）——不给一个点了必失败的按钮 */}
+        {sharedBy === undefined ? (
+          <Button size="xs" variant="ghost" onClick={() => onOpenSources(claim.id)} data-testid={`project-brain-sources-${claim.id}`}>来源</Button>
+        ) : null}
         {org.enabled && state?.kind !== "done" ? (
           <Button
             size="xs"

@@ -22,6 +22,7 @@ import threading
 
 import psycopg
 from psycopg.rows import dict_row
+from langchain.agents.middleware.internal_call_transformer import internal_call_metadata
 
 
 TERMINAL = frozenset({"success", "error", "cancelled", "interrupted"})
@@ -368,6 +369,8 @@ class Runtime:
             # per token was one round trip per token, slower than the model itself.
             batcher = EventBatcher(self.ledger, run_id)
             async for mode, data in graph.astream(payload, config=config, stream_mode=modes):
+                if is_internal_model_chunk(mode, data):
+                    continue
                 await batcher.add(mode, _jsonable(data))
                 emitted_values = emitted_values or mode == "values"
             await batcher.flush()
@@ -387,6 +390,27 @@ class Runtime:
             await self.ledger.append_event(run_id, "metadata", {"status": "error"})
         finally:
             await self._release_graph(run_id)
+
+
+def is_internal_model_chunk(mode: str, data: Any) -> bool:
+    """Middleware 内部的模型调用（上下文摘要等）产出的 token 不是给用户看的回答。
+
+    2026-09-27 devapp 实测：长 PPT 任务触发上下文摘要，摘要调用的整段英文
+    （"## SESSION INTENT / ARTIFACTS / NEXT STEPS"，含 /workspace 路径、工具名）被当成
+    agent 的回答流进聊天正文。langchain 给这类调用打了标记（`internal_call_metadata()`、
+    `lc_source="summarization"`），但只有它自己的 `InternalCallTransformer` 认这个标记——
+    我们这条 `astream(stream_mode="messages")` 的桥不经过它，于是原样泄出。
+
+    内部标记按**进程内随机 token 全等**比较（库的防伪设计：用户元数据伪造不了），
+    不是"有这个键就藏"。
+    """
+    if mode != "messages" or not isinstance(data, (tuple, list)) or len(data) != 2:
+        return False
+    metadata = data[1] if isinstance(data[1], dict) else {}
+    marker = internal_call_metadata()
+    if any(metadata.get(key) == value for key, value in marker.items()):
+        return True
+    return metadata.get("lc_source") == "summarization"
 
 
 class EventBatcher:
