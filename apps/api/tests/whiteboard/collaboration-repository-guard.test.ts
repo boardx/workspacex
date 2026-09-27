@@ -9,7 +9,7 @@ import { describe, expect, it } from 'vitest';
 
 const source = readFileSync(new URL('../../src/infrastructure/whiteboard/pg-collaboration-store.ts', import.meta.url), 'utf8');
 const lint = readFileSync(new URL('../../scripts/lint-permission-paths.mjs', import.meta.url), 'utf8');
-const expectedMethods = ['access', 'document', 'head', 'load', 'append', 'writeCommands', 'writeCommandsInTransaction', 'commit', 'commitInTransaction'];
+const expectedMethods = ['access', 'document', 'head', 'load', 'append', 'restoreDeletion', 'writeCommands', 'writeCommandsInTransaction', 'commit', 'commitInTransaction'];
 
 function inspect(code: string): { methods: Map<string, string>; tables: Set<string>; sql: string[] } {
   const file = ts.createSourceFile('pg-collaboration-store.ts', code, ts.ScriptTarget.Latest, true);
@@ -41,7 +41,7 @@ function inspect(code: string): { methods: Map<string, string>; tables: Set<stri
 function audit(code: string): string[] {
   const { methods, tables, sql } = inspect(code);
   const errors: string[] = [];
-  const allowedTables = new Set(['whiteboards', 'whiteboard_members', 'whiteboard_documents', 'whiteboard_updates']);
+  const allowedTables = new Set(['whiteboards', 'whiteboard_members', 'whiteboard_documents', 'whiteboard_updates', 'whiteboard_comment_threads', 'whiteboard_collaboration_events', 'whiteboard_deletion_receipts']);
   if (tables.size !== allowedTables.size || [...tables].some(table => !allowedTables.has(table))) errors.push('table scope');
   if (sql.some(query => /\b(?:FROM|JOIN|INTO|UPDATE)\s+whiteboard_/i.test(query) && !/\borg_id\b/i.test(query))) errors.push('tenant SQL scope');
   if (/\bwithoutTenant\s*\(/.test(code)) errors.push('withoutTenant');
@@ -51,10 +51,10 @@ function audit(code: string): string[] {
   if (!/FROM whiteboards WHERE org_id=\$1 AND id=\$2 FOR \$\{write \? 'UPDATE' : 'SHARE'\}/.test(access)) errors.push('board tenant lock');
   if (!/FROM whiteboard_members WHERE org_id=\$1 AND board_id=\$2 AND user_id=\$3/.test(access)) errors.push('member actor scope');
   if (!/\[p\.orgId, boardId, p\.userId\]/.test(access)) errors.push('member actor binding');
-  if (!/write && parsed\.data === 'viewer'/.test(access) || !/write && row\.archived/.test(access)) errors.push('write role/archive gate');
+  if (!/write && parsed\.data !== 'owner' && parsed\.data !== 'editor'/.test(access) || !/write && row\.archived/.test(access)) errors.push('write role/archive gate');
 
-  for (const name of ['head', 'load', 'writeCommands', 'commit']) {
-    if (!(methods.get(name) ?? '').includes('this.db.withTenant(p.orgId,')) errors.push(`${name}: tenant transaction`);
+  for (const name of ['head', 'load', 'writeCommands', 'commit', 'restoreDeletion']) {
+    if (!(methods.get(name) ?? '').replace(/\s+/g, '').includes('this.db.withTenant(p.orgId,')) errors.push(`${name}: tenant transaction`);
   }
   if (!(methods.get('append') ?? '').includes('return this.commit(')) errors.push('append: guarded commit path');
   if (!(methods.get('writeCommandsInTransaction') ?? '').includes('this.commitInTransaction(session, p, boardId')) errors.push('commands: guarded transaction path');
@@ -64,9 +64,14 @@ function audit(code: string): string[] {
   const load = methods.get('load') ?? '';
   if (load.indexOf('this.access(session, p, boardId, false)') < 0 || load.indexOf('this.access(session, p, boardId, false)') > load.indexOf('this.document(session, p, boardId)')) errors.push('load: authorize before read');
   const commit = methods.get('commitInTransaction') ?? '';
-  if (commit.indexOf('this.access(session, p, boardId, true)') < 0 || commit.indexOf('this.access(session, p, boardId, true)') > commit.indexOf('this.document(session, p, boardId)')) errors.push('commit: authorize before mutation');
+  if (commit.indexOf('this.access(session, p, boardId, true)') < 0 || commit.indexOf('this.access(session, p, boardId, true)') > commit.indexOf('this.document(session, p, boardId, true)')) errors.push('commit: authorize before mutation');
   if (!/actor_id=\$4 AND update_id=\$5/.test(commit) || !/\[p\.orgId, boardId, epoch, p\.userId, updateId\]/.test(commit)) errors.push('idempotency actor scope');
   if (!/WHERE org_id=\$1 AND board_id=\$2/.test(commit)) errors.push('document mutation tenant scope');
+  const restore = (methods.get('restoreDeletion') ?? '').replace(/\s+/g, '');
+  if (!restore.includes('awaitthis.access(session,p,boardId,true)') || restore.indexOf('awaitthis.access') > restore.indexOf('SELECTproof')) errors.push('restore: fresh authorization');
+  if (!restore.includes('actor_id=$4ANDdelete_gesture_id=$5FORUPDATE') || !restore.includes('[p.orgId,boardId,input.epoch,p.userId,input.deleteGestureId]')) errors.push('restore: actor-bound receipt lock');
+  if (!restore.includes('this.validator.restoreDeletion!(snapshot,receipt.proof,receipt.changes,')) errors.push('restore: server receipt proof');
+  if (!restore.includes("thrownewFault('COMMENT_CONFLICT')")) errors.push('restore: comment revision CAS');
   return errors;
 }
 
@@ -84,6 +89,11 @@ describe('whiteboard collaboration repository permission exemption', () => {
     const mutated = source.replace('AND actor_id=$4 AND update_id=$5', 'AND update_id=$5');
     expect(mutated).not.toBe(source);
     expect(audit(mutated)).toContain('idempotency actor scope');
+  });
+  it('rejects restore authorization and proof bypasses', () => {
+    expect(audit(source.replace('await this.access(session,p,boardId,true)', 'void 0'))).toContain('restore: fresh authorization');
+    expect(audit(source.replace('actor_id=$4 AND delete_gesture_id=$5 FOR UPDATE', 'delete_gesture_id=$5 FOR UPDATE'))).toContain('restore: actor-bound receipt lock');
+    expect(audit(source.replace('this.validator.restoreDeletion!(snapshot,receipt.proof,receipt.changes,', 'this.validator.restoreDeletion!(snapshot,input)'))).toContain('restore: server receipt proof');
   });
   it('rejects tenant bypasses and a newly introduced table', () => {
     expect(audit(source.replace('this.db.withTenant(p.orgId,', 'this.db.withoutTenant('))).toContain('withoutTenant');

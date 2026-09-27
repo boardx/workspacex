@@ -139,8 +139,8 @@ describe('real WebSocket whiteboard collaboration', () => {
       // Both edits are generated before either is sent, genuinely concurrent against the same base.
       const aUpdate = appendText(a, '甲'), bUpdate = appendText(b, '乙'), aId = randomUUID(), bId = randomUUID();
       const aAck = a.wait(m => m.type === 'ack' && m.updateId === aId), bAck = b.wait(m => m.type === 'ack' && m.updateId === bId);
-      a.send({ type: 'update', epoch: 1, updateId: aId, update: b64(aUpdate) });
-      b.send({ type: 'update', epoch: 1, updateId: bId, update: b64(bUpdate) });
+      a.send({ type: 'update', epoch: 1, updateId: aId, gestureId:aId, update: b64(aUpdate) });
+      b.send({ type: 'update', epoch: 1, updateId: bId, gestureId:bId, update: b64(bUpdate) });
       const acknowledgements = await Promise.all([aAck, bAck]);
       expect(acknowledgements.map(m => m.type === 'ack' ? m.seq : -1).sort()).toEqual([2, 3]);
       const aSeq = acknowledgements[0]!.type === 'ack' ? acknowledgements[0]!.seq : -1;
@@ -156,14 +156,14 @@ describe('real WebSocket whiteboard collaboration', () => {
       try { expect(readObjects(third.doc)).toEqual(readObjects(a.doc)); } finally { await third.close(); }
       b.discard(m => m.type === 'update' && m.seq === aSeq);
       const replay = a.wait(m => m.type === 'ack' && m.updateId === aId), noPeerReplay = b.expectNo(m => m.type === 'update' && m.seq === aSeq);
-      a.send({ type: 'update', epoch: 1, updateId: aId, update: b64(aUpdate) }); await replay; await noPeerReplay;
+      a.send({ type: 'update', epoch: 1, updateId: aId, gestureId:aId, update: b64(aUpdate) }); await replay; await noPeerReplay;
       expect((await store.load(owner, boardId)).seq).toBe(3);
     } finally { await a.close(); await b.close(); }
   });
   it('rejects viewer writes without advancing the durable sequence', async () => {
     const boardId = await seedBoard(), peer = await connect(boardId, 'viewer-token');
     const closed = closeEvent(peer.ws);
-    peer.send({ type: 'update', epoch: 1, updateId: randomUUID(), update: b64(appendText(peer, '禁止')) });
+    {const id=randomUUID();peer.send({ type: 'update', epoch: 1, updateId: id, gestureId:id, update: b64(appendText(peer, '禁止')) });}
     expect(await peer.wait(m => m.type === 'error')).toMatchObject({ type: 'error', code: 'FORBIDDEN' });
     expect((await closed).code).toBe(4403); expect((await store.load(owner, boardId)).seq).toBe(1); await peer.close();
   });
@@ -182,7 +182,7 @@ describe('real WebSocket whiteboard collaboration', () => {
   it('rejects over-limit updates before any durable write', async () => {
     const boardId = await seedBoard(), peer = await connect(boardId, 'owner-token'), closed = closeEvent(peer.ws);
     // Below transport envelope limit, above content-update byte limit.
-    peer.send({ type: 'update', epoch: 1, updateId: randomUUID(), update: b64(new Uint8Array(65537)) });
+    {const id=randomUUID();peer.send({ type: 'update', epoch: 1, updateId: id, gestureId:id, update: b64(new Uint8Array(65537)) });}
     expect(await peer.wait(m => m.type === 'error')).toMatchObject({ code: 'VALIDATION_FAILED' });
     expect((await closed).code).toBe(4403); expect((await store.load(owner, boardId)).seq).toBe(1); await peer.close();
   });
