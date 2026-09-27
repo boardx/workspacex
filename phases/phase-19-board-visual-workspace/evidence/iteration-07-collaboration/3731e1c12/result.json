@@ -1,0 +1,21 @@
+{
+  "testedCommit": "3731e1c12eb689b113e53932f2657a08c016bbf6",
+  "date": "2026-09-27",
+  "executor": "main session",
+  "result": "passed",
+  "tests": 4,
+  "command": "pnpm exec tsx .harness/scripts/with-test-isolation.ts -- pnpm --filter web exec playwright test --config playwright.fullstack-smoke.config.ts --project=seeded whiteboard-live.spec.ts --workers=1",
+  "serverTimeoutMs": 600000,
+  "logSha256": "5b5078d9f7b658936540bad74bd772fc6b0da6acd3bbe3bb4af34cd64644e1bc",
+  "scenarios": [
+    "realtime presence field convergence",
+    "comments anchor ACL",
+    "undo offline reconnect recovery with corrupt checkpoint fallback",
+    "multi-user undo redo preserves other editor and survives reload"
+  ],
+  "limitations": [
+    "Chromium seeded project only",
+    "Does not prove 50-client load, long meeting sessions, accessibility or final integrated SHA",
+    "No raw traces or credentials included"
+  ]
+}

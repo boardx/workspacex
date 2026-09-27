@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import type { SurveyRuntime } from '@repo/contracts/survey-runtime';
+import { serializeSurveyPublicationMarkdown } from '@repo/contracts/survey-source';
 import { LiveSurveyWorkspace } from '@/components/survey/live/survey-workspace';
 const request=vi.hoisted(()=>vi.fn());
 const router=vi.hoisted(()=>({replace:vi.fn(),push:vi.fn()}));
@@ -9,6 +10,70 @@ vi.mock('next/navigation',()=>({useRouter:()=>router}));
 const runtime=(patch:Partial<SurveyRuntime>={}):SurveyRuntime=>({id:'saved-survey',title:'已保存问卷',version:4,status:'draft',anonymity:'anonymous',answerRevision:0,reportBasisAnswerRevision:null,updatedAt:'2026-09-20T10:00:00.000Z',questions:[{id:'q1',title:'真实问题',type:'single',chapterId:'general',order:1,required:true,options:['甲','乙']}],template:{id:'template',title:'模板报告',sections:[]},responses:[],publication:null,report:null,reportBasisVersion:null,reportGeneratedAt:null,...patch});
 beforeEach(()=>{request.mockReset();router.replace.mockReset();router.push.mockReset();});
 describe('live survey workspace persistence',()=>{
+ it('saves repeat policy and success Markdown through canonical publication source',async()=>{
+  request.mockResolvedValueOnce(runtime()).mockResolvedValueOnce(runtime({version:5}));
+  render(<LiveSurveyWorkspace surveyId="saved-survey" initialStep="publish"/>);
+  fireEvent.click(await screen.findByRole('checkbox',{name:'同一浏览器限答一次'}));
+  fireEvent.change(screen.getByLabelText('成功页 Markdown'),{target:{value:'# 感谢反馈'}});
+  fireEvent.click(screen.getByRole('button',{name:'保存修改'}));
+  await screen.findByText('修改已保存');
+  expect(request).toHaveBeenLastCalledWith('/surveys/saved-survey/source',expect.objectContaining({body:expect.objectContaining({documents:expect.objectContaining({publication:serializeSurveyPublicationMarkdown({responseLimitScope:'browser',successMessageMarkdown:'# 感谢反馈'})})})}),expect.anything());
+ });
+ it('automatically persists applied valid changes on an existing draft',async()=>{
+  request.mockResolvedValueOnce(runtime()).mockResolvedValueOnce(runtime({title:'自动保存后的标题',version:5}));
+  render(<LiveSurveyWorkspace surveyId="saved-survey"/>);
+  fireEvent.change(await screen.findByLabelText('问卷名称'),{target:{value:'自动保存后的标题'}});
+  expect(await screen.findByText('修改已保存',{}, {timeout:4000})).toBeInTheDocument();
+  expect(screen.getByLabelText('问卷名称')).toHaveValue('自动保存后的标题');
+  expect(request).toHaveBeenLastCalledWith('/surveys/saved-survey/source',expect.objectContaining({method:'PUT',body:expect.objectContaining({expectedVersion:4,documents:expect.objectContaining({design:expect.stringContaining('# 自动保存后的标题')})})}),expect.anything());
+ });
+ it('does not repeatedly save after an automatic version conflict or discard local content',async()=>{
+  const {SurveyConflictError}=await import('@/lib/survey/runtime-client');
+  request.mockResolvedValueOnce(runtime()).mockRejectedValueOnce(new SurveyConflictError(null));
+  render(<LiveSurveyWorkspace surveyId="saved-survey"/>);
+  fireEvent.change(await screen.findByLabelText('问卷名称'),{target:{value:'保留我的标题'}});
+  await screen.findByRole('alert',{}, {timeout:4000});
+  expect(screen.getByLabelText('问卷名称')).toHaveValue('保留我的标题');
+  expect(screen.getByRole('button',{name:'读取最新版本并保留我的修改'})).toBeInTheDocument();
+  await new Promise(resolve=>setTimeout(resolve,1700));
+  expect(request).toHaveBeenCalledTimes(2);
+ });
+ it('does not manually save or publish valid Markdown before explicit application',async()=>{
+  request.mockResolvedValueOnce(runtime());render(<LiveSurveyWorkspace surveyId="saved-survey"/>);
+  const source=await screen.findByLabelText('问卷 Markdown');
+  fireEvent.change(source,{target:{value:'# 待校对\n\n## q2 [open]\n未确认的问题\n'}});
+  fireEvent.click(screen.getByRole('button',{name:'保存修改'}));
+  expect(await screen.findByRole('alert')).toHaveTextContent('请先校对并应用 Markdown');
+  expect(request).toHaveBeenCalledTimes(1);
+  fireEvent.click(screen.getByRole('button',{name:'前往发布回收'}));
+  fireEvent.click(screen.getByRole('button',{name:'检查发布条件'}));
+  expect(await screen.findByRole('alert')).toHaveTextContent('请先校对并应用 Markdown');
+  expect(request).toHaveBeenCalledTimes(1);
+ });
+ it('keeps visual editing enabled while replacing a question title',async()=>{
+  request.mockResolvedValueOnce(runtime());render(<LiveSurveyWorkspace surveyId="saved-survey"/>);
+  const title=await screen.findByLabelText('问题内容');
+  fireEvent.change(title,{target:{value:''}});
+  expect(title).toBeEnabled();
+  fireEvent.change(title,{target:{value:'新问题 '}});
+  expect(title).toBeEnabled();
+ });
+ it('shows the prototype design preview beside question settings and a clear publish action',async()=>{
+  request.mockResolvedValueOnce(runtime());render(<LiveSurveyWorkspace surveyId="saved-survey"/>);
+  expect(await screen.findByRole('complementary',{name:'实时预览'})).toBeInTheDocument();
+  expect(screen.getByRole('region',{name:'题目设置'})).toBeInTheDocument();
+  fireEvent.click(screen.getByRole('button',{name:'前往发布回收'}));
+  expect(screen.getByRole('button',{name:'检查发布条件'})).toBeInTheDocument();
+ });
+ it('accepts a successful published template save without a second GET',async()=>{
+  const original=runtime({publication:{token:'token',status:'collecting',version:4,expiresAt:'2026-10-20T10:00:00.000Z',questions:runtime().questions}});
+  request.mockResolvedValueOnce(original).mockResolvedValueOnce({...original,version:5,template:{...original.template,title:'更新报告'}});
+  render(<LiveSurveyWorkspace surveyId="saved-survey" initialStep="template"/>);
+  fireEvent.change(await screen.findByLabelText('报告标题'),{target:{value:'更新报告'}});
+  fireEvent.click(screen.getByRole('button',{name:'保存修改'}));
+  await screen.findByText('报告模板已保存');
+  expect(request).toHaveBeenCalledTimes(2);
+ });
  it('locks projected question edits until changed Markdown is applied',async()=>{
   request.mockResolvedValueOnce(runtime());
   render(<LiveSurveyWorkspace surveyId="saved-survey"/>);
@@ -16,8 +81,10 @@ describe('live survey workspace persistence',()=>{
   fireEvent.change(source,{target:{value:'# 导入内容\n\n## q2 [open]\n新问题\n'}});
   expect(screen.getByRole('button',{name:'新增题目'})).toBeDisabled();
   expect(source).toHaveValue('# 导入内容\n\n## q2 [open]\n新问题\n');
+  await new Promise(resolve=>setTimeout(resolve,1700));
+  expect(request).toHaveBeenCalledTimes(1);
  });
- it('preserves the remote report template when keeping only the local design after a conflict',async()=>{
+ it('preserves the local report template when keeping the local version after a conflict',async()=>{
   const {SurveyConflictError}=await import('@/lib/survey/runtime-client');
   const remote=runtime({version:5,template:{id:'remote',title:'远端报告模板',sections:[]}});
   request.mockResolvedValueOnce(runtime()).mockRejectedValueOnce(new SurveyConflictError(null)).mockResolvedValueOnce(remote).mockResolvedValueOnce({...remote,version:6});
@@ -30,7 +97,12 @@ describe('live survey workspace persistence',()=>{
   fireEvent.click(await screen.findByRole('button',{name:'确认保留本地版本'}));
   fireEvent.click(screen.getByRole('button',{name:'保存修改'}));
   await screen.findByText('修改已保存');
-  expect(request).toHaveBeenLastCalledWith('/surveys/saved-survey/source',expect.objectContaining({body:expect.objectContaining({expectedVersion:5,documents:expect.objectContaining({reportTemplate:expect.stringContaining('远端报告模板')})})}),expect.anything());
+  expect(request).toHaveBeenLastCalledWith('/surveys/saved-survey/source',expect.objectContaining({body:expect.objectContaining({expectedVersion:5,documents:expect.objectContaining({reportTemplate:expect.stringContaining('模板报告')})})}),expect.anything());
+ });
+ it('inserts replacement tokens in survey names literally',async()=>{
+  request.mockResolvedValueOnce(runtime());render(<LiveSurveyWorkspace surveyId="saved-survey"/>);
+  fireEvent.change(await screen.findByLabelText('问卷名称'),{target:{value:'标题 $& 测试'}});
+  expect((screen.getByLabelText('问卷 Markdown') as HTMLTextAreaElement).value).toContain('# 标题 $& 测试');
  });
  it('reuses the created draft when saving its source fails',async()=>{
   request.mockResolvedValueOnce(runtime({id:'created-draft',version:1,title:'未命名问卷'})).mockRejectedValueOnce(new Error('源文档暂时保存失败'));

@@ -13,7 +13,7 @@ import { resolveRecScreen, resolveCarrier, resolveRecView } from "@/lib/mock/rec
 export default function RecPage({
   searchParams,
 }: {
-  searchParams: { state?: string; as?: string; org?: string; screen?: string; carrier?: string; mode?: string };
+  searchParams: { state?: string; as?: string; org?: string; screen?: string; carrier?: string; mode?: string; projectId?: string; create?: string; session?: string };
 }) {
   const uiState = resolvePreviewState(searchParams.state);
   const view = resolveRecView(searchParams.as);
@@ -30,7 +30,7 @@ export default function RecPage({
       screen={screen}
       carrier={carrier}
       view={view}
-      qs={{ as: searchParams.as, carrier: searchParams.carrier, org: searchParams.org, mode: searchParams.mode }}
+      qs={{ as: searchParams.as, carrier: searchParams.carrier, org: searchParams.org, mode: searchParams.mode, projectId: searchParams.projectId, create: searchParams.create, session: searchParams.session }}
     />
   );
 }

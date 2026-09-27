@@ -4,6 +4,7 @@ import type { ComponentType, JSX } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import rehypeSanitize from "rehype-sanitize";
+import { interviewMarkdown } from "@repo/contracts";
 
 /**
  * `DIGITAL_REPORT_REQUIRED_HEADINGS` mandates `##` headings in report
@@ -38,13 +39,20 @@ const headingComponents: Record<string, ComponentType<HeadingProps>> = Object.fr
 );
 
 /** Report markdown is model output, so raw HTML and unsafe URLs are always sanitized. */
-export function InterviewReportMarkdown({ markdown, testId }: { readonly markdown: string; readonly testId: string }) {
+export function InterviewReportMarkdown({ markdown, testId, document }: { readonly markdown: string; readonly testId: string; readonly document?: interviewMarkdown.InterviewMarkdownDocument }) {
+  const blocks = document ? interviewMarkdown.parseInterviewMarkdown(document).blocks : [];
+  const components = document ? Object.fromEntries(HEADING_TAGS.map((Tag) => [Tag,
+    ({ node, ...props }: HeadingProps & { node?: { position?: { start: { offset?: number } } } }) => {
+      const block = blocks.find((candidate) => candidate.start === node?.position?.start.offset);
+      return <Tag {...props} id={block?.headingId} className="scroll-mt-8" />;
+    },
+  ])) : headingComponents;
   return (
     <div
       data-testid={testId}
       className="chat-markdown mt-6 text-sm leading-7 text-card-foreground"
     >
-      <ReactMarkdown remarkPlugins={[remarkGfm]} rehypePlugins={[rehypeSanitize]} components={headingComponents}>
+      <ReactMarkdown remarkPlugins={[remarkGfm]} rehypePlugins={[rehypeSanitize]} components={components}>
         {markdown}
       </ReactMarkdown>
     </div>

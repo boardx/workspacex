@@ -1,7 +1,9 @@
 import { test, expect } from "@playwright/test";
+import { randomUUID } from "node:crypto";
 import { FULLSTACK_E2E } from "./fullstack-smoke-fixture";
 test("research persists all five model-backed steps through the real UI, API and PostgreSQL", async ({ page }, testInfo) => {
   test.setTimeout(180000);
+  const researchName = `研究全链路验证 ${randomUUID()}`;
   await page.goto("/login");
   await page.getByTestId("login-email").fill(FULLSTACK_E2E.email);
   await page.getByTestId("login-password").fill(FULLSTACK_E2E.password);
@@ -10,7 +12,7 @@ test("research persists all five model-backed steps through the real UI, API and
   await page.goto("/research");
   await expect(page.getByTestId("research-home-page")).toHaveAttribute("data-reference-layout", "research-list");
   await page.getByTestId("research-create").click();
-  await page.getByTestId("research-create-name").fill("研究全链路验证");
+  await page.getByTestId("research-create-name").fill(researchName);
   await page.getByTestId("research-create-submit").click();
   await expect(page).toHaveURL(/\/research\/new$/);
   await expect(page.getByTestId("shell-rail")).not.toBeVisible();
@@ -60,7 +62,10 @@ test("research persists all five model-backed steps through the real UI, API and
       await expect(chapter.getByLabel("小节标题", { exact: true })).toHaveCount(4);
       await chapter.getByRole("button", { name: "删除小节", exact: true }).last().click();
       await expect(chapter.getByLabel("小节标题", { exact: true })).toHaveCount(3);
+      const savedDraft = page.waitForResponse(response => response.url().endsWith("/runtime/commands")
+        && response.request().method() === "POST" && response.request().postDataJSON()?.action === "save");
       await page.getByRole("button", { name: "保存草稿", exact: true }).click();
+      expect((await savedDraft).ok()).toBe(true);
       await page.reload();
       await expect(page).toHaveURL(/\/research\/[^/]+\/plan$/);
       await page.getByText("编辑研究计划 Markdown 与章节结构", { exact: true }).click();
@@ -265,7 +270,7 @@ test("research persists all five model-backed steps through the real UI, API and
   const activeSummary = page.getByRole("button", { name: /进行中 \d+ 项研究/ });
   await activeSummary.click();
   await expect(activeSummary).toHaveAttribute("aria-pressed", "true");
-  await expect(page.getByRole("heading", { name: "研究全链路验证", exact: true })).toBeVisible();
+  await expect(page.getByRole("heading", { name: researchName, exact: true })).toBeVisible();
   await page.getByTestId("research-history-search").fill("不存在的研究");
   await expect(page.getByTestId("research-history-empty")).toContainText("当前状态筛选与搜索条件下没有研究");
   await page.getByRole("button", { name: "清除状态筛选", exact: true }).click();

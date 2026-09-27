@@ -54,8 +54,10 @@ function pendingCreateIdempotencyKey(intent: GuidedResearchCreateDraft & { brief
   return { key: generated, storageKey };
 }
 
-export function ResearchIntake({ sessionId, session, workflow, onSession, onWorkflow, onNavigate, onPending, initialBrief = EMPTY_BRIEF, renderAssistant, onClear }: {
+export function ResearchIntake({ sessionId, session, workflow, onSession, onWorkflow, onNavigate, onPending, initialBrief = EMPTY_BRIEF, renderAssistant, onClear, onCreated }: {
   initialBrief?: Brief;
+  /** 新会话创建成功、拿到 id 之后立刻调用（项目中枢用它把会话挂回项目）；抛错由调用方自行吞掉。 */
+  onCreated?: (sessionId: string) => Promise<void> | void;
   renderAssistant?: (brief: Brief, onChange: (brief: Brief) => void) => React.ReactNode;
   onClear?: (sessionId?: string) => void;
   onPending: (pending: boolean) => void;
@@ -118,6 +120,10 @@ export function ResearchIntake({ sessionId, session, workflow, onSession, onWork
       const pending = pendingCreateIdempotencyKey({ ...createDraft, brief });
       const createdSession = await createGuidedResearchSession({ ...createDraft, title: createDraft.title || brief.topic, tags: [...createDraft.tags], idempotencyKey: pending.key, collaboratorUserIds: [], brief });
       if (!active.current) return;
+      if (onCreated) {
+        await onCreated(createdSession.sessionId);
+        if (!active.current) return;
+      }
       // Once creation has returned an id, recovery belongs to that session. Never
       // create or replay a model command merely because its response was lost.
       let runtime;

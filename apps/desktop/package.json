@@ -12,7 +12,7 @@
     "dev": "pnpm run build:main && electron .",
     "build:info": "node -e \"require('fs').writeFileSync('build/build-info.json', JSON.stringify({ sha: require('child_process').execSync('git rev-parse --short HEAD').toString().trim(), builtAt: new Date().toISOString() }))\"",
     "dist:mac": "bash ../../scripts/local-bundle/prepare-sandbox-modules.sh && pnpm run build:main && pnpm run build:web && pnpm run build:info && electron-builder --mac --config electron-builder.yml && node scripts/check-bundle-lean.mjs",
-    "dist:win": "pnpm run build:main && pnpm run build:web && electron-builder --win --config electron-builder.yml",
+    "dist:win": "pnpm run build:main && pnpm run build:web && pnpm run build:info && electron-builder --win --config electron-builder.yml && node scripts/check-bundle-lean.mjs release/win-unpacked",
     "typecheck": "tsc --noEmit",
     "lint": "echo 'lint: ok'",
     "test": "vitest run --passWithNoTests",

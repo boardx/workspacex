@@ -6,6 +6,28 @@ import type { OrgId } from "../../domain/org-id";
 import { guard, type Guarded } from "../../application/security/permission-filter";
 
 type Document = interviewMarkdown.InterviewMarkdownDocument;
+
+/** Shared write visibility predicate. Parameters: $1 org, $2 interview, $3 actor;
+ * session alias s. Consumers still lock the row and disclose reads through Guarded.
+ */
+export const DIGITAL_INTERVIEW_ACTOR_VISIBILITY = `
+  EXISTS (
+    SELECT 1 FROM org_memberships om
+     WHERE om.org_id=$1 AND om.user_id=$3
+  )
+  AND (
+    s.created_by=$3
+    OR EXISTS (
+      SELECT 1 FROM interview_collaborators ic
+       WHERE ic.org_id=$1 AND ic.interview_id=s.id AND ic.user_id=$3
+    )
+    OR (
+      s.project_id IS NOT NULL AND EXISTS (
+        SELECT 1 FROM project_memberships pm
+         WHERE pm.org_id=$1 AND pm.project_id=s.project_id AND pm.user_id=$3
+      )
+    )
+  )`;
 type Artifact = z.infer<typeof interview.DigitalInterviewArtifact>;
 type SourceRow = {
   artifact_id: string; step: Document["step"]; version_number: number;
@@ -13,7 +35,7 @@ type SourceRow = {
   evidence_mode: Document["evidenceMode"];
   controlled_references: Document["references"];
 };
-function hash(markdown: string): string {
+export function interviewMarkdownContentHash(markdown: string): string {
   return createHash("sha256").update(markdown, "utf8").digest("hex");
 }
 
@@ -28,7 +50,7 @@ export async function readInterviewMarkdownDocuments(
       ORDER BY step,version_number DESC`, [orgId, interviewId, revisionId],
   );
   const documents = result.rows.map((row) => {
-    if (row.content_hash !== hash(row.markdown)) throw new Error("MARKDOWN_CONTENT_INTEGRITY_FAILED");
+    if (row.content_hash !== interviewMarkdownContentHash(row.markdown)) throw new Error("MARKDOWN_CONTENT_INTEGRITY_FAILED");
     return interviewMarkdown.InterviewMarkdownDocument.parse({
       documentId: row.artifact_id, step: row.step, version: row.version_number,
       markdown: row.markdown, contentHash: row.content_hash,
@@ -63,7 +85,7 @@ export async function appendInterviewMarkdownDocument(session: TenantSession, in
   if (current.rows[0]?.version !== input.expectedVersion) throw new Error("MARKDOWN_VERSION_CONFLICT");
   const document = interviewMarkdown.InterviewMarkdownDocument.parse({
     documentId: `md-${randomUUID()}`, step: input.step, version: input.expectedVersion + 1,
-    markdown: input.markdown, contentHash: hash(input.markdown),
+    markdown: input.markdown, contentHash: interviewMarkdownContentHash(input.markdown),
     evidenceMode: input.evidenceMode, references: input.references,
   });
   if (!input.title.trim() || !input.markdown.trim()) throw new Error("MARKDOWN_DOCUMENT_EMPTY");

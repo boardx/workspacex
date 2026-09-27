@@ -136,6 +136,8 @@ export const WhiteboardCommand = z.union([
   z.object({ type: z.literal('state'), id: WhiteboardObjectId, locked: z.boolean().optional(), hidden: z.boolean().optional(), zIndex: z.number().int().min(-1000000).max(1000000).optional() }).strict(),
   z.object({ type: z.literal('connector'), id: WhiteboardObjectId, connector: WhiteboardConnector }).strict(),
   z.object({ type: z.literal('delete'), id: WhiteboardObjectId }).strict(),
+  /** Restore the same logical object identity from its durable tombstone. */
+  z.object({ type: z.literal('restore'), id: WhiteboardObjectId }).strict(),
 ]);
 export type WhiteboardCommand = z.infer<typeof WhiteboardCommand>;
 export const WhiteboardCommandBatch = z.array(WhiteboardCommand).min(1).max(WHITEBOARD_LIMITS.batch);
