@@ -13,7 +13,7 @@
  * 融合用 RRF（与 domain/retrieval/rrf.ts 同一个 k），再按「直接命中（字面 / 向量）→ 贴切度 → 融合分」重排，
  * 最后按三态加一点权：你确认过的优先于 AI 记下的。
  */
-import type { contextPack as CP, knowledgeGraph as KG } from "@repo/contracts";
+import { knowledgeGraph as KG, type contextPack as CP } from "@repo/contracts";
 import type { z } from "zod";
 import { decisionLike, DECISION_RECALL_LIMIT } from "./decision-claim";
 import { selfIntentLike, SELF_INTENT_RECALL_LIMIT } from "./self-intent-claim";
@@ -47,7 +47,10 @@ export interface RecallClaim {
   readonly validUntil?: string | null;
   /** issue #4363（S6）：待办状态（只有待办有）。「不做了」的不召回；「已完成」的照常召回但标明，模型不会再当成没做。 */
   readonly todoStatus?: KG.KgTodoStatus | null;
+  /** S10（#4367）：项目记忆里由成员从个人记忆分享来的 ⇒ 分享人显示名（没有显示名为空串）；其余 ⇒ 省略。 */
+  readonly sharedByName?: string;
 }
+
 
 export interface GraphHop {
   readonly src: string;
@@ -382,6 +385,8 @@ export function buildKnowledgeContextMessage(recall: KnowledgeRecall): string | 
     // F12：个人空间（L1）的结论来自别的会话，要说清楚，模型才能在回答里标「来自个人空间知识」。
     const when = i.claim.scope === "personal"
       ? `（来自个人空间知识${day === null ? "" : `，最早见于你 ${day} 的对话`}）`
+      : i.claim.scope === "project" && i.claim.sharedByName !== undefined
+        ? `（来自项目记忆，${oneLine(KG.sharedFromPersonalLabelZh(i.claim.sharedByName))}）`
       : i.claim.scope === "project"
         ? `（来自项目记忆${day === null ? "" : `，最早见于 ${day} 的项目对话`}）`
         : day === null ? "" : `（本会话 ${day} 的对话）`;
@@ -391,7 +396,7 @@ export function buildKnowledgeContextMessage(recall: KnowledgeRecall): string | 
     return `- [${TRI_LABEL[i.claim.triState]}] ${oneLine(i.claim.statement)}${done}${when}`;
   });
   return [
-    "【记忆】以下是之前对话里记下的、与本轮问题相关的内容。「AI 记下的」尚未经用户确认，引用时要说明；「有矛盾」的两条都要提到；标了「来自个人空间知识」的，引用时也照样标出。",
+    "【记忆】以下是之前对话里记下的、与本轮问题相关的内容。「AI 记下的」尚未经用户确认，引用时要说明；「有矛盾」的两条都要提到；标了「来自个人空间知识」的，引用时也照样标出；标了「由 X 分享自个人记忆」的，引用时说明是 X 分享的。",
     ...lines,
     ...notices.map((n) => `（${n}）`),
   ].join("\n");

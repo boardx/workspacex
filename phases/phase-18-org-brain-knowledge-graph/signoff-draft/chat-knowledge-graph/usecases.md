@@ -119,6 +119,20 @@ KG_PROMPT_NOT_FOUND             矛盾提醒不存在或已处理
 - 反馈条（`getMessageExtraction.claims[].personalCopyClaimId` 非空）显示「已记入个人记忆」；点「撤销」先走本 UC，
   调用者是会话所有者时再走 UC-KG-3 `revokeClaim` 撤会话原结论（两份都撤）；作者不是会话所有者时只撤本人空间那份。
 
+## UC-KG-15 分享到项目 `listProjectShareTargets` / `shareToProject` / `unshareFromProject`（S10，issue #4367，**待签核**，按「视为已批、事后签」先行实现）
+- **in**：`{ claimId }`（本人 L1 结论）；分享 / 撤回另带 `{ projectId }`。
+- **out**：目标 `{ claimId, statement, targets[{ projectId, name, audience[{ userId, displayName }] ≤ 50, audienceCount, sharedClaimId | null }] }`；
+  分享 `{ projectClaimId, outcome: shared | already_shared }`（幂等）；撤回 `{ projectClaimId }`。
+- **pre**：调用者是这条 L1 结论的主人（个人空间判定）；分享另要求调用者是目标项目成员、不是观察者、项目未归档。
+- **err**：别人的 / 不存在 / 已失效 ⇒ `KG_CLAIM_NOT_FOUND`（**404，人类决定：别人的个人结论一律 404**）；不是目标项目成员 ⇒
+  `KG_PROJECT_NOT_FOUND`（404，与不存在的项目相同）；观察者 / 已归档 ⇒ `KG_PROJECT_READ_ONLY`（403）；有矛盾 ⇒ `KG_CONTESTED_NEEDS_RESOLUTION`。
+- 语义：L1 → L2 **派生副本**（`derived_from` 连回、证据与实体跟过去、`reviewed_by` = 分享人、动作 `shareToProject`），原件一字不动。
+  撤回 ⇒ 副本 `user_revoked`，F07 级联收掉它的边；原件失效（忘掉 / 原话被删 / 被取代）⇒ 分享出去的副本一并失效。
+- 读侧：`getProjectKnowledge.sharedFromPersonal[{ claimId, sharedByName }]`；项目会话召回（UC-KG-10）用它，给模型的材料与
+  `KgRecalledMemory`（`scope: project` + `sharedByName`）都标「由 X 分享自个人记忆」，全体项目成员可见。
+- 待签核点：① 观察者不能分享、但能看到（范围预览里算在内）；② 原件失效 ⇒ 副本随之失效（而不是留在项目里）；
+  ③ 分享不做相近去重（项目里已有同一句话也另建一份，撤回只动自己那份）。
+
 ## UC-KG-7 读个人空间 `getPersonalKnowledge`
 - **in**：`{}`
 - **out**：本人 L1 的 `{ scope, revision, objects, claims, edges, replaced }`（孤立实体不下发，同 UC-KG-1）

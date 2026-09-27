@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { ClaimTriStateBadge } from "./claim-tri-state-badge";
 import type { ClaimSources } from "@/lib/knowledge-graph-api";
+import { ShareToProject } from "@/components/brain/share-to-project";
 
 /**
  * 来源抽屉（uc-18-2 / UC-KG-2）：一条结论的证据摘录 + 可点回原消息/附件 + provenance 行。
@@ -87,6 +88,12 @@ export function ClaimSourceDrawer({
         <p className="text-12 leading-relaxed text-background-foreground" data-testid="kg-source-statement">
           {data.claim.statement}
         </p>
+        {/* S10（#4367）：个人记忆（只有主人打得开它的来源）可以显式分享到项目 */}
+        {data.claim.scope.kind === "personal" ? (
+          <div className="flex justify-end" data-testid="kg-source-share">
+            <ShareToProject claimId={data.claim.id} testIdPrefix="kg-share" />
+          </div>
+        ) : null}
         <Separator />
 
         <section className="flex flex-col gap-2" data-testid="kg-source-evidence-list">

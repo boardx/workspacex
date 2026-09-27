@@ -20,10 +20,14 @@ import { annOrder, annThenExact, exactOrder, prepareAnn } from "../retrieval/hns
 
 const stripKind = (key: string) => key.slice(key.indexOf(":") + 1);
 const LIVE = "c.revoked_at IS NULL AND c.status <> 'superseded'";
-/** 「这条是哪天说的」：最早一条支持证据消息的时间（L1 的证据消息在原会话里）。 */
+/**
+ * 「这条是哪天说的」：最早一条支持证据消息的时间（L1 的证据消息在原会话里）。
+ * `shared_by`（S10，#4367）：项目记忆里由成员从个人记忆分享来的 ⇒ 分享人显示名（数据库函数只回名字，
+ * 不回原件；项目成员按 RLS 本来读不到别人的个人空间）；别的结论 ⇒ NULL。
+ */
 const CLAIM_COLUMNS = `c.id, c.statement, c.status, c.claim_kind, c.valid_to, c.todo_status,
   (SELECT min(m.created_at) FROM claim_message_evidence e JOIN chat_messages m ON m.id = e.message_id AND m.org_id = e.org_id
-    WHERE e.claim_id = c.id AND e.stance = 'supporting') AS said_at`;
+    WHERE e.claim_id = c.id AND e.stance = 'supporting') AS said_at, kg_share_author_name(c.id) AS shared_by`;
 
 export class PgKnowledgeRecall implements KnowledgeRecallPort {
   /** `embeddings`：部署的嵌入模型（F10 同一个 EMBEDDING_PORT）；null ⇒ 向量通道未配置（S9，#4366）。 */
@@ -34,7 +38,7 @@ export class PgKnowledgeRecall implements KnowledgeRecallPort {
       await s.query("SELECT set_config('app.current_user_id', $1, true)", [userId]);
       type Row = {
         id: string; statement: string; status: string; claim_kind: RecallClaim["kind"] | null; said_at: Date | null;
-        valid_to: Date | null; todo_status: RecallClaim["todoStatus"];
+        valid_to: Date | null; todo_status: RecallClaim["todoStatus"]; shared_by: string | null;
       };
       const session = await s.query<Row>(
         `SELECT ${CLAIM_COLUMNS} FROM claims c
@@ -137,11 +141,15 @@ export class PgKnowledgeRecall implements KnowledgeRecallPort {
           // issue #4363（S6）：过期 / 「不做了」由 fuseRecall 的 recallable 统一排除（判定只有一处，SQL 里不另写一份）
           validUntil: c.valid_to?.toISOString() ?? null, todoStatus: c.todo_status ?? null,
           ...(c.thread_id === undefined ? {} : { originThreadId: c.thread_id }),
+          ...(scope === "project" && c.shared_by !== null ? { sharedByName: c.shared_by } : {}),
         }];
       };
+      // S10（#4367）：本人分享到这个项目的那条，在本人自己提问时会同时以 L1 原件和 L2 副本出现——同一句话只留项目那份
+      // （全体成员看到的是同一条、同一个出处标签）。只按「分享来的项目副本」的说法去重，从项目对话记进来的不牵动 L1。
+      const sharedStatements = new Set(project.rows.filter((c) => c.shared_by !== null).map((c) => c.statement));
       const out: { claims: RecallClaim[]; objects: RecallObject[] } = {
         claims: [
-          ...session.rows.flatMap(toClaim("chat_session")), ...personal.rows.flatMap(toClaim("personal")),
+          ...session.rows.flatMap(toClaim("chat_session")), ...personal.rows.filter((c) => !sharedStatements.has(c.statement)).flatMap(toClaim("personal")),
           ...project.rows.flatMap(toClaim("project")),
           ...ownOther.rows.filter((c, i, all) => all.findIndex((o) => o.basis === c.basis) === i).flatMap(toClaim("personal")),
         ],

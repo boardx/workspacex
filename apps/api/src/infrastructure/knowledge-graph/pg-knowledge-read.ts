@@ -477,7 +477,9 @@ export class PgKnowledgeRead implements KnowledgeReadPort {
 
   /** B2-S4（issue #4428）：组织记忆（L3）。同一组查询，作用域换成 ('org', orgId)；ref 是组织空间的合成 id。 */
   async orgKnowledge(orgId: OrgId, userId: string): Promise<Guarded<OrgKnowledgeData>> {
-    return guard(orgSpaceRef(orgId), await this.sharedScopeKnowledge(orgId, userId, "org", orgId));
+    // S10：`sharedFromPersonal` 只属于项目记忆（个人记忆只分享到项目，不直达组织），组织读模型不带它。
+    const { revision, objects, claims, edges } = await this.sharedScopeKnowledge(orgId, userId, "org", orgId);
+    return guard(orgSpaceRef(orgId), { revision, objects, claims, edges });
   }
 
   /** 项目记忆 / 组织记忆共用的读：一个共享作用域里的活结论 / 有活结论引用的实体 / 两端都活着的边 / 版本号。 */
@@ -517,8 +519,15 @@ export class PgKnowledgeRead implements KnowledgeReadPort {
         `SELECT count(*) AS n FROM ontology_actions
           WHERE org_id = $1 AND scope_kind = $2 AND scope_id = $3 AND outcome = 'accepted'`, scope,
       );
+      // S10（#4367）：由成员从个人记忆分享来的那些 ⇒ 分享人显示名（数据库函数只回名字，不回原件；非项目作用域恒为 NULL）。
+      const shared = await s.query<{ id: string; shared_by: string | null }>(
+        `SELECT c.id, kg_share_author_name(c.id) AS shared_by FROM claims c
+          WHERE c.org_id = $1 AND c.scope_kind = $2 AND c.scope_id = $3 AND ${LIVE_CLAIM}
+          ORDER BY c.created_at, c.id`, scope,
+      );
       return {
         revision: Number(revision.rows[0]!.n),
+        sharedFromPersonal: shared.rows.flatMap((r) => (r.shared_by === null ? [] : [{ claimId: r.id, sharedByName: r.shared_by }])),
         objects: liveObjects.map((o) => ({
           id: o.id, scope: { kind: scopeKind, id: scopeId }, kind: o.object_kind, name: o.name,
           aliases: o.aliases, createdBy: o.created_by, claimCount: Number(o.claim_count),
@@ -800,9 +809,14 @@ async function readTurnRecall(
       WHERE here.org_id = c.org_id AND here.id = $3 AND here.project_id IS NULL AND here.created_by = $4
         AND t.org_id = c.org_id AND t.id = c.scope_id AND t.project_id IS NULL AND t.created_by = $4 AND NOT t.archived)`;
   // $5：查看者就是这一轮的提问者。个人空间的条目只在这时才可见（issue #4284，见函数头注）。
+  // S10（#4367）：项目会话里用到的**本项目**项目记忆（L2）对全体项目成员可见——能读到这一轮的人已经过了会话可见性判定
+  // （项目成员），项目记忆本就是给他们的。只认这个会话所属的项目。
+  const thisProject = `EXISTS (SELECT 1 FROM chat_threads pt
+      WHERE pt.org_id = c.org_id AND pt.id = $3 AND pt.project_id = c.scope_id)`;
   const visible = `((c.scope_kind = 'chat_session' AND c.scope_id = $3)
     OR ($5::boolean AND c.scope_kind = 'personal' AND c.scope_id = $4)
-    OR ($5::boolean AND c.scope_kind = 'chat_session' AND ${ownPersonal}))`;
+    OR ($5::boolean AND c.scope_kind = 'chat_session' AND ${ownPersonal})
+    OR (c.scope_kind = 'project' AND ${thisProject}))`;
   const viewerIsRequester = row.requester_user_id === viewer;
   const claimKeys = new Set(row.items.map((i) => i.claimId));
   const objectKeys = new Set<string>();
@@ -811,13 +825,15 @@ async function readTurnRecall(
     if (kind === "claim") claimKeys.add(id); else if (kind === "object") objectKeys.add(id);
   }
   const claims = await s.query<{
-    id: string; statement: string; claim_kind: KG.KgClaimKind | null; status: string; scope_kind: "chat_session" | "personal"; said_at: Date | null;
+    id: string; statement: string; claim_kind: KG.KgClaimKind | null; status: string; scope_kind: "chat_session" | "personal" | "project";
+    said_at: Date | null; shared_by: string | null;
   }>(
     // 别的个人对话里记下的，对这一轮来说是「来自你之前的对话」：按个人空间报（界面据此标「来自你 {日期} 的对话」）。
     `SELECT c.id, c.statement, c.claim_kind, c.status,
             CASE WHEN c.scope_kind = 'chat_session' AND c.scope_id <> $3 THEN 'personal' ELSE c.scope_kind END AS scope_kind,
             (SELECT min(m.created_at) FROM claim_message_evidence e JOIN chat_messages m ON m.id = e.message_id AND m.org_id = e.org_id
-              WHERE e.claim_id = c.id AND e.stance = 'supporting') AS said_at
+              WHERE e.claim_id = c.id AND e.stance = 'supporting') AS said_at,
+            kg_share_author_name(c.id) AS shared_by
        FROM claims c
       WHERE c.org_id = $1 AND c.id = ANY($2::text[]) AND ${LIVE_CLAIM} AND ${visible}`,
     [orgId, [...claimKeys], threadId, viewer, viewerIsRequester],
@@ -850,6 +866,7 @@ async function readTurnRecall(
     recalled.push({
       claimId: c.id, statement: c.statement, kind: c.claim_kind ?? "fact", triState: tri, scope: c.scope_kind,
       saidAt: c.said_at?.toISOString() ?? null,
+      ...(c.scope_kind === "project" && c.shared_by !== null ? { sharedByName: c.shared_by } : {}),
       channels: item.channels.filter((x): x is RecalledMemory["channels"][number] => CP.RetrievalChannel.safeParse(x).success),
       retrievalReasons: item.retrievalReasons.filter((x): x is RecalledMemory["retrievalReasons"][number] => CP.FilterAction.safeParse(x).success),
       // issue #4271：修复前决定类强制召回写进库的是 Infinity → jsonb null；读出来按「没打分」给 0，守住契约。

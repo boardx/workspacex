@@ -157,6 +157,12 @@ unless noted.
   recall) but still listed on /brain marked 「已过期」; a todo's time expression is its due date, not an expiry; a
   personal copy inherits its first source's validity and todo status; `valid_until` reuses the F02 `valid_to` column.
   Evidence: [`../s6/README.md`](../s6/README.md).
+- [ ] **S10 #4367 「分享到项目…」 (UC-KG-15)**, treated as approved, sign off later. New contract ops
+  `listProjectShareTargets` / `shareToProject` / `unshareFromProject`, new error codes `KG_PROJECT_NOT_FOUND` (404) and
+  `KG_PROJECT_READ_ONLY` (403), `getProjectKnowledge.sharedFromPersonal`, and `KgRecalledMemory.scope` now includes
+  `project` plus `sharedByName`. Open points: observers cannot share but are in the audience; a revoked original
+  also revokes its project copies; no near-duplicate merge on share. Migration `20260928200000`. Evidence:
+  [`../s10/`](../s10/).
 - [ ] Also open in the same file:
   - F17 card-state semantics (L105–110);
   - the F15 cross-session recall scope and the **E9 403 vs I-3 404** conflict (L181–184), which is the E9.c2 red;
