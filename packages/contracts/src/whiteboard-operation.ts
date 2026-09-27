@@ -70,6 +70,12 @@ export const WhiteboardOperationReceipt = z.object({
   revision: Revision, replayed: z.boolean(), events: z.array(WhiteboardOperationEvent).max(WHITEBOARD_OPERATION_LIMITS.events),
 }).strict();
 export type WhiteboardOperationReceipt = z.infer<typeof WhiteboardOperationReceipt>;
+export const WhiteboardUndoReceipt = z.object({
+  undoId:z.string().uuid(),operationId:z.string().uuid(),boardId:BoardId,expectedRevision:Revision,
+  commands:z.array(WhiteboardCommand).min(1).max(WHITEBOARD_OPERATION_LIMITS.commands),createdAt:z.string().datetime(),
+}).strict();
+export type WhiteboardUndoReceipt=z.infer<typeof WhiteboardUndoReceipt>;
+export const WhiteboardAIConfirmReceipt=WhiteboardOperationReceipt.extend({undoReceipt:WhiteboardUndoReceipt});
 
 export const WhiteboardEventCursor = z.object({
   afterSeq: z.number().int().nonnegative().default(0),
@@ -122,6 +128,7 @@ export const WhiteboardAIProposal = z.object({
   baseRevision: Revision, baseObjectDigests: z.record(z.string().regex(/^object-v1:[a-f0-9]{64}$/)),
   action: WhiteboardAIProposalAction, provenance: WhiteboardOperationProvenance,
   status: z.enum(['preview', 'cancelled', 'confirmed']), createdAt: z.string().datetime(), expiresAt: z.string().datetime(),
+  undoReceipt:WhiteboardUndoReceipt.nullable().optional(),
 }).strict();
 export type WhiteboardAIProposal = z.infer<typeof WhiteboardAIProposal>;
 export const WhiteboardAIProposalCreate = z.object({
@@ -174,7 +181,7 @@ export const whiteboardOperationOperations = {
   events: { method: 'GET', path: '/v1/whiteboards/:boardId/events', input: WhiteboardEventCursor, output: WhiteboardEventPage },
   createProposal: { method: 'POST', path: '/v1/whiteboards/:boardId/ai-proposals', input: WhiteboardAIProposalCreate, output: WhiteboardAIProposal },
   cancelProposal: { method: 'POST', path: '/v1/whiteboards/:boardId/ai-proposals/:proposalId/cancel', input: WhiteboardAIProposalDecision, output: WhiteboardAIProposal },
-  confirmProposal: { method: 'POST', path: '/v1/whiteboards/:boardId/ai-proposals/:proposalId/confirm', input: WhiteboardAIProposalDecision, output: WhiteboardOperationReceipt },
+  confirmProposal: { method: 'POST', path: '/v1/whiteboards/:boardId/ai-proposals/:proposalId/confirm', input: WhiteboardAIProposalDecision, output: WhiteboardAIConfirmReceipt },
   presentation: { method: 'POST', path: '/v1/whiteboards/:boardId/presentation', input: WhiteboardPresentationRequest, output: WhiteboardPresentationState },
   joinRoom: { method: 'POST', path: '/v1/whiteboards/:boardId/rooms/join', input: WhiteboardRoomJoin, output: WhiteboardRoomIdentity },
   artifactHandoff: { method: 'POST', path: '/v1/whiteboards/:boardId/artifact-handoffs', input: WhiteboardArtifactHandoff, output: WhiteboardOperationReceipt },

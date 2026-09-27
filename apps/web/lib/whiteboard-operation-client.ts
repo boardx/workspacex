@@ -1,5 +1,5 @@
 import {
-  WhiteboardAIProposal as WhiteboardAIProposalSchema, WhiteboardEventPage, WhiteboardOperationReceipt, WhiteboardPresentationState, WhiteboardRoomIdentity, type RenderedDiagramLayout,
+  WhiteboardAIProposal as WhiteboardAIProposalSchema, WhiteboardAIConfirmReceipt, WhiteboardEventPage, WhiteboardOperationReceipt, WhiteboardPresentationState, WhiteboardRoomIdentity, type RenderedDiagramLayout,
   type WhiteboardAIProposal, type WhiteboardOperationActor, type WhiteboardOperationRequest,
 } from '@repo/contracts/whiteboard-operation';
 import { renderedLayoutToCommands } from '@repo/whiteboard-core';
@@ -20,8 +20,9 @@ export async function insertRenderedArtifact(input:{layout:RenderedDiagramLayout
   const response=await fetch(apiUrl(`/v1/whiteboards/${input.boardId}/artifact-handoffs`),{method:'POST',credentials:'include',headers:{'content-type':'application/json'},body:JSON.stringify({requestId:input.requestId,expectedRevision:{epoch:input.epoch,seq:input.seq},layout:input.layout,offset:input.offset??{x:0,y:0}})});return WhiteboardOperationReceipt.parse(await json(response));
 }
 export async function confirmAIProposal(proposal:WhiteboardAIProposal,requestId:string){
-  const response=await fetch(apiUrl(`/v1/whiteboards/${proposal.boardId}/ai-proposals/${proposal.proposalId}/confirm`),{method:'POST',credentials:'include',headers:{'content-type':'application/json'},body:JSON.stringify({requestId,expectedRevision:proposal.baseRevision})});return WhiteboardOperationReceipt.parse(await json(response));
+  const response=await fetch(apiUrl(`/v1/whiteboards/${proposal.boardId}/ai-proposals/${proposal.proposalId}/confirm`),{method:'POST',credentials:'include',headers:{'content-type':'application/json'},body:JSON.stringify({requestId,expectedRevision:proposal.baseRevision})});return WhiteboardAIConfirmReceipt.parse(await json(response));
 }
+export function recordBoardUndoReceipt(receipt:ReturnType<typeof WhiteboardAIConfirmReceipt.parse>){const key=`board-undo-receipts:${receipt.boardId}`,current=JSON.parse(sessionStorage.getItem(key)??'[]') as unknown[];if(!current.some(item=>typeof item==='object'&&item!==null&&(item as {operationId?:string}).operationId===receipt.operationId))sessionStorage.setItem(key,JSON.stringify([...current,receipt.undoReceipt]));}
 export async function readAIProposal(boardId:string,proposalId:string){const response=await fetch(apiUrl(`/v1/whiteboards/${boardId}/ai-proposals/${proposalId}`),{credentials:'include',cache:'no-store'});return WhiteboardAIProposalSchema.parse(await json(response));}
 export async function cancelAIProposal(proposal:WhiteboardAIProposal){const response=await fetch(apiUrl(`/v1/whiteboards/${proposal.boardId}/ai-proposals/${proposal.proposalId}/cancel`),{method:'POST',credentials:'include',headers:{'content-type':'application/json'},body:JSON.stringify({requestId:crypto.randomUUID(),expectedRevision:proposal.baseRevision})});return WhiteboardAIProposalSchema.parse(await json(response));}
 export async function readPresentation(boardId:string,roomId:string){const response=await fetch(apiUrl(`/v1/whiteboards/${boardId}/presentation?roomId=${encodeURIComponent(roomId)}`),{credentials:'include',cache:'no-store'});return WhiteboardPresentationState.parse(await json(response));}

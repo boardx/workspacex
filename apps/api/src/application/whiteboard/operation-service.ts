@@ -16,7 +16,9 @@ export class WhiteboardOperationError extends Error {
   constructor(readonly code: 'FORBIDDEN'|'STALE_REVISION'|'IDEMPOTENCY_CONFLICT'|'NOT_FOUND'|'VALIDATION_FAILED'|'ARCHIVED'|'RATE_LIMITED'|'DEPENDENCY_UNAVAILABLE') { super(code); }
 }
 const rateWindows=new Map<string,{started:number;count:number}>();
-export function assertWhiteboardRateLimit(principal:Principal,boardId:string,now=Date.now()){const key=`${principal.orgId}:${principal.userId}:${boardId}`,prior=rateWindows.get(key),window=prior&&now-prior.started<60_000?prior:{started:now,count:0};if(window.count>=120)throw new WhiteboardOperationError('RATE_LIMITED');window.count++;rateWindows.set(key,window);}
+export type WhiteboardRateLimitedEntry='operation'|'artifact-handoff'|'events'|'head'|'proposal-create'|'proposal-read'|'proposal-cancel'|'proposal-confirm'|'room-join'|'presentation-read'|'presentation-command';
+/** Shared limiter used by every Board API entry point. Buckets include the effective actor. */
+export function assertWhiteboardRateLimit(principal:Principal,boardId:string,entry:WhiteboardRateLimitedEntry='operation',actorId=principal.userId,now=Date.now()){const key=`${principal.orgId}:${boardId}:${actorId}:${entry}`,prior=rateWindows.get(key),window=prior&&now-prior.started<60_000?prior:{started:now,count:0};if(window.count>=120)throw new WhiteboardOperationError('RATE_LIMITED');window.count++;rateWindows.set(key,window);}
 function collaborationError(error:unknown):never{
   if(!(error instanceof WhiteboardCollaborationError))throw error;
   const code=error.code==='STALE_EPOCH'?'STALE_REVISION':error.code==='INTEGRITY_FAILED'||error.code==='VALIDATOR_UNAVAILABLE'?'DEPENDENCY_UNAVAILABLE':error.code;
@@ -41,7 +43,7 @@ function eventType(commands:readonly WhiteboardCommand[],source:string):Event['t
 export class WhiteboardOperationService {
   constructor(private readonly db:DatabasePort,private readonly collaboration:WhiteboardCollaborationStore,private readonly audit:WhiteboardOperationAuditRepository,private readonly now=()=>new Date()){}
   async execute(principal:Principal,boardId:string,untrusted:unknown):Promise<Receipt>{
-    assertWhiteboardRateLimit(principal,boardId);
+    assertWhiteboardRateLimit(principal,boardId,'operation',WhiteboardOperationRequest.parse(untrusted).actor.actorId);
     const request=WhiteboardOperationRequest.parse(untrusted);
     return this.db.withTenant(principal.orgId,session=>this.executeInTransaction(session,principal,boardId,request));
   }
@@ -77,7 +79,7 @@ export class WhiteboardOperationService {
       await this.audit.append(session,principal,{requestHash,receipt,event});
       return receipt;
   }
-  async events(principal:Principal,boardId:string,untrusted:unknown){
+  async events(principal:Principal,boardId:string,untrusted:unknown){assertWhiteboardRateLimit(principal,boardId,'events');
     const cursor=WhiteboardEventCursor.parse(untrusted);
     return this.db.withTenant(principal.orgId,async session=>{
       if(!await this.audit.canRead(session,principal,boardId))throw new WhiteboardOperationError('NOT_FOUND');
@@ -85,6 +87,6 @@ export class WhiteboardOperationService {
       return{boardId,events,nextSeq:events.at(-1)?.revision.seq??cursor.afterSeq};
     });
   }
-  async head(principal:Principal,boardId:string){return this.db.withTenant(principal.orgId,async session=>{const value=await this.audit.lockHead(session,principal,boardId);if(!value)throw new WhiteboardOperationError('NOT_FOUND');return{epoch:value.epoch,seq:value.seq,role:value.actorRole};});}
-  async handoff(principal:Principal,boardId:string,untrusted:unknown){const input=WhiteboardArtifactHandoff.parse(untrusted),actor={kind:'human' as const,actorId:principal.userId,orgId:principal.orgId,role:'owner' as const,scopes:['board:read' as const,'board:write' as const,'artifact:read' as const],delegatedBy:null};const commands=renderedLayoutToCommands(input.layout,actor,principal.orgId,input.offset);return this.execute(principal,boardId,{apiVersion:'2026-09-01',requestId:input.requestId,boardId,expectedRevision:input.expectedRevision,actor,commands,provenance:{source:'chat-artifact',model:null,skill:null,sourceArtifactId:input.layout.artifactId,sourceRevision:input.layout.sourceRevision,layoutHash:input.layout.layoutHash,inputObjectIds:[]}});}
+  async head(principal:Principal,boardId:string){assertWhiteboardRateLimit(principal,boardId,'head');return this.db.withTenant(principal.orgId,async session=>{const value=await this.audit.lockHead(session,principal,boardId);if(!value)throw new WhiteboardOperationError('NOT_FOUND');return{epoch:value.epoch,seq:value.seq,role:value.actorRole};});}
+  async handoff(principal:Principal,boardId:string,untrusted:unknown){assertWhiteboardRateLimit(principal,boardId,'artifact-handoff');const input=WhiteboardArtifactHandoff.parse(untrusted),actor={kind:'human' as const,actorId:principal.userId,orgId:principal.orgId,role:'owner' as const,scopes:['board:read' as const,'board:write' as const,'artifact:read' as const],delegatedBy:null};const commands=renderedLayoutToCommands(input.layout,actor,principal.orgId,input.offset);return this.execute(principal,boardId,{apiVersion:'2026-09-01',requestId:input.requestId,boardId,expectedRevision:input.expectedRevision,actor,commands,provenance:{source:'chat-artifact',model:null,skill:null,sourceArtifactId:input.layout.artifactId,sourceRevision:input.layout.sourceRevision,layoutHash:input.layout.layoutHash,inputObjectIds:[]}});}
 }
