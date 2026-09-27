@@ -855,8 +855,8 @@ export const knowledgeGraph = {
       edges: z.array(KgEdge),
       /** B2-S4：调用者是本组织 lead / admin，可以把这里的条目记到组织记忆（`promoteToOrg`）；缺省 = 不能（旧响应）。 */
       canPromoteToOrg: z.boolean().optional(),
-      /** S10（#4367）：`claims` 里由成员从个人记忆分享来的那些 ⇒ 分享人（界面标「由 X 分享自个人记忆」） */
-      sharedFromPersonal: z.array(KgProjectSharedFrom),
+      /** S10（#4367）：`claims` 里由成员从个人记忆分享来的那些 ⇒ 分享人（界面标「由 X 分享自个人记忆」）；缺省 = 没有（旧响应） */
+      sharedFromPersonal: z.array(KgProjectSharedFrom).optional(),
     }).strict(),
     err: ["KG_NOT_VISIBLE"] as const,
   },
