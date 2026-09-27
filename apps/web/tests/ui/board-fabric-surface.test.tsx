@@ -325,6 +325,13 @@ describe("BoardFabricSurface", () => {
     ], { duplicate: false });
   });
 
+  it("exposes read-only per-object Fabric scene bounds for pointer acceptance probes", () => {
+    renderSurface();
+    const scenes = JSON.parse(screen.getByTestId("board-fabric-surface").getAttribute("data-object-scenes")!) as Array<{ id: string; left: number; top: number; width: number; height: number }>;
+    expect(scenes.find(value => value.id === "s-1")).toEqual({ id: "s-1", left: 40, top: 60, width: expect.closeTo(220), height: 180 });
+    expect(scenes.find(value => value.id === "r-1")).toEqual({ id: "r-1", left: 360, top: 80, width: 240, height: 140 });
+  });
+
   it("shows guides for resize and ActiveSelection, with Alt bypass", async () => {
     const target = { ...OBJECTS[0]!, id: "target", geometry: { ...OBJECTS[0]!.geometry, x: 100, y: 0 } };
     renderSurface({ objects: [...OBJECTS, target], selectedObjectIds: ["s-1", "r-1"] });

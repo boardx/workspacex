@@ -337,6 +337,7 @@ export function BoardFabricSurface({ objects, selectedObjectIds, readOnly, tool,
   const [renderedObjects, setRenderedObjects] = React.useState<readonly BoardFabricObject[]>(objects);
   const [snapPreview, setSnapPreview] = React.useState<SnapResult | null>(null);
   const [selectionScene, setSelectionScene] = React.useState<{ bounds: { left: number; top: number; width: number; height: number }; hitPoints: Array<{ x: number; y: number }> } | null>(null);
+  const [objectScenes, setObjectScenes] = React.useState<Array<{ id: string; left: number; top: number; width: number; height: number }>>([]);
   const selectedObjectIdsRef = React.useRef(selectedObjectIds);
   const reconcilingSelectionRef = React.useRef(false);
   const renderFrameRef = React.useRef<number | null>(null);
@@ -677,6 +678,7 @@ export function BoardFabricSurface({ objects, selectedObjectIds, readOnly, tool,
         } else projected.clipPath = undefined;
       }
     });
+    setObjectScenes([...registryRef.current].map(([id, projected]) => ({ id, ...projected.getBoundingRect() })));
     scheduleRender();
   }, [objects, readOnly, scheduleRender]);
 
@@ -768,6 +770,7 @@ export function BoardFabricSurface({ objects, selectedObjectIds, readOnly, tool,
     <div ref={hostRef} className={className ?? "relative h-full w-full overflow-hidden bg-muted/30"} data-testid="board-fabric-surface"
       data-viewport-zoom={clampBoardZoom(viewport.zoom)} data-viewport-pan-x={viewport.panX} data-viewport-pan-y={viewport.panY}
       data-selection-scene={selectionScene ? JSON.stringify(selectionScene) : undefined}
+      data-object-scenes={JSON.stringify(objectScenes)}
       onDragOver={(event) => { if (event.dataTransfer.types.includes("application/x-workspacex-board-tool")) { event.preventDefault(); event.dataTransfer.dropEffect = "copy"; } }}
       onDrop={(event) => {
         const payload = event.dataTransfer.getData("application/x-workspacex-board-tool");

@@ -221,7 +221,7 @@ test("smart layout confirm cancel", async ({ page, request, browser, baseURL }) 
     // Alt/Option-dragging a real Fabric ActiveSelection duplicates the whole
     // selection as one canonical batch. Originals stay in place and one undo
     // removes every duplicate.
-    const altContext = await test.step("Alt-drag duplicates ActiveSelection atomically and undoes", async () => {
+    await test.step("Alt-drag duplicates ActiveSelection atomically and undoes", async () => {
     await marqueeAll(page);
     const beforeGroupDrag = parseGeometry(await geometry(page));
     const fabricSurface = page.getByTestId("board-fabric-surface");
@@ -272,7 +272,6 @@ test("smart layout confirm cancel", async ({ page, request, browser, baseURL }) 
     await page.getByText("撤销", { exact: true }).click();
     await expect.poll(() => geometry(page)).toBe(original);
     await expect.poll(() => geometry(second)).toBe(original);
-    return { canvasBounds: canvasBounds!, zoom };
     });
 
     // A real Fabric pointer drag exposes a smart guide and persists the snapped world-space position.
@@ -280,10 +279,30 @@ test("smart layout confirm cancel", async ({ page, request, browser, baseURL }) 
     const snapBefore = parseGeometry(original);
     const source = snapBefore[0]!, target = snapBefore[1]!;
     await page.getByTestId(`board-a11y-object-${source.id}`).click();
-    const sourceCenter = { x: altContext.canvasBounds.x + (source.x + source.width / 2) * altContext.zoom, y: altContext.canvasBounds.y + (source.y + source.height / 2) * altContext.zoom };
+    await page.evaluate(() => new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve()))));
+    const currentSurface = page.getByTestId("board-fabric-surface");
+    const currentCanvas = currentSurface.locator('canvas[data-fabric="top"]');
+    const currentCanvasBounds = await currentCanvas.boundingBox();
+    expect(currentCanvasBounds).not.toBeNull();
+    const currentZoom = Number(await currentSurface.getAttribute("data-viewport-zoom"));
+    const currentPanX = Number(await currentSurface.getAttribute("data-viewport-pan-x"));
+    const currentPanY = Number(await currentSurface.getAttribute("data-viewport-pan-y"));
+    const scenes = JSON.parse((await currentSurface.getAttribute("data-object-scenes"))!) as Array<{ id: string; left: number; top: number; width: number; height: number }>;
+    const sourceScene = scenes.find(value => value.id === source.id), targetScene = scenes.find(value => value.id === target.id);
+    expect(sourceScene, `Fabric scene probe must contain source ${source.id}`).toBeTruthy();
+    expect(targetScene, `Fabric scene probe must contain target ${target.id}`).toBeTruthy();
+    const sceneToScreen = (point: { x: number; y: number }) => ({ x: currentCanvasBounds!.x + currentPanX + point.x * currentZoom, y: currentCanvasBounds!.y + currentPanY + point.y * currentZoom });
+    const sourceCenter = sceneToScreen({ x: sourceScene!.left + sourceScene!.width / 2, y: sourceScene!.top + sourceScene!.height / 2 });
+    const sourceTopLeft = sceneToScreen({ x: sourceScene!.left, y: sourceScene!.top });
+    const sourceBottomRight = sceneToScreen({ x: sourceScene!.left + sourceScene!.width, y: sourceScene!.top + sourceScene!.height });
+    expect(sourceCenter.x).toBeGreaterThanOrEqual(sourceTopLeft.x); expect(sourceCenter.x).toBeLessThanOrEqual(sourceBottomRight.x);
+    expect(sourceCenter.y).toBeGreaterThanOrEqual(sourceTopLeft.y); expect(sourceCenter.y).toBeLessThanOrEqual(sourceBottomRight.y);
+    const sourceHit = await page.evaluate((point) => { const element = document.elementFromPoint(point.x, point.y) as HTMLElement | null; return { fabric: element?.dataset.fabric ?? null, insideSurface: Boolean(element?.closest('[data-testid="board-fabric-surface"]')) }; }, sourceCenter);
+    expect(sourceHit).toEqual({ fabric: "top", insideSurface: true });
+    const snapDestination = sceneToScreen({ x: sourceScene!.left + sourceScene!.width / 2 + 56 / currentZoom, y: targetScene!.top + sourceScene!.height / 2 + 3 / currentZoom });
     await page.mouse.move(sourceCenter.x, sourceCenter.y); await page.mouse.down();
-    await page.mouse.move(sourceCenter.x + 56, altContext.canvasBounds.y + (target.y + source.height / 2 + 3) * altContext.zoom, { steps: 12 });
-    await expect(page.getByTestId("board-smart-guides")).toBeVisible();
+    await page.mouse.move(snapDestination.x, snapDestination.y, { steps: 12 });
+    await expect(page.getByTestId("board-smart-guides")).toBeVisible({ timeout: 10_000 });
     await page.mouse.up();
     const snapAfter = parseGeometry(await geometry(page));
     const snappedSource = snapAfter.find(value => value.id === source.id)!;
