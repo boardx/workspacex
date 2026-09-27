@@ -4,6 +4,7 @@ import { SESSION_TOKEN_STORAGE_KEY } from "../lib/api-client";
 import { FULLSTACK_E2E } from "./fullstack-smoke-fixture";
 
 test.describe.configure({ mode: "serial", timeout: 420_000 });
+test.use({ actionTimeout: 15_000 });
 
 function required(name: string): string {
   const fallback: Record<string, string | undefined> = {

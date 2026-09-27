@@ -15,3 +15,9 @@
 - 2026-09-27 主 session 曾运行完整布局测试，但发现旧定位后主动中止；该运行不计通过，独占测试 Docker 栈已释放。
 
 尚无视觉九分结论。最终截图、交互 trace、验收结果与被测 SHA 必须补齐后才能关闭本轮视觉门。
+
+## 8a7b6be75 真实视觉复验：失败
+
+主 session 隔离运行 `run-muj98q7f-1d9f2b5c-11ad256a619f`，执行 `board-selection-layout.spec.ts --grep 'visual acceptance'`。巨大属性表单和中文字形拉伸在截图中已消失，但窗口变化后上下文工具条覆盖左上全局缩放控件，`board-zoom-fit-board` 被“评论”按钮拦截（trace call@177）。运行退出 1，未通过；`8a7b6be75-toolbar-collision.png` 是实际失败截图，不是设计稿。trace归档自身报告zip损坏，因此不将该zip计为可用证据；保留可读原始日志及截图发现，修复后重新生成完整trace。
+
+UI worker 已接手统一浮层障碍避让。主session不使用强制点击绕过遮挡；规格增加15秒动作超时以快速暴露无法点击的控件。
