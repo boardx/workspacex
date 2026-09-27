@@ -61,6 +61,7 @@ const qualityDefaults = { researchBrief: null, moderatorPolicy: null, reportRevi
 
 const topicPendingInterview: LiveInterview = {
   ...qualityDefaults,
+  artifacts: [],
   interviewId: "itv-f04-live",
   name: "德国储能采购决策链",
   tags: ["采购", "德国市场"],
@@ -609,6 +610,23 @@ describe("F04 正式 setup 的显式确认与双层持久化验收门", () => {
     fireEvent.click(screen.getByTestId("itv-workbench-step-analysis"));
     expect(await screen.findByTestId("itv-analysis-workbench")).toHaveTextContent("研究目标");
     expect(screen.getByTestId("itv-step-markdown-artifact")).toHaveTextContent("分析建议.md");
+  });
+
+  it("keeps full-screen navigation in one header and exposes one Markdown source to preview", async () => {
+    installLiveFetch(persistedInterview);
+    render(<DigitalInterviewSetup interviewId={persistedInterview.interviewId} />);
+
+    const header = await screen.findByTestId("itv-workbench-header");
+    expect(within(header).getByTestId("itv-workbench-timeline")).toBeInTheDocument();
+    expect(screen.getByTestId("itv-skill-drawer")).toHaveAttribute("aria-hidden", "true");
+
+    fireEvent.click(screen.getByTestId("itv-skill-drawer-trigger"));
+    expect(screen.getByTestId("itv-skill-drawer")).toHaveAttribute("aria-hidden", "false");
+
+    fireEvent.click(screen.getByTestId("itv-workbench-step-analysis"));
+    const source = await screen.findByTestId("itv-markdown-source");
+    expect(source).toHaveTextContent("研究目标");
+    expect(screen.getByTestId("itv-markdown-preview")).toHaveTextContent("研究目标");
   });
 
   it.each([
