@@ -4,7 +4,10 @@
 S=/tmp/claude-0/-home-user-workspacex/0c400fb8-dfbe-5051-bf5c-eba2226be75a/scratchpad/s10
 WT=/home/user/workspacex/.claude/worktrees/agent-a528511a6673ba1f0
 H=$WT/evidence/phase-18/s10/harness
-export PGHOST=127.0.0.1 PGPORT=55432 PGUSER=postgres PGPASSWORD=postgres_dev PGDATABASE=s10e2e
+# docker shim for tests/support/db.ts (no docker daemon here; it maps `compose exec postgres …` to 127.0.0.1:$PGPORT)
+export PATH=/tmp/claude-0/-home-user-workspacex/0c400fb8-dfbe-5051-bf5c-eba2226be75a/scratchpad/bin:$PATH
+export PGHOST=127.0.0.1 PGPORT=55432 PGUSER=postgres PGPASSWORD=postgres_dev PGDATABASE=s10e2e WORKSPACEX_DB=s10e2e
+export PGCONNECT_TIMEOUT_MS=120000 PGSTATEMENT_TIMEOUT_MS=300000
 export REDIS_HOST=127.0.0.1 REDIS_PORT=59116
 export WORKSPACEX_API_PORT=59112 WORKSPACEX_WEB_PORT=59113 WORKSPACEX_MODEL_PROVIDER_PORT=59114
 export KG_EVAL_FIXTURE=1 KG_EVAL_ORG_ID=org-kg-experience-eval KG_EVAL_PROJECT_ID=project-kg-experience-eval
