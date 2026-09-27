@@ -1,4 +1,4 @@
-# Board 融合需求执行计划 V0.2
+# Board 融合需求执行计划 V0.3
 
 本计划融合用户本轮完整 PRD（第 1–60 节）及后续补充。它替代旧 Mermaid 作为讨论入口，但不自动修改 `feature_list.json`、既有依赖、签核或完成状态。现有 BV01–BV32 是功能单源；新增或遗漏的细项必须补进需求、契约及可执行验证，再通过既有流程分配。本文工作包不是新增 feature ID。
 
@@ -12,45 +12,31 @@
 - 默认以开源、自托管和公开 API 可用为交付条件；配置、迁移、启动、备份恢复和 API 示例必须可复现。
 - V0.1 完整包含 PRD P0 与 P1；PRD P2 保留为后续扩展路线，不能删掉，也不能声称本期已经完成。
 
-## 2. 现状与颜色
+## 2. 现状与颜色（2026-09-27）
 
-现有证据只支持：正式 Fabric/协作分支的基础能力，以及新浏览页、便利贴增强的局部预览验收。六条正式 PRD 旅程完整通过记录为 0/6。之前的 26 项局部测试不能换算为产品完成百分比。
+当前按 iteration 的真实交付状态记录：R1–R4 已经独立复核、CI 通过并合入 `main`；R5 已完成实现和静态验证，正在主 session 跑 PostgreSQL、对象存储、API 与真实浏览器集成验收；R6–R7 已完成实现和独立复核，等待前序轮次合入后做主 session 集成验收；R8 正补齐存储原子性、备份恢复、PG 增长边界及 Miro/Mural 导入的权威验收；R9 已完成实现，正在最终独立安全复核；R10 等前九轮汇合到同一集成 SHA 后执行总验收。
 
-图中蓝色表示可复用的局部实现/证据；橙色表示本轮需完成的设计或契约；灰色表示待实现/验收；紫色表示明确保留的 P2。绿色仅用于完整验收通过且满足仓库完成定义的交付，本计划不使用绿色。
+颜色口径：绿色=已合入 main；黄色=主 session 正在验收；蓝色=实现与独立复核完成、等待集成；橙色=正在补实现或复核；灰色=待开始；紫色=P2 后续路线。状态只由 PR、exact SHA、CI 和主 session 动态证据支撑。
 
 ## 3. 总体 Mermaid：先统一基础，再并行交付
 
 ```mermaid
-flowchart TD
-  E["已有基础可复用<br/>Fabric / Yjs / 浏览与便利贴预览"]:::evidence
-  U["融合 PRD 与细项补齐<br/>UI + 用例 + API + 一致性复核"]:::design
-  E --> U
-  U --> K["R1 统一对象、命令、事件、Undo边界<br/>存储端口与渲染适配接口"]:::todo
-  K --> L["R2 浏览管理<br/>标签 / 三点菜单 / Duplicate / 生命周期"]:::todo
-  K --> S["R3 Sticky / Text<br/>连续输入 / 完整样式 / Bulk / Paste"]:::todo
-  K --> O["R4 Shape / Draw / Image / Tile<br/>完整对象行为与编辑"]:::todo
-  K --> C["R7a 协作 transport / presence基础<br/>权限 / durable ACK"]:::todo
-  K --> B["R8a 文件与对象存储<br/>迁移 / 备份 / GC / 回滚"]:::todo
-  S --> P["R5 Panel / Group / Layer / Lock<br/>绑定 Connector"]:::todo
-  O --> P
-  P --> X["R6 多选 / 快捷键 / 排版<br/>Grid / Align / Snap / Smart Layout"]:::todo
-  X --> H["R7b 评论 / 多人Undo / 离线恢复"]:::todo
-  C --> H
-  B --> H
-  L --> M["R8b Miro / Mural 导入导出<br/>逐对象迁移报告"]:::todo
-  P --> M
-  B --> M
-  H --> A["R9 API / AI proposal / Chat插入<br/>会议室与触摸场景"]:::todo
-  X --> A
-  P --> A
-  A --> Q["R10 主session统一验收<br/>六旅程 + 指标 + 性能 + 恢复 + 无障碍"]:::todo
-  M --> Q
-  H --> Q
-  L --> Q
-  Q --> F["P2 扩展路线<br/>Diagram / Mind Map / Kanban / Timeline<br/>Journey / Database / Agent与Live Data Tile<br/>Embedded App / Presentation"]:::future
-  classDef evidence fill:#dbeafe,stroke:#2563eb,color:#1e3a8a
-  classDef design fill:#ffedd5,stroke:#ea580c,color:#7c2d12
-  classDef todo fill:#f1f5f9,stroke:#94a3b8,color:#334155
+flowchart LR
+  R1["R1 统一基础<br/>PR #4241 ✅"]:::merged --> R2["R2 浏览管理<br/>PR #4280 ✅"]:::merged
+  R2 --> R3["R3 Sticky / Text<br/>PR #4286 ✅"]:::merged
+  R3 --> R4["R4 内容对象<br/>PR #4292 ✅"]:::merged
+  R4 --> R5["R5 空间与关系<br/>主 session 全栈验收"]:::accepting
+  R5 --> R6["R6 编辑与组织<br/>实现 + 独立复核完成"]:::ready
+  R6 --> R7["R7 团队可靠性<br/>实现 + 独立复核完成"]:::ready
+  R7 --> R8["R8 存储与迁移<br/>补权威验收"]:::working
+  R8 --> R9["R9 AI / API / Chat / 会议室<br/>最终独立复核"]:::working
+  R9 --> R10["R10 同一 SHA 总验收<br/>六旅程 / 指标 / 性能 / 恢复 / 无障碍"]:::todo
+  R10 --> P2["P2 扩展路线<br/>Diagram / Mind Map / Kanban / Timeline<br/>Journey / Database / Agent与Live Data Tile"]:::future
+  classDef merged fill:#dcfce7,stroke:#16a34a,color:#14532d
+  classDef accepting fill:#fef3c7,stroke:#d97706,color:#78350f
+  classDef ready fill:#dbeafe,stroke:#2563eb,color:#1e3a8a
+  classDef working fill:#ffedd5,stroke:#ea580c,color:#7c2d12
+  classDef todo fill:#f1f5f9,stroke:#64748b,color:#334155
   classDef future fill:#ede9fe,stroke:#7c3aed,color:#4c1d95
 ```
 
@@ -140,18 +126,18 @@ flowchart LR
 
 用户明确要求“每个iteration一个pr”，本计划据此覆盖仓库默认的一个feature一个PR交付粒度。本计划共10个主交付PR，对应R1–R10；这是未来交付规则，不自动关闭、合并或重写现有PR。
 
-| PR | iteration 范围 | 合入前条件 |
-|---|---|---|
-| Iteration 01 | R1 统一基础 | 本轮完整退出门、集成测试与独立复核 |
-| Iteration 02 | R2 浏览管理 | 同上，并覆盖完整API与失败路径 |
-| Iteration 03 | R3 Sticky/Text | 同上，并完成Brainstorm旅程与输入指标 |
-| Iteration 04 | R4 内容对象 | 同上，逐对象创建/编辑/保存/协作验收 |
-| Iteration 05 | R5 空间与关系 | 同上，Panel及绑定Connector旅程 |
-| Iteration 06 | R6 编辑与组织 | 同上，Grid整理、快捷键与布局Undo |
-| Iteration 07 | R7 团队可靠性 | 同上，多客户端/撤权/恢复链路 |
-| Iteration 08 | R8 存储与迁移 | 同上，PG正文边界、迁移与恢复演练 |
-| Iteration 09 | R9 AI/API/Chat/会议室 | 同上，Agent完整操作与长时会议室 |
-| Iteration 10 | R10 总验收 | 六旅程与所有硬门在统一SHA通过 |
+| PR | iteration 范围 | 当前状态 | 合入前条件 |
+|---|---|---|---|
+| Iteration 01 | R1 统一基础 | ✅ PR #4241 已合入 | 本轮完整退出门、集成测试与独立复核 |
+| Iteration 02 | R2 浏览管理 | ✅ PR #4280 已合入 | 同上，并覆盖完整API与失败路径 |
+| Iteration 03 | R3 Sticky/Text | ✅ PR #4286 已合入 | 同上，并完成Brainstorm旅程与输入指标 |
+| Iteration 04 | R4 内容对象 | ✅ PR #4292 已合入 | 同上，逐对象创建/编辑/保存/协作验收 |
+| Iteration 05 | R5 空间与关系 | 🟡 主 session 全栈验收 | 同上，Panel及绑定Connector旅程 |
+| Iteration 06 | R6 编辑与组织 | 🔵 实现与独立复核完成 | 同上，Grid整理、快捷键与布局Undo |
+| Iteration 07 | R7 团队可靠性 | 🔵 实现与独立复核完成 | 同上，多客户端/撤权/恢复链路 |
+| Iteration 08 | R8 存储与迁移 | 🟠 补权威验收 | 同上，PG正文边界、迁移与恢复演练 |
+| Iteration 09 | R9 AI/API/Chat/会议室 | 🟠 最终独立复核 | 同上，Agent完整操作与长时会议室 |
+| Iteration 10 | R10 总验收 | ⚪ 待前九轮汇合 | 六旅程与所有硬门在统一SHA通过 |
 
 每个iteration PR关联该轮所有issue，逐项列出需求、实现、证据和未完成项；不能仅因部分模块通过就关闭整轮。子agent分支不单独创建主交付PR，修复提交继续进入同一轮PR。存在共享热点或依赖时分批集成，PR数量不成为降低范围或跳过验收的理由。跨轮预研可并行，正式实现仍遵守依赖；最终合并须有用户明确授权。
 
