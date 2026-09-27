@@ -1,8 +1,13 @@
 import { describe,it,expect } from 'vitest';
 import { deriveTestIsolation } from '../../../../.harness/scripts/lib/test-isolation';
 import { readFileSync } from 'node:fs';
-import { assertProposalDatabaseBinding,requireNotFound,assertProposalStorageDrill,assertRestoredDatabase,requireEvidence,proposalDrillFailure } from '../../scripts/board-proposal-storage-drill-guards';
+import { proposalDrillApiDirectory,assertProposalDatabaseBinding,requireNotFound,assertProposalStorageDrill,assertRestoredDatabase,requireEvidence,proposalDrillFailure } from '../../scripts/board-proposal-storage-drill-guards';
 const env={BOARD_PROPOSAL_STORAGE_DRILL:'1',WORKSPACEX_ISOLATION_ID:'isolated-session',WORKSPACEX_DB:'wsx_0123456789abcdefabcd',PGDATABASE:'wsx_0123456789abcdefabcd',PGHOST:'127.0.0.1',COMPOSE_PROJECT_NAME:'owned-test',STARTER_POSTGRES_CONTAINER:'owned-container',BOARD_PROPOSAL_DRILL_DIRECTORY:'/private/tmp/private-proof'};
+it('resolves an ESM script location independently of cwd and decodes spaces',()=>{
+ expect(proposalDrillApiDirectory('file:///private/tmp/board%20proof/apps/api/scripts/board-proposal-storage-drill.ts')).toBe('/private/tmp/board proof/apps/api/');
+ const source=readFileSync(new URL('../../scripts/board-proposal-storage-drill.ts',import.meta.url),'utf8');expect(source).not.toContain('__dirname');expect(source).toContain('proposalDrillApiDirectory(import.meta.url)');
+ expect(proposalDrillFailure('resolve-runtime-paths',new ReferenceError('secret path/token'))).toEqual({status:'failed',stage:'resolve-runtime-paths',code:'PROPOSAL_STORAGE_DRILL_FAILED',category:'REFERENCE_ERROR'});
+});
 describe('real PG proposal storage producer gates (does not execute producer)',()=>{
  it('requires explicit owned local isolation before any fixture mutation',()=>{
   expect(()=>assertProposalStorageDrill(env)).not.toThrow();

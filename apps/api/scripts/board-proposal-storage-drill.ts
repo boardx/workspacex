@@ -21,7 +21,7 @@ import { WhiteboardOperationService } from '../src/application/whiteboard/operat
 import { WhiteboardProposalService } from '../src/application/whiteboard/proposal-service';
 import { toOrgId } from '../src/domain/org-id';
 import type { Principal } from '../src/domain/principal';
-import { assertProposalDatabaseBinding,requireNotFound,assertProposalStorageDrill,assertRestoredDatabase,requireEvidence,proposalDrillFailure } from './board-proposal-storage-drill-guards';
+import { proposalDrillApiDirectory,assertProposalDatabaseBinding,requireNotFound,assertProposalStorageDrill,assertRestoredDatabase,requireEvidence,proposalDrillFailure } from './board-proposal-storage-drill-guards';
 const hash=(value:Uint8Array|string)=>createHash('sha256').update(value).digest('hex');
 const textBefore='SYNTHETIC_ORIGINAL_PROPOSAL_TEXT',textAfter='SYNTHETIC_AI_PROPOSAL_TEXT',textFinal='SYNTHETIC_GENERIC_OPERATION_TEXT';
 let stage='preflight';
@@ -45,8 +45,10 @@ async function proposalReferences(db:PgDatabase,objects:FsObjectStore,p:Principa
 }
 async function main(){
  assertProposalStorageDrill(process.env);
- const apiDir=resolve(__dirname,'..'),jointScript=join(apiDir,'scripts/board-joint-recovery-drill.ts');
+ stage='resolve-runtime-paths';
+ const apiDir=proposalDrillApiDirectory(import.meta.url),jointScript=join(apiDir,'scripts/board-joint-recovery-drill.ts');
  requireEvidence(existsSync(jointScript),'R8_JOINT_RECOVERY_REQUIRED');
+ stage='create-private-directory';
  const directory=resolve(process.env.BOARD_PROPOSAL_DRILL_DIRECTORY!);await mkdir(directory,{mode:0o700});
  requireEvidence(((await stat(directory)).mode&0o077)===0,'PRIVATE_DRILL_DIRECTORY_REQUIRED');
  const primaryRoot=join(directory,'primary'),jointRoot=join(directory,'joint');await mkdir(primaryRoot,{mode:0o700});
