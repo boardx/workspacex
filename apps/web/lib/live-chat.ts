@@ -169,6 +169,27 @@ export async function createPersonalThread(title: string | null): Promise<Mutate
   });
 }
 
+/**
+ * 项目中枢 R4 —— 在**项目里**建一条线程（`projectId` 非空）。同一个 `mutateThread` 端口；
+ * `visibilityScope: null` 交给服务端取项目线程的默认值（`mutate-thread.ts`：`group-shared`），
+ * 不在前端复制那条默认规则。`groupId: null` = 不挂到某个分组（全场线程 / 引导师线程）。
+ */
+export async function createProjectThread(projectId: string, title: string | null): Promise<MutateThreadOut> {
+  return apiRequest<MutateThreadOut>(chat.operations.mutateThread.path, {
+    method: "POST",
+    body: {
+      op: "create",
+      projectId,
+      threadId: null,
+      groupId: null,
+      title,
+      visibilityScope: null,
+      expectedVersion: null,
+      reason: null,
+    },
+  });
+}
+
 export async function getAgentPanel(
   threadId: string,
   /** `null` = 个人线程（issue #2052 / CK-P7）——不传这个 query 参数，controller 把
