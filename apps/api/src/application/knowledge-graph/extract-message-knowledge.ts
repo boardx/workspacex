@@ -127,7 +127,7 @@ export async function runExtractionTick(deps: ExtractionDeps, abandoned: () => b
         if (outcome === "written") written += 1;
         else if (outcome === "empty") empty += 1;
         else skipped += 1;
-        await deps.queue.complete(orgId, job.messageId, job.attempts);
+        await deps.queue.complete(orgId, job.messageId, job.attempts, outcome);
       } catch (err) {
         failed += 1;
         const message = err instanceof Error ? err.message : String(err);

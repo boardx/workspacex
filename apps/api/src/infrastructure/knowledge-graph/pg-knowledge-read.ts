@@ -352,8 +352,28 @@ export class PgKnowledgeRead implements KnowledgeReadPort {
           ORDER BY c.created_at, c.id`,
         [orgId, thread.threadId, messageId, userId],
       );
+      // issue #4352：这条消息的抽取走到哪了。还在队列里 ⇒ 由队列回答（次数用完且没有活租约 = failed，与面板分桶同一口径）；
+      // 不在队列里 ⇒ worker 完成时记下的结果；都没有 ⇒ none（从没排进抽取，或消息不在 / 不属于这条会话）。
+      const st = await s.query<{ status: MessageExtractionData["status"] }>(
+        `WITH msg AS (
+           SELECT cm.id FROM chat_messages cm
+            WHERE cm.org_id = $1 AND cm.thread_id = $2
+              AND (cm.id = $3 OR (cm.author_kind = 'human' AND cm.author_id = $4 AND cm.client_message_id::text = $3))
+         ), q AS (
+           SELECT (attempts >= $5 AND (locked_at IS NULL OR locked_at < now() - make_interval(secs => $6))) AS exhausted
+             FROM kg_extraction_queue WHERE org_id = $1 AND message_id IN (SELECT id FROM msg)
+         )
+         SELECT CASE
+                  WHEN EXISTS (SELECT 1 FROM q WHERE NOT exhausted) THEN 'pending'
+                  WHEN EXISTS (SELECT 1 FROM q) THEN 'failed'
+                  ELSE coalesce((SELECT o.outcome FROM kg_message_extraction_outcomes o
+                                  WHERE o.org_id = $1 AND o.message_id IN (SELECT id FROM msg) LIMIT 1), 'none')
+                END AS status`,
+        [orgId, thread.threadId, messageId, userId, KG_EXTRACTION_MAX_ATTEMPTS, KG_EXTRACTION_LEASE_SECONDS],
+      );
       return {
         claims: r.rows.map((x) => ({ claimId: x.id, statement: x.statement, kind: x.claim_kind ?? "fact", personalCopyClaimId: x.personal_copy })),
+        status: st.rows[0]?.status ?? "none",
       };
     });
     return guard(threadRef(thread), data);

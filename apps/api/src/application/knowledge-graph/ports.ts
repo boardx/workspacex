@@ -92,6 +92,9 @@ export interface KgExtractionJob {
   readonly attempts: number;
 }
 
+/** issue #4352：一条消息抽取完成时的结果（`failed` 由 `fail` 在次数用完时记，不经 complete）。 */
+export type KgExtractionOutcome = "written" | "empty" | "skipped" | "failed";
+
 /** 抽取队列（消息落库时由触发器排队，见迁移 20260924210000）。 */
 export interface KgExtractionQueuePort {
   /** 抽取在这个库上开着：从此新消息才排队（关着时不排，免得永远没人消费的行无限增长）。 */
@@ -104,7 +107,8 @@ export interface KgExtractionQueuePort {
    * 只有这一行仍停在这次认领上时才生效——被 watchdog 放弃、租约过期后又被重新认领的旧任务，迟到的
    * complete / fail 不会删掉 / 解锁新认领正在处理的那一行。不给 ⇒ 不围栏。
    */
-  complete(orgId: OrgId, messageId: string, attempts?: number): Promise<void>;
+  /** issue #4352：`outcome` ⇒ 同一事务里记下这条消息的抽取结果（`getMessageExtraction.status` 的信号源）。 */
+  complete(orgId: OrgId, messageId: string, attempts?: number, outcome?: KgExtractionOutcome): Promise<void>;
   fail(orgId: OrgId, messageId: string, error: string, attempts?: number): Promise<void>;
 }
 
@@ -310,7 +314,9 @@ export type KgHumanActionErrorCode =
   | "KG_OBJECT_NOT_FOUND" | "KG_CONTESTED_NEEDS_RESOLUTION" | "KG_PROMPT_NOT_FOUND"
   | "KG_SCOPE_NOT_PERSONAL" | "KG_SCOPE_NOT_PROJECT" | "KG_EVIDENCE_REVOKED" | "KG_PROMOTE_BATCH_TOO_LARGE"
   // F17 确认卡（actOnMemoryCard.err）；KG_INVALID_REQUEST 不是契约码——请求本身不成立（改完的字全是空白），接口回 400
-  | "KG_CARD_NOT_FOUND" | "KG_CARD_STALE" | "KG_INVALID_REQUEST";
+  | "KG_CARD_NOT_FOUND" | "KG_CARD_STALE" | "KG_INVALID_REQUEST"
+  // UC-KG-4 requestReindex（issue #4352）
+  | "KG_REINDEX_ALREADY_RUNNING";
 
 export interface HumanActionPort {
   /** 数据库复核所有者 / 版本 / 作用域后执行；被拒时抛 `KgHumanActionError`。 */
@@ -569,3 +575,16 @@ export interface KgDeploymentExtractionSettingsPort {
 }
 
 export const KG_DEPLOYMENT_EXTRACTION_SETTINGS_PORT = Symbol("KgDeploymentExtractionSettingsPort");
+
+// ─────────────────────────────── UC-KG-4 整理本会话（issue #4352） ───────────────────────────────
+
+/**
+ * 把一个会话的消息重新排进抽取队列（`kg_extraction_requeue_thread`，迁移 20260927400000）。调用方已判过
+ * 会话可见性与所有者。返回排进去的条数；本会话还有在整理中的行 ⇒ `"already_running"`。部署开关或组织开关
+ * 关着 ⇒ 0（关闭期间不整理，打开之后再补）。`sourceRefs` 给了 ⇒ 只重排这些消息（仍限定在本会话里）。
+ */
+export interface KgReindexPort {
+  requeueThread(orgId: OrgId, threadId: string, sourceRefs: readonly string[] | null): Promise<number | "already_running">;
+}
+
+export const KG_REINDEX_PORT = Symbol("KgReindexPort");
