@@ -1,4 +1,5 @@
 "use client";
+import {beginBoardPinch,updateBoardPinch,type BoardPinchSession} from "./board-pinch-viewport";
 import { finishCancelledFabricTouch, panFabricViewport, readFabricInput, type FabricInput } from "./fabric-input";
 import {fitBoardContent,type BoardFitInsets} from "../board-chrome-fit";
 
@@ -640,8 +641,8 @@ export function BoardFabricSurface({ objects, selectedObjectIds, readOnly, tool,
       else if (event.type === "pointerdown") penSample = null;
     };
     const pressureOf = (input: FabricInput) => input.id === "mouse" && penSample && penSample.x === input.x && penSample.y === input.y ? penSample.pressure : input.pressure;
-    const cancelInput = () => {
-      if (panning && panStart) { canvas.setViewportTransform(panStart); canvas.requestRenderAll(); }
+    const cancelInput = (restorePan = true) => {
+      if (restorePan && panning && panStart) { canvas.setViewportTransform(panStart); canvas.requestRenderAll(); }
       panning = false;
       cancelDrawing();
       duplicateGesture = null;
@@ -656,13 +657,52 @@ export function BoardFabricSurface({ objects, selectedObjectIds, readOnly, tool,
         if (event.type === "touchcancel") finishCancelledFabricTouch(canvas,event as TouchEvent);
       }
     };
+    let pinch: BoardPinchSession | null = null;
+    let suppressTouch = false;
+    const nativePinch = (event: TouchEvent) => {
+      const inside = host.contains(event.target as Node);
+      if (!suppressTouch && !(event.type === "touchstart" && event.touches.length === 2 && inside && Array.from(event.touches).every(t => !t.target || host.contains(t.target as Node)))) return;
+      if (event.cancelable) event.preventDefault();
+      event.stopImmediatePropagation();
+      const rect = (canvas.upperCanvasEl ?? element).getBoundingClientRect();
+      const points = Array.from(event.touches).map(t => ({pointerId:t.identifier,x:t.clientX-rect.left,y:t.clientY-rect.top}));
+      if (!suppressTouch) {
+        const transform = canvas.viewportTransform;
+        const viewport = {zoom:canvas.getZoom(),panX:transform[4],panY:transform[5]};
+        // Two fingers own viewport navigation; stop pending single-pointer edits.
+        // Discard any local Fabric projection before its native end event can commit.
+        const target = canvas._currentTransform?.target as TaggedFabricObject | undefined;
+        const ids = new Set([...selectedObjectIdsRef.current, ...(target?.data?.boardObjectId ? [target.data.boardObjectId] : [])]);
+        cancelInput(false);
+        finishCancelledFabricTouch(canvas,event);
+        if (target) {
+          canvas.discardActiveObject();
+          withCanonicalProjectionBatch([...ids].flatMap(id => {const member=registry.get(id);return member?[member]:[];}),()=>{
+            for (const id of ids) {const canonical=canonicalRef.current.get(id),member=registry.get(id);if(canonical&&member)applyCanonicalObject(member,canonical,stateRef.current.readOnly);}
+          });
+        }
+        pinch = beginBoardPinch(points,viewport);
+        suppressTouch = true;
+      } else if (event.type === "touchmove") {
+        const update = updateBoardPinch(pinch,points);
+        pinch = update?.session ?? null;
+        if (update) {
+          const {zoom,panX,panY} = update.viewport;
+          canvas.setViewportTransform([zoom,0,0,zoom,panX,panY]);
+          callbacksRef.current.onViewportChange({...stateRef.current.viewport,zoom,panX,panY},"pan");
+        }
+      } else if (event.type === "touchend" || event.type === "touchcancel" || points.length !== 2) pinch = null;
+      // Remaining fingers cannot resume a stale single-finger gesture.
+      if (event.touches.length === 0) {pinch = null;suppressTouch = false;}
+    };
     const inputDocument = element.ownerDocument;
+    for (const type of ["touchstart","touchmove","touchend","touchcancel"] as const) inputDocument.addEventListener(type,nativePinch,{capture:true,passive:false});
     inputDocument.addEventListener("pointerdown", observePen, true);
     inputDocument.addEventListener("pointermove", observePen, true);
     inputDocument.addEventListener("touchcancel", nativeCancel, true);
     inputDocument.addEventListener("pointercancel", nativeCancel, true);
     const pointerDown = (event: TPointerEventInfo) => {
-      if (activeInput) return;
+      if (activeInput || suppressTouch) return;
       const input = readFabricInput(event.e);
       if (!input) return;
       const point = canvas.getScenePoint(event.e);
@@ -793,6 +833,7 @@ export function BoardFabricSurface({ objects, selectedObjectIds, readOnly, tool,
     return () => {
       disposed = true;
       cancelDrawingRef.current = () => undefined;
+      for (const type of ["touchstart","touchmove","touchend","touchcancel"] as const) inputDocument.removeEventListener(type,nativePinch,true);
       inputDocument.removeEventListener("pointerdown", observePen, true);
       inputDocument.removeEventListener("pointermove", observePen, true);
       inputDocument.removeEventListener("touchcancel", nativeCancel, true);

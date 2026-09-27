@@ -215,3 +215,16 @@ it("reads real pen pressure alongside compatibility mouse events without changin
  pen("pointerdown",10,20,.25);canvas.emit("mouse:down",{e:{type:"mousedown",clientX:10,clientY:20}});pen("pointermove",30,40,.75);canvas.emit("mouse:move",{e:{type:"mousemove",clientX:30,clientY:40}});canvas.emit("mouse:up",{e:{type:"mouseup",clientX:30,clientY:40}});
  expect(onDrawingComplete).toHaveBeenCalledWith({tool:"pen",points:[{x:10,y:20,pressure:.25},{x:30,y:40,pressure:.75}]});view.unmount();
 });
+it("native two-finger input owns anchored zoom until all fingers lift",()=>{
+ fabricHarness.state.canvases.length=0;const events=callbacks();const view=render(createElement(BoardFabricSurface,{objects:[],selectedObjectIds:[],readOnly:false,tool:"hand",viewport,...events}));const canvas=mountedCanvas(),element=view.container.querySelector("canvas")!;
+ const dispatch=(type:string,touches:ReturnType<typeof finger>[])=>{const event=new Event(type,{bubbles:true,cancelable:true});Object.assign(event,{touches,changedTouches:touches});element.dispatchEvent(event);};
+ canvas.emit("mouse:down",{e:{type:"touchstart",touches:[finger(100,100)]}});
+ dispatch("touchstart",[finger(100,100),finger(200,100,8)]);
+ dispatch("touchmove",[finger(50,100),finger(250,100,8)]);
+ expect(events.onViewportChange).toHaveBeenLastCalledWith({...viewport,zoom:2,panX:-150,panY:-100},"pan");
+ const count=events.onViewportChange.mock.calls.length;
+ dispatch("touchend",[finger(50,100)]);canvas.emit("mouse:move",{e:{type:"touchmove",touches:[finger(90,100)]}});expect(events.onViewportChange).toHaveBeenCalledTimes(count);
+ dispatch("touchend",[]);
+ canvas.emit("mouse:down",{e:{type:"touchstart",touches:[finger(10,20,9)]}});canvas.emit("mouse:move",{e:{type:"touchmove",touches:[finger(30,50,9)]}});canvas.emit("mouse:up",{e:{type:"touchend",changedTouches:[finger(30,50,9)]}});
+ expect(events.onViewportChange).toHaveBeenLastCalledWith({...viewport,zoom:2,panX:-130,panY:-70},"pan");view.unmount();
+});
