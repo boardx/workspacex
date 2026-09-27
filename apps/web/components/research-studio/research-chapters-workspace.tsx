@@ -11,7 +11,7 @@ import { ResearchReportMarkdown } from "./guided-research-report-document";
 import { researchReportDocument } from "@/lib/research-report-document";
 
 type Outline = GuidedResearchRuntime["outline"];
-export function ResearchChaptersWorkspace({ runtime, disabled, onSave, onOptimize, onNext }: { runtime: GuidedResearchRuntime; disabled: boolean; onSave: (value: Outline) => void; onOptimize: (value: Outline) => void; onNext: () => void }) {
+export function ResearchChaptersWorkspace({ runtime, disabled, onSave, onOptimize, onNext, onBack }: { runtime: GuidedResearchRuntime; disabled: boolean; onSave: (value: Outline) => void; onOptimize: (value: Outline) => void; onNext: () => void; onBack?: () => void }) {
   const [chapters, setChapters] = React.useState(runtime.outline);
   const [selectedId, setSelectedId] = React.useState(runtime.outline.find((chapter) => chapter.enabled)?.id);
   const previousServerOutline = React.useRef(runtime.outline);
@@ -51,6 +51,6 @@ export function ResearchChaptersWorkspace({ runtime, disabled, onSave, onOptimiz
       </article>}
       <aside className="space-y-4"><section className="rounded-xl border bg-card p-6 shadow-sm"><h2 className="flex items-center justify-between text-2xl font-bold"><span className="flex items-center gap-3"><FileText className="size-6" />关键证据</span><span className="text-base text-muted-foreground">{sources.length} 条</span></h2><p className="mt-4 text-base text-muted-foreground">本章基于以下来源与资料：</p><ul className="mt-3 space-y-3 text-base">{sources.map((source) => <li key={source.id}><a className="underline underline-offset-4" href={source.url} target="_blank" rel="noopener noreferrer">{source.title}</a></li>)}</ul>{!sources.length && <p className="mt-3 text-muted-foreground">本章暂无关联来源，需要补充证据。</p>}</section><section className="rounded-xl border bg-card p-6 shadow-sm"><h2 className="text-xl font-bold">章节说明</h2><p className="mt-3 text-base leading-relaxed text-muted-foreground">{selected?.analysisApproach ?? "按章节目标回答关键问题，保留证据引用与研究局限，确保与全文结论一致。"}</p></section><section className="rounded-xl border bg-card p-6 shadow-sm"><h2 className="text-xl font-bold">AI 建议</h2><p className="mt-3 text-base leading-relaxed text-muted-foreground">修改章节后需要重新确认研究计划并检索相关资料；历史报告会保留，不会直接改写已有证据。</p></section></aside>
     </div>
-    <div className="flex flex-wrap justify-end gap-3">{changed && <><p className="mr-auto self-center text-sm text-muted-foreground">结构修改尚未保存，保存后需重新完成资料研究。</p><Button disabled={disabled || !valid} onClick={() => onSave(chapters)}>保存章节结构</Button></>}<Button className="h-12 px-6 text-base" disabled={disabled || changed} onClick={onNext}>下一步：生成报告</Button></div>
+    <div className="flex flex-wrap justify-end gap-3">{changed && <><p className="mr-auto self-center text-sm text-muted-foreground">结构修改尚未保存，保存后需重新完成资料研究。</p><Button disabled={disabled || !valid} onClick={() => onSave(chapters)}>保存章节结构</Button></>}{onBack && <Button variant="outline" className="h-12 px-6 text-base" disabled={disabled || changed} onClick={onBack}>上一步</Button>}<Button className="h-12 px-6 text-base" disabled={disabled || changed} onClick={onNext}>下一步：生成报告</Button></div>
   </section>;
 }

@@ -2,6 +2,12 @@
 
 **Status:** blocked — latest seven-screen prototype has not yet passed visual acceptance.
 
+## PR #4299 CI repair (2026-09-27, current iteration)
+
+At SHA `7c77ddee1`, GitHub run `36312817228` failed `verify-control-plane` on the new dynamic research page being swallowed by the empty-prefix API rewrite. Strict rewrite coverage reproduced exit 1 locally. Commit `58856aed1` releases the six UI stages before the wildcard while preserving the legacy plan API for the application client's explicit JSON Accept header. The two routing tests and strict rewrite coverage now exit 0; independent review found no blocker.
+
+The same run also failed `verify-affected`: 18 failures across six research test suites. These reproduced locally. Tests now exercise the collapsed assistant, current direction-confirmation label, named inclusion checkbox and repeated source links without dropping versioned command, proposal, recovery or source-removal assertions. Real regressions were fixed: historical report content remains accessible during restarted generation, and entering research shows a loading status without replacing the three-column workspace. The original six suites' 50 tests passed across focused reruns; full frontend regression and fresh GitHub checks remain pending. The previously local chapter back action is included in this increment, disabled while busy or dirty. None of these results establish visual 1:1 acceptance or authorize merging.
+
 ## Superseding acceptance target (2026-09-27)
 
 The prior assessment below covered the older six-panel reference only. It is not evidence of fidelity to the user's newer seven monochrome screenshots. The current target is the research list plus six independently routed workflow screens: import, topic, plan, research, chapters, and report. Research screens hide the Workspace rail; returning to the list restores it. A single header provides stage navigation and a return-to-list action.
@@ -25,6 +31,8 @@ Acceptance still pending: paired reference/current screenshots for all seven scr
 Fresh latest-source local verification: nine suites / 75 assertions passed, TypeScript exit 0, design lint exit 0, navigation reachability exit 0, `git diff --check` exit 0. Independent review closed both data-loss regressions; it did not approve visual fidelity. The latest production run waited 255 seconds for the shared test lock and has now started a new build. No completion claim follows from the older passing build.
 
 Latest production result: BUILD_ID `vjJHdl0JNpEsFpczwUIHE`, compiled from the runtime changes committed in `cc5f3e4cf`, passed the full actual API/PostgreSQL runtime scenario with exit 0, one expected, zero unexpected/skipped/flaky. Report: `/tmp/research-fidelity-qa.ilZawG/latest-production-recheck.json`. The first test attempt hit a strict locator ambiguity between the success-criteria textbox and its new edit button; the test was corrected to target the exact textbox, without weakening behavior assertions. Full rerun passed and the owned isolation stack/ports were released. This proves behavior of the compiled snapshot, not final seven-page visual acceptance.
+
+PR #4299 now contains pushed SHA `7c77ddee1648cd70e629d8f59710628e0bcbf0f6`; push-time affected typecheck/lint passed, GitHub checks are queued/running, auto-merge is null. A subsequent local change adds the reference chapter-screen previous action and disables it while chapter edits are unsaved. Its red missing-button regression became green (workflow suite 17/17); it is not included in the pushed SHA or compiled E2E snapshot yet. Continue from these local changes; do not discard them or count them as production-verified.
 
 Latest local evidence: 60 assertions passed across seven research suites after the topic-edit protection and intake toolbar changes; the earlier report-document/export suites also passed. TypeScript, design lint and navigation reachability checks passed. These are regression evidence, not visual acceptance. No automatic merge is enabled.
 

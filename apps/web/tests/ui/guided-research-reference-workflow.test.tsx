@@ -103,6 +103,7 @@ describe("reference research workflow", () => {
     fireEvent.click(await screen.findByRole("button", { name: "2. 第二章政策" }));
     expect(screen.getByTestId("research-selected-chapter")).toHaveTextContent("核查政策约束");
     expect(screen.getByRole("button", { name: "下一步：生成报告" })).toBeEnabled();
+    expect(screen.getByRole("button", { name: "上一步" })).toBeEnabled();
   });
   it("restores actual server stage and structured plan/task details while research is busy", async () => {
     const initial = runtimeFixture("research");

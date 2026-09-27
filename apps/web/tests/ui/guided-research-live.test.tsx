@@ -101,12 +101,12 @@ describe("live research workspace", () => {
     vi.mocked(getResearchRuntime).mockResolvedValue(research);
     vi.mocked(executeResearchRuntime).mockResolvedValue({ ...research, version: 8, sources: [{ ...research.sources[0]!, decision: "excluded" }] });
     render(<GuidedResearchLive sessionId="session-live" onBack={vi.fn()} />);
-    expect(await screen.findByRole("link", { name: "Official source" })).toHaveAttribute("href", "https://example.org/policy");
+    for (const link of await screen.findAllByRole("link", { name: "Official source" })) expect(link).toHaveAttribute("href", "https://example.org/policy");
     expect(screen.getByRole("button", { name: "重试失败任务" })).toBeEnabled();
     expect(screen.queryByRole("combobox")).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "删除来源 Official source" }));
     await waitFor(() => expect(executeResearchRuntime).toHaveBeenCalledWith(expect.objectContaining({ action: "remove_source", sourceId: "src1", expectedVersion: 7 })));
-    await waitFor(() => expect(screen.queryByRole("link", { name: "Official source" })).not.toBeInTheDocument());
+    await waitFor(() => expect(screen.queryAllByRole("link", { name: "Official source" })).toHaveLength(0));
   });
 });
 
