@@ -54,6 +54,8 @@ test("the six-stage workbench exposes a separate analysis stage and Markdown art
   }));
 
   await page.goto("/itv/itv-quality-e2e/setup");
+  await expect(page.getByTestId("shell-rail")).toHaveCount(0);
+  await expect(page.getByTestId("itv-workbench-header")).toBeVisible();
   await expect(page.getByTestId("itv-workbench-navigation")).toBeVisible();
   await expect(page.getByTestId("itv-workbench-step-intake")).toContainText("导入需求");
   await expect(page.getByTestId("itv-workbench-step-analysis")).toContainText("确认分析");
@@ -62,6 +64,9 @@ test("the six-stage workbench exposes a separate analysis stage and Markdown art
   await page.getByTestId("itv-workbench-step-analysis").click();
   await expect(page.getByTestId("itv-analysis-workbench")).toContainText("研究目标");
   await expect(page.getByTestId("itv-step-markdown-artifact")).toContainText("分析建议.md");
+  await expect(page.getByTestId("itv-markdown-preview")).toContainText("研究目标");
+  await page.getByTestId("itv-skill-drawer-trigger").click();
+  await expect(page.getByTestId("itv-skill-drawer")).toHaveAttribute("aria-hidden", "false");
 });
 
 test("a failed report keeps its partial content and exposes retry in a real browser", async ({ page }) => {
