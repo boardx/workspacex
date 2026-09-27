@@ -6,6 +6,8 @@ import { PgDatabase } from '../src/infrastructure/db/pg-database';
 import { appConfig } from '../src/infrastructure/db/pg-config';
 import { FsObjectStore } from '../src/infrastructure/storage/fs-object-store';
 import { PgWhiteboardCollaborationStore } from '../src/infrastructure/whiteboard/pg-collaboration-store';
+import { PgWhiteboardCommentStore } from '../src/infrastructure/whiteboard/pg-whiteboard-comment-store';
+import { WorkerWhiteboardUpdateValidator } from '../src/infrastructure/whiteboard/update-validator';
 import { PgBoardBackupRepository } from '../src/infrastructure/whiteboard/pg-board-backup';
 import { BoardBackupService, BoardBackupError } from '../src/application/whiteboard/board-backup';
 import { toOrgId } from '../src/domain/org-id';
@@ -21,7 +23,7 @@ async function main(){
   if(contained(primary,secondary)||contained(secondary,primary)||!(await stat(primary)).isDirectory()||!(await stat(secondary)).isDirectory())throw new BoardBackupError('INDEPENDENT_BACKUP_ROOT_REQUIRED');
   if(((await stat(secondary)).mode&0o077)!==0)throw new BoardBackupError('PRIVATE_BACKUP_ROOT_REQUIRED');
   const database=new PgDatabase(appConfig());try{
-    const objects=new FsObjectStore(primary),collaboration=new PgWhiteboardCollaborationStore(database,undefined,120,objects),repository=new PgBoardBackupRepository(database,collaboration),service=new BoardBackupService(repository,objects,new FsObjectStore(secondary)),p={orgId:toOrgId(org),userId:actor};
+    const objects=new FsObjectStore(primary),collaboration=new PgWhiteboardCollaborationStore(database,undefined,120,objects),repository=new PgBoardBackupRepository(database,collaboration,new PgWhiteboardCommentStore(database,new WorkerWhiteboardUpdateValidator(),undefined,collaboration,objects)),service=new BoardBackupService(repository,objects,new FsObjectStore(secondary)),p={orgId:toOrgId(org),userId:actor};
     const result=command==='create'?await service.backup(p,z.string().uuid().parse(options['--board']),backupId):await service.restore(p,backupId,z.string().uuid().parse(options['--restore']));
     process.stdout.write(JSON.stringify(result)+'\n');
   }finally{await database.close();}

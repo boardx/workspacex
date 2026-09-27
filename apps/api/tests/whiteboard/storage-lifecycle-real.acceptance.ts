@@ -13,6 +13,7 @@ import { PgWhiteboardCollaborationStore } from '../../src/infrastructure/whitebo
 import { PgWhiteboardRecoveryAdapter } from '../../src/infrastructure/whiteboard/pg-whiteboard-recovery';
 import { WhiteboardRecoveryService } from '../../src/application/whiteboard/recovery-service';
 import { WorkerWhiteboardUpdateValidator } from '../../src/infrastructure/whiteboard/update-validator';
+import { PgWhiteboardCommentStore } from '../../src/infrastructure/whiteboard/pg-whiteboard-comment-store';
 import { FsObjectStore } from '../../src/infrastructure/storage/fs-object-store';
 import { toOrgId } from '../../src/domain/org-id';
 import type { DatabasePort } from '../../src/application/ports/database.port';
@@ -95,13 +96,17 @@ it('restores a joint metadata/body backup after source removal using independent
   const archiveRoot=await mkdtemp(join(tmpdir(),'wb-independent-backup-'));
   try{
     const b=await board();await write(b.id,[note('backed-up','Survives primary loss')]);const before=await canonical(b.id);
-    const archive=new FsObjectStore(archiveRoot),repository=new PgBoardBackupRepository(db,store),service=new BoardBackupService(repository,fs,archive),backupId=randomUUID();
+    const comments=new PgWhiteboardCommentStore(db,new WorkerWhiteboardUpdateValidator(),undefined,store,fs);
+    const threadId=randomUUID();await comments.dispatch(owner,b.id,{type:'create-comment',requestId:randomUUID(),threadId,commentId:randomUUID(),objectId:'backed-up',worldPosition:null,body:'Restorable comment body',mentions:[],expectedRevision:0});
+    const viewer={orgId,userId:'wb-backup-viewer'};await addOrgMember(orgId,viewer.userId,'consultant',null);expect(await new PgWhiteboardRepository(db).putMember(owner,b.id,{userId:viewer.userId,role:'viewer'})).toBe(true);
+    const archive=new FsObjectStore(archiveRoot),repository=new PgBoardBackupRepository(db,store,comments),service=new BoardBackupService(repository,fs,archive),backupId=randomUUID();
     const result=await service.backup(owner,b.id,backupId);expect(result.source).toEqual({epoch:1,seq:1});
     const captured=await repository.read(owner,backupId),key=captured.manifest.snapshot.key;
     await db.withTenant(orgId,s=>s.query('DELETE FROM whiteboards WHERE org_id=$1 AND id=$2',[orgId,b.id]));
     const pinned=await db.withTenant(orgId,s=>s.query<{rooted:boolean}>('SELECT whiteboard_object_is_rooted($1,$2) rooted',[orgId,key]));expect(pinned.rows[0]!.rooted).toBe(true);
-    await rm(join(root,key));expect(await fs.get(key)).toBeNull();
+    await rm(join(root,key));for(const thread of captured.manifest.comments)await rm(join(root,thread.blob.key));expect(await fs.get(key)).toBeNull();
     const target=randomUUID();expect(await service.restore(owner,backupId,target)).toEqual({boardId:target,replayed:false});expect((await canonical(target)).objects).toEqual(before.objects);
+    const fresh=new PgDatabase(appConfig());try{const live=makeStore(fresh),restoredComments=await new PgWhiteboardCommentStore(fresh,new WorkerWhiteboardUpdateValidator(),undefined,live,fs).list(viewer,target);expect(restoredComments[0]!.comments[0]!.body).toBe('Restorable comment body');expect(restoredComments[0]!.boardId).toBe(target);const rows=await fresh.withTenant(orgId,s=>s.query<{payload:unknown}>('SELECT payload FROM whiteboard_comment_threads WHERE org_id=$1 AND board_id=$2',[orgId,target]));expect(JSON.stringify(rows.rows)).not.toContain('Restorable comment body');}finally{await fresh.close();}
     expect(await service.restore(owner,backupId,target)).toEqual({boardId:target,replayed:true});
     const sourceManifest=await db.withTenant(orgId,s=>s.query<{null_body:boolean}>('SELECT snapshot IS NULL null_body FROM whiteboard_documents WHERE org_id=$1 AND board_id=$2',[orgId,target]));expect(sourceManifest.rows[0]!.null_body).toBe(true);
     await write(target,[note('editable-after-disaster')]);expect((await canonical(target)).seq).toBe(1);

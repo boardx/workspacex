@@ -8,7 +8,7 @@
 
 manifest v1 覆盖 org、backup ID、捕获时间、Board 名称/归档状态/原生命周期版本、owner/成员角色、标签元数据、原 epoch/seq、完整 canonical Yjs snapshot descriptor 和其中每个 durable image descriptor/asset metadata。正文与图片字节只在 primary/secondary ObjectStore，PG 仅保存这些 metadata、hash/ref、状态与恢复回执。恢复快照完整保留对象 ID 和关系；新 Board 有独立 ID，epoch=1/seq=0，manifest 保留来源 revision。恢复不重放旧客户端 outbox、Undo 历史或历史 checkpoints。
 
-评论目前由 R7 保存在 PG payload，不属于 Yjs snapshot。为不丢评论且不新增正文回写 PG，存在评论的 Board 明确拒绝 UNSUPPORTED_COMMENT_BACKUP，后续先迁移其正文存储再扩展 manifest。未完成/远程 URL/本地 session image 也拒绝，不生成半可用备份。
+评论正文和幂等响应已迁移到不可变 ObjectStore；PG 仅保留 bodyless thread metadata 和 refs。manifest 包含完整当前评论线程（含 object-deleted 历史状态）及正文 descriptor；捕获先迁移遗留正文，恢复重写 Board 身份但保留线程/评论 ID，blob 正文 map 无 Board ID 可逐 hash 原样复制。恢复不带旧请求幂等响应，防止旧 source 请求成为 target 的有效操作回执。未完成/远程 URL/本地 session image 也拒绝，不生成半可用备份。
 
 ## 捕获与发布
 
@@ -29,7 +29,7 @@ restore request ID 同时用作新 Board ID（只允许不存在或同一请求�
 
 受信运维 CLI 使用应用 DB 角色和显式 actor/org；不使用迁移超级用户，也不公开任意 principal HTTP 路由。main session 执行真实 PG + 两个独立 FS roots：备份后删除 primary 被备份字节，恢复新 Board，fresh connection 重建 Y.Doc/图片 hash/ACL；注入缺失/坏 blob、跨租户、撤权、失败恢复重试，检查 PG bytea NULL 与 GC pins。单元只证明编排，不称灾备已通过。
 
-剩余边界：跨租户恢复、整个 PG 丢失后的目录重建、secondary key rotation/remote OSS、历史审计/评论备份及 pin 生命周期清理需后续版本。此 CLI 依赖已恢复或仍健在的 PG backup metadata，因此不能声称整个站点灾难恢复完成。
+剩余边界：跨租户恢复、整个 PG 丢失后的目录重建、secondary key rotation/remote OSS、历史审计备份及 pin 生命周期清理需后续版本。此 CLI 依赖已恢复或仍健在的 PG backup metadata，因此不能声称整个站点灾难恢复完成。
 
 ## CLI（operator）
 
@@ -41,3 +41,20 @@ pnpm --filter api exec tsx scripts/board-backup.ts restore --org ORG --actor OWN
 ```
 
 只输出id/hash/revision回执；错误仅reason code，不输出数据库连接串或原文。CLI不运行migration，不替换API标准ObjectStore配置；必须指向同一primary正文目录。
+
+## PG 同时丢失时的组合恢复与双介质演练
+
+复用 `packages/cloud-deploy/src/starter-backup.ts` 的 `backupStarterDatabase` / `restoreStarterDatabase`，不重新实现 pg_dump/pg_restore。顺序必须是 Board secondary 所有 blob 和 manifest verified、PG backup record/pins commit → 启动系统 PG dump → 验证 PG dump SHA256。manifest revision 是精确 Board 恢复点；PG snapshot 可更晚，但必须包含同一 verified record/hash。Preparing record 不可作为成功备份。第一版 pins 永久保留，不允许 GC 自动释放，也没有自动 cleanup 命令。
+
+全 PG 丢失后先用系统 restore 恢复至全新隔离数据库；从其中的组织/身份/权限与 verified backup metadata 建立信任根，再用独立 archive 恢复目标 Board。组织 ID/原 owner 必须完全匹配且 membership 仍有效，不允许通过参数进行跨组织映射。只恢复指定 Board 的正文，不声称同一 PG dump 中其余 Board 的文件也已恢复。
+
+main session 可在本地隔离 PostgreSQL16 栈运行（会调用现有 Docker pg_dump/pg_restore；子 agent 不运行）：
+
+```sh
+BOARD_JOINT_DRILL=1 BOARD_DRILL_DIRECTORY=/private/tmp/unique-private-drill \
+STARTER_POSTGRES_CONTAINER=EXISTING_ISOLATED_PG_CONTAINER \
+BOARD_OBJECT_ROOT=EXISTING_PRIMARY_ROOT \
+pnpm --filter api exec tsx scripts/board-joint-recovery-drill.ts ORG OWNER BOARD_UUID
+```
+
+沿用 WORKSPACEX_ISOLATION_ID / WORKSPACEX_DB / PGDATABASE / PGHOST 和标准 app/migration credentials。目录必须全新；不允许部署环境、共享 DB 或远程 PG。演练复制 Board 到独立archive，备份PG，用系统入口新建另一个DB恢复dump，在空的target FS目录恢复Board，并由全新应用DB连接读取canonical/hash和PG snapshot NULL。原primary与原DB不删除。report只包含IDs/hash/路径，不含凭据或原文。失败不伪造通过，不自动删新DB（由主session诊断和清理）。这验证真正两个恢复介质，不是仅测试 checkpoint。

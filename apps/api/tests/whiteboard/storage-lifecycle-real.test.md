@@ -17,11 +17,15 @@ Coverage of the added file:
 
 Existing coverage: pgsql-metadata-only-growth imports collaboration-persistence (real PG/FsObjectStore, fresh-connection, large object count), plus real root/purge fencing and lease scenarios. blob-pointer-atomicity is fake DB; blob-backup-restore imports fake-port checkpoint tests; blob-retention-gc combines mocked repository tests and isolated filesystem purge tests. These cannot substitute for this real lane.
 
-Still missing product/acceptance paths:
-1. Operator command and manifest-pinned state machine for joint PG + secondary object-store backup; independently restoring both into an isolated target with ACL/revision/hash equality and resumed collaboration.
-2. Preparing/verified/failed-pending-cleanup backup and legal-hold roots participating in GC fencing; current root union covers document/update/checkpoint/import/assets only.
-3. Storage-format rollback after acknowledged ObjectStore-primary writes (no equivalent PG mirror/reverse migration operator found). The completion SQL is only an audit guard, not a migration or rollback executor.
-4. Automated enumeration/backfill across all tenant Boards; backfillLegacyBoard is a bounded per-board hook.
-5. ObjectStore outage/corruption and migration/GC/backup races on real PG; production OSS/S3 verification is separate from filesystem.
+Joint Board backup now has a separate real scenario: create comments and viewer ACL, capture to an independent FS archive, remove the source Board and primary snapshot/comment bytes, prove the backup pin remains a GC root, restore a new Board, read canonical objects and comment body through a fresh viewer connection, assert PG payload is bodyless, replay idempotently and continue editing. Missing archive bytes must not publish a target.
+
+For actual loss of PG as well, `scripts/board-joint-recovery-drill.ts` composes the existing system PG dump/restore path with the Board archive. See the protocol document for explicit local-only opt-in and cleanup. Neither the real suite nor the dual-media drill has been executed by this worker.
+
+Remaining boundaries:
+1. Backup pins are retained indefinitely, including failed attempts; there is no automatic release/cleanup policy yet.
+2. Storage-format rollback after acknowledged ObjectStore-primary writes (no PG mirror/reverse migration operator). Transaction rollback is independently tested, not a substitute.
+3. Automated enumeration/backfill across all tenant Boards; backfillLegacyBoard remains a bounded per-board hook.
+4. Remote OSS/S3 and entire-site identity/org remapping are not supported by this same-tenant selected-Board restore.
+5. Historical Undo/outbox requests/checkpoints are not replayed into the new Board; current document and complete comment threads are restored instead.
 
 No DB, Docker, browser or this suite was executed by its author. Main session must record actual command output and exact commit before treating these scenarios as passed.
