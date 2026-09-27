@@ -26,10 +26,10 @@ flowchart LR
   R2 --> R3["R3 Sticky / Text<br/>PR #4286 ✅"]:::merged
   R3 --> R4["R4 内容对象<br/>PR #4292 ✅"]:::merged
   R4 --> R5["R5 空间与关系<br/>PR #4308 ✅"]:::merged
-  R5 --> R6["R6 编辑与组织<br/>6项真实验收通过 · PR #4313 CI中"]:::accepting
-  R6 --> R7["R7 团队可靠性<br/>实现 + 独立复核完成"]:::ready
-  R7 --> R8["R8 存储与迁移<br/>实现 + 独立复核完成"]:::ready
-  R8 --> R9["R9 AI / API / Chat / 会议室<br/>实现 + 独立安全复核完成"]:::ready
+  R5 --> R6["R6 编辑与组织<br/>6项局部通过 · 空间回归复验 · PR #4313"]:::accepting
+  R6 --> R7["R7 团队可靠性<br/>集成已复核 · 浏览器复验中"]:::accepting
+  R7 --> R8["R8 存储与迁移<br/>图片持久化/恢复/复制补齐"]:::working
+  R8 --> R9["R9 AI / API / Chat / 会议室<br/>补真实模型聚类与服务端Undo"]:::working
   R9 --> R10["R10 同一 SHA 总验收<br/>修复占位验收 / 真实负载与证据"]:::blocked
   R10 --> P2["P2 扩展路线<br/>Diagram / Mind Map / Kanban / Timeline<br/>Journey / Database / Agent与Live Data Tile"]:::future
   classDef merged fill:#dcfce7,stroke:#16a34a,color:#14532d
@@ -134,10 +134,10 @@ flowchart LR
 | Iteration 03 | R3 Sticky/Text | ✅ PR #4286 已合入 | 同上，并完成Brainstorm旅程与输入指标 |
 | Iteration 04 | R4 内容对象 | ✅ PR #4292 已合入 | 同上，逐对象创建/编辑/保存/协作验收 |
 | Iteration 05 | R5 空间与关系 | ✅ PR #4308 已合入 | 同上，Panel及绑定Connector旅程 |
-| Iteration 06 | R6 编辑与组织 | 🟡 主 session 6/6通过；[PR #4313](https://github.com/boardx/workspacex/pull/4313) CI中 | 同上，Grid整理、快捷键与布局Undo |
-| Iteration 07 | R7 团队可靠性 | 🔵 实现与独立复核完成 | 同上，多客户端/撤权/恢复链路 |
-| Iteration 08 | R8 存储与迁移 | 🔵 阻断已修复并独立复核，待主 session 集成验收 | 同上，PG正文边界、迁移与恢复演练 |
-| Iteration 09 | R9 AI/API/Chat/会议室 | 🔵 实现与独立安全复核完成，等待前序集成 | 同上，Agent完整操作与长时会议室 |
+| Iteration 06 | R6 编辑与组织 | 🟡 6项局部通过，空间回归仍在复验；[PR #4313](https://github.com/boardx/workspacex/pull/4313) CI中 | 同上，Grid整理、快捷键与布局Undo |
+| Iteration 07 | R7 团队可靠性 | 🟡 集成独立复核通过，浏览器验收未完成 | 同上，多客户端/撤权/恢复链路 |
+| Iteration 08 | R8 存储与迁移 | 🟠 已集成；补图片前端持久化、复制/恢复ObjectStore路径 | 同上，PG正文边界、迁移与恢复演练 |
+| Iteration 09 | R9 AI/API/Chat/会议室 | 🟠 安全API局部已复核；真实模型聚类与服务端Undo未完成 | 同上，Agent完整操作与长时会议室 |
 | Iteration 10 | R10 总验收 | 🔴 独立复核不通过；修复占位验收，待前九轮汇合 | 六旅程与所有硬门在统一SHA通过 |
 
 每个iteration PR关联该轮所有issue，逐项列出需求、实现、证据和未完成项；不能仅因部分模块通过就关闭整轮。子agent分支不单独创建主交付PR，修复提交继续进入同一轮PR。存在共享热点或依赖时分批集成，PR数量不成为降低范围或跳过验收的理由。跨轮预研可并行，正式实现仍遵守依赖；最终合并须有用户明确授权。
@@ -207,3 +207,11 @@ flowchart TD
 ### 2026-09-27 后续验收状态
 
 R10 已补真实 producer：六旅程 `fca257584`、50客户端30分钟 `3ccff9486`、1k/5k/10k性能与运行版本绑定 `5fe993950`。仅静态/单测通过，全部等待主 session 实际执行；图片跨会话持久化前置正在检查。禁止把 producer存在等同于测试通过。
+
+### 2026-09-27 集成复验阻断（覆盖较早完成性表述）
+
+- R6：六项局部通过不是全回归通过。CI发现旧Fabric mock、图标定位、空间拖动坐标及默认展开属性假设，单测已修；主session正跑空间回归。
+- R7：集成292e32532独立批准；真实运行暴露sync文案定位和浏览器跨域请求，已修8f5e2092b，待复验。
+- R8：集成ada4ac398，copy/comment/recovery改对象存储路径并桥接checkpoint schema；图片前端接线、真实PG迁移与回滚待验收。
+- R9：proposal接收客户端命令不等于真实模型聚类；receipt存储不等于编辑器Undo。两处已分派补齐；真实Chat三图交接也待验收。
+- R10：性能/50client/visual-a11y producer不等于实际通过；会议室producer仍在补齐。原生缩放/真机/读屏器与主观评分不能由CSS/仿真代替。
