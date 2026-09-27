@@ -13,3 +13,15 @@ AssertionError: [{"code":"invalid_type","expected":"array","received":"undefined
 AssertionError: [{"code":"invalid_type","expected":"string","received":"undefined","path":["personalOrigins",0,"saidAt"],"message":"Required"},{"code":"invalid_type","expected":"boolean","received":"undefined","path":["personalOrigins",0,"autoCopied"],"message":"Required"}]: expected false to be true // Object.is equality
 AssertionError: [{"code":"invalid_type","expected":"array","received":"undefined","path":["replaced"],"message":"Required"}]: expected false to be true // Object.is equality
       Tests  7 failed | 39 passed (46)
+
+# ── 第 9 轮 review 修复：行为反证（F07 只数活的 derived_from 边）──
+# 做法：在已迁移到修复后的库 r09fix 上重新执行旧的 20260924250000_kg_f07_invalidation.sql（把 kg_cascade_claim_revocation 换回旧口径），
+# 跑新加的复现用例 tests/knowledge-graph/brain-forget-detached-source.test.ts；再执行 20260927100000_kg_f07_active_sources_only.sql 恢复后同一用例 2/2 通过。
+# 旧口径（被撤销自动记入摘掉的 B1 仍算活来源）：忘掉后那条长期记忆仍活着 ⇒ 失败
+   × issue #4302 review: 被摘掉的来源不再撑着长期记忆（F07 只数活的 derived_from 边） > A1 + B1 → 一条两个来源；B1 撤销（detached）；A1 确认；大脑页忘掉 ⇒ 长期记忆那份真的没了，B1 的对话结论不动 445ms
+     → expected [ Array(1) ] to not include 'act_a102a3db24384f538b212d7d6aa86d51-p'
+   ✓ issue #4302 review: 被摘掉的来源不再撑着长期记忆（F07 只数活的 derived_from 边） > 改口取代里的新决定被忘掉、长期记忆那份靠别的来源还活着 ⇒ 不再给「撤销取代」 305ms
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+ FAIL  tests/knowledge-graph/brain-forget-detached-source.test.ts > issue #4302 review: 被摘掉的来源不再撑着长期记忆（F07 只数活的 derived_from 边） > A1 + B1 → 一条两个来源；B1 撤销（detached）；A1 确认；大脑页忘掉 ⇒ 长期记忆那份真的没了，B1 的对话结论不动
+      Tests  1 failed | 1 passed (2)
+# 恢复修复后：Tests  2 passed (2)

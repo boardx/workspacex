@@ -488,7 +488,8 @@ export class PgKnowledgeRead implements KnowledgeReadPort {
  *
  *   - #4290 明确改口自动取代（revocation_reason = decision_changed）：经那次取代的提示（kg_supersede_notices，仍是 applied，
  *     撤销快照里有这一条）找到新决定；新决定本身在个人空间、或它在查看者个人空间里的活副本（derived_from）就是挂靠的那条。
- *     提示所在对话是查看者本人的个人对话 ⇒ 给出撤销（同对话里那一行「撤销」：applyHumanAction{undoSupersede}）。
+ *     提示所在对话是查看者本人的个人对话、且那次改口的新决定本身还活着 ⇒ 给出撤销（同对话里那一行「撤销」：
+ *     applyHumanAction{undoSupersede}）；新决定已被忘掉 / 撤回 ⇒ 不给撤销（#4302 review：不引向一次注定落空的撤销）。
  *   - F16 矛盾卡「以新的为准」（conflict_keep_new）：挂靠的是 supersedes_claim_id 指向它的那条活记忆；没有撤销动作 ⇒ 只显示。
  *
  * 忘掉 / 撤回 / 原话被删（user_forgot、user_revoked、source_deleted……）不在这里：人类决定「撤销的不显示」。
@@ -499,7 +500,9 @@ async function readPersonalReplaced(
 ): Promise<PersonalKnowledgeData["replaced"]> {
   const r = await s.query<{ old_id: string; old_statement: string; live_id: string; notice_id: string | null; thread_id: string | null }>(
     `SELECT DISTINCT ON (o.id) o.id AS old_id, o.statement AS old_statement, l.id AS live_id,
-            CASE WHEN t.id IS NOT NULL THEN x.id END AS notice_id, t.id AS thread_id
+            CASE WHEN t.id IS NOT NULL AND EXISTS (SELECT 1 FROM claims n WHERE n.org_id = x.org_id AND n.id = x.newer_claim_id
+                                                     AND n.revoked_at IS NULL AND n.status <> 'superseded')
+                 THEN x.id END AS notice_id, t.id AS thread_id
        FROM claims o
        LEFT JOIN kg_supersede_notices x
               ON x.org_id = o.org_id AND x.status = 'applied' AND o.revocation_reason = 'decision_changed'

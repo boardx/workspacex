@@ -102,6 +102,12 @@ const BRAIN_ACTION_FAILURE_ZH: Partial<Record<KnowledgeGraphErrorCode, string>> 
   KG_NOT_OWNER: "只有你自己的对话里记下的，才能在这里修改。",
 };
 
+/**
+ * issue #4302 review：「忘掉这条」的每一步都成功了，重读后那条长期记忆却仍然活着——还有界面看不到的来源在撑着它
+ * （例如刚在别的对话里又记下了一次）。不报成功，如实说。
+ */
+export const BRAIN_FORGET_STILL_LIVE_ZH = "这条长期记忆还有别的来源，没有忘掉。";
+
 export function describeBrainActionFailure(e: unknown): string {
   const code = knowledgeGraphErrorCode(e);
   if (code === null) return "没能完成，请稍后重试。";

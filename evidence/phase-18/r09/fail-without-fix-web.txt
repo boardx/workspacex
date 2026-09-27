@@ -8,3 +8,10 @@
    × 大脑页：跨会话的长期记忆（issue #4302） > 新加的文字同样不出现内部术语 1008ms
 ⎯⎯⎯⎯⎯⎯⎯ Failed Tests 8 ⎯⎯⎯⎯⎯⎯⎯
       Tests  8 failed | 9 passed (17)
+
+# ── 第 9 轮 review 修复：去掉 personal-memory.tsx 里的 progressed > 0 重读条件、以及忘掉后按重读结果核对（check）⇒ 新用例失败 ──
+   × 大脑页：忘掉有多个来源的一条（issue #4302 review） > 做掉一步后第二步失败（没有错误码）⇒ 仍然重读列表看真实结果，并在那一条下面说原因 1048ms
+   × 大脑页：忘掉有多个来源的一条（issue #4302 review） > 每一步都成功、重读后那条却还活着 ⇒ 不报成功，在那一条下面如实说「还有别的来源，没有忘掉」 1027ms
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 2 ⎯⎯⎯⎯⎯⎯⎯
+      Tests  2 failed | 18 passed (20)
+# 恢复后：Tests  20 passed (20)

@@ -144,9 +144,15 @@ KG_PROMPT_NOT_FOUND             矛盾提醒不存在或已处理
 - **人类决定（2026-09-26，issue #4302）：`/brain` 从「只读」改为「可忘掉 / 撤销取代」**——不加新的后端语义，两个按钮都复用既有动作：
   - 「忘掉这条」（每条活的长期记忆）：逐个来源（`personalOrigins`）执行——这条仍是「AI 记下的」且来源 `autoCopied` ⇒ UC-KG-14
     `undoAutoPersonalCopy(threadId, sourceClaimId)`（只拿掉长期记忆那份，对话里那条不动）；其余（你确认过的 / 手动记下的）⇒
-    在来源对话上 UC-KG-3 `revokeClaim(sourceClaimId)`（与对话「记忆」页签的「忘掉这条」同一动作，F07 级联让 L1 在所有来源都失效后一起失效）。
-    没有来源（出自的对话已不在）⇒ 不给按钮。
+    在来源对话上 UC-KG-3 `revokeClaim(sourceClaimId)`（与对话「记忆」页签的「忘掉这条」同一动作，F07 级联让 L1 在所有**活来源**都失效后一起失效）。
+    没有来源（出自的对话已不在）⇒ 不给按钮。先做不碰对话结论的 `undoAutoPersonalCopy`，再做 `revokeClaim`。
+    - **活来源**（2026-09-27 修正，#4302 review）= 活的 `derived_from` 边 + 来源结论未失效（即 `personalOrigins` 列出的那些）。
+      被 UC-KG-14 撤销自动记入摘掉（`detached`：边失效、对话结论仍活着）的来源**不再撑着** L1。修正前 F07 数来源不看边的状态，
+      被摘掉的来源让 L1 永远不失效：/brain「忘掉这条」报成功，却只忘掉了对话里那条（review 复现）。修复见迁移
+      `20260927100000_kg_f07_active_sources_only.sql`，复现用例 `apps/api/tests/knowledge-graph/brain-forget-detached-source.test.ts`。
+    - 每一步都成功后重读；那条仍活着（有界面看不到的来源撑着）⇒ 不报成功，在那一条下面说「这条长期记忆还有别的来源，没有忘掉。」
   - 「撤销取代」（折叠的旧条）：在 `replaced.undo.threadId` 上 UC-KG-3 `undoSupersede(noticeId)`（#4290，与对话里那一行「撤销」同一动作）。
+    那次改口的新决定已经失效（被忘掉 / 撤回）⇒ `undo` 为 null，不给按钮。
   - 两者都先读那个对话的 `revision`（`getThreadKnowledge`）再提交；成功后静默重读，失败则回滚界面并说原因（`describeBrainActionFailure`）。
 - 来由：`/brain` 此前整屏是 `lib/mock/brain.ts` 的示例数字；2026-09-24 人类指令「取消所有的 mockup 的数据」，改为只读 UC-KG-7 + 本 UC 的真实数据。
 - ⚠ **待人类签核时一并确认**：`design-signoff.md` §二.3 问「`getPersonalKnowledge` 保留还是删掉」——`/brain`「我的长期记忆」现在就在用它（本 UC 与 UC-KG-7 一起），删掉则大脑页失去长期记忆这一栏。本文件不改 `design-signoff.md`，请签核人在那里裁决。

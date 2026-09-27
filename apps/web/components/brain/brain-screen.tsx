@@ -5,6 +5,7 @@ import { StateShell } from "@/components/state/state-shell";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { sessionTotals } from "@/lib/brain-view";
+import type { PersonalKnowledge } from "@/lib/knowledge-graph-api";
 import { PersonalMemory } from "./personal-memory";
 import { SessionMemory } from "./session-memory";
 import { SharedLayers } from "./shared-layers";
@@ -29,7 +30,7 @@ export function BrainScreen() {
 }
 
 /** 与取数分开，方便对每一种状态单独渲染（组件测试直接喂状态）。 */
-export function BrainView({ state, reload, refresh }: { state: BrainData; reload: () => void; refresh: () => Promise<void> }) {
+export function BrainView({ state, reload, refresh }: { state: BrainData; reload: () => void; refresh: () => Promise<PersonalKnowledge> }) {
   const [tab, setTab] = React.useState("personal");
 
   return (

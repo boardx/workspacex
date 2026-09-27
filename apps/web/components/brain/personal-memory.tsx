@@ -15,7 +15,7 @@ import {
 } from "@/lib/brain-view";
 import { chatMemoryHref } from "@/lib/chat-memory-link";
 import type { PersonalKnowledge } from "@/lib/knowledge-graph-api";
-import { KG_RELOAD_ON_FAILURE, describeBrainActionFailure } from "@/lib/knowledge-graph-failure";
+import { BRAIN_FORGET_STILL_LIVE_ZH, KG_RELOAD_ON_FAILURE, describeBrainActionFailure } from "@/lib/knowledge-graph-failure";
 import { knowledgeGraphErrorCode } from "@/lib/knowledge-graph-api";
 import { personalOriginLabel } from "@/lib/knowledge-graph-recall";
 import { KG_CLAIM_KIND_LABEL_ZH, KG_OBJECT_KIND_LABEL_ZH, groupClaimsByKind } from "@/lib/knowledge-graph-view";
@@ -37,8 +37,8 @@ export function PersonalMemory({
   personal: PersonalKnowledge;
   origins: readonly PersonalClaimOrigin[];
   onShowSessions: () => void;
-  /** 改过之后静默重读两份数据（use-brain-data 的 refresh） */
-  onChanged: () => Promise<void>;
+  /** 改过之后静默重读两份数据（use-brain-data 的 refresh），返回重读到的长期记忆 */
+  onChanged: () => Promise<PersonalKnowledge>;
 }) {
   const [query, setQuery] = React.useState("");
   const [kind, setKind] = React.useState<KgClaimKind | null>(null);
@@ -55,14 +55,20 @@ export function PersonalMemory({
   const visible = React.useMemo(() => filterPersonalClaims(claims, query, kind), [claims, query, kind]);
   const objects = personal.objects.filter((o) => o.claimCount > 0);
 
-  const run = async (next: Pending, anchorClaimId: string, act: (progress: (n: number) => void) => Promise<void>) => {
+  const run = async (
+    next: Pending, anchorClaimId: string, act: (progress: (n: number) => void) => Promise<void>,
+    /** 成功后按重读结果核对：返回一句话 ⇒ 动作没有真的生效，如实说在那一条下面 */
+    check: (fresh: PersonalKnowledge) => string | null = () => null,
+  ) => {
     if (pending !== null) return;
     setError(null);
     setPending(next);
     let progressed = 0;
     try {
       await act((n) => { progressed = n; });
-      await onChanged().catch(() => undefined);
+      const fresh = await onChanged().catch(() => null);
+      const notDone = fresh === null ? null : check(fresh);
+      if (notDone !== null) setError({ claimId: anchorClaimId, message: notDone });
     } catch (e) {
       setError({ claimId: anchorClaimId, message: describeBrainActionFailure(e) });
       // 服务端已经和界面不一致（这一条变了 / 版本变了），或多个来源里已经做掉了几个 ⇒ 重读看真实结果
@@ -77,7 +83,10 @@ export function PersonalMemory({
   const forget = (c: Claim) => {
     const steps = forgetPlan(c, byClaim.get(c.id) ?? []);
     if (steps === null) return;
-    void run({ kind: "forget", claimId: c.id }, c.id, (p) => forgetFromBrain(steps, p));
+    void run(
+      { kind: "forget", claimId: c.id }, c.id, (p) => forgetFromBrain(steps, p),
+      (fresh) => (fresh.claims.some((x) => x.id === c.id) ? BRAIN_FORGET_STILL_LIVE_ZH : null),
+    );
   };
   const undoSupersede = (by: Claim, r: PersonalReplaced) => {
     if (r.undo === null) return;

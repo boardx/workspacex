@@ -47,8 +47,14 @@ export function earliestSaidAt(origins: readonly PersonalClaimOrigin[]): string 
  *   - 这条仍是「AI 记下的」、且这个来源是系统自动记下的（#4283）⇒ `undoAutoPersonalCopy`：
  *     只拿掉长期记忆里的那份（副本只剩这一个来源 ⇒ 失效；还有别的来源 ⇒ 只摘掉这一个），对话里那条不动；
  *   - 其余（你确认过的、你点「记到我的长期记忆」记下的）⇒ 在来源对话里 `revokeClaim` 那条原话记下的：
- *     与对话「记忆」页签的「忘掉这条」同一个动作，F07 级联让长期记忆里那份在所有来源都忘掉后一起失效。
- * 没有来源（出自的对话已不在）⇒ null：没有既有动作能忘掉它，界面不给按钮。
+ *     与对话「记忆」页签的「忘掉这条」同一个动作，F07 级联让长期记忆里那份在所有**活来源**都忘掉后一起失效
+ *     （活来源 = 活的 derived_from 边 + 来源结论未失效，即 `personalOrigins` 列出的那些；被撤销自动记入摘掉的来源
+ *     不再撑着它——20260927100000_kg_f07_active_sources_only.sql，#4302 review）。
+ * 没有来源（出自的对话已不在）⇒ null：没有既有动作能忘掉它，界面不给按钮（不去动任何对话里的结论）。
+ * 顺序：不碰对话结论的 `undoAutoCopy` 在前，会忘掉对话里那条的 `revokeSource` 在后——中途失败时，
+ * 对话里的结论尽量还没被动过。
+ * 个人空间里的那条本身没有可直接撤回的既有动作（applyHumanAction 只作用于对话；F17 忘掉卡只在对话回答下出现），
+ * 所以只能走来源；做完后调用方重读核对，仍活着就如实说（BRAIN_FORGET_STILL_LIVE_ZH）。
  */
 export type ForgetStep =
   | { readonly kind: "undoAutoCopy"; readonly threadId: string; readonly sourceClaimId: string }
@@ -56,11 +62,12 @@ export type ForgetStep =
 
 export function forgetPlan(claim: Pick<Claim, "triState">, origins: readonly PersonalClaimOrigin[]): ForgetStep[] | null {
   if (origins.length === 0) return null;
-  return origins.map((o) => ({
-    kind: o.autoCopied && claim.triState === "pending" ? "undoAutoCopy" as const : "revokeSource" as const,
+  const steps = origins.map((o): ForgetStep => ({
+    kind: o.autoCopied && claim.triState === "pending" ? "undoAutoCopy" : "revokeSource",
     threadId: o.threadId,
     sourceClaimId: o.sourceClaimId,
   }));
+  return [...steps.filter((s) => s.kind === "undoAutoCopy"), ...steps.filter((s) => s.kind === "revokeSource")];
 }
 
 /** 按类型计数（只列有的类型，顺序同会话记忆面板）。 */

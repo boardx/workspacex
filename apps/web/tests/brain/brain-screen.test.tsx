@@ -357,3 +357,64 @@ describe("大脑页：跨会话的长期记忆（issue #4302）", () => {
     for (const w of KG_BANNED_USER_FACING_WORDS) expect(copy).not.toContain(w);
   });
 });
+
+/* ── issue #4302 review：多个来源的忘掉、中途失败、忘掉后仍活着 ─────────────────── */
+
+/** 仍是「AI 记下的」、两个来源：thr-m 是你手动记下的，thr-a 是自动记下的。 */
+const MULTI: PersonalKnowledge = { ...AFTER_CHANGE, claims: [pending("p-multi", FRONT, "c-m")], replaced: [] };
+const MULTI_OVERVIEW: BrainOverview = knowledgeGraph.getBrainOverview.out.parse({
+  threads: [],
+  personalOrigins: [
+    { personalClaimId: "p-multi", sourceClaimId: "c-m", threadId: "thr-m", projectId: null, threadTitle: "手动", saidAt: SAID_0926, autoCopied: false },
+    { personalClaimId: "p-multi", sourceClaimId: "c-a", threadId: "thr-a", projectId: null, threadTitle: "自动", saidAt: SAID_0926, autoCopied: true },
+  ],
+});
+const UNDO_A = "/knowledge-graph/threads/thr-a/claims/c-a/personal-copy/undo";
+const REVOKE_M = { path: "/knowledge-graph/threads/thr-m/actions", body: { basedOnRevision: 7, action: { type: "revokeClaim", claimId: "c-m" } } };
+
+describe("大脑页：忘掉有多个来源的一条（issue #4302 review）", () => {
+  it("逐个来源各走一步：不碰对话结论的撤销自动记入在前，忘掉对话里那条在后；全部成功后它不见了", async () => {
+    const state = brainServer((p) => {
+      if (p === UNDO_A) return json({ personalClaimId: "p-multi", outcome: "detached" });
+      state.personal = { ...MULTI, claims: [] };
+      return json({ revision: 8, actionId: "act-m" });
+    });
+    state.personal = MULTI;
+    state.overview = MULTI_OVERVIEW;
+    render(<BrainScreen />);
+    await screen.findByTestId("brain-personal");
+    fireEvent.click(within(itemOf(FRONT)).getByTestId("brain-forget"));
+    await screen.findByTestId("brain-personal-empty");
+    expect(writes()).toEqual([{ path: UNDO_A, body: {} }, REVOKE_M]);
+    expect(screen.queryByTestId("brain-action-error")).toBeNull();
+  });
+
+  it("做掉一步后第二步失败（没有错误码）⇒ 仍然重读列表看真实结果，并在那一条下面说原因", async () => {
+    const state = brainServer((p) => (p === UNDO_A
+      ? json({ personalClaimId: "p-multi", outcome: "detached" })
+      : new Response("<html>bad gateway</html>", { status: 502 })));
+    state.personal = MULTI;
+    state.overview = MULTI_OVERVIEW;
+    render(<BrainScreen />);
+    await screen.findByTestId("brain-personal");
+    fireEvent.click(within(itemOf(FRONT)).getByTestId("brain-forget"));
+    const err = await screen.findByTestId("brain-action-error");
+    expect(err.textContent).toBe("没能完成，请稍后重试。");
+    expect(writes()).toEqual([{ path: UNDO_A, body: {} }, REVOKE_M]);
+    // 初次一份 + 因「已经做掉一步」重读一份（去掉 progressed > 0 这条就只剩初次那份）
+    await waitFor(() => expect(paths().filter((p) => p === "/knowledge-graph/personal")).toHaveLength(2));
+  });
+
+  it("每一步都成功、重读后那条却还活着 ⇒ 不报成功，在那一条下面如实说「还有别的来源，没有忘掉」", async () => {
+    // 服务端：动作都 200，但长期记忆里那条仍在（有界面看不到的来源撑着）
+    brainServer(() => json({ revision: 8, actionId: "act-2" }));
+    render(<BrainScreen />);
+    await screen.findByTestId("brain-personal");
+    fireEvent.click(within(itemOf(FRONT)).getByTestId("brain-forget"));
+    const err = await screen.findByTestId("brain-action-error");
+    expect(err.textContent).toBe("这条长期记忆还有别的来源，没有忘掉。");
+    expect(statements()).toEqual([NEW_985, FRONT]);
+    expect(within(itemOf(FRONT)).getByTestId("brain-action-error")).toBe(err);
+    expect(writes()).toEqual([{ path: "/knowledge-graph/threads/thr-c/actions", body: { basedOnRevision: 7, action: { type: "revokeClaim", claimId: "c-front" } } }]);
+  });
+});
