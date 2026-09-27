@@ -70,9 +70,11 @@ it("creates twenty 24px-spaced stickies by typing and pressing Tab without openi
 
 it("guards shortcuts inside inputs and creates from N/T only when canvas context owns the key", () => {
   const doc = editor();
+  fireEvent.pointerDown(screen.getByTestId("board-title-menu"),{button:0,ctrlKey:false});
   const title = screen.getByLabelText("白板名称");
   fireEvent.keyDown(title, { key: "n" });
   expect(readObjects(doc)).toHaveLength(0);
+  fireEvent.keyDown(title,{key:"Escape"});
   act(() => window.dispatchEvent(new KeyboardEvent("keydown", { key: "n", bubbles: true })));
   expect(readObjects(doc)).toHaveLength(1);
   fireEvent.keyDown(screen.getByLabelText("对象文字"), { key: "t" });
@@ -223,4 +225,8 @@ it("shows contextual data in read-only mode but disables every mutation control"
   expect(screen.getByText("保存预览", { exact: true })).toBeDisabled();
   expect(readObjects(doc)).toEqual(before);
   doc.destroy();
+});
+
+it("keeps creation palette defaults separate from the selected sticky's canonical color",()=>{
+ const doc=editor();fireEvent.click(screen.getByTestId("board-add-sticky"));fireEvent.click(screen.getByTestId("board-sticky-default-blue"));expect(readObjects(doc)).toHaveLength(0);fireEvent.click(screen.getByTestId("mock-canvas-click"));const first=readObjects(doc)[0]!;const originalFill=first.style.fill;expect(originalFill).toBeTruthy();fireEvent.keyDown(screen.getByLabelText("对象文字"),{key:"Escape"});fireEvent.click(screen.getByTestId("board-add-sticky"));fireEvent.click(screen.getByTestId("board-sticky-default-pink"));expect(readObjects(doc)[0]!.style.fill).toBe(originalFill);fireEvent.click(screen.getByTestId("mock-canvas-click"));expect(readObjects(doc)).toHaveLength(2);expect(readObjects(doc).find(object=>object.id!==first.id)!.style.fill).not.toBe(originalFill);doc.destroy();
 });

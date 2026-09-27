@@ -6,7 +6,7 @@ import { boardToolbarPosition } from "@/components/whiteboard/use-board-toolbar-
 import type { BoardViewport } from "@/components/whiteboard/fabric/board-fabric-object";
 
 let camera: BoardViewport;
-vi.mock("@/components/whiteboard/fabric/board-fabric-surface", () => ({ BoardFabricSurface: ({ onViewportChange }: { onViewportChange: (viewport: BoardViewport) => void }) => <button data-testid="test-camera" onClick={() => onViewportChange(camera)}>camera</button> }));
+vi.mock("@/components/whiteboard/fabric/board-fabric-surface", () => ({ BoardFabricSurface: ({ onViewportChange,onCanvasClick }: { onCanvasClick:(point:{x:number;y:number})=>void;onViewportChange: (viewport: BoardViewport) => void }) => <><button data-testid="test-create" onClick={()=>onCanvasClick({x:400,y:300})}>place</button><button data-testid="test-camera" onClick={() => onViewportChange(camera)}>camera</button></> }));
 class ResizeObserverMock { observe() {} disconnect() {} }
 beforeEach(() => { vi.stubGlobal("ResizeObserver", ResizeObserverMock); vi.stubGlobal("innerWidth", 1024); vi.stubGlobal("innerHeight", 768); camera = { zoom: 1, panX: 0, panY: 0, fitRequest: 0 }; });
 afterEach(() => { cleanup(); vi.restoreAllMocks(); vi.unstubAllGlobals(); });
@@ -24,6 +24,7 @@ for (const kind of ["sticky", "shape"] as const) {
     const doc = createWhiteboardDocument();
     render(<CollaborativeThinkingEditor boardId="board" clientId="web" doc={doc} readOnly={false} title="Board" status="已连接" />);
     fireEvent.click(screen.getByTestId(`board-add-${kind}`));
+    if(kind === "sticky")fireEvent.click(screen.getByTestId("test-create"));
     const object = readObjects(doc)[0]!;
     act(() => { new SpatialRelationshipCommandPort(doc).dispatch({ boardId: "board", clientId: "test", gestureId: "edge", command: { type: "transform", items: [{ id: object.id, geometry: { ...object.geometry, x, y } }] } }); });
     camera = { ...camera, zoom };
@@ -63,7 +64,7 @@ it.each([{ width: 1440, height: 900 }, { width: 1280, height: 720 }, { width: 10
 for (const kind of ["sticky", "shape"] as const) it(`${kind} reads measured chrome in offset-parent coordinates and avoids it`, () => {
   vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockImplementation(function (this: HTMLElement) {
     const chrome = this.dataset.boardChrome;
-    if (chrome) { const control = controls[chrome === "editing" ? 0 : 1]!; return DOMRect.fromRect({ x: control.x + 80, y: control.y + 40, width: control.width, height: control.height }); }
+    if (chrome) { const control = controls[chrome === "header" ? 0 : 1]!; return DOMRect.fromRect({ x: control.x + 80, y: control.y + 40, width: control.width, height: control.height }); }
     if (this.dataset.testid === "collaborative-editor") return DOMRect.fromRect({ x: 80, y: 40, width: 1024, height: 768 });
     if (this.dataset.testid === "board-context-toolbar") return DOMRect.fromRect({ width: 440, height: 54 });
     return DOMRect.fromRect({});
@@ -71,6 +72,7 @@ for (const kind of ["sticky", "shape"] as const) it(`${kind} reads measured chro
   const doc = createWhiteboardDocument();
   render(<CollaborativeThinkingEditor boardId="board" clientId="web" doc={doc} readOnly={false} title="Board" status="已连接" />);
   fireEvent.click(screen.getByTestId(`board-add-${kind}`));
+    if(kind === "sticky")fireEvent.click(screen.getByTestId("test-create"));
   const object = readObjects(doc)[0]!, geometry = { ...object.geometry, x: 160, y: 200 };
   act(() => { new SpatialRelationshipCommandPort(doc).dispatch({ boardId: "board", clientId: "test", gestureId: "chrome", command: { type: "transform", items: [{ id: object.id, geometry }] } }); });
   const toolbar = screen.getByTestId("board-context-toolbar");

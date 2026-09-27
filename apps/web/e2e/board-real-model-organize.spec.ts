@@ -36,7 +36,7 @@ test('real model reads 30 notes → named clusters preview → atomic confirm �
   expect(actor,'register a delegated published Agent with matching model and immutable pinned skill via trusted administration').toBeTruthy();
   evidence.actor=actor;
   const snapshot=async()=>await(await api('GET',`/v1/whiteboards/${boardId}/objects?actorId=${encodeURIComponent(actor.actorId)}`)).json() as {objects:WhiteboardObject[];revision:{epoch:number;seq:number}};
-  await page.goto(`/studio/board/${boardId}`);await expect(page.getByTestId('board-organize-controls')).toBeVisible();
+  await page.goto(`/studio/board/${boardId}`);await expect(page.getByTestId('board-add-more')).toBeVisible();
   await page.keyboard.press('Shift+N');await page.getByTestId('board-bulk-text').fill(texts.join('\n'));await page.getByTestId('board-bulk-apply').click();
   await expect.poll(async()=>(await snapshot()).objects.length).toBe(30);
   const before=await snapshot();evidence.before=before;

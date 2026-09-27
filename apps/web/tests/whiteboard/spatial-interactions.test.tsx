@@ -40,8 +40,9 @@ function mount() {
 }
 
 function createPanelAndSticky() {
+  fireEvent.click(screen.getByTestId("board-add-more"));
   fireEvent.click(screen.getByTestId("board-add-panel"));
-  fireEvent.click(screen.getByTestId("board-add-sticky"));
+  fireEvent.keyDown(window,{key:"n"});
 }
 
 it("creates and edits a semantic Panel, highlights a drop target, and reparents through the spatial port", () => {
@@ -168,7 +169,9 @@ it("preflights multi-delete and commits preserve-free endpoints in one UI transa
   });
   fireEvent.click(screen.getByTestId("mock-select-stickies"));
   const before = readObjects(doc);
+  fireEvent.click(screen.getByLabelText("更多白板操作"));
   fireEvent.click(screen.getByRole("button", { name: "删除选中" }));
+  fireEvent.keyDown(document,{key:"Escape"});
   expect(readObjects(doc)).toEqual(before);
   act(() => port.dispatch({ boardId: "spatial-board", clientId: "fixture", gestureId: "unlock-edge", command: { type: "set-locked", objectIds: ["edge"], locked: false } }));
   const transactions: Y.Transaction[] = [];
@@ -195,8 +198,8 @@ it("keeps multi-selection quiet and restores handles for touch single-selection"
   expect(readObjects(doc).find(object=>object.kind==='connector')?.connector).toMatchObject({from:a.id,to:b.id});
 });
 
-it("keeps sync text on one line and puts edit/view controls beside the bottom tools",()=>{
- mount();expect(screen.getByTestId('board-sync-status')).toHaveClass('whitespace-nowrap','shrink-0');
+it("keeps sync text on one line and keeps history in the header and view controls separate from the bottom dock",()=>{
+ mount();expect(screen.getByTestId('board-sync-status')).toHaveClass('whitespace-nowrap');
  expect(screen.getByTestId('board-editor-header')).not.toContainElement(screen.getByTestId('board-zoom-fit-board'));
  expect(screen.getByTestId('board-navigation-controls')).toContainElement(screen.getByTestId('board-zoom-fit-board'));
 });
