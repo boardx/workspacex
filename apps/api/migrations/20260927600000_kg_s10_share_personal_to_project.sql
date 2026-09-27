@@ -12,10 +12,11 @@
 --
 -- 撤回（`kg_unshare_claim_from_project`）：把项目副本失效（user_revoked），F07 `kg_cascade_claim_revocation`
 -- 随之把连着副本的边软失效；个人空间的原件一字不动（级联只往「由它派生的」方向走，原件是边的另一端）。
--- 原件失效（主人在 /brain「忘掉」、原话被删、被改口取代）⇒ 由它分享出去的项目副本一并失效
--- （`kg_cascade_personal_share`，下面）：分享的是「我现在认的这句话」，主人不再认了，项目里不该还挂着他的名字。
--- ⚠ 不改 `kg_cascade_claim_revocation` 本身（S6 等并行轮次可能也在改它）：另挂一个触发器，名字排在它前面
---   （PostgreSQL 同一事件的触发器按名字字母序执行）——那个函数会把连着原件的边全部软失效，排在它后面就找不到活边了。
+-- 原件失效（主人在 /brain「忘掉」、原话被删、被改口取代）⇒ 由它分享出去的项目副本一并失效；原件被整合成重复
+-- 的一条 ⇒ 副本改挂到留下的那条；原件被撤销恢复 ⇒ 副本随之恢复（`kg_cascade_personal_share`，下面有详细说明）：
+-- 分享的是「我现在认的这句话」，主人不再认了，项目里不该还挂着他的名字。
+-- ⚠ 不改 `kg_cascade_claim_revocation` 本身（S6 等并行轮次可能也在改它）：另挂一个触发器。F07 会把连着原件的边
+--   全部软失效；这里的判定不看边是否还活着（审查 F1），所以与两个触发器谁先跑无关。
 
 -- ─────────────────────────────── 分享 ───────────────────────────────
 CREATE OR REPLACE FUNCTION kg_share_claim_to_project(p jsonb) RETURNS jsonb
@@ -180,26 +181,117 @@ AS $$
      AND d.dst_kind = 'claim' AND d.relation = 'derived_from' AND d.status = 'active'
     JOIN public.claims src ON src.org_id = d.org_id AND src.id = d.dst_id AND src.scope_kind = 'personal'
    WHERE c.org_id = current_setting('app.current_org', true) AND c.id = p_claim AND c.scope_kind = 'project'
+     -- 审查 F2：只回答这个项目的成员（调用方是召回 / 项目大脑，都先设了 app.current_user_id = 查看者）。
+     AND EXISTS (SELECT 1 FROM public.project_memberships m
+                  WHERE m.org_id = c.org_id AND m.project_id = c.scope_id
+                    AND m.user_id = current_setting('app.current_user_id', true))
    LIMIT 1
 $$;
 
--- ─────────────────────────────── 原件失效 ⇒ 分享出去的副本失效 ───────────────────────────────
+-- ─────────────────────────────── 原件失效 / 恢复 ⇒ 分享出去的副本跟着走 ───────────────────────────────
+-- 与其他轮次的交互（跨 PR 迁移分析，2026-09-27）。原因码都是普通文本，按字面判断，对方未合入时这些分支只是不会被走到：
+--   ① 原件被失效（任何原因，含 S4 #4361 的 'user_forgot'「忘掉」）⇒ 项目副本失效，原因记成本文件独有的
+--      'personal_source_revoked'——只有带这个原因的副本才会在 ③ 被恢复（主人自己「撤回分享」的 user_revoked 不会）。
+--   ② S8 #4491 整合（kg_consolidation_apply_merges）把重复的那条以 'consolidated_duplicate' 失效，事实仍由留下的那条承载
+--      ⇒ 副本**不失效**，把它的 derived_from 改挂到留下的那条（同一人个人空间里：先认 supersedes_claim_id 指向败者的，
+--      否则认 kg_claim_basis 说法相同的活结论）。找不到留下的那条 ⇒ 什么都不做（副本保留；指向败者的边随 F07 软失效，
+--      之后项目大脑不再标分享人——宁可少一个出处标签，也不因为「整理重复」把同事看得到的东西撤掉）。
+--   ③ 撤销把原件的 revoked_at 放回 NULL（S4 kg_undo_memory_card、S8 kg_consolidation_undo）⇒ 恢复 ① 撤掉的副本：
+--      副本回到 accepted，它被软失效的 derived_from 边、指向活实体的 about/decided_by 边重新生效。条件：主人仍是项目
+--      非观察者成员、项目未归档、这个项目里还没有同一原件的另一份活副本（主人在这期间重新分享过 ⇒ 不再复活旧的）。
+--   ④ S6 #4492 的 kg_copy_inherits_time 会在插入 derived_from 边时把 valid_to / due_at / todo_status 抄到副本上——
+--      与这里无冲突；② 改挂新边时它照常生效。
 CREATE OR REPLACE FUNCTION kg_cascade_personal_share() RETURNS trigger
 LANGUAGE plpgsql SECURITY DEFINER SET search_path = pg_catalog, public, pg_temp
 AS $$
+DECLARE
+  v_kept text;
+  r      record;
 BEGIN
-  IF NEW.scope_kind IS DISTINCT FROM 'personal' OR OLD.revoked_at IS NOT NULL OR NEW.revoked_at IS NULL THEN RETURN NULL; END IF;
-  UPDATE public.claims pc
-     SET status = 'superseded', revoked_at = now(), revocation_reason = coalesce(NEW.revocation_reason, 'user_revoked'), updated_at = now()
-   WHERE pc.org_id = NEW.org_id AND pc.scope_kind = 'project' AND pc.revoked_at IS NULL
-     AND EXISTS (SELECT 1 FROM public.ontology_edges d
-                  WHERE d.org_id = pc.org_id AND d.src_kind = 'claim' AND d.src_id = pc.id AND d.relation = 'derived_from'
-                    AND d.dst_kind = 'claim' AND d.dst_id = NEW.id AND d.status = 'active');
+  IF NEW.scope_kind IS DISTINCT FROM 'personal' THEN RETURN NULL; END IF;
+
+  IF OLD.revoked_at IS NULL AND NEW.revoked_at IS NOT NULL THEN
+    IF NEW.revocation_reason = 'consolidated_duplicate' THEN
+      SELECT k.id INTO v_kept FROM public.claims k
+       WHERE k.org_id = NEW.org_id AND k.scope_kind = 'personal' AND k.scope_id = NEW.scope_id AND k.id <> NEW.id
+         AND k.revoked_at IS NULL AND k.status <> 'superseded'
+         AND (k.supersedes_claim_id = NEW.id OR public.kg_claim_basis(k.statement) = public.kg_claim_basis(NEW.statement))
+       ORDER BY (k.supersedes_claim_id IS NOT DISTINCT FROM NEW.id) DESC, k.created_at, k.id
+       LIMIT 1;
+      IF v_kept IS NOT NULL THEN
+        -- 不看边是否还活着（审查 F1：不依赖本触发器排在 F07 之前）；已经挂到别处的副本（有指向别的结论的活 derived_from）不动。
+        FOR r IN
+          SELECT DISTINCT ON (pc.id) pc.id AS copy_id, d.org_id, d.created_by, d.scope_kind, d.scope_id
+            FROM public.ontology_edges d JOIN public.claims pc ON pc.id = d.src_id AND pc.org_id = d.org_id
+           WHERE d.org_id = NEW.org_id AND d.src_kind = 'claim' AND d.dst_kind = 'claim' AND d.dst_id = NEW.id
+             AND d.relation = 'derived_from' AND pc.scope_kind = 'project' AND pc.revoked_at IS NULL
+             AND NOT EXISTS (SELECT 1 FROM public.ontology_edges o
+                              WHERE o.org_id = pc.org_id AND o.src_kind = 'claim' AND o.src_id = pc.id AND o.relation = 'derived_from'
+                                AND o.dst_kind = 'claim' AND o.dst_id <> NEW.id AND o.status = 'active')
+           ORDER BY pc.id, d.created_at DESC
+        LOOP
+          UPDATE public.ontology_edges SET status = 'invalidated', invalidated_at = now()
+           WHERE org_id = r.org_id AND src_kind = 'claim' AND src_id = r.copy_id AND dst_kind = 'claim' AND dst_id = NEW.id
+             AND relation = 'derived_from' AND status = 'active';
+          INSERT INTO public.ontology_edges (id, org_id, src_kind, src_id, dst_kind, dst_id, relation, created_by, scope_kind, scope_id)
+          VALUES (r.copy_id || '-k-' || v_kept, r.org_id, 'claim', r.copy_id, 'claim', v_kept, 'derived_from', r.created_by, r.scope_kind, r.scope_id)
+          ON CONFLICT (id) DO NOTHING;
+        END LOOP;
+      END IF;
+      RETURN NULL;
+    END IF;
+
+    -- 边状态不作条件（审查 F1：F07 先跑、把边软失效了也照样找得到）；改挂到别的结论上的副本（② 之后）不跟着这一条走。
+    UPDATE public.claims pc
+       SET status = 'superseded', revoked_at = now(), revocation_reason = 'personal_source_revoked', updated_at = now()
+     WHERE pc.org_id = NEW.org_id AND pc.scope_kind = 'project' AND pc.revoked_at IS NULL
+       AND EXISTS (SELECT 1 FROM public.ontology_edges d
+                    WHERE d.org_id = pc.org_id AND d.src_kind = 'claim' AND d.src_id = pc.id AND d.relation = 'derived_from'
+                      AND d.dst_kind = 'claim' AND d.dst_id = NEW.id)
+       AND NOT EXISTS (SELECT 1 FROM public.ontology_edges o
+                        WHERE o.org_id = pc.org_id AND o.src_kind = 'claim' AND o.src_id = pc.id AND o.relation = 'derived_from'
+                          AND o.dst_kind = 'claim' AND o.dst_id <> NEW.id AND o.status = 'active');
+    RETURN NULL;
+  END IF;
+
+  IF OLD.revoked_at IS NOT NULL AND NEW.revoked_at IS NULL THEN
+    FOR r IN
+      SELECT pc.id AS copy_id, pc.scope_id AS project_id, d.id AS edge_id
+        FROM public.claims pc
+        JOIN public.ontology_edges d ON d.org_id = pc.org_id AND d.src_kind = 'claim' AND d.src_id = pc.id
+         AND d.dst_kind = 'claim' AND d.dst_id = NEW.id AND d.relation = 'derived_from'
+       WHERE pc.org_id = NEW.org_id AND pc.scope_kind = 'project' AND pc.revoked_at IS NOT NULL
+         AND pc.revocation_reason = 'personal_source_revoked'
+         -- 这份副本当时挂的就是这一条（最近的 derived_from 指向它）：② 改挂过、后来随留下的那条失效的副本，不因败者回来而复活。
+         AND (SELECT d3.dst_id FROM public.ontology_edges d3
+               WHERE d3.org_id = pc.org_id AND d3.src_kind = 'claim' AND d3.src_id = pc.id AND d3.relation = 'derived_from'
+                 AND d3.dst_kind = 'claim'
+               ORDER BY d3.created_at DESC, d3.id DESC LIMIT 1) = NEW.id
+       ORDER BY pc.revoked_at DESC, pc.id
+    LOOP
+      CONTINUE WHEN EXISTS (
+        SELECT 1 FROM public.ontology_edges d2 JOIN public.claims c2 ON c2.id = d2.src_id AND c2.org_id = d2.org_id
+         WHERE d2.org_id = NEW.org_id AND d2.src_kind = 'claim' AND d2.dst_kind = 'claim' AND d2.dst_id = NEW.id
+           AND d2.relation = 'derived_from' AND d2.status = 'active'
+           AND c2.scope_kind = 'project' AND c2.scope_id = r.project_id AND c2.revoked_at IS NULL);
+      CONTINUE WHEN NOT EXISTS (
+        SELECT 1 FROM public.project_memberships m
+         WHERE m.org_id = NEW.org_id AND m.project_id = r.project_id AND m.user_id = NEW.scope_id AND m.project_role <> 'observer');
+      CONTINUE WHEN NOT public.kernel_project_is_writable(r.project_id);
+      UPDATE public.claims SET status = 'accepted', revoked_at = NULL, revocation_reason = NULL, updated_at = now()
+       WHERE org_id = NEW.org_id AND id = r.copy_id;
+      UPDATE public.ontology_edges e SET status = 'active', invalidated_at = NULL
+       WHERE e.org_id = NEW.org_id AND e.src_kind = 'claim' AND e.src_id = r.copy_id AND e.status = 'invalidated'
+         AND (e.id = r.edge_id
+              OR (e.dst_kind = 'object' AND e.relation IN ('about', 'decided_by')
+                  AND EXISTS (SELECT 1 FROM public.ontology_objects o WHERE o.org_id = e.org_id AND o.id = e.dst_id AND o.merged_into IS NULL)));
+    END LOOP;
+  END IF;
   RETURN NULL;
 END
 $$;
 
--- 名字排在 kg_cascade_claim_revocation_trg 之前（见文件头）。
+-- 与 kg_cascade_claim_revocation_trg 的先后无关（见文件头）。
 DROP TRIGGER IF EXISTS kg_cascade_0_personal_share_trg ON claims;
 CREATE TRIGGER kg_cascade_0_personal_share_trg AFTER UPDATE OF revoked_at ON claims
   FOR EACH ROW EXECUTE FUNCTION kg_cascade_personal_share();

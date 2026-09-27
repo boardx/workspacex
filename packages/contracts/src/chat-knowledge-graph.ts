@@ -703,6 +703,7 @@ export const knowledgeGraph = {
     out: z.object({ projectClaimId: z.string(), outcome: z.enum(["shared", "already_shared"]) }).strict(),
     err: [
       "KG_CLAIM_NOT_FOUND", "KG_PROJECT_NOT_FOUND", "KG_PROJECT_READ_ONLY", "KG_CONTESTED_NEEDS_RESOLUTION", "KG_ACTOR_NOT_HUMAN",
+      "KG_SCOPE_NOT_ENABLED",
     ] as const,
   },
 

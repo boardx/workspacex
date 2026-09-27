@@ -182,6 +182,13 @@ describe("S10 分享到项目：个人结论显式提升到项目层", () => {
       expect(r.body.claims.map((c) => [c.id, c.statement])).toEqual([[ids.copy, FACT]]);
       expect(r.body.sharedFromPersonal).toEqual([{ claimId: ids.copy, sharedByName: "李雷" }]);
     }
+    // 审查 F2：出处函数只回答项目成员——项目外的人直接调也拿不到分享人
+    const authorAs = (userId: string) => asOwner(async (c) => {
+      await c.query("SELECT set_config('app.current_org', $1, false), set_config('app.current_user_id', $2, false)", [ORG, userId]);
+      return (await c.query<{ n: string | null }>("SELECT kg_share_author_name($1) AS n", [ids.copy])).rows[0]!.n;
+    });
+    expect(await authorAs(MATE)).toBe("李雷");
+    expect(await authorAs(OUT)).toBeNull();
     const denied = await out.get(`/knowledge-graph/projects/${P1}`);
     expect(denied.status).toBe(403);
     expect(JSON.stringify(denied.body)).not.toContain(FACT);
@@ -235,9 +242,74 @@ describe("S10 分享到项目：个人结论显式提升到项目层", () => {
     expect(mine.body.claims.map((x) => x.id)).toContain(ids.personal);
   });
 
-  it("原件被忘掉（原结论在出处对话里被撤掉 ⇒ F07 级联到长期记忆）⇒ 分享出去的项目副本一并失效", async () => {
+  // 跨轮次交互（S4 #4361 忘掉 / 撤销卡、S8 #4491 整合 / 整合撤销、S6 #4492 时间继承）：那些分支还没合入 main，这里按它们的
+  // 落库形状直接改行来模拟（原因码是普通文本）。S6 的 kg_copy_inherits_time 会往副本上抄 valid_to / due_at / todo_status，
+  // 所以本文件不对副本的这几列做「必须为空」的断言。TODO(#4491 / S4 claude/s4-memory-manage)：合入后改走真函数再跑一遍。
+  const liveCopy = async (id: string) => (await sql<{ live: boolean; reason: string | null }>(
+    "SELECT (revoked_at IS NULL AND status <> 'superseded') AS live, revocation_reason AS reason FROM claims WHERE id = $1", [id]))[0];
+  const derivedTo = (id: string) => sql<{ dst_id: string }>(
+    "SELECT dst_id FROM ontology_edges WHERE src_id = $1 AND relation = 'derived_from' AND status = 'active' ORDER BY dst_id", [id]);
+  /** 模拟一次撤销（S4 kg_undo_memory_card / S8 kg_consolidation_undo）：原件恢复成活的，它自己连出去的边也回来。 */
+  const undoRevoke = async (id: string) => {
+    await sql("UPDATE ontology_edges SET status = 'active', invalidated_at = NULL WHERE src_id = $1 AND status = 'invalidated'", [id]);
+    await sql("UPDATE claims SET status = 'accepted', revoked_at = NULL, revocation_reason = NULL, updated_at = now() WHERE id = $1", [id]);
+  };
+  const revokeAs = (id: string, reason: string) =>
+    sql("UPDATE claims SET status = 'superseded', revoked_at = now(), revocation_reason = $2, updated_at = now() WHERE id = $1", [id, reason]);
+
+  it("整合（S8 'consolidated_duplicate'）：副本不失效，derived_from 改挂到留下的那条，出处照旧；留下的那条再被忘掉 ⇒ 副本失效", async () => {
     const r = await owner.post<{ projectClaimId: string; outcome: string }>(sharePath(ids.personal), { projectId: P1 });
     expect(r.body.outcome).toBe("shared");
+    const copyA = r.body.projectClaimId;
+    const KEPT = "clm-s10-kept";
+    await sql(`INSERT INTO claims (id, org_id, statement, status, tsv, claim_kind, confidence, created_by, reviewed_by,
+                                   scope_kind, scope_id, valid_from, supersedes_claim_id)
+               VALUES ($1, $2, $3, 'accepted', to_tsvector('simple', $3), 'fact', 1, 'human', $4, 'personal', $4, now(), $5)`,
+      [KEPT, ORG, FACT, OWNER, ids.personal]);
+    await revokeAs(ids.personal, "consolidated_duplicate");
+    expect(await liveCopy(copyA)).toEqual({ live: true, reason: null });
+    expect(await derivedTo(copyA)).toEqual([{ dst_id: KEPT }]);
+    const brain = await mate.get<{ claims: Array<{ id: string }>; sharedFromPersonal: unknown }>(`/knowledge-graph/projects/${P1}`);
+    expect(brain.body.claims.map((c) => c.id)).toEqual([copyA]);
+    expect(brain.body.sharedFromPersonal).toEqual([{ claimId: copyA, sharedByName: "李雷" }]);
+    // 整合被撤销（败者回来）：这份副本本来就没被撤，没有要恢复的，仍挂在留下的那条上
+    await undoRevoke(ids.personal);
+    expect(await liveCopy(copyA)).toEqual({ live: true, reason: null });
+    expect(await derivedTo(copyA)).toEqual([{ dst_id: KEPT }]);
+    // 败者之后再被忘掉：已改挂的副本不跟着它走
+    await revokeAs(ids.personal, "user_forgot");
+    expect((await liveCopy(copyA))!.live).toBe(true);
+    await undoRevoke(ids.personal);
+    // 留下的那条被忘掉 ⇒ 挂在它下面的副本一并失效（收尾，后面的用例从干净的项目记忆开始）
+    await revokeAs(KEPT, "user_forgot");
+    expect(await liveCopy(copyA)).toEqual({ live: false, reason: "personal_source_revoked" });
+  });
+
+  it("忘掉（S4 'user_forgot'）⇒ 副本失效；撤销忘掉 ⇒ 副本恢复（边也回来、出处照旧）；主人自己撤回的那份不恢复", async () => {
+    const r = await owner.post<{ projectClaimId: string; outcome: string }>(sharePath(ids.personal), { projectId: P1 });
+    expect(r.body.outcome).toBe("shared");
+    const copyB = r.body.projectClaimId;
+    await revokeAs(ids.personal, "user_forgot");
+    expect(await liveCopy(copyB)).toEqual({ live: false, reason: "personal_source_revoked" });
+    expect(await derivedTo(copyB)).toEqual([]);
+    expect((await mate.get<{ claims: unknown[] }>(`/knowledge-graph/projects/${P1}`)).body.claims).toEqual([]);
+
+    await undoRevoke(ids.personal);
+    expect(await liveCopy(copyB)).toEqual({ live: true, reason: null });
+    expect(await derivedTo(copyB)).toEqual([{ dst_id: ids.personal }]);
+    const brain = await mate.get<{ claims: Array<{ id: string }>; sharedFromPersonal: unknown }>(`/knowledge-graph/projects/${P1}`);
+    expect(brain.body.claims.map((c) => c.id)).toEqual([copyB]);
+    expect(brain.body.sharedFromPersonal).toEqual([{ claimId: copyB, sharedByName: "李雷" }]);
+    // 主人自己「撤回分享」的那份（user_revoked）不会被撤销忘掉带回来
+    expect(await liveCopy(ids.copy)).toEqual({ live: false, reason: "user_revoked" });
+    const t = await owner.get<{ targets: Array<{ sharedClaimId: string | null }> }>(targetsPath(ids.personal));
+    expect(t.body.targets[0]!.sharedClaimId).toBe(copyB);
+  });
+
+  it("原件被忘掉（原结论在出处对话里被撤掉 ⇒ F07 级联到长期记忆）⇒ 分享出去的项目副本一并失效", async () => {
+    // 上一条用例恢复出来的那份还活着 ⇒ 这里是 already_shared，交回的就是它
+    const r = await owner.post<{ projectClaimId: string; outcome: string }>(sharePath(ids.personal), { projectId: P1 });
+    expect(["shared", "already_shared"]).toContain(r.body.outcome);
     const copy2 = r.body.projectClaimId;
     expect(copy2).not.toBe(ids.copy);
     const k = await owner.get<ThreadKnowledgeBody>(`/knowledge-graph/threads/${OWN}`);
