@@ -15,6 +15,7 @@ export default defineConfig({ resolve:{alias:{
   '@repo/whiteboard-core':resolve(__dirname,'../../packages/whiteboard-core/src/index.ts'),
 }},test: {
   include: [
+    'tests/whiteboard/real-model-fixture-guard.test.ts',
     'tests/whiteboard/organize-service.test.ts',
     'tests/whiteboard/proposal-undo-boundary.test.ts',
     'tests/whiteboard/collaboration-budget.test.ts',
