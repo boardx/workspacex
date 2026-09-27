@@ -161,7 +161,7 @@ test.describe("设计工作台端到端：新建/深化 → 详情 → 推送 �
     await expect(page.getByTestId("design-detail")).toBeVisible();
     await expect(page.getByTestId("design-detail-linked")).toBeVisible();
     await expect(page.getByTestId("design-detail-chat")).toBeVisible();
-    await expect(page.getByTestId("design-detail-tab-canvas")).toBeVisible();
+    // design-delta `novice-progressive-disclosure`：常驻页签去掉了，默认就是画布——见上面新建那条的同一处。
     await expect(page.getByTestId("design-detail-canvas")).toBeVisible();
 
     // 深化产生的项目 id 就在详情页 URL 里——下面按 id 找卡片，不按位置。
