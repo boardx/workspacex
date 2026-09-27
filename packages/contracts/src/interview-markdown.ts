@@ -1,0 +1,86 @@
+import { z } from "zod";
+import { unified } from "unified";
+import remarkParse from "remark-parse";
+import remarkGfm from "remark-gfm";
+import { DigitalInterviewArtifactStep } from "./interview";
+
+/** Research body is kept verbatim; references are controlled metadata, not model claims. */
+export const InterviewMarkdownDocument = z.object({
+  documentId: z.string().min(1).refine((value) => value.trim().length > 0, "documentId cannot be blank"),
+  step: DigitalInterviewArtifactStep,
+  version: z.number().int().positive(),
+  markdown: z.string(),
+  contentHash: z.string().regex(/^[a-f0-9]{64}$/u),
+  evidenceMode: z.enum(["simulated", "participant", "mixed"]),
+  references: z.array(z.object({
+    anchor: z.string().regex(/^[a-zA-Z0-9][a-zA-Z0-9_-]*$/u),
+    documentId: z.string().min(1).refine((value) => value.trim().length > 0, "documentId cannot be blank"),
+    version: z.number().int().positive(),
+  }).strict()),
+}).strict().superRefine((document, context) => {
+  const anchors = new Set<string>();
+  document.references.forEach((reference, index) => {
+    if (anchors.has(reference.anchor)) context.addIssue({
+      code: z.ZodIssueCode.custom, path: ["references", index, "anchor"],
+      message: "reference anchors must be unique",
+    });
+    anchors.add(reference.anchor);
+  });
+});
+export type InterviewMarkdownDocument = z.infer<typeof InterviewMarkdownDocument>;
+
+export type InterviewMarkdownProjection = Readonly<{
+  evidenceMode: InterviewMarkdownDocument["evidenceMode"];
+  headings: readonly Readonly<{ id: string; depth: number; text: string }>[];
+  sections: readonly Readonly<{ headingId: string | null; text: string }>[];
+  entries: readonly Readonly<{ headingId: string | null; text: string }>[];
+  anchors: readonly Readonly<InterviewMarkdownDocument["references"][number]>[];
+}>;
+
+const parser = unified().use(remarkParse).use(remarkGfm);
+type MarkdownNode = { type: string; value?: string; depth?: number; children?: MarkdownNode[] };
+
+function plainText(node: MarkdownNode): string {
+  if (node.type === "html") return "";
+  const separator = ["list", "listItem", "root", "blockquote"].includes(node.type) ? "\n" : "";
+  return node.value ?? node.children?.map(plainText).filter(Boolean).join(separator) ?? "";
+}
+
+/** Display-only AST projection. Never grants authorization or rewrites the original body. */
+export function parseInterviewMarkdown(input: InterviewMarkdownDocument): InterviewMarkdownProjection {
+  const document = InterviewMarkdownDocument.parse(input);
+  const tree: MarkdownNode = parser.parse(document.markdown);
+  const headings: { id: string; depth: number; text: string }[] = [];
+  const sections: { headingId: string | null; text: string }[] = [];
+  const entries: { headingId: string | null; text: string }[] = [];
+  let headingId: string | null = null;
+  let sectionText: string[] = [];
+  function finishSection(): void {
+    if (headingId !== null || sectionText.length) sections.push({ headingId, text: sectionText.join("\n\n") });
+    sectionText = [];
+  }
+  function visit(node: MarkdownNode): void {
+    if (node.type === "heading") {
+      finishSection();
+      headingId = `section-${headings.length + 1}`;
+      headings.push({ id: headingId, depth: node.depth!, text: plainText(node) });
+    }
+    if (node.type === "listItem") entries.push({ headingId, text: plainText(node) });
+    node.children?.forEach(visit);
+  }
+  for (const node of tree.children ?? []) {
+    visit(node);
+    if (node.type !== "heading") {
+      const text = plainText(node);
+      if (text) sectionText.push(text);
+    }
+  }
+  finishSection();
+  return Object.freeze({
+    evidenceMode: document.evidenceMode,
+    headings: Object.freeze(headings.map((heading) => Object.freeze(heading))),
+    sections: Object.freeze(sections.map((section) => Object.freeze(section))),
+    entries: Object.freeze(entries.map((entry) => Object.freeze(entry))),
+    anchors: Object.freeze(document.references.map((reference) => Object.freeze({ ...reference }))),
+  });
+}
