@@ -3,8 +3,18 @@ import { afterEach, expect, it, vi } from "vitest";
 import { fireEvent, render, screen, within } from "@testing-library/react";
 import { createSurveyQuestion } from "@repo/contracts/survey-question-types";
 import { SurveyQuestionEditor } from "@/components/survey/live/question-editor";
+import { ResponsiveDesignerPanel } from "@/components/survey/live/responsive-designer-panel";
 
 afterEach(() => vi.unstubAllGlobals());
+
+it("disables portaled inputs while a save is in flight", () => {
+  vi.stubGlobal("matchMedia", vi.fn(() => ({ matches: true, addEventListener: vi.fn(), removeEventListener: vi.fn() })));
+  const view = render(<ResponsiveDesignerPanel title="题目设置" enabled disabled={false}><input aria-label="面板输入" /></ResponsiveDesignerPanel>);
+  fireEvent.click(screen.getByRole("button", { name: "打开题目设置" }));
+  expect(screen.getByRole("textbox", { name: "面板输入" })).toBeEnabled();
+  view.rerender(<ResponsiveDesignerPanel title="题目设置" enabled disabled><input aria-label="面板输入" /></ResponsiveDesignerPanel>);
+  expect(screen.getByRole("textbox", { name: "面板输入" })).toBeDisabled();
+});
 
 it("opens mobile outline/settings on demand without losing selected edits", () => {
   vi.stubGlobal("matchMedia", vi.fn(() => ({ matches: true, addEventListener: vi.fn(), removeEventListener: vi.fn() })));

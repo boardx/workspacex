@@ -23,6 +23,7 @@ export function SurveyQuestionEditor({
   overviewFirst = false,
   selectedQuestionId,
   studioLayout = false,
+  disabled = false,
 }: {
   questions: SurveyWorkflowQuestion[];
   onChange: (questions: SurveyWorkflowQuestion[]) => void;
@@ -30,6 +31,7 @@ export function SurveyQuestionEditor({
   overviewFirst?: boolean;
   selectedQuestionId?: string | null;
   studioLayout?: boolean;
+  disabled?: boolean;
 }) {
   const [id, setId] = React.useState(questions[0]?.id);
   const [picking, setPicking] = React.useState(false);
@@ -208,7 +210,7 @@ export function SurveyQuestionEditor({
       <div
         className={`grid min-w-0 gap-6 ${preview ? "xl:grid-cols-[14rem_minmax(0,1fr)_minmax(0,1fr)]" : "lg:grid-cols-[16rem_minmax(0,1fr)]"}`}
       >
-        <ResponsiveDesignerPanel title="题目大纲" enabled={studioLayout}>
+        <ResponsiveDesignerPanel title="题目大纲" enabled={studioLayout} disabled={disabled}>
         <aside className="min-w-0">
           <h2 className="mb-3 text-14 font-semibold">
             题目目录 · {questions.length}
@@ -265,7 +267,7 @@ export function SurveyQuestionEditor({
           )}
         </aside>
         </ResponsiveDesignerPanel>
-        <ResponsiveDesignerPanel title="题目设置" enabled={studioLayout}>
+        <ResponsiveDesignerPanel title="题目设置" enabled={studioLayout} disabled={disabled}>
         <section aria-label="题目设置" className={`min-w-0 space-y-4 ${studioLayout && preview ? 'xl:order-3' : ''}`}>
           {locked && (
             <p className="rounded-md bg-muted p-3 text-12">

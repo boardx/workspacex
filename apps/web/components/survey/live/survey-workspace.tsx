@@ -157,6 +157,7 @@ export function LiveSurveyWorkspace({
     if (!draft) throw new Error("尚未加载问卷");
     const sourceParsed = parseSurveyDesignMarkdown(markdown);
     if (!sourceParsed.ok) throw new Error(sourceParsed.diagnostics.map((entry) => `第 ${entry.line} 行：${entry.message}`).join("；"));
+    if (markdownNeedsApply) throw new Error("请先校对并应用 Markdown，再保存或发布。");
     const parsed = SurveyDraftInputSchema.safeParse({ ...draft, title: sourceParsed.draft.title, tags: sourceParsed.draft.tags, questions: sourceParsed.draft.questions });
     if (!parsed.success)
       throw new Error("请填写问卷、章节及内容标题，并检查选项和图片地址。");
@@ -361,6 +362,7 @@ export function LiveSurveyWorkspace({
             <SurveyTemplateActions kind="question" draft={draft} onApply={(next) => { setDraft(next); setMarkdown(serializeSurveyDesignMarkdown(next)); }} locked={!!runtime?.publication} disabled={busy} />
             <SurveyQuestionEditor
               studioLayout
+              disabled={busy || !projectedInSync}
               questions={draft.questions}
               locked={!!runtime?.publication}
               selectedQuestionId={repairQuestionId}

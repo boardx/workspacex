@@ -164,7 +164,10 @@ test('空白 Markdown 问卷无需报告模板即可发布并生成默认报告'
   await expect(page).toHaveURL(/\/studio\/survey\/[0-9a-f-]+\?step=design$/);
   const initialMarkdown=await page.getByLabel('问卷 Markdown',{exact:true}).inputValue();
   expect(initialMarkdown).toContain('"体验"');
-  await page.getByLabel('问卷 Markdown',{exact:true}).fill(`${initialMarkdown}\n## feedback [open]\n请留下建议\n`);
+  await page.getByLabel('问卷 Markdown',{exact:true}).fill(`${initialMarkdown}\n## feedback [open]\n请留下建议\n\n## satisfaction [single]\n整体感受\n- 满意\n- 一般\n`);
+  await page.getByRole('button',{name:'保存修改'}).click();
+  await expect(page.getByRole('alert').filter({hasText:'请先校对并应用 Markdown'})).toBeVisible();
+  await expect(page).toHaveURL(/\/studio\/survey\/[0-9a-f-]+\?step=design$/);
   await page.getByRole('button',{name:'校对并预览题目'}).click();
   await page.getByRole('dialog').getByRole('button',{name:'应用到问卷'}).click();
   await page.getByRole('button',{name:'保存修改'}).click();
@@ -193,6 +196,7 @@ test('空白 Markdown 问卷无需报告模板即可发布并生成默认报告'
   const link=await page.getByLabel('答题链接').inputValue();
   const context=await browser.newContext();const respondent=await context.newPage();await respondent.goto(link);
   await respondent.getByRole('textbox',{name:'请留下具体建议'}).fill('保持流程简单');
+  await respondent.getByRole('radio',{name:'满意',exact:true}).check();
   await respondent.getByRole('button',{name:'提交答卷'}).click();
   await expect(respondent.getByRole('status')).toContainText('提交成功');await context.close();
   await page.getByRole('button',{name:'刷新',exact:true}).click();
