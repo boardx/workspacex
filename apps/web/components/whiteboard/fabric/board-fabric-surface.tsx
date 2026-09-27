@@ -651,10 +651,24 @@ export function BoardFabricSurface({ objects, selectedObjectIds, readOnly, tool,
       panStart = null;
       penSample = null;
     };
+    // A cancelled transform must discard both its command and its local projection.
+    const abortNativeInput = (event: Event, restorePan = true) => {
+      const target = canvas._currentTransform?.target as TaggedFabricObject | undefined;
+      const ids = new Set([...selectedObjectIdsRef.current, ...(target?.data?.boardObjectId ? [target.data.boardObjectId] : [])]);
+      cancelInput(restorePan);
+      canvas._currentTransform = null;
+      if (event.type.startsWith("touch")) finishCancelledFabricTouch(canvas,event as TouchEvent);
+      if (target) {
+        canvas.discardActiveObject();
+        withCanonicalProjectionBatch([...ids].flatMap(id => {const member=registry.get(id);return member?[member]:[];}),()=>{
+          for (const id of ids) {const canonical=canonicalRef.current.get(id),member=registry.get(id);if(canonical&&member)applyCanonicalObject(member,canonical,stateRef.current.readOnly);}
+        });
+        canvas.requestRenderAll();
+      }
+    };
     const nativeCancel = (event: Event) => {
       if (activeInput && (readFabricInput(event as TouchEvent | PointerEvent, activeInput) || (event.type === "pointercancel" && activeInput === "mouse" && (event as PointerEvent).isPrimary !== false && ((event as PointerEvent).pointerType === "mouse" || penSample?.id === `pointer:${(event as PointerEvent).pointerId}`)))) {
-        cancelInput();
-        if (event.type === "touchcancel") finishCancelledFabricTouch(canvas,event as TouchEvent);
+        abortNativeInput(event);
       }
     };
     let pinch: BoardPinchSession | null = null;
@@ -671,16 +685,7 @@ export function BoardFabricSurface({ objects, selectedObjectIds, readOnly, tool,
         const viewport = {zoom:canvas.getZoom(),panX:transform[4],panY:transform[5]};
         // Two fingers own viewport navigation; stop pending single-pointer edits.
         // Discard any local Fabric projection before its native end event can commit.
-        const target = canvas._currentTransform?.target as TaggedFabricObject | undefined;
-        const ids = new Set([...selectedObjectIdsRef.current, ...(target?.data?.boardObjectId ? [target.data.boardObjectId] : [])]);
-        cancelInput(false);
-        finishCancelledFabricTouch(canvas,event);
-        if (target) {
-          canvas.discardActiveObject();
-          withCanonicalProjectionBatch([...ids].flatMap(id => {const member=registry.get(id);return member?[member]:[];}),()=>{
-            for (const id of ids) {const canonical=canonicalRef.current.get(id),member=registry.get(id);if(canonical&&member)applyCanonicalObject(member,canonical,stateRef.current.readOnly);}
-          });
-        }
+        abortNativeInput(event,false);
         pinch = beginBoardPinch(points,viewport);
         suppressTouch = true;
       } else if (event.type === "touchmove") {

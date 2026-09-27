@@ -35,6 +35,7 @@ const fabricHarness = vi.hoisted(() => {
   }
   interface MockCanvas {
     objects: MockFabricObject[];
+    _currentTransform: { target: MockFabricObject } | null;
     handlers: Map<string, Handler[]>;
     emit(name: string, event?: { target?: MockFabricObject; e?: unknown }): void;
   }
@@ -49,6 +50,7 @@ vi.mock("fabric", async (importOriginal) => {
     objects: InstanceType<typeof MockFabricObject>[] = [];
     handlers = new Map<string, Handler[]>();
     viewportTransform = [1, 0, 0, 1, 0, 0];
+    _currentTransform: { target: InstanceType<typeof MockFabricObject> } | null = null;
     selection = true;
     defaultCursor = "default";
     private active?: InstanceType<typeof MockFabricObject>;
@@ -227,4 +229,24 @@ it("native two-finger input owns anchored zoom until all fingers lift",()=>{
  dispatch("touchend",[]);
  canvas.emit("mouse:down",{e:{type:"touchstart",touches:[finger(10,20,9)]}});canvas.emit("mouse:move",{e:{type:"touchmove",touches:[finger(30,50,9)]}});canvas.emit("mouse:up",{e:{type:"touchend",changedTouches:[finger(30,50,9)]}});
  expect(events.onViewportChange).toHaveBeenLastCalledWith({...viewport,zoom:2,panX:-130,panY:-70},"pan");view.unmount();
+});
+
+it("touchcancel restores a dragged object projection without committing geometry", () => {
+  fabricHarness.state.canvases.length = 0;
+  const events = callbacks();
+  render(surface([base], events));
+  const canvas = mountedCanvas(), projected = firstProjected(canvas);
+  canvas.emit("mouse:down", { target: projected, e: { type: "touchstart", touches: [finger(30, 40)] } });
+  projected.set({ left: 50, top: 40, scaleX: 2, scaleY: 2 });
+  canvas._currentTransform = { target: projected };
+  expect(projected.left).not.toBe(base.geometry.x);
+  const cancel = new Event("touchcancel");
+  Object.defineProperty(cancel, "changedTouches", { value: [finger(70, 60)] });
+  document.dispatchEvent(cancel);
+  expect(canvas._currentTransform).toBeNull();
+  expect(projected.left).toBe(base.geometry.x);
+  expect(projected.top).toBe(base.geometry.y);
+  expect(projected.scaleX).toBe(1);
+  expect(projected.scaleY).toBe(1);
+  expect(events.onObjectTransform).not.toHaveBeenCalled();
 });
