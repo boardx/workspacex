@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import type { SurveyRuntime } from '@repo/contracts/survey-runtime';
+import { serializeSurveyPublicationMarkdown } from '@repo/contracts/survey-source';
 import { LiveSurveyWorkspace } from '@/components/survey/live/survey-workspace';
 const request=vi.hoisted(()=>vi.fn());
 const router=vi.hoisted(()=>({replace:vi.fn(),push:vi.fn()}));
@@ -16,7 +17,7 @@ describe('live survey workspace persistence',()=>{
   fireEvent.change(screen.getByLabelText('成功页 Markdown'),{target:{value:'# 感谢反馈'}});
   fireEvent.click(screen.getByRole('button',{name:'保存修改'}));
   await screen.findByText('修改已保存');
-  expect(request).toHaveBeenLastCalledWith('/surveys/saved-survey/source',expect.objectContaining({body:expect.objectContaining({documents:expect.objectContaining({publication:expect.stringContaining('"responseLimitScope": "browser"')})})}),expect.anything());
+  expect(request).toHaveBeenLastCalledWith('/surveys/saved-survey/source',expect.objectContaining({body:expect.objectContaining({documents:expect.objectContaining({publication:serializeSurveyPublicationMarkdown({responseLimitScope:'browser',successMessageMarkdown:'# 感谢反馈'})})})}),expect.anything());
  });
  it('automatically persists applied valid changes on an existing draft',async()=>{
   request.mockResolvedValueOnce(runtime()).mockResolvedValueOnce(runtime({title:'自动保存后的标题',version:5}));
