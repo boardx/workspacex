@@ -1,7 +1,8 @@
 import { updateDigitalInterviewMetadata, deleteDigitalInterview } from "../../application/interview/manage-digital-interview";
 import { BadRequestException, Body, ConflictException, Controller, Delete, Patch, Get, Inject, Optional, NotFoundException, Param, Post, Query, Res, ServiceUnavailableException } from "@nestjs/common";
-import { INTERVIEW_MARKDOWN_READER, initializeInterviewMarkdown, readInterviewMarkdown, saveInterviewMarkdownDraft, confirmInterviewMarkdownDraft, type InterviewMarkdownReader } from "../../application/interview/read-interview-markdown";
+import { INTERVIEW_MARKDOWN_READER, initializeInterviewMarkdown, readInterviewMarkdown, saveInterviewMarkdownDraft, confirmInterviewMarkdownDraft, branchInterviewMarkdownRevision, type InterviewMarkdownReader } from "../../application/interview/read-interview-markdown";
 import { INTERVIEW_MARKDOWN_GENERATOR, type InterviewMarkdownGenerator } from "../../application/interview/generate-interview-markdown";
+import { INTERVIEW_MARKDOWN_EXECUTION, type InterviewMarkdownExecutionRuntime } from "../../application/interview/interview-markdown-execution.port";
 import type { Response } from "express";
 import { interview as C, interviewMarkdown } from "@repo/contracts";
 import type { z } from "zod";
@@ -54,9 +55,28 @@ export class DigitalInterviewController {
     @Inject(DIGITAL_INTERVIEW_RUNTIME) private readonly workflow: DigitalInterviewRuntime,
     @Optional() @Inject(INTERVIEW_MARKDOWN_READER) private readonly markdownReader?: InterviewMarkdownReader,
     @Optional() @Inject(INTERVIEW_MARKDOWN_GENERATOR) private readonly markdownGenerator?: InterviewMarkdownGenerator,
+    @Optional() @Inject(INTERVIEW_MARKDOWN_EXECUTION) private readonly markdownExecution?: InterviewMarkdownExecutionRuntime,
   ) {}
 
   private deps() { return { repo:this.repo, ids:this.ids, agents:this.agents, runs:this.runs, model:this.model, scope:this.scope, decisions:this.decisions, context:this.context }; }
+
+  @Post("/:interviewId/markdown/revision")
+  async branchMarkdown(@CurrentPrincipal() principal: Principal,@Param("interviewId") interviewId:string,@Body() body:unknown) {
+    assertPrincipal(principal);
+    const input=this.parse(interviewMarkdown.BranchInterviewMarkdownRevision,body);
+    if(!this.markdownReader) throw new ServiceUnavailableException();
+    try { return await branchInterviewMarkdownRevision({...this.deps(),reader:this.markdownReader},{...input,orgId:toOrgId(principal.orgId),viewerUserId:principal.userId,interviewId}); }
+    catch(error) {return this.translate(error);}
+  }
+
+  @Post("/:interviewId/markdown/execution")
+  async executeMarkdown(@CurrentPrincipal() principal: Principal, @Param("interviewId") interviewId: string, @Body() body: unknown) {
+    assertPrincipal(principal);
+    const input=this.parse(interviewMarkdown.ExecuteInterviewMarkdown,body);
+    if(!this.markdownExecution) throw new ServiceUnavailableException();
+    try { return await this.markdownExecution.execute({...input,orgId:toOrgId(principal.orgId),actorId:principal.userId,interviewId}); }
+    catch(error) {return this.translate(error);}
+  }
 
   @Get("/:interviewId/markdown")
   async markdown(@CurrentPrincipal() principal: Principal, @Param("interviewId") interviewId: string) {

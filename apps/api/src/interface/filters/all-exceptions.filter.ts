@@ -13,6 +13,7 @@
  * message -- using messages as codes turns internal strings into a public contract.
  */
 import { SkillFileEditError, SkillFileEditConflict } from "@repo/contracts/skill-file-edit";
+import { InterviewMarkdownReportReviewErrorCode } from "@repo/contracts/interview-markdown-report-review";
 import {
   type ArgumentsHost,
   Catch,
@@ -215,6 +216,9 @@ function permissionReasonOf(exception: HttpException): { reasonCode?: string; cu
    */
   const interviewError = interview.InterviewError.safeParse(raw);
   if (interviewError.success) return { reasonCode: interviewError.data };
+  // Closed review codes only; never reveal NO_INTERVIEW_ACCESS or exception text.
+  const sourceReportReviewError = InterviewMarkdownReportReviewErrorCode.safeParse(raw);
+  if (sourceReportReviewError.success) return { reasonCode: sourceReportReviewError.data };
 
   /**
    * F10: `orgAdmin.OrgAdminError`, the SIXTH closed enum.

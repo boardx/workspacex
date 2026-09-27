@@ -109,7 +109,8 @@ export interface ObjectRef {
     | "subject"
     | "research"
     | "feedback"
-    | "feedback_draft";
+    | "feedback_draft"
+    | "whiteboard";
   readonly id: string;
 }
 

@@ -2,7 +2,8 @@
 
 import * as React from "react";
 import Link from "next/link";
-import { ArrowRight } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { ArrowRight, CalendarDays, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ExpertAvatarEditor } from "./expert-avatar";
 import { StudioHistoryHeader, StudioHistoryFilters, StudioHistoryCard, StudioHistoryCreateCard, type HistorySort } from "@/components/studio/studio-history";
@@ -57,6 +58,11 @@ export function InterviewStudioHome({
   /** 项目中枢 B2-S2：从项目「研究洞察 › 用户洞察」带 `?projectId=` 进来，新建访谈直接带项目 scope。 */
   projectId?: string | null;
 }) {
+  const router = useRouter();
+  const createInterview = () => {
+    if (projectId) router.push(`/itv/new?projectId=${encodeURIComponent(projectId)}`);
+    else router.push("/itv/new");
+  };
   const [query, setQuery] = React.useState("");
   const [sort, setSort] = React.useState<HistorySort>("recent");
   const [notice, setNotice] = React.useState("");
@@ -136,7 +142,7 @@ export function InterviewStudioHome({
     <main className="min-w-0 flex-1 overflow-y-auto bg-background">
       <div data-testid="itv-home-page" className="mx-auto w-full max-w-screen-2xl px-5 py-6 md:px-8 lg:px-10">
         <ProjectBreadcrumb projectId={projectId} sub="itv" className="mb-4" />
-        <StudioHistoryHeader business="访谈" description="回看或继续历史访谈，也可以选择一位数字专家快速开始对话。" count={history.kind === "ready" ? history.items.length : undefined} createTestId="itv-create" onCreate={() => setCreateOpen(true)} />
+        <StudioHistoryHeader business="访谈" title="用户访谈" description="与专业角色深入对话，获得可追溯的研究洞察。" count={history.kind === "ready" ? history.items.length : undefined} createTestId="itv-create" onCreate={createInterview} />
 
         <div role="tablist" aria-label="访谈内容" className="mt-6 flex gap-6 border-b border-border">
           <TabButton active={tab === "history"} testId="itv-tab-history" onClick={() => setTab("history")}>
@@ -151,7 +157,7 @@ export function InterviewStudioHome({
           <section aria-label="历史访谈" className="pt-6">
             <StudioHistoryFilters business="访谈" prefix="itv-history" tags={availableTags} selectedTag={selectedTag} onTagChange={setSelectedTag} query={query} onQueryChange={setQuery} sort={sort} onSortChange={setSort} />
             {notice && <p role="status" data-testid="itv-history-saved" className="mt-4 text-12 text-success">{notice}</p>}
-            <div className="mt-6"><HistoryContent state={history.kind === "ready" ? { kind: "ready", items: visibleHistoryItems } : history} onChanged={refreshHistory} onCreate={() => setCreateOpen(true)} /></div>
+            <div className="mt-6"><HistoryContent state={history.kind === "ready" ? { kind: "ready", items: visibleHistoryItems } : history} onChanged={refreshHistory} onCreate={createInterview} /></div>
           </section>
         ) : (
           <section aria-label="专家列表" className="pt-6">
@@ -252,7 +258,7 @@ function HistoryContent({ state, onChanged, onCreate }: { state: LoadState<Digit
   if (state.kind === "error") return <StatePanel testId="itv-history-error">加载失败：{state.reason}</StatePanel>;
   if (state.items.length === 0) return <StatePanel testId="itv-history-empty">没有符合条件的访谈，请调整标签或搜索条件。<Button className="mt-4" onClick={onCreate}>新建访谈</Button></StatePanel>;
   return (
-    <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+    <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
       {state.items.map((item) => <HistoryCard key={item.interviewId} item={item} onChanged={onChanged} />)}
       <StudioHistoryCreateCard business="访谈" testId="itv-create-card" onCreate={onCreate} />
     </div>
@@ -261,15 +267,24 @@ function HistoryContent({ state, onChanged, onCreate }: { state: LoadState<Digit
 
 function HistoryCard({ item, onChanged }: { item: DigitalInterviewHistoryRow; onChanged: () => void }) {
   const action = historyPrimaryAction(item);
+  const completion = item.expertCount > 0 ? Math.min(100, Math.round(item.completedExpertCount / item.expertCount * 100)) : null;
   return <StudioHistoryCard testId={`itv-history-card-${item.interviewId}`} title={item.name}
     status={<Badge tone="neutral">{STATUS_LABEL[item.status]}</Badge>} description={item.topic} tags={item.tags}
-    metadata={<><span>{item.completedExpertCount} / {item.expertCount} 位专家完成</span><time>{new Date(item.updatedAt).toLocaleDateString("zh-CN")}</time></>}
+    metadata={<><span className="inline-flex items-center gap-1.5"><Users className="size-4" aria-hidden />{item.expertCount > 0 ? `${item.completedExpertCount} / ${item.expertCount} 位专家完成` : "尚未选择专家"}</span><time dateTime={item.updatedAt} className="inline-flex items-center gap-1.5"><CalendarDays className="size-4" aria-hidden />{new Date(item.updatedAt).toLocaleDateString("zh-CN")}</time></>}
     primaryAction={<Button asChild variant="primary" size="sm"><Link href={action.href}>{action.label}<ArrowRight className="size-4" aria-hidden /></Link></Button>}
-    management={<InterviewHistoryCardActions item={item} onChanged={onChanged} />} />;
+    management={<InterviewHistoryCardActions item={item} onChanged={onChanged} />}>
+    {completion !== null && <div className="flex items-center gap-3">
+      <div role="progressbar" aria-label="专家访谈完成进度" aria-valuemin={0} aria-valuemax={item.expertCount} aria-valuenow={Math.min(item.completedExpertCount, item.expertCount)} aria-valuetext={`${item.completedExpertCount} / ${item.expertCount} 位专家完成`} className="h-2 flex-1 overflow-hidden rounded-full bg-muted">
+        <div className="h-full rounded-full bg-foreground" style={{ width: `${completion}%` }} />
+      </div>
+      <span className="min-w-9 text-right text-xs tabular-nums text-muted-foreground">{completion}%</span>
+    </div>}
+  </StudioHistoryCard>;
 }
 
 function historyPrimaryAction(item: DigitalInterviewHistoryRow): { readonly label: string; readonly href: string } {
   if (item.kind === "quick") return { label: "继续对话", href: `/itv/quick/${item.interviewId}` };
+  if (item.sourceStep) return { label: item.sourceStep === "report" ? "查看报告" : "继续访谈", href: `/itv/${encodeURIComponent(item.interviewId)}/${item.sourceStep}` };
   const detail = `/itv/${item.interviewId}/setup`;
   return {
     confirm_topic: { label: "确认主题", href: detail },
@@ -287,7 +302,7 @@ function ExpertContent({ state, preview = false }: { state: LoadState<DigitalExp
   if (state.kind === "error") return <StatePanel testId="itv-experts-error">加载失败：{state.reason}</StatePanel>;
   if (state.items.length === 0) return <StatePanel testId="itv-experts-empty">当前分类暂无可用专家。</StatePanel>;
   return (
-    <div className="grid gap-4 lg:grid-cols-2">
+    <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
       {state.items.map((expert) => (
         <article key={expert.expertId} data-testid={`itv-expert-card-${expert.expertId}`} className="rounded-xl border border-border bg-card p-6 shadow-sm">
           <div className="flex items-center gap-4">
