@@ -33,6 +33,8 @@ export async function generateInterviewMarkdown(
 ) {
   const snapshot = await readInterviewMarkdown(deps, input);
   if (snapshot.version !== input.expectedVersion) throw new DigitalInterviewWorkflowError("CONCURRENT_MODIFICATION");
+  const target = snapshot.documents.find((document) => document.step === input.step);
+  if ((target?.version ?? 0) !== input.expectedDocumentVersion) throw new DigitalInterviewWorkflowError("CONCURRENT_MODIFICATION");
   const sources = snapshot.documents.flatMap((document) => {
     const status = snapshot.states.find((state) => state.documentId === document.documentId)?.status;
     return status === "confirmed" || status === "completed" ? [{ document, status }] : [];
@@ -54,7 +56,14 @@ export async function generateInterviewMarkdown(
     }
     if (!response.text.trim()) throw new DigitalInterviewWorkflowError("AI_GENERATION_UNAVAILABLE");
     // JSON objects are not silently accepted as the new Markdown document format.
-    if (/^\s*(?:\{|\[|```json\b)/u.test(response.text)) throw new DigitalInterviewWorkflowError("AI_GENERATION_UNAVAILABLE");
+    if (/^\s*```json\b/u.test(response.text)) throw new DigitalInterviewWorkflowError("AI_GENERATION_UNAVAILABLE");
+    // A Markdown link starts with '[' too. Reject actual JSON, not its first byte.
+    let isJson = false;
+    try {
+      const value: unknown = JSON.parse(response.text);
+      isJson = value !== null && typeof value === "object";
+    } catch { /* Normal Markdown is not JSON. Preserve it verbatim. */ }
+    if (isJson) throw new DigitalInterviewWorkflowError("AI_GENERATION_UNAVAILABLE");
     markdown = response.text;
   } catch (error) {
     if (error instanceof ModelCallError) throw new DigitalInterviewWorkflowError("AI_GENERATION_UNAVAILABLE");

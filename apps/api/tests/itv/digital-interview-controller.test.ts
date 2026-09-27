@@ -74,7 +74,7 @@ it("modelConsumesConfirmedMarkdown through the real source repository and saves 
     await session.query(`INSERT INTO digital_interview_revisions(org_id,id,interview_id,revision_number,created_by) VALUES($1,'revision-api-model-4400','itv-f02-visible',1,$2)`, [ORG, USER]);
     await appendInterviewMarkdownDocument(session, { orgId: toOrgId(ORG), interviewId: "itv-f02-visible", revisionId: "revision-api-model-4400", step: "intake", title: "原始需求", markdown: raw, evidenceMode: "simulated", references: [], expectedVersion: 0 });
   });
-  const output = "# 研究分析\r\n\r\n## 研究目标\r\n理解最近一次备课行为。\r\n\r\n## 待验证假设\r\n- 不预设 AI 有效。\r\n";
+  const output = "[研究目标](#研究目标)\r\n\r\n# 研究分析\r\n\r\n## 研究目标\r\n理解最近一次备课行为。\r\n\r\n## 待验证假设\r\n- 不预设 AI 有效。\r\n";
   let calls = 0;
   const deps = {
     repo: new PgDigitalInterviewRepository(db), scope: new PgInterviewScopeRepository(db),
@@ -89,6 +89,8 @@ it("modelConsumesConfirmedMarkdown through the real source repository and saves 
     } },
   };
   const input = { orgId: toOrgId(ORG), viewerUserId: USER, interviewId: "itv-f02-visible", step: "analysis" as const, expectedVersion: 1, expectedDocumentVersion: 0 };
+  await expect(generateInterviewMarkdown(deps, { ...input, expectedDocumentVersion: 99 })).rejects.toThrow("CONCURRENT_MODIFICATION");
+  expect(calls).toBe(0);
   const generated = await generateInterviewMarkdown(deps, input);
   expect(generated.documents.find((doc) => doc.step === "analysis")?.markdown).toBe(output);
   expect(generated.version).toBe(2);

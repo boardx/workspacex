@@ -22,6 +22,14 @@
 
 日志位于本计划 `.superpowers/sdd/2026-09-27-interview-markdown-source/`：`task3-api-suite.log`、`task3-confirm-green.log`、`task3-references-green.log`、`task3-source-api-typecheck.log`、`task3-source-api-lint.log`、`task3-source-api-contracts.log`。最新全量复测排队近八分钟，系统负载约 90、swap 使用约 17 GB，资源门禁未允许启动；已取消自己这次尚未启动的复测（exit 130），未停止其他任务，不伪称最新全量已通过。
 
-## 尚未完成的边界
+## 同步 main 后复测与生成边界修复
+
+沿用当前目录将未推送的任务 3 检查点同步到 main `fac5bd068`。全量回归 70 文件 / 505 项通过，日志 `task3-rebased-suite.log`。
+
+- 合法 Markdown 链接开头正文曾被首字节 `[` 误判为 JSON，生成失败；真实数据库测试 RED 后，改为识别实际可解析 JSON，保留链接正文原文，controller 15 项 GREEN。
+- 目标文档版本过期曾在模型调用后才被拒绝；测试 RED 证明多调用一次模型，改为读取授权快照后先校验目标版本，持久化锁内复核仍保留。
+- 修复后全量 70 文件 / 505 项通过（`task3-boundaries-suite.log`），API typecheck 和 lint 退出码 0（`task3-boundaries-typecheck.log`、`task3-boundaries-lint.log`）。测试栈已按隔离包装器清理。模型仍为测试替身，不属于真实模型证据。
+
+## 尚未完成的边界（仍有效）
 
 旧专家、提纲、回答及报告消费者尚未全面从 JSON 正文切换到 Markdown 单源。文档确认与 workflow revision 的整合、全链路暂停/续跑、真人证据审批、各页面接入、真实模型与浏览器验收仍待完成。本记录不代表原型重构完毕或 PR 已可合并。
