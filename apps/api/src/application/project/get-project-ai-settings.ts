@@ -68,8 +68,8 @@ export async function getProjectAiSettings(
     throw new ProjectError("AUTH_SERVICE_UNAVAILABLE");
   }
   if (!decision.allowed) {
-    // 分层透传（同 `get-project-overview.ts`）：其它 reasonCode 一律按 NO_PROJECT_ROLE，
-    // 不让契约没声明的码逃逸成 500。
+    // 分层透传（同 `get-project-overview.ts`）：其它 reasonCode 一律折叠为 NO_PROJECT_ROLE，
+    // 以免 `getProjectAiSettings` 契约之外的码逃逸成 500。
     throw new ProjectError(decision.reasonCode === "ADMIN_NOT_SUPERUSER" ? "ADMIN_NOT_SUPERUSER" : "NO_PROJECT_ROLE");
   }
 
