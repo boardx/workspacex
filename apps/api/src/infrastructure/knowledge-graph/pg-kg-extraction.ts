@@ -46,18 +46,23 @@ export class PgKgExtraction implements KgExtractionQueuePort, KgExtractionSource
     return r.rows.map((x) => ({ orgId, messageId: x.message_id, threadId: x.thread_id, attempts: x.attempts }));
   }
 
-  async complete(orgId: OrgId, messageId: string): Promise<void> {
-    await this.db.withTenant(orgId, (s) => s.query("DELETE FROM kg_extraction_queue WHERE org_id = $1 AND message_id = $2", [orgId, messageId]));
+  // issue #4350：`attempts` 是围栏令牌（见端口注释）。认领每次都把 attempts + 1，所以「attempts 仍等于我认领时
+  // 拿到的值」⇔「这一行自我认领之后没有被别人重新认领过」。`$3::int IS NULL` ⇒ 调用方没给令牌，不围栏。
+  async complete(orgId: OrgId, messageId: string, attempts?: number): Promise<void> {
+    await this.db.withTenant(orgId, (s) => s.query(
+      "DELETE FROM kg_extraction_queue WHERE org_id = $1 AND message_id = $2 AND ($3::int IS NULL OR attempts = $3::int)",
+      [orgId, messageId, attempts ?? null],
+    ));
   }
 
-  async fail(orgId: OrgId, messageId: string, error: string): Promise<void> {
+  async fail(orgId: OrgId, messageId: string, error: string, attempts?: number): Promise<void> {
     // 指数退避：30 秒、2 分钟、8 分钟——模型短暂不可用时，三次机会不会在连续三个轮询里一口气用光。
     await this.db.withTenant(orgId, (s) => s.query(
       `UPDATE kg_extraction_queue
           SET locked_at = NULL, last_error = left($3, 500),
               next_attempt_at = now() + make_interval(secs => $4 * power(4, greatest(attempts - 1, 0)))
-        WHERE org_id = $1 AND message_id = $2`,
-      [orgId, messageId, error, KG_EXTRACTION_BACKOFF_SECONDS],
+        WHERE org_id = $1 AND message_id = $2 AND ($5::int IS NULL OR attempts = $5::int)`,
+      [orgId, messageId, error, KG_EXTRACTION_BACKOFF_SECONDS, attempts ?? null],
     ));
   }
 
