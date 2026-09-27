@@ -16,7 +16,7 @@
 
 截至 2026-09-28，功能单源 `feature_list.json` 有 32 项、共 167 点：BV01（5点）为 `in_progress`，其余 31 项（162点）为 `not_started`。这不是产品完成百分比；既有能力与局部预览不能抵扣未通过正式退出门的功能。
 
-近期 UI 交付 PR [#4488](https://github.com/boardx/workspacex/pull/4488) 仍为 OPEN，当前 head `73c51bf`。远端全仓编译/typecheck/lint、control-plane、merge-gate 通过；但 `verify-affected` 与 `fullstack-smoke` 失败，后者 118 项通过、1 项新加的对象属性面板浏览器断言失败（Text 快捷样式控件定位不到）。backend-gates 当时仍有 shard 运行，不能据此视为绿。该 PR 是局部 UI 交付，不代表 R1–R10 中任何一轮已完成；不得合并直到失败修复、独立复核和 CI 全绿。
+近期 UI 交付 PR [#4488](https://github.com/boardx/workspacex/pull/4488) 仍为 OPEN。评估起点 SHA `73c51bf` 的远端全仓编译/typecheck/lint、control-plane、merge-gate 通过，但 `verify-affected` 与 `fullstack-smoke` 失败；后者 118 项通过、1 项新加的对象属性面板浏览器断言失败（测试错误地查找旧“文字快捷样式”入口）。已将断言改为检查当前检查器实际提供的“编辑文字”控件，并推送修复；修复提交 `491c5f0` 的新 CI 在本次核对时刚排队，尚无通过证据。该 PR 是局部 UI 交付，不代表 R1–R10 中任何一轮已完成；不得合并直到最新 SHA 的浏览器验收、独立复核和 CI 全绿。
 
 按 167 点、最多 3 条相互独立的开发线并行、每轮一个 PR，以及主 session 集中端到端验收估算：**开发与集成约 8–12 周，含 CI/返修/迁移验收缓冲约 10–14 周日历时间**。这是假设每周持续投入并且 issue/契约门可及时就绪的区间，不是承诺日期；R1/R2 的实测吞吐、依赖和 CI 返修会校准后续轮次。
 
@@ -27,12 +27,12 @@
 ```mermaid
 flowchart LR
   A["BV01–BV32：32项 / 167点<br/>BV01 进行中；其余31项未开始"]:::risk
-  B["PR #4488 局部 UI<br/>OPEN；head 73c51bf"]:::risk
+  B["PR #4488 局部 UI<br/>OPEN；测试修复已推送"]:::risk
   C["已通过：全仓编译、类型检查、lint<br/>control-plane、merge-gate"]:::done
-  D["失败：verify-affected<br/>对象面板 Text 快捷样式断言"]:::fail
-  E["失败：fullstack-smoke<br/>118通过 / 1失败；需修复后重跑"]:::fail
-  F["后台门：backend-gates<br/>采样时仍在运行"]:::wait
-  G["修复 + 主 session 浏览器复验<br/>再重跑完整 CI 与独立复核"]:::next
+  D["旧 SHA 73c51bf 失败<br/>测试查找了已移除的旧入口"]:::fail
+  E["旧 SHA fullstack-smoke<br/>118通过 / 1失败"]:::fail
+  F["修复 SHA 491c5f0<br/>CI 已排队，浏览器结果待验证"]:::wait
+  G["主 session 核对最新 CI、截图<br/>必要时继续修复并独立复核"]:::next
   A --> G
   B --> G
   C --> G
