@@ -32,6 +32,16 @@ describe('whiteboard content kernel', () => {
     Y.applyUpdate(b, updates[1]); Y.applyUpdate(b, updates[1]); Y.applyUpdate(b, updates[0]); Y.applyUpdate(b, updates[0]);
     expect(readObjects(b)).toEqual(readObjects(a));
   });
+  it('updates attached connector geometry from rotated edge midpoints in the canonical apply path', () => {
+    const doc = createWhiteboardDocument();
+    const endpoint = { ...note('a'), geometry: { x: 10, y: 20, width: 100, height: 80, rotation: 90 } };
+    const target = { ...note('b'), geometry: { x: 300, y: 20, width: 100, height: 80, rotation: 0 } };
+    const edge = { ...note('edge'), kind: 'connector' as const, connector: { from: 'a', to: 'b', fromAnchor: 'right' as const, toAnchor: 'left' as const, type: 'straight' as const, startStyle: 'none' as const, endStyle: 'arrow' as const, lineStyle: 'solid' as const, label: '', semanticRelation: '' } };
+    executeCommands(doc, [endpoint, target, edge].map(object => ({ type: 'create' as const, object })), {});
+    executeCommands(doc, [{ type: 'geometry', id: 'a', geometry: { x: 100, y: 200, width: 100, height: 80, rotation: 180 } }], {});
+    expect(readObjects(doc).find(object => object.id === 'edge')?.geometry).toMatchObject({ x: 0, y: 60, width: 300, height: 100 });
+    doc.destroy();
+  });
   it('late edits cannot resurrect deletions and dangling connectors are filtered', () => {
     const a = createWhiteboardDocument(); create(a); create(a, 'other');
     executeCommands(a, [{ type: 'create', object: { ...note('edge'), kind: 'connector', connector: { from: 'note', to: 'other' } } }], {});

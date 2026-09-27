@@ -88,8 +88,9 @@ export class WhiteboardUndo {
       ...structuredClone(object), id: mapping.get(object.id)!, restoredFrom: object.id,
       parentId: object.parentId ? mapping.get(object.parentId) ?? object.parentId : null,
       ...(object.connector ? { connector: {
-        from: mapping.get(object.connector.from) ?? object.connector.from,
-        to: mapping.get(object.connector.to) ?? object.connector.to,
+        ...object.connector,
+        ...(object.connector.from ? { from: mapping.get(object.connector.from) ?? object.connector.from } : {}),
+        ...(object.connector.to ? { to: mapping.get(object.connector.to) ?? object.connector.to } : {}),
       } } : {}),
     }));
     executeCommands(this.doc, recreated.map(object => ({ type: 'create' as const, object })), COMPENSATION);

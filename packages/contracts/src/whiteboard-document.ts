@@ -72,6 +72,7 @@ export const WhiteboardGeometry = z.object({
   width: z.number().finite().positive().max(100000), height: z.number().finite().positive().max(100000),
   rotation: z.number().finite().min(-360).max(360),
 }).strict();
+export type WhiteboardGeometry = z.infer<typeof WhiteboardGeometry>;
 export const WhiteboardStyle = z.object({
   fill: z.string().max(64).optional(), stroke: z.string().max(64).optional(),
   color: z.string().max(64).optional(), fontSize: z.number().min(8).max(200).optional(),
@@ -85,12 +86,28 @@ export const WhiteboardExtensionData = z.record(z.unknown()).superRefine((value,
     ctx.addIssue({ code: z.ZodIssueCode.custom, message: error instanceof Error && error.message.startsWith('UNSAFE_EXTENSION') ? error.message : 'Extension must be bounded plain JSON' });
   }
 });
+const WhiteboardPoint = z.object({ x: z.number().finite().min(-1000000).max(1000000), y: z.number().finite().min(-1000000).max(1000000) }).strict();
+export const WhiteboardConnector = z.object({
+  from: WhiteboardObjectId.optional(), to: WhiteboardObjectId.optional(),
+  fromPoint: WhiteboardPoint.optional(), toPoint: WhiteboardPoint.optional(),
+  fromAnchor: z.enum(['top', 'right', 'bottom', 'left', 'center']).optional(),
+  toAnchor: z.enum(['top', 'right', 'bottom', 'left', 'center']).optional(),
+  type: z.enum(['straight', 'elbow', 'curve']).optional(),
+  startStyle: z.enum(['none', 'arrow', 'circle', 'diamond']).optional(),
+  endStyle: z.enum(['none', 'arrow', 'circle', 'diamond']).optional(),
+  lineStyle: z.enum(['solid', 'dashed', 'dotted']).optional(),
+  label: z.string().max(1000).optional(), semanticRelation: z.string().max(256).optional(),
+}).strict().superRefine((connector, ctx) => {
+  if (Boolean(connector.from) === Boolean(connector.fromPoint)) ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'Connector from endpoint must be attached or free' });
+  if (Boolean(connector.to) === Boolean(connector.toPoint)) ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'Connector to endpoint must be attached or free' });
+});
 export const WhiteboardObject = z.object({
   id: WhiteboardObjectId, schemaVersion: z.literal(1),
   kind: z.enum(['sticky', 'text', 'rectangle', 'ellipse', 'frame', 'group', 'connector', 'image', 'drawing', 'extension']),
   geometry: WhiteboardGeometry, text: z.string().max(WHITEBOARD_LIMITS.text), style: WhiteboardStyle,
   parentId: WhiteboardObjectId.nullable().default(null), orderKey: z.string().max(128).default(''),
-  connector: z.object({ from: WhiteboardObjectId, to: WhiteboardObjectId }).strict().optional(),
+  locked: z.boolean().optional(), zIndex: z.number().int().min(-1000000).max(1000000).optional(),
+  connector: WhiteboardConnector.optional(),
   restoredFrom: WhiteboardObjectId.optional(),
   extensionData: WhiteboardExtensionData.optional(),
 }).strict().superRefine((object, ctx) => {
@@ -108,6 +125,8 @@ export const WhiteboardCommand = z.discriminatedUnion('type', [
   z.object({ type: z.literal('style'), id: WhiteboardObjectId, style: WhiteboardStyle }).strict(),
   z.object({ type: z.literal('extension'), id: WhiteboardObjectId, key: z.string().min(1).max(128).regex(/^[a-zA-Z0-9_-]+$/).refine(key => !['__proto__', 'constructor', 'prototype'].includes(key)), value: WhiteboardExtensionValue }).strict(),
   z.object({ type: z.literal('parent'), id: WhiteboardObjectId, parentId: WhiteboardObjectId.nullable(), orderKey: z.string().max(128) }).strict(),
+  z.object({ type: z.literal('state'), id: WhiteboardObjectId, locked: z.boolean().optional(), zIndex: z.number().int().min(-1000000).max(1000000).optional() }).strict(),
+  z.object({ type: z.literal('connector'), id: WhiteboardObjectId, connector: WhiteboardConnector }).strict(),
   z.object({ type: z.literal('delete'), id: WhiteboardObjectId }).strict(),
 ]);
 export type WhiteboardCommand = z.infer<typeof WhiteboardCommand>;
