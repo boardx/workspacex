@@ -380,7 +380,7 @@ export function LiveSurveyWorkspace({
             <SurveyAiProposal locked={!!runtime?.publication} onApply={text=>{
               const result=parseSurveyDesignMarkdown(text);if(!result.ok)return;
               const canonical=result.draft.tags===undefined&&draft.tags?.length
-                ? `${text.trimEnd()}\n\n\`\`\`survey-tags\n${JSON.stringify(draft.tags)}\n\`\`\`\n` : text;
+                ? serializeSurveyDesignMarkdown({...result.draft,tags:draft.tags}) : text;
               setMarkdown(canonical);setMarkdownNeedsApply(false);setError('');
               setDraft({...draft,title:result.draft.title,tags:result.draft.tags??draft.tags,questions:result.draft.questions});
             }}/>

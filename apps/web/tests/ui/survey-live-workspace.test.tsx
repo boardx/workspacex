@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import type { SurveyRuntime } from '@repo/contracts/survey-runtime';
-import { serializeSurveyPublicationMarkdown } from '@repo/contracts/survey-source';
+import { parseSurveyDesignMarkdown, serializeSurveyPublicationMarkdown } from '@repo/contracts/survey-source';
 import { LiveSurveyWorkspace } from '@/components/survey/live/survey-workspace';
 const request=vi.hoisted(()=>vi.fn());
 const router=vi.hoisted(()=>({replace:vi.fn(),push:vi.fn()}));
@@ -20,6 +20,9 @@ describe('live survey workspace persistence',()=>{
   fireEvent.click(screen.getByRole('button',{name:'应用到问卷'}));
   await screen.findByText('修改已保存',{}, {timeout:4000});
   expect(request).toHaveBeenLastCalledWith('/surveys/saved-survey/source',expect.objectContaining({body:expect.objectContaining({documents:expect.objectContaining({design:expect.stringContaining('客户调研')})})}),expect.anything());
+  const persisted=parseSurveyDesignMarkdown(request.mock.calls.at(-1)![1].body.documents.design);
+  expect(persisted.ok).toBe(true);
+  if(persisted.ok){expect(persisted.draft.tags).toEqual(['客户调研']);expect(persisted.draft.questions[0]!.title).toBe('请描述体验');}
  });
  it('saves repeat policy and success Markdown through canonical publication source',async()=>{
   request.mockResolvedValueOnce(runtime()).mockResolvedValueOnce(runtime({version:5}));
