@@ -73,7 +73,7 @@ export function BoardBottomDock({ stickyColor=STICKY_COLOR_PRESETS.yellow,onStic
   return (
     <nav data-testid="board-creation-dock" data-board-chrome="dock" ref={dockRef} onPointerDownCapture={capturePortalEvent} onKeyDownCapture={capturePortalEvent} aria-label="白板工具" className="absolute bottom-5 left-1/2 z-30 max-w-[calc(100vw-2rem)] -translate-x-1/2">
       {pickerOpen && (stickyOpen || textOpen || shapeOpen || contentOpen || drawOpen || panelOpen || connectorOpen) && (
-        <div data-testid="board-tool-picker" className="mb-4 flex max-h-80 min-w-64 max-w-full flex-wrap items-center justify-center gap-2 overflow-auto rounded-2xl border border-border-subtle bg-card p-2 shadow-lg motion-safe:animate-in motion-safe:slide-in-from-bottom-2 motion-safe:fade-in">
+        <div data-testid="board-tool-picker" style={stickyOpen?{width:420,maxWidth:"calc(100vw - 2rem)",marginInline:"auto"}:undefined} className="mb-4 flex max-h-80 min-w-64 max-w-full flex-wrap items-center justify-center gap-2 overflow-auto rounded-2xl border border-border-subtle bg-card p-2 shadow-lg motion-safe:animate-in motion-safe:slide-in-from-bottom-2 motion-safe:fade-in">
           {stickyOpen ? <BoardStickyPicker color={stickyColor} variant={creationTool.variant} readOnly={readOnly} onColorChange={value=>onStickyColorChange?.(value)} onVariantChange={variant=>onCreationToolChange({kind:"sticky",variant})} onBulk={onBulkSticky}/> : textOpen ? TEXT_PRESETS.map(({ preset, label }) => (
             <button
               key={preset}
