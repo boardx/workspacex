@@ -170,6 +170,7 @@ def create_native_graph(
     from .standard_run_cancel import StandardRunCancelError
     from .standard_browser_tools import StandardBrowserError
     from .standard_memory import StandardMemoryError
+    from .standard_remember import StandardRememberError
     from .standard_context_tools import StandardContextError
     from .standard_canvas_tools import StandardCanvasError
     from .standard_document_tools import StandardDocumentError
@@ -271,6 +272,7 @@ def _never_retry():
     from .standard_document_tools import StandardDocumentError
     from .standard_image_tools import StandardImageError
     from .standard_memory import StandardMemoryError
+    from .standard_remember import StandardRememberError
     from .standard_run_cancel import StandardRunCancelError
     from .standard_run_status import StandardRunStatusError
     from .standard_schedule import StandardScheduleError
@@ -281,7 +283,7 @@ def _never_retry():
     # 这三个是本模块顶层就导入的（第 29/33/34 行），不重复惰性导入。
     return (SandboxTransportError, SkillActivityError, ToolAuthorityError, NativeArtifactPublishError,
             StandardBrowserError, StandardArtifactDownloadError, StandardRunStatusError,
-            StandardRunCancelError, StandardMemoryError, StandardContextError, StandardCanvasError,
+            StandardRunCancelError, StandardMemoryError, StandardRememberError, StandardContextError, StandardCanvasError,
             StandardDocumentError, StandardSqlError, StandardScheduleError, StandardImageError,
             StandardAudioError, SkillDraftError, StandardSubtaskError, McpExecutionError)
 
