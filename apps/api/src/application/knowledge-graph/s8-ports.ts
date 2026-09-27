@@ -1,13 +1,13 @@
 /**
  * Phase 18 S8（#4365）的端口：记忆整合（去重 / 实体合一 / 矛盾开卡 + 撤销）与抽取 SLO 的数据库现数。
  * 单独一个文件而不是塞进 ports.ts：同一轮里别的 worker 也在改 ports.ts，端口按轮次分文件，合并时不打架。
- * 实现都在 infrastructure/knowledge-graph/（只调迁移 20260927450000 的 kg_* 函数，不点表名）。
+ * 实现都在 infrastructure/knowledge-graph/（只调迁移 20260928180000 的 kg_* 函数，不点表名）。
  */
 import type { knowledgeGraph as KG } from "@repo/contracts";
 import type { z } from "zod";
 import type { OrgId } from "../../domain/org-id";
 import type {
-  ClaimMergePlan, ConsolidationClaim, ConsolidationObject, EntityMergePlan, SimilarClaimPair,
+  ClaimMergePlan, ConsolidationClaim, ConsolidationObject, EntityMergePlan, SimilarClaimPair, UndonePair,
 } from "../../domain/knowledge-graph/consolidation";
 import type { Guarded } from "../security/permission-filter";
 
@@ -39,6 +39,8 @@ export interface KgConsolidationCandidates {
   readonly claims: readonly ConsolidationClaim[];
   readonly objects: readonly ConsolidationObject[];
   readonly similar: readonly SimilarClaimPair[];
+  /** #4491 H1：本人撤销过的对（整合不再动它们）。 */
+  readonly undone: readonly UndonePair[];
 }
 
 export type KgConsolidationRunView = z.infer<typeof KG.KgConsolidationRun>;
@@ -64,7 +66,7 @@ export interface KgConsolidationPort {
   /** 返回这次运行是否有改动。 */
   finish(orgId: OrgId, userId: string, runId: string): Promise<boolean>;
   /** 读侧（本人）：最近的有改动的运行。 */
-  listRuns(orgId: OrgId, userId: string, limit: number): Promise<Guarded<readonly KgConsolidationRunView[]>>;
+  listRuns(orgId: OrgId, userId: string, limit: number, runId?: string): Promise<Guarded<readonly KgConsolidationRunView[]>>;
   /** 本人撤销一次运行。运行不存在 / 不是本人的 / 已撤销 ⇒ `KgConsolidationError("KG_CONSOLIDATION_RUN_NOT_FOUND")`。 */
   undo(orgId: OrgId, userId: string, runId: string, actionId: string): Promise<{ readonly undone: number; readonly skipped: number }>;
 }

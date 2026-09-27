@@ -40,7 +40,10 @@ const ORG = "org-kg-s8-consolidation";
 const ORG_ID = toOrgId(ORG);
 const ME = "u-s8-me";
 const OTHER = "u-s8-other";
-const T = { budget50: "thr-s8-b50", budget60: "thr-s8-b60", pref1: "thr-s8-p1", pref2: "thr-s8-p2", slo: "thr-s8-slo" };
+const T = {
+  budget50: "thr-s8-b50", budget60: "thr-s8-b60", pref1: "thr-s8-p1", pref2: "thr-s8-p2", slo: "thr-s8-slo",
+  b10: "thr-s8-b10", b20: "thr-s8-b20", h1: "thr-s8-h1", h2: "thr-s8-h2",
+};
 const EMB = { model: "kg-s8-test", modelVersion: "v1" };
 
 const decision = (entity: string, statement: string) => JSON.stringify({
@@ -52,7 +55,13 @@ const preference = (statement: string) => JSON.stringify({
 });
 const PREF_OLD = "我更喜欢简洁的回答";
 const PREF_NEW = "我更喜欢简洁一点的回答";
+const HABIT_OLD = "我习惯早上开会";
+const HABIT_NEW = "我习惯在早上开会";
 const MODEL = loopbackModel([
+  ["项目B 预算定为 20 万", decision("项目B", "项目B 预算定为 20 万")],
+  ["项目B 预算定为 10 万", decision("项目B", "项目B 预算定为 10 万")],
+  [HABIT_NEW, preference(HABIT_NEW)],
+  [HABIT_OLD, preference(HABIT_OLD)],
   ["项目 A 预算定为 60 万", decision("项目 A", "项目 A 预算定为 60 万")],
   ["项目A 预算定为 50 万", decision("项目A", "项目A 预算定为 50 万")],
   [PREF_NEW, preference(PREF_NEW)],
@@ -207,14 +216,14 @@ describe("#4365 整合一次 + 撤销", () => {
   });
 
   it("别人撤不动（同一个 NOT_FOUND，不泄露存在性）；数据库函数没声明本人也拒", async () => {
-    await expect(undoMyConsolidationRun(udeps(), { userId: OTHER, orgId: ORG_ID }, runId, 20))
+    await expect(undoMyConsolidationRun(udeps(), { userId: OTHER, orgId: ORG_ID }, runId))
       .rejects.toMatchObject({ code: "KG_CONSOLIDATION_RUN_NOT_FOUND" });
     await expect(db.withTenant(ORG_ID, (s) => s.query("SELECT kg_consolidation_candidates($1, 10)", [ME])))
       .rejects.toThrow(/KG_NOT_OWNER/);
   });
 
   it("撤销：偏好恢复成两条（各自的来源各归各）、实体拆回、卡撤回、状态复原；审计留人的动作", async () => {
-    const run = await undoMyConsolidationRun(udeps(), { userId: ME, orgId: ORG_ID }, runId, 20);
+    const run = await undoMyConsolidationRun(udeps(), { userId: ME, orgId: ORG_ID }, runId);
     expect(run.state).toBe("undone");
     expect(run.changes.map((c) => c.state)).toEqual(["undone", "undone", "undone"]);
 
@@ -235,28 +244,96 @@ describe("#4365 整合一次 + 撤销", () => {
   });
 
   it("撤销过的再撤 ⇒ NOT_FOUND，什么都不变", async () => {
-    await expect(undoMyConsolidationRun(udeps(), { userId: ME, orgId: ORG_ID }, runId, 20))
+    await expect(undoMyConsolidationRun(udeps(), { userId: ME, orgId: ORG_ID }, runId))
       .rejects.toBeInstanceOf(KgConsolidationError);
   });
 
-  it("再整合一次，人先在卡上选了「两条都留」再撤销 ⇒ 卡那一处 undo_skipped（写明原因），其余照常还原", async () => {
+  it("#4491 H1：撤销要粘住——撤销后再跑一轮整合（updated_at 前进，人又被选中）⇒ 0 处合并、0 张卡", async () => {
+    expect(await port.pendingUsers(10_000)).toContainEqual({ orgId: ORG_ID, userId: ME });
+    const pass = await runConsolidationPass(cdeps(), 10_000);
+    expect(pass).toMatchObject({ claimMerges: 0, entityMerges: 0, conflicts: 0, failedUsers: 0 });
+    const p = await personal();
+    expect(p.claims.filter((c) => c.kind === "preference").map((c) => c.statement).sort()).toEqual([PREF_OLD, PREF_NEW].sort());
+    expect(p.objects.map((o) => o.name).sort()).toEqual(["项目 A", "项目A"]);
+    expect(await turnConflict(T.budget60)).toBeNull();
+  });
+
+  it("新的一对矛盾照常开卡；人先在卡上选了「两条都留」再撤销 ⇒ 卡那一处 undo_skipped（写明原因），再撤 ⇒ NOT_FOUND", async () => {
+    await say(T.b10, "项目B 预算定为 10 万");
+    answers[T.b10] = await say(T.b10, "好的，我记下了。", { agent: true });
+    await say(T.b20, "项目B 预算定为 20 万");
+    answers[T.b20] = await say(T.b20, "好的，我记下了。", { agent: true });
     const r = await consolidateUser(cdeps(), { orgId: ORG_ID, userId: ME });
-    expect(r).toMatchObject({ claimMerges: 1, entityMerges: 1, conflicts: 1 });
-    const card = await turnConflict(T.budget60);
-    const k = await getThreadKnowledge(readDeps(), { userId: ME, orgId: ORG_ID, threadId: T.budget60 });
+    expect(r).toMatchObject({ claimMerges: 0, entityMerges: 0, conflicts: 1 });
+    const card = await turnConflict(T.b20);
+    expect(card?.newerClaim.statement).toBe("项目B 预算定为 20 万");
+    const k = await getThreadKnowledge(readDeps(), { userId: ME, orgId: ORG_ID, threadId: T.b20 });
     await applyHumanAction(hdeps, {
-      userId: ME, orgId: ORG_ID, threadId: T.budget60, basedOnRevision: k.revision,
+      userId: ME, orgId: ORG_ID, threadId: T.b20, basedOnRevision: k.revision,
       action: { type: "resolveConflict", promptId: card!.promptId, resolution: "keep_both" },
     });
-    const run = await undoMyConsolidationRun(udeps(), { userId: ME, orgId: ORG_ID }, r.runId, 20);
+    const run = await undoMyConsolidationRun(udeps(), { userId: ME, orgId: ORG_ID }, r.runId);
     expect(run.state).toBe("partially_undone");
-    expect(run.changes.map((c) => [c.kind, c.state])).toEqual([
-      ["entity_merge", "undone"], ["claim_merge", "undone"], ["conflict_opened", "undo_skipped"],
-    ]);
-    expect(run.changes[2]!.undoNote).toContain("已经处理过");
+    expect(run.changes.map((c) => [c.kind, c.state])).toEqual([["conflict_opened", "undo_skipped"]]);
+    expect(run.changes[0]!.undoNote).toContain("已经处理过");
     // 人的裁决留着：旧的那条「你确认过」（keep_both），没有被撤销拨回
     const decisions = new Map((await personal()).claims.filter((c) => c.kind === "decision").map((c) => [c.statement, c.status]));
-    expect(decisions.get("项目A 预算定为 50 万")).toBe("accepted");
+    expect(decisions.get("项目B 预算定为 10 万")).toBe("accepted");
+    await expect(undoMyConsolidationRun(udeps(), { userId: ME, orgId: ORG_ID }, r.runId))
+      .rejects.toMatchObject({ code: "KG_CONSOLIDATION_RUN_NOT_FOUND" });
+  });
+});
+
+describe("#4491 M1：保留方自己没有支撑证据时不合并；撤销不把保留方的支撑撤空", () => {
+  let older = "";
+  let newer = "";
+  let runId = "";
+
+  beforeAll(async () => {
+    await say(T.h1, HABIT_OLD);
+    await say(T.h2, HABIT_NEW);
+    for (const [statement, v] of [[HABIT_OLD, "[0,1,0]"], [HABIT_NEW, "[0,0.97,0.243]"]] as const) {
+      const [c] = await sql<{ id: string }>(
+        "SELECT id FROM claims WHERE org_id = $1 AND scope_kind = 'personal' AND scope_id = $2 AND statement = $3 AND revoked_at IS NULL", [ORG, ME, statement]);
+      await sql(
+        `INSERT INTO object_embeddings (org_id, target_kind, target_id, model, model_version, embedding)
+         VALUES ($1, 'claim', $2, $3, $4, $5::vector) ON CONFLICT DO NOTHING`, [ORG, c!.id, EMB.model, EMB.modelVersion, v]);
+      if (statement === HABIT_OLD) older = c!.id; else newer = c!.id;
+    }
+  }, 300_000);
+
+  it("保留方（较早那条）的支撑证据不在了 ⇒ 这一对不合（否则撤销时 F07 会把保留方收掉）", async () => {
+    // 模拟「保留方自己没有支撑」：把它的支撑证据改成反对（UPDATE 不触发 F07 的删除触发器，它仍活着）
+    await sql("UPDATE claim_message_evidence SET stance = 'contradicting' WHERE claim_id = $1 AND stance = 'supporting'", [older]);
+    const r = await consolidateUser(cdeps(), { orgId: ORG_ID, userId: ME });
+    expect(r.claimMerges).toBe(0);
+    expect((await claimRow(newer)).revoked).toBe(false);
+    await sql("UPDATE claim_message_evidence SET stance = 'supporting' WHERE claim_id = $1 AND stance = 'contradicting'", [older]);
+  });
+
+  it("有支撑时照常合并；之后保留方自己的原话证据没了，再撤销 ⇒ 复制来的支撑留着，保留方不被 F07 收掉", async () => {
+    const r = await consolidateUser(cdeps(), { orgId: ORG_ID, userId: ME });
+    expect(r.claimMerges).toBe(1);
+    runId = r.runId;
+    const own = (await evidenceOf(older)).filter((e) => e.stance === "supporting").map((e) => e.message_id);
+    expect(own.length).toBeGreaterThanOrEqual(2);
+    const [mine] = await sql<{ message_id: string }>(
+      "SELECT e.message_id FROM claim_message_evidence e JOIN chat_messages m ON m.id = e.message_id WHERE e.claim_id = $1 AND m.thread_id = $2", [older, T.h1]);
+    await sql("DELETE FROM claim_message_evidence WHERE claim_id = $1 AND message_id = $2", [older, mine!.message_id]);
+    expect((await claimRow(older)).revoked).toBe(false);
+    const run = await undoMyConsolidationRun(udeps(), { userId: ME, orgId: ORG_ID }, runId);
+    expect(run.state).toBe("undone");
+    expect(await claimRow(older)).toMatchObject({ revoked: false });
+    expect(await claimRow(newer)).toMatchObject({ revoked: false });
+  });
+
+  it("#4491 L3：按 id 读回一次较早的整理，不受「最近 N 条」上限影响", async () => {
+    const latestOnly = await listMyConsolidationRuns(udeps(), { userId: ME, orgId: ORG_ID }, 1);
+    const all = await listMyConsolidationRuns(udeps(), { userId: ME, orgId: ORG_ID }, 20);
+    const oldest = all.at(-1)!;
+    expect(latestOnly[0]!.runId).not.toBe(oldest.runId);
+    const byId = await listMyConsolidationRuns(udeps(), { userId: ME, orgId: ORG_ID }, 1, oldest.runId);
+    expect(byId.map((r) => r.runId)).toEqual([oldest.runId]);
   });
 });
 

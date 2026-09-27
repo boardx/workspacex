@@ -197,7 +197,14 @@ BEGIN
                             JOIN public.object_embeddings eb ON eb.org_id = v_org AND eb.target_kind = 'claim' AND eb.target_id = b.id
                                                             AND eb.model = ea.model AND eb.model_version = ea.model_version
                            WHERE 1 - (ea.embedding <=> eb.embedding) >= 0.85
-                           ORDER BY a.id, b.id, 1 - (ea.embedding <=> eb.embedding) DESC) x)
+                           ORDER BY a.id, b.id, 1 - (ea.embedding <=> eb.embedding) DESC) x),
+      -- #4491 H1：本人撤销过的对——撤销要「粘住」，之后的整合不再动它们（矛盾对按个人空间里的新条记）。
+      'undone', (SELECT coalesce(jsonb_agg(DISTINCT jsonb_build_object('a', u.a, 'b', u.b)), '[]'::jsonb)
+                   FROM (SELECT c.kept_id AS a,
+                                CASE WHEN c.kind = 'conflict_opened' THEN c.restore->>'newer_personal' ELSE c.other_id END AS b
+                           FROM public.kg_consolidation_changes c
+                          WHERE c.org_id = v_org AND c.user_id = v_user AND c.status = 'undone') u
+                  WHERE u.a IS NOT NULL AND u.b IS NOT NULL)
     )
   );
 END
@@ -217,6 +224,16 @@ BEGIN
   INSERT INTO public.kg_consolidation_runs (id, org_id, user_id) VALUES (p_run, v_org, v_user);
   RETURN p_run;
 END
+$$;
+
+-- #4491 H1：这一对（无序）本人撤销过没有。数据库这一道也拦：计划端漏了也不会把撤销过的再合一次。
+CREATE OR REPLACE FUNCTION kg_consolidation_pair_undone(p_org text, p_user text, p_a text, p_b text) RETURNS boolean
+LANGUAGE sql STABLE SET search_path = pg_catalog, public, pg_temp
+AS $$
+  SELECT EXISTS (SELECT 1 FROM public.kg_consolidation_changes c
+                  WHERE c.org_id = p_org AND c.user_id = p_user AND c.status = 'undone'
+                    AND ((c.kept_id = p_a AND (c.other_id = p_b OR c.restore->>'newer_personal' = p_b))
+                      OR (c.kept_id = p_b AND (c.other_id = p_a OR c.restore->>'newer_personal' = p_a))))
 $$;
 
 CREATE OR REPLACE FUNCTION kg_consolidation_next_ordinal(p_run text) RETURNS integer
@@ -262,7 +279,8 @@ BEGIN
     CONTINUE WHEN NOT FOUND;
     CONTINUE WHEN v_keep.scope_kind <> 'personal' OR v_keep.scope_id <> v_user OR v_keep.merged_into IS NOT NULL
                OR v_other.scope_kind <> 'personal' OR v_other.scope_id <> v_user OR v_other.merged_into IS NOT NULL
-               OR v_keep.object_kind <> v_other.object_kind;
+               OR v_keep.object_kind <> v_other.object_kind
+               OR kg_consolidation_pair_undone(v_org, v_user, v_keep.id, v_other.id);
     v_ord := kg_consolidation_next_ordinal(v_run);
     v_id := v_run || '-' || v_ord;
     WITH u AS (UPDATE ontology_edges SET dst_id = v_keep.id
@@ -300,7 +318,11 @@ BEGIN
                OR v_other.scope_kind IS DISTINCT FROM 'personal' OR v_other.scope_id IS DISTINCT FROM v_user
                OR v_keep.revoked_at IS NOT NULL OR v_other.revoked_at IS NOT NULL
                OR v_keep.status NOT IN ('proposed', 'reviewed', 'accepted') OR v_other.status NOT IN ('proposed', 'reviewed', 'accepted')
-               OR coalesce(v_keep.claim_kind, 'fact') <> coalesce(v_other.claim_kind, 'fact');
+               OR coalesce(v_keep.claim_kind, 'fact') <> coalesce(v_other.claim_kind, 'fact')
+               OR kg_consolidation_pair_undone(v_org, v_user, v_keep.id, v_other.id)
+               -- #4491 M1：保留方自己得有支撑证据。否则撤销时撤掉复制来的证据，F07 kg_revoke_unsupported_claim 会把保留方一起收掉。
+               OR NOT (EXISTS (SELECT 1 FROM claim_message_evidence e WHERE e.org_id = v_org AND e.claim_id = v_keep.id AND e.stance = 'supporting')
+                    OR EXISTS (SELECT 1 FROM claim_segments g WHERE g.org_id = v_org AND g.claim_id = v_keep.id AND g.stance = 'supporting'));
     v_ord := kg_consolidation_next_ordinal(v_run);
     v_id := v_run || '-' || v_ord;
     -- 来源：消息证据
@@ -333,8 +355,12 @@ BEGIN
     SELECT coalesce(array_agg(e.id ORDER BY e.id), '{}') INTO v_edges_inv FROM ontology_edges e
      WHERE e.org_id = v_org AND e.status = 'active'
        AND ((e.src_kind = 'claim' AND e.src_id = v_other.id) OR (e.dst_kind = 'claim' AND e.dst_id = v_other.id));
+    -- S10（#4489）握手：S10 的级联触发器读这个事务内标记，把项目副本改挂到保留方（语义 / 字面合并时文本不同，它的文本匹配兜底认不出）。
+    -- 不在保留方上写 supersedes_claim_id。
+    PERFORM set_config('kg.consolidation_keep', v_keep.id::text, true);
     UPDATE claims SET status = 'superseded', revoked_at = now(), revocation_reason = 'consolidated_duplicate', updated_at = now()
      WHERE org_id = v_org AND id = v_other.id;
+    PERFORM set_config('kg.consolidation_keep', '', true);
     INSERT INTO kg_consolidation_changes (id, run_id, org_id, user_id, ordinal, kind, kept_id, other_id, basis, score, restore)
     VALUES (v_id, v_run, v_org, v_user, v_ord, 'claim_merge', v_keep.id, v_other.id, v_item->>'basis',
             nullif(v_item->>'score', '')::real,
@@ -415,6 +441,7 @@ BEGIN
                      AND n.scope_id = v_user AND n.revoked_at IS NULL AND n.status IN ('proposed', 'reviewed', 'accepted')) THEN
     RETURN 'skipped';
   END IF;
+  IF kg_consolidation_pair_undone(v_org, v_user, v_older.id, p->>'newer') THEN RETURN 'skipped'; END IF;
   v_key := kg_conflict_statement_key(v_newer.statement);
   -- I-19：同一旧条、同样说法已经提醒过（开着 / 忽略 / 两条都留）⇒ 不再提醒；这一对已有卡 ⇒ 不重复开
   IF EXISTS (SELECT 1 FROM kg_conflict_prompts x WHERE x.org_id = v_org AND x.older_claim_id = v_older.id AND x.newer_key = v_key
@@ -490,7 +517,7 @@ BEGIN
     RAISE EXCEPTION 'KG_ORG_FROZEN: organization % is read-only', v_org USING ERRCODE = '42501';
   END IF;
   SELECT * INTO v_run FROM kg_consolidation_runs r WHERE r.id = p_run AND r.org_id = v_org AND r.user_id = v_user FOR UPDATE;
-  IF NOT FOUND OR v_run.status = 'undone' THEN
+  IF NOT FOUND OR v_run.status <> 'applied' THEN
     RAISE EXCEPTION 'KG_CONSOLIDATION_RUN_NOT_FOUND' USING ERRCODE = '23503';
   END IF;
   -- 锁顺序：涉及的会话锁（按 id）→ 个人空间锁，与 F16 / 开卡同一顺序
@@ -550,7 +577,13 @@ BEGIN
                 OR EXISTS (SELECT 1 FROM claims x WHERE x.org_id = v_org AND x.id = e.src_id AND x.revoked_at IS NULL))
            AND (e.dst_kind <> 'object' OR EXISTS (SELECT 1 FROM ontology_objects o WHERE o.org_id = v_org AND o.id = e.dst_id AND o.merged_into IS NULL));
         DELETE FROM ontology_edges WHERE org_id = v_org AND id IN (SELECT jsonb_array_elements_text(v_r->'edges_added'));
-        IF EXISTS (SELECT 1 FROM claims k WHERE k.org_id = v_org AND k.id = v_ch.kept_id) THEN
+        -- #4491 M1：保留方在复制来的之外已没有自己的支撑证据（整合之后它自己的原话被删了）⇒ 复制来的支撑证据留着，
+        -- 否则 F07 会因为「没有支撑」把保留方收掉。
+        IF EXISTS (SELECT 1 FROM claims k WHERE k.org_id = v_org AND k.id = v_ch.kept_id)
+           AND (EXISTS (SELECT 1 FROM claim_message_evidence e WHERE e.org_id = v_org AND e.claim_id = v_ch.kept_id AND e.stance = 'supporting'
+                          AND (e.message_id, e.stance) NOT IN (SELECT x->>'message_id', x->>'stance' FROM jsonb_array_elements(v_r->'evidence_added') x))
+             OR EXISTS (SELECT 1 FROM claim_segments g WHERE g.org_id = v_org AND g.claim_id = v_ch.kept_id AND g.stance = 'supporting'
+                          AND (g.segment_id, g.stance) NOT IN (SELECT x->>'segment_id', x->>'stance' FROM jsonb_array_elements(v_r->'segments_added') x))) THEN
           DELETE FROM claim_message_evidence e
            WHERE e.org_id = v_org AND e.claim_id = v_ch.kept_id
              AND (e.message_id, e.stance) IN (SELECT x->>'message_id', x->>'stance' FROM jsonb_array_elements(v_r->'evidence_added') x);
@@ -582,7 +615,8 @@ $$;
 
 -- ─────────────────────────────── 本人的整合记录（读，只有本人） ───────────────────────────────
 -- 最近 p_limit 次有改动的运行，每处改动带两边的文字（本人个人空间的结论 / 实体名；卡上的会话结论来自本人个人对话）。
-CREATE OR REPLACE FUNCTION kg_consolidation_list(p_limit integer) RETURNS jsonb
+-- p_run 非空 ⇒ 只读这一次（#4491 L3：撤销一次很早的整理后按 id 读回，不受最近 N 条的上限影响）。
+CREATE OR REPLACE FUNCTION kg_consolidation_list(p_limit integer, p_run text) RETURNS jsonb
 LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path = pg_catalog, public, pg_temp
 AS $$
 DECLARE
@@ -612,6 +646,7 @@ BEGIN
            ) ORDER BY r.created_at DESC, r.id DESC), '[]'::jsonb)
       FROM (SELECT * FROM kg_consolidation_runs r
              WHERE r.org_id = v_org AND r.user_id = v_user AND (r.claim_merges + r.entity_merges + r.conflicts) > 0
+               AND (p_run IS NULL OR r.id = p_run)
              ORDER BY r.created_at DESC, r.id DESC LIMIT greatest(p_limit, 0)) r
   );
 END
@@ -632,15 +667,16 @@ $$;
 
 REVOKE ALL ON FUNCTION kg_consolidation_pending_users(integer), kg_consolidation_actor(text),
   kg_consolidation_candidates(text, integer), kg_consolidation_begin(text, text), kg_consolidation_next_ordinal(text),
+  kg_consolidation_pair_undone(text, text, text, text),
   kg_consolidation_apply_merges(jsonb), kg_consolidation_open_conflict(jsonb), kg_consolidation_finish(text, text),
-  kg_consolidation_undo(text, text), kg_consolidation_list(integer), kg_extraction_slo_counts(integer, integer) FROM PUBLIC;
+  kg_consolidation_undo(text, text), kg_consolidation_list(integer, text), kg_extraction_slo_counts(integer, integer) FROM PUBLIC;
 DO $$
 BEGIN
   IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'app_rw') THEN
     GRANT EXECUTE ON FUNCTION kg_consolidation_set_enabled(boolean), kg_consolidation_pending_users(integer),
       kg_consolidation_candidates(text, integer), kg_consolidation_begin(text, text),
       kg_consolidation_apply_merges(jsonb), kg_consolidation_open_conflict(jsonb), kg_consolidation_finish(text, text),
-      kg_consolidation_undo(text, text), kg_consolidation_list(integer), kg_extraction_slo_counts(integer, integer) TO app_rw;
+      kg_consolidation_undo(text, text), kg_consolidation_list(integer, text), kg_extraction_slo_counts(integer, integer) TO app_rw;
   END IF;
 END
 $$;

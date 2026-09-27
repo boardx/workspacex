@@ -3,7 +3,7 @@
  */
 import { describe, expect, it } from "vitest";
 import {
-  CONSOLIDATION_COSINE_MIN, duplicateBasis, lexicalSimilarity, planConsolidation, planEntityMerges,
+  CONSOLIDATION_COSINE_MIN, contentTokens, duplicateBasis, lexicalSimilarity, planConsolidation, planEntityMerges,
   type ConsolidationClaim, type ConsolidationObject,
 } from "../../src/domain/knowledge-graph/consolidation";
 
@@ -48,6 +48,52 @@ describe("#4365 结论去重的门", () => {
     const v = duplicateBasis(claim("我希望团队的周报每周五下午五点之前发到群里"), claim("我希望团队的周报每周五下午五点之前都发到群里"), null);
     expect(v?.basis).toBe("lexical");
     expect(v?.score).toBeGreaterThanOrEqual(0.9);
+  });
+});
+
+describe("#4491 H2：只差一个内容词的两句不是重复（字面、向量都很像也不合）", () => {
+  it.each([
+    ["项目A的负责人是张三", "项目A的负责人是李四", "fact"],
+    ["客户希望在上海举办发布会", "客户希望在北京举办发布会", "fact"],
+    ["我更喜欢用Python写后端服务", "我更喜欢用Go写后端服务", "preference"],
+  ] as const)("「%s」对「%s」⇒ 不合（余弦 0.99 也不合）", (x, y, kind) => {
+    const a = claim(x, { kind, aboutObjectIds: ["o1"] });
+    const b = claim(y, { kind, aboutObjectIds: ["o1"] });
+    expect(lexicalSimilarity(x, y)).toBeGreaterThan(0.6);
+    expect(duplicateBasis(a, b, 0.99)).toBeNull();
+    expect(planConsolidation({ claims: [a, b], objects: [], similar: [{ a: a.id, b: b.id, cosine: 0.99 }] }).claimMerges).toEqual([]);
+  });
+
+  it("只差虚词（的 / 一点 / 都）⇒ 内容词相同，仍可合", () => {
+    expect(contentTokens("我更喜欢简洁一点的回答")).toEqual(contentTokens("我更喜欢简洁的回答"));
+    expect(contentTokens("项目A的负责人是张三")).not.toEqual(contentTokens("项目A的负责人是李四"));
+  });
+
+  it("涉及的实体不同 ⇒ 不合（同一句话说的是两个项目）；实体合一之后相同 ⇒ 合", () => {
+    const a = claim("负责人是张三", { kind: "fact", aboutObjectIds: ["o1"], createdAt: "2026-09-01T00:00:00Z" });
+    const b = claim("负责人是张三", { kind: "fact", aboutObjectIds: ["o9"], createdAt: "2026-09-02T00:00:00Z" });
+    expect(duplicateBasis(a, b, null)).toBeNull();
+    expect(planConsolidation({ claims: [a, b], objects: [obj("o1", "项目A"), obj("o9", "项目B")], similar: [] }).claimMerges).toEqual([]);
+    const c = claim("负责人是张三", { kind: "fact", aboutObjectIds: ["o2"], createdAt: "2026-09-03T00:00:00Z" });
+    const plan = planConsolidation({ claims: [a, c], objects: [obj("o1", "项目A", { createdAt: "2026-09-01T00:00:00Z" }), obj("o2", "项目 A")], similar: [] });
+    expect(plan.claimMerges.map((m) => [m.keepId, m.mergeId])).toEqual([[a.id, c.id]]);
+  });
+});
+
+describe("#4491 H1：撤销过的对不再进计划", () => {
+  it("结论对、实体对、矛盾对各自排除", () => {
+    const p1 = claim("我更喜欢简洁的回答");
+    const p2 = claim("我更喜欢简洁的回答。");
+    const older = claim("项目A 预算定为 50 万", { kind: "decision", aboutObjectIds: ["o1"], createdAt: "2026-09-01T00:00:00Z" });
+    const newer = claim("项目A 预算定为 60 万", { kind: "decision", aboutObjectIds: ["o1"], createdAt: "2026-09-08T00:00:00Z" });
+    const objects = [obj("o1", "项目A", { createdAt: "2026-09-01T00:00:00Z" }), obj("o2", "项目 A")];
+    const before = planConsolidation({ claims: [p1, p2, older, newer], objects, similar: [] });
+    expect([before.claimMerges.length, before.entityMerges.length, before.conflicts.length]).toEqual([1, 1, 1]);
+    const after = planConsolidation({
+      claims: [p1, p2, older, newer], objects, similar: [],
+      undone: [{ a: p2.id, b: p1.id }, { a: "o1", b: "o2" }, { a: older.id, b: newer.id }],
+    });
+    expect(after).toEqual({ claimMerges: [], entityMerges: [], conflicts: [] });
   });
 });
 

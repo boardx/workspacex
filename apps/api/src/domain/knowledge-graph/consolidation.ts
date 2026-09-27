@@ -1,7 +1,7 @@
 /**
  * Phase 18 S8（#4365，epic #4359）—— 个人空间的记忆整合：判哪些结论是同一句话说了两遍、哪些实体是同一个东西的
  * 两种写法、哪些结论彼此矛盾。纯函数：只出「计划」，落不落表、怎么撤销在数据库函数 `kg_consolidation_apply` /
- * `kg_consolidation_undo`（迁移 20260927450000）。
+ * `kg_consolidation_undo`（迁移 20260928180000）。
  *
  * ## 宁可漏合，不可错合（同 conflict.ts「宁可漏，不可误」）
  *
@@ -10,7 +10,11 @@
  * 结论去重（`claim_merge`）——同一个人个人空间里、都活着、类型相同，且
  *   1. 数值集合完全相同（「预算 50 万」与「预算 60 万」永远不合——那是矛盾，走下面的冲突卡）；
  *   2. 否定极性相同（「我喜欢咖啡」与「我不喜欢咖啡」字面几乎一样，不能合）；
- *   3. 以下之一：
+ *   3. 涉及的实体集合相同（实体按本次合一换成保留方之后）；
+ *   4. **内容词完全相同**（#4491 评审 H2）：去掉虚词后的相邻两字、拉丁整词、数字，两边的对称差必须为空——
+ *      「负责人是张三」对「负责人是李四」、「在上海举办」对「在北京举办」、「用Python写」对「用Go写」字面与向量都很像，
+ *      但多出 / 少了一个内容词，一律不合（那是另一件事或矛盾，不是重复）。只差虚词（「的」「一点」「都」）才算同一句话；
+ *   5. 以下之一：
  *      - 归一后文本相同（NFKC、去空白标点、小写）；
  *      - 有 S9 的向量且余弦 ≥ `CONSOLIDATION_COSINE_MIN`，**并且**字面相似（相邻两字 Dice）≥ `CONSOLIDATION_LEXICAL_WITH_VECTOR_MIN`；
  *      - 没有向量（嵌入没配置 / 还没嵌完）时，只认字面相似 ≥ `CONSOLIDATION_LEXICAL_ONLY_MIN`。
@@ -82,6 +86,13 @@ export interface ConflictPlan {
   readonly olderId: string;
 }
 
+/** 撤销过的一对（无序）。 */
+export interface UndonePair {
+  readonly a: string;
+  readonly b: string;
+}
+const pairKey = (x: string, y: string) => (x < y ? `${x}|${y}` : `${y}|${x}`);
+
 export interface ConsolidationPlan {
   readonly claimMerges: readonly ClaimMergePlan[];
   readonly entityMerges: readonly EntityMergePlan[];
@@ -92,6 +103,26 @@ const NOISE = /[\s\p{P}\p{S}]+/gu;
 /** 归一文本：NFKC、小写、去掉空白与标点符号。 */
 export function statementKey(s: string): string {
   return s.normalize("NFKC").toLowerCase().replace(NOISE, "");
+}
+
+/** 虚词 / 程度词：去掉它们不改变一句话说的是什么（「简洁的回答」=「简洁一点的回答」）。宁可少列：列多了会把内容词当虚词。 */
+const FUNCTION_CHARS = /[的地得了着过是在和与及也都就还很更最太又再才吧呢啊呀吗么哦嘛一点些个把被给对]/gu;
+const HAN_RUN = /\p{Script=Han}+/gu;
+const LATIN_WORD = /[a-z][a-z0-9+#.]*/g;
+const DIGITS = /\d+(?:[./:-]\d+)*/g;
+
+/** 内容词：去掉虚词后的汉字相邻两字（单字段按单字）、拉丁整词、数字串。 */
+export function contentTokens(statement: string): Set<string> {
+  const text = statement.normalize("NFKC").toLowerCase();
+  const out = new Set<string>();
+  for (const run of text.match(HAN_RUN) ?? []) {
+    const core = [...run.replace(FUNCTION_CHARS, "")];
+    if (core.length === 1) out.add(core[0]!);
+    for (let i = 0; i + 1 < core.length; i += 1) out.add(core[i]! + core[i + 1]!);
+  }
+  for (const w of text.replace(HAN_RUN, " ").match(LATIN_WORD) ?? []) out.add(`w:${w}`);
+  for (const d of text.match(DIGITS) ?? []) out.add(`n:${d}`);
+  return out;
 }
 
 /** 相邻两字（bigram）的 Dice 系数，0–1。一个字的串按单字算。 */
@@ -129,12 +160,16 @@ const sameSet = (a: ReadonlySet<string>, b: ReadonlySet<string>) => a.size === b
 /** 两条结论能不能当成同一句话（见文件头）。返回合并依据，不能合 ⇒ null。 */
 export function duplicateBasis(
   a: ConsolidationClaim, b: ConsolidationClaim, cosine: number | null,
+  /** 实体 id → 合一后的保留方 id（没有合一 ⇒ 原样）。 */
+  canonicalObject: (id: string) => string = (id) => id,
 ): { basis: ClaimMergeBasis; score: number } | null {
   if (a.id === b.id || a.kind !== b.kind) return null;
   if (a.status === "contested" || b.status === "contested") return null;
   if (!sameSet(numberTokens(a.statement), numberTokens(b.statement))) return null;
   if (negationCount(a.statement) !== negationCount(b.statement)) return null;
+  if (!sameSet(new Set(a.aboutObjectIds.map(canonicalObject)), new Set(b.aboutObjectIds.map(canonicalObject)))) return null;
   if (statementKey(a.statement) === statementKey(b.statement)) return { basis: "exact", score: 1 };
+  if (!sameSet(contentTokens(a.statement), contentTokens(b.statement))) return null;
   const lexical = lexicalSimilarity(a.statement, b.statement);
   if (cosine !== null) {
     return cosine >= CONSOLIDATION_COSINE_MIN && lexical >= CONSOLIDATION_LEXICAL_WITH_VECTOR_MIN
@@ -202,8 +237,13 @@ export function planConsolidation(input: {
   readonly claims: readonly ConsolidationClaim[];
   readonly objects: readonly ConsolidationObject[];
   readonly similar: readonly SimilarClaimPair[];
+  /** #4491 H1：本人撤销过的那几对（结论对 / 实体对 / 矛盾对，无序）——撤销要「粘住」，之后的整合不再动它们。 */
+  readonly undone?: readonly UndonePair[];
 }): ConsolidationPlan {
-  const entityMerges = planEntityMerges(input.objects);
+  const undone = new Set((input.undone ?? []).map((p) => pairKey(p.a, p.b)));
+  const entityMerges = planEntityMerges(input.objects).filter((m) => !undone.has(pairKey(m.keepId, m.mergeId)));
+  const keeperOfObject = new Map(entityMerges.map((e) => [e.mergeId, e.keepId]));
+  const canonicalObject = (id: string) => keeperOfObject.get(id) ?? id;
   const cosineOf = new Map(input.similar.map((p) => [p.a < p.b ? `${p.a}|${p.b}` : `${p.b}|${p.a}`, p.cosine]));
   const claims = [...input.claims].sort((x, y) => x.id.localeCompare(y.id));
 
@@ -213,7 +253,8 @@ export function planConsolidation(input: {
     for (let j = i + 1; j < claims.length; j += 1) {
       const a = claims[i]!;
       const b = claims[j]!;
-      const verdict = duplicateBasis(a, b, cosineOf.get(`${a.id}|${b.id}`) ?? null);
+      if (undone.has(pairKey(a.id, b.id))) continue;
+      const verdict = duplicateBasis(a, b, cosineOf.get(`${a.id}|${b.id}`) ?? null, canonicalObject);
       if (verdict === null) continue;
       edges.push([a.id, b.id]);
       bases.set(`${a.id}|${b.id}`, verdict);
@@ -235,14 +276,14 @@ export function planConsolidation(input: {
 
   // 矛盾：在合并之后还活着的结论之间判；实体名按合一后的保留方算。
   const nameOf = new Map(input.objects.map((o) => [o.id, o.name]));
-  const keeperOf = new Map(entityMerges.map((e) => [e.mergeId, e.keepId]));
-  const about = (c: ConsolidationClaim) => [...new Set(c.aboutObjectIds.map((id) => nameOf.get(keeperOf.get(id) ?? id) ?? id))];
+  const about = (c: ConsolidationClaim) => [...new Set(c.aboutObjectIds.map((id) => nameOf.get(canonicalObject(id)) ?? id))];
   const live = claims.filter((c) => !merged.has(c.id));
   const conflicts: ConflictPlan[] = [];
   for (let i = 0; i < live.length; i += 1) {
     for (let j = i + 1; j < live.length; j += 1) {
       const [older, newer] = [live[i]!, live[j]!].sort(keeperOrder<ConsolidationClaim>(() => false));
       if (older!.status === "contested" || newer!.status === "contested") continue;
+      if (undone.has(pairKey(older!.id, newer!.id))) continue;
       const hit = isConflict(
         { id: newer!.id, kind: newer!.kind, statement: newer!.statement, confidence: 1, about: about(newer!) },
         { id: older!.id, kind: older!.kind, statement: older!.statement, about: about(older!), scope: "personal", confirmedAt: older!.createdAt },

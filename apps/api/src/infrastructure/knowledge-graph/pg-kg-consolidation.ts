@@ -1,5 +1,5 @@
 /**
- * Phase 18 S8（#4365）—— `KgConsolidationPort` 与 `KgExtractionSloCountsPort` 的 Postgres 实现：只调迁移 20260927450000 的
+ * Phase 18 S8（#4365）—— `KgConsolidationPort` 与 `KgExtractionSloCountsPort` 的 Postgres 实现：只调迁移 20260928180000 的
  * kg_* 函数，不写一行表名 SQL（同 pg-kg-conflict.ts / pg-kg-embedding.ts）。
  *
  * 系统写（候选、合并、开卡、收尾）一律先以「本人」身份声明 `app.current_user_id`（同 F16 asThreadOwner）：数据库函数
@@ -15,7 +15,7 @@ import {
 } from "../../application/knowledge-graph/s8-ports";
 import { guard, type Guarded } from "../../application/security/permission-filter";
 import type {
-  ClaimMergePlan, ConsolidationClaim, ConsolidationObject, EntityMergePlan, SimilarClaimPair,
+  ClaimMergePlan, ConsolidationClaim, ConsolidationObject, EntityMergePlan, SimilarClaimPair, UndonePair,
 } from "../../domain/knowledge-graph/consolidation";
 import { toOrgId, type OrgId } from "../../domain/org-id";
 import { retryOnceOnDeadlock } from "./kg-deadlock-retry";
@@ -65,7 +65,7 @@ export class PgKgConsolidation implements KgConsolidationPort {
   async candidates(orgId: OrgId, userId: string, limit: number): Promise<KgConsolidationCandidates> {
     const r = await this.db.withTenant(orgId, async (s) => {
       await asUser(s, userId);
-      return s.query<{ c: { claims?: Row[]; objects?: Row[]; similar?: Row[] } }>("SELECT kg_consolidation_candidates($1, $2) AS c", [userId, limit]);
+      return s.query<{ c: { claims?: Row[]; objects?: Row[]; similar?: Row[]; undone?: Row[] } }>("SELECT kg_consolidation_candidates($1, $2) AS c", [userId, limit]);
     });
     const out = r.rows[0]?.c ?? {};
     const claims: ConsolidationClaim[] = [];
@@ -85,7 +85,10 @@ export class PgKgConsolidation implements KgConsolidationPort {
     const similar: SimilarClaimPair[] = (out.similar ?? [])
       .map((x) => ({ a: str(x.a), b: str(x.b), cosine: Number(x.cosine) }))
       .filter((p) => p.a !== "" && p.b !== "" && Number.isFinite(p.cosine));
-    return { claims, objects, similar };
+    const undone: UndonePair[] = (out.undone ?? [])
+      .map((x) => ({ a: str(x.a), b: str(x.b) }))
+      .filter((p) => p.a !== "" && p.b !== "");
+    return { claims, objects, similar, undone };
   }
 
   async begin(orgId: OrgId, userId: string, runId: string): Promise<void> {
@@ -130,10 +133,10 @@ export class PgKgConsolidation implements KgConsolidationPort {
     return r.rows[0]?.kept === true;
   }
 
-  async listRuns(orgId: OrgId, userId: string, limit: number): Promise<Guarded<readonly KgConsolidationRunView[]>> {
+  async listRuns(orgId: OrgId, userId: string, limit: number, runId?: string): Promise<Guarded<readonly KgConsolidationRunView[]>> {
     const r = await this.db.withTenant(orgId, async (s) => {
       await asUser(s, userId);
-      return s.query<{ runs: Row[] }>("SELECT kg_consolidation_list($1) AS runs", [limit]);
+      return s.query<{ runs: Row[] }>("SELECT kg_consolidation_list($1, $2) AS runs", [limit, runId ?? null]);
     });
     const runs = (r.rows[0]?.runs ?? []).map((x): KgConsolidationRunView => ({
       runId: str(x.runId), createdAt: iso(x.createdAt), state: x.status === "undone" || x.status === "partially_undone" ? x.status : "applied",

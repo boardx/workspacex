@@ -31,6 +31,9 @@ const HUMAN_ACTION_FAILURE_ZH: Record<KnowledgeGraphErrorCode, string> = {
   // issue #4178：`setKnowledgeExtractionSetting` 专属码，人的编辑动作（applyHumanAction 等）从不
   // 返回它——这里只是让 Record<KgErrorCode, string> 保持穷举（漏配一个编译就不过）。
   KG_NOT_ORG_ADMIN: "只有组织管理员可以修改这项设置。",
+  // S8（#4365）：记忆整合的两个码，人的编辑动作从不返回它们——同上，只为穷举。
+  KG_CONSOLIDATION_RUN_NOT_FOUND: "这次整理已经撤销过了（或已不存在）。",
+  KG_CONSOLIDATION_DISABLED: "记忆整合开关关着，先打开再整合。",
 };
 
 /** 失败后应当重读面板的码：服务端状态已与界面不一致。 */

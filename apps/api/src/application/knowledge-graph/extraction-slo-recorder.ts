@@ -81,7 +81,8 @@ export class ExtractionSloRecorder {
       processed: live.length,
       modelJobs: model.length,
       failed,
-      p95LatencyMs: percentile(live.map((s) => s.durationMs), 95),
+      // #4491 M3：p95 只看调了抽取模型的任务——门控跳过的几毫秒样本混进来会把 p95 拉低、掩盖真实的慢。
+      p95LatencyMs: percentile(model.map((s) => s.durationMs), 95),
       failureRate: model.length === 0 ? null : failed / model.length,
     };
   }

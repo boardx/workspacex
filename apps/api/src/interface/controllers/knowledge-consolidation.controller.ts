@@ -64,7 +64,7 @@ export class KnowledgeConsolidationController {
   @HttpCode(200)
   undo(@CurrentPrincipal() principal: Principal, @Param("runId") runId: string) {
     return this.run(principal, async (v) => KG.knowledgeGraph.undoConsolidationRun.out.parse({
-      run: await undoMyConsolidationRun(this.deps, v, runId, KG.KG_CONSOLIDATION_RUNS_LIMIT),
+      run: await undoMyConsolidationRun(this.deps, v, runId),
     }));
   }
 }

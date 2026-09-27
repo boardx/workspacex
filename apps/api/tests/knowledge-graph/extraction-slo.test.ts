@@ -25,8 +25,10 @@ describe("#4365 指标计算", () => {
     r.recordJob(300, "failed");
     r.recordJob(200, "empty");
     r.recordJob(5, "skipped", true);
+    // #4491 M3：门控跳过的样本不进 p95（这一条 9999 ms 若算进去，p95 会变成 9999）
+    r.recordJob(9_999, "skipped", true);
     expect(r.window()).toEqual({
-      windowSeconds: SLO_WINDOW_MS / 1000, processed: 4, modelJobs: 3, failed: 1, p95LatencyMs: 300, failureRate: 1 / 3,
+      windowSeconds: SLO_WINDOW_MS / 1000, processed: 5, modelJobs: 3, failed: 1, p95LatencyMs: 300, failureRate: 1 / 3,
     });
     now += SLO_WINDOW_MS + 1;
     r.recordJob(50, "written");

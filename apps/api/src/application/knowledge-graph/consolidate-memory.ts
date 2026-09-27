@@ -1,6 +1,6 @@
 /**
  * Phase 18 S8（#4365）—— 个人空间的记忆整合：取候选 → 纯函数出计划（domain/knowledge-graph/consolidation.ts）→
- * 数据库函数在锁下复核后落表（迁移 20260927450000）→ 逐对开冲突卡（不裁决）→ 收尾。以及本人的整合记录与撤销。
+ * 数据库函数在锁下复核后落表（迁移 20260928180000）→ 逐对开冲突卡（不裁决）→ 收尾。以及本人的整合记录与撤销。
  *
  * 开关：部署级 `kg_consolidation_state`，**默认关**——人类说开之前不跑（#4365 协调约定）。定时 worker 与平台的
  * 「现在整合一次」走同一个 `runConsolidationPass`，关着都不跑。
@@ -92,9 +92,9 @@ interface Viewer { readonly userId: string; readonly orgId: OrgId }
 
 /** 本人的整合记录：与个人空间读口同一个判定（组织成员 + 查看者就是空间主人），不过 ⇒ KG_NOT_VISIBLE。 */
 export async function listMyConsolidationRuns(
-  deps: KnowledgeReadDeps & { readonly consolidation: KgConsolidationPort }, viewer: Viewer, limit: number,
+  deps: KnowledgeReadDeps & { readonly consolidation: KgConsolidationPort }, viewer: Viewer, limit: number, runId?: string,
 ): Promise<readonly KgConsolidationRunView[]> {
-  const guarded = await deps.consolidation.listRuns(viewer.orgId, viewer.userId, limit);
+  const guarded = await deps.consolidation.listRuns(viewer.orgId, viewer.userId, limit, runId);
   const d = discloseDecided(guarded, await decidePersonalSpace(deps, viewer, guarded));
   if (!isDisclosed(d)) throw new KgConsolidationError("KG_NOT_VISIBLE");
   return d.payload;
@@ -103,12 +103,13 @@ export async function listMyConsolidationRuns(
 /** 本人撤销一次整合；返回撤销后的那次运行（逐处的 undone / undo_skipped + 原因）。 */
 export async function undoMyConsolidationRun(
   deps: KnowledgeReadDeps & { readonly consolidation: KgConsolidationPort; readonly newActionId: () => string },
-  viewer: Viewer, runId: string, limit: number,
+  viewer: Viewer, runId: string,
 ): Promise<KgConsolidationRunView> {
   // 先过同一道「本人空间」判定：已不是组织成员的人不能动自己原来空间里的东西（同读口）。
   await listMyConsolidationRuns(deps, viewer, 0);
   await deps.consolidation.undo(viewer.orgId, viewer.userId, runId, deps.newActionId());
-  const run = (await listMyConsolidationRuns(deps, viewer, limit)).find((r) => r.runId === runId);
+  // #4491 L3：按 id 读回这一次（不受列表条数上限影响——撤销一次很早的整理，读回时它可能已不在最近 N 条里）。
+  const run = (await listMyConsolidationRuns(deps, viewer, 1, runId)).find((r) => r.runId === runId);
   if (run === undefined) throw new KgConsolidationError("KG_CONSOLIDATION_RUN_NOT_FOUND");
   return run;
 }
