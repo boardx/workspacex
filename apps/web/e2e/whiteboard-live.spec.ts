@@ -274,3 +274,32 @@ test('multi-user undo redo preserves the other editor and survives reload', asyn
     finally {await Promise.all([ownerContext.close(), editorContext.close()]);}
   }
 });
+
+test('confirmed downgrade retires offline delete undo redo before a later regrant',async({browser,request:api,baseURL})=>{
+  const ownerContext=await browser.newContext({baseURL}),editorContext=await browser.newContext({baseURL});
+  const owner=await ownerContext.newPage(),editor=await editorContext.newPage();let boardId:string|undefined,token:string|undefined;
+  try{
+    [token]=await Promise.all([login(owner,'OWNER'),login(editor,'EDITOR')]);
+    boardId=(await(await request(api,token,'POST','/whiteboards',{requestId:randomUUID(),name:`Rejected offline draft ${randomUUID()}`})).json() as {id:string}).id;
+    await request(api,token,'PUT',`/whiteboards/${boardId}/members`,{userId:required('WHITEBOARD_EDITOR_USER_ID'),role:'editor'});
+    await request(api,token,'POST',`/whiteboards/${boardId}/commands`,{requestId:randomUUID(),epoch:1,commands:[{type:'create',object:{id:'kept-target',schemaVersion:1,kind:'sticky',geometry:{x:100,y:160,width:180,height:180,rotation:0},text:'Server retained idea',style:{},parentId:null,orderKey:'a'}}]});
+    await editor.goto(`/studio/board/${boardId}`);await synced(editor);
+    await editorContext.setOffline(true);await expect(editor.getByText(/连接中断/)).toBeVisible({timeout:20000});
+    const target=editor.getByTestId('board-a11y-object-kept-target');await target.focus();await target.press('Enter');
+    await editor.getByRole('button',{name:'删除选中',exact:true}).click();await expect(target).toHaveCount(0);
+    await editor.getByRole('button',{name:'撤销',exact:true}).click();await expect(target).toBeAttached();
+    await editor.getByRole('button',{name:'重做',exact:true}).click();await expect(target).toHaveCount(0);
+    const queued=()=>editor.evaluate(id=>new Promise<number>((resolve,reject)=>{
+      const open=indexedDB.open('workspacex-whiteboard-outbox-v1');open.onerror=()=>reject(open.error);
+      open.onsuccess=()=>{const db=open.result,transaction=db.transaction('updates','readonly'),count=transaction.objectStore('updates').index('board').count(id);count.onsuccess=()=>resolve(count.result);count.onerror=()=>reject(count.error);transaction.oncomplete=()=>db.close();};
+    }),boardId!);
+    await expect.poll(queued).toBe(3);
+    await request(api,token,'PUT',`/whiteboards/${boardId}/members`,{userId:required('WHITEBOARD_EDITOR_USER_ID'),role:'viewer'});
+    await editorContext.setOffline(false);await expect(editor.getByTestId('denied')).toBeVisible({timeout:30000});
+    await expect.poll(queued).toBe(0);
+    await request(api,token,'PUT',`/whiteboards/${boardId}/members`,{userId:required('WHITEBOARD_EDITOR_USER_ID'),role:'editor'});
+    await editor.reload();await synced(editor);await expect(target).toHaveAccessibleName('图形：Server retained idea');
+    await expect.poll(queued).toBe(0);
+    await owner.goto(`/studio/board/${boardId}`);await synced(owner);await expect(owner.getByTestId('board-a11y-object-kept-target')).toHaveAccessibleName('图形：Server retained idea');
+  }finally{try{await editorContext.setOffline(false);if(boardId&&token)await archiveBoard(api,token,boardId);}finally{await Promise.all([ownerContext.close(),editorContext.close()]);}}
+});
