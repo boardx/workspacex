@@ -14,7 +14,7 @@
 
 ## 2. 现状与颜色（2026-09-27）
 
-当前交付记录（2026-09-27 17:51 核对）：R1–R6 已合入 main。R7 在 4adf18ab8 的四项真实空间回归全部通过（证据 42fd7e5b1），单 worker 校验优化已通过 API 类型检查；六项协作旧证据为 e512a387d，仍需新版本回归，双标签页共享 outbox 验收正在主会话运行。R8 当前 db2b173f4，备份已纳入 sourceHistory，但非零 AI 历史的联合恢复仍待实测；真实 Miro/Mural 账户样本数量仍为 0，正在补浏览器本地 canonical 与 portable 往返断言。R9 已整合 R8，0d3024a8d 的真实 30 便利贴 UI 场景通过 1024/1280/1440/390 验收，7 张截图入库 f0de845e3；截图发现色板过大与 Logo 过小，修复 7b4b889fe 待重新截图。AI proposal 文件化与联合恢复 producer 已整合但真实恢复演练待跑；single-worker 适配候选 5458d46bd 正在独立复核。Chat 三类图与 30 分钟会议室、R10 全量负载/视觉/安全/恢复仍未完成，不能宣称九分。
+当前交付记录（2026-09-27 18:33 核对）：R1–R6 已合入 main。R7 PR #4393 已推送 cd7399728；四空间、六协作、共享 outbox 及 CI 接线两项真实回归通过，独立复核通过，原失败 verify-control-plane 已转绿，其余 CI 尚在运行，未合并。R8/R9 已通过 9 个历史文件的 PG+文件联合恢复、紧凑便利贴菜单截图验收和三类合成 vendor 数据 portable 完整往返；真实 Miro/Mural 账户样本仍为 0。R10 七条 CI lane 候选 9d0a9c5a6 正在独立复核，嵌套配置启动目录已修复。1k 性能首次因目录错误、第二次因 ENOSPC 在构建阶段失败，均无性能通过证据；旧缓存清理释放约 12GB，Docker 引擎恢复和残留栈清理待完成。Chat 三类图、30 分钟会议室、50 人长时负载和统一视觉/安全/恢复验收仍有缺口，不能宣称九分。
 
 追加 UI 交付：新建 Board 默认标题与可选标签 PR #4337 已通过主会话浏览器、独立复核和 CI，已合入 main（8270388ae）。列表隐藏 Workspace 顶栏、保留导航、卡片改版与服务端无标签分页 PR #4340 已通过四项真实浏览器场景（ff257e58c）及 1440/390 截图检查；最终 304cb5b79 独立增量复核通过，已合入 main（baaef1e97，GitHub 当前状态 MERGED）。卡片当前明确显示预览占位，真实缩略图仍是缺口。
 
@@ -32,7 +32,7 @@ flowchart LR
   R6 --> R7["R7 团队可靠性<br/>预计9/28验收 · 9/29前PR门禁<br/>四空间/六协作/outbox通过 · PR #4393 CI中"]:::accepting
   R7 --> R8["R8 存储与迁移<br/>预计9/29–30验收<br/>9个历史文件恢复通过 · 真实源板为0"]:::working
   R8 --> R9["R9 AI / API / Chat / 会议室<br/>预计9/29–30验收<br/>紧凑UI/提案恢复通过 · Chat/会议室待验"]:::working
-  R9 --> R10["R10 同一 SHA 总验收<br/>预计9/30–10/2收敛<br/>统一负载/视觉/安全/恢复与CI"]:::blocked
+  R9 --> R10["R10 同一 SHA 总验收<br/>预计9/30–10/2收敛<br/>7条CI复核中 · Docker恢复后跑性能"]:::working
   R10 --> P2["P2 扩展路线<br/>Diagram / Mind Map / Kanban / Timeline<br/>Journey / Database / Agent与Live Data Tile"]:::future
   classDef merged fill:#dcfce7,stroke:#16a34a,color:#14532d
   classDef accepting fill:#fef3c7,stroke:#d97706,color:#78350f
@@ -198,8 +198,8 @@ flowchart LR
 | Iteration 04 | R4 内容对象 | ✅ PR #4292 已合入 | 同上，逐对象创建/编辑/保存/协作验收 |
 | Iteration 05 | R5 空间与关系 | ✅ PR #4308 已合入 | 同上，Panel及绑定Connector旅程 |
 | Iteration 06 | R6 编辑与组织 | ✅ 6项视觉/导航、4项空间通过；[PR #4313](https://github.com/boardx/workspacex/pull/4313) 已合入 | 同上，Grid整理、快捷键与布局Undo |
-| Iteration 07 | R7 团队可靠性 | 🟡 真实验收4/4通过；完整范围复核及PR待完成 | 同上，多客户端/撤权/恢复链路 |
-| Iteration 08 | R8 存储与迁移 | 🟠 图片前端持久化已集成并正在主session验收；迁移/恢复待验 | 同上，PG正文边界、迁移与恢复演练 |
+| Iteration 07 | R7 团队可靠性 | 🟡 PR #4393；真实回归及独审通过，CI未全部结束 | 同上，多客户端/撤权/恢复链路 |
+| Iteration 08 | R8 存储与迁移 | 🟠 历史文件联合恢复及合成vendor往返通过；真实源板为0 | 同上，PG正文边界、迁移与恢复演练 |
 | Iteration 09 | R9 AI/API/Chat/会议室 | 🟠 完整runtimePin独立复核及真实PG并发通过；真实模型链路通过、视觉待修 | 同上，Agent完整操作与长时会议室 |
 | Iteration 10 | R10 总验收 | 🔴 真实验收执行路径已补齐；待前九轮汇合后运行，不计九分 | 六旅程与所有硬门在统一SHA通过 |
 
