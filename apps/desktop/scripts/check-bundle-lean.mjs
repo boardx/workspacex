@@ -14,7 +14,7 @@
  *
  * ⚠ 这个脚本只查「不该在的在不在」。**它证明不了包还能用**——那要把应用真的跑起来。
  */
-import { existsSync, readdirSync, statSync } from "node:fs";
+import { existsSync, lstatSync, readdirSync, statSync } from "node:fs";
 import { join } from "node:path";
 
 /** 运行时一行都不加载的包前缀。每一条都在 electron-builder.yml 里有对应的排除规则和理由。 */
@@ -59,6 +59,16 @@ const REQUIRED = ["pptxgenjs", "docx", "exceljs", "pdf-lib"].map(
   (m) => `apps/skill-sandbox/preinstalled/node_modules/${m}/package.json`,
 );
 const bundle = join(resources, "bundle");
+// 产物不许把自己装进自己（#4315：Windows junction 让 @repo/desktop → apps/desktop/release 被一圈圈跟进去）。
+for (const selfRef of ["node_modules/.pnpm/node_modules/@repo/desktop", "node_modules/@repo/desktop"]) {
+  // lstat 而不是 existsSync：mac 上它是一个在 bundle 里悬空的符号链接，existsSync 跟过去说「不存在」。
+  let present = false;
+  try { lstatSync(join(bundle, selfRef)); present = true; } catch { /* 不在 */ }
+  if (present) {
+    console.error(`❌ bundle 里有 ${selfRef}——桌面包把自己（连同 release/ 产物）打进了自己`);
+    process.exit(1);
+  }
+}
 const missing = REQUIRED.filter((r) => !existsSync(join(bundle, r)));
 if (missing.length > 0) {
   console.error("❌ 包里缺运行时要的东西：");

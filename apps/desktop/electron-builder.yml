@@ -32,6 +32,14 @@ extraResources:
       - "packages/**"
       - "skills/starter-packs/**"
       - "!**/node_modules/.cache/**"
+      # ⚠ 桌面包自己不进 bundle（#4315）。pnpm 把工作区包链进 node_modules/.pnpm/node_modules/@repo/*；
+      #   @repo/desktop 指回 apps/desktop，而 release/ 正是正在写的产物。mac 上那是符号链接、按链接拷；
+      #   Windows 上是 junction、会被跟进去——产物拷进产物自己，一圈一圈往下，82 分钟后 7-Zip
+      #   「Can't allocate required memory」（windows-latest 实测）。
+      - "!**/node_modules/@repo/desktop/**"
+      - "!**/node_modules/.pnpm/node_modules/@repo/desktop/**"
+      - "!**/release/win-unpacked/**"
+      - "!**/release/mac-arm64/**"
       - "!**/*.test.ts"
       - "!**/tests/**"
       - "!**/e2e/**"
