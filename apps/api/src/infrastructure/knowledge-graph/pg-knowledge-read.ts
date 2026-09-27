@@ -11,7 +11,7 @@ import { contextPack as CP, knowledgeGraph as KG } from "@repo/contracts";
 import type { DatabasePort, TenantSession } from "../../application/ports/database.port";
 import type {
   ClaimSourcesData, KnowledgeReadPort, KnowledgeThreadRef, MessageExtractionData, PersonalClaimOriginRow,
-  PersonalKnowledgeData, ThreadKnowledgeCounts, ThreadKnowledgeData, TurnMemoryData,
+  PersonalKnowledgeData, ProjectKnowledgeData, ThreadKnowledgeCounts, ThreadKnowledgeData, TurnMemoryData,
 } from "../../application/knowledge-graph/ports";
 import { guard, type Guarded } from "../../application/security/permission-filter";
 import type { OrgId } from "../../domain/org-id";
@@ -333,13 +333,13 @@ export class PgKnowledgeRead implements KnowledgeReadPort {
       // issue #4283 `personal_copy`：**请求者本人**个人空间里、由这条结论自动记下（derived_from 边 created_by = model）、
       // 仍是「AI 记下的」（proposed）那一份——反馈条据此显示「已记入个人记忆」并给撤销。scope_id = 请求者本人，
       // RLS 也只放本人的个人空间（I-14）：别人看这条消息，读不到作者的个人空间，这一列恒为 null。
-      const r = await s.query<{ id: string; statement: string; personal_copy: string | null }>(
+      const r = await s.query<{ id: string; statement: string; claim_kind: KG.KgClaimKind | null; personal_copy: string | null }>(
         `WITH msg AS (
            SELECT cm.id FROM chat_messages cm
             WHERE cm.org_id = $1 AND cm.thread_id = $2
               AND (cm.id = $3 OR (cm.author_kind = 'human' AND cm.author_id = $4 AND cm.client_message_id::text = $3))
          )
-         SELECT c.id, c.statement,
+         SELECT c.id, c.statement, c.claim_kind,
                 (SELECT p.id FROM ontology_edges d JOIN claims p ON p.id = d.src_id AND p.org_id = d.org_id
                   WHERE d.org_id = c.org_id AND d.relation = 'derived_from' AND d.src_kind = 'claim' AND d.dst_kind = 'claim'
                     AND d.dst_id = c.id AND d.status = 'active' AND d.created_by = 'model'
@@ -352,7 +352,9 @@ export class PgKnowledgeRead implements KnowledgeReadPort {
           ORDER BY c.created_at, c.id`,
         [orgId, thread.threadId, messageId, userId],
       );
-      return { claims: r.rows.map((x) => ({ claimId: x.id, statement: x.statement, personalCopyClaimId: x.personal_copy })) };
+      return {
+        claims: r.rows.map((x) => ({ claimId: x.id, statement: x.statement, kind: x.claim_kind ?? "fact", personalCopyClaimId: x.personal_copy })),
+      };
     });
     return guard(threadRef(thread), data);
   }
@@ -456,6 +458,61 @@ export class PgKnowledgeRead implements KnowledgeReadPort {
         return { threadId: t.id, counts: guard(threadRef({ threadId: t.id, projectId: t.project_id }), row) };
       });
     });
+  }
+
+  /** 项目中枢 R8：项目记忆（L2）。与 `personalKnowledge` 同一组查询，作用域换成 ('project', projectId)。 */
+  async projectKnowledge(orgId: OrgId, userId: string, projectId: string): Promise<Guarded<ProjectKnowledgeData>> {
+    const data = await this.inTenant(orgId, userId, async (s): Promise<ProjectKnowledgeData> => {
+      const scope = [orgId, projectId];
+      const objects = await s.query<{
+        id: string; object_kind: ProjectKnowledgeData["objects"][number]["kind"]; name: string; aliases: string[];
+        created_by: ProjectKnowledgeData["objects"][number]["createdBy"]; claim_count: string;
+      }>(
+        `SELECT o.id, o.object_kind, o.name, o.aliases, o.created_by,
+                (SELECT count(DISTINCT c.id) FROM ontology_edges e JOIN claims c ON c.id = e.src_id AND c.org_id = e.org_id
+                  WHERE e.org_id = o.org_id AND e.src_kind = 'claim' AND e.dst_kind = 'object' AND e.dst_id = o.id
+                    AND e.status = 'active' AND ${LIVE_CLAIM}) AS claim_count
+           FROM ontology_objects o
+          WHERE o.org_id = $1 AND o.scope_kind = 'project' AND o.scope_id = $2 AND o.merged_into IS NULL
+          ORDER BY o.created_at, o.id`, scope,
+      );
+      const claims = await s.query<ClaimRow>(
+        `SELECT ${CLAIM_COLUMNS} FROM claims c
+          WHERE c.org_id = $1 AND c.scope_kind = 'project' AND c.scope_id = $2 AND ${LIVE_CLAIM}
+          ORDER BY c.created_at, c.id`, scope,
+      );
+      const liveClaims = claims.rows.map(toClaim).filter((c): c is KgClaim => c !== null);
+      const liveObjects = objects.rows.filter((o) => Number(o.claim_count) > 0);
+      const live = new Set([...liveObjects.map((o) => `object:${o.id}`), ...liveClaims.map((c) => `claim:${c.id}`)]);
+      const edges = await s.query<{
+        id: string; src_kind: "object" | "claim"; src_id: string; dst_kind: "object" | "claim"; dst_id: string;
+        relation: ProjectKnowledgeData["edges"][number]["relation"]; created_by: ProjectKnowledgeData["edges"][number]["createdBy"];
+      }>(
+        `SELECT id, src_kind, src_id, dst_kind, dst_id, relation, created_by FROM ontology_edges
+          WHERE org_id = $1 AND scope_kind = 'project' AND scope_id = $2 AND status = 'active'
+            AND src_kind IN ('object', 'claim') AND dst_kind IN ('object', 'claim')
+          ORDER BY created_at, id`, scope,
+      );
+      const revision = await s.query<{ n: string }>(
+        `SELECT count(*) AS n FROM ontology_actions
+          WHERE org_id = $1 AND scope_kind = 'project' AND scope_id = $2 AND outcome = 'accepted'`, scope,
+      );
+      return {
+        revision: Number(revision.rows[0]!.n),
+        objects: liveObjects.map((o) => ({
+          id: o.id, scope: { kind: "project" as const, id: projectId }, kind: o.object_kind, name: o.name,
+          aliases: o.aliases, createdBy: o.created_by, claimCount: Number(o.claim_count),
+        })),
+        claims: liveClaims,
+        edges: edges.rows
+          .filter((e) => live.has(`${e.src_kind}:${e.src_id}`) && live.has(`${e.dst_kind}:${e.dst_id}`))
+          .map((e) => ({
+            id: e.id, src: { kind: e.src_kind, id: e.src_id }, dst: { kind: e.dst_kind, id: e.dst_id },
+            relation: e.relation, createdBy: e.created_by,
+          })),
+      };
+    });
+    return guard({ kind: "project", id: projectId }, data);
   }
 
   async personalClaimOrigins(orgId: OrgId, userId: string) {
@@ -725,9 +782,11 @@ async function readTurnRecall(
     const [kind, id] = [k.slice(0, k.indexOf(":")), k.slice(k.indexOf(":") + 1)];
     if (kind === "claim") claimKeys.add(id); else if (kind === "object") objectKeys.add(id);
   }
-  const claims = await s.query<{ id: string; statement: string; status: string; scope_kind: "chat_session" | "personal"; said_at: Date | null }>(
+  const claims = await s.query<{
+    id: string; statement: string; claim_kind: KG.KgClaimKind | null; status: string; scope_kind: "chat_session" | "personal"; said_at: Date | null;
+  }>(
     // 别的个人对话里记下的，对这一轮来说是「来自你之前的对话」：按个人空间报（界面据此标「来自你 {日期} 的对话」）。
-    `SELECT c.id, c.statement, c.status,
+    `SELECT c.id, c.statement, c.claim_kind, c.status,
             CASE WHEN c.scope_kind = 'chat_session' AND c.scope_id <> $3 THEN 'personal' ELSE c.scope_kind END AS scope_kind,
             (SELECT min(m.created_at) FROM claim_message_evidence e JOIN chat_messages m ON m.id = e.message_id AND m.org_id = e.org_id
               WHERE e.claim_id = c.id AND e.stance = 'supporting') AS said_at
@@ -761,7 +820,7 @@ async function readTurnRecall(
       graphPath = hops.every((h) => h !== null) ? hops as NonNullable<(typeof hops)[number]>[] : null;
     }
     recalled.push({
-      claimId: c.id, statement: c.statement, triState: tri, scope: c.scope_kind,
+      claimId: c.id, statement: c.statement, kind: c.claim_kind ?? "fact", triState: tri, scope: c.scope_kind,
       saidAt: c.said_at?.toISOString() ?? null,
       channels: item.channels.filter((x): x is RecalledMemory["channels"][number] => CP.RetrievalChannel.safeParse(x).success),
       retrievalReasons: item.retrievalReasons.filter((x): x is RecalledMemory["retrievalReasons"][number] => CP.FilterAction.safeParse(x).success),

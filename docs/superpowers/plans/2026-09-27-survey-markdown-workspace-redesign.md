@@ -12,7 +12,24 @@
 
 ## Global Constraints
 
-- Rebase every implementation branch on `origin/main`, which contains PR #4274's Markdown source contracts and API.
+## Execution checkpoint — 2026-09-27
+
+Continue in the existing worktree `/Users/shenyangjun/.codex/worktrees/survey-workspace-home/workspacex`. Do not create another worktree. Switch branches only after accounting for all current changes. One issue / one PR; human merge only.
+
+| Order | Remaining delivery | Acceptance / current status |
+| --- | --- | --- |
+| 1 | Home navigation and cards — #4297 | Merged in PR #4383, main commit a77615305. No homepage status filter or top-right Markdown import. |
+| 2 | Markdown design — #4378 | Source save, three-stage navigation, correction modal, conflict comparison, safe creation retry and design-area Markdown upload implemented. 19 related UI tests and typecheck passed; fresh browser verification running. AI file/voice generation and visual designer fidelity remain separate follow-ups, not silently claimed delivered. |
+| 3 | Publish and collect | Two-column collection dashboard, real settings, link/QR sharing, immutable published revision, readiness and stop-collection confirmation. |
+| 4 | Response review | Table + adjacent details, search/pagination, valid/review/excluded filtering, explicit exclusion reason and exports; no fabricated metadata. |
+| 5 | Optional templates and reports | Contextual template/report actions, Markdown report source and paper-like report layout, protected sample threshold, real Word/PDF export. |
+| 6 | Integrated acceptance | Blank/template/Markdown creation through publish, real respondent submission, review and optional report; refresh persistence, errors/conflicts and responsive layouts. |
+
+Evidence: the real seeded Playwright `survey-complete-flow.spec.ts` passed (1 test, 4.2 minutes); lock queue took 7m25s separately. This proves the existing template lifecycle, not the fidelity of every new prototype screen or the unfinished AI import path. Every subsequent batch needs its own targeted tests and browser evidence before being declared ready.
+
+The screenshot's AI import must return editable Markdown for correction before application. If a real file/voice/model endpoint is unavailable, document that gap rather than label a local parser as AI.
+
+- Use the current `origin/main` as the integration base; dependent branches may stack temporarily with explicit dependencies until human merge. Do not discard uncommitted work to change branches.
 - Keep WorkspaceX global navigation; remove only the survey-specific secondary left navigation.
 - Primary navigation has exactly `design`, `publish`, and `responses`; templates and reports are contextual optional actions.
 - Markdown remains the single editable/persisted structure source; do not add browser-only question schemas or mock persistence.
@@ -57,7 +74,7 @@
 
 **Interfaces:**
 - Consumes: `surveyRequest<SurveyRuntime[]>("/surveys")` from `runtime-client.ts`.
-- Produces: `LiveSurveyLibrary` with status filter/search and a single next action per runtime; no `survey-section-nav` DOM node.
+- Produces: `LiveSurveyLibrary` with search and a single next action per runtime; no status filter, no top-right Markdown import, no `survey-section-nav` DOM node.
 
 - [ ] **Step 1: Write failing UI tests for the retained global rail, absent survey side rail, and home loading/error/empty states.**
 
@@ -69,7 +86,7 @@ Expected: FAIL because `survey-section-nav` still exists and state-specific home
 
 - [ ] **Step 3: Replace `SurveyAppShell`'s `left` content with the global shell only and reshape `LiveSurveyLibrary` into the approved status-aware home.**
 
-Use real `SurveyRuntime` data only. Provide `我的问卷 / 模板 / 报告模板` as top contextual navigation, status/search controls, create actions, and a card next-action mapping: draft/ready → design, collecting/closed → responses.
+Use real `SurveyRuntime` data only. Provide `我的问卷 / 模板 / 报告模板` as top contextual navigation, search, create actions, and a card next-action mapping: draft/ready → design, collecting/closed → responses. Status may appear on cards, never as a homepage filter.
 
 - [ ] **Step 4: Run focused UI and type checks.**
 

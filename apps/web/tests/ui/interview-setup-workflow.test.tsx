@@ -131,6 +131,12 @@ function installLiveFetch(initial: LiveInterview = topicPendingInterview, option
     const method = init?.method ?? "GET";
     const body = init?.body === undefined ? undefined : JSON.parse(String(init.body));
     calls.push({ method, path: url.pathname, body });
+    if (method === "GET" && url.pathname.endsWith("/digital/experts")) return json({ items: initial.expertCandidates });
+    if (method === "GET" && url.pathname.endsWith("/markdown")) return json({
+      interviewId: initial.interviewId, revisionId: "revision-route", version: initial.version,
+      documents: [{ documentId: "analysis-route", step: "analysis", version: 1, contentHash: "a".repeat(64), evidenceMode: "simulated", references: [], markdown: "# 分析\n\n## 研究目标\n研究夜班交接的遗漏原因。" }],
+      states: [{ documentId: "analysis-route", status: "draft", failure: null }],
+    });
     if (method === "POST" && url.pathname.endsWith("/brief/confirm")) {
       if (failTopicOnce) {
         failTopicOnce = false;
@@ -633,10 +639,11 @@ describe("F04 正式 setup 的显式确认与双层持久化验收门", () => {
     installLiveFetch(persistedInterview);
     render(<DigitalInterviewSetup interviewId={persistedInterview.interviewId} initialWorkbenchStep="analysis" />);
 
-    expect(await screen.findByTestId("itv-analysis-workbench")).toBeInTheDocument();
+    expect(await screen.findByText("AI 分析结果")).toBeInTheDocument();
     fireEvent.click(screen.getByTestId("itv-workbench-step-experts"));
     expect(push).toHaveBeenCalledWith(`/itv/${persistedInterview.interviewId}/experts`);
-    expect(await screen.findByTestId("itv-expert-step")).toBeInTheDocument();
+    expect(await screen.findByTestId("itv-confirm-experts")).toBeInTheDocument();
+    expect(screen.queryByTestId("itv-markdown-experts")).not.toBeInTheDocument();
   });
 
   it.each([

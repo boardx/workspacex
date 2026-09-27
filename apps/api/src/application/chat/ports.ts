@@ -297,6 +297,17 @@ export interface ChatRepository {
     expectedVersion: number,
   ): Promise<number | null>;
 
+  /**
+   * 改可见范围（项目中枢 R5，分享）。乐观并发同 `renameThread` / `setThreadPinned`：
+   * `expectedVersion` 不匹配返回 `null`。**不写 `last_activity_at`**——分享不是「有新动静」。
+   */
+  setThreadVisibility(
+    orgId: OrgId,
+    threadId: string,
+    visibilityScope: ThreadFacts["visibilityScope"],
+    expectedVersion: number,
+  ): Promise<number | null>;
+
   findThreadFile(orgId: OrgId, threadId: string): Promise<ThreadFileRecord | null>;
 
   /**
