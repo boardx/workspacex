@@ -1,0 +1,11 @@
+/**
+ * Round r11a post-seed (run right after `seed-kg-experience-eval.ts`; copied to apps/api/scripts/ for the run and removed after):
+ * `seedOrg` (since #4239) writes `enabled=false` for test orgs, so re-enable extraction with the fixture `enableExtraction`.
+ */
+import { enableExtraction } from "../tests/knowledge-graph/kg-extraction-fixtures";
+
+const orgId = process.env.KG_EVAL_ORG_ID!;
+if (!orgId) throw new Error("KG_EVAL_ORG_ID required");
+await enableExtraction(orgId);
+process.stdout.write(`[r11a-post-seed] extraction re-enabled for ${orgId}\n`);
+process.exit(0);
