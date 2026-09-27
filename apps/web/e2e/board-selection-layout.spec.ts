@@ -98,14 +98,37 @@ function closeGeometry(left: Geometry, right: Geometry, epsilon = 1): boolean {
 }
 
 async function marqueeAll(page: Page): Promise<void> {
-  while ((Number((await page.getByTestId("board-zoom-value").textContent())?.replace("%", "")) || 100) > 70) {
-    await page.getByTestId("board-zoom-out").click();
-  }
-  const bounds = await page.getByTestId("board-fabric-canvas").boundingBox();
-  expect(bounds).not.toBeNull();
-  await page.mouse.move(bounds!.x + 300, bounds!.y + 200);
+  await page.getByTestId("board-zoom-fit-board").click();
+  await page.evaluate(() => new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve()))));
+  const objects = parseGeometry(await geometry(page));
+  expect(objects).toHaveLength(7);
+  const surface = page.getByTestId("board-fabric-surface");
+  const box = await surface.boundingBox();
+  expect(box).not.toBeNull();
+  const zoom = Number(await surface.getAttribute("data-viewport-zoom"));
+  const panX = Number(await surface.getAttribute("data-viewport-pan-x"));
+  const panY = Number(await surface.getAttribute("data-viewport-pan-y"));
+  expect(Number.isFinite(zoom) && zoom > 0).toBe(true);
+  const corners = objects.flatMap(({ x, y, width, height, rotation }) => {
+    const radians = rotation * Math.PI / 180, cosine = Math.cos(radians), sine = Math.sin(radians);
+    return [[0, 0], [width, 0], [width, height], [0, height]].map(([localX, localY]) => ({
+      x: x + localX! * cosine - localY! * sine,
+      y: y + localX! * sine + localY! * cosine,
+    }));
+  });
+  const margin = 28 / zoom;
+  const toScreen = (x: number, y: number) => ({ x: box!.x + panX + x * zoom, y: box!.y + panY + y * zoom });
+  const start = toScreen(Math.min(...corners.map(point => point.x)) - margin, Math.min(...corners.map(point => point.y)) - margin);
+  const end = toScreen(Math.max(...corners.map(point => point.x)) + margin, Math.max(...corners.map(point => point.y)) + margin);
+  expect(start.x).toBeGreaterThanOrEqual(box!.x);
+  expect(start.y).toBeGreaterThanOrEqual(box!.y);
+  expect(end.x).toBeLessThanOrEqual(box!.x + box!.width);
+  expect(end.y).toBeLessThanOrEqual(box!.y + box!.height);
+  await page.keyboard.press("Escape");
+  await page.mouse.click(start.x, start.y);
+  await page.mouse.move(start.x, start.y);
   await page.mouse.down();
-  await page.mouse.move(bounds!.x + bounds!.width - 20, bounds!.y + bounds!.height - 20, { steps: 12 });
+  await page.mouse.move(end.x, end.y, { steps: 12 });
   await page.mouse.up();
   await expect(page.getByTestId("board-a11y-selection-announcement")).toHaveText("已选择 7 个对象");
   await expect(page.getByTestId("board-selection-layout-toolbar")).toBeVisible();
@@ -114,9 +137,13 @@ async function marqueeAll(page: Page): Promise<void> {
 let cleanup: { id: string; token: string } | undefined;
 test.afterEach(async () => {
   if (!cleanup) return;
+  const target = cleanup; cleanup = undefined;
   const api = await playwrightRequest.newContext();
-  try { await apiRequest(api, cleanup.token, "PATCH", `/whiteboards/${cleanup.id}`, { archived: true }); }
-  finally { await api.dispose(); cleanup = undefined; }
+  try {
+    const current = await apiRequest(api, target.token, "GET", `/whiteboards/${target.id}`);
+    const board = await current.json() as { archived: boolean; lifecycleRevision: number };
+    if (!board.archived) await apiRequest(api, target.token, "PATCH", `/whiteboards/${target.id}`, { archived: true, expectedLifecycleRevision: board.lifecycleRevision });
+  } finally { await api.dispose(); }
 });
 
 test.describe("organize <=2 actions", () => {
