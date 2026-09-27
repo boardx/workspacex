@@ -59,7 +59,10 @@ export function InterviewStudioHome({
   projectId?: string | null;
 }) {
   const router = useRouter();
-  const createInterview = () => router.push(projectId ? `/itv/new?projectId=${encodeURIComponent(projectId)}` : "/itv/new");
+  const createInterview = () => {
+    if (projectId) router.push(`/itv/new?projectId=${encodeURIComponent(projectId)}`);
+    else router.push("/itv/new");
+  };
   const [query, setQuery] = React.useState("");
   const [sort, setSort] = React.useState<HistorySort>("recent");
   const [notice, setNotice] = React.useState("");

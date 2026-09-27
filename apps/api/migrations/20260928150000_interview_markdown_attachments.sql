@@ -17,6 +17,7 @@ CREATE TABLE IF NOT EXISTS interview_markdown_attachments (
 );
 ALTER TABLE interview_markdown_attachments ENABLE ROW LEVEL SECURITY;
 ALTER TABLE interview_markdown_attachments FORCE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS tenant_isolation ON interview_markdown_attachments;
 CREATE POLICY tenant_isolation ON interview_markdown_attachments
  USING(org_id=current_setting('app.current_org',true))
  WITH CHECK(org_id=current_setting('app.current_org',true));

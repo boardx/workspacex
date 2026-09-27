@@ -55,4 +55,12 @@
 
 ## Working-state Protection
 
-Three pre-existing `docs/evidence/user-feedback-3600/invite-*.png` changes are unrelated test-generated files: preserve, do not stage. Current code is uncommitted pending remaining implementation and final review. No feature status manually marked passing.
+Three pre-existing `docs/evidence/user-feedback-3600/invite-*.png` changes are unrelated test-generated files: preserve, do not stage. Implementation was pushed as `dc12d9f57` in draft PR #4486; browser acceptance remains pending. No feature status manually marked passing.
+
+## Follow-up audit
+
+- Found queued expert tasks incorrectly labeled active: added a failing regression, fixed label to 等待访谈, 9 related tests pass.
+- Current-head CI exposed replay failures in three new RLS policies. Added replay-safe policy recreation; real `migrate:check` applied 322 migrations, force replayed every file, and verified identical schema and populated data (exit 0, isolated stack cleaned).
+- Navigation lint did not recognize a conditional `router.push` argument. Expanded it into explicit scoped/default branches without changing behavior; navigation reachability passes.
+- Browser smoke still used legacy JSON-route fixtures for two canonical-route cases. Updating those fixtures without removing avatar refresh, timeline, responsive or legacy Skill coverage.
+- Native browser reaches the local app but is redirected to login without a running authenticated API stack. No eight-screen visual completion claim has been made. Requested explicit permission for repository Chromium/Playwright acceptance as an alternative.

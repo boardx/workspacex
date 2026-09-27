@@ -3,6 +3,11 @@ import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, expect, it, vi } from "vitest";
 import { InterviewRunsStep } from "@/components/itv/interview-runs-step";
 afterEach(cleanup);
+it("queued experts are not presented as actively interviewing", () => {
+  render(<InterviewRunsStep runs={[{ expertId: "queued-7", displayName: "待访谈专家", status: "pending", completedQuestions: 0, totalQuestions: 1 }]} pending={false} onGenerateReport={vi.fn()} />);
+  expect(screen.getByText("等待访谈 · 0/1")).toBeVisible();
+  expect(screen.queryByText("进行中 · 0/1")).not.toBeInTheDocument();
+});
 it("expert summary tabs filter by stable attribution while keeping question links", () => {
   render(<InterviewRunsStep runs={[
     { expertId: "nurse-7", displayName: "护理角色", status: "completed", completedQuestions: 1, totalQuestions: 1 },

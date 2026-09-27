@@ -22,6 +22,7 @@ CREATE TABLE IF NOT EXISTS interview_markdown_report_reviews (
 );
 ALTER TABLE interview_markdown_report_reviews ENABLE ROW LEVEL SECURITY;
 ALTER TABLE interview_markdown_report_reviews FORCE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS interview_markdown_report_reviews_tenant ON interview_markdown_report_reviews;
 CREATE POLICY interview_markdown_report_reviews_tenant ON interview_markdown_report_reviews
  USING(org_id=current_setting('app.current_org',true)) WITH CHECK(org_id=current_setting('app.current_org',true));
 GRANT SELECT,INSERT ON interview_markdown_report_reviews TO app_rw;
