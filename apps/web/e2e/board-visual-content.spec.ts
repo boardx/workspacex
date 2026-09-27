@@ -1,3 +1,4 @@
+import { applyAcknowledgedHistory, readBoardProjection } from "./support/board-history-acceptance";
 import {BOARD_SYNCED_STATUS} from "./support/board-sync-status";
 import { randomUUID } from "node:crypto";
 import { expect, request as playwrightRequest, test, type APIRequestContext, type Page } from "@playwright/test";
@@ -75,6 +76,10 @@ test("Shape Draw Image and Tile share one canonical collaborative surface", asyn
   await page.mouse.move(bounds!.x + 500, bounds!.y + 360, { steps: 12 });
   await page.mouse.up();
 
+  await expect(page.getByTestId("board-a11y-mirror").getByRole("button")).toHaveCount(3);
+  await expect(page.getByText(BOARD_SYNCED_STATUS)).toBeVisible({ timeout: 30_000 });
+  const beforeLastCreation = await readBoardProjection(page);
+
   // Let Chromium encode the fixture so the test exercises a genuinely decodable PNG
   // instead of relying on a hand-copied base64 payload with uncertain chunk CRCs.
   const png = await page.screenshot({ clip: { x: 0, y: 0, width: 32, height: 32 } });
@@ -89,17 +94,26 @@ test("Shape Draw Image and Tile share one canonical collaborative surface", asyn
   await expect(peer.getByText(BOARD_SYNCED_STATUS)).toBeVisible({ timeout: 30_000 });
   await expect(peer.getByTestId("board-a11y-mirror").getByRole("button")).toHaveCount(4);
 
-  await page.getByRole("button", { name: "撤销" }).click();
-  await expect(page.getByText("已撤销本地修改", { exact: true })).toBeVisible();
+  const afterLastCreation = await readBoardProjection(page);
+  const added = afterLastCreation.filter(object => !beforeLastCreation.some(before => before.id === object.id));
+  expect(added).toHaveLength(1);
+  expect(added[0]!.kind).toBe("image");
+  await expect.poll(() => readBoardProjection(peer)).toEqual(afterLastCreation);
+  await applyAcknowledgedHistory(page, "撤销");
   await expect(outline).toHaveCount(3);
   await expect(peer.getByTestId("board-a11y-mirror").getByRole("button")).toHaveCount(3);
-  await page.getByRole("button", { name: "重做" }).click();
+  await expect.poll(() => readBoardProjection(page)).toEqual(beforeLastCreation);
+  await expect.poll(() => readBoardProjection(peer)).toEqual(beforeLastCreation);
+  await applyAcknowledgedHistory(page, "重做");
   await expect(outline).toHaveCount(4);
   await expect(peer.getByTestId("board-a11y-mirror").getByRole("button")).toHaveCount(4);
+  await expect.poll(() => readBoardProjection(page)).toEqual(afterLastCreation);
+  await expect.poll(() => readBoardProjection(peer)).toEqual(afterLastCreation);
   await peer.close();
 
   await page.reload();
   await expect(page.getByText(BOARD_SYNCED_STATUS)).toBeVisible({ timeout: 30_000 });
   await expect(page.getByTestId("board-a11y-mirror").getByRole("button")).toHaveCount(4);
+  await expect.poll(() => readBoardProjection(page)).toEqual(afterLastCreation);
   await expect(page.getByRole("button", { name: "图形：research.png" })).toHaveAttribute("aria-description", /图片需在当前会话重新验证/);
 });

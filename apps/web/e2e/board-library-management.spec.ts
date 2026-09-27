@@ -187,8 +187,19 @@ test("Board navigation retains shell in library and only editor is fullscreen", 
   await expect(page).toHaveURL(new RegExp(`/studio/board/${board.id}$`));
   await expect(page.getByText(BOARD_SYNCED_STATUS)).toBeVisible({ timeout: 30_000 });
   await expect(page.getByTestId("rail-whiteboard")).not.toBeVisible();
-  const editor = await page.getByTestId("collaborative-editor").boundingBox();
-  expect(editor).toEqual({ x: 0, y: 0, width: 1280, height: 800 });
+  await expect(async () => {
+    const region = page.getByTestId("board-editor-region");
+    const shell = await region.locator("..").boundingBox();
+    const banner = await page.getByTestId("board-sync-banner").boundingBox();
+    const bounds = await region.boundingBox();
+    const editor = await page.getByTestId("collaborative-editor").boundingBox();
+    expect(shell).toEqual({ x: 0, y: 0, width: 1280, height: 800 });
+    expect(banner).not.toBeNull(); expect(bounds).not.toBeNull(); expect(editor).not.toBeNull();
+    expect(banner!.height).toBeGreaterThan(0); expect(bounds!.height).toBeGreaterThan(0);
+    expect(banner).toEqual({ x: 0, y: 0, width: 1280, height: banner!.height });
+    expect(bounds).toEqual({ x: 0, y: banner!.height, width: 1280, height: 800 - banner!.height });
+    expect(editor).toEqual(bounds);
+  }).toPass({ timeout: 5000 });
   await page.screenshot({ path: testInfo.outputPath("board-editor-fullscreen.png") });
   await page.getByRole("button", { name: "返回白板", exact: true }).click();
   await expect(page).toHaveURL(/\/studio\/board$/);
