@@ -20,4 +20,7 @@ rm -rf "$DEST"; mkdir -p "$DEST"
 cp "$SRC/package.json" "$SRC/package-lock.json" "$DEST/"
 ( cd "$DEST" && npm ci --omit=dev --ignore-scripts=false --no-audit --no-fund ${NPM_REGISTRY:+--registry "$NPM_REGISTRY"} )
 rm -f "$DEST/package.json" "$DEST/package-lock.json"
-node -e "for (const m of ['pptxgenjs','docx','exceljs','pdf-lib']) require('$DEST/node_modules/'+m); console.log('sandbox modules ready:', '$DEST/node_modules')"
+# node 是原生 Windows 程序时看不懂 Git Bash 的 /d/a/… 路径（windows-latest 实测 MODULE_NOT_FOUND，
+# 其实模块装好了）——给它原生路径（#4315）。
+NODE_DEST="$DEST"; command -v cygpath >/dev/null 2>&1 && NODE_DEST="$(cygpath -m "$DEST")"
+node -e "for (const m of ['pptxgenjs','docx','exceljs','pdf-lib']) require('$NODE_DEST/node_modules/'+m); console.log('sandbox modules ready:', '$NODE_DEST/node_modules')"
