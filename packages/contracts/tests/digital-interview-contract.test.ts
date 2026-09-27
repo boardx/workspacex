@@ -214,6 +214,7 @@ describe("数字专家访谈契约", () => {
     const created = operations.createDigitalInterviewDraft.out.parse(draftWorkflow);
     expect(DigitalInterviewWorkflowView.parse(created)).toEqual(created);
     expect(created).toMatchObject({ status: "topic_pending", currentStep: "topic", topic: null, version: 1 });
+    expect(created.artifacts).toEqual([]);
     expect(DigitalInterviewWorkflowView.safeParse({ ...created, unknown: true }).success).toBe(false);
   });
 

@@ -28,8 +28,12 @@ import {
 } from "@/lib/interview-api";
 import { MOCK_DIGITAL_EXPERTS, findMockDigitalExpert, toDigitalExpertCatalogRow } from "@/lib/mock/digital-expert-personas";
 import { ExpertPickerDialog } from "./expert-picker-dialog";
-import { InterviewSkillAssistant, PersistentInterviewSkillAssistant } from "./interview-skill-assistant";
+import { InterviewSkillAssistant } from "./interview-skill-assistant";
 import { InterviewReportMarkdown } from "./interview-report-markdown";
+import { InterviewMarkdownSurface } from "./interview-markdown-surface";
+import { InterviewSkillDrawer } from "./interview-skill-drawer";
+import { InterviewStageFrame } from "./interview-stage-frame";
+import { InterviewWorkbenchHeader } from "./interview-workbench-header";
 import { DigitalInterviewResearchBriefEditor } from "./digital-interview-research-brief";
 import { DigitalInterviewEvidenceReview } from "./digital-interview-evidence-review";
 import { DigitalInterviewReadiness } from "./digital-interview-readiness";
@@ -107,7 +111,7 @@ const LIVE_STEPS: readonly { readonly id: DigitalInterviewStep; readonly label: 
   { id: "topic", label: "主题" }, { id: "experts", label: "专家" }, { id: "questions", label: "问题" }, { id: "runs", label: "访谈" }, { id: "report", label: "报告" },
 ];
 
-type WorkbenchStep = "intake" | "analysis" | "experts" | "outline" | "runs" | "report";
+export type WorkbenchStep = "intake" | "analysis" | "experts" | "outline" | "runs" | "report";
 
 const WORKBENCH_STEPS: readonly { readonly id: WorkbenchStep; readonly label: string; readonly detail: string; readonly liveStep: DigitalInterviewStep }[] = [
   { id: "intake", label: "导入需求", detail: "明确研究问题与材料边界", liveStep: "topic" },
@@ -126,7 +130,11 @@ function workbenchStepFor(step: DigitalInterviewStep): WorkbenchStep {
 }
 
 type LiveBuffers = { readonly topic: string; readonly researchBrief: DigitalInterviewResearchBrief; readonly expertIds: readonly string[]; readonly questions: readonly DigitalInterviewQuestion[] };
-type PendingNavigation = { readonly step?: DigitalInterviewStep; readonly href?: string } | null;
+type PendingNavigation = { readonly step?: DigitalInterviewStep; readonly workbenchStep?: WorkbenchStep; readonly href?: string } | null;
+
+function workbenchHref(interviewId: string, step: WorkbenchStep) {
+  return `/itv/${encodeURIComponent(interviewId)}/${step}`;
+}
 
 function buffersFrom(view: DigitalInterviewWorkflowView): LiveBuffers {
   return {
@@ -138,13 +146,14 @@ function buffersFrom(view: DigitalInterviewWorkflowView): LiveBuffers {
 }
 
 /** Live workflow deliberately has no persistence side effects on input events. */
-export function PersistentDigitalInterviewWorkflow({ initialView }: { readonly initialView: DigitalInterviewWorkflowView }) {
+export function PersistentDigitalInterviewWorkflow({ initialView, initialWorkbenchStep }: { readonly initialView: DigitalInterviewWorkflowView; readonly initialWorkbenchStep?: WorkbenchStep }) {
   const router = useRouter();
   const [view, setView] = React.useState(initialView);
   const [activeStep, setActiveStep] = React.useState<DigitalInterviewStep>(initialView.currentStep);
-  const [activeWorkbenchStep, setActiveWorkbenchStep] = React.useState<WorkbenchStep>(() => workbenchStepFor(initialView.currentStep));
+  const [activeWorkbenchStep, setActiveWorkbenchStep] = React.useState<WorkbenchStep>(() => initialWorkbenchStep ?? workbenchStepFor(initialView.currentStep));
   const [buffers, setBuffers] = React.useState<LiveBuffers>(() => buffersFrom(initialView));
   const [dirty, setDirty] = React.useState(false);
+  const [skillDrawerOpen, setSkillDrawerOpen] = React.useState(false);
   const [error, setError] = React.useState("");
   const [pendingNavigation, setPendingNavigation] = React.useState<PendingNavigation>(null);
   const [reportPending, setReportPending] = React.useState(initialView.reportGeneration?.status === "running");
@@ -210,7 +219,9 @@ export function PersistentDigitalInterviewWorkflow({ initialView }: { readonly i
     requestIds.current.delete(operation);
     setView(next);
     setActiveStep(next.currentStep);
-    setActiveWorkbenchStep(workbenchStepFor(next.currentStep));
+    const nextWorkbenchStep = workbenchStepFor(next.currentStep);
+    setActiveWorkbenchStep(nextWorkbenchStep);
+    router.replace?.(workbenchHref(next.interviewId, nextWorkbenchStep));
     setBuffers(buffersFrom(next));
     setDirty(false);
     setError("");
@@ -240,8 +251,9 @@ export function PersistentDigitalInterviewWorkflow({ initialView }: { readonly i
   function navigate(next: PendingNavigation) {
     if (next?.step) {
       setActiveStep(next.step);
-      setActiveWorkbenchStep(workbenchStepFor(next.step));
     }
+    if (next?.workbenchStep) setActiveWorkbenchStep(next.workbenchStep);
+    else if (next?.step) setActiveWorkbenchStep(workbenchStepFor(next.step));
     if (next?.href) router.push(next.href);
   }
 
@@ -334,6 +346,7 @@ export function PersistentDigitalInterviewWorkflow({ initialView }: { readonly i
     localReportStream.current = true;
     setActiveStep("report");
     setActiveWorkbenchStep("report");
+    router.replace?.(workbenchHref(view.interviewId, "report"));
     setReportPending(true);
     try {
       const next = await generateDigitalInterviewReportStream(
@@ -397,21 +410,15 @@ export function PersistentDigitalInterviewWorkflow({ initialView }: { readonly i
   const active = activeStep;
   const activeWorkbench = activeWorkbenchStep;
   function requestWorkbenchNavigation(step: WorkbenchStep) {
-    if (step === "analysis") {
-      setActiveWorkbenchStep(step);
-      return;
-    }
-    requestNavigation({ step: WORKBENCH_STEPS.find((candidate) => candidate.id === step)!.liveStep });
+    const target = WORKBENCH_STEPS.find((candidate) => candidate.id === step)!;
+    requestNavigation({ step: target.liveStep, workbenchStep: step, href: workbenchHref(view.interviewId, step) });
   }
-  return <div className="flex min-h-0 flex-1 flex-col lg:flex-row">
-    <PersistentInterviewSkillAssistant view={view} currentStep={active} onSend={sendSkillMessage} onApply={applyProposal} onReject={rejectProposal} />
-    <main className="min-w-0 flex-1 overflow-y-auto bg-background p-5 lg:p-8"><div className="mx-auto max-w-6xl">
-      <header className="rounded-2xl border border-border bg-card p-5 shadow-sm lg:p-6"><div className="flex items-start justify-between gap-4"><div><p className="flex items-center gap-2 text-xs font-medium text-primary"><Sparkles className="size-4" aria-hidden />AI 模拟访谈工作台</p><h1 className="mt-2 text-3xl font-semibold tracking-tight">{view.name}</h1><p className="mt-2 max-w-3xl text-sm leading-6 text-muted-foreground">将需求、分析、专家意见和访谈证据收敛为可审阅的 Markdown 研究资产。</p><div className="mt-3 flex flex-wrap gap-2">{view.tags.map((tag) => <span key={tag} className="rounded-full bg-muted px-3 py-1 text-xs text-muted-foreground">{tag}</span>)}</div></div><Button data-testid="itv-return-history" type="button" variant="outline" onClick={() => requestNavigation({ href: "/itv?tab=history" })}><ArrowLeft className="size-4" aria-hidden />返回访谈列表</Button></div>
-      <div className="mt-5 flex flex-wrap gap-3 border-t border-border pt-4 text-xs text-muted-foreground"><span data-testid="itv-workflow-status">状态：{view.status}</span><span data-testid="itv-workflow-version">版本 {view.version}</span>{view.topic && <span data-testid="itv-persisted-topic">已确认主题：{view.topic}</span>}</div></header>
-      <ol data-testid="itv-workbench-navigation" className="mt-6 grid gap-2 sm:grid-cols-2 lg:grid-cols-6">{WORKBENCH_STEPS.map((step, index) => <li key={step.id}><Button data-testid={`itv-workbench-step-${step.id}`} type="button" variant={activeWorkbench === step.id ? "primary" : "outline"} aria-current={activeWorkbench === step.id ? "step" : undefined} onClick={() => requestWorkbenchNavigation(step.id)} className="h-auto w-full justify-start whitespace-normal px-3 py-3 text-left"><span className="mr-2 grid size-6 shrink-0 place-items-center rounded-full bg-background/20 text-xs">{index + 1}</span><span><span className="block text-sm">{step.label}</span><span className="mt-1 block text-xs font-normal opacity-80">{step.detail}</span></span></Button></li>)}</ol>
+  return <div className="min-h-0 flex-1 bg-background">
+    <main className="min-w-0 overflow-y-auto p-5 lg:p-8"><div className="mx-auto max-w-6xl">
+      <InterviewWorkbenchHeader name={view.name} tags={view.tags} steps={WORKBENCH_STEPS} activeStep={activeWorkbench} status={view.status} version={view.version} topic={view.topic} onStepChange={(step) => requestWorkbenchNavigation(step as WorkbenchStep)} onReturnToList={() => requestNavigation({ href: "/itv?tab=history" })} onOpenSkill={() => setSkillDrawerOpen(true)} />
       <ol className="sr-only">{LIVE_STEPS.map((step, index) => <li key={step.id}><Button data-testid={`itv-workflow-step-${index + 1}`} type="button" aria-current={active === step.id ? "step" : undefined} onClick={() => requestNavigation({ step: step.id })}>0{index + 1} {step.label}</Button></li>)}</ol>
       {error && !view.report && <p role="alert" className="mt-4 rounded-lg border border-destructive/20 bg-destructive/5 p-3 text-sm text-destructive">操作未完成：{error}。请重试，当前草稿已保留。</p>}
-      <section className="mt-6 rounded-2xl border border-border bg-card p-5 shadow-sm lg:p-7">
+      <InterviewStageFrame>
         <WorkflowArtifactPanel artifacts={view.artifacts} workbenchStep={activeWorkbench} topic={buffers.topic || view.topic || view.name} />
         {activeWorkbench === "intake" && <DigitalInterviewResearchBriefEditor topic={buffers.topic} brief={buffers.researchBrief} onTopicChange={(topic) => { setBuffers((current) => ({ ...current, topic })); setDirty(true); }} onChange={(researchBrief) => { setBuffers((current) => ({ ...current, researchBrief })); setDirty(true); }} onConfirm={() => requestConfirmation("topic")} />}
         {activeWorkbench === "analysis" && <LiveAnalysisWorkbench topic={buffers.topic || view.topic || view.name} onContinue={() => requestWorkbenchNavigation("experts")} />}
@@ -424,8 +431,9 @@ export function PersistentDigitalInterviewWorkflow({ initialView }: { readonly i
           window.setTimeout(() => document.getElementById(`answer-${expertId}-${questionId}`)?.scrollIntoView({ block: "center" }), 0);
         }} generation={view.reportGeneration} error={error} onRetry={requestReportGeneration} /><DigitalInterviewEvidenceReview view={view} pending={reviewPending} onReview={reviewReport} /></> : view.reportGeneration ? <LiveReportGenerationStep generation={view.reportGeneration} onRetry={requestReportGeneration} />
           : <LiveReadOnlyStep title="访谈报告" text="请先确认访谈回答并生成报告。" />)}
-      </section>
+      </InterviewStageFrame>
     </div></main>
+    <InterviewSkillDrawer open={skillDrawerOpen} onOpenChange={setSkillDrawerOpen} view={view} currentStep={active} onSend={sendSkillMessage} onApply={applyProposal} onReject={rejectProposal} />
     <Dialog open={regeneration !== null} onOpenChange={(open) => { if (!open) setRegeneration(null); }}><DialogContent><DialogHeader><DialogTitle>是否重新生成？</DialogTitle><DialogDescription>当前步骤已生成过内容。继续将替换{regeneration === "topic" ? "专家、问题、访谈结果和报告" : regeneration === "experts" ? "问题、访谈结果和报告" : regeneration === "questions" ? "访谈结果和报告" : "报告"}，后续步骤需要重新确认。取消会保留现有内容和当前草稿。</DialogDescription></DialogHeader><div className="mt-4 flex justify-end gap-3"><Button type="button" variant="outline" onClick={() => setRegeneration(null)}>保留现有内容</Button><Button type="button" variant="primary" disabled={confirming} onClick={() => { if (regeneration) void executeConfirmation(regeneration); }}>确认重新生成</Button></div></DialogContent></Dialog>
     {pendingNavigation && <UnsavedChangesDialog onKeepEditing={() => setPendingNavigation(null)} onDiscard={discardAndNavigate} />}
   </div>;
@@ -434,12 +442,12 @@ export function PersistentDigitalInterviewWorkflow({ initialView }: { readonly i
 function WorkflowArtifactPanel({ artifacts, workbenchStep, topic }: { readonly artifacts: DigitalInterviewWorkflowView["artifacts"] | undefined; readonly workbenchStep: WorkbenchStep; readonly topic: string }) {
   const artifact = (artifacts ?? []).find((candidate) => candidate.step === workbenchStep);
   const fallbackMarkdown = workbenchStep === "analysis" ? analysisMarkdown(topic) : "";
-  if (!artifact && !fallbackMarkdown) return null;
-  return <aside data-testid="itv-step-markdown-artifact" className="mb-6 rounded-xl border border-primary/20 bg-primary/5 p-4">
-    <div className="flex flex-wrap items-center justify-between gap-2"><div><p className="text-xs font-medium text-primary">Markdown 产物 {artifact ? `· v${artifact.version}` : "· 待确认"}</p><h2 className="mt-1 text-sm font-semibold">{artifact?.title ?? "分析建议.md"}</h2></div><span className="rounded-full bg-background px-2.5 py-1 text-xs text-muted-foreground">{artifact ? artifact.evidenceMode === "simulated" ? "模拟证据 · 待真人验证" : artifact.evidenceMode === "mixed" ? "混合证据" : "真人证据" : "基于已确认需求"}</span></div>
-    {(artifact?.markdown || fallbackMarkdown) && <details className="mt-3"><summary className="cursor-pointer text-sm font-medium">查看 Markdown</summary><pre className="mt-3 max-h-56 overflow-auto whitespace-pre-wrap rounded-lg bg-background p-3 text-xs leading-5 text-muted-foreground">{artifact?.markdown || fallbackMarkdown}</pre></details>}
-    {artifact?.status === "failed" && <p role="alert" className="mt-3 text-sm text-destructive">生成失败：{artifact.failure?.code ?? "DEPENDENCY_UNAVAILABLE"}。已保存内容，可重试。</p>}
-  </aside>;
+  const markdown = artifact?.markdown || fallbackMarkdown;
+  if (!markdown) return null;
+  const evidenceLabel = artifact
+    ? artifact.evidenceMode === "simulated" ? "模拟证据 · 待真人验证" : artifact.evidenceMode === "mixed" ? "混合证据" : "真人证据"
+    : "基于已确认需求";
+  return <InterviewMarkdownSurface title={artifact?.title ?? "分析建议.md"} markdown={markdown} version={artifact?.version} evidenceLabel={evidenceLabel} failure={artifact?.status === "failed" ? artifact.failure?.code ?? "DEPENDENCY_UNAVAILABLE" : null} />;
 }
 
 function analysisMarkdown(topic: string): string {
