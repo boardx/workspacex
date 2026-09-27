@@ -3,7 +3,7 @@
  *
  * 读方法都包进 `guard(personalSpaceRef(userId))`：调用方（application/knowledge-graph/share-to-project.ts）
  * 交出个人空间判定（`decidePersonalSpace`：组织层 + 查看者就是空间主人）才拿得到内容。
- * 写只经两个数据库函数（迁移 20260927600000）：主人 / 成员 / 观察者 / 归档都在那里、与写入同一个事务里复核。
+ * 写只经两个数据库函数（迁移 20260928200000）：主人 / 成员 / 观察者 / 归档都在那里、与写入同一个事务里复核。
  * 每次都设 app.current_user_id = 登录用户：个人空间的行由 RLS 只放给本人（I-14）。
  */
 import type { DatabasePort, TenantSession } from "../../application/ports/database.port";
