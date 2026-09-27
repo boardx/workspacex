@@ -33,7 +33,7 @@ export class BoardBackupError extends Error {constructor(readonly code:string){s
 function fail(code='BACKUP_INTEGRITY_FAILED'):never{throw new BoardBackupError(code);}
 export function validateBackupManifest(input:unknown):BoardBackupManifest {
   const m=BoardBackupManifest.parse(input),prefix=`whiteboards/tenants/${backupTenant(m.orgId)}/boards/${m.board.id}/`;
-  if(!m.snapshot.key.startsWith(prefix)||m.snapshot.mime!=='application/vnd.yjs-update')fail();
+  if(!m.snapshot.key.startsWith(prefix)||m.snapshot.key.split('/').some(part=>!part||part==='.'||part==='..')||/[\\\x00-\x1f]/.test(m.snapshot.key)||m.snapshot.mime!=='application/vnd.yjs-update')fail();
   if(new Set(m.images.map(i=>i.metadata.assetId)).size!==m.images.length ||new Set(m.board.members.map(i=>i.userId)).size!==m.board.members.length ||new Set(m.board.tags.map(i=>i.id)).size!==m.board.tags.length)fail();
   for(const image of m.images){const {blob,metadata}=image;if(blob.key!==`${prefix}assets/${blob.hash}`||metadata.assetId!==`board-image-${blob.hash}`||metadata.contentDigest!==`sha256:${blob.hash}`||metadata.byteSize!==blob.bytes||metadata.mimeType!==blob.mime)fail();}
   if(new Set(m.comments.map(c=>c.id)).size!==m.comments.length)fail();
