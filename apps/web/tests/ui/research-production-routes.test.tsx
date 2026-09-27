@@ -31,6 +31,18 @@ it("starts intake empty instead of loading a demonstration brief", () => {
   expect(push).toHaveBeenCalledWith("/research");
 });
 
+it("keeps a typed intake when returning to the list is cancelled", () => {
+  render(<ResearchNewRoute />);
+  fireEvent.change(screen.getByRole("textbox", { name: "研究目标" }), { target: { value: "尚未提交的需求" } });
+  fireEvent.click(screen.getByTestId("research-flow-back"));
+  expect(push).not.toHaveBeenCalled();
+  fireEvent.click(screen.getByRole("button", { name: "继续编辑" }));
+  expect(screen.getByRole("textbox", { name: "研究目标" })).toHaveValue("尚未提交的需求");
+  fireEvent.click(screen.getByTestId("research-flow-back"));
+  fireEvent.click(screen.getByRole("button", { name: "放弃修改并离开" }));
+  expect(push).toHaveBeenCalledWith("/research");
+});
+
 it("preserves the creation key on failure and resumes the actual server node", async () => {
   vi.mocked(createGuidedResearchSession).mockRejectedValueOnce(new Error("connection lost")).mockResolvedValueOnce({ sessionId: "created-session" } as never);
   vi.mocked(getResearchRuntime).mockResolvedValue({ version: 3, currentNode: "directions" } as never);

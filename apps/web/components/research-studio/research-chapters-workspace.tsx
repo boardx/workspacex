@@ -11,7 +11,7 @@ import { ResearchReportMarkdown } from "./guided-research-report-document";
 import { researchReportDocument } from "@/lib/research-report-document";
 
 type Outline = GuidedResearchRuntime["outline"];
-export function ResearchChaptersWorkspace({ runtime, disabled, onSave, onOptimize, onNext, onBack }: { runtime: GuidedResearchRuntime; disabled: boolean; onSave: (value: Outline) => void; onOptimize: (value: Outline) => void; onNext: () => void; onBack?: () => void }) {
+export function ResearchChaptersWorkspace({ runtime, disabled, onSave, onOptimize, onNext, onBack, onDirtyChange }: { runtime: GuidedResearchRuntime; disabled: boolean; onSave: (value: Outline) => void; onOptimize: (value: Outline) => void; onNext: () => void; onBack?: () => void; onDirtyChange?: (dirty: boolean) => void }) {
   const [chapters, setChapters] = React.useState(runtime.outline);
   const [selectedId, setSelectedId] = React.useState(runtime.outline.find((chapter) => chapter.enabled)?.id);
   const previousServerOutline = React.useRef(runtime.outline);
@@ -25,6 +25,8 @@ export function ResearchChaptersWorkspace({ runtime, disabled, onSave, onOptimiz
   const selected = enabled.find((chapter) => chapter.id === selectedId) ?? enabled[0];
   const index = enabled.findIndex((chapter) => chapter.id === selected?.id);
   const changed = JSON.stringify(chapters) !== JSON.stringify(runtime.outline);
+  React.useEffect(() => { onDirtyChange?.(changed); }, [changed, onDirtyChange]);
+  React.useEffect(() => () => { onDirtyChange?.(false); }, [onDirtyChange]);
   const valid = C.GuidedResearchRuntimeDraft.safeParse({ node: "outline", value: chapters }).success;
   const report = runtime.report ? researchReportDocument(runtime.report, runtime.sources, runtime.outline) : null;
   const body = report?.sections.find((section) => section.sectionId === selected?.id)?.body

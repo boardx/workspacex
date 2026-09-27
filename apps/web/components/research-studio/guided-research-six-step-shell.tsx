@@ -1,6 +1,7 @@
 import * as React from "react";
 import { ArrowLeft, Check, Search, Bot } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
 import { GUIDED_RESEARCH_SIX_STEPS, type GuidedResearchVisualStage } from "@/lib/guided-research-six-step";
 
@@ -23,6 +24,7 @@ export function GuidedResearchSixStepShell({
   assistantOpen: controlledAssistantOpen,
   onAssistantOpenChange,
   sessionId,
+  hasUnsavedChanges = false,
 }: {
   current: GuidedResearchVisualStage;
   available: readonly GuidedResearchVisualStage[];
@@ -33,15 +35,27 @@ export function GuidedResearchSixStepShell({
   assistantOpen?: boolean;
   onAssistantOpenChange?: (open: boolean) => void;
   sessionId?: string;
+  hasUnsavedChanges?: boolean;
 }) {
   const currentIndex = GUIDED_RESEARCH_SIX_STEPS.findIndex((item) => item.id === current);
   const [internalAssistantOpen, setInternalAssistantOpen] = React.useState(false);
   const assistantOpen = controlledAssistantOpen ?? internalAssistantOpen;
   const setAssistantOpen = onAssistantOpenChange ?? setInternalAssistantOpen;
+  const [leaveAction, setLeaveAction] = React.useState<(() => void) | null>(null);
+  const requestLeave = (action: () => void) => {
+    if (hasUnsavedChanges) setLeaveAction(() => action);
+    else action();
+  };
+  React.useEffect(() => {
+    if (!hasUnsavedChanges) return;
+    const preventUnload = (event: BeforeUnloadEvent) => { event.preventDefault(); event.returnValue = ""; };
+    window.addEventListener("beforeunload", preventUnload);
+    return () => window.removeEventListener("beforeunload", preventUnload);
+  }, [hasUnsavedChanges]);
   return (
     <div className="min-h-dvh min-w-0 bg-muted/20" data-testid="guided-research-six-step-shell" data-layout="deep-research-desktop" data-reference-layout="prototype-desktop">
       <header className="top-0 z-20 bg-background/95 backdrop-blur md:sticky" data-testid="research-workspace-header">
-        <div className="border-b bg-card px-6 py-4 lg:px-10"><div className="mx-auto flex max-w-[1440px] items-center justify-between gap-4"><div className="flex items-center gap-4"><Search className="size-11 rounded-lg bg-primary p-2 text-primary-foreground" /><span className="text-2xl font-bold">Deep Research</span><span className="hidden rounded bg-muted px-4 py-1 text-base text-muted-foreground sm:block">智能研究平台</span></div>{onBack && <Button variant="outline" data-testid="research-flow-back" onClick={onBack}><ArrowLeft className="mr-2 size-4" />返回研究列表</Button>}</div></div>
+        <div className="border-b bg-card px-6 py-4 lg:px-10"><div className="mx-auto flex max-w-[1440px] items-center justify-between gap-4"><div className="flex items-center gap-4"><Search className="size-11 rounded-lg bg-primary p-2 text-primary-foreground" /><span className="text-2xl font-bold">Deep Research</span><span className="hidden rounded bg-muted px-4 py-1 text-base text-muted-foreground sm:block">智能研究平台</span></div>{onBack && <Button variant="outline" data-testid="research-flow-back" onClick={() => requestLeave(onBack)}><ArrowLeft className="mr-2 size-4" />返回研究列表</Button>}</div></div>
         <div className="mx-auto max-w-[1440px] px-6 pt-8 lg:px-10"><h1 className="text-3xl font-bold tracking-tight md:text-[48px]">{SCREEN_COPY[current][0]}</h1><p className="mt-3 text-base leading-relaxed text-muted-foreground md:text-[22px]">{SCREEN_COPY[current][1]}</p>
           <nav aria-label="研究步骤" data-testid="research-flow-progress" data-reference-variant="monochrome-stepper" className="mt-5 pb-5">
           <ol className="flex flex-wrap items-center gap-y-3 lg:flex-nowrap">
@@ -58,7 +72,7 @@ export function GuidedResearchSixStepShell({
                   className={cn("h-auto justify-start gap-3 bg-transparent p-1 text-left text-base hover:bg-transparent md:text-lg", active && "font-bold")}
                   disabled={!unlocked}
                   aria-current={active ? "step" : undefined}
-                  onClick={(event) => { event.preventDefault(); onNavigate(step.id); }}
+                  onClick={(event) => { event.preventDefault(); if (!active) requestLeave(() => onNavigate(step.id)); }}
                 >
                   {sessionId && unlocked ? <a role="button" href={`/research/${encodeURIComponent(sessionId)}/${step.id}`}>{stepContent}</a> : stepContent}
                 </Button>
@@ -70,6 +84,7 @@ export function GuidedResearchSixStepShell({
         </div>
       </header>
       <main className="mx-auto min-w-0 max-w-[1440px] px-6 pb-12 pt-2 lg:px-10" data-reference-region="work-canvas" data-testid="guided-research-six-step-main">{main}</main>
+      <Dialog open={Boolean(leaveAction)} onOpenChange={(open) => { if (!open) setLeaveAction(null); }}><DialogContent><DialogTitle>研究内容尚未保存</DialogTitle><DialogDescription>离开会放弃当前页面未保存的修改。已保存的研究和报告不会被删除。</DialogDescription><div className="flex justify-end gap-3"><Button variant="outline" onClick={() => setLeaveAction(null)}>继续编辑</Button><Button variant="primary" onClick={() => { const action = leaveAction; setLeaveAction(null); action?.(); }}>放弃修改并离开</Button></div></DialogContent></Dialog>
       {assistant && <div className="fixed bottom-5 left-10 z-30"><Button variant="primary" className="h-12 rounded-full px-6 text-[18px] shadow-lg" aria-expanded={assistantOpen} onClick={() => setAssistantOpen(!assistantOpen)}><Bot className="mr-2 size-6" />AI 助手</Button>{assistantOpen && <aside className="absolute bottom-14 left-0 max-h-[70dvh] w-[min(24rem,calc(100vw-2.5rem))] overflow-y-auto rounded-xl border bg-card p-5 shadow-xl" data-testid="guided-research-six-step-assistant">{assistant}</aside>}</div>}
     </div>
   );

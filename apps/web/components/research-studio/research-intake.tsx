@@ -54,7 +54,8 @@ function pendingCreateIdempotencyKey(intent: GuidedResearchCreateDraft & { brief
   return { key: generated, storageKey };
 }
 
-export function ResearchIntake({ sessionId, session, workflow, onSession, onWorkflow, onNavigate, onPending, initialBrief = EMPTY_BRIEF, renderAssistant, onClear }: {
+export function ResearchIntake({ sessionId, session, workflow, onSession, onWorkflow, onNavigate, onPending, initialBrief = EMPTY_BRIEF, renderAssistant, onClear, onDirtyChange }: {
+  onDirtyChange?: (dirty: boolean) => void;
   initialBrief?: Brief;
   renderAssistant?: (brief: Brief, onChange: (brief: Brief) => void) => React.ReactNode;
   onClear?: (sessionId?: string) => void;
@@ -67,6 +68,8 @@ export function ResearchIntake({ sessionId, session, workflow, onSession, onWork
   onNavigate: (step: Step, sessionId?: string) => void;
 }) {
   const [brief, setBrief] = React.useState(initialBrief);
+  const baseline = session?.brief ?? initialBrief;
+  React.useEffect(() => { onDirtyChange?.(JSON.stringify(brief) !== JSON.stringify(baseline)); }, [brief, baseline, onDirtyChange]);
   const assistant = useIntakeAssistant(brief, setBrief);
   const active = React.useRef(true);
   React.useEffect(() => { active.current = true; return () => { active.current = false; }; }, []);
