@@ -107,7 +107,7 @@ it.each([
   ['empty', '没有可撤销的本地修改。'],
   ['creation-requires-explicit-delete', '创建对象请使用删除；为保护其他人的修改，不撤销对象创建。'],
 ] as const)('announces the actual undo result %s', (result, message) => {
-  vi.spyOn(WhiteboardUndo.prototype, 'undo').mockReturnValue(result);
+  vi.spyOn(WhiteboardUndo.prototype, 'undo').mockImplementation(() => result as never);
   const doc = createWhiteboardDocument();
   render(<CollaborativeEditor boardId="board-test" clientId="client-test" doc={doc} readOnly={false} title="白板" status="已连接" />);
   fireEvent.click(screen.getByText('撤销', { exact: true }));

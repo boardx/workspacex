@@ -4,6 +4,7 @@ import { apiWebSocketUrl, getStoredSessionToken } from './api-client';
 export type WhiteboardConnectionState = {
   phase: 'connecting' | 'online' | 'offline' | 'blocked'; pending: number;
   role: 'owner' | 'editor' | 'viewer'; archived: boolean;
+  epoch: number | null;
   peers: Extract<WhiteboardServerMessage, { type: 'presence' }>['peers']; reason: string | null;
 };
 const REMOTE = Symbol('whiteboard-server');
@@ -23,7 +24,7 @@ export class WhiteboardProvider {
   private epoch: number | null = null;
   private seq: number | null = null;
   private pending: Extract<WhiteboardClientMessage, { type: 'update' }>[] = [];
-  private state: WhiteboardConnectionState = { phase: 'connecting', pending: 0, role: 'viewer', archived: false, peers: [], reason: null };
+  private state: WhiteboardConnectionState = { phase: 'connecting', pending: 0, role: 'viewer', archived: false, epoch:null, peers: [], reason: null };
   private readonly token = getStoredSessionToken();
   constructor(private doc: Y.Doc, private boardId: string, private onState: (state: WhiteboardConnectionState) => void) {
     doc.on('update', this.onUpdate);
@@ -59,7 +60,7 @@ export class WhiteboardProvider {
           if ((message.role === 'viewer' || message.archived) && this.pending.length) { this.block('WRITE_DENIED'); return; }
           Y.applyUpdate(this.doc, base64ToBytes(message.update), REMOTE); this.epoch = message.epoch; this.seq = message.seq; this.ready = true; this.retry = 0;
           if (this.handshake) clearTimeout(this.handshake);
-          this.publish({ phase: 'online', role: message.role, archived: message.archived, reason: null });
+          this.publish({ phase: 'online', role: message.role, archived: message.archived, epoch:message.epoch, reason: null });
           for (const item of this.pending) this.send(item);
         } else if (message.type === 'update') {
           if (!this.ready || message.epoch !== this.epoch) { this.block('STALE_EPOCH'); return; }

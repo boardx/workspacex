@@ -4,7 +4,7 @@ import { WhiteboardLibrary } from '@/components/whiteboard/whiteboard-library';
 import * as api from '@/lib/live-whiteboard';
 import { ApiError } from '@/lib/api-client';
 vi.mock('@/lib/live-whiteboard', () => ({ listBoards: vi.fn(), createBoard: vi.fn(), getBoard: vi.fn(), updateBoard: vi.fn(), listBoardMembers: vi.fn(), putBoardMember: vi.fn(), removeBoardMember: vi.fn() }));
-const board: api.Board = { id: '57d83843-21e2-40ae-8c1c-571d0ad63c80', name: '团队白板', ownerId: 'owner', role: 'owner', archived: false, createdAt: '2026-09-24T00:00:00.000Z', updatedAt: '2026-09-24T00:00:00.000Z' };
+const board: api.Board = { id: '57d83843-21e2-40ae-8c1c-571d0ad63c80', name: '团队白板', ownerId: 'owner', role: 'owner', archived: false, lifecycleRevision:1,tagIds:[],tagsRevision:1, createdAt: '2026-09-24T00:00:00.000Z', updatedAt: '2026-09-24T00:00:00.000Z' };
 beforeEach(() => { vi.resetAllMocks(); vi.mocked(api.listBoards).mockResolvedValue([]); vi.mocked(api.listBoardMembers).mockResolvedValue([]); });
 afterEach(cleanup);
 describe('Whiteboard resource library', () => {

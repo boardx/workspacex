@@ -20,9 +20,11 @@ A write validates against the current snapshot, writes the next snapshot and acc
 update under tenant-hashed, board-scoped immutable keys, reads both objects back and verifies
 their hashes, then publishes their manifests in the locked PostgreSQL transaction. A store
 failure leaves at most an unreferenced immutable object. It never exposes a half-written head.
-The store has no ordinary delete capability. GC must derive a complete live set from document,
-update, checkpoint and import manifests plus asset refs in canonical snapshots before using a
-separate physical-purge capability; this module deliberately cannot delete blobs.
+The request store has no ordinary delete capability. `WhiteboardObjectGarbageCollector` derives
+a complete live set from document, update, checkpoint, import-source and imported-asset roots.
+It marks old orphans, waits a second grace period, rescues roots that reappear, and records an
+audited sweep candidate. Physical purge remains a separate lifecycle capability, so a stale
+inventory cannot delete board data from an API request.
 
 Checkpoint creation checks the metadata receipt before sampling a moving head, so an exact
 request retry returns its original manifest. Restore validates immutable bytes and atomically
@@ -36,6 +38,10 @@ Every source item becomes a canonical command or a report issue; no item is sile
 Raster bytes are written to `ObjectStore` and canonical image objects contain only the asset ref.
 Execution claims one request id, then submits one command batch, which is one collaboration
 transaction and one structural undo step.
+
+Upload identity is derived from `(vendor, source board id, source revision)`, so retrying an export
+with a new transport request id reuses the same import. Reports carry a stable export format and a
+success/downgrade/skipped/failed result with a reason for every source item.
 
 The upload route uses a route-local JSON parser sized for the reviewed 32 MiB binary limit plus
 base64 overhead. Other API routes keep Express's default body limit.

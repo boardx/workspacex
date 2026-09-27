@@ -25,6 +25,7 @@ function typeOf(raw: string): ImportedBoardItem['type'] {
   if (['connector', 'arrow', 'line'].includes(value)) return 'connector';
   if (['image', 'picture'].includes(value)) return 'image';
   if (['frame', 'area', 'panel', 'section'].includes(value)) return 'panel';
+  if (['group', 'cluster'].includes(value)) return 'group';
   if (['card', 'tile'].includes(value)) return 'tile';
   return 'unsupported';
 }

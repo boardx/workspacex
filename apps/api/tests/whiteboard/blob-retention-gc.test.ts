@@ -1,11 +1,12 @@
-import { readFileSync } from 'node:fs';
-import { expect, it } from 'vitest';
-import './object-manifest-store.test';
-
-it('retains immutable objects and exposes indexed metadata references for a separate GC', () => {
-  const migration = readFileSync(new URL('../../migrations/20260926160000_whiteboard_object_manifests.sql', import.meta.url), 'utf8');
-  const store = readFileSync(new URL('../../src/infrastructure/whiteboard/pg-collaboration-store.ts', import.meta.url), 'utf8');
-  expect(migration).toContain('whiteboard_documents_object_ref');
-  expect(migration).toContain('whiteboard_updates_object_ref');
-  expect(store).not.toMatch(/this\.objects\.delete|objects\.delete/);
+import { describe,expect,it } from 'vitest';
+import { WhiteboardObjectGarbageCollector,type WhiteboardObjectRetentionRepository,type WhiteboardStoredObject } from '../../src/application/whiteboard/object-retention';
+import { PgWhiteboardObjectRetentionRepository } from '../../src/infrastructure/whiteboard/pg-object-retention';
+import type { DatabasePort,TenantSession } from '../../src/application/ports/database.port';
+const day=86_400_000,base=new Date('2026-09-27T00:00:00.000Z'),tenant='a'.repeat(32),prefix=`whiteboards/tenants/${tenant}/`;
+function fixture(roots:string[],objects:WhiteboardStoredObject[],marks:Map<string,Date>=new Map()){const calls={marked:[] as string[],unmarked:[] as string[],swept:[] as string[],audits:[] as unknown[]};const repository:WhiteboardObjectRetentionRepository={roots:async()=>roots.map((key,index)=>({key,kind:index%2?'asset':'document'})),tombstones:async()=>marks,mark:async(_o,value)=>{calls.marked.push(value.key)},unmark:async(_o,keys)=>{calls.unmarked.push(...keys)},sweep:async(_o,value)=>{calls.swept.push(value.key)},audit:async(_o,_r,result)=>{calls.audits.push(result)}};const inventory={head:async()=>null,list:async(_prefix:string,cursor?:string)=>cursor?{objects:objects.slice(2)}:{objects:objects.slice(0,2),cursor:objects.length>2?'next':undefined}};return{gc:new WhiteboardObjectGarbageCollector(repository,inventory,day,()=>base),calls};}
+describe('whiteboard object retention',()=>{
+  it('marks unreachable old objects, preserves roots and recent uploads, and audits the run',async()=>{const root=`${prefix}boards/b/doc.yjs`,old=`${prefix}boards/b/orphan.yjs`,recent=`${prefix}boards/b/recent.yjs`,f=fixture([root],[{key:root,lastModified:new Date(base.getTime()-3*day),sizeBytes:1},{key:old,lastModified:new Date(base.getTime()-3*day),sizeBytes:2},{key:recent,lastModified:new Date(base.getTime()-1000),sizeBytes:3}]);const result=await f.gc.collect('org',tenant,'run');expect(result).toEqual({roots:1,scanned:3,marked:1,swept:0,retained:2,candidateBytes:0});expect(f.calls.marked).toEqual([old]);expect(f.calls.audits).toEqual([result]);});
+  it('sweeps only after a second grace window and rescues a tombstone that became reachable',async()=>{const rescued=`${prefix}boards/b/rescued.yjs`,orphan=`${prefix}boards/b/orphan.yjs`,marks=new Map([[rescued,new Date(base.getTime()-2*day)],[orphan,new Date(base.getTime()-2*day)]]),f=fixture([rescued],[{key:rescued,lastModified:new Date(base.getTime()-4*day),sizeBytes:4},{key:orphan,lastModified:new Date(base.getTime()-4*day),sizeBytes:8}],marks);const result=await f.gc.collect('org',tenant,'run');expect(f.calls.unmarked).toEqual([rescued]);expect(f.calls.swept).toEqual([orphan]);expect(result).toMatchObject({swept:1,candidateBytes:8});});
+  it('fails closed if inventory crosses the tenant prefix',async()=>{const f=fixture([],[{key:'whiteboards/tenants/evil/boards/b/x',lastModified:new Date(0),sizeBytes:1}]);await expect(f.gc.collect('org',tenant,'run')).rejects.toThrow('WHITEBOARD_GC_SCOPE_VIOLATION');expect(f.calls.marked).toEqual([]);});
+  it('discovers document, update, checkpoint, import source, and asset roots',async()=>{const sql:string[]=[];const session:TenantSession={query:async<R>(query:string)=>{sql.push(query);return{rows:[] as R[]}}};const db:DatabasePort={withTenant:async(_org,fn)=>fn(session),withoutTenant:async()=>{throw new Error('no')},close:async()=>{}};await new PgWhiteboardObjectRetentionRepository(db).roots('org');for(const kind of ['document','update','checkpoint','import','asset'])expect(sql[0]).toContain(`'${kind}'`);expect(sql[0]).toContain('whiteboard_asset_refs');});
 });

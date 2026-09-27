@@ -25,12 +25,18 @@ export const WhiteboardImportIssue = z.object({
   code: WhiteboardImportIssueCode, sourceId: z.string().max(256).nullable(),
   sourceType: z.string().max(128).nullable(), detail: z.string().max(1000),
 }).strict();
+export const WhiteboardImportItemResult = z.object({
+  sourceId: z.string().max(256), sourceType: z.string().max(128),
+  outcome: z.enum(['success', 'downgraded', 'skipped', 'failed']),
+  reasonCode: z.string().min(1).max(64).nullable(), detail: z.string().max(1000).nullable(),
+}).strict();
 export const WhiteboardImportCounts = z.object({
   discovered: z.number().int().nonnegative(), accepted: z.number().int().nonnegative(),
   unsupported: z.number().int().nonnegative(), assets: z.number().int().nonnegative(),
 }).strict();
 export const WhiteboardImportStatus = z.object({
   importId: WhiteboardImportId, boardId: BoardId, source: WhiteboardImportSource,
+  sourceBoardId: z.string().min(1).max(256), sourceRevision: z.string().min(1).max(256),
   fileName: z.string().min(1).max(255), mimeType: WhiteboardImportMime,
   sizeBytes: z.number().int().nonnegative().max(WHITEBOARD_IMPORT_LIMITS.uploadBytes),
   sha256: z.string().regex(/^[a-f0-9]{64}$/), stage: WhiteboardImportStage,
@@ -40,11 +46,14 @@ export type WhiteboardImportStatus = z.infer<typeof WhiteboardImportStatus>;
 export const WhiteboardImportReport = z.object({
   importId: WhiteboardImportId, counts: WhiteboardImportCounts,
   issues: z.array(WhiteboardImportIssue).max(WHITEBOARD_IMPORT_LIMITS.issues),
+  items: z.array(WhiteboardImportItemResult).max(WHITEBOARD_IMPORT_LIMITS.objects),
+  exportFormat: z.literal('workspacex.whiteboard-import-report.v1'),
   executable: z.boolean(),
 }).strict();
 export type WhiteboardImportReport = z.infer<typeof WhiteboardImportReport>;
 export const UploadWhiteboardImport = z.object({
   requestId: WhiteboardImportId, source: WhiteboardImportSource,
+  sourceBoardId: z.string().min(1).max(256), sourceRevision: z.string().min(1).max(256),
   fileName: z.string().min(1).max(255), mimeType: WhiteboardImportMime,
   sizeBytes: z.number().int().positive().max(WHITEBOARD_IMPORT_LIMITS.uploadBytes),
   sha256: z.string().regex(/^[a-f0-9]{64}$/), contentBase64: z.string().min(4),

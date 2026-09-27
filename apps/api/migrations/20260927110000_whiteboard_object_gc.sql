@@ -1,0 +1,23 @@
+ALTER TABLE whiteboard_imports ADD COLUMN IF NOT EXISTS source_board_id text;
+ALTER TABLE whiteboard_imports ADD COLUMN IF NOT EXISTS source_revision text;
+UPDATE whiteboard_imports SET source_board_id=COALESCE(source_board_id,'legacy:'||id::text),source_revision=COALESCE(source_revision,sha256) WHERE source_board_id IS NULL OR source_revision IS NULL;
+ALTER TABLE whiteboard_imports ALTER COLUMN source_board_id SET NOT NULL;
+ALTER TABLE whiteboard_imports ALTER COLUMN source_revision SET NOT NULL;
+ALTER TABLE whiteboard_imports DROP CONSTRAINT IF EXISTS whiteboard_imports_source_board_id_length;
+ALTER TABLE whiteboard_imports ADD CONSTRAINT whiteboard_imports_source_board_id_length CHECK(length(source_board_id) BETWEEN 1 AND 256);
+ALTER TABLE whiteboard_imports DROP CONSTRAINT IF EXISTS whiteboard_imports_source_revision_length;
+ALTER TABLE whiteboard_imports ADD CONSTRAINT whiteboard_imports_source_revision_length CHECK(length(source_revision) BETWEEN 1 AND 256);
+CREATE UNIQUE INDEX IF NOT EXISTS whiteboard_imports_source_revision ON whiteboard_imports(org_id,board_id,source,source_board_id,source_revision);
+
+CREATE TABLE IF NOT EXISTS whiteboard_asset_refs(org_id text NOT NULL,board_id uuid NOT NULL,object_key text NOT NULL,content_hash text NOT NULL CHECK(length(content_hash)=64),byte_size bigint NOT NULL CHECK(byte_size>=0),released_at timestamptz,created_at timestamptz NOT NULL DEFAULT now(),PRIMARY KEY(org_id,board_id,object_key),FOREIGN KEY(org_id,board_id) REFERENCES whiteboards(org_id,id) ON DELETE CASCADE);
+CREATE TABLE IF NOT EXISTS whiteboard_object_tombstones(org_id text NOT NULL,object_key text NOT NULL,size_bytes bigint NOT NULL CHECK(size_bytes>=0),object_last_modified timestamptz NOT NULL,marked_at timestamptz NOT NULL,swept_at timestamptz,rescued_at timestamptz,PRIMARY KEY(org_id,object_key));
+CREATE TABLE IF NOT EXISTS whiteboard_object_gc_runs(org_id text NOT NULL,run_id uuid NOT NULL,roots integer NOT NULL,scanned integer NOT NULL,marked integer NOT NULL,swept integer NOT NULL,retained integer NOT NULL,candidate_bytes bigint NOT NULL,result jsonb NOT NULL,created_at timestamptz NOT NULL DEFAULT now(),PRIMARY KEY(org_id,run_id));
+ALTER TABLE whiteboard_asset_refs ENABLE ROW LEVEL SECURITY; ALTER TABLE whiteboard_asset_refs FORCE ROW LEVEL SECURITY;
+ALTER TABLE whiteboard_object_tombstones ENABLE ROW LEVEL SECURITY; ALTER TABLE whiteboard_object_tombstones FORCE ROW LEVEL SECURITY;
+ALTER TABLE whiteboard_object_gc_runs ENABLE ROW LEVEL SECURITY; ALTER TABLE whiteboard_object_gc_runs FORCE ROW LEVEL SECURITY;
+CREATE POLICY whiteboard_asset_refs_org ON whiteboard_asset_refs USING(org_id=current_setting('app.current_org',true)) WITH CHECK(org_id=current_setting('app.current_org',true));
+CREATE POLICY whiteboard_object_tombstones_org ON whiteboard_object_tombstones USING(org_id=current_setting('app.current_org',true)) WITH CHECK(org_id=current_setting('app.current_org',true));
+CREATE POLICY whiteboard_object_gc_runs_org ON whiteboard_object_gc_runs USING(org_id=current_setting('app.current_org',true)) WITH CHECK(org_id=current_setting('app.current_org',true));
+REVOKE ALL ON whiteboard_asset_refs,whiteboard_object_tombstones,whiteboard_object_gc_runs FROM app_rw;
+GRANT SELECT,INSERT,UPDATE ON whiteboard_asset_refs,whiteboard_object_tombstones,whiteboard_object_gc_runs TO app_rw;
+SELECT kernel_apply_org_freeze_policies();
