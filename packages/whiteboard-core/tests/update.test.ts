@@ -73,7 +73,7 @@ it('rejects a concurrent false tombstone even when it loses to an existing true 
   expect(() => prepareWhiteboardUpdate(server, Y.encodeStateAsUpdate(peer))).toThrow('TOMBSTONE_CHANGED');
   expect(readObjects(server)).toEqual([]);
 });
-it('validates and reloads the public 5000-object minimum board within the document budget', () => {
+it('validates and reloads the configured maximum-object board within the document budget', () => {
   const doc = createWhiteboardDocument();
   for (let start = 0; start < WHITEBOARD_LIMITS.objects; start += WHITEBOARD_LIMITS.batch) {
     executeCommands(doc, Array.from({ length: WHITEBOARD_LIMITS.batch }, (_, offset) => ({

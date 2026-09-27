@@ -57,14 +57,32 @@ snapshot read as the content. Feed `revision` into the next operation's `expecte
 a concurrent edit is rejected by the existing stale-revision guard.
 
 This is one full snapshot, not a paginated live traversal: the existing canonical limit is
-5,000 objects and the persisted Yjs document limit is 32 MiB. JSON encoding can be larger than
+10,000 objects and the persisted Yjs document limit is 32 MiB. JSON encoding can be larger than
 the binary snapshot. Reading all objects in one response avoids mixing revisions across
 pages or silently omitting later objects. ObjectStore integrity checks precede bounded worker
 validation/decoding; dependency or integrity failure is fail-closed (503). No DOM or Fabric
 projection is involved.
 
-The existing 5,000-object validation limit currently conflicts with the planned 10,000-object
-acceptance board. This read endpoint does not increase or independently redefine it: the
-single source is `WHITEBOARD_LIMITS.objects` in `packages/contracts/src/whiteboard-document.ts`,
-enforced by `validateDocument` for both reads and writes. Raising it requires a coordinated
-capacity change and verification of snapshot, struct-count and validator worker budgets.
+## 10,000-object capacity boundary (issue #4256)
+
+The canonical count limit is now 10,000, still defined only by `WHITEBOARD_LIMITS.objects`.
+It counts retained object records, including tombstoned objects; the tombstone limit remains
+10,000 and does not provide extra object slots. The command batch limit remains 200, public
+operation limit 200, command payload 256 KiB, inbound Yjs update 64 KiB, document 32 MiB and
+history 200,000 structs. Ten thousand maximally large text/extension objects are not promised:
+all byte, history, heap and time bounds still apply independently.
+
+`validator-capacity.test.ts` exercises real disposable workers, not an in-process substitute.
+Its 10,000 styled Chinese/English sticky objects encode to 3,356,665 bytes and 110,000 Yjs
+structs. Original 128 MiB workers decoded this fixture, but incremental validation and the
+final 200-object creation batch failed with `ERR_WORKER_OUT_OF_MEMORY` (about 0.5 seconds,
+not the 5-second deadline). At 256 MiB, measured decode/validate/final-batch times were
+374/575/561 ms on the development machine. Concurrency is reduced from four to two so the
+aggregate old-generation limit stays 512 MiB; the 5-second deadline, 64 queued requests,
+64 MiB retained queue bytes and 10-second queue wait are unchanged.
+
+Regression coverage requires all 10,000 canonical objects to survive decode and a raw text
+edit, accepts the 9,800-to-10,000 final ordinary command batch, and rejects 10,001-object
+snapshots and the next create command. Oversized command batches, inbound updates and
+snapshots continue to fail closed. Browser/Fabric rendering performance is a separate gate;
+these measurements establish API validation capacity only.

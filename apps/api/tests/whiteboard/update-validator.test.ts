@@ -43,7 +43,7 @@ describe('isolated whiteboard Yjs validator', () => {
 });
 
 describe('bounded worker admission', () => {
-  it('serves fifty small initial-connect validations with four running workers', async () => {
+  it('serves fifty small initial-connect validations within bounded worker concurrency', async () => {
     const results = await Promise.all(Array.from({ length: 50 }, () => validator.diff(empty)));
     expect(results).toHaveLength(50); for (const result of results) expect(result).toEqual(empty);
   });
