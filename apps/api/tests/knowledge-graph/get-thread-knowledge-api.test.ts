@@ -104,6 +104,30 @@ describe("F09: getThreadKnowledge", () => {
     out = await getThreadKnowledge(deps, { ...owner, threadId: PERSONAL });
     expect(out.ingestion).toEqual({ queued: 0, running: 0, failed: 1, failures: [{ sourceKind: "chat_message", sourceRef: "m-f09-queued", reason: "retries_exhausted" }] });
   });
+
+  // issue #4350：分桶与认领条件对齐。第 3 次尝试进行中（attempts = 3、租约活着）以前被算成「失败」。
+  it("入图进度分桶：第 3 次尝试还持有租约 ⇒ running；租约过期且次数用完 ⇒ failed；退避中 ⇒ queued", async () => {
+    const T = "thr-kg-f09-bucket";
+    await addChatThread({ orgId: ORG, id: T, projectId: null, visibilityScope: "private", createdBy: "u-owner" });
+    await addChatMessage({ orgId: ORG, id: "m-f09-b1", threadId: T, body: "分桶一", authorId: "u-owner" });
+    await addChatMessage({ orgId: ORG, id: "m-f09-b2", threadId: T, body: "分桶二", authorId: "u-owner" });
+    const set = (id: string, attempts: number, lockedAt: string, nextAttempt = "now()") => asOwner((c) => c.query(
+      `UPDATE kg_extraction_queue SET attempts = $2, locked_at = ${lockedAt}, next_attempt_at = ${nextAttempt} WHERE message_id = $1`, [id, attempts]));
+    const ingestion = async () => (await getThreadKnowledge(deps, { ...owner, threadId: T })).ingestion;
+
+    await set("m-f09-b1", 3, "now()");                                  // 第 3 次尝试，租约活着
+    await set("m-f09-b2", 1, "NULL", "now() + interval '30 seconds'");  // 第 1 次失败后在退避
+    expect(await ingestion()).toEqual({ queued: 1, running: 1, failed: 0, failures: [] });
+
+    await set("m-f09-b1", 2, "now()");                                  // 第 2 次尝试，租约活着
+    expect(await ingestion()).toMatchObject({ queued: 1, running: 1, failed: 0 });
+
+    await set("m-f09-b1", 3, "now() - interval '1 hour'");              // 第 3 次尝试的 worker 死了，租约过期 ⇒ 再也不会被认领
+    expect(await ingestion()).toEqual({
+      queued: 1, running: 0, failed: 1, failures: [{ sourceKind: "chat_message", sourceRef: "m-f09-b1", reason: "retries_exhausted" }],
+    });
+    await asOwner((c) => c.query("DELETE FROM kg_extraction_queue WHERE message_id IN ('m-f09-b1', 'm-f09-b2')"));
+  });
 });
 
 describe("F09: getClaimSources", () => {

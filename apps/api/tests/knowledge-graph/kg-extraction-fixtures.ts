@@ -110,8 +110,8 @@ export function extractionDeps(db: DatabasePort, model: ModelCallPort, onlyOrg: 
     enable: () => pg.enable(),
     pendingOrgs: async () => (await pg.pendingOrgs()).filter((o) => o === onlyOrg),
     claim: (o, n) => pg.claim(o, n),
-    complete: (o, m) => pg.complete(o, m),
-    fail: (o, m, e) => pg.fail(o, m, e),
+    complete: (o, m, a) => pg.complete(o, m, a),
+    fail: (o, m, e, a) => pg.fail(o, m, e, a),
   };
   return {
     queue, source: pg, store: new PgOntologyStore(db), conflicts: new PgKgConflict(db),
