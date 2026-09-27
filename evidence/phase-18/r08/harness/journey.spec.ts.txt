@@ -1,0 +1,156 @@
+/**
+ * Issue #4290 round 8: an explicit change of mind supersedes the same person's earlier decision, undoably.
+ *   A: 「我决定关注 211 高校」 → promoted to personal space (as round 5).
+ *   B: 「改成关注 985 吧」 → the 211 decision is superseded automatically; the answer shows
+ *      「已用〈改成关注 985 高校〉取代〈我决定关注 211 高校〉 · 撤销」. 985 is promoted (until #4283 lands, by hand).
+ *   C: 「开始写报告吧」 → the answer carries only 985.
+ *   undo in B → 211 is live again; D: 「开始写报告吧」 → both.
+ *
+ * Model is the deterministic KG-eval loopback fed a two-sentence corpus (it plays "an extraction model that read the
+ * sentence right"; B's statement is normalised to 「改成关注 985 高校」). Chat answers only echo the 【记忆】 block the
+ * executor handed the model that turn. Everything else is the real product path.
+ */
+import { mkdirSync, writeFileSync } from "node:fs";
+import path from "node:path";
+import { expect, test, type Page } from "@playwright/test";
+import { KG_EVAL } from "../kg-experience-eval/fixture";
+import { apiGet, login, newThread, openMemoryPanel, say, turnBlock } from "../kg-experience-eval/eval-helpers";
+
+const OUT = path.resolve(__dirname, "../../../../evidence/phase-18/r08");
+mkdirSync(OUT, { recursive: true });
+const OLD = "我决定关注 211 高校";
+const SAY_NEW = "改成关注 985 吧";
+const NEW = "改成关注 985 高校";
+const UNRELATED = "开始写报告吧";
+const record: Record<string, unknown> = {};
+const shot = (page: Page, name: string) => page.screenshot({ path: path.join(OUT, `${name}.png`), fullPage: false });
+const dump = () => writeFileSync(path.join(OUT, "journey.json"), `${JSON.stringify(record, null, 2)}\n`);
+
+interface Claim { id: string; statement: string; status: string; kind?: string }
+interface Recalled { claimId: string; statement: string; scope: string; channels: string[] }
+interface Notice { noticeId: string; newerClaim: { id: string; statement: string }; olderClaim: { id: string; statement: string }; state: string }
+interface TurnMemory { recalled: Recalled[]; supersede: Notice | null }
+
+async function threadClaims(page: Page, threadId: string) {
+  return (await apiGet(page, `/knowledge-graph/threads/${threadId}`)).body as { claims: Claim[] };
+}
+async function turnMemory(page: Page, threadId: string, answerId: string) {
+  const r = await apiGet(page, `/knowledge-graph/threads/${threadId}/messages/${answerId}/memory`);
+  expect(r.status).toBe(200);
+  return r.body as TurnMemory;
+}
+async function personal(page: Page) {
+  return ((await apiGet(page, "/knowledge-graph/personal")).body as { claims: Claim[] }).claims
+    .map((c) => ({ id: c.id, statement: c.statement, status: c.status }));
+}
+async function waitClaim(page: Page, threadId: string, statement: string) {
+  let hit: Claim | undefined;
+  await expect.poll(async () => {
+    hit = (await threadClaims(page, threadId)).claims.find((c) => c.statement === statement);
+    return hit !== undefined;
+  }, { timeout: 60_000 }).toBe(true);
+  return hit!;
+}
+async function promote(page: Page, claimId: string, statement: string): Promise<string> {
+  await openMemoryPanel(page);
+  await page.getByTestId("kg-promote-enter").click();
+  await page.getByTestId(`kg-claim-select-${claimId}`).check();
+  await page.getByTestId("kg-promote-submit").click();
+  await expect(page.getByTestId("kg-promotion-summary")).toContainText("已记到长期记忆 1 条");
+  const hit = (await personal(page)).find((c) => c.statement === statement);
+  expect(hit).toBeTruthy();
+  return hit!.id;
+}
+
+test.describe.configure({ mode: "serial" });
+let page: Page;
+const ids: Record<string, string> = {};
+
+test.beforeAll(async ({ browser }) => {
+  page = await browser.newPage();
+  record.ids = ids;
+  await login(page, KG_EVAL.owner);
+});
+test.afterAll(() => dump());
+
+test("A: 「我决定关注 211 高校」 is extracted and promoted to personal space", async () => {
+  ids.threadA = await newThread(page);
+  await say(page, OLD);
+  const claim = await waitClaim(page, ids.threadA, OLD);
+  expect(claim.kind).toBe("decision");
+  ids.claimA = claim.id;
+  ids.personalOld = await promote(page, claim.id, OLD);
+  record.stepA_personal = await personal(page);
+  await shot(page, "01-a-decision-promoted");
+});
+
+test("B: 「改成关注 985 吧」 supersedes the 211 decision; the answer shows 「已用〈新〉取代〈旧〉 · 撤销」", async () => {
+  ids.threadB = await newThread(page);
+  const t = await say(page, SAY_NEW);
+  ids.answerB = t.answerId;
+  const claim = await waitClaim(page, ids.threadB, NEW);
+  ids.claimB = claim.id;
+  let mem: TurnMemory | undefined;
+  await expect.poll(async () => {
+    mem = await turnMemory(page, ids.threadB!, t.answerId);
+    return mem.supersede?.state ?? null;
+  }, { timeout: 60_000 }).toBe("applied");
+  expect(mem!.supersede).toMatchObject({ newerClaim: { id: ids.claimB, statement: NEW }, olderClaim: { id: ids.personalOld, statement: OLD } });
+  // the line under the answer, as the user sees it (reload so the turn line reads the settled state)
+  await page.reload();
+  const line = page.getByTestId("kg-supersede-notice");
+  await expect(line).toBeVisible({ timeout: 60_000 });
+  await expect(page.getByTestId("kg-supersede-text")).toHaveText(`已用〈${NEW}〉取代〈${OLD}〉`);
+  await expect(page.getByTestId("kg-supersede-undo")).toHaveText("撤销");
+  record.stepB = { answerId: t.answerId, text: t.text, notice: mem!.supersede, line: (await line.innerText()).trim() };
+  await line.scrollIntoViewIfNeeded();
+  await shot(page, "02-b-supersede-notice");
+  // 211 is no longer in personal space
+  const p = await personal(page);
+  record.stepB_personal_after_supersede = p;
+  expect(p.map((c) => c.id)).not.toContain(ids.personalOld);
+  // until #4283 (decisions auto-enter personal space) lands, 985 is promoted by hand
+  ids.personalNew = await promote(page, ids.claimB, NEW);
+  await shot(page, "03-b-new-decision-promoted");
+});
+
+test("C: 「开始写报告吧」 in a new thread answers with 985 only", async () => {
+  ids.threadC = await newThread(page);
+  const t = await say(page, UNRELATED);
+  const mem = await turnMemory(page, ids.threadC, t.answerId);
+  const footer = turnBlock(t.answer);
+  await expect(footer).toContainText(NEW, { timeout: 30_000 });
+  record.stepC = { answerId: t.answerId, text: t.text, recalled: mem.recalled, footer: (await footer.innerText()).trim() };
+  expect(mem.recalled.map((r) => r.claimId)).toEqual([ids.personalNew]);
+  expect(t.text).toContain(NEW);
+  expect(t.text).not.toContain("211");
+  await expect(footer).not.toContainText(OLD);
+  await t.answer.scrollIntoViewIfNeeded();
+  await shot(page, "04-c-answer-only-985");
+});
+
+test("undo in B: the 211 decision is live again; 985 stays", async () => {
+  await page.goto(`/chat/${encodeURIComponent(ids.threadB!)}`);
+  const undo = page.getByTestId("kg-supersede-undo");
+  await expect(undo).toBeVisible({ timeout: 60_000 });
+  await undo.click();
+  const done = page.getByTestId("kg-supersede-undone");
+  await expect(done).toHaveText(`已撤销：〈${OLD}〉恢复为生效`);
+  await done.scrollIntoViewIfNeeded();
+  await shot(page, "05-b-undone");
+  const p = await personal(page);
+  record.stepUndo = { line: (await done.innerText()).trim(), personal: p, turn: await turnMemory(page, ids.threadB!, ids.answerB!) };
+  expect(p.map((c) => c.id)).toEqual(expect.arrayContaining([ids.personalOld, ids.personalNew]));
+});
+
+test("D: after undo, 「开始写报告吧」 in a new thread answers with both decisions", async () => {
+  ids.threadD = await newThread(page);
+  const t = await say(page, UNRELATED);
+  const mem = await turnMemory(page, ids.threadD, t.answerId);
+  record.stepD = { answerId: t.answerId, text: t.text, recalled: mem.recalled };
+  expect(mem.recalled.map((r) => r.claimId).sort()).toEqual([ids.personalNew, ids.personalOld].sort());
+  expect(t.text).toContain(NEW);
+  expect(t.text).toContain(OLD);
+  await t.answer.scrollIntoViewIfNeeded();
+  await shot(page, "06-d-answer-both-after-undo");
+});

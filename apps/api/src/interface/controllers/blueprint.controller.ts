@@ -38,7 +38,7 @@ import {
   ServiceUnavailableException,
   UnprocessableEntityException,
 } from "@nestjs/common";
-import { templates as C } from "@repo/contracts";
+import { templates as C, viewerRole } from "@repo/contracts";
 import type { z } from "zod";
 import { ZodBodyPipe } from "../pipes/zod-body.pipe";
 import { CurrentPrincipal } from "../current-principal.decorator";
@@ -617,17 +617,19 @@ export class BlueprintController {
     @CurrentPrincipal() principal: Principal,
     @Param("projectId") projectId: string,
     @Query("requestedViewerId") requestedViewerId?: string,
-  ) {
+  ): Promise<z.infer<typeof viewerRole.operations.getViewerOptions.out>> {
     assertPrincipal(principal);
     const orgId = toOrgId(principal.orgId);
     const membership = await this.identity.findProjectMembership(principal.userId, projectId, orgId);
     const role = (membership?.projectRole as ProjectRole | undefined) ?? null;
     const actorGroupId = membership?.groupId ?? null;
     try {
-      return await getViewerOptionsUseCase(
+      const out = await getViewerOptionsUseCase(
         { repo: this.groupingRepo },
         { orgId, projectId, actorProjectRole: role, actorGroupId, requestedViewerId },
       );
+      // 返回形状按 viewer-role 契约类型检查（用例返回 readonly 数组，这里拷一份满足契约的可变数组）。
+      return { ...out, viewers: [...out.viewers] };
     } catch (e) {
       if (e instanceof GetViewerOptionsError) {
         if (e.reasonCode === "DEPENDENCY_UNAVAILABLE") {

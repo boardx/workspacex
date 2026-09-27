@@ -96,7 +96,12 @@ export function startManaged(spec: SpawnSpec, log: (line: string) => void = defa
 /** Signal the child's whole process group (falls back to the child alone on Windows / if the group is gone). */
 export function killTree(child: ChildProcess, signal: NodeJS.Signals): void {
   if (child.pid === undefined) return;
-  if (platform() !== "win32") {
+  if (platform() === "win32") {
+    // Windows 没有进程组，child.kill() 只结束直接子进程：next 的 worker、uvicorn 的子进程
+    // 会留下来占着端口（和 POSIX 上当初要用进程组的理由一样）。taskkill /T 连子孙一起收；
+    // 控制台程序不理 WM_CLOSE，所以 SIGTERM 与 SIGKILL 在这里都只能是 /F。
+    try { execFileSync("taskkill", ["/pid", String(child.pid), "/T", "/F"], { stdio: "ignore" }); return; } catch { /* 已经没了，退回下面 */ }
+  } else {
     try { process.kill(-child.pid, signal); return; } catch { /* group already gone, fall through */ }
   }
   try { child.kill(signal); } catch { /* already exited */ }

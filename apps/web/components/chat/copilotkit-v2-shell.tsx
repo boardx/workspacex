@@ -15,6 +15,7 @@ import { useSession } from "@/components/session/session-provider";
 import { ChatArtifactPreviewDialog } from "@/components/chat/chat-artifact-preview-dialog";
 import { ChatTaskInspector } from "@/components/chat/chat-task-inspector";
 import type { PlanTodo } from "@/components/chat/agent-plan-panel";
+import type { PlanStepAction } from "@/lib/chat-workbench/trace-plan";
 import { Input } from "@/components/ui/input";
 import {
   deleteThread, getAgentPanel, getThread,
@@ -1047,6 +1048,8 @@ export function CopilotKitV2Shell({
     readonly startedAt: number | null; readonly recoveryDiagnostic?: string | null;
   }>({ isRunning: false, phaseLabel: null, startedAt: null });
   const [pendingMaterialsCount, setPendingMaterialsCount] = React.useState(0);
+  const [uploadingMaterialsCount, setUploadingMaterialsCount] = React.useState(0);
+  const [planStepActions, setPlanStepActions] = React.useState<ReadonlyMap<string, readonly PlanStepAction[]>>(() => new Map());
 
   /**
    * 向壳层登记「这条会话有活在跑」。壳层切换组织之前要回答「切走会怎样」，
@@ -1318,6 +1321,8 @@ export function CopilotKitV2Shell({
           onPlanTodosChange={setPlanTodos}
           onRunStateChange={setRunState}
           onPendingMaterialsChange={setPendingMaterialsCount}
+          onUploadingMaterialsChange={setUploadingMaterialsCount}
+          onPlanStepActionsChange={setPlanStepActions}
           /* issue #3347 —— 右栏「材料」页签的上传入口（点击 + 拖拽）要用的正是
              composer 那一个（同一个）附件控制器。面板把它的最小能力面上报到这里，外壳
              原样转给 `ChatTaskInspector`；外壳不自己 `useChatAttachments`——那会造出
@@ -1355,6 +1360,8 @@ export function CopilotKitV2Shell({
         onRetry={() => void loadRightPanel()}
         onOpenArtifact={(item) => setOpenArtifact({ artifactId: item.artifactId, title: item.title })}
         pendingMaterialsCount={pendingMaterialsCount}
+        uploadingMaterialsCount={uploadingMaterialsCount}
+        planStepActions={planStepActions}
         attachUploadPort={attachUploadPort}
         /* issue #3347 —— 只读/归档时上传入口禁用并写出理由，理由与 composer 底部
            那行同源（`canWriteThread`/`archived`）。服务端本就按 `composer.send` 能力

@@ -71,3 +71,34 @@ No actionable P0/P1/P2 mismatch remains.
 - [x] P1/P2 findings fixed and re-captured.
 - [x] Core interactions exercised in the real browser.
 - [x] Responsive overflow and console checked.
+
+---
+
+# Interview fullscreen Markdown workbench · Design QA
+
+**Final result: passed**
+
+## Comparison target
+
+- Source visual truth: the user-provided interview workbench prototypes, especially the list and six-stage references attached in this task.
+- Source images: `/var/folders/l8/7z3_dshd7799phy86_sry5k40000gn/T/codex-clipboard-f966283d-98d3-41b1-acde-25c756e7eb02.png` through `/var/folders/l8/7z3_dshd7799phy86_sry5k40000gn/T/codex-clipboard-73c41c57-cdfa-4b17-88e3-0079f27601c7.png`.
+- Implementation screenshot: `/tmp/interview-fullscreen-markdown-workbench.png` (`1440 × 1000`, Chromium).
+- Route and state: `/itv/itv-visual/setup`, analysis stage, two confirmed Markdown artifacts.
+
+## Full-view comparison evidence
+
+The implementation screenshot was reviewed alongside the supplied prototype. The detail view is an immersive canvas: there is no Workspace rail; the title, return-to-list action, stage timeline and workbench state sit in a single header; the six visual stages are evenly available at desktop width. The active stage is visibly distinct, the analysis stage shows one Markdown artifact as a source-plus-rendered-preview surface, and the Skill assistant is a deliberate on-demand control rather than a permanent left column.
+
+## Findings and resolution
+
+- [P1] The prior detail view permanently consumed the left side with the Skill assistant and split the timeline from the title controls. Fixed by moving Skill into an on-demand drawer and consolidating title, return action, status and timeline into `itv-workbench-header`.
+- [P1] Stage artifacts exposed source text only, which made the Markdown contract hard to inspect as user-facing content. Fixed by rendering the same artifact text through a sanitized Markdown preview below its source.
+- [P2] Returning to the list could be confused with an immersive layout. Verified the dedicated detail route uses the fullscreen shell while `/itv` remains wrapped by the standard AppShell with its Workspace rail.
+
+## Primary interactions verified
+
+- Chromium Playwright: six-stage navigation, analysis-stage Markdown artifact, hidden Workspace rail in detail, drawer opening, error/retry and report paths — `4 passed` in `e2e/digital-interview-research-quality.spec.ts`.
+- UI tests: header timeline, dirty return guard, Markdown source/preview parity, drawer interaction, report/export and expert/run behavior — `38 passed`.
+- Responsive keyboard flow remains covered by the browser E2E; no horizontal overflow at `390 × 844`.
+
+No actionable P0/P1/P2 mismatch remains for the approved interaction model.

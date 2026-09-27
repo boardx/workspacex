@@ -8,7 +8,8 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 OUT="$ROOT/apps/desktop/bin"
 VERSION="${OLLAMA_VERSION:-latest}"
-case "${OLLAMA_TARGET:-$(uname -s | tr '[:upper:]' '[:lower:]')-$(uname -m)}" in
+TARGET="${OLLAMA_TARGET:-$(uname -s | tr '[:upper:]' '[:lower:]')-$(uname -m)}"
+case "$TARGET" in
   darwin-arm64|darwin-aarch64) ASSET="ollama-darwin.tgz" ;;
   darwin-x86_64|darwin-amd64)  ASSET="ollama-darwin.tgz" ;;
   windows-amd64|windows-x86_64) ASSET="ollama-windows-amd64.zip" ;;
@@ -39,5 +40,6 @@ cp -R "$(dirname "$BIN")/." "$OUT/"
 chmod +x "$OUT"/ollama* "$OUT"/llama-* 2>/dev/null || true
 [ -f "$OUT/llama-server" ] || [ -f "$OUT/lib/ollama/llama-server" ] || { echo "archive layout changed: llama-server not found" >&2; exit 1; }
 rm -rf "$TMP"
+case "$TARGET" in darwin-arm64|darwin-aarch64) "$ROOT/scripts/local-bundle/thin-darwin-arm64.sh" "$OUT" ;; esac
 "$OUT/ollama" --version 2>/dev/null || "$OUT/ollama.exe" --version
 echo "ollama placed in $OUT"

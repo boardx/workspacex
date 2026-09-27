@@ -17,6 +17,8 @@ import { usePlanLedgerPolling } from "@/lib/use-plan-ledger-polling";
 import { CHAT_RUN_PAUSE_ENTRY_ENABLED } from "@/lib/chat-run-pause-entry";
 import { describePlanFailureReason } from "@/lib/plan-control-copy";
 import { useEdition } from "@/lib/edition";
+import { NO_LIVE_PLAN, type LivePlan } from "@/lib/chat-workbench/live-plan-context";
+import type { PlanTodo } from "@/components/chat/agent-plan-panel";
 import { planAllDoneButFailedNote } from "@/lib/chat-workbench/plan-failure-shape";
 
 /**
@@ -148,6 +150,12 @@ export interface CopilotKitV2PlanControlProps {
    * 不会出现「两个入口都没有」的空窗。
    */
   readonly onStepRecoveryOfferedChange?: (offered: boolean) => void;
+  /**
+   * 2026-09-27 计划显示统一 —— 上报进行中的计划（run 在途 + 账本有步骤时的步骤快照）与本面板
+   * 是否展开。宿主经 `LivePlanContext` 交给消息流：进行中时消息流里的计划卡读这同一份数据，
+   * 本面板展开时它让位。
+   */
+  readonly onLivePlanChange?: (plan: LivePlan) => void;
 }
 
 export function CopilotKitV2PlanControl(props: CopilotKitV2PlanControlProps): React.JSX.Element {
@@ -155,7 +163,7 @@ export function CopilotKitV2PlanControl(props: CopilotKitV2PlanControlProps): Re
 }
 
 function PlanControlSession(
-  { threadId, projectId, canWrite = true, refetchSignal, onRunDispatched, onStepRecoveryOfferedChange }: CopilotKitV2PlanControlProps,
+  { threadId, projectId, canWrite = true, refetchSignal, onRunDispatched, onStepRecoveryOfferedChange, onLivePlanChange }: CopilotKitV2PlanControlProps,
 ): React.JSX.Element | null {
   const { ledger, refetch } = usePlanLedgerPolling(threadId, projectId);
   const [editing, setEditing] = React.useState(false);
@@ -259,6 +267,19 @@ function PlanControlSession(
   const runLive = runControls.canPause || runControls.canResume;
   const hasPlanAction = ledger !== null && ((ledger.phase === "planning" && ledger.gate.required)
     || ledger.pendingApplyAtNextRun || ledger.orphanedConstraints.length > 0);
+  /*
+   * 2026-09-27 计划显示统一 —— 见 `LivePlanContext` 头注。折叠默认值不动（#3214/#3245）。
+   * 键按内容序列化：账本每 3 秒轮询一次，同内容不重复上报、不让消息流无谓重渲染。
+   */
+  const liveTodos = ledger !== null && runLive && ledger.steps.length > 0
+    ? ledger.steps.map((s): PlanTodo => ({ content: s.content, status: s.status }))
+    : null;
+  const livePlanKey = JSON.stringify([liveTodos, !collapsed]);
+  React.useEffect(() => {
+    const [todos, expanded] = JSON.parse(livePlanKey) as [PlanTodo[] | null, boolean];
+    onLivePlanChange?.({ todos, expanded });
+  }, [livePlanKey, onLivePlanChange]);
+  React.useEffect(() => () => onLivePlanChange?.(NO_LIVE_PLAN), [onLivePlanChange]);
   if (threadId === null || ledger === null) return null;
 
   /*

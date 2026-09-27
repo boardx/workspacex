@@ -36,6 +36,17 @@ strokes against their explicit `erases` target IDs from the retained vectors
 rather than flattening drawings into bitmaps. `instantiateTemplateEnvelope`
 creates a template's caller-ID-mapped object set in one replay-safe envelope.
 
+Spatial and relationship editing uses `SpatialRelationshipCommandPort`. A Web or
+Fabric projection reads `parentId`, `locked`, `zIndex` and `connector` directly
+from `readObjects`, and calls `readPanelMetadata` for a frame's freeform/grid/flow
+policy. The connector value retains anchors, routing type, tips, line style, label
+and `semanticRelation`; moving an endpoint through the command kernel recomputes
+its geometry without replacing that relationship. Groups remain ordinary
+`kind: "group"` objects and never masquerade as Panels or Fabric groups. Panel
+and Group membership always uses `parentId`, so the same operations are available
+to UI, API and AI callers. Mutations of locked objects are rejected at the lowest
+command boundary, including indirect connector or container changes.
+
 `WhiteboardUndo` groups one accepted local command batch into one history item and
 tracks both objects and tombstones. Create, edit and delete batches can therefore
 be undone and redone atomically, including bulk creation. Before applying history,
