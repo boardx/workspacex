@@ -3,6 +3,7 @@ import { afterEach, expect, it, vi } from "vitest";
 import { createWhiteboardDocument, executeCommands, type WhiteboardObject } from "@repo/whiteboard-core";
 import { ObjectContextToolbar } from "@/components/whiteboard/object-context-toolbar";
 import { CollaborativeThinkingEditor } from "@/components/whiteboard/collaborative-thinking-editor";
+import { BoardSelectedObjectPanel } from "@/components/whiteboard/board-selected-object-panel";
 import type { BoardFabricObject } from "@/components/whiteboard/fabric/board-fabric-object";
 
 vi.mock("@/components/whiteboard/fabric/board-fabric-surface", () => ({
@@ -19,19 +20,112 @@ const sticky: WhiteboardObject = { id: "sticky", schemaVersion: 1, kind: "sticky
 
 it("shows Sticky-only direct controls and makes every mutating control unavailable in readonly mode", () => {
   const onStickyChange = vi.fn(), onExperienceChange = vi.fn();
-  const { rerender } = render(<ObjectContextToolbar object={sticky} viewport={{ zoom: 1, panX: 0, panY: 0, fitRequest: 0 }} readOnly={false} actorId="me" onStickyChange={onStickyChange} onTextChange={vi.fn()} onExperienceChange={onExperienceChange} onFutureAction={vi.fn()} />);
+  const props = { object: sticky, readOnly: false, actorId: "me", onStickyChange, onTextChange: vi.fn(), onExperienceChange, onGeometryChange: vi.fn(), onClose: vi.fn(), onFutureAction: vi.fn() };
+  const { rerender } = render(<ObjectContextToolbar {...props} />);
   expect(screen.queryByLabelText("新标签")).toBeNull();
-  fireEvent.click(screen.getByRole("button", { name: "便利贴样式" }));
-  const toolbar = screen.getByRole("dialog", { name: "便利贴样式" });
-  expect(within(toolbar).getByTestId("sticky-color-yellow")).toBeEnabled();
-  expect(within(toolbar).getByTestId("context-sticky-circle")).toBeEnabled();
-  expect(within(toolbar).queryByLabelText("字号")).toBeNull();
-  fireEvent.click(within(toolbar).getByTestId("context-sticky-circle"));
+  expect(screen.getByTestId("sticky-quick-color-yellow")).toBeEnabled();
+  expect(screen.getByTestId("context-sticky-circle")).toBeEnabled();
+  expect(screen.queryByLabelText("字号")).toBeNull();
+  fireEvent.click(screen.getByTestId("context-sticky-circle"));
   expect(onStickyChange).toHaveBeenCalledWith({ variant: "circle" });
 
-  rerender(<ObjectContextToolbar object={sticky} viewport={{ zoom: 1, panX: 0, panY: 0, fitRequest: 0 }} readOnly actorId="me" onStickyChange={onStickyChange} onTextChange={vi.fn()} onExperienceChange={onExperienceChange} onFutureAction={vi.fn()} />);
+  rerender(<ObjectContextToolbar {...props} readOnly />);
   expect(screen.getByTestId("context-sticky-circle")).toBeDisabled();
+  expect(screen.getByTestId("sticky-quick-color-yellow")).toBeDisabled();
+  fireEvent.click(screen.getByTestId("board-widget-advanced-format").querySelector("summary")!);
   expect(screen.getByLabelText("便利贴自定义颜色")).toBeDisabled();
+});
+
+it("provides adjustable inspector size, compact geometry disclosure and grouped quick actions", () => {
+  const onGeometryChange = vi.fn();
+  render(<BoardSelectedObjectPanel object={sticky} title="Idea" typeLabel="便利贴" readOnly={false} onClose={vi.fn()} onGeometryChange={onGeometryChange}><button type="button">样式操作</button></BoardSelectedObjectPanel>);
+  const panel = screen.getByTestId("board-context-toolbar");
+  expect(panel).toHaveAttribute("aria-label", "便利贴属性");
+  expect(screen.getByTestId("board-inspector-scroll-content")).toBeVisible();
+  const width = screen.getByTestId("board-inspector-resize");
+  expect(width).toHaveAttribute("aria-valuenow", "368");
+  fireEvent.keyDown(width, { key: "ArrowLeft" });
+  expect(width).toHaveAttribute("aria-valuenow", "344");
+  const height = screen.getByTestId("board-inspector-resize-height");
+  expect(height).toHaveAttribute("aria-valuenow", "520");
+  fireEvent.keyDown(height, { key: "ArrowDown" });
+  expect(height).toHaveAttribute("aria-valuenow", "544");
+  const geometry = screen.getByTestId("board-inspector-geometry");
+  expect(geometry).not.toHaveAttribute("open");
+  fireEvent.click(within(geometry).getByText("位置与尺寸"));
+  const x = screen.getByTestId("board-inspector-geometry-x");
+  fireEvent.change(x, { target: { value: "88" } });
+  fireEvent.blur(x);
+  expect(onGeometryChange).toHaveBeenCalledWith(expect.objectContaining({ x: 88, y: 80, width: 180, height: 180, rotation: 0 }));
+});
+
+it("groups the selected widget's frequent actions separately from detailed properties", () => {
+  render(<ObjectContextToolbar object={sticky} readOnly={false} actorId="me" onStickyChange={vi.fn()} onTextChange={vi.fn()} onExperienceChange={vi.fn()} onGeometryChange={vi.fn()} onClose={vi.fn()} onFutureAction={vi.fn()} onDuplicate={vi.fn()} onDelete={vi.fn()} />);
+  expect(screen.getByTestId("board-object-quick-actions")).toHaveAccessibleName("对象快捷操作");
+  expect(screen.getByTestId("board-sticky-inspector-style")).toBeVisible();
+  expect(screen.getByTestId("board-widget-quick-format")).toBeVisible();
+  expect(screen.getByTestId("sticky-quick-color-yellow")).toBeVisible();
+  expect(screen.getByTestId("board-widget-advanced-format")).not.toHaveAttribute("open");
+  expect(screen.getByTestId("board-inspector-geometry")).not.toHaveAttribute("open");
+  fireEvent.click(screen.getByTestId("board-widget-advanced-format").querySelector("summary")!);
+  expect(screen.getByLabelText("便利贴尺寸模式")).toBeVisible();
+});
+
+it("exposes the selected Text's common formatting and object actions before detailed controls", () => {
+  const text: WhiteboardObject = { ...sticky, id: "text", kind: "text", text: "Heading" };
+  const onTextChange = vi.fn();
+  render(<ObjectContextToolbar object={text} readOnly={false} actorId="me" onStickyChange={vi.fn()} onTextChange={onTextChange} onExperienceChange={vi.fn()} onGeometryChange={vi.fn()} onClose={vi.fn()} onFutureAction={vi.fn()} onDuplicate={vi.fn()} onDelete={vi.fn()} />);
+  expect(screen.getByTestId("board-widget-quick-format")).toBeVisible();
+  expect(screen.getByTestId("board-text-quick-bold")).toBeVisible();
+  expect(screen.getByTestId("board-text-quick-align")).toBeVisible();
+  expect(screen.getByTestId("board-widget-advanced-format")).not.toHaveAttribute("open");
+  fireEvent.click(screen.getByTestId("board-widget-advanced-format").querySelector("summary")!);
+  expect(screen.getByTestId("board-inspector-text")).toBeVisible();
+  fireEvent.click(screen.getByTestId("board-text-quick-bold"));
+  expect(onTextChange).toHaveBeenCalledWith({ preset: "body", bold: true });
+});
+
+it("shows shape-specific fill controls and common duplicate/delete actions for selected widgets", () => {
+  const shape: WhiteboardObject = { ...sticky, id: "shape", kind: "rectangle", text: "Plan", style: { fill: "#FFFFFF", stroke: "#111111" } };
+  const onStyleChange = vi.fn();
+  render(<ObjectContextToolbar object={shape} readOnly={false} actorId="me" onStickyChange={vi.fn()} onTextChange={vi.fn()} onStyleChange={onStyleChange} onExperienceChange={vi.fn()} onGeometryChange={vi.fn()} onClose={vi.fn()} onFutureAction={vi.fn()} onDuplicate={vi.fn()} onDelete={vi.fn()} />);
+  expect(screen.getByRole("heading", { name: "Plan" })).toBeVisible();
+  expect(screen.getByTestId("board-generic-quick-format")).toBeVisible();
+  fireEvent.change(screen.getByTestId("board-object-fill-color"), { target: { value: "#FF0000" } });
+  expect(onStyleChange).toHaveBeenCalledWith({ fill: "#FF0000", stroke: "#111111" });
+  fireEvent.change(screen.getByTestId("board-object-stroke-color"), { target: { value: "#0000FF" } });
+  expect(onStyleChange).toHaveBeenCalledWith({ fill: "#FFFFFF", stroke: "#0000FF" });
+  expect(screen.getByRole("button", { name: "复制对象" })).toBeEnabled();
+  expect(screen.getByRole("button", { name: "删除对象" })).toBeEnabled();
+  expect(screen.queryByTestId("board-inspector-text")).toBeNull();
+});
+
+it("opens the matching object menu when a shape is selected on the Fabric board", () => {
+  const doc = createWhiteboardDocument();
+  executeCommands(doc, [{ type: "create", object: { ...sticky, id: "shape", kind: "rectangle", text: "Plan", style: { fill: "#FFFFFF" } } }], "seed");
+  render(<CollaborativeThinkingEditor boardId="board" clientId="web" doc={doc} readOnly={false} title="Board" status="已连接" />);
+  fireEvent.click(screen.getByTestId("select-one"));
+  const panel = screen.getByTestId("board-context-toolbar");
+  expect(panel).toHaveAttribute("aria-label", "形状属性");
+  expect(panel.style.left).toMatch(/px$/);
+  expect(panel.style.top).toMatch(/px$/);
+  expect(screen.getByTestId("board-object-fill-color")).toBeVisible();
+  doc.destroy();
+});
+
+it("keeps the image edit menu as the single floating inspector for selected image widgets", () => {
+  const doc = createWhiteboardDocument();
+  const image: WhiteboardObject = { ...sticky, id: "image", kind: "image", text: "Landscape", extensionData: { contentObject: { version: 1, type: "image", status: "ready", assetId: "asset_image_1", sourceUrl: null, mimeType: "image/png", intrinsicWidth: 800, intrinsicHeight: 600, crop: { x: 0, y: 0, width: 1, height: 1 }, opacity: 1, borderColor: "#FFFFFF", borderWidth: 0, cornerRadius: 0, fileName: "landscape.png", replacementOf: null, failureCode: null, byteSize: 3, contentDigest: `sha256:${"a".repeat(64)}`, magicMimeType: "image/png", retryCount: 0 } } };
+  executeCommands(doc, [{ type: "create", object: image }], "seed");
+  render(<CollaborativeThinkingEditor boardId="board" clientId="web" doc={doc} readOnly={false} title="Board" status="已连接" />);
+  fireEvent.click(screen.getByTestId("select-one"));
+  expect(screen.getAllByTestId("board-context-toolbar")).toHaveLength(1);
+  const panel = screen.getByTestId("board-context-toolbar");
+  expect(panel).toHaveAttribute("aria-label", "图片属性");
+  expect(panel.style.left).toMatch(/px$/);
+  fireEvent.click(screen.getByTestId("board-inspector-appearance"));
+  expect(screen.getByRole("button", { name: "裁剪" })).toBeVisible();
+  doc.destroy();
 });
 
 it("derives command availability from selection count and hides single-object controls for a mixed selection", () => {
