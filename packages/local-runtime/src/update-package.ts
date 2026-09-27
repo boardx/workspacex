@@ -113,6 +113,15 @@ export async function sha256File(path: string): Promise<string> {
   return h.digest("hex");
 }
 
+/**
+ * 清单里的相对路径是否安全：不是绝对路径，且**没有任何一段**恰好是 `..`。
+ * `[[...slug]]`、`...rest`、`a..b` 这些是合法的文件/目录名，不是穿越。
+ */
+export function isSafeRelativePath(rel: string): boolean {
+  if (rel === "" || rel.startsWith("/") || rel.startsWith("\\") || /^[A-Za-z]:[\\/]/.test(rel)) return false;
+  return !rel.split(/[\\/]/).some((seg) => seg === "..");
+}
+
 export interface VerifyResult {
   readonly ok: boolean;
   /** 对不上的文件:路径 → 出了什么问题。空表示全部通过。 */
@@ -127,8 +136,14 @@ export async function verifyUpdatePayload(dir: string, manifest: UpdateManifest)
   const bad: Record<string, string> = {};
   let checked = 0;
   for (const [rel, want] of Object.entries(manifest.files)) {
-    // 路径穿越:更新包是外来数据,不能让它写到 bundle 之外去
-    if (rel.startsWith("/") || rel.includes("..")) { bad[rel] = "清单里的路径不合法（绝对路径或含 ..）"; continue; }
+    // 路径穿越：更新包是外来数据，不能让它写到 bundle 之外去。
+    //
+    // ⚠ 按**路径段**判断，不能用 `rel.includes("..")` 这种子串匹配。第一版就是子串匹配，
+    //   真机往返时它拒掉了**每一个真实的更新包**：Next.js 的可选全匹配路由目录名是
+    //   `[[...slug]]`，里面有 `...`，于是
+    //   `apps/web/.next/server/app/api/copilotkit/[[...slug]]/route.js` 被判成穿越。
+    //   单测用的全是简单路径，产生不出这种目录名——只有真实构建产物才有。
+    if (!isSafeRelativePath(rel)) { bad[rel] = "清单里的路径不合法（绝对路径或含 .. 这一段）"; continue; }
     try {
       const got = await sha256File(join(dir, "payload", rel));
       checked += 1;

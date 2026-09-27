@@ -10,7 +10,7 @@ import { join } from "node:path";
 import { createHash } from "node:crypto";
 import { describe, expect, it } from "vitest";
 import {
-  UPDATE_MANIFEST, compareVersions, inspectUpdate, verifyUpdatePayload, rollbackTargetOf,
+  UPDATE_MANIFEST, compareVersions, inspectUpdate, verifyUpdatePayload, rollbackTargetOf, isSafeRelativePath,
   type UpdateManifest, type AppliedRecord,
 } from "../src/update-package";
 
@@ -142,5 +142,32 @@ describe("回滚是前进，不是把状态倒回去", () => {
   it("回滚记录本身不成为下一次回滚的目标——否则会在两版之间来回弹", () => {
     const h = [rec("update", "0.2.0", "0.3.0", "/k"), rec("rollback", "0.3.0", "0.2.0", null)];
     expect(rollbackTargetOf(h)).toBe("0.2.0");
+  });
+});
+
+/**
+ * 路径穿越判断要按**段**，不能按子串（真机往返抓到的误报）。
+ *
+ * 第一版用 `rel.includes("..")`，在真实打包产物上拒掉了每一个更新包：Next.js 的
+ * 可选全匹配路由目录叫 `[[...slug]]`。单测用的全是简单路径，产生不出这种目录名。
+ * 这里的合法样例**直接取自真实构建产物**，不是我编的。
+ */
+describe("路径穿越判断", () => {
+  it("**真实 Next.js 产物里的路径不是穿越**", () => {
+    for (const real of [
+      "apps/web/.next/server/app/api/copilotkit/[[...slug]]/route.js",
+      "apps/web/.next/server/app/api/copilotkit/[[...slug]]/route.js.nft.json",
+      "apps/web/.next/types/app/api/copilotkit/[[...slug]]/route.ts",
+      "apps/web/app/[...rest]/page.tsx",
+      "node_modules/.pnpm/a..b/x.js",
+      "...hidden",
+    ]) expect(isSafeRelativePath(real), real).toBe(true);
+  });
+
+  it("真正的穿越仍然被拦——否定判断要配正面用例", () => {
+    for (const evil of [
+      "../../etc/passwd", "/etc/passwd", "apps/../../x", "a/..", "..",
+      "apps\\..\\..\\x", "C:\\Windows\\x", "\\\\server\\share", "",
+    ]) expect(isSafeRelativePath(evil), JSON.stringify(evil)).toBe(false);
   });
 });
