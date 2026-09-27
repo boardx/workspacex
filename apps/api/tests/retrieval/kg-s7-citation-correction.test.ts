@@ -39,7 +39,7 @@ const UNUSED = "客户 A 偏好周末不打电话";
 
 const sqlRows = <T>(q: string, params: unknown[] = []) => asOwner(async (c) => (await c.query(q, params)).rows as T[]);
 
-async function insertClaim(id: string, statement: string, scope: { kind: "personal" | "chat_session"; id: string }) {
+async function insertClaim(id: string, statement: string, scope: { kind: "personal" | "chat_session" | "project"; id: string }) {
   await asOwner((c) => c.query(
     `INSERT INTO claims (id, org_id, statement, status, tsv, claim_kind, confidence, created_by, reviewed_by, scope_kind, scope_id, valid_from)
      VALUES ($1, $2, $3, 'accepted', to_tsvector('simple', $3), 'fact', 1, 'human', 'u-owner', $4, $5, now())`,
@@ -249,6 +249,15 @@ describe("S7 review F1：纠正落在整家（会话原说法 ⇄ 长期记忆�
     expect(ev).toEqual([{ message_id: `m-${fx.A}` }]);
     const [neu] = await sqlRows<{ supersedes_claim_id: string }>("SELECT supersedes_claim_id FROM claims WHERE id = $1", [out.newClaimId]);
     expect(neu!.supersedes_claim_id).toBe(f.personal);
+    // delta review L4：anchor（长期记忆那份）只是被取代，不被 F07 顺着 derived_from 一起撤掉；家里那条边先收掉了
+    const rows = await sqlRows<{ id: string; status: string; revoked: boolean }>(
+      "SELECT id, status, revoked_at IS NOT NULL AS revoked FROM claims WHERE id = ANY($1::text[]) ORDER BY id", [[f.personal, f.session]]);
+    expect(rows).toEqual([
+      { id: f.personal, status: "superseded", revoked: false },
+      { id: f.session, status: "superseded", revoked: true },
+    ]);
+    const [edge] = await sqlRows<{ status: string }>("SELECT status FROM ontology_edges WHERE id = 'edge-s7-fam-a'");
+    expect(edge!.status).toBe("invalidated");
   });
 
   it("在新对话里纠正长期记忆那份（带新说法）⇒ 原对话里的会话那条也不再生效，原对话下一轮只用新说法（不重复）", async () => {
@@ -282,17 +291,54 @@ describe("S7 review F1：纠正落在整家（会话原说法 ⇄ 长期记忆�
   });
 });
 
+describe("S7 delta review：一家只走本人能改的节点（L1）；函数里没有临时表（D1）", () => {
+  it("项目记忆（L2）的副本、别人的副本不动；只能经 L2 才连得上的本人长期记忆也不动", async () => {
+    const OLD = "客户 A 要求发票抬头写全称";
+    const f = await family("e", OLD);
+    await insertClaim("clm-s7-fam-e-l2", OLD, { kind: "project", id: `${ORG}-p` });
+    await insertClaim("clm-s7-fam-e-other", OLD, { kind: "personal", id: "u-other" });
+    await insertClaim("clm-s7-fam-e-via-l2", OLD, { kind: "personal", id: "u-owner" });
+    await asOwner(async (c) => {
+      const edge = (id: string, src: string, dst: string, scope: [string, string]) => c.query(
+        `INSERT INTO ontology_edges (id, org_id, src_kind, src_id, dst_kind, dst_id, relation, created_by, scope_kind, scope_id)
+         VALUES ($1, $2, 'claim', $3, 'claim', $4, 'derived_from', 'human', $5, $6)`, [id, ORG, src, dst, scope[0], scope[1]]);
+      await edge("edge-s7-e-l2", "clm-s7-fam-e-l2", f.session, ["project", `${ORG}-p`]);
+      // 别人的副本、本人长期记忆里另一条，都只经 L2 那条连到这一家：递归不许穿过 L2 走到它们
+      //（直接挂在会话那条上的个人副本由 F07 级联按「来源都失效」收，那是 F07 的既有语义，不是这里的「一家」）
+      await edge("edge-s7-e-other", "clm-s7-fam-e-other", "clm-s7-fam-e-l2", ["personal", "u-other"]);
+      await edge("edge-s7-e-via", "clm-s7-fam-e-via-l2", "clm-s7-fam-e-l2", ["personal", "u-owner"]);
+    });
+    const answer = await turnWith(fx.A, "run-s7-fe", [f.session], `你说过：${OLD}。`);
+    await correctCitation(deps, { userId: "u-owner", orgId: ORG_ID, threadId: fx.A, messageId: answer, claimId: f.session, kind: "wrong" });
+    const rows = await sqlRows<{ id: string; live: boolean }>(
+      `SELECT id, revoked_at IS NULL AND status <> 'superseded' AS live FROM claims
+        WHERE id = ANY($1::text[]) ORDER BY id`,
+      [[f.session, f.personal, "clm-s7-fam-e-l2", "clm-s7-fam-e-other", "clm-s7-fam-e-via-l2"]]);
+    expect(Object.fromEntries(rows.map((r) => [r.id, r.live]))).toEqual({
+      [f.session]: false, [f.personal]: false,
+      "clm-s7-fam-e-l2": true, "clm-s7-fam-e-other": true, "clm-s7-fam-e-via-l2": true,
+    });
+  });
+
+  it("kg_correct_citation 不建临时表（调用方预先建一张同名 TEMP 表也顶替不了什么）", async () => {
+    const [fn] = await sqlRows<{ src: string; secdef: boolean }>(
+      "SELECT prosrc AS src, prosecdef AS secdef FROM pg_proc WHERE proname = 'kg_correct_citation'");
+    expect(fn!.secdef).toBe(true);
+    expect(fn!.src).not.toMatch(/\btemp(orary)?\b\s+table/i);
+  });
+});
+
 describe("S7：纠正率 = 纠正 / 被引用", () => {
   it("按同一个对账判据复算被引用次数；纠正按种类计数；只算本人的", async () => {
     const citedRuns = await sqlRows<{ n: string }>(
       "SELECT count(*) AS n FROM kg_citation_corrections WHERE org_id = $1 AND user_id = 'u-owner'", [ORG]);
-    expect(citedRuns[0]!.n).toBe("7");
+    expect(citedRuns[0]!.n).toBe("8");
     const m = await getCitationMetrics(deps, { userId: "u-owner", orgId: ORG_ID });
-    // 本人提问的回答里被引用过的：recon + authz + notcited + badreq + inv + lang + meet（7）+ 一家的四轮 fa/fb/fc/fd（4）= 11；
+    // 本人提问的回答里被引用过的：recon + authz + notcited + badreq + inv + lang + meet（7）+ 一家的五轮 fa/fb/fc/fd/fe（5）= 12；
     // none 那一轮 0。纠正过的那条现在已失效，但它当时被引用过，照样算在分母里。
-    expect(m.citedUses).toBe(11);
-    expect(m.corrections).toEqual({ wrong: 5, expired: 2 });
-    expect(m.correctionRate).toBeCloseTo(7 / 11, 4);
+    expect(m.citedUses).toBe(12);
+    expect(m.corrections).toEqual({ wrong: 6, expired: 2 });
+    expect(m.correctionRate).toBeCloseTo(8 / 12, 4);
     expect(m.windowDays).toBe(30);
     // 别人：没有纠正、没有被引用（u-member 那一轮的引用不算到 u-owner 头上，反之亦然）
     const other = await getCitationMetrics(deps, { userId: "u-member", orgId: ORG_ID });

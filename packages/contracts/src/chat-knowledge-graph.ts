@@ -357,7 +357,10 @@ export const KgTurnMemory = z.object({
   cited: z.array(z.string()).optional(),
   /**
    * S7 review F6：查看者能不能在这一轮的引用上点「这条不对」/「已过时」——是这条对话的所有者、**且**是这一轮的提问人
-   * （服务端 `correctCitation` 同一判据）。`cited` 里的每一条都在查看者能改的作用域里（`recalled` 已按查看者过滤）。
+   * （服务端 `correctCitation` 同一判据）。这是「这一轮」的判据，不是每一条的：能不能改某一条还看它的作用域——
+   * 本对话的、查看者本人长期记忆 / 本人其他个人对话的可以改；项目 / 组织记忆（L2 / L3）不能在这里改（服务端拒）。
+   * 今天 `recalled` 只会出现前两种（读侧 `readTurnRecall` 的可见性过滤不放 L2 / L3），界面仍按作用域再挡一次
+   * （`CITATION_CORRECTABLE_SCOPES`），免得日后召回里放进了 L2 / L3 却给出点了会被拒的按钮（delta review L5）。
    * 省略 ⇒ 按 false（不给入口，免得点了被拒）。
    */
   canCorrect: z.boolean().optional(),
@@ -371,6 +374,8 @@ export type KgTurnMemory = z.infer<typeof KgTurnMemory>;
  * 两种都记一条纠正事件：纠正率 = 纠正次数 / 被引用次数（`getCitationMetrics`）。
  */
 export const KgCitationCorrectionKind = z.enum(["wrong", "expired"]);
+/** 引用 chip 上能被纠正的结论作用域（`KgRecalledMemory.scope`）；其余一律不给纠正入口（服务端同样拒）。 */
+export const CITATION_CORRECTABLE_SCOPES = ["chat_session", "personal"] as const satisfies readonly KgRecalledMemory["scope"][];
 export type KgCitationCorrectionKind = z.infer<typeof KgCitationCorrectionKind>;
 
 /**

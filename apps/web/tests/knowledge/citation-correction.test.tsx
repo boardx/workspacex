@@ -89,6 +89,17 @@ describe("点开一条引用：原话 + 跳到原消息 + 纠正", () => {
     expect(await screen.findByTestId("kg-cite-error-c-db")).toHaveTextContent("原话找不到了");
   });
 
+  it("作用域不在可纠正之列（例如日后召回里出现的项目记忆，delta review L5）：所有者也不给纠正入口", () => {
+    const project = { ...DECIDE, claimId: "c-l2", scope: "project" as unknown as KgRecalledMemory["scope"] };
+    render(<AnswerKnowledgeFooter recalled={[project, DECIDE]} recallDegraded={false} onOpenSource={() => {}} onJump={() => Promise.resolve(true)} canCorrect onCorrect={vi.fn()} />);
+    fireEvent.click(screen.getByTestId("kg-citation-c-l2"));
+    expect(screen.getByTestId("kg-cite-detail-c-l2")).toBeInTheDocument();
+    expect(screen.queryByTestId("kg-cite-wrong-c-l2")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("kg-cite-expired-c-l2")).not.toBeInTheDocument();
+    fireEvent.click(screen.getByTestId("kg-citation-c-db"));
+    expect(screen.getByTestId("kg-cite-wrong-c-db")).toBeInTheDocument();
+  });
+
   it("不是所有者：没有「这条不对」/「已过时」", () => {
     render(<AnswerKnowledgeFooter recalled={[DECIDE]} recallDegraded={false} onOpenSource={() => {}} onJump={() => Promise.resolve(true)} onCorrect={vi.fn()} />);
     fireEvent.click(screen.getByTestId("kg-citation-c-db"));

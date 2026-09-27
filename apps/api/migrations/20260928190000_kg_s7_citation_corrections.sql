@@ -19,7 +19,9 @@
  *      不带 derived_from 边（review F2）；证据**保留**（去重后挂上，理由见函数内注释）；
  *    - expired ⇒ 已过时。TODO(#4363)：S6 落地后改成 valid_to = now()；在那之前整家按撤回执行
  *      （revocation_reason = user_citation_expired），应用层的 `expireClaim` 端口就是替换点。
- *    项目记忆（L2）不在「一家」里：那是全体成员的，不由一个人在对话的引用上改。
+ *    项目 / 组织记忆（L2 / L3）与别人的结论不在「一家」里，递归也不经过它们（delta review L1）：那不是一个人在对话的引用上能改的。
+ *    家里彼此之间的 derived_from 边先收掉再动结论（delta review L4），anchor 因此只是 superseded，不被 F07 顺带撤掉。
+ *    「一家」放在数组变量里，不建临时表（delta review D1：SECURITY DEFINER 里的 TEMP 表可被调用方预先建同名表顶替）。
  *    每个被动到的作用域各留一条 ontology_actions 审计，并写一行 kg_citation_corrections。
  */
 CREATE TABLE IF NOT EXISTS kg_citation_corrections (
@@ -68,6 +70,7 @@ DECLARE
   v_ascope  text;
   v_s       record;
   v_n       int;
+  v_family  text[];
 BEGIN
   IF v_org IS NULL OR v_org = '' THEN RAISE EXCEPTION 'KG_NO_TENANT' USING ERRCODE = '42501'; END IF;
   IF NOT public.kernel_org_is_writable(v_org) THEN
@@ -103,42 +106,50 @@ BEGIN
 
   -- 「一家」：沿**活的** derived_from 边（两个方向、传递）连在一起的活结论——会话里的原说法和它记进本人长期记忆的副本
   -- （#4283 自动记入 / F11 晋升）。纠正要落在整家上：只动被点的那一条，另一份还活着，下一轮照样被召回（review F1）。
-  -- 只收本人能管的：本对话的、本人个人空间的、本人其他个人对话的；项目记忆（L2）不在此列——那是全体成员的，不由一个人在这里改。
-  CREATE TEMP TABLE IF NOT EXISTS kg_s7_family (id text PRIMARY KEY, scope_kind text, scope_id text) ON COMMIT DROP;
-  TRUNCATE kg_s7_family;
-  INSERT INTO kg_s7_family (id, scope_kind, scope_id)
+  -- 只经过、只收本人能管的结论（review L1：递归本身就只走这些节点，不是走完再筛）：本对话的、本人个人空间的、
+  -- 本人其他个人对话的。项目 / 组织记忆（L2 / L3）与别人的结论既不收，也不从它们那里继续走——那不是一个人在这里能改的。
+  -- 放在数组变量里，**不用临时表**（delta review D1：SECURITY DEFINER 里的 TEMP 表可以被调用方预先建一张同名的顶替）。
   WITH RECURSIVE fam(id) AS (
     SELECT v_c.id
     UNION
-    SELECT CASE WHEN d.src_id = fam.id THEN d.dst_id ELSE d.src_id END
-      FROM fam JOIN ontology_edges d
+    SELECT c.id
+      FROM fam
+      JOIN ontology_edges d
         ON d.org_id = v_org AND d.relation = 'derived_from' AND d.status = 'active'
        AND d.src_kind = 'claim' AND d.dst_kind = 'claim' AND (d.src_id = fam.id OR d.dst_id = fam.id)
+      JOIN claims c ON c.org_id = v_org AND c.id = CASE WHEN d.src_id = fam.id THEN d.dst_id ELSE d.src_id END
+     WHERE c.revoked_at IS NULL AND c.status <> 'superseded'
+       AND ((c.scope_kind = 'chat_session' AND c.scope_id = v_thread)
+         OR (c.scope_kind = 'personal' AND c.scope_id = v_user)
+         OR (c.scope_kind = 'chat_session' AND EXISTS (
+               SELECT 1 FROM chat_threads t WHERE t.org_id = v_org AND t.id = c.scope_id
+                  AND t.project_id IS NULL AND t.created_by = v_user AND NOT t.archived)))
   )
-  SELECT c.id, c.scope_kind, c.scope_id FROM fam JOIN claims c ON c.org_id = v_org AND c.id = fam.id
-   WHERE c.revoked_at IS NULL AND c.status <> 'superseded'
-     AND ((c.scope_kind = 'chat_session' AND c.scope_id = v_thread)
-       OR (c.scope_kind = 'personal' AND c.scope_id = v_user)
-       OR (c.scope_kind = 'chat_session' AND EXISTS (
-             SELECT 1 FROM chat_threads t WHERE t.org_id = v_org AND t.id = c.scope_id
-                AND t.project_id IS NULL AND t.created_by = v_user AND NOT t.archived)));
+  SELECT array_agg(id ORDER BY id) INTO v_family FROM fam;
 
   -- 锁这一家涉及的作用域（同 F10 / F17 的作用域锁，先会话、后个人空间，同一顺序防死锁），再锁行、再核一遍。
   PERFORM pg_advisory_xact_lock(hashtext('kg_scope:' || v_org || '|' || s.scope_kind || '|' || s.scope_id))
-     FROM (SELECT DISTINCT scope_kind = 'personal' AS is_personal, scope_kind, scope_id FROM kg_s7_family ORDER BY 1, 3) s;
-  PERFORM 1 FROM claims c WHERE c.org_id = v_org AND c.id IN (SELECT id FROM kg_s7_family) ORDER BY c.id FOR UPDATE;
+     FROM (SELECT DISTINCT c.scope_kind = 'personal' AS is_personal, c.scope_kind, c.scope_id
+             FROM claims c WHERE c.org_id = v_org AND c.id = ANY(v_family) ORDER BY 1, 3) s;
+  PERFORM 1 FROM claims c WHERE c.org_id = v_org AND c.id = ANY(v_family) ORDER BY c.id FOR UPDATE;
   SELECT c.* INTO v_c FROM claims c WHERE c.org_id = v_org AND c.id = v_claim;
   IF v_c.revoked_at IS NOT NULL OR v_c.status = 'superseded' THEN
     RAISE EXCEPTION 'KG_CLAIM_NOT_FOUND: claim % changed meanwhile', v_claim USING ERRCODE = '23503';
   END IF;
-  DELETE FROM kg_s7_family f USING claims c
-   WHERE c.org_id = v_org AND c.id = f.id AND (c.revoked_at IS NOT NULL OR c.status = 'superseded');
+  SELECT array_agg(c.id ORDER BY c.id) INTO v_family FROM claims c
+   WHERE c.org_id = v_org AND c.id = ANY(v_family) AND c.revoked_at IS NULL AND c.status <> 'superseded';
+
+  -- review L4：先把家里彼此之间的 derived_from 边收掉，再动结论。否则撤掉会话那条时 F07 级联会顺着这条边把
+  -- 留在取代历史里的 anchor（个人空间那份，只该是 superseded）也一起撤掉。家外的边不动。
+  UPDATE ontology_edges d SET status = 'invalidated', invalidated_at = now()
+   WHERE d.org_id = v_org AND d.relation = 'derived_from' AND d.status = 'active'
+     AND d.src_kind = 'claim' AND d.dst_kind = 'claim' AND d.src_id = ANY(v_family) AND d.dst_id = ANY(v_family);
 
   IF v_kind = 'wrong' AND v_repl IS NOT NULL THEN
     -- 新说法只落一份，落在这一家「最高」的作用域：家里有本人长期记忆那份 ⇒ 落个人空间（跨对话照样召回，
     -- 本对话也召回它），否则落在被点那条所在的作用域。supersedes 只在同一作用域里连（同 #4290 keep_new）。
-    SELECT c.* INTO v_anchor FROM claims c JOIN kg_s7_family f ON f.id = c.id
-     WHERE c.org_id = v_org ORDER BY (c.scope_kind = 'personal') DESC, (c.id = v_c.id) DESC, c.id LIMIT 1;
+    SELECT c.* INTO v_anchor FROM claims c
+     WHERE c.org_id = v_org AND c.id = ANY(v_family) ORDER BY (c.scope_kind = 'personal') DESC, (c.id = v_c.id) DESC, c.id LIMIT 1;
     v_new := v_id || '-c';
     v_akind := v_anchor.scope_kind;
     v_ascope := v_anchor.scope_id;
@@ -153,34 +164,35 @@ BEGIN
     --   ③ 「这是人改过的」由审计（ontology_actions，via = citation，带新旧两条 id）记着，不靠证据表表达。
     INSERT INTO claim_message_evidence (claim_id, org_id, message_id, stance, excerpt)
       SELECT DISTINCT ON (e.message_id, e.stance) v_new, e.org_id, e.message_id, e.stance, e.excerpt
-        FROM claim_message_evidence e WHERE e.org_id = v_org AND e.claim_id IN (SELECT id FROM kg_s7_family)
+        FROM claim_message_evidence e WHERE e.org_id = v_org AND e.claim_id = ANY(v_family)
        ORDER BY e.message_id, e.stance, e.claim_id;
     INSERT INTO claim_segments (claim_id, org_id, segment_id, stance)
       SELECT DISTINCT v_new, s.org_id, s.segment_id, s.stance FROM claim_segments s
-       WHERE s.org_id = v_org AND s.claim_id IN (SELECT id FROM kg_s7_family);
+       WHERE s.org_id = v_org AND s.claim_id = ANY(v_family);
     -- 边：只带新说法所在作用域那一条（anchor）的，**不带 derived_from**（review F2）：新说法不是从旧说法「记过来」的；
     -- 带过去的话，原对话里那条旧说法一撤，F07 会把新说法也一起收掉。
     INSERT INTO ontology_edges (id, org_id, src_kind, src_id, dst_kind, dst_id, relation, created_by, scope_kind, scope_id)
       SELECT v_new || '-' || e.id, e.org_id, 'claim', v_new, e.dst_kind, e.dst_id, e.relation, 'human', v_anchor.scope_kind, v_anchor.scope_id
         FROM ontology_edges e WHERE e.org_id = v_org AND e.src_kind = 'claim' AND e.src_id = v_anchor.id AND e.status = 'active'
          AND e.relation <> 'derived_from';
-    -- anchor 同 reviseClaim：转 superseded（留在取代历史里）；家里其余的撤掉（F07 级联收掉它们的边）。
+    -- anchor 同 reviseClaim：转 superseded（留在取代历史里，不撤）；家里其余的撤掉（F07 级联收掉它们的边）。
     UPDATE claims SET status = 'superseded', updated_at = now() WHERE org_id = v_org AND id = v_anchor.id;
     UPDATE claims SET status = 'superseded', revoked_at = now(), revocation_reason = 'user_citation_wrong', updated_at = now()
-     WHERE org_id = v_org AND id IN (SELECT id FROM kg_s7_family) AND id <> v_anchor.id;
+     WHERE org_id = v_org AND id = ANY(v_family) AND id <> v_anchor.id;
     v_outcome := 'superseded';
   ELSE
     -- TODO(#4363)：S6 落地后「已过时」改成 valid_to = now()（不撤）；在那之前按撤回执行。整家一起。
     UPDATE claims SET status = 'superseded', revoked_at = now(),
                       revocation_reason = CASE WHEN v_kind = 'expired' THEN 'user_citation_expired' ELSE 'user_citation_wrong' END,
                       updated_at = now()
-     WHERE org_id = v_org AND id IN (SELECT id FROM kg_s7_family);
+     WHERE org_id = v_org AND id = ANY(v_family);
     v_outcome := CASE WHEN v_kind = 'expired' THEN 'expired' ELSE 'forgotten' END;
   END IF;
 
   -- 审计：每个被动到的作用域各一条（会话的审计不带个人空间的 id，个人空间那条记在个人空间，同 F17）。
   v_n := 0;
-  FOR v_s IN SELECT DISTINCT scope_kind = 'personal' AS is_personal, scope_kind, scope_id FROM kg_s7_family ORDER BY 1, 3 LOOP
+  FOR v_s IN SELECT DISTINCT c.scope_kind = 'personal' AS is_personal, c.scope_kind, c.scope_id
+               FROM claims c WHERE c.org_id = v_org AND c.id = ANY(v_family) ORDER BY 1, 3 LOOP
     INSERT INTO ontology_actions (id, org_id, scope_kind, scope_id, actor_kind, actor_id, action_type, payload, source_ref, outcome)
     VALUES (CASE WHEN v_n = 0 THEN v_id ELSE v_id || '-' || v_n END, v_org, v_s.scope_kind, v_s.scope_id, 'human', v_user,
             CASE WHEN v_outcome = 'superseded' THEN 'reviseClaim' ELSE 'revokeClaim' END,
@@ -189,7 +201,8 @@ BEGIN
                                'message_id', CASE WHEN v_s.scope_kind = 'chat_session' AND v_s.scope_id = v_thread THEN v_message END,
                                'objects', '[]'::jsonb,
                                'claims', (SELECT jsonb_agg(jsonb_build_object('id', x.id) ORDER BY x.id) FROM (
-                                           SELECT f.id FROM kg_s7_family f WHERE f.scope_kind = v_s.scope_kind AND f.scope_id = v_s.scope_id
+                                           SELECT c.id FROM claims c WHERE c.org_id = v_org AND c.id = ANY(v_family)
+                                              AND c.scope_kind = v_s.scope_kind AND c.scope_id = v_s.scope_id
                                            UNION ALL
                                            SELECT v_new WHERE v_new IS NOT NULL AND v_akind = v_s.scope_kind AND v_ascope = v_s.scope_id) x)),
             v_message, 'accepted');

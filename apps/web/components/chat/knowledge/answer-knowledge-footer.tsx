@@ -4,7 +4,7 @@ import * as React from "react";
 import { Quote, ChevronDown, Route, AlertTriangle, Clock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { KG_TRI_STATE_LABEL_ZH, type KgRecalledMemory } from "@repo/contracts/chat-knowledge-graph";
+import { CITATION_CORRECTABLE_SCOPES, KG_TRI_STATE_LABEL_ZH, type KgRecalledMemory } from "@repo/contracts/chat-knowledge-graph";
 import {
   RETRIEVAL_CHANNEL_LABEL_ZH,
   KG_RELATED_QUERY_DEGRADED_ZH,
@@ -128,7 +128,7 @@ export function AnswerKnowledgeFooter({
             <CitationDetail
               key={openMemory.claimId}
               memory={openMemory}
-              canCorrect={canCorrect}
+              canCorrect={canCorrect && (CITATION_CORRECTABLE_SCOPES as readonly string[]).includes(openMemory.scope)}
               onJump={() => onJump(openMemory.claimId)}
               {...(onCorrect !== undefined
                 ? { onCorrect: (kind: Parameters<CitationCorrect>[0], replacement?: string) => onCorrect(openMemory.claimId, kind, replacement) }

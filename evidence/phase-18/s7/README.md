@@ -150,3 +150,27 @@ after main's newest (`20260928150000`).
 
 Results: API 26/26 (`citation-reconcile` 14 + `kg-s7-citation-correction` 12); web 30/30 (`citation-correction` 13 +
 `answer-memory-citations` 17). Fail-without-fix for each fix: [`fail-without-fix-review.txt`](fail-without-fix-review.txt).
+
+## Delta review (PR #4490 at 36871e76b → REVISE)
+
+- **D1 (security, blocking): no temp table.** `kg_correct_citation` (SECURITY DEFINER) no longer creates
+  `pg_temp.kg_s7_family`. The family is kept in a `text[]` variable filled by a recursive CTE. A test checks that the
+  function is still SECURITY DEFINER and that its source contains no `temp table`.
+- **L1: the family walk only passes through owner-correctable claims.** The recursive term itself requires the next
+  claim to be live and in this thread, the owner's personal space, or the owner's other personal threads. Project/org
+  memory and other users' claims are never collected and never walked through.
+  - Negative test: an L2 copy of the thread claim, another user's copy hanging off that L2 copy, and one of the owner's
+    own personal claims reachable only via L2. After 「这条不对」, all three stay live.
+- **L4: the anchor stays superseded, not revoked.** `derived_from` edges between family members are invalidated before
+  any claim changes. The anchor (the owner's personal copy) therefore stays `superseded` with `revoked_at` NULL, so it
+  remains available as supersede history, while the thread claim is revoked. The test asserts both claims' states and
+  that the edge is invalidated.
+- **L5: contract comment fixed, and the web gates on scope too.** The `canCorrect` comment no longer claims every cited
+  claim is correctable. It now says `canCorrect` is per turn, and correctability also depends on the claim's scope.
+  New constant `CITATION_CORRECTABLE_SCOPES` (`chat_session`, `personal`). The footer offers 「这条不对」 / 「已过时」
+  only for those scopes, so if L2/L3 ever show up in `recalled` they get no buttons the server would reject. Web test
+  included.
+- **F4:** unchanged (confirmation step); waiting for S6.
+
+Results: API 28/28, web 31/31. Fail-without-fix: [`fail-without-fix-delta.txt`](fail-without-fix-delta.txt)
+(migration as at 36871e76b → 3 fail, footer as at 36871e76b → 1 fail; restored → all pass).
