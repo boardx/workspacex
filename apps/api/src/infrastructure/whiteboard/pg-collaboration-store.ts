@@ -1,3 +1,4 @@
+import {lockBoardStorageMaintenance} from './storage-maintenance-access';
 import { createHash, randomUUID } from 'node:crypto';
 import { whiteboard as C } from '@repo/contracts';
 import { WhiteboardCommandBatch } from '@repo/contracts/whiteboard-document';
@@ -137,11 +138,24 @@ export class PgWhiteboardCollaborationStore implements WhiteboardCollaborationSt
     validIds(p,boardId);if(!this.objects)throw new Fault('DEPENDENCY_UNAVAILABLE');if(!Number.isSafeInteger(maxRows)||maxRows<1||maxRows>1000)throw new Fault('VALIDATION_FAILED');
     return this.db.withTenant(p.orgId,async session=>{
       await this.access(session,p,boardId,false);
-      const rows=await session.query<LegacyUpdateRow>(`SELECT epoch,seq::text,actor_id,update_id,request_hash,update,update_object_key,update_hash,update_size::text FROM whiteboard_updates WHERE org_id=$1 AND board_id=$2 AND update IS NOT NULL ORDER BY epoch,seq LIMIT $3`,[p.orgId,boardId,maxRows]);
-      for(const row of rows.rows)await this.updateBytes(session,p,boardId,row.epoch,row.actor_id,row.update_id,row);
+      const migrated=await this.backfillLegacyUpdatesInTransaction(session,p,boardId,maxRows);
       const pending=await session.query<{count:string}>(`SELECT count(*)::text AS count FROM whiteboard_updates WHERE org_id=$1 AND board_id=$2 AND update IS NOT NULL`,[p.orgId,boardId]);
-      return{migrated:rows.rows.length,remaining:Number(pending.rows[0]?.count??0)};
+      return{migrated,remaining:Number(pending.rows[0]?.count??0)};
     });
+  }
+  private async backfillLegacyUpdatesInTransaction(session:TenantSession,p:Principal,boardId:string,maxRows:number):Promise<number>{
+    const rows=await session.query<LegacyUpdateRow>(`SELECT epoch,seq::text,actor_id,update_id,request_hash,update,update_object_key,update_hash,update_size::text FROM whiteboard_updates WHERE org_id=$1 AND board_id=$2 AND update IS NOT NULL ORDER BY epoch,seq LIMIT $3`,[p.orgId,boardId,maxRows]);
+    for(const row of rows.rows)await this.updateBytes(session,p,boardId,row.epoch,row.actor_id,row.update_id,row);
+    return rows.rows.length;
+  }
+  /** Explicit maintenance port: bounded, same tenant transaction, no logical edits. */
+  async backfillStorageInTransaction(session:TenantSession,p:Principal,boardId:string,maxRows:number):Promise<number>{
+    validIds(p,boardId);if(!this.objects)throw new Fault('DEPENDENCY_UNAVAILABLE');if(!Number.isSafeInteger(maxRows)||maxRows<1||maxRows>1000)throw new Fault('VALIDATION_FAILED');
+    await lockBoardStorageMaintenance(session,p,boardId);let migrated=0;
+    const document=await session.query<DocumentRow>(`SELECT epoch,seq,snapshot,object_key,content_hash,byte_size::text FROM whiteboard_documents WHERE org_id=$1 AND board_id=$2 AND snapshot IS NOT NULL FOR UPDATE`,[p.orgId,boardId]);
+    if(document.rows[0]){await this.documentBytes(session,p,boardId,document.rows[0]);migrated++;}
+    if(migrated<maxRows)migrated+=await this.backfillLegacyUpdatesInTransaction(session,p,boardId,maxRows-migrated);
+    return migrated;
   }
   async append(p: Principal, boardId: string, input: WhiteboardUpdateInput): Promise<WhiteboardUpdateAck> {
     validIds(p, boardId, input.updateId, input.epoch);

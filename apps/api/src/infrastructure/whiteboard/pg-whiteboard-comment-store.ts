@@ -1,3 +1,4 @@
+import {lockBoardStorageMaintenance} from './storage-maintenance-access';
 import { createHash, randomUUID } from "node:crypto";
 import { whiteboard as C } from "@repo/contracts";
 import { whiteboardCollaborationOperations as CommentOperations, WhiteboardCommentCommand, WhiteboardCommentThread, type WhiteboardCollaborationEvent, type WhiteboardCommentCommand as CommentCommand } from "@repo/contracts/whiteboard-collaboration";
@@ -51,6 +52,15 @@ export class PgWhiteboardCommentStore implements WhiteboardCommentStore {
     for(const row of threads.rows)await this.readThread(session,p,boardId,row);
     const requests=await session.query<StoredResponse>(`SELECT ${responseColumns} FROM whiteboard_comment_requests WHERE org_id=$1 AND board_id=$2 AND response_object_key IS NULL`,[p.orgId,boardId]);
     for(const row of requests.rows)await this.readResponse(session,p,boardId,row);
+  }
+  /** Bounded operator migration includes archived boards without granting comment access. */
+  async backfillStorageInTransaction(session:TenantSession,p:Principal,boardId:string,maxRows:number):Promise<number>{
+    assertPrincipal(p);C.BoardId.parse(boardId);if(!Number.isSafeInteger(maxRows)||maxRows<1||maxRows>1000)throw new WhiteboardCollaborationError('VALIDATION_FAILED');
+    await lockBoardStorageMaintenance(session,p,boardId);let migrated=0;
+    const threads=await session.query<StoredThread>(`SELECT ${threadColumns} FROM whiteboard_comment_threads WHERE org_id=$1 AND board_id=$2 AND body_object_key IS NULL ORDER BY id LIMIT $3 FOR UPDATE`,[p.orgId,boardId,maxRows]);
+    for(const row of threads.rows){await this.readThread(session,p,boardId,row);migrated++;}
+    if(migrated<maxRows){const requests=await session.query<StoredResponse>(`SELECT ${responseColumns} FROM whiteboard_comment_requests WHERE org_id=$1 AND board_id=$2 AND response_object_key IS NULL ORDER BY actor_id,request_id LIMIT $3`,[p.orgId,boardId,maxRows-migrated]);for(const row of requests.rows){await this.readResponse(session,p,boardId,row);migrated++;}}
+    return migrated;
   }
   async captureBackupInTransaction(session:TenantSession,p:Principal,boardId:string):Promise<CommentBackupDescriptor[]>{
     await this.migrateLegacyInTransaction(session,p,boardId);
