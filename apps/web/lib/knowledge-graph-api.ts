@@ -320,3 +320,36 @@ export function revisePersonalClaim(claimId: string, statement: string): Promise
     method: "POST", body: { statement: input.statement },
   });
 }
+
+/* ── S7（#4364）：回答下引用 chip 上的当场纠正 + 纠正率 ───────────────────────── */
+
+export type CitationCorrection = z.infer<typeof knowledgeGraph.correctCitation.out>;
+export type CitationCorrectionKind = z.infer<typeof knowledgeGraph.correctCitation.in>["kind"];
+export type CitationMetrics = z.infer<typeof knowledgeGraph.getCitationMetrics.out>;
+
+/**
+ * 「这条不对」（`wrong`，可带新说法 ⇒ 取代）/「已过时」（`expired`）。只有对话所有者、且是这一轮的提问人能做；
+ * 不是这一轮的引用 ⇒ `KG_CLAIM_NOT_FOUND`。
+ */
+export function correctCitation(
+  threadId: string,
+  messageId: string,
+  claimId: string,
+  kind: CitationCorrectionKind,
+  replacement?: string,
+): Promise<CitationCorrection> {
+  const input = knowledgeGraph.correctCitation.in.parse({
+    threadId, messageId, claimId, kind, ...(replacement !== undefined ? { replacement } : {}),
+  });
+  return getParsed(
+    `/knowledge-graph/threads/${seg(input.threadId)}/messages/${seg(input.messageId)}/citations/${seg(input.claimId)}/correction`,
+    knowledgeGraph.correctCitation.out,
+    undefined,
+    { method: "POST", body: { kind: input.kind, ...(input.replacement !== undefined ? { replacement: input.replacement } : {}) } },
+  );
+}
+
+/** 本人的引用纠正率（质量信号）。 */
+export function fetchCitationMetrics(signal?: AbortSignal): Promise<CitationMetrics> {
+  return getParsed("/knowledge-graph/me/citation-metrics", knowledgeGraph.getCitationMetrics.out, signal);
+}

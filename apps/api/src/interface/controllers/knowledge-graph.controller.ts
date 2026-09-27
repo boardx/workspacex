@@ -16,6 +16,10 @@ import {
 } from "../../application/identity/ports";
 import { actOnMemoryCard } from "../../application/knowledge-graph/act-on-memory-card";
 import { applyHumanAction } from "../../application/knowledge-graph/apply-human-action";
+import {
+  CITATION_CORRECTION_PORT, CLAIM_EXPIRY_PORT, type CitationCorrectionPort, type ClaimExpiryPort,
+} from "../../application/knowledge-graph/citation-ports";
+import { correctCitation, getCitationMetrics } from "../../application/knowledge-graph/correct-citation";
 import { undoAutoPersonalCopy } from "../../application/knowledge-graph/auto-copy-decisions";
 import { listPromotionNominations, promoteToPersonal } from "../../application/knowledge-graph/promote-to-personal";
 import { promoteToOrg } from "../../application/knowledge-graph/promote-to-org";
@@ -64,6 +68,9 @@ export class KnowledgeGraphController {
     @Optional() @Inject(KG_GOAL_LINK_PORT) private readonly goalLinks?: GoalLinkPort,
     /** issue #4362 开场简报。同上：没注入 ⇒ 503，不假装成功。 */
     @Optional() @Inject(KG_SESSION_BRIEFING_PORT) private readonly briefing?: SessionBriefingPort,
+    /** S7（#4364）引用纠正与纠正率。生产合成必定注入；只测别的接口的构造点可以不给（此时这两条接口回 503）。 */
+    @Inject(CITATION_CORRECTION_PORT) private readonly citations?: CitationCorrectionPort,
+    @Inject(CLAIM_EXPIRY_PORT) private readonly expiry?: ClaimExpiryPort,
   ) {}
 
   private get deps(): KnowledgeReadDeps {
@@ -231,6 +238,36 @@ export class KnowledgeGraphController {
       { ...this.deps, autoCopy, newId: newKgId },
       { ...v, actorKind: "human", threadId: parsed.data.threadId, claimId: parsed.data.claimId },
     ));
+  }
+
+  /** S7（#4364）correctCitation —— 回答下引用 chip 上的「这条不对」/「已过时」（人的动作，只给所有者兼提问人） */
+  @Post("/knowledge-graph/threads/:threadId/messages/:messageId/citations/:claimId/correction")
+  @HttpCode(200)
+  citationCorrection(
+    @CurrentPrincipal() principal: Principal,
+    @Param("threadId") threadId: string,
+    @Param("messageId") messageId: string,
+    @Param("claimId") claimId: string,
+    @Body() body: unknown,
+  ) {
+    const parsed = KG.knowledgeGraph.correctCitation.in.safeParse({ ...(body as object), threadId, messageId, claimId });
+    if (!parsed.success) throw new BadRequestException({ reasonCode: "KG_INVALID_REQUEST" });
+    const corrections = this.citations;
+    const expiry = this.expiry;
+    if (corrections === undefined || expiry === undefined) throw new ServiceUnavailableException("citation_corrections_unavailable");
+    const { kind, replacement } = parsed.data;
+    return this.run(principal, (v) => correctCitation(
+      { ...this.deps, corrections, expiry, newId: newKgId },
+      { ...v, threadId, messageId, claimId, kind, ...(replacement !== undefined ? { replacement } : {}) },
+    ));
+  }
+
+  /** S7（#4364）getCitationMetrics —— 本人的引用纠正率（质量信号） */
+  @Get("/knowledge-graph/me/citation-metrics")
+  citationMetrics(@CurrentPrincipal() principal: Principal) {
+    const corrections = this.citations;
+    if (corrections === undefined) throw new ServiceUnavailableException("citation_corrections_unavailable");
+    return this.run(principal, (v) => getCitationMetrics({ ...this.deps, corrections }, v));
   }
 
   /** UC-KG-12 actOnMemoryCard —— 对「记住 / 忘掉」确认卡做决定（人的动作：接口只接受人类会话，I-15 / I-17） */
