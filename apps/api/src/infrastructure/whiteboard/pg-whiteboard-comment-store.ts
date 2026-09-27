@@ -17,8 +17,13 @@ function disclose<T>(boardId:string,role:C.Board['role'],action:"read"|"comment"
 export class PgWhiteboardCommentStore implements WhiteboardCommentStore {
   constructor(private readonly db:DatabasePort,private readonly validator:WhiteboardUpdateValidator,private readonly now:()=>Date=()=>new Date()){}
   private async access(session:TenantSession,p:Principal,boardId:string,write:boolean){
-    const result=await session.query<{owner_id:string;archived:boolean;role:string|null}>(`SELECT b.owner_id,b.archived,CASE WHEN b.owner_id=$3 THEN 'owner' ELSE m.role END AS role FROM whiteboards b LEFT JOIN whiteboard_members m ON m.org_id=b.org_id AND m.board_id=b.id AND m.user_id=$3 WHERE b.org_id=$1 AND b.id=$2 FOR UPDATE OF b`,[p.orgId,boardId,p.userId]);
-    const row=result.rows[0],role=C.BoardRole.safeParse(row?.role);if(!row||!role.success)throw new WhiteboardCollaborationError("NOT_FOUND");
+    // Lock before reading membership: a join in this statement would retain the
+    // snapshot from before a concurrent member revocation released the board lock.
+    const result=await session.query<{owner_id:string;archived:boolean}>(`SELECT owner_id,archived FROM whiteboards WHERE org_id=$1 AND id=$2 FOR UPDATE`,[p.orgId,boardId]);
+    const row=result.rows[0];if(!row)throw new WhiteboardCollaborationError("NOT_FOUND");
+    const members=row.owner_id===p.userId?null:await session.query<{role:string}>(`SELECT role FROM whiteboard_members WHERE org_id=$1 AND board_id=$2 AND user_id=$3`,[p.orgId,boardId,p.userId]);
+    const role=C.BoardRole.safeParse(row.owner_id===p.userId?'owner':members?.rows[0]?.role);
+    if(!role.success)throw new WhiteboardCollaborationError("NOT_FOUND");
     if(row.archived)throw new WhiteboardCollaborationError("ARCHIVED");
     if(write&&role.data==="viewer")throw new WhiteboardCollaborationError("FORBIDDEN");
     return role.data;
