@@ -273,8 +273,15 @@ test.describe("organize <=2 actions", () => {
       test.setTimeout(120_000);
       const { secondContext, second, original } = await setupMixedBoard(page, request, browser, baseURL);
       try {
-        const snapBefore = parseGeometry(original), source = snapBefore[0]!, target = snapBefore[1]!;
-        await page.getByTestId(`board-a11y-object-${source.id}`).click();
+        const snapBefore = parseGeometry(original);
+        const stickies = snapBefore.filter(value => value.kind === "sticky").sort((a, b) => a.y - b.y || a.x - b.x);
+        const source = stickies[0]!, target = stickies[1]!;
+        await page.getByTestId("board-tool-select").click();
+        await page.getByTestId("board-zoom-fit-board").click();
+        const sourceOutline = page.getByTestId(`board-a11y-object-${source.id}`);
+        await sourceOutline.focus({ timeout: 10_000 });
+        await sourceOutline.press("Enter", { timeout: 10_000 });
+        await page.getByTestId("board-tool-select").focus();
         await page.evaluate(() => new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve()))));
         const currentSurface = page.getByTestId("board-fabric-surface"), currentCanvas = currentSurface.locator('canvas[data-fabric="top"]');
         const currentCanvasBounds = await currentCanvas.boundingBox(); expect(currentCanvasBounds).not.toBeNull();
