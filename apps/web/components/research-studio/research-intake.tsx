@@ -93,7 +93,10 @@ export function ResearchIntake({ sessionId, session, workflow, onSession, onWork
     if (session) setBrief({ ...session.brief });
   }, [session]);
   const confirm = async () => {
-    if (submitting) return;
+    if (submitting || !brief.goal.trim()) return;
+    // The import screen asks for one description. Until the next screen refines
+    // the topic, use the user's words, not an invented model suggestion.
+    const confirmedBrief = { ...brief, topic: brief.topic.trim() || brief.goal.trim().slice(0, 200) };
     setSubmitting(true);
     onPending(true);
     setSubmitFailed(false);
@@ -118,8 +121,8 @@ export function ResearchIntake({ sessionId, session, workflow, onSession, onWork
         onNavigate("directions", sessionId);
         return;
       }
-      const pending = pendingCreateIdempotencyKey({ ...createDraft, brief });
-      const createdSession = await createGuidedResearchSession({ ...createDraft, title: createDraft.title || brief.topic, tags: [...createDraft.tags], idempotencyKey: pending.key, collaboratorUserIds: [], brief });
+      const pending = pendingCreateIdempotencyKey({ ...createDraft, brief: confirmedBrief });
+      const createdSession = await createGuidedResearchSession({ ...createDraft, title: createDraft.title || confirmedBrief.topic, tags: [...createDraft.tags], idempotencyKey: pending.key, collaboratorUserIds: [], brief: confirmedBrief });
       if (!active.current) return;
       // Once creation has returned an id, recovery belongs to that session. Never
       // create or replay a model command merely because its response was lost.
@@ -131,7 +134,7 @@ export function ResearchIntake({ sessionId, session, workflow, onSession, onWork
           runtime = await executeResearchRuntime({
             sessionId: createdSession.sessionId, node: "brief", action: "confirm",
             requestId: requestId("brief-confirm"), expectedVersion: runtime.version,
-            draft: { node: "brief", value: brief },
+            draft: { node: "brief", value: confirmedBrief },
           });
         }
       } catch {
@@ -165,8 +168,8 @@ export function ResearchIntake({ sessionId, session, workflow, onSession, onWork
         <Card className="rounded-xl"><CardContent className="space-y-5 p-6 lg:p-7">
           <h2 className="text-3xl font-bold">告诉 AI 你想研究什么</h2>
           <div className="rounded-lg border border-border p-5">
-            <Textarea value={brief.goal} maxLength={2000} onChange={(event) => patch("goal", event.target.value)} data-testid="research-brief-goal" aria-label="研究目标" className="min-h-72 resize-none border-0 p-0 text-lg leading-8 shadow-none focus-visible:ring-0 lg:min-h-80" placeholder={"请描述你的研究需求，例如：\n\n• 研究目标：你希望解决什么问题？\n• 研究区域 / 对象：研究的行业、地区、人群或具体对象是？\n• 时间范围：关注的时间段是什么？\n• 重点关注：你最关心哪些方面？\n• 关键问题：你希望从研究中获得哪些核心结论或答案？\n\n你也可以直接粘贴相关文档内容。"} />
-            <div className="mt-5 flex items-center gap-4"><Button variant="outline" disabled title="当前环境尚未配置实时录音"><Mic className="mr-2 size-5" />录音</Button><Button variant="outline" disabled title="当前环境尚未配置文件导入"><Upload className="mr-2 size-5" />上传文件</Button><span className="ml-auto text-sm text-muted-foreground">{brief.goal.length} / 2000</span></div>
+            <Textarea value={brief.goal} maxLength={2000} onChange={(event) => patch("goal", event.target.value)} data-testid="research-brief-goal" aria-label="研究目标" className="min-h-72 resize-none border-0 p-0 text-lg leading-8 shadow-none focus-visible:ring-2 lg:min-h-80" placeholder={"请描述你的研究需求，例如：\n\n• 研究目标：你希望解决什么问题？\n• 研究区域 / 对象：研究的行业、地区、人群或具体对象是？\n• 时间范围：关注的时间段是什么？\n• 重点关注：你最关心哪些方面？\n• 关键问题：你希望从研究中获得哪些核心结论或答案？\n\n你也可以直接粘贴相关文档内容。"} />
+            <div className="mt-5 flex flex-wrap items-center gap-4"><Button variant="outline" className="h-14 px-5 text-xl" disabled title="当前环境尚未配置实时录音"><Mic className="mr-2 size-6" />录音</Button><Button variant="outline" className="h-14 px-5 text-xl" disabled title="当前环境尚未配置文件导入"><Upload className="mr-2 size-6" />上传文件</Button><span className="ml-auto text-lg text-muted-foreground">{brief.goal.length} / 2000</span></div>
           </div>
           <details className="text-sm"><summary className="cursor-pointer text-muted-foreground">完善研究信息</summary><div className="mt-4 space-y-4">
           <Field label="研究主题"><Input value={brief.topic} onChange={(event) => patch("topic", event.target.value)} data-testid="research-brief-topic" aria-label="研究主题" /></Field>
@@ -174,7 +177,7 @@ export function ResearchIntake({ sessionId, session, workflow, onSession, onWork
           <Field label="重点关注"><Textarea value={brief.focus} onChange={(event) => patch("focus", event.target.value)} data-testid="research-brief-focus" aria-label="重点关注" /></Field>
           </div></details>
           {submitFailed && <p className="text-11 text-destructive" role="alert">研究创建失败，请重试。再次提交不会重复创建。</p>}
-          <div className="flex justify-end"><Button variant="primary" className="h-12 px-6 text-base" disabled={submitting || !brief.topic.trim() || !brief.goal.trim()} onClick={() => void confirm()} data-testid="research-confirm-brief">{submitting ? "正在创建…" : "下一步：确认研究主题"}<ArrowRight className="h-5 w-5" aria-hidden /></Button></div>
+          <div className="flex justify-end"><Button variant="primary" className="h-14 px-6 text-xl" disabled={submitting || !brief.goal.trim() || Boolean(sessionId && !brief.topic.trim())} onClick={() => void confirm()} data-testid="research-confirm-brief">{submitting ? "正在创建…" : "下一步：确认研究主题"}<ArrowRight className="h-5 w-5" aria-hidden /></Button></div>
         </CardContent></Card>
         <ResearchPrototypeTips />
       </div>

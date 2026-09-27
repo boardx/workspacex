@@ -58,6 +58,20 @@ it("preserves the creation key on failure and resumes the actual server node", a
   expect(second?.[0]).toMatchObject({ title: "User topic", brief: { topic: "User topic", goal: "User objective" } });
 });
 
+it("accepts the prototype's single description without requiring a hidden topic field", async () => {
+  vi.mocked(createGuidedResearchSession).mockResolvedValue({ sessionId: "description-session" } as never);
+  vi.mocked(getResearchRuntime).mockResolvedValue({ version: 3, currentNode: "directions" } as never);
+  render(<ResearchNewRoute />);
+  const description = "研究欧洲储能市场，比较政策、竞争和进入机会";
+  fireEvent.change(screen.getByRole("textbox", { name: "研究目标" }), { target: { value: description } });
+  expect(screen.getByTestId("research-confirm-brief")).toBeEnabled();
+  fireEvent.click(screen.getByTestId("research-confirm-brief"));
+  await waitFor(() => expect(push).toHaveBeenCalledWith("/research/description-session/topic"));
+  expect(vi.mocked(createGuidedResearchSession).mock.calls[0]?.[0]).toMatchObject({
+    title: description, brief: { topic: description, goal: description },
+  });
+});
+
 it("only applies a real assistant proposal after explicit user adoption", async () => {
   const brief = { topic: "Suggested topic", goal: "Suggested objective", timeRange: "2026", region: "Europe", focus: "Policy" };
   vi.mocked(runGuidedResearchSkillTurn).mockResolvedValue({ assistantMessage: "Please review", proposal: { node: "brief", value: brief } } as never);
