@@ -9,6 +9,15 @@ vi.mock('next/navigation',()=>({useRouter:()=>router}));
 const runtime=(patch:Partial<SurveyRuntime>={}):SurveyRuntime=>({id:'saved-survey',title:'已保存问卷',version:4,status:'draft',anonymity:'anonymous',answerRevision:0,reportBasisAnswerRevision:null,updatedAt:'2026-09-20T10:00:00.000Z',questions:[{id:'q1',title:'真实问题',type:'single',chapterId:'general',order:1,required:true,options:['甲','乙']}],template:{id:'template',title:'模板报告',sections:[]},responses:[],publication:null,report:null,reportBasisVersion:null,reportGeneratedAt:null,...patch});
 beforeEach(()=>{request.mockReset();router.replace.mockReset();router.push.mockReset();});
 describe('live survey workspace persistence',()=>{
+ it('saves repeat policy and success Markdown through canonical publication source',async()=>{
+  request.mockResolvedValueOnce(runtime()).mockResolvedValueOnce(runtime({version:5}));
+  render(<LiveSurveyWorkspace surveyId="saved-survey" initialStep="publish"/>);
+  fireEvent.click(await screen.findByRole('checkbox',{name:'同一浏览器限答一次'}));
+  fireEvent.change(screen.getByLabelText('成功页 Markdown'),{target:{value:'# 感谢反馈'}});
+  fireEvent.click(screen.getByRole('button',{name:'保存修改'}));
+  await screen.findByText('修改已保存');
+  expect(request).toHaveBeenLastCalledWith('/surveys/saved-survey/source',expect.objectContaining({body:expect.objectContaining({documents:expect.objectContaining({publication:expect.stringContaining('"responseLimitScope": "browser"')})})}),expect.anything());
+ });
  it('automatically persists applied valid changes on an existing draft',async()=>{
   request.mockResolvedValueOnce(runtime()).mockResolvedValueOnce(runtime({title:'自动保存后的标题',version:5}));
   render(<LiveSurveyWorkspace surveyId="saved-survey"/>);

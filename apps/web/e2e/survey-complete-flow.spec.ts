@@ -190,6 +190,8 @@ test('空白 Markdown 问卷无需报告模板即可发布并生成默认报告'
   await page.setViewportSize({width:1440,height:900});
   await expect(page.getByLabel('问卷 Markdown',{exact:true})).toHaveValue(/"体验"/);
   await page.getByRole('button',{name:'前往发布回收'}).click();
+  await page.getByRole('checkbox',{name:'同一浏览器限答一次'}).check();
+  await page.getByLabel('成功页 Markdown',{exact:true}).fill('# 提交成功\n\n**感谢您的具体建议**');
   await page.getByRole('button',{name:'检查发布条件'}).click();
   await expect(page.getByText('发布准备已完成')).toBeVisible();
   await page.getByRole('button',{name:'开始回收'}).click();
@@ -198,7 +200,12 @@ test('空白 Markdown 问卷无需报告模板即可发布并生成默认报告'
   await respondent.getByRole('textbox',{name:'请留下具体建议'}).fill('保持流程简单');
   await respondent.getByRole('radio',{name:'满意',exact:true}).check();
   await respondent.getByRole('button',{name:'提交答卷'}).click();
-  await expect(respondent.getByRole('status')).toContainText('提交成功');await context.close();
+  await expect(respondent.getByRole('status')).toContainText('感谢您的具体建议');
+  await respondent.reload();
+  await expect(respondent.getByRole('heading',{name:'提交成功',exact:true})).toBeVisible();
+  await expect(respondent.getByRole('button',{name:'提交答卷'})).not.toBeVisible();
+  await respondent.screenshot({path:test.info().outputPath('frozen-success-markdown.png')});
+  await context.close();
   await page.getByRole('button',{name:'刷新',exact:true}).click();
   await page.getByRole('button',{name:'3. 查看答卷'}).click();
   await page.getByRole('button',{name:'查看完整答卷'}).click();
