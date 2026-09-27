@@ -49,6 +49,7 @@ export default defineConfig({ resolve:{alias:{
     'tests/whiteboard/tag-repository-guard.test.ts',
     'tests/whiteboard/joint-drill-diagnostics.test.ts',
     'tests/whiteboard/storage-backfill.test.ts',
+    'tests/whiteboard/storage-permission-boundary.test.ts',
     'tests/whiteboard/backup-maintenance.test.ts',
     'tests/whiteboard/backup-maintenance-repository.test.ts',
   ],

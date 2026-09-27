@@ -1,9 +1,11 @@
+import {whiteboardStoragePermissionBoundaries,verifyWhiteboardStoragePermissionBoundaries} from './whiteboard-storage-permission-boundaries.mjs';
 /**
  * Private Board metadata and content operations cannot use the generic acl_bindings
  * filter: their authority is the Board owner/member relation. These are admitted only
  * while the production lint can prove the actor, tenant, locking and replay invariants.
  */
 export const whiteboardPermissionBoundaries = new Map([
+  ...whiteboardStoragePermissionBoundaries,
   ['src/infrastructure/whiteboard/pg-board-backup.ts', {
     tables: ['org_memberships','whiteboards','whiteboard_members','whiteboard_tags','whiteboard_tag_bindings','whiteboard_documents','whiteboard_image_assets','whiteboard_asset_refs','whiteboard_comment_threads','whiteboard_backups','whiteboard_backup_pins','whiteboard_backup_restores'],
     reason: '#4255 Board backup is owner-only, rechecks tenant membership/source ownership before capture/read/retry/restore; blobs precede pointer publication, durable pins share GC fences. Unit and real storage acceptance cover failure boundaries.',
@@ -75,5 +77,6 @@ export function verifyWhiteboardPermissionBoundaries(read, tenantTables) {
     for (const pattern of rule.checks) if (!pattern.test(source)) failures.push(`${path}: authority invariant missing (${pattern})`);
     for (const pattern of rule.forbidden ?? []) if (pattern.test(source)) failures.push(`${path}: forbidden copy path present (${pattern})`);
   }
+  failures.push(...verifyWhiteboardStoragePermissionBoundaries(read));
   return failures;
 }
