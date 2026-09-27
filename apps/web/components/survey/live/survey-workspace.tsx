@@ -98,7 +98,7 @@ export function LiveSurveyWorkspace({
     setDraft(null);
     if (surveyId === "new") {
       setDraft(emptyDraft());
-      setMarkdown("# 未命名问卷\n\n## q1 [text]\n请填写您的意见\n");
+      setMarkdown("# 未命名问卷\n\n## q1 [open]\n请填写您的意见\n");
       return;
     }
     void surveyRequest(`/surveys/${encodeURIComponent(surveyId)}`, {}, SurveyRuntimeSchema)
@@ -157,6 +157,9 @@ export function LiveSurveyWorkspace({
           ...parsed.data,
         },
       }, SurveyRuntimeSchema);
+    // Retain the created identity even if the following source mutation fails.
+    // A retry must update that draft rather than POST a duplicate survey.
+    if (!runtime) setRuntime(next);
     if (next.publication) {
       accept(await surveyRequest(`/surveys/${next.id}`, { method: "PUT", body: { ...parsed.data, expectedVersion: next.version } }, SurveyRuntimeSchema));
       setNotice("报告模板已保存");
@@ -169,7 +172,7 @@ export function LiveSurveyWorkspace({
     const persisted = await surveyRequest(`/surveys/${next.id}`, {}, SurveyRuntimeSchema);
     accept(persisted);
     setNotice("修改已保存");
-    if (!runtime) router.replace(`/studio/survey/${next.id}?step=${step}`);
+    if (surveyId === "new") router.replace(`/studio/survey/${next.id}?step=${step}`);
     return persisted;
   };
   const command = async (name: string, extra: Record<string, unknown> = {}) => {

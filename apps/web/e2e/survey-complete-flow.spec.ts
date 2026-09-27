@@ -64,6 +64,12 @@ test("用户可从模板完整走通创建、发布、答题、查看答卷和�
   await expect(page.getByText("2. 会议日期", { exact: true })).toBeVisible();
   await expect(page.getByText("8. 下次会议最值得改进的地方是什么？", { exact: true })).toBeVisible();
 
+  await page.getByRole("button", { name: "校对并预览题目" }).click();
+  const correction = page.getByRole("dialog", { name: "Markdown 预览与校对" });
+  await expect(correction.getByRole("region", { name: "问卷渲染预览" })).toContainText("共 8 道题");
+  await correction.getByRole("button", { name: "应用到问卷" }).click();
+  await expect(correction).not.toBeVisible();
+
   await page.getByRole("button", { name: "设计报告模板（可选）" }).click();
   await expect(page.getByText("报告章节 · 4")).toBeVisible();
   await expect(page.getByLabel("报告标题")).toHaveValue("会议反馈调查分析报告");

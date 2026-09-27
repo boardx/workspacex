@@ -9,6 +9,16 @@ vi.mock('next/navigation',()=>({useRouter:()=>router}));
 const runtime=(patch:Partial<SurveyRuntime>={}):SurveyRuntime=>({id:'saved-survey',title:'已保存问卷',version:4,status:'draft',anonymity:'anonymous',answerRevision:0,reportBasisAnswerRevision:null,updatedAt:'2026-09-20T10:00:00.000Z',questions:[{id:'q1',title:'真实问题',type:'single',chapterId:'general',order:1,required:true,options:['甲','乙']}],template:{id:'template',title:'模板报告',sections:[]},responses:[],publication:null,report:null,reportBasisVersion:null,reportGeneratedAt:null,...patch});
 beforeEach(()=>{request.mockReset();router.replace.mockReset();router.push.mockReset();});
 describe('live survey workspace persistence',()=>{
+ it('reuses the created draft when saving its source fails',async()=>{
+  request.mockResolvedValueOnce(runtime({id:'created-draft',version:1,title:'未命名问卷'})).mockRejectedValueOnce(new Error('源文档暂时保存失败'));
+  render(<LiveSurveyWorkspace surveyId="new"/>);
+  fireEvent.click(await screen.findByRole('button',{name:'保存修改'}));
+  await screen.findByRole('alert');
+  request.mockResolvedValueOnce({}).mockResolvedValueOnce(runtime({id:'created-draft',version:2,title:'未命名问卷'}));
+  fireEvent.click(screen.getByRole('button',{name:'保存修改'}));
+  await screen.findByText('修改已保存');
+  expect(request.mock.calls.filter(([path,options])=>path==='/surveys' && options?.method==='POST')).toHaveLength(1);
+ });
  it('loads the conflicting remote version without discarding local Markdown',async()=>{
   const {SurveyConflictError}=await import('@/lib/survey/runtime-client');
   request.mockResolvedValueOnce(runtime()).mockRejectedValueOnce(new SurveyConflictError(null)).mockResolvedValueOnce(runtime({version:5,title:'其他人的修改'}));
