@@ -49,6 +49,8 @@ export const PrototypeNodeType = z.enum([
   "select", "radio", "overlay",
   // 对标 R5（#3933）：官网落地页的分区与页脚
   "section", "footer",
+  // design-delta `prototype-board`（2026-09-27）：自由画布——白板 / 思维导图 / 流程图 / 看板这类产品的主画面
+  "board",
 ]);
 export type PrototypeNodeType = z.infer<typeof PrototypeNodeType>;
 
@@ -100,6 +102,8 @@ const Items = z.array(Label).min(1).max(30);
 export const PrototypeIcon = z.enum([
   // 导航与结构
   "home", "search", "menu", "more", "settings", "filter", "grid", "list", "back", "forward",
+  // design-delta `prototype-board`：白板 / 编辑器工具栏的「指针」工具（2026-09-27 真实生成里模型要用、清单里没有）
+  "cursor",
   // 人与社交
   "user", "users", "bell", "message", "send", "share", "heart", "star",
   // 内容与文件
@@ -298,6 +302,68 @@ const ChartProps = z.object({
   unit: z.string().max(12).optional(),
 }).strict();
 
+/*
+ * design-delta `prototype-board`（2026-09-27，人类裁决「新增 board 原语」）——**自由画布**。
+ *
+ * 用户实测做一个白板产品，四页（进入白板 / 添加便签 / 连线与整理 / 多人协作）全都画不出白板本身：
+ * 原语里没有「可以随意摆放便签、形状、连线的区域」，模型只能拿列表和卡片凑——首页成了「白板列表」，
+ * 「添加便签」成了一排小卡片。用户原话：「感觉无法理解我的意思」。
+ *
+ * 做成**自带数据的叶子**（同 table / chart），不给所有原语加坐标：坐标只在画布里有意义，
+ * 加到每个原语上等于让所有布局都多一种可能出错的写法。
+ * 坐标是 0–100 的百分比（相对画布宽高），和画布的像素尺寸无关——换设备不会跑位。
+ */
+export const PROTOTYPE_BOARD_MAX_ITEMS = 24;
+export const PROTOTYPE_BOARD_MAX_LINKS = 24;
+export const PROTOTYPE_BOARD_MAX_CURSORS = 4;
+export const BoardColor = z.enum(["yellow", "pink", "blue", "green", "purple", "gray"]);
+/**
+ * 便签 / 形状的纸色与字色（HSL 三元组，渲染器写成 `hsl(...)`），同 `PROTOTYPE_ACCENTS` 放在契约里的先例。
+ * 便签在深浅主题下都是浅色纸 + 深色字（真实白板就是这样），所以只有一套；字色对纸色均 ≥ 7:1。
+ */
+export const PROTOTYPE_BOARD_COLORS: Readonly<Record<z.infer<typeof BoardColor>, { readonly bg: string; readonly fg: string }>> = {
+  yellow: { bg: "48 96% 80%", fg: "32 45% 16%" },
+  pink: { bg: "340 85% 88%", fg: "340 45% 20%" },
+  blue: { bg: "205 85% 86%", fg: "212 55% 18%" },
+  green: { bg: "130 48% 82%", fg: "140 45% 16%" },
+  purple: { bg: "265 70% 89%", fg: "265 38% 22%" },
+  gray: { bg: "220 14% 91%", fg: "220 18% 18%" },
+};
+const Percent = z.number().finite().min(0).max(100);
+const BoardItem = z.object({
+  /** sticky = 便签；shape = 形状（流程图 / 思维导图的节点）；text = 画布上的一段字（标题、分区名）。 */
+  kind: z.enum(["sticky", "shape", "text"]),
+  text: z.string().max(120),
+  /** 元素**中心**的位置（画布宽 / 高的百分比）——连线从中心连到中心。 */
+  x: Percent,
+  y: Percent,
+  /** 宽度（画布宽的百分比）；省略按种类给默认值。 */
+  w: z.number().finite().min(4).max(60).optional(),
+  color: BoardColor.optional(),
+  shape: z.enum(["rect", "round", "circle", "diamond"]).optional(),
+  /** 便签右下角的署名（多人协作场景）。 */
+  author: z.string().max(20).optional(),
+}).strict();
+const BoardPropsBase = z.object({
+  items: z.array(BoardItem).max(PROTOTYPE_BOARD_MAX_ITEMS),
+  /** 连线：`from` / `to` 是 `items` 的下标。 */
+  links: z.array(z.object({
+    from: z.number().int().min(0).max(PROTOTYPE_BOARD_MAX_ITEMS - 1),
+    to: z.number().int().min(0).max(PROTOTYPE_BOARD_MAX_ITEMS - 1),
+    label: z.string().max(20).optional(),
+  }).strict()).max(PROTOTYPE_BOARD_MAX_LINKS).optional(),
+  /** 其他人的光标（多人协作）：名字 + 位置。 */
+  cursors: z.array(z.object({ name: z.string().min(1).max(12), x: Percent, y: Percent }).strict()).max(PROTOTYPE_BOARD_MAX_CURSORS).optional(),
+  /** 点状网格底，默认开。 */
+  grid: z.boolean().optional(),
+  /** 画布高度档位；fill = 撑满这一页剩下的高度。 */
+  height: z.enum(["sm", "md", "lg", "fill"]).optional(),
+}).strict();
+const BoardProps = BoardPropsBase.refine(
+  (p) => (p.links ?? []).every((l) => l.from < p.items.length && l.to < p.items.length && l.from !== l.to),
+  { message: "links must reference two different existing items", path: ["links"] },
+);
+
 /** 叶子节点：无 `children`。 */
 const Leaf = z.discriminatedUnion("type", [
   z.object({ id: Id, type: z.literal("navbar"), props: NavbarProps }).strict(),
@@ -323,6 +389,7 @@ const Leaf = z.discriminatedUnion("type", [
   z.object({ id: Id, type: z.literal("select"), props: SelectProps }).strict(),
   z.object({ id: Id, type: z.literal("radio"), props: RadioProps }).strict(),
   z.object({ id: Id, type: z.literal("footer"), props: FooterProps }).strict(),
+  z.object({ id: Id, type: z.literal("board"), props: BoardProps }).strict(),
 ]);
 
 export type PrototypeNode =
@@ -440,6 +507,7 @@ export const PROTOTYPE_PROPS_SCHEMAS = {
   bottomnav: BottomNavPropsBase, switch: SwitchProps, checkbox: CheckboxProps, chip: ChipProps, progress: ProgressProps,
   stat: StatProps, hero: HeroProps, grid: GridProps, table: TableProps, chart: ChartProps,
   select: SelectProps, radio: RadioPropsBase, overlay: OverlayProps, section: SectionProps, footer: FooterProps,
+  board: BoardPropsBase,
 } as const satisfies Record<PrototypeNodeType, z.ZodObject<z.ZodRawShape> | null>;
 
 /**
@@ -447,7 +515,12 @@ export const PROTOTYPE_PROPS_SCHEMAS = {
  * 是给表格/图表的两种编辑形态——二维数组与数字数组塞不进既有的几种。
  */
 /** `image`：深度 S10——上传一张图（属性面板里是文件选择，不是输入框）。 */
-export type PrototypeFieldKind = "text" | "multiline" | "lines" | "bool" | "number" | "enum" | "rows" | "numbers" | "image";
+export type PrototypeFieldKind = "text" | "multiline" | "lines" | "bool" | "number" | "enum" | "rows" | "numbers" | "image"
+  /**
+   * design-delta `prototype-board`：结构化数据（画布里的便签 / 连线 / 光标）。属性面板**不开编辑框**，
+   * 只显示有几项、并指向对话——让普通用户在面板里改一串坐标对象，就是把 JSON 端到他面前。
+   */
+  | "structured";
 
 /**
  * 迭代 13（delta §6）—— 字段分两组：**内容**（写什么）与**视觉**（长什么样）。
@@ -578,6 +651,10 @@ export const PROTOTYPE_FIELDS: Record<PrototypeNodeType, readonly PrototypeField
     F("labels", "横轴（一行一项）", "lines"), F("values", "数值（一行一个，与横轴对应）", "numbers"),
     F("unit", "单位", "text"),
   ],
+  board: [
+    F("items", "画布上的便签与形状", "structured"), F("links", "连线", "structured"), F("cursors", "协作者光标", "structured"),
+    F("grid", "点状网格", "bool"), F("height", "高度", "enum", BoardPropsBase.shape.height.unwrap().options),
+  ],
   select: [F("label", "标题", "text"), F("options", "选项（一行一项）", "lines"), F("value", "当前值", "text"), F("placeholder", "占位提示", "text")],
   radio: [F("label", "标题", "text"), F("options", "选项（一行一项，2–8）", "lines"), F("selected", "选中第几项（从 0 起）", "number")],
   overlay: [F("kind", "叠层样式", "enum", OverlayProps.shape.kind.unwrap().options), F("title", "标题", "text")],
@@ -620,6 +697,8 @@ export const PROTOTYPE_OPTION_LABELS: Readonly<Record<string, Readonly<Record<st
   "chart.kind": { bar: "柱状图", line: "折线图" },
   // 对标 R4
   "overlay.kind": { modal: "居中弹窗", sheet: "底部弹层", toast: "轻提示" },
+  // design-delta `prototype-board`
+  "board.height": { sm: "矮", md: "中", lg: "高", fill: "撑满这一页" },
   // 对标 R5：分区底色是同名不同义的 `tone`（徽标的 tone 是语义色）。
   "section.tone": { default: "无底色", muted: "浅灰底", primary: "主色底", inverse: "反色底" },
   ratio: { square: "正方形", video: "宽屏 16:9", wide: "横幅", portrait: "竖图" },
@@ -627,7 +706,7 @@ export const PROTOTYPE_OPTION_LABELS: Readonly<Record<string, Readonly<Record<st
   tone: { neutral: "中性灰", info: "信息蓝", success: "成功绿", warning: "提醒黄", danger: "危险红" },
   columns: { "2": "2 列", "3": "3 列" },
   icon: {
-    home: "首页", search: "搜索", menu: "菜单", more: "更多", settings: "设置",
+    cursor: "指针", home: "首页", search: "搜索", menu: "菜单", more: "更多", settings: "设置",
     filter: "筛选", grid: "宫格", list: "列表", back: "返回", forward: "前进",
     user: "个人", users: "多人", bell: "通知", message: "消息", send: "发送",
     share: "分享", heart: "喜欢", star: "收藏星",
@@ -1031,6 +1110,7 @@ export function prototypeNodeLabel(n: PrototypeNode): string {
     case "radio": return `单选（${n.props.options.join("/")}）`;
     case "overlay": return `${n.props?.kind === "sheet" ? "底部弹层" : n.props?.kind === "toast" ? "轻提示" : "弹窗"}${n.props?.title !== undefined ? `「${n.props.title}」` : ""}`;
     case "chart": return n.props.title !== undefined ? `图表「${n.props.title}」` : `${n.props.kind === "line" ? "折线图" : "柱状图"}（${n.props.values.length} 个点）`;
+    case "board": return `画布（${n.props.items.length} 个元素${(n.props.links ?? []).length > 0 ? `、${(n.props.links ?? []).length} 条连线` : ""}）`;
   }
 }
 
@@ -1046,7 +1126,7 @@ export const PROTOTYPE_NODE_TYPE_LABEL: Readonly<Record<PrototypeNodeType, strin
   image: "图片", list: "列表", divider: "分隔线", spacer: "留白", tabs: "标签页", badge: "标记",
   avatar: "头像", bottomnav: "底部导航", switch: "开关", checkbox: "复选", chip: "筛选",
   progress: "进度", stat: "指标", hero: "头图", grid: "网格", table: "表格", chart: "图表",
-  select: "下拉", radio: "单选", overlay: "叠层", section: "分区", footer: "页脚",
+  select: "下拉", radio: "单选", overlay: "叠层", section: "分区", footer: "页脚", board: "画布",
 };
 
 /* ─────────────────────────── 迭代 7：常见格式错误自动纠偏 ─────────────────────────── */
@@ -1139,6 +1219,13 @@ export const PROTOTYPE_SCHEMA_GUIDE =
   // 对标 R5（#3933）：官网 / 落地页。不教的话「官网首页」会被画成一张很长的 App 屏。
   "section{tone:default|muted|primary|inverse, padding:none|sm|md|lg, align:start|center}（通栏分区容器，落地页由若干 section 上下叠成，相邻两区换底色做节奏；此时页根 stack 的 padding 设 none）；" +
   "footer{brand, links?:[..], note?}（官网页脚，放页根最后）。" +
+  // design-delta `prototype-board`：不教的话，白板 / 思维导图 / 流程图只会被画成列表和卡片。
+  "board{items, links?, cursors?, grid?, height?:sm|md|lg|fill}" +
+  "（**自由画布**：产品本身是白板、思维导图、流程图、看板、画布类工具时，它的主画面就用 board 画，不要用列表或卡片去凑。" +
+  "items 每项 [kind:sticky|shape|text, text, x:0–100, y:0–100, w?:4–60, color?:yellow|pink|blue|green|purple|gray, shape?:rect|round|circle|diamond, author?]，" +
+  "x/y 是元素中心相对画布的百分比坐标，元素之间留出空隙别叠在一起；便签写真实内容（「首次打开找不到入口」而不是「便签1」）；" +
+  "links 每项 [from:items 下标, to:items 下标, label?]；多人协作的页用 cursors 每项 [name, x, y] 画出别人的光标；" +
+  `≤ ${PROTOTYPE_BOARD_MAX_ITEMS} 个元素、≤ ${PROTOTYPE_BOARD_MAX_LINKS} 条连线；工具栏、成员头像这些仍用普通原语放在 board 外面）。` +
   // 迭代 16（#3773 R4）：图标是闭集，写在这里让模型知道它能用哪些——
   // 不列出来，模型要么不用（全文字界面，一眼是线框图），要么编一个渲染不了的名字。
   PROTOTYPE_ICON_ROSTER +
