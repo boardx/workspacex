@@ -85,9 +85,9 @@ export function GuidedResearchCardProgress({ session }: { session: GuidedResearc
     <div className="flex items-center justify-between gap-3">
       <div className="flex items-center gap-2">
         <FileCheck2 className="size-4 text-muted-foreground" aria-hidden />
-        <span className="text-12 font-medium">{presentation.label}</span>
+        <span className="text-base font-medium">{presentation.label}</span>
       </div>
-      <span className="text-11 text-muted-foreground">第 {presentation.step} / 5 步</span>
+      <span className="text-base text-muted-foreground">第 {presentation.step} / 5 步</span>
     </div>
     <Progress value={presentation.step} max={5} label={`研究流程：第 ${presentation.step} / 5 步，${presentation.label}`} tone={presentation.attention ? "destructive" : completed ? "primary" : "warning"} />
     <div className="flex items-center justify-between gap-3">

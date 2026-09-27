@@ -2,6 +2,7 @@ import * as React from "react";
 import { beforeEach, expect, it, vi } from "vitest";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { ResearchNewRoute } from "@/components/research-studio/research-new-route";
+import { ResearchIntake } from "@/components/research-studio/research-intake";
 import { ResearchStageRoute } from "@/components/research-studio/research-stage-route";
 import { createGuidedResearchSession, getResearchRuntime, runGuidedResearchSkillTurn } from "@/lib/guided-research-api";
 import { research } from "@repo/contracts";
@@ -12,6 +13,16 @@ vi.mock("@/components/research-studio/guided-research-live", () => ({ GuidedRese
 vi.mock("@/lib/guided-research-api", () => ({ createGuidedResearchSession: vi.fn(), getResearchRuntime: vi.fn(), executeResearchRuntime: vi.fn(), confirmResearchBrief: vi.fn(), executeGuidedResearchNodeCommand: vi.fn(), getGuidedResearchSession: vi.fn(), runGuidedResearchSkillTurn: vi.fn() }));
 
 beforeEach(() => { vi.resetAllMocks(); sessionStorage.clear(); localStorage.clear(); });
+
+it("lets a visual embedding own confirmation without creating persisted research", () => {
+  const confirm = vi.fn();
+  render(<ResearchIntake session={null} workflow={null} onSession={vi.fn()} onWorkflow={vi.fn()} onPending={vi.fn()} onNavigate={vi.fn()} renderAssistant={() => null} onConfirmBrief={confirm} />);
+  fireEvent.change(screen.getByRole("textbox", { name: "研究目标" }), { target: { value: "视觉样本需求" } });
+  fireEvent.click(screen.getByTestId("research-confirm-brief"));
+  expect(confirm).toHaveBeenCalledWith(expect.objectContaining({ topic: "视觉样本需求", goal: "视觉样本需求" }));
+  expect(createGuidedResearchSession).not.toHaveBeenCalled();
+  expect(runGuidedResearchSkillTurn).not.toHaveBeenCalled();
+});
 
 it("routes every stage to the real runtime and returns to the Workspace list", () => {
   const { unmount } = render(<ResearchStageRoute sessionId="real-session" stage="chapters" />);

@@ -54,7 +54,9 @@ function pendingCreateIdempotencyKey(intent: GuidedResearchCreateDraft & { brief
   return { key: generated, storageKey };
 }
 
-export function ResearchIntake({ sessionId, session, workflow, onSession, onWorkflow, onNavigate, onPending, initialBrief = EMPTY_BRIEF, renderAssistant, onClear, onDirtyChange }: {
+export function ResearchIntake({ sessionId, session, workflow, onSession, onWorkflow, onNavigate, onPending, initialBrief = EMPTY_BRIEF, renderAssistant, onClear, onDirtyChange, onConfirmBrief }: {
+  /** An embedding may own submission; the default remains the persisted workflow. */
+  onConfirmBrief?: (brief: Brief) => void;
   onDirtyChange?: (dirty: boolean) => void;
   initialBrief?: Brief;
   renderAssistant?: (brief: Brief, onChange: (brief: Brief) => void) => React.ReactNode;
@@ -97,6 +99,7 @@ export function ResearchIntake({ sessionId, session, workflow, onSession, onWork
     // The import screen asks for one description. Until the next screen refines
     // the topic, use the user's words, not an invented model suggestion.
     const confirmedBrief = { ...brief, topic: brief.topic.trim() || brief.goal.trim().slice(0, 200) };
+    if (onConfirmBrief) { onConfirmBrief(confirmedBrief); return; }
     setSubmitting(true);
     onPending(true);
     setSubmitFailed(false);
