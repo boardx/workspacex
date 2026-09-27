@@ -8,6 +8,7 @@ export * as identity from "./identity";
 export * as auth from "./auth";
 export * as artifact from "./artifact";
 export * as project from "./project";
+export * as projectEvidence from "./project-evidence";
 export * as files from "./files";
 export * as orgAdmin from "./org-admin";
 export * as assetGovernance from "./asset-governance";

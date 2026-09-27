@@ -19,6 +19,7 @@
  * - `ClaimStatus` 五值。直接复用 `context-pack.ts` 的 `ClaimStatus`，**不建第二份**。
  */
 import { z } from "zod";
+import { ProjectEvidenceSourceKind } from "./project-evidence";
 import { ClaimStatus, FilterAction, RetrievalChannel } from "./context-pack";
 
 type ClaimStatusValue = z.infer<typeof ClaimStatus>;
@@ -141,13 +142,18 @@ export const KgScope = z.object({
 }).strict();
 export type KgScope = z.infer<typeof KgScope>;
 
-/** 证据锚点：指回原消息或附件片段（引用完整性，S1）。 */
+/**
+ * 证据锚点：指回原消息或附件片段（引用完整性，S1）。
+ * B3-T1：`sourceKind` 改为引用 `project-evidence.ts` 的六类归一来源（单一事实源）；`evidenceId` 指向证据单元
+ * （`projectEvidence.getProjectEvidence`），缺省 = 老数据、还没归一（只有 chat_message / attachment 两类会缺）。
+ */
 export const KgEvidenceAnchor = z.object({
   segmentId: z.string(),
   stance: z.enum(["supporting", "contradicting"]),
-  sourceKind: z.enum(["chat_message", "attachment"]),
-  /** chat_message → messageId；attachment → artifactVersionId */
+  sourceKind: ProjectEvidenceSourceKind,
+  /** chat_message → messageId；attachment → artifactVersionId；其余见 `ProjectEvidenceItem.sourceRef` */
   sourceRef: z.string(),
+  evidenceId: z.string().optional(),
   /** 可读摘录（≤ 280 字），不是全文 */
   excerpt: z.string().max(280),
   /** 附件页码 / 时间码等，消息则为 null */
@@ -209,7 +215,7 @@ export const KgIngestionSummary = z.object({
   failed: z.number().int().nonnegative(),
   /** 失败条目：源 + 原因，供单条重试 */
   failures: z.array(z.object({
-    sourceKind: z.enum(["chat_message", "attachment"]),
+    sourceKind: ProjectEvidenceSourceKind,
     sourceRef: z.string(),
     reason: z.enum(["model_unavailable", "rejected_by_executor", "source_restricted", "retries_exhausted"]),
   }).strict()),
