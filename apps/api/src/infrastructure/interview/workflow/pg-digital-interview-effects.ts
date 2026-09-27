@@ -1,4 +1,5 @@
 import { createHash } from "node:crypto";
+import type { interviewMarkdown } from "@repo/contracts";
 import type { IdFactory } from "../../../application/artifact/ports";
 import { ModelCallError, type ModelCallPort } from "../../../application/agent-run/ports";
 import type {
@@ -26,6 +27,7 @@ import { assertFindingSources, deriveApprovalEligibility } from "../../../domain
 import { canApproveReport } from "../../../domain/interview/research-quality";
 import { toOrgId, type OrgId } from "../../../domain/org-id";
 import { readDigitalInterviewWorkflow } from "../pg-digital-interview-repository";
+import { DIGITAL_INTERVIEW_ACTOR_VISIBILITY } from "../interview-markdown-store";
 
 import { DIGITAL_REPORT_STALE_SQL } from "./digital-report-lease";
 import { completeInterviewRunAnswers, InvalidInterviewAnswersError } from "./interview-run-answers";
@@ -61,25 +63,6 @@ interface LockedInterviewRow {
   revision_id: string;
   revision_number: number;
 }
-
-const DIGITAL_INTERVIEW_ACTOR_VISIBILITY = `
-  EXISTS (
-    SELECT 1 FROM org_memberships om
-     WHERE om.org_id=$1 AND om.user_id=$3
-  )
-  AND (
-    s.created_by=$3
-    OR EXISTS (
-      SELECT 1 FROM interview_collaborators ic
-       WHERE ic.org_id=$1 AND ic.interview_id=s.id AND ic.user_id=$3
-    )
-    OR (
-      s.project_id IS NOT NULL AND EXISTS (
-        SELECT 1 FROM project_memberships pm
-         WHERE pm.org_id=$1 AND pm.project_id=s.project_id AND pm.user_id=$3
-      )
-    )
-  )`;
 
 interface GeneratedInterviewExpert {
   readonly displayName: string;
@@ -1562,8 +1545,11 @@ export class PgDigitalInterviewEffects implements DigitalInterviewEffects {
       status: "draft" | "confirmed" | "generating" | "failed" | "completed";
       generated_at: Date | string | null; failure: { code: string; retryable: boolean } | null;
       evidence_mode: "simulated" | "participant" | "mixed";
+      content_hash: string | null; content_source: string | null;
+      controlled_references: interviewMarkdown.InterviewMarkdownDocument["references"];
     }>(
-      `SELECT step,version_number,title,markdown,status,generated_at,failure,evidence_mode
+      `SELECT step,version_number,title,markdown,status,generated_at,failure,evidence_mode,
+              content_hash,content_source,controlled_references
          FROM digital_interview_artifact_versions
         WHERE org_id=$1 AND interview_id=$2 AND revision_id=$3`,
       [input.orgId, input.interviewId, current.revision_id],
@@ -1681,11 +1667,13 @@ export class PgDigitalInterviewEffects implements DigitalInterviewEffects {
     for (const artifact of previousArtifacts.rows.filter((candidate) => inheritedSteps.has(candidate.step))) {
       await session.query(
         `INSERT INTO digital_interview_artifact_versions
-           (org_id,artifact_id,interview_id,revision_id,step,version_number,title,markdown,status,generated_at,failure,evidence_mode)
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)`,
+           (org_id,artifact_id,interview_id,revision_id,step,version_number,title,markdown,status,generated_at,failure,evidence_mode,
+            content_hash,content_source,controlled_references)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15::jsonb)`,
         [input.orgId, this.ids.next("itv-artifact"), input.interviewId, revisionId, artifact.step,
           artifact.version_number, artifact.title, artifact.markdown, artifact.status,
-          artifact.generated_at, artifact.failure, artifact.evidence_mode],
+          artifact.generated_at, artifact.failure, artifact.evidence_mode,
+          artifact.content_hash, artifact.content_source, JSON.stringify(artifact.controlled_references)],
       );
     }
     return { revisionId, revisionNumber };
