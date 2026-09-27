@@ -47,19 +47,27 @@ jobs:
         working-directory: packages/local-runtime
         run: pnpm exec vitest run --reporter=verbose 2>&1 | tee "$RUNNER_TEMP/unit.log"; exit ${PIPESTATUS[0]}
 
-      - name: up --web none --no-pull (core stack)
+      - name: build web (production, local API baked in)
+        id: webbuild
+        continue-on-error: true
+        working-directory: apps/desktop
+        run: pnpm run build:web 2>&1 | tail -40; exit ${PIPESTATUS[0]}
+
+      - name: up --web start --no-pull (core stack + web)
         id: up
         continue-on-error: true
         run: |
           DATA="$RUNNER_TEMP/wsx-data"
-          ( cd packages/local-runtime && pnpm exec tsx src/cli.ts up --data-dir "$DATA" --web none --no-pull > "$RUNNER_TEMP/up.log" 2>&1 ) &
-          ok=0
-          for i in $(seq 1 180); do
-            if curl -fsS --max-time 3 http://127.0.0.1:3200/healthz >/dev/null 2>&1; then ok=1; echo "api healthz ok after ${i}x2s"; break; fi
+          ( cd packages/local-runtime && pnpm exec tsx src/cli.ts up --data-dir "$DATA" --web start --no-pull > "$RUNNER_TEMP/up.log" 2>&1 ) &
+          api=0; web=0
+          for i in $(seq 1 240); do
+            [ $api = 0 ] && curl -fsS --max-time 3 http://127.0.0.1:3200/healthz >/dev/null 2>&1 && { api=1; echo "api healthz ok after ${i}x2s"; }
+            [ $web = 0 ] && [ "$(curl -s -o /dev/null -w '%{http_code}' --max-time 5 http://127.0.0.1:3100/)" -lt 500 ] 2>/dev/null && [ "$(curl -s -o /dev/null -w '%{http_code}' --max-time 5 http://127.0.0.1:3100/)" != 000 ] && { web=1; echo "web answers after ${i}x2s: $(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:3100/)"; }
+            [ $api = 1 ] && [ $web = 1 ] && break
             sleep 2
           done
-          tail -80 "$RUNNER_TEMP/up.log"
-          [ "$ok" = 1 ]
+          tail -60 "$RUNNER_TEMP/up.log"
+          [ $api = 1 ] && [ $web = 1 ]
 
       - name: collect logs
         if: always()
@@ -76,5 +84,5 @@ jobs:
       - name: verdict
         if: always()
         run: |
-          echo "unit=${{ steps.unit.outcome }} up=${{ steps.up.outcome }}"
-          [ "${{ steps.unit.outcome }}" = success ] && [ "${{ steps.up.outcome }}" = success ]
+          echo "unit=${{ steps.unit.outcome }} webbuild=${{ steps.webbuild.outcome }} up=${{ steps.up.outcome }}"
+          [ "${{ steps.unit.outcome }}" = success ] && [ "${{ steps.webbuild.outcome }}" = success ] && [ "${{ steps.up.outcome }}" = success ]
