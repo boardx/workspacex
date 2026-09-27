@@ -82,7 +82,7 @@ function projectedTextStyle(object: WhiteboardObject): Partial<BoardFabricStyle>
 }
 
 /** Pure adapter: derives disposable renderer input from whiteboard-core canonical objects. */
-export function toBoardFabricObjects(objects: readonly WhiteboardObject[]): BoardFabricObject[] {
+export function toBoardFabricObjects(objects: readonly WhiteboardObject[], imageUrl?: (assetId: string | null) => string | undefined): BoardFabricObject[] {
   const byId = new Map(objects.map((object) => [object.id, object]));
   return objects.map((object) => {
     const content = readBoardContent(object);
@@ -117,7 +117,7 @@ export function toBoardFabricObjects(objects: readonly WhiteboardObject[]): Boar
         : { text: `暂不支持“${object.kind}”对象，内容已安全保留。` },
       sticky: supported ? sticky?.appearance : undefined,
       boardContent: content,
-      imageAssetUrl: content?.type === "image" ? getBoardSessionImageAsset(content.assetId)?.objectUrl : undefined,
+      imageAssetUrl: content?.type === "image" ? (content.persistence === "local-session" ? getBoardSessionImageAsset(content.assetId)?.objectUrl : imageUrl?.(content.assetId)) : undefined,
       panel: object.kind === "frame" ? (() => {
         const panel = readPanelMetadata(object);
         return panel ? { title: object.text, mode: panel.mode, autoExpand: panel.autoExpand, clipContent: panel.clipContent } : undefined;

@@ -5,11 +5,13 @@ import { WHITEBOARD_ASSET_LIMITS, WhiteboardImageMime } from '@repo/contracts/wh
 import { assertPrincipal, type Principal } from '../../domain/principal';
 import { CurrentPrincipal } from '../current-principal.decorator';
 import { WHITEBOARD_IMAGE_ASSETS, WhiteboardImageError, type WhiteboardImageAssets } from '../../application/whiteboard/image-assets';
+// Busboy emits partsLimit at the threshold, so allow the closing boundary after one file.
+export const BOARD_IMAGE_UPLOAD_LIMITS = { fileSize: WHITEBOARD_ASSET_LIMITS.bytes, files: 1, fields: 0, parts: 2 };
 @Controller('whiteboards/:boardId/assets')
 export class WhiteboardAssetsController {
   constructor(@Inject(WHITEBOARD_IMAGE_ASSETS) private readonly service: WhiteboardImageAssets) {}
   @Post()
-  @UseInterceptors(FileInterceptor('file', { limits: { fileSize: WHITEBOARD_ASSET_LIMITS.bytes, files: 1, fields: 0, parts: 1 } }))
+  @UseInterceptors(FileInterceptor('file', { limits: BOARD_IMAGE_UPLOAD_LIMITS }))
   async upload(@CurrentPrincipal() p: Principal, @Param('boardId', new ParseUUIDPipe()) boardId: string, @UploadedFile() file?: Express.Multer.File) {
     assertPrincipal(p);
     try {

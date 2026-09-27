@@ -10,4 +10,4 @@ PostgreSQL stores references and metadata only. Immutable bytes use the existing
 
 ZIP import uses the same verifier and durable service. Content records original pixel dimensions and digest independently of its layout rectangle. Bad images are reported as skipped/missing assets. Preflight does not publish roots; execution publishes them before canonical commands.
 
-Frontend wiring awaits R6 image-content/session projection integration into R8. Backend unit checks do not claim browser refresh or peer acceptance.
+The frontend uploads and reads back verified bytes before creating ready content. Each mounted board/user owns a private blob URL cache; refresh and peer mounts authenticate and resolve canonical handles again. Revocation/denied delivery aborts pending reads and clears previews. The editor header exposes the import dialog on demand. Unit tests cover these transitions; real browser refresh, peer, revocation and import acceptance remain the integration gate.

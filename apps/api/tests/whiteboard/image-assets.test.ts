@@ -31,3 +31,17 @@ it('persists only board-scoped reference metadata through the governed root and 
  expect(tenants).toEqual([principal.orgId,principal.orgId]);expect(queries[0]?.sql).toContain('whiteboard_asset_refs');expect(queries[1]?.params[4]).toBe(JSON.stringify(verified.metadata));expect(queries[2]?.params).toEqual([principal.orgId,board,verified.metadata.assetId]);expect(queries[2]?.sql).toContain("r.state='active'");expect(queries[2]?.sql).toContain('r.released_at IS NULL');
  const migration=readFileSync(new URL('../../migrations/20260927123000_whiteboard_image_assets.sql',import.meta.url),'utf8');expect(migration).toContain('FORCE ROW LEVEL SECURITY');expect(migration).toContain('REFERENCES whiteboard_asset_refs');expect(migration).not.toMatch(/\bbytea\b/i);
 });
+
+import { BOARD_IMAGE_UPLOAD_LIMITS } from '../../src/interface/controllers/whiteboard-assets.controller';
+import { createRequire } from 'node:module';
+import { PassThrough } from 'node:stream';
+it('accepts exactly one multipart file with the controller parser limits',async()=>{
+ const require=createRequire(import.meta.url),load=createRequire(require.resolve('@nestjs/platform-express'));
+ const multer=load('multer') as typeof import('multer');
+ const bytes=await raster().png().toBuffer(),boundary='board-image-test';
+ const body=Buffer.concat([Buffer.from(`--${boundary}\r\nContent-Disposition: form-data; name="file"; filename="a.png"\r\nContent-Type: image/png\r\n\r\n`),bytes,Buffer.from(`\r\n--${boundary}--\r\n`)]);
+ const request=Object.assign(new PassThrough(),{headers:{'content-type':`multipart/form-data; boundary=${boundary}`,'content-length':String(body.length)},method:'POST'});
+ const middleware=multer({limits:BOARD_IMAGE_UPLOAD_LIMITS}).single('file');
+ const parsed=new Promise<void>((resolve,reject)=>middleware(request as never,{} as never,error=>error?reject(error):resolve()));request.end(body);await parsed;
+ expect((request as unknown as {file:{buffer:Buffer}}).file.buffer).toEqual(bytes);
+});
