@@ -5,6 +5,10 @@ import {
 } from "../tests/support/db";
 import { addBrowserArtifact } from "../tests/support/files-db";
 import { recording as C } from "@repo/contracts";
+import { createHash } from "node:crypto";
+import { FsObjectStore } from "../src/infrastructure/storage/fs-object-store";
+import { objectStoreRoot } from "../src/infrastructure/storage/object-store-root";
+import { ObjectExistsError } from "../src/application/artifact/ports";
 
 if (process.env.FULLSTACK_E2E_FIXTURE !== "1") throw new Error("FULLSTACK_E2E_FIXTURE=1 is required");
 const required = (name: string): string => {
@@ -20,6 +24,7 @@ const userId = required("FULLSTACK_E2E_USER_ID");
 const projectId = required("FULLSTACK_E2E_PROJECT_ID");
 const projectName = required("FULLSTACK_E2E_PROJECT_NAME");
 const artifactId = required("FULLSTACK_E2E_ARTIFACT_ID");
+const boardArtifactId = required("FULLSTACK_E2E_BOARD_ARTIFACT_ID");
 const sentinelFile = required("FULLSTACK_E2E_SENTINEL_FILE");
 /** #458: the org ADMIN, a second account -- see the fixture for why it is not the same one. */
 const adminEmail = required("FULLSTACK_E2E_ADMIN_EMAIL");
@@ -544,6 +549,25 @@ await addBrowserArtifact({
   ingestionStatus: "READY", creator: { kind: "user", id: userId },
   text: `unique sentinel ${sentinelFile}`, sizeBytes: 387, mime: "text/markdown",
 });
+const boardSource = new TextEncoder().encode('```mermaid\nflowchart TD\n    artifact_node["Chat Mermaid node"]\n```\n');
+await addBrowserArtifact({
+  orgId, id: boardArtifactId, projectId, source: "ai-generated", title: "Chat Mermaid Board fixture",
+  ingestionStatus: "READY", creator: { kind: "user", id: userId },
+  text: "Chat Mermaid node", sizeBytes: boardSource.byteLength, mime: "text/markdown",
+});
+const boardObjectKey = `${orgId}/artifacts/${boardArtifactId}/v1/${boardArtifactId}-v1`;
+const boardObjects = new FsObjectStore(objectStoreRoot());
+try {
+  await boardObjects.putOnce(boardObjectKey, boardSource, "text/markdown");
+} catch (error) {
+  if (!(error instanceof ObjectExistsError)) throw error;
+  const existing = await boardObjects.get(boardObjectKey);
+  if (!existing || !Buffer.from(existing).equals(Buffer.from(boardSource))) throw error;
+}
+await asApp(orgId, client => client.query(
+  `UPDATE artifact_versions SET content_hash=$1 WHERE org_id=$2 AND artifact_id=$3 AND version_number=1`,
+  [createHash("sha256").update(boardSource).digest("hex"), orgId, boardArtifactId],
+));
 // Board AI operation E2E uses a pre-registered immutable runtime identity. Product callers
 // have no write grant on this registry; only the controlled fixture owner seeds it.
 await asOwner(client=>client.query(`INSERT INTO whiteboard_actor_identities(org_id,actor_id,kind,delegated_by,scopes,model_snapshot,skill_snapshot,enabled) VALUES($1,$2,'ai',$3,$4,'loopback/e2e','board-cluster-e2e',true) ON CONFLICT(org_id,actor_id) DO UPDATE SET delegated_by=EXCLUDED.delegated_by,scopes=EXCLUDED.scopes,model_snapshot=EXCLUDED.model_snapshot,skill_snapshot=EXCLUDED.skill_snapshot,enabled=true`,[orgId,agentId,userId,['board:read','board:write','artifact:read','board:present']]));

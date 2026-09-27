@@ -7,6 +7,8 @@ import type { WhiteboardCommand } from '@repo/contracts/whiteboard-document';
 import type { Principal } from '../../domain/principal';
 import type { DatabasePort } from '../ports/database.port';
 import type { TenantSession } from '../ports/database.port';
+import type {ObjectStore} from '../artifact/ports';
+import {artifactSourceMatchesLayout} from '../../domain/whiteboard/artifact-layout-source-verifier';
 import { WhiteboardCollaborationError, type WhiteboardCollaborationStore } from './collaboration-ports';
 import type { RegisteredBoardActor, WhiteboardOperationAuditRepository } from './operation-ports';
 import {renderedLayoutToCommands} from '@repo/whiteboard-core';
@@ -38,7 +40,7 @@ function eventType(commands:readonly WhiteboardCommand[],source:string):Event['t
 
 /** Durable public API adapter. The collaboration write, audit receipt and event append share one tenant transaction. */
 export class WhiteboardOperationService {
-  constructor(private readonly db:DatabasePort,private readonly collaboration:WhiteboardCollaborationStore,private readonly audit:WhiteboardOperationAuditRepository,private readonly now=()=>new Date()){}
+  constructor(private readonly db:DatabasePort,private readonly collaboration:WhiteboardCollaborationStore,private readonly audit:WhiteboardOperationAuditRepository,private readonly now=()=>new Date(),private readonly objects?:Pick<ObjectStore,'get'>){}
   async execute(principal:Principal,boardId:string,untrusted:unknown):Promise<Receipt>{
     const request=WhiteboardOperationRequest.parse(untrusted);
     return this.db.withTenant(principal.orgId,session=>this.executeInTransaction(session,principal,boardId,request));
@@ -84,5 +86,5 @@ export class WhiteboardOperationService {
     });
   }
   async head(principal:Principal,boardId:string){return this.db.withTenant(principal.orgId,async session=>{const value=await this.audit.lockHead(session,principal,boardId);if(!value)throw new WhiteboardOperationError('NOT_FOUND');return{epoch:value.epoch,seq:value.seq,role:value.actorRole};});}
-  async handoff(principal:Principal,boardId:string,untrusted:unknown){const input=WhiteboardArtifactHandoff.parse(untrusted),actor={kind:'human' as const,actorId:principal.userId,orgId:principal.orgId,role:'owner' as const,scopes:['board:read' as const,'board:write' as const,'artifact:read' as const],delegatedBy:null};const commands=renderedLayoutToCommands(input.layout,actor,principal.orgId,input.offset);return this.execute(principal,boardId,{apiVersion:'2026-09-01',requestId:input.requestId,boardId,expectedRevision:input.expectedRevision,actor,commands,provenance:{source:'chat-artifact',model:null,skill:null,sourceArtifactId:input.layout.artifactId,sourceRevision:input.layout.sourceRevision,layoutHash:input.layout.layoutHash,inputObjectIds:[]}});}
+  async handoff(principal:Principal,boardId:string,untrusted:unknown){const input=WhiteboardArtifactHandoff.parse(untrusted);if(!this.objects)throw new WhiteboardOperationError('DEPENDENCY_UNAVAILABLE');return this.db.withTenant(principal.orgId,async session=>{const source=await this.audit.readArtifactSource(session,principal,input.layout.artifactId,input.layout.sourceRevision);if(!source)throw new WhiteboardOperationError('FORBIDDEN');let bytes:Uint8Array|null;try{bytes=await this.objects!.get(source.objectKey);}catch{throw new WhiteboardOperationError('DEPENDENCY_UNAVAILABLE');}if(!bytes||createHash('sha256').update(bytes).digest('hex')!==source.contentHash)throw new WhiteboardOperationError('DEPENDENCY_UNAVAILABLE');if(!artifactSourceMatchesLayout(bytes,input.layout))throw new WhiteboardOperationError('FORBIDDEN');const actor={kind:'human' as const,actorId:principal.userId,orgId:principal.orgId,role:'owner' as const,scopes:['board:read' as const,'board:write' as const,'artifact:read' as const],delegatedBy:null};let commands:WhiteboardCommand[];try{commands=renderedLayoutToCommands(input.layout,actor,principal.orgId,input.offset);}catch{throw new WhiteboardOperationError('VALIDATION_FAILED');}await this.audit.issueArtifactLayoutBinding(session,principal,input.layout.artifactId,source.versionId,input.layout.layoutHash);return this.executeInTransaction(session,principal,boardId,{apiVersion:'2026-09-01',requestId:input.requestId,boardId,expectedRevision:input.expectedRevision,actor,commands,provenance:{source:'chat-artifact',model:null,skill:null,sourceArtifactId:input.layout.artifactId,sourceRevision:input.layout.sourceRevision,layoutHash:input.layout.layoutHash,inputObjectIds:[]}});});}
 }

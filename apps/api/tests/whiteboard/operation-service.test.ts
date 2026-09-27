@@ -31,7 +31,7 @@ export function fixture(){const session=new Session();const db:DatabasePort={wit
     lockHead:async()=>{session.queries.push('audit.lockHead');return{epoch:1,seq:0,actorRole:'editor'};},
     append:async(_s,_p,input)=>{session.queries.push('audit.append.operation');session.operations.set(input.receipt.requestId,{request_hash:input.requestHash,receipt:input.receipt});session.queries.push('audit.append.event');session.events.push(input.event);},
     canRead:async()=>true,events:async()=>session.events as never[],
-    resolveActor:async()=>({actorId:'agent-1',kind:'ai',delegatedBy:'user-1',scopes:['board:read','board:write'],model:'gpt',skill:'cluster'}),canReadArtifact:async()=>true,
+    resolveActor:async()=>({actorId:'agent-1',kind:'ai',delegatedBy:'user-1',scopes:['board:read','board:write'],model:'gpt',skill:'cluster'}),canReadArtifact:async()=>true,readArtifactSource:async()=>null,issueArtifactLayoutBinding:async()=>{},
   };
   return{session,service:new WhiteboardOperationService(db,collaboration,audit,()=>new Date('2026-09-26T00:00:00.000Z'))};}
 

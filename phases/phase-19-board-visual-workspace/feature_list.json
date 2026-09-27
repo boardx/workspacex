@@ -682,7 +682,8 @@
       "verification": [
         "pnpm --filter api exec vitest run --config vitest.whiteboard-unit.config.ts tests/whiteboard/meeting-room-viewport-revision.test.ts",
         "pnpm --filter web exec playwright test -c playwright.config.ts -g 'meeting room follow'",
-        "pnpm --filter api exec vitest run --config vitest.whiteboard-unit.config.ts tests/whiteboard/meeting-room-soak-gate.test.ts"
+        "pnpm --filter api exec vitest run --config vitest.whiteboard-unit.config.ts tests/whiteboard/meeting-room-soak-gate.test.ts",
+        "pnpm exec tsx .harness/scripts/with-test-isolation.ts -- pnpm --filter api exec vitest run tests/whiteboard/presentation-concurrency-pg.test.ts"
       ],
       "evidence": "",
       "notes": "Iteration 9 / integration；has_ui=true。共享热点 meeting-room session/API、Board viewport controller、signed soak ledger；目标 p95 ≤3000ms。"

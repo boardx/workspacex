@@ -239,8 +239,12 @@ export function ChatDiagramFabric({
         },
         bearer,
       );
-      // 记住这次落进的产物 id，于是同一次会话里连存三次 = 一份图谱的三个版本。
-      setSavedSource({
+      // Board handoff must carry the immutable server revision, never an inferred client
+      // timestamp/version. Read the just-landed artifact back through the same visibility path.
+      const verified = await fetchLatestSavedDiagramSource({
+        threadId: threadId!, messageId: messageId!, projectId: projectId ?? null, bearer,
+      });
+      setSavedSource(verified ?? {
         markdown: previewCode,
         savedAt: new Date().toISOString(),
         artifactId: landed.artifactId,
@@ -364,7 +368,12 @@ export function ChatDiagramFabric({
             // 的源——这样退出全屏后气泡里的只读预览立刻跟着变，不用等重新拉整个
             // 消息列表（这条链路目前也不会真的把编辑写回 chat_messages，见调用方
             // 文件头「G1 读回」注释）。
-            if (result) setSavedSource({ markdown: result.markdown, savedAt: new Date().toISOString() });
+            if (result) {
+              setSavedSource({ markdown: result.markdown, savedAt: new Date().toISOString() });
+              if (threadId && messageId) void fetchLatestSavedDiagramSource({
+                threadId, messageId, projectId: projectId ?? null, bearer,
+              }).then(verified => { if (verified) setSavedSource(verified); });
+            }
             setMaximized(false);
           }}
           threadId={threadId}

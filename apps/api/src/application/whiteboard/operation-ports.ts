@@ -12,4 +12,6 @@ export interface WhiteboardOperationAuditRepository {
   events(session:TenantSession,principal:Principal,boardId:string,afterSeq:number,limit:number):Promise<WhiteboardOperationEvent[]>;
   resolveActor(session:TenantSession,principal:Principal,actorId:string):Promise<RegisteredBoardActor|null>;
   canReadArtifact(session:TenantSession,principal:Principal,artifactId:string,revision:string,layoutHash:string):Promise<boolean>;
+  readArtifactSource(session:TenantSession,principal:Principal,artifactId:string,revision:string):Promise<{versionId:string;objectKey:string;contentHash:string}|null>;
+  issueArtifactLayoutBinding(session:TenantSession,principal:Principal,artifactId:string,versionId:string,layoutHash:string):Promise<void>;
 }
