@@ -25,6 +25,7 @@ import { chooseOllama, ollamaBinaryVersion, runningOllamaVersion } from "./ollam
 import { ensureDatabaseExists, startPgliteServer, type PgliteHandle } from "./pglite-server";
 import { clearLedger, reapLedger, recordChild, startedAt } from "./child-ledger";
 import { relocateInternalPorts } from "./internal-ports";
+import { nextLaunch, nodeEnv, tsxLaunch } from "./node-launch";
 import {
   assertPortFree, stopListenerOnPort, killTree, startManaged, portInUse, type SpawnSpec,
   waitForHttp, waitForHttpOrExit, runToCompletion, type Managed,
@@ -401,10 +402,10 @@ export async function up(opts: UpOptions): Promise<RunningStack> {
     }
     spawn({
       name: "skill-sandbox",
-      command: join(c.repoRoot, "node_modules", ".bin", "tsx"),
-      args: ["src/main.ts"],
+      command: process.execPath,
+      args: tsxLaunch(c.repoRoot, ["src/main.ts"]).args,
       cwd: join(c.repoRoot, "apps", "skill-sandbox"),
-      env: sandboxEnv(c),
+      env: { ...sandboxEnv(c), ...nodeEnv() },
       logDir: paths.logs(c),
     });
     deferredReady.push({
@@ -419,10 +420,10 @@ export async function up(opts: UpOptions): Promise<RunningStack> {
       asrUrl = `ws://127.0.0.1:${c.ports.asr}`;
       spawn({
         name: "asr-gateway",
-        command: join(c.repoRoot, "node_modules", ".bin", "tsx"),
-        args: ["src/main.ts"],
+        command: process.execPath,
+        args: tsxLaunch(c.repoRoot, ["src/main.ts"]).args,
         cwd: join(c.repoRoot, "apps", "local-asr-gateway"),
-        env: asrGatewayEnv(c, asrModelDir),
+        env: { ...asrGatewayEnv(c, asrModelDir), ...nodeEnv() },
         logDir: paths.logs(c),
       });
       deferredReady.push({
@@ -434,10 +435,10 @@ export async function up(opts: UpOptions): Promise<RunningStack> {
     // ── API ───────────────────────────────────────────────────────────────────
     spawn({
       name: "api",
-      command: join(c.repoRoot, "node_modules", ".bin", "tsx"),
-      args: ["src/main.ts"],
+      command: process.execPath,
+      args: tsxLaunch(c.repoRoot, ["src/main.ts"]).args,
       cwd: join(c.repoRoot, "apps", "api"),
-      env: { ...apiEnv(c), ...(asrUrl ? asrEnv(c) : {}) },
+      env: { ...apiEnv(c), ...(asrUrl ? asrEnv(c) : {}), ...nodeEnv() },
       logDir: paths.logs(c),
     });
     const apiUrl = `http://127.0.0.1:${c.ports.api}`;
@@ -473,10 +474,10 @@ export async function up(opts: UpOptions): Promise<RunningStack> {
       // pnpm does not hoist: `next` lives in apps/web's own node_modules/.bin, not the root's.
       spawn({
         name: "web",
-        command: join(c.repoRoot, "apps", "web", "node_modules", ".bin", "next"),
-        args: [webMode, "-p", String(c.ports.web), "-H", "127.0.0.1"],
+        command: process.execPath,
+        args: nextLaunch(c.repoRoot, [webMode, "-p", String(c.ports.web), "-H", "127.0.0.1"]).args,
         cwd: join(c.repoRoot, "apps", "web"),
-        env: webEnv(c),
+        env: { ...webEnv(c), ...nodeEnv() },
         logDir: paths.logs(c),
       });
       await waitForHttpOrExit(webUrl, { timeoutMs: 300_000 }, managed[managed.length - 1]!);

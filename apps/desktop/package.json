@@ -16,7 +16,7 @@
     "typecheck": "tsc --noEmit",
     "lint": "echo 'lint: ok'",
     "test": "vitest run --passWithNoTests",
-    "build:web": "env $(pnpm --filter @repo/local-runtime exec tsx ../../packages/local-runtime/src/cli.ts web-build-env | xargs) pnpm --filter web exec next build"
+    "build:web": "node scripts/build-web.mjs"
   },
   "dependencies": {
     "@electric-sql/pglite": "0.5.8",

@@ -16,7 +16,9 @@ describe("local config", () => {
     const a = loadOrCreateSecrets(dataDir);
     const b = loadOrCreateSecrets(dataDir);
     expect(b).toEqual(a);
-    expect(statSync(join(dataDir, "secrets.json")).mode & 0o777).toBe(0o600);
+    // Windows 没有 POSIX 权限位（stat 永远给 0o666），这一条只在 POSIX 上有意义；
+    // Windows 上的等价物是用户目录的 ACL，由安装位置保证，不在这里判。
+    if (process.platform !== "win32") expect(statSync(join(dataDir, "secrets.json")).mode & 0o777).toBe(0o600);
     expect(a.modelCredentialKey.length).toBeGreaterThanOrEqual(32);
   });
 
