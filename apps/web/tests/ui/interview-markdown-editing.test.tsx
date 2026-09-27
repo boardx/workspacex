@@ -7,6 +7,33 @@ import { InterviewMarkdownEditingStep } from "@/components/itv/interview-markdow
 import { MOCK_DIGITAL_EXPERTS } from "@/lib/mock/digital-expert-personas";
 afterEach(() => { cleanup(); vi.unstubAllGlobals(); vi.unstubAllEnvs(); });
 const source = { documentId: "edit-doc", step: "experts" as const, version: 1, contentHash: "a".repeat(64), evidenceMode: "simulated" as const, references: [], markdown: "# 专家\n" };
+it("confirmed source is read-only and cannot spend a model call on regeneration", async () => {
+  vi.stubEnv("NEXT_PUBLIC_API_URL", "http://localhost:4100"); vi.stubEnv("NEXT_PUBLIC_API_PATH_PREFIX", "");
+  const posts: string[] = [];
+  vi.stubGlobal("fetch", async (url: string, init: RequestInit) => {
+    if (init.method === "POST") posts.push(url);
+    return new Response(JSON.stringify(url.endsWith("/digital/experts") ? { items: [] } : { interviewId: "itv-edits", revisionId: "rev-edits", version: 1, documents: [source], states: [{ documentId: source.documentId, status: "confirmed", failure: null }] }));
+  });
+  render(<InterviewMarkdownEditingStep interviewId="itv-edits" step="experts" onVersionChange={vi.fn()} onDirtyChange={vi.fn()} onContinue={vi.fn()} />);
+  expect(await screen.findByRole("status")).toHaveTextContent("只读");
+  expect(screen.getByRole("textbox", { name: "专家文档 Markdown" })).toBeDisabled();
+  expect(screen.getByRole("button", { name: "生成专家建议" })).toBeDisabled();
+  expect(posts).toEqual([]);
+});
+it("failed generation reconciles persisted partial text into a clean editor", async () => {
+  vi.stubEnv("NEXT_PUBLIC_API_URL", "http://localhost:4100"); vi.stubEnv("NEXT_PUBLIC_API_PATH_PREFIX", "");
+  let failed = false;
+  vi.stubGlobal("fetch", async (url: string, init: RequestInit) => {
+    if (init.method === "POST") { failed = true; return new Response(JSON.stringify({ message: "unavailable" }), { status: 503 }); }
+    return new Response(JSON.stringify(url.endsWith("/digital/experts") ? { items: [] } : { interviewId: "itv-edits", revisionId: "rev-edits", version: failed ? 2 : 1, documents: [{ ...source, markdown: failed ? "# 已保存的部分画像" : source.markdown }], states: [{ documentId: source.documentId, status: failed ? "failed" : "draft", failure: null }] }));
+  });
+  render(<InterviewMarkdownEditingStep interviewId="itv-edits" step="experts" onVersionChange={vi.fn()} onDirtyChange={vi.fn()} onContinue={vi.fn()} />);
+  const input = await screen.findByRole("textbox", { name: "专家文档 Markdown" });
+  await vi.waitFor(() => expect(input).toBeEnabled());
+  fireEvent.click(screen.getByRole("button", { name: "生成专家建议" }));
+  await screen.findByRole("alert");
+  expect(input).toHaveValue("# 已保存的部分画像");
+});
 it("a save conflict does not silently rebase local text onto another editor's version", async () => {
   vi.stubEnv("NEXT_PUBLIC_API_URL", "http://localhost:4100"); vi.stubEnv("NEXT_PUBLIC_API_PATH_PREFIX", "");
   const writes: { expectedVersion: number; expectedDocumentVersion: number }[] = [];

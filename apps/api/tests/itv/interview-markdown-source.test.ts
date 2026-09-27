@@ -46,6 +46,19 @@ beforeEach(async () => {
 });
 
 describe("Markdown source persistence", () => {
+  it("does not freeze running evidence and archives it after completion", async () => {
+    await db.withTenant(ORG, async (session) => {
+      await session.query(`INSERT INTO digital_interview_expert_runs
+        (org_id,interview_id,revision_id,expert_id,display_name,ordinal,status,total_questions,answers)
+        VALUES ($1,$2,$3,'expert-md','专家',1,'running',1,'[]')`, [ORG, ID, REV]);
+      await migrateInterviewMarkdown(session, ORG, ID);
+      expect((await readDocuments(session)).some((doc) => doc.step === "runs")).toBe(false);
+      await session.query(`UPDATE digital_interview_expert_runs SET status='completed', answers=$4 WHERE org_id=$1 AND interview_id=$2 AND revision_id=$3`,
+        [ORG, ID, REV, JSON.stringify([{ questionId: "q-md", question: "最近一次？", answer: "完整保存的回答" }])]);
+      await migrateInterviewMarkdown(session, ORG, ID);
+      expect((await readDocuments(session)).find((doc) => doc.step === "runs")?.markdown).toContain("完整保存的回答");
+    });
+  });
   it("explicit initialization hydrates legacy Markdown once and rejects a stale baseline", async () => {
     await addOrgMember(ORG, `${ORG}-owner`, "consultant", null);
     const reader = new PgInterviewMarkdownReader(db);

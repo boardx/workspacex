@@ -639,10 +639,11 @@ describe("F04 正式 setup 的显式确认与双层持久化验收门", () => {
     installLiveFetch(persistedInterview);
     render(<DigitalInterviewSetup interviewId={persistedInterview.interviewId} initialWorkbenchStep="analysis" />);
 
-    expect(await screen.findByText("研究夜班交接的遗漏原因。")).toBeInTheDocument();
+    expect(await screen.findByText("AI 分析结果")).toBeInTheDocument();
     fireEvent.click(screen.getByTestId("itv-workbench-step-experts"));
     expect(push).toHaveBeenCalledWith(`/itv/${persistedInterview.interviewId}/experts`);
-    expect(await screen.findByTestId("itv-markdown-experts")).toBeInTheDocument();
+    expect(await screen.findByTestId("itv-confirm-experts")).toBeInTheDocument();
+    expect(screen.queryByTestId("itv-markdown-experts")).not.toBeInTheDocument();
   });
 
   it.each([
