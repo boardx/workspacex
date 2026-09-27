@@ -1,0 +1,2 @@
+import {expect,it} from 'vitest';import {createMixedBoardFixture} from '@/lib/board-performance-fixtures';
+it('builds a deterministic 5k mixed canonical workload',()=>{const a=createMixedBoardFixture(5000),b=createMixedBoardFixture(5000);expect(a).toEqual(b);expect(a).toHaveLength(5000);expect(new Set(a.map(value=>value.kind)).size).toBeGreaterThanOrEqual(6);expect(new Set(a.map(value=>value.id)).size).toBe(5000);});
