@@ -21,6 +21,12 @@ export default defineConfig({ resolve:{alias:{
     'tests/whiteboard/recovery-metadata.test.ts',
     'tests/whiteboard/import-repository-guard.test.ts',
     'tests/whiteboard/recovery-repository-guard.test.ts',
+    'tests/whiteboard/blob-pointer-atomicity.test.ts',
+    'tests/whiteboard/blob-retention-gc.test.ts',
+    'tests/whiteboard/blob-backup-restore.test.ts',
+    'tests/whiteboard/pgsql-metadata-only-growth.test.ts',
+    'tests/whiteboard/miro-mural-import-conformance.test.ts',
+    'tests/whiteboard/import-security-boundary.test.ts',
   ],
   maxWorkers: 1, minWorkers: 1, testTimeout: 10_000,
 } });
