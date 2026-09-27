@@ -49,10 +49,11 @@ export class PgWhiteboardRepository implements WhiteboardRepository {
           AND ($4::uuid[] IS NULL OR b.id IN (
             SELECT board_id FROM whiteboard_tag_bindings WHERE org_id=$1 AND tag_id=ANY($4::uuid[])
             GROUP BY board_id HAVING count(*) = $5))
+          AND ($10::boolean=false OR NOT EXISTS (SELECT 1 FROM whiteboard_tag_bindings empty_tags WHERE empty_tags.org_id=$1 AND empty_tags.board_id=b.id))
           AND ($6::text='all' OR b.archived=($6::text='archived'))
           AND ($7::timestamptz IS NULL OR (b.updated_at,b.id)<($7::timestamptz,$8::uuid))
         ORDER BY b.updated_at DESC,b.id DESC LIMIT $9`, [p.orgId,p.userId,input.query ? `%${escapeLike(input.query)}%` : null,
-        requested.length ? requested : null,requested.length,input.archived,cursor?.updatedAt ?? null,cursor?.id ?? null,input.limit+1]);
+        requested.length ? requested : null,requested.length,input.archived,cursor?.updatedAt ?? null,cursor?.id ?? null,input.limit+1,input.untagged==='true']);
       const hasMore = result.rows.length > input.limit, rows = result.rows.slice(0,input.limit), items = rows.map(view);
       const last = rows.at(-1);
       return { items, nextCursor: hasMore && last ? this.cursors.encode(p,input,{updatedAt:new Date(last.updated_at).toISOString(),id:last.id}) : null };
