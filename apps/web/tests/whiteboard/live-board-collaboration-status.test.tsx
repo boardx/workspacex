@@ -2,16 +2,17 @@ import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-libra
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import type { WhiteboardConnectionState } from "@/lib/whiteboard-provider";
 
-const harness = vi.hoisted(() => ({ state: null as ((value: WhiteboardConnectionState) => void) | null, retry: vi.fn(), close: vi.fn(), update:vi.fn(), editor:null as null|{followViewport:unknown;onManualViewportChange:()=>void} }));
+const harness = vi.hoisted(() => ({ state: null as ((value: WhiteboardConnectionState) => void) | null, retry: vi.fn(), close: vi.fn(), update:vi.fn(), confirm:vi.fn(), editor:null as null|{organizeFitRequest?:unknown;followViewport:unknown;onManualViewportChange:()=>void} }));
 vi.mock("next/navigation", () => ({ useRouter: () => ({ push: vi.fn() }), useSearchParams:()=>new URLSearchParams() }));
 vi.mock("@/components/session/session-provider", () => ({ useOptionalSession: () => ({ session: { userId: "owner-1" } }) }));
 vi.mock("@/lib/live-whiteboard", () => ({ getBoard: vi.fn(async () => ({ id: "00000000-0000-4000-8000-000000000007", name: "协作板", ownerId: "owner-1", role: "owner", archived: false, createdAt: "2026-09-26T00:00:00.000Z", updatedAt: "2026-09-26T00:00:00.000Z" })) }));
 vi.mock("@/lib/whiteboard-provider", () => ({ WhiteboardProvider: class { constructor(_doc: unknown, _id: string, callback: (value: WhiteboardConnectionState) => void) { harness.state = callback; } awareness() {} retryNow = harness.retry; close = harness.close; } }));
-vi.mock("@/components/whiteboard/collaborative-editor", () => ({ CollaborativeEditor: (props: { status:string;followViewport:unknown;onManualViewportChange:()=>void }) => {harness.editor=props;return <div data-testid="editor-status">{props.status}</div>;} }));
-vi.mock("@/components/whiteboard/board-organize-controls",()=>({BoardOrganizeControls:()=>null}));
+vi.mock("@/components/whiteboard/collaborative-editor", () => ({ CollaborativeEditor: (props: { dockExtension?:React.ReactNode;status:string;organizeFitRequest?:unknown;followViewport:unknown;onManualViewportChange:()=>void }) => {harness.editor=props;return <div data-testid="editor-status">{props.status}{props.dockExtension}</div>;} }));
+vi.mock("@/components/whiteboard/board-organize-controls",()=>({BoardOrganizeControls:({onProposal}:{onProposal:(value:unknown)=>void})=><button onClick={()=>onProposal({proposalId:'local-proposal'})}>Generate test proposal</button>}));
 vi.mock("@/components/whiteboard/board-presentation-controls",()=>({BoardPresentationControls:()=>null}));
-vi.mock("@/lib/whiteboard-operation-client",()=>({readPresentation:vi.fn(async()=>({revision:3,presenterId:'presenter',followers:['owner-1'],viewport:{x:300,y:200,zoom:2}})),updatePresentation:(...args:unknown[])=>harness.update(...args),readAIProposal:vi.fn(),joinBoardRoom:vi.fn(),recordBoardUndoReceipt:vi.fn(),confirmAIProposal:vi.fn(),cancelAIProposal:vi.fn()}));
+vi.mock("@/lib/whiteboard-operation-client",()=>({readPresentation:vi.fn(async()=>({revision:3,presenterId:'presenter',followers:['owner-1'],viewport:{x:300,y:200,zoom:2}})),updatePresentation:(...args:unknown[])=>harness.update(...args),readAIProposal:vi.fn(),joinBoardRoom:vi.fn(),recordBoardUndoReceipt:vi.fn(),confirmAIProposal:(...args:unknown[])=>harness.confirm(...args),cancelAIProposal:vi.fn()}));
 
+vi.mock("@/components/whiteboard/board-ai-proposal-panel",()=>({BoardAIProposalPanel:({onConfirm}:{onConfirm:()=>void})=><button onClick={onConfirm}>Confirm test proposal</button>}));
 import { LiveBoard } from "@/components/whiteboard/live-board";
 const online: WhiteboardConnectionState = { phase: "online", pending: 0, role: "owner", archived: false, peers: [], reason: null, epoch:1, retryAttempt: 0, duplicateAcks: 0, lastAckSequence: 12, lastAckReceipt:null };
 
@@ -36,4 +37,15 @@ it('manual navigation suppresses followed viewport immediately and sends authori
  act(()=>harness.editor?.onManualViewportChange());
  expect(harness.editor?.followViewport).toBeNull();
  await waitFor(()=>expect(harness.update).toHaveBeenCalledWith('00000000-0000-4000-8000-000000000007','default',{type:'leave-follow',actorId:'owner-1',expectedRevision:3},null));
+});
+
+it('only schedules local viewport fit after successful confirmation, never when preview arrives',async()=>{
+ harness.confirm.mockResolvedValue({undoReceipt:{expectedRevision:{epoch:1,seq:13}}});
+ render(<LiveBoard boardId="00000000-0000-4000-8000-000000000007"/>);
+ await screen.findByText('Generate test proposal');
+ expect(harness.editor?.organizeFitRequest).toBeNull();
+ fireEvent.click(screen.getByText('Generate test proposal'));
+ expect(harness.editor?.organizeFitRequest).toBeNull();
+ fireEvent.click(screen.getByText('Confirm test proposal'));
+ await waitFor(()=>expect(harness.editor?.organizeFitRequest).toEqual({id:expect.any(String),proposal:{proposalId:'local-proposal'}}));
 });

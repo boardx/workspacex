@@ -18,6 +18,7 @@ export type BoardCreationTool =
   | null;
 
 interface BoardBottomDockProps {
+  extension?: React.ReactNode;
   activeTool: BoardFabricTool;
   creationTool: BoardCreationTool;
   readOnly: boolean;
@@ -52,7 +53,7 @@ const SHAPES: Array<{ variant: BoardShapeVariant; label: string }> = [
 const DRAW_TOOLS: Array<{ tool: BoardDrawingTool | "eraser"; label: string }> = [{ tool: "pen", label: "画笔" }, { tool: "marker", label: "马克笔" }, { tool: "highlighter", label: "荧光笔" }, { tool: "eraser", label: "橡皮擦" }];
 const MORE: Array<{ contentType: BoardStructuredKind; label: string }> = [{ contentType: "tile", label: "信息卡片" }, { contentType: "web-tile", label: "网页卡片" }, { contentType: "table", label: "表格" }, { contentType: "icon", label: "图标" }, { contentType: "template", label: "模板" }];
 
-export function BoardBottomDock({ activeTool, creationTool, readOnly, onToolChange, onCreationToolChange, onQuickCreate, onBulkSticky, onImageRequest }: BoardBottomDockProps) {
+export function BoardBottomDock({ extension, activeTool, creationTool, readOnly, onToolChange, onCreationToolChange, onQuickCreate, onBulkSticky, onImageRequest }: BoardBottomDockProps) {
   const dockRef = useRef<HTMLElement>(null);
   useEffect(() => { const closeOutside = (event: PointerEvent) => { if (!dockRef.current?.contains(event.target as Node)) setPickerOpen(false); }; window.addEventListener("pointerdown", closeOutside); return () => window.removeEventListener("pointerdown", closeOutside); }, []);
   const [pickerOpen, setPickerOpen] = useState(false);
@@ -116,6 +117,7 @@ export function BoardBottomDock({ activeTool, creationTool, readOnly, onToolChan
         <DockButton testId="board-add-image" label="图片" shortcut="I" pressed={false} disabled={readOnly} onClick={onImageRequest}><ImagePlus className="h-5 w-5" /></DockButton>
         <DockButton testId="board-add-more" label="更多" shortcut="" pressed={contentOpen} disabled={readOnly} onClick={() => { setPickerOpen(true); const next = { kind: "content", contentType: contentOpen ? creationTool.contentType : "tile" } as const; onToolChange("select"); onCreationToolChange(next); }}><span className="relative"><LayoutTemplate className="h-5 w-5" /><ChevronUp className="absolute -right-2 -top-2 h-3 w-3" /></span></DockButton>
         <DockButton testId="board-add-panel" label="区域" shortcut="F" pressed={panelOpen} disabled={readOnly} onClick={() => { setPickerOpen(true); const next = { kind: "panel", mode: panelOpen ? creationTool.mode : "freeform" } as const; onToolChange("select"); onCreationToolChange(next); onQuickCreate(next); }}><Frame className="h-5 w-5" /></DockButton>
+        {extension}
       </div>
     </nav>
   );
