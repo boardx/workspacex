@@ -86,6 +86,12 @@ async function getParsed<T>(
 
 const seg = (v: string): string => encodeURIComponent(v);
 
+/** 项目中枢 R8：项目大脑（项目记忆 L2）。非成员 403 `KG_NOT_VISIBLE`。 */
+export type ProjectKnowledge = z.infer<typeof knowledgeGraph.getProjectKnowledge.out>;
+export function fetchProjectKnowledge(projectId: string, signal?: AbortSignal): Promise<ProjectKnowledge> {
+  return getParsed(`/knowledge-graph/projects/${seg(projectId)}`, knowledgeGraph.getProjectKnowledge.out, signal);
+}
+
 export function fetchThreadKnowledge(threadId: string, signal?: AbortSignal): Promise<ThreadKnowledge> {
   return getParsed(`/knowledge-graph/threads/${seg(threadId)}`, knowledgeGraph.getThreadKnowledge.out, signal);
 }

@@ -179,6 +179,11 @@ export interface KnowledgeReadPort {
    */
   personalKnowledge(orgId: OrgId, userId: string): Promise<Guarded<PersonalKnowledgeData>>;
   /**
+   * 项目中枢 R8：项目记忆（L2）的活结论 / 实体 / 边。guard ref 是项目本身（`project:<projectId>`）；
+   * 调用方交出「查看者是项目成员」的判定（`authorize read.published`）才拿得到。
+   */
+  projectKnowledge(orgId: OrgId, userId: string, projectId: string): Promise<Guarded<ProjectKnowledgeData>>;
+  /**
    * 大脑页：本人创建的、有活结论的会话（候选，最近活动倒序，从第 `offset` 个起最多 `limit` 个）。
    * 分页是为了让调用方在可见性过滤**之后**凑够上限。
    * `threadId` 是路由事实（同 `claimRoute`）；计数按该会话的 guard ref 包好——调用方逐个判会话可见性后才拿得到。
@@ -193,6 +198,7 @@ export interface KnowledgeReadPort {
 }
 
 export type PersonalKnowledgeData = Omit<z.infer<typeof KG.knowledgeGraph.getPersonalKnowledge.out>, "scope">;
+export type ProjectKnowledgeData = Omit<z.infer<typeof KG.knowledgeGraph.getProjectKnowledge.out>, "scope">;
 
 /** 一个会话的知识计数（标题等展示字段在判定通过后另取）。 */
 export interface ThreadKnowledgeCounts {
