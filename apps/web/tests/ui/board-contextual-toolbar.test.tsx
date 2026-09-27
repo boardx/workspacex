@@ -1,9 +1,11 @@
 import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import { afterEach, expect, it, vi } from "vitest";
-import { createWhiteboardDocument, executeCommands, type WhiteboardObject } from "@repo/whiteboard-core";
+import { createRef } from "react";
+import { createWhiteboardDocument, executeCommands, readObjects, type WhiteboardObject } from "@repo/whiteboard-core";
 import { ObjectContextToolbar } from "@/components/whiteboard/object-context-toolbar";
 import { CollaborativeThinkingEditor } from "@/components/whiteboard/collaborative-thinking-editor";
 import { BoardSelectedObjectPanel } from "@/components/whiteboard/board-selected-object-panel";
+import { BoardContentObjectInspector } from "@/components/whiteboard/board-content-object-inspector";
 import type { BoardFabricObject } from "@/components/whiteboard/fabric/board-fabric-object";
 
 vi.mock("@/components/whiteboard/fabric/board-fabric-surface", () => ({
@@ -72,6 +74,26 @@ it("provides adjustable inspector size, compact geometry disclosure and grouped 
   expect(onGeometryChange).toHaveBeenCalledWith(expect.objectContaining({ x: 88, y: 80, width: 180, height: 180, rotation: 0 }));
 });
 
+it("limits the adjustable inspector to the editor container on a narrow viewport", () => {
+  const bounds = vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockImplementation(function (this: HTMLElement) {
+    if (this.dataset.testid === "collaborative-editor") return { x: 0, y: 0, left: 0, top: 0, right: 480, bottom: 600, width: 480, height: 600, toJSON: () => ({}) } as DOMRect;
+    return { x: 0, y: 0, left: 0, top: 0, right: 0, bottom: 0, width: 0, height: 0, toJSON: () => ({}) } as DOMRect;
+  });
+  render(<section data-testid="collaborative-editor"><BoardSelectedObjectPanel object={sticky} title="Idea" typeLabel="便利贴" readOnly={false} onClose={vi.fn()} onGeometryChange={vi.fn()} panelRef={createRef<HTMLElement>()}><div>properties</div></BoardSelectedObjectPanel></section>);
+  fireEvent.click(screen.getByTestId("board-inspector-expand"));
+  expect(screen.getByTestId("board-inspector-resize")).toHaveAttribute("aria-valuemax", "448");
+  const height = screen.getByTestId("board-inspector-resize-height");
+  expect(height).toHaveAttribute("aria-valuemax", "480");
+  height.setPointerCapture = vi.fn();
+  fireEvent.pointerDown(height, { pointerId: 3, clientX: 100, clientY: 100 });
+  fireEvent.pointerMove(height, { pointerId: 3, clientX: 100, clientY: 140 });
+  fireEvent.pointerUp(height, { pointerId: 3, clientX: 100, clientY: 140 });
+  expect(height).toHaveAttribute("aria-valuenow", "440");
+  fireEvent.keyDown(height, { key: "ArrowDown" });
+  expect(height).toHaveAttribute("aria-valuenow", "416");
+  bounds.mockRestore();
+});
+
 it("groups the selected widget's frequent actions separately from detailed properties", () => {
   render(<ObjectContextToolbar object={sticky} readOnly={false} actorId="me" onStickyChange={vi.fn()} onTextChange={vi.fn()} onExperienceChange={vi.fn()} onGeometryChange={vi.fn()} onClose={vi.fn()} onFutureAction={vi.fn()} onDuplicate={vi.fn()} onDelete={vi.fn()} />);
   expect(screen.getByTestId("board-object-quick-actions")).toHaveAccessibleName("对象快捷操作");
@@ -83,6 +105,25 @@ it("groups the selected widget's frequent actions separately from detailed prope
   expect(screen.getByTestId("board-inspector-geometry")).not.toHaveAttribute("open");
   fireEvent.click(screen.getByTestId("board-widget-advanced-format").querySelector("summary")!);
   expect(screen.getByLabelText("便利贴尺寸模式")).toBeVisible();
+});
+
+it("offers direct S/M/L sticky sizing through the object's geometry operation", () => {
+  const onGeometryChange = vi.fn();
+  render(<ObjectContextToolbar object={sticky} readOnly={false} actorId="me" onStickyChange={vi.fn()} onTextChange={vi.fn()} onExperienceChange={vi.fn()} onGeometryChange={onGeometryChange} onClose={vi.fn()} onFutureAction={vi.fn()} />);
+  fireEvent.click(screen.getByTestId("board-inspector-expand"));
+  expect(screen.getByTestId("board-sticky-size-presets")).toBeVisible();
+  fireEvent.click(screen.getByTestId("sticky-size-l"));
+  expect(onGeometryChange).toHaveBeenCalledWith({ ...sticky.geometry, width: 240, height: 200 });
+});
+
+it("exposes type-specific shape appearance controls and updates canonical shape content", () => {
+  const shape: WhiteboardObject = { ...sticky, id: "content-shape", kind: "rectangle" };
+  const content = { version: 1, type: "shape", variant: "rounded-rectangle", fill: "#FFFFFF", borderColor: "#111111", borderWidth: 2, borderStyle: "solid", opacity: 1, radius: 16, textColor: "#111111", horizontalAlign: "center", verticalAlign: "middle" } as const;
+  const onChange = vi.fn();
+  render(<BoardContentObjectInspector object={shape} content={content} readOnly={false} onChange={onChange} onReplaceImage={vi.fn()} onEditText={vi.fn()} onEditStructured={vi.fn()} onDuplicate={vi.fn()} onDelete={vi.fn()} />);
+  expect(screen.getByTestId("board-shape-properties")).toBeVisible();
+  fireEvent.change(screen.getByRole("slider", { name: "形状透明度" }), { target: { value: "0.6" } });
+  expect(onChange).toHaveBeenCalledWith({ ...content, opacity: 0.6 });
 });
 
 it("exposes the selected Text's common formatting and object actions before detailed controls", () => {
@@ -140,8 +181,22 @@ it("keeps the image edit menu as the single floating inspector for selected imag
   expect(panel).toHaveAttribute("aria-label", "图片快捷工具");
   expect(panel.style.left).toMatch(/px$/);
   fireEvent.click(screen.getByTestId("board-inspector-expand"));
-  fireEvent.click(screen.getByTestId("board-inspector-appearance"));
-  expect(screen.getByRole("button", { name: "裁剪" })).toBeVisible();
+  expect(screen.getByTestId("board-image-properties")).toBeVisible();
+  expect(screen.getByRole("slider", { name: "图片裁剪宽度" })).toBeVisible();
+  doc.destroy();
+});
+
+it("offers Frame size presets while keeping title and layout controls in the same inspector", () => {
+  const doc = createWhiteboardDocument();
+  const frame: WhiteboardObject = { ...sticky, id: "frame", kind: "frame", text: "Workshop", extensionData: { spatial: { version: 1, mode: "freeform", autoExpand: true, clipContent: false, padding: 24, gap: 24, columns: 3, flowDirection: "horizontal" } } };
+  executeCommands(doc, [{ type: "create", object: frame }], "seed");
+  render(<CollaborativeThinkingEditor boardId="board" clientId="web" doc={doc} readOnly={false} title="Board" status="已连接" />);
+  fireEvent.click(screen.getByTestId("select-one"));
+  fireEvent.click(screen.getByTestId("board-inspector-expand"));
+  expect(screen.getByTestId("board-frame-size-presets")).toBeVisible();
+  expect(screen.getByLabelText("区域标题")).toHaveValue("Workshop");
+  fireEvent.click(screen.getByTestId("frame-size-l"));
+  expect(readObjects(doc).find((object) => object.id === "frame")?.geometry).toMatchObject({ width: 1280, height: 800 });
   doc.destroy();
 });
 
