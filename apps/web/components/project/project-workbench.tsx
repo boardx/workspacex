@@ -10,12 +10,13 @@ import { UI_STATES, UI_STATE_LABEL, type UiState } from "@/lib/ui-state";
 import type { Identity } from "@/lib/identity";
 import {
   TAB_DEFS, TAB_LABEL, SUB_NAV, ROLE_SCOPE_NOTE, ROLE_CAN_WRITE, ROLE_STAGE_CONTROL,
-  ROLE_BADGE_TONE, PROJECT_HEADER, PROJECT_ROLE_LABEL, PROJECT_ROLES, PROJECT_TABS,
-  ORG_DISABLED_BANNER, type ProjectTab, type ProjectRole,
-} from "@/lib/mock/project";
+  ROLE_BADGE_TONE, PROJECT_ROLE_LABEL, PROJECT_ROLES, PROJECT_TABS,
+  orgDisabledBanner, type ProjectTab, type ProjectRole,
+} from "@/lib/project-workbench";
 import { getStoredSessionToken, ApiError } from "@/lib/api-client";
 import {
   findProject, getProjectOverview, listAgendaSegments,
+  PROJECT_KIND_LABEL, PROJECT_STATUS_LABEL,
   type ProjectListItem, type ProjectOverview, type ListAgendaSegmentsOut,
 } from "@/lib/live-projects";
 import {
@@ -77,9 +78,9 @@ export function ProjectWorkbench({
   /**
    * 真实项目标识（F317：路由从静态 `/project` 迁到 `/projects/[projectId]` 后，
    * 由页面层传入 `params.projectId`）。用于跳转「工作面」子屏（canvas/files）、
-   * 以及（F353）拉取真实项目基本信息；其余各 tab 的内容仍是单一 mock 场景
-   * （`PROJECT_HEADER` 等），**不按项目区分**——与 `canvas`/`files` 页面同型的
-   * 已知 mock 债，不在本次范围内补齐。
+   * 以及（F353）拉取真实项目基本信息。虚构的项目头（`PROJECT_HEADER`：组织名、时长、
+   * 分组数、引导师、项目经理、参与者数、AI Facilitator）已随 `lib/mock/project.ts` 删除，
+   * 页头只显示真实项目信息，拿不到就如实说明。
    */
   projectId?: string;
 }) {
@@ -398,16 +399,15 @@ export function ProjectWorkbench({
               <a href="/projects"><ChevronLeft aria-hidden className="h-3.5 w-3.5" />全部项目</a>
             </Button>
             <div className="min-w-0 flex-1">
-              <div className="text-14 font-medium" data-testid="project-title">{liveProject?.name ?? PROJECT_HEADER.name}</div>
-              <div className="mt-1 flex flex-wrap items-center gap-2">
-                <span className="text-11 text-muted-foreground">
-                  {PROJECT_HEADER.org} · {PROJECT_HEADER.duration} · {PROJECT_HEADER.groupCount}
-                </span>
-                <Badge tone="outline">引导师 {PROJECT_HEADER.facilitatorName}</Badge>
-                <Badge tone="outline">项目经理 {PROJECT_HEADER.managerName}</Badge>
-                <Badge tone="outline">参与者 {PROJECT_HEADER.participantCount}</Badge>
-                <Badge tone="ai" data-testid="project-ai-facilitator">{PROJECT_HEADER.aiFacilitator}</Badge>
+              <div className="text-14 font-medium" data-testid="project-title">
+                {liveProject?.name ?? (liveLoading ? "读取项目中…" : "项目信息暂不可用")}
               </div>
+              {liveProject && (
+                <div className="mt-1 flex flex-wrap items-center gap-2" data-testid="project-header-meta">
+                  <Badge tone="outline">{PROJECT_KIND_LABEL[liveProject.kind]}</Badge>
+                  <Badge tone="outline">{PROJECT_STATUS_LABEL[liveProject.status]}</Badge>
+                </div>
+              )}
             </div>
 
             {/* 视角切换器（四档）—— 预览手段，生产不可达在 page 层控制 */}
@@ -449,12 +449,6 @@ export function ProjectWorkbench({
                   ].join(" ")}
                 >
                   {t.label}
-                  {t.badge && (
-                    <span className={[
-                      "grid min-w-4 place-items-center rounded-full px-1 font-mono text-9",
-                      t.badgeTone === "danger" ? "bg-destructive/10 text-destructive" : "bg-muted text-muted-foreground",
-                    ].join(" ")}>{t.badge}</span>
-                  )}
                 </a>
               );
             })}
@@ -496,12 +490,6 @@ export function ProjectWorkbench({
                     ].join(" ")}
                   >
                     <span className="min-w-0 flex-1 truncate">{it.label}</span>
-                    {it.meta && (
-                      <span className={[
-                        "shrink-0 font-mono text-9",
-                        it.metaTone === "success" ? "text-success" : it.metaTone === "danger" ? "text-destructive" : "text-muted-foreground",
-                      ].join(" ")}>{it.meta}</span>
-                    )}
                   </a>
                 );
               })}
@@ -511,7 +499,7 @@ export function ProjectWorkbench({
           <main className="min-h-0 min-w-0 flex-1 overflow-y-auto" data-testid="project-main">
             {orgDisabled && (
               <div className="p-6 pb-0">
-                <OrgDisabledBanner {...ORG_DISABLED_BANNER} />
+                <OrgDisabledBanner {...orgDisabledBanner(null)} />
               </div>
             )}
             <StateShell
@@ -529,7 +517,7 @@ export function ProjectWorkbench({
               successMessage="已发布 · 绑定 v2，审计已留痕"
             >
               {renderTab(
-                tab, view, sub, orgDisabled, projectId ?? PROJECT_HEADER.id,
+                tab, view, sub, orgDisabled, projectId ?? "",
                 liveProject, liveLoading, liveError,
                 liveOverview, liveOverviewLoading, liveOverviewError,
                 liveSegments, liveSegmentsLoading, liveSegmentsError, refreshSegments,

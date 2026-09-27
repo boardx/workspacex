@@ -323,3 +323,19 @@ describe("M9 一排结构相同的内容卡片（一票否决）", () => {
     for (const extra of [two, mixed]) expect(scorePrototypeScreen(goodPage(extra)).parts.find((p) => p.metric === "repeatedCards")?.score).toBe(1);
   });
 });
+
+describe("M1 内容量把画布里的元素算进去（design-delta `prototype-board`）", () => {
+  it("⭐ 导航栏 + 按钮 + 一块摆了 12 张便签的画布 ⇒ 内容量满分，不被判「几乎是空的」", () => {
+    const items = Array.from({ length: 12 }, (_, i) => ({ kind: "sticky", text: `真实想法 ${String(i + 1)}`, x: 10 + (i % 4) * 25, y: 20 + Math.floor(i / 4) * 30 }));
+    const page = stack([
+      { type: "navbar", props: { title: "Q3 头脑风暴" } } as unknown as N,
+      button("添加便签", "primary"),
+      { type: "board", props: { items } } as unknown as N,
+    ]);
+    expect(scorePrototypeScreen(page).parts.find((p) => p.metric === "substance")?.score).toBe(1);
+  });
+  it("画布是空的 ⇒ 照样按节点数扣", () => {
+    const page = stack([{ type: "navbar", props: { title: "空白板" } } as unknown as N, { type: "board", props: { items: [] } } as unknown as N]);
+    expect(scorePrototypeScreen(page).parts.find((p) => p.metric === "substance")?.score).toBeLessThan(1);
+  });
+});

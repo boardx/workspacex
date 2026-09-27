@@ -91,6 +91,12 @@ function normalizeNode(node: unknown, fixes: string[], path: string): unknown {
     for (const [k, v] of Object.entries(props)) {
       if (v === "") { delete props[k]; fixes.push(`${path}: 删掉空串 ${type}.${k}`); }
     }
+    // 只有图标没有字的按钮（白板 / 编辑器工具栏的常见写法）：用图标的中文名补上文字——图标是闭集、含义确定。
+    if (type === "button" && (props.label === undefined || props.label === "") && typeof props.icon === "string") {
+      const parsed = designPrototype.PrototypeIcon.safeParse(props.icon);
+      // 名字取契约里图标的中文名（属性面板选图标时显示的同一张表，单一事实源）。
+      if (parsed.success) { props.label = designPrototype.prototypeOptionLabel("button", "icon", parsed.data); fixes.push(`${path}: 纯图标按钮补文字「${String(props.label)}」`); }
+    }
     if (type === "radio" && typeof props.selected === "string" && Array.isArray(props.options)) {
       const idx = props.options.indexOf(props.selected);
       if (idx !== -1) { props.selected = idx; fixes.push(`${path}: radio.selected 文字 → 序号 ${idx}`); }

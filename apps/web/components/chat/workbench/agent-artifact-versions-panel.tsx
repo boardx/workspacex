@@ -16,8 +16,13 @@ export interface AgentArtifactVersionsPanelProps {
   readonly refreshKey?: string | number;
   readonly canEdit?: boolean;
   readonly onRunStarted?: (runId: string) => void;
+  /** 嵌进「产物」页签的统一外壳时为 true：标题、刷新、空态由外壳统一画（见
+   * `ChatArtifactsPanel` 的 `versions`），这里只画成果本身；没有成果时什么都不画。 */
+  readonly embedded?: boolean;
+  /** 成果条数；`null` = 还在读或读失败，外壳据此决定是否下"没有产物"的结论。 */
+  readonly onCountChange?: (count: number | null) => void;
 }
-export function AgentArtifactVersionsPanel({threadId,projectId,sessionToken,refreshKey,onRunStarted,canEdit=false}:AgentArtifactVersionsPanelProps) {
+export function AgentArtifactVersionsPanel({threadId,projectId,sessionToken,refreshKey,onRunStarted,canEdit=false,embedded=false,onCountChange}:AgentArtifactVersionsPanelProps) {
   const [artifacts,setArtifacts]=React.useState<AgentArtifact[]>([]);
   const [loadedThreadId,setLoadedThreadId]=React.useState<string|null>(null);
   const inputId=React.useId();
@@ -32,6 +37,9 @@ export function AgentArtifactVersionsPanel({threadId,projectId,sessionToken,refr
   const latestOnRunStarted=React.useRef(onRunStarted);latestOnRunStarted.current=onRunStarted;
   const artifact=loadedThreadId===threadId?(artifacts.find(item=>item.artifactId===artifactId)??artifacts[0]):undefined;
   const selected=artifact?.versions.find(item=>item.version===version)??artifact?.versions.at(-1);
+  const latestOnCountChange=React.useRef(onCountChange);latestOnCountChange.current=onCountChange;
+  const count=loading||error||loadedThreadId!==threadId?null:artifacts.length;
+  React.useEffect(()=>{latestOnCountChange.current?.(count);},[count]);
 
   React.useEffect(()=>{setArtifacts([]);setLoadedThreadId(null);setArtifactId("");setVersion(null);setInstruction("");setActiveRun(null);setRunNotice("");setSubmitting(false);requestRef.current=null;},[threadId]);
   React.useEffect(()=>{
@@ -72,12 +80,13 @@ export function AgentArtifactVersionsPanel({threadId,projectId,sessionToken,refr
     }catch{if(currentThread.current===submittedThread)setError("修改请求未确认，请重试。重试不会重复创建任务。");}
     finally{if(currentThread.current===submittedThread)setSubmitting(false);}
   }
+  if(embedded&&!loading&&!error&&!artifacts.length&&!runNotice)return null;
   return <section className="min-w-0 space-y-3" aria-label="成果与版本" data-testid="agent-artifact-versions-panel">
-    <div className="flex items-center justify-between gap-2"><h3 className="text-13 font-medium">成果与版本</h3>
-      <Button variant="ghost" size="sm" aria-label="刷新成果与修改进度" onClick={()=>setReload(v=>v+1)}><RefreshCw className="h-4 w-4"/></Button></div>
-    {loading&&<p role="status" data-testid="loading" className="flex items-center gap-2 text-13 text-muted-foreground"><Loader2 className="h-4 w-4 animate-spin"/>正在读取成果…</p>}
+    {!embedded&&<div className="flex items-center justify-between gap-2"><h3 className="text-13 font-medium">成果与版本</h3>
+      <Button variant="ghost" size="sm" aria-label="刷新成果与修改进度" onClick={()=>setReload(v=>v+1)}><RefreshCw className="h-4 w-4"/></Button></div>}
+    {loading&&!embedded&&<p role="status" data-testid="loading" className="flex items-center gap-2 text-13 text-muted-foreground"><Loader2 className="h-4 w-4 animate-spin"/>正在读取成果…</p>}
     {error&&<div role="alert" data-testid="err-artifacts" className="rounded-container border border-border p-3 text-13">{error}<Button variant="ghost" size="sm" onClick={()=>setReload(v=>v+1)}>刷新</Button></div>}
-    {!loading&&!artifacts.length&&!error&&<p data-testid="empty" className="rounded-container border border-dashed border-border p-4 text-13 text-muted-foreground">任务生成的文件会显示在这里，可查看历史版本并继续修改。</p>}
+    {!embedded&&!loading&&!artifacts.length&&!error&&<p data-testid="empty" className="rounded-container border border-dashed border-border p-4 text-13 text-muted-foreground">任务生成的文件会显示在这里，可查看历史版本并继续修改。</p>}
     {artifact&&selected&&<>
       <Select data-testid="artifact-picker" options={artifacts.map(item=>({value:item.artifactId,label:item.name}))} value={artifact.artifactId}
         onValueChange={id=>{setArtifactId(id);setVersion(null);}}/>

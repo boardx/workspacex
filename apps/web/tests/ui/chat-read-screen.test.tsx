@@ -487,7 +487,7 @@ describe("formal Chat read path", () => {
     listThreadArtifacts.mockResolvedValue({ items: [] });
     render(<ChatReadScreen projectId="project-real" initialThreadId="thread-real" />);
 
-    expect(await screen.findByTestId("chat-artifacts-empty")).toHaveTextContent("还没有落地的产物");
+    expect(await screen.findByTestId("chat-artifacts-empty")).toHaveTextContent("这条对话还没有产物");
   });
 
   /**
