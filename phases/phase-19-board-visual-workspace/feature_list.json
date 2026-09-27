@@ -628,8 +628,8 @@
       "wave": 9,
       "design_ref": "",
       "verification": [
-        "pnpm --filter api exec vitest run tests/whiteboard/blob-pointer-atomicity.test.ts tests/whiteboard/blob-retention-gc.test.ts tests/whiteboard/blob-backup-restore.test.ts",
-        "pnpm --filter api exec vitest run tests/whiteboard/pgsql-metadata-only-growth.test.ts"
+        "pnpm exec tsx .harness/scripts/with-test-isolation.ts -- pnpm --filter api exec vitest run tests/whiteboard/blob-pointer-atomicity.test.ts tests/whiteboard/blob-retention-gc.test.ts tests/whiteboard/blob-backup-restore.test.ts",
+        "pnpm exec tsx .harness/scripts/with-test-isolation.ts -- pnpm --filter api exec vitest run tests/whiteboard/pgsql-metadata-only-growth.test.ts"
       ],
       "evidence": "",
       "notes": "Iteration 9 / integration。共享热点 Board blob repository、filesystem/S3 backend、PG metadata schema、GC/backup jobs；Fabric JSON 永不落盘。"
@@ -654,7 +654,7 @@
       "wave": 9,
       "design_ref": "ui-preview/board-fabric-surface/s01-fabric-board.png",
       "verification": [
-        "pnpm --filter api exec vitest run tests/whiteboard/miro-mural-import-conformance.test.ts tests/whiteboard/import-security-boundary.test.ts",
+        "pnpm exec tsx .harness/scripts/with-test-isolation.ts -- pnpm --filter api exec vitest run tests/whiteboard/miro-mural-import-conformance.test.ts tests/whiteboard/import-security-boundary.test.ts",
         "pnpm --filter web exec playwright test -c playwright.config.ts -g 'Miro Mural import report'"
       ],
       "evidence": "",

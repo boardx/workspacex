@@ -58,11 +58,11 @@ export class FsObjectStore implements ObjectStore {
     }
   }
 
-  async head(key: string): Promise<{ sizeBytes: number; mime: string } | null> {
+  async head(key: string): Promise<{ sizeBytes: number; mime: string; versionTag:string } | null> {
     try {
       const s = await stat(this.pathFor(key));
       const mime = await readFile(`${this.pathFor(key)}.mime`, "utf8").catch(() => "application/octet-stream");
-      return { sizeBytes: s.size, mime };
+      return { sizeBytes: s.size, mime, versionTag:`${s.dev}:${s.ino}:${s.mtimeMs}:${s.size}` };
     } catch (e) {
       if ((e as NodeJS.ErrnoException).code === "ENOENT") return null;
       throw new ObjectStoreUnavailableError(`heading ${key}`);

@@ -84,7 +84,7 @@ export class OssObjectStore implements ObjectStore {
       throw unavailable();
     }
   }
-  async head(key: string): Promise<{ sizeBytes: number; mime: string } | null> {
+  async head(key: string): Promise<{ sizeBytes: number; mime: string; versionTag?:string } | null> {
     const objectKey = this.key(key);
     try {
       const { headers } = await this.client.head(objectKey);
@@ -92,7 +92,7 @@ export class OssObjectStore implements ObjectStore {
       const sizeBytes = Number(length);
       const mime = headers["content-type"];
       if (length === undefined || !/^\d+$/.test(length) || !Number.isSafeInteger(sizeBytes) || !mime) throw unavailable();
-      return { sizeBytes, mime };
+      const tag=headers.etag;return { sizeBytes, mime, versionTag:typeof tag==='string'?tag:undefined };
     } catch (error) {
       if (missing(error)) { await this.assertReady(); return null; }
       throw unavailable();

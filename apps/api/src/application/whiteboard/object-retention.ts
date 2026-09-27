@@ -1,8 +1,9 @@
 import type { ObjectStore } from '../artifact/ports';
+import type { PhysicalPurgePort } from '../files/physical-delete-ports';
 
 export type WhiteboardObjectKind = 'document' | 'update' | 'checkpoint' | 'import' | 'asset';
 export interface WhiteboardObjectRoot { key: string; kind: WhiteboardObjectKind }
-export interface WhiteboardStoredObject { key: string; lastModified: Date; sizeBytes: number }
+export interface WhiteboardStoredObject { key: string; lastModified: Date; sizeBytes: number; versionTag:string }
 
 /** Read-only inventory capability; byte deletion stays outside the application runtime. */
 export interface WhiteboardObjectInventory extends Pick<ObjectStore, 'head'> {
@@ -17,6 +18,14 @@ export interface WhiteboardObjectRetentionRepository {
   audit(orgId: string, runId: string, result: WhiteboardGcResult): Promise<void>;
 }
 export interface WhiteboardGcResult { roots: number; scanned: number; marked: number; swept: number; retained: number; candidateBytes: number }
+export interface WhiteboardPurgeClaim { objectKey:string; generation:number; sizeBytes:number; objectLastModified:Date; versionTag:string; receiptId:string }
+export interface WhiteboardObjectSweepRepository {
+  /** Locks the tombstone and rechecks every root in the same transaction. */
+  claim(orgId:string,objectKey:string,expectedLastModified:Date):Promise<WhiteboardPurgeClaim|null>;
+  confirm(orgId:string,claim:WhiteboardPurgeClaim):Promise<boolean>;
+  finish(orgId:string,claim:WhiteboardPurgeClaim,outcome:{deleted:boolean;error?:string}):Promise<void>;
+  retryable(orgId:string,limit:number):Promise<Array<{objectKey:string;objectLastModified:Date}>>;
+}
 
 /**
  * Deterministic mark/sweep. Sweep creates an audited lifecycle-policy candidate; it never
@@ -41,4 +50,20 @@ export class WhiteboardObjectGarbageCollector {
     if(reachableTombstones.length)await this.repository.unmark(orgId,reachableTombstones);
     await this.repository.audit(orgId,runId,result);return result;
   }
+}
+
+/** The only whiteboard component allowed to cross the immutable ObjectStore boundary. */
+export class WhiteboardObjectSweeper {
+  constructor(private readonly repository:WhiteboardObjectSweepRepository,private readonly objects:Pick<ObjectStore,'head'>,private readonly purge:PhysicalPurgePort){}
+  async purgeOne(orgId:string,objectKey:string,expectedLastModified:Date){
+    const claim=await this.repository.claim(orgId,objectKey,expectedLastModified);if(!claim)return{status:'rescued' as const};
+    const head=await this.objects.head(objectKey);
+    if(!head||head.versionTag!==claim.versionTag){
+      await this.repository.finish(orgId,claim,{deleted:false,error:'OBJECT_VERSION_CHANGED'});return{status:'rescued' as const};
+    }
+    if(!await this.repository.confirm(orgId,claim)){await this.repository.finish(orgId,claim,{deleted:false,error:'ROOT_OR_GENERATION_CHANGED'});return{status:'rescued' as const};}
+    try{const result=await this.purge.purgeAll([objectKey]),deleted=result[0]?.deleted===true;if(!deleted)throw new Error('OBJECT_PURGE_FAILED');await this.repository.finish(orgId,claim,{deleted:true});return{status:'deleted' as const,receiptId:claim.receiptId};}
+    catch(error){await this.repository.finish(orgId,claim,{deleted:false,error:error instanceof Error?error.message:'OBJECT_PURGE_FAILED'});return{status:'retry' as const,receiptId:claim.receiptId};}
+  }
+  async run(orgId:string,limit=100){const candidates=await this.repository.retryable(orgId,limit),outcomes=[];for(const candidate of candidates)outcomes.push(await this.purgeOne(orgId,candidate.objectKey,candidate.objectLastModified));return outcomes;}
 }

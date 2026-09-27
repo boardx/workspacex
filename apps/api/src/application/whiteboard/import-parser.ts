@@ -6,7 +6,7 @@ export class UnsafeWhiteboardImport extends Error {
   constructor(readonly code: 'UNSUPPORTED_FORMAT' | 'UNSAFE_ARCHIVE' | 'PAYLOAD_TOO_LARGE') { super(code); }
 }
 export interface ParsedImportAsset { path: string; bytes: Uint8Array; mime: 'image/jpeg' | 'image/png' | 'image/webp' | 'image/gif'; }
-export interface ParsedWhiteboardImport { items: ImportedBoardItem[]; assets: ParsedImportAsset[]; skipped: string[]; }
+export interface ParsedWhiteboardImport { items: ImportedBoardItem[]; assets: ParsedImportAsset[]; skipped: string[]; sourceIdentity:{boardId:string|null;revision:string|null}; }
 type R = Record<string, unknown>;
 type SourceContext = { sourceVersion?: string; sourceBoardId?: string };
 type ZipEntry = { name: string; flags: number; method: number; crc: number; compressedSize: number; size: number; localOffset: number; directory: boolean };
@@ -16,6 +16,8 @@ const str = (...values: unknown[]) => String(values.find(value => typeof value =
 const num = (fallback: number, ...values: unknown[]) => { const value = values.find(value => typeof value === 'number' || (typeof value === 'string' && value.trim() !== '')); const parsed = Number(value); return Number.isFinite(parsed) ? parsed : fallback; };
 const nullable = (...values: unknown[]) => { const value = str(...values); return value ? value : null; };
 const safeMetadata = (value: R): R => Object.fromEntries(Object.entries(value).filter(([key, entry]) => ['semanticRelation', 'tags', 'status', 'sourceVersion', 'sourceBoardId'].includes(key) && (typeof entry === 'string' || (Array.isArray(entry) && entry.every(v => typeof v === 'string')))).slice(0, 20));
+const identity=(items:ImportedBoardItem[])=>{const metadata=record(items[0]?.metadata),boardId=nullable(metadata.sourceBoardId),revision=nullable(metadata.sourceVersion);return{boardId,revision};};
+function jsonIdentity(bytes:Uint8Array){try{const root=record(JSON.parse(new TextDecoder('utf-8',{fatal:true}).decode(bytes))),board=record(root.board),mural=record(root.mural);return{boardId:nullable(board.id,mural.id,root.boardId),revision:nullable(root.exportVersion,root.version,root.schemaVersion)};}catch{return{boardId:null,revision:null};}}
 
 function typeOf(raw: string): ImportedBoardItem['type'] {
   const value = raw.toLowerCase().replace(/[ _-]/g, '');
@@ -130,7 +132,7 @@ async function parseZip(bytes: Uint8Array, source: WhiteboardImportSource): Prom
   const assets: ParsedImportAsset[] = [], skipped: string[] = [];
   for (const file of files.filter(file => file !== document)) { const data = extractZipEntry(bytes, file, directory.centralOffset), mime = imageMime(data); if (mime) assets.push({ path: file.name, bytes: data, mime }); else skipped.push(file.name); }
   const byPath = new Map(assets.map(asset => [asset.path, asset])); for (const item of items) if (item.assetRef) { const asset = byPath.get(item.assetRef); item.assetRef = asset?.path ?? null; item.assetMime = asset?.mime ?? null; }
-  return { items, assets, skipped };
+  return { items, assets, skipped, sourceIdentity:document.name.toLowerCase().endsWith('.json')?jsonIdentity(documentBytes):identity(items) };
 }
 export async function parseWhiteboardImport(bytes: Uint8Array, mime: 'application/json' | 'text/csv' | 'application/zip', source: WhiteboardImportSource): Promise<ParsedWhiteboardImport> {
   if (bytes.byteLength < 1 || bytes.byteLength > L.uploadBytes) throw new UnsafeWhiteboardImport('PAYLOAD_TOO_LARGE');
@@ -138,5 +140,5 @@ export async function parseWhiteboardImport(bytes: Uint8Array, mime: 'applicatio
   if (bytes.some(value => value === 0)) throw new UnsafeWhiteboardImport('UNSUPPORTED_FORMAT');
   const items = mime === 'application/json' ? parseJson(bytes, source) : parseCsv(bytes, source);
   for (const item of items) if (item.assetRef) { item.assetRef = null; item.assetMime = null; }
-  return { items, assets: [], skipped: [] };
+  return { items, assets: [], skipped: [], sourceIdentity:mime==='application/json'?jsonIdentity(bytes):identity(items) };
 }

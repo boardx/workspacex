@@ -67,7 +67,7 @@ export interface ObjectStore {
   /** Reads the bytes back. Null when the key does not exist. */
   get(key: string): Promise<Uint8Array | null>;
   /** Existence and size, without transferring the body -- what I-5 is asserted with. */
-  head(key: string): Promise<{ sizeBytes: number; mime: string } | null>;
+  head(key: string): Promise<{ sizeBytes: number; mime: string; versionTag?:string } | null>;
 }
 
 export const OBJECT_STORE = Symbol("ObjectStore");
