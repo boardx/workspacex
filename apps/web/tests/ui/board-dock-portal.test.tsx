@@ -1,0 +1,22 @@
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { expect, it, vi } from 'vitest';
+import { BoardBottomDock } from '@/components/whiteboard/board-bottom-dock';
+import { BoardOrganizeControls } from '@/components/whiteboard/board-organize-controls';
+const api=vi.hoisted(()=>({undo:vi.fn().mockResolvedValue({}),actors:vi.fn().mockResolvedValue([{actorId:'agent',model:'model',skill:'skill'}])}));
+vi.mock('@/lib/whiteboard-operation-client',()=>({boardOrganizeActors:api.actors,undoAIProposal:api.undo,organizeBoard:vi.fn()}));
+it('keeps AI options mounted through portaled touch and Escape and dispatches undo',async()=>{
+ const undone=vi.fn();
+ render(<BoardBottomDock activeTool="select" creationTool={{kind:'content',contentType:'tile'}} readOnly={false} onToolChange={vi.fn()} onCreationToolChange={vi.fn()} onQuickCreate={vi.fn()} onBulkSticky={vi.fn()} onImageRequest={vi.fn()} extension={<BoardOrganizeControls boardId="board" selectedIds={[]} readOnly={false} onProposal={vi.fn()} undo={{proposal:{proposalId:'proposal'} as never,revision:{epoch:1,seq:2}}} onUndone={undone}/>}/>);
+ fireEvent.click(screen.getByTestId('board-add-more'));
+ const trigger=screen.getByRole('button',{name:'AI 整理选项和状态'});fireEvent.click(trigger);
+ const undo=await screen.findByTestId('board-ai-undo');
+ fireEvent.pointerDown(undo,{pointerType:'touch',pointerId:1});
+ expect(screen.getByRole('dialog')).toBeVisible();
+ fireEvent.pointerUp(undo,{pointerType:'touch',pointerId:1});fireEvent.click(undo);
+ await waitFor(()=>expect(undone).toHaveBeenCalledOnce());expect(api.undo).toHaveBeenCalledOnce();
+ fireEvent.keyDown(undo,{key:'Escape'});
+ await waitFor(()=>expect(screen.queryByRole('dialog')).toBeNull());
+ expect(screen.getByTestId('board-tool-picker')).toBeVisible();
+ await waitFor(()=>expect(trigger).toHaveFocus());
+ fireEvent.pointerDown(document.body);expect(screen.queryByTestId('board-tool-picker')).toBeNull();
+});

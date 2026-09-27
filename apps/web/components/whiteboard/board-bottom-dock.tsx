@@ -53,9 +53,16 @@ const MORE: Array<{ contentType: BoardStructuredKind; label: string }> = [{ cont
 
 export function BoardBottomDock({ stickyColor=STICKY_COLOR_PRESETS.yellow,onStickyColorChange,extension, activeTool, creationTool, readOnly, onToolChange, onCreationToolChange, onQuickCreate, onBulkSticky, onImageRequest }: BoardBottomDockProps) {
   const dockRef = useRef<HTMLElement>(null);
-  useEffect(() => { const closeOutside = (event: PointerEvent) => { if (!dockRef.current?.contains(event.target as Node)) setPickerOpen(false); }; window.addEventListener("pointerdown", closeOutside); return () => window.removeEventListener("pointerdown", closeOutside); }, []);
+  // React portals retain this component ancestry even though their DOM lives
+  // outside nav. Do not unmount an extension before its portal receives a click
+  // or before Dialog restores focus after Escape.
+  const portalEvents = useRef(new WeakSet<Event>());
+  const capturePortalEvent = (event: React.SyntheticEvent<HTMLElement>) => {
+    if (!dockRef.current?.contains(event.target as Node)) portalEvents.current.add(event.nativeEvent);
+  };
+  useEffect(() => { const closeOutside = (event: PointerEvent) => { if (!portalEvents.current.has(event) && !dockRef.current?.contains(event.target as Node)) setPickerOpen(false); }; window.addEventListener("pointerdown", closeOutside); return () => window.removeEventListener("pointerdown", closeOutside); }, []);
   const [pickerOpen, setPickerOpen] = useState(false);
-  useEffect(() => { const close = (event: KeyboardEvent) => { if (event.key === "Escape") setPickerOpen(false); }; window.addEventListener("keydown", close); return () => window.removeEventListener("keydown", close); }, []);
+  useEffect(() => { const close = (event: KeyboardEvent) => { if (event.key === "Escape" && !portalEvents.current.has(event)) setPickerOpen(false); }; window.addEventListener("keydown", close); return () => window.removeEventListener("keydown", close); }, []);
   const stickyOpen = creationTool?.kind === "sticky";
   const textOpen = creationTool?.kind === "text";
   const shapeOpen = creationTool?.kind === "shape";
@@ -64,7 +71,7 @@ export function BoardBottomDock({ stickyColor=STICKY_COLOR_PRESETS.yellow,onStic
   const panelOpen = creationTool?.kind === "panel";
   const connectorOpen = creationTool?.kind === "connector";
   return (
-    <nav data-testid="board-creation-dock" data-board-chrome="dock" ref={dockRef} aria-label="白板工具" className="absolute bottom-5 left-1/2 z-30 max-w-[calc(100vw-2rem)] -translate-x-1/2">
+    <nav data-testid="board-creation-dock" data-board-chrome="dock" ref={dockRef} onPointerDownCapture={capturePortalEvent} onKeyDownCapture={capturePortalEvent} aria-label="白板工具" className="absolute bottom-5 left-1/2 z-30 max-w-[calc(100vw-2rem)] -translate-x-1/2">
       {pickerOpen && (stickyOpen || textOpen || shapeOpen || contentOpen || drawOpen || panelOpen || connectorOpen) && (
         <div data-testid="board-tool-picker" className="mb-4 flex max-h-80 min-w-64 max-w-full flex-wrap items-center justify-center gap-2 overflow-auto rounded-2xl border border-border-subtle bg-card p-2 shadow-lg motion-safe:animate-in motion-safe:slide-in-from-bottom-2 motion-safe:fade-in">
           {stickyOpen ? <BoardStickyPicker color={stickyColor} variant={creationTool.variant} readOnly={readOnly} onColorChange={value=>onStickyColorChange?.(value)} onVariantChange={variant=>onCreationToolChange({kind:"sticky",variant})} onBulk={onBulkSticky}/> : textOpen ? TEXT_PRESETS.map(({ preset, label }) => (
