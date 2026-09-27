@@ -86,6 +86,8 @@ test("用户可从模板完整走通创建、发布、答题、查看答卷和�
   await page.getByRole("button", { name: "开始回收" }).click();
   await expect(page.getByText(/正在回收 · 0 份答卷/)).toBeVisible();
   const publicUrl = await page.getByLabel("答题链接").inputValue();
+  await page.getByRole('button',{name:'生成二维码'}).click();
+  await expect(page.getByRole('img',{name:'问卷分享二维码'})).toBeVisible();
   expect(publicUrl).toMatch(/\/surveys\/[A-Za-z0-9._-]+$/);
 
   const respondentContext = await browser.newContext();
@@ -102,6 +104,11 @@ test("用户可从模板完整走通创建、发布、答题、查看答卷和�
   await expect(page.getByRole("region", { name: "答卷详情" })).toContainText(
     "季度产品复盘会",
   );
+  await page.screenshot({path:test.info().outputPath('response-workspace-desktop.png'),fullPage:true});
+  await page.setViewportSize({width:390,height:844});
+  await expect(page.getByRole('region',{name:'答卷详情'})).toContainText('季度产品复盘会');
+  await page.screenshot({path:test.info().outputPath('response-workspace-mobile.png'),fullPage:true});
+  await page.setViewportSize({width:1440,height:900});
 
   await page.getByRole("button", { name: "分析报告（可选）" }).click();
   await page.getByRole("button", { name: "生成报告" }).click();
@@ -143,4 +150,30 @@ test("用户可从模板完整走通创建、发布、答题、查看答卷和�
     has: page.getByRole("link", { name: TEMPLATE_TITLE, exact: true }),
   });
   await expect(persistedSurvey).toContainText("8 道题 · 2 份答卷 · 回收中");
+});
+
+test('空白 Markdown 问卷无需报告模板即可发布并生成默认报告',async({page,browser})=>{
+  test.setTimeout(120_000);await loginAsAdmin(page);
+  await page.goto('/studio/survey/new?step=design');
+  await page.getByLabel('问卷 Markdown',{exact:true}).fill('# 简明反馈调查\n\n## feedback [open]\n请留下建议\n');
+  await page.getByRole('button',{name:'校对并预览题目'}).click();
+  await page.getByRole('dialog').getByRole('button',{name:'应用到问卷'}).click();
+  await page.getByRole('button',{name:'保存修改'}).click();
+  await expect(page).toHaveURL(/\/studio\/survey\/[0-9a-f-]+\?step=design$/);
+  await page.getByRole('button',{name:'前往发布回收'}).click();
+  await page.getByRole('button',{name:'检查发布条件'}).click();
+  await expect(page.getByText('发布准备已完成')).toBeVisible();
+  await page.getByRole('button',{name:'开始回收'}).click();
+  const link=await page.getByLabel('答题链接').inputValue();
+  const context=await browser.newContext();const respondent=await context.newPage();await respondent.goto(link);
+  await respondent.getByRole('textbox',{name:'请留下建议'}).fill('保持流程简单');
+  await respondent.getByRole('button',{name:'提交答卷'}).click();
+  await expect(respondent.getByRole('status')).toContainText('提交成功');await context.close();
+  await page.getByRole('button',{name:'刷新',exact:true}).click();
+  await page.getByRole('button',{name:'3. 查看答卷'}).click();
+  await page.getByRole('button',{name:'查看完整答卷'}).click();
+  await expect(page.getByRole('region',{name:'答卷详情'})).toContainText('保持流程简单');
+  await page.getByRole('button',{name:'分析报告（可选）'}).click();await page.getByRole('button',{name:'生成报告',exact:true}).click();
+  await expect(page.getByTestId('survey-report-document')).toContainText('简明反馈调查分析报告');
+  await expect(page.getByLabel('报告 Markdown')).toHaveValue(/保持流程简单/);
 });

@@ -21,12 +21,14 @@ export function SurveyQuestionEditor({
   locked = false,
   overviewFirst = false,
   selectedQuestionId,
+  studioLayout = false,
 }: {
   questions: SurveyWorkflowQuestion[];
   onChange: (questions: SurveyWorkflowQuestion[]) => void;
   locked?: boolean;
   overviewFirst?: boolean;
   selectedQuestionId?: string | null;
+  studioLayout?: boolean;
 }) {
   const [id, setId] = React.useState(questions[0]?.id);
   const [picking, setPicking] = React.useState(false);
@@ -37,7 +39,7 @@ export function SurveyQuestionEditor({
     question: SurveyWorkflowQuestion;
     index: number;
   }>();
-  const [preview, setPreview] = React.useState(false);
+  const [preview, setPreview] = React.useState(studioLayout);
   const [editing, setEditing] = React.useState(!overviewFirst);
   const [previewDevice, setPreviewDevice] = React.useState<"desktop" | "tablet" | "mobile">("desktop");
   const [answers, setAnswers] = React.useState<
@@ -260,7 +262,7 @@ export function SurveyQuestionEditor({
             </div>
           )}
         </aside>
-        <section className="min-w-0 space-y-4">
+        <section aria-label="题目设置" className={`min-w-0 space-y-4 ${studioLayout && preview ? 'xl:order-3' : ''}`}>
           {locked && (
             <p className="rounded-md bg-muted p-3 text-12">
               已发布的题目已锁定，以保证答卷与题目一致。仍可调整报告模板。
@@ -490,7 +492,7 @@ export function SurveyQuestionEditor({
           )}
         </section>
         {preview && !overviewFirst && (
-          <aside aria-label="实时预览" className="min-w-0 space-y-4">
+          <aside aria-label="实时预览" className={`min-w-0 space-y-4 ${studioLayout ? 'xl:order-2' : ''}`}>
             <div className="flex gap-2">
               <Button type="button" variant={previewDevice === "desktop" ? "primary" : "outline"} aria-pressed={previewDevice === "desktop"} onClick={() => setPreviewDevice("desktop")}>
                 桌面预览

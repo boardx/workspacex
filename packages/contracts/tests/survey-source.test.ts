@@ -8,6 +8,10 @@ import {
 } from "../src/survey-source";
 
 describe("survey Markdown source compiler", () => {
+  it("preserves multiline prompts through the Markdown projection", () => {
+    const result = parseSurveyDesignMarkdown("# 调查\n\n## q1 [open]\n第一行\n第二行\n");
+    expect(result).toMatchObject({ok:true,draft:{questions:[{title:"第一行\n第二行"}]}});
+  });
   it("parses design Markdown into a title, questions, and source ranges", () => {
     const result = parseSurveyDesignMarkdown(
       "# 客户满意度\n\n## Q1 [single, required]\n您会推荐我们吗？\n- 会\n- 不会\n",

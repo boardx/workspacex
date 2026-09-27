@@ -130,7 +130,7 @@ export function parseSurveyDesignMarkdown(markdown: string): SurveySourceParseRe
       else advanced = metadata.data;
     }
     const semanticBody = fenced.body;
-    const prompt = semanticBody.find((line) => line.trim() && !line.trimStart().startsWith("-") && !line.trimStart().startsWith(">"))?.trim() ?? "";
+    const prompt = semanticBody.filter((line) => !line.trimStart().startsWith("-") && !line.trimStart().startsWith(">")).join("\n").trim();
     const options = semanticBody.filter((line) => /^-\s+\S/.test(line)).map((line) => line.replace(/^-\s+/, "").trim());
     if (!prompt) diagnostics.push({ code: "QUESTION_PROMPT_REQUIRED", message: "题目需要题干", line: i + 1, column: 1 });
     if (choiceTypes.has(type) && options.length < 2) diagnostics.push({ code: "OPTIONS_REQUIRED", message: "选择题至少需要两个选项", line: i + 1, column: 1 });

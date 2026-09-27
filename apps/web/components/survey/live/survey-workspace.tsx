@@ -30,6 +30,7 @@ import { SurveyQuestionEditor } from "./question-editor";
 import { MarkdownSurveyEditor } from "./markdown-survey-editor";
 import { downloadReportMarkdown, surveyReportMarkdown } from "../report/report-markdown";
 import { CollectionOverview } from "./collection-overview";
+import { SurveyShareCode } from "./share-code";
 import { SurveyTemplateActions } from "../library/template-actions";
 import { LiveResponseList } from "./response-list";
 import { assessPublishReadiness } from "@/lib/survey/publish-readiness";
@@ -73,6 +74,7 @@ export function LiveSurveyWorkspace({
   const [expires, setExpires] = React.useState("");
   const [markdown, setMarkdown] = React.useState("");
   const [savedMarkdown, setSavedMarkdown] = React.useState("");
+  const [markdownNeedsApply, setMarkdownNeedsApply] = React.useState(false);
   const [conflicted, setConflicted] = React.useState(false);
   const [remoteVersion, setRemoteVersion] = React.useState<SurveyRuntime | null>(null);
   const reportRef = React.useRef<HTMLDivElement>(null);
@@ -84,6 +86,7 @@ export function LiveSurveyWorkspace({
     const text = value.source?.documents.design.markdown ?? serializeSurveyDesignMarkdown(value);
     setMarkdown(text);
     setSavedMarkdown(text);
+    setMarkdownNeedsApply(false);
     setDraft({
       title: value.title,
       questions: value.questions,
@@ -220,10 +223,7 @@ export function LiveSurveyWorkspace({
     setRepairQuestionId(targetQuestionId ?? null);
     window.history.replaceState(null, "", `?step=${next}`);
   };
-  const parsedDesign = parseSurveyDesignMarkdown(markdown);
-  const projectedInSync = !!draft && parsedDesign.ok &&
-    parsedDesign.draft.title === draft.title &&
-    JSON.stringify(parsedDesign.draft.questions) === JSON.stringify(draft.questions);
+  const projectedInSync = !!draft && !markdownNeedsApply;
   return (
     <main className="min-w-0 bg-background">
       <header className="flex flex-wrap items-center gap-3 border-b border-border bg-card p-4">
@@ -276,6 +276,7 @@ export function LiveSurveyWorkspace({
           {busy ? "处理中…" : "保存修改"}
         </Button>
       </header>
+      {step === 'design' && <div className="flex justify-end border-b border-border px-5 py-3"><Button disabled={!draft || busy} onClick={() => selectStep('publish')}>前往发布回收</Button></div>}
       <nav
         aria-label="问卷工作流"
         className="flex overflow-auto border-b border-border bg-card"
@@ -339,15 +340,17 @@ export function LiveSurveyWorkspace({
       {draft && (
         <fieldset disabled={busy} className="min-w-0">
           {step === "design" && (<>
-            <MarkdownSurveyEditor value={markdown} locked={!!runtime?.publication} onChange={setMarkdown} onPreview={() => {
+            <MarkdownSurveyEditor value={markdown} locked={!!runtime?.publication} onChange={(text) => { setMarkdown(text); setMarkdownNeedsApply(true); }} onPreview={() => {
                 const result = parseSurveyDesignMarkdown(markdown);
                 if (!result.ok) { setError(result.diagnostics.map((entry) => `第 ${entry.line} 行：${entry.message}`).join("；")); return; }
                 setError(""); setDraft({ ...draft, title: result.draft.title, questions: result.draft.questions });
+                setMarkdownNeedsApply(false);
               }} />
             <fieldset disabled={!projectedInSync}>
             {!projectedInSync && <p className="px-5 text-12 text-muted-foreground">请先预览并应用 Markdown，再编辑题目或应用模板，避免覆盖未应用内容。</p>}
             <SurveyTemplateActions kind="question" draft={draft} onApply={(next) => { setDraft(next); setMarkdown(serializeSurveyDesignMarkdown(next)); }} locked={!!runtime?.publication} disabled={busy} />
             <SurveyQuestionEditor
+              studioLayout
               questions={draft.questions}
               locked={!!runtime?.publication}
               selectedQuestionId={repairQuestionId}
@@ -474,6 +477,7 @@ export function LiveSurveyWorkspace({
                     )}
                   </p>
                   <Input aria-label="答题链接" readOnly value={link} />
+                  <SurveyShareCode link={link} />
                   <div className="flex flex-wrap gap-2">
                     <Button
                       variant="outline"

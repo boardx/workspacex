@@ -6,6 +6,7 @@ import {
   timingSafeEqual,
 } from "node:crypto";
 import { survey } from "@repo/contracts";
+import { createDefaultSurveyReportTemplate } from "@repo/contracts/survey-report";
 import {
   validateSurveyQuestions,
   validateSurveyAnswer,
@@ -510,7 +511,7 @@ export class SurveyService {
       const responses = m.responses;
       if (!responses.length) throw new SurveyError("invalid_report");
       const report = survey.compileSurveyReport(
-        m.template,
+        m.template.sections.length ? m.template : createDefaultSurveyReportTemplate(m.title, m.publication?.questions ?? m.questions, responses),
         m.publication?.questions ?? m.questions,
         responses,
       );

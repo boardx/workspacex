@@ -9,6 +9,21 @@ vi.mock('next/navigation',()=>({useRouter:()=>router}));
 const runtime=(patch:Partial<SurveyRuntime>={}):SurveyRuntime=>({id:'saved-survey',title:'已保存问卷',version:4,status:'draft',anonymity:'anonymous',answerRevision:0,reportBasisAnswerRevision:null,updatedAt:'2026-09-20T10:00:00.000Z',questions:[{id:'q1',title:'真实问题',type:'single',chapterId:'general',order:1,required:true,options:['甲','乙']}],template:{id:'template',title:'模板报告',sections:[]},responses:[],publication:null,report:null,reportBasisVersion:null,reportGeneratedAt:null,...patch});
 beforeEach(()=>{request.mockReset();router.replace.mockReset();router.push.mockReset();});
 describe('live survey workspace persistence',()=>{
+ it('keeps visual editing enabled while replacing a question title',async()=>{
+  request.mockResolvedValueOnce(runtime());render(<LiveSurveyWorkspace surveyId="saved-survey"/>);
+  const title=await screen.findByLabelText('问题内容');
+  fireEvent.change(title,{target:{value:''}});
+  expect(title).toBeEnabled();
+  fireEvent.change(title,{target:{value:'新问题 '}});
+  expect(title).toBeEnabled();
+ });
+ it('shows the prototype design preview beside question settings and a clear publish action',async()=>{
+  request.mockResolvedValueOnce(runtime());render(<LiveSurveyWorkspace surveyId="saved-survey"/>);
+  expect(await screen.findByRole('complementary',{name:'实时预览'})).toBeInTheDocument();
+  expect(screen.getByRole('region',{name:'题目设置'})).toBeInTheDocument();
+  fireEvent.click(screen.getByRole('button',{name:'前往发布回收'}));
+  expect(screen.getByRole('button',{name:'检查发布条件'})).toBeInTheDocument();
+ });
  it('locks projected question edits until changed Markdown is applied',async()=>{
   request.mockResolvedValueOnce(runtime());
   render(<LiveSurveyWorkspace surveyId="saved-survey"/>);

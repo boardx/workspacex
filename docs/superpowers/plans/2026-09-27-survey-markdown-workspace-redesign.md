@@ -16,6 +16,22 @@
 
 Continue in the existing worktree `/Users/shenyangjun/.codex/worktrees/survey-workspace-home/workspacex`. Do not create another worktree. Switch branches only after accounting for all current changes. One issue / one PR; human merge only.
 
+### Stacked delivery checkpoint — 2026-09-27 evening
+
+Human instructed continuous implementation without waiting for earlier PR merges. The existing worktree is reused throughout. PRs target `main` but are stacked; merge in dependency order, manually. Actual checks are reported, never presumed successful.
+
+| Issue | PR | Delivered scope |
+| --- | --- | --- |
+| #4378 | #4415 | Markdown design, correction before application, source persistence and conflict recovery; three primary stages. |
+| #4416 | #4417 | Collection dashboard and real collection metrics/activity. |
+| #4418 | #4422 | Adjacent response list/details, excluded-sample filters and Markdown export. |
+| #4421 | #4424 | Optional report, Markdown projection/export and paper-like report display. |
+| #4423 | Pending | Default designer preview/settings, local QR generation, template-free publish/default report, integrated acceptance. |
+
+Fresh integrated seeded Playwright passed both template lifecycle and blank Markdown lifecycle again after independent review fixes (2 tests, 3m52s including cleanup). Desktop/mobile response screenshots are test artifacts. Review caught visual-editor locking on empty/space-containing titles and default report rejection for unanswered optional questions; regressions reproduce before fixes and pass afterward. All 29 survey UI files / 252 tests, 26 source/report contract tests and 15 isolated API regressions pass; API/web typechecks pass. CI on #4415/#4417 exposed two outdated publishing test fixtures/selectors; both corrected locally (7 publishing tests pass), with propagation to earlier branches still pending.
+
+Not yet delivered: real AI natural-language/PDF/voice extraction, name/tag creation dialog with persisted tags, automatic save, on-demand outline/settings drawers, draft derivation and republishing, repeat-response/success-page controls. These are remaining work, not completed widgets; no fabricated AI, settings, metadata or industry benchmarks are shown.
+
 | Order | Remaining delivery | Acceptance / current status |
 | --- | --- | --- |
 | 1 | Home navigation and cards — #4297 | Merged in PR #4383, main commit a77615305. No homepage status filter or top-right Markdown import. |
