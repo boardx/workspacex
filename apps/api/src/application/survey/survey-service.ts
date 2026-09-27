@@ -257,12 +257,17 @@ export class SurveyService {
       m.title = input.title;
       m.questions = preserveTrustedCertification(input.questions, m.questions);
       m.template = input.template;
+      const publishedDesign = m.publication ? m.source?.documents.design : undefined;
       m.source = this.sourceFromDraft(
         { ...input, questions: m.questions },
         this.now().toISOString(),
         (m.source?.compiledVersion ?? 0) + 1,
         m.source?.documents,
       );
+      if (publishedDesign) {
+        m.source.documents.design = publishedDesign;
+        m.source.contentHash = sourceContentHash(Object.values(m.source.documents));
+      }
     });
   }
   saveSource(

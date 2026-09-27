@@ -9,6 +9,15 @@ vi.mock('next/navigation',()=>({useRouter:()=>router}));
 const runtime=(patch:Partial<SurveyRuntime>={}):SurveyRuntime=>({id:'saved-survey',title:'已保存问卷',version:4,status:'draft',anonymity:'anonymous',answerRevision:0,reportBasisAnswerRevision:null,updatedAt:'2026-09-20T10:00:00.000Z',questions:[{id:'q1',title:'真实问题',type:'single',chapterId:'general',order:1,required:true,options:['甲','乙']}],template:{id:'template',title:'模板报告',sections:[]},responses:[],publication:null,report:null,reportBasisVersion:null,reportGeneratedAt:null,...patch});
 beforeEach(()=>{request.mockReset();router.replace.mockReset();router.push.mockReset();});
 describe('live survey workspace persistence',()=>{
+ it('accepts a successful published template save without a second GET',async()=>{
+  const original=runtime({publication:{token:'token',status:'collecting',version:4,expiresAt:'2026-10-20T10:00:00.000Z',questions:runtime().questions}});
+  request.mockResolvedValueOnce(original).mockResolvedValueOnce({...original,version:5,template:{...original.template,title:'更新报告'}});
+  render(<LiveSurveyWorkspace surveyId="saved-survey" initialStep="template"/>);
+  fireEvent.change(await screen.findByLabelText('报告标题'),{target:{value:'更新报告'}});
+  fireEvent.click(screen.getByRole('button',{name:'保存修改'}));
+  await screen.findByText('报告模板已保存');
+  expect(request).toHaveBeenCalledTimes(2);
+ });
  it('locks projected question edits until changed Markdown is applied',async()=>{
   request.mockResolvedValueOnce(runtime());
   render(<LiveSurveyWorkspace surveyId="saved-survey"/>);

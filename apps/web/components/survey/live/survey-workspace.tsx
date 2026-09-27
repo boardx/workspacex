@@ -166,9 +166,10 @@ export function LiveSurveyWorkspace({
       router.replace(`/studio/survey/${next.id}?step=${step}`);
     }
     if (next.publication) {
-      accept(await surveyRequest(`/surveys/${next.id}`, { method: "PUT", body: { ...parsed.data, expectedVersion: next.version } }, SurveyRuntimeSchema));
+      const persisted = await surveyRequest(`/surveys/${next.id}`, { method: "PUT", body: { ...parsed.data, expectedVersion: next.version } }, SurveyRuntimeSchema);
+      accept(persisted);
       setNotice("报告模板已保存");
-      return await surveyRequest(`/surveys/${next.id}`, {}, SurveyRuntimeSchema);
+      return persisted;
     }
     const persisted = await surveyRequest(`/surveys/${next.id}/source`, { method: "PUT", body: {
       expectedVersion: next.version,
