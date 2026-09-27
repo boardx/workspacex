@@ -179,10 +179,20 @@ test("multi-select transform, Panel clip/expand, connector preservation, and tot
   const connectorStartBeforeMove = await connector.getAttribute("data-connector-start");
   // Auto-expand moved the child beyond the initial viewport; fit the complete
   // board before a real pointer gesture so the browser can hit its interior.
+  const beforeFit = await canvasTransform(page);
   await page.getByTestId("board-zoom-fit-board").click();
-  await expect.poll(async () => Number(await page.getByTestId("board-fabric-surface").getAttribute("data-viewport-zoom"))).toBeLessThan(1);
+  await expect.poll(() => canvasTransform(page)).not.toEqual(beforeFit);
   await dragObject(page, firstSticky, 40, 30);
   await expect(connector).not.toHaveAttribute("data-connector-start", connectorStartBeforeMove!);
+  // Transparent connector bounds must pass through, but its visible stroke must
+  // still be selectable using a real pointer (not the accessibility outline).
+  const movedStart = JSON.parse((await connector.getAttribute("data-connector-start"))!) as { x: number; y: number };
+  const movedEnd = JSON.parse((await connector.getAttribute("data-connector-end"))!) as { x: number; y: number };
+  const lineViewport = await canvasTransform(page);
+  await page.mouse.click(lineViewport.box.x + lineViewport.panX + (movedStart.x + movedEnd.x) / 2 * lineViewport.zoom,
+    lineViewport.box.y + lineViewport.panY + (movedStart.y + movedEnd.y) / 2 * lineViewport.zoom);
+  await expect(connector.getByRole("button")).toHaveAttribute("aria-pressed", "true");
+  await expect(page.getByTestId("board-a11y-selection-announcement")).toHaveText("已选择 1 个对象");
   await firstSticky.getByRole("button").focus(); await page.keyboard.press("Enter");
   await openInspector(page);
   await page.getByTestId("board-delete-preserve-connectors").click();
@@ -266,7 +276,7 @@ test("copy paste sanitization", async ({ page, request }) => {
   const surfaceTransform = await canvasTransform(page);
   // The three copies overlap by 24 px. Start in the selected copy's exposed
   // right strip so Fabric cannot retarget the Alt-drag to an older copy below.
-  const dragStart = { x: surfaceTransform.box.x + surfaceTransform.panX + (selectedBefore.x + selectedBefore.width / 2 - 12) * surfaceTransform.zoom, y: surfaceTransform.box.y + surfaceTransform.panY + selectedBefore.y * surfaceTransform.zoom };
+  const dragStart = { x: surfaceTransform.box.x + surfaceTransform.panX + (selectedBefore.x + selectedBefore.width - 12) * surfaceTransform.zoom, y: surfaceTransform.box.y + surfaceTransform.panY + (selectedBefore.y + selectedBefore.height / 2) * surfaceTransform.zoom };
   await page.keyboard.down("Alt");
   await page.mouse.move(dragStart.x, dragStart.y); await page.mouse.down(); await page.mouse.move(dragStart.x + 36 * surfaceTransform.zoom, dragStart.y + 28 * surfaceTransform.zoom, { steps: 8 }); await page.mouse.up();
   await page.keyboard.up("Alt");
@@ -280,7 +290,7 @@ test("copy paste sanitization", async ({ page, request }) => {
   const altCopy = page.locator(`[data-testid="board-a11y-mirror"] li[data-object-id="${altCopyId}"]`);
   const altGeometry = await geometryOf(altCopy);
   expect(altGeometry.x).toBe(selectedBefore.x + 36);
-  expect(altGeometry.y).toBeGreaterThan(selectedBefore.y);
+  expect(altGeometry.y).toBe(selectedBefore.y + 28);
   expect({ x: altGeometry.x - selectedBefore.x, y: altGeometry.y - selectedBefore.y }).not.toEqual({ x: 24, y: 24 });
 
   await page.getByTestId("collaborative-editor").evaluate(element => {

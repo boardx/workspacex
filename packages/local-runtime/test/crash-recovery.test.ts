@@ -23,6 +23,7 @@ import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { createRequire } from "node:module";
 import { ensureDatabaseExists, startPgliteServer } from "../src/pglite-server";
+import { tsxLaunch } from "../src/node-launch";
 
 const require_ = createRequire(new URL("../../../apps/api/package.json", import.meta.url));
 const pg = require_("pg") as typeof import("pg");
@@ -34,11 +35,12 @@ const tmp = (): string => { const d = mkdtempSync(join(tmpdir(), "wsx-crash-"));
 
 /** 起写入方，等它至少提交过 `minCommits` 行，返回「已知已提交的下界」。 */
 async function writeUntil(dataDir: string, port: number, minCommits: number): Promise<{ committed: number; kill: () => void }> {
-  // 直接执行 tsx 这个可执行外壳；用 `node <tsx>` 跑它会立刻退出（它是 shell shim，不是模块）。
-  const tsx = join(HERE, "..", "..", "..", "node_modules", ".bin", "tsx");
-  const child = spawn(tsx, [
+  // 走产品同一个启动方式（node + tsx 的 JS 入口）：`.bin/tsx` 在 Windows 上是 .cmd，
+  // 不带 shell 起不来——windows-latest 上这里曾 ENOENT，写入方一行没写、90 秒超时。
+  const launch = tsxLaunch(join(HERE, "..", "..", ".."), [
     join(HERE, "fixtures", "crash-writer.mjs"), dataDir, String(port), "20",
-  ], { stdio: ["ignore", "pipe", "pipe"] });
+  ]);
+  const child = spawn(launch.command, launch.args, { stdio: ["ignore", "pipe", "pipe"], env: { ...process.env, ...launch.env } });
   let committed = 0;
   let out = "";
   await new Promise<void>((resolve, reject) => {

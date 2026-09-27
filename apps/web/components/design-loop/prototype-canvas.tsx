@@ -345,6 +345,21 @@ const ALIGN: Record<"start" | "center" | "end" | "between", string> = {
   start: "items-start justify-start", center: "items-center justify-center", end: "items-end justify-end", between: "items-center justify-between",
 };
 /**
+ * 纵向 stack 的 `align:"start"`——**意思是「靠左」，不是「块级子项缩成内容宽」**（issue #4322）。
+ *
+ * 真实生成实测：41 页里 37 页的纵向 stack 写了 `align:"start"`（设计工具里「左对齐」的习惯）。
+ * 按 `ALIGN.start` 映射成 `items-start`，flex 交叉轴不拉伸，导航栏 / 卡片 / 列表 / 输入框
+ * 全塌成内容宽，只占画板六七成，导航栏下划线只有标题那么长。而 React 导出
+ * （`lib/prototype-react-export.ts`）对 `start` 本来就不加任何对齐类——同一棵树，
+ * 导出的代码是通栏的，画布上是缩的。
+ *
+ * 所以纵向 `start` = 块级子项拉伸（同「未指定 align」），**行内性质**的子项（非通栏按钮、
+ * chip、badge、头像）贴左、保持内容宽——`button.full` 仍然有意义。横向 `start` 不变。
+ */
+const COLUMN_START = "items-stretch justify-start " +
+  "[&>[data-proto=button]]:self-start [&>[data-proto=chip]]:self-start " +
+  "[&>[data-proto=badge]]:self-start [&>[data-proto=avatar]]:self-start";
+/**
  * 文字档位 → 样式。
  *
  * ## 迭代 18：两处改动，各自有理由
@@ -695,7 +710,8 @@ function Node({ node }: { node: PrototypeNode }): React.ReactElement {
             "flex min-h-0", p.direction === "row" ? "flex-row" : "flex-col",
             sc.gap(p.gap ?? "sm"), sc.pad(p.padding ?? "none"),
             // 未指定 align：纵向拉伸子项占满宽度（手机屏里的行天然通栏），横向居中对齐。
-            p.align !== undefined ? ALIGN[p.align] : p.direction === "row" ? "items-center" : "items-stretch",
+            p.align === "start" && p.direction !== "row" ? COLUMN_START
+              : p.align !== undefined ? ALIGN[p.align] : p.direction === "row" ? "items-center" : "items-stretch",
             p.fill === true && "flex-1 overflow-y-auto",
             // 横向排布里输入框吃掉剩余宽度（消息输入区那种「输入框 + 按钮」），按钮等保持内容宽。
             p.direction === "row" && "[&>*]:min-w-0 [&>[data-proto=input]]:flex-1",
@@ -1064,7 +1080,9 @@ function StatusBar({ label }: { label: string }) {
   return (
     <div className="flex shrink-0 items-center justify-between px-5 pt-1.5 text-9 font-medium text-card-foreground/80" aria-hidden data-chrome="status">
       <span>9:41</span>
-      <span className="truncate px-2 text-card-foreground/45">{label}</span>
+      {/* 页名：比「9:41」淡一档，但不能低于 AA——45% 时浅色原型上只有 2.99（#4331 U5，普通用户评测集量出）。
+          70% ⇒ 浅色 6.8 / 深色 8.1。 */}
+      <span className="truncate px-2 text-card-foreground/70">{label}</span>
       <span className="flex items-center gap-0.5">
         <span className="inline-block h-1.5 w-2.5 rounded-sm bg-current opacity-70" />
         <span className="inline-block h-1.5 w-1.5 rounded-full bg-current opacity-70" />

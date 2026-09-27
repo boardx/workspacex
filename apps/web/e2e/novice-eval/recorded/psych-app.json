@@ -1,0 +1,944 @@
+{
+ "_provenance": "真实模型生成原样录制：qwen3.8-max，prompt「设计一个心理学 app」，代码 SHA c8e1b2644，2026-09-27。只做了补 id（服务端 ensurePrototypeIds 同款）。",
+ "brief": "设计一个心理学 app",
+ "name": "心理学 App",
+ "reply": "已为你定下心理学 App 的设计基调，并拆出从情绪记录到查看报告的主流程页面。",
+ "accent": "teal",
+ "tokens": {
+  "font": "rounded",
+  "radius": "round",
+  "density": "comfortable"
+ },
+ "frames": [
+  "今日心情",
+  "情绪日记",
+  "舒缓练习",
+  "我的报告"
+ ],
+ "prototype": [
+  {
+   "type": "stack",
+   "props": {
+    "direction": "column",
+    "gap": "none",
+    "padding": "none",
+    "align": "start",
+    "fill": true
+   },
+   "children": [
+    {
+     "type": "navbar",
+     "props": {
+      "title": "今日心情"
+     },
+     "id": "nav-0"
+    },
+    {
+     "type": "section",
+     "props": {
+      "tone": "default",
+      "padding": "lg",
+      "align": "center"
+     },
+     "children": [
+      {
+       "type": "text",
+       "props": {
+        "content": "此刻，你感觉怎么样？",
+        "variant": "title",
+        "align": "center"
+       },
+       "id": "hero-title"
+      },
+      {
+       "type": "spacer",
+       "props": {
+        "size": "sm"
+       },
+       "id": "r5"
+      },
+      {
+       "type": "text",
+       "props": {
+        "content": "选一个最贴近的情绪，完成今天的记录",
+        "variant": "body",
+        "muted": true,
+        "align": "center"
+       },
+       "id": "hero-sub"
+      }
+     ],
+     "id": "sec-hero"
+    },
+    {
+     "type": "section",
+     "props": {
+      "tone": "muted",
+      "padding": "md",
+      "align": "center"
+     },
+     "children": [
+      {
+       "type": "grid",
+       "props": {
+        "columns": 3,
+        "gap": "md"
+       },
+       "children": [
+        {
+         "type": "chip",
+         "props": {
+          "label": "平静",
+          "selected": false
+         },
+         "id": "chip-calm"
+        },
+        {
+         "type": "chip",
+         "props": {
+          "label": "开心",
+          "selected": false
+         },
+         "id": "chip-happy"
+        },
+        {
+         "type": "chip",
+         "props": {
+          "label": "焦虑",
+          "selected": false
+         },
+         "id": "chip-anxious"
+        },
+        {
+         "type": "chip",
+         "props": {
+          "label": "低落",
+          "selected": false
+         },
+         "id": "chip-sad"
+        },
+        {
+         "type": "chip",
+         "props": {
+          "label": "疲惫",
+          "selected": false
+         },
+         "id": "chip-tired"
+        },
+        {
+         "type": "chip",
+         "props": {
+          "label": "愤怒",
+          "selected": false
+         },
+         "id": "chip-angry"
+        }
+       ],
+       "id": "mood-grid"
+      }
+     ],
+     "id": "sec-mood"
+    },
+    {
+     "type": "spacer",
+     "props": {
+      "size": "md"
+     },
+     "id": "r15"
+    },
+    {
+     "type": "stack",
+     "props": {
+      "direction": "column",
+      "gap": "sm",
+      "padding": "md",
+      "align": "center",
+      "fill": true
+     },
+     "children": [
+      {
+       "type": "button",
+       "props": {
+        "label": "记录今天的心情",
+        "variant": "primary",
+        "full": true,
+        "size": "lg",
+        "radius": "full"
+       },
+       "id": "btn-record"
+      },
+      {
+       "type": "button",
+       "props": {
+        "label": "做一次呼吸练习",
+        "variant": "ghost",
+        "full": true,
+        "size": "md",
+        "radius": "full"
+       },
+       "id": "btn-breathe"
+      },
+      {
+       "type": "spacer",
+       "props": {
+        "size": "sm"
+       },
+       "id": "r19"
+      },
+      {
+       "type": "card",
+       "props": {
+        "radius": "md",
+        "padding": "md"
+       },
+       "children": [
+        {
+         "type": "text",
+         "props": {
+          "content": "连续记录 5 天",
+          "variant": "subtitle"
+         },
+         "id": "streak-title"
+        },
+        {
+         "type": "text",
+         "props": {
+          "content": "再坚持两天就能看到情绪变化趋势了",
+          "variant": "caption",
+          "muted": true
+         },
+         "id": "streak-desc"
+        }
+       ],
+       "id": "streak-card"
+      }
+     ],
+     "id": "sec-actions"
+    },
+    {
+     "type": "bottomnav",
+     "props": {
+      "items": [
+       "今日心情",
+       "情绪日记",
+       "舒缓练习",
+       "我的报告"
+      ],
+      "icons": [
+       "home",
+       "bookmark",
+       "play",
+       "chart"
+      ],
+      "active": 0
+     },
+     "id": "bnav-0"
+    }
+   ],
+   "id": "r1"
+  },
+  {
+   "type": "stack",
+   "props": {
+    "direction": "column",
+    "gap": "md",
+    "padding": "none",
+    "align": "start",
+    "fill": true
+   },
+   "children": [
+    {
+     "type": "navbar",
+     "props": {
+      "title": "记录此刻",
+      "left": "back"
+     },
+     "id": "nav-diary"
+    },
+    {
+     "type": "stack",
+     "props": {
+      "direction": "column",
+      "gap": "sm",
+      "padding": "lg",
+      "align": "start",
+      "fill": true
+     },
+     "children": [
+      {
+       "type": "card",
+       "props": {
+        "radius": "lg",
+        "padding": "md"
+       },
+       "id": "mood-card",
+       "children": [
+        {
+         "type": "stack",
+         "props": {
+          "direction": "row",
+          "gap": "sm",
+          "padding": "none",
+          "align": "center",
+          "fill": false
+         },
+         "children": [
+          {
+           "type": "text",
+           "props": {
+            "content": "😔",
+            "variant": "title",
+            "align": "start"
+           },
+           "id": "mood-emoji"
+          },
+          {
+           "type": "stack",
+           "props": {
+            "direction": "column",
+            "gap": "none",
+            "padding": "none",
+            "align": "start",
+            "fill": true
+           },
+           "children": [
+            {
+             "type": "text",
+             "props": {
+              "content": "有些低落",
+              "variant": "subtitle",
+              "align": "start"
+             },
+             "id": "mood-label"
+            },
+            {
+             "type": "text",
+             "props": {
+              "content": "今天 14:32 记录",
+              "variant": "caption",
+              "muted": true,
+              "align": "start"
+             },
+             "id": "mood-time"
+            }
+           ],
+           "id": "r30"
+          }
+         ],
+         "id": "r28"
+        }
+       ]
+      },
+      {
+       "type": "spacer",
+       "props": {
+        "size": "sm"
+       },
+       "id": "sp1"
+      },
+      {
+       "type": "text",
+       "props": {
+        "content": "发生了什么让你有这种感觉？",
+        "variant": "body",
+        "align": "start"
+       },
+       "id": "prompt-text"
+      },
+      {
+       "type": "input",
+       "props": {
+        "placeholder": "写下来，或者只是几个词也好",
+        "multiline": true
+       },
+       "id": "diary-input"
+      },
+      {
+       "type": "spacer",
+       "props": {
+        "size": "sm"
+       },
+       "id": "sp2"
+      },
+      {
+       "type": "text",
+       "props": {
+        "content": "常见的触发场景",
+        "variant": "label",
+        "muted": true,
+        "align": "start"
+       },
+       "id": "trigger-label"
+      },
+      {
+       "type": "stack",
+       "props": {
+        "direction": "row",
+        "gap": "sm",
+        "padding": "none",
+        "align": "start",
+        "fill": false
+       },
+       "id": "chips-row",
+       "children": [
+        {
+         "type": "chip",
+         "props": {
+          "label": "工作压力",
+          "selected": false
+         },
+         "id": "chip-work"
+        },
+        {
+         "type": "chip",
+         "props": {
+          "label": "人际关系",
+          "selected": false
+         },
+         "id": "chip-rel"
+        },
+        {
+         "type": "chip",
+         "props": {
+          "label": "睡眠不足",
+          "selected": false
+         },
+         "id": "chip-sleep"
+        },
+        {
+         "type": "chip",
+         "props": {
+          "label": "没有原因",
+          "selected": false
+         },
+         "id": "chip-none"
+        }
+       ]
+      },
+      {
+       "type": "spacer",
+       "props": {
+        "size": "lg"
+       },
+       "id": "sp3"
+      }
+     ],
+     "id": "r26"
+    },
+    {
+     "type": "stack",
+     "props": {
+      "direction": "column",
+      "gap": "none",
+      "padding": "lg",
+      "align": "center",
+      "fill": false
+     },
+     "children": [
+      {
+       "type": "button",
+       "props": {
+        "label": "保存并去放松一下",
+        "variant": "primary",
+        "size": "lg",
+        "radius": "full",
+        "full": true
+       },
+       "id": "btn-save"
+      }
+     ],
+     "id": "r44"
+    }
+   ],
+   "id": "r24"
+  },
+  {
+   "type": "stack",
+   "props": {
+    "direction": "column",
+    "gap": "none",
+    "padding": "none",
+    "align": "start",
+    "fill": true
+   },
+   "children": [
+    {
+     "type": "navbar",
+     "props": {
+      "title": "舒缓练习",
+      "left": "back"
+     },
+     "id": "nav"
+    },
+    {
+     "type": "section",
+     "props": {
+      "tone": "muted",
+      "padding": "lg",
+      "align": "center"
+     },
+     "children": [
+      {
+       "type": "text",
+       "props": {
+        "content": "为你推荐的放松方式",
+        "variant": "subtitle",
+        "align": "center"
+       },
+       "id": "r49"
+      },
+      {
+       "type": "spacer",
+       "props": {
+        "size": "sm"
+       },
+       "id": "r50"
+      },
+      {
+       "type": "text",
+       "props": {
+        "content": "根据你今天的心情，试试下面的练习让自己慢下来",
+        "variant": "body",
+        "muted": true,
+        "align": "center"
+       },
+       "id": "r51"
+      }
+     ],
+     "id": "rec-section"
+    },
+    {
+     "type": "stack",
+     "props": {
+      "direction": "column",
+      "gap": "md",
+      "padding": "md",
+      "align": "start",
+      "fill": true
+     },
+     "children": [
+      {
+       "type": "card",
+       "props": {
+        "radius": "lg",
+        "padding": "lg"
+       },
+       "children": [
+        {
+         "type": "text",
+         "props": {
+          "content": "4-7-8 呼吸法",
+          "variant": "title"
+         },
+         "id": "r54"
+        },
+        {
+         "type": "spacer",
+         "props": {
+          "size": "sm"
+         },
+         "id": "r55"
+        },
+        {
+         "type": "text",
+         "props": {
+          "content": "吸气 4 秒、屏息 7 秒、呼气 8 秒，适合缓解紧绷和焦虑感",
+          "variant": "body"
+         },
+         "id": "r56"
+        },
+        {
+         "type": "spacer",
+         "props": {
+          "size": "sm"
+         },
+         "id": "r57"
+        },
+        {
+         "type": "stack",
+         "props": {
+          "direction": "row",
+          "gap": "sm",
+          "padding": "none",
+          "align": "between",
+          "fill": false
+         },
+         "children": [
+          {
+           "type": "text",
+           "props": {
+            "content": "3 分钟",
+            "variant": "caption",
+            "muted": true
+           },
+           "id": "r59"
+          },
+          {
+           "type": "button",
+           "props": {
+            "label": "开始练习",
+            "variant": "primary",
+            "size": "md",
+            "radius": "full"
+           },
+           "id": "btn-start"
+          }
+         ],
+         "id": "r58"
+        }
+       ],
+       "id": "main-card"
+      },
+      {
+       "type": "text",
+       "props": {
+        "content": "其他练习",
+        "variant": "subtitle"
+       },
+       "id": "r61"
+      },
+      {
+       "type": "list",
+       "props": {
+        "items": [
+         "身体扫描冥想",
+         "安全岛想象",
+         "渐进式肌肉放松"
+        ],
+        "detail": [
+         "把注意力依次带到身体各部位，释放紧张感",
+         "在脑海中构建一个让你安心的地方",
+         "从脚到头逐步收紧再放松每组肌肉"
+        ],
+        "trailing": [
+         "10 分钟",
+         "5 分钟",
+         "8 分钟"
+        ],
+        "leading": "icon",
+        "icons": [
+         "heart",
+         "star",
+         "refresh"
+        ]
+       },
+       "id": "other-list"
+      }
+     ],
+     "id": "r52"
+    },
+    {
+     "type": "bottomnav",
+     "props": {
+      "items": [
+       "今日心情",
+       "情绪日记",
+       "舒缓练习",
+       "我的报告"
+      ],
+      "icons": [
+       "home",
+       "edit",
+       "play",
+       "chart"
+      ],
+      "active": 2
+     },
+     "id": "bnav"
+    }
+   ],
+   "id": "r46"
+  },
+  {
+   "type": "stack",
+   "props": {
+    "direction": "column",
+    "gap": "none",
+    "padding": "none",
+    "align": "start",
+    "fill": true
+   },
+   "children": [
+    {
+     "type": "navbar",
+     "props": {
+      "title": "我的报告"
+     },
+     "id": "nav-report"
+    },
+    {
+     "type": "section",
+     "props": {
+      "tone": "default",
+      "padding": "lg",
+      "align": "start"
+     },
+     "children": [
+      {
+       "type": "text",
+       "props": {
+        "content": "最近 7 天情绪概览",
+        "variant": "subtitle"
+       },
+       "id": "sec-title"
+      }
+     ],
+     "id": "sec-overview"
+    },
+    {
+     "type": "stack",
+     "props": {
+      "direction": "column",
+      "gap": "md",
+      "padding": "md",
+      "align": "start",
+      "fill": true
+     },
+     "children": [
+      {
+       "type": "chart",
+       "props": {
+        "kind": "line",
+        "labels": [
+         "周一",
+         "周二",
+         "周三",
+         "周四",
+         "周五",
+         "周六",
+         "周日"
+        ],
+        "values": [
+         3,
+         4,
+         2,
+         4,
+         5,
+         4,
+         3
+        ],
+        "unit": "分"
+       },
+       "id": "mood-chart"
+      },
+      {
+       "type": "grid",
+       "props": {
+        "columns": 2,
+        "gap": "md"
+       },
+       "children": [
+        {
+         "type": "stat",
+         "props": {
+          "label": "平均心情",
+          "value": "3.6",
+          "delta": "+0.4",
+          "tone": "success"
+         },
+         "id": "stat-avg"
+        },
+        {
+         "type": "stat",
+         "props": {
+          "label": "练习次数",
+          "value": "5",
+          "delta": "+2",
+          "tone": "success"
+         },
+         "id": "stat-practice"
+        }
+       ],
+       "id": "stats-grid"
+      },
+      {
+       "type": "divider",
+       "id": "div1"
+      },
+      {
+       "type": "text",
+       "props": {
+        "content": "本周记录",
+        "variant": "subtitle"
+       },
+       "id": "records-title"
+      },
+      {
+       "type": "list",
+       "props": {
+        "items": [
+         "平静地完成了工作",
+         "因为迟到感到焦虑",
+         "和朋友聊天很开心",
+         "睡前做了呼吸练习",
+         "对明天的汇报有些紧张"
+        ],
+        "detail": [
+         "持续一整天",
+         "早上通勤时",
+         "下午休息时",
+         "晚上入睡前",
+         "傍晚准备时"
+        ],
+        "trailing": [
+         "4 分",
+         "2 分",
+         "5 分",
+         "4 分",
+         "3 分"
+        ],
+        "leading": "dot"
+       },
+       "id": "records-list"
+      },
+      {
+       "type": "spacer",
+       "props": {
+        "size": "md"
+       },
+       "id": "sp1"
+      },
+      {
+       "type": "button",
+       "props": {
+        "label": "去写今天的情绪日记",
+        "variant": "primary",
+        "full": true,
+        "size": "lg",
+        "radius": "lg"
+       },
+       "id": "btn-write"
+      }
+     ],
+     "id": "main-content"
+    },
+    {
+     "type": "bottomnav",
+     "props": {
+      "items": [
+       "今日心情",
+       "情绪日记",
+       "舒缓练习",
+       "我的报告"
+      ],
+      "icons": [
+       "home",
+       "edit",
+       "play",
+       "chart"
+      ],
+      "active": 3
+     },
+     "id": "bnav"
+    }
+   ],
+   "id": "r64"
+  }
+ ],
+ "frameNotes": [
+  "首页用于每日情绪打卡。用户从六宫格中点选一种情绪后，主按钮「记录今天的心情」变为可点击态，点击后跳转至第1页情绪日记补充细节。未选择任何情绪时该按钮置灰不可点击（空态处理）。若当日已打卡，六宫格上方显示已完成提示并展示所选情绪，主按钮文案变为「查看今日记录」。底部导航四项分别对应四个页面，当前高亮第一项。加载时六宫格区域显示骨架屏占位。",
+  "承接首页选定的情绪，引导用户补充文字或点选触发场景以深化自我觉察。输入框 multiline 需撑开足够高度方便书写；点击 chip 切换选中态（可多选），帮助不知如何下笔的用户快速表达。空态处理：若直接保存且输入与 chip 均为空，弹出 toast 提示「哪怕只选一个场景，也是在照顾自己」，不阻断保存流程。页面整体留白充足，文案语气温和不催促。",
+  "根据用户在第 0 页选择的情绪状态，动态推荐最匹配的呼吸或冥想练习作为主卡片，其余练习以列表形式收起。点击「开始练习」后进入全屏引导态（需另建一页），播放柔和语音提示与计时动画。空态处理：若用户当日未在第 0 页打卡，主卡片区域替换为文案「今天还没有记录心情，先去选一下当下感受吧」并附带跳转按钮。加载态：推荐内容获取中时，主卡片显示骨架屏占位。",
+  "展示近 7 天情绪折线趋势与练习统计，下方列出本周情绪记录摘要。点击底部主按钮跳转至情绪日记页继续记录。若用户本周无任何记录，折线图区域替换为文案「这周还没有留下心情，去记录第一条吧」并隐藏统计卡片和列表。"
+ ],
+ "frameLinks": [
+  [
+   {
+    "from": "btn-record",
+    "to": 1
+   },
+   {
+    "from": "btn-breathe",
+    "to": 2
+   },
+   {
+    "from": "bnav-0",
+    "item": 0,
+    "to": 0
+   },
+   {
+    "from": "bnav-0",
+    "item": 1,
+    "to": 1
+   },
+   {
+    "from": "bnav-0",
+    "item": 2,
+    "to": 2
+   },
+   {
+    "from": "bnav-0",
+    "item": 3,
+    "to": 3
+   }
+  ],
+  [
+   {
+    "from": "nav-diary",
+    "to": 0,
+    "item": 0
+   },
+   {
+    "from": "btn-save",
+    "to": 2
+   }
+  ],
+  [
+   {
+    "from": "nav",
+    "to": 0,
+    "item": 0
+   },
+   {
+    "from": "btn-start",
+    "to": 0
+   },
+   {
+    "from": "bnav",
+    "to": 0,
+    "item": 0
+   },
+   {
+    "from": "bnav",
+    "to": 1,
+    "item": 1
+   },
+   {
+    "from": "bnav",
+    "to": 2,
+    "item": 2
+   },
+   {
+    "from": "bnav",
+    "to": 3,
+    "item": 3
+   }
+  ],
+  [
+   {
+    "from": "btn-write",
+    "to": 1
+   },
+   {
+    "from": "bnav",
+    "item": 0,
+    "to": 0
+   },
+   {
+    "from": "bnav",
+    "item": 1,
+    "to": 1
+   },
+   {
+    "from": "bnav",
+    "item": 2,
+    "to": 2
+   },
+   {
+    "from": "bnav",
+    "item": 3,
+    "to": 3
+   }
+  ]
+ ]
+}
