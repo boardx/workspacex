@@ -1,4 +1,5 @@
 "use client";
+import {fitBoardContent,type BoardFitInsets} from "../board-chrome-fit";
 
 import * as React from "react";
 import { ActiveSelection, Canvas, Circle, FabricImage, Group, Line, Path, Point, Rect, Textbox, Triangle, util, type FabricObject, type TPointerEventInfo } from "fabric";
@@ -41,6 +42,7 @@ export interface BoardFabricSurfaceProps {
   readOnly: boolean;
   tool: BoardFabricTool;
   viewport: BoardViewport;
+  fitInsets?: BoardFitInsets;
   onSelectionChange: (objectIds: readonly string[], source: BoardSelectionSource) => void;
   /** Fired once at Fabric's gesture completion boundary, never for projection patches. */
   /** Returns whether the canonical command accepted the gesture. Rejection restores the projection. */
@@ -385,7 +387,7 @@ export function geometryFromFabricSceneTransform(projected: TaggedFabricObject):
   return { x: Math.round(x), y: Math.round(y), width: Math.round(width), height: Math.round(height), rotation: Math.round(rotation) };
 }
 
-export function BoardFabricSurface({ objects, selectedObjectIds, readOnly, tool, viewport, onSelectionChange, onObjectTransform, onObjectsTransform, onViewportChange, onCanvasClick, onCanvasDoubleClick, onObjectDoubleClick, onToolDrop, onDrawingComplete, onPanelHoverChange, onObjectReparent, onObjectHoverChange, className }: BoardFabricSurfaceProps) {
+export function BoardFabricSurface({ objects, selectedObjectIds, readOnly, tool, viewport, onSelectionChange, onObjectTransform, onObjectsTransform, onViewportChange, onCanvasClick, onCanvasDoubleClick, onObjectDoubleClick, onToolDrop, onDrawingComplete, onPanelHoverChange, onObjectReparent, onObjectHoverChange, fitInsets, className }: BoardFabricSurfaceProps) {
   const hostRef = React.useRef<HTMLDivElement>(null);
   const canvasElementRef = React.useRef<HTMLCanvasElement>(null);
   const canvasRef = React.useRef<Canvas | null>(null);
@@ -828,13 +830,11 @@ export function BoardFabricSurface({ objects, selectedObjectIds, readOnly, tool,
     const top = Math.min(...bounds.map((bound) => bound.top));
     const right = Math.max(...bounds.map((bound) => bound.left + bound.width));
     const bottom = Math.max(...bounds.map((bound) => bound.top + bound.height));
-    const zoom = clampBoardZoom(Math.min((canvas.getWidth() - 96) / Math.max(1, right - left), (canvas.getHeight() - 96) / Math.max(1, bottom - top)));
-    const panX = (canvas.getWidth() - (right - left) * zoom) / 2 - left * zoom;
-    const panY = (canvas.getHeight() - (bottom - top) * zoom) / 2 - top * zoom;
+    const {zoom,panX,panY}=fitBoardContent(canvas.getWidth(),canvas.getHeight(),{left,right,top,bottom},fitInsets??{left:48,right:48,top:48,bottom:48});
     canvas.setViewportTransform([zoom, 0, 0, zoom, panX, panY]);
     callbacksRef.current.onViewportChange({ ...currentViewport, zoom, panX, panY }, "fit");
     canvas.requestRenderAll();
-  }, [viewport.fitRequest]);
+  }, [viewport.fitRequest,fitInsets]);
 
   const selectFromOutline = React.useCallback((objectId: string) => onSelectionChange([objectId], "outline"), [onSelectionChange]);
   return (
