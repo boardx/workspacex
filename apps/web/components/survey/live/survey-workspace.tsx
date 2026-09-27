@@ -244,7 +244,7 @@ export function LiveSurveyWorkspace({
             disabled={busy || !draft}
             value={draft?.title ?? ""}
             onChange={(e) =>
-              draft && (() => { const next = { ...draft, title: e.target.value }; setDraft(next); setMarkdown((text) => text.replace(/^#\s+.*$/m, `# ${e.target.value}`)); })()
+              draft && (() => { const next = { ...draft, title: e.target.value }; setDraft(next); setMarkdown((text) => text.replace(/^#\s+.*$/m, () => `# ${e.target.value}`)); })()
             }
           />
           <p className="mt-1 text-10 text-muted-foreground">
@@ -326,10 +326,9 @@ export function LiveSurveyWorkspace({
             <textarea aria-label="远端 Markdown" className="min-h-48 w-full rounded-md border border-border p-3 font-mono text-13" readOnly value={remoteVersion.source?.documents.design.markdown ?? serializeSurveyDesignMarkdown(remoteVersion)} />
             <Button disabled={busy} onClick={() => {
               setRuntime(remoteVersion);
-              setDraft((local) => local ? { ...local, template: remoteVersion.template } : local);
               setSavedMarkdown(remoteVersion.source?.documents.design.markdown ?? serializeSurveyDesignMarkdown(remoteVersion));
               setConflicted(false); setRemoteVersion(null); setError("");
-              setNotice("已保留本地设计与远端报告模板，请校对后保存；尚未覆盖远端内容。");
+              setNotice("已保留本地设计与报告模板，请校对后保存；尚未覆盖远端内容。");
             }}>确认保留本地版本</Button>
             <Button variant="outline" disabled={busy} onClick={() => {
               if (window.confirm("使用远端版本将丢弃当前本地修改，继续吗？")) accept(remoteVersion);
