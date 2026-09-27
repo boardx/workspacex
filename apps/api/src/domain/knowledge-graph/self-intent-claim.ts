@@ -11,7 +11,9 @@
  *   - 必须是**第一人称单数开头**（「我的目标是…」「我想…」「我更喜欢…」）：抽取 prompt 要求本人意向保留「我」；
  *     「张三的目标是…」（别人的）、「我们的目标是…」（集体的）一律不算；
  *   - 问句（句末问号 / 「…吗」「…呢」）不算；
- *   - 带假设 / 条件（「如果…」「万一…」）不算：说的是还没成立的情形，不是本人现在的目标。
+ *   - 带假设 / 条件（「如果…」「万一…」）不算：说的是还没成立的情形，不是本人现在的目标；
+ *   - 对助手的请求（「我想让你…」「我想问…」「我希望你…」）不算：是这一轮要办的事，不是本人的长期意向（#4392 评审）；
+ *   - 「目标函数」这类术语不算：「我的目标函数是…」说的是模型，不是人。
  */
 import { knowledgeGraph as KG } from "@repo/contracts";
 import { QUESTION_TAIL } from "./decision-claim";
@@ -28,6 +30,9 @@ const MIN_STATEMENT_LENGTH = 4;
 /** 第一人称单数开头；「我们」是集体口吻，不算本人意向。 */
 const SELF_LEAD = /^我(?!们)/;
 const HYPOTHETICAL = /如果|假如|假设|要是|倘若|假使|万一/;
+/** 「我想 / 希望 / 要 / 需要」后面紧跟的是对助手的请求或提问。 */
+const REQUEST_TO_ASSISTANT = /^我(?:想|希望|要|需要)(?:问|请教|咨询|了解一下|让你|请你|你)/;
+const TECHNICAL_GOAL_TERM = /目标函数/;
 
 /** 这条结论能不能当作「本人意向」对待（自动记入本人空间 / 强制召回）。不确定一律 false。 */
 export function selfIntentLike(kind: KG.KgClaimKind | null | undefined, statement: string): boolean {
@@ -37,5 +42,6 @@ export function selfIntentLike(kind: KG.KgClaimKind | null | undefined, statemen
   if (!SELF_LEAD.test(text)) return false;
   if (QUESTION_END.test(text) || QUESTION_TAIL.test(text)) return false;
   if (HYPOTHETICAL.test(text)) return false;
+  if (REQUEST_TO_ASSISTANT.test(text) || TECHNICAL_GOAL_TERM.test(text)) return false;
   return true;
 }

@@ -67,7 +67,7 @@ export function knowledgeGraphErrorCode(e: unknown): KnowledgeGraphErrorCode | n
   return e instanceof KnowledgeGraphError ? e.code : toKnowledgeGraphError(e).code;
 }
 
-async function getParsed<T>(
+export async function getParsed<T>(
   path: string,
   schema: z.ZodType<T>,
   signal?: AbortSignal,
@@ -85,6 +85,18 @@ async function getParsed<T>(
 }
 
 const seg = (v: string): string => encodeURIComponent(v);
+
+/** 项目中枢 R8：项目大脑（项目记忆 L2）。非成员 403 `KG_NOT_VISIBLE`。 */
+export type ProjectKnowledge = z.infer<typeof knowledgeGraph.getProjectKnowledge.out>;
+export function fetchProjectKnowledge(projectId: string, signal?: AbortSignal): Promise<ProjectKnowledge> {
+  return getParsed(`/knowledge-graph/projects/${seg(projectId)}`, knowledgeGraph.getProjectKnowledge.out, signal);
+}
+
+/** B2-S4：组织大脑（组织记忆 L3）。任何组织成员可读；外人 403 `KG_NOT_VISIBLE`。 */
+export type OrgKnowledge = z.infer<typeof knowledgeGraph.getOrgKnowledge.out>;
+export function fetchOrgKnowledge(signal?: AbortSignal): Promise<OrgKnowledge> {
+  return getParsed("/knowledge-graph/org", knowledgeGraph.getOrgKnowledge.out, signal);
+}
 
 export function fetchThreadKnowledge(threadId: string, signal?: AbortSignal): Promise<ThreadKnowledge> {
   return getParsed(`/knowledge-graph/threads/${seg(threadId)}`, knowledgeGraph.getThreadKnowledge.out, signal);
@@ -168,6 +180,50 @@ export function promoteToPersonal(
   return getParsed(
     `/knowledge-graph/threads/${seg(threadId)}/promote`,
     knowledgeGraph.promoteToPersonal.out,
+    undefined,
+    { method: "POST", body: { claimIds: input.claimIds, ...(input.choices ? { choices: input.choices } : {}) } },
+  );
+}
+
+/**
+ * 项目中枢 R7：记到项目大脑（L0 → L2）。与 `promoteToPersonal` 同一套逐条结果形状；
+ * 服务端只放行线程创建者或本项目引导师（`KG_NOT_OWNER`），个人线程 `KG_SCOPE_NOT_PROJECT`。
+ */
+export function promoteToProject(
+  threadId: string,
+  claimIds: readonly string[],
+  choices?: readonly PromotionChoice[],
+): Promise<PromotionResults> {
+  const input = knowledgeGraph.promoteToProject.in.parse({
+    threadId,
+    claimIds: [...claimIds],
+    ...(choices && choices.length > 0 ? { choices: [...choices] } : {}),
+  });
+  return getParsed(
+    `/knowledge-graph/threads/${seg(threadId)}/promote-to-project`,
+    knowledgeGraph.promoteToProject.out,
+    undefined,
+    { method: "POST", body: { claimIds: input.claimIds, ...(input.choices ? { choices: input.choices } : {}) } },
+  );
+}
+
+/**
+ * B2-S4：记到组织记忆（L2 → L3）。`claimIds` 是项目大脑（`getProjectKnowledge.claims`）里的 id；与 `promoteToProject`
+ * 同一套逐条结果形状。服务端只放行本组织 lead / admin（`KG_NOT_OWNER`）。
+ */
+export function promoteToOrg(
+  projectId: string,
+  claimIds: readonly string[],
+  choices?: readonly PromotionChoice[],
+): Promise<PromotionResults> {
+  const input = knowledgeGraph.promoteToOrg.in.parse({
+    projectId,
+    claimIds: [...claimIds],
+    ...(choices && choices.length > 0 ? { choices: [...choices] } : {}),
+  });
+  return getParsed(
+    `/knowledge-graph/projects/${seg(projectId)}/promote-to-org`,
+    knowledgeGraph.promoteToOrg.out,
     undefined,
     { method: "POST", body: { claimIds: input.claimIds, ...(input.choices ? { choices: input.choices } : {}) } },
   );

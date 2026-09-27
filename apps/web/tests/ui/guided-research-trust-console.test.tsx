@@ -5,6 +5,11 @@ import { GuidedResearchIntentPlan } from "../../components/research-studio/guide
 import { GuidedResearchTrustConsole, mergeActivityEvents } from "../../components/research-studio/guided-research-trust-console";
 
 describe("guided research trust console", () => {
+  it("shows the real activity timestamp and localized stage in the compact timeline", () => {
+    render(<GuidedResearchTrustConsole compact runtime={{ activity: [{ id: "event-1", sequence: 1, stage: "searching", taskId: null, summary: "检索政策文件", occurredAt: "2026-09-27T06:28:00.000Z", status: "started" }] }} pending={false} onSteer={vi.fn()} onResolveConflict={vi.fn()} />);
+    expect(screen.getByText("检索资料")).toBeInTheDocument();
+    expect(screen.getByTestId("research-activity-trace").querySelector("time")).toHaveAttribute("datetime", "2026-09-27T06:28:00.000Z");
+  });
   it("blocks confirmation until decision and success criteria are present", () => {
     const onConfirm = vi.fn();
     render(<GuidedResearchIntentPlan initialIntent={undefined} initialPolicy={undefined} revision={0} onConfirm={onConfirm} disabled={false} />);

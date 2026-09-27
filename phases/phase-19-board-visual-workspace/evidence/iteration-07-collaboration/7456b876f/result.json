@@ -1,0 +1,15 @@
+{
+  "runtimeSha": "7456b876fd22adbade3dec9c135fbd3a5662453d",
+  "executedBy": "main-session",
+  "result": "6 passed",
+  "duration": "6.1m",
+  "tests": [
+    "realtime presence field convergence",
+    "comments anchor ACL",
+    "undo offline reconnect recovery",
+    "multi-user undo redo preserves the other editor and survives reload",
+    "confirmed downgrade retires offline delete undo redo before a later regrant",
+    "structural undo and redo keep connectors added later by another editor"
+  ],
+  "previousAttempt": "aeeb18b48: five passed, mention picker layout shift swallowed publish click; fixed before rerun"
+}

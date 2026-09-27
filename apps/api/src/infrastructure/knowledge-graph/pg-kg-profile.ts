@@ -1,5 +1,5 @@
 /**
- * issue #4360 —— `GoalLinkPort` 的 Postgres 实现：只调三个数据库函数（迁移 20260927130000），不写一行表名 SQL。
+ * issue #4360 —— `GoalLinkPort` 的 Postgres 实现：只调三个数据库函数（迁移 20260928210000），不写一行表名 SQL。
  *
  * - `candidates` / 系统身份的 `set`：**不**声明 app.current_user_id——作者由数据库从证据消息推出（同 #4283 的自动记入）。
  * - 人身份的 `set` / `revise`：声明 app.current_user_id = 登录用户，数据库只在这个人自己的空间里找。

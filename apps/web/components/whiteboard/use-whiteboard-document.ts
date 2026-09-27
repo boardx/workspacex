@@ -19,7 +19,7 @@ export function useWhiteboardDocument(doc: Y.Doc, readOnly: boolean) {
     };
   }, [doc]);
   return { objects: readObjects(doc), execute(envelope: BoardCommandEnvelope) { return readOnly ? null : port.current?.dispatch(envelope) ?? null; },
-    undo: () => readOnly ? 'empty' : undo.current?.undo() ?? 'empty', redo: () => !readOnly && (undo.current?.redo() ?? false) };
+    undo: (gestureId?:string) => readOnly ? 'empty' : undo.current?.undo(gestureId) ?? 'empty', redo: (gestureId?:string) => !readOnly && (undo.current?.redo(gestureId) ?? false) };
 }
 export function textSplice(before: string, after: string) {
   let start = 0; while (start < before.length && start < after.length && before[start] === after[start]) start++;

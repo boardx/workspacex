@@ -86,6 +86,10 @@ describe("#4343 selfIntentLike：类型 + 保守句式门", () => {
     ["goal", "我的目标是不是太大了吗", "问句尾"],
     ["goal", "我想如果有机会就去读博", "假设"],
     ["preference", "我喜欢", "过短"],
+    ["goal", "我想让你帮我写一封邮件", "对助手的请求（#4392 评审）"],
+    ["goal", "我想问一下明天的会议", "对助手的提问（#4392 评审）"],
+    ["preference", "我希望你用英文回答", "对助手的请求（#4392 评审）"],
+    ["goal", "我的目标函数是最小化交叉熵损失", "术语，不是人的目标（#4392 评审）"],
   ] as const)("%s「%s」⇒ false（%s）", (kind, statement, _why) => {
     expect(selfIntentLike(kind, statement)).toBe(false);
   });

@@ -29,8 +29,10 @@ export const SurveySourceDiagnosticSchema = z.object({
 }).strict();
 export type SurveySourceDiagnostic = z.infer<typeof SurveySourceDiagnosticSchema>;
 
+export const SurveyTagsSchema = z.array(z.string().trim().min(1).max(20)).max(5).refine(tags => new Set(tags).size === tags.length, "标签不能重复");
 export const SurveyCompiledDraftSchema = z.object({
   title: z.string().min(1).max(200),
+  tags: SurveyTagsSchema.optional(),
   questions: z.array(SurveyWorkflowQuestionSchema).max(200),
   template: SurveyReportTemplateSchema,
 });
@@ -90,6 +92,11 @@ export function parseSurveyDesignMarkdown(markdown: string): SurveySourceParseRe
   const titleLine = lines.findIndex((line) => /^#\s+\S/.test(line));
   if (titleLine < 0) diagnostics.push({ code: "TITLE_REQUIRED", message: "问卷需要一级标题", line: 1, column: 1 });
   const title = titleLine < 0 ? "" : lines[titleLine]!.replace(/^#\s+/, "").trim();
+  const firstQuestion = lines.findIndex(line => /^##\s+/.test(line));
+  const tagFence = fencedJson(lines.slice(0, firstQuestion < 0 ? lines.length : firstQuestion), line => /^```survey-tags\s*$/.test(line));
+  const tagResult = tagFence.value === undefined ? undefined : SurveyTagsSchema.safeParse(tagFence.value);
+  if (tagFence.diagnostic || tagResult && !tagResult.success) diagnostics.push(diagnostic("DOCUMENT_SYNTAX", "标签需要有效 JSON 数组，最多五个不重复的标签，每个不超过二十字", 1));
+  const tags = tagResult?.success ? tagResult.data : undefined;
   const questions: SurveyCompiledDraft["questions"] = [];
   const sourceRanges: Record<string, { line: number; column: number }> = {};
   const ids = new Set<string>();
@@ -130,7 +137,7 @@ export function parseSurveyDesignMarkdown(markdown: string): SurveySourceParseRe
       else advanced = metadata.data;
     }
     const semanticBody = fenced.body;
-    const prompt = semanticBody.find((line) => line.trim() && !line.trimStart().startsWith("-") && !line.trimStart().startsWith(">"))?.trim() ?? "";
+    const prompt = semanticBody.filter((line) => !line.trimStart().startsWith("-") && !line.trimStart().startsWith(">")).join("\n").trim();
     const options = semanticBody.filter((line) => /^-\s+\S/.test(line)).map((line) => line.replace(/^-\s+/, "").trim());
     if (!prompt) diagnostics.push({ code: "QUESTION_PROMPT_REQUIRED", message: "题目需要题干", line: i + 1, column: 1 });
     if (choiceTypes.has(type) && options.length < 2) diagnostics.push({ code: "OPTIONS_REQUIRED", message: "选择题至少需要两个选项", line: i + 1, column: 1 });
@@ -154,7 +161,7 @@ export function parseSurveyDesignMarkdown(markdown: string): SurveySourceParseRe
     for (const error of validateSurveyQuestionLogic(question, index, questions))
       diagnostics.push(diagnostic("QUESTION_SYNTAX", error, sourceRanges[question.id]!.line));
   });
-  const draft: SurveyCompiledDraft = { title, questions, template: { id: "report-template", title: `${title}分析报告`, sections: [] } };
+  const draft: SurveyCompiledDraft = { title, ...(tags ? {tags} : {}), questions, template: { id: "report-template", title: `${title}分析报告`, sections: [] } };
   const compiled = SurveyCompiledDraftSchema.safeParse(draft);
   if (!compiled.success) {
     diagnostics.push(diagnostic("COMPILED_DRAFT_INVALID", "编译后的问卷超出运行时允许的范围", titleLine + 1 || 1));
@@ -165,6 +172,7 @@ export function parseSurveyDesignMarkdown(markdown: string): SurveySourceParseRe
 
 export function serializeSurveyDesignMarkdown(draft: SurveyDraftInput): string {
   const parts = [`# ${draft.title.trim()}`];
+  if (draft.tags?.length) parts.push("", "```survey-tags", stableJson(draft.tags), "```");
   for (const question of [...draft.questions].sort((a, b) => a.order - b.order)) {
     parts.push("", `## ${question.id} [${question.type}${question.required ? ", required" : ""}]`, question.title.trim());
     for (const option of question.options) parts.push(`- ${option.trim()}`);
@@ -201,14 +209,32 @@ export function parseSurveyReportTemplateMarkdown(markdown: string): SurveyRepor
   return { ok: true, template: parsed.data };
 }
 
+export const SurveyCollectionSettingsSchema = z.object({
+  responseLimitScope: z.enum(['none', 'browser']).default('none'),
+  successMessageMarkdown: z.string().trim().min(1).max(10000).default('提交成功，感谢您的参与。'),
+}).strict();
+export type SurveyCollectionSettings = z.infer<typeof SurveyCollectionSettingsSchema>;
+
 export type SurveyPublicationParseResult =
-  | { ok: true }
+  | { ok: true; settings: SurveyCollectionSettings }
   | { ok: false; diagnostics: SurveySourceDiagnostic[] };
 
 export function parseSurveyPublicationMarkdown(markdown: string): SurveyPublicationParseResult {
-  return /^#\s+\S/.test(markdown.replace(/\r\n/g, "\n"))
-    ? { ok: true }
-    : { ok: false, diagnostics: [diagnostic("DOCUMENT_SYNTAX", "发布设置需要一级标题", 1)] };
+  const lines = markdown.replace(/\r\n/g, "\n").split('\n');
+  if (!/^#\s+\S/.test(lines[0] ?? ''))
+    return { ok: false, diagnostics: [diagnostic("DOCUMENT_SYNTAX", "发布设置需要一级标题", 1)] };
+  const fences = lines.filter(line => /^```survey-publication\s*$/.test(line));
+  if (fences.length > 1)
+    return {ok:false, diagnostics:[diagnostic('DOCUMENT_SYNTAX','发布设置只允许一个配置块',1)]};
+  const fenced = fencedJson(lines, line => /^```survey-publication\s*$/.test(line));
+  const settings = SurveyCollectionSettingsSchema.safeParse(fenced.value ?? {});
+  if (fenced.diagnostic || !settings.success)
+    return {ok:false, diagnostics:[diagnostic('DOCUMENT_SYNTAX','发布设置配置无效：仅支持浏览器限答与有效成功页 Markdown',1)]};
+  return {ok:true, settings:settings.data};
+}
+
+export function serializeSurveyPublicationMarkdown(settings: SurveyCollectionSettings): string {
+  return `# 发布与回收\n\n\`\`\`survey-publication\n${stableJson(SurveyCollectionSettingsSchema.parse(settings))}\n\`\`\`\n`;
 }
 
 /** A stable, dependency-free 256-bit fingerprint for source snapshot identity. */

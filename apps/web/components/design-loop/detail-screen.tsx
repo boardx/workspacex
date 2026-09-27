@@ -150,6 +150,9 @@ export function DesignDetailScreen({
 }) {
   const [load, setLoad] = React.useState<Load>({ kind: "loading" });
   const [tab, setTab] = React.useState<"canvas" | "spec">("canvas");
+  // design-delta `novice-progressive-disclosure`：外观 / 导出从首屏收进「更多」，由菜单项打开，开关状态提到这里。
+  const [appearanceOpen, setAppearanceOpen] = React.useState(false);
+  const [exportOpen, setExportOpen] = React.useState(false);
   const [frame, setFrame] = React.useState(0);
   const [text, setText] = React.useState("");
   /** 迭代 30：超了就不让发——服务端一定会拒，让用户白等一次往返没有意义。 */
@@ -860,7 +863,8 @@ export function DesignDetailScreen({
         {project.linkedFeedbackId !== null && <LinkBadge text="源自反馈" testid="design-detail-linked" />}
         <div className="ml-auto flex items-center gap-2">
           {/* 迭代 8：导出菜单——设计文档 / 原型 JSON / 当前页 PNG / 复制 */}
-          <PrototypeExportMenu project={project} frame={Math.min(frame, Math.max(0, project.frames.length - 1))} />
+          {/* 导出菜单挂在原位（下拉从这里展开），按钮本身收进「更多」→「导出」。 */}
+          <PrototypeExportMenu project={project} frame={Math.min(frame, Math.max(0, project.frames.length - 1))} open={exportOpen} onOpenChange={setExportOpen} hideTrigger />
           {/*
             * 迭代 22：分享。已发布时按钮说"已分享"，快照过期时**在按钮上就说出来**——
             * 把它藏进弹窗里，等于要用户先怀疑才会去看。
@@ -882,19 +886,9 @@ export function DesignDetailScreen({
             {(project.share ?? null) === null ? "分享" : project.share?.stale === true ? "已分享（有更新）" : "已分享"}
           </Button>
           {/*
-            * 迭代 24：窄屏只留图标。三个动作里「推送到收件箱」是**内部流程**——它对第一次
-            * 来做原型的人最没有意义，却一直是唯一的 primary 按钮、还是最长的一个标签。
-            * 宽屏保持原样（那里放得下，文字也确实更好认），窄屏让位给「分享」和「导出」。
+            * design-delta `novice-progressive-disclosure`：「推送到收件箱」是内部流程用语，第一次来做原型的人
+            * 看不懂也用不上——改叫「交给开发排期」，收进「更多」→「项目」。确认弹窗（`confirming`）不变。
             */}
-          {project.pushed ? (
-            <Button variant="outline" size="sm" onClick={() => setConfirming(true)} data-testid="design-detail-push" title="已推送到收件箱">
-              <Check aria-hidden className="h-3.5 w-3.5" /> <span className="hidden sm:inline">已推送到收件箱</span>
-            </Button>
-          ) : (
-            <Button variant="outline" size="sm" onClick={() => setConfirming(true)} data-testid="design-detail-push" title="推送到收件箱">
-              <Upload aria-hidden className="h-3.5 w-3.5" /> <span className="hidden sm:inline">推送到收件箱</span>
-            </Button>
-          )}
         </div>
       </header>
 
@@ -910,16 +904,7 @@ export function DesignDetailScreen({
               * 需要知道的是「在这儿说话，右边就会变」，不是这块区域在产品体系里叫什么。
               */}
             <span>说需求，AI 画界面</span>
-            {/* 迭代 13（delta §2.3）：入口在对话面板顶部——「已经在别处聊过了」是**开工之前**
-                的动作，放在输入框旁边等于要求用户先想起来自己还有那条对话。 */}
-            <button
-              type="button"
-              onClick={() => setImporting(true)}
-              className="ml-auto flex items-center gap-1 rounded-control border border-border px-1.5 py-0.5 text-10 font-normal text-muted-foreground transition-colors duration-fast hover:border-primary hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-              data-testid="design-detail-import-thread"
-            >
-              <Import aria-hidden className="h-3 w-3" /> 从对话导入
-            </button>
+            {/* 「从对话导入」：design-delta `novice-progressive-disclosure` 起在「更多」→「项目」（弹窗 `importing` 不变）。 */}
           </div>
           <DetailChatLog
             ref={chatRef}
@@ -1060,10 +1045,16 @@ export function DesignDetailScreen({
           * （2026-09-23 CI 实测：375 下舞台高度 571→651→775→501… 来回跳，点不中任何元素）。
           */}
         <div className="flex min-h-0 min-w-0 flex-1 flex-col" data-testid="design-detail-right">
-          <div className="flex gap-1 border-b border-border px-4 pt-2">
-            <DetailTab active={tab === "canvas"} onClick={() => setTab("canvas")} testid="design-detail-tab-canvas">原型画布</DetailTab>
-            <DetailTab active={tab === "spec"} onClick={() => setTab("spec")} testid="design-detail-tab-spec">说明与验收标准</DetailTab>
-          </div>
+          {/*
+            * design-delta `novice-progressive-disclosure`：原来这里是「原型画布 / 说明与验收标准」两个页签，常驻首屏。
+            * 说明页从「更多」→「需求说明与验收标准」进；进去之后这里给一颗回来的按钮。
+            */}
+          {tab === "spec" && (
+            <div className="flex gap-1 border-b border-border px-4 pt-2">
+              <DetailTab active={false} onClick={() => setTab("canvas")} testid="design-detail-tab-canvas">← 回到原型画布</DetailTab>
+              <DetailTab active onClick={() => undefined} testid="design-detail-tab-spec-current">需求说明与验收标准</DetailTab>
+            </div>
+          )}
 
           {tab === "canvas" ? (
             <div className="flex min-h-0 flex-1 flex-col" data-testid="design-detail-canvas">
@@ -1076,8 +1067,16 @@ export function DesignDetailScreen({
                 askVariants={askVariants} sending={sending} variants={variants} variantScreen={variantScreen}
                 historyOpen={historyOpen} setHistoryOpen={setHistoryOpen} setPreview={setPreview} codeOpen={codeOpen} setCodeOpen={setCodeOpen}
                 onPresent={() => { setPreview(null); setPresenting(true); }}
+                onOpenAppearance={() => setAppearanceOpen(true)}
+                onOpenSpec={() => setTab("spec")}
+                onOpenExport={() => setExportOpen(true)}
+                onPush={() => setConfirming(true)}
+                onImportThread={() => setImporting(true)}
                 appearance={
                   <CanvasAppearance
+                    open={appearanceOpen}
+                    onOpenChange={setAppearanceOpen}
+                    hideTrigger
                     theme={project.theme}
                     onTheme={(t) => void changeTheme(t)}
                     accent={project.accent}

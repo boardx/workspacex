@@ -9,7 +9,7 @@ import type { knowledgeGraph as KG } from "@repo/contracts";
 
 type KgClaimKind = KG.KgClaimKind;
 
-/** 数据库里的挂目标 / 改写入口（迁移 20260927130000）。实现只调函数，不写表名 SQL。 */
+/** 数据库里的挂目标 / 改写入口（迁移 20260928210000）。实现只调函数，不写表名 SQL。 */
 export interface GoalLinkPort {
   /** 系统读：这条消息刚记进作者本人个人空间、还没挂过目标的决定 / 待办，以及作者本人的目标。作者由证据消息推出。 */
   candidates(orgId: OrgId, threadId: string, messageId: string): Promise<{

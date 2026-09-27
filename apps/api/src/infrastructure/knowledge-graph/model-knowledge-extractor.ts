@@ -2,14 +2,17 @@
  * Phase 18 F06 —— 用部署的标准模型从一条消息里抽实体与结论。
  *
  * 输出约束：有 `responseSchema` 时 provider 做约束解码（KERNEL_MODEL_JSON_SCHEMA=1）；没有时靠 prompt，
- * 解析端从文本里截第一个 `{` 到最后一个 `}`。解析不出 ⇒ 空结果（这条消息就当没有可记的），**不**
- * 按行猜——猜出来的「结论」是编造，不是抽取。
+ * 解析端从文本里截第一个 `{` 到最后一个 `}`。**不**按行猜——猜出来的「结论」是编造，不是抽取。
+ *
+ * issue #4350：解析不出 ⇒ 抛 `KgExtractionUnparseableError`（任务走既有的重试 / 退避，三次后面板显示「失败」）。
+ * 以前这里返回空结果，任务被当成「没有可记的」直接出队：模型坏了、面板却什么都不说，记忆就这么悄悄丢了。
+ * 真正合法的空回复（`{"entities":[],"claims":[]}`）仍然是「空」，不是失败。
  */
 import { knowledgeGraph as KG } from "@repo/contracts";
 import type { ModelCallPort } from "../../application/agent-run/ports";
 import type { KgMessage, KnowledgeExtractorPort } from "../../application/knowledge-graph/ports";
 import type { LoggerPort } from "../../application/ports/logger.port";
-import { EMPTY_EXTRACTION, parseExtraction, type ExtractionResult } from "../../domain/knowledge-graph/extraction";
+import { parseExtraction, type ExtractionResult } from "../../domain/knowledge-graph/extraction";
 import type { KgExtractionModelConfig } from "./kg-extraction-model-config";
 
 /** 导出给 scripts/loopback-model-provider.ts：回环模型按这段文字逐字识别「这是一次抽取请求」。 */
@@ -64,14 +67,38 @@ export const KG_EXTRACTION_RESPONSE_SCHEMA = {
   },
 } as const;
 
+/**
+ * 模型回复 → 抽取结果；不是这个形状 ⇒ null。
+ *
+ * 「是这个形状」= 截出来的 JSON 是个对象，`entities` / `claims` 至少有一个是数组，且出现了的都是数组。
+ * `{"answer":"…"}` 这类合法 JSON 但答非所问的回复算解析不出——把它当「没有可记的」同样会悄悄丢记忆。
+ */
 export function parseExtractionText(text: string): ExtractionResult | null {
   const start = text.indexOf("{");
   const end = text.lastIndexOf("}");
   if (start === -1 || end < start) return null;
+  let raw: unknown;
   try {
-    return parseExtraction(JSON.parse(text.slice(start, end + 1)));
+    raw = JSON.parse(text.slice(start, end + 1));
   } catch {
     return null;
+  }
+  if (typeof raw !== "object" || raw === null || Array.isArray(raw)) return null;
+  const { entities, claims } = raw as { entities?: unknown; claims?: unknown };
+  const shaped = (v: unknown) => v === undefined || Array.isArray(v);
+  if (!shaped(entities) || !shaped(claims) || (entities === undefined && claims === undefined)) return null;
+  return parseExtraction(raw);
+}
+
+/**
+ * issue #4350：模型回了东西，但不是一个抽取结果。带类型抛出，走任务的重试 / 退避（与模型调用失败同一条路），
+ * 三次后面板显示「失败」。`message` 进 `kg_extraction_queue.last_error`，只写原因码与长度，不写回复原文。
+ */
+export class KgExtractionUnparseableError extends Error {
+  readonly code = "kg_extraction_reply_unparseable" as const;
+  constructor(readonly messageId: string, readonly replyLength: number) {
+    super(`kg_extraction_reply_unparseable (reply length ${replyLength})`);
+    this.name = "KgExtractionUnparseableError";
   }
 }
 
@@ -94,8 +121,11 @@ export class ModelKnowledgeExtractor implements KnowledgeExtractorPort {
     });
     const parsed = parseExtractionText(completion.text);
     if (parsed === null) {
-      this.logger.info("kg extraction reply unparseable", { traceId: "kg-extraction", messageId: input.message.id });
-      return EMPTY_EXTRACTION;
+      const err = new KgExtractionUnparseableError(input.message.id, completion.text.length);
+      this.logger.error("kg extraction reply unparseable", {
+        traceId: "kg-extraction", messageId: input.message.id, threadId: input.message.threadId, replyLength: completion.text.length, err,
+      });
+      throw err;
     }
     return parsed;
   }

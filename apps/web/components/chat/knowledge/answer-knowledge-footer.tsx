@@ -10,6 +10,7 @@ import {
   KG_RELATED_QUERY_DEGRADED_ZH,
   graphPathText,
   personalOriginLabel,
+  projectOriginLabel,
   retrievalReasonLabels,
   truncateStatement,
 } from "@/lib/knowledge-graph-recall";
@@ -87,6 +88,9 @@ export function AnswerKnowledgeFooter({
                       <Clock aria-hidden className="h-2.5 w-2.5" />
                       {origin}
                     </Badge>
+                  ) : null}
+                  {m.scope === "project" ? (
+                    <Badge tone="neutral" data-testid={`kg-from-project-${m.claimId}`}>{projectOriginLabel(m)}</Badge>
                   ) : null}
                 </button>
               );

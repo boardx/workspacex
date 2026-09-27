@@ -4,8 +4,14 @@ import { defineConfig } from 'vitest/config';
 export default defineConfig({ test: {
   include: [
     'tests/whiteboard/collaboration-budget.test.ts',
+    'tests/whiteboard/collaboration-forward-migration.test.ts',
     'tests/whiteboard/collaboration-gateway-gap.test.ts',
     'tests/whiteboard/collaboration-transaction.test.ts',
+    'tests/whiteboard/offline-checkpoint-recovery.test.ts',
+    'tests/whiteboard/recovery-service.test.ts',
+    'tests/whiteboard/trusted-comment-store.test.ts',
+    'tests/whiteboard/undo-tombstone-restore.test.ts',
+    'tests/whiteboard/collaboration-repository-guard.test.ts',
     'tests/whiteboard/board-content-copy-guard.test.ts',
     'tests/whiteboard/board-duplicate.test.ts',
     'tests/whiteboard/library-cursor.test.ts',

@@ -13,6 +13,7 @@ it("restores the conversation draft on the right and uses it for the next messag
   vi.mocked(executeResearchRuntime).mockResolvedValue({ ...base, version: 5, proposal: { ...proposal, version: 5 } });
   render(<GuidedResearchLive sessionId={base.sessionId} onBack={vi.fn()} />);
   await screen.findByDisplayValue("德国储能市场");
+  fireEvent.click(screen.getByRole("button", { name: "AI 助手" }));
   expect(executeResearchRuntime).not.toHaveBeenCalled();
   fireEvent.change(screen.getByLabelText("研究对话"), { target: { value: "再增加法国" } });
   fireEvent.keyDown(screen.getByLabelText("研究对话"), { key: "Enter" });
@@ -21,6 +22,7 @@ it("restores the conversation draft on the right and uses it for the next messag
 it("does not apply an old suggestion after the right-hand draft was edited", async () => {
   render(<GuidedResearchLive sessionId={base.sessionId} onBack={vi.fn()} />);
   fireEvent.change(await screen.findByDisplayValue("德国储能市场"), { target: { value: "法国储能市场" } });
+  fireEvent.click(screen.getByRole("button", { name: "AI 助手" }));
   expect(screen.getByRole("button", { name: "应用建议" })).toBeDisabled();
   expect(screen.getByRole("button", { name: "保存草稿" })).toBeDisabled();
   expect(executeResearchRuntime).not.toHaveBeenCalled();
@@ -28,7 +30,8 @@ it("does not apply an old suggestion after the right-hand draft was edited", asy
 it.each(["stale", "busy", "error"])("does not present %s proposals as current drafts", async (condition) => {
   vi.mocked(getResearchRuntime).mockResolvedValue({ ...base, proposal: { ...proposal, version: condition === "stale" ? 3 : 4 }, busy: condition === "busy", leaseUntil: condition === "busy" ? "2099-01-01T00:00:00Z" : null, errorCode: condition === "error" ? "RESEARCH_WORKFLOW_UNAVAILABLE" : null });
   render(<GuidedResearchLive sessionId={base.sessionId} onBack={vi.fn()} />);
-  await screen.findByTestId("research-skill-assistant");
+  fireEvent.click(await screen.findByRole("button", { name: "AI 助手" }));
+  expect(screen.getByTestId("research-skill-assistant")).toBeInTheDocument();
   expect(screen.queryByDisplayValue("德国储能市场")).not.toBeInTheDocument();
   expect(screen.queryByRole("button", { name: "应用建议" })).not.toBeInTheDocument();
 });
@@ -36,6 +39,7 @@ it("preserves the preview draft when a follow-up model request fails", async () 
   vi.mocked(executeResearchRuntime).mockResolvedValue({ ...base, version: 5, proposal: null, errorCode: "RESEARCH_WORKFLOW_UNAVAILABLE" });
   render(<GuidedResearchLive sessionId={base.sessionId} onBack={vi.fn()} />);
   await screen.findByDisplayValue("德国储能市场");
+  fireEvent.click(screen.getByRole("button", { name: "AI 助手" }));
   fireEvent.change(screen.getByLabelText("研究对话"), { target: { value: "增加法国" } });
   fireEvent.click(screen.getByRole("button", { name: "发送研究消息" }));
   await screen.findByTestId("research-recovery");
@@ -47,6 +51,7 @@ it("preserves the preview draft when a follow-up model request fails", async () 
 it("supports prompt selection, multiline input and Chinese composition without accidental sends", async () => {
   render(<GuidedResearchLive sessionId={base.sessionId} onBack={vi.fn()} />);
   await screen.findByDisplayValue("德国储能市场");
+  fireEvent.click(screen.getByRole("button", { name: "AI 助手" }));
   fireEvent.click(screen.getByRole("button", { name: "确认当前主题，生成研究方向" }));
   const input = screen.getByLabelText("研究对话");
   expect(input).toHaveValue("确认当前主题，生成研究方向");
@@ -85,6 +90,7 @@ it("retains the submitted conversation draft when polling discovers failure befo
   vi.mocked(executeResearchRuntime).mockImplementation(() => new Promise(() => {}));
   vi.useFakeTimers();
   await act(async () => { render(<GuidedResearchLive sessionId={base.sessionId} onBack={vi.fn()} />); });
+  fireEvent.click(screen.getByRole("button", { name: "AI 助手" }));
   fireEvent.change(screen.getByLabelText("研究对话"), { target: { value: "继续完善" } });
   fireEvent.click(screen.getByRole("button", { name: "发送研究消息" }));
   await act(async () => { await vi.advanceTimersByTimeAsync(2000); });
@@ -97,6 +103,7 @@ it("requires adopting the first generated proposal before right-hand confirmatio
   vi.mocked(getResearchRuntime).mockResolvedValue({ ...base, generatedNodes: [], proposal });
   render(<GuidedResearchLive sessionId={base.sessionId} onBack={vi.fn()} />);
   await screen.findByDisplayValue("德国储能市场");
+  fireEvent.click(screen.getByRole("button", { name: "AI 助手" }));
   expect(screen.getByRole("button", { name: "确认并继续" })).toBeDisabled();
   expect(screen.getByRole("button", { name: "应用建议" })).toBeEnabled();
   expect(screen.getByRole("button", { name: "保存草稿" })).toBeDisabled();

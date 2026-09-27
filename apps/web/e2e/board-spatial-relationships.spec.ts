@@ -2,6 +2,8 @@ import { randomUUID } from "node:crypto";
 import { expect, request as playwrightRequest, test, type APIRequestContext, type Page } from "@playwright/test";
 import { SESSION_TOKEN_STORAGE_KEY } from "../lib/api-client";
 import { FULLSTACK_E2E } from "./fullstack-smoke-fixture";
+import { createSpatialWsMetadataRecorder } from "./support/board-spatial-ws-metadata";
+import { spatialDragPosition, spatialPointerDrag, spatialMicroPosition } from "./support/board-spatial-pointer";
 
 /** Iteration 05 real-browser acceptance. Root session runs this against isolated API/PG/WS services. */
 test.describe.configure({ mode: "default", timeout: 120_000 });
@@ -26,7 +28,12 @@ async function apiCall(api: APIRequestContext, token: string, method: string, pa
   expect(response.ok()).toBe(true); return response;
 }
 let cleanup: { id: string; token: string } | undefined;
-test.afterEach(async () => {
+let transportMetadata: ReturnType<typeof createSpatialWsMetadataRecorder> | undefined;
+test.afterEach(async ({}, testInfo) => {
+  const recorder = transportMetadata; transportMetadata = undefined;
+  if (recorder && testInfo.status !== testInfo.expectedStatus) {
+    await testInfo.attach("board-spatial-ws-metadata", { body: Buffer.from(JSON.stringify(recorder.snapshot(), null, 2)), contentType: "application/json" });
+  }
   if (!cleanup) return;
   const target = cleanup; cleanup = undefined;
   const api = await playwrightRequest.newContext();
@@ -63,13 +70,22 @@ async function dragObject(page: Page, row: ReturnType<typeof objectRow>, dx: num
     y: geometry.y + localX * Math.sin(angle) + localY * Math.cos(angle),
   };
   const start = { x: box.x + panX + sceneCenter.x * zoom, y: box.y + panY + sceneCenter.y * zoom };
-  await page.mouse.move(start.x, start.y); await page.mouse.down(); await page.mouse.move(start.x + dx * zoom, start.y + dy * zoom, { steps: 10 }); await page.mouse.up();
-  const expected = outcome === "commit" ? { x: geometry.x + dx, y: geometry.y + dy } : { x: geometry.x, y: geometry.y };
-  await expect.poll(async () => { const next = await geometryOf(row); return { x: next.x, y: next.y }; }).toEqual(expected);
+  const { from, to } = spatialPointerDrag(start, { x: dx, y: dy }, zoom);
+  await page.mouse.move(from.x, from.y); await page.mouse.down(); await page.mouse.move(to.x, to.y, { steps: 10 }); await page.mouse.up();
+  const expected = outcome === "commit" ? spatialDragPosition(geometry, from, to, zoom) : { x: geometry.x, y: geometry.y };
+  await expect.poll(async () => { const next = await geometryOf(row); return spatialMicroPosition(next); }).toEqual(spatialMicroPosition(expected));
 }
 async function openInspector(page: Page, properties = false) {
   const dialog = page.getByRole("dialog", { name: "更多操作", exact: true });
-  if (!await dialog.isVisible()) await page.getByRole("button", { name: "更多操作", exact: true }).click();
+  if (!await dialog.isVisible()) {
+    const trigger = page.getByRole("button", { name: "更多操作", exact: true });
+    if (await trigger.count()) await trigger.click();
+    else {
+      const expand = page.getByTestId("board-inspector-expand");
+      if (await expand.count()) await expand.click();
+      await page.getByRole("button", { name: "更多操作", exact: true }).click();
+    }
+  }
   await dialog.getByRole("button", { name: properties ? "精确属性" : "操作", exact: true }).click();
 }
 async function clickObjectAction(page: Page, name: string) {
@@ -87,11 +103,13 @@ async function boardRows(page: Page) {
 }
 
 test("multi-select transform, Panel clip/expand, connector preservation, and total z-order survive reload", async ({ page, request }) => {
+  transportMetadata = createSpatialWsMetadataRecorder();
+  transportMetadata.observe(page, "original");
   const token = await login(page);
   const created = await apiCall(request, token, "POST", "/whiteboards", { requestId: randomUUID(), name: `Spatial ${randomUUID()}` });
   const boardId = (await created.json() as { id: string }).id; cleanup = { id: boardId, token };
   await page.goto(`/studio/board/${boardId}`);
-  await expect(page.getByText(/^已同步$/)).toBeVisible();
+  await expect(page.getByText(/^已同步(?: · 序列 \d+)?$/)).toBeVisible();
 
   const outline = page.getByTestId("board-a11y-mirror").getByRole("button");
   await page.getByTestId("board-add-panel").click();
@@ -189,8 +207,18 @@ test("multi-select transform, Panel clip/expand, connector preservation, and tot
   const movedStart = JSON.parse((await connector.getAttribute("data-connector-start"))!) as { x: number; y: number };
   const movedEnd = JSON.parse((await connector.getAttribute("data-connector-end"))!) as { x: number; y: number };
   const lineViewport = await canvasTransform(page);
-  await page.mouse.click(lineViewport.box.x + lineViewport.panX + (movedStart.x + movedEnd.x) / 2 * lineViewport.zoom,
-    lineViewport.box.y + lineViewport.panY + (movedStart.y + movedEnd.y) / 2 * lineViewport.zoom);
+  // The selected Sticky's floating toolbar can cover the midpoint. Click a
+  // visible stroke point, not the overlay; keep the actual Fabric hit assertion.
+  const strokePoints = [.5, .35, .65, .25, .75].map(t => ({
+    x: lineViewport.box.x + lineViewport.panX + (movedStart.x + (movedEnd.x - movedStart.x) * t) * lineViewport.zoom,
+    y: lineViewport.box.y + lineViewport.panY + (movedStart.y + (movedEnd.y - movedStart.y) * t) * lineViewport.zoom,
+  }));
+  const strokePoint = await page.evaluate(points => points.find(point => {
+    const target = document.elementFromPoint(point.x, point.y);
+    return target?.tagName === "CANVAS" && Boolean(target.closest('[data-testid="board-fabric-surface"]'));
+  }), strokePoints);
+  expect(strokePoint, "connector stroke must have an unobscured canvas hit point").toBeDefined();
+  await page.mouse.click(strokePoint!.x, strokePoint!.y);
   await expect(connector.getByRole("button")).toHaveAttribute("aria-pressed", "true");
   await expect(page.getByTestId("board-a11y-selection-announcement")).toHaveText("已选择 1 个对象");
   await firstSticky.getByRole("button").focus(); await page.keyboard.press("Enter");
@@ -199,18 +227,24 @@ test("multi-select transform, Panel clip/expand, connector preservation, and tot
   await expect(page.getByTestId("board-a11y-mirror").getByRole("button")).toHaveCount(3);
   await expect(connector).toHaveAttribute("data-connector-from", "");
   await expect(connector).toHaveAttribute("data-connector-to", secondId);
-  const peer = await page.context().newPage();
-  await peer.goto(`/studio/board/${boardId}`); await expect(peer.getByText(/^已同步$/)).toBeVisible();
+  // Verify persisted convergence, not another tab replaying the same IndexedDB outbox.
+  await expect(page.getByText(/^已同步(?: · 序列 \d+)?$/)).toBeVisible();
+  const peerContext = await page.context().browser()!.newContext({ baseURL: new URL(page.url()).origin });
+  const peer = await peerContext.newPage();
+  transportMetadata.observe(peer, "peer");
+  try {
+  await login(peer);
+  await peer.goto(`/studio/board/${boardId}`); await expect(peer.getByText(/^已同步(?: · 序列 \d+)?$/)).toBeVisible();
   await expect.poll(() => boardRows(peer)).toEqual(await boardRows(page));
 
   const expectedRows = await boardRows(page);
   await expect.poll(() => boardRows(peer)).toEqual(expectedRows);
 
-  await page.reload(); await expect(page.getByText(/^已同步$/)).toBeVisible();
+  await page.reload(); await expect(page.getByText(/^已同步(?: · 序列 \d+)?$/)).toBeVisible();
   await expect(page.getByTestId("board-a11y-mirror").getByRole("button")).toHaveCount(3);
   const reloadedRows = await boardRows(page);
   expect(reloadedRows).toEqual(expectedRows);
-  await peer.close();
+  } finally { await peerContext.close(); }
 });
 
 async function openEmptyBoard(page: Page, request: APIRequestContext, prefix: string) {
@@ -219,18 +253,25 @@ async function openEmptyBoard(page: Page, request: APIRequestContext, prefix: st
   const boardId = (await created.json() as { id: string }).id;
   cleanup = { id: boardId, token };
   await page.goto(`/studio/board/${boardId}`);
-  await expect(page.getByText(/^已同步$/)).toBeVisible();
+  await expect(page.getByText(/^已同步(?: · 序列 \d+)?$/)).toBeVisible();
   return boardId;
 }
 
 test("selection transform locks", async ({ page, request }) => {
   await openEmptyBoard(page, request, "Selection locks");
   await page.getByTestId("board-add-sticky").click();
+  const stickies = page.locator('[data-testid="board-a11y-mirror"] li[data-object-kind="sticky"]');
+  await expect(stickies).toHaveCount(1);
+  // Equal orderKeys are sorted by random UUID, not creation time. Capture the
+  // center note's identity before adding the dragged note so their roles cannot swap.
+  const lockedId = await stickies.first().getAttribute("data-object-id");
+  if (!lockedId) throw new Error("Created sticky is missing its canonical object ID");
   await page.getByTestId("board-sticky-square").dragTo(page.getByTestId("board-fabric-surface"), { targetPosition: { x: 950, y: 470 } });
   await page.getByTestId("board-tool-select").click();
-  const stickies = page.locator('[data-testid="board-a11y-mirror"] li[data-object-kind="sticky"]');
   await expect(stickies).toHaveCount(2);
-  const locked = stickies.nth(0), free = stickies.nth(1);
+  const locked = page.locator(`[data-testid="board-a11y-mirror"] li[data-object-id="${lockedId}"]`);
+  const free = page.locator(`[data-testid="board-a11y-mirror"] li[data-object-kind="sticky"]:not([data-object-id="${lockedId}"])`);
+  await expect(free).toHaveCount(1);
   const lockedBefore = await geometryOf(locked), freeBefore = await geometryOf(free);
   await locked.getByRole("button").focus();
   await page.keyboard.press("Enter");
@@ -242,8 +283,12 @@ test("selection transform locks", async ({ page, request }) => {
   await expect(page.getByTestId("board-a11y-selection-announcement")).toHaveText("已选择 2 个对象");
   const transform = await canvasTransform(page);
   const start = { x: transform.box.x + transform.panX + (freeBefore.x + freeBefore.width / 4) * transform.zoom, y: transform.box.y + transform.panY + (freeBefore.y + freeBefore.height / 2) * transform.zoom };
+  // The proposed bottom move falls within the existing five-CSS-pixel guide
+  // threshold of the locked object's bottom edge; assert the exact snapped result.
+  const snappedY = lockedBefore.y + lockedBefore.height;
+  expect(Math.abs(freeBefore.y + 60 - snappedY) * transform.zoom).toBeLessThanOrEqual(5);
   await page.mouse.move(start.x, start.y); await page.mouse.down(); await page.mouse.move(start.x + 90 * transform.zoom, start.y + 60 * transform.zoom, { steps: 10 }); await page.mouse.up();
-  await expect.poll(() => geometryOf(free)).toMatchObject({ x: freeBefore.x + 90, y: freeBefore.y + 60 });
+  await expect.poll(() => geometryOf(free)).toMatchObject({ x: freeBefore.x + 90, y: snappedY });
   expect(await geometryOf(locked)).toEqual(lockedBefore);
   await page.getByRole("button", { name: "撤销", exact: true }).click();
   await expect.poll(() => geometryOf(free)).toEqual(freeBefore);

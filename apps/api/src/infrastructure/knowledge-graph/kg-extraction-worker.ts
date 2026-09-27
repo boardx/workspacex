@@ -40,13 +40,35 @@ import {
 import { LOGGER_PORT, type LoggerPort } from "../../application/ports/logger.port";
 import { KG_GOAL_LINK_PORT, KG_GOAL_LINK_PROPOSER_PORT, type GoalLinkPort, type GoalLinkProposerPort } from "../../application/knowledge-graph/profile-ports";
 import { KG_EXTRACTION_MODEL_CONFIG, type KgExtractionModelConfig } from "./kg-extraction-model-config";
+import { KG_EXTRACTION_LEASE_SECONDS } from "./pg-kg-extraction";
 
 export const KG_EXTRACTION_POLL_INTERVAL_MS = 2_000;
+
+/** 注入令牌：一轮 tick 的 watchdog 上限（毫秒）。不注入 ⇒ `kgExtractionWatchdogMs(process.env)`。测试用它压短。 */
+export const KG_EXTRACTION_WATCHDOG_MS = Symbol("KgExtractionWatchdogMs");
+/** 模型超时之外再留的余量：认领、读消息、落执行器、判矛盾这些库操作。 */
+export const KG_EXTRACTION_WATCHDOG_MARGIN_MS = 60_000;
+
+/**
+ * issue #4350 —— 一轮 tick 最多等多久就放弃它、让下一轮能开始。
+ *
+ * 取 max(租约, 模型超时 + 余量)：
+ * - 租约（300 秒）到期之后，这一轮手里没做完的行本来就会被重新认领——再把 `running` 攥着不放，只是让
+ *   **所有 org** 陪着这一个卡住的 await 一起停摆（devapp 2026-09-27「整理中」永远不动的原因之一）；
+ * - 但一次模型调用合法地可以跑满 `KERNEL_MODEL_TIMEOUT_MS`（默认 180 秒，#1611 起可以配到 300 秒以上），
+ *   上限不能比它短，否则一个慢而正常的调用会被当成卡死。
+ */
+export function kgExtractionWatchdogMs(env: NodeJS.ProcessEnv = process.env): number {
+  const raw = Number(env.KERNEL_MODEL_TIMEOUT_MS ?? "180000");
+  const modelTimeout = Number.isFinite(raw) && raw > 0 ? raw : 180_000;
+  return Math.max(KG_EXTRACTION_LEASE_SECONDS * 1_000, modelTimeout + KG_EXTRACTION_WATCHDOG_MARGIN_MS);
+}
 
 @Injectable()
 export class KgExtractionWorker implements OnModuleInit, OnModuleDestroy {
   private timer: ReturnType<typeof setInterval> | null = null;
   private running = false;
+  private readonly watchdogMs: number;
 
   constructor(
     @Inject(KG_EXTRACTION_MODEL_CONFIG) private readonly config: KgExtractionModelConfig,
@@ -57,10 +79,13 @@ export class KgExtractionWorker implements OnModuleInit, OnModuleDestroy {
     @Inject(KG_CONFLICT_PORT) private readonly conflicts: KgConflictPort,
     @Inject(KG_AUTO_COPY_PORT) private readonly autoCopy: KgAutoCopyPort,
     @Inject(LOGGER_PORT) private readonly logger: LoggerPort,
+    @Optional() @Inject(KG_EXTRACTION_WATCHDOG_MS) watchdogMs?: number,
     /** issue #4360：新记下的决定 / 待办挂到本人目标下（模型提议、高把握才挂）。生产合成必定注入。 */
     @Optional() @Inject(KG_GOAL_LINK_PORT) private readonly goalLinks?: GoalLinkPort,
     @Optional() @Inject(KG_GOAL_LINK_PROPOSER_PORT) private readonly goalProposer?: GoalLinkProposerPort,
-  ) {}
+  ) {
+    this.watchdogMs = watchdogMs ?? kgExtractionWatchdogMs();
+  }
 
   onModuleInit(): void {
     // 只看"有没有配置模型 provider"；部署开关（`kg_extraction_state`）不再在启动时被
@@ -74,21 +99,57 @@ export class KgExtractionWorker implements OnModuleInit, OnModuleDestroy {
     if (this.timer) clearInterval(this.timer);
   }
 
+  /**
+   * 跑一轮。上一轮还没结束 ⇒ null（不重入）。
+   *
+   * issue #4350 watchdog：这一轮超过 `watchdogMs` 还没结束 ⇒ 记一条 error、放弃等待、释放 `running`，返回 null——
+   * 以前一个永不 settle 的 await（模型 / 连接池卡住）会让 `running` 永远是 true，**所有 org** 的抽取从此停摆。
+   *
+   * 被放弃的那一轮如果后来又动起来，不会重复完成任何行：
+   * 1. 它不再认领新的 org 批次（`runExtractionTick` 的 `abandoned()` 检查）；
+   * 2. 它手里已认领的行还在自己的租约里（`locked_at` 活着），下一轮的认领条件跳过它们，不会有两个人同时做同一行；
+   * 3. 租约过期后那一行可能被下一轮重新认领（attempts + 1）——这时旧任务迟到的 complete / fail 带着自己认领时的
+   *    attempts 作围栏令牌（`pg-kg-extraction.ts` 的 complete / fail），对不上就什么都不改：删不掉、也解不开新认领的行；
+   * 4. 两边都跑到了执行器那一步也无害：批次带 `sourceRef = 消息 id` + 流水线版本，执行器按 I-7 幂等原样返回。
+   * 被放弃的 promise 之后的失败只记日志，不会成为未处理的 rejection。
+   */
   async runOnce(): Promise<ExtractionTickResult | null> {
     if (this.running) return null;
     this.running = true;
-    try {
+    let abandoned = false;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const startedAt = Date.now();
+    const work = (async () => {
       const tick = await runExtractionTick({
         queue: this.queue, source: this.source, extractor: this.extractor, store: this.store,
         conflicts: this.conflicts, autoCopy: this.autoCopy, logger: this.logger, newId: newKgId,
         ...(this.goalLinks !== undefined && this.goalProposer !== undefined ? { goalLinks: { goalLinks: this.goalLinks, proposer: this.goalProposer } } : {}),
-      });
+      }, () => abandoned);
       // issue #4343：有处理过消息的一轮留一条计数，「跑了但一条没记下」（empty）与「没跑」（没有这行）分得开。
       if (tick.processed > 0) this.logger.info("kg extraction tick", { traceId: "kg-extraction", ...tick });
       // F16：每一轮都排空「结束冲突」的待办（与有没有新消息无关）
-      await drainConflictCloses({ conflicts: this.conflicts, logger: this.logger });
+      if (!abandoned) await drainConflictCloses({ conflicts: this.conflicts, logger: this.logger });
       return tick;
+    })();
+    const watchdog = new Promise<"watchdog">((resolve) => {
+      timer = setTimeout(() => resolve("watchdog"), this.watchdogMs);
+      timer.unref?.();
+    });
+    try {
+      const outcome = await Promise.race([work, watchdog]);
+      if (outcome !== "watchdog") return outcome;
+      abandoned = true;
+      this.logger.error("kg extraction tick exceeded watchdog; abandoned so the next tick can run", {
+        traceId: "kg-extraction", watchdogMs: this.watchdogMs, elapsedMs: Date.now() - startedAt,
+        err: new Error(`kg_extraction_tick_watchdog (${this.watchdogMs}ms)`),
+      });
+      work.then(
+        () => this.logger.info("abandoned kg extraction tick settled late", { traceId: "kg-extraction", elapsedMs: Date.now() - startedAt }),
+        (err: unknown) => this.logger.error("abandoned kg extraction tick failed", { traceId: "kg-extraction", err }),
+      );
+      return null;
     } finally {
+      if (timer !== undefined) clearTimeout(timer);
       this.running = false;
     }
   }

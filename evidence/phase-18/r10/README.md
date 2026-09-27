@@ -149,12 +149,18 @@ unless noted.
   and auto-attached only at confidence ≥ 0.8); `kgProfileSection` (目标 / 偏好 / 约束与身份 / 在做的事); ops
   `setGoalLink`, `revisePersonalClaim` (new claim `accepted`, old one `superseded` with reason `user_revised`, edges move
   with it), `getSessionBriefing` / `setSessionBriefingPreference` / `recordSessionBriefingEvent`; migration
-  `20260927130000`. Evidence: [`evidence/phase-18/s5/`](../s5/README.md).
+  `20260928210000`. Evidence: [`evidence/phase-18/s5/`](../s5/README.md).
 - [ ] **Eval rubric amendments R1–R3**
   ([`rubric-lock.json`](../../kg-experience-eval/rubric-lock.json) `amendments`,
   [`README.md`](../../kg-experience-eval/README.md) round table). R1: E4 「原话」 accepts any corpus sentence, and
   `say()` waits for 「发送」. R2: tightening only (non-empty excerpt, same claim). R3: the seed re-enables extraction,
   authorised 2026-09-26. R4 added no amendment.
+- [ ] **S10 #4367 「分享到项目…」 (UC-KG-15)**, treated as approved, sign off later. New contract ops
+  `listProjectShareTargets` / `shareToProject` / `unshareFromProject`, new error codes `KG_PROJECT_NOT_FOUND` (404) and
+  `KG_PROJECT_READ_ONLY` (403), `getProjectKnowledge.sharedFromPersonal`, and `KgRecalledMemory.scope` now includes
+  `project` plus `sharedByName`. Open points: observers cannot share but are in the audience; a revoked original
+  also revokes its project copies; no near-duplicate merge on share. Migration `20260928200000`. Evidence:
+  [`../s10/`](../s10/).
 - [ ] Also open in the same file:
   - F17 card-state semantics (L105–110);
   - the F15 cross-session recall scope and the **E9 403 vs I-3 404** conflict (L181–184), which is the E9.c2 red;

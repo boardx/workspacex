@@ -130,6 +130,7 @@ export function CreateGuidedResearchDialog({
             </div>
 
             <div className="mt-2 flex justify-end gap-3">
+              <Button asChild type="button" variant="ghost" size="lg" className="mr-auto"><a href="/research/new">直接填写需求</a></Button>
               <Button type="button" variant="outline" size="lg" className="min-w-24" onClick={() => changeOpen(false)}>取消</Button>
               <Button data-testid="research-create-submit" type="submit" variant="primary" size="lg" className="min-w-28" disabled={!title.trim()}>进入研究</Button>
             </div>
