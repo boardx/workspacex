@@ -3,7 +3,7 @@ import { expect, request as playwrightRequest, test, type APIRequestContext, typ
 import { SESSION_TOKEN_STORAGE_KEY } from "../lib/api-client";
 import { FULLSTACK_E2E } from "./fullstack-smoke-fixture";
 
-test.describe.configure({ mode: "serial", timeout: 420_000 });
+test.describe.configure({ mode: "default", timeout: 420_000 });
 test.use({ actionTimeout: 15_000 });
 
 function required(name: string): string {
@@ -384,7 +384,9 @@ test("visual acceptance: compact selection in three viewports", async ({ page, r
           await expect(button).toBeVisible(); const target = await button.boundingBox();
           expect(target!.width).toBeGreaterThanOrEqual(44); expect(target!.height).toBeGreaterThanOrEqual(44);
         }
-        await testInfo.attach(`${viewport.width}x${viewport.height}-${kind}-selected`, { body: await page.screenshot(), contentType: "image/png" });
+        const screenshotPath = testInfo.outputPath(`${viewport.width}x${viewport.height}-${kind}-selected.png`);
+        await page.screenshot({ path: screenshotPath });
+        await testInfo.attach(`${viewport.width}x${viewport.height}-${kind}-selected`, { path: screenshotPath, contentType: "image/png" });
       }
     }
     await expect.poll(() => geometry(page)).toBe(original);
