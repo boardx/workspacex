@@ -115,8 +115,8 @@ export async function runAgentApiAcceptance(){
   }
   const final=await read();assert.equal((await call(null,'GET','/healthz')).deploymentMarker,marker);assert.equal(git('rev-parse','HEAD'),sha);assert.equal(git('status','--porcelain','--untracked-files=all'),'');
   evidence={kind:'board-agent-api',sha,startedAt,finishedAt:new Date().toISOString(),runtime:{deploymentMarker:marker,method:'fresh-api-marker'},boardId,steps,eventCount:(await stored()).events,finalRevision:final.revision,calls,notCovered:['real model generation','browser projection']};
- }finally{
-  try{for(const id of ownedBoards)await call(owner,'PATCH',`/whiteboards/${id}`,{archived:true});}
+ }catch(error){console.error('Board API primary failure',JSON.stringify(diagnostic));throw error;}finally{
+  try{for(const id of ownedBoards){const current=await call(owner,'GET',`/whiteboards/${id}`);if(!current.archived)await call(owner,'PATCH',`/whiteboards/${id}`,{archived:true,expectedLifecycleRevision:current.lifecycleRevision});}}
   finally{await asOwner(async c=>{await c.query('DELETE FROM whiteboard_actor_identities WHERE org_id=$1 AND actor_id=ANY($2::text[])',[F.orgId,actorIds]);});}
  }
  await writeFile(output,JSON.stringify(evidence,null,2),{flag:'wx',mode:0o600});
