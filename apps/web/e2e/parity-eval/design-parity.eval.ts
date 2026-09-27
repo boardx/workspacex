@@ -17,6 +17,7 @@ import { test, expect, type Locator, type Page } from "@playwright/test";
 import { routeDrafts, routeInbox, routeDesignWorkbench } from "../../scripts/lib/design-loop-fixtures.mjs";
 import { EVAL_PROJECTS } from "./cases.mjs";
 import { routeEvalEditing } from "./eval-api";
+import { clickMore, openMore } from "../support/design-more";
 
 test.use({
   launchOptions: process.env.PW_EXECUTABLE ? { executablePath: process.env.PW_EXECUTABLE } : {},
@@ -54,7 +55,7 @@ async function single(page: Page, frame = 0): Promise<Locator> {
 
 async function appearance(page: Page): Promise<void> {
   if (await page.getByTestId("design-detail-appearance-panel").isVisible().catch(() => false)) return;
-  await page.getByTestId("design-detail-appearance").click();
+  await clickMore(page, "design-detail-appearance");
   await page.getByTestId("design-detail-appearance-panel").waitFor();
 }
 
@@ -85,7 +86,7 @@ async function downloadText(page: Page, trigger: () => Promise<void>): Promise<{
 }
 
 async function exportMenu(page: Page): Promise<void> {
-  await page.getByTestId("design-detail-export").click();
+  await clickMore(page, "design-detail-export");
   await page.getByTestId("design-detail-export-menu").waitFor();
 }
 
@@ -363,7 +364,7 @@ test.describe("D6 直接编辑", () => {
     await editBuyLabel(page, phone);
     await page.getByTestId("design-detail-undo").click();
     await expect(node(phone, "e02-buy")).toContainText("立即购买");
-    await page.getByTestId("design-detail-redo").click({ timeout: 3000 });
+    await clickMore(page, "design-detail-redo", { timeout: 3000 });
     await expect(node(phone, "e02-buy")).toContainText("马上购买");
   });
 
@@ -407,7 +408,7 @@ test.describe("D7 批注", () => {
   test("[D7.c1] 批注模式：点一个元素写一句，元素上钉一个标记", async ({ page }) => {
     await openCase(page, "E02");
     const phone = await single(page);
-    await page.getByTestId("design-detail-mode-comment").click({ timeout: 3000 });
+    await clickMore(page, "design-detail-mode-comment", { timeout: 3000 });
     await comment(page, phone, "e02-buy", "按钮再醒目一点");
     await expect(phone.getByTestId("design-comment-pin")).toHaveCount(1);
   });
@@ -415,7 +416,7 @@ test.describe("D7 批注", () => {
   test("[D7.c2] 批注列表：两条批注都在，写明是哪个元素", async ({ page }) => {
     await openCase(page, "E02");
     const phone = await single(page);
-    await page.getByTestId("design-detail-mode-comment").click({ timeout: 3000 });
+    await clickMore(page, "design-detail-mode-comment", { timeout: 3000 });
     await comment(page, phone, "e02-buy", "按钮再醒目一点");
     await comment(page, phone, "e02-tabs", "评价放第一个");
     const items = page.getByTestId("design-comment-item");
@@ -427,7 +428,7 @@ test.describe("D7 批注", () => {
     await openCase(page, "E02");
     const phone = await single(page);
     const chats = listen(page, /^\/pm-designs\/eval-E02\/chat$/);
-    await page.getByTestId("design-detail-mode-comment").click({ timeout: 3000 });
+    await clickMore(page, "design-detail-mode-comment", { timeout: 3000 });
     await comment(page, phone, "e02-buy", "按钮再醒目一点");
     await comment(page, phone, "e02-tabs", "评价放第一个");
     await page.getByTestId("design-comments-send").click();
@@ -469,7 +470,7 @@ test.describe("D8 变体", () => {
     await openCase(page, "E02");
     await routeVariants(page);
     await single(page);
-    await page.getByTestId("design-detail-variants").click({ timeout: 3000 });
+    await clickMore(page, "design-detail-variants", { timeout: 3000 });
     for (const [i, tag] of ["方案 A", "方案 B", "方案 C"].entries()) {
       await expect(page.getByTestId(`design-variant-${i}`)).toContainText(tag);
     }
@@ -479,7 +480,7 @@ test.describe("D8 变体", () => {
     await openCase(page, "E02");
     await routeVariants(page);
     const phone = await single(page);
-    await page.getByTestId("design-detail-variants").click({ timeout: 3000 });
+    await clickMore(page, "design-detail-variants", { timeout: 3000 });
     await page.getByTestId("design-variant-pick-1").click();
     await expect(phone).toContainText("年度会员 · 方案 B");
     await expect(page.getByTestId("design-variant-0")).toHaveCount(0);
@@ -489,7 +490,7 @@ test.describe("D8 变体", () => {
     await openCase(page, "E02");
     await routeVariants(page);
     const phone = await single(page);
-    await page.getByTestId("design-detail-variants").click({ timeout: 3000 });
+    await clickMore(page, "design-detail-variants", { timeout: 3000 });
     await page.getByTestId("design-variant-pick-1").click();
     await expect(phone).toContainText("年度会员 · 方案 B");
     await page.getByTestId("design-detail-undo").click();

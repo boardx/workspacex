@@ -22,9 +22,9 @@ const OWNER = "u-s9x-owner";
 const OTHER = "u-s9x-other";
 const A1 = "thr-s9x-a1";
 const B1 = "thr-s9x-b1";
-const SECRET = "我决定北极星只做安卓版";
+const PRIVATE_DECISION = "我决定北极星只做安卓版";
 const reply = JSON.stringify({
-  entities: [], claims: [{ statement: SECRET, kind: "decision", confidence: 0.9, about: [], decidedBy: null, quote: SECRET }],
+  entities: [], claims: [{ statement: PRIVATE_DECISION, kind: "decision", confidence: 0.9, about: [], decidedBy: null, quote: PRIVATE_DECISION }],
 });
 
 type Personal = import("zod").infer<typeof KG.knowledgeGraph.getPersonalKnowledge.out>;
@@ -35,7 +35,7 @@ const ids: { personal?: string; source?: string } = {};
 const stripTrace = (b: unknown) => ({ ...(b as Record<string, unknown>), traceId: undefined });
 
 async function sameAsMissing(label: string, got: HttpResult, missing: HttpResult): Promise<void> {
-  expect(JSON.stringify(got.body ?? null), label).not.toContain(SECRET);
+  expect(JSON.stringify(got.body ?? null), label).not.toContain(PRIVATE_DECISION);
   expect({ label, status: got.status }).toEqual({ label, status: 404 });
   expect({ label, status: missing.status }).toEqual({ label, status: 404 });
   expect(stripTrace(got.body), label).toEqual(stripTrace(missing.body));
@@ -53,17 +53,17 @@ beforeAll(async () => {
   }
   await addChatThread({ orgId: ORG, id: A1, projectId: null, visibilityScope: "private", createdBy: OWNER, title: A1 });
   await addChatThread({ orgId: ORG, id: B1, projectId: null, visibilityScope: "private", createdBy: OTHER, title: B1 });
-  await addChatMessage({ orgId: ORG, id: "m-s9x-a1", threadId: A1, body: `${SECRET}。`, authorId: OWNER });
-  const deps = extractionDeps(e.db, loopbackModel([[SECRET, reply]]).model, ORG);
+  await addChatMessage({ orgId: ORG, id: "m-s9x-a1", threadId: A1, body: `${PRIVATE_DECISION}。`, authorId: OWNER });
+  const deps = extractionDeps(e.db, loopbackModel([[PRIVATE_DECISION, reply]]).model, ORG);
   for (let i = 0; i < 20; i += 1) if ((await runExtractionTick(deps)).processed === 0) break;
   await projectGraph(e);
   owner = client(e, OWNER, ORG);
   other = client(e, OTHER, ORG);
   // 所有者说的决定自动记进本人个人空间（#4283）：那就是「你的记忆」。
   const p = await owner.get<Personal>("/knowledge-graph/personal");
-  ids.personal = p.body.claims.find((c) => c.statement === SECRET)!.id;
+  ids.personal = p.body.claims.find((c) => c.statement === PRIVATE_DECISION)!.id;
   const k = await owner.get<ThreadKnowledgeBody>(`/knowledge-graph/threads/${A1}`);
-  ids.source = k.body.claims.find((c) => c.statement === SECRET)!.id;
+  ids.source = k.body.claims.find((c) => c.statement === PRIVATE_DECISION)!.id;
 }, 180_000);
 
 afterAll(async () => { await e?.app.close(); });
@@ -72,7 +72,7 @@ describe("#4366：别的账号碰你的个人记忆 ⇒ 404，与不存在无法
   it("对照：所有者本人读得到自己个人记忆的来源", async () => {
     const r = await owner.get(`/knowledge-graph/claims/${ids.personal}/sources`);
     expect(r.status).toBe(200);
-    expect(JSON.stringify(r.body)).toContain(SECRET);
+    expect(JSON.stringify(r.body)).toContain(PRIVATE_DECISION);
   });
 
   it("读：个人空间结论 / 来源会话里那条的来源抽屉、所有者个人对话的知识与提名", async () => {
@@ -112,6 +112,6 @@ describe("#4366：别的账号碰你的个人记忆 ⇒ 404，与不存在无法
       await other.post(`/knowledge-graph/threads/${B1}/claims/clm_nope/personal-copy/undo`, {}));
     // 所有者的个人记忆一条没动
     const p = await owner.get<Personal>("/knowledge-graph/personal");
-    expect(p.body.claims.map((c) => c.statement)).toContain(SECRET);
+    expect(p.body.claims.map((c) => c.statement)).toContain(PRIVATE_DECISION);
   });
 });
