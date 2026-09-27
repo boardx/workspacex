@@ -2,6 +2,7 @@ import {execFileSync,spawnSync} from 'node:child_process';
 import {createHash,randomBytes,randomUUID} from 'node:crypto';
 import {mkdirSync,readFileSync,readdirSync,writeFileSync} from 'node:fs';
 import {resolve,join} from 'node:path';
+import {validateStorageCiEvidence} from './board-storage-ci-policy.mjs';
 import {assertBoardCiResults} from './board-ci-result.mjs';
 import {validateJourneyArtifact} from './board-journey-policy.mjs';
 import {validateSecurityArtifact} from './board-security-policy.mjs';
@@ -39,7 +40,7 @@ try{
  else if(lane==='collaboration-50'){
   const report=JSON.parse(readFileSync(reportPath,'utf8'));checks=[await validateBoardSoakArtifact(report,sha,key),{valid:true,failures:validateRuntimeBinding(report.runtimeIdentity,sha,context)}];
  }else if(lane==='performance')checks=[1000,5000,10000].map(size=>{const report=single(`performance-${size}.json`),check=validateBoardPerformanceArtifact(report,boardPerformancePolicy(root),sha,size);check.failures.push(...validateRuntimeBinding(report.runtimeIdentity,sha,context));if(check.budgetStatus!=='engineering-targets')check.failures.push('UNBUDGETED_SCALE');for(const ref of [report.trace,...report.loadTraces??[]]){const bytes=readFileSync(ref.path);if(createHash('sha256').update(bytes).digest('hex')!==ref.sha256||!JSON.parse(bytes.toString()).traceEvents?.length)check.failures.push('INVALID_TRACE_BYTES');}return check;});
- else summary.pending=['real-account-vendor-exports','complete-storage-lifecycle-matrix'];
+ else if(lane==='storage')checks=[await validateStorageCiEvidence(JSON.parse(readFileSync(jsonPath,'utf8')),sha,context,output)];
  for(const check of checks){summary.failures.push(...check.failures);summary.pending.push(...check.pending??[]);if(!check.valid&&!check.failures.length)summary.failures.push('INVALID_EVIDENCE');}
  if(summary.failures.length)throw Error('EVIDENCE_VALIDATION_FAILED');
  if(git('rev-parse','HEAD')!==sha||git('status','--porcelain','--untracked-files=all'))throw Error('SOURCE_CHANGED_DURING_CI');

@@ -1,3 +1,4 @@
+import {observeRuntimeChunks,runtimeSourceIdentity,verifyRuntimeIdentity} from './board-runtime-evidence';
 import { createHash, randomUUID } from 'node:crypto';
 import { deflateSync } from 'node:zlib';
 import { expect, test, type Page, type APIRequestContext } from '@playwright/test';
@@ -16,6 +17,7 @@ async function painted(page:Page){await expect.poll(()=>page.evaluate(()=>(windo
 test('durable image bytes survive refresh, independent peer, revoke and source deletion',async({browser,request:api,baseURL},info)=>{
  expect(baseURL,'WHITEBOARD_WEB_URL or isolated WORKSPACEX_WEB_PORT required').toBeTruthy();
  const ownerContext=await browser.newContext({baseURL}),peerContext=await browser.newContext({baseURL}),owner=await ownerContext.newPage(),peer=await peerContext.newPage();await observe(owner);await observe(peer);
+ const runtimeSha=process.env.BOARD_ACCEPTANCE_RUNTIME_MARKER?runtimeSourceIdentity():undefined;const runtimeChunks=runtimeSha?observeRuntimeChunks(owner):undefined;
  let token:string|undefined,source:string|undefined,target:string|undefined;
  const archive=async(id:string)=>{const b=await(await call(api,token!,'GET',`/whiteboards/${id}`)).json();return b.archived?b:(await call(api,token!,'PATCH',`/whiteboards/${id}`,{archived:true,expectedLifecycleRevision:b.lifecycleRevision})).json();};
  try{
@@ -42,5 +44,6 @@ test('durable image bytes survive refresh, independent peer, revoke and source d
   const archived=await archive(source);await targetBytes();await call(api,token,'DELETE',`/whiteboards/${source}`,{requestId:randomUUID(),confirmation:'PERMANENTLY_DELETE',expectedLifecycleRevision:archived.lifecycleRevision});source=undefined;
   await targetBytes();await owner.goto(`/studio/board/${target}`);await painted(owner);await owner.reload();await painted(owner);
   await info.attach('pg-target-after-source-delete',{body:JSON.stringify(await produceImageStorageEvidence(F.orgId,[target!],metadata.assetId)),contentType:'application/json'});
+ if(runtimeSha&&runtimeChunks)await info.attach('storage-runtime.json',{body:JSON.stringify({scenario:'durable-images',assetId:metadata.assetId,targetBoardId:target,runtimeIdentity:await verifyRuntimeIdentity(api,runtimeSha,await runtimeChunks())}),contentType:'application/json'});
  }finally{await ownerContext.close();await peerContext.close();if(token){if(source)await archive(source);if(target)await archive(target);}}
 });
