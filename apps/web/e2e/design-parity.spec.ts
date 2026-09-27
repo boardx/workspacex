@@ -10,6 +10,7 @@ import { routeDrafts, routeInbox, routeDesignWorkbench } from "../scripts/lib/de
 // 撤销 / 重做要真的版本日志：用评测那份按真实契约应用 patch、带恢复的替身（只接管 eval-* 项目）。
 import { routeEvalEditing } from "./parity-eval/eval-api";
 import { newCommentStore, routeEvalComments } from "./parity-eval/depth-api";
+import { clickMore, openMore } from "./support/design-more";
 
 test.use({ launchOptions: process.env.PW_EXECUTABLE ? { executablePath: process.env.PW_EXECUTABLE } : {}, acceptDownloads: true });
 
@@ -23,7 +24,7 @@ async function openSample(page: Page): Promise<void> {
 
 async function appearance(page: Page): Promise<void> {
   if (await page.getByTestId("design-detail-appearance-panel").isVisible().catch(() => false)) return;
-  await page.getByTestId("design-detail-appearance").click();
+  await clickMore(page, "design-detail-appearance");
   await page.getByTestId("design-detail-appearance-panel").waitFor();
 }
 
@@ -59,7 +60,7 @@ test.describe("R1 品牌色与字体（#3933）", () => {
     await expect.poll(() => primaryButtonBg(page)).toBe("rgb(255, 90, 31)");
     await expect(page.getByTestId("design-detail-phone")).toHaveAttribute("data-font", "serif");
 
-    await page.getByTestId("design-detail-export").click();
+    await clickMore(page, "design-detail-export");
     const [d] = await Promise.all([page.waitForEvent("download"), page.getByTestId("design-detail-export-html").click()]);
     const html = readFileSync(await d.path(), "utf8");
     expect(html).toContain("Noto Serif SC");
@@ -264,10 +265,12 @@ test.describe("R7 直接编辑（#3933）", () => {
     await page.keyboard.press("Enter");
     await expect(phone).toContainText("年度会员 · 旗舰版");
 
-    await expect(page.getByTestId("design-detail-redo")).toBeDisabled();
+    await openMore(page);
+    await expect(page.getByTestId("design-detail-redo")).toHaveAttribute("data-disabled", "");
+    await page.keyboard.press("Escape");
     await page.getByTestId("design-detail-undo").click();
     await expect(phone).toContainText("年度会员 · 专业版");
-    await page.getByTestId("design-detail-redo").click();
+    await clickMore(page, "design-detail-redo");
     await expect(phone).toContainText("年度会员 · 旗舰版");
 
     // design-delta `novice-progressive-disclosure`：图层面板要用才出现——先在画布上选中那个元素。
@@ -289,7 +292,7 @@ test.describe("R8 批注（#3933）", () => {
     await page.goto("/preview/feedback-design-loop?scene=detail-eval&case=R7");
     await page.getByTestId("design-detail").waitFor();
     await page.getByTestId("design-detail-view-single").click();
-    await page.getByTestId("design-detail-mode-comment").click();
+    await clickMore(page, "design-detail-mode-comment");
     const phone = page.getByTestId("design-detail-phone");
     const chats: unknown[] = [];
     page.on("request", (r) => { if (/\/pm-designs\/eval-R7\/chat$/.test(new URL(r.url()).pathname)) chats.push(r.postDataJSON()); });
@@ -328,7 +331,7 @@ test.describe("R9 变体（#3954）", () => {
     await page.getByTestId("design-detail-view-single").click();
     const phone = page.getByTestId("design-detail-phone");
 
-    await page.getByTestId("design-detail-variants").click();
+    await clickMore(page, "design-detail-variants");
     for (const [i, t] of ["甲", "乙", "丙"].entries()) await expect(page.getByTestId(`design-variant-${i}`)).toContainText(`会员 · 方案${t}`);
     expect(asked).toEqual([{ screen: 0 }]);
 
@@ -349,7 +352,7 @@ test.describe("R9 变体（#3954）", () => {
     await page.goto("/preview/feedback-design-loop?scene=detail-eval&case=R7");
     await page.getByTestId("design-detail").waitFor();
     await page.getByTestId("design-detail-view-single").click();
-    await page.getByTestId("design-detail-variants").click();
+    await clickMore(page, "design-detail-variants");
     await expect(page.getByTestId("design-variants").getByRole("alert")).toContainText("没能出方案");
     await expect(page.getByTestId("design-variant-0")).toHaveCount(0);
   });
@@ -362,7 +365,7 @@ test.describe("R10 代码交接（#3955）", () => {
     await routeDesignWorkbench(page, { extraProjects: [R7_PROJECT] });
     await page.goto("/preview/feedback-design-loop?scene=detail-eval&case=R7");
     await page.getByTestId("design-detail").waitFor();
-    await page.getByTestId("design-detail-export").click();
+    await clickMore(page, "design-detail-export");
     const [d] = await Promise.all([page.waitForEvent("download"), page.getByTestId("design-detail-export-code").click()]);
     expect(d.suggestedFilename()).toMatch(/^[\x20-\x7e]+\.tsx$/);
     const tsx = readFileSync(await d.path(), "utf8");
@@ -384,7 +387,7 @@ test.describe("深度 S2 批注存在服务端（#3988）", () => {
       await p.goto("/preview/feedback-design-loop?scene=detail-eval&case=R7");
       await p.getByTestId("design-detail").waitFor();
       await p.getByTestId("design-detail-view-single").click();
-      await p.getByTestId("design-detail-mode-comment").click();
+      await clickMore(p, "design-detail-mode-comment");
       return p.getByTestId("design-detail-phone");
     };
     const phoneA = await open(page);
@@ -404,7 +407,7 @@ test.describe("深度 S2 批注存在服务端（#3988）", () => {
     await other.reload();
     await other.getByTestId("design-detail").waitFor();
     await other.getByTestId("design-detail-view-single").click();
-    await other.getByTestId("design-detail-mode-comment").click();
+    await clickMore(other, "design-detail-mode-comment");
     await expect(other.getByTestId("design-comment-item")).toHaveAttribute("data-resolved", "true");
     await ctx.close();
   });
@@ -421,7 +424,7 @@ test.describe("深度 S3 批注讨论（#3988）", () => {
       await p.goto("/preview/feedback-design-loop?scene=detail-eval&case=R7");
       await p.getByTestId("design-detail").waitFor();
       await p.getByTestId("design-detail-view-single").click();
-      await p.getByTestId("design-detail-mode-comment").click();
+      await clickMore(p, "design-detail-mode-comment");
       return p.getByTestId("design-detail-phone");
     };
     const phone = await open(page);
@@ -456,7 +459,7 @@ test.describe("深度 S4 导出的代码能交互（#3988）", () => {
     await routeDesignWorkbench(page, { extraProjects: [R7_PROJECT] });
     await page.goto("/preview/feedback-design-loop?scene=detail-eval&case=R7");
     await page.getByTestId("design-detail").waitFor();
-    await page.getByTestId("design-detail-export").click();
+    await clickMore(page, "design-detail-export");
     const [d] = await Promise.all([page.waitForEvent("download"), page.getByTestId("design-detail-export-code").click()]);
     const tsx = readFileSync(await d.path(), "utf8");
     // R7 的 tabs「详情 / 规格」active=0：登记成 useState(0)，第二项点下去 setS1(1)，选中态是 s1 === 1。
@@ -482,7 +485,7 @@ test.describe("深度 S5 导出的代码带图标（#3988）", () => {
     await routeDesignWorkbench(page, { extraProjects: [S5_PROJECT] });
     await page.goto("/preview/feedback-design-loop?scene=detail-eval&case=S5");
     await page.getByTestId("design-detail").waitFor();
-    await page.getByTestId("design-detail-export").click();
+    await clickMore(page, "design-detail-export");
     const [d] = await Promise.all([page.waitForEvent("download"), page.getByTestId("design-detail-export-code").click()]);
     const tsx = readFileSync(await d.path(), "utf8");
     // 按钮的 share、列表的 user / lock、底部导航按标签猜出的首页 → home、我的 → user（与画布同一个 guessNavIcon）。
@@ -502,14 +505,14 @@ test.describe("深度 S6 编辑器里看代码（#3988）", () => {
     await routeDesignWorkbench(page, { extraProjects: [S5_PROJECT] });
     await page.goto("/preview/feedback-design-loop?scene=detail-eval&case=S5");
     await page.getByTestId("design-detail").waitFor();
-    await page.getByTestId("design-detail-code").click();
-    await expect(page.getByTestId("design-detail-code")).toHaveAttribute("aria-pressed", "true");
+    await clickMore(page, "design-detail-code");
     const panel = page.getByTestId("design-code-panel");
+    await expect(panel).toBeVisible();
     await expect(panel).toContainText("function IconShare()");
-    await page.getByTestId("design-detail-export").click();
+    await clickMore(page, "design-detail-export");
     const [d] = await Promise.all([page.waitForEvent("download"), page.getByTestId("design-detail-export-code").click()]);
     expect(await panel.textContent()).toBe(readFileSync(await d.path(), "utf8"));
-    await page.getByTestId("design-detail-code").click();
+    await clickMore(page, "design-detail-code");
     await expect(panel).toHaveCount(0);
   });
 });
@@ -529,7 +532,7 @@ test.describe("深度 S7 演示模式（#3988）", () => {
     await routeDesignWorkbench(page, { extraProjects: [S7_PROJECT] });
     await page.goto("/preview/feedback-design-loop?scene=detail-eval&case=S7");
     await page.getByTestId("design-detail").waitFor();
-    await page.getByTestId("design-detail-present").click();
+    await clickMore(page, "design-detail-present");
     const stage = page.getByTestId("design-present");
     await expect(stage).toContainText("轻账路演封面");
     await expect(page.getByTestId("design-detail")).toHaveCount(0);
@@ -550,7 +553,7 @@ test.describe("深度 S8 导出 PPTX（#3988）", () => {
     await routeDesignWorkbench(page, { extraProjects: [S7_PROJECT] });
     await page.goto("/preview/feedback-design-loop?scene=detail-eval&case=S7");
     await page.getByTestId("design-detail").waitFor();
-    await page.getByTestId("design-detail-export").click();
+    await clickMore(page, "design-detail-export");
     const [d] = await Promise.all([page.waitForEvent("download"), page.getByTestId("design-detail-export-pptx").click()]);
     expect(d.suggestedFilename()).toMatch(/^[\x20-\x7e]+\.pptx$/);
     const buf = readFileSync(await d.path());
@@ -579,7 +582,7 @@ test.describe("深度 S9 变体：对照、提要求、要几个（#3988）", ()
     });
     await page.goto("/preview/feedback-design-loop?scene=detail-eval&case=R7");
     await page.getByTestId("design-detail").waitFor();
-    await page.getByTestId("design-detail-variants").click();
+    await clickMore(page, "design-detail-variants");
     await expect(page.getByTestId("design-variant-current")).toContainText("年度会员 · 专业版");
     await expect(page.getByTestId("design-variant-2")).toBeVisible();
     expect(asked[0]).toEqual({ screen: 0 });
