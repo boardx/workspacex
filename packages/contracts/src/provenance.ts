@@ -97,6 +97,8 @@ export const ProvenanceEventType = z.enum([
   "thread-created",
   "thread-renamed",
   "thread-deleted",
+  /** 项目中枢 R5：线程可见范围改变（分享）。构词法同上三条；`detail` 记 from / to。 */
+  "thread-visibility-changed",
 
   /**
    * 🔴 F34（files 束，本轮新增，**沿用 ADR-101 的先例，Proposed，需人类追认**）。

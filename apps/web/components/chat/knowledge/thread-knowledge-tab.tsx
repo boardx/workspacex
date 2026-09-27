@@ -9,6 +9,7 @@ import {
   knowledgeGraphErrorCode,
   listPromotionNominations,
   promoteToPersonal,
+  promoteToProject,
   type KnowledgeGraphErrorCode,
   type PromotionChoice,
   type PromotionNominations,
@@ -196,11 +197,28 @@ export function useKnowledgeWriteActions(state: ThreadKnowledgeState): Knowledge
       throw e;
     }
   }, [threadId, reload]);
+  // 项目中枢 R7：记到项目大脑。服务端 `canPromoteToProject`（项目线程 + 创建者或引导师）；
+  // 引导师不是创建者时 `canEdit` 为 false，但仍能把结论记到项目——所以 writeActions 不再只在 canEdit 时存在。
+  const promoteProject = React.useCallback(async (claimIds: string[], choices?: PromotionChoice[]): Promise<PromotionResults> => {
+    if (threadId === null) throw new Error("knowledge_not_loaded");
+    try {
+      const result = await promoteToProject(threadId, claimIds, choices);
+      reload();
+      return result;
+    } catch (e) {
+      const code = knowledgeGraphErrorCode(e);
+      if (code !== null && KG_RELOAD_ON_FAILURE.has(code)) reload();
+      throw e;
+    }
+  }, [threadId, reload]);
   const canEdit = data?.canEdit === true;
   const canPromote = canEdit && data?.canPromote === true;
+  const canPromoteProject = data?.canPromoteToProject === true;
   return React.useMemo(
-    () => (canEdit ? { apply, ...(canPromote ? { onPromote: promote } : {}) } : undefined),
-    [canEdit, canPromote, apply, promote],
+    () => (canEdit || canPromoteProject
+      ? { apply, ...(canPromote ? { onPromote: promote } : {}), ...(canPromoteProject ? { onPromoteToProject: promoteProject } : {}) }
+      : undefined),
+    [canEdit, canPromote, canPromoteProject, apply, promote, promoteProject],
   );
 }
 

@@ -11,7 +11,7 @@
  * - round 7（#4284 收口）：项目会话里用过个人记忆的那一轮的 agent 回答不抽（见 extractJob）。
  */
 import type { LoggerPort } from "../ports/logger.port";
-import { buildExtractionBatch } from "../../domain/knowledge-graph/extraction";
+import { buildExtractionBatch, KG_EXTRACTION_PIPELINE_VERSION } from "../../domain/knowledge-graph/extraction";
 import { applyOntologyBatch } from "./apply-ontology-batch";
 import { copyAuthorDecisions } from "./auto-copy-decisions";
 import { detectConflicts, detectSupersedes } from "./detect-conflicts";
@@ -39,14 +39,18 @@ export interface ExtractionDeps {
 export interface ExtractionTickResult {
   readonly processed: number;
   readonly written: number;
+  /** issue #4343：跑完了但没有可记的（含消息已删、执行器拒收）。processed = written + empty + skipped + failed。 */
+  readonly empty: number;
+  /** 按规则不抽的（round 7：项目会话里用了个人记忆的那一轮回答）。 */
+  readonly skipped: number;
   readonly failed: number;
 }
 
 export async function extractJob(deps: ExtractionDeps, job: KgExtractionJob): Promise<"written" | "empty" | "skipped"> {
   const loaded = await deps.source.loadMessage(job.orgId, job.messageId, KG_EXTRACTION_CONTEXT_TURNS);
   if (loaded === null) {  // 消息已被删：没有东西可抽
-    deps.logger.info("kg extraction empty: message gone", {
-      traceId: "kg-extraction", orgId: job.orgId, messageId: job.messageId, threadId: job.threadId,
+    deps.logger.info("kg extraction empty", {
+      traceId: "kg-extraction", orgId: job.orgId, messageId: job.messageId, threadId: job.threadId, reason: "message_gone",
     });
     return "empty";
   }
@@ -69,9 +73,11 @@ export async function extractJob(deps: ExtractionDeps, job: KgExtractionJob): Pr
     result, known, newId: deps.newId,
   });
   if (batch === null) {
-    // issue #4350：「空」必须看得见——模型合法地回了「没有可记的」（解析不出已经在 extractor 里抛错走重试）。
-    deps.logger.info("kg extraction empty: nothing to remember", {
-      traceId: "kg-extraction", orgId: job.orgId, messageId: job.messageId, threadId: job.threadId,
+    // issue #4343 / #4350：「空」必须看得见——模型合法地回了「没有可记的」（或回的全被丢弃）；解析不出已经在
+    // extractor 里抛错走重试。之前这里静默返回：「我的目标是探索未来教育」一条没记下，界面照样显示「已整理到最新」。
+    deps.logger.info("kg extraction empty", {
+      traceId: "kg-extraction", orgId: job.orgId, messageId: job.messageId, threadId: job.threadId, reason: "no_candidates",
+      authorKind: loaded.message.authorKind, pipelineVersion: KG_EXTRACTION_PIPELINE_VERSION,
       entities: result.entities.length, claims: result.claims.length,
     });
     return "empty";
@@ -102,6 +108,8 @@ export async function extractJob(deps: ExtractionDeps, job: KgExtractionJob): Pr
 export async function runExtractionTick(deps: ExtractionDeps, abandoned: () => boolean = () => false): Promise<ExtractionTickResult> {
   let processed = 0;
   let written = 0;
+  let empty = 0;
+  let skipped = 0;
   let failed = 0;
   for (const orgId of await deps.queue.pendingOrgs()) {
     if (abandoned()) break;
@@ -115,7 +123,10 @@ export async function runExtractionTick(deps: ExtractionDeps, abandoned: () => b
     for (const job of jobs) {
       processed += 1;
       try {
-        if ((await extractJob(deps, job)) === "written") written += 1;
+        const outcome = await extractJob(deps, job);
+        if (outcome === "written") written += 1;
+        else if (outcome === "empty") empty += 1;
+        else skipped += 1;
         await deps.queue.complete(orgId, job.messageId, job.attempts);
       } catch (err) {
         failed += 1;
@@ -125,5 +136,5 @@ export async function runExtractionTick(deps: ExtractionDeps, abandoned: () => b
       }
     }
   }
-  return { processed, written, failed };
+  return { processed, written, empty, skipped, failed };
 }

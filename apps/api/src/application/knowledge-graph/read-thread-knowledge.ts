@@ -71,6 +71,15 @@ export async function getThreadKnowledge(
   const t = await visibleThread(deps, input, input.threadId);
   const data = reveal(await deps.knowledge.threadKnowledge(input.orgId, input.userId, t.ref), t.base, "KG_THREAD_NOT_FOUND");
   const isOwner = t.facts.createdBy === input.userId;
+  // 项目中枢 R7：「记到项目大脑」——项目线程，且调用者是创建者或本项目引导师（同 R5 分享的判据）。
+  let canPromoteToProject = false;
+  if (t.facts.projectId !== null) {
+    if (isOwner) canPromoteToProject = true;
+    else {
+      const m = await deps.repo.findProjectMembership(input.userId, t.facts.projectId, input.orgId);
+      canPromoteToProject = m?.projectRole === "facilitator";
+    }
+  }
   return {
     scope: { kind: "chat_session", id: input.threadId },
     ...data,
@@ -78,6 +87,7 @@ export async function getThreadKnowledge(
     canEdit: isOwner,
     // uc-18-4 E2：「存入个人空间」只在个人线程出现。
     canPromote: isOwner && t.facts.projectId === null,
+    canPromoteToProject,
     visibility: visibilityOf(t.facts),
   };
 }
@@ -89,6 +99,7 @@ export async function getClaimSources(
   const route = await deps.knowledge.claimRoute(input.orgId, input.userId, input.claimId);
   if (route === null) throw new KgReadError("KG_CLAIM_NOT_FOUND");
   if (route.scopeKind === "personal") return personalClaimSources(deps, input, route.scopeId);
+  if (route.scopeKind === "project") return projectClaimSources(deps, input, route.scopeId);
   if (route.scopeKind !== "chat_session") throw new KgReadError("KG_CLAIM_NOT_FOUND");
   let t: VisibleThread;
   try {
@@ -113,6 +124,35 @@ async function personalClaimSources(
   ownerId: string,
 ): Promise<z.infer<typeof KG.knowledgeGraph.getClaimSources.out>> {
   if (ownerId !== input.userId) throw new KgReadError("KG_CLAIM_NOT_FOUND");
+  return evidenceThreadSources(deps, input);
+}
+
+/**
+ * 项目中枢 R9：项目记忆（L2）结论的来源——「项目大脑里这条是从哪场对话来的」。
+ * 只有项目成员看得到（非成员与不存在同一个出口，同 `getProjectKnowledge` 的成员门）；
+ * 证据消息逐个会话重新判可见性，只返回现在还看得到的会话里的那些（同个人空间那条：
+ * 会话被删 / 成员被移出项目后，它的原话不再从 L2 漏出来）。
+ */
+async function projectClaimSources(
+  deps: KnowledgeReadDeps,
+  input: Viewer & { readonly claimId: string },
+  projectId: string,
+): Promise<z.infer<typeof KG.knowledgeGraph.getClaimSources.out>> {
+  let membership;
+  try {
+    membership = await deps.repo.findProjectMembership(input.userId, projectId, input.orgId);
+  } catch {
+    throw new AuthzUnavailableError();
+  }
+  if (membership === null) throw new KgReadError("KG_CLAIM_NOT_FOUND");
+  return evidenceThreadSources(deps, input);
+}
+
+/** 个人 / 项目两条路径共用的后半段：按证据会话逐个判可见，再按可见会话取来源。 */
+async function evidenceThreadSources(
+  deps: KnowledgeReadDeps,
+  input: Viewer & { readonly claimId: string },
+): Promise<z.infer<typeof KG.knowledgeGraph.getClaimSources.out>> {
   const visible: VisibleThread[] = [];
   for (const threadId of await deps.knowledge.claimEvidenceThreads(input.orgId, input.userId, input.claimId)) {
     try {
