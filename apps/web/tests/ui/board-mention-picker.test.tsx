@@ -9,6 +9,7 @@ describe('board mention picker',()=>{
     render(<Harness/>);const input=screen.getByRole('combobox',{name:'提及成员'});
     fireEvent.focus(input);fireEvent.keyDown(input,{key:'ArrowDown'});fireEvent.keyDown(input,{key:'Enter'});
     expect(screen.getByRole('button',{name:'移除提及 李四'})).toBeTruthy();
+    expect(screen.queryByRole('listbox')).toBeNull();expect(input.getAttribute('aria-expanded')).toBe('false');
     expect(screen.queryByText('private-b')).toBeNull();
     fireEvent.change(input,{target:{value:'张'}});fireEvent.keyDown(input,{key:'Enter'});
     expect(screen.getByRole('button',{name:'移除提及 张三'})).toBeTruthy();
@@ -30,4 +31,15 @@ describe('board mention picker',()=>{
     expect((screen.getByRole('combobox') as HTMLInputElement).disabled).toBe(true);
     expect(screen.queryByRole('option')).toBeNull();
   });
+});
+
+it('dismisses after pointer selection and keeps suggestion blur out of document flow before publishing', () => {
+  const publish=vi.fn();render(<><Harness/><button type="button" onClick={publish}>发布评论</button></>);
+  const input=screen.getByRole('combobox');fireEvent.focus(input);
+  expect(screen.getByRole('listbox')).toHaveClass('absolute');
+  fireEvent.click(screen.getByRole('option',{name:'张三'}));
+  expect(screen.queryByRole('listbox')).toBeNull();
+  const submit=screen.getByRole('button',{name:'发布评论'});
+  fireEvent.mouseDown(submit);fireEvent.blur(input,{relatedTarget:submit});fireEvent.mouseUp(submit);fireEvent.click(submit);
+  expect(publish).toHaveBeenCalledOnce();expect(screen.getByRole('button',{name:'移除提及 张三'})).toBeTruthy();
 });
