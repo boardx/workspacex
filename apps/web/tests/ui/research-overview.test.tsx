@@ -26,7 +26,7 @@ vi.mock("@/lib/live-project-prep", () => ({
   getProjectTopic: (...a: unknown[]) => getProjectTopic(...a),
   saveProjectTopic: (...a: unknown[]) => saveProjectTopic(...a),
 }));
-vi.mock("@/lib/interview-api", () => ({
+vi.mock("@/lib/live-digital-interview", () => ({
   createDigitalInterviewDraft: (...a: unknown[]) => createDigitalInterviewDraft(...a),
 }));
 vi.mock("@/lib/live-tasks", () => ({

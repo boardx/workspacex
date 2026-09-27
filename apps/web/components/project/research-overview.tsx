@@ -13,7 +13,7 @@ import { KG_TRI_STATE_LABEL_ZH, type KgClaim, type KgClaimKind, type KgTriState 
 import { KG_CLAIM_KIND_LABEL_ZH } from "@/lib/knowledge-graph-view";
 import { fetchClaimSources, fetchProjectKnowledge, knowledgeGraphErrorCode, type ProjectKnowledge } from "@/lib/knowledge-graph-api";
 import { getProjectTopic, saveProjectTopic } from "@/lib/live-project-prep";
-import { createDigitalInterviewDraft } from "@/lib/interview-api";
+import { createDigitalInterviewDraft } from "@/lib/live-digital-interview";
 import { createTask } from "@/lib/live-tasks";
 import { httpFailureText } from "@/lib/http-failure-text";
 import { ClaimSourceDrawer } from "@/components/chat/knowledge/claim-source-drawer";
