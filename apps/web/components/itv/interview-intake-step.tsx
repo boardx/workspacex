@@ -48,8 +48,8 @@ export function InterviewIntakeStep({ markdown, onChange, onSave, onConfirm, pen
         <div className="mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-border pt-4">
           <div className="flex flex-wrap gap-3">
             <Button variant="outline" disabled={busy || !onVoice} onClick={() => void perform(async () => append(await onVoice!()))}><Mic className="size-4" aria-hidden />语音输入</Button>
-            <Button variant="outline" disabled={busy || !onImportFile} onClick={() => fileInput.current?.click()}><FileText className="size-4" aria-hidden />上传文件</Button>
-            <input ref={fileInput} type="file" aria-label="导入研究文件" className="sr-only" disabled={busy || !onImportFile}
+            <Button variant="outline" disabled={busy || !onImportFile} onClick={() => fileInput.current?.click()}><FileText className="size-4" aria-hidden />导入文本文档</Button>
+            <input ref={fileInput} type="file" accept=".txt,.md,.markdown,text/plain,text/markdown" aria-label="导入研究文件" className="sr-only" disabled={busy || !onImportFile}
               onChange={(event) => { const file = event.target.files?.[0]; event.target.value = ""; if (file && onImportFile) void perform(async () => append(await onImportFile(file))); }} />
           </div>
           <span className="text-xs text-muted-foreground">{markdown.length} 字符</span>
@@ -65,7 +65,7 @@ export function InterviewIntakeStep({ markdown, onChange, onSave, onConfirm, pen
       <h2 className="flex items-center gap-2 text-xl font-semibold"><Lightbulb className="size-5" aria-hidden />小提示</h2>
       <p className="mt-3 text-sm leading-6 text-muted-foreground">提供越详细的背景信息，越有助于形成针对性的访谈方案。</p>
       <div className="mt-5 space-y-5 border-t border-border pt-5">{guidance.map(({ title, detail, icon: Icon }) => <div key={title} className="flex gap-3"><span className="grid size-10 shrink-0 place-items-center rounded-xl bg-muted"><Icon className="size-5" aria-hidden /></span><div><h3 className="text-sm font-semibold">{title}</h3><p className="mt-1 text-xs leading-5 text-muted-foreground">{detail}</p></div></div>)}</div>
-      <p className="mt-5 border-t border-border pt-4 text-xs leading-6 text-muted-foreground">支持 Markdown 文本。文件与语音按钮仅在对应服务可用时启用；未确认的内容不会自动传给模型。</p>
+      <p className="mt-5 border-t border-border pt-4 text-xs leading-6 text-muted-foreground">支持 UTF-8 TXT / Markdown 文本文档，最大 2 MB。文件文字导入当前草稿，保存后持久化；原始二进制文件不上传。语音仅在服务接通后启用，未确认内容不会自动传给模型。</p>
     </aside>
   </div>;
 }

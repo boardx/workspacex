@@ -7,6 +7,25 @@ import { InterviewMarkdownPlanningStep } from "@/components/itv/interview-markdo
 afterEach(() => { cleanup(); vi.unstubAllGlobals(); vi.unstubAllEnvs(); });
 
 const raw = "# 研究需求\r\n\r\n教师最近一次备课 🧪\r\n";
+it("native file input saves imported Markdown through the sole source API", async () => {
+  vi.stubEnv("NEXT_PUBLIC_API_URL", "http://localhost:4100"); vi.stubEnv("NEXT_PUBLIC_API_PATH_PREFIX", "");
+  const document = { documentId: "intake-file", step: "intake", version: 1, contentHash: "a".repeat(64), evidenceMode: "simulated", references: [], markdown: raw };
+  const writes: { markdown: string }[] = [];
+  vi.stubGlobal("fetch", async (_url: string, init: RequestInit) => {
+    if (init.method === "POST") writes.push(JSON.parse(String(init.body)));
+    return new Response(JSON.stringify({ interviewId: "itv-file", revisionId: "rev-file", version: 1, documents: [document], states: [{ documentId: document.documentId, status: "draft", failure: null }] }));
+  });
+  render(<InterviewMarkdownPlanningStep interviewId="itv-file" step="intake" onVersionChange={vi.fn()} onDirtyChange={vi.fn()} onContinue={vi.fn()} />);
+  const input = screen.getByRole("textbox", { name: "研究需求 Markdown" });
+  await waitFor(() => expect(input).toBeEnabled());
+  const imported = "## 原始材料\r\n\r\n保留 **原文**。";
+  const file = { name: "材料.md", size: 100, arrayBuffer: async () => new TextEncoder().encode(imported).buffer };
+  fireEvent.change(screen.getByLabelText("导入研究文件"), { target: { files: [file] } });
+  await waitFor(() => expect(input).toHaveValue((raw + "\n\n" + imported).replaceAll("\r\n", "\n")));
+  fireEvent.click(screen.getByRole("button", { name: "保存草稿" }));
+  await waitFor(() => expect(writes).toHaveLength(1));
+  expect(writes[0]?.markdown).toBe(raw + "\n\n" + imported);
+});
 function Intake({ onImportFile, onVoice }: { onImportFile?: (file: File) => Promise<string>; onVoice?: () => Promise<string> }) {
   const [markdown, setMarkdown] = React.useState(raw);
   return <InterviewIntakeStep markdown={markdown} onChange={setMarkdown} onSave={async () => undefined} onConfirm={async () => undefined} onImportFile={onImportFile} onVoice={onVoice} pending={false} />;

@@ -7,6 +7,7 @@ import { initializeInterviewMarkdown, loadInterviewMarkdown, saveInterviewMarkdo
 import { Button } from "@/components/ui/button";
 import { InterviewIntakeStep } from "./interview-intake-step";
 import { InterviewAnalysisStep } from "./interview-analysis-step";
+import { importInterviewTextFile } from "@/lib/interview-text-import";
 
 /** Planning routes use the Markdown source API exclusively; workflow JSON is metadata only. */
 export function InterviewMarkdownPlanningStep({ interviewId, step, onVersionChange, onDirtyChange, onContinue }: {
@@ -87,7 +88,7 @@ export function InterviewMarkdownPlanningStep({ interviewId, step, onVersionChan
     ? "分析生成未完成" : null;
   return <div>
     {error && <div role="alert" className="mb-5 rounded-xl border border-destructive/20 bg-destructive/5 p-4 text-sm text-destructive"><p>{error}</p><Button className="mt-3" variant="outline" disabled={pending} onClick={() => void action(async () => { receive(await loadInterviewMarkdown(interviewId)); })}>重新载入已保存版本（保留编辑文字）</Button></div>}
-    {step === "intake" ? <InterviewIntakeStep markdown={markdown} pending={pending} onChange={(text) => { setMarkdown(text); callbacks.current.onDirtyChange(true); }}
+    {step === "intake" ? <InterviewIntakeStep markdown={markdown} pending={pending} onImportFile={importInterviewTextFile} onChange={(text) => { setMarkdown(text); callbacks.current.onDirtyChange(true); }}
       onSave={() => action(async () => { await saveIntake(source ?? await loadInterviewMarkdown(interviewId)); })}
       onConfirm={() => action(async () => {
         const saved = await saveIntake(source ?? await loadInterviewMarkdown(interviewId));
