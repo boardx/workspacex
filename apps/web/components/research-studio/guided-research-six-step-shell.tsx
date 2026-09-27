@@ -65,7 +65,7 @@ export function GuidedResearchSixStepShell({
               const completed = index < currentIndex && unlocked;
               const stepContent = <><span className={cn("flex size-14 shrink-0 items-center justify-center rounded-full border text-2xl", (completed || active) && "border-primary bg-primary text-primary-foreground", active && "ring-2 ring-primary ring-offset-2", !completed && !active && "border-border bg-muted/30 text-muted-foreground")}>{completed ? <Check className="size-6" /> : index + 1}</span><span className="truncate">{step.label}</span></>;
               return <li key={step.id} className="flex min-w-0 flex-1 basis-1/2 items-center sm:basis-1/3 lg:basis-0">
-                {!unlocked ? <span data-testid={`research-step-${step.id}`} aria-disabled="true" className="inline-flex min-h-6 items-center gap-3 p-1 text-base text-muted-foreground md:text-lg">{stepContent}</span> :
+                {!unlocked ? <span data-testid={`research-step-${step.id}`} aria-current={active ? "step" : undefined} aria-disabled="true" className="inline-flex min-h-6 items-center gap-3 p-1 text-base text-muted-foreground md:text-lg">{stepContent}</span> :
                 <Button
                   asChild={Boolean(sessionId && unlocked)}
                   variant="ghost"

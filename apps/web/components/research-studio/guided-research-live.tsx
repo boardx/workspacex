@@ -446,8 +446,8 @@ return <GuidedResearchSixStepShell hasUnsavedChanges={topicInformationDirty || c
             const saved = await run("save", { draft: parsed.draft });
             return saved ? { ok: true } : { ok: false, message: "研究计划未保存，请根据页面提示重试。" };
           }} provenance="Markdown 是研究计划的可编辑来源；检索范围以已确认版本为准。" />}<div className="mt-4"><ResearchOutlineEditor draft={draft} disabled={busy} onChange={setDraft} /></div></div></details></>}
-          questions={<ul className="space-y-2 text-sm">{draft.value.filter((item) => item.enabled).flatMap((item) => item.questions.map((question, index) => <li key={`${item.id}-${index}`}><span className="font-medium">{item.title}：</span>{question}</li>))}</ul>}
-          sourceScope={<div className="space-y-2 text-sm"><p>{state.sourcePolicy?.mode === "restrict" ? "仅检索指定站点" : state.sourcePolicy?.mode === "prioritize" ? "优先检索指定站点" : "检索公开网页资料"}</p>{state.sourcePolicy?.domains.length ? <p className="text-muted-foreground">{state.sourcePolicy.domains.join("、")}</p> : <p className="text-muted-foreground">请先确认研究边界与来源策略。</p>}</div>}
+          questions={<ol className="list-inside list-decimal space-y-1 text-lg leading-relaxed">{draft.value.filter((item) => item.enabled).flatMap((item) => item.questions.map((question, index) => <li key={`${item.id}-${index}`}><span className="font-medium">{item.title}：</span>{question}</li>))}</ol>}
+          sourceScope={<div className="space-y-2 text-lg"><p>{state.sourcePolicy?.mode === "restrict" ? "仅检索指定站点" : state.sourcePolicy?.mode === "prioritize" ? "优先检索指定站点" : "检索公开网页资料"}</p>{state.sourcePolicy?.domains.length ? <p className="text-muted-foreground">{state.sourcePolicy.domains.join("、")}</p> : <p className="text-muted-foreground">请先确认研究边界与来源策略。</p>}</div>}
           successCriteria={<ul className="list-inside list-disc space-y-2">{state.intent?.successCriteria.map((criterion, index) => <li key={index}>{criterion}</li>)}</ul>}
           materials={<ul className="list-inside list-disc space-y-2">{draft.value.filter((chapter) => chapter.enabled).map((chapter) => <li key={chapter.id}>{chapter.title}：{chapter.objective}</li>)}</ul>}
         />}
