@@ -9,11 +9,13 @@ test('actual Chat flowchart, sequence and persona retain canonical layout after 
     if(!chatUrl)throw new Error(`${name} must point at a real persisted assistant diagram in this isolated stack; no synthetic artifact fallback`);
     return {family,chatUrl};
   });
+  const actorId=process.env.BOARD_CHAT_READ_ACTOR_ID;
+  if(!actorId)throw new Error('BOARD_CHAT_READ_ACTOR_ID must be an enabled Board actor delegated to the authenticated user with board:read; a seed Agent ID is not authorization');
   await page.goto('/login');
   await page.getByTestId('login-email').fill(FULLSTACK_E2E.email);
   await page.getByTestId('login-password').fill(FULLSTACK_E2E.password);
   await page.getByTestId('login-submit').click();
   await expect(page).toHaveURL(/\/projects$/);
-  const evidence=await produceChatBoardThreeDiagramEvidence({page,api:request,apiOrigin:`http://127.0.0.1:${process.env.WORKSPACEX_API_PORT}`,actorId:FULLSTACK_E2E.agentId,sources});
+  const evidence=await produceChatBoardThreeDiagramEvidence({page,api:request,apiOrigin:`http://127.0.0.1:${process.env.WORKSPACEX_API_PORT}`,actorId,sources});
   await testInfo.attach('three-real-chat-canonical-roundtrips',{body:JSON.stringify(evidence,null,2),contentType:'application/json'});
 });
