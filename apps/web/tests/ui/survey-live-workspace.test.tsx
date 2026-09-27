@@ -28,6 +28,18 @@ describe('live survey workspace persistence',()=>{
   await new Promise(resolve=>setTimeout(resolve,1700));
   expect(request).toHaveBeenCalledTimes(2);
  });
+ it('does not manually save or publish valid Markdown before explicit application',async()=>{
+  request.mockResolvedValueOnce(runtime());render(<LiveSurveyWorkspace surveyId="saved-survey"/>);
+  const source=await screen.findByLabelText('问卷 Markdown');
+  fireEvent.change(source,{target:{value:'# 待校对\n\n## q2 [open]\n未确认的问题\n'}});
+  fireEvent.click(screen.getByRole('button',{name:'保存修改'}));
+  expect(await screen.findByRole('alert')).toHaveTextContent('请先校对并应用 Markdown');
+  expect(request).toHaveBeenCalledTimes(1);
+  fireEvent.click(screen.getByRole('button',{name:'前往发布回收'}));
+  fireEvent.click(screen.getByRole('button',{name:'检查发布条件'}));
+  expect(await screen.findByRole('alert')).toHaveTextContent('请先校对并应用 Markdown');
+  expect(request).toHaveBeenCalledTimes(1);
+ });
  it('keeps visual editing enabled while replacing a question title',async()=>{
   request.mockResolvedValueOnce(runtime());render(<LiveSurveyWorkspace surveyId="saved-survey"/>);
   const title=await screen.findByLabelText('问题内容');
