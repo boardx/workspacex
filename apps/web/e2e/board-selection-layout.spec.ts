@@ -99,76 +99,56 @@ function closeGeometry(left: Geometry, right: Geometry, epsilon = 1): boolean {
 
 async function marqueeAll(page: Page): Promise<void> {
   const selectTool = page.getByTestId("board-tool-select");
-  const surface = page.getByTestId("board-fabric-surface");
-  const upperCanvas = surface.locator('canvas[data-fabric="top"]');
   const settleCanvas = () => page.evaluate(() => new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve()))));
-  const readMarqueeSnapshot = async () => {
-    const objects = parseGeometry(await geometry(page));
-    expect(objects).toHaveLength(7);
-    const box = await upperCanvas.boundingBox();
-    expect(box).not.toBeNull();
-    const zoom = Number(await surface.getAttribute("data-viewport-zoom"));
-    const panX = Number(await surface.getAttribute("data-viewport-pan-x"));
-    const panY = Number(await surface.getAttribute("data-viewport-pan-y"));
-    expect(Number.isFinite(zoom) && zoom > 0).toBe(true);
-    const corners = objects.flatMap(({ x, y, width, height, rotation }) => {
-      const radians = rotation * Math.PI / 180, cosine = Math.cos(radians), sine = Math.sin(radians);
-      return [[0, 0], [width, 0], [width, height], [0, height]].map(([localX, localY]) => ({
-        x: x + localX! * cosine - localY! * sine,
-        y: y + localX! * sine + localY! * cosine,
-      }));
-    });
-    const toScreen = (x: number, y: number) => ({ x: box!.x + panX + x * zoom, y: box!.y + panY + y * zoom });
-    const screenCorners = corners.map(point => toScreen(point.x, point.y));
-    const objectScreenBounds = {
-      left: Math.min(...screenCorners.map(point => point.x)), top: Math.min(...screenCorners.map(point => point.y)),
-      right: Math.max(...screenCorners.map(point => point.x)), bottom: Math.max(...screenCorners.map(point => point.y)),
-    };
-    const margin = 28 / zoom, inset = 8;
-    const desiredStart = toScreen(Math.min(...corners.map(point => point.x)) - margin, Math.min(...corners.map(point => point.y)) - margin);
-    const desiredEnd = toScreen(Math.max(...corners.map(point => point.x)) + margin, Math.max(...corners.map(point => point.y)) + margin);
-    const start = { x: Math.max(box!.x + inset, desiredStart.x), y: Math.max(box!.y + inset, desiredStart.y) };
-    const end = { x: Math.min(box!.x + box!.width - inset, desiredEnd.x), y: Math.min(box!.y + box!.height - inset, desiredEnd.y) };
-    expect(start.x).toBeLessThan(objectScreenBounds.left - 2);
-    expect(start.y).toBeLessThan(objectScreenBounds.top - 2);
-    expect(end.x).toBeGreaterThan(objectScreenBounds.right + 2);
-    expect(end.y).toBeGreaterThan(objectScreenBounds.bottom + 2);
-    return { start, end, objectScreenBounds };
-  };
+  const scanInteractiveCanvas = async () => page.evaluate(() => {
+    const canvas = document.querySelector<HTMLCanvasElement>('[data-testid="board-fabric-surface"] canvas[data-fabric="top"]');
+    if (!canvas) return null;
+    const rect = canvas.getBoundingClientRect(), inset = 8, step = 12;
+    const points: Array<{ x: number; y: number }> = [];
+    for (let y = rect.top + inset; y <= rect.bottom - inset; y += step) {
+      for (let x = rect.left + inset; x <= rect.right - inset; x += step) {
+        if (document.elementFromPoint(x, y) === canvas) points.push({ x, y });
+      }
+    }
+    if (!points.length) return null;
+    const topLeft = points.reduce((best, point) => point.x + point.y < best.x + best.y ? point : best);
+    const bottomRight = points.reduce((best, point) => point.x + point.y > best.x + best.y ? point : best);
+    const bottomLeft = points.reduce((best, point) => point.y - point.x > best.y - best.x ? point : best);
+    return { rect: { left: rect.left, top: rect.top, right: rect.right, bottom: rect.bottom }, topLeft, bottomRight, bottomLeft, count: points.length };
+  });
 
   await selectTool.click();
   await expect(selectTool).toHaveAttribute("aria-pressed", "true");
   await page.getByTestId("board-zoom-fit-board").click();
   await settleCanvas();
-  const beforeClear = await readMarqueeSnapshot();
-  const clearPoint = await page.evaluate(({ bounds }) => {
-    const canvas = document.querySelector<HTMLElement>('[data-testid="board-fabric-surface"] canvas[data-fabric="top"]');
-    if (!canvas) return null;
-    const rect = canvas.getBoundingClientRect();
-    for (let y = rect.bottom - 16; y >= rect.top + 16; y -= 24) for (let x = rect.left + 16; x <= rect.right - 16; x += 24) {
-      const outsideObjects = x < bounds.left - 4 || x > bounds.right + 4 || y < bounds.top - 4 || y > bounds.bottom + 4;
-      if (outsideObjects && document.elementFromPoint(x, y) === canvas) return { x, y };
-    }
-    return null;
-  }, { bounds: beforeClear.objectScreenBounds });
-  expect(clearPoint, "an interactive blank upper-canvas point must exist to clear selection").not.toBeNull();
+  expect(parseGeometry(await geometry(page))).toHaveLength(7);
+
+  const beforeClear = await scanInteractiveCanvas();
+  expect(beforeClear?.count, "Fit Board must leave an interactive upper-canvas margin").toBeGreaterThan(0);
   await page.keyboard.press("Escape");
-  await page.mouse.click(clearPoint!.x, clearPoint!.y);
+  await page.mouse.click(beforeClear!.bottomLeft.x, beforeClear!.bottomLeft.y);
   await expect(page.getByTestId("board-a11y-selection-announcement")).toHaveText("未选择对象");
 
-  // Clearing selection removes contextual UI and can resize the Fabric host.
-  // Re-read both viewport and geometry after ResizeObserver has settled; no
-  // screen coordinate computed above this point may be reused for the drag.
+  // Contextual UI disappears after clearing selection and can resize Fabric.
+  // Scan the real post-resize upper canvas again and immediately use its
+  // extreme interactive points; no world-to-screen projection is involved.
   await settleCanvas();
-  const { start, end } = await readMarqueeSnapshot();
+  const dragArea = await scanInteractiveCanvas();
+  expect(dragArea?.count, "post-clear upper canvas must expose interactive points").toBeGreaterThan(0);
+  expect(dragArea!.topLeft.x).toBeLessThan(dragArea!.bottomRight.x);
+  expect(dragArea!.topLeft.y).toBeLessThan(dragArea!.bottomRight.y);
+  expect(dragArea!.topLeft.x - dragArea!.rect.left).toBeLessThanOrEqual(32);
+  expect(dragArea!.topLeft.y - dragArea!.rect.top).toBeLessThanOrEqual(220);
+  expect(dragArea!.rect.right - dragArea!.bottomRight.x).toBeLessThanOrEqual(32);
+  expect(dragArea!.rect.bottom - dragArea!.bottomRight.y).toBeLessThanOrEqual(32);
   const hitSurfaces = await page.evaluate(([startPoint, endPoint]) => [startPoint, endPoint].map((point) => {
     const element = document.elementFromPoint(point.x, point.y) as HTMLElement | null;
     return { fabric: element?.dataset.fabric ?? null, insideSurface: Boolean(element?.closest('[data-testid="board-fabric-surface"]')) };
-  }), [start, end] as const);
+  }), [dragArea!.topLeft, dragArea!.bottomRight] as const);
   expect(hitSurfaces).toEqual([{ fabric: "top", insideSurface: true }, { fabric: "top", insideSurface: true }]);
-  await page.mouse.move(start.x, start.y);
+  await page.mouse.move(dragArea!.topLeft.x, dragArea!.topLeft.y);
   await page.mouse.down();
-  await page.mouse.move(end.x, end.y, { steps: 12 });
+  await page.mouse.move(dragArea!.bottomRight.x, dragArea!.bottomRight.y, { steps: 16 });
   await page.mouse.up();
   await expect(page.getByTestId("board-a11y-selection-announcement")).toHaveText("已选择 7 个对象");
   await expect(page.getByTestId("board-selection-layout-toolbar")).toBeVisible();
