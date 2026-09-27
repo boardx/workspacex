@@ -154,7 +154,17 @@ async function sendAndWait(page) {
   await click(page, '[data-testid="design-detail-send"]');
   await page.waitForSelector('[data-testid="design-detail-suggestions"]', { timeout: 8000 });
 }
-async function openExport(page) { await clickUntil(page, '[data-testid="design-detail-export"]', '[data-testid="design-detail-export-menu"]'); }
+/** design-delta `novice-progressive-disclosure`：导出 / 说明 / 交给开发 收进了详情页的「更多」菜单。 */
+async function clickMoreUntil(page, itemSelector, expected, tries = 20) {
+  for (let i = 0; i < tries; i++) {
+    if ((await page.locator(expected).count()) > 0) return;
+    await page.locator('[data-testid="design-detail-more"]').first().click({ timeout: 3000 }).catch(() => undefined);
+    await page.locator(itemSelector).first().click({ timeout: 3000 }).catch(() => undefined);
+    await page.waitForTimeout(200);
+  }
+  throw new Error(`clickMoreUntil: ${expected} never appeared`);
+}
+async function openExport(page) { await clickMoreUntil(page, '[data-testid="design-detail-export"]', '[data-testid="design-detail-export-menu"]'); }
 async function selectNodeInspector(page) {
   await selectNode(page);
   await page.waitForSelector('[data-testid="design-inspector"]', { timeout: 4000 });
@@ -199,10 +209,10 @@ async function sendSlow(page) {
     return el !== null && /[1-9]\d*s/.test(el.textContent ?? "");
   }, { timeout: 4000 });
 }
-async function openSpec(page) { await clickUntil(page, '[data-testid="design-detail-tab-spec"]', '[data-testid="design-detail-spec"]'); }
-async function openPushConfirm(page) { await clickUntil(page, '[data-testid="design-detail-push"]', '[data-testid="design-push-confirm"]'); }
+async function openSpec(page) { await clickMoreUntil(page, '[data-testid="design-detail-tab-spec"]', '[data-testid="design-detail-spec"]'); }
+async function openPushConfirm(page) { await clickMoreUntil(page, '[data-testid="design-detail-push"]', '[data-testid="design-push-confirm"]'); }
 async function doPush(page) {
-  await clickUntil(page, '[data-testid="design-detail-push"]', '[data-testid="design-push-confirm"]');
+  await clickMoreUntil(page, '[data-testid="design-detail-push"]', '[data-testid="design-push-confirm"]');
   await clickUntil(page, '[data-testid="design-push-confirm-submit"]', '[data-testid="design-push-success"]');
 }
 
