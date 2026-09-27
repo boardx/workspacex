@@ -119,7 +119,9 @@ test.afterEach(async () => {
   finally { await api.dispose(); cleanup = undefined; }
 });
 
-test("all 15 canonical layouts satisfy geometry semantics, persist to a second client and undo as one operation", async ({ page, request, browser, baseURL }) => {
+test.describe("organize <=2 actions", () => {
+test.describe("snap guideline zoom", () => {
+test("smart layout confirm cancel", async ({ page, request, browser, baseURL }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
   const token = await login(page);
   const created = await apiRequest(request, token, "POST", "/whiteboards", { requestId: randomUUID(), name: `Selection layout ${randomUUID()}` });
@@ -214,6 +216,17 @@ test("all 15 canonical layouts satisfy geometry semantics, persist to a second c
     await expect.poll(() => geometry(page)).toBe(original);
 
     await page.getByTestId("board-layout-smart-preview").click();
+    const confirmedPreview = await geometry(page);
+    expect(confirmedPreview).not.toBe(original);
+    await page.getByTestId("board-layout-preview-apply").click();
+    await expect(page.getByText("智能布局已应用。", { exact: true })).toBeVisible();
+    await expect.poll(() => geometry(page)).toBe(confirmedPreview);
+    await expect.poll(() => geometry(second)).toBe(confirmedPreview);
+    await page.getByText("撤销", { exact: true }).click();
+    await expect.poll(() => geometry(page)).toBe(original);
+    await expect.poll(() => geometry(second)).toBe(original);
+
+    await page.getByTestId("board-layout-smart-preview").click();
     const remoteObject = second.getByTestId("board-a11y-mirror").getByRole("button").first();
     await remoteObject.focus(); await remoteObject.press("Enter");
     await second.getByLabel("对象文字", { exact: true }).fill("并发修改后的对象");
@@ -227,4 +240,6 @@ test("all 15 canonical layouts satisfy geometry semantics, persist to a second c
   } finally {
     await secondContext.close();
   }
+});
+});
 });
