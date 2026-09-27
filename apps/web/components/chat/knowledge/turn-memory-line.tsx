@@ -9,9 +9,12 @@ import {
 import { MemoryCard, type MemoryCardActOptions, type MemoryCardDecision, type UndoOutcome } from "./memory-card";
 import { SupersedeNoticeLine } from "./supersede-notice-line";
 import type { KgMemoryCard } from "@repo/contracts/chat-knowledge-graph";
+import { jumpToCitationSource } from "@/lib/knowledge-graph-citation";
 import {
   actOnMemoryCard,
   applyHumanAction,
+  correctCitation,
+  type CitationCorrectionKind,
   fetchThreadKnowledge,
   fetchTurnMemory,
   knowledgeGraphErrorCode,
@@ -182,6 +185,21 @@ export function TurnMemoryLine({ threadId, messageId }: { threadId: string; mess
       throw new Error(describeMemoryCardFailure(e));
     }
   }, [threadId, cardId]);
+  /** S7（#4364）：引用 chip 展开行的「跳到原消息」（复用 R6 / F15 的跳转）。 */
+  const jumpToSource = React.useCallback((claimId: string) => jumpToCitationSource(claimId, threadId), [threadId]);
+  /**
+   * S7：「这条不对」/「已过时」。服务端再核一遍（所有者兼提问人、这一轮对账后的引用）；成功后让右栏记忆重读，
+   * 这一轮不重读——展开行已经如实显示了结果，重读会把刚纠正的 chip 连同结果一起收走。
+   */
+  const correct = React.useCallback(async (claimId: string, kind: CitationCorrectionKind, replacement?: string) => {
+    try {
+      return await correctCitation(threadId, messageId, claimId, kind, replacement);
+    } catch (e) {
+      throw new Error(describeHumanActionFailure(e));
+    } finally {
+      requestKnowledgeReload(threadId);
+    }
+  }, [threadId, messageId]);
 
   React.useEffect(() => {
     let cancelled = false;
@@ -223,7 +241,16 @@ export function TurnMemoryLine({ threadId, messageId }: { threadId: string; mess
   if (!showFooter && !showCaptured && conflict === null && memoryCard === null && supersede === null) return null;
   return (
     <>
-      {showFooter ? <AnswerKnowledgeFooter recalled={turn.recalled} recallDegraded={turn.recallDegraded} /> : null}
+      {showFooter ? (
+        <AnswerKnowledgeFooter
+          recalled={turn.recalled}
+          recallDegraded={turn.recallDegraded}
+          {...(turn.cited !== undefined ? { cited: turn.cited } : {})}
+          canCorrect={canEdit && turn.canCorrect === true}
+          onJump={jumpToSource}
+          onCorrect={correct}
+        />
+      ) : null}
       {conflict !== null ? (
         <ConflictPromptCard key={conflict.promptId} prompt={conflict} canResolve={canEdit} onResolve={resolveConflict} />
       ) : null}

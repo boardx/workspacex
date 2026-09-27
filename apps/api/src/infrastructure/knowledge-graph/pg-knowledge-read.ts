@@ -15,6 +15,7 @@ import type {
 } from "../../application/knowledge-graph/ports";
 import { guard, type Guarded } from "../../application/security/permission-filter";
 import type { OrgId } from "../../domain/org-id";
+import { reconcileCitations } from "../../domain/knowledge-graph/citation";
 import { KG_EXTRACTION_LEASE_SECONDS, KG_EXTRACTION_MAX_ATTEMPTS } from "./pg-kg-extraction";
 
 type KgClaim = ThreadKnowledgeData["claims"][number];
@@ -839,15 +840,15 @@ interface StoredRecallItem {
  */
 async function readTurnRecall(
   s: TenantSession, orgId: OrgId, viewer: string, threadId: string, messageId: string,
-): Promise<Pick<TurnMemoryData, "recalled" | "recallDegraded">> {
-  const r = await s.query<{ items: StoredRecallItem[]; graph_degraded: boolean; requester_user_id: string }>(
-    `SELECT r.items, r.graph_degraded, r.requester_user_id FROM kg_turn_recalls r
+): Promise<Pick<TurnMemoryData, "recalled" | "recallDegraded" | "cited" | "canCorrect">> {
+  const r = await s.query<{ items: StoredRecallItem[]; graph_degraded: boolean; requester_user_id: string; body: string }>(
+    `SELECT r.items, r.graph_degraded, r.requester_user_id, m.body FROM kg_turn_recalls r
        JOIN chat_messages m ON m.org_id = r.org_id AND m.agent_run_id = r.run_id
       WHERE m.org_id = $1 AND m.thread_id = $2 AND m.id = $3 AND r.thread_id = $2`,
     [orgId, threadId, messageId],
   );
   const row = r.rows[0];
-  if (row === undefined) return { recalled: [], recallDegraded: false };
+  if (row === undefined) return { recalled: [], recallDegraded: false, cited: [], canCorrect: false };
   // F15：本人个人对话里的这一轮，还可能用到本人**其他个人对话**里记下的（召回候选同一条件，见 pg-knowledge-recall.ts）。
   const ownPersonal = `EXISTS (SELECT 1 FROM chat_threads here, chat_threads t
       WHERE here.org_id = c.org_id AND here.id = $3 AND here.project_id IS NULL AND here.created_by = $4
@@ -918,5 +919,10 @@ async function readTurnRecall(
       graphPath,
     });
   }
-  return { recalled, recallDegraded: row.graph_degraded };
+  // S7（#4364）：引用 chip = 这一轮召回集合（上面已按查看者过滤）里、回答正文真的用到了的那些。只从 recalled 里挑，
+  // 模型在回答里提到的其他说法（没被召回的、别人的、已失效的）不可能变成 chip。
+  // S7 review F6：只有「对话所有者 + 这一轮的提问人」能纠正（同 kg_correct_citation 的判据）；界面据此给不给入口。
+  const owner = await s.query<{ created_by: string }>("SELECT created_by FROM chat_threads WHERE org_id = $1 AND id = $2", [orgId, threadId]);
+  const canCorrect = viewerIsRequester && owner.rows[0]?.created_by === viewer;
+  return { recalled, recallDegraded: row.graph_degraded, cited: reconcileCitations(row.body, recalled), canCorrect };
 }
