@@ -30,3 +30,11 @@ it('keeps resume, awareness and recovery envelopes closed and bounded', () => {
   expect(WhiteboardServerMessage.safeParse({type:'error',code:'PROTOCOL_LIMIT',recoverable:true}).success).toBe(true);
   expect(WhiteboardServerMessage.safeParse({type:'error',code:'PROTOCOL_LIMIT'}).success).toBe(false);
 });
+
+it('bounds typed deletion inverse and rejects arbitrary content or duplicate object grants',()=>{
+ const value={type:'restore-deletion',epoch:1,updateId:crypto.randomUUID(),gestureId:'undo',deleteGestureId:'delete',objectIds:['note'],inverseUpdate:'AAA='};
+ expect(WhiteboardClientMessage.safeParse(value).success).toBe(true);
+ expect(WhiteboardClientMessage.safeParse({...value,objectIds:['note','note']}).success).toBe(false);
+ expect(WhiteboardClientMessage.safeParse({...value,objects:[{id:'arbitrary'}]}).success).toBe(false);
+ expect(WhiteboardClientMessage.safeParse({...value,inverseUpdate:'A'.repeat(WHITEBOARD_SYNC.inboundUpdateBase64Characters+4)}).success).toBe(false);
+});

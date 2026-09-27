@@ -24,6 +24,7 @@ export async function listBoards(input: ListBoardsInput = {}, signal?: AbortSign
   const params = new URLSearchParams({ archived: query.archived, limit: String(query.limit) });
   if (query.query) params.set('query', query.query);
   if (query.cursor) params.set('cursor', query.cursor);
+  if (query.untagged) params.set('untagged', query.untagged);
   query.tagIds?.forEach(id => params.append('tagIds', id));
   return ops.listBoards.out.parse(await apiRequest(`${ops.listBoards.path}?${params}`, { method: ops.listBoards.method, signal }));
 }

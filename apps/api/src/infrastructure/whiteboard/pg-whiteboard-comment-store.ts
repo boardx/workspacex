@@ -106,7 +106,10 @@ export class PgWhiteboardCommentStore implements WhiteboardCommentStore {
         snapshot=new Uint8Array(document.rows[0]?.snapshot??Buffer.from([0,0]));
       }
       const objectIds=new Set(await this.validator.objectIds(disclose(boardId,role,"comment",snapshot)));
-      const members=await session.query<{user_id:string}>(`SELECT user_id FROM whiteboard_members WHERE org_id=$1 AND board_id=$2 UNION SELECT owner_id AS user_id FROM whiteboards WHERE org_id=$1 AND id=$2`,[p.orgId,boardId]);
+      const members=await session.query<{user_id:string}>(`SELECT om.user_id FROM org_memberships om WHERE om.org_id=$1
+        AND (EXISTS (SELECT 1 FROM whiteboard_members m WHERE m.org_id=$1 AND m.board_id=$2 AND m.user_id=om.user_id)
+          OR EXISTS (SELECT 1 FROM whiteboards b WHERE b.org_id=$1 AND b.id=$2 AND b.owner_id=om.user_id))
+        ORDER BY om.user_id FOR SHARE OF om`,[p.orgId,boardId]);
       const mentionable=new Set(disclose(boardId,role,"comment",members.rows).map(row=>row.user_id));
       const stored=await session.query<StoredThread>(`SELECT ${threadColumns} FROM whiteboard_comment_threads WHERE org_id=$1 AND board_id=$2 ORDER BY id FOR UPDATE`,[p.orgId,boardId]);
       const service=new WhiteboardCommentService(boardId,{objectExists:id=>objectIds.has(id),isMentionable:id=>mentionable.has(id),now:this.now,uuid:randomUUID},await Promise.all(disclose(boardId,role,"comment",stored.rows).map(row=>this.readThread(session,p,boardId,row))));

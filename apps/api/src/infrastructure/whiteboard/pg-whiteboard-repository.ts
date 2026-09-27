@@ -49,10 +49,11 @@ export class PgWhiteboardRepository implements WhiteboardRepository {
           AND ($4::uuid[] IS NULL OR b.id IN (
             SELECT board_id FROM whiteboard_tag_bindings WHERE org_id=$1 AND tag_id=ANY($4::uuid[])
             GROUP BY board_id HAVING count(*) = $5))
+          AND ($10::boolean=false OR NOT EXISTS (SELECT 1 FROM whiteboard_tag_bindings empty_tags WHERE empty_tags.org_id=$1 AND empty_tags.board_id=b.id))
           AND ($6::text='all' OR b.archived=($6::text='archived'))
           AND ($7::timestamptz IS NULL OR (b.updated_at,b.id)<($7::timestamptz,$8::uuid))
         ORDER BY b.updated_at DESC,b.id DESC LIMIT $9`, [p.orgId,p.userId,input.query ? `%${escapeLike(input.query)}%` : null,
-        requested.length ? requested : null,requested.length,input.archived,cursor?.updatedAt ?? null,cursor?.id ?? null,input.limit+1]);
+        requested.length ? requested : null,requested.length,input.archived,cursor?.updatedAt ?? null,cursor?.id ?? null,input.limit+1,input.untagged==='true']);
       const hasMore = result.rows.length > input.limit, rows = result.rows.slice(0,input.limit), items = rows.map(view);
       const last = rows.at(-1);
       return { items, nextCursor: hasMore && last ? this.cursors.encode(p,input,{updatedAt:new Date(last.updated_at).toISOString(),id:last.id}) : null };
@@ -128,6 +129,23 @@ export class PgWhiteboardRepository implements WhiteboardRepository {
       await session.query(`INSERT INTO whiteboard_delete_receipts(org_id,actor_id,request_id,request_hash,board_id) VALUES($1,$2,$3,$4,$5)`, [p.orgId,p.userId,input.requestId,requestHash,id]);
       await session.query(`DELETE FROM whiteboards WHERE org_id=$1 AND owner_id=$2 AND id=$3`, [p.orgId,p.userId,id]);
       return C.DeleteBoardReceipt.parse({ requestId:input.requestId,boardId:id,deleted:true });
+    });
+  }
+
+  async mentionableMembers(p: Principal, id: string) {
+    return this.db.withTenant(p.orgId, async session => {
+      // One statement binds directory disclosure and both caller/target access to
+      // the same tenant snapshot. The owner-only management endpoint stays unchanged.
+      const result = await session.query<{items: unknown[]}>(`SELECT COALESCE((
+        SELECT jsonb_agg(jsonb_build_object('userId',c.user_id,'displayName',c.display_name) ORDER BY c.display_name,c.user_id)
+        FROM org_memberships om JOIN credentials c ON c.user_id=om.user_id
+        WHERE om.org_id=b.org_id AND length(trim(c.display_name))>0
+          AND (c.user_id=b.owner_id OR EXISTS (SELECT 1 FROM whiteboard_members target
+            WHERE target.org_id=b.org_id AND target.board_id=b.id AND target.user_id=c.user_id))
+      ),'[]'::jsonb) AS items FROM whiteboards b ${membership}
+        WHERE b.org_id=$1 AND b.id=$3 AND ${visible}
+          AND EXISTS (SELECT 1 FROM org_memberships caller WHERE caller.org_id=b.org_id AND caller.user_id=$2)`, [p.orgId,p.userId,id]);
+      return result.rows[0] ? C.operations.mentionableMembers.out.parse(result.rows[0]).items : null;
     });
   }
 

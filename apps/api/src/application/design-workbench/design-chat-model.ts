@@ -29,6 +29,7 @@ import type { ModelCallPort } from "../agent-run/ports";
 import { ModelCallError } from "../agent-run/ports";
 import type { FeedbackStructureModelConfig } from "../feedback/structure-feedback-draft";
 import type { DesignProjectRow } from "./project-ports";
+import { describeScreenIssues, normalizeScreenCandidate, parseScreenJson } from "./prototype-screen-repair";
 
 export type AiReplySource = z.infer<typeof designAiCollab.AiReplySource>;
 export type DesignChatWriteback = z.infer<typeof designAiCollab.DesignChatWriteback>;
@@ -168,6 +169,10 @@ export interface ModelDesignChatReplierDeps {
  *
  * 所以下面是**翻译**：把 skill 的视觉判据落成这套原语能表达的约束。
  *
+ * 2026-09-27 补译两条当初漏掉的：skill「AI 生成设计扎堆的特征」第 4 类（内容切成一排一模一样
+ * 的卡片）落进 ⑭；「大数字配小标签是默认首屏做法」落进 ⑧。真实模型对照（qwen3.8-max，
+ * 5 个 prompt × 2 轮）：「一排结构相同的 card」基线 3 页 → 0 页。
+ *
  * ⚠ **这里是原型画布这条链路视觉约束的唯一事实源**。`frontend-design/SKILL.md` 里有一行
  *   指回本常量；**不要**把同样的判据在那边再写一遍——同一事实声明两处必然漂移。
  */
@@ -180,6 +185,8 @@ export const DESIGN_PRINCIPLES =
   "⑥别一次塞超过 5 个功能块，超了就分页；" +
   "⑦每页的主操作都要有去处：用 links 把它连到对应的页；底部导航每一项都连到它那一页，别留死按钮，并且**每一项都要给 icons**（不给会由画布按标签名猜，猜不到就是一个中性圆点）。" +
   "【视觉】⑧一页只有一个视觉重点（hero / 大标题 / 关键数字三选一，且只出现一次），其余安静下来；" +
+  "选之前先想这个题材里**最有代表性的东西**是什么（冥想 App 是今天那一次练习，二手书是书本身），" +
+  "「一排 stat 大数字配小标签」是最常见的默认做法，只有产品的核心就是那个数（余额、专注时长）才用它当重点；" +
   "⑨字号要有级差：title 一页最多一次，subtitle 用于分区，caption 只用于真正的次要信息——" +
   "整页全是 body 说明你没做层级；⑩间距成体系：一页里 gap/padding 最多用两档，相邻同级区块用同一档；" +
   "⑪结构装置要**编码信息**而不是装饰——divider 只在真的分隔两类内容时用，card 只在真的成组时用，" +
@@ -188,7 +195,10 @@ export const DESIGN_PRINCIPLES =
   "同一个占位图形，一组里配好几个反而更像没做完，不是「有配图」；真的要按项目区分用 list/bottomnav 的 icons" +
   "（这两处的图标按项换，不是同一个），选项不多就用文字或 chip，别指望一张不会变的装饰图替你把几个选项分开。" +
   "【避免这些一眼看出是生成的套路】⑭不要用全大写的小标签当眉头；不要用「A · B · C」中点拼元信息；" +
-  "不要用「词 —— 片段」这种破折号标签；按钮文案不要缀「→」；不要只把标题里的一个词换成另一种 variant。" +
+  "不要用「词 —— 片段」这种破折号标签；按钮文案不要缀「→」；不要只把标题里的一个词换成另一种 variant；" +
+  "**不要把内容切成一排结构相同的 card**（同样的圆角、同样的孩子、一张接一张地摆，或 grid 里格格一样）——" +
+  "这是最常见的生成套路：三项以上同类内容用 list（三段式）或 chip，真要用卡片就让主次有差别" +
+  "（最重要的那张独占一行、内容更多，其余收进 list），圆角也跟着层级走，不要全页一个 radius。" +
   "【文案】⑮按钮说清楚点下去会发生什么（「保存修改」而不是「提交」），同一个动作在全流程同名；" +
   "⑯错误不道歉也不含糊，说清出了什么事、怎么办；空态是一句邀请去做事的话，不是「暂无数据」；" +
   "⑰用用户的词不用系统的词，句子式大小写，不写填充语，每个文案元素只干一件事。" +
@@ -246,10 +256,11 @@ export const DESIGN_FEW_SHOT =
  *   （两处都是给模型/门控用的同一组数，契约测试 `prototype-quality.test.ts` 钉住阈值。）
  */
 export const DESIGN_QUALITY_BAR =
-  " 每一页画完会被自动打分，不达标会被打回重画。评分看这八条，先照着做：" +
+  " 每一页画完会被自动打分，不达标会被打回重画。评分主要看下面这几条，先照着做：" +
   "①元素数 ≥ 12（少于 12 个渲染出来几乎是空的）；②至少三档 text.variant（title/subtitle/body/caption/label）；" +
   "③没有空容器（stack/card/grid 里必须有孩子）；④至少有一个可操作控件；⑤同一句文案不要出现三次以上；" +
-  "⑥整页**恰好一个** variant:\"primary\" 的按钮；⑦不要占位文案（「标题1」「示例文本」「TODO」「xxx」「Lorem ipsum」都算）。";
+  "⑥整页**恰好一个** variant:\"primary\" 的按钮；⑦不要占位文案（「标题1」「示例文本」「TODO」「xxx」「Lorem ipsum」都算）；" +
+  "⑧同一处不要有 3 张以上结构相同的内容卡片（一票否决，别处再好也会打回；「emoji + 一个词」的选项格子不算）。";
 
 export const DESIGN_CHAT_SYSTEM_PROMPT =
   "你是 PM 设计工作台里的设计协作助手，像一个能直接画原型的设计师。用户（产品经理）在和你讨论一个设计项目：" +
@@ -510,6 +521,16 @@ export const SIMPLER_SCREEN_HINT =
   "列表最多 3 项，去掉次要的装饰性区块。宁可简单也要**完整输出**。";
 
 /** JSON 能不能解析——截断判据的另一半（provider 没报 finish_reason 时靠它）。 */
+/** 同 `canParse`，但用单页那条会配平括号的解析（#4321）。 */
+function canParseScreen(text: string): boolean {
+  try {
+    parseScreenJson(text);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 function canParse(text: string): boolean {
   try {
     extractJsonObject(text);
@@ -783,7 +804,9 @@ export class ModelDesignChatReplier implements DesignChatModel {
       return null;
     }
     // 截断 / JSON 不完整 ⇒ 同一页再来一次，但**要求画简单一点**（换了个请求，不是原样重试）。
-    if (one.truncated || !canParse(one.text)) {
+    // #4321：多/少一个括号不算截断——`parseScreenJson` 会配平；只有真截断（或配平了也解析不了）
+    // 才走「画简单点」，否则一个多余的 `}` 就会把这页换成更简陋的版本。
+    if (one.truncated || !canParseScreen(one.text)) {
       this.deps.log("design chat: screen round truncated, retrying smaller", { index: i, truncated: one.truncated });
       try {
         one = await this.callModel(context + SIMPLER_SCREEN_HINT, DESIGN_CHAT_REPAIR_TIMEOUT_MS, DESIGN_ONE_SCREEN_SYSTEM_PROMPT, ctx.refImages);
@@ -796,18 +819,33 @@ export class ModelDesignChatReplier implements DesignChatModel {
         return null;
       }
     }
-    let parsed: unknown;
-    try {
-      parsed = extractJsonObject(one.text);
-    } catch {
-      this.deps.log("design chat: screen round output was not parseable JSON", { index: i, length: one.text.length });
-      return null;
-    }
-    const screen = { ...(parsed as Record<string, unknown>), frame: entry.frame };
-    // 逐页过契约：这一页不合法就只丢这一页，不连累别的页。
+    let screen = this.acceptScreen(one.text, entry.frame, i);
+    if (screen === null) return null;
+    // #4321：过不了契约 ⇒ 先保守修正（`prototype-screen-repair.ts`），仍不合法再**带着具体哪里错**
+    // 重问一次；还不行才丢这一页（只丢这一页，不连累别的页）。在这之前是直接丢——
+    // 实测一半的页因为 `children: []`、多一个 `}` 这种小错没了，画布上一片空。
     if (!designPrototype.PrototypeScreen.safeParse(screen).success) {
-      this.deps.log("design chat: screen rejected by contract", { index: i });
-      return null;
+      const issues = describeScreenIssues(screen);
+      this.deps.log("design chat: screen rejected by contract, asking again with issues", { index: i, issues });
+      let again: { text: string; truncated: boolean };
+      try {
+        again = await this.callModel(
+          `${context}\n\n刚才这一页有几处不符合组件格式：\n${issues.map((l) => `- ${l}`).join("\n")}\n\n` +
+            `请只修正这几处、其余内容保持不变，重新输出「${entry.frame}」这一页。`,
+          DESIGN_CHAT_REPAIR_TIMEOUT_MS,
+          DESIGN_ONE_SCREEN_SYSTEM_PROMPT,
+          ctx.refImages,
+        );
+      } catch (e) {
+        this.deps.log("design chat: contract retry failed", { index: i, detail: e instanceof Error ? e.message : "unknown" });
+        return null;
+      }
+      const retried = again.truncated ? null : this.acceptScreen(again.text, entry.frame, i);
+      if (retried === null || !designPrototype.PrototypeScreen.safeParse(retried).success) {
+        this.deps.log("design chat: screen rejected by contract", { index: i, issues: retried === null ? ["重问的输出解析不了或被截断"] : describeScreenIssues(retried) });
+        return null;
+      }
+      screen = retried;
     }
 
     // 质量自审 + 定向重问一次（issue #3340 定下的三条纪律，逐字不变）。
@@ -837,6 +875,21 @@ export class ModelDesignChatReplier implements DesignChatModel {
     return best.screen;
   }
 
+  /** 解析单页输出并做保守修正（#4321）；解析不了 ⇒ null。**不**判契约，调用方判。 */
+  private acceptScreen(text: string, frame: string, index: number): Record<string, unknown> | null {
+    let parsed: unknown;
+    try {
+      parsed = parseScreenJson(text);
+    } catch {
+      this.deps.log("design chat: screen round output was not parseable JSON", { index, length: text.length });
+      return null;
+    }
+    if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) return null;
+    const { screen, fixes } = normalizeScreenCandidate({ ...(parsed as Record<string, unknown>), frame });
+    if (fixes.length > 0) this.deps.log("design chat: screen normalized", { index, fixes: fixes.slice(0, 8), count: fixes.length });
+    return screen;
+  }
+
   /**
    * issue #3340：带着**具体缺什么**把同一页重问一次。失败/不合法 ⇒ 返回 null（保留原来那版）。
    * 与截断降级重试（`SIMPLER_SCREEN_HINT`，方向是更简陋）刻意相反：这一条要求补足。
@@ -855,8 +908,7 @@ export class ModelDesignChatReplier implements DesignChatModel {
         ctx.refImages,
       );
       if (one.truncated) return null;
-      const parsed = extractJsonObject(one.text) as Record<string, unknown>;
-      const screen = { ...parsed, frame };
+      const screen = normalizeScreenCandidate({ ...(parseScreenJson(one.text) as Record<string, unknown>), frame }).screen;
       return designPrototype.PrototypeScreen.safeParse(screen).success ? screen : null;
     } catch (e) {
       this.deps.log("design chat: quality retry failed", { detail: e instanceof Error ? e.message : "unknown" });

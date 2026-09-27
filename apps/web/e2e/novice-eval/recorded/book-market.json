@@ -1,0 +1,876 @@
+{
+ "_provenance": "真实模型生成原样录制：qwen3.8-max，prompt「设计一个校园二手书交易 app，可以浏览、发布和联系卖家」，代码 SHA c8e1b2644，2026-09-27。只做了补 id（服务端 ensurePrototypeIds 同款）。",
+ "brief": "设计一个校园二手书交易 app，可以浏览、发布和联系卖家",
+ "name": "二手书集市",
+ "reply": "已为校园二手书集市定好基调并拆分 5 个核心页面，覆盖从浏览到联系卖家的完整流程。",
+ "accent": "amber",
+ "tokens": {
+  "font": "rounded",
+  "radius": "round",
+  "density": "default"
+ },
+ "frames": [
+  "首页",
+  "书籍详情",
+  "发布卖书",
+  "消息",
+  "我的"
+ ],
+ "prototype": [
+  {
+   "type": "stack",
+   "props": {
+    "direction": "column",
+    "gap": "none",
+    "padding": "none",
+    "align": "start",
+    "fill": true
+   },
+   "children": [
+    {
+     "type": "navbar",
+     "props": {
+      "title": "二手书集市",
+      "left": "search",
+      "right": "bell"
+     },
+     "id": "nav-home"
+    },
+    {
+     "type": "stack",
+     "props": {
+      "direction": "row",
+      "gap": "sm",
+      "padding": "md",
+      "align": "start",
+      "fill": false
+     },
+     "children": [
+      {
+       "type": "chip",
+       "props": {
+        "label": "全部",
+        "selected": true
+       },
+       "id": "chip-all"
+      },
+      {
+       "type": "chip",
+       "props": {
+        "label": "教材",
+        "selected": false
+       },
+       "id": "r5"
+      },
+      {
+       "type": "chip",
+       "props": {
+        "label": "文学",
+        "selected": false
+       },
+       "id": "r6"
+      },
+      {
+       "type": "chip",
+       "props": {
+        "label": "考研",
+        "selected": false
+       },
+       "id": "r7"
+      }
+     ],
+     "id": "filter-row"
+    },
+    {
+     "type": "list",
+     "props": {
+      "items": [
+       "高等数学（第七版）",
+       "百年孤独",
+       "考研英语真题全解"
+      ],
+      "detail": [
+       "九成新 · 张同学刚发布",
+       "八成新 · 李同学 · 3小时前",
+       "全新未拆 · 王同学 · 昨天"
+      ],
+      "trailing": [
+       "¥15",
+       "¥22",
+       "¥38"
+      ],
+      "leading": "icon",
+      "icons": [
+       "bookmark",
+       "bookmark",
+       "bookmark"
+      ]
+     },
+     "id": "book-list"
+    },
+    {
+     "type": "spacer",
+     "props": {
+      "size": "lg"
+     },
+     "id": "r9"
+    },
+    {
+     "type": "bottomnav",
+     "props": {
+      "items": [
+       "首页",
+       "消息",
+       "我的"
+      ],
+      "icons": [
+       "home",
+       "message",
+       "user"
+      ],
+      "active": 0
+     },
+     "id": "bnav-home"
+    }
+   ],
+   "id": "r1"
+  },
+  {
+   "type": "stack",
+   "props": {
+    "direction": "column",
+    "gap": "none",
+    "padding": "none",
+    "align": "start",
+    "fill": true
+   },
+   "children": [
+    {
+     "type": "navbar",
+     "props": {
+      "title": "书籍详情",
+      "left": "返回",
+      "right": "分享"
+     },
+     "id": "detail-nav"
+    },
+    {
+     "type": "stack",
+     "props": {
+      "direction": "column",
+      "gap": "md",
+      "padding": "md",
+      "align": "start",
+      "fill": true
+     },
+     "children": [
+      {
+       "type": "image",
+       "props": {
+        "alt": "高等数学第七版封面",
+        "kind": "photo",
+        "ratio": "portrait"
+       },
+       "id": "detail-cover"
+      },
+      {
+       "type": "stack",
+       "props": {
+        "direction": "column",
+        "gap": "sm",
+        "padding": "none",
+        "align": "start",
+        "fill": false
+       },
+       "children": [
+        {
+         "type": "text",
+         "props": {
+          "content": "高等数学（第七版）上册",
+          "variant": "title",
+          "align": "start"
+         },
+         "id": "detail-title"
+        },
+        {
+         "type": "stack",
+         "props": {
+          "direction": "row",
+          "gap": "sm",
+          "padding": "none",
+          "align": "start",
+          "fill": false
+         },
+         "children": [
+          {
+           "type": "text",
+           "props": {
+            "content": "¥15",
+            "variant": "subtitle",
+            "align": "start"
+           },
+           "id": "detail-price"
+          },
+          {
+           "type": "badge",
+           "props": {
+            "label": "九成新",
+            "tone": "success"
+           },
+           "id": "detail-badge"
+          }
+         ],
+         "id": "r17"
+        },
+        {
+         "type": "text",
+         "props": {
+          "content": "同济大学数学系 编",
+          "variant": "body",
+          "muted": true,
+          "align": "start"
+         },
+         "id": "detail-author"
+        }
+       ],
+       "id": "r15"
+      },
+      {
+       "type": "divider",
+       "id": "detail-div1"
+      },
+      {
+       "type": "card",
+       "props": {
+        "radius": "md",
+        "padding": "md"
+       },
+       "children": [
+        {
+         "type": "stack",
+         "props": {
+          "direction": "row",
+          "gap": "md",
+          "padding": "none",
+          "align": "center",
+          "fill": true
+         },
+         "children": [
+          {
+           "type": "avatar",
+           "props": {
+            "name": "林同学",
+            "size": "md"
+           },
+           "id": "detail-avatar"
+          },
+          {
+           "type": "stack",
+           "props": {
+            "direction": "column",
+            "gap": "none",
+            "padding": "none",
+            "align": "start",
+            "fill": true
+           },
+           "children": [
+            {
+             "type": "text",
+             "props": {
+              "content": "林同学",
+              "variant": "body",
+              "align": "start"
+             },
+             "id": "detail-seller-name"
+            },
+            {
+             "type": "text",
+             "props": {
+              "content": "计算机学院 · 大三",
+              "variant": "caption",
+              "muted": true,
+              "align": "start"
+             },
+             "id": "detail-seller-info"
+            }
+           ],
+           "id": "r25"
+          }
+         ],
+         "id": "r23"
+        }
+       ],
+       "id": "detail-seller-card"
+      },
+      {
+       "type": "stack",
+       "props": {
+        "direction": "column",
+        "gap": "sm",
+        "padding": "none",
+        "align": "start",
+        "fill": false
+       },
+       "children": [
+        {
+         "type": "text",
+         "props": {
+          "content": "卖家描述",
+          "variant": "subtitle",
+          "align": "start"
+         },
+         "id": "detail-desc-label"
+        },
+        {
+         "type": "text",
+         "props": {
+          "content": "大一上学期用的教材，只有前几章有少量铅笔划线，没有缺页和破损。期末考完用不上了，希望能转给需要的学弟学妹。",
+          "variant": "body",
+          "align": "start"
+         },
+         "id": "detail-desc-text"
+        }
+       ],
+       "id": "r28"
+      },
+      {
+       "type": "spacer",
+       "props": {
+        "size": "lg"
+       },
+       "id": "detail-spacer"
+      }
+     ],
+     "id": "r13"
+    },
+    {
+     "type": "stack",
+     "props": {
+      "direction": "row",
+      "gap": "sm",
+      "padding": "md",
+      "align": "center",
+      "fill": false
+     },
+     "children": [
+      {
+       "type": "button",
+       "props": {
+        "label": "收藏",
+        "icon": "heart",
+        "variant": "secondary",
+        "full": true,
+        "size": "lg",
+        "radius": "md"
+       },
+       "id": "detail-fav-btn"
+      },
+      {
+       "type": "button",
+       "props": {
+        "label": "联系卖家",
+        "icon": "message",
+        "variant": "primary",
+        "full": true,
+        "size": "lg",
+        "radius": "md"
+       },
+       "id": "detail-contact-btn"
+      }
+     ],
+     "id": "r32"
+    }
+   ],
+   "id": "r11"
+  },
+  {
+   "type": "stack",
+   "props": {
+    "direction": "column",
+    "gap": "none",
+    "padding": "none",
+    "align": "start",
+    "fill": true
+   },
+   "children": [
+    {
+     "type": "navbar",
+     "props": {
+      "title": "发布闲置书籍",
+      "left": "返回"
+     },
+     "id": "r36"
+    },
+    {
+     "type": "stack",
+     "props": {
+      "direction": "column",
+      "gap": "md",
+      "padding": "md",
+      "align": "start",
+      "fill": true
+     },
+     "children": [
+      {
+       "type": "text",
+       "props": {
+        "content": "拍一张封面，大家更容易找到你的书",
+        "variant": "body",
+        "muted": true,
+        "align": "start"
+       },
+       "id": "cover-hint"
+      },
+      {
+       "type": "image",
+       "props": {
+        "alt": "书籍封面照片",
+        "kind": "photo",
+        "ratio": "portrait"
+       },
+       "id": "cover-photo"
+      },
+      {
+       "type": "input",
+       "props": {
+        "label": "书名",
+        "placeholder": "如：高等数学（同济第七版）"
+       },
+       "id": "book-name-input"
+      },
+      {
+       "type": "stack",
+       "props": {
+        "direction": "row",
+        "gap": "sm",
+        "padding": "none",
+        "align": "start",
+        "fill": false
+       },
+       "children": [
+        {
+         "type": "input",
+         "props": {
+          "label": "售价（元）",
+          "placeholder": "15"
+         },
+         "id": "price-input"
+        },
+        {
+         "type": "select",
+         "props": {
+          "label": "成色",
+          "options": [
+           "全新未拆封",
+           "几乎全新",
+           "有少量笔记",
+           "明显翻阅痕迹"
+          ],
+          "placeholder": "选一个"
+         },
+         "id": "condition-select"
+        }
+       ],
+       "id": "r41"
+      },
+      {
+       "type": "input",
+       "props": {
+        "label": "补充说明",
+        "placeholder": "比如哪几章有笔记、是否含光盘，或者约在哪个食堂门口交接",
+        "multiline": true
+       },
+       "id": "desc-input"
+      },
+      {
+       "type": "button",
+       "props": {
+        "label": "挂到集市上",
+        "variant": "primary",
+        "full": true,
+        "size": "lg",
+        "radius": "md"
+       },
+       "id": "publish-btn"
+      }
+     ],
+     "id": "r37"
+    }
+   ],
+   "id": "r35"
+  },
+  {
+   "type": "stack",
+   "props": {
+    "direction": "column",
+    "gap": "none",
+    "padding": "none",
+    "align": "start",
+    "fill": true
+   },
+   "children": [
+    {
+     "type": "navbar",
+     "props": {
+      "title": "消息"
+     },
+     "id": "msg-nav"
+    },
+    {
+     "type": "stack",
+     "props": {
+      "direction": "column",
+      "gap": "sm",
+      "padding": "md",
+      "align": "start",
+      "fill": true
+     },
+     "children": [
+      {
+       "type": "list",
+       "props": {
+        "items": [
+         "林晓雨",
+         "张明宇",
+         "王思琪",
+         "李浩然"
+        ],
+        "detail": [
+         "《高等数学》还在吗？可以便宜点吗",
+         "好的，那明天下午图书馆门口见",
+         "行，我转你微信了",
+         "这本《线性代数》我要了，什么时候方便拿"
+        ],
+        "trailing": [
+         "刚刚",
+         "10:32",
+         "昨天",
+         "周二"
+        ],
+        "leading": "avatar",
+        "icons": [
+         "message",
+         "location",
+         "card",
+         "message"
+        ]
+       },
+       "id": "msg-list"
+      }
+     ],
+     "id": "r48"
+    },
+    {
+     "type": "bottomnav",
+     "props": {
+      "items": [
+       "首页",
+       "发布",
+       "消息",
+       "我的"
+      ],
+      "icons": [
+       "home",
+       "plus",
+       "message",
+       "user"
+      ],
+      "active": 2
+     },
+     "id": "msg-bottomnav"
+    }
+   ],
+   "id": "r46"
+  },
+  {
+   "type": "stack",
+   "props": {
+    "direction": "column",
+    "gap": "none",
+    "padding": "none",
+    "align": "start",
+    "fill": true
+   },
+   "children": [
+    {
+     "type": "navbar",
+     "props": {
+      "title": "我的"
+     },
+     "id": "my-navbar"
+    },
+    {
+     "type": "stack",
+     "props": {
+      "direction": "column",
+      "gap": "md",
+      "padding": "md",
+      "align": "center",
+      "fill": true
+     },
+     "children": [
+      {
+       "type": "avatar",
+       "props": {
+        "name": "林同学",
+        "size": "lg"
+       },
+       "id": "my-avatar"
+      },
+      {
+       "type": "text",
+       "props": {
+        "content": "林同学",
+        "variant": "title",
+        "align": "center"
+       },
+       "id": "my-name"
+      },
+      {
+       "type": "text",
+       "props": {
+        "content": "计算机学院 · 大三",
+        "variant": "caption",
+        "muted": true,
+        "align": "center"
+       },
+       "id": "my-dept"
+      },
+      {
+       "type": "grid",
+       "props": {
+        "columns": 3,
+        "gap": "sm"
+       },
+       "id": "my-stats-grid",
+       "children": [
+        {
+         "type": "stat",
+         "props": {
+          "label": "在售",
+          "value": "4",
+          "tone": "neutral"
+         },
+         "id": "my-stat-selling"
+        },
+        {
+         "type": "stat",
+         "props": {
+          "label": "已售出",
+          "value": "12",
+          "tone": "success"
+         },
+         "id": "my-stat-sold"
+        },
+        {
+         "type": "stat",
+         "props": {
+          "label": "收藏",
+          "value": "7",
+          "tone": "neutral"
+         },
+         "id": "my-stat-fav"
+        }
+       ]
+      },
+      {
+       "type": "list",
+       "props": {
+        "items": [
+         "我发布的书",
+         "交易记录",
+         "我的收藏",
+         "账号设置"
+        ],
+        "detail": [
+         "管理正在出售的书籍",
+         "查看买卖历史",
+         "你标记想要的书",
+         "修改个人资料"
+        ],
+        "leading": "icon",
+        "icons": [
+         "bookmark",
+         "card",
+         "heart",
+         "settings"
+        ]
+       },
+       "id": "my-menu-list"
+      },
+      {
+       "type": "spacer",
+       "props": {
+        "size": "lg"
+       },
+       "id": "my-spacer"
+      }
+     ],
+     "id": "r53"
+    },
+    {
+     "type": "bottomnav",
+     "props": {
+      "items": [
+       "首页",
+       "发布",
+       "消息",
+       "我的"
+      ],
+      "icons": [
+       "home",
+       "plus",
+       "message",
+       "user"
+      ],
+      "active": 3
+     },
+     "id": "my-bottomnav"
+    }
+   ],
+   "id": "r51"
+  }
+ ],
+ "frameNotes": [
+  "首页展示最新上架的二手书，顶部搜索栏可进入搜索页。分类 chip 横向滚动筛选，选中态高亮。列表每行显示书名、成色与卖家、价格，点击任一行跳转书籍详情页。空态时列表区域显示「还没有人卖书，来发布第一本吧」并引导去发布页。下拉刷新加载新书籍。",
+  "本页展示单本二手书的完整信息，视觉重点是顶部的书籍封面图与紧随其后的价格标签。点击「联系卖家」跳转到消息页并自动创建与该卖家的会话；点击导航栏右侧「分享」可唤起系统分享面板。非理想态处理：若封面图加载失败，显示带有书名首字的灰色占位区域；若书籍已下架或被删除，整页替换为提示文案「这本书已经被买走啦，回首页看看别的吧」并提供返回首页的按钮。",
+  "这是发布二手书的表单页。用户从首页点击发布按钮进入后，依次填写书名、价格、成色并上传封面图。主操作是底部的「挂到集市上」按钮，点击后提交并发布成功则跳转回首页。非理想态处理：如果必填项（书名、价格、成色）为空就点发布，对应输入框下方显示红色 caption 提示「填一下书名才能发布」；图片上传失败时封面区域显示带 warning 图标的错误状态和重试按钮。页面整体留白适中，表单元素纵向排列，价格和成色横向并排以节省空间。",
+  "消息页展示用户与买卖双方的聊天会话列表，按最新消息时间倒序排列。每行三段式：头像、昵称+最后一条消息摘要、时间戳。点击某一行进入与该用户的聊天详情页（当前原型暂未建页，后续补充）。空态处理：当没有任何会话时，隐藏 list，显示一段 body 文案「还没有人和你聊过，去首页逛逛找本好书」和一个 secondary 按钮「去首页看看」，点击后跳转到首页。加载态：首次进入时用骨架屏占位 list 的三行。",
+  "「我的」页是个人中心，顶部展示头像、姓名和院系信息建立校园信任感，中间用三列 stat 展示在售、已售出和收藏数量（视觉重点为名字），下方列表提供四个功能入口。空态处理：当用户还没有发布过书时，「我发布的书」那一行的 detail 改为「去挂上你的第一本书」，点击后跳转到发布卖书页。加载态：进入页面时 stat 数字先显示骨架占位，接口返回后再填充真实数据。"
+ ],
+ "frameLinks": [
+  [
+   {
+    "from": "book-list",
+    "item": 0,
+    "to": 1
+   },
+   {
+    "from": "book-list",
+    "item": 1,
+    "to": 1
+   },
+   {
+    "from": "book-list",
+    "item": 2,
+    "to": 1
+   },
+   {
+    "from": "nav-home",
+    "item": 0,
+    "to": 0
+   },
+   {
+    "from": "nav-home",
+    "item": 1,
+    "to": 3
+   },
+   {
+    "from": "bnav-home",
+    "item": 0,
+    "to": 0
+   },
+   {
+    "from": "bnav-home",
+    "item": 1,
+    "to": 3
+   },
+   {
+    "from": "bnav-home",
+    "item": 2,
+    "to": 4
+   }
+  ],
+  [
+   {
+    "from": "detail-nav",
+    "item": 0,
+    "to": 0
+   },
+   {
+    "from": "detail-contact-btn",
+    "to": 3
+   }
+  ],
+  [
+   {
+    "from": "publish-btn",
+    "to": 0
+   },
+   {
+    "from": "navbar",
+    "item": 0,
+    "to": 0
+   }
+  ],
+  [
+   {
+    "from": "msg-list",
+    "item": 0,
+    "to": 1
+   },
+   {
+    "from": "msg-list",
+    "item": 1,
+    "to": 1
+   },
+   {
+    "from": "msg-list",
+    "item": 2,
+    "to": 1
+   },
+   {
+    "from": "msg-list",
+    "item": 3,
+    "to": 1
+   },
+   {
+    "from": "msg-bottomnav",
+    "item": 0,
+    "to": 0
+   },
+   {
+    "from": "msg-bottomnav",
+    "item": 1,
+    "to": 2
+   },
+   {
+    "from": "msg-bottomnav",
+    "item": 2,
+    "to": 3
+   },
+   {
+    "from": "msg-bottomnav",
+    "item": 3,
+    "to": 4
+   }
+  ],
+  [
+   {
+    "from": "my-menu-list",
+    "item": 0,
+    "to": 0
+   },
+   {
+    "from": "my-menu-list",
+    "item": 2,
+    "to": 0
+   },
+   {
+    "from": "my-bottomnav",
+    "item": 0,
+    "to": 0
+   },
+   {
+    "from": "my-bottomnav",
+    "item": 1,
+    "to": 2
+   },
+   {
+    "from": "my-bottomnav",
+    "item": 2,
+    "to": 3
+   }
+  ]
+ ]
+}

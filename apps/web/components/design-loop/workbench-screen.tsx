@@ -600,7 +600,13 @@ function ProjectDialog({
   const [refFiles, setRefFiles] = React.useState<readonly File[]>([]);
   const submitTags = (): readonly string[] =>
     commitDraft(tags, tagDraft, { maxTags: DESIGN_PROJECT_MAX_TAGS, maxTagLength: DESIGN_PROJECT_TAG_MAX_CHARS });
-  const canSubmit = name.trim() !== "" && !busy;
+  /**
+   * 名称可以不填（#4331 U1）：普通用户只会写「我想做什么」，此前必须先起名字才能点创建——
+   * 评测集里这是新建流程唯一卡住人的一步。没起名时拿「想做什么」的第一句当默认名，
+   * 进去以后随时能改；API 不变（仍然收到一个非空 name）。
+   */
+  const effectiveName = name.trim() !== "" ? name.trim() : defaultProjectName(problem);
+  const canSubmit = effectiveName !== "" && !busy;
 
   /*
    * 迭代 13（delta §3）：新建从「填表」改成「问答」。三步：
@@ -714,7 +720,9 @@ function ProjectDialog({
             <div className="flex flex-col gap-1">
               <label htmlFor="project-name" className="text-11 font-medium text-muted-foreground">名称</label>
               <Input id="project-name" value={name} onChange={(e) => setName(e.target.value)} placeholder="给这个设计起个名字" data-testid="project-dialog-name" />
-              {name.trim() === "" && <p className="text-10 text-muted-foreground" data-testid="err-name">名称必填，起个名字才能创建。</p>}
+              {name.trim() === "" && (effectiveName === ""
+                ? <p className="text-10 text-muted-foreground" data-testid="err-name">写一句想做什么就能创建，名字可以不填。</p>
+                : <p className="text-10 text-muted-foreground" data-testid="name-default">不填也行，会先叫「{effectiveName}」，之后随时能改。</p>)}
             </div>
             <div className="flex flex-col gap-1">
               <label htmlFor="project-problem" className="text-11 font-medium text-muted-foreground">
@@ -815,7 +823,7 @@ function ProjectDialog({
             <>
               {/* 整段跳过：引导是帮忙不是关卡，跳过之后不再拦（delta §3.3 / 取舍 ④=A）。 */}
               <Button variant="ghost" size="sm" disabled={!canSubmit} data-testid="intake-skip-all"
-                onClick={() => onCreate({ name: name.trim(), template, problem: problem.trim(), tags: submitTags(), refFiles })}>
+                onClick={() => onCreate({ name: effectiveName, template, problem: problem.trim(), tags: submitTags(), refFiles })}>
                 跳过，直接创建
               </Button>
               <Button variant="primary" size="sm" disabled={!canSubmit || asking} data-testid="intake-ask"
@@ -838,8 +846,8 @@ function ProjectDialog({
                 editing
                   // ⚠ 编辑走 `updateProject`，它的入参是 .strict() 且**没有** intake——
                   // 把空数组也捎上会被服务端判 400（e2e 实测，2026-09-08）。
-                  ? onSave({ name: name.trim(), template, problem: problem.trim(), tags: submitTags() })
-                  : onCreate({ name: name.trim(), template, problem: problem.trim(), tags: submitTags(), intake: answered(), refFiles })
+                  ? onSave({ name: effectiveName, template, problem: problem.trim(), tags: submitTags() })
+                  : onCreate({ name: effectiveName, template, problem: problem.trim(), tags: submitTags(), intake: answered(), refFiles })
               }
             >
               {busy && <Loader2 aria-hidden className="h-3.5 w-3.5 animate-spin" />}
@@ -850,4 +858,14 @@ function ProjectDialog({
       </div>
     </div>
   );
+}
+
+/**
+ * 没起名时的默认名：「想做什么」的第一句，最多 20 个字（按码点截，不切坏 emoji）。
+ * 这只是界面给的默认值——用户看得见、随时能改；不是服务端的命名规则，不重复任何领域逻辑。
+ */
+export function defaultProjectName(problem: string): string {
+  const first = problem.trim().split(/[\n。！？!?；;]/)[0]?.trim() ?? "";
+  const chars = Array.from(first);
+  return chars.length <= 20 ? first : `${chars.slice(0, 20).join("")}…`;
 }

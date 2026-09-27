@@ -27,6 +27,15 @@ import { describe, expect, it } from "vitest";
 const pkg = JSON.parse(readFileSync(join(__dirname, "..", "package.json"), "utf8")) as {
   scripts: Record<string, string>;
 };
+/**
+ * build:web 的实际内容。它原来是一行 shell（`env $(… | xargs) …`），Windows 的 cmd.exe 跑不了
+ * （#4315），于是挪进了 scripts/build-web.mjs——下面两条规矩跟着内容走，而不是跟着那一行字走。
+ */
+const buildWeb = ((): string => {
+  const line = pkg.scripts["build:web"] ?? "";
+  const m = /node (scripts\/[\w-]+\.mjs)/.exec(line);
+  return m ? `${line}\n${readFileSync(join(__dirname, "..", m[1]!), "utf8")}` : line;
+})();
 
 describe("发布脚本", () => {
   for (const target of ["dist:mac", "dist:win"]) {
@@ -40,7 +49,7 @@ describe("发布脚本", () => {
   }
 
   it("build:web 真的调 next build", () => {
-    expect(pkg.scripts["build:web"]).toMatch(/next build/);
+    expect(buildWeb).toMatch(/next build|\[nextCli, "build"\]/);
   });
 
   it("**端口不许硬编码在构建脚本里**——从 config 派生", () => {
@@ -50,7 +59,7 @@ describe("发布脚本", () => {
       而它们漂移时的症状是**静默的**——页面正常打开、每个 API 请求打向旧地址。
       现在从 `local-runtime web-build-env` 取，两边不可能不一致。
     */
-    const s = pkg.scripts["build:web"];
+    const s = buildWeb;
     expect(s, "build:web 里硬编码了端口").not.toMatch(/NEXT_PUBLIC_API_URL=https?:\/\/[^$\s]*\d{4}/);
     expect(s, "build:web 没有从 config 取构建期变量").toContain("web-build-env");
   });

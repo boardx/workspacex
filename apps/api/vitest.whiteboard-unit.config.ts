@@ -38,6 +38,7 @@ export default defineConfig({ resolve:{alias:{
     'tests/whiteboard/trusted-comment-store.test.ts',
     'tests/whiteboard/comment-body-storage.test.ts',
     'tests/whiteboard/undo-tombstone-restore.test.ts',
+    'tests/whiteboard/collaboration-repository-guard.test.ts',
     'tests/whiteboard/board-content-copy-guard.test.ts',
     'tests/whiteboard/board-content-copy-objectstore.test.ts',
     'tests/whiteboard/board-duplicate.test.ts',

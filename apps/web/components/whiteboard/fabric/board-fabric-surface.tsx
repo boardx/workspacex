@@ -14,6 +14,7 @@ import {
   type BoardViewport,
   type BoardViewportSource,
 } from "./board-fabric-object";
+import { connectorInteraction } from "./connector-interaction";
 import { representableWorldGeometry } from "./fabric-transform";
 
 type TaggedFabricObject = FabricObject & {
@@ -78,7 +79,7 @@ function applyResizePolicy(projected: TaggedFabricObject, object: BoardFabricObj
   const autoSize = sticky?.sizingMode === "auto-size";
   const autoHeight = sticky?.sizingMode === "auto-height";
   const proportional = sticky?.variant === "square" || sticky?.variant === "circle";
-  projected.set({ lockScalingX: Boolean(object.locked) || autoSize, lockScalingY: Boolean(object.locked) || autoSize, lockMovementX: Boolean(object.locked), lockMovementY: Boolean(object.locked), lockRotation: Boolean(object.locked), hoverCursor: object.locked ? "not-allowed" : object.style.link ? "pointer" : "move" });
+  projected.set({ lockScalingX: Boolean(object.locked) || autoSize, lockScalingY: Boolean(object.locked) || autoSize, lockMovementX: Boolean(object.locked), lockMovementY: Boolean(object.locked), lockRotation: Boolean(object.locked), hoverCursor: object.locked ? "not-allowed" : object.style.link ? "pointer" : "move", ...connectorInteraction(object.kind) });
   projected.setControlsVisibility({
     mtr: true,
     ml: !autoSize && !proportional,
@@ -122,7 +123,8 @@ export function createFabricObject(object: BoardFabricObject): TaggedFabricObjec
     const angles = connectorTipAngles(type, x1, y1, x2, y2);
     const startTip = tip(startStyle, x1, y1, angles.start), endTip = tip(endStyle, x2, y2, angles.end);
     if (startTip) tips.push(startTip); if (endTip) tips.push(endTip);
-    projected = new Group([line, ...tips, new Textbox(label, { ...textOptions, width: Math.max(80, width), fontSize: 13, backgroundColor: "#FFFFFF" })]);
+    const labels = label.trim() ? [new Textbox(label, { ...textOptions, width: Math.max(80, width), fontSize: 13, backgroundColor: "#FFFFFF" })] : [];
+    projected = new Group([line, ...tips, ...labels], connectorInteraction(object.kind));
   } else if (object.kind === "drawing" && object.boardContent?.type === "drawing") {
     const eraserTargets = new Map(drawingEraserLayers(object.boardContent).map((layer) => [layer.stroke.id, new Set(layer.targetStrokeIds)]));
     projected = new Group(object.boardContent.strokes.flatMap((stroke) => stroke.points.slice(1).map((point, index) => {
@@ -310,7 +312,7 @@ function applyCanonicalObjectInScene(projected: TaggedFabricObject, object: Boar
     flipY: false,
     // Locked objects remain selectable for inspection and mixed selections;
     // the lock flags below prevent every Fabric transform.
-    selectable: !readOnly && object.kind !== "placeholder" && object.kind !== "connector",
+    selectable: !readOnly && object.kind !== "placeholder",
     evented: !readOnly && object.kind !== "placeholder",
     hasControls: object.kind !== "connector",
     lockMovementX: object.kind === "connector",
@@ -347,14 +349,19 @@ function createProjectionEntry(object: BoardFabricObject, readOnly: boolean): { 
   }
 }
 
-function geometryFromFabric(projected: TaggedFabricObject, canonical?: BoardFabricObject, useSceneBounds = false): BoardFabricGeometry {
+// Canonical geometry accepts subpixel coordinates. Integer rounding changes a
+// pure translation whenever a frame center, resize or imported object is fractional.
+// Keep micro-unit precision while removing matrix decomposition floating-point noise.
+const canonicalTransformNumber = (value: number) => Math.round(value * 1_000_000) / 1_000_000;
+
+export function geometryFromFabric(projected: TaggedFabricObject, canonical?: BoardFabricObject, useSceneBounds = false): BoardFabricGeometry {
   const scene = useSceneBounds ? projected.getBoundingRect() : null;
   const geometry = {
-    x: Math.round(scene?.left ?? projected.left),
-    y: Math.round(scene?.top ?? projected.top),
-    width: Math.max(1, Math.round(scene?.width ?? (projected.width || 1) * projected.scaleX)),
-    height: Math.max(1, Math.round(scene?.height ?? (projected.height || 1) * projected.scaleY)),
-    rotation: Math.round(projected.angle ?? 0),
+    x: canonicalTransformNumber(scene?.left ?? projected.left),
+    y: canonicalTransformNumber(scene?.top ?? projected.top),
+    width: Math.max(1, canonicalTransformNumber(scene?.width ?? (projected.width || 1) * projected.scaleX)),
+    height: Math.max(1, canonicalTransformNumber(scene?.height ?? (projected.height || 1) * projected.scaleY)),
+    rotation: canonicalTransformNumber(projected.angle ?? 0),
   };
   if (canonical?.kind === "sticky") {
     if (canonical.sticky?.sizingMode === "auto-size") {
@@ -382,7 +389,7 @@ export function geometryFromFabricSceneTransform(projected: TaggedFabricObject):
   const radians = rotation * Math.PI / 180;
   const x = decomposition.translateX - Math.cos(radians) * width / 2 + Math.sin(radians) * height / 2;
   const y = decomposition.translateY - Math.sin(radians) * width / 2 - Math.cos(radians) * height / 2;
-  return { x: Math.round(x), y: Math.round(y), width: Math.round(width), height: Math.round(height), rotation: Math.round(rotation) };
+  return { x: canonicalTransformNumber(x), y: canonicalTransformNumber(y), width: canonicalTransformNumber(width), height: canonicalTransformNumber(height), rotation: canonicalTransformNumber(rotation) };
 }
 
 export function BoardFabricSurface({ objects, selectedObjectIds, readOnly, tool, viewport, onSelectionChange, onObjectTransform, onObjectsTransform, onViewportChange, onCanvasClick, onCanvasDoubleClick, onObjectDoubleClick, onToolDrop, onDrawingComplete, onPanelHoverChange, onObjectReparent, onObjectHoverChange, className }: BoardFabricSurfaceProps) {
@@ -763,7 +770,7 @@ export function BoardFabricSurface({ objects, selectedObjectIds, readOnly, tool,
       const selectable = !readOnly && tool === "select" && canonical?.kind !== "placeholder";
       const evented = !readOnly && tool === "select" && canonical?.kind !== "placeholder";
       const autoSize = canonical?.kind === "sticky" && canonical.sticky?.sizingMode === "auto-size";
-      projected.set({ selectable, evented, lockMovementX: Boolean(canonical?.locked), lockMovementY: Boolean(canonical?.locked), lockScalingX: Boolean(canonical?.locked) || autoSize, lockScalingY: Boolean(canonical?.locked) || autoSize, lockRotation: Boolean(canonical?.locked) });
+      projected.set({ selectable, evented, lockMovementX: Boolean(canonical?.locked), lockMovementY: Boolean(canonical?.locked), lockScalingX: Boolean(canonical?.locked) || autoSize, lockScalingY: Boolean(canonical?.locked) || autoSize, lockRotation: Boolean(canonical?.locked), ...connectorInteraction(canonical?.kind ?? "") });
     }
     canvas.requestRenderAll();
   }, [readOnly, tool]);
