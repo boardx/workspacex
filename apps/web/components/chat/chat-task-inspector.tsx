@@ -226,6 +226,10 @@ export function ChatTaskInspector(props: ChatTaskInspectorProps): JSX.Element {
    * 返回只是把列表铺回来，开着的那几份仍然开着，随时能切回去。
    */
   const [artifactListMode, setArtifactListMode] = React.useState(true);
+  // 「产物」页签统一外壳（见 `ChatArtifactsPanel` 的 `versions`）：版本面板把条数报上来，
+  // 外壳据此出总数与唯一的空态；统一刷新按钮同时触发两边重读。
+  const [versionsCount, setVersionsCount] = React.useState<number | null>(null);
+  const [versionsReload, setVersionsReload] = React.useState(0);
   /*
    * ⚠ 这里**故意没有**「关掉最后一份 ⇒ 回到列表」那条 effect。
    *
@@ -575,15 +579,6 @@ export function ChatTaskInspector(props: ChatTaskInspectorProps): JSX.Element {
                   : undefined}
               />
             ) : (
-            <>
-            {threadId && <AgentArtifactVersionsPanel
-              key={threadId}
-              threadId={threadId}
-              projectId={props.projectId}
-              canEdit={props.canEditArtifacts ?? false}
-              refreshKey={`${isRunning}:${artifactsCount}`}
-              onRunStarted={props.onRunStarted}
-            />}
             <ChatArtifactsPanel
               hasSelection={hasSelection}
               artifacts={artifacts}
@@ -591,8 +586,21 @@ export function ChatTaskInspector(props: ChatTaskInspectorProps): JSX.Element {
               error={artifactsError}
               onRetry={onRetry}
               onOpen={threadId ? openArtifactInPanel : onOpenArtifact}
+              versions={threadId ? (
+                <AgentArtifactVersionsPanel
+                  key={threadId}
+                  embedded
+                  threadId={threadId}
+                  projectId={props.projectId}
+                  canEdit={props.canEditArtifacts ?? false}
+                  refreshKey={`${isRunning}:${artifactsCount}:${versionsReload}`}
+                  onRunStarted={props.onRunStarted}
+                  onCountChange={setVersionsCount}
+                />
+              ) : null}
+              versionsCount={threadId ? versionsCount : 0}
+              onRefresh={() => { onRetry(); setVersionsReload((v) => v + 1); }}
             />
-            </>
             )}
             </>
           ) : activeTab === "roster" && roster !== undefined ? (
