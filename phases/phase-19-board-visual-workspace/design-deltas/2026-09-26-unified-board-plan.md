@@ -26,7 +26,7 @@ flowchart LR
   R2 --> R3["R3 Sticky / Text<br/>PR #4286 ✅"]:::merged
   R3 --> R4["R4 内容对象<br/>PR #4292 ✅"]:::merged
   R4 --> R5["R5 空间与关系<br/>PR #4308 ✅"]:::merged
-  R5 --> R6["R6 编辑与组织<br/>UI重整 + 坐标修复复验"]:::working
+  R5 --> R6["R6 编辑与组织<br/>6项真实验收通过 · PR #4313 CI中"]:::accepting
   R6 --> R7["R7 团队可靠性<br/>实现 + 独立复核完成"]:::ready
   R7 --> R8["R8 存储与迁移<br/>实现 + 独立复核完成"]:::ready
   R8 --> R9["R9 AI / API / Chat / 会议室<br/>实现 + 独立安全复核完成"]:::ready
@@ -134,7 +134,7 @@ flowchart LR
 | Iteration 03 | R3 Sticky/Text | ✅ PR #4286 已合入 | 同上，并完成Brainstorm旅程与输入指标 |
 | Iteration 04 | R4 内容对象 | ✅ PR #4292 已合入 | 同上，逐对象创建/编辑/保存/协作验收 |
 | Iteration 05 | R5 空间与关系 | ✅ PR #4308 已合入 | 同上，Panel及绑定Connector旅程 |
-| Iteration 06 | R6 编辑与组织 | 🟠 UI 专属 worker 开发；坐标修复待真实复验 | 同上，Grid整理、快捷键与布局Undo |
+| Iteration 06 | R6 编辑与组织 | 🟡 主 session 6/6通过；[PR #4313](https://github.com/boardx/workspacex/pull/4313) CI中 | 同上，Grid整理、快捷键与布局Undo |
 | Iteration 07 | R7 团队可靠性 | 🔵 实现与独立复核完成 | 同上，多客户端/撤权/恢复链路 |
 | Iteration 08 | R8 存储与迁移 | 🔵 阻断已修复并独立复核，待主 session 集成验收 | 同上，PG正文边界、迁移与恢复演练 |
 | Iteration 09 | R9 AI/API/Chat/会议室 | 🔵 实现与独立安全复核完成，等待前序集成 | 同上，Agent完整操作与长时会议室 |
@@ -144,7 +144,7 @@ flowchart LR
 
 ## 10. 当前执行队列
 
-1. R6 并行推进 UI 重整与真实 Fabric 坐标修复复验；主 session 收齐后验收指针吸附、Smart Layout 和下列视觉门，再创建本轮 PR。
+1. R6 主 session 六项真实验收通过，PR #4313 等待 CI；列表导航保留，只有文档编辑器全屏。三视口截图已归档，完整九分视觉矩阵继续在 R10验收。
 2. R6 合入后依次集成 R7；主 session 执行双浏览器 presence/comment、离线重连、撤权与多人 Undo/Redo。
 3. R8 已完成上述修复与独立复核；接下来做主 session PostgreSQL/ObjectStore/迁移/备份恢复验收。
 4. R9 在 R8 后执行 Chat 图形 handoff、AI proposal/一次 Undo、统一限流、会议室跟随与真实 30 分钟 signed-ledger soak。
@@ -161,7 +161,7 @@ flowchart LR
 flowchart TD
   BAD["当前截图：用户评价 0 分<br/>遮挡 / 重复菜单 / 文字形变"]:::fail
   BAD --> UI["专属 UI 子 agent · R6<br/>紧凑上下文栏 / 按需属性 / 底部触摸 dock"]:::doing
-  BAD --> GEO["Fabric 坐标修复<br/>单测通过，待真实复验"]:::review
+  BAD --> GEO["Fabric 坐标修复<br/>真实坐标/同步/Undo已通过"]:::review
   UI --> ROOT["主 session 同一 SHA 集成<br/>真实交互 + 前后同场景截图"]:::wait
   GEO --> ROOT
   ROOT --> GATE{"视觉硬门与六旅程均通过？"}
@@ -201,5 +201,9 @@ flowchart TD
 - R6 UI `1bd4cde04`：紧凑上下文栏、按需互斥属性面板、底部核心工具；50 项组件测试与 typecheck 通过。
 - R6 字形 `6c74e8817`：容器 resize 不再非均匀拉伸文字；51 项渲染相关测试与 typecheck 通过。
 - 独立复核仍阻断：选中对象被平移出视口时浮条越界；批量 canonical patch 重复拆装 ActiveSelection 导致平方级开销。已交回对应 worker；单测绿色不能抵扣。
-- 主 session 的真实吸附/同步/Undo 诊断通过；完整最终回归尚未通过。三视口视觉规格已提交 `bf073f69b`，待修复收齐后执行并人工查看截图。
+- 主 session 的真实吸附/同步/Undo 诊断通过；最终 R6 回归在 `6b94257a1` 达到6/6通过，含导航往返与刷新、三视口Sticky/Text截图；见 PR #4313及同提交evidence目录。
 - R10 复核问题已记录 [#4257](https://github.com/boardx/workspacex/issues/4257#issuecomment-5852224985)；真实 50 客户端长时运行、性能、完整旅程与安全恢复证据仍待补齐，禁止自动打九分。
+
+### 2026-09-27 后续验收状态
+
+R10 已补真实 producer：六旅程 `fca257584`、50客户端30分钟 `3ccff9486`、1k/5k/10k性能与运行版本绑定 `5fe993950`。仅静态/单测通过，全部等待主 session 实际执行；图片跨会话持久化前置正在检查。禁止把 producer存在等同于测试通过。
