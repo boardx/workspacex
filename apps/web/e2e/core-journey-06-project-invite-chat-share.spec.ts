@@ -27,6 +27,7 @@
  */
 import { expect, test, type Page } from "@playwright/test";
 import { FULLSTACK_E2E } from "./fullstack-smoke-fixture";
+import { SESSION_TOKEN_STORAGE_KEY } from "../lib/api-client";
 
 /** 切账号前先清掉上一个人的会话（同旅程 ④ 的既有做法）。 */
 async function logout(page: Page): Promise<void> {
@@ -45,6 +46,20 @@ const workbench = (q = "") => `/projects/${encodeURIComponent(PROJECT)}${q}`;
 
 test("旅程⑥：非成员被拒 → 引导师发邀请 → 成员经链接加入 → 引导师建 chat 并分享到全场 → 成员看得到 chat 与项目大脑", async ({ page }) => {
   test.setTimeout(150_000);
+
+  // ⓪ 让本旅程可重跑：上一次跑到第 ③ 步之后 member 已经在项目里，第 ① 步的反证就立不住
+  //   （2026-09-27 #4437 CI 实录：首跑在 ③ 卡住，retry 在 ① 红）。引导师先把他移出去——
+  //   走真实 `removeProjectMember`（R3），不是成员时 API 报错，忽略即可。
+  await logout(page);
+  await page.goto("/login");
+  await login(page, FULLSTACK_E2E.email, FULLSTACK_E2E.password);
+  await expect(page).toHaveURL(/\/projects$/);
+  const facilitatorToken = await page.evaluate((key) => window.localStorage.getItem(key), SESSION_TOKEN_STORAGE_KEY);
+  expect(facilitatorToken).toBeTruthy();
+  await page.request.delete(
+    `/__fullstack_api/projects/${encodeURIComponent(PROJECT)}/members/${encodeURIComponent(FULLSTACK_E2E.memberUserId)}`,
+    { headers: { Authorization: `Bearer ${facilitatorToken}` } },
+  );
 
   // ① 反证前提：member 现在进不了这个项目。
   await logout(page);
@@ -71,7 +86,8 @@ test("旅程⑥：非成员被拒 → 引导师发邀请 → 成员经链接加�
   await page.goto(invitePath);
   await expect(page).toHaveURL(/\/login\?next=/);
   await login(page, FULLSTACK_E2E.memberEmail, FULLSTACK_E2E.memberPassword);
-  await expect(page.getByTestId("project-join")).toBeVisible();
+  // 落地页已登录即自动接受并 `router.replace` 进项目，`project-join` 只在接受请求在途时可见，
+  // 快栈上一帧就过去了——不断言它，只断言终点：真的进了项目工作台。
   await expect(page).toHaveURL(new RegExp(`/projects/${PROJECT}$`), { timeout: 20_000 });
   await expect(page.getByTestId("project-title")).toBeVisible();
   await expect(page.getByTestId("project-access-denied")).toHaveCount(0);
