@@ -184,6 +184,15 @@ test("multi-select transform, Panel clip/expand, connector preservation, and tot
   await expect.poll(() => canvasTransform(page)).not.toEqual(beforeFit);
   await dragObject(page, firstSticky, 40, 30);
   await expect(connector).not.toHaveAttribute("data-connector-start", connectorStartBeforeMove!);
+  // Transparent connector bounds must pass through, but its visible stroke must
+  // still be selectable using a real pointer (not the accessibility outline).
+  const movedStart = JSON.parse((await connector.getAttribute("data-connector-start"))!) as { x: number; y: number };
+  const movedEnd = JSON.parse((await connector.getAttribute("data-connector-end"))!) as { x: number; y: number };
+  const lineViewport = await canvasTransform(page);
+  await page.mouse.click(lineViewport.box.x + lineViewport.panX + (movedStart.x + movedEnd.x) / 2 * lineViewport.zoom,
+    lineViewport.box.y + lineViewport.panY + (movedStart.y + movedEnd.y) / 2 * lineViewport.zoom);
+  await expect(connector.getByRole("button")).toHaveAttribute("aria-pressed", "true");
+  await expect(page.getByTestId("board-a11y-selection-announcement")).toHaveText("已选择 1 个对象");
   await firstSticky.getByRole("button").focus(); await page.keyboard.press("Enter");
   await openInspector(page);
   await page.getByTestId("board-delete-preserve-connectors").click();
