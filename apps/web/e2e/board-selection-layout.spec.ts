@@ -106,7 +106,8 @@ async function marqueeAll(page: Page): Promise<void> {
   const objects = parseGeometry(await geometry(page));
   expect(objects).toHaveLength(7);
   const surface = page.getByTestId("board-fabric-surface");
-  const box = await surface.boundingBox();
+  const upperCanvas = surface.locator('canvas[data-fabric="top"]');
+  const box = await upperCanvas.boundingBox();
   expect(box).not.toBeNull();
   const zoom = Number(await surface.getAttribute("data-viewport-zoom"));
   const panX = Number(await surface.getAttribute("data-viewport-pan-x"));
@@ -121,20 +122,39 @@ async function marqueeAll(page: Page): Promise<void> {
   });
   const margin = 28 / zoom;
   const toScreen = (x: number, y: number) => ({ x: box!.x + panX + x * zoom, y: box!.y + panY + y * zoom });
-  const start = toScreen(Math.min(...corners.map(point => point.x)) - margin, Math.min(...corners.map(point => point.y)) - margin);
-  const end = toScreen(Math.max(...corners.map(point => point.x)) + margin, Math.max(...corners.map(point => point.y)) + margin);
-  expect(start.x).toBeGreaterThanOrEqual(box!.x);
-  expect(start.y).toBeGreaterThanOrEqual(box!.y);
-  expect(end.x).toBeLessThanOrEqual(box!.x + box!.width);
-  expect(end.y).toBeLessThanOrEqual(box!.y + box!.height);
+  const screenCorners = corners.map(point => toScreen(point.x, point.y));
+  const objectScreenBounds = {
+    left: Math.min(...screenCorners.map(point => point.x)), top: Math.min(...screenCorners.map(point => point.y)),
+    right: Math.max(...screenCorners.map(point => point.x)), bottom: Math.max(...screenCorners.map(point => point.y)),
+  };
+  const inset = 8;
+  const desiredStart = toScreen(Math.min(...corners.map(point => point.x)) - margin, Math.min(...corners.map(point => point.y)) - margin);
+  const desiredEnd = toScreen(Math.max(...corners.map(point => point.x)) + margin, Math.max(...corners.map(point => point.y)) + margin);
+  const start = { x: Math.max(box!.x + inset, desiredStart.x), y: Math.max(box!.y + inset, desiredStart.y) };
+  const end = { x: Math.min(box!.x + box!.width - inset, desiredEnd.x), y: Math.min(box!.y + box!.height - inset, desiredEnd.y) };
+  expect(start.x).toBeLessThan(objectScreenBounds.left - 2);
+  expect(start.y).toBeLessThan(objectScreenBounds.top - 2);
+  expect(end.x).toBeGreaterThan(objectScreenBounds.right + 2);
+  expect(end.y).toBeGreaterThan(objectScreenBounds.bottom + 2);
+  const clearPoint = await page.evaluate(({ canvasTestId, bounds }) => {
+    const canvas = document.querySelector<HTMLElement>(`[data-testid="${canvasTestId}"] canvas[data-fabric="top"]`);
+    if (!canvas) return null;
+    const rect = canvas.getBoundingClientRect();
+    for (let y = rect.bottom - 16; y >= rect.top + 16; y -= 24) for (let x = rect.left + 16; x <= rect.right - 16; x += 24) {
+      const outsideObjects = x < bounds.left - 4 || x > bounds.right + 4 || y < bounds.top - 4 || y > bounds.bottom + 4;
+      if (outsideObjects && document.elementFromPoint(x, y) === canvas) return { x, y };
+    }
+    return null;
+  }, { canvasTestId: "board-fabric-surface", bounds: objectScreenBounds });
+  expect(clearPoint, "an interactive blank upper-canvas point must exist to clear selection").not.toBeNull();
+  await page.keyboard.press("Escape");
+  await page.mouse.click(clearPoint!.x, clearPoint!.y);
+  await expect(page.getByTestId("board-a11y-selection-announcement")).toHaveText("未选择对象");
   const hitSurfaces = await page.evaluate(([startPoint, endPoint]) => [startPoint, endPoint].map((point) => {
     const element = document.elementFromPoint(point.x, point.y) as HTMLElement | null;
     return { fabric: element?.dataset.fabric ?? null, insideSurface: Boolean(element?.closest('[data-testid="board-fabric-surface"]')) };
   }), [start, end] as const);
   expect(hitSurfaces).toEqual([{ fabric: "top", insideSurface: true }, { fabric: "top", insideSurface: true }]);
-  await page.keyboard.press("Escape");
-  await page.mouse.click(start.x, start.y);
-  await expect(page.getByTestId("board-a11y-selection-announcement")).toHaveText("未选择对象");
   await page.mouse.move(start.x, start.y);
   await page.mouse.down();
   await page.mouse.move(end.x, end.y, { steps: 12 });
