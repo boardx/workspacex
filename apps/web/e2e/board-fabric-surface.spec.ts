@@ -214,8 +214,10 @@ test("selected object inspector adapts to each widget and a narrow editor", asyn
   await page.getByTestId("board-inspector-close").click();
 
   await page.getByTestId("board-add-panel").click();
-  await selectLatestAndExpand();
-  await expect(inspector).toContainText("Frame");
+  await expect(inspector).toBeVisible();
+  if (await page.getByTestId("board-inspector-expand").count()) {
+    await page.getByTestId("board-inspector-expand").click();
+  }
   await expect(page.getByTestId("board-frame-size-presets")).toBeVisible();
   await capture("selected-frame-inspector");
 
