@@ -37,8 +37,7 @@ test('same-browser tabs drain a shared durable outbox without duplicate commits'
   for(let index=0;index<8;index++)await page.getByTestId('board-add-panel').click();
   await expect(page.getByTestId('board-a11y-mirror').getByRole('button')).toHaveCount(8);
   mark('panels-created');
-  const actions=page.getByRole('dialog',{name:'更多操作',exact:true});if(!await actions.isVisible())await page.getByRole('button',{name:'更多操作',exact:true}).click();
-  await actions.getByRole('button',{name:'精确属性',exact:true}).click();
+  await page.getByTestId('board-inspector-expand').click();
   const title=page.getByRole('textbox',{name:'区域标题',exact:true});await title.press('End');await title.pressSequentially('shared-tab-proof');
   const pending=page.getByText(/^\d+ 项修改等待服务器确认$/);await expect(pending).toBeVisible();evidence.pendingBeforePeer=await pending.textContent();
   mark('local-updates-queued');
