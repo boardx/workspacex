@@ -541,13 +541,16 @@
         "project/create-project",
         "project/errors",
         "project/get-project-overview",
+        "project/link-project-resource",
         "project/list-agenda-segments",
         "project/list-project-members",
+        "project/list-project-resources",
         "project/list-projects",
         "project/preview-as-role",
         "project/remove-project-member",
         "project/render-role-view",
         "project/unarchive-project",
+        "project/unlink-project-resource",
         "project/update-project-tags"
       ]
     },

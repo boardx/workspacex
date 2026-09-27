@@ -43,7 +43,7 @@ describe("B2-S2 待办看板：真实任务板", () => {
     expect(screen.getByTestId("project-todo-column-done")).toContainElement(screen.getByTestId("project-todo-card-c"));
     expect(screen.getByTestId("project-todo-card-b")).toHaveTextContent("研究员 在跑");
     expect(screen.queryByTestId("project-todo-empty")).toBeNull();
-    const url = new URL(String(fetchMock.mock.calls[0]![0]));
+    const url = new URL(String((fetchMock.mock.calls as unknown[][])[0]?.[0]));
     expect(url.pathname).toBe("/tasks");
     expect(url.searchParams.get("projectId")).toBe("p1");
     expect(url.searchParams.get("scope")).toBe("project");
