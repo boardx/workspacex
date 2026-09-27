@@ -157,7 +157,7 @@ export class PgBoardContentCopyStore implements BoardContentCopyPort {
         if (copied.has(image.assetId)) continue;
         const result = await session.query<{object_key:string;metadata:unknown}>(`SELECT a.object_key,a.metadata FROM whiteboard_image_assets a
           JOIN whiteboard_asset_refs r ON r.org_id=a.org_id AND r.board_id=a.board_id AND r.object_key=a.object_key
-          WHERE a.org_id=$1 AND a.board_id=$2 AND a.asset_id=$3 AND r.state='active' AND r.released_at IS NULL FOR SHARE OF a,r`, [p.orgId,sourceBoardId,image.assetId]);
+          WHERE a.org_id=$1 AND a.board_id=$2 AND a.asset_id=$3 AND r.state='active' AND r.released_at IS NULL FOR SHARE OF r`, [p.orgId,sourceBoardId,image.assetId]);
         const row = result.rows[0]; if (!row) throw new WhiteboardResourceError('COPY_INTEGRITY_FAILED');
         const metadata = WhiteboardAssetMetadata.parse(row.metadata), hash = metadata.contentDigest.slice(7);
         if (metadata.assetId !== image.assetId || metadata.assetId !== `board-image-${hash}` || metadata.contentDigest !== image.contentDigest || metadata.byteSize !== image.byteSize || metadata.mimeType !== image.mimeType || metadata.intrinsicWidth !== image.intrinsicWidth || metadata.intrinsicHeight !== image.intrinsicHeight

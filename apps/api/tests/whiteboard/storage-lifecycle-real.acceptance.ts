@@ -115,3 +115,7 @@ it('restores a joint metadata/body backup after source removal using independent
     const absent=await db.withTenant(orgId,s=>s.query('SELECT id FROM whiteboards WHERE org_id=$1 AND id=$2',[orgId,rejectedTarget]));expect(absent.rows).toHaveLength(0);
   }finally{await rm(archiveRoot,{recursive:true,force:true});}
 });
+
+it('reads immutable image metadata while locking only mutable asset references',async()=>{
+  await expect(db.withTenant(orgId,s=>s.query(`SELECT a.object_key,a.metadata FROM whiteboard_image_assets a JOIN whiteboard_asset_refs r ON r.org_id=a.org_id AND r.board_id=a.board_id AND r.object_key=a.object_key WHERE a.org_id=$1 FOR SHARE OF r`,[orgId]))).resolves.toMatchObject({rows:[]});
+});
