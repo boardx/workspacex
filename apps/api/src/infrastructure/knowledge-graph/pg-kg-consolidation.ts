@@ -1,5 +1,5 @@
 /**
- * Phase 18 S8（#4365）—— `KgConsolidationPort` 与 `KgExtractionSloCountsPort` 的 Postgres 实现：只调迁移 20260927400000 的
+ * Phase 18 S8（#4365）—— `KgConsolidationPort` 与 `KgExtractionSloCountsPort` 的 Postgres 实现：只调迁移 20260927450000 的
  * kg_* 函数，不写一行表名 SQL（同 pg-kg-conflict.ts / pg-kg-embedding.ts）。
  *
  * 系统写（候选、合并、开卡、收尾）一律先以「本人」身份声明 `app.current_user_id`（同 F16 asThreadOwner）：数据库函数

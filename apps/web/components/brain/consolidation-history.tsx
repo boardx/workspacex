@@ -4,6 +4,7 @@ import Link from "next/link";
 import { Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ApiError } from "@/lib/api-client";
+import { workbenchThreadPath } from "@/lib/chat-workbench/project-scope";
 import { listMyConsolidationRuns, undoConsolidationRun, type ConsolidationRun } from "@/lib/live-memory-ops";
 
 /**
@@ -31,7 +32,7 @@ function describe(change: ConsolidationRun["changes"][number]): React.ReactNode 
     <>
       「{other}」与「{kept}」不一致，
       {change.threadId !== null
-        ? <Link className="underline underline-offset-2" href={`/chat/${encodeURIComponent(change.threadId)}`}>去那个对话里决定</Link>
+        ? <Link className="underline underline-offset-2" href={workbenchThreadPath(change.threadId, null)}>去那个对话里决定</Link>
         : "请在对话里决定"}
     </>
   );
