@@ -554,7 +554,8 @@
       "design_ref": "",
       "verification": [
         "pnpm --filter @repo/contracts exec vitest run tests/board-operation-contract.test.ts tests/board-event-model.test.ts",
-        "pnpm --filter api exec vitest run --config vitest.whiteboard-unit.config.ts tests/whiteboard/operation-actor-parity.test.ts tests/whiteboard/operation-idempotency-acl.test.ts"
+        "pnpm --filter api exec vitest run --config vitest.whiteboard-unit.config.ts tests/whiteboard/operation-actor-parity.test.ts tests/whiteboard/operation-idempotency-acl.test.ts",
+        "pnpm exec tsx .harness/scripts/with-test-isolation.ts -- pnpm --filter api exec vitest run tests/whiteboard/rate-limit-rls.test.ts"
       ],
       "evidence": "",
       "notes": "Iteration 8 / integration。共享热点 packages/contracts/src/whiteboard.ts、whiteboard-core commands、apps/api Board operation controller；Fabric 私有字段不得进入公开契约。"
