@@ -18,6 +18,16 @@ const survey = (patch = {}) => ({
 beforeEach(() => { request.mockReset(); push.mockReset(); });
 
 describe("LiveSurveyLibrary", () => {
+  it("counts included pending-review responses using the report sample basis", async () => {
+    request.mockResolvedValueOnce([survey({responses:[
+      {id:"r1",quality:"normal",analysis:"included"},
+      {id:"r2",quality:"review",analysis:"included"},
+      {id:"r3",quality:"normal",analysis:"excluded"},
+    ]})]);
+    render(<LiveSurveyLibrary />);
+    const label = await screen.findByText("纳入分析");
+    expect(label.parentElement).toHaveTextContent("2纳入分析");
+  });
   it("shows real survey status and routes collecting surveys to response review", async () => {
     request.mockResolvedValueOnce([survey()]);
     render(<LiveSurveyLibrary />);

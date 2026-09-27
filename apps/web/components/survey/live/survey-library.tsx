@@ -101,7 +101,7 @@ export function LiveSurveyLibrary() {
               <div className="mt-5 grid grid-cols-3 divide-x divide-border text-center">
                 <div><p className="text-20 font-semibold">{item.questions.length}</p><p className="text-12 text-muted-foreground">题目数</p></div>
                 <div><p className="text-20 font-semibold">{item.responses.length}</p><p className="text-12 text-muted-foreground">答卷数</p></div>
-                <div><p className="text-20 font-semibold">{item.responses.filter((response) => response.analysis !== "excluded" && response.quality !== "review").length}</p><p className="text-12 text-muted-foreground">纳入分析</p></div>
+                <div><p className="text-20 font-semibold">{item.responses.filter((response) => response.analysis !== "excluded").length}</p><p className="text-12 text-muted-foreground">纳入分析</p></div>
               </div>
               <p className="mt-5 text-12 text-muted-foreground">最近更新：{new Date(item.updatedAt).toLocaleString("zh-CN")}</p>
               <div className="mt-5 flex justify-between">

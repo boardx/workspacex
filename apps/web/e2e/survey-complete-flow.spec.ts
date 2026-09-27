@@ -48,7 +48,7 @@ test("用户可从模板完整走通创建、发布、答题、查看答卷和�
 
   await page.goto("/studio/survey");
   await expect(page.getByRole("heading", { name: "我的问卷" })).toBeVisible();
-  await page.getByRole("button", { name: "从模板创建" }).click();
+  await page.getByRole("link", { name: "问卷模板", exact: true }).click();
   await expect(page).toHaveURL(/\/studio\/survey\?tab=modules$/);
 
   const template = page.locator("article").filter({
