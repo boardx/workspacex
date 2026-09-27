@@ -113,6 +113,7 @@ it('serializes refresh rebind with concurrent persistence and restart without re
   expect(outbox.updates.get('refreshed-session')?.map(item=>item.gestureId)).toEqual(['before-refresh','during-refresh']);
   provider.close();doc.destroy();
   const restored=createWhiteboardDocument(),restarted=new WhiteboardProvider(restored,'board-1',()=>{},outbox);await vi.advanceTimersByTimeAsync(0);
+  expect(readObjects(restored)).toEqual([]);sync(Socket.sockets.at(-1)!,server);
   expect(readObjects(restored).map(item=>item.id).sort()).toEqual(['before-refresh','during-refresh']);
   restarted.close();restored.destroy();server.destroy();
 });
@@ -167,7 +168,7 @@ it('restores encrypted-durable outbox semantics across provider recreation and r
   executeCommands(firstDoc,[{type:'create',object:{id:'durable',kind:'sticky',schemaVersion:1,geometry:{x:0,y:0,width:1,height:1,rotation:0},text:'kept',style:{},parentId:null,orderKey:''}}],'local');await vi.advanceTimersByTimeAsync(0);
   const update=JSON.parse(first.sent[0]!);expect(outbox.updates.get('test-session')).toHaveLength(1);firstProvider.close();firstDoc.destroy();
   const restoredDoc=createWhiteboardDocument(),secondProvider=new WhiteboardProvider(restoredDoc,'board-1',()=>{},outbox);await vi.advanceTimersByTimeAsync(0);const second=Socket.sockets[1]!;
-  expect(readObjects(restoredDoc).map(item=>item.id)).toEqual(['durable']);second.message({type:'sync',epoch:1,seq:0,update:bytesToBase64(Y.encodeStateAsUpdate(server)),role:'editor',archived:false});expect(JSON.parse(second.sent[0]!).updateId).toBe(update.updateId);
+  expect(readObjects(restoredDoc)).toEqual([]);second.message({type:'sync',epoch:1,seq:0,update:bytesToBase64(Y.encodeStateAsUpdate(server)),role:'editor',archived:false});expect(readObjects(restoredDoc).map(item=>item.id)).toEqual(['durable']);expect(JSON.parse(second.sent[0]!).updateId).toBe(update.updateId);
   second.message({type:'ack',updateId:update.updateId,gestureId:update.gestureId,seq:1});await vi.advanceTimersByTimeAsync(0);expect(outbox.updates.get('test-session')).toEqual([]);secondProvider.close();restoredDoc.destroy();server.destroy();
 });
 it('persists an authentication tombstone and refuses stale document restore after revocation',async()=>{
@@ -332,11 +333,36 @@ it('orders offline original-ID Undo intent after delete ACK and before subsequen
 });
 it('reopened provider restores queued same-ID intent from the authoritative tombstoned snapshot',async()=>{
  const server=createWhiteboardDocument();executeCommands(server,[{type:'create',object:sticky('restored-after-crash')},{type:'delete',id:'restored-after-crash'}],{});
- const intent={type:'restore-deletion' as const,epoch:1,updateId:crypto.randomUUID(),gestureId:'undo-after-crash',deleteGestureId:'already-acked-delete',objectIds:['restored-after-crash']};
+ const preview=createWhiteboardDocument();Y.applyUpdate(preview,Y.encodeStateAsUpdate(server));const vector=Y.encodeStateVector(preview);executeCommands(preview,[{type:'restore',id:'restored-after-crash'}],{});
+ const intent={inverseUpdate:bytesToBase64(Y.encodeStateAsUpdate(preview,vector)),type:'restore-deletion' as const,epoch:1,updateId:crypto.randomUUID(),gestureId:'undo-after-crash',deleteGestureId:'already-acked-delete',objectIds:['restored-after-crash']};
  const outbox=new DurableMemoryOutbox();outbox.updates.set('test-session',[intent]);
  const doc=createWhiteboardDocument();let state:WhiteboardConnectionState|undefined;const provider=new WhiteboardProvider(doc,'reopen',value=>{state=value;},outbox);await vi.advanceTimersByTimeAsync(0);
  expect(readObjects(doc)).toEqual([]);const socket=Socket.sockets[0]!;sync(socket,server,1,9);
  expect(readObjects(doc)[0]?.id).toBe('restored-after-crash');expect(JSON.parse(socket.sent[0]!)).toEqual(intent);
  socket.message({type:'ack',updateId:intent.updateId,gestureId:intent.gestureId,seq:10});await vi.advanceTimersByTimeAsync(0);expect(state?.phase).toBe('online');expect(state?.lastAckReceipt?.gestureId).toBe('undo-after-crash');expect(outbox.updates.get('test-session')).toEqual([]);
  provider.close();doc.destroy();server.destroy();
+});
+
+it.each([false,true])('replays delete undo redo in durable order after restart (server already accepted redo: %s)',async accepted=>{
+ const server=createWhiteboardDocument();executeCommands(server,[{type:'create',object:sticky('cycle')}],{});
+ const doc=createWhiteboardDocument(),outbox=new DurableMemoryOutbox();
+ const provider=new WhiteboardProvider(doc,'cycle-board',()=>{},outbox);await vi.advanceTimersByTimeAsync(0);const socket=Socket.sockets.at(-1)!;sync(socket,server);socket.onclose?.({code:1006});
+ const undo=new WhiteboardUndo(doc,{gestureId:'delete-cycle'});
+ undo.execute([{type:'delete',id:'cycle'}]);expect(undo.undo('undo-cycle')).toBe('undone');expect(undo.redo('redo-cycle')).toBe(true);
+ await vi.advanceTimersByTimeAsync(0);const saved=structuredClone(outbox.updates.get('test-session')!);
+ expect(saved.map(item=>item.type)).toEqual(['update','restore-deletion','update']);expect(saved[1].inverseUpdate).toEqual(expect.any(String));
+ if(accepted)for(const item of saved)Y.applyUpdate(server,Uint8Array.from(Buffer.from(item.update??item.inverseUpdate,'base64')));
+ provider.close();const restartedDoc=createWhiteboardDocument();let state!:WhiteboardConnectionState;
+ const restarted=new WhiteboardProvider(restartedDoc,'cycle-board',value=>{state=value;},outbox);await vi.advanceTimersByTimeAsync(0);const restartedSocket=Socket.sockets.at(-1)!;
+ expect(readObjects(restartedDoc)).toEqual([]);sync(restartedSocket,server,1,accepted?3:0);
+ expect(state.phase).toBe('online');expect(readObjects(restartedDoc)).toEqual([]);expect(restartedDoc.getMap('deletedObjects').get('cycle')).toBe(true);
+ // Commit/replay the same durable sequence and simulate transport ACK ordering.
+ for(let index=0;index<saved.length;index++){
+   const item=saved[index];Y.applyUpdate(server,Uint8Array.from(Buffer.from(item.update??item.inverseUpdate,'base64')));
+   restartedSocket.message({type:'ack',updateId:item.updateId,gestureId:item.gestureId,seq:index+1});
+ }
+ Y.applyUpdate(restartedDoc,Y.encodeStateAsUpdate(server));
+ expect(readObjects(restartedDoc)).toEqual(readObjects(server));expect(restartedDoc.getMap('deletedObjects').get('cycle')).toBe(true);
+ await vi.advanceTimersByTimeAsync(0);expect(state.pending).toBe(0);
+ restarted.close();undo.destroy();doc.destroy();restartedDoc.destroy();server.destroy();
 });

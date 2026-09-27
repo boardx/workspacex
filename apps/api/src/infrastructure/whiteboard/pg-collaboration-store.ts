@@ -79,8 +79,8 @@ export class PgWhiteboardCollaborationStore implements WhiteboardCollaborationSt
     return this.db.withTenant(p.orgId,async session=>{
       await this.access(session,p,boardId,true);const head=await this.document(session,p,boardId,true);
       if(head.epoch!==input.epoch)throw new Fault('STALE_EPOCH');
-      const result=await session.query<{proof:WhiteboardDeletionProof[];comments:Array<{id:string;status:string;revision:number}>;restored_update_id:string|null}>(
-        'SELECT proof,comments,restored_update_id FROM whiteboard_deletion_receipts WHERE org_id=$1 AND board_id=$2 AND epoch=$3 AND actor_id=$4 AND delete_gesture_id=$5 FOR UPDATE',[p.orgId,boardId,input.epoch,p.userId,input.deleteGestureId]);
+      const result=await session.query<{proof:WhiteboardDeletionProof[];changes:import('../../application/whiteboard/collaboration-ports').WhiteboardDeletionChange[];comments:Array<{id:string;status:string;revision:number}>;restored_update_id:string|null}>(
+        'SELECT proof,changes,comments,restored_update_id FROM whiteboard_deletion_receipts WHERE org_id=$1 AND board_id=$2 AND epoch=$3 AND actor_id=$4 AND delete_gesture_id=$5 FOR UPDATE',[p.orgId,boardId,input.epoch,p.userId,input.deleteGestureId]);
       const receipt=result.rows[0];if(!receipt)throw new Fault('FORBIDDEN');
       if(receipt.restored_update_id&&receipt.restored_update_id!==input.updateId)throw new Fault('IDEMPOTENCY_CONFLICT');
       if(JSON.stringify(receipt.proof.map(item=>item.id).sort())!==JSON.stringify([...input.objectIds].sort()))throw new Fault('FORBIDDEN');
@@ -89,7 +89,7 @@ export class PgWhiteboardCollaborationStore implements WhiteboardCollaborationSt
         const current=await session.query<{status:string;revision:number}>('SELECT status,revision FROM whiteboard_comment_threads WHERE org_id=$1 AND board_id=$2 AND id=$3 FOR UPDATE',[p.orgId,boardId,comment.id]);
         if(current.rows[0]?.status!=='object-deleted'||Number(current.rows[0]?.revision)!==comment.revision+1)throw new Fault('COMMENT_CONFLICT');
       }
-      const {durability:_,...ack}=await this.commitInTransaction(session,p,boardId,input.epoch,input.updateId,input.gestureId,hash,snapshot=>this.validator.restoreDeletion!(snapshot,receipt.proof));
+      const {durability:_,...ack}=await this.commitInTransaction(session,p,boardId,input.epoch,input.updateId,input.gestureId,hash,snapshot=>this.validator.restoreDeletion!(snapshot,receipt.proof,receipt.changes,input.inverseUpdate?new Uint8Array(Buffer.from(input.inverseUpdate,'base64')):undefined));
       if(!ack.replayed){
         for(const comment of receipt.comments)await session.query(`UPDATE whiteboard_comment_threads SET status=$4,revision=revision+1,payload=jsonb_set(jsonb_set(jsonb_set(payload,'{status}',to_jsonb($4::text)),'{revision}',to_jsonb(revision+1)),'{archivedAt}','null'::jsonb),updated_at=now() WHERE org_id=$1 AND board_id=$2 AND id=$3`,[p.orgId,boardId,comment.id,comment.status]);
         await session.query('UPDATE whiteboard_deletion_receipts SET restored_update_id=$6 WHERE org_id=$1 AND board_id=$2 AND epoch=$3 AND actor_id=$4 AND delete_gesture_id=$5',[p.orgId,boardId,input.epoch,p.userId,input.deleteGestureId,input.updateId]);
@@ -143,7 +143,7 @@ export class PgWhiteboardCollaborationStore implements WhiteboardCollaborationSt
       for(const objectId of new Set(orphaned.rows.map(row=>row.object_id))){const event={type:'ObjectCommentsArchived',eventId:randomUUID(),operationId:updateId,boardId,objectId,threadIds:orphaned.rows.filter(row=>row.object_id===objectId).map(row=>row.id),actorId:p.userId,occurredAt:archivedAt};await session.query(`INSERT INTO whiteboard_collaboration_events(org_id,board_id,event_id,actor_id,event_type,payload) VALUES($1,$2,$3,$4,$5,$6::jsonb)`,[p.orgId,boardId,event.eventId,p.userId,event.type,JSON.stringify(event)]);}
     }
     if(accepted.deletions?.length){
-      const inserted=await session.query(`INSERT INTO whiteboard_deletion_receipts(org_id,board_id,epoch,actor_id,delete_gesture_id,delete_update_id,deletion_seq,proof,comments) VALUES($1,$2,$3,$4,$5,$6,$7,$8::jsonb,$9::jsonb) ON CONFLICT DO NOTHING RETURNING delete_update_id`,[p.orgId,boardId,epoch,p.userId,gestureId,updateId,seq,JSON.stringify(accepted.deletions),JSON.stringify(orphaned.rows.filter(row=>accepted.deletions!.some(proof=>proof.id===row.object_id)).map(row=>({id:row.id,status:row.status,revision:Number(row.revision)})))]);
+      const inserted=await session.query(`INSERT INTO whiteboard_deletion_receipts(org_id,board_id,epoch,actor_id,delete_gesture_id,delete_update_id,deletion_seq,proof,comments,changes) VALUES($1,$2,$3,$4,$5,$6,$7,$8::jsonb,$9::jsonb,$10::jsonb) ON CONFLICT DO NOTHING RETURNING delete_update_id`,[p.orgId,boardId,epoch,p.userId,gestureId,updateId,seq,JSON.stringify(accepted.deletions),JSON.stringify(orphaned.rows.filter(row=>accepted.deletions!.some(proof=>proof.id===row.object_id)).map(row=>({id:row.id,status:row.status,revision:Number(row.revision)}))),JSON.stringify(accepted.deletionChanges??[])]);
       if(!inserted.rows.length)throw new Fault('IDEMPOTENCY_CONFLICT');
     }
     await session.query(`UPDATE whiteboards SET updated_at=now() WHERE org_id=$1 AND id=$2`, [p.orgId, boardId]);

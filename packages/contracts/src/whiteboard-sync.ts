@@ -49,7 +49,7 @@ export const WhiteboardViewportPresence=z.object({centerX:z.number().finite().mi
 export const WhiteboardClientMessage = z.discriminatedUnion('type', [
   z.object({ type: z.literal('hello'), stateVector: stateVectorBase64, resume: z.object({ epoch, seq }).strict().optional() }).strict(),
   z.object({ type: z.literal('update'), epoch, updateId: z.string().uuid(), gestureId: z.string().min(1).max(256), update: updateBase64 }).strict(),
-  z.object({ type: z.literal('restore-deletion'), epoch, updateId: z.string().uuid(), gestureId: z.string().min(1).max(256), deleteGestureId:z.string().min(1).max(256), objectIds:z.array(WhiteboardObjectId).min(1).max(WHITEBOARD_LIMITS.objects).superRefine((ids,ctx)=>{if(new Set(ids).size!==ids.length)ctx.addIssue({code:z.ZodIssueCode.custom,message:'Duplicate restoration id'});}) }).strict(),
+  z.object({ type: z.literal('restore-deletion'), epoch, updateId: z.string().uuid(), gestureId: z.string().min(1).max(256), deleteGestureId:z.string().min(1).max(256), inverseUpdate:updateBase64.optional(), objectIds:z.array(WhiteboardObjectId).min(1).max(WHITEBOARD_LIMITS.objects).superRefine((ids,ctx)=>{if(new Set(ids).size!==ids.length)ctx.addIssue({code:z.ZodIssueCode.custom,message:'Duplicate restoration id'});}) }).strict(),
   z.object({ type: z.literal('awareness'), cursor, selected, editingObjectId: editingObjectId.optional(),viewport:WhiteboardViewportPresence.nullable().optional(),presenting:z.boolean().optional(),followingActorId:ActorId.nullable().optional() }).strict(),
 ]);
 export type WhiteboardClientMessage = z.infer<typeof WhiteboardClientMessage>;

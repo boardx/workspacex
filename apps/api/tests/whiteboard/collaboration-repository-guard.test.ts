@@ -70,7 +70,7 @@ function audit(code: string): string[] {
   const restore = (methods.get('restoreDeletion') ?? '').replace(/\s+/g, '');
   if (!restore.includes('awaitthis.access(session,p,boardId,true)') || restore.indexOf('awaitthis.access') > restore.indexOf('SELECTproof')) errors.push('restore: fresh authorization');
   if (!restore.includes('actor_id=$4ANDdelete_gesture_id=$5FORUPDATE') || !restore.includes('[p.orgId,boardId,input.epoch,p.userId,input.deleteGestureId]')) errors.push('restore: actor-bound receipt lock');
-  if (!restore.includes('this.validator.restoreDeletion!(snapshot,receipt.proof)')) errors.push('restore: server receipt proof');
+  if (!restore.includes('this.validator.restoreDeletion!(snapshot,receipt.proof,receipt.changes,')) errors.push('restore: server receipt proof');
   if (!restore.includes("thrownewFault('COMMENT_CONFLICT')")) errors.push('restore: comment revision CAS');
   return errors;
 }
@@ -93,7 +93,7 @@ describe('whiteboard collaboration repository permission exemption', () => {
   it('rejects restore authorization and proof bypasses', () => {
     expect(audit(source.replace('await this.access(session,p,boardId,true)', 'void 0'))).toContain('restore: fresh authorization');
     expect(audit(source.replace('actor_id=$4 AND delete_gesture_id=$5 FOR UPDATE', 'delete_gesture_id=$5 FOR UPDATE'))).toContain('restore: actor-bound receipt lock');
-    expect(audit(source.replace('this.validator.restoreDeletion!(snapshot,receipt.proof)', 'this.validator.restoreDeletion!(snapshot,input)'))).toContain('restore: server receipt proof');
+    expect(audit(source.replace('this.validator.restoreDeletion!(snapshot,receipt.proof,receipt.changes,', 'this.validator.restoreDeletion!(snapshot,input)'))).toContain('restore: server receipt proof');
   });
   it('rejects tenant bypasses and a newly introduced table', () => {
     expect(audit(source.replace('this.db.withTenant(p.orgId,', 'this.db.withoutTenant('))).toContain('withoutTenant');

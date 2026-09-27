@@ -1,5 +1,4 @@
 import * as Y from 'yjs';
-import {executeCommands} from '@repo/whiteboard-core';
 import { WHITEBOARD_SYNC, WhiteboardServerMessage, type WhiteboardClientMessage, type WhiteboardPendingMessage } from '@repo/contracts/whiteboard-sync';
 import { apiWebSocketUrl, getStoredSessionToken } from './api-client';
 import { createWhiteboardOutbox, type WhiteboardDurableOutbox } from './whiteboard-outbox';
@@ -72,13 +71,14 @@ export class WhiteboardProvider {
   }
   private needsReauthorization=false;
   private pendingReauthorization:Promise<void>|null=null;
+  private pendingPreviewNeedsReplay=false;
   private async restoreOutbox(token: string) {
     try {
       const restored = await this.outbox!.restore(token);
       if (this.stopped || token !== this.token) return;
       if (restored.revoked) { this.needsReauthorization=true;this.pending=[];this.persisted.clear();this.doc.transact(()=>{this.doc.getMap('objects').clear();this.doc.getMap('deletedObjects').clear();},REMOTE);this.connect('FRESH_AUTH_REQUIRED');return; }
       this.pending = restored.updates; this.persisted = new Set(restored.updates.map(item => item.updateId));
-      for (const item of restored.updates) if(item.type==='update')Y.applyUpdate(this.doc, base64ToBytes(item.update), REMOTE);
+      this.pendingPreviewNeedsReplay=restored.updates.length>0;
       this.publish({ pending: this.pending.length }); this.connect(restored.updates.length ? 'RESTORED_OUTBOX' : null);
     } catch { this.block('OUTBOX_CORRUPT', false); }
   }
@@ -87,8 +87,8 @@ export class WhiteboardProvider {
     if (origin === REMOTE || this.stopped) return;
     if (!this.epoch || !['owner','editor'].includes(this.state.role) || this.state.archived) { this.block('WRITE_DENIED'); return; }
     const gestureId=typeof origin==='object'&&origin!==null&&'gestureId' in origin&&typeof origin.gestureId==='string'?origin.gestureId:typeof origin==='object'&&origin!==null&&'receiptGestureId' in origin&&typeof origin.receiptGestureId==='string'?origin.receiptGestureId:crypto.randomUUID();
-    const intent=typeof origin==='object'&&origin!==null&&'restoreDeletion' in origin?origin.restoreDeletion as {deleteGestureId:string;objectIds:string[]}|undefined:undefined;
-    const message:WhiteboardPendingMessage=intent?{type:'restore-deletion',epoch:this.epoch,updateId:crypto.randomUUID(),gestureId,deleteGestureId:intent.deleteGestureId,objectIds:[...intent.objectIds]}:{ type: 'update', epoch: this.epoch, updateId: crypto.randomUUID(), gestureId, update: bytesToBase64(update) };
+    const intent=typeof origin==='object'&&origin!==null&&'restoreDeletion' in origin?origin.restoreDeletion as {deleteGestureId:string;objectIds:string[];includeInverse?:boolean}|undefined:undefined;
+    const message:WhiteboardPendingMessage=intent?{type:'restore-deletion',epoch:this.epoch,updateId:crypto.randomUUID(),gestureId,deleteGestureId:intent.deleteGestureId,objectIds:[...intent.objectIds],inverseUpdate:bytesToBase64(update)}:{ type: 'update', epoch: this.epoch, updateId: crypto.randomUUID(), gestureId, update: bytesToBase64(update) };
     const bytes = this.pending.reduce((sum, item) => sum + JSON.stringify(item).length, 0) + JSON.stringify(message).length;
     if (this.pending.length >= WHITEBOARD_SYNC.pendingUpdates || bytes > WHITEBOARD_SYNC.pendingBytes) { this.block('PENDING_LIMIT'); return; }
     this.pending.push(message); this.publish({});
@@ -165,10 +165,15 @@ export class WhiteboardProvider {
           if (this.seq !== null && message.seq < this.seq) { this.block('STALE_SEQUENCE'); return; }
           if ((!['owner','editor'].includes(message.role) || message.archived) && this.pending.length) { this.block('WRITE_DENIED'); return; }
           Y.applyUpdate(this.doc, base64ToBytes(message.update), REMOTE);
-          for(const pending of this.pending)if(pending.type==='restore-deletion'){
-            const missing=pending.objectIds.filter(id=>!this.doc.getMap('objects').has(id));if(missing.length)throw new Error('RESTORE_OBJECT_MISSING');
-            const deleted=pending.objectIds.filter(id=>this.doc.getMap('deletedObjects').has(id));
-            if(deleted.length)executeCommands(this.doc,deleted.map(id=>({type:'restore',id})),REMOTE);
+          if(this.pendingPreviewNeedsReplay){
+            for(const pending of this.pending){
+              const delta=pending.type==='update'?pending.update:pending.inverseUpdate;
+              // Legacy intents without an exact inverse cannot safely replay
+              // over a later redo tombstone. Preserve the draft and fail closed.
+              if(!delta)throw new Error('RESTORE_PREVIEW_MISSING');
+              Y.applyUpdate(this.doc,base64ToBytes(delta),REMOTE);
+            }
+            this.pendingPreviewNeedsReplay=false;
           }
           this.epoch = message.epoch; this.seq = message.seq; this.ready = true; this.retry = 0;
           clearTimeout(handshake);
