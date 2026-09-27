@@ -442,6 +442,7 @@
         "knowledge-graph/auto-copy-decisions",
         "knowledge-graph/ids",
         "knowledge-graph/promote-to-personal",
+        "knowledge-graph/promote-to-project",
         "knowledge-graph/read-personal-knowledge",
         "knowledge-graph/read-thread-knowledge"
       ]

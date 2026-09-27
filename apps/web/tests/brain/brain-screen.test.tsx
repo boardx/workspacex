@@ -5,7 +5,7 @@
  * 失败信封 → 错误码映射都是真代码在跑。登录态用 SessionProvider 的最小替身（只要当前组织 id）。
  *
  * 覆盖：长期记忆按类型分组 + 搜索 / 类型筛选 + 每条点回出自的对话；对话记忆的计数与「查看记忆」链接；
- * 项目 / 组织「尚未开放」；空态、加载态、依赖失败态（含重试）、无权限态；不渲染任何示例数字；
+ * 项目「已开放」（R7）/ 组织「尚未开放」；空态、加载态、依赖失败态（含重试）、无权限态；不渲染任何示例数字；
  * 渲染出的文字不含内部术语。
  */
 import * as React from "react";
@@ -145,14 +145,15 @@ describe("大脑页：真实数据", () => {
     expect(screen.getByTestId("brain-sessions-summary").textContent).toBe("2 个对话共记下 6 条，其中 3 条等你确认，1 条有矛盾。");
   });
 
-  it("项目与组织两层：如实显示「尚未开放」，没有数字", async () => {
+  it("两层如实显示开放状态：项目「已开放」（R7）、组织「尚未开放」，没有数字", async () => {
     stubNetwork(real(PERSONAL, OVERVIEW));
     render(<BrainScreen />);
     await screen.findByTestId("brain-personal");
     fireEvent.mouseDown(screen.getByTestId("brain-tab-shared"));
     fireEvent.click(screen.getByTestId("brain-tab-shared"));
     await screen.findByTestId("brain-shared");
-    expect(screen.getByTestId("brain-layer-project-status").textContent).toBe("尚未开放");
+    expect(screen.getByTestId("brain-layer-project-status").textContent).toBe("已开放");
+    expect(screen.getByTestId("brain-layer-project-hint")).toHaveTextContent("记到项目大脑");
     expect(screen.getByTestId("brain-layer-org-status").textContent).toBe("尚未开放");
     expect(text(screen.getByTestId("brain-shared"))).not.toMatch(/\d/);
   });

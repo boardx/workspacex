@@ -255,7 +255,7 @@ export type KgHumanAction = z.infer<typeof KG.KgHumanAction>;
 export type KgHumanActionErrorCode =
   | "KG_NOT_OWNER" | "KG_ACTOR_NOT_HUMAN" | "KG_REVISION_CHANGED" | "KG_CLAIM_NOT_FOUND"
   | "KG_OBJECT_NOT_FOUND" | "KG_CONTESTED_NEEDS_RESOLUTION" | "KG_PROMPT_NOT_FOUND"
-  | "KG_SCOPE_NOT_PERSONAL" | "KG_EVIDENCE_REVOKED" | "KG_PROMOTE_BATCH_TOO_LARGE"
+  | "KG_SCOPE_NOT_PERSONAL" | "KG_SCOPE_NOT_PROJECT" | "KG_EVIDENCE_REVOKED" | "KG_PROMOTE_BATCH_TOO_LARGE"
   // F17 确认卡（actOnMemoryCard.err）；KG_INVALID_REQUEST 不是契约码——请求本身不成立（改完的字全是空白），接口回 400
   | "KG_CARD_NOT_FOUND" | "KG_CARD_STALE" | "KG_INVALID_REQUEST";
 
@@ -294,6 +294,13 @@ export interface PromotionPort {
   }[]>>;
   /** 执行一条晋升；被拒时抛 KgHumanActionError（码见 kg_promote_claim）。返回 L1 结论 id。 */
   promote(orgId: OrgId, userId: string, input: {
+    readonly actionId: string; readonly threadId: string; readonly claimId: string;
+    readonly mode: "new" | "merge"; readonly targetClaimId?: string;
+  }): Promise<string>;
+  /** 项目中枢 R7：项目记忆里的活结论（去重用），按项目成员可见性 guard。 */
+  projectClaims(orgId: OrgId, userId: string, thread: KnowledgeThreadRef): Promise<Guarded<readonly { readonly id: string; readonly statement: string }[]>>;
+  /** 项目中枢 R7：晋升到项目记忆（`kg_promote_claim_to_project`）。返回 L2 结论 id。 */
+  promoteToProject(orgId: OrgId, userId: string, input: {
     readonly actionId: string; readonly threadId: string; readonly claimId: string;
     readonly mode: "new" | "merge"; readonly targetClaimId?: string;
   }): Promise<string>;

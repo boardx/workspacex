@@ -71,6 +71,15 @@ export async function getThreadKnowledge(
   const t = await visibleThread(deps, input, input.threadId);
   const data = reveal(await deps.knowledge.threadKnowledge(input.orgId, input.userId, t.ref), t.base, "KG_THREAD_NOT_FOUND");
   const isOwner = t.facts.createdBy === input.userId;
+  // 项目中枢 R7：「记到项目大脑」——项目线程，且调用者是创建者或本项目引导师（同 R5 分享的判据）。
+  let canPromoteToProject = false;
+  if (t.facts.projectId !== null) {
+    if (isOwner) canPromoteToProject = true;
+    else {
+      const m = await deps.repo.findProjectMembership(input.userId, t.facts.projectId, input.orgId);
+      canPromoteToProject = m?.projectRole === "facilitator";
+    }
+  }
   return {
     scope: { kind: "chat_session", id: input.threadId },
     ...data,
@@ -78,6 +87,7 @@ export async function getThreadKnowledge(
     canEdit: isOwner,
     // uc-18-4 E2：「存入个人空间」只在个人线程出现。
     canPromote: isOwner && t.facts.projectId === null,
+    canPromoteToProject,
     visibility: visibilityOf(t.facts),
   };
 }

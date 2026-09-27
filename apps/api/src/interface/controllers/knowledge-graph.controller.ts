@@ -18,6 +18,7 @@ import { actOnMemoryCard } from "../../application/knowledge-graph/act-on-memory
 import { applyHumanAction } from "../../application/knowledge-graph/apply-human-action";
 import { undoAutoPersonalCopy } from "../../application/knowledge-graph/auto-copy-decisions";
 import { listPromotionNominations, promoteToPersonal } from "../../application/knowledge-graph/promote-to-personal";
+import { promoteToProject } from "../../application/knowledge-graph/promote-to-project";
 import {
   HUMAN_ACTION_PORT, KG_AUTO_COPY_PORT, KG_DEPLOYMENT_EXTRACTION_SETTINGS_PORT, KG_EXTRACTION_MODEL_CONFIG, KG_ORG_EXTRACTION_SETTINGS_PORT, KNOWLEDGE_READ_PORT, KgHumanActionError, MEMORY_CARD_PORT, PROMOTION_PORT,
   type HumanActionPort, type KgAutoCopyPort, type KgDeploymentExtractionSettingsPort, type KgExtractionModelConfig, type KgOrgExtractionSettingsPort, type KnowledgeReadPort, type MemoryCardPort, type PromotionPort,
@@ -147,6 +148,22 @@ export class KnowledgeGraphController {
     const parsed = KG.knowledgeGraph.promoteToPersonal.in.safeParse({ ...(body as object), threadId });
     if (!parsed.success) throw new BadRequestException({ reasonCode: "KG_INVALID_REQUEST" });
     return this.run(principal, (v) => promoteToPersonal(
+      { ...this.deps, promotion: this.promotion, newId: newKgId },
+      { ...v, threadId, claimIds: parsed.data.claimIds, ...(parsed.data.choices ? { choices: parsed.data.choices } : {}) },
+    ));
+  }
+
+  /** 项目中枢 R7 promoteToProject —— 「记到项目大脑」（逐条部分成功；创建者或本项目引导师） */
+  @Post("/knowledge-graph/threads/:threadId/promote-to-project")
+  @HttpCode(200)
+  promoteProject(@CurrentPrincipal() principal: Principal, @Param("threadId") threadId: string, @Body() body: unknown) {
+    const raw = (body ?? {}) as { claimIds?: unknown };
+    if (Array.isArray(raw.claimIds) && raw.claimIds.length > KG.KG_PROMOTE_MAX_BATCH) {
+      throw new BadRequestException({ reasonCode: "KG_PROMOTE_BATCH_TOO_LARGE" });
+    }
+    const parsed = KG.knowledgeGraph.promoteToProject.in.safeParse({ ...(body as object), threadId });
+    if (!parsed.success) throw new BadRequestException({ reasonCode: "KG_INVALID_REQUEST" });
+    return this.run(principal, (v) => promoteToProject(
       { ...this.deps, promotion: this.promotion, newId: newKgId },
       { ...v, threadId, claimIds: parsed.data.claimIds, ...(parsed.data.choices ? { choices: parsed.data.choices } : {}) },
     ));
