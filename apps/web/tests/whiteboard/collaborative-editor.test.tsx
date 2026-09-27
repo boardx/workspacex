@@ -214,6 +214,7 @@ it('commenter can start another discussion on an already commented object while 
  commentHarness.threads=[{id:'existing',objectId:'commented-note',status:'open',revision:1,comments:[{id:'c',authorId:'other',body:'Existing discussion',mentions:[],deletedAt:null}]}];
  const props={boardId:'board-test',clientId:'commenter',doc,readOnly:true,role:'commenter' as const,title:'Board',status:'online'};
  const view=render(<CollaborativeEditor {...props}/>);fireEvent.click(screen.getByTestId('fabric-select-all'));fireEvent.click(screen.getByRole('button',{name:'评论'}));
+ expect(screen.getByTestId('board-comments-panel')).toHaveClass('max-h-[calc(100%-7rem)]');
  await screen.findByText(/Existing discussion/);fireEvent.change(screen.getByLabelText('评论内容'),{target:{value:'Another discussion'}});
  expect(screen.getByRole('button',{name:'发布评论'})).toBeEnabled();expect(screen.getByTestId('board-add-sticky')).toBeDisabled();
  fireEvent.click(screen.getByRole('button',{name:'发布评论'}));await waitFor(()=>expect(commentHarness.dispatch).toHaveBeenCalledWith('board-test',expect.objectContaining({type:'create-comment',objectId:'commented-note',body:'Another discussion'})));
@@ -221,4 +222,15 @@ it('commenter can start another discussion on an already commented object while 
  view.rerender(<CollaborativeEditor {...props} commentsReadOnly/>);expect(screen.getByRole('button',{name:'发布评论'})).toBeDisabled();
  expect(screen.getByTestId('collaborative-editor')).toHaveClass('relative','h-full');expect(screen.getByTestId('collaborative-editor')).not.toHaveClass('fixed');
  view.unmount();doc.destroy();
+});
+
+it.each([744,680])('uses measured frame height %i for keyboard creation and viewport presence',height=>{
+ const bounds=vi.spyOn(HTMLElement.prototype,'getBoundingClientRect').mockReturnValue({width:1200,height,x:0,y:768-height,top:768-height,left:0,right:1200,bottom:768,toJSON(){}} as DOMRect);
+ const doc=createWhiteboardDocument(),awareness=vi.fn();
+ try{
+  render(<CollaborativeEditor boardId="board-test" clientId="client-test" doc={doc} readOnly={false} title="Board" status="online" onAwareness={awareness}/>);
+  expect(awareness.mock.calls.at(-1)?.[3].viewport).toMatchObject({centerX:600,centerY:height/2});
+  fireEvent.keyDown(window,{key:'n'});
+  const note=readObjects(doc)[0]!;expect(note.geometry.x+note.geometry.width/2).toBe(600);expect(note.geometry.y+note.geometry.height/2).toBe(height/2);
+ }finally{cleanup();doc.destroy();bounds.mockRestore();}
 });
