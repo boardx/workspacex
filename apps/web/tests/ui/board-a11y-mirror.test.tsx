@@ -25,6 +25,9 @@ describe("Board accessibility object mirror", () => {
     if (!first || !second) throw new Error("Object outline did not render both canonical objects");
 
     expect(buttons.map((button) => button.closest("li")?.getAttribute("data-object-id"))).toEqual(["a", "b"]);
+    expect(first.closest("li")).toHaveAttribute("data-world-x", "0");
+    expect(first.closest("li")).toHaveAttribute("data-world-height", "140");
+    expect(first.closest("li")).toHaveAttribute("data-world-rotation", "0");
     expect(within(mirror).getByRole("button", { name: "图形：Alpha" })).toBe(first);
     expect(within(mirror).getByRole("button", { name: "图形：Beta" })).toBe(second);
     expect(first).toHaveAccessibleDescription("对象类型：便利贴");

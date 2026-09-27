@@ -28,7 +28,15 @@ export function BoardA11yMirror({ objects, selectedObjectIds, onSelect, readOnly
       <p className="mt-1 text-xs text-muted-foreground">{readOnly ? "只读模式；可浏览和选择对象。" : "使用 Tab 浏览对象，Enter 选择。"}</p>
       <ul className="mt-2 space-y-1" aria-label="白板对象">
         {orderedObjects.map((object) => (
-          <li key={object.id} data-object-id={object.id}>
+          <li
+            key={object.id}
+            data-object-id={object.id}
+            data-world-x={object.geometry.x}
+            data-world-y={object.geometry.y}
+            data-world-width={object.geometry.width}
+            data-world-height={object.geometry.height}
+            data-world-rotation={object.geometry.rotation}
+          >
             <Button
               type="button"
               variant="ghost"

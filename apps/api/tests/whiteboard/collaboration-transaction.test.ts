@@ -28,6 +28,7 @@ it('uses the supplied transaction and marks the result pending until outer commi
   const result = await new PgWhiteboardCollaborationStore(db, validator).writeCommandsInTransaction(s.value, p, boardId, input());
   expect(result).toMatchObject({ durability: 'pending', seq: 1 });
   expect(s.queries[0]).toContain('FOR UPDATE');
+  expect(s.queries.some(sql => sql.startsWith('SELECT epoch,seq,snapshot') && sql.endsWith('FOR UPDATE'))).toBe(true);
   expect(s.queries.some(sql => sql.startsWith('INSERT INTO whiteboard_updates'))).toBe(true);
   expect(s.queries.some(sql => sql.startsWith('UPDATE whiteboard_documents'))).toBe(true);
 });

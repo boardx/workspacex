@@ -40,11 +40,11 @@ async function synced(page:Page){await expect(page.getByTestId('collaborative-ed
 test('realtime presence field convergence',async({browser,request:api,baseURL})=>{
   const ownerContext=await browser.newContext({baseURL}),editorContext=await browser.newContext({baseURL}),viewerContext=await browser.newContext({baseURL});
   const owner=await ownerContext.newPage(),editor=await editorContext.newPage(),viewer=await viewerContext.newPage();
-  let boardId:string|undefined,ownerToken:string|undefined,viewerToken:string|undefined;
+  let boardId:string|undefined,ownerToken:string|undefined,editorToken:string|undefined,viewerToken:string|undefined;
   try{
     await test.step('authenticate the three independent users',async()=>{
-      const [authenticatedOwnerToken,,authenticatedViewerToken]=await Promise.all([login(owner,'OWNER'),login(editor,'EDITOR'),login(viewer,'VIEWER')]);
-      ownerToken=authenticatedOwnerToken;viewerToken=authenticatedViewerToken;
+      const [authenticatedOwnerToken,authenticatedEditorToken,authenticatedViewerToken]=await Promise.all([login(owner,'OWNER'),login(editor,'EDITOR'),login(viewer,'VIEWER')]);
+      ownerToken=authenticatedOwnerToken;editorToken=authenticatedEditorToken;viewerToken=authenticatedViewerToken;
     });
     await test.step('create the board and grant editor/viewer access',async()=>{
       const created=await request(api,ownerToken!,'POST','/whiteboards',{requestId:randomUUID(),name:`Live collaboration ${randomUUID()}`});
@@ -65,15 +65,33 @@ test('realtime presence field convergence',async({browser,request:api,baseURL})=
         const box=await owner.getByTestId('shell-main').boundingBox();expect(box?.x).toBe(0);expect(box?.width).toBe(width);expect(box?.height).toBe(900);
       }
     });
-    await test.step('synchronize owner creation and editor changes',async()=>{
+    await test.step('merge concurrent geometry and text fields from the same synced base in both browser contexts',async()=>{
       await owner.getByTestId('board-add-sticky').click();
       await owner.getByLabel('对象文字',{exact:true}).fill('团队中文协作便签');await synced(owner);
       const editorNote=editor.getByRole('button',{name:'图形：团队中文协作便签',exact:true});await expect(editorNote).toBeVisible({timeout:20_000});
-      // The outline is visually hidden until keyboard focus enters it. A pointer click is
-      // intercepted by Fabric's upper canvas, while focus + Enter exercises its intended
-      // accessible interaction without bypassing actionability checks.
-      await editorNote.focus();await editorNote.press('Enter');await editor.getByLabel('对象文字',{exact:true}).fill('另一位成员的中文修改');await synced(editor);
-      await expect(owner.getByRole('button',{name:'图形：另一位成员的中文修改',exact:true})).toBeVisible({timeout:20_000});
+      const objectId=(await editorNote.getAttribute('data-testid'))?.replace('board-a11y-object-','');expect(objectId).toBeTruthy();
+      const commandFromBrowser=async(page:Page,token:string,commands:unknown[])=>page.evaluate(async({apiUrl,tokenValue,currentBoardId,requestId,commandsValue})=>{
+        const response=await fetch(`${apiUrl.replace(/\/$/,'')}/whiteboards/${currentBoardId}/commands`,{method:'POST',headers:{Authorization:`Bearer ${tokenValue}`,'Content-Type':'application/json'},body:JSON.stringify({requestId,epoch:1,commands:commandsValue})});
+        return{ok:response.ok,status:response.status,body:await response.text()};
+      },{apiUrl:required('WHITEBOARD_API_URL'),tokenValue:token,currentBoardId:boardId!,requestId:randomUUID(),commandsValue:commands});
+      const [geometryResult,textResult]=await Promise.all([
+        commandFromBrowser(owner,ownerToken!,[{type:'geometry',id:objectId,geometry:{x:640,y:360,width:180,height:140,rotation:9}}]),
+        commandFromBrowser(editor,editorToken!,[{type:'text',id:objectId,index:0,deleteCount:'团队中文协作便签'.length,insert:'另一位成员的中文修改'}]),
+      ]);
+      expect(geometryResult,{message:geometryResult.body}).toMatchObject({ok:true});expect(textResult,{message:textResult.body}).toMatchObject({ok:true});
+
+      // Both independent contexts reload from the authoritative log, then a second reload
+      // proves the merged fields survive checkpoint/update reconstruction.
+      await Promise.all([owner.reload(),editor.reload()]);await Promise.all([synced(owner),synced(editor)]);
+      for(const page of [owner,editor]){
+        await expect(page.getByRole('button',{name:'图形：另一位成员的中文修改',exact:true})).toBeVisible({timeout:20_000});
+        const item=page.locator(`[data-object-id="${objectId}"]`);await expect(item).toHaveAttribute('data-world-x','640');await expect(item).toHaveAttribute('data-world-y','360');await expect(item).toHaveAttribute('data-world-rotation','9');
+      }
+      await owner.reload();await synced(owner);await expect(owner.getByRole('button',{name:'图形：另一位成员的中文修改',exact:true})).toBeVisible();await expect(owner.locator(`[data-object-id="${objectId}"]`)).toHaveAttribute('data-world-x','640');
+
+      // Enter through the accessibility mirror so the following presence assertion observes
+      // the editor's selection and editing state on the converged object.
+      const convergedEditorNote=editor.getByRole('button',{name:'图形：另一位成员的中文修改',exact:true});await convergedEditorNote.focus();await convergedEditorNote.press('Enter');
     });
     await test.step('show identity-aware presence and synchronize object comments',async()=>{
       const surface=editor.getByTestId('board-live-surface'),bounds=await surface.boundingBox();expect(bounds).not.toBeNull();

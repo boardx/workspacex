@@ -42,9 +42,9 @@ export class PgWhiteboardCollaborationStore implements WhiteboardCollaborationSt
     if (write && row.archived) throw new Fault('ARCHIVED');
     return { role: parsed.data, archived: row.archived };
   }
-  private async document(session: TenantSession, p: Principal, boardId: string): Promise<DocumentRow> {
+  private async document(session: TenantSession, p: Principal, boardId: string, forUpdate = false): Promise<DocumentRow> {
     await session.query(`INSERT INTO whiteboard_documents(org_id,board_id) VALUES($1,$2) ON CONFLICT(org_id,board_id) DO NOTHING`, [p.orgId, boardId]);
-    const result = await session.query<DocumentRow>(`SELECT epoch,seq,snapshot FROM whiteboard_documents WHERE org_id=$1 AND board_id=$2`, [p.orgId, boardId]);
+    const result = await session.query<DocumentRow>(`SELECT epoch,seq,snapshot FROM whiteboard_documents WHERE org_id=$1 AND board_id=$2${forUpdate ? ' FOR UPDATE' : ''}`, [p.orgId, boardId]);
     const row = result.rows[0]; if (!row) throw new Fault('NOT_FOUND'); return row;
   }
   async head(p: Principal, boardId: string): Promise<WhiteboardSyncHead> {
@@ -90,7 +90,10 @@ export class PgWhiteboardCollaborationStore implements WhiteboardCollaborationSt
   }
   private async commitInTransaction(session: TenantSession, p: Principal, boardId: string, epoch: number, updateId: string, gestureId: string, hash: string, validate: (snapshot: Uint8Array) => Promise<ValidatedWhiteboardUpdate>): Promise<WhiteboardPendingUpdate> {
     await this.access(session, p, boardId, true);
-    const doc = await this.document(session, p, boardId);
+    // Serialize writers at the canonical document row. Each field command is then
+    // calculated from the latest committed Yjs snapshot, so concurrent commands
+    // issued from the same browser-visible base merge instead of overwriting it.
+    const doc = await this.document(session, p, boardId, true);
     if (doc.epoch !== epoch) throw new Fault('STALE_EPOCH');
     const previous = await session.query<{ seq: string; request_hash: string; update: Buffer }>(`SELECT seq,request_hash,update FROM whiteboard_updates WHERE org_id=$1 AND board_id=$2 AND epoch=$3 AND actor_id=$4 AND update_id=$5`, [p.orgId, boardId, epoch, p.userId, updateId]);
     const replay = previous.rows[0];
