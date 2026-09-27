@@ -1,7 +1,9 @@
 "use client";
 
 import * as React from "react";
-import { StudioHistoryFilters, StudioHistoryCard, StudioHistoryCreateCard, type HistorySort } from "@/components/studio/studio-history";
+import { StudioHistoryFilters, StudioHistoryCreateCard, type HistorySort } from "@/components/studio/studio-history";
+import { ResearchHistoryCard } from "./research-history-card";
+import { GuidedResearchSixStepShell } from "./guided-research-six-step-shell";
 import { StudioHistoryManagement } from "@/components/studio/studio-history-management";
 import { GuidedResearchLive } from "./guided-research-live";
 import { ResearchLoading, ResearchProgress } from "./guided-research-presentation";
@@ -182,27 +184,48 @@ export function GuidedResearchFlow({
   step,
   sessionId,
   onStepChange,
+  visualStage,
 }: {
   step: GuidedResearchStep;
   sessionId?: string;
   onStepChange?: (step: GuidedResearchStep, sessionId?: string) => void;
+  visualStage?: import("@/lib/guided-research-six-step").GuidedResearchVisualStage;
 }) {
   const [restoredStep, setRestoredStep] = React.useState(() => clampSessionlessStep(step, sessionId));
   const [activeSessionId, setActiveSessionId] = React.useState(sessionId);
+  const [activeVisualStage, setActiveVisualStage] = React.useState(visualStage);
   const [routeInput, setRouteInput] = React.useState({ sessionId, step });
   const [entryPending, setEntryPending] = React.useState(false);
   const [restoreFailed, setRestoreFailed] = React.useState(false);
   const [sessionSnapshot, setSessionSnapshot] = React.useState<GuidedResearchSession | null>(null);
   const [workflowSnapshot, setWorkflowSnapshot] = React.useState<GuidedResearchWorkflowProjection | null>(null);
   React.useEffect(() => {
+    if (onStepChange) return;
+    const restoreRoute = () => {
+      const parts = window.location.pathname.split("/");
+      const stages: Record<string, GuidedResearchStep> = { import: "brief", topic: "directions", plan: "outline", research: "search", chapters: "report", report: "report" };
+      if (parts.length === 4 && stages[parts[3]!]) {
+        setActiveSessionId(decodeURIComponent(parts[2]!));
+        setRestoredStep(stages[parts[3]!]!);
+        setActiveVisualStage(parts[3] as import("@/lib/guided-research-six-step").GuidedResearchVisualStage);
+      } else if (window.location.pathname === "/research" || window.location.pathname === "/research/new") {
+        setActiveSessionId(undefined);
+        setRestoredStep(window.location.pathname === "/research/new" ? "brief" : "home");
+      }
+    };
+    window.addEventListener("popstate", restoreRoute);
+    return () => window.removeEventListener("popstate", restoreRoute);
+  }, [onStepChange]);
+  React.useEffect(() => {
     setRestoredStep(clampSessionlessStep(step, sessionId));
     setActiveSessionId(sessionId);
+    setActiveVisualStage(visualStage);
     setRouteInput({ sessionId, step });
     setEntryPending(false);
     setRestoreFailed(false);
     setSessionSnapshot(null);
     setWorkflowSnapshot(null);
-  }, [sessionId, step]);
+  }, [sessionId, step, visualStage]);
 
   const navigate = (next: GuidedResearchStep, sessionId?: string) => {
     setEntryPending(false);
@@ -210,7 +233,9 @@ export function GuidedResearchFlow({
     if (onStepChange) return onStepChange(next, targetSessionId);
     setRestoredStep(next);
     setActiveSessionId(targetSessionId);
-    window.history.replaceState({}, "", targetSessionId ? `/research?session=${encodeURIComponent(targetSessionId)}` : "/research");
+    const targetStage = next === "brief" ? "import" : next === "directions" ? "topic" : next === "outline" ? "plan" : next === "search" ? "research" : "report";
+    setActiveVisualStage(targetSessionId ? targetStage : undefined);
+    window.history.pushState({}, "", targetSessionId ? `/research/${encodeURIComponent(targetSessionId)}/${targetStage}` : next === "home" ? "/research" : "/research/new");
   };
 
   const hasCurrentSessionSnapshot = sessionSnapshot?.sessionId === activeSessionId;
@@ -220,9 +245,9 @@ export function GuidedResearchFlow({
   // URL props initialize navigation; local Back must be able to clear them.
   const routeChanged = routeInput.sessionId !== sessionId || routeInput.step !== step;
   const runtimeSessionId = routeChanged ? sessionId : activeSessionId;
-  if (runtimeSessionId) return <div className="p-4"><GuidedResearchLive sessionId={runtimeSessionId} initialNode={runtimeSessionId !== sessionId || step === "home" ? undefined : step === "search" ? "research" : step} onBack={() => navigate("home")} /></div>;
+  if (runtimeSessionId) return <GuidedResearchLive sessionId={runtimeSessionId} visualStage={activeVisualStage} initialNode={restoredStep === "home" ? undefined : restoredStep === "search" ? "research" : restoredStep} onBack={() => navigate("home")} />;
 
-  return (
+  const content = (
     <div className={restoredStep === "home" ? undefined : "p-4"}>
     <div
       className="mx-auto flex w-full max-w-none flex-col gap-4 pb-8"
@@ -235,16 +260,7 @@ export function GuidedResearchFlow({
         <p className="rounded-md border border-destructive/30 bg-destructive/5 p-3 text-12 text-destructive" data-testid="research-session-restore-error">研究会话恢复失败，请返回首页后重试。</p>
       ) : (
         <>
-          {entryPending ? <ResearchProgress node="directions" availableNodes={["brief", "directions"]} busy completed={false} onNavigate={() => undefined} onBack={() => navigate("home")} /> : restoredStep !== "home" && (
-            <div
-              className="grid min-w-0 gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,2fr)]"
-              data-testid="research-progress-shell"
-              data-layout="right-aligned-progress"
-            >
-              <div aria-hidden className="hidden lg:block" />
-              <FlowProgress step={restoredStep} maxStep={sessionSnapshot ? maxGuidedResearchStep(sessionSnapshot) : restoredStep} onBack={() => navigate("home")} onNavigate={navigate} />
-            </div>
-          )}
+          {entryPending && <p role="status">正在分析研究需求…</p>}
           {restoredStep === "home" && <ResearchHome onNavigate={navigate} />}
           {restoredStep === "brief" && <BriefScreen onPending={setEntryPending} sessionId={activeSessionId} session={sessionSnapshot} workflow={workflowSnapshot} onSession={setSessionSnapshot} onWorkflow={setWorkflowSnapshot} onNavigate={navigate} />}
           {restoredStep === "directions" && <DirectionsScreen sessionId={activeSessionId} session={sessionSnapshot} workflow={workflowSnapshot} onSession={setSessionSnapshot} onWorkflow={setWorkflowSnapshot} onNavigate={navigate} />}
@@ -256,6 +272,7 @@ export function GuidedResearchFlow({
     </div>
     </div>
   );
+  return restoredStep === "home" ? content : <GuidedResearchSixStepShell current={entryPending ? "topic" : "import"} available={["import"]} onBack={() => navigate("home")} onNavigate={() => undefined} main={content} />;
 }
 
 function FlowProgress({ step, maxStep, onBack, onNavigate }: {
@@ -265,10 +282,10 @@ function FlowProgress({ step, maxStep, onBack, onNavigate }: {
   onNavigate: (step: GuidedResearchStep) => void;
 }) {
   const steps: Array<{ id: GuidedResearchStep; label: string }> = [
-    { id: "brief", label: GUIDED_RESEARCH_SIX_STEPS[1].label },
-    { id: "directions", label: GUIDED_RESEARCH_SIX_STEPS[2].label },
-    { id: "outline", label: GUIDED_RESEARCH_SIX_STEPS[3].label },
-    { id: "search", label: GUIDED_RESEARCH_SIX_STEPS[4].label },
+    { id: "brief", label: GUIDED_RESEARCH_SIX_STEPS[0].label },
+    { id: "directions", label: GUIDED_RESEARCH_SIX_STEPS[1].label },
+    { id: "outline", label: GUIDED_RESEARCH_SIX_STEPS[2].label },
+    { id: "search", label: GUIDED_RESEARCH_SIX_STEPS[3].label },
     { id: "report", label: GUIDED_RESEARCH_SIX_STEPS[5].label },
   ];
   const current = steps.findIndex((item) => item.id === step);
@@ -345,7 +362,7 @@ function ResearchHome({ onNavigate }: { onNavigate: (step: GuidedResearchStep, s
     <header className="flex flex-col gap-5 border-b border-border pb-5 md:flex-row md:items-end md:justify-between">
       <div className="min-w-0 space-y-2">
         <p className="flex items-center gap-2 text-12 font-semibold text-primary"><Sparkles className="size-4" aria-hidden />Deep Research</p>
-        <div className="flex items-baseline gap-2"><h1 className="text-24 font-semibold tracking-tight">研究列表</h1>{history && <span className="text-13 text-muted-foreground">{history.length} 个研究项目</span>}</div>
+        <div className="flex items-baseline gap-2"><h1 className="text-4xl font-bold tracking-tight">研究列表</h1>{history && <span className="text-13 text-muted-foreground">{history.length} 个研究项目</span>}</div>
         <p className="max-w-2xl text-12 leading-relaxed text-muted-foreground">统一管理研究项目；每个结论都回到真实来源，证据不足时明确保留缺口。</p>
       </div>
       <Button type="button" variant="primary" size="lg" data-testid="research-create" onClick={() => setCreateOpen(true)}><Plus className="size-4" aria-hidden />新建研究</Button>
@@ -357,7 +374,7 @@ function ResearchHome({ onNavigate }: { onNavigate: (step: GuidedResearchStep, s
       {history === null && !loadFailed && <div data-testid="research-history-loading" className="grid animate-pulse gap-4 md:grid-cols-2 xl:grid-cols-4">{[1,2,3,4].map(key => <div key={key} className="h-64 rounded-lg bg-muted" />)}</div>}
       {loadFailed && <div role="alert" data-testid="research-history-error" className="rounded-lg border border-destructive p-6 text-12 text-destructive">历史研究加载失败。<Button variant="outline" className="ml-3" onClick={() => setRevision(value => value + 1)}>重试</Button></div>}
       {history && visible.length === 0 && !loadFailed && <div data-testid="research-history-empty" className="flex min-h-64 flex-col items-center justify-center gap-4 rounded-lg border border-dashed p-6 text-center text-12 text-muted-foreground"><p>{history.length ? statusFilter ? "当前状态筛选与搜索条件下没有研究，请调整筛选条件。" : "没有符合条件的研究，请调整标签或搜索条件。" : "还没有研究，先创建一项吧。"}</p>{statusFilter ? <Button variant="outline" onClick={() => setStatusFilter(undefined)}>清除状态筛选</Button> : <Button onClick={() => setCreateOpen(true)}>新建研究</Button>}</div>}
-      {!loadFailed && visible.length > 0 && <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">{visible.map(item => { const presentation = guidedResearchHomePresentation(item); return <StudioHistoryCard key={item.sessionId} testId={`research-history-${item.sessionId}`} title={item.title}
+      {!loadFailed && visible.length > 0 && <div className="grid gap-6 md:grid-cols-2">{visible.map(item => { const presentation = guidedResearchHomePresentation(item); return <ResearchHistoryCard key={item.sessionId} testId={`research-history-${item.sessionId}`} title={item.title}
         status={<Badge tone={presentation.statusTone}>{presentation.statusLabel}</Badge>}
         description={item.brief.goal} tags={item.tags}
         metadata={<><span>{item.sourceCount} 个来源</span><time>更新于 {new Date(item.updatedAt).toLocaleDateString("zh-CN")}</time></>}
@@ -366,7 +383,7 @@ function ResearchHome({ onNavigate }: { onNavigate: (step: GuidedResearchStep, s
           onSave={async draft => { await updateGuidedResearchMetadata(item.sessionId, { title: draft.name, tags: [...draft.tags] }); setNotice("研究已修改"); setRevision(value => value + 1); }}
           onDelete={async () => { await deleteGuidedResearchSession(item.sessionId); setHistory(current => current?.filter(row => row.sessionId !== item.sessionId) ?? null); setNotice("研究已从首页移除"); }} />}>
         <GuidedResearchCardProgress session={item} />
-      </StudioHistoryCard>; })}<StudioHistoryCreateCard business="研究" testId="research-create-card" onCreate={() => setCreateOpen(true)} /></div>}
+      </ResearchHistoryCard>; })}<StudioHistoryCreateCard business="研究" testId="research-create-card" onCreate={() => setCreateOpen(true)} /></div>}
     </section>
     <CreateGuidedResearchDialog open={createOpen} onOpenChange={setCreateOpen} onContinue={draft => {
       clearResearchSkillState("pending-brief"); window.sessionStorage.setItem(CREATE_DRAFT_KEY, JSON.stringify(draft)); onNavigate("brief");
@@ -506,6 +523,7 @@ function BriefScreen({ sessionId, session, workflow, onSession, onWorkflow, onNa
   };
   return (
     <GuidedResearchStepLayout
+      floatingAssistant
       assistant={
         <GuidedResearchSkillAssistant
           step="brief"

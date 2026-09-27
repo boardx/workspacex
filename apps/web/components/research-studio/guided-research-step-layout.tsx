@@ -4,6 +4,7 @@ export function GuidedResearchStepLayout({
   assistant,
   wideMain = false,
   reading = false,
+  floatingAssistant = false,
   assistantOpen,
   onAssistantOpenChange,
   children,
@@ -11,6 +12,7 @@ export function GuidedResearchStepLayout({
   assistant?: React.ReactNode;
   wideMain?: boolean;
   reading?: boolean;
+  floatingAssistant?: boolean;
   assistantOpen?: boolean;
   onAssistantOpenChange?: (open: boolean) => void;
   children: React.ReactNode;
@@ -18,6 +20,13 @@ export function GuidedResearchStepLayout({
   const [internalAssistantOpen, setInternalAssistantOpen] = React.useState(false);
   const reportAssistantOpen = assistantOpen ?? internalAssistantOpen;
   const setReportAssistantOpen = onAssistantOpenChange ?? setInternalAssistantOpen;
+  if (floatingAssistant) return <div className="min-w-0">
+    <main className="min-w-0" data-testid="research-step-main">{children}</main>
+    {assistant && <details className="fixed bottom-5 left-5 z-40 max-w-[calc(100vw-2.5rem)]">
+      <summary className="w-fit cursor-pointer rounded-full bg-foreground px-5 py-3 text-sm font-medium text-background shadow-lg">AI 助手</summary>
+      <aside className="mt-2 h-[min(32rem,70vh)] w-80 overflow-auto rounded-xl border border-border bg-card shadow-xl">{assistant}</aside>
+    </details>}
+  </div>;
   if (reading) return <div className="min-w-0 space-y-4" data-layout="report-reading">
     <div className={reportAssistantOpen ? "grid min-w-0 gap-8 lg:grid-cols-[18rem_minmax(0,1fr)]" : "min-w-0"}>
       <aside id="report-assistant" hidden={!reportAssistantOpen} className="min-w-0 lg:sticky lg:top-4 lg:h-[calc(100vh-9rem)]">{assistant}</aside>

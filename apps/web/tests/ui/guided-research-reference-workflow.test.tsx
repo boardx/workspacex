@@ -17,7 +17,7 @@ describe("reference research workflow", () => {
     expect(await screen.findByTestId("research-runtime-progress")).toHaveTextContent("检索资料 · 已处理 2 / 5 · 成功 2 · 失败 0");
     expect(screen.getByRole("progressbar")).toHaveAttribute("value", "2");
     fireEvent.click(screen.getByText("查看搜索详情"));
-    fireEvent.click(screen.getByText("研究计划"));
+    fireEvent.click(screen.getByText("研究计划", { selector: "summary" }));
     expect(screen.getByText("哪些市场值得优先进入？")).toBeVisible();
     fireEvent.click(screen.getByText(/检索任务明细/));
     expect(screen.getByText("政策与准入核查")).toBeVisible();

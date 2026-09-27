@@ -83,6 +83,7 @@ describe("live research workspace", () => {
       .mockResolvedValueOnce({ ...initial, version: 9, brief: proposal.draft.value, generatedNodes: ["brief"] });
     render(<GuidedResearchLive sessionId="session-live" onBack={vi.fn()} />);
     await screen.findByDisplayValue("Storage");
+    fireEvent.click(screen.getByRole("button", { name: "AI 助手" }));
     fireEvent.change(screen.getByLabelText("研究对话"), { target: { value: "Focus on storage" } });
     fireEvent.click(screen.getByRole("button", { name: "发送研究消息" }));
     await screen.findByText("Proposed update");

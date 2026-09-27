@@ -10,7 +10,7 @@ describe("six-step Deep Research shell", () => {
     expect(stage.current).toBe("plan");
     expect(stage.available).toEqual(["import", "topic", "plan"]);
     expect(GUIDED_RESEARCH_SIX_STEPS.map((item) => item.label)).toEqual([
-      "研究列表", "导入需求", "确认研究主题", "研究计划", "资料研究", "研究报告",
+      "导入需求", "确认研究主题", "研究计划", "资料研究", "报告章节", "生成报告",
     ]);
   });
 
@@ -27,8 +27,8 @@ describe("six-step Deep Research shell", () => {
     );
 
     expect(screen.getByTestId("guided-research-six-step-shell")).toHaveAttribute("data-layout", "deep-research-desktop");
-    expect(screen.getByRole("button", { name: /研究列表/ })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /研究报告/ })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /^研究列表$/ })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /生成报告/ })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /资料研究/ })).toBeDisabled();
     screen.getByRole("button", { name: /确认研究主题/ }).click();
     expect(onNavigate).toHaveBeenCalledWith("topic");

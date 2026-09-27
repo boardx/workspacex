@@ -13,7 +13,7 @@ export function GuidedResearchSourceWorkspace({ progress, activity, evidence, in
   actions: React.ReactNode;
 }) {
   return <section className="space-y-5" data-testid="guided-research-source-workspace" data-reference-layout="research-operations">
-    <div className="border-b border-border pb-4"><p className="text-12 font-medium text-primary">步骤 5 · 资料研究</p><h1 className="mt-1 text-24 font-semibold">资料研究</h1><p className="mt-2 text-sm text-muted-foreground">实时查看任务、活动、来源证据与待处理风险。</p></div>
+    <div className="pb-4"><h1 className="text-4xl font-bold">资料研究</h1><p className="mt-3 text-lg text-muted-foreground">实时查看任务、活动、来源证据与待处理风险。</p></div>
     <div className="grid min-w-0 gap-4 xl:grid-cols-[14rem_minmax(0,1fr)_16rem]">
       <div className="space-y-4"><Region title="研究进度" testId="guided-research-source-progress" accent>{progress}</Region><div className="flex flex-wrap gap-2">{actions}</div></div>
       <div className="min-w-0 space-y-4"><Region title="最新动态" testId="guided-research-source-activity">{activity}</Region><Region title="来源与证据" testId="guided-research-source-evidence">{evidence}</Region></div>

@@ -12,8 +12,10 @@ test("research persists all five model-backed steps through the real UI, API and
   await page.getByTestId("research-create").click();
   await page.getByTestId("research-create-name").fill("研究全链路验证");
   await page.getByTestId("research-create-submit").click();
+  await expect(page).toHaveURL(/\/research\/new$/);
+  await expect(page.getByTestId("shell-rail")).not.toBeVisible();
+  await expect(page.getByTestId("research-workspace-header")).toBeVisible();
   await page.getByTestId("research-brief-goal").fill("核对储能并网政策");
-  await expect(page.getByTestId("guided-research-import-panel")).toHaveAttribute("data-reference-layout", "three-entry-cards");
   let releaseGeneration!: () => void;
   const generationGate = new Promise<void>((resolve) => { releaseGeneration = resolve; });
   await page.route("**/runtime/commands", async (route) => {
@@ -24,7 +26,7 @@ test("research persists all five model-backed steps through the real UI, API and
   await page.getByTestId("research-confirm-brief").click();
   try {
     await expect(page.getByTestId("research-step-loading")).toBeVisible();
-    await expect(page.getByRole("button", { name: "2. 研究方向" })).toHaveAttribute("aria-current", "step");
+    await expect(page.getByRole("button", { name: /确认研究主题/ })).toHaveAttribute("aria-current", "step");
     await page.screenshot({ path: testInfo.outputPath("research-next-step-loading.png"), fullPage: true });
   } finally { releaseGeneration(); }
   await expect(page.getByRole("heading", { name: "研究方向", exact: true })).toBeVisible();
@@ -32,6 +34,7 @@ test("research persists all five model-backed steps through the real UI, API and
   await page.getByRole("button", { name: "发送研究消息" }).click();
   await page.getByRole("button", { name: "应用建议" }).click();
   await page.reload();
+  await expect(page).toHaveURL(/\/research\/[^/]+\/topic$/);
   await expect(page.getByTestId("research-skill-messages")).toContainText("请检查研究方向");
   for (const expectedTitle of ["研究方向", "报告大纲"]) {
     await expect(page.getByRole("heading", { name: expectedTitle, exact: true })).toBeVisible();
@@ -188,6 +191,14 @@ test("research persists all five model-backed steps through the real UI, API and
   await expect(page.getByTestId("research-report-document")).toBeVisible();
   await page.getByRole("button", { name: "完成研究", exact: true }).click();
   await expect(page.getByRole("heading", { name: "研究报告 · 已完成" })).toBeVisible();
+  await page.getByTestId("research-flow-progress").getByRole("button", { name: /报告章节$/ }).click();
+  await expect(page).toHaveURL(/\/research\/[^/]+\/chapters$/);
+  await expect(page.getByTestId("research-chapters-workspace")).toBeVisible();
+  await page.reload();
+  await expect(page.getByTestId("research-chapters-workspace")).toBeVisible();
+  await page.screenshot({ path: testInfo.outputPath("research-chapters-route.png"), fullPage: true });
+  await page.getByTestId("research-flow-progress").getByRole("button", { name: /生成报告$/ }).click();
+  await expect(page).toHaveURL(/\/research\/[^/]+\/report$/);
   await page.screenshot({ path: testInfo.outputPath("research-completed.png"), fullPage: true });
   // A conversational regeneration must use the real report generation pipeline.
   const regenerated = page.waitForResponse((response) => response.url().endsWith("/runtime/commands/stream") && response.request().postDataJSON()?.action === "message");
@@ -231,7 +242,9 @@ test("research persists all five model-backed steps through the real UI, API and
   await page.screenshot({ path: testInfo.outputPath("research-quality-complete-draft.png"), fullPage: true });
   await page.keyboard.press("Escape");
   const openedSessionUrl = page.url();
-  await page.getByRole("button", { name: "返回", exact: true }).click();
+  await page.getByRole("button", { name: "返回研究列表", exact: true }).click();
+  await expect(page).toHaveURL(/\/research$/);
+  await expect(page.getByTestId("shell-rail")).toBeVisible();
   await expect(page.getByTestId("research-home-page")).toBeVisible();
   await expect(page).toHaveURL(/\/research$/);
   const activeSummary = page.getByRole("button", { name: /进行中 \d+ 项研究/ });
