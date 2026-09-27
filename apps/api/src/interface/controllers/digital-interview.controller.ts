@@ -1,7 +1,9 @@
 import { updateDigitalInterviewMetadata, deleteDigitalInterview } from "../../application/interview/manage-digital-interview";
-import { BadRequestException, Body, ConflictException, Controller, Delete, Patch, Get, Inject, NotFoundException, Param, Post, Query, Res, ServiceUnavailableException } from "@nestjs/common";
+import { BadRequestException, Body, ConflictException, Controller, Delete, Patch, Get, Inject, Optional, NotFoundException, Param, Post, Query, Res, ServiceUnavailableException } from "@nestjs/common";
+import { INTERVIEW_MARKDOWN_READER, readInterviewMarkdown, saveInterviewMarkdownDraft, confirmInterviewMarkdownDraft, type InterviewMarkdownReader } from "../../application/interview/read-interview-markdown";
+import { INTERVIEW_MARKDOWN_GENERATOR, type InterviewMarkdownGenerator } from "../../application/interview/generate-interview-markdown";
 import type { Response } from "express";
-import { interview as C } from "@repo/contracts";
+import { interview as C, interviewMarkdown } from "@repo/contracts";
 import type { z } from "zod";
 import {
   DIGITAL_INTERVIEW_REPOSITORY,
@@ -50,9 +52,62 @@ export class DigitalInterviewController {
     @Inject(MODEL_CALL_PORT) private readonly model: ModelCallPort,
     @Inject(DIGITAL_EXPERT_CONTEXT_API) private readonly context: DigitalExpertContextApi,
     @Inject(DIGITAL_INTERVIEW_RUNTIME) private readonly workflow: DigitalInterviewRuntime,
+    @Optional() @Inject(INTERVIEW_MARKDOWN_READER) private readonly markdownReader?: InterviewMarkdownReader,
+    @Optional() @Inject(INTERVIEW_MARKDOWN_GENERATOR) private readonly markdownGenerator?: InterviewMarkdownGenerator,
   ) {}
 
   private deps() { return { repo:this.repo, ids:this.ids, agents:this.agents, runs:this.runs, model:this.model, scope:this.scope, decisions:this.decisions, context:this.context }; }
+
+  @Get("/:interviewId/markdown")
+  async markdown(@CurrentPrincipal() principal: Principal, @Param("interviewId") interviewId: string) {
+    assertPrincipal(principal);
+    if (!this.markdownReader) throw new ServiceUnavailableException();
+    try {
+      return await readInterviewMarkdown({ ...this.deps(), reader: this.markdownReader }, {
+        orgId: toOrgId(principal.orgId), viewerUserId: principal.userId, interviewId,
+      });
+    } catch (error) { return this.translate(error); }
+  }
+
+  @Post("/:interviewId/markdown/:step")
+  async saveMarkdown(@CurrentPrincipal() principal: Principal, @Param("interviewId") interviewId: string, @Param("step") step: string, @Body() body: unknown) {
+    assertPrincipal(principal);
+    const input = this.parse(interviewMarkdown.SaveInterviewMarkdownDraft, body);
+    const documentStep = this.parse(C.DigitalInterviewArtifactStep, step);
+    if (!this.markdownReader) throw new ServiceUnavailableException();
+    try {
+      return await saveInterviewMarkdownDraft({ ...this.deps(), reader: this.markdownReader }, {
+        ...input, step: documentStep, orgId: toOrgId(principal.orgId),
+        viewerUserId: principal.userId, interviewId,
+      });
+    } catch (error) { return this.translate(error); }
+  }
+
+  @Post("/:interviewId/markdown/:step/generate")
+  async generateMarkdown(@CurrentPrincipal() principal: Principal, @Param("interviewId") interviewId: string, @Param("step") step: string, @Body() body: unknown) {
+    assertPrincipal(principal);
+    const input = this.parse(interviewMarkdown.GenerateInterviewMarkdown, body);
+    const generationStep = this.parse(interviewMarkdown.InterviewMarkdownGenerationStep, step);
+    if (!this.markdownGenerator) throw new ServiceUnavailableException();
+    try {
+      return await this.markdownGenerator.generate({ ...input, step: generationStep,
+        orgId: toOrgId(principal.orgId), viewerUserId: principal.userId, interviewId,
+      });
+    } catch (error) { return this.translate(error); }
+  }
+
+  @Post("/:interviewId/markdown/:step/confirm")
+  async confirmMarkdown(@CurrentPrincipal() principal: Principal, @Param("interviewId") interviewId: string, @Param("step") step: string, @Body() body: unknown) {
+    assertPrincipal(principal);
+    const input = this.parse(interviewMarkdown.ConfirmInterviewMarkdown, body);
+    const documentStep = this.parse(C.DigitalInterviewArtifactStep, step);
+    if (!this.markdownReader) throw new ServiceUnavailableException();
+    try {
+      return await confirmInterviewMarkdownDraft({ ...this.deps(), reader: this.markdownReader }, {
+        ...input, step: documentStep, orgId: toOrgId(principal.orgId), viewerUserId: principal.userId, interviewId,
+      });
+    } catch (error) { return this.translate(error); }
+  }
 
   private parse<T>(schema: z.ZodType<T>, input: unknown): T {
     const parsed = schema.safeParse(input);

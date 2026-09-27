@@ -29,6 +29,31 @@ export const InterviewMarkdownDocument = z.object({
 });
 export type InterviewMarkdownDocument = z.infer<typeof InterviewMarkdownDocument>;
 
+export const InterviewMarkdownEnvelope = z.object({
+  interviewId: z.string().min(1),
+  revisionId: z.string().min(1).nullable(),
+  version: z.number().int().positive(),
+  documents: z.array(InterviewMarkdownDocument),
+  states: z.array(z.object({
+    documentId: z.string().min(1),
+    status: DigitalInterviewArtifact.innerType().shape.status,
+    failure: DigitalInterviewArtifact.innerType().shape.failure,
+  }).strict()),
+}).strict();
+
+/** Draft editing cannot set evidence, confirmation, references, or approval metadata. */
+export const SaveInterviewMarkdownDraft = z.object({
+  markdown: z.string().refine((value) => value.trim().length > 0, "Markdown cannot be blank"),
+  expectedVersion: z.number().int().positive(),
+  expectedDocumentVersion: z.number().int().nonnegative(),
+}).strict();
+
+export const InterviewMarkdownGenerationStep = z.enum(["analysis", "experts", "outline", "report"]);
+export const GenerateInterviewMarkdown = SaveInterviewMarkdownDraft.omit({ markdown: true });
+export const ConfirmInterviewMarkdown = GenerateInterviewMarkdown.extend({
+  expectedDocumentVersion: z.number().int().positive(),
+});
+
 export type InterviewMarkdownProjection = Readonly<{
   evidenceMode: InterviewMarkdownDocument["evidenceMode"];
   headings: readonly Readonly<{ id: string; depth: number; text: string }>[];
