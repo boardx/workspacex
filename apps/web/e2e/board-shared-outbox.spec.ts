@@ -11,7 +11,9 @@ import {sharedOutboxProof} from './support/board-shared-outbox-proof';
 // write, including fresh sync and duplicate receipt replay), not a retry-until-green.
 const DRAIN_SLA_MS=45_000;
 test('same-browser tabs drain a shared durable outbox without duplicate commits',async({page,request},info)=>{
- test.setTimeout(100_000);
+ // Keep the suite-level 180s budget so fixture setup and cleanup cannot consume
+ // the dedicated 45s drain SLA and then close the API context before archiving.
+ test.setTimeout(180_000);
  const api=process.env.WHITEBOARD_API_URL??`http://127.0.0.1:${process.env.WORKSPACEX_API_PORT}`;
  if(!process.env.WHITEBOARD_API_URL&&!process.env.WORKSPACEX_API_PORT)throw new Error('Isolated API URL required');
  const metadata=createSpatialWsMetadataRecorder();metadata.observe(page,'original');
