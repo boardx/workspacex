@@ -1,3 +1,4 @@
+import {createSoakWriterNote} from './support/board-soak-canvas-create';
 import {expect, test, type BrowserContext} from '@playwright/test';
 import {createHash} from 'node:crypto';
 import {readFile, writeFile} from 'node:fs/promises';
@@ -53,10 +54,13 @@ test('Board 50 independent browser contexts 20 writers real 30 minute soak', asy
     const writers = clients.filter(client => client.actor.role !== 'viewer');
     expect(writers).toHaveLength(BOARD_SOAK_REQUIREMENTS.writers);
     const observer = clients.at(-1)!; // Read-only, never disconnected: canonical committed revision witness.
-    await Promise.all(writers.map(async (client, index) => {
-      await client.page.getByTestId('board-add-sticky').click();
-      await client.page.getByLabel('对象文字', {exact: true}).fill(`Soak writer ${index}: warmup`);
-    }));
+    // Preparation precedes the measured interval. Place each real sticky after
+    // peers observe the previous one, so a remote arrival cannot steal its blank
+    // canvas hit. The measured rounds below still run all 20 writers concurrently.
+    for (const [index,client] of writers.entries()) {
+      await createSoakWriterNote(client.page,index);
+      await expect.poll(() => clients.every(peer => peer.doc.getMap('objects').size === index + 1), {timeout: 30_000}).toBe(true);
+    }
     await expect.poll(() => observer.doc.getMap('objects').size, {timeout: 30_000}).toBe(20);
     await expect.poll(() => clients.every(client => client.connected && canonicalHash(client.doc) === canonicalHash(observer.doc)), {timeout: 30_000}).toBe(true);
     await expect.poll(() => writers.every(client => client.sent.size === client.acknowledgements.length), {timeout: 30_000}).toBe(true);

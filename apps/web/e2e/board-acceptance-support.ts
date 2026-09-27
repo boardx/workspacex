@@ -4,6 +4,7 @@ import type {WhiteboardCommand, WhiteboardObject} from '@repo/whiteboard-core';
 import {SESSION_TOKEN_STORAGE_KEY} from '../lib/api-client';
 import {FULLSTACK_E2E} from './fullstack-smoke-fixture';
 
+export const BOARD_SYNCED_STATUS = /^已同步(?: · 序列 \d+)?$/;
 export const apiOrigin = () => `http://127.0.0.1:${process.env.WORKSPACEX_API_PORT}`;
 export async function boardLogin(page: Page, email: string = FULLSTACK_E2E.email, password: string = FULLSTACK_E2E.password) {
   await page.goto('/login'); await page.getByTestId('login-email').fill(email);
@@ -85,7 +86,7 @@ export async function canonicalRows(page: Page): Promise<CanonicalRow[]> {
 }
 export async function openBoard(page: Page, id: string, count: number) {
   await page.goto(`/studio/board/${id}`);
-  await expect(page.getByText(/^已同步$/)).toBeVisible({timeout: 30_000});
+  await expect(page.getByText(BOARD_SYNCED_STATUS)).toBeVisible({timeout: 30_000});
   await expect(page.getByTestId('board-a11y-mirror').locator('li[data-object-id]')).toHaveCount(count);
 }
 export async function settled(page: Page) {

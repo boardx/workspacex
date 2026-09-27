@@ -2,7 +2,7 @@ import {writeFile} from 'node:fs/promises';
 import {cpus, totalmem, platform} from 'node:os';
 import {resolve} from 'node:path';
 import {expect, test, type CDPSession, type Page} from '@playwright/test';
-import {archiveAcceptanceBoard, boardApi, boardLogin, canonicalRows, createAcceptanceBoard, objectPoint, openBoard, settled} from './board-acceptance-support';
+import {BOARD_SYNCED_STATUS, archiveAcceptanceBoard, boardApi, boardLogin, canonicalRows, createAcceptanceBoard, objectPoint, openBoard, settled} from './board-acceptance-support';
 import {armFeedback, canonicalSnapshot, installBrowserMeasurements, markPhase, monotonicNow, observeBoardTransport, provisionDataset} from './board-performance-support';
 import {observeRuntimeChunks, runtimeSourceIdentity, sha256, verifyRuntimeIdentity} from './board-runtime-evidence';
 import {boardPerformancePolicy, validateBoardPerformanceArtifact} from '../scripts/board-performance-policy.mjs';
@@ -11,7 +11,7 @@ import {scrubSecrets} from './support/real-model-evidence';
 const root = resolve(__dirname, '../../..');
 test.describe.configure({mode: 'serial', timeout: 30 * 60_000});
 async function ready(page: Page, count: number) {
-  await expect(page.getByText(/^已同步$/)).toBeVisible({timeout: 120_000});
+  await expect(page.getByText(BOARD_SYNCED_STATUS)).toBeVisible({timeout: 120_000});
   await expect(page.getByTestId('board-a11y-mirror').locator('li[data-object-id]')).toHaveCount(count, {timeout: 120_000});
   await expect.poll(async () => JSON.parse(await page.getByTestId('board-fabric-surface').getAttribute('data-object-scenes') ?? '[]').length,
     {timeout: 120_000}).toBeGreaterThan(0);
