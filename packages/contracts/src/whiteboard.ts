@@ -1,7 +1,7 @@
 /** Whiteboard resource contract. Content updates use a separate collaboration protocol. */
 import { z } from 'zod';
 export const BoardId = z.string().uuid();
-export const BoardRole = z.enum(['owner', 'editor', 'viewer']);
+export const BoardRole = z.enum(['owner', 'editor', 'commenter', 'viewer']);
 export const LifecycleRevision = z.number().int().nonnegative();
 export const BoardTagId = z.string().uuid();
 export const BoardTagName = z.string().trim().min(1).max(40);
@@ -63,8 +63,10 @@ export const WhiteboardErrorCode = z.enum([
   'NOT_FOUND', 'TAG_NOT_FOUND', 'TAG_NAME_CONFLICT', 'REVISION_CONFLICT', 'IDEMPOTENCY_CONFLICT',
   'SOURCE_VERSION_CHANGED', 'BOARD_NOT_ARCHIVED', 'CURSOR_INVALID', 'CURSOR_FILTER_MISMATCH', 'COPY_INTEGRITY_FAILED',
 ]);
-export const Member = z.object({ userId: z.string().min(1).max(200), role: z.enum(['editor', 'viewer']) }).strict();
+export const Member = z.object({ userId: z.string().min(1).max(200), role: z.enum(['editor', 'commenter', 'viewer']) }).strict();
+export const MentionableMember = z.object({ userId: z.string().min(1).max(200), displayName: z.string().min(1) }).strict();
 export const operations = {
+  mentionableMembers: { method: 'GET', path: '/whiteboards/:boardId/mentionable-members', in: z.object({ boardId: BoardId }).strict(), out: z.object({ items: z.array(MentionableMember) }).strict() },
   listBoards: { method: 'GET', path: '/whiteboards', in: ListBoards, out: z.object({ items: z.array(Board), nextCursor: z.string().nullable() }).strict() },
   listBoardTags: { method: 'GET', path: '/whiteboard-tags', in: z.object({}).strict(), out: z.object({ items: z.array(BoardTag) }).strict() },
   createBoardTag: { method: 'POST', path: '/whiteboard-tags', in: CreateBoardTag, out: BoardTag },

@@ -25,6 +25,10 @@ function decode(id: string, value: Y.Map<unknown>): WhiteboardObject {
   const json = value.toJSON();
   return WhiteboardObject.parse(structuredClone({ ...json, id, locked: json.locked ?? false, hidden: json.hidden ?? false, zIndex: json.zIndex ?? 0 }));
 }
+/** Read retained canonical content for trusted receipt checks, without changing its tombstone. */
+export function readStoredObject(doc: Y.Doc, id: string): WhiteboardObject | undefined {
+  const value=objectMap(doc).get(id);return value?decode(id,value):undefined;
+}
 export function readObjects(doc: Y.Doc): WhiteboardObject[] {
   const alive = [...objectMap(doc)].filter(([id]) => !tombstones(doc).has(id)).map(([id, value]) => decode(id, value));
   const ids = new Set(alive.map(value => value.id));
@@ -65,6 +69,11 @@ function apply(doc: Y.Doc, commands: WhiteboardCommand[]): void {
       item.set('text', new Y.Text(text));
       item.set('style', new Y.Map<unknown>(Object.entries(style)));
       objects.set(id, item);
+      continue;
+    }
+    if (command.type === 'restore') {
+      if (!objects.has(command.id) || !deleted.has(command.id)) throw new Error('TOMBSTONE_NOT_FOUND');
+      deleted.delete(command.id);
       continue;
     }
     const item = objects.get(command.id);

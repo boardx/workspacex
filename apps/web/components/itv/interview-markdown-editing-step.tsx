@@ -1,5 +1,6 @@
 "use client";
 import * as React from "react";
+import { interviewMarkdown } from "@repo/contracts";
 import { loadDigitalExperts, type DigitalExpertCatalogRow } from "@/lib/interview-api";
 import { initializeInterviewMarkdown, loadInterviewMarkdown, saveInterviewMarkdown, confirmInterviewMarkdown, generateInterviewMarkdown,
   type InterviewMarkdownEnvelope, type InterviewMarkdownDocument } from "@/lib/interview-markdown-api";
@@ -64,6 +65,8 @@ export function InterviewMarkdownEditingStep({ interviewId, step, onVersionChang
   const immutable = savedStatus === "confirmed" || savedStatus === "completed";
   const document: InterviewMarkdownDocument = { ...(saved ?? { documentId: `unsaved-${step}`, step, version: 1, contentHash: "0".repeat(64), evidenceMode: "simulated" as const, references: [] }), markdown };
   const props = { document, pending: pending || immutable,
+    avatarContext: source?.revisionId ? { interviewId, revisionId: source.revisionId } : undefined,
+    savedExpertIds: saved ? interviewMarkdown.projectInterviewMarkdownExperts(saved).map((expert) => expert.expertId) : [],
     onChange: (text: string) => { setMarkdown(text); dirty.current = true; callbacks.current.onDirtyChange(true); },
     onSave: () => void action(async () => { await save(source ?? await loadInterviewMarkdown(interviewId)); }),
     onConfirm: () => void action(confirm),
