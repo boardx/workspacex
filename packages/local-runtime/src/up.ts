@@ -253,38 +253,6 @@ export async function up(opts: UpOptions): Promise<RunningStack> {
     //   在 up() 结束时统一产出——否则同一件事会在 doctor 与这里各写一遍，
     //   且两份的措辞迟早不一样。
 
-    /*
-      「标签在列表里」≠「模型能回话」。见 model-preflight.ts 的文件头：能过 /api/tags
-      却调不动的情形不少，而它们全都要等用户发出第一条消息才暴露。
-
-      ⚠ **但这次验证不能挡住界面**（#3872 R15）。它发的是一次真实的 chat completion，
-        于是把 4 GB 权重整个加载进内存——实测在这台机器上要 **18 秒**，而整个
-        正常启动才 26 秒。R7 把语音（27%）和技能沙箱（17%）挪出了关键路径，
-        独独漏了这一项，而它比那两个加起来还贵。
-
-        延后之后它同时变成**后台预热**：界面几秒就出来，用户读完首屏、打字、
-        发出第一条消息，这段时间正好用来把权重装进内存。失败走和崩溃同一条
-        健康通道（说人话、带影响），不是在日志里躺着。
-
-      跳过探测时（测试/离线）退回「找到了二进制」这条较弱的证据，而不是谎报不可用。
-    */
-    const chatModelAnswers = ollamaBin !== null;
-    if (ollamaUrl !== null && opts.probeModels !== false) {
-      const modelBase = `${ollamaUrl}/v1`;
-      log(`[model] 正在后台装载 ${c.chatModel}（不挡界面；首次加载权重可能要一分钟）`);
-      deferredReady.push({
-        name: "model",
-        wait: (async () => {
-          const chat = await probeChatModel({ baseUrl: modelBase, apiKey: "ollama-local", model: c.chatModel });
-          if (!chat.ok) throw new Error(chat.detail ?? `${c.chatModel} 没有回话`);
-          log(`[model] ${c.chatModel} 就绪，首个 token 往返 ${chat.elapsedMs} ms`);
-          const embed = await probeEmbeddingModel({ baseUrl: modelBase, apiKey: "ollama-local", model: c.embeddingModel });
-          // 检索/记忆退化不该让整条「模型」判失败——聊天仍然可用，如实记一笔。
-          if (!embed.ok) log(`[model] ⚠ ${embed.detail ?? ""}——检索与记忆会退化，聊天不受影响`);
-        })(),
-      });
-    }
-
     // Every service we spawn must own its port: a stale process there would answer our
     // readiness probe while our child dies on EADDRINUSE.
     for (const [port, what] of [[c.ports.sandbox, "skill-sandbox"], [c.ports.asr, "asr-gateway"], [c.ports.api, "api"], [c.ports.deepAgent, "deep-agent"], [c.ports.web, "web"]] as const) {
@@ -348,6 +316,43 @@ export async function up(opts: UpOptions): Promise<RunningStack> {
         });
       }
       if (c.metaModel !== c.chatModel) void warmModel(url, c.metaModel);
+    }
+
+    /*
+      「标签在列表里」≠「模型能回话」。见 model-preflight.ts 的文件头：能过 /api/tags
+      却调不动的情形不少，而它们全都要等用户发出第一条消息才暴露。
+
+      ⚠ **但这次验证不能挡住界面**（#3872 R15）。它发的是一次真实的 chat completion，
+        于是把 4 GB 权重整个加载进内存——实测在这台机器上要 **18 秒**，而整个
+        正常启动才 26 秒。R7 把语音（27%）和技能沙箱（17%）挪出了关键路径，
+        独独漏了这一项，而它比那两个加起来还贵。
+
+        延后之后它同时变成**后台预热**：界面几秒就出来，用户读完首屏、打字、
+        发出第一条消息，这段时间正好用来把权重装进内存。失败走和崩溃同一条
+        健康通道（说人话、带影响），不是在日志里躺着。
+
+      跳过探测时（测试/离线）退回「找到了二进制」这条较弱的证据，而不是谎报不可用。
+
+      ⚠ **它必须放在选模型之后**（#3872 R21）。原先它在 `preferredChatModel` 前面，
+        于是探的是配置里的 `qwen3.5:4b`，而 mac-arm64 包里只有 `qwen3.5:4b-mlx`——
+        模型明明已经加载好在回话，每次启动十秒后都报一条「模型起不来」（实机日志
+        00:19:02.919 探测起、.925 才换成 MLX）。
+    */
+    const chatModelAnswers = ollamaBin !== null;
+    if (ollamaUrl !== null && opts.probeModels !== false) {
+      const modelBase = `${ollamaUrl}/v1`;
+      log(`[model] 正在后台装载 ${c.chatModel}（不挡界面；首次加载权重可能要一分钟）`);
+      deferredReady.push({
+        name: "model",
+        wait: (async () => {
+          const chat = await probeChatModel({ baseUrl: modelBase, apiKey: "ollama-local", model: c.chatModel });
+          if (!chat.ok) throw new Error(chat.detail ?? `${c.chatModel} 没有回话`);
+          log(`[model] ${c.chatModel} 就绪，首个 token 往返 ${chat.elapsedMs} ms`);
+          const embed = await probeEmbeddingModel({ baseUrl: modelBase, apiKey: "ollama-local", model: c.embeddingModel });
+          // 检索/记忆退化不该让整条「模型」判失败——聊天仍然可用，如实记一笔。
+          if (!embed.ok) log(`[model] ⚠ ${embed.detail ?? ""}——检索与记忆会退化，聊天不受影响`);
+        })(),
+      });
     }
 
     // ── skill sandbox (L0, loopback child process) ─────────────────────────────
