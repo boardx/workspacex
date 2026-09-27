@@ -609,7 +609,7 @@ export const KG_DEPLOYMENT_EXTRACTION_SETTINGS_PORT = Symbol("KgDeploymentExtrac
 // ─────────────────────────────── UC-KG-4 整理本会话（issue #4352） ───────────────────────────────
 
 /**
- * 把一个会话的消息重新排进抽取队列（`kg_extraction_requeue_thread`，迁移 20260927400000）。调用方已判过
+ * 把一个会话的消息重新排进抽取队列（`kg_extraction_requeue_thread`，迁移 20260928160000）。调用方已判过
  * 会话可见性与所有者。返回排进去的条数；本会话还有在整理中的行 ⇒ `"already_running"`。部署开关或组织开关
  * 关着 ⇒ 0（关闭期间不整理，打开之后再补）。`sourceRefs` 给了 ⇒ 只重排这些消息（仍限定在本会话里）。
  */

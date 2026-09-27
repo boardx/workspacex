@@ -15,7 +15,7 @@ Project-thread memory and other users' memory are never touched.
 Agent tool: no `wx_forget` was added. The deterministic path covers user-stated forgetting; `wx_remember` stays the only
 agent memory tool and still only opens a card.
 
-DB: migration `20260927410000_kg_i4361_manage_memory_in_chat.sql` (rebuilds `kg_open_memory_card`,
+DB: migration `20260928161000_kg_i4361_manage_memory_in_chat.sql` (rebuilds `kg_open_memory_card`,
 `kg_act_on_memory_card`; adds `kg_undo_memory_card`, `kg_memory_manage_ok`, helpers; `kg_memory_cards` gets
 `overview` / `undone` / `restore`). Lock order stays "sessions (sorted) → personal".
 

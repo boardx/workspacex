@@ -17,10 +17,11 @@
  *   ② `kg_act_on_memory_card` 重建：忘掉一条长期记忆时连同它在本人个人对话里的原话一起忘掉（活的 derived_from；
  *      否则回到那个对话它还在）；forget 分支按条目各自的会话核对与上锁（多个会话锁按 id 排序，再个人空间锁——
  *      与 F10 / F11 / F16「先会话、后个人空间」同一顺序，多锁时按 id 排序不会与单锁的事务成环），落表前记下**撤销快照**
- *      （restore：选中的结论 + 由它们晋升出去、还活着的 L1 副本的当时状态，以及这次会被 F07 级联收掉的活边），
+ *      （restore：这次**真的**被收掉的结论——选中的 + F07 级联一起收掉的 L1 副本——的当时状态、被级联收掉的边，
+ *      以及这一次的失效时间 revoked_at；review M2：候选里没被收掉的不进快照），
  *      每个会话各记一条审计（会话 revision 各自前进）；overview 卡上的任何决定 ⇒ KG_INVALID_REQUEST。remember 分支逐字不变；
  *   ③ `kg_undo_memory_card`（新）：人的动作（I-15），撤销一张已生效的忘掉卡——只恢复快照里、现在仍是「因忘掉而失效」
- *      （revocation_reason = user_forgot）的结论，恢复成当时的状态；会话结论另外要求原话还在（同 R8 kg_undo_supersede）；
+ *      （revocation_reason = user_forgot）且失效时间仍是这张卡那一次（之后被别的动作又收掉的不碰）的结论，恢复成当时的状态；会话结论另外要求原话还在（同 R8 kg_undo_supersede）；
  *      F07 级联收掉的边照快照放回（两端都还在）。一条都恢复不了 ⇒ KG_CARD_STALE。卡转 undone。
  *   ④ `kg_memory_manage_ok`（新，只读）：这条消息是不是个人线程的所有者本人在这个线程里说的——「改主意」那条路
  *      （应用层 change-mind.ts，复用 R8 的抽取 → 取代 → 自动记入流水线）开工前的范围闸门。
@@ -34,7 +35,7 @@ ALTER TABLE kg_memory_cards DROP CONSTRAINT IF EXISTS kg_memory_cards_kind_check
 ALTER TABLE kg_memory_cards ADD CONSTRAINT kg_memory_cards_kind_check CHECK (kind IN ('remember', 'forget', 'overview'));
 ALTER TABLE kg_memory_cards DROP CONSTRAINT IF EXISTS kg_memory_cards_status_check;
 ALTER TABLE kg_memory_cards ADD CONSTRAINT kg_memory_cards_status_check CHECK (status IN ('open', 'done', 'dismissed', 'undone'));
--- 忘掉卡的撤销快照：{ claims: [{ id, status }], edges: [id] }（同 R8 kg_supersede_notices.restore）
+-- 忘掉卡的撤销快照：{ revoked_at, claims: [{ id, status }], edges: [id] }——只含这张卡真的收掉的（review M2）
 ALTER TABLE kg_memory_cards ADD COLUMN IF NOT EXISTS restore jsonb;
 ALTER TABLE kg_memory_cards ADD COLUMN IF NOT EXISTS undone_by text;
 ALTER TABLE kg_memory_cards ADD COLUMN IF NOT EXISTS undone_at timestamptz;
@@ -414,6 +415,18 @@ BEGIN
 
     UPDATE claims SET status = 'superseded', revoked_at = now(), revocation_reason = 'user_forgot', updated_at = now()
      WHERE org_id = v_org AND id = ANY(v_l0 || v_l1) AND revoked_at IS NULL;
+    -- 快照只留**这张卡真的收掉的**（review M2）：上面这一句连同它触发的 F07 级联（AFTER ROW 触发器，同一语句内跑完）
+    -- 都在本事务里，失效时间恰是 now()。候选里没被级联收掉的 L1 副本、没被收掉的边都不进快照；并记下这个时间，
+    -- 撤销时只恢复「现在仍是被这一次收掉」的（之后别的卡 / 别的动作又收掉的，时间不同，不碰）。
+    v_restore := jsonb_build_object(
+      'revoked_at', to_jsonb(now()),
+      'claims', (SELECT coalesce(jsonb_agg(r ORDER BY r->>'id'), '[]'::jsonb)
+                   FROM jsonb_array_elements(coalesce(v_restore->'claims', '[]'::jsonb)) r
+                   JOIN claims c ON c.org_id = v_org AND c.id = r->>'id'
+                  WHERE c.revoked_at = now() AND c.revocation_reason = 'user_forgot'),
+      'edges', (SELECT coalesce(jsonb_agg(e.id ORDER BY e.id), '[]'::jsonb) FROM ontology_edges e
+                 WHERE e.org_id = v_org AND e.status = 'invalidated' AND e.invalidated_at = now()
+                   AND e.id IN (SELECT jsonb_array_elements_text(coalesce(v_restore->'edges', '[]'::jsonb)))));
     -- 每个会话各留一条审计（各自的 revision 前进；来源抽屉按 payload.claims 查）。卡所在的会话沿用 v_id（与 F17 同一个 id）。
     FOREACH v_x IN ARRAY v_threads LOOP
       v_ids := ARRAY(SELECT c.id FROM claims c WHERE c.org_id = v_org AND c.id = ANY(v_l0) AND c.scope_id = v_x ORDER BY c.id);
@@ -512,6 +525,8 @@ BEGIN
     CONTINUE WHEN NOT FOUND;
     -- 只恢复「因忘掉而失效」、且仍在本人个人空间里的
     CONTINUE WHEN v_row.revoked_at IS NULL OR v_row.revocation_reason IS DISTINCT FROM 'user_forgot';
+    -- 只恢复这张卡收掉的那一次（review M2）：失效时间对不上 ⇒ 之后又被别的动作收掉过，不是这张卡的
+    CONTINUE WHEN v_row.revoked_at IS DISTINCT FROM (v_card.restore->>'revoked_at')::timestamptz;
     CONTINUE WHEN NOT ((v_row.scope_kind = 'chat_session' AND kg_is_personal_thread_of(v_org, v_row.scope_id, v_user))
                     OR (v_row.scope_kind = 'personal' AND v_row.scope_id = v_user));
     -- 会话里的结论：原话还在才恢复（原话被删了就没有可恢复的东西，同 F07 / R8）
@@ -529,6 +544,7 @@ BEGIN
   -- 放回 F07 级联收掉的边：快照里的、现在仍是失效的、两端都还在（结论端点还活着）的（同 R8 kg_undo_supersede）
   UPDATE ontology_edges e SET status = 'active', invalidated_at = NULL
    WHERE e.org_id = v_org AND e.status = 'invalidated'
+     AND e.invalidated_at IS NOT DISTINCT FROM (v_card.restore->>'revoked_at')::timestamptz
      AND e.id IN (SELECT jsonb_array_elements_text(coalesce(v_card.restore->'edges', '[]'::jsonb)))
      AND (e.src_kind <> 'claim' OR EXISTS (SELECT 1 FROM claims c WHERE c.org_id = v_org AND c.id = e.src_id AND c.revoked_at IS NULL))
      AND (e.dst_kind <> 'claim' OR EXISTS (SELECT 1 FROM claims c WHERE c.org_id = v_org AND c.id = e.dst_id AND c.revoked_at IS NULL))

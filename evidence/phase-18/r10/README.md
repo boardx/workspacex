@@ -147,7 +147,7 @@ unless noted.
 - [ ] **#4352 contract field: per-message extraction status** (`KgMessageExtraction.status` in
   `packages/contracts/src/chat-knowledge-graph.ts`: `pending | written | empty | skipped | failed | none`). The human
   decided on 2026-09-27 (option A, relayed by the coordinator) to implement it first and sign it off later. It backs
-  「这句没有需要记的 · 记一条」 and is stored in `kg_message_extraction_outcomes` (migration `20260927400000`).
+  「这句没有需要记的 · 记一条」 and is stored in `kg_message_extraction_outcomes` (migration `20260928160000`).
 - [ ] **Eval rubric amendments R1–R3**
   ([`rubric-lock.json`](../../kg-experience-eval/rubric-lock.json) `amendments`,
   [`README.md`](../../kg-experience-eval/README.md) round table). R1: E4 「原话」 accepts any corpus sentence, and
@@ -163,7 +163,9 @@ unless noted.
   claims); its candidates are the whole personal space (long-term memory + all own personal threads, the F15 scope),
   not only this thread + long-term memory; forgetting a long-term item also forgets its live `derived_from` sources in
   the requester's own personal threads; a done forget card is undoable. 「我改主意了，改成 Y」 runs the #4290 rules at
-  turn time (no dependency on the extraction model), including the automatic tier, even when org extraction is off.
+  turn time (no dependency on the extraction model), including the automatic tier.
+  - [x] **Decided (human, 2026-09-27): 「选 A」** — 「我改主意了」 keeps writing (supersede, auto copy) even when
+    extraction is switched off at the org or deployment level (PR #4493 review M1). Code unchanged.
 - [ ] Also open in the same file:
   - F17 card-state semantics (L105–110);
   - the F15 cross-session recall scope and the **E9 403 vs I-3 404** conflict (L181–184), which is the E9.c2 red;

@@ -46,7 +46,7 @@ const ORG = "org-kg-i4361";
 const ORG_ID = toOrgId(ORG);
 const OWNER = "u-i4361-owner";
 const MEMBER = "u-i4361-member";
-const PERSONAL = ["p1", "p2", "p3", "p4", "c1", "c2", "c3", "c4", "c5", "o1", "o2", "x1", "x2"] as const;
+const PERSONAL = ["p1", "p2", "p3", "p4", "q1", "q2", "q3", "c1", "c2", "c3", "c4", "c5", "o1", "o2", "x1", "x2"] as const;
 const T = Object.fromEntries([...PERSONAL, "s", "m"].map((k) => [k, `thr-i4361-${k}`])) as Record<(typeof PERSONAL)[number] | "s" | "m", string>;
 
 const CONTACT = "客户A的对接人是王经理";
@@ -277,6 +277,53 @@ describe("#4361 忘掉 X", () => {
     expect(back.card.state).toBe("undone");
     expect(await claim(src.id)).toMatchObject({ revoked: false });
     expect(await claim(l1)).toMatchObject({ revoked: true, revocation_reason: "source_deleted" });
+  });
+
+  it("review M2：快照只记这张卡真的收掉的——还有别的活来源、没被级联收掉的副本不进快照；之后被别的动作忘掉的，撤销这张卡不会把它带回来", async () => {
+    await say(T.q1, TODO);
+    await say(T.q2, TODO);
+    const src1 = await threadClaimBy(T.q1, TODO);
+    const src2 = await threadClaimBy(T.q2, TODO);
+    const l1 = await promote(T.q1, src1.id);
+    // 副本还有第二个活来源（q2 那条）：复制 l1 → src1 的 derived_from 边，指向 src2
+    await asOwner((c) => c.query(
+      `INSERT INTO ontology_edges (id, org_id, src_kind, src_id, dst_kind, dst_id, relation, status, created_by, scope_kind, scope_id)
+       SELECT id || '-m2', org_id, src_kind, src_id, dst_kind, $3, relation, status, created_by, scope_kind, scope_id
+         FROM ontology_edges WHERE org_id = $4 AND relation = 'derived_from' AND src_id = $1 AND dst_id = $2 AND status = 'active'`,
+      [l1, src1.id, src2.id, ORG]));
+    const t = await turn(T.q1, "忘掉报价单那条");
+    const card = await cardOf(T.q1, t.answerId);
+    expect(card.items.map((i) => i.claimId)).toContain(src1.id);
+    await act(card.cardId, { claimIds: [src1.id] });
+    expect(await claim(src1.id)).toMatchObject({ revoked: true, revocation_reason: "user_forgot" });
+    // 副本还有活来源 ⇒ F07 不收它；快照里也就没有它
+    expect(await claim(l1)).toMatchObject({ revoked: false });
+    const [snap] = await sql<{ restore: { revoked_at: string; claims: { id: string }[] } }>("SELECT restore FROM kg_memory_cards WHERE id = $1", [card.cardId]);
+    expect(snap!.restore.claims.map((c) => c.id)).toEqual([src1.id]);
+    expect(snap!.restore.revoked_at).toEqual(expect.any(String));
+
+    // 之后副本被别的动作忘掉（另一个事务，理由同样是 user_forgot）
+    await asOwner((c) => c.query(
+      "UPDATE claims SET status = 'superseded', revoked_at = now() + interval '1 minute', revocation_reason = 'user_forgot' WHERE id = $1", [l1]));
+    const back = await undo(card.cardId);
+    expect(back.card.state).toBe("undone");
+    expect(await claim(src1.id)).toMatchObject({ revoked: false });
+    // 不是这张卡收掉的 ⇒ 撤销这张卡不碰它
+    expect(await claim(l1)).toMatchObject({ revoked: true, revocation_reason: "user_forgot" });
+  });
+
+  it("review M2：这张卡收掉的结论之后被恢复、又被别的动作忘掉（失效时间不同）⇒ 撤销这张卡不碰它；一条都不是这张卡的 ⇒ KG_CARD_STALE", async () => {
+    await say(T.q3, TODO);
+    const src = await threadClaimBy(T.q3, TODO);
+    const t = await turn(T.q3, "忘掉报价单那条");
+    const card = await cardOf(T.q3, t.answerId);
+    expect(card.items.map((i) => i.claimId)).toContain(src.id);
+    await act(card.cardId, { claimIds: [src.id] });
+    expect(await claim(src.id)).toMatchObject({ revoked: true, revocation_reason: "user_forgot" });
+    // 模拟「之后被恢复、再被另一次忘掉」：理由仍是 user_forgot，但失效时间是另一次的
+    await asOwner((c) => c.query("UPDATE claims SET revoked_at = revoked_at + interval '1 minute' WHERE id = $1", [src.id]));
+    await expect(undo(card.cardId)).rejects.toMatchObject({ code: "KG_CARD_STALE" });
+    expect(await claim(src.id)).toMatchObject({ revoked: true, revocation_reason: "user_forgot" });
   });
 
   it("还开着 / 点了「不用了」的卡不能撤销；项目会话里不出忘掉卡、项目的那条不动", async () => {

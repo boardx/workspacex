@@ -49,7 +49,7 @@ export class PgKgExtraction implements KgExtractionQueuePort, KgExtractionSource
   // issue #4350：`attempts` 是围栏令牌（见端口注释）。认领每次都把 attempts + 1，所以「attempts 仍等于我认领时
   // 拿到的值」⇔「这一行自我认领之后没有被别人重新认领过」。`$3::int IS NULL` ⇒ 调用方没给令牌，不围栏。
   // issue #4352：`outcome` 给了 ⇒ 同一事务里记下这条消息的抽取结果（`kg_message_extraction_outcomes`，迁移
-  // 20260927400000），只在队列行真的被本次删掉时记——围栏令牌对不上就一起不写。只写结果码，不写正文；本文件从不读这张表。
+  // 20260928160000），只在队列行真的被本次删掉时记——围栏令牌对不上就一起不写。只写结果码，不写正文；本文件从不读这张表。
   async complete(orgId: OrgId, messageId: string, attempts?: number, outcome?: KgExtractionOutcome): Promise<void> {
     await this.db.withTenant(orgId, async (s) => {
       const done = await s.query<{ thread_id: string }>(

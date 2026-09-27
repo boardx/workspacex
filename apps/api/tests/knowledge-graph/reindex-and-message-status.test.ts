@@ -16,6 +16,7 @@ import { appConfig } from "../../src/infrastructure/db/pg-config";
 import { PgDatabase } from "../../src/infrastructure/db/pg-database";
 import { CountingDecisionIdFactory } from "../../src/infrastructure/identity/in-memory-session-store";
 import { PgIdentityRepository } from "../../src/infrastructure/identity/pg-identity-repository";
+import { KG_EXTRACTION_MAX_ATTEMPTS, PgKgExtraction } from "../../src/infrastructure/knowledge-graph/pg-kg-extraction";
 import { PgKgReindex } from "../../src/infrastructure/knowledge-graph/pg-kg-reindex";
 import { PgKnowledgeRead } from "../../src/infrastructure/knowledge-graph/pg-knowledge-read";
 import { KnowledgeGraphController } from "../../src/interface/controllers/knowledge-graph.controller";
@@ -28,6 +29,7 @@ const ORG_ID = toOrgId(ORG);
 const MINE = "thr-kg-i4352-mine";
 const SHARED = "thr-kg-i4352-shared";
 const OFF = "thr-kg-i4352-off";
+const FENCE = "thr-kg-i4352-fence";
 let db: PgDatabase;
 let readDeps: KnowledgeReadDeps;
 let reindexDeps: RequestReindexDeps;
@@ -54,6 +56,7 @@ beforeAll(async () => {
   await addChatThread({ orgId: ORG, id: MINE, projectId: null, visibilityScope: "private", createdBy: "u-owner" });
   await addChatThread({ orgId: ORG, id: SHARED, projectId: `${ORG}-p`, visibilityScope: "plenary", createdBy: "u-owner" });
   await addChatThread({ orgId: ORG, id: OFF, projectId: null, visibilityScope: "private", createdBy: "u-owner" });
+  await addChatThread({ orgId: ORG, id: FENCE, projectId: null, visibilityScope: "private", createdBy: "u-owner" });
   db = new PgDatabase(appConfig());
   readDeps = { repo: new PgIdentityRepository(db), ids: new CountingDecisionIdFactory(), chat: new PgChatRepository(db), knowledge: new PgKnowledgeRead(db, true) };
   reindexDeps = { ...readDeps, reindex: new PgKgReindex(db), extractionConfigured: true };
@@ -84,6 +87,37 @@ describe("issue #4352: getMessageExtraction.status", () => {
     expect(await status(MINE, "m-4352-garbage")).toBe("failed");
     const outcome = await asApp(ORG, (c) => c.query("SELECT outcome FROM kg_message_extraction_outcomes WHERE message_id = 'm-4352-garbage'"));
     expect(outcome.rows).toEqual([{ outcome: "failed" }]);
+  });
+
+  it("review M5：围栏令牌（attempts）对不上的迟到 complete / fail 不写结果行，队列行也不动；对得上才写", async () => {
+    const queue = new PgKgExtraction(db);
+    const outcomeOf = (id: string) => asOwner((c) => c.query<{ outcome: string }>(
+      "SELECT outcome FROM kg_message_extraction_outcomes WHERE message_id = $1", [id])).then((r) => r.rows);
+    const row = (id: string) => asOwner((c) => c.query<{ attempts: number; last_error: string | null }>(
+      "SELECT attempts, last_error FROM kg_extraction_queue WHERE message_id = $1", [id])).then((r) => r.rows);
+
+    // complete：队列里 attempts = 1（被认领过一次），一个拿着旧令牌 0 的迟到 complete
+    await addChatMessage({ orgId: ORG, id: "m-4352-fence-c", threadId: FENCE, body: "围栏测试：完成", authorId: "u-owner" });
+    await asOwner((c) => c.query("UPDATE kg_extraction_queue SET attempts = 1 WHERE message_id = $1", ["m-4352-fence-c"]));
+    await queue.complete(ORG_ID, "m-4352-fence-c", 0, "written");
+    expect(await outcomeOf("m-4352-fence-c")).toEqual([]);
+    expect(await row("m-4352-fence-c")).toEqual([{ attempts: 1, last_error: null }]);
+    // 对照：令牌对得上 ⇒ 删行并记结果
+    await queue.complete(ORG_ID, "m-4352-fence-c", 1, "empty");
+    expect(await outcomeOf("m-4352-fence-c")).toEqual([{ outcome: "empty" }]);
+    expect(await row("m-4352-fence-c")).toEqual([]);
+
+    // fail：次数已用完（attempts = 上限），拿着旧令牌的迟到 fail 不记 failed、也不改那一行
+    await addChatMessage({ orgId: ORG, id: "m-4352-fence-f", threadId: FENCE, body: "围栏测试：失败", authorId: "u-owner" });
+    await asOwner((c) => c.query("UPDATE kg_extraction_queue SET attempts = $2 WHERE message_id = $1", ["m-4352-fence-f", KG_EXTRACTION_MAX_ATTEMPTS]));
+    await queue.fail(ORG_ID, "m-4352-fence-f", "late", KG_EXTRACTION_MAX_ATTEMPTS - 1);
+    expect(await outcomeOf("m-4352-fence-f")).toEqual([]);
+    expect(await row("m-4352-fence-f")).toEqual([{ attempts: KG_EXTRACTION_MAX_ATTEMPTS, last_error: null }]);
+    // 对照：令牌对得上 ⇒ 最后一次也失败了，记 failed
+    await queue.fail(ORG_ID, "m-4352-fence-f", "real", KG_EXTRACTION_MAX_ATTEMPTS);
+    expect(await outcomeOf("m-4352-fence-f")).toEqual([{ outcome: "failed" }]);
+    // 收尾：别让这条失败行留给后面的用例
+    await asOwner((c) => c.query("DELETE FROM kg_extraction_queue WHERE thread_id = $1", [FENCE]));
   });
 });
 
