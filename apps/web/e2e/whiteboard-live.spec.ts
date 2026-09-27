@@ -135,7 +135,7 @@ test('realtime presence field convergence',async({browser,request:api,baseURL})=
       await request(api,ownerToken!,'PUT',`/whiteboards/${boardId}/members`,{userId:required('WHITEBOARD_VIEWER_USER_ID'),role:'commenter'});
       await expect(viewer.getByTestId('denied')).toBeVisible({timeout:30_000});await viewer.reload();await synced(viewer);
       const note=viewer.getByRole('button',{name:'图形：另一位成员的中文修改',exact:true});await note.focus();await note.press('Enter');
-      await expect(viewer.getByLabel('对象文字',{exact:true})).toBeDisabled();await viewer.getByRole('button',{name:'评论',exact:true}).click();await viewer.getByLabel('评论内容').fill('commenter can discuss without editing');await expect(viewer.getByRole('button',{name:'发布评论'})).toBeEnabled();
+      await expect(viewer.getByLabel('对象文字',{exact:true})).toBeDisabled();await viewer.getByRole('button',{name:'评论',exact:true}).click();await viewer.getByLabel('评论内容').fill('commenter can discuss without editing');await expect(viewer.getByRole('button',{name:'发布评论'})).toBeEnabled();await viewer.getByRole('button',{name:'发布评论'}).click();await expect(viewer.getByLabel('评论内容')).toHaveValue('');await expect(viewer.getByText('评论已由服务器持久化并确认。')).toBeVisible();
       const worldBody={type:'create-comment',requestId:randomUUID(),threadId:randomUUID(),commentId:randomUUID(),objectId:null,worldPosition:{x:640,y:360},body:'world anchored discussion',mentions:[],expectedRevision:0};
       await request(api,viewerToken!,'POST',`/whiteboards/${boardId}/comments/commands`,worldBody);
       const comments=await request(api,viewerToken!,'GET',`/whiteboards/${boardId}/comments`);expect((await comments.json() as {items:Array<{objectId:string|null;worldPosition:{x:number;y:number}|null}>}).items).toContainEqual(expect.objectContaining({objectId:null,worldPosition:{x:640,y:360}}));
@@ -193,7 +193,7 @@ test('undo offline reconnect recovery',async({browser,request:api,baseURL})=>{
     await context.setOffline(true);await expect(owner.getByText(/连接中断/)).toBeVisible({timeout:20_000});
     const target=owner.getByTestId('board-a11y-object-undo-target');await target.focus();await target.press('Enter');await owner.getByRole('button',{name:'删除选中'}).click();await expect(target).toHaveCount(0);await expect(owner.getByTestId('board-a11y-object-undo-edge')).toHaveCount(0);
     await owner.getByRole('button',{name:'撤销',exact:true}).click();await expect(owner.getByTestId('board-a11y-object-undo-target')).toBeAttached();await expect(owner.getByTestId('board-a11y-object-undo-edge')).toBeAttached();await expect(owner.getByText('撤销已在本地应用，正在等待服务器确认')).toBeVisible();
-    await context.setOffline(false);await owner.getByTestId('board-retry-sync').click();await expect(owner.getByText(/撤销已由服务器确认 · 序列/)).toBeVisible({timeout:30_000});
+    await context.setOffline(false);await expect(owner.getByText(/撤销已由服务器确认 · 序列/)).toBeVisible({timeout:30_000});
     await owner.reload();await synced(owner);await expect(owner.getByTestId('board-a11y-object-undo-target')).toBeAttached();await expect(owner.getByTestId('board-a11y-object-undo-edge')).toBeAttached();
     const baseCheckpoint=await request(api,token,'POST',`/whiteboards/${boardId}/checkpoints`,{requestId:randomUUID()}),baseManifest=(await baseCheckpoint.json() as {manifest:{checkpointId:string;epoch:number;seq:number}}).manifest;
     await request(api,token,'POST',`/whiteboards/${boardId}/commands`,{requestId:randomUUID(),epoch:baseManifest.epoch,commands:[{type:'style',id:'undo-target',style:{fill:'#fde68a'}}]});
