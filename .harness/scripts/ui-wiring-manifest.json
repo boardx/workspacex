@@ -1457,6 +1457,10 @@
       "kind": "preview",
       "screen": "apps/web/app/preview/board-fabric-v01/page.tsx"
     },
+    "/preview/board-workspace": {
+      "kind": "preview",
+      "screen": "apps/web/app/preview/board-workspace/page.tsx"
+    },
     "/preview/canvas-streaming": {
       "kind": "preview",
       "screen": "apps/web/app/preview/canvas-streaming/page.tsx"

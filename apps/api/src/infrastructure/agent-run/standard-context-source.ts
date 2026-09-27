@@ -52,6 +52,6 @@ export class StandardContextSource implements StandardKnowledgeSource {
   if(!row||!await this.permitted(actor,row))throw new Error('context_source_unavailable');
   const content=await this.content(actor,row);
   if(content.version!==input.versionId||!await this.permitted(actor,row))throw new Error('context_source_unavailable');
-  return KnowledgeReadOutput.parse({sourceId:input.sourceId,sourceVersion:content.version,content:content.text.slice(0,L.maxTextChars),citationAnchor:this.citation(row),accessibleAt:new Date().toISOString(),truncated:content.text.length>L.maxTextChars,contentKind:'extracted-source'});
+  return KnowledgeReadOutput.parse({sourceId:input.sourceId,sourceVersion:content.version,content:content.text.slice(0,L.maxTextChars),citationAnchor:this.citation(row),accessibleAt:new Date().toISOString(),truncated:content.text.length>L.maxTextChars,contentKind:'extracted-source',...(row.title?{title:row.title.slice(0,512)}:{})});
  }
 }

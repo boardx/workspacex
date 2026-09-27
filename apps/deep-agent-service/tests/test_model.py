@@ -230,3 +230,43 @@ def test_hitl_tools_are_not_mounted_when_clarification_is_off(monkeypatch: pytes
     names_default = {getattr(t, "name", getattr(t, "__name__", "")) for t in build_tools(MagicMock())}
     assert {"confirm_task_intent", "fill_run_params", "choose_execution_option"} <= names_default
 
+
+
+def test_model_client_has_a_bounded_request_timeout_by_default(monkeypatch: pytest.MonkeyPatch) -> None:
+    """2026-09-25 devapp 实测（三张截图同一条因果链）：`web-artifact` 技能的
+    「隔离浏览器验收」步骤失败，界面说"有一次工具调用始终没有返回结果"，
+    紧接着同一个 run 把 25 次模型调用配额耗光。真因不在浏览器验收脚本，在更
+    上游一层——`ChatOpenAI` 构造时从没传过 `request_timeout`，本文件之外
+    **每一处**打外部网络的地方都有显式、有界的超时，唯独模型客户端这一处没有。
+    DashScope 对长生成偶尔迟迟不吐首字节时，`_focused_call` 里的 `model.stream()`
+    可以挂到没有上限，唯一能兜住它的是外层 300s 超时——那已经晚了。"""
+    monkeypatch.setenv("KERNEL_MODEL_BASE_URL", "https://example.invalid/compatible-mode/v1")
+    monkeypatch.setenv("KERNEL_MODEL_API_KEY", "test-key")
+    monkeypatch.delenv("KERNEL_DEEP_AGENT_MODEL_REQUEST_TIMEOUT_MS", raising=False)
+
+    model = build_chat_model()
+
+    assert model.request_timeout is not None, "模型客户端没有超时——一次卡住的请求可以挂到没有上限"
+    assert model.request_timeout == pytest.approx(180.0)
+
+
+def test_model_request_timeout_is_configurable(monkeypatch: pytest.MonkeyPatch) -> None:
+    """部署方需要按自己的 SLA 调这个数字——不是硬编码常量。"""
+    monkeypatch.setenv("KERNEL_MODEL_BASE_URL", "https://example.invalid/compatible-mode/v1")
+    monkeypatch.setenv("KERNEL_MODEL_API_KEY", "test-key")
+    monkeypatch.setenv("KERNEL_DEEP_AGENT_MODEL_REQUEST_TIMEOUT_MS", "60000")
+
+    model = build_chat_model()
+
+    assert model.request_timeout == pytest.approx(60.0)
+
+
+def test_model_request_timeout_ignores_garbage_env_value(monkeypatch: pytest.MonkeyPatch) -> None:
+    """坏形状按"没配"处理，不让一个打字错误静默把超时关掉。"""
+    monkeypatch.setenv("KERNEL_MODEL_BASE_URL", "https://example.invalid/compatible-mode/v1")
+    monkeypatch.setenv("KERNEL_MODEL_API_KEY", "test-key")
+    monkeypatch.setenv("KERNEL_DEEP_AGENT_MODEL_REQUEST_TIMEOUT_MS", "not-a-number")
+
+    model = build_chat_model()
+
+    assert model.request_timeout == pytest.approx(180.0)

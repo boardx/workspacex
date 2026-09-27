@@ -121,7 +121,7 @@ function proposal(status: z.infer<typeof interview.DigitalInterviewSkillProposal
   } as z.infer<typeof interview.DigitalInterviewSkillProposal>;
 }
 
-function installLiveFetch(initial: LiveInterview = topicPendingInterview, options: { readonly failTopicOnce?: boolean } = {}) {
+function installLiveFetch(initial: LiveInterview = topicPendingInterview, options: { readonly failTopicOnce?: boolean; readonly questionReadiness?: "ready" | "warning" | "blocking" } = {}) {
   const calls: FetchCall[] = [];
   let view = initial;
   let failTopicOnce = options.failTopicOnce ?? false;
@@ -164,11 +164,25 @@ function installLiveFetch(initial: LiveInterview = topicPendingInterview, option
       view = {
         ...view,
         questions: body.questions,
-        status: "running",
-        currentStep: "runs",
+        status: options.questionReadiness ? "questions_pending" : "running",
+        currentStep: options.questionReadiness ? "questions" : "runs",
         questionVersionId: "question-version-f04",
+        quality: options.questionReadiness ? {
+          ...view.quality,
+          readiness: {
+            status: options.questionReadiness,
+            ruleVersion: "quality-v1",
+            evaluatedAt: "2026-09-26T00:00:00.000Z",
+            issues: options.questionReadiness === "warning" ? [{ code: "single-perspective", severity: "warning", message: "需要补充真人访谈证据", objectId: null }] : options.questionReadiness === "blocking" ? [{ code: "missing-brief", severity: "blocking", message: "研究简报缺少目标", objectId: null }] : [],
+            estimatedMinutes: { min: 5, max: 10 },
+          },
+        } : view.quality,
         version: view.version + 1,
       };
+      return json(view, 201);
+    }
+    if (method === "POST" && url.pathname.endsWith("/readiness/decide")) {
+      view = { ...view, status: "running", currentStep: "runs", version: view.version + 1 };
       return json(view, 201);
     }
     if (method === "POST" && url.pathname.endsWith("/skill/messages")) {
@@ -410,6 +424,28 @@ describe("F04 正式 setup 的显式确认与双层持久化验收门", () => {
     expect(transport.requests("POST", "/questions/confirm")[0]!.body).toMatchObject({ questions: [defaultQuestion] });
   });
 
+  it("问题确认遇到 warning 时保留评估，要求填写理由后才接受提醒并开始访谈", async () => {
+    const transport = installLiveFetch(topicPendingInterview, { questionReadiness: "warning" });
+    render(<DigitalInterviewSetup interviewId={topicPendingInterview.interviewId} />);
+    fireEvent.change(await screen.findByTestId("itv-topic-input"), { target: { value: "验证提醒分支" } });
+    fireEvent.click(screen.getByTestId("itv-confirm-topic"));
+    fireEvent.click(await screen.findByTestId("itv-confirm-experts"));
+    fireEvent.click(await screen.findByTestId("itv-confirm-questions"));
+
+    expect(await screen.findByTestId("itv-readiness")).toHaveTextContent("开始前检查");
+    expect(transport.requests("POST", "/readiness/decide")).toHaveLength(0);
+    const start = screen.getByTestId("itv-start-ready");
+    expect(start).toBeDisabled();
+    fireEvent.change(screen.getByLabelText("接受提醒的理由（10–300 字）"), { target: { value: "已确认单一视角风险，并安排真人访谈补证。" } });
+    fireEvent.click(start);
+    await waitFor(() => expect(transport.requests("POST", "/readiness/decide")).toHaveLength(1));
+    expect(transport.requests("POST", "/readiness/decide")[0]!.body).toMatchObject({
+      status: "warning_accepted",
+      rationale: "已确认单一视角风险，并安排真人访谈补证。",
+      assessmentRuleVersion: "quality-v1",
+    });
+  });
+
   it("模型生成专家和静态专家都可查看详情，且查看操作不触发删除", async () => {
     installLiveFetch();
     render(<DigitalInterviewSetup interviewId={topicPendingInterview.interviewId} />);
@@ -557,6 +593,22 @@ describe("F04 正式 setup 的显式确认与双层持久化验收门", () => {
     fireEvent.click(screen.getByRole("button", { name: "确认重新生成" }));
     await waitFor(() => expect(transport.requests("POST", "/brief/confirm")).toHaveLength(1));
     expect(transport.requests("POST", "/brief/confirm")[0]!.body).toMatchObject({ topic: "更新后的主题" });
+  });
+
+  it("renders the six-stage Markdown workbench and keeps analysis as a navigable stage", async () => {
+    installLiveFetch(persistedInterview);
+    render(<DigitalInterviewSetup interviewId={persistedInterview.interviewId} />);
+
+    expect(await screen.findByTestId("itv-workbench-step-intake")).toHaveTextContent("导入需求");
+    expect(screen.getByTestId("itv-workbench-step-analysis")).toHaveTextContent("确认分析");
+    expect(screen.getByTestId("itv-workbench-step-experts")).toHaveTextContent("选择专家");
+    expect(screen.getByTestId("itv-workbench-step-outline")).toHaveTextContent("专家提纲");
+    expect(screen.getByTestId("itv-workbench-step-runs")).toHaveTextContent("开始访谈");
+    expect(screen.getByTestId("itv-workbench-step-report")).toHaveTextContent("汇总报告");
+
+    fireEvent.click(screen.getByTestId("itv-workbench-step-analysis"));
+    expect(await screen.findByTestId("itv-analysis-workbench")).toHaveTextContent("研究目标");
+    expect(screen.getByTestId("itv-step-markdown-artifact")).toHaveTextContent("分析建议.md");
   });
 
   it.each([

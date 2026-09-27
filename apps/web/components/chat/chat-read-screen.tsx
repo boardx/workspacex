@@ -15,6 +15,7 @@ import { ChatArtifactsPanel } from "@/components/chat/chat-artifacts-panel";
 import { ChatArtifactPreviewDialog } from "@/components/chat/chat-artifact-preview-dialog";
 import { ChatMaterialsPanel } from "@/components/chat/chat-materials-panel";
 import { ChatLiveMessagePanel } from "@/components/chat/chat-live-message-panel";
+import { ThreadCitationsProvider } from "@/components/chat/message-citations";
 import { useChatAttachments, type ChatAttachmentsController } from "@/components/chat/chat-composer-attachments";
 import { ChatRecordingPanel } from "@/components/chat/chat-recording-panel";
 import { ChatSkillMountPanel } from "@/components/chat/chat-skill-mount-panel";
@@ -1032,6 +1033,7 @@ function ThreadDetail({
       */}
       <ChatPopoverCoordinatorProvider>
         {bearer ? (
+          <ThreadCitationsProvider messages={detail.messages}>
           <ChatLiveMessagePanel
             threadId={detail.thread.id}
             bearer={bearer}
@@ -1078,6 +1080,7 @@ function ThreadDetail({
               />
             ) : null}
           />
+          </ThreadCitationsProvider>
         ) : <CenteredState>登录已失效，无法读取或发送消息。</CenteredState>}
         {/*
           挂载栏放在 composer 「之后」（人类 2026-08-22：「上面的 Skill 应该也放到下面」）。

@@ -6,6 +6,22 @@ export { prepareWhiteboardUpdate, WHITEBOARD_UPDATE_LIMITS } from './update';
 export { duplicateWhiteboardSnapshot, type DuplicatedWhiteboardSnapshot } from './duplicate';
 export { geometryBoundsInLocalSpace, localPointFromScene, rotatedAnchorPoint, rotatedGeometryCorners, scenePointFromLocal, type SpatialAnchor, type SpatialPoint } from './spatial-geometry';
 export {
+  SpatialRelationshipCommandPort,
+  type ConnectorAnchor,
+  type ConnectorLineStyle,
+  type ConnectorRelationship,
+  type ConnectorTip,
+  type ConnectorType,
+  type LayerAction,
+  type SpatialCommand,
+  type SpatialCommandAccepted,
+  type SpatialCommandEnvelope,
+  type SpatialEvent,
+  type SpatialPrecondition,
+} from './spatial-relationships';
+export { parsePanelMetadata, readPanelMetadata, type FlowDirection, type PanelMetadata, type PanelMode } from './spatial-model';
+export { geometryBoundsInLocalSpace, localPointFromScene, rotatedAnchorPoint, rotatedGeometryCorners, scenePointFromLocal, type SpatialAnchor, type SpatialPoint } from './spatial-geometry';
+export {
   ContentObjectCommandPort,
   SHAPE_SEMANTICS,
   SHAPE_VARIANTS,

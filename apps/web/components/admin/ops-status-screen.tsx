@@ -2,6 +2,7 @@
 import * as React from "react";
 import { Loader2 } from "lucide-react";
 import { AdminScreen } from "./admin-screen";
+import { PlatformExtractionSettingPanel } from "./platform-extraction-setting-panel";
 import { Button } from "@/components/ui/button";
 import { ApiError } from "@/lib/api-client";
 import { sendTestEmail, type SendTestEmailOut } from "@/lib/live-system-errors";
@@ -31,6 +32,9 @@ import type { UiState } from "@/lib/ui-state";
  * 探活目标（默认 Dev app，见 `apps/api/.../service-uptime-config.ts` 的
  * `DEV_APP_UPTIME_URL`），这块面板把最近一批探活结果画成红绿 bar，并给出精确到
  * 小数点后两位的可用性百分比——不是四舍五入到整数，需求原文明确要"确切的百分比"。
+ *
+ * 2026-09-26（issue #4247）新增「记忆抽取（整个部署）」面板——PR #4200 把部署级抽取开关
+ * 搬进库后的平台管理入口，见 `platform-extraction-setting-panel.tsx` 头注。
  */
 export function OpsStatusScreen({ state }: { state: UiState }) {
   return (
@@ -49,6 +53,7 @@ export function OpsStatusScreen({ state }: { state: UiState }) {
         <ServiceUptimePanel />
         <TestMailPanel />
         <PasswordResetThrottlePanel />
+        <PlatformExtractionSettingPanel />
       </div>
     </AdminScreen>
   );

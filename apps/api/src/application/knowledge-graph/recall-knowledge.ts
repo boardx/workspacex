@@ -46,8 +46,13 @@ export async function knowledgeMemoryFor(
 ): Promise<string | null> {
   try {
     const recall = await recallThreadKnowledge(port, input, log);
-    await recordTurn(port, input, recall, log);
-    return buildKnowledgeContextMessage(recall);
+    if (await recordTurn(port, input, recall, log)) return buildKnowledgeContextMessage(recall);
+    // round 7（#4284 收口）：抽取那一侧靠这条记录判断「这一轮的回答用没用个人记忆」（项目会话里用过的回答不抽）。
+    // 记录没写成 ⇒ 那道闸看不见 ⇒ 这一轮就不用个人空间的条目（fail closed）；本会话的照用。
+    const personal = recall.items.filter((i) => i.claim.scope === "personal").length;
+    if (personal === 0) return buildKnowledgeContextMessage(recall);
+    log("knowledge recall not recorded, dropping personal-space items from this turn", { runId: input.runId, dropped: personal });
+    return buildKnowledgeContextMessage({ ...recall, items: recall.items.filter((i) => i.claim.scope !== "personal") });
   } catch (e) {
     log("agent run knowledge recall failed, continuing without memory", {
       runId: input.runId,
@@ -59,16 +64,17 @@ export async function knowledgeMemoryFor(
 
 /**
  * F13：把这一轮用到的记忆记下来，回答下方的引用 chip 与「为什么用到它」从这里读。
- * 记录失败只记日志——回答照常带着记忆，只是下方不显示引用（不拖累对话，06-UX R3-8）。
+ * 记录失败只记日志、返回 false——回答照常带着本会话的记忆，只是下方不显示引用（不拖累对话，06-UX R3-8）；
+ * 个人空间的条目这一轮不用（见 knowledgeMemoryFor，round 7）。
  */
 async function recordTurn(
   port: KnowledgeRecallPort,
   input: { readonly orgId: OrgId; readonly userId: string; readonly threadId: string; readonly runId: string },
   recall: KnowledgeRecall,
   log: (message: string, detail: Record<string, unknown>) => void,
-): Promise<void> {
+): Promise<boolean> {
   const graphDegraded = recall.plan.some((p) => p.channel === "graph" && !p.available);
-  if (recall.items.length === 0 && !graphDegraded) return;
+  if (recall.items.length === 0 && !graphDegraded) return true;
   try {
     await port.recordTurn(input.orgId, {
       runId: input.runId, threadId: input.threadId, userId: input.userId, graphDegraded,
@@ -76,10 +82,12 @@ async function recordTurn(
         claimId: i.claim.id, channels: i.channels, retrievalReasons: i.retrievalReasons, score: i.score, graphPath: i.graphPath,
       })),
     });
+    return true;
   } catch (e) {
     log("knowledge recall could not be recorded for this turn", {
       runId: input.runId, detail: e instanceof Error ? e.message : "unexpected record failure",
     });
+    return false;
   }
 }
 

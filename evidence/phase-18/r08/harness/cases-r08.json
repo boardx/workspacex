@@ -1,0 +1,18 @@
+{
+  "says": {
+    "R08-A": {
+      "say": "我决定关注 211 高校",
+      "extract": {
+        "entities": [ { "name": "211 高校", "kind": "concept", "aliases": ["211"] } ],
+        "claims": [ { "statement": "我决定关注 211 高校", "kind": "decision", "confidence": 0.9, "about": ["211 高校"], "decidedBy": null, "quote": "我决定关注 211 高校" } ]
+      }
+    },
+    "R08-B": {
+      "say": "改成关注 985 吧",
+      "extract": {
+        "entities": [ { "name": "985 高校", "kind": "concept", "aliases": ["985"] } ],
+        "claims": [ { "statement": "改成关注 985 高校", "kind": "decision", "confidence": 0.9, "about": ["985 高校"], "decidedBy": null, "quote": "改成关注 985" } ]
+      }
+    }
+  }
+}

@@ -81,6 +81,25 @@ export class PgKgExtraction implements KgExtractionQueuePort, KgExtractionSource
     });
   }
 
+  async projectAnswerOutsideRecallCount(orgId: OrgId, messageId: string): Promise<number> {
+    // 端口注释：项目会话里 agent 的回答 ⇒ 产出它的 run 那一轮召回里、不是本会话 chat_session 结论的条数。
+    // 不设 app.current_user_id：个人空间的行 RLS 不放出来 ⇒ NOT EXISTS 成立 ⇒ 照样计数（fail closed）。
+    const r = await this.db.withTenant(orgId, (s) => s.query<{ n: number }>(
+      `SELECT count(*)::int AS n
+         FROM chat_messages m
+         JOIN chat_threads t ON t.org_id = m.org_id AND t.id = m.thread_id
+         JOIN kg_turn_recalls r ON r.org_id = m.org_id AND r.run_id = m.agent_run_id AND r.thread_id = m.thread_id
+         JOIN jsonb_array_elements(r.items) AS it(item) ON true
+        WHERE m.org_id = $1 AND m.id = $2 AND m.author_kind = 'agent' AND t.project_id IS NOT NULL
+          AND NOT EXISTS (
+            SELECT 1 FROM claims c
+             WHERE c.org_id = m.org_id AND c.id = it.item->>'claimId'
+               AND c.scope_kind = 'chat_session' AND c.scope_id = m.thread_id)`,
+      [orgId, messageId],
+    ));
+    return r.rows[0]?.n ?? 0;
+  }
+
   async knownObjects(orgId: OrgId, threadId: string): Promise<readonly KnownObject[]> {
     const r = await this.db.withTenant(orgId, (s) => s.query<{ id: string; name: string; aliases: string[]; object_kind: KnownObject["kind"] }>(
       `SELECT id, name, aliases, object_kind FROM ontology_objects

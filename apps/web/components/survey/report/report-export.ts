@@ -1,4 +1,5 @@
 import type { survey } from "@repo/contracts";
+import { surveyReportShareBlockedReason } from "@repo/contracts/survey-report";
 import { reportChartSvg } from "./report-chart";
 import { reportNumber } from "./report-document";
 
@@ -54,6 +55,8 @@ async function rasterImage(url: string) {
 export async function buildSurveyReportWord(
   report: survey.CompiledSurveyReport,
 ): Promise<Blob> {
+  const shareBlockedReason = surveyReportShareBlockedReason(report);
+  if (shareBlockedReason) throw new Error(shareBlockedReason);
   const {
     Document,
     Packer,
@@ -228,7 +231,10 @@ export async function exportSurveyReportWord(
 /** Isolated native print uses the whole report, not a screenshot of the scroll viewport. */
 export async function printSurveyReport(
   reportRoot: HTMLElement,
+  report?: survey.CompiledSurveyReport,
 ): Promise<void> {
+  const shareBlockedReason = report && surveyReportShareBlockedReason(report);
+  if (shareBlockedReason) throw new Error(shareBlockedReason);
   if (reportRoot.querySelector("[data-report-image-error]"))
     throw new Error("图片加载失败，无法完整打印报告");
   const frame = document.createElement("iframe");

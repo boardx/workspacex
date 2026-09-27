@@ -5,6 +5,7 @@ import type { Metadata } from "next";
 import { headers } from "next/headers";
 import { notFound } from "next/navigation";
 import { PeopleRoster } from "@/components/p30/people-roster";
+import { loadProjectRoster } from "@/lib/people-roster";
 import { WorkspaceNoAccess } from "@/components/p30/workspace-no-access";
 import { resolveWorkspaceAccess } from "@/lib/workspace-authz";
 
@@ -31,5 +32,6 @@ export default async function PeoplePage({ params }: { params: { slug: string } 
     );
   }
 
-  return <PeopleRoster slug={params.slug} />;
+  // 鉴权通过后才拉花名册——forbidden 分支零数据下发。
+  return <PeopleRoster slug={params.slug} result={await loadProjectRoster(params.slug)} />;
 }

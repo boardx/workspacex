@@ -218,6 +218,11 @@ export const KgHumanAction = z.discriminatedUnion("type", [
     resolution: z.enum(["keep_new", "keep_both", "ignore"]),
     conditions: z.object({ newer: z.string().max(200), older: z.string().max(200) }).strict().optional(),
   }).strict(),
+  /**
+   * Issue #4290：撤销一次「明确改口」的自动取代（`KgSupersedeNotice` 那一行的「撤销」）。
+   * 旧决定恢复为生效、新决定仍在；同一条新决定之后不会再被自动取代。
+   */
+  z.object({ type: z.literal("undoSupersede"), noticeId: z.string() }).strict(),
   z.object({ type: z.literal("mergeObjects"), keepObjectId: z.string(), mergeObjectId: z.string() }).strict(),
   z.object({ type: z.literal("splitObject"), objectId: z.string(), newName: z.string().min(1), moveClaimIds: z.array(z.string()).min(1) }).strict(),
   z.object({ type: z.literal("renameObject"), objectId: z.string(), name: z.string().min(1).max(200) }).strict(),
@@ -242,13 +247,36 @@ export const KG_VISIBILITY_LABEL_ZH: Record<KgVisibility, string> = {
   thread_members: "会话成员可见",
 };
 
-/** U-5 矛盾提醒（uc-18-6 D）。一轮最多一张（R7-3）；被 ignore 的同一对不再出现 */
+/**
+ * U-5 矛盾提醒（uc-18-6 D）。一轮最多一张（R7-3）；被 ignore 的同一对不再出现。
+ * `kind`（issue #4290，人类决定 2026-09-26「高把握自动、低把握弹卡」）：
+ * - `conflict`：F16 的矛盾提醒——两条已转「有矛盾」，三个出口 keep_new / keep_both（各写适用条件）/ ignore；
+ * - `possible_change`：本人低把握的改口（只有框架动词相同）——卡上问「用〈新〉取代〈旧〉？」，两条都**不改状态**、
+ *   照常召回，直到人选：[取代] = `keep_new`，[两条都保留] = `keep_both`（不带 conditions，只关卡）；界面上不给 ignore
+ *   （直接调用时同样只关卡、两条状态不动）。
+ */
+export const KgConflictPromptKind = z.enum(["conflict", "possible_change"]);
+export type KgConflictPromptKind = z.infer<typeof KgConflictPromptKind>;
 export const KgConflictPrompt = z.object({
   promptId: z.string(),
+  kind: KgConflictPromptKind,
   newerClaim: z.object({ id: z.string(), statement: z.string() }).strict(),
   olderClaim: z.object({ id: z.string(), statement: z.string(), saidAt: z.string() }).strict(),
 }).strict();
 export type KgConflictPrompt = z.infer<typeof KgConflictPrompt>;
+
+/**
+ * Issue #4290（人类决定 2026-09-26）：本人明确改口（「改成 / 换成 / 不再……」）时，新决定自动取代本人主题相同的旧决定。
+ * 会话里显示一行「已用〈新〉取代〈旧〉 · 撤销」；撤销（`applyHumanAction{undoSupersede}`）后旧决定恢复，读作 `undone`。
+ * 只给看得到两条结论的人（旧决定在个人空间时只有本人）。
+ */
+export const KgSupersedeNotice = z.object({
+  noticeId: z.string(),
+  newerClaim: z.object({ id: z.string(), statement: z.string() }).strict(),
+  olderClaim: z.object({ id: z.string(), statement: z.string() }).strict(),
+  state: z.enum(["applied", "undone"]),
+}).strict();
+export type KgSupersedeNotice = z.infer<typeof KgSupersedeNotice>;
 
 /**
  * U-4 对话里的「记住 / 忘掉」确认卡（uc-18-6 A/B）。
@@ -295,6 +323,8 @@ export const KgTurnMemory = z.object({
     z.object({ type: z.literal("conflict"), conflict: KgConflictPrompt }).strict(),
     z.object({ type: z.literal("memory_card"), card: KgMemoryCard }).strict(),
   ]).nullable(),
+  /** #4290：这一轮的改口取代提示（一行，不是卡片，不占 `prompt` 的名额）；没有为 null */
+  supersede: KgSupersedeNotice.nullable(),
   /** 本轮回答用到的记忆（按召回名次）；没用到记忆时为空数组 */
   recalled: z.array(KgRecalledMemory),
   /** 本轮计划走关联查询（图）但它没能执行：界面显示「这次没能查全你的记忆…」那一行（R4-E1） */
@@ -310,7 +340,16 @@ export type KgTurnMemory = z.infer<typeof KgTurnMemory>;
  * 抽取关闭 / 未配置、还没抽完、抽出的东西已撤销或被取代）⇒ 空数组，不是错误。
  */
 export const KgMessageExtraction = z.object({
-  claims: z.array(z.object({ claimId: z.string(), statement: z.string() }).strict()),
+  claims: z.array(z.object({
+    claimId: z.string(),
+    statement: z.string(),
+    /**
+     * issue #4283（人类决定 2026-09-26）：这条是作者本人说的「决定」，已自动记进**请求者本人**的个人空间，
+     * 且那一份仍是「AI 记下的」（未确认）——反馈条显示「已记入个人记忆」、撤销走 `undoAutoPersonalCopy`。
+     * 其余情况（不是决定类、不是请求者本人说的、副本已撤销 / 已确认、看的人不是作者）⇒ null。
+     */
+    personalCopyClaimId: z.string().nullable(),
+  }).strict()),
 }).strict();
 export type KgMessageExtraction = z.infer<typeof KgMessageExtraction>;
 
@@ -345,8 +384,37 @@ export const KgPersonalClaimOrigin = z.object({
   threadId: z.string(),
   projectId: z.string().nullable(),
   threadTitle: z.string(),
+  /**
+   * issue #4302：原结论最早被说出来的时间（ISO，支撑它的最早一条消息）——界面显示「来自你 {M/D} 的对话」，
+   * 与 `KgRecalledMemory.saidAt` 同一口径；读不到（原话只剩附件片段）为 null。
+   */
+  saidAt: z.string().nullable(),
+  /**
+   * issue #4302：这一个来源是系统自动记下的（#4283，derived_from 边由模型建立），不是人点「记到我的长期记忆」。
+   * 大脑页「忘掉这条」据此选既有动作：仍是「AI 记下的」且来源是自动记下的 ⇒ `undoAutoPersonalCopy`（只拿掉长期记忆里那份）；
+   * 其余 ⇒ 在来源对话里 `applyHumanAction{revokeClaim}`（F07 级联让长期记忆里那份一起失效）。
+   */
+  autoCopied: z.boolean(),
 }).strict();
 export type KgPersonalClaimOrigin = z.infer<typeof KgPersonalClaimOrigin>;
+
+/**
+ * issue #4302（人类决定 2026-09-26「折叠的历史」）：长期记忆里被**改口取代**的一条，折叠在取代它的那条活记忆下面
+ * （界面一行「取代了：〈旧〉」）。被忘掉 / 撤回 / 原话被删的不在这里（不显示）。只读查看者本人的个人空间。
+ * 旧的那条没有第二个状态字段：它就是 `status = superseded` 的那条（`claimTriState` 为 null，不进 `claims`）。
+ */
+export const KgPersonalReplacedClaim = z.object({
+  /** 取代它的那条（`getPersonalKnowledge.claims` 里活着的一条） */
+  byClaimId: z.string(),
+  replaces: z.object({ claimId: z.string(), statement: z.string() }).strict(),
+  /**
+   * 能撤销时：说出改口的那个对话（查看者本人的个人对话）与那次取代的提示（`KgSupersedeNotice.noticeId`）——
+   * 「撤销取代」= 在那个对话上 `applyHumanAction{undoSupersede, noticeId}`，与对话里那一行「撤销」同一个动作。
+   * 不是自动取代（矛盾卡上选了「以新的为准」）、或那个对话已不是本人的 ⇒ null（只显示，不给撤销）。
+   */
+  undo: z.object({ threadId: z.string(), noticeId: KgSupersedeNotice.shape.noticeId }).strict().nullable(),
+}).strict();
+export type KgPersonalReplacedClaim = z.infer<typeof KgPersonalReplacedClaim>;
 
 /** 大脑页最多列出的会话数（按最近活动倒序）。 */
 export const KG_BRAIN_THREADS_LIMIT = 50;
@@ -403,7 +471,7 @@ export const KG_GRAPH_VIEW_MAX_NODES = 200;
  *   只读（不受本束任何写操作影响；要改部署开关，走下面 `getPlatformExtractionSetting` /
  *   `setPlatformExtractionSetting` 这一对平台级操作，不是这里）。
  * - `orgEnabled`：本组织有没有打开（`kg_org_extraction_settings.enabled`）——组织级、
- *   admin 可写、默认 false。
+ *   admin 可写、admin 没设置过时为 true（默认开，见 `KgOrgExtractionSettingsPort.getEnabled`）。
  * 两者都为真，新消息才会被排进抽取队列（`kg_enqueue_extraction` 的三道闸门：provider 已配置、
  * 部署开关打开、组织开关打开）。
  */
@@ -577,6 +645,19 @@ export const knowledgeGraph = {
     err: ["KG_THREAD_NOT_FOUND", "KG_NOT_VISIBLE"] as const,
   },
 
+  /**
+   * UC-KG-14（issue #4283）：撤销系统自动记进**本人**个人空间的那一份决定（人的动作；Agent 身份拒绝）。
+   * `claimId` 是会话里的原结论（反馈条上那一条）。只撤仍是「AI 记下的」那份：副本只有这一个来源 ⇒ `revoked`；
+   * 同一决定在别处也说过、合并在一起 ⇒ 只摘掉这一个来源（`detached`），副本由其余来源继续支撑。
+   * 别人的空间 / 不存在 / 已确认过 / 已撤销 ⇒ 同一个 `KG_CLAIM_NOT_FOUND`。
+   */
+  undoAutoPersonalCopy: {
+    method: "POST", path: "/knowledge-graph/threads/:threadId/claims/:claimId/personal-copy/undo",
+    in: z.object({ threadId: z.string(), claimId: z.string() }).strict(),
+    out: z.object({ personalClaimId: z.string(), outcome: z.enum(["revoked", "detached"]) }).strict(),
+    err: ["KG_THREAD_NOT_FOUND", "KG_NOT_VISIBLE", "KG_CLAIM_NOT_FOUND", "KG_ACTOR_NOT_HUMAN"] as const,
+  },
+
   /** UC-KG-12：对「记住 / 忘掉」确认卡做决定（人的动作；Agent 身份拒绝） */
   actOnMemoryCard: {
     method: "POST", path: "/knowledge-graph/cards/:cardId",
@@ -602,6 +683,8 @@ export const knowledgeGraph = {
       objects: z.array(KgObject),
       claims: z.array(KgClaim),
       edges: z.array(KgEdge),
+      /** issue #4302：被改口取代的旧记忆，各自挂在取代它的活记忆下（折叠显示）；撤回 / 忘掉的不在里面 */
+      replaced: z.array(KgPersonalReplacedClaim),
     }).strict(),
     /** 调用者不是（或已不是）当前组织成员（HTTP 403）。空间里没有内容不是错误，返回空。 */
     err: ["KG_NOT_VISIBLE"] as const,

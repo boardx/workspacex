@@ -1,7 +1,8 @@
 /**
- * issue #4178 —— `kg_enqueue_extraction` 触发器的两道闸门（迁移 20260925110000）：
- * 部署具备能力（`kg_extraction_state`）AND 该组织打开了（`kg_org_extraction_settings`）
- * 都为真，新消息才排进 `kg_extraction_queue`。四种组合逐条真库反证。
+ * issue #4178 —— `kg_enqueue_extraction` 触发器的两道闸门（迁移 20260925110000，
+ * 闸门二的默认值由 20260926100000 改成开）：部署开关（`kg_extraction_state`）打开 AND 该组织
+ * 没有显式关掉（`kg_org_extraction_settings`：没有行 = 开，`enabled = false` 的行 = 关），
+ * 新消息才排进 `kg_extraction_queue`。各种组合逐条真库反证。
  *
  * ⚠ `kg_extraction_state` 是全库单例（F06 既有设计）：一旦任何并行跑的测试文件调用过
  *   `kg_extraction_enable()`，它在整次测试运行里就一直是 true——没有对应的「关」入口，
@@ -11,7 +12,8 @@
  *   其他测试文件看不到这一刻的「关」）；需要「部署有能力」时直接提交 `kg_extraction_enable()`——
  *   这本来就是全库共享、只增不减的状态，和其他测试文件的既有假设一致。
  * 组织级的 `kg_org_extraction_settings` 只在本文件自己的 org 下操作，`resetOrgs` 连表带级联
- * 删掉这个 org 时一并清空，不影响其他测试文件。
+ * 删掉这个 org 时一并清空，不影响其他测试文件。`seedOrg` 会给测试组织写一条显式关掉的行
+ * （见 `tests/support/db.ts`），要测「没有行 = 默认开」的用例用 `clearOrgSetting()` 删掉它。
  */
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { appConfig } from "../../src/infrastructure/db/pg-config";
@@ -44,6 +46,11 @@ async function setOrgEnabled(enabled: boolean): Promise<void> {
        ON CONFLICT (org_id) DO UPDATE SET enabled = EXCLUDED.enabled`,
     [ORG, enabled],
   ));
+}
+
+/** 删掉本组织的设置行，回到「从未设置过」——产品里一个新组织的真实初始状态。 */
+async function clearOrgSetting(): Promise<void> {
+  await asOwner((c) => c.query("DELETE FROM kg_org_extraction_settings WHERE org_id = $1", [ORG]));
 }
 
 /** 部署能力提交为「有」——全库共享、只增不减，和其他测试文件的既有假设一致。 */
@@ -93,7 +100,7 @@ async function sendUnderDeploymentOff(orgEnabledFirst: boolean): Promise<boolean
 }
 
 describe("F4178: 记忆抽取的组织开关——两道闸门", () => {
-  it("组织未开、部署也没能力 ⇒ 不排队", async () => {
+  it("组织显式关掉、部署也没能力 ⇒ 不排队", async () => {
     expect(await sendUnderDeploymentOff(false)).toBe(false);
   });
 
@@ -101,10 +108,21 @@ describe("F4178: 记忆抽取的组织开关——两道闸门", () => {
     expect(await sendUnderDeploymentOff(true)).toBe(false);
   });
 
-  it("部署有能力，但组织没开 ⇒ 不排队（组织那道闸门单独拦下，即便部署已经打开）", async () => {
+  it("部署有能力，组织从未设置过（没有行）⇒ 排队（组织开关默认开，人类指令「默认是打开的」）", async () => {
     await enableDeployment();
-    // 组织行不存在 = 默认关（新组织不默认抽取对话内容）。
+    await clearOrgSetting();
+    expect(await sendAndCheckQueued()).toBe(true);
+  });
+
+  it("部署有能力，但组织显式关掉（enabled = false 的行）⇒ 不排队（显式关优先于默认开）", async () => {
+    await enableDeployment();
+    await setOrgEnabled(false);
     expect(await sendAndCheckQueued()).toBe(false);
+  });
+
+  it("组织从未设置过（没有行），但部署没能力 ⇒ 不排队（默认开不越过部署那道闸门）", async () => {
+    await clearOrgSetting();
+    expect(await sendUnderDeploymentOff(false)).toBe(false);
   });
 
   it("两道都开 ⇒ 排队", async () => {

@@ -223,6 +223,16 @@ const EXEMPTIONS = [
       "`pnpm run e2e:real-model-office` 才能发现。",
   },
   {
+    spec: "apps/web/e2e/real-model-web-artifact-reliability.spec.ts",
+    reason:
+      "2026-09-27 人类交办的 web-artifact 技能十连跑成功率验收（devapp 三张截图连续复现" +
+      "`tool_call_unresolved` 之后）。与上面 real-model-office-matrix 同一条纪律：" +
+      "共用同一份 `playwright.real-model-smoke.config.ts`，只加一个 project 换 testMatch，" +
+      "没有接进任何 CI job，目前只能本地手动跑" +
+      "（`pnpm run e2e:real-model-web-artifact-reliability` / `scripts/real-model-smoke.sh " +
+      "web-artifact-reliability`）。如实记为完全 unrun，接不接进 CI 是另一次跨 lane 预算的决定。",
+  },
+  {
     spec: "apps/web/e2e/live-collab-orchestration-shots.spec.ts",
     reason:
       "Phase 10「现场协作编排」UI 先行原型（9 屏 + 七态 + 4 视角）—— 同 canvas-tpl-shots：" +
@@ -298,6 +308,13 @@ const CONDITIONAL_COVERAGE_EXEMPTIONS = [
   {
     spec: "apps/web/e2e/chat-path-f5-cancel-propagates-to-subtask.spec.ts",
     reason: PROJECT_GRANULARITY_LEGACY("chat 线"),
+  },
+  {
+    spec: "apps/web/e2e/first-value-citation-loop.spec.ts",
+    reason:
+      "issue #4260 第一个价值时刻引用闭环。作者本地无 docker、从未真栈跑过，按 chat-read 配置里" +
+      "「首跑与搬家」的规矩先进非阻塞的 chat-path-coverage 车道（workflow_dispatch）；" +
+      "在 CI 上连绿两次后搬进阻塞的 chat-read project，并删掉本条豁免。",
   },
   {
     spec: "apps/web/e2e/chat-task-workbench-a11y.spec.ts",
