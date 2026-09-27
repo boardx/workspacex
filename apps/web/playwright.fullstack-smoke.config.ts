@@ -397,6 +397,8 @@ export default defineConfig({
         "core-journey-04-canvas-template-lifecycle-chat.spec.ts",
         // BV01 owns its Board lifecycle and can run after the seeded empty-state assertions.
         "board-fabric-surface.spec.ts",
+        // BV12–BV14 exercise canonical layout commands against the real Board stack.
+        "board-selection-layout.spec.ts",
       ],
       grepInvert: EMPTY_DB_TAG_RE,
       dependencies: ["seeded"],
