@@ -24,6 +24,7 @@ export interface WhiteboardRepository {
   get(principal: Principal, boardId: string): Promise<C.Board | null>;
   update(principal: Principal, boardId: string, input: UpdateBoard): Promise<C.Board | null>;
   permanentlyDelete(principal: Principal, boardId: string, input: DeleteBoard): Promise<z.infer<typeof C.DeleteBoardReceipt> | null>;
+  mentionableMembers(principal: Principal, boardId: string): Promise<z.infer<typeof C.MentionableMember>[] | null>;
   members(principal: Principal, boardId: string): Promise<Member[] | null>;
   putMember(principal: Principal, boardId: string, member: Member): Promise<boolean>;
   removeMember(principal: Principal, boardId: string, userId: string): Promise<boolean>;
