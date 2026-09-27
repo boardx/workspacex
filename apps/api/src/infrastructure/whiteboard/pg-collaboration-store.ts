@@ -162,6 +162,11 @@ export class PgWhiteboardCollaborationStore implements WhiteboardCollaborationSt
     const commands = structuredClone(parsed.data);
     return this.commitInTransaction(session, p, boardId, input.epoch, input.requestId, input.requestId, HASH(`commands:${JSON.stringify(canonical(commands))}`), snapshot => this.validator.commands(snapshot, commands),undefined,input.actorId);
   }
+  async compensateInTransaction(session:TenantSession,p:Principal,boardId:string,input:{epoch:number;requestId:string;actorId:string;before:Uint8Array}):Promise<WhiteboardPendingUpdate>{
+    validIds(p,boardId,input.requestId,input.epoch);
+    if(!this.validator.compensate)throw new Fault('VALIDATOR_UNAVAILABLE');
+    return this.commitInTransaction(session,p,boardId,input.epoch,input.requestId,input.requestId,HASH(`operation-compensation:${HASH(input.before)}`),snapshot=>this.validator.compensate!(snapshot,input.before),undefined,input.actorId);
+  }
   private async commit(p: Principal, boardId: string, epoch: number, updateId: string, gestureId: string, hash: string, validate: (snapshot: Uint8Array) => Promise<ValidatedWhiteboardUpdate>, legacyHash?:string): Promise<WhiteboardUpdateAck> {
     const { durability: _pending, ...ack } = await this.db.withTenant(p.orgId, session => this.commitInTransaction(session, p, boardId, epoch, updateId, gestureId, hash, validate, legacyHash));
     return ack;

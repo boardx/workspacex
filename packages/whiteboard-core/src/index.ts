@@ -123,3 +123,4 @@ export { WhiteboardOperationKernel, digestWhiteboardObject, stableBoardDigest, t
 export { WhiteboardAIProposalManager, proposalCommands } from './ai-proposal';
 export { computeRenderedLayoutHash, renderedLayoutToCommands, verifyRenderedDiagramLayout } from './artifact-handoff';
 export { WhiteboardPresentationSession, type PresentationState } from './presentation';
+export {compensateWhiteboardSnapshot} from './snapshot-compensation';

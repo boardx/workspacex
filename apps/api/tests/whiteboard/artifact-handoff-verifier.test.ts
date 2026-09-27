@@ -11,7 +11,7 @@ const layout={...body,layoutHash:computeRenderedLayoutHash(body)};
 function fixture(stored:Uint8Array=Buffer.from(JSON.stringify(layout)),revision='artifact-v1:7'){
   const issued:string[]=[];
   const audit={lockHead:async()=>({epoch:1,seq:0,actorRole:'owner'}),readArtifactSource:async(_s:any,_p:any,_a:string,r:string)=>r===revision?{versionId:'v7',objectKey:'key',contentHash:createHash('sha256').update(stored).digest('hex')}:null,issueArtifactLayoutBinding:async(_s:any,_p:any,_a:string,_v:string,h:string)=>{issued.push(h)},canReadArtifact:async()=>issued.includes(layout.layoutHash),replay:async()=>null,append:async()=>{},resolveActor:async()=>null} as any;
-  const service=new WhiteboardOperationService({withTenant:async(_org:string,fn:any)=>fn({})} as any,{writeCommandsInTransaction:async()=>({epoch:1,seq:1})} as any,audit,()=>new Date('2026-09-27T00:00:00Z'),{get:async()=>stored});
+  const service=new WhiteboardOperationService({withTenant:async(_org:string,fn:any)=>fn({})} as any,{writeCommandsInTransaction:async()=>({epoch:1,seq:1})} as any,audit,()=>new Date('2026-09-27T00:00:00Z'),{get:async()=>stored},undefined,{capture:async()=>({}),record:async()=>{}} as any);
   return{service,issued};
 }
 

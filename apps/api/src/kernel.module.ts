@@ -1,3 +1,4 @@
+import {PgWhiteboardOperationUndoStore} from './infrastructure/whiteboard/pg-operation-undo-store';
 import {WHITEBOARD_ORGANIZE_SERVICE,WhiteboardOrganizeService} from './application/whiteboard/organize-service';
 import {PgBoardOrganizeActorDirectory} from './infrastructure/whiteboard/pg-organize-actor-directory';
 import { WhiteboardAssetsController } from './interface/controllers/whiteboard-assets.controller';
@@ -3003,7 +3004,7 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
     },
     {
       provide: WHITEBOARD_OPERATION_SERVICE,
-      useFactory: (db: DatabasePort, collaboration: PgWhiteboardCollaborationStore,objects:ObjectStore,validator:WorkerWhiteboardUpdateValidator) => new WhiteboardOperationService(db, collaboration, new PgWhiteboardOperationRepository(),undefined,objects,validator),
+      useFactory: (db: DatabasePort, collaboration: PgWhiteboardCollaborationStore,objects:ObjectStore,validator:WorkerWhiteboardUpdateValidator) => new WhiteboardOperationService(db, collaboration, new PgWhiteboardOperationRepository(),undefined,objects,validator,new PgWhiteboardOperationUndoStore(collaboration,objects)),
       inject: [DATABASE_PORT, WHITEBOARD_COLLABORATION_STORE,OBJECT_STORE,WHITEBOARD_UPDATE_VALIDATOR],
     },
     {

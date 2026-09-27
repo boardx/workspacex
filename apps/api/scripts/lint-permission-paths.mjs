@@ -72,6 +72,10 @@ const SUBTASK_BOUNDARIES = new Set([
 ]);
 const ALLOWLIST = new Map([
   [
+    "src/infrastructure/whiteboard/pg-operation-undo-store.ts",
+    "Board receipt Undo is authorized by the operation service under the Board lock: fresh role/archive/actor delegation, original owner and exact revision CAS precede all reads/writes. This adapter has no public disclosure surface; it accepts only that tenant transaction, scopes metadata by org+board, verifies the immutable ObjectStore key/hash/size, preserves comment body references and CASes status restoration. operation-undo-store.test.ts pins table scope, predicates, integrity, authorization and mutation counterproofs; operation-undo.test.ts pins denial before compensation. Remove this exception with those tests.",
+  ],
+  [
     "src/infrastructure/whiteboard/pg-whiteboard-repository.ts",
     "#3926: private-by-default whiteboards have explicit owner/member roles, not an acl_bindings ObjectRef. Each read is actor-filtered inside withTenant; mutations require owner_id, grants additionally require org_memberships. Forcing an unbound generic ACL ref would default to org-wide and weaken this rule. Scope is only whiteboards/whiteboard_members/org_memberships metadata. Real PostgreSQL negative tests in tests/whiteboard/resource-lifecycle.test.ts cover same-org nonmember, cross-org identity, viewer/editor administration and revocation; resource-http.test.ts covers the global PrincipalGuard and public response boundary. tests/whiteboard/resource-repository-guard.test.ts mechanically restricts the three-table scope, withTenant on every method, read visibility and owner predicates, with mutation counterexamples. The 11 real PostgreSQL/HTTP tests passed for #3926. Remove this entry if these tests or actor predicates are removed. Content/sync require separately reviewed authorization.",
   ],

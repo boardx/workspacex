@@ -1,6 +1,6 @@
 import { createHash, randomUUID } from 'node:crypto';
 import {
-  WhiteboardObjectsQuery, WhiteboardObjectsSnapshot, WhiteboardArtifactHandoff, WhiteboardEventCursor, WhiteboardOperationRequest, WhiteboardOperationReceipt,
+  WhiteboardOperationUndoRequest, WhiteboardObjectsQuery, WhiteboardObjectsSnapshot, WhiteboardArtifactHandoff, WhiteboardEventCursor, WhiteboardOperationRequest, WhiteboardOperationReceipt,
   type WhiteboardOperationEvent as Event, type WhiteboardOperationReceipt as Receipt,
 } from '@repo/contracts/whiteboard-operation';
 import type { WhiteboardCommand } from '@repo/contracts/whiteboard-document';
@@ -10,6 +10,7 @@ import type { TenantSession } from '../ports/database.port';
 import type {ObjectStore} from '../artifact/ports';
 import {artifactSourceMatchesLayout} from '../../domain/whiteboard/artifact-layout-source-verifier';
 import { WhiteboardCollaborationError, type WhiteboardCollaborationStore, type WhiteboardUpdateValidator } from './collaboration-ports';
+import type {WhiteboardOperationUndoStore} from './operation-undo-ports';
 import type { RegisteredBoardActor, WhiteboardOperationAuditRepository } from './operation-ports';
 import {renderedLayoutToCommands} from '@repo/whiteboard-core';
 
@@ -40,7 +41,7 @@ function eventType(commands:readonly WhiteboardCommand[],source:string):Event['t
 
 /** Durable public API adapter. The collaboration write, audit receipt and event append share one tenant transaction. */
 export class WhiteboardOperationService {
-  constructor(private readonly db:DatabasePort,private readonly collaboration:WhiteboardCollaborationStore,private readonly audit:WhiteboardOperationAuditRepository,private readonly now=()=>new Date(),private readonly objects?:Pick<ObjectStore,'get'>,private readonly validator?:Pick<WhiteboardUpdateValidator,'objects'>){}
+  constructor(private readonly db:DatabasePort,private readonly collaboration:WhiteboardCollaborationStore,private readonly audit:WhiteboardOperationAuditRepository,private readonly now=()=>new Date(),private readonly objects?:Pick<ObjectStore,'get'>,private readonly validator?:Pick<WhiteboardUpdateValidator,'objects'>,private readonly undoStore?:WhiteboardOperationUndoStore){}
   async execute(principal:Principal,boardId:string,untrusted:unknown,expectedRuntime?:{model:string;skill:string;agentVersionId:string}):Promise<Receipt>{
     const request=WhiteboardOperationRequest.parse(untrusted);
     return this.db.withTenant(principal.orgId,session=>this.executeInTransaction(session,principal,boardId,request,expectedRuntime));
@@ -50,7 +51,8 @@ export class WhiteboardOperationService {
       if(requested.boardId!==boardId||requested.actor.orgId!==principal.orgId)throw new WhiteboardOperationError('FORBIDDEN');
       const head=await this.audit.lockHead(session,principal,boardId);
       if(!head)throw new WhiteboardOperationError('NOT_FOUND');
-      if(head.actorRole==='viewer')throw new WhiteboardOperationError('FORBIDDEN');
+      if(head.actorRole!=='owner'&&head.actorRole!=='editor')throw new WhiteboardOperationError('FORBIDDEN');
+      if(head.archived)throw new WhiteboardOperationError('ARCHIVED');
       let actor:typeof requested.actor,registered:RegisteredBoardActor|null=null;
       if(requested.actor.kind==='human'){
         if(requested.actor.actorId!==principal.userId||requested.actor.delegatedBy!==null)throw new WhiteboardOperationError('FORBIDDEN');
@@ -76,12 +78,51 @@ export class WhiteboardOperationService {
       const old=await this.audit.replay(session,principal,boardId,request.requestId);
       if(old){if(old.requestHash!==requestHash)throw new WhiteboardOperationError('IDEMPOTENCY_CONFLICT');return WhiteboardOperationReceipt.parse({...old.receipt,replayed:true});}
       if(head.epoch!==request.expectedRevision.epoch||head.seq!==request.expectedRevision.seq)throw new WhiteboardOperationError('STALE_REVISION');
+      if(!this.undoStore)throw new WhiteboardOperationError('DEPENDENCY_UNAVAILABLE');
+      const before=await this.undoStore.capture(session,principal,boardId);
       const ack=await this.collaboration.writeCommandsInTransaction(session,principal,boardId,{epoch:request.expectedRevision.epoch,requestId:request.requestId,commands:request.commands,actorId:actor.actorId}).catch(error=>collaborationError(error));
       const operationId=randomUUID(),event:Event={eventId:randomUUID(),operationId,requestId:request.requestId,boardId,
         type:eventType(request.commands,request.provenance.source),actor:request.actor,objectIds:objectIds(request.commands),revision:{epoch:ack.epoch,seq:ack.seq},occurredAt:this.now().toISOString(),provenance:request.provenance};
       const receipt=WhiteboardOperationReceipt.parse({operationId,requestId:request.requestId,boardId,revision:event.revision,replayed:false,events:[event]});
       await this.audit.append(session,principal,{requestHash,receipt,event});
+      await this.undoStore.record(session,principal,receipt,before);
       return receipt;
+  }
+  async undo(principal:Principal,boardId:string,operationId:string,untrusted:unknown):Promise<Receipt>{
+    const input=WhiteboardOperationUndoRequest.parse(untrusted);
+    return this.db.withTenant(principal.orgId,async session=>{
+      const head=await this.audit.lockHead(session,principal,boardId);
+      if(!head)throw new WhiteboardOperationError('NOT_FOUND');
+      if(head.actorRole!=='owner'&&head.actorRole!=='editor')throw new WhiteboardOperationError('FORBIDDEN');
+      if(head.archived)throw new WhiteboardOperationError('ARCHIVED');
+      if(!this.undoStore||!this.collaboration.compensateInTransaction)throw new WhiteboardOperationError('DEPENDENCY_UNAVAILABLE');
+      const stored=await this.undoStore.get(session,principal,boardId,operationId),source=stored?.receipt.events[0];
+      if(!stored||stored.ownerUserId!==principal.userId||!source)throw new WhiteboardOperationError('NOT_FOUND');
+      let actor=source.actor;
+      if(actor.kind==='human'){
+        if(actor.actorId!==principal.userId)throw new WhiteboardOperationError('FORBIDDEN');
+        actor={...actor,role:head.actorRole};
+      }else{
+        const registered=await this.audit.resolveActor(session,principal,actor.actorId);
+        if(!registered||registered.kind!==actor.kind||registered.delegatedBy!==principal.userId||!registered.scopes.includes('board:write'))throw new WhiteboardOperationError('FORBIDDEN');
+        actor={...actor,role:head.actorRole,scopes:registered.scopes,delegatedBy:registered.delegatedBy};
+      }
+      if(input.expectedRevision.epoch!==stored.receipt.revision.epoch||input.expectedRevision.seq!==stored.receipt.revision.seq)throw new WhiteboardOperationError('STALE_REVISION');
+      const requestHash=hash({kind:'operation-undo',operationId,owner:principal.userId,actorId:actor.actorId,revision:stored.receipt.revision});
+      const old=await this.audit.replay(session,principal,boardId,stored.undoId);
+      if(old){if(old.requestHash!==requestHash)throw new WhiteboardOperationError('IDEMPOTENCY_CONFLICT');return WhiteboardOperationReceipt.parse({...old.receipt,replayed:true});}
+      if(head.epoch!==stored.receipt.revision.epoch||head.seq!==stored.receipt.revision.seq)throw new WhiteboardOperationError('STALE_REVISION');
+      const desired=await this.undoStore.readBefore(principal,boardId,stored.before);
+      const before=await this.undoStore.capture(session,principal,boardId);
+      await this.undoStore.checkComments(session,principal,boardId,stored.before);
+      const ack=await this.collaboration.compensateInTransaction(session,principal,boardId,{epoch:head.epoch,requestId:stored.undoId,actorId:actor.actorId,before:desired}).catch(collaborationError);
+      await this.undoStore.restoreComments(session,principal,boardId,stored.before);
+      const event:Event={...source,eventId:randomUUID(),operationId:randomUUID(),requestId:stored.undoId,type:'OperationUndone',actor,revision:{epoch:ack.epoch,seq:ack.seq},occurredAt:this.now().toISOString(),provenance:{source:'public-api',model:null,skill:null,sourceArtifactId:null,sourceRevision:null,layoutHash:null,inputObjectIds:source.objectIds}};
+      const receipt=WhiteboardOperationReceipt.parse({operationId:event.operationId,requestId:stored.undoId,boardId,revision:event.revision,replayed:false,events:[event]});
+      await this.audit.append(session,principal,{requestHash,receipt,event});
+      await this.undoStore.record(session,principal,receipt,before);
+      return receipt;
+    });
   }
   async events(principal:Principal,boardId:string,untrusted:unknown){
     const cursor=WhiteboardEventCursor.parse(untrusted);

@@ -42,6 +42,7 @@ function assertBytes(value: Uint8Array, max: number): void {
 /** Each invocation gets a fresh, disposable heap. No document state is retained. */
 export class WorkerWhiteboardUpdateValidator implements WhiteboardUpdateValidator {
   constructor(private readonly timeoutMs: number = WHITEBOARD_VALIDATOR_LIMITS.timeoutMs) {}
+  async compensate(snapshot:Uint8Array,before:Uint8Array):Promise<ValidatedWhiteboardUpdate>{assertBytes(before,WHITEBOARD_UPDATE_LIMITS.documentBytes);return this.run({mode:'compensate',snapshot,before}) as Promise<ValidatedWhiteboardUpdate>;}
   async objects(snapshot: Uint8Array): Promise<WhiteboardObject[]> {
     return this.run({ mode: 'objects', snapshot }) as Promise<WhiteboardObject[]>;
   }

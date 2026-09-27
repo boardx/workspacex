@@ -15,6 +15,8 @@ export default defineConfig({ resolve:{alias:{
   '@repo/whiteboard-core':resolve(__dirname,'../../packages/whiteboard-core/src/index.ts'),
 }},test: {
   include: [
+    'tests/whiteboard/operation-undo-store.test.ts',
+    'tests/whiteboard/operation-compensation-worker.test.ts',
     'tests/whiteboard/real-model-fixture-guard.test.ts',
     'tests/whiteboard/organize-service.test.ts',
     'tests/whiteboard/proposal-undo-boundary.test.ts',
@@ -33,6 +35,7 @@ export default defineConfig({ resolve:{alias:{
     'tests/whiteboard/recovery-repository-guard.test.ts',
     'tests/whiteboard/operation-service.test.ts',
     'tests/whiteboard/operation-event-cursor.test.ts',
+    'tests/whiteboard/operation-undo.test.ts',
     'tests/whiteboard/agent-api-producer-guard.test.ts',
     'tests/whiteboard/objects-read.test.ts',
     'tests/whiteboard/validator-capacity.test.ts',

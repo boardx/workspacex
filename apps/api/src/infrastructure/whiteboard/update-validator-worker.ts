@@ -1,9 +1,9 @@
 import { parentPort, workerData } from 'node:worker_threads';
 import * as Y from 'yjs';
-import { createWhiteboardDocument, executeCommands, prepareWhiteboardUpdate, validateDocument, readObjects, WHITEBOARD_UPDATE_LIMITS } from '@repo/whiteboard-core';
+import { compensateWhiteboardSnapshot, createWhiteboardDocument, executeCommands, prepareWhiteboardUpdate, validateDocument, readObjects, WHITEBOARD_UPDATE_LIMITS } from '@repo/whiteboard-core';
 import type { WhiteboardCommand } from '@repo/contracts/whiteboard-document';
 
-type Input = { mode: 'objects'; snapshot: Uint8Array } | { mode: 'object-ids'; snapshot: Uint8Array } | { mode: 'update'; snapshot: Uint8Array; update: Uint8Array } | { mode: 'commands'; snapshot: Uint8Array; commands: WhiteboardCommand[] } | { mode: 'diff'; snapshot: Uint8Array; vector?: Uint8Array };
+type Input = {mode:'compensate';snapshot:Uint8Array;before:Uint8Array} | { mode: 'objects'; snapshot: Uint8Array } | { mode: 'object-ids'; snapshot: Uint8Array } | { mode: 'update'; snapshot: Uint8Array; update: Uint8Array } | { mode: 'commands'; snapshot: Uint8Array; commands: WhiteboardCommand[] } | { mode: 'diff'; snapshot: Uint8Array; vector?: Uint8Array };
 const input = workerData as Input;
 const doc = createWhiteboardDocument();
 try {
@@ -17,7 +17,10 @@ try {
     parentPort?.postMessage({ result: Y.encodeStateAsUpdate(doc, input.vector) });
   } else {
     let update: Uint8Array;
-    if (input.mode === 'update') { update = prepareWhiteboardUpdate(doc, input.update); Y.applyUpdate(doc, update); }
+    if(input.mode==='compensate'){
+      const before=createWhiteboardDocument();
+      try{Y.applyUpdate(before,input.before);validateDocument(before);const vector=Y.encodeStateVector(doc);compensateWhiteboardSnapshot(doc,readObjects(before));update=Y.encodeStateAsUpdate(doc,vector);}finally{before.destroy();}
+    }else if (input.mode === 'update') { update = prepareWhiteboardUpdate(doc, input.update); Y.applyUpdate(doc, update); }
     else {
       const vector = Y.encodeStateVector(doc);
       executeCommands(doc, input.commands, 'authorized-host-command');
