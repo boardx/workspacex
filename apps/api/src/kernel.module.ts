@@ -6,6 +6,7 @@ import { WHITEBOARD_REPOSITORY } from './application/whiteboard/ports';
 import { PgWhiteboardRepository } from './infrastructure/whiteboard/pg-whiteboard-repository';
 import { WhiteboardImportController } from './interface/controllers/whiteboard-import.controller';
 import { WHITEBOARD_IMPORT_SERVICE, WhiteboardImportService } from './application/whiteboard/import-service';
+import { WHITEBOARD_OBJECT_INVENTORY,type WhiteboardObjectInventory } from './application/whiteboard/object-retention';
 import { PgWhiteboardImportRepository } from './infrastructure/whiteboard/pg-import-repository';
 import { WHITEBOARD_GC_RUNTIME,WhiteboardGcRuntime } from './infrastructure/whiteboard/object-gc-runtime';
 import { WHITEBOARD_RECOVERY_SERVICE, WhiteboardRecoveryService } from './application/whiteboard/recovery-service';
@@ -1525,7 +1526,7 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
     { provide: IN_FLIGHT_CALLS, useClass: InMemoryInFlightCalls },
     // File byte and compliance dependencies share the configured storage backend.
     ...storageProviders, ...deletionProviders,
-    {provide:WHITEBOARD_GC_RUNTIME,useFactory:(db:DatabasePort,objects:ObjectStore,purge:PhysicalPurgePort)=>new WhiteboardGcRuntime(db,objects as unknown as import('./application/whiteboard/object-retention').WhiteboardObjectInventory,purge as PhysicalPurgePort&Required<Pick<PhysicalPurgePort,'purgeExact'>>),inject:[DATABASE_PORT,OBJECT_STORE,PHYSICAL_PURGE_PORT]},
+    {provide:WHITEBOARD_GC_RUNTIME,useFactory:(db:DatabasePort,objects:WhiteboardObjectInventory,purge:PhysicalPurgePort)=>new WhiteboardGcRuntime(db,objects,purge as PhysicalPurgePort&Required<Pick<PhysicalPurgePort,'purgeExact'>>),inject:[DATABASE_PORT,WHITEBOARD_OBJECT_INVENTORY,PHYSICAL_PURGE_PORT]},
     { provide: EMBEDDING_PORT, useFactory: langChainEmbeddingClientFromEnv },
     {
       provide: RERANK_PORT,

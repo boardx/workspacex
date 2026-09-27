@@ -9,6 +9,7 @@ export interface WhiteboardStoredObject { key: string; lastModified: Date; sizeB
 export interface WhiteboardObjectInventory extends Pick<ObjectStore, 'head'> {
   list(prefix: string, cursor?: string): Promise<{ objects: WhiteboardStoredObject[]; cursor?: string }>;
 }
+export const WHITEBOARD_OBJECT_INVENTORY=Symbol('WhiteboardObjectInventory');
 export interface WhiteboardObjectRetentionRepository {
   roots(orgId: string): Promise<WhiteboardObjectRoot[]>;
   tombstones(orgId: string): Promise<Map<string, Date>>;
