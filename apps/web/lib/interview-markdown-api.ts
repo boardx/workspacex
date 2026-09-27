@@ -3,7 +3,7 @@ import type { z } from "zod";
 import { apiRequest } from "./api-client";
 
 export type InterviewMarkdownEnvelope = z.infer<typeof interviewMarkdown.InterviewMarkdownEnvelope>;
-export type InterviewMarkdownDocument = interviewMarkdown.InterviewMarkdownDocument;
+export type InterviewMarkdownDocument = z.infer<typeof interviewMarkdown.InterviewMarkdownDocument>;
 type Step = InterviewMarkdownDocument["step"];
 type Versions = z.infer<typeof interviewMarkdown.GenerateInterviewMarkdown>;
 
