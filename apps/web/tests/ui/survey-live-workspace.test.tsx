@@ -98,6 +98,8 @@ describe('live survey workspace persistence',()=>{
   render(<LiveSurveyWorkspace surveyId="saved-survey" initialStep="publish"/>);
   expect(await screen.findByLabelText('答题链接')).toHaveValue('http://localhost:3000/surveys/collecting-link');
   expect(screen.getByRole('button',{name:'复制答题链接'})).toBeEnabled();
+  expect(screen.getByRole('region',{name:'回收数据'})).toHaveTextContent('已收到答卷');
+  expect(screen.getByRole('region',{name:'回收设置'})).toHaveTextContent('发布版本 v4');
  });
  it('does not replace a failed load with prototype questions',async()=>{
   request.mockRejectedValueOnce(new Error('问卷不存在或无访问权限'));
