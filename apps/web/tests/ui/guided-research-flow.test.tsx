@@ -11,6 +11,17 @@ vi.mock("@/lib/guided-research-api", async (original) => ({
 beforeEach(() => { vi.resetAllMocks(); localStorage.clear(); vi.mocked(listGuidedResearchSessions).mockResolvedValue({ items: [] }); });
 // Replaces the retired browser-demo journey: session URLs now use server runtime commands.
 describe("guided research session routing and lifecycle", () => {
+  it("preserves an unsent assistant message when leaving is cancelled", async () => {
+    vi.mocked(getResearchRuntime).mockResolvedValue(runtimeFixture("report"));
+    render(<GuidedResearchFlow step="report" sessionId="grs-live" />);
+    await screen.findByTestId("guided-research-report-workspace");
+    fireEvent.click(screen.getByRole("button", { name: "AI 助手" }));
+    fireEvent.change(screen.getByRole("textbox", { name: "研究对话" }), { target: { value: "尚未发送的研究问题" } });
+    fireEvent.click(screen.getByRole("button", { name: "返回研究列表" }));
+    expect(screen.getByRole("dialog")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "继续编辑" }));
+    expect(screen.getByRole("textbox", { name: "研究对话" })).toHaveValue("尚未发送的研究问题");
+  });
   it("opens the report rather than retaining chapters after returning to the list", async () => {
     const runtime = runtimeFixture("report");
     vi.mocked(getResearchRuntime).mockResolvedValue(runtime);
