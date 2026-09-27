@@ -331,6 +331,7 @@ export function BoardFabricSurface({ objects, selectedObjectIds, readOnly, tool,
   const renderedRef = React.useRef(new Map<string, BoardFabricObject>());
   const [renderedObjects, setRenderedObjects] = React.useState<readonly BoardFabricObject[]>(objects);
   const selectedObjectIdsRef = React.useRef(selectedObjectIds);
+  const reconcilingSelectionRef = React.useRef(false);
   const renderFrameRef = React.useRef<number | null>(null);
   const callbacksRef = React.useRef({ onSelectionChange, onObjectTransform, onObjectsTransform, onViewportChange, onCanvasClick, onCanvasDoubleClick, onObjectDoubleClick, onToolDrop, onDrawingComplete, onPanelHoverChange, onObjectReparent, onObjectHoverChange });
   const stateRef = React.useRef({ readOnly, tool, viewport });
@@ -363,6 +364,7 @@ export function BoardFabricSurface({ objects, selectedObjectIds, readOnly, tool,
     resizeObserver.observe(host);
 
     const selectionChanged = () => {
+      if (reconcilingSelectionRef.current) return;
       const active = canvas.getActiveObject() as TaggedFabricObject | undefined;
       const id = active?.data?.boardObjectId;
       const nested = !id && active && "getObjects" in active && typeof active.getObjects === "function"
@@ -619,10 +621,15 @@ export function BoardFabricSurface({ objects, selectedObjectIds, readOnly, tool,
     });
     // Keep locked objects in the canonical selection for inspection, while the
     // Fabric transform boundary previews and moves only the unlocked subset.
-    if (projected.length > 1 && transformable.length > 1) canvas.setActiveObject(new ActiveSelection(transformable, { canvas }));
-    else if (projected.length > 1 && transformable[0]) canvas.setActiveObject(transformable[0]);
-    else if (projected[0]) canvas.setActiveObject(projected[0]);
-    else canvas.discardActiveObject();
+    reconcilingSelectionRef.current = true;
+    try {
+      if (projected.length > 1 && transformable.length > 1) canvas.setActiveObject(new ActiveSelection(transformable, { canvas }));
+      else if (projected.length > 1 && transformable[0]) canvas.setActiveObject(transformable[0]);
+      else if (projected[0]) canvas.setActiveObject(projected[0]);
+      else canvas.discardActiveObject();
+    } finally {
+      reconcilingSelectionRef.current = false;
+    }
     scheduleRender();
   }, [objects, scheduleRender, selectedObjectIds]);
 

@@ -18,6 +18,7 @@ const probe = vi.hoisted(() => ({
   objects: [] as MockProjectedObject[],
   handlers: new Map<string, (event: { target?: MockProjectedObject; e?: MouseEvent }) => void>(),
   activeId: null as string | null,
+  emitSelectionOnSet: false,
   zoom: 1,
   clearCalls: 0,
   renderCalls: 0,
@@ -77,7 +78,7 @@ vi.mock("fabric", () => {
     getWidth() { return 1200; } getHeight() { return 800; } getZoom() { return probe.zoom; }
     zoomToPoint(_point: unknown, value: number) { probe.zoom = value; }
     getScenePoint() { return { x: 123, y: 234 }; }
-    setActiveObject(object: MockProjectedObject) { probe.activeId = object.data?.boardObjectId ?? null; }
+    setActiveObject(object: MockProjectedObject) { probe.activeId = object.data?.boardObjectId ?? null; if (probe.emitSelectionOnSet) probe.handlers.get("selection:updated")?.({ target: object }); }
     discardActiveObject() { probe.activeId = null; }
     getActiveObject() { return probe.objects.find((object) => object.data?.boardObjectId === probe.activeId); }
     clear() { probe.clearCalls += 1; }
@@ -108,7 +109,7 @@ function renderSurface(overrides: Partial<React.ComponentProps<typeof BoardFabri
 }
 
 describe("BoardFabricSurface", () => {
-  beforeEach(() => { probe.instances = 0; probe.objects.length = 0; probe.handlers.clear(); probe.activeId = null; probe.zoom = 1; probe.clearCalls = 0; probe.renderCalls = 0; probe.moveCalls = 0; probe.primitiveKinds.length = 0; probe.imageSources.length = 0; probe.imageOptions.length = 0; });
+  beforeEach(() => { probe.instances = 0; probe.objects.length = 0; probe.handlers.clear(); probe.activeId = null; probe.emitSelectionOnSet = false; probe.zoom = 1; probe.clearCalls = 0; probe.renderCalls = 0; probe.moveCalls = 0; probe.primitiveKinds.length = 0; probe.imageSources.length = 0; probe.imageOptions.length = 0; });
 
   it("orients connector tips from each final path tangent", () => {
     expect(connectorTipAngles("straight", -50, -30, 50, 30)).toEqual({ start: expect.any(Number), end: expect.any(Number) });
@@ -299,11 +300,14 @@ describe("BoardFabricSurface", () => {
   it("keeps locked ActiveSelection members selectable but excludes them from the canonical transform", () => {
     const locked = { ...OBJECTS[1]!, id: "locked", locked: true };
     const onObjectsTransform = vi.fn(() => true);
-    renderSurface({ objects: [OBJECTS[0]!, locked], selectedObjectIds: ["s-1", "locked"], onObjectsTransform });
+    const onSelectionChange = vi.fn();
+    probe.emitSelectionOnSet = true;
+    renderSurface({ objects: [OBJECTS[0]!, locked], selectedObjectIds: ["s-1", "locked"], onObjectsTransform, onSelectionChange });
     const free = probe.objects.find((object) => object.data?.boardObjectId === "s-1")!;
     const frozen = probe.objects.find((object) => object.data?.boardObjectId === "locked")!;
     expect(frozen).toMatchObject({ selectable: true, evented: true, lockMovementX: true, lockScalingX: true, lockRotation: true });
     expect(probe.activeId).toBe("s-1");
+    expect(onSelectionChange).not.toHaveBeenCalled();
     free.left = 500; frozen.left = 800;
     probe.handlers.get("object:modified")?.({ target: { getObjects: () => [free, frozen] } as unknown as MockProjectedObject });
     expect(onObjectsTransform).toHaveBeenCalledWith([expect.objectContaining({ id: "s-1" })], { duplicate: false });
