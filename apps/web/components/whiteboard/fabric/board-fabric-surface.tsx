@@ -92,10 +92,11 @@ function applyResizePolicy(projected: TaggedFabricObject, object: BoardFabricObj
   });
 }
 
-function createFabricObject(object: BoardFabricObject): TaggedFabricObject {
+export function createFabricObject(object: BoardFabricObject): TaggedFabricObject {
   const richText = textOptionsFor(object, { fontSize: 20, alignment: "center" });
   const textOptions = {
     width: Math.max(24, object.geometry.width - 32),
+    splitByGrapheme: true,
     ...richText,
     originX: "center" as const,
     originY: "center" as const,
@@ -174,6 +175,7 @@ function createFabricObject(object: BoardFabricObject): TaggedFabricObject {
   } else if (object.kind === "text") {
     projected = new Textbox(object.content.text, {
       width: object.geometry.width,
+      splitByGrapheme: true,
       ...textOptionsFor(object, { fontSize: 24, alignment: "left" }),
     });
   } else if (object.kind === "ellipse") {
@@ -253,11 +255,34 @@ export function applyCanonicalObject(projected: TaggedFabricObject, object: Boar
 function applyCanonicalObjectInScene(projected: TaggedFabricObject, object: BoardFabricObject, readOnly: boolean): void {
   const richText = textOptionsFor(object, { fontSize: object.kind === "text" ? 24 : 20, alignment: object.kind === "text" ? "left" : "center" });
   if (object.kind === "text") {
-    projected.set({ text: object.content.text, ...richText });
+    projected.set({ text: object.content.text, ...richText, width: object.geometry.width, splitByGrapheme: true });
+    // Textbox recalculates its natural line height when text/width changes.
+    // The canonical height is a hit area, never a request to stretch glyphs.
+    projected.set({ height: object.geometry.height, strokeWidth: 0 });
   } else if (object.kind !== "connector" && "getObjects" in projected && typeof projected.getObjects === "function") {
     const [shape, label] = projected.getObjects();
     shape?.set({ fill: object.style.fill, stroke: object.style.stroke, strokeWidth: object.style.strokeWidth ?? 0, ...(object.kind === "panel" ? { strokeDashArray: object.panel?.clipContent ? undefined : [8, 5] } : {}) });
     label?.set({ text: object.content.text, ...richText });
+  }
+  const textContainer = ["sticky", "shape", "ellipse", "rectangle"].includes(object.kind);
+  if (textContainer && projected instanceof Group) {
+    const [shape, label] = projected.getObjects();
+    if (shape) {
+      shape.set({ left: 0, top: 0, originX: "center", originY: "center", skewX: 0, skewY: 0, angle: 0, flipX: false, flipY: false });
+      if (shape instanceof Rect) shape.set({ width: object.geometry.width, height: object.geometry.height, scaleX: 1, scaleY: 1 });
+      else shape.set({ scaleX: object.geometry.width / (shape.width || 1), scaleY: object.geometry.height / (shape.height || 1) });
+      shape.setCoords();
+    }
+    if (label) {
+      const inset = object.kind === "sticky" && object.sticky?.variant === "circle" ? 40 : 32;
+      label.set({ width: Math.max(24, object.geometry.width - inset), splitByGrapheme: true, scaleX: 1, scaleY: 1, skewX: 0, skewY: 0, angle: 0, flipX: false, flipY: false, left: 0, originX: "center", originY: "center" });
+      const top = object.style.verticalAlignment === "top" ? -object.geometry.height / 2 + 16 + label.height / 2
+        : object.style.verticalAlignment === "bottom" ? object.geometry.height / 2 - 16 - label.height / 2 : 0;
+      label.set({ top });
+      label.setCoords();
+    }
+    // Keep text overflow from changing the container's selection/transform box.
+    projected.set({ width: object.geometry.width, height: object.geometry.height });
   }
   const naturalWidth = projected.width || object.geometry.width;
   const naturalHeight = projected.height || object.geometry.height;
@@ -267,8 +292,8 @@ function applyCanonicalObjectInScene(projected: TaggedFabricObject, object: Boar
     originX: "left",
     originY: "top",
     angle: object.geometry.rotation,
-    scaleX: object.geometry.width / naturalWidth,
-    scaleY: object.geometry.height / naturalHeight,
+    scaleX: object.kind === "text" ? 1 : object.geometry.width / naturalWidth,
+    scaleY: object.kind === "text" ? 1 : object.geometry.height / naturalHeight,
     skewX: 0,
     skewY: 0,
     flipX: false,

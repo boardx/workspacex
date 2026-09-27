@@ -320,8 +320,8 @@ describe("BoardFabricSurface", () => {
     probe.handlers.get("object:modified")?.({ target: probe.active! });
     expect(onObjectsTransform).toHaveBeenCalledOnce();
     expect(onObjectsTransform).toHaveBeenCalledWith([
-      expect.objectContaining({ id: "s-1", geometry: expect.objectContaining({ x: 120, y: 140, width: 150 }) }),
-      expect.objectContaining({ id: "r-1", geometry: expect.objectContaining({ height: 100, rotation: 5 }) }),
+      expect.objectContaining({ id: "s-1", geometry: expect.objectContaining({ x: 120, y: 140, width: OBJECTS[0]!.geometry.width * 1.5 }) }),
+      expect.objectContaining({ id: "r-1", geometry: expect.objectContaining({ height: OBJECTS[1]!.geometry.height * 1.25, rotation: 5 }) }),
     ], { duplicate: false });
   });
 
