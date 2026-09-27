@@ -8,6 +8,14 @@ import {
 } from "../src/survey-source";
 
 describe("survey Markdown source compiler", () => {
+  it("compiles bounded unique survey tags from the Markdown source", () => {
+    expect(parseSurveyDesignMarkdown('# 调查\n\n```survey-tags\n["客户调研","产品"]\n```\n\n## q1 [open]\n意见\n')).toMatchObject({ok:true,draft:{tags:['客户调研','产品']}});
+    expect(parseSurveyDesignMarkdown('# 调查\n\n```survey-tags\n["重复","重复"]\n```\n')).toMatchObject({ok:false});
+  });
+  it("preserves multiline prompts through the Markdown projection", () => {
+    const result = parseSurveyDesignMarkdown("# 调查\n\n## q1 [open]\n第一行\n第二行\n");
+    expect(result).toMatchObject({ok:true,draft:{questions:[{title:"第一行\n第二行"}]}});
+  });
   it("parses design Markdown into a title, questions, and source ranges", () => {
     const result = parseSurveyDesignMarkdown(
       "# 客户满意度\n\n## Q1 [single, required]\n您会推荐我们吗？\n- 会\n- 不会\n",

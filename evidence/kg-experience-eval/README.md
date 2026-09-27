@@ -16,9 +16,10 @@
 | `apps/api/scripts/loopback-kg-eval-model-provider.ts` | 确定性模型：抽取请求按语料逐字回 JSON（只认用户说过的原话，其余回空）；对话请求**只照着这一轮收到的【记忆】作答**；流式吐字 |
 | `apps/api/scripts/seed-kg-experience-eval.ts` → `apps/api` | 种子只建组织、四个账号、一个默认 Agent（一条记忆都不预置）；API 开 `KG_EXTRACTION_ENABLED=1`，抽取与 AGE 投影 worker 就在 API 进程里 |
 | `apps/web`（`next build && next start`） | 同源代理 `/__fullstack_api` 走真 API |
+| `apps/api/scripts/loopback-kg-eval-embedding-provider.ts`（#4366） | 确定性嵌入：实现 `/internal/retrieval/embeddings` 契约，向量只由文本本身推出（字符 unigram + bigram 哈希、256 维），**不读语料、不是语义模型**；库迁移完后登记模型。由 `apps/web/scripts/run-kg-experience-eval.mjs` 起停并把四个 `KERNEL_EMBEDDING_*` / deep-agent 变量交给 API。它是环境、不在检查指纹里——和 Postgres / Redis 端口同一层 |
 
 Postgres（AGE + pgvector）与 Redis 由调用方给：`PGHOST/PGPORT/PGDATABASE/PGPASSWORD`、`REDIS_PORT`、
-`WORKSPACEX_API_PORT/WORKSPACEX_WEB_PORT/WORKSPACEX_MODEL_PROVIDER_PORT`。**不在默认 CI 车道上**（一轮约 6 分钟 + web 构建）。
+`WORKSPACEX_API_PORT/WORKSPACEX_WEB_PORT/WORKSPACEX_MODEL_PROVIDER_PORT`，以及（#4366 起）`WORKSPACEX_EMBEDDING_PROVIDER_PORT`。**不在默认 CI 车道上**（一轮约 6 分钟 + web 构建）。
 
 ## 跑法
 
@@ -35,8 +36,9 @@ pnpm exec vitest run tests/kg-experience                                        
 
 1. **抽取质量与回答措辞**：本机没有真实模型。抽取回环扮演「把这句话读对了的抽取模型」，对话回环只把它收到的记忆原样说出来——
    所以回答里有没有某件事，完全取决于召回这一轮交给模型什么。量的是记忆系统，不是模型。
-2. **E3.c4 hybrid 对纯向量**：本阶段没有嵌入流水线（F05 不在 MVP），「相似」通道从不出现，纯向量基线量不到。
-   这条如实红（不拿「0 分的向量」衬托 hybrid），E3 上限 0.75，总分上限 9.75。F05 落地后它会自己变绿或变红。
+2. **E3.c4 hybrid 对纯向量**：#4366（S9）起有嵌入流水线与向量通道；评测栈用确定性嵌入提供方（见上表），「相似」通道
+   真的出现、纯向量基线量得到。它不是语义模型，关系题的答案句与问题字面相近时向量通道同样找得到——那样
+   「hybrid 比纯向量多答对 ≥ 20%」就如实红，不为分数调阈值或改嵌入器。
 3. **回答质量只量「召回里有没有」，不量「有没有多余的」**：对话回环把这一轮收到的记忆（最多 8 条）**全部**照抄进回答，
    所以 E2 / E3「答对」实际是 recall@8——正确的那条在前 8 里、且带引用；回答里夹了多少不相关的记忆（precision）量不到。
    真实模型会从 8 条里挑，这一步本评测量不到。

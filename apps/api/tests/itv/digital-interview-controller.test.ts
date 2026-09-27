@@ -3,6 +3,11 @@ import type { NestExpressApplication } from "@nestjs/platform-express";
 import { createDigitalInterviewDraft } from "../../src/application/interview/create-digital-interview-draft";
 import { PgDigitalInterviewRepository } from "../../src/infrastructure/interview/pg-digital-interview-repository";
 import { PgDatabase } from "../../src/infrastructure/db/pg-database";
+import { appendInterviewMarkdownDocument } from "../../src/infrastructure/interview/interview-markdown-store";
+import { PgInterviewMarkdownReader } from "../../src/infrastructure/interview/pg-interview-markdown-reader";
+import { PgInterviewScopeRepository } from "../../src/infrastructure/interview/pg-interview-scope-repository";
+import { UuidDecisionIdFactory } from "../../src/infrastructure/identity/in-memory-session-store";
+import { generateInterviewMarkdown } from "../../src/application/interview/generate-interview-markdown";
 import { appConfig } from "../../src/infrastructure/db/pg-config";
 import { toOrgId } from "../../src/domain/org-id";
 import { addOrgMember, ensureDatabase, migrateOnce, resetOrgs, seedOrg } from "../support/db";
@@ -19,6 +24,169 @@ let base = "";
 let db: PgDatabase;
 
 const auth = { "x-kernel-test-principal": `${USER}:${ORG}` };
+
+it("initialization is an explicit authorized POST and ordinary GET remains read-only", async () => {
+  const path = `${base}/interviews/digital/itv-f02-visible/markdown`;
+  const before = await (await fetch(path, { headers: auth })).json();
+  expect(before.documents).toEqual([]);
+  expect(before.version).toBe(1);
+  const headers = { ...auth, "content-type": "application/json" };
+  const response = await fetch(`${path}/initialize`, { method: "POST", headers, body: JSON.stringify({ expectedVersion: 1 }) });
+  expect(response.status).toBe(201);
+  const result = await response.json();
+  expect(result.revisionId).toBeTruthy();
+  expect(result.version).toBe(2);
+  const second = await fetch(`${path}/initialize`, { method: "POST", headers, body: JSON.stringify({ expectedVersion: 2 }) });
+  expect((await second.json()).version).toBe(2);
+  for (const id of ["itv-f02-same-org-hidden", "itv-f02-hidden", "missing-initialize"]) {
+    expect((await fetch(`${base}/interviews/digital/${id}/markdown/initialize`, { method: "POST", headers, body: JSON.stringify({ expectedVersion: 1 }) })).status).toBe(404);
+  }
+});
+
+it("confirmation appends an immutable source version and keeps raw Markdown unchanged", async () => {
+  await db.withTenant(toOrgId(ORG), (session) => session.query(`INSERT INTO digital_interview_revisions(org_id,id,interview_id,revision_number,created_by) VALUES($1,'revision-api-confirm-4400','itv-f02-visible',1,$2)`, [ORG, USER]));
+  const markdown = "# 需求\r\n\r\n教师上次备课 🧪\r\n";
+  const headers = { ...auth, "content-type": "application/json" };
+  const saved = await (await fetch(`${base}/interviews/digital/itv-f02-visible/markdown/intake`, { method: "POST", headers, body: JSON.stringify({ markdown, expectedVersion: 1, expectedDocumentVersion: 0 }) })).json();
+  const draft = saved.documents[0];
+  const confirm = await fetch(`${base}/interviews/digital/itv-f02-visible/markdown/intake/confirm`, { method: "POST", headers, body: JSON.stringify({ expectedVersion: saved.version, expectedDocumentVersion: draft.version }) });
+  expect(confirm.status).toBe(201);
+  const result = await confirm.json();
+  expect(result.documents[0].markdown).toBe(markdown);
+  expect(result.documents[0].version).toBe(2);
+  expect(result.states[0]).toMatchObject({ status: "confirmed", failure: null });
+  expect(result.version).toBe(3);
+  const editing = await fetch(`${base}/interviews/digital/itv-f02-visible/markdown/intake`, { method: "POST", headers, body: JSON.stringify({ markdown: "# 静默覆盖", expectedVersion: result.version, expectedDocumentVersion: 2 }) });
+  expect(editing.status).toBe(409);
+  const original = await db.withTenant(toOrgId(ORG), (session) => session.query<{ markdown: string; status: string }>("SELECT markdown,status FROM digital_interview_artifact_versions WHERE org_id=$1 AND artifact_id=$2", [ORG, draft.documentId]));
+  expect(original.rows[0]).toEqual({ markdown, status: "draft" });
+});
+
+it("partialFailurePreservesMarkdown and retry appends a new document version", async () => {
+  await db.withTenant(toOrgId(ORG), async (session) => {
+    await session.query(`INSERT INTO digital_interview_revisions(org_id,id,interview_id,revision_number,created_by) VALUES($1,'revision-api-partial-4400','itv-f02-visible',1,$2)`, [ORG, USER]);
+    await appendInterviewMarkdownDocument(session, { orgId: toOrgId(ORG), interviewId: "itv-f02-visible", revisionId: "revision-api-partial-4400", step: "intake", title: "需求", markdown: "# 需求\n教师备课", evidenceMode: "simulated", references: [], expectedVersion: 0 });
+  });
+  let calls = 0;
+  const partial = "# 研究分析\r\n\r\n## 已生成目标\r\n理解备课行为。\r\n";
+  const deps = { repo: new PgDigitalInterviewRepository(db), scope: new PgInterviewScopeRepository(db), decisions: new UuidDecisionIdFactory(), reader: new PgInterviewMarkdownReader(db), modelProvider: "test", modelId: "test", model: { complete: async (request: { user: string; system: string }) => {
+    calls += 1;
+    if (calls >= 2) {
+      expect(request.user).toContain(partial);
+      expect(request.user).toContain("未确认");
+      expect(request.system).toContain("续写");
+    }
+    return calls === 1 ? { text: partial, truncated: true }
+      : calls === 2 ? { text: "\r\n## 待验证假设\r\n", truncated: true }
+      : { text: "效率是否提升需验证。" };
+  } } };
+  const input = { orgId: toOrgId(ORG), viewerUserId: USER, interviewId: "itv-f02-visible", step: "analysis" as const, expectedVersion: 1, expectedDocumentVersion: 0 };
+  await expect(generateInterviewMarkdown(deps, input)).rejects.toThrow("AI_GENERATION_UNAVAILABLE");
+  const restored = await (await fetch(`${base}/interviews/digital/itv-f02-visible/markdown`, { headers: auth })).json();
+  const document = restored.documents.find((doc: { step: string }) => doc.step === "analysis");
+  expect(document?.markdown).toBe(partial);
+  expect(restored.states.find((state: { documentId: string }) => state.documentId === document.documentId)).toMatchObject({ status: "failed", failure: { code: "AI_GENERATION_UNAVAILABLE", retryable: true } });
+  await expect(generateInterviewMarkdown(deps, { ...input, expectedVersion: restored.version, expectedDocumentVersion: document.version })).rejects.toThrow("AI_GENERATION_UNAVAILABLE");
+  const second = await (await fetch(`${base}/interviews/digital/itv-f02-visible/markdown`, { headers: auth })).json();
+  const secondDocument = second.documents.find((doc: { step: string }) => doc.step === "analysis");
+  expect(secondDocument.markdown).toBe(`${partial}\r\n## 待验证假设\r\n`);
+  const retried = await generateInterviewMarkdown(deps, { ...input, expectedVersion: second.version, expectedDocumentVersion: secondDocument.version });
+  expect(retried.documents.find((doc) => doc.step === "analysis")?.version).toBe(3);
+  expect(retried.documents.find((doc) => doc.step === "analysis")?.markdown).toBe(`${partial}\r\n## 待验证假设\r\n效率是否提升需验证。`);
+  expect(calls).toBe(3);
+  const archived = await db.withTenant(toOrgId(ORG), (session) => session.query<{ markdown: string }>("SELECT markdown FROM digital_interview_artifact_versions WHERE org_id=$1 AND artifact_id=$2", [ORG, document.documentId]));
+  expect(archived.rows[0]?.markdown).toBe(partial);
+});
+
+it.each(["confirmed", "completed"] as const)("rejects %s generation targets before invoking the model", async (status) => {
+  await db.withTenant(toOrgId(ORG), async (session) => {
+    await session.query(`INSERT INTO digital_interview_revisions(org_id,id,interview_id,revision_number,created_by) VALUES($1,'revision-api-immutable-4476','itv-f02-visible',1,$2)`, [ORG, USER]);
+    for (const step of ["intake", "analysis"] as const) {
+      await appendInterviewMarkdownDocument(session, { orgId: toOrgId(ORG), interviewId: "itv-f02-visible", revisionId: "revision-api-immutable-4476", step, title: step, markdown: `# ${step}`, evidenceMode: "simulated", references: [], expectedVersion: 0, status: step === "analysis" ? status : "confirmed" });
+    }
+  });
+  let calls = 0;
+  const reader = new PgInterviewMarkdownReader(db);
+  const before = (await reader.readCurrent(toOrgId(ORG), "itv-f02-visible"))!;
+  const deps = { repo: new PgDigitalInterviewRepository(db), scope: new PgInterviewScopeRepository(db), decisions: new UuidDecisionIdFactory(), reader, modelProvider: "test", modelId: "test", model: { complete: async () => { calls++; return { text: "# 不应生成" }; } } };
+  await expect(generateInterviewMarkdown(deps, { orgId: toOrgId(ORG), viewerUserId: USER, interviewId: "itv-f02-visible", step: "analysis", expectedVersion: before.version, expectedDocumentVersion: 1 })).rejects.toThrow("DIGITAL_INTERVIEW_STEP_INVALID");
+  expect(calls).toBe(0);
+  expect(await reader.readCurrent(toOrgId(ORG), "itv-f02-visible")).toEqual(before);
+});
+
+it("modelConsumesConfirmedMarkdown through the real source repository and saves raw generated analysis", async () => {
+  const raw = "# 需求\r\n\r\n研究教师备课的最近一次真实行为 🧪\r\n";
+  await db.withTenant(toOrgId(ORG), async (session) => {
+    await session.query(`INSERT INTO digital_interview_revisions(org_id,id,interview_id,revision_number,created_by) VALUES($1,'revision-api-model-4400','itv-f02-visible',1,$2)`, [ORG, USER]);
+    await appendInterviewMarkdownDocument(session, { orgId: toOrgId(ORG), interviewId: "itv-f02-visible", revisionId: "revision-api-model-4400", step: "intake", title: "原始需求", markdown: raw, evidenceMode: "simulated", references: [], expectedVersion: 0 });
+  });
+  const output = "[研究目标](#研究目标)\r\n\r\n# 研究分析\r\n\r\n## 研究目标\r\n理解最近一次备课行为。\r\n\r\n## 待验证假设\r\n- 不预设 AI 有效。\r\n";
+  let calls = 0;
+  const deps = {
+    repo: new PgDigitalInterviewRepository(db), scope: new PgInterviewScopeRepository(db),
+    decisions: new UuidDecisionIdFactory(), reader: new PgInterviewMarkdownReader(db),
+    modelProvider: "test", modelId: "markdown-analysis-test",
+    model: { complete: async (input: { user: string; system: string }) => {
+      calls += 1;
+      expect(input.user).toContain(raw);
+      expect(input.user).not.toContain("\\r\\n");
+      expect(input.system).toContain("Markdown");
+      return { text: output, usage: { inputTokens: 10, outputTokens: 20 } };
+    } },
+  };
+  const input = { orgId: toOrgId(ORG), viewerUserId: USER, interviewId: "itv-f02-visible", step: "analysis" as const, expectedVersion: 1, expectedDocumentVersion: 0 };
+  await expect(generateInterviewMarkdown(deps, { ...input, expectedDocumentVersion: 99 })).rejects.toThrow("CONCURRENT_MODIFICATION");
+  expect(calls).toBe(0);
+  const generated = await generateInterviewMarkdown(deps, input);
+  expect(generated.documents.find((doc) => doc.step === "analysis")?.markdown).toBe(output);
+  expect(generated.version).toBe(2);
+  await expect(generateInterviewMarkdown(deps, input)).rejects.toThrow("CONCURRENT_MODIFICATION");
+  await expect(generateInterviewMarkdown(deps, { ...input, interviewId: "itv-f02-same-org-hidden" })).rejects.toThrow();
+  expect(calls).toBe(1);
+});
+
+it("staleVersionCannotOverwrite Markdown and draft text cannot promote evidence", async () => {
+  await db.withTenant(toOrgId(ORG), (session) => session.query(
+    `INSERT INTO digital_interview_revisions(org_id,id,interview_id,revision_number,created_by) VALUES($1,'revision-api-write-4400','itv-f02-visible',1,$2)`, [ORG, USER],
+  ));
+  const url = `${base}/interviews/digital/itv-f02-visible/markdown/intake`;
+  const save = (body: unknown) => fetch(url, { method: "POST", headers: { ...auth, "content-type": "application/json" }, body: JSON.stringify(body) });
+  const markdown = "# 原始需求\r\n\r\n中文 🧪\r\n> 不可覆盖\r\n";
+  const first = await save({ markdown, expectedVersion: 1, expectedDocumentVersion: 0 });
+  expect(first.status).toBe(201);
+  const saved = await first.json();
+  expect(saved.documents[0].markdown).toBe(markdown);
+  expect(saved.documents[0].evidenceMode).toBe("simulated");
+  expect(saved.version).toBe(2);
+  expect((await save({ markdown: "# 覆盖旧版本", expectedVersion: 1, expectedDocumentVersion: 0 })).status).toBe(409);
+  expect((await save({ markdown: "# 宣称真人批准", expectedVersion: 2, expectedDocumentVersion: 1, evidenceMode: "participant", status: "completed" })).status).toBe(400);
+  const current = await (await fetch(`${base}/interviews/digital/itv-f02-visible/markdown`, { headers: auth })).json();
+  expect(current.documents[0].markdown).toBe(markdown);
+  expect(current.documents[0].version).toBe(1);
+  for (const id of ["itv-f02-same-org-hidden", "itv-f02-hidden", "missing-4400"]) {
+    const denied = await fetch(`${base}/interviews/digital/${id}/markdown/intake`, { method: "POST", headers: { ...auth, "content-type": "application/json" }, body: JSON.stringify({ markdown, expectedVersion: 1, expectedDocumentVersion: 0 }) });
+    expect(denied.status).toBe(404);
+  }
+});
+
+it("apiPreservesMarkdownBytes in an authorized source document envelope", async () => {
+  const markdown = "# 原文\r\n\r\n中文 🧪\r\n\r\n| 字段 | 值 |\r\n| --- | --- |\r\n| 特殊字符 | `a_b` |\r\n";
+  await db.withTenant(toOrgId(ORG), async (session) => {
+    await session.query(`INSERT INTO digital_interview_revisions(org_id,id,interview_id,revision_number,created_by) VALUES($1,'revision-api-md-4400','itv-f02-visible',1,$2)`, [ORG, USER]);
+    await appendInterviewMarkdownDocument(session, { orgId: toOrgId(ORG), interviewId: "itv-f02-visible", revisionId: "revision-api-md-4400", step: "intake", title: "原文", markdown, evidenceMode: "simulated", references: [], expectedVersion: 0 });
+  });
+  const response = await fetch(`${base}/interviews/digital/itv-f02-visible/markdown`, { headers: auth });
+  expect(response.status).toBe(200);
+  const result = await response.json();
+  expect(result.documents[0].markdown).toBe(markdown);
+  expect(result.documents[0].evidenceMode).toBe("simulated");
+  expect(result.version).toBe(1);
+  for (const id of ["itv-f02-same-org-hidden", "itv-f02-hidden", "missing-4400"]) {
+    const denied = await fetch(`${base}/interviews/digital/${id}/markdown`, { headers: auth });
+    expect(denied.status).toBe(404);
+    expect(await denied.text()).not.toContain(markdown);
+  }
+});
 
 beforeAll(async () => {
   ensureDatabase();

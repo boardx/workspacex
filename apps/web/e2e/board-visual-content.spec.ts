@@ -71,10 +71,13 @@ test("Shape Draw Image and Tile share one canonical collaborative surface", asyn
   const bounds = await canvas.boundingBox();
   expect(bounds).not.toBeNull();
   await page.getByTestId("board-add-draw").click();
-  await page.mouse.move(bounds!.x + 360, bounds!.y + 280);
+  await page.mouse.move(bounds!.x + 120, bounds!.y + 250);
   await page.mouse.down();
-  await page.mouse.move(bounds!.x + 500, bounds!.y + 360, { steps: 12 });
+  await page.mouse.move(bounds!.x + 240, bounds!.y + 330, { steps: 12 });
   await page.mouse.up();
+  const outline = page.getByTestId("board-a11y-mirror").getByRole("button");
+  await expect(outline).toHaveCount(3);
+  await expect(page.getByRole("button", { name: "图形：绘图" })).toBeVisible();
 
   await expect(page.getByTestId("board-a11y-mirror").getByRole("button")).toHaveCount(3);
   await expect(page.getByText(BOARD_SYNCED_STATUS)).toBeVisible({ timeout: 30_000 });
@@ -85,8 +88,8 @@ test("Shape Draw Image and Tile share one canonical collaborative surface", asyn
   // instead of relying on a hand-copied base64 payload with uncertain chunk CRCs.
   const png = await page.screenshot({ clip: { x: 0, y: 0, width: 32, height: 32 } });
   await page.getByTestId("board-image-input").setInputFiles({ name: "research.png", mimeType: "image/png", buffer: png });
+  await expect(page.getByText(/图片已在当前浏览器会话中验证并显示/)).toBeVisible({ timeout: 15_000 });
 
-  const outline = page.getByTestId("board-a11y-mirror").getByRole("button");
   await expect(outline).toHaveCount(4);
   await expect(page.getByText(BOARD_SYNCED_STATUS)).toBeVisible({ timeout: 30_000 });
 

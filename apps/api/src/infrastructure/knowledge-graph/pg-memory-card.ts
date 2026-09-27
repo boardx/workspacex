@@ -23,17 +23,17 @@ export class PgMemoryCard implements MemoryCardPort {
   constructor(private readonly db: DatabasePort) {}
 
   async open(orgId: OrgId, input: Parameters<MemoryCardPort["open"]>[1]) {
-    const r = await this.db.withTenant(orgId, (s) => s.query<{ r: { outcome?: string; card_id?: string } }>(
+    const r = await this.db.withTenant(orgId, (s) => s.query<{ r: { outcome?: string; card_id?: string; reused?: boolean } }>(
       "SELECT kg_open_memory_card($1::jsonb) AS r", [JSON.stringify({
         card_id: input.cardId, thread_id: input.threadId, run_id: input.runId, message_id: input.messageId,
-        requester: input.requesterUserId, kind: input.kind,
+        requester: input.requesterUserId, kind: input.kind, origin: input.origin ?? "user_message",
         statement: input.statement ?? null, target: input.target ?? null, claim_ids: input.claimIds ?? [],
       })],
     ));
     const out = r.rows[0]?.r ?? {};
     const outcome = OUTCOMES.find((o) => o === out.outcome);
     if (outcome === undefined) throw new Error(`kg_open_memory_card returned an unknown outcome: ${String(out.outcome)}`);
-    return { outcome, cardId: typeof out.card_id === "string" ? out.card_id : null };
+    return { outcome, cardId: typeof out.card_id === "string" ? out.card_id : null, reused: out.reused === true };
   }
 
   async cardThread(orgId: OrgId, userId: string, cardId: string): Promise<string | null> {

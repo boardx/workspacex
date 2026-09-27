@@ -312,17 +312,33 @@ export function parseAguiChatMessageIdValue(value: unknown): AguiChatMessageIdVa
 /**
  * 一轮里若干 assistant 气泡与最终落库正文使用同一个组合规则。
  * relay、web 恢复与模型写回都必须消费这一实现，避免各自 trim/join 后再次分叉。
+ *
+ * 规则（#3243 的「分步产出的每一段都要留」不变）：逐段 `trim`、丢空段、逐字重复的段只留一条、用空行拼接；
+ * 另加一条（issue #4344，2026-09-27 devapp：同一句话在回复里出现两次）——**后一段以前面某一段开头**
+ * （模型在工具调用前说了一句预告，工具回来后把同一句话原样重说一遍再往下接），前面那段就是被重说的预告：
+ * 去掉它，只留后一段，位置随后一段。只认「整段是后一段的开头」这一种形状，不做相似度判断——
+ * 分步产出的不同段（「第 1 个画布」「第 2 个画布」）互不为开头，逐字不受影响。
  */
 export function composeAguiAssistantBodies(bodies: readonly string[]): string {
-  const kept: string[] = [];
-  const seen = new Set<string>();
+  let kept: string[] = [];
   for (const raw of bodies) {
     const body = raw.trim();
-    if (body === "" || seen.has(body)) continue;
-    seen.add(body);
+    if (body === "" || kept.includes(body)) continue;
+    kept = kept.filter((earlier) => !isRestatedAtBoundary(earlier, body));
     kept.push(body);
   }
   return kept.join("\n\n");
+}
+
+const SENTENCE_END = /[。！？!?.…：:；;]$/u;
+
+/**
+ * 「后一段以前一段开头」只有在前一段是完整的一句/一行时才算重说：前一段以句末标点收尾，或后一段在
+ * 接缝处是空白。否则「步骤 1」会被「步骤 10 已完成」吞掉、「好的」会被「好的，我来……」吞掉（#4391 评审）。
+ */
+function isRestatedAtBoundary(earlier: string, body: string): boolean {
+  if (body.length <= earlier.length || !body.startsWith(earlier)) return false;
+  return SENTENCE_END.test(earlier) || /\s/u.test(body.charAt(earlier.length));
 }
 
 /**

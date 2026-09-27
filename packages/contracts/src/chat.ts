@@ -653,7 +653,13 @@ export const operations = {
   mutateThread: {
     method: "POST", path: "/chat/threads/mutate",
     in: z.object({
-      op: z.enum(["create", "rename", "delete", "pin", "unpin"]),
+      /**
+       * `setVisibility`（项目中枢 R5，用户直接交办 2026-09-27）：改一条**项目线程**的可见范围
+       * （`visibilityScope` 必填，取 `member-private` / `group-shared` / `plenary` 之一）——「chat 可以在
+       * 用户之间分享」落在这一步。只有创建者或本项目引导师能改；个人线程不适用（`private` 是它的定义）。
+       * 同样过 `expectedVersion` 乐观并发、同样写审计（`thread-visibility-changed`）。
+       */
+      op: z.enum(["create", "rename", "delete", "pin", "unpin", "setVisibility"]),
       projectId: z.string().nullable(),
       threadId: z.string().nullable(),
       groupId: z.string().nullable(),

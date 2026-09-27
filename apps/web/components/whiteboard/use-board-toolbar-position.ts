@@ -44,7 +44,7 @@ export function useBoardToolbarPosition(geometry: Geometry | undefined, viewport
   const ref = useRef<HTMLElement>(null);
   const [windowSize, setWindowSize] = useState<Size>({ width: 1024, height: 768 });
   const [chrome, setChrome] = useState<Rect[]>([]);
-  const [toolbarSize, setToolbarSize] = useState<Size>({ width: 460, height: 54 });
+  const [toolbarSize, setToolbarSize] = useState<Size>({ width: 640, height: 54 });
   const hasGeometry = Boolean(geometry);
   useLayoutEffect(() => {
     const update = () => {

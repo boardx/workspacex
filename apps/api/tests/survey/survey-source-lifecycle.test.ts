@@ -32,6 +32,48 @@ function setup() {
 }
 
 describe("survey Markdown source lifecycle", () => {
+  it('enforces browser limits after receipt replay and freezes success Markdown', async () => {
+    const {service}=setup(); const created=await service.create(org,owner,draft);
+    const saved=await service.saveSource(org,owner,created.id,created.version,{
+      design:created.source!.documents.design.markdown,
+      reportTemplate:reportTemplateMarkdown,
+      publication:'# 发布设置\n\n```survey-publication\n{"responseLimitScope":"browser","successMessageMarkdown":"# 感谢反馈\\n我们已收到。"}\n```\n',
+    });
+    const published=await service.publish(org,owner,saved.id,saved.version);
+    const token=published.publication!.token;
+    const first=await service.openPublic(token);
+    expect(first.data.successMessageMarkdown).toBe('# 感谢反馈\n我们已收到。');
+    expect(first.browserProof).toBeTruthy();
+    await service.submit(token,submission,first.browserProof);
+    expect(await service.submit(token,submission,first.browserProof)).toMatchObject({replayed:true});
+    await expect(service.submit(token,{...submission,submissionId:'second-browser-submission'},first.browserProof)).rejects.toMatchObject({code:'already_submitted'});
+    await expect(service.submit(token,{...submission,submissionId:'forged-browser-submission'},'forged')).rejects.toMatchObject({code:'invalid_browser_proof'});
+    const second=await service.openPublic(token);
+    await service.submit(token,{...submission,submissionId:'other-browser-submission'},second.browserProof);
+    const reload=await service.openPublic(token,first.browserProof);
+    expect(reload.data.alreadySubmitted).toBe(true);
+    expect((await service.get(org,owner,created.id)).responses).toHaveLength(2);
+  });
+  it("keeps source tags when a legacy client only updates structured questions", async () => {
+    const {service}=setup();const created=await service.create(org,owner,{...draft,tags:['客户调研']});
+    const saved=await service.save(org,owner,created.id,created.version,draft);
+    expect(saved.tags).toEqual(['客户调研']);
+    expect(saved.source!.documents.design.markdown).toContain('"客户调研"');
+  });
+  it("persists tags from the canonical source across reloads", async () => {
+    const {service}=setup();const created=await service.create(org,owner,draft);
+    await service.saveSource(org,owner,created.id,created.version,{design:'# 真实问卷\n\n```survey-tags\n["客户调研"]\n```\n\n## Q1 [single, required]\n您会推荐我们吗？\n- 会\n- 不会\n',publication:'# 发布设置\n',reportTemplate:reportTemplateMarkdown});
+    expect(await service.get(org,owner,created.id)).toMatchObject({tags:['客户调研']});
+  });
+  it('preserves authored design Markdown when updating a published report template',async()=>{
+    const {service}=setup();const created=await service.create(org,owner,draft);
+    const design=`${created.source!.documents.design.markdown}\n<!-- 原始校对备注 -->\n`;
+    const saved=await service.saveSource(org,owner,created.id,created.version,{design,publication:'# 发布设置\n',reportTemplate:reportTemplateMarkdown});
+    const published=await service.publish(org,owner,saved.id,saved.version);
+    const updated=await service.save(org,owner,published.id,published.version,{title:published.title,questions:published.questions,template:{...published.template,title:'更新的报告'}});
+    expect(updated.source!.documents.design.markdown).toBe(design);
+    expect(updated.publication!.sourceSnapshot).toEqual(published.publication!.sourceSnapshot);
+  });
   it("bootstraps an equivalent design source for a legacy structured draft", async () => {
     const { service } = setup();
     const created = await service.create(org, owner, draft);
