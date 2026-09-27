@@ -297,6 +297,9 @@ async function boot(): Promise<void> {
     return;
   }
   for (const w of stack.warnings) log(`⚠ ${w}`);
+  // 「这一次启动走完了」的唯一标记。没有它时只能拿「3100 有人应答」当就绪——上一次残留的
+  // 旧版 next-server 也应答，实测两次把判断带偏（#3872 R21）。只写 ASCII 前缀，方便机器找。
+  log(`[boot] ready pid=${process.pid}`);
   // ⚠ Order matters: the warning lines above armed a 300 ms repaint of the progress page; if
   //   the web UI is loaded first, that repaint replaces it and the window looks stuck on the
   //   log forever (人类实测 2026-09-17: every start with a warning "hung" on this page).
@@ -536,6 +539,13 @@ function installMenu(): void {
 
 app.whenReady().then(() => void boot());
 app.on("window-all-closed", () => app.quit());
+// 注销 / 重启 / `kill` 发的是信号，不是「退出」菜单。没有这几行时 Node 的默认行为是当场退出：
+// before-quit 不走、PGlite 不收尾，api/web/deep-agent/ollama 全成孤儿占着端口，下次打开就
+// 「端口被占用」——实测 2026-09-27，占着 3100 的旧版界面让刚装上的离线更新永远换不上去。
+// SIGKILL 接不住，那条由下次启动的子进程台账兜底（local-runtime/src/child-ledger.ts）。
+for (const sig of ["SIGTERM", "SIGINT", "SIGHUP"] as const) {
+  process.on(sig, () => { appendLog(`[shutdown] 收到 ${sig}，按正常退出收尾`); app.quit(); });
+}
 app.on("before-quit", (e) => {
   if (!stack) return;
   e.preventDefault();
