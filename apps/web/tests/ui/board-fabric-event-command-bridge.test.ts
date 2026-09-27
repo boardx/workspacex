@@ -17,10 +17,20 @@ const fabricHarness = vi.hoisted(() => {
     angle = 0;
     selectable = true;
     evented = true;
-    constructor(_value?: unknown, options: Record<string, unknown> = {}) { Object.assign(this, options); }
+    constructor(value?: unknown, options: Record<string, unknown> = {}) { this.children = Array.isArray(value) ? value : []; Object.assign(this, options); }
+    getObjects() { return this.children; }
+    private children: MockFabricObject[] = [];
     set(values: Record<string, unknown>) { Object.assign(this, values); return this; }
     setControlsVisibility() { return this; }
     setCoords() {}
+    // Fabric matrices use the object's center; left/top remain the top-left
+    // origin used by this fixture. Retain the real qrDecompose implementation.
+    calcTransformMatrix() {
+      const radians = this.angle * Math.PI / 180, cos = Math.cos(radians), sin = Math.sin(radians);
+      const width = this.width * this.scaleX, height = this.height * this.scaleY;
+      return [cos * this.scaleX, sin * this.scaleX, -sin * this.scaleY, cos * this.scaleY,
+        this.left + cos * width / 2 - sin * height / 2, this.top + sin * width / 2 + cos * height / 2];
+    }
     getBoundingRect() { return { left: this.left, top: this.top, width: this.width * this.scaleX, height: this.height * this.scaleY }; }
   }
   interface MockCanvas {
@@ -31,7 +41,8 @@ const fabricHarness = vi.hoisted(() => {
   return { state, MockFabricObject };
 });
 
-vi.mock("fabric", () => {
+vi.mock("fabric", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("fabric")>();
   const MockFabricObject = fabricHarness.MockFabricObject;
   type Handler = (event: { target?: InstanceType<typeof MockFabricObject>; e?: unknown }) => void;
   class Canvas {
@@ -66,6 +77,7 @@ vi.mock("fabric", () => {
     getActiveObject() { return this.active; }
   }
   return {
+    ...actual,
     Canvas,
     Circle: MockFabricObject,
     Group: MockFabricObject,
@@ -133,8 +145,8 @@ describe("Board Fabric event-to-command boundary", () => {
     expect(events.onObjectTransform).toHaveBeenCalledWith("note-a", {
       x: 45,
       y: 70,
-      width: 200,
-      height: 120,
+      width: base.geometry.width * 2,
+      height: base.geometry.height * 1.5,
       rotation: 30,
     });
   });
