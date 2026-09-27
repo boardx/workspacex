@@ -15,6 +15,8 @@ export const BoardBackupManifest=z.object({version:z.literal(1),backupId:Id,orgI
   board:z.object({id:Id,name:z.string().trim().min(1).max(200),ownerId:z.string().min(1),createdAt:z.string().datetime(),updatedAt:z.string().datetime(),archived:z.boolean(),lifecycleRevision:z.number().int().nonnegative(),tagsRevision:z.number().int().nonnegative(),members:z.array(z.object({userId:z.string().min(1),role:z.enum(['editor','commenter','viewer'])}).strict()).max(10000),tags:z.array(z.object({id:Id,name:z.string(),revision:z.number().int().positive()}).strict()).max(1000)}).strict(),
   revision:z.object({epoch:z.number().int().positive(),seq:z.number().int().nonnegative().max(Number.MAX_SAFE_INTEGER)}).strict(),snapshot:BackupBlob,
   images:z.array(z.object({blob:BackupBlob,metadata:WhiteboardAssetMetadata}).strict()).max(5000),comments:z.array(CommentBackupDescriptorSchema).max(10000),
+  // Optional, not defaulted: preserve the exact hash of already-issued v1 manifests.
+  sourceHistory:z.array(BackupBlob).max(20000).optional(),
 }).strict();
 export type BoardBackupManifest=z.infer<typeof BoardBackupManifest>;
 export type BackupBlob=z.infer<typeof BackupBlob>;
@@ -23,6 +25,7 @@ export interface RestoreRefs {snapshot:BackupBlob;images:Array<{blob:BackupBlob;
 /** PG contains only bounded metadata/immutable pointers. No document/image bytes enter this port. */
 export interface BoardBackupRepository {
   capture(p:Principal,boardId:string,backupId:string):Promise<BackupRecord>;
+  withSourceRestore?(p:Principal,manifest:BoardBackupManifest,publish:()=>Promise<void>):Promise<void>;
   read(p:Principal,backupId:string):Promise<BackupRecord>;
   verified(p:Principal,backupId:string,manifestHash:string):Promise<void>;
   failed(p:Principal,backupId:string):Promise<void>;
@@ -38,8 +41,15 @@ export function validateBackupManifest(input:unknown):BoardBackupManifest {
   for(const image of m.images){const {blob,metadata}=image;if(blob.key!==`${prefix}assets/${blob.hash}`||metadata.assetId!==`board-image-${blob.hash}`||metadata.contentDigest!==`sha256:${blob.hash}`||metadata.byteSize!==blob.bytes||metadata.mimeType!==blob.mime)fail();}
   if(new Set(m.comments.map(c=>c.id)).size!==m.comments.length)fail();
   for(const c of m.comments){if(c.blob.key!==`${prefix}comment-bodies/${c.blob.hash}.json`||c.metadata.boardId!==m.board.id||c.metadata.id!==c.id||c.metadata.objectId!==c.objectId||c.metadata.status!==c.status||c.metadata.revision!==c.revision||c.metadata.comments.some(item=>item.boardId!==m.board.id||item.threadId!==c.id))fail();}
+  const primaryKeys=new Set([m.snapshot.key,...m.images.map(i=>i.blob.key),...m.comments.map(c=>c.blob.key)]);
+  for(const ref of m.sourceHistory??[]){
+    if(!ref.key.startsWith(prefix)||ref.key.split('/').some(part=>!part||part==='.'||part==='..')||/[\\\x00-\x1f]/.test(ref.key)||primaryKeys.has(ref.key))fail();
+    primaryKeys.add(ref.key);
+  }
   return m;
 }
+export function boardBackupBlobs(m:BoardBackupManifest):BackupBlob[]{return[m.snapshot,...m.images.map(i=>i.blob),...m.comments.map(c=>c.blob),...(m.sourceHistory??[])];}
+
 function verifyCanonical(bytes:Uint8Array,m:BoardBackupManifest):void{
   const doc=createWhiteboardDocument();try{Y.applyUpdate(doc,bytes);validateDocument(doc);const referenced=new Set<string>();
     for(const object of readObjects(doc)){const content=readContentObject(object);
@@ -65,10 +75,28 @@ export class BoardBackupService {
   async backup(p:Principal,boardId:string,backupId:string){Id.parse(boardId);Id.parse(backupId);const record=await this.repository.capture(p,boardId,backupId),m=validateBackupManifest(record.manifest);
     if(m.orgId!==p.orgId||m.board.ownerId!==p.userId||m.board.id!==boardId||m.backupId!==backupId)fail('NOT_FOUND');
     try{const snapshot=await this.readBlob(this.primary,m.snapshot);verifyCanonical(snapshot,m);
-      for(const ref of [m.snapshot,...m.images.map(i=>i.blob),...m.comments.map(c=>c.blob)])await this.put(this.secondary,{...ref,key:this.archiveKey(m,ref.hash)},await this.readBlob(this.primary,ref));
+      for(const ref of boardBackupBlobs(m))await this.put(this.secondary,{...ref,key:this.archiveKey(m,ref.hash)},await this.readBlob(this.primary,ref));
       const bytes=Buffer.from(JSON.stringify(m)),hash=backupHash(bytes);await this.put(this.secondary,{key:this.manifestKey(m),hash,bytes:bytes.byteLength,mime:'application/json'},bytes);
-      await this.repository.verified(p,backupId,hash);return{backupId,manifestHash:hash,source:m.revision,blobCount:1+m.images.length+m.comments.length};
+      await this.repository.verified(p,backupId,hash);return{backupId,manifestHash:hash,source:m.revision,blobCount:boardBackupBlobs(m).length};
     }catch(error){await this.repository.failed(p,backupId).catch(()=>undefined);throw error;}
+  }
+  /** Disaster recovery only: fresh owner ACL + restored PG refs must match the
+   * captured source. Never rebind old actor/proposal identities onto a new Board. */
+  async restoreSourceFiles(p:Principal,backupId:string){
+    Id.parse(backupId);const record=await this.repository.read(p,backupId);
+    if(record.status!=='verified'||!record.manifestHash)fail('BACKUP_NOT_VERIFIED');
+    const m=validateBackupManifest(record.manifest);
+    if(m.orgId!==p.orgId||m.board.ownerId!==p.userId||m.backupId!==backupId)fail('NOT_FOUND');
+    if(m.sourceHistory===undefined||!this.repository.withSourceRestore)fail('SOURCE_HISTORY_NOT_CAPTURED');
+    const manifestBytes=await this.readBlob(this.secondary,{key:this.manifestKey(m),hash:record.manifestHash,bytes:Buffer.byteLength(JSON.stringify(m)),mime:'application/json'});
+    if(JSON.stringify(validateBackupManifest(JSON.parse(Buffer.from(manifestBytes).toString())))!==JSON.stringify(m))fail();
+    // Validate every byte before publishing any source key; reread during writes
+    // avoids holding all history (up to 20k blobs) in process memory.
+    for(const ref of boardBackupBlobs(m))await this.readBlob(this.secondary,{...ref,key:this.archiveKey(m,ref.hash)});
+    await this.repository.withSourceRestore(p,m,async()=>{
+      for(const ref of boardBackupBlobs(m))await this.put(this.primary,ref,await this.readBlob(this.secondary,{...ref,key:this.archiveKey(m,ref.hash)}));
+    });
+    return{boardId:m.board.id,blobCount:boardBackupBlobs(m).length};
   }
   async restore(p:Principal,backupId:string,restoreId:string){Id.parse(backupId);Id.parse(restoreId);const record=await this.repository.read(p,backupId);if(record.status!=='verified'||!record.manifestHash)fail('BACKUP_NOT_VERIFIED');
     const saved=validateBackupManifest(record.manifest);if(restoreId===saved.board.id)fail('TARGET_MUST_BE_NEW');if(saved.orgId!==p.orgId||saved.board.ownerId!==p.userId||saved.backupId!==backupId)fail('NOT_FOUND');

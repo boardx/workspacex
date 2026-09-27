@@ -26,3 +26,12 @@ it.each(['newer','hash','inline','format'] as const)('refuses incompatible in-pl
 it('does not overwrite a concurrent logical edit after the verified file copy',async()=>{const f=fixture();vi.mocked(f.repo.recover).mockRejectedValue(new BackupMaintenanceError('CURRENT_CONTENT_CHANGED'));await expect(f.service.run(p,recoveryRequest,true)).rejects.toMatchObject({code:'CURRENT_CONTENT_CHANGED'});expect(f.primary.values.size).toBe(1);expect(f.state.receipt).toBeNull();expect(f.state.snapshot!.seq).toBe(2);});
 it('rechecks authorization before an old successful receipt can be replayed',async()=>{const f=fixture();await f.service.run(p,releaseRequest,true);vi.mocked(f.repo.inspect).mockRejectedValue(new BackupMaintenanceError('NOT_FOUND'));await expect(f.service.run(p,releaseRequest,true)).rejects.toMatchObject({code:'NOT_FOUND'});expect(f.repo.release).toHaveBeenCalledOnce();});
 it('retains every live root family while excluding only released backup pins',async()=>{const sql=await readFile(new URL('../../migrations/20260928010000_whiteboard_backup_maintenance.sql',import.meta.url),'utf8');for(const table of ['whiteboard_documents','whiteboard_updates','whiteboard_checkpoints','whiteboard_imports','whiteboard_exports','whiteboard_asset_refs','whiteboard_comment_threads','whiteboard_comment_requests'])expect(sql).toContain(`FROM ${table}`);expect(sql).toContain('whiteboard_backup_pins WHERE org_id=p_org AND object_key=p_key AND released_at IS NULL');expect(sql).not.toContain('DELETE FROM');});
+
+it('cannot release backup pins while a captured history blob is missing',async()=>{
+ const f=fixture(),bytes=Buffer.from('AI undo body'),hash=backupHash(bytes);
+ f.state.backup.manifest.sourceHistory=[{key:`whiteboards/tenants/${backupTenant(p.orgId)}/boards/${board}/proposal-bodies/${hash}.json`,hash,bytes:bytes.length,mime:'application/json'}];
+ const manifestBytes=Buffer.from(JSON.stringify(f.state.backup.manifest));f.state.backup.manifestHash=backupHash(manifestBytes);
+ f.archive.values.set(`board-backups/${backupTenant(p.orgId)}/${backup}/manifest.json`,{bytes:manifestBytes,mime:'application/json'});
+ await expect(f.service.run(p,releaseRequest,true)).rejects.toMatchObject({code:'BACKUP_INTEGRITY_FAILED'});
+ expect(f.repo.release).not.toHaveBeenCalled();
+});

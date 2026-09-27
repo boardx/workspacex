@@ -2,7 +2,7 @@ import {z} from 'zod';
 import type {Principal} from '../../domain/principal';
 import type {ObjectStore} from '../artifact/ports';
 import {ObjectExistsError} from '../artifact/ports';
-import {backupHash,backupTenant,validateBackupManifest,type BackupRecord,type BackupBlob} from './board-backup';
+import {backupHash,backupTenant,validateBackupManifest,boardBackupBlobs,type BackupRecord,type BackupBlob} from './board-backup';
 const id=z.string().uuid();
 export const MaintenanceRequest=z.discriminatedUnion('action',[
  z.object({action:z.literal('release-pins'),backupId:id,requestId:id,retentionDays:z.number().int().min(1).max(36500).default(30)}).strict(),
@@ -42,7 +42,7 @@ export class BackupMaintenanceService{
   const manifest=await this.read({key:`${archivePrefix}/manifest.json`,hash:state.backup.manifestHash!,bytes:Buffer.byteLength(JSON.stringify(m)),mime:'application/json'},this.archive);
   if(JSON.stringify(validateBackupManifest(JSON.parse(Buffer.from(manifest).toString())))!==JSON.stringify(m))fail('BACKUP_INTEGRITY_FAILED');
   let snapshot:Uint8Array|null=null;
-  for(const ref of [m.snapshot,...m.images.map(item=>item.blob),...m.comments.map(item=>item.blob)]){const bytes=await this.read({...ref,key:`${archivePrefix}/blobs/${ref.hash}`},this.archive);if(ref===m.snapshot)snapshot=bytes;}
+  for(const ref of boardBackupBlobs(m)){const bytes=await this.read({...ref,key:`${archivePrefix}/blobs/${ref.hash}`},this.archive);if(ref===m.snapshot)snapshot=bytes;}
   const objectKey=request.action==='recover-manifest'?`whiteboards/tenants/${backupTenant(p.orgId)}/boards/${request.boardId}/epochs/${request.expectedEpoch}/recovered/${request.requestId}-${m.snapshot.hash}.yjs`:null;
   if(!execute)return{mode:'dry-run',replayed:false,action:request.action,backupId:request.backupId,requestId:request.requestId,eligible:true,activePins:state.activePins,objectKey};
   let receipt:MaintenanceReceipt;

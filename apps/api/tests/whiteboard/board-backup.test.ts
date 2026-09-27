@@ -35,3 +35,39 @@ describe('Board joint metadata and body backup',()=>{
   it('rejects restoring onto the source identity',async()=>{const f=fixture();await f.service.backup(p,board,backup);await expect(f.service.restore(p,backup,board)).rejects.toThrow('TARGET_MUST_BE_NEW');expect(f.prepared).toBe(0);});
   it('rejects unknown manifest fields and out-of-tenant refs',()=>{const f=fixture();expect(()=>validateBackupManifest({...f.manifest,body:'hidden'})).toThrow();expect(()=>validateBackupManifest({...f.manifest,snapshot:{...f.manifest.snapshot,key:'outside'}})).toThrow('BACKUP_INTEGRITY_FAILED');expect(()=>validateBackupManifest({...f.manifest,snapshot:{...f.manifest.snapshot,key:`${f.manifest.snapshot.key}/../../foreign`}})).toThrow('BACKUP_INTEGRITY_FAILED');});
 });
+
+async function withHistory(f:ReturnType<typeof fixture>){
+ const bytes=Buffer.from('{"commands":["PRIVATE_AI_UNDO_BODY"]}'),hash=backupHash(bytes),ref={key:`whiteboards/tenants/${backupTenant(p.orgId)}/boards/${board}/proposal-bodies/${hash}.json`,hash,bytes:bytes.length,mime:'application/json'};
+ f.manifest.sourceHistory=[ref];f.primary.values.set(ref.key,{bytes,mime:ref.mime});return ref;
+}
+it('archives source-only AI history and restores original keys after PG identity verification',async()=>{
+ const f=fixture(),ref=await withHistory(f);let checked=0;
+ f.repo.withSourceRestore=async(_p,m,publish)=>{expect(m.sourceHistory).toEqual([ref]);checked++;await publish();};
+ expect(JSON.stringify(f.manifest)).not.toContain('PRIVATE_AI_UNDO_BODY');
+ const result=await f.service.backup(p,board,backup);expect(result.blobCount).toBe(2);
+ f.primary.values.clear();await f.service.restore(p,backup,restore);
+ expect(await f.primary.get(ref.key)).toBeNull();expect([...f.primary.values.keys()].every(key=>key.includes(`/boards/${restore}/`))).toBe(true);
+ await f.service.restoreSourceFiles(p,backup);expect(checked).toBe(1);
+ expect(Buffer.from((await f.primary.get(ref.key))!).toString()).toContain('PRIVATE_AI_UNDO_BODY');
+ expect(f.published).toBe(1); // no old proposal/actor permissions published into new Board
+});
+it.each(['missing','tampered'] as const)('refuses %s source history before source filesystem writes',async mode=>{
+ const f=fixture(),ref=await withHistory(f);let checked=0;f.repo.withSourceRestore=async(_p,_m,publish)=>{checked++;await publish();};
+ await f.service.backup(p,board,backup);f.primary.values.clear();
+ const archiveKey=`board-backups/${backupTenant(p.orgId)}/${backup}/blobs/${ref.hash}`;
+ if(mode==='missing')f.secondary.values.delete(archiveKey);else f.secondary.values.get(archiveKey)!.bytes[0]^=1;
+ await expect(f.service.restoreSourceFiles(p,backup)).rejects.toThrow('BACKUP_INTEGRITY_FAILED');expect(checked).toBe(0);expect(f.primary.values.size).toBe(0);
+});
+it('does not restore source files if restored PG references changed',async()=>{
+ const f=fixture();await withHistory(f);f.repo.withSourceRestore=async()=>{throw Error('SOURCE_CHANGED');};await f.service.backup(p,board,backup);f.primary.values.clear();
+ await expect(f.service.restoreSourceFiles(p,backup)).rejects.toThrow('SOURCE_CHANGED');expect(f.primary.values.size).toBe(0);
+});
+it('preserves old manifest hashes and refuses claiming old archives captured source history',async()=>{
+ const f=fixture();const before=JSON.stringify(f.manifest);expect(JSON.stringify(validateBackupManifest(f.manifest))).toBe(before);
+ await f.service.backup(p,board,backup);await expect(f.service.restoreSourceFiles(p,backup)).rejects.toThrow('SOURCE_HISTORY_NOT_CAPTURED');
+});
+it('rejects duplicate, foreign and traversal source history references',async()=>{
+ const f=fixture(),ref=await withHistory(f);
+ for(const key of [ref.key.replace(board,restore),`${ref.key}/../other`,f.manifest.snapshot.key])expect(()=>validateBackupManifest({...f.manifest,sourceHistory:[{...ref,key}]})).toThrow('BACKUP_INTEGRITY_FAILED');
+ expect(()=>validateBackupManifest({...f.manifest,sourceHistory:[ref,ref]})).toThrow('BACKUP_INTEGRITY_FAILED');
+});

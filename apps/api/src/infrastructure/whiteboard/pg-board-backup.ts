@@ -1,4 +1,4 @@
-import { BoardBackupError, type BoardBackupManifest, validateBackupManifest, boardRestoreRefs, backupHash, type BackupRecord, type BoardBackupRepository, type RestoreRefs } from '../../application/whiteboard/board-backup';
+import { BoardBackupError, type BoardBackupManifest, validateBackupManifest, boardRestoreRefs, backupHash, type BackupRecord, type BoardBackupRepository, type RestoreRefs, type BackupBlob, boardBackupBlobs } from '../../application/whiteboard/board-backup';
 import type { DatabasePort, TenantSession } from '../../application/ports/database.port';
 import type { Principal } from '../../domain/principal';
 import type { PgWhiteboardCommentStore } from './pg-whiteboard-comment-store';
@@ -26,6 +26,30 @@ export class PgBoardBackupRepository implements BoardBackupRepository {
     await this.actor(s,p,found.rows[0]!.source_board_id,true);return this.record(s,p,id);
   }
   private async pins(s:TenantSession,p:Principal,backupId:string,keys:string[]){for(const key of [...new Set(keys)].sort())await s.query(`INSERT INTO whiteboard_backup_pins(org_id,backup_id,object_key) VALUES($1,$2,$3) ON CONFLICT(org_id,backup_id,object_key) DO UPDATE SET released_at=NULL`,[p.orgId,backupId,key]);}
+  private async sourceHistory(s:TenantSession,p:Principal,boardId:string,exclude:string[]):Promise<BackupBlob[]>{
+    // Lock mutable roots only; image asset metadata is immutable and app_rw has no UPDATE grant.
+    const refs=await s.query<{key:string;hash:string;bytes:string;mime:string|null}>(`SELECT r.object_key AS key,r.content_hash AS hash,r.byte_size::text AS bytes,
+      CASE WHEN r.object_key LIKE '%.yjs' THEN 'application/vnd.yjs-update' WHEN r.object_key LIKE '%.json' THEN 'application/json' ELSE a.metadata->>'mimeType' END AS mime
+      FROM whiteboard_asset_refs r LEFT JOIN whiteboard_image_assets a ON a.org_id=r.org_id AND a.board_id=r.board_id AND a.object_key=r.object_key
+      WHERE r.org_id=$1 AND r.board_id=$2 AND r.state='active' AND r.released_at IS NULL AND NOT(r.object_key=ANY($3::text[])) ORDER BY r.object_key FOR SHARE OF r`,[p.orgId,boardId,exclude]);
+    return refs.rows.map(ref=>{if(!ref.mime)throw new BoardBackupError('UNSUPPORTED_HISTORY_REFERENCE');return{...ref,bytes:Number(ref.bytes),mime:ref.mime};});
+  }
+  async withSourceRestore(p:Principal,m:BoardBackupManifest,publish:()=>Promise<void>){return this.db.withTenant(p.orgId,async s=>{
+    if(m.sourceHistory===undefined)throw new BoardBackupError('SOURCE_HISTORY_NOT_CAPTURED');
+    const row=await this.accessRecord(s,p,m.backupId);
+    if(row.status!=='verified'||JSON.stringify(validateBackupManifest(row.capture))!==JSON.stringify(m))throw new BoardBackupError('BACKUP_NOT_VERIFIED');
+    const doc=await s.query<{epoch:number;seq:string;object_key:string;content_hash:string;byte_size:string}>(`SELECT epoch,seq::text,object_key,content_hash,byte_size::text FROM whiteboard_documents WHERE org_id=$1 AND board_id=$2 AND snapshot IS NULL`,[p.orgId,m.board.id]);
+    const current=doc.rows[0];
+    if(!current||current.epoch!==m.revision.epoch||Number(current.seq)!==m.revision.seq||current.object_key!==m.snapshot.key||current.content_hash!==m.snapshot.hash||Number(current.byte_size)!==m.snapshot.bytes)throw new BoardBackupError('SOURCE_CHANGED');
+    const comments=await s.query<{id:string;body_object_key:string;body_hash:string;body_bytes:string}>(`SELECT id,body_object_key,body_hash,body_bytes::text FROM whiteboard_comment_threads WHERE org_id=$1 AND board_id=$2 ORDER BY id`,[p.orgId,m.board.id]);
+    const expected=m.comments.map(c=>({id:c.id,body_object_key:c.blob.key,body_hash:c.blob.hash,body_bytes:String(c.blob.bytes)})).sort((a,b)=>a.id.localeCompare(b.id));
+    if(JSON.stringify(comments.rows)!==JSON.stringify(expected))throw new BoardBackupError('SOURCE_CHANGED');
+    const history=await this.sourceHistory(s,p,m.board.id,[m.snapshot.key,...m.images.map(i=>i.blob.key),...m.comments.map(c=>c.blob.key)]);
+    if(JSON.stringify(history)!==JSON.stringify(m.sourceHistory))throw new BoardBackupError('SOURCE_CHANGED');
+    // Board and backup locks remain held while exact source keys are restored.
+    // Concurrent Board writes/retention cannot invalidate this acceptance point.
+    await publish();
+  });}
   async capture(p:Principal,boardId:string,backupId:string){return this.db.withTenant(p.orgId,async s=>{
     // Match library mutation lock order: taxonomy before Board, then backup metadata/pins.
     const tags=await s.query<{id:string;name:string;revision:number}>(`SELECT t.id,t.name,t.revision FROM whiteboard_tags t JOIN whiteboard_tag_bindings bt ON bt.org_id=t.org_id AND bt.tag_id=t.id JOIN whiteboards b ON b.org_id=bt.org_id AND b.id=bt.board_id WHERE t.org_id=$1 AND b.id=$2 AND b.owner_id=$3 AND t.deleted_at IS NULL ORDER BY t.id FOR SHARE OF t`,[p.orgId,boardId,p.userId]);
@@ -42,9 +66,11 @@ export class PgBoardBackupRepository implements BoardBackupRepository {
     const images=await s.query<{object_key:string;metadata:unknown}>(`SELECT a.object_key,a.metadata FROM whiteboard_image_assets a JOIN whiteboard_asset_refs r ON r.org_id=a.org_id AND r.board_id=a.board_id AND r.object_key=a.object_key WHERE a.org_id=$1 AND a.board_id=$2 AND a.asset_id=ANY($3::text[]) AND r.released_at IS NULL AND r.state='active' ORDER BY a.asset_id FOR SHARE OF r`,[p.orgId,boardId,imageIds]);
     const b=boards.rows[0]!,d=docs.rows[0];
     const manifest=validateBackupManifest({version:1,backupId,orgId:p.orgId,capturedAt:new Date().toISOString(),board:{id:boardId,name:b.name,ownerId:b.owner_id,createdAt:new Date(b.created_at).toISOString(),updatedAt:new Date(b.updated_at).toISOString(),archived:b.archived,lifecycleRevision:b.lifecycle_revision,tagsRevision:b.tags_revision,members:members.rows,tags:tags.rows},revision:{epoch:loaded.epoch,seq:loaded.seq},snapshot:{key:d.object_key,hash:d.content_hash,bytes:Number(d.byte_size),mime:'application/vnd.yjs-update'},comments,images:images.rows.map(row=>{const metadata=row.metadata as {contentDigest:string;byteSize:number;mimeType:string};return{metadata,blob:{key:row.object_key,hash:metadata.contentDigest.slice(7),bytes:metadata.byteSize,mime:metadata.mimeType}}})});
+    manifest.sourceHistory=await this.sourceHistory(s,p,boardId,[manifest.snapshot.key,...manifest.images.map(i=>i.blob.key),...manifest.comments.map(c=>c.blob.key)]);
+    validateBackupManifest(manifest);
     if(new Set(imageIds).size!==manifest.images.length)throw new BoardBackupError('BACKUP_INTEGRITY_FAILED');
     await s.query(`INSERT INTO whiteboard_backups(org_id,backup_id,actor_id,source_board_id,status,capture) VALUES($1,$2,$3,$4,'preparing',$5::jsonb)`,[p.orgId,backupId,p.userId,boardId,JSON.stringify(manifest)]);
-    await this.pins(s,p,backupId,[manifest.snapshot.key,...manifest.images.map(i=>i.blob.key),...manifest.comments.map(c=>c.blob.key)]);return{manifest,status:'preparing' as const,manifestHash:null};
+    await this.pins(s,p,backupId,boardBackupBlobs(manifest).map(ref=>ref.key));return{manifest,status:'preparing' as const,manifestHash:null};
   });}
   async read(p:Principal,id:string){return this.db.withTenant(p.orgId,async s=>this.decoded(await this.accessRecord(s,p,id)));}
   async verified(p:Principal,id:string,hash:string){await this.db.withTenant(p.orgId,async s=>{const row=await this.accessRecord(s,p,id);if(row.manifest_hash&&row.manifest_hash!==hash)throw new BoardBackupError('IDEMPOTENCY_CONFLICT');await s.query(`UPDATE whiteboard_backups SET status='verified',manifest_hash=$3,updated_at=now() WHERE org_id=$1 AND backup_id=$2`,[p.orgId,id,hash]);});}

@@ -14,6 +14,7 @@ export default defineConfig({ resolve:{alias:{
   '@repo/whiteboard-core':resolve(__dirname,'../../packages/whiteboard-core/src/index.ts'),
 }},test: {
   include: [
+    'tests/whiteboard/backup-source-history-repository.test.ts',
     'tests/whiteboard/board-backup.test.ts',
     'tests/whiteboard/export-repository-guard.test.ts',
     'tests/whiteboard/collaboration-budget.test.ts',
