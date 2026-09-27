@@ -27,12 +27,12 @@ async function openMenu(item: api.Board = board) { fireEvent.pointerDown(await s
 describe('Board library', () => {
   it('requests untagged boards from the server and clears that filter when selecting a tag', async () => {
     render(<WhiteboardLibrary />); await screen.findByTestId('empty');
-    fireEvent.click(screen.getByRole('button', {name:'无标签', exact:true}));
+    fireEvent.click(screen.getByRole('button', {name:'无标签'}));
     await waitFor(() => expect(api.listBoards).toHaveBeenLastCalledWith(expect.objectContaining({untagged:'true',tagIds:[]}),expect.any(AbortSignal)));
-    expect(screen.getByRole('button', {name:'无标签',exact:true})).toHaveAttribute('aria-pressed','true');
+    expect(screen.getByRole('button', {name:'无标签'})).toHaveAttribute('aria-pressed','true');
     fireEvent.click(screen.getByTestId(`board-filter-tag-${tag.id}`));
     await waitFor(() => expect(api.listBoards).toHaveBeenLastCalledWith(expect.objectContaining({untagged:'false',tagIds:[tag.id]}),expect.any(AbortSignal)));
-    fireEvent.click(screen.getByRole('button', {name:'全部标签',exact:true}));
+    fireEvent.click(screen.getByRole('button', {name:'全部标签'}));
     await waitFor(() => expect(api.listBoards).toHaveBeenLastCalledWith(expect.objectContaining({untagged:'false',tagIds:[]}),expect.any(AbortSignal)));
   });
   it('creates once with a durable request id and enters the full-screen editor', async () => {
