@@ -106,6 +106,10 @@ test("旅程⑥：非成员被拒 → 引导师发邀请 → 成员经链接加�
   expect(created.status()).toBe(200);
   const threadId = (await created.json()).threadId as string;
   expect(threadId).toBeTruthy();
+  // 建成后组件直接进入该线程（`/chat/<id>?projectId=`，见 project-conversations.tsx 头注），
+  // 卡片不在当前页——先确认真的进了线程，再回到列表操作分享。
+  await expect(page).toHaveURL(new RegExp(`/chat/${threadId}\\?projectId=${PROJECT}$`), { timeout: 20_000 });
+  await page.goto(workbench("?tab=research&sub=conv"));
   const card = page.getByTestId(`project-conversation-${threadId}`);
   await expect(card).toBeVisible();
   await expect(card).toContainText("本组共享");
