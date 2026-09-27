@@ -8,7 +8,7 @@ import {
 } from "@/lib/knowledge-graph-api";
 import { describeHumanActionFailure } from "@/lib/knowledge-graph-failure";
 import { truncateStatement } from "@/lib/knowledge-graph-recall";
-import { requestKnowledgeReload, useKnowledgeSnapshot } from "@/lib/knowledge-graph-events";
+import { requestKnowledgeReload, requestRememberStatement, useKnowledgeSnapshot } from "@/lib/knowledge-graph-events";
 import { TURN_MEMORY_REPOLL_DELAYS_MS } from "./turn-memory-line";
 
 /**
@@ -52,15 +52,30 @@ import { TURN_MEMORY_REPOLL_DELAYS_MS } from "./turn-memory-line";
  * 所有者点一下两份都撤——「撤销」的意思就是「别记这句话」；不是所有者的作者只撤自己空间里那份（会话的知识
  * 归会话所有者，F10 R5）。顺序上先撤个人副本：第二步撞上版本冲突时，最要紧的那份已经撤掉，再点一次
  * 第一步读到 `KG_CLAIM_NOT_FOUND` 视为已撤、直接走第二步。
+ *
+ * ## issue #4352：「这句没有需要记的 · 记一条」
+ *
+ * 契约 `status`（契约字段先行实现、签核后补）说这条消息抽完了、但没有可记的（`empty`）且没有活结论时，
+ * 一行淡提示「这句没有需要记的 · 记一条」。点「记一条」把这条消息的原文交给 F17 已有的「记住」确认卡路径
+ * （`requestRememberStatement`，同面板「+ 记一条」、消息菜单「记住这句」）——只是请求，是否真的记住仍由随后
+ * 出现的确认卡上的人工点击决定。抽出了东西（`written`）、失败（`failed`）、有意跳过（`skipped`）、从没排进抽取
+ * （`none`）都不显示这一行。「记一条」只给会话所有者（同面板「+ 记一条」）；别人只看到那半句说明。
+ * 补读：还在 `pending` 就按同一张有限次补读表继续读，读到终态为止（不再以「claims 为空」为继续的条件——
+ * 那样 `empty` 的消息会白白读满整张表）。
  */
 export function ExtractionFeedbackChip({
   threadId,
   messageId,
+  statement,
 }: {
   readonly threadId: string;
   readonly messageId: string;
+  /** 这条消息的原文：「记一条」把它预填进「记住」确认卡。不给 ⇒ 只显示说明，不给「记一条」。 */
+  readonly statement?: string;
 }) {
   const [claims, setClaims] = React.useState<MessageExtraction["claims"]>([]);
+  const [status, setStatus] = React.useState<MessageExtraction["status"] | null>(null);
+  const [rememberRequested, setRememberRequested] = React.useState(false);
   const [handled, setHandled] = React.useState<ReadonlySet<string>>(() => new Set());
   const [undoingId, setUndoingId] = React.useState<string | null>(null);
   const [errorFor, setErrorFor] = React.useState<Readonly<Record<string, string>>>({});
@@ -72,20 +87,24 @@ export function ExtractionFeedbackChip({
     let timer: ReturnType<typeof setTimeout> | null = null;
     const controller = new AbortController();
     setClaims([]);
+    setStatus(null);
+    setRememberRequested(false);
 
     const attempt = (index: number): void => {
       fetchMessageExtraction(threadId, messageId, controller.signal).then(
         (value) => {
           if (cancelled) return;
           const delay = TURN_MEMORY_REPOLL_DELAYS_MS[index];
-          if (value.claims.length === 0 && delay !== undefined) {
+          // 还没抽完（排队 / 进行中）⇒ 按补读表继续；刚发出去那一刻消息可能还没落库、也还没排进来（none），同样再等等。
+          if (value.claims.length === 0 && (value.status === "pending" || value.status === "none") && delay !== undefined) {
             timer = setTimeout(() => attempt(index + 1), delay);
             return;
           }
           setClaims(value.claims);
+          setStatus(value.status);
         },
         () => {
-          if (!cancelled) setClaims([]);
+          if (!cancelled) { setClaims([]); setStatus(null); }
         },
       );
     };
@@ -135,6 +154,28 @@ export function ExtractionFeedbackChip({
   }, [threadId, canUndo]);
 
   const visible = claims.filter((c) => !handled.has(c.claimId));
+  const rememberText = statement?.trim() ?? "";
+  if (visible.length === 0 && claims.length === 0 && status === "empty") {
+    return (
+      <p className="mt-1 flex items-center gap-1 text-10 text-muted-foreground/70" data-testid="kg-extraction-empty">
+        这句没有需要记的
+        {canUndo && rememberText !== "" ? (
+          <>
+            <span aria-hidden>·</span>
+            <button
+              type="button"
+              className="text-muted-foreground underline-offset-2 transition-colors duration-base hover:underline disabled:cursor-not-allowed disabled:text-disabled-foreground disabled:hover:no-underline"
+              data-testid="kg-extraction-empty-remember"
+              disabled={rememberRequested}
+              onClick={() => { setRememberRequested(true); requestRememberStatement(rememberText); }}
+            >
+              记一条
+            </button>
+          </>
+        ) : null}
+      </p>
+    );
+  }
   if (visible.length === 0) return null;
 
   return (

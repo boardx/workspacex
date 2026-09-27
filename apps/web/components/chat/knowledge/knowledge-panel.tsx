@@ -44,13 +44,14 @@ const CONFIRM_BATCH_MAX = 50;
  * - `onPromote`：记到我的长期记忆（F11，`promoteToPersonal`）。真实 `/chat` 只在服务端
  *   `canEdit && canPromote` 时传（`useKnowledgeWriteActions`）；逐条结果由面板显示，整批失败 reject。
  *   `choices` 只在回答 `needs_choice` 时带。
- * - `onReindex`：整理本会话（F13）。真实 `/chat` 还不传，对应入口不渲染——不画一排点了没反应的按钮。
- *   签核预览传演示实现。
+ * - `onReindex`：整理本会话（UC-KG-4，issue #4352 起真实 `/chat` 也传：所有者且抽取开着时，
+ *   `useKnowledgeWriteActions` 接到 `requestReindex`）。「失败 · 重试」走同一条路。失败时 reject，面板把错误翻成人话。
+ *   不传 ⇒ 对应入口不渲染——不画一排点了没反应的按钮。签核预览传演示实现。
  */
 export interface KnowledgePanelWriteActions {
   readonly apply: (action: KgHumanAction) => Promise<void>;
   readonly onPromote?: PromoteFn;
-  readonly onReindex?: () => void;
+  readonly onReindex?: () => void | Promise<void>;
 }
 
 /** 面板读取失败的人话（按契约 `getThreadKnowledge.err`）；不是本束可识别的码时给通用说法。 */
@@ -127,6 +128,15 @@ export function KnowledgePanel({
       return false;
     }
   }, [writeActions]);
+
+  /** 「整理本会话」/「失败 · 重试」：失败把人话挂在面板顶部（同编辑动作）。 */
+  const onReindexAction = writeActions?.onReindex;
+  const reindex = React.useMemo(() => (onReindexAction === undefined ? undefined : () => {
+    setActionError(null);
+    void Promise.resolve()
+      .then(() => onReindexAction())
+      .catch((e: unknown) => { setActionError(describeHumanActionFailure(e)); });
+  }), [onReindexAction]);
 
   const canEdit = data?.canEdit ?? false;
   /** 编辑入口只在「服务端说可编辑」且「这些动作真的有通路」时渲染。 */
@@ -217,7 +227,7 @@ export function KnowledgePanel({
         ) : null}
 
         {/* 整理状态行（uc-18-1 R8） */}
-        {data ? <IngestionStatus data={data} onReindex={writeActions?.onReindex} /> : null}
+        {data ? <IngestionStatus data={data} onReindex={reindex} /> : null}
 
         {/* 三态计数 */}
         {data && data.claims.length > 0 ? (
@@ -317,7 +327,7 @@ export function KnowledgePanel({
 
         {status === "ready" && data ? (
           data.claims.length === 0 && data.objects.length === 0 ? (
-            <KnowledgeEmpty onReindex={writeActions?.onReindex} />
+            <KnowledgeEmpty onReindex={reindex} />
           ) : view === "list" ? (
             <div className="flex flex-col gap-3">
               {shownNominations ? (
@@ -527,17 +537,29 @@ function IngestionStatus({ data, onReindex }: { data: ThreadKnowledge; onReindex
   const { queued, running, failed } = data.ingestion;
   const busy = queued + running > 0;
   if (!data.extractionActive) {
+    // issue #4352（人类决定 2026-09-27）：关着期间发的消息照旧不排队（不改行为），这里把后果说清楚。
     return (
-      <p className="text-10 text-muted-foreground" data-testid="kg-ingestion-inactive">
-        自动记忆未开启
-      </p>
+      <div className="flex flex-col gap-0.5" data-testid="kg-ingestion-inactive">
+        <p className="text-10 text-muted-foreground">自动记忆未开启</p>
+        <p className="text-10 text-muted-foreground" data-testid="kg-ingestion-inactive-hint">
+          关闭期间的消息不会整理，可用「整理本会话」补
+        </p>
+      </div>
     );
   }
   if (!busy && failed === 0) {
     return (
-      <p className="text-10 text-muted-foreground" data-testid="kg-ingestion-idle">
-        已整理到最新
-      </p>
+      <div className="flex items-center gap-2">
+        <p className="text-10 text-muted-foreground" data-testid="kg-ingestion-idle">
+          已整理到最新
+        </p>
+        {onReindex ? (
+          <Button size="xs" variant="ghost" data-testid="kg-reindex" onClick={onReindex}>
+            <RefreshCw aria-hidden className="h-3 w-3" />
+            整理本会话
+          </Button>
+        ) : null}
+      </div>
     );
   }
   return (

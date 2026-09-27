@@ -155,6 +155,24 @@ export function applyHumanAction(
  * 未确认的条目由服务端在同一动作里先以本人确认（U-3）。`choices` 只在回答 `needs_choice` 时带。
  * 请求体先过契约 `in` schema（1..50 条）——超批在本地就抛，不发出去。
  */
+export type ReindexResult = z.infer<typeof knowledgeGraph.requestReindex.out>;
+
+/**
+ * UC-KG-4 requestReindex（issue #4352）：「整理本会话」/「失败 · 重试」——把本会话的消息重新排进抽取队列。
+ * 只有会话所有者可以（否则 `KG_NOT_OWNER`）；本会话还在整理 ⇒ `KG_REINDEX_ALREADY_RUNNING`。
+ */
+export function requestReindex(threadId: string, sourceRefs?: readonly string[]): Promise<ReindexResult> {
+  const input = knowledgeGraph.requestReindex.in.parse({
+    threadId, ...(sourceRefs !== undefined ? { sourceRefs: [...sourceRefs] } : {}),
+  });
+  return getParsed(
+    `/knowledge-graph/threads/${seg(input.threadId)}/reindex`,
+    knowledgeGraph.requestReindex.out,
+    undefined,
+    { method: "POST", body: input.sourceRefs !== undefined ? { sourceRefs: input.sourceRefs } : {} },
+  );
+}
+
 export function promoteToPersonal(
   threadId: string,
   claimIds: readonly string[],

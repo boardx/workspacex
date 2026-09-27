@@ -339,6 +339,9 @@ export type KgTurnMemory = z.infer<typeof KgTurnMemory>;
  * 下方，只认这一条消息自己的证据（不做「向前找最近一条人类消息」的扩展匹配）。没有新结论（含
  * 抽取关闭 / 未配置、还没抽完、抽出的东西已撤销或被取代）⇒ 空数组，不是错误。
  */
+export const KG_MESSAGE_EXTRACTION_STATUSES = ["pending", "written", "empty", "skipped", "failed", "none"] as const;
+export type KgMessageExtractionStatus = (typeof KG_MESSAGE_EXTRACTION_STATUSES)[number];
+
 export const KgMessageExtraction = z.object({
   claims: z.array(z.object({
     claimId: z.string(),
@@ -350,6 +353,17 @@ export const KgMessageExtraction = z.object({
      */
     personalCopyClaimId: z.string().nullable(),
   }).strict()),
+  /**
+   * issue #4352（人类决定 2026-09-27；**契约字段先行实现、签核后补**，见 evidence/phase-18/r10/README.md §3.2）：
+   * 这条消息的抽取走到哪了。发送下方「这句没有需要记的 · 记一条」只在 `empty` 且 `claims` 为空时出现。
+   * - `pending`  还在队列里（排队 / 进行中 / 退避中）；
+   * - `written`  抽出了东西（可能已被撤销，所以 `claims` 仍可能为空）；
+   * - `empty`    抽完了，没有可记的；
+   * - `skipped`  有意不抽（项目会话里用过个人记忆的那一轮 agent 回答，#4284）；
+   * - `failed`   重试次数用完；
+   * - `none`     从没排进抽取（抽取关着时发的、原始转录、比会话更窄的可见范围……），或消息不在。
+   */
+  status: z.enum(KG_MESSAGE_EXTRACTION_STATUSES),
 }).strict();
 export type KgMessageExtraction = z.infer<typeof KgMessageExtraction>;
 

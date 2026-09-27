@@ -144,6 +144,10 @@ unless noted.
 - [ ] **#4290 rules** (§「待签核确认（issue #4181…）」 item 5, L195–208). Explicit change only, same author only. Auto
   applies only to the allowlisted `explicit` and aligned `same_kind` tiers, `frame_only` gives a card, and
   retraction, question and verdict give nothing. Only the thread creator can undo in project threads.
+- [ ] **#4352 contract field: per-message extraction status** (`KgMessageExtraction.status` in
+  `packages/contracts/src/chat-knowledge-graph.ts`: `pending | written | empty | skipped | failed | none`). The human
+  decided on 2026-09-27 (option A, relayed by the coordinator) to implement it first and sign it off later. It backs
+  「这句没有需要记的 · 记一条」 and is stored in `kg_message_extraction_outcomes` (migration `20260927120000`).
 - [ ] **Eval rubric amendments R1–R3**
   ([`rubric-lock.json`](../../kg-experience-eval/rubric-lock.json) `amendments`,
   [`README.md`](../../kg-experience-eval/README.md) round table). R1: E4 「原话」 accepts any corpus sentence, and

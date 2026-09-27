@@ -304,14 +304,15 @@ describe("记忆面板（真实数据）", () => {
     expect(screen.getByTestId("kg-claim-edit-trigger-c-fact")).toBeInTheDocument();
   });
 
-  it("真实 /chat：所有者有编辑入口（F10）与「记到长期记忆」（F11），「整理」还没有通路就不画", async () => {
+  // issue #4352：「整理本会话」接上了 requestReindex，所有者且抽取开着时「失败 · 重试」画出来（以前没有通路就不画）。
+  it("真实 /chat：所有者有编辑入口（F10）、「记到长期记忆」（F11）与「失败 · 重试」（UC-KG-4）", async () => {
     stubNetwork(() => json(knowledge({ canPromote: true, ingestion: { queued: 0, running: 0, failed: 1, failures: [] } })));
     render(<Harness threadId={THREAD} />);
     await screen.findByTestId("kg-list");
     expect(screen.queryByTestId("kg-readonly-badge")).not.toBeInTheDocument();
     expect(screen.getByTestId("kg-row-yes-c-fact")).toBeInTheDocument();
     expect(screen.getByTestId("kg-promote-enter")).toBeInTheDocument();
-    expect(screen.queryByTestId("kg-ingestion-retry")).not.toBeInTheDocument();
+    expect(screen.getByTestId("kg-ingestion-retry")).toBeInTheDocument();
   });
 
   it("空态：本会话还没记下任何东西", async () => {
