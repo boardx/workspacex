@@ -15,8 +15,10 @@ From the integrated repository root, in the **main session**:
 BOARD_PROPOSAL_STORAGE_DRILL=1 \
 BOARD_PROPOSAL_DRILL_DIRECTORY="/private/tmp/board-proposal-proof-$(date +%s)" \
 pnpm exec tsx .harness/scripts/with-test-isolation.ts -- \
-  sh -c 'docker compose -f apps/api/docker-compose.dev.yml -p "$COMPOSE_PROJECT_NAME" up -d --wait postgres && pnpm --filter api exec tsx scripts/board-proposal-storage-drill.ts'
+  sh -c 'docker compose -f apps/api/docker-compose.dev.yml -p "$COMPOSE_PROJECT_NAME" up -d --wait postgres && pnpm --filter @repo/api exec tsx scripts/board-proposal-storage-drill.ts'
 ```
+
+Run from the repository root: `apps/api/docker-compose.dev.yml` resolves there. Its postgres service publishes `127.0.0.1:${PGPORT}:5432`; the wrapper supplies `PGPORT`, `PGDATABASE`, `WORKSPACEX_DB`, the isolation seed/ID and `COMPOSE_PROJECT_NAME` to the same child shell. The API workspace package name is `@repo/api`.
 
 The wrapper reserves the isolation environment and owns cleanup; it does not start PostgreSQL. Start the owned postgres service and run the producer inside the same wrapper child, as above. The producer intentionally refuses an absent or mismatched container before any DB mutation.
 
