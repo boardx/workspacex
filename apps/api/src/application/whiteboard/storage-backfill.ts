@@ -26,8 +26,8 @@ export async function runStorageBackfill(port:StorageBackfillPort,rawScope:unkno
  let state={version:1 as const,scopeHash,execute:config.execute,failures:0,tenant:0,after:null as string|null};
  if(options.cursor){try{if(options.cursor.length>2048)throw Error();state=Cursor.parse(JSON.parse(Buffer.from(options.cursor,'base64url').toString('utf8')));if(state.scopeHash!==scopeHash||state.execute!==config.execute||state.tenant>=scope.length)throw Error();}catch{throw new StorageBackfillError('INVALID_CURSOR');}}
  const boards:Array<{orgId:string;boardId:string;archived:boolean;migrated:number;remaining:LegacyBodyCounts}>=[],failures:Array<{orgId:string;boardId:string|null;code:string}>=[];
- let visited=0;
- while(state.tenant<scope.length&&visited<config.boardLimit){
+ let visited=0,remainingRowBudget=config.rowLimit;
+ while(state.tenant<scope.length&&visited<config.boardLimit&&(!config.execute||remainingRowBudget>0)){
   const tenant=scope[state.tenant]!,p={orgId:toOrgId(tenant.orgId),userId:tenant.actorId};
   let ids:string[];
   try{ids='allBoards'in tenant?await port.list(p,state.after,config.boardLimit-visited):[...new Set(tenant.boardIds)].sort().filter(id=>!state.after||id>state.after).slice(0,config.boardLimit-visited);}
@@ -36,10 +36,11 @@ export async function runStorageBackfill(port:StorageBackfillPort,rawScope:unkno
   let partial=false;
   for(const boardId of ids){
    if(visited>0&&config.delayMs)await sleep(config.delayMs);visited++;
-   try{const result=config.execute?await port.migrate(p,boardId,config.rowLimit):{...await port.inspect(p,boardId),migrated:0};boards.push({orgId:tenant.orgId,boardId,...result});
+   try{const result=config.execute?await port.migrate(p,boardId,remainingRowBudget):{...await port.inspect(p,boardId),migrated:0};boards.push({orgId:tenant.orgId,boardId,...result});if(config.execute)remainingRowBudget-=result.migrated;
     if(config.execute&&legacyBodyCount(result.remaining)>0){partial=true;break;}
    }catch(error){state.failures++;failures.push({orgId:tenant.orgId,boardId,code:safeFailure(error)});}
    state={...state,after:boardId};
+   if(config.execute&&remainingRowBudget===0)break;
   }
   if(partial)break;
  }
