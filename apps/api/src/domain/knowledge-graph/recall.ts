@@ -39,7 +39,7 @@ export interface RecallClaim {
    * 这条结论对这一轮来说属于哪里：本会话（L0）或本人个人空间（F12 的 L1，以及 F15 起本人其他个人对话里记下的——
    * 「个人空间 = 同一用户全部个人线程」S0-2=A，06-UX R2 M1「开新会话不用重新交代背景」）。
    */
-  readonly scope: "chat_session" | "personal";
+  readonly scope: "chat_session" | "personal" | "project";
   /** 记在本人另一个个人对话里（不是本会话、也不是长期记忆）⇒ 那个对话的 id；其余 ⇒ 省略。 */
   readonly originThreadId?: string;
 }
@@ -181,7 +181,7 @@ function sharedRank<T>(sorted: readonly T[], i: number, key: (x: T) => number): 
  * originThreadId 有值）的不认。所有权不在这里判——候选集已按 F12 的条件只含本人的 L1（见 fuseRecall 注释）。
  */
 export function forcedDecisionScope(c: RecallClaim): boolean {
-  return c.originThreadId === undefined && (c.scope === "chat_session" || c.scope === "personal");
+  return c.originThreadId === undefined && (c.scope === "chat_session" || c.scope === "personal" || c.scope === "project");
 }
 
 export function fuseRecall(input: FuseInput): KnowledgeRecall {
@@ -357,7 +357,9 @@ export function buildKnowledgeContextMessage(recall: KnowledgeRecall): string | 
     // F12：个人空间（L1）的结论来自别的会话，要说清楚，模型才能在回答里标「来自个人空间知识」。
     const when = i.claim.scope === "personal"
       ? `（来自个人空间知识${day === null ? "" : `，最早见于你 ${day} 的对话`}）`
-      : day === null ? "" : `（本会话 ${day} 的对话）`;
+      : i.claim.scope === "project"
+        ? `（来自项目记忆${day === null ? "" : `，最早见于 ${day} 的项目对话`}）`
+        : day === null ? "" : `（本会话 ${day} 的对话）`;
     // 结论原文进上下文前压成一行：原文里的换行不能伪造出材料里的其他行（降级说明、「系统：」之类）。
     return `- [${TRI_LABEL[i.claim.triState]}] ${oneLine(i.claim.statement)}${when}`;
   });

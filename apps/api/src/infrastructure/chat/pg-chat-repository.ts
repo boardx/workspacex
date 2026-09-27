@@ -426,6 +426,25 @@ export class PgChatRepository implements ChatRepository, ChatCitationWriter {
     });
   }
 
+  /** 项目中枢 R5：改可见范围。同 `setThreadPinned`：同一条语句里比对版本并自增，不写 `last_activity_at`。 */
+  async setThreadVisibility(
+    orgId: OrgId,
+    threadId: string,
+    visibilityScope: ThreadFacts["visibilityScope"],
+    expectedVersion: number,
+  ): Promise<number | null> {
+    return this.db.withTenant(orgId, async (s) => {
+      const r = await s.query<{ version: number }>(
+        `UPDATE chat_threads
+            SET visibility_scope = $1, version = version + 1
+          WHERE id = $2 AND org_id = $3 AND version = $4
+      RETURNING version`,
+        [visibilityScope, threadId, orgId, expectedVersion],
+      );
+      return r.rows[0]?.version ?? null;
+    });
+  }
+
   /**
    * 🔴 #2094 / 2026-09-16 会话级标题：自动命名写入。见 `ports.ts` 同名方法头注
    * （为什么两条前提都必须在 SQL 里，而不是调用方先 SELECT 再 UPDATE）。
