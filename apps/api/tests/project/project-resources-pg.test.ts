@@ -47,7 +47,7 @@ async function seedResources(orgId: string, owner: string): Promise<void> {
       [orgId, owner],
     );
     await c.query(
-      `INSERT INTO personal_transcriptions (id, org_id, owner_user_id, name, status) VALUES ('t1', $1, $2, '转写一', 'completed')`,
+      `INSERT INTO personal_transcriptions (id, org_id, owner_user_id, name, status) VALUES ('t1', $1, $2, '转写一', 'idle')`,
       [orgId, owner],
     );
   });
@@ -106,7 +106,7 @@ describe("PgProjectResourceRepository（真实 PG）", () => {
     const byKind = Object.fromEntries(out.items.map((x) => [x.kind, x]));
     expect(byKind.survey).toMatchObject({ id: "s1", title: "问卷一", status: "collecting", ownerUserId: OWNER });
     expect(byKind.guided_research).toMatchObject({ id: "g1", title: "研究一", status: "outline", ownerUserId: OWNER });
-    expect(byKind.personal_transcription).toMatchObject({ id: "t1", title: "转写一", status: "completed", ownerUserId: OWNER });
+    expect(byKind.personal_transcription).toMatchObject({ id: "t1", title: "转写一", status: "idle", ownerUserId: OWNER });
     expect(byKind.interview).toMatchObject({ id: "i1", title: "访谈一", status: null, ownerUserId: OWNER });
     for (const it of out.items) {
       expect(() => new Date(it.linkedAt).toISOString()).not.toThrow();
