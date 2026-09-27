@@ -107,6 +107,7 @@ export async function produceChatBoardThreeDiagramEvidence(input: {
       for(let index=0;index<pixels.length;index+=4)if(pixels[index+3]!>200 && pixels[index]!+pixels[index+1]!+pixels[index+2]!<650)ink++;
       return ink;
     },paintedNode.geometry)).toBeGreaterThan(5);
+    await page.getByRole('button',{name:'更多白板操作',exact:true}).click();
     await page.getByTestId('board-diagram-source-export').click();
     await expect(page.getByTestId('board-diagram-source')).toHaveValue(`\`\`\`${source.family==='persona'?'persona':'mermaid'}\n${code}\n\`\`\``);
     evidence.push({family:source.family,boardId,artifactId:request.layout.artifactId,sourceRevision:request.layout.sourceRevision,layoutHash:request.layout.layoutHash,revision:snapshot.revision,canonicalObjects:snapshot.objects.length,source:code});
