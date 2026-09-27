@@ -1,7 +1,7 @@
 import type { ObjectStore } from '../artifact/ports';
 import type { PhysicalPurgePort } from '../files/physical-delete-ports';
 
-export type WhiteboardObjectKind = 'document' | 'update' | 'checkpoint' | 'import' | 'export' | 'asset';
+export type WhiteboardObjectKind = 'document' | 'update' | 'checkpoint' | 'import' | 'export' | 'asset' | 'backup';
 export interface WhiteboardObjectRoot { key: string; kind: WhiteboardObjectKind }
 export interface WhiteboardStoredObject { key: string; lastModified: Date; sizeBytes: number; versionTag:string }
 

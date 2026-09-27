@@ -88,3 +88,25 @@ it('marks and physically purges a real orphan through PG fences while retaining 
   const receipt=await db.withTenant(orgId,s=>s.query<{status:string}>('SELECT status FROM whiteboard_object_purge_receipts WHERE org_id=$1 AND object_key=$2',[orgId,key]));expect(receipt.rows).toEqual([{status:'deleted'}]);
   expect((await canonical(b.id)).objects.map(o=>o.id)).toEqual(['gc-root']);
 });
+
+it('restores a joint metadata/body backup after source removal using independent archive bytes',async()=>{
+  const { BoardBackupService }=await import('../../src/application/whiteboard/board-backup');
+  const { PgBoardBackupRepository }=await import('../../src/infrastructure/whiteboard/pg-board-backup');
+  const archiveRoot=await mkdtemp(join(tmpdir(),'wb-independent-backup-'));
+  try{
+    const b=await board();await write(b.id,[note('backed-up','Survives primary loss')]);const before=await canonical(b.id);
+    const archive=new FsObjectStore(archiveRoot),repository=new PgBoardBackupRepository(db,store),service=new BoardBackupService(repository,fs,archive),backupId=randomUUID();
+    const result=await service.backup(owner,b.id,backupId);expect(result.source).toEqual({epoch:1,seq:1});
+    const captured=await repository.read(owner,backupId),key=captured.manifest.snapshot.key;
+    await db.withTenant(orgId,s=>s.query('DELETE FROM whiteboards WHERE org_id=$1 AND id=$2',[orgId,b.id]));
+    const pinned=await db.withTenant(orgId,s=>s.query<{rooted:boolean}>('SELECT whiteboard_object_is_rooted($1,$2) rooted',[orgId,key]));expect(pinned.rows[0]!.rooted).toBe(true);
+    await rm(join(root,key));expect(await fs.get(key)).toBeNull();
+    const target=randomUUID();expect(await service.restore(owner,backupId,target)).toEqual({boardId:target,replayed:false});expect((await canonical(target)).objects).toEqual(before.objects);
+    expect(await service.restore(owner,backupId,target)).toEqual({boardId:target,replayed:true});
+    const sourceManifest=await db.withTenant(orgId,s=>s.query<{null_body:boolean}>('SELECT snapshot IS NULL null_body FROM whiteboard_documents WHERE org_id=$1 AND board_id=$2',[orgId,target]));expect(sourceManifest.rows[0]!.null_body).toBe(true);
+    await write(target,[note('editable-after-disaster')]);expect((await canonical(target)).seq).toBe(1);
+    const archiveKey=`board-backups/${(await import('../../src/application/whiteboard/board-backup')).backupTenant(orgId)}/${backupId}/blobs/${captured.manifest.snapshot.hash}`;
+    await rm(join(archiveRoot,archiveKey));const rejectedTarget=randomUUID();await expect(service.restore(owner,backupId,rejectedTarget)).rejects.toThrow('BACKUP_INTEGRITY_FAILED');
+    const absent=await db.withTenant(orgId,s=>s.query('SELECT id FROM whiteboards WHERE org_id=$1 AND id=$2',[orgId,rejectedTarget]));expect(absent.rows).toHaveLength(0);
+  }finally{await rm(archiveRoot,{recursive:true,force:true});}
+});
