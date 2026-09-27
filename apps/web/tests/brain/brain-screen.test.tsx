@@ -16,10 +16,10 @@ vi.mock("@/components/session/session-provider", () => ({
   useSession: () => ({ session: { currentOrgId: "org-brain" } }),
 }));
 
-import { knowledgeGraph, type KgClaim, type KgObject } from "@repo/contracts/chat-knowledge-graph";
+import { KgClaimKind, knowledgeGraph, type KgClaim, type KgObject } from "@repo/contracts/chat-knowledge-graph";
 import { SESSION_TOKEN_STORAGE_KEY } from "@/lib/api-client";
 import type { BrainOverview, PersonalKnowledge } from "@/lib/knowledge-graph-api";
-import { KG_BANNED_USER_FACING_WORDS } from "@/lib/knowledge-graph-view";
+import { KG_BANNED_USER_FACING_WORDS, KG_CLAIM_KIND_LABEL_ZH, KG_CLAIM_KIND_ORDER } from "@/lib/knowledge-graph-view";
 import { readChatMemoryRequest } from "@/lib/chat-memory-link";
 import { BrainScreen } from "@/components/brain/brain-screen";
 
@@ -208,6 +208,43 @@ describe("大脑页：真实数据", () => {
     await waitFor(() => expect(screen.getByTestId("brain-shared")).toBeTruthy());
     const copy = text(container);
     for (const w of KG_BANNED_USER_FACING_WORDS) expect(copy).not.toContain(w);
+  });
+});
+
+/* ── issue #4343：目标 / 偏好 ─────────────────── */
+
+describe("大脑页：本人的目标 / 偏好（issue #4343）", () => {
+  const GOAL = "我的目标是探索未来教育";
+  const PREF = "我更喜欢简洁的回答";
+  const WITH_GOALS: PersonalKnowledge = knowledgeGraph.getPersonalKnowledge.out.parse({
+    ...PERSONAL,
+    claims: [...PERSONAL.claims, claim("p-goal", "goal", GOAL, null), claim("p-pref", "preference", PREF, null)],
+  });
+
+  it("类型表与分组先后覆盖契约的每一种类型（漏一种 = 那一类永远不渲染）", () => {
+    expect([...KG_CLAIM_KIND_ORDER].sort()).toEqual([...KgClaimKind.options].sort());
+    for (const k of KgClaimKind.options) expect(KG_CLAIM_KIND_LABEL_ZH[k]).toBeTruthy();
+    expect(KG_CLAIM_KIND_LABEL_ZH.goal).toBe("目标");
+    expect(KG_CLAIM_KIND_LABEL_ZH.preference).toBe("偏好");
+  });
+
+  it("长期记忆里「目标 · 1」「偏好 · 1」各成一组（决定之后、事实之前），类型筛选有「目标 1」「偏好 1」", async () => {
+    stubNetwork(real(WITH_GOALS, OVERVIEW));
+    render(<BrainScreen />);
+    await screen.findByTestId("brain-personal");
+    const goal = screen.getByTestId("brain-personal-group-goal");
+    expect(goal.querySelector("h2")?.textContent).toBe("目标 · 1");
+    expect(within(goal).getByText(GOAL)).toBeTruthy();
+    expect(screen.getByTestId("brain-personal-group-preference").querySelector("h2")?.textContent).toBe("偏好 · 1");
+    const groups = [...screen.getByTestId("brain-personal").querySelectorAll("[data-testid^='brain-personal-group-']")]
+      .map((s) => s.getAttribute("data-testid"));
+    expect(groups).toEqual([
+      "brain-personal-group-decision", "brain-personal-group-goal", "brain-personal-group-preference",
+      "brain-personal-group-fact", "brain-personal-group-risk",
+    ]);
+    expect(screen.getByTestId("brain-kind-goal").textContent).toBe("目标 1");
+    fireEvent.click(screen.getByTestId("brain-kind-preference"));
+    expect(screen.getAllByTestId("brain-personal-item").map((li) => li.querySelector("p")?.textContent)).toEqual([PREF]);
   });
 });
 

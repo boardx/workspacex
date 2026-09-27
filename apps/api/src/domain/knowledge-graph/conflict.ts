@@ -18,9 +18,11 @@
  * 为什么不交给模型判：抽取模型一次只看这一条消息和前几句上文，看不到你几天前确认过什么；
  * 这一步要确定、可复现、可测——同样的两句话永远得到同样的结论。
  */
+import type { knowledgeGraph as KG } from "@repo/contracts";
 import { normalizeName } from "./extraction";
 
-export type ConflictClaimKind = "fact" | "hypothesis" | "decision" | "todo" | "risk";
+/** 契约 `KgClaimKind` 本身（issue #4343 前这里抄了一份五值，新增类型会漂移）。 */
+export type ConflictClaimKind = KG.KgClaimKind;
 
 /** 刚从这条消息抽出来、还没人看过的结论。 */
 export interface FreshClaim {

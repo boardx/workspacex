@@ -66,7 +66,7 @@ export function matchesSourceFilter(c: KgClaim, f: SourceFilter): boolean {
 /** 来源分布：按写入者 / 类型 / 三态 / 强弱各数一遍。全部由 claims 逐条数出来，没有任何预设值。 */
 export function sourceDistribution(claims: readonly KgClaim[]) {
   const byCreator = { human: 0, model: 0, import: 0 };
-  const byKind: Record<KgClaimKind, number> = { fact: 0, hypothesis: 0, decision: 0, todo: 0, risk: 0 };
+  const byKind: Record<KgClaimKind, number> = { fact: 0, hypothesis: 0, decision: 0, todo: 0, risk: 0, goal: 0, preference: 0 };
   const byTriState: Record<KgTriState, number> = { pending: 0, confirmed: 0, conflict: 0 };
   let strong = 0;
   for (const c of claims) {

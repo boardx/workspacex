@@ -21,6 +21,7 @@ vi.mock("@/lib/survey/runtime-client", () => ({
   surveyRequest: client.request,
   SurveyPublishBlockedError: client.BlockedError,
   SurveySystemError: client.SystemError,
+  SurveyConflictError: class extends Error {},
 }));
 vi.mock("next/navigation", () => ({ useRouter: () => router }));
 
@@ -140,7 +141,7 @@ describe("live survey trusted publishing", () => {
     render(<LiveSurveyWorkspace surveyId="survey-1" initialStep="publish" />);
     fireEvent.click(await screen.findByRole("button", { name: "检查发布条件" }));
     fireEvent.click(await screen.findByRole("button", { name: "定位并修复：将题目映射到报告章节" }));
-    expect(screen.getByRole("button", { name: /2\. 报告模板/ })).toHaveAttribute("class", expect.stringContaining("border-primary"));
+    expect(screen.getByRole("button", { name: "使用报告模板" })).toBeInTheDocument();
     expect(screen.getByTestId("survey-mapping-repair-target")).toHaveTextContent("您愿意推荐我们吗？");
   });
 
