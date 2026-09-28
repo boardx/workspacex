@@ -4,6 +4,8 @@
  * 写门复用 `authorizeManageMembers`（本项目引导师，或组织 lead / admin）——契约把这条操作的
  * 失败面列成与 `addProjectMember` 完全相同的四个码，就是这个判定的直接证据；不新造一个
  * 「能不能改 AI 权限」的判据（同 `update-project-tags.ts` 复用 `canCreateProject` 的理由）。
+ * #4584：同一个门，项目层动作换成 `settings.manage`（facilitator 同一行）——研究项目 / 用户洞察的
+ * 负责人借用 facilitator 行，能过这一条，却过不了工作坊名单的 `member.manage`（容器白名单）。
  *
  * ⚠ 整体替换语义：`allowedSources` 是替换后的全集，不是增量；空数组是合法值（全部关掉）。
  *   去重 + 按契约枚举顺序归一，落库与回显都是同一个规范形状。
@@ -12,7 +14,7 @@ import type { OrgId } from "../../domain/org-id";
 import type { IdentityRepository } from "../identity/ports";
 import { ProjectError } from "./errors";
 import { ALL_PROJECT_AI_SOURCES, toProjectAiSettingsOutput, type ProjectAiSettingsOutput } from "./get-project-ai-settings";
-import { authorizeManageMembers } from "./member-authorization";
+import { authorizeManageMembers, MANAGE_SETTINGS_ACTION } from "./member-authorization";
 import type { ProjectAiSettingsRepository, ProjectAiSourceKind } from "./project-ai-settings-ports";
 
 export interface UpdateProjectAiSettingsDeps {
@@ -41,7 +43,7 @@ export async function updateProjectAiSettings(
     actorId: input.actorId,
     orgId: input.orgId,
     projectId: input.projectId,
-  });
+  }, MANAGE_SETTINGS_ACTION);
 
   const outcome = await deps.repo.upsert({
     orgId: input.orgId,
