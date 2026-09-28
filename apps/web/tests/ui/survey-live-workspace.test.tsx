@@ -24,6 +24,14 @@ describe('live survey workspace persistence',()=>{
   expect(persisted.ok).toBe(true);
   if(persisted.ok){expect(persisted.draft.tags).toEqual(['客户调研']);expect(persisted.draft.questions[0]!.title).toBe('请描述体验');}
  });
+ it('keeps project context when leaving the AI import step',async()=>{
+  window.history.replaceState(null,'','/studio/survey/saved-survey?step=import&mode=ai&projectId=project-1');
+  request.mockResolvedValueOnce(runtime());
+  render(<LiveSurveyWorkspace surveyId="saved-survey" initialStep="import" creationMode="ai" projectId="project-1"/>);
+  fireEvent.click(await screen.findByRole('button',{name:'跳过导入，空白设计'}));
+  expect(window.location.search).toContain('step=design');
+  expect(window.location.search).toContain('projectId=project-1');
+ });
  it('saves repeat policy and success Markdown through canonical publication source',async()=>{
   request.mockResolvedValueOnce(runtime()).mockResolvedValueOnce(runtime({version:5}));
   render(<LiveSurveyWorkspace surveyId="saved-survey" initialStep="publish"/>);

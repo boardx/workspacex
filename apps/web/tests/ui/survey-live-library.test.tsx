@@ -15,7 +15,7 @@ const survey = (patch = {}) => ({
   report: null, reportBasisVersion: null, reportGeneratedAt: null, ...patch,
 });
 
-beforeEach(() => { request.mockReset(); push.mockReset(); });
+beforeEach(() => { request.mockReset(); push.mockReset(); window.localStorage.clear(); });
 
 describe("LiveSurveyLibrary", () => {
   it("creates a named draft with a pending tag and navigates only after persistence", async () => {
@@ -36,6 +36,14 @@ describe("LiveSurveyLibrary", () => {
     fireEvent.click(screen.getByRole('radio',{name:/AI 导入创建/}));
     fireEvent.click(screen.getByRole('button',{name:'下一步'}));
     await waitFor(()=>expect(push).toHaveBeenCalledWith('/studio/survey/ai-created?step=import&mode=ai'));
+    expect(window.localStorage.getItem('survey:pending-ai-import:ai-created')).toBe('1');
+  });
+  it('reopens an unfinished AI draft at import and preserves its project context', async () => {
+    window.localStorage.setItem('survey:pending-ai-import:survey-1', '1');
+    request.mockResolvedValueOnce([survey({status:'draft',publication:null,responses:[]})]);
+    render(<LiveSurveyLibrary projectId="project-1" />);
+    fireEvent.click(await screen.findByRole('button',{name:'继续设计'}));
+    expect(push).toHaveBeenCalledWith('/studio/survey/survey-1?step=import&mode=ai&projectId=project-1');
   });
   it("searches actual persisted tags as well as survey names", async () => {
     request.mockResolvedValueOnce([survey({tags:['组织诊断']})]);render(<LiveSurveyLibrary />);

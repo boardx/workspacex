@@ -40,6 +40,7 @@ import { SurveyCollectionSettingsEditor } from './collection-settings';
 import { SurveyTemplateActions } from "../library/template-actions";
 import { LiveResponseList } from "./response-list";
 import { assessPublishReadiness } from "@/lib/survey/publish-readiness";
+import { clearPendingAiImport } from "@/lib/survey/pending-ai-import";
 const STEPS = [
   ["design", "设计问卷"],
   ["publish", "发布回收"],
@@ -263,7 +264,10 @@ export function LiveSurveyWorkspace({
   const selectStep = (next: string, targetQuestionId?: string) => {
     setStep(next);
     setRepairQuestionId(targetQuestionId ?? null);
-    window.history.replaceState(null, "", `?step=${next}${hasImportStep ? "&mode=ai" : ""}`);
+    const url = new URL(window.location.href);
+    url.searchParams.set("step", next);
+    if (hasImportStep) url.searchParams.set("mode", "ai");
+    window.history.replaceState(null, "", url);
   };
   const projectedInSync = !!draft && !markdownNeedsApply;
   const autosaveEligible = !!runtime && !runtime.publication && step === "design" && dirty &&
@@ -396,6 +400,7 @@ export function LiveSurveyWorkspace({
                 ? serializeSurveyDesignMarkdown({...result.draft,tags:draft.tags}) : text;
               setMarkdown(canonical);setMarkdownNeedsApply(false);setError('');
               setDraft({...draft,title:result.draft.title,tags:result.draft.tags??draft.tags,questions:result.draft.questions});
+              clearPendingAiImport(surveyId);
               selectStep("design");
             }}/>
             <details className="rounded-lg border border-border bg-card p-4"><summary className="cursor-pointer text-13 font-medium">直接编辑 Markdown（可选）</summary>
@@ -403,10 +408,10 @@ export function LiveSurveyWorkspace({
                 const result = parseSurveyDesignMarkdown(markdown);
                 if (!result.ok) { setError(result.diagnostics.map((entry) => `第 ${entry.line} 行：${entry.message}`).join("；")); return; }
                 setError(""); setDraft({ ...draft, title: result.draft.title, tags: result.draft.tags, questions: result.draft.questions });
-                setMarkdownNeedsApply(false);selectStep("design");
+                setMarkdownNeedsApply(false);clearPendingAiImport(surveyId);selectStep("design");
               }} /></div>
             </details>
-            <div className="flex justify-end"><Button variant="outline" onClick={() => selectStep("design")}>跳过导入，空白设计</Button></div>
+            <div className="flex justify-end"><Button variant="outline" onClick={() => {clearPendingAiImport(surveyId);selectStep("design");}}>跳过导入，空白设计</Button></div>
           </section>)}
           {step === "design" && (<>
             <fieldset disabled={!projectedInSync}>
