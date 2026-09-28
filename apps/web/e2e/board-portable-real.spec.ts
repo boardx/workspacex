@@ -5,6 +5,7 @@ import {expect,test,type Page} from '@playwright/test';
 import {FULLSTACK_E2E as F} from './fullstack-smoke-fixture';
 import {SESSION_TOKEN_STORAGE_KEY} from '../lib/api-client';
 import {producePortableRoundtripEvidence,producePortableRevocationRaceEvidence} from './support/board-portable-producer';
+import {imageEvidenceConnectionConfig} from './support/board-durable-images-storage';
 const apiOrigin=()=>`http://127.0.0.1:${process.env.WORKSPACEX_API_PORT}`;
 async function login(page:Page,peer=false){await page.goto('/login');await page.getByTestId('login-email').fill(peer?F.leadEmail:F.adminEmail);await page.getByTestId('login-password').fill(peer?F.leadPassword:F.adminPassword);await page.getByTestId('login-submit').click();await expect(page).toHaveURL(/\/projects$/);return(await page.evaluate(key=>localStorage.getItem(key),SESSION_TOKEN_STORAGE_KEY))!;}
 async function pixels(page:Page){await expect.poll(()=>page.locator('canvas.lower-canvas').evaluateAll(items=>items.some(item=>{const canvas=item as HTMLCanvasElement,ctx=canvas.getContext('2d');if(!ctx)return false;const data=ctx.getImageData(0,0,canvas.width,canvas.height).data;let n=0;for(let i=0;i<data.length;i+=4)if(data[i]===231&&data[i+1]===29&&data[i+2]===73&&data[i+3]===255)n++;return n>100;}))).toBe(true);}
@@ -24,7 +25,7 @@ test('portable nested board and media survive import, refresh, peer, and locked 
   await page.goto(`/studio/board/${evidence.targetBoardId}`);await pixels(page);await page.reload();await pixels(page);await peer.goto(`/studio/board/${evidence.targetBoardId}`);await pixels(peer);
   await info.attach('portable-confirmed-canvas',{body:await page.screenshot(),contentType:'image/png'});await info.attach('portable-roundtrip',{body:JSON.stringify({...evidence,scope:'same-instance same-tenant distinct-user peer; cross-tenant not claimed'}),contentType:'application/json'});
   await call('PUT',`/whiteboards/${source}/members`,{userId:F.leadUserId,role:'editor'});const exported=await(await call('POST',`/whiteboards/${source}/portable/export`,{})).json();const file={sha256:exported.sha256,sizeBytes:exported.sizeBytes,contentBase64:exported.contentBase64};
-  const {Client}=require('pg');const config={host:process.env.PGHOST,port:Number(process.env.PGPORT),database:process.env.PGDATABASE,user:process.env.PGUSER,password:process.env.PGPASSWORD};const locker=new Client(config),observer=new Client(config);await locker.connect();await observer.connect();
+  const {Client}=require('pg');const config=await imageEvidenceConnectionConfig();const locker=new Client(config),observer=new Client(config);await locker.connect();await observer.connect();
   try{await info.attach('portable-revocation-race',{body:JSON.stringify(await producePortableRevocationRaceEvidence({api:request,url:apiOrigin(),editorToken:peerToken,editorId:F.leadUserId,orgId:F.orgId,boardId:source,file,locker,observer})),contentType:'application/json'});}finally{await locker.end();await observer.end();}
  }finally{await peerContext.close();for(const id of boards){const b=await(await call('GET',`/whiteboards/${id}`)).json();if(!b.archived)await call('PATCH',`/whiteboards/${id}`,{archived:true,expectedLifecycleRevision:b.lifecycleRevision});}}
 });
