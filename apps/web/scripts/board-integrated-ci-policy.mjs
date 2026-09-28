@@ -37,10 +37,14 @@ export function validateCapturedVendorCiEvidence(report,sha,context,output){
 export function validateApiWsObjectstoreCiEvidence(report,sha,context,output){
  const failures=[],pending=[];let runtimeIdentity=null;
  try{
-  const {rows,values}=persisted(report,output);assert.equal(rows.length,3);
-  const agent=values.get('agent-api-evidence'),outbox=values.get('same-browser-outbox-evidence'),portable=values.get('portable-roundtrip'),race=values.get('portable-revocation-race'),runtime=values.get('api-ws-objectstore-runtime.json');
-  assert(agent&&outbox&&portable&&race&&runtime);assert.equal(agent.kind,'board-agent-api');assert.equal(agent.sha,sha);assert.equal(agent.runtime.deploymentMarker,context.runtimeMarker);assert(agent.steps.length>=10);assert(agent.eventCount>0);
+  const {rows,values}=persisted(report,output);assert.equal(rows.length,4);
+  const agent=values.get('agent-api-evidence'),ai=values.get('ai-api-evidence'),outbox=values.get('same-browser-outbox-evidence'),portable=values.get('portable-roundtrip'),race=values.get('portable-revocation-race'),runtime=values.get('api-ws-objectstore-runtime.json');
+  assert(agent&&ai&&outbox&&portable&&race&&runtime);assert.equal(agent.kind,'board-agent-api');assert.equal(agent.sha,sha);assert.equal(agent.runtime.deploymentMarker,context.runtimeMarker);assert(agent.steps.length>=10);assert(agent.eventCount>0);
   for(const operation of ['Create','Update','Move','Arrange','Connect','Delete'])assert(agent.steps.some(step=>step.name===operation||step.name?.startsWith(`${operation} `)),operation);
+  assert.equal(ai.version,1);assert.equal(ai.kind,'board-ai-api');assert.match(ai.proposal.id,/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/);assert.equal(ai.proposal.previewStatus,'preview');assert.equal(ai.proposal.confirmedStatus,'confirmed');
+  assert.match(ai.artifact.artifactId,/^artifact-board-layout-[a-zA-Z0-9-]+$/);assert.equal(ai.artifact.sourceRevision,'artifact-v1:1');assert.match(ai.artifact.layoutHash,/^layout-v1:[a-f0-9]{64}$/);assert.deepEqual(ai.artifact.expectedRevision,{epoch:1,seq:2});assert.deepEqual(ai.artifact.committedRevision,{epoch:1,seq:3});
+  assert.deepEqual(ai.events.types,['ObjectCreated','AIOrganized','ObjectCreated']);assert.equal(ai.events.nextSeq,3);assert.equal(ai.events.artifactLayoutHash,ai.artifact.layoutHash);
+  assert.equal(ai.meetingRoom.roomId,'e2e-room');assert.equal(ai.meetingRoom.joinedActorId,'room:e2e-room:meeting-room-display');assert.equal(ai.meetingRoom.handoffActorId,ai.meetingRoom.joinedActorId);assert.equal(ai.follower.enteredFollowMode,true);assert.equal(ai.follower.leftFollowMode,true);
   assert.equal(outbox.status,'passed');assert.equal(outbox.transport.dropped,0);assert(outbox.revisions.after>outbox.revisions.before);assert.equal(outbox.afterReloadSeq,outbox.revisions.after);assert(outbox.http.length>0&&outbox.http.every(row=>row.status>=200&&row.status<300));
   assert.equal(portable.canonicalEquivalent,true);assert.equal(portable.replay.replayed,true);assert.equal(portable.replay.seq,portable.accepted.seq);assert(portable.images.length>0);portable.images.forEach(image=>{digest(image.hash);digest(image.pixelHash);assert(image.width>0&&image.height>0);});
   assert.equal(race.blockedBeforeRevocationCommit,true);assert.equal(race.status,404);assert.equal(race.metadataUnchanged,true);
