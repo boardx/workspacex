@@ -34,9 +34,11 @@ test('Brainstorm: double-click then 20 ideas by Tab; first <5s and first 10 <30s
       }
     }
     await page.keyboard.press('Escape');
+    const expectedTexts = Array.from({length: 20}, (_, i) => `Idea ${String(i + 1).padStart(2, '0')}`);
+    await expect.poll(async () => (await canonicalRows(page)).map(row => row.text).sort()).toEqual(expectedTexts);
     const rows = await canonicalRows(page);
     expect(rows).toHaveLength(20); expect(rows.every(row => row.kind === 'sticky')).toBe(true);
-    expect(rows.map(row => row.text).sort()).toEqual(Array.from({length: 20}, (_, i) => `Idea ${String(i + 1).padStart(2, '0')}`));
+    expect(rows.map(row => row.text).sort()).toEqual(expectedTexts);
     await test.info().attach('brainstorm-20', {body: await page.screenshot(), contentType: 'image/png'});
     await assertJourneyReload(page, id, rows, request, token);
   } finally { await archiveAcceptanceBoard(request, token, id); }

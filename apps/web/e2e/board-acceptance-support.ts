@@ -145,13 +145,17 @@ export function gridValid(rows: CanonicalRow[], columns = 3, gap = 24) {
 }
 export async function connectByHandles(page: Page, from: string, to: string) {
   await page.keyboard.press('Escape'); await page.getByTestId('board-tool-select').click();
+  await page.keyboard.press('c');
+  await expect(page.getByTestId('board-add-connector')).toHaveAttribute('aria-pressed', 'true');
   await page.getByTestId('board-zoom-fit-board').click();
   const source = await objectPoint(page, from); await page.mouse.move(source.x, source.y);
-  // Two user clicks: hover exposes connection handles without an extra selection click.
+  // Connector mode exposes handles even when the previous action left a multi-selection active.
   let clicks = 0;
-  await page.getByTestId(`connector-handle-${from}-right`).click(); clicks++;
+  const sourceHandle = page.getByTestId(`connector-handle-${from}-right`);
+  await expect(sourceHandle).toBeVisible(); await sourceHandle.click(); clicks++;
   const target = await objectPoint(page, to); await page.mouse.move(target.x, target.y);
-  await page.getByTestId(`connector-handle-${to}-left`).click(); clicks++;
+  const targetHandle = page.getByTestId(`connector-handle-${to}-left`);
+  await expect(targetHandle).toBeVisible(); await targetHandle.click(); clicks++;
   await expect.poll(async () => (await canonicalRows(page)).filter(row => row.kind === 'connector' && row.from === from && row.to === to).length).toBe(1);
   return clicks;
 }
