@@ -115,6 +115,16 @@ async function main(): Promise<void> {
       process.exitCode = 1;
       break;
     }
+    case "eval": {
+      // EV02（Phase 20）：Work Stack 回环评测。实现在 apps/api（application/infrastructure work-eval），
+      // 这里只转发原始 argv，并原样透传退出码（0/1/2/3 = WorkEvalCliExit）。
+      const { spawnSync } = await import("node:child_process");
+      const { join } = await import("node:path");
+      const repo = join(__dirname, "..", "..");
+      const r = spawnSync(join(repo, "apps/api/node_modules/.bin/tsx"), [join(repo, "apps/api/scripts/work-eval.ts"), ...argv.slice(1)], { stdio: "inherit" });
+      process.exitCode = r.status ?? 1;
+      break;
+    }
     case "cycle-report":   await cycleReport(args); break;
     case "tick":           await tick(args); break;
     case "lock-status":    await lockStatus(args); break;
