@@ -226,14 +226,16 @@ describe("WS05 Work Skill 目录屏", () => {
     expect(within(drawer).queryByTestId("work-catalog-readiness-unknown")).toBeNull();
   });
 
-  it("列表接口失败：错误态回显错误码，可重试", async () => {
+  it("列表接口失败：错误态显示人话、不回显内部错误码，可重试", async () => {
     let fail = true;
     install({
       list: () => (fail ? json({ reasonCode: "UNAUTHENTICATED" }, 401) : json({ items: [item()], nextCursor: null })),
     });
     render(<WorkSkillCatalog />);
     const err = await screen.findByTestId("work-catalog-state-error");
-    expect(err).toHaveTextContent("401");
+    expect(err).toHaveTextContent("登录已过期");
+    expect(err).not.toHaveTextContent("UNAUTHENTICATED");
+    expect(err).not.toHaveTextContent("401");
     fail = false;
     fireEvent.click(within(err).getByRole("button", { name: "重试" }));
     expect(await screen.findByTestId("work-catalog-row-S003")).toBeInTheDocument();
