@@ -27,9 +27,13 @@ export function toBatchPayload(batch: OntologyBatch): Record<string, unknown> {
     objects: batch.objects.map((o) => ({ id: o.id, object_kind: o.objectKind, name: o.name, aliases: o.aliases })),
     claims: batch.claims.map((c) => ({
       id: c.id, claim_kind: c.claimKind, statement: c.statement, status: c.status, confidence: c.confidence,
-      evidence: c.evidence.map((e) => ("messageId" in e
-        ? { message_id: e.messageId, stance: e.stance, excerpt: e.excerpt }
-        : { segment_id: e.segmentId, stance: e.stance })),
+      evidence: c.evidence.map((e) => ({
+        ...("messageId" in e
+          ? { message_id: e.messageId, stance: e.stance, excerpt: e.excerpt }
+          : { segment_id: e.segmentId, stance: e.stance }),
+        // B3-T1：证据单元回链（迁移 20260928100000 的 `kg_insert_claim_evidence` 读 `evidence_id`）；没有就不带键。
+        ...(e.evidenceId !== undefined ? { evidence_id: e.evidenceId } : {}),
+      })),
     })),
     edges: batch.edges.map((e) => ({
       id: e.id, src_kind: e.srcKind, src_id: e.srcId, dst_kind: e.dstKind, dst_id: e.dstId, relation: e.relation,

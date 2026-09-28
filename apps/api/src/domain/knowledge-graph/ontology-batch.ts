@@ -28,10 +28,12 @@ export interface OntologyObjectInput {
 /**
  * 证据：附件片段（segments）或会话消息（chat_messages，F06）。两种都算 I-5 的「证据」。
  * 消息证据带一句可读摘录（≤ 280 字），面板直接展示原话。
+ * `evidenceId`（B3-T1，#4495）：归一后的证据单元 `project_evidence.id`——项目作用域线程的消息锚点在写入前
+ * 由 `collect-evidence/chat.ts` 回填；没有（个人线程 / 旧数据）就不带，执行器落 NULL。
  */
 export type OntologyEvidenceInput =
-  | { readonly segmentId: string; readonly stance: "supporting" | "contradicting" }
-  | { readonly messageId: string; readonly stance: "supporting" | "contradicting"; readonly excerpt: string };
+  | { readonly segmentId: string; readonly stance: "supporting" | "contradicting"; readonly evidenceId?: string }
+  | { readonly messageId: string; readonly stance: "supporting" | "contradicting"; readonly excerpt: string; readonly evidenceId?: string };
 
 export interface OntologyClaimInput {
   readonly id: string;
