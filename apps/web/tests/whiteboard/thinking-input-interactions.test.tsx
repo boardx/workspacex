@@ -87,6 +87,28 @@ it("coalesces rapid text input into one durable command before the user pauses",
   } finally { vi.useRealTimers(); }
 });
 
+it("flushes the pending coalesced text before Escape closes the editor", () => {
+  vi.useFakeTimers();
+  try {
+    const doc = editor();
+    fireEvent.click(screen.getByTestId("mock-canvas-double"));
+    const origins: WhiteboardCommandOrigin[] = [];
+    doc.on("afterTransaction", (transaction) => { if (transaction.origin instanceof WhiteboardCommandOrigin) origins.push(transaction.origin); });
+    const input = screen.getByLabelText("对象文字");
+    fireEvent.change(input, { target: { value: "I" } });
+    fireEvent.change(input, { target: { value: "Idea" } });
+    fireEvent.change(input, { target: { value: "Idea 20" } });
+    expect(readObjects(doc)[0]?.text).toBe("");
+    fireEvent.keyDown(input, { key: "Escape" });
+    expect(screen.queryByLabelText("对象文字")).toBeNull();
+    expect(readObjects(doc)[0]?.text).toBe("Idea 20");
+    expect(origins).toHaveLength(1);
+    act(() => vi.advanceTimersByTime(100));
+    expect(origins).toHaveLength(1);
+    doc.destroy();
+  } finally { vi.useRealTimers(); }
+});
+
 it("guards shortcuts inside inputs and creates from N/T only when canvas context owns the key", () => {
   const doc = editor();
   fireEvent.pointerDown(screen.getByTestId("board-title-menu"),{button:0,ctrlKey:false});

@@ -75,7 +75,7 @@ export function ThinkingInputEditor({ objectId, initialValue, geometry, viewport
     onBlur={() => { if (!intentRef.current.composition) finish("blur"); }}
     onKeyDown={(event) => {
       if (event.nativeEvent.isComposing || intentRef.current.composition) return;
-      if (event.key === "Escape") { event.preventDefault(); cancelScheduledLiveCommit(); onCancel(); return; }
+      if (event.key === "Escape") { event.preventDefault(); flushScheduledLiveCommit(); onCancel(); return; }
       if (event.key === "Tab") { event.preventDefault(); if (finish("tab")) onContinue(intentRef.current.draft); return; }
       if (event.key === "Enter" && (event.metaKey || event.ctrlKey)) { event.preventDefault(); finish("enter"); }
     }}

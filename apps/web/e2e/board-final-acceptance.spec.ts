@@ -150,11 +150,14 @@ test('Visual Research: valid screenshot in one paste mixed with Sticky/Text/Arro
     const before = await canonicalRows(page), content = before.filter(row => row.kind !== 'connector');
     expect(new Set(content.map(row => row.kind))).toEqual(new Set(['image', 'sticky', 'text', 'card']));
     await selectAll(page, 4); await page.getByTestId('board-layout-quick-grid').click();
+    const contentIds = new Set(content.map(row => row.id));
     await expect.poll(async () => {
-      const arranged = await canonicalRows(page);
+      const scenes = JSON.parse((await page.getByTestId('board-fabric-surface').getAttribute('data-object-scenes')) ?? '[]') as Array<{id: string; left: number; top: number; width: number; height: number}>;
+      const arranged = scenes.filter(scene => contentIds.has(scene.id));
+      if (arranged.length !== contentIds.size) return false;
       return arranged.every((a, index) => arranged.slice(index + 1).every(b =>
-        a.geometry.x + a.geometry.width <= b.geometry.x + 1 || b.geometry.x + b.geometry.width <= a.geometry.x + 1
-        || a.geometry.y + a.geometry.height <= b.geometry.y + 1 || b.geometry.y + b.geometry.height <= a.geometry.y + 1));
+        a.left + a.width <= b.left + 1 || b.left + b.width <= a.left + 1
+        || a.top + a.height <= b.top + 1 || b.top + b.height <= a.top + 1));
     }).toBe(true);
     const sticky = content.find(row => row.kind === 'sticky')!, tile = content.find(row => row.kind === 'card')!;
     await connectByHandles(page, sticky.id, tile.id);
