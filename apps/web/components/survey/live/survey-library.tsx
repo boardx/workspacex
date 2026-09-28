@@ -9,8 +9,9 @@ import { Input } from "@/components/ui/input";
 import { ProjectBreadcrumb, withProjectId } from "@/components/project/project-breadcrumb";
 import { linkProjectResource } from "@/lib/live-project-resources";
 import { CreateSurveyDialog } from "./create-survey-dialog";
-import { hasPendingAiImport, markPendingAiImport } from "@/lib/survey/pending-ai-import";
+import { hasPendingAiImport } from "@/lib/survey/pending-ai-import";
 import { surveyPath } from "@/lib/survey/paths";
+import { encodeSurveyCreationDraft } from "@/lib/survey/creation-draft";
 /**
  * `projectId`（项目中枢 B2-S2）：从项目「研究洞察 › 问卷」带 `?projectId=` 进来时，顶部挂「返回项目」
  * 面包屑；新建弹窗建成后先把问卷挂回该项目，再带 `projectId` 进工作台。
@@ -125,11 +126,15 @@ export function LiveSurveyLibrary({ projectId = null }: { projectId?: string | n
         <div className="space-y-4 py-16 text-center"><h2 className="text-18 font-semibold">还没有问卷</h2><p className="text-muted-foreground">从空白问卷或现有模板开始，三步完成设计、回收与答卷查看。</p><Button onClick={() => setCreating(true)}>新建问卷</Button></div>
       )}
       </div></div>
-      <CreateSurveyDialog open={creating} onOpenChange={setCreating} onCreated={async (id,mode) => {
-        if (mode === "ai") markPendingAiImport(id);
+      <CreateSurveyDialog open={creating} onOpenChange={setCreating} onCreated={async (id,mode,draft) => {
+        if (mode === "ai" && draft) {
+          router.push(withProjectId(`/studio/survey/new/import?draft=${encodeURIComponent(encodeSurveyCreationDraft(draft))}`, projectId));
+          return;
+        }
+        if (!id) return;
         // 挂失败不回滚问卷（问卷已存在），项目页可用「关联已有问卷」补挂。
         if (projectId) { try { await linkProjectResource({ projectId, kind: "survey", resourceId: id }); } catch { /* 项目页可补挂 */ } }
-        router.push(withProjectId(mode === "ai" ? `/studio/survey/${id}?step=import&mode=ai` : surveyPath(id, "design"), projectId));
+        router.push(withProjectId(surveyPath(id, "design"), projectId));
       }} />
     </main>
   );

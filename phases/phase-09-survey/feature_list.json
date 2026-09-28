@@ -9,7 +9,7 @@
       "title": "按新原型重构问卷首页、创建和独立路由",
       "spec_ref": "00-overview.md#R9",
       "user_visible_behavior": "用户在问卷首页查看真实卡片、标签和三个二级入口；空白或模板创建后直接进入独立设计路由，旧 step 链接保留项目上下文跳转。",
-      "status": "in_progress",
+      "status": "blocked",
       "sprint": "02",
       "owner": "coord-survey",
       "depends_on": [],
@@ -18,7 +18,7 @@
         "pnpm --filter web exec vitest run tests/ui/survey-live-library.test.tsx tests/ui/survey-create-dialog.test.tsx tests/ui/survey-route-layout.test.tsx"
       ],
       "evidence": "",
-      "notes": "新原型工作包。共享热点 apps/web/components/survey/live/survey-workspace.tsx；不得出现 mock 或面向用户的测试说明。"
+      "notes": "新原型工作包。共享热点 apps/web/components/survey/live/survey-workspace.tsx；不得出现 mock 或面向用户的测试说明。 PR #4556 已提交；等待 CI、review 和设计 PR #4545 合并，未达到 passing。"
     },
     {
       "id": "F09",
@@ -28,16 +28,16 @@
       "title": "提供独立 AI 导入与 Markdown 校对流程",
       "spec_ref": "00-overview.md#R10",
       "user_visible_behavior": "用户选择 AI 创建后在独立导入页通过真实服务生成可编辑、可预览、可重新生成的 Markdown 提案；确认后才应用到独立草稿并进入设计。",
-      "status": "not_started",
-      "sprint": null,
-      "owner": null,
+      "status": "in_progress",
+      "sprint": "03",
+      "owner": "coord-survey",
       "depends_on": [
         "F08"
       ],
       "points": 5,
       "verification": [
-        "pnpm --filter web exec vitest run tests/ui/survey-ai-proposal.test.tsx tests/ui/survey-create-dialog.test.tsx",
-        "pnpm --filter api exec vitest run tests/survey/survey-source-http.test.ts"
+        "pnpm --filter web exec vitest run tests/ui/survey-ai-proposal.test.tsx tests/ui/survey-import-page.test.tsx tests/ui/survey-create-dialog.test.tsx tests/ui/survey-live-library.test.tsx",
+        "pnpm exec tsx .harness/scripts/with-test-isolation.ts -- pnpm --filter api exec vitest run tests/survey/survey-source-http.test.ts"
       ],
       "evidence": "",
       "notes": "新原型工作包。共享热点 apps/web/components/survey/live/survey-workspace.tsx；不得出现 mock 或面向用户的测试说明。"
