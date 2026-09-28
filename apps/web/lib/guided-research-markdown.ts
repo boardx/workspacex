@@ -141,7 +141,7 @@ export function parseGuidedResearchMarkdown(input: GuidedResearchMarkdownParseIn
     return { ok: false, markdown, errors: [{ code: "immutable_citation", message: "报告引用必须保留已验证的来源标识。" }] };
   }
   if (document.node === "directions" && document.draft.node === "directions") {
-    const entries = [...markdown.matchAll(/^## \d+\. (.*?)(（未纳入）)?\n([\s\S]*?)(?=^## \d+\.|\s*$)/gm)];
+    const entries = [...markdown.matchAll(/^## \d+\. (.*?)(（未纳入）)?\n([\s\S]*?)(?=^## \d+\.|(?![\s\S]))/gm)];
     if (entries.length !== document.draft.value.length) return { ok: false, markdown, errors: [{ code: "required_heading", message: "研究主题必须保留全部编号章节。" }] };
     return { ok: true, draft: { node: "directions", value: document.draft.value.map((item, index) => {
       const entry = entries[index]!;
@@ -149,12 +149,24 @@ export function parseGuidedResearchMarkdown(input: GuidedResearchMarkdownParseIn
     }) } };
   }
   if (document.node === "outline" && document.draft.node === "outline") {
-    const entries = [...markdown.matchAll(/^## \d+\. (.*?)(（未纳入）)?\n([\s\S]*?)(?=^## \d+\.|\s*$)/gm)];
+    const entries = [...markdown.matchAll(/^## \d+\. (.*?)(（未纳入）)?\n([\s\S]*?)(?=^## \d+\.|(?![\s\S]))/gm)];
     if (entries.length !== document.draft.value.length) return { ok: false, markdown, errors: [{ code: "required_heading", message: "研究计划必须保留全部编号章节。" }] };
     return { ok: true, draft: { node: "outline", value: document.draft.value.map((item, index) => {
       const entry = entries[index]!; const body = entry[3]!;
       const questions = body.match(/### 核心问题\n([\s\S]*?)(?=\n### |$)/)?.[1]?.split("\n").filter((line) => line.startsWith("- ")).map((line) => line.slice(2).trim()).filter(Boolean) ?? [];
-      return { ...item, title: entry[1]!.trim(), enabled: !entry[2], objective: body.match(/^目标：(.*)$/m)?.[1]?.trim() || item.objective, questions };
+      const headingBody = (heading: string) => body.match(new RegExp(`### ${heading}\\n([\\s\\S]*?)(?=\\n### |$)`))?.[1]?.trim();
+      const subsectionLines = headingBody("子章节")?.split("\n").filter((line) => line.startsWith("- ")) ?? [];
+      const subsections = item.subsections?.map((subsection, subsectionIndex) => {
+        const line = subsectionLines[subsectionIndex]?.slice(2).trim();
+        if (!line) return subsection;
+        const separator = line.indexOf("：");
+        if (separator < 0) return { ...subsection, title: line };
+        return { ...subsection, title: line.slice(0, separator).trim(), questions: line.slice(separator + 1).split("；").map((question) => question.trim()).filter(Boolean) };
+      });
+      return { ...item, title: entry[1]!.trim(), enabled: !entry[2], objective: body.match(/^目标：(.*)$/m)?.[1]?.trim() || item.objective, questions,
+        analysisApproach: headingBody("分析方法") ?? item.analysisApproach,
+        expectedOutput: headingBody("预期产出") ?? item.expectedOutput,
+        ...(subsections ? { subsections } : {}) };
     }) } };
   }
   if (document.node === "research" && document.draft.node === "research") {

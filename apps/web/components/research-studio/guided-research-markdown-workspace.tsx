@@ -16,6 +16,7 @@ export function GuidedResearchMarkdownWorkspace({
   parseError,
   provenance,
   readOnly = false,
+  initiallyEditing = false,
   onDirtyChange,
 }: {
   document: GuidedResearchMarkdownDocument;
@@ -24,9 +25,10 @@ export function GuidedResearchMarkdownWorkspace({
   parseError?: string | null;
   provenance?: React.ReactNode;
   readOnly?: boolean;
+  initiallyEditing?: boolean;
   onDirtyChange?: (dirty: boolean) => void;
 }) {
-  const [editing, setEditing] = React.useState(false);
+  const [editing, setEditing] = React.useState(initiallyEditing);
   const [markdown, setMarkdown] = React.useState(document.markdown);
   const [localSaving, setLocalSaving] = React.useState(false);
   const [error, setError] = React.useState<string | null>(parseError ?? null);
@@ -50,7 +52,7 @@ export function GuidedResearchMarkdownWorkspace({
   return <Card data-testid="guided-research-markdown-workspace">
     <CardHeader className="flex-row items-center justify-between gap-3">
       <CardTitle className="text-16">{document.title}</CardTitle>
-      {!readOnly && !editing && <Button variant="outline" size="sm" onClick={() => { setEditing(true); setSaved(false); }}>编辑 Markdown</Button>}
+      {!readOnly && !editing && <Button variant="primary" size="sm" onClick={() => { setEditing(true); setSaved(false); }}>编辑 Markdown</Button>}
     </CardHeader>
     <CardContent className="space-y-4">
       {saved && <p data-testid="guided-research-markdown-saved" role="status" className="text-12 text-success">Markdown 已保存</p>}
@@ -58,7 +60,7 @@ export function GuidedResearchMarkdownWorkspace({
       {editing ? <>
         <Textarea aria-label={`${document.title} Markdown 编辑器`} data-testid="guided-research-markdown-editor" className="min-h-80 font-mono text-12" value={markdown} onChange={(event) => { setMarkdown(event.target.value); setSaved(false); }} disabled={pending} />
         {dirty && <p data-testid="guided-research-markdown-dirty" className="text-12 text-muted-foreground">存在未保存的 Markdown 修改</p>}
-        <div className="flex justify-end gap-2"><Button variant="outline" disabled={pending} onClick={() => { setMarkdown(document.markdown); setError(null); setEditing(false); }}>取消</Button><Button disabled={!dirty || pending} onClick={() => void save()}>{pending ? "保存中…" : "保存 Markdown"}</Button></div>
+        <div className="flex justify-end gap-2"><Button variant="primary" disabled={pending} onClick={() => { setMarkdown(document.markdown); setError(null); setEditing(false); }}>取消</Button><Button variant="primary" disabled={!dirty || pending} onClick={() => void save()}>{pending ? "保存中…" : "保存 Markdown"}</Button></div>
       </> : <section data-testid="guided-research-markdown-preview" aria-label={`${document.title} Markdown 预览`} className="chat-markdown min-w-0 break-words text-14 leading-7"><ReactMarkdown remarkPlugins={[remarkGfm]} rehypePlugins={[rehypeSanitize]} skipHtml>{document.markdown}</ReactMarkdown></section>}
       {provenance && <aside className="rounded-md border border-border bg-muted/30 p-3 text-12" aria-label="来源与证据元数据">{provenance}</aside>}
     </CardContent>
