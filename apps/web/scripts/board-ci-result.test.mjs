@@ -12,13 +12,18 @@ test('classifies producer failures without serializing private test details',()=
  const skipped=report();skipped.suites[0].specs[0].tests[0].results[0].status='skipped';
  assert.equal(boardCiProducerFailureCode(skipped,1),'REAL_PRODUCER_INCOMPLETE');
 });
-import Reporter from './board-ci-reporter.mjs';
+import Reporter,{boardCiErrorReason} from './board-ci-reporter.mjs';
 import {mkdtempSync,readFileSync,rmSync} from 'node:fs';
 import {tmpdir} from 'node:os';
 import {join} from 'node:path';
-test('reporter never serializes config, credentials or error text',()=>{
+test('reporter stores only a stable startup reason and never serializes config, credentials or raw error text',()=>{
  const directory=mkdtempSync(join(tmpdir(),'board-reporter-')),old=process.env.PLAYWRIGHT_JSON_OUTPUT_FILE;
- try{process.env.PLAYWRIGHT_JSON_OUTPUT_FILE=join(directory,'result.json');const reporter=new Reporter();reporter.onTestEnd({id:'private-id',title:'TOKEN_SECRET',expectedStatus:'passed'},{status:'passed',retry:0,stdout:['TOKEN_SECRET'],error:{message:'TOKEN_SECRET'}});reporter.onEnd({status:'passed'});const text=readFileSync(process.env.PLAYWRIGHT_JSON_OUTPUT_FILE,'utf8');assert.ok(!text.includes('TOKEN_SECRET'));assert.ok(!text.includes('private-id'));assertBoardCiResults(JSON.parse(text),1);}finally{if(old===undefined)delete process.env.PLAYWRIGHT_JSON_OUTPUT_FILE;else process.env.PLAYWRIGHT_JSON_OUTPUT_FILE=old;rmSync(directory,{recursive:true,force:true});}
+ try{process.env.PLAYWRIGHT_JSON_OUTPUT_FILE=join(directory,'result.json');const reporter=new Reporter();reporter.onTestEnd({id:'private-id',title:'TOKEN_SECRET',expectedStatus:'passed'},{status:'passed',retry:0,stdout:['TOKEN_SECRET'],error:{message:'TOKEN_SECRET'}});reporter.onError(new Error('Timed out waiting 240000ms from config.webServer TOKEN_SECRET'));reporter.onEnd({status:'failed'});const text=readFileSync(process.env.PLAYWRIGHT_JSON_OUTPUT_FILE,'utf8'),report=JSON.parse(text);assert.ok(!text.includes('TOKEN_SECRET'));assert.ok(!text.includes('private-id'));assert.deepEqual(report.errors[0],{code:'PLAYWRIGHT_ERROR',reason:'WEB_SERVER_TIMEOUT'});assert.throws(()=>assertBoardCiResults(report,1));}finally{if(old===undefined)delete process.env.PLAYWRIGHT_JSON_OUTPUT_FILE;else process.env.PLAYWRIGHT_JSON_OUTPUT_FILE=old;rmSync(directory,{recursive:true,force:true});}
+});
+test('startup reason classifier exposes only allowlisted failure classes',()=>{
+ assert.equal(boardCiErrorReason(new Error('Process from config.webServer was not able to start. Exit code: 1 SECRET')),'WEB_SERVER_PROCESS_FAILED');
+ assert.equal(boardCiErrorReason(new Error('browserType.launch: Target page closed SECRET')),'BROWSER_START_FAILED');
+ assert.equal(boardCiErrorReason(new Error('unexpected TOKEN_SECRET detail')),'UNCLASSIFIED_PLAYWRIGHT_ERROR');
 });
 test('reporter persists only named evidence bodies with verified hash descriptors',()=>{
  const directory=mkdtempSync(join(tmpdir(),'board-reporter-')),old=process.env.PLAYWRIGHT_JSON_OUTPUT_FILE;

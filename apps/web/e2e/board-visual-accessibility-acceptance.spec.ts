@@ -1,7 +1,7 @@
 import AxeBuilder from '@axe-core/playwright';
 import {expect,test} from '@playwright/test';
 import {writeFile} from 'node:fs/promises';
-import {archiveAcceptanceBoard,boardLogin,createAcceptanceBoard,createCommands,object,operate,openBoard,canonicalRows,selectAll,objectPoint} from './board-acceptance-support';
+import {archiveAcceptanceBoard,boardLogin,createAcceptanceBoard,createCommands,object,operate,openBoard,canonicalRows,selectAll,objectPoint,BOARD_SYNCED_STATUS} from './board-acceptance-support';
 import {canonicalSnapshot} from './board-performance-support';
 import {observeRuntimeChunks,runtimeSourceIdentity,verifyRuntimeIdentity} from './board-runtime-evidence';
 import {captureVisual,visualViewports,sha256} from './support/board-visual-measurements';
@@ -25,6 +25,10 @@ test('visual and accessibility real object states, input and negative controls',
     await page.getByLabel('对象文字',{exact:true}).fill(longText);await page.keyboard.press('Tab');
     await expect(page.getByLabel('对象文字',{exact:true})).toBeFocused();await page.keyboard.type('Keyboard second idea');await page.keyboard.press('Escape');
     await expect.poll(async()=> (await canonicalRows(page)).length).toBe(2);
+    // The outline is a local Yjs projection. Wait for the server acknowledgement
+    // before reading head and issuing a CAS operation, otherwise an in-flight
+    // browser update can advance the revision between those two API requests.
+    await expect(page.getByText(BOARD_SYNCED_STATUS)).toBeVisible();
     input.push({kind:'keyboard-continuous-creation',count:2,objects:await canonicalRows(page)});
     const values=[object('visual-text','text',100,400,'研究标题与说明',280,96),object('visual-shape','rectangle',460,400,'Shape',200,140),
       {...object('visual-panel','frame',800,120,'Panel',400,420),extensionData:{spatial:{version:1,mode:'freeform',autoExpand:true,clipContent:false,padding:24,gap:24,columns:3,flowDirection:'horizontal'}}},

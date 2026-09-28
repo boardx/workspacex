@@ -34,6 +34,19 @@ export async function visualMeasurement(page:Page) {
   });
 }
 export async function captureVisual(page:Page,info:TestInfo,label:string,strict=true) {
+  // Fabric sizes its generated upper canvas from a ResizeObserver. The first
+  // capture can otherwise sample the host after layout but the canvas before
+  // that observer has committed (the 1440x900 CI capture reported 63% while
+  // the immediately resized 1280/1024 captures were both above 80%). Keep the
+  // real hit-test threshold; wait for the renderer and host to describe the
+  // same viewport before measuring it.
+  await expect.poll(()=>page.evaluate(()=>{
+    const surface=document.querySelector<HTMLElement>('[data-testid="board-fabric-surface"]');
+    const canvas=surface?.querySelector<HTMLCanvasElement>('canvas[data-fabric="top"]');
+    if(!surface||!canvas)return false;
+    const host=surface.getBoundingClientRect(),rendered=canvas.getBoundingClientRect();
+    return Math.abs(host.width-rendered.width)<=1&&Math.abs(host.height-rendered.height)<=1;
+  })).toBe(true);
   const measurement=await visualMeasurement(page),bytes=await page.screenshot({fullPage:false}),path=info.outputPath(`${label}.png`);
   await writeFile(path,bytes);await info.attach(label,{path,contentType:'image/png'});
   const failures=strict?validateVisualMeasurement(measurement):[];

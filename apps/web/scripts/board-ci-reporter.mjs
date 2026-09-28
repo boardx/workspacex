@@ -4,7 +4,15 @@ import {createHash} from 'node:crypto';
 const jsonNames=new Set(['canonical-upload','pg-independent-pointers','pg-target-after-source-delete','migration-evidence.json','storage-runtime.json',
  'captured-vendor-evidence.json','captured-vendor-runtime.json','agent-api-evidence','same-browser-outbox-evidence','portable-roundtrip','portable-revocation-race','api-ws-objectstore-runtime.json']);
 const pngNames=new Set(['owner-after-refresh.png','independent-peer.png','roundtrip-owner-after-refresh.png','roundtrip-independent-peer.png','portable-confirmed-canvas']);
-/** Deliberately omit config/env, test titles, stdout and error text from artifacts. */
+/** Deliberately omit config/env, test titles, stdout and raw error text from artifacts. */
+export function boardCiErrorReason(error){
+ const message=error instanceof Error?error.message:typeof error?.message==='string'?error.message:'';
+ if(/Timed out waiting \d+ms from config\.webServer/i.test(message))return'WEB_SERVER_TIMEOUT';
+ if(/Process from config\.webServer was not able to start/i.test(message))return'WEB_SERVER_PROCESS_FAILED';
+ if(/No tests found/i.test(message))return'NO_TESTS_FOUND';
+ if(/browserType\.launch|browser\.newContext/i.test(message))return'BROWSER_START_FAILED';
+ return'UNCLASSIFIED_PLAYWRIGHT_ERROR';
+}
 export default class BoardCiReporter{
  tests=new Map();errors=[];
  onTestEnd(test,result){
@@ -24,7 +32,10 @@ export default class BoardCiReporter{
   }
   row.results.push({status:result.status,retry:result.retry,attachments});row.status=result.status==='passed'?'expected':'unexpected';this.tests.set(test.id,row);
  }
- onError(){this.errors.push({code:'PLAYWRIGHT_ERROR'});}
+ onError(error){
+  const reason=boardCiErrorReason(error);this.errors.push({code:'PLAYWRIGHT_ERROR',reason});
+  process.stderr.write(`[board-ci] PLAYWRIGHT_ERROR ${reason}\n`);
+ }
  onEnd(result){
   if(result.status!=='passed')this.errors.push({code:'PLAYWRIGHT_NOT_PASSED'});
   if(!process.env.PLAYWRIGHT_JSON_OUTPUT_FILE)throw Error('CI_RESULT_PATH_REQUIRED');
