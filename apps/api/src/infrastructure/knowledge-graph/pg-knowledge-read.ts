@@ -15,6 +15,8 @@ import type {
 } from "../../application/knowledge-graph/ports";
 import { guard, type Guarded } from "../../application/security/permission-filter";
 import type { OrgId } from "../../domain/org-id";
+import { claimExpired } from "../../domain/knowledge-graph/claim-time";
+import { chainReplaced, type ReplacedLink } from "../../domain/knowledge-graph/supersede-chain";
 import { reconcileCitations } from "../../domain/knowledge-graph/citation";
 import { KG_EXTRACTION_LEASE_SECONDS, KG_EXTRACTION_MAX_ATTEMPTS } from "./pg-kg-extraction";
 
@@ -33,7 +35,7 @@ const LIVE_CLAIM = "c.revoked_at IS NULL AND c.status <> 'superseded'";
 
 const CLAIM_COLUMNS = `
   c.id, c.claim_kind, c.statement, c.status, c.confidence, c.created_by, c.reviewed_by,
-  c.supersedes_claim_id, c.scope_kind, c.scope_id, c.created_at,
+  c.supersedes_claim_id, c.scope_kind, c.scope_id, c.created_at, c.valid_to, c.todo_state, c.due_at,
   (SELECT e.dst_id FROM ontology_edges e WHERE e.org_id = c.org_id AND e.src_kind = 'claim' AND e.src_id = c.id
      AND e.dst_kind = 'claim' AND e.relation = 'derived_from' AND e.status = 'active' LIMIT 1) AS derived_from,
   ARRAY(SELECT e.dst_id FROM ontology_edges e WHERE e.org_id = c.org_id AND e.src_kind = 'claim' AND e.src_id = c.id
@@ -48,6 +50,7 @@ interface ClaimRow {
   confidence: number | null; created_by: KgClaim["createdBy"]; reviewed_by: string | null;
   supersedes_claim_id: string | null; scope_kind: KgClaim["scope"]["kind"]; scope_id: string; created_at: Date;
   derived_from: string | null; about_ids: string[]; supporting: string; contradicting: string;
+  valid_to: Date | null; todo_state: KG.KgTodoStatus | null; due_at: Date | null;
 }
 
 function toClaim(r: ClaimRow): KgClaim | null {
@@ -69,6 +72,11 @@ function toClaim(r: ClaimRow): KgClaim | null {
     supportingCount: Number(r.supporting),
     contradictingCount: Number(r.contradicting),
     createdAt: r.created_at.toISOString(),
+    // issue #4363（S6）：时间维度。「已过期」只有 claimExpired 一处判定（召回同一个函数）。
+    validUntil: r.valid_to?.toISOString() ?? null,
+    expired: claimExpired(r.valid_to?.toISOString() ?? null, new Date()),
+    todoStatus: r.todo_state,
+    dueAt: r.due_at?.toISOString() ?? null,
   };
 }
 
@@ -399,7 +407,7 @@ export class PgKnowledgeRead implements KnowledgeReadPort {
         `SELECT count(*) AS n FROM ontology_actions
           WHERE org_id = $1 AND scope_kind = 'personal' AND scope_id = $2 AND outcome = 'accepted'`, scope,
       );
-      const replaced = await readPersonalReplaced(s, orgId, userId, new Set(liveClaims.map((c) => c.id)));
+      const replaced = await readPersonalReplaced(s, orgId, userId, new Map(liveClaims.map((c) => [c.id, c.statement])));
       return {
         revision: Number(revision.rows[0]!.n),
         // 孤立实体（没有活结论引用）不下发（契约 KgObject.claimCount 注释）。
@@ -577,41 +585,50 @@ export class PgKnowledgeRead implements KnowledgeReadPort {
  *
  * 忘掉 / 撤回 / 原话被删（user_forgot、user_revoked、source_deleted……）不在这里：人类决定「撤销的不显示」。
  * 取代它的那条也已经不在了 ⇒ 没有可挂靠的，不显示。只按 scope_id = 查看者读（RLS 同样只放本人的个人空间行，I-14）。
+ *
+ * issue #4363（S6）链式历史：这里只读「每条旧记忆 → **直接**取代它的那条」（successor，可能自己也已被取代），
+ * 沿链走到活记忆、排好先后在 domain/knowledge-graph/supersede-chain.ts。successor 的找法：
+ *   - decision_changed：新决定本身在查看者个人空间里 ⇒ 就是它；否则是它在查看者个人空间里的副本（derived_from——边可能已经
+ *     随副本被再次取代而由 F07 级联失效，所以不要求边活着，活边优先）；被忘掉的副本不算（链到这里断了，不显示）。
+ *   - conflict_keep_new：supersedes_claim_id 指向它的那条（活的优先）。
  */
 async function readPersonalReplaced(
-  s: TenantSession, orgId: OrgId, viewer: string, live: ReadonlySet<string>,
+  s: TenantSession, orgId: OrgId, viewer: string, live: ReadonlyMap<string, string>,
 ): Promise<PersonalKnowledgeData["replaced"]> {
-  const r = await s.query<{ old_id: string; old_statement: string; live_id: string; notice_id: string | null; thread_id: string | null }>(
-    `SELECT DISTINCT ON (o.id) o.id AS old_id, o.statement AS old_statement, l.id AS live_id,
-            CASE WHEN t.id IS NOT NULL AND EXISTS (SELECT 1 FROM claims n WHERE n.org_id = x.org_id AND n.id = x.newer_claim_id
-                                                     AND n.revoked_at IS NULL AND n.status <> 'superseded')
-                 THEN x.id END AS notice_id, t.id AS thread_id
+  const r = await s.query<{ old_id: string; old_statement: string; successor_id: string | null; notice_id: string | null; thread_id: string | null }>(
+    `SELECT DISTINCT ON (o.id) o.id AS old_id, o.statement AS old_statement,
+            CASE WHEN x.id IS NULL THEN
+                   (SELECT l.id FROM claims l
+                     WHERE l.org_id = o.org_id AND l.scope_kind = 'personal' AND l.scope_id = $2 AND l.supersedes_claim_id = o.id
+                       AND (l.revoked_at IS NULL OR l.status = 'superseded')
+                     ORDER BY (l.revoked_at IS NULL) DESC, l.created_at, l.id LIMIT 1)
+                 WHEN n.scope_kind = 'personal' AND n.scope_id = $2 THEN n.id
+                 ELSE (SELECT p.id FROM ontology_edges d JOIN claims p ON p.org_id = d.org_id AND p.id = d.src_id
+                        WHERE d.org_id = o.org_id AND d.src_kind = 'claim' AND d.relation = 'derived_from'
+                          AND d.dst_kind = 'claim' AND d.dst_id = n.id
+                          AND p.scope_kind = 'personal' AND p.scope_id = $2 AND (p.revoked_at IS NULL OR p.status = 'superseded')
+                        ORDER BY (d.status = 'active') DESC, (p.revoked_at IS NULL) DESC, p.created_at, p.id LIMIT 1)
+            END AS successor_id,
+            CASE WHEN t.id IS NOT NULL AND n.revoked_at IS NULL AND n.status <> 'superseded' THEN x.id END AS notice_id,
+            t.id AS thread_id
        FROM claims o
        LEFT JOIN kg_supersede_notices x
               ON x.org_id = o.org_id AND x.status = 'applied' AND o.revocation_reason = 'decision_changed'
              AND x.restore->'claims' @> jsonb_build_array(jsonb_build_object('id', o.id))
+       LEFT JOIN claims n ON n.org_id = x.org_id AND n.id = x.newer_claim_id
        LEFT JOIN chat_threads t ON t.org_id = x.org_id AND t.id = x.thread_id AND t.created_by = $2 AND t.project_id IS NULL
-       JOIN claims l ON l.org_id = o.org_id AND l.scope_kind = 'personal' AND l.scope_id = $2
-                    AND l.revoked_at IS NULL AND l.status <> 'superseded'
-                    AND ((x.id IS NOT NULL
-                          AND (l.id = x.newer_claim_id
-                               OR EXISTS (SELECT 1 FROM ontology_edges d
-                                           WHERE d.org_id = l.org_id AND d.src_kind = 'claim' AND d.src_id = l.id AND d.relation = 'derived_from'
-                                             AND d.dst_kind = 'claim' AND d.dst_id = x.newer_claim_id AND d.status = 'active')))
-                      OR (o.revocation_reason = 'conflict_keep_new' AND l.supersedes_claim_id = o.id))
       WHERE o.org_id = $1 AND o.scope_kind = 'personal' AND o.scope_id = $2
         AND o.revoked_at IS NOT NULL AND o.status = 'superseded'
         AND o.revocation_reason IN ('decision_changed', 'conflict_keep_new')
-      ORDER BY o.id, (x.id IS NULL), l.created_at, l.id`,
+        AND (x.id IS NOT NULL OR o.revocation_reason = 'conflict_keep_new')
+      ORDER BY o.id, x.created_at DESC`,
     [orgId, viewer],
   );
-  return r.rows
-    .filter((x) => live.has(x.live_id))
-    .map((x) => ({
-      byClaimId: x.live_id,
-      replaces: { claimId: x.old_id, statement: x.old_statement },
-      undo: x.notice_id !== null && x.thread_id !== null ? { threadId: x.thread_id, noticeId: x.notice_id } : null,
-    }));
+  const links: ReplacedLink[] = r.rows.flatMap((x) => x.successor_id === null ? [] : [{
+    oldClaimId: x.old_id, oldStatement: x.old_statement, successorId: x.successor_id,
+    undo: x.notice_id !== null && x.thread_id !== null ? { threadId: x.thread_id, noticeId: x.notice_id } : null,
+  }]);
+  return chainReplaced(links, live);
 }
 
 type ConflictPrompt = Extract<NonNullable<TurnMemoryData["prompt"]>, { type: "conflict" }>["conflict"];

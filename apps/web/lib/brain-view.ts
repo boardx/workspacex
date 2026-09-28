@@ -30,6 +30,8 @@ export function originsByClaim(origins: readonly PersonalClaimOrigin[]): Map<str
 export function replacedByClaim(replaced: readonly PersonalReplaced[]): Map<string, PersonalReplaced[]> {
   const out = new Map<string, PersonalReplaced[]>();
   for (const r of replaced) out.set(r.byClaimId, [...(out.get(r.byClaimId) ?? []), r]);
+  // issue #4363（S6）：链式取代历史按离活记忆的步数排（step 省略 = 1）：从新到旧，211 → 985 → 清华 显示为「985、211」。
+  for (const list of out.values()) list.sort((a, b) => (a.step ?? 1) - (b.step ?? 1));
   return out;
 }
 

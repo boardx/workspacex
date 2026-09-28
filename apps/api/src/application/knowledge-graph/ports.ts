@@ -113,6 +113,8 @@ export interface KgMessage {
   readonly threadId: string;
   readonly body: string;
   readonly authorKind: "human" | "agent";
+  /** issue #4363（S6）：消息时间（ISO）。抽取时换算「这周」「到年底」用；上文消息可省略。 */
+  readonly createdAt?: string;
 }
 
 export interface KgExtractionSourcePort {
@@ -326,6 +328,15 @@ export interface HumanActionPort {
     readonly basedOnRevision: number;
     readonly action: KgHumanAction;
   }): Promise<{ readonly revision: number; readonly actionId: string }>;
+  /**
+   * issue #4363（S6）：改一条待办的状态（`kg_set_todo_state`）。只有所有者；同一件待办的会话 / 个人空间两份一起改。
+   * 被拒（不存在 / 不是待办 / 不是所有者）一律 `KG_CLAIM_NOT_FOUND`。
+   */
+  setTodoStatus(orgId: OrgId, userId: string, input: {
+    readonly actionId: string;
+    readonly claimId: string;
+    readonly status: KG.KgTodoStatus;
+  }): Promise<{ readonly claimId: string; readonly status: KG.KgTodoStatus; readonly claimIds: readonly string[] }>;
 }
 
 export class KgHumanActionError extends Error {

@@ -30,6 +30,10 @@ export function toBatchPayload(batch: OntologyBatch): Record<string, unknown> {
       evidence: c.evidence.map((e) => ("messageId" in e
         ? { message_id: e.messageId, stance: e.stance, excerpt: e.excerpt }
         : { segment_id: e.segmentId, stance: e.stance })),
+      // issue #4363（S6）：只在有值时带上（kg_apply_batch 缺省 valid_from = now()、其余为空）
+      ...(c.validFrom === undefined ? {} : { valid_from: c.validFrom }),
+      ...(c.validUntil === undefined ? {} : { valid_until: c.validUntil }),
+      ...(c.dueAt === undefined ? {} : { due_at: c.dueAt }),
     })),
     edges: batch.edges.map((e) => ({
       id: e.id, src_kind: e.srcKind, src_id: e.srcId, dst_kind: e.dstKind, dst_id: e.dstId, relation: e.relation,

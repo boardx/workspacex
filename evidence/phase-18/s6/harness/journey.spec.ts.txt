@@ -1,0 +1,164 @@
+/**
+ * S6 (#4363) on a real local stack: the time dimension of memory — chained supersede history (211 → 985 → 清华),
+ * expired memories (listed on /brain as 「已过期」, no longer recalled), todo status (panel + /brain, owner only).
+ *
+ * Model: the deterministic KG-eval loopback (`apps/api/scripts/loopback-kg-eval-model-provider.ts`, UNMODIFIED) fed
+ * `cases-s6.json`: each user sentence extracts exactly one claim (with `timeExpr` where the sentence has one). Chat answers
+ * only echo the 【记忆】 block the executor handed the model that turn. Everything else is the product path.
+ *
+ * One disclosed deviation: 「过期」 needs a week to pass. After 「我决定这周先用 Figma 做原型」 is recorded, the harness shifts
+ * that claim's validity window 14 days into the past with one SQL UPDATE (psql as the DB owner) — the only direct DB write.
+ */
+import { execFileSync } from "node:child_process";
+import { mkdirSync, writeFileSync } from "node:fs";
+import path from "node:path";
+import { expect, test, type Page } from "@playwright/test";
+import { KG_EVAL } from "../kg-experience-eval/fixture";
+import { apiGet, login, newThread, openMemoryPanel, say } from "../kg-experience-eval/eval-helpers";
+
+const OUT = path.resolve(__dirname, "../../../../evidence/phase-18/s6");
+mkdirSync(OUT, { recursive: true });
+const D211 = "我决定关注 211 高校";
+const D985 = "改成关注 985 高校";
+const DQH = "改成关注清华高校";
+const DFIGMA = "我决定这周先用 Figma 做原型";
+const DTODO = "下个月之前交周报";
+const record: Record<string, unknown> = {};
+const ids: Record<string, string> = {};
+const shot = (page: Page, name: string) => page.screenshot({ path: path.join(OUT, `${name}.png`), fullPage: true });
+const dump = () => writeFileSync(path.join(OUT, "journey.json"), `${JSON.stringify(record, null, 2)}\n`);
+
+interface Claim { id: string; statement: string; status: string; expired?: boolean; validUntil?: string | null; todoStatus?: string | null; dueAt?: string | null }
+interface Replaced { byClaimId: string; replaces: { claimId: string; statement: string }; undo: unknown; step?: number; replacedBy?: { statement: string } }
+interface Personal { claims: Claim[]; replaced: Replaced[] }
+interface Recalled { claimId: string; statement: string; scope: string; channels: string[] }
+
+const personal = async (page: Page) => (await apiGet(page, "/knowledge-graph/personal")).body as Personal;
+const threadClaims = async (page: Page, threadId: string) =>
+  ((await apiGet(page, `/knowledge-graph/threads/${threadId}`)).body as { claims: Claim[] }).claims;
+const recalledIn = async (page: Page, threadId: string, answerId: string) =>
+  ((await apiGet(page, `/knowledge-graph/threads/${threadId}/messages/${answerId}/memory`)).body as { recalled: Recalled[] }).recalled;
+async function apiPost(page: Page, p: string, body: unknown): Promise<{ status: number; body: unknown }> {
+  const token = await page.evaluate(() => localStorage.getItem("wsx.sessionToken"));
+  const res = await page.request.post(`/__fullstack_api${p}`, { headers: { Authorization: `Bearer ${token}` }, data: body });
+  const text = await res.text();
+  return { status: res.status(), body: text.length > 0 ? JSON.parse(text) : null };
+}
+const items = (page: Page) => page.getByTestId("brain-personal-item");
+const item = (page: Page, statement: string) => items(page).filter({ has: page.locator("p", { hasText: statement }) });
+async function openBrain(page: Page): Promise<void> {
+  await page.goto("/brain");
+  await expect(page.getByTestId("brain-personal")).toBeVisible({ timeout: 600_000 });
+}
+
+test.describe.configure({ mode: "serial" });
+let a: Page;
+
+test.beforeAll(async ({ browser }) => {
+  record.ids = ids;
+  a = await (await browser.newContext()).newPage();
+  await login(a, KG_EVAL.owner);
+});
+test.afterAll(() => dump());
+
+test("chain: 211 → 985 (auto) → 清华 (card, [取代]) — /brain shows the whole chain, newest first", async () => {
+  ids.t211 = await newThread(a);
+  await say(a, D211);
+  await expect.poll(async () => (await personal(a)).claims.map((c) => c.statement), { timeout: 600_000 }).toEqual([D211]);
+  ids.t985 = await newThread(a);
+  await say(a, `${D985}吧`);
+  await expect.poll(async () => (await personal(a)).claims.map((c) => c.statement), { timeout: 600_000 }).toEqual([D985]);
+  ids.tQH = await newThread(a);
+  await say(a, `${DQH}吧`);
+  const card = a.getByTestId("kg-conflict-card");
+  await expect(card).toHaveAttribute("data-kind", "possible_change", { timeout: 600_000 });
+  record.card = (await card.innerText()).trim();
+  await card.getByTestId("kg-conflict-keep-new").click();
+  await expect.poll(async () => (await personal(a)).claims.map((c) => c.statement), { timeout: 600_000 }).toEqual([DQH]);
+  const p = await personal(a);
+  record.chainPersonal = p;
+  expect(p.replaced.map((r) => [r.replaces.statement, r.step ?? 1])).toEqual([[D985, 1], [D211, 2]]);
+
+  await openBrain(a);
+  const row = item(a, DQH);
+  await expect(row.getByTestId("brain-replaced-text")).toHaveText([`取代了：${D985}`, `更早是：${D211}`]);
+  record.chainBrain = await row.innerText();
+  await shot(a, "1-brain-chain-qh-985-211");
+});
+
+test("validity: 「这周先用 Figma」 is force-recalled while valid; after the week it is 已过期 on /brain and no longer recalled", async () => {
+  ids.tFigma = await newThread(a);
+  await say(a, DFIGMA);
+  await expect.poll(async () => (await personal(a)).claims.find((c) => c.statement === DFIGMA)?.validUntil ?? null, { timeout: 600_000 })
+    .not.toBeNull();
+  const before = (await personal(a)).claims.find((c) => c.statement === DFIGMA)!;
+  record.figmaBefore = before;
+  expect(before.expired).toBe(false);
+
+  ids.tCtl = await newThread(a);
+  const ctl = await say(a, "开始写报告吧");
+  const ctlRecalled = await recalledIn(a, ids.tCtl, ctl.answerId);
+  record.controlTurn = { answer: ctl.text, recalled: ctlRecalled.map((r) => r.statement) };
+  expect(ctlRecalled.map((r) => r.statement)).toContain(DFIGMA);
+
+  // Disclosed time travel: shift that claim (thread claim + its personal copy) 14 days into the past.
+  execFileSync("psql", ["-v", "ON_ERROR_STOP=1", "-c",
+    `UPDATE claims SET valid_from = valid_from - interval '14 days', valid_to = valid_to - interval '14 days' WHERE statement = '${DFIGMA}'`],
+  { env: process.env, stdio: "pipe" });
+
+  const after = (await personal(a)).claims.find((c) => c.statement === DFIGMA)!;
+  record.figmaAfter = after;
+  expect(after.expired).toBe(true);
+  await openBrain(a);
+  await expect(item(a, DFIGMA).getByTestId("kg-claim-expired")).toContainText("已过期");
+  await shot(a, "2-brain-figma-expired");
+
+  ids.tAfter = await newThread(a);
+  const t = await say(a, "开始写报告吧");
+  const rec = await recalledIn(a, ids.tAfter, t.answerId);
+  record.afterTurn = { answer: t.text, recalled: rec.map((r) => r.statement) };
+  expect(rec.map((r) => r.statement)).toContain(DQH);
+  expect(rec.map((r) => r.statement)).not.toContain(DFIGMA);
+  expect(t.text).not.toContain("Figma");
+  await shot(a, "3-new-thread-no-expired-figma");
+});
+
+test("todo: panel shows 还没做 + 截止; /brain 做完了 updates both copies; another member cannot change it", async ({ browser }) => {
+  ids.tTodo = await newThread(a);
+  await say(a, DTODO);
+  let todo: Claim | undefined;
+  await expect.poll(async () => (todo = (await threadClaims(a, ids.tTodo!)).find((c) => c.statement === DTODO)) !== undefined, { timeout: 600_000 }).toBe(true);
+  record.todoInThread = todo;
+  expect(todo).toMatchObject({ todoStatus: "open", dueAt: expect.any(String) });
+  const panel = await openMemoryPanel(a);
+  await expect(panel.getByTestId("kg-todo-status-open")).toHaveText("还没做", { timeout: 600_000 });
+  await expect(panel.getByTestId("kg-todo-due")).toContainText("截止");
+  await shot(a, "4-panel-todo-open-due");
+
+  const promoted = await apiPost(a, `/knowledge-graph/threads/${ids.tTodo}/promote`, { claimIds: [todo!.id] });
+  record.promote = promoted;
+  expect(promoted.status).toBe(200);
+
+  await openBrain(a);
+  const row = item(a, DTODO);
+  await expect(row.getByTestId("kg-todo-status-open")).toHaveText("还没做");
+  const res = a.waitForResponse((r) => r.request().method() === "POST" && r.url().includes("/todo-status"));
+  await row.getByTestId("brain-todo-set-done").click();
+  const done = await res;
+  record.setDone = { status: done.status(), request: done.request().postDataJSON(), response: await done.json() };
+  expect(done.status()).toBe(200);
+  await expect(item(a, DTODO).getByTestId("kg-todo-status-done")).toHaveText("做完了");
+  await shot(a, "5-brain-todo-done");
+
+  await a.goto(`/chat/${encodeURIComponent(ids.tTodo!)}`);
+  const panel2 = await openMemoryPanel(a);
+  await expect(panel2.getByTestId("kg-todo-status-done")).toHaveText("做完了", { timeout: 600_000 });
+  await shot(a, "6-panel-todo-done");
+
+  const other = await (await browser.newContext()).newPage();
+  await login(other, KG_EVAL.other);
+  const denied = await apiPost(other, `/knowledge-graph/claims/${todo!.id}/todo-status`, { status: "dropped" });
+  record.otherMember = denied;
+  expect(denied.status).toBe(404);
+  expect((await threadClaims(a, ids.tTodo!)).find((c) => c.id === todo!.id)!.todoStatus).toBe("done");
+});

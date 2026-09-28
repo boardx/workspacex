@@ -167,6 +167,14 @@ unless noted.
   [`README.md`](../../kg-experience-eval/README.md) round table). R1: E4 「原话」 accepts any corpus sentence, and
   `say()` waits for 「发送」. R2: tightening only (non-empty excerpt, same claim). R3: the seed re-enables extraction,
   authorised 2026-09-26. R4 added no amendment.
+- [ ] **S6 #4363 time dimension (treated as approved, sign off later).** Signed contract `chat-knowledge-graph.ts`
+  gained: optional `KgClaim.validUntil / expired / todoStatus / dueAt`, `KgTodoStatus` + `KG_TODO_STATUS_LABEL_ZH`,
+  optional `KgPersonalReplacedClaim.step / replacedBy` (chained supersede history), and a new op `setTodoStatus`
+  (`POST /knowledge-graph/claims/:claimId/todo-status`, owner-only, errors `KG_CLAIM_NOT_FOUND` / `KG_ACTOR_NOT_HUMAN`).
+  Behaviour to confirm: expired claims and `dropped` todos are excluded from recall (incl. forced decision / goal
+  recall) but still listed on /brain marked 「已过期」; a todo's time expression is its due date, not an expiry; a
+  personal copy inherits its first source's validity and todo status; `valid_until` reuses the F02 `valid_to` column.
+  Evidence: [`../s6/README.md`](../s6/README.md).
 - [ ] **S10 #4367 「分享到项目…」 (UC-KG-15)**, treated as approved, sign off later. New contract ops
   `listProjectShareTargets` / `shareToProject` / `unshareFromProject`, new error codes `KG_PROJECT_NOT_FOUND` (404) and
   `KG_PROJECT_READ_ONLY` (403), `getProjectKnowledge.sharedFromPersonal`, and `KgRecalledMemory.scope` now includes

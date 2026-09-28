@@ -82,7 +82,7 @@ export class PgKgExtraction implements KgExtractionQueuePort, KgExtractionSource
         [orgId, row.thread_id, row.created_at, row.id, contextTurns],
       );
       const toMsg = (x: Row): KgMessage => ({ id: x.id, threadId: x.thread_id, body: x.body, authorKind: x.author_kind });
-      return { message: toMsg(row), context: ctx.rows.reverse().map(toMsg) };
+      return { message: { ...toMsg(row), createdAt: row.created_at.toISOString() }, context: ctx.rows.reverse().map(toMsg) };
     });
   }
 
