@@ -7,8 +7,11 @@ it('moves presence and presentation into the mobile menu without duplicating or 
  let compact=true;const listeners=new Set<()=>void>();
  vi.stubGlobal('matchMedia',()=>({get matches(){return compact;},addEventListener:(_type:string,listener:()=>void)=>listeners.add(listener),removeEventListener:(_type:string,listener:()=>void)=>listeners.delete(listener)}));
  const follow=vi.fn(),present=vi.fn();
- render(<BoardEditorHeader boardId="board" title="很长的团队白板名称" status="已同步" readOnly={false} history={<><button>撤销</button><button>重做</button></>} peers={<button onClick={follow}>跟随 Grace</button>} presentation={<button onClick={present}>开始演示</button>} more={<button>导出</button>}/>);
+ render(<BoardEditorHeader boardId="board" title="很长的团队白板名称" status="已同步" readOnly={false} history={<><button>撤销</button><button>重做</button></>} peers={<button onClick={follow}>跟随 Grace</button>} presentation={<button onClick={present}>开始演示</button>} more={<button>导出</button>} userAvatar={<span role="img" aria-label="Grace 的头像">G</span>}/>);
  const header=screen.getByTestId('board-editor-header');expect(within(header).queryByRole('button',{name:'跟随 Grace'})).toBeNull();
+ expect(header).toHaveClass('h-16','bg-background');
+ expect(screen.getByTestId('board-help-open')).toHaveAccessibleName('白板帮助');
+ expect(within(screen.getByTestId('board-user-avatar')).getByRole('img')).toHaveAccessibleName('Grace 的头像');
  fireEvent.click(screen.getByRole('button',{name:'更多白板操作'}));
  fireEvent.click(screen.getByRole('button',{name:'跟随 Grace'}));fireEvent.click(screen.getByRole('button',{name:'开始演示'}));
  expect(follow).toHaveBeenCalledOnce();expect(present).toHaveBeenCalledOnce();

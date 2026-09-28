@@ -1,13 +1,13 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Brush, ChevronUp, Frame, Hand, ImagePlus, MousePointer2, Network, Shapes, Type, MoreHorizontal } from "lucide-react";
+import { Brush, ChevronUp, Frame, Hand, ImagePlus, MousePointer2, MoveUpRight, Shapes, Type, MoreHorizontal } from "lucide-react";
 import {BoardStickyPicker} from "./board-sticky-picker";
 import {STICKY_COLOR_PRESETS} from "@repo/whiteboard-core";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import type { ConnectorType, PanelMode, StickyVariant, TextStylePreset } from "@repo/whiteboard-core";
-import type { BoardDrawingTool, BoardShapeVariant, BoardStructuredKind } from "./board-content-adapter";
+import type { BoardShapeVariant, BoardStructuredKind } from "./board-content-adapter";
 import type { BoardFabricTool } from "./fabric/board-fabric-object";
 
 export type BoardCreationTool =
@@ -48,7 +48,6 @@ const SHAPES: Array<{ variant: BoardShapeVariant; label: string }> = [
   { variant: "process", label: "流程" }, { variant: "decision", label: "决策" }, { variant: "terminator", label: "开始 / 结束" },
   { variant: "data", label: "数据" }, { variant: "predefined-process", label: "预定义流程" },
 ];
-const DRAW_TOOLS: Array<{ tool: BoardDrawingTool | "eraser"; label: string }> = [{ tool: "pen", label: "画笔" }, { tool: "marker", label: "马克笔" }, { tool: "highlighter", label: "荧光笔" }, { tool: "eraser", label: "橡皮擦" }];
 const MORE: Array<{ contentType: BoardStructuredKind; label: string }> = [{ contentType: "tile", label: "信息卡片" }, { contentType: "web-tile", label: "网页卡片" }, { contentType: "table", label: "表格" }, { contentType: "icon", label: "图标" }, { contentType: "template", label: "模板" }];
 
 export function BoardBottomDock({ stickyColor=STICKY_COLOR_PRESETS.yellow,onStickyColorChange,extension, activeTool, creationTool, readOnly, onToolChange, onCreationToolChange, onQuickCreate, onBulkSticky, onImageRequest }: BoardBottomDockProps) {
@@ -72,7 +71,7 @@ export function BoardBottomDock({ stickyColor=STICKY_COLOR_PRESETS.yellow,onStic
   const connectorOpen = creationTool?.kind === "connector";
   return (
     <nav data-testid="board-creation-dock" data-board-chrome="dock" ref={dockRef} onPointerDownCapture={capturePortalEvent} onKeyDownCapture={capturePortalEvent} aria-label="白板工具" className="absolute bottom-5 left-1/2 z-30 max-w-[calc(100vw-2rem)] -translate-x-1/2">
-      {pickerOpen && (stickyOpen || textOpen || shapeOpen || contentOpen || drawOpen || panelOpen || connectorOpen) && (
+      {pickerOpen && (stickyOpen || textOpen || shapeOpen || contentOpen || connectorOpen) && (
         <div data-testid="board-tool-picker" style={stickyOpen?{width:420,maxWidth:"calc(100vw - 2rem)",marginInline:"auto"}:undefined} className="mb-4 flex max-h-80 min-w-64 max-w-full flex-wrap items-center justify-center gap-2 overflow-auto rounded-2xl border border-border-subtle bg-card p-2 shadow-lg motion-safe:animate-in motion-safe:slide-in-from-bottom-2 motion-safe:fade-in">
           {stickyOpen ? <BoardStickyPicker color={stickyColor} variant={creationTool.variant} readOnly={readOnly} onColorChange={value=>onStickyColorChange?.(value)} onVariantChange={variant=>onCreationToolChange({kind:"sticky",variant})} onBulk={onBulkSticky}/> : textOpen ? TEXT_PRESETS.map(({ preset, label }) => (
             <button
@@ -86,22 +85,21 @@ export function BoardBottomDock({ stickyColor=STICKY_COLOR_PRESETS.yellow,onStic
             >{label}</button>
           )) : shapeOpen ? SHAPES.map(({ variant, label }) => <button key={variant} type="button" data-testid={`board-shape-${variant}`} aria-pressed={creationTool.variant === variant} disabled={readOnly} onClick={() => onCreationToolChange({ kind: "shape", variant })} className={cn("min-h-11 rounded-xl px-3 text-13 transition-colors hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring", creationTool.variant === variant && "bg-primary text-primary-foreground hover:bg-primary-hover hover:text-primary-foreground")}>{label}</button>)
             : contentOpen ? <><Button data-testid="board-add-panel" variant="ghost" className="min-h-11 gap-2" disabled={readOnly} onClick={()=>{const next={kind:"panel",mode:"freeform"} as const;onToolChange("select");onCreationToolChange(next);onQuickCreate(next);}}><Frame className="h-5 w-5"/>区域</Button>{MORE.map(({ contentType, label }) => <button key={contentType} type="button" data-testid={`board-content-${contentType}`} aria-pressed={creationTool.contentType === contentType} disabled={readOnly} onClick={() => { setPickerOpen(true); const next = { kind: "content", contentType } as const; onCreationToolChange(next); onQuickCreate(next); }} className={cn("min-h-11 rounded-xl px-3 text-13 transition-colors hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring", creationTool.contentType === contentType && "bg-primary text-primary-foreground hover:bg-primary-hover hover:text-primary-foreground")}>{label}</button>)}{extension}</>
-              : panelOpen ? ([['freeform', '自由'], ['grid', '网格'], ['flow', '流程']] as const).map(([mode, label]) => <button key={mode} type="button" data-testid={`board-panel-${mode}`} aria-pressed={creationTool.mode === mode} onClick={() => onCreationToolChange({ kind: "panel", mode })} className={cn("min-h-11 rounded-xl px-4 text-13 hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring", creationTool.mode === mode && "bg-primary text-primary-foreground hover:bg-primary-hover hover:text-primary-foreground")}>{label}</button>)
-                : connectorOpen ? ([['straight', '直线'], ['elbow', '折线'], ['curve', '曲线']] as const).map(([connectorType, label]) => <button key={connectorType} type="button" data-testid={`board-connector-${connectorType}`} aria-pressed={creationTool.connectorType === connectorType} onClick={() => onCreationToolChange({ kind: "connector", connectorType })} className={cn("min-h-11 rounded-xl px-4 text-13 hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring", creationTool.connectorType === connectorType && "bg-primary text-primary-foreground hover:bg-primary-hover hover:text-primary-foreground")}>{label}</button>)
-                  : DRAW_TOOLS.map(({ tool, label }) => { const fabricTool: BoardFabricTool = tool === "eraser" ? "erase" : `draw-${tool}`; return <button key={tool} type="button" data-testid={`board-draw-${tool}`} aria-pressed={activeTool === fabricTool} disabled={readOnly} onClick={() => { onCreationToolChange(null); onToolChange(fabricTool); }} className="min-h-11 rounded-xl px-3 text-13 transition-colors hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring">{label}</button>; })}
+              : connectorOpen ? ([['straight', '直线'], ['elbow', '折线'], ['curve', '曲线']] as const).map(([connectorType, label]) => <button key={connectorType} type="button" data-testid={`board-connector-${connectorType}`} aria-pressed={creationTool.connectorType === connectorType} onClick={() => onCreationToolChange({ kind: "connector", connectorType })} className={cn("min-h-11 rounded-xl px-4 text-13 hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring", creationTool.connectorType === connectorType && "bg-primary text-primary-foreground hover:bg-primary-hover hover:text-primary-foreground")}>{label}</button>) : null}
 
         </div>
       )}
-      <div className="flex items-end gap-1 overflow-x-auto rounded-2xl border border-border bg-card/95 p-1.5 shadow-2xl backdrop-blur">
+      <div className="flex items-end gap-1 overflow-x-auto rounded-2xl border border-border bg-card p-1.5 shadow-xl">
         <DockButton testId="board-tool-select" label="选择" shortcut="V" pressed={activeTool === "select" && !creationTool} onClick={() => { onCreationToolChange(null); onToolChange("select"); }}><MousePointer2 className="h-5 w-5" /></DockButton>
         <DockButton testId="board-tool-hand" label="移动画布" shortcut="H" pressed={activeTool === "hand"} onClick={() => { onCreationToolChange(null); onToolChange("hand"); }}><Hand className="h-5 w-5" /></DockButton>
         <span aria-hidden="true" className="mx-1 h-10 w-px bg-border" />
         <DockButton testId="board-add-sticky" label="便利贴" shortcut="N" pressed={stickyOpen} disabled={readOnly} onClick={() => { setPickerOpen(true); const next = { kind: "sticky", variant: stickyOpen ? creationTool.variant : "square" } as const; onToolChange("select"); onCreationToolChange(next); }}><span aria-hidden="true" className="block h-6 w-6 shrink-0 rounded-sm border border-border/30 shadow-sm" style={{backgroundColor:stickyColor}}/></DockButton>
         <DockButton testId="board-add-text" label="文字" shortcut="T" pressed={textOpen} disabled={readOnly} onClick={() => { setPickerOpen(true); const next = { kind: "text", preset: textOpen ? creationTool.preset : "body" } as const; onToolChange("select"); onCreationToolChange(next); onQuickCreate(next); }}><Type className="h-5 w-5" /></DockButton>
         <DockButton testId="board-add-shape" label="形状" shortcut="S" pressed={shapeOpen} disabled={readOnly} onClick={() => { setPickerOpen(true); const next = { kind: "shape", variant: shapeOpen ? creationTool.variant : "rounded-rectangle" } as const; onToolChange("select"); onCreationToolChange(next); onQuickCreate(next); }}><Shapes className="h-5 w-5" /></DockButton>
-        <DockButton testId="board-add-connector" label="连接" shortcut="C" pressed={connectorOpen} disabled={readOnly} onClick={() => { setPickerOpen(true); const next = { kind: "connector", connectorType: connectorOpen ? creationTool.connectorType : "straight" } as const; onToolChange("select"); onCreationToolChange(next); }}><Network className="h-5 w-5" /></DockButton>
-        <DockButton testId="board-add-draw" label="绘制" shortcut="P" pressed={drawOpen} disabled={readOnly} onClick={() => { setPickerOpen(true); onCreationToolChange(null); onToolChange("draw-pen"); }}><Brush className="h-5 w-5" /></DockButton>
+        <DockButton testId="board-add-connector" label="箭头" shortcut="C" pressed={connectorOpen} disabled={readOnly} onClick={() => { setPickerOpen(true); const next = { kind: "connector", connectorType: connectorOpen ? creationTool.connectorType : "straight" } as const; onToolChange("select"); onCreationToolChange(next); }}><MoveUpRight className="h-5 w-5" /></DockButton>
+        <DockButton testId="board-add-draw" label="绘制" shortcut="P" pressed={drawOpen} disabled={readOnly} onClick={() => { setPickerOpen(false); onCreationToolChange(null); onToolChange("draw-pen"); }}><Brush className="h-5 w-5" /></DockButton>
         <DockButton testId="board-add-image" label="图片" shortcut="I" pressed={false} disabled={readOnly} onClick={onImageRequest}><ImagePlus className="h-5 w-5" /></DockButton>
+        <DockButton testId="board-add-frame" label="Frame" shortcut="F" pressed={panelOpen} disabled={readOnly} onClick={() => { setPickerOpen(false); onToolChange("select"); onCreationToolChange({kind:"panel",mode:panelOpen?creationTool.mode:"freeform"}); }}><Frame className="h-5 w-5" /></DockButton>
         <DockButton testId="board-add-more" label="更多" shortcut="" pressed={contentOpen} disabled={readOnly} onClick={() => { setPickerOpen(true); const next = { kind: "content", contentType: contentOpen ? creationTool.contentType : "tile" } as const; onToolChange("select"); onCreationToolChange(next); }}><span className="relative"><MoreHorizontal className="h-6 w-6" /><ChevronUp className="absolute -right-2 -top-2 h-3 w-3" /></span></DockButton>
 
       </div>
@@ -110,7 +108,7 @@ export function BoardBottomDock({ stickyColor=STICKY_COLOR_PRESETS.yellow,onStic
 }
 
 function DockButton({ testId, label, shortcut, pressed, disabled, onClick, children }: { testId?: string; label: string; shortcut: string; pressed: boolean; disabled?: boolean; onClick: () => void; children: React.ReactNode }) {
-  return <button type="button" data-testid={testId} title={shortcut ? `${label} (${shortcut})` : label} aria-label={shortcut ? `${label}，快捷键 ${shortcut}` : label} aria-pressed={pressed} disabled={disabled} onClick={onClick} className={cn("group flex min-h-12 min-w-12 shrink-0 flex-col items-center justify-center rounded-xl px-3 text-11 transition-colors duration-fast hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:bg-disabled disabled:text-disabled-foreground", pressed && "bg-primary text-primary-foreground shadow-md hover:bg-primary-hover hover:text-primary-foreground")}>
-    <span className="transition-transform motion-safe:group-hover:scale-110">{children}</span><span className="sr-only">{label}</span>
+  return <button type="button" data-testid={testId} title={shortcut ? `${label} (${shortcut})` : label} aria-label={shortcut ? `${label}，快捷键 ${shortcut}` : label} aria-pressed={pressed} disabled={disabled} onClick={onClick} className={cn("group flex min-h-14 min-w-14 shrink-0 flex-col items-center justify-center gap-1 rounded-xl px-2 text-11 transition-colors duration-fast hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:bg-disabled disabled:text-disabled-foreground", pressed && "bg-foreground text-background shadow-md hover:bg-foreground/90")}>
+    <span className="transition-transform motion-safe:group-hover:scale-110">{children}</span><span className="leading-none">{label}</span>
   </button>;
 }

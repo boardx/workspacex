@@ -11,7 +11,7 @@ it.each([false,true])('keeps the sticky paper explicitly sized with an unchanged
  // Browser screenshots validate actual pixels; this guards the CSS sizing contract.
  expect(paper).toHaveClass('block','h-6','w-6','shrink-0','shadow-sm');
  expect(paper).toHaveStyle({backgroundColor:STICKY_COLOR_PRESETS.yellow});
- expect(button).toHaveClass('min-h-12','min-w-12','shrink-0');
+ expect(button).toHaveClass('min-h-14','min-w-14','shrink-0');
  expect(button).toHaveAccessibleName('便利贴，快捷键 N');
  expect(button).toHaveAttribute('aria-pressed',String(selected));
  fireEvent.click(button);expect(change).toHaveBeenCalledWith({kind:'sticky',variant:'square'});
