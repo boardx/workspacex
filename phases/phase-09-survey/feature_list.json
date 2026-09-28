@@ -114,7 +114,7 @@
       "title": "提供可选模板和分析报告入口",
       "spec_ref": "00-overview.md#R14",
       "user_visible_behavior": "用户可从独立入口复用问卷模板、设计报告模板并生成与导出基于有效答卷的报告；这些功能不阻塞三步主流程。",
-      "status": "in_progress",
+      "status": "blocked",
       "sprint": "07",
       "owner": "coord-survey",
       "depends_on": [
