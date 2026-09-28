@@ -174,6 +174,39 @@ describe("WF03 demo workflow crash recovery", () => {
       .rejects.toBeInstanceOf(WorkflowLeaseLostError);
   }, 60_000);
 
+  it("R3: after a crash the expired lease is taken over by a worker's scanner (no resume API call); it continues from the checkpoint", async () => {
+    const aErrors: unknown[] = [];
+    const a = worker("worker-a3", { crashAfterOutputOf: "draft", workLog: [], errors: aErrors });
+    const started = await a.start(ORG, USER, DEMO_WORKFLOW_KEY, { agentId: AGENT, requestId: "req-wf03-crash-3", input: { topic: "接管" } });
+    threads.push(started.instanceId);
+    await a.drain();
+    expect(aErrors[0]).toBeInstanceOf(SimulatedCrash);
+
+    const bLog: string[] = [];
+    const bErrors: unknown[] = [];
+    const b = worker("worker-b3", { workLog: bLog, errors: bErrors });
+    // lease 未过期：扫描器不挑它（E2）
+    await b.takeOverExpired();
+    await b.drain();
+    expect(bLog).toEqual([]);
+    expect((await b.get(ORG, USER, started.instanceId)).status).toBe("running");
+
+    await sleep(TTL + 200);
+    expect(await b.takeOverExpired()).toBeGreaterThanOrEqual(1);
+    await b.drain();
+    expect(bErrors).toEqual([]);
+    expect(bLog).toEqual(["finalize"]); // 从 checkpoint 续跑：collect 跳过，draft 命中既有产出行
+    expect((await b.get(ORG, USER, started.instanceId)).status).toBe("succeeded");
+    const events = await eventSeqs(ORG, started.instanceId);
+    expect(events.map((e) => e.seq)).toEqual(events.map((_, i) => i + 1));
+
+    // 终态实例不再被挑：再扫一轮不推进它
+    await sleep(TTL + 200);
+    await b.takeOverExpired();
+    await b.drain();
+    expect(bLog).toEqual(["finalize"]);
+  }, 60_000);
+
   it("E11: a lost checkpoint after progress puts the instance in needs_attention; projection still shows completed stages from business rows", async () => {
     const errors: unknown[] = [];
     const a = worker("worker-a2", { crashAfterOutputOf: "draft", workLog: [], errors });

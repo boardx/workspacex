@@ -115,6 +115,19 @@ function isStoredRejection(v: unknown): v is StoredRejection {
   return !!v && typeof v === "object" && "workflowRejection" in v;
 }
 
+/** 重放 409 时重新读取最新投影（对当前用户可见性照常校验）。 */
+type RejectionRefresher = () => ReturnType<typeof loadVisibleProjection>;
+
+function latestProjectionFor(
+  deps: InstanceCommandDeps,
+  cmd: { orgId: string; userId: string; instanceId: string },
+): RejectionRefresher {
+  return async () => {
+    const actor = await resolveActor(deps.access, cmd.orgId, cmd.userId);
+    return loadVisibleProjection(deps, cmd.orgId, cmd.instanceId, actor);
+  };
+}
+
 function replayed<T>(stable: unknown): T {
   if (isStoredRejection(stable)) {
     const r = stable.workflowRejection;
@@ -131,9 +144,26 @@ async function idempotent<T>(
   deps: InstanceCommandDeps,
   key: WorkflowReceiptKey,
   run: () => Promise<{ response: T; instanceId: string | null }>,
+  refreshRejection?: RejectionRefresher,
 ): Promise<{ response: T; fresh: boolean }> {
   const prior = await beginOrReplay(deps, key);
-  if (prior) return { response: replayed<T>(prior.replay), fresh: false };
+  if (prior) {
+    const stable = prior.replay;
+    // 409 的 code 稳定（A1），但 latestProjection 必须是「现在」的投影（R4 A1/E3）：重放时重新读取。
+    if (
+      refreshRejection &&
+      isStoredRejection(stable) &&
+      stable.workflowRejection.details &&
+      "latestProjection" in stable.workflowRejection.details
+    ) {
+      const r = stable.workflowRejection;
+      throw new WorkflowUseCaseError(r.code, r.message, {
+        ...r.details,
+        latestProjection: await refreshRejection(),
+      });
+    }
+    return { response: replayed<T>(stable), fresh: false };
+  }
   let outcome: { response: T; instanceId: string | null };
   try {
     outcome = await run();
@@ -400,7 +430,7 @@ export async function cancelInstance(
       },
       instanceId: cmd.instanceId,
     };
-  });
+  }, latestProjectionFor(deps, cmd));
   return response;
 }
 
@@ -447,6 +477,7 @@ export async function resumeInstance(
         instanceId: cmd.instanceId,
       };
     },
+    latestProjectionFor(deps, cmd),
   );
   if (fresh && lease) deps.dispatcher.dispatch(lease);
   return response;

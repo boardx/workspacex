@@ -8,7 +8,8 @@ import { cancelInstance, resumeInstance, startInstance, type InstanceCommandDeps
 import { getInstanceProjection } from "./instance-projection";
 import { runInstance, type RunHooks, type WorkflowGraphDriver } from "./run-instance";
 import type { WorkflowLease } from "./workflow-ports";
-import type { WorkflowStageOutputStore } from "./workflow-runtime-ports";
+import { WorkflowUseCaseError } from "./workflow-errors";
+import type { WorkflowExpiredLeaseScanner, WorkflowStageOutputStore } from "./workflow-runtime-ports";
 
 export const WORKFLOW_RUNTIME_SERVICE = Symbol("WORKFLOW_RUNTIME_SERVICE");
 
@@ -19,6 +20,8 @@ export interface WorkflowRuntimeServiceDeps extends Omit<InstanceCommandDeps, "d
   replayWindow: number;
   onRunError?(instanceId: string, error: unknown): void;
   hooks?: RunHooks;
+  /** R3 过期 lease 接管的跨组织扫描；未提供时 takeOverExpired 为空操作。 */
+  expiredLeases?: WorkflowExpiredLeaseScanner;
 }
 
 export class WorkflowRuntimeService {
@@ -54,6 +57,29 @@ export class WorkflowRuntimeService {
     const p = runInstance(this.deps, lease).catch((e: unknown) => this.deps.onRunError?.(lease.instanceId, e));
     this.running.add(p);
     void p.finally(() => this.running.delete(p));
+  }
+
+  /**
+   * R3「进程重启后 lease 过期的实例由 worker 接管 resume」：扫描过期 lease，逐个经 epoch CAS 获取后在本进程推进
+   * （从最后 checkpoint 续跑，与 resume API 同一条 runInstance 路径）。输给别的 worker（lease_conflict）
+   * 或实例已不在（workflow_not_found）视为正常，跳过。返回本轮接管的实例数。
+   */
+  async takeOverExpired(limit = 50): Promise<number> {
+    const scanner = this.deps.expiredLeases;
+    if (!scanner) return 0;
+    let taken = 0;
+    for (const { orgId, instanceId } of await scanner.expired(limit)) {
+      let lease: WorkflowLease;
+      try {
+        lease = await this.deps.leases.acquire({ orgId, instanceId, holder: this.deps.holder, ttlMs: this.deps.leaseTtlMs });
+      } catch (e) {
+        if (e instanceof WorkflowUseCaseError && (e.code === "lease_conflict" || e.code === "workflow_not_found")) continue;
+        throw e;
+      }
+      this.dispatch(lease);
+      taken++;
+    }
+    return taken;
   }
 
   /** 等待本进程内所有后台推进结束（关停 / 测试）。 */

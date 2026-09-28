@@ -11,6 +11,7 @@ import { WorkflowRuntimeService } from "../../application/workflow/workflow-runt
 import { demoWorkflowGraph } from "./demo-workflow-graph";
 import { PgWorkflowAccess } from "./pg-workflow-access";
 import { PgWorkflowDefinitionRepository } from "./pg-workflow-definition-repository";
+import { PgWorkflowExpiredLeaseScanner } from "./pg-workflow-expired-lease-scanner";
 import { PgWorkflowEventStore, PgWorkflowStageOutputStore } from "./pg-workflow-event-store";
 import { PgWorkflowInstanceRepository } from "./pg-workflow-instance-repository";
 import { PgWorkflowLeaseStore } from "./pg-workflow-lease-store";
@@ -36,6 +37,8 @@ export interface WorkflowRuntimeOptions {
   replayWindow?: number;
   hooks?: RunHooks;
   onRunError?(instanceId: string, error: unknown): void;
+  /** 生产入口的过期 lease 扫描间隔；默认 leaseTtlMs/2；0 关闭。 */
+  takeoverIntervalMs?: number;
 }
 
 export function createWorkflowRuntime(db: DatabasePort, pool: pg.Pool, opts: WorkflowRuntimeOptions = {}) {
@@ -49,6 +52,7 @@ export function createWorkflowRuntime(db: DatabasePort, pool: pg.Pool, opts: Wor
     events: new PgWorkflowEventStore(db),
     outputs: new PgWorkflowStageOutputStore(db),
     access: new PgWorkflowAccess(db),
+    expiredLeases: new PgWorkflowExpiredLeaseScanner(db),
     driver: new LangGraphWorkflowDriver(registry, createWorkflowCheckpointerFactory(pool)),
     newId: () => randomUUID(),
     holder: opts.holder ?? `${hostname()}:${process.pid}:${randomUUID().slice(0, 8)}`,
@@ -67,8 +71,21 @@ export function createWorkflowRuntime(db: DatabasePort, pool: pg.Pool, opts: Wor
 export function createProductionWorkflowRuntime(db: DatabasePort, poolFactory: () => pg.Pool, opts: WorkflowRuntimeOptions = {}) {
   const pool = poolFactory();
   const { service } = createWorkflowRuntime(db, pool, opts);
+  const every = opts.takeoverIntervalMs ?? Math.floor((opts.leaseTtlMs ?? 60_000) / 2);
+  let scanning = false;
+  const timer = every > 0
+    ? setInterval(() => {
+        if (scanning) return;
+        scanning = true;
+        service.takeOverExpired()
+          .catch((e: unknown) => opts.onRunError?.("(expired-lease-scan)", e))
+          .finally(() => { scanning = false; });
+      }, every)
+    : null;
+  timer?.unref();
   return Object.assign(service, {
     async onModuleDestroy() {
+      if (timer) clearInterval(timer);
       await service.drain();
       await pool.end();
     },

@@ -116,14 +116,16 @@ describe("WF03 instance lifecycle API", () => {
     const s1 = await alice().post(`/workflow-instances/${id}/cancel`, staleReq);
     const s2 = await alice().post(`/workflow-instances/${id}/cancel`, staleReq);
     expect([s1.status, s2.status]).toEqual([409, 409]);
-    expect(s2.body).toEqual(s1.body);
+    // 重放的 409：code 稳定，latestProjection 是重放时刻的最新投影（R4 A1/E3），不是首次拒绝时的快照。
+    expect(s2.body.code).toBe(s1.body.code);
 
     let ok: { status: number; body: any }[] | null = null;
     for (let i = 0; i < 20 && !ok; i++) {
       const cur = await alice().get(`/workflow-instances/${id}`);
       const req = { expectedStateVersion: cur.body.stateVersion, requestId: rid() };
       const pair = await Promise.all([alice().post(`/workflow-instances/${id}/cancel`, req), alice().post(`/workflow-instances/${id}/cancel`, req)]);
-      expect(pair[1].body).toEqual(pair[0].body); // 并发同 requestId：永远是同一个响应
+      // 并发同 requestId：永远是同一个结果（409 重放时 latestProjection 会刷新，只比 status/code）
+      expect([pair[1].status, pair[1].body.code]).toEqual([pair[0].status, pair[0].body.code]);
       if (pair[0].status === 200) ok = [...pair, await alice().post(`/workflow-instances/${id}/cancel`, req)];
     }
     expect(ok).not.toBeNull();
@@ -136,7 +138,15 @@ describe("WF03 instance lifecycle API", () => {
     const r1 = await alice().post(`/workflow-instances/${id}/resume`, resumeReq);
     const r2 = await alice().post(`/workflow-instances/${id}/resume`, resumeReq);
     expect(r1.status).toBe(409);
-    expect(r2).toMatchObject({ status: r1.status, body: r1.body });
+    expect(r2).toMatchObject({ status: r1.status, body: { code: r1.body.code } });
+
+    // 首次拒绝时实例还在跑；实例终态后重放同一个 requestId → 仍是 409 同 code，但带的是最新投影。
+    const replayStale = await alice().post(`/workflow-instances/${id}/cancel`, staleReq);
+    expect(replayStale.status).toBe(409);
+    expect(replayStale.body.code).toBe(s1.body.code);
+    const latest = WorkflowErrorBody.parse(replayStale.body).latestProjection!;
+    expect(latest).toMatchObject({ status: final.body.status, stateVersion: final.body.stateVersion });
+    expect(latest.stateVersion).toBeGreaterThan(WorkflowErrorBody.parse(s1.body).latestProjection!.stateVersion);
   }, 60_000);
 
   it("E3: cancel with a stale expectedStateVersion → 409 state_version_conflict carrying the latest projection; a current one cancels at the next stage boundary", async () => {

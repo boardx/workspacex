@@ -81,3 +81,11 @@ export interface WorkflowAccessPort {
 export interface WorkflowRunDispatcher {
   dispatch(lease: WorkflowLease): void;
 }
+
+/**
+ * R3「lease 过期由 worker 接管」：跨组织列出 lease 已过期、仍需推进（running / cancelling）的实例。
+ * 只给标识；接管仍走 WorkflowLeaseStore.acquire 的 epoch CAS，多个扫描器并发只有一个赢。
+ */
+export interface WorkflowExpiredLeaseScanner {
+  expired(limit: number): Promise<Array<{ orgId: string; instanceId: string }>>;
+}
