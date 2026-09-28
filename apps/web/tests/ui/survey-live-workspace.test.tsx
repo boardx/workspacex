@@ -180,6 +180,12 @@ describe('live survey workspace persistence',()=>{
   expect(screen.queryByText(/当前展示上次生成的报告/)).not.toBeInTheDocument();
   expect(request).toHaveBeenLastCalledWith('/surveys/saved-survey/report',{method:'POST',body:{expectedVersion:4}},expect.anything());
  });
+ it('shows report-template revisions as stale in response readiness, even without new answers',async()=>{
+  const report={id:'report',title:'旧模板生成的报告',sections:[{id:'s',title:'真实章节',blocks:[]}],issues:[]};
+  request.mockResolvedValueOnce(runtime({version:5,report,reportBasisVersion:3,answerRevision:0,reportBasisAnswerRevision:0,reportGeneratedAt:'2026-09-19T10:00:00.000Z'}));
+  render(<LiveSurveyWorkspace surveyId="saved-survey" initialStep="responses"/>);
+  expect(await screen.findByRole('region',{name:'报告准备状态'})).toHaveTextContent('模板或答卷已有更新，可重新生成报告');
+ });
  it('keeps exports disabled with a clear privacy reason until the report reaches the sharing threshold',async()=>{
   const report={id:'report',title:'受保护报告',issues:[],sampleSummary:{total:4,pendingReview:0,excluded:1,included:3},sections:[{id:'s',title:'章节',blocks:[]}]};
   request.mockResolvedValueOnce(runtime({report,reportBasisVersion:4,reportBasisAnswerRevision:0}));

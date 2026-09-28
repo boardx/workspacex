@@ -246,6 +246,7 @@ export function LiveSurveyWorkspace({
     () => assessPublishReadiness({ questions: draft?.questions ?? [], blockers }),
     [draft?.questions, blockers],
   );
+  const reportIsStale = !!runtime?.report && (dirty || runtime.reportBasisVersion !== runtime.version - 1 || runtime.reportBasisAnswerRevision !== runtime.answerRevision);
   const reportShareBlockedReason = runtime?.report
     ? surveyReportShareBlockedReason(runtime.report)
     : undefined;
@@ -561,7 +562,7 @@ export function LiveSurveyWorkspace({
           {step === "responses" && (<>
             <section aria-label="报告准备状态" className="mx-5 mt-5 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border bg-card p-4">
               <div><h2 className="text-16 font-semibold">分析报告（可选）</h2><p className="mt-1 text-12 text-muted-foreground">{runtime?.report
-                ? runtime.reportBasisAnswerRevision === runtime.answerRevision ? `已基于 ${runtime.responses.filter(response => response.analysis !== 'excluded').length} 份纳入分析的答卷生成` : "答卷已更新，可重新生成报告"
+                ? reportIsStale ? "模板或答卷已有更新，可重新生成报告" : `已基于 ${runtime.responses.filter(response => response.analysis !== 'excluded').length} 份纳入分析的答卷生成`
                 : "尚未生成；不影响问卷发布和答卷回收"}</p></div>
               <Button variant="outline" onClick={() => selectStep('report')}>{runtime?.report ? "查看分析报告" : "生成分析报告"}</Button>
             </section>
@@ -683,10 +684,7 @@ export function LiveSurveyWorkspace({
                   </ul>
                 </div>
               ) : null}
-              {runtime?.report &&
-                (dirty ||
-                  runtime.reportBasisVersion !== runtime.version - 1 ||
-                  runtime.reportBasisAnswerRevision !== runtime.answerRevision) && (
+              {reportIsStale && (
                   <p className="text-12 text-muted-foreground">
                     模板或答卷已有更新，当前展示上次生成的报告。重新生成后更新内容。
                   </p>
