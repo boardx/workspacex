@@ -12,7 +12,7 @@ import type {
   AgentRoleDraftState,
 } from "../../application/agent/update-agent-role-draft";
 import type { AgentRoleFieldsT } from "../../domain/agent/definition";
-import { AGENT_ROLE_COLUMN_OF, toRoleFields, type AgentRoleColumnsRow } from "./agent-version-insert";
+import { AGENT_ROLE_COLUMN_OF, toRoleFieldsTolerant, type AgentRoleColumnsRow } from "./agent-version-insert";
 
 const cols = (alias: string, prefix: string): string =>
   Object.values(AGENT_ROLE_COLUMN_OF).map((c) => `${alias}.${c} AS ${prefix}${c}`).join(", ");
@@ -39,8 +39,8 @@ export class PgAgentRoleDraftRepository implements AgentRoleDraftRepository {
       const row = found.rows[0];
       if (row === undefined) return null;
       return {
-        draft: toRoleFields(pick(row, "d_")),
-        published: row.published_id === null ? null : toRoleFields(pick(row, "p_")),
+        draft: toRoleFieldsTolerant(pick(row, "d_"), agentId),
+        published: row.published_id === null ? null : toRoleFieldsTolerant(pick(row, "p_"), agentId),
         version: Number(row.role_draft_version),
       };
     });

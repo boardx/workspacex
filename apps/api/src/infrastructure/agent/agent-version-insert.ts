@@ -36,27 +36,17 @@ export interface AgentRoleColumnsRow {
   readonly kpi: unknown;
 }
 
-/** 行 → 契约形状。过一遍契约 schema：库里的值若比契约宽（见迁移头注），读侧当场炸而不是带病传播。 */
-export function toRoleFields(row: AgentRoleColumnsRow): AgentRoleFieldsT {
-  return agentRole.AgentRoleFields.parse({
-    avatar: row.avatar,
-    roleCategory: row.role_category,
-    catalogSource: row.catalog_source,
-    workflowAllowlist: row.workflow_allowlist,
-    delegationPolicy: row.delegation_policy,
-    escalationPolicy: row.escalation_policy,
-    kpi: row.kpi,
-  });
-}
-
 /**
- * Read-path variant for list/read projections (AgentDefinition). The DB CHECK is wider than the
- * contract, so a row written outside the Zod path (manual SQL, a future import) must not break
- * every list: fall back to the contract defaults and emit a process warning naming the row.
+ * Read-path variant for list/read projections (AgentDefinition, the role-draft PATCH read). The DB
+ * CHECK is intentionally wider than the contract (matter/metric/alt lengths), so a row written
+ * outside the Zod path must not break every list -- but it must not rewrite the valid fields
+ * either. Fallback is PER FIELD: only a field that fails its own contract schema is replaced by
+ * its contract default (with a process warning naming agent + field). `catalog_source` is DB
+ * CHECK-enforced to the contract enum, so an 'official' row is never reported as 'org'.
  * Publish never uses these values -- insertAgentVersionFromDraft copies the columns via SELECT.
  */
 export function toRoleFieldsTolerant(row: AgentRoleColumnsRow, agentId: string): AgentRoleFieldsT {
-  const parsed = agentRole.AgentRoleFields.safeParse({
+  const raw: Record<string, unknown> = {
     avatar: row.avatar,
     roleCategory: row.role_category,
     catalogSource: row.catalog_source,
@@ -64,13 +54,22 @@ export function toRoleFieldsTolerant(row: AgentRoleColumnsRow, agentId: string):
     delegationPolicy: row.delegation_policy,
     escalationPolicy: row.escalation_policy,
     kpi: row.kpi,
-  });
-  if (parsed.success) return parsed.data;
-  process.emitWarning(`agent ${agentId}: role columns fail AgentRoleFields; using defaults`, {
-    code: "AGENT_ROLE_FIELDS_INVALID",
-    detail: parsed.error.message,
-  });
-  return structuredClone(agentRole.AGENT_ROLE_FIELD_DEFAULTS);
+  };
+  const shape = agentRole.AgentRoleFields.shape as Record<string, { safeParse(v: unknown): { success: boolean; data?: unknown } }>;
+  const defaults = agentRole.AGENT_ROLE_FIELD_DEFAULTS as unknown as Record<string, unknown>;
+  const out: Record<string, unknown> = {};
+  for (const field of agentRole.AGENT_ROLE_FROZEN_FIELDS) {
+    const r = shape[field]!.safeParse(raw[field]);
+    if (r.success) {
+      out[field] = r.data;
+    } else {
+      process.emitWarning(`agent ${agentId}: role field ${field} fails AgentRoleFields; using its default`, {
+        code: "AGENT_ROLE_FIELDS_INVALID",
+      });
+      out[field] = structuredClone(defaults[field]);
+    }
+  }
+  return agentRole.AgentRoleFields.parse(out);
 }
 
 export interface AgentVersionInsert {

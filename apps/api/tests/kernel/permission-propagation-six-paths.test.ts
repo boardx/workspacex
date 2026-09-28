@@ -1314,7 +1314,15 @@ describe("lint-permission-paths: counter-proof", () => {
     // #4242's tag catalog repository is mechanically
     // admitted by whiteboard-permission-boundaries.mjs, so it does not raise
     // this bare-exception ceiling.
-    expect(total - boundaryAudit.rules.length).toBeLessThanOrEqual(99);
+    // AG01 (Phase 20 agent-role bundle) adds exactly two (99 -> 101):
+    // agent-version-insert.ts (the single INSERT ... SELECT into agent_versions shared by
+    // every already-allowlisted publish path, no authorization of its own) and
+    // pg-agent-role-draft-repository.ts (PATCH /admin/agents/:agentId/role, org-admin gate
+    // one layer up in update-agent-role-draft.ts as the first action). Both are pinned by
+    // tests/agent/role-draft-repo-guard.test.ts: only `agents`/`agent_versions`, no
+    // withoutTenant, single statement, admin check precedes both repository calls.
+    // Remove this increment with those entries if that guard test disappears.
+    expect(total - boundaryAudit.rules.length).toBeLessThanOrEqual(101);
 
     const src = readFileSync(
       fileURLToPath(new URL("../../scripts/lint-permission-paths.mjs", import.meta.url)),
