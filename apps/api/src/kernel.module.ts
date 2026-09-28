@@ -244,6 +244,8 @@ import { SkillStarterImportController } from "./interface/controllers/skill-star
 import { WorkSkillCatalogController } from "./interface/controllers/work-skill-catalog.controller";
 import { PgWorkSkillCatalogRepository } from "./infrastructure/skill/pg-work-skill-catalog-repository";
 import { WORK_SKILL_CATALOG_REPOSITORY } from "./application/skill/work-skill-catalog";
+import { TOOL_GRANT_READER } from "./application/skill/work-skill-readiness";
+import { PgToolGrantReader } from "./infrastructure/skill/pg-tool-grant-reader";
 import { SkillUrlImportController } from "./interface/controllers/skill-url-import.controller";
 import {
   composeImportSkillFromUrlDeps,
@@ -1466,6 +1468,12 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
     {
       provide: WORK_SKILL_CATALOG_REPOSITORY,
       useFactory: (db: DatabasePort) => new PgWorkSkillCatalogRepository(db),
+      inject: [DATABASE_PORT],
+    },
+    // Phase 20 WS04：就绪性输入——本组织工具 × 能力分类授权快照。
+    {
+      provide: TOOL_GRANT_READER,
+      useFactory: (db: DatabasePort) => new PgToolGrantReader(db),
       inject: [DATABASE_PORT],
     },
     /**

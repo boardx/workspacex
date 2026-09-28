@@ -72,6 +72,10 @@ const SUBTASK_BOUNDARIES = new Set([
 ]);
 const ALLOWLIST = new Map([
   [
+    "src/infrastructure/skill/pg-tool-grant-reader.ts",
+    "Phase 20 WS04（`work-skill-meta` UC-6 就绪性输入）：`org_tool_capability_grants` 是授权元数据（本组织哪个工具提供哪个能力分类、是否启用、授权是否被拒），不是 `ObjectRef` 能表达的 Artifact/Segment/Capability/Project/Organization/Interview——把它推进 `authorize` 会退回 DEFAULT_SCOPE 对全组织放行，同 `pg-tool-permission-grant-repository.ts` 条目的论证。行内容从不直接交给调用方：`getWorkSkillReadiness` 先做 `findOrgMembership`（非成员 404）并确认目录行存在，之后才调用 `listForOrg`，且只把它折成逐项 satisfied/missing/denied 状态，不回 tool_ref。⚠ 豁免仅在（a）本文件只出现 `org_tool_capability_grants` 一张租户表，（b）从不调用 `withoutTenant`，（c）用例里成员判定仍先于 `grants.listForOrg`、响应不含 toolRef 时有效：tests/work-skill/readiness-compute.test.ts 的 repo-guard 用例逐条断言。该测试若被删除，本条目必须一并删除。",
+  ],
+  [
     "src/infrastructure/whiteboard/pg-whiteboard-repository.ts",
     "#3926: private-by-default whiteboards have explicit owner/member roles, not an acl_bindings ObjectRef. Each read is actor-filtered inside withTenant; mutations require owner_id, grants additionally require org_memberships. Forcing an unbound generic ACL ref would default to org-wide and weaken this rule. Scope includes Board metadata and a read-only mention directory joining credentials.display_name through current organization and Board membership; it never returns credential secrets or organization nonmembers. Real PostgreSQL negative tests in tests/whiteboard/resource-lifecycle.test.ts cover same-org nonmember, cross-org identity, viewer/editor administration and revocation; resource-http.test.ts covers the global PrincipalGuard and public response boundary. tests/whiteboard/resource-repository-guard.test.ts mechanically restricts the three-table scope, withTenant on every method, read visibility and owner predicates, with mutation counterexamples. The 11 real PostgreSQL/HTTP tests passed for #3926. Remove this entry if these tests or actor predicates are removed. Content/sync require separately reviewed authorization.",
   ],

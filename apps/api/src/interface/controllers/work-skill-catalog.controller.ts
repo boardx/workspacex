@@ -41,6 +41,11 @@ import {
   WorkSkillSuccessorInvalidError,
   type WorkSkillCatalogRepository,
 } from "../../application/skill/work-skill-catalog";
+import {
+  getWorkSkillReadiness,
+  TOOL_GRANT_READER,
+  type ToolGrantReader,
+} from "../../application/skill/work-skill-readiness";
 import type { Principal } from "../../domain/principal";
 import { assertPrincipal } from "../../domain/principal";
 import { CurrentPrincipal } from "../current-principal.decorator";
@@ -108,6 +113,7 @@ export class WorkSkillCatalogController {
   constructor(
     @Inject(IDENTITY_REPOSITORY) private readonly identities: IdentityRepository,
     @Inject(WORK_SKILL_CATALOG_REPOSITORY) private readonly catalog: WorkSkillCatalogRepository,
+    @Inject(TOOL_GRANT_READER) private readonly grants: ToolGrantReader,
   ) {}
 
   private get deps() {
@@ -136,6 +142,26 @@ export class WorkSkillCatalogController {
         },
       });
       return { items: page.items, nextCursor: page.nextOffset === null ? null : encodeCursor(page.nextOffset) };
+    } catch (error) {
+      return mapError(error);
+    }
+  }
+
+  // WS04（UC-6）：就绪性实时计算；授权查询失败 → 200 + overall=unknown（E5），不是 5xx。
+  @Get("/skills/catalog/:skillId/readiness")
+  async readiness(
+    @CurrentPrincipal() principal: Principal,
+    @Param("skillId") skillId: string,
+    @Query("versionId") versionId: string | undefined,
+  ) {
+    assertPrincipal(principal);
+    if (!TextId.safeParse(skillId).success || (versionId !== undefined && !TextId.safeParse(versionId).success)) {
+      throw validationFailed("invalid id");
+    }
+    try {
+      return await getWorkSkillReadiness({ ...this.deps, grants: this.grants }, {
+        actorId: principal.userId, orgId: principal.orgId, skillId, ...(versionId !== undefined ? { versionId } : {}),
+      });
     } catch (error) {
       return mapError(error);
     }
