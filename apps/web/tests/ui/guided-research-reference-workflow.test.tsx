@@ -34,12 +34,13 @@ describe("reference research workflow", () => {
     fireEvent.click(screen.getByRole("button", { name: "继续编辑" }));
     expect(screen.getByLabelText("章节标题")).toHaveValue("未保存章节");
   });
-  it("shows the research plan editor by default without the old scope cards", async () => {
+  it("shows the research plan preview by default without the old scope cards", async () => {
     const initial = runtimeFixture("outline");
     vi.mocked(getResearchRuntime).mockResolvedValue(initial);
     render(<GuidedResearchLive sessionId={initial.sessionId} onBack={vi.fn()} />);
     await screen.findByTestId("guided-research-plan-panel");
-    expect(screen.getByTestId("guided-research-markdown-editor")).toBeVisible();
+    expect(screen.getByTestId("guided-research-markdown-preview")).toBeVisible();
+    expect(screen.queryByTestId("guided-research-markdown-editor")).not.toBeInTheDocument();
     expect(within(screen.getByTestId("guided-research-plan-panel")).getAllByRole("heading", { name: "研究计划" }).length).toBeGreaterThan(0);
     expect(screen.queryByRole("button", { name: "编辑成功标准" })).not.toBeInTheDocument();
     expect(executeResearchRuntime).not.toHaveBeenCalled();
@@ -110,12 +111,13 @@ describe("reference research workflow", () => {
     expect(screen.getByRole("button", { name: "下一步：生成报告" })).toBeEnabled();
     expect(screen.getByRole("button", { name: "上一步" })).toBeEnabled();
   });
-  it("shows the upcoming report chapters and search URLs while research is busy", async () => {
+  it("shows only searched source descriptions while research is busy", async () => {
     const initial = runtimeFixture("research");
     vi.mocked(getResearchRuntime).mockResolvedValue({ ...initial, busy: true, leaseUntil: "2099-01-01T00:00:00.000Z", progress: { stage: "searching", completed: 2, total: 5 }, researchPlan: { overview: "先对比政策，再核查进入门槛", optimizedQuestion: "哪些市场值得优先进入？" }, tasks: [{ ...initial.tasks[0]!, status: "succeeded", title: "政策与准入核查", objective: "核实补贴和并网要求", deliverables: ["政策对比表", "准入风险清单"] }, ...Array.from({ length: 4 }, (_, index) => ({ ...initial.tasks[0]!, id: `extra-${index}`, status: index === 0 ? "succeeded" as const : "pending" as const }))] });
     render(<GuidedResearchLive sessionId={initial.sessionId} onBack={vi.fn()} />);
-    expect(await screen.findByRole("list", { name: "报告章节" })).toHaveTextContent(initial.outline[0]!.title);
-    expect(screen.getByRole("link", { name: "https://example.org/policy" })).toBeInTheDocument();
+    expect(await screen.findByRole("list", { name: "搜索得到的相关网址" })).toBeInTheDocument();
+    expect(screen.queryByRole("list", { name: "报告章节" })).not.toBeInTheDocument();
+    expect(screen.getByTestId("research-source-description-source1")).toHaveAttribute("href", "https://example.org/policy");
     expect(screen.queryByTestId("research-runtime-progress")).not.toBeInTheDocument();
     expect(screen.queryByText("查看搜索详情")).not.toBeInTheDocument();
     expect(executeResearchRuntime).not.toHaveBeenCalled();
