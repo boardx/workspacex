@@ -193,6 +193,87 @@ async function idempotent<T>(
   return { response: replayed<T>(stable), fresh: true };
 }
 
+/** start 的准入 + 版本解析 + 冻结落实例核心（WF01/WF03 步骤 2/4/5/6）；HTTP start 与 WF06 触发器共用。 */
+interface StartCoreArgs {
+  orgId: string;
+  actorUserId: string;
+  key: string;
+  version?: number;
+  agentId: string;
+  input: Record<string, unknown>;
+  triggerKind: "manual" | "schedule" | "webhook";
+}
+
+async function runStartCore(
+  deps: InstanceCommandDeps,
+  args: StartCoreArgs,
+  setLease: (l: WorkflowLease) => void,
+): Promise<{ response: StartInstanceResponse; instanceId: string | null }> {
+  if (!(await deps.definitions.definitionExists(args.orgId, args.key))) {
+    throw new WorkflowUseCaseError("workflow_not_found", "workflow not found");
+  }
+  const agentVersionId = await deps.access.runnableAgentVersion(
+    args.orgId,
+    args.actorUserId,
+    args.agentId,
+    args.key,
+  );
+  if (!agentVersionId)
+    throw new WorkflowUseCaseError(
+      "workflow_not_allowed",
+      "agent not runnable for this workflow",
+    );
+
+  const version =
+    args.version ??
+    (await deps.definitions.latestPublishedVersion(args.orgId, args.key));
+  const definition =
+    version == null
+      ? null
+      : await deps.definitions.findVersion(args.orgId, args.key, version);
+  if (!definition || definition.status !== "published") {
+    throw new WorkflowUseCaseError(
+      "workflow_version_not_published",
+      "workflow version not published",
+    );
+  }
+  const inputIssues = validateTriggerInput(definition.inputSchema, args.input);
+  if (inputIssues.length > 0)
+    throw new WorkflowUseCaseError(
+      "trigger_input_invalid",
+      "trigger input invalid",
+      { issues: inputIssues },
+    );
+
+  const instance = await createPinnedInstance(
+    { ...deps, instances: withTriggerInput(deps.instances, args.input) },
+    {
+      orgId: args.orgId,
+      key: args.key,
+      version: definition.version,
+      agentId: args.agentId,
+      agentVersionId,
+      initiatorUserId: args.actorUserId,
+      triggerKind: args.triggerKind,
+    },
+  );
+  const lease = await deps.leases.acquire({
+    orgId: args.orgId,
+    instanceId: instance.instanceId,
+    holder: deps.holder,
+    ttlMs: deps.leaseTtlMs,
+  });
+  setLease(lease);
+  const response: StartInstanceResponse = {
+    instanceId: instance.instanceId,
+    status: instance.status,
+    stateVersion: instance.stateVersion,
+    definitionVersion: instance.definitionVersion,
+    pinnedSkills: instance.pinnedSkills.map((p) => ({ ...p })),
+  };
+  return { response, instanceId: instance.instanceId };
+}
+
 export async function startInstance(
   deps: InstanceCommandDeps,
   cmd: { orgId: string; userId: string; pathKey: string; body: unknown },
@@ -231,76 +312,77 @@ export async function startInstance(
   const { response, fresh } = await idempotent<StartInstanceResponse>(
     deps,
     key,
-    async () => {
-      if (!(await deps.definitions.definitionExists(cmd.orgId, body.key))) {
-        throw new WorkflowUseCaseError(
-          "workflow_not_found",
-          "workflow not found",
-        );
-      }
-      const agentVersionId = await deps.access.runnableAgentVersion(
-        cmd.orgId,
-        actor.userId,
-        body.agentId,
-        body.key,
-      );
-      if (!agentVersionId)
-        throw new WorkflowUseCaseError(
-          "workflow_not_allowed",
-          "agent not runnable for this workflow",
-        );
-
-      const version =
-        body.version ??
-        (await deps.definitions.latestPublishedVersion(cmd.orgId, body.key));
-      const definition =
-        version == null
-          ? null
-          : await deps.definitions.findVersion(cmd.orgId, body.key, version);
-      if (!definition || definition.status !== "published") {
-        throw new WorkflowUseCaseError(
-          "workflow_version_not_published",
-          "workflow version not published",
-        );
-      }
-      const inputIssues = validateTriggerInput(
-        definition.inputSchema,
-        body.input,
-      );
-      if (inputIssues.length > 0)
-        throw new WorkflowUseCaseError(
-          "trigger_input_invalid",
-          "trigger input invalid",
-          { issues: inputIssues },
-        );
-
-      const instance = await createPinnedInstance(
-        { ...deps, instances: withTriggerInput(deps.instances, body.input) },
+    () =>
+      runStartCore(
+        deps,
         {
           orgId: cmd.orgId,
+          actorUserId: actor.userId,
           key: body.key,
-          version: definition.version,
+          version: body.version,
           agentId: body.agentId,
-          agentVersionId,
-          initiatorUserId: actor.userId,
+          input: body.input,
           triggerKind: "manual",
         },
-      );
-      lease = await deps.leases.acquire({
-        orgId: cmd.orgId,
-        instanceId: instance.instanceId,
-        holder: deps.holder,
-        ttlMs: deps.leaseTtlMs,
-      });
-      const response: StartInstanceResponse = {
-        instanceId: instance.instanceId,
-        status: instance.status,
-        stateVersion: instance.stateVersion,
-        definitionVersion: instance.definitionVersion,
-        pinnedSkills: instance.pinnedSkills.map((p) => ({ ...p })),
-      };
-      return { response, instanceId: instance.instanceId };
-    },
+        (l) => {
+          lease = l;
+        },
+      ),
+  );
+  if (fresh && lease) deps.dispatcher.dispatch(lease);
+  return response;
+}
+
+/**
+ * WF06 —— pg-boss 定时唤醒 / webhook 触发共用的 start 入口：requestKey 由调用方给出（作业 id / Idempotency-Key），
+ * 运行身份 = 触发器 owner（`triggerKind` 为 `schedule`/`webhook`）。幂等外壳与 HTTP start 完全一致（I-6）。
+ */
+export async function startInstanceFromTrigger(
+  deps: InstanceCommandDeps,
+  cmd: {
+    orgId: string;
+    actorUserId: string;
+    key: string;
+    version?: number;
+    agentId: string;
+    input: Record<string, unknown>;
+    triggerKind: "schedule" | "webhook";
+    requestKey: string;
+  },
+): Promise<StartInstanceResponse> {
+  const key: WorkflowReceiptKey = {
+    orgId: cmd.orgId,
+    scope: "command",
+    requestKey: `${cmd.triggerKind}:${cmd.requestKey}`,
+    fingerprint: fingerprint({
+      op: cmd.triggerKind,
+      key: cmd.key,
+      version: cmd.version ?? null,
+      agentId: cmd.agentId,
+      input: cmd.input,
+      by: cmd.actorUserId,
+    }),
+  };
+  let lease: WorkflowLease | null = null;
+  const { response, fresh } = await idempotent<StartInstanceResponse>(
+    deps,
+    key,
+    () =>
+      runStartCore(
+        deps,
+        {
+          orgId: cmd.orgId,
+          actorUserId: cmd.actorUserId,
+          key: cmd.key,
+          version: cmd.version,
+          agentId: cmd.agentId,
+          input: cmd.input,
+          triggerKind: cmd.triggerKind,
+        },
+        (l) => {
+          lease = l;
+        },
+      ),
   );
   if (fresh && lease) deps.dispatcher.dispatch(lease);
   return response;

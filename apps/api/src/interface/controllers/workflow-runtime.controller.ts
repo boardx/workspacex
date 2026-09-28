@@ -5,13 +5,14 @@
  */
 import { Body, Controller, Get, Headers, HttpException, Inject, Param, Post, Query, Res } from "@nestjs/common";
 import type { Response } from "express";
-import { WorkflowErrorBody, workflowRuntime, type WorkflowErrorCode } from "@repo/contracts/workflow-runtime";
+import { WORKFLOW_WEBHOOK_HEADERS, WorkflowErrorBody, workflowRuntime, type WorkflowErrorCode } from "@repo/contracts/workflow-runtime";
 import { WorkflowCommandShapeError } from "../../application/workflow/instance-commands";
 import { WorkflowUseCaseError } from "../../application/workflow/workflow-errors";
 import { WORKFLOW_RUNTIME_SERVICE, type WorkflowRuntimeService } from "../../application/workflow/workflow-runtime-service";
 import type { Principal } from "../../domain/principal";
 import { assertPrincipal } from "../../domain/principal";
 import { CurrentPrincipal } from "../current-principal.decorator";
+import { Public } from "../public.decorator";
 
 const C = workflowRuntime;
 
@@ -96,6 +97,36 @@ export class WorkflowRuntimeController {
     assertPrincipal(principal);
     try {
       res.status(200).json(C.resumeInstance.out.parse(await this.runtime.resume(principal.orgId, principal.userId, instanceId, raw)));
+    } catch (failure) { res.json(sendFailure(failure, res)); }
+  }
+
+  /**
+   * WF06 UC-WR-13：webhook 触发。无principal（调用方是外部系统，靠 HMAC 而非会话认证，@Public()）；
+   * 签名/时间戳/Idempotency-Key 来自头部（`WORKFLOW_WEBHOOK_HEADERS`），payload 是原始请求体。
+   */
+  @Public()
+  @Post(C.triggerWebhook.path)
+  async webhook(
+    @Param("triggerId") triggerId: string,
+    @Headers(WORKFLOW_WEBHOOK_HEADERS.signature) signature: string | undefined,
+    @Headers(WORKFLOW_WEBHOOK_HEADERS.timestamp) timestampHeader: string | undefined,
+    @Headers(WORKFLOW_WEBHOOK_HEADERS.idempotencyKey) idempotencyKey: string | undefined,
+    @Body() rawPayload: unknown,
+    @Res() res: Response,
+  ) {
+    const parsed = C.triggerWebhook.in.safeParse({
+      triggerId,
+      signature: signature ?? "",
+      timestamp: Number(timestampHeader),
+      idempotencyKey: idempotencyKey ?? "",
+      payload: rawPayload && typeof rawPayload === "object" ? rawPayload : {},
+    });
+    if (!parsed.success) {
+      res.status(401).json(WorkflowErrorBody.parse({ code: "webhook_signature_invalid", message: "webhook_signature_invalid" }));
+      return;
+    }
+    try {
+      res.status(200).json(C.triggerWebhook.out.parse(await this.runtime.webhook(parsed.data)));
     } catch (failure) { res.json(sendFailure(failure, res)); }
   }
 

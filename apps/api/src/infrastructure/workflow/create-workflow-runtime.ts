@@ -19,6 +19,7 @@ import { PgWorkflowEventStore, PgWorkflowStageOutputStore } from "./pg-workflow-
 import { PgWorkflowInstanceRepository } from "./pg-workflow-instance-repository";
 import { PgWorkflowLeaseStore } from "./pg-workflow-lease-store";
 import { PgWorkflowReceiptStore } from "./pg-workflow-receipt-store";
+import { PgWorkflowTriggerStore } from "./pg-workflow-trigger-store";
 import { createWorkflowCheckpointerFactory } from "./workflow-checkpointer-factory";
 import { LangGraphWorkflowDriver, WorkflowGraphRegistry, type LinearWorkflowGraph } from "./workflow-graph-registry";
 
@@ -81,6 +82,7 @@ export function createWorkflowRuntime(db: DatabasePort, pool: pg.Pool, opts: Wor
     access,
     expiredLeases: new PgWorkflowExpiredLeaseScanner(db),
     driver: new LangGraphWorkflowDriver(registry, createWorkflowCheckpointerFactory(pool)),
+    triggers: new PgWorkflowTriggerStore(db),
     newId: () => randomUUID(),
     holder: opts.holder ?? `${hostname()}:${process.pid}:${randomUUID().slice(0, 8)}`,
     leaseTtlMs: opts.leaseTtlMs ?? 60_000,
