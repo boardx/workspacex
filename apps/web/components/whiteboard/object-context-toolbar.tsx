@@ -77,7 +77,7 @@ export function ObjectContextToolbar({ editing=false,object, readOnly, actorId, 
     {onDuplicate ? <Button size="icon" variant="ghost" className="ml-auto h-11 w-11 shrink-0" aria-label="复制对象" title="复制对象" disabled={locked} onClick={onDuplicate}><Copy className="h-4 w-4" /></Button> : null}
     {onDelete ? <Button size="icon" variant="ghost" className="h-11 w-11 shrink-0 text-destructive" aria-label="删除对象" title="删除对象" disabled={locked} onClick={onDelete}><Trash2 className="h-4 w-4" /></Button> : null}{overflowActions}
   </div>;
-  return <BoardSelectedObjectPanel object={object} title={title} typeLabel={typeLabel} readOnly={locked} onClose={onClose} onGeometryChange={onGeometryChange} panelRef={panelRef} floatingStyle={floatingStyle} compactActions={compactActions} collapsedControls={false} expandRequest={expandRequest} className={editing?"max-[1280px]:hidden":undefined}>
+  return <BoardSelectedObjectPanel object={object} title={title} typeLabel={typeLabel} readOnly={locked} onClose={onClose} onGeometryChange={onGeometryChange} panelRef={panelRef} floatingStyle={floatingStyle} compactActions={compactActions} expandRequest={expandRequest} className={editing?"max-[1280px]:hidden":undefined}>
     <div className="space-y-3">
     <div role="toolbar" aria-label="对象快捷操作" data-testid="board-object-quick-actions" className="border-b border-border/70 pb-2.5">
       <div data-testid="board-widget-quick-format" className="flex flex-wrap items-center gap-1.5">

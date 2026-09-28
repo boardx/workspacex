@@ -1,6 +1,6 @@
 -- Retain the metadata audit trail; only released backup pins cease to be roots.
-ALTER TABLE whiteboard_backup_pins ADD COLUMN released_at timestamptz;
-CREATE TABLE whiteboard_backup_maintenance_receipts (
+ALTER TABLE whiteboard_backup_pins ADD COLUMN IF NOT EXISTS released_at timestamptz;
+CREATE TABLE IF NOT EXISTS whiteboard_backup_maintenance_receipts (
  org_id text NOT NULL,request_id uuid NOT NULL,backup_id uuid NOT NULL,actor_id text NOT NULL,
  action text NOT NULL CHECK(action IN('release-pins','recover-manifest')),
  payload jsonb NOT NULL CHECK(jsonb_typeof(payload)='object' AND octet_length(payload::text)<=8192),
@@ -9,6 +9,7 @@ CREATE TABLE whiteboard_backup_maintenance_receipts (
 );
 ALTER TABLE whiteboard_backup_maintenance_receipts ENABLE ROW LEVEL SECURITY;
 ALTER TABLE whiteboard_backup_maintenance_receipts FORCE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS whiteboard_backup_maintenance_receipts_org ON whiteboard_backup_maintenance_receipts;
 CREATE POLICY whiteboard_backup_maintenance_receipts_org ON whiteboard_backup_maintenance_receipts USING(org_id=current_setting('app.current_org',true)) WITH CHECK(org_id=current_setting('app.current_org',true));
 REVOKE ALL ON whiteboard_backup_maintenance_receipts FROM app_rw;
 GRANT SELECT,INSERT ON whiteboard_backup_maintenance_receipts TO app_rw;

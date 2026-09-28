@@ -26,6 +26,7 @@ ALTER TABLE whiteboard_checkpoints ALTER COLUMN byte_size SET NOT NULL;
 ALTER TABLE whiteboard_checkpoints ALTER COLUMN created_by SET NOT NULL;
 ALTER TABLE whiteboard_recovery_events DROP CONSTRAINT IF EXISTS whiteboard_recovery_events_event_type_check;
 ALTER TABLE whiteboard_recovery_events ADD CONSTRAINT whiteboard_recovery_events_event_type_check CHECK(event_type IN('CheckpointCreated','BoardRestored','CheckpointFallbackUsed'));
+ALTER TABLE whiteboard_checkpoints DROP CONSTRAINT IF EXISTS whiteboard_checkpoint_manifest_columns_guard;
 ALTER TABLE whiteboard_checkpoints ADD CONSTRAINT whiteboard_checkpoint_manifest_columns_guard CHECK(
  version=1 AND epoch>0 AND seq BETWEEN 0 AND 9007199254740991
  AND content_hash ~ '^sha256:[a-f0-9]{64}$' AND byte_size BETWEEN 1 AND 33554432

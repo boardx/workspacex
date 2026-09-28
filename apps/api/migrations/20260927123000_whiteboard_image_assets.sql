@@ -1,6 +1,6 @@
 -- Image bytes remain in the existing immutable ObjectStore. These rows only
 -- resolve opaque board-scoped handles to roots governed by whiteboard asset GC.
-CREATE TABLE whiteboard_image_assets (
+CREATE TABLE IF NOT EXISTS whiteboard_image_assets (
   org_id text NOT NULL,
   board_id uuid NOT NULL,
   asset_id text NOT NULL CHECK(asset_id ~ '^board-image-[a-f0-9]{64}$'),
@@ -12,6 +12,7 @@ CREATE TABLE whiteboard_image_assets (
 );
 ALTER TABLE whiteboard_image_assets ENABLE ROW LEVEL SECURITY;
 ALTER TABLE whiteboard_image_assets FORCE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS whiteboard_image_assets_org ON whiteboard_image_assets;
 CREATE POLICY whiteboard_image_assets_org ON whiteboard_image_assets
   USING(org_id=current_setting('app.current_org',true)) WITH CHECK(org_id=current_setting('app.current_org',true));
 REVOKE ALL ON whiteboard_image_assets FROM app_rw;

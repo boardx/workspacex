@@ -5,7 +5,8 @@ it("keeps both CopilotKit stream locations open for long AI runs", () => {
   const config = createCloudNginxConfig({ domain: "www.boardx.com.cn", certificateFile: "/run/tls/fullchain.pem", certificateKeyFile: "/run/tls/key.pem" });
   expect(config).toContain("location = /api/copilotkit");
   expect(config).toContain("location ^~ /api/copilotkit/");
-  expect(config.match(/proxy_read_timeout 3600s;/g)).toHaveLength(4);
-  expect(config.match(/proxy_send_timeout 3600s;/g)).toHaveLength(4);
+  expect(config).toContain("location ~ ^/whiteboards/[0-9a-fA-F-]{36}/sync$");
+  expect(config.match(/proxy_read_timeout 3600s;/g)).toHaveLength(5);
+  expect(config.match(/proxy_send_timeout 3600s;/g)).toHaveLength(5);
   expect(config).not.toContain("proxy_read_timeout 300s");
 });

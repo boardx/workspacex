@@ -238,6 +238,17 @@ describe("#448 post-restart readiness", () => {
     expect(block).toContain("reverse_proxy 127.0.0.1:${APP_API_PORT}");
   });
 
+  it("routes Board collaboration WebSockets to the API before the Web catch-all", () => {
+    const provision = readFileSync(PROVISION, "utf8");
+    const catchAllIndex = provision.indexOf("handle {\n\t\treverse_proxy 127.0.0.1:${APP_WEB_PORT}");
+    const whiteboardIndex = provision.indexOf("handle /whiteboards/*/sync {");
+    expect(whiteboardIndex).toBeGreaterThan(-1);
+    expect(catchAllIndex).toBeGreaterThan(-1);
+    expect(whiteboardIndex).toBeLessThan(catchAllIndex);
+    const block = provision.slice(whiteboardIndex, provision.indexOf("}", whiteboardIndex) + 1);
+    expect(block).toContain("reverse_proxy 127.0.0.1:${APP_API_PORT}");
+  });
+
   it("accepts only an exact nonce-bound root smoke/exit contract", () => {
     const nonce = "0123456789abcdef0123456789abcdef";
     const exact = `protocol=workspacex-deploy/v1\nnonce=${nonce}\nstage=smoke\nexit=7`;

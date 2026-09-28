@@ -47,10 +47,15 @@ ALTER TABLE whiteboard_object_tombstones ENABLE ROW LEVEL SECURITY; ALTER TABLE 
 ALTER TABLE whiteboard_object_gc_runs ENABLE ROW LEVEL SECURITY; ALTER TABLE whiteboard_object_gc_runs FORCE ROW LEVEL SECURITY;
 ALTER TABLE whiteboard_object_purge_receipts ENABLE ROW LEVEL SECURITY; ALTER TABLE whiteboard_object_purge_receipts FORCE ROW LEVEL SECURITY;
 ALTER TABLE whiteboard_object_gc_audit ENABLE ROW LEVEL SECURITY; ALTER TABLE whiteboard_object_gc_audit FORCE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS whiteboard_asset_refs_org ON whiteboard_asset_refs;
 CREATE POLICY whiteboard_asset_refs_org ON whiteboard_asset_refs USING(org_id=current_setting('app.current_org',true)) WITH CHECK(org_id=current_setting('app.current_org',true));
+DROP POLICY IF EXISTS whiteboard_object_tombstones_org ON whiteboard_object_tombstones;
 CREATE POLICY whiteboard_object_tombstones_org ON whiteboard_object_tombstones USING(org_id=current_setting('app.current_org',true)) WITH CHECK(org_id=current_setting('app.current_org',true));
+DROP POLICY IF EXISTS whiteboard_object_gc_runs_org ON whiteboard_object_gc_runs;
 CREATE POLICY whiteboard_object_gc_runs_org ON whiteboard_object_gc_runs USING(org_id=current_setting('app.current_org',true)) WITH CHECK(org_id=current_setting('app.current_org',true));
+DROP POLICY IF EXISTS whiteboard_object_purge_receipts_org ON whiteboard_object_purge_receipts;
 CREATE POLICY whiteboard_object_purge_receipts_org ON whiteboard_object_purge_receipts USING(org_id=current_setting('app.current_org',true)) WITH CHECK(org_id=current_setting('app.current_org',true));
+DROP POLICY IF EXISTS whiteboard_object_gc_audit_org ON whiteboard_object_gc_audit;
 CREATE POLICY whiteboard_object_gc_audit_org ON whiteboard_object_gc_audit USING(org_id=current_setting('app.current_org',true)) WITH CHECK(org_id=current_setting('app.current_org',true));
 REVOKE ALL ON whiteboard_asset_refs,whiteboard_object_tombstones,whiteboard_object_gc_runs,whiteboard_object_purge_receipts,whiteboard_object_gc_audit FROM app_rw;
 GRANT SELECT,INSERT,UPDATE ON whiteboard_asset_refs,whiteboard_object_tombstones,whiteboard_object_gc_runs,whiteboard_object_purge_receipts,whiteboard_object_gc_audit TO app_rw;

@@ -7,6 +7,7 @@ describe("cloud TLS ingress", () => {
     expect(config).toContain("location = /api/copilotkit {\n        proxy_pass http://127.0.0.1:3000;");
     expect(config).toContain("location ^~ /api/copilotkit/ {\n        proxy_pass http://127.0.0.1:3000;");
     expect(config).toContain("location /api/ {\n        proxy_pass http://127.0.0.1:3200/;");
+    expect(config).toContain("location ~ ^/whiteboards/[0-9a-fA-F-]{36}/sync$ {\n        proxy_pass http://127.0.0.1:3200;");
     expect(config).toContain("proxy_set_header Upgrade $http_upgrade;");
     expect(config).toContain("proxy_buffering off;");
   });

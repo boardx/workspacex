@@ -30,9 +30,9 @@ const editor = (readOnly = false, supplied = createWhiteboardDocument()) => {
   return doc;
 };
 
-function openInspectorProperties() {
-  fireEvent.click(screen.getByTestId("board-inspector-actions"));
-  fireEvent.click(screen.getByTestId("board-properties-open"));
+async function openInspectorProperties() {
+  fireEvent.click(screen.getByTestId("board-inspector-expand"));
+  await waitFor(() => expect(screen.getByTestId("board-context-toolbar")).toHaveAttribute("data-expanded", "true"));
 }
 
 const object = (kind: "sticky" | "text", extensionData: Record<string, unknown>): WhiteboardObject => ({
@@ -199,7 +199,7 @@ it("accepts dock drag payloads at the Fabric drop point and rejects every read-o
   readonly.destroy();
 });
 
-it("edits sticky appearance through canonical commands while preserving future extension fields", () => {
+it("edits sticky appearance through canonical commands while preserving future extension fields", async () => {
   const doc = createWhiteboardDocument();
   executeCommands(doc, [{ type: "create", object: object("sticky", { plugin: { keep: true }, thinkingInput: { future: "root", sticky: { future: "sticky", variant: "square", sizing: "auto-height", color: "#F8D76E" } } }) }], "seed");
   editor(false, doc);
@@ -208,7 +208,7 @@ it("edits sticky appearance through canonical commands while preserving future e
   fireEvent.click(screen.getByTestId("board-sticky-style-open"));
   fireEvent.click(screen.getByTestId("sticky-quick-color-blue"));
   fireEvent.click(screen.getByTestId("context-sticky-circle"));
-  openInspectorProperties();
+  await openInspectorProperties();
   fireEvent.click(screen.getByTestId("board-widget-advanced-format").querySelector("summary")!);
   fireEvent.change(screen.getByTestId("sticky-sizing"), { target: { value: "fixed" } });
   const updated = readObjects(doc)[0]!;
@@ -221,12 +221,12 @@ it("edits sticky appearance through canonical commands while preserving future e
   doc.destroy();
 });
 
-it("persists tags, per-person reactions and a safe link preview without losing unknown experience data", () => {
+it("persists tags, per-person reactions and a safe link preview without losing unknown experience data", async () => {
   const doc = createWhiteboardDocument();
   executeCommands(doc, [{ type: "create", object: object("sticky", { objectExperience: { future: { keep: true }, tags: ["已有"], reactions: { "👍": ["peer"], custom: ["future"] }, linkPreview: { url: "https://old.example", title: "旧链接", description: "旧描述", future: "preview" } } }) }], "seed");
   editor(false, doc);
   fireEvent.click(screen.getByTestId("mock-object-double"));
-  openInspectorProperties();
+  await openInspectorProperties();
   fireEvent.click(screen.getByTestId("board-widget-advanced-format").querySelector("summary")!);
   fireEvent.click(screen.getByTestId("board-inspector-metadata"));
   fireEvent.change(screen.getByLabelText("新标签"), { target: { value: "洞察" } });
@@ -246,12 +246,12 @@ it("persists tags, per-person reactions and a safe link preview without losing u
   doc.destroy();
 });
 
-it("applies all direct text controls and rejects a non-http link without mutating canonical data", () => {
+it("applies all direct text controls and rejects a non-http link without mutating canonical data", async () => {
   const doc = createWhiteboardDocument();
   executeCommands(doc, [{ type: "create", object: object("text", { plugin: { keep: true }, thinkingInput: { future: "root", text: { future: "text", preset: "body", fontFamily: "Noto Sans SC", fontSize: 18, bold: false, italic: false, underline: false, color: "#242424", alignment: "left", lineHeight: 1.4, list: "none", link: null } } }) }], "seed");
   editor(false, doc);
   fireEvent.click(screen.getByTestId("mock-object-double"));
-  openInspectorProperties();
+  await openInspectorProperties();
   fireEvent.click(screen.getByTestId("board-widget-advanced-format").querySelector("summary")!);
   fireEvent.click(screen.getByTestId("board-inspector-text"));
   fireEvent.change(screen.getByRole("combobox", { name: "文字样式" }), { target: { value: "title" } });
@@ -277,7 +277,7 @@ it("applies all direct text controls and rejects a non-http link without mutatin
   doc.destroy();
 });
 
-it("shows contextual data in read-only mode but disables every mutation control", () => {
+it("shows contextual data in read-only mode but disables every mutation control", async () => {
   const doc = createWhiteboardDocument();
   executeCommands(doc, [{ type: "create", object: object("sticky", { objectExperience: { tags: ["只读"], reactions: {} } }) }], "seed");
   const before = readObjects(doc);
@@ -287,7 +287,7 @@ it("shows contextual data in read-only mode but disables every mutation control"
   fireEvent.click(screen.getByTestId("board-sticky-style-open"));
   expect(screen.getByTestId("context-sticky-circle")).toBeDisabled();
   fireEvent.click(screen.getByTestId("context-sticky-circle"));
-  openInspectorProperties();
+  await openInspectorProperties();
   fireEvent.click(screen.getByTestId("board-widget-advanced-format").querySelector("summary")!);
   fireEvent.click(screen.getByTestId("board-inspector-metadata"));
   expect(screen.getByText("只读", { exact: true })).toBeVisible();

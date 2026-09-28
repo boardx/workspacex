@@ -1,7 +1,7 @@
 -- Permit only a one-way, byte-preserving legacy update-body migration. Row identity,
 -- sequence, request hash and receipt fields remain immutable to app_rw; tenant/freeze
 -- RLS continues to run because this is not a SECURITY DEFINER operation.
-CREATE FUNCTION whiteboard_guard_update_backfill() RETURNS trigger
+CREATE OR REPLACE FUNCTION whiteboard_guard_update_backfill() RETURNS trigger
 LANGUAGE plpgsql SET search_path = pg_catalog AS $$
 DECLARE expected_hash text;
 BEGIN
@@ -19,6 +19,7 @@ BEGIN
 END;
 $$;
 REVOKE ALL ON FUNCTION whiteboard_guard_update_backfill() FROM PUBLIC;
+DROP TRIGGER IF EXISTS whiteboard_update_backfill_guard ON whiteboard_updates;
 CREATE TRIGGER whiteboard_update_backfill_guard BEFORE UPDATE ON whiteboard_updates
 FOR EACH ROW EXECUTE FUNCTION whiteboard_guard_update_backfill();
 GRANT UPDATE(update,update_object_key,update_hash,update_size) ON whiteboard_updates TO app_rw;

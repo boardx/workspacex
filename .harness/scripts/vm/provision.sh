@@ -326,6 +326,11 @@ ${PUBLIC_DOMAIN} {
 	handle /agent-runs/*/events {
 		reverse_proxy 127.0.0.1:${APP_API_PORT}
 	}
+	# Board realtime collaboration uses the API root path directly because Next.js
+	# rewrites cannot proxy WebSocket Upgrade requests. Keep this before the Web catch-all.
+	handle /whiteboards/*/sync {
+		reverse_proxy 127.0.0.1:${APP_API_PORT}
+	}
 	# 门控自检面绝不能从公网可达——deploy.sh 自己的冒烟会验这一条（反向断言：
 	# 它绿代表暴露了不该暴露的东西）。这里在 Caddy 层再挡一次，双重防线。
 	handle /kernel/probe/* {
