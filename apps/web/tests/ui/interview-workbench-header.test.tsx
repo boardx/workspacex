@@ -28,3 +28,12 @@ it("return to list remains accessible independently of the timeline", () => {
   fireEvent.click(screen.getByRole("button", { name: "返回访谈列表" }));
   expect(back).toHaveBeenCalledTimes(1);
 });
+it("keeps status and version visible in later stages but declutters intake", () => {
+  const props = { name: "交接班研究", tags: [], steps, status: "draft", version: 3, topic: null, onStepChange: vi.fn(), onReturnToList: vi.fn() };
+  const view = render(<InterviewWorkbenchHeader {...props} activeStep="intake" />);
+  expect(screen.getByTestId("itv-workflow-status")).toHaveClass("sr-only");
+  expect(screen.getByTestId("itv-workflow-version")).toHaveClass("sr-only");
+  view.rerender(<InterviewWorkbenchHeader {...props} activeStep="analysis" />);
+  expect(screen.getByTestId("itv-workflow-status")).not.toHaveClass("sr-only");
+  expect(screen.getByTestId("itv-workflow-version")).not.toHaveClass("sr-only");
+});

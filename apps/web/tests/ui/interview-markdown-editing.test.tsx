@@ -4,9 +4,16 @@ import { afterEach, expect, it, vi } from "vitest";
 import { InterviewExpertsStep } from "@/components/itv/interview-experts-step";
 import { InterviewOutlineStep } from "@/components/itv/interview-outline-step";
 import { InterviewMarkdownEditingStep } from "@/components/itv/interview-markdown-editing-step";
-import { MOCK_DIGITAL_EXPERTS } from "@/lib/mock/digital-expert-personas";
+import { EXPERT_SPECIALTY_ICON_CATEGORIES } from "@/components/itv/expert-specialty-icon";
+import { INTERVIEW_PERSONA_CATEGORIES, INTERVIEW_PERSONAS } from "@/lib/interview-personas/persona-library";
+import { MOCK_DIGITAL_EXPERTS, toDigitalExpertCatalogRow } from "@/lib/mock/digital-expert-personas";
 afterEach(() => { cleanup(); vi.unstubAllGlobals(); vi.unstubAllEnvs(); });
 const source = { documentId: "edit-doc", step: "experts" as const, version: 1, contentHash: "a".repeat(64), evidenceMode: "simulated" as const, references: [], markdown: "# 专家\n" };
+it("keeps each maintained category paired with a specialty icon without inventing missing records", () => {
+  expect(INTERVIEW_PERSONAS).toHaveLength(97);
+  expect(EXPERT_SPECIALTY_ICON_CATEGORIES.sort()).toEqual([...INTERVIEW_PERSONA_CATEGORIES].sort());
+  expect(new Set(INTERVIEW_PERSONAS.map((persona) => persona.id)).size).toBe(INTERVIEW_PERSONAS.length);
+});
 it("confirmed source is read-only and cannot spend a model call on regeneration", async () => {
   vi.stubEnv("NEXT_PUBLIC_API_URL", "http://localhost:4100"); vi.stubEnv("NEXT_PUBLIC_API_PATH_PREFIX", "");
   const posts: string[] = [];
@@ -16,23 +23,31 @@ it("confirmed source is read-only and cannot spend a model call on regeneration"
   });
   render(<InterviewMarkdownEditingStep interviewId="itv-edits" step="experts" onVersionChange={vi.fn()} onDirtyChange={vi.fn()} onContinue={vi.fn()} />);
   expect(await screen.findByRole("status")).toHaveTextContent("只读");
-  expect(screen.getByRole("textbox", { name: "专家文档 Markdown" })).toBeDisabled();
+  expect(screen.getByRole("button", { name: "添加画像 张浩宇" })).toBeDisabled();
+  expect(screen.queryByRole("textbox", { name: "专家文档 Markdown" })).not.toBeInTheDocument();
   expect(screen.getByRole("button", { name: "生成专家建议" })).toBeDisabled();
   expect(posts).toEqual([]);
 });
 it("failed generation reconciles persisted partial text into a clean editor", async () => {
   vi.stubEnv("NEXT_PUBLIC_API_URL", "http://localhost:4100"); vi.stubEnv("NEXT_PUBLIC_API_PATH_PREFIX", "");
+  const failedMarkdown = "## [夜班护理角色](#expert-night-shift)\n\n已保存的部分画像。\n\n材料边界仍待核对。";
   let failed = false;
   vi.stubGlobal("fetch", async (url: string, init: RequestInit) => {
     if (init.method === "POST") { failed = true; return new Response(JSON.stringify({ message: "unavailable" }), { status: 503 }); }
-    return new Response(JSON.stringify(url.endsWith("/digital/experts") ? { items: [] } : { interviewId: "itv-edits", revisionId: "rev-edits", version: failed ? 2 : 1, documents: [{ ...source, markdown: failed ? "# 已保存的部分画像" : source.markdown }], states: [{ documentId: source.documentId, status: failed ? "failed" : "draft", failure: null }] }));
+    return new Response(JSON.stringify(url.endsWith("/digital/experts") ? { items: [] } : { interviewId: "itv-edits", revisionId: "rev-edits", version: failed ? 2 : 1, documents: [{ ...source, markdown: failed ? failedMarkdown : source.markdown }], states: [{ documentId: source.documentId, status: failed ? "failed" : "draft", failure: null }] }));
   });
   render(<InterviewMarkdownEditingStep interviewId="itv-edits" step="experts" onVersionChange={vi.fn()} onDirtyChange={vi.fn()} onContinue={vi.fn()} />);
-  const input = await screen.findByRole("textbox", { name: "专家文档 Markdown" });
-  await vi.waitFor(() => expect(input).toBeEnabled());
+  await vi.waitFor(() => expect(screen.getByRole("button", { name: "生成专家建议" })).toBeEnabled());
   fireEvent.click(screen.getByRole("button", { name: "生成专家建议" }));
   await screen.findByRole("alert");
-  expect(input).toHaveValue("# 已保存的部分画像");
+  expect(screen.getByTestId("itv-expert-draft-context").querySelector("pre")?.textContent).toBe(failedMarkdown);
+});
+it("keeps the complete failed Markdown visible when one expert heading parses", () => {
+  const partial = "## [夜班护理角色](#expert-night-shift)\n\n专业角色：夜班护理。\n\n" + "未完成的材料边界与局限。".repeat(24);
+  render(<InterviewExpertsStep document={{ ...source, markdown: partial }} directory={[]} showRecoveryContext pending={false} onChange={vi.fn()} onSave={vi.fn()} onConfirm={vi.fn()} onGenerate={vi.fn()} />);
+  expect(screen.getByText("已选择专家 1")).toBeVisible();
+  expect(screen.getByTestId("itv-expert-draft-context").querySelector("pre")?.textContent).toBe(partial);
+  expect(screen.queryByRole("textbox", { name: "专家文档 Markdown" })).not.toBeInTheDocument();
 });
 it("outline controls reorder raw sibling groups and retain stable question references", () => {
   const first = "## [背景](#question-one)\n\n原文  \n\n";
@@ -54,9 +69,8 @@ it("a save conflict does not silently rebase local text onto another editor's ve
     return new Response(JSON.stringify({ interviewId: "itv-edits", revisionId: "rev-edits", version: gets > 1 ? 2 : 1, documents: [{ ...source, version: gets > 1 ? 2 : 1 }], states: [{ documentId: source.documentId, status: "draft", failure: null }] }));
   });
   render(<InterviewMarkdownEditingStep interviewId="itv-edits" step="experts" onVersionChange={vi.fn()} onDirtyChange={vi.fn()} onContinue={vi.fn()} />);
-  const input = await screen.findByRole("textbox", { name: "专家文档 Markdown" });
-  await vi.waitFor(() => expect(input).toBeEnabled());
-  fireEvent.change(input, { target: { value: "# 专家\n\n本地画像" } });
+  await vi.waitFor(() => expect(screen.getByRole("button", { name: "添加画像 张浩宇" })).toBeEnabled());
+  fireEvent.click(screen.getByRole("button", { name: "添加画像 张浩宇" }));
   fireEvent.click(screen.getByRole("button", { name: "保存专家草稿" }));
   await screen.findByRole("alert");
   await vi.waitFor(() => expect(screen.getByRole("button", { name: "保存专家草稿" })).toBeEnabled());
@@ -64,16 +78,39 @@ it("a save conflict does not silently rebase local text onto another editor's ve
   await vi.waitFor(() => expect(writes).toHaveLength(2));
   expect(writes.map((write) => [write.expectedVersion, write.expectedDocumentVersion])).toEqual([[1, 1], [1, 1]]);
 });
-it("expert search filters the supplied directory rather than showing a fallback mock list", () => {
-  render(<InterviewExpertsStep document={source} directory={MOCK_DIGITAL_EXPERTS.slice(0, 2)} pending={false} onChange={vi.fn()} onSave={vi.fn()} onConfirm={vi.fn()} onGenerate={vi.fn()} />);
+it("expert search filters the maintained simulation library without impersonating the live directory", () => {
+  render(<InterviewExpertsStep document={source} directory={[]} pending={false} onChange={vi.fn()} onSave={vi.fn()} onConfirm={vi.fn()} onGenerate={vi.fn()} />);
+  expect(screen.getByText("97 位模拟画像")).toBeVisible();
+  expect(within(screen.getByTestId("itv-persona-card-persona-68ecb1289191bb24396f9bd4")).getByRole("img", { name: "技术专家专业图标" })).toBeVisible();
+  expect(screen.getByRole("button", { name: "添加画像 张浩宇" })).toBeVisible();
   fireEvent.change(screen.getByRole("textbox", { name: "搜索专家" }), { target: { value: "不存在的夜班专家" } });
   expect(screen.getByText("没有匹配的专家")).toBeVisible();
-  expect(screen.queryByRole("button", { name: /添加专家 / })).not.toBeInTheDocument();
+  expect(screen.queryByRole("button", { name: /添加画像 / })).not.toBeInTheDocument();
+});
+it("does not claim there are no expert matches when an organization expert matches the search", () => {
+  const published = { ...toDigitalExpertCatalogRow(MOCK_DIGITAL_EXPERTS[0]!), expertId: "organization-only", displayName: "唯一组织专家" };
+  render(<InterviewExpertsStep document={source} directory={[published]} pending={false} onChange={vi.fn()} onSave={vi.fn()} onConfirm={vi.fn()} onGenerate={vi.fn()} />);
+  fireEvent.change(screen.getByRole("textbox", { name: "搜索专家" }), { target: { value: "唯一组织专家" } });
+  expect(screen.getByRole("button", { name: "添加专家 唯一组织专家" })).toBeVisible();
+  expect(screen.queryByText("没有匹配的模拟画像")).not.toBeInTheDocument();
+  expect(screen.queryByText("没有匹配的专家")).not.toBeInTheDocument();
 });
 it("distinguishes an empty published expert catalog from a search with no matches", () => {
   render(<InterviewExpertsStep document={source} directory={[]} pending={false} onChange={vi.fn()} onSave={vi.fn()} onConfirm={vi.fn()} onGenerate={vi.fn()} />);
   expect(screen.getByTestId("itv-expert-directory-empty")).toHaveTextContent("当前组织暂无可用的已发布专家");
+  expect(screen.getByRole("button", { name: "添加画像 张浩宇" })).toBeVisible();
   expect(screen.queryByText("没有匹配的专家")).not.toBeInTheDocument();
+});
+it("lets a researcher browse all maintained personas through category filtering and pagination", () => {
+  render(<InterviewExpertsStep document={source} directory={[]} pending={false} onChange={vi.fn()} onSave={vi.fn()} onConfirm={vi.fn()} onGenerate={vi.fn()} />);
+  expect(screen.getByText("97 位模拟画像")).toBeVisible();
+  expect(screen.getAllByRole("button", { name: /添加画像 / })).toHaveLength(9);
+  fireEvent.change(screen.getByRole("combobox", { name: "专家领域" }), { target: { value: "商业专家" } });
+  expect(screen.queryByRole("button", { name: "添加画像 张浩宇" })).not.toBeInTheDocument();
+  expect(screen.getByText("5 位模拟画像")).toBeVisible();
+  fireEvent.change(screen.getByRole("combobox", { name: "专家领域" }), { target: { value: "" } });
+  fireEvent.click(screen.getByRole("button", { name: "下一页画像" }));
+  expect(screen.getByText("第 2 / 11 页")).toBeVisible();
 });
 it("does not describe the expert directory as empty before the catalog response arrives", () => {
   render(<InterviewExpertsStep document={source} directory={[]} directoryStatus="loading" pending={false} onChange={vi.fn()} onSave={vi.fn()} onConfirm={vi.fn()} onGenerate={vi.fn()} />);
@@ -84,9 +121,20 @@ it("shows a retryable catalog error without replacing saved expert Markdown", ()
   const retry = vi.fn();
   render(<InterviewExpertsStep document={source} directory={[]} directoryStatus="error" pending={false} onRetryDirectory={retry} onChange={vi.fn()} onSave={vi.fn()} onConfirm={vi.fn()} onGenerate={vi.fn()} />);
   expect(screen.getByTestId("itv-expert-directory-error")).toHaveTextContent("专家库载入失败");
-  expect(screen.getByRole("textbox", { name: "专家文档 Markdown" })).toHaveValue(source.markdown);
+  expect(screen.getByRole("button", { name: "添加画像 张浩宇" })).toBeVisible();
   fireEvent.click(screen.getByRole("button", { name: "重试载入专家库" }));
   expect(retry).toHaveBeenCalledTimes(1);
+});
+it("adds a maintained persona as a stable Markdown-only simulated expert", () => {
+  const change = vi.fn();
+  render(<InterviewExpertsStep document={source} directory={[]} pending={false} onChange={change} onSave={vi.fn()} onConfirm={vi.fn()} onGenerate={vi.fn()} />);
+  fireEvent.click(screen.getByRole("button", { name: "添加画像 张浩宇" }));
+  const markdown = change.mock.calls[0]![0] as string;
+  expect(markdown).toContain("## [张浩宇](#expert-persona-68ecb1289191bb24396f9bd4)");
+  expect(markdown).toContain("模拟画像");
+  expect(markdown).not.toContain("mock-persona:");
+  expect(screen.queryByText("审阅与编辑专家画像 Markdown")).not.toBeInTheDocument();
+  expect(screen.queryByRole("textbox", { name: "专家文档 Markdown" })).not.toBeInTheDocument();
 });
 it("virtual expert requires a Markdown preview and explicit review before adding", () => {
   const change = vi.fn();
@@ -131,11 +179,10 @@ it("generation cannot silently discard an unsaved expert Markdown edit", async (
     return new Response(JSON.stringify(url.endsWith("/digital/experts") ? { items: [] } : { interviewId: "itv-edits", revisionId: "rev-edits", version: 1, documents: [source], states: [{ documentId: source.documentId, status: "draft", failure: null }] }));
   });
   render(<InterviewMarkdownEditingStep interviewId="itv-edits" step="experts" onVersionChange={vi.fn()} onDirtyChange={vi.fn()} onContinue={vi.fn()} />);
-  const input = await screen.findByRole("textbox", { name: "专家文档 Markdown" });
-  await vi.waitFor(() => expect(input).toBeEnabled());
-  fireEvent.change(input, { target: { value: "# 专家\n\n保留待审阅的新画像。" } });
+  await vi.waitFor(() => expect(screen.getByRole("button", { name: "添加画像 张浩宇" })).toBeEnabled());
+  fireEvent.click(screen.getByRole("button", { name: "添加画像 张浩宇" }));
   fireEvent.click(screen.getByRole("button", { name: "生成专家建议" }));
   expect(await screen.findByRole("alert")).toHaveTextContent("先保存");
-  expect(input).toHaveValue("# 专家\n\n保留待审阅的新画像。");
+  expect(screen.getByRole("button", { name: "移除专家 张浩宇" })).toBeVisible();
   expect(posts).toEqual([]);
 });

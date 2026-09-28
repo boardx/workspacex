@@ -154,7 +154,7 @@ describe("F180 signed guided-research visual contract", () => {
     const search = render(<GuidedResearchFlow step="search" sessionId="grs-visual" />);
     await screen.findByTestId("research-flow-search");
     expect(search.container).not.toHaveTextContent("演示检索结果");
-    for (const sourceLink of within(screen.getByTestId("guided-research-source-evidence")).getAllByRole("link", { name: "Official policy" })) {
+    for (const sourceLink of within(screen.getByTestId("guided-research-source-evidence")).getAllByRole("link")) {
       expect(sourceLink).toHaveAttribute("href", "https://example.org/policy");
     }
     search.unmount();
@@ -171,8 +171,8 @@ describe("F180 signed guided-research visual contract", () => {
     const search = render(<GuidedResearchFlow step="search" sessionId="grs-visual" />);
     await screen.findByTestId("research-flow-search");
     expect(screen.queryByRole("heading", { name: "研究检索进度" })).not.toBeInTheDocument();
-    fireEvent.click(screen.getByText("查看全部来源与 Markdown"));
-    expect(screen.getByTestId("research-sources")).toBeVisible();
+    expect(screen.queryByText("查看全部来源与 Markdown")).not.toBeInTheDocument();
+    expect(screen.getByRole("list", { name: "搜索得到的相关网址" })).toBeVisible();
     expect(screen.getByTestId("guided-research-source-workspace")).toBeVisible();
 
     search.unmount();

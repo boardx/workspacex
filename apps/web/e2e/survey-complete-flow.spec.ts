@@ -5,7 +5,7 @@ const TEMPLATE_TITLE = "会议反馈调查";
 
 test('AI 提案先校对再应用并保存为 Markdown',async({page},testInfo)=>{
  test.setTimeout(120000);await loginAsAdmin(page);await page.goto('/studio/survey');
- await page.getByRole('button',{name:'新建问卷',exact:true}).click();
+ await page.getByTestId('survey-create-primary').click();
  await page.getByLabel('问卷名称').fill('AI 校对验收');
  await page.getByLabel('标签',{exact:true}).fill('客户调研');await page.getByLabel('标签',{exact:true}).press('Enter');
  await page.getByRole('radio',{name:/AI 导入创建/}).check();
@@ -187,7 +187,7 @@ test("用户可从模板完整走通创建、发布、答题、查看答卷和�
 test('空白创建直接进入设计而不经过 AI 导入',async({page})=>{
   await loginAsAdmin(page);
   await page.goto('/studio/survey');
-  await page.getByRole('button',{name:'新建问卷',exact:true}).first().click();
+  await page.getByTestId('survey-create-primary').click();
   const creation=page.getByRole('dialog');
   await creation.getByLabel('问卷名称',{exact:true}).fill('空白创建验收');
   await creation.getByRole('radio',{name:/空白创建/}).check();
@@ -201,7 +201,7 @@ test('空白创建直接进入设计而不经过 AI 导入',async({page})=>{
 
 test('新建弹窗可从真实模板创建并在刷新后保留名称',async({page})=>{
   await loginAsAdmin(page);await page.goto('/studio/survey');
-  await page.getByRole('button',{name:'新建问卷',exact:true}).first().click();
+  await page.getByTestId('survey-create-primary').click();
   const creation=page.getByRole('dialog');
   await creation.getByLabel('问卷名称',{exact:true}).fill('模板弹窗创建验证');
   await creation.getByRole('radio',{name:/从模板创建/}).check();
