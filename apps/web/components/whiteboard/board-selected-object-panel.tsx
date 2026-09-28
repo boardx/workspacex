@@ -6,9 +6,9 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import type { WhiteboardGeometry, WhiteboardObject } from "@repo/whiteboard-core";
 
-const WIDTH_MIN = 300;
+const WIDTH_MIN = 288;
 const WIDTH_MAX = 640;
-const HEIGHT_MIN = 320;
+const HEIGHT_MIN = 288;
 const HEIGHT_MAX = 960;
 
 interface BoardSelectedObjectPanelProps {
@@ -28,8 +28,8 @@ interface BoardSelectedObjectPanelProps {
 /** Resizable, scrollable inspector keeps selection controls in one predictable place. */
 export function BoardSelectedObjectPanel({ title, typeLabel, object, readOnly, onClose, onGeometryChange, panelRef, floatingStyle, compactActions, footerActions, children }: BoardSelectedObjectPanelProps) {
   const [expanded, setExpanded] = useState(false);
-  const [width, setWidth] = useState(368);
-  const [height, setHeight] = useState(520);
+  const [width, setWidth] = useState(320);
+  const [height, setHeight] = useState(440);
   const [bounds, setBounds] = useState({ width: 1024, height: 768 });
   useEffect(() => {
     const frame = panelRef && "current" in panelRef ? panelRef.current?.closest<HTMLElement>('[data-testid="collaborative-editor"]') : null;
@@ -80,19 +80,19 @@ export function BoardSelectedObjectPanel({ title, typeLabel, object, readOnly, o
     onGeometryChange(next);
   };
 
-  return <aside ref={panelRef} data-testid="board-context-toolbar" data-board-selected-object-panel="true" data-expanded={expanded} aria-label={`${typeLabel}${expanded ? "属性" : "快捷工具"}`} className={expanded ? "absolute right-4 top-16 z-40 flex h-[min(var(--board-inspector-height),var(--board-inspector-max-height))] max-h-[var(--board-inspector-max-height)] w-[min(var(--board-inspector-width),var(--board-inspector-max-width))] flex-col overflow-hidden rounded-2xl border border-border bg-card/95 shadow-xl backdrop-blur max-sm:bottom-20 max-sm:left-4 max-sm:right-auto max-sm:top-auto max-sm:max-h-[var(--board-inspector-max-height)] max-sm:w-[min(var(--board-inspector-width),var(--board-inspector-max-width))]" : "absolute z-40 w-fit max-w-[calc(100vw-2rem)] overflow-hidden rounded-2xl border border-border bg-card/95 p-1 shadow-xl backdrop-blur max-sm:bottom-20 max-sm:left-4 max-sm:right-4 max-sm:top-auto max-sm:w-auto"} style={expanded ? { "--board-inspector-width": `${fittedWidth}px`, "--board-inspector-height": `${fittedHeight}px`, "--board-inspector-max-width": `${maxWidth}px`, "--board-inspector-max-height": `${maxHeight}px` } as CSSProperties : responsiveFloatingStyle}>
-    {!expanded ? <div className="flex min-h-12 max-w-full items-center gap-1 overflow-hidden">
-      <div className="min-w-0 flex-1 overflow-x-auto">{compactActions ?? <span className="px-2 text-12 font-medium">{title || "未命名对象"}</span>}</div>
+  return <aside ref={panelRef} data-testid="board-context-toolbar" data-board-selected-object-panel="true" data-expanded={expanded} aria-label={`${typeLabel}${expanded ? "属性" : "快捷工具"}`} className={expanded ? "absolute z-40 flex h-[min(var(--board-inspector-height),var(--board-inspector-max-height))] max-h-[var(--board-inspector-max-height)] w-[min(var(--board-inspector-width),var(--board-inspector-max-width))] flex-col overflow-hidden rounded-xl border border-border/80 bg-card shadow-lg max-sm:bottom-20 max-sm:left-4 max-sm:right-auto max-sm:top-auto max-sm:max-h-[var(--board-inspector-max-height)] max-sm:w-[min(var(--board-inspector-width),var(--board-inspector-max-width))]" : "absolute z-40 w-fit max-w-80 overflow-hidden rounded-xl border border-border/80 bg-card p-1 shadow-lg xl:max-w-[min(27rem,calc(100vw-2rem))] max-sm:bottom-20 max-sm:left-4 max-sm:right-4 max-sm:top-auto max-sm:w-auto"} style={expanded ? { ...responsiveFloatingStyle, "--board-inspector-width": `${fittedWidth}px`, "--board-inspector-height": `${fittedHeight}px`, "--board-inspector-max-width": `${maxWidth}px`, "--board-inspector-max-height": `${maxHeight}px` } as CSSProperties : responsiveFloatingStyle}>
+    {!expanded ? <div className="flex min-h-10 max-w-full items-center gap-0.5 overflow-hidden">
+      <div className="min-w-0 flex-1 overflow-x-auto overscroll-x-contain [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">{compactActions ?? <span className="px-2 text-12 font-medium">{title || "未命名对象"}</span>}</div>
       <Button type="button" variant="ghost" size="icon" data-testid="board-inspector-expand" aria-label={`编辑${typeLabel}属性`} title="打开详细属性" aria-expanded={false} onClick={() => setExpanded(true)}><SlidersHorizontal className="h-4 w-4" /></Button>
       <Button type="button" variant="ghost" size="icon" data-testid="board-inspector-close" aria-label="取消选择" onClick={onClose}><X className="h-4 w-4" /></Button>
     </div> : <>
-    <div className="flex shrink-0 items-center justify-between gap-3 border-b border-border bg-card/90 px-3 py-2.5">
-      <div className="min-w-0"><p className="text-11 font-medium tracking-wide text-muted-foreground">{typeLabel} · 属性</p><h2 className="truncate text-15 font-semibold">{title || "未命名对象"}</h2></div>
-      <div className="flex items-center gap-1"><Button type="button" variant="ghost" size="sm" data-testid="board-inspector-collapse" aria-label="收起属性" onClick={() => setExpanded(false)}><ChevronDown className="h-4 w-4" />收起</Button><Button type="button" variant="ghost" size="icon" data-testid="board-inspector-close" aria-label="取消选择" onClick={onClose}><X className="h-4 w-4" /></Button></div>
+    <div className="flex min-h-12 shrink-0 items-center justify-between gap-3 border-b border-border/70 px-3">
+      <div className="min-w-0"><p className="text-10 font-medium uppercase tracking-wide text-muted-foreground">{typeLabel}</p><h2 className="truncate text-13 font-semibold">{title || "未命名对象"}</h2></div>
+      <div className="flex items-center gap-0.5"><Button type="button" variant="ghost" size="icon" className="h-8 w-8" data-testid="board-inspector-collapse" aria-label="收起属性" title="收起属性" onClick={() => setExpanded(false)}><ChevronDown className="h-4 w-4" /></Button><Button type="button" variant="ghost" size="icon" className="h-8 w-8" data-testid="board-inspector-close" aria-label="取消选择" onClick={onClose}><X className="h-4 w-4" /></Button></div>
     </div>
-    <div className="min-h-0 flex-1 space-y-3 overflow-y-auto p-3" data-testid="board-inspector-scroll-content">
-      <details data-testid="board-inspector-geometry" className="group rounded-xl border border-border bg-background/70">
-        <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between gap-3 rounded-xl px-3 py-2 transition-colors hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring [&::-webkit-details-marker]:hidden"><span className="flex items-center gap-2 text-12 font-semibold"><MoveDiagonal2 aria-hidden="true" className="h-4 w-4 text-muted-foreground" />位置与尺寸</span><span className="text-11 text-muted-foreground">X {Math.round(object.geometry.x)} · Y {Math.round(object.geometry.y)}</span></summary>
+    <div className="min-h-0 flex-1 space-y-2.5 overflow-y-auto p-3" data-testid="board-inspector-scroll-content">
+      <details data-testid="board-inspector-geometry" className="group rounded-lg border border-border/70 bg-muted/25">
+        <summary className="flex min-h-10 cursor-pointer list-none items-center justify-between gap-3 rounded-lg px-3 py-2 transition-colors hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring [&::-webkit-details-marker]:hidden"><span className="flex items-center gap-2 text-12 font-semibold"><MoveDiagonal2 aria-hidden="true" className="h-3.5 w-3.5 text-muted-foreground" />位置与尺寸</span><span className="text-10 text-muted-foreground">X {Math.round(object.geometry.x)} · Y {Math.round(object.geometry.y)}</span></summary>
         <div aria-label="位置与尺寸" className="grid grid-cols-2 gap-2 border-t border-border p-3">
         {dimensions.map(([key, label]) => <label key={key} className="grid gap-1 text-11 text-muted-foreground">{label}<Input data-testid={`board-inspector-geometry-${key}`} aria-label={label} type="number" step={key === "rotation" ? 1 : 8} disabled={readOnly} defaultValue={object.geometry[key]} key={`${object.id}:${key}:${object.geometry[key]}`} onBlur={(event) => setGeometryField(key, event.currentTarget.value)} className="h-9 text-13 text-foreground focus-visible:ring-2 focus-visible:ring-ring" /></label>)}
         </div>

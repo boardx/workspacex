@@ -43,10 +43,10 @@ export function BoardA11yMirror({ objects, selectedObjectIds, onSelect, readOnly
   const byId = new Map(objects.map((object) => [object.id, object]));
   const orderedObjects = [...objects].sort((left, right) => left.orderKey.localeCompare(right.orderKey));
   return (
-    <section className="sr-only focus-within:not-sr-only focus-within:absolute focus-within:bottom-4 focus-within:right-4 focus-within:z-30 focus-within:max-h-[min(12rem,30vh)] focus-within:w-[min(14rem,calc(100vw-2rem))] focus-within:overflow-y-auto focus-within:rounded-xl focus-within:border focus-within:border-border focus-within:bg-card focus-within:p-3 focus-within:shadow-xl" data-testid="board-a11y-mirror" aria-label="白板对象大纲">
-      <h2 className="text-sm font-semibold">白板对象</h2>
-      <p className="mt-1 text-xs text-muted-foreground">{readOnly ? "只读模式；可浏览和选择对象。" : "使用 Tab 浏览对象，Enter 选择。"}</p>
-      <ul className="mt-2 space-y-1" aria-label="白板对象">
+    <section className="sr-only focus-within:not-sr-only focus-within:absolute focus-within:bottom-4 focus-within:right-4 focus-within:z-30 focus-within:max-h-28 focus-within:w-[min(11rem,calc(100vw-2rem))] focus-within:overflow-y-auto focus-within:rounded-xl focus-within:border focus-within:border-border/80 focus-within:bg-card focus-within:p-2 focus-within:shadow-lg" data-testid="board-a11y-mirror" aria-label="白板对象大纲">
+      <h2 className="text-12 font-semibold">白板对象</h2>
+      <p className="sr-only">{readOnly ? "只读模式；可浏览和选择对象。" : "使用 Tab 浏览对象，Enter 选择。"}</p>
+      <ul className="mt-1 space-y-0.5" aria-label="白板对象">
         {orderedObjects.map((object) => (
           <li             data-world-x={object.geometry.x}
             data-world-y={object.geometry.y}
@@ -62,7 +62,7 @@ export function BoardA11yMirror({ objects, selectedObjectIds, onSelect, readOnly
               type="button"
               variant="ghost"
               size="sm"
-              className="w-full justify-start truncate transition-colors"
+              className="h-8 w-full justify-start truncate px-2 text-12 transition-colors"
               aria-label={`图形：${object.content.text || KIND_LABEL[object.kind]}`}
               aria-description={describeObject(object)}
               aria-pressed={selected.has(object.id)}
