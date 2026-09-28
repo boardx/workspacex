@@ -21,6 +21,8 @@ export function validateCapturedVendorCiEvidence(report,sha,context,output){
   const {rows,values}=persisted(report,output);assert.equal(rows.length,1);
   const artifact=values.get('captured-vendor-evidence.json'),runtime=values.get('captured-vendor-runtime.json');assert(artifact&&runtime);
   assert.equal(artifact.version,1);assert.equal(artifact.kind,'captured-vendor-import');assert.equal(artifact.fixtures.length,3);
+  assert.deepEqual([...new Set(artifact.fixtures.map(row=>row.source))].sort(),['miro','mural']);
+  assert.equal(new Set(artifact.fixtures.map(row=>`${row.source}:${row.name}`)).size,3);
   assert(artifact.fixtures.some(row=>row.classification==='captured-account-export'&&row.sourceEvidence?.length&&row.sourceHash));
   assert.deepEqual([...new Set(artifact.fixtures.map(row=>row.classification))],['captured-account-export']);
   assert.deepEqual([...new Set(artifact.fixtures.map(row=>row.realBoardAcceptance))],['requires-source-evidence-review']);
@@ -38,7 +40,8 @@ export function validateApiWsObjectstoreCiEvidence(report,sha,context,output){
   const {rows,values}=persisted(report,output);assert.equal(rows.length,3);
   const agent=values.get('agent-api-evidence'),outbox=values.get('same-browser-outbox-evidence'),portable=values.get('portable-roundtrip'),race=values.get('portable-revocation-race'),runtime=values.get('api-ws-objectstore-runtime.json');
   assert(agent&&outbox&&portable&&race&&runtime);assert.equal(agent.kind,'board-agent-api');assert.equal(agent.sha,sha);assert.equal(agent.runtime.deploymentMarker,context.runtimeMarker);assert(agent.steps.length>=10);assert(agent.eventCount>0);
-  assert.equal(outbox.status,'passed');assert.equal(outbox.transport.dropped,0);assert(outbox.revisions.after>outbox.revisions.before);assert.equal(outbox.afterReloadSeq,outbox.revisions.after);assert(outbox.http.every(row=>row.status>=200&&row.status<300));
+  for(const operation of ['Create','Update','Move','Arrange','Connect','Delete'])assert(agent.steps.some(step=>step.name===operation||step.name?.startsWith(`${operation} `)),operation);
+  assert.equal(outbox.status,'passed');assert.equal(outbox.transport.dropped,0);assert(outbox.revisions.after>outbox.revisions.before);assert.equal(outbox.afterReloadSeq,outbox.revisions.after);assert(outbox.http.length>0&&outbox.http.every(row=>row.status>=200&&row.status<300));
   assert.equal(portable.canonicalEquivalent,true);assert.equal(portable.replay.replayed,true);assert.equal(portable.replay.seq,portable.accepted.seq);assert(portable.images.length>0);portable.images.forEach(image=>{digest(image.hash);digest(image.pixelHash);assert(image.width>0&&image.height>0);});
   assert.equal(race.blockedBeforeRevocationCommit,true);assert.equal(race.status,404);assert.equal(race.metadataUnchanged,true);
   assert.equal(runtime.scenario,'api-ws-objectstore');runtimeIdentity=runtime.runtimeIdentity;failures.push(...validateRuntimeBinding(runtimeIdentity,sha,context));

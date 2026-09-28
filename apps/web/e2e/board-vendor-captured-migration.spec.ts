@@ -21,7 +21,7 @@ test('three captured Miro/Mural account exports migrate with reviewed inventorie
       const result=await produceVendorMigrationEvidence({api,apiUrl:apiUrl!,ownerToken,peerUserId:F.leadUserId,owner,peer,fixture});
       expect(result.realBoardAcceptance).toBe('requires-source-evidence-review');
       const {ownerScreenshot,peerScreenshot,roundtripOwnerScreenshot,roundtripPeerScreenshot,...evidence}=result,prefix=`${fixture.source}-${fixture.name.replaceAll(/[^a-zA-Z0-9._-]/g,'_')}`;
-      captured.push(evidence);if(finishChunks)runtimeIdentity=await verifyRuntimeIdentity(api,runtimeSha,await finishChunks());
+      captured.push({source:fixture.source,name:fixture.name,...evidence});if(finishChunks)runtimeIdentity=await verifyRuntimeIdentity(api,runtimeSha,await finishChunks());
       await info.attach(`${prefix}-migration-evidence.json`,{body:Buffer.from(JSON.stringify(evidence,null,2)),contentType:'application/json'});
       await info.attach(`${prefix}-owner.png`,{body:ownerScreenshot,contentType:'image/png'});await info.attach(`${prefix}-peer.png`,{body:peerScreenshot,contentType:'image/png'});
       await info.attach(`${prefix}-roundtrip-owner.png`,{body:roundtripOwnerScreenshot,contentType:'image/png'});await info.attach(`${prefix}-roundtrip-peer.png`,{body:roundtripPeerScreenshot,contentType:'image/png'});
