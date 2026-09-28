@@ -18,7 +18,7 @@ description: >
 
 先判断自己是 coordinator / module-coordinator / worker 三者之一，挂上对应 loop
 （`pnpm harness tick` 三条路径都要跑，没有第四种"不挂 loop"的角色）——这一步在
-AGENTS.md 里明确标了"不可跳过"，本节只覆盖它之后 Step 1-3 的命令化落地：
+AGENTS.md 里明确标了"不可跳过"，本节只覆盖它之后 Step 1-4 的命令化落地：
 
 ```bash
 # Step 1: 初始化环境（依赖 + 基础验证）
@@ -36,6 +36,14 @@ cat phases/phase-<NN>-*/sprints/sprint-<MM>/active-features.json | jq '[.feature
 
 **规则：只做那一个 feature。没有 in_progress？先问用户要做哪个，再用 harness 开新 sprint。**
 
+```bash
+# Step 4: 复述理解 + 画着色执行计划（Mermaid，灰/黄/绿/紫/红 = 未开始/已开始/已完成/已测试/被堵塞）
+#   规范：.harness/instructions/execution-plan-visualization.md；执行书：[execution-plan] skill
+mkdir -p phases/phase-<NN>-*/sprints/sprint-<MM>/plans
+cp .harness/templates/execution-plan.template.md phases/phase-<NN>-*/sprints/sprint-<MM>/plans/<feature-id>.plan.md
+#   改好节点后贴到该 feature 的 issue 评论；有会改变计划的疑问先问人再动手
+```
+
 ---
 
 ## 执行中的纪律
@@ -44,6 +52,7 @@ cat phases/phase-<NN>-*/sprints/sprint-<MM>/active-features.json | jq '[.feature
 |------|------|
 | 只动当前 feature 涉及的代码 | 范围纪律 — 顺手重构 = 引入未经验证的改动 |
 | 每次改完立刻局部验证 | 不要攒到最后一起 verify，失败难定位 |
+| 每一步状态变化都给计划图改色（`node .harness/scripts/execution-plan.mjs set …`），变红当场同步到 issue | 人类靠颜色判断要不要介入；攒到收尾才报 = 卡点对人类不可见 |
 | 不要手改 `active-features.json` | 它是脚本派生的只读视图 |
 | 不要自己把 status 改成 passing | 只有 `pnpm harness verify` 能做这件事 |
 | status/owner/evidence 字段**严禁出现在你手写的 diff 里** | PR #310/#311/#312 三连事故：diff 里手改 status = review 直接阻断 |
@@ -70,6 +79,10 @@ verify 会：
 3. 把命令输出写入 `evidence/F<NN>.verify.log`
 4. 全部通过后把 feature 升为 `passing`（不可逆）
 
+verify 通过后，把计划图里对应的验证节点改成紫色并写证据：
+`node .harness/scripts/execution-plan.mjs set <计划> <节点> tested --note "<命令> → evidence/F<NN>.verify.log"`；
+失败则退回黄或转红。**标 passing 时计划应当全紫**——计划图只是投影，状态权威仍是 verify。
+
 ---
 
 ## 干净收尾（每个会话结束前）
@@ -87,7 +100,8 @@ git ls-tree HEAD -- phases/**/evidence/
   被根 `.gitignore`（如 `*.log`）挡住 = 异常，**立即上报**，禁止写「本地留存」蒙混。
 
 必须确认：
-- `progress.md` 已更新（写本轮目标、完成项、下一步）
+- `progress.md` 已更新（写本轮目标、完成项、下一步；附 `node .harness/scripts/execution-plan.mjs summary <计划>` 的输出）
+- 计划图 `check` 通过，最终着色图已贴到 issue
 - `session-handoff.md` 已更新（具体到命令级别的下一步动作）
 - 没有 feature 处于"代码写了但没 verify"的中间态
 - `pnpm -w run verify:base` 仍然通过
@@ -168,6 +182,8 @@ requirement-author → feature_list.json（阶段权威）
 sprint-planner → new-sprint（把 feature 分配进 sprint，派生 active-features.json）
         │
    ★ 本 skill 覆盖的区间 ★
+        │
+   execution-plan（复述理解 + 着色计划图，全程改色，见 execution-plan-visualization.md）
         │
    开发者/agent 实现 → verify（唯一门控，写 evidence + 翻 passing）
         │
