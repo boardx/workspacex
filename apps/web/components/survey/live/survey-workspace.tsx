@@ -32,7 +32,7 @@ import { SurveyQuestionEditor } from "./question-editor";
 import { MarkdownSurveyEditor } from "./markdown-survey-editor";
 import { SurveyAiProposal } from './ai-proposal';
 import { downloadReportMarkdown, surveyReportMarkdown } from "../report/report-markdown";
-import { CollectionOverview } from "./collection-overview";
+import { CollectionOverview, RecentCollectionActivity } from "./collection-overview";
 import { SurveyShareCode } from "./share-code";
 import { useSurveyAutosave } from "./use-survey-autosave";
 import { SurveyDraftCopy } from "./survey-draft-copy";
@@ -430,6 +430,7 @@ export function LiveSurveyWorkspace({
             <SurveyTemplateActions kind="question" draft={draft} onApply={(next) => { setDraft(next); setMarkdown(serializeSurveyDesignMarkdown(next)); }} locked={!!runtime?.publication} disabled={busy} />
             <SurveyQuestionEditor
               studioLayout
+              surveyTitle={draft.title}
               disabled={busy || !projectedInSync}
               questions={draft.questions}
               locked={!!runtime?.publication}
@@ -599,18 +600,45 @@ export function LiveSurveyWorkspace({
               )}
               </div>
               <aside className="space-y-4" aria-label="回收设置面板">
+                {runtime && !runtime.publication && <section className="rounded-lg border border-border bg-card p-5">
+                  <label className="flex items-center justify-between gap-4 text-13 font-medium">
+                    匿名填写
+                    <input type="checkbox" disabled={busy} checked={runtime.anonymity === "anonymous"} onChange={event => {
+                      const anonymity = event.target.checked ? "anonymous" : "identified";
+                      void execute(async () => {
+                        const current = dirty ? await save() : runtime;
+                        if (!current) throw new Error("请先保存问卷");
+                        const next = await surveyRequest(`/surveys/${current.id}`, { method: "PUT", body: {
+                          expectedVersion: current.version,
+                          draft: { title: current.title, tags: current.tags, questions: current.questions, template: current.template },
+                          anonymity,
+                        } }, SurveyRuntimeSchema);
+                        accept(next);
+                      });
+                    }} />
+                  </label>
+                  <p className="mt-2 text-12 text-muted-foreground">关闭后可收集填写者信息；发布后不可更改。</p>
+                </section>}
                 <SurveyCollectionSettingsEditor markdown={publicationMarkdown} locked={busy || !!runtime?.publication} onChange={setPublicationMarkdown}/>
                 {runtime?.publication && <div className="rounded-lg border border-border bg-card p-5 text-13"><h2 className="font-semibold">已发布设置</h2><p className="mt-3">截止时间：{new Date(runtime.publication.expiresAt).toLocaleString("zh-CN")}</p><p className="mt-2">匿名填写：{runtime.anonymity === "anonymous" ? "开启" : "关闭"}</p><p className="mt-2 text-12 text-muted-foreground">这些设置随发布版本冻结，历史答卷不会被修改。</p></div>}
+                {runtime?.publication && <RecentCollectionActivity runtime={runtime} />}
               </aside>
               </div>
             </section>
           )}
           {step === "responses" && (<>
-            <section aria-label="报告准备状态" className="mx-5 mt-5 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border bg-card p-4">
-              <div><h2 className="text-16 font-semibold">分析报告（可选）</h2><p className="mt-1 text-12 text-muted-foreground">{runtime?.report
+            <section aria-label="报告准备状态" className="mx-5 mt-5 space-y-4 rounded-lg border border-border bg-card p-4">
+              <h2 className="text-16 font-semibold">分析报告（可选）</h2>
+              <p className="text-12 text-muted-foreground">先设计报告模板，再生成报告；跳过模板时使用默认样式。两者均不影响发布和查看答卷。</p>
+              <p className="text-12 text-muted-foreground">{runtime?.report
                 ? reportIsStale ? "模板或答卷已有更新，可重新生成报告" : `已基于 ${runtime.responses.filter(response => response.analysis !== 'excluded').length} 份纳入分析的答卷生成`
-                : "尚未生成；不影响问卷发布和答卷回收"}</p></div>
-              <Button variant="outline" onClick={() => selectStep('report')}>{runtime?.report ? "查看分析报告" : "生成分析报告"}</Button>
+                : "尚未生成；不影响问卷发布和答卷回收"}</p>
+              <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] md:items-center">
+                <div className="rounded-md bg-muted/40 p-3 text-12"><p className="text-muted-foreground">模板状态</p><p className="mt-1 font-semibold">{draft.template.sections.length ? "已设置" : "未设置（可选）"}</p></div>
+                <span aria-hidden="true" className="hidden text-center text-18 md:block">→</span>
+                <div className="rounded-md bg-muted/40 p-3 text-12"><p className="text-muted-foreground">最近生成</p><p className="mt-1 font-semibold">{runtime?.report ? reportIsStale ? "已有旧报告，待更新" : "已生成" : "未生成"}</p></div>
+              </div>
+              <div className="flex flex-wrap gap-2"><Button variant="outline" onClick={() => selectStep('template')}>设计报告模板</Button><Button variant="outline" onClick={() => selectStep('report')}>{runtime?.report ? "查看分析报告" : "生成分析报告"}</Button></div>
             </section>
             <LiveResponseList
               surveyId={runtime?.id}

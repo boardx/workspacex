@@ -28,15 +28,17 @@ describe("LiveSurveyLibrary", () => {
     await waitFor(()=>expect(push).toHaveBeenCalledWith('/studio/survey/created/design'));
     expect(request).toHaveBeenLastCalledWith('/surveys',expect.objectContaining({method:'POST',body:expect.objectContaining({title:'产品调研',tags:['产品'],questions:[]})}),expect.anything());
   });
-  it("routes AI import to its own step while blank creation enters design", async () => {
-    request.mockResolvedValueOnce([]).mockResolvedValueOnce(survey({id:'ai-created',title:'AI 调研',publication:null}));
+  it("routes AI creation to a separate import page without creating a draft first", async () => {
+    request.mockResolvedValueOnce([]);
     render(<LiveSurveyLibrary />);await screen.findByRole('heading',{name:'还没有问卷'});
     fireEvent.click(screen.getByTestId('survey-create-primary'));
     fireEvent.change(screen.getByLabelText('问卷名称'),{target:{value:'AI 调研'}});
     fireEvent.click(screen.getByRole('radio',{name:/AI 导入创建/}));
     fireEvent.click(screen.getByRole('button',{name:'下一步'}));
-    await waitFor(()=>expect(push).toHaveBeenCalledWith('/studio/survey/ai-created?step=import&mode=ai'));
-    expect(window.localStorage.getItem('survey:pending-ai-import:ai-created')).toBe('1');
+    await waitFor(()=>expect(push).toHaveBeenCalledWith(expect.stringMatching(/^\/studio\/survey\/new\/import\?draft=/)));
+    const target = new URL(push.mock.calls[0]?.[0], 'http://localhost');
+    expect(JSON.parse(target.searchParams.get('draft') ?? '{}')).toEqual({name:'AI 调研',tags:[]});
+    expect(request).toHaveBeenCalledTimes(1);
   });
   it('reopens an unfinished AI draft at import and preserves its project context', async () => {
     window.localStorage.setItem('survey:pending-ai-import:survey-1', '1');
