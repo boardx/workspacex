@@ -36,7 +36,7 @@ export function InterviewReportStep({ document, shareUrl }: { readonly document:
           <p>文档版本 {document.version} · {document.evidenceMode === "simulated" ? "本报告基于 AI 模拟访谈，不代表真实用户证据。" : "证据资格以服务端审核为准。"}</p>
           <p>当前 Markdown 文档尚未关联批准记录；导出仅供研究审阅，不代表已批准结论。</p>
         </div>
-        <InterviewReportMarkdown document={document} markdown={document.markdown} testId="itv-source-report-markdown" />
+        <InterviewReportMarkdown document={document} markdown={document.markdown} testId="itv-source-report-markdown" longForm />
       </article>
     </div>
   </div>;
