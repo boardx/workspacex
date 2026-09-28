@@ -26,6 +26,7 @@ export function readObjectExperience(object: WhiteboardObject): ObjectExperience
 }
 
 interface ObjectContextToolbarProps {
+  editing?: boolean;
   actions?: ReactNode;
   panelRef?: Ref<HTMLElement>;
   floatingStyle?: CSSProperties;
@@ -48,7 +49,7 @@ const STICKY_SIZE_PRESETS = [{ id: "s", label: "S", width: 144, height: 144 }, {
 
 const OBJECT_LABELS: Record<WhiteboardObject["kind"], string> = { sticky: "便利贴", text: "文字", rectangle: "形状", ellipse: "形状", frame: "Frame", group: "组合", connector: "连接线", image: "图片", drawing: "绘图", extension: "对象" };
 
-export function ObjectContextToolbar({ object, readOnly, actorId, onStickyChange, onTextChange, onStyleChange, onExperienceChange, onGeometryChange, onClose, onFutureAction, actions, onDuplicate, onDelete, panelRef, floatingStyle }: ObjectContextToolbarProps) {
+export function ObjectContextToolbar({ editing=false,object, readOnly, actorId, onStickyChange, onTextChange, onStyleChange, onExperienceChange, onGeometryChange, onClose, onFutureAction, actions, onDuplicate, onDelete, panelRef, floatingStyle }: ObjectContextToolbarProps) {
   const thinking = record(object.extensionData?.thinkingInput), sticky = record(thinking.sticky), text = record(thinking.text);
   const experience = readObjectExperience(object);
   const [tagDraft, setTagDraft] = useState(""), [linkUrl, setLinkUrl] = useState(experience.linkPreview?.url ?? ""), [linkTitle, setLinkTitle] = useState(experience.linkPreview?.title ?? ""), [linkDescription, setLinkDescription] = useState(experience.linkPreview?.description ?? "");
@@ -76,7 +77,7 @@ export function ObjectContextToolbar({ object, readOnly, actorId, onStickyChange
     {onDuplicate ? <Button size="icon" variant="ghost" className="ml-auto h-11 w-11 shrink-0" aria-label="复制对象" title="复制对象" disabled={locked} onClick={onDuplicate}><Copy className="h-4 w-4" /></Button> : null}
     {onDelete ? <Button size="icon" variant="ghost" className="h-11 w-11 shrink-0 text-destructive" aria-label="删除对象" title="删除对象" disabled={locked} onClick={onDelete}><Trash2 className="h-4 w-4" /></Button> : null}{overflowActions}
   </div>;
-  return <BoardSelectedObjectPanel object={object} title={title} typeLabel={typeLabel} readOnly={locked} onClose={onClose} onGeometryChange={onGeometryChange} panelRef={panelRef} floatingStyle={floatingStyle} compactActions={compactActions} collapsedControls={false} expandRequest={expandRequest}>
+  return <BoardSelectedObjectPanel object={object} title={title} typeLabel={typeLabel} readOnly={locked} onClose={onClose} onGeometryChange={onGeometryChange} panelRef={panelRef} floatingStyle={floatingStyle} compactActions={compactActions} collapsedControls={false} expandRequest={expandRequest} className={editing?"max-sm:hidden":undefined}>
     <div className="space-y-3">
     <div role="toolbar" aria-label="对象快捷操作" data-testid="board-object-quick-actions" className="border-b border-border/70 pb-2.5">
       <div data-testid="board-widget-quick-format" className="flex flex-wrap items-center gap-1.5">

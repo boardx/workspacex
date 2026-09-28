@@ -20,6 +20,7 @@ export type BoardCreationTool =
   | null;
 
 interface BoardBottomDockProps {
+  editing?: boolean;
   extension?: React.ReactNode;
   stickyColor?:string;
   onStickyColorChange?:(color:string)=>void;
@@ -50,7 +51,7 @@ const SHAPES: Array<{ variant: BoardShapeVariant; label: string }> = [
 ];
 const MORE: Array<{ contentType: BoardStructuredKind; label: string }> = [{ contentType: "tile", label: "信息卡片" }, { contentType: "web-tile", label: "网页卡片" }, { contentType: "table", label: "表格" }, { contentType: "icon", label: "图标" }, { contentType: "template", label: "模板" }];
 
-export function BoardBottomDock({ stickyColor=STICKY_COLOR_PRESETS.yellow,onStickyColorChange,extension, activeTool, creationTool, readOnly, onToolChange, onCreationToolChange, onQuickCreate, onBulkSticky, onImageRequest }: BoardBottomDockProps) {
+export function BoardBottomDock({ editing=false,stickyColor=STICKY_COLOR_PRESETS.yellow,onStickyColorChange,extension, activeTool, creationTool, readOnly, onToolChange, onCreationToolChange, onQuickCreate, onBulkSticky, onImageRequest }: BoardBottomDockProps) {
   const dockRef = useRef<HTMLElement>(null);
   // React portals retain this component ancestry even though their DOM lives
   // outside nav. Do not unmount an extension before its portal receives a click
@@ -70,7 +71,7 @@ export function BoardBottomDock({ stickyColor=STICKY_COLOR_PRESETS.yellow,onStic
   const panelOpen = creationTool?.kind === "panel";
   const connectorOpen = creationTool?.kind === "connector";
   return (
-    <nav data-testid="board-creation-dock" data-board-chrome="dock" ref={dockRef} onPointerDownCapture={capturePortalEvent} onKeyDownCapture={capturePortalEvent} aria-label="白板工具" className="absolute bottom-5 left-1/2 z-30 w-max max-w-[calc(100vw-2rem)] -translate-x-1/2">
+    <nav data-testid="board-creation-dock" data-board-chrome="dock" ref={dockRef} onPointerDownCapture={capturePortalEvent} onKeyDownCapture={capturePortalEvent} aria-label="白板工具" className={cn("absolute bottom-5 left-1/2 z-30 w-max max-w-[calc(100vw-2rem)] -translate-x-1/2",editing&&"max-sm:hidden")}>
       {pickerOpen && (stickyOpen || textOpen || shapeOpen || contentOpen || connectorOpen) && (
         <div data-testid="board-tool-picker" style={stickyOpen?{width:420,maxWidth:"calc(100vw - 2rem)",marginInline:"auto"}:undefined} className="mb-4 flex max-h-80 min-w-64 max-w-full flex-wrap items-center justify-center gap-2 overflow-auto rounded-2xl border border-border-subtle bg-card p-2 shadow-lg motion-safe:animate-in motion-safe:slide-in-from-bottom-2 motion-safe:fade-in">
           {stickyOpen ? <BoardStickyPicker color={stickyColor} variant={creationTool.variant} readOnly={readOnly} onColorChange={value=>onStickyColorChange?.(value)} onVariantChange={variant=>onCreationToolChange({kind:"sticky",variant})} onBulk={onBulkSticky}/> : textOpen ? TEXT_PRESETS.map(({ preset, label }) => (
