@@ -421,6 +421,7 @@ export function BoardFabricSurface({ objects, selectedObjectIds, readOnly, tool,
   const canvasElementRef = React.useRef<HTMLCanvasElement>(null);
   const canvasRef = React.useRef<Canvas | null>(null);
   const registryRef = React.useRef(new Map<string, TaggedFabricObject>());
+  const stackingOrderRef = React.useRef<string[]>([]);
   const canonicalRef = React.useRef(new Map<string, BoardFabricObject>());
   const renderedRef = React.useRef(new Map<string, BoardFabricObject>());
   const [renderedObjects, setRenderedObjects] = React.useState<readonly BoardFabricObject[]>(objects);
@@ -848,6 +849,7 @@ export function BoardFabricSurface({ objects, selectedObjectIds, readOnly, tool,
       canvasRef.current = null;
       registry.clear();
       rendered.clear();
+      stackingOrderRef.current = [];
       if (renderFrameRef.current !== null) cancelAnimationFrame(renderFrameRef.current);
       renderFrameRef.current = null;
     };
@@ -867,6 +869,9 @@ export function BoardFabricSurface({ objects, selectedObjectIds, readOnly, tool,
       }
       const kindOrder = (object: BoardFabricObject) => object.kind === "panel" ? 0 : object.kind === "connector" ? 3 : object.kind === "group" ? 2 : 1;
       const orderedObjects = [...objects].sort((left, right) => (left.zIndex ?? 0) - (right.zIndex ?? 0) || kindOrder(left) - kindOrder(right) || left.orderKey.localeCompare(right.orderKey));
+      const orderedIds = orderedObjects.map((object) => object.id);
+      let stackingOrderDirty = orderedIds.length !== stackingOrderRef.current.length
+        || orderedIds.some((id, index) => stackingOrderRef.current[index] !== id);
       const nextRendered: BoardFabricObject[] = [];
       for (const object of orderedObjects) {
         const current = registryRef.current.get(object.id);
@@ -881,6 +886,7 @@ export function BoardFabricSurface({ objects, selectedObjectIds, readOnly, tool,
           rendered = entry.rendered;
           registryRef.current.set(object.id, entry.projected);
           canvas.add(entry.projected);
+          stackingOrderDirty = true;
         } else if (!failedAtThisRevision && (current.data?.renderedRevision !== object.revision || current.selectable === readOnly)) {
           try {
             applyCanonicalObject(current, object, readOnly);
@@ -891,6 +897,7 @@ export function BoardFabricSurface({ objects, selectedObjectIds, readOnly, tool,
             rendered = entry.rendered;
             registryRef.current.set(object.id, entry.projected);
             canvas.add(entry.projected);
+            stackingOrderDirty = true;
           }
         }
         renderedRef.current.set(object.id, rendered);
@@ -901,13 +908,18 @@ export function BoardFabricSurface({ objects, selectedObjectIds, readOnly, tool,
       orderedObjects.forEach((object, index) => {
         const projected = registryRef.current.get(object.id);
         if (projected) {
-          canvas.moveObjectTo(projected, index);
+          // Fabric's moveObjectTo removes and reinserts in its backing array.
+          // Repeating it for every object turns a geometry-only patch into an
+          // O(n²) projection and stalls real 1k+ boards. Canonical stacking can
+          // only change when the sorted ids change or a projection is replaced.
+          if (stackingOrderDirty) canvas.moveObjectTo(projected, index);
           const parent = object.parentId ? incoming.get(object.parentId) : undefined;
           if (parent?.kind === "panel" && parent.panel?.clipContent) {
             projected.clipPath = new Rect({ left: parent.geometry.x, top: parent.geometry.y, width: parent.geometry.width, height: parent.geometry.height, angle: parent.geometry.rotation, originX: "left", originY: "top", absolutePositioned: true });
           } else projected.clipPath = undefined;
         }
       });
+      stackingOrderRef.current = orderedIds;
     }, (member) => {
       const id = member.data?.boardObjectId;
       return id ? registryRef.current.get(id) : undefined;

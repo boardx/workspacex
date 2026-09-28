@@ -177,7 +177,11 @@ export function CollaborativeThinkingEditor({ organizeFitRequest, dockExtension,
   const arrangeSelection = useCallback((kind: WhiteboardLayoutKind) => {
     if (selectionLayoutDisabled) return;
     const command: WhiteboardLayoutCommand = { type: "arrange-objects", kind, objectIds: [...selected], ...(kind === "grid" || kind === "tidy-up" ? { columns: layoutColumns } : {}), ...(["grid", "row", "column", "tidy-up"].includes(kind) ? { gap: layoutGap } : {}) };
-    try { layoutPort.dispatch({ boardId, clientId, gestureId: crypto.randomUUID(), command, preconditions: createLayoutPreconditions(model.objects, command), stateVector: Y.encodeStateVector(doc) }); setNotice(`已整理 ${selected.length} 个对象。`); }
+    try {
+      const preconditions = createLayoutPreconditions(model.objects, command), stateVector = Y.encodeStateVector(doc);
+      layoutPort.dispatch({ boardId, clientId, gestureId: crypto.randomUUID(), command, preconditions, stateVector });
+      setNotice(`已整理 ${selected.length} 个对象。`);
+    }
     catch (error) { const code = error instanceof Error ? error.message : "LAYOUT_FAILED"; setNotice(code === "LAYOUT_CONFLICT" ? "布局未应用：对象已被其他协作者修改。" : code === "SELECTION_PARENT_BOUNDARY" ? "布局未应用：请选择同一容器内的对象。" : code === "DISTRIBUTION_REQUIRES_THREE" ? "等距分布至少需要 3 个对象。" : "布局未应用：选择中包含锁定对象或当前排列不可用。"); }
   }, [boardId, clientId, doc, layoutColumns, layoutGap, layoutPort, model.objects, selected, selectionLayoutDisabled]);
   const previewSmartLayout = useCallback((suggestion: SmartLayoutSuggestion = "grid") => {

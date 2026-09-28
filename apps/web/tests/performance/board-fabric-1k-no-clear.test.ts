@@ -33,6 +33,7 @@ const fabricHarness = vi.hoisted(() => {
     clear: ReturnType<typeof vi.fn>;
     loadFromJSON: ReturnType<typeof vi.fn>;
     requestRenderAll: ReturnType<typeof vi.fn>;
+    moveObjectTo: ReturnType<typeof vi.fn>;
   }
   return { state, MockFabricObject };
 });
@@ -51,10 +52,10 @@ vi.mock("fabric", async (importOriginal) => {
     constructor() { fabricHarness.state.canvases.push(this); }
     add(object: InstanceType<typeof MockFabricObject>) { this.objects.push(object); }
     remove(object: InstanceType<typeof MockFabricObject>) { this.objects = this.objects.filter((candidate) => candidate !== object); }
-    moveObjectTo(object: InstanceType<typeof MockFabricObject>, index: number) {
+    moveObjectTo = vi.fn((object: InstanceType<typeof MockFabricObject>, index: number) => {
       this.objects = this.objects.filter((candidate) => candidate !== object);
       this.objects.splice(index, 0, object);
-    }
+    });
     getObjects() { return this.objects; }
     on() {}
     dispose() {}
@@ -147,6 +148,7 @@ describe("Board Fabric 1k incremental projection boundary", () => {
     const createdAtInitialProjection = fabricHarness.state.fabricObjectsCreated;
     flushRenderFrames();
     canvas.requestRenderAll.mockClear();
+    canvas.moveObjectTo.mockClear();
 
     const patched = initial.map((item, index) => index === 1000 ? item : {
       ...item,
@@ -161,6 +163,7 @@ describe("Board Fabric 1k incremental projection boundary", () => {
     expect(fabricHarness.state.fabricObjectsCreated).toBe(createdAtInitialProjection);
     expect(canvas.clear).not.toHaveBeenCalled();
     expect(canvas.loadFromJSON).not.toHaveBeenCalled();
+    expect(canvas.moveObjectTo).not.toHaveBeenCalled();
     expect(canvas.objects).toHaveLength(1001);
     for (const item of canvas.objects) {
       expect(item).toBe(references.get(item.data?.boardObjectId));
