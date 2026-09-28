@@ -42,6 +42,8 @@ const config: Config = {
         panel: { DEFAULT: "hsl(var(--panel))", foreground: "hsl(var(--panel-foreground))" },
         "panel-alt": { DEFAULT: "hsl(var(--panel-alt))", foreground: "hsl(var(--panel-alt-foreground))" },
         inverse: { DEFAULT: "hsl(var(--inverse))", foreground: "hsl(var(--inverse-foreground))" },
+        // 品牌色（取自官方 logo；取值与依据见 app/globals.css）
+        brand: { DEFAULT: "hsl(var(--brand))", foreground: "hsl(var(--brand-foreground))", warm: "hsl(var(--brand-warm))", "warm-foreground": "hsl(var(--brand-warm-foreground))" },
       },
       borderRadius: {
         // 历史单值档位（F19 之前的唯一 --radius，7px）——仍有大量存量消费点未迁移，
@@ -107,12 +109,56 @@ const config: Config = {
           "50%": { transform: "translateY(-0.3rem) rotate(0deg) scaleX(1)", opacity: "1" },
           "75%": { transform: "translateY(-0.1875rem) rotate(4deg) scaleX(0.45)", opacity: "0.85" },
         },
+        /**
+         * 登录页品牌栏「蜕变」动画（`components/entry/metamorphosis.tsx`，2026-09-28）——
+         * 同一个 9s 周期切三段：结茧（0–34%）→ 破茧（34–55%）→ 展翅（55–100%）。
+         * 各元素一段 keyframes、共用同一时长，靠百分比而不是 JS 计时对齐；
+         * 三段文案用同一段 `meta-step` 配 0s / 3s / 6s 的 animation-delay 轮流点亮。
+         */
+        "meta-chrysalis": {
+          "0%": { transform: "scale(0.85) rotate(0deg)", opacity: "0" },
+          "6%": { transform: "scale(1) rotate(0deg)", opacity: "1" },
+          "14%": { transform: "scale(1) rotate(-5deg)", opacity: "1" },
+          "22%": { transform: "scale(1) rotate(5deg)", opacity: "1" },
+          "30%": { transform: "scale(1.04) rotate(-3deg)", opacity: "1" },
+          "36%": { transform: "scale(1.08) rotate(0deg)", opacity: "1" },
+          "44%, 100%": { transform: "scale(0.5) rotate(0deg)", opacity: "0" },
+        },
+        "meta-burst": {
+          "0%, 34%": { transform: "scale(0.2)", opacity: "0" },
+          "40%": { transform: "scale(1)", opacity: "0.55" },
+          "56%, 100%": { transform: "scale(1.9)", opacity: "0" },
+        },
+        // 位移单位是蝴蝶所在 <g> 的局部坐标（外层已 scale(3.5)），所以数值很小
+        "meta-butterfly": {
+          "0%, 34%": { transform: "translate(0, 0) scale(0.2)", opacity: "0" },
+          "46%": { transform: "translate(0, 0) scale(1)", opacity: "1" },
+          "62%": { transform: "translate(-4px, -3px) scale(1)", opacity: "1" },
+          "78%": { transform: "translate(7px, -6px) scale(0.95)", opacity: "1" },
+          "92%": { transform: "translate(16px, -4px) scale(0.9)", opacity: "1" },
+          "100%": { transform: "translate(22px, -6px) scale(0.8)", opacity: "0" },
+        },
+        "meta-step": {
+          "0%": { opacity: "0.45" },
+          "3%, 31%": { opacity: "1" },
+          "36%, 100%": { opacity: "0.45" },
+        },
+        "meta-step-bar": {
+          "0%": { transform: "scaleX(0)" },
+          "33%": { transform: "scaleX(1)", opacity: "1" },
+          "36%, 100%": { transform: "scaleX(1)", opacity: "0" },
+        },
       },
       animation: {
         "fade-in": "fade-in 160ms ease-out",
         "butterfly-flap": "butterfly-flap 1.1s ease-in-out infinite",
         "butterfly-drift": "butterfly-drift 1.8s ease-in-out infinite",
         "butterfly-fly": "butterfly-fly 1.6s ease-in-out infinite",
+        "meta-chrysalis": "meta-chrysalis 9s ease-in-out infinite",
+        "meta-burst": "meta-burst 9s ease-out infinite",
+        "meta-butterfly": "meta-butterfly 9s ease-in-out infinite",
+        "meta-step": "meta-step 9s ease-in-out infinite",
+        "meta-step-bar": "meta-step-bar 9s linear infinite",
       },
       /**
        * ⚠ 语义化动效 token（F03；契约束 motion-microinteraction I-1，ADR 见
