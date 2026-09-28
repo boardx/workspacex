@@ -64,6 +64,11 @@
       "round": "R3",
       "hash": "3796053d1d1bd05dac14433e4beea45317befd46717bce7b284596de946733b1",
       "reason": "评测种子一处修正，不改任何检查、判据、语料或打分（#4279）：#4239 起 seedOrg 给新组织写一行 enabled=false 的组织级抽取开关，评测种子因此让评测组织整场不抽取——E2/E3 的引用与冲突卡跟着消失（R3 前重跑 7.6）。种子现在按测试夹具 enableExtraction 显式打开评测组织的抽取（upsert enabled=true），与生产默认「开」一致；指纹变化只来自 scripts/seed-kg-experience-eval.ts 这一处。人类 2026-09-26 授权登记本修订。"
+    },
+    {
+      "round": "R5",
+      "hash": "deb61f94169037d7fb114f46c03be24abcc653225ac23d5c5a2981f8cbca98de",
+      "reason": "第四次修订（#4366 S9，epic #4359），只改 E9.c2 一条判据，不放宽：旧指纹 3796053d1d1bd05dac14433e4beea45317befd46717bce7b284596de946733b1 → 新指纹 deb61f94169037d7fb114f46c03be24abcc653225ac23d5c5a2981f8cbca98de。人类决定（2026-09-27）：另一个账号访问你的记忆应当「404（不暴露资源是否存在）」——原判据要求 403，而 403 本身就告诉对方「这条记忆存在」；产品一直回 404，R1–R4 的 E9.c2 红的是判据而不是产品。人类批准修改冻结评测（2026-09-27，经 coord-main 转达给执行本修订的 dev-ai-runtime）：「我批准你可以改」。新判据：状态 404，且与同一账号请求一条根本不存在的记忆的响应逐字相同（除 traceId），且响应里既没有原话也没有这条记忆的 id（泄漏断言比原来更严）。改动的文件：apps/web/e2e/kg-experience-eval/e9-privacy.eval.ts（E9.c2 的旅程多请求一次不存在的记忆作对照、断言与标题）、apps/web/e2e/kg-experience-eval/rubric.mjs（DIMENSIONS.E9 的「量什么」文字 403 → 404）。其余检查、语料、回环模型、种子、打分一个字没动。"
     }
   ]
 }

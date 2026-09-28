@@ -29,9 +29,9 @@ describe("#4343 契约 / 抽取 schema", () => {
   });
 
   it("读模型形状带 kind：反馈条与引用 chip 都要标类型", () => {
-    const ex = { claims: [{ claimId: "c", statement: GOAL, kind: "goal", personalCopyClaimId: null }] };
+    const ex = { claims: [{ claimId: "c", statement: GOAL, kind: "goal", personalCopyClaimId: null }], status: "written" as const };
     expect(KG.KgMessageExtraction.safeParse(ex).success).toBe(true);
-    expect(KG.KgMessageExtraction.safeParse({ claims: [{ ...ex.claims[0], kind: undefined }] }).success).toBe(false);
+    expect(KG.KgMessageExtraction.safeParse({ ...ex, claims: [{ ...ex.claims[0], kind: undefined }] }).success).toBe(false);
     const rec = {
       claimId: "c", statement: GOAL, kind: "goal", triState: "pending", scope: "personal", saidAt: null,
       channels: ["claim"], retrievalReasons: ["recall"], score: 0, graphPath: null,
