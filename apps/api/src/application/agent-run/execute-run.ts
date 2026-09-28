@@ -1,6 +1,4 @@
-import type { ChangeMindPorts } from "../knowledge-graph/change-mind";
-import type { KnowledgeRecallPort, MemoryCardPort } from "../knowledge-graph/ports";
-import { turnKnowledgeContext } from "../knowledge-graph/recall-knowledge";
+import { turnKnowledgeContext, type TurnKnowledgeDeps } from "../knowledge-graph/recall-knowledge";
 import { withAttachmentNotice } from "./attachment-notice";
 export { withAttachmentNotice } from "./attachment-notice";
 import { dependenciesForRuntimeProfile } from "./runtime-profile-routing";
@@ -263,7 +261,8 @@ export function planLayeredHistoryIncrement(
   return { toSummarize, advanceCursorTo: toSummarize[toSummarize.length - 1]!.id! };
 }
 
-export interface ExecuteAgentRunDeps {
+/** 记忆相关的三个可选依赖（knowledge / memoryCards / memoryChange）定义在 recall-knowledge.ts 的 TurnKnowledgeDeps。 */
+export interface ExecuteAgentRunDeps extends TurnKnowledgeDeps {
   /**
    * 2026-09-22 —— 这份部署的版次。**可选**，缺省 `cloud`：既有测试与不关心版次的执行
    * 路径（`trial-run-agent` 一类）构造这个对象时不必都改，而生产合成
@@ -295,19 +294,6 @@ export interface ExecuteAgentRunDeps {
    * 缺省不注入 ⇒ 行为与 F155 之前逐字节相同（history 不多一条伪消息）。
    */
   readonly files?: FileRetrievalPort;
-  /**
-   * Phase 18 F08 —— 会话知识召回（uc-18-2）。**可选**，与 `files` 同一条既有理由：既有测试与不需要
-   * 记忆的执行路径不必都改，生产合成（`kernel.module.ts` → `AgentRunExecutor`）必定注入。
-   * 缺省不注入 ⇒ history 与 F08 之前逐字节相同。
-   */
-  readonly knowledge?: KnowledgeRecallPort;
-  /** Phase 18 F17 「记住 / 忘掉」只开确认卡（I-17）。可选，同 `knowledge`；两者都注入才生效。 */
-  readonly memoryCards?: MemoryCardPort;
-  /**
-   * #4361「我改主意了，改成 Y」这一轮确定地走 R8 的改口取代（抽取执行器 + 取代 + 自动记入，都是抽取任务已经在用的端口）。
-   * 可选，同 `memoryCards`；不注入 ⇒ 改口仍只经抽取之后的 R8（与 #4361 之前相同）。
-   */
-  readonly memoryChange?: ChangeMindPorts;
   /**
    * F157 —— 可审计上下文快照写入口。**可选**，与 `usage`/`files` 同一条既有理由：既有测试
    * 与不需要被审计的执行路径（`trial-run-agent` 一类）不必都改，生产合成

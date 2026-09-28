@@ -269,6 +269,23 @@ const sourceOf = (c: RecallClaim): string =>
   c.originThreadId !== undefined ? "你的另一个对话" : c.scope === "personal" ? "长期记忆" : "本对话";
 
 /**
+ * 执行器里与记忆有关的依赖：execute-run.ts 的 `ExecuteAgentRunDeps` 继承它，定义只在这一处（执行器保持薄网关）。
+ * 都**可选**，与 `files` 同一条既有理由：既有测试与不需要记忆的执行路径不必都改，生产合成
+ * （`kernel.module.ts` → `AgentRunExecutor`）必定注入。
+ */
+export interface TurnKnowledgeDeps {
+  /** Phase 18 F08 —— 会话知识召回（uc-18-2）。缺省不注入 ⇒ history 与 F08 之前逐字节相同。 */
+  readonly knowledge?: KnowledgeRecallPort;
+  /** Phase 18 F17 「记住 / 忘掉」只开确认卡（I-17）。同 `knowledge`；两者都注入才生效。 */
+  readonly memoryCards?: MemoryCardPort;
+  /**
+   * #4361「我改主意了，改成 Y」这一轮确定地走 R8 的改口取代（抽取执行器 + 取代 + 自动记入，都是抽取任务已经在用的端口）。
+   * 同 `memoryCards`；不注入 ⇒ 改口仍只经抽取之后的 R8（与 #4361 之前相同）。
+   */
+  readonly memoryChange?: ChangeMindPorts;
+}
+
+/**
  * 执行器的唯一入口（execute-run.ts 只调它）：这一轮交给模型的记忆材料，按放进 history 的先后排好——
  * 先是 F17 的卡片说明（没接卡片端口 / 没有明确意图 ⇒ 没有），再是 F08 的【记忆】召回材料（没命中 ⇒ 没有）。
  * 读身份恒为这一轮的发起人、会话恒为这一轮所在的会话（run.requesterUserId / run.threadId）。两样都降级不 fail run。
