@@ -145,7 +145,8 @@ describe("guided research session routing and lifecycle", () => {
     render(<GuidedResearchFlow step="search" sessionId="grs-live" />);
     fireEvent.click(await screen.findByRole("button", { name: "重试失败任务" }));
     await waitFor(() => expect(executeResearchRuntime).toHaveBeenCalledWith(expect.objectContaining({ action: "retry", node: "research", expectedVersion: 4 })));
-    expect(await screen.findByText("已完成 · 尝试 1 次")).toBeInTheDocument();
+    expect(await screen.findByRole("link", { name: "https://example.org/policy" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "重试失败任务" })).not.toBeInTheDocument();
   });
   it("renders report content and links from persisted sources, then explicitly completes", async () => {
     const state = runtimeFixture("report");
