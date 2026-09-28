@@ -10,7 +10,7 @@
       "spec_ref": "00-overview.md#R9",
       "user_visible_behavior": "用户在问卷首页查看真实卡片、标签和三个二级入口；空白或模板创建后直接进入独立设计路由，旧 step 链接保留项目上下文跳转。",
       "status": "not_started",
-      "sprint": null,
+      "sprint": "02",
       "owner": null,
       "depends_on": [],
       "points": 5,
