@@ -1,0 +1,400 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>WorkspaceX · v3 AI 工作空间</title>
+<style>
+/* 色值取自 apps/web/app/globals.css 的 token（单一事实源），此处仅为原型镜像 */
+:root{
+  --bg:#F4F4F1; --surface:#FBFBFA; --card:#FFFFFF; --muted:#F2F2EF; --hover:#ECEBE7;
+  --fg:#17171A; --fg2:#5F5F67; --fg3:#8A8A92;
+  --line:#EBEAE5; --border:#E0DED5;
+  --accent:#E4F2EF; --accent-fg:#0A6155; --success:#0B7967;
+  --ai:#4B3BE8; --ai-tint:#E9E7FB; --warn:#9E5F27;
+  --shadow-sm:0 1px 2px rgba(23,23,26,.04),0 1px 1px rgba(23,23,26,.03);
+  --shadow-lg:0 12px 32px -8px rgba(23,23,26,.14),0 2px 6px rgba(23,23,26,.05);
+  --r-sm:8px; --r:12px; --r-lg:18px;
+  color-scheme:light;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#0E0E10; --surface:#151518; --card:#1C1C20; --muted:#232328; --hover:#2A2A30;
+  --fg:#EDEDEF; --fg2:#A4A4AD; --fg3:#75757E; --line:#26262B; --border:#33333A;
+  --accent:#13302B; --accent-fg:#7FD8C6; --success:#3FBFA6; --ai:#8E83FF; --ai-tint:#24214A;
+  --shadow-sm:none; --shadow-lg:0 12px 32px -8px rgba(0,0,0,.6); color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0E0E10; --surface:#151518; --card:#1C1C20; --muted:#232328; --hover:#2A2A30;
+  --fg:#EDEDEF; --fg2:#A4A4AD; --fg3:#75757E; --line:#26262B; --border:#33333A;
+  --accent:#13302B; --accent-fg:#7FD8C6; --success:#3FBFA6; --ai:#8E83FF; --ai-tint:#24214A;
+  --shadow-sm:none; --shadow-lg:0 12px 32px -8px rgba(0,0,0,.6); color-scheme:dark}
+*{box-sizing:border-box} html,body{height:100%}
+body{margin:0;font:14px/1.55 -apple-system,BlinkMacSystemFont,"SF Pro Text","PingFang SC","Noto Sans SC",system-ui,sans-serif;color:var(--fg);background:var(--bg);-webkit-font-smoothing:antialiased}
+button{font:inherit;color:inherit;background:none;border:0;cursor:pointer}
+:focus-visible{outline:2px solid var(--ai);outline-offset:2px;border-radius:6px}
+svg{width:16px;height:16px;flex:none;stroke:currentColor;fill:none;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+
+/* ── Level 0: 应用底 + 极弱环境层 ── */
+.app{display:grid;grid-template-columns:248px minmax(0,1fr) 340px;height:100vh;gap:8px;padding:8px}
+.ambient{position:fixed;inset:0 0 auto auto;width:560px;height:220px;pointer-events:none;opacity:.55;
+  background:radial-gradient(60% 80% at 80% 0%,color-mix(in srgb,var(--ai) 14%,transparent),transparent 70%),
+             radial-gradient(40% 60% at 55% 10%,color-mix(in srgb,var(--success) 10%,transparent),transparent 70%)}
+.ambient svg{position:absolute;right:0;top:0;width:560px;height:140px;stroke:none;fill:color-mix(in srgb,var(--fg) 5%,transparent)}
+
+/* ── 左：Where am I ── */
+nav{display:flex;flex-direction:column;padding:10px 8px;min-height:0}
+.brand{display:flex;align-items:center;gap:10px;padding:4px 8px 14px}
+.logo{width:28px;height:28px;border-radius:8px;background:conic-gradient(from 200deg,#FF4D6D,#4B3BE8,#0B7967,#FF4D6D)}
+.brand b{font-size:15px;letter-spacing:-.01em;display:block;line-height:1.1}.brand small{color:var(--fg3);font-size:11px}
+.new{display:flex;align-items:center;gap:8px;justify-content:center;background:var(--fg);color:var(--bg);border-radius:var(--r-sm);height:36px;margin:0 4px 12px;font-weight:600}
+.new:hover{opacity:.9}
+.ni{display:flex;align-items:center;gap:10px;height:34px;padding:0 10px;border-radius:var(--r-sm);color:var(--fg2);width:100%;text-align:left}
+.ni:hover{background:var(--hover);color:var(--fg)}
+.ni[aria-current]{background:var(--card);color:var(--fg);font-weight:600;box-shadow:var(--shadow-sm)}
+.ni .t{margin-left:auto;font-size:11px;color:var(--fg3)}
+.ni .dot{width:6px;height:6px;border-radius:50%;background:var(--fg3)}.ni .dot.run{background:var(--ai)}.ni .dot.ok{background:var(--success)}
+.group{margin-top:14px}.group h2{font-size:11px;font-weight:600;color:var(--fg3);letter-spacing:.04em;margin:0 10px 4px;display:flex;justify-content:space-between}
+.grow{flex:1;overflow:auto;min-height:0}
+.me{display:flex;align-items:center;gap:10px;padding:8px;border-radius:var(--r-sm)}
+.av{width:30px;height:30px;border-radius:50%;background:var(--accent);color:var(--accent-fg);display:grid;place-items:center;font-weight:700;font-size:13px;flex:none}
+.me small{display:block;color:var(--fg3);font-size:11px}
+
+/* ── 中：What am I doing ── */
+main{background:var(--surface);border-radius:var(--r-lg);box-shadow:var(--shadow-sm);display:flex;flex-direction:column;min-width:0;min-height:0;position:relative;overflow:hidden}
+.top{display:flex;align-items:center;gap:10px;padding:10px 16px;height:56px}
+.crumb{color:var(--fg3);font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.crumb b{color:var(--fg);font-weight:500}
+.cmdk{margin-left:auto;display:flex;align-items:center;gap:8px;height:34px;padding:0 10px;border-radius:var(--r-sm);background:var(--muted);color:var(--fg3);width:min(340px,40%)}
+.cmdk kbd{margin-left:auto;font:11px ui-monospace,monospace;background:var(--card);border-radius:4px;padding:1px 5px;color:var(--fg2)}
+.ib{width:34px;height:34px;display:grid;place-items:center;border-radius:var(--r-sm);color:var(--fg2)}.ib:hover{background:var(--hover);color:var(--fg)}
+.scroll{flex:1;overflow:auto;min-height:0}
+.col{max-width:760px;margin:0 auto;padding:12px 24px 32px}
+.head h1{font-size:26px;line-height:1.25;letter-spacing:-.02em;margin:8px 0 10px;font-weight:650}
+.chips{display:flex;flex-wrap:wrap;gap:6px}.chip{font-size:12px;color:var(--fg2);background:var(--muted);border-radius:999px;padding:3px 10px}
+.status{display:inline-flex;align-items:center;gap:6px;color:var(--success);font-size:12px;font-weight:600;background:var(--accent);padding:3px 10px;border-radius:999px}
+
+.turn-u{display:flex;justify-content:flex-end;margin:28px 0 20px}
+.turn-u p{margin:0;background:var(--muted);padding:9px 14px;border-radius:16px 16px 4px 16px;max-width:78%}
+.turn-a{display:grid;grid-template-columns:28px minmax(0,1fr);gap:12px}
+.turn-a .logo{width:24px;height:24px;border-radius:7px;margin-top:2px}
+.turn-a p{margin:0 0 14px;font-size:15px}
+
+/* 执行摘要：可感知不干扰 */
+.run{margin:0 0 14px;border-radius:var(--r);background:var(--card);box-shadow:var(--shadow-sm)}
+.run>button{display:flex;align-items:center;gap:10px;width:100%;padding:10px 14px;text-align:left;font-size:13px}
+.run .ok{width:18px;height:18px;border-radius:50%;background:var(--success);color:#fff;display:grid;place-items:center}
+.run .ok svg{width:11px;height:11px;stroke-width:3}
+.run .m{color:var(--fg3)}.run .chev{margin-left:auto;transition:transform .2s;color:var(--fg3)}
+.run[data-open] .chev{transform:rotate(180deg)}
+.run .body{display:none;padding:0 14px 12px 42px}.run[data-open] .body{display:block}
+.steps{list-style:none;margin:0;padding:0;border-left:1px solid var(--line)}
+.steps li{position:relative;padding:4px 0 4px 16px;display:flex;gap:8px;font-size:13px}
+.steps li:before{content:"";position:absolute;left:-4px;top:12px;width:7px;height:7px;border-radius:50%;background:var(--success)}
+.steps li span:last-child{margin-left:auto;color:var(--fg3);font-variant-numeric:tabular-nums}
+.layers{display:flex;gap:6px;margin-top:10px;flex-wrap:wrap}.layers button{font-size:12px;color:var(--fg2);background:var(--muted);border-radius:6px;padding:2px 8px}
+.layers button:hover{color:var(--fg)}
+
+/* Artifact 一等公民 */
+.artifact{border-radius:var(--r-lg);background:var(--card);box-shadow:var(--shadow-lg);overflow:hidden;margin:4px 0 16px}
+.art-bar{display:flex;align-items:center;gap:12px;padding:14px 16px}
+.ftype{width:38px;height:38px;border-radius:10px;background:#FCE9E3;color:#C2410C;display:grid;place-items:center;font:700 11px ui-monospace,monospace}
+.art-bar h3{margin:0;font-size:15px;font-weight:600;overflow-wrap:anywhere}.art-bar small{color:var(--fg3);font-size:12px}
+.acts{margin-left:auto;display:flex;gap:4px}
+.act{display:flex;align-items:center;gap:6px;height:32px;padding:0 10px;border-radius:var(--r-sm);color:var(--fg2);font-size:13px}.act:hover{background:var(--hover);color:var(--fg)}
+.act.pri{background:var(--fg);color:var(--bg)}.act.pri:hover{opacity:.9}
+.preview{margin:0 16px;border-radius:var(--r);background:var(--muted);padding:22px 18px 18px;display:grid;grid-template-columns:repeat(5,1fr);gap:4px;position:relative}
+.stage{text-align:center;font-size:12px;color:var(--fg2);position:relative}
+.stage i{display:grid;place-items:center;width:44px;height:44px;margin:0 auto 8px;border-radius:50%;color:#fff;font-style:normal;font-size:18px}
+.stage b{display:block;color:var(--fg);font-size:13px}
+.stage:not(:last-child):after{content:"";position:absolute;top:22px;right:-12%;width:24%;height:1px;background:var(--border)}
+.art-foot{display:flex;align-items:center;gap:8px;padding:12px 16px;flex-wrap:wrap}
+.art-foot .v{font-size:12px;color:var(--fg3);display:flex;align-items:center;gap:6px}
+.art-foot .v b{color:var(--success);font-weight:600}
+.art-foot .grow2{flex:1}
+.ghost{height:28px;padding:0 10px;border-radius:999px;font-size:12px;color:var(--fg2);background:var(--muted);display:inline-flex;align-items:center;gap:6px}.ghost:hover{background:var(--hover);color:var(--fg)}
+
+.feedback{display:flex;gap:2px;margin:-4px 0 18px}
+.next h4{margin:0 0 8px;font-size:12px;color:var(--fg3);font-weight:600}
+.next-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:8px}
+.nx{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:var(--r);background:var(--card);box-shadow:var(--shadow-sm);text-align:left}
+.nx:hover{box-shadow:var(--shadow-lg)}
+.nx em{font-style:normal;width:28px;height:28px;border-radius:8px;display:grid;place-items:center;flex:none}
+.nx small{display:block;color:var(--fg3);font-size:11px}
+
+/* Composer = AI Command Bar */
+.composer{margin:0 auto 14px;width:min(760px,calc(100% - 32px));background:var(--card);border-radius:var(--r-lg);box-shadow:var(--shadow-lg);padding:12px 12px 10px}
+.composer textarea{width:100%;border:0;resize:none;outline:none;background:transparent;font:inherit;font-size:15px;color:var(--fg);min-height:26px}
+.composer textarea::placeholder{color:var(--fg3)}
+.crow{display:flex;align-items:center;gap:4px;margin-top:6px}
+.pill{display:inline-flex;align-items:center;gap:6px;height:30px;padding:0 10px;border-radius:999px;color:var(--fg2);font-size:13px}.pill:hover{background:var(--hover);color:var(--fg)}
+.pill.ctx{background:var(--ai-tint);color:var(--ai);max-width:260px}.pill.ctx span{overflow:hidden;text-overflow:ellipsis}
+.pill{white-space:nowrap}
+.hint{font-size:11px;color:var(--fg3);margin-left:6px}
+.send{width:34px;height:34px;border-radius:50%;background:var(--fg);color:var(--bg);display:grid;place-items:center;margin-left:4px}
+.tokens{display:none;position:absolute;left:0;bottom:calc(100% + 8px);width:320px;background:var(--card);border-radius:var(--r);box-shadow:var(--shadow-lg);padding:6px}
+.composer{position:relative}.composer[data-menu] .tokens{display:block}
+.tokens div{display:flex;gap:10px;align-items:center;padding:7px 10px;border-radius:var(--r-sm);font-size:13px}
+.tokens div:hover,.tokens div[aria-selected]{background:var(--muted)}
+.tokens code{font:12px ui-monospace,monospace;color:var(--ai);width:22px}
+.tokens small{margin-left:auto;color:var(--fg3)}
+
+/* ── 右：What supports this work ── */
+aside{display:flex;flex-direction:column;min-height:0;padding:4px 4px 0}
+.tabs{display:flex;gap:2px;background:var(--muted);border-radius:var(--r-sm);padding:3px;margin:6px 4px 12px}
+.tab{flex:1;height:30px;border-radius:6px;font-size:13px;color:var(--fg2)}
+.tab[aria-selected="true"]{background:var(--card);color:var(--fg);font-weight:600;box-shadow:var(--shadow-sm)}
+.pane{display:none;overflow:auto;padding:0 4px 12px;flex:1}.pane.on{display:block}
+.box{background:var(--card);border-radius:var(--r);box-shadow:var(--shadow-sm);padding:14px;margin-bottom:10px}
+.box h3{margin:0 0 10px;font-size:13px;display:flex;justify-content:space-between;align-items:center}
+.box h3 small{font-weight:500;color:var(--fg3)}
+.prog{height:4px;background:var(--muted);border-radius:2px;margin-bottom:10px}.prog i{display:block;height:100%;border-radius:2px;background:var(--success);width:100%}
+.row{display:flex;align-items:center;gap:10px;padding:6px 0;font-size:13px}
+.row .ck{width:16px;height:16px;border-radius:50%;background:var(--success);color:#fff;display:grid;place-items:center}.row .ck svg{width:10px;height:10px;stroke-width:3}
+.row time{margin-left:auto;color:var(--fg3);font-size:12px;font-variant-numeric:tabular-nums}
+.file{display:flex;align-items:center;gap:10px;padding:8px;border-radius:var(--r-sm);margin:0 -8px}.file:hover{background:var(--muted)}
+.file .ftype{width:32px;height:32px;font-size:10px;border-radius:8px}
+.file small{display:block;color:var(--fg3);font-size:11px}
+.lineage{font-size:12px;color:var(--fg2);display:flex;flex-direction:column;gap:6px}
+.lineage span{display:flex;gap:8px;align-items:center}.lineage span:before{content:"";width:6px;height:6px;border-radius:50%;background:var(--border)}
+.lineage span.cur:before{background:var(--ai)}
+.quote{margin-top:auto;padding:14px;color:var(--fg3);font-size:12px}
+
+/* ⌘K */
+.palette{position:fixed;inset:0;background:rgba(14,14,16,.28);display:none;align-items:flex-start;justify-content:center;padding-top:12vh;z-index:10}
+.palette[data-open]{display:flex}
+.pal{width:min(620px,calc(100% - 32px));background:var(--card);border-radius:var(--r-lg);box-shadow:var(--shadow-lg);overflow:hidden}
+.pal input{width:100%;border:0;outline:none;padding:18px 20px;font:inherit;font-size:16px;background:transparent;color:var(--fg);border-bottom:1px solid var(--line)}
+.pal section{padding:8px}.pal h5{margin:6px 10px;font-size:11px;color:var(--fg3);font-weight:600}
+.pal .it{display:flex;align-items:center;gap:10px;padding:9px 10px;border-radius:var(--r-sm);font-size:14px}
+.pal .it[aria-selected]{background:var(--muted)}.pal .it small{margin-left:auto;color:var(--fg3)}
+
+/* 响应式：Inspector → 抽屉；导航 → 图标栏；手机 → 单栏 */
+.only-narrow{display:none}
+@media (max-width:1240px){
+  .app{grid-template-columns:232px minmax(0,1fr)}
+  aside{position:fixed;right:8px;top:8px;bottom:8px;width:340px;background:var(--bg);border-radius:var(--r-lg);box-shadow:var(--shadow-lg);transform:translateX(110%);transition:transform .25s;z-index:5}
+  body[data-inspector] aside{transform:none}
+  .only-narrow{display:grid}
+}
+@media (max-width:860px){
+  .app{grid-template-columns:1fr;padding:0;gap:0}
+  nav{display:none} main{border-radius:0}
+  .cmdk{width:auto;flex:none}.cmdk span,.cmdk kbd{display:none}
+  .col{padding:8px 16px 24px}.head h1{font-size:21px}
+  .preview{grid-template-columns:repeat(5,minmax(52px,1fr));overflow-x:auto}
+  .stage i{width:36px;height:36px;font-size:15px}.stage small{display:none}
+  .acts .act:not(.pri) span{display:none}
+  .next-grid{grid-template-columns:1fr}
+  .turn-a{grid-template-columns:minmax(0,1fr)}.turn-a>.logo{display:none}
+  .run .m{display:none}.art-bar{flex-wrap:wrap}.acts{margin-left:0;width:100%}
+  .art-foot .grow2{display:none}.pill.ctx{max-width:150px}.turn-u p{max-width:90%}
+  .composer{width:calc(100% - 16px);margin-bottom:8px}.hint{display:none}
+  aside{left:0;right:0;top:auto;bottom:0;width:auto;height:78vh;border-radius:var(--r-lg) var(--r-lg) 0 0;transform:translateY(105%)}
+}
+</style>
+</head>
+<body>
+<div class="ambient" aria-hidden="true"><svg viewBox="0 0 560 140"><path d="M0 140 L120 70 L170 95 L260 30 L330 80 L390 55 L470 100 L560 60 L560 140Z"/></svg></div>
+<div class="app">
+
+<nav aria-label="主导航">
+  <div class="brand"><div class="logo"></div><div><b>WorkspaceX</b><small>Augment Human Creativity</small></div></div>
+  <button class="new"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>新建</button>
+  <button class="ni" aria-current="page"><svg viewBox="0 0 24 24"><path d="M21 12a8 8 0 0 1-11.6 7.1L4 20l1-4.6A8 8 0 1 1 21 12z"/></svg>对话</button>
+  <button class="ni"><svg viewBox="0 0 24 24"><path d="M3 7h6l2 2h10v10H3z"/></svg>项目</button>
+  <button class="ni"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="3"/><path d="M8 8h4v4H8z"/></svg>Board</button>
+  <button class="ni"><svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></svg>Agents</button>
+  <button class="ni"><svg viewBox="0 0 24 24"><path d="M4 4h12a4 4 0 0 1 4 4v12H8a4 4 0 0 1-4-4z"/></svg>知识</button>
+  <button class="ni"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg>模板</button>
+  <div class="grow">
+    <div class="group"><h2>空间</h2>
+      <button class="ni"><span class="av" style="width:20px;height:20px;font-size:10px">U</span>我的空间</button>
+      <button class="ni"><span class="av" style="width:20px;height:20px;font-size:10px;background:var(--ai-tint);color:var(--ai)">T</span>团队 · 设计组</button>
+      <button class="ni"><span class="av" style="width:20px;height:20px;font-size:10px;background:var(--muted);color:var(--fg2)">E</span>企业空间</button>
+    </div>
+    <div class="group"><h2>最近工作 <span>全部</span></h2>
+      <button class="ni" aria-current="true"><span class="dot ok"></span>设计思维 HTML<span class="t">12:49</span></button>
+      <button class="ni"><span class="dot run"></span>产品规划讨论<span class="t">进行中</span></button>
+      <button class="ni"><span class="dot"></span>AI 商业机会分析<span class="t">09:18</span></button>
+      <button class="ni"><span class="dot"></span>设计思维工作坊<span class="t">09/26</span></button>
+      <button class="ni"><span class="dot"></span>Haier 法务 AI 转型<span class="t">09/24</span></button>
+    </div>
+  </div>
+  <div class="me"><span class="av">U</span><div>Usam Shen<small>Pro · 我的空间</small></div>
+    <button class="ib" style="margin-left:auto" aria-label="设置（工具、社区、管理）"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19 12a7 7 0 0 0-.1-1.2l2-1.6-2-3.4-2.4 1a7 7 0 0 0-2-1.2L14 3h-4l-.5 2.6a7 7 0 0 0-2 1.2l-2.4-1-2 3.4 2 1.6a7 7 0 0 0 0 2.4l-2 1.6 2 3.4 2.4-1a7 7 0 0 0 2 1.2L10 21h4l.5-2.6a7 7 0 0 0 2-1.2l2.4 1 2-3.4-2-1.6c.1-.4.1-.8.1-1.2z"/></svg></button></div>
+</nav>
+
+<main>
+  <header class="top">
+    <div class="crumb">我的空间 / 对话 / <b>设计思维 HTML</b></div>
+    <button class="cmdk" id="openK" aria-label="全局搜索与命令"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg><span>搜索或下达指令…</span><kbd>⌘K</kbd></button>
+    <button class="ib" aria-label="分享"><svg viewBox="0 0 24 24"><path d="M12 3v12M7 8l5-5 5 5M5 14v6h14v-6"/></svg></button>
+    <button class="ib" id="theme" aria-label="切换深浅色"><svg viewBox="0 0 24 24"><path d="M21 13A9 9 0 1 1 11 3a7 7 0 0 0 10 10z"/></svg></button>
+    <button class="ib only-narrow" id="insp" aria-label="打开任务面板"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M15 4v16"/></svg></button>
+  </header>
+
+  <div class="scroll"><div class="col">
+    <div class="head">
+      <span class="status"><svg viewBox="0 0 24 24" style="width:12px;height:12px;stroke-width:3"><path d="m5 12 5 5 9-10"/></svg>已完成 · 1 个产出物</span>
+      <h1>生成一个 HTML 文件来表示设计思维的过程</h1>
+      <div class="chips"><span class="chip">设计方法论</span><span class="chip">网页设计</span><span class="chip">教育</span><span class="chip">可视化</span></div>
+    </div>
+
+    <div class="turn-u"><p>生成一个 HTML 文件来表示设计思维的过程</p></div>
+
+    <div class="turn-a">
+      <div class="logo" aria-hidden="true"></div>
+      <div>
+        <div class="run" id="run">
+          <button aria-expanded="false" aria-controls="runbody"><span class="ok"><svg viewBox="0 0 24 24"><path d="m5 12 5 5 9-10"/></svg></span>
+            <b>已完成并验证</b><span class="m">4 分 32 秒 · 23 个动作 · 桌面/移动端已检查</span>
+            <svg class="chev" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></svg></button>
+          <div class="body" id="runbody">
+            <ol class="steps">
+              <li><span>创建 HTML 源文件</span><span>12:49</span></li>
+              <li><span>生成 bundle.html</span><span>12:50</span></li>
+              <li><span>桌面端预览截图</span><span>12:51</span></li>
+              <li><span>移动端预览截图</span><span>12:52</span></li>
+              <li><span>发布 test-record.json</span><span>12:53</span></li>
+            </ol>
+            <div class="layers" aria-label="审计层"><button>工具调用 23</button><button>Skills 8</button><button>Agents 2</button><button>证据 5</button><button>原始日志</button></div>
+          </div>
+        </div>
+
+        <p>我为你做了一个可以直接在浏览器打开的 HTML 页面，用五个阶段可视化设计思维，桌面和手机上都检查过。</p>
+
+        <article class="artifact" aria-label="产出物 design-thinking-process.html">
+          <div class="art-bar">
+            <div class="ftype">HTML</div>
+            <div><h3>design-thinking-process.html</h3><small>13.8 KB · v1 · 12:49 · 我的空间</small></div>
+            <div class="acts">
+              <button class="act pri"><svg viewBox="0 0 24 24"><path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg><span>打开</span></button>
+              <button class="act" aria-label="查看代码"><svg viewBox="0 0 24 24"><path d="m8 7-5 5 5 5M16 7l5 5-5 5"/></svg><span>代码</span></button>
+              <button class="act" aria-label="下载"><svg viewBox="0 0 24 24"><path d="M12 4v11M7 10l5 5 5-5M5 20h14"/></svg><span>下载</span></button>
+              <button class="act" aria-label="更多"><svg viewBox="0 0 24 24"><circle cx="5" cy="12" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/></svg></button>
+            </div>
+          </div>
+          <div class="preview" role="img" aria-label="预览：共情、定义、构思、原型、测试五个阶段">
+            <div class="stage"><i style="background:#F0506E">♥</i><b>共情</b><small>理解用户</small></div>
+            <div class="stage"><i style="background:#8B5CF6">⌕</i><b>定义</b><small>聚焦问题</small></div>
+            <div class="stage"><i style="background:#F2A516">✦</i><b>构思</b><small>发散创意</small></div>
+            <div class="stage"><i style="background:#10A37F">◇</i><b>原型</b><small>快速构建</small></div>
+            <div class="stage"><i style="background:#3B82F6">▷</i><b>测试</b><small>验证迭代</small></div>
+          </div>
+          <div class="art-foot">
+            <span class="v"><b>✓ 已验证</b> 响应式 · 交互 · 可离线打开</span><span class="grow2"></span>
+            <button class="ghost">在 Board 中打开</button><button class="ghost">存为模板</button><button class="ghost">发布</button>
+          </div>
+        </article>
+
+        <div class="feedback">
+          <button class="ib" aria-label="有用"><svg viewBox="0 0 24 24"><path d="M7 10v11H3V10zM7 10l4-7a2 2 0 0 1 3 2l-1 5h6a2 2 0 0 1 2 2.3l-1.4 7A2 2 0 0 1 17.6 21H7"/></svg></button>
+          <button class="ib" aria-label="复制"><svg viewBox="0 0 24 24"><rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 8V5a1 1 0 0 0-1-1H5a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h3"/></svg></button>
+          <button class="ib" aria-label="重新生成"><svg viewBox="0 0 24 24"><path d="M20 11a8 8 0 1 0-2.3 5.7M20 4v7h-7"/></svg></button>
+        </div>
+
+        <section class="next" aria-label="下一步">
+          <h4>用这个产出物继续</h4>
+          <div class="next-grid">
+            <button class="nx"><em style="background:#FDEBD8;color:#B45309">▦</em><div>变成演示文稿<small>/presentation · 约 1 分钟</small></div></button>
+            <button class="nx"><em style="background:var(--ai-tint);color:var(--ai)">◎</em><div>拆成 Board 工作坊<small>带便签与分组</small></div></button>
+            <button class="nx"><em style="background:var(--accent);color:var(--accent-fg)">✎</em><div>做成教学模板<small>存到团队 · 设计组</small></div></button>
+            <button class="nx"><em style="background:var(--muted);color:var(--fg2)">?</em><div>逐个解释五个阶段<small>在当前对话里回答</small></div></button>
+          </div>
+        </section>
+      </div>
+    </div>
+  </div></div>
+
+  <form class="composer" id="composer" onsubmit="return false">
+    <div class="tokens" role="listbox" aria-label="指令">
+      <div aria-selected="true"><code>/</code>Skill / Workflow<small>/presentation</small></div>
+      <div><code>@</code>指派 Agent<small>@Research</small></div>
+      <div><code>#</code>引用项目上下文<small>#Haier</small></div>
+    </div>
+    <label class="sr" for="q">给 AI 的任务</label>
+    <textarea id="q" rows="1" placeholder="描述你想完成的工作…   / 技能　@ Agent　# 项目"></textarea>
+    <div class="crow">
+      <button type="button" class="pill ctx"><svg viewBox="0 0 24 24"><path d="M4 4h16v16H4z"/></svg><span>design-thinking-process.html</span>×</button>
+      <button type="button" class="pill" aria-label="添加"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></button>
+      <button type="button" class="pill"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18"/></svg>联网</button>
+      <span style="flex:1"></span>
+      <button type="button" class="pill">GPT-4o <svg viewBox="0 0 24 24" style="width:12px"><path d="m6 9 6 6 6-6"/></svg></button>
+      <button type="button" class="ib" aria-label="语音"><svg viewBox="0 0 24 24"><rect x="9" y="3" width="6" height="12" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg></button>
+      <button class="send" aria-label="执行"><svg viewBox="0 0 24 24"><path d="M12 19V5M5 12l7-7 7 7"/></svg></button>
+    </div>
+  </form>
+</main>
+
+<aside aria-label="上下文检查器">
+  <div class="tabs" role="tablist">
+    <button class="tab" role="tab" aria-selected="true" data-p="p1">任务</button>
+    <button class="tab" role="tab" aria-selected="false" data-p="p2">文件</button>
+    <button class="tab" role="tab" aria-selected="false" data-p="p3">知识</button>
+    <button class="tab" role="tab" aria-selected="false" data-p="p4">相关</button>
+  </div>
+  <div class="pane on" id="p1" role="tabpanel">
+    <div class="box"><h3>当前任务 <small>5/5 · 已完成</small></h3><div class="prog"><i></i></div>
+      <div class="row"><span class="ck"><svg viewBox="0 0 24 24"><path d="m5 12 5 5 9-10"/></svg></span>创建 HTML 源文件<time>12:49</time></div>
+      <div class="row"><span class="ck"><svg viewBox="0 0 24 24"><path d="m5 12 5 5 9-10"/></svg></span>生成 bundle.html<time>12:50</time></div>
+      <div class="row"><span class="ck"><svg viewBox="0 0 24 24"><path d="m5 12 5 5 9-10"/></svg></span>桌面端预览截图<time>12:51</time></div>
+      <div class="row"><span class="ck"><svg viewBox="0 0 24 24"><path d="m5 12 5 5 9-10"/></svg></span>移动端预览截图<time>12:52</time></div>
+      <div class="row"><span class="ck"><svg viewBox="0 0 24 24"><path d="m5 12 5 5 9-10"/></svg></span>发布 test-record.json<time>12:53</time></div>
+    </div>
+    <div class="box"><h3>产出物 <small>1</small></h3>
+      <div class="file"><div class="ftype">HTML</div><div>design-thinking-process.html<small>v1 · 13.8 KB · 已验证</small></div></div>
+    </div>
+    <div class="box"><h3>谱系</h3>
+      <div class="lineage"><span>意图：可视化设计思维</span><span>引用：设计思维详细指南.pdf</span><span class="cur">产出：design-thinking-process.html v1</span></div>
+    </div>
+  </div>
+  <div class="pane" id="p2" role="tabpanel">
+    <div class="box"><h3>本对话 <small>查看全部</small></h3>
+      <div class="file"><div class="ftype">HTML</div><div>design-thinking-process.html<small>13 KB · 12:49</small></div></div>
+      <div class="file"><div class="ftype" style="background:#FDE2E2;color:#B91C1C">PDF</div><div>设计思维详细指南.pdf<small>2.4 MB · 09/26</small></div></div>
+      <div class="file"><div class="ftype" style="background:#DBEAFE;color:#1D4ED8">DIR</div><div>设计思维案例合集<small>12 个文件 · 09/25</small></div></div>
+    </div>
+  </div>
+  <div class="pane" id="p3" role="tabpanel"><div class="box"><h3>引用的知识</h3><div class="row">IDEO 设计思维框架</div><div class="row">斯坦福 d.school 五阶段</div></div></div>
+  <div class="pane" id="p4" role="tabpanel"><div class="box"><h3>相关内容</h3><div class="row">Board · 设计思维工作坊</div><div class="row">对话 · 设计思维工作坊（09/26）</div><div class="row">模板 · 工作坊引导卡</div></div></div>
+  <div class="quote">更好地思考，更好地创造。<br>— WorkspaceX</div>
+</aside>
+</div>
+
+<div class="palette" id="pal" role="dialog" aria-modal="true" aria-label="全局搜索与命令">
+  <div class="pal">
+    <input id="kq" placeholder="搜索或描述你要做的事…  例：上个月关于海尔法务的讨论">
+    <section><h5>动作</h5>
+      <div class="it" aria-selected="true">新建对话<small>N</small></div><div class="it">启动 Workflow · 深度研究</div><div class="it">把当前产出物变成 PPT</div>
+    </section>
+    <section><h5>跳转</h5>
+      <div class="it">Board · 设计思维工作坊<small>Board</small></div><div class="it">Haier 法务 AI 转型<small>对话</small></div><div class="it">Research Agent<small>Agent</small></div>
+    </section>
+  </div>
+</div>
+
+<script>
+const $=s=>document.querySelector(s);
+const run=$('#run'), rb=run.querySelector('button');
+rb.onclick=()=>{const o=run.toggleAttribute('data-open');rb.setAttribute('aria-expanded',o)};
+document.querySelectorAll('.tab').forEach(t=>t.onclick=()=>{
+  document.querySelectorAll('.tab').forEach(x=>x.setAttribute('aria-selected',x===t));
+  document.querySelectorAll('.pane').forEach(p=>p.classList.toggle('on',p.id===t.dataset.p))});
+const pal=$('#pal');
+const openK=()=>{pal.setAttribute('data-open','');$('#kq').focus()};
+$('#openK').onclick=openK;
+pal.onclick=e=>{if(e.target===pal)pal.removeAttribute('data-open')};
+addEventListener('keydown',e=>{if((e.metaKey||e.ctrlKey)&&e.key==='k'){e.preventDefault();openK()}if(e.key==='Escape'){pal.removeAttribute('data-open');document.body.removeAttribute('data-inspector')}});
+const q=$('#q'),comp=$('#composer');
+q.oninput=()=>comp.toggleAttribute('data-menu',/(^|\s)[\/@#]$/.test(q.value));
+$('#insp').onclick=()=>document.body.toggleAttribute('data-inspector');
+$('#theme').onclick=()=>{const r=document.documentElement;const d=r.dataset.theme==='dark'||(!r.dataset.theme&&matchMedia('(prefers-color-scheme:dark)').matches);r.dataset.theme=d?'light':'dark'};
+const p=new URLSearchParams(location.search);
+if(p.get('run'))run.setAttribute('data-open','');
+if(p.get('k'))openK();
+if(p.get('menu')){q.value='/';comp.setAttribute('data-menu','')}
+if(p.get('insp'))document.body.setAttribute('data-inspector','');
+if(p.get('theme'))document.documentElement.dataset.theme=p.get('theme');
+</script>
+</body>
+</html>
