@@ -100,6 +100,11 @@ export const SaveInterviewMarkdownDraft = z.object({
 
 export const InterviewMarkdownGenerationStep = z.enum(["analysis", "experts", "outline", "report"]);
 export const GenerateInterviewMarkdown = SaveInterviewMarkdownDraft.omit({ markdown: true });
+export const PreviewVirtualExpertMarkdown = z.object({
+  description: z.string().trim().min(20).max(1000),
+  expectedVersion: z.number().int().positive(),
+}).strict();
+export const VirtualExpertMarkdownProposal = z.object({ markdown: z.string().min(20).max(8000) }).strict();
 export const InitializeInterviewMarkdown = GenerateInterviewMarkdown.omit({ expectedDocumentVersion: true });
 export const ConfirmInterviewMarkdown = GenerateInterviewMarkdown.extend({
   expectedDocumentVersion: z.number().int().positive(),
@@ -109,7 +114,7 @@ export type InterviewMarkdownProjection = Readonly<{
   evidenceMode: InterviewMarkdownDocument["evidenceMode"];
   headings: readonly Readonly<{ id: string; depth: number; text: string }>[];
   sections: readonly Readonly<{ headingId: string | null; text: string }>[];
-  entries: readonly Readonly<{ headingId: string | null; text: string }>[];
+  entries: readonly Readonly<{ headingId: string | null; text: string; listDepth: number }>[];
   anchors: readonly Readonly<InterviewMarkdownDocument["references"][number]>[];
   blocks: readonly Readonly<{ headingId: string; depth: number; title: string; start: number; contentStart: number; end: number; links: readonly Readonly<{ text: string; url: string }>[] }>[];
 }>;
@@ -129,7 +134,7 @@ export function parseInterviewMarkdown(input: InterviewMarkdownDocument): Interv
   const tree: MarkdownNode = parser.parse(document.markdown);
   const headings: { id: string; depth: number; text: string }[] = [];
   const sections: { headingId: string | null; text: string }[] = [];
-  const entries: { headingId: string | null; text: string }[] = [];
+  const entries: { headingId: string | null; text: string; listDepth: number }[] = [];
   const blocks: { headingId: string; depth: number; title: string; start: number; contentStart: number; end: number; links: readonly Readonly<{ text: string; url: string }>[] }[] = [];
   let headingId: string | null = null;
   let sectionText: string[] = [];
@@ -138,7 +143,7 @@ export function parseInterviewMarkdown(input: InterviewMarkdownDocument): Interv
     sectionText = [];
   }
   // Nested headings are content of their enclosing block, not document sections.
-  function visit(node: MarkdownNode, topLevel = false): void {
+  function visit(node: MarkdownNode, topLevel = false, listDepth = 0): void {
     if (topLevel && node.type === "heading") {
       finishSection();
       headingId = `section-${headings.length + 1}`;
@@ -153,8 +158,8 @@ export function parseInterviewMarkdown(input: InterviewMarkdownDocument): Interv
       blocks.push({ headingId, depth: node.depth!, title: plainText(node), start, contentStart: node.position?.end.offset ?? start,
         end: document.markdown.length, links: Object.freeze(links.map((link) => Object.freeze(link))) });
     }
-    if (node.type === "listItem") entries.push({ headingId, text: plainText(node) });
-    node.children?.forEach((child) => visit(child));
+    if (node.type === "listItem") entries.push({ headingId, text: plainText(node), listDepth });
+    node.children?.forEach((child) => visit(child, false, node.type === "list" ? listDepth + 1 : listDepth));
   }
   for (const node of tree.children ?? []) {
     visit(node, true);

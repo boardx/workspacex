@@ -154,7 +154,7 @@ describe("F180 signed guided-research visual contract", () => {
     const search = render(<GuidedResearchFlow step="search" sessionId="grs-visual" />);
     await screen.findByTestId("research-flow-search");
     expect(search.container).not.toHaveTextContent("演示检索结果");
-    for (const sourceLink of within(screen.getByTestId("guided-research-source-evidence")).getAllByRole("link", { name: "https://example.org/policy" })) {
+    for (const sourceLink of within(screen.getByTestId("guided-research-source-evidence")).getAllByRole("link")) {
       expect(sourceLink).toHaveAttribute("href", "https://example.org/policy");
     }
     search.unmount();
