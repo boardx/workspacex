@@ -87,7 +87,7 @@ test("第三批真栈走查：问卷答卷入证据 → 来源列表 / 大脑空
   test.setTimeout(240_000);
   const shot = (name: string) => page.screenshot({ path: test.info().outputPath(name), fullPage: true });
 
-  // ① org lead 建工作坊，把自己设为主持人、把 member 设为观察者。
+  // ① org lead 建工作坊（创建即写入 facilitator + is_host，见 pg-project-repository.ts），再把 member 设为观察者。
   await loginAs(page, FULLSTACK_E2E.leadEmail, FULLSTACK_E2E.leadPassword);
   const project = await api<{ id: string }>(page, "/projects", "POST", {
     orgId: FULLSTACK_E2E.orgId,
@@ -97,15 +97,10 @@ test("第三批真栈走查：问卷答卷入证据 → 来源列表 / 大脑空
   });
   expect(project.status, JSON.stringify(project.data)).toBe(201);
   const projectId = project.data.id;
-  for (const [ref, projectRole, isHost] of [
-    [FULLSTACK_E2E.leadUserId, "facilitator", true],
-    [FULLSTACK_E2E.memberUserId, "observer", false],
-  ] as const) {
-    const added = await api(page, `/projects/${projectId}/members`, "POST", {
-      projectId, subject: { kind: "orgUser", ref }, projectRole, isHost,
-    });
-    expect(added.status, `${projectRole}: ${JSON.stringify(added.data)}`).toBeLessThan(300);
-  }
+  const observer = await api(page, `/projects/${projectId}/members`, "POST", {
+    projectId, subject: { kind: "orgUser", ref: FULLSTACK_E2E.memberUserId }, projectRole: "observer", isHost: false,
+  });
+  expect(observer.status, JSON.stringify(observer.data)).toBeLessThan(300);
 
   // ② 空态：还没挂任何资源。
   await page.goto(`/projects/${projectId}?tab=research&sub=sources`);
