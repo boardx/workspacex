@@ -13,10 +13,10 @@
  * 一个 `toolWhitelist` 恒为空、`发布` 都还没提交的 草稿态 agent 不应该出现在那张表里
  * （否则会在未来某条 `listAgents`/能力目录读取路径上让一个不可用的 agent 看起来可用）。
  */
-import { agentRole } from "@repo/contracts";
 import type { DatabasePort } from "../../application/ports/database.port";
 import { toOrgId } from "../../domain/org-id";
 import type { AgentDefinition } from "../../domain/agent/definition";
+import { AGENT_ROLE_COLUMNS, toRoleFields, type AgentRoleColumnsRow } from "./agent-version-insert";
 import type { AgentCapabilityGraphRow, CreateAgentRepository } from "../../application/agent/create-agent";
 import type { SetAgentInstructionsRepository } from "../../application/agent/set-agent-instructions";
 import type {
@@ -32,7 +32,7 @@ import type {
  * `createAgent` 建出来的行有意义，一个 starter-import 行也拿不到 `toolWhitelist`
  * 这些列，若两处各判一次，迟早一处会把 NULL 当成"空白名单"而放行。
  */
-export interface AgentDefinitionRow {
+export interface AgentDefinitionRow extends AgentRoleColumnsRow {
   readonly id: string;
   readonly org_id: string;
   readonly name: string;
@@ -74,7 +74,7 @@ interface CapabilityGraphColumnsRow {
 export const AGENT_DEFINITION_COLUMNS =
   `id, org_id, name, initials, role, role_label, role_label_needs_confirmation, visibility,
    clone_from, source, publish_state, model_id, skill_mounts, tool_whitelist, concurrency_limit,
-   degrade_policy, instructions`;
+   degrade_policy, instructions, ${AGENT_ROLE_COLUMNS}`;
 
 export function toDefinition(row: AgentDefinitionRow): AgentDefinition | null {
   // A row this repository did not create (e.g. an agent-starter-import row, which never
@@ -118,8 +118,8 @@ export function toDefinition(row: AgentDefinitionRow): AgentDefinition | null {
     toolWhitelist: (row.tool_whitelist as AgentDefinition["toolWhitelist"]) ?? [],
     concurrencyLimit: row.concurrency_limit,
     degradePolicy: row.degrade_policy as AgentDefinition["degradePolicy"],
-    // AG01：`agents` 草稿表尚无角色列（冻结值落在 agent_versions）；草稿读回契约默认值。
-    ...agentRole.AGENT_ROLE_FIELD_DEFAULTS,
+    // AG01：草稿角色列（迁移 20260928230000）；发布时由 agent-version-insert.ts 原样拷进版本。
+    ...toRoleFields(row),
   };
 }
 
@@ -263,9 +263,10 @@ export class PgCreateAgentRepository implements CreateAgentRepository, ListAgent
             published_version_id, initials, role, role_label, role_label_needs_confirmation,
             visibility, clone_from, source,
             publish_state, model_id, skill_mounts, tool_whitelist, concurrency_limit,
-            degrade_policy, instructions)
+            degrade_policy, instructions, ${AGENT_ROLE_COLUMNS})
          VALUES ($1,$2,$1,$3,'enabled',$4,$5,$5,NULL,$6,$7,$8,$9,$10,$11,$12,$13,$14,
-                 $15::jsonb,$16::jsonb,$17,$18,$19)`,
+                 $15::jsonb,$16::jsonb,$17,$18,$19,
+                 $20::jsonb,$21,$22,$23::text[],$24::jsonb,$25::jsonb,$26::jsonb)`,
         [
           definition.agentId,
           definition.orgId,
@@ -286,6 +287,13 @@ export class PgCreateAgentRepository implements CreateAgentRepository, ListAgent
           definition.concurrencyLimit,
           definition.degradePolicy,
           definition.instructions,
+          definition.avatar === null ? null : JSON.stringify(definition.avatar),
+          definition.roleCategory,
+          definition.catalogSource,
+          [...definition.workflowAllowlist],
+          JSON.stringify(definition.delegationPolicy),
+          JSON.stringify(definition.escalationPolicy),
+          JSON.stringify(definition.kpi),
         ],
       );
     });

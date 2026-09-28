@@ -54,8 +54,9 @@ describe("Agent starter import authorization structure", () => {
       "skill_versions",
       "agents",
       "capability_listings",
-      "agent_versions",
     ]));
+    // AG01：agent_versions 的 INSERT 收敛到 agent-version-insert.ts（有自己的守卫测试）。
+    expect(repository).toContain("insertAgentVersionFromDraft(s,");
   });
 });
 

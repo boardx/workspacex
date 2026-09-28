@@ -594,6 +594,9 @@ import { PgSetAgentInstructionsRepository } from "./infrastructure/agent/pg-crea
 import { PgCreateAgentRepository } from "./infrastructure/agent/pg-create-agent-repository";
 import { PgSetAgentRoleLabelRepository } from "./infrastructure/agent/pg-set-agent-role-label-repository";
 import { AgentController } from "./interface/controllers/agent.controller";
+import { AgentRoleController } from "./interface/controllers/agent-role.controller";
+import { AGENT_ROLE_DRAFT_REPOSITORY } from "./application/agent/update-agent-role-draft";
+import { PgAgentRoleDraftRepository } from "./infrastructure/agent/pg-agent-role-draft-repository";
 import { AgentPublishController } from "./interface/controllers/agent-publish.controller";
 // #459：声明式契约 skill 的存储与 HTTP 边界（建草稿 / 列表 / 详情 / 停用被拒）。
 // ⚠ 没有「启用」路由——`SKILLS_FORBIDDEN_ROUTES` 逐字禁止它，见 controller 文件头。
@@ -1166,6 +1169,7 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
     AgentTrialRunController,
     SkillTrialRunController,
     AgentController,
+    AgentRoleController,
     AgentPublishController,
     SkillController,
     MessageRatingController,
@@ -1553,6 +1557,11 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
     {
       provide: SET_AGENT_INSTRUCTIONS_REPOSITORY,
       useFactory: (db: DatabasePort) => new PgSetAgentInstructionsRepository(db),
+      inject: [DATABASE_PORT],
+    },
+    {
+      provide: AGENT_ROLE_DRAFT_REPOSITORY,
+      useFactory: (db: DatabasePort) => new PgAgentRoleDraftRepository(db),
       inject: [DATABASE_PORT],
     },
     {
