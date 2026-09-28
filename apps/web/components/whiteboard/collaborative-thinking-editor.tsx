@@ -33,6 +33,7 @@ import type { WhiteboardCommentThread } from "@repo/contracts/whiteboard-collabo
 import { inspectRemoteImageUrl, verifyBoardImageBytes, type BoardContentData, type BoardShapeVariant, type BoardStructuredKind, type VerifiedBoardImage } from "./board-content-adapter";
 import { BoardDurableImageSession, durableBoardImageMetadata } from "./board-session-image-assets";
 import { drawingToolStyle } from "./drawing-tool-style";
+import { drawingPointBounds, geometryForAppendedDrawingStroke, worldStrokeToDrawingSpace } from "./drawing-coordinate-space";
 
 import { BoardMentionPicker } from "./board-mention-picker";
 
@@ -48,7 +49,6 @@ export interface CollaborativeThinkingEditorProps { organizeFitRequest?: BoardOr
 const stickySize = (variant: StickyVariant) => variant === "rectangle" ? { width: 240, height: 150 } : { width: 180, height: 180 };
 const FRAME_SIZE_PRESETS = [{ id: "s", label: "S", width: 640, height: 480 }, { id: "m", label: "M", width: 960, height: 640 }, { id: "l", label: "L", width: 1280, height: 800 }] as const;
 const topLeft = (point: Point, width: number, height: number) => ({ x: point.x - width / 2, y: point.y - height / 2, width, height, rotation: 0 });
-const drawingBounds = (points: ReadonlyArray<Point>) => { const xs = points.map((point) => point.x), ys = points.map((point) => point.y); const x = Math.min(...xs), y = Math.min(...ys); return { x, y, width: Math.max(1, Math.max(...xs) - x), height: Math.max(1, Math.max(...ys) - y), rotation: 0 }; };
 const isEditableTarget = (target: EventTarget | null) => target instanceof HTMLElement && (target.isContentEditable || Boolean(target.closest('[contenteditable="true"], [contenteditable=""], [contenteditable="plaintext-only"]')) || ["INPUT", "TEXTAREA", "SELECT"].includes(target.tagName));
 const record = (value: unknown): Record<string, unknown> => value && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : {};
 const DRAWING_EXTENSION_BUDGET = 14_000;
@@ -205,7 +205,7 @@ export function CollaborativeThinkingEditor({ organizeFitRequest, dockExtension,
     const id = crypto.randomUUID();
     const isShape = content.type === "shape";
     const imageHeight = content.type === "image" ? Math.min(360, Math.max(96, 320 * content.intrinsicHeight / Math.max(1, content.intrinsicWidth))) : 170;
-    const geometry = isShape ? topLeft(point, 220, 150) : content.type === "drawing" ? drawingBounds(content.strokes.flatMap((stroke) => stroke.points)) : topLeft(point, content.type === "image" ? 320 : 280, imageHeight);
+    const geometry = isShape ? topLeft(point, 220, 150) : content.type === "drawing" ? drawingPointBounds(content.strokes.flatMap((stroke) => stroke.points)) : topLeft(point, content.type === "image" ? 320 : 280, imageHeight);
     const contentTitle = content.type === "tile" || content.type === "web-tile" || content.type === "table"
       ? content.title ?? ""
       : content.type === "icon" || content.type === "template"
@@ -447,10 +447,13 @@ export function CollaborativeThinkingEditor({ organizeFitRequest, dockExtension,
     const draft: DrawingStroke = { id: crypto.randomUUID(), tool: drawingTool, points, ...drawingToolStyle(drawingTool), ...(drawingTool === "eraser" && selectedContent?.type === "drawing" ? { erases: selectedContent.strokes.filter((item) => item.tool !== "eraser").map((item) => item.id) } : {}) };
     try {
       const existing = selectedContent?.type === "drawing" ? selectedContent.strokes : [];
-      const stroke = fitDrawingStrokeToExtensionBudget(existing, draft);
+      const intrinsicDraft = selectedObject && selectedContent?.type === "drawing"
+        ? worldStrokeToDrawingSpace(selectedObject.geometry, existing, draft)
+        : draft;
+      const stroke = fitDrawingStrokeToExtensionBudget(existing, intrinsicDraft);
       if (selectedObject && selectedContent?.type === "drawing") {
         const content = { ...selectedContent, strokes: [...selectedContent.strokes, stroke] };
-        const geometry = drawingBounds(content.strokes.flatMap((item) => item.points));
+        const geometry = geometryForAppendedDrawingStroke(selectedObject.geometry, selectedContent.strokes, stroke);
         execute([
           { type: "geometry", id: selectedObject.id, geometry },
           { type: "extension", id: selectedObject.id, key: "contentObject", value: content },

@@ -19,6 +19,7 @@ import { BOARD_FABRIC_VISUAL, boardDotGridStyle } from "./board-fabric-visual";
 import { connectorInteraction } from "./connector-interaction";
 import { representableWorldGeometry } from "./fabric-transform";
 import { drawingToolStyle } from "../drawing-tool-style";
+import { drawingPointBounds } from "../drawing-coordinate-space";
 
 type TaggedFabricObject = FabricObject & {
   data?: { boardObjectId?: string; adapterKind?: BoardFabricObject["kind"]; renderedRevision?: number; projectionFailure?: boolean; stickyVariant?: BoardFabricStickyAppearance["variant"]; sizingMode?: BoardFabricStickyAppearance["sizingMode"]; drawingPreview?: boolean };
@@ -133,12 +134,17 @@ export function createFabricObject(object: BoardFabricObject): TaggedFabricObjec
     projected = new Group([line, ...tips, ...labels], connectorInteraction(object.kind));
   } else if (object.kind === "drawing" && object.boardContent?.type === "drawing") {
     const eraserTargets = new Map(drawingEraserLayers(object.boardContent).map((layer) => [layer.stroke.id, new Set(layer.targetStrokeIds)]));
+    const intrinsic = drawingPointBounds(object.boardContent.strokes.flatMap((stroke) => stroke.points));
     projected = new Group(object.boardContent.strokes.flatMap((stroke) => stroke.points.slice(1).map((point, index) => {
       const previous = stroke.points[index]!;
-      const path = `M ${previous.x - object.geometry.x} ${previous.y - object.geometry.y} L ${point.x - object.geometry.x} ${point.y - object.geometry.y}`;
+      const path = `M ${previous.x - intrinsic.x} ${previous.y - intrinsic.y} L ${point.x - intrinsic.x} ${point.y - intrinsic.y}`;
       const pressure = Math.max(.1, (previous.pressure + point.pressure) / 2);
       return new Path(path, { fill: "", stroke: stroke.color, strokeWidth: stroke.width * (.35 + pressure * .65), opacity: stroke.opacity, strokeLineCap: "round", strokeLineJoin: "round", globalCompositeOperation: stroke.tool === "eraser" && eraserTargets.get(stroke.id)?.size ? "destination-out" : "source-over" });
     })));
+    // Fabric includes stroke thickness in a Group's natural bounds. Pin the
+    // transform frame to vector coordinates so adding a thicker or extending
+    // stroke cannot rescale and shift historical centrelines.
+    projected.set({ width: intrinsic.width, height: intrinsic.height });
   } else if (object.kind === "image" && object.boardContent?.type === "image") {
     if (object.boardContent.status === "ready" && object.imageAssetUrl) {
       const image = new Image();

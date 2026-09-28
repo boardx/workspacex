@@ -2,19 +2,27 @@ import { createHash } from 'node:crypto';
 import { act, cleanup, createEvent, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { createWhiteboardDocument, executeCommands, readObjects } from "@repo/whiteboard-core";
+import type { DrawingStroke } from "@repo/whiteboard-core";
 import type { BoardFabricObject } from "@/components/whiteboard/fabric/board-fabric-object";
 
 vi.mock("@/components/whiteboard/board-comments",()=>({listBoardCommentThreads:async()=>[],dispatchBoardCommentCommand:vi.fn()}));
 vi.mock("@/components/whiteboard/fabric/board-fabric-surface", () => ({
-  BoardFabricSurface: ({ objects, onSelectionChange, onDrawingComplete, onCanvasClick }: {
+  BoardFabricSurface: ({ objects, onSelectionChange, onDrawingComplete, onCanvasClick, onObjectsTransform }: {
     objects: readonly BoardFabricObject[];
     onSelectionChange: (ids: string[], source: "canvas") => void;
     onDrawingComplete?: (input: { tool: "pen" | "marker" | "highlighter" | "eraser"; points: Array<{ x: number; y: number; pressure: number }> }) => void;
     onCanvasClick?: (point: { x: number; y: number }) => void;
+    onObjectsTransform?: (items: Array<{ id: string; geometry: BoardFabricObject["geometry"] }>) => void;
   }) => <div data-testid="board-fabric-surface"><output data-testid="image-preview">{objects.filter(object=>object.kind==="image").map(object=>object.imageAssetUrl).join(",")}</output>
     <button data-testid="select-first" onClick={() => objects[0] && onSelectionChange([objects[0].id], "canvas")}>select</button>
     <button data-testid="draw-stroke" onClick={() => onDrawingComplete?.({ tool: "pen", points: [{ x: 10, y: 20, pressure: .2 }, { x: 50, y: 60, pressure: .9 }] })}>draw</button>
     <button data-testid="draw-outside" onClick={() => onDrawingComplete?.({ tool: "marker", points: [{ x: -40, y: 5, pressure: .4 }, { x: 140, y: 180, pressure: .6 }] })}>draw outside</button>
+    <button data-testid="draw-after-move" onClick={() => onDrawingComplete?.({ tool: "pen", points: [{ x: 120, y: 110, pressure: .4 }, { x: 140, y: 130, pressure: .6 }] })}>draw after move</button>
+    <button data-testid="draw-after-resize" onClick={() => onDrawingComplete?.({ tool: "pen", points: [{ x: 30, y: 25, pressure: .4 }, { x: 70, y: 35, pressure: .6 }] })}>draw after resize</button>
+    <button data-testid="draw-after-rotate" onClick={() => onDrawingComplete?.({ tool: "pen", points: [{ x: 0, y: 30, pressure: .4 }, { x: -20, y: 50, pressure: .6 }] })}>draw after rotate</button>
+    <button data-testid="move-first" onClick={() => objects[0] && onObjectsTransform?.([{ id: objects[0].id, geometry: { ...objects[0].geometry, x: 110, y: 100 } }])}>move</button>
+    <button data-testid="resize-first" onClick={() => objects[0] && onObjectsTransform?.([{ id: objects[0].id, geometry: { ...objects[0].geometry, width: 80, height: 20 } }])}>resize</button>
+    <button data-testid="rotate-first" onClick={() => objects[0] && onObjectsTransform?.([{ id: objects[0].id, geometry: { ...objects[0].geometry, rotation: 90 } }])}>rotate</button>
     <button data-testid="erase-stroke" onClick={() => onDrawingComplete?.({ tool: "eraser", points: [{ x: 20, y: 30, pressure: .5 }, { x: 40, y: 50, pressure: .7 }] })}>erase</button>
     <button data-testid="canvas-click" onClick={() => onCanvasClick?.({ x: 200, y: 220 })}>canvas</button>
   </div>,
@@ -144,6 +152,26 @@ it("expands an existing drawing around an out-of-bounds stroke without rebasing 
       { tool: "marker", points: [{ x: -40, y: 5 }, { x: 140, y: 180 }], ...drawingToolStyle("marker") },
     ],
   });
+  doc.destroy();
+});
+
+it.each([
+  { transform: "move-first", draw: "draw-after-move", geometry: { x: 110, y: 100, width: 40, height: 40, rotation: 0 } },
+  { transform: "resize-first", draw: "draw-after-resize", geometry: { x: 10, y: 20, width: 80, height: 20, rotation: 0 } },
+  { transform: "rotate-first", draw: "draw-after-rotate", geometry: { x: 10, y: 20, width: 40, height: 40, rotation: 90 } },
+])("preserves drawing geometry after $transform and a follow-up stroke", async ({ transform, draw, geometry }) => {
+  const doc = await setup();
+  fireEvent.click(screen.getByTestId("board-add-draw"));
+  fireEvent.click(screen.getByTestId("draw-stroke"));
+  fireEvent.click(screen.getByTestId(transform));
+  fireEvent.click(screen.getByTestId(draw));
+
+  const drawing = readObjects(doc)[0]!;
+  expect(drawing.geometry).toEqual(geometry);
+  expect((drawing.extensionData?.contentObject as { strokes?: DrawingStroke[] }).strokes?.[1]?.points).toEqual([
+    { x: 20, y: 30, pressure: .4 },
+    { x: 40, y: 50, pressure: .6 },
+  ]);
   doc.destroy();
 });
 
