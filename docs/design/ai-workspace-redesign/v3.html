@@ -46,6 +46,7 @@ svg{width:16px;height:16px;flex:none;stroke:currentColor;fill:none;stroke-width:
 nav{display:flex;flex-direction:column;padding:10px 8px;min-height:0}
 .brand{display:flex;align-items:center;gap:10px;padding:4px 8px 14px}
 .logo{width:28px;height:28px;border-radius:8px;background:conic-gradient(from 200deg,#FF4D6D,#4B3BE8,#0B7967,#FF4D6D)}
+.brand{display:none}
 .brand b{font-size:15px;letter-spacing:-.01em;display:block;line-height:1.1}.brand small{color:var(--fg3);font-size:11px}
 .new{display:flex;align-items:center;gap:8px;justify-content:center;background:var(--fg);color:var(--bg);border-radius:var(--r-sm);height:36px;margin:0 4px 12px;font-weight:600}
 .new:hover{opacity:.9}
@@ -56,6 +57,23 @@ nav{display:flex;flex-direction:column;padding:10px 8px;min-height:0}
 .ni .dot{width:6px;height:6px;border-radius:50%;background:var(--fg3)}.ni .dot.run{background:var(--ai)}.ni .dot.ok{background:var(--success)}
 .group{margin-top:14px}.group h2{font-size:11px;font-weight:600;color:var(--fg3);letter-spacing:.04em;margin:0 10px 4px;display:flex;justify-content:space-between}
 .grow{flex:1;overflow:auto;min-height:0}
+/* 组织切换器：左上角 = 你当前所在的组织（沿用 components/shell/org-menu.tsx 的信息架构） */
+.org{position:relative;margin:0 0 12px}
+.org-t{display:flex;align-items:center;gap:10px;width:100%;padding:6px 8px;border-radius:var(--r-sm);text-align:left}
+.org-t:hover,.org[data-open] .org-t{background:var(--hover)}
+.oav{width:30px;height:30px;border-radius:8px;display:grid;place-items:center;font-weight:700;font-size:13px;color:#fff;flex:none}
+.org-t b{display:block;font-size:14px;line-height:1.2}.org-t small{color:var(--fg3);font-size:11px}
+.org-t .chev{margin-left:auto;color:var(--fg3)}
+.org-m{display:none;position:absolute;left:0;top:calc(100% + 4px);width:280px;background:var(--card);border-radius:var(--r);box-shadow:var(--shadow-lg);padding:6px;z-index:8}
+.org[data-open] .org-m{display:block}
+.org-m h5{margin:6px 8px 4px;font-size:11px;color:var(--fg3);font-weight:600}
+.oi{display:flex;align-items:center;gap:10px;width:100%;padding:7px 8px;border-radius:var(--r-sm);text-align:left;font-size:13px}
+.oi:hover{background:var(--muted)}.oi .oav{width:24px;height:24px;font-size:11px;border-radius:6px}
+.oi small{display:block;color:var(--fg3);font-size:11px}
+.oi .ck{margin-left:auto;color:var(--success);visibility:hidden}.oi[aria-checked="true"] .ck{visibility:visible}
+.oi .live{margin-left:auto;font-size:11px;color:var(--ai)}
+.oi[aria-checked="true"] .live{display:none}
+.sep{height:1px;background:var(--line);margin:6px 4px}
 .me{display:flex;align-items:center;gap:10px;padding:8px;border-radius:var(--r-sm)}
 .av{width:30px;height:30px;border-radius:50%;background:var(--accent);color:var(--accent-fg);display:grid;place-items:center;font-weight:700;font-size:13px;flex:none}
 .me small{display:block;color:var(--fg3);font-size:11px}
@@ -199,6 +217,18 @@ aside{display:flex;flex-direction:column;min-height:0;padding:4px 4px 0}
 
 <nav aria-label="主导航">
   <div class="brand"><div class="logo"></div><div><b>WorkspaceX</b><small>Augment Human Creativity</small></div></div>
+  <div class="org" id="org">
+    <button class="org-t" id="orgT" aria-haspopup="menu" aria-expanded="false" aria-label="切换组织">
+      <span class="oav" id="orgAv">B</span><span><b id="orgName">BoardX</b><small id="orgSub">企业版 · 42 位成员</small></span>
+      <svg class="chev" viewBox="0 0 24 24"><path d="m7 10 5 5 5-5"/></svg></button>
+    <div class="org-m" role="menu" aria-label="组织菜单">
+      <h5>切换组织</h5>
+      <div id="orgList"></div>
+      <div class="sep"></div>
+      <button class="oi" role="menuitem"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/></svg>组织管理</button>
+      <button class="oi" role="menuitem"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>创建或加入组织</button>
+    </div>
+  </div>
   <button class="new"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>新建</button>
   <button class="ni" aria-current="page"><svg viewBox="0 0 24 24"><path d="M21 12a8 8 0 0 1-11.6 7.1L4 20l1-4.6A8 8 0 1 1 21 12z"/></svg>对话</button>
   <button class="ni"><svg viewBox="0 0 24 24"><path d="M3 7h6l2 2h10v10H3z"/></svg>项目</button>
@@ -207,17 +237,17 @@ aside{display:flex;flex-direction:column;min-height:0;padding:4px 4px 0}
   <button class="ni"><svg viewBox="0 0 24 24"><path d="M4 4h12a4 4 0 0 1 4 4v12H8a4 4 0 0 1-4-4z"/></svg>知识</button>
   <button class="ni"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg>模板</button>
   <div class="grow">
-    <div class="group"><h2>空间</h2>
+    <div class="group"><h2><span id="spaceTitle">BoardX 的空间</span></h2><div id="spaces">
       <button class="ni"><span class="av" style="width:20px;height:20px;font-size:10px">U</span>我的空间</button>
       <button class="ni"><span class="av" style="width:20px;height:20px;font-size:10px;background:var(--ai-tint);color:var(--ai)">T</span>团队 · 设计组</button>
       <button class="ni"><span class="av" style="width:20px;height:20px;font-size:10px;background:var(--muted);color:var(--fg2)">E</span>企业空间</button>
-    </div>
-    <div class="group"><h2>最近工作 <span>全部</span></h2>
+    </div></div>
+    <div class="group"><h2>最近工作 <span>全部</span></h2><div id="recent">
       <button class="ni" aria-current="true"><span class="dot ok"></span>设计思维 HTML<span class="t">12:49</span></button>
       <button class="ni"><span class="dot run"></span>产品规划讨论<span class="t">进行中</span></button>
       <button class="ni"><span class="dot"></span>AI 商业机会分析<span class="t">09:18</span></button>
       <button class="ni"><span class="dot"></span>设计思维工作坊<span class="t">09/26</span></button>
-      <button class="ni"><span class="dot"></span>Haier 法务 AI 转型<span class="t">09/24</span></button>
+      <button class="ni"><span class="dot"></span>Haier 法务 AI 转型<span class="t">09/24</span></button></div>
     </div>
   </div>
   <div class="me"><span class="av">U</span><div>Usam Shen<small>Pro · 我的空间</small></div>
@@ -226,7 +256,7 @@ aside{display:flex;flex-direction:column;min-height:0;padding:4px 4px 0}
 
 <main>
   <header class="top">
-    <div class="crumb">我的空间 / 对话 / <b>设计思维 HTML</b></div>
+    <div class="crumb"><span id="crumbOrg">BoardX</span> / 我的空间 / 对话 / <b>设计思维 HTML</b></div>
     <button class="cmdk" id="openK" aria-label="全局搜索与命令"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg><span>搜索或下达指令…</span><kbd>⌘K</kbd></button>
     <button class="ib" aria-label="分享"><svg viewBox="0 0 24 24"><path d="M12 3v12M7 8l5-5 5 5M5 14v6h14v-6"/></svg></button>
     <button class="ib" id="theme" aria-label="切换深浅色"><svg viewBox="0 0 24 24"><path d="M21 13A9 9 0 1 1 11 3a7 7 0 0 0 10 10z"/></svg></button>
@@ -367,6 +397,7 @@ aside{display:flex;flex-direction:column;min-height:0;padding:4px 4px 0}
     <section><h5>动作</h5>
       <div class="it" aria-selected="true">新建对话<small>N</small></div><div class="it">启动 Workflow · 深度研究</div><div class="it">把当前产出物变成 PPT</div>
     </section>
+    <section><h5>组织</h5><div class="it">切换到组织 · 海尔法务<small>⌘⇧O</small></div><div class="it">切换到组织 · 个人<small></small></div></section>
     <section><h5>跳转</h5>
       <div class="it">Board · 设计思维工作坊<small>Board</small></div><div class="it">Haier 法务 AI 转型<small>对话</small></div><div class="it">Research Agent<small>Agent</small></div>
     </section>
@@ -389,7 +420,29 @@ const q=$('#q'),comp=$('#composer');
 q.oninput=()=>comp.toggleAttribute('data-menu',/(^|\s)[\/@#]$/.test(q.value));
 $('#insp').onclick=()=>document.body.toggleAttribute('data-inspector');
 $('#theme').onclick=()=>{const r=document.documentElement;const d=r.dataset.theme==='dark'||(!r.dataset.theme&&matchMedia('(prefers-color-scheme:dark)').matches);r.dataset.theme=d?'light':'dark'};
+const ORGS=[
+ {id:'bx',name:'BoardX',sub:'企业版 · 42 位成员',c:'#4B3BE8',spaces:[['U','我的空间'],['T','团队 · 设计组'],['E','企业空间']]},
+ {id:'hr',name:'海尔法务',sub:'企业版 · 18 位成员',c:'#0B7967',live:'1 个进行中',spaces:[['U','我的空间'],['L','团队 · 合同审查'],['E','企业空间']],
+  recent:[['run','合同风险批量审查','进行中'],['ok','法务 AI 转型路线图','09/24'],['','判例检索 Agent 配置','09/20']]},
+ {id:'me',name:'个人',sub:'Pro · 仅自己',c:'#17171A',spaces:[['U','我的空间']],recent:[['','读书笔记整理','09/21'],['','旅行计划','09/12']]}];
+const org=$('#org'),orgT=$('#orgT'),recentHTML=$('#recent').innerHTML;
+const setOrgOpen=o=>{org.toggleAttribute('data-open',o);orgT.setAttribute('aria-expanded',o)};
+function renderOrg(id){
+  const o=ORGS.find(x=>x.id===id);
+  $('#orgAv').textContent=o.name[0];$('#orgAv').style.background=o.c;$('#orgName').textContent=o.name;$('#orgSub').textContent=o.sub;
+  $('#crumbOrg').textContent=o.name;$('#spaceTitle').textContent=o.name+' 的空间';
+  $('#spaces').innerHTML=o.spaces.map(([i,n])=>`<button class="ni"><span class="av" style="width:20px;height:20px;font-size:10px">${i}</span>${n}</button>`).join('');
+  $('#recent').innerHTML=o.recent?o.recent.map(([d,n,t])=>`<button class="ni"><span class="dot ${d}"></span>${n}<span class="t">${t}</span></button>`).join(''):recentHTML;
+  $('#orgList').innerHTML=ORGS.map(x=>`<button class="oi" role="menuitemradio" aria-checked="${x.id===id}" data-org="${x.id}"><span class="oav" style="background:${x.c}">${x.name[0]}</span><span>${x.name}<small>${x.sub}</small></span>${x.live?`<span class="live">● ${x.live}</span>`:''}<svg class="ck" viewBox="0 0 24 24"><path d="m5 12 5 5 9-10"/></svg></button>`).join('');
+  document.querySelectorAll('[data-org]').forEach(b=>b.onclick=()=>{renderOrg(b.dataset.org);setOrgOpen(false)});
+}
+orgT.onclick=e=>{e.stopPropagation();setOrgOpen(!org.hasAttribute('data-open'))};
+document.addEventListener('click',e=>{if(!org.contains(e.target))setOrgOpen(false)});
+addEventListener('keydown',e=>{if(e.key==='Escape')setOrgOpen(false)});
+renderOrg('bx');
 const p=new URLSearchParams(location.search);
+if(p.get('org'))renderOrg(p.get('org'));
+if(p.get('orgmenu'))setOrgOpen(true);
 if(p.get('run'))run.setAttribute('data-open','');
 if(p.get('k'))openK();
 if(p.get('menu')){q.value='/';comp.setAttribute('data-menu','')}

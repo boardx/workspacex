@@ -73,3 +73,19 @@ v3 URL 参数可直接复现各状态：`?run=1`、`?menu=1`、`?k=1`、`?insp=1
 | 跟进建议 / 工具组 | `components/chat/copilotkit-v2-assistant-message.tsx` | 卡片化、边框减弱 |
 
 前后对比：`shots/app-before-run-trace-artifact.png` → `shots/app-after-run-trace-artifact.png`。
+
+## v3 补丁：组织切换（2026-09-28）
+
+v3 初版左上角放的是品牌 logo，与 2026-08-11 信息架构裁决（左上角 = 当前组织，点开切换组织，见
+`apps/web/components/shell/org-menu.tsx`）冲突。已改为：
+
+- 左上角 **组织切换器**：组织头像（圆角方块）+ 组织名 + 成员数 + ▾ → 菜单：切换组织（单选、当前打勾、
+  其他组织显示「● N 个进行中」）/ 组织管理 / 创建或加入组织。
+- 「空间」分组标题改为「<组织> 的空间」，切换组织后空间与最近工作一起切换；面包屑首段显示组织名。
+- ⌘K 增加「切换到组织 · …」。
+- 个人头像仍在左下角（正圆），组织与个人一眼可分。
+
+截图：`shots/v3-orgmenu-1-1440.png`（菜单展开）、`shots/v3-org-hr-1440.png`（切到海尔法务后）。
+参数：`v3.html?orgmenu=1`、`v3.html?org=hr`。
+
+未覆盖：手机宽度（≤860）下左栏隐藏，组织切换入口暂缺，需在移动端导航抽屉里补。
