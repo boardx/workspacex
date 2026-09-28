@@ -531,6 +531,10 @@ export const KgErrorCode = z.enum([
   /** issue #4178 —— `setKnowledgeExtractionSetting` 仅组织 admin，同 `plan-permissions`
    *  `StandingToolGrantError.NOT_ORG_ADMIN` 同一判据（`org_memberships.orgRole !== 'admin'`）。 */
   "KG_NOT_ORG_ADMIN",
+  /** S8（#4365）：要撤销的整合运行不存在 / 不是本人的 / 已经撤销过（同一个出口，不区分——不能借它探测别人的运行）。 */
+  "KG_CONSOLIDATION_RUN_NOT_FOUND",
+  /** S8：部署的记忆整合开关关着（默认关），「现在整合一次」不跑。 */
+  "KG_CONSOLIDATION_DISABLED",
 ]);
 export type KgErrorCode = z.infer<typeof KgErrorCode>;
 
@@ -595,6 +599,99 @@ export const SetPlatformExtractionSettingInput = z.object({
   enabled: z.boolean(),
 }).strict();
 export type SetPlatformExtractionSettingInput = z.infer<typeof SetPlatformExtractionSettingInput>;
+
+/**
+ * S8（#4365，epic #4359）—— 个人空间的记忆整合。一次「运行」= 对一个人个人空间的一次整合，每处改动一条：
+ * - `claim_merge`：两条说的是同一件事，保留 `kept`，`other` 合进来（来源全部保留，`other` 软失效）；
+ * - `entity_merge`：同一实体的两种写法，`other` 合进 `kept`（边改指向、别名并入）；
+ * - `conflict_opened`：两条彼此矛盾，开了一张 F16 冲突卡（`kept` = 旧的，`other` = 新的），**不裁决**，等人在卡上选。
+ * 每处改动都能撤销（`undoConsolidationRun` 按运行整体撤销）；前提变了的那一处记 `undo_skipped` + 原因。
+ */
+export const KgConsolidationChangeKind = z.enum(["claim_merge", "entity_merge", "conflict_opened"]);
+export type KgConsolidationChangeKind = z.infer<typeof KgConsolidationChangeKind>;
+
+export const KgConsolidationChange = z.object({
+  changeId: z.string(),
+  kind: KgConsolidationChangeKind,
+  state: z.enum(["applied", "undone", "undo_skipped"]),
+  /** 结论去重的依据：exact（归一后相同）/ semantic（向量 + 字面）/ lexical（只看字面）；实体为 name；矛盾为 conflict。 */
+  basis: z.string().nullable(),
+  kept: z.object({ id: z.string(), text: z.string().nullable() }).strict(),
+  other: z.object({ id: z.string(), text: z.string().nullable() }).strict(),
+  /** 矛盾卡挂在哪个对话（本人的个人对话）；其余为 null。 */
+  threadId: z.string().nullable(),
+  /** 撤销时这一处没能还原的原因（人话）。 */
+  undoNote: z.string().nullable(),
+}).strict();
+export type KgConsolidationChange = z.infer<typeof KgConsolidationChange>;
+
+export const KgConsolidationRun = z.object({
+  runId: z.string(),
+  createdAt: z.string(),
+  state: z.enum(["applied", "undone", "partially_undone"]),
+  undoneAt: z.string().nullable(),
+  /** 判出矛盾、但新的那条在本人个人对话里找不到来源、没法挂卡的对数（只计数，不裁决）。 */
+  conflictsUnsurfaced: z.number().int().nonnegative(),
+  changes: z.array(KgConsolidationChange),
+}).strict();
+export type KgConsolidationRun = z.infer<typeof KgConsolidationRun>;
+
+/** 本人整合记录一次最多列出的运行数。 */
+export const KG_CONSOLIDATION_RUNS_LIMIT = 20;
+
+/** S8：部署级记忆整合开关（`kg_consolidation_state`，**默认关**，平台运营准入可切换）。 */
+export const KgConsolidationSetting = z.object({ enabled: z.boolean() }).strict();
+export type KgConsolidationSetting = z.infer<typeof KgConsolidationSetting>;
+
+/** 平台「现在整合一次」的结果：处理了几个人、落了几处改动。只有计数，不含任何人的内容。 */
+export const KgConsolidationPassResult = z.object({
+  users: z.number().int().nonnegative(),
+  claimMerges: z.number().int().nonnegative(),
+  entityMerges: z.number().int().nonnegative(),
+  conflicts: z.number().int().nonnegative(),
+  conflictsUnsurfaced: z.number().int().nonnegative(),
+  failedUsers: z.number().int().nonnegative(),
+}).strict();
+export type KgConsolidationPassResult = z.infer<typeof KgConsolidationPassResult>;
+
+/**
+ * S8：记忆抽取 SLO（平台运营准入可读）。延迟 / 失败率 / 门控计数是**本实例**最近一小时（进程内，重启归零）；
+ * 卡住的租约、死信、积压是全库现数。`alerts` 非空 ⇒ 超阈值（管理页出横幅，worker 记 error 日志）。
+ */
+export const KgExtractionSloMetric = z.enum(["p95_latency", "failure_rate", "stuck_leases"]);
+export type KgExtractionSloMetric = z.infer<typeof KgExtractionSloMetric>;
+export const KgExtractionSlo = z.object({
+  windowSeconds: z.number().int().positive(),
+  processed: z.number().int().nonnegative(),
+  modelJobs: z.number().int().nonnegative(),
+  failed: z.number().int().nonnegative(),
+  p95LatencyMs: z.number().nonnegative().nullable(),
+  failureRate: z.number().min(0).max(1).nullable(),
+  stuckLeases: z.number().int().nonnegative(),
+  deadLetters: z.number().int().nonnegative(),
+  backlog: z.number().int().nonnegative(),
+  oldestPendingSeconds: z.number().int().nonnegative(),
+  gate: z.object({
+    skippedByReason: z.object({
+      greeting: z.number().int().nonnegative(),
+      acknowledgement: z.number().int().nonnegative(),
+      pure_question: z.number().int().nonnegative(),
+      model_not_worth: z.number().int().nonnegative(),
+    }).strict(),
+    modelCallsSaved: z.number().int().nonnegative(),
+    modelCalls: z.number().int().nonnegative(),
+    gateModelEnabled: z.boolean(),
+    gateModelChecks: z.number().int().nonnegative(),
+    gateModelErrors: z.number().int().nonnegative(),
+  }).strict(),
+  thresholds: z.object({
+    p95LatencyMs: z.number().positive(),
+    failureRate: z.number().min(0).max(1),
+    stuckLeases: z.number().int().nonnegative(),
+  }).strict(),
+  alerts: z.array(z.object({ metric: KgExtractionSloMetric, value: z.number(), threshold: z.number() }).strict()),
+}).strict();
+export type KgExtractionSlo = z.infer<typeof KgExtractionSlo>;
 
 /* ────────────────────────────────────────────────────────────────────── *
  * 四、API 操作（usecases.md UC-KG-1 … UC-KG-7）
@@ -1005,5 +1102,47 @@ export const knowledgeGraph = {
     in: SetPlatformExtractionSettingInput,
     out: KgDeploymentExtractionSetting,
     err: ["NOT_PLATFORM_SUPERUSER"] as const,
+  },
+
+  /** S8（#4365）：记忆抽取 SLO（p95 延迟、失败率、卡住的租约 + 门控省下的调用）。平台运营准入。 */
+  getPlatformExtractionSlo: {
+    method: "GET", path: "/platform/knowledge-graph/extraction-slo",
+    in: z.object({}).strict(),
+    out: KgExtractionSlo,
+    err: ["NOT_PLATFORM_SUPERUSER"] as const,
+  },
+  /** S8：部署级记忆整合开关（默认关）。平台运营准入读写。 */
+  getPlatformConsolidationSetting: {
+    method: "GET", path: "/platform/knowledge-graph/consolidation-setting",
+    in: z.object({}).strict(),
+    out: KgConsolidationSetting,
+    err: ["NOT_PLATFORM_SUPERUSER"] as const,
+  },
+  setPlatformConsolidationSetting: {
+    method: "PUT", path: "/platform/knowledge-graph/consolidation-setting",
+    in: KgConsolidationSetting,
+    out: KgConsolidationSetting,
+    err: ["NOT_PLATFORM_SUPERUSER"] as const,
+  },
+  /** S8：现在整合一次（与定时任务同一条路径；开关关着 ⇒ `KG_CONSOLIDATION_DISABLED` 409）。只回计数。 */
+  runPlatformConsolidation: {
+    method: "POST", path: "/platform/knowledge-graph/consolidation/run",
+    in: z.object({}).strict(),
+    out: KgConsolidationPassResult,
+    err: ["NOT_PLATFORM_SUPERUSER", "KG_CONSOLIDATION_DISABLED"] as const,
+  },
+  /** S8：本人的整合记录（只有本人；空不是错误）。 */
+  listMyConsolidationRuns: {
+    method: "GET", path: "/knowledge-graph/me/consolidations",
+    in: z.object({}).strict(),
+    out: z.object({ runs: z.array(KgConsolidationRun).max(KG_CONSOLIDATION_RUNS_LIMIT) }).strict(),
+    err: ["KG_NOT_VISIBLE"] as const,
+  },
+  /** S8：撤销一次整合（人的动作；只有本人）。前提变了的那几处记 `undo_skipped`，其余照常还原。 */
+  undoConsolidationRun: {
+    method: "POST", path: "/knowledge-graph/me/consolidations/:runId/undo",
+    in: z.object({ runId: z.string() }).strict(),
+    out: z.object({ run: KgConsolidationRun }).strict(),
+    err: ["KG_NOT_VISIBLE", "KG_CONSOLIDATION_RUN_NOT_FOUND", "KG_ACTOR_NOT_HUMAN"] as const,
   },
 } as const;
