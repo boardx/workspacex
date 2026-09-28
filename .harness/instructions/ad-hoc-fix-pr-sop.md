@@ -41,6 +41,11 @@ Claude Code 的默认行为是"除非用户明确要求，否则不创建 PR"—
    PR 正文写 `Refs #<issue>` 即可**——不必是 `Closes`，不必先有它才能动手改代码，成本
    是几秒钟的一次 API 调用，不是完整 sprint 生命周期。
 
+5. **动手前先给着色执行计划，PR 描述附最终着色图。**
+   直接交办的目标同样要先复述理解并画 Mermaid 计划（贴在第 4 条那个轻量 issue 的评论里），
+   执行中改色、收尾时把最终图放进 PR 描述——规范见
+   `.harness/instructions/execution-plan-visualization.md`，本文不复述。
+
 ## 与已有规则的关系
 
 - 「PR 绿了才算完」的唯一判定仍是 `.harness/scripts/lib/pr-queue.ts` 的

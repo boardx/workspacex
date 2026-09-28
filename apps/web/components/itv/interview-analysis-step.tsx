@@ -26,7 +26,7 @@ export function InterviewAnalysisStep({ document, pending, onGenerate, onConfirm
   const suggestions = sections.filter((section) => /建议|假设|局限|边界/u.test(section.title));
   const cards = sections.filter((section) => !suggestions.includes(section));
   return <section data-testid="itv-analysis-workbench">
-    <header><h2 className="text-2xl font-semibold tracking-tight">AI 分析结果</h2><p className="mt-2 text-sm leading-6 text-muted-foreground">基于已确认需求生成。请审阅研究范围与假设，再继续选择专家。</p></header>
+    <header><h2 className="text-3xl font-semibold tracking-tight lg:text-4xl">AI 分析结果</h2><p className="mt-2 text-base leading-7 text-muted-foreground">基于已确认需求生成。请审阅研究范围与假设，再继续选择专家。</p></header>
     {failure && <p role="alert" className="mt-4 rounded-xl border border-destructive/20 bg-destructive/5 p-4 text-sm text-destructive">{failure}。已保存内容保留，可重试。</p>}
     {!document && <div className="mt-5 rounded-xl border border-dashed border-border p-8 text-center"><p className="text-sm text-muted-foreground">尚未生成分析，不展示预设结论。</p><Button className="mt-4" variant="primary" disabled={pending} onClick={onGenerate}><Sparkles className="size-4" aria-hidden />{pending ? "正在生成…" : "生成研究分析"}</Button></div>}
     {document && <div className="mt-5 grid items-start gap-5 lg:grid-cols-[minmax(0,2fr)_minmax(280px,1fr)]">

@@ -6,7 +6,7 @@ import type { DigitalExpertCatalogRow } from "@/lib/interview-api";
 import type { InterviewMarkdownDocument } from "@/lib/interview-markdown-api";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogTitle, DialogDescription } from "@/components/ui/dialog";
-import { ExpertAvatarEditor } from "./expert-avatar";
+import { ExpertAvatar, ExpertAvatarEditor } from "./expert-avatar";
 import { InterviewReportMarkdown } from "./interview-report-markdown";
 
 function text(value: string) { return value.replace(/[\\[\]()*_`#<>]/gu, "\\$&").replace(/[\r\n]+/gu, " "); }
@@ -43,7 +43,7 @@ export function InterviewExpertsStep({ document, directory, pending, onChange, o
     onChange(raw.slice(0, first.start) + raw.slice(second.start, second.end) + raw.slice(first.end, second.start) + raw.slice(first.start, first.end) + raw.slice(second.end));
   }
   return <div data-testid="itv-markdown-experts">
-    <h2 className="text-2xl font-semibold">选择专家</h2><p className="mt-2 text-sm text-muted-foreground">选择互补专业角色。虚拟画像仅用于模拟研究，不等同真人访谈。</p>
+    <h2 className="text-3xl font-semibold tracking-tight lg:text-4xl">选择专家</h2><p className="mt-2 text-base leading-7 text-muted-foreground">选择互补专业角色。虚拟画像仅用于模拟研究，不等同真人访谈。</p>
     <div className="mt-6 grid items-start gap-5 lg:grid-cols-[minmax(0,2fr)_minmax(300px,1fr)]">
       <section className="rounded-xl border border-border p-5"><h3 className="text-xl font-semibold">专家库</h3>
         <div className="mt-4 flex flex-wrap gap-3"><label className="flex min-w-48 flex-1 items-center gap-2 rounded-lg border border-input px-3"><Search className="size-4" aria-hidden /><input aria-label="搜索专家" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="姓名、角色或专业领域" className="w-full bg-transparent py-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring" /></label><select aria-label="专家领域" value={domain} onChange={(event) => setDomain(event.target.value)} className="rounded-lg border border-input bg-background px-3 text-sm"><option value="">全部领域</option>{Array.from(new Set(directory.flatMap((expert) => expert.domains))).map((value) => <option key={value}>{value}</option>)}</select><Button variant="outline" disabled={pending} onClick={() => { setName(""); setProfile(""); setReviewed(false); setOpen(true); }}>添加虚拟专家</Button></div>
@@ -54,6 +54,24 @@ export function InterviewExpertsStep({ document, directory, pending, onChange, o
     </div>
     <details className="mt-5 rounded-xl border border-border p-4"><summary className="cursor-pointer text-sm font-medium">审阅与编辑专家画像 Markdown</summary><textarea aria-label="专家文档 Markdown" value={document.markdown} disabled={pending} onChange={(event) => onChange(event.target.value)} className="mt-4 min-h-64 w-full rounded-lg border border-input bg-background p-3 text-sm leading-7" /><InterviewReportMarkdown markdown={document.markdown} testId="itv-expert-document-preview" /></details>
     <footer className="mt-6 flex flex-wrap justify-end gap-3"><Button variant="outline" disabled={pending} onClick={onGenerate}>生成专家建议</Button><Button variant="outline" disabled={pending || !document.markdown.trim()} onClick={onSave}>保存专家草稿</Button><Button variant="primary" disabled={pending || !selected.length} onClick={onConfirm}>确认专家并生成问题</Button></footer>
-    <Dialog open={open} onOpenChange={setOpen}><DialogContent className="max-h-[85vh] max-w-3xl overflow-y-auto"><DialogTitle>添加虚拟专家</DialogTitle><DialogDescription>填写并审阅虚拟专业角色，不编造真人任职或研究经历。</DialogDescription><label className="text-sm">专家名称<input aria-label="专家名称" value={name} onChange={(event) => { setName(event.target.value); setReviewed(false); }} className="mt-2 w-full rounded-lg border border-input bg-background p-3" /></label><label className="text-sm">专家画像 Markdown<textarea aria-label="专家画像 Markdown" value={profile} onChange={(event) => { setProfile(event.target.value); setReviewed(false); }} className="mt-2 min-h-40 w-full rounded-lg border border-input bg-background p-3" /></label><InterviewReportMarkdown markdown={profile} testId="itv-virtual-expert-preview" /><label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={reviewed} onChange={(event) => setReviewed(event.target.checked)} />已审阅画像及模拟边界</label><Button variant="primary" disabled={pending || !reviewed || !name.trim() || !profile.trim()} onClick={() => { append(`virtual-${crypto.randomUUID()}`, name, profile); setOpen(false); }}>保存并添加专家</Button></DialogContent></Dialog>
+    <Dialog open={open} onOpenChange={setOpen}><DialogContent className="max-h-[90vh] max-w-5xl overflow-y-auto p-6">
+      <div className="flex items-center gap-4"><ExpertAvatar expertId="virtual-preview" displayName={name || "虚拟专家"} /><div><DialogTitle className="text-2xl">添加虚拟专家</DialogTitle><DialogDescription className="mt-1 text-sm leading-6">用 Markdown 描述专业角色，并在加入访谈前审阅模拟边界；不编造真人任职或研究经历。</DialogDescription></div></div>
+      <div className="mt-5 grid items-start gap-5 lg:grid-cols-[minmax(0,1.6fr)_minmax(280px,1fr)]">
+        <section className="space-y-4 rounded-xl border border-border p-5">
+          <h3 className="text-lg font-semibold">1 · 编辑专家画像</h3>
+          <label className="block text-sm font-medium">专家名称<input aria-label="专家名称" value={name} onChange={(event) => { setName(event.target.value); setReviewed(false); }} placeholder="例如：采购决策流程研究员" className="mt-2 w-full rounded-lg border border-input bg-background p-3 font-normal" /></label>
+          <label className="block text-sm font-medium">专家画像 Markdown<textarea aria-label="专家画像 Markdown" value={profile} onChange={(event) => { setProfile(event.target.value); setReviewed(false); }} placeholder="## 专业领域\n\n## 可以回答的问题\n\n## 材料边界与不确定性" className="mt-2 min-h-64 w-full rounded-lg border border-input bg-background p-3 font-normal leading-7" /></label>
+          <p className="text-xs leading-5 text-muted-foreground">此处仅保存您审阅后的 Markdown；模拟专家意见不计作独立真人证据。</p>
+          <label className="flex items-start gap-2 text-sm"><input type="checkbox" checked={reviewed} onChange={(event) => setReviewed(event.target.checked)} className="mt-1" />已审阅画像及模拟边界</label>
+        </section>
+        <aside data-testid="itv-virtual-expert-preview-card" className="rounded-xl border border-border bg-muted/20 p-5">
+          <h3 className="text-lg font-semibold">2 · 专家预览</h3>
+          <div className="mt-4 flex items-center gap-3 rounded-lg border border-border bg-card p-3"><ExpertAvatar expertId="virtual-preview" displayName={name || "虚拟专家"} /><div className="min-w-0"><strong className="block truncate">{name || "待命名的虚拟专家"}</strong><span className="text-xs text-muted-foreground">虚拟专家 · 仅用于模拟访谈</span></div></div>
+          {profile.trim() ? <InterviewReportMarkdown markdown={profile} testId="itv-virtual-expert-preview" /> : <p className="mt-5 text-sm leading-6 text-muted-foreground">填写左侧 Markdown 后在这里预览，确认专业范围与局限。</p>}
+          <p className="mt-5 border-t border-border pt-4 text-xs leading-5 text-muted-foreground">虚拟专家由当前研究的已知材料约束，不代表真实受访者或新的独立证据。</p>
+        </aside>
+      </div>
+      <div className="mt-4 flex justify-end gap-2"><Button variant="outline" onClick={() => setOpen(false)}>取消</Button><Button variant="primary" disabled={pending || !reviewed || !name.trim() || !profile.trim()} onClick={() => { append(`virtual-${crypto.randomUUID()}`, name, profile); setOpen(false); }}>保存并添加专家</Button></div>
+    </DialogContent></Dialog>
   </div>;
 }

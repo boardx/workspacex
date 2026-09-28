@@ -3,10 +3,10 @@
 import * as React from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ArrowRight, CalendarDays, Users } from "lucide-react";
+import { ArrowRight, CalendarDays, Plus, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ExpertAvatarEditor } from "./expert-avatar";
-import { StudioHistoryHeader, StudioHistoryFilters, StudioHistoryCard, StudioHistoryCreateCard, type HistorySort } from "@/components/studio/studio-history";
+import { StudioHistoryFilters, StudioHistoryCard, StudioHistoryCreateCard, type HistorySort } from "@/components/studio/studio-history";
 import { Badge } from "@/components/ui/badge";
 import { ApiError } from "@/lib/api-client";
 import {
@@ -142,7 +142,17 @@ export function InterviewStudioHome({
     <main className="min-w-0 flex-1 overflow-y-auto bg-background">
       <div data-testid="itv-home-page" className="mx-auto w-full max-w-screen-2xl px-5 py-6 md:px-8 lg:px-10">
         <ProjectBreadcrumb projectId={projectId} sub="itv" className="mb-4" />
-        <StudioHistoryHeader business="访谈" title="用户访谈" description="与专业角色深入对话，获得可追溯的研究洞察。" count={history.kind === "ready" ? history.items.length : undefined} createTestId="itv-create" onCreate={createInterview} />
+        <header className="flex flex-wrap items-end justify-between gap-6 rounded-2xl bg-gradient-to-br from-muted/40 via-background to-background px-1 py-5 md:px-5 md:py-7">
+          <div className="min-w-0">
+            <p className="text-xs font-medium tracking-wide text-muted-foreground">用户研究平台 / 访谈</p>
+            <h1 className="mt-2 text-4xl font-semibold tracking-tight text-foreground lg:text-5xl">用户访谈</h1>
+            <p className="mt-3 max-w-3xl text-base leading-7 text-muted-foreground lg:text-lg">与专业角色深入对话，获得可追溯的研究洞察。</p>
+          </div>
+          <div className="flex items-center gap-4">
+            {history.kind === "ready" && <span className="text-sm text-muted-foreground">共 {history.items.length} 个项目</span>}
+            <Button type="button" variant="primary" size="lg" data-testid="itv-create" onClick={createInterview}><Plus className="size-4" aria-hidden />新建访谈</Button>
+          </div>
+        </header>
 
         <div role="tablist" aria-label="访谈内容" className="mt-6 flex gap-6 border-b border-border">
           <TabButton active={tab === "history"} testId="itv-tab-history" onClick={() => setTab("history")}>
@@ -155,7 +165,7 @@ export function InterviewStudioHome({
 
         {tab === "history" ? (
           <section aria-label="历史访谈" className="pt-6">
-            <StudioHistoryFilters business="访谈" prefix="itv-history" tags={availableTags} selectedTag={selectedTag} onTagChange={setSelectedTag} query={query} onQueryChange={setQuery} sort={sort} onSortChange={setSort} />
+            <StudioHistoryFilters business="访谈" prefix="itv-history" tags={availableTags} selectedTag={selectedTag} onTagChange={setSelectedTag} query={query} onQueryChange={setQuery} sort={sort} onSortChange={setSort} searchFirst />
             {notice && <p role="status" data-testid="itv-history-saved" className="mt-4 text-12 text-success">{notice}</p>}
             <div className="mt-6"><HistoryContent state={history.kind === "ready" ? { kind: "ready", items: visibleHistoryItems } : history} onChanged={refreshHistory} onCreate={createInterview} /></div>
           </section>

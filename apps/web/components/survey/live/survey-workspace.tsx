@@ -30,6 +30,7 @@ import {
 } from "../report/report-export";
 import { SurveyQuestionEditor } from "./question-editor";
 import { MarkdownSurveyEditor } from "./markdown-survey-editor";
+import { SurveyAiProposal } from './ai-proposal';
 import { downloadReportMarkdown, surveyReportMarkdown } from "../report/report-markdown";
 import { CollectionOverview } from "./collection-overview";
 import { SurveyShareCode } from "./share-code";
@@ -246,6 +247,7 @@ export function LiveSurveyWorkspace({
     () => assessPublishReadiness({ questions: draft?.questions ?? [], blockers }),
     [draft?.questions, blockers],
   );
+  const reportIsStale = !!runtime?.report && (dirty || runtime.reportBasisVersion !== runtime.version - 1 || runtime.reportBasisAnswerRevision !== runtime.answerRevision);
   const reportShareBlockedReason = runtime?.report
     ? surveyReportShareBlockedReason(runtime.report)
     : undefined;
@@ -376,6 +378,13 @@ export function LiveSurveyWorkspace({
       {draft && (
         <fieldset disabled={busy} className="min-w-0">
           {step === "design" && (<>
+            <SurveyAiProposal locked={!!runtime?.publication} onApply={text=>{
+              const result=parseSurveyDesignMarkdown(text);if(!result.ok)return;
+              const canonical=result.draft.tags===undefined&&draft.tags?.length
+                ? serializeSurveyDesignMarkdown({...result.draft,tags:draft.tags}) : text;
+              setMarkdown(canonical);setMarkdownNeedsApply(false);setError('');
+              setDraft({...draft,title:result.draft.title,tags:result.draft.tags??draft.tags,questions:result.draft.questions});
+            }}/>
             <MarkdownSurveyEditor value={markdown} locked={!!runtime?.publication} onChange={(text) => { setMarkdown(text); setMarkdownNeedsApply(true); }} onPreview={() => {
                 const result = parseSurveyDesignMarkdown(markdown);
                 if (!result.ok) { setError(result.diagnostics.map((entry) => `第 ${entry.line} 行：${entry.message}`).join("；")); return; }
@@ -558,7 +567,13 @@ export function LiveSurveyWorkspace({
               )}
             </section>
           )}
-          {step === "responses" && (
+          {step === "responses" && (<>
+            <section aria-label="报告准备状态" className="mx-5 mt-5 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border bg-card p-4">
+              <div><h2 className="text-16 font-semibold">分析报告（可选）</h2><p className="mt-1 text-12 text-muted-foreground">{runtime?.report
+                ? reportIsStale ? "模板或答卷已有更新，可重新生成报告" : `已基于 ${runtime.responses.filter(response => response.analysis !== 'excluded').length} 份纳入分析的答卷生成`
+                : "尚未生成；不影响问卷发布和答卷回收"}</p></div>
+              <Button variant="outline" onClick={() => selectStep('report')}>{runtime?.report ? "查看分析报告" : "生成分析报告"}</Button>
+            </section>
             <LiveResponseList
               surveyId={runtime?.id}
               responses={runtime?.responses ?? []}
@@ -603,7 +618,7 @@ export function LiveSurveyWorkspace({
                 })
               }
             />
-          )}
+          </>)}
           {step === "report" && (
             <section className="mx-auto max-w-5xl space-y-5 p-5">
               <div className="flex flex-wrap items-center gap-2">
@@ -677,10 +692,7 @@ export function LiveSurveyWorkspace({
                   </ul>
                 </div>
               ) : null}
-              {runtime?.report &&
-                (dirty ||
-                  runtime.reportBasisVersion !== runtime.version - 1 ||
-                  runtime.reportBasisAnswerRevision !== runtime.answerRevision) && (
+              {reportIsStale && (
                   <p className="text-12 text-muted-foreground">
                     模板或答卷已有更新，当前展示上次生成的报告。重新生成后更新内容。
                   </p>

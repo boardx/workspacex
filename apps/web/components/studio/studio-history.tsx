@@ -21,18 +21,19 @@ export function StudioHistoryHeader({ business, title, description, count, creat
   </header>;
 }
 
-export function StudioHistoryFilters({ business, prefix, tags, selectedTag, onTagChange, query, onQueryChange, sort, onSortChange }: {
+export function StudioHistoryFilters({ business, prefix, tags, selectedTag, onTagChange, query, onQueryChange, sort, onSortChange, searchFirst = false }: {
   business: string; prefix: string; tags: readonly string[]; selectedTag?: string; onTagChange: (tag: string | undefined) => void;
   query: string; onQueryChange: (value: string) => void; sort: HistorySort; onSortChange: (sort: HistorySort) => void;
+  searchFirst?: boolean;
 }) {
-  return <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-    <div className="flex min-w-0 flex-wrap gap-2" aria-label={`按标签筛选${business}`}>
+  return <div className={searchFirst ? "flex flex-col gap-4" : "flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between"}>
+    <div className={`flex min-w-0 flex-wrap gap-2 ${searchFirst ? "order-2" : ""}`} aria-label={`按标签筛选${business}`}>
       <Button size="sm" variant={selectedTag === undefined ? "primary" : "outline"} aria-pressed={selectedTag === undefined} data-testid={`${prefix}-tag-all`} onClick={() => onTagChange(undefined)}>全部标签</Button>
       {tags.map(tag => <Button key={tag} size="sm" className="max-w-full whitespace-normal break-all text-left" variant={selectedTag === tag ? "primary" : "outline"} aria-pressed={selectedTag === tag} data-testid={`${prefix}-tag-${tag}`} onClick={() => onTagChange(tag)}>{tag}</Button>)}
     </div>
-    <div className="flex shrink-0 flex-col gap-2 sm:flex-row">
-      <label className="relative block min-w-0 sm:w-64"><span className="sr-only">搜索{business}</span><Search aria-hidden className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" /><Input data-testid={`${prefix}-search`} maxLength={100} value={query} onChange={event => onQueryChange(event.target.value)} placeholder={`搜索${business}名称或内容`} className="h-9 pl-9" /></label>
-      <Button variant="outline" className="h-9" data-testid={`${prefix}-sort`} onClick={() => onSortChange(sort === "recent" ? "oldest" : "recent")} aria-label={`当前${sort === "recent" ? "最近更新" : "最早更新"}，点击切换排序`}><ArrowDownWideNarrow className="size-4" aria-hidden />{sort === "recent" ? "最近更新" : "最早更新"}</Button>
+    <div className={searchFirst ? "order-1 flex w-full flex-col gap-2 sm:flex-row" : "flex shrink-0 flex-col gap-2 sm:flex-row"}>
+      <label className={searchFirst ? "relative block min-w-0 flex-1" : "relative block min-w-0 sm:w-64"}><span className="sr-only">搜索{business}</span><Search aria-hidden className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" /><Input data-testid={`${prefix}-search`} maxLength={100} value={query} onChange={event => onQueryChange(event.target.value)} placeholder={`搜索${business}名称或内容`} className={searchFirst ? "h-12 pl-10 text-base" : "h-9 pl-9"} /></label>
+      <Button variant="outline" className={searchFirst ? "h-12" : "h-9"} data-testid={`${prefix}-sort`} onClick={() => onSortChange(sort === "recent" ? "oldest" : "recent")} aria-label={`当前${sort === "recent" ? "最近更新" : "最早更新"}，点击切换排序`}><ArrowDownWideNarrow className="size-4" aria-hidden />{sort === "recent" ? "最近更新" : "最早更新"}</Button>
     </div>
   </div>;
 }

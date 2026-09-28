@@ -5,7 +5,7 @@ const question={id:'q1',order:1,chapterId:'general',title:'真实问题',type:'o
 const answer={id:'included-answer',submittedAt:'2026-09-21T00:00:00Z',durationSeconds:20,quality:'normal' as const,analysis:'included' as const,role:'未填写',companySize:'未填写',answers:[{questionId:'q1',value:'真实回答'}]};
 it('separates excluded analysis from normal quality and shows adjacent real details',()=>{
  render(<LiveResponseList responses={[answer,{...answer,id:'excluded-answer',analysis:'excluded',exclusionReason:'测试提交'}]} questions={[question]} busy={false} onReview={vi.fn()} onAnalysis={vi.fn()}/>);
- fireEvent.change(screen.getByLabelText('质量筛选'),{target:{value:'excluded'}});
+ fireEvent.click(screen.getByRole('button',{name:'已排除分析 1'}));
  const list=screen.getByRole('region',{name:'答卷列表'});
  expect(within(list).getAllByRole('button',{name:'查看完整答卷'})).toHaveLength(1);
  expect(list).toHaveTextContent('excluded-ans');
@@ -13,6 +13,17 @@ it('separates excluded analysis from normal quality and shows adjacent real deta
  expect(screen.getByRole('region',{name:'答卷详情'})).toHaveTextContent('真实回答');
  expect(screen.getByRole('region',{name:'答卷详情'})).toHaveTextContent('测试提交');
  expect(screen.getByTestId('survey-response-review-layout')).toHaveClass('xl:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]');
+});
+it('switches between real quality groups and adjacent response details',()=>{
+ render(<LiveResponseList responses={[answer,{...answer,id:'review-answer',quality:'review',analysis:'included'}]} questions={[question]} busy={false} onReview={vi.fn()}/>);
+ expect(screen.getByRole('button',{name:'全部 2'})).toHaveAttribute('aria-pressed','true');
+ fireEvent.click(screen.getAllByRole('button',{name:'查看完整答卷'})[0]!);
+ expect(screen.getByRole('region',{name:'答卷详情'})).toHaveTextContent('included-answer');
+ fireEvent.click(screen.getByRole('button',{name:'下一条答卷'}));
+ expect(screen.getByRole('region',{name:'答卷详情'})).toHaveTextContent('review-answer');
+ fireEvent.click(screen.getByRole('button',{name:'待复核 1'}));
+ expect(screen.getByRole('button',{name:'待复核 1'})).toHaveAttribute('aria-pressed','true');
+ expect(screen.getByRole('button',{name:'上一条答卷'})).toBeDisabled();
 });
 it('exports visible answers as Markdown without synthetic metadata',()=>{
  const click=vi.spyOn(HTMLAnchorElement.prototype,'click').mockImplementation(()=>{});
