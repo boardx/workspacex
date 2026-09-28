@@ -1,0 +1,31 @@
+import { execFileSync } from "node:child_process";
+import { readFileSync, writeFileSync } from "node:fs";
+
+const WEB = "/home/user/workspacex/.claude/worktrees/agent-a1c38f775f37370ff/apps/web";
+const M = [
+  { name: "W1 brain page does not render the consolidation record", file: "components/brain/brain-screen.tsx",
+    from: "<ConsolidationHistory onChanged={refresh} />", to: "{null}", test: "tests/brain/brain-screen.test.tsx" },
+  { name: "W2 ops-status screen without the SLO / consolidation panels", file: "components/admin/ops-status-screen.tsx",
+    from: "        <ExtractionSloPanel />\n        <ConsolidationSettingPanel />\n", to: "", test: "tests/ui/memory-ops-panels.test.tsx" },
+  { name: "W3 SLO banner not rendered", file: "components/admin/memory-ops-panels.tsx",
+    from: "{load.out.alerts.length > 0 ? (", to: "{false ? (", test: "tests/ui/memory-ops-panels.test.tsx" },
+];
+const out = [];
+for (const m of M) {
+  const p = `${WEB}/${m.file}`;
+  const orig = readFileSync(p, "utf8");
+  if (!orig.includes(m.from)) { out.push(`${m.name}: ANCHOR NOT FOUND`); continue; }
+  writeFileSync(p, orig.replace(m.from, m.to));
+  let res;
+  try {
+    const o = execFileSync("pnpm", ["exec", "vitest", "run", m.test], { cwd: WEB, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"], maxBuffer: 64 << 20, timeout: 3_000_000 });
+    res = `PASSED (mutation NOT caught)\n${o.split("\n").filter((l) => /Tests |Test Files/.test(l)).join("\n")}`;
+  } catch (e) {
+    res = `FAILED as expected\n${`${e.stdout ?? ""}`.split("\n").filter((l) => /Tests |Test Files| × /.test(l)).slice(0, 8).join("\n")}`;
+  } finally {
+    writeFileSync(p, orig);
+  }
+  out.push(`### ${m.name}\nfile: apps/web/${m.file}\ntest: apps/web/${m.test}\n${res}\n`);
+  console.log(out.at(-1));
+}
+writeFileSync("/tmp/claude-0/-home-user-workspacex/0c400fb8-dfbe-5051-bf5c-eba2226be75a/scratchpad/mutations-web.txt", out.join("\n"));

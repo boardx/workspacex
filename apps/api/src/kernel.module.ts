@@ -652,6 +652,17 @@ import { KnowledgeShareController } from "./interface/controllers/knowledge-shar
 import { PROJECT_SHARE_PORT } from "./application/knowledge-graph/share-to-project";
 import { PgProjectShare } from "./infrastructure/knowledge-graph/pg-project-share";
 import { PlatformExtractionSettingController } from "./interface/controllers/platform-extraction-setting.controller";
+// S8（#4365）：记忆整合 + 「值得记」门控 + 抽取 SLO。
+import { PlatformMemoryOpsController } from "./interface/controllers/platform-memory-ops.controller";
+import { KnowledgeConsolidationController } from "./interface/controllers/knowledge-consolidation.controller";
+import { ExtractionSloRecorder, KG_EXTRACTION_SLO_RECORDER } from "./application/knowledge-graph/extraction-slo-recorder";
+import {
+  KG_CONSOLIDATION_PORT, KG_EXTRACTION_GATE_MODEL, KG_EXTRACTION_SLO_COUNTS_PORT, KG_EXTRACTION_SLO_THRESHOLDS,
+} from "./application/knowledge-graph/s8-ports";
+import { readExtractionSloThresholds } from "./domain/knowledge-graph/extraction-slo";
+import { PgKgConsolidation, PgKgExtractionSloCounts } from "./infrastructure/knowledge-graph/pg-kg-consolidation";
+import { KgConsolidationWorker } from "./infrastructure/knowledge-graph/kg-consolidation-worker";
+import { ModelWorthinessCheck, readKgExtractionGateModelEnabled } from "./infrastructure/knowledge-graph/model-worthiness-check";
 import { PgKnowledgeRead } from "./infrastructure/knowledge-graph/pg-knowledge-read";
 import { PgKgOrgExtractionSettings } from "./infrastructure/knowledge-graph/pg-kg-org-extraction-settings";
 import { PgKgDeploymentExtractionSettings } from "./infrastructure/knowledge-graph/pg-kg-deployment-extraction-settings";
@@ -1057,6 +1068,8 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
     KnowledgeGraphController,
     KnowledgeShareController,
     PlatformExtractionSettingController,
+    PlatformMemoryOpsController,
+    KnowledgeConsolidationController,
     SurveyController, PublicSurveyController, SurveyAttachmentController,
     HealthController,
     KernelProbeController,
@@ -3181,6 +3194,18 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
       useFactory: (model: ModelCallPort, config: KgExtractionModelConfig, logger: LoggerPort) => new ModelKnowledgeExtractor(model, config, logger),
       inject: [MODEL_CALL_PORT, KG_EXTRACTION_MODEL_CONFIG, LOGGER_PORT],
     },
+    // S8（#4365）：抽取 SLO（进程内窗口 + 全库队列现数 + 阈值）、可选的便宜模型门控（默认关）、记忆整合（默认关）。
+    { provide: KG_EXTRACTION_SLO_RECORDER, useValue: new ExtractionSloRecorder() },
+    { provide: KG_EXTRACTION_SLO_COUNTS_PORT, useFactory: (db: DatabasePort) => new PgKgExtractionSloCounts(db), inject: [DATABASE_PORT] },
+    { provide: KG_EXTRACTION_SLO_THRESHOLDS, useFactory: () => readExtractionSloThresholds() },
+    {
+      provide: KG_EXTRACTION_GATE_MODEL,
+      useFactory: (model: ModelCallPort, config: KgExtractionModelConfig) =>
+        (config.enabled && readKgExtractionGateModelEnabled() ? new ModelWorthinessCheck(model, config) : null),
+      inject: [MODEL_CALL_PORT, KG_EXTRACTION_MODEL_CONFIG],
+    },
+    { provide: KG_CONSOLIDATION_PORT, useFactory: (db: DatabasePort) => new PgKgConsolidation(db), inject: [DATABASE_PORT] },
+    KgConsolidationWorker,
     KgExtractionWorker,
     // F09：知识面板 / 来源抽屉 / 每轮记忆行的读口。传入的仍只是 provider 是否配置（启动参数，
     // 构造时定住）；部署开关的现值 `PgKnowledgeRead` 自己每次调用时现查（见该类头注——

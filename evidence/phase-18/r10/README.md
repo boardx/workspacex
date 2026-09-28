@@ -144,6 +144,15 @@ unless noted.
 - [ ] **#4290 rules** (§「待签核确认（issue #4181…）」 item 5, L195–208). Explicit change only, same author only. Auto
   applies only to the allowlisted `explicit` and aligned `same_kind` tiers, `frame_only` gives a card, and
   retraction, question and verdict give nothing. Only the thread creator can undo in project threads.
+- [ ] **S8 #4365 contract additions (treated as approved, sign off later)**. `chat-knowledge-graph.ts` gains six
+  operations and two error codes: `getPlatformExtractionSlo`, `get/setPlatformConsolidationSetting`,
+  `runPlatformConsolidation` (platform operators), `listMyConsolidationRuns` and `undoConsolidationRun` (owner only), plus
+  `KG_CONSOLIDATION_RUN_NOT_FOUND` / `KG_CONSOLIDATION_DISABLED`. Open decisions for the human: (a) the deployment
+  consolidation switch ships **off** and stays off until a human turns it on; (b) the 「值得记」 gate skips greetings, short
+  acknowledgements and pure questions before the extraction model (goal / preference / decision / memory-instruction
+  messages are never skipped); (c) a consolidation conflict is surfaced as an F16 card on the newer statement's own
+  personal-thread turn, and a pair whose newer side has no such source is only counted (`conflictsUnsurfaced`).
+  Evidence: [`../s8/`](../s8/).
 - [ ] **S7 #4364 signed-contract additions (treated as approved, sign off later)** — `packages/contracts/src/chat-knowledge-graph.ts`:
   `KgTurnMemory.cited` (optional: the server-reconciled citation ids, always a subset of `recalled`),
   `KgTurnMemory.canCorrect` (optional, review F6: viewer is owner AND this turn's requester), `KgCitationCorrectionKind`,

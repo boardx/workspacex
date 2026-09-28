@@ -76,7 +76,9 @@ function stubNetwork(route: (path: string, init?: RequestInit) => Response | Pro
 }
 const paths = () => fetchMock.mock.calls.map(([u]) => new URL(String(u), "http://localhost").pathname);
 const real = (personal: PersonalKnowledge, overview: BrainOverview) => (p: string) =>
-  p === "/knowledge-graph/personal" ? json(personal) : p === "/knowledge-graph/me/overview" ? json(overview) : undefined;
+  p === "/knowledge-graph/personal" ? json(personal) : p === "/knowledge-graph/me/overview" ? json(overview)
+    // S8（#4365）：「整理记录」自己取数；没有记录 ⇒ 整块不出现
+    : p === "/knowledge-graph/me/consolidations" ? json({ runs: [] }) : undefined;
 
 beforeEach(() => {
   window.localStorage.clear();
@@ -91,7 +93,9 @@ describe("大脑页：真实数据", () => {
     stubNetwork(real(PERSONAL, OVERVIEW));
     render(<BrainScreen />);
     await screen.findByTestId("brain-personal");
-    expect(paths().sort()).toEqual(["/knowledge-graph/me/overview", "/knowledge-graph/personal"]);
+    await waitFor(() => expect(paths()).toContain("/knowledge-graph/me/consolidations"));
+    expect(paths().sort()).toEqual(["/knowledge-graph/me/consolidations", "/knowledge-graph/me/overview", "/knowledge-graph/personal"]);
+    expect(screen.queryByTestId("brain-consolidation")).toBeNull();
     expect(screen.getByTestId("brain-tab-personal-count").textContent).toBe("3");
     expect(screen.getByTestId("brain-tab-sessions-count").textContent).toBe("2");
     expect(screen.getAllByTestId("brain-personal-item")).toHaveLength(3);

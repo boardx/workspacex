@@ -2,30 +2,9 @@
 
 本图是开发和验收导航，不修改 feature 状态、签核或授权。功能和依赖以 `feature_list.json` 为单源；十轮退出指标见 [phase.md](../phase.md)。本次经 `loadFeatureListIn` 读取该设计分支，BV01–BV32 尚无 passing 记录，不能以预览测试或 PR 状态抵扣正式完成。
 
-## 1. 当前交付链与下一步
+## 1. 当前状态与排期入口
 
-2026-09-26 GitHub 实时核对：PR4212、4213、4220、4224 均 OPEN；PR4223 已合入 `codex/board-workspace-preview`，不是 main。PR4224 冲突修复为 `e7552403f`，独立复核及 26 项测试通过；新 CI 仍需等待。后续状态以链接对应的实时 PR 为准。
-
-```mermaid
-flowchart TD
-  P["预览壳 PR4220：OPEN"]:::reviewed
-  S["便利贴 PR4223：已进入预览分支"]:::reviewed --> P
-  L["标签与复制 PR4224：冲突已修复<br/>局部验收通过，新 CI 待完成"]:::checking --> P
-  P --> D["UI / 用例 / API 设计确认<br/>保留待签核边界"]:::pending
-  Y["协作 PR4212：OPEN"]:::reviewed --> F["正式 Fabric PR4213：OPEN"]:::reviewed
-  D --> I["接入正式浏览入口与全屏底部工具栏"]:::todo
-  F --> I
-  I --> V["主 session：真实账号、API、PG、Yjs<br/>刷新、双客户端、权限失败路径"]:::todo
-  B["存储设计已复核<br/>内容文件或对象存储；PG 元数据"]:::pending --> V
-  A["标签与复制 API 候选已复核<br/>撤权、幂等、引用重映射、GC pin"]:::pending --> I
-  V --> Q["全量十轮退出门与九分总验收"]:::todo
-  classDef reviewed fill:#dbeafe,stroke:#2563eb,color:#1e3a8a
-  classDef checking fill:#fef3c7,stroke:#d97706,color:#78350f
-  classDef pending fill:#ffedd5,stroke:#ea580c,color:#7c2d12
-  classDef todo fill:#f1f5f9,stroke:#94a3b8,color:#334155
-```
-
-蓝色＝已有实现或局部证据；黄色＝检查待完成；橙色＝设计材料及签核边界；灰色＝正式实现或验收待完成。绿色只留给完整验收通过且符合仓库完成定义的能力，本图没有绿色节点。
+本文保留 BV01–BV32 的原始依赖图，供实现与依赖核对。当前 CI/PR 快照、颜色定义、每轮 ETA 与并行安排统一维护在 [融合需求执行计划 §2](./2026-09-26-unified-board-plan.md#2-现状与颜色)，避免两份 Mermaid 中的状态和时间估算漂移。本文件下方依赖图不是完成状态图，也不改变 feature 状态。
 
 ## 2. 十轮全量范围与真实依赖
 
