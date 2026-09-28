@@ -6,6 +6,7 @@ import { InterviewOutlineStep } from "@/components/itv/interview-outline-step";
 import { InterviewMarkdownEditingStep } from "@/components/itv/interview-markdown-editing-step";
 import { EXPERT_SPECIALTY_ICON_CATEGORIES } from "@/components/itv/expert-specialty-icon";
 import { INTERVIEW_PERSONA_CATEGORIES, INTERVIEW_PERSONAS } from "@/lib/interview-personas/persona-library";
+import { MOCK_DIGITAL_EXPERTS, toDigitalExpertCatalogRow } from "@/lib/mock/digital-expert-personas";
 afterEach(() => { cleanup(); vi.unstubAllGlobals(); vi.unstubAllEnvs(); });
 const source = { documentId: "edit-doc", step: "experts" as const, version: 1, contentHash: "a".repeat(64), evidenceMode: "simulated" as const, references: [], markdown: "# 专家\n" };
 it("keeps each maintained category paired with a specialty icon without inventing missing records", () => {
@@ -77,6 +78,14 @@ it("expert search filters the maintained simulation library without impersonatin
   fireEvent.change(screen.getByRole("textbox", { name: "搜索专家" }), { target: { value: "不存在的夜班专家" } });
   expect(screen.getByText("没有匹配的专家")).toBeVisible();
   expect(screen.queryByRole("button", { name: /添加画像 / })).not.toBeInTheDocument();
+});
+it("does not claim there are no expert matches when an organization expert matches the search", () => {
+  const published = { ...toDigitalExpertCatalogRow(MOCK_DIGITAL_EXPERTS[0]!), expertId: "organization-only", displayName: "唯一组织专家" };
+  render(<InterviewExpertsStep document={source} directory={[published]} pending={false} onChange={vi.fn()} onSave={vi.fn()} onConfirm={vi.fn()} onGenerate={vi.fn()} />);
+  fireEvent.change(screen.getByRole("textbox", { name: "搜索专家" }), { target: { value: "唯一组织专家" } });
+  expect(screen.getByRole("button", { name: "添加专家 唯一组织专家" })).toBeVisible();
+  expect(screen.getByText("没有匹配的模拟画像")).toBeVisible();
+  expect(screen.queryByText("没有匹配的专家")).not.toBeInTheDocument();
 });
 it("distinguishes an empty published expert catalog from a search with no matches", () => {
   render(<InterviewExpertsStep document={source} directory={[]} pending={false} onChange={vi.fn()} onSave={vi.fn()} onConfirm={vi.fn()} onGenerate={vi.fn()} />);

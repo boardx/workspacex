@@ -96,6 +96,65 @@ test("expert avatar changes persist, reset and fit desktop/tablet/mobile", async
   await expect(expertCard.getByRole("img")).not.toHaveAttribute("data-avatar-key", "robot");
 });
 
+test("a maintained persona survives Markdown save, reload and explicit confirmation", async ({ page }) => {
+  let current = source;
+  let savedMarkdown = "";
+  let confirmed = false;
+  await page.addInitScript(() => {
+    localStorage.setItem("wsx.sessionToken", "e2e-token");
+    localStorage.setItem("wsx.session", JSON.stringify({ version: 1, userId: "user-e2e", orgs: ["org-e2e"],
+      currentOrgId: "org-e2e", expiresAt: "2099-01-01T00:00:00.000Z" }));
+  });
+  await page.route("**/identity/me**", (route) => route.fulfill({ status: 200, contentType: "application/json",
+    body: JSON.stringify({ org: { id: "org-e2e", name: "E2E", kind: "organization", team: null, modelPolicy: "any" },
+      orgRole: "lead", teamId: null, projectRole: null, groupId: null, displayName: "E2E User", avatarUrl: null }) }));
+  await page.route("**/interviews/digital/itv-quality-e2e", (route) => route.fulfill({ status: 200,
+    contentType: "application/json", body: JSON.stringify({ ...view, status: "experts_pending", currentStep: "experts" }) }));
+  await page.route("**/interviews/digital/experts", (route) => route.fulfill({ status: 200,
+    contentType: "application/json", body: JSON.stringify({ items: [] }) }));
+  await page.route("**/interviews/digital/itv-quality-e2e/markdown", (route) => route.fulfill({ status: 200,
+    contentType: "application/json", body: JSON.stringify(current) }));
+  await page.route("**/interviews/digital/itv-quality-e2e/markdown/experts", (route) => {
+    expect(route.request().method()).toBe("POST");
+    const input = route.request().postDataJSON() as { markdown: string; expectedVersion: number; expectedDocumentVersion: number };
+    expect([input.expectedVersion, input.expectedDocumentVersion]).toEqual([4, 1]);
+    savedMarkdown = input.markdown;
+    expect(savedMarkdown).toContain("## [张浩宇](#expert-persona-68ecb1289191bb24396f9bd4)");
+    expect(savedMarkdown).toContain("模拟画像；不是组织已发布专家或真人访谈证据");
+    current = interviewMarkdown.InterviewMarkdownEnvelope.parse({ ...current, version: 5,
+      documents: current.documents.map((doc) => doc.step === "experts" ? { ...doc, version: 2, markdown: savedMarkdown,
+        contentHash: createHash("sha256").update(savedMarkdown).digest("hex") } : doc) });
+    return route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(current) });
+  });
+  await page.route("**/interviews/digital/itv-quality-e2e/markdown/experts/confirm", (route) => {
+    expect(route.request().postDataJSON()).toEqual({ expectedVersion: 5, expectedDocumentVersion: 2 });
+    confirmed = true;
+    current = interviewMarkdown.InterviewMarkdownEnvelope.parse({ ...current, version: 6,
+      states: current.states.map((state) => state.documentId === "document-e2e-experts" ? { ...state, status: "confirmed" } : state) });
+    return route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(current) });
+  });
+  await page.route("**/interviews/digital/itv-quality-e2e/markdown/outline/generate", (route) => {
+    expect(route.request().postDataJSON()).toEqual({ expectedVersion: 6, expectedDocumentVersion: 0 });
+    const markdown = "# 访谈问题\n\n## [张浩宇](#expert-persona-68ecb1289191bb24396f9bd4)\n\n1. 最重要的问题是什么？";
+    current = interviewMarkdown.InterviewMarkdownEnvelope.parse({ ...current, version: 7,
+      documents: [...current.documents, { documentId: "document-e2e-outline", step: "outline", version: 1, markdown,
+        contentHash: createHash("sha256").update(markdown).digest("hex"), evidenceMode: "simulated", references: [] }],
+      states: [...current.states, { documentId: "document-e2e-outline", status: "draft", failure: null }] });
+    return route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(current) });
+  });
+
+  await page.goto("/itv/itv-quality-e2e/experts");
+  await page.getByRole("button", { name: "添加画像 张浩宇" }).click();
+  await expect(page.getByRole("button", { name: "移除专家 张浩宇" })).toBeVisible();
+  await page.getByRole("button", { name: "保存专家草稿" }).click();
+  await expect.poll(() => savedMarkdown).toContain("#expert-persona-68ecb1289191bb24396f9bd4");
+  await page.reload();
+  await expect(page.getByRole("button", { name: "移除专家 张浩宇" })).toBeVisible();
+  await page.getByRole("button", { name: "确认专家并生成问题" }).click();
+  await expect.poll(() => confirmed).toBe(true);
+  await expect(page).toHaveURL(/\/itv\/itv-quality-e2e\/outline$/u);
+});
+
 test("research brief is keyboard reachable and responsive in a real browser", async ({ page }) => {
   await page.addInitScript(() => {
     localStorage.setItem("wsx.sessionToken", "e2e-token");
