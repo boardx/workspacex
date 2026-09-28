@@ -16,15 +16,12 @@ import { GuidedResearchReportWorkspace } from "./guided-research-report-workspac
 import { GuidedResearchSixStepShell } from "./guided-research-six-step-shell";
 import { GuidedResearchSourceWorkspace } from "./guided-research-source-workspace";
 import { GuidedResearchTopicPanel } from "./guided-research-topic-panel";
-import { GuidedResearchTrustConsole } from "./guided-research-trust-console";
-import { ResearchChapterTasks } from "./guided-research-runtime-progress";
 import { prototypeRuntime } from "./research-prototype-fixture";
 import { researchReportDocument } from "@/lib/research-report-document";
 import type { GuidedResearchVisualStage } from "@/lib/guided-research-six-step";
 const stages = ["import", "topic", "plan", "research", "chapters", "report"] as const;
 const noop = () => undefined;
 const route = (stage: string) => `/research?preview=prototype-fidelity&stage=${stage}`;
-const List = ({ items }: { items: string[] }) => <ul className="list-inside list-disc space-y-1 text-lg leading-relaxed text-muted-foreground">{items.map((item) => <li key={item}>{item}</li>)}</ul>;
 /** Development-only visual samples. No backend/model verification is implied. */
 export function GuidedResearchPrototypePreview({ stage }: { stage?: string }) {
   const current = stages.includes(stage as GuidedResearchVisualStage) ? stage as GuidedResearchVisualStage : null;
@@ -40,7 +37,7 @@ export function GuidedResearchPrototypePreview({ stage }: { stage?: string }) {
     const planDocument = serializeGuidedResearchMarkdown({ node: "outline", outline: runtime.outline });
     main = <GuidedResearchPlanPanel plan={<><div className="rounded-lg border bg-muted/20 p-3 text-sm"><p className="text-muted-foreground">研究主题（示例）</p><h3 className="font-bold">{runtime.brief.topic}</h3><p className="text-muted-foreground">{runtime.brief.goal}</p></div><GuidedResearchMarkdownWorkspace initiallyEditing document={planDocument} onSave={async (markdown) => { const parsed = parseGuidedResearchMarkdown({ document: planDocument, markdown }); if (!parsed.ok) return { ok: false, message: parsed.errors.map((error) => error.message).join("；") }; if (parsed.draft.node === "outline") setRuntime({ ...runtime, outline: parsed.draft.value }); return { ok: true }; }} /></>} disabled={false} onBack={() => window.location.assign(route("topic"))} onConfirm={() => window.location.assign(route("research"))} />;
   }
-  else if (current === "research") main = <GuidedResearchSourceWorkspace progress={<ResearchChapterTasks state={runtime} />} activity={<GuidedResearchTrustConsole compact runtime={runtime} pending={false} onSteer={noop} onResolveConflict={noop} />} evidence={<List items={runtime.sources.map((source) => source.title)} />} sourcePreview={<List items={runtime.sources.map((source) => source.title)} />} insights={<List items={["市场增长与政策环境需要交叉验证", "进入路径取决于本地合作与准入约束", "不同国家的投资与并网条件存在差异"]} />} risk={<List items={["统计口径可能存在差异", "部分公开资料的覆盖范围有限", "结论的时效性需要进一步验证"]} />} actions={<><Button className="h-12 px-6 text-lg">继续搜索</Button><Button variant="outline" className="h-12 px-6 text-lg">重试失败任务</Button></>} />;
+  else if (current === "research") main = <GuidedResearchSourceWorkspace state={runtime} actions={<><Button className="h-10 px-5 text-sm">继续搜索</Button><Button variant="outline" className="h-10 px-5 text-sm">重试失败任务</Button></>} />;
   else if (current === "chapters") main = <ResearchChaptersWorkspace runtime={runtime} disabled={false} onSave={(outline) => setRuntime({ ...runtime, outline })} onOptimize={noop} onBack={() => window.location.assign(route("research"))} onNext={() => window.location.assign(route("report"))} />;
   else main = <GuidedResearchReportWorkspace actions={null} metrics={null} limitation={null} contents={<ol className="space-y-4">{["执行摘要", ...document.sections.map((item) => item.title), "参考文献"].map((title, index) => <li key={title}><a className="block rounded px-3 py-2 transition-colors hover:bg-muted" href={index === 0 ? "#research-report-summary" : index === document.sections.length + 1 ? "#research-report-references" : `#research-report-section-${index - 1}`}>{index + 1}. {title}</a></li>)}</ol>} document={<ResearchPrototypeReport document={document} sources={runtime.sources.length} disabled={false} onRegenerate={noop} />} />;
   return <div data-testid="guided-research-prototype-preview"><div data-testid={`guided-research-prototype-${current}`}><GuidedResearchSixStepShell current={current} available={[...stages]} onBack={() => window.location.assign(route("home"))} onNavigate={(next) => window.location.assign(route(next))} main={<>{main}{note}</>} /></div></div>;

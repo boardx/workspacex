@@ -100,19 +100,19 @@ describe("guided research session routing and lifecycle", () => {
     const navigate = vi.fn();
     render(<GuidedResearchFlow step="brief" sessionId="grs-live" onStepChange={navigate} />);
     await screen.findByDisplayValue("储能研究");
-    expect(screen.getByText(/后续研究结果失效/)).toBeInTheDocument();
+    expect(screen.queryByText(/后续研究结果失效/)).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: /确认研究主题/ }));
     expect(screen.getByDisplayValue("政策方向")).toBeInTheDocument();
     expect(window.location.pathname).toBe("/research/grs-live/topic");
     expect(navigate).not.toHaveBeenCalled();
   });
-  it("saves human edits with the correct version and retracts downstream progress", async () => {
+  it("confirms human edits with the correct version and retracts downstream progress", async () => {
     vi.mocked(getResearchRuntime).mockResolvedValue(runtimeFixture("report"));
     vi.mocked(executeResearchRuntime).mockResolvedValue({ ...runtimeFixture("brief"), version: 5, revision: 2 });
     render(<GuidedResearchFlow step="brief" sessionId="grs-live" />);
-    fireEvent.change(await screen.findByDisplayValue("储能研究"), { target: { value: "新的政策研究" } });
-    fireEvent.click(screen.getByRole("button", { name: "保存草稿" }));
-    await waitFor(() => expect(executeResearchRuntime).toHaveBeenCalledWith(expect.objectContaining({ sessionId: "grs-live", node: "brief", action: "save", expectedVersion: 4, draft: { node: "brief", value: expect.objectContaining({ topic: "新的政策研究" }) } })));
+    fireEvent.change(await screen.findByRole("textbox", { name: "研究需求" }), { target: { value: "新的政策研究" } });
+    fireEvent.click(screen.getByRole("button", { name: "确认并继续" }));
+    await waitFor(() => expect(executeResearchRuntime).toHaveBeenCalledWith(expect.objectContaining({ sessionId: "grs-live", node: "brief", action: "confirm", expectedVersion: 4, draft: { node: "brief", value: expect.objectContaining({ goal: "新的政策研究" }) } })));
     await waitFor(() => expect(screen.getByTestId("research-step-report")).toHaveAttribute("aria-disabled", "true"));
   });
   it.each(["directions", "outline"] as const)("keeps generated %s editable before confirmation", async (node) => {
@@ -145,7 +145,8 @@ describe("guided research session routing and lifecycle", () => {
     render(<GuidedResearchFlow step="search" sessionId="grs-live" />);
     fireEvent.click(await screen.findByRole("button", { name: "重试失败任务" }));
     await waitFor(() => expect(executeResearchRuntime).toHaveBeenCalledWith(expect.objectContaining({ action: "retry", node: "research", expectedVersion: 4 })));
-    expect(await screen.findByText("已完成 · 尝试 1 次")).toBeInTheDocument();
+    expect(await screen.findByRole("link", { name: "https://example.org/policy" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "重试失败任务" })).not.toBeInTheDocument();
   });
   it("renders report content and links from persisted sources, then explicitly completes", async () => {
     const state = runtimeFixture("report");

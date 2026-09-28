@@ -17,9 +17,7 @@ import { GuidedResearchQualityDraft } from "./guided-research-quality-draft";
 import { GuidedResearchReportPreview } from "./guided-research-report-preview";
 import { researchReportPreview } from "@/lib/research-report-preview";
 import { ResearchDirectionsEditor, ResearchDesignPreview } from "./guided-research-design-editor";
-import { GuidedResearchRuntimeProgress, GuidedResearchPlanDetails, ResearchChapterTasks } from "./guided-research-runtime-progress";
-import { GuidedResearchSources } from "./guided-research-sources";
-import { GuidedResearchTrustConsole } from "./guided-research-trust-console";
+import { GuidedResearchRuntimeProgress } from "./guided-research-runtime-progress";
 import { GuidedResearchReadiness, researchCompletionLabel, researchLimitations } from "./guided-research-readiness";
 import { GuidedResearchStepLayout } from "./guided-research-step-layout";
 import { GuidedResearchMarkdownWorkspace } from "./guided-research-markdown-workspace";
@@ -35,9 +33,6 @@ import { GuidedResearchReportWorkspace } from "./guided-research-report-workspac
 import { parseGuidedResearchMarkdown, serializeGuidedResearchMarkdown } from "@/lib/guided-research-markdown";
 import { toGuidedResearchVisualStage, type GuidedResearchVisualStage } from "@/lib/guided-research-six-step";
 import { getResearchRuntime, getResearchRuntimeProgress, mergeResearchProgress, executeResearchRuntime, type GuidedResearchRuntime as Runtime, type GuidedResearchRuntimeCommand as Command, type GuidedResearchRuntimeDraft as Draft } from "@/lib/guided-research-api";
-function trustCommandId(prefix: string): string {
-  return `${prefix}-${crypto.randomUUID()}`;
-}
 function newestSnapshot(incoming: Runtime, current: Runtime | null): Runtime {
   if (current?.sessionId === incoming.sessionId && current.version === incoming.version && current.reportStream && incoming.busy && (!incoming.reportStream || (current.reportStream.requestId === incoming.reportStream.requestId && current.reportStream.sequence > incoming.reportStream.sequence))) return current;
   return current && current.sessionId === incoming.sessionId && (current.version > incoming.version || (current.version === incoming.version && !current.busy && incoming.busy)) ? current : incoming;
@@ -107,7 +102,6 @@ export function GuidedResearchLive({ sessionId, onBack, initialNode, visualStage
   const [markdownDirty, setMarkdownDirty] = React.useState(false);
   const [loadingNode, setLoadingNode] = React.useState<Command["node"] | null>(null);
   const [pending, setPending] = React.useState(false);
-  const [steeringPending, setSteeringPending] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
   const [loadAttempt, setLoadAttempt] = React.useState(0);
   const [recovery, setRecovery] = React.useState<Recovery | null>(null);
@@ -200,35 +194,6 @@ export function GuidedResearchLive({ sessionId, onBack, initialNode, visualStage
   }, [pending, state?.busy, state?.version, expired, sessionId]);
   const processing = pending || Boolean(state?.busy && !expired);
   const busy = processing || Boolean(recovery);
-  async function steer(action: "pause" | "resume") {
-    if (!state || steeringPending) return;
-    setSteeringPending(true); setError(null);
-    try {
-      const next = await executeResearchRuntime({
-        sessionId, node: state.currentNode, action, requestId: crypto.randomUUID(), expectedVersion: state.version,
-        expectedRevision: state.planRevision ?? 0, idempotencyKey: trustCommandId(action),
-      });
-      snapshotRef.current = next; setState(next);
-    } catch (cause) {
-      setError(requestError(cause));
-    } finally {
-      setSteeringPending(false);
-    }
-  }
-  async function resolveConflict(decision: { conflictId: string; action: "retain_uncertainty" | "prefer_source"; sourceId?: string; rationale: string }) {
-    if (!state || steeringPending) return;
-    setSteeringPending(true); setError(null);
-    try {
-      const next = await executeResearchRuntime({
-        sessionId, node: "research", action: "resolve_conflict", requestId: crypto.randomUUID(), expectedVersion: state.version,
-        expectedRevision: state.planRevision ?? 0, idempotencyKey: trustCommandId("resolve-conflict"), conflictId: decision.conflictId,
-        conflictResolutionAction: decision.action, sourceId: decision.sourceId,
-        conflictResolution: decision.rationale,
-      });
-      snapshotRef.current = next; setState(next);
-    } catch (cause) { setError(requestError(cause)); }
-    finally { setSteeringPending(false); }
-  }
   async function run(action: Command["action"], extra: Partial<Command> = {}) {
     if (!state || busy) return;
     const generation = sessionGeneration.current;
@@ -326,7 +291,6 @@ export function GuidedResearchLive({ sessionId, onBack, initialNode, visualStage
   const latestRecoveryDraft = recovery?.synchronized ? draftOf(state, recovery.node) : null;
   const proposal = !state.busy && !state.errorCode && state.proposal?.version === state.version && state.proposal.draft.node === node ? state.proposal : null;
   const proposalEdited = Boolean(proposal && JSON.stringify(draft) !== JSON.stringify(proposal.draft));
-  const displaySources = proposal && draft?.node === "research" ? state.sources.map((source) => ({ ...source, decision: draft.value.find((item) => item.id === source.id)?.decision ?? source.decision })) : state.sources;
   const displayReport = draft?.node === "report" ? draft.value : state.report;
   const researchPending = state.tasks.some((task) => task.status === "pending" || task.status === "running");
   const researchFailed = state.tasks.some((task) => task.status === "failed");
@@ -353,7 +317,6 @@ export function GuidedResearchLive({ sessionId, onBack, initialNode, visualStage
   const briefDocument = draft?.node === "brief" ? serializeGuidedResearchMarkdown({ node: "brief", brief: draft.value }) : null;
   const directionsDocument = draft?.node === "directions" ? serializeGuidedResearchMarkdown({ node: "directions", directions: draft.value }) : null;
   const outlineDocument = draft?.node === "outline" ? serializeGuidedResearchMarkdown({ node: "outline", outline: draft.value }) : null;
-  const researchDocument = node === "research" ? serializeGuidedResearchMarkdown({ node: "research", brief: state.brief, tasks: state.tasks, sources: displaySources, evidence: state.questionEvidence ?? [] }) : null;
   const reportMarkdownDocument = displayReport ? serializeGuidedResearchMarkdown({ node: "report", report: displayReport }) : null;
   const visualStage = toGuidedResearchVisualStage({ currentNode: loadingNode ?? node, availableNodes: state.availableNodes });
   const navigateVisual = (stage: GuidedResearchVisualStage) => {
@@ -397,13 +360,7 @@ return <GuidedResearchSixStepShell hasUnsavedChanges={Boolean(message.trim()) ||
         {reportVisible && !state.report && !state.reportDraft && (state.reportStream || (!state.report && state.reportCheckpoint)) && <GuidedResearchReportPreview state={state} interrupted={expired} moreActions={showReportRecoveryActions ? undefined : reportAssistantMenuAction} onRegenerate={() => void run("generate")} />}
         {waiting && (loadingNode ?? node) !== "research" ? (reportVisible && (state.reportTimeline?.length || state.reportStream || (!state.report && state.reportCheckpoint)) ? null : <ResearchLoading node={loadingNode ?? node} />) : <>
         {processing && !(reportVisible && state.reportTimeline?.length) && <p role="status" className="flex items-center gap-2 text-12 text-muted-foreground"><Loader2 className="size-4 animate-spin" aria-hidden />正在处理，进度会自动保存…</p>}
-        {briefDocument && <GuidedResearchEntryPanel disabled={busy || Boolean(proposal) || !validDraft} onRegenerate={() => void run("generate", validDraft && draft ? { draft } : {})} onSave={() => { if (draft) void run("save", { draft }); }} onContinue={() => void run("confirm", { ...(draft ? { draft } : {}) })} brief={<><Textarea aria-label="研究需求" placeholder="请描述你的研究需求：研究目标、研究区域、时间范围、重点关注和关键问题。" className="min-h-48 resize-y p-3 text-sm leading-relaxed" maxLength={2000} disabled={busy} value={draft?.node === "brief" ? draft.value.goal : ""} onChange={(event) => { if (draft?.node === "brief") setDraft({ ...draft, value: { ...draft.value, goal: event.target.value } }); }} /><p className="text-right text-xs text-muted-foreground">{draft?.node === "brief" ? draft.value.goal.length : 0} / 2000</p><details><summary className="cursor-pointer text-sm font-medium">完善研究信息与 Markdown</summary><div className="mt-4"><GuidedResearchMarkdownWorkspace onDirtyChange={setMarkdownDirty} document={briefDocument} saving={busy} onSave={async (markdown) => {
-          const parsed = parseGuidedResearchMarkdown({ document: briefDocument, markdown });
-          if (!parsed.ok) return { ok: false, message: parsed.errors.map((item) => item.message).join("；") };
-          if (draft?.node !== "brief") return { ok: false, message: "研究需求已更新，请重新打开 Markdown。" };
-          const saved = await run("save", { draft: { node: "brief", value: { ...draft.value, ...parsed.draft.value } } });
-          return saved ? { ok: true } : { ok: false, message: "研究需求未保存，请根据页面提示重试。" };
-        }} /></div></details></>} />}
+        {briefDocument && <GuidedResearchEntryPanel disabled={busy || Boolean(proposal) || !validDraft} onContinue={() => void run("confirm", { ...(draft ? { draft } : {}) })} brief={<><Textarea aria-label="研究需求" placeholder="请描述你的研究需求：研究目标、研究区域、时间范围、重点关注和关键问题。" className="min-h-48 resize-y p-3 text-sm leading-relaxed" maxLength={2000} disabled={busy} value={draft?.node === "brief" ? draft.value.goal : ""} onChange={(event) => { if (draft?.node === "brief") setDraft({ ...draft, value: { ...draft.value, goal: event.target.value } }); }} /><p className="text-right text-xs text-muted-foreground">{draft?.node === "brief" ? draft.value.goal.length : 0} / 2000</p></>} />}
         {draft?.node === "brief" && <Card className="sr-only" aria-hidden="true"><CardContent>{(["topic", "goal", "timeRange", "region", "focus"] as const).map((field) => <label key={field}>{field}<Textarea disabled tabIndex={-1} value={draft.value[field]} onChange={(event) => setDraft({ ...draft, value: { ...draft.value, [field]: event.target.value } })} /></label>)}</CardContent></Card>}
         {draft?.node === "directions" && <GuidedResearchTopicPanel assistant={conversation} actions={<div className="flex flex-wrap items-center justify-between gap-3"><Button variant="primary" className="h-9 px-4 text-sm" disabled={busy} onClick={() => navigateVisual("import")}>上一步</Button><Button variant="primary" className="h-9 px-4 text-sm" disabled={busy || Boolean(proposal) || !validDraft} onClick={() => void run("confirm", { draft })}>下一步：研究计划</Button></div>} workspace={<>
           <h2 className="text-lg font-bold">完善研究信息</h2>
@@ -428,18 +385,10 @@ return <GuidedResearchSixStepShell hasUnsavedChanges={Boolean(message.trim()) ||
           }} provenance="Markdown 是研究计划的可编辑来源；检索范围以已确认版本为准。" />}</div></>}
         />}
         {node === "research" && <GuidedResearchSourceWorkspace
-          sourcePreview={<ol className="space-y-3">{displaySources.filter((source) => source.decision !== "excluded").slice(0, 3).map((source, index) => <li key={source.id} className="flex gap-3"><span className="shrink-0 text-muted-foreground">{index + 1}</span><a href={source.url} target="_blank" rel="noopener noreferrer" className="underline underline-offset-4">{source.title}</a></li>)}{!usableSources && <li className="text-muted-foreground">尚未取得可用来源</li>}</ol>}
-          progress={<><GuidedResearchRuntimeProgress state={state} /><ResearchChapterTasks state={state} /></>}
-          activity={<><GuidedResearchTrustConsole compact runtime={state} pending={steeringPending} onSteer={(action) => void steer(action)} onResolveConflict={(decision) => void resolveConflict(decision)} /><details className="mt-4"><summary className="cursor-pointer text-12 font-medium">查看搜索详情</summary><div className="mt-3"><GuidedResearchPlanDetails state={state} errors={errors} /></div></details></>}
-          evidence={<>{researchDocument && <GuidedResearchMarkdownWorkspace onDirtyChange={setMarkdownDirty} document={researchDocument} saving={busy} onSave={async (markdown) => {
-            const parsed = parseGuidedResearchMarkdown({ document: researchDocument, markdown });
-            if (!parsed.ok) return { ok: false, message: parsed.errors.map((item) => item.message).join("；") };
-            const saved = await run("save", { draft: parsed.draft });
-            return saved ? { ok: true } : { ok: false, message: "来源决策未保存，请根据页面提示重试。" };
-          }} provenance={`已锁定 ${researchDocument.provenance.sourceIds.length} 个来源标识；Markdown 仅可调整来源决策，不能篡改证据标识。`} />}<div className="mt-4"><GuidedResearchSources sources={displaySources} disabled={busy || Boolean(proposal)} onAdd={(sourceUrl) => run("add_source", { sourceUrl })} onRemove={(sourceId) => void run("remove_source", { sourceId })} /></div></>}
-          insights={<p className="text-base leading-relaxed">研究概览：{state.researchPlan?.overview ?? "检索完成后会在这里汇总关键发现与证据覆盖情况。"}</p>}
-          risk={<>{researchFailed ? <p className="text-base text-destructive">存在 {state.tasks.filter((task) => task.status === "failed").length} 项检索失败；可重试或补充来源。</p> : <p className="text-base text-muted-foreground">当前没有待处理的检索失败。</p>}{state.tasks.length > 0 && !state.questionEvidence?.length && <p className="mt-3 text-sm text-destructive">尚未提取到可关联的核心问题证据。</p>}</>}
-          actions={<>{(!state.tasks.length || state.tasks.some((task) => task.status !== "succeeded") || state.sources.some((source) => source.decision !== "excluded" && !source.addedByUser && !source.presentation)) && <Button variant="primary" className="h-10 px-6 text-base" disabled={busy} onClick={() => void run("start")}>{state.tasks.length && state.tasks.every((task) => task.status === "succeeded") ? "更新资料" : state.sources.length ? "继续搜索" : "搜索资料"}</Button>}{state.tasks.some((task) => task.status === "failed" || (expired && task.status === "running")) && <Button variant="outline" className="h-10 px-6 text-base" disabled={busy} onClick={() => void run("retry")}>重试失败任务</Button>}</>}
+          state={state}
+          actions={state.controlStatus === "paused"
+            ? <Button variant="primary" className="h-10 px-6 text-base" disabled={busy} onClick={() => void run("resume", { expectedRevision: state.planRevision ?? 0, idempotencyKey: crypto.randomUUID() })}>继续研究</Button>
+            : <>{(!state.tasks.length || state.tasks.some((task) => task.status !== "succeeded") || state.sources.some((source) => source.decision !== "excluded" && !source.addedByUser && !source.presentation)) && <Button variant="primary" className="h-10 px-6 text-base" disabled={busy} onClick={() => void run("start")}>{state.tasks.length && state.tasks.every((task) => task.status === "succeeded") ? "更新资料" : state.sources.length ? "继续搜索" : "搜索资料"}</Button>}{state.tasks.some((task) => task.status === "failed" || (expired && task.status === "running")) && <Button variant="outline" className="h-10 px-6 text-base" disabled={busy} onClick={() => void run("retry")}>重试失败任务</Button>}</>}
         />}
         {node === "report" && chaptersOpen && <ResearchChaptersWorkspace onDirtyChange={setChaptersDirty} runtime={state} disabled={busy} onSave={(value) => void run("save", { node: "outline", draft: { node: "outline", value } })} onOptimize={(value) => void run("message", { node: "outline", draft: { node: "outline", value }, message: "基于当前章节和已有研究证据优化章节结构、目标与小节，保留来源和证据局限。" })} onBack={() => navigateVisual("research")} onNext={() => navigateVisual("report")} />}
         {node === "report" && !chaptersOpen && reportDocument && <GuidedResearchReportWorkspace
@@ -455,7 +404,6 @@ return <GuidedResearchSixStepShell hasUnsavedChanges={Boolean(message.trim()) ||
           limitation={<div className="space-y-3">{state.qualityScore && state.publicationReadiness ? <GuidedResearchReadiness quality={state.qualityScore} readiness={state.publicationReadiness} /> : <p>{researchLimitations(state.completed, state.publicationReadiness) ?? "报告正在汇总质量与来源信息。"}</p>}</div>}
         />}
         {researchBlocked && <p role="status" className="text-12 text-muted-foreground">{researchPending ? "检索仍在进行，任务结束后可生成报告。" : "请完成检索并保留至少一个真实来源后生成报告。"}</p>}
-        {node === "brief" && state.currentNode !== node && <p className="text-12 text-muted-foreground">重新确认此步骤会使后续研究结果失效，并按当前内容重新生成。</p>}
         {node === "research" && <div className="flex flex-wrap items-center justify-end gap-2 border-t border-border bg-card/95 py-4"><Button variant="primary" disabled={busy || Boolean(proposal) || !validDraft || researchBlocked} onClick={() => void run("complete", { ...(draft ? { draft } : {}), ...(partialResearch ? { allowPartialResearch: true } : {}) })}>{partialResearch ? "基于已有来源生成报告" : "确认并继续"}</Button></div>}
         </>}
       </div>

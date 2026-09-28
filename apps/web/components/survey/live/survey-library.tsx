@@ -65,7 +65,7 @@ export function LiveSurveyLibrary({ projectId = null }: { projectId?: string | n
           <h1 className="text-30 font-semibold tracking-tight">问卷</h1>
           <p className="mt-1 text-14 text-muted-foreground">创建、发布并收集你的问卷，轻松获取真实反馈。</p>
         </div>
-        <div className="flex flex-wrap items-center gap-2"><Input className="w-64 max-w-full" aria-label="搜索问卷" placeholder="搜索问卷名称、标签或关键词" value={query} onChange={event=>setQuery(event.target.value)}/><Button onClick={() => setCreating(true)}>新建问卷</Button></div>
+        <div className="flex flex-wrap items-center gap-2"><Input className="w-64 max-w-full" aria-label="搜索问卷" placeholder="搜索问卷名称、标签或关键词" value={query} onChange={event=>setQuery(event.target.value)}/><Button data-testid="survey-create-primary" onClick={() => setCreating(true)}>新建问卷</Button></div>
       </header>
       <div className="flex flex-col gap-5 lg:flex-row">
         <nav aria-label="问卷二级导航" className="flex shrink-0 gap-2 lg:w-44 lg:flex-col">
