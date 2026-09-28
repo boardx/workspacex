@@ -62,3 +62,13 @@ from extraction. Chat answers only echo the memory material the executor handed 
 | forget − | 「我们来聊聊遗忘曲线」「我忘了密码」 → no card, nothing forgotten | PASS | `10-forget-negatives-no-card.png`, `forgetNegative` |
 | project | Shared project thread 「忘掉关于王经理的」 → no card | PASS | `11-project-no-forget-card.png`, `projectForget` |
 | privacy | B: undo on A's card → 404 `KG_CARD_NOT_FOUND`, identical to a nonexistent card; B reading A's overview turn → 404; B's own 「你记得我什么」 → no card, none of A's memories on B's page | PASS | `12-privacy-b-empty.png`, `privacy` |
+
+## Follow-up #4509 — 「我改主意了，改成先做 Y」 (adverb before the frame verb)
+
+Parsing-symmetry fix in `decision-supersede.ts` (`frameAtStart` skips 先 / 就 / 也 / 还是 / 直接 when a frame verb follows);
+R8 tiers and the auto allowlist are unchanged. Evidence in [`i4509/`](i4509/):
+
+- `fwf-unit.txt` — new unit cases on the base code: 8 positive cases fail (frame read as `{verb:null, object:"先做…"}`),
+  every negative (additive / negated / question / hypothetical / retraction, each with the adverb) already empty.
+- `fwf-db.txt` — the new `memory-manage-in-chat` case on the base code: the turn writes nothing (`note` is null).
+- `after-fix.txt` — `decision-supersede` + `decision-claim` 390/390, `memory-manage-in-chat` 18/18, all `decision-*` 421/421.

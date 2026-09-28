@@ -105,6 +105,8 @@
  * **框架**（`decisionFrame`，也用来读 O）：有带新框架的改口分句 ⇒ 取第一个；否则取第一个不是改口分句的分句里第一个框架动词
  * （`FRAME_VERBS`，同一位置取最长的：采用 > 用；单字的 用 / 做 / 选 在词里——费用、用户、做法、选项、不用……——不算），
  * 它后面到分句末、去掉句末语气词的部分是「对象」；对象末尾连续汉字的最后两个字是「类别词」（「211高校」→「高校」，「985」没有）。
+ * 改口分句从改口词后面读新框架，框架动词前的副词（先 / 就 / 也 / 还是 / 直接，`FRAME_ADVERB`）跳过——与旧决定一侧读法对称
+ * （issue #4509：「我决定先做X」对「改成先做Y」）；只修解析，分档与白名单不变。
  *
  * **一条新决定取代哪几条**：取最强的非空一档；这一档里的旧决定按归一文本分组——只有**一组**（同一句话可能在
  * 会话里和个人空间里各有一条）才算；多于一组 ⇒ 说不清改的是哪一条，既不取代也不弹卡。
@@ -255,11 +257,22 @@ function makeFrame(verb: string | null, rawObject: string): DecisionFrame {
   return { verb, object, kind: han.length >= 2 ? han.slice(-2) : null };
 }
 
-/** 从 text 开头读「框架动词 + 对象」；开头不是框架动词 ⇒ verbOptional 时整段当对象（动词为 null），否则 null。 */
+/**
+ * Issue #4509：改口分句里框架动词前的副词（「改成**先**做 Y」「改成**就**用 React」）。旧决定那边（`frameSite`）找的是分句里
+ * 第一个框架动词，「我决定先做 X」本来就读成「做 + X」；改口分句从改口词后面紧接着读，不跳过这些副词就对不齐。
+ * 只跳过后面**紧跟框架动词**的这几个；「也」照样被整句的 ADDITIVE 否决。单独的「还 / 再」不在这里：它们在这个位置读作
+ * 「另外 / 再加」（ADDITIVE 的 还要 / 还想 / 再加），宁可漏。
+ */
+const FRAME_ADVERB = /^(?:先|就|也|还是|直接)+/;
+
+/** 从 text 开头读「框架动词 + 对象」（可跳过 `FRAME_ADVERB`）；开头不是框架动词 ⇒ verbOptional 时整段当对象（动词为 null），否则 null。 */
 function frameAtStart(text: string, verbOptional: boolean): DecisionFrame | null {
   const rest = text.replace(/^了/, "");
-  const verb = frameVerbAt(rest, 0);
-  if (verb !== null) return makeFrame(verb, rest.slice(verb.length).replace(/^(?:了|在)/, ""));
+  const adverb = FRAME_ADVERB.exec(rest)?.[0].length ?? 0;
+  for (const at of adverb > 0 ? [0, adverb] : [0]) {
+    const verb = frameVerbAt(rest, at, false);
+    if (verb !== null) return makeFrame(verb, rest.slice(at + verb.length).replace(/^(?:了|在)/, ""));
+  }
   return verbOptional && rest !== "" ? makeFrame(null, rest) : null;
 }
 
