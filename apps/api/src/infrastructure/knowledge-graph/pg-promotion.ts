@@ -11,6 +11,7 @@ import {
 } from "../../application/knowledge-graph/ports";
 import { guard } from "../../application/security/permission-filter";
 import type { OrgId } from "../../domain/org-id";
+import type { knowledgeGraph as KG } from "@repo/contracts";
 
 const threadRef = (t: KnowledgeThreadRef) => ({ kind: "project" as const, id: t.projectId ?? `personal:${t.threadId}` });
 /** B2-S4：组织空间的 guard ref —— 与 `pg-knowledge-read.ts` 的 `orgSpaceRef` 同一个合成 id（`org:<orgId>`）。 */
@@ -19,6 +20,8 @@ const LIVE = "c.revoked_at IS NULL AND c.status <> 'superseded'";
 const CODES: readonly KgHumanActionErrorCode[] = [
   "KG_NOT_OWNER", "KG_ACTOR_NOT_HUMAN", "KG_SCOPE_NOT_PERSONAL", "KG_CLAIM_NOT_FOUND",
   "KG_CONTESTED_NEEDS_RESOLUTION", "KG_EVIDENCE_REVOKED", "KG_SCOPE_NOT_PROJECT",
+  // B3-T4 kg_adopt_project_decision
+  "KG_NOT_VISIBLE", "KG_INVALID_REQUEST",
 ];
 
 export class PgPromotion implements PromotionPort {
@@ -126,6 +129,37 @@ export class PgPromotion implements PromotionPort {
           target_claim_id: input.targetClaimId ?? null,
         })]);
         return r.rows[0]!.id;
+      });
+    } catch (e) {
+      const message = e instanceof Error ? e.message : "";
+      const code = CODES.find((c) => message.startsWith(c));
+      if (code !== undefined) throw new KgHumanActionError(code, message);
+      throw e;
+    }
+  }
+
+  /** B3-T4：项目记忆里这一条活结论的类型 / 状态（采纳为项目决策的来源核对）。guard 的 ref 是项目本身。 */
+  async adoptionSource(orgId: OrgId, userId: string, projectId: string, claimId: string) {
+    const rows = await this.asUser(orgId, userId, (s) => s.query<{ id: string; kind: KG.KgClaimKind; status: string }>(
+      `SELECT c.id, coalesce(c.claim_kind, 'fact') AS kind, c.status FROM claims c
+        WHERE c.org_id = $1 AND c.scope_kind = 'project' AND c.scope_id = $2 AND c.id = $3 AND ${LIVE}`,
+      [orgId, projectId, claimId],
+    ));
+    return guard({ kind: "project", id: projectId }, rows.rows[0] ?? null);
+  }
+
+  /** B3-T4：采纳为项目决策（`kg_adopt_project_decision`，迁移 20260928110000）。 */
+  async adoptProjectDecision(orgId: OrgId, userId: string, input: {
+    readonly actionId: string; readonly projectId: string; readonly claimId: string; readonly rationale: string;
+  }): Promise<{ readonly decisionClaimId: string; readonly actionId: string }> {
+    try {
+      return await this.asUser(orgId, userId, async (s) => {
+        const r = await s.query<{ out: { decision_claim_id: string; action_id: string } }>(
+          "SELECT kg_adopt_project_decision($1::jsonb) AS out",
+          [JSON.stringify({ action_id: input.actionId, project_id: input.projectId, claim_id: input.claimId, rationale: input.rationale })],
+        );
+        const out = r.rows[0]!.out;
+        return { decisionClaimId: out.decision_claim_id, actionId: out.action_id };
       });
     } catch (e) {
       const message = e instanceof Error ? e.message : "";

@@ -322,6 +322,8 @@ export type KgHumanActionErrorCode =
   | "KG_NOT_OWNER" | "KG_ACTOR_NOT_HUMAN" | "KG_REVISION_CHANGED" | "KG_CLAIM_NOT_FOUND"
   | "KG_OBJECT_NOT_FOUND" | "KG_CONTESTED_NEEDS_RESOLUTION" | "KG_PROMPT_NOT_FOUND"
   | "KG_SCOPE_NOT_PERSONAL" | "KG_SCOPE_NOT_PROJECT" | "KG_EVIDENCE_REVOKED" | "KG_PROMOTE_BATCH_TOO_LARGE"
+  // B3-T4 adoptProjectDecision.err：非成员（数据库函数也复核，同一个码）
+  | "KG_NOT_VISIBLE"
   // F17 确认卡（actOnMemoryCard.err）；KG_INVALID_REQUEST 不是契约码——请求本身不成立（改完的字全是空白），接口回 400
   | "KG_CARD_NOT_FOUND" | "KG_CARD_STALE" | "KG_INVALID_REQUEST";
 
@@ -379,6 +381,17 @@ export interface PromotionPort {
     readonly actionId: string; readonly projectId: string; readonly claimId: string;
     readonly mode: "new" | "merge"; readonly targetClaimId?: string;
   }): Promise<string>;
+  /**
+   * B3-T4（#4498）：项目记忆里这一条活结论的类型与状态（采纳为项目决策的来源核对用）；不在项目记忆里 / 已失效 ⇒ null。
+   * guard ref 是项目本身。
+   */
+  adoptionSource(orgId: OrgId, userId: string, projectId: string, claimId: string): Promise<Guarded<{
+    readonly id: string; readonly kind: KG.KgClaimKind; readonly status: string;
+  } | null>>;
+  /** B3-T4：采纳为项目决策（`kg_adopt_project_decision`）；被拒时抛 KgHumanActionError。返回新 decision 条目 id。 */
+  adoptProjectDecision(orgId: OrgId, userId: string, input: {
+    readonly actionId: string; readonly projectId: string; readonly claimId: string; readonly rationale: string;
+  }): Promise<{ readonly decisionClaimId: string; readonly actionId: string }>;
 }
 
 export const PROMOTION_PORT = Symbol("PromotionPort");

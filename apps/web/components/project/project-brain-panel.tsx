@@ -5,11 +5,14 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { SectionTitle } from "./parts";
 import { getStoredSessionToken } from "@/lib/api-client";
-import { KG_TRI_STATE_LABEL_ZH, type KgClaimKind, type KgClaim } from "@repo/contracts/chat-knowledge-graph";
+import { Textarea } from "@/components/ui/textarea";
+import {
+  KG_ADOPT_RATIONALE_MAX, KG_TRI_STATE_LABEL_ZH, isAdoptableClaimKind, type KgAdoptedDecision, type KgClaimKind, type KgClaim,
+} from "@repo/contracts/chat-knowledge-graph";
 import { KG_CLAIM_KIND_LABEL_ZH } from "@/lib/knowledge-graph-view";
 import { sharedFromPersonalLabelZh as sharedFromPersonalLabel } from "@repo/contracts/chat-knowledge-graph";
 import {
-  fetchClaimSources, fetchProjectKnowledge, fetchProjectReasoning, knowledgeGraphErrorCode, promoteToOrg,
+  adoptProjectDecision, fetchClaimSources, fetchProjectKnowledge, fetchProjectReasoning, knowledgeGraphErrorCode, promoteToOrg,
   type ProjectKnowledge, type ProjectReasoning, type PromotionChoice, type PromotionResults,
 } from "@/lib/knowledge-graph-api";
 import { PROJECT_EVIDENCE_SOURCE_LABEL_ZH, type ProjectEvidenceSourceKind } from "@repo/contracts/project-evidence";
@@ -36,6 +39,9 @@ import { useClaimSourcesDrawer } from "@/components/chat/knowledge/knowledge-pan
  * B3-T3（#4497）：再取 `getProjectReasoning(projectId)`（服务端确定性算出，不调模型），在分组之上多三区：
  * 跨来源冲突 / 缺口与建议 / 推理链。每条引用可点：有 `evidenceId` 的链到「研究洞察 › 来源」并带 `evidence=` 参数
  * （T1 的来源页读它定位到那条证据）；没有的（老数据）回退到既有的来源抽屉。推理接口单独失败不拖垮整个面板。
+ * B3-T4（#4498）：事实 / 猜测每条多一个「采纳为项目决策」按钮——点开填理由（≤ 500 字）再确认，`adoptProjectDecision`
+ * 新建一条「决定」并回链到来源；成功后重读项目记忆，决定区显示「采纳自 …」与理由（`adoptedDecisions`，旧响应缺省 ⇒
+ * 不显示）。观察者 / 非成员由服务端拒（KG_NOT_OWNER / KG_NOT_VISIBLE），如实显示。
  */
 // S10（#4367）：成员可以把个人记忆里的目标 / 偏好分享进来，这两类也要列出来（否则分享了却看不见）。
 const KIND_ORDER: readonly KgClaimKind[] = ["decision", "fact", "hypothesis", "risk", "todo", "goal", "preference"];
@@ -72,9 +78,17 @@ export function ProjectBrainPanel({ projectId }: { projectId: string }) {
   const reasoning = reasoningView(data?.claims ?? []);
   const drawer = useClaimSourcesDrawer(loadSources);
   const org = useOrgPromotion(projectId, data?.canPromoteToOrg === true);
+  const adopt = useAdoption(projectId, load);
   const sharedBy = React.useMemo(
     () => new Map((data?.sharedFromPersonal ?? []).map((x) => [x.claimId, x.sharedByName] as const)),
     [data?.sharedFromPersonal],
+  );
+  const adoptedFrom = React.useMemo(() => {
+    const statements = new Map((data?.claims ?? []).map((c) => [c.id, c.statement] as const));
+    return new Map((data?.adoptedDecisions ?? []).map((d) => [d.decisionClaimId, { ...d, sourceStatement: statements.get(d.sourceClaimId) ?? null }] as const));
+  }, [data?.claims, data?.adoptedDecisions]);
+  const row = (c: KgClaim) => (
+    <ClaimRow key={c.id} claim={c} sharedBy={sharedBy.get(c.id)} adoptedFrom={adoptedFrom.get(c.id)} onOpenSources={drawer.open} org={org} adopt={adopt} />
   );
 
   return (
@@ -106,7 +120,7 @@ export function ProjectBrainPanel({ projectId }: { projectId: string }) {
                   <div className="flex flex-col gap-1" data-testid="project-brain-conflicts">
                     <span className="text-10 text-muted-foreground">有矛盾——两边都有证据，还没人定</span>
                     <ul className="flex flex-col gap-1">
-                      {reasoning.conflicts.map((c) => <ClaimRow key={c.id} claim={c} sharedBy={sharedBy.get(c.id)} onOpenSources={drawer.open} org={org} />)}
+                      {reasoning.conflicts.map(row)}
                     </ul>
                   </div>
                 ) : null}
@@ -114,7 +128,7 @@ export function ProjectBrainPanel({ projectId }: { projectId: string }) {
                   <div className="flex flex-col gap-1" data-testid="project-brain-hypotheses">
                     <span className="text-10 text-muted-foreground">猜测——按证据强弱排，站得最不稳的在前</span>
                     <ul className="flex flex-col gap-1">
-                      {reasoning.hypotheses.map((c) => <ClaimRow key={c.id} claim={c} sharedBy={sharedBy.get(c.id)} onOpenSources={drawer.open} org={org} />)}
+                      {reasoning.hypotheses.map(row)}
                     </ul>
                   </div>
                 ) : null}
@@ -128,7 +142,7 @@ export function ProjectBrainPanel({ projectId }: { projectId: string }) {
                   <span className="font-mono text-10 text-muted-foreground">{g.claims.length}</span>
                 </div>
                 <ul className="flex flex-col gap-1">
-                  {g.claims.map((c) => <ClaimRow key={c.id} claim={c} sharedBy={sharedBy.get(c.id)} onOpenSources={drawer.open} org={org} />)}
+                  {g.claims.map(row)}
                 </ul>
               </div>
             ))}
@@ -316,9 +330,72 @@ function useOrgPromotion(projectId: string, enabled: boolean): OrgPromotion {
   return { enabled, states, promote };
 }
 
-function ClaimRow({ claim, sharedBy, onOpenSources, org }: { claim: KgClaim; sharedBy?: string; onOpenSources: (claimId: string) => void; org: OrgPromotion }) {
+type AdoptionState =
+  | { readonly kind: "editing"; readonly rationale: string }
+  | { readonly kind: "busy"; readonly rationale: string }
+  | { readonly kind: "done"; readonly decisionClaimId: string }
+  | { readonly kind: "failed"; readonly rationale: string; readonly text: string };
+
+interface Adoption {
+  readonly states: ReadonlyMap<string, AdoptionState>;
+  readonly open: (claimId: string) => void;
+  readonly edit: (claimId: string, rationale: string) => void;
+  readonly cancel: (claimId: string) => void;
+  readonly confirm: (claimId: string) => void;
+}
+
+/** 「采纳为项目决策」：点开填理由 → 确认 → `adoptProjectDecision`；成功后重读项目记忆，新决定连同「采纳自 …」一起出现。 */
+function useAdoption(projectId: string, reload: () => Promise<void>): Adoption {
+  const [states, setStates] = React.useState<ReadonlyMap<string, AdoptionState>>(new Map());
+  const set = React.useCallback((claimId: string, state: AdoptionState | null) => {
+    setStates((prev) => {
+      const next = new Map(prev);
+      if (state === null) next.delete(claimId); else next.set(claimId, state);
+      return next;
+    });
+  }, []);
+  const open = React.useCallback((claimId: string) => set(claimId, { kind: "editing", rationale: "" }), [set]);
+  const edit = React.useCallback((claimId: string, rationale: string) => set(claimId, { kind: "editing", rationale: rationale.slice(0, KG_ADOPT_RATIONALE_MAX) }), [set]);
+  const cancel = React.useCallback((claimId: string) => set(claimId, null), [set]);
+  const confirm = React.useCallback((claimId: string) => {
+    setStates((prev) => {
+      const cur = prev.get(claimId);
+      const rationale = cur !== undefined && cur.kind !== "done" ? cur.rationale.trim() : "";
+      if (rationale.length === 0) return prev;
+      void adoptProjectDecision(projectId, claimId, rationale)
+        .then(async (out) => {
+          set(claimId, { kind: "done", decisionClaimId: out.decisionClaimId });
+          await reload();
+        })
+        .catch((e: unknown) => set(claimId, { kind: "failed", rationale, text: describeAdoptFailure(e) }));
+      return new Map(prev).set(claimId, { kind: "busy", rationale });
+    });
+  }, [projectId, reload, set]);
+  return { states, open, edit, cancel, confirm };
+}
+
+function describeAdoptFailure(e: unknown): string {
+  const code = knowledgeGraphErrorCode(e);
+  if (code === "KG_NOT_OWNER") return "观察者不能替项目定决策。";
+  if (code === "KG_NOT_VISIBLE") return "你不在这个项目里，定不了。";
+  if (code === "KG_CONTESTED_NEEDS_RESOLUTION") return "这条有矛盾，先解决再采纳。";
+  if (code === "KG_CLAIM_NOT_FOUND") return "这条不在项目记忆里，或不是事实 / 猜测。";
+  if (e instanceof ApiError) return httpFailureText(e.status);
+  return e instanceof Error ? e.message : "没采纳上，请稍后重试。";
+}
+
+interface AdoptedFrom extends KgAdoptedDecision {
+  /** 来源那条的陈述（来源已失效 / 不在项目记忆里 ⇒ null，只显示理由） */
+  readonly sourceStatement: string | null;
+}
+
+function ClaimRow({ claim, sharedBy, adoptedFrom, onOpenSources, org, adopt }: {
+  claim: KgClaim; sharedBy?: string; adoptedFrom?: AdoptedFrom; onOpenSources: (claimId: string) => void; org: OrgPromotion; adopt: Adoption;
+}) {
   const tone = claim.triState === "confirmed" ? "success" : claim.triState === "conflict" ? "danger" : "warning";
   const state = org.states.get(claim.id);
+  const adoption = adopt.states.get(claim.id);
+  const adoptable = isAdoptableClaimKind(claim.kind) && sharedBy === undefined;
   return (
     <li className="flex flex-col gap-1 text-11" data-testid={`project-brain-claim-${claim.id}`}>
       <div className="flex items-start gap-2">
@@ -326,6 +403,13 @@ function ClaimRow({ claim, sharedBy, onOpenSources, org }: { claim: KgClaim; sha
           <span>{claim.statement}</span>
           {sharedBy !== undefined ? (
             <span className="text-10 text-muted-foreground" data-testid={`project-brain-shared-by-${claim.id}`}>{sharedFromPersonalLabel(sharedBy)}</span>
+          ) : null}
+          {adoptedFrom !== undefined ? (
+            <span className="text-10 text-muted-foreground" data-testid={`project-brain-adopted-from-${claim.id}`}>
+              {adoptedFrom.sourceStatement !== null ? `采纳自「${adoptedFrom.sourceStatement}」` : "采纳自一条已不在项目记忆里的记录"}
+              {` · 理由：${adoptedFrom.rationale}`}
+              {` · 由 ${adoptedFrom.adoptedBy} 采纳`}
+            </span>
           ) : null}
         </span>
         <Badge tone={tone === "success" ? "primary" : "outline"}>{KG_TRI_STATE_LABEL_ZH[claim.triState]}</Badge>
@@ -335,6 +419,11 @@ function ClaimRow({ claim, sharedBy, onOpenSources, org }: { claim: KgClaim; sha
         {/* S10：分享来的那条，证据在分享人的个人对话里，别人打不开（R9 口径 404）——不给一个点了必失败的按钮 */}
         {sharedBy === undefined ? (
           <Button size="xs" variant="ghost" onClick={() => onOpenSources(claim.id)} data-testid={`project-brain-sources-${claim.id}`}>来源</Button>
+        ) : null}
+        {adoptable && (adoption === undefined || adoption.kind === "failed") ? (
+          <Button size="xs" variant="outline" onClick={() => adopt.open(claim.id)} data-testid={`project-brain-adopt-${claim.id}`}>
+            采纳为项目决策
+          </Button>
         ) : null}
         {org.enabled && state?.kind !== "done" ? (
           <Button
@@ -348,6 +437,36 @@ function ClaimRow({ claim, sharedBy, onOpenSources, org }: { claim: KgClaim; sha
           </Button>
         ) : null}
       </div>
+      {adoption !== undefined && (adoption.kind === "editing" || adoption.kind === "busy") ? (
+        <div className="flex flex-col gap-1.5" data-testid={`project-brain-adopt-form-${claim.id}`}>
+          <Textarea
+            value={adoption.rationale}
+            maxLength={KG_ADOPT_RATIONALE_MAX}
+            disabled={adoption.kind === "busy"}
+            placeholder="为什么把它定为项目决策？（必填，最多 500 字）"
+            onChange={(e) => adopt.edit(claim.id, e.target.value)}
+            data-testid={`project-brain-adopt-rationale-${claim.id}`}
+          />
+          <div className="flex items-center gap-2">
+            <span className="font-mono text-10 text-muted-foreground">{adoption.rationale.length} / {KG_ADOPT_RATIONALE_MAX}</span>
+            <Button
+              size="xs"
+              variant="primary"
+              disabled={adoption.kind === "busy" || adoption.rationale.trim().length === 0}
+              onClick={() => adopt.confirm(claim.id)}
+              data-testid={`project-brain-adopt-confirm-${claim.id}`}
+            >
+              确认采纳
+            </Button>
+            <Button size="xs" variant="ghost" disabled={adoption.kind === "busy"} onClick={() => adopt.cancel(claim.id)} data-testid={`project-brain-adopt-cancel-${claim.id}`}>取消</Button>
+          </div>
+        </div>
+      ) : null}
+      {adoption !== undefined && (adoption.kind === "done" || adoption.kind === "failed") ? (
+        <div className="text-10 text-muted-foreground" data-testid={`project-brain-adopt-result-${claim.id}`}>
+          {adoption.kind === "done" ? "已采纳为项目决策，见上方「决定」。" : adoption.text}
+        </div>
+      ) : null}
       {state !== undefined && state.kind !== "busy" ? (
         <div className="flex items-center gap-2 text-10 text-muted-foreground" data-testid={`project-brain-promote-org-result-${claim.id}`}>
           <span>{state.kind === "failed" ? state.text : describePromoteResult(state.result)}</span>

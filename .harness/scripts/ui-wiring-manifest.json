@@ -448,6 +448,7 @@
       "useCases": [
         "chat/resolve-visibility",
         "knowledge-graph/act-on-memory-card",
+        "knowledge-graph/adopt-project-decision",
         "knowledge-graph/apply-human-action",
         "knowledge-graph/auto-copy-decisions",
         "knowledge-graph/ids",

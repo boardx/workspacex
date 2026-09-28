@@ -235,6 +235,21 @@ export function promoteToOrg(
   );
 }
 
+export type AdoptProjectDecisionResult = z.infer<typeof knowledgeGraph.adoptProjectDecision.out>;
+/**
+ * B3-T4（#4498）：把项目记忆里的一条事实 / 猜测采纳为项目决策（新建一条决定，回链到来源，带理由）。
+ * 服务端只放行项目成员且非观察者（观察者 `KG_NOT_OWNER`，非成员 `KG_NOT_VISIBLE`）。
+ */
+export function adoptProjectDecision(projectId: string, claimId: string, rationale: string): Promise<AdoptProjectDecisionResult> {
+  const input = knowledgeGraph.adoptProjectDecision.in.parse({ projectId, claimId, rationale });
+  return getParsed(
+    `/knowledge-graph/projects/${seg(projectId)}/decisions`,
+    knowledgeGraph.adoptProjectDecision.out,
+    undefined,
+    { method: "POST", body: { claimId: input.claimId, rationale: input.rationale } },
+  );
+}
+
 /** UC-KG-6：AI 提名「值得记住」的条目。只读——提名本身不改任何东西，记不记由人点。 */
 export function listPromotionNominations(threadId: string, signal?: AbortSignal): Promise<PromotionNominations> {
   return getParsed(
