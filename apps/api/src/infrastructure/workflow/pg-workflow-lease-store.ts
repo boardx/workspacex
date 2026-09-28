@@ -5,6 +5,11 @@
  *   INSERT … ON CONFLICT (instance_id) DO UPDATE SET epoch = epoch + 1 … WHERE epoch = <observed> AND expires_at <= now()
  * 只有观察值未变且旧 lease 已过期时才推进。两个 worker 并发：ON CONFLICT 锁住行，后到者按新行重评 WHERE
  * （epoch 已变）→ 0 行 → lease_conflict。时间一律取库时钟 now()，不信进程时钟。
+ * 租户一致：lease 以 (instance_id, org_id) 复合 FK 指向实例，他组织的 instanceId → 23503 → workflow_not_found。
+ * 其余意外的唯一/RLS 冲突（23505 / 42501）一律映射为 lease_conflict，不把裸 PG 错误漏给调用方。
+ *
+ * 已知限制：assertLease 是 check-then-act，effect receipt 尚未记录 lease epoch 作 fencing token；
+ * WF04 的 effect receipt 应在 finalize 时带 epoch 校验以拒绝迟到写者。
  */
 import type { DatabasePort } from "../../application/ports/database.port";
 import type { WorkflowLease, WorkflowLeaseStore } from "../../application/workflow/workflow-ports";
@@ -31,7 +36,9 @@ export class PgWorkflowLeaseStore implements WorkflowLeaseStore {
           WHERE workflow_leases.epoch = $4 AND workflow_leases.expires_at <= now()
          RETURNING epoch`,
         [input.instanceId, input.orgId, input.holder, observed, input.ttlMs],
-      );
+      ).catch((e: unknown) => {
+        throw mapAcquireError(e, input.instanceId);
+      });
       const row = won.rows[0];
       if (!row) throw new WorkflowUseCaseError("lease_conflict", `instance ${input.instanceId} is leased by another worker`);
       return { orgId: input.orgId, instanceId: input.instanceId, holder: input.holder, epoch: Number(row.epoch) };
@@ -61,4 +68,13 @@ export class PgWorkflowLeaseStore implements WorkflowLeaseStore {
       ),
     );
   }
+}
+
+function mapAcquireError(e: unknown, instanceId: string): unknown {
+  const code = (e as { code?: unknown } | null)?.code;
+  if (code === "23503") return new WorkflowUseCaseError("workflow_not_found", `workflow instance ${instanceId} not found`);
+  if (code === "23505" || code === "42501") {
+    return new WorkflowUseCaseError("lease_conflict", `instance ${instanceId} is leased by another worker`);
+  }
+  return e;
 }

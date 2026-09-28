@@ -18,6 +18,7 @@ import { PgWorkflowReceiptStore } from "../../src/infrastructure/workflow/pg-wor
 import { WorkflowUseCaseError } from "../../src/application/workflow/workflow-errors";
 import type { WorkflowReceiptKey } from "../../src/application/workflow/workflow-ports";
 import { asApp, asOwner, ensureDatabase, migrateOnce, resetOrgs, seedOrg } from "../support/db";
+import { seedWorkflowInstance } from "./wf02-fixtures";
 
 const API = fileURLToPath(new URL("../..", import.meta.url));
 const ORG = "org-wf02-ckpt";
@@ -135,7 +136,11 @@ describe("WF02 unified receipt begin/finalize (I-6/I-7)", () => {
 
   it("begin is idempotent, finalize keeps the first stable response, a different fingerprint is refused", async () => {
     const receipts = new PgWorkflowReceiptStore(db);
+    await seedWorkflowInstance(ORG, "wi-1");
     expect(await receipts.begin(key)).toEqual({ kind: "begun" });
+    // undefined 不是 JSON：显式拒绝，不漏裸 23514
+    const bad = await receipts.finalize(key, { stableResponse: undefined, checkpointId: null, instanceId: null }).then(() => null, (e: unknown) => e);
+    expect(String(bad)).toMatch(/JSON-serializable/);
     expect(await receipts.begin(key)).toEqual({ kind: "in_flight", instanceId: null });
 
     const first = { instanceId: "wi-1", status: "running", stateVersion: 1 };

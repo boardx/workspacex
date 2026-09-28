@@ -102,8 +102,26 @@ describe("WF02 lease epoch CAS", () => {
     const lb = await a.acquire({ orgId: ORG, instanceId: INSTANCE, holder: "worker-b", ttlMs: 60_000 });
     expect(lb.epoch).toBe(2);
     // 他组织：RLS 下看不到那行，也不能插同 instance_id 的行
-    expect(await codeOf(a.acquire({ orgId: OTHER, instanceId: INSTANCE, holder: "intruder", ttlMs: 60_000 }))).not.toBeNull();
+    expect(await codeOf(a.acquire({ orgId: OTHER, instanceId: INSTANCE, holder: "intruder", ttlMs: 60_000 }))).toBe("lease_conflict");
     await a.assertLease(lb); // 新持有者不受他组织尝试影响
+  });
+
+  it("another org acquiring FIRST is rejected and cannot lock out the owner (tenant-consistent FK)", async () => {
+    const a = new PgWorkflowLeaseStore(db);
+    expect(await codeOf(a.acquire({ orgId: OTHER, instanceId: INSTANCE, holder: "intruder", ttlMs: 60_000 }))).toBe(
+      "workflow_not_found",
+    );
+    // 直接以 app_rw 插（绕过适配器）也被复合 FK 拒绝
+    const raw = await asApp(OTHER, (c) =>
+      c.query(
+        `INSERT INTO workflow_leases (instance_id, org_id, holder, epoch, expires_at)
+         VALUES ($1, $2, 'intruder', 1, now() + interval '100 years')`,
+        [INSTANCE, OTHER],
+      ),
+    ).then(() => null, (e: { code?: string }) => e.code ?? "error");
+    expect(raw).toBe("23503");
+    const la = await a.acquire({ orgId: ORG, instanceId: INSTANCE, holder: "owner", ttlMs: 60_000 });
+    expect(la.epoch).toBe(1);
   });
 
   it("the database refuses an epoch rewrite that is not a single-step takeover (I-16)", async () => {

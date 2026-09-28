@@ -54,13 +54,17 @@ export class PgWorkflowReceiptStore implements WorkflowReceiptStore {
     k: WorkflowReceiptKey,
     result: { stableResponse: unknown; checkpointId: string | null; instanceId: string | null },
   ): Promise<unknown> {
+    const json = JSON.stringify(result.stableResponse);
+    if (json === undefined) {
+      return Promise.reject(new Error(`workflow receipt ${k.scope}/${k.requestKey}: stableResponse must be JSON-serializable (got undefined)`));
+    }
     return this.db.withTenant(toOrgId(k.orgId), async (s) => {
       const updated = await s.query<{ stable_response: unknown }>(
         `UPDATE workflow_receipts
             SET status = 'finalized', stable_response = $5::jsonb, checkpoint_id = $6, instance_id = $7, finalized_at = now()
           WHERE org_id = $1 AND scope = $2 AND request_key = $3 AND fingerprint = $4 AND status = 'begun'
           RETURNING stable_response`,
-        [k.orgId, k.scope, k.requestKey, k.fingerprint, JSON.stringify(result.stableResponse), result.checkpointId, result.instanceId],
+        [k.orgId, k.scope, k.requestKey, k.fingerprint, json, result.checkpointId, result.instanceId],
       );
       if (updated.rows[0]) return updated.rows[0].stable_response;
       const row = await readRow(s, k);

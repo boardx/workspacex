@@ -11,7 +11,19 @@
  * ③ langgraph_workflow：@langchain/langgraph-checkpoint-postgres 0.1.2 要求的精确 DDL（与
  *    20260815120000 的 langgraph_interview 同形）。运行期只经 checkpointer 工厂访问（I-9）。
  * 两张业务表 RLS：本组织可见（app.current_org），FORCE，app_rw 无 DELETE。
+ * ④ 租户一致外键：PG 的 FK 检查绕过 RLS，单列 FK instance_id → workflow_instances(id) 会让他组织用
+ *    别人的 instanceId 抢先插 lease（跨租户 DoS）。因此 workflow_instances 加 UNIQUE (id, org_id)，
+ *    lease 与 receipt 都以 (instance_id, org_id) 复合 FK 指向它：lease/receipt 的 org 必须等于实例的 org。
+ *    receipt.instance_id 可空（command 在实例创建前 begin），MATCH SIMPLE 下 NULL 不检查。
  */
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'workflow_instances_id_org_key') THEN
+    ALTER TABLE workflow_instances ADD CONSTRAINT workflow_instances_id_org_key UNIQUE (id, org_id);
+  END IF;
+END
+$$;
+
 CREATE TABLE IF NOT EXISTS workflow_receipts (
   org_id          text NOT NULL REFERENCES organizations (id) ON DELETE CASCADE,
   scope           text NOT NULL CHECK (scope IN ('command', 'effect')),
@@ -24,6 +36,7 @@ CREATE TABLE IF NOT EXISTS workflow_receipts (
   created_at      timestamptz NOT NULL DEFAULT now(),
   finalized_at    timestamptz NULL,
   PRIMARY KEY (org_id, scope, request_key),
+  FOREIGN KEY (instance_id, org_id) REFERENCES workflow_instances (id, org_id) ON DELETE CASCADE,
   CHECK ((status = 'finalized') = (stable_response IS NOT NULL AND finalized_at IS NOT NULL))
 );
 
@@ -46,12 +59,13 @@ CREATE TRIGGER wf_receipt_immutable BEFORE UPDATE ON workflow_receipts
   FOR EACH ROW EXECUTE FUNCTION wf_receipt_immutable();
 
 CREATE TABLE IF NOT EXISTS workflow_leases (
-  instance_id text PRIMARY KEY REFERENCES workflow_instances (id) ON DELETE CASCADE,
+  instance_id text PRIMARY KEY,
   org_id      text NOT NULL REFERENCES organizations (id) ON DELETE CASCADE,
   holder      text NOT NULL CHECK (length(holder) > 0),
   epoch       bigint NOT NULL CHECK (epoch >= 1),
   expires_at  timestamptz NOT NULL,
-  acquired_at timestamptz NOT NULL DEFAULT now()
+  acquired_at timestamptz NOT NULL DEFAULT now(),
+  FOREIGN KEY (instance_id, org_id) REFERENCES workflow_instances (id, org_id) ON DELETE CASCADE
 );
 
 CREATE OR REPLACE FUNCTION wf_lease_epoch_monotonic() RETURNS trigger LANGUAGE plpgsql AS $$
