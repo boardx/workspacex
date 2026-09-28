@@ -13,7 +13,7 @@
 | 06 | 深度研究 | not_started | 6 | 0 | 0 | 0 |
 | 07 | 用户访谈 | not_started | 5 | 0 | 0 | 0 |
 | 08 | 转录 | not_started | 4 | 0 | 0 | 0 |
-| 09 | 问卷 | not_started | 0 | 1 | 6 | 0 |
+| 09 | 问卷 | not_started | 0 | 0 | 7 | 0 |
 | 10 | 现场协作编排 | in_progress | 6 | 0 | 0 | 4 |
 | 11 | research-insight-backend | in_progress | 0 | 4 | 0 | 1 |
 | 12 | uiux-foundation | in_progress | 5 | 0 | 0 | 17 |
@@ -23,4 +23,4 @@
 | 18 | org-brain-knowledge-graph | not_started | 17 | 0 | 0 | 0 |
 | 19 | board-visual-workspace | not_started | 31 | 1 | 0 | 0 |
 
-_最近聚合:2026-09-28T11:39:09.299Z_
+_最近聚合:2026-09-28T12:31:31.763Z_
