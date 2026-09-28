@@ -23,9 +23,10 @@ afterEach(cleanup);
 const sticky: WhiteboardObject = { id: "sticky", schemaVersion: 1, kind: "sticky", geometry: { x: 20, y: 80, width: 180, height: 180, rotation: 0 }, text: "Idea", style: {}, parentId: null, orderKey: "a", extensionData: { thinkingInput: { sticky: { variant: "square", color: "#F8D76E", sizing: "auto-height" } } } };
 
 it("shows Sticky-only direct controls and makes every mutating control unavailable in readonly mode", () => {
-  const onStickyChange = vi.fn(), onExperienceChange = vi.fn();
-  const props = { object: sticky, readOnly: false, actorId: "me", onStickyChange, onTextChange: vi.fn(), onExperienceChange, onGeometryChange: vi.fn(), onClose: vi.fn(), onFutureAction: vi.fn() };
+  const onStickyChange = vi.fn(), onExperienceChange = vi.fn(), onFutureAction = vi.fn();
+  const props = { object: sticky, readOnly: false, actorId: "me", onStickyChange, onTextChange: vi.fn(), onExperienceChange, onGeometryChange: vi.fn(), onClose: vi.fn(), onFutureAction };
   const { rerender } = render(<ObjectContextToolbar {...props} />);
+  expect(screen.queryByRole("button", { name: "评论" })).toBeNull();
   expect(screen.queryByLabelText("新标签")).toBeNull();
   expect(screen.queryByTestId("sticky-quick-color-yellow")).toBeNull();
   fireEvent.click(screen.getByTestId("board-sticky-style-open"));
@@ -39,6 +40,8 @@ it("shows Sticky-only direct controls and makes every mutating control unavailab
   expect(screen.getByTestId("context-sticky-circle")).toBeDisabled();
   expect(screen.getByTestId("sticky-quick-color-yellow")).toBeDisabled();
   fireEvent.click(screen.getByTestId("board-inspector-expand"));
+  fireEvent.click(screen.getByRole("button", { name: "评论" }));
+  expect(onFutureAction).toHaveBeenCalledWith("comment");
   fireEvent.click(screen.getByTestId("board-widget-advanced-format").querySelector("summary")!);
   expect(screen.getByLabelText("便利贴自定义颜色")).toBeDisabled();
 });
@@ -49,7 +52,8 @@ it("provides adjustable inspector size, compact geometry disclosure and grouped 
   const panel = screen.getByTestId("board-context-toolbar");
   expect(panel).toHaveAttribute("aria-label", "便利贴快捷工具");
   expect(panel).toHaveAttribute("data-expanded", "false");
-  expect(panel).toHaveClass("w-fit", "max-w-[min(27rem,calc(100vw-2rem))]");
+  expect(panel).toHaveClass("w-fit", "max-w-[min(27rem,calc(100vw-2rem))]", "px-1");
+  expect(panel).not.toHaveClass("p-1");
   fireEvent.click(screen.getByTestId("board-inspector-expand"));
   expect(screen.getByTestId("board-inspector-scroll-content")).toBeVisible();
   const width = screen.getByTestId("board-inspector-resize");
