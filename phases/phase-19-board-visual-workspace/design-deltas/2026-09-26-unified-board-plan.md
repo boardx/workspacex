@@ -12,56 +12,73 @@
 - 默认以开源、自托管和公开 API 可用为交付条件；配置、迁移、启动、备份恢复和 API 示例必须可复现。
 - V0.1 完整包含 PRD P0 与 P1；PRD P2 保留为后续扩展路线，不能删掉，也不能声称本期已经完成。
 
-## 2. 现状与颜色
+## 2. 当前执行投影（2026-09-28 13:10 CST）
 
-截至 2026-09-28，功能单源 `feature_list.json` 有 32 项、共 167 点：BV01（5点）为 `in_progress`，其余 31 项（162点）为 `not_started`。这不是产品完成百分比；既有能力与局部预览不能抵扣未通过正式退出门的功能。
+最新 `origin/main` 为 `e9995c9b4`；候选分支已确认包含该提交，当前本地候选为 `3ef756b7c`。R1–R7 的产品链路与大部分 R8–R10 实现已经汇入候选，正式 `feature_list.json` 状态仍由 harness 门控维护，本图不替代该权威状态。
 
-近期 UI 交付 PR [#4488](https://github.com/boardx/workspacex/pull/4488) 仍为 OPEN。评估起点 SHA `73c51bf` 的远端全仓编译/typecheck/lint、control-plane、merge-gate 通过，但 `verify-affected` 与 `fullstack-smoke` 失败；后者 118 项通过、1 项新加的对象属性面板浏览器断言失败（测试错误地查找旧“文字快捷样式”入口）。已将断言改为检查当前检查器实际提供的“编辑文字”控件，并推送修复；修复提交 `491c5f0` 的新 CI 在本次核对时刚排队，尚无通过证据。该 PR 是局部 UI 交付，不代表 R1–R10 中任何一轮已完成；不得合并直到最新 SHA 的浏览器验收、独立复核和 CI 全绿。
+当前候选已加入：Fabric 触摸/笔压与双指缩放反证、文件/对象存储与 PG 元数据边界、流式导入扫描和取消、短期资源授权、12 条非空验收通道、Agent API/Undo、协作与会议室验收生产器。已通过的局部证据包括 contracts 1017 项、whiteboard-core 156 项、whiteboard 669 项、R8 安全实现 682 项，以及真实 Chromium Fabric 触控探针。合入后的统一 SHA 仍须重新跑完整门禁，因此这些局部通过不等于最终批准。
 
-按 167 点、最多 3 条相互独立的开发线并行、每轮一个 PR，以及主 session 集中端到端验收估算：**开发与集成约 8–12 周，含 CI/返修/迁移验收缓冲约 10–14 周日历时间**。这是假设每周持续投入并且 issue/契约门可及时就绪的区间，不是承诺日期；R1/R2 的实测吞吐、依赖和 CI 返修会校准后续轮次。
+当前确定的阻塞是：性能 producer 在启动阶段返回 `REAL_PRODUCER_FAILED`，尚未进入测试用例；真实 Miro/Mural 导入需要外部脱敏导出样本；真实模型验收需要批准向既有 DashScope endpoint 发送纯虚构测试数据；service actor 的两张新表、RLS 和 `app_rw` 权限需要明确批准；物理触摸屏、压力笔、会议室硬件和独立视觉评分需要人工环境。PR [#4524](https://github.com/boardx/workspacex/pull/4524) 尚未更新到当前候选 SHA，也没有最终 CI 证据。
 
-图中蓝色表示已通过的局部检查；黄色表示仍在运行的检查；红色表示当前失败且必须修复；橙色表示排期估算；灰色表示待实现/验收；紫色表示明确保留的 P2。只有整轮退出门、主 session 验收、独立复核与仓库完成定义均通过时，才能标绿色。
+在外部样本、授权和物理设备都可及时提供的条件下，滚动预测为 **3–6 个工作日**：候选修复与静态/单元门 0.5–1 日，浏览器和长时压力门 1–2 日，CI/返修 1–2 日，人工与设备复核 0.5–1 日。若缺少真实厂商样本或物理设备，只能先交付“人类测试版”，不能声明“全部验收通过”。
 
-### 当前进度与交付估算（滚动预测）
+### 当前着色执行计划
 
 ```mermaid
-flowchart LR
-  A["BV01–BV32：32项 / 167点<br/>BV01 进行中；其余31项未开始"]:::risk
-  B["PR #4488 局部 UI<br/>OPEN；测试修复已推送"]:::risk
-  C["已通过：全仓编译、类型检查、lint<br/>control-plane、merge-gate"]:::done
-  D["旧 SHA 73c51bf 失败<br/>测试查找了已移除的旧入口"]:::fail
-  E["旧 SHA fullstack-smoke<br/>118通过 / 1失败"]:::fail
-  F["修复 SHA 491c5f0<br/>CI 已排队，浏览器结果待验证"]:::wait
-  G["主 session 核对最新 CI、截图<br/>必要时继续修复并独立复核"]:::next
-  A --> G
-  B --> G
-  C --> G
-  D --> G
-  E --> G
-  F --> G
-  classDef done fill:#dcfce7,stroke:#16a34a,color:#14532d
-  classDef wait fill:#fef3c7,stroke:#d97706,color:#78350f
-  classDef fail fill:#fee2e2,stroke:#dc2626,color:#7f1d1d
-  classDef risk fill:#ffedd5,stroke:#ea580c,color:#7c2d12
-  classDef next fill:#dbeafe,stroke:#2563eb,color:#1e3a8a
+flowchart TD
+  G([目标：当前 main 上形成可供人类测试且最终可达 9/10 的 Board 候选])
+  S1[1. 同步并确认最新 origin/main]
+  S2[2. 集成 R8 安全存储与 R10 非空验收通道]
+  S3[3. 修复性能 producer 启动失败并重跑性能与安全]
+  S4[4. 串行运行六旅程、存储、API/WS/ObjectStore 与 50 人协作]
+  S5[5. 在最终 SHA 运行会议室长测与三浏览器视觉无障碍]
+  S6[6. 补齐真实 Miro/Mural、真实模型与 service actor 证据]
+  S7[7. 推送 PR #4524 并修复 CI 到全绿]
+  S8[8. 完成人工视觉评分和物理设备验收]
+  S9[9. 汇总 exact-SHA 证据并提交人类测试版本]
+
+  G --> S1
+  S1 --> S2
+  S2 --> S3
+  S3 --> S4
+  S4 --> S5
+  S2 --> S6
+  S5 --> S7
+  S6 --> S7
+  S7 --> S8
+  S8 --> S9
+
+  classDef todo fill:#e5e7eb,stroke:#6b7280,color:#111827
+  classDef doing fill:#fde68a,stroke:#d97706,color:#111827
+  classDef done fill:#bbf7d0,stroke:#16a34a,color:#111827
+  classDef tested fill:#ddd6fe,stroke:#7c3aed,color:#111827
+  classDef blocked fill:#fecaca,stroke:#dc2626,color:#111827
+
+  class G doing
+  class S1 tested
+  class S2 done
+  class S3 doing
+  class S4 todo
+  class S5 todo
+  class S6 blocked
+  class S7 todo
+  class S8 blocked
+  class S9 todo
 ```
 
-各轮区间是带依赖交付的日历工作周估算，轮内独立模块可并行；跨轮预研可以提前，但不能绕过依赖/签核，也不能把未验收工作算作完成。
+%% evidence S1: `git fetch origin main`; `git merge-base --is-ancestor origin/main HEAD` 退出码 0；origin/main=e9995c9b4
+%% blocked S6: 等真实 Miro/Mural 脱敏导出；DashScope 外发授权；service actor DB/RLS 权限授权
+%% blocked S8: 等物理触摸屏、压力笔、会议室硬件和独立视觉评分人
 
-| Iteration | 主范围 | 估算 | 可并行工作面（最多三条开发线） |
-|---|---|---:|---|
-| R1 | Fabric/Yjs对象与命令边界、无限画布、Undo/Event、BlobStore接口 | 1–2周 | 画布/领域模型；协作投影；存储端口与契约 |
-| R2 | Board浏览、标签、Duplicate、归档/删除 | 0.5–1周 | 浏览UI；API与权限；复制生命周期测试 |
-| R3 | Sticky/Text、连续输入、批量与粘贴 | 1–1.5周 | Sticky交互；Text编辑；输入/IME与撤销验收 |
-| R4 | Shape、Draw、Image、Tile | 1–1.5周 | Shape/Tile；矢量Draw；Image入口/存储 |
-| R5 | Panel、Group、Layer、Lock、绑定Connector | 1–1.5周 | Panel；Connector；层级/锁与关系测试 |
-| R6 | 多选、快捷键、对齐/分布、Smart Layout | 0.75–1.25周 | 选择与快捷键；布局算法；UI/Undo集成 |
-| R7 | Presence、评论、多人撤销、离线/恢复 | 1–1.5周 | Presence；评论；恢复/撤销语义 |
-| R8 | 文件存储迁移、备份恢复、Miro/Mural导入导出 | 1.5–2周 | Blob/PG迁移；导入器；备份与数据对账 |
-| R9 | API、AI proposals、Chat图插入、会议室跟随 | 1–1.5周 | API/事件；AI与Chat；Presenter/触屏 |
-| R10 | 六旅程、性能、长时协作、安全、可访问性、总验收 | 1–1.5周 | 性能；a11y/恢复；集成验收与独立复核 |
+### 剩余工作的并行波次
 
-并行后的关键路径约 8–12 周；每轮一个 PR 带来的 CI 队列、返修和 R8/R10 高风险验收缓冲约 2 周，形成 **10–14 周** 当前区间。PR #4488 的当前红灯修复是眼前门槛，不计作 R1 已完成。
+| 波次 | 主 session | 子 agent 并行面 | 预计 |
+|---|---|---|---:|
+| Wave A | 复现并修性能 producer；候选类型/单元门 | R9 service actor 收尾；R8 OAuth 边界设计 | 0.5–1日 |
+| Wave B | 性能、安全、旅程、存储、API/WS/ObjectStore | 仅修独立失败，不启动完整 Docker | 1–2日 |
+| Wave C | 50 人协作与会议室 exact-SHA 长测 | 导入样本清单、真实模型证据准备 | 0.5–1日 |
+| Wave D | PR CI、浏览器截图、回归返修 | 独立 feature/e2e reviewer | 1–2日 |
+| Wave E | 物理设备与人类视觉评分 | 无可替代的自动化并行项 | 0.5–1日 |
 
 ## 3. 总体 Mermaid：先统一基础，再并行交付
 
