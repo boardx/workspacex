@@ -203,6 +203,11 @@ export interface KnowledgeReadPort {
    */
   orgKnowledge(orgId: OrgId, userId: string): Promise<Guarded<OrgKnowledgeData>>;
   /**
+   * B3-T3（issue #4497）：项目记忆里每条活结论的证据锚点（claimId → 锚点，含 stance 与 revoked，供推理纯函数过滤）。
+   * guard ref 与 `projectKnowledge` 同为项目本身；调用方交出同一个判定才拿得到。没有证据的结论不出现在键里。
+   */
+  projectClaimEvidence(orgId: OrgId, userId: string, projectId: string): Promise<Guarded<ProjectClaimEvidenceData>>;
+  /**
    * 大脑页：本人创建的、有活结论的会话（候选，最近活动倒序，从第 `offset` 个起最多 `limit` 个）。
    * 分页是为了让调用方在可见性过滤**之后**凑够上限。
    * `threadId` 是路由事实（同 `claimRoute`）；计数按该会话的 guard ref 包好——调用方逐个判会话可见性后才拿得到。
@@ -219,6 +224,8 @@ export interface KnowledgeReadPort {
 export type PersonalKnowledgeData = Omit<z.infer<typeof KG.knowledgeGraph.getPersonalKnowledge.out>, "scope">;
 export type ProjectKnowledgeData = Omit<z.infer<typeof KG.knowledgeGraph.getProjectKnowledge.out>, "scope" | "canPromoteToOrg">;
 export type OrgKnowledgeData = Omit<z.infer<typeof KG.knowledgeGraph.getOrgKnowledge.out>, "scope">;
+/** B3-T3：claimId → 证据锚点（契约 `KgEvidenceAnchor`，与 `getClaimSources.out.evidence` 同形）。 */
+export type ProjectClaimEvidenceData = Readonly<Record<string, readonly KG.KgEvidenceAnchor[]>>;
 
 /** 一个会话的知识计数（标题等展示字段在判定通过后另取）。 */
 export interface ThreadKnowledgeCounts {
@@ -321,6 +328,8 @@ export type KgHumanActionErrorCode =
   | "KG_NOT_OWNER" | "KG_ACTOR_NOT_HUMAN" | "KG_REVISION_CHANGED" | "KG_CLAIM_NOT_FOUND"
   | "KG_OBJECT_NOT_FOUND" | "KG_CONTESTED_NEEDS_RESOLUTION" | "KG_PROMPT_NOT_FOUND"
   | "KG_SCOPE_NOT_PERSONAL" | "KG_SCOPE_NOT_PROJECT" | "KG_EVIDENCE_REVOKED" | "KG_PROMOTE_BATCH_TOO_LARGE"
+  // B3-T4 adoptProjectDecision.err：非成员（数据库函数也复核，同一个码）
+  | "KG_NOT_VISIBLE"
   // F17 确认卡（actOnMemoryCard.err）；KG_INVALID_REQUEST 不是契约码——请求本身不成立（改完的字全是空白），接口回 400
   | "KG_CARD_NOT_FOUND" | "KG_CARD_STALE" | "KG_INVALID_REQUEST"
   // UC-KG-4 requestReindex（issue #4352）
@@ -392,6 +401,17 @@ export interface PromotionPort {
     readonly actionId: string; readonly projectId: string; readonly claimId: string;
     readonly mode: "new" | "merge"; readonly targetClaimId?: string;
   }): Promise<string>;
+  /**
+   * B3-T4（#4498）：项目记忆里这一条活结论的类型与状态（采纳为项目决策的来源核对用）；不在项目记忆里 / 已失效 ⇒ null。
+   * guard ref 是项目本身。
+   */
+  adoptionSource(orgId: OrgId, userId: string, projectId: string, claimId: string): Promise<Guarded<{
+    readonly id: string; readonly kind: KG.KgClaimKind; readonly status: string;
+  } | null>>;
+  /** B3-T4：采纳为项目决策（`kg_adopt_project_decision`）；被拒时抛 KgHumanActionError。返回新 decision 条目 id。 */
+  adoptProjectDecision(orgId: OrgId, userId: string, input: {
+    readonly actionId: string; readonly projectId: string; readonly claimId: string; readonly rationale: string;
+  }): Promise<{ readonly decisionClaimId: string; readonly actionId: string }>;
 }
 
 export const PROMOTION_PORT = Symbol("PromotionPort");
@@ -619,6 +639,27 @@ export interface KgDeploymentExtractionSettingsPort {
 }
 
 export const KG_DEPLOYMENT_EXTRACTION_SETTINGS_PORT = Symbol("KgDeploymentExtractionSettingsPort");
+
+// ─────────────────────────────── B3-T2 项目证据入图（issue #4496） ───────────────────────────────
+
+/**
+ * 项目证据入图任务（`ingest-project-evidence.ts`）自己的三个读口。证据本身经 `ProjectEvidencePort.listForIngestion`
+ * 取，这里只补它不回答的三件事：
+ *   · `pendingProjects`：哪些项目该跑一轮——只回 id（同 `KgExtractionQueuePort.pendingOrgs`），不带任何内容；
+ *   · `alreadyIngested`：这批证据里哪些**已经留过痕**（`ontology_actions` 里同 `(source_ref = 证据 id,
+ *     pipeline_version)` 的 accepted 行）——含「模型合法地回了空」那种留痕（空批次也记一条），否则空结果的证据
+ *     会每轮都被重新送进模型；`listForIngestion` 只按「尚未被任何结论引用」过滤，不知道空结果这回事；
+ *   · `knownObjects`：项目作用域已有的实体（实体解析用），与 `KgExtractionSourcePort.knownObjects` 同作用、不同作用域。
+ *     实体名是租户内容 ⇒ 回 `Guarded`（guard ref 是项目本身），由入图用例以项目主体的决策披露（同 `listForIngestion`）。
+ * 前两个只回 id（`alreadyIngested` 回的还是调用方自己传进来的那些 id），不披露任何内容。
+ */
+export interface KgProjectIngestionPort {
+  pendingProjects(): Promise<readonly { readonly orgId: OrgId; readonly projectId: string }[]>;
+  alreadyIngested(orgId: OrgId, projectId: string, evidenceIds: readonly string[]): Promise<ReadonlySet<string>>;
+  knownObjects(orgId: OrgId, projectId: string): Promise<Guarded<readonly KnownObject[]>>;
+}
+
+export const KG_PROJECT_INGESTION_PORT = Symbol("KgProjectIngestionPort");
 
 // ─────────────────────────────── UC-KG-4 整理本会话（issue #4352） ───────────────────────────────
 

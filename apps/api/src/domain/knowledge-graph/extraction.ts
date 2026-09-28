@@ -10,9 +10,9 @@
  * 而用户看不到任何原因（06-UX R3-5：打扰要克制——抽取失败不出声）。所以坏项跳过、好项保留；
  * 枚举与长度的最终裁决仍在执行器与数据库 CHECK（两层都挡）。
  */
-import { knowledgeGraph as KG } from "@repo/contracts";
+import { knowledgeGraph as KG, type projectEvidence as PE } from "@repo/contracts";
 import { resolveTimeExpression } from "./claim-time";
-import type { OntologyBatch, OntologyClaimInput, OntologyEdgeInput, OntologyObjectInput } from "./ontology-batch";
+import type { OntologyBatch, OntologyClaimInput, OntologyEdgeInput, OntologyEvidenceInput, OntologyObjectInput } from "./ontology-batch";
 
 /** 幂等键的一半（I-7）。抽取逻辑（prompt / 解析 / 实体解析）改了就升版本：同一消息会按新版本重跑一次。 */
 /** kg-extract@2（issue #4343）：prompt 与 schema 加了 goal / preference 两类。 */
@@ -144,8 +144,29 @@ export function claimTime(
   return c.kind === "todo" ? { dueAt: range.until } : { validFrom: range.from, validUntil: range.until };
 }
 
+/**
+ * 通用的「模型候选 → 执行器批次」（B3-T2 抽出来，chat 路径与项目证据路径共用，行为不变）：
+ * 实体解析、结论落证据、about / decided_by 边——只有**批次落在哪个作用域、证据指向什么**由调用方给。
+ */
+export interface BuildCandidateBatchInput {
+  readonly scope: OntologyBatch["scope"];
+  readonly actionType: string;
+  /** 幂等键的一半（消息 id / 证据单元 id）。 */
+  readonly sourceRef: string;
+  readonly pipelineVersion: string;
+  /** 模型看到的原文：结论的摘录必须是它的一段，否则退回开头。 */
+  readonly sourceText: string;
+  /** 把一句摘录变成执行器认的证据项（消息证据 / 证据单元）。 */
+  readonly evidenceFor: (excerpt: string) => OntologyEvidenceInput;
+  readonly result: ExtractionResult;
+  readonly known: readonly KnownObject[];
+  readonly newId: (prefix: "obj" | "clm" | "edg" | "act") => string;
+  /** issue #4363（S6）：原文的时间（ISO），时间说法按它换算；缺省 ⇒ 不带有效期 / 截止。 */
+  readonly sourceAt?: string;
+}
+
 /** 没有任何结论也没有实体 ⇒ null（寒暄消息：什么都不写，也不报错）。 */
-export function buildExtractionBatch(input: BuildExtractionBatchInput): OntologyBatch | null {
+export function buildCandidateBatch(input: BuildCandidateBatchInput): OntologyBatch | null {
   const { result } = input;
   if (result.entities.length === 0 && result.claims.length === 0) return null;
 
@@ -168,15 +189,15 @@ export function buildExtractionBatch(input: BuildExtractionBatchInput): Ontology
 
   const claims: OntologyClaimInput[] = [];
   const edges: OntologyEdgeInput[] = [];
-  // 模型给的原话不在消息里时，退回消息开头：它不一定就是支撑这条结论的那句，但一定是原话（执行器也会再核一遍）。
-  const fallbackExcerpt = clip(input.messageBody, MAX_EXCERPT);
+  // 模型给的原话不在原文里时，退回原文开头：它不一定就是支撑这条结论的那句，但一定是原话（执行器也会再核一遍）。
+  const fallbackExcerpt = clip(input.sourceText, MAX_EXCERPT);
   for (const c of result.claims) {
     const id = input.newId("clm");
-    const quote = c.quote.length > 0 && input.messageBody.includes(c.quote) ? clip(c.quote, MAX_EXCERPT) : fallbackExcerpt;
+    const quote = c.quote.length > 0 && input.sourceText.includes(c.quote) ? clip(c.quote, MAX_EXCERPT) : fallbackExcerpt;
     claims.push({
       id, claimKind: c.kind, statement: c.statement, status: "proposed", confidence: c.confidence,
-      evidence: [{ messageId: input.messageId, stance: "supporting", excerpt: quote }],
-      ...claimTime(c, input.messageAt),
+      evidence: [input.evidenceFor(quote)],
+      ...claimTime(c, input.sourceAt),
     });
     const linked = new Set<string>();
     for (const name of c.about) {
@@ -195,13 +216,71 @@ export function buildExtractionBatch(input: BuildExtractionBatchInput): Ontology
 
   return {
     actionId: input.newId("act"),
-    scope: { kind: "chat_session", id: input.threadId },
+    scope: input.scope,
     actor: { kind: "model", id: "kg-extractor" },
-    actionType: "extract",
-    sourceRef: input.messageId,
-    pipelineVersion: KG_EXTRACTION_PIPELINE_VERSION,
+    actionType: input.actionType,
+    sourceRef: input.sourceRef,
+    pipelineVersion: input.pipelineVersion,
     objects,
     claims,
     edges,
   };
+}
+
+/** chat 路径（F06）：会话作用域、消息证据。行为与抽出 `buildCandidateBatch` 之前逐字节相同。 */
+export function buildExtractionBatch(input: BuildExtractionBatchInput): OntologyBatch | null {
+  return buildCandidateBatch({
+    scope: { kind: "chat_session", id: input.threadId },
+    actionType: "extract",
+    sourceRef: input.messageId,
+    pipelineVersion: KG_EXTRACTION_PIPELINE_VERSION,
+    sourceText: input.messageBody,
+    evidenceFor: (excerpt) => ({ messageId: input.messageId, stance: "supporting", excerpt }),
+    result: input.result,
+    known: input.known,
+    newId: input.newId,
+    ...(input.messageAt === undefined ? {} : { sourceAt: input.messageAt }),
+  });
+}
+
+/**
+ * B3-T2：项目证据入图的幂等键另一半。与 chat 的 `KG_EXTRACTION_PIPELINE_VERSION` 分开计：
+ * 同一条 chat 消息既可能作为会话消息被抽（sourceRef = 消息 id），也可能作为证据单元入项目大脑
+ * （sourceRef = 证据单元 id `ev_…`），两条幂等键天然不撞；这里的版本只管项目路径。
+ */
+export const KG_PROJECT_INGESTION_PIPELINE_VERSION = "kg-project-ingest@1";
+export const KG_PROJECT_INGESTION_ACTION_TYPE = "ingest_project_evidence";
+
+export interface ProjectEvidenceForBatch {
+  readonly id: string;
+  readonly sourceKind: PE.ProjectEvidenceSourceKind;
+  readonly sourceRef: string;
+  readonly excerpt: string;
+}
+
+export interface BuildProjectEvidenceBatchInput {
+  readonly projectId: string;
+  readonly evidence: ProjectEvidenceForBatch;
+  readonly result: ExtractionResult;
+  readonly known: readonly KnownObject[];
+  readonly newId: (prefix: "obj" | "clm" | "edg" | "act") => string;
+}
+
+/**
+ * 项目路径（B3-T2）：project 作用域、证据单元锚点（sourceKind / sourceRef / evidenceId 都取自证据本身）。
+ * 空结果 ⇒ null，与 chat 路径同一约定；调用方（`ingest-project-evidence.ts`）另行留痕以保证幂等。
+ */
+export function buildProjectEvidenceBatch(input: BuildProjectEvidenceBatchInput): OntologyBatch | null {
+  const ev = input.evidence;
+  return buildCandidateBatch({
+    scope: { kind: "project", id: input.projectId },
+    actionType: KG_PROJECT_INGESTION_ACTION_TYPE,
+    sourceRef: ev.id,
+    pipelineVersion: KG_PROJECT_INGESTION_PIPELINE_VERSION,
+    sourceText: ev.excerpt,
+    evidenceFor: (excerpt) => ({ evidenceId: ev.id, sourceKind: ev.sourceKind, sourceRef: ev.sourceRef, stance: "supporting", excerpt }),
+    result: input.result,
+    known: input.known,
+    newId: input.newId,
+  });
 }

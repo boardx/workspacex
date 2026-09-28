@@ -92,6 +92,12 @@ export function fetchProjectKnowledge(projectId: string, signal?: AbortSignal): 
   return getParsed(`/knowledge-graph/projects/${seg(projectId)}`, knowledgeGraph.getProjectKnowledge.out, signal);
 }
 
+/** B3-T3（#4497）：项目大脑的跨来源推理（冲突 / 缺口 / 推理链），可见性同 `fetchProjectKnowledge`；非成员 403 `KG_NOT_VISIBLE`。 */
+export type ProjectReasoning = z.infer<typeof knowledgeGraph.getProjectReasoning.out>;
+export function fetchProjectReasoning(projectId: string, signal?: AbortSignal): Promise<ProjectReasoning> {
+  return getParsed(`/knowledge-graph/projects/${seg(projectId)}/reasoning`, knowledgeGraph.getProjectReasoning.out, signal);
+}
+
 /** B2-S4：组织大脑（组织记忆 L3）。任何组织成员可读；外人 403 `KG_NOT_VISIBLE`。 */
 export type OrgKnowledge = z.infer<typeof knowledgeGraph.getOrgKnowledge.out>;
 export function fetchOrgKnowledge(signal?: AbortSignal): Promise<OrgKnowledge> {
@@ -260,6 +266,21 @@ export function promoteToOrg(
     knowledgeGraph.promoteToOrg.out,
     undefined,
     { method: "POST", body: { claimIds: input.claimIds, ...(input.choices ? { choices: input.choices } : {}) } },
+  );
+}
+
+export type AdoptProjectDecisionResult = z.infer<typeof knowledgeGraph.adoptProjectDecision.out>;
+/**
+ * B3-T4（#4498）：把项目记忆里的一条事实 / 猜测采纳为项目决策（新建一条决定，回链到来源，带理由）。
+ * 服务端只放行项目成员且非观察者（观察者 `KG_NOT_OWNER`，非成员 `KG_NOT_VISIBLE`）。
+ */
+export function adoptProjectDecision(projectId: string, claimId: string, rationale: string): Promise<AdoptProjectDecisionResult> {
+  const input = knowledgeGraph.adoptProjectDecision.in.parse({ projectId, claimId, rationale });
+  return getParsed(
+    `/knowledge-graph/projects/${seg(projectId)}/decisions`,
+    knowledgeGraph.adoptProjectDecision.out,
+    undefined,
+    { method: "POST", body: { claimId: input.claimId, rationale: input.rationale } },
   );
 }
 

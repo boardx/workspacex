@@ -100,20 +100,32 @@ export function topicTerms(statement: string, entityNames: readonly string[]): S
 const sameSet = (a: ReadonlySet<string>, b: ReadonlySet<string>) => a.size === b.size && [...a].every((x) => b.has(x));
 const aboutKey = (names: readonly string[]) => new Set(names.map(normalizeName).filter((n) => n.length > 0));
 
+/** 判定只用到的三个字段——B3-T3 `project-reasoning.ts` 对项目记忆里任意两条做同一判定时复用，不抄一份。 */
+export interface ComparableClaim {
+  readonly kind: ConflictClaimKind;
+  readonly statement: string;
+  readonly about: readonly string[];
+}
+
+/** 两条说法是否「同一件事说了不同的数」（文件头四条）。对称：交换两边结果相同。 */
+export function statementsConflict(x: ComparableClaim, y: ComparableClaim): boolean {
+  if (x.kind !== y.kind || !COMPARABLE_KINDS.has(x.kind)) return false;
+  const a = aboutKey(x.about);
+  const b = aboutKey(y.about);
+  if (a.size === 0 || !sameSet(a, b)) return false;
+  const names = [...x.about, ...y.about];
+  const ta = topicTerms(x.statement, names);
+  const tb = topicTerms(y.statement, names);
+  if (![...ta].some((t) => tb.has(t))) return false;
+  const na = numberTokens(x.statement, names);
+  const nb = numberTokens(y.statement, names);
+  if (na.size === 0 || nb.size === 0) return false;
+  return [...na].some((z) => !nb.has(z)) && [...nb].some((z) => !na.has(z));
+}
+
 /** 单对判定（见文件头四条）。 */
 export function isConflict(fresh: FreshClaim, confirmed: ConfirmedClaim): boolean {
-  if (fresh.kind !== confirmed.kind || !COMPARABLE_KINDS.has(fresh.kind)) return false;
-  const a = aboutKey(fresh.about);
-  const b = aboutKey(confirmed.about);
-  if (a.size === 0 || !sameSet(a, b)) return false;
-  const names = [...fresh.about, ...confirmed.about];
-  const ta = topicTerms(fresh.statement, names);
-  const tb = topicTerms(confirmed.statement, names);
-  if (![...ta].some((t) => tb.has(t))) return false;
-  const na = numberTokens(fresh.statement, names);
-  const nb = numberTokens(confirmed.statement, names);
-  if (na.size === 0 || nb.size === 0) return false;
-  return [...na].some((x) => !nb.has(x)) && [...nb].some((x) => !na.has(x));
+  return statementsConflict(fresh, confirmed);
 }
 
 /**

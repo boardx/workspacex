@@ -55,7 +55,8 @@ describe("F06 抽取流水线读取的豁免前提", () => {
 
   it("(d) loadMessage / knownObjects / projectAnswerOutsideRecallCount 的唯一调用方是抽取用例", () => {
     const callers = walk(join(API, "src"))
-      .filter((f) => /\.(loadMessage|knownObjects|projectAnswerOutsideRecallCount)\(/.test(readFileSync(f, "utf8")))
+      // B3-T2：`KgProjectIngestionPort.knownObjects`（项目作用域、回 Guarded）是另一个端口的同名方法，不在本条豁免里。
+      .filter((f) => /\.(loadMessage|knownObjects|projectAnswerOutsideRecallCount)\(/.test(readFileSync(f, "utf8").replaceAll("deps.ingestion.knownObjects(", "")))
       .map((f) => relative(API, f));
     expect(callers).toEqual(["src/application/knowledge-graph/extract-message-knowledge.ts"]);
   });

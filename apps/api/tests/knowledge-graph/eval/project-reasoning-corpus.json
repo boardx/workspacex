@@ -1,0 +1,934 @@
+{
+  "$comment": "B3-T4（issue #4498）项目推理评测语料。固定不动：改语料 = 改评测基线，要在 issue 里说明。claims[].evidence 是 KgEvidenceAnchor（带 evidenceId、六类 sourceKind）；expectedConflicts 是无序对；expectedGaps.kind ∈ no_evidence（没有任何支持证据）/ single_source（支持证据只来自一类来源）。",
+  "version": 1,
+  "projects": [
+    {
+      "projectId": "p-solar",
+      "title": "德国工商业光伏进入策略",
+      "objects": [
+        {
+          "id": "o-grid",
+          "scope": {
+            "kind": "project",
+            "id": "p-solar"
+          },
+          "kind": "concept",
+          "name": "并网",
+          "aliases": [],
+          "createdBy": "model",
+          "claimCount": 4
+        },
+        {
+          "id": "o-price",
+          "scope": {
+            "kind": "project",
+            "id": "p-solar"
+          },
+          "kind": "metric",
+          "name": "价格",
+          "aliases": [],
+          "createdBy": "model",
+          "claimCount": 2
+        }
+      ],
+      "claims": [
+        {
+          "id": "s1",
+          "scope": {
+            "kind": "project",
+            "id": "p-solar"
+          },
+          "kind": "fact",
+          "statement": "并网周期是 6 个月",
+          "status": "accepted",
+          "triState": "confirmed",
+          "confidence": 0.8,
+          "createdBy": "model",
+          "reviewedBy": null,
+          "supersedesClaimId": null,
+          "derivedFromClaimId": null,
+          "aboutObjectIds": [
+            "o-grid"
+          ],
+          "supportingCount": 2,
+          "contradictingCount": 0,
+          "createdAt": "2026-09-27T00:00:00Z",
+          "evidence": [
+            {
+              "segmentId": "seg-ev-s1a",
+              "stance": "supporting",
+              "sourceKind": "interview_segment",
+              "sourceRef": "iv-01-seg-3",
+              "evidenceId": "ev-s1a",
+              "excerpt": "受访业主：从申请到并网差不多半年，6 个月。",
+              "locator": null,
+              "revoked": false
+            },
+            {
+              "segmentId": "seg-ev-s1b",
+              "stance": "supporting",
+              "sourceKind": "transcript_segment",
+              "sourceRef": "tr-01-seg-12",
+              "evidenceId": "ev-s1b",
+              "excerpt": "会上电网代表也说了大约 6 个月。",
+              "locator": {
+                "startMs": 734000
+              },
+              "revoked": false
+            }
+          ]
+        },
+        {
+          "id": "s2",
+          "scope": {
+            "kind": "project",
+            "id": "p-solar"
+          },
+          "kind": "fact",
+          "statement": "并网周期是 3 个月",
+          "status": "proposed",
+          "triState": "pending",
+          "confidence": 0.8,
+          "createdBy": "model",
+          "reviewedBy": null,
+          "supersedesClaimId": null,
+          "derivedFromClaimId": null,
+          "aboutObjectIds": [
+            "o-grid"
+          ],
+          "supportingCount": 1,
+          "contradictingCount": 0,
+          "createdAt": "2026-09-27T00:00:00Z",
+          "evidence": [
+            {
+              "segmentId": "seg-ev-s2a",
+              "stance": "supporting",
+              "sourceKind": "research_source",
+              "sourceRef": "gr-01-src-7",
+              "evidenceId": "ev-s2a",
+              "excerpt": "行业报告：北威州平均并网 3 个月。",
+              "locator": null,
+              "revoked": false
+            }
+          ]
+        },
+        {
+          "id": "s3",
+          "scope": {
+            "kind": "project",
+            "id": "p-solar"
+          },
+          "kind": "hypothesis",
+          "statement": "业主愿为工期承诺付 10% 溢价",
+          "status": "proposed",
+          "triState": "pending",
+          "confidence": 0.8,
+          "createdBy": "model",
+          "reviewedBy": null,
+          "supersedesClaimId": null,
+          "derivedFromClaimId": null,
+          "aboutObjectIds": [
+            "o-price"
+          ],
+          "supportingCount": 1,
+          "contradictingCount": 0,
+          "createdAt": "2026-09-27T00:00:00Z",
+          "evidence": [
+            {
+              "segmentId": "seg-ev-s3a",
+              "stance": "supporting",
+              "sourceKind": "survey_response",
+              "sourceRef": "sv-01-resp-18",
+              "evidenceId": "ev-s3a",
+              "excerpt": "问卷第 4 题：愿意为准时并网多付 10%。",
+              "locator": null,
+              "revoked": false
+            }
+          ]
+        },
+        {
+          "id": "s4",
+          "scope": {
+            "kind": "project",
+            "id": "p-solar"
+          },
+          "kind": "hypothesis",
+          "statement": "中型仓储业主是首批客户",
+          "status": "proposed",
+          "triState": "pending",
+          "confidence": 0.8,
+          "createdBy": "model",
+          "reviewedBy": null,
+          "supersedesClaimId": null,
+          "derivedFromClaimId": null,
+          "aboutObjectIds": [],
+          "supportingCount": 0,
+          "contradictingCount": 0,
+          "createdAt": "2026-09-27T00:00:00Z",
+          "evidence": []
+        },
+        {
+          "id": "s5",
+          "scope": {
+            "kind": "project",
+            "id": "p-solar"
+          },
+          "kind": "fact",
+          "statement": "客户把交付确定性排在价格之前",
+          "status": "accepted",
+          "triState": "confirmed",
+          "confidence": 0.8,
+          "createdBy": "model",
+          "reviewedBy": null,
+          "supersedesClaimId": null,
+          "derivedFromClaimId": null,
+          "aboutObjectIds": [
+            "o-price"
+          ],
+          "supportingCount": 3,
+          "contradictingCount": 0,
+          "createdAt": "2026-09-27T00:00:00Z",
+          "evidence": [
+            {
+              "segmentId": "seg-ev-s5a",
+              "stance": "supporting",
+              "sourceKind": "chat_message",
+              "sourceRef": "msg-901",
+              "evidenceId": "ev-s5a",
+              "excerpt": "客户原话：先看能不能按时并网，再谈价。",
+              "locator": null,
+              "revoked": false
+            },
+            {
+              "segmentId": "seg-ev-s5b",
+              "stance": "supporting",
+              "sourceKind": "attachment",
+              "sourceRef": "art-v-11",
+              "evidenceId": "ev-s5b",
+              "excerpt": "竞标评分表：交付确定性权重 40%，价格 30%。",
+              "locator": {
+                "page": 2
+              },
+              "revoked": false
+            },
+            {
+              "segmentId": "seg-ev-s5c",
+              "stance": "supporting",
+              "sourceKind": "interview_segment",
+              "sourceRef": "iv-02-seg-1",
+              "evidenceId": "ev-s5c",
+              "excerpt": "第二位受访者同样先问工期。",
+              "locator": null,
+              "revoked": false
+            }
+          ]
+        },
+        {
+          "id": "s6",
+          "scope": {
+            "kind": "project",
+            "id": "p-solar"
+          },
+          "kind": "risk",
+          "statement": "电网升级费用可能翻倍",
+          "status": "proposed",
+          "triState": "pending",
+          "confidence": 0.8,
+          "createdBy": "model",
+          "reviewedBy": null,
+          "supersedesClaimId": null,
+          "derivedFromClaimId": null,
+          "aboutObjectIds": [
+            "o-grid"
+          ],
+          "supportingCount": 2,
+          "contradictingCount": 0,
+          "createdAt": "2026-09-27T00:00:00Z",
+          "evidence": [
+            {
+              "segmentId": "seg-ev-s6a",
+              "stance": "supporting",
+              "sourceKind": "transcript_segment",
+              "sourceRef": "tr-02-seg-4",
+              "evidenceId": "ev-s6a",
+              "excerpt": "电网代表：明年升级费可能翻倍。",
+              "locator": {
+                "startMs": 120000
+              },
+              "revoked": false
+            },
+            {
+              "segmentId": "seg-ev-s6b",
+              "stance": "supporting",
+              "sourceKind": "research_source",
+              "sourceRef": "gr-01-src-9",
+              "evidenceId": "ev-s6b",
+              "excerpt": "监管草案提到并网费用改革。",
+              "locator": null,
+              "revoked": false
+            }
+          ]
+        }
+      ],
+      "edges": [
+        {
+          "id": "e-s1",
+          "src": {
+            "kind": "claim",
+            "id": "s3"
+          },
+          "dst": {
+            "kind": "claim",
+            "id": "s5"
+          },
+          "relation": "supported_by",
+          "createdBy": "model"
+        },
+        {
+          "id": "e-s2",
+          "src": {
+            "kind": "claim",
+            "id": "s6"
+          },
+          "dst": {
+            "kind": "claim",
+            "id": "s1"
+          },
+          "relation": "blocks",
+          "createdBy": "model"
+        }
+      ],
+      "expectedConflicts": [
+        {
+          "claimIds": [
+            "s1",
+            "s2"
+          ],
+          "reason": "同一指标（并网周期）在访谈 / 转写与深研来源里数值相反"
+        }
+      ],
+      "expectedGaps": [
+        {
+          "claimId": "s4",
+          "kind": "no_evidence"
+        }
+      ]
+    },
+    {
+      "projectId": "p-edu",
+      "title": "211 高校招生咨询产品",
+      "objects": [
+        {
+          "id": "o-parent",
+          "scope": {
+            "kind": "project",
+            "id": "p-edu"
+          },
+          "kind": "person",
+          "name": "家长",
+          "aliases": [],
+          "createdBy": "model",
+          "claimCount": 3
+        },
+        {
+          "id": "o-budget",
+          "scope": {
+            "kind": "project",
+            "id": "p-edu"
+          },
+          "kind": "metric",
+          "name": "预算",
+          "aliases": [],
+          "createdBy": "model",
+          "claimCount": 2
+        }
+      ],
+      "claims": [
+        {
+          "id": "e1",
+          "scope": {
+            "kind": "project",
+            "id": "p-edu"
+          },
+          "kind": "fact",
+          "statement": "家长年度咨询预算是 2 万元",
+          "status": "accepted",
+          "triState": "confirmed",
+          "confidence": 0.8,
+          "createdBy": "model",
+          "reviewedBy": null,
+          "supersedesClaimId": null,
+          "derivedFromClaimId": null,
+          "aboutObjectIds": [
+            "o-parent",
+            "o-budget"
+          ],
+          "supportingCount": 2,
+          "contradictingCount": 0,
+          "createdAt": "2026-09-27T00:00:00Z",
+          "evidence": [
+            {
+              "segmentId": "seg-ev-e1a",
+              "stance": "supporting",
+              "sourceKind": "survey_response",
+              "sourceRef": "sv-02-resp-3",
+              "evidenceId": "ev-e1a",
+              "excerpt": "问卷第 2 题：预算 2 万。",
+              "locator": null,
+              "revoked": false
+            },
+            {
+              "segmentId": "seg-ev-e1b",
+              "stance": "supporting",
+              "sourceKind": "interview_segment",
+              "sourceRef": "iv-03-seg-6",
+              "evidenceId": "ev-e1b",
+              "excerpt": "家长：一年两万左右。",
+              "locator": null,
+              "revoked": false
+            }
+          ]
+        },
+        {
+          "id": "e2",
+          "scope": {
+            "kind": "project",
+            "id": "p-edu"
+          },
+          "kind": "fact",
+          "statement": "家长年度咨询预算是 5 千元",
+          "status": "proposed",
+          "triState": "pending",
+          "confidence": 0.8,
+          "createdBy": "model",
+          "reviewedBy": null,
+          "supersedesClaimId": null,
+          "derivedFromClaimId": null,
+          "aboutObjectIds": [
+            "o-parent",
+            "o-budget"
+          ],
+          "supportingCount": 1,
+          "contradictingCount": 0,
+          "createdAt": "2026-09-27T00:00:00Z",
+          "evidence": [
+            {
+              "segmentId": "seg-ev-e2a",
+              "stance": "supporting",
+              "sourceKind": "chat_message",
+              "sourceRef": "msg-1201",
+              "evidenceId": "ev-e2a",
+              "excerpt": "销售同事：多数家长只肯出五千。",
+              "locator": null,
+              "revoked": false
+            }
+          ]
+        },
+        {
+          "id": "e3",
+          "scope": {
+            "kind": "project",
+            "id": "p-edu"
+          },
+          "kind": "hypothesis",
+          "statement": "家长最看重志愿填报而不是选校",
+          "status": "proposed",
+          "triState": "pending",
+          "confidence": 0.8,
+          "createdBy": "model",
+          "reviewedBy": null,
+          "supersedesClaimId": null,
+          "derivedFromClaimId": null,
+          "aboutObjectIds": [
+            "o-parent"
+          ],
+          "supportingCount": 2,
+          "contradictingCount": 0,
+          "createdAt": "2026-09-27T00:00:00Z",
+          "evidence": [
+            {
+              "segmentId": "seg-ev-e3a",
+              "stance": "supporting",
+              "sourceKind": "transcript_segment",
+              "sourceRef": "tr-03-seg-2",
+              "evidenceId": "ev-e3a",
+              "excerpt": "家长会录音：志愿填报最焦虑。",
+              "locator": {
+                "startMs": 5000
+              },
+              "revoked": false
+            },
+            {
+              "segmentId": "seg-ev-e3b",
+              "stance": "supporting",
+              "sourceKind": "survey_response",
+              "sourceRef": "sv-02-resp-9",
+              "evidenceId": "ev-e3b",
+              "excerpt": "问卷第 5 题：最需要志愿填报指导。",
+              "locator": null,
+              "revoked": false
+            }
+          ]
+        },
+        {
+          "id": "e4",
+          "scope": {
+            "kind": "project",
+            "id": "p-edu"
+          },
+          "kind": "hypothesis",
+          "statement": "短视频是主要获客渠道",
+          "status": "proposed",
+          "triState": "pending",
+          "confidence": 0.8,
+          "createdBy": "model",
+          "reviewedBy": null,
+          "supersedesClaimId": null,
+          "derivedFromClaimId": null,
+          "aboutObjectIds": [],
+          "supportingCount": 0,
+          "contradictingCount": 0,
+          "createdAt": "2026-09-27T00:00:00Z",
+          "evidence": []
+        },
+        {
+          "id": "e5",
+          "scope": {
+            "kind": "project",
+            "id": "p-edu"
+          },
+          "kind": "todo",
+          "statement": "下周完成 20 份家长访谈",
+          "status": "accepted",
+          "triState": "confirmed",
+          "confidence": 0.8,
+          "createdBy": "model",
+          "reviewedBy": null,
+          "supersedesClaimId": null,
+          "derivedFromClaimId": null,
+          "aboutObjectIds": [
+            "o-parent"
+          ],
+          "supportingCount": 1,
+          "contradictingCount": 0,
+          "createdAt": "2026-09-27T00:00:00Z",
+          "evidence": [
+            {
+              "segmentId": "seg-ev-e5a",
+              "stance": "supporting",
+              "sourceKind": "chat_message",
+              "sourceRef": "msg-1202",
+              "evidenceId": "ev-e5a",
+              "excerpt": "项目群：下周约 20 位家长。",
+              "locator": null,
+              "revoked": false
+            }
+          ]
+        },
+        {
+          "id": "e6",
+          "scope": {
+            "kind": "project",
+            "id": "p-edu"
+          },
+          "kind": "fact",
+          "statement": "竞品客单价在 1.5 万至 3 万之间",
+          "status": "accepted",
+          "triState": "confirmed",
+          "confidence": 0.8,
+          "createdBy": "model",
+          "reviewedBy": null,
+          "supersedesClaimId": null,
+          "derivedFromClaimId": null,
+          "aboutObjectIds": [
+            "o-budget"
+          ],
+          "supportingCount": 2,
+          "contradictingCount": 0,
+          "createdAt": "2026-09-27T00:00:00Z",
+          "evidence": [
+            {
+              "segmentId": "seg-ev-e6a",
+              "stance": "supporting",
+              "sourceKind": "research_source",
+              "sourceRef": "gr-02-src-2",
+              "evidenceId": "ev-e6a",
+              "excerpt": "深研：三家竞品报价 1.5–3 万。",
+              "locator": null,
+              "revoked": false
+            },
+            {
+              "segmentId": "seg-ev-e6b",
+              "stance": "supporting",
+              "sourceKind": "attachment",
+              "sourceRef": "art-v-21",
+              "evidenceId": "ev-e6b",
+              "excerpt": "竞品价目表截图。",
+              "locator": {
+                "page": 1
+              },
+              "revoked": false
+            }
+          ]
+        }
+      ],
+      "edges": [
+        {
+          "id": "e-e1",
+          "src": {
+            "kind": "claim",
+            "id": "e3"
+          },
+          "dst": {
+            "kind": "claim",
+            "id": "e1"
+          },
+          "relation": "supported_by",
+          "createdBy": "model"
+        },
+        {
+          "id": "e-e2",
+          "src": {
+            "kind": "claim",
+            "id": "e5"
+          },
+          "dst": {
+            "kind": "claim",
+            "id": "e3"
+          },
+          "relation": "candidate_for",
+          "createdBy": "model"
+        }
+      ],
+      "expectedConflicts": [
+        {
+          "claimIds": [
+            "e1",
+            "e2"
+          ],
+          "reason": "同一指标（家长预算）在问卷 / 访谈与对话里数值相反"
+        }
+      ],
+      "expectedGaps": [
+        {
+          "claimId": "e4",
+          "kind": "no_evidence"
+        }
+      ]
+    },
+    {
+      "projectId": "p-health",
+      "title": "县域远程问诊试点",
+      "objects": [
+        {
+          "id": "o-doctor",
+          "scope": {
+            "kind": "project",
+            "id": "p-health"
+          },
+          "kind": "person",
+          "name": "县医院医生",
+          "aliases": [],
+          "createdBy": "model",
+          "claimCount": 3
+        },
+        {
+          "id": "o-wait",
+          "scope": {
+            "kind": "project",
+            "id": "p-health"
+          },
+          "kind": "metric",
+          "name": "等待时长",
+          "aliases": [],
+          "createdBy": "model",
+          "claimCount": 2
+        }
+      ],
+      "claims": [
+        {
+          "id": "h1",
+          "scope": {
+            "kind": "project",
+            "id": "p-health"
+          },
+          "kind": "fact",
+          "statement": "平均等待时长是 40 分钟",
+          "status": "accepted",
+          "triState": "confirmed",
+          "confidence": 0.8,
+          "createdBy": "model",
+          "reviewedBy": null,
+          "supersedesClaimId": null,
+          "derivedFromClaimId": null,
+          "aboutObjectIds": [
+            "o-wait"
+          ],
+          "supportingCount": 2,
+          "contradictingCount": 0,
+          "createdAt": "2026-09-27T00:00:00Z",
+          "evidence": [
+            {
+              "segmentId": "seg-ev-h1a",
+              "stance": "supporting",
+              "sourceKind": "transcript_segment",
+              "sourceRef": "tr-04-seg-8",
+              "evidenceId": "ev-h1a",
+              "excerpt": "院长汇报：平均等 40 分钟。",
+              "locator": {
+                "startMs": 900000
+              },
+              "revoked": false
+            },
+            {
+              "segmentId": "seg-ev-h1b",
+              "stance": "supporting",
+              "sourceKind": "attachment",
+              "sourceRef": "art-v-31",
+              "evidenceId": "ev-h1b",
+              "excerpt": "门诊统计表：均值 40 分钟。",
+              "locator": {
+                "page": 3
+              },
+              "revoked": false
+            }
+          ]
+        },
+        {
+          "id": "h2",
+          "scope": {
+            "kind": "project",
+            "id": "p-health"
+          },
+          "kind": "fact",
+          "statement": "平均等待时长是 15 分钟",
+          "status": "proposed",
+          "triState": "pending",
+          "confidence": 0.8,
+          "createdBy": "model",
+          "reviewedBy": null,
+          "supersedesClaimId": null,
+          "derivedFromClaimId": null,
+          "aboutObjectIds": [
+            "o-wait"
+          ],
+          "supportingCount": 1,
+          "contradictingCount": 0,
+          "createdAt": "2026-09-27T00:00:00Z",
+          "evidence": [
+            {
+              "segmentId": "seg-ev-h2a",
+              "stance": "supporting",
+              "sourceKind": "interview_segment",
+              "sourceRef": "iv-05-seg-2",
+              "evidenceId": "ev-h2a",
+              "excerpt": "一位医生说大概一刻钟。",
+              "locator": null,
+              "revoked": false
+            }
+          ]
+        },
+        {
+          "id": "h3",
+          "scope": {
+            "kind": "project",
+            "id": "p-health"
+          },
+          "kind": "hypothesis",
+          "statement": "医生更愿意用微信而不是专用 App",
+          "status": "proposed",
+          "triState": "pending",
+          "confidence": 0.8,
+          "createdBy": "model",
+          "reviewedBy": null,
+          "supersedesClaimId": null,
+          "derivedFromClaimId": null,
+          "aboutObjectIds": [
+            "o-doctor"
+          ],
+          "supportingCount": 2,
+          "contradictingCount": 0,
+          "createdAt": "2026-09-27T00:00:00Z",
+          "evidence": [
+            {
+              "segmentId": "seg-ev-h3a",
+              "stance": "supporting",
+              "sourceKind": "interview_segment",
+              "sourceRef": "iv-05-seg-4",
+              "evidenceId": "ev-h3a",
+              "excerpt": "医生：微信顺手。",
+              "locator": null,
+              "revoked": false
+            },
+            {
+              "segmentId": "seg-ev-h3b",
+              "stance": "supporting",
+              "sourceKind": "chat_message",
+              "sourceRef": "msg-1401",
+              "evidenceId": "ev-h3b",
+              "excerpt": "项目群转述：三位医生都提到微信。",
+              "locator": null,
+              "revoked": false
+            }
+          ]
+        },
+        {
+          "id": "h4",
+          "scope": {
+            "kind": "project",
+            "id": "p-health"
+          },
+          "kind": "hypothesis",
+          "statement": "老年患者需要家属代操作",
+          "status": "proposed",
+          "triState": "pending",
+          "confidence": 0.8,
+          "createdBy": "model",
+          "reviewedBy": null,
+          "supersedesClaimId": null,
+          "derivedFromClaimId": null,
+          "aboutObjectIds": [],
+          "supportingCount": 0,
+          "contradictingCount": 0,
+          "createdAt": "2026-09-27T00:00:00Z",
+          "evidence": []
+        },
+        {
+          "id": "h5",
+          "scope": {
+            "kind": "project",
+            "id": "p-health"
+          },
+          "kind": "fact",
+          "statement": "省级平台接口每月限额 1 万次",
+          "status": "accepted",
+          "triState": "confirmed",
+          "confidence": 0.8,
+          "createdBy": "model",
+          "reviewedBy": null,
+          "supersedesClaimId": null,
+          "derivedFromClaimId": null,
+          "aboutObjectIds": [
+            "o-doctor"
+          ],
+          "supportingCount": 3,
+          "contradictingCount": 0,
+          "createdAt": "2026-09-27T00:00:00Z",
+          "evidence": [
+            {
+              "segmentId": "seg-ev-h5a",
+              "stance": "supporting",
+              "sourceKind": "research_source",
+              "sourceRef": "gr-03-src-1",
+              "evidenceId": "ev-h5a",
+              "excerpt": "省平台文档：月限 1 万次。",
+              "locator": null,
+              "revoked": false
+            },
+            {
+              "segmentId": "seg-ev-h5b",
+              "stance": "supporting",
+              "sourceKind": "attachment",
+              "sourceRef": "art-v-32",
+              "evidenceId": "ev-h5b",
+              "excerpt": "接口协议附件第 5 页。",
+              "locator": {
+                "page": 5
+              },
+              "revoked": false
+            },
+            {
+              "segmentId": "seg-ev-h5c",
+              "stance": "supporting",
+              "sourceKind": "survey_response",
+              "sourceRef": "sv-03-resp-1",
+              "evidenceId": "ev-h5c",
+              "excerpt": "IT 问卷：确认限额 1 万。",
+              "locator": null,
+              "revoked": false
+            }
+          ]
+        },
+        {
+          "id": "h6",
+          "scope": {
+            "kind": "project",
+            "id": "p-health"
+          },
+          "kind": "risk",
+          "statement": "医生排班冲突导致响应超时",
+          "status": "proposed",
+          "triState": "pending",
+          "confidence": 0.8,
+          "createdBy": "model",
+          "reviewedBy": null,
+          "supersedesClaimId": null,
+          "derivedFromClaimId": null,
+          "aboutObjectIds": [
+            "o-doctor"
+          ],
+          "supportingCount": 1,
+          "contradictingCount": 0,
+          "createdAt": "2026-09-27T00:00:00Z",
+          "evidence": [
+            {
+              "segmentId": "seg-ev-h6a",
+              "stance": "supporting",
+              "sourceKind": "transcript_segment",
+              "sourceRef": "tr-04-seg-15",
+              "evidenceId": "ev-h6a",
+              "excerpt": "院长：排班冲突常见。",
+              "locator": {
+                "startMs": 1500000
+              },
+              "revoked": false
+            }
+          ]
+        }
+      ],
+      "edges": [
+        {
+          "id": "e-h1",
+          "src": {
+            "kind": "claim",
+            "id": "h3"
+          },
+          "dst": {
+            "kind": "claim",
+            "id": "h5"
+          },
+          "relation": "hard_constraint",
+          "createdBy": "model"
+        },
+        {
+          "id": "e-h2",
+          "src": {
+            "kind": "claim",
+            "id": "h6"
+          },
+          "dst": {
+            "kind": "claim",
+            "id": "h1"
+          },
+          "relation": "may_shorten",
+          "createdBy": "model"
+        }
+      ],
+      "expectedConflicts": [
+        {
+          "claimIds": [
+            "h1",
+            "h2"
+          ],
+          "reason": "同一指标（等待时长）在转写 / 附件与访谈里数值相反"
+        }
+      ],
+      "expectedGaps": [
+        {
+          "claimId": "h4",
+          "kind": "no_evidence"
+        }
+      ]
+    }
+  ]
+}

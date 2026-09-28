@@ -67,8 +67,8 @@ describe("#4365 worker 告警：进入超标记 error（一次）、恢复记 in
     const queue = { pendingOrgs: async (): Promise<readonly OrgId[]> => [], claim: async () => [], complete: async () => undefined, fail: async () => undefined };
     const worker = new KgExtractionWorker(
       { enabled: true, provider: "loopback", modelId: "m" }, queue as never, {} as never, {} as never, {} as never,
-      { pendingCloseOrgs: async () => [], drainCloseOne: async () => false } as never, {} as never, logger as never, 1_000,
-      slo, counts, { p95LatencyMs: 1_000, failureRate: 0.2, stuckLeases: 0 }, null,
+      { pendingCloseOrgs: async () => [], drainCloseOne: async () => false } as never, {} as never, logger as never, {} as never, {} as never, 1_000,
+      undefined, undefined, slo, counts, { p95LatencyMs: 1_000, failureRate: 0.2, stuckLeases: 0 }, null,
     );
     return { worker, lines, slo };
   }

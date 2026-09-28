@@ -12,6 +12,7 @@
  * - S8（#4365）：调抽取模型之前过「值得记」门控（extraction-gate.ts）；每个任务的耗时与结果记进 SLO 记录器。
  */
 import type { LoggerPort } from "../ports/logger.port";
+import { attachChatMessageEvidence, type ChatEvidenceDeps } from "../project/collect-evidence/chat";
 import { buildExtractionBatch, KG_EXTRACTION_PIPELINE_VERSION } from "../../domain/knowledge-graph/extraction";
 import { applyOntologyBatch } from "./apply-ontology-batch";
 import { copyAuthorDecisions } from "./auto-copy-decisions";
@@ -43,6 +44,11 @@ export interface ExtractionDeps {
   readonly goalLinks?: Pick<GoalLinkDeps, "goalLinks" | "proposer">;
   readonly logger: LoggerPort;
   readonly newId: (prefix: "obj" | "clm" | "edg" | "act") => string;
+  /**
+   * B3-T1（#4495）：项目作用域线程的消息锚点在落表前回填成证据单元（`project_evidence`）并带上 `evidenceId`。
+   * 可选——不给就照旧只写锚点（旧测试装配、以及不想让证据仓储进抽取链的场合）。
+   */
+  readonly chatEvidence?: ChatEvidenceDeps;
   /** S8：SLO 记录器（生产合成必注入；只测抽取本身的夹具可以不给——那时只是不计数，门控规则照常生效）。 */
   readonly slo?: ExtractionSloRecorder;
   /** S8：可选的便宜模型门控（`KG_EXTRACTION_GATE_MODEL=1` 才注入，默认没有）。 */
@@ -100,7 +106,9 @@ export async function extractJob(deps: ExtractionDeps, job: KgExtractionJob): Pr
     });
     return "empty";
   }
-  const out = await applyOntologyBatch(deps.store, job.orgId, null, batch);
+  // B3-T1：先回填证据单元再交执行器——执行器落 `claim_message_evidence.evidence_id` 需要单元先存在。
+  const withEvidence = deps.chatEvidence === undefined ? batch : await attachChatMessageEvidence(deps.chatEvidence, job.orgId, batch);
+  const out = await applyOntologyBatch(deps.store, job.orgId, null, withEvidence);
   if (out.outcome === "rejected") {
     // 执行器拒了（已留痕）：这是抽取产物的问题，重试同一份产物没有意义。
     deps.logger.info("kg extraction batch rejected", {

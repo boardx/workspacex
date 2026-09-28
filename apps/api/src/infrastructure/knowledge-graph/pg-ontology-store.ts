@@ -28,8 +28,12 @@ export function toBatchPayload(batch: OntologyBatch): Record<string, unknown> {
     claims: batch.claims.map((c) => ({
       id: c.id, claim_kind: c.claimKind, statement: c.statement, status: c.status, confidence: c.confidence,
       evidence: c.evidence.map((e) => ("messageId" in e
-        ? { message_id: e.messageId, stance: e.stance, excerpt: e.excerpt }
-        : { segment_id: e.segmentId, stance: e.stance })),
+        // B3-T1：证据单元回链（迁移 20260928100000 的 `kg_insert_claim_evidence` 读 `evidence_id`）；没有就不带键。
+        ? { message_id: e.messageId, stance: e.stance, excerpt: e.excerpt, ...(e.evidenceId !== undefined ? { evidence_id: e.evidenceId } : {}) }
+        : "segmentId" in e
+          ? { segment_id: e.segmentId, stance: e.stance, ...(e.evidenceId !== undefined ? { evidence_id: e.evidenceId } : {}) }
+          // B3-T2：项目证据单元锚点（迁移 20260928210000 的 `claim_project_evidence`）
+          : { evidence_id: e.evidenceId, source_kind: e.sourceKind, source_ref: e.sourceRef, stance: e.stance, excerpt: e.excerpt })),
       // issue #4363（S6）：只在有值时带上（kg_apply_batch 缺省 valid_from = now()、其余为空）
       ...(c.validFrom === undefined ? {} : { valid_from: c.validFrom }),
       ...(c.validUntil === undefined ? {} : { valid_until: c.validUntil }),

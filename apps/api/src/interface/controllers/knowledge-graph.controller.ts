@@ -22,10 +22,12 @@ import {
 import { correctCitation, getCitationMetrics } from "../../application/knowledge-graph/correct-citation";
 import { undoAutoPersonalCopy } from "../../application/knowledge-graph/auto-copy-decisions";
 import { listPromotionNominations, promoteToPersonal } from "../../application/knowledge-graph/promote-to-personal";
+import { adoptProjectDecision } from "../../application/knowledge-graph/adopt-project-decision";
 import { promoteToOrg } from "../../application/knowledge-graph/promote-to-org";
 import { promoteToProject } from "../../application/knowledge-graph/promote-to-project";
 import { getOrgKnowledge } from "../../application/knowledge-graph/read-org-knowledge";
 import { getProjectKnowledge } from "../../application/knowledge-graph/read-project-knowledge";
+import { getProjectReasoning } from "../../application/knowledge-graph/read-project-reasoning";
 import { requestReindex } from "../../application/knowledge-graph/request-reindex";
 import {
   HUMAN_ACTION_PORT, KG_AUTO_COPY_PORT, KG_REINDEX_PORT, KG_DEPLOYMENT_EXTRACTION_SETTINGS_PORT, KG_EXTRACTION_MODEL_CONFIG, KG_ORG_EXTRACTION_SETTINGS_PORT, KNOWLEDGE_READ_PORT, KgHumanActionError, MEMORY_CARD_PORT, PROMOTION_PORT,
@@ -94,7 +96,7 @@ export class KnowledgeGraphController {
       if (e instanceof KgHumanActionError) {
         const body = { reasonCode: e.code };
         if (e.code === "KG_NOT_OWNER" || e.code === "KG_ACTOR_NOT_HUMAN" || e.code === "KG_SCOPE_NOT_PERSONAL" || e.code === "KG_SCOPE_NOT_PROJECT"
-          || e.code === "KG_SCOPE_NOT_ENABLED" || e.code === "KG_ORG_FROZEN") throw new ForbiddenException(body);
+          || e.code === "KG_SCOPE_NOT_ENABLED" || e.code === "KG_ORG_FROZEN" || e.code === "KG_NOT_VISIBLE") throw new ForbiddenException(body);
         if (e.code === "KG_PROMOTE_BATCH_TOO_LARGE" || e.code === "KG_INVALID_REQUEST") throw new BadRequestException(body);
         if (
           e.code === "KG_REVISION_CHANGED" || e.code === "KG_CONTESTED_NEEDS_RESOLUTION" || e.code === "KG_CARD_STALE"
@@ -189,6 +191,14 @@ export class KnowledgeGraphController {
     return this.run(principal, (v) => getProjectKnowledge(this.deps, { ...v, projectId: parsed.data.projectId }));
   }
 
+  /** B3-T3（#4497）getProjectReasoning —— 项目大脑的跨来源推理只读（可见性同 getProjectKnowledge；非成员 KG_NOT_VISIBLE 403） */
+  @Get("/knowledge-graph/projects/:projectId/reasoning")
+  projectReasoning(@CurrentPrincipal() principal: Principal, @Param("projectId") projectId: string) {
+    const parsed = KG.knowledgeGraph.getProjectReasoning.in.safeParse({ projectId });
+    if (!parsed.success) throw new BadRequestException({ reasonCode: "KG_INVALID_REQUEST" });
+    return this.run(principal, (v) => getProjectReasoning(this.deps, { ...v, projectId: parsed.data.projectId }));
+  }
+
   /** 项目中枢 R7 promoteToProject —— 「记到项目大脑」（逐条部分成功；创建者或本项目引导师） */
   @Post("/knowledge-graph/threads/:threadId/promote-to-project")
   @HttpCode(200)
@@ -238,6 +248,18 @@ export class KnowledgeGraphController {
     return this.run(principal, (v) => promoteToOrg(
       { ...this.deps, promotion: this.promotion, newId: newKgId },
       { ...v, projectId: parsed.data.projectId, claimIds: parsed.data.claimIds, ...(parsed.data.choices ? { choices: parsed.data.choices } : {}) },
+    ));
+  }
+
+  /** B3-T4 adoptProjectDecision —— 「采纳为项目决策」（项目成员且非观察者；非成员 KG_NOT_VISIBLE 403、观察者 KG_NOT_OWNER 403） */
+  @Post("/knowledge-graph/projects/:projectId/decisions")
+  @HttpCode(200)
+  adoptDecision(@CurrentPrincipal() principal: Principal, @Param("projectId") projectId: string, @Body() body: unknown) {
+    const parsed = KG.knowledgeGraph.adoptProjectDecision.in.safeParse({ ...(body as object), projectId });
+    if (!parsed.success) throw new BadRequestException({ reasonCode: "KG_INVALID_REQUEST" });
+    return this.run(principal, (v) => adoptProjectDecision(
+      { ...this.deps, promotion: this.promotion, newId: newKgId },
+      { ...v, projectId: parsed.data.projectId, claimId: parsed.data.claimId, rationale: parsed.data.rationale },
     ));
   }
 

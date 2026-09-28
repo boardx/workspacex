@@ -11,7 +11,7 @@ import { contextPack as CP, knowledgeGraph as KG } from "@repo/contracts";
 import type { DatabasePort, TenantSession } from "../../application/ports/database.port";
 import type {
   ClaimSourcesData, KnowledgeReadPort, KnowledgeThreadRef, MessageExtractionData, PersonalClaimOriginRow,
-  OrgKnowledgeData, PersonalKnowledgeData, ProjectKnowledgeData, ThreadKnowledgeCounts, ThreadKnowledgeData, TurnMemoryData,
+  OrgKnowledgeData, PersonalKnowledgeData, ProjectClaimEvidenceData, ProjectKnowledgeData, ThreadKnowledgeCounts, ThreadKnowledgeData, TurnMemoryData,
 } from "../../application/knowledge-graph/ports";
 import { guard, type Guarded } from "../../application/security/permission-filter";
 import type { OrgId } from "../../domain/org-id";
@@ -21,6 +21,8 @@ import { reconcileCitations } from "../../domain/knowledge-graph/citation";
 import { KG_EXTRACTION_LEASE_SECONDS, KG_EXTRACTION_MAX_ATTEMPTS } from "./pg-kg-extraction";
 
 type KgClaim = ThreadKnowledgeData["claims"][number];
+type KgEvidenceAnchor = KG.KgEvidenceAnchor;
+type KgEvidenceSourceKind = KG.KgEvidenceAnchor["sourceKind"];
 
 /** 与 chat 读消息同一个 guard ref（pg-chat-repository.ts findMessages）。 */
 const threadRef = (t: KnowledgeThreadRef) => ({ kind: "project" as const, id: t.projectId ?? `personal:${t.threadId}` });
@@ -41,9 +43,11 @@ const CLAIM_COLUMNS = `
   ARRAY(SELECT e.dst_id FROM ontology_edges e WHERE e.org_id = c.org_id AND e.src_kind = 'claim' AND e.src_id = c.id
      AND e.dst_kind = 'object' AND e.relation = 'about' AND e.status = 'active' ORDER BY e.dst_id) AS about_ids,
   (SELECT count(*) FROM claim_segments s WHERE s.claim_id = c.id AND s.stance = 'supporting')
-    + (SELECT count(*) FROM claim_message_evidence m WHERE m.claim_id = c.id AND m.stance = 'supporting') AS supporting,
+    + (SELECT count(*) FROM claim_message_evidence m WHERE m.claim_id = c.id AND m.stance = 'supporting')
+    + (SELECT count(*) FROM claim_project_evidence p WHERE p.claim_id = c.id AND p.stance = 'supporting') AS supporting,
   (SELECT count(*) FROM claim_segments s WHERE s.claim_id = c.id AND s.stance = 'contradicting')
-    + (SELECT count(*) FROM claim_message_evidence m WHERE m.claim_id = c.id AND m.stance = 'contradicting') AS contradicting`;
+    + (SELECT count(*) FROM claim_message_evidence m WHERE m.claim_id = c.id AND m.stance = 'contradicting')
+    + (SELECT count(*) FROM claim_project_evidence p WHERE p.claim_id = c.id AND p.stance = 'contradicting') AS contradicting`;
 
 interface ClaimRow {
   id: string; claim_kind: KgClaim["kind"] | null; statement: string; status: KgClaim["status"];
@@ -52,6 +56,9 @@ interface ClaimRow {
   derived_from: string | null; about_ids: string[]; supporting: string; contradicting: string;
   valid_to: Date | null; todo_state: KG.KgTodoStatus | null; due_at: Date | null;
 }
+
+/** B3-T4：一笔 adoptProjectDecision 审计行（`adopted_by` 已在 SQL 里回退为 actor_id）。 */
+interface AdoptedRow { decision_claim_id: string; source_claim_id: string; rationale: string; adopted_by: string; created_at: Date }
 
 function toClaim(r: ClaimRow): KgClaim | null {
   const triState = KG.claimTriState(r.status);
@@ -240,6 +247,11 @@ export class PgKnowledgeRead implements KnowledgeReadPort {
            LEFT JOIN segment_text st ON st.segment_id = cs.segment_id
           WHERE cs.org_id = $1 AND cs.claim_id = $2 AND $3::text[] IS NULL ORDER BY cs.stance DESC, cs.segment_id`, [orgId, claimId, onlyThreads ?? null],
       );
+      // B3-T2（#4496）：项目证据单元锚点（六类来源）。`onlyThreads`（F12 个人空间口径）给了就不带——它们不属于任何会话。
+      const units = await s.query<{ evidence_id: string; stance: "supporting" | "contradicting"; source_kind: KgEvidenceSourceKind; source_ref: string; excerpt: string }>(
+        `SELECT p.evidence_id, p.stance, p.source_kind, p.source_ref, p.excerpt FROM claim_project_evidence p
+          WHERE p.org_id = $1 AND p.claim_id = $2 AND $3::text[] IS NULL ORDER BY p.stance DESC, p.created_at, p.evidence_id`, [orgId, claimId, onlyThreads ?? null],
+      );
       const actions = await s.query<{ created_at: Date; actor_kind: "human" | "model" | "system"; actor_id: string; action_type: string; pipeline_version: string | null }>(
         `SELECT created_at, actor_kind, actor_id, action_type, pipeline_version FROM ontology_actions
           WHERE org_id = $1 AND outcome = 'accepted' AND payload->'claims' @> jsonb_build_array(jsonb_build_object('id', $2::text))
@@ -259,6 +271,10 @@ export class PgKnowledgeRead implements KnowledgeReadPort {
           ...segments.rows.map((g) => ({
             segmentId: g.segment_id, stance: g.stance, sourceKind: "attachment" as const, sourceRef: g.version_id,
             excerpt: (g.content ?? "").slice(0, 280), locator: page(g.page), revoked: false,
+          })),
+          ...units.rows.map((u) => ({
+            segmentId: u.evidence_id, stance: u.stance, sourceKind: u.source_kind, sourceRef: u.source_ref, evidenceId: u.evidence_id,
+            excerpt: u.excerpt, locator: null, revoked: false,
           })),
         ],
         // 模型 / 系统产生的动作对用户统一显示为「系统」（契约 actor.kind 只有 human | system）。
@@ -503,6 +519,47 @@ export class PgKnowledgeRead implements KnowledgeReadPort {
     return guard(orgSpaceRef(orgId), { revision, objects, claims, edges });
   }
 
+  /**
+   * B3-T3（issue #4497）：项目记忆里活结论的证据锚点——与 `claimSources` 同两张表（消息证据 / 附件片段），一次取整个项目。
+   * `evidenceId`：B3-T1 的 `project_evidence` 回填落地后从这里带出（单一改点）；此前老数据没有，推理链以 claimId 兜底。
+   * `revoked` 同 `claimSources` 的口径（源删除走级联，剩下的都活着）。
+   */
+  async projectClaimEvidence(orgId: OrgId, userId: string, projectId: string): Promise<Guarded<ProjectClaimEvidenceData>> {
+    const data = await this.inTenant(orgId, userId, async (s): Promise<ProjectClaimEvidenceData> => {
+      const scope = [orgId, "project", projectId];
+      const messages = await s.query<{ claim_id: string; message_id: string; stance: "supporting" | "contradicting"; excerpt: string }>(
+        `SELECT m.claim_id, m.message_id, m.stance, m.excerpt FROM claim_message_evidence m
+           JOIN claims c ON c.id = m.claim_id AND c.org_id = m.org_id
+          WHERE m.org_id = $1 AND c.scope_kind = $2 AND c.scope_id = $3 AND ${LIVE_CLAIM}
+          ORDER BY m.claim_id, m.stance DESC, m.created_at, m.message_id`, scope,
+      );
+      const segments = await s.query<{ claim_id: string; segment_id: string; stance: "supporting" | "contradicting"; version_id: string; content: string | null; page: string | null }>(
+        `SELECT cs.claim_id, cs.segment_id, cs.stance, sg.artifact_version_id AS version_id, st.content,
+                (SELECT a.locator FROM anchors a WHERE a.segment_id = cs.segment_id AND a.kind = 'page' LIMIT 1) AS page
+           FROM claim_segments cs
+           JOIN claims c ON c.id = cs.claim_id AND c.org_id = cs.org_id
+           JOIN segments sg ON sg.id = cs.segment_id AND sg.org_id = cs.org_id
+           LEFT JOIN segment_text st ON st.segment_id = cs.segment_id
+          WHERE cs.org_id = $1 AND c.scope_kind = $2 AND c.scope_id = $3 AND ${LIVE_CLAIM}
+          ORDER BY cs.claim_id, cs.stance DESC, cs.segment_id`, scope,
+      );
+      const page = (p: string | null) => {
+        const n = p === null ? NaN : Number.parseInt(p, 10);
+        return Number.isInteger(n) && n > 0 ? { page: n } : null;
+      };
+      const out: Record<string, KgEvidenceAnchor[]> = {};
+      const push = (claimId: string, anchor: KgEvidenceAnchor) => { (out[claimId] ??= []).push(anchor); };
+      for (const m of messages.rows) {
+        push(m.claim_id, { segmentId: m.message_id, stance: m.stance, sourceKind: "chat_message", sourceRef: m.message_id, excerpt: m.excerpt, locator: null, revoked: false });
+      }
+      for (const g of segments.rows) {
+        push(g.claim_id, { segmentId: g.segment_id, stance: g.stance, sourceKind: "attachment", sourceRef: g.version_id, excerpt: (g.content ?? "").slice(0, 280), locator: page(g.page), revoked: false });
+      }
+      return out;
+    });
+    return guard({ kind: "project", id: projectId }, data);
+  }
+
   /** 项目记忆 / 组织记忆共用的读：一个共享作用域里的活结论 / 有活结论引用的实体 / 两端都活着的边 / 版本号。 */
   private sharedScopeKnowledge(orgId: OrgId, userId: string, scopeKind: "project" | "org", scopeId: string): Promise<ProjectKnowledgeData> {
     return this.inTenant(orgId, userId, async (s): Promise<ProjectKnowledgeData> => {
@@ -546,9 +603,26 @@ export class PgKnowledgeRead implements KnowledgeReadPort {
           WHERE c.org_id = $1 AND c.scope_kind = $2 AND c.scope_id = $3 AND ${LIVE_CLAIM}
           ORDER BY c.created_at, c.id`, scope,
       );
+      // B3-T4（#4498）：「采纳为项目决策」的记录只从 ontology_actions 读（决策条目仍活着的才算）；组织作用域恒为空。
+      const adopted = scopeKind !== "project" ? { rows: [] as AdoptedRow[] } : await s.query<AdoptedRow>(
+        `SELECT a.payload->>'decision_claim_id' AS decision_claim_id, a.payload->>'source_claim_id' AS source_claim_id,
+                a.payload->>'rationale' AS rationale, coalesce(nullif(cr.display_name, ''), a.actor_id) AS adopted_by, a.created_at
+           FROM ontology_actions a
+           JOIN claims dc ON dc.org_id = a.org_id AND dc.id = a.payload->>'decision_claim_id'
+           LEFT JOIN credentials cr ON cr.user_id = a.actor_id
+          WHERE a.org_id = $1 AND a.scope_kind = $2 AND a.scope_id = $3 AND a.action_type = 'adoptProjectDecision'
+            AND a.outcome = 'accepted' AND dc.revoked_at IS NULL AND dc.status <> 'superseded'
+          ORDER BY a.created_at, a.id`, scope,
+      );
       return {
         revision: Number(revision.rows[0]!.n),
         sharedFromPersonal: shared.rows.flatMap((r) => (r.shared_by === null ? [] : [{ claimId: r.id, sharedByName: r.shared_by }])),
+        ...(scopeKind === "project" ? {
+          adoptedDecisions: adopted.rows.map((r) => ({
+            decisionClaimId: r.decision_claim_id, sourceClaimId: r.source_claim_id, rationale: r.rationale,
+            adoptedBy: r.adopted_by, adoptedAt: r.created_at.toISOString(),
+          })),
+        } : {}),
         objects: liveObjects.map((o) => ({
           id: o.id, scope: { kind: scopeKind, id: scopeId }, kind: o.object_kind, name: o.name,
           aliases: o.aliases, createdBy: o.created_by, claimCount: Number(o.claim_count),

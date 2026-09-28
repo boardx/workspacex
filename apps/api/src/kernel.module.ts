@@ -644,7 +644,7 @@ import {
 } from "./application/first-value/first-value-recorder";
 import { PgFirstValueFacts } from "./infrastructure/first-value/pg-first-value-facts";
 import { FirstValueController } from "./interface/controllers/first-value.controller";
-import { GRAPH_PROJECTION_PORT, KG_AUTO_COPY_PORT, KG_EMBEDDING_QUEUE_PORT, KG_CONFLICT_PORT, KG_DEPLOYMENT_EXTRACTION_SETTINGS_PORT, KG_EXTRACTION_QUEUE_PORT, KG_EXTRACTION_SOURCE_PORT, KG_ORG_EXTRACTION_SETTINGS_PORT, KG_REINDEX_PORT, HUMAN_ACTION_PORT, KNOWLEDGE_EXTRACTOR_PORT, KNOWLEDGE_READ_PORT, MEMORY_CARD_PORT, type MemoryCardPort, ONTOLOGY_STORE_PORT, PROMOTION_PORT } from "./application/knowledge-graph/ports";
+import { GRAPH_PROJECTION_PORT, KG_AUTO_COPY_PORT, KG_EMBEDDING_QUEUE_PORT, KG_CONFLICT_PORT, KG_DEPLOYMENT_EXTRACTION_SETTINGS_PORT, KG_EXTRACTION_QUEUE_PORT, KG_EXTRACTION_SOURCE_PORT, KG_ORG_EXTRACTION_SETTINGS_PORT, KG_PROJECT_INGESTION_PORT, KG_REINDEX_PORT, HUMAN_ACTION_PORT, KNOWLEDGE_EXTRACTOR_PORT, KNOWLEDGE_READ_PORT, MEMORY_CARD_PORT, type MemoryCardPort, ONTOLOGY_STORE_PORT, PROMOTION_PORT } from "./application/knowledge-graph/ports";
 import { PgPromotion } from "./infrastructure/knowledge-graph/pg-promotion";
 import { PgHumanAction } from "./infrastructure/knowledge-graph/pg-human-action";
 import { KnowledgeGraphController } from "./interface/controllers/knowledge-graph.controller";
@@ -671,6 +671,7 @@ import { KgExtractionWorker } from "./infrastructure/knowledge-graph/kg-extracti
 import { KG_EXTRACTION_MODEL_CONFIG, readKgExtractionModelConfig, type KgExtractionModelConfig } from "./infrastructure/knowledge-graph/kg-extraction-model-config";
 import { ModelKnowledgeExtractor } from "./infrastructure/knowledge-graph/model-knowledge-extractor";
 import { PgKgExtraction } from "./infrastructure/knowledge-graph/pg-kg-extraction";
+import { PgKgProjectIngestion } from "./infrastructure/knowledge-graph/pg-kg-project-ingestion";
 import { newKgId } from "./application/knowledge-graph/ids";
 import { PgKgConflict } from "./infrastructure/knowledge-graph/pg-kg-conflict";
 import { PgKgAutoCopy } from "./infrastructure/knowledge-graph/pg-kg-auto-copy";
@@ -875,6 +876,13 @@ import { PgProjectOverviewRepository } from "./infrastructure/project/pg-project
 // 项目中枢 B2-S1（#4425）：项目资源关联（`project_resource_links` + 四类聚合读）。
 import { PROJECT_RESOURCE_REPOSITORY } from "./application/project/project-resource-ports";
 import { PgProjectResourceRepository } from "./infrastructure/project/pg-project-resource-repository";
+// 项目中枢 B3-T5（#4499）：研究项目 / 用户洞察两类容器的成员表（按 `projects.kind` 分派两张表）。
+import { NON_WORKSHOP_MEMBER_REPOSITORY } from "./application/project/non-workshop-member-ports";
+import { PgNonWorkshopMemberRepository } from "./infrastructure/project/pg-non-workshop-member-repository";
+import { PROJECT_EVIDENCE_REPOSITORY } from "./application/project/project-evidence-ports";
+import { PgProjectEvidenceRepository } from "./infrastructure/project/pg-project-evidence-repository";
+import { EVIDENCE_SOURCE_REPOSITORY } from "./application/project/collect-evidence/ports";
+import { PgEvidenceSources } from "./infrastructure/project/pg-evidence-sources";
 import { PgProjectArchiveRepository } from "./infrastructure/project/pg-project-archive-repository";
 // BP-08（本次新增）：`BLUEPRINT_REFERENCE_REPOSITORY`——只读，独立 provider（`createProject`
 // 判 blueprintVersionId 合不合法时用）；见 `application/project/ports.ts` 与
@@ -2742,6 +2750,23 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
       useFactory: (db: DatabasePort) => new PgProjectResourceRepository(db),
       inject: [DATABASE_PORT],
     },
+    // 项目中枢 B3-T5（#4499）：`NonWorkshopMemberRepository` 的生产实现（`project.controller.ts` 消费）。
+    {
+      provide: NON_WORKSHOP_MEMBER_REPOSITORY,
+      useFactory: (db: DatabasePort) => new PgNonWorkshopMemberRepository(db),
+      inject: [DATABASE_PORT],
+    },
+    // 项目中枢 B3-T1（#4495）：证据单元仓储 + 采集器的只读来源（`project.controller.ts` 与 `KgExtractionWorker` 消费）。
+    {
+      provide: PROJECT_EVIDENCE_REPOSITORY,
+      useFactory: (db: DatabasePort) => new PgProjectEvidenceRepository(db),
+      inject: [DATABASE_PORT],
+    },
+    {
+      provide: EVIDENCE_SOURCE_REPOSITORY,
+      useFactory: (db: DatabasePort) => new PgEvidenceSources(db),
+      inject: [DATABASE_PORT],
+    },
     // F141 → #785: `skill` now reads/writes real Postgres (`skills`/`skill_versions`/
     // `skill_version_files`, model A) via `PgAssetFileRepository`; every other kind (incl.
     // `agent`, AG4) still delegates to the fixture -- see `pg-asset-file-repository.ts`'s
@@ -3204,6 +3229,9 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
       useFactory: (model: ModelCallPort, config: KgExtractionModelConfig, logger: LoggerPort) => new ModelKnowledgeExtractor(model, config, logger),
       inject: [MODEL_CALL_PORT, KG_EXTRACTION_MODEL_CONFIG, LOGGER_PORT],
     },
+    // B3-T2（#4496）：项目证据入图的留痕 / 项目实体 / 待处理项目读口；证据本身的仓储（PROJECT_EVIDENCE_REPOSITORY）由 T1 提供，
+    // worker 对它 @Optional——没接上时项目入图这一轮静默不跑，消息抽取不受影响。
+    { provide: KG_PROJECT_INGESTION_PORT, useFactory: (db: DatabasePort) => new PgKgProjectIngestion(db), inject: [DATABASE_PORT] },
     // issue #4360 / #4362（S5）：「关于我」挂目标 / 改写（只调数据库函数）、模型提议挂哪个目标、开场简报（只读本人个人空间）。
     { provide: KG_GOAL_LINK_PORT, useFactory: (db: DatabasePort) => new PgKgProfile(db), inject: [DATABASE_PORT] },
     {
