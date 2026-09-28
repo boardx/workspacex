@@ -1,6 +1,7 @@
 /**
  * WF01 —— `WorkflowInstanceRepository` 的 PostgreSQL 适配器（workflow_instances）。
  *
+ * WF03：create 同事务写 seq=1 的 instance_started 事件（workflow_events，I-10/I-11）。
  * I-4：本适配器只有 INSERT 与 SELECT，不提供修改冻结字段的路径；库里触发器 `wf_instance_pin_immutable`
  * 另行拒绝任何改动 definition_version / pinned_skills 等冻结列的 UPDATE（迁移 20260929010000）。
  */
@@ -26,16 +27,24 @@ interface InstanceRow {
 export class PgWorkflowInstanceRepository implements WorkflowInstanceRepository {
   constructor(private readonly db: DatabasePort) {}
 
-  async create(i: PinnedWorkflowInstance): Promise<void> {
-    await this.db.withTenant(toOrgId(i.orgId), (s) =>
-      s.query(
+  async create(i: PinnedWorkflowInstance, opts: { triggerInput?: Record<string, unknown> } = {}): Promise<void> {
+    await this.db.withTenant(toOrgId(i.orgId), async (s) => {
+      await s.query(
         `INSERT INTO workflow_instances (id, org_id, workflow_key, definition_version, graph_ref, pinned_skills,
            agent_id, agent_version_id, initiator_user_id, trigger_kind, status, state_version)
          VALUES ($1, $2, $3, $4, $5, $6::jsonb, $7, $8, $9, $10, $11, $12)`,
         [i.instanceId, i.orgId, i.workflowKey, i.definitionVersion, i.graphRef, JSON.stringify(i.pinnedSkills),
           i.agentId, i.agentVersionId, i.initiatorUserId, i.triggerKind, i.status, i.stateVersion],
-      ),
-    );
+      );
+      // WF03（I-10/I-11）：实例诞生本身是第一条事件，seq=1，与实例同事务。
+      await s.query(
+        `INSERT INTO workflow_events (instance_id, org_id, seq, type, state_version, data)
+         VALUES ($1, $2, 1, 'instance_started', $3, $4::jsonb)`,
+        [i.instanceId, i.orgId, i.stateVersion, JSON.stringify({
+          status: i.status, definitionVersion: i.definitionVersion, input: opts.triggerInput ?? {},
+        })],
+      );
+    });
   }
 
   find(orgId: string, instanceId: string): Promise<PinnedWorkflowInstance | null> {

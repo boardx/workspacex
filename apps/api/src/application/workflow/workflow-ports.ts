@@ -39,7 +39,8 @@ export interface PinnedWorkflowInstance {
 
 export interface WorkflowInstanceRepository {
   /** 创建后 definitionVersion / pinnedSkills 不再改变（I-4）；实现不得提供修改它们的路径。 */
-  create(instance: PinnedWorkflowInstance): Promise<void>;
+  /** WF03：同一事务写 seq=1 的 `instance_started` 事件（data.input = triggerInput），I-11「先有事件」。 */
+  create(instance: PinnedWorkflowInstance, opts?: { triggerInput?: Record<string, unknown> }): Promise<void>;
   find(orgId: string, instanceId: string): Promise<PinnedWorkflowInstance | null>;
 }
 

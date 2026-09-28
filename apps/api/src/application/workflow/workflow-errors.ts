@@ -1,10 +1,10 @@
-import type { WorkflowErrorCode, WorkflowReasonCode } from "@repo/contracts/workflow-runtime";
+import type { WorkflowErrorCode, WorkflowInstanceProjection, WorkflowReasonCode } from "@repo/contracts/workflow-runtime";
 
 export class WorkflowUseCaseError extends Error {
   constructor(
     readonly code: WorkflowErrorCode,
     message: string,
-    readonly details: { missingSkills?: string[]; issues?: unknown[] } = {},
+    readonly details: { missingSkills?: string[]; issues?: unknown[]; latestProjection?: WorkflowInstanceProjection } = {},
   ) {
     super(message);
     this.name = "WorkflowUseCaseError";

@@ -76,7 +76,12 @@ const WF01_WORKFLOW_REASON =
 const WF02_WORKFLOW_REASON =
   "WF02 (Phase 20 workflow-runtime, R3-2d/R3-5a, R4-E2): workflow_receipts and workflow_leases are runtime bookkeeping (idempotency receipts and epoch-CAS leases), not user content; they have no `ObjectRef` kind and routing them through `authorize` would fall back to DEFAULT_SCOPE and ALLOW EVERY MEMBER. They carry no payload a member could read except the stable response the same caller already received. Callers are the workflow runtime/use cases, which decide visibility before reaching them (WF03 HTTP surface). The exemption is valid ONLY while tests/workflow/pg-workflow-repo-guard.test.ts holds: (a) these files name no tenant table other than workflow_receipts / workflow_leases, (b) they never call `withoutTenant`, and (c) nothing under src/interface/ imports them. If that test is deleted, these entries must go with it.";
 
+const WF03_WORKFLOW_REASON =
+  "WF03 (Phase 20 workflow-runtime, UC-WR-3/4/6/7/8): workflow_events and workflow_stage_outputs (plus the status/state_version columns of workflow_instances) have no `ObjectRef` kind; routing them through `authorize` would fall back to DEFAULT_SCOPE and ALLOW EVERY MEMBER, which is exactly what R5 forbids (only the initiator or an org admin may see an instance). The visibility decision is made in src/application/workflow/instance-projection.ts (`canView` / `loadVisibleProjection`) before any event or output reaches a response, and every HTTP operation in workflow-runtime.controller.ts goes through it (tests/workflow/instance-lifecycle-api.test.ts and sse-envelope-resume.test.ts assert the 404s). pg-workflow-access.ts reads only identifiers (org_memberships.org_role and the published agent_versions.id), never agent content. The exemption is valid ONLY while tests/workflow/pg-workflow-repo-guard.test.ts holds for these files: (a) they name no tenant table outside their listed set, (b) they never call `withoutTenant`, and (c) nothing under src/interface/ imports them. If that test is deleted, these entries must go with it.";
+
 const ALLOWLIST = new Map([
+  ["src/infrastructure/workflow/pg-workflow-event-store.ts", WF03_WORKFLOW_REASON],
+  ["src/infrastructure/workflow/pg-workflow-access.ts", WF03_WORKFLOW_REASON],
   ["src/infrastructure/workflow/pg-workflow-receipt-store.ts", WF02_WORKFLOW_REASON],
   ["src/infrastructure/workflow/pg-workflow-lease-store.ts", WF02_WORKFLOW_REASON],
   ["src/infrastructure/workflow/pg-workflow-definition-repository.ts", WF01_WORKFLOW_REASON],
