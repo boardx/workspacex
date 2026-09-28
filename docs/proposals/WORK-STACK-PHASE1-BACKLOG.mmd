@@ -1,0 +1,105 @@
+flowchart LR
+  classDef done fill:#bbf7d0,stroke:#16a34a,color:#111827
+  classDef doing fill:#fde68a,stroke:#d97706,color:#111827
+  classDef todo fill:#e5e7eb,stroke:#6b7280,color:#111827
+
+  subgraph W1["第1轮 已合入 main"]
+    I1[phase-20 + 契约 + 原型]
+  end
+  class I1 done
+
+  subgraph W2["第2轮 Skill目录"]
+    WS01 --> WS02 --> WS03 --> WS05
+    WS02 --> WS04 --> WS05
+  end
+  class WS01 done
+  class WS02 done
+  class WS03 done
+  class WS04 done
+  class WS05 doing
+
+  subgraph W3["第3轮 Workflow核心 PR#4604"]
+    WF01 --> WF02 --> WF03
+  end
+  class WF01 done
+  class WF02 done
+  class WF03 done
+
+  subgraph W4["第4轮 副作用网关/审批/触发器"]
+    WF03 --> WF04 --> WF05 --> WF08
+    WF03 --> WF06
+    WF04 --> WF07
+    WF03 --> WF08
+  end
+  class WF04 doing
+  class WF05 doing
+  class WF06 doing
+  class WF07 doing
+  class WF08 doing
+
+  subgraph W5["第5轮 Agent角色扩展"]
+    AG01 --> AG03 --> AG04
+    AG02 --> AG03
+    AG03 --> AG05
+    WF03 -.-> AG05
+    WF05 -.-> AG06
+    AG05 --> AG07
+  end
+  class AG01 done
+  class AG02 done
+  class AG03 doing
+  class AG04 doing
+  class AG05 doing
+  class AG06 doing
+  class AG07 todo
+
+  subgraph W6["第6轮 评测发布门 PR#4601"]
+    EV01 --> EV02
+    EV01 --> EV03
+    EV03 --> EV04
+    WS03 -.-> EV04
+    EV04 --> EV05
+  end
+  class EV01 done
+  class EV02 done
+  class EV03 done
+  class EV04 todo
+  class EV05 todo
+
+  subgraph W7["第7轮 研究线：D002"]
+    WS02 -.-> CT01[CT01 Skill包] --> CT02 --> CT03
+    WF03 -.-> CT02
+    WF04 -.-> CT03
+  end
+  class CT01 doing
+  class CT02 todo
+  class CT03 todo
+
+  subgraph W8["第8轮 产品线：D003/D011"]
+    WS02 -.-> CT04[CT04 Skill包] --> CT05 --> CT06
+    WF03 -.-> CT05
+    WF05 -.-> CT06
+  end
+  class CT04 todo
+  class CT05 todo
+  class CT06 todo
+
+  subgraph W9["第9轮 销售线：D005"]
+    WS02 -.-> CT07[CT07 Skill包] --> CT08 --> CT09
+    WF03 -.-> CT08
+    WF04 -.-> CT09
+  end
+  class CT07 todo
+  class CT08 todo
+  class CT09 todo
+
+  subgraph W10["第10轮 集成收口"]
+    CT03 --> CT10
+    CT06 --> CT10
+    CT09 --> CT10
+    CT10 --> CT11
+    EV05 --> CT11
+    AG07 -.-> CT10
+  end
+  class CT10 todo
+  class CT11 todo

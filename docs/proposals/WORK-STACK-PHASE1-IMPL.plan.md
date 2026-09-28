@@ -43,10 +43,10 @@ flowchart TD
   %% evidence I1: validate-fl/lint 全绿；人类在 GitHub 签核 5 束 + 一致性复核；harness doctor --phase 20 = 0 FAIL
   class I2 doing
   class I3 doing
-  class I4 todo
+  class I4 doing
   class I5 doing
   class I6 doing
-  class I7 todo
+  class I7 doing
   class I8 todo
   class I9 todo
   class I10 todo
@@ -77,3 +77,6 @@ flowchart TD
 | 2026-09-28 | I1 | done → tested | 人类签核完成，doctor 0 FAIL；PR #4577 待 CI 绿后合入 |
 | 2026-09-28 | I2 | doing | WS01–WS05 开发与评审完成，真实旅程验收进行中 |
 | 2026-09-28 | I6 | doing | EV01–EV03 验收 ACCEPT，PR #4601；EV04 待 WS03 合入后做 |
+| 2026-09-28 | I3 | doing | 修复真实 CI 问题：权限白名单审计计数漏算（命名常量不被机器解析），改回内联字面量，天花板 99→105，已推送 |
+| 2026-09-28 | I5 | doing | AG01 最终修复经独立复核 ACCEPT；AG02 已 ACCEPT；开始 AG03–AG06 |
+| 2026-09-28 | I4, I7 | doing | 新开：第4轮副作用网关/审批/触发器（继承 WF03）；第7轮研究线 Skill 包（继承 WS02）。backlog 并行计划图：docs/proposals/WORK-STACK-PHASE1-BACKLOG.png |
