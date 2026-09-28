@@ -1,5 +1,8 @@
 # WorkspaceX Work Stack v1 — 320 Entity Requirements
 
+> ⚠ **已被取代（superseded，2026-09-28，ADR-116 / #4534）**：Work Stack 的唯一需求权威是 `requirements/work-stack-v2/`（S/W/D 编号）。v2 `AUTHORING-PROTOCOL.md` 否决了本目录的模板化实体正文；本目录只作历史档案，**不得**作为 requirement-author 或实现的输入。
+
+
 Issue: #4501
 
 ## 交付
