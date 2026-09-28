@@ -56,6 +56,9 @@ export const LOCAL_ENV_PARITY: readonly ParityGroup[] = [
       "以及一路回退到 KERNEL_MODEL_ID 的那些专用模型 id。显式再设一遍只会多一份会漂移的副本。",
     names: [
       "AGENT_STARTER_PACK_ROOT", // 仓库根本没有 agent starter pack 目录，云端同样未配；不是本地缺口
+      // AG03：未配置时退回仓库相对路径 requirements/work-stack-v2/workflows/（本地/云端都存在
+      // 同一份实体文档目录），默认值本来就对——不是本地缺口。
+      "WORKFLOW_DEFINITIONS_ROOT",
       "DEBUG_TRACE_ENABLED", "DEBUG_TRACE_SLOW_MS", "DEBUG_TRACE_STALL_MS",
       "KERNEL_AGENT_RUN_AUTOSTART", "KERNEL_AGENT_RUN_STALE_RUNNING_MS",
       "KERNEL_ATTACHMENT_EXTRACTION_AUTOSTART", "KERNEL_SKILL_TRIALRUN_AUTOSTART",
