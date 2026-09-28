@@ -1332,7 +1332,20 @@ describe("lint-permission-paths: counter-proof", () => {
     // and are unreachable from src/interface/ -- pinned by
     // tests/workflow/pg-workflow-repo-guard.test.ts. Remove this increment and the
     // six allowlist entries together if that guard test disappears.
-    expect(total - boundaryAudit.rules.length).toBeLessThanOrEqual(105);
+    // Phase 20 WS04 adds pg-tool-grant-reader.ts (105 -> 106): `org_tool_capability_grants`
+    // authorization metadata has no ObjectRef shape; getWorkSkillReadiness checks org
+    // membership (non-member 404) before ever calling grants.listForOrg, and the response
+    // folds grants into per-capability satisfied/missing/denied without echoing tool_ref.
+    // Pinned by tests/work-skill/readiness-compute.test.ts. Remove this increment with
+    // that test.
+    // Phase 20 WS03 adds pg-work-skill-catalog-repository.ts (106 -> 107): the work skill
+    // catalog (`skill_catalog_entries`/`skills`/`skill_versions`/`skill_catalog_channel_events`)
+    // is a per-org shared catalog readable by every org member, not a per-object ACL that
+    // `authorize`/`ObjectRef` could express; every method uses withTenant (RLS by org_id)
+    // plus an explicit org_id predicate as a second line of defense. Real cross-org denial
+    // (another org sees none of these rows) and unauthenticated 401 are proven in
+    // tests/work-skill/catalog-api.test.ts. Remove this increment with that coverage.
+    expect(total - boundaryAudit.rules.length).toBeLessThanOrEqual(107);
 
     const src = readFileSync(
       fileURLToPath(new URL("../../scripts/lint-permission-paths.mjs", import.meta.url)),
