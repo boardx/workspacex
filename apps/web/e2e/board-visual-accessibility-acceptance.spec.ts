@@ -101,6 +101,7 @@ test('visual and accessibility real object states, input and negative controls',
       await cdp.send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});
       await expect.poll(async()=>(await canonicalRows(page)).find(row=>row.id===target.id)?.geometry.x).not.toBe(target.geometry.x);
       input.push({kind:'cdp-touch-object-drag',hardware:false,before:target,after:(await canonicalRows(page)).find(row=>row.id===target.id)});
+      await cdp.send('Emulation.setTouchEmulationEnabled',{enabled:false,maxTouchPoints:0});
       await page.keyboard.press('Escape');await page.getByTestId('board-add-draw').click();const beforeDrawing=(await canonicalSnapshot(request,token,boardId)).objects.length;
       await cdp.send('Input.dispatchMouseEvent',{type:'mousePressed',x:400,y:350,button:'left',buttons:1,clickCount:1,pointerType:'pen',force:.2});
       for(let i=1;i<=8;i++)await cdp.send('Input.dispatchMouseEvent',{type:'mouseMoved',x:400+i*10,y:350+i*4,button:'left',buttons:1,pointerType:'pen',force:i/10});
