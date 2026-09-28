@@ -1,18 +1,20 @@
 /**
- * WF02 —— `WorkflowReceiptStore` 的 PostgreSQL 适配器（workflow_receipts）。
+ * WF02/WF04 —— `WorkflowReceiptStore` 的 PostgreSQL 适配器（workflow_receipts）。
  *
  * begin：单条 INSERT … ON CONFLICT DO NOTHING；没插进去就读回那行判定 replay / in_flight / 指纹冲突。
  * finalize：只把 begun 且指纹一致的行置 finalized；已 finalized 时读回首次稳定响应（I-7 由触发器
  * wf_receipt_immutable 在库里兜底，不靠本文件自觉）。
+ * find/resolveBegun（WF04）：崩溃恢复对账用——不比对指纹（恢复路径未必拿得到原始载荷），只把
+ * 仍是 begun 的行迁到 reconciled/unresolved 终态（domain I-14）；触发器把这两个终态也锁死。
  */
 import type { DatabasePort, TenantSession } from "../../application/ports/database.port";
-import type { WorkflowReceiptBegin, WorkflowReceiptKey, WorkflowReceiptStore } from "../../application/workflow/workflow-ports";
+import type { WorkflowReceiptBegin, WorkflowReceiptKey, WorkflowReceiptRow, WorkflowReceiptScope, WorkflowReceiptStore } from "../../application/workflow/workflow-ports";
 import { WorkflowUseCaseError } from "../../application/workflow/workflow-errors";
 import { toOrgId } from "../../domain/org-id";
 
 interface ReceiptRow {
   fingerprint: string;
-  status: "begun" | "finalized";
+  status: "begun" | "finalized" | "reconciled" | "unresolved";
   instance_id: string | null;
   checkpoint_id: string | null;
   stable_response: unknown;
@@ -70,6 +72,29 @@ export class PgWorkflowReceiptStore implements WorkflowReceiptStore {
       const row = await readRow(s, k);
       if (row.status !== "finalized") throw new Error(`workflow receipt ${k.scope}/${k.requestKey} is not finalizable`);
       return row.stable_response;
+    });
+  }
+
+  find(orgId: string, scope: WorkflowReceiptScope, requestKey: string): Promise<WorkflowReceiptRow | null> {
+    return this.db.withTenant(toOrgId(orgId), async (s) => {
+      const { rows } = await s.query<ReceiptRow>(
+        `SELECT fingerprint, status, instance_id, checkpoint_id, stable_response
+           FROM workflow_receipts WHERE org_id = $1 AND scope = $2 AND request_key = $3`,
+        [orgId, scope, requestKey],
+      );
+      const row = rows[0];
+      if (!row) return null;
+      return { status: row.status, instanceId: row.instance_id, checkpointId: row.checkpoint_id, stableResponse: row.stable_response };
+    });
+  }
+
+  resolveBegun(orgId: string, scope: WorkflowReceiptScope, requestKey: string, outcome: "reconciled" | "unresolved"): Promise<void> {
+    return this.db.withTenant(toOrgId(orgId), async (s) => {
+      await s.query(
+        `UPDATE workflow_receipts SET status = $4
+          WHERE org_id = $1 AND scope = $2 AND request_key = $3 AND status = 'begun'`,
+        [orgId, scope, requestKey, outcome],
+      );
     });
   }
 }

@@ -75,6 +75,14 @@ export type WorkflowReceiptBegin =
   /** 已 begin 未 finalize（崩溃/并发）：调用方不得盲目重放外部调用（E1/I-14）。 */
   | { kind: "in_flight"; instanceId: string | null };
 
+/** WF04：`find`/`resolveBegun` 读到的一行（不校验指纹，只用于崩溃恢复对账，UC-WR-I3）。 */
+export interface WorkflowReceiptRow {
+  status: "begun" | "finalized" | "reconciled" | "unresolved";
+  instanceId: string | null;
+  checkpointId: string | null;
+  stableResponse: unknown;
+}
+
 export interface WorkflowReceiptStore {
   /** 幂等：同 key 同指纹重复 begin 不新建行；不同指纹抛 WorkflowUseCaseError(idempotency_key_reused)。 */
   begin(key: WorkflowReceiptKey): Promise<WorkflowReceiptBegin>;
@@ -86,6 +94,14 @@ export interface WorkflowReceiptStore {
     key: WorkflowReceiptKey,
     result: { stableResponse: unknown; checkpointId: string | null; instanceId: string | null },
   ): Promise<unknown>;
+  /** 按 (scope,requestKey) 读一行，不比对指纹；找不到返回 null（WF04 崩溃恢复对账用）。 */
+  find(orgId: string, scope: WorkflowReceiptScope, requestKey: string): Promise<WorkflowReceiptRow | null>;
+  /**
+   * 把仍是 `begun` 的 receipt 迁到终态 `reconciled` / `unresolved`（domain I-14）；已经是终态
+   * （含另一次并发对账已写入的终态）则保持不变、幂等返回。找不到该行时静默（receipt 必然已由
+   * begin 建过，找不到通常是调用方传错了 key，不是本方法该抛的错）。
+   */
+  resolveBegun(orgId: string, scope: WorkflowReceiptScope, requestKey: string, outcome: "reconciled" | "unresolved"): Promise<void>;
 }
 
 /** 一次成功获取的 lease；epoch 是它的身份。 */

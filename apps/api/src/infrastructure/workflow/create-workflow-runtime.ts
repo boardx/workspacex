@@ -5,10 +5,13 @@ import { randomUUID } from "node:crypto";
 import { hostname } from "node:os";
 import type pg from "pg";
 import type { DatabasePort } from "../../application/ports/database.port";
+import { ComposedEffectPermissionRecheck } from "../../application/workflow/effect-permission-recheck";
+import { EffectGateway, type EffectReconcilePort } from "../../application/workflow/effect-gateway";
 import type { RunHooks } from "../../application/workflow/run-instance";
 import type { SkillVersionResolverPort } from "../../application/workflow/workflow-ports";
 import { WorkflowRuntimeService } from "../../application/workflow/workflow-runtime-service";
 import { demoWorkflowGraph } from "./demo-workflow-graph";
+import { PgEffectCapabilityAuthority } from "./pg-effect-capability-authority";
 import { PgWorkflowAccess } from "./pg-workflow-access";
 import { PgWorkflowDefinitionRepository } from "./pg-workflow-definition-repository";
 import { PgWorkflowExpiredLeaseScanner } from "./pg-workflow-expired-lease-scanner";
@@ -39,19 +42,41 @@ export interface WorkflowRuntimeOptions {
   onRunError?(instanceId: string, error: unknown): void;
   /** 生产入口的过期 lease 扫描间隔；默认 leaseTtlMs/2；0 关闭。 */
   takeoverIntervalMs?: number;
+  /** WF04：按能力分类注册的只读对账实现（E1）；未注册的分类崩溃恢复时一律 unresolved。 */
+  effectReconcilers?: Record<string, EffectReconcilePort>;
+}
+
+/** 按能力分类分派对账实现；未注册的分类视为「查不到结论」（E1 → unresolved）。 */
+class DispatchingEffectReconciler implements EffectReconcilePort {
+  constructor(private readonly byCategory: Record<string, EffectReconcilePort>) {}
+  reconcile(input: Parameters<EffectReconcilePort["reconcile"]>[0]): ReturnType<EffectReconcilePort["reconcile"]> {
+    const impl = this.byCategory[input.capabilityCategory];
+    return impl ? impl.reconcile(input) : Promise.resolve(null);
+  }
 }
 
 export function createWorkflowRuntime(db: DatabasePort, pool: pg.Pool, opts: WorkflowRuntimeOptions = {}) {
   const registry = new WorkflowGraphRegistry(opts.graphs ?? defaultWorkflowGraphs());
+  const access = new PgWorkflowAccess(db);
+  const receipts = new PgWorkflowReceiptStore(db);
+  const leases = new PgWorkflowLeaseStore(db);
+  const events = new PgWorkflowEventStore(db);
+  const effectGateway = new EffectGateway({
+    leases,
+    receipts,
+    events,
+    permission: new ComposedEffectPermissionRecheck(access, new PgEffectCapabilityAuthority(db)),
+    reconcile: opts.effectReconcilers ? new DispatchingEffectReconciler(opts.effectReconcilers) : undefined,
+  });
   const service = new WorkflowRuntimeService({
     definitions: new PgWorkflowDefinitionRepository(db),
     instances: new PgWorkflowInstanceRepository(db),
     skills: opts.skills ?? UNRESOLVED_SKILL_VERSIONS,
-    receipts: new PgWorkflowReceiptStore(db),
-    leases: new PgWorkflowLeaseStore(db),
-    events: new PgWorkflowEventStore(db),
+    receipts,
+    leases,
+    events,
     outputs: new PgWorkflowStageOutputStore(db),
-    access: new PgWorkflowAccess(db),
+    access,
     expiredLeases: new PgWorkflowExpiredLeaseScanner(db),
     driver: new LangGraphWorkflowDriver(registry, createWorkflowCheckpointerFactory(pool)),
     newId: () => randomUUID(),
@@ -61,7 +86,7 @@ export function createWorkflowRuntime(db: DatabasePort, pool: pg.Pool, opts: Wor
     hooks: opts.hooks,
     onRunError: opts.onRunError,
   });
-  return { service, registry };
+  return { service, registry, effectGateway };
 }
 
 /**
