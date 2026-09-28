@@ -110,6 +110,57 @@ jobs:
           path: apps/web/test-results/board-ci/storage/
           if-no-files-found: error
           retention-days: 14
+  import:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v5
+        with: {fetch-depth: 0}
+      - uses: pnpm/action-setup@v4.4.0
+      - uses: actions/setup-node@v5
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter web exec playwright install --with-deps chromium
+      - name: Run captured-account Miro and Mural import acceptance
+        env:
+          TMPDIR: ${{ runner.temp }}
+          WHITEBOARD_CAPTURED_VENDOR_MANIFEST: ${{ vars.WHITEBOARD_CAPTURED_VENDOR_MANIFEST }}
+        run: pnpm exec tsx .harness/scripts/with-test-isolation.ts -- pnpm --filter web run ci:board:import
+      - name: Retain evidence without vendor source bodies
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: board-import-${{ github.run_id }}-${{ github.run_attempt }}
+          path: apps/web/test-results/board-ci/import/
+          if-no-files-found: error
+          retention-days: 14
+  api-ws-objectstore:
+    runs-on: ubuntu-latest
+    timeout-minutes: 75
+    steps:
+      - uses: actions/checkout@v5
+        with: {fetch-depth: 0}
+      - uses: pnpm/action-setup@v4.4.0
+      - uses: actions/setup-node@v5
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter web exec playwright install --with-deps chromium
+      - name: Run public API, WebSocket and ObjectStore acceptance
+        env:
+          TMPDIR: ${{ runner.temp }}
+        run: pnpm exec tsx .harness/scripts/with-test-isolation.ts -- pnpm --filter web run ci:board:api-ws-objectstore
+      - name: Retain cross-layer evidence without credentials
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: board-api-ws-objectstore-${{ github.run_id }}-${{ github.run_attempt }}
+          path: apps/web/test-results/board-ci/api-ws-objectstore/
+          if-no-files-found: error
+          retention-days: 14
   performance:
     runs-on: ubuntu-latest
     timeout-minutes: 120

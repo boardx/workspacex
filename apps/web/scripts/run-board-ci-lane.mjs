@@ -10,6 +10,7 @@ import {validateBoardObservationArtifact,validateRuntimeBinding} from './board-o
 import {validateBoardSoakArtifact} from './board-soak-policy.mjs';
 import {boardPerformancePolicy,validateBoardPerformanceArtifact} from './board-performance-policy.mjs';
 import {validateApiWsObjectstoreCiEvidence,validateCapturedVendorCiEvidence} from './board-integrated-ci-policy.mjs';
+import {canonicalLanesForBoardCiLane} from './board-ci-lane-map.mjs';
 const root=resolve(import.meta.dirname,'../../..'),lane=process.argv[2],separator=process.argv.indexOf('--'),command=process.argv.slice(separator+1);
 const counts={journeys:6,security:1,visual:3,storage:4,import:1,'api-ws-objectstore':3,performance:3,'collaboration-50':1,'meeting-room':1};
 if(!Object.hasOwn(counts,lane)||separator!==3||!command.length||!process.env.WORKSPACEX_ISOLATION_ID)throw Error('ISOLATED_CI_LANE_REQUIRED');
@@ -25,7 +26,7 @@ const reportPath=join(directory,'soak-report.json'),jsonPath=join(directory,'pla
 const prerequisites=lane==='import'&&!process.env.WHITEBOARD_CAPTURED_VENDOR_MANIFEST?['CAPTURED_VENDOR_MANIFEST_REQUIRED']:lane==='import'&&!existsSync(resolve(process.env.WHITEBOARD_CAPTURED_VENDOR_MANIFEST))?['CAPTURED_VENDOR_MANIFEST_NOT_FOUND']:[];
 const result=prerequisites.length?{status:1}:spawnSync(command[0],[...command.slice(1),'--output',output,'--reporter='+join(root,'apps/web/scripts/board-ci-reporter.mjs'),'--trace=off'],{cwd:root,stdio:'inherit',env:{...process.env,BOARD_ACCEPTANCE_SHA:sha,BOARD_ACCEPTANCE_RUNTIME_MARKER:context.runtimeMarker,BOARD_ACCEPTANCE_RUNTIME_STARTED_AT:context.startedAt,BOARD_SOAK_REPORT_PATH:reportPath,PLAYWRIGHT_JSON_OUTPUT_FILE:jsonPath,...(lane==='import'?{BOARD_CAPTURED_VENDOR_ACCEPTANCE:'1'}:{}),...(key?{BOARD_ACCEPTANCE_LEDGER_KEY:key}:{})}});
 context.endedAt=new Date().toISOString();
-const summary={version:1,kind:'board-integrated-lane',lane,sha,...context,status:'failed',approved:false,score:null,counterproof:false,runtimeIdentity:null,failures:[],pending:[]};
+const summary={version:1,kind:'board-integrated-lane',lane,canonicalLanes:[...canonicalLanesForBoardCiLane(lane)],sha,...context,status:'failed',approved:false,score:null,counterproof:false,runtimeIdentity:null,failures:[],pending:[]};
 try{
  if(prerequisites.length)throw Error(prerequisites[0]);
  if(result.status!==0)throw Error('REAL_PRODUCER_FAILED');
