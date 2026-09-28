@@ -3,6 +3,7 @@ import {expect,test,type Page} from '@playwright/test';
 import type {WhiteboardObject} from '@repo/contracts/whiteboard-document';
 import type {WhiteboardAIProposal} from '@repo/contracts/whiteboard-operation';
 import {SESSION_TOKEN_STORAGE_KEY} from '../lib/api-client';
+import {FULLSTACK_E2E} from './fullstack-smoke-fixture';
 import {REAL_MODEL_SMOKE,REAL_MODEL_SKIP_REASON} from './real-model-smoke-fixture';
 import {scrubSecrets} from './support/real-model-evidence';
 
@@ -15,13 +16,14 @@ const themes=[
 ] as const;
 const texts=themes.flatMap(group=>group.slice(1));
 const semanticSnapshot=(objects:WhiteboardObject[])=>objects.map(({id,kind,text,parentId,geometry,style})=>({id,kind,text,parentId,geometry,style})).sort((a,b)=>a.id.localeCompare(b.id));
-async function login(page:Page){await page.goto('/login');await page.getByTestId('login-email').fill(REAL_MODEL_SMOKE.email);await page.getByTestId('login-password').fill(REAL_MODEL_SMOKE.password);await page.getByTestId('login-submit').click();await expect(page).toHaveURL(/\/projects/);const token=await page.evaluate(key=>localStorage.getItem(key),SESSION_TOKEN_STORAGE_KEY);expect(token).toBeTruthy();return token!;}
+async function login(page:Page,email=REAL_MODEL_SMOKE.email,password=REAL_MODEL_SMOKE.password){await page.goto('/login');await page.getByTestId('login-email').fill(email);await page.getByTestId('login-password').fill(password);await page.getByTestId('login-submit').click();await expect(page).toHaveURL(/\/projects/);const token=await page.evaluate(key=>localStorage.getItem(key),SESSION_TOKEN_STORAGE_KEY);expect(token).toBeTruthy();return token!;}
 
 test('real model reads 30 notes → named clusters preview → atomic confirm → one server Undo',async({page,browser,request,baseURL},testInfo)=>{
  // The operator binds this to the configured published provider/model. No fixture fallback.
  const expectedModel=process.env.BOARD_REAL_MODEL_EXPECTED_MODEL;
  expect(expectedModel,'set BOARD_REAL_MODEL_EXPECTED_MODEL to the published real provider/model').toBeTruthy();
  expect(expectedModel).not.toMatch(/loopback|mock|fixture|e2e/i);
+ expect(FULLSTACK_E2E.memberUserId).not.toBe(FULLSTACK_E2E.userId);
  const token=await login(page),prefix=process.env.NEXT_PUBLIC_API_PATH_PREFIX??'';
  const apiBase=new URL(prefix||'/',baseURL).toString().replace(/\/$/,'');
  let boardId='',peerContext:Awaited<ReturnType<typeof browser.newContext>>|undefined;
@@ -30,6 +32,7 @@ test('real model reads 30 notes → named clusters preview → atomic confirm �
  async function api(method:string,path:string,data?:unknown){const response=await request.fetch(`${apiBase}${path}`,{method,headers:{Authorization:`Bearer ${token}`},data});expect(response.ok(),`${method} ${path}: HTTP ${response.status()}`).toBe(true);return response;}
  try{
   boardId=(await(await api('POST','/whiteboards',{requestId:randomUUID(),name:`Real AI acceptance ${Date.now()}`})).json()).id;
+  await api('PUT',`/whiteboards/${boardId}/members`,{userId:FULLSTACK_E2E.memberUserId,role:'editor'});
   const available=await(await api('GET',`/v1/whiteboards/${boardId}/ai-organize/actors`)).json();
   const actors=Array.isArray(available)?available:available.actors;
   const actor=actors.find((value:{model:string;actorId:string})=>value.model===expectedModel&&(!process.env.BOARD_REAL_MODEL_ACTOR_ID||value.actorId===process.env.BOARD_REAL_MODEL_ACTOR_ID));
@@ -40,7 +43,10 @@ test('real model reads 30 notes → named clusters preview → atomic confirm �
   await page.keyboard.press('Shift+N');await page.getByTestId('board-bulk-text').fill(texts.join('\n'));await page.getByTestId('board-bulk-apply').click();
   await expect.poll(async()=>(await snapshot()).objects.length).toBe(30);
   const before=await snapshot();evidence.before=before;
-  peerContext=await browser.newContext({baseURL,storageState:await page.context().storageState()});const peer=await peerContext.newPage();await peer.goto(`/studio/board/${boardId}`);
+  peerContext=await browser.newContext({baseURL});const peer=await peerContext.newPage();
+  await login(peer,FULLSTACK_E2E.memberEmail,FULLSTACK_E2E.memberPassword);
+  evidence.peer={userId:FULLSTACK_E2E.memberUserId,role:'editor',sameAccountAsInitiator:false};
+  await peer.goto(`/studio/board/${boardId}`);
   await expect(peer.getByRole('button',{name:`图形：${texts[0]}`,exact:true})).toHaveCount(1);
   if(actors.length>1)await page.getByLabel('整理 Agent').selectOption(actor.actorId);
   await expect(page.getByTestId('board-ai-organize')).toBeEnabled();

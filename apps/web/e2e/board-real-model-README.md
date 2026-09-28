@@ -26,9 +26,11 @@ Agent or grants runtime registry write permission. Model and actor are handed to
 the spec automatically; an explicit `BOARD_REAL_MODEL_EXPECTED_MODEL` must match.
 
 The test creates 30 actual notes via UI, invokes the real AI Organize endpoint and
-model router, previews without writes, confirms one transaction, observes an
-independent browser peer, and invokes one server Undo. It archives only its board
-with lifecycle CAS. Fixture entities leave with normal isolated database teardown.
+model router, previews without writes, confirms one transaction, grants a distinct
+seeded member editor access, proves that member's independent browser observes the
+result, and invokes one server Undo that the member also observes. It archives only
+its board with lifecycle CAS. Fixture entities leave with normal isolated database
+teardown.
 
 Evidence contains scrubbed inputs, proposal/runtime pin, actual revisions and model
 elapsed time, JSON SHA-256, preview and peer screenshots. Trace/video are disabled
