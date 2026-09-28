@@ -45,9 +45,9 @@ flowchart TD
   class G doing
   class R1 done
   class R2 done
-  class H1 blocked
-  %% blocked H1: 等人类批准方案并拍板 D1–D7（方案第 9 节）
-  class P0 todo
+  class H1 done
+  class P0 blocked
+  %% blocked P0: 批准后 main 合入 #4523（Work Stack v2），权威需求、组合图、实时数字人范围都变了，需人类确认新方向
   class H2 todo
   class A1 todo
   class A2 todo
@@ -65,3 +65,6 @@ flowchart TD
 | 2026-09-28 | R1 | doing → done | 4 路勘探完成（Skill / Agent / Workflow / harness），结论写入方案 §1 |
 | 2026-09-28 | R2 | todo → done | 方案已提交到 `claude/tender-maxwell-dh21fg` |
 | 2026-09-28 | H1 | todo → doing | 方案交人类审阅，等 D1–D7 拍板 |
+| 2026-09-28 | H1 | blocked → done | 人类在对话中回复「批准」：D1–D7 按方案建议执行；D5 头像先用插画 key 集占位，出图方式后续再定 |
+| 2026-09-28 | P0 | todo → doing | 开始 Phase 0 |
+| 2026-09-28 | P0 | doing → blocked | main 合入 #4523：v2 否决 v1、自带组合矩阵、要求 320 份逐个作者化+独立评审、新增实时数字人运行时；方案 D1 前提失效 |
