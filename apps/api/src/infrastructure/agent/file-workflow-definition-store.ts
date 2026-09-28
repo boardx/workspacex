@@ -1,5 +1,9 @@
-import { readdirSync } from "node:fs";
+import { readdirSync, readFileSync } from "node:fs";
+import { join } from "node:path";
 import type { WorkflowDefinitionStore } from "../../application/agent-import/ports";
+
+/** `# W001 — Research-to-Brief` → `Research-to-Brief`. Any other first line → null (fail-soft). */
+const TITLE_LINE_RE = /^#\s*W\d{3}\s*[—-]\s*(.+?)\s*$/;
 
 /**
  * AG03 · 已注册 Workflow 的单一事实源 = `requirements/work-stack-v2/workflows/` 目录下的实体文档
@@ -18,6 +22,21 @@ export class FileWorkflowDefinitionStore implements WorkflowDefinitionStore {
       return readdirSync(this.root).some((name) => name.startsWith(`${stableId}-`));
     } catch (error) {
       if ((error as NodeJS.ErrnoException).code === "ENOENT") return false;
+      throw error;
+    }
+  }
+
+  /** AG04：卡片展示 Workflow 名字（见 ports.ts 头注）——同一份文档目录，读 H1 标题。 */
+  async resolveName(stableId: string): Promise<string | null> {
+    if (!this.root) return null;
+    try {
+      const fileName = readdirSync(this.root).find((name) => name.startsWith(`${stableId}-`));
+      if (!fileName) return null;
+      const firstLine = readFileSync(join(this.root, fileName), "utf8").split("\n", 1)[0] ?? "";
+      const match = TITLE_LINE_RE.exec(firstLine);
+      return match ? match[1]! : null;
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code === "ENOENT") return null;
       throw error;
     }
   }

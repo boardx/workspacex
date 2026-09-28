@@ -33,6 +33,12 @@ export const AGENT_STARTER_IMPORT_REPOSITORY = Symbol("AgentStarterImportReposit
  */
 export interface WorkflowDefinitionStore {
   isRegistered(stableId: string): Promise<boolean>;
+  /**
+   * AG04 · 目录卡片需要展示 Workflow 名字，而不仅仅是 stableId（ui.md 「可发起 Workflow 列表」）。
+   * 同一份单一事实源（实体文档目录）里取，不另建一张复述名字的表。未注册 / 读取失败 → null，
+   * 调用方回退显示 stableId 本身，不整卡报错（同 `isRegistered` 的 fail-soft 纪律）。
+   */
+  resolveName(stableId: string): Promise<string | null>;
 }
 export const WORKFLOW_DEFINITION_STORE = Symbol("WorkflowDefinitionStore");
 
