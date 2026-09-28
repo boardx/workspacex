@@ -86,19 +86,19 @@ describe("live research workspace", () => {
     await screen.findByDisplayValue("Revised storage");
     expect(executeResearchRuntime).toHaveBeenLastCalledWith(expect.objectContaining({ action: "apply", proposalId: "proposal-1", expectedVersion: 8 }));
   });
-  it("renders sources without confirmation and persists removal while offering failed task retry", async () => {
+  it("shows search URLs and retries failed tasks without source management controls", async () => {
     const research: GuidedResearchRuntime = { ...initial, currentNode: "research", availableNodes: ["brief", "directions", "outline", "research"], generatedNodes: ["brief", "directions", "outline", "research"],
       tasks: [{ id: "t1", sectionId: "s1", query: "Grid policy", status: "failed", attempts: 1, errorCode: "RESEARCH_SEARCH_UNAVAILABLE" }],
       sources: [{ id: "src1", taskId: "t1", title: "Official source", url: "https://example.org/policy", content: "A retrieved source", retrievedAt: "2026-09-05", decision: "pending" }] };
     vi.mocked(getResearchRuntime).mockResolvedValue(research);
     vi.mocked(executeResearchRuntime).mockResolvedValue({ ...research, version: 8, sources: [{ ...research.sources[0]!, decision: "excluded" }] });
     render(<GuidedResearchLive sessionId="session-live" onBack={vi.fn()} />);
-    for (const link of await screen.findAllByRole("link", { name: "Official source" })) expect(link).toHaveAttribute("href", "https://example.org/policy");
+    expect(await screen.findByRole("link", { name: "https://example.org/policy" })).toHaveAttribute("href", "https://example.org/policy");
     expect(screen.getByRole("button", { name: "重试失败任务" })).toBeEnabled();
     expect(screen.queryByRole("combobox")).not.toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "删除来源 Official source" }));
-    await waitFor(() => expect(executeResearchRuntime).toHaveBeenCalledWith(expect.objectContaining({ action: "remove_source", sourceId: "src1", expectedVersion: 7 })));
-    await waitFor(() => expect(screen.queryAllByRole("link", { name: "Official source" })).toHaveLength(0));
+    expect(screen.queryByRole("button", { name: "删除来源 Official source" })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "重试失败任务" }));
+    await waitFor(() => expect(executeResearchRuntime).toHaveBeenCalledWith(expect.objectContaining({ action: "retry", node: "research", expectedVersion: 7 })));
   });
 });
 
