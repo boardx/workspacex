@@ -45,10 +45,10 @@ export function GuidedResearchSixStepShell({
   const assistantOpen = controlledAssistantOpen ?? internalAssistantOpen;
   const setAssistantOpen = onAssistantOpenChange ?? setInternalAssistantOpen;
   const [leaveAction, setLeaveAction] = React.useState<(() => void) | null>(null);
-  const requestLeave = (action: () => void) => {
+  const requestLeave = React.useCallback((action: () => void) => {
     if (hasUnsavedChanges) setLeaveAction(() => action);
     else action();
-  };
+  }, [hasUnsavedChanges]);
   React.useEffect(() => {
     if (!sessionId || !onHistoryNavigate) return;
     const restoreRoute = () => {
@@ -69,7 +69,7 @@ export function GuidedResearchSixStepShell({
     };
     window.addEventListener("popstate", restoreRoute);
     return () => window.removeEventListener("popstate", restoreRoute);
-  }, [available, current, hasUnsavedChanges, onHistoryNavigate, onNavigate, sessionId]);
+  }, [available, current, hasUnsavedChanges, onBack, onHistoryNavigate, onNavigate, requestLeave, sessionId]);
   React.useEffect(() => {
     if (!hasUnsavedChanges) return;
     const preventUnload = (event: BeforeUnloadEvent) => { event.preventDefault(); event.returnValue = ""; };
