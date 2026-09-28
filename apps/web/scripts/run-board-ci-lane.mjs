@@ -12,7 +12,7 @@ import {boardPerformancePolicy,validateBoardPerformanceArtifact} from './board-p
 import {validateApiWsObjectstoreCiEvidence,validateCapturedVendorCiEvidence} from './board-integrated-ci-policy.mjs';
 import {canonicalLanesForBoardCiLane} from './board-ci-lane-map.mjs';
 const root=resolve(import.meta.dirname,'../../..'),lane=process.argv[2],separator=process.argv.indexOf('--'),command=process.argv.slice(separator+1);
-const counts={journeys:6,security:1,visual:3,storage:4,import:1,'api-ws-objectstore':3,performance:3,'collaboration-50':1,'meeting-room':1};
+const counts={journeys:6,security:1,visual:3,storage:4,import:1,'api-ws-objectstore':4,performance:3,'collaboration-50':1,'meeting-room':1};
 if(!Object.hasOwn(counts,lane)||separator!==3||!command.length||!process.env.WORKSPACEX_ISOLATION_ID)throw Error('ISOLATED_CI_LANE_REQUIRED');
 const git=(...args)=>execFileSync('git',args,{cwd:root,encoding:'utf8'}).trim(),sha=git('rev-parse','HEAD');
 if(git('status','--porcelain','--untracked-files=all'))throw Error('DIRTY_WORKTREE');

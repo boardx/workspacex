@@ -8,6 +8,7 @@ import {requiredBoardAcceptanceLanes} from './board-acceptance-matrix.mjs';
 const root=resolve(import.meta.dirname,'../../..');
 const workflow=readFileSync(resolve(root,'.github/workflows/board-acceptance.yml'),'utf8');
 const scripts=JSON.parse(readFileSync(resolve(root,'apps/web/package.json'),'utf8')).scripts;
+const laneRunner=readFileSync(resolve(root,'apps/web/scripts/run-board-ci-lane.mjs'),'utf8');
 
 test('nine isolated workflow jobs cover every canonical Board lane exactly once',()=>{
   assert.equal(boardCiLanes.length,9);
@@ -26,11 +27,15 @@ test('workflow invokes every mapped real producer and retains its lane directory
     assert.match(scripts[script],/run-board-ci-lane\.mjs/);
     assert.match(scripts[script],/playwright/);
     assert.equal(workflow.match(new RegExp(`pnpm --filter web run ${script.replaceAll(':','\\:')}`,'g'))?.length,1,script);
-    assert.ok(workflow.includes(`path: apps/web/test-results/board-ci/${lane}/`),lane);
+    assert.ok(workflow.includes(`apps/web/test-results/board-ci/${lane}/`),lane);
   }
   assert.match(workflow,/WHITEBOARD_CAPTURED_VENDOR_MANIFEST: \$\{\{ vars\.WHITEBOARD_CAPTURED_VENDOR_MANIFEST \}\}/);
 });
 
 test('unknown workflow lanes fail closed instead of claiming canonical coverage',()=>{
   assert.throws(()=>canonicalLanesForBoardCiLane('fixture-only'),/UNKNOWN_BOARD_CI_LANE/);
+});
+
+test('API, websocket and object-store lane counts every connected real producer',()=>{
+  assert.match(laneRunner,/'api-ws-objectstore':4/);
 });
