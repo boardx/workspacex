@@ -70,6 +70,24 @@ it("expert search filters the supplied directory rather than showing a fallback 
   expect(screen.getByText("没有匹配的专家")).toBeVisible();
   expect(screen.queryByRole("button", { name: /添加专家 / })).not.toBeInTheDocument();
 });
+it("distinguishes an empty published expert catalog from a search with no matches", () => {
+  render(<InterviewExpertsStep document={source} directory={[]} pending={false} onChange={vi.fn()} onSave={vi.fn()} onConfirm={vi.fn()} onGenerate={vi.fn()} />);
+  expect(screen.getByTestId("itv-expert-directory-empty")).toHaveTextContent("当前组织暂无可用的已发布专家");
+  expect(screen.queryByText("没有匹配的专家")).not.toBeInTheDocument();
+});
+it("does not describe the expert directory as empty before the catalog response arrives", () => {
+  render(<InterviewExpertsStep document={source} directory={[]} directoryStatus="loading" pending={false} onChange={vi.fn()} onSave={vi.fn()} onConfirm={vi.fn()} onGenerate={vi.fn()} />);
+  expect(screen.getByTestId("itv-expert-directory-loading")).toHaveTextContent("正在载入专家库");
+  expect(screen.queryByTestId("itv-expert-directory-empty")).not.toBeInTheDocument();
+});
+it("shows a retryable catalog error without replacing saved expert Markdown", () => {
+  const retry = vi.fn();
+  render(<InterviewExpertsStep document={source} directory={[]} directoryStatus="error" pending={false} onRetryDirectory={retry} onChange={vi.fn()} onSave={vi.fn()} onConfirm={vi.fn()} onGenerate={vi.fn()} />);
+  expect(screen.getByTestId("itv-expert-directory-error")).toHaveTextContent("专家库载入失败");
+  expect(screen.getByRole("textbox", { name: "专家文档 Markdown" })).toHaveValue(source.markdown);
+  fireEvent.click(screen.getByRole("button", { name: "重试载入专家库" }));
+  expect(retry).toHaveBeenCalledTimes(1);
+});
 it("virtual expert requires a Markdown preview and explicit review before adding", () => {
   const change = vi.fn();
   render(<InterviewExpertsStep document={source} directory={[]} pending={false} onChange={change} onSave={vi.fn()} onConfirm={vi.fn()} onGenerate={vi.fn()} />);

@@ -142,14 +142,17 @@ describe("F02 第 3 组 UI：访谈 Studio 首屏", () => {
     expect(within(card).getByText("尚未选择专家")).toBeInTheDocument();
   });
 
-  it.each([{ projectId: null, path: "/itv/new" }, { projectId: "project night", path: "/itv/new?projectId=project%20night" }])("new creation entries open the Markdown intake route with scope $projectId", async ({ projectId, path }) => {
+  it.each([{ projectId: null }, { projectId: "project night" }])("new creation entries require name and tags before creating a scoped interview $projectId", async ({ projectId }) => {
     render(<InterviewStudioHome initialTab="history" projectId={projectId} />);
     await screen.findByTestId("itv-history-card-itv-1");
     fireEvent.click(screen.getByTestId("itv-create"));
-    expect(push).toHaveBeenLastCalledWith(path);
+    expect(screen.getByTestId("itv-create-dialog")).toBeVisible();
+    expect(screen.getByTestId("itv-create-scope")).toHaveTextContent(projectId ? "本项目访谈" : "独立访谈");
+    expect(push).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("button", { name: "取消" }));
     fireEvent.click(screen.getByTestId("itv-create-card"));
-    expect(push).toHaveBeenLastCalledWith(path);
-    expect(screen.queryByTestId("itv-create-dialog")).not.toBeInTheDocument();
+    expect(screen.getByTestId("itv-create-dialog")).toBeVisible();
+    expect(push).not.toHaveBeenCalled();
     expect(vi.mocked(fetch).mock.calls.some(([, init]) => init?.method === "POST")).toBe(false);
   });
 
@@ -314,7 +317,7 @@ describe("F02 第 3 组 UI：访谈 Studio 首屏", () => {
     expect(tagInput).toBeEnabled();
     fireEvent.click(within(dialog).getByTestId("itv-create-submit"));
 
-    await waitFor(() => expect(push).toHaveBeenCalledWith(`/itv/${created.interviewId}/setup`));
+    await waitFor(() => expect(push).toHaveBeenCalledWith(`/itv/${created.interviewId}/intake`));
     const createRequest = vi.mocked(fetch).mock.calls.find(([input, init]) => {
       const url = new URL(typeof input === "string" ? input : input.toString());
       return (init?.method ?? "GET") === "POST" && url.pathname === "/interviews/digital";

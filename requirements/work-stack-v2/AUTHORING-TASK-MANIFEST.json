@@ -1,0 +1,1933 @@
+{
+  "version": "v2-authoring-queue",
+  "policy": "Each entity requires one independent authoring task and one independent reviewer pass; generated prose templates are prohibited.",
+  "counts": {
+    "skills": 200,
+    "workflows": 60,
+    "digitalHumans": 60,
+    "total": 320
+  },
+  "authorTaskIds": [
+    {
+      "task": "AUTHOR-S001",
+      "entity": "S001",
+      "name": "Profile Onboarding",
+      "type": "skill"
+    },
+    {
+      "task": "AUTHOR-S002",
+      "entity": "S002",
+      "name": "Profile Customization",
+      "type": "skill"
+    },
+    {
+      "task": "AUTHOR-S003",
+      "entity": "S003",
+      "name": "Enterprise Search",
+      "type": "skill"
+    },
+    {
+      "task": "AUTHOR-S004",
+      "entity": "S004",
+      "name": "Research Synthesis",
+      "type": "skill"
+    },
+    {
+      "task": "AUTHOR-S005",
+      "entity": "S005",
+      "name": "Meeting Prep",
+      "type": "skill"
+    },
+    {
+      "task": "AUTHOR-S006",
+      "entity": "S006",
+      "name": "Meeting Summary",
+      "type": "skill"
+    },
+    {
+      "task": "AUTHOR-S007",
+      "entity": "S007",
+      "name": "Status Update",
+      "type": "skill"
+    },
+    {
+      "task": "AUTHOR-S008",
+      "entity": "S008",
+      "name": "Competitive Analysis",
+      "type": "skill"
+    },
+    {
+      "task": "AUTHOR-S009",
+      "entity": "S009",
+      "name": "Customer Research",
+      "type": "skill"
+    },
+    {
+      "task": "AUTHOR-S010",
+      "entity": "S010",
+      "name": "Risk Assessment",
+      "type": "skill"
+    },
+    {
+      "task": "AUTHOR-S011",
+      "entity": "S011",
+      "name": "Root Cause Analysis",
+      "type": "skill"
+    },
+    {
+      "task": "AUTHOR-S012",
+      "entity": "S012",
+      "name": "Decision Brief",
+      "type": "skill"
+    },
+    {
+      "task": "AUTHOR-S013",
+      "entity": "S013",
+      "name": "Scenario Analysis",
+      "type": "skill"
+    },
+    {
+      "task": "AUTHOR-S014",
+      "entity": "S014",
+      "name": "Document Review",
+      "type": "skill"
+    },
+    {
+      "task": "AUTHOR-S015",
+      "entity": "S015",
+      "name": "Response Drafting",
+      "type": "skill"
+    },
+    {
+      "task": "AUTHOR-S016",
+      "entity": "S016",
+      "name": "Knowledge Capture",
+      "type": "skill"
+    },
+    {
+      "task": "AUTHOR-S017",
+      "entity": "S017",
+      "name": "Task Extraction",
+      "type": "skill"
+    },
+    {
+      "task": "AUTHOR-S018",
+      "entity": "S018",
+      "name": "Process Mapping",
+      "type": "skill"
+    },
+    {
+      "task": "AUTHOR-S019",
+      "entity": "S019",
+      "name": "SOP Authoring",
+      "type": "skill"
+    },
+    {
+      "task": "AUTHOR-S020",
+      "entity": "S020",
+      "name": "Executive Briefing",
+      "type": "skill"
+    },
+    {
+      "task": "AUTHOR-S021",
+      "entity": "S021",
+      "name": "Customer Intelligence",
+      "type": "skill"
+    },
+    {
+      "task": "AUTHOR-S022",
+      "entity": "S022",
+      "name": "Account Tiering",
+      "type": "skill"
+    },
+    {
+      "task": "AUTHOR-S023",
+      "entity": "S023",
+      "name": "Account Planning",
+      "type": "skill"
+    },
+    {
+      "task": "AUTHOR-S024",
+      "entity": "S024",
+      "name": "Prospecting",
+      "type": "skill"
+    },
+    {
+      "task": "AUTHOR-S025",
+      "entity": "S025",
+      "name": "Lead Triage",
+      "type": "skill"
+    },
+    {
+      "task": "AUTHOR-S026",
+      "entity": "S026",
+      "name": "Outreach",
+      "type": "skill"
+    },
+    {
+      "task": "AUTHOR-S027",
+      "entity": "S027",
+      "name": "Meeting Scheduling",
+      "type": "skill"
+    },
+    {
+      "task": "AUTHOR-S028",
+      "entity": "S028",
+      "name": "Sales Call Summary",
+      "type": "skill"
+    },
+    {
+      "task": "AUTHOR-S029",
+      "entity": "S029",
+      "name": "Opportunity Update",
+      "type": "skill"
+    },
+    {
+      "task": "AUTHOR-S030",
+      "entity": "S030",
+      "name": "Pipeline Review",
+      "type": "skill"
+    },
+    {
+      "task": "AUTHOR-S031",
+      "entity": "S031",
+      "name": "Forecasting",
+      "type": "skill"
+    },
+    {
+      "task": "AUTHOR-S032",
+      "entity": "S032",
+      "name": "Close Plan",
+      "type": "skill"
+    },
+    {
+      "task": "AUTHOR-S033",
+      "entity": "S033",
+      "name": "Renewal Radar",
+      "type": "skill"
+    },
+    {
+      "task": "AUTHOR-S034",
+      "entity": "S034",
+      "name": "CRM Hygiene",
+      "type": "skill"
+    },
+    {
+      "task": "AUTHOR-S035",
+      "entity": "S035",
+      "name": "Customer Health",
+      "type": "skill"
+    },
+    {
+      "task": "AUTHOR-S036",
+      "entity": "S036",
+      "name": "Proposal Builder",
+      "type": "skill"
+    },
+    {
+      "task": "AUTHOR-S037",
+      "entity": "S037",
+      "name": "Sales Enablement",
+      "type": "skill"
+    },
+    {
+      "task": "AUTHOR-S038",
+      "entity": "S038",
+      "name": "Revenue Operations",
+      "type": "skill"
+    },
+    {
+      "task": "AUTHOR-S039",
+      "entity": "S039",
+      "name": "Marketing Plan",
+      "type": "skill"
+    },
+    {
+      "task": "AUTHOR-S040",
+      "entity": "S040",
+      "name": "GTM Positioning",
+      "type": "skill"
+    },
+    {
+      "task": "AUTHOR-S041",
+      "entity": "S041",
+      "name": "Campaign Planning",
+      "type": "skill"
+    },
+    {
+      "task": "AUTHOR-S042",
+      "entity": "S042",
+      "name": "Content Strategy",
+      "type": "skill"
+    },
+    {
+      "task": "AUTHOR-S043",
+      "entity": "S043",
+      "name": "Content Creation",
+      "type": "skill"
+    },
+    {
+      "task": "AUTHOR-S044",
+      "entity": "S044",
+      "name": "Copywriting",
+      "type": "skill"
+    },
+    {
+      "task": "AUTHOR-S045",
+      "entity": "S045",
+      "name": "Brand Review",
+      "type": "skill"
+    },
+    {
+      "task": "AUTHOR-S046",
+      "entity": "S046",
+      "name": "Brand Guidelines",
+      "type": "skill"
+    },
+    {
+      "task": "AUTHOR-S047",
+      "entity": "S047",
+      "name": "SEO Audit",
+      "type": "skill"
+    },
+    {
+      "task": "AUTHOR-S048",
+      "entity": "S048",
+      "name": "AI Search Optimization",
+      "type": "skill"
+    },
+    {
+      "task": "AUTHOR-S049",
+      "entity": "S049",
+      "name": "Programmatic SEO",
+      "type": "skill"
+    },
+    {
+      "task": "AUTHOR-S050",
+      "entity": "S050",
+      "name": "Schema Optimization",
+      "type": "skill"
+    },
+    {
+      "task": "AUTHOR-S051",
+      "entity": "S051",
+      "name": "Sitemap Optimization",
+      "type": "skill"
+    },
+    {
+      "task": "AUTHOR-S052",
+      "entity": "S052",
+      "name": "Image SEO",
+      "type": "skill"
+    },
+    {
+      "task": "AUTHOR-S053",
+      "entity": "S053",
+      "name": "Social Content",
+      "type": "skill"
+    },
+    {
+      "task": "AUTHOR-S054",
+      "entity": "S054",
+      "name": "Social Distribution",
+      "type": "skill"
+    },
+    {
+      "task": "AUTHOR-S055",
+      "entity": "S055",
+      "name": "Lifecycle Email",
+      "type": "skill"
+    },
+    {
+      "task": "AUTHOR-S056",
+      "entity": "S056",
+      "name": "Paid Ads",
+      "type": "skill"
+    },
+    {
+      "task": "AUTHOR-S057",
+      "entity": "S057",
+      "name": "Ad Creative",
+      "type": "skill"
+    },
+    {
+      "task": "AUTHOR-S058",
+      "entity": "S058",
+      "name": "Attribution",
+      "type": "skill"
+    },
+    {
+      "task": "AUTHOR-S059",
+      "entity": "S059",
+      "name": "Analytics Tracking",
+      "type": "skill"
+    },
+    {
+      "task": "AUTHOR-S060",
+      "entity": "S060",
+      "name": "Referral Program",
+      "type": "skill"
+    },
+    {
+      "task": "AUTHOR-S061",
+      "entity": "S061",
+      "name": "Product Discovery",
+      "type": "skill"
+    },
+    {
+      "task": "AUTHOR-S062",
+      "entity": "S062",
+      "name": "User Interview Planning",
+      "type": "skill"
+    },
+    {
+      "task": "AUTHOR-S063",
+      "entity": "S063",
+      "name": "Research Synthesis",
+      "type": "skill"
+    },
+    {
+      "task": "AUTHOR-S064",
+      "entity": "S064",
+      "name": "Problem Framing",
+      "type": "skill"
+    },
+    {
+      "task": "AUTHOR-S065",
+      "entity": "S065",
+      "name": "Opportunity Mapping",
+      "type": "skill"
+    },
+    {
+      "task": "AUTHOR-S066",
+      "entity": "S066",
+      "name": "Product Brainstorming",
+      "type": "skill"
+    },
+    {
+      "task": "AUTHOR-S067",
+      "entity": "S067",
+      "name": "PRD / Spec Writing",
+      "type": "skill"
+    },
+    {
+      "task": "AUTHOR-S068",
+      "entity": "S068",
+      "name": "Prioritization",
+      "type": "skill"
+    },
+    {
+      "task": "AUTHOR-S069",
+      "entity": "S069",
+      "name": "Roadmap Planning",
+      "type": "skill"
+    },
+    {
+      "task": "AUTHOR-S070",
+      "entity": "S070",
+      "name": "Sprint Planning",
+      "type": "skill"
+    },
+    {
+      "task": "AUTHOR-S071",
+      "entity": "S071",
+      "name": "Experiment Design",
+      "type": "skill"
+    },
+    {
+      "task": "AUTHOR-S072",
+      "entity": "S072",
+      "name": "Metrics Review",
+      "type": "skill"
+    },
+    {
+      "task": "AUTHOR-S073",
+      "entity": "S073",
+      "name": "Product Launch",
+      "type": "skill"
+    },
+    {
+      "task": "AUTHOR-S074",
+      "entity": "S074",
+      "name": "User Activation",
+      "type": "skill"
+    },
+    {
+      "task": "AUTHOR-S075",
+      "entity": "S075",
+      "name": "Design Critique",
+      "type": "skill"
+    },
+    {
+      "task": "AUTHOR-S076",
+      "entity": "S076",
+      "name": "Design Handoff",
+      "type": "skill"
+    },
+    {
+      "task": "AUTHOR-S077",
+      "entity": "S077",
+      "name": "Design System",
+      "type": "skill"
+    },
+    {
+      "task": "AUTHOR-S078",
+      "entity": "S078",
+      "name": "Accessibility Review",
+      "type": "skill"
+    },
+    {
+      "task": "AUTHOR-S079",
+      "entity": "S079",
+      "name": "FP&A Forecast",
+      "type": "skill"
+    },
+    {
+      "task": "AUTHOR-S080",
+      "entity": "S080",
+      "name": "Budget Planning",
+      "type": "skill"
+    },
+    {
+      "task": "AUTHOR-S081",
+      "entity": "S081",
+      "name": "Cash Flow Forecast",
+      "type": "skill"
+    },
+    {
+      "task": "AUTHOR-S082",
+      "entity": "S082",
+      "name": "Journal Entry",
+      "type": "skill"
+    },
+    {
+      "task": "AUTHOR-S083",
+      "entity": "S083",
+      "name": "Reconciliation",
+      "type": "skill"
+    },
+    {
+      "task": "AUTHOR-S084",
+      "entity": "S084",
+      "name": "Month-end Close",
+      "type": "skill"
+    },
+    {
+      "task": "AUTHOR-S085",
+      "entity": "S085",
+      "name": "Variance Analysis",
+      "type": "skill"
+    },
+    {
+      "task": "AUTHOR-S086",
+      "entity": "S086",
+      "name": "Audit Support",
+      "type": "skill"
+    },
+    {
+      "task": "AUTHOR-S087",
+      "entity": "S087",
+      "name": "Three-Statement Model",
+      "type": "skill"
+    },
+    {
+      "task": "AUTHOR-S088",
+      "entity": "S088",
+      "name": "DCF Valuation",
+      "type": "skill"
+    },
+    {
+      "task": "AUTHOR-S089",
+      "entity": "S089",
+      "name": "Comparable Companies",
+      "type": "skill"
+    },
+    {
+      "task": "AUTHOR-S090",
+      "entity": "S090",
+      "name": "Model Audit",
+      "type": "skill"
+    },
+    {
+      "task": "AUTHOR-S091",
+      "entity": "S091",
+      "name": "Board Finance Pack",
+      "type": "skill"
+    },
+    {
+      "task": "AUTHOR-S092",
+      "entity": "S092",
+      "name": "Treasury Planning",
+      "type": "skill"
+    },
+    {
+      "task": "AUTHOR-S093",
+      "entity": "S093",
+      "name": "Credit Analysis",
+      "type": "skill"
+    },
+    {
+      "task": "AUTHOR-S094",
+      "entity": "S094",
+      "name": "Investment Thesis",
+      "type": "skill"
+    },
+    {
+      "task": "AUTHOR-S095",
+      "entity": "S095",
+      "name": "Equity Research",
+      "type": "skill"
+    },
+    {
+      "task": "AUTHOR-S096",
+      "entity": "S096",
+      "name": "Earnings Preview",
+      "type": "skill"
+    },
+    {
+      "task": "AUTHOR-S097",
+      "entity": "S097",
+      "name": "Sector Overview",
+      "type": "skill"
+    },
+    {
+      "task": "AUTHOR-S098",
+      "entity": "S098",
+      "name": "Investment Memo",
+      "type": "skill"
+    },
+    {
+      "task": "AUTHOR-S099",
+      "entity": "S099",
+      "name": "Portfolio Monitoring",
+      "type": "skill"
+    },
+    {
+      "task": "AUTHOR-S100",
+      "entity": "S100",
+      "name": "Fund Administration",
+      "type": "skill"
+    },
+    {
+      "task": "AUTHOR-S101",
+      "entity": "S101",
+      "name": "Transaction Materials",
+      "type": "skill"
+    },
+    {
+      "task": "AUTHOR-S102",
+      "entity": "S102",
+      "name": "Data Pack Builder",
+      "type": "skill"
+    },
+    {
+      "task": "AUTHOR-S103",
+      "entity": "S103",
+      "name": "Contract Review",
+      "type": "skill"
+    },
+    {
+      "task": "AUTHOR-S104",
+      "entity": "S104",
+      "name": "NDA Review",
+      "type": "skill"
+    },
+    {
+      "task": "AUTHOR-S105",
+      "entity": "S105",
+      "name": "Vendor Agreement Review",
+      "type": "skill"
+    },
+    {
+      "task": "AUTHOR-S106",
+      "entity": "S106",
+      "name": "DPA Review",
+      "type": "skill"
+    },
+    {
+      "task": "AUTHOR-S107",
+      "entity": "S107",
+      "name": "Legal Research",
+      "type": "skill"
+    },
+    {
+      "task": "AUTHOR-S108",
+      "entity": "S108",
+      "name": "Regulatory Monitoring",
+      "type": "skill"
+    },
+    {
+      "task": "AUTHOR-S109",
+      "entity": "S109",
+      "name": "Regulatory Gap Analysis",
+      "type": "skill"
+    },
+    {
+      "task": "AUTHOR-S110",
+      "entity": "S110",
+      "name": "Policy Monitoring",
+      "type": "skill"
+    },
+    {
+      "task": "AUTHOR-S111",
+      "entity": "S111",
+      "name": "Policy Drafting",
+      "type": "skill"
+    },
+    {
+      "task": "AUTHOR-S112",
+      "entity": "S112",
+      "name": "Compliance Check",
+      "type": "skill"
+    },
+    {
+      "task": "AUTHOR-S113",
+      "entity": "S113",
+      "name": "Matter Management",
+      "type": "skill"
+    },
+    {
+      "task": "AUTHOR-S114",
+      "entity": "S114",
+      "name": "Matter Intake",
+      "type": "skill"
+    },
+    {
+      "task": "AUTHOR-S115",
+      "entity": "S115",
+      "name": "Matter Update",
+      "type": "skill"
+    },
+    {
+      "task": "AUTHOR-S116",
+      "entity": "S116",
+      "name": "Renewal Tracking",
+      "type": "skill"
+    },
+    {
+      "task": "AUTHOR-S117",
+      "entity": "S117",
+      "name": "Escalation Routing",
+      "type": "skill"
+    },
+    {
+      "task": "AUTHOR-S118",
+      "entity": "S118",
+      "name": "Internal Investigation",
+      "type": "skill"
+    },
+    {
+      "task": "AUTHOR-S119",
+      "entity": "S119",
+      "name": "Legal Chronology",
+      "type": "skill"
+    },
+    {
+      "task": "AUTHOR-S120",
+      "entity": "S120",
+      "name": "Demand Intake",
+      "type": "skill"
+    },
+    {
+      "task": "AUTHOR-S121",
+      "entity": "S121",
+      "name": "Due Diligence",
+      "type": "skill"
+    },
+    {
+      "task": "AUTHOR-S122",
+      "entity": "S122",
+      "name": "Closing Checklist",
+      "type": "skill"
+    },
+    {
+      "task": "AUTHOR-S123",
+      "entity": "S123",
+      "name": "Post-Merger Integration",
+      "type": "skill"
+    },
+    {
+      "task": "AUTHOR-S124",
+      "entity": "S124",
+      "name": "Privacy Impact Assessment",
+      "type": "skill"
+    },
+    {
+      "task": "AUTHOR-S125",
+      "entity": "S125",
+      "name": "AI Impact Assessment",
+      "type": "skill"
+    },
+    {
+      "task": "AUTHOR-S126",
+      "entity": "S126",
+      "name": "AI Vendor Review",
+      "type": "skill"
+    },
+    {
+      "task": "AUTHOR-S127",
+      "entity": "S127",
+      "name": "Policy Q&A",
+      "type": "skill"
+    },
+    {
+      "task": "AUTHOR-S128",
+      "entity": "S128",
+      "name": "Job Description Builder",
+      "type": "skill"
+    },
+    {
+      "task": "AUTHOR-S129",
+      "entity": "S129",
+      "name": "Resume Screening",
+      "type": "skill"
+    },
+    {
+      "task": "AUTHOR-S130",
+      "entity": "S130",
+      "name": "Interview Prep",
+      "type": "skill"
+    },
+    {
+      "task": "AUTHOR-S131",
+      "entity": "S131",
+      "name": "Recruiting Pipeline",
+      "type": "skill"
+    },
+    {
+      "task": "AUTHOR-S132",
+      "entity": "S132",
+      "name": "Offer Drafting",
+      "type": "skill"
+    },
+    {
+      "task": "AUTHOR-S133",
+      "entity": "S133",
+      "name": "Onboarding",
+      "type": "skill"
+    },
+    {
+      "task": "AUTHOR-S134",
+      "entity": "S134",
+      "name": "Performance Review",
+      "type": "skill"
+    },
+    {
+      "task": "AUTHOR-S135",
+      "entity": "S135",
+      "name": "Compensation Analysis",
+      "type": "skill"
+    },
+    {
+      "task": "AUTHOR-S136",
+      "entity": "S136",
+      "name": "People Analytics",
+      "type": "skill"
+    },
+    {
+      "task": "AUTHOR-S137",
+      "entity": "S137",
+      "name": "Workforce Planning",
+      "type": "skill"
+    },
+    {
+      "task": "AUTHOR-S138",
+      "entity": "S138",
+      "name": "Workforce Economics",
+      "type": "skill"
+    },
+    {
+      "task": "AUTHOR-S139",
+      "entity": "S139",
+      "name": "Org Planning",
+      "type": "skill"
+    },
+    {
+      "task": "AUTHOR-S140",
+      "entity": "S140",
+      "name": "AI Adoption Enablement",
+      "type": "skill"
+    },
+    {
+      "task": "AUTHOR-S141",
+      "entity": "S141",
+      "name": "Project Planning",
+      "type": "skill"
+    },
+    {
+      "task": "AUTHOR-S142",
+      "entity": "S142",
+      "name": "Work Item Management",
+      "type": "skill"
+    },
+    {
+      "task": "AUTHOR-S143",
+      "entity": "S143",
+      "name": "Status Reporting",
+      "type": "skill"
+    },
+    {
+      "task": "AUTHOR-S144",
+      "entity": "S144",
+      "name": "Capacity Planning",
+      "type": "skill"
+    },
+    {
+      "task": "AUTHOR-S145",
+      "entity": "S145",
+      "name": "Change Request",
+      "type": "skill"
+    },
+    {
+      "task": "AUTHOR-S146",
+      "entity": "S146",
+      "name": "Vendor Review",
+      "type": "skill"
+    },
+    {
+      "task": "AUTHOR-S147",
+      "entity": "S147",
+      "name": "Vendor Management",
+      "type": "skill"
+    },
+    {
+      "task": "AUTHOR-S148",
+      "entity": "S148",
+      "name": "Process Documentation",
+      "type": "skill"
+    },
+    {
+      "task": "AUTHOR-S149",
+      "entity": "S149",
+      "name": "Runbook Authoring",
+      "type": "skill"
+    },
+    {
+      "task": "AUTHOR-S150",
+      "entity": "S150",
+      "name": "Inbox Triage",
+      "type": "skill"
+    },
+    {
+      "task": "AUTHOR-S151",
+      "entity": "S151",
+      "name": "Inventory Planning",
+      "type": "skill"
+    },
+    {
+      "task": "AUTHOR-S152",
+      "entity": "S152",
+      "name": "Procurement Planning",
+      "type": "skill"
+    },
+    {
+      "task": "AUTHOR-S153",
+      "entity": "S153",
+      "name": "Meeting Facilitation",
+      "type": "skill"
+    },
+    {
+      "task": "AUTHOR-S154",
+      "entity": "S154",
+      "name": "Execution Plan",
+      "type": "skill"
+    },
+    {
+      "task": "AUTHOR-S155",
+      "entity": "S155",
+      "name": "Business Review",
+      "type": "skill"
+    },
+    {
+      "task": "AUTHOR-S156",
+      "entity": "S156",
+      "name": "Continuous Improvement",
+      "type": "skill"
+    },
+    {
+      "task": "AUTHOR-S157",
+      "entity": "S157",
+      "name": "Data Exploration",
+      "type": "skill"
+    },
+    {
+      "task": "AUTHOR-S158",
+      "entity": "S158",
+      "name": "Data Validation",
+      "type": "skill"
+    },
+    {
+      "task": "AUTHOR-S159",
+      "entity": "S159",
+      "name": "Data Cleaning",
+      "type": "skill"
+    },
+    {
+      "task": "AUTHOR-S160",
+      "entity": "S160",
+      "name": "SQL Query",
+      "type": "skill"
+    },
+    {
+      "task": "AUTHOR-S161",
+      "entity": "S161",
+      "name": "Statistical Analysis",
+      "type": "skill"
+    },
+    {
+      "task": "AUTHOR-S162",
+      "entity": "S162",
+      "name": "KPI Design",
+      "type": "skill"
+    },
+    {
+      "task": "AUTHOR-S163",
+      "entity": "S163",
+      "name": "Dashboard Design",
+      "type": "skill"
+    },
+    {
+      "task": "AUTHOR-S164",
+      "entity": "S164",
+      "name": "Data Visualization",
+      "type": "skill"
+    },
+    {
+      "task": "AUTHOR-S165",
+      "entity": "S165",
+      "name": "Data Context Extraction",
+      "type": "skill"
+    },
+    {
+      "task": "AUTHOR-S166",
+      "entity": "S166",
+      "name": "Metric Definition",
+      "type": "skill"
+    },
+    {
+      "task": "AUTHOR-S167",
+      "entity": "S167",
+      "name": "Market Sizing",
+      "type": "skill"
+    },
+    {
+      "task": "AUTHOR-S168",
+      "entity": "S168",
+      "name": "Trend Analysis",
+      "type": "skill"
+    },
+    {
+      "task": "AUTHOR-S169",
+      "entity": "S169",
+      "name": "Knowledge Synthesis",
+      "type": "skill"
+    },
+    {
+      "task": "AUTHOR-S170",
+      "entity": "S170",
+      "name": "Scientific Research Planning",
+      "type": "skill"
+    },
+    {
+      "task": "AUTHOR-S171",
+      "entity": "S171",
+      "name": "Evidence Review",
+      "type": "skill"
+    },
+    {
+      "task": "AUTHOR-S172",
+      "entity": "S172",
+      "name": "Data Storytelling",
+      "type": "skill"
+    },
+    {
+      "task": "AUTHOR-S173",
+      "entity": "S173",
+      "name": "Architecture Design",
+      "type": "skill"
+    },
+    {
+      "task": "AUTHOR-S174",
+      "entity": "S174",
+      "name": "System Design",
+      "type": "skill"
+    },
+    {
+      "task": "AUTHOR-S175",
+      "entity": "S175",
+      "name": "Code Review",
+      "type": "skill"
+    },
+    {
+      "task": "AUTHOR-S176",
+      "entity": "S176",
+      "name": "Debugging",
+      "type": "skill"
+    },
+    {
+      "task": "AUTHOR-S177",
+      "entity": "S177",
+      "name": "Incident Response",
+      "type": "skill"
+    },
+    {
+      "task": "AUTHOR-S178",
+      "entity": "S178",
+      "name": "Deploy Checklist",
+      "type": "skill"
+    },
+    {
+      "task": "AUTHOR-S179",
+      "entity": "S179",
+      "name": "Technical Documentation",
+      "type": "skill"
+    },
+    {
+      "task": "AUTHOR-S180",
+      "entity": "S180",
+      "name": "Security Review",
+      "type": "skill"
+    },
+    {
+      "task": "AUTHOR-S181",
+      "entity": "S181",
+      "name": "Performance Analysis",
+      "type": "skill"
+    },
+    {
+      "task": "AUTHOR-S182",
+      "entity": "S182",
+      "name": "Skill Authoring",
+      "type": "skill"
+    },
+    {
+      "task": "AUTHOR-S183",
+      "entity": "S183",
+      "name": "Skill QA",
+      "type": "skill"
+    },
+    {
+      "task": "AUTHOR-S184",
+      "entity": "S184",
+      "name": "Connector Builder",
+      "type": "skill"
+    },
+    {
+      "task": "AUTHOR-S185",
+      "entity": "S185",
+      "name": "Automation Design",
+      "type": "skill"
+    },
+    {
+      "task": "AUTHOR-S186",
+      "entity": "S186",
+      "name": "Engineering Effectiveness",
+      "type": "skill"
+    },
+    {
+      "task": "AUTHOR-S187",
+      "entity": "S187",
+      "name": "Support Triage",
+      "type": "skill"
+    },
+    {
+      "task": "AUTHOR-S188",
+      "entity": "S188",
+      "name": "Draft Support Response",
+      "type": "skill"
+    },
+    {
+      "task": "AUTHOR-S189",
+      "entity": "S189",
+      "name": "Customer Escalation",
+      "type": "skill"
+    },
+    {
+      "task": "AUTHOR-S190",
+      "entity": "S190",
+      "name": "Knowledge Base Article",
+      "type": "skill"
+    },
+    {
+      "task": "AUTHOR-S191",
+      "entity": "S191",
+      "name": "QBR Preparation",
+      "type": "skill"
+    },
+    {
+      "task": "AUTHOR-S192",
+      "entity": "S192",
+      "name": "Renewal Risk",
+      "type": "skill"
+    },
+    {
+      "task": "AUTHOR-S193",
+      "entity": "S193",
+      "name": "Voice of Customer",
+      "type": "skill"
+    },
+    {
+      "task": "AUTHOR-S194",
+      "entity": "S194",
+      "name": "Support Operations",
+      "type": "skill"
+    },
+    {
+      "task": "AUTHOR-S195",
+      "entity": "S195",
+      "name": "Strategy Review",
+      "type": "skill"
+    },
+    {
+      "task": "AUTHOR-S196",
+      "entity": "S196",
+      "name": "Board Meeting Preparation",
+      "type": "skill"
+    },
+    {
+      "task": "AUTHOR-S197",
+      "entity": "S197",
+      "name": "Decision Logging",
+      "type": "skill"
+    },
+    {
+      "task": "AUTHOR-S198",
+      "entity": "S198",
+      "name": "OKR Alignment",
+      "type": "skill"
+    },
+    {
+      "task": "AUTHOR-S199",
+      "entity": "S199",
+      "name": "Business Model Analysis",
+      "type": "skill"
+    },
+    {
+      "task": "AUTHOR-S200",
+      "entity": "S200",
+      "name": "AI Transformation Assessment",
+      "type": "skill"
+    },
+    {
+      "task": "AUTHOR-W001",
+      "entity": "W001",
+      "name": "Research-to-Brief",
+      "type": "workflow"
+    },
+    {
+      "task": "AUTHOR-W002",
+      "entity": "W002",
+      "name": "Meeting-to-Actions",
+      "type": "workflow"
+    },
+    {
+      "task": "AUTHOR-W003",
+      "entity": "W003",
+      "name": "Decision-to-Execution",
+      "type": "workflow"
+    },
+    {
+      "task": "AUTHOR-W004",
+      "entity": "W004",
+      "name": "Weekly Executive Digest",
+      "type": "workflow"
+    },
+    {
+      "task": "AUTHOR-W005",
+      "entity": "W005",
+      "name": "Document Review-to-Approval",
+      "type": "workflow"
+    },
+    {
+      "task": "AUTHOR-W006",
+      "entity": "W006",
+      "name": "Knowledge Capture Loop",
+      "type": "workflow"
+    },
+    {
+      "task": "AUTHOR-W007",
+      "entity": "W007",
+      "name": "Issue-to-Resolution",
+      "type": "workflow"
+    },
+    {
+      "task": "AUTHOR-W008",
+      "entity": "W008",
+      "name": "Request-to-Artifact",
+      "type": "workflow"
+    },
+    {
+      "task": "AUTHOR-W009",
+      "entity": "W009",
+      "name": "Evidence-to-Recommendation",
+      "type": "workflow"
+    },
+    {
+      "task": "AUTHOR-W010",
+      "entity": "W010",
+      "name": "Approval-and-Publish",
+      "type": "workflow"
+    },
+    {
+      "task": "AUTHOR-W011",
+      "entity": "W011",
+      "name": "Lead-to-Qualified",
+      "type": "workflow"
+    },
+    {
+      "task": "AUTHOR-W012",
+      "entity": "W012",
+      "name": "Prospect-to-Meeting",
+      "type": "workflow"
+    },
+    {
+      "task": "AUTHOR-W013",
+      "entity": "W013",
+      "name": "Meeting-to-Opportunity",
+      "type": "workflow"
+    },
+    {
+      "task": "AUTHOR-W014",
+      "entity": "W014",
+      "name": "Opportunity-to-Close",
+      "type": "workflow"
+    },
+    {
+      "task": "AUTHOR-W015",
+      "entity": "W015",
+      "name": "Weekly Pipeline Review",
+      "type": "workflow"
+    },
+    {
+      "task": "AUTHOR-W016",
+      "entity": "W016",
+      "name": "Forecast Review",
+      "type": "workflow"
+    },
+    {
+      "task": "AUTHOR-W017",
+      "entity": "W017",
+      "name": "Renewal Risk Review",
+      "type": "workflow"
+    },
+    {
+      "task": "AUTHOR-W018",
+      "entity": "W018",
+      "name": "Account Expansion",
+      "type": "workflow"
+    },
+    {
+      "task": "AUTHOR-W019",
+      "entity": "W019",
+      "name": "Campaign Brief-to-Launch",
+      "type": "workflow"
+    },
+    {
+      "task": "AUTHOR-W020",
+      "entity": "W020",
+      "name": "Content Idea-to-Publish",
+      "type": "workflow"
+    },
+    {
+      "task": "AUTHOR-W021",
+      "entity": "W021",
+      "name": "SEO Audit-to-Fix",
+      "type": "workflow"
+    },
+    {
+      "task": "AUTHOR-W022",
+      "entity": "W022",
+      "name": "Social Content-to-Distribution",
+      "type": "workflow"
+    },
+    {
+      "task": "AUTHOR-W023",
+      "entity": "W023",
+      "name": "Paid Campaign Optimization",
+      "type": "workflow"
+    },
+    {
+      "task": "AUTHOR-W024",
+      "entity": "W024",
+      "name": "Lifecycle Email Loop",
+      "type": "workflow"
+    },
+    {
+      "task": "AUTHOR-W025",
+      "entity": "W025",
+      "name": "Marketing Weekly Review",
+      "type": "workflow"
+    },
+    {
+      "task": "AUTHOR-W026",
+      "entity": "W026",
+      "name": "Launch Campaign",
+      "type": "workflow"
+    },
+    {
+      "task": "AUTHOR-W027",
+      "entity": "W027",
+      "name": "Discovery-to-Opportunity",
+      "type": "workflow"
+    },
+    {
+      "task": "AUTHOR-W028",
+      "entity": "W028",
+      "name": "Research-to-Insight",
+      "type": "workflow"
+    },
+    {
+      "task": "AUTHOR-W029",
+      "entity": "W029",
+      "name": "Problem-to-PRD",
+      "type": "workflow"
+    },
+    {
+      "task": "AUTHOR-W030",
+      "entity": "W030",
+      "name": "PRD-to-Sprint",
+      "type": "workflow"
+    },
+    {
+      "task": "AUTHOR-W031",
+      "entity": "W031",
+      "name": "Experiment Loop",
+      "type": "workflow"
+    },
+    {
+      "task": "AUTHOR-W032",
+      "entity": "W032",
+      "name": "Roadmap Review",
+      "type": "workflow"
+    },
+    {
+      "task": "AUTHOR-W033",
+      "entity": "W033",
+      "name": "Month-End Close",
+      "type": "workflow"
+    },
+    {
+      "task": "AUTHOR-W034",
+      "entity": "W034",
+      "name": "Budget-to-Forecast",
+      "type": "workflow"
+    },
+    {
+      "task": "AUTHOR-W035",
+      "entity": "W035",
+      "name": "Variance Review",
+      "type": "workflow"
+    },
+    {
+      "task": "AUTHOR-W036",
+      "entity": "W036",
+      "name": "Cash Forecast",
+      "type": "workflow"
+    },
+    {
+      "task": "AUTHOR-W037",
+      "entity": "W037",
+      "name": "Investment Memo",
+      "type": "workflow"
+    },
+    {
+      "task": "AUTHOR-W038",
+      "entity": "W038",
+      "name": "Audit Support",
+      "type": "workflow"
+    },
+    {
+      "task": "AUTHOR-W039",
+      "entity": "W039",
+      "name": "Board Finance Pack",
+      "type": "workflow"
+    },
+    {
+      "task": "AUTHOR-W040",
+      "entity": "W040",
+      "name": "Contract Intake-to-Review",
+      "type": "workflow"
+    },
+    {
+      "task": "AUTHOR-W041",
+      "entity": "W041",
+      "name": "NDA Triage",
+      "type": "workflow"
+    },
+    {
+      "task": "AUTHOR-W042",
+      "entity": "W042",
+      "name": "Regulatory Change-to-Action",
+      "type": "workflow"
+    },
+    {
+      "task": "AUTHOR-W043",
+      "entity": "W043",
+      "name": "Matter Intake-to-Closure",
+      "type": "workflow"
+    },
+    {
+      "task": "AUTHOR-W044",
+      "entity": "W044",
+      "name": "Policy Change Workflow",
+      "type": "workflow"
+    },
+    {
+      "task": "AUTHOR-W045",
+      "entity": "W045",
+      "name": "Investigation Workflow",
+      "type": "workflow"
+    },
+    {
+      "task": "AUTHOR-W046",
+      "entity": "W046",
+      "name": "AI Vendor Review",
+      "type": "workflow"
+    },
+    {
+      "task": "AUTHOR-W047",
+      "entity": "W047",
+      "name": "Job-to-Hire",
+      "type": "workflow"
+    },
+    {
+      "task": "AUTHOR-W048",
+      "entity": "W048",
+      "name": "Candidate Screening",
+      "type": "workflow"
+    },
+    {
+      "task": "AUTHOR-W049",
+      "entity": "W049",
+      "name": "New Hire Onboarding",
+      "type": "workflow"
+    },
+    {
+      "task": "AUTHOR-W050",
+      "entity": "W050",
+      "name": "Performance Cycle",
+      "type": "workflow"
+    },
+    {
+      "task": "AUTHOR-W051",
+      "entity": "W051",
+      "name": "Workforce Planning",
+      "type": "workflow"
+    },
+    {
+      "task": "AUTHOR-W052",
+      "entity": "W052",
+      "name": "Request-to-Project",
+      "type": "workflow"
+    },
+    {
+      "task": "AUTHOR-W053",
+      "entity": "W053",
+      "name": "Weekly PMO Review",
+      "type": "workflow"
+    },
+    {
+      "task": "AUTHOR-W054",
+      "entity": "W054",
+      "name": "Vendor Evaluation",
+      "type": "workflow"
+    },
+    {
+      "task": "AUTHOR-W055",
+      "entity": "W055",
+      "name": "Process Improvement",
+      "type": "workflow"
+    },
+    {
+      "task": "AUTHOR-W056",
+      "entity": "W056",
+      "name": "Incident-to-Postmortem",
+      "type": "workflow"
+    },
+    {
+      "task": "AUTHOR-W057",
+      "entity": "W057",
+      "name": "Question-to-Analysis",
+      "type": "workflow"
+    },
+    {
+      "task": "AUTHOR-W058",
+      "entity": "W058",
+      "name": "Data-to-Dashboard",
+      "type": "workflow"
+    },
+    {
+      "task": "AUTHOR-W059",
+      "entity": "W059",
+      "name": "Metric Definition-to-Monitoring",
+      "type": "workflow"
+    },
+    {
+      "task": "AUTHOR-W060",
+      "entity": "W060",
+      "name": "Research-to-Evidence",
+      "type": "workflow"
+    },
+    {
+      "task": "AUTHOR-D001",
+      "entity": "D001",
+      "name": "Executive / Strategy Partner",
+      "type": "digitalhuman"
+    },
+    {
+      "task": "AUTHOR-D002",
+      "entity": "D002",
+      "name": "Research & Knowledge Analyst",
+      "type": "digitalhuman"
+    },
+    {
+      "task": "AUTHOR-D003",
+      "entity": "D003",
+      "name": "Product Manager",
+      "type": "digitalhuman"
+    },
+    {
+      "task": "AUTHOR-D004",
+      "entity": "D004",
+      "name": "Marketing & Growth Manager",
+      "type": "digitalhuman"
+    },
+    {
+      "task": "AUTHOR-D005",
+      "entity": "D005",
+      "name": "Sales Representative",
+      "type": "digitalhuman"
+    },
+    {
+      "task": "AUTHOR-D006",
+      "entity": "D006",
+      "name": "Customer Success Specialist",
+      "type": "digitalhuman"
+    },
+    {
+      "task": "AUTHOR-D007",
+      "entity": "D007",
+      "name": "Project / Operations Manager",
+      "type": "digitalhuman"
+    },
+    {
+      "task": "AUTHOR-D008",
+      "entity": "D008",
+      "name": "Finance Analyst",
+      "type": "digitalhuman"
+    },
+    {
+      "task": "AUTHOR-D009",
+      "entity": "D009",
+      "name": "Legal & Compliance Analyst",
+      "type": "digitalhuman"
+    },
+    {
+      "task": "AUTHOR-D010",
+      "entity": "D010",
+      "name": "HR & Talent Specialist",
+      "type": "digitalhuman"
+    },
+    {
+      "task": "AUTHOR-D011",
+      "entity": "D011",
+      "name": "Design Thinking Expert",
+      "type": "digitalhuman"
+    },
+    {
+      "task": "AUTHOR-D012",
+      "entity": "D012",
+      "name": "Lean / Kaizen Expert",
+      "type": "digitalhuman"
+    },
+    {
+      "task": "AUTHOR-D013",
+      "entity": "D013",
+      "name": "Six Sigma / Quality Expert",
+      "type": "digitalhuman"
+    },
+    {
+      "task": "AUTHOR-D014",
+      "entity": "D014",
+      "name": "Business Process Reengineering Expert",
+      "type": "digitalhuman"
+    },
+    {
+      "task": "AUTHOR-D015",
+      "entity": "D015",
+      "name": "Agile / Product Operating Model Coach",
+      "type": "digitalhuman"
+    },
+    {
+      "task": "AUTHOR-D016",
+      "entity": "D016",
+      "name": "Organizational Change Expert",
+      "type": "digitalhuman"
+    },
+    {
+      "task": "AUTHOR-D017",
+      "entity": "D017",
+      "name": "Decision Science Expert",
+      "type": "digitalhuman"
+    },
+    {
+      "task": "AUTHOR-D018",
+      "entity": "D018",
+      "name": "AI Transformation Architect",
+      "type": "digitalhuman"
+    },
+    {
+      "task": "AUTHOR-D019",
+      "entity": "D019",
+      "name": "Manufacturing Operations Expert",
+      "type": "digitalhuman"
+    },
+    {
+      "task": "AUTHOR-D020",
+      "entity": "D020",
+      "name": "Supply Chain & Procurement Expert",
+      "type": "digitalhuman"
+    },
+    {
+      "task": "AUTHOR-D021",
+      "entity": "D021",
+      "name": "Retail & E-commerce Expert",
+      "type": "digitalhuman"
+    },
+    {
+      "task": "AUTHOR-D022",
+      "entity": "D022",
+      "name": "Banking & Financial Services Expert",
+      "type": "digitalhuman"
+    },
+    {
+      "task": "AUTHOR-D023",
+      "entity": "D023",
+      "name": "Insurance & Claims Expert",
+      "type": "digitalhuman"
+    },
+    {
+      "task": "AUTHOR-D024",
+      "entity": "D024",
+      "name": "Healthcare Operations Expert",
+      "type": "digitalhuman"
+    },
+    {
+      "task": "AUTHOR-D025",
+      "entity": "D025",
+      "name": "Life Sciences / Pharma Expert",
+      "type": "digitalhuman"
+    },
+    {
+      "task": "AUTHOR-D026",
+      "entity": "D026",
+      "name": "Education & Learning Designer",
+      "type": "digitalhuman"
+    },
+    {
+      "task": "AUTHOR-D027",
+      "entity": "D027",
+      "name": "Real Estate & Construction Expert",
+      "type": "digitalhuman"
+    },
+    {
+      "task": "AUTHOR-D028",
+      "entity": "D028",
+      "name": "Energy & Utilities Expert",
+      "type": "digitalhuman"
+    },
+    {
+      "task": "AUTHOR-D029",
+      "entity": "D029",
+      "name": "Logistics & Transportation Expert",
+      "type": "digitalhuman"
+    },
+    {
+      "task": "AUTHOR-D030",
+      "entity": "D030",
+      "name": "Government / Public Service Expert",
+      "type": "digitalhuman"
+    },
+    {
+      "task": "AUTHOR-D031",
+      "entity": "D031",
+      "name": "FP&A Analyst",
+      "type": "digitalhuman"
+    },
+    {
+      "task": "AUTHOR-D032",
+      "entity": "D032",
+      "name": "Accounting Specialist",
+      "type": "digitalhuman"
+    },
+    {
+      "task": "AUTHOR-D033",
+      "entity": "D033",
+      "name": "Treasury Analyst",
+      "type": "digitalhuman"
+    },
+    {
+      "task": "AUTHOR-D034",
+      "entity": "D034",
+      "name": "Procurement Specialist",
+      "type": "digitalhuman"
+    },
+    {
+      "task": "AUTHOR-D035",
+      "entity": "D035",
+      "name": "Supply Chain Planner",
+      "type": "digitalhuman"
+    },
+    {
+      "task": "AUTHOR-D036",
+      "entity": "D036",
+      "name": "Quality Engineer",
+      "type": "digitalhuman"
+    },
+    {
+      "task": "AUTHOR-D037",
+      "entity": "D037",
+      "name": "Manufacturing Planner",
+      "type": "digitalhuman"
+    },
+    {
+      "task": "AUTHOR-D038",
+      "entity": "D038",
+      "name": "Software Engineer",
+      "type": "digitalhuman"
+    },
+    {
+      "task": "AUTHOR-D039",
+      "entity": "D039",
+      "name": "Solution Architect",
+      "type": "digitalhuman"
+    },
+    {
+      "task": "AUTHOR-D040",
+      "entity": "D040",
+      "name": "Data Analyst",
+      "type": "digitalhuman"
+    },
+    {
+      "task": "AUTHOR-D041",
+      "entity": "D041",
+      "name": "Data Engineer",
+      "type": "digitalhuman"
+    },
+    {
+      "task": "AUTHOR-D042",
+      "entity": "D042",
+      "name": "Cybersecurity Analyst",
+      "type": "digitalhuman"
+    },
+    {
+      "task": "AUTHOR-D043",
+      "entity": "D043",
+      "name": "UX Researcher",
+      "type": "digitalhuman"
+    },
+    {
+      "task": "AUTHOR-D044",
+      "entity": "D044",
+      "name": "Content Strategist",
+      "type": "digitalhuman"
+    },
+    {
+      "task": "AUTHOR-D045",
+      "entity": "D045",
+      "name": "Revenue Operations Analyst",
+      "type": "digitalhuman"
+    },
+    {
+      "task": "AUTHOR-D046",
+      "entity": "D046",
+      "name": "Customer Support Operations Specialist",
+      "type": "digitalhuman"
+    },
+    {
+      "task": "AUTHOR-D047",
+      "entity": "D047",
+      "name": "Learning Experience Designer",
+      "type": "digitalhuman"
+    },
+    {
+      "task": "AUTHOR-D048",
+      "entity": "D048",
+      "name": "Compliance Officer",
+      "type": "digitalhuman"
+    },
+    {
+      "task": "AUTHOR-D049",
+      "entity": "D049",
+      "name": "Business Analyst",
+      "type": "digitalhuman"
+    },
+    {
+      "task": "AUTHOR-D050",
+      "entity": "D050",
+      "name": "Process Analyst",
+      "type": "digitalhuman"
+    },
+    {
+      "task": "AUTHOR-D051",
+      "entity": "D051",
+      "name": "Credit Analyst",
+      "type": "digitalhuman"
+    },
+    {
+      "task": "AUTHOR-D052",
+      "entity": "D052",
+      "name": "Investment Analyst",
+      "type": "digitalhuman"
+    },
+    {
+      "task": "AUTHOR-D053",
+      "entity": "D053",
+      "name": "Risk Analyst",
+      "type": "digitalhuman"
+    },
+    {
+      "task": "AUTHOR-D054",
+      "entity": "D054",
+      "name": "Clinical Research Analyst",
+      "type": "digitalhuman"
+    },
+    {
+      "task": "AUTHOR-D055",
+      "entity": "D055",
+      "name": "Regulatory Affairs Specialist",
+      "type": "digitalhuman"
+    },
+    {
+      "task": "AUTHOR-D056",
+      "entity": "D056",
+      "name": "Medical Affairs Analyst",
+      "type": "digitalhuman"
+    },
+    {
+      "task": "AUTHOR-D057",
+      "entity": "D057",
+      "name": "Construction Project Analyst",
+      "type": "digitalhuman"
+    },
+    {
+      "task": "AUTHOR-D058",
+      "entity": "D058",
+      "name": "Real Estate Analyst",
+      "type": "digitalhuman"
+    },
+    {
+      "task": "AUTHOR-D059",
+      "entity": "D059",
+      "name": "Energy Analyst",
+      "type": "digitalhuman"
+    },
+    {
+      "task": "AUTHOR-D060",
+      "entity": "D060",
+      "name": "Sustainability / ESG Analyst",
+      "type": "digitalhuman"
+    }
+  ],
+  "reviewTaskRule": "REVIEW-<entityId> must be performed independently after AUTHOR-<entityId>; reviewer sees graph edges and evidence, not author chain-of-thought."
+}

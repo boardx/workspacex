@@ -38,3 +38,12 @@ it("opens mobile outline/settings on demand without losing selected edits", () =
   fireEvent.click(screen.getByRole("button", { name: "打开题目设置" }));
   expect(screen.getByRole("textbox", { name: "问题内容" })).toHaveValue("更新后的第二题");
 });
+
+it("shows the prototype's question toolbox in the desktop designer", () => {
+  vi.stubGlobal("matchMedia", vi.fn(() => ({ matches: false, addEventListener: vi.fn(), removeEventListener: vi.fn() })));
+  render(<SurveyQuestionEditor studioLayout questions={[]} onChange={vi.fn()} />);
+  expect(screen.getByRole("heading", { name: "题型工具箱" })).toBeInTheDocument();
+  expect(screen.getByRole("button", { name: /^单选$/ })).toBeInTheDocument();
+  expect(screen.getByRole("heading", { name: "题目大纲" })).toBeInTheDocument();
+  expect(screen.getByRole("region", { name: "问卷设计画布" })).toBeInTheDocument();
+});
