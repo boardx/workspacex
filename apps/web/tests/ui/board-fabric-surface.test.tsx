@@ -181,9 +181,28 @@ describe("BoardFabricSurface", () => {
     expect(probe.objects.some((object) => object.data?.drawingPreview)).toBe(false);
     expect(screen.getByTestId("board-fabric-surface")).toHaveAttribute("data-drawing-preview-segments", "0");
     expect(onDrawingComplete).toHaveBeenCalledOnce();
-    expect(onDrawingComplete).toHaveBeenCalledWith({ tool: "pen", points: [
+    expect(onDrawingComplete).toHaveBeenCalledWith({ tool: "pen", appearance: drawingToolStyle("pen"), points: [
       { x: 100, y: 120, pressure: .3 },
       { x: 140, y: 160, pressure: .8 },
+    ] });
+  });
+
+  it("uses one selected appearance for both the live preview and completed stroke", () => {
+    const onDrawingComplete = vi.fn();
+    const appearance = { color: "#7C3AED", width: 1.25, opacity: .58 };
+    renderSurface({ tool: "draw-pen", drawingAppearance: appearance, onDrawingComplete });
+    const pointer = (type: string, x: number, y: number) => {
+      const event = new MouseEvent(type, { clientX: x, clientY: y });
+      Object.defineProperties(event, { pressure: { value: 1 }, pointerType: { value: "mouse" } });
+      return event;
+    };
+    probe.handlers.get("mouse:down")?.({ e: pointer("pointerdown", 20, 30) } as never);
+    probe.handlers.get("mouse:move")?.({ e: pointer("pointermove", 60, 70) } as never);
+    expect(probe.objects.find((object) => object.data?.drawingPreview)).toMatchObject({ stroke: appearance.color, strokeWidth: appearance.width, opacity: appearance.opacity });
+    probe.handlers.get("mouse:up")?.({ e: pointer("pointerup", 60, 70) } as never);
+    expect(onDrawingComplete).toHaveBeenCalledWith({ tool: "pen", appearance, points: [
+      { x: 20, y: 30, pressure: 1 },
+      { x: 60, y: 70, pressure: 1 },
     ] });
   });
 
