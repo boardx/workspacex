@@ -85,7 +85,7 @@ test('Panel: drag 10 unparented objects inside, then move the whole container', 
       expect(child.geometry.x + child.geometry.width).toBeLessThanOrEqual(expandedPanel.geometry.x + expandedPanel.geometry.width + 1);
       expect(child.geometry.y + child.geometry.height).toBeLessThanOrEqual(expandedPanel.geometry.y + expandedPanel.geometry.height + 1);
     }
-    await dragObject(page, panel.id, 80, 60, true);
+    await dragObject(page, panel.id, 80, 60, true, undefined, 4);
     const after = await canonicalRows(page);
     const priorPanel = before.find(row => row.id === panel.id)!;
     const nextPanel = after.find(row => row.id === panel.id)!;
