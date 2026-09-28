@@ -1,0 +1,21 @@
+{
+  "org": "synthetic-org-acme",
+  "documents": [
+    {
+      "sourceId": "doc-min-0301",
+      "versionId": "v1",
+      "projectId": "P1",
+      "title": "3/1 周会纪要",
+      "sourceTimestamp": "2026-03-01",
+      "body": "API 迁移截止时间定为 6/30。"
+    },
+    {
+      "sourceId": "doc-min-0415",
+      "versionId": "v1",
+      "projectId": "P1",
+      "title": "4/15 周会纪要",
+      "sourceTimestamp": "2026-04-15",
+      "body": "API 迁移截止时间改为 9/30，取代 3/1 的决定。"
+    }
+  ]
+}

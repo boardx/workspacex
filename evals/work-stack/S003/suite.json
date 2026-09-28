@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "stableId": "S003",
+  "entityKind": "skill",
+  "targetVersionRange": ">=1.0.0 <2.0.0",
+  "toolsUnderTest": ["wx_knowledge_search", "wx_knowledge_read", "wx_project_list", "wx_project_read"],
+  "baseline": { "kind": "generic-agent-same-tools", "tools": ["wx_knowledge_search", "wx_knowledge_read"] },
+  "mustPassCaseIds": ["E2", "E3", "E6"],
+  "caseTimeoutMs": 60000,
+  "llmJudge": null,
+  "graderVersion": "s003-rules-1.0.0"
+}

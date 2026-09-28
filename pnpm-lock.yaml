@@ -91,6 +91,9 @@ importers:
       '@repo/whiteboard-core':
         specifier: workspace:*
         version: link:../../packages/whiteboard-core
+      ajv:
+        specifier: ^8.18.0
+        version: 8.18.0
       ali-oss:
         specifier: 6.23.0
         version: 6.23.0
@@ -133,6 +136,9 @@ importers:
       ws:
         specifier: ^8.18.0
         version: 8.21.1
+      yaml:
+        specifier: ^2.9.0
+        version: 2.9.0
       yjs:
         specifier: 13.6.32
         version: 13.6.32
