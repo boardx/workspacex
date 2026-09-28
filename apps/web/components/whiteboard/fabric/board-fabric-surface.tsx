@@ -356,7 +356,7 @@ function createProjectionEntry(object: BoardFabricObject, readOnly: boolean): { 
   }
 }
 
-function geometryFromFabric(projected: TaggedFabricObject, canonical?: BoardFabricObject, useSceneBounds = false): BoardFabricGeometry {
+export function geometryFromFabric(projected: TaggedFabricObject, canonical?: BoardFabricObject, useSceneBounds = false): BoardFabricGeometry {
   const scene = useSceneBounds ? projected.getBoundingRect() : null;
   const geometry = {
     x: Math.round(scene?.left ?? projected.left),
