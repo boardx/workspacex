@@ -26,7 +26,7 @@ import { GuidedResearchReadiness, researchCompletionLabel, researchLimitations }
 import { GuidedResearchStepLayout } from "./guided-research-step-layout";
 import { GuidedResearchMarkdownWorkspace } from "./guided-research-markdown-workspace";
 import { GuidedResearchSixStepShell } from "./guided-research-six-step-shell";
-import { guidedResearchRoute, RESEARCH_STAGE_NODES } from "@/lib/guided-research-routes";
+import { guidedResearchRoute } from "@/lib/guided-research-routes";
 import { GuidedResearchEntryPanel } from "./guided-research-entry-panel";
 import { GuidedResearchTopicPanel } from "./guided-research-topic-panel";
 import { ResearchTopicInformation } from "./research-topic-information";
@@ -135,19 +135,13 @@ export function GuidedResearchLive({ sessionId, onBack, initialNode, visualStage
     const path = guidedResearchRoute(sessionId, stage);
     if (window.location.pathname !== path) window.history.replaceState({}, "", path);
   }, [node, chaptersOpen, sessionId, state]);
-  React.useEffect(() => {
-    const restoreRoute = () => {
-      const stage = window.location.pathname.split("/").at(-1) as GuidedResearchVisualStage;
-      const target = RESEARCH_STAGE_NODES[stage];
-      const snapshot = snapshotRef.current;
-      if (snapshot && target && snapshot.availableNodes.includes(target)) {
-        setChaptersOpen(stage === "chapters");
-        setNode(target); setDraft(draftOf(snapshot, target)); setError(null);
-      }
-    };
-    window.addEventListener("popstate", restoreRoute);
-    return () => window.removeEventListener("popstate", restoreRoute);
-  }, []);
+  const restoreVisualRoute = (stage: GuidedResearchVisualStage) => {
+    const target = ({ import: "brief", topic: "directions", plan: "outline", research: "research", chapters: "report", report: "report" } as const)[stage];
+    const snapshot = snapshotRef.current;
+    if (!snapshot || !snapshot.availableNodes.includes(target)) return;
+    setChaptersOpen(stage === "chapters");
+    setNode(target); setDraft(draftOf(snapshot, target)); setError(null);
+  };
   React.useEffect(() => {
     let active = true;
     sessionGeneration.current += 1;
@@ -380,7 +374,7 @@ export function GuidedResearchLive({ sessionId, onBack, initialNode, visualStage
     proposal={proposal} proposalEdited={proposalEdited} onApply={() => void run("apply", { proposalId: proposal?.id })}
     preview={proposal ? <ProposalPreview draft={proposal.draft} /> : null} />;
   const shellAssistant = conversation;
-return <GuidedResearchSixStepShell hasUnsavedChanges={Boolean(message.trim()) || topicInformationDirty || chaptersDirty || markdownDirty || Boolean(draft && JSON.stringify(draft) !== JSON.stringify(draftOf(state, node)))} sessionId={sessionId} current={node === "report" && chaptersOpen ? "chapters" : visualStage.current} available={visualStage.available} onBack={onBack} onNavigate={navigateVisual} assistant={shellAssistant} assistantOpen={reportAssistantOpen} onAssistantOpenChange={setReportAssistantOpen} main={<div className="max-w-none space-y-4" data-layout="signed-desktop" data-testid={`research-flow-${node === "research" ? "search" : node}`}>
+return <GuidedResearchSixStepShell hasUnsavedChanges={Boolean(message.trim()) || topicInformationDirty || chaptersDirty || markdownDirty || Boolean(draft && JSON.stringify(draft) !== JSON.stringify(draftOf(state, node)))} sessionId={sessionId} current={node === "report" && chaptersOpen ? "chapters" : visualStage.current} available={visualStage.available} onBack={onBack} onNavigate={navigateVisual} onHistoryNavigate={restoreVisualRoute} assistant={shellAssistant} assistantOpen={reportAssistantOpen} onAssistantOpenChange={setReportAssistantOpen} main={<div className="max-w-none space-y-4" data-layout="signed-desktop" data-testid={`research-flow-${node === "research" ? "search" : node}`}>
     <GuidedResearchStepLayout>
       <div className="space-y-5">
         {proposal && !waiting && <p role="status" className="rounded-lg border border-primary/30 bg-muted/30 px-4 py-3 text-12" data-testid="research-conversation-draft">右侧已同步对话生成的「{labels[node]}」待应用内容，尚未应用。你可以继续在左侧提出修改，核对后请先在左侧应用建议，再确认并继续。{proposalEdited && " 右侧另有手动修改，请继续对话形成新建议后应用。"}</p>}

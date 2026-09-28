@@ -211,6 +211,8 @@ export function GuidedResearchFlow({
   React.useEffect(() => {
     if (onStepChange) return;
     const restoreRoute = () => {
+      // A mounted session owns its history transition so its unsaved-change guard runs first.
+      if (activeSessionId && (window.location.pathname === "/research" || window.location.pathname.startsWith(`/research/${encodeURIComponent(activeSessionId)}/`))) return;
       const parts = window.location.pathname.split("/");
       const stages: Record<string, GuidedResearchStep> = { import: "brief", topic: "directions", plan: "outline", research: "search", chapters: "report", report: "report" };
       if (parts.length === 4 && stages[parts[3]!]) {
@@ -224,7 +226,7 @@ export function GuidedResearchFlow({
     };
     window.addEventListener("popstate", restoreRoute);
     return () => window.removeEventListener("popstate", restoreRoute);
-  }, [onStepChange]);
+  }, [activeSessionId, onStepChange]);
   React.useEffect(() => {
     setRestoredStep(clampSessionlessStep(step, sessionId));
     setActiveSessionId(sessionId);

@@ -22,6 +22,26 @@ describe("guided research session routing and lifecycle", () => {
     fireEvent.click(screen.getByRole("button", { name: "继续编辑" }));
     expect(screen.getByRole("textbox", { name: "研究对话" })).toHaveValue("尚未发送的研究问题");
   });
+  it("guards browser history navigation while an assistant message is unsent", async () => {
+    vi.mocked(getResearchRuntime).mockResolvedValue(runtimeFixture("report"));
+    window.history.replaceState({}, "", "/research/grs-live/report");
+    render(<GuidedResearchFlow step="report" sessionId="grs-live" />);
+    await screen.findByTestId("guided-research-report-workspace");
+    fireEvent.click(screen.getByRole("button", { name: "AI 助手" }));
+    fireEvent.change(screen.getByRole("textbox", { name: "研究对话" }), { target: { value: "尚未发送的研究问题" } });
+    window.history.replaceState({}, "", "/research/grs-live/plan");
+    fireEvent.popState(window);
+    expect(screen.getByRole("dialog", { name: "研究内容尚未保存" })).toBeInTheDocument();
+    expect(window.location.pathname).toBe("/research/grs-live/report");
+    fireEvent.click(screen.getByRole("button", { name: "继续编辑" }));
+    expect(screen.getByRole("textbox", { name: "研究对话" })).toHaveValue("尚未发送的研究问题");
+    expect(screen.getByTestId("guided-research-report-workspace")).toBeInTheDocument();
+    window.history.replaceState({}, "", "/research/grs-live/plan");
+    fireEvent.popState(window);
+    fireEvent.click(screen.getByRole("button", { name: "放弃修改并离开" }));
+    await screen.findByTestId("guided-research-plan-panel");
+    expect(window.location.pathname).toBe("/research/grs-live/plan");
+  });
   it("opens the report rather than retaining chapters after returning to the list", async () => {
     const runtime = runtimeFixture("report");
     vi.mocked(getResearchRuntime).mockResolvedValue(runtime);

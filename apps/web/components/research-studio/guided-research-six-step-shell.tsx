@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
 import { GUIDED_RESEARCH_SIX_STEPS, type GuidedResearchVisualStage } from "@/lib/guided-research-six-step";
+import { guidedResearchRoute } from "@/lib/guided-research-routes";
 
 const SCREEN_COPY = {
   import: ["新建研究", "通过文件、文本或实时语音输入需求，AI 自动分析并生成详细的研究计划。"],
@@ -19,6 +20,7 @@ export function GuidedResearchSixStepShell({
   available,
   onBack,
   onNavigate,
+  onHistoryNavigate,
   main,
   assistant,
   assistantOpen: controlledAssistantOpen,
@@ -30,6 +32,7 @@ export function GuidedResearchSixStepShell({
   available: readonly GuidedResearchVisualStage[];
   onBack?: () => void;
   onNavigate: (stage: GuidedResearchVisualStage) => void;
+  onHistoryNavigate?: (stage: GuidedResearchVisualStage) => void;
   main: React.ReactNode;
   assistant?: React.ReactNode;
   assistantOpen?: boolean;
@@ -46,6 +49,27 @@ export function GuidedResearchSixStepShell({
     if (hasUnsavedChanges) setLeaveAction(() => action);
     else action();
   };
+  React.useEffect(() => {
+    if (!sessionId || !onHistoryNavigate) return;
+    const restoreRoute = () => {
+      if (window.location.pathname === "/research") {
+        if (hasUnsavedChanges) {
+          window.history.replaceState({}, "", guidedResearchRoute(sessionId, current));
+          requestLeave(() => onBack?.());
+        } else onBack?.();
+        return;
+      }
+      const stage = window.location.pathname.split("/").at(-1) as GuidedResearchVisualStage;
+      if (!available.includes(stage) || stage === current) return;
+      if (hasUnsavedChanges) {
+        // popstate does not fire beforeunload; keep the current draft and URL until the user decides.
+        window.history.replaceState({}, "", guidedResearchRoute(sessionId, current));
+        requestLeave(() => onNavigate(stage));
+      } else onHistoryNavigate(stage);
+    };
+    window.addEventListener("popstate", restoreRoute);
+    return () => window.removeEventListener("popstate", restoreRoute);
+  }, [available, current, hasUnsavedChanges, onHistoryNavigate, onNavigate, sessionId]);
   React.useEffect(() => {
     if (!hasUnsavedChanges) return;
     const preventUnload = (event: BeforeUnloadEvent) => { event.preventDefault(); event.returnValue = ""; };
