@@ -170,13 +170,18 @@ BEGIN
       RETURNING id)
     SELECT coalesce(array_agg(id ORDER BY id), '{}') INTO v_touched FROM u;
     -- S10 分享到项目的副本（PR #4507 review M2，人类决定 2026-09-28：主人不再认这条，项目里的那份也不再算）：
-    -- 同 kg_cascade_personal_share 撤回时的判据——有指向这一家的 derived_from 边、且没有指向家外的活 derived_from 来源——
-    -- 一起到期（不撤，同上）。项目作用域排在会话 / 个人之后加锁。
+    -- 同 kg_cascade_personal_share 撤回时的判据——有 derived_from 边指向这一家里**本人个人空间**的那条、且没有指向家外的活
+    -- derived_from 来源——一起到期（不撤，同上）。项目作用域排在会话 / 个人之后加锁。
+    -- 只认指向本人个人结论的边（PR #4507 review N1）：R7「记到项目大脑」的副本指向的是**会话**结论，合并进去的还可能是
+    -- 同事早就有的项目结论——那是全体成员的项目记忆，不因一个人在引用上点「已过时」而到期（S10 自己的级联也只在来源是个人结论时动）。
+    -- 「家外」按整家算（review L3）：另一个来源是家里早已过期的那条，不算「别的活来源」。
     PERFORM pg_advisory_xact_lock(hashtext('kg_scope:' || v_org || '|project|' || x.scope_id))
        FROM (SELECT DISTINCT pc.scope_id FROM claims pc
               WHERE pc.org_id = v_org AND pc.scope_kind = 'project'
                 AND EXISTS (SELECT 1 FROM ontology_edges d WHERE d.org_id = pc.org_id AND d.src_kind = 'claim' AND d.src_id = pc.id
-                              AND d.relation = 'derived_from' AND d.dst_kind = 'claim' AND d.dst_id = ANY(v_touched))
+                              AND d.relation = 'derived_from' AND d.dst_kind = 'claim' AND d.dst_id = ANY(v_family)
+                              AND EXISTS (SELECT 1 FROM claims dst WHERE dst.org_id = d.org_id AND dst.id = d.dst_id
+                                             AND dst.scope_kind = 'personal' AND dst.scope_id = v_user))
               ORDER BY 1) x;
     WITH u AS (
       UPDATE claims pc
@@ -187,10 +192,12 @@ BEGIN
          AND (pc.valid_to IS NULL OR pc.valid_to > now())
          AND EXISTS (SELECT 1 FROM ontology_edges d
                       WHERE d.org_id = pc.org_id AND d.src_kind = 'claim' AND d.src_id = pc.id AND d.relation = 'derived_from'
-                        AND d.dst_kind = 'claim' AND d.dst_id = ANY(v_touched))
+                        AND d.dst_kind = 'claim' AND d.dst_id = ANY(v_family)
+                        AND EXISTS (SELECT 1 FROM claims dst WHERE dst.org_id = d.org_id AND dst.id = d.dst_id
+                                       AND dst.scope_kind = 'personal' AND dst.scope_id = v_user))
          AND NOT EXISTS (SELECT 1 FROM ontology_edges o
                           WHERE o.org_id = pc.org_id AND o.src_kind = 'claim' AND o.src_id = pc.id AND o.relation = 'derived_from'
-                            AND o.dst_kind = 'claim' AND NOT (o.dst_id = ANY(v_touched)) AND o.status = 'active')
+                            AND o.dst_kind = 'claim' AND NOT (o.dst_id = ANY(v_family)) AND o.status = 'active')
       RETURNING pc.id)
     SELECT coalesce(array_agg(id ORDER BY id), '{}') INTO v_shared FROM u;
     -- 审计只列这一次真的到期的（PR #4507 review L1）。

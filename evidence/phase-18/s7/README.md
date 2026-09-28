@@ -226,6 +226,19 @@ Results: API 28/28, web 31/31. Fail-without-fix: [`fail-without-fix-delta.txt`](
   - Also run: `share-personal-to-project` 13/13, `time-dimension` 8/8, `citation-reconcile` 14/14, api `tsc` and
     `pnpm lint` clean.
   - M3 (S8 consolidation ignores `valid_to`) is a separate issue.
+- **Second review round** (3bc5845b2 → REVISE, N1 blocking):
+  - **N1:** the project step now only follows `derived_from` edges whose destination is a family member in
+    **v_user's personal space**; the project-lock query uses the same rule. So 「已过时」 on a session claim in a
+    project thread no longer expires R7-promoted project claims, including a colleague's claim used as an R7 merge
+    target, and writes no project-scope audit row.
+  - **L3:** the "another live source" check now excludes the whole family (`v_family`), not just the claims touched
+    this time.
+  - New DB test N1: the session claim expires; the R7 copy and the colleague's merge target stay live; zero project
+    audit rows.
+  - Fail-without-fix: [`fail-without-fix-f4-n1.txt`](fail-without-fix-f4-n1.txt). With the migration as at 3bc5845b2,
+    N1 fails; restored, 19/19.
+  - Also run: `share-personal-to-project` 13/13, `promote-to-project` 5/5, `promote-to-org` 5/5, api `tsc` and
+    `pnpm lint` clean.
 - Environment note: after the host rebooted, the shared dev Postgres on 55432 (`/var/tmp/pgpurge/data`) was down.
   It was restarted through a manual-start `pg_ctlcluster` registration (`/etc/postgresql/16/pgpurge`, same data dir
   and options). The temporary DBs `s7f4` and `s7f4nomig` were dropped.
