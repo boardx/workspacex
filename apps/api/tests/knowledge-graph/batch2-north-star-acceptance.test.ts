@@ -10,7 +10,7 @@
  *   S10 #4367 A 把那条决定「分享到项目…」⇒ 同项目的 B 在项目会话里提问时用得上，且标明由 A 分享；A 撤回分享 ⇒ B 的下一轮不再有。
  *             B 自己的个人空间始终没有 A 的东西（分享的是项目里的派生副本，不是把 A 的个人记忆开放给 B）。
  *   S4 #4361  「忘掉关于 X 的」⇒ 确认卡 → 下一轮不再提 X；撤销 ⇒ X 回来（全程走 HTTP 与生产同款执行器端口）。
- *             （「我改主意了，改成 Y」这一段等 #4509 修好改口分句的副词之后补上。）
+ *             「我改主意了，改成先做 Y」（#4509）⇒ 出「用〈新〉取代〈旧〉？」卡（HTTP）→ 点 [取代] ⇒ 之后的新会话用 Y、旧决定不再给模型。
  *   S6 #4363  A 说过的待办：标「不做了」⇒ 新会话不再提；标「已完成」⇒ 照常给模型但标明已完成（不再被当成没做的事）。
  *   S8 #4365  寒暄不调抽取模型：逐条抽取状态读作 skipped（不是 empty）。
  */
@@ -268,4 +268,31 @@ describe("第二批验收 · 北极星：新会话里不用重复已经说过的
     expect(r.status, JSON.stringify(r.body)).toBe(200);
     expect(r.body).toMatchObject({ status: "skipped", claims: [] });
   }, 120_000);
+
+  it("S4 / #4509：「我改主意了，改成先做 Y」⇒ 取代卡（HTTP）→ 点 [取代] ⇒ 之后的新会话用 Y、旧决定不再给模型", async () => {
+    const NEW_DECISION = "改成先做初中数学的试点";
+    const t = await turn(e, a, ORG, A_NEW3, `我改主意了，${NEW_DECISION}`, AGENT, memoryPorts());
+    const mem = await a.get<{ prompt?: { type: string; conflict?: { promptId: string; kind: string; newerClaim: { statement: string }; olderClaim: { statement: string } } } | null }>(
+      memoryPath(A_NEW3, t.answerId));
+    expect(mem.status).toBe(200);
+    const conflict = mem.body.prompt?.conflict;
+    expect(mem.body.prompt?.type, JSON.stringify(mem.body.prompt)).toBe("conflict");
+    expect(conflict).toMatchObject({ kind: "possible_change", newerClaim: { statement: NEW_DECISION }, olderClaim: { statement: DECISION } });
+
+    // 没点之前两条都照常生效（低把握只出卡，不自动取代）
+    const k = await a.get<{ revision: number }>(`/knowledge-graph/threads/${A_NEW3}`);
+    expect(k.status).toBe(200);
+    // B 不能替 A 选
+    expect((await b.post(`/knowledge-graph/threads/${A_NEW3}/actions`, {
+      basedOnRevision: k.body.revision, action: { type: "resolveConflict", promptId: conflict!.promptId, resolution: "keep_new" },
+    })).status).toBe(404);
+    const chose = await a.post(`/knowledge-graph/threads/${A_NEW3}/actions`, {
+      basedOnRevision: k.body.revision, action: { type: "resolveConflict", promptId: conflict!.promptId, resolution: "keep_new" },
+    });
+    expect(chose.status, JSON.stringify(chose.body)).toBe(200);
+
+    const next = await turn(e, a, ORG, A_NEW4, "数学的试点先做哪个？", AGENT);
+    expect(next.memory ?? "", "新会话应带上改口之后的决定").toContain(NEW_DECISION);
+    expect(next.memory ?? "", "旧决定已被取代，不应再给模型").not.toContain(DECISION);
+  }, 180_000);
 });
