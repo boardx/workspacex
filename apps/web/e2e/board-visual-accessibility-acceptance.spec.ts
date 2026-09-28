@@ -95,7 +95,7 @@ test('visual and accessibility real object states, input and negative controls',
       await expect.poll(async()=>Number(await surface.getAttribute('data-viewport-zoom'))).not.toBe(zoomBefore);
       input.push({kind:'cdp-touch-pinch',hardware:false,before:zoomBefore,after:Number(await surface.getAttribute('data-viewport-zoom'))});
       await page.getByTestId('board-tool-select').click();await page.getByTestId('board-zoom-fit-board').click();
-      const target=(await canonicalRows(page)).find(row=>row.kind==='sticky')!,point=await objectPoint(page,target.id);
+      const target=(await canonicalRows(page)).filter(row=>row.kind==='sticky').sort((a,b)=>a.text.length-b.text.length)[0]!,point=await objectPoint(page,target.id);
       await cdp.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[{x:point.x,y:point.y}]});
       for(let step=1;step<=8;step++)await cdp.send('Input.dispatchTouchEvent',{type:'touchMove',touchPoints:[{x:point.x+step*5,y:point.y+step*3}]});
       await cdp.send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});
