@@ -14,11 +14,11 @@
 
 ## 2. 当前执行投影（2026-09-28 13:10 CST）
 
-最新 `origin/main` 为 `e9995c9b4`；候选分支已确认包含该提交，当前本地候选为 `3ef756b7c`。R1–R7 的产品链路与大部分 R8–R10 实现已经汇入候选，正式 `feature_list.json` 状态仍由 harness 门控维护，本图不替代该权威状态。
+最新 `origin/main` 为 `a6c770dc3`；候选分支已确认包含该提交。加入完整 12-lane CI 映射后的本地候选为 `f7a49c2fe`。R1–R7 的产品链路与大部分 R8–R10 实现已经汇入候选，正式 `feature_list.json` 状态仍由 harness 门控维护，本图不替代该权威状态。
 
 当前候选已加入：Fabric 触摸/笔压与双指缩放反证、文件/对象存储与 PG 元数据边界、流式导入扫描和取消、短期资源授权、12 条非空验收通道、Agent API/Undo、协作与会议室验收生产器。已通过的局部证据包括 contracts 1017 项、whiteboard-core 156 项、whiteboard 669 项、R8 安全实现 682 项，以及真实 Chromium Fabric 触控探针。合入后的统一 SHA 仍须重新跑完整门禁，因此这些局部通过不等于最终批准。
 
-当前确定的阻塞是：性能 producer 在启动阶段返回 `REAL_PRODUCER_FAILED`，尚未进入测试用例；真实 Miro/Mural 导入需要外部脱敏导出样本；真实模型验收需要批准向既有 DashScope endpoint 发送纯虚构测试数据；service actor 的两张新表、RLS 和 `app_rw` 权限需要明确批准；物理触摸屏、压力笔、会议室硬件和独立视觉评分需要人工环境。PR [#4524](https://github.com/boardx/workspacex/pull/4524) 尚未更新到当前候选 SHA，也没有最终 CI 证据。
+当前确定的阻塞是：性能 producer 在启动阶段返回 `REAL_PRODUCER_FAILED`，尚未进入测试用例；真实 Miro/Mural 导入需要外部脱敏导出样本；真实模型验收需要批准向既有 DashScope endpoint 发送纯虚构测试数据；service actor 的两张新表、RLS 和 `app_rw` 权限需要明确批准；物理触摸屏、压力笔、会议室硬件和独立视觉评分需要人工环境。PR [#4524](https://github.com/boardx/workspacex/pull/4524) 尚未更新到当前候选 SHA，也没有最终 CI 证据。GitHub workflow 已补齐 `import` 与 `api-ws-objectstore`，9 个 jobs 现在无重复覆盖 canonical 12 lanes。
 
 在外部样本、授权和物理设备都可及时提供的条件下，滚动预测为 **3–6 个工作日**：候选修复与静态/单元门 0.5–1 日，浏览器和长时压力门 1–2 日，CI/返修 1–2 日，人工与设备复核 0.5–1 日。若缺少真实厂商样本或物理设备，只能先交付“人类测试版”，不能声明“全部验收通过”。
 
