@@ -258,6 +258,19 @@ export function LiveSurveyWorkspace({
     : undefined;
   const hasImportStep = creationMode === "ai" || initialStep === "import";
   const workflowSteps = hasImportStep ? IMPORT_STEPS : STEPS;
+  React.useEffect(() => {
+    if (surveyId === "new") return;
+    const restoreStep = () => {
+      const prefix = `/studio/survey/${encodeURIComponent(surveyId)}/`;
+      if (!window.location.pathname.startsWith(prefix)) return;
+      const destination = window.location.pathname.slice(prefix.length);
+      if (!(["design", "publish", "responses", "template", "report"] as string[]).includes(destination)) return;
+      setStep(destination);
+      setRepairQuestionId(null);
+    };
+    window.addEventListener("popstate", restoreStep);
+    return () => window.removeEventListener("popstate", restoreStep);
+  }, [surveyId]);
   const collectionExpired = !!runtime?.publication && new Date(runtime.publication.expiresAt).getTime() <= Date.now();
   const collectionLabel = runtime?.publication?.status === "closed"
     ? "已停止回收"
