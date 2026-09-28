@@ -243,6 +243,26 @@ describe("BoardFabricSurface", () => {
     expect(probe.objects.find((object) => object.data?.boardObjectId === "tile")?.children?.[0]).toMatchObject({ strokeUniform: true, rx: 12 });
   });
 
+  it("renders canonical Panel shapes and non-interactive template guides with legacy defaults", () => {
+    const panel = (id: string, shape?: "rectangle" | "rounded" | "circle", template?: "blank" | "section" | "grid" | "timeline"): BoardFabricObject => ({
+      ...OBJECTS[0]!, id, kind: "panel", orderKey: id, geometry: { x: 20, y: 30, width: 360, height: 240, rotation: 0 },
+      panel: { title: id, mode: "freeform", autoExpand: true, clipContent: false, shape, template },
+    });
+    renderSurface({ objects: [panel("legacy"), panel("rounded", "rounded", "section"), panel("circle", "circle", "grid"), panel("timeline", "rectangle", "timeline")] });
+    const byId = (id: string) => probe.objects.find((object) => object.data?.boardObjectId === id)!;
+    expect(byId("legacy").children).toHaveLength(2);
+    expect(byId("legacy").children?.[0]).toMatchObject({ mockKind: "rect", rx: 0 });
+    expect(byId("rounded").children?.[0]).toMatchObject({ mockKind: "rect", rx: 16 });
+    expect(byId("circle").children?.[0]).toMatchObject({ mockKind: "circle" });
+    expect(byId("rounded").children).toHaveLength(3);
+    expect(byId("circle").children).toHaveLength(6);
+    expect(byId("timeline").children).toHaveLength(6);
+    for (const id of ["rounded", "circle", "timeline"]) {
+      expect(byId(id).children?.[1]).toMatchObject({ text: id });
+      for (const guide of byId(id).children!.slice(2)) expect(guide).toMatchObject({ selectable: false, evented: false, strokeUniform: true });
+    }
+  });
+
   it("renders verified bytes through the session object URL with intrinsic crop and rounded clipping", () => {
     const ready: BoardFabricObject = { ...OBJECTS[0]!, id: "verified-image", kind: "image", imageAssetUrl: "blob:verified-image", geometry: { x: 20, y: 30, width: 200, height: 120, rotation: 0 }, boardContent: { version: 1, type: "image", status: "ready", assetId: "local-session-1", sourceUrl: "https://assets.example.com/changed.png", mimeType: "image/png", intrinsicWidth: 400, intrinsicHeight: 300, crop: { x: .25, y: .1, width: .5, height: .8 }, opacity: .7, borderColor: "#112233", borderWidth: 2, cornerRadius: 16, fileName: "verified.png", replacementOf: null, failureCode: null, byteSize: 24, contentDigest: `sha256:${"a".repeat(64)}`, magicMimeType: "image/png", persistence: "local-session" } };
     renderSurface({ objects: [ready] });

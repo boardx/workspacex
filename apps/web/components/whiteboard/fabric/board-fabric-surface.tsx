@@ -103,6 +103,44 @@ function applyResizePolicy(projected: TaggedFabricObject, object: BoardFabricObj
   });
 }
 
+function panelGuides(object: BoardFabricObject): FabricObject[] {
+  const template = object.panel?.template ?? "blank";
+  if (template === "blank") return [];
+  const width = object.geometry.width, height = object.geometry.height;
+  const top = -height / 2 + Math.min(56, Math.max(36, height * .14));
+  const line = (points: [number, number, number, number]) => new Line(points, {
+    stroke: BOARD_FABRIC_VISUAL.panel.guideColor,
+    strokeWidth: BOARD_FABRIC_VISUAL.panel.guideWidth,
+    strokeUniform: true,
+    selectable: false,
+    evented: false,
+  });
+  if (template === "section") return [line([0, top, 0, height / 2])];
+  if (template === "grid") return [
+    line([-width / 6, top, -width / 6, height / 2]),
+    line([width / 6, top, width / 6, height / 2]),
+    line([-width / 2, top + (height / 2 - top) / 3, width / 2, top + (height / 2 - top) / 3]),
+    line([-width / 2, top + (height / 2 - top) * 2 / 3, width / 2, top + (height / 2 - top) * 2 / 3]),
+  ];
+  const timelineY = top + (height / 2 - top) / 2;
+  return [
+    line([-width * .35, timelineY, width * .35, timelineY]),
+    ...[-.35, 0, .35].map((position) => new Circle({
+      left: width * position,
+      top: timelineY,
+      radius: 4,
+      fill: "#FFFFFF",
+      stroke: BOARD_FABRIC_VISUAL.panel.guideColor,
+      strokeWidth: BOARD_FABRIC_VISUAL.panel.guideWidth,
+      strokeUniform: true,
+      originX: "center",
+      originY: "center",
+      selectable: false,
+      evented: false,
+    })),
+  ];
+}
+
 export function createFabricObject(object: BoardFabricObject): TaggedFabricObject {
   const richText = textOptionsFor(object, { fontSize: 20, alignment: "center" });
   const horizontalTextInset = object.kind === "sticky" ? BOARD_FABRIC_VISUAL.sticky.padding * 2 : 32;
@@ -202,9 +240,14 @@ export function createFabricObject(object: BoardFabricObject): TaggedFabricObjec
       new Textbox(object.content.text, textOptions),
     ]);
   } else if (object.kind === "panel") {
+    const panelShape = object.panel?.shape ?? "rectangle";
+    const frame = panelShape === "circle"
+      ? new Circle({ radius: 50, scaleX: object.geometry.width / 100, scaleY: object.geometry.height / 100, fill: object.style.fill, stroke: object.style.stroke ?? "#94A3B8", strokeWidth: 1, strokeUniform: true, strokeDashArray: object.panel?.clipContent ? undefined : [6, 5], originX: "center", originY: "center" })
+      : new Rect({ width: object.geometry.width, height: object.geometry.height, rx: panelShape === "rounded" ? 16 : 0, ry: panelShape === "rounded" ? 16 : 0, fill: object.style.fill, stroke: object.style.stroke ?? "#94A3B8", strokeWidth: 1, strokeUniform: true, strokeDashArray: object.panel?.clipContent ? undefined : [6, 5], originX: "center", originY: "center" });
     projected = new Group([
-      new Rect({ width: object.geometry.width, height: object.geometry.height, rx: 12, ry: 12, fill: object.style.fill, stroke: object.style.stroke ?? "#94A3B8", strokeWidth: 1, strokeUniform: true, strokeDashArray: object.panel?.clipContent ? undefined : [6, 5], originX: "center", originY: "center" }),
+      frame,
       new Textbox(object.panel?.title ?? object.content.text, { ...textOptions, top: -object.geometry.height / 2 + 24, fontSize: 16, fontWeight: 700 }),
+      ...panelGuides(object),
     ]);
   } else if (object.kind === "group") {
     projected = new Rect({ width: object.geometry.width, height: object.geometry.height, fill: "transparent", stroke: "#6366F1", strokeWidth: 1, strokeDashArray: [5, 5] });
@@ -294,7 +337,7 @@ function applyCanonicalObjectInScene(projected: TaggedFabricObject, object: Boar
   } else if (["sticky", "shape", "ellipse", "rectangle", "panel", "placeholder"].includes(object.kind) && "getObjects" in projected && typeof projected.getObjects === "function") {
     const [shape, label] = projected.getObjects();
     shape?.set({ fill: object.style.fill, stroke: object.style.stroke, strokeWidth: object.style.strokeWidth ?? 0, ...(object.kind === "panel" ? { strokeDashArray: object.panel?.clipContent ? undefined : [8, 5] } : {}) });
-    label?.set({ text: object.content.text, ...richText });
+    label?.set({ text: object.kind === "panel" ? object.panel?.title ?? object.content.text : object.content.text, ...richText });
   }
   const textContainer = ["sticky", "shape", "ellipse", "rectangle"].includes(object.kind);
   if (textContainer && projected instanceof Group) {
@@ -890,7 +933,7 @@ export function BoardFabricSurface({ objects, selectedObjectIds, readOnly, tool,
         const failedAtThisRevision = current?.data?.projectionFailure === true && current.data.renderedRevision === object.revision;
         let rendered = failedAtThisRevision ? renderedRef.current.get(object.id) ?? projectionFailureObject(object) : object;
         const stickyShapeChanged = current?.data?.stickyVariant !== object.sticky?.variant;
-        const richProjectionChanged = Boolean(current && current.data?.renderedRevision !== object.revision && ["shape", "drawing", "image", "card"].includes(object.kind));
+        const richProjectionChanged = Boolean(current && current.data?.renderedRevision !== object.revision && ["shape", "drawing", "image", "card", "panel"].includes(object.kind));
         const connectorProjectionChanged = Boolean(current && current.data?.renderedRevision !== object.revision && object.kind === "connector");
         if (!current || (!failedAtThisRevision && (current.data?.adapterKind !== object.kind || stickyShapeChanged || richProjectionChanged || connectorProjectionChanged))) {
           if (current) canvas.remove(current);

@@ -8,6 +8,7 @@ export const BOARD_FABRIC_VISUAL = {
   },
   marquee: { selectionColor: 'rgba(11,111,255,0.06)', selectionBorderColor: '#0B6FFF', selectionLineWidth: 1 },
   sticky: { radius: 3, padding: 24, shadow: 'rgba(15,23,42,0.14) 0px 5px 14px' },
+  panel: { guideColor: '#CBD5E1', guideWidth: 1 },
   grid: { background: '#FCFCFB', color: '#D8DEE7', radius: 0.55, worldStep: 20, minScreenStep: 16, maxScreenStep: 40 },
 } as const;
 
