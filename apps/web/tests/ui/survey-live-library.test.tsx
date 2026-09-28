@@ -46,7 +46,7 @@ describe("LiveSurveyLibrary", () => {
   it("shows real survey status and routes collecting surveys to response review", async () => {
     request.mockResolvedValueOnce([survey()]);
     render(<LiveSurveyLibrary />);
-    expect(await screen.findByRole("heading", { name: "我的问卷" })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "问卷" })).toBeInTheDocument();
     expect(screen.getByTestId("survey-status-survey-1")).toHaveTextContent("回收中");
     fireEvent.click(screen.getByRole("button", { name: "查看答卷" }));
     expect(push).toHaveBeenCalledWith("/studio/survey/survey-1?step=responses");
@@ -65,5 +65,15 @@ describe("LiveSurveyLibrary", () => {
     expect(await screen.findByRole("heading", { name: "还没有问卷" })).toBeInTheDocument();
     expect(screen.getAllByRole("button", { name: "新建问卷" })).toHaveLength(2);
     expect(screen.getByRole("link", { name: "问卷模板" })).toHaveAttribute("href", "/studio/survey?tab=modules");
+  });
+  it("filters by real tags and keeps templates optional without status filters", async () => {
+    request.mockResolvedValueOnce([survey({tags:['客户调研']}),survey({id:'survey-2',title:'员工体验',tags:['员工体验'],publication:null,responses:[]})]);
+    render(<LiveSurveyLibrary />);
+    await screen.findByRole('link',{name:'员工体验'});
+    expect(screen.queryByRole('button',{name:/草稿.*筛选/})).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button',{name:'客户调研'}));
+    expect(screen.getByRole('link',{name:'客户满意度'})).toBeInTheDocument();
+    expect(screen.queryByRole('link',{name:'员工体验'})).not.toBeInTheDocument();
+    expect(screen.getByRole('link',{name:'报告模板'})).toBeInTheDocument();
   });
 });
