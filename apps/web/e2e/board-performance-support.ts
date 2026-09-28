@@ -63,11 +63,11 @@ export async function provisionDataset(api: APIRequestContext, token: string, id
   return {snapshot, kindCounts, datasetHash: sha256(JSON.stringify([...snapshot.objects].sort((a, b) => a.id.localeCompare(b.id))))};
 }
 export type BrowserPerf = {phase: string; frames: Record<string, number[]>; longTasks: Array<{at: number; duration: number}>;
-  feedback: Record<string, number[]>; arm: {kind: string; id: string; event: string; started: number | null} | null; longTaskSupported: boolean};
+  feedback: Record<string, number[]>; longTaskSupported: boolean};
 declare global {interface Window {__boardPerformance: BrowserPerf}}
 export async function installBrowserMeasurements(page: Page) {
   await page.addInitScript(() => {
-    const result: BrowserPerf = {phase: 'idle', frames: {}, longTasks: [], feedback: {}, arm: null,
+    const result: BrowserPerf = {phase: 'idle', frames: {}, longTasks: [], feedback: {},
       longTaskSupported: PerformanceObserver.supportedEntryTypes.includes('longtask')};
     window.__boardPerformance = result;
     if (result.longTaskSupported) new PerformanceObserver(list => {
@@ -79,23 +79,6 @@ export async function installBrowserMeasurements(page: Page) {
       previous = now; previousPhase = result.phase; requestAnimationFrame(frame);
     };
     requestAnimationFrame(frame);
-    for (const event of ['pointerup', 'input']) document.addEventListener(event, () => {
-      if (result.arm?.event === event) result.arm.started = performance.now();
-    }, true);
-    new MutationObserver(changes => {
-      const arm = result.arm; if (!arm || arm.started === null) return;
-      const changed = changes.some(change => {
-        const node = change.target instanceof Element ? change.target : change.target.parentElement;
-        return Boolean(node?.closest(`li[data-object-id="${arm.id}"]`)) && Boolean(node?.closest('[data-testid="board-a11y-mirror"]'));
-      });
-      if (!changed) return;
-      result.arm = null;
-      // Event -> canonical DOM change -> two animation frames. This is an observed
-      // committed-feedback upper bound, not a guessed Fabric timing or API latency.
-      requestAnimationFrame(() => requestAnimationFrame(() => {
-        (result.feedback[arm.kind] ??= []).push(performance.now() - arm.started!);
-      }));
-    }).observe(document, {subtree: true, childList: true, characterData: true, attributes: true});
   });
 }
 export function observeBoardTransport(page: Page, boardId: string) {
@@ -122,7 +105,10 @@ export function observeBoardTransport(page: Page, boardId: string) {
   return value;
 }
 export async function markPhase(page: Page, phase: string) {await page.evaluate(value => {window.__boardPerformance.phase = value;}, phase);}
-export async function armFeedback(page: Page, kind: string, id: string, event: 'pointerup' | 'input') {
-  await page.evaluate(value => {window.__boardPerformance.arm = {...value, started: null};}, {kind, id, event});
+export async function browserNow(page: Page) {
+  return page.evaluate(() => window.performance.now());
+}
+export async function recordFeedbackSince(page: Page, kind: string, started: number) {
+  await page.evaluate(({kind, started}) => {(window.__boardPerformance.feedback[kind] ??= []).push(window.performance.now() - started);}, {kind, started});
 }
 export const monotonicNow = () => performance.now();

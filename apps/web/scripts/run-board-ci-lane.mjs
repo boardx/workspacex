@@ -3,7 +3,7 @@ import {createHash,randomBytes,randomUUID} from 'node:crypto';
 import {existsSync,mkdirSync,readFileSync,readdirSync,writeFileSync} from 'node:fs';
 import {resolve,join} from 'node:path';
 import {validateStorageCiEvidence} from './board-storage-ci-policy.mjs';
-import {assertBoardCiResults} from './board-ci-result.mjs';
+import {assertBoardCiResults,boardCiProducerFailureCode} from './board-ci-result.mjs';
 import {validateJourneyArtifact} from './board-journey-policy.mjs';
 import {validateSecurityArtifact} from './board-security-policy.mjs';
 import {validateBoardObservationArtifact,validateRuntimeBinding} from './board-observation-policy.mjs';
@@ -29,7 +29,11 @@ context.endedAt=new Date().toISOString();
 const summary={version:1,kind:'board-integrated-lane',lane,canonicalLanes:[...canonicalLanesForBoardCiLane(lane)],sha,...context,status:'failed',approved:false,score:null,counterproof:false,runtimeIdentity:null,failures:[],pending:[]};
 try{
  if(prerequisites.length)throw Error(prerequisites[0]);
- if(result.status!==0)throw Error('REAL_PRODUCER_FAILED');
+ if(result.status!==0){
+  let producerReport;
+  try{producerReport=JSON.parse(readFileSync(jsonPath,'utf8'));}catch{/* A missing result is itself startup evidence; no error text or environment is persisted. */}
+  throw Error(boardCiProducerFailureCode(producerReport,counts[lane]));
+ }
  assertBoardCiResults(JSON.parse(readFileSync(jsonPath,'utf8')),counts[lane]);
  const paths=[];const walk=dir=>{for(const entry of readdirSync(dir,{withFileTypes:true})){const p=join(dir,entry.name);if(entry.isDirectory())walk(p);else paths.push(p);}};walk(output);
  const read=name=>paths.filter(p=>p.endsWith(`/${name}`)).map(p=>JSON.parse(readFileSync(p,'utf8')));
