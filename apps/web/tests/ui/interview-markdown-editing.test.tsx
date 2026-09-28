@@ -7,6 +7,7 @@ import { InterviewMarkdownEditingStep } from "@/components/itv/interview-markdow
 import { EXPERT_SPECIALTY_ICON_CATEGORIES } from "@/components/itv/expert-specialty-icon";
 import { INTERVIEW_PERSONA_CATEGORIES, INTERVIEW_PERSONAS } from "@/lib/interview-personas/persona-library";
 import { MOCK_DIGITAL_EXPERTS, toDigitalExpertCatalogRow } from "@/lib/mock/digital-expert-personas";
+import { interviewMarkdown } from "@repo/contracts";
 afterEach(() => { cleanup(); vi.unstubAllGlobals(); vi.unstubAllEnvs(); });
 const source = { documentId: "edit-doc", step: "experts" as const, version: 1, contentHash: "a".repeat(64), evidenceMode: "simulated" as const, references: [], markdown: "# 专家\n" };
 it("keeps each maintained category paired with a specialty icon without inventing missing records", () => {
@@ -140,15 +141,35 @@ it("virtual expert requires a Markdown preview and explicit review before adding
   const change = vi.fn();
   render(<InterviewExpertsStep document={source} directory={[]} pending={false} onChange={change} onSave={vi.fn()} onConfirm={vi.fn()} onGenerate={vi.fn()} />);
   fireEvent.click(screen.getByRole("button", { name: "添加虚拟专家" }));
-  fireEvent.change(screen.getByRole("textbox", { name: "专家名称" }), { target: { value: "夜班护理角色" } });
-  fireEvent.change(screen.getByRole("textbox", { name: "专家画像 Markdown" }), { target: { value: "擅长交接班；不代表真实受访者。" } });
+  for (const [label, value] of Object.entries({ 专家名称: "夜班护理角色", 专业角色: "护士长", 专业领域: "护理管理", 研究关注: "夜班交接班", 观点风格: "审慎务实", 简介: "擅长交接班；不代表真实受访者。", 局限与材料边界: "无真实访谈记录" })) {
+    fireEvent.change(screen.getByRole("textbox", { name: label }), { target: { value } });
+  }
   expect(screen.getByTestId("itv-virtual-expert-preview-card")).toHaveTextContent("夜班护理角色");
   expect(screen.getByTestId("itv-virtual-expert-preview-card")).toHaveTextContent("擅长交接班；不代表真实受访者。");
+  expect(screen.getByRole("button", { name: "保存并添加专家" })).toBeDisabled();
+  fireEvent.click(screen.getByRole("checkbox", { name: "已审阅画像及模拟边界" }));
+  fireEvent.change(screen.getByRole("textbox", { name: "观点风格" }), { target: { value: "严谨" } });
   expect(screen.getByRole("button", { name: "保存并添加专家" })).toBeDisabled();
   fireEvent.click(screen.getByRole("checkbox", { name: "已审阅画像及模拟边界" }));
   fireEvent.click(screen.getByRole("button", { name: "保存并添加专家" }));
   expect(change).toHaveBeenCalledWith(expect.stringContaining("擅长交接班；不代表真实受访者。"));
   expect(change.mock.calls[0]![0]).toContain("#expert-virtual-");
+  expect(change.mock.calls[0]![0]).toContain("### 专业角色");
+  expect(interviewMarkdown.parseInterviewMarkdown({ ...source, markdown: change.mock.calls[0]![0] }).blocks.filter((block) => block.links.some((link) => link.url.startsWith("#expert-virtual-")))).toHaveLength(1);
+});
+it("keeps AI virtual-expert proposals unsaved until human review and selection", async () => {
+  const change = vi.fn();
+  const suggest = vi.fn().mockResolvedValue("# 夜班护理角色\n\n## 专业角色\n护士长\n\n## 专业领域\n护理管理\n\n## 研究关注\n夜班交接班\n\n## 观点风格\n审慎务实\n\n## 简介\n基于已知材料模拟\n\n## 局限与材料边界\n不代表真实受访者");
+  render(<InterviewExpertsStep document={source} directory={[]} pending={false} onChange={change} onSave={vi.fn()} onConfirm={vi.fn()} onGenerate={vi.fn()} onSuggestVirtual={suggest} />);
+  fireEvent.click(screen.getByRole("button", { name: "添加虚拟专家" }));
+  fireEvent.change(screen.getByRole("textbox", { name: "想添加怎样的专家" }), { target: { value: "需要一位关注夜班护理交接流程的专家，只基于已知资料给出模拟观点。" } });
+  fireEvent.click(screen.getByRole("button", { name: "AI 生成专家画像" }));
+  await vi.waitFor(() => expect(screen.getByRole("textbox", { name: "专家名称" })).toHaveValue("夜班护理角色"));
+  expect(change).not.toHaveBeenCalled();
+  expect(screen.getByRole("button", { name: "保存并添加专家" })).toBeDisabled();
+  fireEvent.click(screen.getByRole("checkbox", { name: "已审阅画像及模拟边界" }));
+  fireEvent.click(screen.getByRole("button", { name: "保存并添加专家" }));
+  expect(change).toHaveBeenCalledTimes(1);
 });
 it("question edit preserves stable heading references and unrelated raw Markdown", () => {
   const raw = "前言\r\n\r\n## [背景](#question-q-7)\r\n\r\n最近一次发生了什么？\r\n\r\n## [反例](#question-q-8)\r\n\r\n保留 **原文**。\r\n";

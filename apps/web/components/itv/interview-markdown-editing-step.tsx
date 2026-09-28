@@ -2,7 +2,7 @@
 import * as React from "react";
 import { interviewMarkdown } from "@repo/contracts";
 import { loadDigitalExperts, type DigitalExpertCatalogRow } from "@/lib/interview-api";
-import { initializeInterviewMarkdown, loadInterviewMarkdown, saveInterviewMarkdown, confirmInterviewMarkdown, generateInterviewMarkdown,
+import { initializeInterviewMarkdown, loadInterviewMarkdown, saveInterviewMarkdown, confirmInterviewMarkdown, generateInterviewMarkdown, previewVirtualExpertMarkdown,
   type InterviewMarkdownEnvelope, type InterviewMarkdownDocument } from "@/lib/interview-markdown-api";
 import { ApiError } from "@/lib/api-client";
 import { Button } from "@/components/ui/button";
@@ -76,6 +76,12 @@ export function InterviewMarkdownEditingStep({ interviewId, step, onVersionChang
     avatarContext: source?.revisionId ? { interviewId, revisionId: source.revisionId } : undefined,
     savedExpertIds: saved ? interviewMarkdown.projectInterviewMarkdownExperts(saved).map((expert) => expert.expertId) : [],
     onChange: (text: string) => { setMarkdown(text); dirty.current = true; callbacks.current.onDirtyChange(true); },
+    onSuggestVirtual: async (description: string) => {
+      if (immutable) throw new Error("CONFIRMED_SOURCE_READ_ONLY");
+      const current = source ?? await loadInterviewMarkdown(interviewId);
+      const proposal = await previewVirtualExpertMarkdown(interviewId, { description, expectedVersion: current.version });
+      return proposal.markdown;
+    },
     onSave: () => void action(async () => { await save(source ?? await loadInterviewMarkdown(interviewId)); }),
     onConfirm: () => void action(confirm),
     onGenerate: () => {

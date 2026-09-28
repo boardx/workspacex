@@ -56,3 +56,8 @@ export function generateInterviewMarkdown(interviewId: string,
   step: z.infer<typeof interviewMarkdown.InterviewMarkdownGenerationStep>, input: Versions) {
   return sourceRequest(`${sourcePath(interviewId, step)}/generate`, interviewMarkdown.GenerateInterviewMarkdown.parse(input));
 }
+export async function previewVirtualExpertMarkdown(interviewId: string, input: z.infer<typeof interviewMarkdown.PreviewVirtualExpertMarkdown>) {
+  return interviewMarkdown.VirtualExpertMarkdownProposal.parse(await apiRequest(`${sourcePath(interviewId)}/virtual-expert/preview`, {
+    method: "POST", body: interviewMarkdown.PreviewVirtualExpertMarkdown.parse(input),
+  }));
+}
