@@ -102,10 +102,10 @@ test('visual and accessibility real object states, input and negative controls',
       await expect.poll(async()=>(await canonicalRows(page)).find(row=>row.id===target.id)?.geometry.x).not.toBe(target.geometry.x);
       input.push({kind:'cdp-touch-object-drag',hardware:false,before:target,after:(await canonicalRows(page)).find(row=>row.id===target.id)});
       await cdp.send('Emulation.setTouchEmulationEnabled',{enabled:false});
-      await page.keyboard.press('Escape');await page.getByTestId('board-add-draw').click();const beforeDrawing=(await canonicalSnapshot(request,token,boardId)).objects.length;
-      await cdp.send('Input.dispatchMouseEvent',{type:'mousePressed',x:400,y:350,button:'left',buttons:1,clickCount:1,pointerType:'pen',force:.2});
-      for(let i=1;i<=8;i++)await cdp.send('Input.dispatchMouseEvent',{type:'mouseMoved',x:400+i*10,y:350+i*4,button:'left',buttons:1,pointerType:'pen',force:i/10});
-      await cdp.send('Input.dispatchMouseEvent',{type:'mouseReleased',x:480,y:382,button:'left',buttons:0,clickCount:1,pointerType:'pen',force:0});
+      await page.keyboard.press('Escape');await page.getByTestId('board-add-draw').click();await expect(page.getByTestId('board-add-draw')).toHaveAttribute('aria-pressed','true');const beforeDrawing=(await canonicalSnapshot(request,token,boardId)).objects.length;
+      await cdp.send('Input.dispatchMouseEvent',{type:'mousePressed',x:180,y:180,button:'left',buttons:1,clickCount:1,pointerType:'pen',force:.2});
+      for(let i=1;i<=8;i++)await cdp.send('Input.dispatchMouseEvent',{type:'mouseMoved',x:180+i*10,y:180+i*4,button:'left',buttons:1,pointerType:'pen',force:i/10});
+      await cdp.send('Input.dispatchMouseEvent',{type:'mouseReleased',x:260,y:212,button:'left',buttons:0,clickCount:1,pointerType:'pen',force:0});
       await expect.poll(async()=>(await canonicalSnapshot(request,token,boardId)).objects.length).toBeGreaterThan(beforeDrawing);
       const snapshot=await canonicalSnapshot(request,token,boardId);const drawing=snapshot.objects.filter(o=>(o.extensionData?.contentObject as {type?:string})?.type==='drawing');
       const pressures=drawing.flatMap(o=>((o.extensionData?.contentObject as {strokes:Array<{points:Array<{pressure:number}>}>}).strokes??[]).flatMap(s=>s.points.map(p=>p.pressure)));
