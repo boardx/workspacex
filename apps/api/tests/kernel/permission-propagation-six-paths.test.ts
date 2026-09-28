@@ -1314,7 +1314,25 @@ describe("lint-permission-paths: counter-proof", () => {
     // #4242's tag catalog repository is mechanically
     // admitted by whiteboard-permission-boundaries.mjs, so it does not raise
     // this bare-exception ceiling.
-    expect(total - boundaryAudit.rules.length).toBeLessThanOrEqual(99);
+    // Phase 20 WF01/WF02/WF03 (workflow-runtime) add exactly six repository files
+    // (99 -> 105), none of which have an ObjectRef kind, so routing them through
+    // `authorize` would fall back to DEFAULT_SCOPE and ALLOW EVERY MEMBER:
+    //   pg-workflow-definition-repository.ts, pg-workflow-instance-repository.ts
+    //     (WF01: publish/visibility decided in publish-definition-version.ts from
+    //     cmd.actor.orgRole, before the repository is reached)
+    //   pg-workflow-receipt-store.ts, pg-workflow-lease-store.ts
+    //     (WF02: runtime bookkeeping -- idempotency receipts and epoch-CAS leases
+    //     -- carry no payload beyond the caller's own stable response)
+    //   pg-workflow-event-store.ts, pg-workflow-access.ts
+    //     (WF03: instance visibility -- initiator or org admin only, per R5 -- is
+    //     decided in application/workflow/instance-projection.ts before any event
+    //     or output reaches an HTTP response; pg-workflow-access.ts reads only
+    //     identifiers, never agent content)
+    // All six are bounded to their named tenant tables, never call `withoutTenant`,
+    // and are unreachable from src/interface/ -- pinned by
+    // tests/workflow/pg-workflow-repo-guard.test.ts. Remove this increment and the
+    // six allowlist entries together if that guard test disappears.
+    expect(total - boundaryAudit.rules.length).toBeLessThanOrEqual(105);
 
     const src = readFileSync(
       fileURLToPath(new URL("../../scripts/lint-permission-paths.mjs", import.meta.url)),
