@@ -34,6 +34,7 @@ description: 用户访谈流程与数字访谈能力；修改访谈主题、专�
 - 2026-09-28：issue #4483 将 authenticated SVG 头像偏好持久化到服务端（替代上一条 authenticated 浏览器保存边界）；目录绑定 org/actor/expert，虚拟专家绑定已保存的访谈 expert anchor，不伪造目录 agent。
 - 2026-09-28：canonical 报告复核绑定 revision/document/version/hash，独立元数据表而非伪造旧 reportId；模拟报告不可批准，缺乏可信质量投影时失败关闭。导出保留证据边界；版本绑定权限内分享不等于公开发布。附件先鉴权再消费 multipart，原件与提取 Markdown 引用持久化，保存草稿不自动确认（issue #4483）。
 - 2026-09-28：导入页隐藏手动保存草稿入口后，「下一步」仍先持久化 canonical Markdown、再确认并生成分析；文件上传仍独立持久化而不自动确认（issue #4539，`interview-markdown-create` / `interview-markdown-intake` 回归）。
+- 2026-09-28：报告 Word 导出必须标明当前 canonical Markdown 文档版本与内容哈希；浏览器回归先保存旧版再保存新版，核对下载的 OOXML 与 PDF 打印根节点只引用新版，且保留模拟证据和未批准提示（issue #4564，`digital-interview-report-export-live`）。
 - 2026-09-28：全栈 Chromium 默认开启假麦克风与自动授权，权限查询即使为 denied 仍可能成功采音；验收拒绝路径需在页面的 `getUserMedia` 边界注入 `NotAllowedError`，并明确标注为故障注入。真实登录、上传、canonical Markdown API/DB 存取与刷新恢复保持不模拟（issue #4557，`digital-interview-intake-failure-live.spec.ts`）。
 - 2026-09-28：专家检索空态需合并已发布目录与维护画像两组结果判断；生成失败的部分 Markdown 即使解析出专家 heading，也仍要展示完整只读恢复上下文，不能用已解析专家数推断草稿完整（issue #4540 / PR #4543，`interview-markdown-editing` 回归）。
 

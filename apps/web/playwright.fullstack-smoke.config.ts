@@ -268,6 +268,7 @@ export default defineConfig({
         // prevents the browser acceptance contract from silently becoming local-only.
         "guided-research-trust-console.spec.ts",
         "digital-interview-research-quality.spec.ts",
+        "digital-interview-report-export-live.spec.ts",
         "digital-interview-intake-failure-live.spec.ts",
         "digital-interview-density-live.spec.ts",
         "survey-complete-flow.spec.ts",
