@@ -1,54 +1,15 @@
 /*
- * S7（#4364）—— 回答下的引用 chip 上当场纠正：「这条不对」/「已过时」，并记下纠正事件（纠正率 = 纠正 / 被引用）。
+ * S7 follow-up（F4，review of #4490；#4364 / #4363）——「已过时」改为有效期到期，不再撤回。
  *
- * ① kg_citation_corrections：每一次纠正一行（谁、哪条回答、哪一条引用、哪种纠正）。纠正率的分子；分母（被引用次数）
- *    由应用层按同一个对账判据从 kg_turn_recalls + 回答正文复算（apps/api/src/domain/knowledge-graph/citation.ts），不另存一份。
- *    只给本人读写（RLS：本组织 + user_id = app.current_user_id）。
- *
- * ② kg_correct_citation(p)：执行一次纠正。复核全在这里（不信调用方）：
- *    - 执行身份是登录的人（app.current_user_id），且是这条对话的所有者（KG_NOT_OWNER）；
- *    - 这条回答属于这条对话，且这一轮的提问人就是他（kg_turn_recalls.requester_user_id）——否则同一个 KG_CLAIM_NOT_FOUND；
- *    - 这条结论在**这一轮的召回集合**里（kg_turn_recalls.items）：召回集合之外的 id 一律 KG_CLAIM_NOT_FOUND
- *      （「模型编不出 chip」在写侧也成立；是否真被回答用到由应用层按对账判据先核过）；
- *    - 结论仍然有效，且在他能管的地方：本对话的、他本人个人空间的、或他本人另一个个人对话里的（F15 跨会话召回来的）。
- *    动作落在「一家」上（review F1）：被点的那条 + 沿活的 derived_from 边（两个方向、传递）连着的、本人能管的活结论
- *    （会话里的原说法 ⇄ 它记进本人长期记忆的副本）。只动一条的话，另一份下一轮照样被召回。
- *    - wrong 且没给新说法 ⇒ 整家忘掉（status superseded + revoked_at，revocation_reason = user_citation_wrong）；
- *    - wrong 且给了新说法 ⇒ 取代：新说法只落一份——家里有本人长期记忆那份就落个人空间，否则落被点那条的作用域；
- *      supersedes 连同作用域那条（anchor，同 reviseClaim 转 superseded），家里其余的撤掉。
- *      不带 derived_from 边（review F2）；证据**保留**（去重后挂上，理由见函数内注释）；
- *    - expired ⇒ 已过时。（本迁移里的版本整家按撤回执行；已被 20260928220000 取代为 valid_to = now()，F4）
- *      （revocation_reason = user_citation_expired），应用层的 `expireClaim` 端口就是替换点。
- *    项目 / 组织记忆（L2 / L3）与别人的结论不在「一家」里，递归也不经过它们（delta review L1）：那不是一个人在对话的引用上能改的。
- *    家里彼此之间的 derived_from 边先收掉再动结论（delta review L4），anchor 因此只是 superseded，不被 F07 顺带撤掉。
- *    「一家」放在数组变量里，不建临时表（delta review D1：SECURITY DEFINER 里的 TEMP 表可被调用方预先建同名表顶替）。
- *    每个被动到的作用域各留一条 ontology_actions 审计，并写一行 kg_citation_corrections。
+ * 20260928190000 的 kg_correct_citation 在 S6 之前把「已过时」按撤回执行（revocation_reason = user_citation_expired），
+ * 留了 TODO(#4363)。S6（20260928170000，#4492）已在 main：`claims.valid_to` 就是有效期（契约 validUntil，左闭右开），
+ * 「过期了没有」只在应用层 claimExpired 一处判（召回排除、面板 / 大脑页标「已过期」）。本迁移只重建这一个函数：
+ *   - 「已过时」⇒ 被点那条的整家（同「这条不对」的那一家：沿活的 derived_from、只走本人能改的）valid_to = now()，不撤、不动边；
+ *     已经过期的再点 ⇒ KG_CLAIM_NOT_FOUND（不重复记纠正事件）；审计 action_type = expireClaim。
+ *   - 「这条不对」+ 新说法：新行的 valid_to / due_at / todo_state 由 S6 的 kg_revise_inherits_time_trg 从 anchor 照抄
+ *     （新行带 supersedes_claim_id、自己没写时间字段），这里不另写一份。
+ *   - 其余逐字同 20260928190000（该迁移已在 main 上执行过，不改它）。纠正事件表 kg_citation_corrections 不变。
  */
-CREATE TABLE IF NOT EXISTS kg_citation_corrections (
-  id            text PRIMARY KEY,
-  org_id        text NOT NULL REFERENCES organizations (id) ON DELETE CASCADE,
-  user_id       text NOT NULL,
-  thread_id     text NOT NULL,
-  message_id    text NOT NULL,
-  claim_id      text NOT NULL,
-  kind          text NOT NULL CHECK (kind IN ('wrong', 'expired')),
-  -- wrong 且给了新说法：取代它的那条新结论
-  replaced_by   text,
-  created_at    timestamptz NOT NULL DEFAULT now()
-);
-CREATE INDEX IF NOT EXISTS kg_citation_corrections_user_idx ON kg_citation_corrections (org_id, user_id, created_at);
-
-ALTER TABLE kg_citation_corrections ENABLE ROW LEVEL SECURITY;
-ALTER TABLE kg_citation_corrections FORCE ROW LEVEL SECURITY;
-DROP POLICY IF EXISTS kg_citation_corrections_owner ON kg_citation_corrections;
-CREATE POLICY kg_citation_corrections_owner ON kg_citation_corrections
-  USING (org_id = current_setting('app.current_org', true) AND user_id = current_setting('app.current_user_id', true))
-  WITH CHECK (org_id = current_setting('app.current_org', true) AND user_id = current_setting('app.current_user_id', true));
-REVOKE ALL ON kg_citation_corrections FROM app_rw;
-GRANT SELECT ON kg_citation_corrections TO app_rw;
-
--- p = { action_id, thread_id, message_id, claim_id, kind: wrong|expired, replacement? }
--- 返回 { outcome: forgotten | superseded | expired, new_claim_id }
 CREATE OR REPLACE FUNCTION kg_correct_citation(p jsonb) RETURNS jsonb
 LANGUAGE plpgsql SECURITY DEFINER SET search_path = pg_catalog, public, pg_temp
 AS $$
@@ -139,11 +100,14 @@ BEGIN
   SELECT array_agg(c.id ORDER BY c.id) INTO v_family FROM claims c
    WHERE c.org_id = v_org AND c.id = ANY(v_family) AND c.revoked_at IS NULL AND c.status <> 'superseded';
 
-  -- review L4：先把家里彼此之间的 derived_from 边收掉，再动结论。否则撤掉会话那条时 F07 级联会顺着这条边把
-  -- 留在取代历史里的 anchor（个人空间那份，只该是 superseded）也一起撤掉。家外的边不动。
-  UPDATE ontology_edges d SET status = 'invalidated', invalidated_at = now()
-   WHERE d.org_id = v_org AND d.relation = 'derived_from' AND d.status = 'active'
-     AND d.src_kind = 'claim' AND d.dst_kind = 'claim' AND d.src_id = ANY(v_family) AND d.dst_id = ANY(v_family);
+  -- review L4：「这条不对」时先把家里彼此之间的 derived_from 边收掉，再动结论。否则撤掉会话那条时 F07 级联会顺着这条边
+  -- 把留在取代历史里的 anchor（个人空间那份，只该是 superseded）也一起撤掉。家外的边不动。
+  -- 「已过时」不动边：这一家仍是这一家（原说法与它的副本），只是都到期了（#4363 的有效期，不是撤回）。
+  IF v_kind = 'wrong' THEN
+    UPDATE ontology_edges d SET status = 'invalidated', invalidated_at = now()
+     WHERE d.org_id = v_org AND d.relation = 'derived_from' AND d.status = 'active'
+       AND d.src_kind = 'claim' AND d.dst_kind = 'claim' AND d.src_id = ANY(v_family) AND d.dst_id = ANY(v_family);
+  END IF;
 
   IF v_kind = 'wrong' AND v_repl IS NOT NULL THEN
     -- 新说法只落一份，落在这一家「最高」的作用域：家里有本人长期记忆那份 ⇒ 落个人空间（跨对话照样召回，
@@ -153,7 +117,8 @@ BEGIN
     v_new := v_id || '-c';
     v_akind := v_anchor.scope_kind;
     v_ascope := v_anchor.scope_id;
-    -- 时间字段由 S6 的 kg_revise_inherits_time_trg 从 anchor 照抄（见 20260928220000，F4）。
+    -- 时间字段（valid_to / due_at / todo_state）不在这里写：新行带着 supersedes_claim_id、自己没有时间字段 ⇒
+    -- S6 的 kg_revise_inherits_time_trg（20260928170000）照抄 anchor 的（F4，测试见 kg-s7-citation-correction「F4」）。
     INSERT INTO claims (id, org_id, statement, status, tsv, claim_kind, confidence, created_by, reviewed_by,
                         supersedes_claim_id, scope_kind, scope_id, valid_from)
     VALUES (v_new, v_org, v_repl, 'accepted', to_tsvector('simple', v_repl), v_anchor.claim_kind, 1, 'human', v_user,
@@ -180,13 +145,23 @@ BEGIN
     UPDATE claims SET status = 'superseded', revoked_at = now(), revocation_reason = 'user_citation_wrong', updated_at = now()
      WHERE org_id = v_org AND id = ANY(v_family) AND id <> v_anchor.id;
     v_outcome := 'superseded';
+  ELSIF v_kind = 'expired' THEN
+    -- F4（S6 #4363 已在 main）：「已过时」= 整家 valid_to = now()（左闭右开：此刻起不再成立），**不撤**。
+    -- 行、边、证据都在：/brain 与记忆面板照旧列出它，标「已过期」（claim-time.ts claimExpired 一处判定）；召回不再用它。
+    -- 已经过期的不算再过期一次（不重复记纠正事件）：被点的那条已过期 ⇒ 同「不在了」。
+    -- valid_from 在此刻之后（尚未生效的窗口）⇒ valid_to 取 valid_from 之后一瞬，守住 claims_validity_chk（valid_from < valid_to）。
+    IF v_c.valid_to IS NOT NULL AND v_c.valid_to <= now() THEN
+      RAISE EXCEPTION 'KG_CLAIM_NOT_FOUND: claim % already expired', v_claim USING ERRCODE = '23503';
+    END IF;
+    UPDATE claims
+       SET valid_to = CASE WHEN valid_from IS NOT NULL AND valid_from >= now() THEN valid_from + interval '1 microsecond' ELSE now() END,
+           updated_at = now()
+     WHERE org_id = v_org AND id = ANY(v_family) AND (valid_to IS NULL OR valid_to > now());
+    v_outcome := 'expired';
   ELSE
-    -- 本版按撤回执行（整家一起）；20260928220000 改为 valid_to = now()（F4）。
-    UPDATE claims SET status = 'superseded', revoked_at = now(),
-                      revocation_reason = CASE WHEN v_kind = 'expired' THEN 'user_citation_expired' ELSE 'user_citation_wrong' END,
-                      updated_at = now()
+    UPDATE claims SET status = 'superseded', revoked_at = now(), revocation_reason = 'user_citation_wrong', updated_at = now()
      WHERE org_id = v_org AND id = ANY(v_family);
-    v_outcome := CASE WHEN v_kind = 'expired' THEN 'expired' ELSE 'forgotten' END;
+    v_outcome := 'forgotten';
   END IF;
 
   -- 审计：每个被动到的作用域各一条（会话的审计不带个人空间的 id，个人空间那条记在个人空间，同 F17）。
@@ -195,7 +170,7 @@ BEGIN
                FROM claims c WHERE c.org_id = v_org AND c.id = ANY(v_family) ORDER BY 1, 3 LOOP
     INSERT INTO ontology_actions (id, org_id, scope_kind, scope_id, actor_kind, actor_id, action_type, payload, source_ref, outcome)
     VALUES (CASE WHEN v_n = 0 THEN v_id ELSE v_id || '-' || v_n END, v_org, v_s.scope_kind, v_s.scope_id, 'human', v_user,
-            CASE WHEN v_outcome = 'superseded' THEN 'reviseClaim' ELSE 'revokeClaim' END,
+            CASE v_outcome WHEN 'superseded' THEN 'reviseClaim' WHEN 'expired' THEN 'expireClaim' ELSE 'revokeClaim' END,
             jsonb_build_object('via', 'citation', 'correction', v_kind,
                                'thread_id', CASE WHEN v_s.scope_kind = 'chat_session' AND v_s.scope_id = v_thread THEN v_thread END,
                                'message_id', CASE WHEN v_s.scope_kind = 'chat_session' AND v_s.scope_id = v_thread THEN v_message END,
@@ -224,6 +199,3 @@ BEGIN
   END IF;
 END
 $$;
-
--- 停用组织的冻结策略（F22 单一事实源，新租户表建完调用一次）
-SELECT kernel_apply_org_freeze_policies();

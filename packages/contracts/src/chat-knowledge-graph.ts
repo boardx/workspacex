@@ -401,7 +401,7 @@ export type KgTurnMemory = z.infer<typeof KgTurnMemory>;
 /**
  * S7（#4364）：回答下引用 chip 上的两个纠正动作（只给对话所有者、且是这一轮的提问人）。
  * - `wrong`「这条不对」：没给 `replacement` ⇒ 忘掉（同 F17 忘掉卡的效果）；给了 ⇒ 用新说法取代旧的（旧的不再召回）。
- * - `expired`「已过时」：这条过期了（`expireClaim`）。S6（#4363）的 `valid_until` 落地前，按撤回执行。
+ * - `expired`「已过时」：这条（连同它的长期记忆副本）有效期到此刻为止（`validUntil = now`，S6 #4363）；不撤回，列表里标「已过期」。
  * 两种都记一条纠正事件：纠正率 = 纠正次数 / 被引用次数（`getCitationMetrics`）。
  */
 export const KgCitationCorrectionKind = z.enum(["wrong", "expired"]);

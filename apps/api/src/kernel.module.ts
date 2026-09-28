@@ -3233,7 +3233,7 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
     // F17：「记住 / 忘掉」确认卡（只经 kg_open_memory_card / kg_act_on_memory_card 落表）。
     { provide: MEMORY_CARD_PORT, useFactory: (db: DatabasePort) => new PgMemoryCard(db), inject: [DATABASE_PORT] },
     // S7（#4364）：引用 chip 上的「这条不对」/「已过时」（只经 kg_correct_citation 落表）与纠正率。
-    // CLAIM_EXPIRY_PORT（expireClaim）现在与纠正同一个实现；TODO(#4363) S6 的 valid_until 落地后换实现。
+    // CLAIM_EXPIRY_PORT（expireClaim）与纠正同一个实现：整家 valid_to = now()（S6 有效期，迁移 20260928220000）。
     { provide: CITATION_CORRECTION_PORT, useFactory: (db: DatabasePort) => new PgCitationCorrection(db), inject: [DATABASE_PORT] },
     { provide: CLAIM_EXPIRY_PORT, useExisting: CITATION_CORRECTION_PORT },
     {
