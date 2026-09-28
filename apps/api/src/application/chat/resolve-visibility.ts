@@ -113,6 +113,12 @@ export async function resolveVisibility(
     // 的尝试也是一次可审计的事件，尤其在扫描 id 的场景里。
     return { kind: "not-found", decisionId: ids.next() };
   }
+  // 项目分支的 mismatch 门（FF-100，与个人分支门①同形同出口）：线程**实际**挂的项目
+  // 必须就是调用方声称的那个项目。没有这一行，项目 B 的成员带 `?projectId=B` 就能读
+  // 项目 A 的任意全场线程——下面的成员资格与 authorize 判的都是 B，从头到尾没人看过
+  // 线程到底属于谁；`messages.jsonl` 还会被物化进 B 的文件浏览器。
+  // 反证：`thread-project-mismatch.test.ts`。
+  if (thread.projectId !== projectId) return { kind: "not-found", decisionId: ids.next() };
 
   const actor: ActorFacts = {
     userId,
