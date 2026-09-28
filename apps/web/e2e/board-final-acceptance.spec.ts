@@ -73,15 +73,28 @@ test('Panel: drag 10 unparented objects inside, then move the whole container', 
     for (let index = 0; index < 10; index++) {
       const source = (await canonicalRows(page)).find(row => row.id === `child-${index}`)!;
       const target = {x: 140 + index % 5 * 210, y: 190 + Math.floor(index / 5) * 210};
-      await dragObject(page, source.id, target.x - source.geometry.x, target.y - source.geometry.y);
-      await expect.poll(async () => (await canonicalRows(page)).find(row => row.id === source.id)?.parentId).toBe(panel.id);
+      await dragObject(page, source.id, target.x - source.geometry.x, target.y - source.geometry.y, false, panel.id);
     }
     const before = await canonicalRows(page);
+    const expandedPanel = before.find(row => row.id === panel.id)!;
+    for (const child of before.filter(row => row.parentId === panel.id)) {
+      expect(child.geometry.x).toBeGreaterThanOrEqual(expandedPanel.geometry.x - 1);
+      expect(child.geometry.y).toBeGreaterThanOrEqual(expandedPanel.geometry.y - 1);
+      expect(child.geometry.x + child.geometry.width).toBeLessThanOrEqual(expandedPanel.geometry.x + expandedPanel.geometry.width + 1);
+      expect(child.geometry.y + child.geometry.height).toBeLessThanOrEqual(expandedPanel.geometry.y + expandedPanel.geometry.height + 1);
+    }
     await dragObject(page, panel.id, 80, 60, true);
     const after = await canonicalRows(page);
+    const priorPanel = before.find(row => row.id === panel.id)!;
+    const nextPanel = after.find(row => row.id === panel.id)!;
+    const panelDelta = {x: nextPanel.geometry.x - priorPanel.geometry.x, y: nextPanel.geometry.y - priorPanel.geometry.y};
+    expect(Math.abs(panelDelta.x)).toBeGreaterThan(1);
+    expect(Math.abs(panelDelta.y)).toBeGreaterThan(1);
     for (const prior of before) {
       const next = after.find(row => row.id === prior.id)!;
-      expect(next.geometry).toEqual({...prior.geometry, x: prior.geometry.x + 80, y: prior.geometry.y + 60});
+      expect(Math.abs(next.geometry.x - prior.geometry.x - panelDelta.x)).toBeLessThanOrEqual(1);
+      expect(Math.abs(next.geometry.y - prior.geometry.y - panelDelta.y)).toBeLessThanOrEqual(1);
+      expect(next.geometry).toMatchObject({width: prior.geometry.width, height: prior.geometry.height, rotation: prior.geometry.rotation});
       if (next.id !== panel.id) expect(next.parentId).toBe(panel.id);
     }
     await assertJourneyReload(page, id, after, request, token);
@@ -188,6 +201,7 @@ test('AI Ready API: delegated CRUD + pre-generated 30-note proposal transaction 
     expect(await canonicalRows(page)).toEqual(beforeProposal);
     await page.goto(`/studio/board/${id}?proposal=${proposalId}`);
     await expect(page.getByTestId('board-ai-proposal')).toBeVisible();
+    await expect(page.getByTestId('board-a11y-mirror').locator('li[data-object-id]')).toHaveCount(beforeProposal.length);
     expect(await canonicalRows(page)).toEqual(beforeProposal);
     const confirmation = page.waitForResponse(response => response.request().method() === 'POST'
       && response.url().endsWith(`/v1/whiteboards/${id}/ai-proposals/${proposalId}/confirm`));

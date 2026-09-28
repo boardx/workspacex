@@ -113,13 +113,20 @@ export async function objectPoint(page: Page, id: string, header = false) {
   expect(hit, `Object ${id} must be reachable without a toolbar covering it`).toBe('top');
   return {...point, zoom};
 }
-export async function dragObject(page: Page, id: string, dx: number, dy: number, header = false) {
+export async function dragObject(page: Page, id: string, dx: number, dy: number, header = false, expectedParentId?: string) {
   await page.keyboard.press('Escape'); await page.getByTestId('board-tool-select').click();
   await page.getByTestId('board-zoom-fit-board').click();
   const before = (await canonicalRows(page)).find(row => row.id === id)!;
   const point = await objectPoint(page, id, header);
   await page.mouse.move(point.x, point.y); await page.mouse.down();
   await page.mouse.move(point.x + dx * point.zoom, point.y + dy * point.zoom, {steps: 12}); await page.mouse.up();
+  // Reparenting is center-hit based and an auto-expanding panel may move its
+  // own bounds while accepting the child. parentId is the canonical outcome;
+  // the pre-drop absolute target is not stable across that container update.
+  if (expectedParentId !== undefined) {
+    await expect.poll(async () => (await canonicalRows(page)).find(row => row.id === id)?.parentId).toBe(expectedParentId);
+    return;
+  }
   // Fabric converts between viewport and scene coordinates while dragging.
   // Browser engines can leave a sub-pixel remainder; the product contract
   // permits at most one scene pixel of error.

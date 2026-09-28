@@ -2,7 +2,7 @@ import {test as base,expect,type Page} from '@playwright/test';
 import {createHash} from 'node:crypto';
 import {writeFile} from 'node:fs/promises';
 import {observeRuntimeChunks,runtimeSourceIdentity,verifyRuntimeIdentity} from './board-runtime-evidence';
-import {assertReload as reload,boardApi,canonicalBoardSnapshot} from './board-acceptance-support';
+import {assertReload as reload,boardApi,BOARD_SYNCED_STATUS,canonicalBoardSnapshot} from './board-acceptance-support';
 const digest=(bytes:string|Buffer)=>createHash('sha256').update(bytes).digest('hex');
 export const test=base.extend<{journeyEvidence:void}>({journeyEvidence:[async({page,request},use,info)=>{
  const sha=runtimeSourceIdentity(),chunks=observeRuntimeChunks(page),cdp=await page.context().newCDPSession(page);
@@ -24,6 +24,7 @@ export const test=base.extend<{journeyEvidence:void}>({journeyEvidence:[async({p
 },{auto:true}]});
 /** Require the persisted canonical API to agree with the independently observed browser after reload. */
 export async function assertJourneyReload(page:Page,id:string,rows:Parameters<typeof reload>[2],request:Parameters<typeof boardApi>[0],token:string){
+ await expect(page.getByText(BOARD_SYNCED_STATUS)).toBeVisible({timeout:30_000});
  await reload(page,id,rows);
  const snapshot=await canonicalBoardSnapshot(request,token,id);
  const metadata=await (await boardApi(request,token,'GET',`/whiteboards/${id}`)).json();
