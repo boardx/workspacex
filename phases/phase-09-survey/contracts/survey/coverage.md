@@ -1,23 +1,18 @@
-# Coverage — Survey
+# Coverage — Survey (2026-09-28 prototype revision, pending signoff)
 
-> 第 ③ 件（API 契约）：`packages/contracts/src/survey.ts`。本表把问卷资源库、创建、工作台、发布、回收、报告和现场投票逐条映射到 API 契约或可执行门控。
+本表追踪新原型 UC → 现有 API／契约 → 前端消费点；它不是 `feature_list.json` 的状态副本。旧 F01–F07 的范围和 verification 尚待重切，不能据此宣称 passing。API 形状仍以 `packages/contracts/src/survey*.ts` 的 Zod schema 为唯一事实源。
 
-| V | 验收行为 | API 操作 / 门控命令 | Feature | 状态 |
-| --- | --- | --- | --- | --- |
-| V1 | 问卷与模板资源库入口、卡片、筛选和返回路径 | `pnpm --filter web exec vitest run tests/ui/survey-resource-library.test.tsx tests/ui/survey-template-editor-shell.test.tsx` | F01 | 待生成 |
-| V2 | 问卷/模板创建、名称标签、模板分类和从模板新建 | `pnpm --filter web exec vitest run tests/ui/survey-create-dialog.test.tsx tests/ui/survey-creation-draft.test.ts tests/ui/survey-template-editor-shell.test.tsx` | F02 | 待生成 |
-| V3 | 五步工作台 URL、连续问题文档和连续报告文档 | `pnpm --filter web exec vitest run tests/ui/survey-workflow-shell.test.tsx tests/ui/survey-route-layout.test.tsx tests/ui/survey-continuous-document.test.tsx` | F03 | 待生成 |
-| V4 | 状态机、发布门禁和匿名/实名属性不可变 | `pnpm --filter api exec vitest run tests/survey/state-machine-four.test.ts tests/survey/anonymity-immutable.test.ts tests/survey/publish-gate-server-enforced.test.ts` | F04 | 待生成 |
-| V5 | 发放链接、催填名单、回收进度和 responses/schema 文件对 | `pnpm --filter api exec vitest run tests/survey/nudge-roster-two-entries-same-service.test.ts tests/survey/file-first-responses-schema-pair.test.ts` | F05 | 待生成 |
-| V6 | 分析报告章节、图表类型、样本量和题目来源 | `pnpm --filter @repo/contracts exec vitest run tests/survey.test.ts` | F06 | 待生成 |
-| V7 | 现场快速投票倒计时、匿名口径和证据回流 | `pnpm --filter api exec vitest run tests/survey/vote-anonymous-timer.test.ts tests/survey/vote-flow-back-node-report.test.ts` | F07 | 待生成 |
+| 用例 | API／契约操作 | 前端消费点 | 待验证边界 |
+| --- | --- | --- | --- |
+| UC1 浏览与创建 | `GET /surveys`、`POST /surveys`、`GET /surveys/templates?kind=question`、`SurveyDraftInputSchema` | `/studio/survey`、创建弹窗、`/:id/design` | 名称默认值、可选标签、模板深复制、项目挂载。 |
+| UC2 AI 导入与校对 | `POST /surveys/markdown-proposals`、`SurveyMarkdownProposalInputSchema`、`SurveyMarkdownProposalSchema`；确认后使用 `POST /surveys`／`PUT /surveys/:id/source` | `/studio/survey/new/import` | 未确认不持久化提案为问卷；文件／录音授权、解析失败、刷新恢复。 |
+| UC3 设计与保存 | `GET /surveys/:id`、`PUT /surveys/:id`、`PUT /surveys/:id/source`、`SurveySourceSaveCommandSchema` | `/:id/design` | Markdown 单源、版本冲突、自动保存与未保存离开。 |
+| UC4 发布与回收 | `POST /surveys/:id/prepare`、`/publish`、`/start-collection`、`/close`；公开填写沿用 `/public/surveys` 控制器 | `/:id/publish`、公开问卷页 | 发布快照、截止、匿名／同浏览器限答、成功页 Markdown、真实统计。 |
+| UC5 查看答卷 | `GET /surveys/:id`、`PATCH /surveys/:id/responses/:responseId`、现有导出投影 | `/:id/responses`、`/:id/responses/:responseId` | 匿名边界、有效性处理、零答卷、导出失败。 |
+| UC6 可选模板／报告 | `GET/POST/PUT /surveys/templates`、`POST /surveys/:id/report`、`SurveyReportTemplateSchema` | 问卷／报告模板入口、`/:id/report` | 不阻塞主流程；报告读取对应版本有效答卷。 |
 
-| Feature | Requirement |
-| --- | --- |
-| F01 | `00-overview.md#R3` |
-| F02 | `00-overview.md#R4` |
-| F03 | `00-overview.md#R5` |
-| F04 | `00-overview.md#R6` |
-| F05 | `00-overview.md#R7` |
-| F06 | `00-overview.md#R7` |
-| F07 | `00-overview.md#R8` |
+## 反向检查与未关闭项
+
+- 旧五步 `template`／`report` schema 值和 `?step=` 链接需兼容，但不再作为主进度节点。
+- 现场快速投票、催填名单、`responses.csv + schema.json` 属旧阶段范围；本轮不删除已有能力，也不把它们混入新原型 UI PR。是否另立功能由后续阶段规划决定。
+- 公开填写、一次一浏览器的服务端行为和报告来源需用真实 API／数据库测试复核；本表只确认已有接口落点，不等于动态通过。

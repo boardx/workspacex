@@ -1,5 +1,7 @@
 # 问卷需求
 
+> **2026-09-28 新原型修订待签核：** 下方 R3–R8 是阶段建立时的历史输入，含“五步工作台”和现场投票，并非本轮问卷重构的验收范围。本轮用户确认的目标以 `docs/superpowers/specs/2026-09-28-survey-prototype-routes-design.md` 及 `contracts/survey/` 的待签核修订为准；`feature_list.json` 仍需经正规流程重切，不得从旧条目推断新原型已完成。
+
 ## R1 模块独立
 问卷是独立 phase。后续问卷新增能力、契约修订、UI 调整都在本阶段维护。
 
