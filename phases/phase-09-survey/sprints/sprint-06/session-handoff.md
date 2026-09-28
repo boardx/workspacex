@@ -1,7 +1,7 @@
 # 会话交接 — Sprint 09/06
 
 ## 当前已验证
-- F12「按原型查看和处理真实答卷」已由 `pnpm harness verify --sprint 09/06 --owner coord-survey` 门控为 `passing`；PR #4567 仍需合入 `main` 才完成交付闭环。
+- F12「按原型查看和处理真实答卷」的实现已进入 PR #4567，但尚未合入 `main`，因此保持 `blocked`，不宣称 `passing`。
 - 针对性验证：`pnpm --filter web exec vitest run tests/ui/survey-response-review.test.tsx tests/ui/survey-response-download.test.tsx`。
 
 ## 本轮改动
@@ -10,7 +10,7 @@
 - 空答卷、无匹配结果和下载失败均显示真实状态，不使用 mock 数据。
 
 ## 仍损坏或未验证
-- PR #4567 尚未合入 `main`；harness 验证证据已生成，但交付闭环仍以合入 `main` 为准。
+- PR #4567 尚未合入 `main`；在合入并由 harness 验证前，F12 不能转为 `passing`。
 - 需要持续确认大规模真实答卷搜索的浏览器响应性；当前修复已消除 `responses × answers × questions` 的重复题目查找。
 
 ## 下一步最佳动作

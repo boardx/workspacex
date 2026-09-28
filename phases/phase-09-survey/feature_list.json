@@ -93,7 +93,7 @@
       "title": "按原型查看和处理真实答卷",
       "spec_ref": "00-overview.md#R13",
       "user_visible_behavior": "用户可搜索筛选分页答卷、直达详情、标记有效性并导出 Markdown；无答卷和接口错误显示真实状态。",
-      "status": "passing",
+      "status": "blocked",
       "sprint": "06",
       "owner": "coord-survey",
       "depends_on": [
@@ -103,7 +103,7 @@
       "verification": [
         "pnpm --filter web exec vitest run tests/ui/survey-response-review.test.tsx tests/ui/survey-response-download.test.tsx"
       ],
-      "evidence": "evidence/F12.verify.log @ 2026-09-28T17:14:55.286Z",
+      "evidence": "",
       "notes": "新原型工作包。共享热点 apps/web/components/survey/live/survey-workspace.tsx；不得出现 mock 或面向用户的测试说明。 PR #4567 submitted; awaits CI, review and merge; not passing."
     },
     {
