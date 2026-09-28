@@ -417,6 +417,7 @@ export function LiveSurveyWorkspace({
             <SurveyTemplateActions kind="question" draft={draft} onApply={(next) => { setDraft(next); setMarkdown(serializeSurveyDesignMarkdown(next)); }} locked={!!runtime?.publication} disabled={busy} />
             <SurveyQuestionEditor
               studioLayout
+              surveyTitle={draft.title}
               disabled={busy || !projectedInSync}
               questions={draft.questions}
               locked={!!runtime?.publication}
