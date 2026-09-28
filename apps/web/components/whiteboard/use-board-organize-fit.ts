@@ -34,6 +34,7 @@ export function useBoardOrganizeFit(request:BoardOrganizeFitRequest|null|undefin
     return()=>{if(animation.current!==null)cancelAnimationFrame(animation.current);animation.current=null;};
   // readObjects returns a new array on viewport renders; depend on canonical geometry,
   // otherwise the first animation frame would cancel its own remaining frames.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   },[request,boundsKey,host,setViewport,insets.left,insets.right,insets.top,insets.bottom]);
   return cancel;
 }

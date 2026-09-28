@@ -8,6 +8,7 @@ import type { BoardFabricObject } from "@/components/whiteboard/fabric/board-fab
 const comments = vi.hoisted(() => ({ threads: [] as WhiteboardCommentThread[] }));
 const commentApi = vi.hoisted(() => ({ dispatch: vi.fn() }));
 vi.mock("@/components/whiteboard/board-comments", () => ({
+  listBoardMentionableMembers: vi.fn(async () => []),
   listBoardCommentThreads: vi.fn(async () => structuredClone(comments.threads)),
   dispatchBoardCommentCommand: commentApi.dispatch,
 }));

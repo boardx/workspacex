@@ -4,7 +4,7 @@ Starter 与 production 使用同一迁移、管理员和 readiness 路径。所�
 
 ## 前置条件
 
-- PostgreSQL 16，支持 `vector` 扩展并允许迁移身份创建该扩展。普通 `postgres:16` 不包含它；Starter 应使用由 `apps/api/docker/postgres-age` 构建、已固定 digest 的 pgvector + Apache AGE 镜像（ADR-114 / #4081；只有 pgvector 时图检索永久 `KG_GRAPH_UNAVAILABLE`）。RDS 必须事先确认版本/扩展支持（含 `age`）。
+- PostgreSQL 16，支持 `vector` 扩展并允许迁移身份创建该扩展。普通 `postgres:16` 不包含它；Starter 应使用由 `apps/api/docker/postgres-age` 构建、已固定 digest 的 pgvector + Apache AGE 镜像（ADR-114 / #4081；只有 pgvector 时图检索永久 `KG_GRAPH_UNAVAILABLE`）。阿里云 RDS PostgreSQL 16 两个扩展都支持，最低版本：`age` ≥ 1.6.0（AliPG 内核小版本 ≥ 20251130；20240830 内核带的是 1.5.0）、`vector`（pgvector）≥ 0.8.0（HNSW 迭代扫描）；不达标的旧实例须先升级 AliPG 内核小版本再迁移。迁移前用 migration 连接变量跑 `node --import tsx apps/api/scripts/kg-extension-preflight.ts`（不达标非零退出并逐个扩展说明），它执行的检查 SQL 是 `SELECT name, default_version, installed_version FROM pg_available_extensions WHERE name IN ('age', 'vector')`（已装看 installed_version，未装看 default_version）。图或向量运行期不可用时召回降级为字面检索并在回答里说明，不阻断对话（#4366）。
 - 云端迁移前预建 `app_rw` 与 `app_diag_ro`，设置至少 16 字符的独立强密码，均不可具备 SUPERUSER、BYPASSRLS、CREATEDB、CREATEROLE。迁移脚本拒绝缺失/不安全角色，避免执行开发密码 seed。SQL 授权使用固定角色名，不能任意替换。
 - migration 身份独立，能拥有应用表、运行 DDL 和授予上述运行角色所需权限。不能用 `app_rw` 或 `app_diag_ro` 迁移。运行 API 不接收 migration 密码。
 - PostgreSQL 运行身份不拥有业务表，所有已启用 RLS 的表必须 FORCE RLS。

@@ -473,6 +473,17 @@ export default {
       // 都打不到后端，不只是本地 e2e。
       { source: `${prefix}/workshops/:path*`, destination: `${apiOrigin}/workshops/:path*` },
       // 引导式研究的历史集合与全部检查点共享 `/research` 前缀。
+      // Dynamic workflow pages resolve after afterFiles. In the empty-prefix proxy
+      // lane, release only the six UI stages before the API wildcard; API namespaces
+      // remain open-ended. research-rewrite.test.ts checks this list against the
+      // authoritative GUIDED_RESEARCH_SIX_STEPS and every research API contract.
+      // The legacy GET /research/:researchId/plan shares the plan page path.
+      // apiRequest explicitly sends Accept: application/json; preserve that API
+      // before releasing HTML/RSC navigation to the frontend page.
+      ...(!prefix ? [{ source: "/research/:researchId/plan", destination: `${apiOrigin}/research/:researchId/plan`,
+        has: [{ type: "header", key: "accept", value: "application/json" }] }] : []),
+      ...(!prefix ? ["import", "topic", "plan", "research", "chapters", "report"]
+        .map((stage) => ({ source: `/research/:sessionId/${stage}`, destination: `/research/:sessionId/${stage}` })) : []),
       // 两条都必须存在：集合列表/创建命中裸路径，恢复、方向与大纲命中深路径。
       { source: `${prefix}/research`, destination: `${apiOrigin}/research` },
       { source: `${prefix}/research/:path*`, destination: `${apiOrigin}/research/:path*` },
@@ -504,6 +515,11 @@ export default {
       // 不遮挡任何前端路由。
       { source: `${prefix}/org-invites`, destination: `${apiOrigin}/org-invites` },
       { source: `${prefix}/org-invites/:path*`, destination: `${apiOrigin}/org-invites/:path*` },
+      // 项目中枢 R2 / R10：项目邀请落地页 `/projects/join?t=` 打 `POST /project-invites/accept`。
+      // 真栈 e2e（旅程⑥）第一次跑就撞上：缺这条，前端拿到 Next 的 404 HTML，落地页停在错误态。
+      // 同 `/org-invites` 的做法，裸前缀与 `:path*` 各一条。
+      { source: `${prefix}/project-invites`, destination: `${apiOrigin}/project-invites` },
+      { source: `${prefix}/project-invites/:path*`, destination: `${apiOrigin}/project-invites/:path*` },
       // F977：`PlanControlController` 是 `@Controller()`（空前缀），路径是裸的
       // `GET /plan-control/threads/:threadId/ledger` —— 与上面 `/agent-runs`、
       // `/threads`、`/copilotkit` 同一个形状、同一个坑（lint-rewrite-coverage 实测

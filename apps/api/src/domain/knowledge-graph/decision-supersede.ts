@@ -114,9 +114,11 @@
  *     （[取代] 走 F16 keep_new，连带收掉本人由它晋升出去的 L1 副本）。
  * 宁可漏，不可误（R4 A1 同一原则）：漏了，用户还能在面板里手动忘掉旧的；误取代会让一条还有效的决定悄悄消失。
  */
+import type { knowledgeGraph as KG } from "@repo/contracts";
 import { INTERROGATIVE } from "./question-detection";
 
-export type SupersedeClaimKind = "fact" | "hypothesis" | "decision" | "todo" | "risk";
+/** 契约 `KgClaimKind` 本身（issue #4343 前这里抄了一份五值，新增类型会漂移）。 */
+export type SupersedeClaimKind = KG.KgClaimKind;
 
 /** 这条消息刚抽出、还没人看过的结论。 */
 export interface SupersedeFresh {

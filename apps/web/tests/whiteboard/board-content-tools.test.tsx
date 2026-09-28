@@ -81,7 +81,7 @@ async function setupView() {
   const view = render(<CollaborativeEditor boardId="content-board" clientId="content-client" doc={doc} readOnly={false} title="内容板" status="已连接" />);
   return { doc, ...view };
 }
-function openAppearance() { const trigger = screen.getByTestId("board-inspector-appearance"); if (trigger.getAttribute("aria-expanded") !== "true") fireEvent.click(trigger); }
+function openAppearance() { const trigger = screen.queryByTestId("board-inspector-expand"); if (trigger) fireEvent.click(trigger); }
 async function setup() { return (await setupView()).doc; }
 
 it("creates a real shape and structured Tile from the touch-first dock", async () => {
@@ -166,7 +166,6 @@ it("creates a verified durable image without writing bytes or blob/data URLs int
   await waitFor(() => expect((readObjects(doc)[0]?.extensionData?.contentObject as { fileName?: string } | undefined)?.fileName).toBe("replacement.png"));
   openAppearance();
   expect(screen.getByRole("link", { name: "下载" })).toHaveAttribute("href", "blob:verified-2");
-  fireEvent.click(screen.getByTestId("board-inspector-actions"));
   fireEvent.click(screen.getByRole("button", { name: "删除" }));
   expect(revokeObjectUrl).not.toHaveBeenCalled();
   unmount();
@@ -198,8 +197,7 @@ it("retains a shared image asset across duplicate deletion and remote bulk delet
   expect(readObjects(doc)).toHaveLength(2);
   const assetIds = readObjects(doc).map((object) => (object.extensionData?.contentObject as { assetId?: string }).assetId);
   expect(new Set(assetIds).size).toBe(1);
-  fireEvent.click(screen.getByTestId("board-inspector-actions"));
-  fireEvent.click(screen.getByRole("button", { name: "删除" }));
+  fireEvent.click(screen.getByRole("button", { name: "删除对象" }));
   expect(readObjects(doc)).toHaveLength(1);
   expect(revokeObjectUrl).not.toHaveBeenCalled();
   act(() => executeCommands(doc, readObjects(doc).map((object) => ({ type: "delete" as const, id: object.id })), "remote-delete"));
@@ -264,11 +262,12 @@ it("validates HTTPS image MIME, size, and magic bytes before storing a durable a
   await waitFor(() => expect(readObjects(doc)).toHaveLength(1));
   expect(readObjects(doc)[0]?.extensionData?.contentObject).toMatchObject({ type: "image", status: "ready", sourceUrl: null, assetId: expect.stringMatching(/^board-image-/), mimeType: "image/png", byteSize: bytes.length, intrinsicWidth: 48, intrinsicHeight: 36, contentDigest: expect.stringMatching(/^sha256:[a-f0-9]{64}$/), magicMimeType: "image/png", persistence: "durable" });
   openAppearance();
-  fireEvent.click(screen.getByRole("button", { name: "裁剪" }));
-  fireEvent.click(screen.getByRole("button", { name: "透明度" }));
-  fireEvent.click(screen.getByRole("button", { name: "边框" }));
-  fireEvent.click(screen.getByRole("button", { name: "圆角" }));
-  expect(readObjects(doc)[0]?.extensionData?.contentObject).toMatchObject({ crop: { x: .1, y: .1, width: .8, height: .8 }, opacity: .6, borderWidth: 2, cornerRadius: 20 });
+  fireEvent.change(screen.getByLabelText("图片裁剪宽度"), { target: { value: ".8" } });
+  fireEvent.change(screen.getByLabelText("图片裁剪高度"), { target: { value: ".8" } });
+  fireEvent.change(screen.getByLabelText("图片透明度"), { target: { value: ".6" } });
+  fireEvent.change(screen.getByLabelText("图片边框粗细"), { target: { value: "2" } });
+  fireEvent.change(screen.getByLabelText("图片圆角"), { target: { value: "20" } });
+  expect(readObjects(doc)[0]?.extensionData?.contentObject).toMatchObject({ crop: { x: 0, y: 0, width: .8, height: .8 }, opacity: .6, borderWidth: 2, cornerRadius: 20 });
   openAppearance();
   expect(screen.getByRole("link", { name: "下载" })).toHaveAttribute("href", "blob:verified-1");
   expect(fetch).toHaveBeenCalledTimes(3);
@@ -390,12 +389,12 @@ it("applies contextual color and duplicates with a 24px offset", async () => {
   fireEvent.click(screen.getByTestId("board-add-shape"));
   const source = readObjects(doc)[0]!;
   openAppearance();
-  fireEvent.click(screen.getByLabelText("填充色 #93C5FD"));
+  fireEvent.change(screen.getByLabelText("形状填充色"), { target: { value: "#93C5FD" } });
   expect(readObjects(doc).find((item) => item.id === source.id)?.extensionData?.contentObject).toMatchObject({ fill: "#93C5FD" });
-  fireEvent.click(screen.getByRole("button", { name: "边框样式" }));
-  fireEvent.click(screen.getByRole("button", { name: "文字对齐" }));
-  expect(readObjects(doc).find((item) => item.id === source.id)?.extensionData?.contentObject).toMatchObject({ borderStyle: "dashed", horizontalAlign: "left", verticalAlign: "top" });
-  fireEvent.click(screen.getByRole("button", { name: "复制对象" }));
+  fireEvent.change(screen.getByLabelText("形状边框样式"), { target: { value: "dashed" } });
+  fireEvent.change(screen.getByLabelText("形状文字对齐"), { target: { value: "left" } });
+  expect(readObjects(doc).find((item) => item.id === source.id)?.extensionData?.contentObject).toMatchObject({ borderStyle: "dashed", horizontalAlign: "left", verticalAlign: "middle" });
+  fireEvent.click(screen.getByRole("button", { name: "复制" }));
   const records = readObjects(doc);
   expect(records).toHaveLength(2);
   const duplicate = records.find((record) => record.id !== source.id)!;
@@ -436,5 +435,6 @@ it("never creates ready canonical content when durable upload fails",async()=>{
 it("exposes the import callback in the editor header",async()=>{
   const {CollaborativeEditor}=await import('@/components/whiteboard/collaborative-editor'),doc=createWhiteboardDocument(),onImport=vi.fn();
   const view=render(<CollaborativeEditor boardId="content-board" clientId="client" doc={doc} readOnly={false} title="Board" status="已连接" onImport={onImport}/>);
-  const button=screen.getByTestId('board-import-open');expect(button.closest('header')).not.toBeNull();fireEvent.click(button);expect(onImport).toHaveBeenCalledOnce();view.unmount();doc.destroy();
+  fireEvent.pointerDown(screen.getByTestId('board-title-menu'),{button:0,ctrlKey:false});
+  const button=await screen.findByTestId('board-import-open');fireEvent.click(button);expect(onImport).toHaveBeenCalledOnce();view.unmount();doc.destroy();
 });

@@ -56,3 +56,40 @@ function parseTodos(args: unknown): PlanTodo[] | null {
   }
   return out;
 }
+
+/** 一步计划下面做过的一个动作——右栏「进度」页签按步展开时用。 */
+export interface PlanStepAction {
+  readonly id: string;
+  readonly kind: "tool" | "skill";
+  readonly tool: string;
+  readonly args?: unknown;
+  readonly status: TraceEntry["status"];
+}
+
+/**
+ * 2026-09-27 人类裁决「计划显示统一按你的方案做」—— 三处计划各司其职：
+ * 消息流里是本轮结束后的计划快照、底部是实时计划与控制、右栏是**每一步的细节**。
+ *
+ * 右栏要的细节就是「这一步里具体做了哪些动作」。执行过程是一条按时间排好的流水，
+ * 计划推进也在这条流水里（每次 `write_todos` 把某一步标成 in_progress），所以不用猜：
+ * 一个动作归属于**它发生时正处于 in_progress 的那一步**。第一次有步骤进入
+ * in_progress 之前的动作（理解目标、读技能说明……）不归任何一步，不编一个归属。
+ *
+ * 键是步骤文本（trim 后）——账本步骤与 `write_todos` 快照是同一份文本，右栏按文本对上。
+ */
+export function actionsByPlanStep(entries: readonly TraceEntry[]): ReadonlyMap<string, readonly PlanStepAction[]> {
+  const out = new Map<string, PlanStepAction[]>();
+  let current: string | null = null;
+  for (const entry of entries) {
+    if (entry.text === TODO_TOOL) {
+      const todos = parseTodos(entry.args);
+      if (todos !== null) current = todos.find((todo) => todo.status === "in_progress")?.content ?? null;
+      continue;
+    }
+    if ((entry.kind !== "tool" && entry.kind !== "skill") || current === null) continue;
+    const list = out.get(current) ?? [];
+    list.push({ id: entry.id, kind: entry.kind, tool: entry.text, args: entry.args, status: entry.status });
+    out.set(current, list);
+  }
+  return out;
+}

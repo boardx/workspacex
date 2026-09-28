@@ -12,8 +12,11 @@ import type { z } from "zod";
 export type KgScopeKind = KG.KgScopeKind;
 export type OntologyActorKind = "human" | "model" | "system";
 
-/** 本阶段开放的作用域（I-1）。与迁移里 `kg_scope_enabled` 是同一判断，外扩时两处一起改（有测试对账）。 */
-export const ENABLED_KG_SCOPES: readonly KgScopeKind[] = ["chat_session", "personal"];
+/**
+ * 本阶段开放的作用域（I-1）。与迁移里 `kg_scope_enabled` 是同一判断，外扩时两处一起改（有测试对账）。
+ * B2-S4（issue #4428）放开 `org`（L3）：组织记忆只经晋升（`kg_promote_claim_to_org`）进入，见下面的执行者规则。
+ */
+export const ENABLED_KG_SCOPES: readonly KgScopeKind[] = ["chat_session", "personal", "project", "org"];
 
 export interface OntologyObjectInput {
   readonly id: string;
@@ -91,6 +94,11 @@ export function validateOntologyBatch(batch: OntologyBatch, currentUserId: strin
   }
   if (batch.scope.kind === "personal" && batch.scope.id !== currentUserId) {
     return reject("KG_NOT_OWNER", "personal scope can only be written by its owner");
+  }
+  // B2-S4：组织记忆（L3）只由人替组织记下（组织 lead / admin 经 `kg_promote_claim_to_org` 晋升，落库判定在那里）；
+  // 模型 / 系统批次不能直接写进组织层——抽取流水线只写会话作用域，这里兜住任何绕到 org 的批次。
+  if (batch.scope.kind === "org" && batch.actor.kind !== "human") {
+    return reject("KG_ACTOR_NOT_HUMAN", `org scope is written by people only, got ${batch.actor.kind}`);
   }
   // I-15：人工动作的执行身份就是登录用户本人，不能代别人「确认」。
   if (batch.actor.kind === "human" && batch.actor.id !== currentUserId) {

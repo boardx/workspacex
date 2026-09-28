@@ -16,8 +16,16 @@ import {
 } from "../../application/identity/ports";
 import { actOnMemoryCard } from "../../application/knowledge-graph/act-on-memory-card";
 import { applyHumanAction } from "../../application/knowledge-graph/apply-human-action";
+import {
+  CITATION_CORRECTION_PORT, CLAIM_EXPIRY_PORT, type CitationCorrectionPort, type ClaimExpiryPort,
+} from "../../application/knowledge-graph/citation-ports";
+import { correctCitation, getCitationMetrics } from "../../application/knowledge-graph/correct-citation";
 import { undoAutoPersonalCopy } from "../../application/knowledge-graph/auto-copy-decisions";
 import { listPromotionNominations, promoteToPersonal } from "../../application/knowledge-graph/promote-to-personal";
+import { promoteToOrg } from "../../application/knowledge-graph/promote-to-org";
+import { promoteToProject } from "../../application/knowledge-graph/promote-to-project";
+import { getOrgKnowledge } from "../../application/knowledge-graph/read-org-knowledge";
+import { getProjectKnowledge } from "../../application/knowledge-graph/read-project-knowledge";
 import {
   HUMAN_ACTION_PORT, KG_AUTO_COPY_PORT, KG_DEPLOYMENT_EXTRACTION_SETTINGS_PORT, KG_EXTRACTION_MODEL_CONFIG, KG_ORG_EXTRACTION_SETTINGS_PORT, KNOWLEDGE_READ_PORT, KgHumanActionError, MEMORY_CARD_PORT, PROMOTION_PORT,
   type HumanActionPort, type KgAutoCopyPort, type KgDeploymentExtractionSettingsPort, type KgExtractionModelConfig, type KgOrgExtractionSettingsPort, type KnowledgeReadPort, type MemoryCardPort, type PromotionPort,
@@ -49,6 +57,9 @@ export class KnowledgeGraphController {
     @Inject(MEMORY_CARD_PORT) private readonly cards?: MemoryCardPort,
     /** issue #4283 撤销自动记进个人空间的决定。生产合成必定注入；只测别的接口的构造点可以不给（此时这条接口回 503）。 */
     @Inject(KG_AUTO_COPY_PORT) private readonly autoCopy?: KgAutoCopyPort,
+    /** S7（#4364）引用纠正与纠正率。生产合成必定注入；只测别的接口的构造点可以不给（此时这两条接口回 503）。 */
+    @Inject(CITATION_CORRECTION_PORT) private readonly citations?: CitationCorrectionPort,
+    @Inject(CLAIM_EXPIRY_PORT) private readonly expiry?: ClaimExpiryPort,
   ) {}
 
   private get deps(): KnowledgeReadDeps {
@@ -68,7 +79,7 @@ export class KnowledgeGraphController {
       }
       if (e instanceof KgHumanActionError) {
         const body = { reasonCode: e.code };
-        if (e.code === "KG_NOT_OWNER" || e.code === "KG_ACTOR_NOT_HUMAN" || e.code === "KG_SCOPE_NOT_PERSONAL") throw new ForbiddenException(body);
+        if (e.code === "KG_NOT_OWNER" || e.code === "KG_ACTOR_NOT_HUMAN" || e.code === "KG_SCOPE_NOT_PERSONAL" || e.code === "KG_SCOPE_NOT_PROJECT") throw new ForbiddenException(body);
         if (e.code === "KG_PROMOTE_BATCH_TOO_LARGE" || e.code === "KG_INVALID_REQUEST") throw new BadRequestException(body);
         if (e.code === "KG_REVISION_CHANGED" || e.code === "KG_CONTESTED_NEEDS_RESOLUTION" || e.code === "KG_CARD_STALE") {
           throw new ConflictException(body);
@@ -152,6 +163,52 @@ export class KnowledgeGraphController {
     ));
   }
 
+  /** 项目中枢 R8 getProjectKnowledge —— 项目大脑只读（项目成员；非成员 KG_NOT_VISIBLE 403） */
+  @Get("/knowledge-graph/projects/:projectId")
+  projectKnowledge(@CurrentPrincipal() principal: Principal, @Param("projectId") projectId: string) {
+    const parsed = KG.knowledgeGraph.getProjectKnowledge.in.safeParse({ projectId });
+    if (!parsed.success) throw new BadRequestException({ reasonCode: "KG_INVALID_REQUEST" });
+    return this.run(principal, (v) => getProjectKnowledge(this.deps, { ...v, projectId: parsed.data.projectId }));
+  }
+
+  /** 项目中枢 R7 promoteToProject —— 「记到项目大脑」（逐条部分成功；创建者或本项目引导师） */
+  @Post("/knowledge-graph/threads/:threadId/promote-to-project")
+  @HttpCode(200)
+  promoteProject(@CurrentPrincipal() principal: Principal, @Param("threadId") threadId: string, @Body() body: unknown) {
+    const raw = (body ?? {}) as { claimIds?: unknown };
+    if (Array.isArray(raw.claimIds) && raw.claimIds.length > KG.KG_PROMOTE_MAX_BATCH) {
+      throw new BadRequestException({ reasonCode: "KG_PROMOTE_BATCH_TOO_LARGE" });
+    }
+    const parsed = KG.knowledgeGraph.promoteToProject.in.safeParse({ ...(body as object), threadId });
+    if (!parsed.success) throw new BadRequestException({ reasonCode: "KG_INVALID_REQUEST" });
+    return this.run(principal, (v) => promoteToProject(
+      { ...this.deps, promotion: this.promotion, newId: newKgId },
+      { ...v, threadId, claimIds: parsed.data.claimIds, ...(parsed.data.choices ? { choices: parsed.data.choices } : {}) },
+    ));
+  }
+
+  /** B2-S4 getOrgKnowledge —— 组织大脑只读（任何组织成员；非成员 KG_NOT_VISIBLE 403） */
+  @Get("/knowledge-graph/org")
+  orgKnowledge(@CurrentPrincipal() principal: Principal) {
+    return this.run(principal, (v) => getOrgKnowledge(this.deps, v));
+  }
+
+  /** B2-S4 promoteToOrg —— 「记到组织记忆」（逐条部分成功；本组织 lead / admin，否则 KG_NOT_OWNER 403） */
+  @Post("/knowledge-graph/projects/:projectId/promote-to-org")
+  @HttpCode(200)
+  promoteOrg(@CurrentPrincipal() principal: Principal, @Param("projectId") projectId: string, @Body() body: unknown) {
+    const raw = (body ?? {}) as { claimIds?: unknown };
+    if (Array.isArray(raw.claimIds) && raw.claimIds.length > KG.KG_PROMOTE_MAX_BATCH) {
+      throw new BadRequestException({ reasonCode: "KG_PROMOTE_BATCH_TOO_LARGE" });
+    }
+    const parsed = KG.knowledgeGraph.promoteToOrg.in.safeParse({ ...(body as object), projectId });
+    if (!parsed.success) throw new BadRequestException({ reasonCode: "KG_INVALID_REQUEST" });
+    return this.run(principal, (v) => promoteToOrg(
+      { ...this.deps, promotion: this.promotion, newId: newKgId },
+      { ...v, projectId: parsed.data.projectId, claimIds: parsed.data.claimIds, ...(parsed.data.choices ? { choices: parsed.data.choices } : {}) },
+    ));
+  }
+
   /** UC-KG-6 listPromotionNominations —— AI 只提名，不执行 */
   @Get("/knowledge-graph/threads/:threadId/nominations")
   nominations(@CurrentPrincipal() principal: Principal, @Param("threadId") threadId: string) {
@@ -170,6 +227,36 @@ export class KnowledgeGraphController {
       { ...this.deps, autoCopy, newId: newKgId },
       { ...v, actorKind: "human", threadId: parsed.data.threadId, claimId: parsed.data.claimId },
     ));
+  }
+
+  /** S7（#4364）correctCitation —— 回答下引用 chip 上的「这条不对」/「已过时」（人的动作，只给所有者兼提问人） */
+  @Post("/knowledge-graph/threads/:threadId/messages/:messageId/citations/:claimId/correction")
+  @HttpCode(200)
+  citationCorrection(
+    @CurrentPrincipal() principal: Principal,
+    @Param("threadId") threadId: string,
+    @Param("messageId") messageId: string,
+    @Param("claimId") claimId: string,
+    @Body() body: unknown,
+  ) {
+    const parsed = KG.knowledgeGraph.correctCitation.in.safeParse({ ...(body as object), threadId, messageId, claimId });
+    if (!parsed.success) throw new BadRequestException({ reasonCode: "KG_INVALID_REQUEST" });
+    const corrections = this.citations;
+    const expiry = this.expiry;
+    if (corrections === undefined || expiry === undefined) throw new ServiceUnavailableException("citation_corrections_unavailable");
+    const { kind, replacement } = parsed.data;
+    return this.run(principal, (v) => correctCitation(
+      { ...this.deps, corrections, expiry, newId: newKgId },
+      { ...v, threadId, messageId, claimId, kind, ...(replacement !== undefined ? { replacement } : {}) },
+    ));
+  }
+
+  /** S7（#4364）getCitationMetrics —— 本人的引用纠正率（质量信号） */
+  @Get("/knowledge-graph/me/citation-metrics")
+  citationMetrics(@CurrentPrincipal() principal: Principal) {
+    const corrections = this.citations;
+    if (corrections === undefined) throw new ServiceUnavailableException("citation_corrections_unavailable");
+    return this.run(principal, (v) => getCitationMetrics({ ...this.deps, corrections }, v));
   }
 
   /** UC-KG-12 actOnMemoryCard —— 对「记住 / 忘掉」确认卡做决定（人的动作：接口只接受人类会话，I-15 / I-17） */

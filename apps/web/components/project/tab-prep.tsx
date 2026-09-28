@@ -6,9 +6,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { SectionTitle, StatChip, ObserverNotice } from "./parts";
 import {
-  AGENDA, BLUEPRINT_CATALOG, PROJECT_ROLE_LABEL,
   ROLE_CAN_WRITE, ROLE_STAGE_CONTROL, ROLE_GROUP_SUBMIT, observerHidden, type ProjectRole,
-} from "@/lib/mock/project";
+} from "@/lib/project-workbench";
 import { ApiError } from "@/lib/api-client";
 import {
   createAgendaSegment, AGENDA_SEGMENT_STATE_LABEL,
@@ -92,7 +91,6 @@ export function TabPrep({
 }) {
   const canWrite = ROLE_CAN_WRITE[view] && !readOnly;
   const isObserver = observerHidden(view);
-  const roleKeys: ProjectRole[] = ["facilitator", "groupLead", "member"];
   // agendaSegment.create / 定题 / 分组编排三者都**只属引导师**——复用既有的「全场控制」
   // 投影（同 `project-workbench.tsx` 对 `ROLE_STAGE_CONTROL` 的用法），不为定题/分组
   // 各自新造一份角色判据：后端 `canSaveTopic`/`canUpdateGrouping` 恰好也都是
@@ -151,24 +149,16 @@ export function TabPrep({
       {/* 议程环节 · 三角色分工表（只读骨架，四视角都可见） */}
       <section>
         <SectionTitle meta="编排一次，三套视图与待办自动生成">议程 · 每个环节三种角色各做什么</SectionTitle>
+        {/* 三角色分工此前渲染 `lib/mock/project.ts` 的虚构 AGENDA（现状共识 / 假设风暴 / 分组共创），
+            所有项目一样；契约 `agenda_segments` 只有标题与状态、没有分角色职责字段，故如实空态。 */}
         <Card>
-          <div className="grid grid-cols-[auto_repeat(3,1fr)] gap-x-3 gap-y-0 p-1 text-11" data-testid="project-prep-agenda">
-            <div className="border-b border-border px-2.5 py-2 text-10 font-medium uppercase tracking-wide text-muted-foreground">环节</div>
-            {roleKeys.map((r) => (
-              <div key={r} className="border-b border-border px-2.5 py-2 text-10 font-medium uppercase tracking-wide text-muted-foreground">{PROJECT_ROLE_LABEL[r]}</div>
-            ))}
-            {AGENDA.map((seg) => (
-              <RowGroup key={seg.no} seg={seg} roleKeys={roleKeys} />
-            ))}
-          </div>
+          <p className="p-4 text-11 leading-relaxed text-muted-foreground" data-testid="project-prep-agenda-roles-empty">
+            环节的三角色分工尚未建模——议程环节目前只有标题与状态（见上方真实议程列表）。
+          </p>
         </Card>
-        <p className="mt-2 px-1 text-10 text-muted-foreground">
-          每一格都会变成对应角色的一条待办，同步到「待办」看板里；组长切换环节状态后，三种视角的首屏立刻跟着换。
-        </p>
         {canWrite && (
           <div className="mt-2 flex flex-col gap-1.5">
             <div className="flex flex-wrap gap-2">
-              <Button size="sm" variant="outline" data-testid="project-prep-edit-agenda">去议程里细调</Button>
               <SaveAsOrgTemplateAction
                 projectId={projectId}
                 testIdPrefix="project-prep-save-template"
@@ -261,9 +251,6 @@ function TopicBlock({
             <p className="text-11 text-muted-foreground" data-testid="project-prep-topic-background">{topic.background}</p>
           )}
           <div className="flex flex-wrap items-center gap-2">
-            <StatChip tone="success">已套用蓝本 {BLUEPRINT_CATALOG[0]?.name}</StatChip>
-            <StatChip>{BLUEPRINT_CATALOG[0]?.meta}</StatChip>
-            <span className="text-10 text-muted-foreground">工作坊模板骨架 · 环节字段名已定为 agenda_segment（D-03a）</span>
             {canWrite && topic !== null && (
               <Button size="xs" variant="outline" onClick={startEdit} data-testid="project-prep-topic-edit">编辑</Button>
             )}
@@ -698,7 +685,7 @@ function GroupingBlock({
                     </StatChip>
                   </div>
                   <Row k="组长" v={g.leaderUserId !== null ? nameOf(g.leaderUserId) : "未指派"} />
-                  {/* ⚠ 原型（`uc-2-2-prep-default.png` / `mock/project.ts` 的 `members: "3 人"`）
+                  {/* ⚠ 原型（`uc-2-2-prep-default.png` / 已删除的 `mock/project.ts` 的 `members: "3 人"`）
                       这一行是人数，不是姓名清单——F950 当时写成姓名拼接是自由发挥，
                       F961 按已签原型收回。姓名在编辑态的勾选框里仍逐个可见，信息没丢。 */}
                   <Row k="组员" v={`${g.memberUserIds.length} 人`} />
@@ -999,26 +986,6 @@ function describeCreateError(error: unknown): string {
   }
   if (error instanceof Error) return error.message;
   return "未知错误";
-}
-
-function RowGroup({ seg, roleKeys }: { seg: typeof AGENDA[number]; roleKeys: ProjectRole[] }) {
-  return (
-    <>
-      <div className={`px-2.5 py-2.5 ${seg.current ? "bg-panel" : ""}`} data-testid={`agenda-segment-${seg.no}`}>
-        <div className="flex items-center gap-1.5">
-          <span className="font-mono text-10 text-muted-foreground">{seg.no}</span>
-          <span className="font-medium">{seg.title}</span>
-          {seg.current && <StatChip tone="ai">当前</StatChip>}
-        </div>
-        <div className="mt-0.5 text-10 text-muted-foreground">{seg.meta}</div>
-      </div>
-      {roleKeys.map((r) => (
-        <div key={r} className={`px-2.5 py-2.5 text-muted-foreground ${seg.current ? "bg-panel" : ""}`}>
-          {seg.roles[r as keyof typeof seg.roles]}
-        </div>
-      ))}
-    </>
-  );
 }
 
 function Row({ k, v }: { k: string; v: string }) {

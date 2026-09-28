@@ -77,12 +77,38 @@ test("fabric surface viewport", async ({ page, request: api }) => {
   const canvas = page.getByTestId("board-fabric-canvas");
   await expect(surface).toBeVisible();
   await expect(canvas).toBeVisible();
-  const bounds = await surface.boundingBox();
-  expect(bounds).not.toBeNull();
-  expect(bounds!.x).toBeLessThanOrEqual(1);
-  expect(bounds!.y).toBeLessThanOrEqual(1);
-  expect(bounds!.x + bounds!.width).toBeGreaterThanOrEqual(1279);
-  expect(bounds!.y + bounds!.height).toBeGreaterThanOrEqual(799);
+  const assertViewportBounds = async () => {
+    const bounds = await surface.boundingBox();
+    expect(bounds).not.toBeNull();
+    // Fullscreen belongs to the Board shell, including its visible sync/recovery
+    // status. Fabric fills the remaining editor region, not the status banner.
+    // Measure every boundary; a hardcoded banner allowance could hide app chrome.
+    const region = page.getByTestId("board-editor-region");
+    const shellBounds = await region.locator("..").boundingBox();
+    const regionBounds = await region.boundingBox();
+    const bannerBounds = await page.getByTestId("board-sync-banner").boundingBox();
+    const viewport = page.viewportSize()!;
+    expect(shellBounds).not.toBeNull();
+    expect(regionBounds).not.toBeNull();
+    expect(bannerBounds).not.toBeNull();
+    for (const [actual, expected] of [
+      [shellBounds!.x, 0], [shellBounds!.y, 0],
+      [shellBounds!.width, viewport.width], [shellBounds!.height, viewport.height],
+      [bannerBounds!.x, 0], [bannerBounds!.y, 0], [bannerBounds!.width, viewport.width],
+      [regionBounds!.x, 0], [regionBounds!.width, viewport.width],
+      [regionBounds!.y, bannerBounds!.y + bannerBounds!.height],
+      [regionBounds!.y + regionBounds!.height, viewport.height],
+      [bounds!.x, regionBounds!.x], [bounds!.y, regionBounds!.y],
+      [bounds!.width, regionBounds!.width], [bounds!.height, regionBounds!.height],
+    ]) expect(Math.abs(actual! - expected!)).toBeLessThanOrEqual(1);
+    expect(regionBounds!.height).toBeGreaterThan(0);
+    expect(bannerBounds!.height).toBeGreaterThan(0);
+  };
+  await expect(assertViewportBounds).toPass({timeout: 5000});
+  await page.setViewportSize({width: 1024, height: 768});
+  await expect(assertViewportBounds).toPass({timeout: 5000});
+  await page.setViewportSize({width: 1280, height: 800});
+  await expect(assertViewportBounds).toPass({timeout: 5000});
 
   await expect(page.locator('[data-testid^="whiteboard-object-"]')).toHaveCount(0);
   const mirror = page.getByTestId("board-a11y-mirror");
@@ -127,4 +153,94 @@ test("fabric surface viewport", async ({ page, request: api }) => {
   await page.mouse.up();
   const afterPan = await canvas.screenshot();
   expect(afterPan.equals(beforePan)).toBe(false);
+});
+
+test("selected object inspector adapts to each widget and a narrow editor", async ({ page, request: api }, testInfo) => {
+  await page.setViewportSize({ width: 1280, height: 800 });
+  const token = await login(page);
+  const created = await apiRequest(api, token, "POST", "/whiteboards", { requestId: randomUUID(), name: `Selected inspector ${randomUUID()}` });
+  const board = await created.json() as { id: string; lifecycleRevision: number };
+  boardToArchive = { id: board.id, token, lifecycleRevision: board.lifecycleRevision };
+  await page.goto(`/studio/board/${board.id}`);
+  await expect(page.getByText(/^已同步$/)).toBeVisible({ timeout: 30_000 });
+
+  const editor = page.getByTestId("collaborative-editor");
+  const inspector = page.getByTestId("board-context-toolbar");
+  const capture = async (name: string) => page.screenshot({ path: testInfo.outputPath(`${name}.png`), fullPage: false });
+  const latestObject = () => page.locator('[data-testid="board-a11y-mirror"] li[data-object-id]').last();
+  const selectLatestAndExpand = async () => {
+    const object = latestObject();
+    await object.getByRole("button").focus();
+    await page.keyboard.press("Enter");
+    await expect(inspector).toBeVisible();
+    if (await page.getByTestId("board-inspector-expand").count()) await page.getByTestId("board-inspector-expand").click();
+    await expect(inspector).toHaveAttribute("data-expanded", "true");
+    return object;
+  };
+
+  await page.getByTestId("board-add-sticky").click();
+  await selectLatestAndExpand();
+  await expect(inspector).toContainText("便利贴");
+  await expect(page.getByTestId("board-sticky-size-presets")).toBeVisible();
+  await capture("selected-sticky-inspector");
+  await page.getByTestId("board-inspector-close").click();
+
+  await page.getByTestId("board-add-shape").click();
+  await selectLatestAndExpand();
+  await expect(inspector).toContainText("形状");
+  await expect(page.getByTestId("board-shape-properties")).toBeVisible();
+  await expect(page.getByLabel("形状填充色")).toBeVisible();
+  await capture("selected-shape-inspector");
+  await page.getByTestId("board-inspector-close").click();
+
+  await page.getByTestId("board-add-text").click();
+  await page.keyboard.press("Escape");
+  await selectLatestAndExpand();
+  await expect(inspector).toContainText("文字");
+  await expect(page.getByTestId("board-widget-content-actions")).toBeVisible();
+  await expect(page.getByRole("button", { name: "编辑文字" })).toBeVisible();
+  await capture("selected-text-inspector");
+  await page.getByTestId("board-inspector-close").click();
+
+  await page.getByTestId("board-add-image").click();
+  const png = await page.screenshot({ clip: { x: 0, y: 0, width: 32, height: 32 } });
+  await page.getByTestId("board-image-input").setInputFiles({ name: "inspector.png", mimeType: "image/png", buffer: png });
+  await expect(page.getByText(/图片已在当前浏览器会话中验证并显示/)).toBeVisible({ timeout: 15_000 });
+  await selectLatestAndExpand();
+  await expect(inspector).toContainText("图片");
+  await expect(page.getByTestId("board-image-properties")).toBeVisible();
+  await expect(page.getByLabel("图片裁剪宽度")).toBeVisible();
+  await capture("selected-image-inspector");
+  await page.getByTestId("board-inspector-close").click();
+
+  await page.getByTestId("board-add-panel").click();
+  await expect(inspector).toBeVisible();
+  if (await page.getByTestId("board-inspector-expand").count()) {
+    await page.getByTestId("board-inspector-expand").click();
+  }
+  await expect(page.getByTestId("board-frame-size-presets")).toBeVisible();
+  await capture("selected-frame-inspector");
+
+  await page.setViewportSize({ width: 390, height: 844 });
+  await expect(inspector).toHaveAttribute("data-expanded", "true");
+  const editorBox = await editor.boundingBox();
+  const panelBox = await inspector.boundingBox();
+  expect(editorBox).not.toBeNull();
+  expect(panelBox).not.toBeNull();
+  expect(panelBox!.x).toBeGreaterThanOrEqual(editorBox!.x);
+  expect(panelBox!.y).toBeGreaterThanOrEqual(editorBox!.y);
+  expect(panelBox!.x + panelBox!.width).toBeLessThanOrEqual(editorBox!.x + editorBox!.width + 1);
+  expect(panelBox!.y + panelBox!.height).toBeLessThanOrEqual(editorBox!.y + editorBox!.height + 1);
+  const widthResizer = page.getByTestId("board-inspector-resize");
+  const heightResizer = page.getByTestId("board-inspector-resize-height");
+  const previousWidth = Number(await widthResizer.getAttribute("aria-valuenow"));
+  await widthResizer.focus();
+  await page.keyboard.press("ArrowLeft");
+  await expect(widthResizer).toHaveAttribute("aria-valuenow", String(previousWidth - 24));
+  const previousHeight = Number(await heightResizer.getAttribute("aria-valuenow"));
+  await heightResizer.focus();
+  await page.keyboard.press("ArrowDown");
+  await expect(heightResizer).toHaveAttribute("aria-valuenow", String(previousHeight - 24));
+  await expect(page.getByTestId("board-inspector-scroll-content")).toBeVisible();
+  await capture("selected-inspector-narrow");
 });

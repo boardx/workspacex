@@ -4,7 +4,7 @@ import { ChevronDown, Copy } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { SectionTitle, StatChip } from "./parts";
-import { ROLE_STAGE_CONTROL, observerHidden, type ProjectRole } from "@/lib/mock/project";
+import { ROLE_STAGE_CONTROL, observerHidden, type ProjectRole } from "@/lib/project-workbench";
 import { ApiError } from "@/lib/api-client";
 import {
   advanceAgendaSegment,

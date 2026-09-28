@@ -23,6 +23,7 @@ it("edits canonical Panel properties and enforces mutually exclusive layout cont
   render(<CollaborativeThinkingEditor boardId="board" clientId="web" doc={doc} readOnly={false} title="Board" status="已连接" />);
   fireEvent.click(screen.getByTestId("select-panel"));
   expect(screen.queryByTestId("board-shared-properties")).toBeNull();
+  fireEvent.click(screen.getByTestId("board-inspector-expand"));
   fireEvent.click(screen.getByRole("button", { name: "更多操作" }));
   fireEvent.click(screen.getByRole("button", { name: "精确属性" }));
   expect(screen.getByTestId("board-panel-properties")).toBeVisible();
@@ -38,6 +39,7 @@ it("shows relationship-specific fields and disables precise edits after locking"
   render(<CollaborativeThinkingEditor boardId="board" clientId="web" doc={doc} readOnly={false} title="Board" status="已连接" />);
   fireEvent.click(screen.getByTestId("select-edge"));
   expect(screen.queryByTestId("board-shared-properties")).toBeNull();
+  fireEvent.click(screen.getByTestId("board-inspector-expand"));
   fireEvent.click(screen.getByRole("button", { name: "更多操作" }));
   fireEvent.click(screen.getByRole("button", { name: "精确属性" }));
   expect(screen.getByTestId("board-connector-properties")).toBeVisible();

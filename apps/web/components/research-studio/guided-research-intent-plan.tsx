@@ -44,7 +44,7 @@ export function GuidedResearchIntentPlan({ initialIntent, initialPolicy, revisio
       <Button className="md:col-span-2" disabled={disabled || !decision.trim() || successCriteria.length === 0 || invalidPolicy || invalidTimeframe} onClick={() => onConfirm({
         expectedRevision: revision,
         intent: { decision: decision.trim(), audience: audience.trim(), timeframe: { ...(timeFrom.trim() ? { from: timeFrom.trim() } : {}), ...(timeTo.trim() ? { to: timeTo.trim() } : {}) }, deliverable: deliverable.trim(), successCriteria },
-        sourcePolicy: { mode, domains: domainList, internalSourceIds: [], revision: (initialPolicy?.revision ?? 0) + 1 },
+        sourcePolicy: { mode, domains: domainList, internalSourceIds: initialPolicy?.internalSourceIds ?? [], revision: (initialPolicy?.revision ?? 0) + 1 },
       })}>确认研究边界</Button>
     </CardContent>
   </Card>;

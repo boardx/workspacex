@@ -14,6 +14,7 @@ const HUMAN_ACTION_FAILURE_ZH: Record<KnowledgeGraphErrorCode, string> = {
   KG_THREAD_NOT_FOUND: "这条对话不存在或已被删除。",
   KG_NOT_VISIBLE: "你没有这条对话的访问权限。",
   KG_NOT_OWNER: "只有对话的创建者可以修改这里的记忆。",
+  KG_SCOPE_NOT_PROJECT: "只有项目里的对话才能记到项目大脑。",
   KG_REVISION_CHANGED: "内容已变化，已为你刷新到最新，请再操作一次。",
   KG_CLAIM_NOT_FOUND: "这一条已经不在了，已为你刷新列表。",
   KG_OBJECT_NOT_FOUND: "相关的人和事已经不在了，已为你刷新列表。",
@@ -30,6 +31,12 @@ const HUMAN_ACTION_FAILURE_ZH: Record<KnowledgeGraphErrorCode, string> = {
   // issue #4178：`setKnowledgeExtractionSetting` 专属码，人的编辑动作（applyHumanAction 等）从不
   // 返回它——这里只是让 Record<KgErrorCode, string> 保持穷举（漏配一个编译就不过）。
   KG_NOT_ORG_ADMIN: "只有组织管理员可以修改这项设置。",
+  // S8（#4365）：记忆整合的两个码，人的编辑动作从不返回它们——同上，只为穷举。
+  KG_CONSOLIDATION_RUN_NOT_FOUND: "这次整理已经撤销过了（或已不存在）。",
+  KG_CONSOLIDATION_DISABLED: "记忆整合开关关着，先打开再整合。",
+  // S10（#4367）「分享到项目…」专属码（同上：保持 Record<KgErrorCode, string> 穷举）。
+  KG_PROJECT_NOT_FOUND: "你不在这个项目里（或项目已不存在），没法分享到这里。",
+  KG_PROJECT_READ_ONLY: "你在这个项目里只能查看（或项目已归档），没法分享进去。",
 };
 
 /** 失败后应当重读面板的码：服务端状态已与界面不一致。 */

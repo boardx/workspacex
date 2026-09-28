@@ -54,11 +54,11 @@ describe("compact research sources", () => {
     const next = { ...state, version: state.version + 1, sources: [...state.sources, { ...source, id: "new", url: "https://example.org/new", title: "New source", decision: "accepted" as const }] };
     vi.mocked(executeResearchRuntime).mockResolvedValue(next);
     render(<GuidedResearchLive sessionId={state.sessionId} onBack={vi.fn()} />);
-    await screen.findByRole("link", { name: source.title });
+    for (const link of await screen.findAllByRole("link", { name: source.title })) expect(link).toHaveAttribute("href", source.url);
     fireEvent.click(screen.getByRole("button", { name: "添加来源" }));
     fireEvent.change(screen.getByLabelText("来源链接"), { target: { value: "https://example.org/new" } });
     fireEvent.click(screen.getByRole("button", { name: "添加" }));
-    await screen.findByRole("link", { name: "New source" });
+    for (const link of await screen.findAllByRole("link", { name: "New source" })) expect(link).toHaveAttribute("href", "https://example.org/new");
     expect(executeResearchRuntime).toHaveBeenCalledWith(expect.objectContaining({ action: "add_source", sourceUrl: "https://example.org/new", expectedVersion: state.version }));
     fireEvent.click(screen.getByRole("button", { name: "确认并继续" }));
     await waitFor(() => expect(vi.mocked(executeResearchRuntime).mock.calls.at(-1)?.[0]).toEqual(expect.objectContaining({ action: "complete", expectedVersion: next.version, draft: { node: "research", value: [{ id: source.id, decision: "accepted" }, { id: "new", decision: "accepted" }] } })));

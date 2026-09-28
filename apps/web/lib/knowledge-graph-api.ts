@@ -67,7 +67,7 @@ export function knowledgeGraphErrorCode(e: unknown): KnowledgeGraphErrorCode | n
   return e instanceof KnowledgeGraphError ? e.code : toKnowledgeGraphError(e).code;
 }
 
-async function getParsed<T>(
+export async function getParsed<T>(
   path: string,
   schema: z.ZodType<T>,
   signal?: AbortSignal,
@@ -85,6 +85,18 @@ async function getParsed<T>(
 }
 
 const seg = (v: string): string => encodeURIComponent(v);
+
+/** 项目中枢 R8：项目大脑（项目记忆 L2）。非成员 403 `KG_NOT_VISIBLE`。 */
+export type ProjectKnowledge = z.infer<typeof knowledgeGraph.getProjectKnowledge.out>;
+export function fetchProjectKnowledge(projectId: string, signal?: AbortSignal): Promise<ProjectKnowledge> {
+  return getParsed(`/knowledge-graph/projects/${seg(projectId)}`, knowledgeGraph.getProjectKnowledge.out, signal);
+}
+
+/** B2-S4：组织大脑（组织记忆 L3）。任何组织成员可读；外人 403 `KG_NOT_VISIBLE`。 */
+export type OrgKnowledge = z.infer<typeof knowledgeGraph.getOrgKnowledge.out>;
+export function fetchOrgKnowledge(signal?: AbortSignal): Promise<OrgKnowledge> {
+  return getParsed("/knowledge-graph/org", knowledgeGraph.getOrgKnowledge.out, signal);
+}
 
 export function fetchThreadKnowledge(threadId: string, signal?: AbortSignal): Promise<ThreadKnowledge> {
   return getParsed(`/knowledge-graph/threads/${seg(threadId)}`, knowledgeGraph.getThreadKnowledge.out, signal);
@@ -173,6 +185,50 @@ export function promoteToPersonal(
   );
 }
 
+/**
+ * 项目中枢 R7：记到项目大脑（L0 → L2）。与 `promoteToPersonal` 同一套逐条结果形状；
+ * 服务端只放行线程创建者或本项目引导师（`KG_NOT_OWNER`），个人线程 `KG_SCOPE_NOT_PROJECT`。
+ */
+export function promoteToProject(
+  threadId: string,
+  claimIds: readonly string[],
+  choices?: readonly PromotionChoice[],
+): Promise<PromotionResults> {
+  const input = knowledgeGraph.promoteToProject.in.parse({
+    threadId,
+    claimIds: [...claimIds],
+    ...(choices && choices.length > 0 ? { choices: [...choices] } : {}),
+  });
+  return getParsed(
+    `/knowledge-graph/threads/${seg(threadId)}/promote-to-project`,
+    knowledgeGraph.promoteToProject.out,
+    undefined,
+    { method: "POST", body: { claimIds: input.claimIds, ...(input.choices ? { choices: input.choices } : {}) } },
+  );
+}
+
+/**
+ * B2-S4：记到组织记忆（L2 → L3）。`claimIds` 是项目大脑（`getProjectKnowledge.claims`）里的 id；与 `promoteToProject`
+ * 同一套逐条结果形状。服务端只放行本组织 lead / admin（`KG_NOT_OWNER`）。
+ */
+export function promoteToOrg(
+  projectId: string,
+  claimIds: readonly string[],
+  choices?: readonly PromotionChoice[],
+): Promise<PromotionResults> {
+  const input = knowledgeGraph.promoteToOrg.in.parse({
+    projectId,
+    claimIds: [...claimIds],
+    ...(choices && choices.length > 0 ? { choices: [...choices] } : {}),
+  });
+  return getParsed(
+    `/knowledge-graph/projects/${seg(projectId)}/promote-to-org`,
+    knowledgeGraph.promoteToOrg.out,
+    undefined,
+    { method: "POST", body: { claimIds: input.claimIds, ...(input.choices ? { choices: input.choices } : {}) } },
+  );
+}
+
 /** UC-KG-6：AI 提名「值得记住」的条目。只读——提名本身不改任何东西，记不记由人点。 */
 export function listPromotionNominations(threadId: string, signal?: AbortSignal): Promise<PromotionNominations> {
   return getParsed(
@@ -224,4 +280,37 @@ export function fetchPersonalKnowledge(signal?: AbortSignal): Promise<PersonalKn
 /** 大脑页概况：本人记下了东西的对话（每个一行计数）+ 长期记忆里每条来自哪个对话。 */
 export function fetchBrainOverview(signal?: AbortSignal): Promise<BrainOverview> {
   return getParsed("/knowledge-graph/me/overview", knowledgeGraph.getBrainOverview.out, signal);
+}
+
+/* ── S7（#4364）：回答下引用 chip 上的当场纠正 + 纠正率 ───────────────────────── */
+
+export type CitationCorrection = z.infer<typeof knowledgeGraph.correctCitation.out>;
+export type CitationCorrectionKind = z.infer<typeof knowledgeGraph.correctCitation.in>["kind"];
+export type CitationMetrics = z.infer<typeof knowledgeGraph.getCitationMetrics.out>;
+
+/**
+ * 「这条不对」（`wrong`，可带新说法 ⇒ 取代）/「已过时」（`expired`）。只有对话所有者、且是这一轮的提问人能做；
+ * 不是这一轮的引用 ⇒ `KG_CLAIM_NOT_FOUND`。
+ */
+export function correctCitation(
+  threadId: string,
+  messageId: string,
+  claimId: string,
+  kind: CitationCorrectionKind,
+  replacement?: string,
+): Promise<CitationCorrection> {
+  const input = knowledgeGraph.correctCitation.in.parse({
+    threadId, messageId, claimId, kind, ...(replacement !== undefined ? { replacement } : {}),
+  });
+  return getParsed(
+    `/knowledge-graph/threads/${seg(input.threadId)}/messages/${seg(input.messageId)}/citations/${seg(input.claimId)}/correction`,
+    knowledgeGraph.correctCitation.out,
+    undefined,
+    { method: "POST", body: { kind: input.kind, ...(input.replacement !== undefined ? { replacement: input.replacement } : {}) } },
+  );
+}
+
+/** 本人的引用纠正率（质量信号）。 */
+export function fetchCitationMetrics(signal?: AbortSignal): Promise<CitationMetrics> {
+  return getParsed("/knowledge-graph/me/citation-metrics", knowledgeGraph.getCitationMetrics.out, signal);
 }
