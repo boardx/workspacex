@@ -113,6 +113,7 @@ test('Visual Research: valid screenshot in one paste mixed with Sticky/Text/Arro
   const token = await boardLogin(page), id = await createAcceptanceBoard(request, token, 'Acceptance visual research');
   try {
     await openBoard(page, id, 0);
+    await page.context().grantPermissions(['clipboard-read', 'clipboard-write']);
     await page.evaluate(async () => {
       const canvas = document.createElement('canvas'); canvas.width = 64; canvas.height = 48;
       const context = canvas.getContext('2d')!; context.fillStyle = '#f8d76e'; context.fillRect(0, 0, 64, 48);
