@@ -14,11 +14,11 @@
 
 ## 2. 当前执行投影（2026-09-28 13:10 CST）
 
-最新 `origin/main` 为 `a6c770dc3`；候选分支已确认包含该提交。加入完整 12-lane CI 映射并修复跨进程导入证据哈希后的本地候选为 `16277e641`。R1–R7 的产品链路与大部分 R8–R10 实现已经汇入候选，正式 `feature_list.json` 状态仍由 harness 门控维护，本图不替代该权威状态。
+最新 `origin/main` 为 `a6c770dc3`；候选分支已确认包含该提交。加入完整 12-lane CI 映射、跨进程导入证据确定化、性能诊断和 service actor 安全边界后的本地候选为 `cfb3e8495`。R1–R7 的产品链路与大部分 R8–R10 实现已经汇入候选，正式 `feature_list.json` 状态仍由 harness 门控维护，本图不替代该权威状态。
 
 当前候选已加入：Fabric 触摸/笔压与双指缩放反证、文件/对象存储与 PG 元数据边界、流式导入扫描和取消、短期资源授权、12 条非空验收通道、Agent API/Undo、协作与会议室验收生产器。已通过的局部证据包括 contracts 1017 项、whiteboard-core 156 项、whiteboard 669 项、R8 安全实现 682 项，以及真实 Chromium Fabric 触控探针。合入后的统一 SHA 仍须重新跑完整门禁，因此这些局部通过不等于最终批准。
 
-当前确定的阻塞是：性能 producer 在启动阶段返回 `REAL_PRODUCER_FAILED`，尚未进入测试用例；真实 Miro/Mural 导入需要外部脱敏导出样本；真实模型验收需要批准向既有 DashScope endpoint 发送纯虚构测试数据；service actor 的两张新表、RLS 和 `app_rw` 权限需要明确批准；物理触摸屏、压力笔、会议室硬件和独立视觉评分需要人工环境。PR [#4524](https://github.com/boardx/workspacex/pull/4524) 尚未更新到当前候选 SHA，也没有最终 CI 证据。GitHub workflow 已补齐 `import` 与 `api-ws-objectstore`，9 个 jobs 现在无重复覆盖 canonical 12 lanes。
+当前确定的阻塞是：性能 producer 的交互与错误分类已修复，1k 真测已越过拖拽、文本同步和多选，但在布局/Undo 后续阶段持续高 CPU，尚未完成；真实 Miro/Mural 导入需要外部脱敏导出样本；真实模型验收需要批准向既有 DashScope endpoint 发送纯虚构测试数据；service actor 的两张新表、RLS 和 `app_rw` 权限需要明确批准；物理触摸屏、压力笔、会议室硬件和独立视觉评分需要人工环境。PR [#4524](https://github.com/boardx/workspacex/pull/4524) 尚未更新到当前候选 SHA，也没有最终 CI 证据。GitHub workflow 已补齐 `import` 与 `api-ws-objectstore`，9 个 jobs 现在无重复覆盖 canonical 12 lanes。
 
 在外部样本、授权和物理设备都可及时提供的条件下，滚动预测为 **3–6 个工作日**：候选修复与静态/单元门 0.5–1 日，浏览器和长时压力门 1–2 日，CI/返修 1–2 日，人工与设备复核 0.5–1 日。若缺少真实厂商样本或物理设备，只能先交付“人类测试版”，不能声明“全部验收通过”。
 
@@ -135,7 +135,7 @@ flowchart TD
   class F todo
 ```
 
-%% evidence E: candidate `16277e641`; API whiteboard 70 files / 683 tests；contracts 1017；whiteboard-core 156；真实 Chromium Fabric 触控探针通过
+%% evidence E: candidate `cfb3e8495`; API whiteboard 70 files / 683 tests；contracts 1017；whiteboard-core 156；真实 Chromium Fabric 触控探针通过
 %% blocked M: canonical 导入与合成 schema 测试已存在；最终门仍需要真实、脱敏且独立盘点的 Miro 与 Mural 导出 manifest
 
 这是一张目标工作流，不是替代 BV 依赖的执行 DAG。R1 可提前冻结端口并做存储/协作设计；正式存储、导入等实现仍满足既有 BV 依赖。确需风险前移时先拆分 feature 或审查依赖变更，不静默提前认领。R7/R8 的 a/b 表示前置基础与最终接入两个交付面，不重复计算完成。
@@ -151,9 +151,9 @@ flowchart TD
 | R5 空间与关系 | 🟢 实现进入候选，统一SHA终验待跑 | Panel Freeform/Grid/Flow、嵌套、拖入高亮、parentId、Auto Expand/Clip、删除保留内容、复制子图；Group/Layer/Lock；Connector handles/routes/tips/styles/label/semanticRelation | 移动Panel带子对象，resize不强制缩放；连接随端点移动；断点/删除行为确定；锁定不能经批量路径修改 |
 | R6 编辑与组织 | 🟢 实现进入候选；🟡 性能交互返修中 | 单/多/框选；Alt拖复制、Cmd/Ctrl+D及完整快捷键；浮动/精确属性面板；Align/Distribute/Grid/Row/Column/Tidy/Snap/Guides；Smart Layout预览 | 多选混合值正确；复制内部引用；整理保序；取消布局零写入；一次布局一次Undo；远端变化不被覆盖 |
 | R7 团队可靠性 | 🟢 实现进入候选，50人长测待跑 | 光标/头像/选区/编辑状态；Comment/Reply/Mention/Resolve；所有操作的多人Undo/Redo、认证恢复、离线重放 | 两会话字段收敛；仅撤销本人的允许动作；AI/布局/上传等批量操作可整体撤销；断网/撤权/崩溃不丢已ACK内容 |
-| R8 存储与迁移 | 🟡 存储真测4用例已过、证据哈希已修；🔴真实样本待提供 | 文件/对象正文+PG元数据；在线迁移、retention/GC、联合备份恢复；Miro/Mural导入、标准导出 | 原子指针与ACK；copy/backup roots安全；PG正文不线性增长；三块真实迁移板逐项报告、幂等、布局/关系可核对 |
-| R9 人与AI及会议室 | 🟡 service actor与真实模型证据进行中 | 版本化API/Event订阅；AI生成/聚类/排版proposal与确认；Chat Mermaid/Fabric原布局插入；人/AI身份；presenter跟随/退出、触摸屏 | Agent与UI同权限/命令；AI操作一键撤销；Chat三类图layout hash一致；会议室长时跟随不回退；自托管/API示例可运行 |
-| R10 总验收 | 🟡 12 lanes已可执行，性能producer返修中 | 六旅程、六体验指标、1k/5k/10k、50浏览器长时、安全、键盘/读屏/触摸/400% reflow、恢复 | 同一集成SHA证据齐全，所有P0/P1细项有断言；独立review、CI和仓库完成定义通过后才评九分 |
+| R8 存储与迁移 | 🟡 确定性哈希已修；当前真测3/4通过、末项超时待复跑；🔴真实样本待提供 | 文件/对象正文+PG元数据；在线迁移、retention/GC、联合备份恢复；Miro/Mural导入、标准导出 | 原子指针与ACK；copy/backup roots安全；PG正文不线性增长；三块真实迁移板逐项报告、幂等、布局/关系可核对 |
+| R9 人与AI及会议室 | 🟡 service actor契约/应用边界已合入且25测通过；🔴生产持久化和真实模型待授权 | 版本化API/Event订阅；AI生成/聚类/排版proposal与确认；Chat Mermaid/Fabric原布局插入；人/AI身份；presenter跟随/退出、触摸屏 | Agent与UI同权限/命令；AI操作一键撤销；Chat三类图layout hash一致；会议室长时跟随不回退；自托管/API示例可运行 |
+| R10 总验收 | 🟡 12 lanes已可执行；性能已进入真实用例但高CPU未完成 | 六旅程、六体验指标、1k/5k/10k、50浏览器长时、安全、键盘/读屏/触摸/400% reflow、恢复 | 同一集成SHA证据齐全，所有P0/P1细项有断言；独立review、CI和仓库完成定义通过后才评九分 |
 
 本表补齐的细项不自动成为已生效验收命令。特别是 Draw 压感/工具、Image 编辑、Text 样式、Panel 生命周期等，须补契约与测试，不能仅挂到一个已有大标题下就标覆盖。
 
