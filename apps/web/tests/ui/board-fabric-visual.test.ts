@@ -16,11 +16,12 @@ describe('Board visual presentation',()=>{
  it('keeps subtle shadows and touch-friendly blue handles outside canonical geometry',()=>{
   const object=new Rect({left:20,top:30,width:180,height:180,strokeWidth:0});const before=object.getBoundingRect();
   object.set({...BOARD_FABRIC_VISUAL.selection,shadow:BOARD_FABRIC_VISUAL.sticky.shadow});
-  expect(object.shadow).toBeInstanceOf(Shadow);expect(object.shadow!.blur).toBe(5);expect(object.getBoundingRect()).toEqual(before);
-  expect(object.cornerStyle).toBe('circle');expect(object.borderColor).toBe('#2563EB');expect(object.touchCornerSize).toBeGreaterThanOrEqual(44);
+  expect(object.shadow).toBeInstanceOf(Shadow);expect(object.shadow!.blur).toBe(14);expect(object.getBoundingRect()).toEqual(before);
+  expect(object.cornerStyle).toBe('circle');expect(object.borderColor).toBe('#0B6FFF');expect(object.cornerColor).toBe('#FFFFFF');expect(object.cornerSize).toBe(9);expect(object.touchCornerSize).toBeGreaterThanOrEqual(44);
  });
  it.each([.05,.2,1,2,8])('keeps zoom %s dots sparse, world-anchored and independent of object count',zoom=>{
   const first=boardDotGridStyle({zoom,panX:0,panY:0}),moved=boardDotGridStyle({zoom,panX:75,panY:-40});
+  expect(first.backgroundColor).toBe('#FCFCFB');
   const spacing=parseFloat(first.backgroundSize);expect(spacing).toBeGreaterThanOrEqual(16);expect(spacing).toBeLessThanOrEqual(48);
   const x=parseFloat(moved.backgroundPosition);expect(x+spacing/2).toBe(75);expect(moved.backgroundSize).toBe(first.backgroundSize);
  });

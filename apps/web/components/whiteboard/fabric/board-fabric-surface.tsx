@@ -104,8 +104,9 @@ function applyResizePolicy(projected: TaggedFabricObject, object: BoardFabricObj
 
 export function createFabricObject(object: BoardFabricObject): TaggedFabricObject {
   const richText = textOptionsFor(object, { fontSize: 20, alignment: "center" });
+  const horizontalTextInset = object.kind === "sticky" ? BOARD_FABRIC_VISUAL.sticky.padding * 2 : 32;
   const textOptions = {
-    width: Math.max(24, object.geometry.width - 32),
+    width: Math.max(24, object.geometry.width - horizontalTextInset),
     splitByGrapheme: true,
     ...richText,
     originX: "center" as const,
@@ -158,17 +159,17 @@ export function createFabricObject(object: BoardFabricObject): TaggedFabricObjec
       const bitmap = new FabricImage(image, { cropX: object.boardContent.intrinsicWidth * crop.x, cropY: object.boardContent.intrinsicHeight * crop.y, width: naturalWidth, height: naturalHeight, scaleX, scaleY, opacity: object.boardContent.opacity, originX: "center", originY: "center", clipPath });
       image.onload = () => { bitmap.setElement(image, { width: naturalWidth, height: naturalHeight }); bitmap.set('dirty', true); bitmap.canvas?.requestRenderAll(); };
       image.src = object.imageAssetUrl;
-      projected = new Group([new Rect({ width: object.geometry.width, height: object.geometry.height, rx: object.boardContent.cornerRadius, ry: object.boardContent.cornerRadius, fill: "#F4F4F5", stroke: object.boardContent.borderColor, strokeWidth: object.boardContent.borderWidth, originX: "center", originY: "center" }), bitmap]);
+      projected = new Group([new Rect({ width: object.geometry.width, height: object.geometry.height, rx: object.boardContent.cornerRadius, ry: object.boardContent.cornerRadius, fill: "#FFFFFF", stroke: object.boardContent.borderColor, strokeWidth: object.boardContent.borderWidth, strokeUniform: true, originX: "center", originY: "center" }), bitmap]);
     } else {
       const state = object.boardContent.status === "failed" ? "图片上传失败" : object.boardContent.status === "ready" ? "图片需在当前会话重新验证" : "图片上传中";
-      projected = new Group([new Rect({ width: object.geometry.width, height: object.geometry.height, rx: 12, ry: 12, fill: "#F4F4F5", stroke: "#A1A1AA", strokeDashArray: [8, 6], originX: "center", originY: "center" }), new Textbox(`${state}\n${object.boardContent.fileName}`, textOptions)]);
+      projected = new Group([new Rect({ width: object.geometry.width, height: object.geometry.height, rx: 10, ry: 10, fill: "#FFFFFF", stroke: "#A1A1AA", strokeWidth: 1, strokeUniform: true, strokeDashArray: [6, 5], originX: "center", originY: "center" }), new Textbox(`${state}\n${object.boardContent.fileName}`, textOptions)]);
     }
   } else if (object.kind === "card" && object.boardContent && object.boardContent.type !== "shape" && object.boardContent.type !== "drawing" && object.boardContent.type !== "image") {
     const content = object.boardContent;
     const kicker = content.type === "web-tile" ? "链接" : content.type === "table" ? "表格" : content.type === "icon" ? "图标" : content.type === "template" ? "模板" : "卡片";
     const description = content.type === "tile" || content.type === "web-tile" ? content.description : content.type === "table" ? `${content.columns.length} 列 · ${content.rows.length} 行` : content.type === "icon" ? `${content.set} / ${content.name}` : `版本 ${content.versionId}`;
     projected = new Group([
-      new Rect({ width: object.geometry.width, height: object.geometry.height, rx: 16, ry: 16, fill: object.style.fill, stroke: object.style.stroke ?? "#D4D4D8", strokeWidth: 1, originX: "center", originY: "center" }),
+      new Rect({ width: object.geometry.width, height: object.geometry.height, rx: 12, ry: 12, fill: object.style.fill, stroke: object.style.stroke ?? "#D4D4D8", strokeWidth: 1, strokeUniform: true, originX: "center", originY: "center" }),
       new Textbox(kicker, { ...textOptions, top: -object.geometry.height / 2 + 30, fontSize: 12, fill: "#71717A", textAlign: "left" }),
       new Textbox(object.content.text, { ...textOptions, top: -8, fontSize: 20, fontWeight: 650, textAlign: "left" }),
       new Textbox(description, { ...textOptions, top: object.geometry.height / 2 - 42, fontSize: 13, fill: "#52525B", textAlign: "left" }),
@@ -177,10 +178,10 @@ export function createFabricObject(object: BoardFabricObject): TaggedFabricObjec
     const variant = object.boardContent.variant;
     const w = object.geometry.width, h = object.geometry.height;
     const shape = variant === "circle" || variant === "ellipse"
-      ? new Circle({ radius: 50, scaleX: w / 100, scaleY: h / 100, fill: object.style.fill, stroke: object.style.stroke, strokeWidth: object.style.strokeWidth ?? 1, strokeDashArray: dashFor(object.style.borderStyle), opacity: object.style.opacity, originX: "center", originY: "center" })
+      ? new Circle({ radius: 50, scaleX: w / 100, scaleY: h / 100, fill: object.style.fill, stroke: object.style.stroke, strokeWidth: object.style.strokeWidth ?? 1, strokeUniform: true, strokeDashArray: dashFor(object.style.borderStyle), opacity: object.style.opacity, originX: "center", originY: "center" })
       : ["diamond", "decision", "triangle", "hexagon", "cloud", "database", "document", "data", "predefined-process"].includes(variant)
-        ? new Path(shapePath(variant, w, h), { fill: object.style.fill, stroke: object.style.stroke, strokeWidth: object.style.strokeWidth ?? 1, strokeDashArray: dashFor(object.style.borderStyle), opacity: object.style.opacity, originX: "center", originY: "center" })
-        : new Rect({ width: w, height: h, rx: variant === "terminator" ? h / 2 : object.style.radius ?? (variant === "rounded-rectangle" ? 20 : 0), ry: variant === "terminator" ? h / 2 : object.style.radius ?? (variant === "rounded-rectangle" ? 20 : 0), fill: object.style.fill, stroke: object.style.stroke, strokeWidth: object.style.strokeWidth ?? 1, strokeDashArray: dashFor(object.style.borderStyle), opacity: object.style.opacity, originX: "center", originY: "center" });
+        ? new Path(shapePath(variant, w, h), { fill: object.style.fill, stroke: object.style.stroke, strokeWidth: object.style.strokeWidth ?? 1, strokeUniform: true, strokeDashArray: dashFor(object.style.borderStyle), opacity: object.style.opacity, originX: "center", originY: "center" })
+        : new Rect({ width: w, height: h, rx: variant === "terminator" ? h / 2 : object.style.radius ?? (variant === "rounded-rectangle" ? 16 : 0), ry: variant === "terminator" ? h / 2 : object.style.radius ?? (variant === "rounded-rectangle" ? 16 : 0), fill: object.style.fill, stroke: object.style.stroke, strokeWidth: object.style.strokeWidth ?? 1, strokeUniform: true, strokeDashArray: dashFor(object.style.borderStyle), opacity: object.style.opacity, originX: "center", originY: "center" });
     const labelTop = object.style.verticalAlignment === "top" ? -h / 2 + 24 : object.style.verticalAlignment === "bottom" ? h / 2 - 24 : 0;
     projected = new Group([shape, new Textbox(object.content.text, { ...textOptions, top: labelTop })]);
   } else if (object.kind === "placeholder") {
@@ -196,25 +197,25 @@ export function createFabricObject(object: BoardFabricObject): TaggedFabricObjec
     });
   } else if (object.kind === "ellipse") {
     projected = new Group([
-      new Circle({ radius: 50, scaleX: object.geometry.width / 100, scaleY: object.geometry.height / 100, fill: object.style.fill, stroke: object.style.stroke, strokeWidth: object.style.strokeWidth ?? 0, originX: "center", originY: "center" }),
+      new Circle({ radius: 50, scaleX: object.geometry.width / 100, scaleY: object.geometry.height / 100, fill: object.style.fill, stroke: object.style.stroke, strokeWidth: object.style.strokeWidth ?? 0, strokeUniform: true, originX: "center", originY: "center" }),
       new Textbox(object.content.text, textOptions),
     ]);
   } else if (object.kind === "panel") {
     projected = new Group([
-      new Rect({ width: object.geometry.width, height: object.geometry.height, rx: 14, ry: 14, fill: object.style.fill, stroke: object.style.stroke ?? "#78716C", strokeWidth: 2, strokeDashArray: object.panel?.clipContent ? undefined : [8, 5], originX: "center", originY: "center" }),
+      new Rect({ width: object.geometry.width, height: object.geometry.height, rx: 12, ry: 12, fill: object.style.fill, stroke: object.style.stroke ?? "#94A3B8", strokeWidth: 1, strokeUniform: true, strokeDashArray: object.panel?.clipContent ? undefined : [6, 5], originX: "center", originY: "center" }),
       new Textbox(object.panel?.title ?? object.content.text, { ...textOptions, top: -object.geometry.height / 2 + 24, fontSize: 16, fontWeight: 700 }),
     ]);
   } else if (object.kind === "group") {
     projected = new Rect({ width: object.geometry.width, height: object.geometry.height, fill: "transparent", stroke: "#6366F1", strokeWidth: 1, strokeDashArray: [5, 5] });
   } else if (object.kind === "sticky" && object.sticky?.variant === "circle") {
     projected = new Group([
-      new Circle({ radius: Math.min(object.geometry.width, object.geometry.height) / 2, fill: object.style.fill, stroke: object.style.stroke, strokeWidth: object.style.strokeWidth ?? 0, originX: "center", originY: "center" }),
-      new Textbox(object.content.text, { ...textOptions, width: Math.max(24, Math.min(object.geometry.width, object.geometry.height) - 40) }),
+      new Circle({ radius: Math.min(object.geometry.width, object.geometry.height) / 2, fill: object.style.fill, stroke: object.style.stroke, strokeWidth: object.style.strokeWidth ?? 0, strokeUniform: true, originX: "center", originY: "center" }),
+      new Textbox(object.content.text, { ...textOptions, width: Math.max(24, Math.min(object.geometry.width, object.geometry.height) - BOARD_FABRIC_VISUAL.sticky.padding * 2) }),
     ]);
   } else {
     const cornerRadius = object.kind === "sticky" ? BOARD_FABRIC_VISUAL.sticky.radius : 12;
     projected = new Group([
-      new Rect({ width: object.geometry.width, height: object.geometry.height, rx: cornerRadius, ry: cornerRadius, fill: object.style.fill, stroke: object.style.stroke, strokeWidth: object.style.strokeWidth ?? 0, originX: "center", originY: "center" }),
+      new Rect({ width: object.geometry.width, height: object.geometry.height, rx: cornerRadius, ry: cornerRadius, fill: object.style.fill, stroke: object.style.stroke, strokeWidth: object.style.strokeWidth ?? 0, strokeUniform: true, originX: "center", originY: "center" }),
       new Textbox(object.content.text, textOptions),
     ]);
   }
@@ -289,7 +290,7 @@ function applyCanonicalObjectInScene(projected: TaggedFabricObject, object: Boar
     // Textbox recalculates its natural line height when text/width changes.
     // The canonical height is a hit area, never a request to stretch glyphs.
     projected.set({ height: object.geometry.height, strokeWidth: 0 });
-  } else if (object.kind !== "connector" && "getObjects" in projected && typeof projected.getObjects === "function") {
+  } else if (["sticky", "shape", "ellipse", "rectangle", "panel", "placeholder"].includes(object.kind) && "getObjects" in projected && typeof projected.getObjects === "function") {
     const [shape, label] = projected.getObjects();
     shape?.set({ fill: object.style.fill, stroke: object.style.stroke, strokeWidth: object.style.strokeWidth ?? 0, ...(object.kind === "panel" ? { strokeDashArray: object.panel?.clipContent ? undefined : [8, 5] } : {}) });
     label?.set({ text: object.content.text, ...richText });
@@ -304,7 +305,7 @@ function applyCanonicalObjectInScene(projected: TaggedFabricObject, object: Boar
       shape.setCoords();
     }
     if (label) {
-      const inset = object.kind === "sticky" && object.sticky?.variant === "circle" ? 40 : 32;
+      const inset = object.kind === "sticky" ? BOARD_FABRIC_VISUAL.sticky.padding * 2 : 32;
       label.set({ width: Math.max(24, object.geometry.width - inset), splitByGrapheme: true, scaleX: 1, scaleY: 1, skewX: 0, skewY: 0, angle: 0, flipX: false, flipY: false, left: 0, originX: "center", originY: "center" });
       const top = object.style.verticalAlignment === "top" ? -object.geometry.height / 2 + 16 + label.height / 2
         : object.style.verticalAlignment === "bottom" ? object.geometry.height / 2 - 16 - label.height / 2 : 0;

@@ -123,9 +123,9 @@ describe("BoardFabricSurface", () => {
     const sticky = probe.objects[0]!;
     expect(sticky).toMatchObject(BOARD_FABRIC_VISUAL.selection);
     expect(sticky.controls).toMatchObject({ tl: true, tr: true, bl: true, br: true, ml: false, mr: false });
-    expect(sticky.children![0]).toMatchObject({ fill: "#F8D76E", rx: 2, shadow: BOARD_FABRIC_VISUAL.sticky.shadow });
-    expect(sticky.children![1]).toMatchObject({ fontFamily: BOARD_FABRIC_VISUAL.fontFamily });
-    expect(screen.getByTestId("board-fabric-surface")).toHaveStyle({ backgroundSize: "24px 24px", backgroundPosition: "-12px -12px" });
+    expect(sticky.children![0]).toMatchObject({ fill: "#F8D76E", rx: 3, shadow: BOARD_FABRIC_VISUAL.sticky.shadow, strokeUniform: true });
+    expect(sticky.children![1]).toMatchObject({ fontFamily: BOARD_FABRIC_VISUAL.fontFamily, width: 172 });
+    expect(screen.getByTestId("board-fabric-surface")).toHaveStyle({ backgroundColor: "#FCFCFB", backgroundSize: "20px 20px", backgroundPosition: "-10px -10px" });
     expect(probe.objects).toHaveLength(1);
   });
 
@@ -168,7 +168,7 @@ describe("BoardFabricSurface", () => {
     expect(preview[1]!.strokeWidth).toBeGreaterThan(preview[0]!.strokeWidth!);
     expect(onDrawingComplete).not.toHaveBeenCalled();
 
-    fireEvent.pointerCancel(screen.getByTestId("board-fabric-surface"));
+    fireEvent.pointerCancel(screen.getByTestId("board-fabric-surface"), { pointerType: "mouse", isPrimary: true });
     expect(probe.objects.some((object) => object.data?.drawingPreview)).toBe(false);
     expect(screen.getByTestId("board-fabric-surface")).toHaveAttribute("data-drawing-preview-segments", "0");
     expect(onDrawingComplete).not.toHaveBeenCalled();
@@ -219,6 +219,9 @@ describe("BoardFabricSurface", () => {
     renderSurface({ objects: contentObjects });
     expect(probe.objects.map((object) => object.data?.adapterKind)).toEqual(["shape", "drawing", "image", "card"]);
     expect(probe.primitiveKinds).toEqual(expect.arrayContaining(["Path", "Group", "Rect"]));
+    expect(probe.objects.find((object) => object.data?.boardObjectId === "shape")?.children?.[0]).toMatchObject({ strokeUniform: true });
+    expect(probe.objects.find((object) => object.data?.boardObjectId === "image")?.children?.[0]).toMatchObject({ fill: "#FFFFFF", strokeUniform: true, rx: 10 });
+    expect(probe.objects.find((object) => object.data?.boardObjectId === "tile")?.children?.[0]).toMatchObject({ strokeUniform: true, rx: 12 });
   });
 
   it("renders verified bytes through the session object URL with intrinsic crop and rounded clipping", () => {

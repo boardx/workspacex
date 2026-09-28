@@ -2,6 +2,7 @@
 import { describe, expect, it } from "vitest";
 import { ActiveSelection, Group, Rect, Textbox, util } from "fabric";
 import { applyCanonicalObject, createFabricObject } from "@/components/whiteboard/fabric/board-fabric-surface";
+import { BOARD_FABRIC_VISUAL } from "@/components/whiteboard/fabric/board-fabric-visual";
 import { representableWorldGeometry } from "@/components/whiteboard/fabric/fabric-transform";
 import type { BoardFabricObject } from "@/components/whiteboard/fabric/board-fabric-object";
 
@@ -24,7 +25,7 @@ describe("real Fabric text keeps font metrics independent of its container", () 
       expect(glyphTransform.skewX).toBeCloseTo(0, 7);
       expect(label.fontSize).toBe(18);
       expect(representableWorldGeometry(projected)).toEqual(record.geometry);
-      expect(label.width).toBeCloseTo(record.geometry.width - (kind === "text" ? 0 : 32));
+      expect(label.width).toBeCloseTo(record.geometry.width - (kind === "text" ? 0 : kind === "sticky" ? BOARD_FABRIC_VISUAL.sticky.padding * 2 : 32));
     };
     applyCanonicalObject(projected, original, false);
     assertText(original);
