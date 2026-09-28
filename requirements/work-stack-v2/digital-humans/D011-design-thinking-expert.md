@@ -3,7 +3,7 @@
 > 基线：`main@30c1c4332025151610502988b0379b95ff7298c7`。
 > 标注约定：**已核实** = 在基线读过对应文件与行号；**UNVERIFIED** = 未在基线读到实现，只是推断；**proposed-unwired** = 本文提出、仓库里还没有的能力。
 > D011 不在 ADR-121 决策 3 的实时试点名单内（试点为 D002 / D003 / D005，已读 `docs/adr/ADR-121*.md:14`）。本文的实时画像（§10）是第二批启用时的角色语义，不要求随试点一起实现。
-> 对齐的已 PASS 文档（`reviews/<ID>.review.md` 首行 `Verdict: PASS`，本轮复核）：S009、S062、S063、S064、S065、S066、S071、S075、D003。其字段名与交接为权威：S063 §2.2（:55「D011 / D043 → `product`，对话中基本只走 `qualitative-corpus`」）、S009 §2.2（:53「D011：W027, W028（同时直接挂载）」）、S071 §2.2（D011 缺省 `domainProfile = ux`）、D003 §6（:140「persona/旅程/HMW」交 D011，:152 D003 不代做 D011 gaps）与 J12（:198 头脑风暴交 D011）。S018 尚无 PASS 评审，只引用矩阵边与职责划分，不依赖其字段名。
+> 对齐的已 PASS 文档（`reviews/<ID>.review.md` 首行 `Verdict: PASS`，本轮复核）：S009、S062、S063、S064、S065、S066、S071、S075、S018、D003。其字段名与交接为权威：S063 §2.2（:55「D011 / D043 → `product`，对话中基本只走 `qualitative-corpus`」）、S009 §2.2（:53「D011：W027, W028（同时直接挂载）」）、S071 §2.2（D011 缺省 `domainProfile = ux`）、D003 §6（:140「persona/旅程/HMW」交 D011，:152 D003 不代做 D011 gaps）与 J12（:198 头脑风暴交 D011）。S018 已 PASS（`reviews/S018.review.md` 首行 `Verdict: PASS`），本文依赖其 §2.3（:39 D011 → `lens = service-blueprint`，与 §5 :81 `lens` 枚举一致）与决策 1。
 
 ## 1. 这个角色做什么，不做什么
 
@@ -55,8 +55,8 @@ D011 **不**做的事：
 | 集合 | Skill | 进入 run 的条件 | 角色缺省参数 |
 |---|---|---|---|
 | core | S064, S065, S066 | 每次对话 run | S066 在 D011 下缺省先检查 S064 框定（S066 §4 A 步） |
-| conditional-empathize | S062, S009, S063 | 意图 = 规划/整理用户研究 | S062 `profile = product`（S062 §2.2 D011 行）；S063 对话中基本只走 `qualitative-corpus`（S063 §2.2） |
-| conditional-service | S018 | 意图 = 服务流程 / 跨触点问题 | `lens = service-blueprint`（S018 §2.2） |
+| conditional-empathize | S062, S009, S063 | 意图 = 规划/整理用户研究 | S062 缺省 `domainProfile = product`（S062 §2.2 D011 行、§5 :111 `domainProfile?: "product"|"learning"`）；S063 对话中基本只走 `qualitative-corpus`（S063 §2.2） |
+| conditional-service | S018 | 意图 = 服务流程 / 跨触点问题 | `lens = service-blueprint`（S018 §2.3 :39） |
 | conditional-test | S075, S071 | 意图 = 评审原型 / 设计验证 | S075 `critiqueLens = human-centered`（S075 §2.2）；S071 缺省 `domainProfile = ux`（S071 §2.2 D011 行，已 PASS） |
 
 可验证要求只有一条：**任何时候 D011 可调用的 Skill 集合 ⊆ 这 9 个**，且 S018 被 D011 调用时 `lens` 必为 `service-blueprint`，S075 被 D011 调用时 `critiqueLens` 缺省为 `human-centered`、S071 被 D011 调用时 `domainProfile` 缺省为 `ux`（调用方显式覆盖允许，记入 §4 记录）。
@@ -68,10 +68,10 @@ D011 的价值不在「调一个 Skill」，而在**守住双钻（Double Diamon
 | 步骤 | 钻石阶段 | D011 看什么 | 放行条件 | 不满足时 D011 的动作 |
 |---|---|---|---|---|
 | T1 研究先有计划 | 发现·发散 | S062 输出 `status` | `ready-for-review` | `blocked` 时逐条念出 `qualityFindings` 中 blocking 项（诱导题、复合题），不替用户去访谈 |
-| T2 分层决定可说的话 | 发现·发散 | S062 的分层与停止规则（S062 决策 3） | 某层受访者 ≥ 3 | 不足时，后续所有对该层的陈述降为「部分受访者提到」，并在旅程/画像上标注 |
-| T3 解法伪装识别 | 发现→定义 | S064 `status` | 非 `solution-in-disguise` / `too-broad` | `solution-in-disguise` 时把「做一个 X」还原成「谁、在什么情境、卡在哪」三问，引导用户重答，不自己编情境 |
+| T2 分层决定可说的话 | 发现·发散 | S062 的分层与停止规则（S062 决策 3）；注意「每层 ≥3」只是计划样本下限 `plannedPerStratum`，不是普遍性表述门槛 | 某层独立受访者数 ≥ `generalizationClaimMinIndependentSubjects`（S062 thresholds.ts，S062 :237） | 不足时，后续所有对该层的陈述降为「部分受访者提到」，并在旅程/画像上标注 |
+| T3 解法伪装识别 | 发现→定义 | S064 `status`（枚举 `draft|needs-choice|too-broad|solution-in-disguise`，S064 §6 :121） | 仅 `status = draft` 放行；`needs-choice` / `too-broad` / `solution-in-disguise` 均拦截（S064 不变式 6：needs-choice 时 handoff 为空、不得流向下游） | `needs-choice` 时请用户在 S064 反推出的候选问题中选择或补证据；`solution-in-disguise` 时把「做一个 X」还原成「谁、在什么情境、卡在哪」三问，引导用户重答，不自己编情境 |
 | T4 框定被人接受 | 定义·收敛 | S064 `accepted`（只由 W027/W029 关卡写） | 已 accepted | 可以继续发散，但 S066 产出须挂「框定未接受」提示；不得把 S066 方向当作「已定义问题的解法」汇报 |
-| T5 HMW 双检 | 定义→发散 | S066 `hmw[].check`（S066 §4 B2） | 两项检查都过 | 不过的 HMW 不作为想法来源；D011 给出改写建议（加人群/去功能名词），由用户确认后重跑 |
+| T5 HMW 双检 | 定义→发散 | S066 `hmw[].check`（S066 §4 B2；schema 为 `{hasActor, hasOutcome, notSolution}`，S066 §6 :141） | 三个布尔字段均为 `true` | 不过的 HMW 不作为想法来源；D011 给出改写建议（加人群/去功能名词），由用户确认后重跑 |
 | T6 发散配额 | 发散 | S066 `divergence.shortfall`、`valence` 中 `subtract` / `invert` 各 ≥1、单一技法 ≤50%（S066 B1/B3） | 满足 | 如实报告 shortfall，不补凑数量 |
 | T7 收敛交给人 | 发散→收敛 | S066 无 `score/rank`（S066 决策 4）；S065 `decision.status` | 人工在 W027/W029 关卡选 | D011 只按「最大未知项 × 最便宜验证」整理方向，不排名 |
 | T8 原型先定要学什么 | 交付·发散 | Prototype planning gap（§12 G3） | — | 在 gap 能力落地前，只在对话中写出「要验证的假设 + 最低保真度 + 验证方式」三行草稿，标 `provisional`，并提示可交 S071 做实验设计或交 D043 做可用性测试 |
@@ -98,7 +98,7 @@ type D011TurnRecord = {
     | { kind: "skill";
         skillId: "S062"|"S009"|"S063"|"S018"|"S064"|"S065"|"S066"|"S075"|"S071";
         skillVersionId: string;
-        roleDefaults: { lens?: "service-blueprint"; critiqueLens?: "human-centered"; profile?: "product"; domainProfile?: "ux" } }
+        roleDefaults: { S018?: { lens: "service-blueprint" }; S075?: { critiqueLens: "human-centered" }; S062?: { domainProfile: "product" }; S071?: { domainProfile: "ux" } } }   // 按 Skill 分键：S062 与 S071 的缺省同名 `domainProfile`，不能共用一个键
     | { kind: "workflow-request"; workflowId: "W027"|"W028"|"W029"|"W031"|"W002"; instanceId?: string }
     | { kind: "gap-draft"; gap: "persona-journey" | "hmw-framing" | "prototype-planning"; status: "provisional" }
     | { kind: "handoff"; to: "D003"|"D043"|"D015"|"D039"|"D049"|"human"; reason: D011HandoffReason }
@@ -182,7 +182,7 @@ D011 本身不 adopt/merge 任何上游产物，没有复制内容进 `provenanc
 | KPI | 定义 | 目标 | 来源 |
 |---|---|---|---|
 | K1 带证据的机会占比 | D011 参与的 W027/W028 实例中，被接受的 S065 目标机会至少挂一条 `evidence` 接地 Finding 的比例 | ≥ 90% | Workflow 实例产物 |
-| K2 伪装解法拦截率 | 用户以「做一个 X」开场的会话中，D011 在推进到发散前把 S064 状态从 `solution-in-disguise` 转为 `draft` 的比例 | ≥ 70% | D011TurnRecord `phaseGates.T3` |
+| K2 伪装解法拦截率 | 用户以「做一个 X」开场的会话中，D011 在推进到发散前把 S064 状态从 `needs-choice` / `solution-in-disguise` 转为 `draft` 的比例 | ≥ 70% | D011TurnRecord `phaseGates.T3` |
 | K3 越权为零 | 由 D011 run 触发的对外联系受访者、写 `accepted`、写工单且无人工回执的次数 | = 0（硬门） | effect receipt 对账 |
 | K4 发散多样性 | D011 会话中 S066 留档满足 T6 三条约束的比例 | ≥ 95% | S066 输出 |
 | K5 研究到框定周期 | 从 S062 计划 `ready-for-review` 到 S064 `accepted` 的中位天数，对比未用 D011 的同组织基线 | 下降 ≥ 25% | Workflow 时间戳 |
@@ -191,7 +191,7 @@ D011 本身不 adopt/merge 任何上游产物，没有复制内容进 `provenanc
 
 | # | 输入 | 通过标准 |
 |---|---|---|
-| E1 | 用户：「我们要做一个 AI 排班助手，帮我评估一下三个方案」；无 S064 产物 | 调 S064，结果为 `solution-in-disguise`；三个方案作为 `user-supplied` 进 S066 留档或暂存；本轮无 S075 / S071 调用（I4）；回复追问「谁、什么情境、卡在哪」 |
+| E1 | 用户：「我们要做一个 AI 排班助手，帮我评估一下三个方案」；无 S064 产物 | 调 S064，结果为 `needs-choice`（可反推多个问题且无证据区分，同 S064 §4 A :65、F8 :192、E1 :197）；三个方案作为 `user-supplied` 进 S066 留档或暂存；本轮无 S075 / S071 调用（I4）；回复追问「谁、什么情境、卡在哪」 |
 | E2 | 夹具：S062 计划含「你是不是觉得现在的排班太麻烦？」 | T1 blocked，指出诱导题并给出中性改写；不把计划说成可执行 |
 | E3 | 夹具：访谈 7 人，其中「夜班护士」层 2 人；用户：「夜班护士都希望自动换班」 | 回复改为「2 位夜班护士提到…」，不用「都」；`phaseGates.T2 = degraded` |
 | E4 | 用户：「根据这 8 份访谈给我画 3 个 persona 和一张旅程图」 | `route.kind = gap-draft (persona-journey)`；首句说明尚无该 Skill；草稿每个字段都挂受访者 ref 或标「无证据」；若用户要落画布，只提示可用内置 `persona` / `journey-map` 模板（已核实 `apps/api/src/domain/canvas/builtin-template-config.ts:551-553`），不把草稿作为 W027 阶段输入（I3） |
@@ -242,7 +242,7 @@ turnPolicy:
 proactivityPolicy:
   optIn: 默认关闭（组织可开启，仅工作坊房间）
   allowedTriggers:
-    - 发散环节中有人对某个想法说出否定评价（「这个不行」）且当前 S066 留档处于 diverge 阶段——提醒「先记下，收敛时再评」
+    - 发散环节中有人对某个想法说出否定评价（「这个不行」）且当前 S066 调用的输入 `mode ∈ {full, diverge-only}`（S066 :124；S066 无阶段状态字段，按 mode 判定）——提醒「先记下，收敛时再评」
     - 讨论中把工作坊便利贴说成「用户说的」，而该条目在 S066 中为 speculative（有留档 ref）
     - 工作坊计时（由用户设定）到点
   forbidden: 无产物 ref 的纠正；评价个人发言质量；主动启动任何 Workflow；主动联系受访者
@@ -292,7 +292,7 @@ presentationPolicy: 想法、HMW、persona 字段一律以 sticky-draft 上画�
 | Gap | 现有最近能力 | 为什么不能顶替（依据已 PASS 文档） | D011 在 gap 落地前的行为 |
 |---|---|---|---|
 | G1 Persona/Journey facilitation | S065 消费 `journeySteps` 或给 inferred 骨架；S063 出发现；基线有 persona 画布落地函数 `buildPersonaLanding`（已核实 `apps/api/src/domain/canvas/persona-summary.ts:107`）与 `persona → journey-map` 模板推荐（已核实 `builtin-template-config.ts:551`） | S065 §14 提议 3 明确不认领；`buildPersonaLanding` 只把线程中逐字写出的字段落画布，不做研究到 persona 的聚类与证据挂接 | `gap-draft`，每个字段挂受访者 ref 或标「无证据」；不作为 Workflow 输入（I3） |
-| G2 HMW framing | S066 B2 生成 HMW 并做两项检查；S064 产出问题陈述 | S064 §2.2 与 §14 提议 2、S066 §2.2 均声明不认领；S066 的 HMW 只是发散入口，不包含 HMW 的范围阶梯（上推/下推） | 可调 S066 生成并双检，但回复不得称为「HMW framing 已完成」 |
+| G2 HMW framing | S066 B2 生成 HMW 并做检查（schema 三字段 `hasActor/hasOutcome/notSolution`，S066 §6 :141）；S064 产出问题陈述 | S064 §2.2 与 §14 提议 2、S066 §2.2 均声明不认领；S066 的 HMW 只是发散入口，不包含 HMW 的范围阶梯（上推/下推） | 可调 S066 生成并双检，但回复不得称为「HMW framing 已完成」 |
 | G3 Prototype planning | S075 评审已有原型；S071 设计实验；lenny-skills `ai-assisted-prototyping` 为上游候选（§7） | S075 决策 3 不改设计、不产方案；S071 只管统计设计，不管保真度与原型形态 | 三行 provisional 草稿；执行交 D043 / S071 |
 
 决策 4 见 §15。
@@ -300,9 +300,9 @@ presentationPolicy: 想法、HMW、persona 字段一律以 sticky-draft 上画�
 ## 13. 图变更提议（只提议，不假设被采纳）
 
 1. **新建三个 Skill 填 G1–G3**（照矩阵 gap）。建议 G2 优先：S064 §14 提议 2 给了两个方案（新 HMW Skill，或 S064 handoff 加 `hmwSeeds`），本文倾向新建独立 Skill，理由是 HMW 的双检依赖 S064 已接受的框定，而 S064 不应在 `draft` 状态就产出下游句式。
-2. **S061 不在 D011 行。** 沿 S061 §提议 3 的记录：D011 拥有 W027 但不能直调 S061。本文判断**不需要**加：设计思维的假设以 S066 方向的「最大未知项」表达，不维护产品假设账本；建议评审保持现状。
+2. **S061 不在 D011 行。** 沿 S061 §13 提议 3（:281）的记录：D011 拥有 W027 但不能直调 S061。本文判断**不需要**加：设计思维的假设以 S066 方向的「最大未知项」表达，不维护产品假设账本；建议评审保持现状。
 3. **可用性测试无执行 Skill。** kwp `design/skills/user-research/SKILL.md:15` 把可用性测试列为核心方法；D011 与 D043 的挂载里均无执行它的 Skill。提议评审是否新建「Usability Test Planning」Skill，或确认 S062 覆盖其计划部分。
-4. **S066 / S075 / S018 无 D011 Workflow 固定。** 与 S066 §14 提议 1、S065 §14 提议 1、S075 §13 提议 1 一致：W027/W029 缺解法生成与设计评审阶段。本文附议 W027 加 S066；对 S075 进 W029 不附议（W029 在 PRD 前，此时通常还没有原型）。
+4. **S066 / S075 / S018 无 D011 Workflow 固定。** 与 S066 §14 提议 1、S065 §14 提议 1、S075 §14 提议 1（:233）一致：W027/W029 缺解法生成与设计评审阶段。本文附议 W027 加 S066；对 S075 进 W029 不附议（W029 在 PRD 前，此时通常还没有原型）。
 5. **W002 与 D011 的关系。** D011 拥有 W002 但挂载中无 S006/S017，意味着工作坊纪要只能经 W002 处理；本文认为这是有意的（决策 3 同类理由），列出供评审确认。
 
 以上均不改变 §2 的边。

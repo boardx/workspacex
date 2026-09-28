@@ -3,8 +3,7 @@
 > 类型：Reference Workflow · 域：Sales · 作者化任务：AUTHOR-W018 · 状态：待独立评审
 > 基线：`main@30c1c4332025151610502988b0379b95ff7298c7`（本文所有 VERIFIED 均指该提交可达的工作树；未读文件核实的陈述一律标 UNVERIFIED，未实现/未接线的能力一律标 proposed-unwired）。
 > 权威：`requirements/work-stack-v2/`（ADR-116）；运行时：ADR-118（第 5 条版本冻结、第 6 条 effect-gateway、第 9 条 Workflow 固定 Skill 版本）；工具分类：ADR-120；评测门：ADR-119。
-> 对齐的已 PASS 契约（只引用，不改）：`skills/S036-proposal-builder.md`。
-> 引用但**尚未 PASS** 的契约：`skills/S021-customer-intelligence.md`、`skills/S009-customer-research.md`、`skills/S023-account-planning.md`（均无评审文件）、`skills/S035-customer-health.md`（评审 REWRITE，B1/B2 涉及 `forecast-check` 与总色合成规则）。W018 只消费它们 `mode = expansion / expansion-gate / account-dossier` 下的字段；这些字段若在其定稿时改名，本文 §6 映射随之修订，W018 的控制流与决策不依赖其具体改名。
+> 对齐的已 PASS 契约（只引用，不改）：`skills/S036-proposal-builder.md`、`skills/S021-customer-intelligence.md`、`skills/S009-customer-research.md`、`skills/S023-account-planning.md`、`skills/S035-customer-health.md`（reviews 均为 Verdict: PASS）。W018 只消费它们 `mode = expansion / expansion-gate / account-dossier` 下的字段；这些字段若在其定稿时改名，本文 §6 映射随之修订，W018 的控制流与决策不依赖其具体改名。
 
 ## 1. 这个 Workflow 解决什么（边界）
 对**一个已是客户的账户**，回答「现在该不该谈扩张；如果该，谈什么、找谁、报什么价」，并把答案一路推到**一份经内部审批、可发给客户的增购/升级方案**（或明确停在「先别谈扩张」）。
@@ -56,7 +55,7 @@ S009 A2 产出 `commitments[]`，`status ∈ {evidenced-met, evidenced-open, unk
 理由：对客户未兑现的功能/交付承诺之上再卖同一产品，是扩张谈判中最常见的信任破坏；但是否「先兑现再谈」是商业判断，归负责人，不归 Skill。
 
 **决策 3 — 每个实例只对一个账户、至多 3 个打法出方案；打法由人选，Skill 不代选。**
-S023 输出排序后的 `whitespace[]`（四因子 0–12 分）。W018 不按分数阈值自动选打法：H1 由负责人从 `status = "hypothesis"` 的白区项中选 0–3 个。选 0 个 → 终态 `plan_only`。上限 3 的理由：每个选中打法产生一份 S036 草稿、一次审批带判定；超过 3 个时审批人实际上是在审一份组合报价，应改走 W014 的单商机路径。「一个账户」的理由：S035 `expansion-gate` 虽支持 `accountIds` 1..200，但一个批量扩张清单没有逐账户的承诺处置与报价审批，不能称为扩张方案；账户簿扫描不属于 W018（见 §13 提议 3）。
+S023 输出排序后的 `whitespace[]`（四因子 0–12 分）。W018 不按分数阈值自动选打法：H1 由负责人从 `status = "hypothesis"` 的白区项中选 0–3 个。选 0 个 → 终态 `plan_only`。上限 3 的理由：每个选中打法产生一份 S036 草稿、一次审批带判定；超过 3 个时审批人实际上是在审一份组合报价，应改走 W014 的单商机路径。「一个账户」的理由：S035 `expansion-gate` 虽支持 `accountIds` 1..200，但一个批量扩张清单没有逐账户的承诺处置与报价审批，不能称为扩张方案；账户簿扫描不属于 W018（见 §15 提议 3）。
 
 **决策 4 — 同一账户同时只能有一个进行中的 W018 实例；进行中的 W017 实例使 W018 在 H1 前挂起。**
 - 并发键 `(orgId, accountId)`。第二个请求返回已存在实例 id（`W018_ACTIVE_INSTANCE_EXISTS`，附其状态），不新建——两个实例并行会产出两份互相矛盾的增量报价，客户手里出现同一 SKU 两个价。
@@ -83,7 +82,7 @@ S035 的 `update-health-field`、S023 的 `crm-field-update-proposal` 属于健�
 ```ts
 // packages/contracts/src/workflow-definition.ts（ADR-118 新建，proposed-unwired）中 W018 的 trigger 输入
 const W018Trigger = z.object({
-  kind: z.enum(["manual", "agent_request", "schedule"]),   // 不支持 webhook：CRM 事件触发依赖 crm 事件源（proposed-unwired），见 §13 提议 4
+  kind: z.enum(["manual", "agent_request", "schedule"]),   // 不支持 webhook：CRM 事件触发依赖 crm 事件源（proposed-unwired），见 §15 提议 4
   requestId: z.string().uuid(),
   orgId: OrgId,
   initiatorUserId: UserId,                                  // 权限主体；agent_request 时仍是背后的人
@@ -118,8 +117,8 @@ const W018Trigger = z.object({
 |---|---|---|---|---|---|---|
 | 1 | intake | —（平台：trigger 校验、并发键、账户与发起人核实） | `crm.read`（proposed-unwired） | requested → accepted ｜ → scope_forbidden ｜ → 返回已存在实例（决策 4） | read | none；执行 **P1** |
 | 2a | intel | S021（`expansion`，`subject-only`） | `web.search`、`web.fetch`、`knowledge.search`、`knowledge.read`；optional `crm.read`、`registry.cn.read`、`enrichment.company.read` | accepted → gathering → intel_ready ｜ `EXPANSION_REQUIRES_EXISTING_ACCOUNT` → not_expansion_eligible ｜ `ENTITY_AMBIGUOUS` → awaiting_entity_choice（ask） | read | ask（仅实体歧义时） |
-| 2b | dossier | S009（`account-dossier`） | `transcript.read`、`mail.search`、`crm.read`、`knowledge.read`（按 `sourceKinds`；均经 S009 读取门） | accepted → gathering → dossier_ready ｜ `S009_SUBJECT_NOT_VISIBLE` → scope_forbidden | read | none |
-| 3 | health_gate | S035（`expansion-gate`，`scope = {kind:"self", accountIds:[accountId]}`） | `crm.read`；optional `tracker.read`、`product.usage.read`、`calendar.read`、`docs.read` | intel_ready ∧ dossier_ready → health_gating → gated(ready｜conditional｜blocked) ｜ overall=`insufficient-evidence` → gated(blocked, blockedBy=["insufficient-evidence"]) | read | none |
+| 2b | dossier | S009（`account-dossier`） | `transcript.read`、`mail.search`、`crm.read`、`ticket.read`（S009 §9 conditional，按 `sourceKinds`；均经 S009 读取门） | accepted → gathering → dossier_ready ｜ `S009_SUBJECT_NOT_VISIBLE` → scope_forbidden | read | none |
+| 3 | health_gate | S035（`expansion-gate`，`scope = {kind:"self", accountIds:[accountId]}`） | `crm.read`；optional `tracker.read`、`product.usage.read`、`calendar.read`、`docs.read` | intel_ready ∧ dossier_ready → health_gating → gated(ready｜conditional｜blocked) ｜ overall=`insufficient-evidence` → gated(blocked, blockedBy=["insufficient-evidence"]) ｜ 结果无 `expansionReadiness`（S035 R1/E15：`lifecycleStage = churned-notice`）→ gated(blocked, blockedBy=["expansion-readiness-absent"]) | read | none |
 | 4 | plan | S023（`expansion`） | —（只消费本实例上游 Ref + `crm.read`） | gated → planning → planned ｜ `S023_FOOTPRINT_REQUIRED` → not_expansion_eligible | read | none |
 | 5 | publish_plan | — | `artifact.write`（平台内部写） | planned → plan_published；gated=blocked → **expansion_blocked**；同账户有进行中 W017 → held_for_renewal_review | write | none；执行 **P6** |
 | 6 | play_selection | — | — | plan_published → awaiting_selection → selected(1..3) ｜ selected(0) 或超时 → **plan_only** | none | **H1**：required；执行前 **P2** |
@@ -130,11 +129,11 @@ const W018Trigger = z.object({
 
 说明：
 - **阶段 2a/2b 的输入映射**：S021 `subject` 取自 trigger，`asOf` 同 trigger，`workflowRunRef` 由运行时注入。S009 `questions` 由 W018 固定为三条：`Q-NEED`「客户自述的新需求或新使用场景」、`Q-PAIN`「客户对现有产品的不满或阻碍」、`Q-COMMIT`「我方对该客户作出的交付/功能/价格承诺」；`subject = {kind:"account", accountRef: accountId}`；`window` 由 `evidenceWindowDays` 推出；`sourceKinds = ["call-transcript","email","meeting-note","crm-note","ticket"]`；`purpose = "account-planning"`。
-- **阶段 3 的输入**：`accounts[0]` 的字段来自 `crm.read`（`origin = "crm"`）；`crm.read` 未接线时来自发起人上传（`origin = "uploaded"`，S035 §7：不得声称来自 CRM）。S035 的 `insufficient-evidence` 在 W018 中**按 blocked 处理**：可见维度 < 3 时无法证明客户已兑现价值（S035 决策 6 的延伸），这是 W018 的规则，不改 S035 的输出。
-- **阶段 4 的输入**：`s021DossierRef`、`s035ResultRef` 为本实例阶段 2a、3 的产物 id；`evidence[]` 只取 S009 `segments` 中 `speakerSide = "customer"` 且 `evidenceKind ∈ {verbatim-spoken, verbatim-written}` 的片段（映射：`evidenceRef = segmentId`、`kind` 由 `sourceKind` 映射到 S023 的 `transcript | email | customer-doc`、`quote = text`、`occurredAt = observedAt`）；`reported-speech` 片段不进入 S023（S009 决策 2 / F1：销售转述不是客户证据）。
+- **阶段 3 的输入**：`accounts[0]` 的字段来自 `crm.read`（`origin = "crm"`）；`crm.read` 未接线时来自发起人上传（`origin = "uploaded"`，S035 §7：不得声称来自 CRM）。S035 的 `insufficient-evidence` 在 W018 中**按 blocked 处理**：可见维度 < 3 时无法证明客户已兑现价值（S035 决策 6 的延伸），这是 W018 的规则，不改 S035 的输出。S035 在 `churned-notice` 时不输出 `expansionReadiness`（S035 R1 / E15）：W018 同样按 blocked 处理，`blockedBy = ["expansion-readiness-absent"]`，与 S023 M5 的 `expansion-readiness-absent` 一致；终态 `expansion_blocked`。
+- **阶段 4 的输入**：`s021DossierRef`、`s035ResultRef` 为本实例阶段 2a、3 的产物 id；`evidence[]` 只取 S009 `segments` 中 `speakerSide = "customer"` 且 `evidenceKind ∈ {verbatim-spoken, verbatim-written}` 的片段（映射：`evidenceRef = segmentId`；`kind`：S009 `CustomerSegment` 无 `sourceKind` 字段，W018 以片段的 `sourceId` 关联 S009 该来源读取时所属来源类（`corpus[].kind` / 读取记录；account-dossier 模式下该关联是否可得 UNVERIFIED，关联不到的片段不进入 S023 并记入计划 limitations），再按表映射：`call-transcript`、`meeting-note` → `transcript`，`email` → `email`，`crm-note`、`ticket` → `customer-doc`；`quote = text`；`occurredAt = observedAt`；`speakerRole = "customer"`（由 `speakerSide = "customer"` 过滤条件推出）；`direction`：`transcript` 类 → `two-way`，`email`、`customer-doc` 类 → `inbound`（客户所写逐字文本））；`reported-speech` 片段不进入 S023（S009 决策 2 / F1：销售转述不是客户证据）。
 - **阶段 5 在 blocked 时是最后一个阶段**：产物是 `ExpansionPlanRecord`（§6），含 S023 的 parked 白区与解除阻塞动作；动作不自动建任务（决策 7）。
 - **阶段 6（H1）表单**：展示 S023 `whitespace[]`（含 `whyNot`）、S035 `expansionReadiness` 与 `blockedBy`/drivers、S009 `commitments[]`；负责人输出 `PlaySelection`（§6）。`conditional` 时 H1 额外要求对 S035 每个 amber 维度填写一句「为什么现在仍谈扩张」（写入事件，供复盘）。
-- **阶段 7 的输入映射**（S036 §6）：`mode = "expansion"`；`accountId`；`opportunityId` = 选中打法挂接的已有商机 id，或新建占位 id `w018:<instanceId>:<playId>`（S036 要求该字段，而 W018 在阶段 9 之前不写 CRM；占位 id 的服务端读权限按账户核实——这一点 S036 §8 未覆盖，见 §13 提议 2）；`requirementsSource` = 该打法 `evidenceRefs` 对应的 S009 逐字片段（`kind: "discovery-evidence"`, `evidenceRef = segmentId`, `quote = text`）+ H1 中负责人填写的范围说明（`kind: "caller-stated"`）；`requestedLines` 来自 H1；`currentContractRef` 来自账户记录（缺 → S036 报 `S036_INPUT_INVALID`，W018 不自己补）；`requestedTerms` 追加决策 2 中 `proceed-with-disclosure` 的承诺；`locale`、`jurisdiction`、`procurementContext`、`currency` 透传。**不传** `closePlanRef`（W018 无 S032）。
+- **阶段 7 的输入映射**（S036 §6）：`mode = "expansion"`；`accountId`；`opportunityId` = 选中打法挂接的已有商机 id，或新建占位 id `w018:<instanceId>:<playId>`（S036 要求该字段，而 W018 在阶段 9 之前不写 CRM；占位 id 的服务端读权限按账户核实——这一点 S036 §8 未覆盖，见 §15 提议 2）；`requirementsSource` = 该打法 `evidenceRefs` 对应的 S009 逐字片段（`kind: "discovery-evidence"`, `evidenceRef = segmentId`, `quote = text`）+ H1 中负责人填写的范围说明（`kind: "caller-stated"`）；`requestedLines` 来自 H1；`currentContractRef` 来自账户记录（缺 → S036 报 `S036_INPUT_INVALID`，W018 不自己补）；`requestedTerms` 追加决策 2 中 `proceed-with-disclosure` 的承诺；`locale`、`jurisdiction`、`procurementContext`、`currency` 透传。**不传** `closePlanRef`（W018 无 S032）。
 - **阶段 8（H2）展示** `internalView` 全量：`priceErosion` 行、`nonStandardTerms`、`blockedClaims`、`contentOriginatedRequests`、`disqualificationRisks`。H2 对每个打法的 `(proposalId, version, inputsDigest)` 单独批准；批准记录绑定这三元组，任一变化即失效。
 - **H2 门能力**：`apps/api/src/application/agent-interrupts/` 下只有 `choose-option-decision.ts`、`decision-guard.ts`、`fill-params-decision.ts`（VERIFIED，目录列表）；它们能否承载「多签 + 审批带路由」UNVERIFIED，在 ADR-118 的 approve 用例落地前，H2 的 multi-gate 为 proposed-unwired。
 
@@ -165,7 +164,7 @@ const PlaySelection = z.object({
 const ExpansionPlanRecord = z.object({
   instanceId: z.string(), definitionVersion: z.string(), accountId: z.string(), asOf: z.string(),
   s021DossierId: z.string(), s009PackId: z.string(), s035ResultId: z.string(), s023PlanId: z.string(),
-  expansionReadiness: z.enum(["ready", "conditional", "blocked"]),   // S035；insufficient-evidence 已映射为 blocked
+  expansionReadiness: z.enum(["ready", "conditional", "blocked"]),   // S035；insufficient-evidence 与 S035 未输出（churned-notice）均已映射为 blocked
   blockedBy: z.array(z.string()),
   openCommitmentIds: z.array(z.string()),           // S009 中 evidenced-open ∪ unknown
   newBuyingUnitSignalIds: z.array(z.string()),      // S021，供追溯 S023 timingSignal 因子
@@ -295,7 +294,7 @@ W018 定义写成 ADR-118 第 2 条的 TypeScript 图工厂 + `WorkflowDefinitio
 | E2 | 账户 B：仅 2 维可见，均 green | 按 insufficient-evidence → blocked；终态 `expansion_blocked`；计划页 `blockedBy` 含 `insufficient-evidence` |
 | E3 | 账户 C ready；S009 台账有 1 条 `evidenced-open`「Q2 交付 BI 看板」；S023 白区排第一的打法是 BI 模块增购 | H1 上该打法缺省 `fulfil-first`；未填理由不能改为继续；若保持 → 该打法不出现在 `proposals`（T8） |
 | E4 | 账户 C，H1 未对 2 条 `unknown` 承诺作处置即提交 | 提交被拒（T7）；无 S036 receipt |
-| E5 | D006（CSM）发起，选 1 个打法，S036 `requiredApprovalTier = none` | H2 为 multi-gate：CSM 单独批准无效，须账户销售负责人签；H3 执行人为 CSM 时被拒 |
+| E5 | D006（CSM）发起，选 1 个打法，S036 `requiredApprovalTier = none` | H2 为单签（销售负责人）：CSM 单独批准无效，须账户销售负责人签；H3 执行人为 CSM 时被拒 |
 | E6 | 同账户在实例 1 进行中时，另一用户以新 requestId 发起 | 返回实例 1 id 与 `W018_ACTIVE_INSTANCE_EXISTS`；无新实例、无新 receipt |
 | E7 | 同账户存在未终结 W017 实例 | 实例停在 `held_for_renewal_review`，H1 不开放；W017 终结后执行 P2 再开放 H1 |
 | E8 | 现有合同 `SKU-SEAT` 单价 1000；H1 请求增购 50 席净价 900；折扣带 ≤15% none | S036 行 `priceErosion = true`；H2 页面突出显示该行；批准后 CRM receipt `amountExTax = 45000`（按夹具计价周期），不是模型估值 |
@@ -322,5 +321,5 @@ G5 对比判据：E1、E3、E5、E6、E11、E14 上基线至少失败 3 条而 W
 ## 16. 未决问题
 - 决策 4 中 W017 实例状态查询依赖 ADR-118 InstanceStore 跨 Workflow 查询接口（未设计）。
 - 决策 5 的「CSM 获销售负责人授权执行 H3」授权记录的存储与 owner 未定（proposed-unwired）。
-- S035 当前为 REWRITE；其 B2（总色合成规则）修订可能改变 `insufficient-evidence` 的触发条件，W018 的 blocked 映射需在 S035 PASS 后复核。
+- （已复核）S035 已 PASS，定稿 R3 为「可见维度数 < 3 → insufficient-evidence」，与 W018 E2 的假设一致，blocked 映射不变。
 - H1/H3 超时（7 / 14 / 7 天）是否上升为组织策略可配置项，待 ADR-118 approve 用例定稿。

@@ -3,8 +3,7 @@
 > 类型：Reference Workflow · 域：Product · 作者化任务：AUTHOR-W032 · 状态：待独立评审
 > 基线：`main@30c1c4332025151610502988b0379b95ff7298c7`（下文「已核实」均指在该 SHA 上读过文件）。
 > 权威：`requirements/work-stack-v2/`（ADR-116）；运行时：ADR-118（第 4 条业务行是事实、第 5 条实例固定版本、第 6 条 effect-gateway、第 9 条 Skill 由 Workflow 固定）；工具分类：ADR-120；评测门：ADR-119。
-> 对齐的已 PASS 契约（只引用，不修改）：`skills/S068-prioritization.md`、`skills/S155-business-review.md`。
-> 引用但尚未 PASS 的契约（字段以其当前稿为准，定稿变化时本文随之修订）：`skills/S069-roadmap-planning.md`、`skills/S072-metrics-review.md`、`skills/S009-customer-research.md`、`skills/S008-competitive-analysis.md`。
+> 对齐的已 PASS 契约（只引用，不修改）：`skills/S068-prioritization.md`、`skills/S155-business-review.md`、`skills/S069-roadmap-planning.md`、`skills/S072-metrics-review.md`、`skills/S009-customer-research.md`、`skills/S008-competitive-analysis.md`。
 
 ## 1. 边界
 W032 把**一份已批准的路线图版本 vN** 在一个复盘周期后变成**经人类批准的 vN+1（或显式「维持 vN」的复核记录）**，并且回答三个问题：
@@ -58,10 +57,10 @@ S068 `FactorSource` 只有 `metric-query | contract | estimate-by | synthesis-fi
 kwp roadmap-update「Avoiding Roadmap Whiplash」（:250-254）要求变更有阈值、按节奏批量、跟踪变更频率。W032 落地为：(a) 无变化不发新版本，只写一条 `RoadmapReviewRecord(outcome="reaffirmed")` 并经 G2（ask 级）确认；(b) S069 `whiplashFlag=true` 或 `churnNow > 0.3` 时 G2 升为 multi-gate；(c) 非节奏内发起（距 vN 批准 < `minReviewIntervalDays`，缺省 30）必须带 `outOfCycleReason`，否则 trigger 被拒（`OUT_OF_CYCLE_UNJUSTIFIED`）。
 
 **决策 5 — 批准权属于路线图 owner；DigitalHuman 与 S068/S069 都无权把 `proposed/draft` 变成 `approved`。**
-S068 输出恒 `status:"proposed"`，S069 恒 `status:"draft"`（S069 §5.2、S069 §6 第 176 行指向 W032 人工门）。W032 的 G2 是唯一转换点：第一签人 = `productScopeId` 的路线图 owner（`roadmapOwnerPrincipalId`，trigger 声明、服务端核实其对 `productScopeId` 有写权限）；以下任一条件成立时 G2 为 multi-gate，需第二签人（`approverPolicy.secondApproverPrincipalId`，与第一签人不同人）：`whiplashFlag=true`；任一带 `hardDeadline.source ∈ {contract, regulation}` 的条目被降出其视野或进 `notDoing`；任一 `commitment="committed"` 条目被移出 Now。S069 不变量 8 要求「无证据变更 `trigger=strategy` 且 `decidedBy` 为人」——W032 在 G2 表单上逐条收集 `decidedBy`，没填的 `strategy` 变更不能批准。
+S068 输出恒 `status:"proposed"`，S069 恒 `status:"draft"`（S069 §5.2、S069 §6 表内 status 行（定稿第 182 行）指向 W032 人工门）。W032 的 G2 是唯一转换点：第一签人 = `productScopeId` 的路线图 owner（`roadmapOwnerPrincipalId`，trigger 声明、服务端核实其对 `productScopeId` 有写权限）；以下任一条件成立时 G2 为 multi-gate，需第二签人（`approverPolicy.secondApproverPrincipalId`，与第一签人不同人）：`whiplashFlag=true`；任一带 `hardDeadline.source ∈ {contract, regulation}` 的条目被降出其视野或进 `notDoing`；任一 `commitment="committed"` 条目被移出 Now。S069 不变量 8 要求「无证据变更 `trigger=strategy` 且 `decidedBy` 为人」——W032 在 G2 表单上逐条收集 `decidedBy`，没填的 `strategy` 变更不能批准。
 
 **决策 6 — 结果复盘不写「功能成功/失败」，也不让复盘结论自动降级条目。**
-S072 决策 4 与 S155 决策 1/5 都只给相关性结论（`causalClaim="correlation-only"`）。W032 把 `moved-opposite` / `no-detectable-change` 转成 S068 的 `newInformation` 与 S155 的 `decisionsNeeded`，**不**自动把对应后续条目移到 `notDoing`；是否继续投入是 G2 上的人类选择（S155 `decisionsNeeded.options` 至少含「维持现状」）。
+S072 决策 4 禁止因果措辞，结论强度只由 `outcomeReviews[].basis`（`"noise-band" | "experiment-result"`）表达；S155 决策 1/5 只给相关性结论（S155 `priorActions[].causalClaim="correlation-only"`）。W032 把 `moved-opposite` / `no-detectable-change` 转成 S068 的 `newInformation` 与 S155 的 `decisionsNeeded`，**不**自动把对应后续条目移到 `notDoing`；是否继续投入是 G2 上的人类选择（S155 `decisionsNeeded.options` 至少含「维持现状」）。
 
 **决策 7 — 竞品材料只进内部视图；外部可见版路线图单独过 G4，且只发 S069 `external-safe` 投影。**
 S008 `audience` 恒为 `internal-only`（S008 决策 5 / A7）；S069 不变量 7 规定 `external-safe` 不含 `announced=false` 项与 S008 引用。W032 缺省不对外；trigger `externalView.enabled=true` 时才进入阶段 12，且该阶段为 multi-gate（路线图 owner + `disclosureApproverPrincipalId`，通常是法务/IR）。
@@ -131,12 +130,12 @@ const W032Trigger = z.object({
 | 12 | external_view | — | `artifact.write`（外部可见项目） | notified/skipped → awaiting_disclosure → external_publishing → external_published ｜ disclosure_declined | high-impact | **G4** multi-gate（owner + disclosure approver，决策 7）。发布前执行 **P4** |
 
 阶段说明（只写 W032 特有的输入映射）：
-- **阶段 2**：`roadmapItems` = vN 中 `horizon="now"`、`expectedOutcome.reviewAfter ≤ reviewPeriod.end` 且已上线的条目（上线日期取 trigger `eventLog` 中 `kind="release"` 且 `scope.itemId` 匹配的事件；找不到上线事件的条目不进 S072，记 `RoadmapReviewRecord.unreviewedItems[{itemId, why:"no-release-event"}]`）；`expectedMetricId = expectedOutcome.metricRef`，`expectedDirection = expectedOutcome.direction`，`roadmapRef = {skill:"S069", artifactId}`。S072 返回 `NO_EVALUABLE_METRIC` 时阶段不失败：继续，但 `RoadmapReviewRecord.outcomeEvidence="none-evaluable"`，且 G2 页面首屏显示「本轮没有可评估的结果复盘」。
-- **阶段 3**：`commitments` = vN 中 `commitment="committed"` 的条目，`kind="roadmap-outcome"`，`metricRef/targetValue` 取 `expectedOutcome`；`actuals` 取 S072 `verdicts[].current`（S072 输出不变式 1 保证其来自计算脚本），`producedBy="S072:<reportId>"`；`driverAnalyses = [{ref: S072 reportId, producedBySkill:"S072", coversCommitmentIds}]`；`governance.decisionRights` 至少含 `{role:"roadmap-owner", scope: productScopeId}`，使 S155 的 `decisionsNeeded.ownerRole` 可解析。`audience` 固定 `author-only`，避免 S155 `S155_AUDIENCE_REJECTED`。
-- **阶段 4**：`roadmapItems` = 候选集中 `horizon ∈ {next, later}` 的条目 ∪ `newInitiatives`（Now 段已承诺条目不做需求计数——它们的依据在 vN 批准时已定，重新计数只会引入抖动）；`subject = {kind:"segment", frame: customerEvidence.frame}`。
-- **阶段 5**：`roadmapThemes` = vN `outcomes[]`（每个 outcome 一个 theme，`capabilityHints` = 挂在该 outcome 下条目的 `title`）；`evidence.customerResearchRef` = 阶段 4 `packId`；`evidence.uploads` = trigger uploads；`evidence.webSources` 只来自本实例 `web.fetch` 回执；**不提供 `searchLedger`**（W032 行无 S003，见 §13 提议 1）。因此 S008 结果常为 `status="provisional"`；G2 页面对 provisional 的 implication 标「待核」。
-- **阶段 6**：`candidates[].kind="roadmap-item"`；`bucket` 映射：S069 `bet → big-bet`、`incremental → incremental`、`foundation →` 不传（S068 记为 `unclassified`；S068 `table-stakes` 与 S069 `foundation` 语义不同，不硬映射，§13 提议 4）；`factors.effort` = 最新 `estimateUpdates`，否则沿用上一版的 `estimate-by` 因子；`newInformation` = `[S072 reportId, S155 reviewId, S009 packId, S008 analysisId]` 中实际产出的引用，每条 `summary` 由平台按固定模板生成（如「S072: I-12 moved-opposite」），不由模型自由写；`deadline` 取 S069 `hardDeadline`（`source=contract → kind=contract`，`regulation → regulatory`，`launch-event` 不映射——它不是外部硬截止，S068 A2 不应钉住）。
-- **阶段 7**：`rankingRef = {skill:"S068", rankingId: proposalId}`；`initiatives` 只传 S068 `bands ∪ pinned` 中的条目；S068 `unestimated` 条目**不**传给 S069（否则触发 `RANKING_MISSING`），记入 `RoadmapReviewRecord.parkedUnestimated[]` 并在 G2 显示；`evidenceRefs` 为阶段 2–5 的产物引用。
+- **阶段 2**：`roadmapItems` = vN 中 `horizon="now"`、`expectedOutcome.reviewAfter ≤ reviewPeriod.end` 且已上线的条目（每条必填 `launchedAt` = trigger `eventLog` 中 `kind="release"` 且 `scope.itemId` 匹配的事件时间；找不到上线事件的条目不进 S072，记 `RoadmapReviewRecord.unreviewedItems[{itemId, why:"no-release-event"}]`）；`expectedMetricId = expectedOutcome.metricRef`，`expectedDirection = expectedOutcome.direction`，`roadmapRef = {skill:"S069", artifactId}`；有 W031 实验结果时 `experimentResultRef = {skill:"S161", resultId}`（取自 W031 已完成实例）；trigger `metrics[].definitionRef` 若指向激活类定义，则按 S072 输入传 `activationDefinitionRef`（W032 trigger 无 `kpiRef`，不传）。S072 返回 `NO_EVALUABLE_METRIC` 时阶段不失败：继续，但 `RoadmapReviewRecord.outcomeEvidence="none-evaluable"`，且 G2 页面首屏显示「本轮没有可评估的结果复盘」。
+- **阶段 3**：`commitments` = vN 中 `commitment="committed"` 的条目，`kind="roadmap-outcome"`，按 S155 §5.1 `commitments[]` 与 S069 §12 衔接规则逐字段映射：`commitmentId = "<planId>:<itemId>"`，`metricRef/targetValue/definitionVersion/targetSetAt` 取 `expectedOutcome` 同名字段，`polarity` 由 `expectedOutcome.direction` 映射（`up → higher-is-better`，`down → lower-is-better`），`ownerPrincipalId` 取条目 owner；`expectedOutcome.reviewAfter` 只用于选 period，不作为字段传入（E13）；`comparisonBases`（必填非空）= 本轮 `reviewPeriod` 对应的对比基（至少含 target）；`actuals` 取 S072 `verdicts[].current`（S072 输出不变式 1 保证其来自计算脚本），`producedBy="S072:<reportId>"`，每条 `basis` 取对应 S072 `outcomeReviews[].basis`、`definitionVersion` 取该指标定义版本、`window` 取 S072 评估窗口、`evidenceRefId` = S072 `reportId`；`driverAnalyses = [{ref: S072 reportId, producedBySkill:"S072", coversCommitmentIds}]`；`governance.decisionRights` 至少含 `{role:"roadmap-owner", scope: productScopeId}`，使 S155 的 `decisionsNeeded.ownerRole` 可解析。`audience` 固定 `author-only`，避免 S155 `S155_AUDIENCE_REJECTED`。
+- **阶段 4**：`roadmapItems` = 候选集中 `horizon ∈ {next, later}` 的条目 ∪ `newInitiatives`（Now 段已承诺条目不做需求计数——它们的依据在 vN 批准时已定，重新计数只会引入抖动），每条形状 `{roadmapItemId, title, description}`（vN 条目取 `itemId`/`title` 与输入快照 initiative 的描述；新提案取 `initiativeId`/`title`/`description`）；`questions[]`（min 1）= 平台按固定模板对每条生成「是否有客户明确提出/表达该痛点」；`window` = `customerEvidence.window`；`subject = {kind:"segment", frame: customerEvidence.frame}`。
+- **阶段 5**：`roadmapThemes` = vN `items[]` 按 `themeOutcomeId` 分组（S069 输出 `RoadmapPlan` 无 `outcomes[]`；theme 名称从 vN 的输入快照 `RoadmapPlanningInput.outcomes[]` 读，每组一个 theme，`capabilityHints` = 组内条目的 `title`）；`subject.ourProductId` = `productScopeId` 对应的本方产品 ID；trigger 的 `allowWebFetch` 是 W032 自有字段（只控制本阶段是否申请 `web.fetch`），不是 S008 输入字段；`evidence.customerResearchRef` = 阶段 4 `packId`；`evidence.uploads` = trigger uploads；`evidence.webSources` 只来自本实例 `web.fetch` 回执；**不提供 `searchLedger`**（W032 行无 S003，见 §13 提议 1）。因此 S008 结果常为 `status="provisional"`；G2 页面对 provisional 的 implication 标「待核」。
+- **阶段 6**：`candidates[].kind="roadmap-item"`；`kind`/`hardDeadline` 是 S069 输入 initiatives 上的字段，`RoadmapPlan.items` 不含，vN 条目从 vN 输入快照 `RoadmapPlanningInput.initiatives[]` 按 `initiativeId` 读，新提案从 trigger 读；`bucket` 映射：S069 `bet → big-bet`、`incremental → incremental`、`foundation →` 不传（S068 记为 `unclassified`；S068 `table-stakes` 与 S069 `foundation` 语义不同，不硬映射，§13 提议 4）；`factors.effort` = 最新 `estimateUpdates`，否则沿用上一版的 `estimate-by` 因子；`newInformation` = `[S072 reportId, S155 reviewId, S009 packId, S008 analysisId]` 中实际产出的引用，每条 `summary` 由平台按固定模板生成（如「S072: I-12 moved-opposite」），不由模型自由写；`deadline` 取 S069 `hardDeadline`（`source=contract → kind=contract`，`regulation → regulatory`，`launch-event` 不映射——它不是外部硬截止，S068 A2 不应钉住）。
+- **阶段 7**：`previousPlanRef = {skill:"S069", planId, version}` 取自 `basePlanRef`（缺失则 S069 返回 `PREVIOUS_PLAN_REQUIRED`）；`rankingRef = {skill:"S068", rankingId: proposalId}`；`initiatives` 只传 S068 `bands ∪ pinned` 中的条目；S068 `unestimated` 条目**不**传给 S069（否则触发 `RANKING_MISSING`），记入 `RoadmapReviewRecord.parkedUnestimated[]` 并在 G2 显示；`evidenceRefs` 为阶段 2–5 的产物引用。
 - **阶段 8 → `reaffirm_candidate`**：S068 `changes` 中无 `fromBand ≠ toBand` 且 S069 `changeLog=[]` 且 `adjustments=[]`（决策 4）。
 - **阶段 9 的 `revise`**：审批人可修改 `estimateUpdates`、删除 `newInitiatives`、补 `decidedBy`；回到阶段 6（S068/S069 重跑，阶段 2–5 产物复用，不重读数据）。`revise` 上限 3 次，第 4 次只能 approve/reject。
 
@@ -156,7 +155,7 @@ const RoadmapReviewRecord = z.object({
   outcomeEvidence: z.enum(["evaluated", "partially-evaluated", "none-evaluable"]),
   unreviewedItems: z.array(z.object({ itemId: z.string(), why: z.enum(["no-release-event", "review-not-due", "metric-access-denied"]) })),
   parkedUnestimated: z.array(z.string()),                // S068 unestimated
-  changeSummary: z.array(z.object({                      // 由 S069 changeLog 与 S068 changes 按 itemId 连接得到
+  changeSummary: z.array(z.object({                      // S068 changes[] 以 candidateId 为键（= initiativeId），经 S069 items[].initiativeId → itemId 映射后与 S069 changeLog 按 itemId 连接
     itemId: z.string(), change: S069ChangeKind, fromBand: z.number().nullable(), toBand: z.number().nullable(),
     s068Cause: S068ChangeCause.nullable(), s069Trigger: S069Trigger, evidenceRefs: z.array(EvidenceRef),
     decidedBy: UserId.nullable(), affectedStakeholders: z.array(UserId),
@@ -177,7 +176,7 @@ const RoadmapReviewRecord = z.object({
 - **X3** S069 `changeLog[].trigger="outcome-review"` ⇒ 其 `evidenceRefs` 含 S072 `outcomeReviews` 中对应 `itemId` 的条目，且该条 `result ≠ "moved-as-expected"` 或 S155 对应承诺 `significance="significant"`。
 - **X4** S069 `changeLog[].trigger="competitive"` ⇒ 引用的 S008 implication `kind ∈ {parity-gap, threat-watch}`；引用 `status="provisional"` 的 S008 结果时，G2 表单对该条要求显式确认。
 - **X5** S009 `demand[].evidenceStatus="none-found-in-read-sources"` 的条目，不得以 `trigger="evidence"` 被提升视野。
-- **X6** 任一 vN `committed` 条目在 vN+1 中不再是 `committed` ⇒ 其 `affectedStakeholders` 非空，或 `changeSummary` 条目写明 `requestedBy` 为空。
+- **X6** 任一 vN `committed` 条目在 vN+1 中不再是 `committed` ⇒ 其 `affectedStakeholders` 非空，或该条目在 vN 输入快照 initiative 上的 `requestedBy` 为空（`changeSummary` 无 `requestedBy` 字段，阶段 8 从输入快照读）。
 
 终态 ↔ 效果不变式（`terminalState` 与业务行必须同时成立）：
 - **T1** `terminalState ∈ {published, notified, partially_notified, external_published, disclosure_declined}` ⇔ `outcome="revised"` 且 `resultPlan ≠ null` 且存在一条 G2 `approve` 且（决策 5 条件成立时）两名不同 approver；vN+1 artifact 版本恰有一个。
@@ -261,7 +260,7 @@ const RoadmapReviewRecord = z.object({
 | E1 | vN 含 I-3（Now，committed，expected `activation_rate` up，reviewAfter 已过，eventLog 有 release）；series 显示落在噪声带内 | S072 `outcomeReviews[I-3].result="no-detectable-change"`；S155 对应承诺有 `decisionsNeeded` 且含维持现状；vN+1 中 I-3 后续条目未被自动移入 `notDoing`（决策 6） |
 | E2 | 同 E1 但 eventLog 无 I-3 的 release 事件 | I-3 不进 S072 输入；`unreviewedItems` 含 `{I-3, no-release-event}` |
 | E3 | S072 所有指标 `untrusted`（定义缺失） | 阶段不失败；`outcomeEvidence="none-evaluable"`；G2 页面首屏提示；无 `trigger="outcome-review"` 的 changeLog（X3） |
-| E4 | S009 给 N-7 `explicitRequestAccounts=12`（其中 1 个账户 40 张工单） | S068 输入中 N-7 `reach` 来源不是 S009；`newInformation` 含 S009 packId；`changes[N-7].changeCause` 以 `new-evidence:` 开头 |
+| E4 | S009 给 N-7 `explicitRequestAccounts=12`（其中 1 个账户 40 张工单） | S068 输入中 N-7 `reach` 来源不是 S009；`newInformation` 含 S009 packId；`changes[candidateId=N-7].changeCause`（candidateId = initiativeId） 以 `new-evidence:` 开头 |
 | E5 | S008 对主题 T-2 给 `parity-gap`，但锚格仅 vendor-claim（`status=provisional`）；S069 将 L-4 从 later 提到 next，`trigger="competitive"` | X4 生效：G2 表单对 L-4 要求显式确认；未确认不能 approve |
 | E6 | 合同截止 I-9（`hardDeadline.source=contract`）容量不足被 S069 降到 Next | G2 为 multi-gate；只有一名 approver 时无法进入 publishing；两名不同人批准后 `approvals` 有两条 G2 |
 | E7 | 钉住项合计 > 净容量 | 终态 `blocked_pinned_over_capacity`；无 vN+1；S068 产物 `status="proposed"`（T5） |
@@ -292,5 +291,4 @@ G5 对比判据：E1、E4、E6、E9、E14、E15 中基线至少失败 3 条而 W
 ## 16. 未决问题
 - `metrics.read`、`notify.inapp`、`transcript.read` 等分类名待 ADR-120 分类表定稿（均为提案名）。
 - `minReviewIntervalDays = 30` 是否作为组织级策略（可调大不可调小），需 D015 作者确认。
-- S069/S072/S009/S008 尚未 PASS；它们定稿若改字段名，本文 §5 输入映射与 X1–X6 需同步修订。
 - G2 第二签人缺省来源（产品线负责人 vs 组织管理员）在无组织结构数据时如何解析，待 ADR-118 人工门实现确定。

@@ -11,7 +11,7 @@ D003 是团队里负责「**做什么、为什么、做到什么程度算成**�
 
 D003 **不**做的事，写死在权限矩阵（§5）里：
 - 不替人类接受问题框定、目标机会、路线图承诺或实验结论（这些状态在上游 Skill 文档里都只能由人工关卡写入：S064 D2、S065 C4、S068「输出是提议」、S072 决策 4）。
-- 不写对外文案（S073 I4 已把文案划给 S041/S042，D003 不挂这两个 Skill）。
+- 不写对外文案（S073 I4 规定输出不含对外文案字段；文案由 S073 沟通矩阵的 `handoffSkill` 交给 S037/S041/S042/S054，D003 不挂这些 Skill）。
 - 不直接改工单、不删 backlog 条目（S068 已把删除划给 S142 的写动作；S142 只在 W030 内由 Workflow 固定，D003 不直接挂载）。
 - 不做因果结论：因果推断归 S161/S071，D003 只转述 S072 给的「时间相关的已登记事件」。
 
@@ -64,10 +64,10 @@ D003 在对话里的核心工作不是「调一个 Skill」，而是**按产物�
 
 | 步骤 | D003 看什么产物字段 | 放行条件 | 不满足时 D003 的动作 |
 |---|---|---|---|
-| M1 假设先于方案 | S061 `DiscoveryReadout` 的 verdict | 不是 `continue-provisional` 才能当作「已验证方向」对人陈述 | 明说「这是临时结论，W027 没有 S171 的证据评审」（S061 决策 4） |
+| M1 假设先于方案 | S061 `DiscoveryReadout.discoveryState` | 不是 `continue-provisional` 才能当作「已验证方向」对人陈述 | 明说「这是临时结论，W027 没有 S171 的证据评审」（S061 决策 4） |
 | M2 框定先于机会 | S064 `ProblemFrame.status` | `accepted`（只能由 W027/W029 人工关卡写） | `needs-choice` 时把候选问题摆给负责人选，不自己选（S064 决策 2） |
 | M3 目标机会先于 PRD | S065 `decision.status` | `accepted` | `proposed` 时只能说「建议目标」，不能起草 PRD 正文；可提示跑 W029 |
-| M4 PRD 就绪先于冲刺 | S067 `PrdReadiness.status` + S076 `readiness` | `ready`，或 `ready-with-gaps` 且 `gapsAcceptedBy ≠ null` | 直调 S070 时接受 `unverified-backlog` 降级并在回复首句说明（S070 P1） |
+| M4 PRD 就绪先于冲刺 | S067 `PrdReadiness.status` + S076 `readiness` | S067 必须为 `ready`；S076 为 `ready`，或 `ready-with-gaps` 且 `gapsAcceptedBy ≠ null` | 直调 S070 时接受 `unverified-backlog` 降级并在回复首句说明（S070 P1） |
 | M5 排序改动要有依据 | S068 的改序原因 | `strategy-shift` 必须带可引用的 `decisionRef` | 「老板说放最前」且无记录 → 不进 `pinned`（S068 E11） |
 | M6 实验先注册后看数 | S071 `criteriaDigest` / `computeReceipt` | 数值只来自脚本 | 用户要改 MDE 或样本量 → 生成新版本设计，不改旧设计 |
 | M7 指标先判可信再谈趋势 | S072 可信度门结果 | 数据源不是 `caller-declared` 才能作为事实陈述 | 粘贴的数字只能说「按你给的数」，并保持低置信（S072 决策 2） |
@@ -117,10 +117,10 @@ type HandoffReason = "budget-or-headcount" | "positioning-or-copy" | "user-resea
 | 调用哪个挂载 Skill、以什么模式 | ✓ | | |
 | 在对话中请求启动 W027–W032 | | ✓（请求经 HarnessDelegationPort，启动前由用户确认） | |
 | 问题框定 `accepted`、目标机会 `accepted` | | ✓ | ✓ W027/W029 人工关卡 |
-| PRD `ready-with-gaps` 放行进冲刺 | | ✓ 列出缺口 | ✓ W030 人工关卡写 `gapsAcceptedBy` |
+| S076 `readiness` 为 `ready-with-gaps` 时放行进冲刺（S067 须为 `ready`） | | ✓ 列出缺口 | ✓ W030 人工关卡写 `gapsAcceptedBy` |
 | 冲刺中途取消或改冲刺目标 | | ✓（S070 `goal.status = invalidated`） | ✓ 冲刺负责人 |
 | 路线图 Now 段增删、承诺日期 | | ✓ | ✓ W032 人工关卡 |
-| 优先级「钉住」某项（pinned） | | 仅当有 `decisionRef` | ✓ 无记录时要求负责人给决策记录 |
+| 优先级「钉住」某项（pinned） | | 仅当有外部截止日或已签承诺（`pinReason: DeadlineKind` + `deadline`，S068 A2）；以 `strategy-shift` 改序另须 `decisionRef`（S068 C4） | ✓ 无记录时要求负责人给决策记录 |
 | 实验停止 / 宣布胜出 | | ✓ 按预注册判据给读数 | ✓ 实验负责人；D003 不得提前宣布 |
 | 发布 Tier 与放量节奏 | | ✓ S073 分级 | ✓ 发布负责人；T1 另需法务/安全确认（CN 见 §11） |
 | 写工单、改 backlog、发外部消息 | | | ✓ 只能在 W030 的 S142 阶段经 effect-gateway 与人工关卡发生 |
@@ -285,7 +285,7 @@ presentationPolicy: 超过 5 项的列表、排序表、路线图一律推到画
 3. **进展更新能力缺位。** 上游 PM 插件把 stakeholder update 作为一等能力（knowledge-work-plugins `product-management/README.md:18`）；目录里 S007 Status Update 存在，但不在 D003 行，D003 的六个 Workflow 也都不固定它。提议评审是否把 S007 加到 D003 行。
 4. **头脑风暴能力缺位。** S066 Product Brainstorming 在 D011 行（矩阵第 17 行），不在 D003 行，D003 的六个 Workflow 也都不固定它。J12 目前只能给可见说明并交给 D011。提议评审是否把 S066 加到 D003 行。
 5. **S073 无 Workflow 消费者。** 沿用 S073 §13 提议 1（W030 之后加发布就绪阶段），本文附议，因为 D003 是它唯一的直接挂载者。
-6. **S075 无 Workflow 消费者。** S075 §提议 1 建议加入 W029；S075 当前评审状态不是 PASS，本文不附议，只记录。
+6. **S075 无 Workflow 消费者。** S075 §13 提议 1 建议加入 W029；S075 评审结论已为 PASS，本文记录该提议，是否采纳由 Workflow 负责人决定。
 
 以上都不改变本文 §2 的边；矩阵的 Skill gaps 列为「—」，本文照录为「无 gap」。
 

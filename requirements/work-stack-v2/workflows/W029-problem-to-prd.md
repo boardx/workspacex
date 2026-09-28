@@ -43,7 +43,7 @@ Skill 版本由 `WorkflowDefinition(W029, v1).stages[*].skills[*] = {stableId, v
 各行 Skill 列只表示聊天直接调用（ADR-118 第 9 条），与能否运行 W029 无关，本文不提任何挂载边。
 
 ### 2.3 相邻 Workflow（划界）
-- **W027 Discovery-to-Opportunity**：其终点也是被接受的目标机会，但证据恒为 provisional（W027 文档决策 2，该文档**尚未 PASS**，只作参考）。W029 可以引用 W027 的 frame / synthesis 作为 trigger 输入，但**不复用** W027 的 G6 目标接受回执——W029 自己重新跑 S065 并过 G2（决策 3）。
+- **W027 Discovery-to-Opportunity**：其终点也是被接受的目标机会，但证据恒为 provisional（W027 文档决策 2）。W029 可以引用 W027 的 frame / synthesis 作为 trigger 输入，但**不复用** W027 的 G6 目标接受回执——W029 自己重新跑 S065 并过 G2（决策 3）。
 - **W030 PRD-to-Sprint**：消费 W029 的 `approved` PRD 版本（`prdRef: {documentId, versionId}`）。W029 **不自动启动** W030，只在终态产物里给出可一键发起的 `nextWorkflowSuggestion`（决策 6）。
 
 ## 3. 实体特有决策
@@ -74,7 +74,7 @@ S067 的 `priorityRef` 用于需求级优先级回填，其 `PRIORITY_MISMATCH` 
 **决策 5 — Effort 只能由具名估算人给；S065 → S068 之间插一个「估算收集」人工阶段，而不是让模型估。**
 回应 S068 §14 提议 1（S068 决策 6：模型不估工作量；S065 不提供 Effort）。阶段 6 `estimate` 向 `trigger.estimators[]`（缺省为 `prdOwnerUserId`）发出估算表单，每个候选解法收一个 `{value, unit: "person-day" | "person-week", principalId}`；平台把它写成 S068 的 `{ kind: "estimate-by", principalId }`。服务端核实 `principalId` 是本组织成员且就是提交表单的人（S068 §8）。
 - 超时（缺省 5 个工作日）未估的候选进入 S068 的 `unestimated`，不参与排名；若估完的候选 < 2，跳过 S068，G3 在已估候选中人工选择（E6）。
-- Reach/Impact 不收集：W029 允许 S068 按 B1 规则降为 ICE，输出中的 `frameworkDowngrade` 原样展示在 G3 上。
+- Reach 不收集：W029 不传 `framework`，S068 B1 在无可溯源 Reach 时直接选 ICE；因为未指定 RICE，S068 §6 的 `frameworkDowngrade` 不会出现，W029 不展示它。ICE 的三个因子由同一估算表单收集：估算人对每个候选另填 `impact`、`confidence`、`ease`（各 1–10），平台同样写成 `source = { kind: "estimate-by", principalId }`（S068 B2）；某因子未填时按 `assumed` 处理，由 S068 B2 按 ICE 最低 Confidence 档计。
 
 **决策 6 — W029 没有 high-impact 阶段；唯一的写效果是 PRD 版本落盘，且落盘前重查写权限。**
 PRD 在这里是内部工作文档，对外沟通由 stakeholder 类流程负责。W029 的效果点只有：
@@ -84,7 +84,7 @@ PRD 在这里是内部工作文档，对外沟通由 stakeholder 类流程负责
 不自动启动 W030、不建工作项、不发邮件。这让 W029 的撤销成本始终是「删一个 artifact 版本」级别。
 
 **决策 7 — KPI 绑定是一个人工 `ask` 步骤，S067 的 revise 只允许改 `goals`；revise 前后的 diff 由平台机械核对，超出范围即作废 revise。**
-S067 `kpiRefs` 需要 `{kpiId, goalId}` 配对，而 goalId 属于 PRD、kpiId 属于 S162 树，二者的对应是产品判断，模型配对会制造「看起来有指标」的假象。阶段 9 `kpi_bind` 把 S067 `goals[]` 与 S162 中 `role ∈ {target, input}` 的节点并列展示，由人为每个 goal 选 ≤1 个 kpiId 或留空（留空的 goal 保持 `metricPending: true`）。随后 S067 `revise` 的 `changeRequest` 由平台按模板生成（只含绑定清单），并做 **revise diff 核对**：新版与草稿版相比，除 `goals[].kpiRef`、`goals[].metricPending`、`baseVersionId` 外任何字段变化 → 丢弃该 revise 输出，重试 1 次，仍越界则保留草稿版进入 G4 并在表单标注「KPI 未能自动回填」。
+S067 `kpiRefs` 需要 `{kpiId, goalId}` 配对，而 goalId 属于 PRD、kpiId 属于 S162 树，二者的对应是产品判断，模型配对会制造「看起来有指标」的假象。阶段 9 `kpi_bind` 把 S067 `goals[]` 与 S162 中 `role ∈ {target, input}` 的节点并列展示，由人为每个 goal 选 ≤1 个 kpiId 或留空（留空的 goal 保持 `metricPending: true`）。随后 S067 `revise` 的 `changeRequest` 由平台按模板生成（只含绑定清单），并做 **revise diff 核对**：新版与草稿版相比，除 `goals[].kpiRef`、`goals[].metricPending`、`baseVersionId`，以及 `requirements[].changeKind`（S067 §6 规定 revise 时必填；此处每条需求只允许取「未改动」语义的值，出现其他取值即视为越界）外任何字段变化 → 丢弃该 revise 输出，重试 1 次，仍越界则保留草稿版进入 G4 并在表单标注「KPI 未能自动回填」。
 
 **决策 8 — 每个效果点、每次跨门继续前重查权限；不沿用门之前的读取结果。**
 权限是时点事实。W029 的人工门可能等很久（G1/G2/G3 各 7 天、估算 5 个工作日），期间引用的 synthesis、frame、目标项目的 ACL 都可能变化。重查点 **P1–P6**（全部落事件）：
@@ -152,12 +152,12 @@ Trigger 不变式（进门校验，失败即 `TRIGGER_INVALID`，不建实例）
 | 15 | notify | —（E-3，可选） | `notify.inapp` | prd_approved → closed | write | none；逐 watcher **P5** |
 
 阶段说明（只写 W029 特有的接线）：
-- **阶段 1**：`existingFrameRef` 存在时不调用 S064 的首次框定，而是以 `previousFrameId = existingFrameRef.frameId` 读取该版本进入 G1；该 frame 若 `status ≠ draft`，按 S064 重入规则处理。S064 在 W029 中被要求最终 `draft`，两轮 C1 后仍不满足时 S064 返回 `FRAME_INCOMPLETE`，W029 把它当作 `too-broad` 呈现给 G1。
+- **阶段 1**：`existingFrameRef` 存在时不调用 S064，由平台按 `existingFrameRef.{frameId, version}` 直接读取该 frame 版本进入 G1（S064 §5 没有只读模式，`previousFrameId` 只用于重入/修订并产出 version+1）；该 frame 若 `status ≠ draft`，才调用 S064 并传 `previousFrameId = existingFrameRef.frameId`，按 S064 重入规则处理。S064 在 W029 中被要求最终 `draft`，两轮 C1 后仍不满足时 S064 返回 `FRAME_INCOMPLETE`，W029 把它当作 `too-broad` 呈现给 G1。
 - **阶段 3 输入映射**：`frameRef = {skill:"S064", frameId, version}`（G1 接受的那一版，**必须带 version**，不用「省略取最新」，否则 G1 之后 frame 被别人修订会让 S065 读到未接受的版本）；`synthesisRefs` 原样；`journeySteps`、`constraints`、`seedOpportunities`（含决策 2 的剥离原请求）原样；`locale`、`market` 透传。
-- **阶段 7 输入映射**：`candidates[]` = S065 `handoff.S068.solutionIds` 中已估算的解法，`kind = "solution"`，`sourceRef = {skill:"S065", artifactId: mapId, itemId: solutionId}`，`factors.effort.source = {kind:"estimate-by", principalId}`；不传 `framework`（让 S068 B1 规则决定）；`appetite` 不传（solution-select 不装箱，除非 trigger 的 hard constraint 给出时长上限，此时换算为 `appetite` 传入）。
+- **阶段 7 输入映射**：`candidates[]` = S065 `handoff.S068.solutionIds` 中已估算的解法（handoff 为空或不对应 G2 目标时——即 G2 从 `comparisons[].frontier` 选目标或决策 1(c) 情形——改取 S065 opportunity map 中挂在 G2 目标机会下的全部解法节点），`kind = "solution"`，`sourceRef = {skill:"S065", artifactId: mapId, itemId: solutionId}`，`factors.effort.source = {kind:"estimate-by", principalId}`；不传 `framework`（让 S068 B1 规则决定）；`appetite` 不传（solution-select 不装箱，除非 trigger 的 hard constraint 给出时长上限，此时换算为 `appetite` 传入）。
 - **阶段 9 输入映射**：`frameRef` = G1 版本；`direction`：S067 契约只有 `{source:"S065", opportunityId}` 或 `{source:"caller", text}`，**没有**解法引用字段。W029 传 `{source:"S065", opportunityId: G2 目标}`，并把 G3 选中解法以 `constraints: [{kind:"hard", text:"采用解法：<solution.text>（solutionId=<id>）"}]` 注入；解法 id 与 PRD `documentId` 的对应关系记在 W029 的阶段输出里。这是契约缺口下的适配，见 §13 提议 1。`evidenceRefs` = `trigger.synthesisRefs`（P1 过滤后）；`kpiRefs` 不传；`targetPlatforms`、`locale`、`market` 透传。
-- **阶段 10 输入映射**：`objective = S065 handoff.S162.outcome`（S065 不变式 9 保证目标被接受时该字段存在；决策 1(c) 人工指定目标时 handoff 为空，W029 用 frame 的 `outcomeSignals` 拼接作为 objective）；`reviewCadence = "weekly"`；`constraints.maxKpis = 8`（单一 initiative 的 PRD 不需要 12 个指标）；`owners` 取 `watchers ∪ {prdOwnerUserId}` 的团队标签（不含个人数据）；`jurisdiction` = `market` 映射（global → other）。S162 E4 保证无基线时 `target.value = null`、`basis = unknown`，W029 不补数字。
-- **阶段 13**：G4 表单必须同时展示：`evidenceLevel`、S068 的 `frameworkDowngrade` / `unestimated`（若有）、S162 `measurementPlan` 中的 `establish-baseline` 条目、未绑定 KPI 的 goals、S067 `openQuestions` 中 `blocking = true` 的条目。blocking 问题存在时 G4 仍可批准（PRD 可以带着问题被接受），但 PRD 头部 `readinessHint = "has-blocking-questions"`，W030 的 readiness 会把它当 blocker（S067 D4）。
+- **阶段 10 输入映射**：`objective = S065 handoff.S162.outcome`，仅当 G2 接受的正是 `decision.proposedTarget` 时可用（S065 §6 不变式 9 只保证 `decision.status = proposed` 时 handoff 非空）；以下情形 handoff 为空或不对应 G2 目标——决策 1(c) 人工指定目标、`needs-choice` / `insufficient-evidence` 时 G2 从 `comparisons[].frontier` 选目标——W029 用 frame 的 `outcomeSignals` 拼接 G2 目标机会文本作为 objective；`reviewCadence = "weekly"`；`constraints.maxKpis = 8`（单一 initiative 的 PRD 不需要 12 个指标）；`owners` 取 `watchers ∪ {prdOwnerUserId}` 的团队标签（不含个人数据）；`jurisdiction` = `market` 映射（global → other）。S162 E4 保证无基线时 `target.value = null`、`basis = unknown`，W029 不补数字。
+- **阶段 13**：G4 表单必须同时展示：`evidenceLevel`、S068 的 `framework.used` 与 `unestimated`（若有）、S162 `measurementPlan` 中的 `establish-baseline` 条目、未绑定 KPI 的 goals、S067 `openQuestions` 中 `blocking = true` 的条目。blocking 问题存在时 G4 仍可批准（PRD 可以带着问题被接受），但 PRD 头部 `readinessHint = "has-blocking-questions"`，W030 的 readiness 会把它当 blocker（S067 D4）。
 
 ## 6. 产出 schema
 W029 不重新定义 frame / map / proposal / PRD / KPI 树的字段，只定义把它们串起来的**实例产物**与**门回执**。
@@ -249,7 +249,7 @@ Schema 不变式（`evals/work-stack/W029/check-outcome.mjs` 机械核对，**pr
 ## 10. CN / US 差异（仅列实质性的）
 - **合规提示的归属**：S067 `complianceNotes` 只挂在具体 `requirementIds` 上（S067 §9）。W029 在 G4 表单上对 `market = CN` 且 `targetPlatforms` 含 `mini-program` 的 PRD 额外展示「平台审核约束」的 complianceNote 计数；为 0 时提示「未识别到平台审核相关需求」，由人判断，不自动加需求。US 对面向公众的 web PRD 同样展示 WCAG/ADA 相关 note 计数。W029 不新增任何合规规则，只把 S067 已有的提示放到签字位置。
 - **批准人结构**：CN B2B 团队中常见「老板要求上线」作为入口（S064 §9）；W029 不允许把该要求当作 G2/G3 的依据——G3 选择非 S068 `selected` 候选时必须填 `overrideReason`，且理由写「领导要求」时表单提示 S068 决策 5（口头指令不是 strategy-shift）。US 无此额外提示。
-- **估算单位**：CN 团队常用「人天」，US 常用 person-week 或 story point；W029 估算表单只收 `person-day | person-week`，不收 story point（S068 II2 不支持与人日换算），US 团队需自行换算，表单给出提示。
+- **估算单位**：CN 团队常用「人天」，US 常用 person-week 或 story point；W029 估算表单只收 `person-day | person-week`，不收 story point（S068 §9「投入单位」不接受 story point），US 团队需自行换算，表单给出提示。
 - **语言**：`locale` 贯穿五个 Skill；混合语言团队不在一个实例内切换 locale，要换语言需以 `existingPrdRef` 另起实例（S067 的模糊词表按 locale 分开，混用会漏检）。
 
 ## 11. WorkspaceX 落点（基线 `30c1c4332025151610502988b0379b95ff7298c7`）
@@ -300,7 +300,7 @@ G5 对比判据：在 E1/E3/E8/E9/E10/E18 上，基线至少失败 3 条（典�
 
 ## 14. Graph change proposals（只提议，不修改矩阵，不假定采纳）
 1. **S067 输入缺「选中解法」字段**（改 S067 契约，不改矩阵）：S067 `direction` 只能引用 S065 机会或 caller 文本，W029 目前把 G3 选中的解法以 hard constraint 注入（§5 阶段 9）。建议 S067 增加 `solutionRef?: { skill: "S068" | "S065"; id: string }`，由服务端读取解法文本。由 S067 owner 决定。
-2. **不加 S063 边**（回应 S064 §14 提议 1、S067 §14 提议 1）：本文选「触发前置条件」方案（决策 1）；若矩阵 owner 仍希望 W029 自带研究，应加 S063 并同时评估 S171（参考 W027 文档 §13 提议 1 的同类讨论，该文档未 PASS）。
+2. **不加 S063 边**（回应 S064 §14 提议 1、S067 §14 提议 1）：本文选「触发前置条件」方案（决策 1）；若矩阵 owner 仍希望 W029 自带研究，应加 S063 并同时评估 S171（参考 W027 文档 §13 提议 1 的同类讨论）。
 3. **不加 S066 边**（回应 S065 §14 提议 1）：决策 2 以 `needs_solution_ideation` 终态显式暴露缺口；若该终态在评测或试用中占比高（建议阈值 >20%），再提议加 S066。
 4. **不加 S075**（回应 S067 §14 提议 3 所述 S075 文档的提议）：W029 的终点是签字的 PRD；S075 若加入，应作为 G4 之前的只读检查，并读 `prdRef` 版本。本文不附议。
 5. **D049 gaps「Acceptance criteria design」**：S067 §4 C1–C3 已提供验收条件的结构与检查；该 gap 是否因此关闭由 D049 作者判断，本文不认领。

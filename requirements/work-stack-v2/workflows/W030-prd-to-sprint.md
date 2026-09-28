@@ -3,7 +3,7 @@
 > 类型：Reference Workflow · 域：Product · 作者化任务：AUTHOR-W030 · 状态：待独立评审
 > **代码基线**：`main@30c1c4332025151610502988b0379b95ff7298c7`。凡涉及现有 WorkspaceX 代码的陈述均以此基线核对（`git show 30c1c433:<path>`）；未读实现的行为标 **UNVERIFIED**，基线上不存在/未接线的能力标 **proposed-unwired**。
 > 权威：`requirements/work-stack-v2/`（ADR-116）；运行时：ADR-118（第 4 条业务行是事实、第 5 条实例固定版本、第 6 条 effect-gateway、第 9 条 Skill 由 Workflow 固定）；工具分类：ADR-120（第 2 条默认只读、第 3 条被拒不换供应商）；评测门：ADR-119。
-> 对齐的已 PASS 契约（只引用，不改）：`skills/S067-prd-spec-writing.md`、`skills/S068-prioritization.md`、`skills/S070-sprint-planning.md`、`skills/S142-work-item-management.md`、`skills/S076-design-handoff.md`、`digital-humans/D003-product-manager.md`。上游 `workflows/W029-problem-to-prd.md` 尚未 PASS，本文只依赖它的产物形状 `prdRef: {documentId, versionId}` 与 G4 批准回执，并在 §14 标注。
+> 对齐的已 PASS 契约（只引用，不改）：`skills/S067-prd-spec-writing.md`、`skills/S068-prioritization.md`、`skills/S070-sprint-planning.md`、`skills/S142-work-item-management.md`、`skills/S076-design-handoff.md`、`digital-humans/D003-product-manager.md`。上游 `workflows/W029-problem-to-prd.md` 已 PASS（`reviews/W029.review.md`），本文只依赖它的产物形状 `prdRef: {documentId, versionId}` 与 G4 批准回执 `{gate: "G4", documentId, versionId, contentHash, outcome: "approved"|"request_changes"|"reject"}`，并在 §14 标注。
 
 ## 1. 边界（一句话）
 把**一版已批准且冻结的 PRD + 一版已定稿的原型**，变成**一个团队下一个冲刺的「承诺集合」，并在看板上落成有真人负责人的卡片**。每张卡能回溯到 `requirementId`、验收条件 id 和原型节点；每个进入承诺的估点来自团队而不是模型。
@@ -40,15 +40,15 @@ Skill 版本由 `WorkflowDefinition(W030, v1).stages[*].skills[*] = {stableId, v
 ## 3. 实体特有决策
 
 **决策 1 — 阶段顺序固定为 S067 → S076 → [估点会] → S068 → S070 → S142，裁定三份 Skill 文档的顺序分歧。**
-三份已 PASS 文档对顺序各有预期：S142 §2.1 按矩阵列相邻写成 S070 → S142 → S076；S070 §14 提议 1 与 S076 §2.1 写成 S076 先出草稿；S068 §4.0 写 scope-cut 的候选是「S067 的需求条目 id」。硬约束只有这些：
+三份已 PASS 文档对顺序各有预期：S142 §2.1 按矩阵列相邻写成 S070 → S142 → S076；S070 §14 提议 1 写成 S076 先出草稿（S076 §2.1 只要求 PRD 已存在，明确把阶段先后留给 W030 作者决定，不表态）；S068 §4.0 写 scope-cut 的候选是「S067 的需求条目 id」。硬约束只有这些：
 - S070 P1 要求 `prdReadinessRef`、`handoffRef`、`prioritizationRef` 三者都已存在 ⇒ S067、S076、S068 都在 S070 之前；
 - S070 `PRIORITY_STALE`：「S068 输出的候选 id 集合与 S076 草稿 id 集合对不上」即报错 ⇒ S068 的候选**必须是 S076 的 `draftId`**，因此 S068 在 S076 之后；
 - S068 II5：Effort 只接受 `estimate-by` 或 `appetite` ⇒ S068 之前必须拿到团队估点，因此估点会（G2）在 S068 之前；
 - S142 §5.3 的输入是「S070 已经选定的冲刺条目」⇒ S142 在 S070 之后。
-满足全部约束的顺序只有上面这一条。W030 中 S068 的 `candidates[]` 取 `{candidateId: draftId, kind: "requirement", title: draft.title, factors.effort: G2 估点（source = estimate-by:<estimatorId>）}`，`sourceRef` 省略（S068 的 `sourceRef.skill` 枚举不含 S076）。S068 文档写的「需求条目 id」粒度与此不一致，这是契约问题，见本文 §14 第 1 条；本文不假定 S068 已改。
+满足全部约束的顺序只有上面这一条。W030 中 S068 的 `candidates[]` 取 `{candidateId: draftId, kind: "requirement", title: draft.title, factors.effort: G2 估点（`source = {kind: "estimate-by", principalId: <G2 回执的 estimatorPrincipalId>}`，按 S068 §5 inputSchema 的 FactorSource 对象形式）}`，`sourceRef` 省略（S068 的 `sourceRef.skill` 枚举不含 S076）。S068 文档写的「需求条目 id」粒度与此不一致，这是契约问题，见本文 §14 第 1 条；本文不假定 S068 已改。
 
 **决策 2 — 估点会是一道 `required` 人工门（G2），不是 Skill，也不是 `ask`。**
-S070 决策 4 与 S070 §14 提议 2：committed 估点只能来自团队，`team` 估点须随人工门的「估点会结果」提交。W030 在 S076 之后设 G2：表单逐张列 `workItemDrafts`（标题、requirementIds、criterionIds、涉及的 nodeIds），参与者填 `{draftId, value, unit, estimatorPrincipalId}`；G2 回执是估点的唯一事实源，S068 的 `estimate-by` 与 S070 的 `estimate.source = "team"` 都从这张回执派生，平台不接受调用方内联估点。
+S070 决策 4 与 S070 §14 提议 2：committed 估点只能来自团队，`team` 估点须随人工门的「估点会结果」提交。S070 §14 提议 2 建议的是 `ask` 级闸门，W030 有意偏离、改为 `required`（理由见下），这是裁定而非契约冲突。W030 在 S076 之后设 G2：表单逐张列 `workItemDrafts`（标题、requirementIds、criterionIds、涉及的 nodeIds），参与者填 `{draftId, value, unit, estimatorPrincipalId}`；G2 回执是估点的唯一事实源，S068 的 `estimate-by` 与 S070 的 `estimate.source = "team"` 都从这张回执派生，平台不接受调用方内联估点。
 不设为 `ask` 的理由：若可跳过，S068 会把全部草稿列入 `unestimated`、S070 全部进 `needsEstimate`，实例只会空转到 `draft-needs-estimates`。允许**部分**估点：未估的草稿照常流转，S068 放进 `unestimated`、S070 放进 `needsEstimate`，由 G4 决定回 G2 补估还是接受它们留在冲刺外。单条 > 8 点（或 > 5 人日）的草稿会在 S070 进 `tooLarge[]`，W030 不回 S076 重切（S076 草稿切分以节点为约束，W030 不改），只在 G4 表单列出，由人决定是否另起一轮 W030。
 
 **决策 3 — G3 只能「接受 / 改输入重跑 / 拒绝」，不能手改 MoSCoW 结果。**
@@ -62,8 +62,8 @@ S070 只信服务端按 `prioritizationRef` 读到的 S068 输出（S070 §8「S
 S070 不变式 8：`handoff.S142.candidates[].ownerHint` 恒为 `null`；S142 M2 在 ownerHint 为空时把候选放进 `needsOwner`，O1 又要求 create 的 owner 属于服务端成员集合。若不在 S142 之前补负责人，S142 产出的变更集里一张可执行的 create 都没有。W030 把指派并入 G4：批准人对每个 committed 条目选一个 `principalId`（候选范围 = 该项目非 observer 成员 ∩ S070 `capacity.people[].principalId`），平台把它写进交接候选的 `ownerHint.principalId`，其余字段原样传。这是 Workflow 对 S070 交接的**富化**，不改 S070 输出本身（S070 业务行保持 `ownerHint = null`），富化后的候选集作为独立业务行 `W030OwnerAssignment` 持久化。指派不能指给 `agent:` 前缀主体（S142 O1、`assertHumanOwner`）。
 
 **决策 5 — 落卡是 `write` 级副作用，逐条执行、执行前先对最新看板重跑 S142，失败不回滚已建卡。**
-基线 `createTask` 用 `randomUUID()` 生成 id，没有幂等键（已读 `apps/api/src/application/board/create-task.ts`）；S142 §10 要求执行 `create` 前以最新 `GET /tasks` 重跑一次，由 `originRefs`（proposed-unwired，先由 W030 运行账本提供 `proposalId → taskId`）把已建卡判为 `noop-duplicate`。W030 的执行规则：
-- G5 批准后，平台先取最新 `GET /tasks?projectId=<projectId>` 重跑 S142（同输入 ⇒ 同 `changeSetId`，S142 §10），再按新变更集逐条执行；
+基线 `createTask` 用 `randomUUID()` 生成 id，没有幂等键（已读 `apps/api/src/application/board/create-task.ts`）；S142 §10 要求执行 `create` 前以最新 `GET /tasks` 重跑一次，由 `originRefs`（proposed-unwired，先由 W030 运行账本提供 `draftId → taskId`）把已建卡判为 `noop-duplicate`。W030 的执行规则：
+- G5 批准后，平台先取最新 `GET /tasks?projectId=<projectId>` 重跑 S142，再按新变更集逐条执行。注意：S142 §7/§10 的 `changeSetId`、`proposalId` 都由 inputHash 派生，而 `existingItems` 是输入的一部分——已有卡建成后重取 `GET /tasks`，输入变了，二者也随之变化，「同输入 ⇒ 同 `changeSetId`」在 W030 的重跑场景中不成立。因此 W030 不以 `changeSetId`/`proposalId` 作落卡幂等锚点，改用跨重跑稳定的 S076 `draftId`（见 §8.1）；重跑后的新提议经运行账本 `draftId → taskId` 判 `noop-duplicate`；
 - 每条 create / transition 一个 effect receipt；某条失败不撤销已成功的卡（撤卡本身是写，且会让已被别人看到的卡消失），终态记为 `partially_committed`；
 - 卡片由 `createTask` 写入时 `sourceKind` 恒为 `MANUAL_SOURCE_KIND`（已读 `create-task.ts` 与 `apps/api/src/domain/board/source-kind.ts:18`），W030 来源只能进 S142 `unwiredFields.sourceKind`；在 sourceKind 扩展接线之前，看板上 W030 卡显示为「手工创建」——这是基线限制，不是 W030 伪造来源。
 
@@ -129,7 +129,7 @@ const W030Trigger = z.object({
 | 11 | publish_plan | — | `artifact.write`（平台内部写）；optional `notify.inapp` | commit_done → committed ｜ commit_partial → partially_committed ｜ commit_declined → plan_published ｜（plan-only）plan_approved → plan_published | write | none（G4/G5 覆盖）；写前 **P6** |
 
 说明：
-- **阶段 0 / P0**：服务端读 `prdRef` 版本，要求存在 W029 `gate = G4, outcome = approved` 的回执且其 `contentHash` 等于该版本 `contentHash`（W029 V1）；无回执 → `prd_not_approved`。若同一 `documentId` 已有更新的 approved 版本 → `stale_prd`（不静默改用新版，新版可能改了需求）。W029 回执表的形状取自未 PASS 的 W029 文档，读取适配器 **proposed-unwired**。
+- **阶段 0 / P0**：服务端读 `prdRef` 版本，要求存在 W029 `gate = G4, outcome = approved` 的回执且其 `contentHash` 等于该版本 `contentHash`（W029 V1）；无回执 → `prd_not_approved`。若同一 `documentId` 已有更新的 approved 版本 → `stale_prd`（不静默改用新版，新版可能改了需求）。W029 回执表的形状取自已 PASS 的 W029 文档（G4 回执 `{gate, documentId, versionId, contentHash, outcome}`），读取适配器 **proposed-unwired**。
 - **阶段 1**：S067 输入只允许 `{mode: "readiness", prdRef, locale}`（S067 §5 不变式）。`not-ready` 时实例终止并把 `blockers[]`（按 `requirementId`/`questionId`）作为产物，建议以 `changeRequest` 回 W029。W029 G4 允许带 blocking 问题批准（W029 阶段 13 说明），这种 PRD 在此必然 `not-ready`，是设计意图。
 - **阶段 2**：`prdRequirements` 由平台从 PRD 版本机械映射 `{requirementId, text, priority?}`；W029 产出的 PRD `priority` 恒不存在（W029 V4），因此 S076 的 I1「must 级未覆盖需求 ⇒ not-ready」在 W030 v1 中**不会**因 priority 触发，未覆盖需求只作为 `uncoveredRequirements` 出现在 G1/G4 表单。这是已知弱点，W030 用 G4 的强制展示弥补（§8 F6）。
 - **阶段 4**：G2 表单不展示 S068/S070 的任何结果（此时尚未运行），避免估点被名次锚定。carryover 条目的剩余估点来自 trigger，不在 G2 重估。
@@ -210,14 +210,14 @@ const W030Outcome = z.object({
 
 ### 8.1 幂等
 - **实例**：键 `(orgId, initiatorUserId, requestId)`；同键不同 payloadFingerprint → `IDEMPOTENCY_KEY_REUSED`。另加业务唯一性：同一 `(prdRef.versionId, projectId, sprint.name)` 同时只能有一个非终态实例，第二个请求返回已有实例 id——防止两个 PM 为同一冲刺各落一套卡。
-- **Skill 阶段**：每次 Skill 调用一个 node receipt（形状沿用 `apps/api/src/application/research/guided-workflow-receipt-ports.ts` 的 `begin`/`finalize`，文件已核实存在，其字段细节与 W030 的对应 UNVERIFIED），键 = `hash(instanceId, stageId, inputHash)`；G3 rerun 与 G4 回退因输入变化产生新键，旧输出保留为历史业务行。
+- **Skill 阶段**：每次 Skill 调用一个 node receipt（形状沿用 `apps/api/src/application/research/guided-workflow-receipt-ports.ts` 的 `find`/`begin`/`finalize`；已 PASS 的 W029 §8 已读该文件：`begin` 带 `payloadFingerprint`，`finalize` 带 `checkpointId`、`graphVersion`、`stableResponse`），键 = `hash(instanceId, stageId, inputHash)`；G3 rerun 与 G4 回退因输入变化产生新键，旧输出保留为历史业务行。
 - **人工门**：回执键 = `hash(instanceId, gate, 该门看到的上游输出 id)`；上游输出已变（例如 G4 回退后重跑 S070）时旧回执不再适用，必须重新批准。
-- **落卡**：`task.create` 键 = `hash(instanceId, changeSetId, proposalId)`；`task.transition` 键 = `hash(instanceId, taskId, from, to)`；`artifact.write` 键 = `hash(instanceId, planId)`；`notify.inapp` 键 = `hash(instanceId, ownerUserId)`。
+- **落卡**：`task.create` 键 = `hash(instanceId, draftId)`（`draftId` 来自 S076，跨 S142 重跑稳定；不用 `changeSetId`/`proposalId`，因其随 `existingItems` 变化，见决策 5）；`task.transition` 键 = `hash(instanceId, taskId, from, to)`；`artifact.write` 键 = `hash(instanceId, planId)`；`notify.inapp` 键 = `hash(instanceId, ownerUserId)`。
 
 ### 8.2 崩溃恢复
 - checkpoint 只存指针（ADR-118 第 4 条）；所有 Skill 输出、回执、`W030OwnerAssignment`、effect receipt 写入 `workflow_stage_outputs` 与统一 receipt 表（均 proposed-unwired）。
 - 恢复时先执行 **P7**（见下），再从最早未 finalize 的阶段继续；已 finalize 的 Skill 输出直接复用，不重跑（S076 绑定 `designFingerprint`，重跑若原型已变会得到不同草稿，与 G2 估点对不上）。
-- **`task.create` 处于 `begun` 的恢复**（最危险的点，基线 `createTask` 无幂等键）：不直接重发。先取最新 `GET /tasks?projectId` 重跑 S142：命中运行账本 `proposalId → taskId` 则判 `noop-duplicate` 并把 receipt 补记为 `succeeded`；账本无记录时，用「标题逐字相等 ∧ owner 相等 ∧ 创建时间 ≥ receipt.begunAt」查找，唯一命中则认领，零命中才重发，多命中标 `unknown` 并在实例上留待人处理（不自动删卡）。残余风险：并发中他人恰好手建同名同 owner 卡会被误认领，概率低且不造成重复，接受。
+- **`task.create` 处于 `begun` 的恢复**（最危险的点，基线 `createTask` 无幂等键）：不直接重发。先取最新 `GET /tasks?projectId` 重跑 S142：命中运行账本 `draftId → taskId` 则判 `noop-duplicate` 并把 receipt 补记为 `succeeded`；账本无记录时，用「标题逐字相等 ∧ owner 相等 ∧ 创建时间 ≥ receipt.begunAt」查找，唯一命中则认领，零命中才重发，多命中标 `unknown` 并在实例上留待人处理（不自动删卡）。残余风险：并发中他人恰好手建同名同 owner 卡会被误认领，概率低且不造成重复，接受。
 - **`mail`/外发**：W030 不外发，没有 `mail.send` 阶段。
 
 ### 8.3 权限重查（每个效果点前，全部落事件）
@@ -307,7 +307,7 @@ G5 对比判据：E1/E4/E6/E8/E9/E15 中基线至少失败 3 条而 W030 全过�
 7. **S070 §14 提议 1、2 已由本文裁定**：顺序见决策 1，估点会见决策 2；S142 §15 第 1 条的「S070 → S142 → S076」预期不成立，建议 S142 下次修订时改为「S070 → S142」。
 
 ## 15. 未决问题
-- W029 尚未 PASS；P0 依赖其 G4 回执形状（`gate, documentId, versionId, contentHash, outcome`），若 W029 评审改动该形状需同步本文 §5 阶段 0。
+- W029 已 PASS；P0 依赖其 G4 回执形状（`gate, documentId, versionId, contentHash, outcome`），已与 PASS 版对齐；若 W029 日后改动该形状需同步本文 §5 阶段 0。
 - `capabilityCategory` 名称（`board.write`、`design.read`、`team.roster.read` 等）待 ADR-120 分类表定稿；本文均为提案名。
 - 团队（roster）与历史速度接线前，S070 的容量来自调用方声明；W030 v1 的计划可信度因此受限，G4 表单须显示 S070 `assumptions[]`。
 - 认领流程（8.2）中「标题逐字相等 ∧ owner 相等」的启发式在看板卡 `originRefs` 接线后应删除，改为精确匹配。

@@ -3,7 +3,7 @@
 > 类型：Reference Workflow · 域：Sales · 作者化任务：AUTHOR-W012 · 状态：待独立评审
 > Baseline：main@30c1c4332025151610502988b0379b95ff7298c7。本文标「已核实」的代码事实均在该基线读过原文件；未读过的标 **UNVERIFIED**；不存在或未接线的能力标 **proposed-unwired**。
 > 权威：ADR-116；运行时：ADR-118（第 3 条统一 receipt、第 4 条业务行为事实、第 5 条实例钉版本、第 6 条 effect-gateway、第 9 条 Workflow 钉 Skill 版本）；工具分类：ADR-120；评测门：ADR-119。
-> 对齐的已 PASS 契约（只引用，不改）：`skills/S005-meeting-prep.md`。S024 / S021 / S026 当前为已作者化、**未 PASS** 的草稿，本文按其现稿接口对接并在 §13 列出依赖；S027 尚无作者化文档，本文只写 W012 对它的**需求**，不假定其 schema 已存在。
+> 对齐的已 PASS 契约（只引用，不改）：`skills/S024-prospecting.md`、`skills/S021-customer-intelligence.md`、`skills/S026-outreach.md`、`skills/S027-meeting-scheduling.md`、`skills/S005-meeting-prep.md`。五份均已 PASS，本文按其定稿接口对接。
 
 ## 1. 边界（一句话）
 把**一份 ICP 描述**变成**已被对方接受的首次会议（日历邀请 accepted）+ 一份首次会会前简报**；中间每一次对外触达（外联邮件/消息、会议邀请）都由人逐次确认，且在发出前一刻重核勿扰名单、联系人归属与工具授权。
@@ -14,12 +14,12 @@
 ## 2. 组合图（精确 ID，逐字取自两张矩阵，不推导）
 
 ### 2.1 参与 Skill（WORKFLOW-SKILL-MATRIX.md 第 18 行：`W012 | Prospect-to-Meeting | Sales | S024, S021, S026, S027, S005`）
-| Skill | 名称 | 在 W012 中的唯一职责 | 对接的对方契约（现稿） |
+| Skill | 名称 | 在 W012 中的唯一职责 | 对接的对方契约（定稿） |
 |---|---|---|---|
 | S024 | Prospecting | `mode="net-new"`、`purpose="outreach"`：按 ICP 找公司 + 目标角色槽位（`personaSlots`），**不给个人联系方式**；只有 `handoffReadiness="ready"` 进入后续 | S024 §5/§6（`ProspectList`）、决策 1、§4 步骤 9 |
 | S021 | Customer Intelligence | `mode="prospect"`：对每家被选中的公司做主体解析 + 撞单检查 + 可引用的 `relevanceHooks`（≤3，365 天硬截止） | S021 §6（`CustomerIntelDossier`）、决策 1、6 |
 | S026 | Outreach | `mode="sequence"`、`intent` 缺省 `cold`：为每个已绑定联系人起草 ≤4 步序列，逐步给 `verdict`；**只产草稿**，发送由 W012 阶段执行 | S026 §5/§6（`OutreachPlan`）、决策 1–3 |
-| S027 | Meeting Scheduling | 对方回复「愿意谈」之后：给出 2–3 个候选时段、起草邀请（**不在 S027 内发送**）；S027 契约未作者化，W012 对其需求见 §13 提议 1 | —（无文档） |
+| S027 | Meeting Scheduling | 对方回复「愿意谈」之后：`mode="propose"` 给出 ≤3 个候选时段 + 邀请/邮件草案；G4 批准后 `mode="book"` 输出 `effectRequest{kind:"calendar.create_event"}`，由平台 L2 工具执行并回读得 `receipt`（S027 自身无写权限，决策 1）；未接线时 `draft-only`（决策 4） | S027 §5/§6（`SchedulingResult`）、§8 步骤 7–9、§10、决策 1/3/4 |
 | S005 | Meeting Prep | 邀请被接受后：`meetingStage="first-contact"`、`meetingType` 缺省 `discovery`，生成首次会简报 | S005 §5/§6（`MeetingPrepBrief`）、§4 步骤 1、决策 2 |
 
 Skill 版本由 `WorkflowDefinition(W012, v1).stages[*].skills[*] = {stableId, versionRange}` 在实例启动时解析并冻结（ADR-118 第 5 条）。运行 W012 的 Agent **不需要**挂载上述 Skill（ADR-118 第 9 条），只需在 `workflowAllowlist` 中被允许运行 W012 v1。
@@ -30,7 +30,7 @@ D005 行 Skill 列同时含 S021、S024、S026、S005，但**不含 S027**；按
 
 ### 2.3 相邻 Workflow（划界）
 - W011：同样以 S024、S021 开头，但 S024 为 `intake`/`research-only`，终点是资格判定；W011 的「qualified」线索可作为 W012 的 `seed.fromW011InstanceId` 输入，跳过阶段 2 的 S024（见 §5 说明）。
-- W013：从 W012 的终态 `meeting_booked` 接手；W012 产出的 `MeetingPrepBrief.briefId` 与 `questions[].id` 是 W013 中 S028 的对照基线（S005 决策 3）。
+- W013：从 W012 的终态 `meeting_booked` 接手；W012 产出的 `MeetingPrepBrief`（按 `briefId` 引用）中的 `objectives[].successSignal` 与 `questions[].id` 是 W013 中 S028 的对照基线（S005 决策 3）。
 
 ## 3. 实体特有决策
 
@@ -64,7 +64,7 @@ const W012Trigger = z.object({
   orgId: OrgId,
   initiatorUserId: UserId,                                  // 权限主体与「发件人」；agent_request 时仍是背后的人
   initiatorAgentVersionId: z.string().nullable(),           // 须在该 Agent 的 workflowAllowlist 内（ADR-116 第 3 条）
-  icp: ProspectingInput.shape.icp,                          // 原样传 S024（S024 §5；criteria + exclusions ≥ 2，否则 ICP_UNDERSPECIFIED）
+  icp: ProspectingInput.shape.icp,                          // 传 S024（S024 §5：criteria + exclusions ≥ 2，且至少一条 criteria[].required = true，否则 ICP_UNDERSPECIFIED）；唯一改动见下方 kind=schedule 注入
   jurisdiction: z.enum(["CN", "US"]),                       // 收件人法域；一个活动只允许一个法域（决策 1 的 lane 共享规则集）
   locale: z.enum(["zh-CN", "en-US"]),
   maxProspects: z.number().int().min(1).max(50).default(20),// 传 S024 maxCandidates
@@ -76,13 +76,13 @@ const W012Trigger = z.object({
     meetingType: z.enum(["discovery", "demo"]).default("discovery"),
     durationMinutes: z.number().int().min(15).max(90).default(30),
     timezone: z.string(),                                   // 发起人 IANA 时区
-    workingHours: z.object({ start: z.string(), end: z.string() }), // 本地 "09:00"–"18:00"
+    workingHours: z.object({ start: z.string(), end: z.string() }), // 本地 "09:00"–"18:00"；映射为 S027 preferences.earliestLocal/latestLocal，sourceRef = "w012-trigger:" + requestId（S027 §8 步骤 4，无 sourceRef 即 preference-unsourced）
   }),
   seed: z.object({ fromW011InstanceId: z.string() }).optional(), // 见 §5 说明
   noReplyAfterBusinessDays: z.number().int().min(3).max(20).default(10), // 最后一步发出后多少工作日无回复即 no_response
 });
 ```
-`kind="schedule"`：只允许按同一 ICP 周期性重跑阶段 2（新名单），**永不**继承上一轮 G1 选择或 G2 批准；已在进行中 lane 的公司自动进入 S024 `excluded`（`reason: exclusion-criterion`，`exclusionId="w012-active-lane"`）。
+`kind="schedule"`：只允许按同一 ICP 周期性重跑阶段 2（新名单），**永不**继承上一轮 G1 选择或 G2 批准；已在进行中 lane 的公司自动进入 S024 `excluded`（`reason: exclusion-criterion`，`exclusionId="w012-active-lane"`）。实现方式：W012 在传给 S024 前向 `icp.exclusions` **追加**一条 `{ id: "w012-active-lane", predicate: "公司属于本组织进行中 W012 lane 的 prospect 集合" }`（id 不得与发起人 ICP 中已有 exclusion 重名，追加后仍须 ≤12 条）；这是 W012 对 icp 的唯一改动，`manual`/`agent_request` 不追加。
 
 ## 5. 阶段表
 活动层：`requested → prospecting → [G1 select & bind] → P1 → fan-out(lanes) → campaign_settled`
@@ -93,15 +93,15 @@ lane 层：`researching → drafting → [G2 send step k] → P3 → sending →
 | 1 | intake | 活动 | —（平台：校验 ICP 与 `orgContextRef` 可读） | `project.read` | requested → validated ｜ → `failed(ICP_UNDERSPECIFIED)` | read | none |
 | 2 | prospect | 活动 | S024（`net-new`/`outreach`） | `knowledge.search`、`knowledge.read`、`project.read`、`web.search`、`web.fetch`；optional `crm.read`†、`org.suppression.read`† | validated → prospecting → prospected ｜ → `no_ready_prospects`（`ready` 数为 0） | read | none |
 | 3 | select_bind | 活动 | —（平台表单） | `crm.read`†（联系人检索，发起人名下） | prospected → awaiting_selection → lanes_bound ｜ → `no_bindable_contact` ｜ → `selection_declined` | read | **G1**：required。人选择 ≤`maxLanes` 个 (prospectId, personaSlot, contactRef)；批准后执行 **P1** |
-| 4 | research | lane | S021（`prospect`） | `knowledge.search`、`knowledge.read`、`web.search`、`web.fetch`；optional `crm.read`†、`registry.cn.read`† | bound → researching → researched ｜ → `needs_resolution`（`ENTITY_AMBIGUOUS`）｜ → `existing_relationship`（撞单，见说明） | read | none |
+| 4 | research | lane | S021（`prospect`） | `knowledge.search`、`knowledge.read`、`web.search`、`web.fetch`；optional `crm.read`†、`registry.cn.read`† | bound → researching → researched ｜ → `needs_resolution`（`ENTITY_AMBIGUOUS` 或 `ENTITY_NOT_FOUND`）｜ → `existing_relationship`（撞单，见说明）｜ `CALLER_NOT_AUTHORIZED` → 活动 `failed`（同「组织撤销授权」）｜ `ALL_SOURCES_UNAVAILABLE` → 退避重试（§10） | read | none |
 | 5 | draft | lane | S026（`sequence`） | optional `email.read`†、`crm.read`†、`org.suppression.read`† | researched → drafting → drafted ｜ → `declined_prior`（`OUTREACH_RECIPIENT_DECLINED`）｜ → `needs_owner`（`OUTREACH_CONTACT_FORBIDDEN`）｜ → `no_sendable_channel` | read | none |
 | 6 | approve_step | lane | — | — | drafted/awaiting_reply → awaiting_step_approval(k) → step_approved(k) ｜ edit → step_approved(k)（人改稿后重跑 S026 自检，见说明）｜ skip → 下一步 ｜ reject → `rejected` | none | **G2**：required，**每步一次**（决策 3）。第 1 步在序列审阅时；第 k≥2 步在其到期日前 1 工作日 |
 | 7 | send_step | lane | — | `mail.send`† / `sms.send`† / `im.send`†（按 step.channel） | step_approved(k) → P3 → sending(k) → sent(k) → awaiting_reply ｜ P3 失败 → `halted_unverifiable` 或 `suppressed` | high-impact | none（G2 覆盖；**P3** 在此执行） |
 | 8 | wait_reply | lane | — | `email.read`†（回复检测）；timer | awaiting_reply → reply_received ｜ 下一步到期 → 6 ｜ 末步后 `noReplyAfterBusinessDays` → `no_response` | read | none |
 | 9 | triage_reply | lane | — | — | reply_received → awaiting_triage → interested ｜ → `unsubscribed` ｜ → `not_interested` ｜ not-now → `deferred` ｜ wrong-person → `needs_rebind` ｜ out-of-office → awaiting_reply（顺延） | none | **G3**：required（决策 5） |
-| 10 | schedule | lane | S027 | `calendar.read`†（发起人空闲） | interested → scheduling → slots_proposed | read | none |
-| 11 | invite | lane | — | `calendar.write`†（创建事件即向外部参会人发邀请）；备选 `mail.send`†（发时段建议邮件） | slots_proposed → awaiting_invite_approval → P4 → invite_sent ｜ reject → `rejected` | high-impact | **G4**：required，逐次（决策 3）；**P4** 在此执行 |
-| 12 | confirm | lane | — | `calendar.read`†；或 G4 回执表单 | invite_sent → meeting_confirmed ｜ declined/超时 7 工作日 → awaiting_triage（回 G3）｜ 改期 → meeting_confirmed（新 startAt） | read | 无 `calendar.read` 时为 ask（人确认「已接受」） |
+| 10 | schedule | lane | S027（`propose`） | `calendar.read`†（发起人空闲；未接线时 `availabilitySource="stated"`） | interested → scheduling → slots_proposed（S027 `status ∈ {proposed, awaiting-approval}`）｜ `draft-only` → slots_proposed（手工路径，见说明）｜ `no-slot` → awaiting_triage（回 G3，展示 `noSlotReason`）｜ `AMBIGUOUS_TIME`/`ATTENDEE_SET_INVALID`/`WINDOW_INVALID` → 回 G3 修正输入 | read | none |
+| 11 | invite | lane | S027（`book`） | 平台 L2 工具执行 S027 `effectRequest{kind:"calendar.create_event"}`（`calendar.write`†，创建事件即向外部参会人发邀请）；`path="propose-by-email"` 时为 `mail.send`† 发 `emailDraft` | slots_proposed → awaiting_invite_approval → P4 → S027 book → invite_sent（S027 `status=booked` 且 `receipt.readBackMatches=true`）｜ `SLOT_STALE` → 回阶段 10 重跑 propose 并重开 G4 ｜ `APPROVAL_MISSING` → 重开 G4，不执行 ｜ `BOOKING_READBACK_MISMATCH` → 停在 invite_unverified 转人工，不重试创建 ｜ `CALENDAR_NOT_WIRED` → 手工路径 ｜ reject → `rejected` | high-impact | **G4**：required，逐次（决策 3）；**P4** 在此执行 |
+| 12 | confirm | lane | — | `calendar.read`†；或 G4 回执表单 | invite_sent → meeting_confirmed ｜ declined/超时 7 工作日 → awaiting_triage（回 G3）｜ 改期 → 阶段 10/11 以同一 `schedulingId` 重跑（S027 沿用 `icsUid`、`sequence+1`）→ meeting_confirmed（新 startAt） | read | 无 `calendar.read` 或手工路径时为 ask（人确认「已接受」及实际 startAt） |
 | 13 | prep | lane | S005（`first-contact`） | `knowledge.search`、`knowledge.read`、`project.read`（S005 §8） | meeting_confirmed → P5 → prepping → `brief_ready` ｜ `MEETING_ALREADY_STARTED` → `meeting_booked_no_brief` | read | none |
 
 † = **proposed-unwired**：基线 `apps/api/src/application/` 下无 calendar、outbound mail/sms、tenant CRM、suppression 目录（已列目录核实：仅 `crm/crm-contact-ports.ts`，属平台运营）；`capabilityCategory` 字段本身未落地（S021 §8 的 grep 结论，本文未重跑，UNVERIFIED）。基线的 `apps/api/src/infrastructure/notifications/cloudflare-transactional-email-transport.ts`（已核实存在）是系统事务性通知通道，**不得**作为 `mail.send` 用于销售外联。
@@ -110,11 +110,13 @@ lane 层：`researching → drafting → [G2 send step k] → P3 → sending →
 - **阶段 2 → 3 的交接**：只把 `handoffReadiness="ready"` 的 prospect 放进 G1 候选；`needs-resolution` 与 `blocked` 连同 `excluded`、`unresolved` 在 G1 页面**只读展示**（让人知道为何没出现），不可勾选。`suppressionStatus="unchecked"` 时 S024 已把全部标为 `blocked`（S024 §6 不变量），活动直接 `no_ready_prospects`，`reason=suppression-unchecked`。
 - **G1 绑定约束**：`personaSlots[].function/seniority` 作为联系人候选过滤提示，不作校验；每家公司 ≤ 2 条 lane；同一 `contactRef` 若已在本组织其他进行中的 W012 lane 中 → 不可选（跨活动去重，查 `workflow_stage_outputs` 业务行）。
 - **阶段 4 撞单**：S021 `internalRelationship` 任一项为 `found`（已有人在跟进）→ lane 终态 `existing_relationship`，附 owner 元数据，不进入 S026。`not-queried`（CRM 未接线）不阻断，但会让阶段 5 所有步至多 `sendable-after-review`（S026 §7）。
-- **阶段 5 输入映射**：`recipient = {contactRef, prospectId, roleHint = G1 所选 personaSlot}`；`signals` = S021 `relevanceHooks[].basedOn` 指向的 signal 与 S024 该 prospect 的非 stale `signals`（去重，≤10）；`suppressionStatus` 固定传 `"unchecked"`——W012 不替 S026 声明已核，让 S026 自行服务端查（S026 §7）；`consent` 只从 `crm.read` 取，未接线则不传。
+- **阶段 5 输入映射**：`recipient = {contactRef, prospectId, roleHint = G1 所选 personaSlot}`；`signals` 见下条转换规则，与 S024 该 prospect 的非 stale `signals` 合并（去重，≤10）；`suppressionStatus`：W012 在调用 S026 前以服务端 `org.suppression.read`† 查询该联系人，查询成功且未命中才传 `"checked"`（S026 仍按 §7 自行复核，`suppressionVerified` 以服务端为准），命中 → lane `suppressed`，不可查 → lane `halted_unverifiable`；W012 **不**传 `"unchecked"`，因为 S026 §4 步骤 5 规定 `unchecked` ⇒ 所有步 `blocked: SUPPRESSION_UNCHECKED`（实际上在 `org.suppression.read` 未接线时活动已在阶段 2 以 `no_ready_prospects` 结束，不会到达此处）；`consent` 只从 `crm.read` 取，未接线则不传。S026 `OUTREACH_CONTACT_FORBIDDEN` 表中的「`needs-owner`」即 W012 lane 终态 `needs_owner`（W012 统一用下划线）。
+- **阶段 5 signal 转换（S021 → S026 `signals[]`）**：对每个 `relevanceHooks[].basedOn` 中的 id——是 `signalId` 时取该 signal：`text = summary`，`observedAt = publishedAt`（为 `"unknown"` 的不转换；I-OUT2 已保证 hook 只引用 `fresh`/`aging`），`stale = (freshness === "stale")`；是 `factId` 时取该 fact：`text = statement`，`observedAt = max(sources[].retrievedAt)`，`stale = false`。`ref: CitationRef` 取该条目 `sources[]` 中第一个同时具有 `sourceId` 与 `versionId` 且 `readLevel="full-text"` 的 `SourceRef`：`{sourceId, versionId, citationAnchor: dossierId + "#" + (signalId|factId), accessibleAt: retrievedAt}`；无此类 SourceRef 的条目**丢弃**（S026 因而可能回落 `hook.basis="role-only"`），不以 `url` 伪造 `sourceId`。
 - **阶段 6 人工改稿**：人在 G2 编辑正文后，平台对改后正文重跑 S026 的输出不变量（数字来源、竞品名、US 退订/发件人要素）；违例则不可批准。改稿不改变 `verdict=blocked` 的步——blocked 步在 G2 上不可选。
 - **阶段 8 回复检测**：回复到达（`email.read` 线程中出现来自该联系人的 inbound）→ 立即暂停所有未发步（决策 5）。发送与回复竞态时以 receipt 时间为准：回复 `receivedAt` 早于某步 P3 通过时刻，该步不得发出。
-- **阶段 10 S027 输入**：发起人日历空闲（`calendar.read`）、`meetingDefaults`、联系人法域时区（来自 CRM，未知则只给发起人时区并在 G4 上提示）、对方在回复里提出的时间**仅作为提示展示给人**，不自动采纳（不可信内容）。
-- **阶段 13 S005 输入映射**：`meetingRef` 来自邀请回执；`meetingType=meetingDefaults.meetingType`；`meetingStage="first-contact"`；`attendees` = 发起人（us）+ 该 contactRef（them，`leadId` 缺省）；`upstreamRefs = {customerIntelRef: dossierId, outreachRef: planId, schedulingRef: S027 产出 id}`；`jurisdiction`、`locale` 透传。S005 会以调用人身份**重读**每个 ref（S005 §7），W012 不传正文。
+- **阶段 10 S027 输入映射（`mode="propose"`）**：`meetingType`、`durationMinutes` 取 `meetingDefaults`；`window = { notBefore: G3 提交时刻 + 2h, notAfter: notBefore + 14 天 }`（ISO-8601 含偏移，落在 S027 的 [1h, 21d]）；`organizer.timezone = meetingDefaults.timezone`；`attendees = [{ side:"us", userId: initiatorUserId, displayName, required:true }, { side:"them", leadId, displayName, timezone?, required:true }]`，其中 `leadId` 由 P1 时经 `crm.read`† 从 `contactRef` 解析得到的租户 CRM 联系人 id（W012 lane 只存 `contactRef`，`leadId` 在调用时现取、不落业务行），`timezone` 来自 CRM，未知则省略（S027 记 `attendee-timezone-assumed`）；`availabilitySource = "calendar"`（`calendar.read` 已接线）否则 `"stated"`，此时 `statedAvailability` 由发起人在 G3 选 interested 时填写；`preferences = { earliestLocal: workingHours.start, latestLocal: workingHours.end, sourceRef: "w012-trigger:" + requestId }`；`path` 由发起人在 G3 选择 `direct-invite`（缺省）或 `propose-by-email`（`booking-link` 依赖 proposed-unwired 的 `bookingLinkRef`，W012 首版不开放）；`jurisdiction`、`locale` 透传；`upstreamRefs = { outreachRef: planId, customerIntelRef: dossierId }`。对方在回复里提出的时间**仅作为提示展示给人**，不自动采纳（不可信内容，S027 写入 `injectionFlags`）。若 `leadId` 无法解析（`crm.read`† 未接线或无映射），S027 将对方记为 `resolution="unresolved"`，`book` 必返回 `ATTENDEE_SET_INVALID`（S027 E10）——此时 lane 只能走手工路径。
+- **阶段 10/11 S027 状态处理**：`proposed`/`awaiting-approval` → G4 展示 `slots[]`（含 `perAttendeeLocal`）、`inviteDraft`/`emailDraft`、`injectionFlags`、`coverageGaps`，人选定 `selectedSlotId`；G4 批准记录绑定 `schedulingId + selectedSlotId + recipients hash`（S027 §8 步骤 7）；批准后 W012 以 `mode="book"`、同一 `schedulingId`、`selectedSlotId`、`idempotencyKey = hash(schedulingId, selectedSlotId, recipients)` 调用 S027，平台执行其 `effectRequest`；`booked` 且 `receipt.readBackMatches=true` 才 → invite_sent，`receipt.providerEventId`/`icsUid` 写入 lane。`no-slot` → 回 G3（人可放宽窗口重跑或分诊为 not-now）。`draft-only`（`CALENDAR_NOT_WIRED`，S027 决策 4）→ **手工路径**：G4 展示草案，由人自行在其日历/邮件中发出，W012 不发送；随后阶段 12 以回执表单记录 `acceptance="confirmed_by_human"` 与实际 startAt。S027 决策 4 所说「W012 继续到 S005（`schedulingRef` 指向草案）」在 W012 中即：lane 不因未接线终止，经人工确认后照常进入阶段 13，`schedulingRef` 指向该 draft-only 的 `schedulingId`；S005 仍只在 `meeting_confirmed` 之后运行（决策 7 不变，未确认的草案不生成简报）。
+- **阶段 13 S005 输入映射**：`meetingRef` 来自邀请回执；`meetingType=meetingDefaults.meetingType`；`meetingStage="first-contact"`；`attendees` = 发起人（us，`userId`）+ 该联系人（them，`leadId` 同阶段 10 现取；不可解析时缺省，S005 按 `role:"unconfirmed"` 处理）；`upstreamRefs = {customerIntelRef: dossierId, outreachRef: planId, schedulingRef: meeting.schedulingId}`；`jurisdiction`、`locale` 透传。S005 会以调用人身份**重读**每个 ref（S005 §7），W012 不传正文。
 - **seed.fromW011InstanceId**：跳过阶段 2，G1 候选取该 W011 实例中判定为 qualified 的主体；**仍需**在 G1 前对其重新执行 P1 式勿扰与撞单查询（W011 可能是数周前的结论）。W011 输出字段未作者化，此路径的字段映射待 W011 PASS 后补，当前 **proposed**。
 
 ## 6. 产出 schema
@@ -143,7 +145,14 @@ const W012Lane = z.object({
     injectionFlags: z.array(z.object({ ref: z.string(), note: z.string() })),
   }).nullable(),
   meeting: z.object({
-    proposedSlots: z.array(z.object({ startAt: z.string().datetime(), timezone: z.string() })).max(3),
+    schedulingId: z.string(),                          // S027 SchedulingResult.schedulingId；S005 upstreamRefs.schedulingRef
+    s027Status: z.enum(["proposed", "awaiting-approval", "booked", "no-slot", "draft-only"]),
+    noSlotReason: z.enum(["window-too-narrow", "no-overlap-working-hours", "all-busy", "holiday-blocked"]).nullable(),
+    proposedSlots: z.array(z.object({ slotId: z.string(), startUtc: z.string().datetime(), endUtc: z.string().datetime() })).max(3), // S027 slots[] 的引用投影；perAttendeeLocal 等全量留在 S027 产出
+    selectedSlotId: z.string().nullable(),             // G4 所选，book 入参
+    icsUid: z.string().nullable(), sequence: z.number().int().nullable(), // S027 inviteDraft；改期沿用 icsUid，sequence+1
+    providerEventId: z.string().nullable(),            // S027 receipt.providerEventId（仅 booked）
+    manualPath: z.boolean(),                           // draft-only：由人手工发出
     inviteReceiptId: z.string().nullable(),
     startAt: z.string().datetime().nullable(), durationMinutes: z.number().int().nullable(),
     acceptance: z.enum(["pending", "accepted", "declined", "confirmed_by_human"]),
@@ -185,7 +194,7 @@ const W012CampaignResult = z.object({
 **lane 终态（`LaneTerminal`）**
 | 终态 | 条件 | 必有的效果证据 |
 |---|---|---|
-| `brief_ready` | 邀请已接受且 S005 产出 | ≥1 已 finalize 的 send receipt、1 个 invite receipt、`acceptance ∈ {accepted, confirmed_by_human}`、`briefId` 非空 |
+| `brief_ready` | 邀请已接受且 S005 产出 | ≥1 已 finalize 的 send receipt、1 个 invite receipt（`manualPath=true` 时代之以 G4 手工发出确认记录）、`acceptance ∈ {accepted, confirmed_by_human}`、`briefId` 非空 |
 | `meeting_booked_no_brief` | 邀请已接受，S005 返回 `MEETING_ALREADY_STARTED` 或 `SCOPE_DENIED` | 同上但 `briefId=null` |
 | `no_response` | 所有已批准步已发，末步后 `noReplyAfterBusinessDays` 无回复 | 每个 `gate∈{approved,edited_approved}` 的步都有 send receipt |
 | `not_interested` / `deferred` | G3 分诊 | `reply` 非空，`triagedBy` 非空 |
@@ -200,7 +209,7 @@ const W012CampaignResult = z.object({
 - I2 任一 `steps[k].outcome = "sent"` ⇒ `gate ∈ {approved, edited_approved}` ∧ `approvedAt < sendReceipt.begunAt` ∧ `bodyHash = sendReceipt.payloadBodyHash` ∧ `s026Verdict ≠ "blocked"`。
 - I3 `reply ≠ null` ⇒ 所有 `sendReceipt.begunAt > reply.receivedAt` 的步不存在（回复后零发送）。
 - I4 `terminal = "unsubscribed"` ⇒ `suppressionProposal ≠ null` 且其后所有步 `outcome ∈ {voided_by_unsubscribe, not_sent}`。
-- I5 `meeting.inviteReceiptId ≠ null` ⇒ `reply.triage = "interested"` 且 G4 批准记录存在。
+- I5 `meeting.inviteReceiptId ≠ null` ⇒ `reply.triage = "interested"` 且 G4 批准记录存在（绑定 `schedulingId + selectedSlotId + recipients hash`）且 `s027Status = "booked"`。
 - I6 `briefId ≠ null` ⇒ `meeting.acceptance ∈ {accepted, confirmed_by_human}` ∧ `MeetingPrepBrief.validUntil ≤ meeting.startAt` ∧ `MeetingPrepBrief.meetingStage = "first-contact"`。
 - I7 每家 `prospectId` 的 lane 数 ≤ 2；每活动 lane 数 ≤ `maxLanes` ≤ 25；同一 `contactRef` 在组织内进行中的 W012 lane 至多 1 条。
 - I8 输出任何字段不含邮箱/电话明文（正则 + 字段白名单；与 S024/S026 同一规则）。
@@ -223,11 +232,11 @@ const W012CampaignResult = z.object({
 - **S024 调用**：一个 receipt，键 = `hash(instanceId, icp 规范化, asOf 按日)`（与 S024 §8 幂等键同日语义对齐）。崩溃后复用已 finalize 的 `ProspectList`，**不重跑**：G1 页面展示的名单必须与人批准时一致。
 - **lane 创建**：键 = `hash(campaignInstanceId, prospectId, contactRef)`；崩溃重放不会复制 lane。
 - **发送 receipt**：键 = `hash(laneId, planId, stepIndex, channel, bodyHash)`。begin 后崩溃、无 finalize → 状态 `send_unknown`：恢复时**先向供应商查询回执**（按 provider message id / 幂等头），查得已发 → finalize 为 sent；查得未发 → 重新执行 P3 后再发；查不到（供应商无查询能力）→ **不重发**，转人工在 G2 上确认「是否已送达」。宁可少发一封，不可重复触达。
-- **邀请 receipt**：键 = `hash(laneId, startAt, attendeesHash)`；同理未知即查日历事件是否存在（按 `iCalUID`/外部 event id），不盲建第二个事件。改期不复用旧 receipt：新 startAt 新 receipt，旧事件由人在 G4 决定取消。
+- **邀请 receipt**：键 = S027 `idempotencyKey = hash(schedulingId, selectedSlotId, recipients)`（S027 §10），与 G4 批准记录同一绑定；崩溃恢复后以同一 key 重放 book，平台必须返回原 `receipt`，不新建事件；未知即按 `icsUid`/`providerEventId` 查日历事件是否存在。改期：以同一 `schedulingId` 重跑 propose → G4 → book，S027 沿用 `icsUid` 并 `sequence+1` **更新同一事件**（S027 决策 3、§8 步骤 9），禁止新建第二个事件再删旧事件；新 `selectedSlotId` 产生新 idempotencyKey 与新 receipt，旧 receipt 保留为历史。
 - **等待型阶段**（8、12）：定时器由 pg-boss 类 trigger 持久化（ADR-118 第 7 条），恢复时按业务行 `nextDueAt` 重建；不依赖进程内 timer。工作日按 `jurisdiction` 的法定节假日日历计算（CN 含调休补班日）。
 - **恢复顺序**：P2（版本）→ 未决 receipt 对账（发送、邀请）→ 对每个 `awaiting_reply` lane 补拉一次回复（I3 依赖它）→ 从最早未完成阶段继续。
 - **业务行归属**：`ProspectList`、`CustomerIntelDossier`、`OutreachPlan`、S027 产出、`MeetingPrepBrief` 及 lane 行写入 ADR-118 通用 `workflow_stage_outputs`（按 `instanceId + stageId + laneId + attempt`）；W012 不建专属表。
-- **重试预算**：Skill 结构化输出失败 ≤ 3 次（计数写业务行，跨崩溃不清零）；`RETRIEVAL_UNAVAILABLE` 指数退避 ≤ 5 次后该 lane 转人工；发送/邀请的「未知」状态**不计入**自动重试。
+- **重试预算**：Skill 结构化输出失败 ≤ 3 次（计数写业务行，跨崩溃不清零）；S021 `ALL_SOURCES_UNAVAILABLE` 指数退避 ≤ 5 次后该 lane 转人工；发送/邀请的「未知」状态**不计入**自动重试。
 
 ## 11. CN / US 差异（实质性）
 | 维度 | CN | US |
@@ -275,7 +284,7 @@ const W012CampaignResult = z.object({
 | E15 | G2 中人把正文改为「帮贵司降本 40%」，该数字不在 proofPoints/hook 中 | 批准被拒（S026 数字来源不变量）；错误指向该数字 |
 | E16 | G2 批准后 72h 才到发送窗口 | P3 ⑦ 失败，重开 G2；未发送 |
 | E17 | `kind=schedule` 第二轮，上一轮 lane B（公司 X）仍在 awaiting_reply | 公司 X 出现在本轮 S024 `excluded`（`exclusionId="w012-active-lane"`）；本轮 G1 未继承任何上一轮选择 |
-| E18 | S021 返回 `internalRelationship.knowledgeRecords=found`（同事上月有该客户项目纪要） | lane `existing_relationship`；零 S026 调用；终态附 owner 元数据而无纪要正文 |
+| E18 | S021 返回 `internalRelationship.knowledgeRecords.status = "found"`（同事上月有该客户项目纪要） | lane `existing_relationship`；零 S026 调用；终态附 owner 元数据而无纪要正文 |
 
 G5 对比判据：在 E2/E3/E6/E8/E9/E11 上基线至少失败 3 条而 W012 全过，才能标 verified。
 
@@ -294,10 +303,10 @@ G5 对比判据：在 E2/E3/E6/E8/E9/E11 上基线至少失败 3 条而 W012 全
 - sideEffect 映射：read → `只读`；high-impact（阶段 7、11）→ `对外发送`，经 effect-gateway；W012 无「写入外部」阶段（CRM 活动记录写入不在本 Workflow，见 §16 提议 3）。
 
 ## 16. Graph change proposals（仅提议，未假定）
-1. **S027 契约需求**（S027 作者化时评估，不改矩阵）：W012 需要 S027 ① 只产候选时段与邀请草稿，**不**创建日历事件（与 S026 决策 1 同构，否则 D005 聊天直接调用即可绕过 G4）；② 输入接受「对方提出的时间」但仅作为排序提示，输出标注其来源为不可信内容；③ 输出 ≤3 个跨 ≥2 天的时段，含双方本地时间；④ 联系人时区未知时显式标注。
+1. **S027 契约对齐（已由 S027 定稿满足，不改矩阵）**：① S027 不持有写权限，`book` 只输出 `effectRequest`，由平台 L2 工具在 G4 批准后执行（S027 决策 1）——G4 不可被绕过；② 回复中的时间/地址进 `injectionFlags`，不自动采用（S027 决策 2）；③ ≤3 个跨 ≥2 个组织者本地日期的时段，含 `perAttendeeLocal`；④ 时区未知记 `attendee-timezone-assumed`。
 2. **回复分诊能力缺口**：矩阵第 18 行无回复意图分类 Skill，W012 以人工 G3 承担（决策 5）。若评估后需要自动预分类（仅作建议、仍需 G3 确认），应新建 Skill 或由 S025 Lead Triage 的作者评估是否覆盖「外联回复」这一输入，再**改矩阵本身**；本文不假定。
 3. **CRM 活动记录**：外联发送与会议成立后，S026 的 `suggestedActivityLog` 与邀请回执理应写入租户 CRM 活动；该写入属 S029/S034 职责，而二者不在 W012 行。建议由 W013（含 S029）在接手时一次性补记，或评估给 W012 行加 S034；由矩阵 owner 决定。
-4. **S024/S021/S026 尚未 PASS**：本文接口按其现稿对接（`handoffReadiness`、`relevanceHooks`、`OutreachPlan.steps[].verdict`、`OUTREACH_CONTACT_FORBIDDEN` 等）。若其评审改名或改语义，W012 §5/§6/§8 需同步修订。
+4. **S024/S021/S026/S027 已 PASS**：本文接口按其定稿对接（`handoffReadiness`、`relevanceHooks`、`OutreachPlan.steps[].verdict`、`OUTREACH_CONTACT_FORBIDDEN`、`SchedulingResult` 等）。若其后续版本改名或改语义，W012 §5/§6/§8/§10 需同步修订。
 
 ## 17. 未决问题
 - G1 超时（5 工作日）、G2 批准失效（48h）、邀请无响应（7 工作日）三个数值是本文提议缺省，是否上升为组织策略待 ADR-118 实现时对齐；规则为「组织可调小不可调大」。

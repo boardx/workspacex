@@ -3,8 +3,8 @@
 > 类型：Reference Workflow · 域：Data（WORKFLOW-SKILL-MATRIX.md 第 66 行）· 作者化任务：AUTHOR-W060 · 状态：待独立评审
 > **代码基线**：`main@30c1c4332025151610502988b0379b95ff7298c7`。凡涉及现有 WorkspaceX 代码的陈述均按该基线核对；未读文件核实行为的标 **UNVERIFIED**，基线上不存在或未接线的能力标 **proposed-unwired**。
 > 权威：`requirements/work-stack-v2/`（ADR-116）；运行时：ADR-118（第 5 条实例固定版本、第 6 条 effect-gateway、第 9 条 Workflow 固定 Skill 版本）；工具分类：ADR-120；评测门：ADR-119。
-> 对齐的已 PASS 契约（只引用，不修改）：`skills/S170-scientific-research-planning.md`、`skills/S003-enterprise-search.md`、`skills/S171-evidence-review.md`、`skills/S169-knowledge-synthesis.md`、`skills/S172-data-storytelling.md`；已 PASS 的相邻 Workflow：`workflows/W001-research-to-brief.md`（其 `seedEvidencePackId` 消费本 Workflow 的产物）。
-> `skills/S063-research-synthesis.md` 当前评审结论为 REWRITE，本文对 S063 契约字段的引用一律视为**草稿接口（UNVERIFIED）**，S063 定稿后需复核 §6 的映射。
+> 对齐的已 PASS 契约（只引用，不修改）：`skills/S170-scientific-research-planning.md`、`skills/S003-enterprise-search.md`、`skills/S171-evidence-review.md`、`skills/S169-knowledge-synthesis.md`、`skills/S172-data-storytelling.md`、`skills/S063-research-synthesis.md`；已 PASS 的相邻 Workflow：`workflows/W001-research-to-brief.md`（其 `seedEvidencePackId` 消费本 Workflow 的产物）。
+> `skills/S063-research-synthesis.md` 已 PASS（`reviews/S063.review.md`）；本文引用的 S063 字段（`reviewed-evidence`、`questions`、`review`、`questionClaimMap`、`domainProfile`、`maxFindingsPerQuestion`、`assertionCeiling`）已按 PASS 版复核一致。
 
 ## 1. 边界
 W060 把**一个需要"先定判据、再找证据"的研究问题**变成一份**证据包（EvidencePack）**：冻结的研究计划（含预先声明的回答/推翻条件）→ 逐计划项的检索账本 → 逐问题的证据分级 → 知识结构 → 综述 Finding → 一份措辞不超过证据等级的数据叙事。读者是分析员与领域专家，而不是只要 3 分钟结论的决策者。
@@ -25,7 +25,7 @@ W060 与其它研究类 Workflow 的根本区别是**预注册**：计划在看�
 | S003 | Enterprise Search | 按计划项检索组织内部资料，每次调用绑定一个 `researchPlanItemRef` | `mode: "evidence"`（S003 §2、§5） |
 | S171 | Evidence Review | 对每个研究问题的证据集分级，给 `certainty`/`allowedAssertion`/`evidenceNeededToUpgrade` | `appraise`，主张来自 S170 研究问题（S171 §2.1 第 5 行） |
 | S169 | Knowledge Synthesis | 实体规范化、去重、演化链、`uncovered-rq` 缺口；原样透传 S171 报告并附 `structureHints` | `structure-evidence`（S169 §2 表、§4 步骤 10） |
-| S063 | Research Synthesis | 以 S171 报告为唯一证据源写 Finding，`assertionCeiling` 不超过 S171 许可 | `reviewed-evidence`（S063 草稿 §2.1 第 34 行，UNVERIFIED） |
+| S063 | Research Synthesis | 以 S171 报告为唯一证据源写 Finding，`assertionCeiling` 不超过 S171 许可 | `reviewed-evidence`（S063 PASS 版，已复核） |
 | S172 | Data Storytelling | 末阶段：主旨句 + ≤5 节拍的叙事，措辞继承上限 | `evidence-readout`（S172 §2 表） |
 
 Skill 版本由 `WorkflowDefinition(W060, v1).stages[*].skills[*] = {stableId, versionRange}` 在实例启动时解析并冻结（ADR-118 第 5 条）。按 ADR-118 第 9 条，拥有 W060 的数字人**不需要**挂载上述任何 Skill；只需在 `workflowAllowlist` 中被允许运行 W060 v1。`WorkflowDefinition` 与 `workflowAllowlist` 均为 **proposed-unwired**。
@@ -42,7 +42,7 @@ Skill 版本由 `WorkflowDefinition(W060, v1).stages[*].skills[*] = {stableId, v
 | D056 Medical Affairs Analyst | 第 62 行 | `clinical-evidence`（`intendedUse=medical-affairs`） | `clinical` | `clinical` |
 | D060 Sustainability / ESG Analyst | 第 66 行 | 无缺省 | `esg-disclosure` | `esg` |
 
-"无缺省"的四个角色（D040、D043、D052、D060）在 trigger 中未给 `planningRegime` 时，W060 **不猜**：G1 表单把 regime 作为必填项（决策 6）。S172 的 `domainProfile` 取值为本 Workflow 按 S172 §6 枚举做的映射，S172 文档本身没有按 DH 的缺省表。
+"无缺省"的四个角色（D040、D043、D052、D060）在 trigger 中未给 `planningRegime` 时，W060 **不猜**：G1 表单把 regime 作为必填项（决策 6）。S172 的 `domainProfile` 取值中，D054/D056→`clinical`、D060→`esg`、D043→`ux-research`、D002/D040→`general` 与 S172 §2.2 的按 DH 缺省一致；D025、D052 在 S172 中没有缺省，其取值是本 Workflow 按 S172 §6 枚举自定的映射。
 
 ## 3. 实体特有决策
 
@@ -58,7 +58,7 @@ W060 的读者是分析员；"8 个研究问题中 3 个无法回答、缺的是
 - 扇出并发上限 4（与 open_deep_research `max_concurrent_research_units` 同一思路，但数值由本文设定），避免一次研究吃满组织检索配额。
 
 **决策 4 — S170 的外部检索指令在 S003 无法执行时，如实记为缺口，不降级为内部检索。**
-S170 的 `retrievalDirectives.scopeHint` 可以是 `external-literature`、`regulatory-registry`（临床 CN 场景必含，S170 §9）。S003 的 `scopes` 只有 `current-files | organization-index | organization-hybrid`（S003 §5），没有外部文献或登记库通道。W060 的处理：只把 `scopeHint` 含 `organization` 的指令交给 S003；其余指令在 `EvidencePack.coverage.unexecutedDirectives[]` 中逐条列出（`reason: "no-capability"`），S171 因此常对临床问题给出 `insufficient`/`indirectness`，S172 必须在 `caveatsBlock` 中说明"未检索外部文献/登记库"。这是矩阵上的真实 Skill 缺口，见 §13 提议 1；在补齐之前，**不允许**让 S003 以内部检索结果冒充文献检索，也不允许在阶段内临时调用 `web.search`。
+S170 的 `retrievalDirectives.scopeHint` 可以是 `external-literature`、`regulatory-registry`（临床 CN 场景必含，S170 §9）。S003 的 `scopes` 只有 `current-files | organization-index | organization-hybrid`（S003 §5），没有外部文献或登记库通道。W060 的处理：只把 `scopeHint` 含 `organization` 的指令交给 S003；其余指令在 `EvidencePack.coverage.unexecutedDirectives[]` 中逐条列出（`reason: "no-capability"`），S171 因此常对临床问题给出 `insufficient`/`indirectness`。S172 的 `caveatsBlock[].source` 只允许 S158|S161|S164|S171|S063，且其输入没有可传入 `unexecutedDirectives` 的字段，因此 W060 **不**要求 S172 复述这些缺口，也不借 S171 的名义伪造 caveat；由 W060 在阶段 9 打包时把 `unexecutedDirectives` 渲染为证据包自有的"检索缺口披露"段（紧随 DataStory、与其一同交 G4 与读者），逐条说明"未检索外部文献/登记库"。让 S172 直接承载该披露见 §14 提议 6。这是矩阵上的真实 Skill 缺口，见 §13 提议 1；在补齐之前，**不允许**让 S003 以内部检索结果冒充文献检索，也不允许在阶段内临时调用 `web.search`。
 
 **决策 5 — 缺口回路：只在 S171 给出可行动缺口时回到规划，最多 2 轮，每轮经人。**
 阶段 4 之后，若存在 `certainty ∈ {insufficient, very-low}` 且 `evidenceNeededToUpgrade` 非空的问题，W060 进入 G2（`ask`）。人有三种选择：
@@ -80,7 +80,7 @@ S170 `planningRegime`、S171 `evidenceRegime`、S172 `domainProfile` 分属三�
 证据包汇集了发起人可读的原文摘录（`excerpt` ≤400 字），读者未必有权读原文。发布（`artifact.write`）默认 `visibility = "initiator"`；扩大到项目成员属于 G4 的一个选项，门上逐读者计算 `citedSourceIds − readable(reader)`，差集非空的读者不能被加入（收件人 ACL 差集为 W001 决策 6 提出的同一平台服务，**proposed-unwired**）。W060 **不含**对外发送阶段（无 `mail.send`/`notify.*`）；需要推送给决策者时，由 W001 以 `seedEvidencePackId` 消费本包并走 W001 的 G3。
 
 **决策 8 — S172 `audience.level = "external"` 时 G4 升为 multi-gate。**
-S172 §13 提议 1 要求 W060 对外部受众设人类发布门。W060 的 G4 缺省 `required`（发起人审证据包）；`external` 时升为 multi-gate：发起人 + 领域第二签人（临床 regime 为医学负责人角色，其它为 Agent owner，官方 Agent 无 owner 时为组织管理员；两者不能是同一人）。D056 且 `intendedUse=medical-affairs` 时，即使受众不是 `external` 也升为 multi-gate（S170 §9、S171 §9 的 off-label 约束），因为医学事务的证据包常被直接用于科学交流应答。G4 multi-gate 为 **proposed-unwired**。
+S172 §15 提议 1 要求 W060 对外部受众设人类发布门。W060 的 G4 缺省 `required`（发起人审证据包）；`external` 时升为 multi-gate：发起人 + 领域第二签人（临床 regime 为医学负责人角色，其它为 Agent owner，官方 Agent 无 owner 时为组织管理员；两者不能是同一人）。D056 且 `intendedUse=medical-affairs` 时，即使受众不是 `external` 也升为 multi-gate（S170 §9、S171 §9 的 off-label 约束），因为医学事务的证据包常被直接用于科学交流应答。G4 multi-gate 为 **proposed-unwired**。
 
 ## 4. Trigger schema
 ```ts
@@ -96,7 +96,7 @@ const W060Trigger = z.object({
   planningRegime: z.enum(["clinical-evidence", "observational-science", "organizational"]).optional(),
   evidenceRegime: z.enum(["general", "clinical", "qualitative", "esg-disclosure"]).optional(), // W060 允许的 S171 子集（决策 6）
   intendedUse: z.enum(["internal-decision", "medical-affairs", "protocol-review", "publication-support"]).optional(),
-  jurisdiction: z.enum(["CN", "US", "multi", "other"]).default("multi"),
+  jurisdiction: z.enum(["CN", "US", "multi", "other"]).default("multi"), // 传 S171/S169 时 multi → "other"（§5 阶段 4、6）
   scope: z.object({
     projectIds: z.array(z.string()).max(20).default([]),   // 空 = 发起人当前可读范围（S003 §5 缺省语义）
     timeWindow: z.object({ from: z.string().date().optional(), to: z.string().date().optional() }).optional(),
@@ -139,8 +139,8 @@ const W060Trigger = z.object({
 各阶段输入映射：
 - **阶段 1**：`question`、`decisionContext`、`planningRegime`、`intendedUse`、`jurisdiction`、`constraints.maxPlanItems`、`constraints.timeWindow = scope.timeWindow`；`from_w001` 时 `observations` 取自 W001 ledger 的 ≤20 条 `supports` 命中（`text = excerpt`，带 `sourceId`/`versionId`）。
 - **阶段 3**：对每个 `planItems[q]`：`question = q.text`；`researchPlanItemRef = q.questionId`；`projectIds` = P1 之后的有效集合；`timeWindow = q.retrievalDirectives.timeWindow ?? scope.timeWindow`；`scopes = ["organization-index", "organization-hybrid"]`（仅当 `scopeHint` 含 `organization`；否则该项不调用 S003，直接进 `unexecutedDirectives`，决策 4）。`q.dependsOn` 非空时，先完成其依赖项的阶段 3–4；依赖项为 `priority="blocking"` 且 S171 `certainty=insufficient` 时，被依赖项不检索，标 `blockedByPrerequisite`（S170 I4 的先验证前提规则在运行时的落地）。
-- **阶段 4**：每个 `q` 一次：`researchQuestions = [{questionId, text}]`；`evidence[]` 从该 `q` 的 ledger 命中映射：`evidenceId = hitId`、`sourceId`、`versionId`、`citationAnchor`、`quote = excerpt`、`retrievedAt = accessibleAt = accessibleAt`、`sourceTimestamp`、`upstreamRelation = relation`；只传 `relation ∈ {supports, contradicts, superseded}`，`mentions-only` 计入 `discarded.mentionsOnly`；`evidenceRegime`、`jurisdiction` 按决策 6 与 trigger。S171 输出按决策 3 加前缀合并为 `mergedReview`。
-- **阶段 6**：`scope = { topic: plan.framing 重述, researchQuestions: planItems.{questionId,text} }`；`items[]` = 所有被 S171 `links` 引用的证据（`origin = "reviewed-evidence"`、`upstreamRef = {skill: "S171", refId: claimId}`）；`evidenceReviewReport = mergedReview`；`locale`、`jurisdiction`。S169 I5 要求透传字节一致：W060 在调用前计算 `sha256(mergedReview)`，调用后比对 `passthrough.evidenceReviewReport` 的哈希，不一致即 `PASSTHROUGH_MUTATED` 阶段失败。
+- **阶段 4**：每个 `q` 一次：`researchQuestions = [{questionId, text}]`；`evidence[]` 从该 `q` 的 ledger 命中映射：`evidenceId = hitId`、`sourceId`、`versionId`、`citationAnchor`、`quote = excerpt`、`retrievedAt = accessibleAt = accessibleAt`、`sourceTimestamp`、`upstreamRelation = relation`；只传 `relation ∈ {supports, contradicts, superseded}`，`mentions-only` 计入 `discarded.mentionsOnly`；`evidenceRegime` 按决策 6；`jurisdiction` 按 trigger，但 S171 枚举只有 `CN|US|other`，trigger 为 `multi` 时映射为 `"other"`（S170 按两地分别出的计划项的辖区差异保留在计划与证据包 `jurisdiction` 字段中，不传给 S171）。S171 输出按决策 3 加前缀合并为 `mergedReview`。
+- **阶段 6**：`scope = { topic: plan.framing 重述, researchQuestions: planItems.{questionId,text} }`；`items[]` = 所有被 S171 `links` 引用的证据（`origin = "reviewed-evidence"`、`upstreamRef = {skill: "S171", refId: claimId}`）；`evidenceReviewReport = mergedReview`；`locale`、`jurisdiction`（同阶段 4 的映射：`multi` → `"other"`，S169 枚举只有 `CN|US|other`）。S169 I5 要求透传字节一致：W060 在调用前计算 `sha256(mergedReview)`，调用后比对 `passthrough.evidenceReviewReport` 的哈希，不一致即 `PASSTHROUGH_MUTATED` 阶段失败。
 - **阶段 7**：`questions = planItems.{questionId,text}`；`review = mergedReview`（取自 W060 保存的原件，不取 S169 透传件——两者已被 T3 证明一致）；`questionClaimMap` 按决策 3 构造；`domainProfile` 按决策 6 取 `clinical` 或 `general`；`maxFindingsPerQuestion = 3`。S169 的 `structureHints` 暂不传入 S063（S063 输入无此字段，S169 §13 提议 1）；它只进入证据包供读者浏览。
 - **阶段 8**：`mode = "evidence-readout"`、`runId = instanceId`、`upstreamRefs = { evidenceReviewReportId: mergedReview 的业务行 id, synthesisId }`、`question`、`audience`、`format` 取自 trigger；`domainProfile` 按决策 6。
 - **阶段 9 链条校验**见 §7 T1–T8；任何一条失败都不进入 G4。
@@ -187,7 +187,7 @@ const EvidencePack = z.object({
   story: z.object({ storyId: z.string(), messageKind: z.enum(["finding", "no-conclusion", "mixed"]) }), // S172
   questionStatus: z.array(z.object({
     questionId: z.string(),
-    status: z.enum(["answered", "weak", "unanswered", "not-searched", "blocked-by-prerequisite"]),
+    status: z.enum(["answered", "weak", "missing", "not-searched", "blocked-by-prerequisite"]),
     certainty: z.enum(["high", "moderate", "low", "very-low", "insufficient"]).nullable(), // S171 最强主张的等级；未检索为 null
     answerCriteriaMet: z.enum(["met", "not-met", "falsified", "indeterminate"]),
     evidenceNeededToUpgrade: z.string().optional(),
@@ -202,7 +202,7 @@ const EvidencePack = z.object({
   reportProjection: GuidedResearchReport.optional(),  // S172 决策 5 的投影；投影函数 proposed-unwired
 });
 ```
-- `questionStatus.status` 由 S171 决策 5 的 coverage 映射得出（`{high,moderate}` → answered、`{low,very-low}` → weak、`insufficient` → unanswered），W060 不另判。
+- `questionStatus.status` 由 S171 决策 5 的 coverage 映射得出（`{high,moderate}` → answered、`{low,very-low}` → weak、`insufficient` → missing，与 S171 `GuidedResearchCoverageItem` 取值一致），W060 不另判、不改名；`not-searched`、`blocked-by-prerequisite` 是 W060 自有状态（决策 4、§5 阶段 3）。
 - `answerCriteriaMet` 是 W060 相对 W001 的新增字段，对照的是 S170 冻结的 `answerCriteria`/`falsificationCriteria`：由 G4 审阅人**逐题勾选**，不是模型判定（模型只能预填建议并标 `suggestedBy: "model"`）。`falsified` 表示证据满足预先声明的推翻条件——这是预注册的核心产出，必须出现在 S172 叙事中（见 E7）。
 - `GuidedResearchReport` 已在基线 `packages/contracts/src/research.ts:946` 核实存在；`ScientificResearchPlan` 等 Skill 类型为文档契约，**proposed-unwired**。
 
@@ -225,7 +225,7 @@ const EvidencePack = z.object({
 - **T4** `planHistory[0].planHash` = G1 receipt 中的 hash；每个后续 `planVersion` 在 `deviations` 中有对应记录，其 `decidedBy` 等于 G2 或 G1' receipt 的 actor；`triggeredBy = "evidence-gap"` 的版本其既有项 `falsificationCriteria` 与前一版逐字相同（S170 I7 的复核，不信任 Skill 自报）。
 - **T5** 每条 `evidence[].planRef` 属于 `planHistory`；每个 `questionId` 的 ledger 所基于的 `planVersion` ≥ 该题最后一次 `retrievalDirectives` 变化的版本（不用旧指令的检索结果回答新问题）。
 - **T6** `outcome = "conclusive"` ⇔ `story.messageKind = "finding"` ⇔ 存在 S063 finding 其 `assertionCeiling ∈ {state, likely}` 且被主旨句锚定（S172 §5 步骤 2）。
-- **T7** 每个 `questionStatus.status = "unanswered" | "weak"` 的题目，在 S172 `DataStory` 的 `caveatsBlock` 或 `omittedResults` 中出现；每条 `coverage.unexecutedDirectives` 在 `caveatsBlock` 中出现（决策 4）。
+- **T7** 每个 `questionStatus.status = "missing" | "weak"` 的题目，在 S172 `DataStory` 的 `caveatsBlock` 或 `omittedResults` 中出现；每条 `coverage.unexecutedDirectives` 在证据包的"检索缺口披露"段中出现（决策 4）。
 - **T8** `citations[].hitId` ⊆ `evidence[].hitId`，且每条 `relation = "supports" | "partial"` 的引用在 P3 时 `lastVerifiedAt ≥ G4 批准时刻`。
 
 ## 8. Receipts、幂等与崩溃恢复
@@ -257,7 +257,7 @@ const EvidencePack = z.object({
 | F11 | 推翻结果被淹没 | `answerCriteriaMet = falsified` 的题只出现在附录 | E7：必须有节拍或主旨提及 |
 
 ## 10. CN / US 差异（仅实质性的）
-- **外部登记库与指南**：临床 regime 下 S170 为 CN 生成 NMPA/CDE、药物临床试验登记与信息公示平台、ChiCTR 指令，为 US 生成 FDA guidance、ClinicalTrials.gov 指令（S170 §9）。在决策 4 的缺口补齐前，这些指令在两地都进 `unexecutedDirectives`；`jurisdiction = CN` 时 S172 caveat 必须点名"未检索国内登记库"，因为 CN 适应症主张若只有 US 人群证据，S171 会按 indirectness 降级（S171 §9），读者需要知道降级原因不是"没有中国数据"而是"没有查"。
+- **外部登记库与指南**：临床 regime 下 S170 为 CN 生成 NMPA/CDE、药物临床试验登记与信息公示平台、ChiCTR 指令，为 US 生成 FDA guidance、ClinicalTrials.gov 指令（S170 §9）。在决策 4 的缺口补齐前，这些指令在两地都进 `unexecutedDirectives`；`jurisdiction = CN` 时证据包"检索缺口披露"段必须点名"未检索国内登记库"，因为 CN 适应症主张若只有 US 人群证据，S171 会按 indirectness 降级（S171 §9），读者需要知道降级原因不是"没有中国数据"而是"没有查"。
 - **医学事务（D056）**：两地都禁止把超说明书用途包装为推广结论；W060 以决策 8 的 multi-gate 落地，S171 已把 off-label 主张封顶为 `preliminary`（S171 §9），W060 不另加规则。
 - **ESG（D060）**：`esg-disclosure` regime 下，CN 参照交易所《上市公司可持续发展报告指引》（2024），US 参照 SEC 气候披露规则现状（S171 §9，法规现状 UNVERIFIED）；未经鉴证的自报排放数据降级由 S171 处理。W060 的差异只在：`jurisdiction = multi` 时 S170 须为两地分别出计划项（S170 I8 的中文查询要求随之生效），不能用一个"全球"计划项混合两套披露口径。
 - **个人健康与个人信息**：S170 标 `dataSensitivity = "personal-health"` 时，G1 表单在 CN 必填处理目的与最小必要说明（《个人信息保护法》敏感个人信息），US 仅在 HIPAA 覆盖实体场景提示；两地证据包 `visibility` 均锁定为 `initiator`，G4 不提供扩大选项。
@@ -287,7 +287,7 @@ const EvidencePack = z.object({
 |---|---|---|
 | E1 | D002，`organizational`，问题"新入职流程是否提高 90 天留存"，未给 decisionContext | S170 返回 `PLAN_DECISION_CONTEXT_MISSING`；实例停在 G1 且表单要求 decisionContext；S003 调用数 0（T2） |
 | E2 | 同 E1 补 decisionContext 后冻结；S171 给 Q1 `insufficient`，G2 选 `amend` 且请求把 Q1 推翻条件从"留存无差异"改为"满意度无差异" | S170 返回 `PLAN_AMEND_HARKING`；实例回到 G2 并只提供 `scope-change`/`accept`；`planHistory` 长度不变 |
-| E3 | D054，`clinical-evidence`，CN，"SGLT2 抑制剂 X 能否降低中国 2 型糖尿病成人心衰住院"；组织内仅有 2 份内部会议纪要 | 登记库/文献指令全部进 `unexecutedDirectives(no-capability)`；S172 `caveatsBlock` 点名"未检索国内登记库"；无任何句子含"文献表明"；终态 `published_inconclusive` |
+| E3 | D054，`clinical-evidence`，CN，"SGLT2 抑制剂 X 能否降低中国 2 型糖尿病成人心衰住院"；组织内仅有 2 份内部会议纪要 | 登记库/文献指令全部进 `unexecutedDirectives(no-capability)`；证据包"检索缺口披露"段点名"未检索国内登记库"；无任何句子含"文献表明"；终态 `published_inconclusive` |
 | E4 | D054 trigger 显式 `evidenceRegime = "general"` | G1 前阻断（决策 6），错误指出组合非法；无检索 |
 | E5 | 8 项计划，阶段 3 完成 5 题后模拟崩溃 | 恢复后 5 题 S003 receipt 数不变、另 3 题各新增 1 个；P4 事件存在；最终每题 ledger 恰好 1 份 |
 | E6 | G4 等待期间撤销发起人对某被引文档的权限，然后批准 | P3 拦截，不写；受影响题回阶段 4 重跑 S171；证据包新版本不含该 hitId，并重新走 G4 |
@@ -307,12 +307,13 @@ G5 判据：在 E2/E3/E7/E10/E12/E16 上基线至少失败 4 条而 W060 全过�
 ## 14. Graph change proposals（只提议，不改矩阵）
 1. **外部文献 / 监管登记库检索 Skill 缺口（P1）**。S170 为 W060 产生 `external-literature` 与 `regulatory-registry` 检索指令（临床 CN 场景必含），而矩阵第 66 行唯一的检索 Skill S003 只覆盖组织内部范围（S003 §5 `scopes`）。在 D025/D054/D056 的临床用法下，这使 W060 几乎必然 `published_inconclusive`。建议在目录中新增一个外部文献/登记库检索 Skill（输出与 S003 ledger 同形、带 `researchPlanItemRef`），并加到 W060 行 S003 之后；不建议扩大 S003 的职责（S003 决策 4 的"组织证据层"边界）。本文按决策 4 以"未执行指令"处理，不假定该边存在。
 2. **S171 `appraise` 输出增加 `claims[].questionId`（改 S171 契约，不改矩阵）**。有了它，W060 可以一次调用 S171 覆盖全部研究问题，跨题独立性聚类与冲突在同一次评审中计算，决策 3 的按题调用与 id 前缀可以撤销。
-3. **S063 `reviewed-evidence` 输入接受 `structureHints`**：沿用 S169 §13 提议 1；S063 定稿（当前 REWRITE）时一并决定。在此之前 W060 不传。
+3. **S063 `reviewed-evidence` 输入接受 `structureHints`**：沿用 S169 §13 提议 1；由 S063 owner 在其后续版本中决定。在此之前 W060 不传。
 4. **对 S170 §13 提议 1 的回应**：D040、D043、D052、D060 运行 W060 不需要挂载 S170（ADR-118 第 9 条）；它们在 W060 之外是否需要直接规划能力，与本 Workflow 无关，本文不提议挂载边。
 5. **D052 Investment Analyst**：其 Skill 列（S094–S102 系列）与 W060 各阶段的 regime 均无对应（S170/S171 均无投资研究 regime），D052 运行 W060 只能用 `organizational` + `general`。是否需要为投资研究加 regime，交 D052 作者与 S171 owner 评估；不改边。
+6. **S172 承载 Workflow 级缺口披露（改 S172 契约，不改矩阵）**：S172 `caveatsBlock[].source` 增加 Workflow 来源（或输入增加 `workflowCaveats`），使 `unexecutedDirectives` 能进入 DataStory 本身；在此之前按决策 4 由证据包"检索缺口披露"段承载。
 
 ## 15. 未决问题
 - G1 超时 7 天、缺口回路 2 轮、扇出并发 4 为本文设定值，需 ADR-118 实现时确认是否上升为组织策略项。
 - `answerCriteriaMet` 由人勾选会拖慢 G4；是否允许在 `organizational` regime 下接受模型预填（仍留审计），待 D002 owner 决定。
 - 本文引用的 ADR-116 第 3 条（`workflowAllowlist`）条款号沿用 W001 的引用，未独立复核。
-- S063 契约字段（`assertionCeiling`、`questionClaimMap`、`domainProfile`）引用自 REWRITE 状态的草稿，S063 通过评审后需复核 §5 阶段 7 与 T6。
+- S063 契约字段（`assertionCeiling`、`questionClaimMap`、`domainProfile`）已按 S063 PASS 版复核，与 §5 阶段 7、T6 一致，无待决项。

@@ -4,7 +4,7 @@
 > 基线：`main@30c1c4332025151610502988b0379b95ff7298c7`。仓库代码事实均在该基线读过；ADR-116~121 不在该基线树内（`git ls-tree 30c1c433 docs/adr/` 无命中），是在当前工作树的合并检出（HEAD `9e467506`，含 #4536）中读到的，下文引用它们时按「Proposed ADR」对待。
 > 权威：`requirements/work-stack-v2/`（ADR-116）；运行时：ADR-118（第 4 条业务行是事实、第 5 条实例固定版本、第 6 条 effect-gateway、第 9 条 Skill 由 Workflow 固定）；工具分类：ADR-120；评测门：ADR-119。
 > 对齐的已 PASS 契约（只引用，不修改）：`skills/S062-user-interview-planning.md`、`skills/S063-research-synthesis.md`、`skills/S064-problem-framing.md`、`skills/S065-opportunity-mapping.md`；划界参考 `workflows/W001-research-to-brief.md`、`skills/S066-product-brainstorming.md`。
-> **未 PASS 的参与 Skill**：S061（评审结论 REWRITE，阻断项 B1–B3）、S009（尚无评审）。本文只绑定它们当前草稿里的具名字段，并在 §2.3 列出每一处绑定；它们改稿后本文按字段名重新核对，不预设改稿结果。
+> **参与 Skill 评审状态**：S061、S062、S009、S063、S064、S065 均已 PASS。本文只绑定它们终稿里的具名字段，并在 §2.3 列出每一处绑定。
 
 ## 1. 这个 Workflow 解决什么（一句话边界）
 把**一个产品方向的意图**（「我们想让中小团队管理员首周多邀请成员」），经过「先登记判据 → 真人访谈与客户原话取证 → 按判据改判假设 → 框定问题 → 机会树」，变成**一个由人确认的目标机会（或一个有据可查的「停 / 转向 / 证据不足」结论）**。
@@ -17,9 +17,9 @@
 ### 2.1 参与 Skill（WORKFLOW-SKILL-MATRIX.md 第 33 行：`W027 | Discovery-to-Opportunity | Product | S061, S062, S009, S063, S064, S065`）
 | Skill | 名称 | 模式 | 在 W027 中的唯一职责 | 评审状态 |
 |---|---|---|---|---|
-| S061 | Product Discovery | `plan`（阶段 1）、`update`（阶段 7） | 登记可证伪假设与**先于证据冻结**的判据（`criteriaDigest`）；取证后按判据机械改判，给 `discoveryState` | REWRITE（未 PASS） |
+| S061 | Product Discovery | `plan`（阶段 1）、`update`（阶段 7） | 登记可证伪假设与**先于证据冻结**的判据（`criteriaDigest`）；取证后按判据机械改判，给 `discoveryState` | PASS |
 | S062 | User Interview Planning | `discovery` | 产出研究问题（`questionId` 全链主键）、分层抽样、筛选题、同意计划、中立提纲 | PASS |
-| S009 | Customer Research | `voice-corpus` | 从访谈转写 / 工单 / 开放题取逐字片段，产出与 S063 输入同形的 `corpus[]` | 未评审 |
+| S009 | Customer Research | `voice-corpus` | 从访谈转写 / 工单 / 开放题取逐字片段，产出与 S063 输入同形的 `corpus[]` | PASS |
 | S063 | Research Synthesis | `qualitative-corpus` | 主题化 Finding；本 Workflow 中恒为 `status="provisional"`（S063 决策 6、X6） | PASS |
 | S064 | Problem Framing | — | 由改判后的读数框定 `ProblemFrame`（draft / needs-choice …） | PASS |
 | S065 | Opportunity Mapping | `build`（首轮）/ `revise`（二轮） | 机会树、兄弟支配比较、建议目标 | PASS |
@@ -38,11 +38,11 @@ Skill 版本由 `WorkflowDefinition(W027, v1).stages[*].skills[*] = {stableId, v
 ### 2.3 阶段间接口绑定（字段级，逐条来自对方文档）
 | 接缝 | 上游字段 | 下游字段 | 绑定方式 | 对方状态 |
 |---|---|---|---|---|
-| 触发 → S061 plan | `trigger.intent / seedAssumptions / market / locale` | S061 §5 `plan` 输入同名字段 | 原样 | S061 未 PASS |
+| 触发 → S061 plan | `trigger.intent / seedAssumptions / market / locale` | S061 §5 `plan` 输入同名字段 | `intent/market/locale` 原样；`seedAssumptions` 每项补 `origin:"stated-by-user"`（trigger 元素只有 `{text}`，S061 §5 要求 `{text, origin}`，`origin` 必填） | S061 PASS |
 | S061 plan → S062 | `DiscoveryPlan.outcome`、`assumptions[selected]`、`evidenceRequests[]` | S062 §5 `decision / hypotheses[] / priorEvidence[] / context` | 见 §5 说明「阶段 2 映射」 | S062 PASS；S062 §14 提议 3 把这一映射交给 W027 定义，本文在 §5 定义 |
-| S062 → S009 | `researchQuestions[].{questionId,text}`、`strata[]` | S009 §5 `questions[]`、`subject.frame` | `questions` 原样（S062 决策 5）；`strata` 降维见决策 5 | S009 未评审；S062 §14 提议 1 的接缝 |
+| S062 → S009 | `researchQuestions[].{questionId,text}`、`strata[]` | S009 §5 `questions[]`、`subject.frame` | `questions` 原样（S062 决策 5）；`strata` 降维见决策 5 | S009 PASS；S062 §14 提议 1 的接缝 |
 | S009 → S063 | `CustomerEvidencePack.corpus[]` | S063 §5 `corpus[]` | 原样（S009 V2 声明同形） | S063 PASS |
-| S063 → S061 update | `ResearchSynthesis.synthesisId`、`findings[].questionId` | S061 §5 `synthesisRef`、`findingMap[]` | `findingMap` 由 `rqTestMap` 机械推导（决策 3） | S061 未 PASS |
+| S063 → S061 update | `ResearchSynthesis.synthesisId`、`findings[].questionId` | S061 §5 `synthesisRef`、`findingMap[]` | `findingMap` 由 `rqTestMap` 机械推导（决策 3） | S061 PASS |
 | S061 update + S063 → S064 | `DiscoveryReadout`、`synthesisId` | S064 §5 `rawInput`、`synthesisRefs[]` | 见 §5 说明「阶段 8 输入」 | S064 PASS |
 | S064 → S065 | `ProblemFrame.frameId/version`（`handoff.S065.rootProblem` 非空） | S065 §5 `frameRef`、`synthesisRefs`、`readoutRef` | 服务端读取，I3 不接受内联 | S065 PASS |
 
@@ -63,8 +63,8 @@ S061 决策 3 要求 `findingMap` 显式给出；S062 决策 5 规定 `questionI
 **决策 5 — S062 的分层条件不能被 S009 `SamplingFrame` 表达时，不降维猜测，改由 G3 的人工分层归属承载。**
 S009 §5 `SamplingFrame.filters` 只有 `plan/region/tenureMonths/industry/lifecycleStage`，表达不了「尝试过但未完成导出」这类行为判别（S062 §14 提议 1 已指出）。W027 规则：(a) S062 `strata[].criterion` 能逐字映射到上述五个字段的，映射进 `subject.frame.filters`；(b) 不能映射的，**不**写入 filters，而在 G3 要求研究员为每条访谈记录填 `stratumId`（`fieldworkLog`），W027 以此核对 `plannedPerStratum` 与反幸存者层（S062 OUT7）是否真的采到人；(c) 工单 / 开放题来源的片段无 `stratumId`，只进入 S063，不计入分层覆盖。反幸存者层实际受访 < 3 → `DiscoveryOutcome.limitations` 必须含该层名，且 S061 中依赖该层 RQ 的测试在 G4 被标注「分层未覆盖」。
 
-**决策 6 — S061 `externalTasks`（fake-door / concierge / wizard-of-oz / pricing-commitment / usage-data-query / prototype-usability）不在 W027 执行，作为产物中的待办交还给人。**
-回应 S061 §13 提议 1：接受人工任务作为终态内容，不为 W027 新增实验执行 Skill。W027 的六个 Skill 没有任何写外部能力；这些方法要么触达真实用户（CN《广告法》、US FTC Act §5 的欺骗性表述风险，S061 §9），要么需要行为数据查询（`usage` 不是「声音」，S009 IN4 禁止进 `voice-corpus`）。对应测试在阶段 7 必然 `untested`；若它是 `kills-direction` 假设，S061 U5 只能落到规则 4 `need-more-evidence`，W027 据此进入终态 `awaiting_external_tests`，而不是在缺证据的情况下继续画树（决策 7）。
+**决策 6 — S061 `externalTasks`（`evidenceOwner=external` 的测试，即 S061 P5 所称「W027 内无对应 Skill 的方法」；S061 决策 6 列举 fake-door / concierge / pricing-commitment / usage-data-query）不在 W027 v1 执行，作为产物中的待办交还给人。**
+回应 S061 §13 提议 1：接受人工任务作为终态内容，不为 W027 新增实验执行 Skill。W027 的六个 Skill 没有任何写外部能力；这些方法要么触达真实用户（CN《广告法》、US FTC Act §5 的欺骗性表述风险，S061 §9），要么需要行为数据查询（`usage` 不是「声音」，S009 IN4 禁止进 `voice-corpus`）。W027 v1 不执行这些方法、不定义 S061 U3b 所需的外部结果批准门（`approvalRef` 指向的已批准记录），阶段 7 调 `update` 时也**不传** `externalResults`；因此 S061 U3b 与 S061 §7「经 ADR-118 effect-gateway 与 W027 人工门执行」所描述的路径在 W027 v1 中不可达（proposed-unwired，见 §13 提议 6），对应测试在本实例阶段 7 必然 `untested`；若它是 `kills-direction` 假设，S061 U5 只能落到规则 4 `need-more-evidence`，W027 据此进入终态 `awaiting_external_tests`，而不是在缺证据的情况下继续画树（决策 7）。
 
 **决策 7 — 读数状态决定后半程是否运行，证据回合最多 2 轮。**
 S061 `discoveryState` 到 W027 路由的唯一表：
@@ -122,7 +122,7 @@ const W027Trigger = z.object({
   constraints: z.array(z.object({ text: z.string(), kind: z.enum(["hard","soft"]) })).max(20).default([]),
 });
 ```
-- `corpusSources` 不含 `usage` / `email` / `crm-note`：S009 IN4 禁止 `usage` 进 `voice-corpus`；邮件与 CRM 备注多为内部转述（`reported-speech`），在 W027 中只会被 S009 OUT1 排除，徒增读取面。
+- `corpusSources` 不含 `usage` / `email` / `crm-note`：S009 IN4 禁止 `usage` 进 `voice-corpus`；邮件与 CRM 备注多为内部转述（`reported-speech`），S009 OUT1 禁止 `dossier.statedNeeds/statedPains` 与 `languageBank` 引用这类片段（并不从 voice-corpus 中排除它们），对 W027 的发现证据价值低，徒增读取面。
 - 不支持 `schedule`：一个方向的发现是一次性研究，定时重跑会在同一 `planId` 下反复看新证据，破坏决策 1 的「证据前 / 后」边界。
 - 请求体中出现 `participants/contacts/phone/email/wechat` 任一键 → 拒绝启动（与 S062 IN6 同判据，W027 在 trigger 层先拦）。
 
@@ -143,7 +143,7 @@ const W027Trigger = z.object({
 | 10 | publish | —（平台） | `artifact.write`（内部写，不经 MCP） | g6_decided → publishing → 终态 | write | none（G6 覆盖）；执行前 **P4** |
 
 说明：
-- **阶段 2 映射（S061 → S062）**：`decision` = trigger.decision；`context.who` = `DiscoveryPlan.outcome.actor`，`context.situation` = `outcome.behavior + costOfInaction`；`hypotheses[]` = 入选假设 `{hypothesisId: assumptionId, text}`（S062 OUT10 会检查假设名词不出现在提纲中，这正是 W027 需要的中立性）；`priorEvidence[]` = `assumptions[].contextRef` 可解引用者；`targetPopulation`、`constraints` 取 trigger。第二轮时 `hypotheses[]` 只含 `inconclusive/untested` 且 `evidenceOwner≠external` 的测试所属假设，`priorEvidence` 追加首轮 `synthesisId`。
+- **阶段 2 映射（S061 → S062）**：`decision` = trigger.decision；`context.who` = `DiscoveryPlan.outcome.actor`，`context.situation` = `outcome.behavior + costOfInaction`；`hypotheses[]` = 入选假设 `{hypothesisId: assumptionId, text}`（S062 OUT10 会检查假设名词不出现在提纲中，这正是 W027 需要的中立性）；`priorEvidence[]` = 对每个可解引用的 `assumptions[].contextRef` 生成 `{evidenceRef: contextRef, summary}`，`summary` 取该假设的 `text`（即「此证据被引用来支撑的假设」，不另做模型摘要）；`targetPopulation` 取 trigger；`constraints` **不**取 trigger.constraints（那是 `Array<{text,kind}>`，形状不符），而由 trigger.fieldwork 逐字段映射：`{plannedMinutes, maxSessions, channels, modality, incentive, jurisdiction}` 同名原样，`deadlineDays` 不传（仅供 G3 超时），`languages` 按 `jurisdiction` 推导——`CN`→`["zh-CN"]`，`US`→`["en-US"]`，`CN+US`→`["zh-CN","en-US"]`，再并入 trigger.locale（去重），以满足 S062 IN5。第二轮时 `hypotheses[]` 只含 `inconclusive/untested` 且 `evidenceOwner≠external` 的测试所属假设，`priorEvidence` 追加 `{evidenceRef: 首轮 synthesisId, summary: "W027 首轮 S063 综合"}`。
 - **`fieldworkMode`**：全部入选测试的 `evidenceOwner ∈ {S009}`（工单 / 开放题挖掘）且 `corpusSources` 不含 `interview` 时为 `none`：跳过阶段 3、4，S062 仍运行（它是 `questionId` 的唯一生产者，S062 决策 5），其提纲只作为问题集，`limitations` 写明「未做访谈」。否则为 `interviews`。
 - **阶段 5 输入**：`mode="voice-corpus"`，`questions` = S062 `researchQuestions[].{questionId,text}`，`subject={kind:"segment", frame}`（决策 5 映射），`window` = trigger.corpusWindow，`sourceKinds` = trigger.corpusSources，`purpose="discovery"`。S062 标 `pilotExcludedFromCorpus: true`：G3 中标为 `pilot` 的场次，其记录不进入 S009 的来源列表。
 - **阶段 5 结果路由**：S009 `status="degraded-consent"` → 终态 `consent_revoked`；`status="partial"` 继续但把 `sourceStatus` 中 `denied/unavailable` 原样写入 `DiscoveryOutcome.coverage`；`segments` 为空且非同意原因 → 终态 `evidence_exhausted`（`why="corpus_empty"`）；`concentration.flag="dominated"` → G4 升 required。
@@ -197,8 +197,8 @@ const DiscoveryOutcome = z.object({
                   targetOppId: z.string().nullable(),       // 仅来自 G6 回执
                   decisionStatusFromS065: z.enum(["proposed","needs-choice","insufficient-evidence"]) }).nullable(),
   retiredSolutions: z.array(z.object({ solutionId: z.string(), refutedAssumptionId: z.string() })),
-  externalTasks: z.array(z.object({ testId: z.string(), method: z.string(), description: z.string(),
-                                    complianceNotes: z.array(z.string()) })),  // 决策 6：只列出，不执行
+  externalTasks: z.array(z.object({ taskId: z.string(), testId: z.string(), method: z.string(), description: z.string(),
+                                    complianceNotes: z.array(z.string()) })),  // 决策 6：只列出，不执行；taskId/testId/description 取 S061 externalTasks[]，method/complianceNotes 按 testId 连接 S061 tests[] 取得；保留 taskId 供 S061 U3b 回流做键
   coverage: z.object({ sourceStatus: z.array(z.object({ sourceKind: z.string(), state: z.enum(["read","denied","unavailable","not-requested"]) })),
                        consentExcludedSegments: z.number(), concentrationFlag: z.enum(["ok","dominated"]) }),
   limitations: z.array(z.string()),
@@ -305,7 +305,8 @@ G5 对比判据：在 E2/E3/E5/E8/E11/E13 上基线至少失败 3 条而 W027 �
 2. **是否在 S064 与 S065 之间加 S066**（S066 §14 提议 1、S065 §14 提议 1）：W027 的解法池只有 S061 `candidateSolutions`、用户给出与 S065 B1 重分类的解法，`solutionCoverage` 常为 `single/none`。本文不加：W027 的终点是「选哪个机会」，解法发散属于 W029 之前或之内的工作；若矩阵 owner 认为 W027 应交付「机会 + ≥2 解法」，应加 S066 并在 G6 前增加解法审阅。
 3. **S062 → S009 分层接缝**：请 S009 作者裁定 `voice-corpus` 是否直接接收 S062 `strata[]`；在此之前 W027 用决策 5 的人工分层归属兜底。
 4. **D011 的 journey 能力缺口**：W027 只透传 `journeySteps`，不补旅程引导；缺口归 D011 作者（S065 §14 提议 3 同一事项）。
-5. **S061 改稿对齐**：S061 当前 REWRITE（B2 结构化判据、B3 `observedRung` 推导、B1 参与者解析）。W027 依赖的字段为 `criteriaDigest`、`tests[].{testId, assumptionId, evidenceOwner, method, complianceNotes}`、`evidenceRequests[]`、`externalTasks[]`、`DiscoveryReadout.{verdicts, discoveryState, nextEvidenceRequests, unplannedSignals}`；S061 改稿若更名，W027 同步。特别地：若 B3 结论是 viability 假设在 W027 中恒为 `inconclusive`，则 W027 的决策 6/7 已覆盖（落 `awaiting_external_tests`），无需改本文结构。
+5. **S061 字段对齐（已核对）**：S061 已 PASS。W027 依赖的字段 `criteriaDigest`、`tests[].{testId, assumptionId, evidenceOwner, method, complianceNotes}`、`evidenceRequests[]`、`externalTasks[]`、`DiscoveryReadout.{verdicts, discoveryState, nextEvidenceRequests, unplannedSignals}` 均存在于 S061 终稿；S061 后续若更名，W027 同步。
+6. **外部结果回流门（proposed-unwired）**：S061 U3b 的 `update.externalResults[]` 需要 `approvalRef` 指向 W027 人工门的已批准记录。W027 v1 不定义该门、不执行外部方法、不传 `externalResults`（决策 6）。提议：在后续版本中于 `awaiting_external_tests` 之后增加一个 required 人工门，批准外部任务执行（经 ADR-118 effect-gateway）并对回执签发 `approvalRef`，再以同一 `planVersion` 调 S061 `update` 带 `externalResults`（以 `externalTasks[].taskId` 为键）。记录形态与核实接口 UNVERIFIED。
 
 ## 14. 未决问题
 - 能力分类名（`interview.write` 等）待 ADR-120 分类表定稿，均为提案名。

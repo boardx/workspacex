@@ -1,9 +1,9 @@
 # W011 — Lead-to-Qualified
 
-> 类型：Reference Workflow · 域：Sales · 作者化任务：AUTHOR-W011 · 状态：待独立评审
+> 类型：Reference Workflow · 域：Sales · 作者化任务：AUTHOR-W011 · 状态：对齐中（ALIGN-W011，依据 S021 / S022 / S024 / S025 / S034 终稿）
 > 基线：`main@30c1c4332025151610502988b0379b95ff7298c7`（下文「已核实」均指在该 SHA 上读过文件）。
 > 权威：`requirements/work-stack-v2/`（ADR-116）；运行时：ADR-118（第 5 条实例固定版本、第 6 条 effect-gateway、第 9 条 Skill 由 Workflow 固定）；工具分类：ADR-120；评测门：ADR-119。
-> 对齐的已 PASS 契约：`skills/S034-crm-hygiene.md`（`reviews/S034.review.md` 为 PASS）。S021 / S022 / S024 / S025 在撰写时尚无 PASS 评审，本文按其当前稿的输入/输出契约对接，若它们改稿，本文 §5 的字段映射需同步复核（见 §14）。
+> 对齐的已 PASS 契约：`skills/S034-crm-hygiene.md`（`reviews/S034.review.md` 为 PASS）。S021 / S022 / S024 / S025 现均已 PASS，本文 §5 的字段映射已按其终稿复核；其中 S022 终稿用 `leadCompanyKeys[].firmographics` 承载无客户记录时的 fit 输入，本文已据此改写（见 §5「2 → 3」）。
 
 ## 1. 这个 Workflow 解决什么（边界）
 把**一批已经进来的线索**（官网表单导出、展会名单、合作方转介清单、入站邮件整理出的名单），变成**每条线索都有人签过字的去向**：`sales-accepted` 并移交给确定的负责人、转培育（nurture）、取消资格（disqualified）或挂起（hold），且每一次对 CRM 的写入都有回执。
@@ -111,8 +111,8 @@ const W011Trigger = z.object({
 
 阶段间数据映射（W011 定义的适配层，逐字段）：
 - **1 → 2**：对每个 `prospects[]` 且 `handoffReadiness ≠ "blocked"`、`existingRelationship ≠ "customer"` 的公司，调用 S021 `subject = {name: entity.legalName ?? displayName, domain: primaryDomain, registryId: registryId ? {scheme:"cn-uscc", value} : undefined}`（US 行 `registryId` 不映射，S024 的 US registryId 语义与 S021 `us-ticker` 不同，只传 domain）；`icpDimensions` 由 `projectIcp()` 给出；`asOf` = 实例 `admittedAt`。`excluded[]` 与 `unresolved[]` 的来源行**不进入**后续 Skill，直接成为线索结果 `suppressed` / `unresolved`（§6）。
-- **2 → 3**：`leadCompanyKeys[] = {leadRef, companyName: resolvedEntity.legalName, emailDomain: 线索邮箱域（排除 triageConfig.freeEmailDomains）, uscc: registryId.value (cn-uscc 时)}`。S021 返回 `ENTITY_AMBIGUOUS` 的公司，其线索的 `companyName` 取 S024 `displayName`、不带 `uscc`，并在结果上标 `intelStatus = ambiguous`；S022 会给出 `ambiguous` 或 `none`。**客户记录缺失时的 fit 字段**：S022 在 `accountMatch=none` 时只打 fit；其 fit 所需的行业/规模字段由 W011 从 S021 `facts[dimension ∈ {business, size}]` 投影为一个 `AccountSnapshot`（`sourceAccountRef = "ci:" + dossierId`，`ownerId = ""`），S022 必然判 `scopeVerified.kind = "caller-supplied"`。这是 W011 的适配，不是 S022 已声明的行为——见 §13 提议 1。
-- **3 → 4**：`accountTiering = { resultRef, byLead }`，`byLead[leadRef] = {sourceAccountRef, tier, accountMatch: accountMatch.status, hardDqIds, ownerId}`；`customerIntelRefs[leadRef] = dossierId`；`leads[]` 由来源行映射为 `LeadSnapshot`（`leadRef` = 来源行 `sourceLeadIds[0]`，无则 `row:<versionId>:<行号>`；`message` = 留言原文）；`callerClaims.scope = {kind:"lead-refs", leadRefs}`。
+- **2 → 3**：`leadCompanyKeys[] = {leadRef, companyName: resolvedEntity.legalName, emailDomain: 线索邮箱域（排除 triageConfig.freeEmailDomains）, uscc: registryId.value (cn-uscc 时), firmographics?: {fields, s021FactIds}（见下）}`。S021 返回 `ENTITY_AMBIGUOUS` 的公司，其线索的 `companyName` 取 S024 `displayName`、不带 `uscc`，并在结果上标 `intelStatus = ambiguous`；S022 会给出 `ambiguous` 或 `none`。**客户记录缺失时的 fit 字段**：按 S022 终稿（§4 步骤 9、§5 不变量），W011 **不**构造 `AccountSnapshot`——`account-check` 模式下 `accounts[].sourceAccountRef` 不得以 `ci:`/`lead:` 开头、`ownerId` 不得为空串，违者 `TIERING_INPUT_INVALID`。唯一合法路径是在 `leadCompanyKeys[]` 上填 `firmographics = {fields, s021FactIds}`：`fields` 取自 S021 `facts[dimension ∈ {business, size}]`，每个值必须带其来源 `s021FactIds`；无对应 fact 的字段不填。S022 对该线索输出 `tier = "fit-only"`、`sourceAccountRef = "lead:" + leadRef`、`ownerId = null`、engagement score = null。
+- **3 → 4**：`accountTiering = { resultRef, byLead }`，`byLead[leadRef] = {sourceAccountRef, tier, accountMatch: accountMatch.status, hardDqIds, ownerId}`，`tier` 取 S022/S025 终稿枚举 `A|B|C|deprioritize|unscorable|fit-only`（`fit-only` 原样透传，不并入其他值）；S022 输出 `ownerId = null`（fit-only 时）→ 在 `byLead` 中**省略** `ownerId`（S025 该字段为可选 string，不接受 null）；`customerIntelRefs[leadRef] = dossierId`；`leads[]` 由来源行映射为 `LeadSnapshot`（`leadRef` = 来源行 `sourceLeadIds[0]`，无则 `row:<versionId>:<行号>`；`message` = 留言原文）；`callerClaims.scope = {kind:"lead-refs", leadRefs}`。
 - **4 → 5**：`records[]` = 每条线索的 `CrmRecordSnapshot{recordType:"lead", sourceRecordRef: leadRef, ownerId, fields}`；已知客户联系人（若 `crm.read` 可用）以 `recordType:"contact"` 一并传入用于 `R-LEAD-DUP`；`jurisdiction` 透传；`scope = {kind:"record-set", recordIds}`。
 - **5 → 6**：组装 `LeadCard`（§6），不再调用任何 Skill。
 
@@ -157,7 +157,7 @@ const LeadCard = z.object({
   leadRef: z.string(),
   sourceRow: z.number().int(), prospectId: z.string().nullable(),
   intel: z.object({ status: z.enum(["ok", "ambiguous", "not_found", "sources_unavailable", "skipped"]), dossierId: z.string().nullable() }),
-  tiering: z.object({ resultRef: z.string(), tier: z.string(), accountMatch: z.enum(["unique", "ambiguous", "none"]), scopeKind: z.string() }),
+  tiering: z.object({ resultRef: z.string(), tier: z.enum(["A", "B", "C", "deprioritize", "unscorable", "fit-only"]), accountMatch: z.enum(["unique", "ambiguous", "none"]), scopeKind: z.string() }),
   triage: z.object({ resultRef: z.string(), priority: z.enum(["P0", "P1", "P2", "DQ", "hold"]),
                      recommendedStatus: z.string(), routingKind: z.string(), slaDueAt: z.string().nullable() }),
   hygiene: z.object({ resultRef: z.string(), verdict: z.enum(["usable", "usable-with-caveats", "quarantine"]), ruleIds: z.array(z.string()),
@@ -280,12 +280,12 @@ UNVERIFIED：`email.read` 分类名是否会存在；webhook 触发器签名方�
 G5 对比判据：E2、E4、E5、E8、E13 上基线至少失败 3 条而 W011 全过，才能标 verified。
 
 ## 13. Graph change proposals（只提议，不改矩阵）
-1. **S022 契约补充「由上游卷宗提供的 fit 快照」**：W011 在 `accountMatch=none` 时从 S021 `facts` 投影 `AccountSnapshot`（§5 映射 2→3）。S022 当前稿只说「只打 fit」，未声明 fit 字段来源。建议 S022 owner 在 `account-check` 输入中增加显式字段（如 `fitFactsFromIntel?: {dossierId, industry?, size?}`），代替 W011 的 caller-supplied 快照；不涉及矩阵边。
+1. **（已由 S022 终稿落地，关闭）S022「由上游卷宗提供的 fit 输入」**：原提议的 `fitFactsFromIntel` 未被采用；S022 终稿以 `leadCompanyKeys[].firmographics = {fields, s021FactIds}` 实现同一能力（输出 `tier="fit-only"`），W011 §5「2 → 3」已改用该字段，不再构造 caller-supplied 快照。不涉及矩阵边。
 2. **线索写回执行者**：S025 §14-3 指出线索状态/负责人写回无执行 Skill（S029 只覆盖商机）。W011 v1 把写回做成平台 effect（阶段 7，不挂 Skill），**不**提议新增 Skill 边。若评审认为写回需要 Skill 级方法（如字段映射、状态机校验），应新建 Skill 并改矩阵第 17 行，而不是在 W011 内隐含。
 3. **S024 在 W011 中是否多余**（S024 §14）：保留。W011 的去重、勿扰/竞品剔除、来源行守恒都依赖 S024 `intake`；去掉会让 S034 的重复检测承担剔除职责，混淆「剔除」与「质量问题」。
 4. **矩阵列序**：建议在 WORKFLOW-SKILL-MATRIX.md 注明「Exact Skills 列为集合、非阶段序」，避免后续作者再按列序推断编排（与 W011 无关的其他行同样受益）。
 
 ## 14. 未决问题
-- S021 / S022 / S024 / S025 尚无 PASS 评审；若其字段名改动，§5 映射与 §12 E4/E6 需复核。
+- S021 / S022 / S024 / S025 均已 PASS；§5 映射已按终稿复核（S022 fit 输入改为 `leadCompanyKeys[].firmographics`，tier 枚举含 `fit-only`）。若其后续改稿，§5 映射与 §12 E4/E6 需再复核。
 - G1 审批人资格（队列经理 / RevOps）的服务端来源未定，proposed-unwired；v1 在该来源缺失时只允许发起人本人审批其 `scope=self` 线索，D045 的团队 sweep 需等该来源落地才能进入写回阶段。
 - `chat.post` 到外部 IM 频道在 CN（企业微信/飞书/钉钉）与 US（Slack/Teams）是否统一为 ask，还是由组织策略设为 required，待 ADR-120 分类表定稿。

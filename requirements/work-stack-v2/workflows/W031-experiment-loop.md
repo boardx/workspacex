@@ -1,6 +1,6 @@
 # W031 — Experiment Loop（实验闭环）
 
-> 类型：Reference Workflow · 域：Product · 作者化任务：AUTHOR-W031 · 状态：待独立评审
+> 类型：Reference Workflow · 域：Product · 作者化任务：AUTHOR-W031 · 状态：PASS
 > **代码基线**：`main@30c1c4332025151610502988b0379b95ff7298c7`。凡涉及现有 WorkspaceX 代码的陈述均按此基线核对；没有读过实现的行为标 **UNVERIFIED**，基线上不存在或未接线的能力标 **proposed-unwired**。
 > 权威：`requirements/work-stack-v2/`（ADR-116）；运行时：ADR-118（第 3–7 条，及补充决策第 9 条「Workflow 固定 Skill 版本，拥有它的 Agent 不另挂」）；工具分类：ADR-120；评测门：ADR-119。
 > 对齐的已 PASS 契约（只引用，不修改）：`skills/S071-experiment-design.md`、`skills/S072-metrics-review.md`、`skills/S157-data-exploration.md`、`skills/S161-statistical-analysis.md`、`skills/S074-user-activation.md`。
@@ -60,7 +60,7 @@ Skill 版本由 `WorkflowDefinition(W031, v1).stages[*].skills[*] = {stableId, v
 - 因为 W031 不执行 ship/rollback，阶段 14 只**记录**决策并通知；真正全量或回滚仍在外部完成。W031 v1 因此没有 `high-impact` 阶段。如果将来接入分流平台，「按决策改开关」应作为新阶段加入，并使用 multi-gate（见 §13 提议 3）。
 
 **决策 3 — 解盲前必须引用一份覆盖锁定快照的 S158 校验报告；W031 不在自己内部伪造校验。**
-S161 §5 不变式规定：`mode="experiment"` ⇒ `validationRef` 必填；§7 规定 gate 由服务端按 reportId 取回，调用方不能内联。S158 **不在** W031 的矩阵行里。本文不假设图会改，所以阶段 9 `data_lock` 要求在 trigger 或 G3 上提供外部产生的 `validationRef = {reportId, ruleSetDigest}`（来源：W057 实例，或 D040 等角色在对话中直接调用 S158）。服务端核对三点：该报告的输入快照 sha256 等于锁定快照的 `inputSnapshotSha256`；`gate ≠ "block"`；报告与本实例属于同一 org。三点任一不满足 → 停在 `awaiting_validation`，**不调用 S161**。等待 14 天 → 终态 `expired_no_validation`。把 S158 纳入 W031 的提议见 §13 提议 1。
+S161 §5 不变式规定：`mode="experiment"` ⇒ `validationRef` 必填；§7 规定 gate 由服务端按 reportId 取回，调用方不能内联。S158 **不在** W031 的矩阵行里。本文不假设图会改，所以阶段 9 `data_lock` 要求在 trigger 或 G3 上提供外部产生的 `validationRef = {reportId, ruleSetDigest}`（来源：W057 实例，或 D040 等角色在对话中直接调用 S158）。服务端核对三点：S158 报告 `snapshots[]`（S158 §6，按数据集的数组）中 `datasetId` 对应锁定快照数据集的那一条，其 `sha256` 等于锁定快照的 `inputSnapshotSha256`（S161 字段名），找不到对应条目视为不满足；`gate ≠ "block"`；报告与本实例属于同一 org。三点任一不满足 → 停在 `awaiting_validation`，**不调用 S161**。等待 14 天 → 终态 `expired_no_validation`。把 S158 纳入 W031 的提议见 §13 提议 1。
 
 **决策 4 — 解盲只发生在预先声明的看数点，数据快照「一看一锁」。**
 - `stopping.kind="fixed-horizon"`：只有一个看数点，`lookIndex=final`，时间为 `endAt`。
@@ -146,7 +146,9 @@ const W031Trigger = z.object({
   secondSignerUserId: UserId.optional(),                      // multi-gate 使用；缺省见 §5 说明
 });
 // MetricCandidate = S072 metrics[] 元素（metricId, kpiRef?, definitionRef? | activationDefinitionRef?, aggregation, dataSourceRef）
-//   再加上 S071 MetricInput 中 S072 不产出的字段：unit, kind, practicalThreshold, direction, nonInferiorityMargin?（护栏必填）
+//   再加上 S071 MetricInput（S071 §5）中 S072 不产出的字段：column, unit, kind, practicalThreshold, direction,
+//   numerator/denominator（kind="ratio" 时必填）, nonInferiorityMargin?（护栏必填）；这些字段由阶段 3 的作者补齐，
+//   补齐后须按 S071 §5 MetricInput 校验，不合法则不进入 S071
 ```
 trigger 校验时（阶段 1）先执行的确定性规则：
 - `activationTrack=true` ⇒ `analytics.retention` 必填；并且 `metrics.primary` 要么带 `activationDefinitionRef`，要么等待阶段 2 由 S074 define 填入；
@@ -170,7 +172,7 @@ trigger 校验时（阶段 1）先执行的确定性规则：
 | 8 | health_check | S157 `experiment-precheck`（盲化） | `data.read`（快照）、`sandbox.exec` | running → running ｜ 命中阈值 → awaiting_health_decision → running / design / `aborted_health` | read | **G-health**：仅在决策 8 的阈值命中时触发，ask |
 | 9 | data_lock | —（平台：绑定快照 + 核对 S158 报告） | `data.read`、`report.read` | running（看数点到达）→ awaiting_data_lock → locked ｜ → awaiting_validation → `expired_no_validation` | read | **G3**：ask（确认快照与 `validationRef`）。锁定前执行 **P3** |
 | 10 | precheck | S157 `experiment-precheck`（锁定快照） | `data.read`、`sandbox.exec` | locked → prechecked ｜ 结构性问题 → awaiting_health_decision | read | none |
-| 11 | analyze | S161 `experiment` | `data.read`、`sandbox.exec` | prechecked → analyzed ｜ `srm.detected` → awaiting_srm_decision → `invalid_design` / design（重新设计，新实例） ｜ `PreregistrationMismatch` → `failed(prereg_mismatch)` ｜ 中期看数点未越界 → running | read | 仅 SRM 分支：ask |
+| 11 | analyze | S161 `experiment` | `data.read`、`sandbox.exec` | prechecked → analyzed ｜ `srm.detected` → awaiting_srm_decision → `invalid_design` / design（重新设计，新实例） ｜ `PreregistrationMismatch` → `failed(prereg_mismatch)`（S161 §7 所说的「人工闸门」在 W031 中定义为直接失败，见 §7） ｜ 中期看数点未越界 → running | read | 仅 SRM 分支：ask |
 | 12 | readout | S074 `readout`（条件：`activationTrack=true`）；平台 `decisionRules` 查表 | `sandbox.exec` | analyzed → readout_ready ｜ 越过 harmStop → awaiting_harm_decision → `aborted_harm` | none | harmStop 分支：required |
 | 13 | decide | —（包括 `twyman_recheck` 子步骤） | — | readout_ready →（twyman_recheck）→ awaiting_decision → decided | none | **G4**：required；偏离 `ruleAction`、`ruleAction="escalate"` 或 S074 `escalate=true` 时为 multi-gate |
 | 14 | record | — | `artifact.write`（平台内部写）、`notify.inapp` | decided → recorded → 终态 ｜ activationTrack 且 readout=`pending-retention` → awaiting_retention_maturity | write | none（G4 已覆盖）。每次写入前执行 **P4**，每位通知对象发送前执行 **P5** |
@@ -270,7 +272,7 @@ const ExperimentLoopRecord = z.object({
 | `cancelled` | 发起人取消；或上线声明 30 天未签 | 已产生的报告保留 |
 | `failed` | `PreregistrationMismatch`、`invalid_trigger`、Skill 版本被撤销且无兼容版本、组织撤销 W031 授权 | 原因码 |
 
-`PreregistrationMismatch` 归入 `failed` 而不是回到设计阶段：此时已经解盲，没有合法的重新设计路径（S071 `AmendAfterUnblinding`）。
+`PreregistrationMismatch` 归入 `failed` 而不是回到设计阶段：此时已经解盲，没有合法的重新设计路径（S071 `AmendAfterUnblinding`）。S161 §7 对该码的处置是「人工闸门（W031 作者定义），S161 不替换 spec」；W031 在此明确声明：该闸门定义为**直接失败、无人工分支**，人不能改 spec 后重跑，只能以新实例重新设计。
 
 ## 8. 每个副作用点的权限复查
 实验会持续数周，期间 owner 可能离职或调岗，数据集授权也可能被收回。以下每个点都以 `ownerUserId` 的身份实时复查，结果落事件；复查端口 **proposed-unwired**（基线 `apps/api/src/application/agent-run/tool-permission-gate.ts` 存在，其判定细节 UNVERIFIED，不能假设它支持以用户身份复查数据集授权）。
@@ -373,7 +375,7 @@ G5 对比判据：基线 Agent 在 E2/E6/E8/E10/E12/E14 中至少失败 3 条，
 1. **把 S158 Data Validation 加入 W031。** S161 `mode="experiment"` 硬性要求 `validationRef`（S161 §5）。目前 W031 只能引用外部产生的 S158 报告（决策 3），实践中会经常停在 `awaiting_validation`。建议评审把 S158 加入 WORKFLOW-SKILL-MATRIX 第 37 行，放在阶段 9 与阶段 10 之间。在被采纳之前，本文的阶段表保持现状。
 2. **S161 增加序贯看数输入（接口提议，不涉及边）。** 建议 S161 接受 `sequential?: { lookIndex; looks; boundariesZ }`，在中期看数点直接按边界给出 `significantAfterCorrection` 和 `allowedAssertion`。在此之前，W031 用平台脚本比较 `statistic` 与边界（决策 4），并且不使用 S161 的名义显著判定。
 3. **分流/功能开关能力缺口。** 基线没有这种能力，W031 v1 以上线声明代替（决策 2）。如果将来建设，它应当是一个 ADR-120 工具分类（例如 `experiment.assignment.write`，high-impact，走 effect-gateway），**不是** Skill。本文不提议新增 Skill。
-4. **接口对齐（同意并呼应已有提议，不改边）**：S161 §7 的预注册核对来源改为「W031 运行记录中 S071 的 `hypothesesDigest`」（S071 §13 提议 1、S072 §14 提议 3）；W031 的预注册记录（阶段 6）就是这条运行记录。S074 `experimentResult` 改为直接引用 S161 结果（S074 §14 提议 2、S071 §13 提议 2）。采纳后可以删掉 `w031-readout-adapter.mjs` 中的检验字段搬运，只保留每臂计数。
+4. **接口对齐（同意并呼应已有提议，不改边）**：S161 §7 的预注册核对来源改为「W031 运行记录中 S071 的 `hypothesesDigest`」（与 S071 §13 提议 1、决策 1 一致）。注意上游本身不一致：S072 §14 提议 3 写的是改为 S071 `designDigest`，不是 `hypothesesDigest`；W031 采用 `hypothesesDigest`，并提请 S071/S072 在该字段上统一；W031 的预注册记录（阶段 6）就是这条运行记录。S074 `experimentResult` 改为直接引用 S161 结果（S074 §14 提议 2、S071 §13 提议 2）。采纳后可以删掉 `w031-readout-adapter.mjs` 中的检验字段搬运，只保留每臂计数。
 
 ## 16. 未决问题
 - D+3 健康检查的阈值（暴露覆盖 0.95、单臂断档 6h、分配偏差 5%）是本文设定的，需要用真实的历史实验回放来校准。

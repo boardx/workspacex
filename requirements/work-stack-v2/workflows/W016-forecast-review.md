@@ -4,7 +4,7 @@
 > **代码基线**：`main@30c1c4332025151610502988b0379b95ff7298c7`。凡涉及现有 WorkspaceX 代码的陈述均在该基线核对；未核对行为的标 **UNVERIFIED**，基线上不存在/未接线的能力标 **proposed-unwired**。
 > 权威：`requirements/work-stack-v2/`（ADR-116）；运行时：ADR-118（第 5 条实例固定版本、第 6 条 effect-gateway、第 9 条 Skill 由 Workflow 固定）；工具分类：ADR-120；评测门：ADR-119。
 > 对齐的已 PASS 契约（只引用，不修改）：`skills/S031-forecasting.md`、`skills/S033-renewal-radar.md`、`skills/S035-customer-health.md`、`digital-humans/D005-sales-representative.md`。
-> 引用但**未 PASS** 的契约：`skills/S030-pipeline-review.md`（无评审文件）、`skills/S010-risk-assessment.md`（`Verdict: REWRITE`）。本文对这两者字段的引用按其当前草稿，标 **接口待对齐**，二者定稿后须回核（§14）。
+> 另引用的已 PASS 契约：`skills/S030-pipeline-review.md`、`skills/S010-risk-assessment.md`（`reviews/S030.review.md`、`reviews/S010.review.md` 均为 `Verdict: PASS`）。本文对这两者字段的引用已按定稿回核一致（§15）。
 
 ## 1. 这个 Workflow 解决什么（一句话边界）
 把**一个期间（月/季）、一个已授权范围（本人 / 团队 / 组织）的销售预测草稿**，经过逐单挑战、客户健康与续约对账、风险登记，变成**一份由人签字提交、可追溯到每一单证据、并与上次提交可桥接的预测提交记录（`ForecastSubmission`）**。
@@ -22,10 +22,10 @@ W016 的终点是：**一个人**在看过所有挑战后，给出**自己的提
 | 顺序 | Skill | 名称 | 在 W016 中的唯一职责（调用模式） | 引用的对方契约 |
 |---|---|---|---|---|
 | 1 | S031 | Forecasting | `mode: "rollup"`（提交粒度）：从冻结快照出 `ForecastSubmissionDraft`——四档数字、A/B 两算法、`judgmentGap`、快照桥接、`categoryChangeProposals` | S031 §2.1 W016 行、§4 步骤 1–10、§6、决策 1–3 |
-| 2 | S030 | Pipeline Review | `mode: "forecast-challenge"`：对草稿中 `category ∈ {commit, best-case}` 的单逐单核对推进状态与阶段证据，产出 `challenges[]`；不改数、不给新类别 | S030 §4 步骤 9、§6 `challenges`、决策 4（**接口待对齐**） |
+| 2 | S030 | Pipeline Review | `mode: "forecast-challenge"`：对草稿中 `category ∈ {commit, best-case}` 的单逐单核对推进状态与阶段证据，产出 `challenges[]`；不改数、不给新类别 | S030 §4 步骤 9、§6 `challenges`、决策 4（已按定稿回核） |
 | 3 | S035 | Customer Health | `mode: "forecast-check"`：对 `deals[]` 涉及的现有客户账户给健康色，投影为 S033 的 `healthResults[]` | S035 §2.1 W016 行、§5 I2、§6.1 O4、决策 3 |
 | 4 | S033 | Renewal Radar | `mode: "forecast-overlay"`：窗口 = S031 同一期间，对账续约商机，产出 `commitConflicts` / `missingFromForecast` / `amountMismatches` | S033 §4 步骤 2、8，§5 `forecastDraftRef`，§7，决策 3、6 |
-| 5 | S010 | Risk Assessment | `subjectKind: "forecast"`：对「本次提交数」做风险登记（集中度、历史滑单率、假设敏感性），只输出 `proposed` 状态 | S010 §2.1 第 22 行、§4 步骤 `deal`/`forecast`、§5（**接口待对齐**，S010 为 REWRITE） |
+| 5 | S010 | Risk Assessment | `subjectKind: "forecast"`：对「本次提交数」做风险登记（集中度、历史滑单率、假设敏感性），只输出 `proposed` 状态 | S010 §2.1 第 22 行、§4 步骤 `deal`/`forecast`、§5（已按定稿回核） |
 
 顺序与各 Skill 文档自述一致：S031 §2.1「作为首个阶段产出提交草稿」；S035 §2.1「第 3 个 Skill，在 S031、S030 之后，S033 之前」；S033 §2.1「第 4 个 Skill」、决策 3「W016 中 S035 排在 S033 之前」。S031 §14 提议 1 请 Workflow 作者确认 S030 在 W016 中是「挑战预测」而非「再做一次管道检查」——本文确认：S030 在 W016 中**只**以 `forecast-challenge` 运行，W016 不产出也不展示 S030 的 `stageFlow`、`focusList`（见决策 3）。
 
@@ -133,7 +133,7 @@ const W016Trigger = z.object({
 - **阶段 4**：S030 输入 `forecastDraft` = 阶段 3 的完整 `ForecastSubmissionDraft`，`scope`/`asOf`/`period` 与阶段 3 相同，`window` = `priorSubmission.submittedAt .. asOf`（无上次提交时为 `period.start .. asOf`），使「本期推迟过关闭日期」按提交间隔判断。S030 对草稿中不在其授权范围的单输出 `not-in-review-set`（S030 §7）——在 W016 中这只可能由范围不一致引起，出现即写告警事件。
 - **阶段 5**：`scope.accountIds` = 经映射得到的 S031 `deals[]` 账户集合（S035 I2）；`s031RunRef` = 阶段 3 的 stage output id。基线上映射不存在，因此在映射落地前本阶段按决策 7 **必然降级**；这是已知状态，不是故障。
 - **阶段 6**：`period` 与 `forecastDraftRef.period` 均取 S031 输出的 `period.start/end`；`forecastDraftRef.deals` 逐字段复制 S031 `deals[]`；`healthResults` = 阶段 5 结果按 S035 O4 投影（`insufficient-evidence` 不投影）。组织无 `renewalSourceMapping` 时 S033 抛 `RENEWAL_SOURCE_MAPPING_MISSING` → 降级。
-- **阶段 7**（接口待对齐）：S010 当前草稿要求 `subjectRef` 至少含 `artifactId`/`projectId`/`evidenceReviewReportId` 之一；W016 传 `artifactId` = 阶段 8 之前先落的「挑战合并草稿」id 不可行（阶段 8 在后），因此传 `projectId` = 组织为该销售团队配置的项目（proposed-unwired），并在 `unknowns` 中传入 `coverage` 的降级项（`{itemId: "health", why: "unavailable"}` 等）。`horizon` = `periodKey`（如 `FY2026-Q3`）；`materialityBasis` = `{metric: "commit", amount: numbers.commit.amount, currency}`，仅当币种 ∈ {CNY, USD}（S010 草稿的枚举），否则省略。S010 输出风险只投影为 §6 `ForecastRiskRow`。
+- **阶段 7**（已按 S010 定稿回核）：S010 定稿要求 `subjectRef` 至少含 `artifactId`/`projectId`/`evidenceReviewReportId` 之一；W016 传 `artifactId` = 阶段 8 之前先落的「挑战合并草稿」id 不可行（阶段 8 在后），因此传 `projectId` = 组织为该销售团队配置的项目（proposed-unwired），并在 `unknowns` 中传入 `coverage` 的降级项（`{itemId: "health", why: "unavailable"}` 等）。`horizon` = `periodKey`（如 `FY2026-Q3`）；`materialityBasis` = `{metric: "commit", amount: numbers.commit.amount, currency}`，仅当币种 ∈ {CNY, USD}（S010 定稿的枚举），否则省略。S010 输出风险只投影为 §6 `ForecastRiskRow`。
 - **阶段 8**：合并规则见 §6 M1–M4。评审包 artifact 以 `listedCompanyMode` 决定分类（§9）。
 - **阶段 9（G1）**：G1 表单的必填项由 §6 不变量 V3 生成；对 `challenges` 中 `kind = not-in-review-set` 的行不要求处置（提交人无权看其明细）。
 - **阶段 11**：`forecast.submission.write` 是 WorkspaceX 内部的提交记录（`forecast_submissions`，proposed-unwired，基线 `git grep -il forecast -- apps packages` 在 api 应用层只命中 `research/guided-research-plan.ts`、`guided-source-relevance.ts` 两个与销售预测无关的文件，无预测领域模型）。外部 `forecast.submit`（组织自有预测系统）仅在组织配置了该能力且授权写入时执行（ADR-120 第 2 条：默认只读、不继承写权限）。
@@ -162,10 +162,10 @@ const DealChallengeRow = z.object({
   }).nullable(),
 });
 
-const ForecastRiskRow = z.object({            // S010 投影（接口待对齐）
+const ForecastRiskRow = z.object({            // S010 投影（已按定稿回核）
   riskId: z.string(), event: z.string().max(200),
   likelihood: z.enum(["low", "medium", "high"]), severity: z.enum(["low", "medium", "high"]),
-  opportunityIds: z.array(z.string()),         // 该风险涉及的单；集中度风险可能为多单
+  opportunityIds: z.array(z.string()),         // 该风险涉及的单；集中度风险可能为多单。S010 定稿 RiskEntry 无此字段：由 W016 从 S010 `derivedFromSourceIds` 投影——阶段 7 传入的来源 id 取 S031 `deals[].sourceRecordRef`，投影时过滤出能反查到 `deals[]` 的 id 并映射为 opportunityId；映射逻辑 proposed-unwired
   status: z.literal("proposed"),               // S010 只输出 proposed
 });
 
@@ -344,7 +344,7 @@ G5 对比判据：E1、E2、E4、E7、E8、E11 中基线至少失败 3 条而 W0
 4. **S031 `deals[]` 增加 `accountId`**：与 S035 §14 提议 5 相同方向；若落地，W016 阶段 5 可取消对 opportunity→account 映射的依赖，决策 7 中 S035「必然降级」的状态随之解除。由 S031 owner 决定。
 
 ## 15. 未决问题
-- S030 尚无评审文件、S010 为 REWRITE：本文引用的 S030 `challenges[].kind` 取值、S010 `subjectRef`/`materialityBasis.currency` 枚举，均须在二者 PASS 后回核（接口待对齐）。
+- （已关闭）S030、S010 均已 PASS，回核完成：S030 `forecast-challenge` 模式、`forecastDraft`/`window`/`scope`、`challenges[].kind` 五值、`evidenceNeededToHold`、`suggestedDiscussion`、错误码；S010 `subjectKind: "forecast"`、`subjectRef`、`unknowns`、`horizon`、`materialityBasis.currency ∈ {CNY, USD}`、Level3、`status: "proposed"`——均与定稿一致。
 - 期末「实际」签约额由谁回填到提交记录以支撑下期 S031 步骤 7 的偏差计算（候选：W058 或 S038），未定。
 - `period` 关账锁定状态、销售组织层级、内幕知情人名单三项组织数据的归属模块未定；在其就绪前 W016 仅支持 `self` 范围与非上市模式。
 - 决策 5 的漂移阈值（金额变化 > 1%）与「距截止 < 2h 可确认漂移」是本文提议值，是否上升为组织可配置参数，待与 D045 作者对齐。

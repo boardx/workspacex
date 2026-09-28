@@ -3,7 +3,7 @@
 > 类型：Reference Workflow · 域：Sales · 作者化任务：AUTHOR-W014 · 状态：待独立评审
 > 基线：`main@30c1c4332025151610502988b0379b95ff7298c7`（本地检出为包含该提交的 merge，`git merge-base --is-ancestor` 已核对）。下文「已核实」指在该 SHA 上读过文件；未读到证据的标 **UNVERIFIED**；基线上不存在或未接线的能力标 **proposed-unwired**。
 > 权威：`requirements/work-stack-v2/`（ADR-116）；运行时：ADR-118（第 3 条统一 receipt、第 5 条实例固定版本、第 6 条 effect-gateway、第 9 条 Skill 由 Workflow 固定）；工具分类：ADR-120（第 3 条被拒不换供应商）；评测门：ADR-119。
-> 对齐的已 PASS 契约（只引用，不改）：`skills/S031-forecasting.md`、`skills/S032-close-plan.md`、`skills/S036-proposal-builder.md`（三者 `reviews/<ID>.review.md` 均为 `Verdict: PASS`）。S023、S029、S010 撰写时无 PASS 评审，本文按其当前稿的输入/输出契约对接，它们改稿时 §5 的字段映射需复核（§14）。
+> 对齐的已 PASS 契约（只引用，不改）：`skills/S031-forecasting.md`、`skills/S032-close-plan.md`、`skills/S036-proposal-builder.md`（三者 `reviews/<ID>.review.md` 均为 `Verdict: PASS`）。S023、S029、S010 的 `reviews/<ID>.review.md` 现均为 `Verdict: PASS`；本文已按三者终稿复核 §5 字段映射（`coverage` 角色枚举、`changedFields` 形状 `{field, from, to}`（`to` 取读回值）、`subjectKind = deal` 均未改变）。
 
 ## 1. 这个 Workflow 解决什么（边界）
 把**一个已存在、处于推进期的商机**，推进到两种结果之一：
@@ -151,15 +151,15 @@ const W014Trigger = z.object({
 | 11 | notify | —（平台） | `notify.inapp` | → 终态 | write（平台内部） | none |
 
 阶段间数据映射（W014 定义的适配层）：
-- **0 → 1**：S023 输入 `{ mode: "deal-context", accountId: 商机.accountId, opportunityId, asOf, jurisdiction, horizon: "quarter", workflowRunRef: instanceId, evidence: evidenceRefs 解析后的逐字引用 }`。无 `crm.read` 时 `uploadedRows` 缺失，S023 将 `sourceCoverage[crm] = not-queried`，W014 把它原样显示在门卡片上，不把「未查询」当作「无冲突」。
+- **0 → 1**：S023 输入 `{ mode: "deal-context", accountId: 商机.accountId, opportunityId, asOf, jurisdiction, horizon: "quarter", workflowRunRef: instanceId, evidence: evidenceRefs 解析后的逐字引用 }`。每条 evidence 按 S023 §6 形状 `{ evidenceRef, kind, quote, occurredAt, speakerRole, direction, contactRef? }` 组装：`evidenceRef` 即 trigger 的 evidenceRef；`kind`（transcript|email|customer-doc|qbr|public-filing）、`occurredAt`、`speakerRole`、`direction`、`contactRef` 取自该引用所指来源记录（会议转录/邮件/文档）自带的元数据，W014 不推断、不补写；来源记录缺 `speakerRole`/`direction` 的，该条 evidence 如实缺字段交给 S023，由 S023 按其规则判为不可计入 covered（相应覆盖格落为 `unknown`，进入 1→2 的 knownGaps），W014 不把它当作已覆盖。来源元数据能否按此形状读出为 UNVERIFIED。无 `crm.read` 时 `uploadedRows` 缺失，S023 将 `sourceCoverage[crm] = not-queried`，W014 把它原样显示在门卡片上，不把「未查询」当作「无冲突」。
 - **1 → 2**（决策 3）：S032 `knownGaps` = 目标购买单元中 `economic-buyer`/`procurement`/`champion` 为 `known-not-engaged`/`unknown` 的角色各一条，外加 `risks[kind = champion-change]`；`contactRoles` 由 S023 `coverage[].roles[*].contactRefs` 映射（`champion→champion`、`economic-buyer→economic-buyer`、`procurement→procurement`、`technical-evaluator→technical`、其余→`other`，`side = "customer"`）；`internalApprovalChain` 只从组织配置读（proposed-unwired；缺失时 S032 相应行 `durationBasis = unset` → 可能 `indeterminate`）；`calendar.jurisdiction = trigger.jurisdiction`。
 - **2 → 3**：`closePlanRef = { planId, version: 1 }`；S036 只取 `businessCase` 中 `status = evidenced` 的点（S036 I8）。`opportunityId`、`accountId`、`currency` 取自 CRM 记录，不取自 trigger。
 - **1–3 → 4**：平台把 AccountPlan、ClosePlanDraft、ProposalDraft 的引用组成只读 dossier artifact（ADR-118 通用 stage 输出业务行），S010 `subjectRef.artifactId = dossierId`；`horizon = "<asOf>..<targetSignDate>"`；`materialityBasis = { metric: "opportunity-amount", amount: CRM amount, currency }`——仅当币种 ∈ {CNY, USD}（S010 §5 枚举），否则不传，S010 输出 `severityAnchoring = qualitative`；`jurisdictions = [trigger.jurisdiction]`。
-- **4 → 5**：S029 `changes[]` 的来源仅限：S032 `crmChangeProposals`（`source.kind = "skill-proposal"`, `skillId = "S032"`, `proposalRef = "crmChangeProposals[i]"`, `proposedFrom = from`）；trigger `requestedStage`（`user-instruction`）；门上负责人手选/手填值（`user-instruction`，决策 4）；close-out 的 `stage` 与 `lossReason` 字段（`user-instruction`，证据挂 `closeEvidence`）。S023 `actions[type = crm-field-update-proposal]` **不**进入变更集——S029 的 `skillId` 枚举不含 S023，且 S023 的该动作语义是账户字段；它们作为待办列出（§6 `todos`）。
+- **4 → 5**：S029 `changes[]` 的来源仅限：S032 `crmChangeProposals`（`source.kind = "skill-proposal"`, `skillId = "S032"`, `proposalRef = "crmChangeProposals[i]"`, `proposedFrom = from`, `evidence = [{ ref: "S032:<closePlanRef>#crmChangeProposals[i]", excerpt: crmChangeProposals[i].evidence }]`——即把 S032 的字符串 evidence（所引计划行）逐字作为 `excerpt`、以该提议的定位串作为 `ref`，包成 S029 §5 要求的非空 `Array<{ref, excerpt}>`；S032 `evidence` 为空串的提议不进入变更集，改列待办（§6 `todos`），不送 S029 触发 `OPP_UPDATE_INPUT_INVALID`）；trigger `requestedStage`（`user-instruction`）；门上负责人手选/手填值（`user-instruction`，决策 4）；close-out 的 `stage` 与 `lossReason` 字段（`user-instruction`，证据挂 `closeEvidence`）。S023 `actions[type = crm-field-update-proposal]` **不**进入变更集——S029 的 `skillId` 枚举不含 S023，且 S023 的该动作语义是账户字段；它们作为待办列出（§6 `todos`）。
 - **5 → 6**：组装三张门卡（§6 `GateCard`），不再调用 Skill。
 - **8 → 9**：见决策 7。S031 `scope = { kind: "self" }`，`period` = `closeDate` 读回值所在的组织财季，另以写入前的 `closeDate` 所在财季再算一次（若两者不同），两次结果都进入 `dealImpact`。
 
-阶段失败语义：S023/S032/S036/S010 的 `*_SCOPE_FORBIDDEN` 一律 → `access_denied`，不降级为「只读公开字段」；`*_SOURCE_UNAVAILABLE` / `S036_DEPENDENCY_UNAVAILABLE` 按 §8 退避重试，耗尽 → `failed`，绝不当作「无冲突/无风险/无需求」。
+阶段失败语义：S023/S032/S036 的 `*_SCOPE_FORBIDDEN` 与 S010 的 `S010_SUBJECT_NOT_READABLE`（S010 终稿 §8 无 `S010_SCOPE_FORBIDDEN`）一律 → `access_denied`（S010 的该错误亦不得降级为「无风险」），不降级为「只读公开字段」；`*_SOURCE_UNAVAILABLE` / `S036_DEPENDENCY_UNAVAILABLE` 按 §8 退避重试，耗尽 → `failed`，绝不当作「无冲突/无风险/无需求」。
 
 ### 权限重查点（每个效果点前，全部落事件）
 - **P1 admit**：以 `initiatorUserId` 身份读商机；D005 发起时 `ownerId` 必须等于发起人（`scope = self`，S032 §7、S036 §8 同一规则）；核实 `initiatorAgentVersionId` 的 `workflowAllowlist` 含 W014 v1；逐个读 `evidenceRefs`、`requirementsSource` 中文件、`closeEvidence` 文件的指定版本，任一不可读 → `access_denied`（不跳过该证据继续——跳过会让 S032 的 `durationBasis` 与 S036 的需求集悄悄变少）。
@@ -360,7 +360,7 @@ G5 对比判据：E3、E5、E6、E8、E10、E14 上基线至少失败 4 条而 W
 5. **矩阵列序**：与 W011 提议 4 相同——建议注明「Exact Skills 列为集合、非阶段序」。W014 第 20 行列序（S029 在 S031、S010 之前）与本文阶段序不同，是按数据依赖排的，不代表边有误。
 
 ## 14. 未决问题
-- S023、S029、S010 尚无 PASS 评审；若 `coverage` 角色枚举、`changedFields` 形状或 `subjectKind = deal` 的识别线索改动，§5 映射与 E1/E12/E15 需复核。
+- S023、S029、S010 现均已 PASS，已按终稿复核本文映射；此后若 `coverage` 角色枚举、`changedFields` 形状或 `subjectKind = deal` 的识别线索改动，§5 映射与 E1/E12/E15 需复核。
 - 审批档（manager / deal-desk / finance-exec）到具体审批人的服务端来源未定（proposed-unwired）；落地前 G1-price 只能在 `requiredApprovalTier = none` 时通过，其余一律关闭对客通道。
 - 账户已登记邮箱域的来源（CRM 账户字段还是组织配置）未定；缺失时 P4 对所有收件人 `blocked`，即 v1 在该来源落地前不会真正对客发送。
 - CN 公共招标的「人工递交」是否应成为独立的效果类型（带递交回执照片/签收单），待销售运营确认。

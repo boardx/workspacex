@@ -4,7 +4,7 @@
 > **代码基线**：`main@30c1c4332025151610502988b0379b95ff7298c7`。本文凡涉及现有 WorkspaceX 代码的陈述，均以此基线 `git show <sha>:<path>` 核对；未核对行为的标 **UNVERIFIED**，基线上不存在/未接线的能力标 **proposed-unwired**。
 > 权威：`requirements/work-stack-v2/`（ADR-116）；运行时：ADR-118（第 9 条：Workflow 固定 Skill 版本，负责它的 Agent 不需另行挂载）。注意：`docs/adr/ADR-118-generic-workflow-runtime.md` **不在基线提交中**（`git show 30c1…:docs/adr/ADR-118…` 报 not in commit），只在工作树存在，本文按「ADR-Proposed」引用。工具分类：ADR-120（本文所有能力名均为提案名）；评测门：ADR-119。
 > 对齐的已 PASS 文档（只引用、不改）：`skills/S003-enterprise-search.md`、`skills/S171-evidence-review.md`、`skills/S063-research-synthesis.md`、`workflows/W001-research-to-brief.md`。
-> 对齐的**未 PASS** 草稿（其评审当前为 REWRITE，接口可能再变，依赖处标 UNVERIFIED）：`skills/S012-decision-brief.md`、`skills/S010-risk-assessment.md`。
+> 另对齐已 PASS 的 `skills/S012-decision-brief.md`、`skills/S010-risk-assessment.md`（`reviews/S012.review.md`、`reviews/S010.review.md` 均为 `Verdict: PASS`）。
 
 ## 1. 边界（一句话）
 把**一个已经有 2–3 个互斥备选方案的组织决策问题**，变成**经证据分级、风险评估后的建议 + 由经核实的决定人在 `choose_execution_option` 中断里做出的一次选择（或明确不选）**，并把这次选择连同「是否采纳了建议」落为一条决策记录。
@@ -22,8 +22,8 @@
 | S003 | Enterprise Search | 只检索 G1 圈定的**承重格**（决策 1）对应的可核验项；逐命中判 relation；覆盖声明 | 1 次，`EnterpriseSearchLedger` | S003 §4 步骤 2（≤6 项）、§6、决策 1–3 |
 | S171 | Evidence Review | `mode: "appraise"`：在综述**之前**对证据集按承重格主张分级 | 1 次 | S171 §2.1 第 2 行（W009）、§5、§6、决策 1、6 |
 | S063 | Research Synthesis | `reviewed-evidence` 模式：只以 S171 claim 为锚写 Finding，不写建议 | 1 次 | S063 §2.1 第 31 行（W009）、§4.2、§6、E8 |
-| S012 | Decision Brief | `mode: "evidence-backed"`：首跑产出 `provisional-pending-risk`，第二跑带 `riskAssessmentId` 转 `ready` | **2 次**（同一 Skill 版本） | S012 §5、§7、O-12、决策 5（草稿，UNVERIFIED） |
-| S010 | Risk Assessment | `subjectKind: "options"`：只对 S012 首跑**筛选后幸存**的方案评风险，不给推荐 | 1 次 | S010 §5 I-in-1/I-in-2、§7、E9（草稿，UNVERIFIED） |
+| S012 | Decision Brief | `mode: "evidence-backed"`：首跑产出 `provisional-pending-risk`，第二跑带 `riskAssessmentId` 转 `ready` | **2 次**（同一 Skill 版本） | S012 §5、§7、O-12、决策 5 |
+| S010 | Risk Assessment | `subjectKind: "options"`：只对 S012 首跑**筛选后幸存**的方案评风险，不给推荐 | 1 次 | S010 §5 I-in-1（内联 `evidenceReviewReport` 必填）/I-in-2（≥2 个方案）、§7、E9 |
 
 Skill 版本由 `WorkflowDefinition(W009, v1).stages[*].skills[*] = {stableId, versionRange}` 在实例启动时解析并冻结（ADR-118，proposed-unwired）。S012 两次调用**必须**是同一冻结版本——第二跑的 `revisionOf` 语义依赖首跑的 schema。发起 Agent **不需要**挂载以上 Skill（ADR-118 第 9 条）；只需其 `workflowAllowlist` 含 W009 v1。本文不提出任何 DigitalHuman 挂载边。
 
@@ -34,7 +34,7 @@ D001 Executive / Strategy Partner、D002 Research & Knowledge Analyst、D017 Dec
 | 参数 | 缺省映射（出处） |
 |---|---|
 | `evidenceRegime`（透传 S171） | D025/D054/D056 → `clinical`；D023 → `claims`；D030 → `public-policy`；其余 → `general`（S171 §2.2） |
-| `briefProfile`（透传 S012） | D001 → `executive`；D017 → `decision-science`；D049 → `requirements`；其余 → `executive`（S012 §2.2 的「再缺省 executive」；草稿，UNVERIFIED） |
+| `briefProfile`（透传 S012） | D001 → `executive`；D017 → `decision-science`；D049 → `requirements`；其余 → `executive`（S012 §2.2 的「再缺省 executive」） |
 | `decisionClass`（W009 自有，决策 7） | D023/D051 的触发若 `subjectKind = individual_eligibility` → `out_of_scope`；D048/D055 缺省 `regulatory_position`（G2 升 multi-gate，决策 5） |
 
 ### 2.3 相邻 Workflow（划界，不是依赖）
@@ -48,10 +48,10 @@ D001 Executive / Strategy Partner、D002 Research & Knowledge Analyst、D017 Dec
 理由：决策问题的证据成本应花在会翻转结论的格上；S012 决策 3 的上限表正是按「承重依据的最低确定性」封顶，把非承重格也送检只会拖慢而不改变上限。
 
 **决策 2 — S171 在综述之前以 `appraise` 运行一次，主张来源是承重格；S063 只消费其结论，不重判。**
-依据 S171 §2.1 第 2 行（W009：S003 之后、S063 之前，`appraise`）与 S063 §4.2（`reviewed-evidence`：relation、certainty、allowedAssertion 原样使用）。S171 输入映射：`researchQuestions = loadBearingCells.map(c => ({questionId: c.cellId, text: c.claimToVerify}))`；`evidence[]` 由 ledger 命中映射（`evidenceId = hitId`、`accessibleAt`、`upstreamRelation = relation`），只送 `relation ∈ {supports, contradicts}` 的命中；`mentions-only` 丢弃、`superseded` 丢弃。与 W001 的差异：W001 审草稿措辞（`overclaim`），W009 审的是**会进入建议的依据**，所以放在综述之前，让 S063 的 `assertionCeiling` 与 S012 的 `cells[].basis.certainty` 从同一份分级派生。W009 **不再**在 S012 之后追加 `claim-audit`：S012 的 `cells[].note` 已受 `allowedAssertion` 约束（S012 §7），由阶段 8 的确定性校验（证据门规则 3）兜底。
+依据 S171 §2.1 第 2 行（W009：S003 之后、S063 之前，`appraise`）与 S063 §4.2（`reviewed-evidence`：relation、certainty、allowedAssertion 原样使用）。S171 输入映射：`researchQuestions = loadBearingCells.map(c => ({questionId: c.cellId, text: c.claimToVerify}))`；`evidence[]` 由 ledger 命中映射，字段映射同 W001 §5 阶段 4（`evidenceId = hitId`、`sourceId`、`quote = excerpt`、`retrievedAt`/`accessibleAt = accessibleAt`、`upstreamRelation = relation`；S171 §5 必填字段全部给出），只送 `relation ∈ {supports, contradicts}` 的命中；`mentions-only` 丢弃、`superseded` 丢弃。与 W001 的差异：W001 审草稿措辞（`overclaim`），W009 审的是**会进入建议的依据**，所以放在综述之前，让 S063 的 `assertionCeiling` 与 S012 的 `cells[].basis.certainty` 从同一份分级派生。W009 **不再**在 S012 之后追加 `claim-audit`：S012 的 `cells[].note` 已受 `allowedAssertion` 约束（S012 §7），由阶段 8 的确定性校验（证据门规则 3）兜底。
 
 **决策 3 — 维持矩阵顺序 S012 → S010 → S012，不前移 S010（回答 S012 §13 提议 1，选 (a)）。**
-S010 `options` 模式（S010 §5 I-in-2）需要 ≥2 个方案，并按 `appliesToOptionIds` 挂风险。S012 首跑会先按硬约束与支配关系筛掉方案（`screenedOut`），只留 2–3 个幸存者（含基线）。若 S010 前移，它会对被硬约束淘汰的方案评风险，浪费预算且产生不可能被选的方案的 `critical` 风险，干扰读者。因此：阶段 5 S012 首跑（必然 `provisional-pending-risk`，S012 O-12）→ 阶段 6 S010 只收 `options[].optionId`（幸存者）→ 阶段 7 S012 第二跑（`revisionOf` = 首跑 briefId，`riskAssessmentId` = S010 `assessmentId`）→ `ready`。首跑产物**永不**进入任何人类门（证据门规则 5）。
+S010 `options` 模式需要 ≥2 个方案（S010 §5 I-in-2），且须内联 S171 报告（I-in-1），并按 `appliesToOptionIds` 挂风险。S012 首跑会先按硬约束与支配关系筛掉方案（`screenedOut`），只留 2–3 个幸存者（含基线）。若 S010 前移，它会对被硬约束淘汰的方案评风险，浪费预算且产生不可能被选的方案的 `critical` 风险，干扰读者。因此：阶段 5 S012 首跑（必然 `provisional-pending-risk`，S012 O-12）→ 阶段 6 S010 只收 `options[].optionId`（幸存者）→ 阶段 7 S012 第二跑（`revisionOf` = 首跑 briefId，`riskAssessmentId` = S010 `assessmentId`）→ `ready`。首跑产物**永不**进入任何人类门（证据门规则 5）。
 
 **决策 4 — 证据门规则（一处定义，§5–§12 只引用编号）。**
 1. **可作为 S012 格依据的 S171 主张**：`certainty ≠ insufficient` 且 `allowedAssertion ≠ omit` 且不在 `unverifiedAssertions`。S171 E13 的跨 Skill 断言（insufficient 主张不得成为建议依据）由本条在阶段 8 执行。
@@ -59,7 +59,7 @@ S010 `options` 模式（S010 §5 I-in-2）需要 ≥2 个方案，并按 `applie
 3. **引用归属**：S012 `cells[].basis` 中每个 `claimId` 必须存在于本实例 S171 报告；每个 `findingId` 必须存在于本实例 S063 输出；S171 links 的 `evidenceId` 必须属于本实例 ledger。校验逻辑与 `apps/api/src/application/context-pack/verify-citation.ts` 同形（基线已核对：以 `runId` 取 pack，判引用 ⊆ pack，拒绝时记录；**不做权限重查**）；按 workflow stage 取 pack 为 **proposed-unwired**。
 4. **承重格全空**：所有承重格对应的 S171 主张都为 `insufficient` → 不进入 S063，终态 `insufficient_evidence`（没有任何可比较的证据，给建议只会是 S012 `no-recommendation` 的空壳）。至少一格有可用证据时照常走完，由 S012 上限表降级。
 5. **进入 G2 的必须是 `status = ready` 的 S012 第二跑产物**，且 `riskHandoff.pending = false`；`provisional-pending-risk` 或 `needs-framing` 的产物不得出现在任何门上。
-6. **风险披露**：S010 对 S012 推荐方案标出 `level = critical` 的风险时，G2 卡片首屏必须显示该风险（`riskId`、`event`、`acceptanceAuthority`），且 S012 `rationale` 须回应它（S012 E11 第二段，草稿，UNVERIFIED）；缺失 → 阶段 8 失败回阶段 7。
+6. **风险披露**：S010 对 S012 推荐方案标出 `level = critical` 的风险时，G2 卡片首屏必须显示该风险（`riskId`、`event`、`acceptanceAuthority`），且 S012 `rationale` 须回应它（S012 E11 第二段）；缺失 → 阶段 8 失败回阶段 7。
 
 **决策 5 — 决定人由服务端核实，不接受声明；集体决策机关只能「提交」，不能在 W009 内「决定」。**
 - 决定人：`trigger.claimedDecisionOwnerUserId` 必须是 `scope.projectId` 的成员且 `projectRole ≠ observer`——与 `adoptProjectDecision` 的 `requireProjectDecider` 同一判据（基线已核对：`apps/api/src/application/knowledge-graph/adopt-project-decision.ts` 第 32–40 行，观察者抛 `KG_NOT_OWNER`）。核实失败 → G1 必须改人；G1 结束时仍无核实决定人 → 终态 `owner_unresolved`（不把中断发给发起人代选）。
@@ -77,7 +77,7 @@ D023（理赔）与 D051（授信）是 W009 的消费者，但「是否拒赔�
 **决策 8 — 每个效果点前重查权限（P1–P5），TTL 沿用 W001 的 24h 规则，但主体多一个：决定人。**
 W009 与 W001 不同，看 G2 卡片的人（决定人）可能不是检索主体（发起人）。重查点：
 - **P1 G1 批准后、阶段 2 前**：发起人对 `scope.projectIds` 的读权限（被撤的项目移出范围、记入 ledger 覆盖声明）；决定人的 `requireProjectDecider` 判据。
-- **P2 G2 发出前（阶段 8 之后）**：以**决定人**身份逐条重查 S012 `cells[].basis` 背后的来源读权限。S012 自身按 `claimedAudienceUserIds` 做服务端脱敏（S012 §6 A-2，草稿）；W009 把决定人与分发名单一并作为 `claimedAudienceUserIds` 传入第二跑，所以此处只是复核：若决定人对某承重依据不可读，S012 应已改为 `withheld`；若复核发现未脱敏 → fail-closed，不发中断，`failed(REDACTION_MISMATCH)`。「以某用户身份重查读权限」的端口在基线不存在（`verify-citation.ts` 不接受用户身份），**proposed-unwired**。
+- **P2 G2 发出前（阶段 8 之后）**：以**决定人**身份逐条重查 S012 `cells[].basis` 背后的来源读权限。S012 自身按 `claimedAudienceUserIds` 做服务端脱敏（S012 §6 A-2）；W009 把决定人与分发名单一并作为 `claimedAudienceUserIds` 传入第二跑，所以此处只是复核：若决定人对某承重依据不可读，S012 应已改为 `withheld`；若复核发现未脱敏 → fail-closed，不发中断，`failed(REDACTION_MISMATCH)`。「以某用户身份重查读权限」的端口在基线不存在（`verify-citation.ts` 不接受用户身份），**proposed-unwired**。
 - **P3 G2 解决后、写决策记录前**：再次 `requireProjectDecider`（等待期内决定人可能被降为 observer 或移出项目）；若 G2 等待 >24h，对被选方案**承重格**依据做 TTL 重验。失败：前者 → 丢弃这次选择，G2 重新发给新核实的决定人（需 G1 改人，事件 `owner_revoked`）；后者 → 承重依据被撤则简报失效，回阶段 7 以 `revisionOf` 重出，重新走 P2 与 G2（原选择不沿用）。
 - **P4 每位收件人发送前**：`distribution` 中每人必须 ∈ S012 第二跑的受众集合（`audienceDigest` 一致，S012 A-4），并重查其对**未脱敏**依据的读权限；不在集合内的收件人一律阻止（不为他重跑 S012——那会产生决定人没看过的新版本）。
 - **P5 崩溃恢复**：从 checkpoint 恢复时，对 ledger 全部 `(sourceId, versionId)` 以发起人身份批量重查；实例若在 G2 等待中，另以决定人身份重跑 P2。被撤来源使 S171 起的下游全部 stale 重跑（S003 不重跑，见 §8）。
@@ -150,9 +150,10 @@ const W009Trigger = z.object({
 
 阶段说明（只写表中放不下的）：
 - **阶段 2 输入**：`question = decisionQuestion + "；需核验：" + loadBearingCells.map(c => c.cellId + " " + c.claimToVerify).join("；")`；`projectIds` 为 P1 之后的有效集合。`seedBriefId` 存在时：取该 Brief 所属 W001 实例的 ledger 作为**附加**命中（字段映射同 W001 §5 阶段 4），但 S003 仍按承重格检索一次——W001 的 items 是 W001 问题的拆解，与本实例承重格不对应。
-- **阶段 3**：S171 按承重格生成主张（每格一条，原子化后可能多条，`atomizedFrom = cellId`）。承重格 → S171 `claimId` 的映射表 `cellClaimMap` 写入 stage 输出行，供 S012 第二跑与阶段 8 使用。
+- **阶段 3**：S171 按承重格生成主张（每格一条，原子化后可能多条；S171 的 `atomizedFrom` 指被拆分的原始主张 id，不是 cellId）。承重格 → S171 `claimId` 的映射只依赖 W009 自有的映射表 `cellClaimMap`，写入 stage 输出行，供阶段 4、S012 第二跑与阶段 8 使用。
+- **阶段 4 输入**：S063 `reviewed-evidence` 模式的必填输入（S063 §5）：`questions[]` 由 `loadBearingCells` 映射（`questionId = cellId`、`text = claimToVerify`）；`questionClaimMap` 由 `cellClaimMap` 直接映射（cellId → claimId[]）。
 - **阶段 5 回退**：S012 返回 `needs-framing`（例如 `framingGaps` 含 `weights`，D017 profile 缺权重时必然发生）时回 G1 补齐，**不**重跑阶段 2–4（证据与框架正交）；第二次仍 `needs-framing` → 终态 `needs_framing`。S012 返回 `S012_TOO_MANY_OPTIONS` 同样回 G1 由人合并。
-- **阶段 6 输入**：`options = provisional.options.map(o => ({optionId, label: o.title}))`；`subjectRef.evidenceReviewReportId` = 阶段 3 stage 输出行 id（S171 报告本身无 id 字段，见 §13 提议 2）；`horizon` 取 `decisionDeadline` 所在季度，缺省 `"decision+12m"`；`jurisdictions` 透传。
+- **阶段 6 输入**：`options = provisional.options.map(o => ({optionId, label: o.title}))`；`evidenceReviewReport` = 阶段 3 的 S171 报告对象原样内联（S010 §5 I-in-1，`subjectKind = options` 时必填）；`subjectRef.evidenceReviewReportId` = 阶段 3 stage 输出行 id，仅作谱系标签，S010 不按它取回报告；`horizon` 取 `decisionDeadline` 所在季度，缺省 `"decision+12m"`；`jurisdictions` 透传。
 - **阶段 7**：`claimedAudienceUserIds = [决定人] ∪ distribution.userId ∪ [第二签人]`；这是受众集合的唯一来源（P4 依赖）。
 - **阶段 9 卡片**：`ChooseOptionArgs.options` 直接取 S012 `optionCardProjection`（2–3 项，与 `ChooseOptionArgs` 的 `.min(2).max(3)` 一致——基线已核对 `agent-interrupts.ts` 第 176–178 行）；推荐项、`strongestCaseAgainst`、`critical` 风险由 W009 的卡片外壳展示（外壳渲染 **proposed-unwired**；基线中断 UI 如何渲染附加信息 UNVERIFIED）。
 - **阶段 11 落点**：决策记录写入 ADR-118 通用 stage 输出业务行 + W009 投影 `DecisionRecord`（§6）；**不**调用 `adoptProjectDecision`——它只接受项目记忆中 `KG_ADOPTABLE_CLAIM_KINDS` 类的 claimId（S012 决策 4 已核对 `packages/contracts/src/chat-knowledge-graph.ts:591`，本文未另行核对，UNVERIFIED），而决策记录不是 claim。「把 W009 决策记录写成项目记忆」为 **proposed-unwired**（§14）。
@@ -295,12 +296,12 @@ G5 对比判据：在 E1、E4、E5、E9、E14、E17 上基线至少失败 3 条�
 
 ## 13. Graph change proposals（只提议，不改矩阵）
 1. **无边增删。** W009 按矩阵原序 S003 → S171 → S063 → S012 → S010 → S012 运行（S012 两次调用是同一 Skill 的再调用，不是新边）。这一顺序回答了 S012 §13 提议 1（选 (a)，理由见决策 3），请 S012 作者据此把 §2.1「预期」改为已确认。
-2. **S171 报告缺 id**（改运行时契约，不改矩阵）：S010 `subjectRef.evidenceReviewReportId`、S012 `evidenceReviewReportId` 都需要一个 id，而已 PASS 的 S171 §6 `EvidenceReviewReport` 无 id 字段（S010 评审 B2 同一问题）。W009 以 ADR-118 stage 输出行 id 填充；建议 ADR-118 明确「Skill 产物 id = stage 输出行 id」为统一规则，而不是各 Skill 自加 id 字段。
+2. **S171 报告缺 id**（改运行时契约，不改矩阵）：S012 `evidenceReviewReportId` 需要一个 id（S012 §5、§6 按 id 以 actor 身份重读报告），而已 PASS 的 S171 §6 `EvidenceReviewReport` 无 id 字段。S010 终稿已以内联 `evidenceReviewReport` 解决（其评审 B2），不再依赖报告 id。W009 以 ADR-118 stage 输出行 id 填充；建议 ADR-118 明确「Skill 产物 id = stage 输出行 id」为统一规则，而不是各 Skill 自加 id 字段。
 3. **S003 拆解溢出信号**：同 W001 §13 提议 1；W009 通过承重格上限在 trigger 层规避，不依赖该字段。
 4. **W009 → W003 交接**：`w003Handoff` 需 W003 触发契约接受 `decisionBriefId + selectedOptionId`，由 W003 作者定；W009 不自动启动 W003。
 
 ## 14. 未决问题
 - 决策记录落到项目记忆（使其可被 `adoptProjectDecision` 一类路径消费）的形态未定，proposed-unwired。
-- S012、S010 当前评审为 REWRITE；其 `ceilingApplied`、`optionCardProjection`、`level=critical`、`appliesToOptionIds` 等字段若在重写中改名，本文 §5–§6 与 E1/E4/E9 需同步复核。
+- S012、S010 已 PASS；本文所依赖的 `ceilingApplied`、`optionCardProjection`、`level=critical`、`appliesToOptionIds` 等字段名与终稿一致，已核对。
 - 组织授权矩阵（何事项必须集体决策）缺失时，`individual` 声明无法被校验，只能靠决策 5 的「只收紧」规则；是否需要 W009 在该缺失下对 `investment` 类强制 multi-gate，待人类裁决。
 - ADR-118 不在基线提交中；第 9 条之外的条款（receipt、stage 输出行）按工作树版本引用，未对基线核对。

@@ -3,7 +3,7 @@
 > 类型：Reference Workflow · 域：Product · 作者化任务：AUTHOR-W028 · 状态：待独立评审
 > **代码基线**：`main@30c1c4332025151610502988b0379b95ff7298c7`。本文中关于现有 WorkspaceX 代码的陈述都在这个基线上用 `git show <sha>:<path>` 核对过；没有核对行为的标 **UNVERIFIED**，基线上不存在或没有接线的能力标 **proposed-unwired**。
 > 权威来源：`requirements/work-stack-v2/`（ADR-116）。运行时：ADR-118（第 5 条实例固定版本，第 6 条 effect-gateway，第 9 条 Workflow 固定 Skill 版本、Agent 不需要挂载）。
-> 对齐的已 PASS 契约（本文只引用，不修改）：`skills/S062-user-interview-planning.md`、`skills/S063-research-synthesis.md`、`skills/S169-knowledge-synthesis.md`、`skills/S171-evidence-review.md`、`skills/S065-opportunity-mapping.md`。`skills/S009-customer-research.md` 目前**没有** PASS 评审，本文对它的接口引用一律标 UNVERIFIED（草稿契约），它改动时本文需要跟着复核。
+> 对齐的已 PASS 契约（本文只引用，不修改）：`skills/S062-user-interview-planning.md`、`skills/S063-research-synthesis.md`、`skills/S169-knowledge-synthesis.md`、`skills/S171-evidence-review.md`、`skills/S065-opportunity-mapping.md`、`skills/S009-customer-research.md`。
 
 ## 1. 边界：这个 Workflow 做什么、不做什么
 W028 把**一个会被研究结果改变的产品（或学习设计）决定**，经过「规划真人访谈 → 人执行访谈 → 取回语料 → 综合 → 与组织既有知识对账 → 逐条主张复核 → 机会地图」，变成一份 **InsightReport**。报告里每一条洞察都能点回到访谈原话片段，措辞不超过 S171 给出的上限。如果证据足够，报告会给出一个**由人确认**的目标机会。
@@ -22,9 +22,9 @@ W028 **不做**这些事：替人招募、发邀约、预约或录音；生成�
 | Skill | 名称 | 在 W028 中的唯一职责 | 调用模式 | 对方契约出处 |
 |---|---|---|---|---|
 | S062 | User Interview Planning | 定 RQ（`questionId` 全链主键）、分层、筛选题、同意计划、中立提纲、停止规则 | `evaluative` / `discovery` / `learning-needs` | S062 §2.1 W028 行、§6、决策 1/3/5 |
-| S009 | Customer Research | 访谈结束后按同一组 `questions[]` 取回已同意的访谈片段 | `voice-corpus` | S009 §2 W028 行、§4 V1–V2、§8 G6（UNVERIFIED：S009 未 PASS） |
+| S009 | Customer Research | 访谈结束后按同一组 `questions[]` 取回已同意的访谈片段 | `voice-corpus` | S009 §2 W028 行、§4 V1–V2、§8 G6 |
 | S063 | Research Synthesis | 两层编码、主题、`prevalence`、负例搜寻；先产出 `provisional`，S171 之后由算法重算为 `final` | `qualitative-corpus` | S063 §4.4、§6、决策 6 |
-| S169 | Knowledge Synthesis | 把本轮 Finding 与组织既有知识对账（`same-as-existing / extends / contradicts / novel`），导出 `claimsForAudit` | `integrate-findings` | S169 §2.1、§4 步骤 7/10、§6、I8 |
+| S169 | Knowledge Synthesis | 把本轮 Finding 与组织既有知识对账（`units[].reconciliation`：`same-as-existing / extends-existing / contradicts-existing / novel`），导出 `claimsForAudit` | `integrate-findings` | S169 §2.1、§4 步骤 7/10、§6、I8 |
 | S171 | Evidence Review | 审核 S169 导出的合并主张：relation、certainty、`allowedAssertion`、`overclaim` | `claim-audit`，`evidenceRegime: "qualitative"` | S171 §2.1 W028 行、§4、§6 |
 | S065 | Opportunity Mapping | 以发起人的 `outcome` 为根、以 **final** synthesis 为证据建机会树并比较兄弟节点 | `build`（修订轮用 `revise`） | S065 §2.1 W028 行、§5 I1/I3、§6 不变式 5–9 |
 
@@ -56,9 +56,9 @@ S065 §14 提议 2 指出：W028 这一行没有 S064，根只能来自调用方
 
 **决策 3 — S171 审的是 S169 合并后的主张。审核结果再按确定的映射表回灌到 S063 的各个 Finding，并由算法重算（不再调用模型）后把状态转为 `final`。**
 几份已 PASS 契约之间有一个接缝：S171 在 W028 中审核的是 S169 的 `claimsForAudit`（S169 §4 步骤 10），而 S063 决策 6 的重算要求「以原 Finding 的 claim 作为锚点」，S065 I3 又只接受 S063 synthesis 作为证据。W028 这样接：
-1. S169 的输入 `items[]` 逐条来自 S063 Finding：`itemId = findingId`，`origin = "finding"`，`text = claim`，`quote` 取该 Finding `quotes[]` 的逐字文本拼接（≤2000 字，超出时按 segmentId 拆成多个 item，`itemId = findingId#k`），`upstreamRef = {skill:"S063", refId: findingId}`。
-2. S169 输出之后，Workflow 由 `units[].provenance[].itemId` 构建映射表 `auditMap: claimId → findingId[]`，并做确定性校验：每个非 `outOfScope` 的 findingId **至少**被一条 `claimsForAudit` 覆盖。有遗漏就判 S169 输出不合规，按 §8 做结构化重试。
-3. S171 的 `evidence[]` 只取 S009 片段：`evidenceId = segmentId`（和 S063 `qualitative-corpus` 的命名空间一致，S063 §4.1 P3），`quote = segment.text`，`sourceKind = "interview-transcript"`。
+1. S169 的输入 `items[]` 逐条来自 S063 Finding：`itemId = findingId`，`origin = "finding"`，`text = claim`，`quote` 取该 Finding `quotes[]` 的逐字文本拼接（≤2000 字，超出时按 segmentId 拆成多个 item，`itemId = findingId#k`），`upstreamRef = {skill:"S063", refId: findingId}`，`sourceId` 取该 item 所含引文对应 S009 `CustomerSegment.sourceId`（`versionId` 取 `sourceVersionId`）。S169 的 `sourceId` 是单值，所以一个 Finding 的 quotes 跨多个来源时，按 `sourceId` 分组拆成多个 item（`itemId = findingId#k`，每个 item 只含单一来源的引文），不拼接跨来源引文。
+2. S169 输出之后，Workflow 构建映射表 `auditMap: claimId → findingId[]`。注意：S169 §6 的 `claimsForAudit` 形状只有 `{claimId, text, sourceSpan}`，没有 unitId 或 provenance 引用，S169 也没有规定 `claimId` 等于 `unitId`，因此从 claimId 回到 `units[].provenance[].itemId` 的连接键**不在 S169 契约内**。W028 不假定这一对应关系；在 S169 补上该连接键之前（见 §14 提议 5），auditMap 的构建为 **proposed-unwired**，阶段 10 不得靠文本相似度猜测连接。连接键可用时，由 `units[].provenance[].itemId` 回溯 findingId，并做确定性校验：每个非 `outOfScope` 的 findingId **至少**被一条 `claimsForAudit` 覆盖。有遗漏就判 S169 输出不合规，按 §8 做结构化重试。
+3. S171 的 `evidence[]` 只取 S009 片段：`evidenceId = segmentId`（和 S063 `qualitative-corpus` 的命名空间一致，S063 §4.1 P3），`quote = segment.text`，`sourceKind = "interview-transcript"`，`sourceId = segment.sourceId`（`versionId = segment.sourceVersionId`）。S171 必填的 `retrievedAt` 在 S009 `CustomerSegment` 中没有对应字段（`observedAt` 是发言时间，不是取回时间）；W028 暂取阶段 5 S009 pack finalize 的时间戳（Workflow 自身 receipt 记录），这是 Workflow 侧的约定，不是 S009 契约字段。
 4. 每个 Finding 取 `auditMap` 反查得到的所有 S171 主张，交给 S063 决策 6 的三步重算（用 `scripts/confidence.mjs`，**proposed-unwired**）。一个 Finding 被多条合并主张覆盖时，按**最严**的一条取值：`allowedAssertion` 取最低档，并剔除任一主张判为 `irrelevant` 的片段。
 5. 重算后的 synthesis 以**新的 `synthesisId`** 落为业务行，`status = final`。S065 只拿到这个新 id。provisional 版本仍然保留，用于审计，但不会交给 S065。
 
@@ -70,7 +70,7 @@ S169 决策 3 规定与既有知识冲突时一律交给人工，S169 §7 规定
 
 **决策 6 — 同意是逐阶段的时点事实。撤回同意会让下游阶段失效，已发布的报告做就地脱敏，不整份撤回。**
 同意项的唯一事实源是 `packages/contracts/src/consent-item.ts`（基线存在，已核实；S062 §4 P5 说其取值为 `record / transcript / ai_analysis / attribution`）。W028 在四个点重查同意（C1–C4，见 §5 说明），并规定：
-- 在 S063 之前撤回 → 该参与者的片段不进入 corpus（S009 G6 的职责；S009 未 PASS，UNVERIFIED）。
+- 在 S063 之前撤回 → 该参与者的片段不进入 corpus（S009 G6 的职责）。
 - 在 S063 之后、发布之前撤回 → 从 S063 起所有阶段标为 stale 并重跑；S169 的 unit id 由内容哈希生成（S169 决策 5），重跑后没有变化的单元 id 保持不变。
 - 发布之后撤回 → 报告里该参与者的引文替换为「[已撤回]」，所有 `prevalence` 分子分母按剔除后的数据重算，并写一条 `consent_redaction` 事件；重算后如果目标机会的 `evidenceStrength` 下降，就给目标确认人发站内通知，**不自动撤销**人已经确认过的目标。
 - `attribution = false` 的参与者在报告中只显示 `participantAlias`（P1、P2……）和 `stratumId`，不显示职务、公司或学校。
@@ -92,6 +92,7 @@ const W028Trigger = z.object({
   initiatorAgentVersionId: z.string().nullable(),   // 必须在该 Agent 的 workflowAllowlist 内（proposed-unwired）
   studyProjectId: z.string(),                       // 访谈与报告所在项目；S009 claimedScope 只收窄到它
   decision: z.string().min(12).max(300),            // 透传 S062 P1；只是话题时 S062 返回 needs-clarification
+  context: z.object({ who: z.string(), situation: z.string() }), // 透传 S062 §5 必填 context
   outcome: z.object({                               // 决策 2：必填，进入 S062 前先预检
     actor: z.string().min(2).max(60),
     behavior: z.string().min(4).max(120),
@@ -149,21 +150,21 @@ const W028Trigger = z.object({
 | 14 | notify | — | `notify.inapp` | published → notifying → closed（`reportAudience` 为空时直接 closed） | write | none；每个收件人发送前执行 **C4/P4** |
 
 说明：
-- **阶段 1 输入映射**：`mode = studyMode`，`decision`、`concept`、`hypotheses`、`targetPopulation`、`constraints`、`locale` 原样透传；`priorEvidence` 来自服务端按 `priorSynthesisIds` 读取的 Finding 摘要（`evidenceRef = synthesisId#findingId`）。S062 的 `researchQuestions[].questionId` 从这一步起就是全链主键，之后任何阶段**不得重新编号**（S062 决策 5）。
+- **阶段 1 输入映射**：`mode = studyMode`，`decision`、`context`、`concept`、`hypotheses`、`targetPopulation`、`constraints`、`locale` 原样透传；`domainProfile` 取 trigger 值（缺省按 §2.2 解析后）透传 S062 可选的 `domainProfile`；`priorEvidence` 来自服务端按 `priorSynthesisIds` 读取的 Finding 摘要（`evidenceRef = synthesisId#findingId`）。S062 的 `researchQuestions[].questionId` 从这一步起就是全链主键，之后任何阶段**不得重新编号**（S062 决策 5）。
 - **阶段 2（G1）的门面内容**：`researchQuestions`、`strata`（标出反幸存者层）、`screener`、`recruitmentBias`、`consentPlan` 四条、`sensitiveQuestions`、`qualityFindings`（warning 级）、`notAnswerableByInterview`。人在这一步可以编辑 RQ，编辑后回到阶段 1 重跑 S062 体检，不允许跳过 P7 直接批准。
-- **阶段 5 输入映射**（S009 草稿契约，UNVERIFIED）：`questions = plan.researchQuestions.{questionId,text}`；`subject = {kind:"segment", frame}`，其中 `frame.definition` 取 S062 `targetPopulation` 与 `strata[].criterion` 的拼接，`filters` 只填 S009 `SamplingFrame` 能表达的字段，其余行为判别条件写进 `limitations`（S062 §14 提议 1 所说的接缝，本文不假定它已解决）；`claimedScope.projectIds = [studyProjectId]`；`sourceKinds = ["interview", ...extraSourceKinds]`；`window` = G1 批准时间到 G3 关门时间。G3 标出的试访 id 在 S009 调用**之前**从 `interviewSourceIds` 中剔除。
-- **阶段 7**：S063 的 `questions` 与阶段 5 相同；`corpus = pack.corpus`；`domainProfile` 的映射是 `product → "product"`、`learning → "general"`（S063 没有 learning profile，见 §13 提议 2）。`limitations` 追加阶段 6 的 thin 层与 S009 的 `limitations`。
-- **阶段 8**：见决策 3 第 1 步；`scope.topic = decision`，`domainProfile` 取 `product → general`、`learning → learning`（S169 的枚举中有 learning）。
+- **阶段 5 输入映射**：`questions = plan.researchQuestions.{questionId,text}`；`subject = {kind:"segment", frame}`，其中 `frame.definition` 取 S062 `targetPopulation` 与 `strata[].criterion` 的拼接，`filters` 只填 S009 `SamplingFrame` 能表达的字段，其余行为判别条件写进 `limitations`（S062 §14 提议 1 所说的接缝，本文不假定它已解决）；`claimedScope.projectIds = [studyProjectId]`；`sourceKinds = ["interview", ...extraSourceKinds]`；`window` = G1 批准时间到 G3 关门时间。G3 标出的试访 id 在 S009 调用**之前**从 `interviewSourceIds` 中剔除。
+- **阶段 7**：S063 的 `questions` 与阶段 5 相同；`corpus = pack.corpus`；`domainProfile` 的映射是 `product → "product"`、`learning → "general"`（S063 没有 learning profile，见 §13 提议 2）。S063 §5 输入契约没有 `limitations` 字段；阶段 6 的 thin 层与 S009 的 `limitations` 由 Workflow 在 S063 返回后追加到其输出 `limitations`（后处理，写入 InsightReport），不作为 S063 输入传入。
+- **阶段 8**：见决策 3 第 1 步；`locale = trigger.locale`；`scope.topic = decision`，`domainProfile` 取 `product → general`、`learning → learning`（S169 的枚举中有 learning）。
 - **阶段 9 输入**：`claims = S169.claimsForAudit`；`evidence` 见决策 3 第 3 步；`draftText` = 按 findingId 顺序拼接的 S063 provisional 各 Finding 的 claim，用来比对 `overclaim`；`jurisdiction` 在 `CN+US` 时传 `other`，否则原样。
 - **阶段 11 输入**：`mode = "build"`；`outcome = trigger.outcome`（没有 `frameRef`，S065 I1 靠 outcome 满足）；`synthesisRefs = [{skill:"S063", synthesisId: <阶段 10 的 final id>}, ...priorSynthesisIds 中状态为 final 的部分]`；`seedOpportunities`、`constraints` 原样透传；`market` 取 `jurisdiction`（`CN+US` → `global`）。
-- **G4 的三个选项**与 S065 §8 对齐：S065 输出里不能出现 `accepted`，只有 G4 的 receipt 可以写 `targetDecision.status = accepted`，并记录确认人 userId。`choose-from-frontier` 只允许从 `comparisons[].frontier` 里选；从 frontier 之外选，门会拒绝，理由写「被支配节点」。
+- **G4 的三个选项**（accept / choose-from-frontier / decline-target）是 W028 自己的关卡定义，S065 没有定义这些选项。S065 §8 只泛称「Workflow 人工关卡的回执」可写 `accepted`，而 S065 §4 C4 原文只点名 W027/W029；W028 的 G4 回执写 `accepted` 依赖 §8 的泛称，与 C4 的点名不一致，见 §14 提议 6。S065 输出里不能出现 `accepted`，只有 G4 的 receipt 可以写 `targetDecision.status = accepted`，并记录确认人 userId。`choose-from-frontier` 只允许从 `comparisons[].frontier` 里选；从 frontier 之外选，门会拒绝，理由写「被支配节点」。
 - **G1–G4 的审批人**：G1、G4 由发起人审批。`domainProfile = learning` 并且 channels 含 `own-students` 时，G1 需要第二位审批人（项目 owner，且不能与发起人是同一人），因为这种情况下研究者同时也是学生的授课者（S062 P3 的关系偏差）。G1 multi-gate 为 **proposed-unwired**。
 
 ### 5.1 效果点前的重查（每一个效果点都有，全部写入事件）
 | 编号 | 位置 | 权限重查（P） | 同意重查（C） | 不通过时 |
 |---|---|---|---|---|
 | P1/C1 | G1 批准后、阶段 3 写大纲前 | 发起人对 `studyProjectId` 的写权限；`priorSynthesisIds` 仍然可读 | 不适用（这时还没有受访者） | 写权限被撤 → `failed(PROJECT_WRITE_REVOKED)`；某个 prior synthesis 不可读 → 从 `priorEvidence` 删除，然后**重新跑阶段 1 并重走 G1**（RQ 的 `priorEvidence` 已经变了） |
-| P2/C2 | G3 关门后、阶段 5 取数前 | 发起人对每个 `interviewSourceIds` 的读权限（按 S009 §8 G4 的 `disclose` 判定；`permission-filter.ts` 的存在性由 S009 草稿声称已核实，本文 UNVERIFIED） | 每位参与者最新的同意提交记录（S009 G5，UNVERIFIED） | 不可读或未同意 `ai_analysis` 的，从 corpus 剔除并写进 `limitations`；剔除后进入阶段 6 重新判断 |
+| P2/C2 | G3 关门后、阶段 5 取数前 | 发起人对每个 `interviewSourceIds` 的读权限（按 S009 §8 G4 的 `disclose` 判定） | 每位参与者最新的同意提交记录（S009 G5） | 不可读或未同意 `ai_analysis` 的，从 corpus 剔除并写进 `limitations`；剔除后进入阶段 6 重新判断 |
 | C2′ | 任何从 checkpoint 恢复的实例，在阶段 7–12 之间 | 同 P2 | 同 C2 | 按决策 6 让下游失效后重跑 |
 | P3/C3 | G4 批准后、阶段 13 写报告前 | 发起人对 `studyProjectId` 的写权限；报告引用的每个 `sourceVersionId` 仍然可读 | 报告中每条引文所属参与者：`ai_analysis` 仍为同意；显示身份时 `attribution` 仍为同意 | 引文不再可用 → 删除该引文，重算 `prevalence`（算法）。如果某条洞察因此失去全部引文 → 回到阶段 10 并**重走 G4**（内容已经变了，原来的批准不再覆盖它） |
 | P4/C4 | 阶段 14 每个收件人发送前（经 effect-gateway，**proposed-unwired**） | 收件人对 `studyProjectId` 的读权限 | 无（报告已经按 C3 脱敏） | 该收件人跳过，记入 `notifySkipped`；**不**把报告正文放进通知里，只放报告链接（决策 6，防止通知成为绕过 ACL 的通道） |
@@ -272,7 +273,7 @@ Schema 不变量（由 `evals/work-stack/W028/report-check.mjs` 机械校验；�
 | F7 | 根立不住，几周研究只换回候选列表 | 入口 | 决策 2 预检 |
 | F8 | 站内通知把引文带给无权读项目的人 | 阶段 14 | P4，通知里只放链接 |
 | F9 | 一次研究顺手改写了组织权威知识 | S169 | 决策 5：W028 没有回写阶段 |
-| F10 | 虚拟访谈或模拟专家回答混进语料 | S009 | S062 决策 4 `evidenceMode = participant`；S009 `excluded.virtualInterview`（UNVERIFIED） |
+| F10 | 虚拟访谈或模拟专家回答混进语料 | S009 | S062 决策 4 `evidenceMode = participant`；S009 `excluded.virtualInterview` |
 
 ## 10. CN / US 差异（只列实质性的）
 - **录音、转录与 AI 分析的同意**：两地都走同一套四项同意（`consent-item.ts`）。CN 部署下访谈录音和转录属于个人信息处理，G1 的 `consentPlan` 必须写明处理目的与保存期限。语料跨境（例如 `CN+US` 研究由 US 团队分析 CN 受访者）时，G1 需要额外确认数据出境依据；这一项在 W028 里只作为 G1 必填勾选项，具体合规判定不在 Workflow 内完成（**proposed-unwired**：G1 表单字段）。US 部署没有统一的联邦要求，但部分州对录音要求双方同意，所以 `record` 项的 `ifDeclined` 必须给出不录音的继续方式（笔记访谈）。
@@ -289,7 +290,7 @@ Schema 不变量（由 `evals/work-stack/W028/report-check.mjs` 机械校验；�
 - 知识图谱：`apps/api/src/application/knowledge-graph/detect-conflicts.ts`、`apply-ontology-batch.ts`（W028 不调用后者，决策 5）。
 
 proposed-unwired 汇总：`apps/api/src/{domain,application,infrastructure}/workflow/`、`workflow-definition.ts`、`workflowAllowlist`、`workflow_stage_outputs`、effect-gateway、`importPlanAsOutline` 与 `sourcePlanId` 查询、`fieldwork_closed` 事件与 G3 表单、G1 multi-gate、`scripts/confidence.mjs`、`report-check.mjs`、`evals/work-stack/W028/`。
-UNVERIFIED：RQ 覆盖状态的读端口；S009 中 `permission-filter.ts` 的 `disclose` 与同意派生逻辑（来自未 PASS 的 S009 草稿）。
+UNVERIFIED：RQ 覆盖状态的读端口。
 
 ## 12. 外部参考与溯源（A3：只取控制流模式，不复制文本）
 | 来源 | 路径 | commit | 许可证（artifact 级） | 取用 / 不取用 |
@@ -328,10 +329,11 @@ G5 对比判据：在 E2、E3、E5、E10、E15 上，基线至少失败 3 条而
 1. **W028 缺 S064**（回应 S065 §14 提议 2）：本文用「trigger 必填 outcome + 入口预检」处理（决策 2），矩阵不动。可以考虑的替代方案是在 S171 之后、S065 之前加入 S064。加入后根可以由证据支撑的问题框定产生，而不是由发起人一句话给出，代价是 W028 与 W029 的职责边界会变模糊。交矩阵 owner 裁决。
 2. **learning profile 与 S063 / S065 的适配**：S063 没有 `learning` domainProfile（W028 暂时映射到 `general`），S065 的机会树面向产品 outcome。D026 和 D047 通过 W028 使用这条链时，报告会用产品化的语言描述学习问题。这里呼应 S062 §14 提议 2：是否需要一条学习设计专用的研究 Workflow，或者给 S063 加 `learning` profile，由 D026/D047 作者与矩阵 owner 评估。
 3. **研究结论回写组织知识的归属**（决策 5）：S169 的 `humanReviewItems` 经人确认后如何走 `applyOntologyBatch`，目前没有任何 Workflow 承担。建议由 W006 Knowledge Capture Loop 的作者评估是否接收 W028 报告中的 `knowledgeConflicts` 作为输入。
-4. **S062 → S009 抽样口径接缝**（S062 §14 提议 1）：W028 暂时把 S009 无法表达的行为判别条件写进 `limitations`，并由 G3 的人工分层映射兜底。S009 通过评审后，本文阶段 5 的映射需要重新核对。
+4. **S062 → S009 抽样口径接缝**（S062 §14 提议 1）：W028 暂时把 S009 无法表达的行为判别条件写进 `limitations`，并由 G3 的人工分层映射兜底。
+5. **S169 `claimsForAudit` 缺回溯连接键**（决策 3 第 2 步）：建议 S169 在 `claimsForAudit[]` 中加入 `unitId`（或规定 `claimId = unitId`），使 claim 能回到 `units[].provenance[]`。交 S169 owner 裁决。
+6. **S065 C4 点名范围**（阶段 12 G4）：S065 §4 C4 只点名 W027/W029 的人工关卡写 `accepted`；建议 S065 owner 将 W028 G4 纳入或改为与 §8 相同的泛称。
 
 ## 15. 未决问题
-- S009 还没有 PASS，阶段 5、C2 和 E1 中对 S009 字段的引用都依赖草稿，S009 定稿后需要重新核对。
 - `fieldwork` 60 天上限、S062 修订 2 轮、G4 revise 2 次这三个数值还没有经过历史研究回测。
 - 能力分类名（`transcript.read`、`interview.outline.write`、`notify.inapp` 等）要等 ADR-120 分类表定稿。
 - 发布后撤回同意时，已经进入 W029 PRD 的引用如何处理，不在 W028 范围内，需要 W029 作者声明。

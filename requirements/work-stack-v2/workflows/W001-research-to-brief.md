@@ -1,6 +1,6 @@
 # W001 — Research-to-Brief
 
-> 类型：Reference Workflow · 域：Shared · 作者化任务：AUTHOR-W001 → REWRITE-W001（按 `reviews/W001.review.md` B1–B4 重写）· 状态：待独立复审（FIX-W001：按复审 R1–R4 修订）
+> 类型：Reference Workflow · 域：Shared · 作者化任务：AUTHOR-W001 → REWRITE-W001（按 `reviews/W001.review.md` B1–B4 重写）· 状态：PASS（`reviews/W001.review.md`）；ALIGN-W001 按已通过的 S063/S171/S020 对齐接口
 > **代码基线**：`main@30c1c4332025151610502988b0379b95ff7298c7`。本文凡涉及现有 WorkspaceX 代码的陈述，均以此基线核对；未核对行为的标 **UNVERIFIED**，基线上不存在/未接线的能力标 **proposed-unwired**。
 > 权威：`requirements/work-stack-v2/`（ADR-116）；运行时：ADR-118（含第 6 条 effect-gateway、第 9 条 Skill 由 Workflow 固定）；工具分类：ADR-120；评测门：ADR-119。
 > 对齐的已 PASS 契约（本文不改它们，只引用）：`skills/S003-enterprise-search.md`、`skills/S171-evidence-review.md`。
@@ -16,7 +16,7 @@ W001 的终点是：**读者在知道「已知 / 未知 / 风险」的前提下�
 | Skill | 名称 | 在 W001 中的唯一职责 | 引用的对方契约 |
 |---|---|---|---|
 | S003 | Enterprise Search | 问题分型、**拆成 ≤6 个可核验项**、声明范围后检索、逐命中判 relation、覆盖声明；输出 `EnterpriseSearchLedger`，不含结论 | S003 §4 步骤 1–8、§6、决策 1–3 |
-| S063 | Research Synthesis | 以 ledger 的 `items[]` 为问题清单、以 `supports/contradicts` 命中为材料，写出 Finding 草稿（每句带 hitId） | — |
+| S063 | Research Synthesis | `mode: "search-ledger"`：以 ledger 的 `items[]` 为问题清单、以 `supports/contradicts`（及作为 contradicting / `limitations` 的 `superseded`）命中为材料，输出 `ResearchSynthesis.findings[]`（证据 ID 为 S003 hitId，`evidenceIdKind: "s003-hitId"`） | — |
 | S171 | Evidence Review | `mode: "claim-audit"`：审 S063 草稿里的每条主张，给 relation / certainty / `allowedAssertion` / `overclaim` | S171 §2.1 第 1 行、§5、§6、决策 1、6 |
 | S010 | Risk Assessment | 只对审过的 Finding 与 `unknowns` 打不确定性与下行后果分，不评估方案优劣 | — |
 | S020 | Executive Briefing | 按读者画像压成 Brief 正文；每条措辞受对应主张的 `allowedAssertion` 封顶 | — |
@@ -41,7 +41,7 @@ S003 步骤 2「把问题拆成可核验项」规定：每项含实体（经知�
 **决策 2 — S171 只在 S063 之后运行一次，模式为 `claim-audit`；不在 S063 之前加 `appraise`。**
 依据 S171 §2.1 第 1 行（W001：「在 S063 综述之后、S020 之前；`claim-audit`：审综述里已写出的主张」）与 S171 决策 1（两种模式共用步骤 2–8，差别在主张来源与是否产出 `overclaim`）。理由：
 - Brief 的风险是**措辞越级**（S171 F5）与**无来源句**（F7），这两者只有在草稿写出之后才能审——`overclaim` 只在 `claim-audit` 产出。
-- 综述之前的逐命中 relation 已由 S003 步骤 6 给出（`supports/contradicts/mentions-only/superseded`），S063 只消费前两类；再加一次 `appraise` 会对同一证据集判两遍分级，两份结果不一致时无单一事实源。
+- 综述之前的逐命中 relation 已由 S003 步骤 6 给出（`supports/contradicts/mentions-only/superseded`），S063 `search-ledger` 模式消费 supports/contradicts，`superseded` 只能作 contradicting 或写进 `limitations`（S063 §4.3）；再加一次 `appraise` 会对同一证据集判两遍分级，两份结果不一致时无单一事实源。
 - S171 的 `claim-audit` 仍做完整步骤 2–8（原子化、独立性聚类、certainty、因果门），所以证据分级没有被跳过，只是以「草稿主张」而非「研究问题」为单位。
 - S003 决策 2 中「W001 在 S003 之后立即接 S171」的表述与此不一致；以 S171 §2.1 为准，见 §13 提议 2。
 
@@ -50,7 +50,7 @@ S171 对每个 (evidence, claim) 的 `relation ∈ {supports, contradicts, parti
 1. **可进入 Brief 的主张**：`allowedAssertion ≠ omit`，且不在 `unverifiedAssertions` 中。`hypothesis-only` 只能进 `unknowns` 段（写成「待验证假设」），不能进 BLUF 或 keyPoints。
 2. **措辞**：S020 对每条主张的措辞不得强于其 `allowedAssertion`（`state` 直陈 / `likely` 「证据表明、很可能」/ `preliminary` 「有迹象、初步」）；S171 报出 `overclaim` 的句子必须按 `overclaim.allowed` 改写。
 3. **可进入 `Brief.citations` 的链接**：`relation = supports` 的链接原样引用；`relation = partial` 的链接**只能**用于支撑其 `partialSupportedVersion` 文本（S171 决策 6），Brief 中出现的是该弱化版本而非原主张；`contradicts` 链接只能出现在冲突说明中（与 supports 并列，不能单独支撑结论）；`irrelevant` 永不引用。
-4. **BLUF**：BLUF 所陈述的主张必须 `allowedAssertion ∈ {state, likely}` 且 S171 `independentSupportCount ≥ 2`（按 `independenceClusterId` 去重，**只计 `supports`**，`partial` 不计入）；另需满足决策 5 的来源组合。凑不齐 → 终态 `insufficient_evidence`。
+4. **BLUF**：BLUF 所陈述的主张必须 `allowedAssertion ∈ {state, likely}` 且 S171 `independentSupportCount ≥ 2`（按 `independenceClusterId` 去重，W001 解读为只计 `supports`、`partial` 不计入——S171 §6 对该字段只写「按 cluster 去重后」，未规定是否含 partial，此处为 **W001 假设（UNVERIFIED）**，待 S171 明确）；另需满足决策 5 的来源组合。凑不齐 → 终态 `insufficient_evidence`。
 5. **报告级 verdict**：`needs-more-evidence` 且 BLUF 条件不成立 → `insufficient_evidence`；`ready-with-caveats` → `requiredCaveats[]` 必须逐条出现在 Brief 的 `caveats` 中；`ready` → 无附加要求。
 6. **引用归属校验**（阶段 7）：Brief 中每个 anchor 必须属于本实例 ledger 且在 S171 报告中有对应链接，用 `apps/api/src/application/context-pack/verify-citation.ts` 同形逻辑判 `allowed`（基线：该函数以 `runId` 取 pack，判 `citedSegmentIds ⊆ pack`，拒绝时记录；按 workflow stage 取 pack 需泛化，**proposed-unwired**）。
 §5、§6、§12 只引用本规则编号，不复述。
@@ -115,7 +115,7 @@ const W001Trigger = z.object({
 | 3 | synthesize | S063 | —（纯推理） | searched → synthesizing → synthesized ｜ → insufficient_evidence（所有 items 均无 supports 命中） | none | none |
 | 4 | audit | S171（`mode: "claim-audit"`） | optional `knowledge.read`（仅核对 quote 存在，S171 §7） | synthesized → auditing → audited ｜ → insufficient_evidence（证据门规则 4/5） | read | none |
 | 5 | risk | S010 | — | audited → risk_scoring → risk_scored | none | none |
-| 6 | draft | S020 | — | risk_scored → drafting → drafted | none | none |
+| 6 | draft | S020 | — | risk_scored → drafting → drafted ｜ → insufficient_evidence（`S020_INSUFFICIENT_POINTS`、`S020_BLUF_UNSUPPORTED`）｜ → failed（`S020_BUDGET_UNSATISFIABLE`） | none | none |
 | 7 | citation_check | —（平台校验，证据门规则 6） | `context_pack.verify_citation`（内部） | drafted → citation_check → verified ｜ → drafting（≤2 次）｜ → insufficient_evidence | read | none |
 | 8 | review_brief | — | — | verified → awaiting_review → approved ｜ revise → drafting ｜ reject → rejected | none | **G2**：required（`tier=self` 时降为 ask）。批准后执行 **P2** |
 | 9 | publish | — | `artifact.write`（平台内部写） | approved → publishing → published ｜ P2 失败 → drafting | write | none（G2 覆盖；P2/P3 在此前执行） |
@@ -123,8 +123,9 @@ const W001Trigger = z.object({
 
 说明：
 - **阶段 2 与问题拆解**：S003 输入 `question`、`projectIds`（P1 之后的有效集合）、`timeWindow`、`scopes`（由 `sourcePolicy` 映射）；输出 ledger 的 `items[]` 即 W001 的事实项（决策 1）。`status=blocked` 或 `coverageGaps.reason=permission-denied` 的项进入 `Brief.unknowns`，`why` 分别为 `retrieval_unavailable` / `access_denied`，绝不能写成「未找到」（S003 决策 3）。
-- **阶段 3 输入**：`questions[] = items[].{itemId, claimToVerify}`；材料只取 `relation ∈ {supports, contradicts}` 的命中；`mentions-only`、`superseded` 不进草稿（`superseded` 在 S003 步骤 7 已被新版本取代）。S063 草稿中每句必须带 `hitId`，无 hitId 的句子会在阶段 4 被 S171 归入 `unverifiedAssertions`。
-- **阶段 4 输入映射**（S171 §5）：`claims` = S063 草稿句（`claimId`、`text`、`sourceSpan`）；`evidence[]` 由 ledger 命中映射：`evidenceId=hitId`、`sourceId`、`versionId`、`citationAnchor`、`quote=excerpt`、`retrievedAt/accessibleAt=accessibleAt`、`sourceTimestamp`、`upstreamRelation=relation`；`draftText` = 草稿全文；`evidenceRegime`、`jurisdiction` 透传。S171 的原子化可能把一句拆成多条主张（`atomizedFrom`），S020 以原子主张为单位取 `allowedAssertion`。
+- **阶段 3 输入映射**（S063 §5）：`mode: "search-ledger"`；`questions = items.map(i => ({ questionId: i.itemId, text: i.claimToVerify }))`；`ledger` = S003 `EnterpriseSearchLedger` 原样传入；`locale` 必填，取 Trigger `audience.locale`。材料以 `relation ∈ {supports, contradicts}` 的命中为主；`superseded` 命中按 S063 §4.3 只能作为 contradicting 证据或写进 `limitations`（S003 步骤 7 已判其被新版本取代，不得作为 supporting）；`mentions-only` 不进综述。S063 输出 `ResearchSynthesis.findings[]`，每条以 `supportingEvidenceIds`/`contradictingEvidenceIds`（`evidenceIdKind: "s003-hitId"`）挂证据；无任何证据 ID 的 finding 会在阶段 4 被 S171 归入 `unverifiedAssertions`。
+- **阶段 4 输入映射**（S171 §5）：`claims = findings.map(f => ({ claimId: f.findingId, text: f.claim, sourceSpan }))`，其中 S063 输出没有 `sourceSpan` 字段，由 W001 取 `f.claim` 在 `draftText`（findings 按序拼接的全文）中的字符区间计算；`supportingEvidenceIds`/`contradictingEvidenceIds` 中的 hitId 即下列 `evidenceId`；`evidence[]` 由 ledger 命中映射：`evidenceId=hitId`、`sourceId`、`versionId`、`citationAnchor`、`quote=excerpt`、`retrievedAt/accessibleAt=accessibleAt`、`sourceTimestamp`、`upstreamRelation=relation`；`draftText` = 草稿全文；`evidenceRegime` 透传；`jurisdiction` 映射：`CN→CN`、`US→US`、`multi→other`（S171 §5 枚举为 `CN | US | other`，无 `multi`）。S171 的原子化可能把一句拆成多条主张（`atomizedFrom`），S020 以原子主张为单位取 `allowedAssertion`。
+- **阶段 6 出口**（S020 §8）：`S020_INSUFFICIENT_POINTS`（可用要点 < 3，对应 §6 `keyPoints.min(3)`）与 `S020_BLUF_UNSUPPORTED` → 终态 `insufficient_evidence`；`S020_BUDGET_UNSATISFIABLE`（S020 决策 4：篇幅预算内无法容纳必需内容）→ 终态 `failed`，原因码原样记录。
 - **阶段 4 之后不再有任何阶段读原文**：S010/S020 只看 S171 报告与 ledger 摘录。
 - **阶段 5**：S010 不改 Finding，只附加 `RiskNote`；`severity=high` 且 `likelihood ≥ medium` 的风险必须在 Brief 首屏（`risks[0]`）。
 - **阶段 7 失败回退到 `drafting`**（S020 重写），不回到 S063：引用归属错误是起草问题；若是证据本身不足，阶段 4 已判定。
@@ -192,12 +193,12 @@ const Brief = z.object({
 | `published` | G2 通过、P2/P3 通过，`distribution` 为空 | Brief(published) |
 | `distributed` | G3 后所有收件人送达 | Brief + 每收件人 DeliveryReceipt |
 | `partially_distributed` | 部分收件人被决策 6 拦截、P4 失败或发送失败且放弃 | 同上 + blockedRecipients 清单 |
-| `insufficient_evidence` | 证据门规则 4/5 不满足；或阶段 7 第 3 次仍失败；或 P2 剔除后 BLUF 不成立 | 「证据不足说明」：items × 已查范围 × 缺口 × S171 `evidenceNeededToUpgrade`，不产 Brief |
+| `insufficient_evidence` | 证据门规则 4/5 不满足；或阶段 6 返回 `S020_INSUFFICIENT_POINTS` / `S020_BLUF_UNSUPPORTED`；或阶段 7 第 3 次仍失败；或 P2 剔除后 BLUF 不成立 | 「证据不足说明」：items × 已查范围 × 缺口 × S171 `evidenceNeededToUpgrade`，不产 Brief |
 | `needs_research_plan` | S003 按步骤 2 判定可核验项 > 6（决策 1） | 建议以同一问题发起 W060；附 S003 已给出的分型与范围 |
 | `rejected` | G2 被拒 | Brief(draft) 保留 30 天用于评测 |
 | `scope_declined` | G1 被拒或超时 72h | 无 |
 | `cancelled` | 发起人取消（任一非终态） | 已产生的 ledger 与 S171 报告保留 |
-| `failed` | 不可重试错误（Skill 版本被撤销且无兼容版本、组织撤销 W001 授权） | 失败原因码 |
+| `failed` | 不可重试错误（Skill 版本被撤销且无兼容版本、组织撤销 W001 授权、阶段 6 返回 `S020_BUDGET_UNSATISFIABLE`） | 失败原因码 |
 
 ## 8. Receipts、幂等与崩溃恢复
 沿用 ADR-118 的统一 receipt（形状同现有 `apps/api/src/application/research/guided-workflow-receipt-ports.ts` 的 begin/finalize + payloadFingerprint）。W001 特有的点：
@@ -267,7 +268,8 @@ G5 对比判据：在 E1/E3/E7/E8/E14/E16 上基线至少失败 3 条而 W001 �
 ADR-118 第 9 条已裁决「Workflow 固定 Skill 版本、Agent 不需挂载」，原稿中给 D001/D017/D022/D051/D052/D058/D059 补 S003/S171、给 D002 补 S010 的提议全部撤回；本 Workflow 不提出任何 DigitalHuman 挂载边。剩余提议：
 1. **S003 输出增加拆解溢出信号**（改 S003 契约，不改矩阵）：S003 §4 步骤 2 已规定 >6 项应先由 S170 做研究计划，但 §6 `EnterpriseSearchLedger` 没有对应字段。建议增加 `decomposition: { status: "ok" | "exceeds-limit"; proposedItemCount?: number }`，W001/W009 以此判 `needs_research_plan`。由 S003 owner 决定；W001 决策 1 已按「未落地」处理。
 2. **S003 决策 2 的措辞**：「W001、W009、W060 都在 S003 之后立即接 S171」对 W001 不成立（S171 §2.1：W001 为 S063 之后的 `claim-audit`）。建议 S003 下次修订时改为「W009、W060 立即接 S171 appraise；W001 在 S063 后接 S171 claim-audit」，结论不变（S003 仍不产出结论段落）。
-3. **收件人 ACL 差集（决策 6）作为平台服务而非 Skill**（proposed-unwired）：W004、W010 若有同类分发，应引用同一平台服务；矩阵不加 Skill。
+3. **S063 文档陈旧描述**（改 S063 文档，不改矩阵）：S063 §2、§5、§14 提议 2(a)(b)(c) 仍按 W001 旧稿描述（S171 review 在 S063 之前、`EvidenceItem`/`partially_supports`/`strength`、「只消费 supports|partially_supports」），并称 W001 与矩阵、S171 不一致；当前 W001 为 S063 → S171 `claim-audit`、直接采用 `EvidenceReviewReport`、无 `EvidenceItem`，该不一致已不成立。S063 第 25 行称 `reviews/S171.review.md` 为 REWRITE 并据此把对 S171 §2.1 的依赖标 UNVERIFIED，S171 现已 PASS。建议 S063 owner 下次修订时同步。
+4. **收件人 ACL 差集（决策 6）作为平台服务而非 Skill**（proposed-unwired）：W004、W010 若有同类分发，应引用同一平台服务；矩阵不加 Skill。
 
 ## 14. 未决问题
 - 本文引用的 ADR-116 第 3 条、ADR-118 第 5/6 条、ADR-120 第 3 条条款号尚未复核（ADR-118 第 9 条已复核一致）。

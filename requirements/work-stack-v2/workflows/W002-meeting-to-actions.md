@@ -1,9 +1,9 @@
 # W002 — Meeting-to-Actions（会议到行动）
 
-> 类型：Reference Workflow · 域：Shared · 作者化任务：AUTHOR-W002 · 状态：待独立评审
+> 类型：Reference Workflow · 域：Shared · 作者化任务：AUTHOR-W002 · 状态：PASS
 > **代码基线**：`main@30c1c4332025151610502988b0379b95ff7298c7`。标 **VERIFIED@30c1…** 的陈述在该 SHA 下读过文件；未读到证据的标 **UNVERIFIED**；基线上不存在/未接线的能力标 **proposed-unwired**。
 > 权威：`requirements/work-stack-v2/`（ADR-116）；运行时：ADR-118（第 5 条实例固定版本、第 6 条 effect-gateway、第 7 条触发器、第 9 条 Skill 由 Workflow 固定）；工具分类：ADR-120；评测门：ADR-119。
-> 对齐的已 PASS 契约（只引用、不修改）：`skills/S006-meeting-summary.md`、`skills/S142-work-item-management.md`。`skills/S017-task-extraction.md`（无评审）与 `skills/S007-status-update.md`（评审 REWRITE）的接口在本文中一律视为 **UNVERIFIED**，只按其当前草稿形状做适配，并在 §13 列出依赖点。
+> 对齐的已 PASS 契约（只引用、不修改）：`skills/S006-meeting-summary.md`、`skills/S142-work-item-management.md`。`skills/S017-task-extraction.md`（`reviews/S017.review.md` Verdict: PASS）与 `skills/S007-status-update.md`（`reviews/S007.review.md` Verdict: PASS）同样按其 PASS 版对齐，仍待接口请求的依赖点列在 §13。
 
 ## 1. 边界
 把**一场已经结束、且有可引述材料的会议**，变成：① 一份经人确认的纪要 `MeetingRecord`；② 看板上**经人逐条批准**、有真人 owner 的卡；③ 在跟踪期内按期生成、只回给作者的行动项状态草稿。
@@ -17,9 +17,9 @@ W002 **不做**：会前准备（S005，属 W012/W013 等）；销售会议到�
 | Skill | 在 W002 中的唯一职责 | 模式 / 入参 | 引用的对方契约 |
 |---|---|---|---|
 | S006 Meeting Summary | 从转写/笔记产出 `MeetingRecord`：七值决议状态、承诺候选原话锚点、敏感度与内容发起请求隔离 | `material.kind ∈ {recording-session, attachment-transcript, notes}` | S006 §5 M1–M8、§7、I1–I9、决策 1/2/4/6 |
-| S017 Task Extraction | 把 `commitmentCandidates[]` 规范成 `TaskCandidateSet`（交付物、承诺强度、决议门、`DueExpression`） | `mode: "meeting-commitments"`，`upstreamSchemaVersion: "S006@2"` | S017 §6、§7、J1–J11（UNVERIFIED） |
+| S017 Task Extraction | 把 `commitmentCandidates[]` 规范成 `TaskCandidateSet`（交付物、承诺强度、决议门、`DueExpression`） | `mode: "meeting-commitments"`，`upstreamSchemaVersion: "S006@2"` | S017 §6、§7、J1–J12（含 J3b；J12：decision-superseded 排除） |
 | S142 Work Item Management | 与看板现有卡逐条对照，产出 `WorkItemChangeSet`（create/transition/merge-suggestion/noop-duplicate/needsOwner） | `mode: "materialize"` | S142 §5.1–5.2、§7、O1–O8、§8、§10 |
-| S007 Status Update | 跟踪期内对已建卡生成行动项状态草稿（规则定色、`author-only`） | `updateKind: "action-items"` | S007 §4、§5、§6 SR-A*（UNVERIFIED，评审 REWRITE） |
+| S007 Status Update | 跟踪期内对已建卡生成行动项状态草稿（规则定色、`author-only`） | `updateKind: "action-items"` | S007 §4、§5、§6 SR-A*（PASS） |
 
 Skill 版本由 `WorkflowDefinition(W002, v1).stages[*].skills[*] = {stableId, versionRange}` 在启动时解析并冻结（ADR-118 第 5 条）。运行 W002 的 Agent **不需要**挂载这四个 Skill（ADR-118 第 9 条）；只需在其 `workflowAllowlist` 中允许 W002 v1。S006 的 `versionRange` 固定为 `^2.0.0`（S006 决策 5：WX-S009 升 2.0.0，1.x 的输出带 owner/due，与 S017 输入 `S006@2` 不兼容）。
 
@@ -50,14 +50,14 @@ Skill 版本由 `WorkflowDefinition(W002, v1).stages[*].skills[*] = {stableId, v
 否则 G1 为 `none`，直接进 S017。G1 上人能做的只有：确认；去录音模块修正说话人指派/校对段落后**重跑 S006**（产生新 attempt，旧 attempt 保留）；或终止（`record_rejected`）。**人不能在 G1 上直接改 `decisionState`**——决议状态只由 S006 按原话判定，否则纪要与原话的锚定就断了；人若认为判错，走「校对段落 → 重跑」。
 
 **决策 2 — 承诺到卡之间必须有逐条批准的人工门 G2，且 G2 是 `required`，无人值守不可越过。**
-S142 决策 1 规定变更集恒为 `proposed-not-applied`；S017 的 `requiresConfirmation`、`decisionGate` 在 S142 中没有接收字段（S017 §14）。因此 W002 把 S017 与 S142 的输出**在 G2 上合并展示**：每条 create 提议旁显示对应 S017 候选的 `commitmentStrength`、`decisionGate`、`dueAsStated` 原话与证据段。规则：
+S142 决策 1 规定变更集恒为 `proposed-not-applied`；S017 的 `requiresConfirmation`、`decisionGate` 在 S142 中没有接收字段（S017 §14）。因此按 S017 §14，`requiresConfirmation = true` 的条目先在 S017 与 S142 之间的人工门 **G2a**（阶段 5 调用 S142 之前）逐条处理，只有人工确认过的才投影给 S142；S142 之后的 G2 再把 S017 与 S142 的输出**合并展示**：每条 create 提议旁显示对应 S017 候选的 `commitmentStrength`、`decisionGate`、`dueAsStated` 原话与证据段。规则：
 - `requiresConfirmation = true` 的条目**不允许**「整批确认」，必须单独勾选；
 - `needsOwner` 条目只能由人从 `ownerCandidates` 或成员目录中选定 owner（选定后以 `ownerBasis = "g2-human-assigned"` 记账），**不回落到主持人或 G2 批准人**；
 - `decisionGate = "awaiting-decision"` 的条目缺省不建卡，只进 `heldItems`；人可以显式改为建卡，但该卡标题前缀固定为「[待决议]」，`riskLevel` 仍只搬运上游（S142 决策 5）。
 - 超时：G2 等待 5 个工作日（按 `workCalendarRef`）无响应 → 终态 `actions_expired`，**不自动建卡**。
 
 **决策 3 — W002 自己提供跨重跑稳定的 origin key，用证据段 id，不用 S017 的 `setId`。**
-S142 §10 的「确定重复」依赖 `originRefs`，而 S017 的 `setId` 由 `(workflowRunId, contentDigest, skillVersion)` 派生——转写校对后重跑 W002，`setId` 必然变化，按 `s017-task` id 查重会重复建卡。W002 规定每张由 W002 建的卡在实例账本（`w002_origin_ledger`，落在 ADR-118 的 `workflow_stage_outputs` 业务行中，**proposed-unwired**）中记录 `originKey = "w002:" + meetingKey + ":" + sort(evidence[].id).join("+")`，其中 `meetingKey = sessionId`（录音）或 `fileId`（附件/笔记，不含 `fileVersionId`）。录音段 id 在校对后保持不变（段是就地改状态的；此点对 `segmentId` 的稳定性 **UNVERIFIED**，E11 验证）。阶段 5 调用 S142 前，W002 把账本中同一 `meetingKey` 的历史 `originKey → taskId` 映射，投影到 `existingItems[].originRefs`（S142 §6 已声明该字段由 Workflow 运行账本提供）为「本次候选的 `s017-task` id」——当且仅当两者 `originKey` 相同。于是 S142 的 M3 origin-ref 命中即为跨实例的确定重复。
+S142 §10 的「确定重复」依赖 `originRefs`，而 S017 的 `setId = hash(mode, sourceRef.contentDigest, skillVersion)`（S017 §7，不含 workflowRunId；同一输入跨 run 重跑逐字相同）——但转写校对会改变 `contentDigest`，校对后重跑 W002 时 `setId` 随之变化，按 `s017-task` id 查重会重复建卡。W002 规定每张由 W002 建的卡在实例账本（`w002_origin_ledger`，落在 ADR-118 的 `workflow_stage_outputs` 业务行中，**proposed-unwired**）中记录 `originKey = "w002:" + meetingKey + ":" + sort(evidence[].id).join("+")`，其中 `meetingKey = sessionId`（录音）或 `fileId`（附件/笔记，不含 `fileVersionId`）。录音段 id 在校对后保持不变（段是就地改状态的；此点对 `segmentId` 的稳定性 **UNVERIFIED**，E11 验证）。阶段 5 调用 S142 前，W002 把账本中同一 `meetingKey` 的历史 `originKey → taskId` 映射，投影到 `existingItems[].originRefs`（S142 §6 已声明该字段由 Workflow 运行账本提供）为「本次候选的 `s017-task` id」——当且仅当两者 `originKey` 相同。于是 S142 的 M3 origin-ref 命中即为跨实例的确定重复。
 
 **决策 4 — 效果主体是 G2 批准人，不是 Agent，也不是会议组织者。**
 `POST /tasks` 以 `@CurrentPrincipal()` 注入主体、仅在 `projectId` 非空时解析项目角色（VERIFIED@30c1…，`board.controller.ts` :102–143）。W002 以 G2 批准人的身份执行全部看板写入；该人必须对 `projectId` 有非 observer 角色（P2）。Agent（官方或组织内）只作为 `executor` 出现在它被显式指派的卡上（S142 决策 2 / D-39）。触发者若是事件（会议结束），在 G2 之前**没有**效果主体——所以 G2 之前的阶段一律无写副作用。
@@ -119,7 +119,7 @@ const W002Trigger = z.object({
 | 2 | summarize | S006 | `recording.read` / `knowledge.read`；optional `audio.transcribe`（`wx_audio_transcribe`，L0） | material_ready → summarizing → summarized ｜ → material_rejected（S006 非重试错误） | read | none |
 | 3 | record_review | — | — | summarized → awaiting_record_review → record_confirmed ｜ rerun → summarizing ｜ → record_rejected | none | **G1**：决策 1 条件下 required，否则 none |
 | 4 | extract | S017（`meeting-commitments`） | —（纯推理；S017 以 actor 重读 `MeetingRecord`） | record_confirmed → extracting → extracted ｜ 0 候选 → publishing_record（record_only 分支） | read | none |
-| 5 | plan | S142（`materialize`） | `board.read`（`GET /tasks?projectId=`，agent 侧工具 proposed-unwired）、`directory.read`（`activeMemberIds`，proposed-unwired） | extracted → planning → planned ｜ projectId 为空 → publishing_record（决策 5） | read | none |
+| 5 | plan | S142（`materialize`） | `board.read`（`GET /tasks?projectId=`，agent 侧工具 proposed-unwired）、`directory.read`（`activeMemberIds`，proposed-unwired） | extracted →（存在 `requiresConfirmation = true` 条目时）awaiting_confirmation → planning → planned ｜ projectId 为空 → publishing_record（决策 5） | read | **G2a**：存在 `requiresConfirmation = true` 条目时 required（决策 2、S017 §14），在调用 S142 之前 |
 | 6 | approve_actions | — | — | planned → awaiting_approval → approved ｜ → actions_rejected ｜ 超时 → actions_expired | none | **G2**：required（决策 2），逐条/整批（受限） |
 | 7 | apply | S142（`materialize`，以最新 `GET /tasks` 重跑一次，S142 §10） | `board.write`（`POST /tasks`、`PATCH /tasks/:id/status`） | approved → applying（每条写前 P2）→ applied（逐条 outcome 可混合） | write | none（G2 覆盖；每条写前执行 **P2**） |
 | 8 | publish_record | — | `artifact.write`（平台内部写） | applied / extracted(0 候选) / extracted(projectId 为空) / actions_rejected / actions_expired → publishing_record → record_published | write | none（G1/G2 覆盖；执行 **P3**） |
@@ -129,10 +129,11 @@ const W002Trigger = z.object({
 - **阶段 1**：`recording-session` 时服务端读会话得 `projectId`（contract 必填，VERIFIED@30c1…）与段状态；agent 侧录音读取工具不存在（S006 §4，proposed-unwired）——在它落地前，W002 的阶段 1/2 只能以平台服务身份读取，并用 S006 §8 的同意矩阵门：未满足 → `material_rejected(reason=S006_CONSENT_NOT_SATISFIED)`。附件/笔记模式经 `wx_knowledge_read` 读 exact version，适用性 **UNVERIFIED**（S006 §4）。
 - **阶段 2 → 3 的 G1 判定**完全由 `MeetingRecord` 字段机械计算（决策 1 的 a–e），不由模型决定是否要人审。
 - **阶段 4 的输入**只有 `meetingRecordRef{recordId, contentDigest}`（S017 II3：不接受调用方直接传承诺文本）。`excluded[].reason = "content-originated"` 的条目在 G2 上以只读形式展示，不可勾选建卡。
-- **阶段 5 的输入映射**（S017 → S142，按 S017 §14 的投影）：`candidateId ← taskCandidateId`；`title`、`dueAsStated` 同名；`ownerHint ← {principalId, side}`；`executorHint = null`（W002 不从会议原话推断 executor）；`riskLevel = null`；`waitingOn = null`；`sourceRefs = [{kind:"s017-task", id:`${setId}:${taskCandidateId}`}]`；`anchorAt = MeetingRecord.metadata.heldAt`，若为 `"unknown"` 则取 `endedAt`（录音）或 `null`→ 所有相对日期 unresolvable；`timeZone`、`workCalendarRef`、`locale` 来自 trigger。`taskKind ≠ "own-commitment"` 的条目不进 S142：`track-counterparty` 进 `heldItems(reason=counterparty)`，`resolve-open-question` 进 `heldItems(reason=open-question)`，二者在 G2 上可由人转为「本方跟进卡」（人选 owner，标题前缀「跟进：」）。
+- **阶段 5 的前置门 G2a**：调用 S142 前，`requiresConfirmation = true`（含 `decisionGate = "awaiting-decision"`）的条目须在 G2a 上逐条由人确认；未确认/拒绝的进 `heldItems`（`awaiting-decision` 的进 `heldItems(awaiting-decision)`），**不投影给 S142**（S017 §5.1 决议门表：S142 不得据此直接建卡）。G2a 超时规则同 G2。
+- **阶段 5 的输入映射**（S017 → S142，按 S017 §14 的投影，只含 `requiresConfirmation = false` 与经 G2a 确认的条目）：`candidateId ← taskCandidateId`；`title`、`dueAsStated` 同名；`ownerHint ← {principalId, side}`；`executorHint = null`（W002 不从会议原话推断 executor）；`riskLevel = null`；`waitingOn = null`；`sourceRefs = [{kind:"s017-task", id:`${setId}:${taskCandidateId}`}]`；`anchorAt = MeetingRecord.metadata.heldAt`，若为 `"unknown"` 则取 `endedAt`（录音）；非录音且 `heldAt = "unknown"` 时 S142 §6 的 `anchorAt` 必填不可空，W002 传实例发起时间 `requestedAt` 以满足 schema，但对 S017 `dueExpression` 判为相对表达的条目投影 `dueAsStated = null`（原话仍在 G2 上展示），使相对日期不按错误锚点换算、得不到 `dueAt`；`timeZone`、`workCalendarRef`、`locale` 来自 trigger。`taskKind ≠ "own-commitment"` 的条目不进 S142：`track-counterparty` 进 `heldItems(reason=counterparty)`，`resolve-open-question` 进 `heldItems(reason=open-question)`，二者在 G2 上可由人转为「本方跟进卡」（人选 owner，标题前缀「跟进：」）。
 - **阶段 7 的重跑**：G2 期间看板可能已变（别人手工建了同名卡）；以 G2 批准的 `proposalId` 集合为白名单，对重跑结果做交集：重跑后变成 `noop-duplicate` 的条目不执行；重跑后新出现的提议**不执行**（未经批准），记 `drift[]` 并在跟踪首报里告知。
 - **阶段 8** 发布的是 `MeetingRecord` 的渲染（CN 行政类会议按「议定事项」渲染 `confirmed` 决议，S006 §9）+ 本实例的行动清单（含 `heldItems`），可见范围 = 项目成员；`distributionHint = "author-only"` 时只对 G2 批准人（或 recording 会话 owner）可见。
-- **阶段 9 的节奏**：检查点 = 每张卡 `dueAt` 当天 17:00（`timeZone`）与 `trackingHorizon` 末；每个检查点一次 S007 调用。S007 输入 `subjects = [{subjectRef:{kind:"action-item", workItemId: taskId}}]`（S007 该读取为 proposed-unwired）；`rulesConfig.scheduleToleranceWorkingDays` 取组织配置，缺失则 S007 SR-A* 返回 `needs-human-judgment`，W002 不填默认值。S142 的 `dueAt`（带时区 datetime）→ S007 草稿字段 `dueDate` 的适配：按 trigger `timeZone` 取本地日期；S007 评审 B3 要求其按 S142 改用 `dueAt`，以 S007 重写后的字段为准（UNVERIFIED）。
+- **阶段 9 的节奏**：检查点 = 每张卡 `dueAt` 当天 17:00（`timeZone`）与 `trackingHorizon` 末；每个检查点一次 S007 调用。S007 输入 `subjects = [{subjectRef:{kind:"action-item", taskId}}]`（S007 该读取为 proposed-unwired）；`rulesConfig.scheduleToleranceWorkingDays` 取组织配置，缺失则 S007 SR-A* 返回 `needs-human-judgment`，W002 不填默认值。S007 直接消费 S142 的 `dueAt`（S007 §5.1 `dueAt: string | null`、SR-A4..A7），W002 不做字段适配。
 
 ## 6. 产出 schema
 ```ts
@@ -171,7 +172,7 @@ const MeetingActionsOutcome = z.object({
     decidedBy: z.string().nullable(), decidedAt: z.string().nullable() }),
   taskSetRef: z.object({ setId: z.string(), s017Version: z.string(),
     candidateCount: z.number().int(),        // W002 在阶段 4 完成时自行统计的 S017 任务候选总数（不依赖 S017 草稿字段名）
-    ownCommitmentCount: z.number().int(),    // 其中 taskKind = own-commitment 的条数（S017 字段 UNVERIFIED，见 §5 说明）
+    ownCommitmentCount: z.number().int(),    // 其中 taskKind = own-commitment 的条数（`taskKind` 见 S017 §7）
   }).nullable(),
   changeSetRef: z.object({ changeSetId: z.string(), s142Version: z.string(), rerunChangeSetId: z.string().nullable() }).nullable(),
   approval: z.object({
@@ -209,9 +210,9 @@ const MeetingActionsOutcome = z.object({
 | `actions_rejected` | G2 全部拒绝 | 纪要已发布，无卡（W2） |
 | `actions_expired` | G2 超时 5 个工作日 | 同上 |
 | `record_rejected` | G1 终止 | 无任何效果（W1） |
-| `material_rejected` | S006 返回 `MATERIAL_EMPTY / NO_CITABLE_SEGMENTS / CONSENT_NOT_SATISFIED / MATERIAL_TOO_LONG / MATERIAL_FORBIDDEN` | 无效果；原因码写入实例 |
+| `material_rejected` | S006 返回 `S006_MATERIAL_EMPTY / S006_NO_CITABLE_SEGMENTS / S006_CONSENT_NOT_SATISFIED / S006_MATERIAL_TOO_LONG / S006_MATERIAL_FORBIDDEN / S006_INPUT_INVALID`（S006 §7.2） | 无效果；原因码写入实例 |
 | `cancelled` | 发起人或 G2 批准人取消 | 已执行效果不回滚（看板写是可见事实），列入 `applied` |
-| `failed` | 不可重试：S006 版本撤销且无 `^2` 兼容版本、组织撤销 W002 授权 | 失败码 |
+| `failed` | 不可重试：S006 版本撤销且无 `^2` 兼容版本、组织撤销 W002 授权、S006 返回 `S006_INVARIANT_VIOLATION`；`S006_DEPENDENCY_UNAVAILABLE` 可重试，重试耗尽后亦入此终态 | 失败码 |
 
 ## 8. Receipts、幂等与崩溃恢复
 沿用 ADR-118 统一 receipt（形状参照 VERIFIED@30c1… `apps/api/src/application/research/guided-workflow-receipt-ports.ts` 的 `find / begin(payloadFingerprint) / finalize(checkpointId, graphVersion, stableResponse)`；泛化为 workflow receipt 为 proposed-unwired）。W002 特有：
@@ -228,7 +229,7 @@ const MeetingActionsOutcome = z.object({
 
 ### 8.1 每个效果点的权限重查（P1–P5，全部落事件）
 - **P1 阶段 2 读材料时**：以发起人身份（事件触发时以会话 owner 身份，owner 字段 **UNVERIFIED**）读会话/文件；同意矩阵未满足 → `material_rejected`。
-- **P2 阶段 7 每条写之前**：(a) 批准人对 `projectId` 的项目角色仍为非 observer（`resolveProjectRole`，VERIFIED@30c1… 调用于 `POST /tasks`）；(b) `ownerUserId ∈ activeMemberIds`（重新拉取，不用阶段 5 的快照）；(c) transition 的卡对批准人仍可见（`listVisibleWithin`，不可见 → 403 `CANNOT_MODIFY_TASK`，S142 §3）；(d) `executor ∉ executorDenyList`（决策 6）。任一失败 → 该条 `outcome=permission_denied`，其余继续；不替换 owner、不换主体。
+- **P2 阶段 7 每条写之前**：(a) 批准人对 `projectId` 的项目角色仍为非 observer（`resolveProjectRole`，VERIFIED@30c1… 调用于 `POST /tasks`）；(b) `ownerUserId ∈ activeMemberIds`（重新拉取，不用阶段 5 的快照）；(c) transition 的卡对批准人仍可见（`listVisibleWithin`，不可见 → 403 `CANNOT_MODIFY_TASK`，S142 §8 授权边界；§3 基线表亦列）；(d) `executor ∉ executorDenyList`（决策 6）。任一失败 → 该条 `outcome=permission_denied`，其余继续；不替换 owner、不换主体。
 - **P3 阶段 8 发布前**：批准人对项目的写权限；`distributionHint` 与发布可见性一致（W9）。
 - **P4**：v1 无（原对外发送阶段已删除，决策 7）；编号保留以免与评审记录错位。
 - **P5 阶段 9 每个跟踪检查点**：以批准人身份重读每张卡；不可见的卡在 S007 中为 `unknown/forbidden`，不以历史状态代替。
@@ -285,7 +286,7 @@ G5 对比判据：在 E2/E3/E4/E5/E6/E8 上基线至少失败 3 条而 W002 全�
 ## 13. Graph change proposals（仅提议，不在本文生效）
 本 Workflow 不提出任何矩阵边变更（Skill 集合 S006/S017/S142/S007 与 4 个消费者均按矩阵原样使用）。以下是**契约接口请求**与待裁决事项：
 1. **S142 接收 S017 的确认信号**（改 S142 契约，不改矩阵）：S142 `WorkItemCandidate` 增加 `requiresConfirmation`、`decisionGate`、`dueExpression` 可选字段，使 G2 的「不可整批确认」能由 S142 输出直接表达，而不是 W002 在 G2 上拼接两份产物。在落地前按决策 2 由 W002 合并展示。
-2. **S007 字段对齐**（S007 重写中）：S007 `action-item` 应消费 S142 的 `dueAt`（带时区），并定义 `dueAt = null` 的规则（S007 评审 B2 已指出 SR-A5 顺序问题）。W002 阶段 9 以 S007 重写后 PASS 的契约为准。
+2. ~~S007 字段对齐~~（已落定：S007 PASS 版直接消费 S142 `dueAt`，`dueAt = null` 规则见 SR-A4；无待办）。
 3. **外部会议系统 webhook 触发 / IM 跟进**：Zoom、Teams、腾讯会议、飞书妙记推送转写作为 trigger（ADR-118 第 7 条 webhook + 签名校验）以及企业微信/飞书群跟进，W002 v1 不支持；若需要，另立 W002 v2 并补 `meeting.ingest` 能力分类，不在 v1 中近似。
 5. **对外会后跟进（原阶段 9 / G3）**：前置条件——(i) S006 契约定义 `external-attendees` 单独存在时的受控放行（例如新增 `distributionHint = "attendees-with-override"`，由人工门覆盖并留痕），不由 W002 覆盖 I7；(ii) 服务端参会名单核验端口；(iii) `mail.draft/mail.send` 能力分类与 provider 回执查询。三者 PASS/落地后另立 W002@2：新增 G3（required），收件人只取 `basis=server-verified-attendee`，并补正向用例「customer-external、仅 `external-attendees` → G3 出现、收件人 ⊆ 服务端名单、与 `contentOriginatedRequests` 地址交集为空」。
 4. **对方承诺的持续跟踪**（`track-counterparty`）：目前只能以本方「跟进：」卡承载，S007 看不到未建卡的对方承诺（S017 §14）。是否需要独立载体，交 S017/S007 owner 与矩阵 owner 裁定；本文不加 Skill。

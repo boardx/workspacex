@@ -3,8 +3,7 @@
 > 类型：Reference Workflow · 域：Shared · 作者化任务：AUTHOR-W006（独立作者化；v1 模板只作话题清单，未沿用正文）
 > **代码基线**：`main@30c1c4332025151610502988b0379b95ff7298c7`。凡涉及现有 WorkspaceX 代码的陈述均在该基线用 `git show <SHA>:<path>` 核对；未核对行为的标 **UNVERIFIED**，基线上不存在或未接线的能力标 **proposed-unwired**。
 > 运行时：ADR-118（已逐条读过：第 3 条统一 receipt/lease、第 4 条业务行是事实、第 5 条实例固定版本、第 6 条 effect-gateway、第 7 条触发器、第 9 条 Workflow 固定 Skill 版本）；工具分类：ADR-120（已读：第 1 条分类、第 2 条默认只读、第 3 条拒绝后不换供应商）；ADR-116 / ADR-119 条款号沿用 W001 的引用，本文未逐条复核（§14）。
-> 对齐的已 PASS 契约（只引用，不修改）：`skills/S003-enterprise-search.md`、`skills/S016-knowledge-capture.md`、`skills/S063-research-synthesis.md`、`workflows/W001-research-to-brief.md`（仅作跨 Workflow 规则对照）。
-> 对齐但**尚未 PASS** 的契约（接口按其当前文本消费，`capture-followups` 接口若变本文随之修订）：`skills/S017-task-extraction.md`。
+> 对齐的已 PASS 契约（只引用，不修改）：`skills/S003-enterprise-search.md`、`skills/S016-knowledge-capture.md`、`skills/S063-research-synthesis.md`、`skills/S017-task-extraction.md`、`workflows/W001-research-to-brief.md`（仅作跨 Workflow 规则对照）。
 
 ## 1. 这个 Workflow 解决什么（边界）
 把**一段时间窗内、某个作用域里已经发生的工作痕迹**（项目线程、会议记录、文档修订），变成**经有权确认人逐条确认、查过重、标了取代关系、落到正确记忆层的组织知识**，并把「还没人回答的问题」单列成待回答清单。
@@ -132,9 +131,9 @@ const W006Trigger = z.object({
 阶段说明（只写 W006 特有的数据映射）：
 - **阶段 1 分批**：可读来源 > `maxSources` 时按 `observedAt` 升序切批，每批一个 S016 调用、一个 receipt；阶段 3 汇总所有批的 records 一次调用 S063。来源元数据只取 `{sourceId, sourceVersionId, sourceKind, observedAt}`，正文由 S016 在自己的调用里经 `knowledge.read` 读——W006 运行时不把正文放进编排状态。
 - **阶段 2 → 3 映射**：S063 `captureRecords[] = S016.records[].{recordId, sourceId, sourceVersionId, entityRefs, observedAt}`（S016 §2 已声明这五个字段逐一对应）。`captureKind ∈ {commitment-pointer}` 的记录**不传**给 S063（S016 §6.3：不映射）；`procedure` / `lesson` / `policy-rule` 传入但 S063 只能投影为 `fact`（S016 §6.3），W006 在 `CaptureReview` 里回填 S016 的原始 `captureKind`（按 `recordId` 追溯）。`questions = []`。
-- **阶段 4a 输入**：对每个 `findings[kind = knowledge-candidate ∧ captureKind ≠ open-question]`：`question = claim`，`mode = "dedupe"`，`queryType = "exists"`，`projectIds` = scope 对应项目（`personal` scope 时为空 = 发起人可读范围，S003 §5 缺省语义），`maxHitsPerItem = 5`。open-question 不查重（没有可重复的事实）。调用上限 = 候选数 ≤ `maxRecords`。
+- **阶段 4a 输入**：对每个 `findings[kind = knowledge-candidate ∧ captureKind ≠ open-question]`：`question = claim`，`mode = "dedupe"`，`queryType = "exists"`，`projectIds` = scope 对应项目（显式传入；阶段调用没有「调用方当前线程」，不依赖 S003 §5 的缺省语义。`personal` scope 时显式传发起人本人可读的项目 id 列表，由运行时按发起人身份解析——该解析入口 **proposed-unwired**），`maxHitsPerItem = 5`。open-question 不查重（没有可重复的事实）。调用上限 = 候选数 ≤ `maxRecords`。
 - **阶段 4a 结果解释**：`duplicateOf` 非空 → 候选标 `dedupe.status = "duplicate"`，不进 G1 可接受列表，只在门上折叠展示「已有：sourceId@versionId」；有 `relation = superseded` 或 `contradicts` 的命中但无 `duplicateOf` → `dedupe.status = "conflicts-existing"`，进 G1 且与旧条目并列（决策 4）；`coverageGaps.reason ∈ {permission-denied, retrieval-unavailable}` → `dedupe.status = "unknown"`，**不得**视为「无重复」，门上标「查重未完成」并默认不勾选（S003 决策 3 同理）。
-- **阶段 4b 输入**：`synthesisRef = {synthesisId, contentDigest}`，`upstreamSchemaVersion = "S063@1"`。S017 输出 `warnings` 含 `C3-disabled-pending-S016` 时原样展示，不视为失败。
+- **阶段 4b 输入**：`synthesisRef = {synthesisId, contentDigest}`（`synthesisId` 取自 S063 §6 输出；S063 输出无 `contentDigest` 字段，此值由 W006 运行时对阶段 3 的 S063 输出做内容摘要计算得出——该计算 **proposed-unwired**，缺口继承自 S017 输入契约），`upstreamSchemaVersion = "S063@1"`。S017 输出 `warnings` 含 `C3-disabled-pending-S016` 时原样展示，不视为失败。
 - **阶段 5 CaptureReview 拆分**：每条候选的 `proposedLayer` 取组成它的 S016 records 中**最低**的 `proposedLayer`（一条来自个人线程、一条来自项目线程的同义记录，只能按 personal 处理，除非审阅人在 G1 选择只保留项目来源的证据，见 E6）。
 - **阶段 7 暂存**：只暂存 G1 中 `decision = accept | accept-edited` 的 project 层候选；`accept-edited` 的编辑文本必须仍能在至少一条 `evidence.quote` 中找到其所有实体名（与 S016 O-1 同向的机械校验），否则门上拒绝保存编辑。
 - **阶段 7→8 可行性（基线已核，不再是未决）**：`pg-promotion.ts` 的 `threadClaims`（第 46–56 行）只按 `revoked_at IS NULL AND status <> 'superseded'`（或 `source_deleted`）取线程结论，不按 proposed 过滤；`kg_promote_claim_to_project`（迁移 `20260927120000_kg_r7_project_scope.sql` 第 66–68 行）对 `status IN ('proposed','reviewed')` 的源结论在同一事务里改为 `accepted` 且 `reviewed_by = 晋升人`，再复制到项目层。因此 E-stage 写入的 proposed 结论**可以直接**被 G2 晋升，**不需要**额外的「线程内确认」步骤；G2 的点击本身就是该结论被人确认的动作（`reviewed_by` 落为 G2 点击人）。`kg_promote_claim`（`20260924240000_kg_f11_promote_personal.sql` 第 63–65 行）对个人路径同理。源结论若为 `contested`，SQL 抛 `KG_CONTESTED_NEEDS_RESOLUTION`（第 56–57 行），逐条返回 `rejected`。
@@ -187,7 +186,7 @@ const CaptureReview = z.object({
   openQuestions: z.array(z.object({                   // S017 taskCandidates，taskKind 恒为 resolve-open-question
     taskCandidateId: z.string(), title: z.string(), findingId: z.string(),
   })),
-  gaps: z.array(z.object({ question: z.string(), sourceId: z.string(), anchor: z.string() })), // S016 gaps 原样
+  gaps: z.array(z.object({ question: z.string(), askedIn: z.object({ sourceId: z.string(), anchor: z.string() }), reason: z.enum(["no-authoritative-answer", "answer-contradicted"]) })), // S016 §6.1 gaps 原样
   maintenanceNotes: z.array(z.object({ findingId: z.string(), reason: z.literal("superseded-knowledge-needs-review") })), // S017 noTaskReasons
   dropped: z.object({ byReason: z.record(z.number()) }),   // S016 dropped 按 reason 计数，不含正文
   coverage: z.object({

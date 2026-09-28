@@ -10,7 +10,7 @@ D005 是销售代表**本人名下**客户、线索和商机的数字同事。�
 线索/名单（S024、S025）→ 公司情报（S021）→ 账户分层（S022）→ 外联草稿（S026）→ 会前简报（S005）→ 通话纪要（S028）→ 账户计划/商机框定（S023）→ 成交计划（S032）→ 方案报价（S036）→ CRM 变更提议与读回（S029）→ 卫生检查（S034）→ 管线复核（S030）→ 预测（S031）。
 
 D005 **不**做的事（写死在 §5 权限矩阵里）：
-- 不对外发送任何东西。外联、跟进邮件、方案都只出草稿；`对外发送` 在基线已被封顶为「需人工确认每次」（已核实 `packages/contracts/src/agent-runtime.ts:87` 的 `ToolSideEffect` 与 `:137` 的 `MAX_SCOPE_RANK_FOR_SIDE_EFFECT`）。发送只在 W012/W014/W018 的 effect 阶段、人工门之后发生（S026 决策 1、S036 §1）。
+- 不对外发送任何东西。外联、跟进邮件、方案都只出草稿；`对外发送` 在基线已被封顶为「需人工确认每次」（已核实 `packages/contracts/src/agent-runtime.ts:87` 的 `ToolSideEffect` 与 `:137` 的 `MAX_SCOPE_RANK_FOR_SIDE_EFFECT`）。发送只在 W012/W013/W014/W018 的 effect 阶段、人工门之后发生（S026 决策 1、S036 §1）。
 - 不直接写 CRM。S029 自身不持写工具，写入经 `effect-gateway`（S029 §1，ADR-118 决策 6，proposed-unwired）。
 - 不定价、不给折扣。S036 只组合价目表行项（S036 决策 1）。
 - 不提交预测、不锁数（S031 决策 3）。
@@ -39,7 +39,7 @@ D005 **不**做的事（写死在 §5 权限矩阵里）：
 | W016 | Forecast Review | Sales | S031, S030, S035, S033, S010 |
 | W018 | Account Expansion | Sales | S021, S035, S023, S036, S009 |
 
-这 7 个 Workflow 在基线都没有 Workflow 文档，也没有运行时（`apps/api/src/domain/` 下无 `workflow/` 目录，已核实目录清单）→ **proposed-unwired**。阶段编排以将来各 Workflow 文档为准，本文只依赖矩阵给出的 Skill 集合。
+这 7 个 Workflow 均已有 FINAL 文档（`workflows/W011-lead-to-qualified.md` … `workflows/W018-account-expansion.md`），阶段编排以各 Workflow 文档为准；但基线没有运行时（`apps/api/src/domain/` 下无 `workflow/` 目录，已核实目录清单）→ **proposed-unwired**。本文只依赖矩阵给出的 Skill 集合。
 
 ### 2.2 Skill（D005 的直接调用挂载）
 
@@ -87,7 +87,7 @@ D005 在对话里的价值不是「调一个 Skill」，而是按产物之间的
 | G8 CRM 写入以读回为准 | S029 `status = writable` 与 `verify` | `baselineSource = crm-read` | `caller-supplied` → `writableCount = 0`，告诉代表「当前 CRM 读不到，只能生成提议清单」 |
 | G9 数字不能靠感觉改 | S031 `categoryChangeProposals` | 只来自 CRM 原生字段或组织映射 | 「我觉得这单能进 commit」→ 生成提议，不改汇总（S031 决策 1） |
 
-**决策 2：D005 在对话中所有「对外」和「写入」动作只产出草稿或提议，永远不在对话 run 内产生外部副作用——即使用户说「直接发吧」「直接改吧」。** 对话 run 的副作用类只能是 `只读`；发送与 CRM 写入只在 W012/W013/W014/W015/W018 的 effect 阶段、人工门之后发生，由 D005 请求启动对应 Workflow。原因：S026 决策 1、S028 决策 3、S029 §1、S036 §1 都把发送/写入从 Skill 中拆出；如果 D005 在对话里拥有发送工具，这四份文档的人工门就被数字人旁路了。代价：代表在对话里要多一次关卡确认。
+**决策 2：D005 在对话中所有「对外」和「写入」动作只产出草稿或提议，永远不在对话 run 内产生外部副作用——即使用户说「直接发吧」「直接改吧」。** 对话 run 的副作用类只能是 `只读`；发送与 CRM 写入只在 W011/W012/W013/W014/W015/W018 的 effect 阶段、人工门之后发生，由 D005 请求启动对应 Workflow。原因：S026 决策 1、S028 决策 3、S029 §1、S036 §1 都把发送/写入从 Skill 中拆出；如果 D005 在对话里拥有发送工具，这四份文档的人工门就被数字人旁路了。代价：代表在对话里要多一次关卡确认。
 
 ## 4. 输出（D005 自身的可审计记录）
 
@@ -144,12 +144,12 @@ type D005HandoffReason =
 | 草稿措辞、跟进稿长度、会前问题排序 | ✓ | | |
 | 请求启动 W011–W016、W018 | | ✓（经 HarnessDelegationPort，启动前代表确认） | |
 | 外联/跟进邮件/方案发给客户 | | ✓ 草稿 | ✓ Workflow effect 阶段人工门（每次） |
-| CRM 字段写入（阶段、金额、关闭日期、下一步） | | ✓ S029 变更集 | ✓ W013/W014/W015 人工门 + 读回 |
+| CRM 字段写入（阶段、金额、关闭日期、下一步） | | ✓ S029 变更集 | ✓ W013/W014/W015/W018 人工门 + 读回（W018 阶段 9 `record_crm` 受 H2 门控；W011 阶段 7 `write_back` 另写线索字段） |
 | 线索判为 SQL / DQ | | ✓ 最高 `sales-accepted`；可疑进 `hold` | ✓ 代表本人（SQL 需通话确认） |
 | 新建商机 | | ✓ 仅在 S023 有客户证据时 | ✓ 代表在 W013 关卡 |
 | 预测类别（commit/best case）变更 | | ✓ `categoryChangeProposals` | ✓ 代表本人改 CRM；提交给经理属于人 |
 | 价格、折扣、付款条款、非标条款 | | ✓ 只登记（S036 决策 6） | ✓ deal desk / 销售经理 / D009 |
-| 合并重复客户或联系人 | | 仅精确键命中时提议（S034 决策 3） | ✓ RevOps 或代表 |
+| 合并重复客户或联系人 | | 仅精确键或强匹配（exact-key/strong，`confidence ≠ weak`）时提议（S034 决策 3） | ✓ RevOps 或代表 |
 | 线索重新分配、撞单归属 | | ✓ 列出 CRM owner 元数据 | ✓ 销售经理 |
 | 看同事或团队的客户/管线/预测 | | | ✓ 拒绝，交 D045 或销售经理 |
 | 对联系人做个人背景研究、购买联系人数据 | | | ✓ 拒绝；数据获取合规由组织负责 |
@@ -323,7 +323,7 @@ presentationPolicy: 超过 3 单的管线、方案行项、变更集一律推到
 2. **会议安排能力。** S027 在 W012 中，但不在 D005 行；代表对话里「帮我约个会」极常见（上游 sales README「Your day」一节 `schedule-meeting`）。现状只能拒绝并转 W012（J7）。提议评审是否把 S027 加到 D005 行，或确认「约会只经 W012」有意为之（发出日历邀请是对外副作用，保持 Workflow 内部可能更好）。
 3. **异议应对 / 购买委员会地图 / 推进缺口。** 上游 sales 插件有 `handle-objection`、`stakeholder-map`、`deal-advance-gap`；S032 决策 4 与其 §13 提议 1 已指出「推进缺口」在 WorkspaceX 图上无对应 Skill。D005 行 Skill gaps 列是「—」，本文**照录为无 gap**，只提议评审考虑是否登记为 gap。
 4. **S009 在 W013/W018 中但不在 D005 行。** 与决策 2 同向（客户一手证据有同意位过滤，经 Workflow 更安全），建议保持；列出以便评审确认不是遗漏。
-5. **S030 尚无文档。** S030 在 D005 挂载与 W015/W016 中，但作者化时无 `skills/S030-*.md`；本文对 S030 输出字段不作任何假设（§3 未引用其字段），其 schema UNVERIFIED。
+5. **S030 字段未引用。** S030 在 D005 挂载与 W015/W016 中，其文档 `skills/S030-pipeline-review.md` 已存在且为 PASS；本文 §3 未引用其输出字段，以该文档为准。
 
 以上都不改变 §2 的边。
 

@@ -1,9 +1,9 @@
 # W015 — Weekly Pipeline Review
 
-> 类型：Reference Workflow · 域：Sales · 作者化任务：AUTHOR-W015 · 状态：待独立评审
+> 类型：Reference Workflow · 域：Sales · 作者化任务：AUTHOR-W015 · 状态：PASS
 > **代码基线**：`main@30c1c4332025151610502988b0379b95ff7298c7`。凡涉及现有 WorkspaceX 代码的陈述均以此基线核对；未核对行为的标 **UNVERIFIED**，基线上不存在/未接线的能力标 **proposed-unwired**。
 > 权威：`requirements/work-stack-v2/`（ADR-116）；运行时：ADR-118（第 3 条统一 receipt、第 4 条业务行是事实、第 5 条实例固定版本、第 6 条 effect-gateway、第 9 条 Workflow 固定 Skill 版本）；工具分类：ADR-120；评测门：ADR-119。
-> 对齐的已 PASS 契约（只引用，不修改）：`skills/S031-forecasting.md`、`skills/S032-close-plan.md`、`skills/S034-crm-hygiene.md`。对齐的已作者化但**尚未 PASS** 的契约：`skills/S029-opportunity-update.md`、`skills/S030-pipeline-review.md`——本文引用其当前版本的字段名；二者若在评审中改字段，本文 §5 的输入映射须同步复核（见 §14）。
+> 对齐的已 PASS 契约（只引用，不修改）：`skills/S029-opportunity-update.md`、`skills/S030-pipeline-review.md`、`skills/S031-forecasting.md`、`skills/S032-close-plan.md`、`skills/S034-crm-hygiene.md`。本文 §5 引用的字段名（`changeProposals`、`proposalRef`、`changedFields`、`hygieneReport` 等）已按 PASS 终稿核对。
 
 ## 1. 这个 Workflow 解决什么（边界）
 每周一次，对**一个已授权范围**（一个销售本人，或一个团队/组织）的 open 管道做一次**可对账**的周会复核：冻结本周快照 → 数据卫生裁决 → 阶段流动与逐单方向 → 已有成交计划（MAP）逐行复核 → 本周预测三档数与上周桥接 → 周会上由人逐条决定哪些 CRM 变更要落地 → 条件写入并读回 → 以读回值重算预测并把结果定为**下周的对账基线**。
@@ -21,7 +21,7 @@ W015 的终点是两个东西：一份周会复核包（`WeeklyPipelineReviewPac
 | S031 | Forecasting | `rollup`（两次） | ① 变更前：三档数 + 与上周收盘快照的桥接 + `categoryChangeProposals`；② 变更后：以 S029 读回值重算，产出收盘快照 | S031 §4 步骤 4–9、决策 1/2/4 |
 | S029 | Opportunity Update | `plan` → `verify` | 每单合并多来源提议成带 digest 的变更集；写入经 effect-gateway 后读回核对 | S029 §4 步骤 4/6/10、决策 1/2/3/6 |
 
-矩阵列出的是**集合**，不规定阶段顺序（W001 已有先例：矩阵列 S020 在 S010 前，阶段表为 S010 在前）。W015 的顺序见 §5 决策 1；它消解了 S029 §14-2、S030 §14-1、S032 §14-2 三条排序提议，**不需要改矩阵**。
+矩阵列出的是**集合**，不规定阶段顺序（W001 已有先例：矩阵列 S020 在 S010 前，阶段表为 S010 在前）。W015 的顺序见 §5 决策 1；它在 W015 侧回应了 S029 §14-2、S030 §14-1、S032 §14-2 三条排序提议，**不需要改矩阵**；截至各 PASS 终稿，仅 S030 §14-1 已标注解决，S029 §14-2、S032 §14-2 仍写作未决（关闭请求见 §13-3）。
 Skill 版本由 `WorkflowDefinition(W015, v1).stages[*].skills[*] = {stableId, versionRange}` 在启动时解析并冻结（ADR-118 第 5 条）；S031 的两次调用使用**同一**冻结版本。发起 Agent 不需要挂载这些 Skill（ADR-118 第 9 条），只需其 `workflowAllowlist` 允许 W015 v1（`workflowAllowlist` 基线 grep 无结果，proposed-unwired）。
 
 ### 2.2 消费者（DIGITALHUMAN-COMPOSITION-MATRIX.md 中 Exact Workflows 含 W015 的行，共 2 个）
@@ -110,7 +110,7 @@ const W015Trigger = z.object({
 |---|---|---|---|---|---|---|
 | 1 | scope_and_snapshot | —（平台） | `crm.read`（proposed-unwired）、`org.directory.read`（团队层级，proposed-unwired） | requested → scoping → snapshotted ｜ empty_scope ｜ source_unavailable ｜ scope_forbidden | read | **G1**：`ask`，仅当服务端把 `scope` 收窄时（显示收窄前后 ownerIds，发起人确认或取消）；未收窄为 none。执行 **P1** |
 | 2 | hygiene | S034（`pipeline-audit`） | —（输入来自 weekSnapshot）；optional `docs.read`（`R-STAGE-EVIDENCE`） | snapshotted → auditing → audited | read | none |
-| 3 | review | S030（`weekly`，`hygieneReport` = 阶段 2 `recordVerdicts`） | optional `docs.read`、`email.read`（证据类退出条件） | audited → reviewing → reviewed ｜ → failed_input（`PIPELINE_STAGE_ORDER_UNKNOWN`） | read | none |
+| 3 | review | S030（`weekly`，`hygieneReport` = `{ reportRef: 阶段 2 S034 报告的引用, recordVerdicts: 阶段 2 recordVerdicts }`；`reportRef` 必填，回显为 S030 `dataSources.hygieneReportRef`） | optional `docs.read`、`email.read`（证据类退出条件） | audited → reviewing → reviewed ｜ → failed_input（`PIPELINE_STAGE_ORDER_UNKNOWN`） | read | none |
 | 4 | refresh_plans | S032（`refresh`，≤15 单，决策 6） | optional `transcript.read`、`mail.read` | reviewed → refreshing_plans → plans_refreshed | read | none |
 | 5 | forecast_pre | S031（`rollup`，`priorSnapshot` = 上周 `closingSnapshot`） | optional `sandbox.exec` | plans_refreshed → forecasting_pre → forecast_pre_done ｜ → bridge_unbalanced | none | none |
 | 6 | propose | S029（`plan`，每个有提议的商机一次调用） | `crm.read`（实时读当前值与 schema） | forecast_pre_done → proposing → proposals_ready ｜ 无任何提议 → forecasting_post（跳过 7–9） | read | none |
@@ -122,9 +122,10 @@ const W015Trigger = z.object({
 | 12 | distribute_owner_sections | — | `notify.inapp` | published → distributing → distributed ｜ partially_distributed | high-impact | `ask`（发起人确认收件人清单一次）；每收件人前执行 **P4**。仅 `distributeOwnerSections=true` |
 
 ### 5.1 阶段间数据映射（W015 特有）
-- **阶段 1 → 2/3/5**：`weekSnapshot.records[]` 同时投影为 S034 `CrmRecordSnapshot`（`recordType="opportunity"`，`fields` 中未读取的键**不出现**以保持 S034 的 `not-queried` 语义）、S030 `opportunities[]`（含 `stageHistory`、`closeDateChangeCount`、`lastActivityAt`、`evidence[]`）、S031 `opportunities[]`（含 `forecastCategory`、`amount`、`sourceRecordRef`）。三种投影由同一行派生，`sourceRecordRef` 一一对应——这是 S030 `hygieneVerdict` 能逐字转引的前提。
+- **阶段 1 → 2/3/5**：`weekSnapshot.records[]` 同时投影为 S034 `CrmRecordSnapshot`（`recordType="opportunity"`，`fields` 中未读取的键**不出现**以保持 S034 的 `not-queried` 语义）、S030 `opportunities[]`（含 `stageHistory`、`closeDateHistory`（带时间戳的关闭日期变更，取自 CRM 字段历史，proposed-unwired；S030 `slipping` 的「窗口内 ≥2 次推后」分支只据此计算，S030 §4 步骤 4、§14-4）、`closeDateChangeCount`（S030 只回显到 `movementBasis`，不参与判定）、`lastActivityAt`、`evidence[]`）。字段历史读不到时不投 `closeDateHistory`，S030 仅按快照判净推后，该分支标 `slip-undeterminable`、S031 `opportunities[]`（含 `forecastCategory`、`amount`、`sourceRecordRef`）。三种投影由同一行派生，`sourceRecordRef` 一一对应——这是 S030 `hygieneVerdict` 能逐字转引的前提。
 - **阶段 1 同时读取**：`closedHistory`（近两个完整季度已关闭商机，供 S030 cohort 与 S031 `history.stageWinRates`；二者是否同源计算见 §15）、`stageModel`、`crmSchema.stageMedianDays`、上周 `closingSnapshot`（按 `(orgId, scopeKey, weekKey−1)` 取；缺失则 S030/S031 无 `priorSnapshot`，复核包标 `firstWeek=true`）。
 - **阶段 3**：S030 `window = [asOf−7d, asOf]`；`period` 取 trigger；`scope` = P1 后的有效范围。
+- **阶段 4 的范围**：S032 `scope.kind` 只接受 `"self" | "team"`。P1 后有效范围为 `self`/`team` 时原样传入；为 `org`（D045 组织级实例）时，W015 **不**以 `org` 调用 S032，而是对每个待 `refresh` 的单按其所属团队改写为 `scope = { kind: "team", teamId: 该单负责人所在团队 }` 逐单调用（P1 已核实发起人对这些团队的权限；S032 仍按 §7 自行复核，不过则该单记 `notRefreshed(scope-forbidden)`，不跳过整阶段）。复核包按 S032 各单 `scopeVerified` 如实显示，不把它们合称为 `org`。团队归属的数据来源 UNVERIFIED（同 §14）。
 - **阶段 4**：`priorPlan` = 该商机最近一次 `ClosePlanDraft` 业务行（W014 `build` 或上周 W015 `refresh` 产出，proposed-unwired 的 `workflow_stage_outputs`）；`contactRoles`、`evidence` 取自 weekSnapshot 与 optional 读取；`outputs=["map"]`（S032 §5：refresh 只允许 map）。
 - **阶段 6 的提议汇集**（每个 `opportunityId` 一次 S029 `plan`，`changes[]` 来源映射）：
 
@@ -136,6 +137,8 @@ const W015Trigger = z.object({
 | S034 `fixProposals`（`basis="rule-derived"`） | `kind="skill-proposal"`, `skillId="S034"` | `to="needs-owner-input"` → `ownerAsks[]` |
 | S034 `fixProposals`（`basis="content-derived"`） | `kind="content-derived"` | S029 强制 `per-field`、`unattendedAllowed=false` |
 | S034 `mergeProposals` | 不进 S029 | 列入 `mergeTasks[]`，人工处理（§13 提议 2） |
+
+所有映射行统一：`source.proposedFrom` = 上游提议的 `from`（S030/S031/S032/S034 均带 `from`；S032 `from=null` 时传 `null` 原值），缺它时 S029 不做 `stale-proposal` 判定（S029 §4 步骤 4），决策 5 与 E4 依赖此项。`source.evidence` 须为非空 `Array<{ref, excerpt}>`（S029 §5 不变量）：S030 `changeProposals.evidence` 已是该形状，原样传；S031 `categoryChangeProposals.evidence` 与 S032 `crmChangeProposals.evidence` 为 `string`，由运行时转为 `[{ ref: 该提议的 proposalRef, excerpt: 原字符串 }]`；S034 提议的证据同样按其形状原样传或按此规则包装。转换后仍为空串的提议不进 S029，进 `ownerAsks[]`（否则触发 `OPP_UPDATE_INPUT_INVALID`）。
 
 所有 `proposalRef` 由运行时从阶段产物路径填写（如 `stage:4/opp:O-17/crmChangeProposals[0]`），不由模型生成（S029 §7）。同一字段多来源（如 S032 与 S030 都提议 `closeDate`）交 S029 判 `conflict`，W015 不预先裁决（S029 决策 3）。
 - **阶段 7（G2）上显示的每行**：商机、字段、快照值、S029 实时 `before`、提议值、来源 Skill 与证据摘录、S029 `warnings`、S034 该记录裁决、S030 `movement`。人可以：批准 / 拒绝 / 在 `conflict` 中选定一个候选（选定后对该商机重跑 S029 `plan`，新 digest 再批）/ 标 `deferred`。
@@ -188,7 +191,7 @@ const WeeklyPipelineReviewPack = z.object({
     commitQuarantinedAmount: Money,               // 决策 3
     coverageRatio: z.union([z.number(), z.literal("target-met")]).nullable(),
   }),
-  focus: z.array(z.object({ rank: z.number(), opportunityId: z.string(), movement: z.string(), hygieneVerdict: z.string().optional(), closePlanFeasibility: z.enum(["feasible", "infeasible", "indeterminate", "not-refreshed"]) })),
+  focus: z.array(z.object({ rank: z.number(), opportunityId: z.string(), movement: z.string(), hygieneVerdict: z.object({ verdict: z.enum(["usable", "usable-with-caveats", "quarantine"]), ruleIds: z.array(z.string()) }).optional() /* 原样转引 S030 deals[].hygieneVerdict，与 S034 报告逐字相同 */, closePlanFeasibility: z.enum(["feasible", "infeasible", "indeterminate", "not-refreshed"]) })),
   closePlans: z.object({ refreshed: z.array(z.string()), notRefreshed: z.array(z.object({ opportunityId: z.string(), reason: z.enum(["over-limit", "no-prior-plan"]) })) }),
   proposals: z.array(ProposalDisposition),
   manualEditsSinceSnapshot: z.array(z.object({ opportunityId: z.string(), field: z.string(), snapshotValue: z.unknown(), liveValue: z.unknown() })), // 决策 5
@@ -298,7 +301,7 @@ G5 判据：在 E1/E3/E4/E5/E6/E8/E14 上基线至少失败 4 条而 W015 全过
 4. **S030 cohort 基线与 S031 `history.stageWinRates` 同源**（S030 §15 已提出）：W015 阶段 1 只读一次 `closedHistory`，建议由平台计算一次阶段转化表并同时喂给两者，避免周会上出现两套转化率。
 
 ## 14. 未决问题
-- S029、S030 尚未 PASS；若其字段名（`changeProposals`、`proposalRef`、`changedFields`、`hygieneReport`）在评审中变化，§5.1 映射表需复核。
+- S029 §14-2、S032 §14-2 的排序提议在其 PASS 终稿中仍未关闭（§13-3），属状态不一致，不影响字段契约。
 - G2 超时缺省 72h 与「不晚于下周触发」的组合是否符合多数销售组织的周会节奏，需销售运营确认。
 - `closePlanRefreshLimit = 15` 为经验值，需用真实团队规模的评测数据校准（E11）。
 - 团队层级、商机编辑权、负责人在职状态的数据来源 UNVERIFIED（与 S029/S030/S031/S034 同一问题）。
