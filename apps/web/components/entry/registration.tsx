@@ -15,6 +15,7 @@ import { useSession } from "@/components/session/session-provider";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { AuthShell } from "@/components/entry/auth-shell";
 
 /**
  * open-self-serve-registration delta（issue #1929，design-signoff 已裁①②③④⑤）——
@@ -169,18 +170,22 @@ export function Registration() {
 
   if (queued) {
     return (
-      <main className="mx-auto flex min-h-screen max-w-lg items-center p-6">
-        <section className="flex w-full flex-col gap-4 rounded-lg border border-border bg-card p-6 shadow-sm" data-testid="registration-verification-queued">
-          <div className="flex items-center gap-2">
-            <Mail className="h-6 w-6 text-primary" aria-hidden />
-            <h1 className="text-20 font-semibold">验证邮件已排队</h1>
-          </div>
-          <p className="text-13 text-muted-foreground">
-            请打开发送到 <strong>{email}</strong> 的邮件，并在 {C.AUTH_POLICY.verificationLinkHours} 小时内完成验证。在当前浏览器首次打开验证链接后，将自动登录并进入项目页。
-          </p>
+      <AuthShell
+        testId="registration-verification-queued"
+        icon={<Mail className="h-6 w-6 text-primary" aria-hidden />}
+        title="验证邮件已排队"
+        description={
+          <>
+            请打开发送到 <strong className="text-background-foreground">{email}</strong> 的邮件，并在 {C.AUTH_POLICY.verificationLinkHours} 小时内完成验证。在当前浏览器首次打开验证链接后，将自动登录并进入项目页。
+          </>
+        }
+        footer={<a href="/login" className="text-primary underline-offset-4 transition-colors duration-base hover:underline">返回登录</a>}
+      >
+        <div className="flex flex-col gap-3">
           <Button
             type="button"
             variant="outline"
+            size="lg"
             data-testid="registration-verification-resend"
             disabled={resending || cooling}
             onClick={() => void resend()}
@@ -198,22 +203,37 @@ export function Registration() {
               <CircleAlert className="h-4 w-4" aria-hidden /> 暂时无法重新发送，请稍后重试。
             </p>
           ) : null}
-        </section>
-      </main>
+        </div>
+      </AuthShell>
     );
   }
 
   return (
-    <main className="mx-auto flex min-h-screen max-w-lg items-center p-6">
-      <form onSubmit={(event) => void submit(event)} className="flex w-full flex-col gap-4 rounded-lg border border-border bg-card p-6 shadow-sm">
-        <div>
-          <h1 className="text-20 font-semibold">创建组织</h1>
-          <p className="mt-1 text-12 text-muted-foreground">
-            {bootstrapMode
-              ? "创建本实例的首位管理员，创建后直接登录。"
-              : "注册完成后，我们会发送一次性邮箱验证链接，验证后即可登录。"}
+    <AuthShell
+      title={bootstrapMode ? "创建首位管理员" : "创建组织"}
+      description={
+        bootstrapMode
+          ? "创建本实例的首位管理员，创建后直接登录。"
+          : "注册完成后，我们会发送一次性邮箱验证链接，验证后即可登录。"
+      }
+      footer={
+        <div className="flex flex-col gap-2">
+          <p>
+            已有账号？{" "}
+            <a href="/login" className="font-medium text-primary underline-offset-4 transition-colors duration-base hover:underline">返回登录</a>
           </p>
+          <button
+            type="button"
+            data-testid="registration-bootstrap-toggle"
+            className="self-start text-11 text-muted-foreground underline-offset-4 transition-colors duration-base hover:text-background-foreground hover:underline"
+            onClick={() => setBootstrapMode((v) => !v)}
+          >
+            {bootstrapMode ? "改为普通注册" : "这是全新部署？创建首位管理员"}
+          </button>
         </div>
+      }
+    >
+      <form onSubmit={(event) => void submit(event)} className="flex flex-col gap-4">
         <Field label="组织名称" name="orgName" required data-testid="registration-org-name" />
         <Field label="你的姓名" name="displayName" required data-testid="registration-display-name" />
         <div className="flex flex-col gap-1.5">
@@ -231,19 +251,8 @@ export function Registration() {
           {submitting ? "正在创建…" : bootstrapMode ? "创建首位管理员并登录" : "创建组织"}
         </Button>
         {formError !== null ? <p role="alert" data-testid="registration-error" className="text-12 text-destructive">{formError}</p> : null}
-        <div className="flex items-center justify-between text-12 text-muted-foreground">
-          <a href="/login" className="underline underline-offset-4">返回登录</a>
-          <button
-            type="button"
-            data-testid="registration-bootstrap-toggle"
-            className="underline underline-offset-4"
-            onClick={() => setBootstrapMode((v) => !v)}
-          >
-            {bootstrapMode ? "改为普通注册" : "这是全新部署？创建首位管理员"}
-          </button>
-        </div>
       </form>
-    </main>
+    </AuthShell>
   );
 }
 

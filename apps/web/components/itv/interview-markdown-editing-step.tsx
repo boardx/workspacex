@@ -2,7 +2,7 @@
 import * as React from "react";
 import { interviewMarkdown } from "@repo/contracts";
 import { loadDigitalExperts, type DigitalExpertCatalogRow } from "@/lib/interview-api";
-import { initializeInterviewMarkdown, loadInterviewMarkdown, saveInterviewMarkdown, confirmInterviewMarkdown, generateInterviewMarkdown,
+import { initializeInterviewMarkdown, loadInterviewMarkdown, saveInterviewMarkdown, confirmInterviewMarkdown, generateInterviewMarkdown, previewVirtualExpertMarkdown,
   type InterviewMarkdownEnvelope, type InterviewMarkdownDocument } from "@/lib/interview-markdown-api";
 import { ApiError } from "@/lib/api-client";
 import { Button } from "@/components/ui/button";
@@ -76,6 +76,12 @@ export function InterviewMarkdownEditingStep({ interviewId, step, onVersionChang
     avatarContext: source?.revisionId ? { interviewId, revisionId: source.revisionId } : undefined,
     savedExpertIds: saved ? interviewMarkdown.projectInterviewMarkdownExperts(saved).map((expert) => expert.expertId) : [],
     onChange: (text: string) => { setMarkdown(text); dirty.current = true; callbacks.current.onDirtyChange(true); },
+    onSuggestVirtual: async (description: string) => {
+      if (immutable) throw new Error("CONFIRMED_SOURCE_READ_ONLY");
+      const current = source ?? await loadInterviewMarkdown(interviewId);
+      const proposal = await previewVirtualExpertMarkdown(interviewId, { description, expectedVersion: current.version });
+      return proposal.markdown;
+    },
     onSave: () => void action(async () => { await save(source ?? await loadInterviewMarkdown(interviewId)); }),
     onConfirm: () => void action(confirm),
     onGenerate: () => {
@@ -88,5 +94,5 @@ export function InterviewMarkdownEditingStep({ interviewId, step, onVersionChang
       });
     },
   };
-  return <div>{immutable && <p role="status" className="mb-4 text-sm text-muted-foreground">已确认文档只读；创建新修订后才能编辑或重新生成。</p>}{error && <div role="alert" className="mb-5 rounded-xl border border-destructive/20 bg-destructive/5 p-4 text-sm text-destructive"><p>{error}</p><Button className="mt-3" variant="outline" disabled={pending} onClick={() => void action(async () => { const next = receive(await loadInterviewMarkdown(interviewId)); if (!dirty.current) setMarkdown(next.documents.find((doc) => doc.step === step)?.markdown ?? ""); if (step === "experts") setDirectoryEpoch((value) => value + 1); })}>重新载入（保留编辑）</Button></div>}{step === "experts" ? <InterviewExpertsStep {...props} directory={directory} directoryStatus={directoryStatus} onRetryDirectory={() => setDirectoryEpoch((value) => value + 1)} /> : <InterviewOutlineStep {...props} />}</div>;
+  return <div>{immutable && <p role="status" className="mb-4 text-sm text-muted-foreground">已确认文档只读；创建新修订后才能编辑或重新生成。</p>}{error && <div role="alert" className="mb-5 rounded-xl border border-destructive/20 bg-destructive/5 p-4 text-sm text-destructive"><p>{error}</p><Button className="mt-3" variant="outline" disabled={pending} onClick={() => void action(async () => { const next = receive(await loadInterviewMarkdown(interviewId)); if (!dirty.current) setMarkdown(next.documents.find((doc) => doc.step === step)?.markdown ?? ""); if (step === "experts") setDirectoryEpoch((value) => value + 1); })}>重新载入（保留编辑）</Button></div>}{step === "experts" ? <InterviewExpertsStep {...props} directory={directory} directoryStatus={directoryStatus} showRecoveryContext={savedStatus === "failed"} onRetryDirectory={() => setDirectoryEpoch((value) => value + 1)} /> : <InterviewOutlineStep {...props} />}</div>;
 }

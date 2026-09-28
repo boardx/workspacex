@@ -33,7 +33,7 @@ export const SKILL_ENTRY_POINTS: readonly SkillEntryPoint[] = [
     id: "user-and-business-insight",
     label: "用户与业务洞察",
     promise: "从访谈和讨论得出可行动的判断",
-    skillSlugs: ["user-research-planning", "interview-synthesis", "maau-canvas", "maau-venture-valuation"],
+    skillSlugs: ["user-research-planning", "interview-synthesis", "design-methods", "maau-canvas", "maau-venture-valuation"],
   },
   {
     id: "write-for-others",

@@ -10,6 +10,7 @@ import { ProjectBreadcrumb, withProjectId } from "@/components/project/project-b
 import { linkProjectResource } from "@/lib/live-project-resources";
 import { CreateSurveyDialog } from "./create-survey-dialog";
 import { hasPendingAiImport, markPendingAiImport } from "@/lib/survey/pending-ai-import";
+import { surveyPath } from "@/lib/survey/paths";
 /**
  * `projectId`（项目中枢 B2-S2）：从项目「研究洞察 › 问卷」带 `?projectId=` 进来时，顶部挂「返回项目」
  * 面包屑；新建弹窗建成后先把问卷挂回该项目，再带 `projectId` 进工作台。
@@ -55,7 +56,7 @@ export function LiveSurveyLibrary({ projectId = null }: { projectId?: string | n
   };
   const open = (item: SurveyRuntime) => {
     const pendingImport = !item.publication && hasPendingAiImport(item.id);
-    router.push(withProjectId(`/studio/survey/${item.id}?step=${pendingImport ? "import&mode=ai" : "design"}`, projectId));
+    router.push(withProjectId(pendingImport ? `/studio/survey/${item.id}?step=import&mode=ai` : surveyPath(item.id, "design"), projectId));
   };
   return (
     <main className="mx-auto max-w-7xl space-y-6 p-6 lg:p-8">
@@ -65,7 +66,7 @@ export function LiveSurveyLibrary({ projectId = null }: { projectId?: string | n
           <h1 className="text-30 font-semibold tracking-tight">问卷</h1>
           <p className="mt-1 text-14 text-muted-foreground">创建、发布并收集你的问卷，轻松获取真实反馈。</p>
         </div>
-        <div className="flex flex-wrap items-center gap-2"><Input className="w-64 max-w-full" aria-label="搜索问卷" placeholder="搜索问卷名称、标签或关键词" value={query} onChange={event=>setQuery(event.target.value)}/><Button onClick={() => setCreating(true)}>新建问卷</Button></div>
+        <div className="flex flex-wrap items-center gap-2"><Input className="w-64 max-w-full" aria-label="搜索问卷" placeholder="搜索问卷名称、标签或关键词" value={query} onChange={event=>setQuery(event.target.value)}/><Button data-testid="survey-create-primary" onClick={() => setCreating(true)}>新建问卷</Button></div>
       </header>
       <div className="flex flex-col gap-5 lg:flex-row">
         <nav aria-label="问卷二级导航" className="flex shrink-0 gap-2 lg:w-44 lg:flex-col">
@@ -106,7 +107,7 @@ export function LiveSurveyLibrary({ projectId = null }: { projectId?: string | n
               </div>
               <p className="mt-5 text-12 text-muted-foreground">最近更新：{new Date(item.updatedAt).toLocaleString("zh-CN")}</p>
               <div className="mt-5 flex flex-wrap items-center justify-end gap-2">
-                <Button variant="outline" size="xs" onClick={() => router.push(withProjectId(`/studio/survey/${item.id}?step=responses`, projectId))}>查看答卷</Button>
+                <Button variant="outline" size="xs" onClick={() => router.push(withProjectId(surveyPath(item.id, "responses"), projectId))}>查看答卷</Button>
                 <Button size="xs" onClick={() => open(item)}>{item.status === "collecting" || item.status === "closed" ? "继续编辑" : "继续设计"}</Button>
                 <details className="relative group"><summary aria-label={`更多操作：${item.title}`} className="cursor-pointer list-none rounded-control border border-border px-3 py-1 text-16 transition-colors hover:bg-muted">⋯</summary><div className="absolute right-0 z-10 mt-1 rounded-control border border-border bg-card p-1 shadow-lg"><Button variant="ghost" size="xs" disabled={busy} onClick={() => void remove(item)}>删除问卷</Button></div></details>
               </div>
@@ -128,7 +129,7 @@ export function LiveSurveyLibrary({ projectId = null }: { projectId?: string | n
         if (mode === "ai") markPendingAiImport(id);
         // 挂失败不回滚问卷（问卷已存在），项目页可用「关联已有问卷」补挂。
         if (projectId) { try { await linkProjectResource({ projectId, kind: "survey", resourceId: id }); } catch { /* 项目页可补挂 */ } }
-        router.push(withProjectId(`/studio/survey/${id}?step=${mode === "ai" ? "import&mode=ai" : "design"}`, projectId));
+        router.push(withProjectId(mode === "ai" ? `/studio/survey/${id}?step=import&mode=ai` : surveyPath(id, "design"), projectId));
       }} />
     </main>
   );
