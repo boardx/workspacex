@@ -145,8 +145,8 @@
       "verification": [
         "pnpm exec tsx .harness/scripts/with-test-isolation.ts -- pnpm --filter web exec playwright test --config playwright.fullstack-smoke.config.ts --project=seeded e2e/survey-complete-flow.spec.ts"
       ],
-      "evidence": "",
-      "notes": "新原型工作包。共享热点 apps/web/components/survey/live/survey-workspace.tsx；不得出现 mock 或面向用户的测试说明。 真实全栈验收在本机资源排队 10m 后启动，Next.js 构建超过 240s 超时；用例尚未执行，不能判 passing。"
+      "evidence": "2026-09-28: FULLSTACK_E2E_SERVER_TIMEOUT_MS=900000 pnpm exec tsx .harness/scripts/with-test-isolation.ts -- pnpm --filter web exec playwright test --config playwright.fullstack-smoke.config.ts --project=seeded e2e/survey-complete-flow.spec.ts → 4 passed (9.8m); web typecheck → exit 0; commit 362e7fb88.",
+      "notes": "真实浏览器四条主链路通过；旧入口服务端重定向修复于 362e7fb88。提交 PR 后仍待 CI、review 与合入 main，不能标 passing。"
     }
   ]
 }
