@@ -61,7 +61,7 @@ export function ObjectContextToolbar({ object, readOnly, actorId, onStickyChange
   const typeLabel = OBJECT_LABELS[object.kind];
   const title = object.text.trim() || (object.kind === "image" ? "图片" : object.kind === "frame" ? "未命名 Frame" : object.kind === "drawing" ? "绘图" : "未命名对象");
   const overflowActions = actions ?? <BoardToolPopover label="更多操作" trigger={<Button variant="ghost" data-testid="board-inspector-actions" aria-label="更多操作" title="更多操作" className="min-h-11 min-w-11"><MoreHorizontal className="h-4 w-4" /></Button>}><Button data-testid="board-properties-open" onClick={() => setExpandRequest((value) => value + 1)}>精确属性</Button></BoardToolPopover>;
-  const compactActions = <div role="toolbar" aria-label="对象快捷操作" data-testid="board-object-quick-actions" className="flex min-w-max items-center gap-1 px-0.5 [&_button]:min-h-11 [&_button]:min-w-11">
+  const compactActions = <div role="toolbar" aria-label="对象快捷操作" data-testid="board-object-quick-actions" className="flex min-w-max items-center gap-1 px-0.5 [&_button]:!min-h-[44px] [&_button]:!min-w-[44px] max-sm:[&_button]:!h-[44px] max-sm:[&_button]:!w-[44px]">
     {object.kind === "sticky" ? <div data-testid="board-widget-quick-format" className="flex items-center gap-1">
       <BoardToolPopover label="便利贴样式" trigger={<Button data-testid="board-sticky-style-open" size="icon" variant="ghost" className="h-11 w-11" aria-label="便利贴样式" title="便利贴样式"><span aria-hidden="true" className="h-5 w-5 rounded-full border border-border shadow-sm" style={{backgroundColor:typeof sticky.color === "string" ? sticky.color : STICKY_COLOR_PRESETS.yellow}} /></Button>}>
         <section data-testid="board-sticky-inspector-style" aria-label="便利贴快捷样式" className="space-y-3">
