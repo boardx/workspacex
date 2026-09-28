@@ -278,7 +278,9 @@ test("prototype journey keeps the list shell separate from all six full-screen s
   await expect(page.getByTestId("itv-workbench-timeline")).toBeVisible();
 
   await page.goto("/itv/new");
-  await expect(page.getByTestId("itv-markdown-intake")).toBeVisible();
+  await expect(page).toHaveURL(/\/itv\?create=1$/u);
+  await expect(page.getByTestId("itv-create-dialog")).toBeVisible();
+  await expect(page.getByTestId("itv-create-tag-input")).toBeVisible();
   await page.screenshot({ path: testInfo.outputPath("01-create.png"), fullPage: true });
 
   await page.setViewportSize({ width: 1280, height: 900 });
