@@ -112,7 +112,11 @@ test("multi-select transform, Panel clip/expand, connector preservation, and tot
   await expect(page.getByText(/^已同步(?: · 序列 \d+)?$/)).toBeVisible();
 
   const outline = page.getByTestId("board-a11y-mirror").getByRole("button");
-  await page.getByTestId("board-add-panel").click();
+  const surface = page.getByTestId("board-fabric-surface");
+  await page.getByTestId("board-add-frame").click();
+  await expect(page.getByTestId("board-frame-tool-panel")).toBeVisible();
+  await surface.click({ position: { x: 500, y: 350 } });
+  await page.getByRole("button", { name: "Close frame tools" }).click();
   await expect(outline).toHaveCount(1);
   await page.getByTestId("board-add-sticky").click();
   await expect(outline).toHaveCount(2);

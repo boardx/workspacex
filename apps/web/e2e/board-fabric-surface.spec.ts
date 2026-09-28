@@ -225,11 +225,16 @@ test("selected object inspector adapts to each widget and a narrow editor", asyn
   await capture("selected-image-inspector");
   await page.getByTestId("board-inspector-close").click();
 
-  await page.getByTestId("board-add-panel").click();
-  await expect(inspector).toBeVisible();
-  if (await page.getByTestId("board-inspector-expand").count()) {
-    await page.getByTestId("board-inspector-expand").click();
-  }
+  const objectRows = page.locator('[data-testid="board-a11y-mirror"] li[data-object-id]');
+  const objectsBeforeFrame = await objectRows.count();
+  await page.getByTestId("board-add-frame").click();
+  await expect(page.getByTestId("board-frame-tool-panel")).toBeVisible();
+  await page.getByTestId("board-fabric-surface").click({ position: { x: 120, y: 100 } });
+  await expect(objectRows, "Frame canvas gesture must create exactly one Fabric object").toHaveCount(objectsBeforeFrame + 1);
+  await expect(latestObject()).toHaveAttribute("data-object-kind", "panel");
+  await page.getByRole("button", { name: "Close frame tools" }).click();
+  await selectLatestAndExpand();
+  await expect(inspector).toContainText("Frame / 区域");
   await expect(page.getByTestId("board-frame-size-presets")).toBeVisible();
   await capture("selected-frame-inspector");
 
