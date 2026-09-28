@@ -50,7 +50,7 @@ const sha256 = (chunks: readonly (string | Buffer)[]) => {
   return `sha256:${h.digest("hex")}`;
 };
 
-function walk(dir: string): string[] {
+export function walk(dir: string): string[] {
   if (!existsSync(dir)) return [];
   return readdirSync(dir).flatMap(name => {
     if (name === "node_modules" || name.startsWith(".")) return [];
@@ -69,17 +69,20 @@ export function resolveSubjectVersion(repoRoot: string, stableId: string): { dig
     const fm = /^---\n([\s\S]*?)\n---/.exec(readFileSync(p, "utf8"))?.[1] ?? "";
     return new RegExp(`stableId:\\s*["']?${stableId}["']?\\s*$`, "m").test(fm);
   });
-  if (skillMd) {
-    const dir = join(skillMd, "..");
-    const files = walk(dir).sort();
-    const fm = /^---\n([\s\S]*?)\n---/.exec(readFileSync(skillMd, "utf8"))?.[1] ?? "";
-    const version = /^\s*version:\s*["']?([\w.+-]+)/m.exec(fm)?.[1] ?? "unversioned";
-    return { digest: sha256(files.flatMap(f => [relative(dir, f), "\0", readFileSync(f), "\0"])), label: `skill@${version}`.slice(0, 64) };
-  }
+  if (skillMd) return skillPackageVersion(skillMd);
   const docDir = join(repoRoot, "requirements/work-stack-v2/skills");
   const doc = existsSync(docDir) ? readdirSync(docDir).find(n => n.startsWith(`${stableId}-`) && n.endsWith(".md")) : undefined;
   if (!doc) return null;
   return { digest: sha256([readFileSync(join(docDir, doc))]), label: `entity-doc:${doc}`.slice(0, 64) };
+}
+
+/** 一个 Skill 包（SKILL.md 所在目录）的 content digest；`harness eval` 与门脚本共用同一算法（E4 比对）。 */
+export function skillPackageVersion(skillMd: string): { digest: string; label: string } {
+  const dir = join(skillMd, "..");
+  const files = walk(dir).sort();
+  const fm = /^---\n([\s\S]*?)\n---/.exec(readFileSync(skillMd, "utf8"))?.[1] ?? "";
+  const version = /^\s*version:\s*["']?([\w.+-]+)/m.exec(fm)?.[1] ?? "unversioned";
+  return { digest: sha256(files.flatMap(f => [relative(dir, f), "\0", readFileSync(f), "\0"])), label: `skill@${version}`.slice(0, 64) };
 }
 
 export function newRunId(stableId: string, now = new Date()): string {
@@ -203,7 +206,7 @@ export async function runEvalCommand(opts: EvalCommandOptions): Promise<EvalComm
 }
 
 /** cases.jsonl 引用了但磁盘上不存在的夹具名（交给运行器记 case error，E2）。 */
-function readReferencedFixtures(suiteDir: string): string[] {
+export function readReferencedFixtures(suiteDir: string): string[] {
   const p = join(suiteDir, "cases.jsonl");
   if (!existsSync(p)) return [];
   const refs = new Set<string>();
