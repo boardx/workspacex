@@ -53,6 +53,7 @@ test('visual and accessibility real object states, input and negative controls',
         await expect(page.getByTestId('board-a11y-selection-announcement')).toContainText('1');
         captures.push(await captureVisual(page,info,`${row.kind}-${row.id}-${viewport.width}`));
         if(row.id==='visual-shape'){
+          if(await page.getByLabel('对象文字',{exact:true}).isVisible())await page.keyboard.press('Escape');
           const trigger=page.getByRole('button',{name:'更多操作',exact:true});await trigger.click();
           await page.getByTestId('board-properties-open').click();await expect(page.getByTestId('board-shared-properties')).toBeVisible();
           captures.push(await captureVisual(page,info,`properties-${viewport.width}`,false));await page.keyboard.press('Escape');await expect(trigger).toBeFocused();
