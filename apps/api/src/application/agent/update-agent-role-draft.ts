@@ -7,8 +7,10 @@
  * 在 WHERE 里再判一次，窗口内被改 ⇒ VERSION_CHANGED）。发布不在这里：走既有发布路径，
  * 由 `infrastructure/agent/agent-version-insert.ts` 把草稿 7 列冻结进 `agent_versions`。
  *
- * `toolPolicy` / `capabilityReadiness` 属 AG02/AG04（能力分类与就绪性），本用例返回空数组，
- * 不编造就绪状态。
+ * `toolPolicy` / `capabilityReadiness` 取自已发布版本（`current.toolPolicy`，AG02/AG04 的
+ * 「诚实退化」派生 `deriveCapabilityReadiness`，跟 `get-agent-role-admin.ts` 同一条逻辑）——
+ * 草稿编辑不改 `toolPolicy` 本身，但 PATCH 响应也要如实带出当前值，不能拼一份空数组回去，
+ * 把管理 UI 的「能力就绪状态」区块冲掉（AG04 review）。
  */
 import type { agentRole } from "@repo/contracts";
 import type { z } from "zod";
@@ -54,6 +56,23 @@ export interface AgentRoleDraftRepository {
 
 export const AGENT_ROLE_DRAFT_REPOSITORY = Symbol("AgentRoleDraftRepository");
 
+/**
+ * `toolPolicy` → `capabilityReadiness` 的「诚实退化」派生（`get-agent-role-admin.ts` 头注同一条）：
+ * 分类 × 已授权工具的地基（WS04）本轮未落地，这里不假装查得出 ready/missing 的区分，每个
+ * toolPolicy 分类一律给 `unknown`、`grantedToolNames: []`、`isWrite: false`。
+ * `get-agent-role-admin.ts` 复用这个函数，两处不重复一份逻辑。
+ */
+export function deriveCapabilityReadiness(
+  toolPolicy: readonly string[],
+): AgentRoleAdminViewT["capabilityReadiness"] {
+  return toolPolicy.map((category) => ({
+    category,
+    status: "unknown" as const,
+    grantedToolNames: [],
+    isWrite: false,
+  }));
+}
+
 export async function updateAgentRoleDraft(
   input: {
     readonly orgId: string;
@@ -83,13 +102,14 @@ export async function updateAgentRoleDraft(
   });
   if (saved === null) throw new UpdateAgentRoleDraftError("VERSION_CHANGED");
 
+  const toolPolicy = current.toolPolicy ?? [];
   return {
     agentId: input.agentId,
     draft: decision.fields,
     published: current.published,
     editable: isRoleEditable(decision.fields),
-    toolPolicy: [],
-    capabilityReadiness: [],
+    toolPolicy: [...toolPolicy],
+    capabilityReadiness: deriveCapabilityReadiness(toolPolicy),
     version: saved.version,
   };
 }

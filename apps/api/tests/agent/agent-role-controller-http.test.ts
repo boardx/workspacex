@@ -53,6 +53,21 @@ describe("AG01 AgentRoleController HTTP mapping", () => {
     expect(calls).toEqual({ find: 1, save: 1 });
   });
 
+  it("admin + valid patch on agent with toolPolicy → PATCH response carries real toolPolicy/capabilityReadiness, not hardcoded empty (AG04 review)", async () => {
+    const { controller } = setup({
+      state: {
+        draft: structuredClone(R.AGENT_ROLE_FIELD_DEFAULTS), published: null, version: 0,
+        toolPolicy: ["knowledge.search"],
+      },
+    });
+    const out = await controller.updateRoleDraft(ADMIN, "agent-1", body());
+    const parsed = R.operations.updateAgentRoleDraft.out.parse(out);
+    expect(parsed.toolPolicy).toEqual(["knowledge.search"]);
+    expect(parsed.capabilityReadiness).toEqual([
+      { category: "knowledge.search", status: "unknown", grantedToolNames: [], isWrite: false },
+    ]);
+  });
+
   it("non-admin → 403 ROLE_INSUFFICIENT, repository untouched", async () => {
     const { controller, calls } = setup();
     const r = await statusOf(controller.updateRoleDraft(MEMBER, "agent-1", body()));

@@ -10,11 +10,11 @@
  * ready/missing 的区分，每个 toolPolicy 分类一律给 `unknown`、`grantedToolNames: []`、
  * `isWrite: false`。地基落地后换成真实比对，返回形状不用跟着改。
  */
-import type { AgentRoleDraftRepository } from "./update-agent-role-draft";
+import type { AgentRoleDraftRepository, AgentRoleAdminViewT } from "./update-agent-role-draft";
 import type { IdentityRepository } from "../identity/ports";
 import { toOrgId } from "../../domain/org-id";
 import { isRoleEditable } from "../../domain/agent/role-draft";
-import type { AgentRoleAdminViewT } from "./update-agent-role-draft";
+import { deriveCapabilityReadiness } from "./update-agent-role-draft";
 
 export type GetAgentRoleAdminErrorCode = "ROLE_INSUFFICIENT" | "AGENT_NOT_FOUND";
 
@@ -42,12 +42,7 @@ export async function getAgentRoleAdmin(
     published: current.published,
     editable: isRoleEditable(current.draft),
     toolPolicy: [...toolPolicy],
-    capabilityReadiness: toolPolicy.map((category) => ({
-      category,
-      status: "unknown" as const,
-      grantedToolNames: [],
-      isWrite: false,
-    })),
+    capabilityReadiness: deriveCapabilityReadiness(toolPolicy),
     version: current.version,
   };
 }

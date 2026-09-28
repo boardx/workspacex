@@ -61,7 +61,9 @@ export function CopilotKitV2ShellRoute(): JSX.Element {
     if (appliedAgentParamRef.current) return;
     appliedAgentParamRef.current = true;
     if (agentParam !== null && agentParam.length > 0 && selectedAgentId === null) {
-      setSelectedAgentId(decodeURIComponent(agentParam));
+      /* `useSearchParams().get()` 已经 URL-解码过一次；`agentParam` 不能再 decode 第二次
+       * ——否则 agent id 里带字面 `%` 时会被错误解码（AG04 review）。 */
+      setSelectedAgentId(agentParam);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps -- 只在挂载时判定一次（同 initialAgentId 纪律），不随后续 query 变化重跑
   }, []);
