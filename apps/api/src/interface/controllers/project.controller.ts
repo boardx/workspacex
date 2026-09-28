@@ -73,6 +73,13 @@ import { addProjectMember } from "../../application/project/add-project-member";
 import { changeProjectRole } from "../../application/project/change-project-role";
 import { removeProjectMember } from "../../application/project/remove-project-member";
 import { listProjectMembers } from "../../application/project/list-project-members";
+import { listNonWorkshopMembers } from "../../application/project/list-non-workshop-member";
+import { addNonWorkshopMember } from "../../application/project/add-non-workshop-member";
+import { removeNonWorkshopMember } from "../../application/project/remove-non-workshop-member";
+import {
+  NON_WORKSHOP_MEMBER_REPOSITORY,
+  type NonWorkshopMemberRepository,
+} from "../../application/project/non-workshop-member-ports";
 import { listProjectResources } from "../../application/project/list-project-resources";
 import { linkProjectResource } from "../../application/project/link-project-resource";
 import { unlinkProjectResource } from "../../application/project/unlink-project-resource";
@@ -83,6 +90,7 @@ import {
 import {
   ProjectArchiveBlockedByActiveSegmentError,
   ProjectError,
+  ProjectKindMismatchError,
   ProjectMemberAlreadyExistsError,
 } from "../../application/project/errors";
 import {
@@ -179,6 +187,12 @@ export const LINK_PROJECT_RESOURCE_SCHEMA = C.operations.linkProjectResource.in;
 export const UNLINK_PROJECT_RESOURCE_SCHEMA = C.operations.unlinkProjectResource.in;
 type LinkResourceBody = z.infer<typeof C.operations.linkProjectResource.in>;
 
+/** 项目中枢 B3-T5（#4499）：非工作坊两类容器的协作者三条。 */
+export const LIST_NON_WORKSHOP_MEMBERS_SCHEMA = C.operations.listNonWorkshopMembers.in;
+export const ADD_NON_WORKSHOP_MEMBER_SCHEMA = C.operations.addNonWorkshopMember.in;
+export const REMOVE_NON_WORKSHOP_MEMBER_SCHEMA = C.operations.removeNonWorkshopMember.in;
+type AddNonWorkshopMemberBody = z.infer<typeof C.operations.addNonWorkshopMember.in>;
+
 type AddMemberBody = z.infer<typeof C.operations.addProjectMember.in>;
 type ChangeRoleBody = z.infer<typeof C.operations.changeProjectRole.in>;
 
@@ -211,6 +225,7 @@ export class ProjectController {
     @Inject(CLOCK) private readonly clock: Clock,
     @Inject(BLUEPRINT_REFERENCE_REPOSITORY) private readonly blueprintReference: BlueprintReferenceRepository,
     @Inject(PROJECT_RESOURCE_REPOSITORY) private readonly projectResources: ProjectResourcePort,
+    @Inject(NON_WORKSHOP_MEMBER_REPOSITORY) private readonly nonWorkshopMembers: NonWorkshopMemberRepository,
   ) {}
 
   /**
@@ -830,6 +845,99 @@ export class ProjectController {
       throw e;
     }
   }
+  /**
+   * 项目中枢 B3-T5（#4499）：研究项目 / 用户洞察两类容器的协作者三条（`/collaborators`）。
+   * 路径取契约符号。拒绝面：`AUTH_SERVICE_UNAVAILABLE` → 503；`ProjectKindMismatchError`
+   * （拿工作坊容器调这组路由）→ **400 不带码** `project_kind_mismatch`，形状同上方
+   * `project_id_mismatch`；其余 `ProjectError` → 403。`orgId` 取自 `principal.orgId`。
+   */
+  private get nonWorkshopMemberDeps() {
+    return {
+      identity: this.identity,
+      ids: this.decisions,
+      members: this.nonWorkshopMembers,
+      provenance: this.provenance,
+    };
+  }
+
+  private static rethrowNonWorkshopMemberError(e: unknown): never {
+    if (e instanceof ProjectKindMismatchError) {
+      throw new BadRequestException("project_kind_mismatch");
+    }
+    if (e instanceof ProjectError) {
+      if (e.reasonCode === "AUTH_SERVICE_UNAVAILABLE") {
+        throw new ServiceUnavailableException({ reasonCode: e.reasonCode });
+      }
+      throw new ForbiddenException({ reasonCode: e.reasonCode });
+    }
+    throw e;
+  }
+
+  @Get(C.operations.listNonWorkshopMembers.path)
+  async listNonWorkshopMembers(
+    @CurrentPrincipal() principal: Principal,
+    @Param("projectId") projectId: string,
+  ) {
+    assertPrincipal(principal);
+    const input = new ZodBodyPipe(LIST_NON_WORKSHOP_MEMBERS_SCHEMA).transform({ projectId }) as { projectId: string };
+    try {
+      const result = await listNonWorkshopMembers(this.nonWorkshopMemberDeps, {
+        actorId: principal.userId,
+        orgId: principal.orgId,
+        projectId: input.projectId,
+      });
+      return C.operations.listNonWorkshopMembers.out.parse(result);
+    } catch (e) {
+      ProjectController.rethrowNonWorkshopMemberError(e);
+    }
+  }
+
+  @Post(C.operations.addNonWorkshopMember.path)
+  async addNonWorkshopMember(
+    @CurrentPrincipal() principal: Principal,
+    @Param("projectId") projectId: string,
+    @Body(new ZodBodyPipe(ADD_NON_WORKSHOP_MEMBER_SCHEMA)) body: AddNonWorkshopMemberBody,
+  ) {
+    assertPrincipal(principal);
+    if (body.projectId !== projectId) throw new BadRequestException("project_id_mismatch");
+    try {
+      const result = await addNonWorkshopMember(this.nonWorkshopMemberDeps, {
+        actorId: principal.userId,
+        orgId: principal.orgId,
+        projectId,
+        userId: body.userId,
+        role: body.role,
+      });
+      return C.operations.addNonWorkshopMember.out.parse(result);
+    } catch (e) {
+      ProjectController.rethrowNonWorkshopMemberError(e);
+    }
+  }
+
+  @Delete(C.operations.removeNonWorkshopMember.path)
+  async removeNonWorkshopMember(
+    @CurrentPrincipal() principal: Principal,
+    @Param("projectId") projectId: string,
+    @Param("userId") userId: string,
+  ) {
+    assertPrincipal(principal);
+    const input = new ZodBodyPipe(REMOVE_NON_WORKSHOP_MEMBER_SCHEMA).transform({ projectId, userId }) as {
+      projectId: string;
+      userId: string;
+    };
+    try {
+      const result = await removeNonWorkshopMember(this.nonWorkshopMemberDeps, {
+        actorId: principal.userId,
+        orgId: principal.orgId,
+        projectId: input.projectId,
+        userId: input.userId,
+      });
+      return C.operations.removeNonWorkshopMember.out.parse(result);
+    } catch (e) {
+      ProjectController.rethrowNonWorkshopMemberError(e);
+    }
+  }
+
   /**
    * 项目中枢 B2-S1（#4425）：项目资源关联三条。路径取契约符号（`C.operations.*.path`），
    * 不复写字面量。拒绝面：`AUTH_SERVICE_UNAVAILABLE` → 503；`RESOURCE_NOT_FOUND` → 404

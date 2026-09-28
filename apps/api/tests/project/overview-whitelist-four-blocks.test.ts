@@ -138,9 +138,9 @@ describe("白名单四件是封闭集合，不多不少", () => {
     // 该绕过的意外故障。
     //
     // 本条断言真正要验证的是**响应形状**（非工作坊两字段恒为 null），不是「项目层鉴权
-    // 如何对非工作坊容器生效」——后者目前没有任何操作可达（`KNOWN_CONTRACT_GAPS.P2`：
-    // 两类容器的成员操作尚未签核，`authorize()` 还没有接上 `research_project_members`/
-    // `user_insight_members` 的 owner/collaborator，这是另一个未来 feature 的范围）。
+    // 如何对非工作坊容器生效」——`authorize()` 没有接上 `research_project_members`/
+    // `user_insight_members` 的 owner/collaborator（那两张表的成员操作自 #4499 起走
+    // `collaborators` 路径，用自己的 `decideNonWorkshopMemberAccess` 判，不经 `authorize()`）。
     // 用一个只作用于本次调用的 fake `IdentityRepository` 顶替 `deps.auth`（连带
     // `deps.binding.auth`，两者是同一个 `AuthorizeDeps` 形状，`listBackflow` 内部也
     // 用它再判一次同一个动作），在内存里让 LEAD 对 RESEARCH 持有一个项目角色——

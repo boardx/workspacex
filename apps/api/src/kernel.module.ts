@@ -856,6 +856,9 @@ import { PgProjectOverviewRepository } from "./infrastructure/project/pg-project
 // 项目中枢 B2-S1（#4425）：项目资源关联（`project_resource_links` + 四类聚合读）。
 import { PROJECT_RESOURCE_REPOSITORY } from "./application/project/project-resource-ports";
 import { PgProjectResourceRepository } from "./infrastructure/project/pg-project-resource-repository";
+// 项目中枢 B3-T5（#4499）：研究项目 / 用户洞察两类容器的成员表（按 `projects.kind` 分派两张表）。
+import { NON_WORKSHOP_MEMBER_REPOSITORY } from "./application/project/non-workshop-member-ports";
+import { PgNonWorkshopMemberRepository } from "./infrastructure/project/pg-non-workshop-member-repository";
 import { PgProjectArchiveRepository } from "./infrastructure/project/pg-project-archive-repository";
 // BP-08（本次新增）：`BLUEPRINT_REFERENCE_REPOSITORY`——只读，独立 provider（`createProject`
 // 判 blueprintVersionId 合不合法时用）；见 `application/project/ports.ts` 与
@@ -2717,6 +2720,12 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
     {
       provide: PROJECT_RESOURCE_REPOSITORY,
       useFactory: (db: DatabasePort) => new PgProjectResourceRepository(db),
+      inject: [DATABASE_PORT],
+    },
+    // 项目中枢 B3-T5（#4499）：`NonWorkshopMemberRepository` 的生产实现（`project.controller.ts` 消费）。
+    {
+      provide: NON_WORKSHOP_MEMBER_REPOSITORY,
+      useFactory: (db: DatabasePort) => new PgNonWorkshopMemberRepository(db),
       inject: [DATABASE_PORT],
     },
     // F141 → #785: `skill` now reads/writes real Postgres (`skills`/`skill_versions`/
