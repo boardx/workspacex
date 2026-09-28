@@ -12,6 +12,8 @@ import type { LucideIcon } from "lucide-react";
 import {
   MessagesSquare, LayoutTemplate, FileText, Mic, ClipboardList, ListTodo, Presentation,
 } from "lucide-react";
+import type { project } from "@repo/contracts";
+import type { z } from "zod";
 import { PROJECT_ROLE_LABEL, PROJECT_ROLES, type ProjectRole } from "@/lib/identity";
 
 export { PROJECT_ROLE_LABEL, PROJECT_ROLES };
@@ -70,6 +72,28 @@ export const TAB_DEFS: Array<{ key: ProjectTab; label: string }> = [
 export function resolveProjectTab(raw: string | string[] | undefined): ProjectTab {
   const v = Array.isArray(raw) ? raw[0] : raw;
   return PROJECT_TABS.includes(v as ProjectTab) ? (v as ProjectTab) : "overview";
+}
+
+/** 容器种类（契约 `ProjectKind` 三值）；`null` = 还没读到。 */
+export type ProjectContainerKind = z.infer<typeof project.ProjectKind>;
+
+/**
+ * #4584：只属工作坊的屏——「项目筹备」（定题分组 / 议程 / 会前任务）、「现场协作」（主持台 / 分组并行）、
+ * 「待办」（按分组可见的看板）。它们背后的机制（议程环节、分组、`project_memberships`）对研究项目 /
+ * 用户洞察两类容器在数据库层就不存在（F128 复合外键），服务端也按容器白名单关着；
+ * 对这两类容器不给入口，而不是给一个点进去必 403 的 tab。
+ */
+export const WORKSHOP_ONLY_TABS: readonly ProjectTab[] = ["prep", "live", "todo"];
+
+/** 该容器种类可见的主标签（顺序同 `TAB_DEFS`）。种类未知时按工作坊渲染，同 `TabSettings` 的处置。 */
+export function tabDefsForKind(kind: ProjectContainerKind | null): Array<{ key: ProjectTab; label: string }> {
+  if (kind === null || kind === "workshop") return TAB_DEFS;
+  return TAB_DEFS.filter((t) => !WORKSHOP_ONLY_TABS.includes(t.key));
+}
+
+/** URL 上的 tab 对该容器不可见（例如手敲 `?tab=live`）⇒ 落回概览，不渲染一个工作坊屏。 */
+export function resolveTabForKind(tab: ProjectTab, kind: ProjectContainerKind | null): ProjectTab {
+  return tabDefsForKind(kind).some((t) => t.key === tab) ? tab : "overview";
 }
 
 /** 带左侧上下文子导航的标签（研究洞察 / 项目筹备 / 成果沉淀）。不带计数。 */

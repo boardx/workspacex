@@ -278,6 +278,8 @@ export default defineConfig({
         "digital-interview-density-live.spec.ts",
         "survey-complete-flow.spec.ts",
         "survey-trusted-publishing.spec.ts",
+        // #4582：项目中枢第三批真栈走查（问卷答卷入证据 / 大脑空态 / AI 权限关来源 / 观察者脱敏）。
+        "project-hub-b3-walkthrough.spec.ts",
         // #2490：controller 路由 ↔ rewrite 成对的**运行时**反证（静态 lint 之外的那一半）。
         "rewrite-coverage-live-smoke.spec.ts",
         "capability-mutate-smoke.spec.ts",

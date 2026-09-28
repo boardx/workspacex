@@ -88,4 +88,9 @@ describe("访谈 Markdown 正文单源", () => {
     expect(result.anchors).toEqual([{ anchor: "answer-1", documentId: "answer-doc-1", version: 1 }]);
     expect(Object.isFrozen(result.anchors[0])).toBe(true);
   });
+  it("preserves list nesting in the display projection without changing Markdown", () => {
+    const raw = "## 核心发现\n\n- 发现\n  - 证据\n    - 证据细节\n\n### 其他发现\n\n1. 第二项";
+    expect(parseInterviewMarkdown({ ...document, markdown: raw }).entries.map(({ listDepth }) => listDepth)).toEqual([1, 2, 3, 1]);
+    expect(raw).toContain("  - 证据");
+  });
 });

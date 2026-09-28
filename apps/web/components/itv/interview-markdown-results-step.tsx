@@ -9,9 +9,10 @@ import { InterviewRunsStep } from "./interview-runs-step";
 import { InterviewReportStep } from "./interview-report-step";
 import { InterviewSourceReportReview } from "./interview-source-report-review";
 
-export function InterviewMarkdownResultsStep({ interviewId, step, runs, onVersionChange, onReport, reportPin }: {
+export function InterviewMarkdownResultsStep({ interviewId, step, runs, legacySelectedExpertIds, onVersionChange, onReport, reportPin }: {
   readonly interviewId: string; readonly step: "runs" | "report";
   readonly runs: DigitalInterviewWorkflowView["expertRuns"];
+  readonly legacySelectedExpertIds?: readonly string[];
   readonly onVersionChange: (version: number) => void; readonly onReport: () => void;
   readonly reportPin?: { documentId: string; version: number };
 }) {
@@ -107,7 +108,7 @@ export function InterviewMarkdownResultsStep({ interviewId, step, runs, onVersio
       {execution?.status === "failed" && <Button disabled={pending} onClick={() => void execute("retry")}>重试未完成专家</Button>}
       <p className="text-sm text-muted-foreground">暂停不取消正在生成的回答；已保存回答不会重复生成。</p>
     </div>}
-    {step === "runs" ? <InterviewRunsStep runs={sourceRuns} taskProgress={Boolean(execution)} document={document} pending={pending} onGenerateReport={() => void generateReport()} /> : document ? <InterviewReportStep document={document} shareUrl={`/itv/${encodeURIComponent(interviewId)}/report?documentId=${encodeURIComponent(document.documentId)}&version=${document.version}`} /> : <p className="text-sm text-muted-foreground">暂无已保存的报告 Markdown，请先完成访谈。</p>}
+    {step === "runs" ? <InterviewRunsStep runs={sourceRuns} taskProgress={Boolean(execution)} document={document} pending={pending} onGenerateReport={() => void generateReport()} /> : document ? <InterviewReportStep document={document} expertsDocument={experts} execution={execution} legacySelectedExpertIds={legacySelectedExpertIds} legacyRuns={runs} reportStatus={state?.status} shareUrl={`/itv/${encodeURIComponent(interviewId)}/report?documentId=${encodeURIComponent(document.documentId)}&version=${document.version}`} /> : <p className="text-sm text-muted-foreground">暂无已保存的报告 Markdown，请先完成访谈。</p>}
     {step === "report" && (state?.status === "failed" || error) && <Button variant="outline" disabled={pending || !sourceRuns.length || sourceRuns.some((run) => run.status !== "completed")} onClick={() => void generateReport()}>继续生成报告</Button>}
     {step === "report" && source && document && <InterviewSourceReportReview source={source} onSaved={receive} />}
   </div>;
