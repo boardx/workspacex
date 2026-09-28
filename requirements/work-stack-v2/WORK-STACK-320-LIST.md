@@ -2,11 +2,11 @@
 
 > 自动生成（`scratchpad` 同步脚本），请勿手改。阶段划分：每个阶段 = 该阶段数字人的组合闭包，去掉前面阶段已包含的实体；组合关系以两张矩阵为准。
 > 「✅ 通过」= 独立作者化 + 独立评审 Verdict: PASS，文档与评审链接可直接打开。基线 `main@30c1c433`。
-**总进度：49 / 320 通过**
+**总进度：62 / 320 通过**
 
 
 ## 第一阶段（进行中）：D002 研究员 / D003 产品经理 / D005 销售 / D011 设计思维
-共 81 个（数字人 4 / Workflow 19 / Skill 58），已通过 **47**
+共 81 个（数字人 4 / Workflow 19 / Skill 58），已通过 **60**
 
 | 状态 | ID | 类型 | 名称 | 文档 | 评审 |
 |---|---|---|---|---|---|
@@ -18,21 +18,21 @@
 | ⬜ | W002 | Workflow | Meeting-to-Actions |  |  |
 | ⬜ | W006 | Workflow | Knowledge Capture Loop |  |  |
 | ⬜ | W009 | Workflow | Evidence-to-Recommendation |  |  |
-| ⬜ | W011 | Workflow | Lead-to-Qualified |  |  |
-| ⬜ | W012 | Workflow | Prospect-to-Meeting |  |  |
-| ⬜ | W013 | Workflow | Meeting-to-Opportunity |  |  |
-| ⬜ | W014 | Workflow | Opportunity-to-Close |  |  |
-| ⬜ | W015 | Workflow | Weekly Pipeline Review |  |  |
-| ⬜ | W016 | Workflow | Forecast Review |  |  |
-| ⬜ | W018 | Workflow | Account Expansion |  |  |
+| ✅ 通过 | W011 | Workflow | Lead-to-Qualified | [文档](https://github.com/boardx/workspacex/blob/claude/tender-maxwell-dh21fg/requirements/work-stack-v2/workflows/W011-lead-to-qualified.md) | [评审](https://github.com/boardx/workspacex/blob/claude/tender-maxwell-dh21fg/requirements/work-stack-v2/reviews/W011.review.md) |
+| ✅ 通过 | W012 | Workflow | Prospect-to-Meeting | [文档](https://github.com/boardx/workspacex/blob/claude/tender-maxwell-dh21fg/requirements/work-stack-v2/workflows/W012-prospect-to-meeting.md) | [评审](https://github.com/boardx/workspacex/blob/claude/tender-maxwell-dh21fg/requirements/work-stack-v2/reviews/W012.review.md) |
+| ✅ 通过 | W013 | Workflow | Meeting-to-Opportunity | [文档](https://github.com/boardx/workspacex/blob/claude/tender-maxwell-dh21fg/requirements/work-stack-v2/workflows/W013-meeting-to-opportunity.md) | [评审](https://github.com/boardx/workspacex/blob/claude/tender-maxwell-dh21fg/requirements/work-stack-v2/reviews/W013.review.md) |
+| ✅ 通过 | W014 | Workflow | Opportunity-to-Close | [文档](https://github.com/boardx/workspacex/blob/claude/tender-maxwell-dh21fg/requirements/work-stack-v2/workflows/W014-opportunity-to-close.md) | [评审](https://github.com/boardx/workspacex/blob/claude/tender-maxwell-dh21fg/requirements/work-stack-v2/reviews/W014.review.md) |
+| ✅ 通过 | W015 | Workflow | Weekly Pipeline Review | [文档](https://github.com/boardx/workspacex/blob/claude/tender-maxwell-dh21fg/requirements/work-stack-v2/workflows/W015-weekly-pipeline-review.md) | [评审](https://github.com/boardx/workspacex/blob/claude/tender-maxwell-dh21fg/requirements/work-stack-v2/reviews/W015.review.md) |
+| ✅ 通过 | W016 | Workflow | Forecast Review | [文档](https://github.com/boardx/workspacex/blob/claude/tender-maxwell-dh21fg/requirements/work-stack-v2/workflows/W016-forecast-review.md) | [评审](https://github.com/boardx/workspacex/blob/claude/tender-maxwell-dh21fg/requirements/work-stack-v2/reviews/W016.review.md) |
+| ✅ 通过 | W018 | Workflow | Account Expansion | [文档](https://github.com/boardx/workspacex/blob/claude/tender-maxwell-dh21fg/requirements/work-stack-v2/workflows/W018-account-expansion.md) | [评审](https://github.com/boardx/workspacex/blob/claude/tender-maxwell-dh21fg/requirements/work-stack-v2/reviews/W018.review.md) |
 | ⬜ | W027 | Workflow | Discovery-to-Opportunity |  |  |
 | ⬜ | W028 | Workflow | Research-to-Insight |  |  |
 | ⬜ | W029 | Workflow | Problem-to-PRD |  |  |
 | ⬜ | W030 | Workflow | PRD-to-Sprint |  |  |
 | ⬜ | W031 | Workflow | Experiment Loop |  |  |
-| ⬜ | W032 | Workflow | Roadmap Review |  |  |
-| ⬜ | W057 | Workflow | Question-to-Analysis |  |  |
-| ⬜ | W060 | Workflow | Research-to-Evidence |  |  |
+| ✅ 通过 | W032 | Workflow | Roadmap Review | [文档](https://github.com/boardx/workspacex/blob/claude/tender-maxwell-dh21fg/requirements/work-stack-v2/workflows/W032-roadmap-review.md) | [评审](https://github.com/boardx/workspacex/blob/claude/tender-maxwell-dh21fg/requirements/work-stack-v2/reviews/W032.review.md) |
+| ✅ 通过 | W057 | Workflow | Question-to-Analysis | [文档](https://github.com/boardx/workspacex/blob/claude/tender-maxwell-dh21fg/requirements/work-stack-v2/workflows/W057-question-to-analysis.md) | [评审](https://github.com/boardx/workspacex/blob/claude/tender-maxwell-dh21fg/requirements/work-stack-v2/reviews/W057.review.md) |
+| ✅ 通过 | W060 | Workflow | Research-to-Evidence | [文档](https://github.com/boardx/workspacex/blob/claude/tender-maxwell-dh21fg/requirements/work-stack-v2/workflows/W060-research-to-evidence.md) | [评审](https://github.com/boardx/workspacex/blob/claude/tender-maxwell-dh21fg/requirements/work-stack-v2/reviews/W060.review.md) |
 | ✅ 通过 | S003 | Skill | Enterprise Search | [文档](https://github.com/boardx/workspacex/blob/claude/tender-maxwell-dh21fg/requirements/work-stack-v2/skills/S003-enterprise-search.md) | [评审](https://github.com/boardx/workspacex/blob/claude/tender-maxwell-dh21fg/requirements/work-stack-v2/reviews/S003.review.md) |
 | ✅ 通过 | S005 | Skill | Meeting Prep | [文档](https://github.com/boardx/workspacex/blob/claude/tender-maxwell-dh21fg/requirements/work-stack-v2/skills/S005-meeting-prep.md) | [评审](https://github.com/boardx/workspacex/blob/claude/tender-maxwell-dh21fg/requirements/work-stack-v2/reviews/S005.review.md) |
 | ✅ 通过 | S006 | Skill | Meeting Summary | [文档](https://github.com/boardx/workspacex/blob/claude/tender-maxwell-dh21fg/requirements/work-stack-v2/skills/S006-meeting-summary.md) | [评审](https://github.com/boardx/workspacex/blob/claude/tender-maxwell-dh21fg/requirements/work-stack-v2/reviews/S006.review.md) |
@@ -45,13 +45,13 @@
 | ⬜ | S017 | Skill | Task Extraction |  |  |
 | ⬜ | S018 | Skill | Process Mapping |  |  |
 | ⬜ | S020 | Skill | Executive Briefing |  |  |
-| ⬜ | S021 | Skill | Customer Intelligence |  |  |
+| ✅ 通过 | S021 | Skill | Customer Intelligence | [文档](https://github.com/boardx/workspacex/blob/claude/tender-maxwell-dh21fg/requirements/work-stack-v2/skills/S021-customer-intelligence.md) | [评审](https://github.com/boardx/workspacex/blob/claude/tender-maxwell-dh21fg/requirements/work-stack-v2/reviews/S021.review.md) |
 | ⬜ | S022 | Skill | Account Tiering |  |  |
 | ⬜ | S023 | Skill | Account Planning |  |  |
 | ⬜ | S024 | Skill | Prospecting |  |  |
 | ⬜ | S025 | Skill | Lead Triage |  |  |
-| ⬜ | S026 | Skill | Outreach |  |  |
-| ⬜ | S027 | Skill | Meeting Scheduling |  |  |
+| ✅ 通过 | S026 | Skill | Outreach | [文档](https://github.com/boardx/workspacex/blob/claude/tender-maxwell-dh21fg/requirements/work-stack-v2/skills/S026-outreach.md) | [评审](https://github.com/boardx/workspacex/blob/claude/tender-maxwell-dh21fg/requirements/work-stack-v2/reviews/S026.review.md) |
+| ✅ 通过 | S027 | Skill | Meeting Scheduling | [文档](https://github.com/boardx/workspacex/blob/claude/tender-maxwell-dh21fg/requirements/work-stack-v2/skills/S027-meeting-scheduling.md) | [评审](https://github.com/boardx/workspacex/blob/claude/tender-maxwell-dh21fg/requirements/work-stack-v2/reviews/S027.review.md) |
 | ⬜ | S028 | Skill | Sales Call Summary |  |  |
 | ⬜ | S029 | Skill | Opportunity Update |  |  |
 | ⬜ | S030 | Skill | Pipeline Review |  |  |
