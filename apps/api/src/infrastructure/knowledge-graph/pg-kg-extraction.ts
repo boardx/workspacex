@@ -3,7 +3,7 @@
  */
 import type { DatabasePort } from "../../application/ports/database.port";
 import type {
-  KgExtractionJob, KgExtractionQueuePort, KgExtractionSourcePort, KgMessage,
+  KgExtractionJob, KgExtractionOutcome, KgExtractionQueuePort, KgExtractionSourcePort, KgMessage,
 } from "../../application/knowledge-graph/ports";
 import type { KnownObject } from "../../domain/knowledge-graph/extraction";
 import { toOrgId, type OrgId } from "../../domain/org-id";
@@ -48,22 +48,46 @@ export class PgKgExtraction implements KgExtractionQueuePort, KgExtractionSource
 
   // issue #4350：`attempts` 是围栏令牌（见端口注释）。认领每次都把 attempts + 1，所以「attempts 仍等于我认领时
   // 拿到的值」⇔「这一行自我认领之后没有被别人重新认领过」。`$3::int IS NULL` ⇒ 调用方没给令牌，不围栏。
-  async complete(orgId: OrgId, messageId: string, attempts?: number): Promise<void> {
-    await this.db.withTenant(orgId, (s) => s.query(
-      "DELETE FROM kg_extraction_queue WHERE org_id = $1 AND message_id = $2 AND ($3::int IS NULL OR attempts = $3::int)",
-      [orgId, messageId, attempts ?? null],
-    ));
+  // issue #4352：`outcome` 给了 ⇒ 同一事务里记下这条消息的抽取结果（`kg_message_extraction_outcomes`，迁移
+  // 20260928160000），只在队列行真的被本次删掉时记——围栏令牌对不上就一起不写。只写结果码，不写正文；本文件从不读这张表。
+  async complete(orgId: OrgId, messageId: string, attempts?: number, outcome?: KgExtractionOutcome): Promise<void> {
+    await this.db.withTenant(orgId, async (s) => {
+      const done = await s.query<{ thread_id: string }>(
+        "DELETE FROM kg_extraction_queue WHERE org_id = $1 AND message_id = $2 AND ($3::int IS NULL OR attempts = $3::int) RETURNING thread_id",
+        [orgId, messageId, attempts ?? null],
+      );
+      const threadId = done.rows[0]?.thread_id;
+      if (outcome !== undefined && threadId !== undefined) {
+        await s.query(
+          `INSERT INTO kg_message_extraction_outcomes (message_id, org_id, thread_id, outcome) VALUES ($2, $1, $3, $4)
+           ON CONFLICT (message_id) DO UPDATE SET outcome = EXCLUDED.outcome, recorded_at = now()`,
+          [orgId, messageId, threadId, outcome],
+        );
+      }
+    });
   }
 
   async fail(orgId: OrgId, messageId: string, error: string, attempts?: number): Promise<void> {
     // 指数退避：30 秒、2 分钟、8 分钟——模型短暂不可用时，三次机会不会在连续三个轮询里一口气用光。
-    await this.db.withTenant(orgId, (s) => s.query(
-      `UPDATE kg_extraction_queue
-          SET locked_at = NULL, last_error = left($3, 500),
-              next_attempt_at = now() + make_interval(secs => $4 * power(4, greatest(attempts - 1, 0)))
-        WHERE org_id = $1 AND message_id = $2 AND ($5::int IS NULL OR attempts = $5::int)`,
-      [orgId, messageId, error, KG_EXTRACTION_BACKOFF_SECONDS, attempts ?? null],
-    ));
+    await this.db.withTenant(orgId, async (s) => {
+      const r = await s.query<{ thread_id: string; attempts: number }>(
+        `UPDATE kg_extraction_queue
+            SET locked_at = NULL, last_error = left($3, 500),
+                next_attempt_at = now() + make_interval(secs => $4 * power(4, greatest(attempts - 1, 0)))
+          WHERE org_id = $1 AND message_id = $2 AND ($5::int IS NULL OR attempts = $5::int)
+          RETURNING thread_id, attempts`,
+        [orgId, messageId, error, KG_EXTRACTION_BACKOFF_SECONDS, attempts ?? null],
+      );
+      // issue #4352：最后一次机会也失败了 ⇒ 这条消息的结果定为 failed（队列行留着，面板照旧显示「失败 · 重试」）。
+      const row = r.rows[0];
+      if (row !== undefined && row.attempts >= KG_EXTRACTION_MAX_ATTEMPTS) {
+        await s.query(
+          `INSERT INTO kg_message_extraction_outcomes (message_id, org_id, thread_id, outcome) VALUES ($2, $1, $3, $4)
+           ON CONFLICT (message_id) DO UPDATE SET outcome = EXCLUDED.outcome, recorded_at = now()`,
+          [orgId, messageId, row.thread_id, "failed"],
+        );
+      }
+    });
   }
 
   async loadMessage(orgId: OrgId, messageId: string, contextTurns: number) {
@@ -82,7 +106,7 @@ export class PgKgExtraction implements KgExtractionQueuePort, KgExtractionSource
         [orgId, row.thread_id, row.created_at, row.id, contextTurns],
       );
       const toMsg = (x: Row): KgMessage => ({ id: x.id, threadId: x.thread_id, body: x.body, authorKind: x.author_kind });
-      return { message: toMsg(row), context: ctx.rows.reverse().map(toMsg) };
+      return { message: { ...toMsg(row), createdAt: row.created_at.toISOString() }, context: ctx.rows.reverse().map(toMsg) };
     });
   }
 

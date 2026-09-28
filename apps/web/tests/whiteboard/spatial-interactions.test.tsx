@@ -30,7 +30,7 @@ class ResizeObserverMock { observe() {} disconnect() {} }
 globalThis.ResizeObserver = ResizeObserverMock as unknown as typeof ResizeObserver;
 afterEach(() => cleanup());
 
-function openActions() { const trigger = screen.getByTestId("board-inspector-actions"); if (trigger.getAttribute("aria-expanded") !== "true") fireEvent.click(trigger); const tab = screen.getByRole("button", { name: "操作" }); fireEvent.click(tab); }
+function openActions() { const properties = screen.queryByTestId("board-inspector-expand"); if (properties) fireEvent.click(properties); const trigger = screen.getByTestId("board-inspector-actions"); if (trigger.getAttribute("aria-expanded") !== "true") fireEvent.click(trigger); const tab = screen.getByRole("button", { name: "操作" }); fireEvent.click(tab); }
 function openProperties() { openActions(); fireEvent.click(screen.getByTestId("board-properties-open")); }
 
 function mount() {
@@ -86,6 +86,12 @@ it("locks objects against transform and exposes both explicit Panel deletion out
   const port = new SpatialRelationshipCommandPort(doc), panel2 = "panel2";
   act(() => { port.dispatch({ boardId: "spatial-board", clientId: "fixture", gestureId: "p2", command: { type: "create-panel", id: panel2, geometry: { x: 0, y: 0, width: 400, height: 300, rotation: 0 }, panel: { version: 1, mode: "freeform", autoExpand: false, clipContent: false, padding: 24, gap: 24, columns: 3, flowDirection: "horizontal" } } }); port.dispatch({ boardId: "spatial-board", clientId: "fixture", gestureId: "r2", command: { type: "reparent", id: sticky.id, parentId: panel2 } }); });
   fireEvent.click(screen.getByTestId(`mock-select-${panel2}`));
+  openActions();
+  fireEvent.click(within(screen.getByTestId("board-spatial-toolbar")).getByText("锁定"));
+  expect(readObjects(doc).find((object) => object.id === panel2)?.locked).toBe(true);
+  openActions();
+  fireEvent.click(within(screen.getByTestId("board-spatial-toolbar")).getByText("解锁"));
+  expect(readObjects(doc).find((object) => object.id === panel2)?.locked).toBe(false);
   openActions();
   fireEvent.click(within(screen.getByTestId("board-spatial-toolbar")).getByText("删除"));
   fireEvent.click(screen.getByTestId("board-panel-delete-cascade"));

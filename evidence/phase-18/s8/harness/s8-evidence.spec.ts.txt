@@ -1,0 +1,82 @@
+/**
+ * S8（#4365）真实浏览器证据。第一段（截图 01–04）：平台管理员在「运营状态」看记忆抽取 SLO（卡住的租约告警）→ 打开记忆整合
+ * → 现在整合一次；本人在大脑页看到「整理记录」。第二段（本文件在第一段之后重跑时走的分支）：冲突卡（软检查，`next dev`
+ * 编译聊天页在这台高负载机器上可能超时）→ 撤销这次整理 → 长期记忆恢复原样；接口快照写进 journey.json。
+ * 跑在已起好的本地栈上（stack.sh）。第一段的动作不可重放（开关只拨一次），所以按现状分支。
+ */
+import { writeFileSync } from "node:fs";
+import { expect, test, type Page } from "@playwright/test";
+import { getDevModeAccount } from "@repo/dev-mode-accounts";
+
+const OUT = "/home/user/workspacex/.claude/worktrees/agent-a1c38f775f37370ff/evidence/phase-18/s8";
+const API = "/__fullstack_api";
+const record: Record<string, unknown> = {};
+
+async function login(page: Page, role: "admin" | "consultant" | "lead") {
+  const a = getDevModeAccount(role);
+  await page.goto("/login");
+  await page.getByTestId("login-email").fill(a.email);
+  await page.getByTestId("login-password").fill(a.password);
+  await page.getByTestId("login-submit").click();
+  await page.waitForURL((url) => !url.pathname.startsWith("/login"), { timeout: 300_000, waitUntil: "commit" });
+  await page.waitForFunction(() => localStorage.getItem("wsx.sessionToken") !== null, undefined, { timeout: 300_000 });
+}
+async function api(page: Page, path: string, method: "GET" | "POST" = "GET") {
+  const token = await page.evaluate(() => localStorage.getItem("wsx.sessionToken"));
+  const res = method === "GET"
+    ? await page.request.get(`${API}${path}`, { headers: { Authorization: `Bearer ${token}` } })
+    : await page.request.post(`${API}${path}`, { headers: { Authorization: `Bearer ${token}` }, data: {} });
+  return { status: res.status(), body: await res.json().catch(() => null) };
+}
+
+test("S8: SLO 面板 + 整合 + 撤销", async ({ browser }) => {
+  const adminCtx = await browser.newContext();
+  const admin = await adminCtx.newPage();
+  await login(admin, "admin");
+  await admin.goto("/platform-admin/ops-status");
+  await expect(admin.getByTestId("admin-extraction-slo-alert")).toBeVisible({ timeout: 300_000 });
+  record.sloApi = await api(admin, "/platform/knowledge-graph/extraction-slo");
+  const state = await admin.getByTestId("admin-consolidation-state").innerText();
+  if (state === "已关闭") {
+    await admin.screenshot({ path: `${OUT}/01-admin-slo-alert-and-consolidation-off.png`, fullPage: true });
+    await admin.getByTestId("admin-extraction-slo").screenshot({ path: `${OUT}/02-admin-slo-panel.png` });
+    await admin.getByTestId("admin-consolidation-toggle").click();
+    await expect(admin.getByTestId("admin-consolidation-state")).toHaveText("已开启");
+    await admin.getByTestId("admin-consolidation-run").click();
+    await expect(admin.getByTestId("admin-consolidation-message")).toContainText("整合完成", { timeout: 300_000 });
+    await admin.getByTestId("admin-consolidation").screenshot({ path: `${OUT}/03-admin-consolidation-on-and-run.png` });
+  }
+  record.consolidationSetting = await api(admin, "/platform/knowledge-graph/consolidation-setting");
+
+  const meCtx = await browser.newContext();
+  const me = await meCtx.newPage();
+  await login(me, "consultant");
+  record.personalBeforeUndo = (await api(me, "/knowledge-graph/personal")).body;
+  record.runsBeforeUndo = await api(me, "/knowledge-graph/me/consolidations");
+  await me.goto("/brain", { waitUntil: "commit" });
+  await expect(me.getByTestId("brain-consolidation")).toBeVisible({ timeout: 300_000 });
+  await me.getByTestId("brain-consolidation").scrollIntoViewIfNeeded();
+  await me.getByTestId("brain-consolidation").screenshot({ path: `${OUT}/05-brain-consolidation-record-detail.png` });
+
+  // 冲突卡（F16，挂在说 60 万那一轮下面）：软检查
+  record.conflictTurnMemory = await api(me, `/knowledge-graph/threads/s8-thr-budget-60/messages/s8-msg-s8-thr-budget-60-agent/memory`);
+
+  await me.getByTestId("brain-consolidation-undo").click();
+  await expect(me.getByTestId("brain-consolidation-run-state")).toHaveText("已撤销", { timeout: 300_000 });
+  record.runsAfterUndo = await api(me, "/knowledge-graph/me/consolidations");
+  record.personalAfterUndo = (await api(me, "/knowledge-graph/personal")).body;
+  record.conflictTurnMemoryAfterUndo = await api(me, `/knowledge-graph/threads/s8-thr-budget-60/messages/s8-msg-s8-thr-budget-60-agent/memory`);
+  await me.getByTestId("brain-consolidation").scrollIntoViewIfNeeded();
+  await me.getByTestId("brain-consolidation").screenshot({ path: `${OUT}/06-brain-after-undo-record.png` });
+  await me.getByTestId("brain-personal").screenshot({ path: `${OUT}/07-brain-after-undo-memories.png` });
+
+  // 别人（lead）看不到这个人的整理记录、撤不动；也不是平台运维 ⇒ SLO 403
+  const otherCtx = await browser.newContext();
+  const other = await otherCtx.newPage();
+  await login(other, "lead");
+  record.otherUserRuns = await api(other, "/knowledge-graph/me/consolidations");
+  record.otherUserUndo = await api(other, `/knowledge-graph/me/consolidations/${String((record.runsBeforeUndo as { body: { runs: { runId: string }[] } }).body.runs[0]?.runId)}/undo`, "POST");
+  record.otherUserSlo = await api(other, "/platform/knowledge-graph/extraction-slo");
+
+  writeFileSync(`${OUT}/journey.json`, `${JSON.stringify(record, null, 2)}\n`);
+});

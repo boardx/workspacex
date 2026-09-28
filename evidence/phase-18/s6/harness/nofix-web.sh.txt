@@ -1,0 +1,19 @@
+#!/bin/sh
+# Fail-without-fix (web): /brain page + chain ordering reverted to origin/main, new tests kept.
+set -u
+WT=/home/user/workspacex/.claude/worktrees/agent-a7b4431b9f8b22ac7
+S=/tmp/claude-0/-home-user-workspacex/0c400fb8-dfbe-5051-bf5c-eba2226be75a/scratchpad/nofix-web
+mkdir -p $S
+cd $WT
+for f in apps/web/components/brain/personal-memory.tsx apps/web/lib/brain-view.ts; do
+  cp $f $S/$(basename $f).fixed
+  git show origin/main:$f > $f
+done
+cd apps/web
+timeout 2400 npx vitest run tests/brain/brain-time-dimension.test.tsx > $S/out.log 2>&1
+echo "exit=$?" >> $S/out.log
+cd $WT
+cp $S/personal-memory.tsx.fixed apps/web/components/brain/personal-memory.tsx
+cp $S/brain-view.ts.fixed apps/web/lib/brain-view.ts
+git diff --stat -- apps/web/components/brain/personal-memory.tsx apps/web/lib/brain-view.ts >> $S/out.log
+echo RESTORED >> $S/out.log

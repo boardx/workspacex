@@ -1,10 +1,15 @@
-export { createWhiteboardDocument, cloneDocument, readObjects, validateDocument, executeCommands, copyObjects } from './document';
+export { createWhiteboardDocument, cloneDocument, readObjects, readStoredObject, validateDocument, executeCommands, copyObjects } from './document';
 export { BoardCommandPort, WhiteboardCommandOrigin, type BoardCommandAccepted, type BoardCommandEnvelope } from './command-port';
 export { WhiteboardUndo } from './undo';
 export { WhiteboardObject, WhiteboardGeometry, WhiteboardStyle, WhiteboardCommand, WhiteboardCommandBatch, WhiteboardLayoutCommand, WhiteboardLayoutKind, WHITEBOARD_LIMITS } from '@repo/contracts/whiteboard-document';
 export { prepareWhiteboardUpdate, WHITEBOARD_UPDATE_LIMITS } from './update';
 export { duplicateWhiteboardSnapshot, type DuplicatedWhiteboardSnapshot } from './duplicate';
 export { geometryBoundsInLocalSpace, localPointFromScene, rotatedAnchorPoint, rotatedGeometryCorners, scenePointFromLocal, type SpatialAnchor, type SpatialPoint } from './spatial-geometry';
+export {
+  WhiteboardCommentService, WhiteboardPresenceRegistry, checkpointHash, verifyCheckpoint, restoredHead,
+  type CollaborationAccepted, type CollaborationActor, type CollaborationDependencies,
+  type PresenceInput, type PresenceState,
+} from './collaboration';
 export {
   ContentObjectCommandPort,
   SHAPE_SEMANTICS,

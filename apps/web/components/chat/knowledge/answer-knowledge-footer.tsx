@@ -4,17 +4,20 @@ import * as React from "react";
 import { Quote, ChevronDown, Route, AlertTriangle, Clock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { KG_TRI_STATE_LABEL_ZH, type KgRecalledMemory } from "@repo/contracts/chat-knowledge-graph";
+import { CITATION_CORRECTABLE_SCOPES, KG_TRI_STATE_LABEL_ZH, type KgRecalledMemory } from "@repo/contracts/chat-knowledge-graph";
 import {
   RETRIEVAL_CHANNEL_LABEL_ZH,
   KG_RELATED_QUERY_DEGRADED_ZH,
   graphPathText,
   personalOriginLabel,
+  projectOriginLabel,
   retrievalReasonLabels,
   truncateStatement,
 } from "@/lib/knowledge-graph-recall";
 import { requestOpenClaimSources } from "@/lib/knowledge-graph-events";
 import { KG_CLAIM_KIND_LABEL_ZH } from "@/lib/knowledge-graph-view";
+import { citationBasisPrefix, citedMemories } from "@/lib/knowledge-graph-citation";
+import { CitationDetail, type CitationCorrect } from "./citation-detail";
 
 /**
  * phase-18 F13 —— 回答下方：这次用到了哪些记忆、为什么（uc-18-2 R8 / E1，uc-18-4 R3-6）。
@@ -28,19 +31,37 @@ import { KG_CLAIM_KIND_LABEL_ZH } from "@/lib/knowledge-graph-view";
  *   **不显示 `score`**：那是原始 RRF 分（约 0.01–0.03），不是给人看的「相关度」。
  * - 查不全提示：**只看 `recallDegraded`**（本轮计划走关联查询但没能执行）。不看向量是否可用——
  *   MVP 没部署向量，那不是降级，不该每条回答都挂一句「查不全」。
+ * - S7（#4364）：chip 只画服务端对账后的 `cited`（本轮召回集合里、回答真的用到了的；省略 ⇒ 全部 `recalled`），
+ *   chip 上写「依据你 {M/D} 的决定」。点 chip：照旧打开来源抽屉，同时在下面展开这一条（完整原话、「跳到原消息」、
+ *   只给所有者的「这条不对」/「已过时」，见 `CitationDetail`）。「为什么用到它」仍列本轮召回到的全部。
  */
 export function AnswerKnowledgeFooter({
   recalled,
   recallDegraded,
+  cited,
   onOpenSource = requestOpenClaimSources,
+  canCorrect = false,
+  onJump,
+  onCorrect,
 }: {
   recalled: readonly KgRecalledMemory[];
   recallDegraded: boolean;
+  /** S7：服务端对账后的引用 id（按召回名次）；省略 ⇒ 全部 `recalled` */
+  cited?: readonly string[];
   /** 点引用 chip：打开这一条的来源抽屉 */
   onOpenSource?: (claimId: string) => void;
+  /** S7：是否给「这条不对」/「已过时」（只给所有者） */
+  canCorrect?: boolean;
+  /** S7：展开行里的「跳到原消息」；不给 ⇒ 不画这个展开行 */
+  onJump?: (claimId: string) => Promise<boolean>;
+  /** S7：纠正一条引用 */
+  onCorrect?: (claimId: string, ...args: Parameters<CitationCorrect>) => ReturnType<CitationCorrect>;
 }) {
   const [expanded, setExpanded] = React.useState(false);
+  const [open, setOpen] = React.useState<string | null>(null);
   if (recalled.length === 0 && !recallDegraded) return null;
+  const chips = citedMemories(recalled, cited);
+  const openMemory = open === null ? undefined : chips.find((m) => m.claimId === open);
 
   return (
     <div className="mt-2 flex flex-col gap-2 border-t border-border-subtle pt-2" data-testid="kg-answer-footer">
@@ -59,22 +80,31 @@ export function AnswerKnowledgeFooter({
       {recalled.length > 0 ? (
         <>
           {/* 引用 chips */}
+          {chips.length > 0 ? (
           <div className="flex flex-wrap items-center gap-1.5" data-testid="kg-citation-chips">
             <Quote aria-hidden className="h-3.5 w-3.5 text-muted-foreground" />
-            {recalled.map((m, i) => {
+            {chips.map((m, i) => {
               const origin = personalOriginLabel(m);
               return (
                 <button
                   key={m.claimId}
                   type="button"
                   title={m.statement}
+                  aria-expanded={onJump === undefined ? undefined : open === m.claimId}
                   data-testid={`kg-citation-${m.claimId}`}
-                  onClick={() => onOpenSource(m.claimId)}
+                  onClick={() => {
+                    onOpenSource(m.claimId);
+                    setOpen((cur) => (cur === m.claimId ? null : m.claimId));
+                  }}
                   className="inline-flex max-w-full items-center gap-1 rounded-control border border-border bg-card px-1.5 py-0.5 text-10 text-card-foreground transition-colors duration-base hover:bg-muted"
                 >
                   <span className="text-muted-foreground">[{i + 1}]</span>
-                  {/* issue #4343：类型（目标 / 偏好 / 决定 …）。testid 不用 kg-citation- 前缀：那个前缀留给 chip 本身。 */}
-                  <span className="shrink-0 text-muted-foreground" data-testid={`kg-cite-kind-${m.claimId}`}>{KG_CLAIM_KIND_LABEL_ZH[m.kind]}</span>
+                  {/* S7：「依据你 9/20 的决定」——前半句 + 类型（issue #4343：目标 / 偏好 / 决定 …）。
+                      testid 不用 kg-citation- 前缀：那个前缀留给 chip 本身。 */}
+                  <span className="shrink-0 text-muted-foreground" data-testid={`kg-cite-basis-${m.claimId}`}>
+                    {citationBasisPrefix(m)}
+                    <span data-testid={`kg-cite-kind-${m.claimId}`}>{KG_CLAIM_KIND_LABEL_ZH[m.kind]}</span>
+                  </span>
                   <span className="truncate">{truncateStatement(m.statement)}</span>
                   {m.triState === "pending" ? (
                     <Badge tone="warning" data-testid={`kg-citation-pending-${m.claimId}`}>{KG_TRI_STATE_LABEL_ZH.pending}</Badge>
@@ -88,10 +118,27 @@ export function AnswerKnowledgeFooter({
                       {origin}
                     </Badge>
                   ) : null}
+                  {m.scope === "project" ? (
+                    <Badge tone="neutral" data-testid={`kg-from-project-${m.claimId}`}>{projectOriginLabel(m)}</Badge>
+                  ) : null}
                 </button>
               );
             })}
           </div>
+          ) : null}
+
+          {/* S7：点开的那一条——完整原话、跳到原消息、纠正 */}
+          {openMemory !== undefined && onJump !== undefined ? (
+            <CitationDetail
+              key={openMemory.claimId}
+              memory={openMemory}
+              canCorrect={canCorrect && (CITATION_CORRECTABLE_SCOPES as readonly string[]).includes(openMemory.scope)}
+              onJump={() => onJump(openMemory.claimId)}
+              {...(onCorrect !== undefined
+                ? { onCorrect: (kind: Parameters<CitationCorrect>[0], replacement?: string) => onCorrect(openMemory.claimId, kind, replacement) }
+                : {})}
+            />
+          ) : null}
 
           {/* 为什么用到它 */}
           <Button

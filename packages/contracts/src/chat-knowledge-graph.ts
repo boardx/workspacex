@@ -19,6 +19,7 @@
  * - `ClaimStatus` 五值。直接复用 `context-pack.ts` 的 `ClaimStatus`，**不建第二份**。
  */
 import { z } from "zod";
+import { ProjectEvidenceSourceKind } from "./project-evidence";
 import { ClaimStatus, FilterAction, RetrievalChannel } from "./context-pack";
 
 type ClaimStatusValue = z.infer<typeof ClaimStatus>;
@@ -52,6 +53,39 @@ export type KgObjectKind = z.infer<typeof KgObjectKind>;
  */
 export const KgClaimKind = z.enum(["fact", "hypothesis", "decision", "todo", "risk", "goal", "preference"]);
 export type KgClaimKind = z.infer<typeof KgClaimKind>;
+/**
+ * 结论种类的中文文案，单一事实源（用词表：结论 → 事实 / 猜测 / 决定 / 待办 / 风险 / 目标 / 偏好）。前端面板与
+ * 「你记得我什么」的分组、后端给模型的记忆清单（#4361）都用这一份，不另建映射表。
+ */
+export const KG_CLAIM_KIND_LABEL_ZH: Record<KgClaimKind, string> = {
+  fact: "事实",
+  hypothesis: "猜测",
+  decision: "决定",
+  todo: "待办",
+  risk: "风险",
+  // issue #4343：本人说的目标 / 意图、偏好
+  goal: "目标",
+  preference: "偏好",
+};
+/**
+ * 按种类分组显示 / 计数的先后（会话记忆面板、/brain 与「你记得我什么」同一个次序）：决定最先，其次本人的目标、
+ * 偏好，再是事实……漏排一个类型 = 那一类永远不渲染（#4343 之前的五值表就会这样吞掉目标）；单测拿枚举逐项核对。
+ */
+export const KG_CLAIM_KIND_DISPLAY_ORDER: readonly KgClaimKind[] = ["decision", "goal", "preference", "fact", "todo", "risk", "hypothesis"];
+
+/**
+ * issue #4363（S6）：待办的状态。只有 `kind = todo` 的结论有（其余为 null）；新记下的待办是 open。
+ * 数据库 CHECK（迁移 20260928170000 claims_todo_state_chk）与本枚举逐项对账。
+ */
+export const KgTodoStatus = z.enum(["open", "done", "dropped"]);
+export type KgTodoStatus = z.infer<typeof KgTodoStatus>;
+
+/** 待办状态的界面文案（单源，同 KG_TRI_STATE_LABEL_ZH）。 */
+export const KG_TODO_STATUS_LABEL_ZH: Record<KgTodoStatus, string> = {
+  open: "还没做",
+  done: "做完了",
+  dropped: "不做了",
+};
 
 /**
  * issue #4343：「本人意向类」结论——作者本人说的会自动记进本人个人空间（同 #4283 的决定），并在每一轮强制召回
@@ -70,7 +104,12 @@ export function isSelfIntentClaimKind(kind: KgClaimKind | null | undefined): boo
 export const KgClaimRelation = z.enum(["supported_by", "may_shorten", "blocks", "hard_constraint", "candidate_for"]);
 export type KgClaimRelation = z.infer<typeof KgClaimRelation>;
 
-export const KgStructuralRelation = z.enum(["mentions", "about", "derived_from", "supersedes", "belongs_to", "decided_by"]);
+/**
+ * `serves_goal`（issue #4360，S5「关于我」）：个人空间里的一条决定 / 待办 → 本人的一个目标（src = 决定 / 待办，
+ * dst = 目标，两端同属一个人的个人空间）。模型提议、只有高把握才自动挂（`GOAL_LINK_MIN_CONFIDENCE`，apps/api domain/knowledge-graph/profile.ts）；
+ * 本人可以在「关于我」里改挂 / 摘掉。一条决定 / 待办同一时刻最多挂一个目标。
+ */
+export const KgStructuralRelation = z.enum(["mentions", "about", "derived_from", "supersedes", "belongs_to", "decided_by", "serves_goal"]);
 export type KgStructuralRelation = z.infer<typeof KgStructuralRelation>;
 
 export const KgRelation = z.union([KgClaimRelation, KgStructuralRelation]);
@@ -141,13 +180,18 @@ export const KgScope = z.object({
 }).strict();
 export type KgScope = z.infer<typeof KgScope>;
 
-/** 证据锚点：指回原消息或附件片段（引用完整性，S1）。 */
+/**
+ * 证据锚点：指回原消息或附件片段（引用完整性，S1）。
+ * B3-T1：`sourceKind` 改为引用 `project-evidence.ts` 的六类归一来源（单一事实源）；`evidenceId` 指向证据单元
+ * （`projectEvidence.getProjectEvidence`），缺省 = 老数据、还没归一（只有 chat_message / attachment 两类会缺）。
+ */
 export const KgEvidenceAnchor = z.object({
   segmentId: z.string(),
   stance: z.enum(["supporting", "contradicting"]),
-  sourceKind: z.enum(["chat_message", "attachment"]),
-  /** chat_message → messageId；attachment → artifactVersionId */
+  sourceKind: ProjectEvidenceSourceKind,
+  /** chat_message → messageId；attachment → artifactVersionId；其余见 `ProjectEvidenceItem.sourceRef` */
   sourceRef: z.string(),
+  evidenceId: z.string().optional(),
   /** 可读摘录（≤ 280 字），不是全文 */
   excerpt: z.string().max(280),
   /** 附件页码 / 时间码等，消息则为 null */
@@ -190,6 +234,17 @@ export const KgClaim = z.object({
   supportingCount: z.number().int().nonnegative(),
   contradictingCount: z.number().int().nonnegative(),
   createdAt: z.string(),
+  /**
+   * issue #4363（S6）：有效期的终点（ISO，左闭右开：到这一刻就不再成立）；长期有效为 null。
+   * 抽取时由原话里的时间说法（「这周」「到年底」）换算。可选：旧客户端 / 不带时间维度的读口省略。
+   */
+  validUntil: z.string().nullable().optional(),
+  /** issue #4363（S6）：服务端按读的那一刻算好的「已过期」（validUntil 已过）。过期的仍在列表里（标「已过期」），只是不再被召回。 */
+  expired: z.boolean().optional(),
+  /** issue #4363（S6）：待办状态（只有 kind = todo 有）；其余类别为 null。 */
+  todoStatus: KgTodoStatus.nullable().optional(),
+  /** issue #4363（S6）：待办的截止日期（ISO，左闭右开）；没说截止为 null。 */
+  dueAt: z.string().nullable().optional(),
 }).strict();
 export type KgClaim = z.infer<typeof KgClaim>;
 
@@ -209,7 +264,7 @@ export const KgIngestionSummary = z.object({
   failed: z.number().int().nonnegative(),
   /** 失败条目：源 + 原因，供单条重试 */
   failures: z.array(z.object({
-    sourceKind: z.enum(["chat_message", "attachment"]),
+    sourceKind: ProjectEvidenceSourceKind,
     sourceRef: z.string(),
     reason: z.enum(["model_unavailable", "rejected_by_executor", "source_restricted", "retries_exhausted"]),
   }).strict()),
@@ -299,16 +354,28 @@ export type KgSupersedeNotice = z.infer<typeof KgSupersedeNotice>;
 /**
  * U-4 对话里的「记住 / 忘掉」确认卡（uc-18-6 A/B）。
  * **Agent 只生成卡片，不执行**：执行只经 `actOnMemoryCard`，身份是点击的人（I-15）。
+ *
+ * Issue #4361（phase-18 S4「在对话里管理记忆」，**待签核、先按已批准执行**，见 evidence/phase-18/r10/README.md）：
+ * - `kind = overview`：「你记得我什么」——本人个人空间里的记忆清单（最多 20 条），按种类分组显示、每条带来源会话；
+ *   没有任何动作（`actOnMemoryCard` 对它答 KG_INVALID_REQUEST），`state` 恒为 open；读的时候按现在的事实过滤（忘掉的不再列）。
+ *   这种卡的条目带 `claimKind` 与 `source`；其余两种卡不带。
+ * - `state = undone`：忘掉卡生效之后点了「撤销」（`undoMemoryCard`），忘掉的那些已恢复。
+ * - 忘掉卡与 overview 卡只在请求者本人的个人线程里出现，条目只来自本人个人空间（长期记忆 + 本人全部个人线程），
+ *   不碰项目层与别人的记忆。
  */
 export const KgMemoryCard = z.object({
   cardId: z.string(),
-  kind: z.enum(["remember", "forget"]),
+  kind: z.enum(["remember", "forget", "overview"]),
   items: z.array(z.object({
     /** remember 且内容尚未入图时为 null（执行时按 statement 新建一条 human 结论） */
     claimId: z.string().nullable(),
     statement: z.string().min(1).max(2000),
+    /** overview：这条记忆的种类（界面按它分组） */
+    claimKind: KgClaimKind.optional(),
+    /** overview：这条记忆来自本人的哪个对话（跳过去看原话）；来源对话已不在 / 看不到 ⇒ null */
+    source: z.object({ threadId: z.string(), title: z.string() }).strict().nullable().optional(),
   }).strict()).min(1).max(20),
-  state: z.enum(["open", "done", "dismissed", "stale"]),
+  state: z.enum(["open", "done", "dismissed", "stale", "undone"]),
 }).strict();
 export type KgMemoryCard = z.infer<typeof KgMemoryCard>;
 
@@ -323,9 +390,15 @@ export const KgRecalledMemory = z.object({
   /** issue #4343：引用 chip 上标类型（目标 / 偏好 / 决定 …）；库里 claim_kind 为空的旧行按 fact。 */
   kind: KgClaimKind,
   triState: KgTriState,
-  scope: z.enum(["chat_session", "personal"]),
+  /** S10（#4367）起含 `project`：项目会话里用到的项目记忆（全体项目成员可见）。 */
+  scope: z.enum(["chat_session", "personal", "project"]),
   /** 这条最早被说出来的时间（ISO）；个人空间的条目界面显示为「来自你 {日期} 的对话」 */
   saidAt: z.string().nullable(),
+  /**
+   * S10（#4367）：项目记忆里由某人从**个人记忆**分享来的那条 ⇒ 分享人的显示名（没有显示名为空串，界面说「项目成员」），
+   * 界面标「由 X 分享自个人记忆」；其余（本会话、个人空间、从项目对话记进项目大脑的）省略或 null。
+   */
+  sharedByName: z.string().nullable().optional(),
   channels: z.array(RetrievalChannel),
   retrievalReasons: z.array(FilterAction),
   score: z.number(),
@@ -349,8 +422,34 @@ export const KgTurnMemory = z.object({
   recalled: z.array(KgRecalledMemory),
   /** 本轮计划走关联查询（图）但它没能执行：界面显示「这次没能查全你的记忆…」那一行（R4-E1） */
   recallDegraded: z.boolean(),
+  /**
+   * S7（#4364，待签核：按已批准处理、事后补签）：这条回答**真的用到了**的那几条（引用 chip），按召回名次。
+   * 服务端对账：恒为 `recalled[].claimId` 的子集——模型在回答里提到的、却不在本轮召回集合里的说法不会出现在这里
+   * （判据见 apps/api/src/domain/knowledge-graph/citation.ts）。可省略只为兼容 S7 之前的读者：省略 ⇒ 按 `recalled` 全部。
+   */
+  cited: z.array(z.string()).optional(),
+  /**
+   * S7 review F6：查看者能不能在这一轮的引用上点「这条不对」/「已过时」——是这条对话的所有者、**且**是这一轮的提问人
+   * （服务端 `correctCitation` 同一判据）。这是「这一轮」的判据，不是每一条的：能不能改某一条还看它的作用域——
+   * 本对话的、查看者本人长期记忆 / 本人其他个人对话的可以改；项目 / 组织记忆（L2 / L3）不能在这里改（服务端拒）。
+   * 今天 `recalled` 只会出现前两种（读侧 `readTurnRecall` 的可见性过滤不放 L2 / L3），界面仍按作用域再挡一次
+   * （`CITATION_CORRECTABLE_SCOPES`），免得日后召回里放进了 L2 / L3 却给出点了会被拒的按钮（delta review L5）。
+   * 省略 ⇒ 按 false（不给入口，免得点了被拒）。
+   */
+  canCorrect: z.boolean().optional(),
 }).strict();
 export type KgTurnMemory = z.infer<typeof KgTurnMemory>;
+
+/**
+ * S7（#4364）：回答下引用 chip 上的两个纠正动作（只给对话所有者、且是这一轮的提问人）。
+ * - `wrong`「这条不对」：没给 `replacement` ⇒ 忘掉（同 F17 忘掉卡的效果）；给了 ⇒ 用新说法取代旧的（旧的不再召回）。
+ * - `expired`「已过时」：这条（连同它的长期记忆副本）有效期到此刻为止（`validUntil = now`，S6 #4363）；不撤回，列表里标「已过期」。
+ * 两种都记一条纠正事件：纠正率 = 纠正次数 / 被引用次数（`getCitationMetrics`）。
+ */
+export const KgCitationCorrectionKind = z.enum(["wrong", "expired"]);
+/** 引用 chip 上能被纠正的结论作用域（`KgRecalledMemory.scope`）；其余一律不给纠正入口（服务端同样拒）。 */
+export const CITATION_CORRECTABLE_SCOPES = ["chat_session", "personal"] as const satisfies readonly KgRecalledMemory["scope"][];
+export type KgCitationCorrectionKind = z.infer<typeof KgCitationCorrectionKind>;
 
 /**
  * issue #4180 —— 这条消息（用户自己发的那条）刚被抽取出的、还活着的结论：发送下方
@@ -359,6 +458,9 @@ export type KgTurnMemory = z.infer<typeof KgTurnMemory>;
  * 下方，只认这一条消息自己的证据（不做「向前找最近一条人类消息」的扩展匹配）。没有新结论（含
  * 抽取关闭 / 未配置、还没抽完、抽出的东西已撤销或被取代）⇒ 空数组，不是错误。
  */
+export const KG_MESSAGE_EXTRACTION_STATUSES = ["pending", "written", "empty", "skipped", "failed", "none"] as const;
+export type KgMessageExtractionStatus = (typeof KG_MESSAGE_EXTRACTION_STATUSES)[number];
+
 export const KgMessageExtraction = z.object({
   claims: z.array(z.object({
     claimId: z.string(),
@@ -372,6 +474,17 @@ export const KgMessageExtraction = z.object({
      */
     personalCopyClaimId: z.string().nullable(),
   }).strict()),
+  /**
+   * issue #4352（人类决定 2026-09-27；**契约字段先行实现、签核后补**，见 evidence/phase-18/r10/README.md §3.2）：
+   * 这条消息的抽取走到哪了。发送下方「这句没有需要记的 · 记一条」只在 `empty` 且 `claims` 为空时出现。
+   * - `pending`  还在队列里（排队 / 进行中 / 退避中）；
+   * - `written`  抽出了东西（可能已被撤销，所以 `claims` 仍可能为空）；
+   * - `empty`    抽完了，没有可记的；
+   * - `skipped`  有意不抽（项目会话里用过个人记忆的那一轮 agent 回答，#4284）；
+   * - `failed`   重试次数用完；
+   * - `none`     从没排进抽取（抽取关着时发的、原始转录、比会话更窄的可见范围……），或消息不在。
+   */
+  status: z.enum(KG_MESSAGE_EXTRACTION_STATUSES),
 }).strict();
 export type KgMessageExtraction = z.infer<typeof KgMessageExtraction>;
 
@@ -435,11 +548,218 @@ export const KgPersonalReplacedClaim = z.object({
    * 不是自动取代（矛盾卡上选了「以新的为准」）、或那个对话已不是本人的 ⇒ null（只显示，不给撤销）。
    */
   undo: z.object({ threadId: z.string(), noticeId: KgSupersedeNotice.shape.noticeId }).strict().nullable(),
+  /**
+   * issue #4363（S6）：链式取代历史（211 → 985 → 清华）里这一条离活记忆有几步：1 = 直接被 `byClaimId` 取代，
+   * 2 = 被「取代了它的那条」再取代……同一 `byClaimId` 下按 step 从小到大就是从新到旧。只有 step = 1 的可能给撤销
+   * （撤销更早的一环，要先撤销后面那一环——同 #4302：不引向一次注定落空的撤销）。省略 = 1（旧服务端）。
+   */
+  step: z.number().int().min(1).optional(),
+  /** issue #4363（S6）：直接取代它的那一条（step = 1 时就是 `byClaimId` 那条；更早的一环是链上下一条，已不再生效）。 */
+  replacedBy: z.object({ claimId: z.string(), statement: z.string() }).strict().optional(),
 }).strict();
 export type KgPersonalReplacedClaim = z.infer<typeof KgPersonalReplacedClaim>;
 
+/**
+ * S10（#4367）「分享到项目…」的一个目标项目 + 范围预览：确认之前先说清**谁会看到**。
+ * `audience` 最多 `KG_SHARE_AUDIENCE_PREVIEW_MAX` 人（按显示名排序），`audienceCount` 是全部成员数（含观察者：项目记忆给全体成员看）。
+ */
+export const KG_SHARE_AUDIENCE_PREVIEW_MAX = 50;
+export const KgProjectShareTarget = z.object({
+  projectId: z.string(),
+  name: z.string(),
+  audience: z.array(z.object({ userId: z.string(), displayName: z.string() }).strict()).max(KG_SHARE_AUDIENCE_PREVIEW_MAX),
+  audienceCount: z.number().int().nonnegative(),
+  /** 已经分享到这个项目 ⇒ 项目里那份的 id（可撤回）；没分享 ⇒ null */
+  sharedClaimId: z.string().nullable(),
+}).strict();
+export type KgProjectShareTarget = z.infer<typeof KgProjectShareTarget>;
+
+/**
+ * S10（#4367）：分享来的项目记忆的出处说法——「由 X 分享自个人记忆」（没有显示名说「项目成员」）。
+ * 单一事实源：给模型的【记忆】材料（api domain/knowledge-graph/recall.ts）与界面（引用 chip、项目大脑）都用这一个。
+ */
+export function sharedFromPersonalLabelZh(name: string): string {
+  const n = name.trim();
+  return `由 ${n === "" ? "项目成员" : n} 分享自个人记忆`;
+}
+
+/** S10（#4367）：项目记忆里一条由成员从个人记忆分享来的结论 ⇒ 分享人显示名（没有显示名为空串）。 */
+export const KgProjectSharedFrom = z.object({ claimId: z.string(), sharedByName: z.string() }).strict();
+
+/** 项目决策理由上限（B3-T4 `adoptProjectDecision.rationale`）。 */
+export const KG_ADOPT_RATIONALE_MAX = 500;
+/** B3-T4：能被采纳为项目决策的来源类型（其余类型的条目没有「采纳」入口；数据库函数按同一张表复核）。 */
+export const KG_ADOPTABLE_CLAIM_KINDS = ["fact", "hypothesis"] as const satisfies readonly KgClaimKind[];
+export function isAdoptableClaimKind(kind: KgClaimKind | null | undefined): boolean {
+  return kind != null && (KG_ADOPTABLE_CLAIM_KINDS as readonly KgClaimKind[]).includes(kind);
+}
+/**
+ * B3-T4（issue #4498）：一条由成员「采纳为项目决策」产生的决策记录——`decisionClaimId` 是项目记忆里新建的 decision
+ * 类条目，`sourceClaimId` 是它采纳自的那条（fact / hypothesis，derived_from 连回）。只从 `ontology_actions` 读，
+ * 不另存一张表；`adoptedBy` 是采纳人的显示名（没有显示名时为其 user id）。
+ */
+export const KgAdoptedDecision = z.object({
+  decisionClaimId: z.string(),
+  sourceClaimId: z.string(),
+  rationale: z.string().min(1).max(KG_ADOPT_RATIONALE_MAX),
+  adoptedBy: z.string(),
+  /** ISO 8601 */
+  adoptedAt: z.string(),
+}).strict();
+export type KgAdoptedDecision = z.infer<typeof KgAdoptedDecision>;
+export type KgProjectSharedFrom = z.infer<typeof KgProjectSharedFrom>;
+
+/* ────────────────────────────────────────────────────────────────────── *
+ * B3-T3（issue #4497）：项目大脑的跨来源推理（`getProjectReasoning`）——只读、确定性、不调模型。
+ * 三块都由 `apps/api/src/domain/knowledge-graph/project-reasoning.ts` 从项目记忆（结论 + 边 + 证据锚点）算出：
+ *   · 冲突：同一件事在两条记下的里说了不同的数（判定复用 F16 `conflict.ts` 的比对），
+ *     并按双方支持证据来自几类来源分成「跨来源」/「同来源」；
+ *   · 缺口：猜测 / 决定没有任何来源支持，或只有单一来源——附一句确定性模板建议；
+ *   · 推理链：猜测 / 决定 → 它的前提（derived_from / supported_by 的上游、直接证据）→ 它本身，每一步都带引用。
+ * 已撤回的证据（`KgEvidenceAnchor.revoked`）三块都不计。
+ * ────────────────────────────────────────────────────────────────────── */
+
+/**
+ * 冲突对。`claimIds` 固定两条（先记下的在前），`statementA/B` 与 `claimIds` 同序；
+ * `sourceKindsA/B` 是各自**未撤回的支持**证据的来源类型（去重、按枚举顺序），`evidenceIdsA/B` 是其中已归一的
+ * 证据单元 id（老数据可能为空数组，界面回退到来源抽屉）。
+ * `kind`：`cross_source` = 双方支持证据合起来来自 ≥ 2 类不同来源；否则 `same_source`（含双方都没证据）。
+ */
+export const KgReasoningConflict = z.object({
+  /** 确定性：`conflict:<claimIdA>:<claimIdB>` */
+  id: z.string().min(1),
+  claimIds: z.tuple([z.string(), z.string()]),
+  statementA: z.string(),
+  statementB: z.string(),
+  sourceKindsA: z.array(ProjectEvidenceSourceKind),
+  sourceKindsB: z.array(ProjectEvidenceSourceKind),
+  evidenceIdsA: z.array(z.string()),
+  evidenceIdsB: z.array(z.string()),
+  kind: z.enum(["cross_source", "same_source"]),
+}).strict();
+export type KgReasoningConflict = z.infer<typeof KgReasoningConflict>;
+
+/**
+ * 缺口：`no_evidence` = 这条（含它的前提）没有任何未撤回的支持证据；`single_source` = 只有一类来源。
+ * `sourceKinds` 是实际有的那些（`no_evidence` 时为空）；`suggestion` 是确定性模板（如「只有对话支持，建议用访谈或问卷验证」）。
+ */
+export const KgReasoningGap = z.object({
+  claimId: z.string(),
+  statement: z.string(),
+  kind: z.enum(["no_evidence", "single_source"]),
+  sourceKinds: z.array(ProjectEvidenceSourceKind),
+  suggestion: z.string().min(1),
+}).strict();
+export type KgReasoningGap = z.infer<typeof KgReasoningGap>;
+
+/**
+ * 推理链的一步。`premise` = 前提（上游记下的一条，或一条直接证据的摘录）；`inference` = 推论（这条本身）。
+ * 不变量：每一步 `evidenceIds` 非空或 `claimId` 有值（没有引用的步骤不许出现）——直接证据还没归一（无 `evidenceId`）时
+ * 用所属记下的一条的 `claimId` 兜底，界面据此回退到来源抽屉。
+ */
+export const KgReasoningStep = z.object({
+  kind: z.enum(["premise", "inference"]),
+  text: z.string().min(1),
+  evidenceIds: z.array(z.string()),
+  sourceKinds: z.array(ProjectEvidenceSourceKind),
+  claimId: z.string().optional(),
+}).strict();
+export type KgReasoningStep = z.infer<typeof KgReasoningStep>;
+
+/** 一条猜测 / 决定的推理链：前提在前、推论最后；没有任何前提的不出链（它会出现在缺口里）。 */
+export const KgReasoningChain = z.object({
+  claimId: z.string(),
+  statement: z.string(),
+  steps: z.array(KgReasoningStep).min(1),
+}).strict();
+export type KgReasoningChain = z.infer<typeof KgReasoningChain>;
+
 /** 大脑页最多列出的会话数（按最近活动倒序）。 */
 export const KG_BRAIN_THREADS_LIMIT = 50;
+
+/* ────────────────────────────────────────────────────────────────────── *
+ * 二·五、「关于我」画像与新会话开场简报（issue #4360 / #4362，S5，待人类签核）
+ * ────────────────────────────────────────────────────────────────────── */
+
+/**
+ * 「关于我」四组（issue #4360）。分组规则只有 `kgProfileSection` 一份实现：/brain 的「关于我」、召回时每轮带上的
+ * 画像摘要都从这里判，不各写一份。
+ *   - goals：目标（`goal`）；preferences：偏好（`preference`）；
+ *   - identity「约束与身份」：本人以第一人称单数说自己的事实 / 风险（「我是中学老师」「我每周只有周末有空」）——
+ *     没有单独的结论类型，按类型 + 句式判；「我们…」是集体口吻，不算；
+ *   - doing「在做的事」：个人空间里的决定与待办（可以挂到某个目标下，`serves_goal`）。
+ * 其余（关于别人 / 别的事的事实、猜测）不进画像，仍在长期记忆的列表里。
+ */
+export const KgProfileSection = z.enum(["goals", "preferences", "identity", "doing"]);
+export type KgProfileSection = z.infer<typeof KgProfileSection>;
+export const KG_PROFILE_SECTION_LABEL_ZH: Record<KgProfileSection, string> = {
+  goals: "目标",
+  preferences: "偏好",
+  identity: "约束与身份",
+  doing: "在做的事",
+};
+
+/** 一条个人空间结论属于「关于我」的哪一组；不属于画像 ⇒ null。 */
+export function kgProfileSection(kind: KgClaimKind, statement: string): KgProfileSection | null {
+  if (kind === "goal") return "goals";
+  if (kind === "preference") return "preferences";
+  if (kind === "decision" || kind === "todo") return "doing";
+  if (kind === "fact" || kind === "risk") return /^我(?!们)/.test(statement.normalize("NFKC").trim()) ? "identity" : null;
+  return null;
+}
+
+/** 开场简报（issue #4362）的三段。 */
+export const KgBriefingSection = z.enum(["recent", "open_todos", "unresolved"]);
+export type KgBriefingSection = z.infer<typeof KgBriefingSection>;
+export const KG_BRIEFING_SECTION_LABEL_ZH: Record<KgBriefingSection, string> = {
+  recent: "上次在做的事",
+  open_todos: "没做完的待办",
+  unresolved: "还没定下来的",
+};
+/** 简报的上限：条数、每条原文字数、续上预填字数——简报是开场的一眼，不是第二个记忆面板（token 上限）。 */
+export const KG_BRIEFING_MAX_ITEMS = 6;
+export const KG_BRIEFING_STATEMENT_MAX_CHARS = 80;
+export const KG_BRIEFING_PROMPT_MAX_CHARS = 240;
+
+export const KgBriefingItem = z.object({
+  /** 稳定 id（埋点用）：`<section>:<claimId 或 promptId>` */
+  itemId: z.string(),
+  section: KgBriefingSection,
+  kind: KgClaimKind,
+  /** unresolved 段：这张卡是矛盾卡还是「可能改口」卡（#4290）；其余段为 null */
+  cardKind: KgConflictPromptKind.nullable(),
+  /** 原文（超长截断，带省略号） */
+  statement: z.string().min(1),
+  /** unresolved 段：另一条说法（旧的那条）；其余段为 null */
+  counterpart: z.object({ claimId: z.string(), statement: z.string() }).strict().nullable(),
+  /** 这条决定 / 待办挂在哪个目标下（`serves_goal`）；没挂为 null */
+  goal: z.object({ claimId: z.string(), statement: z.string() }).strict().nullable(),
+  /** 最早说出来的时间（ISO），界面显示「来自你 M/D 的对话」 */
+  saidAt: z.string().nullable(),
+  /**
+   * 引用：续上时预填的首问所依据的那条记忆。`threadId` 只给查看者本人的个人对话（点开看原话）；
+   * 来自别处（项目会话晋升来的等）为 null。
+   */
+  cite: z.object({
+    claimId: z.string(),
+    scope: z.enum(["chat_session", "personal"]),
+    threadId: z.string().nullable(),
+  }).strict(),
+  /** 「续上」预填进输入框的首问（服务端生成，逐字引用记忆原文） */
+  resumePrompt: z.string().min(1).max(KG_BRIEFING_PROMPT_MAX_CHARS),
+}).strict();
+export type KgBriefingItem = z.infer<typeof KgBriefingItem>;
+
+export const KgSessionBriefing = z.object({
+  /** 本人关掉了开场简报（偏好记在服务端）⇒ true，此时 items 恒为空 */
+  dismissed: z.boolean(),
+  items: z.array(KgBriefingItem).max(KG_BRIEFING_MAX_ITEMS),
+}).strict();
+export type KgSessionBriefing = z.infer<typeof KgSessionBriefing>;
+
+/** 简报埋点（北极星指标用）：展示、采纳（点了「续上」）、关闭。 */
+export const KgBriefingEvent = z.enum(["shown", "accepted", "dismissed"]);
+export type KgBriefingEvent = z.infer<typeof KgBriefingEvent>;
 
 /* ────────────────────────────────────────────────────────────────────── *
  * 三、封闭错误码（usecases.md 各 UC 的 err 行）
@@ -464,9 +784,17 @@ export const KgErrorCode = z.enum([
   "KG_CARD_NOT_FOUND",
   "KG_CARD_STALE",
   "KG_PROMPT_NOT_FOUND",
+  /** S10（#4367）「分享到项目…」：目标项目不存在，或分享人不是它的成员（同一个出口，不泄露存在性；HTTP 404）。 */
+  "KG_PROJECT_NOT_FOUND",
+  /** S10（#4367）：分享人在目标项目里只是观察者（只有 read.published），或项目已归档（HTTP 403）。 */
+  "KG_PROJECT_READ_ONLY",
   /** issue #4178 —— `setKnowledgeExtractionSetting` 仅组织 admin，同 `plan-permissions`
    *  `StandingToolGrantError.NOT_ORG_ADMIN` 同一判据（`org_memberships.orgRole !== 'admin'`）。 */
   "KG_NOT_ORG_ADMIN",
+  /** S8（#4365）：要撤销的整合运行不存在 / 不是本人的 / 已经撤销过（同一个出口，不区分——不能借它探测别人的运行）。 */
+  "KG_CONSOLIDATION_RUN_NOT_FOUND",
+  /** S8：部署的记忆整合开关关着（默认关），「现在整合一次」不跑。 */
+  "KG_CONSOLIDATION_DISABLED",
 ]);
 export type KgErrorCode = z.infer<typeof KgErrorCode>;
 
@@ -531,6 +859,99 @@ export const SetPlatformExtractionSettingInput = z.object({
   enabled: z.boolean(),
 }).strict();
 export type SetPlatformExtractionSettingInput = z.infer<typeof SetPlatformExtractionSettingInput>;
+
+/**
+ * S8（#4365，epic #4359）—— 个人空间的记忆整合。一次「运行」= 对一个人个人空间的一次整合，每处改动一条：
+ * - `claim_merge`：两条说的是同一件事，保留 `kept`，`other` 合进来（来源全部保留，`other` 软失效）；
+ * - `entity_merge`：同一实体的两种写法，`other` 合进 `kept`（边改指向、别名并入）；
+ * - `conflict_opened`：两条彼此矛盾，开了一张 F16 冲突卡（`kept` = 旧的，`other` = 新的），**不裁决**，等人在卡上选。
+ * 每处改动都能撤销（`undoConsolidationRun` 按运行整体撤销）；前提变了的那一处记 `undo_skipped` + 原因。
+ */
+export const KgConsolidationChangeKind = z.enum(["claim_merge", "entity_merge", "conflict_opened"]);
+export type KgConsolidationChangeKind = z.infer<typeof KgConsolidationChangeKind>;
+
+export const KgConsolidationChange = z.object({
+  changeId: z.string(),
+  kind: KgConsolidationChangeKind,
+  state: z.enum(["applied", "undone", "undo_skipped"]),
+  /** 结论去重的依据：exact（归一后相同）/ semantic（向量 + 字面）/ lexical（只看字面）；实体为 name；矛盾为 conflict。 */
+  basis: z.string().nullable(),
+  kept: z.object({ id: z.string(), text: z.string().nullable() }).strict(),
+  other: z.object({ id: z.string(), text: z.string().nullable() }).strict(),
+  /** 矛盾卡挂在哪个对话（本人的个人对话）；其余为 null。 */
+  threadId: z.string().nullable(),
+  /** 撤销时这一处没能还原的原因（人话）。 */
+  undoNote: z.string().nullable(),
+}).strict();
+export type KgConsolidationChange = z.infer<typeof KgConsolidationChange>;
+
+export const KgConsolidationRun = z.object({
+  runId: z.string(),
+  createdAt: z.string(),
+  state: z.enum(["applied", "undone", "partially_undone"]),
+  undoneAt: z.string().nullable(),
+  /** 判出矛盾、但新的那条在本人个人对话里找不到来源、没法挂卡的对数（只计数，不裁决）。 */
+  conflictsUnsurfaced: z.number().int().nonnegative(),
+  changes: z.array(KgConsolidationChange),
+}).strict();
+export type KgConsolidationRun = z.infer<typeof KgConsolidationRun>;
+
+/** 本人整合记录一次最多列出的运行数。 */
+export const KG_CONSOLIDATION_RUNS_LIMIT = 20;
+
+/** S8：部署级记忆整合开关（`kg_consolidation_state`，**默认关**，平台运营准入可切换）。 */
+export const KgConsolidationSetting = z.object({ enabled: z.boolean() }).strict();
+export type KgConsolidationSetting = z.infer<typeof KgConsolidationSetting>;
+
+/** 平台「现在整合一次」的结果：处理了几个人、落了几处改动。只有计数，不含任何人的内容。 */
+export const KgConsolidationPassResult = z.object({
+  users: z.number().int().nonnegative(),
+  claimMerges: z.number().int().nonnegative(),
+  entityMerges: z.number().int().nonnegative(),
+  conflicts: z.number().int().nonnegative(),
+  conflictsUnsurfaced: z.number().int().nonnegative(),
+  failedUsers: z.number().int().nonnegative(),
+}).strict();
+export type KgConsolidationPassResult = z.infer<typeof KgConsolidationPassResult>;
+
+/**
+ * S8：记忆抽取 SLO（平台运营准入可读）。延迟 / 失败率 / 门控计数是**本实例**最近一小时（进程内，重启归零）；
+ * 卡住的租约、死信、积压是全库现数。`alerts` 非空 ⇒ 超阈值（管理页出横幅，worker 记 error 日志）。
+ */
+export const KgExtractionSloMetric = z.enum(["p95_latency", "failure_rate", "stuck_leases"]);
+export type KgExtractionSloMetric = z.infer<typeof KgExtractionSloMetric>;
+export const KgExtractionSlo = z.object({
+  windowSeconds: z.number().int().positive(),
+  processed: z.number().int().nonnegative(),
+  modelJobs: z.number().int().nonnegative(),
+  failed: z.number().int().nonnegative(),
+  p95LatencyMs: z.number().nonnegative().nullable(),
+  failureRate: z.number().min(0).max(1).nullable(),
+  stuckLeases: z.number().int().nonnegative(),
+  deadLetters: z.number().int().nonnegative(),
+  backlog: z.number().int().nonnegative(),
+  oldestPendingSeconds: z.number().int().nonnegative(),
+  gate: z.object({
+    skippedByReason: z.object({
+      greeting: z.number().int().nonnegative(),
+      acknowledgement: z.number().int().nonnegative(),
+      pure_question: z.number().int().nonnegative(),
+      model_not_worth: z.number().int().nonnegative(),
+    }).strict(),
+    modelCallsSaved: z.number().int().nonnegative(),
+    modelCalls: z.number().int().nonnegative(),
+    gateModelEnabled: z.boolean(),
+    gateModelChecks: z.number().int().nonnegative(),
+    gateModelErrors: z.number().int().nonnegative(),
+  }).strict(),
+  thresholds: z.object({
+    p95LatencyMs: z.number().positive(),
+    failureRate: z.number().min(0).max(1),
+    stuckLeases: z.number().int().nonnegative(),
+  }).strict(),
+  alerts: z.array(z.object({ metric: KgExtractionSloMetric, value: z.number(), threshold: z.number() }).strict()),
+}).strict();
+export type KgExtractionSlo = z.infer<typeof KgExtractionSlo>;
 
 /* ────────────────────────────────────────────────────────────────────── *
  * 四、API 操作（usecases.md UC-KG-1 … UC-KG-7）
@@ -640,6 +1061,47 @@ export const knowledgeGraph = {
   },
 
   /**
+   * S10（#4367）「分享到项目…」第一步：这条个人结论能分享到哪些项目、每个项目里**谁会看到**（范围预览）。
+   * 只有这条个人结论的主人能读；别人的个人结论与不存在同一个出口 `KG_CLAIM_NOT_FOUND`（404，人类决定 2026-09-27）。
+   * `targets`：本人是成员（且不是观察者）、未归档的项目；`sharedClaimId` 非空 ⇒ 已经分享过，项目里那份可撤回。
+   */
+  listProjectShareTargets: {
+    method: "GET", path: "/knowledge-graph/personal/claims/:claimId/share-targets",
+    in: z.object({ claimId: z.string() }).strict(),
+    out: z.object({
+      claimId: z.string(),
+      statement: z.string(),
+      targets: z.array(KgProjectShareTarget),
+    }).strict(),
+    err: ["KG_CLAIM_NOT_FOUND"] as const,
+  },
+
+  /**
+   * S10（#4367）：把本人的一条个人结论**显式**分享到项目记忆（L1 → L2 派生副本，derived_from 连回，保留作者）。
+   * 个人空间原件不动。已经分享过 ⇒ `already_shared`，交回那一份（幂等）。
+   */
+  shareToProject: {
+    method: "POST", path: "/knowledge-graph/personal/claims/:claimId/share",
+    in: z.object({ claimId: z.string(), projectId: z.string() }).strict(),
+    out: z.object({ projectClaimId: z.string(), outcome: z.enum(["shared", "already_shared"]) }).strict(),
+    err: [
+      "KG_CLAIM_NOT_FOUND", "KG_PROJECT_NOT_FOUND", "KG_PROJECT_READ_ONLY", "KG_CONTESTED_NEEDS_RESOLUTION", "KG_ACTOR_NOT_HUMAN",
+      "KG_SCOPE_NOT_ENABLED",
+    ] as const,
+  },
+
+  /**
+   * S10（#4367）：撤回分享——项目里那份失效（F07 级联收掉它的边），个人空间原件不动。
+   * 只有主人能撤；没分享过 / 已撤回 ⇒ `KG_CLAIM_NOT_FOUND`。
+   */
+  unshareFromProject: {
+    method: "POST", path: "/knowledge-graph/personal/claims/:claimId/unshare",
+    in: z.object({ claimId: z.string(), projectId: z.string() }).strict(),
+    out: z.object({ projectClaimId: z.string() }).strict(),
+    err: ["KG_CLAIM_NOT_FOUND", "KG_ACTOR_NOT_HUMAN"] as const,
+  },
+
+  /**
    * 项目中枢 R7：晋升到**项目记忆**（L0 → L2，复制 + derived_from 连边，与 `promoteToPersonal` 同构）。
    * 只对项目线程；创建者或本项目引导师可做（同 R5 分享的判据：看得见 ≠ 能替项目记下）。
    * 结果形状复用 `KgPromotionItemResult`——`personalClaimId` 字段在这里装的是**项目层**结论 id（不另开一套形状）。
@@ -729,6 +1191,62 @@ export const knowledgeGraph = {
     err: ["KG_THREAD_NOT_FOUND", "KG_NOT_VISIBLE", "KG_CLAIM_NOT_FOUND", "KG_ACTOR_NOT_HUMAN"] as const,
   },
 
+  /**
+   * issue #4363（S6）：改一条待办的状态（open / done / dropped；人的动作，Agent 身份拒绝）。**只有所有者**：
+   * 会话里的待办 = 会话创建者，个人空间的 = 空间主人。同一件待办在会话与个人空间各有一份（derived_from 相连）时一起改，
+   * `claimIds` 列出实际改到的（含它自己）。不存在 / 不是待办 / 已失效 / 不是所有者 ⇒ 同一个 `KG_CLAIM_NOT_FOUND`
+   * （不让人探测别人的会话或空间里有没有这条）。对话里说「那个做完了」尚未接线（后续工作：S4 的改口意图应调用同一个领域操作）。
+   */
+  setTodoStatus: {
+    method: "POST", path: "/knowledge-graph/claims/:claimId/todo-status",
+    in: z.object({ claimId: z.string(), status: KgTodoStatus }).strict(),
+    out: z.object({ claimId: z.string(), status: KgTodoStatus, claimIds: z.array(z.string()) }).strict(),
+    err: ["KG_CLAIM_NOT_FOUND", "KG_ACTOR_NOT_HUMAN"] as const,
+  },
+
+  /**
+   * S7（#4364，待签核：按已批准处理、事后补签）：纠正回答下的一条引用（「这条不对」/「已过时」）。人的动作；
+   * 只给对话所有者、且是这一轮的提问人（`KG_NOT_OWNER`）。`claimId` 必须是这一轮**对账后**的引用之一
+   * （`getTurnMemory.cited`），否则同一个 `KG_CLAIM_NOT_FOUND`（不泄露别的结论是否存在）。
+   * `replacement` 只配 `wrong`（配 `expired` ⇒ 400 `KG_INVALID_REQUEST`）。结果：`forgotten`（忘掉）/ `superseded`（新说法 `newClaimId` 取代旧的）/ `expired`。
+   */
+  correctCitation: {
+    method: "POST", path: "/knowledge-graph/threads/:threadId/messages/:messageId/citations/:claimId/correction",
+    in: z.object({
+      threadId: z.string(),
+      messageId: z.string(),
+      claimId: z.string(),
+      kind: KgCitationCorrectionKind,
+      replacement: z.string().trim().min(1).max(2000).optional(),
+    }).strict(),
+    out: z.object({
+      outcome: z.enum(["forgotten", "superseded", "expired"]),
+      newClaimId: z.string().nullable(),
+    }).strict(),
+    err: ["KG_THREAD_NOT_FOUND", "KG_NOT_VISIBLE", "KG_NOT_OWNER", "KG_CLAIM_NOT_FOUND", "KG_ACTOR_NOT_HUMAN"] as const,
+  },
+
+  /**
+   * S7（#4364，待签核：按已批准处理、事后补签）：本人的引用纠正率——质量信号（黄金集 / 北极星面板读它）。
+   * 口径：最近 `windowDays` 天里本人提问的回答，`citedUses` = 对账后的引用条数合计（同 `getTurnMemory.cited` 的判据），
+   * `corrections` = 本人对引用点的「这条不对」/「已过时」次数；`correctionRate` = 纠正 / 引用，没有引用时为 null。
+   * 只读本人的（个人空间的结论只给本人，I-14）；不是组织成员 ⇒ 全 0，不是错误。
+   */
+  getCitationMetrics: {
+    method: "GET", path: "/knowledge-graph/me/citation-metrics",
+    in: z.object({}).strict(),
+    out: z.object({
+      windowDays: z.number().int().positive(),
+      citedUses: z.number().int().nonnegative(),
+      corrections: z.object({
+        wrong: z.number().int().nonnegative(),
+        expired: z.number().int().nonnegative(),
+      }).strict(),
+      correctionRate: z.number().min(0).nullable(),
+    }).strict(),
+    err: [] as const,
+  },
+
   /** UC-KG-12：对「记住 / 忘掉」确认卡做决定（人的动作；Agent 身份拒绝） */
   actOnMemoryCard: {
     method: "POST", path: "/knowledge-graph/cards/:cardId",
@@ -742,6 +1260,18 @@ export const knowledgeGraph = {
     }).strict(),
     out: z.object({ card: KgMemoryCard, actionIds: z.array(z.string()) }).strict(),
     err: ["KG_CARD_NOT_FOUND", "KG_CARD_STALE", "KG_NOT_OWNER", "KG_ACTOR_NOT_HUMAN", "KG_CONTESTED_NEEDS_RESOLUTION"] as const,
+  },
+
+  /**
+   * UC-KG-12b（issue #4361）：撤销一张已生效的「忘掉」卡（人的动作；Agent 身份拒绝）。只恢复这张卡忘掉的、
+   * 现在仍是「因忘掉而失效」的那些（连同 F07 级联一起收掉的长期记忆副本与关系）；卡转 `undone`。
+   * 别人的卡 / 不存在的卡同一个出口 KG_CARD_NOT_FOUND（404，不泄露存在性）；已撤销 / 没生效 / 不是忘掉卡 ⇒ KG_CARD_STALE。
+   */
+  undoMemoryCard: {
+    method: "POST", path: "/knowledge-graph/cards/:cardId/undo",
+    in: z.object({ cardId: z.string() }).strict(),
+    out: z.object({ card: KgMemoryCard, actionIds: z.array(z.string()) }).strict(),
+    err: ["KG_CARD_NOT_FOUND", "KG_CARD_STALE", "KG_NOT_OWNER", "KG_ACTOR_NOT_HUMAN"] as const,
   },
 
   /** UC-KG-7：读本人个人空间（L1）的知识 —— 只有本人 */
@@ -777,8 +1307,33 @@ export const knowledgeGraph = {
       edges: z.array(KgEdge),
       /** B2-S4：调用者是本组织 lead / admin，可以把这里的条目记到组织记忆（`promoteToOrg`）；缺省 = 不能（旧响应）。 */
       canPromoteToOrg: z.boolean().optional(),
+      /** S10（#4367）：`claims` 里由成员从个人记忆分享来的那些 ⇒ 分享人（界面标「由 X 分享自个人记忆」）；缺省 = 没有（旧响应） */
+      sharedFromPersonal: z.array(KgProjectSharedFrom).optional(),
+      /** B3-T4（#4498）：由成员采纳为项目决策的记录（决策条目 → 采纳自哪条 + 理由）；缺省 = 没有（旧响应） */
+      adoptedDecisions: z.array(KgAdoptedDecision).optional(),
     }).strict(),
     err: ["KG_NOT_VISIBLE"] as const,
+  },
+
+  /**
+   * B3-T4（issue #4498）：把项目记忆里的一条 fact / hypothesis **采纳为项目决策**——新建一条 `decision` 类条目
+   * （陈述照抄、证据锚点全部复制、derived_from 连回来源），并在 `ontology_actions` 记一笔带理由的
+   * `adoptProjectDecision`（`getProjectKnowledge.adoptedDecisions` 从它读）。
+   * 谁能做：项目成员且不是观察者（观察者只有 read.published ⇒ `KG_NOT_OWNER`，沿用现有码不新增）；非成员 `KG_NOT_VISIBLE`。
+   * 来源必须是本项目项目作用域里活着的 fact / hypothesis（其余类型 / 不在项目记忆里 ⇒ `KG_CLAIM_NOT_FOUND`），
+   * 且没有未解的矛盾（`KG_CONTESTED_NEEDS_RESOLUTION`）。人的动作：Agent 身份 `KG_ACTOR_NOT_HUMAN`。
+   */
+  adoptProjectDecision: {
+    method: "POST", path: "/knowledge-graph/projects/:projectId/decisions",
+    in: z.object({
+      projectId: z.string(),
+      claimId: z.string(),
+      rationale: z.string().min(1).max(KG_ADOPT_RATIONALE_MAX),
+    }).strict(),
+    out: z.object({ decisionClaimId: z.string(), actionId: z.string() }).strict(),
+    err: [
+      "KG_NOT_VISIBLE", "KG_NOT_OWNER", "KG_ACTOR_NOT_HUMAN", "KG_CLAIM_NOT_FOUND", "KG_CONTESTED_NEEDS_RESOLUTION",
+    ] as const,
   },
 
   /**
@@ -794,6 +1349,24 @@ export const knowledgeGraph = {
       objects: z.array(KgObject),
       claims: z.array(KgClaim),
       edges: z.array(KgEdge),
+    }).strict(),
+    err: ["KG_NOT_VISIBLE"] as const,
+  },
+
+  /**
+   * B3-T3（issue #4497）：**项目大脑的跨来源推理**只读——对 `getProjectKnowledge` 同一份项目记忆做确定性推理：
+   * 跨来源冲突 / 缺口建议 / 带引用的推理链（形状见 `KgReasoningConflict` / `KgReasoningGap` / `KgReasoningChain`）。
+   * 可见性与 `getProjectKnowledge` 完全相同（项目成员含观察者；非成员 `KG_NOT_VISIBLE` 403）。
+   * 空项目 ⇒ 三个空数组，不是错误。`computedAt` 是服务端算出这份结果的时刻（ISO 8601）——结果不落库，每次现算。
+   */
+  getProjectReasoning: {
+    method: "GET", path: "/knowledge-graph/projects/:projectId/reasoning",
+    in: z.object({ projectId: z.string() }).strict(),
+    out: z.object({
+      conflicts: z.array(KgReasoningConflict),
+      gaps: z.array(KgReasoningGap),
+      chains: z.array(KgReasoningChain),
+      computedAt: z.string(),
     }).strict(),
     err: ["KG_NOT_VISIBLE"] as const,
   },
@@ -855,5 +1428,108 @@ export const knowledgeGraph = {
     in: SetPlatformExtractionSettingInput,
     out: KgDeploymentExtractionSetting,
     err: ["NOT_PLATFORM_SUPERUSER"] as const,
+  },
+
+  /**
+   * issue #4360「关于我」：本人把个人空间里的一条决定 / 待办挂到自己的一个目标下（`goalClaimId`），或摘掉（null）。
+   * 人的动作（Agent 身份拒绝）；两端都必须是调用者本人个人空间里的活结论、类型对得上，否则同一个 `KG_CLAIM_NOT_FOUND`。
+   * 一条同一时刻最多挂一个目标：改挂 = 旧的那条边失效、新建一条。
+   */
+  setGoalLink: {
+    method: "PUT", path: "/knowledge-graph/personal/claims/:claimId/goal",
+    in: z.object({ claimId: z.string(), goalClaimId: z.string().nullable() }).strict(),
+    out: z.object({ claimId: z.string(), goalClaimId: z.string().nullable() }).strict(),
+    err: ["KG_NOT_VISIBLE", "KG_CLAIM_NOT_FOUND", "KG_ACTOR_NOT_HUMAN", "KG_SCOPE_NOT_ENABLED"] as const,
+  },
+
+  /**
+   * issue #4360「关于我」：直接改写本人个人空间里的一条（人的动作）。新说法记成「你确认过」的新一条、旧的那条被它取代
+   * （/brain 折叠显示「取代了：…」）；来源（derived_from）、挂接（serves_goal，两个方向）一并转到新的一条上——
+   * 改一个目标，挂在它下面的决定 / 待办跟着走。有矛盾的那条要先在对话里处理矛盾（`KG_CONTESTED_NEEDS_RESOLUTION`）。
+   * 时间字段（S6）：有效期、截止、待办状态都以旧的那条为准（改的是说法，不是「做完没有」）。
+   *
+   * 与别的轮次的交互（#4494 review，均不改行为，写在这里以免被当成缺陷「修」掉）：
+   *   - M2（S10 分享到项目，**人类决定 2026-09-28**）：旧的那条若分享到过项目，改写会让项目里那份副本随之撤回
+   *     （`personal_source_revoked`），副本**不**跟到新的一条上；要让同事看到新说法，本人重新分享一次。
+   *   - M3（S7 引用纠正）：这里**带着** derived_from 转到新的一条——改写是同一条记忆换个说法，「出自哪次对话」照旧，
+   *     原对话里那条之后被忘掉 / 撤回时新的一条也随 F07 一起收掉（与改写前一致）。S7「这条不对」给新说法时**不带**
+   *     derived_from，因为那是在说旧说法错了，新说法不是从它「记过来」的。两条规则各自成立，不要合并。
+   */
+  revisePersonalClaim: {
+    method: "POST", path: "/knowledge-graph/personal/claims/:claimId/revise",
+    in: z.object({ claimId: z.string(), statement: z.string().trim().min(1).max(2000) }).strict(),
+    out: z.object({ claimId: z.string() }).strict(),
+    err: ["KG_NOT_VISIBLE", "KG_CLAIM_NOT_FOUND", "KG_ACTOR_NOT_HUMAN", "KG_CONTESTED_NEEDS_RESOLUTION"] as const,
+  },
+
+  /**
+   * issue #4362：新个人对话空状态里的开场简报——只读查看者本人个人空间（长期记忆 + 本人个人对话里记下的待办 +
+   * 本人个人对话里还开着的矛盾 / 可能改口卡），不读别人、不读项目会话。有上限（`KG_BRIEFING_*`），服务端有查询超时；
+   * 没有可说的 ⇒ items 为空（界面不显示）。本人关掉过 ⇒ `dismissed: true`、items 为空。
+   */
+  getSessionBriefing: {
+    method: "GET", path: "/knowledge-graph/briefing",
+    in: z.object({}).strict(),
+    out: KgSessionBriefing,
+    err: ["KG_NOT_VISIBLE"] as const,
+  },
+  /** 关掉 / 重新打开开场简报（本人的偏好，记在服务端）。 */
+  setSessionBriefingPreference: {
+    method: "PUT", path: "/knowledge-graph/briefing/preference",
+    in: z.object({ dismissed: z.boolean() }).strict(),
+    out: z.object({ dismissed: z.boolean() }).strict(),
+    err: ["KG_NOT_VISIBLE"] as const,
+  },
+  /** 简报埋点：展示 / 采纳 / 关闭。只记本人自己的一行，不回任何内容。 */
+  recordSessionBriefingEvent: {
+    method: "POST", path: "/knowledge-graph/briefing/events",
+    in: z.object({
+      event: KgBriefingEvent,
+      itemIds: z.array(z.string().max(200)).max(KG_BRIEFING_MAX_ITEMS),
+    }).strict(),
+    out: z.object({ recorded: z.literal(true) }).strict(),
+    err: ["KG_NOT_VISIBLE"] as const,
+  },
+
+  /** S8（#4365）：记忆抽取 SLO（p95 延迟、失败率、卡住的租约 + 门控省下的调用）。平台运营准入。 */
+  getPlatformExtractionSlo: {
+    method: "GET", path: "/platform/knowledge-graph/extraction-slo",
+    in: z.object({}).strict(),
+    out: KgExtractionSlo,
+    err: ["NOT_PLATFORM_SUPERUSER"] as const,
+  },
+  /** S8：部署级记忆整合开关（默认关）。平台运营准入读写。 */
+  getPlatformConsolidationSetting: {
+    method: "GET", path: "/platform/knowledge-graph/consolidation-setting",
+    in: z.object({}).strict(),
+    out: KgConsolidationSetting,
+    err: ["NOT_PLATFORM_SUPERUSER"] as const,
+  },
+  setPlatformConsolidationSetting: {
+    method: "PUT", path: "/platform/knowledge-graph/consolidation-setting",
+    in: KgConsolidationSetting,
+    out: KgConsolidationSetting,
+    err: ["NOT_PLATFORM_SUPERUSER"] as const,
+  },
+  /** S8：现在整合一次（与定时任务同一条路径；开关关着 ⇒ `KG_CONSOLIDATION_DISABLED` 409）。只回计数。 */
+  runPlatformConsolidation: {
+    method: "POST", path: "/platform/knowledge-graph/consolidation/run",
+    in: z.object({}).strict(),
+    out: KgConsolidationPassResult,
+    err: ["NOT_PLATFORM_SUPERUSER", "KG_CONSOLIDATION_DISABLED"] as const,
+  },
+  /** S8：本人的整合记录（只有本人；空不是错误）。 */
+  listMyConsolidationRuns: {
+    method: "GET", path: "/knowledge-graph/me/consolidations",
+    in: z.object({}).strict(),
+    out: z.object({ runs: z.array(KgConsolidationRun).max(KG_CONSOLIDATION_RUNS_LIMIT) }).strict(),
+    err: ["KG_NOT_VISIBLE"] as const,
+  },
+  /** S8：撤销一次整合（人的动作；只有本人）。前提变了的那几处记 `undo_skipped`，其余照常还原。 */
+  undoConsolidationRun: {
+    method: "POST", path: "/knowledge-graph/me/consolidations/:runId/undo",
+    in: z.object({ runId: z.string() }).strict(),
+    out: z.object({ run: KgConsolidationRun }).strict(),
+    err: ["KG_NOT_VISIBLE", "KG_CONSOLIDATION_RUN_NOT_FOUND", "KG_ACTOR_NOT_HUMAN"] as const,
   },
 } as const;

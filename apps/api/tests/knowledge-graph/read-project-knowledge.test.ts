@@ -13,7 +13,7 @@ import { toOrgId } from "../../src/domain/org-id";
 const ORG = toOrgId("org-r8");
 const PROJECT = "p-r8";
 const DATA: ProjectKnowledgeData = {
-  revision: 2, objects: [], edges: [],
+  revision: 2, objects: [], edges: [], sharedFromPersonal: [],
   claims: [{
     id: "c1", scope: { kind: "project", id: PROJECT }, kind: "decision", statement: "先做德国工商业", status: "accepted", triState: "confirmed",
     confidence: 1, createdBy: "human", reviewedBy: "u-fac", supersedesClaimId: null, derivedFromClaimId: "c0",

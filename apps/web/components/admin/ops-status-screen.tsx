@@ -3,6 +3,7 @@ import * as React from "react";
 import { Loader2 } from "lucide-react";
 import { AdminScreen } from "./admin-screen";
 import { PlatformExtractionSettingPanel } from "./platform-extraction-setting-panel";
+import { ConsolidationSettingPanel, ExtractionSloPanel } from "./memory-ops-panels";
 import { Button } from "@/components/ui/button";
 import { ApiError } from "@/lib/api-client";
 import { sendTestEmail, type SendTestEmailOut } from "@/lib/live-system-errors";
@@ -35,6 +36,9 @@ import type { UiState } from "@/lib/ui-state";
  *
  * 2026-09-26（issue #4247）新增「记忆抽取（整个部署）」面板——PR #4200 把部署级抽取开关
  * 搬进库后的平台管理入口，见 `platform-extraction-setting-panel.tsx` 头注。
+ *
+ * 2026-09-27（issue #4365，S8）紧挨着它加「记忆抽取 SLO」（p95 延迟 / 失败率 / 卡住的租约，超阈值出横幅）与
+ * 「记忆整合（整个部署）」开关（默认关），见 `memory-ops-panels.tsx` 头注。
  */
 export function OpsStatusScreen({ state }: { state: UiState }) {
   return (
@@ -54,6 +58,8 @@ export function OpsStatusScreen({ state }: { state: UiState }) {
         <TestMailPanel />
         <PasswordResetThrottlePanel />
         <PlatformExtractionSettingPanel />
+        <ExtractionSloPanel />
+        <ConsolidationSettingPanel />
       </div>
     </AdminScreen>
   );

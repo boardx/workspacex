@@ -6,6 +6,8 @@ import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { sessionTotals } from "@/lib/brain-view";
 import type { PersonalKnowledge } from "@/lib/knowledge-graph-api";
+import { AboutMe } from "./about-me";
+import { ConsolidationHistory } from "./consolidation-history";
 import { PersonalMemory } from "./personal-memory";
 import { SessionMemory } from "./session-memory";
 import { SharedLayers } from "./shared-layers";
@@ -14,6 +16,7 @@ import { useBrainData, type BrainData } from "./use-brain-data";
 /**
  * 大脑（/brain）—— 只显示登录者自己的真实记忆（2026-09-24 人类指令「取消所有的 mockup 的数据」）。
  *
+ *   · 关于我（issue #4360）：长期记忆里描述「你」的条目，按目标 / 偏好 / 约束与身份 / 在做的事分组，可改写、忘掉、挂到目标；
  *   · 我的长期记忆：个人空间里记下的每一条（按类型），带「来自你 {M/D} 的对话」、每条能点回它出自的对话；
  *     被改口取代的旧记忆折叠在新的那条下面；可以「忘掉这条」「撤销取代」（issue #4302，人类决定 2026-09-26）；
  *   · 对话里的记忆：每个记下了东西的对话一行计数，点进去就是那个对话的「记忆」页签；
@@ -82,13 +85,17 @@ export function BrainView({ state, reload, refresh }: { state: BrainData; reload
             </TabsTrigger>
             <TabsTrigger value="shared" data-testid="brain-tab-shared">项目与组织</TabsTrigger>
           </TabsList>
-          <TabsContent value="personal">
+          <TabsContent value="personal" className="flex flex-col gap-4">
+            {/* issue #4360：个人空间顶部的「关于我」——目标 / 偏好 / 约束与身份 / 在做的事 */}
+            <AboutMe personal={state.personal} origins={state.overview.personalOrigins} onChanged={refresh} />
             <PersonalMemory
               personal={state.personal}
               origins={state.overview.personalOrigins}
               onShowSessions={() => setTab("sessions")}
               onChanged={refresh}
             />
+            {/* S8（#4365）：后台记忆整合的记录与撤销；没有记录时不出现。 */}
+            <ConsolidationHistory onChanged={refresh} />
           </TabsContent>
           <TabsContent value="sessions">
             <SessionMemory threads={state.overview.threads} />

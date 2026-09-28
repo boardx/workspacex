@@ -349,14 +349,19 @@ function createProjectionEntry(object: BoardFabricObject, readOnly: boolean): { 
   }
 }
 
-function geometryFromFabric(projected: TaggedFabricObject, canonical?: BoardFabricObject, useSceneBounds = false): BoardFabricGeometry {
+// Canonical geometry accepts subpixel coordinates. Integer rounding changes a
+// pure translation whenever a frame center, resize or imported object is fractional.
+// Keep micro-unit precision while removing matrix decomposition floating-point noise.
+const canonicalTransformNumber = (value: number) => Math.round(value * 1_000_000) / 1_000_000;
+
+export function geometryFromFabric(projected: TaggedFabricObject, canonical?: BoardFabricObject, useSceneBounds = false): BoardFabricGeometry {
   const scene = useSceneBounds ? projected.getBoundingRect() : null;
   const geometry = {
-    x: Math.round(scene?.left ?? projected.left),
-    y: Math.round(scene?.top ?? projected.top),
-    width: Math.max(1, Math.round(scene?.width ?? (projected.width || 1) * projected.scaleX)),
-    height: Math.max(1, Math.round(scene?.height ?? (projected.height || 1) * projected.scaleY)),
-    rotation: Math.round(projected.angle ?? 0),
+    x: canonicalTransformNumber(scene?.left ?? projected.left),
+    y: canonicalTransformNumber(scene?.top ?? projected.top),
+    width: Math.max(1, canonicalTransformNumber(scene?.width ?? (projected.width || 1) * projected.scaleX)),
+    height: Math.max(1, canonicalTransformNumber(scene?.height ?? (projected.height || 1) * projected.scaleY)),
+    rotation: canonicalTransformNumber(projected.angle ?? 0),
   };
   if (canonical?.kind === "sticky") {
     if (canonical.sticky?.sizingMode === "auto-size") {
@@ -384,7 +389,7 @@ export function geometryFromFabricSceneTransform(projected: TaggedFabricObject):
   const radians = rotation * Math.PI / 180;
   const x = decomposition.translateX - Math.cos(radians) * width / 2 + Math.sin(radians) * height / 2;
   const y = decomposition.translateY - Math.sin(radians) * width / 2 - Math.cos(radians) * height / 2;
-  return { x: Math.round(x), y: Math.round(y), width: Math.round(width), height: Math.round(height), rotation: Math.round(rotation) };
+  return { x: canonicalTransformNumber(x), y: canonicalTransformNumber(y), width: canonicalTransformNumber(width), height: canonicalTransformNumber(height), rotation: canonicalTransformNumber(rotation) };
 }
 
 export function BoardFabricSurface({ objects, selectedObjectIds, readOnly, tool, viewport, onSelectionChange, onObjectTransform, onObjectsTransform, onViewportChange, onCanvasClick, onCanvasDoubleClick, onObjectDoubleClick, onToolDrop, onDrawingComplete, onPanelHoverChange, onObjectReparent, onObjectHoverChange, className }: BoardFabricSurfaceProps) {
