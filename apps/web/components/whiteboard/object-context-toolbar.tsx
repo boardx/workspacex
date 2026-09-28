@@ -52,6 +52,7 @@ export function ObjectContextToolbar({ object, readOnly, actorId, onStickyChange
   const thinking = record(object.extensionData?.thinkingInput), sticky = record(thinking.sticky), text = record(thinking.text);
   const experience = readObjectExperience(object);
   const [tagDraft, setTagDraft] = useState(""), [linkUrl, setLinkUrl] = useState(experience.linkPreview?.url ?? ""), [linkTitle, setLinkTitle] = useState(experience.linkPreview?.title ?? ""), [linkDescription, setLinkDescription] = useState(experience.linkPreview?.description ?? "");
+  const [expandRequest, setExpandRequest] = useState(0);
   useEffect(() => { setTagDraft(""); setLinkUrl(experience.linkPreview?.url ?? ""); setLinkTitle(experience.linkPreview?.title ?? ""); setLinkDescription(experience.linkPreview?.description ?? ""); }, [object.id, experience.linkPreview?.url, experience.linkPreview?.title, experience.linkPreview?.description]);
   const addTag = () => { const tag = tagDraft.trim().slice(0, 32); if (!tag || experience.tags.includes(tag) || experience.tags.length >= 20) return; onExperienceChange({ ...experience, tags: [...experience.tags, tag] }); setTagDraft(""); };
   const toggleReaction = (emoji: string) => { const actors = experience.reactions[emoji] ?? [], active = actors.includes(actorId); onExperienceChange({ ...experience, reactions: { ...experience.reactions, [emoji]: active ? actors.filter((id) => id !== actorId) : [...actors, actorId] } }); };
@@ -59,7 +60,7 @@ export function ObjectContextToolbar({ object, readOnly, actorId, onStickyChange
   const locked = readOnly || object.locked === true;
   const typeLabel = OBJECT_LABELS[object.kind];
   const title = object.text.trim() || (object.kind === "image" ? "图片" : object.kind === "frame" ? "未命名 Frame" : object.kind === "drawing" ? "绘图" : "未命名对象");
-  const overflowActions = actions ?? <BoardToolPopover label="更多操作" trigger={<Button variant="ghost" data-testid="board-inspector-actions" aria-label="更多操作" title="更多操作" className="min-h-11 min-w-11"><MoreHorizontal className="h-4 w-4" /></Button>}><Button data-testid="board-properties-open">精确属性</Button></BoardToolPopover>;
+  const overflowActions = actions ?? <BoardToolPopover label="更多操作" trigger={<Button variant="ghost" data-testid="board-inspector-actions" aria-label="更多操作" title="更多操作" className="min-h-11 min-w-11"><MoreHorizontal className="h-4 w-4" /></Button>}><Button data-testid="board-properties-open" onClick={() => setExpandRequest((value) => value + 1)}>精确属性</Button></BoardToolPopover>;
   const compactActions = <div role="toolbar" aria-label="对象快捷操作" data-testid="board-object-quick-actions" className="flex min-w-max items-center gap-1 px-0.5 [&_button]:min-h-11 [&_button]:min-w-11">
     {object.kind === "sticky" ? <div data-testid="board-widget-quick-format" className="flex items-center gap-1">
       <BoardToolPopover label="便利贴样式" trigger={<Button data-testid="board-sticky-style-open" size="icon" variant="ghost" className="h-11 w-11" aria-label="便利贴样式" title="便利贴样式"><span aria-hidden="true" className="h-5 w-5 rounded-full border border-border shadow-sm" style={{backgroundColor:typeof sticky.color === "string" ? sticky.color : STICKY_COLOR_PRESETS.yellow}} /></Button>}>
@@ -75,7 +76,7 @@ export function ObjectContextToolbar({ object, readOnly, actorId, onStickyChange
     {onDuplicate ? <Button size="icon" variant="ghost" className="ml-auto h-11 w-11 shrink-0" aria-label="复制对象" title="复制对象" disabled={locked} onClick={onDuplicate}><Copy className="h-4 w-4" /></Button> : null}
     {onDelete ? <Button size="icon" variant="ghost" className="h-11 w-11 shrink-0 text-destructive" aria-label="删除对象" title="删除对象" disabled={locked} onClick={onDelete}><Trash2 className="h-4 w-4" /></Button> : null}{overflowActions}
   </div>;
-  return <BoardSelectedObjectPanel object={object} title={title} typeLabel={typeLabel} readOnly={locked} onClose={onClose} onGeometryChange={onGeometryChange} panelRef={panelRef} floatingStyle={floatingStyle} compactActions={compactActions} collapsedControls={false}>
+  return <BoardSelectedObjectPanel object={object} title={title} typeLabel={typeLabel} readOnly={locked} onClose={onClose} onGeometryChange={onGeometryChange} panelRef={panelRef} floatingStyle={floatingStyle} compactActions={compactActions} collapsedControls={false} expandRequest={expandRequest}>
     <div className="space-y-3">
     <div role="toolbar" aria-label="对象快捷操作" data-testid="board-object-quick-actions" className="border-b border-border/70 pb-2.5">
       <div data-testid="board-widget-quick-format" className="flex flex-wrap items-center gap-1.5">
