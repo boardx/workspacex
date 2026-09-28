@@ -24,14 +24,20 @@ it("makes pending, retry and duplicate ACK recovery state visible and actionable
   expect(screen.getByTestId("board-sync-banner")).toHaveClass("shrink-0","relative","max-h-[30vh]","overflow-y-auto");
   expect(screen.getByTestId("board-editor-region")).toHaveClass("relative","overflow-hidden");
   expect(screen.getByTestId("board-sync-banner")).toHaveTextContent("加密保存在此浏览器");
-  harness.state?.({ ...online, phase: "offline", pending: 3, reason: "CONNECTION_LOST", retryAttempt: 2, duplicateAcks: 1 });
+  act(()=>harness.state?.(online));
+  await waitFor(()=>expect(screen.queryByTestId("board-sync-banner")).toBeNull());
+  act(()=>harness.state?.({...online,pending:2}));
+  expect(await screen.findByTestId("board-sync-banner")).toHaveTextContent("2 项修改等待服务器确认");
+  expect(screen.queryByTestId("board-retry-sync")).toBeNull();
+  act(()=>harness.state?.({ ...online, phase: "offline", pending: 3, reason: "CONNECTION_LOST", retryAttempt: 2, duplicateAcks: 1 }));
   expect(await screen.findByTestId("editor-status")).toHaveTextContent("第 2 次重连 · 3 项修改待确认");
   expect(screen.getByTestId("board-duplicate-ack")).toHaveTextContent("已忽略 1 个重复确认");
   fireEvent.click(screen.getByTestId("board-retry-sync")); expect(harness.retry).toHaveBeenCalledOnce();
   expect(screen.getByTestId("editor-status")).toHaveAttribute("data-comments-readonly","true");
-  harness.state?.({ ...online, role:"commenter", pending: 0 });
+  act(()=>harness.state?.({ ...online, role:"commenter", pending: 0 }));
   expect(await screen.findByTestId("editor-status")).toHaveTextContent("已同步 · 序列 12");
   expect(screen.getByTestId("editor-status")).toHaveAttribute("data-comments-readonly","false");
+  expect(screen.queryByTestId("board-sync-banner")).toBeNull();
 });
 
 afterEach(cleanup);
