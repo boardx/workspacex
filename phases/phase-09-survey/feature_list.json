@@ -114,7 +114,7 @@
       "title": "提供可选模板和分析报告入口",
       "spec_ref": "00-overview.md#R14",
       "user_visible_behavior": "用户可从独立入口复用问卷模板、设计报告模板并生成与导出基于有效答卷的报告；这些功能不阻塞三步主流程。",
-      "status": "in_progress",
+      "status": "blocked",
       "sprint": "07",
       "owner": "coord-survey",
       "depends_on": [
@@ -125,7 +125,7 @@
         "pnpm --filter web exec vitest run tests/ui/survey-template-workspace-live.test.tsx tests/ui/survey-report-document.test.tsx tests/ui/survey-flexible-template.test.tsx"
       ],
       "evidence": "",
-      "notes": "新原型工作包。共享热点 apps/web/components/survey/live/survey-workspace.tsx；不得出现 mock 或面向用户的测试说明。"
+      "notes": "新原型工作包。共享热点 apps/web/components/survey/live/survey-workspace.tsx；不得出现 mock 或面向用户的测试说明。 PR #4572 submitted; awaits CI, review and merge; not passing."
     },
     {
       "id": "F14",
@@ -135,9 +135,9 @@
       "title": "真实问卷全链路及原型保真验收",
       "spec_ref": "00-overview.md#R15",
       "user_visible_behavior": "用户通过空白、模板和 AI 路径在真实浏览器与服务端完成创建、设计、发布、公开填写和查看答卷；桌面及移动端与已确认原型一致。",
-      "status": "not_started",
-      "sprint": null,
-      "owner": null,
+      "status": "blocked",
+      "sprint": "08",
+      "owner": "coord-survey",
       "depends_on": [
         "F13"
       ],
@@ -145,8 +145,8 @@
       "verification": [
         "pnpm exec tsx .harness/scripts/with-test-isolation.ts -- pnpm --filter web exec playwright test --config playwright.fullstack-smoke.config.ts --project=seeded e2e/survey-complete-flow.spec.ts"
       ],
-      "evidence": "",
-      "notes": "新原型工作包。共享热点 apps/web/components/survey/live/survey-workspace.tsx；不得出现 mock 或面向用户的测试说明。"
+      "evidence": "2026-09-28: FULLSTACK_E2E_SERVER_TIMEOUT_MS=900000 pnpm exec tsx .harness/scripts/with-test-isolation.ts -- pnpm --filter web exec playwright test --config playwright.fullstack-smoke.config.ts --project=seeded e2e/survey-complete-flow.spec.ts → 4 passed (9.8m); web typecheck → exit 0; commit 362e7fb88.",
+      "notes": "真实浏览器四条主链路通过；旧入口服务端重定向修复于 362e7fb88。提交 PR 后仍待 CI、review 与合入 main，不能标 passing。"
     }
   ]
 }

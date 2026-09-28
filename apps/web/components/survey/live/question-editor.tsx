@@ -1,5 +1,6 @@
 "use client";
 import * as React from "react";
+import { CalendarDays, CircleDot, FileText, Grid2X2, Hash, ImageIcon, ListOrdered, Mail, MapPin, Phone, SquareCheck, Star, Upload } from "lucide-react";
 import {
   SURVEY_QUESTION_TYPES,
   createSurveyQuestion,
@@ -16,6 +17,26 @@ import { moveItem } from "@/lib/survey/report-template";
 import { SurveyQuestionSettings } from "./question-settings";
 import { SurveyQuestionRenderer } from "./question-renderer";
 import { ResponsiveDesignerPanel } from "./responsive-designer-panel";
+const questionTypeIcons: Partial<Record<SurveyQuestionType, typeof CircleDot>> = {
+  single: CircleDot,
+  multi: SquareCheck,
+  dropdown: ListOrdered,
+  image_single: ImageIcon,
+  image_multi: ImageIcon,
+  short: FileText,
+  open: FileText,
+  multiple_text: FileText,
+  number: Hash,
+  date: CalendarDays,
+  email: Mail,
+  phone: Phone,
+  address: MapPin,
+  rating: Star,
+  matrix_single: Grid2X2,
+  matrix_multi: Grid2X2,
+  ranking: ListOrdered,
+  file: Upload,
+};
 export function SurveyQuestionEditor({
   questions,
   onChange,
@@ -218,12 +239,15 @@ export function SurveyQuestionEditor({
             <div className="flex items-start justify-between gap-2"><div><h2 className="text-16 font-semibold">题型工具箱</h2><p className="mt-1 text-12 text-muted-foreground">选择题型，直接添加到问卷</p></div><Button type="button" size="sm" variant="outline" onClick={() => add("short")}>新增题目</Button></div>
             {Array.from(new Set(SURVEY_QUESTION_TYPES.map(item => item.category))).map(group => <div key={group}>
               <h3 className="mb-2 text-12 font-medium text-muted-foreground">{group}</h3>
-              <div className="grid grid-cols-2 gap-2">
-                {SURVEY_QUESTION_TYPES.filter(item => item.category === group).map(item => <button
-                  key={item.type} type="button" data-testid={`add-question-${item.type}`}
-                  onClick={() => add(item.type)}
-                  className="rounded-md border border-border bg-background px-2 py-3 text-left text-12 font-medium transition-colors hover:border-primary hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                >{item.label}</button>)}
+              <div className="grid grid-cols-3 gap-2">
+                {SURVEY_QUESTION_TYPES.filter(item => item.category === group).map(item => {
+                  const Icon = questionTypeIcons[item.type] ?? FileText;
+                  return <button
+                    key={item.type} type="button" data-testid={`add-question-${item.type}`}
+                    onClick={() => add(item.type)}
+                    className="flex min-h-20 flex-col items-center justify-center gap-2 rounded-md border border-border bg-background px-2 py-3 text-center text-12 font-medium transition-colors hover:border-primary hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  ><Icon aria-hidden="true" className="h-5 w-5" />{item.label}</button>;
+                })}
               </div>
             </div>)}
           </section>}

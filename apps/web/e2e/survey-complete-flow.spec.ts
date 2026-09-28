@@ -70,6 +70,7 @@ test("用户可从模板完整走通创建、发布、答题、查看答卷和�
 },testInfo) => {
   test.setTimeout(120_000);
   await loginAsAdmin(page);
+  await page.setViewportSize({ width: 1586, height: 992 });
 
   await page.goto("/studio/survey");
   await expect(page.getByRole("heading", { name: "问卷", exact: true })).toBeVisible();
