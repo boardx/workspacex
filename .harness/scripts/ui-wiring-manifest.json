@@ -1665,6 +1665,10 @@
       "kind": "preview",
       "screen": "apps/web/app/preview/whiteboard/page.tsx"
     },
+    "/preview/work-stack": {
+      "kind": "preview",
+      "screen": "apps/web/app/preview/work-stack/page.tsx"
+    },
     "/profile": {
       "kind": "wired",
       "screen": "apps/web/app/profile/page.tsx",
