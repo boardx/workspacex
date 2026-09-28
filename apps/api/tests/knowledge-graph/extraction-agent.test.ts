@@ -78,11 +78,67 @@ describe("F06: 抽取 Agent", () => {
     expect(await q("SELECT 1 FROM kg_extraction_queue WHERE message_id = 'm-hello'")).toHaveLength(0);
   });
 
-  it("模型回了解析不出的东西：当作没有可记的，不重试", async () => {
+  // issue #4350：以前这里断言「解析不出 ⇒ 当作没有可记的、不重试」——正是 devapp 上「整理中」转完、记忆没存、
+  // 也没有任何失败提示的那条路。现在解析不出是**失败**：走既有的重试 / 退避，三次后留在队列里（面板显示「失败」）。
+  it("模型回了解析不出的东西：是失败，不是「没有可记的」——重试三次后留在队列里", async () => {
     await addChatMessage({ orgId: ORG, id: "m-garbage", threadId: T2, body: "乱码测试 xyz", authorId: "u-owner" });
-    const r = await runExtractionTick(extractionDeps(db, loopbackModel([["乱码测试", "抱歉我不太明白"]]).model, ORG));
-    expect(r).toMatchObject({ written: 0, failed: 0 });
-    expect(await q("SELECT 1 FROM kg_extraction_queue WHERE message_id = 'm-garbage'")).toHaveLength(0);
+    const deps = extractionDeps(db, loopbackModel([["乱码测试", "抱歉我不太明白"]]).model, ORG);
+    expect(await runExtractionTick(deps)).toMatchObject({ written: 0, failed: 1 });
+    const [row] = await q<{ attempts: number; last_error: string; locked_at: Date | null }>(
+      "SELECT attempts, last_error, locked_at FROM kg_extraction_queue WHERE message_id = 'm-garbage'");
+    expect(row).toMatchObject({ attempts: 1, locked_at: null });
+    expect(row!.last_error).toContain("kg_extraction_reply_unparseable");
+    expect(row!.last_error).not.toContain("抱歉");  // 不把回复原文写进库
+    for (let i = 0; i < 2; i += 1) {
+      await asOwner((c) => c.query("UPDATE kg_extraction_queue SET next_attempt_at = now() WHERE message_id = 'm-garbage'"));
+      expect(await runExtractionTick(deps)).toMatchObject({ failed: 1 });
+    }
+    expect((await q<{ attempts: number }>("SELECT attempts FROM kg_extraction_queue WHERE message_id = 'm-garbage'"))[0]!.attempts).toBe(3);
+    await asOwner((c) => c.query("DELETE FROM kg_extraction_queue WHERE message_id = 'm-garbage'"));
+  });
+
+  it("合法 JSON 但答非所问（没有 entities / claims）：同样是失败", async () => {
+    await addChatMessage({ orgId: ORG, id: "m-offshape", threadId: T2, body: "答非所问测试", authorId: "u-owner" });
+    const r = await runExtractionTick(extractionDeps(db, loopbackModel([["答非所问", '{"answer":"好的"}']]).model, ORG));
+    expect(r).toMatchObject({ written: 0, failed: 1 });
+    expect(await q("SELECT 1 FROM kg_extraction_queue WHERE message_id = 'm-offshape'")).toHaveLength(1);
+    await asOwner((c) => c.query("DELETE FROM kg_extraction_queue WHERE message_id = 'm-offshape'"));
+  });
+
+  it("合法的空回复 {\"entities\":[],\"claims\":[]}：是「空」——出队、不重试，并记一条带 messageId / threadId 的 info", async () => {
+    await addChatMessage({ orgId: ORG, id: "m-valid-empty", threadId: T2, body: "合法空回复测试", authorId: "u-owner" });
+    const infos: { msg: string; fields: Record<string, unknown> }[] = [];
+    const deps = {
+      ...extractionDeps(db, loopbackModel([["合法空回复", '{"entities":[],"claims":[]}']]).model, ORG),
+      logger: { info: (msg: string, fields: Record<string, unknown>) => { infos.push({ msg, fields }); }, error: () => undefined },
+    };
+    expect(await runExtractionTick(deps)).toMatchObject({ written: 0, failed: 0, processed: 1 });
+    expect(await q("SELECT 1 FROM kg_extraction_queue WHERE message_id = 'm-valid-empty'")).toHaveLength(0);
+    expect(infos).toContainEqual({
+      msg: "kg extraction empty",
+      fields: expect.objectContaining({ messageId: "m-valid-empty", threadId: T2, reason: "no_candidates" }),
+    });
+  });
+
+  it("围栏：租约过期后被重新认领的行，旧认领迟到的 complete / fail 什么都不改", async () => {
+    await addChatMessage({ orgId: ORG, id: "m-fence", threadId: T2, body: "围栏测试", authorId: "u-owner" });
+    const pg = new PgKgExtraction(db);
+    const orgId = toOrgId(ORG);
+    const claimOf = async () => (await pg.claim(orgId, 50)).find((j) => j.messageId === "m-fence");
+    const stale = await claimOf();
+    expect(stale?.attempts).toBe(1);
+    // 旧认领被放弃、租约过期 ⇒ 下一轮重新认领（attempts 2）
+    await asOwner((c) => c.query("UPDATE kg_extraction_queue SET locked_at = now() - interval '1 hour' WHERE message_id = 'm-fence'"));
+    const fresh = await claimOf();
+    expect(fresh?.attempts).toBe(2);
+    await pg.fail(orgId, "m-fence", "late", stale!.attempts);
+    await pg.complete(orgId, "m-fence", stale!.attempts);
+    const [row] = await q<{ attempts: number; locked: boolean; last_error: string | null }>(
+      "SELECT attempts, locked_at IS NOT NULL AS locked, last_error FROM kg_extraction_queue WHERE message_id = 'm-fence'");
+    expect(row).toEqual({ attempts: 2, locked: true, last_error: null });
+    // 持有当前认领的那一方照常完成
+    await pg.complete(orgId, "m-fence", fresh!.attempts);
+    expect(await q("SELECT 1 FROM kg_extraction_queue WHERE message_id = 'm-fence'")).toHaveLength(0);
   });
 
   it("模型调用失败：任务保留、记原因、稍后重试；三次后不再认领", async () => {

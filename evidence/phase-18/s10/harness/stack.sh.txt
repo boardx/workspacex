@@ -1,0 +1,32 @@
+#!/bin/bash
+# S10 local stack (same shape as evidence/phase-18/r10/harness/stack.sh.txt).
+# usage: stack.sh redis|migrate|model|seed|api|web|pw
+S=/tmp/claude-0/-home-user-workspacex/0c400fb8-dfbe-5051-bf5c-eba2226be75a/scratchpad/s10
+WT=/home/user/workspacex/.claude/worktrees/agent-a528511a6673ba1f0
+H=$WT/evidence/phase-18/s10/harness
+# docker shim for tests/support/db.ts (no docker daemon here; it maps `compose exec postgres …` to 127.0.0.1:$PGPORT)
+export PATH=/tmp/claude-0/-home-user-workspacex/0c400fb8-dfbe-5051-bf5c-eba2226be75a/scratchpad/bin:$PATH
+export PGHOST=127.0.0.1 PGPORT=55432 PGUSER=postgres PGPASSWORD=postgres_dev PGDATABASE=s10e2e WORKSPACEX_DB=s10e2e
+export PGCONNECT_TIMEOUT_MS=120000 PGSTATEMENT_TIMEOUT_MS=300000
+export REDIS_HOST=127.0.0.1 REDIS_PORT=59116
+export WORKSPACEX_API_PORT=59112 WORKSPACEX_WEB_PORT=59113 WORKSPACEX_MODEL_PROVIDER_PORT=59114
+export KG_EVAL_FIXTURE=1 KG_EVAL_ORG_ID=org-kg-experience-eval KG_EVAL_PROJECT_ID=project-kg-experience-eval
+export KG_EVAL_AGENT_ID=agent-kg-eval-default KG_EVAL_MODEL_PROVIDER=kg-eval-loopback KG_EVAL_MODEL_ID=kg-eval-grounded
+export KG_EVAL_ACCOUNTS='[{"userId":"user-kg-eval-owner","email":"kg-eval-owner@example.test","password":"Kg-Eval-owner-F15!","name":"王经理"},{"userId":"user-kg-eval-newbie","email":"kg-eval-newbie@example.test","password":"Kg-Eval-newbie-F15!","name":"新同事"},{"userId":"user-kg-eval-other","email":"kg-eval-other@example.test","password":"Kg-Eval-other-F15!","name":"隔壁同事"},{"userId":"user-kg-eval-idle","email":"kg-eval-idle@example.test","password":"Kg-Eval-idle-F15!","name":"对照同事"}]'
+export PW_CHROME=/opt/pw-browsers/chromium-1194/chrome-linux/chrome
+case "$1" in
+  redis) exec redis-server --port $REDIS_PORT --save '' --appendonly no ;;
+  migrate) cd $WT/apps/api && exec pnpm -s run migrate ;;
+  model) cd $WT/apps/api && LOOPBACK_KG_EVAL_PROVIDER_PORT=$WORKSPACEX_MODEL_PROVIDER_PORT LOOPBACK_KG_EVAL_CASES=$H/cases-s10.json exec npx tsx scripts/loopback-kg-eval-model-provider.ts ;;
+  seed) cd $WT/apps/api && npx tsx scripts/seed-kg-experience-eval.ts && cp $H/s10-post-seed.ts.txt scripts/s10-post-seed.ts && npx tsx scripts/s10-post-seed.ts; rm -f $WT/apps/api/scripts/s10-post-seed.ts ;;
+  api) cd $WT/apps/api && PORT=$WORKSPACEX_API_PORT KERNEL_MODEL_PROVIDER=$KG_EVAL_MODEL_PROVIDER \
+      KERNEL_MODEL_BASE_URL=http://127.0.0.1:$WORKSPACEX_MODEL_PROVIDER_PORT KERNEL_MODEL_API_KEY=kg-eval-loopback-key-not-a-secret \
+      KERNEL_KG_EXTRACTION_MODEL_ID=$KG_EVAL_MODEL_ID KERNEL_FOLLOWUP_SUGGESTIONS_MODEL_ID=$KG_EVAL_MODEL_ID \
+      KERNEL_MODEL_STREAM_ENABLED=1 KG_EXTRACTION_ENABLED=1 MODEL_CREDENTIAL_KEY=kg-eval-credential-key-not-a-secret \
+      exec npx tsx src/main.ts ;;
+  web) cd $WT/apps/web && NEXT_PUBLIC_API_URL=http://127.0.0.1:$WORKSPACEX_WEB_PORT NEXT_PUBLIC_API_PATH_PREFIX=/__fullstack_api \
+      NEXT_PUBLIC_API_WS_URL=http://127.0.0.1:$WORKSPACEX_API_PORT FULLSTACK_E2E_API_ORIGIN=http://127.0.0.1:$WORKSPACEX_API_PORT \
+      NEXT_DIST_DIR=.next-s10 NEXT_FONT_GOOGLE_MOCKED_RESPONSES=$WT/apps/web/e2e/support/google-fonts-mock.cjs \
+      exec npx next dev -p $WORKSPACEX_WEB_PORT ;;
+  pw) cd $WT/apps/web && PW_EXECUTABLE=$PW_CHROME exec npx playwright test -c playwright.s10.config.ts ;;
+esac

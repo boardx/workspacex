@@ -25,13 +25,72 @@ afterEach(cleanup);
 async function openMenu(item: api.Board = board) { fireEvent.pointerDown(await screen.findByTestId(`board-menu-${item.id}`), { button: 0 }); }
 
 describe('Board library', () => {
+  it('requests untagged boards from the server and clears that filter when selecting a tag', async () => {
+    render(<WhiteboardLibrary />); await screen.findByTestId('empty');
+    fireEvent.click(screen.getByRole('button', {name:'无标签'}));
+    await waitFor(() => expect(api.listBoards).toHaveBeenLastCalledWith(expect.objectContaining({untagged:'true',tagIds:[]}),expect.any(AbortSignal)));
+    expect(screen.getByRole('button', {name:'无标签'})).toHaveAttribute('aria-pressed','true');
+    fireEvent.click(screen.getByTestId(`board-filter-tag-${tag.id}`));
+    await waitFor(() => expect(api.listBoards).toHaveBeenLastCalledWith(expect.objectContaining({untagged:'false',tagIds:[tag.id]}),expect.any(AbortSignal)));
+    fireEvent.click(screen.getByRole('button', {name:'全部标签'}));
+    await waitFor(() => expect(api.listBoards).toHaveBeenLastCalledWith(expect.objectContaining({untagged:'false',tagIds:[]}),expect.any(AbortSignal)));
+  });
   it('creates once with a durable request id and enters the full-screen editor', async () => {
     vi.mocked(api.createBoard).mockRejectedValueOnce(new Error('private')).mockResolvedValueOnce(board);
     render(<WhiteboardLibrary />); await screen.findByTestId('empty');
-    fireEvent.change(screen.getByTestId('board-create-name'), { target: { value: '团队白板' } }); fireEvent.click(screen.getByTestId('board-create')); await screen.findByTestId('dep-failed');
-    expect(screen.getByTestId('board-create-name')).toBeDisabled(); expect(screen.getByTestId('board-create-name')).toHaveValue('团队白板'); expect(screen.getByTestId('board-create')).toHaveTextContent('重试创建“团队白板”');
-    fireEvent.click(screen.getByTestId('board-create')); await waitFor(() => expect(push).toHaveBeenCalledWith(`/studio/board/${board.id}`));
+    fireEvent.click(screen.getByTestId('board-create')); fireEvent.change(screen.getByTestId('board-create-name'), { target: { value: '团队白板' } }); fireEvent.click(screen.getByTestId('board-create-confirm')); await screen.findByTestId('board-create-error');
+    expect(screen.getByTestId('board-create-name')).toBeDisabled(); expect(screen.getByTestId('board-create-name')).toHaveValue('团队白板'); expect(screen.getByTestId('board-create-confirm')).toHaveTextContent('重试创建并打开');
+    fireEvent.click(screen.getByTestId('board-create-confirm')); await waitFor(() => expect(push).toHaveBeenCalledWith(`/studio/board/${board.id}`));
     expect(api.createBoard).toHaveBeenCalledTimes(2); expect(vi.mocked(api.createBoard).mock.calls[0]![0]).toEqual(vi.mocked(api.createBoard).mock.calls[1]![0]);
+  });
+  it('opens default title and returns focus after Escape without creating', async () => {
+    render(<WhiteboardLibrary />); await screen.findByTestId('empty');
+    expect(screen.queryByTestId('board-create-name')).not.toBeInTheDocument();
+    const trigger = screen.getByTestId('board-create'); trigger.focus(); fireEvent.click(trigger);
+    const input = screen.getByTestId('board-create-name') as HTMLInputElement;
+    expect(input.value).toBe('未命名白板'); expect(input.selectionStart).toBe(0); expect(input.selectionEnd).toBe(input.value.length);
+    fireEvent.keyDown(input, { key: 'Escape' });
+    await waitFor(() => expect(screen.queryByTestId('board-create-dialog')).not.toBeInTheDocument());
+    await waitFor(() => expect(trigger).toHaveFocus()); expect(api.createBoard).not.toHaveBeenCalled();
+  });
+  it.each(['retry', 'already-saved', 'conflict'])('preserves the created board when tag binding needs %s', async mode => {
+    const empty = { ...board, tagIds: [], tagsRevision: 0 };
+    vi.mocked(api.createBoard).mockResolvedValue(empty);
+    vi.mocked(api.getBoard).mockResolvedValue(mode === 'already-saved' ? board : mode === 'conflict' ? { ...empty, tagsRevision: 2 } : empty);
+    vi.mocked(api.updateBoard).mockRejectedValueOnce(new Error('lost')).mockResolvedValueOnce(board);
+    render(<WhiteboardLibrary />); await screen.findByTestId('empty'); fireEvent.click(screen.getByTestId('board-create'));
+    fireEvent.click(screen.getByRole('checkbox', { name: '研究' })); fireEvent.click(screen.getByTestId('board-create-confirm'));
+    await screen.findByTestId('board-create-error'); expect(push).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole('button', { name: '返回列表，保留白板' }));
+    await screen.findByText('白板已创建并保留，标签尚未保存。再次打开新建窗口可继续。');
+    fireEvent.click(screen.getByTestId('board-create')); expect(screen.getByTestId('board-create-confirm')).toHaveFocus(); fireEvent.click(screen.getByTestId('board-create-confirm'));
+    if (mode === 'conflict') { await screen.findByText('白板标签已由其他协作者更新。请返回列表查看，当前操作不会覆盖他们的修改。'); expect(push).not.toHaveBeenCalled(); }
+    else await waitFor(() => expect(push).toHaveBeenCalled());
+    expect(api.createBoard).toHaveBeenCalledTimes(1); expect(api.updateBoard).toHaveBeenCalledTimes(mode === 'retry' ? 2 : 1);
+  });
+  it('adds a new tag using a stable retry identity', async () => {
+    const added = { ...tag, id: '59a39eb5-0d5a-4590-9870-c212e162ae11', name: '产品' };
+    vi.mocked(api.createBoardTag).mockRejectedValueOnce(new Error('lost')).mockResolvedValueOnce(added);
+    vi.mocked(api.createBoard).mockResolvedValue({ ...board, tagIds: [], tagsRevision: 0 });
+    render(<WhiteboardLibrary />); await screen.findByTestId('empty'); fireEvent.click(screen.getByTestId('board-create'));
+    fireEvent.change(screen.getByRole('textbox', { name: '搜索或添加标签' }), { target: { value: '产品' } });
+    fireEvent.click(screen.getByRole('button', { name: '添加标签“产品”' })); await screen.findByTestId('board-create-error');
+    expect(screen.getByTestId('board-create-confirm')).toBeDisabled(); fireEvent.click(screen.getByRole('button', { name: '重试添加标签' }));
+    await screen.findByRole('checkbox', { name: '产品' }); expect(vi.mocked(api.createBoardTag).mock.calls[0]).toEqual(vi.mocked(api.createBoardTag).mock.calls[1]);
+    fireEvent.click(screen.getByTestId('board-create-confirm')); await waitFor(() => expect(push).toHaveBeenCalled());
+    expect(api.updateBoard).toHaveBeenCalledWith(board.id, { tagIds: [added.id], expectedTagsRevision: 0 });
+  });
+  it('never silently discards an unfinished tag name and allows abandoning an uncertain tag', async () => {
+    vi.mocked(api.createBoardTag).mockRejectedValue(new Error('lost'));
+    vi.mocked(api.createBoard).mockResolvedValue({ ...board, tagIds: [] });
+    render(<WhiteboardLibrary />); await screen.findByTestId('empty'); fireEvent.click(screen.getByTestId('board-create'));
+    fireEvent.change(screen.getByRole('textbox', { name: '搜索或添加标签' }), { target: { value: '产品' } });
+    fireEvent.click(screen.getByTestId('board-create-confirm')); await screen.findByText('标签输入尚未完成。请先选择或添加标签，或清空搜索后创建白板。');
+    expect(api.createBoard).not.toHaveBeenCalled(); fireEvent.click(screen.getByRole('button', { name: '添加标签“产品”' }));
+    await screen.findByRole('button', { name: '不关联此标签，继续' });
+    await waitFor(() => expect(screen.getByRole('button', { name: '不关联此标签，继续' })).toBeEnabled());
+    fireEvent.click(screen.getByRole('button', { name: '不关联此标签，继续' })); fireEvent.click(screen.getByTestId('board-create-confirm'));
+    await waitFor(() => expect(push).toHaveBeenCalled()); expect(api.updateBoard).not.toHaveBeenCalled();
   });
   it('debounces server search and sends stable tag ids as an AND filter', async () => {
     render(<WhiteboardLibrary />); await screen.findByTestId('empty'); fireEvent.change(screen.getByTestId('board-search'), { target: { value: '  journey  ' } }); fireEvent.click(screen.getByTestId(`board-filter-tag-${tag.id}`));
@@ -65,7 +124,7 @@ describe('Board library', () => {
   it('opens editor from the card while the three-dot menu stays action-only', async () => {
     vi.mocked(api.listBoards).mockResolvedValue(result([board])); render(<WhiteboardLibrary />);
     expect(await screen.findByTestId(`board-open-${board.id}`)).toHaveAttribute('href', `/studio/board/${board.id}`);
-    expect(screen.getByTestId(`board-thumbnail-empty-${board.id}`)).toHaveTextContent('暂无缩略图'); expect(screen.getByTestId(`board-thumbnail-empty-${board.id}`)).not.toHaveClass('bg-gradient-to-br');
+    expect(screen.getByTestId(`board-thumbnail-empty-${board.id}`)).toHaveTextContent('预览尚未生成'); expect(screen.getByTestId(`board-thumbnail-empty-${board.id}`)).not.toHaveClass('bg-gradient-to-br');
     await openMenu(); fireEvent.click(await screen.findByTestId(`board-action-rename-${board.id}`)); expect(await screen.findByTestId('board-rename-dialog')).toBeInTheDocument(); expect(push).not.toHaveBeenCalled();
   });
   it('updates board tags with the current CAS revision', async () => {

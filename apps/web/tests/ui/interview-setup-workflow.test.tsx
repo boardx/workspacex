@@ -61,6 +61,7 @@ const qualityDefaults = { researchBrief: null, moderatorPolicy: null, reportRevi
 
 const topicPendingInterview: LiveInterview = {
   ...qualityDefaults,
+  artifacts: [],
   interviewId: "itv-f04-live",
   name: "德国储能采购决策链",
   tags: ["采购", "德国市场"],
@@ -130,6 +131,12 @@ function installLiveFetch(initial: LiveInterview = topicPendingInterview, option
     const method = init?.method ?? "GET";
     const body = init?.body === undefined ? undefined : JSON.parse(String(init.body));
     calls.push({ method, path: url.pathname, body });
+    if (method === "GET" && url.pathname.endsWith("/digital/experts")) return json({ items: initial.expertCandidates });
+    if (method === "GET" && url.pathname.endsWith("/markdown")) return json({
+      interviewId: initial.interviewId, revisionId: "revision-route", version: initial.version,
+      documents: [{ documentId: "analysis-route", step: "analysis", version: 1, contentHash: "a".repeat(64), evidenceMode: "simulated", references: [], markdown: "# 分析\n\n## 研究目标\n研究夜班交接的遗漏原因。" }],
+      states: [{ documentId: "analysis-route", status: "draft", failure: null }],
+    });
     if (method === "POST" && url.pathname.endsWith("/brief/confirm")) {
       if (failTopicOnce) {
         failTopicOnce = false;
@@ -609,6 +616,39 @@ describe("F04 正式 setup 的显式确认与双层持久化验收门", () => {
     fireEvent.click(screen.getByTestId("itv-workbench-step-analysis"));
     expect(await screen.findByTestId("itv-analysis-workbench")).toHaveTextContent("研究目标");
     expect(screen.getByTestId("itv-step-markdown-artifact")).toHaveTextContent("分析建议.md");
+  });
+
+  it("keeps full-screen navigation in one header and exposes one Markdown source to preview", async () => {
+    installLiveFetch(persistedInterview);
+    render(<DigitalInterviewSetup interviewId={persistedInterview.interviewId} />);
+
+    const header = await screen.findByTestId("itv-workbench-header");
+    expect(within(header).getByTestId("itv-workbench-timeline")).toBeInTheDocument();
+    expect(screen.getByTestId("itv-skill-drawer")).toHaveAttribute("aria-hidden", "true");
+
+    fireEvent.click(screen.getByTestId("itv-skill-drawer-trigger"));
+    expect(screen.getByTestId("itv-skill-drawer")).toHaveAttribute("aria-hidden", "false");
+
+    fireEvent.click(screen.getByTestId("itv-workbench-step-analysis"));
+    const source = await screen.findByTestId("itv-markdown-source");
+    expect(source).toHaveTextContent("研究目标");
+    expect(screen.getByTestId("itv-markdown-preview")).toHaveTextContent("研究目标");
+  });
+
+  it("restores a named stage route and changes the URL from the unified header", async () => {
+    const transport = installLiveFetch(persistedInterview);
+    const setup = render(<DigitalInterviewSetup interviewId={persistedInterview.interviewId} initialWorkbenchStep="analysis" />);
+
+    expect(await screen.findByText("AI 分析结果")).toBeInTheDocument();
+    expect(await screen.findByText("研究夜班交接的遗漏原因。")).toBeVisible();
+    expect(screen.queryByText(persistedInterview.topic)).not.toBeInTheDocument();
+    expect(transport.requests("GET", "/markdown").length).toBeGreaterThan(0);
+    fireEvent.click(screen.getByTestId("itv-workbench-step-experts"));
+    expect(push).toHaveBeenCalledWith(`/itv/${persistedInterview.interviewId}/experts`);
+    setup.rerender(<DigitalInterviewSetup interviewId={persistedInterview.interviewId} initialWorkbenchStep="experts" />);
+    expect(await screen.findByTestId("itv-markdown-experts")).toBeInTheDocument();
+    expect(screen.getByRole("textbox", { name: "专家文档 Markdown" })).toBeInTheDocument();
+    expect(screen.queryByTestId("itv-confirm-experts")).not.toBeInTheDocument();
   });
 
   it.each([

@@ -822,7 +822,10 @@ export const DigitalInterviewWorkflowView = DigitalInterview.extend({
     evidenceCoverage: [],
   }),
   reportReview: DigitalInterviewReportReview.nullable().default(null),
-  artifacts: DigitalInterviewArtifacts.optional(),
+  // Every workflow projection carries the Markdown artifact collection. Empty is the
+  // explicit, recoverable state for a newly-created or pre-migration interview; an
+  // omitted field would force clients to invent a second source of truth.
+  artifacts: DigitalInterviewArtifacts.default([]),
 }).strict();
 
 /*
@@ -841,6 +844,8 @@ export const DigitalInterviewHistoryRow = DigitalInterviewDraftInput.extend({
   completedExpertCount: z.number().int().nonnegative(),
   primaryAction: DigitalInterviewPrimaryAction,
   updatedAt: z.string().datetime(),
+  /** Canonical source navigation; absent for the retained legacy workflow. */
+  sourceStep: DigitalInterviewArtifactStep.optional(),
 }).strict();
 
 export const QuickDigitalInterviewMessage = z.object({

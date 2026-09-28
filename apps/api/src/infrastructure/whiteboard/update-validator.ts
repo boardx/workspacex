@@ -2,7 +2,7 @@ import { Worker } from 'node:worker_threads';
 import { WhiteboardCommandBatch, type WhiteboardCommand, type WhiteboardObject } from '@repo/contracts/whiteboard-document';
 import { WHITEBOARD_SYNC } from '@repo/contracts/whiteboard-sync';
 import { WHITEBOARD_UPDATE_LIMITS } from '@repo/whiteboard-core';
-import { WhiteboardCollaborationError, type ValidatedWhiteboardUpdate, type WhiteboardUpdateValidator } from '../../application/whiteboard/collaboration-ports';
+import { WhiteboardCollaborationError, type WhiteboardDeletionChange, type WhiteboardDeletionProof, type ValidatedWhiteboardUpdate, type WhiteboardUpdateValidator } from '../../application/whiteboard/collaboration-ports';
 
 // 10k document writes clone the Yjs graph: 128 MiB exhausts the worker heap.
 // Two 256 MiB workers retain the previous aggregate 512 MiB old-generation cap.
@@ -42,6 +42,11 @@ function assertBytes(value: Uint8Array, max: number): void {
 /** Each invocation gets a fresh, disposable heap. No document state is retained. */
 export class WorkerWhiteboardUpdateValidator implements WhiteboardUpdateValidator {
   constructor(private readonly timeoutMs: number = WHITEBOARD_VALIDATOR_LIMITS.timeoutMs) {}
+  async restoreDeletion(snapshot:Uint8Array,proof:WhiteboardDeletionProof[],changes?:WhiteboardDeletionChange[],inverseUpdate?:Uint8Array):Promise<ValidatedWhiteboardUpdate>{
+    if(Buffer.byteLength(JSON.stringify({proof,changes}))>WHITEBOARD_UPDATE_LIMITS.documentBytes)throw new WhiteboardCollaborationError('VALIDATION_FAILED');
+    if(inverseUpdate)assertBytes(inverseUpdate,WHITEBOARD_UPDATE_LIMITS.bytes);
+    return this.run({mode:'restore-deletion',snapshot,proof,changes,inverseUpdate}) as Promise<ValidatedWhiteboardUpdate>;
+  }
   async objects(snapshot: Uint8Array): Promise<WhiteboardObject[]> {
     return this.run({ mode: 'objects', snapshot }) as Promise<WhiteboardObject[]>;
   }

@@ -1,0 +1,56 @@
+# Note: the "M1 merge-time guard" entry reads ANCHOR NOT FOUND because an interrupted earlier run had left that
+# mutation in place. The file was restored and the mutation re-run on its own: see fail-without-fix-review1-M1_merge.txt
+# (FAILED as expected).
+
+### H1 undone pairs not excluded (plan + DB guard both reverted)
+test: apps/api/tests/knowledge-graph/consolidation-db.test.ts
+FAILED as expected
+   × #4365 整合一次 + 撤销 > #4491 H1：撤销要粘住——撤销后再跑一轮整合（updated_at 前进，人又被选中）⇒ 0 处合并、0 张卡 33ms
+   × #4491 M1：保留方自己没有支撑证据时不合并；撤销不把保留方的支撑撤空 > 保留方（较早那条）的支撑证据不在了 ⇒ 这一对不合（否则撤销时 F07 会把保留方收掉） 24ms
+   × #4491 M1：保留方自己没有支撑证据时不合并；撤销不把保留方的支撑撤空 > 有支撑时照常合并；之后保留方自己的原话证据没了，再撤销 ⇒ 复制来的支撑留着，保留方不被 F07 收掉 9ms
+ Test Files  1 failed (1)
+      Tests  3 failed | 12 passed (15)
+
+### H2 content-token check removed
+test: apps/api/tests/knowledge-graph/consolidation-plan.test.ts
+FAILED as expected
+   × #4491 H2：只差一个内容词的两句不是重复（字面、向量都很像也不合） > 「项目A的负责人是张三」对「项目A的负责人是李四」⇒ 不合（余弦 0.99 也不合） 6ms
+   × #4491 H2：只差一个内容词的两句不是重复（字面、向量都很像也不合） > 「客户希望在上海举办发布会」对「客户希望在北京举办发布会」⇒ 不合（余弦 0.99 也不合） 1ms
+   × #4491 H2：只差一个内容词的两句不是重复（字面、向量都很像也不合） > 「我更喜欢用Python写后端服务」对「我更喜欢用Go写后端服务」⇒ 不合（余弦 0.99 也不合） 1ms
+ Test Files  1 failed (1)
+      Tests  3 failed | 15 passed (18)
+
+### H2 about-set check removed
+test: apps/api/tests/knowledge-graph/consolidation-plan.test.ts
+FAILED as expected
+   × #4491 H2：只差一个内容词的两句不是重复（字面、向量都很像也不合） > 涉及的实体不同 ⇒ 不合（同一句话说的是两个项目）；实体合一之后相同 ⇒ 合 6ms
+ Test Files  1 failed (1)
+      Tests  1 failed | 17 passed (18)
+
+### M1 merge-time guard removed (kept claim without own support)
+test: apps/api/tests/knowledge-graph/consolidation-db.test.ts
+MUTATION ANCHOR NOT FOUND
+
+### M1 undo-time guard removed (copied support always deleted)
+test: apps/api/tests/knowledge-graph/consolidation-db.test.ts
+FAILED as expected
+   × #4491 M1：保留方自己没有支撑证据时不合并；撤销不把保留方的支撑撤空 > 保留方（较早那条）的支撑证据不在了 ⇒ 这一对不合（否则撤销时 F07 会把保留方收掉） 41ms
+   × #4491 M1：保留方自己没有支撑证据时不合并；撤销不把保留方的支撑撤空 > 有支撑时照常合并；之后保留方自己的原话证据没了，再撤销 ⇒ 复制来的支撑留着，保留方不被 F07 收掉 11ms
+ Test Files  1 failed (1)
+      Tests  2 failed | 13 passed (15)
+
+### M3 p95 over all samples (gated included)
+test: apps/api/tests/knowledge-graph/extraction-slo.test.ts
+FAILED as expected
+   × #4365 指标计算 > 记录器：窗口内的 p95 / 失败率；门控跳过的不进失败率分母；超出窗口的样本不算 10ms
+ Test Files  1 failed (1)
+      Tests  1 failed | 5 passed (6)
+
+### L3 list ignores the run id
+test: apps/api/tests/knowledge-graph/consolidation-db.test.ts
+FAILED as expected
+   × #4491 M1：保留方自己没有支撑证据时不合并；撤销不把保留方的支撑撤空 > 保留方（较早那条）的支撑证据不在了 ⇒ 这一对不合（否则撤销时 F07 会把保留方收掉） 35ms
+   × #4491 M1：保留方自己没有支撑证据时不合并；撤销不把保留方的支撑撤空 > 有支撑时照常合并；之后保留方自己的原话证据没了，再撤销 ⇒ 复制来的支撑留着，保留方不被 F07 收掉 15ms
+   × #4491 M1：保留方自己没有支撑证据时不合并；撤销不把保留方的支撑撤空 > #4491 L3：按 id 读回一次较早的整理，不受「最近 N 条」上限影响 18ms
+ Test Files  1 failed (1)
+      Tests  3 failed | 12 passed (15)

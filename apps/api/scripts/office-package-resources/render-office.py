@@ -14,6 +14,15 @@ import time
 import signal
 
 
+def inspection_sample(pages):
+    # Spot-check, not page-by-page: every inspected PNG is a model round-trip with an image
+    # (13 slides took minutes of "finishing" in devapp, 2026-09-27). Cover + middle + last
+    # catch template-wide CJK/clipping defects; inspect more only after finding a defect.
+    if len(pages) <= 3:
+        return list(pages)
+    return [pages[0], pages[len(pages) // 2], pages[-1]]
+
+
 def _run_bounded(command, env, timeout):
     """Run `command` so that its **deadline actually ends the work**, measured 2026-09-11 (issue #3403).
 
@@ -100,4 +109,6 @@ with tempfile.TemporaryDirectory(prefix='office-render-') as scratch:
     pages = sorted(target.glob('page-*.png'))
     if not pages or any(p.stat().st_size == 0 for p in pages):
         raise SystemExit('renderer did not produce page images')
-    print(json.dumps({'pdf': str(pdf), 'pages': [str(p) for p in pages], 'visualInspection': 'required'}))
+    print(json.dumps({'pdf': str(pdf), 'pages': [str(p) for p in pages], 'inspect': [str(p) for p in inspection_sample(pages)],
+                      'visualInspection': 'required'}))
+

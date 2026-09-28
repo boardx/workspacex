@@ -33,6 +33,29 @@ beforeAll(async () => {
 }, 120000);
 afterAll(async () => { await app?.close(); await resetOrgs(ORG, OTHER); });
 
+it('issues an HttpOnly publication cookie and serializes concurrent browser submissions', async () => {
+  const created=await request('/surveys','POST',{title:'浏览器限答',questions:[{id:'q1',order:1,chapterId:'general',title:'意见',type:'open',required:true}],template:{id:'r',title:'报告',sections:[]}});
+  let model:SurveyRuntime=await created.json();
+  const source=model.source!.documents;
+  model=await (await request(`/surveys/${model.id}/source`,'PUT',{expectedVersion:model.version,documents:{design:source.design.markdown,reportTemplate:source.reportTemplate.markdown,publication:'# 发布设置\n\n```survey-publication\n{"responseLimitScope":"browser","successMessageMarkdown":"# 感谢参与"}\n```\n'}})).json();
+  model=await (await request(`/surveys/${model.id}/publish`,'POST',{expectedVersion:model.version})).json();
+  const path=`/public/surveys/${model.publication!.token}`;
+  const opened=await request(path); expect(opened.status).toBe(200);
+  const cookie=opened.headers.get('set-cookie')!; expect(cookie).toContain('HttpOnly'); expect(cookie).toContain('SameSite=Lax');
+  const browserHeaders={...auth(),cookie:cookie.split(';')[0]!};
+  const body={submissionId:'browser-first-submission',answers:[{questionId:'q1',value:'真实意见'}]};
+  const attempts=await Promise.all([request(path+'/responses','POST',body,browserHeaders),request(path+'/responses','POST',{...body,submissionId:'browser-second-submission'},browserHeaders)]);
+  expect(attempts.map(response=>response.status).sort()).toEqual([201,409]);
+  const accepted=attempts.findIndex(response=>response.status===201);
+  expect((await request(path+'/responses','POST',{...body,submissionId:accepted===0?'browser-first-submission':'browser-second-submission'},browserHeaders)).status).toBe(201);
+  expect(await (await request(path,'GET',undefined,browserHeaders)).json()).toMatchObject({alreadySubmitted:true,successMessageMarkdown:'# 感谢参与'});
+  expect((await request(path+'/responses','POST',{...body,submissionId:'missing-proof-submission'})).status).toBe(400);
+  const forged={...browserHeaders,cookie:cookie.split('=')[0]+'=forged'};
+  expect((await request(path+'/responses','POST',{...body,submissionId:'forged-proof-submission'},forged)).status).toBe(400);
+  const other=await request(path); const otherHeaders={...auth(),cookie:other.headers.get('set-cookie')!.split(';')[0]!};
+  expect((await request(path+'/responses','POST',{...body,submissionId:'different-browser-submission'},otherHeaders)).status).toBe(201);
+});
+
 it("reads and saves Markdown source with tenancy, syntax, and version protection", async () => {
   const draft = {
     title: "HTTP Markdown 私有问卷",

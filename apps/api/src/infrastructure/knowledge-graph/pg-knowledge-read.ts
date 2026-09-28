@@ -11,10 +11,11 @@ import { contextPack as CP, knowledgeGraph as KG } from "@repo/contracts";
 import type { DatabasePort, TenantSession } from "../../application/ports/database.port";
 import type {
   ClaimSourcesData, KnowledgeReadPort, KnowledgeThreadRef, MessageExtractionData, PersonalClaimOriginRow,
-  PersonalKnowledgeData, ThreadKnowledgeCounts, ThreadKnowledgeData, TurnMemoryData,
+  OrgKnowledgeData, PersonalKnowledgeData, ProjectKnowledgeData, ThreadKnowledgeCounts, ThreadKnowledgeData, TurnMemoryData,
 } from "../../application/knowledge-graph/ports";
 import { guard, type Guarded } from "../../application/security/permission-filter";
 import type { OrgId } from "../../domain/org-id";
+import { reconcileCitations } from "../../domain/knowledge-graph/citation";
 import { KG_EXTRACTION_LEASE_SECONDS, KG_EXTRACTION_MAX_ATTEMPTS } from "./pg-kg-extraction";
 
 type KgClaim = ThreadKnowledgeData["claims"][number];
@@ -24,6 +25,8 @@ const threadRef = (t: KnowledgeThreadRef) => ({ kind: "project" as const, id: t.
 
 /** 本人个人空间的 guard ref —— 与 resolve-visibility 个人线程判定用的合成 id 同一个（`personal:<userId>`）。 */
 export const personalSpaceRef = (userId: string) => ({ kind: "project" as const, id: `personal:${userId}` });
+/** B2-S4：组织记忆的 guard ref —— 同 `personalSpaceRef` 的做法（组织记忆没有 acl_bindings 行），合成 id `org:<orgId>`。 */
+export const orgSpaceRef = (orgId: OrgId) => ({ kind: "project" as const, id: `org:${orgId}` });
 
 /** 「活着的」结论：未撤销、未被取代（与 F04 kg_live_vertices 同一条口径）。 */
 const LIVE_CLAIM = "c.revoked_at IS NULL AND c.status <> 'superseded'";
@@ -138,8 +141,13 @@ export class PgKnowledgeRead implements KnowledgeReadPort {
            FROM kg_extraction_queue WHERE org_id = $1 AND thread_id = $2 ORDER BY enqueued_at`,
         [...scope, KG_EXTRACTION_LEASE_SECONDS],
       );
-      const failed = queue.rows.filter((q) => q.attempts >= KG_EXTRACTION_MAX_ATTEMPTS);
-      const active = queue.rows.filter((q) => q.attempts < KG_EXTRACTION_MAX_ATTEMPTS);
+      // issue #4350：分桶与认领条件（`pg-kg-extraction.ts` 的 claim）对齐——
+      //   running = 租约还活着（不论第几次：第 3 次尝试进行中的行以前被算成「失败」）；
+      //   failed  = 次数用完 AND 没有活着的租约（认领条件 `attempts < 3` 再也不会放出它）；
+      //   queued  = 其余：次数没用完、没人持有（含退避中、含租约已过期等着被重新认领的）。
+      const running = queue.rows.filter((q) => q.locked);
+      const failed = queue.rows.filter((q) => !q.locked && q.attempts >= KG_EXTRACTION_MAX_ATTEMPTS);
+      const queued = queue.rows.filter((q) => !q.locked && q.attempts < KG_EXTRACTION_MAX_ATTEMPTS);
       // 用户直接交办更正（2026-09-25）：这个会话所在组织现在是不是真的在抽——provider 已配置
       // AND 部署开关打开了 AND 该组织没关（`kg_org_extraction_settings`，默认值见 `KgOrgExtractionSettingsPort.getEnabled`）。
       // 与触发器 `kg_enqueue_extraction` 的三道闸门同一条件，供面板区分「队列空 = 已整理到
@@ -173,8 +181,8 @@ export class PgKnowledgeRead implements KnowledgeReadPort {
             relation: e.relation, createdBy: e.created_by,
           })),
         ingestion: {
-          queued: active.filter((q) => !q.locked).length,
-          running: active.filter((q) => q.locked).length,
+          queued: queued.length,
+          running: running.length,
           failed: failed.length,
           failures: failed.map((q) => ({ sourceKind: "chat_message" as const, sourceRef: q.message_id, reason: "retries_exhausted" as const })),
         },
@@ -328,13 +336,13 @@ export class PgKnowledgeRead implements KnowledgeReadPort {
       // issue #4283 `personal_copy`：**请求者本人**个人空间里、由这条结论自动记下（derived_from 边 created_by = model）、
       // 仍是「AI 记下的」（proposed）那一份——反馈条据此显示「已记入个人记忆」并给撤销。scope_id = 请求者本人，
       // RLS 也只放本人的个人空间（I-14）：别人看这条消息，读不到作者的个人空间，这一列恒为 null。
-      const r = await s.query<{ id: string; statement: string; personal_copy: string | null }>(
+      const r = await s.query<{ id: string; statement: string; claim_kind: KG.KgClaimKind | null; personal_copy: string | null }>(
         `WITH msg AS (
            SELECT cm.id FROM chat_messages cm
             WHERE cm.org_id = $1 AND cm.thread_id = $2
               AND (cm.id = $3 OR (cm.author_kind = 'human' AND cm.author_id = $4 AND cm.client_message_id::text = $3))
          )
-         SELECT c.id, c.statement,
+         SELECT c.id, c.statement, c.claim_kind,
                 (SELECT p.id FROM ontology_edges d JOIN claims p ON p.id = d.src_id AND p.org_id = d.org_id
                   WHERE d.org_id = c.org_id AND d.relation = 'derived_from' AND d.src_kind = 'claim' AND d.dst_kind = 'claim'
                     AND d.dst_id = c.id AND d.status = 'active' AND d.created_by = 'model'
@@ -347,7 +355,9 @@ export class PgKnowledgeRead implements KnowledgeReadPort {
           ORDER BY c.created_at, c.id`,
         [orgId, thread.threadId, messageId, userId],
       );
-      return { claims: r.rows.map((x) => ({ claimId: x.id, statement: x.statement, personalCopyClaimId: x.personal_copy })) };
+      return {
+        claims: r.rows.map((x) => ({ claimId: x.id, statement: x.statement, kind: x.claim_kind ?? "fact", personalCopyClaimId: x.personal_copy })),
+      };
     });
     return guard(threadRef(thread), data);
   }
@@ -450,6 +460,79 @@ export class PgKnowledgeRead implements KnowledgeReadPort {
         const row: ThreadKnowledgeCounts = { threadId: t.id, projectId: t.project_id, ...counts, objects: objectCount.get(t.id) ?? 0 };
         return { threadId: t.id, counts: guard(threadRef({ threadId: t.id, projectId: t.project_id }), row) };
       });
+    });
+  }
+
+  /** 项目中枢 R8：项目记忆（L2）。与 `personalKnowledge` 同一组查询，作用域换成 ('project', projectId)。 */
+  async projectKnowledge(orgId: OrgId, userId: string, projectId: string): Promise<Guarded<ProjectKnowledgeData>> {
+    return guard({ kind: "project", id: projectId }, await this.sharedScopeKnowledge(orgId, userId, "project", projectId));
+  }
+
+  /** B2-S4（issue #4428）：组织记忆（L3）。同一组查询，作用域换成 ('org', orgId)；ref 是组织空间的合成 id。 */
+  async orgKnowledge(orgId: OrgId, userId: string): Promise<Guarded<OrgKnowledgeData>> {
+    // S10：`sharedFromPersonal` 只属于项目记忆（个人记忆只分享到项目，不直达组织），组织读模型不带它。
+    const { revision, objects, claims, edges } = await this.sharedScopeKnowledge(orgId, userId, "org", orgId);
+    return guard(orgSpaceRef(orgId), { revision, objects, claims, edges });
+  }
+
+  /** 项目记忆 / 组织记忆共用的读：一个共享作用域里的活结论 / 有活结论引用的实体 / 两端都活着的边 / 版本号。 */
+  private sharedScopeKnowledge(orgId: OrgId, userId: string, scopeKind: "project" | "org", scopeId: string): Promise<ProjectKnowledgeData> {
+    return this.inTenant(orgId, userId, async (s): Promise<ProjectKnowledgeData> => {
+      const scope = [orgId, scopeKind, scopeId];
+      const objects = await s.query<{
+        id: string; object_kind: ProjectKnowledgeData["objects"][number]["kind"]; name: string; aliases: string[];
+        created_by: ProjectKnowledgeData["objects"][number]["createdBy"]; claim_count: string;
+      }>(
+        `SELECT o.id, o.object_kind, o.name, o.aliases, o.created_by,
+                (SELECT count(DISTINCT c.id) FROM ontology_edges e JOIN claims c ON c.id = e.src_id AND c.org_id = e.org_id
+                  WHERE e.org_id = o.org_id AND e.src_kind = 'claim' AND e.dst_kind = 'object' AND e.dst_id = o.id
+                    AND e.status = 'active' AND ${LIVE_CLAIM}) AS claim_count
+           FROM ontology_objects o
+          WHERE o.org_id = $1 AND o.scope_kind = $2 AND o.scope_id = $3 AND o.merged_into IS NULL
+          ORDER BY o.created_at, o.id`, scope,
+      );
+      const claims = await s.query<ClaimRow>(
+        `SELECT ${CLAIM_COLUMNS} FROM claims c
+          WHERE c.org_id = $1 AND c.scope_kind = $2 AND c.scope_id = $3 AND ${LIVE_CLAIM}
+          ORDER BY c.created_at, c.id`, scope,
+      );
+      const liveClaims = claims.rows.map(toClaim).filter((c): c is KgClaim => c !== null);
+      const liveObjects = objects.rows.filter((o) => Number(o.claim_count) > 0);
+      const live = new Set([...liveObjects.map((o) => `object:${o.id}`), ...liveClaims.map((c) => `claim:${c.id}`)]);
+      const edges = await s.query<{
+        id: string; src_kind: "object" | "claim"; src_id: string; dst_kind: "object" | "claim"; dst_id: string;
+        relation: ProjectKnowledgeData["edges"][number]["relation"]; created_by: ProjectKnowledgeData["edges"][number]["createdBy"];
+      }>(
+        `SELECT id, src_kind, src_id, dst_kind, dst_id, relation, created_by FROM ontology_edges
+          WHERE org_id = $1 AND scope_kind = $2 AND scope_id = $3 AND status = 'active'
+            AND src_kind IN ('object', 'claim') AND dst_kind IN ('object', 'claim')
+          ORDER BY created_at, id`, scope,
+      );
+      const revision = await s.query<{ n: string }>(
+        `SELECT count(*) AS n FROM ontology_actions
+          WHERE org_id = $1 AND scope_kind = $2 AND scope_id = $3 AND outcome = 'accepted'`, scope,
+      );
+      // S10（#4367）：由成员从个人记忆分享来的那些 ⇒ 分享人显示名（数据库函数只回名字，不回原件；非项目作用域恒为 NULL）。
+      const shared = await s.query<{ id: string; shared_by: string | null }>(
+        `SELECT c.id, kg_share_author_name(c.id) AS shared_by FROM claims c
+          WHERE c.org_id = $1 AND c.scope_kind = $2 AND c.scope_id = $3 AND ${LIVE_CLAIM}
+          ORDER BY c.created_at, c.id`, scope,
+      );
+      return {
+        revision: Number(revision.rows[0]!.n),
+        sharedFromPersonal: shared.rows.flatMap((r) => (r.shared_by === null ? [] : [{ claimId: r.id, sharedByName: r.shared_by }])),
+        objects: liveObjects.map((o) => ({
+          id: o.id, scope: { kind: scopeKind, id: scopeId }, kind: o.object_kind, name: o.name,
+          aliases: o.aliases, createdBy: o.created_by, claimCount: Number(o.claim_count),
+        })),
+        claims: liveClaims,
+        edges: edges.rows
+          .filter((e) => live.has(`${e.src_kind}:${e.src_id}`) && live.has(`${e.dst_kind}:${e.dst_id}`))
+          .map((e) => ({
+            id: e.id, src: { kind: e.src_kind, id: e.src_id }, dst: { kind: e.dst_kind, id: e.dst_id },
+            relation: e.relation, createdBy: e.created_by,
+          })),
+      };
     });
   }
 
@@ -696,23 +779,28 @@ interface StoredRecallItem {
  */
 async function readTurnRecall(
   s: TenantSession, orgId: OrgId, viewer: string, threadId: string, messageId: string,
-): Promise<Pick<TurnMemoryData, "recalled" | "recallDegraded">> {
-  const r = await s.query<{ items: StoredRecallItem[]; graph_degraded: boolean; requester_user_id: string }>(
-    `SELECT r.items, r.graph_degraded, r.requester_user_id FROM kg_turn_recalls r
+): Promise<Pick<TurnMemoryData, "recalled" | "recallDegraded" | "cited" | "canCorrect">> {
+  const r = await s.query<{ items: StoredRecallItem[]; graph_degraded: boolean; requester_user_id: string; body: string }>(
+    `SELECT r.items, r.graph_degraded, r.requester_user_id, m.body FROM kg_turn_recalls r
        JOIN chat_messages m ON m.org_id = r.org_id AND m.agent_run_id = r.run_id
       WHERE m.org_id = $1 AND m.thread_id = $2 AND m.id = $3 AND r.thread_id = $2`,
     [orgId, threadId, messageId],
   );
   const row = r.rows[0];
-  if (row === undefined) return { recalled: [], recallDegraded: false };
+  if (row === undefined) return { recalled: [], recallDegraded: false, cited: [], canCorrect: false };
   // F15：本人个人对话里的这一轮，还可能用到本人**其他个人对话**里记下的（召回候选同一条件，见 pg-knowledge-recall.ts）。
   const ownPersonal = `EXISTS (SELECT 1 FROM chat_threads here, chat_threads t
       WHERE here.org_id = c.org_id AND here.id = $3 AND here.project_id IS NULL AND here.created_by = $4
         AND t.org_id = c.org_id AND t.id = c.scope_id AND t.project_id IS NULL AND t.created_by = $4 AND NOT t.archived)`;
   // $5：查看者就是这一轮的提问者。个人空间的条目只在这时才可见（issue #4284，见函数头注）。
+  // S10（#4367）：项目会话里用到的**本项目**项目记忆（L2）对全体项目成员可见——能读到这一轮的人已经过了会话可见性判定
+  // （项目成员），项目记忆本就是给他们的。只认这个会话所属的项目。
+  const thisProject = `EXISTS (SELECT 1 FROM chat_threads pt
+      WHERE pt.org_id = c.org_id AND pt.id = $3 AND pt.project_id = c.scope_id)`;
   const visible = `((c.scope_kind = 'chat_session' AND c.scope_id = $3)
     OR ($5::boolean AND c.scope_kind = 'personal' AND c.scope_id = $4)
-    OR ($5::boolean AND c.scope_kind = 'chat_session' AND ${ownPersonal}))`;
+    OR ($5::boolean AND c.scope_kind = 'chat_session' AND ${ownPersonal})
+    OR (c.scope_kind = 'project' AND ${thisProject}))`;
   const viewerIsRequester = row.requester_user_id === viewer;
   const claimKeys = new Set(row.items.map((i) => i.claimId));
   const objectKeys = new Set<string>();
@@ -720,12 +808,16 @@ async function readTurnRecall(
     const [kind, id] = [k.slice(0, k.indexOf(":")), k.slice(k.indexOf(":") + 1)];
     if (kind === "claim") claimKeys.add(id); else if (kind === "object") objectKeys.add(id);
   }
-  const claims = await s.query<{ id: string; statement: string; status: string; scope_kind: "chat_session" | "personal"; said_at: Date | null }>(
+  const claims = await s.query<{
+    id: string; statement: string; claim_kind: KG.KgClaimKind | null; status: string; scope_kind: "chat_session" | "personal" | "project";
+    said_at: Date | null; shared_by: string | null;
+  }>(
     // 别的个人对话里记下的，对这一轮来说是「来自你之前的对话」：按个人空间报（界面据此标「来自你 {日期} 的对话」）。
-    `SELECT c.id, c.statement, c.status,
+    `SELECT c.id, c.statement, c.claim_kind, c.status,
             CASE WHEN c.scope_kind = 'chat_session' AND c.scope_id <> $3 THEN 'personal' ELSE c.scope_kind END AS scope_kind,
             (SELECT min(m.created_at) FROM claim_message_evidence e JOIN chat_messages m ON m.id = e.message_id AND m.org_id = e.org_id
-              WHERE e.claim_id = c.id AND e.stance = 'supporting') AS said_at
+              WHERE e.claim_id = c.id AND e.stance = 'supporting') AS said_at,
+            kg_share_author_name(c.id) AS shared_by
        FROM claims c
       WHERE c.org_id = $1 AND c.id = ANY($2::text[]) AND ${LIVE_CLAIM} AND ${visible}`,
     [orgId, [...claimKeys], threadId, viewer, viewerIsRequester],
@@ -756,8 +848,9 @@ async function readTurnRecall(
       graphPath = hops.every((h) => h !== null) ? hops as NonNullable<(typeof hops)[number]>[] : null;
     }
     recalled.push({
-      claimId: c.id, statement: c.statement, triState: tri, scope: c.scope_kind,
+      claimId: c.id, statement: c.statement, kind: c.claim_kind ?? "fact", triState: tri, scope: c.scope_kind,
       saidAt: c.said_at?.toISOString() ?? null,
+      ...(c.scope_kind === "project" && c.shared_by !== null ? { sharedByName: c.shared_by } : {}),
       channels: item.channels.filter((x): x is RecalledMemory["channels"][number] => CP.RetrievalChannel.safeParse(x).success),
       retrievalReasons: item.retrievalReasons.filter((x): x is RecalledMemory["retrievalReasons"][number] => CP.FilterAction.safeParse(x).success),
       // issue #4271：修复前决定类强制召回写进库的是 Infinity → jsonb null；读出来按「没打分」给 0，守住契约。
@@ -765,5 +858,10 @@ async function readTurnRecall(
       graphPath,
     });
   }
-  return { recalled, recallDegraded: row.graph_degraded };
+  // S7（#4364）：引用 chip = 这一轮召回集合（上面已按查看者过滤）里、回答正文真的用到了的那些。只从 recalled 里挑，
+  // 模型在回答里提到的其他说法（没被召回的、别人的、已失效的）不可能变成 chip。
+  // S7 review F6：只有「对话所有者 + 这一轮的提问人」能纠正（同 kg_correct_citation 的判据）；界面据此给不给入口。
+  const owner = await s.query<{ created_by: string }>("SELECT created_by FROM chat_threads WHERE org_id = $1 AND id = $2", [orgId, threadId]);
+  const canCorrect = viewerIsRequester && owner.rows[0]?.created_by === viewer;
+  return { recalled, recallDegraded: row.graph_degraded, cited: reconcileCitations(row.body, recalled), canCorrect };
 }

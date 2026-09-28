@@ -1,3 +1,4 @@
+import {BOARD_SYNCED_STATUS} from "./support/board-sync-status";
 import { randomUUID } from "node:crypto";
 import { expect, request as playwrightRequest, test, type APIRequestContext, type Page } from "@playwright/test";
 import { SESSION_TOKEN_STORAGE_KEY } from "../lib/api-client";
@@ -97,10 +98,10 @@ test("production Board library manages, duplicates, filters and deletes durable 
   await apiJson<Board>(api, token, "PATCH", `/whiteboards/${oneTag.id}`, { tagIds: [alpha.id], expectedTagsRevision: oneTag.tagsRevision });
 
   await page.goto(`/studio/board/${source.id}`);
-  await expect(page.getByText(/^已同步$/)).toBeVisible({ timeout: 30_000 });
+  await expect(page.getByText(BOARD_SYNCED_STATUS)).toBeVisible({ timeout: 30_000 });
   await page.getByTestId("board-add-sticky").click();
   await expect(page.getByTestId("board-a11y-mirror").getByRole("button")).toHaveCount(1);
-  await expect(page.getByText(/^已同步$/)).toBeVisible({ timeout: 30_000 });
+  await expect(page.getByText(BOARD_SYNCED_STATUS)).toBeVisible({ timeout: 30_000 });
 
   const retryId = randomUUID(), retryPayload = { requestId: retryId, targetName: `RetryCopy-${suffix}` };
   const firstRetry = await apiJson<{ board: Board; receipt: { requestId: string; objectCount: number } }>(api, token, "POST", `/whiteboards/${source.id}/duplicates`, retryPayload);
@@ -121,7 +122,7 @@ test("production Board library manages, duplicates, filters and deletes durable 
   await page.getByTestId(`board-filter-tag-${beta.id}`).click();
   await expect(page.getByTestId(`board-card-${source.id}`)).toBeVisible();
   await expect(page.getByTestId(`board-card-${oneTag.id}`)).toHaveCount(0);
-  await expect(page.getByTestId(`board-thumbnail-empty-${source.id}`)).toHaveText("暂无缩略图");
+  await expect(page.getByTestId(`board-thumbnail-empty-${source.id}`)).toHaveText("预览尚未生成");
 
   await page.getByTestId(`board-menu-${source.id}`).click();
   await page.getByTestId(`board-action-duplicate-${source.id}`).click();
@@ -136,14 +137,14 @@ test("production Board library manages, duplicates, filters and deletes durable 
   cleanupBoards.add(copy.id);
 
   await page.goto(`/studio/board/${copy.id}`);
-  await expect(page.getByText(/^已同步$/)).toBeVisible({ timeout: 30_000 });
+  await expect(page.getByText(BOARD_SYNCED_STATUS)).toBeVisible({ timeout: 30_000 });
   await expect(page.getByTestId("board-a11y-mirror").getByRole("button")).toHaveCount(1);
   await page.goto(`/studio/board/${source.id}`);
-  await expect(page.getByText(/^已同步$/)).toBeVisible({ timeout: 30_000 });
+  await expect(page.getByText(BOARD_SYNCED_STATUS)).toBeVisible({ timeout: 30_000 });
   await page.getByTestId("board-add-sticky").click();
   await expect(page.getByTestId("board-a11y-mirror").getByRole("button")).toHaveCount(2);
   await page.goto(`/studio/board/${copy.id}`);
-  await expect(page.getByText(/^已同步$/)).toBeVisible({ timeout: 30_000 });
+  await expect(page.getByText(BOARD_SYNCED_STATUS)).toBeVisible({ timeout: 30_000 });
   await expect(page.getByTestId("board-a11y-mirror").getByRole("button")).toHaveCount(1);
 
   await page.goto("/studio/board");
@@ -184,10 +185,21 @@ test("Board navigation retains shell in library and only editor is fullscreen", 
   await page.screenshot({ path: testInfo.outputPath("board-library-with-navigation.png") });
   await page.getByTestId(`board-open-${board.id}`).click();
   await expect(page).toHaveURL(new RegExp(`/studio/board/${board.id}$`));
-  await expect(page.getByText(/^已同步$/)).toBeVisible({ timeout: 30_000 });
+  await expect(page.getByText(BOARD_SYNCED_STATUS)).toBeVisible({ timeout: 30_000 });
   await expect(page.getByTestId("rail-whiteboard")).not.toBeVisible();
-  const editor = await page.getByTestId("collaborative-editor").boundingBox();
-  expect(editor).toEqual({ x: 0, y: 0, width: 1280, height: 800 });
+  await expect(async () => {
+    const region = page.getByTestId("board-editor-region");
+    const shell = await region.locator("..").boundingBox();
+    const banner = await page.getByTestId("board-sync-banner").boundingBox();
+    const bounds = await region.boundingBox();
+    const editor = await page.getByTestId("collaborative-editor").boundingBox();
+    expect(shell).toEqual({ x: 0, y: 0, width: 1280, height: 800 });
+    expect(banner).not.toBeNull(); expect(bounds).not.toBeNull(); expect(editor).not.toBeNull();
+    expect(banner!.height).toBeGreaterThan(0); expect(bounds!.height).toBeGreaterThan(0);
+    expect(banner).toEqual({ x: 0, y: 0, width: 1280, height: banner!.height });
+    expect(bounds).toEqual({ x: 0, y: banner!.height, width: 1280, height: 800 - banner!.height });
+    expect(editor).toEqual(bounds);
+  }).toPass({ timeout: 5000 });
   await page.screenshot({ path: testInfo.outputPath("board-editor-fullscreen.png") });
   await page.getByRole("button", { name: "返回白板", exact: true }).click();
   await expect(page).toHaveURL(/\/studio\/board$/);
@@ -196,4 +208,88 @@ test("Board navigation retains shell in library and only editor is fullscreen", 
   await page.reload();
   await expect(page.getByTestId("rail-whiteboard")).toBeVisible();
   await expect(page.getByTestId("whiteboard-library")).toBeVisible();
+});
+
+test('new Board dialog saves optional existing and new tags before opening', async ({ page, request: api }, testInfo) => {
+  const token = cleanupToken = await login(page);
+  const suffix = randomUUID().slice(0, 8);
+  const tag = await apiJson<Tag>(api, token, 'POST', '/whiteboard-tags', { requestId: randomUUID(), name: `Existing-${suffix}` });
+  cleanupTags.set(tag.id, tag.revision);
+  await page.goto('/studio/board');
+  const trigger = page.getByTestId('board-create');
+  await trigger.click();
+  const dialog = page.getByTestId('board-create-dialog');
+  const name = page.getByTestId('board-create-name');
+  await expect(name).toHaveValue('未命名白板');
+  expect(await name.evaluate((element: HTMLInputElement) => [element.selectionStart, element.selectionEnd])).toEqual([0, 5]);
+  await page.keyboard.press('Escape'); await expect(dialog).not.toBeVisible(); await expect(trigger).toBeFocused();
+  await trigger.click();
+  const defaultResponse = page.waitForResponse(response => response.request().method() === 'POST' && response.url().endsWith('/whiteboards'));
+  await page.getByTestId('board-create-confirm').click();
+  const defaultCreatedResponse = await defaultResponse; expect(defaultCreatedResponse.ok()).toBe(true);
+  const defaultBoard = await defaultCreatedResponse.json() as Board; cleanupBoards.add(defaultBoard.id);
+  await expect(page).toHaveURL(new RegExp(`/studio/board/${defaultBoard.id}$`));
+  const defaultPersisted = await apiJson<Board>(api, token, 'GET', `/whiteboards/${defaultBoard.id}`);
+  expect(defaultPersisted.name).toBe('未命名白板'); expect(defaultPersisted.tagIds).toEqual([]);
+  await page.goto('/studio/board');
+  await trigger.click(); await name.fill(`Dialog-${suffix}`);
+  await dialog.getByRole('checkbox', { name: tag.name, exact: true }).check();
+  const newTagName = `New-${suffix}`;
+  await dialog.getByRole('textbox', { name: '搜索或添加标签' }).fill(newTagName);
+  await page.getByTestId('board-create-confirm').click();
+  await expect(page.getByTestId('board-create-error')).toContainText('标签输入尚未完成');
+  const tagResponse = page.waitForResponse(response => response.request().method() === 'POST' && response.url().endsWith('/whiteboard-tags'));
+  await dialog.getByRole('button', { name: `添加标签“${newTagName}”`, exact: true }).click();
+  const createdTagResponse = await tagResponse; expect(createdTagResponse.ok()).toBe(true);
+  const added = await createdTagResponse.json() as Tag; cleanupTags.set(added.id, added.revision);
+  await expect(dialog.getByRole('checkbox', { name: newTagName, exact: true })).toBeChecked();
+  await expect(page.getByTestId('board-create-error')).not.toBeVisible();
+  for (const size of [{ width: 1440, height: 900 }, { width: 390, height: 844 }]) {
+    await page.setViewportSize(size);
+    const bounds = await dialog.boundingBox(); expect(bounds).not.toBeNull();
+    expect(bounds!.x).toBeGreaterThanOrEqual(0); expect(bounds!.x + bounds!.width).toBeLessThanOrEqual(size.width);
+    await page.getByTestId('board-create-confirm').scrollIntoViewIfNeeded();
+    await expect(page.getByTestId('board-create-confirm')).toBeInViewport();
+    await page.screenshot({path:testInfo.outputPath(`create-dialog-${size.width}.png`)});
+  }
+  const createdResponse = page.waitForResponse(response => response.request().method() === 'POST' && response.url().endsWith('/whiteboards'));
+  await page.getByTestId('board-create-confirm').click();
+  const response = await createdResponse; expect(response.ok()).toBe(true);
+  const created = await response.json() as Board; cleanupBoards.add(created.id);
+  await expect(page).toHaveURL(new RegExp(`/studio/board/${created.id}$`));
+  const persisted = await apiJson<Board>(api, token, 'GET', `/whiteboards/${created.id}`);
+  expect(persisted.name).toBe(`Dialog-${suffix}`); expect([...persisted.tagIds].sort()).toEqual([tag.id, added.id].sort());
+});
+
+
+test('library untagged filter is server paginated and cards remain usable', async ({ page, request: api }, testInfo) => {
+  const token = cleanupToken = await login(page);
+  const name = `Filter-${randomUUID().slice(0,8)}`;
+  const tag = await apiJson<Tag>(api, token, 'POST', '/whiteboard-tags', {requestId:randomUUID(),name});
+  cleanupTags.set(tag.id,tag.revision);
+  const boards: Board[] = [];
+  for (let i=0;i<3;i++) {
+    const board = await apiJson<Board>(api,token,'POST','/whiteboards',{requestId:randomUUID(),name:`${name}-${i}`});
+    boards.push(board); cleanupBoards.add(board.id);
+  }
+  await apiJson<Board>(api,token,'PATCH',`/whiteboards/${boards[0]!.id}`,{tagIds:[tag.id],expectedTagsRevision:0});
+  const url = `/whiteboards?archived=active&limit=1&untagged=true&query=${encodeURIComponent(name)}`;
+  const first = await apiJson<{items:Board[];nextCursor:string}>(api,token,'GET',url);
+  expect(first.items).toHaveLength(1); expect(first.items[0]!.tagIds).toEqual([]); expect(first.nextCursor).toBeTruthy();
+  const second = await apiJson<{items:Board[];nextCursor:string|null}>(api,token,'GET',`${url}&cursor=${encodeURIComponent(first.nextCursor)}`);
+  expect(second.items).toHaveLength(1); expect(second.items[0]!.tagIds).toEqual([]); expect(second.nextCursor).toBeNull();
+  expect(new Set([...first.items,...second.items].map(b=>b.id))).toEqual(new Set(boards.slice(1).map(b=>b.id)));
+  expect((await apiFetch(api,token,'GET',`${url.replace('untagged=true','untagged=false')}&cursor=${encodeURIComponent(first.nextCursor)}`)).status()).toBe(409);
+  await page.goto('/studio/board');
+  await page.getByTestId('board-search').fill(name);
+  await page.getByRole('button',{name:'无标签',exact:true}).click();
+  await expect(page.getByTestId(`board-card-${boards[0]!.id}`)).toHaveCount(0);
+  await expect(page.getByTestId(`board-card-${boards[1]!.id}`)).toBeVisible();
+  await page.getByTestId(`board-filter-tag-${tag.id}`).click();
+  await expect(page.getByTestId(`board-card-${boards[0]!.id}`)).toBeVisible();
+  await expect(page.getByTestId(`board-card-${boards[1]!.id}`)).toHaveCount(0);
+  for (const width of [1440,390]) {
+    await page.setViewportSize({width,height:900});
+    await page.screenshot({path:testInfo.outputPath(`library-cards-${width}.png`),fullPage:true});
+  }
 });

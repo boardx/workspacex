@@ -8,6 +8,7 @@
  */
 import { test, expect, type Page } from "@playwright/test";
 import { routeDrafts, routeInbox, routeDesignWorkbench } from "../scripts/lib/design-loop-fixtures.mjs";
+import { clickMore, openMore } from "./support/design-more";
 
 // 同 `design-loop-responsive.spec.ts` / `design-share.spec.ts` 的 `PW_EXECUTABLE` 约定：本地沙箱的
 // chromium 版本可能与 @playwright/test pin 的不一致；给了就用它启动，CI 里不设、走 Playwright 自装的。
@@ -44,7 +45,7 @@ test.describe("原型画布主链路（迭代 10）", () => {
     await open(page, "detail-prototype");
     const board = page.getByTestId("design-detail-board");
     await expect(page.getByTestId("design-detail-phone")).toHaveCount(3);
-    await page.getByTestId("design-detail-zoom-reset").click();
+    await page.getByTestId("design-detail-zoom-level").click();
     await expect(page.getByTestId("design-detail-zoom-level")).toHaveText("100%");
     await page.getByTestId("design-detail-zoom-in").click();
     await expect(page.getByTestId("design-detail-zoom-level")).toHaveText("120%");
@@ -63,9 +64,9 @@ test.describe("原型画布主链路（迭代 10）", () => {
     await page.mouse.wheel(0, -120);
     await page.keyboard.up("Control");
     await expect(page.getByTestId("design-detail-zoom-level")).not.toHaveText("120%");
-    // 点第 3 页标题 ⇒ 标签条同步
+    // 点第 3 页标题 ⇒ 它成为当前页（design-delta `novice-progressive-disclosure`：画板视图不再有页签条，由 aria-current 标出）
     await page.getByTestId("design-detail-board-frame-2").locator("[data-board-title]").click();
-    await expect(page.getByTestId("design-detail-frame-2")).toHaveClass(/bg-card/);
+    await expect(page.getByTestId("design-detail-board-frame-2")).toHaveAttribute("aria-current", "page");
     await page.getByTestId("design-detail-view-single").click();
     await expect(page.getByTestId("design-detail-phone")).toHaveCount(1);
     await expect(page.getByTestId("design-detail-phone-tree")).toContainText("本月用量");
@@ -104,11 +105,11 @@ test.describe("原型画布主链路（迭代 10）", () => {
     await expect(page.getByTestId("design-detail-preview-banner")).toContainText("第 1 版");
     await page.getByTestId("design-detail-preview-exit").click();
     await expect(page.getByTestId("design-detail-preview-banner")).toHaveCount(0);
-    await page.getByTestId("design-detail-export").click();
+    await clickMore(page, "design-detail-export");
     const download = page.waitForEvent("download");
     await page.getByTestId("design-detail-export-json").click();
     expect((await download).suggestedFilename()).toMatch(/\.prototype\.json$/);
-    await page.getByTestId("design-detail-export").click();
+    await clickMore(page, "design-detail-export");
     await page.getByTestId("design-detail-export-copy").click();
     await expect(page.getByTestId("design-detail-export-copy")).toContainText("已复制");
     const clip = await page.evaluate(() => navigator.clipboard.readText());

@@ -64,7 +64,9 @@ it('real HTTP proof binds requester and live source visibility, denies missing a
   const url=`${await app.getUrl()}/internal/agent-runs/${parent}/memory/source-proof`;
   async function request(value:unknown,key='memory-test-key'){return fetch(url,{method:'POST',headers:{'content-type':'application/json','x-deep-agent-internal-key':key},body:JSON.stringify(value)});}
   expect((await request(body,'wrong')).status).toBe(401);
-  expect((await request({...body,toolName:'wx_memory_search',toolArgs:{}})).status).toBe(200);
+  // #4344：wx_memory_* 已退出 agent 的准入表与分级表（保留的只是这条代码路径与数据）⇒ 三件都落进「未登记 = L2」，
+  // 读也要授权——退役的工具 fail closed，而不是保留一个没人判断过的只读口。
+  expect((await request({...body,toolName:'wx_memory_search',toolArgs:{}})).status).toBe(503);
   expect((await request(body)).status).toBe(503);
   expect((await request({...body,toolName:'wx_memory_delete',toolArgs:{memoryId:randomUUID(),expectedRevision:1}})).status).toBe(503);
   granted=true;

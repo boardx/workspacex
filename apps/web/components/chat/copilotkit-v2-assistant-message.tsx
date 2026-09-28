@@ -315,6 +315,13 @@ function V2AssistantMessageImpl(
     ),
     [messageId],
   );
+  const traceCovered = React.useContext(RunTraceCoveredContext);
+  // 2026-09-27 devapp 实测：用户提问后到执行轨迹之间一大片空白。每一步"只调工具、不说话"
+  // 的 assistant 消息，正文为空、工具调用又已由执行轨迹承载（`V2ToolCallsView` 返回
+  // null），可框架的消息外壳 + 空 markdown 容器照样占一格——20 次工具调用就叠出一屏空白。
+  // 这类消息没有任何可见内容，整条不渲染；待决策的工具卡与产出文件仍照常显示。
+  if ((isInvisibleToolOnlyMessage(props.message, text, traceCovered) || isProcessNarration(props.message, text, traceCovered))
+    && producedFiles.length === 0) return <></>;
   return (
     // issue #2132（真实 devapp 实测：消息操作条位置不对）—— `gap-1` 收紧自
     // 此前的 `gap-1.5`：框架自己的 toolbar（复制/反馈/评分）与下面「落地为产物」
@@ -371,6 +378,35 @@ function V2AssistantMessageImpl(
     </div>
     </PersistedMessageCitationScope>
   );
+}
+
+/** 正文为空、且每个工具调用都不会在消息里画出任何东西（已被执行轨迹承载，或是由计划
+ * 账本承载的 `write_todos`）。待决策的工具调用会画确认卡，不算。 */
+export function isInvisibleToolOnlyMessage(
+  message: { toolCalls?: readonly { function: { name: string } }[] },
+  text: string,
+  traceCovered: boolean,
+): boolean {
+  const calls = message.toolCalls ?? [];
+  if (text.trim() !== "" || calls.length === 0) return false;
+  return calls.every((call) => !isDecisionTool(call.function.name) && (traceCovered || call.function.name === "write_todos"));
+}
+
+/** 2026-09-27 人类反馈（截图：计划执行时正文里一段段「现在开始用 pptxgenjs…」「PPT 文件已生成，
+ * 现在进行渲染验证。」「渲染成功，13 页…」，「感觉很乱」「不要把细节给用户看」）。
+ *
+ * 一边说话、一边调工具的 assistant 消息是**过程旁白**：它说的就是那次工具调用在干什么，而
+ * 那次调用已在执行轨迹里（`traceCovered`）。正文只留给回答本身——没有工具调用的消息。
+ * 不算旁白的：会画确认卡的决策工具、只写计划的 `write_todos`（常与收尾回答同条出现）。 */
+export function isProcessNarration(
+  message: { toolCalls?: readonly { function: { name: string } }[] },
+  text: string,
+  traceCovered: boolean,
+): boolean {
+  const calls = message.toolCalls ?? [];
+  if (!traceCovered || text.trim() === "") return false;
+  if (calls.some((call) => isDecisionTool(call.function.name))) return false;
+  return calls.some((call) => call.function.name !== "write_todos");
 }
 
 /**

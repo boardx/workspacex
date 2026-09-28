@@ -16,7 +16,7 @@
  *   `importModels` 现在走那条路（#3872 维度 2）。
  */
 import { copyFileSync, existsSync, mkdirSync, readdirSync, readFileSync, statSync } from "node:fs";
-import { join, relative } from "node:path";
+import { join, relative, sep } from "node:path";
 import { copyBlobVerified, etaSeconds, type ImportProgress } from "./model-import";
 
 interface Manifest {
@@ -81,7 +81,9 @@ export function listModels(store: string): string[] {
     for (const e of readdirSync(dir, { withFileTypes: true })) {
       const p = join(dir, e.name);
       if (e.isDirectory()) walk(p);
-      else refs.push(relative(root, p).replace(/\/([^/]+)$/, ":$1"));
+      // 模型名是 Ollama 的逻辑名，永远用 `/`；Windows 上 relative() 给的是 `\`，
+      // 不换就成了 `qwen3.5\4b`，后面按名字找 manifest 全部 ENOENT（windows-latest 实测）。
+      else refs.push(relative(root, p).split(sep).join("/").replace(/\/([^/]+)$/, ":$1"));
     }
   };
   walk(root);

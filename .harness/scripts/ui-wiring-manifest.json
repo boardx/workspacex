@@ -84,6 +84,11 @@
         "agent-run/trial-run-agent"
       ]
     },
+    "ApplyBlueprintController": {
+      "useCases": [
+        "templates/apply-blueprint"
+      ]
+    },
     "ArtifactBindingController": {
       "useCases": [
         "artifact/bind-to-project-step",
@@ -109,7 +114,8 @@
         "auth/errors",
         "auth/inspect-password-reset-throttle",
         "auth/login",
-        "auth/password-reset"
+        "auth/password-reset",
+        "first-value/first-value-recorder"
       ]
     },
     "AuthOrgController": {
@@ -128,7 +134,32 @@
         "agent/ensure-image-gen-agent",
         "auth/bootstrap-first-user",
         "auth/errors",
-        "auth/register-new-account"
+        "auth/register-new-account",
+        "project/sample-project/ensure-sample-project"
+      ]
+    },
+    "BlueprintChangeRequestController": {
+      "useCases": [
+        "templates/compute-deviations",
+        "templates/submit-blueprint-change-request"
+      ]
+    },
+    "BlueprintController": {
+      "useCases": [
+        "live-collab/get-viewer-options",
+        "security/permission-filter",
+        "templates/create-blueprint",
+        "templates/get-initialization-preview",
+        "templates/get-interview-subjects",
+        "templates/get-project-grouping",
+        "templates/get-project-prep",
+        "templates/get-project-topic",
+        "templates/get-workflow-orchestration",
+        "templates/save-and-sync-topic",
+        "templates/save-as-org-template",
+        "templates/switch-workflow-template",
+        "templates/update-grouping",
+        "templates/update-interview-subjects"
       ]
     },
     "CanvasInstanceController": {
@@ -185,7 +216,8 @@
         "chat/get-thread",
         "chat/list-thread-attachments",
         "chat/resolve-visibility",
-        "chat/upload-attachment"
+        "chat/upload-attachment",
+        "first-value/first-value-recorder"
       ]
     },
     "ChatController": {
@@ -216,7 +248,8 @@
         "chat/start-preset-instance",
         "chat/summarize-persona-from-thread",
         "chat/update-agent-roster",
-        "chat/upsert-preset"
+        "chat/upsert-preset",
+        "first-value/first-value-recorder"
       ]
     },
     "ChatFollowUpSuggestionsController": {
@@ -252,6 +285,8 @@
         "design-workbench/create-project",
         "design-workbench/delete-project",
         "design-workbench/design-chat-model",
+        "design-workbench/design-comments",
+        "design-workbench/design-variants",
         "design-workbench/import-thread",
         "design-workbench/intake-questions",
         "design-workbench/list-my-projects",
@@ -273,9 +308,11 @@
     "DigitalInterviewController": {
       "useCases": [
         "interview/errors",
+        "interview/generate-interview-markdown",
         "interview/list-digital-interviews",
         "interview/manage-digital-interview",
-        "interview/quick-digital-interview"
+        "interview/quick-digital-interview",
+        "interview/read-interview-markdown"
       ]
     },
     "DocumentGenerationAutoApproveController": {
@@ -356,6 +393,14 @@
         "files/set-retention-policy"
       ]
     },
+    "GuidedResearchController": {
+      "useCases": [
+        "research/guided-research-skill",
+        "research/guided-runtime-service",
+        "research/guided-workflow-service",
+        "security/permission-filter"
+      ]
+    },
     "IdentityController": {
       "useCases": [
         "identity/authorize",
@@ -399,6 +444,22 @@
       "useCases": [],
       "note": "内核探针：只做一次 `SELECT 1` 级别的连通性自检（直接用 DATABASE_PORT），没有业务用例——它本来就不该经 application 层。"
     },
+    "KnowledgeGraphController": {
+      "useCases": [
+        "chat/resolve-visibility",
+        "knowledge-graph/act-on-memory-card",
+        "knowledge-graph/apply-human-action",
+        "knowledge-graph/auto-copy-decisions",
+        "knowledge-graph/ids",
+        "knowledge-graph/promote-to-org",
+        "knowledge-graph/promote-to-personal",
+        "knowledge-graph/promote-to-project",
+        "knowledge-graph/read-org-knowledge",
+        "knowledge-graph/read-personal-knowledge",
+        "knowledge-graph/read-project-knowledge",
+        "knowledge-graph/read-thread-knowledge"
+      ]
+    },
     "LocalExportController": {
       "useCases": [
         "identity/errors",
@@ -407,6 +468,7 @@
     },
     "LocalOrgController": {
       "useCases": [
+        "identity/egress-ledger",
         "identity/errors",
         "identity/invoke-local-model",
         "identity/personal-local-org"
@@ -480,6 +542,13 @@
       "useCases": [],
       "note": "只读访问位：回答「当前 principal 是不是平台管理员」，直接读 CREDENTIAL/PLATFORM_ADMIN 仓储，没有独立用例模块。"
     },
+    "ProjectAiSettingsController": {
+      "useCases": [
+        "project/errors",
+        "project/get-project-ai-settings",
+        "project/update-project-ai-settings"
+      ]
+    },
     "ProjectController": {
       "useCases": [
         "project/add-project-member",
@@ -491,14 +560,31 @@
         "project/create-project",
         "project/errors",
         "project/get-project-overview",
+        "project/link-project-resource",
         "project/list-agenda-segments",
         "project/list-project-members",
+        "project/list-project-resources",
         "project/list-projects",
         "project/preview-as-role",
         "project/remove-project-member",
         "project/render-role-view",
         "project/unarchive-project",
+        "project/unlink-project-resource",
         "project/update-project-tags"
+      ]
+    },
+    "ProjectInviteController": {
+      "useCases": [
+        "auth/issue-invite-link",
+        "auth/org-invite-errors",
+        "auth/revoke-invite-links",
+        "project/accept-project-invite"
+      ]
+    },
+    "ProvenanceController": {
+      "useCases": [
+        "identity/switch-organization",
+        "provenance/query-provenance"
       ]
     },
     "PublicDesignShareController": {
@@ -510,6 +596,8 @@
         "design-workbench/create-project",
         "design-workbench/delete-project",
         "design-workbench/design-chat-model",
+        "design-workbench/design-comments",
+        "design-workbench/design-variants",
         "design-workbench/import-thread",
         "design-workbench/intake-questions",
         "design-workbench/list-my-projects",
@@ -577,16 +665,9 @@
       "useCases": [],
       "note": "Resource metadata CRUD: direct typed repository port; tenant and owner/member predicates are enforced atomically in PgWhiteboardRepository, validated by real PostgreSQL and HTTP negative tests (#3926). Content collaboration is a separate use case."
     },
-    "KnowledgeGraphController": {
-      "useCases": [
-        "chat/resolve-visibility",
-        "knowledge-graph/act-on-memory-card",
-        "knowledge-graph/apply-human-action",
-        "knowledge-graph/ids",
-        "knowledge-graph/promote-to-personal",
-        "knowledge-graph/read-personal-knowledge",
-        "knowledge-graph/read-thread-knowledge"
-      ]
+    "WhiteboardTagController": {
+      "useCases": [],
+      "note": "白板标签的增删改查：直接调 WHITEBOARD_TAG_REPOSITORY（list/create/rename/delete），入参由 ZodBodyPipe 按 whiteboard 契约校验，没有跨聚合编排，没有独立用例模块。"
     }
   },
   "routes": {
@@ -653,6 +734,7 @@
         "apps/web/lib/live-asr-draft.ts",
         "apps/web/lib/live-chat.ts",
         "apps/web/lib/live-feedback.ts",
+        "apps/web/lib/live-identity.ts",
         "apps/web/lib/live-org-admin.ts",
         "apps/web/lib/live-platform-access.ts",
         "apps/web/lib/live-projects.ts",
@@ -697,7 +779,9 @@
         "OrgInviteController",
         "OrgInviteLinkController",
         "PlatformAccessController",
+        "ProjectAiSettingsController",
         "ProjectController",
+        "ProjectInviteController",
         "PublicDesignShareController",
         "ToolPermissionGrantController"
       ]
@@ -727,6 +811,7 @@
         "apps/web/lib/live-chat.ts",
         "apps/web/lib/live-feedback.ts",
         "apps/web/lib/live-files.ts",
+        "apps/web/lib/live-identity.ts",
         "apps/web/lib/live-message-rating.ts",
         "apps/web/lib/live-org-admin.ts",
         "apps/web/lib/live-platform-access.ts",
@@ -789,7 +874,9 @@
         "OrgInviteController",
         "OrgInviteLinkController",
         "PlatformAccessController",
+        "ProjectAiSettingsController",
         "ProjectController",
+        "ProjectInviteController",
         "PublicDesignShareController",
         "RecordingController",
         "SkillController",
@@ -810,6 +897,7 @@
         "apps/web/lib/live-chat.ts",
         "apps/web/lib/live-feedback.ts",
         "apps/web/lib/live-files.ts",
+        "apps/web/lib/live-identity.ts",
         "apps/web/lib/live-message-rating.ts",
         "apps/web/lib/live-org-admin.ts",
         "apps/web/lib/live-platform-access.ts",
@@ -872,7 +960,9 @@
         "OrgInviteController",
         "OrgInviteLinkController",
         "PlatformAccessController",
+        "ProjectAiSettingsController",
         "ProjectController",
+        "ProjectInviteController",
         "PublicDesignShareController",
         "RecordingController",
         "SkillController",
@@ -1022,6 +1112,7 @@
         "apps/web/lib/live-chat.ts",
         "apps/web/lib/live-feedback.ts",
         "apps/web/lib/live-files.ts",
+        "apps/web/lib/live-identity.ts",
         "apps/web/lib/live-message-rating.ts",
         "apps/web/lib/live-org-admin.ts",
         "apps/web/lib/live-platform-access.ts",
@@ -1084,7 +1175,9 @@
         "OrgInviteController",
         "OrgInviteLinkController",
         "PlatformAccessController",
+        "ProjectAiSettingsController",
         "ProjectController",
+        "ProjectInviteController",
         "PublicDesignShareController",
         "RecordingController",
         "SkillController",
@@ -1116,6 +1209,7 @@
         "ChatFollowUpSuggestionsController",
         "CopilotkitAguiController",
         "EvidenceWithdrawalController",
+        "ProjectAiSettingsController",
         "ProjectController"
       ]
     },
@@ -1166,6 +1260,16 @@
         "apps/web/lib/mock/quick-digital-interview.ts"
       ]
     },
+    "/itv/[interviewId]/[stage]": {
+      "kind": "mock",
+      "screen": "apps/web/app/itv/[interviewId]/[stage]/page.tsx",
+      "mocks": [
+        "apps/web/lib/mock/digital-expert-personas.ts",
+        "apps/web/lib/mock/digital-interview-drafts.ts",
+        "apps/web/lib/mock/experts-persona.json",
+        "apps/web/lib/mock/quick-digital-interview.ts"
+      ]
+    },
     "/itv/[interviewId]/setup": {
       "kind": "mock",
       "screen": "apps/web/app/itv/[interviewId]/setup/page.tsx",
@@ -1207,8 +1311,68 @@
       ]
     },
     "/itv/new": {
-      "kind": "shell",
-      "screen": "apps/web/app/itv/new/page.tsx"
+      "kind": "wired",
+      "screen": "apps/web/app/itv/new/page.tsx",
+      "adapters": [
+        "apps/web/lib/live-asr-draft.ts",
+        "apps/web/lib/live-chat.ts",
+        "apps/web/lib/live-feedback.ts",
+        "apps/web/lib/live-identity.ts",
+        "apps/web/lib/live-interview-metadata.ts",
+        "apps/web/lib/live-org-admin.ts",
+        "apps/web/lib/live-platform-access.ts",
+        "apps/web/lib/live-projects.ts",
+        "apps/web/lib/live-recording.ts"
+      ],
+      "contracts": [
+        "agent-defaults",
+        "artifact",
+        "chat",
+        "chat-file-upload",
+        "chat-knowledge-graph",
+        "design-workbench",
+        "feedback-loop",
+        "identity",
+        "interview",
+        "org-admin",
+        "plan-permissions",
+        "platform-members",
+        "project"
+      ],
+      "controllers": [
+        "AgentRunController",
+        "ArtifactBindingController",
+        "ArtifactReferenceController",
+        "CapabilityController",
+        "ChatAttachmentController",
+        "ChatController",
+        "ChatFollowUpSuggestionsController",
+        "CheckinBoardController",
+        "CopilotkitAguiController",
+        "DesignWorkbenchController",
+        "DeviceSessionController",
+        "DigitalInterviewController",
+        "DocumentGenerationAutoApproveController",
+        "EvidenceWithdrawalController",
+        "FeedbackController",
+        "IdentityController",
+        "InterviewInsightController",
+        "InterviewScopeController",
+        "KernelProbeController",
+        "KnowledgeGraphController",
+        "LocalExportController",
+        "LocalOrgController",
+        "OrgAdminManagementController",
+        "OrgAdminScopeController",
+        "OrgInviteController",
+        "OrgInviteLinkController",
+        "PlatformAccessController",
+        "ProjectAiSettingsController",
+        "ProjectController",
+        "ProjectInviteController",
+        "PublicDesignShareController",
+        "ToolPermissionGrantController"
+      ]
     },
     "/itv/quick/[interviewId]": {
       "kind": "mock",
@@ -1335,6 +1499,7 @@
         "apps/web/lib/live-capabilities.ts",
         "apps/web/lib/live-chat.ts",
         "apps/web/lib/live-feedback.ts",
+        "apps/web/lib/live-identity.ts",
         "apps/web/lib/live-org-admin.ts",
         "apps/web/lib/live-platform-access.ts",
         "apps/web/lib/live-projects.ts",
@@ -1381,7 +1546,9 @@
         "OrgInviteController",
         "OrgInviteLinkController",
         "PlatformAccessController",
+        "ProjectAiSettingsController",
         "ProjectController",
+        "ProjectInviteController",
         "PublicDesignShareController",
         "SkillFileEditController",
         "ToolPermissionGrantController"
@@ -1569,7 +1736,9 @@
         "OrgInviteController",
         "OrgInviteLinkController",
         "PlatformAccessController",
+        "ProjectAiSettingsController",
         "ProjectController",
+        "ProjectInviteController",
         "PublicDesignShareController",
         "ToolPermissionGrantController"
       ]
@@ -1596,6 +1765,7 @@
         "ArtifactBindingController",
         "ArtifactReferenceController",
         "EvidenceWithdrawalController",
+        "ProjectAiSettingsController",
         "ProjectController"
       ]
     },
@@ -1603,7 +1773,6 @@
       "kind": "mock",
       "screen": "apps/web/app/project/new/page.tsx",
       "mocks": [
-        "apps/web/lib/mock/project.ts",
         "apps/web/lib/mock/tpl.ts"
       ]
     },
@@ -1614,6 +1783,7 @@
         "apps/web/lib/live-asr-draft.ts",
         "apps/web/lib/live-chat.ts",
         "apps/web/lib/live-feedback.ts",
+        "apps/web/lib/live-identity.ts",
         "apps/web/lib/live-org-admin.ts",
         "apps/web/lib/live-platform-access.ts",
         "apps/web/lib/live-projects.ts",
@@ -1658,16 +1828,99 @@
         "OrgInviteController",
         "OrgInviteLinkController",
         "PlatformAccessController",
+        "ProjectAiSettingsController",
         "ProjectController",
+        "ProjectInviteController",
         "PublicDesignShareController",
         "ToolPermissionGrantController"
       ]
     },
     "/projects/[projectId]": {
-      "kind": "mock",
+      "kind": "wired",
       "screen": "apps/web/app/projects/[projectId]/page.tsx",
-      "mocks": [
-        "apps/web/lib/mock/project.ts"
+      "adapters": [
+        "apps/web/lib/live-asr-draft.ts",
+        "apps/web/lib/live-chat.ts",
+        "apps/web/lib/live-checkin.ts",
+        "apps/web/lib/live-collab-viewer-role.ts",
+        "apps/web/lib/live-digital-interview.ts",
+        "apps/web/lib/live-feedback.ts",
+        "apps/web/lib/live-guided-research-api.ts",
+        "apps/web/lib/live-identity.ts",
+        "apps/web/lib/live-org-admin.ts",
+        "apps/web/lib/live-personal-transcriptions.ts",
+        "apps/web/lib/live-platform-access.ts",
+        "apps/web/lib/live-project-ai-settings.ts",
+        "apps/web/lib/live-project-invite.ts",
+        "apps/web/lib/live-project-members.ts",
+        "apps/web/lib/live-project-prep.ts",
+        "apps/web/lib/live-project-resources.ts",
+        "apps/web/lib/live-projects.ts",
+        "apps/web/lib/live-provenance.ts",
+        "apps/web/lib/live-recording.ts",
+        "apps/web/lib/live-tasks.ts",
+        "apps/web/lib/live-workflow-orchestration.ts"
+      ],
+      "contracts": [
+        "agent-defaults",
+        "artifact",
+        "board",
+        "chat",
+        "chat-file-upload",
+        "chat-knowledge-graph",
+        "design-workbench",
+        "feedback-loop",
+        "identity",
+        "interview",
+        "org-admin",
+        "personal-realtime-transcription",
+        "plan-permissions",
+        "platform-members",
+        "project",
+        "provenance",
+        "research",
+        "templates",
+        "viewer-role"
+      ],
+      "controllers": [
+        "AgentRunController",
+        "ApplyBlueprintController",
+        "ArtifactBindingController",
+        "ArtifactReferenceController",
+        "BlueprintChangeRequestController",
+        "BlueprintController",
+        "CapabilityController",
+        "ChatAttachmentController",
+        "ChatController",
+        "ChatFollowUpSuggestionsController",
+        "CheckinBoardController",
+        "CopilotkitAguiController",
+        "DesignWorkbenchController",
+        "DeviceSessionController",
+        "DigitalInterviewController",
+        "DocumentGenerationAutoApproveController",
+        "EvidenceWithdrawalController",
+        "FeedbackController",
+        "GuidedResearchController",
+        "IdentityController",
+        "InterviewInsightController",
+        "InterviewScopeController",
+        "KernelProbeController",
+        "KnowledgeGraphController",
+        "LocalExportController",
+        "LocalOrgController",
+        "OrgAdminManagementController",
+        "OrgAdminScopeController",
+        "OrgInviteController",
+        "OrgInviteLinkController",
+        "PlatformAccessController",
+        "ProjectAiSettingsController",
+        "ProjectController",
+        "ProjectInviteController",
+        "ProvenanceController",
+        "PublicDesignShareController",
+        "RecordingController",
+        "ToolPermissionGrantController"
       ]
     },
     "/projects/[projectId]/canvas": {
@@ -1682,6 +1935,26 @@
       "screen": "apps/web/app/projects/[projectId]/files/page.tsx",
       "mocks": [
         "apps/web/lib/mock/files.ts"
+      ]
+    },
+    "/projects/join": {
+      "kind": "wired",
+      "screen": "apps/web/app/projects/join/page.tsx",
+      "adapters": [
+        "apps/web/lib/live-project-invite.ts"
+      ],
+      "contracts": [
+        "org-admin"
+      ],
+      "controllers": [
+        "CheckinBoardController",
+        "DeviceSessionController",
+        "OrgAdminManagementController",
+        "OrgAdminScopeController",
+        "OrgInviteController",
+        "OrgInviteLinkController",
+        "ProjectController",
+        "ProjectInviteController"
       ]
     },
     "/rec": {
@@ -1699,8 +1972,33 @@
       "mocks": [
         "apps/web/lib/mock/guided-research-demo-state.ts",
         "apps/web/lib/mock/guided-research.ts",
-        "apps/web/lib/mock/project.ts",
         "apps/web/lib/mock/research-studio.ts"
+      ]
+    },
+    "/research/[sessionId]/[stage]": {
+      "kind": "wired",
+      "screen": "apps/web/app/research/[sessionId]/[stage]/page.tsx",
+      "adapters": [
+        "apps/web/lib/live-guided-research-api.ts"
+      ],
+      "contracts": [
+        "research"
+      ],
+      "controllers": [
+        "GuidedResearchController"
+      ]
+    },
+    "/research/new": {
+      "kind": "wired",
+      "screen": "apps/web/app/research/new/page.tsx",
+      "adapters": [
+        "apps/web/lib/live-guided-research-api.ts"
+      ],
+      "contracts": [
+        "research"
+      ],
+      "controllers": [
+        "GuidedResearchController"
       ]
     },
     "/session": {
@@ -1727,6 +2025,7 @@
         "apps/web/lib/live-asr-draft.ts",
         "apps/web/lib/live-chat.ts",
         "apps/web/lib/live-feedback.ts",
+        "apps/web/lib/live-identity.ts",
         "apps/web/lib/live-org-admin.ts",
         "apps/web/lib/live-platform-access.ts",
         "apps/web/lib/live-projects.ts",
@@ -1773,10 +2072,13 @@
         "OrgInviteController",
         "OrgInviteLinkController",
         "PlatformAccessController",
+        "ProjectAiSettingsController",
         "ProjectController",
+        "ProjectInviteController",
         "PublicDesignShareController",
         "ToolPermissionGrantController",
-        "WhiteboardController"
+        "WhiteboardController",
+        "WhiteboardTagController"
       ]
     },
     "/studio/board/[boardId]": {
@@ -1786,6 +2088,7 @@
         "apps/web/lib/live-asr-draft.ts",
         "apps/web/lib/live-chat.ts",
         "apps/web/lib/live-feedback.ts",
+        "apps/web/lib/live-identity.ts",
         "apps/web/lib/live-org-admin.ts",
         "apps/web/lib/live-platform-access.ts",
         "apps/web/lib/live-projects.ts",
@@ -1832,10 +2135,13 @@
         "OrgInviteController",
         "OrgInviteLinkController",
         "PlatformAccessController",
+        "ProjectAiSettingsController",
         "ProjectController",
+        "ProjectInviteController",
         "PublicDesignShareController",
         "ToolPermissionGrantController",
-        "WhiteboardController"
+        "WhiteboardController",
+        "WhiteboardTagController"
       ]
     },
     "/studio/design-workbench": {
@@ -1846,6 +2152,7 @@
         "apps/web/lib/live-chat.ts",
         "apps/web/lib/live-design-workbench.ts",
         "apps/web/lib/live-feedback.ts",
+        "apps/web/lib/live-identity.ts",
         "apps/web/lib/live-inbox.ts",
         "apps/web/lib/live-org-admin.ts",
         "apps/web/lib/live-platform-access.ts",
@@ -1895,7 +2202,9 @@
         "OrgInviteController",
         "OrgInviteLinkController",
         "PlatformAccessController",
+        "ProjectAiSettingsController",
         "ProjectController",
+        "ProjectInviteController",
         "PublicDesignShareController",
         "ToolPermissionGrantController"
       ]
@@ -1934,6 +2243,7 @@
         "apps/web/lib/live-asr-draft.ts",
         "apps/web/lib/live-chat.ts",
         "apps/web/lib/live-feedback.ts",
+        "apps/web/lib/live-identity.ts",
         "apps/web/lib/live-org-admin.ts",
         "apps/web/lib/live-platform-access.ts",
         "apps/web/lib/live-projects.ts",
@@ -1978,7 +2288,9 @@
         "OrgInviteController",
         "OrgInviteLinkController",
         "PlatformAccessController",
+        "ProjectAiSettingsController",
         "ProjectController",
+        "ProjectInviteController",
         "PublicDesignShareController",
         "ToolPermissionGrantController"
       ]
@@ -2009,8 +2321,10 @@
         "apps/web/lib/live-asr-draft.ts",
         "apps/web/lib/live-chat.ts",
         "apps/web/lib/live-feedback.ts",
+        "apps/web/lib/live-identity.ts",
         "apps/web/lib/live-org-admin.ts",
         "apps/web/lib/live-platform-access.ts",
+        "apps/web/lib/live-project-resources.ts",
         "apps/web/lib/live-projects.ts",
         "apps/web/lib/live-recording.ts"
       ],
@@ -2053,7 +2367,9 @@
         "OrgInviteController",
         "OrgInviteLinkController",
         "PlatformAccessController",
+        "ProjectAiSettingsController",
         "ProjectController",
+        "ProjectInviteController",
         "PublicDesignShareController",
         "ToolPermissionGrantController"
       ]
@@ -2065,8 +2381,10 @@
         "apps/web/lib/live-asr-draft.ts",
         "apps/web/lib/live-chat.ts",
         "apps/web/lib/live-feedback.ts",
+        "apps/web/lib/live-identity.ts",
         "apps/web/lib/live-org-admin.ts",
         "apps/web/lib/live-platform-access.ts",
+        "apps/web/lib/live-project-resources.ts",
         "apps/web/lib/live-projects.ts",
         "apps/web/lib/live-recording.ts"
       ],
@@ -2109,7 +2427,9 @@
         "OrgInviteController",
         "OrgInviteLinkController",
         "PlatformAccessController",
+        "ProjectAiSettingsController",
         "ProjectController",
+        "ProjectInviteController",
         "PublicDesignShareController",
         "ToolPermissionGrantController"
       ]
@@ -2121,6 +2441,7 @@
         "apps/web/lib/live-asr-draft.ts",
         "apps/web/lib/live-chat.ts",
         "apps/web/lib/live-feedback.ts",
+        "apps/web/lib/live-identity.ts",
         "apps/web/lib/live-org-admin.ts",
         "apps/web/lib/live-platform-access.ts",
         "apps/web/lib/live-projects.ts",
@@ -2165,7 +2486,9 @@
         "OrgInviteController",
         "OrgInviteLinkController",
         "PlatformAccessController",
+        "ProjectAiSettingsController",
         "ProjectController",
+        "ProjectInviteController",
         "PublicDesignShareController",
         "ToolPermissionGrantController"
       ]
@@ -2177,6 +2500,7 @@
         "apps/web/lib/live-asr-draft.ts",
         "apps/web/lib/live-chat.ts",
         "apps/web/lib/live-feedback.ts",
+        "apps/web/lib/live-identity.ts",
         "apps/web/lib/live-org-admin.ts",
         "apps/web/lib/live-platform-access.ts",
         "apps/web/lib/live-projects.ts",
@@ -2221,7 +2545,9 @@
         "OrgInviteController",
         "OrgInviteLinkController",
         "PlatformAccessController",
+        "ProjectAiSettingsController",
         "ProjectController",
+        "ProjectInviteController",
         "PublicDesignShareController",
         "ToolPermissionGrantController"
       ]

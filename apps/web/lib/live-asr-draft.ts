@@ -23,6 +23,8 @@ export { pcm16Level } from "./pcm-audio-level";
 export type AsrDraftErrorReason = z.infer<typeof chat.ChatAsrDraftErrorReason>;
 
 const STREAM = chat.streamOperations.streamAsrDraft;
+/** Browser stop has a 20s bound even if the provider never sends its terminal receipt. */
+export const ASR_DRAFT_STOP_TIMEOUT_MS = 20_000;
 
 export interface AsrDraftStreamHandlers {
   readonly onPartial: (text: string) => void;
@@ -87,19 +89,26 @@ export async function openAsrDraftStream(
   let terminal = false;
   let captureFailed = false;
   let stopRequested = false;
+  let notified = false;
+  let terminalReason: AsrDraftErrorReason | undefined;
   let resolveTerminal!: () => void;
   const terminalDone = new Promise<void>((resolve) => { resolveTerminal = resolve; });
+  const notify = () => {
+    if (notified) return;
+    notified = true; socket.close();
+    if (!captureFailed) {
+      if (terminalReason) handlers.onError(terminalReason);
+      else handlers.onFinished();
+    }
+    resolveTerminal();
+  };
   const finish = (reason?: AsrDraftErrorReason) => {
     if (terminal) return;
     terminal = true;
+    terminalReason = reason;
     void stopCapture().catch(() => {
-      reason ??= "ASR_PROVIDER_UNAVAILABLE";
-    }).then(() => {
-      socket.close();
-      if (captureFailed) return;
-      if (reason) handlers.onError(reason);
-      else handlers.onFinished();
-    }).finally(resolveTerminal);
+      terminalReason ??= "ASR_PROVIDER_UNAVAILABLE";
+    }).then(notify);
   };
 
   socket.addEventListener("message", (event) => {
@@ -139,7 +148,14 @@ export async function openAsrDraftStream(
 
   let stopping: Promise<void> | null = null;
   return {
-    stop: () => stopping ??= (async () => {
+    stop: () => {
+      if (stopping) return stopping;
+      const timeout = setTimeout(() => {
+        if (!terminal) { terminal = true; terminalReason = "ASR_PROVIDER_UNAVAILABLE"; }
+        // A received terminal receipt stays authoritative if capture cleanup stalls.
+        notify();
+      }, ASR_DRAFT_STOP_TIMEOUT_MS);
+      const operation = (async () => {
       stopRequested = true;
       try {
         await stopCapture();
@@ -155,7 +171,10 @@ export async function openAsrDraftStream(
         finish();
       }
       await terminalDone;
-    })(),
+      })();
+      stopping = Promise.race([operation, terminalDone]).finally(() => clearTimeout(timeout));
+      return stopping;
+    },
   };
 }
 

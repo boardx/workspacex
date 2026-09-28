@@ -29,6 +29,10 @@ description: 用户访谈流程与数字访谈能力；修改访谈主题、专�
 ## 踩坑与经验（append-only）
 
 - 2026-09-19：专家卡片使用专业角色和能力描述，材料边界放在详情中（出处：issue #3739）。
+- 2026-09-27：专家展示偏好需同时接入目录、独立详情与访谈工作台；头像键按 expertId 固定绑定，本地保存边界在编辑器明示，不能冒充服务端档案更新（出处：issue #4338 / PR #4339；对应 UI 与 Chromium 回归）。
+- 2026-09-28：issue #4483 用 canonical Markdown 串联六个具名步骤；身份、权限、版本、执行状态和复核为元数据，不复制研究正文到旧 JSON 工作流。执行租约与 CAS 防止旧响应回写新修订；已确认正文只能分支新修订。
+- 2026-09-28：issue #4483 将 authenticated SVG 头像偏好持久化到服务端（替代上一条 authenticated 浏览器保存边界）；目录绑定 org/actor/expert，虚拟专家绑定已保存的访谈 expert anchor，不伪造目录 agent。
+- 2026-09-28：canonical 报告复核绑定 revision/document/version/hash，独立元数据表而非伪造旧 reportId；模拟报告不可批准，缺乏可信质量投影时失败关闭。导出保留证据边界；版本绑定权限内分享不等于公开发布。附件先鉴权再消费 multipart，原件与提取 Markdown 引用持久化，保存草稿不自动确认（issue #4483）。
 
 ## 知识回流规则
 

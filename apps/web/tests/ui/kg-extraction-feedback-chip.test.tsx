@@ -12,7 +12,7 @@
 import * as React from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
-import { knowledgeGraph, type KgHumanAction } from "@repo/contracts/chat-knowledge-graph";
+import { knowledgeGraph, type KgClaimKind, type KgHumanAction } from "@repo/contracts/chat-knowledge-graph";
 import { SESSION_TOKEN_STORAGE_KEY } from "@/lib/api-client";
 import { ExtractionFeedbackChip } from "@/components/chat/knowledge/extraction-feedback-chip";
 import { publishKnowledgeSnapshot } from "@/lib/knowledge-graph-events";
@@ -26,7 +26,7 @@ const UNDO_PATH = `/knowledge-graph/threads/${THREAD}/claims/${CLAIM_ID}/persona
 
 interface Server {
   revision: number;
-  claims: readonly { claimId: string; statement: string; personalCopyClaimId: string | null }[];
+  claims: readonly { claimId: string; statement: string; kind: KgClaimKind; personalCopyClaimId: string | null }[];
   actions: { basedOnRevision: number; action: KgHumanAction }[];
   onAction: (body: Server["actions"][number]) => Response | undefined;
   /** 按到达顺序记下两种撤销请求，用来钉住「先撤个人副本、再撤会话原结论」。 */
@@ -45,7 +45,7 @@ beforeEach(() => {
   window.localStorage.clear();
   window.localStorage.setItem(SESSION_TOKEN_STORAGE_KEY, "tok-kg-extraction");
   server = {
-    revision: 7, claims: [{ claimId: CLAIM_ID, statement: STATEMENT, personalCopyClaimId: null }], actions: [],
+    revision: 7, claims: [{ claimId: CLAIM_ID, statement: STATEMENT, kind: "decision", personalCopyClaimId: null }], actions: [],
     onAction: () => undefined, calls: [], onUndoCopy: () => undefined,
   };
   fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
@@ -86,10 +86,10 @@ afterEach(() => {
 });
 
 describe("ExtractionFeedbackChip", () => {
-  it("有新 claim ⇒ 出现「已记下：{摘要}·撤销」", async () => {
+  it("有新 claim ⇒ 出现「已记下{类型}：{摘要}·撤销」", async () => {
     render(<ExtractionFeedbackChip threadId={THREAD} messageId={MESSAGE} />);
     const line = await screen.findByTestId(`kg-extraction-line-${CLAIM_ID}`);
-    expect(line).toHaveTextContent(`已记下：${STATEMENT}`);
+    expect(line).toHaveTextContent(`已记下决定：${STATEMENT}`);
     expect(screen.getByTestId(`kg-extraction-undo-${CLAIM_ID}`)).toHaveTextContent("撤销");
   });
 
@@ -153,13 +153,13 @@ describe("ExtractionFeedbackChip", () => {
 
 describe("ExtractionFeedbackChip · issue #4283 本人的决定已记入个人记忆", () => {
   beforeEach(() => {
-    server.claims = [{ claimId: CLAIM_ID, statement: STATEMENT, personalCopyClaimId: PERSONAL_ID }];
+    server.claims = [{ claimId: CLAIM_ID, statement: STATEMENT, kind: "decision", personalCopyClaimId: PERSONAL_ID }];
   });
 
-  it("显示「已记下：{摘要} · 已记入个人记忆 · 撤销」", async () => {
+  it("显示「已记下{类型}：{摘要} · 已记入个人记忆 · 撤销」", async () => {
     render(<ExtractionFeedbackChip threadId={THREAD} messageId={MESSAGE} />);
     const line = await screen.findByTestId(`kg-extraction-line-${CLAIM_ID}`);
-    expect(line).toHaveTextContent(`已记下：${STATEMENT}`);
+    expect(line).toHaveTextContent(`已记下决定：${STATEMENT}`);
     expect(screen.getByTestId(`kg-extraction-personal-${CLAIM_ID}`)).toHaveTextContent("已记入个人记忆");
     expect(screen.getByTestId(`kg-extraction-undo-${CLAIM_ID}`)).toHaveTextContent("撤销");
   });
@@ -198,5 +198,19 @@ describe("ExtractionFeedbackChip · issue #4283 本人的决定已记入个人�
     expect(document.body.textContent).not.toContain("KG_");
     expect(server.calls).toEqual(["undoCopy"]);
     expect(screen.getByTestId(`kg-extraction-line-${CLAIM_ID}`)).toBeInTheDocument();
+  });
+});
+
+describe("ExtractionFeedbackChip · issue #4343 目标 / 偏好带类型", () => {
+  it.each([
+    ["goal", "目标", "我的目标是探索未来教育"],
+    ["preference", "偏好", "我更喜欢简洁的回答"],
+  ] as const)("%s ⇒「已记下%s：…· 已记入个人记忆 · 撤销」", async (kind, label, statement) => {
+    server.claims = [{ claimId: CLAIM_ID, statement, kind, personalCopyClaimId: PERSONAL_ID }];
+    render(<ExtractionFeedbackChip threadId={THREAD} messageId={MESSAGE} />);
+    const line = await screen.findByTestId(`kg-extraction-line-${CLAIM_ID}`);
+    expect(line).toHaveTextContent(`已记下${label}：${statement}`);
+    expect(screen.getByTestId(`kg-extraction-kind-${CLAIM_ID}`)).toHaveTextContent(label);
+    expect(screen.getByTestId(`kg-extraction-personal-${CLAIM_ID}`)).toHaveTextContent("已记入个人记忆");
   });
 });

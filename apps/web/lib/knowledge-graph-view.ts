@@ -21,14 +21,23 @@ import {
 } from "@repo/contracts/chat-knowledge-graph";
 import type { ThreadKnowledge } from "@/lib/knowledge-graph-api";
 
-/* ── 「记下的一条」按类型显示（用词表：结论 → 事实 / 猜测 / 决定 / 待办 / 风险） ──── */
+/* ── 「记下的一条」按类型显示（用词表：结论 → 事实 / 猜测 / 决定 / 待办 / 风险 / 目标 / 偏好） ──── */
 export const KG_CLAIM_KIND_LABEL_ZH: Record<KgClaimKind, string> = {
   fact: "事实",
   hypothesis: "猜测",
   decision: "决定",
   todo: "待办",
   risk: "风险",
+  // issue #4343：本人说的目标 / 意图、偏好
+  goal: "目标",
+  preference: "偏好",
 };
+
+/**
+ * 按类型分组 / 计数的先后（会话记忆面板与 /brain 共用这一份）：决定最先，其次本人的目标、偏好，再是事实……
+ * 漏排一个类型 = 那一类永远不渲染（#4343 之前的五值表就会这样吞掉目标）；单测拿契约枚举逐项核对。
+ */
+export const KG_CLAIM_KIND_ORDER: readonly KgClaimKind[] = ["decision", "goal", "preference", "fact", "todo", "risk", "hypothesis"];
 
 /* ── 「人和事」按类型显示（用词表：实体 → 人物 / 公司 / 项目 / …），界面不出现「实体」字样 ── */
 export const KG_OBJECT_KIND_LABEL_ZH: Record<KgObjectKind, string> = {
@@ -47,8 +56,7 @@ export const KG_BANNED_USER_FACING_WORDS = ["实体", "结论", "三态", "晋�
 
 /** 记下的按 kind 分组，`superseded`（triState 为 null）不渲染（uc-18-3 R7）。 */
 export function groupClaimsByKind(input: KgClaim[]): { kind: KgClaimKind; label: string; claims: KgClaim[] }[] {
-  const order: KgClaimKind[] = ["decision", "fact", "todo", "risk", "hypothesis"];
-  return order
+  return KG_CLAIM_KIND_ORDER
     .map((kind) => ({
       kind,
       label: KG_CLAIM_KIND_LABEL_ZH[kind],

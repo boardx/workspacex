@@ -392,7 +392,9 @@ describe("lint-permission-paths: counter-proof", () => {
     const token = model.publication!.token;
     const projection = await service.publicGet(token);
     expect(projection.questions).toEqual(draft.questions);
-    expect(Object.keys(projection).sort()).toEqual(["expiresAt", "id", "questions", "title", "version"]);
+    expect(Object.keys(projection).sort()).toEqual(["expiresAt", "id", "questions", "responseLimitScope", "successMessageMarkdown", "title", "version"]);
+    expect(projection.responseLimitScope).toBe('none');
+    expect(projection.successMessageMarkdown).toBe('提交成功，感谢您的参与。');
     expect(JSON.stringify(projection)).not.toContain(SECRET);
     // A correct tenant/id locator without the publication secret is not authorization.
     const forged = `${token.split(".")[0]}.${"A".repeat(43)}`;

@@ -1,0 +1,157 @@
+/**
+ * Round S7 (#4364) on a real local stack: answers cite the memories they used; the owner corrects them on the spot.
+ *
+ * Model: the deterministic KG-eval loopback (`apps/api/scripts/loopback-kg-eval-model-provider.ts`, unmodified) fed
+ * `cases-s7.json`: two own decisions are extracted (and auto-copied to personal memory by #4283). In a new thread the
+ * loopback answers with exactly the memories the executor handed it — so the chips are whatever the server reconciled
+ * against that turn's recall set. Everything else (extraction, recall, reconciliation, correction, next-turn recall,
+ * UI) is the product path. Copied to apps/web/e2e/s7/ for the run and removed after.
+ */
+import { mkdirSync, writeFileSync } from "node:fs";
+import path from "node:path";
+import { expect, test, type Locator, type Page } from "@playwright/test";
+import { KG_EVAL } from "../kg-experience-eval/fixture";
+import { apiGet, login, newThread, say } from "../kg-experience-eval/eval-helpers";
+
+const OUT = path.resolve(__dirname, "../../../../evidence/phase-18/s7");
+mkdirSync(OUT, { recursive: true });
+const DB = "我决定主库用 PostgreSQL";
+const MEETING = "我决定每周五开例会";
+const ASK = "我们的主库和例会是怎么定的？";
+const record: Record<string, unknown> = {};
+const ids: Record<string, string> = {};
+const shot = (page: Page, name: string) => page.screenshot({ path: path.join(OUT, `${name}.png`), fullPage: true });
+const dump = () => writeFileSync(path.join(OUT, "journey.json"), `${JSON.stringify(record, null, 2)}\n`);
+const CHIP = "[data-testid^='kg-citation-']:not([data-testid='kg-citation-chips']):not([data-testid^='kg-citation-pending-']):not([data-testid^='kg-citation-conflict-'])";
+
+interface TurnMem { recalled: Array<{ claimId: string; statement: string; scope: string }>; cited?: string[] }
+const turnMem = async (page: Page, threadId: string, answerId: string) =>
+  (await apiGet(page, `/knowledge-graph/threads/${threadId}/messages/${answerId}/memory`)).body as TurnMem;
+const chipOf = (block: Locator, text: string) => block.locator(CHIP, { hasText: text });
+const idOf = async (chip: Locator) => (await chip.getAttribute("data-testid"))!.replace("kg-citation-", "");
+
+test.describe.configure({ mode: "serial" });
+let owner: Page;
+
+test.beforeAll(async ({ browser }) => {
+  record.ids = ids;
+  owner = await (await browser.newContext()).newPage();
+  await login(owner, KG_EVAL.owner);
+});
+test.afterAll(() => dump());
+
+test("0: thread A — two own decisions are remembered (and auto-copied to personal memory)", async () => {
+  ids.threadA = await newThread(owner);
+  await say(owner, DB);
+  await say(owner, MEETING);
+  await expect.poll(async () => ((await apiGet(owner, "/knowledge-graph/personal")).body as { claims: Array<{ statement: string }> })
+    .claims.map((c) => c.statement).sort(), { timeout: 120_000 }).toEqual([DB, MEETING].sort());
+});
+
+test("1 chip: new thread B — the answer cites exactly the recalled memories it used, 「依据你…的决定」", async () => {
+  ids.threadB = await newThread(owner);
+  const turn = await say(owner, ASK);
+  ids.answer1 = turn.answerId;
+  record.s1_answer = turn.text;
+  const block = turn.answer.locator("xpath=..");
+  await expect(block.getByTestId("kg-answer-footer")).toBeVisible({ timeout: 30_000 });
+  await expect(chipOf(block, DB)).toBeVisible();
+  await expect(chipOf(block, MEETING)).toBeVisible();
+  const mem = await turnMem(owner, ids.threadB, turn.answerId);
+  record.s1_turnMemory = mem;
+  // server-side reconciliation: every chip is in this turn's recall set
+  expect(mem.cited!.every((c) => mem.recalled.some((r) => r.claimId === c))).toBe(true);
+  expect(await block.locator(CHIP).count()).toBe(mem.cited!.length);
+  ids.dbClaim = await idOf(chipOf(block, DB));
+  ids.meetingClaim = await idOf(chipOf(block, MEETING));
+  await expect(block.getByTestId(`kg-cite-basis-${ids.dbClaim}`)).toHaveText("依据你的决定");
+  record.s1_chips = await block.locator(CHIP).allInnerTexts();
+  await shot(owner, "1-chip");
+});
+
+test("2 jump: click the chip → the claim expands; 「跳到原消息」 opens thread A with the source message highlighted", async () => {
+  const answer = owner.getByTestId("copilot-assistant-message").last();
+  const block = answer.locator("xpath=..");
+  await chipOf(block, DB).click();
+  const detail = block.getByTestId(`kg-cite-detail-${ids.dbClaim}`);
+  await expect(detail).toBeVisible();
+  await expect(detail.getByTestId(`kg-cite-statement-${ids.dbClaim}`)).toHaveText(DB);
+  await shot(owner, "2a-chip-expanded");
+  await detail.getByTestId(`kg-cite-jump-${ids.dbClaim}`).click();
+  await owner.waitForURL((u) => u.pathname.endsWith(encodeURIComponent(ids.threadA!)) && u.search.includes("focusMessage="), { timeout: 60_000 });
+  const target = owner.locator("[data-kg-source-highlight]").first();
+  await expect(target).toBeVisible({ timeout: 60_000 });
+  await expect(target).toContainText(DB);
+  record.s2_jump = { url: owner.url(), highlighted: await target.innerText() };
+  await shot(owner, "2b-jump-source-highlighted");
+});
+
+async function openB(): Promise<Locator> {
+  await owner.goto(`/chat/${encodeURIComponent(ids.threadB!)}`);
+  const answer = owner.getByTestId("copilot-assistant-message").last();
+  const block = answer.locator("xpath=..");
+  await expect(block.getByTestId("kg-answer-footer")).toBeVisible({ timeout: 60_000 });
+  return block;
+}
+
+test("3 这条不对: owner → forget card (only this memory) → 忘掉", async () => {
+  const block = await openB();
+  await chipOf(block, DB).click();
+  const detail = block.getByTestId(`kg-cite-detail-${ids.dbClaim}`);
+  await detail.getByTestId(`kg-cite-wrong-${ids.dbClaim}`).click();
+  const card = detail.getByTestId("kg-card-forget");
+  await expect(card).toBeVisible();
+  await expect(card).toContainText(DB);
+  await shot(owner, "3a-wrong-forget-card");
+  await card.getByTestId("kg-card-accept").click();
+  await expect(detail.getByTestId(`kg-cite-done-${ids.dbClaim}`)).toContainText("已忘掉这条");
+  record.s3_done = await detail.getByTestId(`kg-cite-done-${ids.dbClaim}`).innerText();
+  await shot(owner, "3b-wrong-done");
+});
+
+test("4 已过时: owner → the meeting decision is marked expired", async () => {
+  const block = await openB();
+  await chipOf(block, MEETING).click();
+  const detail = block.getByTestId(`kg-cite-detail-${ids.meetingClaim}`);
+  await detail.getByTestId(`kg-cite-expired-${ids.meetingClaim}`).click();
+  await expect(detail.getByTestId(`kg-cite-done-${ids.meetingClaim}`)).toContainText("已标为过时");
+  record.s4_done = await detail.getByTestId(`kg-cite-done-${ids.meetingClaim}`).innerText();
+  await shot(owner, "4-expired-done");
+});
+
+test("5 next turn: the same question no longer uses either memory; no chip; metrics count the corrections", async () => {
+  await openB();
+  const turn = await say(owner, ASK);
+  record.s5_answer = turn.text;
+  expect(turn.text).not.toContain(DB);
+  expect(turn.text).not.toContain(MEETING);
+  const mem = await turnMem(owner, ids.threadB, turn.answerId);
+  record.s5_turnMemory = mem;
+  expect(mem.recalled.map((r) => r.statement)).not.toContain(DB);
+  expect(mem.recalled.map((r) => r.statement)).not.toContain(MEETING);
+  const block = turn.answer.locator("xpath=..");
+  expect(await chipOf(block, DB).count()).toBe(0);
+  expect(await chipOf(block, MEETING).count()).toBe(0);
+  // and the earlier answer no longer cites them either
+  const earlier = await turnMem(owner, ids.threadB, ids.answer1!);
+  record.s5_earlierTurnMemory = earlier;
+  expect(earlier.cited).toEqual([]);
+  const metrics = (await apiGet(owner, "/knowledge-graph/me/citation-metrics")).body as { citedUses: number; corrections: { wrong: number; expired: number }; correctionRate: number | null };
+  record.s5_metrics = metrics;
+  expect(metrics.corrections).toEqual({ wrong: 1, expired: 1 });
+  expect(metrics.citedUses).toBeGreaterThanOrEqual(2);
+  await shot(owner, "5-next-turn-no-longer-uses-it");
+});
+
+test("privacy: another member cannot correct the owner's citation (thread not visible)", async ({ browser }) => {
+  const other = await (await browser.newContext()).newPage();
+  await login(other, KG_EVAL.other);
+  const token = await other.evaluate(() => localStorage.getItem("wsx.sessionToken"));
+  const res = await other.request.post(
+    `/__fullstack_api/knowledge-graph/threads/${ids.threadB!}/messages/${ids.answer1!}/citations/${ids.meetingClaim!}/correction`,
+    { headers: { Authorization: `Bearer ${token ?? ""}` }, data: { kind: "wrong" } },
+  );
+  const r = { status: res.status(), body: await res.text() };
+  record.privacy = r;
+  expect([403, 404]).toContain(r.status);
+});
