@@ -1,0 +1,62 @@
+
+ RUN  v2.1.9 /home/user/workspacex/.claude/worktrees/agent-ad1129903ae97601b/apps/api
+
+[db-isolation] db=wsx4509 capacity=100 current=6 required=32
+ ❯ tests/knowledge-graph/decision-supersede.test.ts (353 tests | 7 failed) 103ms
+   × #4509：改口分句与旧决定一样跳过框架动词前的副词（先 / 就 / 也 / 直接）；只有新句有「先」⇒ 最多到卡 > 只有新句有「先」⇒ 卡，不自动：我决定关注211高校 → 改成先关注985高校 11ms
+     → expected { supersedes: [ { …(2) } ], …(1) } to deeply equal { supersedes: [], …(1) }
+   × #4509：改口分句与旧决定一样跳过框架动词前的副词（先 / 就 / 也 / 直接）；只有新句有「先」⇒ 最多到卡 > 只有新句有「先」⇒ 卡，不自动：我决定用Vue → 把Vue换成先用React 1ms
+     → expected { supersedes: [ { …(2) } ], …(1) } to deeply equal { supersedes: [], …(1) }
+   × #4509：改口分句与旧决定一样跳过框架动词前的副词（先 / 就 / 也 / 直接）；只有新句有「先」⇒ 最多到卡 > 只有新句有「先」⇒ 卡，不自动：我决定报考北大 → 把北大换成先报考清华 1ms
+     → expected { supersedes: [ { …(2) } ], …(1) } to deeply equal { supersedes: [], …(1) }
+   × #4509：改口分句与旧决定一样跳过框架动词前的副词（先 / 就 / 也 / 直接）；只有新句有「先」⇒ 最多到卡 > 只有新句有「先」⇒ 卡，不自动：我决定做小学数学 → 改成先做初中数学 1ms
+     → expected { supersedes: [ { …(2) } ], …(1) } to deeply equal { supersedes: [], …(1) }
+   × #4509：改口分句与旧决定一样跳过框架动词前的副词（先 / 就 / 也 / 直接）；只有新句有「先」⇒ 最多到卡 > 只有新句有「先」⇒ 卡，不自动：我决定关注211高校 → 算了，还是先关注985高校 1ms
+     → expected { supersedes: [ { …(2) } ], …(1) } to deeply equal { supersedes: [], …(1) }
+   × #4509：改口分句与旧决定一样跳过框架动词前的副词（先 / 就 / 也 / 直接）；只有新句有「先」⇒ 最多到卡 > 只有新句有「先」⇒ 卡，不自动：我决定关注211高校 → 改成先关注985高校，就这样 1ms
+     → expected { supersedes: [ { …(2) } ], …(1) } to deeply equal { supersedes: [], …(1) }
+   × #4509：改口分句与旧决定一样跳过框架动词前的副词（先 / 就 / 也 / 直接）；只有新句有「先」⇒ 最多到卡 > 只有新句有「先」⇒ 卡，不自动：我决定关注211高校 → 211高校算了，还是先关注985高校 1ms
+     → expected { supersedes: [ { …(2) } ], …(1) } to deeply equal { supersedes: [], …(1) }
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 7 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/knowledge-graph/decision-supersede.test.ts > #4509：改口分句与旧决定一样跳过框架动词前的副词（先 / 就 / 也 / 直接）；只有新句有「先」⇒ 最多到卡 > 只有新句有「先」⇒ 卡，不自动：我决定关注211高校 → 改成先关注985高校
+ FAIL  tests/knowledge-graph/decision-supersede.test.ts > #4509：改口分句与旧决定一样跳过框架动词前的副词（先 / 就 / 也 / 直接）；只有新句有「先」⇒ 最多到卡 > 只有新句有「先」⇒ 卡，不自动：我决定用Vue → 把Vue换成先用React
+ FAIL  tests/knowledge-graph/decision-supersede.test.ts > #4509：改口分句与旧决定一样跳过框架动词前的副词（先 / 就 / 也 / 直接）；只有新句有「先」⇒ 最多到卡 > 只有新句有「先」⇒ 卡，不自动：我决定报考北大 → 把北大换成先报考清华
+ FAIL  tests/knowledge-graph/decision-supersede.test.ts > #4509：改口分句与旧决定一样跳过框架动词前的副词（先 / 就 / 也 / 直接）；只有新句有「先」⇒ 最多到卡 > 只有新句有「先」⇒ 卡，不自动：我决定做小学数学 → 改成先做初中数学
+ FAIL  tests/knowledge-graph/decision-supersede.test.ts > #4509：改口分句与旧决定一样跳过框架动词前的副词（先 / 就 / 也 / 直接）；只有新句有「先」⇒ 最多到卡 > 只有新句有「先」⇒ 卡，不自动：我决定关注211高校 → 算了，还是先关注985高校
+ FAIL  tests/knowledge-graph/decision-supersede.test.ts > #4509：改口分句与旧决定一样跳过框架动词前的副词（先 / 就 / 也 / 直接）；只有新句有「先」⇒ 最多到卡 > 只有新句有「先」⇒ 卡，不自动：我决定关注211高校 → 改成先关注985高校，就这样
+ FAIL  tests/knowledge-graph/decision-supersede.test.ts > #4509：改口分句与旧决定一样跳过框架动词前的副词（先 / 就 / 也 / 直接）；只有新句有「先」⇒ 最多到卡 > 只有新句有「先」⇒ 卡，不自动：我决定关注211高校 → 211高校算了，还是先关注985高校
+AssertionError: expected { supersedes: [ { …(2) } ], …(1) } to deeply equal { supersedes: [], …(1) }
+
+- Expected
++ Received
+
+  Object {
+-   "prompts": Array [
++   "prompts": Array [],
++   "supersedes": Array [
+      Object {
+        "newerClaimId": "clm-new",
+        "olderClaimId": "clm-old",
+      },
+    ],
+-   "supersedes": Array [],
+  }
+
+ ❯ tests/knowledge-graph/decision-supersede.test.ts:667:62
+    665|     // 点名旧对象的「211高校算了，还是先…」同样按这道上限走：只有新句…
+    666|     ["我决定关注211高校", "211高校算了，还是先关注985高校"],
+    667|   ])("只有新句有「先」⇒ 卡，不自动：%s → %s", (o, n) => expect(plan(o,…
+       |                                                              ^
+    668| 
+    669|   it.each([
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/7]⎯
+
+ Test Files  1 failed (1)
+      Tests  7 failed | 346 passed (353)
+   Start at  01:20:30
+   Duration  984ms (transform 360ms, setup 0ms, collect 85ms, tests 103ms, environment 0ms, prepare 58ms)
+
+[db-isolation] db=wsx4509 peak_connections=1

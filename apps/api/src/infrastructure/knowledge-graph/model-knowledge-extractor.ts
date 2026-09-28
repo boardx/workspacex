@@ -25,6 +25,7 @@ export const KG_EXTRACTION_SYSTEM_PROMPT =
   "只抽取本条消息里明确说出的内容，不要推测，不要重复上文已经说过的内容。寒暄、客套、提问本身不算。" +
   "每条结论用一句完整、可以脱离上下文读懂的中文陈述（把「他」「这个」替换成具体名称），" +
   "about 列出它涉及的实体名，决定类结论如果说了是谁拍板，填 decidedBy，quote 摘录本条消息里支撑它的原话。" +
+  "结论只在一段时间内成立、或待办有截止时（如「这周」「到年底」「下个月之前」），timeExpr 原样摘出这个时间说法，否则填 null。" +
   "只输出一个 JSON 对象，不要输出任何其他文字。没有可记的内容就输出 {\"entities\":[],\"claims\":[]}。";
 
 export const KG_EXTRACTION_RESPONSE_SCHEMA = {
@@ -56,8 +57,9 @@ export const KG_EXTRACTION_RESPONSE_SCHEMA = {
             about: { type: "array", items: { type: "string" } },
             decidedBy: { type: ["string", "null"] },
             quote: { type: "string" },
+            timeExpr: { type: ["string", "null"] },
           },
-          required: ["statement", "kind", "confidence", "about", "decidedBy", "quote"],
+          required: ["statement", "kind", "confidence", "about", "decidedBy", "quote", "timeExpr"],
           additionalProperties: false,
         },
       },

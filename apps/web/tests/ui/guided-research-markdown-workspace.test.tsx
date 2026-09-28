@@ -5,6 +5,15 @@ import { GuidedResearchMarkdownWorkspace } from "@/components/research-studio/gu
 const document = { node: "brief" as const, title: "研究需求", markdown: "# 研究需求\n\n## 研究主题\n新能源汽车", provenance: { sourceIds: [], citationIds: [] }, draft: { node: "brief" as const, value: { topic: "新能源汽车", goal: "比较市场", timeRange: "2026", region: "中国", focus: "竞争" } } };
 
 describe("GuidedResearchMarkdownWorkspace", () => {
+  it("reports local edits to the navigation guard and clears them on cancellation", () => {
+    const dirty = vi.fn();
+    render(<GuidedResearchMarkdownWorkspace document={document} onSave={vi.fn()} onDirtyChange={dirty} />);
+    fireEvent.click(screen.getByRole("button", { name: "编辑 Markdown" }));
+    fireEvent.change(screen.getByTestId("guided-research-markdown-editor"), { target: { value: "未保存 Markdown" } });
+    expect(dirty).toHaveBeenLastCalledWith(true);
+    fireEvent.click(screen.getByRole("button", { name: "取消" }));
+    expect(dirty).toHaveBeenLastCalledWith(false);
+  });
   it("shows a preview first, preserves invalid local text, and reports successful saves", async () => {
     const onSave = vi.fn().mockResolvedValue({ ok: false, message: "缺少研究目标" }).mockResolvedValueOnce({ ok: false, message: "缺少研究目标" });
     render(<GuidedResearchMarkdownWorkspace document={document} onSave={onSave} />);

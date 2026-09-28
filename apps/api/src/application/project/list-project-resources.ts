@@ -9,6 +9,8 @@
  */
 import { authorize, type AuthorizeDeps } from "../identity/authorize";
 import type { OrgId } from "../../domain/org-id";
+import type { LoggerPort } from "../ports/logger.port";
+import type { CollectorDeps } from "./collect-evidence/shared";
 import type { PermissionDecision } from "../../domain/identity/permission-decision";
 import { discloseDecided, isDisclosed } from "../security/permission-filter";
 import { ProjectError } from "./errors";
@@ -28,6 +30,12 @@ export const PROJECT_RESOURCE_KINDS: readonly ProjectResourceKind[] = [
 export interface ProjectResourceDeps {
   readonly auth: AuthorizeDeps;
   readonly resources: ProjectResourcePort;
+  /**
+   * B3-T1（#4495）：挂载成功后顺带把刚挂上的资源采成证据单元（`collect-project-evidence.ts`）。可选——
+   * 不给就只挂不采（DB-free 测试、以及还没接证据仓储的装配）。采集失败不影响挂载结果，只记日志。
+   */
+  readonly evidence?: CollectorDeps;
+  readonly logger?: Pick<LoggerPort, "error">;
 }
 
 export interface ProjectResourceViewer {

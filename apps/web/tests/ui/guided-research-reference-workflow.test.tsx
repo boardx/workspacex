@@ -11,6 +11,29 @@ vi.mock("@/lib/guided-research-api", () => ({ getResearchRuntime: vi.fn(), execu
 beforeEach(() => vi.resetAllMocks());
 afterEach(() => vi.useRealTimers());
 describe("reference research workflow", () => {
+  it("protects unsaved topic information from the shared return button", async () => {
+    const initial = runtimeFixture("directions");
+    const back = vi.fn();
+    vi.mocked(getResearchRuntime).mockResolvedValue(initial);
+    render(<GuidedResearchLive sessionId={initial.sessionId} onBack={back} />);
+    fireEvent.change(await screen.findByRole("textbox", { name: "研究主题" }), { target: { value: "未保存主题" } });
+    fireEvent.click(screen.getByTestId("research-flow-back"));
+    expect(back).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("button", { name: "继续编辑" }));
+    expect(screen.getByRole("textbox", { name: "研究主题" })).toHaveValue("未保存主题");
+  });
+  it("protects local report chapter edits from the shared header", async () => {
+    const initial = runtimeFixture("report");
+    const back = vi.fn();
+    vi.mocked(getResearchRuntime).mockResolvedValue(initial);
+    render(<GuidedResearchLive sessionId={initial.sessionId} visualStage="chapters" onBack={back} />);
+    fireEvent.click(await screen.findByText("编辑章节内容"));
+    fireEvent.change(screen.getByLabelText("章节标题"), { target: { value: "未保存章节" } });
+    fireEvent.click(screen.getByTestId("research-flow-back"));
+    expect(back).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("button", { name: "继续编辑" }));
+    expect(screen.getByLabelText("章节标题")).toHaveValue("未保存章节");
+  });
   it("does not overwrite unsaved chapter edits when opening scope editing", async () => {
     const initial = runtimeFixture("outline");
     vi.mocked(getResearchRuntime).mockResolvedValue(initial);

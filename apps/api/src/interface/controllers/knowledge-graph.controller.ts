@@ -6,7 +6,7 @@
  */
 import {
   BadRequestException, Body, ConflictException, Controller, ForbiddenException, Get, HttpCode, Inject,
-  NotFoundException, Param, Post, Put, ServiceUnavailableException,
+  NotFoundException, Optional, Param, Post, Put, ServiceUnavailableException,
 } from "@nestjs/common";
 import { knowledgeGraph as KG } from "@repo/contracts";
 import { AuthzUnavailableError } from "../../application/chat/resolve-visibility";
@@ -14,23 +14,33 @@ import { CHAT_REPOSITORY, type ChatRepository } from "../../application/chat/por
 import {
   DECISION_ID_FACTORY, IDENTITY_REPOSITORY, type DecisionIdFactory, type IdentityRepository,
 } from "../../application/identity/ports";
-import { actOnMemoryCard } from "../../application/knowledge-graph/act-on-memory-card";
-import { applyHumanAction } from "../../application/knowledge-graph/apply-human-action";
+import { actOnMemoryCard, undoMemoryCard } from "../../application/knowledge-graph/act-on-memory-card";
+import { applyHumanAction, setTodoStatus } from "../../application/knowledge-graph/apply-human-action";
 import {
   CITATION_CORRECTION_PORT, CLAIM_EXPIRY_PORT, type CitationCorrectionPort, type ClaimExpiryPort,
 } from "../../application/knowledge-graph/citation-ports";
 import { correctCitation, getCitationMetrics } from "../../application/knowledge-graph/correct-citation";
 import { undoAutoPersonalCopy } from "../../application/knowledge-graph/auto-copy-decisions";
 import { listPromotionNominations, promoteToPersonal } from "../../application/knowledge-graph/promote-to-personal";
+import { adoptProjectDecision } from "../../application/knowledge-graph/adopt-project-decision";
 import { promoteToOrg } from "../../application/knowledge-graph/promote-to-org";
 import { promoteToProject } from "../../application/knowledge-graph/promote-to-project";
 import { getOrgKnowledge } from "../../application/knowledge-graph/read-org-knowledge";
 import { getProjectKnowledge } from "../../application/knowledge-graph/read-project-knowledge";
+import { getProjectReasoning } from "../../application/knowledge-graph/read-project-reasoning";
+import { requestReindex } from "../../application/knowledge-graph/request-reindex";
 import {
-  HUMAN_ACTION_PORT, KG_AUTO_COPY_PORT, KG_DEPLOYMENT_EXTRACTION_SETTINGS_PORT, KG_EXTRACTION_MODEL_CONFIG, KG_ORG_EXTRACTION_SETTINGS_PORT, KNOWLEDGE_READ_PORT, KgHumanActionError, MEMORY_CARD_PORT, PROMOTION_PORT,
-  type HumanActionPort, type KgAutoCopyPort, type KgDeploymentExtractionSettingsPort, type KgExtractionModelConfig, type KgOrgExtractionSettingsPort, type KnowledgeReadPort, type MemoryCardPort, type PromotionPort,
+  HUMAN_ACTION_PORT, KG_AUTO_COPY_PORT, KG_REINDEX_PORT, KG_DEPLOYMENT_EXTRACTION_SETTINGS_PORT, KG_EXTRACTION_MODEL_CONFIG, KG_ORG_EXTRACTION_SETTINGS_PORT, KNOWLEDGE_READ_PORT, KgHumanActionError, MEMORY_CARD_PORT, PROMOTION_PORT,
+  type HumanActionPort, type KgAutoCopyPort, type KgReindexPort, type KgDeploymentExtractionSettingsPort, type KgExtractionModelConfig, type KgOrgExtractionSettingsPort, type KnowledgeReadPort, type MemoryCardPort, type PromotionPort,
 } from "../../application/knowledge-graph/ports";
 import { newKgId } from "../../application/knowledge-graph/ids";
+import { revisePersonalClaim, setGoalLink } from "../../application/knowledge-graph/profile";
+import {
+  KG_GOAL_LINK_PORT, KG_SESSION_BRIEFING_PORT, type GoalLinkPort, type SessionBriefingPort,
+} from "../../application/knowledge-graph/profile-ports";
+import {
+  getSessionBriefing, recordSessionBriefingEvent, setSessionBriefingPreference,
+} from "../../application/knowledge-graph/session-briefing";
 import { getBrainOverview, getPersonalKnowledge } from "../../application/knowledge-graph/read-personal-knowledge";
 import {
   KgReadError, getClaimSources, getMessageExtraction, getThreadKnowledge, getTurnMemory, type KnowledgeReadDeps,
@@ -57,6 +67,12 @@ export class KnowledgeGraphController {
     @Inject(MEMORY_CARD_PORT) private readonly cards?: MemoryCardPort,
     /** issue #4283 撤销自动记进个人空间的决定。生产合成必定注入；只测别的接口的构造点可以不给（此时这条接口回 503）。 */
     @Inject(KG_AUTO_COPY_PORT) private readonly autoCopy?: KgAutoCopyPort,
+    /** UC-KG-4「整理本会话」（issue #4352）。生产合成必定注入；只测别的接口的构造点可以不给（此时这条接口回 503）。 */
+    @Inject(KG_REINDEX_PORT) private readonly reindex?: KgReindexPort,
+    /** issue #4360「关于我」挂目标 / 改写。生产合成必定注入；只测别的接口的构造点可以不给（此时这两条接口回 503）。 */
+    @Optional() @Inject(KG_GOAL_LINK_PORT) private readonly goalLinks?: GoalLinkPort,
+    /** issue #4362 开场简报。同上：没注入 ⇒ 503，不假装成功。 */
+    @Optional() @Inject(KG_SESSION_BRIEFING_PORT) private readonly briefing?: SessionBriefingPort,
     /** S7（#4364）引用纠正与纠正率。生产合成必定注入；只测别的接口的构造点可以不给（此时这两条接口回 503）。 */
     @Inject(CITATION_CORRECTION_PORT) private readonly citations?: CitationCorrectionPort,
     @Inject(CLAIM_EXPIRY_PORT) private readonly expiry?: ClaimExpiryPort,
@@ -79,9 +95,13 @@ export class KnowledgeGraphController {
       }
       if (e instanceof KgHumanActionError) {
         const body = { reasonCode: e.code };
-        if (e.code === "KG_NOT_OWNER" || e.code === "KG_ACTOR_NOT_HUMAN" || e.code === "KG_SCOPE_NOT_PERSONAL" || e.code === "KG_SCOPE_NOT_PROJECT") throw new ForbiddenException(body);
+        if (e.code === "KG_NOT_OWNER" || e.code === "KG_ACTOR_NOT_HUMAN" || e.code === "KG_SCOPE_NOT_PERSONAL" || e.code === "KG_SCOPE_NOT_PROJECT"
+          || e.code === "KG_SCOPE_NOT_ENABLED" || e.code === "KG_ORG_FROZEN" || e.code === "KG_NOT_VISIBLE") throw new ForbiddenException(body);
         if (e.code === "KG_PROMOTE_BATCH_TOO_LARGE" || e.code === "KG_INVALID_REQUEST") throw new BadRequestException(body);
-        if (e.code === "KG_REVISION_CHANGED" || e.code === "KG_CONTESTED_NEEDS_RESOLUTION" || e.code === "KG_CARD_STALE") {
+        if (
+          e.code === "KG_REVISION_CHANGED" || e.code === "KG_CONTESTED_NEEDS_RESOLUTION" || e.code === "KG_CARD_STALE"
+          || e.code === "KG_REINDEX_ALREADY_RUNNING"
+        ) {
           throw new ConflictException(body);
         }
         throw new NotFoundException(body);
@@ -171,6 +191,14 @@ export class KnowledgeGraphController {
     return this.run(principal, (v) => getProjectKnowledge(this.deps, { ...v, projectId: parsed.data.projectId }));
   }
 
+  /** B3-T3（#4497）getProjectReasoning —— 项目大脑的跨来源推理只读（可见性同 getProjectKnowledge；非成员 KG_NOT_VISIBLE 403） */
+  @Get("/knowledge-graph/projects/:projectId/reasoning")
+  projectReasoning(@CurrentPrincipal() principal: Principal, @Param("projectId") projectId: string) {
+    const parsed = KG.knowledgeGraph.getProjectReasoning.in.safeParse({ projectId });
+    if (!parsed.success) throw new BadRequestException({ reasonCode: "KG_INVALID_REQUEST" });
+    return this.run(principal, (v) => getProjectReasoning(this.deps, { ...v, projectId: parsed.data.projectId }));
+  }
+
   /** 项目中枢 R7 promoteToProject —— 「记到项目大脑」（逐条部分成功；创建者或本项目引导师） */
   @Post("/knowledge-graph/threads/:threadId/promote-to-project")
   @HttpCode(200)
@@ -184,6 +212,20 @@ export class KnowledgeGraphController {
     return this.run(principal, (v) => promoteToProject(
       { ...this.deps, promotion: this.promotion, newId: newKgId },
       { ...v, threadId, claimIds: parsed.data.claimIds, ...(parsed.data.choices ? { choices: parsed.data.choices } : {}) },
+    ));
+  }
+
+  /** UC-KG-4 requestReindex（issue #4352）——「整理本会话」/「失败 · 重试」：重新排队本会话的消息 */
+  @Post("/knowledge-graph/threads/:threadId/reindex")
+  @HttpCode(200)
+  reindexThread(@CurrentPrincipal() principal: Principal, @Param("threadId") threadId: string, @Body() body: unknown) {
+    const parsed = KG.knowledgeGraph.requestReindex.in.safeParse({ ...((body ?? {}) as object), threadId });
+    if (!parsed.success) throw new BadRequestException({ reasonCode: "KG_INVALID_REQUEST" });
+    const reindex = this.reindex;
+    if (reindex === undefined) throw new ServiceUnavailableException("reindex_unavailable");
+    return this.run(principal, (v) => requestReindex(
+      { ...this.deps, reindex, extractionConfigured: this.extractionModelConfig.enabled },
+      { ...v, threadId, ...(parsed.data.sourceRefs !== undefined ? { sourceRefs: parsed.data.sourceRefs } : {}) },
     ));
   }
 
@@ -209,6 +251,18 @@ export class KnowledgeGraphController {
     ));
   }
 
+  /** B3-T4 adoptProjectDecision —— 「采纳为项目决策」（项目成员且非观察者；非成员 KG_NOT_VISIBLE 403、观察者 KG_NOT_OWNER 403） */
+  @Post("/knowledge-graph/projects/:projectId/decisions")
+  @HttpCode(200)
+  adoptDecision(@CurrentPrincipal() principal: Principal, @Param("projectId") projectId: string, @Body() body: unknown) {
+    const parsed = KG.knowledgeGraph.adoptProjectDecision.in.safeParse({ ...(body as object), projectId });
+    if (!parsed.success) throw new BadRequestException({ reasonCode: "KG_INVALID_REQUEST" });
+    return this.run(principal, (v) => adoptProjectDecision(
+      { ...this.deps, promotion: this.promotion, newId: newKgId },
+      { ...v, projectId: parsed.data.projectId, claimId: parsed.data.claimId, rationale: parsed.data.rationale },
+    ));
+  }
+
   /** UC-KG-6 listPromotionNominations —— AI 只提名，不执行 */
   @Get("/knowledge-graph/threads/:threadId/nominations")
   nominations(@CurrentPrincipal() principal: Principal, @Param("threadId") threadId: string) {
@@ -226,6 +280,18 @@ export class KnowledgeGraphController {
     return this.run(principal, (v) => undoAutoPersonalCopy(
       { ...this.deps, autoCopy, newId: newKgId },
       { ...v, actorKind: "human", threadId: parsed.data.threadId, claimId: parsed.data.claimId },
+    ));
+  }
+
+  /** issue #4363（S6）setTodoStatus —— 改一条待办的状态（人的动作；只有所有者，数据库判定） */
+  @Post("/knowledge-graph/claims/:claimId/todo-status")
+  @HttpCode(200)
+  todoStatus(@CurrentPrincipal() principal: Principal, @Param("claimId") claimId: string, @Body() body: unknown) {
+    const parsed = KG.knowledgeGraph.setTodoStatus.in.safeParse({ ...(body as object), claimId });
+    if (!parsed.success) throw new BadRequestException({ reasonCode: "KG_INVALID_REQUEST" });
+    return this.run(principal, (v) => setTodoStatus(
+      { actions: this.actions, newId: newKgId },
+      { ...v, actorKind: "human", claimId: parsed.data.claimId, status: parsed.data.status },
     ));
   }
 
@@ -272,6 +338,73 @@ export class KnowledgeGraphController {
       { ...this.deps, cards, newId: newKgId },
       { ...v, actorKind: "human", cardId, decision, ...(claimIds !== undefined ? { claimIds } : {}), ...(editedStatement !== undefined ? { editedStatement } : {}) },
     ));
+  }
+
+  /** issue #4360 setGoalLink —— 「关于我」里把一条决定 / 待办挂到本人的目标下，或摘掉（人的动作） */
+  @Put("/knowledge-graph/personal/claims/:claimId/goal")
+  goalLink(@CurrentPrincipal() principal: Principal, @Param("claimId") claimId: string, @Body() body: unknown) {
+    const parsed = KG.knowledgeGraph.setGoalLink.in.safeParse({ ...(body as object), claimId });
+    if (!parsed.success) throw new BadRequestException({ reasonCode: "KG_INVALID_REQUEST" });
+    const goalLinks = this.goalLinks;
+    if (goalLinks === undefined) throw new ServiceUnavailableException("goal_links_unavailable");
+    return this.run(principal, (v) => setGoalLink(
+      { ...this.deps, goalLinks, newId: newKgId },
+      { ...v, actorKind: "human", claimId: parsed.data.claimId, goalClaimId: parsed.data.goalClaimId },
+    ));
+  }
+
+  /** issue #4360 revisePersonalClaim —— 「关于我」里直接改写本人个人空间的一条（人的动作） */
+  @Post("/knowledge-graph/personal/claims/:claimId/revise")
+  @HttpCode(200)
+  revisePersonal(@CurrentPrincipal() principal: Principal, @Param("claimId") claimId: string, @Body() body: unknown) {
+    const parsed = KG.knowledgeGraph.revisePersonalClaim.in.safeParse({ ...(body as object), claimId });
+    if (!parsed.success) throw new BadRequestException({ reasonCode: "KG_INVALID_REQUEST" });
+    const goalLinks = this.goalLinks;
+    if (goalLinks === undefined) throw new ServiceUnavailableException("goal_links_unavailable");
+    return this.run(principal, (v) => revisePersonalClaim(
+      { ...this.deps, goalLinks, newId: newKgId },
+      { ...v, actorKind: "human", claimId: parsed.data.claimId, statement: parsed.data.statement },
+    ));
+  }
+
+  /** issue #4362 getSessionBriefing —— 新个人对话的开场简报（只读本人个人空间） */
+  @Get("/knowledge-graph/briefing")
+  sessionBriefing(@CurrentPrincipal() principal: Principal) {
+    const briefing = this.briefing;
+    if (briefing === undefined) throw new ServiceUnavailableException("briefing_unavailable");
+    return this.run(principal, (v) => getSessionBriefing({ ...this.deps, briefing }, v));
+  }
+
+  /** issue #4362 setSessionBriefingPreference —— 关掉 / 重新打开开场简报 */
+  @Put("/knowledge-graph/briefing/preference")
+  briefingPreference(@CurrentPrincipal() principal: Principal, @Body() body: unknown) {
+    const parsed = KG.knowledgeGraph.setSessionBriefingPreference.in.safeParse(body);
+    if (!parsed.success) throw new BadRequestException({ reasonCode: "KG_INVALID_REQUEST" });
+    const briefing = this.briefing;
+    if (briefing === undefined) throw new ServiceUnavailableException("briefing_unavailable");
+    return this.run(principal, (v) => setSessionBriefingPreference({ ...this.deps, briefing }, { ...v, dismissed: parsed.data.dismissed }));
+  }
+
+  /** issue #4362 recordSessionBriefingEvent —— 简报埋点（展示 / 采纳 / 关闭） */
+  @Post("/knowledge-graph/briefing/events")
+  @HttpCode(200)
+  briefingEvent(@CurrentPrincipal() principal: Principal, @Body() body: unknown) {
+    const parsed = KG.knowledgeGraph.recordSessionBriefingEvent.in.safeParse(body);
+    if (!parsed.success) throw new BadRequestException({ reasonCode: "KG_INVALID_REQUEST" });
+    const briefing = this.briefing;
+    if (briefing === undefined) throw new ServiceUnavailableException("briefing_unavailable");
+    return this.run(principal, (v) => recordSessionBriefingEvent({ ...this.deps, briefing }, { ...v, event: parsed.data.event, itemIds: parsed.data.itemIds }));
+  }
+
+  /** UC-KG-12b undoMemoryCard（issue #4361）—— 已生效的「忘掉」卡上的「撤销」（人的动作） */
+  @Post("/knowledge-graph/cards/:cardId/undo")
+  @HttpCode(200)
+  undoCard(@CurrentPrincipal() principal: Principal, @Param("cardId") cardId: string) {
+    const parsed = KG.knowledgeGraph.undoMemoryCard.in.safeParse({ cardId });
+    if (!parsed.success) throw new BadRequestException({ reasonCode: "KG_INVALID_REQUEST" });
+    const cards = this.cards;
+    if (cards === undefined) throw new ServiceUnavailableException("memory_cards_unavailable");
+    return this.run(principal, (v) => undoMemoryCard({ ...this.deps, cards, newId: newKgId }, { ...v, actorKind: "human", cardId: parsed.data.cardId }));
   }
 
   /**

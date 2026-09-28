@@ -1,0 +1,1747 @@
+
+ RUN  v2.1.9 /home/user/workspacex/.claude/worktrees/agent-a7be6603ba4a208b9/apps/api
+
+[db-isolation] db=wsxs4b capacity=100 current=6 required=16
+ ❯ tests/knowledge-graph/memory-card.test.ts (32 tests | 3 failed) 17705ms
+   ✓ F17: 记住（V1） > 本会话里早就说过同一句 ⇒ 卡指着那一条；不改字点「记住」⇒ 确认并晋升它，不另建；长期记忆里已有同一句 ⇒ 合并，不复制第二份 463ms
+   × F17: 忘掉（V2） > 说「忘掉 …」⇒ 列出本会话与本人长期记忆里相关的条目（默认全选）；取消勾选一条后点「忘掉」⇒ 选中的失效、L1 同步失效，下一轮不再召回 207ms
+     → expected 1 to be greater than 1
+   ✓ F17: 忘掉（V2） > 「忘掉 …」一条也没匹配到 ⇒ 不出卡；给模型的是有条件的说明：真要忘记忆就说没找到（A2），只是在说这次对话就照常回答 321ms
+   ✓ F17: 忘掉（V2） > 意图不确定 ⇒ 不出卡、不给模型任何说明、一行都不写 476ms
+   ✓ F17: 守卫 > 卡片过期：条目在出卡之后被忘掉 ⇒ 回答下显示「过期」，点击 ⇒ KG_CARD_STALE（HTTP 409），其余条目一条不动 360ms
+   ✓ F17: 守卫 > 卡片过期：条目的说法在出卡之后变了 ⇒ stale；卡上没有的 id ⇒ stale；什么都没选 ⇒ 400 302ms
+   × F17: 项目会话、非所有者与隐私 > 项目会话：「记住」「忘掉」都不出卡（长期记忆只在个人对话里管理，#4361 不碰项目层的记忆），模型照实说；项目里的那一条不动 221ms
+     → expected '【记忆卡片】用户想让你忘掉「李四」。系统已在这条回答下方列出相关的记忆（默…' to contain '个人对话'
+   × F17: 开卡函数自己复核（不信调用方给的 id） > 项目会话 ⇒ not_personal；个人线程里本人别的个人对话的结论与长期记忆上卡，已失效的不上 72ms
+     → expected { outcome: 'no_items' } to deeply equal { outcome: 'not_personal' }
+   ✓ F17: 与矛盾提醒的先后（I-18） > 同一轮既有矛盾又说了「记住」⇒ 先出矛盾卡；矛盾处理完，同一轮回答下轮到记住卡；有矛盾时点「记住」⇒ KG_CONTESTED_NEEDS_RESOLUTION 370ms
+   ✓ F17: 执行器接线（executeQueuedRuns → 回答落库 → getTurnMemory） > 用户说「记住：…」⇒ 执行器开卡、模型被告知「卡已出、还没生效」；回答写回后，回答下读得到这张卡；没接卡片端口 ⇒ 不开卡 308ms
+   ✓ F17 × F16: 忘掉一条长期记忆（它是别的会话里矛盾卡的旧条）不等别的会话的锁 > 乙拿着会话 B 的锁；甲在会话 A 用忘掉卡忘掉长期记忆 P ⇒ 甲立刻返回、B 的卡进队列；排空后 B 的卡 closed_by_change、新条不再有矛盾 366ms
+ ❯ tests/knowledge-graph/memory-manage-in-chat.test.ts (15 tests | 15 failed) 2724ms
+   × #4361 意图识别 > 忘掉：「忘掉关于 X 的」取出 X；讨论遗忘曲线、忘了密码都不是忘掉 17ms
+     → expected { kind: 'forget', target: '王经理的' } to deeply equal { kind: 'forget', target: '王经理' }
+   × #4361 意图识别 > 改口：可选的「我改主意了」开头 + 一句改口分句（过 R8 的 hasChangeSignal） 1ms
+     → expected null to deeply equal { kind: 'change', …(1) }
+   × #4361 意图识别 > 查看：整句在问「你记得我什么」；普通的召回问题、问别人的都不是 1ms
+     → 你记得我什么: expected null to deeply equal { kind: 'overview' }
+   × #4361 忘掉 X > 在新的个人对话里说「忘掉关于王经理的」⇒ 列出别的个人对话里记下、已记到长期记忆的那条；确认 ⇒ 原话与长期记忆都失效、边一起收掉；撤销 ⇒ 全部回来 345ms
+     → expected { status: 'accepted', …(5) } to match object { revoked: true, …(1) }
+(4 matching properties omitted from actual)
+   × #4361 忘掉 X > 同一个对话里：忘掉本会话那条 ⇒ F07 级联把由它记进长期记忆的副本一起收掉；撤销只恢复这张卡忘掉的 294ms
+     → undoMemoryCard is not a function
+   × #4361 忘掉 X > 还开着 / 点了「不用了」的卡不能撤销；项目会话里不出忘掉卡、项目的那条不动 296ms
+     → undoMemoryCard is not a function
+   × #4361 越权防护 > 别人撤我的忘掉卡 / 撤不存在的卡 ⇒ 同一个 404；Agent ⇒ KG_ACTOR_NOT_HUMAN；绕过应用层直调数据库同样拒；卡不动 180ms
+     → undoMemoryCard is not a function
+   × #4361 越权防护 > 别人的忘掉 / 清单卡只列他自己的；开卡函数不收别人的 id 76ms
+     → the given combination of arguments (null and string) is invalid for this assertion. You can use an array, a map, an object, a set, a string, or a weakset instead of a string
+   × #4361 我改主意了 > 明确 + 高把握（same_kind）⇒ 这一轮就自动取代（不靠抽取模型），回答下一行「已用〈新〉取代〈旧〉」、可撤销；召回读的是取代之后的样子 130ms
+     → the given combination of arguments (null and string) is invalid for this assertion. You can use an array, a map, an object, a set, a string, or a weakset instead of a string
+   × #4361 我改主意了 > 只到 frame_only ⇒ 不自动：回答下一张「用〈新〉取代〈旧〉？」卡，两条都照常生效 89ms
+     → the given combination of arguments (null and string) is invalid for this assertion. You can use an array, a map, an object, a set, a string, or a weakset instead of a string
+   × #4361 我改主意了 > 反对 / 不相干 / 没说中哪条 ⇒ 什么都不写（没有新结论、没有提示、没有卡）；对照：点名旧对象的改口会取代 407ms
+     → the given combination of arguments (null and string) is invalid for this assertion. You can use an array, a map, an object, a set, a string, or a weakset instead of a string
+   × #4361 我改主意了 > 项目会话 / 别人 ⇒ 不碰：本人长期记忆里的决定原样 158ms
+     → Cannot read properties of undefined (reading 'id')
+   × #4361 我改主意了 > 没接改口端口（旧的执行器构造）⇒ 与 #4361 之前相同：不做 60ms
+     → Cannot read properties of undefined (reading 'id')
+   × #4361 你记得我什么 > 按种类分组、每条带来源对话；给模型的是同一份分组清单；忘掉一条后清单里没有了；清单卡不接受任何决定 130ms
+     → the given combination of arguments (null and string) is invalid for this assertion. You can use an array, a map, an object, a set, a string, or a weakset instead of a string
+   × #4361 你记得我什么 > 项目会话里问 ⇒ 不列个人记忆、如实说去个人对话看 65ms
+     → the given combination of arguments (null and string) is invalid for this assertion. You can use an array, a map, an object, a set, a string, or a weakset instead of a string
+ ❯ tests/knowledge-graph/recall-repo-guard.test.ts (11 tests | 1 failed) 553ms
+   × F08 会话记忆召回读取的豁免前提 > (d) 调用链：kernel.module 实例化 → 执行器 → execute-run.ts turnKnowledgeContext（run）→ knowledgeMemoryFor / memoryCardFor（run.threadId / run.requesterUserId） 541ms
+     → expected 'import type { KnowledgeRecallPort, Me…' to match /turnKnowledgeContext\(deps\.knowledge…/
+
+⎯⎯⎯⎯⎯⎯ Failed Tests 19 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/knowledge-graph/memory-card.test.ts > F17: 忘掉（V2） > 说「忘掉 …」⇒ 列出本会话与本人长期记忆里相关的条目（默认全选）；取消勾选一条后点「忘掉」⇒ 选中的失效、L1 同步失效，下一轮不再召回
+AssertionError: expected 1 to be greater than 1
+ ❯ tests/knowledge-graph/memory-card.test.ts:354:34
+    352|     const sessionAudits = audits.filter((a) => a.scope_kind === "chat_…
+    353|     expect(sessionAudits.map((a) => a.scope_id)).toContain(T.f);
+    354|     expect(sessionAudits.length).toBeGreaterThan(1);
+       |                                  ^
+    355|     // 会话里的审计不带个人空间的 id
+    356|     for (const a of sessionAudits) expect(JSON.stringify(a.payload)).n…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/19]⎯
+
+ FAIL  tests/knowledge-graph/memory-card.test.ts > F17: 项目会话、非所有者与隐私 > 项目会话：「记住」「忘掉」都不出卡（长期记忆只在个人对话里管理，#4361 不碰项目层的记忆），模型照实说；项目里的那一条不动
+AssertionError: expected '【记忆卡片】用户想让你忘掉「李四」。系统已在这条回答下方列出相关的记忆（默…' to contain '个人对话'
+
+Expected: "个人对话"
+Received: "【记忆卡片】用户想让你忘掉「李四」。系统已在这条回答下方列出相关的记忆（默认全选），用户点「忘掉」之后才会生效——现在还没有忘，不要说「已经忘掉了」。"
+
+ ❯ tests/knowledge-graph/memory-card.test.ts:515:20
+    513|     // #4361（待签核、先按已批准执行）：F17 原来在项目会话里列本会话的…
+    514|     const t = await turn(T.s, "忘掉李四那条");
+    515|     expect(t.note).toContain("个人对话");
+       |                    ^
+    516|     expect(t.note).toContain("没有忘掉任何东西");
+    517|     expect((await turnMemory(T.s, t.answerId)).prompt).toBeNull();
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/19]⎯
+
+ FAIL  tests/knowledge-graph/memory-card.test.ts > F17: 开卡函数自己复核（不信调用方给的 id） > 项目会话 ⇒ not_personal；个人线程里本人别的个人对话的结论与长期记忆上卡，已失效的不上
+AssertionError: expected { outcome: 'no_items' } to deeply equal { outcome: 'not_personal' }
+
+- Expected
++ Received
+
+  Object {
+-   "outcome": "not_personal",
++   "outcome": "no_items",
+  }
+
+ ❯ tests/knowledge-graph/memory-card.test.ts:571:17
+    569|     // #4361：项目会话里不开忘掉卡（不管给了什么 id）
+    570|     const out = await rawOpen({ thread_id: T.s, message_id: msg, reque…
+    571|     expect(out).toEqual({ outcome: "not_personal" });
+       |                 ^
+    572|     // 个人线程里：本人的长期记忆、本人别的个人对话里的（#4361：个人空…
+    573|     const pm = await say(T.z, "忘掉：随便什么");
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/19]⎯
+
+ FAIL  tests/knowledge-graph/memory-manage-in-chat.test.ts > #4361 意图识别 > 忘掉：「忘掉关于 X 的」取出 X；讨论遗忘曲线、忘了密码都不是忘掉
+AssertionError: expected { kind: 'forget', target: '王经理的' } to deeply equal { kind: 'forget', target: '王经理' }
+
+- Expected
++ Received
+
+  Object {
+    "kind": "forget",
+-   "target": "王经理",
++   "target": "王经理的",
+  }
+
+ ❯ tests/knowledge-graph/memory-manage-in-chat.test.ts:178:44
+    176| describe("#4361 意图识别", () => {
+    177|   it("忘掉：「忘掉关于 X 的」取出 X；讨论遗忘曲线、忘了密码都不是忘掉"…
+    178|     expect(detectMemoryIntent("忘掉关于王经理的")).toEqual({ kind: "fo…
+       |                                            ^
+    179|     expect(detectMemoryIntent("忘掉关于王经理的吧")).toEqual({ kind: "…
+    180|     expect(detectMemoryIntent("忘掉张三的")).toEqual({ kind: "forget",…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/19]⎯
+
+ FAIL  tests/knowledge-graph/memory-manage-in-chat.test.ts > #4361 意图识别 > 改口：可选的「我改主意了」开头 + 一句改口分句（过 R8 的 hasChangeSignal）
+AssertionError: expected null to deeply equal { kind: 'change', …(1) }
+
+- Expected: 
+Object {
+  "kind": "change",
+  "statement": "改成关注985高校",
+}
+
++ Received: 
+null
+
+ ❯ tests/knowledge-graph/memory-manage-in-chat.test.ts:188:51
+    186| 
+    187|   it("改口：可选的「我改主意了」开头 + 一句改口分句（过 R8 的 hasChang…
+    188|     expect(detectMemoryIntent("我改主意了，改成关注985高校")).toEqual(…
+       |                                                   ^
+    189|     expect(detectMemoryIntent("改主意了！把Vue换成React")).toEqual({ k…
+    190|     expect(detectMemoryIntent("我想法变了，不再用Vue了")).toEqual({ ki…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[5/19]⎯
+
+ FAIL  tests/knowledge-graph/memory-manage-in-chat.test.ts > #4361 意图识别 > 查看：整句在问「你记得我什么」；普通的召回问题、问别人的都不是
+AssertionError: 你记得我什么: expected null to deeply equal { kind: 'overview' }
+
+- Expected: 
+Object {
+  "kind": "overview",
+}
+
++ Received: 
+null
+
+ ❯ tests/knowledge-graph/memory-manage-in-chat.test.ts:201:40
+    199|     for (const t of ["你记得我什么", "你都记得我什么？", "你记得关于我…
+    200|       "列出你记住的关于我的所有内容", "你的记忆里有我的什么", "请问你…
+    201|       expect(detectMemoryIntent(t), t).toEqual({ kind: "overview" });
+       |                                        ^
+    202|     }
+    203|     for (const t of ["你记得关于客户A的什么", "你记得我昨天说的方案吗"…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[6/19]⎯
+
+ FAIL  tests/knowledge-graph/memory-manage-in-chat.test.ts > #4361 忘掉 X > 在新的个人对话里说「忘掉关于王经理的」⇒ 列出别的个人对话里记下、已记到长期记忆的那条；确认 ⇒ 原话与长期记忆都失效、边一起收掉；撤销 ⇒ 全部回来
+AssertionError: expected { status: 'accepted', …(5) } to match object { revoked: true, …(1) }
+(4 matching properties omitted from actual)
+
+- Expected
++ Received
+
+  Object {
+-   "revocation_reason": "user_forgot",
+-   "revoked": true,
++   "revocation_reason": null,
++   "revoked": false,
+  }
+
+ ❯ tests/knowledge-graph/memory-manage-in-chat.test.ts:232:33
+    230|     expect(await claim(l1)).toMatchObject({ revoked: true, revocation_…
+    231|     // 长期记忆那条的原话（本人别的个人对话里）一起忘掉：回到那个对话…
+    232|     expect(await claim(src.id)).toMatchObject({ revoked: true, revocat…
+       |                                 ^
+    233|     expect((await activeEdges(src.id)).filter((e) => e.status === "act…
+    234|     expect((await read(T.p1)).claims.map((c) => c.statement)).not.toCo…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[7/19]⎯
+
+ FAIL  tests/knowledge-graph/memory-manage-in-chat.test.ts > #4361 忘掉 X > 同一个对话里：忘掉本会话那条 ⇒ F07 级联把由它记进长期记忆的副本一起收掉；撤销只恢复这张卡忘掉的
+TypeError: undoMemoryCard is not a function
+ ❯ undo tests/knowledge-graph/memory-manage-in-chat.test.ts:153:3
+    151|   actOnMemoryCard(deps, { userId: OWNER, orgId: ORG_ID, actorKind: "hu…
+    152| const undo = (cardId: string, userId = OWNER, actorKind: "human" | "ag…
+    153|   undoMemoryCard(deps, { userId, orgId: ORG_ID, actorKind, cardId });
+       |   ^
+    154| const claim = async (id: string) => (await sql<{ status: string; revok…
+    155|   "SELECT status, revoked_at IS NOT NULL AS revoked, revocation_reason…
+ ❯ tests/knowledge-graph/memory-manage-in-chat.test.ts:276:24
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[8/19]⎯
+
+ FAIL  tests/knowledge-graph/memory-manage-in-chat.test.ts > #4361 忘掉 X > 还开着 / 点了「不用了」的卡不能撤销；项目会话里不出忘掉卡、项目的那条不动
+TypeError: undoMemoryCard is not a function
+ ❯ undo tests/knowledge-graph/memory-manage-in-chat.test.ts:153:3
+    151|   actOnMemoryCard(deps, { userId: OWNER, orgId: ORG_ID, actorKind: "hu…
+    152| const undo = (cardId: string, userId = OWNER, actorKind: "human" | "ag…
+    153|   undoMemoryCard(deps, { userId, orgId: ORG_ID, actorKind, cardId });
+       |   ^
+    154| const claim = async (id: string) => (await sql<{ status: string; revok…
+    155|   "SELECT status, revoked_at IS NOT NULL AS revoked, revocation_reason…
+ ❯ tests/knowledge-graph/memory-manage-in-chat.test.ts:290:18
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[9/19]⎯
+
+ FAIL  tests/knowledge-graph/memory-manage-in-chat.test.ts > #4361 越权防护 > 别人撤我的忘掉卡 / 撤不存在的卡 ⇒ 同一个 404；Agent ⇒ KG_ACTOR_NOT_HUMAN；绕过应用层直调数据库同样拒；卡不动
+TypeError: undoMemoryCard is not a function
+ ❯ undo tests/knowledge-graph/memory-manage-in-chat.test.ts:153:3
+    151|   actOnMemoryCard(deps, { userId: OWNER, orgId: ORG_ID, actorKind: "hu…
+    152| const undo = (cardId: string, userId = OWNER, actorKind: "human" | "ag…
+    153|   undoMemoryCard(deps, { userId, orgId: ORG_ID, actorKind, cardId });
+       |   ^
+    154| const claim = async (id: string) => (await sql<{ status: string; revok…
+    155|   "SELECT status, revoked_at IS NOT NULL AS revoked, revocation_reason…
+ ❯ tests/knowledge-graph/memory-manage-in-chat.test.ts:312:18
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[10/19]⎯
+
+ FAIL  tests/knowledge-graph/memory-manage-in-chat.test.ts > #4361 越权防护 > 别人的忘掉 / 清单卡只列他自己的；开卡函数不收别人的 id
+AssertionError: the given combination of arguments (null and string) is invalid for this assertion. You can use an array, a map, an object, a set, a string, or a weakset instead of a string
+ ❯ tests/knowledge-graph/memory-manage-in-chat.test.ts:331:21
+    329|     const mine = await personalLive(CONTACT);
+    330|     const mt = await turn(T.m, "你记得我什么", MEMBER);
+    331|     expect(mt.note).toContain("还没有记住任何事");
+       |                     ^
+    332|     expect(await sql("SELECT id FROM kg_memory_cards WHERE run_id = $1…
+    333|     const ft = await turn(T.m, "忘掉关于王经理的", MEMBER);
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[11/19]⎯
+
+ FAIL  tests/knowledge-graph/memory-manage-in-chat.test.ts > #4361 我改主意了 > 明确 + 高把握（same_kind）⇒ 这一轮就自动取代（不靠抽取模型），回答下一行「已用〈新〉取代〈旧〉」、可撤销；召回读的是取代之后的样子
+AssertionError: the given combination of arguments (null and string) is invalid for this assertion. You can use an array, a map, an object, a set, a string, or a weakset instead of a string
+ ❯ tests/knowledge-graph/memory-manage-in-chat.test.ts:355:20
+    353| 
+    354|     const t = await turn(T.c2, "我改主意了，改成关注985高校");
+    355|     expect(t.note).toContain("取代");
+       |                    ^
+    356|     expect(t.note).toContain("改成关注985高校");
+    357|     expect(t.note).toContain(OLD);
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[12/19]⎯
+
+ FAIL  tests/knowledge-graph/memory-manage-in-chat.test.ts > #4361 我改主意了 > 只到 frame_only ⇒ 不自动：回答下一张「用〈新〉取代〈旧〉？」卡，两条都照常生效
+AssertionError: the given combination of arguments (null and string) is invalid for this assertion. You can use an array, a map, an object, a set, a string, or a weakset instead of a string
+ ❯ tests/knowledge-graph/memory-manage-in-chat.test.ts:380:20
+    378|     const [cur] = await personalLive("改成关注985高校");
+    379|     const t = await turn(T.c3, "我改主意了，改成关注C9");
+    380|     expect(t.note).toContain("要不要用");
+       |                    ^
+    381|     const tm = await turnMemory(T.c3, t.answerId);
+    382|     expect(tm.supersede).toBeNull();
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[13/19]⎯
+
+ FAIL  tests/knowledge-graph/memory-manage-in-chat.test.ts > #4361 我改主意了 > 反对 / 不相干 / 没说中哪条 ⇒ 什么都不写（没有新结论、没有提示、没有卡）；对照：点名旧对象的改口会取代
+AssertionError: the given combination of arguments (null and string) is invalid for this assertion. You can use an array, a map, an object, a set, a string, or a weakset instead of a string
+ ❯ tests/knowledge-graph/memory-manage-in-chat.test.ts:400:26
+    398|     // 对照（不让上面的「什么都不写」空洞成立）：点名旧对象的改口（「…
+    399|     const control = await turn(T.c4, "我改主意了，不再关注C9了");
+    400|     expect(control.note).toContain("取代了长期记忆里的「改成关注C9」");
+       |                          ^
+    401|     expect((await turnMemory(T.c4, control.answerId)).supersede).toMat…
+    402|   });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[14/19]⎯
+
+ FAIL  tests/knowledge-graph/memory-manage-in-chat.test.ts > #4361 我改主意了 > 项目会话 / 别人 ⇒ 不碰：本人长期记忆里的决定原样
+TypeError: Cannot read properties of undefined (reading 'id')
+ ❯ tests/knowledge-graph/memory-manage-in-chat.test.ts:410:29
+    408|     const mt = await turn(T.m, "我改主意了，改成关注清华高校", MEMBER);
+    409|     expect(mt.note).toBeNull();
+    410|     expect(await claim(cur!.id)).toMatchObject({ revoked: false });
+       |                             ^
+    411|     expect(await sql("SELECT id FROM kg_supersede_notices WHERE org_id…
+    412|   });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[15/19]⎯
+
+ FAIL  tests/knowledge-graph/memory-manage-in-chat.test.ts > #4361 我改主意了 > 没接改口端口（旧的执行器构造）⇒ 与 #4361 之前相同：不做
+TypeError: Cannot read properties of undefined (reading 'id')
+ ❯ tests/knowledge-graph/memory-manage-in-chat.test.ts:418:29
+    416|     const t = await turn(T.c5, "我改主意了，改成关注清华高校", OWNER, …
+    417|     expect(t.note).toBeNull();
+    418|     expect(await claim(cur!.id)).toMatchObject({ revoked: false });
+       |                             ^
+    419|   });
+    420| });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[16/19]⎯
+
+ FAIL  tests/knowledge-graph/memory-manage-in-chat.test.ts > #4361 你记得我什么 > 按种类分组、每条带来源对话；给模型的是同一份分组清单；忘掉一条后清单里没有了；清单卡不接受任何决定
+AssertionError: the given combination of arguments (null and string) is invalid for this assertion. You can use an array, a map, an object, a set, a string, or a weakset instead of a string
+ ❯ tests/knowledge-graph/memory-manage-in-chat.test.ts:428:20
+    426|     await say(T.o2, TODO);
+    427|     const t = await turn(T.o2, "你记得我什么？");
+    428|     expect(t.note).toContain("按种类分组");
+       |                    ^
+    429|     expect(t.note).toMatch(/决定：\n- /);
+    430|     expect(t.note).toContain("待办：");
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[17/19]⎯
+
+ FAIL  tests/knowledge-graph/memory-manage-in-chat.test.ts > #4361 你记得我什么 > 项目会话里问 ⇒ 不列个人记忆、如实说去个人对话看
+AssertionError: the given combination of arguments (null and string) is invalid for this assertion. You can use an array, a map, an object, a set, a string, or a weakset instead of a string
+ ❯ tests/knowledge-graph/memory-manage-in-chat.test.ts:456:20
+    454|   it("项目会话里问 ⇒ 不列个人记忆、如实说去个人对话看", async () => {
+    455|     const t = await turn(T.s, "你记得我什么");
+    456|     expect(t.note).toContain("个人对话");
+       |                    ^
+    457|     expect(t.note).not.toContain("改成关注985高校");
+    458|     expect(await sql("SELECT id FROM kg_memory_cards WHERE run_id = $1…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[18/19]⎯
+
+ FAIL  tests/knowledge-graph/recall-repo-guard.test.ts > F08 会话记忆召回读取的豁免前提 > (d) 调用链：kernel.module 实例化 → 执行器 → execute-run.ts turnKnowledgeContext（run）→ knowledgeMemoryFor / memoryCardFor（run.threadId / run.requesterUserId）
+AssertionError: expected 'import type { KnowledgeRecallPort, Me…' to match /turnKnowledgeContext\(deps\.knowledge…/
+
+- Expected: 
+/turnKnowledgeContext\(deps\.knowledge, deps\.memoryCards, \{ orgId, run \}, deps\.log, deps\.memoryChange\)/
+
++ Received: 
+"import type { KnowledgeRecallPort, MemoryCardPort } from \"../knowledge-graph/ports\";
+import { turnKnowledgeContext } from \"../knowledge-graph/recall-knowledge\";
+import { withAttachmentNotice } from \"./attachment-notice\";
+export { withAttachmentNotice } from \"./attachment-notice\";
+import { dependenciesForRuntimeProfile } from \"./runtime-profile-routing\";
+import type { NativeOutputStaging } from \"./native-output-staging\";
+import type { NativeSessionOwner } from \"./native-session-owner\";
+import { RunLeaseLostError, currentRunLease } from \"./run-lease\";
+import type { ArtifactContinuationReader } from \"../artifacts-steering/artifact-execution\";
+import { publicExecutionPayload } from \"./public-execution-payload\";
+/**
+ * `executeAgentRun` -- the Wave 2 §5 slice, and nothing else.
+ *
+ * ## What this function is allowed to decide
+ *
+ * Almost nothing. The Agent version, the ordered Skill versions, the provider and the
+ * model were all decided at acceptance and are read off the claimed run. This code picks
+ * no model, resolves no head, retries no provider, and invents no reply. It builds one
+ * prompt out of already-pinned inputs, makes one call, and records what happened.
+ *
+ * ## Failure is a recorded transition, never a thrown surprise
+ *
+ * Every failure path lands on `failRun` with an enumerated code AND appends the failed
+ * step. A run that dies without either is indistinguishable from one nobody started, and
+ * \"the message just never got answered\" is the single hardest report to act on.
+ *
+ * ## Empty content is a failure, not an empty reply
+ *
+ * If the provider returns no usable text, the run fails. Storing `\"\"` and letting #413
+ * write it back would put a blank assistant message in a human's thread and mark the run
+ * succeeded -- a fabricated reply with extra steps.
+ *
+ * ## #725 → #741 → Phase 14 F01: down to one call, in `invoke-kernel.ts`
+ *
+ * #725 added `executeToolLoop`, a bounded in-process tool-calling loop; #741 retired it in
+ * favour of `DeepAgentModelProvider` handing the run's pinned Skills to a REMOTE
+ * `deepagents`-based planning loop (`apps/deep-agent-service`). The design-delta
+ * `skill-lazy-loading` pseudo-loop that #741 left behind (progressively expanding a Skill
+ * catalog for non-deep-agent, non-streaming runs) is retired by THIS feature, for the same
+ * \"same fact must not be declared in two places\" reason #741 retired the first one: it was a
+ * second, simplified \"how does an Agent get its Skills\" implementation living next to the
+ * one deep-agent-service now owns end to end.
+ *
+ * What's left is `invokeKernel` (`invoke-kernel.ts`): ONE call, whichever shape the run's
+ * pinned provider actually offers (`completeWithProgress` > `completeStream` > `complete`,
+ * unchanged priority, extracted rather than deleted). `execute-run.ts` itself no longer
+ * branches on `deps.model`'s shape at all -- R4 E3 (`01-kernel-unification.md`) requires the
+ * three old branches physically gone from this file's own source, not merely unreachable.
+ */
+import { OpenToolCalls, type RunTerminationOutcome } from \"./open-tool-calls\";
+import { nativeToolProvenance } from \"@repo/contracts/native-tool-identities\";
+import { createHash } from \"node:crypto\";
+import type { OrgId } from \"../../domain/org-id\";
+import type {
+  AgentRunClock, AgentRunStore, ClaimedAgentRun, ModelCallPort,
+  PinnedSkillContent, RunFailureCode, RunFailureReason, RunStepKind, RunStepStatus,
+  ThreadHistoryMessage, TokenUsageMeterPort,
+} from \"./ports\";
+import { DEEP_AGENT_PROVIDER_NAME, ModelCallError } from \"./ports\";
+import { classifyModelCallFailureReason } from \"../../domain/agent-run/model-call-failure-reason\";
+import { withRunHeartbeat } from \"./run-heartbeat\";
+import {
+  buildFileContextMessage, FILE_RETRIEVAL_MAX_HITS, type FileRetrievalPort,
+} from \"./file-retrieval\";
+import type { AgentRunContextSnapshotPort, ContextLayerStatus } from \"./context-snapshot\";
+import {
+  buildToolTraceMessage, TOOL_TRACE_RUN_LIMIT, type ToolTraceContextPort,
+} from \"./tool-trace-context\";
+import { normalizeCanvasFenceSections, normalizeCanvasFenceTemplateKeys, type CanvasTemplateShape } from \"../../domain/canvas/normalize-fence-template-key\";
+import { buildCanvasTemplateGuidance, selectGuidanceTemplates, templateSectionNames, type CanvasTemplateGuidancePort } from \"./canvas-template-guidance\";
+import type { SkillSandboxPort } from \"../skill/skill-sandbox-port\";
+import type { ObjectStore } from \"../artifact/ports\";
+import { maybeRunSkillScript, retryScriptSource, type ProducedFile } from \"./run-skill-script\";
+import { createSkillActivityGapWriter, createSkillActivityWriter, createToolProgressWriter } from \"./skill-activity-writer\";
+import { toolStallNotice, toolStallNoticeMs, type DeploymentEditionValue } from \"@repo/contracts/deployment\";
+import { meter } from \"./meter-run-usage\";
+import { invokeKernel } from \"./invoke-kernel\";
+import { RUN_SCRIPT_PROTOCOL_PROMPT } from \"../skill/run-script-with-retries\";
+import { buildDeepAgentSkillCatalogBlock, selectCatalogSkills, skillCatalogModeFromEnv, buildSkillCatalogHint } from \"./skill-catalog\";
+import type { RunImagePort } from \"./run-image-input\";
+import { gatherVisionImages } from \"./gather-vision-images\";
+import { serializePlanForDelivery } from \"../plan-control/plan-delivery-text\";
+import type { PlanLedgerRepository, PlanRunStatusReader } from \"../plan-control/ports\";
+import type { RunEventBusPort } from \"./run-event-bus\";
+import { forwardToolCallProgress, publishStatusChange, publishTokenDelta, persistToolPlan } from \"./execute-run-events\";
+import { record } from \"./record-run-step\";
+import { skillDisplayNameField } from \"./called-skill-display-name\";
+import { handleInterruptedToolCall } from \"./tool-permission-gate\";
+import { resolveSkillRiskLevels, type SkillRiskEntry } from \"../../domain/agent-run/skill-risk-level\";
+import { buildDeepAgentKernelFields } from \"./deep-agent-kernel-fields\";
+import type { ToolPermissionGrantStore } from \"./tool-permission-grants\";
+import { checkPendingInterjection, takeInterjectionForKernel } from \"./interjection-handling\";
+import type { InterjectionStore } from \"./interjection-store\";
+import { REMEMBER_TOOL_GUIDANCE } from \"./standard-remember\";
+
+/**
+ * #709 -- token-budget-aware multi-turn context.
+ *
+ * `HISTORY_MAX_MESSAGES` bounds what `AgentRunStore.readThreadHistory` is even ASKED for
+ * (a row cap enforced in SQL, see that method's own comment). `HISTORY_MAX_CHARS` is the
+ * second, tighter bound applied here in application code: a deployment has no tokenizer
+ * (the `tokens` field on `ModelCallPort`'s return type says so explicitly), so this project
+ * has no honest way to count tokens -- inventing one would be exactly the \"heuristic
+ * presented as a real measurement\" `ModelCallPort.complete`'s own doc comment already
+ * rules out for usage reporting. A character budget is not \"tokens\" and is not labelled as
+ * one; it is a simple, conservative proxy good enough for the one thing this MVP needs:
+ * never let history grow without bound. ~4 chars/token is a common rough ratio for English
+ * and CJK-mixed text (CJK runs lower, closer to ~1.5-2 chars/token, which makes this budget
+ * MORE conservative for the CJK content that dominates this codebase's fixtures, not less)
+ * -- `HISTORY_MAX_CHARS` at 12,000 stays comfortably under the smallest realistic context
+ * window even under that denser encoding, while `HISTORY_MAX_MESSAGES` keeps a very long,
+ * short-message thread (e.g. quick back-and-forth) from turning into thousands of tiny
+ * history entries before the char budget even gets a chance to trim it.
+ */
+export const HISTORY_MAX_MESSAGES = 20;
+export const HISTORY_MAX_CHARS = 12_000;
+
+/**
+ * F154 L2（08-chat/uc-8-7 R7，人类 2026-08-11 逐字签核「`HISTORY_MAX_MESSAGES` 不撑大」）——
+ * `HISTORY_MAX_MESSAGES` 本身**不变**，它仍是 L1 概念上的行数上限；这个新常量只用来给 L2 的
+ * 「有没有新增区间要折进持久摘要」判断一个更宽的候选窗口。L1 最终喂给模型的内容仍然只由
+ * `HISTORY_MAX_CHARS` 的字符预算裁出（`trimHistoryToBudget` 逐字节不变）——宽窗口只是让
+ * 「被裁掉的那部分」里，更旧的轮次也进入候选集，好让 L2 摘要真的能覆盖到它们，而不是让 L1
+ * 本身变大。有界（不是无限翻查全史）：一次 run 最多为这个目的多读这么多行。
+ */
+export const L2_CATCHUP_FETCH_LIMIT = 200;
+
+/**
+ * Drop the OLDEST messages first until the remaining, still-chronologically-ordered suffix
+ * fits `maxChars` of combined `content` length. `messages` is already oldest-first (what
+ * `readThreadHistory` returns); the result stays oldest-first so callers never have to
+ * re-sort before splicing it into a `role`-ordered messages array.
+ *
+ * A single message longer than `maxChars` on its own is kept whole rather than truncated
+ * mid-sentence -- cutting a stored message's text would make the model see words that were
+ * never actually said in that message, which is a subtly different failure from \"this turn
+ * wasn't included at all\". The budget is enforced by DROPPING turns, never by editing one.
+ */
+export function trimHistoryToBudget(
+  messages: readonly ThreadHistoryMessage[],
+  maxChars: number,
+): readonly ThreadHistoryMessage[] {
+  if (maxChars <= 0) return [];
+  let total = 0;
+  let firstKeptIndex = messages.length;
+  for (let i = messages.length - 1; i >= 0; i -= 1) {
+    const next = total + messages[i]!.content.length;
+    // The oldest kept message is allowed to push the running total over budget by itself
+    // (see the doc comment: a single long message is kept whole, not truncated) -- but a
+    // SECOND message would not be added once the budget is already spent.
+    if (next > maxChars && total > 0) break;
+    total = next;
+    firstKeptIndex = i;
+  }
+  return messages.slice(firstKeptIndex);
+}
+
+/**
+ * V8（PROP-CHAT-CONTEXT-ENGINE-001 §3）—— 上下文引擎第一步：**滚动摘要**，端口内侧、
+ * `ModelCallPort` 契约一字节不动（coord-main 裁决 A 条件）。
+ *
+ * 现状缺口 G1：`trimHistoryToBudget` 把超预算的旧轮**整条丢弃**，长对话超 12k 字符后
+ * 「记得前几轮」必然掉线。本函数在丢弃之前，可选地把被丢掉的旧轮压成一段摘要，作为一条
+ * `assistant` 伪历史消息前置——这样近几轮原文保留、更旧的要点也不至于完全消失。
+ *
+ * ## F154 L2 已接管调用侧（本函数本身、其 opt-in 形状、其纯单测不变）
+ * `executeClaimed` 不再直接调用本函数做「摘要」——那份职责已被 F154 L2（持久化、增量、
+ * `planLayeredHistoryIncrement` + `thread_context_state`）接管，L2 的摘要**跨 run 持久**，
+ * 不是本函数这种「每次调用临时摘要一次、summarize 未传就什么都不做」的 ephemeral 形状。
+ * `executeClaimed` 现在只用本文件同一个 `trimHistoryToBudget`（L1 的字符预算裁剪）。
+ * 本函数与其 opt-in `summarize` 参数原样保留——仍是一个通用、纯粹、经过测试的「裁剪 + 可选
+ * 摘要前置」工具，供未来其他调用点复用；`assemble-history.test.ts` 覆盖的正是这份能力本身，
+ * 与 L2 是否接管了 `executeClaimed` 的调用无关。
+ *
+ * ## 失败与预算
+ * - 摘要调用失败或返回空 ⇒ 静默退回 `trimHistoryToBudget` 的结果（不 fail run，与 #709
+ *   历史读取失败降级为单轮同一种保守失败模式）。绝不因为「摘要没成」把一次本可完成的
+ *   run 变失败。
+ * - 摘要 + 保留后缀仍受 `maxChars` 约束：拿到摘要后按「摘要长度」重新给后缀留预算，
+ *   保证总量不超预算，且**近几轮优先**（摘要挤不下时缩的是更旧的保留轮，不是最近的）。
+ * - 摘要只是 `role/content` 伪消息，`ModelCallInput` 与 `ModelCallPort` 形状不变。
+ */
+export async function assembleHistory(
+  recent: readonly ThreadHistoryMessage[],
+  maxChars: number,
+  summarize?: (dropped: readonly ThreadHistoryMessage[]) => Promise<string>,
+  /**
+   * 摘要调用失败时的观测回调（coord-main #913 review 提出）。摘要失败被静默吞、退回丢弃
+   * 行为**不 fail run** 是刻意的，但「静默」会让运行者以为摘要在工作而其实一直在退化——
+   * 受控环境开启摘要前必须能在日志里看到它失败。这里只观测、不改控制流：回调自身抛错也
+   * 不影响「退回 kept」的结果（下方 try/catch 兜住回调的意外）。
+   */
+  onSummarizeError?: (error: unknown) => void,
+): Promise<readonly ThreadHistoryMessage[]> {
+  const kept = trimHistoryToBudget(recent, maxChars);
+  if (!summarize) return kept; // 默认路径：与既有行为逐字节相同
+  const droppedCount = recent.length - kept.length;
+  if (droppedCount <= 0) return kept; // 没丢任何轮 ⇒ 无需摘要
+  let summaryText: string;
+  try {
+    summaryText = (await summarize(recent.slice(0, droppedCount))).trim();
+  } catch (error) {
+    // 退化前先留一行日志（观测），再退回丢弃行为、不 fail run。
+    try { onSummarizeError?.(error); } catch { /* 日志回调不该反过来拖垮组装 */ }
+    return kept; // 摘要失败 ⇒ 退回丢弃行为，不 fail run
+  }
+  if (summaryText === \"\") return kept;
+  const summaryMessage: ThreadHistoryMessage = {
+    role: \"assistant\",
+    content: `[前 ${droppedCount} 轮对话摘要] ${summaryText}`,
+  };
+  // 近几轮**永远优先**：摘要是「有余量才加」的锦上添花，绝不为它挤掉任何最近保留的轮。
+  // 保留后缀已经贴着 `maxChars`，只有剩余预算容得下整条摘要时才前置；容不下就跳过摘要，
+  // 返回原样的近几轮（不截断摘要——截一半的摘要是没验证过的半句话，宁可不要）。
+  const keptChars = kept.reduce((sum, m) => sum + m.content.length, 0);
+  if (keptChars + summaryMessage.content.length > maxChars) return kept;
+  return [summaryMessage, ...kept];
+}
+
+/**
+ * F154 L2（08-chat/uc-8-7 R3②/R7/R12 V1-V2）—— 纯函数，零 IO：给定「较宽窗口内按时间正序取回
+ * 的候选消息」「L1 已经裁出、原样保留的最新那段」「上次持久摘要覆盖到哪条消息 id」，算出
+ * 「L1 边界之前、尚未纳入持久摘要的新增轮」——即本轮真正需要做的增量摘要工作。
+ *
+ * ## 为什么用长度切片而不是内容比对
+ * `l1` 是 `candidates` 经 `trimHistoryToBudget` 裁出的**连续最新后缀**（该函数只按预算丢最旧的，
+ * 不重排、不抽样、不去重）——因此 `candidates` 去掉最后 `l1.length` 条，剩下的前缀就精确是
+ * 「L1 边界之前的一切」，用长度切片是唯一不会被重复文本内容误判的做法。
+ *
+ * ## 缺 id 时保守跳过（不猜测顺序）
+ * `ThreadHistoryMessage.id` 是可选字段（多数不关心持久化的构造点不填）。候选集里只要有一条
+ * 缺 id，本函数直接返回「无新增」——精确定位「摘要覆盖到哪」离不开 id，猜测顺序换来的是可能
+ * 重复摘要或漏摘，两者都比「这轮不推进摘要、复用已有的」更糟。
+ *
+ * ## 游标定位
+ * `summarizedThroughId` 为 `null`（从未摘要过）或找不到匹配（比宽窗口本身覆盖的还旧——
+ * `L2_CATCHUP_FETCH_LIMIT` 本就有界，这是刻意的降级，不是 bug）时，从候选集里「L1 边界之前」
+ * 最旧的一条开始；否则只取游标之后（不含）到 L1 边界之前的部分——这正是 V2 要求的
+ * 「摘要调用输入只含新增区间，不重读全史」。
+ */
+export interface LayeredHistoryIncrement {
+  /** 需要折进持久摘要的新增轮，oldest-first；空数组 = 无新增（游标已经覆盖到 L1 边界）。 */
+  readonly toSummarize: readonly ThreadHistoryMessage[];
+  /** `toSummarize` 非空时，其最新一条的 id——摘要成功后 `summarizedThroughId` 应前推到这里。 */
+  readonly advanceCursorTo: string | null;
+}
+
+export function planLayeredHistoryIncrement(
+  candidates: readonly ThreadHistoryMessage[],
+  l1: readonly ThreadHistoryMessage[],
+  summarizedThroughId: string | null,
+): LayeredHistoryIncrement {
+  if (candidates.some((m) => m.id === undefined)) return { toSummarize: [], advanceCursorTo: null };
+  const olderThanL1 = l1.length > 0 ? candidates.slice(0, candidates.length - l1.length) : candidates;
+  let startIndex = 0;
+  if (summarizedThroughId !== null) {
+    const cursorIndex = olderThanL1.findIndex((m) => m.id === summarizedThroughId);
+    startIndex = cursorIndex === -1 ? 0 : cursorIndex + 1;
+  }
+  const toSummarize = olderThanL1.slice(startIndex);
+  if (toSummarize.length === 0) return { toSummarize: [], advanceCursorTo: null };
+  return { toSummarize, advanceCursorTo: toSummarize[toSummarize.length - 1]!.id! };
+}
+
+export interface ExecuteAgentRunDeps {
+  /**
+   * 2026-09-22 —— 这份部署的版次。**可选**，缺省 `cloud`：既有测试与不关心版次的执行
+   * 路径（`trial-run-agent` 一类）构造这个对象时不必都改，而生产合成
+   * （`kernel.module.ts` → `AgentRunExecutor`）注入真值。同 `usage` / `retrieval` 的既有先例。
+   *
+   * ⚠ 不在这个文件里读 `process.env`，也不 import `infrastructure/`——洋葱方向由
+   * `lint-arch-deps` 机械看住（本次改动第一版就是这样被它拦下来的）。
+   */
+  readonly edition?: DeploymentEditionValue;
+  /** Admission of new native runs; existing native continuations still use nativeSessions. */
+  readonly nativeRuntimeEnabled?: boolean;
+  readonly nativeSessions?: NativeSessionOwner;
+  readonly nativeOutputs?: NativeOutputStaging;
+  readonly artifactContinuations?: ArtifactContinuationReader;
+  readonly runs: AgentRunStore;
+  readonly model: ModelCallPort;
+  /**
+   * F159 计量。**可选**：只有真正产生计费事实的执行路径接它（`trial-run-agent` 一类
+   * 不接，试跑不算进任何人的月度额度）。写失败不 fail run，理由见 `meter()` 的注释。
+   */
+  readonly usage?: TokenUsageMeterPort;
+  readonly clock: AgentRunClock;
+  /**
+   * F155 L3 —— 文件式检索（design delta `context-engine-l3-file-based`，人类 2026-08-14 签核）。
+   *
+   * **可选**，与 `usage` 同一条既有理由：既有测试与不需要 L3 的执行路径（`trial-run-agent`
+   * 一类）构造这个对象时不必都改，而生产合成（`kernel.module.ts` → `AgentRunExecutor`）必定
+   * 注入——「这次 run 有没有 L3」因此是**合成期的一个明确选择**，不是运行期的一个偶然。
+   * 缺省不注入 ⇒ 行为与 F155 之前逐字节相同（history 不多一条伪消息）。
+   */
+  readonly files?: FileRetrievalPort;
+  /**
+   * Phase 18 F08 —— 会话知识召回（uc-18-2）。**可选**，与 `files` 同一条既有理由：既有测试与不需要
+   * 记忆的执行路径不必都改，生产合成（`kernel.module.ts` → `AgentRunExecutor`）必定注入。
+   * 缺省不注入 ⇒ history 与 F08 之前逐字节相同。
+   */
+  readonly knowledge?: KnowledgeRecallPort;
+  /** Phase 18 F17 「记住 / 忘掉」只开确认卡（I-17）。可选，同 `knowledge`；两者都注入才生效。 */
+  readonly memoryCards?: MemoryCardPort;
+  /**
+   * F157 —— 可审计上下文快照写入口。**可选**，与 `usage`/`files` 同一条既有理由：既有测试
+   * 与不需要被审计的执行路径（`trial-run-agent` 一类）不必都改，生产合成
+   * （`kernel.module.ts` → `AgentRunExecutor`）必定注入。缺省不注入 ⇒ 不写快照，行为与
+   * F157 之前逐字节相同（不影响 history/model 调用本身）。
+   */
+  readonly contextSnapshots?: AgentRunContextSnapshotPort;
+  /**
+   * F190 —— 工具调用轨迹跨 run 回喂上下文（design-delta `tool-trace-cross-run-context`，
+   * 已签核）。**可选**，与 `files`/`contextSnapshots` 同一条既有理由：既有测试与不需要
+   * 这一层的执行路径（`trial-run-agent` 一类）不必都改，生产合成（`kernel.module.ts` →
+   * `AgentRunExecutor`）必定注入。缺省不注入 ⇒ 行为与 F190 之前逐字节相同（history 不多
+   * 一条伪消息）。
+   */
+  readonly toolTrace?: ToolTraceContextPort;
+  /**
+   * issue #1493（「chat 用上后台画布模板」后端块）—— 本组织已发布的画布模板清单，读出来拼进
+   * system prompt（`canvas-template-guidance.ts`）。**可选**，与 `files`/`toolTrace` 同一条
+   * 既有理由：既有测试与不需要这段指引的执行路径（`trial-run-agent`/`quick-digital-interview`
+   * 一类）不必都改，生产合成（`kernel.module.ts` → `AgentRunExecutor`）必定注入。缺省不注入
+   * ⇒ system prompt 与本次改动之前逐字节相同（不多出 canvas 指引这一段）。
+   */
+  readonly canvasTemplates?: CanvasTemplateGuidancePort;
+  /**
+   * #1624 —— chat 里挂了 skill 之后，模型写出来的脚本**真的被执行**的那条路径。
+   *
+   * **两者都可选，且必须一起注入才生效**（见 `run-skill-script.ts` 的触发判据表）：
+   * 与 `files`/`usage`/`canvasTemplates` 同一条既有先例——缺省不注入 ⇒ 这条路径整段
+   * 不存在，`text` 就是模型原文、不产出任何文件、沙箱一次都不被调用，行为与本次改动
+   * 之前**逐字节相同**。`trial-run-agent` 一类不接它的执行路径因此一行都不用改。
+   */
+  readonly sandbox?: SkillSandboxPort;
+  /** 同上：产物字节落这里（`putOnce`），没有它就没有地方放文件，于是根本不执行。 */
+  readonly objects?: ObjectStore;
+  /**
+   * P2（#1561）—— 推理侧图像通道的取字节端口。**可选**，与 `files`/`contextSnapshots`/
+   * `toolTrace` 同一条既有理由：既有测试与不需要这一层的执行路径（`trial-run-agent` 一类）
+   * 不必都改，生产合成（`kernel.module.ts` → `AgentRunExecutor`）必定注入。
+   *
+   * ⚠ 缺省不注入 ⇒ 与 P2 之前**逐字节相同**：不取图、不改 userText、快照记 `\"none\"`。
+   * 这是刻意的——「这次部署有没有图像通道」是合成期的一个明确选择，不是运行期的偶然。
+   */
+  readonly runImages?: RunImagePort;
+  /**
+   * F975 (`plan-control` 契约束, UC-12 `deliverPlanToRun`) —— I-10 的唯一注入点。
+   * **可选**，与本接口其余字段同一条既有先例：既有测试与不需要计划送达的执行路径
+   * （`trial-run-agent` 一类）不必都改，生产合成（`kernel.module.ts` → `AgentRunExecutor`）
+   * 必定注入。缺省不注入，或该线程还没有任何账本（`getLatest` 返回 `null`）/账本为空
+   * （`serializePlanForDelivery` 返回 `null`）⇒ `system` 与 F975 之前**逐字节相同**——
+   * 同一纪律，`canvasTemplates`/`sandbox` 等字段的头注已经把这条讲过很多遍。
+   *
+   * ⚠ 读失败是 log + 继续（不 fail 这个已经被 claim 的 run）——I-10 的 fail-closed
+   * 语义应用在 `confirmPlan`（F975 自己的 UC-7）**创建这轮 run 之前**的那次读，不是这里：
+   * 这个 run 的 `agent_runs` 行已经存在（`executeClaimed` 处理的是已 claim 的行），
+   * 读计划失败并不能\"不创建\"一个已经创建的东西，把它变成整轮 run 失败会让一次账本读
+   * 抖动变成用户可见的失败，这不是 I-10 要保护的性质。
+   */
+  readonly planLedger?: PlanLedgerRepository & PlanRunStatusReader;
+  /** Phase 14 F03 -- WS event bus (`execute-run-events.ts`). 可选，同 `usage`/`files` 既有
+   * 理由：不注入 ⇒ 落库逐字节不变，只是没有 WS 订阅者能看到进展（I-3 的推流旁路）。 */
+  readonly events?: RunEventBusPort;
+  /**
+   * Phase 14 F06（`plan-permissions` 契约束 R5）—— 三档授权存储（`tool-permission-
+   * grants.ts`）。**可选**，与本接口其余字段同一条既有先例：缺省不注入 ⇒
+   * `tool-permission-gate.ts` 的 `hasGrant` 恒为 false，行为与本 feature 之前逐字节
+   * 相同——每次 L2 中断都进 `awaiting_tool_permission`，既有测试不需要跟着改。
+   */
+  readonly toolPermissionGrants?: ToolPermissionGrantStore;
+  /**
+   * Phase 14 F11 —— 中途插话暂存端口。可选，同 `toolPermissionGrants` 既有先例：
+   * 缺省不注入 ⇒ `checkPendingInterjection` 恒为 no-op，行为与本 feature 之前逐字节相同。
+   */
+  readonly interjections?: InterjectionStore;
+  /** Server-side only. Provider detail goes here and nowhere near a response. */
+  readonly log: (message: string, detail: Record<string, unknown>) => void;
+  /** issue #3445 —— requeue 后同一调用栈内立即重入 kick，不再只靠周期性扫描（实测
+   * 固定卡 2-3 分钟）；论证见调用点。可选，缺省不注入 ⇒ 行为逐字节不变。 */
+  readonly kick?: (orgId: OrgId) => void;
+}
+
+/**
+ * F157 —— 与 `HISTORY_MAX_CHARS` 头注同一条换算（~4 字符/token 的保守代理，这个部署没有真实
+ * tokenizer）。单独具名，不复述那段注释——唯一事实源仍是 `HISTORY_MAX_CHARS` 自己的头注，
+ * 这里只是给「怎么把字符数换算成一个估值」一个可复用的数字。
+ */
+const ESTIMATED_TOKENS_CHAR_RATIO = 4;
+
+const sha256 = (value: string): string => createHash(\"sha256\").update(value).digest(\"hex\");
+
+/**
+ * The prompt.
+ *
+ * The Skill bodies are joined in the SNAPSHOT'S order. Sorting them, deduplicating them or
+ * reading them back in database order would each silently discard part of what was pinned
+ * -- ordering is a property of `skillVersionIds`, which is why it is an array in both the
+ * `agent_versions` column and the run row.
+ *
+ * Exported so `trial-run-agent.ts` (#595 Line A) builds the identical prompt shape for a
+ * trial run instead of re-deriving \"instructions then skills, joined by blank lines\" a
+ * second time -- that phrase is the one place this project's answer to \"what does an Agent
+ * actually see\" lives, and a second copy is exactly the drift AGENTS.md calls out by name.
+ */
+/**
+ * VZ-02 —— 可视化输出指引。附加到**每个** agent 的 system prompt。零契约变更、`ModelCallPort`
+ * 不动——纯提示词。渲染契约（12 类白名单、严格模式、诚实错误盒）在前端，本段不碰。
+ *
+ * ⚠ 语法规则聚焦「能渲染」：devapp 实测（2026-08-12）模型爱在节点标签里塞裸 `|` 和 `<br/>`，
+ *   前端白名单闸门下 mermaid 严格模式解析直接失败、落诚实错误盒。图类型白名单单源是
+ *   `@repo/contracts` 的 `MermaidDiagramType`（12 种）——这里为 prompt 可读性列出同一份，
+ *   前端校验仍以枚举为准。
+ *
+ * ## 为什么 2026-08-26（issue #2099）把它从「鼓励出图」翻成「默认不画」
+ *
+ * 人类 devapp 实测：问「最好的教育是怎么样的」（未挂任何 skill）被塞了一张思维导图。
+ * 旧版**已经**有一句抑制——「只在图真的帮助理解时才画，纯问答不必配图」——它没拦住。
+ * 所以本次改动的前提是：**光把措辞写得更严厉没有用**，得改掉它失效的那几个机制：
+ *
+ * 1. **顺序**：旧版主句是祈使的「输出一个 ```mermaid 围栏代码块」，抑制只是同一句尾巴上的
+ *    从属状语。现在默认态是本节标题和第一句，例外态才往后排。
+ * 2. **消除图型点名的启发**：旧版在**触发句里**就点了「流程/时序/…/思维导图/…」九种，正文再列
+ *    12 种——模型在读到抑制句之前，已经被点名两轮。「教育」这种概念题匹配上「思维导图」几乎
+ *    是必然。现在触发句里**不出现任何图型名**，12 类白名单挪到「已判定要画」之后。
+ * 3. **把不可证伪的判据换成可核对的判据**：「图真的帮助理解」是模型永远能说服自己的论证。
+ *    换成两条可核对的事实——① 用户本轮**是否用了**要图的词；② 内容**是不是**有向结构
+ *    （步骤/状态转移/连线关系/时间顺序）而非并列要点。
+ * 4. **给反例，而且逐字包含翻车的那一句**：把失败样本写进模型看得见的地方，并点破
+ *    「配思维导图只是把段落标题搬进方框」这个具体的无效性。
+ * 5. **模糊地带的默认值翻面**：明写「拿不准就不画」——旧版模糊时默认画。
+ *
+ * ⚠ **这仍然是软约束，没有硬门控**：模型仍可能不听。人类在四个方案里明确选了这条并知情。
+ *    对照证据（真实 dashscope 模型，非 loopback，每臂多次采样，含留出集问句）见 issue #2099 / 其 PR。
+ *    issue #3462（一条消息要多张图偶发只出一张，旧版两处「一个」诱导，非确定性 bug，证据见该 issue）：见下方新增规则。
+ */
+export const VISUALIZATION_GUIDANCE = [
+  \"## 可视化（mermaid 图）——默认不画\",
+  \"**默认不画图，用文字回答。** 只有满足下面任意一条时才画：\",
+  \"1. 用户在本轮消息里明确要图——出现「画 / 图 / 流程图 / 时序图 / 结构图 / 示意图 / 可视化 / mermaid / 脑图 / 思维导图 / 甘特」这类词，或明说要「用图说明」。\",
+  \"2. 要表达的内容本身是**有向结构**：步骤有先后、状态之间会转移、实体之间有连线关系、事件有时间顺序；\"
+    + \"并且纯文字讲清楚需要反复回指「上面第几步 / 前面那个状态」。\",
+  \"两条都不满足就不画。**拿不准就不画。**\",
+  \"反例（一律不画）：「最好的教育是怎么样的」「你怎么看 X」「解释一下 Y」「A 和 B 有什么区别」「有哪些注意事项」——\"
+    + \"这类回答的要点是**并列的观点**，不是有向关系；给它配思维导图只是把段落标题搬进方框，不增加任何信息，反而打断阅读。\"
+    + \"内容深刻、结构清晰、要点很多，都**不是**画图的理由。\",
+  \"正例（该画）：「把 OAuth 授权码流程画出来」「这几个状态之间是怎么转的」「帮我画一下模块依赖关系」「这个项目的排期画成甘特图」。\",
+  \"\",
+  \"**以下规则只在你已经按上面判定「要画」之后才适用；判定为不画时，整节忽略。**\",
+  \"**一条消息里可以要求多张不同的图**（例如「画一张流程图，再画一张时间轴」）：按数量各画各的，每张图各自用一个独立的 ```mermaid 围栏代码块，不要合并成一张，也不要只画其中一张就结束。\",
+  \"每张图各自输出一个 ```mermaid 围栏代码块，前端会把它渲染成图。只用这 12 种图类型（其它类型渲染不了）：flowchart、\"
+    + \"sequenceDiagram、classDiagram、stateDiagram、erDiagram、journey、gantt、pie、quadrantChart、mindmap、timeline、gitGraph。\",
+  \"必须产出**能被 mermaid 解析**的语法，否则会渲染失败：\",
+  \"- 节点标签里含空格以外的特殊字符（例如 | : ; ( ) [ ] { } < > \\\" #）时，把整个标签用双引号包起来：\"
+    + \"写 A[\\\"pbpaste | fabric\\\"]，不要写 A[pbpaste | fabric]——裸的 | 会被当成边标签分隔符，直接解析失败。\",
+  \"- 不要在标签里用 <br/> 之类 HTML 标签（严格模式下不生效且容易解析失败）；要分行就拆成多个节点，别往标签里塞 HTML。\",
+  \"- 每张图各自先给一个**能渲染**的简洁版本，更多细节放到图后面的文字里补充。\",
+].join(\"\\n\");
+
+/**
+ * `canvasGuidance` 是**可选、追加**参数（issue #1493）—— `trial-run-agent.ts` 与
+ * `quick-digital-interview.ts` 两个既有调用点不传它，行为与本次改动之前逐字节相同；只有
+ * `execute-run.ts` 自己的生产路径会算出这段动态指引再传进来。拼接顺序与 `VISUALIZATION_GUIDANCE`
+ * 同级、紧随其后：两者都是「除了纯文字，你还可以用某种围栏产出结构化内容」这一类附加指引，
+ * canvas 指引依赖 mermaid 指引已经建立的「围栏语法」认知，放在它后面顺理成章。
+ *
+ * `mode`（默认 `\"full\"`）—— 每个挂载 skill 的全文直接拼进去；`trial-run-agent.ts`/
+ * `quick-digital-interview.ts`（不传这个参数）与非 deep-agent 的 `execute-run.ts` run
+ * 都用这个默认值。`\"deep-agent-catalog\"`（Phase 14 F01 起唯一的另一种模式，取代了已
+ * 随 `useLazySkillLoading` 一并物理删除的 `\"catalog\"`）只由 `execute-run.ts` 对
+ * deep-agent 的 run 传入：把每个 skill 的全文换成目录里一行摘要，取全文的说明指向
+ * 远端真实工具 `call_skill`（`buildDeepAgentSkillCatalogBlock` 头注）。
+ * `skills.length === 0` 时两种模式输出完全相同（没有目录可拼）。
+ */
+/** The message asks for a picture: the only case the mermaid rules are worth their tokens. */
+export function mentionsDiagramIntent(text: string): boolean {
+  return /画|图|流程|时序|结构|示意|可视化|mermaid|脑图|导图|甘特|diagram|chart|flow/i.test(text);
+}
+
+export function buildSystemPrompt(
+  instructions: string,
+  skills: readonly { readonly versionId: string; readonly stableName: string; readonly content: string }[],
+  canvasGuidance?: string | null,
+  mode: \"full\" | \"deep-agent-catalog\" | \"native\" = \"full\",
+  options: { readonly visualization?: boolean; readonly remember?: boolean } = {},
+): string {
+  const skillParts = skills.length === 0 || mode === \"native\" ? []
+    : mode === \"deep-agent-catalog\" ? [buildDeepAgentSkillCatalogBlock(skills)]
+    : skills.map((s) => s.content);
+  // default true: every existing caller keeps a byte-identical prompt
+  const parts = [instructions, ...skillParts, ...(options.visualization === false ? [] : [VISUALIZATION_GUIDANCE])];
+  if (canvasGuidance) parts.push(canvasGuidance);
+  // issue #4344：`wx_remember` 只在原生执行档里有（NATIVE_PROFILE_TOOLS）；其余模式缺省不拼，逐字节不变。
+  if (options.remember === true && mode === \"native\") parts.push(REMEMBER_TOOL_GUIDANCE);
+  return parts.join(\"\\n\\n\");
+}
+
+/**
+ * F159 —— 计量落库的唯一调用处（成功一次、失败一次，两条分支各调一次）。
+ *
+ * ## 为什么写失败不 fail run
+ *
+ * 用量是**账**，不是授权判定。账写失败是运维问题；把它变成用户的聊天失败，等于让一个
+ * 记账缺陷去阻断产品主路径——与 `agent_run_steps` 那条「没有留痕就没有调用」不同，
+ * 那一条护的是审计与授权，这一条护的是计费口径。
+ *
+ * ⚠ 但**不静默**：失败走 `deps.log` 大声留痕，且日志里带 `runId` 与 token 数，
+ * 使「用量少记了」这件事可查。静默吞掉才是那个会让人以为计量在工作的错法。
+ * 具名缺口 `GAP-USAGE-WRITE-RETRY`：本轮不做重试队列，写失败即永久少记一行。
+ */
+async function executeClaimed(
+  deps: ExecuteAgentRunDeps,
+  orgId: OrgId,
+  run: ClaimedAgentRun,
+): Promise<void> {
+  let publishedCanvasTemplates: readonly CanvasTemplateShape[] | null = null;
+  // #3749 R2：本轮不给模型看见的工具（画布请求排除 skill 工具，见下方赋值处的头注）。
+  let excludedTools: readonly string[] | undefined;
+  // Phase 14 F03 -- first WS event; `claimQueued` already moved this row to `running`, so
+  // this mirrors an already-true fact (I-3 decoupling).
+  publishStatusChange(deps, orgId, run.runId, \"running\");
+  // DA-07b resume 续号（见 `ClaimedAgentRun.resumeStepSeqBase` 的文档）：一个被 HITL
+  // 中断过的 run 第二次被 `executeClaimed` 处理时，`agent_run_steps` 里已经有它第一次
+  // 执行留下的行——继续从硬编码的 1 起步会让下面的 context_built（seq=2）撞上第一次
+  // 执行时已经写在 seq=2 的那一行，`agent_run_steps_seq_uniq` 直接拒绝。缺席（全新 run）
+  // 时退回 1，与本次改动之前逐字节相同。
+  const stepSeqBase = run.resumeStepSeqBase ?? 1;
+  /* ── step: context_built ── */
+  const contextStartedAt = deps.clock.now();
+  const contextInput = sha256(
+    JSON.stringify([run.agentVersionId, run.skillVersionIds, run.inputMessageId]),
+  );
+  let system: string;
+  // #740: hoisted out of the try block below so the model-call section can forward it as
+  // `ModelCallInput.skills` -- see that field's own doc comment for why `DeepAgentModelProvider`
+  // needs the structured list, not just the flattened text already baked into `system`.
+  let toolSkills: readonly PinnedSkillContent[] = [];
+  /**
+   * issue #2767 —— 本次 run 挂载集合里每个 skill 的风险等级，供中断处理（`tool-
+   * permission-gate.ts`）与内核投影（下面的 `hitlSkillNames`）共用一份计算结果，
+   * 不重复解析两次 frontmatter。空数组是合法初值——`readPinnedSkills` 抛错时
+   * （见下面 `SKILL_VERSION_UNAVAILABLE`）这次 run 根本不会走到中断处理。
+   */
+  let skillRisks: readonly SkillRiskEntry[] = [];
+  /**
+   * #1747 —— 这轮要不要把脚本执行协议作为结构化输入送给 provider。`undefined` = 不送。
+   * 由下面那道**已有的**门赋值，与它给 `system` 追加协议文本用的是同一个条件。
+   */
+  let scriptProtocol: string | undefined;
+  // Phase 14 F01 -- the design-delta `skill-lazy-loading` pseudo-loop that used to live here
+  // (a catalog-mode system prompt + a `read_skill` round-trip loop for non-deep-agent,
+  // non-streaming runs) is retired: R4 E3 requires it physically gone, not gated off. Every
+  // run now gets `system` built the same way deep-agent runs already did (full Skill bodies,
+  // or a catalog for `isDeepAgentRun` -- see `buildSystemPrompt`'s own doc comment).
+  const isDeepAgentRun = run.modelProvider === DEEP_AGENT_PROVIDER_NAME;
+  try {
+    const skills = await deps.runs.readPinnedSkills(orgId, run.skillVersionIds);
+    if (skills.length !== run.skillVersionIds.length) {
+      // Fail closed. A run that quietly proceeds with two of its three pinned Skills has
+      // produced an answer from a configuration nobody ever approved.
+      throw new ModelCallError(
+        \"SKILL_VERSION_UNAVAILABLE\",
+        `pinned ${run.skillVersionIds.length}, retrieved ${skills.length}`,
+      );
+    }
+    // #741: the TS tool-calling loop is retired -- every run now takes this ONE shape,
+    // regardless of how many Skills are pinned (see this file's own header). The general
+    // assistant's own Skill-execution behaviour lives in `DeepAgentModelProvider`'s remote
+    // service now (#740), not as a second branch here.
+    toolSkills = skills;
+    // issue #2767 -- 本次 run 挂载集合的风险等级，供中断处理与内核投影共用一份。
+    skillRisks = resolveSkillRiskLevels(skills);
+    // #2534：此前这里还有一段 `readPlatformSkills`（#2515）把平台 skill 在执行期
+    // 并进 `toolSkills`——与 #2519 的快照默认加载是同一件事的第二份实现，且绕过了
+    // \"agent 钉了 skill 就只用钉的\"。现在\"这次 run 用哪些 skill\"只由快照
+    // （`message-roundtrip.ts` `resolveRunSkillVersionIds`）决定，这里不再另读任何目录。
+    // issue #1493 -- own try/catch, INSIDE the outer one but never rethrown: a canvas
+    // template read failure is not \"the pinned context couldn't be assembled\" (that is what
+    // `SKILL_VERSION_UNAVAILABLE` above means), it is the same \"this layer degraded to
+    // absent\" story L2/L3/tool-trace already tell elsewhere in this file. Read every run --
+    // there is no honest cache here, see the port's own doc comment for why not: a template
+    // republished a moment ago must show up in the very next run, not after some TTL.
+    let canvasGuidance: string | null = null;
+    // published canvas templates read for the guidance; reused to correct fence keys before write-back (人类决策 B, 2026-09-17)
+    publishedCanvasTemplates = null;
+    if (deps.canvasTemplates) {
+      try {
+        const templates = await deps.canvasTemplates.listPublished(orgId, run.requesterUserId);
+        // the correction table always sees the whole library; only the PROMPT is narrowed
+        publishedCanvasTemplates = templates.map((t) => ({ key: t.key, displayName: t.displayName, ...templateSectionNames(t) }));
+        canvasGuidance = buildCanvasTemplateGuidance(
+          selectGuidanceTemplates(templates, { mode: deps.canvasTemplates.mode ?? \"all\", text: run.inputText }),
+        );
+      } catch (e) {
+        deps.log(\"agent run canvas template guidance read failed, continuing without it\", {
+          runId: run.runId,
+          detail: e instanceof Error ? e.message : \"unexpected canvas template read failure\",
+        });
+      }
+    }
+    // #2534：deep-agent run 的 system prompt 只放目录，全文经 `toolSkills` → 远端
+    // `org_skills` 由 `call_skill` 按需取（`buildDeepAgentSkillCatalogBlock` 头注）。
+    // #2519 之后默认加载的是组织全部已启用 skill，再按 #725 的老办法把全文都贴进
+    // system prompt，每轮提示词随 skill 数线性膨胀——#2515 实测要削的正是这个延迟。
+    const systemPromptMode = isDeepAgentRun && deps.nativeSessions ? \"native\" : isDeepAgentRun ? \"deep-agent-catalog\" : \"full\";
+    // #3749 B3：deep-agent 目录模式下，本地只列与本轮消息相关的 skill（`KERNEL_SKILL_CATALOG_MODE=matched`）；
+    // `toolSkills`（远端 call_skill 能调的集合）不变，变的只是提示里的目录。
+    const catalogCfg = skillCatalogModeFromEnv();
+    // A canvas request answers with a ```canvas fence, never through a skill: in matched mode a
+    // listed canvas-ish skill (maau-canvas, diagram-and-canvas) sent the 4B on a 4-5 minute
+    // call_skill detour before the fence (eval lane 2026-09-20: persona 351 s, first chunk at 74 s).
+    const canvasRequested = (deps.canvasTemplates?.mode ?? \"all\") === \"matched\" && !!canvasGuidance;
+    const catalogSkills = systemPromptMode !== \"deep-agent-catalog\" ? skills
+      : canvasRequested && catalogCfg.mode === \"matched\" ? []
+      : selectCatalogSkills(skills, { mode: catalogCfg.mode, text: run.inputText, max: catalogCfg.max });
+    const catalogHint = systemPromptMode === \"deep-agent-catalog\" && catalogCfg.mode === \"matched\" && catalogSkills.length === 0 && skills.length > 0 && !canvasRequested ? buildSkillCatalogHint(skills.length) : null;
+    /**
+     * #3749 R2 —— 一张工作坊画布是靠写 ```canvas 围栏产出的，没有任何 skill 能代劳。
+     * 把 skill 工具留在桌面上，4B 会：臆造一个 skill 名 → 报「未知技能」→ 调
+     * `list_org_skills` 查目录 → 把画布委托给 `diagram-and-canvas`，后者回一张 markdown
+     * 表、一个围栏都没有（记录代理逐请求取证，2026-09-22：一次画像请求 5 次模型调用，
+     * 其中两次纯属绕路，最终 4/5 才出围栏）。本轮用不上的工具，本轮就别让模型看见。
+     */
+    // `\"*\"` = 本轮一个工具都不挂：一张工作坊画布是写 ```canvas 围栏写出来的，没有任何工具
+    // 参与其中。实测（2026-09-22）画布请求的提示里工具 schema 仍占约 2 200 token（`write_todos`
+    // 一个就 4 333 字符），而模型在 4/5 的画布里一次工具都没调——剩下那 1/5 调了也只是绕路：
+    // 它把画布委托给 skill，skill 回了 markdown 表格，围栏没了。
+    excludedTools = canvasRequested ? [\"*\"] : undefined;
+    system = buildSystemPrompt(catalogHint ? `${run.instructions}\\n\\n${catalogHint}` : run.instructions, catalogSkills, canvasGuidance, systemPromptMode, {
+      // same switch as the canvas dictionary: in `matched` mode the mermaid rules ride along
+      // only when the message asks for a diagram (#3749 B1.2)
+      visualization: (deps.canvasTemplates?.mode ?? \"all\") === \"all\" || mentionsDiagramIntent(run.inputText),
+      // #4344：本轮挂了工具（画布请求一个工具都不挂）才告诉模型怎么用 `wx_remember`。
+      remember: !canvasRequested,
+    });
+    /*
+     * #1624 —— 告诉模型它**真的能执行代码**。
+     *
+     * 没有这一段，挂着 pptx skill 的模型只会把 pptxgenjs 代码讲出来给人看，永远不会
+     * 主动产出一个可被解析的 `run_script` 块，于是下面的执行判据永远不成立——「接了
+     * 沙箱却拿不到文件」正是这条路径最容易出现的空转形态。
+     *
+     * ⚠ 门与执行判据**共用同一个前提**（沙箱+对象存储都注入 ∧ 挂了 skill）：不注入
+     *   沙箱时 system prompt **一个字都不变**，这是 T2「逐字节相同」覆盖到提示词这一格。
+     * ⚠ 拼在**最后**：skill 自己的指令优先，这里只追加一层能力说明——与
+     *   `execute-trial-run.ts` 逐字同一条纪律，不写第二套拼法。
+     */
+    if (!(isDeepAgentRun && deps.nativeSessions) && deps.sandbox && deps.objects && toolSkills.length > 0) {
+      system = `${system}\\n\\n---\\n\\n${RUN_SCRIPT_PROTOCOL_PROMPT}`;
+      /*
+       * #1747 —— 同一道门，同一段文本，多一个出口。
+       *
+       * 对普通 provider，协议写在 system prompt 里就够了：模型的回复就是被解析的那段
+       * 文本。对 `DeepAgentModelProvider` 不够——它把 skill 的执行委托给远端 graph 里
+       * 一次**独立的**子模型调用（`call_skill`），那次调用的 system prompt 是 skill 正文，
+       * 收不到这里的 `system`。协议得作为结构化输入随请求过去，远端原样转发。
+       *
+       * ⚠ 刻意复用同一个常量而不是在 Python 侧再写一份：解析脚本块的正则在
+       *   `run-script-with-retries.ts`，协议文本必须与它同源。
+       */
+      scriptProtocol = RUN_SCRIPT_PROTOCOL_PROMPT;
+    }
+
+    // F975 UC-12 `deliverPlanToRun` -- the one real injection point (`domain.md` 三·①:
+    // \"A system 注入\"). Appended AFTER the sandbox/script-protocol block, same \"own
+    // instructions first, capability/plan context after\" ordering the comment two blocks
+    // up already documents for that block. See `ExecuteAgentRunDeps.planLedger`'s own doc
+    // for why a read failure here is log-and-continue, not a run failure.
+    if (deps.planLedger) {
+      try {
+        const ledger = await deps.planLedger.getLatest(orgId, run.threadId);
+        const planText = ledger ? serializePlanForDelivery(ledger) : null;
+        if (planText !== null) system = `${system}\\n\\n---\\n\\n${planText}`;
+      } catch (e) {
+        deps.log(\"plan-control: reading the plan ledger for delivery failed, continuing without it\", {
+          runId: run.runId,
+          detail: e instanceof Error ? e.message : \"unexpected plan ledger read failure\",
+        });
+      }
+    }
+  } catch (e) {
+    // Every way of not getting the pinned context is the same fact for a client: the run
+    // could not be assembled from what was pinned. The distinguishing detail is logged.
+    const code: RunFailureCode = \"SKILL_VERSION_UNAVAILABLE\";
+    deps.log(\"agent run context build failed\", {
+      runId: run.runId,
+      code,
+      detail: e instanceof ModelCallError ? e.detail : \"pinned context source unavailable\",
+    });
+    await record(deps, orgId, {
+      runId: run.runId, seq: stepSeqBase + 1, kind: \"context_built\", startedAt: contextStartedAt,
+      inputDigest: contextInput, outputDigest: null, failureCode: code,
+    });
+    await deps.runs.failRun(orgId, run.runId, code);
+    return;
+  }
+  const systemDigest = sha256(system);
+  await record(deps, orgId, {
+    runId: run.runId, seq: stepSeqBase + 1, kind: \"context_built\", startedAt: contextStartedAt,
+    inputDigest: contextInput, outputDigest: systemDigest, failureCode: null,
+  });
+
+  /*
+   * #709 -- prior turns of this thread, trimmed to the token-budget policy above.
+   *
+   * Deliberately OUTSIDE the `context_built` try/catch and never fails the run: unlike the
+   * pinned Skill content above (a fact the run's approved configuration depends on), thread
+   * history is dynamic conversation context, an enhancement over the pre-#709 single-turn
+   * behaviour, not a correctness requirement the acceptance snapshot pinned. A history-read
+   * failure degrading to \"answer without prior context\" (i.e. exactly today's behaviour) is
+   * a strictly safer failure mode than turning a working single-turn run into a failed one
+   * because of it -- especially since #709 ships behind no flag and must not be able to
+   * regress runs that never needed history in the first place.
+   */
+  let history: readonly ThreadHistoryMessage[] = [];
+  // F157 —— L1/L2 快照字段。悲观初始化：`l1MessageCount` 只在真正算出 `l1` 之后才前推；
+  // `l2Status` 默认 `\"degraded\"`、只在两条正常收尾路径（复用已有摘要 / 新摘要写回或竞态丢失）
+  // 上才翻成 `\"ok\"`——这样\"外层 try 整体失败\"与\"内层 L2 try 自己抛错\"两条路径**不必各写一次
+  // 赋值**，天然都停在悲观默认值上，不会有遗漏某条 catch 分支忘记标记降级的风险。
+  let l1MessageCount = 0;
+  // F190 §1②：L1 已保留消息的 id 集合，供工具轨迹去重判定用（该 run 的写回消息若仍在这个
+  // 集合里，说明 L1 原文已经覆盖了它，工具轨迹伪消息要跳过这一轮，见下方 L3 之前那段）。
+  // 读取失败时保持空集——空集下 `buildToolTraceMessage` 里\"找不到证据说它已被 L1 覆盖\"这条
+  // 保守规则不会误伤：宁可多算一轮（不跳过），不猜一个可能是错的\"已覆盖\"结论。
+  let l1MessageIds: ReadonlySet<string> = new Set();
+  let l2Status: Exclude<ContextLayerStatus, \"not_configured\"> = \"degraded\";
+  let l2CoveredThroughId: string | null = null;
+  try {
+    // F154 L2——宽窗口取回（见 `L2_CATCHUP_FETCH_LIMIT` 注释：不撑大 L1，只给 L2 增量判断更多
+    // 候选）。L1 仍是纯字符预算裁剪（`trimHistoryToBudget`，与 #709/V8 逐字节相同的函数）。
+    const candidates = await deps.runs.readThreadHistory(
+      orgId, run.threadId, run.inputMessageId, L2_CATCHUP_FETCH_LIMIT,
+    );
+    const l1 = trimHistoryToBudget(candidates, HISTORY_MAX_CHARS);
+    l1MessageCount = l1.length; // F157：这是本轮真正进模型的 L1 条数，读取失败时保持默认 0。
+    l1MessageIds = new Set(l1.map((m) => m.id).filter((id): id is string => id !== undefined));
+
+    // L2：直读已有持久摘要，只对「L1 边界之前、尚未纳入摘要」的新增轮增量摘要并写回。
+    // 这一段整体不 fail run（E1，见 spec R4）——任何一步失败都退回「只有 L1，没有 L2 摘要」，
+    // 与 #709 原本「没历史也能单轮作答」的保守失败模式一致。
+    let l2Summary: string | null = null;
+    try {
+      const persisted = await deps.runs.readThreadContextState(orgId, run.threadId);
+      const increment = planLayeredHistoryIncrement(candidates, l1, persisted?.summarizedThroughId ?? null);
+      if (increment.toSummarize.length === 0) {
+        // 没有新增区间——直接复用已有摘要，本轮零模型调用（V2：不重读全史重算）。
+        l2Summary = persisted && persisted.summary.length > 0 ? persisted.summary : null;
+        // F157：这次没有新增摘要工作，生效边界就是持久状态里已有的那个（从未摘要过则 null）。
+        l2CoveredThroughId = persisted?.summarizedThroughId ?? null;
+        l2Status = \"ok\";
+      } else {
+        const transcript = increment.toSummarize.map((m) => `${m.role}: ${m.content}`).join(\"\\n\");
+        const priorSummary = persisted?.summary ?? \"\";
+        const completion = await deps.model.complete({
+          modelProvider: run.modelProvider,
+          modelId: run.modelId,
+          system: \"你是对话历史摘要器。下面可能包含「已有摘要」（更早对话已经压缩过的要点）和\"
+            + \"「新增对话」（自上次摘要之后的新轮次）。把两者合并压成一段更新后的完整摘要，只保留\"
+            + \"后续对话可能需要回指的事实与结论，不要复述客套，不要分点罗列「已有/新增」这个结构\"
+            + \"本身。用中文，尽量短。\",
+          user: priorSummary === \"\" ? transcript : `已有摘要：\\n${priorSummary}\\n\\n新增对话：\\n${transcript}`,
+        });
+        const updated = completion.text.trim();
+        if (updated === \"\") {
+          // 模型给了空文本——当作这次没有可用的新摘要，退回已有的（若有）。
+          l2Summary = persisted && persisted.summary.length > 0 ? persisted.summary : null;
+          l2CoveredThroughId = persisted?.summarizedThroughId ?? null; // F157：边界未推进。
+          l2Status = \"ok\";
+        } else {
+          l2Summary = updated;
+          const wrote = await deps.runs.upsertThreadContextState(orgId, run.threadId, {
+            summary: updated,
+            summarizedThroughId: increment.advanceCursorTo,
+            summarizedThroughAt: deps.clock.now(),
+            expectedVersion: persisted?.version ?? 0,
+          });
+          // 乐观并发撞车（另一个并发 run 抢先写回）不影响本轮——本轮仍用刚算出的 `updated` 作答，
+          // 只是没能把游标继续往前推；下一次某个赢家会推进它。这是「安全放弃写」，不是数据丢失。
+          if (!wrote) {
+            deps.log(\"agent run L2 context state upsert lost optimistic-concurrency race, continuing with locally computed summary\", {
+              runId: run.runId,
+            });
+          }
+          // F157：快照记录「这次实际生效的边界」——写成功就是新游标，撞并发丢失就是旧游标
+          // （本轮仍在用刚算出的 `updated` 文本作答，但没能把边界前推，如实记旧值）。
+          l2CoveredThroughId = wrote ? increment.advanceCursorTo : (persisted?.summarizedThroughId ?? null);
+          l2Status = \"ok\";
+        }
+      }
+    } catch (error) {
+      deps.log(\"agent run L2 context state read/summarize/write failed, continuing with L1 only\", {
+        runId: run.runId,
+        detail: error instanceof Error ? error.message : \"unexpected L2 error\",
+      });
+      // F157：l2Status 保持悲观默认 \"degraded\"，l2CoveredThroughId 保持 null——
+      // 降级之后不敢再声称一个可能已经过时/不可信的边界。
+    }
+
+    history = l2Summary === null
+      ? l1
+      : [{ role: \"assistant\", content: `[早前对话摘要] ${l2Summary}` }, ...l1];
+  } catch (e) {
+    deps.log(\"agent run thread history read failed, continuing without it\", {
+      runId: run.runId,
+      detail: e instanceof Error ? e.message : \"unexpected thread history read failure\",
+    });
+  }
+
+  /*
+   * ── 工具调用轨迹跨 run 回喂上下文（F190，design-delta `tool-trace-cross-run-context`）──
+   *
+   * L1/L2/L3 之外的第四类来源：本线程最近 `TOOL_TRACE_RUN_LIMIT` 轮**记录过 tool_call 的**
+   * 历史 run，作为一条伪消息回喂——多轮 agentic 任务里，下一轮不再对上一轮做过的工具调用
+   * 完全失明。失败**降级**，不 fail run（同 L2/L3 既有纪律）。
+   *
+   * 预算优先级 L1 > L2 > 工具轨迹 > L3（delta §1②）体现在下面的**注入位置**：先插入工具轨迹
+   * （离当前轮更远），随后 L3 的既有代码把文件上下文插到最前面（离当前轮最远）——
+   * 最终顺序 [L3, 工具轨迹, L2摘要, ...L1]，越靠后越贴近当前轮、这份代码库里\"近几轮永远优先\"
+   * 的同一条取舍。
+   */
+  // F190 —— 三态默认值，同 L3 的既有写法：没配 `deps.toolTrace` 就是 \"not_configured\"；
+  // 配了就悲观从 \"degraded\" 起步，只有真正查询成功才翻 \"ok\"。
+  let toolTraceStatus: ContextLayerStatus = deps.toolTrace ? \"degraded\" : \"not_configured\";
+  let toolTraceRunCount = 0;
+  let toolTraceStepCount = 0;
+  if (deps.toolTrace) {
+    try {
+      const traceRuns = await deps.toolTrace.recent(
+        orgId, run.threadId, run.runId, TOOL_TRACE_RUN_LIMIT,
+      );
+      const traceMessage = buildToolTraceMessage(traceRuns, l1MessageIds);
+      toolTraceStatus = \"ok\"; // 查询本身成功——零候选/全部被去重也是 \"ok\"，同 L3 端口纪律。
+      if (traceMessage !== null) {
+        history = [traceMessage, ...history];
+        // F190 §④ 可审计：记录\"这次实际回喂了几轮、几条 step\"——只统计真正被
+        // `buildToolTraceMessage` 采纳进伪消息的那部分（被 L1 去重跳过的、或因预算被整条
+        // 丢弃的轮不计入），与快照\"实际喂入了什么\"的既有哲学一致（同 F157 头注）。
+        const eligibleRunIds = new Set(
+          traceRuns
+            .filter((r) => r.outputMessageId === null || !l1MessageIds.has(r.outputMessageId))
+            .map((r) => r.runId),
+        );
+        toolTraceRunCount = eligibleRunIds.size;
+        toolTraceStepCount = traceRuns
+          .filter((r) => eligibleRunIds.has(r.runId))
+          .reduce((sum, r) => sum + r.steps.length, 0);
+      }
+    } catch (e) {
+      deps.log(\"agent run tool-call trace read failed, continuing without it\", {
+        runId: run.runId,
+        detail: e instanceof Error ? e.message : \"unexpected tool-call trace read failure\",
+      });
+      // F190：toolTraceStatus 保持悲观默认 \"degraded\"，run/step 计数保持 0——降级为空是
+      // 诚实的答案，同 L2/L3 既有纪律。
+    }
+  }
+
+  /*
+   * ── L3（F155）：文件式检索 ──────────────────────────────────────────────
+   *
+   * delta §1：以本轮输入文本为 query，对**已经存在、已经抽取成文本**的两类「文件」做全文
+   * 检索（聊天附件 + 落地的画布产物，含保存的 mermaid 图），命中作为**一条**来源标记清晰的
+   * 伪消息前置进 history。第三类「线程历史本身」由上面的 L1/L2 覆盖，这里不重做。
+   *
+   * ## 失败**降级**，不 fail run（delta §3.3 / verification V6）
+   *
+   * 这个 try/catch 与 L1/L2 那两层是同一种保守失败模式，也是本 delta 与既有五路召回引擎
+   * 刻意分道的那一条：`retrieveCandidates` 的纪律是「任一路失败即整体 block」
+   * （`RetrievalUnavailableError`），本路径**不复用**它——单路径、无融合，降级为空是诚实的
+   * 答案，不是一个被污染的排序结果。V6 的反证就是：若这里误套用了 block 那条纪律，
+   * 「检索失败时 run 仍成功」这条断言会当场红。
+   *
+   * ## 注入位置在 L2 摘要之前
+   *
+   * 顺序：[检索到的文件] → [早前对话摘要] → L1 近端原文。文件是**参考材料**，摘要与近端原文
+   * 是**对话本身**，把参考材料放在最前、离当前轮最远，与 L1「近几轮永远优先」同一条取舍。
+   */
+  // F157：L3 三态默认值——没配 `deps.files` 就是 \"not_configured\"（这次执行根本没接这一层）；
+  // 配了就悲观从 \"degraded\" 起步，只有真正查询成功才翻 \"ok\"（同 L2 的悲观默认写法）。
+  let l3Status: ContextLayerStatus = deps.files ? \"degraded\" : \"not_configured\";
+  let l3HitCount = 0;
+  let l3Sources: readonly string[] = [];
+  // F156（design-delta `personal-thread-own-attachment-recall` §2 点 2）：这次 L3 查询走的是
+  // 哪条范围分支，由 `run.projectId` 是否为空**在发起查询之前**就已经确定——与查询成不成功、
+  // 命中多少条无关（哪怕降级为空，「这次本该查的是哪条分支」仍是一个可以诚实记录的事实）。
+  // `deps.files` 未配置时保持 `null`（这次执行根本没有发起 L3 查询）。
+  const l3RetrievalScope: \"own-attachment\" | \"project-retrieval\" | null = deps.files
+    ? (run.projectId === null || run.projectId === \"\" ? \"own-attachment\" : \"project-retrieval\")
+    : null;
+  if (deps.files) {
+    try {
+      const hits = await deps.files.search(
+        orgId,
+        {
+          threadId: run.threadId,
+          // 个人线程的 `chat_threads.project_id` 自 #594 起可空（`ClaimedAgentRun.projectId`
+          // 因此是 `string | null`）——`null` 在检索端是**另一条查询分支**（只吃本线程自有
+          // 附件），不是「没传这个可选参数」。空串同样按个人线程处理，不去猜一个项目 id。
+          projectId: run.projectId === null || run.projectId === \"\" ? null : run.projectId,
+          actorUserId: run.requesterUserId,
+        },
+        run.inputText,
+        FILE_RETRIEVAL_MAX_HITS,
+      );
+      l3Status = \"ok\"; // F157：查询本身成功（不代表一定有命中——零命中也是 \"ok\"，见端口文档）。
+      l3HitCount = hits.length;
+      l3Sources = [...new Set(hits.map((h) => h.kind))];
+      const fileContext = buildFileContextMessage(hits, run.inputText);
+      if (fileContext !== null) history = [fileContext, ...history];
+    } catch (e) {
+      // 「查了但没查成」与「查了、没有相关文件」在日志里分得开——后者根本不到这里。
+      deps.log(\"agent run L3 file retrieval failed, continuing without retrieved files\", {
+        runId: run.runId,
+        detail: e instanceof Error ? e.message : \"unexpected file retrieval failure\",
+      });
+      // F157：l3Status 保持悲观默认 \"degraded\"，hitCount/sources 保持 0/[]——降级为空是诚实
+      // 的答案（同 delta §3.3 的既有纪律），快照如实记这是「查了没查成」而不是「查了没结果」。
+    }
+  }
+
+  // Phase 18 F08 / F17 —— 会话记忆（uc-18-2）与「记住 / 忘掉」卡片说明（uc-18-6），放在 history 最前；
+  // 读不到 / 开不了卡只记日志，绝不 fail run（降级纪律见 recall-knowledge.ts turnKnowledgeContext）。
+  const notes = deps.knowledge ? await turnKnowledgeContext(deps.knowledge, deps.memoryCards, { orgId, run }, deps.log) : [];
+  history = [...notes.map((content) => ({ role: \"assistant\" as const, content })), ...history];
+
+  // V9-b 前置 A（#970）：把附件元数据折进模型可见的 content——历史每轮 + 当前触发消息。
+  // 触发消息（run.inputText）的附件走 run.inputAttachments（它不在 history 里，单独带，
+  // 见 ClaimedAgentRun 注释），否则「刚传完就问」这条最常见路径恰好看不到附件。
+  history = history.map((m) => ({ role: m.role, content: withAttachmentNotice(m.content, m.attachments) }));
+  const artifactContinuation = await deps.artifactContinuations?.prepare(orgId, run.runId);
+  let userText = withAttachmentNotice(run.inputText, run.inputAttachments) + (artifactContinuation ? `\\n\\n${artifactContinuation.instruction}` : \"\");
+
+  /*
+   * P2（#1561）—— 图像通道：把本轮触发消息挂的图片按可见性规则取出、定界，交给支持视觉的
+   * provider；不支持 / 取不到 / 超上界的部分**逐条写进模型能读到的文本**。
+   *
+   * 位置在快照之前、模型调用之前：`visionNotice` 是 `userText` 的一部分，快照的
+   * `estimatedTokens` 必须把它算进去，否则\"这次到底喂了什么\"这句话在这一格上就是错的。
+   */
+  const vision = await gatherVisionImages(deps, orgId, run);
+  if (vision.notice !== null) {
+    userText = userText.length > 0 ? `${userText}\\n\\n${vision.notice}` : vision.notice;
+  }
+
+  /*
+   * F157 —— 可审计上下文快照：在三层组装完成、system+history+userText 就是即将真正喂给模型
+   * 的那份内容的这一刻写下快照。挂在这里而不是 run 成功之后：无论接下来的模型调用成不成功，
+   * \"这次到底喂了什么\"这件事已经发生、已经是历史事实——快照记录的是喂入，不是喂入之后的结果。
+   * 可选依赖，写失败不 fail run（同 `meter()` 那条既有纪律：审计观测面，不是运行正确性）。
+   */
+  if (deps.contextSnapshots) {
+    const estimatedTokens = Math.ceil(
+      (system.length + userText.length
+        + history.reduce((sum, m) => sum + m.content.length, 0))
+      / ESTIMATED_TOKENS_CHAR_RATIO,
+    );
+    try {
+      await deps.contextSnapshots.record(orgId, {
+        runId: run.runId,
+        l1MessageCount,
+        l2Status,
+        l2CoveredThroughId,
+        l3Status,
+        l3HitCount,
+        l3Sources,
+        l3RetrievalScope,
+        toolTraceStatus,
+        toolTraceRunCount,
+        toolTraceStepCount,
+        visionStatus: vision.status,
+        visionImageCount: vision.images.length,
+        visionOmittedCount: vision.omittedCount,
+        estimatedTokens,
+      });
+    } catch (e) {
+      deps.log(\"agent run context snapshot write failed; this run is not auditable via agent_run_context_snapshots\", {
+        runId: run.runId,
+        detail: e instanceof Error ? e.message : \"unexpected context snapshot write failure\",
+      });
+    }
+  }
+
+  /* ── step: model_called -- exactly one FINAL answer, whatever it took to reach it ── */
+  const modelStartedAt = deps.clock.now();
+  let text: string;
+  /**
+   * F159 —— provider 报回来的 token 数。三条分支（completeWithProgress / completeStream /
+   * complete）都可能给，也都可能不给（`tokens` 是可选字段）；没给就是 `undefined`，
+   * 落库时记 0 而不是估一个数——估出来的数会被当成账。
+   */
+  let reportedTokens: number | undefined;
+  /** F159 —— 上游若报了 prompt/completion 拆分就带上；没报是 undefined（不是 0）。 */
+  let reportedPrompt: number | undefined;
+  let reportedCompletion: number | undefined;
+  /**
+   * #1747 —— provider 交上来的候选脚本来源（deep-agent 的 `call_skill` 工具结果正文）。
+   * 恒为数组，缺席时是空的——空数组喂给 `maybeRunSkillScript` 与不传逐字等价。
+   */
+  let scriptCandidates: readonly string[] = [];
+  // #741: this used to be advanced by `executeToolLoop` as it recorded `tool_call` steps;
+  // with that loop retired, `model_called` is the step right after context_built for a
+  // FRESH run (stepSeqBase=1 ⇒ context_built=2 ⇒ this starts at 3, the pre-existing
+  // constant). DA-07b resume continues numbering from `stepSeqBase` instead — see
+  // `ClaimedAgentRun.resumeStepSeqBase`'s own doc for why a hardcoded constant here
+  // collides with a run's own earlier (pre-interrupt) steps.
+  const seqCursor = { value: stepSeqBase + 2 };
+
+  /*
+   * Phase 14 F01 (`kernel-gateway` 契约束 UC-3，R4 A1 / I-3) —— 下发前健康检查。只对
+   * deep-agent-service 承接的 run 有意义：`checkKernelHealth` 是 `ModelCallPort` 上的
+   * OPTIONAL 能力（见它自己的文档），单次请求/响应式的 provider（chat/deep-research/
+   * bailian-image）没有独立于\"这次调用会不会失败\"的健康状态，不实现它，
+   * `RoutingModelCallPort.checkKernelHealth` 对它们报 \"healthy\"（不做检查、照常转发，
+   * 与本次改动之前逐字节相同）。检查未过 ⇒ 不发起下游调用，直接以 KERNEL_UNAVAILABLE
+   * 落终态——I-3 的\"快速失败，不让请求悬挂等超时\"，不是重试或降级。
+   */
+  if (isDeepAgentRun && deps.model.checkKernelHealth) {
+    /*
+     * 2026-09-22（devapp 实测）—— 用户看到\"服务暂时不可用，请稍后重试\"、run 历时 00:00、
+     * 工具 0 次；服务端这条日志此前只有 `runId`/`modelProvider`，分不出「地址没配」还是
+     * 「配了但连不上」，每次都得上机器手工复现。`onDiagnosis` 把探测侧**唯一**知道的那句
+     * 原因带出来落日志（见 `ModelCallPort.checkKernelHealth` 与
+     * `DeepAgentModelProvider.checkKernelHealth` 各自的文档）——不改判定、不改用户可见文案。
+     * provider 没报原因时写一句明说\"没报\"的话，不编一个成因。
+     */
+    let healthDiagnosis: string | undefined;
+    const health = await deps.model.checkKernelHealth(run.modelProvider, (detail) => { healthDiagnosis = detail; });
+    if (health === \"unavailable\") {
+      deps.log(\"agent run kernel health check failed, run not forwarded\", {
+        runId: run.runId, modelProvider: run.modelProvider,
+        detail: healthDiagnosis ?? \"no diagnosis reported by this provider\",
+      });
+      await record(deps, orgId, {
+        runId: run.runId, seq: seqCursor.value, kind: \"model_called\", startedAt: modelStartedAt,
+        inputDigest: systemDigest, outputDigest: null, failureCode: \"KERNEL_UNAVAILABLE\",
+      });
+      await deps.runs.failRun(orgId, run.runId, \"KERNEL_UNAVAILABLE\");
+      publishStatusChange(deps, orgId, run.runId, \"failed\");
+      return;
+    }
+  }
+
+  let deltaSeq = (await deps.runs.readModelDeltas(orgId, run.runId, -1)).at(-1)?.seq ?? -1;
+  deltaSeq += 1;
+  const executionAttemptId = `${run.runId}:${stepSeqBase}`;
+  // issue #3403 ② —— 「每一次开始了的工具调用都要有终态」。为什么只能在产生端补、
+  // 为什么 #3316 / #3369 都没覆盖到，见 `open-tool-calls.ts` 的头注。
+  /*
+   * 2026-09-22 —— 本地版给长时间不返回的工具调用加一条**展示**通知（见契约
+   * `toolStallNoticeMs`）。本地一次画布请求是分钟级，而界面上只有一个转圈的图标：
+   * 用户分不出「还在跑」和「卡死了」。写的是 `tool_progress`（有损展示通道），
+   * 不改任何终态判定、不取消调用；`null` ⇒ 一个计时器都不创建，行为逐字节不变。
+   */
+  const stallAfterMs = toolStallNoticeMs(deps.edition ?? \"cloud\");
+  const openToolCalls = new OpenToolCalls(stallAfterMs === null ? undefined : {
+    afterMs: stallAfterMs,
+    repeatEveryMs: stallAfterMs,
+    notify: async ({ toolCallId, sourceToolCallId, toolName, elapsedMs }) => {
+      await deps.runs.appendExecutionEvent?.(orgId, run.runId, {
+        kind: \"tool_progress\", attemptId: executionAttemptId, toolCallId,
+        ...(sourceToolCallId === undefined ? {} : { sourceToolCallId }),
+        toolName, message: toolStallNotice(toolName, elapsedMs),
+      });
+    },
+  });
+  const closeOpenToolCalls = (outcome: RunTerminationOutcome) => openToolCalls.closeAll(
+    outcome,
+    (event) => deps.runs.appendExecutionEvent?.(orgId, run.runId, event) ?? Promise.resolve(),
+    (toolCallId) => deps.log(\"open tool call terminal event pending\", { runId: run.runId, toolCallId }),
+  );
+  try {
+    if (run.runtimeProfile === \"native-v1\" && !deps.nativeSessions) throw new ModelCallError(\"MODEL_CALL_FAILED\", \"native_runtime_unavailable_for_continuation\");
+    if (isDeepAgentRun && deps.nativeSessions && !deps.nativeOutputs) throw new ModelCallError(\"MODEL_CALL_FAILED\", \"native_output_delivery_unavailable\");
+    // Phase 14 F01 -- the ONE call. `invokeKernel` (`invoke-kernel.ts`) picks whichever
+    // shape `deps.model` actually offers for this run's pinned provider; every field below
+    // is a superset of what the retired branches used to build separately (deep-agent-only
+    // fields like `resume`/`scriptProtocol`/`onRemoteRunStarted` are simply ignored by
+    // providers that don't read them, same tolerance `skills`/`orgId`/`runId` already had
+    // for every provider before this feature).
+    const completion = await invokeKernel(
+      deps.model,
+      {
+        modelProvider: run.modelProvider, modelId: run.modelId, system, user: userText,
+        threadId: run.threadId,
+        // issue #2664 -- 只有 deep-agent provider 读这两个字段，见 `ModelCallInput` 自己的文档。
+        orgId: String(orgId), runId: run.runId,
+        trustedMemoryScope: { orgId: String(orgId), userId: run.requesterUserId },
+        executionAttemptId, executionLeaseEpoch: currentRunLease()?.epoch, executionPermissionRequestId: run.permissionRequestId,
+        onSkillActivity: createSkillActivityWriter(deps.runs, orgId, run.runId, executionAttemptId),
+        // 2026-09-22 —— 溯源缺页标记（本地版 best-effort 纪律；云端拿不到缺页，因为云端照旧 fail closed）。
+        onSkillActivityGap: createSkillActivityGapWriter(deps.runs, orgId, run.runId, executionAttemptId, deps.log),
+        // #3322 —— 工具执行期间的中间进展；有损通道，写失败只 log（见 writer 头注）。
+        onToolProgress: createToolProgressWriter(deps.runs, orgId, run.runId, executionAttemptId, deps.log),
+        // Resume the existing checkpoint after a decision; never resend user input.
+        // The provider validates edited args and forwards rejection to native HITL.
+        ...(run.pendingDecision === null
+          ? {}
+          : run.pendingDecision.kind === \"approve\"
+            ? { resume: { decision: \"approve\" as const } }
+            : run.pendingDecision.kind === \"deny\"
+              ? { resume: { decision: \"reject\" as const } }
+              : {
+                resume: {
+                  decision: \"edit\" as const,
+                  editedAction: {
+                    name: run.pendingDecision.toolName,
+                    argsJson: run.pendingDecision.editedArgsJson,
+                  },
+                },
+              }),
+        history,
+        // #740：deep-agent 的 `call_skill` 要拿到本轮 pin 住的 skill 正文。
+        skills: toolSkills,
+        ...(excludedTools === undefined ? {} : { excludedTools }),
+        // deep-agent 专属字段（`hitlSkillNames` #2767 / `planConfirmMinSteps` #3132）的
+        // 判定住在 `deep-agent-kernel-fields.ts`，网关只负责摊开——同 `invokeKernel`。
+        ...buildDeepAgentKernelFields({ isDeepAgentRun, mountedSkillCount: toolSkills.length, skillRisks }),
+        // #1747：远端把 skill 的执行委托给一次独立的子模型调用，那次调用收不到上面的
+        // `system`，协议只能作为结构化输入过去。`undefined` ⇒ 这个键不出现在请求里。
+        ...(scriptProtocol === undefined ? {} : { scriptProtocol }),
+        // Phase 14 后续 A（#2755）：上一次检查点消费到的插话随这次调用回灌内核，见 `interjection-handling.ts`。
+        ...(deps.model.supportsLiveInterjections?.(run.modelProvider) && deps.interjections?.pollForKernel
+          ? { liveInterjections: true } : await takeInterjectionForKernel(deps, orgId, run.runId)),
+        ...(run.checkpointResume ? { checkpointResume: true } : {}),
+        // P2（#1561）：只有 `supportsVision` 明确报 true 的 provider 才拿得到这个字段
+        // （`gatherVisionImages` 的门），所以空数组恒等于\"这轮没有图要给你看\"。
+        ...(vision.images.length > 0 ? { images: vision.images } : {}),
+        // F976 UC-9 pausePlanRun 的 P-2 落点：远端 run_id 创建成功后立即持久化，
+        // 好让暂停能找到它去调 cancel。可选依赖，缺省 no-op（同 planLedger 附近的
+        // 既有先例）——写失败只 log，不影响这轮回复本身。
+        ...(deps.planLedger ? {
+          onRemoteRunStarted: (remoteRunId: string, remoteThreadId?: string) => deps.planLedger!.recordRemoteRunId(orgId, run.runId, remoteRunId, remoteThreadId),
+        } : {}),
+      },
+      async (event) => {
+        const stepStartedAt = deps.clock.now();
+        const status: RunStepStatus = event.phase === \"in_progress\" ? \"in_progress\" : event.ok === false ? \"failed\" : \"succeeded\";
+        const stepSeq = seqCursor.value;
+        await record(deps, orgId, {
+          runId: run.runId, seq: stepSeq, kind: \"tool_call\", startedAt: stepStartedAt,
+          status,
+          inputDigest: event.toolArgsSummary === null ? null : sha256(event.toolArgsSummary),
+          outputDigest: event.toolResultSummary === null ? null : sha256(event.toolResultSummary),
+          failureCode: event.ok === false ? \"MODEL_CALL_FAILED\" : null,
+          toolName: event.toolName,
+          toolArgsSummary: event.toolArgsSummary,
+          toolResultSummary: event.toolResultSummary,
+          planningNote: event.planningNote,
+          toolCallId: event.toolCallId ?? null,
+        });
+        seqCursor.value += 1;
+        await persistToolPlan(deps.planLedger, orgId, run.threadId, event);
+        forwardToolCallProgress(deps, orgId, run.runId, event, stepSeq);
+        const journalToolCallId = `${executionAttemptId}:${event.toolCallId ?? stepSeq}`;
+        if (event.phase === \"in_progress\") {
+          openToolCalls.open(journalToolCallId, {
+            kind: \"tool_end\", attemptId: executionAttemptId, toolCallId: journalToolCallId,
+            sourceToolCallId: event.toolCallId ?? undefined,
+            ...nativeToolProvenance(event.toolName, isDeepAgentRun && Boolean(deps.nativeSessions)),
+            toolName: event.toolName, result: null, ok: false,
+          });
+        } else openToolCalls.close(journalToolCallId);
+        await deps.runs.appendExecutionEvent?.(orgId, run.runId, event.phase === \"in_progress\"
+          ? { kind: \"tool_start\", attemptId: executionAttemptId, toolCallId: `${executionAttemptId}:${event.toolCallId ?? stepSeq}`, sourceToolCallId: event.toolCallId ?? undefined, ...nativeToolProvenance(event.toolName, isDeepAgentRun && Boolean(deps.nativeSessions)), toolName: event.toolName, args: publicExecutionPayload(event.toolArgsSummary), ...skillDisplayNameField(event.toolName, event.toolArgsSummary, toolSkills), ...(event.planningNote === null ? {} : { planningNote: String(publicExecutionPayload(JSON.stringify(event.planningNote))).slice(0, 4000) }) }
+          : { kind: \"tool_end\", attemptId: executionAttemptId, toolCallId: `${executionAttemptId}:${event.toolCallId ?? stepSeq}`, sourceToolCallId: event.toolCallId ?? undefined, ...nativeToolProvenance(event.toolName, isDeepAgentRun && Boolean(deps.nativeSessions)), toolName: event.toolName, result: publicExecutionPayload(event.toolResultSummary), ok: event.ok !== false });
+        if (status === \"succeeded\" && !(deps.model.supportsLiveInterjections?.(run.modelProvider) && deps.interjections?.pollForKernel)) await checkPendingInterjection(deps, orgId, run.runId, seqCursor);
+      },
+      async (delta, metadata) => {
+        if (delta === \"\") return;
+        const seq = deltaSeq;
+        deltaSeq += 1;
+        await deps.runs.appendModelDelta(orgId, { runId: run.runId, seq, text: delta });
+        await deps.runs.appendExecutionEvent?.(orgId, run.runId, { kind: \"text_delta\", attemptId: executionAttemptId, messageId: `${executionAttemptId}:${metadata?.messageId ?? \"assistant\"}`, delta });
+        publishTokenDelta(deps, orgId, run.runId, delta);
+      },
+      isDeepAgentRun && deps.nativeSessions ? { owner: deps.nativeSessions,
+        logReleaseFailure: () => deps.log(\"native session release pending\", { runId: run.runId }) } : undefined,
+    );
+    if (completion.cancelled) {
+      if (!deps.runs.cancelAtCheckpoint) throw new ModelCallError(\"MODEL_CALL_FAILED\", \"cancel persistence unavailable\");
+      await closeOpenToolCalls(\"cancelled\");
+      await deps.runs.cancelAtCheckpoint(orgId, run.runId); return;
+    }
+    if (completion.paused) {
+      if (!deps.runs.pauseAtCheckpoint) throw new ModelCallError(\"MODEL_CALL_FAILED\", \"pause persistence unavailable\");
+      await closeOpenToolCalls(\"paused\");
+      const settled = await deps.runs.pauseAtCheckpoint(orgId, run.runId);
+      if (settled === \"cancelled\" && deps.nativeSessions) {
+        try { await deps.nativeSessions.releaseForRun(orgId, run.runId); }
+        catch { deps.log(\"native session release pending\", { runId: run.runId }); }
+      }
+      return;
+    }
+    if (completion.interrupted !== undefined) {
+      await handleInterruptedToolCall(deps, orgId, run.runId, completion.interrupted, {
+        seq: seqCursor.value, modelStartedAt, systemDigest, system,
+      }, skillRisks);
+      return;
+    }
+    if (completion.text.trim() === \"\") {
+      throw new ModelCallError(\"MODEL_CALL_FAILED\", \"provider returned neither content nor a progress event\");
+    }
+    if (completion.finalMessageId) await deps.runs.appendExecutionEvent?.(orgId, run.runId, { kind: \"final_message\", attemptId: executionAttemptId, messageId: `${executionAttemptId}:${completion.finalMessageId}` });
+    text = completion.text;
+    reportedTokens = completion.tokens;
+    reportedPrompt = completion.promptTokens;
+    reportedCompletion = completion.completionTokens;
+    // #1747：缺席 ⇒ 空数组 ⇒ 下面的判据退化成改动前那一条（只看 `text`）。
+    scriptCandidates = completion.scriptCandidates ?? [];
+  } catch (e) {
+    const code: RunFailureCode = e instanceof ModelCallError ? e.code : \"MODEL_CALL_FAILED\";
+    /*
+     * issue #3211 ① —— 下面那句注释（\"`detail` never reaches a response\"）在 #3033 时
+     * 为真，也正是人类 2026-09-09 实测那一条无法诊断的原因：真实成因只进了日志，产品面
+     * 上「模型返回空」「远端 run 报错」「远端超时」「我们自己的执行器抛异常」四件事共用
+     * 同一句「模型这次没能返回可用结果」。这里把 detail **分类成有界枚举**再落库——
+     * 上的是枚举，不是 provider 原话（原话可能含 prompt 片段/上游正文，那是拿泄漏换
+     * 可分辨性）。认不出来落 `unknown`，不猜。
+     */
+    const detail = e instanceof ModelCallError ? e.detail
+      : e instanceof Error ? `unexpected model call failure: ${e.name}: ${e.message}`
+      : \"unexpected model call failure\";
+    // issue #3403 ④：`classifyModelCallFailureReason` 六条规则全按 `detail` 的**措辞**匹配，
+    // 工具卡住那一幕的 detail 是远端超时原话 ⇒ `provider_timeout`，仍然指向模型侧。这里改用
+    // **结构事实**：这轮终止时还有已开未闭的工具调用。理由与判据见该枚举值的头注。
+    // **不猜**——没有未闭调用时照旧走原分类器，一个字不改。
+    const unresolvedTool = openToolCalls.unresolvedToolName;
+    const reason: RunFailureReason = unresolvedTool !== undefined
+      ? \"tool_call_unresolved\"
+      : classifyModelCallFailureReason(detail);
+    // The provider's own words live here and stop here. `detail` never reaches a response;
+    // the run's terminal `error` is the enumerated code above.
+    // #3033：非 ModelCallError（如 PgNativeSessionOwner 抛的裸 `Error('native_session_*')`）
+    // 以前一律记成 \"unexpected model call failure\"，线上排障时看不到任何原因——只记
+    // 异常名与 message（仍只进日志，不进响应；invariant 不变：响应里只有枚举 code）。
+    deps.log(\"agent run model call failed\", {
+      runId: run.runId,
+      modelProvider: run.modelProvider,
+      modelId: run.modelId,
+      code,
+      reason,
+      detail,
+      ...(unresolvedTool === undefined ? {} : { unresolvedTool }),
+    });
+    await record(deps, orgId, {
+      runId: run.runId, seq: seqCursor.value, kind: \"model_called\", startedAt: modelStartedAt,
+      inputDigest: systemDigest, outputDigest: null, failureCode: code,
+      // Phase 14 F15 -- 调用失败仍然记录\"模型看到了什么\"（`system`），供审计排障；
+      // 失败调用没有产出文本，`outputFullContent` 留空，同 `outputDigest: null`。
+      inputFullContent: system,
+    });
+    /*
+     * F159：失败的调用**也记一行**。「失败就没有用量」会让计量流水与 `agent_runs` 的
+     * 行数对不上，而对不上时没人分得清是漏记还是真没调用。
+     * ⚠ 不再硬编 0（coord-main 2026-08-12 裁决②的修正）：部分 4xx 上游照样计费
+     * prompt tokens 并把 usage 放在错误体里，provider 把它挂在 `ModelCallError.usage`
+     * 上传过来——报了就如实记，没报才是 0。
+     */
+    await meter(deps, orgId, run, e instanceof ModelCallError ? (e.usage ?? {}) : {}, \"failed\");
+    await closeOpenToolCalls(\"failed\");
+    await deps.runs.failRun(orgId, run.runId, code, reason);
+    publishStatusChange(deps, orgId, run.runId, \"failed\");
+    return;
+  }
+  await record(deps, orgId, {
+    runId: run.runId, seq: seqCursor.value, kind: \"model_called\", startedAt: modelStartedAt,
+    inputDigest: systemDigest, outputDigest: sha256(text), failureCode: null,
+    // Phase 14 F15 (R3'-3) -- \"模型看到了什么、完整说了什么\"：`system` 是发给模型的完整
+    // 上下文，`text` 是模型的完整回复原文，两者字段级加密落库（`appendStep`），供
+    // `getRunTranscript` 审计接口回放。
+    inputFullContent: system, outputFullContent: text,
+  });
+  await meter(deps, orgId, run, {
+    total: reportedTokens, prompt: reportedPrompt, completion: reportedCompletion,
+  }, \"succeeded\");
+
+  /*
+   * ── #1624：模型写了脚本就真的跑它 ──
+   *
+   * 位置在 `model_called` 记完、计量记完**之后**：那次调用已经发生、已经产生了账，
+   * 无论脚本跑不跑得起来都不该被改写。这一段只可能改变**写回给用户的正文**与
+   * **随消息挂上的附件**，改变不了\"模型被调用过一次\"这个已成事实。
+   *
+   * 判据、失败文案、产物落盘全在 `run-skill-script.ts` 一处（见那个文件的头注）；
+   * 这里只负责把 chat 特有的东西接上：怎么重新问模型要一版脚本（`regenerate`）。
+   *
+   * ⚠ 整段**不 fail run**：脚本失败是一次诚实的、带着真实 stderr 的回复，不是
+   *   \"这条消息没人答\"。把它变成 `failRun` 会让用户既拿不到文件，也看不到失败原因——
+   *   run 的终态错误码不进响应正文（本文件的既有纪律）。
+   */
+  let outputFiles: readonly ProducedFile[] = isDeepAgentRun && deps.nativeSessions
+    ? await deps.nativeOutputs!.listFiles(orgId, run.runId) : [];
+  if (await deps.runs.cancelAtCheckpoint?.(orgId, run.runId)) return;
+  if (!(isDeepAgentRun && deps.nativeSessions)) {
+    const scripted = await maybeRunSkillScript(
+      {
+        sandbox: deps.sandbox,
+        cancelAtCheckpoint: () => deps.runs.cancelAtCheckpoint?.(orgId, run.runId) ?? Promise.resolve(false),
+        objects: deps.objects,
+        log: deps.log,
+        regenerate: async (feedback) => {
+          const retry = await deps.model.complete({
+            modelProvider: run.modelProvider,
+            modelId: run.modelId,
+            system,
+            user: feedback,
+            history: [...history, { role: \"assistant\", content: text }],
+            skills: toolSkills,
+            ...(excludedTools === undefined ? {} : { excludedTools }),
+            ...(scriptProtocol === undefined ? {} : { scriptProtocol }),
+          });
+          // 从这次 completion 里取\"拿去解析脚本的那段文本\"的规则（含 #1747 的候选来源
+          // 与 issue #2893 的中断判定）只写在 `run-skill-script.ts` 一处——那里也是
+          // 归类与文案的落点，规则与它的消费者分开放必然漂移。
+          return retryScriptSource(retry);
+        },
+      },
+      { runId: run.runId, pinnedSkillCount: toolSkills.length, reply: text, scriptSources: scriptCandidates, inputFiles: artifactContinuation?.inputFiles },
+    );
+    if (scripted.kind === \"cancelled\") return;
+    text = scripted.text;
+    outputFiles = scripted.files;
+  }
+
+  if (await deps.runs.cancelAtCheckpoint?.(orgId, run.runId)) return;
+  /* ── hand off to #413 ── */
+  // 人类决策 B（2026-09-17）：小模型会把 ```canvas 的『模板: <key>』自造成 user-portrait 之类，
+  // 网页端「不猜」未知 key 就不渲染。写回前用本次 run 读到的已发布模板做一次**确定性**校正
+  // （精确名 / 显示名 / 归一化 / 单义别名），命中才改、改了就记日志；校不出的原样留给网页端如实报错。
+  if (publishedCanvasTemplates && publishedCanvasTemplates.length > 0) {
+    const normalized = normalizeCanvasFenceTemplateKeys(text, publishedCanvasTemplates);
+    if (normalized.corrections.length > 0) {
+      deps.log(\"canvas fence template key corrected before write-back\", { runId: run.runId, corrections: normalized.corrections });
+      text = normalized.text;
+    }
+    // #3749 B1.3：分区名 / 表头字段名同一条纪律——模型加了括号、换了顺序、丢了分隔符的名字
+    // 在这里按模板真名确定性改回；改不回的原样留下，网页端如实渲染成空白块。
+    const sections = normalizeCanvasFenceSections(text, publishedCanvasTemplates);
+    if (sections.corrections.length > 0) {
+      deps.log(\"canvas fence section names corrected before write-back\", { runId: run.runId, corrections: sections.corrections });
+      text = sections.text;
+    }
+  }
+  await deps.runs.storeOutputAwaitingWriteback(
+    orgId, run.runId,
+    // #1624：`files` 空数组 ⇒ 与该列 DEFAULT 一致，写回不插附件行（T2）。
+    { text, finalStepSeq: seqCursor.value, files: outputFiles },
+  );
+}
+
+/**
+ * Claim and execute one bounded batch of this tenant's queued runs.
+ *
+ * Returns how many runs were executed (successfully or not) -- the caller uses it only for
+ * observability. Nothing here throws for a run-level failure; a batch is not abandoned
+ * because one run's provider was down.
+ */
+export async function executeQueuedRuns(
+  deps: ExecuteAgentRunDeps,
+  input: { readonly orgId: OrgId; readonly limit?: number },
+): Promise<number> {
+  const claimed = await deps.runs.claimQueued(input.orgId, Math.min(20, input.limit ?? 10));
+  for (const outcome of claimed) {
+    if (outcome.kind === \"unresolvable\") {
+      // The claim already moved it out of `queued`, so it cannot be left as-is.
+      deps.log(\"agent run snapshot no longer resolvable\", {
+        runId: outcome.runId, code: \"AGENT_VERSION_UNAVAILABLE\",
+      });
+      await withRunHeartbeat(deps.runs,deps.log,input.orgId,outcome.runId,()=>deps.runs.failRun(input.orgId,outcome.runId,\"AGENT_VERSION_UNAVAILABLE\"),outcome.leaseEpoch);
+      publishStatusChange(deps, input.orgId, outcome.runId, \"failed\");
+      continue;
+    }
+    try {
+      // issue #2860：心跳见 `run-heartbeat.ts`。
+      await withRunHeartbeat(deps.runs, deps.log, input.orgId, outcome.run.runId, () => executeClaimed(dependenciesForRuntimeProfile(deps, outcome.run), input.orgId, outcome.run), outcome.run.leaseEpoch);
+    } catch (e) {
+      if(e instanceof RunLeaseLostError)continue;
+      // A defect in this file, not a provider failure. Still recorded, still terminal:
+      // leaving the run stuck in `running` forever is the one outcome nobody can act on.
+      deps.log(\"agent run executor defect\", {
+        runId: outcome.run.runId,
+        detail: e instanceof Error ? `${e.name}: ${e.message}` : \"unknown\",
+      });
+      // issue #3211 ①：这是**我们自己的** bug，不是模型的问题。此前它与「模型没返回内容」
+      // 共用同一个码同一句文案，线上分不开——现在带上 `executor_defect`。
+      await withRunHeartbeat(deps.runs,deps.log,input.orgId,outcome.run.runId,()=>deps.runs.failRun(input.orgId,outcome.run.runId,\"MODEL_CALL_FAILED\",\"executor_defect\"),outcome.run.leaseEpoch);
+      publishStatusChange(deps, input.orgId, outcome.run.runId, \"failed\");
+    }
+  }
+  return claimed.length;
+}
+"
+
+ ❯ tests/knowledge-graph/recall-repo-guard.test.ts:117:18
+    115|     const exec = readFileSync(join(API, "src/application/agent-run/exe…
+    116|     // #4361：第五个参数是「改主意」的端口（执行器 / 取代 / 自动记入）…
+    117|     expect(exec).toMatch(/turnKnowledgeContext\(deps\.knowledge, deps\…
+       |                  ^
+    118|     const rk = strip(readFileSync(join(API, "src/application/knowledge…
+    119|     expect(rk).toMatch(/knowledgeMemoryFor\(knowledge, \{ orgId, userI…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[19/19]⎯
+
+ Test Files  3 failed (3)
+      Tests  19 failed | 39 passed (58)
+   Start at  10:48:20
+   Duration  26.66s (transform 2.26s, setup 0ms, collect 3.96s, tests 20.98s, environment 0ms, prepare 237ms)
+
+[db-isolation] db=wsxs4b peak_connections=5

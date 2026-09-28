@@ -108,8 +108,12 @@ describe("F08 会话记忆召回读取的豁免前提", () => {
     //（方法名 candidates 太常见，按名字找调用方挡不住 `port.candidates.call(...)` 这类写法，所以钉「谁拿得到端口」）。
     expect(callersOf(/\bPgKnowledgeRecall\b/)).toEqual(["src/kernel.module.ts"]);
     expect(callersOf(/\bKnowledgeRecallPort\b/)).toEqual([
-      "src/application/agent-run/execute-run.ts", "src/application/knowledge-graph/ports.ts",
+      "src/application/knowledge-graph/ports.ts",
       "src/application/knowledge-graph/recall-knowledge.ts", "src/infrastructure/agent-run/agent-run-executor.ts",
+    ]);
+    // #4361：执行器经 recall-knowledge.ts 的 TurnKnowledgeDeps 拿到端口（execute-run.ts 保持薄网关）——这个依赖包同样只许这两处出现
+    expect(callersOf(/\bTurnKnowledgeDeps\b/)).toEqual([
+      "src/application/agent-run/execute-run.ts", "src/application/knowledge-graph/recall-knowledge.ts",
     ]);
     expect(callersOf(/\bKNOWLEDGE_RECALL_PORT\b/)).toEqual(["src/application/knowledge-graph/ports.ts"]);
     expect(callersOf(/\.graphNeighbors\b/)).toEqual(["src/application/knowledge-graph/recall-knowledge.ts"]);
@@ -121,10 +125,12 @@ describe("F08 会话记忆召回读取的豁免前提", () => {
     expect(callersOf(/(?<!function )memoryCardFor\(/)).toEqual(["src/application/knowledge-graph/recall-knowledge.ts"]);
     expect(callersOf(/(?<!function )turnKnowledgeContext\(/)).toEqual(["src/application/agent-run/execute-run.ts"]);
     const exec = readFileSync(join(API, "src/application/agent-run/execute-run.ts"), "utf8");
-    expect(exec).toMatch(/turnKnowledgeContext\(deps\.knowledge, deps\.memoryCards, \{ orgId, run \}, deps\.log\)/);
+    // #4361：第五个参数是「改主意」的端口（执行器 / 取代 / 自动记入），读身份与会话仍只取自 run
+    expect(exec).toMatch(/turnKnowledgeContext\(deps\.knowledge, deps\.memoryCards, \{ orgId, run \}, deps\.log, deps\.memoryChange\)/);
     const rk = strip(readFileSync(join(API, "src/application/knowledge-graph/recall-knowledge.ts"), "utf8"));
-    expect(rk).toMatch(/knowledgeMemoryFor\(knowledge, \{ orgId, userId: run\.requesterUserId, threadId: run\.threadId, query: run\.inputText, runId: run\.runId \}, log\)/);
-    expect(rk).toMatch(/memoryCardFor\(knowledge, cards, \{\s*orgId, userId: run\.requesterUserId, threadId: run\.threadId, runId: run\.runId, messageId: run\.inputMessageId, text: run\.inputText,\s*\}, log\)/);
+    // issue #4360：画像摘要只进个人对话——「是不是个人对话」同样只取自 run（run.projectId）。
+    expect(rk).toMatch(/knowledgeMemoryFor\(knowledge, \{ orgId, userId: run\.requesterUserId, threadId: run\.threadId, query: run\.inputText, runId: run\.runId, personalThread: run\.projectId === null \|\| run\.projectId === "" \}, log\)/);
+    expect(rk).toMatch(/memoryCardFor\(knowledge, cards, \{\s*orgId, userId: run\.requesterUserId, threadId: run\.threadId, runId: run\.runId, messageId: run\.inputMessageId, text: run\.inputText,\s*\}, log, change\)/);
     // memoryCardFor 读候选集只拿 id 去开卡：卡上的内容由 kg_open_memory_card 在数据库里按会话 / 本人个人空间复核后才写
     expect(rk).toMatch(/const \{ claims \} = await knowledge\.candidates\(input\.orgId, input\.userId, input\.threadId\);/);
     expect(rk).toMatch(/claimIds: matches\.map\(\(c\) => c\.id\)/);
@@ -164,7 +170,8 @@ describe("F08 会话记忆召回读取的豁免前提", () => {
     expect(code).toMatch(/const \[claimIds, q\] = await Promise\.all\(\[candidateIds, this\.embeddings\.embed\(query\)\]\);\s*if \(claimIds\.length === 0\) return \[\];/);
     // recall-knowledge.ts 交进来的候选 id 就是同一轮 candidates 的结果
     const rk = strip(readFileSync(join(API, "src/application/knowledge-graph/recall-knowledge.ts"), "utf8"));
-    expect(rk).toMatch(/const candidates = port\.candidates\(input\.orgId, input\.userId, input\.threadId\);\s*const ids = candidates\.then\(\(c\) => c\.claims\.map\(\(x\) => x\.id\)\);/);
+    // issue #4363（S6）：只可能再**收窄**（过期 / 不做了的不交给向量通道），不能换成别的来源
+    expect(rk).toMatch(/const candidates = port\.candidates\(input\.orgId, input\.userId, input\.threadId\);\s*const now = new Date\(\);\s*const ids = candidates\.then\(\(c\) => c\.claims\.filter\(\(x\) => recallable\(x, now\)\)\.map\(\(x\) => x\.id\)\);/);
   });
 
   it("(f) kg_turn_recalls 只写不读：一条 INSERT … ON CONFLICT (run_id)，写的是调用方给的这一个 run", () => {

@@ -33,6 +33,7 @@ import { Inject, Injectable, Optional, type OnModuleDestroy, type OnModuleInit }
 import { newKgId } from "../../application/knowledge-graph/ids";
 import { drainConflictCloses } from "../../application/knowledge-graph/detect-conflicts";
 import { runExtractionTick, type ExtractionTickResult } from "../../application/knowledge-graph/extract-message-knowledge";
+import { runProjectIngestionTick } from "../../application/knowledge-graph/ingest-project-evidence";
 import type { WorthinessModelPort } from "../../application/knowledge-graph/extraction-gate";
 import { KG_EXTRACTION_SLO_RECORDER, type ExtractionSloRecorder } from "../../application/knowledge-graph/extraction-slo-recorder";
 import {
@@ -40,14 +41,24 @@ import {
 } from "../../application/knowledge-graph/s8-ports";
 import { EXTRACTION_SLO_DEFAULTS, type ExtractionSloThresholds } from "../../domain/knowledge-graph/extraction-slo";
 import {
-  KG_AUTO_COPY_PORT, KG_CONFLICT_PORT, KG_EXTRACTION_QUEUE_PORT, KG_EXTRACTION_SOURCE_PORT, KNOWLEDGE_EXTRACTOR_PORT, ONTOLOGY_STORE_PORT,
-  type KgAutoCopyPort, type KgConflictPort, type KgExtractionQueuePort, type KgExtractionSourcePort, type KnowledgeExtractorPort, type OntologyStorePort,
+  KG_AUTO_COPY_PORT, KG_CONFLICT_PORT, KG_EXTRACTION_QUEUE_PORT, KG_EXTRACTION_SOURCE_PORT, KG_PROJECT_INGESTION_PORT, KNOWLEDGE_EXTRACTOR_PORT, ONTOLOGY_STORE_PORT,
+  type KgAutoCopyPort, type KgConflictPort, type KgExtractionQueuePort, type KgExtractionSourcePort, type KgProjectIngestionPort, type KnowledgeExtractorPort, type OntologyStorePort,
 } from "../../application/knowledge-graph/ports";
 import { LOGGER_PORT, type LoggerPort } from "../../application/ports/logger.port";
+import { PROJECT_AI_SETTINGS_REPOSITORY, type ProjectAiSettingsRepository } from "../../application/project/project-ai-settings-ports";
+import { EVIDENCE_SOURCE_REPOSITORY, type ProjectEvidenceSourcePort } from "../../application/project/collect-evidence/ports";
+import { PROJECT_EVIDENCE_REPOSITORY, type ProjectEvidencePort } from "../../application/project/project-evidence-ports";
+import { KG_GOAL_LINK_PORT, KG_GOAL_LINK_PROPOSER_PORT, type GoalLinkPort, type GoalLinkProposerPort } from "../../application/knowledge-graph/profile-ports";
 import { KG_EXTRACTION_MODEL_CONFIG, type KgExtractionModelConfig } from "./kg-extraction-model-config";
 import { KG_EXTRACTION_LEASE_SECONDS } from "./pg-kg-extraction";
 
 export const KG_EXTRACTION_POLL_INTERVAL_MS = 2_000;
+/**
+ * B3-T2（#4496）：项目证据入图不跟着 2 秒一次的消息轮询走——它每轮要对每个 active 项目各查一次「有没有待入图证据」
+ * （`kg_project_ingestion_pending()` 目前回所有 active 项目，见迁移 20260928210000），30 秒一轮已经够（证据是采集器
+ * 批量写进来的，不是逐条对话）。同一个 worker 里跑，是为了共用「没有配置模型就不跑」这条降级与 watchdog。
+ */
+export const KG_PROJECT_INGESTION_INTERVAL_MS = 30_000;
 
 /** 注入令牌：一轮 tick 的 watchdog 上限（毫秒）。不注入 ⇒ `kgExtractionWatchdogMs(process.env)`。测试用它压短。 */
 export const KG_EXTRACTION_WATCHDOG_MS = Symbol("KgExtractionWatchdogMs");
@@ -89,14 +100,47 @@ export class KgExtractionWorker implements OnModuleInit, OnModuleDestroy {
     @Inject(KG_CONFLICT_PORT) private readonly conflicts: KgConflictPort,
     @Inject(KG_AUTO_COPY_PORT) private readonly autoCopy: KgAutoCopyPort,
     @Inject(LOGGER_PORT) private readonly logger: LoggerPort,
+    // B3-T1（#4495）：项目线程的消息锚点回填成证据单元（`collect-evidence/chat.ts`）。
+    @Inject(PROJECT_EVIDENCE_REPOSITORY) private readonly projectEvidence: ProjectEvidencePort,
+    @Inject(EVIDENCE_SOURCE_REPOSITORY) private readonly evidenceSources: ProjectEvidenceSourcePort,
     @Optional() @Inject(KG_EXTRACTION_WATCHDOG_MS) watchdogMs?: number,
+    // B3-T2：`projectEvidence`（上面 T1 注入的同一个仓储）+ 下面两个齐了才跑项目证据入图；缺任一这一轮静默不跑，
+    // 消息抽取照常。
+    @Optional() @Inject(PROJECT_AI_SETTINGS_REPOSITORY) private readonly projectAiSettings?: ProjectAiSettingsRepository,
+    @Optional() @Inject(KG_PROJECT_INGESTION_PORT) private readonly projectIngestion?: KgProjectIngestionPort,
     /** S8：以下四个生产合成必注入；只测 watchdog 的构造点可以不给（那时不计数、不判 SLO，门控规则照常生效）。 */
     @Optional() @Inject(KG_EXTRACTION_SLO_RECORDER) private readonly slo?: ExtractionSloRecorder,
     @Optional() @Inject(KG_EXTRACTION_SLO_COUNTS_PORT) private readonly sloCounts?: KgExtractionSloCountsPort,
     @Optional() @Inject(KG_EXTRACTION_SLO_THRESHOLDS) private readonly sloThresholds?: ExtractionSloThresholds,
     @Optional() @Inject(KG_EXTRACTION_GATE_MODEL) private readonly gateModel?: WorthinessModelPort | null,
+    /** issue #4360：新记下的决定 / 待办挂到本人目标下（模型提议、高把握才挂）。生产合成必定注入。 */
+    @Optional() @Inject(KG_GOAL_LINK_PORT) private readonly goalLinks?: GoalLinkPort,
+    @Optional() @Inject(KG_GOAL_LINK_PROPOSER_PORT) private readonly goalProposer?: GoalLinkProposerPort,
   ) {
     this.watchdogMs = watchdogMs ?? kgExtractionWatchdogMs();
+  }
+
+  private lastProjectIngestionAt = 0;
+
+  /** 项目证据入图这一轮该不该跑：依赖齐 + 距上一轮 ≥ `KG_PROJECT_INGESTION_INTERVAL_MS`。测试可传 `force`。 */
+  private projectIngestionDue(now: number): boolean {
+    if (!this.projectEvidence || !this.projectAiSettings || !this.projectIngestion) return false;
+    return now - this.lastProjectIngestionAt >= KG_PROJECT_INGESTION_INTERVAL_MS;
+  }
+
+  /**
+   * B3-T2：跑一轮项目证据入图（不走 `running` / watchdog——由 `runOnce` 在同一轮里调；单独调用时给 `abandoned`）。
+   * 依赖没接齐 ⇒ null。
+   */
+  async runProjectIngestionOnce(abandoned: () => boolean = () => false) {
+    if (!this.projectEvidence || !this.projectAiSettings || !this.projectIngestion) return null;
+    this.lastProjectIngestionAt = Date.now();
+    const tick = await runProjectIngestionTick({
+      evidence: this.projectEvidence, aiSettings: this.projectAiSettings, ingestion: this.projectIngestion,
+      extractor: this.extractor, store: this.store, logger: this.logger, newId: newKgId,
+    }, abandoned);
+    if (tick.processed > 0 || tick.failed > 0) this.logger.info("kg project ingestion tick", { traceId: "kg-project-ingestion", ...tick });
+    return tick;
   }
 
   onModuleInit(): void {
@@ -135,13 +179,17 @@ export class KgExtractionWorker implements OnModuleInit, OnModuleDestroy {
       const tick = await runExtractionTick({
         queue: this.queue, source: this.source, extractor: this.extractor, store: this.store,
         conflicts: this.conflicts, autoCopy: this.autoCopy, logger: this.logger, newId: newKgId,
+        chatEvidence: { sources: this.evidenceSources, evidence: this.projectEvidence },
         ...(this.slo !== undefined ? { slo: this.slo } : {}),
         ...(this.gateModel !== undefined && this.gateModel !== null ? { gateModel: this.gateModel } : {}),
+        ...(this.goalLinks !== undefined && this.goalProposer !== undefined ? { goalLinks: { goalLinks: this.goalLinks, proposer: this.goalProposer } } : {}),
       }, () => abandoned);
       // issue #4343：有处理过消息的一轮留一条计数，「跑了但一条没记下」（empty）与「没跑」（没有这行）分得开。
       if (tick.processed > 0) this.logger.info("kg extraction tick", { traceId: "kg-extraction", ...tick });
       // F16：每一轮都排空「结束冲突」的待办（与有没有新消息无关）
       if (!abandoned) await drainConflictCloses({ conflicts: this.conflicts, logger: this.logger });
+      // B3-T2：消息抽取之后追加「项目证据入图」一轮（每项目 ≤ KG_PROJECT_INGESTION_BATCH 条），受同一个 watchdog 管。
+      if (!abandoned && this.projectIngestionDue(Date.now())) await this.runProjectIngestionOnce(() => abandoned);
       return tick;
     })();
     const watchdog = new Promise<"watchdog">((resolve) => {

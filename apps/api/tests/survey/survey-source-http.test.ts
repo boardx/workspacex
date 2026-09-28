@@ -33,6 +33,24 @@ beforeAll(async () => {
 }, 120000);
 afterAll(async () => { await app?.close(); await resetOrgs(ORG, OTHER); });
 
+it('exposes authenticated bounded AI proposals and refuses inaccessible transcripts',async()=>{
+  expect((await request('/surveys/markdown-proposals','POST',{text:'客户反馈'} , {'content-type':'application/json'})).status).toBe(401);
+  expect((await request('/surveys/markdown-proposals','POST',{text:''})).status).toBe(400);
+  expect((await request('/surveys/markdown-proposals','POST',{transcriptionId:'not-owned-transcript'})).status).toBe(404);
+  expect((await request('/surveys/markdown-proposals','POST',{text:'客户反馈'})).status).toBe(503);
+});
+it('accepts bounded file envelopes above the default JSON parser limit',async()=>{
+ const response=await request('/surveys/markdown-proposals','POST',{file:{name:'source.md',base64:Buffer.from('a'.repeat(81920)).toString('base64')}});
+ expect(response.status).toBe(400); // Converted text exceeds the 20K bound, not transport 413.
+});
+it('does not let another member generate a proposal from an owned transcription',async()=>{
+ const created=await request('/recording/realtime-asr/sessions','POST',{name:'本人研究目标',tags:[]});expect(created.status).toBe(201);
+ const recording=await created.json();
+ expect((await request('/surveys/markdown-proposals','POST',{text:'客户体验',transcriptionId:recording.sessionId},auth(INTRUDER))).status).toBe(404);
+ expect((await request('/surveys/markdown-proposals','POST',{text:'客户体验',transcriptionId:recording.sessionId})).status).toBe(503);
+});
+
+
 it('issues an HttpOnly publication cookie and serializes concurrent browser submissions', async () => {
   const created=await request('/surveys','POST',{title:'浏览器限答',questions:[{id:'q1',order:1,chapterId:'general',title:'意见',type:'open',required:true}],template:{id:'r',title:'报告',sections:[]}});
   let model:SurveyRuntime=await created.json();

@@ -2,6 +2,7 @@
  * Phase 18 F10 —— `HumanActionPort` 的 Postgres 实现：只调 `kg_apply_human_action`，把它抛出的
  * `KG_*` 翻成契约错误码。其余错误原样抛出，不伪装成「被拒」。
  */
+import type { KgTodoStatus } from "@repo/contracts/chat-knowledge-graph";
 import type { DatabasePort } from "../../application/ports/database.port";
 import {
   KgHumanActionError, type HumanActionPort, type KgHumanAction, type KgHumanActionErrorCode,
@@ -39,6 +40,30 @@ export class PgHumanAction implements HumanActionPort {
       // 重来一次仍死锁：对用户就是「刚才有别的改动撞上了」——同「内容已变化，请再操作一次」，不是 500。
       if (isDeadlock(e)) throw new KgHumanActionError("KG_REVISION_CHANGED", "deadlock detected twice");
       const message = e instanceof Error ? e.message : "";
+      const code = CODES.find((c) => message.startsWith(c));
+      if (code !== undefined) throw new KgHumanActionError(code, message);
+      throw e;
+    }
+  }
+
+  /** issue #4363（S6）：`kg_set_todo_state`（迁移 20260928170000）。 */
+  async setTodoStatus(orgId: OrgId, userId: string, input: {
+    readonly actionId: string; readonly claimId: string; readonly status: KgTodoStatus;
+  }) {
+    try {
+      const out = await retryOnceOnDeadlock(() => this.db.withTenant(orgId, async (s) => {
+        await s.query("SELECT set_config('app.current_user_id', $1, true)", [userId]);
+        return s.query<{ r: { claim_id: string; status: KgTodoStatus; claim_ids: string[] } }>(
+          "SELECT kg_set_todo_state($1::jsonb) AS r",
+          [JSON.stringify({ action_id: input.actionId, claim_id: input.claimId, status: input.status })],
+        );
+      }));
+      const r = out.rows[0]!.r;
+      return { claimId: r.claim_id, status: r.status, claimIds: r.claim_ids };
+    } catch (e) {
+      if (isDeadlock(e)) throw new KgHumanActionError("KG_REVISION_CHANGED", "deadlock detected twice");
+      const message = e instanceof Error ? e.message : "";
+      if (message.startsWith("KG_INVALID_REQUEST")) throw new KgHumanActionError("KG_INVALID_REQUEST", message);
       const code = CODES.find((c) => message.startsWith(c));
       if (code !== undefined) throw new KgHumanActionError(code, message);
       throw e;

@@ -12,11 +12,11 @@ test("research persists all five model-backed steps through the real UI, API and
   await page.goto("/research");
   await expect(page.getByTestId("research-home-page")).toHaveAttribute("data-reference-layout", "research-list");
   await page.getByTestId("research-create").click();
-  await page.getByTestId("research-create-name").fill(researchName);
-  await page.getByTestId("research-create-submit").click();
   await expect(page).toHaveURL(/\/research\/new$/);
   await expect(page.getByTestId("shell-rail")).not.toBeVisible();
   await expect(page.getByTestId("research-workspace-header")).toBeVisible();
+  await page.getByText("完善研究信息", { exact: true }).click();
+  await page.getByTestId("research-brief-topic").fill(researchName);
   await page.getByTestId("research-brief-goal").fill("核对储能并网政策");
   let releaseGeneration!: () => void;
   const generationGate = new Promise<void>((resolve) => { releaseGeneration = resolve; });
@@ -28,7 +28,8 @@ test("research persists all five model-backed steps through the real UI, API and
   await page.getByTestId("research-confirm-brief").click();
   try {
     await expect(page.getByTestId("research-step-loading")).toBeVisible();
-    await expect(page.getByRole("button", { name: /确认研究主题/ })).toHaveAttribute("aria-current", "step");
+    await expect(page.getByTestId("research-step-topic")).toHaveAttribute("aria-disabled", "true");
+    await expect(page.getByRole("button", { name: "1 导入需求", exact: true })).toHaveAttribute("aria-current", "step");
     await page.screenshot({ path: testInfo.outputPath("research-next-step-loading.png"), fullPage: true });
   } finally { releaseGeneration(); }
   await expect(page.getByRole("heading", { name: "确认研究主题", exact: true })).toBeVisible();
@@ -72,6 +73,8 @@ test("research persists all five model-backed steps through the real UI, API and
       await chapter.locator("summary").click();
       await expect(chapter.getByLabel("章节目标", { exact: true })).toHaveValue("核实政策适用范围与实施约束");
       await page.screenshot({ path: testInfo.outputPath("research-outline-details.png"), fullPage: true });
+      await page.getByRole("button", { name: "编辑成功标准", exact: true }).click();
+      await expect(page.getByRole("dialog", { name: "编辑成功标准与来源范围" })).toBeVisible();
       await page.getByLabel("决策对象").fill("决定储能市场进入策略");
       await page.getByLabel("目标受众").fill("投资委员会");
       await page.getByRole("textbox", { name: "成功标准", exact: true }).fill("每个核心问题都有可定位原文\n严重冲突必须解决");

@@ -43,6 +43,8 @@ import { PHYSICAL_PURGE_PORT, type PhysicalPurgePort } from "./application/files
 import { SURVEY_TEMPLATE_REPOSITORY } from "./application/survey/survey-template-service";
 import { SurveySubmissionRateLimitGuard } from "./interface/guards/survey-submission-rate-limit.guard";
 import { SurveyController, PublicSurveyController } from "./interface/controllers/survey.controller";
+import { SurveyMarkdownProposalController } from './interface/controllers/survey-markdown-proposal.controller';
+import { SURVEY_MARKDOWN_GENERATOR,generateSurveyMarkdownProposal } from './application/survey/generate-markdown-proposal';
 import { SURVEY_REPOSITORY } from "./application/survey/survey-service";
 import { PgSurveyRepository } from "./infrastructure/survey/pg-survey-repository";
 import type { ArtifactReadDeps } from "./application/artifacts-steering/read-artifact";
@@ -667,10 +669,11 @@ import {
 } from "./application/first-value/first-value-recorder";
 import { PgFirstValueFacts } from "./infrastructure/first-value/pg-first-value-facts";
 import { FirstValueController } from "./interface/controllers/first-value.controller";
-import { GRAPH_PROJECTION_PORT, KG_AUTO_COPY_PORT, KG_EMBEDDING_QUEUE_PORT, KG_CONFLICT_PORT, KG_DEPLOYMENT_EXTRACTION_SETTINGS_PORT, KG_EXTRACTION_QUEUE_PORT, KG_EXTRACTION_SOURCE_PORT, KG_ORG_EXTRACTION_SETTINGS_PORT, HUMAN_ACTION_PORT, KNOWLEDGE_EXTRACTOR_PORT, KNOWLEDGE_READ_PORT, MEMORY_CARD_PORT, type MemoryCardPort, ONTOLOGY_STORE_PORT, PROMOTION_PORT } from "./application/knowledge-graph/ports";
+import { GRAPH_PROJECTION_PORT, KG_AUTO_COPY_PORT, KG_EMBEDDING_QUEUE_PORT, KG_CONFLICT_PORT, KG_DEPLOYMENT_EXTRACTION_SETTINGS_PORT, KG_EXTRACTION_QUEUE_PORT, KG_EXTRACTION_SOURCE_PORT, KG_ORG_EXTRACTION_SETTINGS_PORT, KG_PROJECT_INGESTION_PORT, KG_REINDEX_PORT, HUMAN_ACTION_PORT, KNOWLEDGE_EXTRACTOR_PORT, KNOWLEDGE_READ_PORT, MEMORY_CARD_PORT, type MemoryCardPort, ONTOLOGY_STORE_PORT, PROMOTION_PORT } from "./application/knowledge-graph/ports";
 import { PgPromotion } from "./infrastructure/knowledge-graph/pg-promotion";
 import { PgHumanAction } from "./infrastructure/knowledge-graph/pg-human-action";
 import { KnowledgeGraphController } from "./interface/controllers/knowledge-graph.controller";
+import { PgKgReindex } from "./infrastructure/knowledge-graph/pg-kg-reindex";
 import { KnowledgeShareController } from "./interface/controllers/knowledge-share.controller";
 import { PROJECT_SHARE_PORT } from "./application/knowledge-graph/share-to-project";
 import { PgProjectShare } from "./infrastructure/knowledge-graph/pg-project-share";
@@ -693,8 +696,14 @@ import { KgExtractionWorker } from "./infrastructure/knowledge-graph/kg-extracti
 import { KG_EXTRACTION_MODEL_CONFIG, readKgExtractionModelConfig, type KgExtractionModelConfig } from "./infrastructure/knowledge-graph/kg-extraction-model-config";
 import { ModelKnowledgeExtractor } from "./infrastructure/knowledge-graph/model-knowledge-extractor";
 import { PgKgExtraction } from "./infrastructure/knowledge-graph/pg-kg-extraction";
+import { PgKgProjectIngestion } from "./infrastructure/knowledge-graph/pg-kg-project-ingestion";
+import { newKgId } from "./application/knowledge-graph/ids";
 import { PgKgConflict } from "./infrastructure/knowledge-graph/pg-kg-conflict";
 import { PgKgAutoCopy } from "./infrastructure/knowledge-graph/pg-kg-auto-copy";
+import { PgKgProfile } from "./infrastructure/knowledge-graph/pg-kg-profile";
+import { PgSessionBriefing } from "./infrastructure/knowledge-graph/pg-session-briefing";
+import { ModelGoalLinker } from "./infrastructure/knowledge-graph/model-goal-linker";
+import { KG_GOAL_LINK_PORT, KG_GOAL_LINK_PROPOSER_PORT, KG_SESSION_BRIEFING_PORT } from "./application/knowledge-graph/profile-ports";
 import { PgMemoryCard } from "./infrastructure/knowledge-graph/pg-memory-card";
 import { PgCitationCorrection } from "./infrastructure/knowledge-graph/pg-citation-correction";
 import { CITATION_CORRECTION_PORT, CLAIM_EXPIRY_PORT } from "./application/knowledge-graph/citation-ports";
@@ -892,6 +901,13 @@ import { PgProjectOverviewRepository } from "./infrastructure/project/pg-project
 // 项目中枢 B2-S1（#4425）：项目资源关联（`project_resource_links` + 四类聚合读）。
 import { PROJECT_RESOURCE_REPOSITORY } from "./application/project/project-resource-ports";
 import { PgProjectResourceRepository } from "./infrastructure/project/pg-project-resource-repository";
+// 项目中枢 B3-T5（#4499）：研究项目 / 用户洞察两类容器的成员表（按 `projects.kind` 分派两张表）。
+import { NON_WORKSHOP_MEMBER_REPOSITORY } from "./application/project/non-workshop-member-ports";
+import { PgNonWorkshopMemberRepository } from "./infrastructure/project/pg-non-workshop-member-repository";
+import { PROJECT_EVIDENCE_REPOSITORY } from "./application/project/project-evidence-ports";
+import { PgProjectEvidenceRepository } from "./infrastructure/project/pg-project-evidence-repository";
+import { EVIDENCE_SOURCE_REPOSITORY } from "./application/project/collect-evidence/ports";
+import { PgEvidenceSources } from "./infrastructure/project/pg-evidence-sources";
 import { PgProjectArchiveRepository } from "./infrastructure/project/pg-project-archive-repository";
 // BP-08（本次新增）：`BLUEPRINT_REFERENCE_REPOSITORY`——只读，独立 provider（`createProject`
 // 判 blueprintVersionId 合不合法时用）；见 `application/project/ports.ts` 与
@@ -1093,7 +1109,7 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
     PlatformExtractionSettingController,
     PlatformMemoryOpsController,
     KnowledgeConsolidationController,
-    SurveyController, PublicSurveyController, SurveyAttachmentController,
+    SurveyMarkdownProposalController, SurveyController, PublicSurveyController, SurveyAttachmentController,
     HealthController,
     KernelProbeController,
     IdentityController,
@@ -2184,6 +2200,8 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
           new PgMemoryCard(db),
           // E3：回答引用写进 `chat_citations`（走既有 PgChatRepository 的租户内写口）+ 价值时刻。
           { citations: new PgChatRepository(db), firstValue },
+          // #4361：「我改主意了，改成 Y」这一轮确定地走 R8 的改口取代——同抽取任务用的三个端口（执行器 / 取代 / 自动记入）。
+          { store: new PgOntologyStore(db), conflicts: new PgKgConflict(db), autoCopy: new PgKgAutoCopy(db), newId: newKgId },
         ),
       inject: [
         AGENT_RUN_STORE, MODEL_CALL_PORT, LOGGER_PORT, TOKEN_USAGE_METER, DATABASE_PORT,
@@ -2450,6 +2468,15 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
       provide: INTERVIEW_MARKDOWN_READER,
       useFactory: (db: DatabasePort) => new PgInterviewMarkdownReader(db),
       inject: [DATABASE_PORT],
+    },
+    {
+      provide: SURVEY_MARKDOWN_GENERATOR,
+      useFactory:(model:ModelCallPort)=>{
+        const provider=readModelProviderConfig().provider;
+        const modelId=(process.env.KERNEL_SURVEY_MODEL_ID??process.env.KERNEL_DEFAULT_AGENT_MODEL_ID??process.env.KERNEL_MODEL_ID??'').trim();
+        return {generate:(input:Parameters<typeof generateSurveyMarkdownProposal>[1])=>generateSurveyMarkdownProposal({model,provider,modelId},input)};
+      },
+      inject:[MODEL_CALL_PORT],
     },
     {
       provide: INTERVIEW_MARKDOWN_GENERATOR,
@@ -2760,6 +2787,23 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
     {
       provide: PROJECT_RESOURCE_REPOSITORY,
       useFactory: (db: DatabasePort) => new PgProjectResourceRepository(db),
+      inject: [DATABASE_PORT],
+    },
+    // 项目中枢 B3-T5（#4499）：`NonWorkshopMemberRepository` 的生产实现（`project.controller.ts` 消费）。
+    {
+      provide: NON_WORKSHOP_MEMBER_REPOSITORY,
+      useFactory: (db: DatabasePort) => new PgNonWorkshopMemberRepository(db),
+      inject: [DATABASE_PORT],
+    },
+    // 项目中枢 B3-T1（#4495）：证据单元仓储 + 采集器的只读来源（`project.controller.ts` 与 `KgExtractionWorker` 消费）。
+    {
+      provide: PROJECT_EVIDENCE_REPOSITORY,
+      useFactory: (db: DatabasePort) => new PgProjectEvidenceRepository(db),
+      inject: [DATABASE_PORT],
+    },
+    {
+      provide: EVIDENCE_SOURCE_REPOSITORY,
+      useFactory: (db: DatabasePort) => new PgEvidenceSources(db),
       inject: [DATABASE_PORT],
     },
     // F141 → #785: `skill` now reads/writes real Postgres (`skills`/`skill_versions`/
@@ -3249,6 +3293,8 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
     { provide: KG_EXTRACTION_MODEL_CONFIG, useFactory: () => readKgExtractionModelConfig() },
     { provide: KG_EXTRACTION_QUEUE_PORT, useFactory: (db: DatabasePort) => new PgKgExtraction(db), inject: [DATABASE_PORT] },
     { provide: KG_EXTRACTION_SOURCE_PORT, useExisting: KG_EXTRACTION_QUEUE_PORT },
+    // issue #4352：UC-KG-4「整理本会话」——只经 SECURITY DEFINER 函数重新排队。
+    { provide: KG_REINDEX_PORT, useFactory: (db: DatabasePort) => new PgKgReindex(db), inject: [DATABASE_PORT] },
     { provide: KG_CONFLICT_PORT, useFactory: (db: DatabasePort) => new PgKgConflict(db), inject: [DATABASE_PORT] },
     // issue #4283：本人说的决定自动记进本人个人空间（系统写，目标空间由数据库按证据作者推出）+ 本人撤销。
     { provide: KG_AUTO_COPY_PORT, useFactory: (db: DatabasePort) => new PgKgAutoCopy(db), inject: [DATABASE_PORT] },
@@ -3257,6 +3303,17 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
       useFactory: (model: ModelCallPort, config: KgExtractionModelConfig, logger: LoggerPort) => new ModelKnowledgeExtractor(model, config, logger),
       inject: [MODEL_CALL_PORT, KG_EXTRACTION_MODEL_CONFIG, LOGGER_PORT],
     },
+    // B3-T2（#4496）：项目证据入图的留痕 / 项目实体 / 待处理项目读口；证据本身的仓储（PROJECT_EVIDENCE_REPOSITORY）由 T1 提供，
+    // worker 对它 @Optional——没接上时项目入图这一轮静默不跑，消息抽取不受影响。
+    { provide: KG_PROJECT_INGESTION_PORT, useFactory: (db: DatabasePort) => new PgKgProjectIngestion(db), inject: [DATABASE_PORT] },
+    // issue #4360 / #4362（S5）：「关于我」挂目标 / 改写（只调数据库函数）、模型提议挂哪个目标、开场简报（只读本人个人空间）。
+    { provide: KG_GOAL_LINK_PORT, useFactory: (db: DatabasePort) => new PgKgProfile(db), inject: [DATABASE_PORT] },
+    {
+      provide: KG_GOAL_LINK_PROPOSER_PORT,
+      useFactory: (model: ModelCallPort, config: KgExtractionModelConfig, logger: LoggerPort) => new ModelGoalLinker(model, config, logger),
+      inject: [MODEL_CALL_PORT, KG_EXTRACTION_MODEL_CONFIG, LOGGER_PORT],
+    },
+    { provide: KG_SESSION_BRIEFING_PORT, useFactory: (db: DatabasePort) => new PgSessionBriefing(db), inject: [DATABASE_PORT] },
     // S8（#4365）：抽取 SLO（进程内窗口 + 全库队列现数 + 阈值）、可选的便宜模型门控（默认关）、记忆整合（默认关）。
     { provide: KG_EXTRACTION_SLO_RECORDER, useValue: new ExtractionSloRecorder() },
     { provide: KG_EXTRACTION_SLO_COUNTS_PORT, useFactory: (db: DatabasePort) => new PgKgExtractionSloCounts(db), inject: [DATABASE_PORT] },
@@ -3296,7 +3353,7 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
     // F17：「记住 / 忘掉」确认卡（只经 kg_open_memory_card / kg_act_on_memory_card 落表）。
     { provide: MEMORY_CARD_PORT, useFactory: (db: DatabasePort) => new PgMemoryCard(db), inject: [DATABASE_PORT] },
     // S7（#4364）：引用 chip 上的「这条不对」/「已过时」（只经 kg_correct_citation 落表）与纠正率。
-    // CLAIM_EXPIRY_PORT（expireClaim）现在与纠正同一个实现；TODO(#4363) S6 的 valid_until 落地后换实现。
+    // CLAIM_EXPIRY_PORT（expireClaim）与纠正同一个实现：整家 valid_to = now()（S6 有效期，迁移 20260928220000）。
     { provide: CITATION_CORRECTION_PORT, useFactory: (db: DatabasePort) => new PgCitationCorrection(db), inject: [DATABASE_PORT] },
     { provide: CLAIM_EXPIRY_PORT, useExisting: CITATION_CORRECTION_PORT },
     {

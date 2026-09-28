@@ -195,6 +195,7 @@ const modelProviderEnv = {
    * 那条用例会诚实地红在"没配置"而不是"接线错了"，两种红不该混在一起排查。
    */
   KERNEL_SKILL_TRIALRUN_MODEL_ID: FULLSTACK_E2E.agentModelId,
+  KERNEL_SURVEY_MODEL_ID: FULLSTACK_E2E.agentModelId,
 };
 
 export default defineConfig({
@@ -664,6 +665,7 @@ export default defineConfig({
         `PGPORT=${apiPgPort} pnpm --filter @repo/api start`,
       ].join(" && "),
       url: `http://127.0.0.1:${apiPort}/healthz`,
+      stdout: "pipe",
       // ⚠ `database-unavailable` 反证要的就是**快速失败**，给它长窗口只会让反证等满。
       timeout:
         process.env.FULLSTACK_E2E_MODE === "database-unavailable" ? 20_000 : serverStartTimeoutMs,
@@ -718,6 +720,7 @@ export default defineConfig({
        */
       command: `rm -rf .next-fullstack-e2e && next build && next start -p ${webPort}`,
       url: `http://127.0.0.1:${webPort}/login`,
+      stdout: "pipe",
       // 默认仍是 120s；只有显式设了 `FULLSTACK_E2E_SERVER_TIMEOUT_MS` 才不同。见上方定义。
       timeout: serverStartTimeoutMs,
       reuseExistingServer: false,

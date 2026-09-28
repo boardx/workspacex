@@ -38,8 +38,11 @@ function harness(opts: { orgs: () => readonly OrgId[]; extract: () => Promise<Ex
   const extractor: KnowledgeExtractorPort = { extract: opts.extract };
   const logger = { info: () => undefined, error: (msg: string) => { errors.push(msg); } };
   const conflicts = { pendingCloseOrgs: async () => [], drainCloseOne: async () => false } as never;
+  // B3-T1（#4495）：证据回填的两个端口——个人线程（`chatThreadProject` 回 null）⇒ 批次原样交执行器，不碰证据仓储。
+  const evidenceSources = { chatThreadProject: async () => null } as never;
   const worker = new KgExtractionWorker(
-    { enabled: true, provider: "loopback", modelId: "m" }, queue, source, extractor, {} as never, conflicts, {} as never, logger, 40,
+    { enabled: true, provider: "loopback", modelId: "m" }, queue, source, extractor, {} as never, conflicts, {} as never, logger,
+    {} as never, evidenceSources, 40,
   );
   return { worker, claims, completes, errors };
 }

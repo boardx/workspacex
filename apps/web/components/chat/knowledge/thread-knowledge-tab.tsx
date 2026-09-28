@@ -10,6 +10,7 @@ import {
   listPromotionNominations,
   promoteToPersonal,
   promoteToProject,
+  requestReindex,
   type KnowledgeGraphErrorCode,
   type PromotionChoice,
   type PromotionNominations,
@@ -169,7 +170,10 @@ function loadSources(claimId: string) {
  * - F11「记到我的长期记忆」（`promoteToPersonal`）：只在服务端同时说 `canEdit` 与 `canPromote`
  *   （所有者的个人对话）时给。成功（哪怕只是部分成功）⇒ 重读：没确认过的那几条已被服务端一并确认（U-3），
  *   面板三态要跟着变；逐条结果原样交给面板。整批被拒 ⇒ 抛给面板显示人话。
- * - 「整理本会话」不在这里（F13），面板因此不画那个入口。
+ * - 「整理本会话」（UC-KG-4，issue #4352）：所有者、且这个会话所在组织现在真的在抽（`extractionActive`）时给——
+ *   抽取关着时排不进任何东西，给一个点了没反应的按钮比不给更坏。成功 ⇒ 重读，面板进入「整理中」、
+ *   由 `useThreadKnowledge` 的轮询接着跟到结束；「失败 · 重试」走同一条路。`KG_REINDEX_ALREADY_RUNNING`
+ *   也重读（服务端已经在整理，界面要跟上），再把失败抛给面板显示人话。
  */
 export function useKnowledgeWriteActions(state: ThreadKnowledgeState): KnowledgePanelWriteActions | undefined {
   const { threadId, data, reload } = state;
@@ -211,14 +215,30 @@ export function useKnowledgeWriteActions(state: ThreadKnowledgeState): Knowledge
       throw e;
     }
   }, [threadId, reload]);
+  const reindex = React.useCallback(async (): Promise<void> => {
+    if (threadId === null) throw new Error("knowledge_not_loaded");
+    try {
+      await requestReindex(threadId);
+    } catch (e) {
+      if (knowledgeGraphErrorCode(e) === "KG_REINDEX_ALREADY_RUNNING") reload();
+      throw e;
+    }
+    reload();
+  }, [threadId, reload]);
   const canEdit = data?.canEdit === true;
   const canPromote = canEdit && data?.canPromote === true;
   const canPromoteProject = data?.canPromoteToProject === true;
+  const canReindex = canEdit && data?.extractionActive === true;
   return React.useMemo(
     () => (canEdit || canPromoteProject
-      ? { apply, ...(canPromote ? { onPromote: promote } : {}), ...(canPromoteProject ? { onPromoteToProject: promoteProject } : {}) }
+      ? {
+        apply,
+        ...(canPromote ? { onPromote: promote } : {}),
+        ...(canPromoteProject ? { onPromoteToProject: promoteProject } : {}),
+        ...(canReindex ? { onReindex: reindex } : {}),
+      }
       : undefined),
-    [canEdit, canPromote, canPromoteProject, apply, promote, promoteProject],
+    [canEdit, canPromote, canPromoteProject, canReindex, apply, promote, promoteProject, reindex],
   );
 }
 

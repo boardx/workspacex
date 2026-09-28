@@ -47,9 +47,8 @@ export const CITATION_CORRECTION_PORT = Symbol("CitationCorrectionPort");
 /**
  * 「已过时」的领域操作 `expireClaim`。
  *
- * TODO(#4363)：S6 给结论加上 `valid_until` 之后，这个端口的实现改成「valid_until = now()」（过期而不是撤回），
- * 名字与签名不变、应用层不用动；纠正事件（纠正率的分子）照旧要记一行 `kg_citation_corrections`。
- * 在那之前的实现（`PgCitationCorrection.expireClaim`）接在既有的撤回上：与忘掉同一种失效，原因记 `user_citation_expired`。
+ * 实现（`PgCitationCorrection.expireClaim`，迁移 20260928220000）：被点那条的整家 `valid_to = now()`——S6（#4363）的有效期，
+ * 不撤回：/brain 与记忆面板照旧列出、标「已过期」，召回不再用它。纠正事件（纠正率的分子）照旧记一行 `kg_citation_corrections`。
  */
 export interface ClaimExpiryPort {
   expireClaim(orgId: OrgId, userId: string, target: CitationTarget): Promise<void>;

@@ -12,9 +12,11 @@
  * - S8（#4365）：调抽取模型之前过「值得记」门控（extraction-gate.ts）；每个任务的耗时与结果记进 SLO 记录器。
  */
 import type { LoggerPort } from "../ports/logger.port";
+import { attachChatMessageEvidence, type ChatEvidenceDeps } from "../project/collect-evidence/chat";
 import { buildExtractionBatch, KG_EXTRACTION_PIPELINE_VERSION } from "../../domain/knowledge-graph/extraction";
 import { applyOntologyBatch } from "./apply-ontology-batch";
 import { copyAuthorDecisions } from "./auto-copy-decisions";
+import { proposeGoalLinks, type GoalLinkDeps } from "./profile";
 import { detectConflicts, detectSupersedes } from "./detect-conflicts";
 import { gateExtraction, type WorthinessModelPort } from "./extraction-gate";
 import type { ExtractionSloRecorder } from "./extraction-slo-recorder";
@@ -35,8 +37,18 @@ export interface ExtractionDeps {
   readonly conflicts: KgConflictPort;
   /** issue #4283：必填——没有它就不该跑抽取（否则「本人的决定会自动记下」这件事会悄悄不发生）。 */
   readonly autoCopy: KgAutoCopyPort;
+  /**
+   * issue #4360：自动记入之后，模型提议把新记下的决定 / 待办挂到作者本人的哪个目标下（只有高把握才挂，见 profile.ts）。
+   * 可选：没接（只测别的环节的构造点）⇒ 不挂，不影响抽取。
+   */
+  readonly goalLinks?: Pick<GoalLinkDeps, "goalLinks" | "proposer">;
   readonly logger: LoggerPort;
   readonly newId: (prefix: "obj" | "clm" | "edg" | "act") => string;
+  /**
+   * B3-T1（#4495）：项目作用域线程的消息锚点在落表前回填成证据单元（`project_evidence`）并带上 `evidenceId`。
+   * 可选——不给就照旧只写锚点（旧测试装配、以及不想让证据仓储进抽取链的场合）。
+   */
+  readonly chatEvidence?: ChatEvidenceDeps;
   /** S8：SLO 记录器（生产合成必注入；只测抽取本身的夹具可以不给——那时只是不计数，门控规则照常生效）。 */
   readonly slo?: ExtractionSloRecorder;
   /** S8：可选的便宜模型门控（`KG_EXTRACTION_GATE_MODEL=1` 才注入，默认没有）。 */
@@ -80,6 +92,8 @@ export async function extractJob(deps: ExtractionDeps, job: KgExtractionJob): Pr
   const known = await deps.source.knownObjects(job.orgId, job.threadId);
   const batch = buildExtractionBatch({
     threadId: job.threadId, messageId: job.messageId, messageBody: loaded.message.body,
+    // issue #4363（S6）：「这周」「到年底」按说这句话的时间换算（不是按抽取任务跑的时间）
+    ...(loaded.message.createdAt === undefined ? {} : { messageAt: loaded.message.createdAt }),
     result, known, newId: deps.newId,
   });
   if (batch === null) {
@@ -92,7 +106,9 @@ export async function extractJob(deps: ExtractionDeps, job: KgExtractionJob): Pr
     });
     return "empty";
   }
-  const out = await applyOntologyBatch(deps.store, job.orgId, null, batch);
+  // B3-T1：先回填证据单元再交执行器——执行器落 `claim_message_evidence.evidence_id` 需要单元先存在。
+  const withEvidence = deps.chatEvidence === undefined ? batch : await attachChatMessageEvidence(deps.chatEvidence, job.orgId, batch);
+  const out = await applyOntologyBatch(deps.store, job.orgId, null, withEvidence);
   if (out.outcome === "rejected") {
     // 执行器拒了（已留痕）：这是抽取产物的问题，重试同一份产物没有意义。
     deps.logger.info("kg extraction batch rejected", {
@@ -107,6 +123,16 @@ export async function extractJob(deps: ExtractionDeps, job: KgExtractionJob): Pr
   // 同理：重试时再跑一遍无害（已复制过的不再是候选）。判矛盾、取代之后跑：被标成冲突的新条不会被带进个人空间，
   // 被取代的旧条在复制之前已经定下来。
   await copyAuthorDecisions({ autoCopy: deps.autoCopy, logger: deps.logger, newId: deps.newId }, job);
+  // issue #4360：挂目标只是锦上添花——出任何错都只记日志，这条消息照常算写成（不重试整条抽取）。
+  if (deps.goalLinks !== undefined) {
+    try {
+      await proposeGoalLinks({ ...deps.goalLinks, logger: deps.logger, newId: deps.newId }, job);
+    } catch (e) {
+      deps.logger.info("kg goal link step failed", {
+        traceId: "kg-extraction", orgId: job.orgId, messageId: job.messageId, detail: e instanceof Error ? e.message : "unexpected goal link failure",
+      });
+    }
+  }
   return "written";
 }
 
@@ -138,7 +164,8 @@ export async function runExtractionTick(deps: ExtractionDeps, abandoned: () => b
         if (outcome === "written") written += 1;
         else if (outcome === "empty") empty += 1;
         else skipped += 1;
-        await deps.queue.complete(orgId, job.messageId, job.attempts);
+        // S8 的「值得记」门控跳过的（gated）在 #4352 的逐条结果里记成 skipped（没调抽取模型，与 round 7 不抽同一类）
+        await deps.queue.complete(orgId, job.messageId, job.attempts, outcome === "gated" ? "skipped" : outcome);
         // 没调抽取模型的（门控跳过 / round 7 不抽）不进失败率的分母
         deps.slo?.recordJob(Date.now() - startedAt, outcome === "gated" ? "skipped" : outcome, outcome === "gated" || outcome === "skipped");
       } catch (err) {
