@@ -2,10 +2,11 @@
  * WF03 —— Workflow 运行时（start / resume / cancel / 事件日志 / SSE）的应用层端口。
  * 实现在 infrastructure/workflow；application 只声明形状（洋葱架构）。
  */
-import type { WorkflowInstanceStatus, WorkflowReasonCode, WorkflowSseEnvelope } from "@repo/contracts/workflow-runtime";
+import { type WorkflowInstanceStatus, type WorkflowReasonCode, type WorkflowSseEnvelope, WorkflowEventType as WorkflowEventTypeSchema } from "@repo/contracts/workflow-runtime";
+import type { z } from "zod";
 import type { PinnedWorkflowInstance, WorkflowLease } from "./workflow-ports";
 
-export type WorkflowEventType = Extract<WorkflowSseEnvelope, { type: "delta" }>["payload"]["event"];
+export type WorkflowEventType = z.infer<typeof WorkflowEventTypeSchema>;
 
 export interface WorkflowEventInput {
   type: WorkflowEventType;
