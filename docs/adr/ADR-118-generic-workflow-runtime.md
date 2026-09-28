@@ -21,3 +21,6 @@
 ## 后果
 - 新 Workflow 不得自建 checkpointer、receipt 或 lease。
 - Context Pack 需从「run」泛化到「run 或 workflow stage」。
+
+## 补充决策（2026-09-28，人类裁决，作者化试点评审提出）
+9. **Workflow 固定 Skill 版本；负责它的 Agent 不需要另外挂载这些 Skill。** Agent 只要在 `workflowAllowlist` 里被允许运行某 Workflow 版本，就可以在该 Workflow 的阶段内使用它固定的 Skill 版本。Agent 自己的 Skill 挂载（`agent_versions.skill_version_ids`）只管聊天中的直接调用。组合矩阵里 DigitalHuman 行的 Skill 列因此只列「直接调用」的 Skill，不必为了 Workflow 阶段逐个补边。
