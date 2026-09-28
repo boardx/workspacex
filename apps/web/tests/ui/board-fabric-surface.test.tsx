@@ -1,6 +1,7 @@
 import { act, createEvent, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { BOARD_FABRIC_VISUAL } from "@/components/whiteboard/fabric/board-fabric-visual";
+import { drawingToolStyle } from "@/components/whiteboard/drawing-tool-style";
 import type { BoardFabricObject, BoardViewport } from "@/components/whiteboard/fabric/board-fabric-object";
 
 interface MockProjectedObject {
@@ -11,7 +12,7 @@ interface MockProjectedObject {
   fontFamily?: string; fontSize?: number; fontWeight?: number; fontStyle?: string; underline?: boolean; textAlign?: string; lineHeight?: number; fill?: string; hoverCursor?: string; lockScalingX?: boolean; lockScalingY?: boolean;
   clipPath?: unknown;
   matrix?: number[];
-  text?: string; strokeWidth?: number; opacity?: number;
+  text?: string; stroke?: string; strokeWidth?: number; opacity?: number;
   calcTransformMatrix: () => number[];
 }
 
@@ -184,6 +185,28 @@ describe("BoardFabricSurface", () => {
       { x: 100, y: 120, pressure: .3 },
       { x: 140, y: 160, pressure: .8 },
     ] });
+  });
+
+  it.each([
+    ["draw-pen", "pen"],
+    ["draw-marker", "marker"],
+    ["draw-highlighter", "highlighter"],
+    ["erase", "eraser"],
+  ] as const)("uses the persisted %s style for its live preview", (tool, drawingTool) => {
+    renderSurface({ tool });
+    const pointer = (type: string, x: number, y: number) => {
+      const event = new MouseEvent(type, { clientX: x, clientY: y });
+      Object.defineProperty(event, "pressure", { value: 1 });
+      return event;
+    };
+    probe.handlers.get("mouse:down")?.({ e: pointer("pointerdown", 10, 20) } as never);
+    probe.handlers.get("mouse:move")?.({ e: pointer("pointermove", 30, 40) } as never);
+    const preview = probe.objects.find((object) => object.data?.drawingPreview)!;
+    expect(preview).toMatchObject({
+      stroke: drawingToolStyle(drawingTool).color,
+      strokeWidth: drawingToolStyle(drawingTool).width,
+      opacity: drawingToolStyle(drawingTool).opacity,
+    });
   });
 
   it("constructs dedicated Fabric projections for shape, vector drawing, image state, and structured card", () => {

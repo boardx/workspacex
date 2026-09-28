@@ -32,6 +32,7 @@ import { dispatchBoardCommentCommand, listBoardCommentThreads, listBoardMentiona
 import type { WhiteboardCommentThread } from "@repo/contracts/whiteboard-collaboration";
 import { inspectRemoteImageUrl, verifyBoardImageBytes, type BoardContentData, type BoardShapeVariant, type BoardStructuredKind, type VerifiedBoardImage } from "./board-content-adapter";
 import { BoardDurableImageSession, durableBoardImageMetadata } from "./board-session-image-assets";
+import { drawingToolStyle } from "./drawing-tool-style";
 
 import { BoardMentionPicker } from "./board-mention-picker";
 
@@ -443,12 +444,19 @@ export function CollaborativeThinkingEditor({ organizeFitRequest, dockExtension,
   </div> : null;
   const contextObject = selected.length === 1 && !selectedContent && !selectedPanel && !selectedConnector ? model.objects.find((candidate) => candidate.id === selected[0] && !candidate.locked) : undefined;
   const commitDrawing = (drawingTool: DrawingTool, points: Array<{ x: number; y: number; pressure: number }>) => {
-    const styles: Record<DrawingTool, { color: string; width: number; opacity: number }> = { pen: { color: "#18181B", width: 3, opacity: 1 }, marker: { color: "#2563EB", width: 8, opacity: .9 }, highlighter: { color: "#FACC15", width: 20, opacity: .35 }, eraser: { color: "#FFFFFF", width: 24, opacity: 1 } };
-    const draft: DrawingStroke = { id: crypto.randomUUID(), tool: drawingTool, points, ...styles[drawingTool], ...(drawingTool === "eraser" && selectedContent?.type === "drawing" ? { erases: selectedContent.strokes.filter((item) => item.tool !== "eraser").map((item) => item.id) } : {}) };
+    const draft: DrawingStroke = { id: crypto.randomUUID(), tool: drawingTool, points, ...drawingToolStyle(drawingTool), ...(drawingTool === "eraser" && selectedContent?.type === "drawing" ? { erases: selectedContent.strokes.filter((item) => item.tool !== "eraser").map((item) => item.id) } : {}) };
     try {
       const existing = selectedContent?.type === "drawing" ? selectedContent.strokes : [];
       const stroke = fitDrawingStrokeToExtensionBudget(existing, draft);
-      if (selectedObject && selectedContent?.type === "drawing") { replaceContent(selectedObject.id, { ...selectedContent, strokes: [...selectedContent.strokes, stroke] }); return; }
+      if (selectedObject && selectedContent?.type === "drawing") {
+        const content = { ...selectedContent, strokes: [...selectedContent.strokes, stroke] };
+        const geometry = drawingBounds(content.strokes.flatMap((item) => item.points));
+        execute([
+          { type: "geometry", id: selectedObject.id, geometry },
+          { type: "extension", id: selectedObject.id, key: "contentObject", value: content },
+        ]);
+        return;
+      }
       if (drawingTool === "eraser") { setNotice("先选择一个绘图对象，再用橡皮擦添加可撤销的矢量擦除笔画。"); return; }
       createContentAt(stroke.points[0]!, { version: 1, type: "drawing", strokes: [stroke] });
     } catch { setNotice("这条笔迹超过协作数据预算，请缩短笔画或拆成多次绘制。"); }

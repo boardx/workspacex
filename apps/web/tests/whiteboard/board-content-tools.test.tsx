@@ -9,11 +9,12 @@ vi.mock("@/components/whiteboard/fabric/board-fabric-surface", () => ({
   BoardFabricSurface: ({ objects, onSelectionChange, onDrawingComplete, onCanvasClick }: {
     objects: readonly BoardFabricObject[];
     onSelectionChange: (ids: string[], source: "canvas") => void;
-    onDrawingComplete?: (input: { tool: "pen" | "eraser"; points: Array<{ x: number; y: number; pressure: number }> }) => void;
+    onDrawingComplete?: (input: { tool: "pen" | "marker" | "highlighter" | "eraser"; points: Array<{ x: number; y: number; pressure: number }> }) => void;
     onCanvasClick?: (point: { x: number; y: number }) => void;
   }) => <div data-testid="board-fabric-surface"><output data-testid="image-preview">{objects.filter(object=>object.kind==="image").map(object=>object.imageAssetUrl).join(",")}</output>
     <button data-testid="select-first" onClick={() => objects[0] && onSelectionChange([objects[0].id], "canvas")}>select</button>
     <button data-testid="draw-stroke" onClick={() => onDrawingComplete?.({ tool: "pen", points: [{ x: 10, y: 20, pressure: .2 }, { x: 50, y: 60, pressure: .9 }] })}>draw</button>
+    <button data-testid="draw-outside" onClick={() => onDrawingComplete?.({ tool: "marker", points: [{ x: -40, y: 5, pressure: .4 }, { x: 140, y: 180, pressure: .6 }] })}>draw outside</button>
     <button data-testid="erase-stroke" onClick={() => onDrawingComplete?.({ tool: "eraser", points: [{ x: 20, y: 30, pressure: .5 }, { x: 40, y: 50, pressure: .7 }] })}>erase</button>
     <button data-testid="canvas-click" onClick={() => onCanvasClick?.({ x: 200, y: 220 })}>canvas</button>
   </div>,
@@ -124,6 +125,25 @@ it("stores pressure-aware drawing and eraser strokes as vector compositing objec
   fireEvent.click(screen.getByTestId("erase-stroke"));
   expect(readObjects(doc)).toHaveLength(1);
   expect(readObjects(doc)[0]?.extensionData?.contentObject).toMatchObject({ type: "drawing", strokes: [{ tool: "pen" }, { tool: "eraser", erases: [expect.any(String)] }] });
+  doc.destroy();
+});
+
+it("expands an existing drawing around an out-of-bounds stroke without rebasing world points", async () => {
+  const { drawingToolStyle } = await import("@/components/whiteboard/drawing-tool-style");
+  const doc = await setup();
+  fireEvent.click(screen.getByTestId("board-add-draw"));
+  fireEvent.click(screen.getByTestId("draw-stroke"));
+  fireEvent.click(screen.getByTestId("draw-outside"));
+
+  const drawing = readObjects(doc)[0]!;
+  expect(drawing.geometry).toEqual({ x: -40, y: 5, width: 180, height: 175, rotation: 0 });
+  expect(drawing.extensionData?.contentObject).toMatchObject({
+    type: "drawing",
+    strokes: [
+      { tool: "pen", points: [{ x: 10, y: 20 }, { x: 50, y: 60 }] },
+      { tool: "marker", points: [{ x: -40, y: 5 }, { x: 140, y: 180 }], ...drawingToolStyle("marker") },
+    ],
+  });
   doc.destroy();
 });
 

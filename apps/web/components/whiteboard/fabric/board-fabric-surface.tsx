@@ -18,19 +18,13 @@ import {
 import { BOARD_FABRIC_VISUAL, boardDotGridStyle } from "./board-fabric-visual";
 import { connectorInteraction } from "./connector-interaction";
 import { representableWorldGeometry } from "./fabric-transform";
+import { drawingToolStyle } from "../drawing-tool-style";
 
 type TaggedFabricObject = FabricObject & {
   data?: { boardObjectId?: string; adapterKind?: BoardFabricObject["kind"]; renderedRevision?: number; projectionFailure?: boolean; stickyVariant?: BoardFabricStickyAppearance["variant"]; sizingMode?: BoardFabricStickyAppearance["sizingMode"]; drawingPreview?: boolean };
 };
 
 type DrawingTool = "pen" | "marker" | "highlighter" | "eraser";
-
-function previewStyle(tool: DrawingTool): { color: string; width: number; opacity: number; dash?: number[] } {
-  if (tool === "marker") return { color: "#2563EB", width: 8, opacity: .85 };
-  if (tool === "highlighter") return { color: "#FACC15", width: 18, opacity: .35 };
-  if (tool === "eraser") return { color: "#EF4444", width: 20, opacity: .45, dash: [6, 4] };
-  return { color: "#18181B", width: 3, opacity: 1 };
-}
 
 export function connectorTipAngles(type: "straight" | "elbow" | "curve", x1: number, y1: number, x2: number, y2: number): { start: number; end: number } {
   const tangent = type === "straight"
@@ -665,11 +659,11 @@ export function BoardFabricSurface({ objects, selectedObjectIds, readOnly, tool,
         const previous = drawing.points.at(-1)!;
         const next = { x: pointer.x, y: pointer.y, pressure: pressureOf(event) };
         drawing.points.push(next);
-        const style = previewStyle(drawing.tool);
+        const style = drawingToolStyle(drawing.tool);
         const pressure = Math.max(.1, (previous.pressure + next.pressure) / 2);
         const segment = new Path(`M ${previous.x} ${previous.y} L ${next.x} ${next.y}`, {
           fill: "", stroke: style.color, strokeWidth: style.width * (.35 + pressure * .65), opacity: style.opacity,
-          strokeDashArray: style.dash, strokeLineCap: "round", strokeLineJoin: "round", selectable: false, evented: false,
+          strokeLineCap: "round", strokeLineJoin: "round", selectable: false, evented: false,
         }) as TaggedFabricObject;
         segment.data = { drawingPreview: true };
         drawingPreview.push(segment);
