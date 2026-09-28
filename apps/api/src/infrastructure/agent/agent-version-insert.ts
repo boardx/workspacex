@@ -49,6 +49,30 @@ export function toRoleFields(row: AgentRoleColumnsRow): AgentRoleFieldsT {
   });
 }
 
+/**
+ * Read-path variant for list/read projections (AgentDefinition). The DB CHECK is wider than the
+ * contract, so a row written outside the Zod path (manual SQL, a future import) must not break
+ * every list: fall back to the contract defaults and emit a process warning naming the row.
+ * Publish never uses these values -- insertAgentVersionFromDraft copies the columns via SELECT.
+ */
+export function toRoleFieldsTolerant(row: AgentRoleColumnsRow, agentId: string): AgentRoleFieldsT {
+  const parsed = agentRole.AgentRoleFields.safeParse({
+    avatar: row.avatar,
+    roleCategory: row.role_category,
+    catalogSource: row.catalog_source,
+    workflowAllowlist: row.workflow_allowlist,
+    delegationPolicy: row.delegation_policy,
+    escalationPolicy: row.escalation_policy,
+    kpi: row.kpi,
+  });
+  if (parsed.success) return parsed.data;
+  process.emitWarning(`agent ${agentId}: role columns fail AgentRoleFields; using defaults`, {
+    code: "AGENT_ROLE_FIELDS_INVALID",
+    detail: parsed.error.message,
+  });
+  return structuredClone(agentRole.AGENT_ROLE_FIELD_DEFAULTS);
+}
+
 export interface AgentVersionInsert {
   readonly versionId: string;
   readonly orgId: string;

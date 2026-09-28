@@ -16,7 +16,7 @@
 import type { DatabasePort } from "../../application/ports/database.port";
 import { toOrgId } from "../../domain/org-id";
 import type { AgentDefinition } from "../../domain/agent/definition";
-import { AGENT_ROLE_COLUMNS, toRoleFields, type AgentRoleColumnsRow } from "./agent-version-insert";
+import { AGENT_ROLE_COLUMNS, toRoleFieldsTolerant, type AgentRoleColumnsRow } from "./agent-version-insert";
 import type { AgentCapabilityGraphRow, CreateAgentRepository } from "../../application/agent/create-agent";
 import type { SetAgentInstructionsRepository } from "../../application/agent/set-agent-instructions";
 import type {
@@ -119,7 +119,7 @@ export function toDefinition(row: AgentDefinitionRow): AgentDefinition | null {
     concurrencyLimit: row.concurrency_limit,
     degradePolicy: row.degrade_policy as AgentDefinition["degradePolicy"],
     // AG01：草稿角色列（迁移 20260928230000）；发布时由 agent-version-insert.ts 原样拷进版本。
-    ...toRoleFields(row),
+    ...toRoleFieldsTolerant(row, row.id),
   };
 }
 

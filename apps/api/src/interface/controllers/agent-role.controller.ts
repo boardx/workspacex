@@ -51,7 +51,7 @@ export class AgentRoleController {
     @Body(new ZodBodyPipe(R.operations.updateAgentRoleDraft.in)) body: UpdateRoleBody,
   ) {
     assertPrincipal(principal);
-    if (body.agentId !== agentId) throw new NotFoundException({ reasonCode: "AGENT_NOT_FOUND" });
+    if (body.agentId !== agentId) throw new UnprocessableEntityException({ reasonCode: "VALIDATION_FAILED" });
     try {
       const view = await updateAgentRoleDraft(
         {
