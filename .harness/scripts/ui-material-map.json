@@ -45,8 +45,12 @@
     "design-ai-collab": "ui-preview/design-ai-collab",
     "//design-prototype": "UC-17.8 B5.3（2026-09-06 建）：原型画布从占位块变成模型生成的组件树。detail-prototype-* 三张由 shot-feedback-design-loop.mjs 落进本束独占目录。",
     "design-prototype": "ui-preview/design-prototype",
-    "inbox-unified": { "shared_dir": "ui-preview/feedback-design-loop" },
-    "feedback-drafts": { "shared_dir": "ui-preview/feedback-design-loop" }
+    "inbox-unified": {
+      "shared_dir": "ui-preview/feedback-design-loop"
+    },
+    "feedback-drafts": {
+      "shared_dir": "ui-preview/feedback-design-loop"
+    }
   },
   "phase-04-digital-expert-interview-studio": {
     "digital-expert-interview": "ui-preview/digital-expert-interview"
@@ -97,5 +101,12 @@
   },
   "phase-19-board-visual-workspace": {
     "board-fabric-surface": "ui-preview/board-fabric-surface"
+  },
+  "phase-20-work-stack-foundation": {
+    "agent-role": "ui-preview/agent-role",
+    "work-content": "ui-preview/work-content",
+    "work-eval": "ui-preview/work-eval",
+    "work-skill-meta": "ui-preview/skill-catalog",
+    "workflow-runtime": "ui-preview/workflow-runtime"
   }
 }
