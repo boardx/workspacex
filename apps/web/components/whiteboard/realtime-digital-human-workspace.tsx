@@ -1,15 +1,21 @@
 "use client";
 
-import { useCallback, useState } from "react";
-import { Volume2, VolumeX } from "lucide-react";
+import { useCallback, useRef, useState } from "react";
+import { Mic, PhoneOff, Volume2, VolumeX } from "lucide-react";
 import { CopilotKitV2Panel } from "@/components/chat/copilotkit-v2-panel";
 import { Button } from "@/components/ui/button";
 import { LiveBoard } from "./live-board";
+import { openOmniConversation, type OmniConversationHandle } from "@/lib/live-omni-conversation";
 
 export function RealtimeDigitalHumanWorkspace({ boardId }: { boardId: string }): JSX.Element {
   const [selectedObjectIds, setSelectedObjectIds] = useState<string[]>([]);
   const [speechEnabled, setSpeechEnabled] = useState(true);
   const [avatarState, setAvatarState] = useState<"idle" | "listening" | "thinking" | "speaking">("idle");
+  const [liveStatus, setLiveStatus] = useState<"idle" | "connecting" | "live">("idle");
+  const [liveError, setLiveError] = useState<string | null>(null);
+  const [userTranscript, setUserTranscript] = useState("");
+  const [assistantTranscript, setAssistantTranscript] = useState("");
+  const liveHandle = useRef<OmniConversationHandle | null>(null);
 
   const speak = useCallback((text: string) => {
     if (!speechEnabled || typeof window === "undefined" || !("speechSynthesis" in window)) return;
@@ -28,6 +34,37 @@ export function RealtimeDigitalHumanWorkspace({ boardId }: { boardId: string }):
   }, []);
 
   const stateLabel = { idle: "在线待命", listening: "正在聆听", thinking: "正在思考", speaking: "正在回答" }[avatarState];
+
+  const toggleLiveConversation = useCallback(async () => {
+    if (liveHandle.current) {
+      const handle = liveHandle.current;
+      liveHandle.current = null;
+      await handle.stop();
+      setLiveStatus("idle");
+      setAvatarState("idle");
+      return;
+    }
+    setLiveError(null);
+    setUserTranscript("");
+    setAssistantTranscript("");
+    setLiveStatus("connecting");
+    stopSpeech();
+    try {
+      liveHandle.current = await openOmniConversation(boardId, {
+        onReady: () => setLiveStatus("live"),
+        onUserSpeech: (speaking) => setAvatarState(speaking ? "listening" : "thinking"),
+        onUserTranscript: (text, final) => setUserTranscript((current) => final ? text : text || current),
+        onAssistantTranscript: (text, final) => setAssistantTranscript((current) => final ? text : `${current}${text}`),
+        onAssistantAudio: (speaking) => setAvatarState(speaking ? "speaking" : "idle"),
+        onError: (message) => { setLiveError(message); setAvatarState("idle"); },
+        onClosed: () => { liveHandle.current = null; setLiveStatus("idle"); setAvatarState("idle"); },
+      });
+    } catch (error) {
+      setLiveStatus("idle");
+      setAvatarState("idle");
+      setLiveError(error instanceof Error ? error.message : "实时通话启动失败");
+    }
+  }, [boardId, stopSpeech]);
 
   return (
     <div className="grid h-screen min-h-0 grid-cols-[minmax(0,1fr)_420px] bg-background">
@@ -70,6 +107,16 @@ export function RealtimeDigitalHumanWorkspace({ boardId }: { boardId: string }):
         <div className="flex items-center justify-between border-b border-border-subtle px-4 py-2 text-11 text-muted-foreground">
           <span>Board: {boardId}</span><span>已选 {selectedObjectIds.length} 个对象</span>
         </div>
+        <section className="space-y-2 border-b border-border px-4 py-3" aria-label="Qwen 实时语音通话">
+          <Button className="w-full" variant={liveStatus === "live" ? "destructive" : "primary"} onClick={() => void toggleLiveConversation()} disabled={liveStatus === "connecting"}>
+            {liveStatus === "live" ? <PhoneOff className="mr-2 h-4 w-4" /> : <Mic className="mr-2 h-4 w-4" />}
+            {liveStatus === "connecting" ? "正在连接 Qwen Realtime…" : liveStatus === "live" ? "结束实时通话" : "开始实时对话"}
+          </Button>
+          {liveStatus === "live" ? <p className="text-11 text-primary" role="status">已连接 qwen3.8-omni-flash-realtime，可直接说话并随时打断</p> : null}
+          {userTranscript ? <p className="text-12"><span className="font-medium">你：</span>{userTranscript}</p> : null}
+          {assistantTranscript ? <p className="text-12"><span className="font-medium">数字人：</span>{assistantTranscript}</p> : null}
+          {liveError ? <p className="text-12 text-destructive" role="alert">{liveError}</p> : null}
+        </section>
         <div className="min-h-0 flex-1">
           <CopilotKitV2Panel
             realtimeContext={{ boardId, selectedObjectIds }}
