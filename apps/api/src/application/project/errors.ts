@@ -70,3 +70,22 @@ export class ProjectMemberAlreadyExistsError extends Error {
     this.name = "ProjectMemberAlreadyExistsError";
   }
 }
+
+/**
+ * 项目中枢 B3-T5（#4499）/ `listNonWorkshopMembers` · `addNonWorkshopMember` ·
+ * `removeNonWorkshopMember` —— 调用者拿一个 **工作坊** 容器来调这三条 `collaborators` 路由。
+ *
+ * 契约头注逐字：这是「调用方把路径用错了」（同 `project_id_mismatch`：body 里的 projectId 与
+ * 路径不符），不是一个业务裁决，所以不占 `ProjectReason` 的码位。`interface` 层落成
+ * `BadRequestException("project_kind_mismatch")`——不带 `reasonCode` 字段的 400，形状与
+ * `project_id_mismatch` 完全相同。
+ *
+ * ⚠ 只对**组织成员**抛：非组织成员先被判成 `NO_PROJECT_ROLE`（403），否则一个外人可以拿
+ *   「400 还是 403」探出某个 id 是不是一个存在的工作坊。见 `list-non-workshop-member.ts`。
+ */
+export class ProjectKindMismatchError extends Error {
+  constructor() {
+    super("collaborators routes are for research_project / user_insight only; this container is a workshop (400 project_kind_mismatch, no reasonCode)");
+    this.name = "ProjectKindMismatchError";
+  }
+}

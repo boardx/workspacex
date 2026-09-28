@@ -684,7 +684,9 @@ function renderTab(
         />
       );
     case "todo": return <TabTodo view={view} readOnly={orgDisabled} projectId={projectId} />;
-    case "settings": return <TabSettings view={view} readOnly={orgDisabled} projectId={projectId} />;
+    case "settings":
+      // B3-T5：容器种类决定成员面板走哪组契约（`/members` vs `/collaborators`），取「先到的那份」同页头。
+      return <TabSettings view={view} readOnly={orgDisabled} projectId={projectId} projectKind={liveOverview?.kind ?? liveProject?.kind ?? null} />;
   }
 }
 

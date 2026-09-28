@@ -13,7 +13,8 @@
  *   × 项目角色（`identity.ProjectRole`：引导师 / 组长 / 组员 / 观察者）。
  *   **后者只属工作坊**（人类 2026-07-30 裁决，与 `project` 束 U-1 同源）——
  *   本束凡出现项目角色的操作，其对象都是工作坊；研究项目 / 用户洞察走 `project` 束的
- *   `NonWorkshopMemberRole`（**那边今天还没有操作**，见 `project.KNOWN_CONTRACT_GAPS.P2`）。
+ *   `NonWorkshopMemberRole`（操作 `listNonWorkshopMembers` / `addNonWorkshopMember` /
+ *   `removeNonWorkshopMember`，#4499 起；此前的缺口档案见 `project.KNOWN_CONTRACT_GAPS.P2`）。
  *
  * ⚠ **管理员不是超级用户，但 `purpose:"audit"` 是「放行 + 留痕」不是 403**。
  *   这条断言方向被 **O-04 反转过一次**：照旧稿写 `expect(403)` 会写出**方向错误的绿灯**——
