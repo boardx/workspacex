@@ -414,6 +414,11 @@ export default defineConfig({
         // Iteration 05 owns Panels, Groups, semantic Connectors, layer operations,
         // rotated transforms, and cross-client spatial persistence.
         "board-spatial-relationships.spec.ts",
+        // Candidate gates added by iterations 8–10: portable vendor import,
+        // meeting-room following, and vector Draw preview/cancellation.
+        "board-import-storage.spec.ts",
+        "board-meeting-room-acceptance.spec.ts",
+        "board-drawing-live-preview.spec.ts",
       ],
       grepInvert: EMPTY_DB_TAG_RE,
       dependencies: ["seeded", "board-collaboration-regressions"],
