@@ -98,6 +98,16 @@ describe('live survey workspace persistence',()=>{
   expect(screen.getByRole('region',{name:'问卷回收状态'})).toBeInTheDocument();
   expect(screen.getByRole('complementary',{name:'回收设置面板'})).toBeInTheDocument();
  });
+ it('restores the visible workflow step when browser history changes',async()=>{
+  window.history.replaceState(null,'','/studio/survey/saved-survey/design');
+  request.mockResolvedValueOnce(runtime());
+  render(<LiveSurveyWorkspace surveyId="saved-survey" initialStep="design"/>);
+  fireEvent.click(await screen.findByRole('button',{name:'前往发布回收'}));
+  expect(screen.getByRole('region',{name:'问卷回收状态'})).toBeInTheDocument();
+  window.history.replaceState(null,'','/studio/survey/saved-survey/design');
+  fireEvent(window,new PopStateEvent('popstate'));
+  expect(screen.getByRole('region',{name:'问卷设计画布'})).toBeInTheDocument();
+ });
  it('accepts a successful published template save without a second GET',async()=>{
   const original=runtime({publication:{token:'token',status:'collecting',version:4,expiresAt:'2026-10-20T10:00:00.000Z',questions:runtime().questions}});
   request.mockResolvedValueOnce(original).mockResolvedValueOnce({...original,version:5,template:{...original.template,title:'更新报告'}});
