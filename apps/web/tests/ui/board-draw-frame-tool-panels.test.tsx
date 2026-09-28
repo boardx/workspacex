@@ -20,7 +20,8 @@ function FrameHarness({onChoice=vi.fn()}:{onChoice?:(choice:BoardFrameChoice,mod
 it("offers all drawing instruments and keeps stroke appearance controls stateful",()=>{
   const onChoice=vi.fn();
   render(<DrawHarness onChoice={onChoice}/>);
-  expect(screen.getByTestId("board-draw-tool-panel")).toHaveClass("min-h-[17rem]","w-[min(47.5rem,calc(100vw-2rem))]","px-4","py-3");
+  expect(screen.getByTestId("board-draw-tool-panel")).toHaveClass("min-h-[17rem]","w-[min(47.5rem,calc(100vw-2rem))]","bg-card","border-border","shadow-2xl","px-4","py-3");
+  expect(screen.getByTestId("board-draw-tool-panel")).not.toHaveClass("bg-card/98","backdrop-blur");
   for(const name of ["Pen","Marker","Pencil","Highlighter","Eraser"]) expect(screen.getByRole("button",{name})).toBeVisible();
   fireEvent.click(screen.getByTestId("board-draw-pencil"));
   expect(onChoice).toHaveBeenCalledWith("pencil");
@@ -36,6 +37,8 @@ it("offers all drawing instruments and keeps stroke appearance controls stateful
 it("maps frame choices to canonical modes and exposes preset and custom sizes",()=>{
   const onChoice=vi.fn();
   render(<FrameHarness onChoice={onChoice}/>);
+  expect(screen.getByTestId("board-frame-tool-panel")).toHaveClass("min-h-[21.25rem]","w-[min(24rem,calc(100vw-2rem))]","bg-card","border-border","shadow-2xl","p-4");
+  expect(screen.getByTestId("board-frame-tool-panel")).not.toHaveClass("bg-card/98","backdrop-blur");
   fireEvent.click(screen.getByTestId("board-frame-grid"));
   expect(onChoice).toHaveBeenCalledWith("grid","grid");
   fireEvent.click(screen.getByTestId("board-frame-size-l"));

@@ -34,7 +34,7 @@ export function BoardDrawToolPanel({ choice, appearance, readOnly, onChoiceChang
   onSelect: () => void;
   onClose: () => void;
 }) {
-  return <section data-testid="board-draw-tool-panel" data-board-chrome="draw-panel" aria-label="Draw tools" className="absolute bottom-24 left-1/2 z-40 min-h-[17rem] w-[min(47.5rem,calc(100vw-2rem))] -translate-x-1/2 rounded-2xl border border-border bg-card/98 px-4 py-3 shadow-2xl backdrop-blur max-sm:bottom-20 max-sm:max-h-[70vh] max-sm:min-h-0 max-sm:overflow-y-auto max-sm:rounded-b-none">
+  return <section data-testid="board-draw-tool-panel" data-board-chrome="draw-panel" aria-label="Draw tools" className="absolute bottom-24 left-1/2 z-40 min-h-[17rem] w-[min(47.5rem,calc(100vw-2rem))] -translate-x-1/2 rounded-2xl border border-border bg-card px-4 py-3 shadow-2xl max-sm:bottom-20 max-sm:max-h-[70vh] max-sm:min-h-0 max-sm:overflow-y-auto max-sm:rounded-b-none">
     <div className="flex items-center gap-2 border-b border-border-subtle pb-2">
       <button type="button" aria-pressed="true" className="flex min-h-11 items-center gap-2 rounded-xl bg-primary/10 px-4 text-13 font-semibold text-primary"><PenTool className="h-5 w-5"/>Draw</button>
       <button type="button" data-testid="board-draw-select" onClick={onSelect} className="flex min-h-11 items-center gap-2 rounded-xl px-4 text-13 font-medium transition-colors hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">Select</button>
