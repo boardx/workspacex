@@ -1295,7 +1295,6 @@
       "mocks": [
         "apps/web/lib/mock/digital-expert-personas.ts",
         "apps/web/lib/mock/digital-interview-drafts.ts",
-        "apps/web/lib/mock/experts-persona.json",
         "apps/web/lib/mock/quick-digital-interview.ts"
       ]
     },
@@ -1305,7 +1304,6 @@
       "mocks": [
         "apps/web/lib/mock/digital-expert-personas.ts",
         "apps/web/lib/mock/digital-interview-drafts.ts",
-        "apps/web/lib/mock/experts-persona.json",
         "apps/web/lib/mock/quick-digital-interview.ts"
       ]
     },
@@ -1315,7 +1313,6 @@
       "mocks": [
         "apps/web/lib/mock/digital-expert-personas.ts",
         "apps/web/lib/mock/digital-interview-drafts.ts",
-        "apps/web/lib/mock/experts-persona.json",
         "apps/web/lib/mock/quick-digital-interview.ts"
       ]
     },
@@ -1325,7 +1322,6 @@
       "mocks": [
         "apps/web/lib/mock/digital-expert-personas.ts",
         "apps/web/lib/mock/digital-interview-drafts.ts",
-        "apps/web/lib/mock/experts-persona.json",
         "apps/web/lib/mock/quick-digital-interview.ts"
       ]
     },
@@ -1359,7 +1355,6 @@
       "mocks": [
         "apps/web/lib/mock/digital-expert-personas.ts",
         "apps/web/lib/mock/digital-interview-drafts.ts",
-        "apps/web/lib/mock/experts-persona.json",
         "apps/web/lib/mock/quick-digital-interview.ts"
       ]
     },

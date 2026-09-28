@@ -647,7 +647,9 @@ describe("F04 正式 setup 的显式确认与双层持久化验收门", () => {
     expect(push).toHaveBeenCalledWith(`/itv/${persistedInterview.interviewId}/experts`);
     setup.rerender(<DigitalInterviewSetup interviewId={persistedInterview.interviewId} initialWorkbenchStep="experts" />);
     expect(await screen.findByTestId("itv-markdown-experts")).toBeInTheDocument();
-    expect(screen.getByRole("textbox", { name: "专家文档 Markdown" })).toBeInTheDocument();
+    expect(screen.getByText("97 位模拟画像")).toBeVisible();
+    expect(screen.getByRole("button", { name: "添加虚拟专家" })).toBeVisible();
+    expect(screen.queryByRole("textbox", { name: "专家文档 Markdown" })).not.toBeInTheDocument();
     expect(screen.queryByTestId("itv-confirm-experts")).not.toBeInTheDocument();
   });
 

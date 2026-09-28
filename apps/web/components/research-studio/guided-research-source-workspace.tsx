@@ -1,23 +1,23 @@
 import type * as React from "react";
+import type { GuidedResearchRuntime } from "@/lib/guided-research-api";
 
-function Region({ title, testId, children, accent = false }: { title: string; testId: string; children: React.ReactNode; accent?: boolean }) {
-  return <section className={`rounded-xl border p-6 shadow-sm ${accent ? "border-border bg-muted/20" : "border-border bg-card"}`} data-testid={testId}><h2 className="text-2xl font-bold">{title}</h2><div className="mt-5 text-base leading-relaxed">{children}</div></section>;
-}
-
-export function GuidedResearchSourceWorkspace({ progress, activity, evidence, insights, risk, actions, sourcePreview }: {
-  progress: React.ReactNode;
-  activity: React.ReactNode;
-  evidence: React.ReactNode;
-  insights: React.ReactNode;
-  risk: React.ReactNode;
+export function GuidedResearchSourceWorkspace({ state, actions }: {
+  state: GuidedResearchRuntime;
   actions: React.ReactNode;
-  sourcePreview?: React.ReactNode;
 }) {
-  return <section className="space-y-5" data-testid="guided-research-source-workspace" data-reference-layout="research-operations">
-    <div className="grid min-w-0 gap-5 xl:grid-cols-[minmax(0,1fr)_minmax(0,1.08fr)_minmax(0,1fr)]">
-      <div className="space-y-4"><Region title="研究章节与任务" testId="guided-research-source-progress" accent>{progress}</Region></div>
-      <div className="min-w-0 space-y-4"><Region title="实时动态" testId="guided-research-source-activity">{activity}</Region><div className="flex flex-wrap gap-2">{actions}</div></div>
-      <div className="space-y-4"><Region title="研究洞察" testId="guided-research-source-insights" accent>{insights}</Region><Region title="关键来源" testId="guided-research-source-evidence">{sourcePreview ? <>{sourcePreview}<details className="mt-4"><summary className="cursor-pointer font-medium">查看全部来源与 Markdown</summary><div className="mt-4">{evidence}</div></details></> : evidence}</Region><Region title="潜在冲突 / 风险提示" testId="guided-research-source-risks">{risk}</Region></div>
+  const urls = state.sources.filter((source) => source.decision !== "excluded"
+    && source.addedByUser !== true
+    && !source.url.startsWith("https://internal.workspacex.local/"));
+
+  return <section className="space-y-4" data-testid="guided-research-source-workspace" data-reference-layout="research-sources">
+    <div className="min-w-0">
+      <section className="min-w-0 rounded-xl border border-border bg-card p-5" data-testid="guided-research-source-evidence">
+        <h2 className="text-lg font-bold">研究资料</h2>
+        {urls.length ? <ol aria-label="搜索得到的相关网址" className="mt-3 divide-y divide-border">
+          {urls.map((source, index) => { const description = source.presentation?.summary ?? source.content; return <li key={source.id} className="flex min-w-0 gap-3 py-3 text-sm"><span className="shrink-0 text-muted-foreground">{index + 1}.</span><a href={source.url} target="_blank" rel="noopener noreferrer" title={description} data-testid={`research-source-description-${source.id}`} onClick={(event) => event.preventDefault()} onDoubleClick={() => window.open(source.url, "_blank", "noopener,noreferrer")} onKeyDown={(event) => { if (event.key === "Enter") window.open(source.url, "_blank", "noopener,noreferrer"); }} className="min-w-0 cursor-pointer rounded-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring"><span className="block font-medium">{source.presentation?.title ?? source.title}</span><span className="mt-1 block line-clamp-2 text-muted-foreground">{description}</span></a></li>; })}
+        </ol> : <p className="mt-3 text-sm text-muted-foreground">尚未找到相关网址</p>}
+      </section>
     </div>
+    {actions && <div className="flex flex-wrap gap-2" data-testid="guided-research-source-actions">{actions}</div>}
   </section>;
 }

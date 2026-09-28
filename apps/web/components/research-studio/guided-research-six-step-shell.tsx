@@ -7,7 +7,7 @@ import { GUIDED_RESEARCH_SIX_STEPS, type GuidedResearchVisualStage } from "@/lib
 import { guidedResearchRoute } from "@/lib/guided-research-routes";
 
 const SCREEN_COPY = {
-  import: ["新建研究", "通过文件、文本或实时语音输入需求，AI 自动分析并生成详细的研究计划。"],
+  import: ["新建研究", ""],
   topic: ["确认研究主题", "完善你的研究主题与相关信息，这将帮助我们为你制定更精准的研究计划。"],
   plan: ["研究计划", "基于你提供的研究主题，我们已生成以下研究计划。你可以编辑和调整各部分内容，确认后将开始资料研究。"],
   research: ["资料研究", "正在搜索、阅读和分析相关资料，提取关键信息并整理研究发现。"],
@@ -79,8 +79,8 @@ export function GuidedResearchSixStepShell({
   return (
     <div className="min-h-dvh min-w-0 bg-muted/20" data-testid="guided-research-six-step-shell" data-layout="deep-research-desktop" data-reference-layout="prototype-desktop">
       <header className="top-0 z-20 bg-background/95 backdrop-blur md:sticky" data-testid="research-workspace-header">
-        <div className="border-b bg-card px-4 py-2 lg:px-8"><div className="mx-auto flex max-w-[1440px] items-center justify-between gap-3"><div className="flex items-center gap-3"><Search className="size-9 rounded-lg bg-primary p-2 text-primary-foreground" /><span className="text-xl font-bold">Deep Research</span><span className="hidden rounded bg-muted px-3 py-1 text-sm text-muted-foreground sm:block">智能研究平台</span></div>{onBack && <Button variant="primary" className="h-8 text-sm" data-testid="research-flow-back" onClick={() => requestLeave(onBack)}><ArrowLeft className="mr-2 size-4" />返回研究列表</Button>}</div></div>
-        <div className="mx-auto max-w-[1440px] px-4 pt-4 lg:px-8"><h1 className="text-2xl font-bold tracking-tight">{SCREEN_COPY[current][0]}</h1><p className="mt-1 text-sm leading-snug text-muted-foreground">{SCREEN_COPY[current][1]}</p>
+        <div className="border-b bg-card px-4 py-2 lg:px-8"><div className="mx-auto flex max-w-[1440px] items-center justify-between gap-3"><div className="flex items-center gap-3"><Search className="size-9 rounded-lg bg-primary p-2 text-primary-foreground" /><span className="text-xl font-bold">Deep Research</span>{current !== "import" && <span className="hidden rounded bg-muted px-3 py-1 text-sm text-muted-foreground sm:block">智能研究平台</span>}</div>{onBack && <Button variant="primary" className="h-8 text-sm" data-testid="research-flow-back" onClick={() => requestLeave(onBack)}><ArrowLeft className="mr-2 size-4" />返回研究列表</Button>}</div></div>
+        <div className="mx-auto max-w-[1440px] px-4 pt-4 lg:px-8"><h1 className="text-2xl font-bold tracking-tight">{SCREEN_COPY[current][0]}</h1>{SCREEN_COPY[current][1] && <p className="mt-1 text-sm leading-snug text-muted-foreground">{SCREEN_COPY[current][1]}</p>}
           <nav aria-label="研究步骤" data-testid="research-flow-progress" data-reference-variant="monochrome-stepper" className="mt-3 pb-3">
           <ol className="flex flex-wrap items-center gap-y-3 lg:flex-nowrap">
             {GUIDED_RESEARCH_SIX_STEPS.map((step, index) => {
