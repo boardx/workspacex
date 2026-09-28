@@ -61,17 +61,26 @@ describe("guided research reference layout", () => {
     expect(screen.getByTestId("guided-research-six-step-assistant")).toHaveTextContent("研究助手");
   });
 
-  it("offers truthful import routes around the brief workspace", () => {
-    render(<GuidedResearchEntryPanel brief={<div>研究需求 Markdown</div>} onContinue={vi.fn()} onRegenerate={vi.fn()} onSave={vi.fn()} disabled={false} />);
+  it("keeps only the usable import input and next-step action", () => {
+    const onContinue = vi.fn();
+    render(<GuidedResearchEntryPanel brief={<textarea aria-label="研究需求" />} onContinue={onContinue} disabled={false} />);
 
     expect(screen.getByTestId("guided-research-import-panel")).toBeInTheDocument();
     expect(screen.getByTestId("guided-research-import-panel")).toHaveAttribute("data-reference-layout", "intake-workspace");
     expect(screen.getByTestId("guided-research-import-panel").firstElementChild).toHaveClass("lg:min-h-[calc(100dvh-17rem)]");
-    expect(screen.getByRole("button", { name: "上传文件" })).toBeDisabled();
-    expect(screen.getByRole("button", { name: "录音" })).toBeDisabled();
-    expect(screen.getByRole("button", { name: "上传文件" })).toHaveAttribute("title", "当前环境尚未配置文件导入");
-    expect(screen.getByRole("button", { name: "录音" })).toHaveAttribute("title", "当前环境尚未配置实时录音");
-    expect(screen.getByText("研究需求 Markdown")).toBeInTheDocument();
+    expect(screen.getByRole("textbox", { name: "研究需求" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "上传文件" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "录音" })).not.toBeInTheDocument();
+    expect(screen.queryByText("草稿与重新生成")).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "确认并继续" }));
+    expect(onContinue).toHaveBeenCalledOnce();
+  });
+
+  it("hides import-only explanatory chrome while retaining the research steps", () => {
+    render(<GuidedResearchSixStepShell current="import" available={["import"]} onNavigate={vi.fn()} main="需求" />);
+    expect(screen.queryByText("智能研究平台")).not.toBeInTheDocument();
+    expect(screen.queryByText(/通过文件、文本或实时语音输入需求/)).not.toBeInTheDocument();
+    expect(screen.getByTestId("research-flow-progress")).toBeInTheDocument();
   });
 
   it("keeps topic editing beside the reference tips rather than a nested assistant", () => {
