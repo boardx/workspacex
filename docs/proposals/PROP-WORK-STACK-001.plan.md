@@ -50,7 +50,7 @@ flowchart TD
   class R1 done
   class R2 done
   class H1 done
-  class P0 doing
+  class P0 done
   class H2 todo
   class AU todo
   class RT todo
@@ -74,3 +74,4 @@ flowchart TD
 | 2026-09-28 | P0 | todo → doing | 开始 Phase 0 |
 | 2026-09-28 | P0 | doing → blocked | main 合入 #4523：v2 否决 v1、自带组合矩阵、要求 320 份逐个作者化+独立评审、新增实时数字人运行时；方案 D1 前提失效 |
 | 2026-09-28 | P0 | blocked → doing | 人类确认：v2 为权威；平台与作者化并行；实时数字人作独立轨道；作者化由多 agent 工作流跑。新增节点 AU、RT |
+| 2026-09-28 | P0 | doing → done | ADR-116~121、v1 superseded、AUTHORING-OUTPUT.md、lint:work-stack-graph（7 个反证测试通过）已写；等 PR CI 绿再转紫 |
