@@ -5,10 +5,10 @@
  * 第三批合入时，浏览器 e2e 只覆盖既有主流程；这条 spec 把第三批用户能看到的那几块在真栈上走一遍，
  * 并留截图作为 CI 产物（`test.info().outputPath`）。
  *
- * ## 为什么用工作坊容器
- * 研究项目 / 用户洞察两类容器今天打不开工作台（`authorize()` 只认 `project_memberships`，
- * 那张表只收工作坊行）——见 #4584，修好后在那边补研究项目这条路径。证据 / 大脑 / AI 权限 /
- * 观察者脱敏这几块在工作坊里是通的，这里只走它们。
+ * ## 两条路径
+ * 第一条用工作坊容器走证据 / 大脑 / AI 权限 / 观察者脱敏。第二条（#4591）走研究项目：
+ * #4584（PR #4588）之前这类容器谁都打不开工作台；现在负责人 / 协作者能进，工作坊专属 tab 不出现，
+ * 协作者面板在设置页可达，移出后即失去访问。
  *
  * ## 证据怎么来
  * 没有「新建证据」的接口：挂载资源（`POST /projects/:id/resources`）时 `linkProjectResource`
@@ -184,4 +184,71 @@ test("第三批真栈走查：问卷答卷入证据 → 来源列表 / 大脑空
   await page.goto(`/projects/${projectId}?tab=research&sub=sources`);
   await expect(page.getByTestId(`project-evidence-${item.id}-excerpt`)).toHaveText(redacted.excerpt);
   await shot("06-sources-observer-redacted.png");
+});
+
+test("研究项目：负责人加协作者 → 协作者打开工作台（无工作坊专属 tab）→ 负责人移出后协作者被拒", async ({ page }) => {
+  test.setTimeout(180_000);
+  const shot = (name: string) => page.screenshot({ path: test.info().outputPath(name), fullPage: true });
+
+  // ① org lead 建研究项目：创建即把创建者写成负责人（pg-project-repository.ts），再经 T5 接口加 member 为协作者。
+  await loginAs(page, FULLSTACK_E2E.leadEmail, FULLSTACK_E2E.leadPassword);
+  const project = await api<{ id: string; kind: string }>(page, "/projects", "POST", {
+    orgId: FULLSTACK_E2E.orgId,
+    name: `研究项目走查 ${Date.now()}`,
+    kind: "research_project",
+    blueprintVersionId: null,
+  });
+  expect(project.status, JSON.stringify(project.data)).toBe(201);
+  const projectId = project.data.id;
+  const roster = await api<{ members: Array<{ userId: string; role: string }> }>(page, `/projects/${projectId}/collaborators`);
+  expect(roster.status, JSON.stringify(roster.data)).toBe(200);
+  expect(roster.data.members).toContainEqual(expect.objectContaining({ userId: FULLSTACK_E2E.leadUserId, role: "owner" }));
+  const added = await api(page, `/projects/${projectId}/collaborators`, "POST", {
+    projectId, userId: FULLSTACK_E2E.memberUserId, role: "collaborator",
+  });
+  expect(added.status, JSON.stringify(added.data)).toBeLessThan(300);
+
+  // ② 协作者登录：工作台打得开，工作坊专属 tab（准备 / 现场 / 待办）不出现。
+  await page.context().clearCookies();
+  await page.evaluate(() => window.localStorage.clear());
+  await loginAs(page, FULLSTACK_E2E.memberEmail, FULLSTACK_E2E.memberPassword);
+  await page.goto(`/projects/${projectId}`);
+  await expect(page.getByTestId("project-access-denied")).toHaveCount(0);
+  await expect(page.getByTestId("project-tab-overview")).toBeVisible();
+  await expect(page.getByTestId("project-tab-research")).toBeVisible();
+  for (const tab of ["prep", "live", "todo"]) await expect(page.getByTestId(`project-tab-${tab}`)).toHaveCount(0);
+  await shot("11-research-project-collaborator-overview.png");
+
+  // 研究 → 来源：证据区真实渲染（还没挂资源 ⇒ 空态，不是拒绝 / 错误）。
+  await page.goto(`/projects/${projectId}?tab=research&sub=sources`);
+  await expect(page.getByTestId("project-evidence-empty")).toBeVisible();
+  await expect(page.getByTestId("project-evidence-error")).toHaveCount(0);
+  await shot("12-research-project-collaborator-sources.png");
+
+  // 设置：协作者面板可见、两人都在；协作者不是负责人 ⇒ 没有指派表单与移出按钮。
+  await page.goto(`/projects/${projectId}?tab=settings`);
+  await expect(page.getByTestId(`project-collaborator-${FULLSTACK_E2E.leadUserId}`)).toBeVisible();
+  await expect(page.getByTestId(`project-collaborator-${FULLSTACK_E2E.memberUserId}`)).toBeVisible();
+  await expect(page.getByTestId("project-collaborators-add")).toHaveCount(0);
+  await expect(page.getByTestId(`project-collaborator-remove-${FULLSTACK_E2E.leadUserId}`)).toHaveCount(0);
+  await shot("13-research-project-collaborator-settings.png");
+
+  // ③ 负责人在设置页把协作者移出。
+  await page.context().clearCookies();
+  await page.evaluate(() => window.localStorage.clear());
+  await loginAs(page, FULLSTACK_E2E.leadEmail, FULLSTACK_E2E.leadPassword);
+  await page.goto(`/projects/${projectId}?tab=settings`);
+  await expect(page.getByTestId("project-collaborators-add")).toBeVisible();
+  await page.getByTestId(`project-collaborator-remove-${FULLSTACK_E2E.memberUserId}`).click();
+  await expect(page.getByTestId(`project-collaborator-${FULLSTACK_E2E.memberUserId}`)).toHaveCount(0);
+  await expect(page.getByTestId(`project-collaborator-${FULLSTACK_E2E.leadUserId}`)).toBeVisible();
+  await shot("14-research-project-owner-removed-collaborator.png");
+
+  // ④ 被移出的人再打开 ⇒ 拒绝页（NO_PROJECT_ROLE）。
+  await page.context().clearCookies();
+  await page.evaluate(() => window.localStorage.clear());
+  await loginAs(page, FULLSTACK_E2E.memberEmail, FULLSTACK_E2E.memberPassword);
+  await page.goto(`/projects/${projectId}`);
+  await expect(page.getByTestId("project-access-denied")).toHaveAttribute("data-reason", "NO_PROJECT_ROLE");
+  await shot("15-research-project-removed-collaborator-denied.png");
 });
