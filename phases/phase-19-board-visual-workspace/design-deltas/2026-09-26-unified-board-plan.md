@@ -325,7 +325,7 @@ flowchart LR
   ROOT --> INT
   INT --> E2E["已完成<br/>真实浏览器关键旅程 2/2<br/>会议室 36.2 分钟 1/1"]:::done
   E2E --> GATE{"同一候选 SHA 通过？"}:::gate
-  GATE -->|是| PR["发布中<br/>push + 候选 PR<br/>人测清单与已知缺口"]:::release
+  GATE -->|是| PR["已发布<br/>人测候选 PR #4524<br/>人测清单与已知缺口"]:::done
   GATE -->|否| DISCLOSE["缩小失败范围<br/>回退不稳定增量<br/>如实列出 blocker"]:::blocked
   classDef done fill:#dcfce7,stroke:#16a34a,color:#14532d
   classDef active fill:#dbeafe,stroke:#2563eb,color:#1e3a8a
