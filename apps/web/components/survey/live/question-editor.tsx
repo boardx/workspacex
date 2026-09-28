@@ -24,6 +24,7 @@ export function SurveyQuestionEditor({
   selectedQuestionId,
   studioLayout = false,
   disabled = false,
+  surveyTitle,
 }: {
   questions: SurveyWorkflowQuestion[];
   onChange: (questions: SurveyWorkflowQuestion[]) => void;
@@ -32,6 +33,7 @@ export function SurveyQuestionEditor({
   selectedQuestionId?: string | null;
   studioLayout?: boolean;
   disabled?: boolean;
+  surveyTitle?: string;
 }) {
   const [id, setId] = React.useState(questions[0]?.id);
   const [picking, setPicking] = React.useState(false);
@@ -528,15 +530,27 @@ export function SurveyQuestionEditor({
             <div
               className={`mx-auto space-y-7 rounded-lg border border-border bg-card p-4 ${previewDevice === "mobile" ? "max-w-sm" : previewDevice === "tablet" ? "max-w-2xl" : "w-full"}`}
             >
-              {visibleSurveyQuestions(questions, answers).map((q) => (
-                <SurveyQuestionRenderer
-                  key={`${q.id}-${q.type}`}
-                  question={q}
-                  value={answers[q.id]}
-                  onChange={(value) =>
-                    setAnswers((current) => ({ ...current, [q.id]: value }))
-                  }
-                />
+              {studioLayout && <section aria-label="问卷封面" className="rounded-lg border border-border bg-muted/30 p-5">
+                <p className="text-12 text-muted-foreground">问卷封面</p>
+                <h2 className="mt-2 text-20 font-semibold">{surveyTitle || "未命名问卷"}</h2>
+              </section>}
+              {(studioLayout ? questions : visibleSurveyQuestions(questions, answers)).map((q, questionIndex) => (
+                <React.Fragment key={`${q.id}-${q.type}`}>
+                  {studioLayout && (questionIndex === 0 || questions[questionIndex - 1]?.chapterId !== q.chapterId) &&
+                    <h3 className="border-b border-border pb-2 text-16 font-semibold">{q.chapterId || "未分组"}</h3>}
+                  <section className={studioLayout ? `rounded-lg border p-4 ${q.id === question?.id ? "border-primary" : "border-border"}` : ""}>
+                    {studioLayout && <button type="button" aria-label={`编辑第 ${questionIndex + 1} 题：${q.title || "未命名题目"}`}
+                      className="mb-3 w-full text-left text-12 font-medium text-muted-foreground transition-colors hover:text-foreground"
+                      onClick={() => { setId(q.id); setPendingType(undefined); }}>
+                      Q{questionIndex + 1} · 点击编辑
+                    </button>}
+                    <SurveyQuestionRenderer
+                      question={q}
+                      value={answers[q.id]}
+                      onChange={(value) => setAnswers((current) => ({ ...current, [q.id]: value }))}
+                    />
+                  </section>
+                </React.Fragment>
               ))}
             </div>
             </div>
