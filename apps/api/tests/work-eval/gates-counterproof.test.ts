@@ -107,6 +107,20 @@ describe("lint-work-stack-gates counterproof (EV03, E10)", () => {
     expect(gate(broken, "G0")).toMatchObject({ exitCode: 1, outcome: "fail", reasonCode: "MANIFEST_UNPARSEABLE" });
   });
 
+  it("subject = baseline (a tie) → G5 fail NOT_BETTER_THAN_BASELINE (E6/E10), even with G0–G4 green", async () => {
+    const root = goodRepo();
+    const p = await evaluate(root);
+    expect(gate(root, "G5")).toMatchObject({ outcome: "pass" });
+    const { readFileSync } = await import("node:fs");
+    const report = JSON.parse(readFileSync(p, "utf8")) as { subject: { results: unknown[] }; baseline: { results: unknown[] } };
+    report.baseline.results = structuredClone(report.subject.results);
+    writeFileSync(p, JSON.stringify(report));
+    const g = gate(root, "G5");
+    expect(g).toMatchObject({ outcome: "fail", reasonCode: "NOT_BETTER_THAN_BASELINE" });
+    expect(g.reason).toContain("tie");
+    expect(g.exitCode).toBe(0); // G5 does not gate the exit code in this phase (EV05 changes channels)
+  });
+
   it("injection/denial case failing in the latest report → G3 fail INJECTION_OR_DENIAL_CASE_FAILED", async () => {
     const root = goodRepo();
     const p = await evaluate(root);

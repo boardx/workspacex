@@ -84,6 +84,8 @@ export interface GateJudgement {
   failedG0toG4: boolean;
   /** 能产出合法 WorkGateStatus 时给出（需要 sha256 digest） */
   status: WorkGateStatus | null;
+  /** R3.6：本该产出 WorkGateStatus 却产不出时的原因（门脚本据此报错并退出非 0，不许静默丢弃）。 */
+  statusError: string | null;
 }
 
 const pass = (gate: GateId, reason = "ok"): GateResult => ({ gate, outcome: "pass", reasonCode: "OK", reason });
@@ -98,6 +100,20 @@ const na = (gate: GateId): GateResult => ({ gate, outcome: "not_applicable", rea
 const IdentityManifest = WorkSkillManifest.omit({ provenance: true }).extend({
   provenance: z.array(z.unknown()).min(1), // 逐条细节交给 G1（缺 license 应判 G1，而非 G0）
 });
+/**
+ * Workflow/Agent（A1）：本阶段只判 G0/G2/G4，契约层尚无它们的 `metadata.work` manifest，
+ * 因此只取门判定真正要读的最小身份面（stableId、evalSuiteId、input/outputSchema），其余字段放行。
+ */
+const NonSkillIdentityManifest = z
+  .object({
+    stableId: z.string().regex(/^[WD]\d{3}$/),
+    evalSuiteId: z.string().min(1),
+    inputSchema: z.record(z.unknown()),
+    outputSchema: z.record(z.unknown()),
+  })
+  .passthrough();
+type GateManifest = Pick<z.infer<typeof IdentityManifest>, "stableId" | "evalSuiteId" | "inputSchema" | "outputSchema"> &
+  Partial<Pick<z.infer<typeof IdentityManifest>, "provenance" | "dependencies">>;
 
 function newAjv() {
   return new Ajv({ strict: false, allErrors: true });
@@ -107,9 +123,11 @@ function ajvErrors(errors: { instancePath: string; message?: string }[] | null |
   return (errors ?? []).map(e => `${e.instancePath || "(root)"} ${e.message ?? "invalid"}`).join("; ");
 }
 
-function judgeG0(s: GateSubject, manifest: z.infer<typeof IdentityManifest> | null, manifestIssue: string | null): GateResult {
+function judgeG0(s: GateSubject, manifest: GateManifest | null, manifestIssue: string | null): GateResult {
   if (!manifest) return fail("G0", "MANIFEST_UNPARSEABLE", `${s.sourcePath} metadata.work: ${manifestIssue ?? "missing"}`);
   const problems: string[] = [];
+  const expectedKind = ({ S: "skill", W: "workflow", D: "agent" } as const)[s.stableId[0] as "S" | "W" | "D"];
+  if (expectedKind && expectedKind !== s.kind) problems.push(`${s.stableId} is a ${expectedKind} id but is declared by a ${s.kind} package ${s.sourcePath}`);
   if (manifest.stableId !== s.stableId) problems.push(`metadata.work.stableId ${manifest.stableId} ≠ ${s.stableId}`);
   if (s.identity.duplicatePackages.length > 0) problems.push(`stableId ${s.stableId} also declared by ${s.identity.duplicatePackages.join(", ")}`);
   if (!s.identity.inList) problems.push(`${s.stableId} not in WORK-STACK-320-LIST.md`);
@@ -137,7 +155,7 @@ function judgeG1(provenance: readonly unknown[]): GateResult {
   return pass("G1", `${provenance.length} provenance entries complete, licenses allowed`);
 }
 
-function judgeG2(s: GateSubject, manifest: z.infer<typeof IdentityManifest>): GateResult {
+function judgeG2(s: GateSubject, manifest: GateManifest): GateResult {
   const ajv = newAjv();
   const problems: string[] = [];
   const compile = (name: "inputSchema" | "outputSchema") => {
@@ -206,11 +224,15 @@ function judgeG4(s: GateSubject, ev: ReturnType<typeof latestEvidence>): GateRes
 }
 
 export function judgeWorkStackGates(s: GateSubject, now: Date = new Date()): GateJudgement {
-  let manifest: z.infer<typeof IdentityManifest> | null = null;
+  let manifest: GateManifest | null = null;
+  let skillManifest: z.infer<typeof IdentityManifest> | null = null;
   let manifestIssue = s.manifestError;
   if (manifestIssue === null) {
-    const parsed = IdentityManifest.safeParse(s.manifest);
-    if (parsed.success) manifest = parsed.data;
+    const parsed = s.kind === "skill" ? IdentityManifest.safeParse(s.manifest) : NonSkillIdentityManifest.safeParse(s.manifest);
+    if (parsed.success) {
+      manifest = parsed.data as GateManifest;
+      if (s.kind === "skill") skillManifest = parsed.data as z.infer<typeof IdentityManifest>;
+    }
     else manifestIssue = parsed.error.issues.map(i => `${i.path.join(".") || "(root)"}: ${i.message}`).join("; ");
   }
   const ev = latestEvidence(s);
@@ -218,9 +240,9 @@ export function judgeWorkStackGates(s: GateSubject, now: Date = new Date()): Gat
   const prior = (gate: GateId) => fail(gate, "PRIOR_GATE_FAILED", "metadata.work unparseable (G0)");
 
   const g0 = judgeG0(s, manifest, manifestIssue);
-  const g1 = !isSkill ? na("G1") : manifest ? judgeG1(manifest.provenance) : prior("G1");
+  const g1 = !isSkill ? na("G1") : skillManifest ? judgeG1(skillManifest.provenance) : prior("G1");
   const g2 = manifest ? judgeG2(s, manifest) : prior("G2");
-  const g3 = !isSkill ? na("G3") : manifest ? judgeG3(s, manifest, ev.current) : prior("G3");
+  const g3 = !isSkill ? na("G3") : skillManifest ? judgeG3(s, skillManifest, ev.current) : prior("G3");
   const g4 = judgeG4(s, ev);
   const before = [g0, g1, g2, g3, g4];
   const failedG0toG4 = before.some(g => g.outcome === "fail");
@@ -255,7 +277,9 @@ export function judgeWorkStackGates(s: GateSubject, now: Date = new Date()): Gat
   const gates = [...before, g5];
 
   let status: WorkGateStatus | null = null;
-  if (s.versionDigest !== null) {
+  let statusError: string | null = null;
+  if (s.versionDigest === null) statusError = "no version digest for the subject: WorkGateStatus cannot be produced (R3.6)";
+  else {
     const parsed = WorkGateStatus.safeParse({
       stableId: s.stableId,
       subjectVersionDigest: s.versionDigest,
@@ -268,8 +292,19 @@ export function judgeWorkStackGates(s: GateSubject, now: Date = new Date()): Gat
       scriptVersion: WORK_STACK_GATES_SCRIPT_VERSION,
     });
     if (parsed.success) status = parsed.data;
+    else statusError = `WorkGateStatus invalid (R3.6): ${parsed.error.issues.map(i => `${i.path.join(".") || "(root)"}: ${i.message}`).join("; ")}`;
   }
-  return { stableId: s.stableId, sourcePath: s.sourcePath, gates, failedG0toG4, status };
+  return { stableId: s.stableId, sourcePath: s.sourcePath, gates, failedG0toG4, status, statusError };
+}
+
+/**
+ * 套件存在但没有任何包声明该 stableId（R3.5 / E1 的反方向）：不是「0 个实体、静默通过」，而是 G0 fail。
+ * 其余门无从判定 → PRIOR_GATE_FAILED；没有被测版本，故不产 WorkGateStatus（也不算 statusError）。
+ */
+export function judgeOrphanSuite(stableId: string, suitePath: string): GateJudgement {
+  const g0 = fail("G0", "STABLE_ID_MISMATCH", `${suitePath} exists but no SKILL.md/WORKFLOW.md/AGENT.md declares metadata.work.stableId=${stableId} (orphan suite)`);
+  const rest = (["G1", "G2", "G3", "G4", "G5"] as const).map(g => fail(g, "PRIOR_GATE_FAILED", "no package for this stableId (G0)"));
+  return { stableId, sourcePath: suitePath, gates: [g0, ...rest], failedG0toG4: true, status: null, statusError: null };
 }
 
 function g5Reason(code: GateResult["reasonCode"], subject: number | null, baseline: number | null): string {

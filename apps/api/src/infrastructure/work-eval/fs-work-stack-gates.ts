@@ -1,7 +1,9 @@
 /**
  * EV03 `pnpm run lint:work-stack-gates [--entity <ID>] [--json]` 的 IO 侧（04-eval-gates R3.5–3.6）。
  *
- * 发现：`skills/**\/SKILL.md` 中 frontmatter 带 `metadata.work` 的包 = 被判实体（仓内包均为官方实体）。
+ * 发现：`skills/**\/SKILL.md`、`workflows/**\/WORKFLOW.md`、`agents/**\/AGENT.md` 中 frontmatter 带
+ * `metadata.work` 的包 = 被判实体（仓内包均为官方实体；kind 由文件名定，Workflow/Agent 按 A1 只判 G0/G2/G4）。
+ * `evals/work-stack/<ID>/` 有套件却无包声明该 ID → 孤儿套件，G0 fail（不是静默跳过）。
  * 为每个实体收集 G0 身份材料（WORK-STACK-320-LIST.md、实体文档、包间重复）、当前版本 digest
  * （与 `harness eval` 同算法：`skillPackageVersion`）、套件与报告，交给
  * `application/work-eval/work-stack-gates.ts` 判定，打印逐门结果并产出 `WorkGateStatus`。
@@ -15,6 +17,7 @@ import { parse as parseYaml } from "yaml";
 import { validateWorkEvalSuiteBundle, WorkEvalReport, type WorkGateStatus } from "@repo/contracts/work-eval";
 import {
   formatGateJudgement,
+  judgeOrphanSuite,
   judgeWorkStackGates,
   type GateJudgement,
   type GateSubject,
@@ -42,8 +45,15 @@ export interface WorkStackGatesResult {
 const posix = (p: string) => p.split(sep).join("/");
 const ENTITY_DOC_DIRS = { S: "skills", W: "workflows", D: "digital-humans" } as const;
 
+const PACKAGE_KINDS = [
+  { root: "skills", file: "SKILL.md", kind: "skill" },
+  { root: "workflows", file: "WORKFLOW.md", kind: "workflow" },
+  { root: "agents", file: "AGENT.md", kind: "agent" },
+] as const;
+
 interface Discovered {
   skillMd: string;
+  kind: GateSubject["kind"];
   stableId: string;
   manifest: unknown;
   manifestError: string | null;
@@ -53,10 +63,11 @@ function frontmatter(text: string): string | null {
   return /^---\r?\n([\s\S]*?)\r?\n---(?:\r?\n|$)/.exec(text)?.[1] ?? null;
 }
 
-/** 找出所有声明了 `metadata.work` 的 SKILL.md（YAML 解析失败但看得出写了 work: 的也算，交 G0 判红）。 */
+/** 找出所有声明了 `metadata.work` 的包文件（YAML 解析失败但看得出写了 work: 的也算，交 G0 判红）。 */
 export function discoverWorkSkillPackages(repoRoot: string): Discovered[] {
   const found: Discovered[] = [];
-  for (const p of walk(join(repoRoot, "skills")).filter(f => f.endsWith("SKILL.md")).sort()) {
+  const files = PACKAGE_KINDS.flatMap(k => walk(join(repoRoot, k.root)).filter(f => f.endsWith(`${sep}${k.file}`) || f.endsWith(`/${k.file}`)).map(p => ({ p, kind: k.kind }))).sort((a, b) => a.p.localeCompare(b.p));
+  for (const { p, kind } of files) {
     const fm = frontmatter(readFileSync(p, "utf8"));
     if (fm === null) continue;
     let doc: unknown;
@@ -65,7 +76,7 @@ export function discoverWorkSkillPackages(repoRoot: string): Discovered[] {
     } catch (e) {
       if (/^metadata:\s*$[\s\S]*^\s+work:/m.test(fm)) {
         const id = /stableId:\s*["']?([SWD]\d{3})/.exec(fm)?.[1] ?? "UNKNOWN";
-        found.push({ skillMd: p, stableId: id, manifest: undefined, manifestError: `frontmatter YAML unparseable: ${e instanceof Error ? e.message.split("\n")[0] : String(e)}` });
+        found.push({ skillMd: p, kind, stableId: id, manifest: undefined, manifestError: `frontmatter YAML unparseable: ${e instanceof Error ? e.message.split("\n")[0] : String(e)}` });
       }
       continue;
     }
@@ -73,7 +84,7 @@ export function discoverWorkSkillPackages(repoRoot: string): Discovered[] {
     if (!meta || typeof meta !== "object" || !("work" in meta)) continue;
     const work = (meta as { work: unknown }).work;
     const id = work && typeof work === "object" && typeof (work as { stableId?: unknown }).stableId === "string" ? (work as { stableId: string }).stableId : "UNKNOWN";
-    found.push({ skillMd: p, stableId: id, manifest: work, manifestError: null });
+    found.push({ skillMd: p, kind, stableId: id, manifest: work, manifestError: null });
   }
   return found;
 }
@@ -140,7 +151,7 @@ export function collectGateSubjects(repoRoot: string, evalsRoot = join(repoRoot,
     const suiteDir = join(evalsRoot, pkg.stableId);
     return {
       stableId: pkg.stableId,
-      kind: "skill" as const,
+      kind: pkg.kind,
       sourcePath: posix(relative(repoRoot, pkg.skillMd)),
       manifest: pkg.manifest,
       manifestError: pkg.manifestError,
@@ -156,26 +167,42 @@ export function collectGateSubjects(repoRoot: string, evalsRoot = join(repoRoot,
   });
 }
 
+/** `evals/work-stack/<ID>/` 目录存在、却没有任何包声明该 stableId 的 ID。 */
+export function findOrphanSuites(repoRoot: string, evalsRoot = join(repoRoot, "evals/work-stack")): string[] {
+  if (!existsSync(evalsRoot)) return [];
+  const declared = new Set(discoverWorkSkillPackages(repoRoot).map(p => p.stableId));
+  return readdirSync(evalsRoot, { withFileTypes: true })
+    .filter(d => d.isDirectory() && /^[SWD]\d{3}$/.test(d.name) && !declared.has(d.name))
+    .map(d => d.name)
+    .sort();
+}
+
 export function runWorkStackGates(opts: WorkStackGatesOptions): WorkStackGatesResult {
   const out = opts.out ?? (l => process.stdout.write(`${l}\n`));
   const err = opts.err ?? (l => process.stderr.write(`${l}\n`));
-  let subjects = collectGateSubjects(opts.repoRoot, opts.evalsRoot, err);
+  const evalsRoot = opts.evalsRoot ?? join(opts.repoRoot, "evals/work-stack");
+  let subjects = collectGateSubjects(opts.repoRoot, evalsRoot, err);
+  let orphans = findOrphanSuites(opts.repoRoot, evalsRoot);
   if (opts.entity) {
     subjects = subjects.filter(s => s.stableId === opts.entity);
-    if (subjects.length === 0) {
+    orphans = orphans.filter(id => id === opts.entity);
+    if (subjects.length === 0 && orphans.length === 0) {
       err(`✗ ${opts.entity}: no SKILL.md with metadata.work declares this stableId (G0 fail: entity not found)`);
       return { exitCode: 1, judgements: [], statuses: [] };
     }
   }
-  const judgements = subjects.map(s => judgeWorkStackGates(s, opts.now));
+  const judgements = [
+    ...subjects.map(s => judgeWorkStackGates(s, opts.now)),
+    ...orphans.map(id => judgeOrphanSuite(id, posix(relative(opts.repoRoot, join(evalsRoot, id))))),
+  ];
   const statuses = judgements.flatMap(j => (j.status ? [j.status] : []));
   if (opts.json) out(JSON.stringify({ statuses, judgements: judgements.map(j => ({ stableId: j.stableId, sourcePath: j.sourcePath, gates: j.gates })) }, null, 2));
   else for (const j of judgements) for (const l of formatGateJudgement(j)) out(l);
   const failed = judgements.filter(j => j.failedG0toG4);
-  if (failed.length) {
-    err(`✗ work-stack gates: G0–G4 failed for ${failed.map(j => j.stableId).join(", ")}`);
-    return { exitCode: 1, judgements, statuses };
-  }
+  const statusErrors = judgements.filter(j => j.statusError !== null);
+  for (const j of statusErrors) err(`✗ ${j.stableId}: ${j.statusError}`);
+  if (failed.length) err(`✗ work-stack gates: G0–G4 failed for ${failed.map(j => j.stableId).join(", ")}`);
+  if (failed.length || statusErrors.length) return { exitCode: 1, judgements, statuses };
   if (!opts.json) out(`✓ work-stack gates: ${judgements.length} entities with metadata.work, G0–G4 all pass`);
   return { exitCode: 0, judgements, statuses };
 }

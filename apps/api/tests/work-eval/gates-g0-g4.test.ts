@@ -3,7 +3,8 @@
  * 合规实体逐门 pass 并产出合法 WorkGateStatus；反证见 gates-counterproof.test.ts。
  */
 import { spawnSync } from "node:child_process";
-import { readFileSync, writeFileSync } from "node:fs";
+import { mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { stringify } from "yaml";
 import { join, relative } from "node:path";
 import { afterAll, describe, expect, it } from "vitest";
 import { WorkEvalReport, WorkGateStatus } from "@repo/contracts/work-eval";
@@ -81,17 +82,74 @@ describe("lint-work-stack-gates G0–G4 (EV03)", () => {
     const g = byGate(j.gates);
     expect([g.G1!.outcome, g.G3!.outcome, g.G5!.outcome]).toEqual(["not_applicable", "not_applicable", "not_applicable"]);
     expect(g.G1!.reasonCode).toBe("NOT_REQUIRED_FOR_KIND");
-    expect(g.G0!.outcome).toBe("pass");
+    // G0 is still judged: an S-id declared as a workflow is a kind mismatch (discovered-package path: see the WORKFLOW.md test).
+    expect(g.G0!.outcome).toBe("fail");
+    expect(g.G0!.reason).toMatch(/stableId/);
     expect(g.G4).toMatchObject({ outcome: "fail", reasonCode: "REPORT_STALE" }); // 无报告 ≠ 通过
   });
 
   it("the .mjs entry runs against the repo and passes through the exit code; bad args are rejected", () => {
+    // The repo today has evals/work-stack/S003 but no package declaring S003 → orphan suite → exit 1
+    // (not the vacuous "0 entities, all pass" of the first cut). Exit code is passed through verbatim.
+    const repo = runWorkStackGates({ repoRoot, ...quiet });
     const ok = spawnSync("node", [join(repoRoot, ".harness/scripts/lint-work-stack-gates.mjs")], { encoding: "utf8" });
-    expect(ok.status, ok.stderr).toBe(0);
-    expect(ok.stdout).toContain("work-stack gates");
+    expect(ok.status, ok.stderr).toBe(repo.exitCode);
+    expect(`${ok.stdout}${ok.stderr}`).toContain("work-stack gates");
+    if (repo.judgements.some(j => j.stableId === "S003" && j.gates[0]!.reason.includes("orphan suite"))) expect(ok.status).toBe(1);
     const bad = spawnSync("node", [join(repoRoot, ".harness/scripts/lint-work-stack-gates.mjs"), "--write-back"], { encoding: "utf8" });
     expect(bad.status).toBe(2);
     expect(parseGateArgs(["--entity", "S003", "--json"])).toEqual({ entity: "S003", json: true, unknown: [] });
+  });
+
+  it("orphan suite (evals/work-stack/<ID> with no package declaring it) → G0 fail, exit 1 — never a vacuous pass (R3.5/E1)", () => {
+    const root = goodRepo();
+    rmSync(join(root, "skills"), { recursive: true, force: true });
+    const r = runWorkStackGates({ repoRoot: root, ...quiet });
+    expect(r.exitCode).toBe(1);
+    expect(r.judgements).toHaveLength(1);
+    expect(byGate(r.judgements[0]!.gates).G0).toMatchObject({ outcome: "fail", reasonCode: "STABLE_ID_MISMATCH" });
+    expect(r.judgements[0]!.gates[0]!.reason).toContain("orphan suite");
+    expect(runWorkStackGates({ repoRoot: root, entity: "S003", ...quiet }).exitCode).toBe(1);
+  });
+
+  it("a Workflow package (WORKFLOW.md with metadata.work) is discovered and judged G0/G2/G4 only (A1)", () => {
+    const root = goodRepo({ suite: false });
+    const list = join(root, "requirements/work-stack-v2/WORK-STACK-320-LIST.md");
+    writeFileSync(list, `${readFileSync(list, "utf8")}| ✅ 通过 | W001 | Workflow | Demo |\n`);
+    mkdirSync(join(root, "requirements/work-stack-v2/workflows"), { recursive: true });
+    writeFileSync(join(root, "requirements/work-stack-v2/workflows/W001-demo.md"), "# W001\n");
+    mkdirSync(join(root, "workflows/demo"), { recursive: true });
+    const m = { ...s003Manifest(), stableId: "W001", evalSuiteId: "W001" };
+    writeFileSync(join(root, "workflows/demo/WORKFLOW.md"), `---\n${stringify({ name: "demo", metadata: { work: m } })}---\n# demo\n`);
+    const r = runWorkStackGates({ repoRoot: root, entity: "W001", ...quiet });
+    const g = byGate(r.judgements[0]!.gates);
+    expect(r.judgements[0]!.sourcePath).toBe("workflows/demo/WORKFLOW.md");
+    expect(g.G0, g.G0!.reason).toMatchObject({ outcome: "pass" });
+    expect(g.G2).toMatchObject({ outcome: "pass" });
+    for (const id of ["G1", "G3", "G5"]) expect(g[id], id).toMatchObject({ outcome: "not_applicable", reasonCode: "NOT_REQUIRED_FOR_KIND" });
+    expect(g.G4).toMatchObject({ outcome: "fail", reasonCode: "NO_SUITE" });
+    expect(r.exitCode).toBe(1);
+  });
+
+  it("a subject id declared by the wrong package kind (S-id in WORKFLOW.md) → G0 fail", () => {
+    const root = goodRepo();
+    rmSync(join(root, "skills"), { recursive: true, force: true });
+    mkdirSync(join(root, "workflows/x"), { recursive: true });
+    writeFileSync(join(root, "workflows/x/WORKFLOW.md"), `---\n${stringify({ name: "x", metadata: { work: s003Manifest() } })}---\n`);
+    const r = runWorkStackGates({ repoRoot: root, entity: "S003", ...quiet });
+    expect(byGate(r.judgements[0]!.gates).G0!.outcome).toBe("fail");
+    expect(r.judgements[0]!.gates[0]!.reason).toMatch(/stableId/);
+    expect(r.exitCode).toBe(1);
+  });
+
+  it("a WorkGateStatus that fails its contract is reported and makes the exit non-zero (R3.6), not silently dropped", async () => {
+    const root = goodRepo();
+    await evaluate(root);
+    const [subject] = collectGateSubjects(root);
+    const j = judgeWorkStackGates({ ...subject!, versionDigest: "not-a-sha256" });
+    expect(j.status).toBeNull();
+    expect(j.statusError).toMatch(/WorkGateStatus invalid/);
+    expect(judgeWorkStackGates({ ...subject!, versionDigest: null }).statusError).toMatch(/R3\.6/);
   });
 
   it("manifest shape is the WorkSkillManifest contract (sanity for the fixture)", () => {
