@@ -36,6 +36,7 @@ description: 用户访谈流程与数字访谈能力；修改访谈主题、专�
 - 2026-09-28：导入页隐藏手动保存草稿入口后，「下一步」仍先持久化 canonical Markdown、再确认并生成分析；文件上传仍独立持久化而不自动确认（issue #4539，`interview-markdown-create` / `interview-markdown-intake` 回归）。
 - 2026-09-28：全栈 Chromium 默认开启假麦克风与自动授权，权限查询即使为 denied 仍可能成功采音；验收拒绝路径需在页面的 `getUserMedia` 边界注入 `NotAllowedError`，并明确标注为故障注入。真实登录、上传、canonical Markdown API/DB 存取与刷新恢复保持不模拟（issue #4557，`digital-interview-intake-failure-live.spec.ts`）。
 - 2026-09-28：专家检索空态需合并已发布目录与维护画像两组结果判断；生成失败的部分 Markdown 即使解析出专家 heading，也仍要展示完整只读恢复上下文，不能用已解析专家数推断草稿完整（issue #4540 / PR #4543，`interview-markdown-editing` 回归）。
+- 2026-09-28：报告页统计只读当前修订的 canonical Markdown 与执行元数据；二级“核心发现/建议行动”章节的列表条目可计数，普通正文或表格不自动等于一条，嵌套三级标题下的列表仍属上层章节。已选专家 ID 与完成任务 ID 要求交集，不能把模拟任务数称为真人样本（issue #4581）。
 
 ## 知识回流规则
 

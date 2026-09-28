@@ -276,6 +276,38 @@ test("a completed report separates the decision brief and replaces an empty evid
   await expect(page.getByRole("table")).toHaveCount(0);
 });
 
+test("report summary cards count only saved Markdown items and simulated completed tasks", async ({ page }) => {
+  test.slow(); // An isolated Next dev server may compile this direct route on first request.
+  const markdown = "# 采购研究报告\n\n## 核心发现\n\n- 否决角色待核实。\n- 审批记录待复核。\n\n## 建议行动\n\n正文建议未列为条目。";
+  const report = { documentId: "report-metric-e2e", step: "report" as const, version: 2, markdown,
+    contentHash: createHash("sha256").update(markdown).digest("hex"), evidenceMode: "simulated" as const, references: [] };
+  const experts = { ...source.documents.find((item) => item.step === "experts")!, markdown: "## [采购顾问](#expert-purchase)\n\n模拟画像。\n\n## [财务顾问](#expert-finance)\n\n模拟画像。" };
+  experts.contentHash = createHash("sha256").update(experts.markdown).digest("hex");
+  const reportSource = interviewMarkdown.InterviewMarkdownEnvelope.parse({ ...source,
+    documents: [...source.documents.filter((item) => item.step !== "experts"), experts, report],
+    states: [...source.states, { documentId: report.documentId, status: "completed", failure: null }],
+    execution: { status: "completed", tasks: [{ expertId: "purchase", status: "completed", errorCode: null }, { expertId: "finance", status: "failed", errorCode: "MODEL_UNAVAILABLE" }] },
+  });
+  await page.addInitScript(() => {
+    localStorage.setItem("wsx.sessionToken", "e2e-token");
+    localStorage.setItem("wsx.session", JSON.stringify({ version: 1, userId: "user-e2e", orgs: ["org-e2e"],
+      currentOrgId: "org-e2e", expiresAt: "2099-01-01T00:00:00.000Z" }));
+  });
+  await page.route("**/identity/me**", (route) => route.fulfill({ status: 200, contentType: "application/json",
+    body: JSON.stringify({ org: { id: "org-e2e", name: "E2E", kind: "organization", team: null, modelPolicy: "any" },
+      orgRole: "lead", teamId: null, projectRole: null, groupId: null, displayName: "E2E User", avatarUrl: null }) }));
+  await page.route("**/interviews/digital/itv-quality-e2e", (route) => route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ ...view, status: "completed", currentStep: "report" }) }));
+  await page.route("**/interviews/digital/itv-quality-e2e/markdown", (route) => route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(reportSource) }));
+  await page.goto("/itv/itv-quality-e2e/report", { waitUntil: "domcontentloaded" });
+  await expect(page.getByTestId("itv-report-metric-experts")).toContainText("2");
+  await expect(page.getByTestId("itv-report-metric-completed")).toContainText("1");
+  await expect(page.getByTestId("itv-report-metric-findings")).toContainText("2");
+  await expect(page.getByTestId("itv-report-metric-actions")).toContainText("0");
+  await page.setViewportSize({ width: 390, height: 844 });
+  await expect(page.getByTestId("itv-report-metrics")).toBeVisible();
+  expect(await page.evaluate(() => document.documentElement.scrollWidth > document.documentElement.clientWidth)).toBe(false);
+});
+
 test("prototype journey keeps the list shell separate from all six full-screen stages", async ({ page }, testInfo) => {
   const expert = { ...MOCK_DIGITAL_EXPERTS[0]!, expertId: "expert-audit" };
   const auditExperts = [expert, ...MOCK_DIGITAL_EXPERTS.slice(1, 5).map((candidate, index) => ({ ...candidate, expertId: `expert-audit-${index + 2}` }))];
@@ -393,6 +425,11 @@ test("prototype journey keeps the list shell separate from all six full-screen s
     if (step === "runs") await expect(page.getByTestId("itv-source-runs").getByRole("tab")).toHaveCount(6);
     if (step === "report") {
       await expect(page.getByRole("navigation", { name: "报告目录" }).getByRole("link")).toHaveCount(8);
+      await expect(page.getByTestId("itv-report-metric-experts")).toContainText("5");
+      await expect(page.getByTestId("itv-report-metric-completed")).toContainText("2");
+      await expect(page.getByTestId("itv-report-metric-findings")).toContainText("3");
+      await expect(page.getByTestId("itv-report-metric-actions")).toContainText("0");
+      await expect(page.getByTestId("itv-report-metrics")).toContainText("不代表真人样本");
       const reportBodySize = await page.getByTestId("itv-source-report-markdown").getByText("本报告来自 AI 模拟访谈，不代表真实用户证据。")
         .evaluate((node) => Number.parseFloat(getComputedStyle(node).fontSize));
       expect(reportBodySize, "long-form report body must use the prototype's readable document type size").toBeGreaterThanOrEqual(16);
