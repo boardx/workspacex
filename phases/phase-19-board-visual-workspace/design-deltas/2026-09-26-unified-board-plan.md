@@ -317,15 +317,15 @@ flowchart LR
   T0["0–15 分钟<br/>冻结 main / R8 / R9 / R10 exact SHA"]:::done
   T0 --> P8["并行 A · 已完成<br/>R8 存储/导入/资源租约<br/>PG 136 项 + 浏览器导入"]:::done
   T0 --> P9["并行 B · 已完成<br/>R9 AI/协作/Undo<br/>API 55 项 + PG 并发"]:::done
-  T0 --> P10["并行 C · 修复中<br/>Draw 变换后续画坐标<br/>move/resize/rotate 回归"]:::active
+  T0 --> P10["并行 C · 已完成<br/>Draw intrinsic 坐标<br/>move/resize/rotate 回归"]:::done
   T0 --> ROOT["主 session · 已完成<br/>单一候选分支集成<br/>独立 review 发现并拦截回归"]:::done
-  P8 --> INT["主 session 集成门<br/>typecheck + unit + lint<br/>当前等待 Draw 修复 commit"]:::testing
+  P8 --> INT["主 session 集成门 · 已完成<br/>typecheck + unit + lint<br/>独立 review Pass"]:::done
   P9 --> INT
   P10 --> INT
   ROOT --> INT
-  INT --> E2E["预计 10:15–11:10<br/>真实浏览器关键旅程<br/>30 分钟会议室稳定性"]:::planned
+  INT --> E2E["已完成<br/>真实浏览器关键旅程 2/2<br/>会议室 36.2 分钟 1/1"]:::done
   E2E --> GATE{"同一候选 SHA 通过？"}:::gate
-  GATE -->|是| PR["预计 11:10–11:40<br/>push + 候选 PR<br/>人测清单与已知缺口"]:::release
+  GATE -->|是| PR["发布中<br/>push + 候选 PR<br/>人测清单与已知缺口"]:::release
   GATE -->|否| DISCLOSE["缩小失败范围<br/>回退不稳定增量<br/>如实列出 blocker"]:::blocked
   classDef done fill:#dcfce7,stroke:#16a34a,color:#14532d
   classDef active fill:#dbeafe,stroke:#2563eb,color:#1e3a8a
@@ -339,3 +339,5 @@ flowchart LR
 候选退出条件：① R8–R10 集成在单一 SHA；② Board 关键组件、operation/undo、portable/import 定向测试通过；③ Web/API typecheck 与变更范围 lint 通过；④ PostgreSQL 用隔离包装器执行；⑤ 主 session 运行真实浏览器 Brainstorm、Organize、Panel/Connector、Draw 与恢复主路径；⑥ 创建 PR 并附人类测试步骤。没有通过的外部证据逐项进入 PR 的 Known gaps，不改写为完成。
 
 截至 2026-09-28 09:30，候选 `1cc1220cea21979e88ba1327ba5517706a7bdadc` 已通过 Web/API/Core 类型检查、Contracts 1015/1015、Whiteboard Core 156/156、R8 存储与导入隔离 PostgreSQL、R9 协作/Undo、真实浏览器 Draw 与 Miro 导入。独立 review 发现 Drawing 在 move/resize/rotate 后继续绘制会混用历史绝对坐标并丢失 rotation；因此该 SHA 不发布，30 分钟会议室验收作废。修复、回归测试和二次独立 review 完成后，主 session 才会重跑最终浏览器验收并提交人测候选。
+
+截至 2026-09-28 11:18，最终候选 `10dba69b209dad25bac86f6f73146587580136d8` 已关闭 Drawing intrinsic 坐标与重连后投影 hydration 两个阻断，独立 review 为 Pass。主 session 真实浏览器 Draw + Miro 导入 2/2 通过；会议室验收在 clean exact SHA 上运行 36.2 分钟并通过，产出 360 个签名样本、1854 个收据、16 类生命周期事件，`observationErrors=[]`。该结论仅表示可提交人类测试候选；真实厂商账户文件、1k/5k/10k 性能、50 客户端、视觉评分、完整无障碍、安全矩阵与物理触控笔仍是正式 9/10 退出门。
