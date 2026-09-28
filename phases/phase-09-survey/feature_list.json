@@ -143,7 +143,7 @@
       ],
       "points": 5,
       "verification": [
-        "pnpm --filter web exec playwright test e2e/survey-complete-flow.spec.ts"
+        "pnpm exec tsx .harness/scripts/with-test-isolation.ts -- pnpm --filter web exec playwright test --config playwright.fullstack-smoke.config.ts --project=seeded e2e/survey-complete-flow.spec.ts"
       ],
       "evidence": "",
       "notes": "新原型工作包。共享热点 apps/web/components/survey/live/survey-workspace.tsx；不得出现 mock 或面向用户的测试说明。"
