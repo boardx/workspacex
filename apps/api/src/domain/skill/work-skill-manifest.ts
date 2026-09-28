@@ -6,15 +6,11 @@
  * 这里不复述任何字段规则；分类是否已登记（E6）由导入流程（WS02）对照登记表判定。
  */
 import { parse as parseYaml } from "yaml";
-import type { ZodIssue } from "zod";
-import { WorkSkillManifest } from "@repo/contracts/work-skill-meta";
+import type { z, ZodIssue } from "zod";
+import { WorkSkillManifest, WorkSkillManifestIssue as WorkSkillManifestIssueSchema } from "@repo/contracts/work-skill-meta";
 
-export interface WorkSkillManifestIssue {
-  readonly file: string;
-  /** 以 `metadata.work` 为根的点路径，如 `metadata.work.dependencies.required.0` */
-  readonly fieldPath: string;
-  readonly message: string;
-}
+/** 形状单源：契约 `WorkSkillManifestIssue`（WS02 导入 422 的 issues 复用同一类型）。 */
+export type WorkSkillManifestIssue = z.infer<typeof WorkSkillManifestIssueSchema>;
 
 export type WorkSkillManifestResult =
   | { readonly kind: "absent" } // 普通 Skill，无 metadata.work（A1）
@@ -48,8 +44,8 @@ export function parseWorkSkillManifest(file: string, markdown: string): WorkSkil
   try {
     doc = parseYaml(block);
   } catch (error) {
-    // 含 `work:` 字样才算 Work Skill 的 frontmatter 坏；否则交给既有 frontmatter 校验
-    if (!/^[ \t]+work:/m.test(block)) return { kind: "absent" };
+    // 任何 frontmatter YAML 解析失败都报 invalid：无法解析就无法证明不是 Work Skill
+    // （flow 风格 `metadata: {work: [bad` 不会命中任何行首正则，E1 旁路）
     const message = error instanceof Error ? error.message.split("\n")[0]! : String(error);
     return { kind: "invalid", issues: [{ file, fieldPath: "frontmatter", message: `YAML 解析失败：${message}` }] };
   }

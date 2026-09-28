@@ -66,10 +66,16 @@ describe("parseWorkSkillManifest (WS01 UC-1)", () => {
 });
 
 describe("lint-work-skill-manifests CLI (WS01)", () => {
-  it("passes on the repository skills/ tree", () => {
-    const r = runLint();
-    expect(r.out).toContain("lint-work-skill-manifests:");
+  it("actually checks Work Skills in a fixture tree (checked > 0)", () => {
+    const r = runLint(fixture({ "a/SKILL.md": work(), "b/SKILL.md": work({ stableId: "    stableId: S004" }) }));
     expect(r.code).toBe(0);
+    expect(r.out).toContain("2/2");
+  });
+
+  it("exits non-zero on broken flow-style metadata.work YAML (E1 regression)", () => {
+    const r = runLint(fixture({ "f/SKILL.md": "---\nname: f\nmetadata: {work: [bad\n---\n" }));
+    expect(r.code).not.toBe(0);
+    expect(r.out).toMatch(/f\/SKILL\.md: frontmatter: YAML/);
   });
 
   it("passes on a valid Work Skill and skips plain skills", () => {
