@@ -48,6 +48,8 @@ Must include:
 - business KPI and role-specific eval journey;
 - context/memory scope;
 - avatar brief specific to the role;
+- realtime interaction profile: voice semantics, turn policy, proactivity policy, allowed modalities, language policy and role-specific conversational evals;
+- shared runtime reference to requirements/work-stack-v2/realtime-digital-human/CONTRACT.md rather than duplicated provider plumbing;
 - Skill gaps that must be created rather than approximated.
 
 ## Anti-template gates
@@ -58,6 +60,7 @@ A document fails review if:
 - it lists only repo-level provenance when an upstream artifact is being adopted/merged;
 - its eval section could be pasted unchanged into another domain;
 - a DigitalHuman has no explicit skill/workflow graph;
+- a realtime-enabled DigitalHuman has no role-specific realtime profile/evals or hardcodes a provider SDK as role semantics;
 - a Workflow has no stage-level skill mapping;
 - a Skill has no named workflow/role consumers.
 

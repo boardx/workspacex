@@ -40,3 +40,17 @@ A missing professional capability is not approximated by a vaguely related Skill
 - or explicitly choosing not to cover the task.
 
 This is expected to change the current “200” list if deeper authorship proves that a different canonical set is better.
+
+## Realtime DigitalHuman embodiment rule
+
+Realtime interaction is a shared platform runtime, not sixty duplicated per-role implementations.
+
+See:
+- requirements/work-stack-v2/realtime-digital-human/README.md
+- requirements/work-stack-v2/realtime-digital-human/CONTRACT.md
+- requirements/work-stack-v2/realtime-digital-human/IMPLEMENTATION-PLAN.md
+- requirements/work-stack-v2/realtime-digital-human/EVALS.md
+
+Each DigitalHuman document authors role-specific realtime semantics (voice style, avatar brief, turn/proactivity policy, allowed modalities, memory/context scope and role-specific evals), while provider selection, media transport, ASR/TTS adapters, avatar renderer and interruption machinery remain shared runtime concerns.
+
+The runtime MUST preserve existing Agent Skill Pins, Workflow/HITL authority, evidence and proactive-speech rules. A conversational model may request a Skill/Workflow but may not bypass Harness authorization or human gates.
