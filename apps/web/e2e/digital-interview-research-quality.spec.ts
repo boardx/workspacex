@@ -265,15 +265,25 @@ test("prototype journey keeps the list shell separate from all six full-screen s
   const searchBounds = await page.getByTestId("itv-history-search").boundingBox();
   expect(searchBounds?.width, "the list search should be a primary full-row control").toBeGreaterThanOrEqual(500);
   await page.screenshot({ path: testInfo.outputPath("00-list.png"), fullPage: true });
+  await page.getByTestId("itv-create").click();
+  const createDialog = page.getByTestId("itv-create-dialog");
+  await expect(createDialog).toBeVisible();
+  await expect(createDialog.getByTestId("itv-create-name")).toBeVisible();
+  await expect(createDialog.getByTestId("itv-create-tag-input")).toBeVisible();
+  await expect(page).toHaveURL(/\/itv$/u);
+  await createDialog.getByRole("button", { name: "取消" }).click();
   await page.getByTestId(`itv-history-card-${view.interviewId}`).getByRole("link", { name: /继续访谈/u }).click();
   await expect(page).toHaveURL(/\/itv\/itv-quality-e2e\/intake$/u);
   await expect(page.getByTestId("shell-rail")).toHaveCount(0);
   await expect(page.getByTestId("itv-workbench-timeline")).toBeVisible();
 
   await page.goto("/itv/new");
-  await expect(page.getByTestId("itv-markdown-intake")).toBeVisible();
+  await expect(page).toHaveURL(/\/itv\?create=1$/u);
+  await expect(page.getByTestId("itv-create-dialog")).toBeVisible();
+  await expect(page.getByTestId("itv-create-tag-input")).toBeVisible();
   await page.screenshot({ path: testInfo.outputPath("01-create.png"), fullPage: true });
 
+  await page.setViewportSize({ width: 1280, height: 900 });
   for (const [index, step] of ["intake", "analysis", "experts", "outline", "runs", "report"].entries()) {
     await page.goto(`/itv/${view.interviewId}/${step}`);
     await expect(page.getByTestId("itv-markdown-workbench")).toBeVisible();
@@ -290,6 +300,10 @@ test("prototype journey keeps the list shell separate from all six full-screen s
           step === "runs" ? "itv-source-runs" : "itv-source-report").getByRole("heading", { level: 2 }).first()
         .evaluate((node) => Number.parseFloat(getComputedStyle(node).fontSize));
       expect(headingSize, `${step} heading should retain the prototype's page hierarchy`).toBeGreaterThanOrEqual(30);
+    }
+    if (step === "intake") {
+      const action = await page.getByTestId("itv-markdown-intake").getByRole("button", { name: /下一步：确认分析/u }).boundingBox();
+      expect((action?.y ?? 900) + (action?.height ?? 0), "desktop intake primary action should fit in the first viewport without excess whitespace").toBeLessThan(800);
     }
     await page.screenshot({ path: testInfo.outputPath(`${index + 2}-${step}.png`), fullPage: true });
     if (step === "experts") {
