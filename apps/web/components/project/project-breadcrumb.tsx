@@ -1,5 +1,8 @@
 "use client";
 import { ArrowLeft } from "lucide-react";
+import { projectResearchHref, type ProjectResearchSub } from "./project-links";
+export { projectResearchHref, withProjectId } from "./project-links";
+export type { ProjectResearchSub } from "./project-links";
 
 /**
  * 项目 ⇄ Studio 往返的面包屑（项目中枢 B2-S2）。
@@ -8,18 +11,6 @@ import { ArrowLeft } from "lucide-react";
  * 顶部挂这一条「← 返回项目」，链回 `/projects/<id>?tab=research&sub=<kind>`——
  * 没有 `projectId` 的独立 Studio 访问不渲染任何东西（调用方直接传 `null` 即可）。
  */
-export type ProjectResearchSub = "survey" | "itv" | "research" | "transcript";
-
-export function projectResearchHref(projectId: string, sub: ProjectResearchSub): string {
-  return `/projects/${encodeURIComponent(projectId)}?tab=research&sub=${sub}`;
-}
-
-/** 把 `?projectId=` 续到 Studio 内部的链接上，让往返链在页面跳转后不断。 */
-export function withProjectId(href: string, projectId: string | null | undefined): string {
-  if (!projectId) return href;
-  return `${href}${href.includes("?") ? "&" : "?"}projectId=${encodeURIComponent(projectId)}`;
-}
-
 export function ProjectBreadcrumb({ projectId, sub, className }: {
   projectId: string | null | undefined; sub: ProjectResearchSub; className?: string;
 }) {
