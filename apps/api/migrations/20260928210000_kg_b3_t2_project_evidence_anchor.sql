@@ -128,3 +128,7 @@ DO $$ BEGIN
       FOREIGN KEY (evidence_id) REFERENCES project_evidence (id) ON DELETE CASCADE;
   END IF;
 END $$;
+
+-- 组织冻结的写限制在首次 apply 时也装上（新表 claim_project_evidence；否则只有重放时才被
+-- 20260928100000 的调用顺带装上，migrate:check 的 schema digest 会对不上）。
+SELECT kernel_apply_org_freeze_policies();
