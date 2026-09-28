@@ -4,6 +4,7 @@ import {writeFile} from 'node:fs/promises';
 import {archiveAcceptanceBoard,boardLogin,createAcceptanceBoard,createCommands,object,operate,openBoard,canonicalRows,selectAll,objectPoint,BOARD_SYNCED_STATUS} from './board-acceptance-support';
 import {canonicalSnapshot} from './board-performance-support';
 import {observeRuntimeChunks,runtimeSourceIdentity,verifyRuntimeIdentity} from './board-runtime-evidence';
+import {boardImagePngFixture} from './support/board-image-fixture';
 import {captureVisual,visualViewports,sha256} from './support/board-visual-measurements';
 
 // Browser observations are engineering evidence, never a subjective nine-point score.
@@ -35,7 +36,7 @@ test('visual and accessibility real object states, input and negative controls',
       {...object('visual-tile','extension',850,240,'研究资料',220,150),extensionData:{contentObject:{version:1,type:'tile',tileType:'document',title:'研究资料',description:'访谈证据',icon:null,coverAssetId:null,fields:[],tags:['research'],link:null,status:null,actions:[]}}},
       {...object('visual-connector','connector',0,0,'关联',1,1),connector:{from:'visual-text',to:'visual-shape',fromAnchor:'right' as const,toAnchor:'left' as const,type:'straight' as const,endStyle:'arrow' as const}}];
     await operate(request,token,boardId,createCommands(values));
-    const png=Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aN1sAAAAASUVORK5CYII=','base64');
+    const png=boardImagePngFixture();
     await page.getByTestId('board-image-input').setInputFiles({name:'visual-reference.png',mimeType:'image/png',buffer:png});
     await expect.poll(async()=>(await canonicalRows(page)).filter(row=>row.kind==='image').length).toBe(1);
     // A real vector stroke through browser mouse input, not a background bitmap fixture.

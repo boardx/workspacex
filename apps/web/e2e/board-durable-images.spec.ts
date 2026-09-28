@@ -1,11 +1,10 @@
 import {observeRuntimeChunks,runtimeSourceIdentity,verifyRuntimeIdentity} from './board-runtime-evidence';
 import { createHash, randomUUID } from 'node:crypto';
-import { deflateSync } from 'node:zlib';
 import { expect, test, type Page, type APIRequestContext } from '@playwright/test';
 import { FULLSTACK_E2E as F } from './fullstack-smoke-fixture';
 import { SESSION_TOKEN_STORAGE_KEY } from '../lib/api-client';
 import { produceImageStorageEvidence } from './support/board-durable-images-storage';
-function pngFixture(){const chunk=(name:string,data:Buffer)=>{const body=Buffer.concat([Buffer.from(name),data]);let crc=0xffffffff;for(const byte of body){crc^=byte;for(let bit=0;bit<8;bit++)crc=(crc>>>1)^((crc&1)?0xedb88320:0);}const size=Buffer.alloc(4),sum=Buffer.alloc(4);size.writeUInt32BE(data.length);sum.writeUInt32BE((crc^0xffffffff)>>>0);return Buffer.concat([size,body,sum]);};const header=Buffer.alloc(13);header.writeUInt32BE(64,0);header.writeUInt32BE(48,4);header[8]=8;header[9]=2;const pixels=Buffer.alloc(48*193);for(let y=0;y<48;y++)for(let x=0;x<64;x++){const p=y*193+1+x*3;pixels[p]=231;pixels[p+1]=29;pixels[p+2]=73;}return Buffer.concat([Buffer.from([137,80,78,71,13,10,26,10]),chunk('IHDR',header),chunk('IDAT',deflateSync(pixels)),chunk('IEND',Buffer.alloc(0))]);}
+import {boardImagePngFixture} from './support/board-image-fixture';
 function origin(){const value=process.env.WHITEBOARD_API_URL??(process.env.WORKSPACEX_API_PORT?`http://127.0.0.1:${process.env.WORKSPACEX_API_PORT}`:undefined);if(!value)throw new Error('WHITEBOARD_API_URL required');return value;}
 async function call(api:APIRequestContext,token:string,method:string,path:string,data?:unknown){const r=await api.fetch(`${origin()}${path}`,{method,headers:{Authorization:`Bearer ${token}`},data});expect(r.ok(),`${method} ${path}: ${r.status()}`).toBe(true);return r;}
 async function login(page:Page,peer=false){await page.goto('/login');await page.getByTestId('login-email').fill(peer?F.leadEmail:F.adminEmail);await page.getByTestId('login-password').fill(peer?F.leadPassword:F.adminPassword);await page.getByTestId('login-submit').click();await expect(page).toHaveURL(/\/projects$/);return(await page.evaluate(key=>localStorage.getItem(key),SESSION_TOKEN_STORAGE_KEY))!;}
@@ -23,7 +22,7 @@ test('durable image bytes survive refresh, independent peer, revoke and source d
  try{
   token=await login(owner);const peerToken=await login(peer,true);source=(await(await call(api,token,'POST','/whiteboards',{requestId:randomUUID(),name:`Durable images ${randomUUID()}`})).json()).id as string;
   await call(api,token,'PUT',`/whiteboards/${source}/members`,{userId:F.leadUserId,role:'editor'});await owner.goto(`/studio/board/${source}`);await expect(owner.getByTestId('collaborative-editor')).toBeVisible();await expect(owner.getByText(/^已同步/)).toBeVisible();
-  const png=pngFixture(),digest=`sha256:${createHash('sha256').update(png).digest('hex')}`;
+  const png=boardImagePngFixture(),digest=`sha256:${createHash('sha256').update(png).digest('hex')}`;
   const uploaded=owner.waitForResponse(r=>r.url().endsWith(`/whiteboards/${source}/assets`)&&r.request().method()==='POST'),readback=owner.waitForResponse(r=>r.url().includes(`/whiteboards/${source}/assets/`)&&r.url().endsWith('/content')).then(async response=>({response,bytes:await response.body()}));
   await owner.getByTestId('board-image-input').setInputFiles({name:'durable-evidence.png',mimeType:'image/png',buffer:png});const upload=await uploaded;expect(upload.ok()).toBe(true);const metadata=await upload.json();expect(metadata).toMatchObject({contentDigest:digest,intrinsicWidth:64,intrinsicHeight:48,persistence:'durable',byteSize:png.length});
   const read=await readback;expect(read.response.status()).toBe(200);expect(read.response.headers()['cache-control']).toBe('private, no-store');expect(read.bytes).toEqual(png);expect(read.response.request().headers()['authorization']).toBe(`Bearer ${token}`);await painted(owner);
