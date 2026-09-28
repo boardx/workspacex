@@ -100,6 +100,21 @@ describe("live research workspace", () => {
     fireEvent.click(screen.getByRole("button", { name: "重试失败任务" }));
     await waitFor(() => expect(executeResearchRuntime).toHaveBeenCalledWith(expect.objectContaining({ action: "retry", node: "research", expectedVersion: 7 })));
   });
+  it("offers a durable resume action for a previously paused research session", async () => {
+    const paused: GuidedResearchRuntime = { ...initial, currentNode: "research", availableNodes: ["brief", "directions", "outline", "research"],
+      controlStatus: "paused", planRevision: 3,
+      tasks: [{ id: "t1", sectionId: "s1", query: "Grid policy", status: "pending", attempts: 0, errorCode: null }] };
+    vi.mocked(getResearchRuntime).mockResolvedValue(paused);
+    vi.mocked(executeResearchRuntime).mockResolvedValue({ ...paused, version: 8, controlStatus: "running" });
+    render(<GuidedResearchLive sessionId="session-live" onBack={vi.fn()} />);
+    const resume = await screen.findByRole("button", { name: "继续研究" });
+    expect(screen.queryByRole("button", { name: "搜索资料" })).not.toBeInTheDocument();
+    fireEvent.click(resume);
+    await waitFor(() => expect(executeResearchRuntime).toHaveBeenCalledWith(expect.objectContaining({
+      action: "resume", node: "research", expectedVersion: 7, expectedRevision: 3, idempotencyKey: expect.any(String),
+    })));
+    expect(await screen.findByRole("button", { name: "搜索资料" })).toBeEnabled();
+  });
 });
 
 describe("research request recovery", () => {
