@@ -1314,7 +1314,20 @@ describe("lint-permission-paths: counter-proof", () => {
     // #4242's tag catalog repository is mechanically
     // admitted by whiteboard-permission-boundaries.mjs, so it does not raise
     // this bare-exception ceiling.
-    expect(total - boundaryAudit.rules.length).toBeLessThanOrEqual(99);
+    // Phase 20 WS04 adds pg-tool-grant-reader.ts (99 -> 100): `org_tool_capability_grants`
+    // authorization metadata has no ObjectRef shape; getWorkSkillReadiness checks org
+    // membership (non-member 404) before ever calling grants.listForOrg, and the response
+    // folds grants into per-capability satisfied/missing/denied without echoing tool_ref.
+    // Pinned by tests/work-skill/readiness-compute.test.ts. Remove this increment with
+    // that test.
+    // Phase 20 WS03 adds pg-work-skill-catalog-repository.ts (100 -> 101): the work skill
+    // catalog (`skill_catalog_entries`/`skills`/`skill_versions`/`skill_catalog_channel_events`)
+    // is a per-org shared catalog readable by every org member, not a per-object ACL that
+    // `authorize`/`ObjectRef` could express; every method uses withTenant (RLS by org_id)
+    // plus an explicit org_id predicate as a second line of defense. Real cross-org denial
+    // (another org sees none of these rows) and unauthenticated 401 are proven in
+    // tests/work-skill/catalog-api.test.ts. Remove this increment with that coverage.
+    expect(total - boundaryAudit.rules.length).toBeLessThanOrEqual(101);
 
     const src = readFileSync(
       fileURLToPath(new URL("../../scripts/lint-permission-paths.mjs", import.meta.url)),
