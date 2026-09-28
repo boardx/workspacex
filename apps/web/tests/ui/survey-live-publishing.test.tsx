@@ -104,7 +104,7 @@ describe("live survey trusted publishing", () => {
     expect(await screen.findByTestId("survey-publish-readiness")).toHaveTextContent("质量评分 55 / 100");
     expect(screen.getByTestId("survey-publish-readiness")).toHaveTextContent("预计完成率 75%");
     fireEvent.click(screen.getByRole("button", { name: "定位并修复：为选项题补充可选择的答案" }));
-    expect(screen.getByRole("button", { name: /1\. 设计问卷/ })).toHaveAttribute("class", expect.stringContaining("border-primary"));
+    expect(screen.getByRole("button", { name: /1\. 设计问卷/ })).toHaveAttribute("class", expect.stringContaining("bg-accent"));
   });
 
   it("shows the logic diagnostic and focuses its question for repair", async () => {

@@ -82,8 +82,12 @@ describe('live survey workspace persistence',()=>{
   request.mockResolvedValueOnce(runtime());render(<LiveSurveyWorkspace surveyId="saved-survey"/>);
   expect(await screen.findByRole('complementary',{name:'实时预览'})).toBeInTheDocument();
   expect(screen.getByRole('region',{name:'题目设置'})).toBeInTheDocument();
+  expect(screen.getByTestId('survey-source-tools')).not.toHaveAttribute('open');
+  expect(screen.getByRole('heading',{name:'题型工具箱'})).toBeInTheDocument();
   fireEvent.click(screen.getByRole('button',{name:'前往发布回收'}));
   expect(screen.getByRole('button',{name:'检查发布条件'})).toBeInTheDocument();
+  expect(screen.getByRole('region',{name:'问卷回收状态'})).toBeInTheDocument();
+  expect(screen.getByRole('complementary',{name:'回收设置面板'})).toBeInTheDocument();
  });
  it('accepts a successful published template save without a second GET',async()=>{
   const original=runtime({publication:{token:'token',status:'collecting',version:4,expiresAt:'2026-10-20T10:00:00.000Z',questions:runtime().questions}});
@@ -154,9 +158,9 @@ describe('live survey workspace persistence',()=>{
   await screen.findByDisplayValue('已保存问卷');
   const workflow=screen.getByRole('navigation',{name:'问卷工作流'});
   expect(workflow.querySelectorAll('button')).toHaveLength(3);
-  expect(workflow).toHaveTextContent('1. 设计问卷');
-  expect(workflow).toHaveTextContent('2. 发布回收');
-  expect(workflow).toHaveTextContent('3. 查看答卷');
+  expect(screen.getByRole('button',{name:'1. 设计问卷'})).toBeInTheDocument();
+  expect(screen.getByRole('button',{name:'2. 发布回收'})).toBeInTheDocument();
+  expect(screen.getByRole('button',{name:'3. 查看答卷'})).toBeInTheDocument();
   fireEvent.change(screen.getByLabelText('问卷 Markdown'),{target:{value:'没有标题的无效文档'}});
   fireEvent.click(screen.getByRole('button',{name:'保存修改'}));
   expect(await screen.findByRole('alert')).toHaveTextContent('第');
@@ -221,8 +225,14 @@ describe('live survey workspace persistence',()=>{
   expect(await screen.findByLabelText('答题链接')).toHaveValue('http://localhost:3000/surveys/collecting-link');
   expect(screen.getByRole('button',{name:'复制答题链接'})).toBeEnabled();
   expect(screen.getByRole('region',{name:'回收数据'})).toHaveTextContent('已收到答卷');
-  expect(screen.getByRole('region',{name:'回收设置'})).toHaveTextContent('发布版本 v4');
+  expect(screen.getByRole('complementary',{name:'回收设置面板'})).toHaveTextContent('截止时间');
   expect(screen.getByRole('region',{name:'最近回收动态'})).toHaveTextContent('暂无答卷');
+ });
+ it('does not advertise an expired collection as accepting new answers',async()=>{
+  request.mockResolvedValueOnce(runtime({status:'collecting',publication:{token:'expired-link',status:'collecting',version:4,expiresAt:'2020-01-01T00:00:00.000Z',questions:[{id:'q1',title:'真实问题',type:'single',chapterId:'general',order:1,required:true,options:['甲','乙']}]}}));
+  render(<LiveSurveyWorkspace surveyId="saved-survey" initialStep="publish"/>);
+  expect(await screen.findByRole('heading',{name:'问卷已到截止时间'})).toBeInTheDocument();
+  expect(screen.getByRole('region',{name:'问卷回收状态'})).toHaveTextContent('当前链接不再接受新答卷');
  });
  it('does not replace a failed load with prototype questions',async()=>{
   request.mockRejectedValueOnce(new Error('问卷不存在或无访问权限'));

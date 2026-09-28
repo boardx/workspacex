@@ -9,6 +9,8 @@ test('AI 提案先校对再应用并保存为 Markdown',async({page})=>{
  await page.getByLabel('问卷名称').fill('AI 校对验收');
  await page.getByLabel('标签',{exact:true}).fill('客户调研');await page.getByLabel('标签',{exact:true}).press('Enter');
  await page.getByRole('button',{name:'下一步',exact:true}).click();
+ if (!(await page.getByTestId('survey-source-tools').evaluate(element => (element as HTMLDetailsElement).open)))
+   await page.getByTestId('survey-source-tools').locator('summary').first().click();
  await page.getByLabel('问卷需求').fill('调查客户最近一次使用体验');
  await page.getByLabel('上传问卷文件').setInputFiles({name:'研究目标.md',mimeType:'text/markdown',buffer:Buffer.from('研究软件用户近期的真实产品体验')});
  await expect(page.getByText(/研究目标.md/)).toBeVisible();
@@ -86,6 +88,9 @@ test("用户可从模板完整走通创建、发布、答题、查看答卷和�
   await expect(page.getByText("1. 会议名称", { exact: true })).toBeVisible();
   await expect(page.getByText("2. 会议日期", { exact: true })).toBeVisible();
   await expect(page.getByText("8. 下次会议最值得改进的地方是什么？", { exact: true })).toBeVisible();
+  await page.screenshot({path:testInfo.outputPath("survey-designer-desktop.png"),fullPage:true});
+
+  await page.getByTestId('survey-source-tools').locator('summary').first().click();
 
   const source = await page.getByLabel("问卷 Markdown", { exact: true }).inputValue();
   await page.getByLabel("上传 Markdown 文件").setInputFiles({
@@ -108,6 +113,7 @@ test("用户可从模板完整走通创建、发布、答题、查看答卷和�
   await expect(page.getByText("发布准备已完成")).toBeVisible();
   await page.getByRole("button", { name: "开始回收" }).click();
   await expect(page.getByText(/正在回收 · 0 份答卷/)).toBeVisible();
+  await page.screenshot({path:testInfo.outputPath("survey-publish-desktop.png"),fullPage:true});
   const publicUrl = await page.getByLabel("答题链接").inputValue();
   await page.getByRole('button',{name:'生成二维码'}).click();
   await expect(page.getByRole('img',{name:'问卷分享二维码'})).toBeVisible();
@@ -194,6 +200,7 @@ test('空白 Markdown 问卷无需报告模板即可发布并生成默认报告'
   await expect(page).toHaveURL(/\/studio\/survey\/[0-9a-f-]+\?step=design$/);
   const initialMarkdown=await page.getByLabel('问卷 Markdown',{exact:true}).inputValue();
   expect(initialMarkdown).toContain('"体验"');
+  await page.getByTestId('survey-source-tools').locator('summary').first().click();
   await page.getByLabel('问卷 Markdown',{exact:true}).fill(`${initialMarkdown}\n## feedback [open]\n请留下建议\n\n## satisfaction [single]\n整体感受\n- 满意\n- 一般\n`);
   await page.getByRole('button',{name:'保存修改'}).click();
   await expect(page.getByRole('alert').filter({hasText:'请先校对并应用 Markdown'})).toBeVisible();
