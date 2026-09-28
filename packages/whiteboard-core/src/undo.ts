@@ -1,16 +1,17 @@
 import * as Y from 'yjs';
 import { WhiteboardCommandBatch } from '@repo/contracts/whiteboard-document';
-import { executeCommands, objectMap, readObjects, tombstones, validateDocument } from './document';
+import { cloneDocument, executeCommands, objectMap, readObjects, tombstones, validateDocument } from './document';
 import { WhiteboardCommandOrigin } from './command-port';
 
 const HISTORY = Symbol('whiteboard-history');
-const COMPENSATION: { receiptGestureId?: string } = {};
-type HistorySnapshot = { ids: string[]; before: Record<string, string>; after: Record<string, string> };
+const COMPENSATION: { receiptGestureId?: string; restoreDeletion?:{deleteGestureId:string;objectIds:string[]} } = {};
+type HistorySnapshot = { deleteGestureId?:string;deletedIds?:string[];ids: string[]; before: Record<string, string>; after: Record<string, string> };
 type StructuralHistory = {
   action: 'create' | 'delete';
+  deleteGestureId?:string;
   objects: ReturnType<typeof readObjects>;
 };
-type HistoryEntry = { type: 'manager'; item: StackItem } | { type: 'structural'; value: StructuralHistory };
+type HistoryEntry = {type:'compound';snapshot:HistorySnapshot;undoSource?:string;redoSource?:string} | { type: 'manager'; item: StackItem } | { type: 'structural'; value: StructuralHistory };
 type StackItem = Y.UndoManager['undoStack'][number];
 function copyDeleteSet(source: StackItem['deletions']): StackItem['deletions'] {
   const copy = Y.createDeleteSet();
@@ -41,12 +42,14 @@ export class WhiteboardUndo {
     const after = Object.fromEntries(ids.map(id => [id, JSON.stringify(afterById.get(id) ?? null)]));
     const item = this.manager.undoStack.at(-1);
     if (!item) return;
-    item.meta.set(HISTORY, { ids, before, after } satisfies HistorySnapshot);
+    item.meta.set(HISTORY, { ids, before, after,deleteGestureId:transaction.origin.gestureId,deletedIds:ids.filter(id=>beforeById.has(id)&&!afterById.has(id)) } satisfies HistorySnapshot);
     const pureCreate = ids.every(id => !beforeById.has(id) && afterById.has(id));
     const pureDelete = ids.every(id => beforeById.has(id) && !afterById.has(id));
     if (pureCreate || pureDelete) {
       this.manager.undoStack.pop();
-      this.undoHistory.push({ type: 'structural', value: { action: pureCreate ? 'create' : 'delete', objects: ids.map(id => (pureCreate ? afterById : beforeById).get(id)!).filter(Boolean) } });
+      this.undoHistory.push({ type: 'structural', value: { action: pureCreate ? 'create' : 'delete', deleteGestureId:transaction.origin.gestureId, objects: ids.map(id => (pureCreate ? afterById : beforeById).get(id)!).filter(Boolean) } });
+    } else if(ids.some(id=>!beforeById.has(id)||!afterById.has(id))){
+      this.manager.undoStack.pop();this.undoHistory.push({type:'compound',snapshot:item.meta.get(HISTORY) as HistorySnapshot,undoSource:transaction.origin.gestureId});
     } else this.undoHistory.push({ type: 'manager', item });
     this.redoHistory = [];
   };
@@ -73,16 +76,48 @@ export class WhiteboardUndo {
     const changedIds = ids.filter(id => before[id] !== after[id]);
     const item = this.manager.undoStack.at(-1);
     if (!item) throw new Error('HISTORY_NOT_CAPTURED');
-    item.meta.set(HISTORY, { ids: changedIds, before, after } satisfies HistorySnapshot);
+    item.meta.set(HISTORY, { ids: changedIds, before, after,deleteGestureId:typeof transactionOrigin==='object'&&transactionOrigin!==null&&'gestureId' in transactionOrigin?String(transactionOrigin.gestureId):undefined,deletedIds:changedIds.filter(id=>before[id]!=='null'&&after[id]==='null') } satisfies HistorySnapshot);
     const pureCreate = commands.every(command => command.type === 'create');
     const pureDelete = commands.every(command => command.type === 'delete');
     if (pureCreate || pureDelete) {
       this.manager.undoStack.pop();
       const source = pureCreate ? after : before;
       const objects = changedIds.map(id => JSON.parse(source[id] ?? 'null')).filter(Boolean);
-      this.undoHistory.push({ type: 'structural', value: { action: pureCreate ? 'create' : 'delete', objects } });
+      this.undoHistory.push({ type: 'structural', value: { action: pureCreate ? 'create' : 'delete', deleteGestureId:typeof transactionOrigin==='object'&&transactionOrigin!==null&&'gestureId' in transactionOrigin?String(transactionOrigin.gestureId):undefined, objects } });
+    } else if(changedIds.some(id=>before[id]==='null'||after[id]==='null')){
+      this.manager.undoStack.pop();const snapshot=item.meta.get(HISTORY) as HistorySnapshot;
+      this.undoHistory.push({type:'compound',snapshot,undoSource:snapshot.deleteGestureId});
     } else this.undoHistory.push({ type: 'manager', item });
     this.redoHistory = [];
+  }
+
+  private applyCompound(entry:Extract<HistoryEntry,{type:'compound'}>,direction:'undo'|'redo',gestureId?:string):void{
+    const expected=direction==='undo'?entry.snapshot.after:entry.snapshot.before;
+    const desired=direction==='undo'?entry.snapshot.before:entry.snapshot.after;
+    const current=this.snapshot(entry.snapshot.ids);
+    if(entry.snapshot.ids.some(id=>current[id]!==expected[id]))throw new Error('COMPOUND_HISTORY_CONFLICT');
+    const restored=entry.snapshot.ids.filter(id=>current[id]==='null'&&desired[id]!=='null');
+    const source=direction==='undo'?entry.undoSource:entry.redoSource;
+    if(restored.length&&!source)throw new Error('COMPOUND_RECEIPT_REQUIRED');
+    const apply=(doc:Y.Doc,origin:unknown)=>doc.transact(()=>{
+      for(const id of entry.snapshot.ids){
+        const object=JSON.parse(desired[id]??'null') as ReturnType<typeof readObjects>[number]|null;
+        if(!object){tombstones(doc).set(id,true);continue;}
+        const value=objectMap(doc).get(id);if(!value)throw new Error('COMPOUND_OBJECT_MISSING');
+        tombstones(doc).delete(id);
+        for(const key of [...value.keys()])if(!['text','style'].includes(key)&&!(key in object))value.delete(key);
+        for(const [key,field] of Object.entries(object))if(!['id','text','style'].includes(key))value.set(key,structuredClone(field));
+        const text=value.get('text') as Y.Text;
+        if(text.toString()!==object.text){text.delete(0,text.length);text.insert(0,object.text);}
+        const style=value.get('style') as Y.Map<unknown>;for(const key of [...style.keys()])if(!(key in object.style))style.delete(key);
+        for(const [key,field] of Object.entries(object.style))style.set(key,structuredClone(field));
+      }
+    },origin);
+    const trial=cloneDocument(this.doc);
+    try{apply(trial,{});validateDocument(trial);}finally{trial.destroy();}
+    const origin={receiptGestureId:gestureId,...(restored.length?{restoreDeletion:{deleteGestureId:source!,objectIds:restored,includeInverse:true}}:{})};
+    apply(this.doc,origin);
+    if(direction==='undo')entry.redoSource=gestureId;else entry.undoSource=gestureId;
   }
 
   private recreate(objects: ReturnType<typeof readObjects>): ReturnType<typeof readObjects> {
@@ -101,6 +136,23 @@ export class WhiteboardUndo {
     return recreated;
   }
 
+  private deleteStructural(objects: ReturnType<typeof readObjects>): void {
+    const ids = new Set(objects.map(object => object.id));
+    const commands = objects.map(object => ({ type: 'delete' as const, id: object.id }));
+    // Canonical deletion cascades relationships. History may only remove the
+    // objects captured by its original gesture, never a later peer relationship.
+    const before = readObjects(this.doc).filter(object => !ids.has(object.id));
+    const trial = cloneDocument(this.doc);
+    try {
+      executeCommands(trial, commands, {});
+      const after = new Map(readObjects(trial).map(object => [object.id, object]));
+      if (before.some(object => JSON.stringify(after.get(object.id) ?? null) !== JSON.stringify(object))) {
+        throw new Error('STRUCTURAL_HISTORY_CONFLICT');
+      }
+    } finally { trial.destroy(); }
+    executeCommands(this.doc, commands, COMPENSATION);
+  }
+
   private undoStructural(entry: StructuralHistory): StructuralHistory {
     if (entry.action === 'create') {
       const live = new Map(readObjects(this.doc).map(object => [object.id, object]));
@@ -115,10 +167,11 @@ export class WhiteboardUndo {
       // This keeps structural validation valid for an atomic subgraph undo.
       const deletionOrder = [...entry.objects].sort((left, right) =>
         Number(right.kind === 'connector') - Number(left.kind === 'connector') || depth(right) - depth(left));
-      executeCommands(this.doc, deletionOrder.map(object => ({ type: 'delete' as const, id: object.id })), COMPENSATION);
+      this.deleteStructural(deletionOrder);
       return entry;
     }
-    executeCommands(this.doc, entry.objects.map(object => ({type: 'restore' as const, id: object.id})), COMPENSATION);
+    if(entry.deleteGestureId)COMPENSATION.restoreDeletion={deleteGestureId:entry.deleteGestureId,objectIds:entry.objects.map(object=>object.id)};
+    try{executeCommands(this.doc, entry.objects.map(object => ({type: 'restore' as const, id: object.id})), COMPENSATION);}finally{delete COMPENSATION.restoreDeletion;}
     return entry;
   }
 
@@ -126,8 +179,12 @@ export class WhiteboardUndo {
     if (entry.action === 'create') return { ...entry, objects: this.recreate(entry.objects) };
     const live = new Map(readObjects(this.doc).map(object => [object.id, object]));
     if (!entry.objects.every(object => JSON.stringify(live.get(object.id) ?? null) === JSON.stringify(object))) throw new Error('STRUCTURAL_HISTORY_CONFLICT');
-    executeCommands(this.doc, entry.objects.map(object => ({ type: 'delete' as const, id: object.id })), COMPENSATION);
-    return entry;
+    // Delete relations before endpoints, and descendants before parents.
+    const byId=new Map(entry.objects.map(object=>[object.id,object]));
+    const depth=(id:string):number=>{let count=0,parent=byId.get(id)?.parentId;while(parent&&byId.has(parent)){count++;parent=byId.get(parent)?.parentId;}return count;};
+    const ordered=[...entry.objects].sort((a,b)=>Number(b.kind==='connector')-Number(a.kind==='connector')||depth(b.id)-depth(a.id));
+    this.deleteStructural(ordered);
+    return {...entry,deleteGestureId:COMPENSATION.receiptGestureId};
   }
   /** Pinned Yjs adapter: redone links and stack ranges are local metadata, absent from encoded updates. */
   private canApply(item: StackItem, direction: 'undo' | 'redo'): boolean {
@@ -152,6 +209,10 @@ export class WhiteboardUndo {
       const result = direction === 'undo' ? trial.undo() : trial.redo();
       if (!result) return false;
       validateDocument(candidate);
+      const history=item.meta.get(HISTORY) as HistorySnapshot|undefined;
+      for (const [id, deleted] of tombstones(this.doc)) {
+        if (deleted && tombstones(candidate).get(id) !== true && !(direction==='undo'&&history?.deleteGestureId&&history.deletedIds?.includes(id))) return false;
+      }
       return true;
     } catch { return false; }
     finally { trial?.destroy(); candidate.destroy(); }
@@ -170,21 +231,24 @@ export class WhiteboardUndo {
     // validated history entry in the same operation.
     const key = direction === 'undo' ? 'undoStack' : 'redoStack';
     const stack = this.manager[key], item = stack.at(-1)!;
-    const history = item.meta.get(HISTORY);
+    const history = item.meta.get(HISTORY) as HistorySnapshot|undefined;
     this.manager[key] = [item];
-    const receiptOrigin = this.manager as Y.UndoManager & {receiptGestureId?: string};
+    const receiptOrigin = this.manager as Y.UndoManager & {receiptGestureId?: string;restoreDeletion?:{deleteGestureId:string;objectIds:string[];includeInverse:true}};
     receiptOrigin.receiptGestureId = receiptGestureId;
+    if(direction==='undo'&&history?.deleteGestureId&&history.deletedIds?.length)receiptOrigin.restoreDeletion={deleteGestureId:history.deleteGestureId,objectIds:history.deletedIds,includeInverse:true};
     try {
       if (direction === 'undo') this.manager.undo(); else this.manager.redo();
+      if(direction==='redo'&&history?.deletedIds?.length)history.deleteGestureId=receiptGestureId;
       const opposite = direction === 'undo' ? this.manager.redoStack.at(-1) : this.manager.undoStack.at(-1);
       if (opposite && history) opposite.meta.set(HISTORY, history);
     }
-    finally { delete receiptOrigin.receiptGestureId; this.manager[key] = [...stack.slice(0, -1), ...this.manager[key]]; }
+    finally { delete receiptOrigin.restoreDeletion;delete receiptOrigin.receiptGestureId; this.manager[key] = [...stack.slice(0, -1), ...this.manager[key]]; }
   }
-  undo(receiptGestureId?: string): 'undone' | 'empty' | 'conflict' {
+  undo(receiptGestureId: string = crypto.randomUUID()): 'undone' | 'empty' | 'conflict' {
     const entry = this.undoHistory.at(-1);
     if (!entry) return 'empty';
-    if (entry.type === 'manager') {
+    if(entry.type==='compound'){try{this.applyCompound(entry,'undo',receiptGestureId);}catch{return 'conflict';}}
+    else if (entry.type === 'manager') {
       const item = this.manager.undoStack.at(-1);
       if (item !== entry.item || !this.matchesSnapshot(item, 'undo') || !this.canApply(item, 'undo')) return 'conflict';
       this.applyOne('undo', receiptGestureId);
@@ -196,10 +260,11 @@ export class WhiteboardUndo {
     }
     this.undoHistory.pop(); this.redoHistory.push(entry); return 'undone';
   }
-  redo(receiptGestureId?: string): boolean {
+  redo(receiptGestureId: string = crypto.randomUUID()): boolean {
     const entry = this.redoHistory.at(-1);
     if (!entry) return false;
-    if (entry.type === 'manager') {
+    if(entry.type==='compound'){try{this.applyCompound(entry,'redo',receiptGestureId);}catch{return false;}}
+    else if (entry.type === 'manager') {
       const item = this.manager.redoStack.at(-1);
       if (item !== entry.item || !this.matchesSnapshot(item, 'redo') || !this.canApply(item, 'redo')) return false;
       this.applyOne('redo', receiptGestureId);
