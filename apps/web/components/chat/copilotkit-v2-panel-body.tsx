@@ -145,6 +145,7 @@ export function CopilotKitV2PanelBody({
   onSelectAgent,
   realtimeContext = null,
   onAssistantText,
+  onVoiceStateChange,
 }: {
   chatThreadId?: string | null;
   observedRunId?: string | null;
@@ -166,6 +167,7 @@ export function CopilotKitV2PanelBody({
   onSelectAgent: (agentId: string | null) => void;
   realtimeContext?: { readonly boardId: string; readonly selectedObjectIds: readonly string[] } | null;
   onAssistantText?: (text: string) => void;
+  onVoiceStateChange?: (state: "idle" | "listening") => void;
   onThreadResolved?: (threadId: string) => void;
   /** issue #2046（CK-P1）—— 见外层 `CopilotKitV2Panel` 同名 prop。 */
   onMessageSent?: () => void;
@@ -1163,6 +1165,9 @@ export function CopilotKitV2PanelBody({
     getDraft: () => inputDraftRef.current,
   }), [setInputDraft]);
   const voice = useComposerVoiceSession(speech, voiceOpts);
+  React.useEffect(() => {
+    onVoiceStateChange?.(speech.listening || speech.connecting || speech.stopping ? "listening" : "idle");
+  }, [onVoiceStateChange, speech.connecting, speech.listening, speech.stopping]);
   /*
     录音期文字滚动（人类反馈 2026-09-07：「composer 在录音的过程中文字多了以后无法上下
     滚动来查看文本，不能向下滚动看下面的文字」）——
