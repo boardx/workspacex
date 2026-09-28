@@ -30,16 +30,24 @@ it("confirmed source is read-only and cannot spend a model call on regeneration"
 });
 it("failed generation reconciles persisted partial text into a clean editor", async () => {
   vi.stubEnv("NEXT_PUBLIC_API_URL", "http://localhost:4100"); vi.stubEnv("NEXT_PUBLIC_API_PATH_PREFIX", "");
+  const failedMarkdown = "## [夜班护理角色](#expert-night-shift)\n\n已保存的部分画像。\n\n材料边界仍待核对。";
   let failed = false;
   vi.stubGlobal("fetch", async (url: string, init: RequestInit) => {
     if (init.method === "POST") { failed = true; return new Response(JSON.stringify({ message: "unavailable" }), { status: 503 }); }
-    return new Response(JSON.stringify(url.endsWith("/digital/experts") ? { items: [] } : { interviewId: "itv-edits", revisionId: "rev-edits", version: failed ? 2 : 1, documents: [{ ...source, markdown: failed ? "# 已保存的部分画像" : source.markdown }], states: [{ documentId: source.documentId, status: failed ? "failed" : "draft", failure: null }] }));
+    return new Response(JSON.stringify(url.endsWith("/digital/experts") ? { items: [] } : { interviewId: "itv-edits", revisionId: "rev-edits", version: failed ? 2 : 1, documents: [{ ...source, markdown: failed ? failedMarkdown : source.markdown }], states: [{ documentId: source.documentId, status: failed ? "failed" : "draft", failure: null }] }));
   });
   render(<InterviewMarkdownEditingStep interviewId="itv-edits" step="experts" onVersionChange={vi.fn()} onDirtyChange={vi.fn()} onContinue={vi.fn()} />);
   await vi.waitFor(() => expect(screen.getByRole("button", { name: "生成专家建议" })).toBeEnabled());
   fireEvent.click(screen.getByRole("button", { name: "生成专家建议" }));
   await screen.findByRole("alert");
-  expect(screen.getByTestId("itv-expert-draft-context")).toHaveTextContent("已保存的部分画像");
+  expect(screen.getByTestId("itv-expert-draft-context").querySelector("pre")?.textContent).toBe(failedMarkdown);
+});
+it("keeps the complete failed Markdown visible when one expert heading parses", () => {
+  const partial = "## [夜班护理角色](#expert-night-shift)\n\n专业角色：夜班护理。\n\n" + "未完成的材料边界与局限。".repeat(24);
+  render(<InterviewExpertsStep document={{ ...source, markdown: partial }} directory={[]} showRecoveryContext pending={false} onChange={vi.fn()} onSave={vi.fn()} onConfirm={vi.fn()} onGenerate={vi.fn()} />);
+  expect(screen.getByText("已选择专家 1")).toBeVisible();
+  expect(screen.getByTestId("itv-expert-draft-context").querySelector("pre")?.textContent).toBe(partial);
+  expect(screen.queryByRole("textbox", { name: "专家文档 Markdown" })).not.toBeInTheDocument();
 });
 it("outline controls reorder raw sibling groups and retain stable question references", () => {
   const first = "## [背景](#question-one)\n\n原文  \n\n";
@@ -84,7 +92,7 @@ it("does not claim there are no expert matches when an organization expert match
   render(<InterviewExpertsStep document={source} directory={[published]} pending={false} onChange={vi.fn()} onSave={vi.fn()} onConfirm={vi.fn()} onGenerate={vi.fn()} />);
   fireEvent.change(screen.getByRole("textbox", { name: "搜索专家" }), { target: { value: "唯一组织专家" } });
   expect(screen.getByRole("button", { name: "添加专家 唯一组织专家" })).toBeVisible();
-  expect(screen.getByText("没有匹配的模拟画像")).toBeVisible();
+  expect(screen.queryByText("没有匹配的模拟画像")).not.toBeInTheDocument();
   expect(screen.queryByText("没有匹配的专家")).not.toBeInTheDocument();
 });
 it("distinguishes an empty published expert catalog from a search with no matches", () => {
