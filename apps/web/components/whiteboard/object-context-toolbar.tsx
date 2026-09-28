@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, type CSSProperties, type Ref, type ReactNode } from "react";
-import { Bold, Italic, AlignLeft, Copy, Trash2, Link2, MessageCircle, Plus, Tag, X } from "lucide-react";
+import { Bold, Italic, AlignLeft, Copy, Trash2, Link2, MessageCircle, MoreHorizontal, Plus, Tag, X } from "lucide-react";
 import { STICKY_COLOR_PRESETS, type StickyVariant, type TextAttributes, type TextStylePreset, type WhiteboardObject } from "@repo/whiteboard-core";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -59,6 +59,7 @@ export function ObjectContextToolbar({ object, readOnly, actorId, onStickyChange
   const locked = readOnly || object.locked === true;
   const typeLabel = OBJECT_LABELS[object.kind];
   const title = object.text.trim() || (object.kind === "image" ? "图片" : object.kind === "frame" ? "未命名 Frame" : object.kind === "drawing" ? "绘图" : "未命名对象");
+  const overflowActions = actions ?? <BoardToolPopover label="更多操作" trigger={<Button variant="ghost" data-testid="board-inspector-actions" aria-label="更多操作" title="更多操作" className="min-h-11 min-w-11"><MoreHorizontal className="h-4 w-4" /></Button>}><Button data-testid="board-properties-open">精确属性</Button></BoardToolPopover>;
   const compactActions = <div role="toolbar" aria-label="对象快捷操作" data-testid="board-object-quick-actions" className="flex min-w-max items-center gap-1 px-0.5 [&_button]:min-h-11 [&_button]:min-w-11">
     {object.kind === "sticky" ? <div data-testid="board-widget-quick-format" className="flex items-center gap-1">
       <BoardToolPopover label="便利贴样式" trigger={<Button data-testid="board-sticky-style-open" size="icon" variant="ghost" className="h-11 w-11" aria-label="便利贴样式" title="便利贴样式"><span aria-hidden="true" className="h-5 w-5 rounded-full border border-border shadow-sm" style={{backgroundColor:typeof sticky.color === "string" ? sticky.color : STICKY_COLOR_PRESETS.yellow}} /></Button>}>
@@ -72,9 +73,9 @@ export function ObjectContextToolbar({ object, readOnly, actorId, onStickyChange
       </BoardToolPopover>
     </div> : object.kind === "text" ? <div data-testid="board-widget-quick-format" className="flex items-center gap-0.5"><Button variant={text.bold === true ? "primary" : "ghost"} className="h-11 min-w-11 px-2" aria-label="切换粗体" title="粗体" data-testid="board-text-quick-bold" aria-pressed={text.bold === true} disabled={locked} onClick={() => onTextChange({ preset: (text.preset as TextStylePreset) || "body", bold: text.bold !== true })}><Bold className="h-4 w-4" /></Button><Button variant={text.italic === true ? "primary" : "ghost"} className="h-11 min-w-11 px-2" aria-label="切换斜体" title="斜体" aria-pressed={text.italic === true} disabled={locked} onClick={() => onTextChange({ preset: (text.preset as TextStylePreset) || "body", italic: text.italic !== true })}><Italic className="h-4 w-4" /></Button><Button variant="ghost" className="h-11 min-w-11 px-2" aria-label="切换文字对齐" title="文字对齐" data-testid="board-text-quick-align" disabled={locked} onClick={() => onTextChange({ preset: (text.preset as TextStylePreset) || "body", alignment: text.alignment === "left" ? "center" : text.alignment === "center" ? "right" : "left" })}><AlignLeft className="h-4 w-4" /></Button></div> : <div data-testid="board-widget-quick-format" className="flex items-center gap-1">{(["rectangle", "ellipse", "frame"] as const).includes(object.kind as "rectangle" | "ellipse" | "frame") ? <label className="flex h-11 items-center gap-2 rounded-md border border-border/70 bg-muted/20 px-2 text-11 text-muted-foreground">填充<input data-testid="board-object-fill-color" aria-label="对象填充颜色" type="color" disabled={locked} value={object.style.fill ?? "#FFFFFF"} onChange={(event) => onStyleChange?.({ ...object.style, fill: event.target.value.toUpperCase() })} className="h-5 w-6 cursor-pointer border-0 bg-transparent p-0" /></label> : <span className="px-2 text-11 text-muted-foreground">{typeLabel}</span>}</div>}
     {onDuplicate ? <Button size="icon" variant="ghost" className="ml-auto h-11 w-11 shrink-0" aria-label="复制对象" title="复制对象" disabled={locked} onClick={onDuplicate}><Copy className="h-4 w-4" /></Button> : null}
-    {onDelete ? <Button size="icon" variant="ghost" className="h-11 w-11 shrink-0 text-destructive" aria-label="删除对象" title="删除对象" disabled={locked} onClick={onDelete}><Trash2 className="h-4 w-4" /></Button> : null}{actions}
+    {onDelete ? <Button size="icon" variant="ghost" className="h-11 w-11 shrink-0 text-destructive" aria-label="删除对象" title="删除对象" disabled={locked} onClick={onDelete}><Trash2 className="h-4 w-4" /></Button> : null}{overflowActions}
   </div>;
-  return <BoardSelectedObjectPanel object={object} title={title} typeLabel={typeLabel} readOnly={locked} onClose={onClose} onGeometryChange={onGeometryChange} panelRef={panelRef} floatingStyle={floatingStyle} compactActions={compactActions}>
+  return <BoardSelectedObjectPanel object={object} title={title} typeLabel={typeLabel} readOnly={locked} onClose={onClose} onGeometryChange={onGeometryChange} panelRef={panelRef} floatingStyle={floatingStyle} compactActions={compactActions} collapsedControls={false}>
     <div className="space-y-3">
     <div role="toolbar" aria-label="对象快捷操作" data-testid="board-object-quick-actions" className="border-b border-border/70 pb-2.5">
       <div data-testid="board-widget-quick-format" className="flex flex-wrap items-center gap-1.5">

@@ -21,12 +21,13 @@ interface BoardSelectedObjectPanelProps {
   panelRef?: Ref<HTMLElement>;
   floatingStyle?: CSSProperties;
   compactActions?: ReactNode;
+  collapsedControls?: boolean;
   footerActions?: ReactNode;
   children: ReactNode;
 }
 
 /** Resizable, scrollable inspector keeps selection controls in one predictable place. */
-export function BoardSelectedObjectPanel({ title, typeLabel, object, readOnly, onClose, onGeometryChange, panelRef, floatingStyle, compactActions, footerActions, children }: BoardSelectedObjectPanelProps) {
+export function BoardSelectedObjectPanel({ title, typeLabel, object, readOnly, onClose, onGeometryChange, panelRef, floatingStyle, compactActions, collapsedControls = true, footerActions, children }: BoardSelectedObjectPanelProps) {
   const [expanded, setExpanded] = useState(false);
   const [width, setWidth] = useState(320);
   const [height, setHeight] = useState(440);
@@ -80,11 +81,11 @@ export function BoardSelectedObjectPanel({ title, typeLabel, object, readOnly, o
     onGeometryChange(next);
   };
 
-  return <aside ref={panelRef} data-testid="board-context-toolbar" data-board-selected-object-panel="true" data-expanded={expanded} aria-label={`${typeLabel}${expanded ? "属性" : "快捷工具"}`} className={expanded ? "absolute z-40 flex h-[min(var(--board-inspector-height),var(--board-inspector-max-height))] max-h-[var(--board-inspector-max-height)] w-[min(var(--board-inspector-width),var(--board-inspector-max-width))] flex-col overflow-hidden rounded-xl border border-border/80 bg-card shadow-lg max-sm:bottom-20 max-sm:left-4 max-sm:right-auto max-sm:top-auto max-sm:max-h-[var(--board-inspector-max-height)] max-sm:w-[min(var(--board-inspector-width),var(--board-inspector-max-width))]" : "absolute z-40 w-fit max-w-[min(27rem,calc(100vw-2rem))] overflow-hidden rounded-xl border border-border/80 bg-card px-1 shadow-lg max-sm:bottom-20 max-sm:left-4 max-sm:right-4 max-sm:top-auto max-sm:w-auto"} style={expanded ? { ...responsiveFloatingStyle, "--board-inspector-width": `${fittedWidth}px`, "--board-inspector-height": `${fittedHeight}px`, "--board-inspector-max-width": `${maxWidth}px`, "--board-inspector-max-height": `${maxHeight}px` } as CSSProperties : {left:responsiveFloatingStyle?.left,top:responsiveFloatingStyle?.top}}>
+  return <aside ref={panelRef} data-testid="board-context-toolbar" data-board-selected-object-panel="true" data-expanded={expanded} aria-label={`${typeLabel}${expanded ? "属性" : "快捷工具"}`} onClickCapture={(event) => { if ((event.target as HTMLElement).closest('[data-testid="board-properties-open"]')) setExpanded(true); }} className={expanded ? "absolute z-40 flex h-[min(var(--board-inspector-height),var(--board-inspector-max-height))] max-h-[var(--board-inspector-max-height)] w-[min(var(--board-inspector-width),var(--board-inspector-max-width))] flex-col overflow-hidden rounded-xl border border-border/80 bg-card shadow-lg max-sm:bottom-20 max-sm:left-4 max-sm:right-auto max-sm:top-auto max-sm:max-h-[var(--board-inspector-max-height)] max-sm:w-[min(var(--board-inspector-width),var(--board-inspector-max-width))]" : "absolute z-40 w-fit max-w-[min(27rem,calc(100vw-2rem))] overflow-hidden rounded-xl border border-border/80 bg-card px-1 shadow-lg max-sm:bottom-20 max-sm:left-4 max-sm:right-4 max-sm:top-auto max-sm:w-auto"} style={expanded ? { ...responsiveFloatingStyle, "--board-inspector-width": `${fittedWidth}px`, "--board-inspector-height": `${fittedHeight}px`, "--board-inspector-max-width": `${maxWidth}px`, "--board-inspector-max-height": `${maxHeight}px` } as CSSProperties : {left:responsiveFloatingStyle?.left,top:responsiveFloatingStyle?.top}}>
     {!expanded ? <div className="flex min-h-11 max-w-full items-center gap-0.5 overflow-hidden">
       <div className="min-w-0 flex-1 overflow-x-auto overscroll-x-contain [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">{compactActions ?? <span className="px-2 text-12 font-medium">{title || "未命名对象"}</span>}</div>
-      <Button type="button" variant="ghost" size="icon" className="min-h-11 min-w-11" data-testid="board-inspector-expand" aria-label={`编辑${typeLabel}属性`} title="打开详细属性" aria-expanded={false} onClick={() => setExpanded(true)}><SlidersHorizontal className="h-4 w-4" /></Button>
-      <Button type="button" variant="ghost" size="icon" className="min-h-11 min-w-11" data-testid="board-inspector-close" aria-label="取消选择" onClick={onClose}><X className="h-4 w-4" /></Button>
+      {collapsedControls ? <><Button type="button" variant="ghost" size="icon" className="min-h-11 min-w-11" data-testid="board-inspector-expand" aria-label={`编辑${typeLabel}属性`} title="打开详细属性" aria-expanded={false} onClick={() => setExpanded(true)}><SlidersHorizontal className="h-4 w-4" /></Button>
+      <Button type="button" variant="ghost" size="icon" className="min-h-11 min-w-11" data-testid="board-inspector-close" aria-label="取消选择" onClick={onClose}><X className="h-4 w-4" /></Button></> : null}
     </div> : <>
     <div className="flex min-h-12 shrink-0 items-center justify-between gap-3 border-b border-border/70 px-3">
       <div className="min-w-0"><p className="text-10 font-medium uppercase tracking-wide text-muted-foreground">{typeLabel}</p><h2 className="truncate text-13 font-semibold">{title || "未命名对象"}</h2></div>

@@ -20,6 +20,16 @@ class ResizeObserverMock { observe() {} disconnect() {} }
 vi.stubGlobal("ResizeObserver", ResizeObserverMock);
 afterEach(cleanup);
 
+function openProperties() {
+  const overflow = screen.queryByTestId("board-inspector-actions");
+  if (overflow) fireEvent.click(overflow);
+  else {
+    fireEvent.click(screen.getByTestId("board-inspector-expand"));
+    return;
+  }
+  fireEvent.click(screen.getByTestId("board-properties-open"));
+}
+
 const sticky: WhiteboardObject = { id: "sticky", schemaVersion: 1, kind: "sticky", geometry: { x: 20, y: 80, width: 180, height: 180, rotation: 0 }, text: "Idea", style: {}, parentId: null, orderKey: "a", extensionData: { thinkingInput: { sticky: { variant: "square", color: "#F8D76E", sizing: "auto-height" } } } };
 
 it("shows Sticky-only direct controls and makes every mutating control unavailable in readonly mode", () => {
@@ -39,7 +49,7 @@ it("shows Sticky-only direct controls and makes every mutating control unavailab
   rerender(<ObjectContextToolbar {...props} readOnly />);
   expect(screen.getByTestId("context-sticky-circle")).toBeDisabled();
   expect(screen.getByTestId("sticky-quick-color-yellow")).toBeDisabled();
-  fireEvent.click(screen.getByTestId("board-inspector-expand"));
+  openProperties();
   fireEvent.click(screen.getByRole("button", { name: "评论" }));
   expect(onFutureAction).toHaveBeenCalledWith("comment");
   fireEvent.click(screen.getByTestId("board-widget-advanced-format").querySelector("summary")!);
@@ -48,13 +58,13 @@ it("shows Sticky-only direct controls and makes every mutating control unavailab
 
 it("provides adjustable inspector size, compact geometry disclosure and grouped quick actions", () => {
   const onGeometryChange = vi.fn();
-  render(<BoardSelectedObjectPanel object={sticky} title="Idea" typeLabel="便利贴" readOnly={false} onClose={vi.fn()} onGeometryChange={onGeometryChange}><button type="button">样式操作</button></BoardSelectedObjectPanel>);
+  render(<BoardSelectedObjectPanel object={sticky} title="Idea" typeLabel="便利贴" readOnly={false} onClose={vi.fn()} onGeometryChange={onGeometryChange} compactActions={<button type="button" data-testid="board-properties-open">精确属性</button>}><button type="button">样式操作</button></BoardSelectedObjectPanel>);
   const panel = screen.getByTestId("board-context-toolbar");
   expect(panel).toHaveAttribute("aria-label", "便利贴快捷工具");
   expect(panel).toHaveAttribute("data-expanded", "false");
   expect(panel).toHaveClass("w-fit", "max-w-[min(27rem,calc(100vw-2rem))]", "px-1");
   expect(panel).not.toHaveClass("p-1");
-  fireEvent.click(screen.getByTestId("board-inspector-expand"));
+  openProperties();
   expect(screen.getByTestId("board-inspector-scroll-content")).toBeVisible();
   const width = screen.getByTestId("board-inspector-resize");
   expect(width).toHaveAttribute("aria-valuenow", "320");
@@ -101,8 +111,8 @@ it("limits the adjustable inspector to the editor container on a narrow viewport
     if (this.dataset.testid === "collaborative-editor") return { x: 0, y: 0, left: 0, top: 0, right: 480, bottom: 600, width: 480, height: 600, toJSON: () => ({}) } as DOMRect;
     return { x: 0, y: 0, left: 0, top: 0, right: 0, bottom: 0, width: 0, height: 0, toJSON: () => ({}) } as DOMRect;
   });
-  render(<section data-testid="collaborative-editor"><BoardSelectedObjectPanel object={sticky} title="Idea" typeLabel="便利贴" readOnly={false} onClose={vi.fn()} onGeometryChange={vi.fn()} panelRef={createRef<HTMLElement>()}><div>properties</div></BoardSelectedObjectPanel></section>);
-  fireEvent.click(screen.getByTestId("board-inspector-expand"));
+  render(<section data-testid="collaborative-editor"><BoardSelectedObjectPanel object={sticky} title="Idea" typeLabel="便利贴" readOnly={false} onClose={vi.fn()} onGeometryChange={vi.fn()} panelRef={createRef<HTMLElement>()} compactActions={<button type="button" data-testid="board-properties-open">精确属性</button>}><div>properties</div></BoardSelectedObjectPanel></section>);
+  openProperties();
   expect(screen.getByTestId("board-inspector-resize")).toHaveAttribute("aria-valuemax", "448");
   const height = screen.getByTestId("board-inspector-resize-height");
   expect(height).toHaveAttribute("aria-valuemax", "480");
@@ -123,7 +133,9 @@ it("groups the selected widget's frequent actions separately from detailed prope
   expect(screen.getByTestId("board-widget-quick-format")).toBeVisible();
   expect(screen.getByTestId("board-sticky-style-open")).toHaveClass("h-11","w-11");
   expect(screen.getByTestId("board-sticky-text-open")).toHaveClass("h-11","w-11");
-  expect(screen.getByTestId("board-inspector-expand")).toHaveClass("min-h-11","min-w-11");
+  expect(screen.getByTestId("board-inspector-actions")).toHaveClass("min-h-11","min-w-11");
+  expect(screen.queryByTestId("board-inspector-expand")).toBeNull();
+  expect(screen.queryByTestId("board-inspector-close")).toBeNull();
   expect(screen.queryByTestId("sticky-quick-color-yellow")).toBeNull();
   fireEvent.click(screen.getByTestId("board-sticky-style-open"));
   expect(screen.getByTestId("board-sticky-inspector-style")).toBeVisible();
@@ -134,7 +146,7 @@ it("groups the selected widget's frequent actions separately from detailed prope
   fireEvent.click(screen.getByRole("button",{name:"切换粗体"}));
   expect(onTextChange).toHaveBeenCalledWith({preset:"body",bold:true});
   fireEvent.click(screen.getByTestId("board-sticky-text-open"));
-  fireEvent.click(screen.getByTestId("board-inspector-expand"));
+  openProperties();
   expect(screen.getByTestId("board-widget-advanced-format")).not.toHaveAttribute("open");
   expect(screen.getByTestId("board-inspector-geometry")).not.toHaveAttribute("open");
   fireEvent.click(screen.getByTestId("board-widget-advanced-format").querySelector("summary")!);
@@ -144,7 +156,7 @@ it("groups the selected widget's frequent actions separately from detailed prope
 it("offers direct S/M/L sticky sizing through the object's geometry operation", () => {
   const onGeometryChange = vi.fn();
   render(<ObjectContextToolbar object={sticky} readOnly={false} actorId="me" onStickyChange={vi.fn()} onTextChange={vi.fn()} onExperienceChange={vi.fn()} onGeometryChange={onGeometryChange} onClose={vi.fn()} onFutureAction={vi.fn()} />);
-  fireEvent.click(screen.getByTestId("board-inspector-expand"));
+  openProperties();
   expect(screen.getByTestId("board-sticky-size-presets")).toBeVisible();
   fireEvent.click(screen.getByTestId("sticky-size-l"));
   expect(onGeometryChange).toHaveBeenCalledWith({ ...sticky.geometry, width: 240, height: 200 });
@@ -167,7 +179,7 @@ it("exposes the selected Text's common formatting and object actions before deta
   expect(screen.getByTestId("board-widget-quick-format")).toBeVisible();
   expect(screen.getByTestId("board-text-quick-bold")).toBeVisible();
   expect(screen.getByTestId("board-text-quick-align")).toBeVisible();
-  fireEvent.click(screen.getByTestId("board-inspector-expand"));
+  openProperties();
   expect(screen.getByTestId("board-widget-advanced-format")).not.toHaveAttribute("open");
   fireEvent.click(screen.getByTestId("board-widget-advanced-format").querySelector("summary")!);
   expect(screen.getByTestId("board-inspector-text")).toBeVisible();
@@ -179,7 +191,7 @@ it("shows shape-specific fill controls and common duplicate/delete actions for s
   const shape: WhiteboardObject = { ...sticky, id: "shape", kind: "rectangle", text: "Plan", style: { fill: "#FFFFFF", stroke: "#111111" } };
   const onStyleChange = vi.fn();
   render(<ObjectContextToolbar object={shape} readOnly={false} actorId="me" onStickyChange={vi.fn()} onTextChange={vi.fn()} onStyleChange={onStyleChange} onExperienceChange={vi.fn()} onGeometryChange={vi.fn()} onClose={vi.fn()} onFutureAction={vi.fn()} onDuplicate={vi.fn()} onDelete={vi.fn()} />);
-  fireEvent.click(screen.getByTestId("board-inspector-expand"));
+  openProperties();
   expect(screen.getByRole("heading", { name: "Plan" })).toBeVisible();
   expect(screen.getByTestId("board-generic-quick-format")).toBeVisible();
   fireEvent.change(screen.getByTestId("board-object-fill-color"), { target: { value: "#FF0000" } });
@@ -214,7 +226,7 @@ it("keeps the image edit menu as the single floating inspector for selected imag
   const panel = screen.getByTestId("board-context-toolbar");
   expect(panel).toHaveAttribute("aria-label", "图片快捷工具");
   expect(panel.style.left).toMatch(/px$/);
-  fireEvent.click(screen.getByTestId("board-inspector-expand"));
+  openProperties();
   expect(screen.getByTestId("board-image-properties")).toBeVisible();
   expect(screen.getByRole("slider", { name: "图片裁剪宽度" })).toBeVisible();
   doc.destroy();
@@ -226,7 +238,7 @@ it("offers Frame size presets while keeping title and layout controls in the sam
   executeCommands(doc, [{ type: "create", object: frame }], "seed");
   render(<CollaborativeThinkingEditor boardId="board" clientId="web" doc={doc} readOnly={false} title="Board" status="已连接" />);
   fireEvent.click(screen.getByTestId("select-one"));
-  fireEvent.click(screen.getByTestId("board-inspector-expand"));
+  openProperties();
   expect(screen.getByTestId("board-frame-size-presets")).toBeVisible();
   expect(screen.getByLabelText("区域标题")).toHaveValue("Workshop");
   fireEvent.click(screen.getByTestId("frame-size-l"));
@@ -240,7 +252,6 @@ it("derives command availability from selection count and hides single-object co
   render(<CollaborativeThinkingEditor boardId="board" clientId="web" doc={doc} readOnly={false} title="Board" status="已连接" />);
   fireEvent.click(screen.getByTestId("select-one"));
   expect(screen.queryByTestId("board-shared-properties")).toBeNull();
-  fireEvent.click(screen.getByTestId("board-inspector-expand"));
   fireEvent.click(screen.getByRole("button", { name: "更多操作" }));
   expect(screen.getByTestId("board-context-toolbar")).toBeVisible();
   expect(within(screen.getByTestId("board-spatial-toolbar")).getByRole("button", { name: "组合" })).toBeDisabled();
@@ -259,7 +270,6 @@ it("explains readonly command unavailability through the toolbar description", (
   render(<CollaborativeThinkingEditor boardId="board" clientId="viewer" doc={doc} readOnly title="Board" status="已连接" />);
   fireEvent.click(screen.getByTestId("select-one"));
   expect(screen.queryByTestId("board-shared-properties")).toBeNull();
-  fireEvent.click(screen.getByTestId("board-inspector-expand"));
   fireEvent.click(screen.getByRole("button", { name: "更多操作" }));
   expect(screen.getByTestId("board-spatial-duplicate")).toBeDisabled();
   expect(screen.getByTestId("board-spatial-duplicate")).toHaveAttribute("title", "当前白板为只读");
