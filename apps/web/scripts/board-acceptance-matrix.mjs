@@ -16,10 +16,11 @@ export const boardAcceptanceMatrix = [
   ['meeting-room', 'Real meeting-room lifecycle with >=30 minute observed signed ledger'],
 ].map(([lane, requirement]) => {
   const size = lane.match(/^performance-(1|5|10)k$/)?.[1];
+  const integrated={storage:'ci:board:storage',import:'ci:board:import','api-ws-objectstore':'ci:board:api-ws-objectstore'}[lane];
   return {lane, requirement, status: 'not-run',
     command: size ? ['pnpm', 'exec', 'tsx', '.harness/scripts/with-test-isolation.ts', '--',
       'pnpm', '--filter', 'web', 'exec', 'playwright', 'test', '--config', 'e2e/board-performance-acceptance.config.ts',
-      '--grep', `^fabric ${size}k performance:`] : lane === 'collaboration-50' ? ['pnpm', 'exec', 'tsx', '.harness/scripts/with-test-isolation.ts', '--', 'pnpm', '--filter', 'web', 'exec', 'playwright', 'test', '--config', 'playwright.board-soak-acceptance.config.ts'] : ['security','journeys','meeting-room','visual','accessibility'].includes(lane) ? ['pnpm','exec','tsx','.harness/scripts/with-test-isolation.ts','--','node','apps/web/scripts/run-board-observation-producer.mjs',lane] : null,
-    reason: size || ['security','journeys','collaboration-50','meeting-room','visual','accessibility'].includes(lane) ? 'REAL_PRODUCER_READY_NOT_EXECUTED' : 'REAL_PRODUCER_NOT_INTEGRATED'};
+      '--grep', `^fabric ${size}k performance:`] : lane === 'collaboration-50' ? ['pnpm', 'exec', 'tsx', '.harness/scripts/with-test-isolation.ts', '--', 'pnpm', '--filter', 'web', 'exec', 'playwright', 'test', '--config', 'playwright.board-soak-acceptance.config.ts'] : integrated ? ['pnpm','exec','tsx','.harness/scripts/with-test-isolation.ts','--','pnpm','--filter','web','run',integrated] : ['security','journeys','meeting-room','visual','accessibility'].includes(lane) ? ['pnpm','exec','tsx','.harness/scripts/with-test-isolation.ts','--','node','apps/web/scripts/run-board-observation-producer.mjs',lane] : null,
+    reason: size || integrated || ['security','journeys','collaboration-50','meeting-room','visual','accessibility'].includes(lane) ? 'REAL_PRODUCER_READY_NOT_EXECUTED' : 'REAL_PRODUCER_NOT_INTEGRATED'};
 });
 export const requiredBoardAcceptanceLanes = boardAcceptanceMatrix.map(entry => entry.lane);

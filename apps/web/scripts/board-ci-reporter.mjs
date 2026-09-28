@@ -1,8 +1,9 @@
 import {writeFileSync,readFileSync,mkdirSync} from 'node:fs';
 import {dirname,join} from 'node:path';
 import {createHash} from 'node:crypto';
-const jsonNames=new Set(['canonical-upload','pg-independent-pointers','pg-target-after-source-delete','migration-evidence.json','storage-runtime.json']);
-const pngNames=new Set(['owner-after-refresh.png','independent-peer.png','roundtrip-owner-after-refresh.png','roundtrip-independent-peer.png']);
+const jsonNames=new Set(['canonical-upload','pg-independent-pointers','pg-target-after-source-delete','migration-evidence.json','storage-runtime.json',
+ 'captured-vendor-evidence.json','captured-vendor-runtime.json','agent-api-evidence','same-browser-outbox-evidence','portable-roundtrip','portable-revocation-race','api-ws-objectstore-runtime.json']);
+const pngNames=new Set(['owner-after-refresh.png','independent-peer.png','roundtrip-owner-after-refresh.png','roundtrip-independent-peer.png','portable-confirmed-canvas']);
 /** Deliberately omit config/env, test titles, stdout and error text from artifacts. */
 export default class BoardCiReporter{
  tests=new Map();errors=[];

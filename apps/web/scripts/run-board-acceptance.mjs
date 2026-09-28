@@ -8,6 +8,7 @@ import {resolve} from 'node:path';
 import {createHash, randomUUID} from 'node:crypto';
 import {boardAcceptanceMatrix} from './board-acceptance-matrix.mjs';
 import {boardPerformancePolicy, validateBoardPerformanceArtifact} from './board-performance-policy.mjs';
+import {validateIntegratedLaneArtifact} from './board-integrated-ci-policy.mjs';
 
 const root = resolve(import.meta.dirname, '../../..');
 const git = (...args) => execFileSync('git', args, {cwd: root, encoding: 'utf8'}).trim();
@@ -34,7 +35,7 @@ if (process.argv.includes('--list')) {
     const result = spawnSync(entry.command[0], entry.command.slice(1), {cwd: root, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024,
       env: {...process.env, BOARD_ACCEPTANCE_SHA: sha, BOARD_PERFORMANCE_LANE: entry.lane,
         BOARD_ACCEPTANCE_RUNTIME_MARKER: runtimeMarker, BOARD_ACCEPTANCE_RUNTIME_STARTED_AT: startedAt,
-        BOARD_OBSERVATION_REPORT_PATH: artifactPath, BOARD_SOAK_REPORT_PATH: artifactPath, BOARD_PERFORMANCE_REPORT_PATH: artifactPath}});
+        BOARD_OBSERVATION_REPORT_PATH: artifactPath, BOARD_SOAK_REPORT_PATH: artifactPath, BOARD_PERFORMANCE_REPORT_PATH: artifactPath, BOARD_INTEGRATED_REPORT_PATH: artifactPath}});
     writeFileSync(resolve(output, `${entry.lane}.log`), `${result.stdout ?? ''}${result.stderr ?? ''}`);
     const row = {lane: entry.lane, sha, buildSha: null, dirty: false, status: 'failed', command: entry.command.join(' '),
       runtimeMarker, startedAt, endedAt: new Date().toISOString(), exitCode: result.status ?? 1, environment: process.env.BOARD_ACCEPTANCE_ENVIRONMENT ?? 'local-isolated-fullstack',
@@ -43,10 +44,12 @@ if (process.argv.includes('--list')) {
       const bytes = readFileSync(artifactPath), report = JSON.parse(bytes.toString());
       row.artifactSha256 = createHash('sha256').update(bytes).digest('hex');
       const observation=['security','journeys','meeting-room','visual','accessibility'].includes(entry.lane);
-      const validation = entry.lane==='security' ? validateSecurityArtifact(report,sha,row) : entry.lane==='journeys' ? await validateJourneyArtifact(report,sha,row) : observation ? await validateBoardObservationArtifact(report,entry.lane,sha,row) : entry.lane === 'collaboration-50' ? await validateBoardSoakArtifact(report, sha) : validateBoardPerformanceArtifact(report, boardPerformancePolicy(root), sha, Number(entry.lane.match(/(\d+)k$/)[1]) * 1000);
+      const integrated=['storage','import','api-ws-objectstore'].includes(entry.lane);
+      const validation = entry.lane==='security' ? validateSecurityArtifact(report,sha,row) : entry.lane==='journeys' ? await validateJourneyArtifact(report,sha,row) : observation ? await validateBoardObservationArtifact(report,entry.lane,sha,row) : entry.lane === 'collaboration-50' ? await validateBoardSoakArtifact(report, sha) : integrated ? validateIntegratedLaneArtifact(report,entry.lane,sha,row) : validateBoardPerformanceArtifact(report, boardPerformancePolicy(root), sha, Number(entry.lane.match(/(\d+)k$/)[1]) * 1000);
       row.buildSha = (report.runtimeIdentity ?? report.runtimeAfter ?? report.reports?.[0]?.runtimeIdentity)?.buildSha ?? null; row.failures = validation.failures;
       if(!observation)row.failures.push(...validateRuntimeBinding(report.runtimeIdentity,sha,row));
       row.pending=validation.pending??[];
+      row.counterproof=report.counterproof===true;
       if (result.status === 0 && validation.valid && !row.failures.length) row.status = validation.budgetStatus === 'engineering-targets' ? 'passed' : observation ? 'pending-independent-acceptance' : 'measured-unbudgeted';
     } catch {row.failures.push('MISSING_OR_INVALID_REAL_REPORT');}
     if (git('rev-parse', 'HEAD') !== sha || git('status', '--porcelain', '--untracked-files=all')) {row.status = 'failed'; row.dirty = true; row.failures.push('SOURCE_CHANGED_DURING_ACCEPTANCE');}

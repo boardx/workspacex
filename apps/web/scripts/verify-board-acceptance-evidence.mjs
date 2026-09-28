@@ -7,6 +7,7 @@ import {readFile} from 'node:fs/promises';
 import {resolve} from 'node:path';
 import {boardPerformancePolicy, validateBoardPerformanceArtifact} from './board-performance-policy.mjs';
 import {boardAcceptanceMatrix, requiredBoardAcceptanceLanes} from './board-acceptance-matrix.mjs';
+import {validateIntegratedLaneArtifact} from './board-integrated-ci-policy.mjs';
 
 export async function verifyBoardAcceptanceEvidence(manifest, sha) {
   const failures = [];
@@ -32,6 +33,7 @@ export async function verifyBoardAcceptanceEvidence(manifest, sha) {
         if(lane==='security'){const validation=validateSecurityArtifact(report,sha,row);failures.push(...validation.failures.map(f=>`${f}:${lane}`));}
         else if(lane==='journeys'){const validation=await validateJourneyArtifact(report,sha,row);failures.push(...[...validation.failures,...validation.pending].map(f=>`${f}:${lane}`));}
         else if(['meeting-room','visual','accessibility'].includes(lane)){const validation=await validateBoardObservationArtifact(report,lane,sha,row);failures.push(...[...validation.failures,...validation.pending].map(f=>`${f}:${lane}`));}
+        else if(['storage','import','api-ws-objectstore'].includes(lane)){const validation=validateIntegratedLaneArtifact(report,lane,sha,row);failures.push(...[...validation.failures,...validation.pending].map(f=>`${f}:${lane}`));}
         else if(boardAcceptanceMatrix.find(e=>e.lane===lane)?.command)failures.push(...validateRuntimeBinding(report.runtimeIdentity,sha,row).map(f=>`${f}:${lane}`));
         if (lane === 'collaboration-50') {
           const validation = await validateBoardSoakArtifact(JSON.parse(bytes.toString()), sha);

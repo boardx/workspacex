@@ -21,6 +21,8 @@
     "ci:board:security": "node scripts/run-board-ci-lane.mjs security -- pnpm --filter web exec playwright test --config e2e/board-security-acceptance.config.ts",
     "ci:board:visual": "node scripts/run-board-ci-lane.mjs visual -- pnpm --filter web exec playwright test --config e2e/board-visual-accessibility-acceptance.config.ts",
     "ci:board:storage": "node scripts/run-board-ci-lane.mjs storage -- pnpm --filter web exec playwright test --config playwright.board-storage-ci.config.ts",
+    "ci:board:import": "node scripts/run-board-ci-lane.mjs import -- pnpm --filter web exec playwright test --config e2e/support/board-vendor-captured-fullstack.config.ts",
+    "ci:board:api-ws-objectstore": "node scripts/run-board-ci-lane.mjs api-ws-objectstore -- pnpm --filter web exec playwright test --config playwright.board-api-ws-objectstore-acceptance.config.ts",
     "ci:board:performance": "node scripts/run-board-ci-lane.mjs performance -- pnpm --filter web exec playwright test --config e2e/board-performance-acceptance.config.ts",
     "ci:board:collaboration-50": "node scripts/run-board-ci-lane.mjs collaboration-50 -- pnpm --filter web exec playwright test --config playwright.board-soak-acceptance.config.ts",
     "ci:board:meeting-room": "node scripts/run-board-ci-lane.mjs meeting-room -- pnpm --filter web exec playwright test --config playwright.board-meeting-room-acceptance.config.ts"
