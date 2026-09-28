@@ -47,6 +47,7 @@ describe('precise storage adapter permission admission',()=>{
   ['portable transaction propagation','pg-portable-board','this.assets.saveInTransaction(session,p,boardId,record)','this.assets.save(p,boardId,record)'],
   ['image board scope','pg-image-assets','AND a.board_id=$2',''],
   ['image active reference','pg-image-assets',"AND r.state='active' AND r.released_at IS NULL",''],
+  ['image import pending lease','pg-image-assets',"'pending',now()+interval '24 hours'","'active',now()+interval '24 hours'"],
  ] as const)('rejects removal of %s',(_name,file,from,to)=>{
   expect(audit(path(file),source=>source.replace(from,to)).length).toBeGreaterThan(0);
  });

@@ -55,8 +55,9 @@ export class WhiteboardImportService {
       const matching = parsed.items.filter(item => item.assetRef === asset.path);
       if (!matching.length) continue;
       try {
-        const metadata = storeAssets ? await this.images.upload(principal,record.boardId,asset.bytes,asset.mime)
-          : await this.images.inspect(principal,record.boardId,asset.bytes,asset.mime);
+        const pending = storeAssets ? await this.images.uploadPending(principal,record.boardId,asset.bytes,asset.mime,record.importId) : null;
+        const metadata = pending?.metadata ?? await this.images.inspect(principal,record.boardId,asset.bytes,asset.mime);
+        if(pending)assetRefs.push(pending.ref);
         for (const item of matching) { item.assetRef=metadata.assetId;item.assetMetadata=metadata; }
       } catch (error) {
         if (error instanceof WhiteboardImageError && (error.code === 'INVALID_IMAGE' || error.code === 'IMAGE_TOO_LARGE')) {

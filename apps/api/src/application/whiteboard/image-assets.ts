@@ -13,7 +13,12 @@ export interface BoardImageVerifier { verify(bytes: Uint8Array, declaredMime: z.
 export interface BoardImageAssetRecord { metadata: WhiteboardAssetMetadata; objectKey: string; }
 export interface BoardImageAssetRepository {
   save(principal: Principal, boardId: string, record: BoardImageAssetRecord): Promise<void>;
+  savePending(principal: Principal, boardId: string, record: BoardImageAssetRecord, importId: string): Promise<void>;
   get(principal: Principal, boardId: string, assetId: string): Promise<BoardImageAssetRecord | null>;
+}
+export interface PendingBoardImageAsset {
+  metadata: WhiteboardAssetMetadata;
+  ref: { objectKey: string; contentHash: string; byteSize: number };
 }
 export class WhiteboardImageAssets {
   constructor(private readonly boards: WhiteboardRepository, private readonly repository: BoardImageAssetRepository,
@@ -41,6 +46,26 @@ export class WhiteboardImageAssets {
     await this.repository.save(p, boardId, { objectKey, metadata });
     await this.access(p, boardId, true);
     return metadata;
+  }
+  async uploadPending(p: Principal, boardId: string, bytes: Uint8Array, mime: z.infer<typeof WhiteboardImageMime>, importId: string): Promise<PendingBoardImageAsset> {
+    await this.access(p, boardId, true);
+    const verified = await this.verifier.verify(bytes, mime), metadata = WhiteboardAssetMetadata.parse(verified.metadata);
+    const objectKey = `${this.prefix(p, boardId)}${metadata.contentDigest.slice(7)}`;
+    // Reserve before ObjectStore I/O. A crash or partial archive failure leaves
+    // an expiring lease, never an active image without a canonical board object.
+    await this.repository.savePending(p, boardId, { objectKey, metadata }, importId);
+    try { await this.objects.putOnce(objectKey, verified.bytes, metadata.mimeType); }
+    catch (error) { if (!(error instanceof ObjectExistsError)) throw new WhiteboardImageError('DEPENDENCY_UNAVAILABLE'); }
+    await this.verifiedBytes(p, boardId, { objectKey, metadata });
+    await this.access(p, boardId, true);
+    return {
+      metadata,
+      ref: {
+        objectKey,
+        contentHash: metadata.contentDigest.slice(7),
+        byteSize: metadata.byteSize,
+      },
+    };
   }
   private async verifiedBytes(p: Principal, boardId: string, record: BoardImageAssetRecord) {
     const expected = `${this.prefix(p, boardId)}${record.metadata.contentDigest.slice(7)}`;

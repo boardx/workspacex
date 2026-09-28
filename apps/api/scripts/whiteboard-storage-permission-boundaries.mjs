@@ -72,6 +72,7 @@ export const whiteboardStoragePermissionBoundaries=new Map([
   methods:{
    save:method(0,['this.db.withTenant(p.orgId,session=>this.saveInTransaction(session,p,boardId,record))']),
    saveInTransaction:method(2,['INSERT INTO whiteboard_asset_refs(org_id,board_id,object_key,content_hash,byte_size,state,activated_at)',"ON CONFLICT(org_id,board_id,object_key) DO UPDATE SET state='active'",'[p.orgId, boardId, record.objectKey, record.metadata.contentDigest.slice(7), record.metadata.byteSize]','INSERT INTO whiteboard_image_assets(org_id,board_id,asset_id,object_key,metadata)','[p.orgId, boardId, record.metadata.assetId, record.objectKey, JSON.stringify(record.metadata)]']),
+   savePending:method(2,[transaction,'INSERT INTO whiteboard_asset_refs(org_id,board_id,import_id,object_key,content_hash,byte_size,state,lease_expires_at)',"VALUES($1,$2,$3,$4,$5,$6,'pending',now()+interval '24 hours')","WHERE whiteboard_asset_refs.state='pending' AND whiteboard_asset_refs.content_hash=EXCLUDED.content_hash AND whiteboard_asset_refs.byte_size=EXCLUDED.byte_size",'[p.orgId,boardId,importId,record.objectKey,record.metadata.contentDigest.slice(7),record.metadata.byteSize]','INSERT INTO whiteboard_image_assets(org_id,board_id,asset_id,object_key,metadata)','[p.orgId,boardId,record.metadata.assetId,record.objectKey,JSON.stringify(record.metadata)]']),
    get:method(1,[transaction,'JOIN whiteboard_asset_refs r ON r.org_id=a.org_id AND r.board_id=a.board_id AND r.object_key=a.object_key',"WHERE a.org_id=$1 AND a.board_id=$2 AND a.asset_id=$3 AND r.state='active' AND r.released_at IS NULL",'[p.orgId, boardId, assetId]','metadata:WhiteboardAssetMetadata.parse(row.metadata)']),
   },
   related:{'src/application/whiteboard/image-assets.ts':{
@@ -80,6 +81,7 @@ export const whiteboardStoragePermissionBoundaries=new Map([
    verifiedBytes:method(0,['const expected = `${this.prefix(p, boardId)}${record.metadata.contentDigest.slice(7)}`',"if (record.objectKey !== expected) throw new WhiteboardImageError('INTEGRITY_FAILED')",'this.objects.get(record.objectKey)','this.objects.head(record.objectKey)','bytes.byteLength !== record.metadata.byteSize','head.sizeBytes !== bytes.byteLength','head.mime !== record.metadata.mimeType',"createHash('sha256').update(bytes).digest('hex')}` !== record.metadata.contentDigest"]),
    prefix:method(0,["createHash('sha256').update(p.orgId).digest('hex').slice(0,32)",'/boards/${boardId}/assets/']),
    upload:method(0,[],['await this.access(p, boardId, true)','this.verifier.verify(bytes, mime)','this.objects.putOnce','this.verifiedBytes','await this.access(p, boardId, true)','this.repository.save(p, boardId,','await this.access(p, boardId, true)','return metadata']),
+   uploadPending:method(0,['this.repository.savePending(p, boardId, { objectKey, metadata }, importId)'],['await this.access(p, boardId, true)','this.verifier.verify(bytes, mime)','this.repository.savePending','this.objects.putOnce','this.verifiedBytes','await this.access(p, boardId, true)','return {']),
   }},
  }],
 ]);

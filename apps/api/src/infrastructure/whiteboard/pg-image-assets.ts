@@ -8,14 +8,23 @@ export class PgBoardImageAssets implements BoardImageAssetRepository {
     await this.db.withTenant(p.orgId,session=>this.saveInTransaction(session,p,boardId,record));
   }
   async saveInTransaction(session:TenantSession,p:Principal,boardId:string,record:BoardImageAssetRecord){
-
-      await session.query(`INSERT INTO whiteboard_asset_refs(org_id,board_id,object_key,content_hash,byte_size,state,activated_at)
-        VALUES($1,$2,$3,$4,$5,'active',now()) ON CONFLICT(org_id,board_id,object_key) DO UPDATE SET state='active',activated_at=now(),released_at=NULL,lease_expires_at=NULL`,
-      [p.orgId, boardId, record.objectKey, record.metadata.contentDigest.slice(7), record.metadata.byteSize]);
+        await session.query(`INSERT INTO whiteboard_asset_refs(org_id,board_id,object_key,content_hash,byte_size,state,activated_at)
+          VALUES($1,$2,$3,$4,$5,'active',now()) ON CONFLICT(org_id,board_id,object_key) DO UPDATE SET state='active',activated_at=now(),released_at=NULL,lease_expires_at=NULL`,
+        [p.orgId, boardId, record.objectKey, record.metadata.contentDigest.slice(7), record.metadata.byteSize]);
       await session.query(`INSERT INTO whiteboard_image_assets(org_id,board_id,asset_id,object_key,metadata)
         VALUES($1,$2,$3,$4,$5::jsonb) ON CONFLICT(org_id,board_id,asset_id) DO NOTHING`,
       [p.orgId, boardId, record.metadata.assetId, record.objectKey, JSON.stringify(record.metadata)]);
 
+  }
+  async savePending(p:Principal,boardId:string,record:BoardImageAssetRecord,importId:string){
+    await this.db.withTenant(p.orgId,async session=>{
+      await session.query(`INSERT INTO whiteboard_asset_refs(org_id,board_id,import_id,object_key,content_hash,byte_size,state,lease_expires_at)
+        VALUES($1,$2,$3,$4,$5,$6,'pending',now()+interval '24 hours') ON CONFLICT(org_id,board_id,object_key) DO UPDATE SET import_id=EXCLUDED.import_id,lease_expires_at=EXCLUDED.lease_expires_at,released_at=NULL WHERE whiteboard_asset_refs.state='pending' AND whiteboard_asset_refs.content_hash=EXCLUDED.content_hash AND whiteboard_asset_refs.byte_size=EXCLUDED.byte_size`,
+      [p.orgId,boardId,importId,record.objectKey,record.metadata.contentDigest.slice(7),record.metadata.byteSize]);
+      await session.query(`INSERT INTO whiteboard_image_assets(org_id,board_id,asset_id,object_key,metadata)
+        VALUES($1,$2,$3,$4,$5::jsonb) ON CONFLICT(org_id,board_id,asset_id) DO NOTHING`,
+      [p.orgId,boardId,record.metadata.assetId,record.objectKey,JSON.stringify(record.metadata)]);
+    });
   }
   async get(p: Principal, boardId: string, assetId: string): Promise<BoardImageAssetRecord | null> {
     return this.db.withTenant(p.orgId, async session => {
