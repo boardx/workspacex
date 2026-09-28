@@ -13,6 +13,7 @@
  * 一个 `toolWhitelist` 恒为空、`发布` 都还没提交的 草稿态 agent 不应该出现在那张表里
  * （否则会在未来某条 `listAgents`/能力目录读取路径上让一个不可用的 agent 看起来可用）。
  */
+import { agentRole } from "@repo/contracts";
 import type { DatabasePort } from "../../application/ports/database.port";
 import { toOrgId } from "../../domain/org-id";
 import type { AgentDefinition } from "../../domain/agent/definition";
@@ -117,6 +118,8 @@ export function toDefinition(row: AgentDefinitionRow): AgentDefinition | null {
     toolWhitelist: (row.tool_whitelist as AgentDefinition["toolWhitelist"]) ?? [],
     concurrencyLimit: row.concurrency_limit,
     degradePolicy: row.degrade_policy as AgentDefinition["degradePolicy"],
+    // AG01：`agents` 草稿表尚无角色列（冻结值落在 agent_versions）；草稿读回契约默认值。
+    ...agentRole.AGENT_ROLE_FIELD_DEFAULTS,
   };
 }
 
