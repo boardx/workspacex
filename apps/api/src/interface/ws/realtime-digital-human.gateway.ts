@@ -37,6 +37,7 @@ function serve(client: WebSocket): void {
   const baseUrl = process.env.KERNEL_OMNI_REALTIME_BASE_URL ?? workspaceRealtimeUrl(process.env.KERNEL_MODEL_BASE_URL) ?? process.env.KERNEL_ASR_BASE_URL;
   const apiKey = process.env.KERNEL_OMNI_REALTIME_API_KEY ?? process.env.KERNEL_ASR_API_KEY ?? process.env.DASHSCOPE_API_KEY;
   const model = process.env.KERNEL_OMNI_REALTIME_MODEL ?? "qwen3.8-omni-flash-realtime";
+  const voice = process.env.KERNEL_OMNI_REALTIME_VOICE ?? "Maia";
   const send = (frame: ServerFrame): void => {
     if (client.readyState === client.OPEN) client.send(JSON.stringify(STREAM.server.parse(frame)));
   };
@@ -78,10 +79,10 @@ function serve(client: WebSocket): void {
           type: "session.update",
           session: {
             modalities: ["text", "audio"],
-            instructions: `你是 WorkspaceX 中文数字人助手。当前白板 ID 是 ${boardId}。回答自然、简洁，适合实时口语交流。`,
+            instructions: `你是 WorkspaceX 中文数字人助手。当前白板 ID 是 ${boardId}。像真人面对面交流一样自然、温和、简洁地回答，使用口语化短句和自然停顿，避免播音腔。`,
             audio: {
               input: { format: { type: "pcm", sample_rate: STREAM.audio.inputSampleRate, sample_format: "s16le", channels: 1, packing: "interleaved", channel_layout: "mono" } },
-              output: { voice: "longanlingxin", format: { type: "pcm", sample_rate: STREAM.audio.outputSampleRate } },
+              output: { voice, format: { type: "pcm", sample_rate: STREAM.audio.outputSampleRate } },
             },
             turn_detection: { type: "server_vad", threshold: 0.2, silence_duration_ms: 600 },
           },

@@ -112,7 +112,7 @@ export function RealtimeDigitalHumanWorkspace({ boardId }: { boardId: string }):
             {liveStatus === "live" ? <PhoneOff className="mr-2 h-4 w-4" /> : <Mic className="mr-2 h-4 w-4" />}
             {liveStatus === "connecting" ? "正在连接 Qwen Realtime…" : liveStatus === "live" ? "结束实时通话" : "开始实时对话"}
           </Button>
-          {liveStatus === "live" ? <p className="text-11 text-primary" role="status">已连接 qwen3.8-omni-flash-realtime，可直接说话并随时打断</p> : null}
+          {liveStatus === "live" ? <p className="text-11 text-primary" role="status">已连接 Qwen Realtime · 四月 Maia，自然对话中，可随时打断</p> : null}
           {userTranscript ? <p className="text-12"><span className="font-medium">你：</span>{userTranscript}</p> : null}
           {assistantTranscript ? <p className="text-12"><span className="font-medium">数字人：</span>{assistantTranscript}</p> : null}
           {liveError ? <p className="text-12 text-destructive" role="alert">{liveError}</p> : null}
