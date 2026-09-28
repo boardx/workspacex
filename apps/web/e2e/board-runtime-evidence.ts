@@ -26,7 +26,18 @@ export function observeRuntimeChunks(page: Page) {
         const relative = decodeURIComponent(url.pathname.slice('/_next/'.length));
         const path = resolve(root, 'apps/web/.next-fullstack-e2e', relative);
         if (!path.startsWith(resolve(root, 'apps/web/.next-fullstack-e2e/static') + '/')) throw new Error('UNSAFE_CHUNK_PATH');
-        const [served, local] = await Promise.all([response.body(), readFile(path)]);
+        // Playwright implements `response.body()` through CDP
+        // `Network.getResponseBody`. A navigation can dispose that request before
+        // CDP serves the bytes, even though the immutable chunk was loaded and
+        // executed successfully. Fetch the same content-addressed chunk URL over
+        // HTTP instead; this still proves the bytes served by the fresh runtime,
+        // while making collection independent of the page's navigation lifetime.
+        const [servedResponse, local] = await Promise.all([
+          fetch(response.url(), {cache: 'no-store'}),
+          readFile(path),
+        ]);
+        if (!servedResponse.ok) throw new Error(`RUNTIME_CHUNK_FETCH_${servedResponse.status}`);
+        const served = Buffer.from(await servedResponse.arrayBuffer());
         const servedHash = sha256(served), localHash = sha256(local);
         if (servedHash !== localHash) throw new Error('RUNTIME_CHUNK_MISMATCH');
         records.set(url.pathname, {url: url.pathname, sha256: servedHash, localSha256: localHash});
