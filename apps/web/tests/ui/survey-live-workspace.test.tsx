@@ -228,6 +228,12 @@ describe('live survey workspace persistence',()=>{
   expect(screen.getByRole('complementary',{name:'回收设置面板'})).toHaveTextContent('截止时间');
   expect(screen.getByRole('region',{name:'最近回收动态'})).toHaveTextContent('暂无答卷');
  });
+ it('does not advertise an expired collection as accepting new answers',async()=>{
+  request.mockResolvedValueOnce(runtime({status:'collecting',publication:{token:'expired-link',status:'collecting',version:4,expiresAt:'2020-01-01T00:00:00.000Z',questions:[{id:'q1',title:'真实问题',type:'single',chapterId:'general',order:1,required:true,options:['甲','乙']}]}}));
+  render(<LiveSurveyWorkspace surveyId="saved-survey" initialStep="publish"/>);
+  expect(await screen.findByRole('heading',{name:'问卷已到截止时间'})).toBeInTheDocument();
+  expect(screen.getByRole('region',{name:'问卷回收状态'})).toHaveTextContent('当前链接不再接受新答卷');
+ });
  it('does not replace a failed load with prototype questions',async()=>{
   request.mockRejectedValueOnce(new Error('问卷不存在或无访问权限'));
   render(<LiveSurveyWorkspace surveyId="private"/>);

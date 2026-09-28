@@ -252,6 +252,10 @@ export function LiveSurveyWorkspace({
   const reportShareBlockedReason = runtime?.report
     ? surveyReportShareBlockedReason(runtime.report)
     : undefined;
+  const collectionExpired = !!runtime?.publication && new Date(runtime.publication.expiresAt).getTime() <= Date.now();
+  const collectionLabel = runtime?.publication?.status === "closed"
+    ? "已停止回收"
+    : collectionExpired ? "已到截止时间" : "正在回收";
   const selectStep = (next: string, targetQuestionId?: string) => {
     setStep(next);
     setRepairQuestionId(targetQuestionId ?? null);
@@ -438,10 +442,10 @@ export function LiveSurveyWorkspace({
               <div className="space-y-5">
               <section aria-label="问卷回收状态" className="rounded-lg border border-border bg-card p-6">
                 <p className="text-12 font-medium text-muted-foreground">{runtime?.publication ? "问卷回收状态" : "发布准备"}</p>
-                <h2 className="mt-3 text-24 font-semibold">{runtime?.publication ? runtime.publication.status === "collecting" ? "问卷正在回收中" : "问卷已停止回收" : runtime?.status === "ready" ? "已准备好发布" : "完成发布检查后开始回收"}</h2>
-                <p className="mt-2 text-13 text-muted-foreground">{runtime?.publication ? "受访者可通过链接或二维码填写；答卷与发布版本对应。" : "先检查设计质量，再明确开始回收。开始回收后题目与匿名方式固定。"}</p>
+                <h2 className="mt-3 text-24 font-semibold">{runtime?.publication ? collectionLabel === "正在回收" ? "问卷正在回收中" : `问卷${collectionLabel}` : runtime?.status === "ready" ? "已准备好发布" : "完成发布检查后开始回收"}</h2>
+                <p className="mt-2 text-13 text-muted-foreground">{runtime?.publication ? collectionExpired || runtime.publication.status === "closed" ? "当前链接不再接受新答卷；历史答卷仍可查看。" : "受访者可通过链接或二维码填写；答卷与发布版本对应。" : "先检查设计质量，再明确开始回收。开始回收后题目与匿名方式固定。"}</p>
                 {runtime?.publication && <p className="mt-4 text-12 text-muted-foreground">发布版本 v{runtime.publication.version}</p>}
-                {runtime?.publication && <p className="mt-2 text-13 font-medium">{runtime.publication.status === "collecting" ? "正在回收" : "已停止回收"} · {runtime.responses.length} 份答卷</p>}
+                {runtime?.publication && <p className="mt-2 text-13 font-medium">{collectionLabel} · {runtime.responses.length} 份答卷</p>}
               </section>
               {runtime?.status === "draft" ? (
                 <>
