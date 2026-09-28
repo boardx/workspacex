@@ -3,6 +3,8 @@ import {WHITEBOARD_ORGANIZE_SERVICE,WhiteboardOrganizeService} from './applicati
 import {PgBoardOrganizeActorDirectory} from './infrastructure/whiteboard/pg-organize-actor-directory';
 import { WhiteboardAssetsController } from './interface/controllers/whiteboard-assets.controller';
 import { WHITEBOARD_IMAGE_ASSETS, WhiteboardImageAssets } from './application/whiteboard/image-assets';
+import { boardAssetDownloadGrantSignerFromEnv } from './application/whiteboard/asset-download-grant';
+import { SecureWhiteboardObjectStore, WHITEBOARD_SECURE_OBJECT_STORE, whiteboardObjectEncryptionPolicy } from './infrastructure/whiteboard/secure-object-store';
 import { PgBoardImageAssets } from './infrastructure/whiteboard/pg-image-assets';
 import { SharpBoardImageVerifier } from './infrastructure/whiteboard/image-verifier';
 import { WHITEBOARD_COLLABORATION_STORE, WHITEBOARD_COMMENT_STORE, WHITEBOARD_RECOVERY_SERVICE, WHITEBOARD_UPDATE_VALIDATOR, type WhiteboardCollaborationStore, type WhiteboardUpdateValidator } from './application/whiteboard/collaboration-ports';
@@ -21,6 +23,7 @@ import { PortableBoardService,WHITEBOARD_PORTABLE_SERVICE } from './application/
 import { PgPortableBoard } from './infrastructure/whiteboard/pg-portable-board';
 import { WhiteboardImportController } from './interface/controllers/whiteboard-import.controller';
 import { WHITEBOARD_IMPORT_SERVICE, WhiteboardImportService } from './application/whiteboard/import-service';
+import { BaselineWhiteboardImportScanner } from './application/whiteboard/import-upload-security';
 import { WHITEBOARD_OBJECT_INVENTORY,type WhiteboardObjectInventory } from './application/whiteboard/object-retention';
 import { PgWhiteboardImportRepository } from './infrastructure/whiteboard/pg-import-repository';
 import { WhiteboardRecoveryService } from './application/whiteboard/recovery-service';
@@ -3153,9 +3156,14 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
       inject: [DATABASE_PORT],
     },
     {
+      provide: WHITEBOARD_SECURE_OBJECT_STORE,
+      useFactory: (objects: ObjectStore) => new SecureWhiteboardObjectStore(objects, whiteboardObjectEncryptionPolicy()),
+      inject: [OBJECT_STORE],
+    },
+    {
       provide: WHITEBOARD_IMAGE_ASSETS,
-      useFactory: (boards: PgWhiteboardRepository, db: DatabasePort, objects: ObjectStore) => new WhiteboardImageAssets(boards, new PgBoardImageAssets(db), objects, new SharpBoardImageVerifier()),
-      inject: [WHITEBOARD_REPOSITORY, DATABASE_PORT, OBJECT_STORE],
+      useFactory: (boards: PgWhiteboardRepository, db: DatabasePort, objects: SecureWhiteboardObjectStore) => new WhiteboardImageAssets(boards, new PgBoardImageAssets(db), objects, new SharpBoardImageVerifier(), boardAssetDownloadGrantSignerFromEnv()),
+      inject: [WHITEBOARD_REPOSITORY, DATABASE_PORT, WHITEBOARD_SECURE_OBJECT_STORE],
     },
     {
       provide: WHITEBOARD_PORTABLE_SERVICE,
@@ -3164,8 +3172,8 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
     },
     {
       provide: WHITEBOARD_IMPORT_SERVICE,
-      useFactory: (boards: PgWhiteboardRepository, collaboration: PgWhiteboardCollaborationStore, db: DatabasePort, objects: ObjectStore, images: WhiteboardImageAssets) => new WhiteboardImportService(boards,new PgWhiteboardImportRepository(db),collaboration,objects,new PgWhiteboardExportRepository(db),undefined,images),
-      inject: [WHITEBOARD_REPOSITORY, WHITEBOARD_COLLABORATION_STORE, DATABASE_PORT, OBJECT_STORE, WHITEBOARD_IMAGE_ASSETS],
+      useFactory: (boards: PgWhiteboardRepository, collaboration: PgWhiteboardCollaborationStore, db: DatabasePort, objects: SecureWhiteboardObjectStore, images: WhiteboardImageAssets) => new WhiteboardImportService(boards,new PgWhiteboardImportRepository(db),collaboration,objects,new PgWhiteboardExportRepository(db),undefined,images,new BaselineWhiteboardImportScanner()),
+      inject: [WHITEBOARD_REPOSITORY, WHITEBOARD_COLLABORATION_STORE, DATABASE_PORT, WHITEBOARD_SECURE_OBJECT_STORE, WHITEBOARD_IMAGE_ASSETS],
     },
     {
       provide: WHITEBOARD_TAG_REPOSITORY,

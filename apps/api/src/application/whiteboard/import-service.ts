@@ -9,6 +9,12 @@ import { ObjectExistsError, type ObjectStore } from '../artifact/ports';
 import type { WhiteboardRepository } from './ports';
 import type { WhiteboardCollaborationStore } from './collaboration-ports';
 import { parseWhiteboardImport, UnsafeWhiteboardImport } from './import-parser';
+import {
+  FailClosedWhiteboardImportScanner,
+  WhiteboardImportScanError,
+  collectAndScanWhiteboardImport,
+  type WhiteboardImportContentScanner,
+} from './import-upload-security';
 
 export const WHITEBOARD_IMPORT_SERVICE=Symbol('WhiteboardImportService');
 export type ImportStatus=ReturnType<typeof C.WhiteboardImportStatus.parse>;
@@ -35,13 +41,36 @@ const status=(record:WhiteboardImportRecord):ImportStatus=>C.WhiteboardImportSta
 const sourceImportId=(source:string,boardId:string,revision:string)=>{const value=hash(`${source}\0${boardId}\0${revision}`);return`${value.slice(0,8)}-${value.slice(8,12)}-5${value.slice(13,16)}-a${value.slice(17,20)}-${value.slice(20,32)}`;};
 
 export class WhiteboardImportService {
-  constructor(private readonly boards:WhiteboardRepository,private readonly imports:WhiteboardImportRepository,private readonly collaboration:WhiteboardCollaborationStore,private readonly objects:Pick<ObjectStore,'putOnce'|'get'|'head'>,private readonly exports:WhiteboardExportRepository,private readonly now:()=>Date=()=>new Date(),private readonly images?:WhiteboardImageAssets){}
+  constructor(private readonly boards:WhiteboardRepository,private readonly imports:WhiteboardImportRepository,private readonly collaboration:WhiteboardCollaborationStore,private readonly objects:Pick<ObjectStore,'putOnce'|'get'|'head'>,private readonly exports:WhiteboardExportRepository,private readonly now:()=>Date=()=>new Date(),private readonly images?:WhiteboardImageAssets,private readonly scanner:WhiteboardImportContentScanner=new FailClosedWhiteboardImportScanner()){}
   private async access(principal:Principal,boardId:string){const board=await this.boards.get(principal,boardId);if(!board)throw new WhiteboardImportError('NOT_FOUND');if(!['owner','editor'].includes(board.role))throw new WhiteboardImportError('FORBIDDEN');if(board.archived)throw new WhiteboardImportError('ARCHIVED');return board;}
   private prefix(principal:Principal,boardId:string){return`whiteboards/tenants/${hash(principal.orgId).slice(0,32)}/boards/${boardId}`;}
-  private decode(value:string):Uint8Array{if(!/^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/.test(value))throw new WhiteboardImportError('INVALID_UPLOAD');return new Uint8Array(Buffer.from(value,'base64'));}
+  private decode(value:string,expectedBytes:number):Uint8Array{if(value.length>Math.ceil(expectedBytes/3)*4||!/^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/.test(value))throw new WhiteboardImportError('INVALID_UPLOAD');return new Uint8Array(Buffer.from(value,'base64'));}
   private async putVerified(key:string,bytes:Uint8Array,mime:string){try{await this.objects.putOnce(key,bytes,mime);}catch(error){if(!(error instanceof ObjectExistsError))throw new WhiteboardImportError('DEPENDENCY_UNAVAILABLE');}let body:Uint8Array|null,head:{sizeBytes:number;mime:string}|null;try{[body,head]=await Promise.all([this.objects.get(key),this.objects.head(key)]);}catch{throw new WhiteboardImportError('DEPENDENCY_UNAVAILABLE');}if(!body||!head||body.byteLength!==bytes.byteLength||head.sizeBytes!==bytes.byteLength||hash(body)!==hash(bytes))throw new WhiteboardImportError('INTEGRITY_FAILED');}
   private async source(principal:Principal,record:WhiteboardImportRecord){if(!record.sourceObjectKey.startsWith(`${this.prefix(principal,record.boardId)}/imports/${record.importId}/`))throw new WhiteboardImportError('INTEGRITY_FAILED');let bytes:Uint8Array|null;try{bytes=await this.objects.get(record.sourceObjectKey);}catch{throw new WhiteboardImportError('DEPENDENCY_UNAVAILABLE');}if(!bytes||bytes.byteLength!==record.sizeBytes||hash(bytes)!==record.sha256)throw new WhiteboardImportError('INTEGRITY_FAILED');return bytes;}
-  async upload(principal:Principal,boardId:string,input:unknown):Promise<ImportStatus>{await this.access(principal,boardId);const request=C.UploadWhiteboardImport.parse(input),bytes=this.decode(request.contentBase64);if(bytes.byteLength!==request.sizeBytes||hash(bytes)!==request.sha256)throw new WhiteboardImportError('INVALID_UPLOAD');let parsed;try{parsed=await parseWhiteboardImport(bytes,request.mimeType,request.source);}catch(error){if(error instanceof UnsafeWhiteboardImport)throw new WhiteboardImportError(error.code);throw error;}const embedded=parsed.sourceIdentity,sourceBoardId=embedded.boardId??`digest:${request.sha256}`,sourceRevision=embedded.revision??request.sha256,importId=sourceImportId(request.source,sourceBoardId,sourceRevision),key=`${this.prefix(principal,boardId)}/imports/${importId}/source/${request.sha256}`;await this.putVerified(key,bytes,request.mimeType);const now=this.now().toISOString(),record:WhiteboardImportRecord={importId,boardId,source:request.source,sourceBoardId,sourceRevision,fileName:request.fileName,mimeType:request.mimeType,sizeBytes:request.sizeBytes,sha256:request.sha256,stage:'uploaded',counts:null,createdAt:now,updatedAt:now,sourceObjectKey:key,actorId:principal.userId,report:null,executeRequestId:null,executeRequestHash:null,completedEpoch:null,completedSeq:null};const saved=await this.imports.create(principal,record);if(saved.conflict)throw new WhiteboardImportError('IDEMPOTENCY_CONFLICT');return status(saved.record);}
+  async upload(principal:Principal,boardId:string,input:unknown):Promise<ImportStatus>{
+    await this.access(principal,boardId);
+    const request=C.UploadWhiteboardImport.parse(input),bytes=this.decode(request.contentBase64,request.sizeBytes);
+    const {contentBase64:_,...descriptor}=request;
+    return this.uploadStream(principal,boardId,descriptor,(async function*(){yield bytes;})());
+  }
+  async uploadStream(principal:Principal,boardId:string,input:unknown,source:AsyncIterable<Uint8Array>,signal?:AbortSignal):Promise<ImportStatus>{
+    await this.access(principal,boardId);
+    const request=C.WhiteboardImportUploadDescriptor.parse(input);
+    let bytes:Uint8Array;
+    try { bytes=(await collectAndScanWhiteboardImport(source,request,this.scanner,signal)).bytes; }
+    catch(error){
+      if(error instanceof WhiteboardImportScanError){
+        if(error.code==='SCAN_UNAVAILABLE')throw new WhiteboardImportError('DEPENDENCY_UNAVAILABLE');
+        throw new WhiteboardImportError(error.code);
+      }
+      throw error;
+    }
+    let parsed;try{parsed=await parseWhiteboardImport(bytes,request.mimeType,request.source);}catch(error){if(error instanceof UnsafeWhiteboardImport)throw new WhiteboardImportError(error.code);throw error;}
+    const embedded=parsed.sourceIdentity,sourceBoardId=embedded.boardId??`digest:${request.sha256}`,sourceRevision=embedded.revision??request.sha256,importId=sourceImportId(request.source,sourceBoardId,sourceRevision),key=`${this.prefix(principal,boardId)}/imports/${importId}/source/${request.sha256}`;
+    await this.putVerified(key,bytes,request.mimeType);
+    const now=this.now().toISOString(),record:WhiteboardImportRecord={importId,boardId,source:request.source,sourceBoardId,sourceRevision,fileName:request.fileName,mimeType:request.mimeType,sizeBytes:request.sizeBytes,sha256:request.sha256,stage:'uploaded',counts:null,createdAt:now,updatedAt:now,sourceObjectKey:key,actorId:principal.userId,report:null,executeRequestId:null,executeRequestHash:null,completedEpoch:null,completedSeq:null};
+    const saved=await this.imports.create(principal,record);if(saved.conflict)throw new WhiteboardImportError('IDEMPOTENCY_CONFLICT');return status(saved.record);
+  }
   private report(record:WhiteboardImportRecord,mapped:ReturnType<typeof mapImportedBoard>,skipped:string[]):ImportReport{return C.WhiteboardImportReport.parse({importId:record.importId,counts:{discovered:mapped.discovered,accepted:mapped.accepted,unsupported:mapped.unsupported,assets:mapped.assets},issues:[...mapped.issues,...skipped.slice(0,Math.max(0,C.WHITEBOARD_IMPORT_LIMITS.issues-mapped.issues.length)).map(path=>({code:'FILE_SKIPPED' as const,sourceId:null,sourceType:null,detail:`Unsupported archive entry ${path}`}))],items:mapped.outcomes,exportFormat:'workspacex.whiteboard-import-report.v1',executable:mapped.commands.length>0});}
   private async prepare(principal:Principal,record:WhiteboardImportRecord,storeAssets:boolean) {
     const bytes=await this.source(principal,record);

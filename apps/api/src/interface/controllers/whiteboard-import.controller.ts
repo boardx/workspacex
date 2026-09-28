@@ -1,4 +1,4 @@
-import { BadRequestException, Body, ConflictException, Controller, ForbiddenException, Get, HttpCode, Inject, NotFoundException, Param, ParseUUIDPipe, PayloadTooLargeException, Post, ServiceUnavailableException, UnprocessableEntityException } from '@nestjs/common';
+import { BadRequestException, Body, ConflictException, Controller, ForbiddenException, Get, HttpCode, HttpException, Inject, NotFoundException, Param, ParseUUIDPipe, PayloadTooLargeException, Post, ServiceUnavailableException, UnprocessableEntityException } from '@nestjs/common';
 import { whiteboardImport as C } from '@repo/contracts';
 import { WHITEBOARD_IMPORT_SERVICE, WhiteboardImportError, type WhiteboardImportService } from '../../application/whiteboard/import-service';
 import { assertPrincipal, type Principal } from '../../domain/principal';
@@ -10,6 +10,8 @@ function failure(error:unknown):never{
   if(error.code==='NOT_FOUND')throw new NotFoundException(body);
   if(error.code==='FORBIDDEN')throw new ForbiddenException(body);
   if(error.code==='PAYLOAD_TOO_LARGE')throw new PayloadTooLargeException(body);
+  if(error.code==='UPLOAD_CANCELLED')throw new HttpException(body,499);
+  if(error.code==='CONTENT_REJECTED')throw new UnprocessableEntityException(body);
   if(['ARCHIVED','STALE_HEAD','IDEMPOTENCY_CONFLICT'].includes(error.code))throw new ConflictException(body);
   if(['DEPENDENCY_UNAVAILABLE','INTEGRITY_FAILED'].includes(error.code))throw new ServiceUnavailableException(body);
   if(['UNSUPPORTED_FORMAT','UNSAFE_ARCHIVE'].includes(error.code))throw new UnprocessableEntityException(body);

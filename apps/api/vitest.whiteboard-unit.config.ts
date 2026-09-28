@@ -39,6 +39,8 @@ export default defineConfig({ resolve:{alias:{
     'tests/whiteboard/import-parser.test.ts',
     'tests/whiteboard/portable-board.test.ts',
     'tests/whiteboard/import-service.test.ts',
+    'tests/whiteboard/import-stream-security.test.ts',
+    'tests/whiteboard/object-encryption.test.ts',
     'tests/whiteboard/image-assets.test.ts',
     'tests/whiteboard/recovery-metadata.test.ts',
     'tests/whiteboard/import-repository-guard.test.ts',

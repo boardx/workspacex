@@ -18,7 +18,8 @@ export const WhiteboardImportIssueCode = z.enum([
 export const WhiteboardImportFailure = z.enum([
   'NOT_FOUND', 'FORBIDDEN', 'ARCHIVED', 'INVALID_UPLOAD', 'PAYLOAD_TOO_LARGE',
   'UNSUPPORTED_FORMAT', 'UNSAFE_ARCHIVE', 'INTEGRITY_FAILED', 'STALE_HEAD',
-  'IDEMPOTENCY_CONFLICT', 'DEPENDENCY_UNAVAILABLE',
+  'IDEMPOTENCY_CONFLICT', 'DEPENDENCY_UNAVAILABLE', 'UPLOAD_CANCELLED',
+  'CONTENT_REJECTED',
 ]);
 export type WhiteboardImportFailure = z.infer<typeof WhiteboardImportFailure>;
 export const WhiteboardImportIssue = z.object({
@@ -51,11 +52,14 @@ export const WhiteboardImportReport = z.object({
   executable: z.boolean(),
 }).strict();
 export type WhiteboardImportReport = z.infer<typeof WhiteboardImportReport>;
-export const UploadWhiteboardImport = z.object({
+export const WhiteboardImportUploadDescriptor = z.object({
   requestId: WhiteboardImportId, source: WhiteboardImportSource,
   fileName: z.string().min(1).max(255), mimeType: WhiteboardImportMime,
   sizeBytes: z.number().int().positive().max(WHITEBOARD_IMPORT_LIMITS.uploadBytes),
-  sha256: z.string().regex(/^[a-f0-9]{64}$/), contentBase64: z.string().min(4),
+  sha256: z.string().regex(/^[a-f0-9]{64}$/),
+}).strict();
+export const UploadWhiteboardImport = WhiteboardImportUploadDescriptor.extend({
+  contentBase64: z.string().min(4).max(Math.ceil(WHITEBOARD_IMPORT_LIMITS.uploadBytes / 3) * 4),
 }).strict();
 export const WhiteboardImportAction = z.object({ requestId: z.string().uuid() }).strict();
 export const ExecuteWhiteboardImport = WhiteboardImportAction.extend({ expectedEpoch: z.number().int().positive() }).strict();

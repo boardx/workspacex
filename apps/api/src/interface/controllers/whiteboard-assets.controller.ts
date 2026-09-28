@@ -33,6 +33,25 @@ export class WhiteboardAssetsController {
       response.send(Buffer.from(result.bytes));
     } catch (error) { this.failure(error); }
   }
+  @Post(':assetId/download-grant')
+  async issueDownloadGrant(@CurrentPrincipal() p: Principal, @Param('boardId', new ParseUUIDPipe()) boardId: string, @Param('assetId') assetId: string) {
+    assertPrincipal(p);
+    try { return await this.service.issueDownloadGrant(p, boardId, assetId); }
+    catch (error) { this.failure(error); }
+  }
+  @Get('downloads/:token')
+  async download(@CurrentPrincipal() p: Principal, @Param('boardId', new ParseUUIDPipe()) boardId: string, @Param('token') token: string, @Res() response: Response) {
+    assertPrincipal(p);
+    try {
+      const result = await this.service.readWithDownloadGrant(p, boardId, token);
+      response.setHeader('Content-Type', result.metadata.mimeType);
+      response.setHeader('Content-Length', result.bytes.byteLength);
+      response.setHeader('Cache-Control', 'private, no-store');
+      response.setHeader('X-Content-Type-Options', 'nosniff');
+      response.setHeader('Content-Disposition', 'attachment');
+      response.send(Buffer.from(result.bytes));
+    } catch (error) { this.failure(error); }
+  }
   private failure(error: unknown): never {
     if (error instanceof WhiteboardImageError) {
       if (error.code === 'NOT_FOUND') throw new NotFoundException();

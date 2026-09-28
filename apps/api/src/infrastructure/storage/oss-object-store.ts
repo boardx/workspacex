@@ -12,6 +12,15 @@ export interface OssClientPort {
   list(input:{prefix:string;marker?:string;maxKeys:number}):Promise<{objects:Array<{name:string;size:number;lastModified:string;etag:string}>;nextMarker?:string}>;
 }
 
+export type OssServerSideEncryption =
+  | { readonly algorithm: "AES256" }
+  | { readonly algorithm: "KMS"; readonly keyId: string };
+
+export interface OssObjectEncryptionMetadata {
+  readonly algorithm: "AES256" | "KMS";
+  readonly keyId: string | null;
+}
+
 const unavailable = () => new ObjectStoreUnavailableError("OSS unavailable");
 const failureCode = (error: unknown) => {
   if (typeof error !== "object" || error === null) return undefined;
@@ -50,6 +59,18 @@ export class OssObjectStore implements ObjectStore {
     try { await assertCompatible(this.client, this.bucket); } catch { throw unavailable(); }
   }
   async putOnce(key: string, bytes: Uint8Array, mime: string): Promise<void> {
+    return this.writeOnce(key, bytes, mime, {});
+  }
+  /** Explicit capability used by whiteboard blobs; ordinary callers retain prior behavior. */
+  async putOnceEncrypted(key: string, bytes: Uint8Array, mime: string, encryption: OssServerSideEncryption): Promise<void> {
+    const headers: Record<string, string> = { "x-oss-server-side-encryption": encryption.algorithm };
+    if (encryption.algorithm === "KMS") {
+      if (!/^[A-Za-z0-9][A-Za-z0-9._:/-]{0,255}$/.test(encryption.keyId)) throw unavailable();
+      headers["x-oss-server-side-encryption-key-id"] = encryption.keyId;
+    }
+    return this.writeOnce(key, bytes, mime, headers);
+  }
+  private async writeOnce(key: string, bytes: Uint8Array, mime: string, securityHeaders: Record<string, string>): Promise<void> {
     const objectKey = this.key(key);
     if (!mime || mime.length > 256 || /[\r\n\u0000]/.test(mime)) throw unavailable();
     // Copy before awaiting the network: callers cannot mutate the bytes after hashing.
@@ -58,12 +79,28 @@ export class OssObjectStore implements ObjectStore {
       "x-oss-forbid-overwrite": "true",
       "Content-MD5": createHash("md5").update(content).digest("base64"),
       "x-oss-meta-sha256": createHash("sha256").update(content).digest("hex"),
+      ...securityHeaders,
     };
     try {
       await assertCompatible(this.client, this.bucket);
       await this.client.put(objectKey, content, { mime, headers });
     } catch (error) {
       if (failureCode(error) === "FileAlreadyExists") throw new ObjectExistsError(key);
+      throw unavailable();
+    }
+  }
+  async headEncryption(key: string): Promise<OssObjectEncryptionMetadata | null> {
+    const objectKey = this.key(key);
+    try {
+      const { headers } = await this.client.head(objectKey);
+      const algorithm = headers["x-oss-server-side-encryption"];
+      if (algorithm !== "AES256" && algorithm !== "KMS") throw unavailable();
+      const keyId = headers["x-oss-server-side-encryption-key-id"] ?? null;
+      if (algorithm === "KMS" && !keyId) throw unavailable();
+      if (algorithm === "AES256" && keyId) throw unavailable();
+      return { algorithm, keyId };
+    } catch (error) {
+      if (missing(error)) { await this.assertReady(); return null; }
       throw unavailable();
     }
   }
