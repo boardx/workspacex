@@ -5,6 +5,34 @@ import type { survey } from "@repo/contracts";
 import { Button } from "@/components/ui/button";
 import { downloadSurveyAttachment } from "@/lib/survey/runtime-client";
 import { Input } from "@/components/ui/input";
+
+export function filterSurveyResponses(
+  responses: survey.SurveyResponse[],
+  questionById: ReadonlyMap<string, survey.SurveyWorkflowQuestion>,
+  searchTerm: string,
+  quality: string,
+) {
+  return responses.filter(
+    (response) =>
+      (quality === "all" ||
+        (quality === "excluded"
+          ? response.analysis === "excluded"
+          : response.quality === quality && response.analysis !== "excluded")) &&
+      (!searchTerm ||
+        response.id.toLocaleLowerCase().includes(searchTerm) ||
+        (response.submitter ?? "").toLocaleLowerCase().includes(searchTerm) ||
+        response.answers.some((answer) => {
+          const question = questionById.get(answer.questionId);
+          return Boolean(
+            question &&
+              formatSurveyAnswer(question, answer.value)
+                .toLocaleLowerCase()
+                .includes(searchTerm),
+          );
+        })),
+  );
+}
+
 export function LiveResponseList({
   surveyId,
   responses,
@@ -32,14 +60,13 @@ export function LiveResponseList({
   const normal = responses.filter((r) => r.quality === "normal" && r.analysis !== "excluded").length;
   const review = responses.filter((r) => r.quality === "review" && r.analysis !== "excluded").length;
   const searchTerm = query.trim().toLocaleLowerCase();
-  const filtered = responses.filter(
-    (r) =>
-      (quality === "all" || (quality === "excluded" ? r.analysis === "excluded" : r.quality === quality && r.analysis !== "excluded")) &&
-      (!searchTerm || r.id.toLocaleLowerCase().includes(searchTerm) || (r.submitter ?? "").toLocaleLowerCase().includes(searchTerm) ||
-        r.answers.some((answer) => {
-          const question = questions.find((item) => item.id === answer.questionId);
-          return question && formatSurveyAnswer(question, answer.value).toLocaleLowerCase().includes(searchTerm);
-        })),
+  const questionById = React.useMemo(
+    () => new Map(questions.map((question) => [question.id, question])),
+    [questions],
+  );
+  const filtered = React.useMemo(
+    () => filterSurveyResponses(responses, questionById, searchTerm, quality),
+    [responses, questionById, searchTerm, quality],
   );
   const pages = Math.max(1, Math.ceil(filtered.length / 10));
   const actualPage = Math.min(page, pages - 1);
