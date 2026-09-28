@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowLeft, Check, MessageSquareText, Sparkles } from "lucide-react";
+import { ArrowLeft, Check, MessageSquareText } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 export const INTERVIEW_WORKBENCH_STEPS = [
@@ -46,12 +46,11 @@ export function InterviewWorkbenchHeader({
   return <header data-testid="itv-workbench-header" className="sticky top-0 z-20 rounded-2xl border border-border bg-card/95 px-4 py-3 shadow-sm backdrop-blur lg:px-6">
     <div className="flex flex-wrap items-center justify-between gap-3">
       <div className="min-w-0">
-        <p className="flex items-center gap-2 text-xs font-medium text-muted-foreground"><Sparkles className="size-4" aria-hidden />AI 模拟访谈工作台</p>
-        <h1 className="mt-1 truncate text-xl font-semibold tracking-tight lg:text-2xl">{name}</h1>
+        <h1 className="truncate text-xl font-semibold tracking-tight lg:text-2xl">{name}</h1>
       </div>
       <div className="flex flex-wrap items-center justify-end gap-2">
-        <span data-testid="itv-workflow-status" className="hidden rounded-full bg-muted px-2.5 py-1 text-xs text-muted-foreground md:inline-flex">状态：{status}</span>
-        <span data-testid="itv-workflow-version" className="hidden text-xs text-muted-foreground md:inline">版本 {version}</span>
+        <span data-testid="itv-workflow-status" className="sr-only">状态：{status}</span>
+        <span data-testid="itv-workflow-version" className="sr-only">版本 {version}</span>
         {topic && <span data-testid="itv-persisted-topic" className="sr-only">已确认主题：{topic}</span>}
         {tags.map((tag) => <span key={tag} className="hidden rounded-full bg-muted px-2.5 py-1 text-xs text-muted-foreground lg:inline-flex">{tag}</span>)}
         {onOpenSkill && <Button data-testid="itv-skill-drawer-trigger" type="button" variant="outline" onClick={onOpenSkill}><MessageSquareText className="size-4" aria-hidden />访谈助手</Button>}

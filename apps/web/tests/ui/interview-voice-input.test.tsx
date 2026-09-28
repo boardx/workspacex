@@ -48,18 +48,40 @@ it("confirmed source disables microphone and an unconfigured provider reports it
   act(() => { handlers.onError("ASR_NOT_CONFIGURED"); });
   expect(screen.getByRole("alert")).toHaveTextContent("尚未配置语音转写服务");
 });
-it("intake prevents save and confirmation during capture and appends into its existing Markdown", async () => {
-  const change = vi.fn(); const save = vi.fn(); const confirm = vi.fn();
-  render(<InterviewIntakeStep markdown="# 已有研究需求" onChange={change} onSave={save} onConfirm={confirm} pending={false} voiceSessionToken="voice-session" />);
+it("intake prevents confirmation during capture and appends into its existing Markdown", async () => {
+  const change = vi.fn(); const confirm = vi.fn();
+  function Intake() {
+    const [markdown, setMarkdown] = React.useState("# 已有研究需求");
+    return <InterviewIntakeStep markdown={markdown} onChange={(value) => { change(value); setMarkdown(value); }} onConfirm={confirm} pending={false} voiceSessionToken="voice-session" />;
+  }
+  render(<Intake />);
   fireEvent.click(screen.getByRole("button", { name: "语音输入" }));
   await screen.findByRole("button", { name: "停止并追加文字" });
-  expect(screen.getByRole("button", { name: "保存草稿" })).toBeDisabled();
+  expect(screen.queryByRole("button", { name: "保存草稿" })).not.toBeInTheDocument();
   expect(screen.getByRole("button", { name: "正在处理…" })).toBeDisabled();
   act(() => { handlers.onFinal("真实语音补充。"); });
+  expect(screen.getByRole("textbox", { name: "研究需求 Markdown" })).toHaveValue("# 已有研究需求\n\n真实语音补充。");
+  expect(screen.queryByLabelText("语音转录预览")).not.toBeInTheDocument();
   fireEvent.click(screen.getByRole("button", { name: "停止并追加文字" }));
   act(() => { handlers.onFinished(); });
   await waitFor(() => expect(change).toHaveBeenCalledWith("# 已有研究需求\n\n真实语音补充。"));
-  expect(save).not.toHaveBeenCalled(); expect(confirm).not.toHaveBeenCalled();
+  expect(screen.getByRole("textbox", { name: "研究需求 Markdown" })).toHaveValue("# 已有研究需求\n\n真实语音补充。");
+  act(() => { handlers.onFinished(); });
+  expect(change).toHaveBeenCalledTimes(1);
+  expect(confirm).not.toHaveBeenCalled();
+});
+it("shows interim speech only in the main editor and cancel restores the original demand", async () => {
+  const change = vi.fn();
+  render(<InterviewIntakeStep markdown="已有需求" onChange={change} onConfirm={vi.fn()} pending={false} voiceSessionToken="voice-session" />);
+  fireEvent.click(screen.getByRole("button", { name: "语音输入" }));
+  await screen.findByRole("button", { name: "取消语音输入" });
+  act(() => { handlers.onPartial("正在识别的临时内容"); });
+  expect(screen.getByRole("textbox", { name: "研究需求 Markdown" })).toHaveValue("已有需求\n\n正在识别的临时内容");
+  expect(change).not.toHaveBeenCalled();
+  fireEvent.click(screen.getByRole("button", { name: "取消语音输入" }));
+  act(() => { handlers.onFinished(); });
+  await waitFor(() => expect(screen.getByRole("textbox", { name: "研究需求 Markdown" })).toHaveValue("已有需求"));
+  expect(change).not.toHaveBeenCalled();
 });
 it("provider error requires explicit review to append confirmed text and recovery cannot duplicate it", async () => {
   const append = vi.fn();
@@ -68,10 +90,28 @@ it("provider error requires explicit review to append confirmed text and recover
   await screen.findByRole("button", { name: "停止并追加文字" });
   act(() => { handlers.onFinal("已确认内容。"); handlers.onPartial("不能保留的临时片段"); handlers.onError("ASR_PROVIDER_UNAVAILABLE"); });
   expect(append).not.toHaveBeenCalled();
-  expect(screen.getByText("已确认内容。")).toBeVisible();
+  expect(screen.queryByLabelText("语音转录预览")).not.toBeInTheDocument();
   fireEvent.click(screen.getByRole("button", { name: "保留已确认转录" }));
   expect(append).toHaveBeenCalledWith("已确认内容。");
   expect(screen.queryByRole("button", { name: "保留已确认转录" })).not.toBeInTheDocument();
+});
+it("shows recoverable confirmed speech in the editor without persisting interim speech", async () => {
+  const change = vi.fn();
+  function Intake() {
+    const [markdown, setMarkdown] = React.useState("已有需求");
+    return <InterviewIntakeStep markdown={markdown} onChange={(value) => { change(value); setMarkdown(value); }} onConfirm={vi.fn()} pending={false} voiceSessionToken="voice-session" />;
+  }
+  render(<Intake />);
+  fireEvent.click(screen.getByRole("button", { name: "语音输入" }));
+  await screen.findByRole("button", { name: "停止并追加文字" });
+  act(() => { handlers.onFinal("已确认文字。"); handlers.onPartial("不应保留的临时文字"); handlers.onError("ASR_PROVIDER_UNAVAILABLE"); });
+  const input = screen.getByRole("textbox", { name: "研究需求 Markdown" });
+  expect(input).toHaveValue("已有需求\n\n已确认文字。");
+  expect(change).not.toHaveBeenCalled();
+  expect(screen.getByRole("button", { name: "正在处理…" })).toBeDisabled();
+  fireEvent.click(screen.getByRole("button", { name: "保留已确认转录" }));
+  await waitFor(() => expect(input).toHaveValue("已有需求\n\n已确认文字。"));
+  expect(change).toHaveBeenCalledTimes(1);
 });
 it("a provider ending capture before the user clicks stop still offers confirmed text for explicit review", async () => {
   const append = vi.fn();
