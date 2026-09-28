@@ -11,6 +11,7 @@ import {
   type SkillScreen, type SkillView,
 } from "@/lib/mock/skill";
 import { SkillCatalogLive } from "./skill-catalog-live";
+import { WorkSkillCatalog } from "./work-skill-catalog";
 import { AdminNav } from "@/components/admin/admin-nav";
 import { CapabilityCatalogScreen } from "@/components/admin/capability-catalog-screen";
 import { SkillLibrary } from "./skill-library";
@@ -69,7 +70,7 @@ export function SkillApp({
    *   两个真实屏一律不传 `right`（哪怕是开发环境下核对这两屏本身也不需要它），
    *   其余七屏一律保留。
    */
-  const isProductionScreen = screen === "library" || screen === "catalog";
+  const isProductionScreen = screen === "library" || screen === "catalog" || screen === "work-catalog";
 
   return (
     <AppShell
@@ -93,6 +94,7 @@ export function SkillApp({
             `SkillContentEditorSection` 因此搬去那个页面自己传，这里不再需要它。
           */}
           {screen === "catalog" && <CapabilityCatalogScreen kind="skill" />}
+          {screen === "work-catalog" && <WorkSkillCatalog />}
           {screen === "library-prototype" && <SkillLibrary state={uiState} view={view} />}
           {screen === "tryrun" && <SkillTryRun state={uiState} view={view} />}
           {screen === "binding" && <SkillBinding state={uiState} view={view} />}
@@ -152,6 +154,7 @@ function RightRail({ screen }: { screen: SkillScreen }) {
   const notes: Record<SkillScreen, { title: string; body: string }> = {
     library: { title: "只画后端给得出的东西", body: "本屏接真实 API（#520）：只有创建草稿、列表、详情三条路径有 HTTP 边界。没有发布、试跑、审核入口——它们的用例还没有边界，摆出来就是骗人的按钮。" },
     catalog: { title: "原 /admin/skill，2026-08-11 真合并进来", body: "名称/可见范围/归属团队编辑，走 identity 能力目录契约（GET/POST /capabilities）——与 library 是两套不同后端数据源，只是概念重叠，导航层面收敛为一个入口。" },
+    "work-catalog": { title: "就绪性未知 ≠ 就绪", body: "Work Skill 目录接真实 /skills/catalog；就绪性查询失败显示未知，通道操作仅在服务端授予 canManageChannel 时渲染。" },
     "library-prototype": { title: "双重门禁", body: "安全扫描（自动）与方法论审核（人工）是两道独立门禁，两职能不合并、均由组织管理员指派、不得自审自批。" },
     tryrun: { title: "试跑不落库", body: "试跑用当前未发布的契约跑，不影响线上；自动校验（结构/证据/越权/写库）与回归用例都不需要沙箱（D-06 挡不住），是对契约输出的断言。" },
     binding: { title: "两级继承", body: "后台模板级默认值 → 项目实例级可覆盖、不回写；沉淀回组织只有一条显式路径 [另存为组织模板]。" },
