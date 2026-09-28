@@ -109,6 +109,6 @@ export function BoardBottomDock({ stickyColor=STICKY_COLOR_PRESETS.yellow,onStic
 
 function DockButton({ testId, label, shortcut, pressed, disabled, onClick, children }: { testId?: string; label: string; shortcut: string; pressed: boolean; disabled?: boolean; onClick: () => void; children: React.ReactNode }) {
   return <button type="button" data-testid={testId} title={shortcut ? `${label} (${shortcut})` : label} aria-label={shortcut ? `${label}，快捷键 ${shortcut}` : label} aria-pressed={pressed} disabled={disabled} onClick={onClick} className={cn("group flex min-h-14 min-w-14 shrink-0 flex-col items-center justify-center gap-1 rounded-xl px-2 text-11 transition-colors duration-fast hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:bg-disabled disabled:text-disabled-foreground", pressed && "bg-primary text-primary-foreground shadow-md hover:bg-primary-hover hover:text-primary-foreground")}>
-    <span className="transition-transform motion-safe:group-hover:scale-110">{children}</span><span className="leading-none">{label}</span>
+    <span className="transition-transform motion-safe:group-hover:scale-110">{children}</span><span className="leading-none max-sm:sr-only">{label}</span>
   </button>;
 }
