@@ -28,7 +28,7 @@ export function InterviewCreatePage({ projectId = null }: { projectId?: string |
     }
     return createdId.current;
   }
-  async function save(continueToAnalysis: boolean) {
+  async function save() {
     if (pending) return;
     setPending(true); setError("");
     try {
@@ -38,13 +38,11 @@ export function InterviewCreatePage({ projectId = null }: { projectId?: string |
       const immutable = source.states.some((state) => state.documentId === intake?.documentId && ["confirmed", "completed"].includes(state.status));
       setIntakeConfirmed(immutable);
       if (intake?.markdown !== markdown) source = await saveInterviewMarkdown(id, "intake", { markdown, expectedVersion: source.version, expectedDocumentVersion: intake?.version ?? 0 });
-      if (continueToAnalysis) {
-        const doc = source.documents.find((item) => item.step === "intake")!;
-        if (!source.states.some((state) => state.documentId === doc.documentId && ["confirmed", "completed"].includes(state.status))) source = await confirmInterviewMarkdown(id, "intake", { expectedVersion: source.version, expectedDocumentVersion: doc.version });
-        setIntakeConfirmed(true);
-        if (!source.documents.some((item) => item.step === "analysis")) await generateInterviewMarkdown(id, "analysis", { expectedVersion: source.version, expectedDocumentVersion: 0 });
-      }
-      router.push(`/itv/${encodeURIComponent(id)}/${continueToAnalysis ? "analysis" : "intake"}`);
+      const doc = source.documents.find((item) => item.step === "intake")!;
+      if (!source.states.some((state) => state.documentId === doc.documentId && ["confirmed", "completed"].includes(state.status))) source = await confirmInterviewMarkdown(id, "intake", { expectedVersion: source.version, expectedDocumentVersion: doc.version });
+      setIntakeConfirmed(true);
+      if (!source.documents.some((item) => item.step === "analysis")) await generateInterviewMarkdown(id, "analysis", { expectedVersion: source.version, expectedDocumentVersion: 0 });
+      router.push(`/itv/${encodeURIComponent(id)}/analysis`);
     } catch { setError("保存或分析未完成，当前 Markdown 已保留；再次尝试会恢复同一访谈，不会重复创建。"); }
     finally { setPending(false); }
   }
@@ -61,6 +59,6 @@ export function InterviewCreatePage({ projectId = null }: { projectId?: string |
       if (markdown && intake?.markdown !== markdown) current = await saveInterviewMarkdown(id, "intake", { markdown, expectedVersion: current.version, expectedDocumentVersion: intake?.version ?? 0 });
       const result = await uploadInterviewMarkdownAttachment(id, file, { expectedVersion: current.version, expectedDocumentVersion: current.documents.find((doc) => doc.step === "intake")?.version ?? 0 });
       setMarkdown(result.source.documents.find((doc) => doc.step === "intake")?.markdown ?? markdown);
-    }} onSave={() => save(false)} onConfirm={() => save(true)} />
+    }} onConfirm={save} />
   </div></main>;
 }
