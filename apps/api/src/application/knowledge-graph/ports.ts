@@ -604,3 +604,24 @@ export interface KgDeploymentExtractionSettingsPort {
 }
 
 export const KG_DEPLOYMENT_EXTRACTION_SETTINGS_PORT = Symbol("KgDeploymentExtractionSettingsPort");
+
+// ─────────────────────────────── B3-T2 项目证据入图（issue #4496） ───────────────────────────────
+
+/**
+ * 项目证据入图任务（`ingest-project-evidence.ts`）自己的三个读口。证据本身经 `ProjectEvidencePort.listForIngestion`
+ * 取，这里只补它不回答的三件事：
+ *   · `pendingProjects`：哪些项目该跑一轮——只回 id（同 `KgExtractionQueuePort.pendingOrgs`），不带任何内容；
+ *   · `alreadyIngested`：这批证据里哪些**已经留过痕**（`ontology_actions` 里同 `(source_ref = 证据 id,
+ *     pipeline_version)` 的 accepted 行）——含「模型合法地回了空」那种留痕（空批次也记一条），否则空结果的证据
+ *     会每轮都被重新送进模型；`listForIngestion` 只按「尚未被任何结论引用」过滤，不知道空结果这回事；
+ *   · `knownObjects`：项目作用域已有的实体（实体解析用），与 `KgExtractionSourcePort.knownObjects` 同作用、不同作用域。
+ *     实体名是租户内容 ⇒ 回 `Guarded`（guard ref 是项目本身），由入图用例以项目主体的决策披露（同 `listForIngestion`）。
+ * 前两个只回 id（`alreadyIngested` 回的还是调用方自己传进来的那些 id），不披露任何内容。
+ */
+export interface KgProjectIngestionPort {
+  pendingProjects(): Promise<readonly { readonly orgId: OrgId; readonly projectId: string }[]>;
+  alreadyIngested(orgId: OrgId, projectId: string, evidenceIds: readonly string[]): Promise<ReadonlySet<string>>;
+  knownObjects(orgId: OrgId, projectId: string): Promise<Guarded<readonly KnownObject[]>>;
+}
+
+export const KG_PROJECT_INGESTION_PORT = Symbol("KgProjectIngestionPort");

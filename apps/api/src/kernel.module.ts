@@ -644,7 +644,7 @@ import {
 } from "./application/first-value/first-value-recorder";
 import { PgFirstValueFacts } from "./infrastructure/first-value/pg-first-value-facts";
 import { FirstValueController } from "./interface/controllers/first-value.controller";
-import { GRAPH_PROJECTION_PORT, KG_AUTO_COPY_PORT, KG_EMBEDDING_QUEUE_PORT, KG_CONFLICT_PORT, KG_DEPLOYMENT_EXTRACTION_SETTINGS_PORT, KG_EXTRACTION_QUEUE_PORT, KG_EXTRACTION_SOURCE_PORT, KG_ORG_EXTRACTION_SETTINGS_PORT, HUMAN_ACTION_PORT, KNOWLEDGE_EXTRACTOR_PORT, KNOWLEDGE_READ_PORT, MEMORY_CARD_PORT, type MemoryCardPort, ONTOLOGY_STORE_PORT, PROMOTION_PORT } from "./application/knowledge-graph/ports";
+import { GRAPH_PROJECTION_PORT, KG_AUTO_COPY_PORT, KG_EMBEDDING_QUEUE_PORT, KG_CONFLICT_PORT, KG_DEPLOYMENT_EXTRACTION_SETTINGS_PORT, KG_EXTRACTION_QUEUE_PORT, KG_EXTRACTION_SOURCE_PORT, KG_ORG_EXTRACTION_SETTINGS_PORT, KG_PROJECT_INGESTION_PORT, HUMAN_ACTION_PORT, KNOWLEDGE_EXTRACTOR_PORT, KNOWLEDGE_READ_PORT, MEMORY_CARD_PORT, type MemoryCardPort, ONTOLOGY_STORE_PORT, PROMOTION_PORT } from "./application/knowledge-graph/ports";
 import { PgPromotion } from "./infrastructure/knowledge-graph/pg-promotion";
 import { PgHumanAction } from "./infrastructure/knowledge-graph/pg-human-action";
 import { KnowledgeGraphController } from "./interface/controllers/knowledge-graph.controller";
@@ -659,6 +659,7 @@ import { KgExtractionWorker } from "./infrastructure/knowledge-graph/kg-extracti
 import { KG_EXTRACTION_MODEL_CONFIG, readKgExtractionModelConfig, type KgExtractionModelConfig } from "./infrastructure/knowledge-graph/kg-extraction-model-config";
 import { ModelKnowledgeExtractor } from "./infrastructure/knowledge-graph/model-knowledge-extractor";
 import { PgKgExtraction } from "./infrastructure/knowledge-graph/pg-kg-extraction";
+import { PgKgProjectIngestion } from "./infrastructure/knowledge-graph/pg-kg-project-ingestion";
 import { PgKgConflict } from "./infrastructure/knowledge-graph/pg-kg-conflict";
 import { PgKgAutoCopy } from "./infrastructure/knowledge-graph/pg-kg-auto-copy";
 import { PgMemoryCard } from "./infrastructure/knowledge-graph/pg-memory-card";
@@ -3188,6 +3189,9 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
       useFactory: (model: ModelCallPort, config: KgExtractionModelConfig, logger: LoggerPort) => new ModelKnowledgeExtractor(model, config, logger),
       inject: [MODEL_CALL_PORT, KG_EXTRACTION_MODEL_CONFIG, LOGGER_PORT],
     },
+    // B3-T2（#4496）：项目证据入图的留痕 / 项目实体 / 待处理项目读口；证据本身的仓储（PROJECT_EVIDENCE_REPOSITORY）由 T1 提供，
+    // worker 对它 @Optional——没接上时项目入图这一轮静默不跑，消息抽取不受影响。
+    { provide: KG_PROJECT_INGESTION_PORT, useFactory: (db: DatabasePort) => new PgKgProjectIngestion(db), inject: [DATABASE_PORT] },
     KgExtractionWorker,
     // F09：知识面板 / 来源抽屉 / 每轮记忆行的读口。传入的仍只是 provider 是否配置（启动参数，
     // 构造时定住）；部署开关的现值 `PgKnowledgeRead` 自己每次调用时现查（见该类头注——
