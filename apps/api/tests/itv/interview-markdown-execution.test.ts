@@ -37,13 +37,14 @@ beforeEach(async () => {
 describe("Markdown task execution", () => {
   it("previews an authorized virtual persona as unsaved Markdown and rejects stale versions", async () => {
     let modelCalls = 0;
+    let proposal = "# 采购顾问\n\n## 专业角色\n采购研究员\n\n## 专业领域\n采购\n\n## 研究关注\n否决链\n\n## 观点风格\n审慎\n\n## 简介\n模拟画像\n\n## 局限与材料边界\n非真人证据";
     const deps = { repo: new PgDigitalInterviewRepository(db), scope: new PgInterviewScopeRepository(db),
       decisions: new UuidDecisionIdFactory(), reader, modelProvider: "test", modelId: "test",
       model: { complete: async (request: { user: string; system: string }) => {
         modelCalls++;
         expect(request.user).toContain("采购否决链路");
         expect(request.system).toContain("Markdown");
-        return { text: "# 采购顾问\n\n## 专业角色\n采购研究员\n\n## 专业领域\n采购\n\n## 研究关注\n否决链\n\n## 观点风格\n审慎\n\n## 简介\n模拟画像\n\n## 局限与材料边界\n非真人证据" };
+        return { text: proposal };
       } },
     };
     const before = (await reader.readCurrent(ORG, ID))!;
@@ -52,7 +53,11 @@ describe("Markdown task execution", () => {
     expect((await reader.readCurrent(ORG, ID))!.version).toBe(before.version);
     await expect(previewVirtualExpertMarkdown(deps, { orgId: ORG, viewerUserId: actorId, interviewId: ID, expectedVersion: before.version - 1, description: "请生成研究采购否决链路的虚拟顾问画像" })).rejects.toThrow("CONCURRENT_MODIFICATION");
     await expect(previewVirtualExpertMarkdown(deps, { orgId: ORG, viewerUserId: "outsider", interviewId: ID, expectedVersion: before.version, description: "请生成研究采购否决链路的虚拟顾问画像" })).rejects.toThrow();
-    expect(modelCalls).toBe(1);
+    for (const malformed of ["短", "x".repeat(8001)]) {
+      proposal = malformed;
+      await expect(previewVirtualExpertMarkdown(deps, { orgId: ORG, viewerUserId: actorId, interviewId: ID, expectedVersion: before.version, description: "请生成研究采购否决链路的虚拟顾问画像" })).rejects.toThrow("AI_GENERATION_UNAVAILABLE");
+    }
+    expect(modelCalls).toBe(3);
   });
   it("branches confirmed source versions without touching historical bodies or execution",async()=>{
     await store.control({...input,expectedVersion:await version(),action:"start"});

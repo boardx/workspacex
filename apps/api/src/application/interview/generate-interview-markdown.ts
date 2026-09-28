@@ -50,7 +50,9 @@ export async function previewVirtualExpertMarkdown(
     }
     try { const value: unknown = JSON.parse(response.text); if (value !== null && typeof value === "object") throw new DigitalInterviewWorkflowError("AI_GENERATION_UNAVAILABLE"); }
     catch (error) { if (error instanceof DigitalInterviewWorkflowError) throw error; }
-    return interviewMarkdown.VirtualExpertMarkdownProposal.parse({ markdown: response.text });
+    const proposal = interviewMarkdown.VirtualExpertMarkdownProposal.safeParse({ markdown: response.text });
+    if (!proposal.success) throw new DigitalInterviewWorkflowError("AI_GENERATION_UNAVAILABLE");
+    return proposal.data;
   } catch (error) {
     if (error instanceof ModelCallError) throw new DigitalInterviewWorkflowError("AI_GENERATION_UNAVAILABLE");
     throw error;
