@@ -20,7 +20,7 @@ it("opens only the requested inspector, dismisses with Escape and returns focus"
 
 it("does not reopen a creation palette just because an existing text object is selected", () => {
   render(<BoardBottomDock activeTool="select" creationTool={{ kind: "text", preset: "body" }} readOnly={false} onToolChange={vi.fn()} onCreationToolChange={vi.fn()} onQuickCreate={vi.fn()} onBulkSticky={vi.fn()} onImageRequest={vi.fn()} />);
-  expect(screen.getByTestId("board-add-text")).toHaveClass("bg-foreground", "text-background", "hover:bg-foreground/90");
+  expect(screen.getByTestId("board-add-text")).toHaveClass("bg-primary", "text-primary-foreground", "hover:bg-primary-hover", "hover:text-primary-foreground", "min-h-14", "min-w-14");
   expect(screen.queryByTestId("board-tool-picker")).toBeNull();
   fireEvent.click(screen.getByTestId("board-add-text"));
   expect(screen.getByTestId("board-tool-picker")).toBeVisible();
