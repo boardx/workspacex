@@ -18,6 +18,8 @@
 
 R8/R9/R10 不是从零开始：对象存储、迁移/恢复、Miro/Mural 适配器、AI proposal、真实模型验证、Chat 图形桥接、会议室恢复、触摸/缩放/笔迹以及负载 producer 均已有实现或局部证据。但三个迭代的退出门还没有完整通过：R8 缺真实厂商样本与完整介质/灾难恢复；R9 缺完整 Chat 三图、跨用户一次 Undo、30 分钟会议室和干净自托管 API 验收；R10 缺统一 SHA 的 50 客户端长时、1k/5k/10k真实性能、读屏/物理触控设备和全量安全恢复。因此当前可以报告“7/10 轮完成、后三轮部分实现”，不能报告九分完成。
 
+本轮新增候选与主 session 证据：R8 `ef37f1173` 修复 32 MiB portable bundle 的 Base64 边界，contracts 1/1 与隔离 PostgreSQL API 8/8 通过；R9 `8f9bc3e87` 恢复刷新后的服务端授权 AI Undo target，Web 12/12 与隔离 PostgreSQL API 44/44 通过；R10 `bf11d827b` 增加压感矢量 Draw 实时预览，在最新 main 上集成为 `dcd6376be`，Fabric 41/41、相关编辑器 40/40、typecheck 与 lint 通过。三项均未合并，仍需各轮独立复核、完整集成 PR 与 CI。
+
 追加 UI 交付：新建 Board 默认标题与可选标签 PR #4337 已通过主会话浏览器、独立复核和 CI，已合入 main（8270388ae）。列表隐藏 Workspace 顶栏、保留导航、卡片改版与服务端无标签分页 PR #4340 已通过四项真实浏览器场景（ff257e58c）及 1440/390 截图检查；最终 304cb5b79 独立增量复核通过，已合入 main（baaef1e97，GitHub 当前状态 MERGED）。卡片当前明确显示预览占位，真实缩略图仍是缺口。
 
 颜色口径：绿色=已合入 main；黄色=主 session 正在验收；蓝色=实现与独立复核完成、等待集成；橙色=正在补实现或复核；灰色=待开始；紫色=P2 后续路线。状态只由 PR、exact SHA、CI 和主 session 动态证据支撑。
@@ -32,9 +34,9 @@ flowchart LR
   R4 --> R5["R5 空间与关系<br/>PR #4308 ✅"]:::merged
   R5 --> R6["R6 编辑与组织<br/>6项视觉/导航 + 4项空间通过 · #4313已合入"]:::merged
   R6 --> R7["R7 团队可靠性<br/>PR #4393 ✅"]:::merged
-  R7 --> R8["R8 存储与迁移<br/>Issue #4255 OPEN<br/>基础实现较多 · 完整灾备/真实厂商样本待验"]:::working
-  R8 --> R9["R9 AI / API / Chat / 会议室<br/>Issue #4256 OPEN<br/>AI/恢复基础已落地 · 完整闭环待验"]:::working
-  R9 --> R10["R10 同一 SHA 总验收<br/>Issue #4257 OPEN<br/>producer已具备 · 长时/性能/设备证据待跑"]:::working
+  R7 --> R8["R8 存储与迁移<br/>Issue #4255 OPEN<br/>portable边界 API 8/8 · 灾备/真实厂商样本待验"]:::accepting
+  R8 --> R9["R9 AI / API / Chat / 会议室<br/>Issue #4256 OPEN<br/>刷新后Undo API 44/44 · Chat/会议室待验"]:::accepting
+  R9 --> R10["R10 同一 SHA 总验收<br/>Issue #4257 OPEN<br/>Draw预览集成绿 · 长时/性能/设备待验"]:::accepting
   R10 --> P2["P2 扩展路线<br/>Diagram / Mind Map / Kanban / Timeline<br/>Journey / Database / Agent与Live Data Tile"]:::future
   classDef merged fill:#dcfce7,stroke:#16a34a,color:#14532d
   classDef accepting fill:#fef3c7,stroke:#d97706,color:#78350f
@@ -51,13 +53,13 @@ flowchart LR
 
 **重新估算基准：2026-09-28，中国标准时间（UTC+8）。** 旧的 9 月 27 日小时级排期已经过期并被实际执行推翻，不能继续显示为承诺。剩余工期以“具备所需基础设施和外部样本后的工作日”表达；每轮仍需完整退出门、独立复核、CI 和用户授权合并。
 
-R1–R7 已交付。R8–R10 的代码基础远高于 0%，但完成状态仍由退出门决定。按当前证据，完整九分验收预计还需 **4–7 个有效工作日**；若 Docker/真实 Miro-Mural 样本/物理设备不可用，这些外部证据门将顺延，其他可本地完成项继续并行。
+R1–R7 已交付。R8–R10 的代码基础远高于 0%，但完成状态仍由退出门决定。结合本轮三个候选和 Docker 引擎恢复，完整九分验收重新估计为 **3–6 个有效工作日**；若真实 Miro/Mural 样本或物理设备不可用，这些外部证据门将顺延，其他可本地完成项继续并行。
 
 | 剩余包 | 当前真实状态 | 并行负责人 | 预计开发收敛 | 主 session 验收 | 关键外部条件 |
 |---|---|---|---:|---:|---|
-| R8 存储与迁移 | 大部分基础实现已存在；issue #4255 OPEN | R8 worker | 1–2 个工作日 | 0.5–1 个工作日 | 真实 Miro/Mural 代表板；PG/对象存储恢复环境 |
-| R9 AI/API/Chat/会议室 | AI proposal/真实模型/恢复基础已存在；issue #4256 OPEN | R9 worker | 1–2 个工作日 | 1–2 个工作日 | 模型凭据、跨用户会话、30 分钟会议室环境 |
-| R10 统一验收 | producer 与局部组件证据已存在；issue #4257 OPEN | R10 worker + 主 session | 1–2 个工作日修缺口 | 2–3 个工作日 | Docker、50 浏览器资源、读屏与物理触控设备 |
+| R8 存储与迁移 | portable 边界候选及隔离 API 已绿；issue #4255 OPEN | R8 worker + 主 session | 0.5–1.5 个工作日 | 0.5–1 个工作日 | 真实 Miro/Mural 代表板；完整 PG-loss/介质恢复 |
+| R9 AI/API/Chat/会议室 | 刷新后 AI Undo 候选及隔离 API 已绿；issue #4256 OPEN | R9 worker + 主 session | 0.5–1.5 个工作日 | 1–2 个工作日 | 模型凭据、跨用户会话、30 分钟会议室环境 |
+| R10 统一验收 | Draw 预览已在最新 main 集成测试绿；issue #4257 OPEN | R10 worker + 主 session | 0.5–1 个工作日修缺口 | 2–3 个工作日 | 50 浏览器资源、读屏与物理触控设备 |
 
 这些时间可重叠，不能简单相加；发现真实回归后进入修复循环。没有外部条件时只报告“代码候选完成”，不把模拟或 fixture 冒充正式验收。
 
@@ -65,10 +67,10 @@ R1–R7 已交付。R8–R10 的代码基础远高于 0%，但完成状态仍由
 
 ```mermaid
 flowchart TB
-  START["9/28 · 7/10 正式完成<br/>三个子agent + 主会话"] --> A["R8 worker · 存储/迁移<br/>介质包、PG-loss、生命周期"]:::active
-  START --> B["R9 worker · AI/API/Chat/会议室<br/>一次Undo、三图、自托管闭环"]:::active
-  START --> C["R10 worker · 体验与验收<br/>Draw实时预览、键盘/触控缺口"]:::active
-  START --> M["主会话 · 集成验收<br/>审diff、跑unit/component/E2E、核CI"]:::testing
+  START["9/28 · 7/10 正式完成<br/>三条候选已交付"] --> A["R8 · ef37f1173<br/>contracts 1/1 + isolated API 8/8"]:::delivered
+  START --> B["R9 · 8f9bc3e87<br/>Web 12/12 + isolated API 44/44"]:::delivered
+  START --> C["R10 · bf11d827b<br/>latest main: 41/41 + 40/40 + typecheck"]:::delivered
+  START --> M["主会话 · Docker已恢复<br/>真实浏览器 / 长时 / 性能验收"]:::testing
   A --> REVIEW["独立复核 → 主会话集成"]:::planned
   B --> REVIEW
   C --> REVIEW
@@ -76,6 +78,7 @@ flowchart TB
   M --> JOIN
   JOIN --> ACCEPT["全部退出门通过后<br/>才能关闭 #4255/#4256/#4257 并认定9分"]:::planned
   classDef active fill:#ffedd5,stroke:#ea580c,color:#7c2d12
+  classDef delivered fill:#dbeafe,stroke:#2563eb,color:#1e3a8a
   classDef testing fill:#fef3c7,stroke:#d97706,color:#78350f
   classDef planned fill:#f1f5f9,stroke:#64748b,color:#334155
 ```
@@ -177,19 +180,19 @@ flowchart LR
 | Iteration 05 | R5 空间与关系 | ✅ PR #4308 已合入 | 同上，Panel及绑定Connector旅程 |
 | Iteration 06 | R6 编辑与组织 | ✅ 6项视觉/导航、4项空间通过；[PR #4313](https://github.com/boardx/workspacex/pull/4313) 已合入 | 同上，Grid整理、快捷键与布局Undo |
 | Iteration 07 | R7 团队可靠性 | ✅ [PR #4393](https://github.com/boardx/workspacex/pull/4393) 已合入；issue #4254 已关闭 | 已交付；仍参加 R10 统一回归 |
-| Iteration 08 | R8 存储与迁移 | 🟠 issue #4255 OPEN；PG/文件分离、迁移恢复和厂商适配器已有大量实现 | 补全 PG-loss、介质包、真实 Miro/Mural 样本及统一验收后才能关闭 |
-| Iteration 09 | R9 AI/API/Chat/会议室 | 🟠 issue #4256 OPEN；AI proposal、真实模型、Chat/会议室基础链路已有实现 | 补全一次 Undo、Chat 三类图、30 分钟会议室、自托管 API 验收后才能关闭 |
-| Iteration 10 | R10 总验收 | 🟠 issue #4257 OPEN；验收 producer、触摸/缩放与局部无障碍证据已有 | 在同一集成 SHA 跑完性能、50 客户端、安全、读屏/设备与六旅程后裁定九分 |
+| Iteration 08 | R8 存储与迁移 | 🟡 issue #4255 OPEN；`ef37f1173` portable 上限修复，主 session 隔离 API 8/8 | 补全 PG-loss、介质包、真实 Miro/Mural 样本及统一验收后才能关闭 |
+| Iteration 09 | R9 AI/API/Chat/会议室 | 🟡 issue #4256 OPEN；`8f9bc3e87` 刷新后 Undo 恢复，主 session Web 12/12、隔离 API 44/44 | 补全 Chat 三类图、30 分钟会议室、自托管 API 与跨用户验收后才能关闭 |
+| Iteration 10 | R10 总验收 | 🟡 issue #4257 OPEN；`bf11d827b` Draw 预览在最新 main 集成测试绿 | 在同一集成 SHA 跑完性能、50 客户端、安全、读屏/设备与六旅程后裁定九分 |
 
 每个iteration PR关联该轮所有issue，逐项列出需求、实现、证据和未完成项；不能仅因部分模块通过就关闭整轮。子agent分支不单独创建主交付PR，修复提交继续进入同一轮PR。存在共享热点或依赖时分批集成，PR数量不成为降低范围或跳过验收的理由。跨轮预研可并行，正式实现仍遵守依赖；最终合并须有用户明确授权。
 
 ## 10. 当前执行队列
 
 1. R1–R7 已合入；不再重复开发，全部纳入 R10 的统一回归与视觉评分。
-2. R8 当前并行收敛无需外部厂商账号的介质包、PG-loss/恢复和生命周期缺口；真实 Miro/Mural 样本保留为独立外部证据门。
-3. R9 当前并行收敛一次 Undo、Chat 三类图、自托管 API 与会议室恢复；真实模型和跨用户权限由主 session 复验。
-4. R10 当前优先修复 Draw 实时预览/键盘触控等可本地复现缺口，同时准备统一 SHA 的真实性能、50 客户端与安全恢复执行。
-5. 三个子 agent 分别处理 R8/R9/R10 的独立工作树；主 session 只接受可复现测试和明确 commit，并负责最终浏览器、API、PG、WS 与长时 E2E。
+2. R8 候选已交付并通过定向/隔离 API；下一步做整轮分支集成、PG-loss/介质恢复与真实 Miro/Mural 样本。
+3. R9 候选已交付并通过 Web/隔离 API；下一步做整轮分支 typecheck、Chat 三图、跨用户 Undo、30 分钟会议室和自托管 API。
+4. R10 Draw 实时预览已在最新 main 复验；Docker 引擎已恢复，下一步由主 session 跑真实浏览器、性能、50 客户端、安全与视觉无障碍矩阵。
+5. 子 agent 的本轮开发已经交付；主 session 继续集成验收。任何候选都不能在独立复核、PR、CI 和用户合并授权前计为完成。
 
 设计材料索引：[Library API](./2026-09-26-library-api-design.md)、[存储接入与恢复](./2026-09-26-storage-integration-acceptance.md)、[正式集成验收](./2026-09-26-workspace-acceptance-matrix.md)、[原BV真实依赖图](./2026-09-26-mermaid-execution-plan.md)。本计划不构成人类签核或合并授权。
 
@@ -295,3 +298,42 @@ R10 已补真实 producer：六旅程 `fca257584`、50客户端30分钟 `3ccff94
 ### 新增视觉门槛（9/27）
 
 评论提及必须支持按成员姓名搜索选择与键盘操作；不得要求用户填写成员ID或在正文裸露内部ID。当前实现仍存在该缺口，列为9分前必须修复，不能用mention字段已有持久化代替用户体验验收。
+
+### 2026-09-28 主 session 复核与重新排期
+
+- 动态完成度仍为 **7/10**：#4241/#4242/#4246/#4250/#4251/#4253/#4254 已完成，#4255/#4256/#4257 开放。
+- R8 `ef37f1173`：修复最大合法 portable 文件的 Base64 四字符量子边界；主 session 重跑 contracts 1/1 与隔离 PostgreSQL API 8/8 通过。该提交依赖 R8 尚未合入的 portable 契约，必须随 R8 iteration 分支集成，不能孤立 cherry-pick 到 main。
+- R9 `8f9bc3e87`：刷新后恢复最小、服务端授权的 AI Undo target，不把 inverse commands 放进 sessionStorage；主 session Web 12/12 与隔离 PostgreSQL API 44/44 通过。该提交依赖 R9 proposal 契约，必须随 R9 iteration 分支集成。
+- R10 `bf11d827b`：Draw pointermove 期间显示压感 Fabric 矢量草稿，完成/取消/失去 capture/换工具均清理且只提交一次 canonical drawing；在最新 main 上的临时集成 SHA `dcd6376be` 通过 Fabric 41/41、相关编辑器 40/40、typecheck 与 lint。
+- Docker Desktop 的 UI 进程曾存在但引擎 socket 缺失；主 session 强制停止并重新启动明确的 Docker Desktop 进程组后，Docker Engine 29.6.1 已恢复。后续真实浏览器/长时测试继续由主 session 独占执行。
+- 新估计：在真实厂商样本、模型凭据和设备可用的前提下，R8–R10 全部退出门约需 **3–6 个有效工作日**。外部样本或物理设备等待时间不包含在此区间内。
+
+### 4 小时人测候选计划（2026-09-28）
+
+本轮目标是在四小时内提交一个**可供人类测试的集成候选版本**，不是用时间盒替代 R8–R10 的正式退出门。候选必须来自单一 SHA，主 session 必须完成单元、类型、隔离 PostgreSQL API 和真实浏览器 Board E2E；真实厂商样本、50 客户端长时、读屏与物理触控设备仍按证据门单列。
+
+```mermaid
+flowchart LR
+  T0["0–15 分钟<br/>冻结 main / R8 / R9 / R10 exact SHA"]:::done
+  T0 --> P8["并行 A · 15–90 分钟<br/>R8 对齐 main<br/>存储/迁移 merge-ready"]:::active
+  T0 --> P9["并行 B · 15–90 分钟<br/>R9 对齐 main<br/>修 typecheck 与 AI/API 集成"]:::active
+  T0 --> P10["并行 C · 15–90 分钟<br/>Draw 真实浏览器 E2E<br/>preview/cancel/单次提交"]:::active
+  T0 --> ROOT["主 session · 15–90 分钟<br/>建立隔离候选分支<br/>审分支拓扑与冲突"]:::testing
+  P8 --> INT["90–150 分钟<br/>主 session 集成 exact commits<br/>unit + typecheck + lint"]:::planned
+  P9 --> INT
+  P10 --> INT
+  ROOT --> INT
+  INT --> E2E["150–210 分钟<br/>隔离 PostgreSQL API<br/>真实浏览器 Board E2E"]:::planned
+  E2E --> GATE{"同一候选 SHA 通过？"}:::gate
+  GATE -->|是| PR["210–240 分钟<br/>push + 候选 PR<br/>截图与人测清单"]:::release
+  GATE -->|否| DISCLOSE["缩小失败范围<br/>回退不稳定增量<br/>如实列出 blocker"]:::blocked
+  classDef done fill:#dcfce7,stroke:#16a34a,color:#14532d
+  classDef active fill:#dbeafe,stroke:#2563eb,color:#1e3a8a
+  classDef testing fill:#fef3c7,stroke:#d97706,color:#78350f
+  classDef planned fill:#f1f5f9,stroke:#64748b,color:#334155
+  classDef gate fill:#f3e8ff,stroke:#9333ea,color:#581c87
+  classDef release fill:#ccfbf1,stroke:#0f766e,color:#134e4a
+  classDef blocked fill:#fee2e2,stroke:#dc2626,color:#7f1d1d
+```
+
+候选退出条件：① R8–R10 集成在单一 SHA；② Board 关键组件、operation/undo、portable/import 定向测试通过；③ Web/API typecheck 与变更范围 lint 通过；④ PostgreSQL 用隔离包装器执行；⑤ 主 session 运行真实浏览器 Brainstorm、Organize、Panel/Connector、Draw 与恢复主路径；⑥ 创建 PR 并附人类测试步骤。没有通过的外部证据逐项进入 PR 的 Known gaps，不改写为完成。
