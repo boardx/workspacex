@@ -3,7 +3,7 @@
  *
  * - 写：只调 `kg_correct_citation`（迁移 20260928190000）；所有者 / 提问人 / 召回集合 / 结论现状都在数据库里复核，
  *   这里只把它抛出的 `KG_*` 翻成契约错误码，其余错误原样抛出，不伪装成「被拒」。
- * - `expireClaim`（「已过时」）：TODO(#4363) S6 的 `valid_until` 落地前，接在同一个撤回上（原因 `user_citation_expired`）。
+ * - `expireClaim`（「已过时」）：整家 `valid_to = now()`（S6 #4363 的有效期，不撤；迁移 20260928220000，F4）。
  * - 读（纠正率的原料）：本人提问的回答（`kg_turn_recalls.requester_user_id = 本人`）的正文 + 那一轮召回到的结论原文，
  *   以及本人的纠正次数。结论原文**不按现在是否有效过滤**：纠正之后那条已经失效，但它当时被引用过，分母里要算上。
  *   整份挂在本人个人空间的 guard ref 上（只给本人）；RLS 也只放本人的个人空间与本人的纠正记录（I-14）。
@@ -51,7 +51,7 @@ export class PgCitationCorrection implements CitationCorrectionPort, ClaimExpiry
     return this.correct(orgId, userId, target, "wrong", replacement);
   }
 
-  /** TODO(#4363)：换成 valid_until = now()（S6）；在那之前按撤回执行，并照样记纠正事件。 */
+  /** 整家 valid_to = now()（不撤回），并记一条纠正事件（迁移 20260928220000）。 */
   async expireClaim(orgId: OrgId, userId: string, target: CitationTarget): Promise<void> {
     await this.correct(orgId, userId, target, "expired", null);
   }

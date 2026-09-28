@@ -46,12 +46,15 @@ const ORG = "org-kg-i4361";
 const ORG_ID = toOrgId(ORG);
 const OWNER = "u-i4361-owner";
 const MEMBER = "u-i4361-member";
-const PERSONAL = ["p1", "p2", "p3", "p4", "q1", "q2", "q3", "c1", "c2", "c3", "c4", "c5", "o1", "o2", "x1", "x2"] as const;
+const PERSONAL = ["p1", "p2", "p3", "p4", "q1", "q2", "q3", "c1", "c2", "c3", "c4", "c5", "c6", "c7", "c8", "o1", "o2", "x1", "x2"] as const;
 const T = Object.fromEntries([...PERSONAL, "s", "m"].map((k) => [k, `thr-i4361-${k}`])) as Record<(typeof PERSONAL)[number] | "s" | "m", string>;
 
 const CONTACT = "客户A的对接人是王经理";
 const OLD = "我决定关注211高校";
 const TODO = "周五之前把报价单发给客户A";
+/** #4509：旧决定里框架动词前有副词「先」，改口分句里也有。 */
+const PILOT_OLD = "我决定先做小学数学的试点";
+const PILOT_NEW = "改成先做初中数学的试点";
 const fact = (entity: string, statement: string) => JSON.stringify({
   entities: [{ name: entity, kind: "organization", aliases: [] }],
   claims: [{ statement, kind: "fact", confidence: 0.9, about: [entity], decidedBy: null, quote: statement }],
@@ -63,7 +66,7 @@ const todo = (statement: string) => JSON.stringify({
   entities: [], claims: [{ statement, kind: "todo", confidence: 0.9, about: [], decidedBy: null, quote: statement }],
 });
 // 回环抽取：只认这几句；「我改主意了…」这类改口句故意**不**给抽取结果——改口是这一轮自己走的 R8，不靠抽取模型
-const MODEL = loopbackModel([[CONTACT, fact("客户A", CONTACT)], [OLD, decision(OLD)], [TODO, todo(TODO)]]);
+const MODEL = loopbackModel([[CONTACT, fact("客户A", CONTACT)], [OLD, decision(OLD)], [TODO, todo(TODO)], [PILOT_OLD, decision(PILOT_OLD)]]);
 
 let db: PgDatabase;
 let deps: MemoryCardDeps;
@@ -463,6 +466,36 @@ describe("#4361 我改主意了", () => {
     const t = await turn(T.c5, "我改主意了，改成关注清华高校", OWNER, false);
     expect(t.note).toBeNull();
     expect(await claim(cur!.id)).toMatchObject({ revoked: false });
+  });
+
+  it("#4509「我改主意了，改成先做 Y」（两边都带副词「先」）⇒ 认出旧决定、出「用〈新〉取代〈旧〉？」卡；点 [取代] 后下一轮用 Y", async () => {
+    await say(T.c6, PILOT_OLD);
+    const [pilot] = await personalLive(PILOT_OLD);
+    expect(pilot).toBeDefined();
+
+    const t = await turn(T.c7, `我改主意了，${PILOT_NEW}`);
+    // 「的试点」让它落在 frame_only（R8 分档不变）⇒ 卡，不自动
+    expect(t.note).toContain("要不要用");
+    expect(t.note).toContain(PILOT_NEW);
+    expect(t.note).toContain(PILOT_OLD);
+    const tm = await turnMemory(T.c7, t.answerId);
+    expect(tm.supersede).toBeNull();
+    if (tm.prompt?.type !== "conflict") throw new Error(`no conflict card under ${t.answerId}: ${JSON.stringify(tm.prompt)}`);
+    expect(tm.prompt.conflict).toMatchObject({ kind: "possible_change", newerClaim: { statement: PILOT_NEW }, olderClaim: { id: pilot!.id } });
+    expect(await claim(pilot!.id)).toMatchObject({ revoked: false });
+
+    // [取代]（F16 keep_new）⇒ 旧的 superseded，新的留在长期记忆里
+    await applyHumanAction({ ...deps, actions: new PgHumanAction(db), newId: newKgId }, {
+      userId: OWNER, orgId: ORG_ID, threadId: T.c7, basedOnRevision: (await read(T.c7)).revision,
+      action: { type: "resolveConflict", promptId: tm.prompt.conflict.promptId, resolution: "keep_new" },
+    });
+    expect(await claim(pilot!.id)).toMatchObject({ status: "superseded", revoked: true });
+    expect(await personalLive(PILOT_NEW)).toHaveLength(1);
+
+    // 下一轮（新的个人对话）：交给模型的是 Y，不再是旧说法
+    const next = await turn(T.c8, "数学的试点先做哪个");
+    expect(next.memory ?? "").toContain(PILOT_NEW);
+    expect(next.memory ?? "").not.toContain("小学数学");
   });
 });
 

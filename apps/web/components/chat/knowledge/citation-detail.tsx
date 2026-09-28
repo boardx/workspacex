@@ -27,8 +27,8 @@ export type CitationCorrect = (kind: CitationCorrectionKind, replacement?: strin
  *   · 不填 ⇒ 出 F17 的**忘掉卡**（同一个 `MemoryCard`，只列这一条）；点「忘掉」才生效。
  *   · 填了 ⇒ 出 #4290 的**改口卡**（同一个 `ConflictPromptCard`，`possible_change`：「用〈新〉取代〈旧〉？」）；点「取代」才生效，
  *     「两条都保留」= 什么都不改。
- * - 「已过时」：先问一句「确认这条已过时？」，点「确认」才生效（`expireClaim`；S6 #4492 落地前它会撤掉这条，
- *   所以不做一点就生效——review F4）。
+ * - 「已过时」：先问一句「确认这条已过时？」，点「确认」才生效（`expireClaim`：这条连同它的长期记忆副本有效期到此刻，
+ *   不撤——列表里标「已过期」，之后的回答不再用它；review F4）。
  * - 执行都经 `onCorrect`（`correctCitation`，服务端再核一遍这是不是这一轮的引用、你是不是所有者兼提问人）；
  *   失败时抛出的 Error 带给人看的话，卡片 / 按钮原样恢复。
  * - `canCorrect = false`（不是所有者）：只有原话和「跳到原消息」，没有纠正入口。

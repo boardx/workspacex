@@ -82,10 +82,16 @@ export function TaskWorkbenchEmptyState({
   onUseTemplate,
   materialsCount,
   skillsCount,
+  briefing,
 }: {
   onUseTemplate: (goal: string) => void;
   materialsCount: number;
   skillsCount: number;
+  /**
+   * issue #4362：个人对话的开场简报（「接着上次」），摆在引导语与任务模板之间。只由调用方在个人对话里传入；
+   * 简报自己决定有没有内容（没有就不渲染），这里只给位置，不影响模板与输入框。
+   */
+  briefing?: React.ReactNode;
 }): JSX.Element {
   return (
     <div
@@ -104,6 +110,7 @@ export function TaskWorkbenchEmptyState({
           描述目标，Agent 会先提出计划，得到确认后再执行。也可以拖入文件作为这轮对话的附件，或点麦克风语音输入。
         </p>
       </div>
+      {briefing}
       <div className="grid w-full max-w-lg grid-cols-1 gap-3 sm:grid-cols-2">
         {TASK_WORKBENCH_TEMPLATES.map((template) => (
           <button

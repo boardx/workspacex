@@ -71,7 +71,7 @@ export async function getParsed<T>(
   path: string,
   schema: z.ZodType<T>,
   signal?: AbortSignal,
-  init?: { method: "POST"; body: unknown },
+  init?: { method: "POST" | "PUT"; body: unknown },
 ): Promise<T> {
   let raw: unknown;
   try {
@@ -347,6 +347,45 @@ export function fetchPersonalKnowledge(signal?: AbortSignal): Promise<PersonalKn
 /** 大脑页概况：本人记下了东西的对话（每个一行计数）+ 长期记忆里每条来自哪个对话。 */
 export function fetchBrainOverview(signal?: AbortSignal): Promise<BrainOverview> {
   return getParsed("/knowledge-graph/me/overview", knowledgeGraph.getBrainOverview.out, signal);
+}
+
+/* ── S5（issue #4360 / #4362）：「关于我」的挂目标 / 改写，新对话的开场简报 ─────────────────── */
+
+export type SessionBriefing = z.infer<typeof knowledgeGraph.getSessionBriefing.out>;
+export type BriefingItem = SessionBriefing["items"][number];
+export type BriefingEvent = z.infer<typeof knowledgeGraph.recordSessionBriefingEvent.in>["event"];
+
+/** issue #4362：新个人对话的开场简报（只读本人个人空间）；关掉过 ⇒ `dismissed: true`、items 为空。 */
+export function fetchSessionBriefing(signal?: AbortSignal): Promise<SessionBriefing> {
+  return getParsed("/knowledge-graph/briefing", knowledgeGraph.getSessionBriefing.out, signal);
+}
+
+/** 关掉 / 重新打开开场简报（本人偏好，记在服务端）。 */
+export function setSessionBriefingDismissed(dismissed: boolean): Promise<{ dismissed: boolean }> {
+  const input = knowledgeGraph.setSessionBriefingPreference.in.parse({ dismissed });
+  return getParsed("/knowledge-graph/briefing/preference", knowledgeGraph.setSessionBriefingPreference.out, undefined, { method: "PUT", body: input });
+}
+
+/** 简报埋点（展示 / 采纳 / 关闭）。 */
+export function recordSessionBriefingEvent(event: BriefingEvent, itemIds: readonly string[]): Promise<{ recorded: true }> {
+  const input = knowledgeGraph.recordSessionBriefingEvent.in.parse({ event, itemIds: [...itemIds] });
+  return getParsed("/knowledge-graph/briefing/events", knowledgeGraph.recordSessionBriefingEvent.out, undefined, { method: "POST", body: input });
+}
+
+/** issue #4360：把长期记忆里的一条决定 / 待办挂到本人的一个目标下（`goalClaimId`），或摘掉（null）。 */
+export function setGoalLink(claimId: string, goalClaimId: string | null): Promise<{ claimId: string; goalClaimId: string | null }> {
+  const input = knowledgeGraph.setGoalLink.in.parse({ claimId, goalClaimId });
+  return getParsed(`/knowledge-graph/personal/claims/${seg(input.claimId)}/goal`, knowledgeGraph.setGoalLink.out, undefined, {
+    method: "PUT", body: { goalClaimId: input.goalClaimId },
+  });
+}
+
+/** issue #4360：直接改写长期记忆里的一条（新说法成为「你确认过」的一条，旧的折叠为「取代了」）。返回新一条的 id。 */
+export function revisePersonalClaim(claimId: string, statement: string): Promise<{ claimId: string }> {
+  const input = knowledgeGraph.revisePersonalClaim.in.parse({ claimId, statement });
+  return getParsed(`/knowledge-graph/personal/claims/${seg(input.claimId)}/revise`, knowledgeGraph.revisePersonalClaim.out, undefined, {
+    method: "POST", body: { statement: input.statement },
+  });
 }
 
 /* ── S7（#4364）：回答下引用 chip 上的当场纠正 + 纠正率 ───────────────────────── */

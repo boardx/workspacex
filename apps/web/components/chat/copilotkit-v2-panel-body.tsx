@@ -76,6 +76,7 @@ import { appendTranscript } from "@/lib/use-asr-draft";
 import { CapabilityPicker } from "@/components/chat/chat-task-workbench-capability-picker";
 import { ChatSkillMountPanel } from "@/components/chat/chat-skill-mount-panel";
 import { TaskWorkbenchEmptyState } from "@/components/chat/chat-task-workbench-empty-state";
+import { SessionBriefing } from "@/components/chat/knowledge/session-briefing";
 import { getStoredSessionToken } from "@/lib/api-client";
 import {
   createPersonalThread, listThreadAttachments,
@@ -1977,6 +1978,7 @@ export function CopilotKitV2PanelBody({
               onUseTemplate={(goal) => setInputDraft(goal)}
               materialsCount={pendingMaterialsCount}
               skillsCount={mountedSkillsCount}
+              briefing={projectId === null ? <SessionBriefing onResume={setInputDraft} /> : undefined}
             />
           ) : (
             // issue #2039（第 2 轮 gap #5）的阅读宽度约束已由本文件中央列那一处

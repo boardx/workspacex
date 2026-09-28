@@ -460,6 +460,7 @@
         "knowledge-graph/auto-copy-decisions",
         "knowledge-graph/correct-citation",
         "knowledge-graph/ids",
+        "knowledge-graph/profile",
         "knowledge-graph/promote-to-org",
         "knowledge-graph/promote-to-personal",
         "knowledge-graph/promote-to-project",
@@ -468,7 +469,8 @@
         "knowledge-graph/read-project-knowledge",
         "knowledge-graph/read-project-reasoning",
         "knowledge-graph/read-thread-knowledge",
-        "knowledge-graph/request-reindex"
+        "knowledge-graph/request-reindex",
+        "knowledge-graph/session-briefing"
       ]
     },
     "KnowledgeShareController": {
