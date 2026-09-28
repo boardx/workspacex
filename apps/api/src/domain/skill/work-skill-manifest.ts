@@ -20,7 +20,9 @@ export type WorkSkillManifestResult =
 const ROOT = "metadata.work";
 
 function frontmatterBlock(markdown: string): string | null {
-  const matched = /^---\r?\n([\s\S]*?)\r?\n---(?:\r?\n|$)/.exec(markdown);
+  // 剥掉 UTF-8 BOM：带 BOM 的 SKILL.md 否则会被判 absent，E1 旁路
+  const text = markdown.startsWith("\uFEFF") ? markdown.slice(1) : markdown;
+  const matched = /^---\r?\n([\s\S]*?)\r?\n---(?:\r?\n|$)/.exec(text);
   return matched === null ? null : matched[1]!;
 }
 

@@ -53,6 +53,10 @@ describe("parseWorkSkillManifest (WS01 UC-1)", () => {
     expect(parseWorkSkillManifest("a/SKILL.md", "# no frontmatter").kind).toBe("absent");
   });
 
+  it("validates metadata.work behind a UTF-8 BOM instead of skipping it (E1)", () => {
+    expect(parseWorkSkillManifest("a/SKILL.md", "\uFEFF---\nmetadata:\n  work: {}\n---\n").kind).toBe("invalid");
+  });
+
   it("parses a complete manifest", () => {
     const r = parseWorkSkillManifest("a/SKILL.md", work());
     expect(r.kind).toBe("valid");
