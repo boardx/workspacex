@@ -42,12 +42,14 @@ async function answerPublishedSurvey(page: Page) {
 test("用户可从模板完整走通创建、发布、答题、查看答卷和正式报告", async ({
   page,
   browser,
-}) => {
+},testInfo) => {
   test.setTimeout(120_000);
   await loginAsAdmin(page);
 
   await page.goto("/studio/survey");
-  await expect(page.getByRole("heading", { name: "我的问卷" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "问卷" })).toBeVisible();
+  await expect(page.getByRole("navigation", { name: "问卷二级导航" })).toBeVisible();
+  await page.screenshot({path:testInfo.outputPath("survey-home-desktop.png"),fullPage:true});
   await page.getByRole("link", { name: "问卷模板", exact: true }).click();
   await expect(page).toHaveURL(/\/studio\/survey\?tab=modules$/);
 
@@ -149,7 +151,14 @@ test("用户可从模板完整走通创建、发布、答题、查看答卷和�
   const persistedSurvey = page.locator("article").filter({
     has: page.getByRole("link", { name: TEMPLATE_TITLE, exact: true }),
   });
-  await expect(persistedSurvey).toContainText("8 道题 · 2 份答卷 · 回收中");
+  await expect(persistedSurvey).toContainText("回收中");
+  await expect(persistedSurvey).toContainText("8题目数");
+  await expect(persistedSurvey).toContainText("2答卷数");
+  await page.screenshot({path:testInfo.outputPath("survey-home-populated-desktop.png"),fullPage:true});
+  await page.setViewportSize({ width: 390, height: 844 });
+  await expect(page.getByRole("navigation", { name: "问卷二级导航" })).toBeVisible();
+  await expect(page.getByRole("link", { name: TEMPLATE_TITLE, exact: true })).toBeVisible();
+  await page.screenshot({path:testInfo.outputPath("survey-home-populated-mobile.png"),fullPage:true});
 });
 
 test('空白 Markdown 问卷无需报告模板即可发布并生成默认报告',async({page,browser})=>{
