@@ -3,7 +3,7 @@ import { GuidedResearchReportTimeline } from "./guided-research-report-timeline"
 import * as React from "react";
 import { ApiError } from "@/lib/api-client";
 import { research as C } from "@repo/contracts";
-import { Loader2, Sparkles } from "lucide-react";
+import { Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent } from "@/components/ui/card";
@@ -419,7 +419,7 @@ return <GuidedResearchSixStepShell hasUnsavedChanges={Boolean(message.trim()) ||
           <div className="flex flex-wrap justify-end gap-2"><Button variant="outline" disabled={busy || !validDraft} onClick={() => void run("generate", { draft })}>重新生成本步骤</Button><Button variant="outline" disabled={busy || Boolean(proposal) || !validDraft} onClick={() => void run("save", { draft })}>保存草稿</Button></div>
           </div></details>
         </>} />}
-        {draft?.node === "outline" && <GuidedResearchPlanPanel onBack={() => navigateVisual("topic")} disabled={busy || Boolean(proposal) || !validDraft || !state.intent} onConfirm={() => void run("confirm", { draft })}
+        {draft?.node === "outline" && <GuidedResearchPlanPanel onBack={() => navigateVisual("topic")} disabled={busy || Boolean(proposal) || !validDraft} onConfirm={() => void run("confirm", { draft })}
           plan={<><div className="rounded-lg border bg-muted/20 p-3"><p className="text-xs text-muted-foreground">研究主题</p><h3 className="mt-1 text-sm font-bold">{state.brief.topic}</h3><p className="mt-1 text-xs leading-relaxed text-muted-foreground">{state.brief.goal}</p></div><div className="space-y-2">{outlineDocument && <GuidedResearchMarkdownWorkspace initiallyEditing onDirtyChange={setMarkdownDirty} document={outlineDocument} saving={busy} onSave={async (markdown) => {
             const parsed = parseGuidedResearchMarkdown({ document: outlineDocument, markdown });
             if (!parsed.ok) return { ok: false, message: parsed.errors.map((item) => item.message).join("；") };
@@ -429,7 +429,7 @@ return <GuidedResearchSixStepShell hasUnsavedChanges={Boolean(message.trim()) ||
         />}
         {node === "research" && <GuidedResearchSourceWorkspace
           sourcePreview={<ol className="space-y-3">{displaySources.filter((source) => source.decision !== "excluded").slice(0, 3).map((source, index) => <li key={source.id} className="flex gap-3"><span className="shrink-0 text-muted-foreground">{index + 1}</span><a href={source.url} target="_blank" rel="noopener noreferrer" className="underline underline-offset-4">{source.title}</a></li>)}{!usableSources && <li className="text-muted-foreground">尚未取得可用来源</li>}</ol>}
-          progress={<><GuidedResearchRuntimeProgress state={state} /><ResearchChapterTasks state={state} />{!state.intent && <p role="status" className="mt-3 text-sm text-muted-foreground">请返回报告大纲步骤确认研究边界后再开始检索。</p>}</>}
+          progress={<><GuidedResearchRuntimeProgress state={state} /><ResearchChapterTasks state={state} /></>}
           activity={<><GuidedResearchTrustConsole compact runtime={state} pending={steeringPending} onSteer={(action) => void steer(action)} onResolveConflict={(decision) => void resolveConflict(decision)} /><details className="mt-4"><summary className="cursor-pointer text-12 font-medium">查看搜索详情</summary><div className="mt-3"><GuidedResearchPlanDetails state={state} errors={errors} /></div></details></>}
           evidence={<>{researchDocument && <GuidedResearchMarkdownWorkspace onDirtyChange={setMarkdownDirty} document={researchDocument} saving={busy} onSave={async (markdown) => {
             const parsed = parseGuidedResearchMarkdown({ document: researchDocument, markdown });
@@ -456,7 +456,7 @@ return <GuidedResearchSixStepShell hasUnsavedChanges={Boolean(message.trim()) ||
         />}
         {researchBlocked && <p role="status" className="text-12 text-muted-foreground">{researchPending ? "检索仍在进行，任务结束后可生成报告。" : "请完成检索并保留至少一个真实来源后生成报告。"}</p>}
         {node === "brief" && state.currentNode !== node && <p className="text-12 text-muted-foreground">重新确认此步骤会使后续研究结果失效，并按当前内容重新生成。</p>}
-        {node !== "report" && node !== "brief" && node !== "directions" && <div className="flex flex-wrap items-center justify-end gap-2 border-t border-border bg-card/95 py-4">{state.currentNode !== node && <p className="mr-auto text-12 text-muted-foreground">重新确认此步骤会使后续研究结果失效，并按当前内容重新生成。</p>}{node !== "research" && <Button variant="outline" disabled={busy || Boolean(draft && !validDraft)} onClick={() => void run("generate", validDraft && draft ? { draft } : {})}><Sparkles className="size-4" aria-hidden />重新生成本步骤</Button>}<Button variant="outline" disabled={busy || Boolean(proposal) || !validDraft} onClick={() => draft && void run("save", { draft })}>保存草稿</Button><Button variant="primary" disabled={busy || Boolean(proposal) || !validDraft || researchBlocked || (node === "outline" && !state.intent)} onClick={() => void run(node === "research" ? "complete" : "confirm", { ...(draft ? { draft } : {}), ...(partialResearch ? { allowPartialResearch: true } : {}) })}>{partialResearch ? "基于已有来源生成报告" : "确认并继续"}</Button></div>}
+        {node === "research" && <div className="flex flex-wrap items-center justify-end gap-2 border-t border-border bg-card/95 py-4"><Button variant="primary" disabled={busy || Boolean(proposal) || !validDraft || researchBlocked} onClick={() => void run("complete", { ...(draft ? { draft } : {}), ...(partialResearch ? { allowPartialResearch: true } : {}) })}>{partialResearch ? "基于已有来源生成报告" : "确认并继续"}</Button></div>}
         </>}
       </div>
     </GuidedResearchStepLayout>

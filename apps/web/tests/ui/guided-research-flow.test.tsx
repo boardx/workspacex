@@ -17,7 +17,7 @@ describe("guided research session routing and lifecycle", () => {
     render(<GuidedResearchFlow step="outline" sessionId="grs-live" />);
     await screen.findByTestId("guided-research-plan-panel");
     expect(screen.queryByRole("heading", { name: "确认研究边界" })).not.toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "开始研究" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "开始研究" })).toBeEnabled();
     expect(screen.getAllByRole("heading", { name: "研究计划" }).length).toBeGreaterThan(0);
     expect(screen.queryByRole("button", { name: "编辑成功标准" })).not.toBeInTheDocument();
   });
