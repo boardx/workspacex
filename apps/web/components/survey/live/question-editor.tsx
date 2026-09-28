@@ -554,14 +554,25 @@ export function SurveyQuestionEditor({
             <div
               className={`mx-auto space-y-7 rounded-lg border border-border bg-card p-4 ${previewDevice === "mobile" ? "max-w-sm" : previewDevice === "tablet" ? "max-w-2xl" : "w-full"}`}
             >
-              {studioLayout && <section aria-label="问卷封面" className="rounded-lg border border-border bg-muted/30 p-5">
-                <p className="text-12 text-muted-foreground">问卷封面</p>
-                <h2 className="mt-2 text-20 font-semibold">{surveyTitle || "未命名问卷"}</h2>
+              {studioLayout && <section aria-label="问卷封面" className="grid gap-5 rounded-lg border border-border bg-card p-5 sm:grid-cols-[8rem_minmax(0,1fr)] sm:items-center">
+                <div className="flex aspect-[4/3] items-center justify-center rounded-md border border-dashed border-border bg-muted/50 text-muted-foreground" aria-label="尚未设置封面图">
+                  <ImageIcon className="h-8 w-8" aria-hidden />
+                </div>
+                <div className="min-w-0">
+                  <p className="text-12 font-medium text-muted-foreground">问卷封面</p>
+                  <h2 className="mt-2 text-20 font-semibold tracking-tight">{surveyTitle || "未命名问卷"}</h2>
+                  <p className="mt-2 text-12 leading-5 text-muted-foreground">封面与标题将作为答题页的开场信息，发布时随当前问卷版本一起固定。</p>
+                </div>
               </section>}
               {(studioLayout ? questions : visibleSurveyQuestions(questions, answers)).map((q, questionIndex) => (
                 <React.Fragment key={`${q.id}-${q.type}`}>
                   {studioLayout && (questionIndex === 0 || questions[questionIndex - 1]?.chapterId !== q.chapterId) &&
-                    <h3 className="border-b border-border pb-2 text-16 font-semibold">{q.chapterId || "未分组"}</h3>}
+                    <div className="flex items-center justify-between gap-3 rounded-md border border-border bg-muted/30 px-4 py-3">
+                      <h3 className="text-16 font-semibold">{q.chapterId || "未分组"}</h3>
+                      <span className="shrink-0 text-11 text-muted-foreground">
+                        {questions.filter((item) => item.chapterId === q.chapterId).length} 题
+                      </span>
+                    </div>}
                   <section className={studioLayout ? `rounded-lg border p-4 ${q.id === question?.id ? "border-primary" : "border-border"}` : ""}>
                     {studioLayout && <button type="button" aria-label={`编辑第 ${questionIndex + 1} 题：${q.title || "未命名题目"}`}
                       className="mb-3 w-full text-left text-12 font-medium text-muted-foreground transition-colors hover:text-foreground"
