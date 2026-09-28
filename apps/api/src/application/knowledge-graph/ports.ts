@@ -329,7 +329,7 @@ export interface HumanActionPort {
     readonly action: KgHumanAction;
   }): Promise<{ readonly revision: number; readonly actionId: string }>;
   /**
-   * issue #4363（S6）：改一条待办的状态（`kg_set_todo_status`）。只有所有者；同一件待办的会话 / 个人空间两份一起改。
+   * issue #4363（S6）：改一条待办的状态（`kg_set_todo_state`）。只有所有者；同一件待办的会话 / 个人空间两份一起改。
    * 被拒（不存在 / 不是待办 / 不是所有者）一律 `KG_CLAIM_NOT_FOUND`。
    */
   setTodoStatus(orgId: OrgId, userId: string, input: {

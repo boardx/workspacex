@@ -1,6 +1,6 @@
 \pset pager off
 \echo '== owner claims (scope, kind, status, reason, validity, todo)'
-SELECT c.id, c.scope_kind, c.claim_kind, c.status, c.revocation_reason, c.valid_from, c.valid_to, c.todo_status, c.due_at, c.statement
+SELECT c.id, c.scope_kind, c.claim_kind, c.status, c.revocation_reason, c.valid_from, c.valid_to, c.todo_state, c.due_at, c.statement
   FROM claims c WHERE c.org_id = 'org-kg-experience-eval'
    AND (c.scope_id = 'user-kg-eval-owner' OR c.scope_id IN (SELECT id FROM chat_threads WHERE created_by = 'user-kg-eval-owner'))
  ORDER BY c.created_at, c.id;

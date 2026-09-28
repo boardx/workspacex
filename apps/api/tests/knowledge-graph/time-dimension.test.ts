@@ -7,7 +7,7 @@
  *     但大脑页（/knowledge-graph/personal）照样列出，标「已过期」（expired = true）。
  *   - **待办状态**：新记下的待办是「还没做」（open）并带截止；只有所有者能改（别人 = 不存在，404）；
  *     同一件待办在对话与长期记忆里各一份时一起改；「不做了」的不再召回。
- *   - **迁移回填**：迁移之前记下的待办（todo_status 为空）由迁移里的回填语句补成 open。
+ *   - **迁移回填**：迁移之前记下的待办（todo_state 为空）由迁移里的回填语句补成 open。
  */
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
@@ -229,9 +229,9 @@ describe("issue #4363 review（#4492）：改写一条结论不丢时间字段",
 });
 
 describe("issue #4363：迁移回填", () => {
-  it("迁移之前记下的待办（todo_status 为空）由迁移里的回填语句补成 open；非待办不动", async () => {
+  it("迁移之前记下的待办（todo_state 为空）由迁移里的回填语句补成 open；非待办不动", async () => {
     const sql = readFileSync(fileURLToPath(new URL("../../migrations/20260928170000_kg_s6_time_dimension.sql", import.meta.url)), "utf8");
-    const backfill = /^UPDATE claims SET todo_status = 'open' WHERE [^;]+;/m.exec(sql)?.[0];
+    const backfill = /^UPDATE claims SET todo_state = 'open' WHERE [^;]+;/m.exec(sql)?.[0];
     expect(backfill).toBeDefined();
     const legacy = "clm-i4363-legacy-todo";
     await asOwner(async (c) => {
@@ -244,13 +244,13 @@ describe("issue #4363：迁移回填", () => {
         [legacy, ORG, P3]);
       await c.query("COMMIT");
     });
-    const status = async () => (await asOwner(async (c) => (await c.query<{ todo_status: string | null }>(
-      "SELECT todo_status FROM claims WHERE org_id = $1 AND id = $2", [ORG, legacy])).rows))[0]!.todo_status;
+    const status = async () => (await asOwner(async (c) => (await c.query<{ todo_state: string | null }>(
+      "SELECT todo_state FROM claims WHERE org_id = $1 AND id = $2", [ORG, legacy])).rows))[0]!.todo_state;
     expect(await status()).toBeNull();
     await asOwner((c) => c.query(backfill!));
     expect(await status()).toBe("open");
     const facts = await asOwner(async (c) => (await c.query<{ n: number }>(
-      "SELECT count(*)::int AS n FROM claims WHERE org_id = $1 AND claim_kind <> 'todo' AND todo_status IS NOT NULL", [ORG])).rows);
+      "SELECT count(*)::int AS n FROM claims WHERE org_id = $1 AND claim_kind <> 'todo' AND todo_state IS NOT NULL", [ORG])).rows);
     expect(facts[0]!.n).toBe(0);
   }, 60_000);
 });

@@ -46,7 +46,7 @@ export class PgHumanAction implements HumanActionPort {
     }
   }
 
-  /** issue #4363（S6）：`kg_set_todo_status`（迁移 20260928170000）。 */
+  /** issue #4363（S6）：`kg_set_todo_state`（迁移 20260928170000）。 */
   async setTodoStatus(orgId: OrgId, userId: string, input: {
     readonly actionId: string; readonly claimId: string; readonly status: KgTodoStatus;
   }) {
@@ -54,7 +54,7 @@ export class PgHumanAction implements HumanActionPort {
       const out = await retryOnceOnDeadlock(() => this.db.withTenant(orgId, async (s) => {
         await s.query("SELECT set_config('app.current_user_id', $1, true)", [userId]);
         return s.query<{ r: { claim_id: string; status: KgTodoStatus; claim_ids: string[] } }>(
-          "SELECT kg_set_todo_status($1::jsonb) AS r",
+          "SELECT kg_set_todo_state($1::jsonb) AS r",
           [JSON.stringify({ action_id: input.actionId, claim_id: input.claimId, status: input.status })],
         );
       }));

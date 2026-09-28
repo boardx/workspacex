@@ -55,7 +55,7 @@ export type KgClaimKind = z.infer<typeof KgClaimKind>;
 
 /**
  * issue #4363（S6）：待办的状态。只有 `kind = todo` 的结论有（其余为 null）；新记下的待办是 open。
- * 数据库 CHECK（迁移 20260928170000 claims_todo_status_chk）与本枚举逐项对账。
+ * 数据库 CHECK（迁移 20260928170000 claims_todo_state_chk）与本枚举逐项对账。
  */
 export const KgTodoStatus = z.enum(["open", "done", "dropped"]);
 export type KgTodoStatus = z.infer<typeof KgTodoStatus>;

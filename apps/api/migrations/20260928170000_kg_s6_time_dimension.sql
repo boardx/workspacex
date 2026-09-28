@@ -9,8 +9,8 @@
  *    抽取批次（kg_apply_batch）从这一版起接受每条结论的 `valid_from` / `valid_until` / `due_at`（本迁移重建该函数，其余逐字不变）。
  *    「过期了没有」只在应用层一处判（domain/knowledge-graph/claim-time.ts claimExpired）：召回排除、面板 / 大脑页标「已过期」。
  *    个人空间的副本（#4283 自动记入、F11 晋升、R7 记到项目）继承来源的有效期与截止：见 ④。
- * ② 待办状态：`claims.todo_status`（open / done / dropped，只有待办有）+ `claims.due_at`（可空）。
- *    新写入的待办由触发器补 open；存量待办本迁移回填 open。改状态只经 `kg_set_todo_status`（人的动作，只有所有者：
+ * ② 待办状态：`claims.todo_state`（open / done / dropped，只有待办有）+ `claims.due_at`（可空）。
+ *    新写入的待办由触发器补 open；存量待办本迁移回填 open。改状态只经 `kg_set_todo_state`（人的动作，只有所有者：
  *    会话里的 = 会话创建者，个人空间的 = 空间主人）；同一件待办在会话与个人空间各有一份（derived_from 活边相连）时一起改。
  * ③ #4307：`kg_apply_supersedes` 收「随旧决定一起转 superseded 的个人副本」时只沿**活的** derived_from 边
  *    （与 F07 20260927100000「只数活来源」同一条规则：被 #4283 撤销摘掉的来源不再支撑副本，也就不该拖着副本一起被取代）。
@@ -21,31 +21,31 @@
  */
 
 -- ─────────────────────────────── ② 待办状态 ───────────────────────────────
-ALTER TABLE claims ADD COLUMN IF NOT EXISTS todo_status text;
+ALTER TABLE claims ADD COLUMN IF NOT EXISTS todo_state text;
 ALTER TABLE claims ADD COLUMN IF NOT EXISTS due_at      timestamptz;
-ALTER TABLE claims DROP CONSTRAINT IF EXISTS claims_todo_status_chk;
-ALTER TABLE claims ADD CONSTRAINT claims_todo_status_chk
-  CHECK (todo_status IS NULL OR (claim_kind = 'todo' AND todo_status IN ('open', 'done', 'dropped')));
+ALTER TABLE claims DROP CONSTRAINT IF EXISTS claims_todo_state_chk;
+ALTER TABLE claims ADD CONSTRAINT claims_todo_state_chk
+  CHECK (todo_state IS NULL OR (claim_kind = 'todo' AND todo_state IN ('open', 'done', 'dropped')));
 
 -- 新写入的待办补 open；改成别的类别的清掉（CHECK 只允许待办有状态）。
-CREATE OR REPLACE FUNCTION kg_todo_status_default() RETURNS trigger
+CREATE OR REPLACE FUNCTION kg_todo_state_default() RETURNS trigger
 SET search_path = pg_catalog, public, pg_temp
 AS $$
 BEGIN
   IF NEW.claim_kind = 'todo' THEN
-    NEW.todo_status := coalesce(NEW.todo_status, 'open');
+    NEW.todo_state := coalesce(NEW.todo_state, 'open');
   ELSE
-    NEW.todo_status := NULL;
+    NEW.todo_state := NULL;
   END IF;
   RETURN NEW;
 END;
 $$ LANGUAGE plpgsql;
-DROP TRIGGER IF EXISTS kg_todo_status_default_trg ON claims;
-CREATE TRIGGER kg_todo_status_default_trg BEFORE INSERT OR UPDATE OF claim_kind, todo_status ON claims
-  FOR EACH ROW EXECUTE FUNCTION kg_todo_status_default();
+DROP TRIGGER IF EXISTS kg_todo_state_default_trg ON claims;
+CREATE TRIGGER kg_todo_state_default_trg BEFORE INSERT OR UPDATE OF claim_kind, todo_state ON claims
+  FOR EACH ROW EXECUTE FUNCTION kg_todo_state_default();
 
 -- 回填：存量待办一律 open（迁移以属主身份运行，写守卫放行）。可重放：已有状态的不动。
-UPDATE claims SET todo_status = 'open' WHERE claim_kind = 'todo' AND todo_status IS NULL;
+UPDATE claims SET todo_state = 'open' WHERE claim_kind = 'todo' AND todo_state IS NULL;
 
 -- ─────────────────────────────── ④ 副本继承有效期 / 截止 / 待办状态 ───────────────────────────────
 CREATE OR REPLACE FUNCTION kg_copy_inherits_time() RETURNS trigger
@@ -62,12 +62,12 @@ BEGIN
      SET valid_from = CASE WHEN p.valid_to IS NULL AND s.valid_to IS NOT NULL THEN s.valid_from ELSE p.valid_from END,
          valid_to = coalesce(p.valid_to, s.valid_to),
          due_at = coalesce(p.due_at, s.due_at),
-         todo_status = CASE WHEN p.claim_kind = 'todo' AND s.claim_kind = 'todo' THEN coalesce(s.todo_status, p.todo_status) ELSE p.todo_status END,
+         todo_state = CASE WHEN p.claim_kind = 'todo' AND s.claim_kind = 'todo' THEN coalesce(s.todo_state, p.todo_state) ELSE p.todo_state END,
          updated_at = now()
     FROM claims s
    WHERE p.org_id = NEW.org_id AND p.id = NEW.src_id AND s.org_id = NEW.org_id AND s.id = NEW.dst_id
      AND ((p.valid_to IS NULL AND s.valid_to IS NOT NULL) OR (p.due_at IS NULL AND s.due_at IS NOT NULL)
-          OR (p.claim_kind = 'todo' AND s.claim_kind = 'todo' AND p.todo_status IS DISTINCT FROM s.todo_status));
+          OR (p.claim_kind = 'todo' AND s.claim_kind = 'todo' AND p.todo_state IS DISTINCT FROM s.todo_state));
   RETURN NEW;
 END;
 $$;
@@ -95,7 +95,7 @@ BEGIN
   IF NEW.supersedes_claim_id IS NULL OR NEW.valid_to IS NOT NULL OR NEW.due_at IS NOT NULL THEN
     RETURN NEW;
   END IF;
-  SELECT c.claim_kind, c.valid_from, c.valid_to, c.due_at, c.todo_status INTO v_old
+  SELECT c.claim_kind, c.valid_from, c.valid_to, c.due_at, c.todo_state INTO v_old
     FROM claims c WHERE c.org_id = NEW.org_id AND c.id = NEW.supersedes_claim_id;
   IF NOT FOUND THEN RETURN NEW; END IF;
   IF v_old.valid_to IS NOT NULL THEN
@@ -103,13 +103,13 @@ BEGIN
     NEW.valid_to := v_old.valid_to;
   END IF;
   NEW.due_at := v_old.due_at;
-  IF NEW.claim_kind = 'todo' AND v_old.claim_kind = 'todo' AND NEW.todo_status IS NULL THEN
-    NEW.todo_status := v_old.todo_status;
+  IF NEW.claim_kind = 'todo' AND v_old.claim_kind = 'todo' AND NEW.todo_state IS NULL THEN
+    NEW.todo_state := v_old.todo_state;
   END IF;
   RETURN NEW;
 END;
 $$;
--- 触发器按名字顺序执行：本触发器（kg_revise…）先于 kg_todo_status_default_trg，抄来的状态不会被补成 open。
+-- 触发器按名字顺序执行：本触发器（kg_revise…）先于 kg_todo_state_default_trg，抄来的状态不会被补成 open。
 DROP TRIGGER IF EXISTS kg_revise_inherits_time_trg ON claims;
 CREATE TRIGGER kg_revise_inherits_time_trg BEFORE INSERT ON claims
   FOR EACH ROW WHEN (NEW.supersedes_claim_id IS NOT NULL) EXECUTE FUNCTION kg_revise_inherits_time();
@@ -118,7 +118,7 @@ REVOKE ALL ON FUNCTION kg_revise_inherits_time() FROM PUBLIC;
 -- ─────────────────────────────── ② 改待办状态（人的动作） ───────────────────────────────
 -- p = { action_id, claim_id, status }。返回 { claim_id, status, claim_ids }（claim_ids = 一起改了的，含它自己）。
 -- 找不到 / 不是待办 / 已失效 / 调用方不是所有者 ⇒ 同一个 KG_CLAIM_NOT_FOUND（不让人探测别人的会话 / 空间里有没有这条）。
-CREATE OR REPLACE FUNCTION kg_set_todo_status(p jsonb) RETURNS jsonb
+CREATE OR REPLACE FUNCTION kg_set_todo_state(p jsonb) RETURNS jsonb
 LANGUAGE plpgsql SECURITY DEFINER SET search_path = pg_catalog, public, pg_temp
 AS $$
 DECLARE
@@ -171,8 +171,8 @@ BEGIN
   END LOOP;
   PERFORM 1 FROM claims c WHERE c.org_id = v_org AND c.id = ANY(v_ids) FOR UPDATE;
 
-  UPDATE claims SET todo_status = v_status, updated_at = now()
-   WHERE org_id = v_org AND id = ANY(v_ids) AND todo_status IS DISTINCT FROM v_status;
+  UPDATE claims SET todo_state = v_status, updated_at = now()
+   WHERE org_id = v_org AND id = ANY(v_ids) AND todo_state IS DISTINCT FROM v_status;
 
   -- 审计：每个作用域一条（会话的 revision 前进，面板重读即见）
   FOR v_scope IN SELECT s.scope_kind, s.scope_id FROM (SELECT DISTINCT c.scope_kind, c.scope_id FROM claims c WHERE c.org_id = v_org AND c.id = ANY(v_ids)) s
@@ -193,11 +193,11 @@ BEGIN
 END
 $$;
 
-REVOKE ALL ON FUNCTION kg_set_todo_status(jsonb), kg_copy_inherits_time(), kg_todo_status_default() FROM PUBLIC;
+REVOKE ALL ON FUNCTION kg_set_todo_state(jsonb), kg_copy_inherits_time(), kg_todo_state_default() FROM PUBLIC;
 DO $$
 BEGIN
   IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'app_rw') THEN
-    GRANT EXECUTE ON FUNCTION kg_set_todo_status(jsonb) TO app_rw;
+    GRANT EXECUTE ON FUNCTION kg_set_todo_state(jsonb) TO app_rw;
   END IF;
 END
 $$;

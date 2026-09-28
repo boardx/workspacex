@@ -35,7 +35,7 @@ const LIVE_CLAIM = "c.revoked_at IS NULL AND c.status <> 'superseded'";
 
 const CLAIM_COLUMNS = `
   c.id, c.claim_kind, c.statement, c.status, c.confidence, c.created_by, c.reviewed_by,
-  c.supersedes_claim_id, c.scope_kind, c.scope_id, c.created_at, c.valid_to, c.todo_status, c.due_at,
+  c.supersedes_claim_id, c.scope_kind, c.scope_id, c.created_at, c.valid_to, c.todo_state, c.due_at,
   (SELECT e.dst_id FROM ontology_edges e WHERE e.org_id = c.org_id AND e.src_kind = 'claim' AND e.src_id = c.id
      AND e.dst_kind = 'claim' AND e.relation = 'derived_from' AND e.status = 'active' LIMIT 1) AS derived_from,
   ARRAY(SELECT e.dst_id FROM ontology_edges e WHERE e.org_id = c.org_id AND e.src_kind = 'claim' AND e.src_id = c.id
@@ -50,7 +50,7 @@ interface ClaimRow {
   confidence: number | null; created_by: KgClaim["createdBy"]; reviewed_by: string | null;
   supersedes_claim_id: string | null; scope_kind: KgClaim["scope"]["kind"]; scope_id: string; created_at: Date;
   derived_from: string | null; about_ids: string[]; supporting: string; contradicting: string;
-  valid_to: Date | null; todo_status: KG.KgTodoStatus | null; due_at: Date | null;
+  valid_to: Date | null; todo_state: KG.KgTodoStatus | null; due_at: Date | null;
 }
 
 function toClaim(r: ClaimRow): KgClaim | null {
@@ -75,7 +75,7 @@ function toClaim(r: ClaimRow): KgClaim | null {
     // issue #4363（S6）：时间维度。「已过期」只有 claimExpired 一处判定（召回同一个函数）。
     validUntil: r.valid_to?.toISOString() ?? null,
     expired: claimExpired(r.valid_to?.toISOString() ?? null, new Date()),
-    todoStatus: r.todo_status,
+    todoStatus: r.todo_state,
     dueAt: r.due_at?.toISOString() ?? null,
   };
 }
