@@ -46,5 +46,5 @@ export async function captureVisual(page:Page,info:TestInfo,label:string,strict=
   const failures=strict?validateVisualMeasurement(measurement):[];
   if(measurement.editorReachable===false)failures.push('EDITOR_TEXT_OCCLUDED');
   expect.soft(failures,`${label}: real hit-test/space measurements`).toEqual([]);
-  return{label,screenshot:{path,sha256:sha256(bytes)},measurement,failures,at:new Date().toISOString()};
+  return{label,strict,screenshot:{path,sha256:sha256(bytes)},measurement,failures,at:new Date().toISOString()};
 }

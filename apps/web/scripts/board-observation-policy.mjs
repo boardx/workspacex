@@ -32,7 +32,7 @@ export async function validateBoardObservationArtifact(report,lane,sha,context,k
    for(const capture of r.captures??[]){
     await image(capture.screenshot);
     if(!Number.isFinite(Date.parse(capture.at))||(context&&(Date.parse(capture.at)<Date.parse(context.startedAt)||Date.parse(capture.at)>Date.parse(context.endedAt))))failures.push('SCREENSHOT_OUTSIDE_RUN');
-    if(!/^(properties|multiselect)-/.test(capture.label))failures.push(...validateVisualMeasurement(capture.measurement));
+    if(capture.strict!==false)failures.push(...validateVisualMeasurement(capture.measurement));
     if(capture.measurement?.editorReachable===false)failures.push('EDITOR_TEXT_OCCLUDED');
    }
    if(r.axeResults?.length!==3||r.axeResults.some(a=>!Array.isArray(a.violations)||a.violations.some(v=>['serious','critical'].includes(v.impact)))||!r.counterproof?.includes('button-name'))failures.push('ACCESSIBILITY_AUDIT');
