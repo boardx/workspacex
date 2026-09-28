@@ -595,10 +595,12 @@ export function BoardFabricSurface({ objects, selectedObjectIds, readOnly, tool,
     let last = { x: 0, y: 0 };
     let drawing: { tool: DrawingTool; points: Array<{ x: number; y: number; pressure: number }> } | null = null;
     let drawingPreview: TaggedFabricObject[] = [];
+    const exposeDrawingPreviewCount = () => { host.dataset.drawingPreviewSegments = String(drawingPreview.length); };
     const clearDrawingPreview = () => {
       if (!drawingPreview.length) return;
       for (const segment of drawingPreview) canvas.remove(segment);
       drawingPreview = [];
+      exposeDrawingPreviewCount();
       canvas.requestRenderAll();
     };
     const cancelDrawing = () => {
@@ -652,6 +654,7 @@ export function BoardFabricSurface({ objects, selectedObjectIds, readOnly, tool,
         segment.data = { drawingPreview: true };
         drawingPreview.push(segment);
         canvas.add(segment);
+        exposeDrawingPreviewCount();
         canvas.requestRenderAll();
         return;
       }
@@ -885,6 +888,7 @@ export function BoardFabricSurface({ objects, selectedObjectIds, readOnly, tool,
       data-viewport-zoom={clampBoardZoom(viewport.zoom)} data-viewport-pan-x={viewport.panX} data-viewport-pan-y={viewport.panY}
       data-selection-scene={selectionScene ? JSON.stringify(selectionScene) : undefined}
       data-object-scenes={JSON.stringify(objectScenes)}
+      data-drawing-preview-segments="0"
       onPointerCancel={() => cancelDrawingRef.current()}
       onLostPointerCapture={() => cancelDrawingRef.current()}
       onDragOver={(event) => { if (event.dataTransfer.types.includes("application/x-workspacex-board-tool")) { event.preventDefault(); event.dataTransfer.dropEffect = "copy"; } }}

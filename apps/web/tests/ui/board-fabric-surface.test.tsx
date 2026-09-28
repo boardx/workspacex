@@ -150,19 +150,23 @@ describe("BoardFabricSurface", () => {
 
     const preview = probe.objects.filter((object) => object.data?.drawingPreview);
     expect(preview).toHaveLength(2);
+    expect(screen.getByTestId("board-fabric-surface")).toHaveAttribute("data-drawing-preview-segments", "2");
     expect(preview.map((segment) => segment.text)).toEqual(["M 10 20 L 30 40", "M 30 40 L 60 80"]);
     expect(preview[1]!.strokeWidth).toBeGreaterThan(preview[0]!.strokeWidth!);
     expect(onDrawingComplete).not.toHaveBeenCalled();
 
     fireEvent.pointerCancel(screen.getByTestId("board-fabric-surface"));
     expect(probe.objects.some((object) => object.data?.drawingPreview)).toBe(false);
+    expect(screen.getByTestId("board-fabric-surface")).toHaveAttribute("data-drawing-preview-segments", "0");
     expect(onDrawingComplete).not.toHaveBeenCalled();
 
     probe.handlers.get("mouse:down")?.({ e: pointer("pointerdown", 100, 120, .3) } as never);
     probe.handlers.get("mouse:move")?.({ e: pointer("pointermove", 140, 160, .8) } as never);
     expect(probe.objects.some((object) => object.data?.drawingPreview)).toBe(true);
+    expect(screen.getByTestId("board-fabric-surface")).toHaveAttribute("data-drawing-preview-segments", "1");
     probe.handlers.get("mouse:up")?.({ e: pointer("pointerup", 140, 160, 0) } as never);
     expect(probe.objects.some((object) => object.data?.drawingPreview)).toBe(false);
+    expect(screen.getByTestId("board-fabric-surface")).toHaveAttribute("data-drawing-preview-segments", "0");
     expect(onDrawingComplete).toHaveBeenCalledOnce();
     expect(onDrawingComplete).toHaveBeenCalledWith({ tool: "pen", points: [
       { x: 100, y: 120, pressure: .3 },
