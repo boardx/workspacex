@@ -14,6 +14,7 @@ import type {
   IdentityRepository,
   OrganizationRow,
   OrgMembershipRow,
+  NonWorkshopStandingRow,
   ProjectMembershipRow,
 } from "../../src/application/identity/ports";
 import type { OrgRole, ProjectRole } from "../../src/domain/identity/roles";
@@ -56,6 +57,10 @@ export class FakeBoundaryRepository implements IdentityRepository {
     const m = this.members[userId];
     if (!m || m.projectRole === null) return null;
     return { projectRole: m.projectRole, groupId: m.groupId ?? null, isHost: m.isHost ?? false };
+  }
+  /** #4584：本 fake 只装工作坊身份——非工作坊容器的两档身份一律「不是这类容器」。 */
+  async findNonWorkshopStanding(): Promise<NonWorkshopStandingRow | null> {
+    return null;
   }
   async findBindings(_o: OrgId, objects: readonly AclObjectRef[]): Promise<Map<string, BindingRow>> {
     const out = new Map<string, BindingRow>();

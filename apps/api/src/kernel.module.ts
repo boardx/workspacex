@@ -415,7 +415,7 @@ import {
 import { PgDigitalInterviewRepository } from "./infrastructure/interview/pg-digital-interview-repository";
 import { PgInterviewMarkdownReader } from "./infrastructure/interview/pg-interview-markdown-reader";
 import { INTERVIEW_MARKDOWN_READER } from "./application/interview/read-interview-markdown";
-import { INTERVIEW_MARKDOWN_GENERATOR, generateInterviewMarkdown } from "./application/interview/generate-interview-markdown";
+import { INTERVIEW_MARKDOWN_GENERATOR, generateInterviewMarkdown, previewVirtualExpertMarkdown } from "./application/interview/generate-interview-markdown";
 import { INTERVIEW_MARKDOWN_EXECUTION, type MarkdownExecutionInput } from "./application/interview/interview-markdown-execution.port";
 import { executeInterviewMarkdown } from "./application/interview/execute-interview-markdown";
 import { PgInterviewMarkdownExecutionStore } from "./infrastructure/interview/pg-interview-markdown-execution-store";
@@ -1078,6 +1078,10 @@ import { EnvTranscriptionPolicyProvider } from "./infrastructure/recording/env-t
 import { ASR_PROVIDER, type AsrProviderPort } from "./application/recording/asr-ports";
 import { ConfiguredRealtimeAsrProvider } from "./infrastructure/recording/configured-realtime-asr-provider";
 import { RecordingController } from "./interface/controllers/recording.controller";
+import pgModule from "pg";
+import { WorkflowRuntimeController } from "./interface/controllers/workflow-runtime.controller";
+import { WORKFLOW_RUNTIME_SERVICE } from "./application/workflow/workflow-runtime-service";
+import { createProductionWorkflowRuntime } from "./infrastructure/workflow/create-workflow-runtime";
 import type { IdGenerator as RecordingIdGenerator } from "./application/recording/ports";
 import { PERSONAL_TRANSCRIPTION_REPOSITORY } from "./application/recording/personal-transcription-ports";
 import { PgPersonalTranscriptionRepository } from "./infrastructure/recording/pg-personal-transcription-repository";
@@ -1086,6 +1090,7 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
 
 @Module({
   controllers: [
+    WorkflowRuntimeController,
     KnowledgeGraphController,
     KnowledgeShareController,
     PlatformExtractionSettingController,
@@ -1201,6 +1206,14 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
     { provide: SURVEY_ATTACHMENT_SERVICE, inject: [DATABASE_PORT, OBJECT_STORE, PHYSICAL_PURGE_PORT], useFactory: (db: DatabasePort, store: ObjectStore, purge: PhysicalPurgePort) => new SurveyAttachmentService(new PgSurveyAttachmentRepository(db), store, purge) },
     { provide: SURVEY_REPOSITORY, inject: [DATABASE_PORT], useFactory: (db: DatabasePort) => new PgSurveyRepository(db) },
     { provide: DATABASE_PORT, useFactory: () => new PgDatabase(appConfig()) },
+    // WF03：Workflow 运行时（start/cancel/resume/SSE + 进程内 worker）；checkpoint 走唯一工厂与独立共享池。
+    {
+      provide: WORKFLOW_RUNTIME_SERVICE, inject: [DATABASE_PORT, LOGGER_PORT],
+      useFactory: (db: DatabasePort, logger: LoggerPort) => createProductionWorkflowRuntime(db, () => new pgModule.Pool({ ...appConfig(), max: 3 }), {
+        onRunError: (instanceId, err) => logger.error("workflow.run_failed", { traceId: `workflow:${instanceId}`, instanceId, err }),
+        replayWindow: Number(process.env.KERNEL_WORKFLOW_SSE_REPLAY_WINDOW ?? "1000"),
+      }),
+    },
     // `app_diag_ro` -- a genuinely separate credential from `app_rw` (see `pg-config.ts`'s
     // and `pg-error-log-writer.ts`'s headers). Only `PgErrorLogWriter.list()` ever touches
     // this pool.
@@ -2478,8 +2491,10 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
         model: ModelCallPort,
       ) => {
         const config = readDigitalInterviewModelConfig();
+        const deps = { repo, scope, decisions, reader, model, modelProvider: config.provider, modelId: config.modelId };
         return { generate: (input: import("./application/interview/generate-interview-markdown").GenerateMarkdownInput) =>
-          generateInterviewMarkdown({ repo, scope, decisions, reader, model, modelProvider: config.provider, modelId: config.modelId }, input) };
+          generateInterviewMarkdown(deps, input),
+          previewVirtualExpert: (input: Parameters<typeof previewVirtualExpertMarkdown>[1]) => previewVirtualExpertMarkdown(deps, input) };
       },
       inject: [DIGITAL_INTERVIEW_REPOSITORY, INTERVIEW_SCOPE_REPOSITORY, DECISION_ID_FACTORY, INTERVIEW_MARKDOWN_READER, MODEL_CALL_PORT],
     },

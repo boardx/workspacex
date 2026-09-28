@@ -147,7 +147,7 @@ export const WorkflowStageDefinition = z
   })
   .strict();
 
-export const WorkflowDefinitionVersionInput = z
+const WorkflowDefinitionVersionFields = z
   .object({
     key: WorkflowKey,
     version: WorkflowDefinitionVersionNo,
@@ -160,10 +160,49 @@ export const WorkflowDefinitionVersionInput = z
   })
   .strict();
 
-export const WorkflowDefinitionVersionView = WorkflowDefinitionVersionInput.extend({
+/**
+ * 形状层可判的发布前置（domain I-3 的静态部分；「图工厂已注册 / 与图节点一一对应」需代码注册表，由 api 判）：
+ * graphRef 必须等于 `key:version`（它同时是 checkpoint_ns）；stageId 不重复；
+ * humanGate.onDenyStageId 必须指向本定义内的阶段。
+ */
+function refineDefinitionVersion(
+  d: { key: string; version: number; graphRef: string; stages: { stageId: string; humanGate: { onDenyStageId: string | null } | null }[] },
+  ctx: z.RefinementCtx,
+): void {
+  if (d.graphRef !== `${d.key}:${d.version}`) {
+    ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["graphRef"], message: "graphRef 必须等于 `key:version`" });
+  }
+  const ids = new Set<string>();
+  d.stages.forEach((st, i) => {
+    if (ids.has(st.stageId)) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["stages", i, "stageId"], message: `重复的 stageId: ${st.stageId}` });
+    }
+    ids.add(st.stageId);
+  });
+  d.stages.forEach((st, i) => {
+    const target = st.humanGate?.onDenyStageId;
+    if (target != null && !ids.has(target)) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["stages", i, "humanGate", "onDenyStageId"],
+        message: `onDenyStageId 指向不存在的阶段: ${target}`,
+      });
+    }
+  });
+}
+
+export const WorkflowDefinitionVersionInput = WorkflowDefinitionVersionFields.superRefine(refineDefinitionVersion);
+export type WorkflowDefinitionVersionInput = z.infer<typeof WorkflowDefinitionVersionInput>;
+export type WorkflowStageDefinition = z.infer<typeof WorkflowStageDefinition>;
+
+export const WorkflowDefinitionVersionView = WorkflowDefinitionVersionFields.extend({
   status: WorkflowDefinitionVersionStatus,
   publishedAt: z.string().nullable(),
-}).strict();
+})
+  .strict()
+  .superRefine(refineDefinitionVersion);
+export type WorkflowDefinitionVersionView = z.infer<typeof WorkflowDefinitionVersionView>;
+export type PinnedSkillVersion = z.infer<typeof PinnedSkillVersion>;
 
 /* ── 实例 projection（只来自业务行，不读 channel_values；domain I-8） ───────── */
 

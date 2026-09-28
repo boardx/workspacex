@@ -209,6 +209,9 @@ describe("F155 —— pg-file-retrieval 的 allowlist 豁免载荷", () => {
   it("(a) 不出现四张允许之外的任何租户表", () => {
     const allowed = new Set([
       "chat_message_attachments", "chat_artifact_landings", "chat_threads", "project_memberships",
+      // FF-101：landings 分支经文件浏览器同一个谓词判 artifact 的删除态与 ACL。
+      // `org_memberships` 只取请求者的 team_id 喂给 `wsx_visible_artifacts()`。
+      "artifacts", "org_memberships", "wsx_visible_artifacts",
       // `q` 不是表，是本查询自己的 CTE（`WITH q AS (SELECT plainto_tsquery(...))`）——
       // 它不读任何行，只把 tsquery 算一次给两条 SELECT 共用。
       "q",

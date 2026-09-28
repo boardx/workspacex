@@ -72,6 +72,7 @@
     "@repo/cloud-deploy": "workspace:*",
     "@repo/contracts": "workspace:*",
     "@repo/whiteboard-core": "workspace:*",
+    "ajv": "^8.18.0",
     "ali-oss": "6.23.0",
     "bcryptjs": "^3.0.2",
     "cron-parser": "5.10.0",
@@ -86,7 +87,7 @@
     "rxjs": "^7.8.1",
     "undici": "7.28.0",
     "ws": "^8.18.0",
-    "yaml": "2.9.0",
+    "yaml": "^2.9.0",
     "yjs": "13.6.32",
     "zod": "^3.23.8",
     "zod-to-json-schema": "3.24.6"

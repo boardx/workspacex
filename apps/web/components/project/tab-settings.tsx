@@ -22,6 +22,9 @@ import { ProjectAiSettingsPanel } from "./project-ai-settings-panel";
  *   「邀请成员」两块换成「协作者」面板——两档负责人 / 协作者走 `/collaborators` 三条契约；工作坊的
  *   四角色 + 邀请链接对这两类容器在数据库层就写不进去（F128 复合外键）。`projectKind` 未知（还没读到）
  *   时按工作坊渲染，同页头「先到的那份」的处置。
+ * ⚠ #4584：研究项目 / 用户洞察的负责人、协作者现在能打开工作台（服务端 `authorize()` 项目层读两档身份），
+ *   「AI 权限」面板的编辑控件因此不再按容器种类关掉——负责人借用引导师那一行、服务端
+ *   `settings.manage` 才是判定（协作者点了会得到 403 如实显示）；「邀请成员」仍只属工作坊。
  * ⚠ 观察者：配置区不在只读范围内。
  */
 export function TabSettings({ view, readOnly = false, projectId, projectKind = null }: {
@@ -29,7 +32,8 @@ export function TabSettings({ view, readOnly = false, projectId, projectKind = n
 }) {
   const isObserver = observerHidden(view);
   const nonWorkshop = projectKind !== null && projectKind !== "workshop";
-  const canInvite = ROLE_STAGE_CONTROL[view] && !readOnly && !!projectId && !nonWorkshop;
+  const canConfigure = ROLE_STAGE_CONTROL[view] && !readOnly && !!projectId;
+  const canInvite = canConfigure && !nonWorkshop;
   return (
     <div className="mx-auto flex max-w-4xl flex-col gap-5 p-6" data-testid="project-settings">
       {isObserver && (
@@ -41,7 +45,7 @@ export function TabSettings({ view, readOnly = false, projectId, projectKind = n
       {!isObserver && projectId && nonWorkshop && <ProjectCollaboratorsPanel projectId={projectId} />}
       {!isObserver && projectId && !nonWorkshop && <ProjectMembersPanel projectId={projectId} canManage={canInvite} />}
       {canInvite && <ProjectInvitePanel projectId={projectId} />}
-      {!isObserver && projectId && <ProjectAiSettingsPanel projectId={projectId} canEdit={canInvite} />}
+      {!isObserver && projectId && <ProjectAiSettingsPanel projectId={projectId} canEdit={canConfigure} />}
     </div>
   );
 }

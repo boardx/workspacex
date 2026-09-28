@@ -146,6 +146,20 @@ async function resolveVisible(
 ): Promise<{ version: DeliverableVersion; decision: PermissionDecision; sourceKind: "file" | "agent" }> {
   const agentVersion = await deps.agentArtifacts?.resolve(input);
   if (agentVersion) return {...agentVersion,sourceKind:"agent"};
+  return { ...(await resolveVisibleFile(deps, input)), sourceKind: "file" };
+}
+
+/**
+ * The file branch of `resolveVisible`: row gate (`wsx_visible_artifacts`) + `authorize`.
+ *
+ * Split out so redemption can re-run exactly this -- a link minted while the requester could
+ * see the version must stop working once the artifact is deleted or the requester's access is
+ * revoked (FF-102). Same function, not a second judgement.
+ */
+async function resolveVisibleFile(
+  deps: DeliveryDeps,
+  input: DeliveryInput,
+): Promise<{ version: DeliverableVersion; decision: PermissionDecision }> {
   const membership = await deps.repo.findOrgMembership(input.userId, input.orgId);
   const found = await deps.grants.findVisibleVersion({
     orgId: input.orgId,
@@ -168,7 +182,7 @@ async function resolveVisible(
   });
   const disclosed = discloseDecided(found.version, decision);
   if (!isDisclosed(disclosed)) throw new FilesDeliveryError("ARTIFACT_NOT_FOUND");
-  return { version: (disclosed as Disclosed<DeliverableVersion>).payload, decision, sourceKind:"file" };
+  return { version: (disclosed as Disclosed<DeliverableVersion>).payload, decision };
 }
 
 export async function previewArtifactVersion(
@@ -311,6 +325,14 @@ export async function redeemDownloadUrl(
         if (!readback || readback.length !== current.version.sizeBytes || createHash("sha256").update(readback).digest("hex") !== current.version.contentHash) throw new FilesDeliveryError("INTEGRITY_CHECK_FAILED");
         bytes = readback;
         mime = current.version.mime;
+      } else {
+        // FF-102: the token proves the link was issued, not that the requester may still see
+        // the version. Re-run the SAME gate issuance ran; a deleted artifact or a revoked
+        // membership answers ARTIFACT_NOT_FOUND here, and throwing rolls the consumption back.
+        const current = await resolveVisibleFile(deps, {
+          userId: input.userId, orgId: input.orgId, versionId: grant.versionId, artifactId: grant.artifactId,
+        });
+        if (current.version.objectKey !== grant.objectKey) throw new FilesDeliveryError("ARTIFACT_NOT_FOUND");
       }
       // Inside the consuming transaction. If this throws, the consumption rolls back and the
       // link is still good -- a download with no trail is not a state this system can reach.

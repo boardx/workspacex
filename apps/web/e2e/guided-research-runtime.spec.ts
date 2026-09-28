@@ -55,16 +55,22 @@ test("research persists all five model-backed steps through the real UI, API and
     if (expectedTitle !== "报告大纲") await expect(page.getByRole("button", { name: "下一步：研究计划", exact: true })).toBeEnabled();
     if (expectedTitle === "报告大纲") {
       await expect(page).toHaveURL(/\/research\/[^/]+\/plan$/);
+      const preview = page.getByTestId("guided-research-markdown-preview");
+      await expect(preview).toBeVisible();
+      await expect(page.getByTestId("guided-research-markdown-editor")).toHaveCount(0);
+      await preview.dblclick();
       const editor = page.getByTestId("guided-research-markdown-editor");
       await expect(editor).toBeVisible();
       await editor.fill((await editor.inputValue()).replace(/目标：[^\n]+/, "目标：核实政策适用范围与实施约束"));
       const savedDraft = page.waitForResponse(response => response.url().endsWith("/runtime/commands")
         && response.request().method() === "POST" && response.request().postDataJSON()?.action === "save");
       await page.getByRole("button", { name: "保存 Markdown", exact: true }).click();
+      await page.getByRole("button", { name: "确认保存", exact: true }).click();
       expect((await savedDraft).ok()).toBe(true);
       await page.reload();
       await expect(page).toHaveURL(/\/research\/[^/]+\/plan$/);
-      await expect(page.getByTestId("guided-research-markdown-editor")).toHaveValue(/核实政策适用范围与实施约束/);
+      await expect(page.getByTestId("guided-research-markdown-preview")).toContainText(/核实政策适用范围与实施约束/);
+      await expect(page.getByTestId("guided-research-markdown-editor")).toHaveCount(0);
       await expect(page.getByTestId("research-intent-card")).toHaveCount(0);
       await page.screenshot({ path: testInfo.outputPath("research-plan-markdown.png"), fullPage: true });
       await expect(page.getByRole("button", { name: "开始研究", exact: true })).toBeEnabled();
@@ -80,10 +86,12 @@ test("research persists all five model-backed steps through the real UI, API and
   }
   const sourceWorkspace = page.getByTestId("guided-research-source-workspace");
   await expect(sourceWorkspace).toHaveAttribute("data-reference-layout", "research-sources");
-  await expect(page.getByTestId("guided-research-source-chapters").getByRole("listitem")).toHaveCount(2);
-  const sourceLink = page.getByTestId("guided-research-source-evidence").getByRole("link", { name: /\/research-evidence$/ });
+  // testid-gate: absent 资料研究页按确认的最小闭环要求不再展示报告章节。
+  await expect(page.getByTestId("guided-research-source-chapters")).toHaveCount(0);
+  const sourceLink = page.getByTestId("guided-research-source-evidence").locator('a[href$="/research-evidence"]');
   await expect(sourceLink).toBeVisible();
   await expect(sourceLink).toHaveAttribute("href", /\/research-evidence$/);
+  await expect(sourceLink).toHaveAttribute("title", /\S/);
   await expect(page.getByRole("link", { name: /vehicle-inventory$/ })).toHaveCount(0);
   // testid-gate: absent 资料研究页按原型移除了中间实时动态面板。
   await expect(page.getByTestId("guided-research-source-activity")).toHaveCount(0);
