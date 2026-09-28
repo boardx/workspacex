@@ -62,3 +62,21 @@ from extraction. Chat answers only echo the memory material the executor handed 
 | forget − | 「我们来聊聊遗忘曲线」「我忘了密码」 → no card, nothing forgotten | PASS | `10-forget-negatives-no-card.png`, `forgetNegative` |
 | project | Shared project thread 「忘掉关于王经理的」 → no card | PASS | `11-project-no-forget-card.png`, `projectForget` |
 | privacy | B: undo on A's card → 404 `KG_CARD_NOT_FOUND`, identical to a nonexistent card; B reading A's overview turn → 404; B's own 「你记得我什么」 → no card, none of A's memories on B's page | PASS | `12-privacy-b-empty.png`, `privacy` |
+
+## Follow-up #4509 — 「我改主意了，改成先做 Y」 (adverb before the frame verb)
+
+Parsing-symmetry fix in `decision-supersede.ts`: `frameAtStart` skips 先 / 就 / 也 / 直接 when a frame verb follows
+(还是 is not in the list: after a change word it hits `OBJECT_STOP`'s 是 and the clause is dropped anyway; on the
+「算了，还是…」 path `STILL_LEAD` strips it first). R8 tiers and the auto allowlist are unchanged, plus one cap that can
+only lower a result: when the skipped adverb contains 先 and the old decision has no 先 before its frame verb, the pair
+is at most a card (「改成先 X」 may be a reorder, not a replacement). Side effect (review M1): adverb-led change
+sentences on the old side now parse too, so a second matching old decision can turn an auto supersede into nothing.
+Evidence in [`i4509/`](i4509/):
+
+- `fwf-unit.txt` — new unit cases on the base code: 8 positive cases fail (frame read as `{verb:null, object:"先做…"}`),
+  every negative (additive / negated / question / hypothetical / retraction, each with the adverb) already empty.
+- `fwf-db.txt` — the new `memory-manage-in-chat` case on the base code: the turn writes nothing (`note` is null).
+- `fwf-cap.txt` — the 先-cap cases on the first revision (adverb skip without the cap): all 7 reach AUTO instead of CARD.
+- `review-pairs-main-vs-fix.txt` — the reviewer's pair list, origin/main vs this fix; 4 pairs go from nothing to AUTO,
+  all of them 就 / 直接.
+- `after-fix.txt` — `decision-supersede` + `decision-claim` 398/398, `memory-manage-in-chat` 18/18, all `decision-*` 429/429.

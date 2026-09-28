@@ -1,0 +1,33 @@
+
+ RUN  v2.1.9 /home/user/workspacex/.claude/worktrees/agent-ad1129903ae97601b/apps/api
+
+[db-isolation] db=wsx4509 capacity=100 current=6 required=32
+ ❯ tests/knowledge-graph/memory-manage-in-chat.test.ts (18 tests | 1 failed) 14875ms
+   ✓ #4361 忘掉 X > 在新的个人对话里说「忘掉关于王经理的」⇒ 列出别的个人对话里记下、已记到长期记忆的那条；确认 ⇒ 原话与长期记忆都失效、边一起收掉；撤销 ⇒ 全部回来 466ms
+   ✓ #4361 忘掉 X > review M2：快照只记这张卡真的收掉的——还有别的活来源、没被级联收掉的副本不进快照；之后被别的动作忘掉的，撤销这张卡不会把它带回来 342ms
+   ✓ #4361 忘掉 X > 还开着 / 点了「不用了」的卡不能撤销；项目会话里不出忘掉卡、项目的那条不动 440ms
+   ✓ #4361 我改主意了 > 反对 / 不相干 / 没说中哪条 ⇒ 什么都不写（没有新结论、没有提示、没有卡）；对照：点名旧对象的改口会取代 389ms
+   × #4361 我改主意了 > #4509「我改主意了，改成先做 Y」（两边都带副词「先」）⇒ 认出旧决定、出「用〈新〉取代〈旧〉？」卡；点 [取代] 后下一轮用 Y 130ms
+     → the given combination of arguments (null and string) is invalid for this assertion. You can use an array, a map, an object, a set, a string, or a weakset instead of a string
+   ✓ #4361 你记得我什么 > 按种类分组、每条带来源对话；给模型的是同一份分组清单；忘掉一条后清单里没有了；清单卡不接受任何决定 318ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/knowledge-graph/memory-manage-in-chat.test.ts > #4361 我改主意了 > #4509「我改主意了，改成先做 Y」（两边都带副词「先」）⇒ 认出旧决定、出「用〈新〉取代〈旧〉？」卡；点 [取代] 后下一轮用 Y
+AssertionError: the given combination of arguments (null and string) is invalid for this assertion. You can use an array, a map, an object, a set, a string, or a weakset instead of a string
+ ❯ tests/knowledge-graph/memory-manage-in-chat.test.ts:478:20
+    476|     const t = await turn(T.c7, `我改主意了，${PILOT_NEW}`);
+    477|     // 「的试点」让它落在 frame_only（R8 分档不变）⇒ 卡，不自动
+    478|     expect(t.note).toContain("要不要用");
+       |                    ^
+    479|     expect(t.note).toContain(PILOT_NEW);
+    480|     expect(t.note).toContain(PILOT_OLD);
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 17 passed (18)
+   Start at  01:10:31
+   Duration  18.07s (transform 1.71s, setup 0ms, collect 2.36s, tests 14.87s, environment 0ms, prepare 58ms)
+
+[db-isolation] db=wsx4509 peak_connections=4
