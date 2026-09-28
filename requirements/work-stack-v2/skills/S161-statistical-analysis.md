@@ -10,14 +10,14 @@
 边界（与邻近已 PASS / 已作者化文档对齐）：
 - 不探索、不生成候选假设——S157 Data Exploration 负责，并通过 `handoff.forS161`（`searchSpace` + `hypotheses`）交给 S161。
 - 不写查询——S160。不判数据是否可用——S158 Data Validation 的 `gate` 是 S161 的前置闸门。
-- 不做预测模型（S164）、不写叙述性结论或建议（S172 / S012）、不评判异质证据的可信度（S171）。
-- 不做 SPC 控制图的日常监控（S162 的职责）；S161 只在被要求时做一次性的过程能力/缺陷率区间估计。
+- 不画图（S164 Data Visualization 负责，W057 中位于 S161 之后，误差带使用 S161 给出的区间）、不写叙述性结论或建议（S172 / S012）、不评判异质证据的可信度（S171）。
+- 不做 SPC 控制图的日常监控（终稿 S162 为 KPI Design，不承担此职责；SPC 监控的承担技能待定，见 §14）；S161 只在被要求时做一次性的过程能力/缺陷率区间估计。
 
 ## 2. 图上的消费者（逐条对照两张矩阵，原样照抄）
 ### 2.1 Workflow（WORKFLOW-SKILL-MATRIX.md）
 | Workflow | 矩阵行 | S161 位置 | 调用模式 `mode` |
 |---|---|---|---|
-| W031 Experiment Loop（Product） | 第 37 行：S071, S072, S157, **S161**, S074 | S157 `experiment-precheck`（结果指标盲化）之后、S074 之前 | `experiment`：读取预注册的主指标 / 护栏指标，先做 SRM 检验，再解盲比较 |
+| W031 Experiment Loop（Product） | 第 37 行：S071, S072, S157, **S161**, S074 | 按 W031 决策 1 的阶段顺序 S074(define/diagnose) → S072(指标口径复盘) → S071(实验设计) → 预注册 → 上线声明 → S157 → **S161** → S074(readout)；即 S157 `experiment-precheck`（结果指标盲化）之后、S074(readout) 之前 | `experiment`：读取预注册的主指标 / 护栏指标，先做 SRM 检验，再解盲比较 |
 | W057 Question-to-Analysis（Data） | 第 63 行：S157, S160, S158, **S161**, S164, S172 | S158 `gate` 之后、S164 / S172 之前 | `confirmatory` 或 `exploratory-followup`（见决策 2） |
 
 ### 2.2 DigitalHuman（DIGITALHUMAN-COMPOSITION-MATRIX.md，Skill 列直接列出 S161 的行）
@@ -32,6 +32,8 @@
 | D054 Clinical Research Analyst | 第 60 行 | `clinical` |
 | D059 Energy Analyst | 第 65 行 | `timeseries` |
 
+注：W057 终稿还使用 D002（`general`）与 D028（`timeseries`）；这两个角色只拥有 W057、不直接挂载 S161（非缺边），经 W057 调用时按括号内 `domainProfile` 缺省值透传。
+
 按 ADR-118 决策 9，DigitalHuman 行的 Skill 列只代表**聊天中直接调用**；W031 / W057 在阶段内使用它们固定（pin）的 S161 版本，拥有这些 Workflow 的角色不需要另行挂载 S161。角色差异只体现在 `domainProfile` 缺省值，不复制 Skill。
 
 ## 3. 上游来源与许可（G1）
@@ -45,7 +47,7 @@
 
 ## 4. 专业方法（S161 专属步骤）
 1. **读闸门**。要求 `validationRef` 指向 S158 报告：`gate="block"` → 直接 `UpstreamGateBlocked`；`gate="pass-with-caveats"` → 把 `requiredCaveats` 原样挂到每条结果的 `caveats`。没有 `validationRef` 只允许 `mode="ad-hoc"`（聊天直调），且所有结论 `allowedAssertion` 上限降一档。
-2. **假设冻结**。每条假设必须在读取结果数据前落成 `HypothesisSpec`：`estimand`（差值/比率/斜率/比例/分位数）、`direction`（two-sided / greater / less）、`alpha`、`practicalThreshold`（业务上有意义的最小效应，单位与指标一致）、`family`（多重比较族）。S161 对 spec 求 `specDigest`（sha256，规范化 JSON）。W031 中 spec 来自 S072 实验设计的预注册；若运行时 spec 与预注册 digest 不同 → `PreregistrationMismatch`，不静默采用新 spec。
+2. **假设冻结**。每条假设必须在读取结果数据前落成 `HypothesisSpec`：`estimand`（差值/比率/斜率/比例/分位数）、`direction`（two-sided / greater / less）、`alpha`、`practicalThreshold`（业务上有意义的最小效应，单位与指标一致）、`family`（多重比较族）。S161 对 spec 求 `specDigest = sha256(canon(spec))`，`canon()` 与 S071 §4 第 10 步同一套规则：键按 Unicode 码点排序、无空白、数字取 JS 最短表示（S071 E13 / W031 的相等判据依赖这一点）。W031 中 spec 来自 S071 实验设计的预注册（W031 §3 阶段 11 传入 `S071.analysisContract`，`hypothesesDigest = analysisContract.experimentDesign.preregistrationDigest`）；若运行时 spec 与预注册 digest 不同 → `PreregistrationMismatch`，不静默采用新 spec。
 3. **分析单元与独立性**。确认随机化单元与分析单元一致（按用户随机却按会话分析 → 标 `unit-mismatch`，改用按用户聚合或聚类稳健方差）。时间序列先检查自相关（lag-1 自相关系数 |r|>0.3 即不得用独立样本检验）。
 4. **实验专属：SRM 检验**（仅 `mode="experiment"`）。对观测分配 vs 设计分配做卡方拟合优度，p < 0.001 判 SRM；SRM 成立时**不解盲**比较主指标，结果只报 `srm: detected` 与可能原因清单（重定向丢失、机器人过滤、埋点时序），整份 verdict=`invalid-design`。
 5. **检验选择**（决策树，写进 `references/test-selection.md` 作单一事实源）：
@@ -54,14 +56,14 @@
    - 比率指标（人均订单金额 = 金额和/用户数，分母随机）：delta method 方差，禁止把比率当普通均值做 t 检验。
    - 多组：Welch ANOVA + Games-Howell；分类 × 分类：卡方独立性，报 Cramér's V。
    - 趋势：OLS 斜率 + Newey-West 标准误（有自相关时）；季节性数据先做同比差分。
-   - 质量比例/缺陷率（`quality`）：Clopper-Pearson 精确区间；与规格上限比较用单侧检验；过程能力 Cpk 须先确认正态性与过程受控（S162 的受控结论作为输入 `processInControl`，缺失则不给 Cpk）。
+   - 质量比例/缺陷率（`quality`）：Clopper-Pearson 精确区间；与规格上限比较用单侧检验；过程能力 Cpk 须先确认正态性与过程受控（过程受控结论作为输入 `processInControl`，缺失则不给 Cpk；来源技能待定——终稿 S162 为 KPI Design，不产出受控结论，见 §14）。
    - 临床（`clinical`）：只做描述性区间估计与方案指定的主分析复算；不做方案外亚组显著性检验（见决策 3）。
 6. **假设检查**（每项结果写入 `assumptionChecks[]`，失败即切换到步骤 5 中的替代路径，不"带病"输出）：样本量、期望频数、偏态、方差比（>4 记录）、自相关、分组间协变量不平衡（实验前指标 SMD>0.1 记录，仅提示，不做事后调整除非 spec 预注册了 CUPED/协变量）。
 7. **多重比较校正**。校正预算 = 本次 `family` 内假设数 + 上游 S157 `searchSpace.slicesExamined`（若该假设源自探索，`origin="exploratory"`）。`confirmatory` 族用 Holm（控 FWER）；`exploratory-followup` 族用 Benjamini-Hochberg（控 FDR，q=0.1）。输出同时给原始 p 与校正后 p。
 8. **效应量与区间优先**。每条结果必须有点估计 + 置信区间；p 值是附属字段。区间与 `practicalThreshold` 对比得出四分类 `practicalReading`：`meaningful`（区间整体越过阈值）/ `negligible`（区间整体在 ±阈值内）/ `inconclusive`（区间横跨阈值）/ `harmful`（区间整体在反方向阈值外）。
 9. **谨慎清单机械化**。按数据形态触发：分组构成在各层差异大 → 计算分层结果检查 Simpson 反转（整体与多数分层方向相反即 `simpson-reversal`）；样本是"留下来的"对象（留存用户、存活设备）→ `survivorship-risk`；结论从聚合到个体 → `ecological-inference`；观察性数据给出因果措辞 → `causal-language-blocked`。
 10. **措辞上限**。由 `mode`、校正后判定、`practicalReading`、caveats 推出 `allowedAssertion`：`establishes`（仅 confirmatory/experiment 且校正后显著且 meaningful 且无 blocker caveat）/ `suggests` / `inconclusive` / `do-not-report`。观察性数据的上限永远是 `suggests`，且只能写"相关"。
-11. **可复现包**。每条结果附 `codeSha256`（沙箱执行脚本）、`inputSnapshotSha256`、库版本、随机种子；W057 下游 S158 可对 `estimate` 做 derivation 层重算（S158 §5）。
+11. **可复现包**。每条结果附 `codeSha256`（沙箱执行脚本）、`inputSnapshotSha256`、库版本、随机种子；W057 下游 S158 可对 `estimate` 做 derivation 层重算（S158 §4 第 5 步）。
 
 ## 5. 输入 schema（zod，`references/io.ts`）
 ```ts
@@ -90,7 +92,7 @@ interface StatisticalAnalysisInput {
   }>;
   experimentDesign?: { preregistrationDigest: string; allocation: Record<string, number>; primaryMetricId: string;
                        guardrailMetricIds: string[] };           // mode=experiment 必填
-  processInControl?: { source: "S162"; reportId: string; inControl: boolean };
+  processInControl?: { source: string /* 来源技能待定，见 §14 */; reportId: string; inControl: boolean };
   jurisdiction?: "CN" | "US" | "other";
   seed?: number;                             // 缺省 20260928；写入输出
 }
@@ -157,7 +159,7 @@ interface StatisticalAnalysisReport {
 |---|---|---|
 | `fileRef` 可读性 | **服务端**，沿用会话已授权文件读取的现有鉴权（专用 `data.read` 能力分类 **proposed-unwired**，待 ADR-120） | 传 fileId 不等于可读 |
 | `validationRef.gate` | **服务端按 reportId 取回 S158 报告读取**；调用方不能内联传 gate | 防止模型自称"已校验" |
-| `experimentDesign.preregistrationDigest` | 服务端按 W031 运行记录中 S072 阶段产物核对（W031 运行态存储 **proposed-unwired**，ADR-118） | 在未落地前，`mode="experiment"` 只能在 W031 内调用，聊天直调降为 `ad-hoc` |
+| `experimentDesign.preregistrationDigest` | 服务端按 W031 运行记录中 S071 产出的 `hypothesesDigest` 核对（S071 决策 1、§13 提议 1）（W031 运行态存储 **proposed-unwired**，ADR-118） | 在未落地前，`mode="experiment"` 只能在 W031 内调用，聊天直调降为 `ad-hoc` |
 | `upstreamExploration.searchSpace` | 调用方声明，但**只允许调大校正预算**：服务端若能取到 S157 报告则用其值与声明值取大 | 防止少报切片数换显著 |
 | `domainProfile`、`origin` | 调用方声明 | `origin="preregistered"` 在无预注册 digest 时被服务端改写为 `ad-hoc` |
 | `alpha` | 调用方声明，服务端裁剪到 ≤ 0.1 | |
@@ -233,10 +235,10 @@ E1、E2 同时计入 W031、W057 Workflow 套件的跨阶段断言（与 S157 E4
 ## 13. Graph change proposals（只提议，不改矩阵）
 1. **W055 / W056 / W059 未列 S161**，而 D013/D036（W055/W056/W059 拥有者）的 skillGaps 写着「SPC/control charts」。建议 W059 作者确认其统计比较阶段是否需要 S161；按 ADR-118 决策 9，若需要应加在 Workflow 行而非角色行。
 2. **W001 的拥有者 D017/D054/D059 直接挂载 S161，但 W001 不含 S161**——不需改动：直接调用即可，记录以免误判为缺边。
-3. 不建议与 S162 合并：S162 做持续监控与控制限，S161 做一次性推断；合并会让 SPC 的判异规则与假设检验的 alpha 口径混用。
+3. SPC 持续监控与控制限不属于 S161（一次性推断），也不属于终稿 S162（KPI Design）；承担技能待定，合并进 S161 会让 SPC 的判异规则与假设检验的 alpha 口径混用。
 
 ## 14. 未决问题
 - scipy / statsmodels 入锁需要 skill-sandbox owner 同意（镜像体积、许可 BSD 均兼容）；未入锁前 E7、E8 只能测降级分支。
-- W031 预注册记录的存放位置（S072 产物 vs Workflow 运行态）待 W031 作者定；影响 §7 的服务端核验实现。
-- `quality` profile 中 `processInControl` 的来源是 S162 报告，其字段名需与 S162 作者对齐。
+- W031 预注册记录的存放位置（S071 产物 vs Workflow 运行态）待 W031 作者定；影响 §7 的服务端核验实现。
+- `quality` profile 中 `processInControl` 的来源技能待定（终稿 S162 为 KPI Design，不含 SPC/受控结论），字段名待来源确定后对齐。
 - 第一批数字人缩减为 3 个的重新规划若移除了本文所列消费角色，只影响落地顺序，不改变矩阵边；以矩阵为准。

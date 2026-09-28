@@ -4,7 +4,7 @@
 > 基线：`main@30c1c4332025151610502988b0379b95ff7298c7`。标 **VERIFIED@30c1…** 的陈述在该 SHA 下读过文件（工作区 HEAD 为包含 30c1… 的合并，`git diff 30c1… HEAD` 对下文引用的路径为空）；标 **UNVERIFIED** 的没有读到证据；标 **proposed-unwired** 的能力在基线上不存在或未接线。
 
 ## 1. 这个 Skill 解决什么问题
-S020 只做一件事：把**已经判定过可说到什么程度**的材料（S171 审过的主张、S010 的风险注、S007 的状态项、S085/S162 等给出的指标值）压成一份面向具体读者的简报正文——结论先行（BLUF）、3–5 个要点、冲突、限定语、未知项、风险、以及「本简报不替你做的决定」。
+S020 只做一件事：把**已经判定过可说到什么程度**的材料（S171 审过的主张、S010 的风险注、S007 的状态项、S085 等给出的指标值及 S162 的指标判定）压成一份面向具体读者的简报正文——结论先行（BLUF）、3–5 个要点、冲突、限定语、未知项、风险、以及「本简报不替你做的决定」。
 
 S020 **不是**：
 - 检索或阅读原文（S003 / 各 Workflow 的前置阶段负责；W001 §5 说明「阶段 4 之后不再有任何阶段读原文」）；
@@ -19,7 +19,7 @@ S020 **不是**：
 | 行 | Workflow | 该行 Skill 列（原样） | S020 在其中的位置（本文理解，以各 Workflow 文档为准） |
 |---|---|---|---|
 | 第 7 行 | W001 Research-to-Brief | S003, S063, S171, S020, S010 | 阶段 6 `draft`（W001 §5，**已 PASS**）；输入为 S171 报告 + S010 RiskNote |
-| 第 10 行 | W004 Weekly Executive Digest | S007, S020, S155, S197, S162 | 周报汇总成文；W004 文档尚未作者化，阶段位置 **UNVERIFIED** |
+| 第 10 行 | W004 Weekly Executive Digest | S007, S020, S155, S197, S162 | 周报汇总成文；S007 最终版 §2 写明 W004 中 S007 以 `portfolio-rollup` 交 S020 成文（接口约定见决策 5）；W004 本身尚未作者化，阶段位置 **UNVERIFIED** |
 | 第 41 行 | W035 Variance Review | S085, S079, S158, S162, S020 | 差异说明压成管理层摘要；阶段位置 **UNVERIFIED** |
 | 第 45 行 | W039 Board Finance Pack | S091, S079, S085, S081, S020, S164 | 董事会财务包的执行摘要页；阶段位置 **UNVERIFIED** |
 | 第 51 行 | W045 Investigation Workflow | S118, S119, S171, S010, S020 | 调查结论的管理层 / 法务简报；阶段位置 **UNVERIFIED** |
@@ -58,11 +58,11 @@ D001 Executive / Strategy Partner、D002 Research & Knowledge Analyst、D016 Org
 **M2 建可说清单（briefable set）。** 对每个输入项算 `ceiling`（断言上限）：
 - `audited-claim`：`ceiling = allowedAssertion`（S171）；`omit` 不进清单；`hypothesis-only` 只能进 `unknowns(why=hypothesis_only)`。
 - `metric`：只有 `basis ∈ {system-of-record, reconciled}` 的值可 `state`；`estimate` / `forecast` 上限 `likely`，且文本必须出现「预计 / 估计 / forecast」一类限定词（按 locale 词表）。
-- `status-item`（S007）：上限取其 `confidence`；「按计划」类表述只有带 `evidenceRef` 的项可 `state`。
-- `direct-chat` 模式：**所有**项（audited-claim / metric / status-item，不论声明的 `allowedAssertion`、`basis`、`confidence` 或是否带 `sourceRef`）一律 `ceiling := min(声明值, preliminary)`（决策 2）。没有例外通道——S020 在 direct-chat 下不具备任何核验 `sourceRef` 的端口，所以不设「可核 sourceRef 可升级」规则。
+- `status-item`（S007）：S007 不输出 confidence 或断言上限，S020 按以下规则自己推上限（S020 侧规则，不是 S007 字段）：`effectiveStatus ∈ {green, yellow, red}` 且 `evidenceRefIds` 非空 → `state`；`effectiveStatus ∈ {green, yellow, red}` 且 `evidenceRefIds` 为空 → `preliminary`；`effectiveStatus ∈ {unknown, needs-human-judgment}` → `preliminary`，且正文原样呈现该状态（不改写成颜色）。「按计划」类表述只有 `evidenceRefIds` 非空的项可 `state`。
+- `direct-chat` 模式：**所有**项（audited-claim / metric / status-item，不论声明的 `allowedAssertion`、`basis`、`effectiveStatus` 或是否带 `sourceRef`）一律 `ceiling := min(声明值, preliminary)`（决策 2）。没有例外通道——S020 在 direct-chat 下不具备任何核验 `sourceRef` 的端口，所以不设「可核 sourceRef 可升级」规则。
 
 **M3 选 BLUF（仅 `workflow-stage`）。** `direct-chat` 跳过本步，改走 M3′。候选 = 可说清单中 `ceiling ∈ {state, likely}`、且（W001 类证据型消费者）`independentSupportCount ≥ 2` 的项。在候选中按**决策相关性**排序：①直接回答 `readerQuestion`；②改变读者既有预期（与 `priorExpectation` 相反或偏离阈值）；③金额 / 影响量级最大。**不是**按把握度排序——最有把握的往往是最无关紧要的。BLUF 一句写结论 + 一句写「所以」（so-what），so-what 只能引用 `decisionContext` 中已有的决定项，不得新增行动建议。无候选 → `S020_BLUF_UNSUPPORTED`。
-  - 各 refKind 成为候选的条件：`audited-claim` 按上句；`metric` 需 `ceiling ∈ {state, likely}` **且带 `comparison`**（没有比较基准的数不能当结论，M5）；`status-item` 需 `confidence ∈ {state, likely}` 且带 `evidenceRef`。`requireIndependentSupport=true` 时只有 `audited-claim` 可当 BLUF（metric / status-item 无独立簇概念）。
+  - 各 refKind 成为候选的条件：`audited-claim` 按上句；`metric` 需 `ceiling ∈ {state, likely}` **且带 `comparison`**（没有比较基准的数不能当结论，M5）；`status-item` 需按 M2 推得的上限 ∈ {state, likely}（即 `effectiveStatus ∈ {green, yellow, red}` 且 `evidenceRefIds` 非空）。`requireIndependentSupport=true` 时只有 `audited-claim` 可当 BLUF（metric / status-item 无独立簇概念）。
   - W001 证据门规则 4 要求的「来源组合」（如 web-only 支持不可作 BLUF）**不由 S020 判定**：S020 不读来源元数据（决策 1）。该判定由 S171 体现在 `allowedAssertion`（不满足组合的主张其上限应已被压到 `preliminary` 以下）；S020 只信 `allowedAssertion`。若 S171 未这样落值，属 S171/W001 接口问题，记入 §15 提案 4。
 
 **M3′ 草稿引导句（仅 `direct-chat`）。** 不选 BLUF。输出 `provisionalLead`：一句 `preliminary` 措辞的「目前材料显示……」，引用 1 个 ref，排序规则同 M3 的决策相关性（不要求独立簇），并固定附 `draftNotice`（zh-CN「初步草稿：内容未经服务端证据核验，正式简报请发起 W001」/ en-US 对应句，文本随词表发布）。keyPoints 允许 1–5 条（聊天材料常少于 3 条）。
@@ -96,27 +96,31 @@ const Ceiling = z.enum(["state", "likely", "preliminary", "hypothesis-only", "om
 const BriefingItem = z.discriminatedUnion("kind", [
   z.object({ kind: z.literal("audited-claim"), claimId: z.string(), text: z.string().max(400),
     allowedAssertion: Ceiling, independentSupportCount: z.number().int().min(0),
-    supportClusterIds: z.array(z.string()), overclaimAllowed: Ceiling.optional(),
-    partialSupportedVersion: z.string().optional(), sensitivity: z.enum(["normal", "internal-only"]).default("normal") }),
+    supportClusterIds: z.array(z.string()),
+    overclaimAllowed: Ceiling.optional(),    // 源自 S171 `overclaim.allowed`（S171 中为 string，非 Ceiling 枚举）；string→Ceiling 的映射由调用方完成，映射规则 UNVERIFIED（§15 提案 7）
+    partialSupportedVersion: z.string().optional(),   // S171 中属 links[] 层（relation=partial 时逐条链接必填），不在主张上；多条 partial 链接投影到主张的取值规则 S020/W001 均未定义（§15 提案 7）
+    sensitivity: z.enum(["normal", "internal-only"]).default("normal") }),
   z.object({ kind: z.literal("metric"), metricId: z.string(), label: z.string().max(80),
     value: z.string(),            // 原样字符串，保留上游精度与单位，S020 不解析计算
     unit: z.string(), period: z.string(), basis: z.enum(["system-of-record", "reconciled", "estimate", "forecast"]),
-    definitionId: z.string().optional(),      // S162 指标定义
+    definitionRef: z.string().optional(),     // S166 `definitionRef`；S162 不产出指标值，也无 definitionId 字段
     comparison: z.object({ against: z.enum(["prior-period", "budget", "target", "prior-year"]), value: z.string(), delta: z.string() }).optional(),
     sourceRef: z.string(), sensitivity: z.enum(["normal", "internal-only", "insider"]).default("normal") }),
   z.object({ kind: z.literal("status-item"), itemId: z.string(), text: z.string().max(300),
-    rag: z.enum(["green", "amber", "red"]).optional(), ragBasis: z.string().optional(),   // S007 给的；S020 不自评
-    confidence: Ceiling, evidenceRef: z.string().optional() }),
+    effectiveStatus: z.enum(["green", "yellow", "red", "unknown", "needs-human-judgment"]),   // = S007 items[].effectiveStatus 原值；S020 不自评
+    ruleId: z.string().min(1),                  // S007 I10 恒非空；即状态色依据
+    overrideReason: z.string().optional(),      // = S007 override.reason（有人工覆盖时）
+    evidenceRefIds: z.array(z.string()).default([]) }),   // 摘自 S007 facts[].evidenceRefIds[] 与 progress/plans/problems 断言的 evidenceRefIds
   z.object({ kind: z.literal("risk"), riskId: z.string(), claimId: z.string().nullable(),
     description: z.string().max(240), likelihood: z.enum(["low", "medium", "high"]),
-    severity: z.enum(["low", "medium", "high"]), whatWouldChangeIt: z.string().max(200) }), // = W001 RiskNote
+    severity: z.enum(["low", "medium", "high"]), whatWouldChangeIt: z.string().max(200) }), // = W001 RiskNote 五字段 + S010 登记表 riskId；riskId 在 S010→RiskNote 投影中丢失，故本形状 ≠ W001 RiskNote（§15 提案 6）
   z.object({ kind: z.literal("unknown"), itemId: z.string(),
     why: z.enum(["no_source", "access_denied", "retrieval_unavailable", "conflicting", "out_of_window", "hypothesis_only"]) }),
 ]);
 
 const S020Input = z.object({
   mode: z.enum(["workflow-stage", "direct-chat"]),
-  sourceReportRefs: z.array(z.object({ kind: z.enum(["s171-report", "s010-risks", "s007-status", "s085-variance", "s162-kpi"]),
+  sourceReportRefs: z.array(z.object({ kind: z.enum(["s171-report", "s010-risks", "s007-status", "s085-variance"]),
     ref: z.string() })).default([]),     // workflow-stage：服务端据此重读业务行，items 与之比对（§8）
   items: z.array(BriefingItem).min(1).max(120),
   conflicts: z.array(GuidedResearchEvidenceConflict).default([]),
@@ -166,7 +170,7 @@ const Common = {
       sourceVersion: z.string().nullable(), asOf: z.string().nullable() })).min(2),
     displayText: z.string().max(240) })),
   caveats: z.array(z.string()),
-  unknowns: z.array(z.object({ itemId: z.string(), why: z.string(), displayText: z.string() })),
+  unknowns: z.array(z.object({ itemId: z.string(), why: z.string(), displayText: z.string() })),   // why 取输入六值原样（I7），类型未收紧为枚举；displayText 为 S020 附加字段
   risks: z.array(z.object({ riskId: z.string(), text: z.string().max(240) })).max(5),
   notDecided: z.string().min(1).max(200),
   omittedForAudience: z.array(z.object({ refId: z.string(), reason: z.enum(["internal-only", "insider", "below-regulator-threshold"]) })),
@@ -189,7 +193,7 @@ const S020Output = z.discriminatedUnion("draftKind", [
     keyPoints: z.array(KeyPoint.extend({ assertion: z.literal("preliminary") })).min(1).max(5), ...Common }),
 ]);
 ```
-W001 只接收 `draftKind="brief"`（W001 以 workflow-stage 调用，`preliminary-draft` 对 W001 不可达），映射为自己的 `Brief`（§6，已 PASS）：`bluf.refIds→claimIds`、`keyPoints(refId→claimId)`、`conflicts[].conflict`、`caveats`、`unknowns`、`notDecided` 直接对应；`risks` **不是**一一对应——S020 只给 `{riskId, text}`，W001 按 `riskId` 从自己的 S010 输入回填完整 `RiskNote`；`citations`、`coverage`、`status`、`briefId` 由 W001 装配，**不**由 S020 产出——S020 只给 `sentenceMap`，引用链接的最终裁决在 W001 阶段 7。
+W001 只接收 `draftKind="brief"`（W001 以 workflow-stage 调用，`preliminary-draft` 对 W001 不可达），映射为自己的 `Brief`（§6，已 PASS）：`bluf.refIds→claimIds`、`keyPoints(refId→claimId)`、`conflicts[].conflict`、`caveats`、`unknowns`、`notDecided` 直接对应；`risks` **不是**一一对应——S020 只给 `{riskId, text}`；`riskId` 只存在于 S010 登记表，W001 §6 `RiskNote` 无此字段、W001 也未写明按 `riskId` 回填 RiskNote 的步骤，该回填路径 **UNVERIFIED**（§15 提案 6）；`citations`、`coverage`、`status`、`briefId` 由 W001 装配，**不**由 S020 产出——S020 只给 `sentenceMap`，引用链接的最终裁决在 W001 阶段 7。
 
 ### 7.1 不变量（输出前机检）
 - **I1** 每个 `keyPoints[].refId`、`bluf.refIds[]`（或 `provisionalLead.refId`）都存在于输入 `items`，且 `refKind` 与该 item 的 `kind` 一致；`sentenceMap` 覆盖正文每一句，且 `refIds` 非空（`notDecided` 句除外）。
@@ -225,7 +229,7 @@ S020Error = { ok: false; error: { code: S020ErrorCode; retryable: boolean; detai
 |---|---|---|---|
 | 调用者 orgId / userId / 实例 id | 运行时 | `TrustedContextActor` 注入，模型参数不可覆盖 | **UNVERIFIED**（§4） |
 | `items[].allowedAssertion`、`independentSupportCount`、`supportClusterIds` | 调用方（workflow 阶段编排代码或聊天中的 Agent） | `workflow-stage`：按 `sourceReportRefs` 从 `workflow_stage_outputs` 重读 S171 报告，逐 `claimId` 比对，不一致 → `S020_ITEMS_MISMATCH_REPORT`。`direct-chat`：无报告可比对，一律 `ceiling := min(声明值, preliminary)`，输出只能是 `preliminary-draft`（无 BLUF、无 `state`/`likely` 句） | proposed-unwired（报告读取端口） |
-| `metric.value / basis` | 调用方 | `workflow-stage`：与 S085/S162 业务行比对；`direct-chat`：与其他项同规则，上限 `preliminary`；`sourceRef` 只原样展示，不据此升级（S020 无核验端口）；I6 逐字照抄仍适用 | proposed-unwired |
+| `metric.value / basis` | 调用方 | `workflow-stage`：与 S085 业务行比对（S162 不产出指标值）；`direct-chat`：与其他项同规则，上限 `preliminary`；`sourceRef` 只原样展示，不据此升级（S020 无核验端口）；I6 逐字照抄仍适用 | proposed-unwired |
 | `conflictSides[].sourceVersion / asOf` | 调用方 | `workflow-stage`：与重读的 S171 报告 / ledger 来源元数据比对，不一致 → `S020_ITEMS_MISMATCH_REPORT`；`direct-chat`：原样展示，草稿标识已声明未核验 | proposed-unwired |
 | `sensitivity`（internal-only / insider） | 上游业务行 | S020 **只能收紧不能放宽**：调用方把服务端标为 `insider` 的项声明为 `normal` → 以服务端为准 | proposed-unwired（内幕信息标签的来源系统尚不存在） |
 | `audience.tier` | 调用方 | S020 不核验收件人；tier 只影响措辞裁剪。实际可见性由 W001 决策 6 的 ACL 差集服务判定 | — |
@@ -249,9 +253,9 @@ S020 自身无工具调用、无写能力，riskClass = low；它的「权限」
 ## 11. 决策
 - **决策 1：S020 不读原文、不产新主张，只重排与措辞。** W001 已规定阶段 4 之后无人读原文；若 S020 可以「顺便补一句原文里的背景」，那句话就绕过了 S171 的 claim-audit，也不会进入 W001 阶段 7 的可核集合。代价：简报偶尔缺少读者想要的背景——应回到上游补主张，而不是由 S020 补。
 - **决策 2：`direct-chat` 模式下所有项（含 metric）的上限一律封顶为 `preliminary`，成功输出为 `preliminary-draft`：无 BLUF、有 `provisionalLead` 与固定 `draftNotice`。** D001/D016 等 10 个角色可在聊天中直接用 S020 草拟；聊天里 Agent 自报「S171 已审过、可 state」没有服务端证据。宁可让聊天草稿显得保守，也不让一个 Agent 用自报的 `state` 给高管写结论。选「可达草稿形态」而不是「返回错误」：后者让图上 10 条 D 边全部不可用；选「统一封顶」而不是「带 sourceRef 可升级」：S020 在聊天路径没有任何端口能核 sourceRef，留这个口子等于信自报。
-- **决策 3：数字零计算，逐字照抄上游并带比较基准。** 简报是数字出错代价最高的载体（W035 差异、W039 董事会包）。S020 若自己算同比，就与 S085/S162 构成同一数字的两处声明——本项目已五次因此漂移。没有比较基准的数字不成要点（M5），因为「收入 3.2 亿」对决策毫无信息量。
+- **决策 3：数字零计算，逐字照抄上游并带比较基准。** 简报是数字出错代价最高的载体（W035 差异、W039 董事会包）。S020 若自己算同比，就与 S085 构成同一数字的两处声明——本项目已五次因此漂移。没有比较基准的数字不成要点（M5），因为「收入 3.2 亿」对决策毫无信息量。
 - **决策 4：篇幅不够时先保风险、限定语和冲突，报错而不是删限定语。** kwp stakeholder-update 建议「只列需要帮助的风险」「保持 200 词以内」，对周报合理，对 W001/W045 的受监管与调查读者是事故来源。S020 用反向装箱（M4）把不可压缩件先放入，放不下返回 `S020_BUDGET_UNSATISFIABLE` 由上游改篇幅或拆分。
-- **决策 5：S020 不自评 RAG 状态色。** 状态色是判断，属于 S007（W004）与 S162 的阈值定义；S020 只原样呈现带 `ragBasis` 的 `rag`，没有 basis 的 rag 不显示。
+- **决策 5：S020 不自评 RAG 状态色。** 状态色是判断，属于 S007（W004）与 S162 的阈值定义；S020 只原样呈现 S007 的 `effectiveStatus`，并附其依据 `ruleId`（S007 I10 恒非空）及 `overrideReason`（如有）；缺 `ruleId` 的输入视为契约违例，状态色不显示。S020 也不给组合整体定色（沿用 S007 决策 5）：W004 类组合汇总只呈现逐项颜色加 S007 给的 `counts`，不合成总色。
 - **决策 6：新建 S020 包，不改造 WX-S011。** WX-S011 服务公告/FAQ/3P，内部含检索读取流程；S020 明确不检索（决策 1）。把 BLUF / 上限规则塞进 WX-S011 会让同一包在两种信任模型下工作。S020 只继承 WX-S011 的写作纪律（§3），版本号从 1.0.0 起。
 - **决策 7：受众裁剪只改呈现，被略去的项必须出现在 `omittedForAudience`。** 静默删项会让发起人以为给外部伙伴和给内部的是同一事实集。可见的略去清单让 W001 G2 审批人能判断「删掉这些后结论是否仍成立」。
 
@@ -284,7 +288,7 @@ S020 自身无工具调用、无写能力，riskClass = low；它的「权限」
 | E7 | `requiredCaveats` 3 条 + risk(high, medium)，`lengthBudget={bodyMax:300, bodyUnit:cjk-chars}`（zh-CN） | 返回 `S020_BUDGET_UNSATISFIABLE`；不返回删减了 caveat 的简报 |
 | E8 | 同 E7 但 `bodyMax=900` | `risks[0]` 为该 high 风险；三条 caveat 逐字出现；`stats.bodyLength ≤ 900`（cjk-chars） |
 | E9 | `decisionContext` 缺省，材料为 W004 周报 status-items | `blufKind=situational`；so-what 句不命中行动词表 `action-lexicon.{locale}.json`（proposed-unwired，随包发布；初版 zh-CN：建议、应当、应该、需要立即、务必、请批准；en-US：should、recommend、must、we propose、need to）；`notDecided` 非空 |
-| E10 | status-item `rag=red` 无 `ragBasis`；另一项 `rag=amber` 有 basis | 正文不显示 red 状态色；amber 显示且附 basis |
+| E10 | status-item `effectiveStatus=red` 缺 `ruleId`（契约违例输入）；另一项 `effectiveStatus=yellow`、`ruleId` 非空；第三项 `effectiveStatus=needs-human-judgment` | 正文不显示 red 状态色；yellow 显示且附 `ruleId` 依据；第三项原样呈现「需人工判断」，不改写成颜色；不输出组合总色 |
 | E11 | `unknown{why: access_denied}`（发起人对法务项目无读权限） | `displayText` 明示「无权访问 / 权限不足」，不含「未发现」 |
 | E12 | `mode=direct-chat`，Agent 声明某主张 `allowedAssertion=state`、3 簇，另 1 条 metric `basis=system-of-record` 带 `sourceRef` | `ok:true, draftKind=preliminary-draft, bluf=null`；`provisionalLead.assertion=preliminary`；所有 keyPoints（含 metric）`assertion=preliminary`；`draftNotice` 等于词表条目；不返回 `S020_BLUF_UNSUPPORTED` |
 | E12b | `mode=direct-chat`，仅 1 条可用 item | 成功返回 `preliminary-draft`，keyPoints 1 条；正文无「结论 / BLUF」标题（I12） |
@@ -299,17 +303,21 @@ S020 自身无工具调用、无写能力，riskClass = low；它的「权限」
 G5 判据：E1/E3/E4/E6/E7/E11/E12/E14 上基线至少失败 3 条而 S020 全过，才能标 verified。
 
 ## 14. 与已 PASS 文档的接口对齐
-- **W001**（PASS）：S020 输出字段与 W001 `Brief` 的 `bluf / keyPoints / conflicts / caveats / unknowns / risks / notDecided` 同名同约束；`keyPoints` 3–5、`bluf.text ≤ 320`、`unknowns.why` 六值均取自 W001 §6；篇幅数值与单位取自 W001 §4 注释（900 汉字 / 600 英文词；S020 不重复声明数值，`bodyUnit` 让 I8 与 W001 E13 同口径）。W001 `Brief.risks` 为完整 `RiskNote`，由 W001 按 `riskId` 回填（§7）。S020 的 `preliminary-draft` 不进入 W001。`S020_BLUF_UNSUPPORTED` 对应 W001 `insufficient_evidence`。
-- **S171**（PASS）：`allowedAssertion` 值域、`overclaim.allowed`、`requiredCaveats`、`partialSupportedVersion`、`independenceClusterId` 均按 W001 §3 转述的 S171 字段名消费，S020 不另设枚举。
+- **W001**（PASS）：S020 输出字段与 W001 `Brief` 的 `bluf / keyPoints / conflicts / caveats / unknowns / risks / notDecided` 同名，但**不全同形**：S020 `conflicts[]` 是 `{conflict, sides, displayText}` 包装，W001 `Brief.conflicts` 是 `GuidedResearchEvidenceConflict[]`，映射取 `conflicts[].conflict`；S020 `unknowns[].why` 类型为 `z.string()`（值原样取自输入六值），W001 为六值枚举，S020 另带 `displayText`；S020 `notDecided` 带 `.min(1)`，W001 无。`keyPoints` 3–5、`bluf.text ≤ 320` 取自 W001 §6。`keyPoints[].assertion` 关系未统一：W001 §6 规定 `= allowedAssertion`，S020 I3 只要求 `≤ ceiling`，且受众裁剪与 I5（冲突相交 `≠ state`）可能再下压（§15 提案 1）；篇幅数值与单位取自 W001 §4 注释（900 汉字 / 600 英文词；S020 不重复声明数值，`bodyUnit` 让 I8 与 W001 E13 同口径）。W001 `Brief.risks` 为完整 `RiskNote`，按 `riskId` 回填路径 UNVERIFIED（§7、§15 提案 6）。S020 的 `preliminary-draft` 不进入 W001。W001 终态映射（W001 §5 阶段 6、§7 终态表）：`S020_BLUF_UNSUPPORTED` → `insufficient_evidence`；`S020_INSUFFICIENT_POINTS` → `insufficient_evidence`；`S020_BUDGET_UNSATISFIABLE` → `failed`。注：W001 第 128 行把 S020 出口引为「S020 §8」，S020 错误码表实际在 §7.2（W001 侧交叉引用偏差，仅记录，本文不改）。
+- **S007**（PASS）：`status-item` 字段取自 S007 §6 `items[]`：`effectiveStatus`（五值，含 `yellow`/`unknown`/`needs-human-judgment`）、`ruleId`、`override.reason`、`facts[].evidenceRefIds[]` 及 progress/plans/problems 断言的 `evidenceRefIds`；S007 无 confidence/断言上限字段，上限由 S020 M2 推得。S007 决策 5（不给组合整体定色）由 S020 决策 5 吸收。
+- **S162**（PASS）：S162 输出 `metricId`、`existingMetricVerdicts` 与 `target.basis ∈ {historical-baseline, benchmark, commitment, regulatory, unknown}`，不产出指标值、无 `definitionId`；S020 metric 的 `value/basis ∈ {system-of-record, reconciled, estimate, forecast}` 不来自 S162，其上游（S085 等）字段对齐 **UNVERIFIED**；定义引用 `definitionRef` 来自 S166。
+- **S171**（PASS）：`allowedAssertion` 值域、`requiredCaveats`、`independenceClusterId` 按 W001 §3 转述的 S171 字段名消费，S020 不另设枚举。`overclaim.allowed` 在 S171 中为 string，S020 `overclaimAllowed` 为 Ceiling，需调用方映射；`partialSupportedVersion` 在 S171 中属 links[] 层，S020 放在主张级，投影规则未定义（§15 提案 7）。
 - **S003**（PASS）：`access_denied` / `retrieval_unavailable` 与「未找到」的区分（S003 决策 3）在 I7 落为机检。
 
 ## 15. Graph change proposals（仅提议，不在本文生效）
-1. **W001 对 `S020_INSUFFICIENT_POINTS` 没有终态**：W001 `Brief.keyPoints` 要求 `min(3)`，但 §7 终态表只在 BLUF 不成立时给 `insufficient_evidence`。建议 W001 下次修订把「可成要点 <3」也映射为 `insufficient_evidence`。不改矩阵。
+1. **`keyPoints[].assertion` 与 `allowedAssertion` 的关系**：W001 §6 规定 `assertion = allowedAssertion`，S020 I3 为 `≤ ceiling` 且受众裁剪、I5 可再下压。建议 W001 下次修订改为 `≤ allowedAssertion`，或由 S020 在下压时报错；由 W001 owner 定。（原提案「W001 对 `S020_INSUFFICIENT_POINTS` 无终态」已过时：W001 已映射为 `insufficient_evidence`，撤回。）不改矩阵。
 2. **D 行直接挂载 S020 的用途**：本文已为 10 条 D→S020 边定义可达的 `preliminary-draft` 输出（决策 2），边保持不变。仅提示矩阵 owner：D 行上的 S020 只能产出草稿，正式简报需走 W001；不提议删边。
 3. **内幕信息标签来源**：I10 / E14 依赖上游 `sensitivity=insider`，但矩阵中 W039 的 S091/S081/S164 是否产出该标签未知。建议 W039 作者在其阶段表中明确哪一 Skill 负责打标；若无，列入 W039 的 `skillGaps`。
 
 4. **W001 证据门规则 4（来源组合）落值位置**：S020 依赖 S171 已把不满足来源组合的主张的 `allowedAssertion` 压到 `preliminary` 以下（M3）。若 S171 实际不这样落值，需在 W001 阶段 6 前把该判定结果写入 items；由 W001/S171 owner 确认。
 5. **`conflictSides` 的提供方**：S171 报告 / S003 ledger 是否已携带逐侧来源版本与时间 **UNVERIFIED**（S020 只核了 `GuidedResearchEvidenceConflict` 不含这些字段）。建议 W001 阶段 6 输入映射明确从哪里摘录；若无来源，该侧按「版本未知」渲染（E6b）。
+6. **`riskId` 回填路径**：`riskId` 只在 S010 登记表中，S010→RiskNote 投影丢弃它，W001 `RiskNote` 无此字段也未写回填步骤。建议 W001 在 RiskNote 中保留 `riskId`，或在阶段 6 输入映射中写明回填方式。
+7. **S171→S020 主张级字段投影**：`partialSupportedVersion` 在 S171 属 links[]（一主张可有多条 partial 链接），`overclaim.allowed` 为 string；建议 W001 阶段 6 输入映射写明多链接取值规则与 string→Ceiling 映射。
 
 ## 16. 未决问题
 - 断言词表与越级词表的维护者与版本策略（随 S020 包发布 vs 平台共享给 S012/S007）待定。

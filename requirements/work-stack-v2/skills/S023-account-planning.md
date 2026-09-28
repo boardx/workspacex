@@ -89,7 +89,7 @@ S023 **不做**：公开信息研究（S021）；健康判色与扩张就绪门�
 | `timingSignal` | `asOf` 前 90 天内的 S021 signal 明确指向该购买单元 | 该购买单元的预算周期 / 招标公告 / S033 续约窗口落在 `horizon` 内 | 账户级（未指向该购买单元）的 S021 signal 在 90 天内 | 无 |
 - CN 集团框架协议只作用于 `accessPath` 的 2 档（上表），§10 不再另设规则。
 - 不做金额加权：金额大但无门路的格不应压过金额小但有 champion 的格；金额只作为同分时的次级排序键，且只用 `basis ≠ caller-declared` 的单价。
-- `expansion` 模式读取 S035 结果的 `expansionReadiness` 与 `blockedBy[]`（S035 §7 第 128 行字段，已 PASS），原样写入输出 `expansionGate`（§7）；**不**由 `overall` 推导（S035 规则 10：amber → `conditional`，二者不是同一量）。
+- `expansion` 模式读取 S035 结果的 `expansionReadiness` 与 `blockedBy[]`（S035 §6 输出契约第 128 行字段，已 PASS），原样写入输出 `expansionGate`（§7）；**不**由 `overall` 推导（S035 规则 10：amber → `conditional`，二者不是同一量）。
 - `expansionGate.readiness = "blocked"` 时所有白区项 `status = "parked"`，不输出扩张动作；S035 `blockedBy[]` 每个维度生成一条 `blockers[]` 对象（§7），只输出 `linkedTo` 指向这些 blocker 的解除阻塞动作（决策 3）。`conditional` 时白区照常排序，但 `handoff-to-s036` 动作须 `linkedTo` 至少一条白区项，并在 `whyNot` 注明条件（非阻塞）。
 - S035 结果缺 `expansionReadiness`（例如 S035 E15 churned-notice 不输出该字段）时，按 `blocked` 处理，`blockers[]` 记一条 `dimension = "expansion-readiness-absent"`。
 - 每项必带 `whyNot`：列出拿到 3 分还缺什么证据。
@@ -105,7 +105,7 @@ S023 **不做**：公开信息研究（S021）；健康判色与扩张就绪门�
 
 **M6 在途商机与冲突（deal-context / opportunity-framing）**
 - 列出同账户所有 open 商机（阶段、金额、预计关闭日、最近更新日期）。
-- 冲突规则：同一购买单元 × 同一产品存在两个 open 商机 → `conflict = "duplicate"`；新需求落在已有商机的购买单元与产品 → `framingProposal = "merge-into:<opportunityId>"`。
+- 冲突规则：同一购买单元 × 同一产品存在两个 open 商机 → `conflict = "duplicate"`；新需求落在已有商机的购买单元与产品 → `framingProposal.decision = "merge-into"`、`framingProposal.mergeTarget = <opportunityId>`（§7 输出契约形状，不使用 `merge-into:<id>` 字符串形式）。
 - `staleOpportunity = true`：`lastCustomerSideActivityAt` 距 `asOf` > 21 天（阈值可由组织配置覆盖；组织配置存储 proposed-unwired）。
 - `opportunity-framing` 的三选一提议（按顺序判定）：① 新需求落在已有 open 商机的同购买单元同产品 → `merge-into`；② 否则若存在至少 1 条 M4 定义的客户侧证据，且其 `quote` 被 `framingProposal.evidenceRefs` 引用 → `create-new`；③ 否则 `hold`（只有本方发言 / 本方推测 / 无回复外呼）。S023 只提议，建商机由 W013 的写阶段在人工门后执行。
 
@@ -299,7 +299,7 @@ AccountPlanError = { ok: false; error: { code: S023ErrorCode; retryable: boolean
 
 ## 14. 图变更提议（仅提议，不在本文生效）
 1. D006 Customer Success Specialist 在 W017/W018 中使用 S023，但 Skill 列不含 S023，意味着 CSM 在聊天里不能直接请求续约挽留计划。若产品希望 CSM 可直接调用，应在 D006 Skill 列加 S023；否则保持现状（决策 9 已覆盖 Workflow 内使用）。
-2. W014 中 S023 位于首位、S032 在后：S032 §15 问题 1 询问是否有 Skill 承担「推进缺口诊断」。S023 `deal-context` 只输出账户级覆盖缺口与冲突，**不**承担单商机推进缺口诊断；建议 W014 作者把 `AccountPlan.coverage` 与 `openOpportunities` 作为 S032 的 `knownGaps` 来源之一，而推进缺口诊断按 S032 建议登记为 skillGap。
+2. W014 中 S023 位于首位、S032 在后：S032 §14 Graph change proposals 第 1 条（第 199 行）询问是否有 Skill 承担「推进缺口诊断」。S023 `deal-context` 只输出账户级覆盖缺口与冲突，**不**承担单商机推进缺口诊断；建议 W014 作者把 `AccountPlan.coverage` 与 `openOpportunities` 作为 S032 的 `knownGaps` 来源之一，而推进缺口诊断按 S032 建议登记为 skillGap。
 3. `Money` 无 `taxBasis` 字段，CN 含税 / 不含税口径无法区分（§10）。建议在共享 `Money` 类型层面（S033 §6 定义处）统一加可选 `taxBasis`，而不是 S023 单独扩展。
 
 ## 15. 未决问题

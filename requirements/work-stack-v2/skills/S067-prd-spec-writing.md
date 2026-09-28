@@ -27,7 +27,7 @@ S067 **不做**的事（各有唯一归属）：
 ### 2.1 Workflow（WORKFLOW-SKILL-MATRIX.md）
 | Workflow | 矩阵行（原文） | S067 在其中的角色（本文对接口的理解，阶段顺序由 Workflow 作者定） |
 |---|---|---|
-| W029 Problem-to-PRD | 第 35 行：`\| W029 \| Problem-to-PRD \| Product \| S064, S065, S067, S068, S162 \|` | `mode = draft`：从 S064 frame + S065 选定机会写出 PRD 初稿；S068 / S162 的结果以 `revise` 回填 |
+| W029 Problem-to-PRD | 第 35 行：`\| W029 \| Problem-to-PRD \| Product \| S064, S065, S067, S068, S162 \|` | `mode = draft`：从 S064 frame + S065 选定机会（`handoff.S067.targetOpportunity`）写出 PRD 初稿；按已 PASS 的 W029 决策 7，`revise` 只回填 `goals`（`kpiRef` / `metricPending`，来自 S162）；按 W029 决策 4，W029 只用 S068 `solution-select`，**从不**向 S067 传 `priorityRef`，PRD 的 `requirements[].priority` 在 W029 中恒不存在 |
 | W030 PRD-to-Sprint | 第 36 行：`\| W030 \| PRD-to-Sprint \| Product \| S067, S068, S070, S142, S076 \|` | `mode = readiness`：对一版冻结 PRD 做「可进 sprint」检查，不改写正文 |
 
 ### 2.2 DigitalHuman（DIGITALHUMAN-COMPOSITION-MATRIX.md）
@@ -53,7 +53,7 @@ S067 **不做**的事（各有唯一归属）：
 
 ### A. 入口核对（不替上游写）
 - **A1 问题节只引用不重写。** 读服务端取得的 S064 frame 版本：`status` 必须是 `draft`（或已由 Workflow 关卡写成 `accepted`），且 `handoff.S067.problemSection` 非空；否则返回 `FRAME_NOT_READY`，不自行补写问题。`problem.text` 逐字等于 `problemSection`，`problem.frameRef` 记录 `frameId@version`。
-- **A2 方向锚定。** `direction` 要么引用 S065 的机会 id，要么是调用方给出的一句话方向（`source = "caller"`）。若 `direction` 文本与 frame 的 `outOfScope[]` 任一项语义重合，返回 `DIRECTION_OUT_OF_FRAME`——PRD 不能写 frame 明确排除的事。
+- **A2 方向锚定。** `direction` 要么引用 S065 OpportunityMap 中的机会节点（`mapId@version` + `oppId`，即 S065 `handoff.S067.targetOpportunity` 所指节点），要么是调用方给出的一句话方向（`source = "caller"`）。若 `direction` 文本与 frame 的 `outOfScope[]` 任一项语义重合，返回 `DIRECTION_OUT_OF_FRAME`——PRD 不能写 frame 明确排除的事。
 - **A3 目标只挂引用。** `goals[]` 每条是**结果方向**（沿用 frame 的 `outcomeSignals`），可附 `kpiRef`（S162 产物 id）。没有 `kpiRef` 的目标标 `metricPending: true`；S067 **不写**目标数字（决策 2）。
 
 ### B. 需求成文
@@ -72,19 +72,19 @@ S067 **不做**的事（各有唯一归属）：
 - **D1 非目标 ≥3 条且各带理由。** 理由限定 `low-impact | too-complex | separate-initiative | premature | frame-excluded`；frame 的 `outOfScope[]` 自动继承为 `frame-excluded`，不重复论证。
 - **D2 范围变更守恒（仅 revise）。** 相比上一版新增的在范围需求，必须同时满足三者之一：有对应的 `retired[]` / 降为非目标的条目、`timelineImpact` 非空、或 `scopeChangeAck` 由 Workflow 人工关卡回执写入。否则返回 `SCOPE_GROWTH_UNBALANCED`。
 - **D3 开放问题分级。** `openQuestions[]` 每条带 `owner ∈ {engineering, design, legal, data, stakeholder}` 与 `blocking: boolean`；能从输入回答的问题不得列入（上游 :250）。
-- **D4 就绪判定（readiness 模式，W030 用）。** 对服务端读到的冻结 PRD 版本只读检查，得出 `readiness.status`：`ready` 当且仅当无 blocking 问题、无 `VAGUE` / `implementationLeak` 残留、每条在范围需求 ≥1 条可判定验收条件、`goals` 中无 `metricPending`（若 W030 阶段契约要求）。不就绪时列出 `blockers[]`（按 `requirementId` / `questionId` 定位），**不改写 PRD**。
+- **D4 就绪判定（readiness 模式，W030 用）。** 对服务端读到的冻结 PRD 版本只读检查，得出 `readiness.status`：`ready` 当且仅当无 blocking 问题、无 `VAGUE` / `implementationLeak` 残留、每条在范围需求 ≥1 条可判定验收条件、`goals` 中无 `metricPending`（该条件**恒生效**：已 PASS 的 W030 `readiness` 阶段直接采用本 D4 判定、未另设开关；按 W029 决策 7 留空的 goal 保持 `metricPending=true` 流入 W030，即产生 `metric-pending` blocker）。不就绪时列出 `blockers[]`（按 `requirementId` / `questionId` 定位），**不改写 PRD**。
 
 ## 5. 输入契约（`inputSchema`）
 ```ts
 PrdInput = {
   mode: "draft" | "revise" | "readiness";
   frameRef?: { skill: "S064"; frameId: string; version?: number };     // draft 必填；服务端读取
-  direction?: { source: "S065"; opportunityId: string }
+  direction?: { source: "S065"; mapId: string; version: number; oppId: string }   // = S065 handoff.S067.targetOpportunity
             | { source: "caller"; text: string };                        // draft 必填，text 1–300 字
   prdRef?: { documentId: string; versionId: string };                    // revise / readiness 必填；服务端读取
   changeRequest?: string;                                                // revise 必填，1–2000 字
-  priorityRef?: { skill: "S068"; resultId: string };                     // revise 时回填优先级（只透传）
-  kpiRefs?: Array<{ skill: "S162"; kpiId: string; goalId: string }>;     // ≤10
+  priorityRef?: { skill: "S068"; proposalId: string; version: number };  // 只透传；图上无 Workflow 消费者（见下）
+  kpiRefs?: Array<{ skill: "S162"; kpiId: string; goalId: string }>;     // ≤10；kpiId 属 S162，goalId 是 S067 自己的 goals[].goalId（非 S162 字段）
   evidenceRefs?: Array<{ skill: "S063"; synthesisId: string }>;          // ≤5
   constraints?: Array<{ text: string; kind: "hard" | "soft" }>;          // ≤20
   targetPlatforms?: Array<"web-desktop" | "web-mobile" | "ios" | "android" | "mini-program">;
@@ -96,6 +96,7 @@ PrdInput = {
 - `mode = draft` ⇒ `frameRef ∧ direction` 必填，`prdRef` 禁止；
 - `mode = revise` ⇒ `prdRef ∧ changeRequest` 必填；
 - `mode = readiness` ⇒ 仅 `prdRef`（+ `locale`）；其余字段出现即 `INPUT_INVALID`；
+- `priorityRef` 的现状：已 PASS 的 W029（决策 4、7）不传它，S068 需求级 MoSCoW（`scope-cut`）在 W030，而 W030 不调用 S067 revise——因此该字段在图上**没有任何 Workflow 消费者**，仅保留给聊天直接调用；S068 `cut.must/should/could/wont` 的元素是 `candidateId`，`candidateId ↔ requirementId` 的映射 S067 与 S068 均未定义，在定义之前 `priorityRef` 视为 **proposed-unwired**，出现即按 `PRIORITY_MISMATCH` 处理（见 §14 提议 4）。
 - 输入中**不得**内联 PRD 正文、frame 正文或证据正文——一律按引用由服务端读取（§8）。
 
 ## 6. 输出契约（`outputSchema`，S067 专属）
@@ -108,7 +109,7 @@ PrdDraft = {
                                    | { kind: "chat"; agentVersionId: string };
   locale: Locale;
   problem: { frameRef: string; text: string };                          // text ≡ frame.handoff.S067.problemSection
-  direction: { source: "S065" | "caller"; ref?: string; text: string };
+  direction: { source: "S065" | "caller"; ref?: string; text: string };   // ref = "<mapId>@<version>#<oppId>"（仅 S065）
   goals: Array<{ goalId: string; outcome: string; kpiRef?: string; metricPending: boolean }>;   // 1–5
   nonGoals: Array<{ text: string; reason: NonGoalReason }>;             // ≥3
   requirements: Array<{
@@ -136,6 +137,7 @@ PrdDraft = {
 }
 
 PrdReadiness = {                        // mode = readiness 的唯一返回
+  readinessId: string;                  // 本次就绪结果标识（供 S070 prdReadinessRef.outputId 引用）
   prdRef: { documentId: string; versionId: string };
   status: "ready" | "not-ready";
   blockers: Array<{ kind: "blocking-question" | "vague-criterion" | "implementation-leak"
@@ -148,7 +150,7 @@ PrdReadiness = {                        // mode = readiness 的唯一返回
 3. `acceptance` 的 given/when/then 不含模糊词表中的词；`analytics` 类条件带 `goalId` 且该 id 存在于 `goals`。
 4. `problem.text` 与服务端读到的 `handoff.S067.problemSection` 逐字相等。
 5. `nonGoals.length ≥ 3`；frame 的每条 `outOfScope` 都以 `frame-excluded` 出现。
-6. 输出中不出现目标数字（`goals[].outcome` 无数字 / 百分号）；`priority` 只在带 `priorityRef` 时出现，且与 S068 结果逐条一致。
+6. 输出中不出现目标数字（`goals[].outcome` 无数字 / 百分号）；`priority` 只在带 `priorityRef` 时出现，且与 S068 结果逐条一致（逐条比对依赖尚未定义的 `candidateId ↔ requirementId` 映射，**proposed-unwired**）。
 7. `status` 恒为 `draft`；不设 `approved`、`score`、`estimate`、`assignee` 字段。
 8. `rationale.kind = evidence` 的每个 `findingId` 在服务端读到的 S063 synthesis 中可解析，需求措辞 ≤ `ceiling`。
 
@@ -236,9 +238,10 @@ PrdReadiness = {                        // mode = readiness 的唯一返回
 - **决策 5：范围变更守恒是门，不是建议。** 上游「新增须伴随删减或延期」只是提示；S067 把它变成 `SCOPE_GROWTH_UNBALANCED`，唯一放行方式是人工关卡回执，保证范围膨胀总有人签字。
 
 ## 14. Graph change proposals（只提议，不改矩阵，不假定采纳）
-1. **W029 缺 S063 证据入口**：与 S064 §14 提议 1 同向——S067 的 `evidenceRefs` 依赖 S063 synthesis，而 W029 行不含 S063。由 W029 作者决定是加边还是写成触发前置条件。
-2. **W030 中 S067 的角色**：本文把 S067 在 W030 的用途限定为 readiness 检查。若 W030 作者认为 readiness 应归 S070 的入口检查，可提议从 W030 行移除 S067；本文不假定。
+1. **W029 缺 S063 证据入口**：**已裁定**——W029 §3 将 S063 写成触发前置条件（可选输入），不加边；`evidenceRefs` 按此作为可选输入。
+2. **W030 中 S067 的角色**：**已裁定**——W030 §14 第 3 条决定 readiness 保留在 W030 由 S067 执行，不移给 S070。
 3. **W029 与 S075**：S075 文档 §14 已提议在 W029 的 S067/S068 之后加入 S075；本文不附议也不反对，只指出若采纳，S075 需读取 `prdRef` 版本。
+4. **`priorityRef` 无消费者**：S068 结果回填 S067 的路径在图上无 Workflow 使用；若要启用，需 S067/S068 共同定义 `candidateId ↔ requirementId` 映射并由某个 Workflow 作者接线；否则可考虑移除该字段。本文不假定。
 
 ## 15. 未决问题
 - `knowledge.read`、`sandbox.exec` 是否已登记于 ADR-120 目录（UNVERIFIED）。

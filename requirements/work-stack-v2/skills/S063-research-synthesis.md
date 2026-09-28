@@ -22,7 +22,7 @@ S063 **不做**的事：
 
 ## 2. 图上的消费者（逐条从矩阵读出）
 ### 2.1 Workflow（WORKFLOW-SKILL-MATRIX.md）
-S063 与 S171 的先后关系**逐条采用 `skills/S171-evidence-review.md` §2.1 的表述**，本文不另立说法。**UNVERIFIED**：`skills/S171-evidence-review.md` 在基线 `30c1c4332025151610502988b0379b95ff7298c7` 中不存在，目前只是同批次草稿，且 `reviews/S171.review.md` 当前结论为 REWRITE（未通过）。按该草稿 §2.1（W001/W009/W028/W045/W060 表）的现有表述：W001、W028 为 S063 之后 `claim-audit`，W009、W060 为 S063 之前 `appraise`（W045 不含 S063）；下表「S063 相对 S171 的位置」一列只以矩阵行顺序为准，对 S171 §2.1 的依赖在 S171 评审通过前保持 UNVERIFIED。
+S063 与 S171 的先后关系**逐条采用 `skills/S171-evidence-review.md` §2.1 的表述**，本文不另立说法。`skills/S171-evidence-review.md` 在基线 `30c1c4332025151610502988b0379b95ff7298c7` 中不存在，是同批次文档，现已通过评审（PASS）。按其 §2.1（W001/W009/W028/W045/W060 表）：W001、W028 为 S063 之后 `claim-audit`，W009、W060 为 S063 之前 `appraise`（W045 不含 S063）；下表「S063 相对 S171 的位置」一列与矩阵行顺序和 S171 §2.1 一致。
 
 | Workflow | 矩阵行 | S063 相对 S171 的位置 | S063 吃什么 | 输入模式 |
 |---|---|---|---|---|
@@ -33,7 +33,7 @@ S063 与 S171 的先后关系**逐条采用 `skills/S171-evidence-review.md` §2
 | W028 Research-to-Insight | 第 34 行：S062, S009, S063, S169, S171, S065 | **在 S171 之前**；S171 在 S063/S169 之后做 `claim-audit` | 访谈语料 | `qualitative-corpus`（`provisional`，见决策 6） |
 | W060 Research-to-Evidence | 第 66 行：S170, S003, S171, S169, S063, S172 | **在 S171 之后**（S171 `appraise`，按 S170 的 RQ） | `EvidenceReviewReport` | `reviewed-evidence` |
 
-W001 自己的文档（`workflows/W001-research-to-brief.md` §5）把 S171 `review` 排在阶段 3、S063 `synthesize` 排在阶段 4，这与矩阵顺序和 S171 文档都不一致。本文按矩阵与 S171 的说法写，把这处分歧交给 W001 作者裁定（§14 提议 2）。无论最后怎么定，S063 都不需要改：S171 如果在前，W001 用 `reviewed-evidence`；S171 如果在后，用 `search-ledger`；如果前后各跑一次，也用 `reviewed-evidence`，之后再过一次 `claim-audit`。
+W001 终稿（`workflows/W001-research-to-brief.md` §5）为阶段 3 synthesize（S063）→ 阶段 4 audit（S171 `claim-audit`），其决策 2 规定 S171 只在 S063 之后运行一次、不加 `appraise`，与矩阵和 S171 §2.1 一致。W001 中 S063 因此用 `search-ledger` 输入模式。
 
 ### 2.2 DigitalHuman（DIGITALHUMAN-COMPOSITION-MATRIX.md，S063 均在 Skill 列）
 S063 出现在以下 9 个角色的 Skill 列：
@@ -156,7 +156,7 @@ S063 **不定义自己的证据类型**，直接消费上游 Skill 的输出类�
 - `coverage`
 - `injectionFlags`
 
-W001 §6 中的 `EvidenceItem`（`verdict: supports|partially_supports|…`、`strength`）**不是** S063 的输入类型。如何对齐由 W001 作者决定（§14 提议 2）。
+W001 终稿直接采用 S171 的 `EvidenceReviewReport` 与 S003 ledger 的字段映射（W001 §5 阶段 3、4），不另设证据条目类型；阶段 3 消费 `relation ∈ {supports, contradicts}`，`superseded` 只作 contradicting 或写入 `limitations`，与 §4.3 一致。
 
 ## 6. 输出契约（`outputSchema`，S063 专属）
 ```ts
@@ -262,14 +262,14 @@ ResearchSynthesis = {
   - label 说的与某项研究一致，不等于有两份独立的研究证据。
 
 - **决策 6：没经过 S171 的产出一律是 `provisional`；S171 复核后，按算法重算，不再调用模型。**
-  - 适用范围：W001 现序（S063 → S171 claim-audit）、W028（S063 → S169 → S171 claim-audit），以及 W027（无 S171）。
+  - 适用范围：W028（S063 → S169 → S171 claim-audit，由其阶段 10 recompute 落实）与 W027（无 S171，恒为 provisional）。W001 终稿不做重算：不调用 `scripts/confidence.mjs`、无 provisional→final 转换，S020 直接按 S171 原子主张取 `allowedAssertion`，因此本决策的重算步骤不适用于 W001。
   - 在 S171 之前，S063 以 `status=provisional` 输出，X6 生效。
   - S171 `claim-audit` 返回后，Workflow 做三步：
     1. 用 `EvidenceReviewReport` 作为 `review`、以原 Finding 的 claim 作为锚点；
     2. 剔除 S171 判为 `irrelevant` 的引文或命中；
     3. 调用 `scripts/confidence.mjs` 重算 confidence 与 assertionCeiling（此时基值改用 B-REV，X6 解除），`status→final`。
   - 这一步**不重新调用模型改写措辞**。措辞超出新 ceiling 时，由 S171 的 `overclaim` 发现交给 Workflow 处理。
-  - 这与 S171 草稿决策 1（两种模式）以及 S171 草稿 §2.1 的位置描述一致（**UNVERIFIED**：S171 尚未通过评审，见 §2.1）。
+  - 这与 S171 决策 1（两种模式）以及 S171 §2.1 的位置描述一致（S171 已 PASS，见 §2.1）。
 
 ## 9. CN / US 差异（实质性的部分）
 - **公众意见征集（D030）**：
@@ -353,14 +353,8 @@ ResearchSynthesis = {
   - 如果 S169 作者化后发现它也在做「问题 → Finding」，应改为 MERGE 进 S063。
 
 ## 14. Graph change proposals（只提议，不改矩阵）
-1. **W027 缺证据评审**：W027 没有 S171，S063 的输出在这条 Workflow 里一直是 `provisional`（X6）。提议 W027 作者二选一：
-   - 在 S063 之后、S065 之前加 S171 `claim-audit`；
-   - 或者在 W027 文档里接受这个风险，并声明 provisional Finding 可以进入 S064/S065。
-2. **W001 内部不一致（交 W001 作者）**：
-   - (a) W001 §5 的阶段顺序（review 在 synthesize 之前）与矩阵、S171 §2.1 的顺序（S063 → S171 claim-audit）不一致。S171 §13 提议 3 已提出「前后各一次」的选项，S063 三种排法都支持（§2.1）。
-   - (b) W001 §6 的 `EvidenceItem`（`partially_supports`、`strength`）与 S171 实际输出的 `relation: partial` + `partialSupportedVersion` + `allowedAssertion` 不一致。建议 W001 直接采用 `EvidenceReviewReport`，删掉 `EvidenceItem` 这份副本。
-   - (c) W001 决策 2 规定 synthesize「只消费 supports|partially_supports」，但 W001 的 eval 又要求 Finding 带 contradicting，两者矛盾。S063 需要接收 contradicts 才能完成 §4.2 步骤 5 和 X2，建议 W001 修改决策 2 的措辞。
-   - 另外，S003 决策 2 写的是「W001 中 S003 之后立即接 S171」，与矩阵顺序也不一致，一并交给 W001 与 S003 的 owner 核对。
+1. **W027 缺证据评审（已决）**：W027 终稿已裁定「接受风险并声明」，`evidenceGrade` 恒为 `exploratory-provisional`；S063 在 W027 中的输出保持 `provisional`（X6）。本条不再提议。
+2. **W001 内部不一致（已决）**：W001 终稿已统一为 S063 → S171 `claim-audit`（仅一次，决策 2），并直接采用 `EvidenceReviewReport` 与 S003 ledger 字段映射，消费 `relation ∈ {supports, contradicts}`；原 (a)(b)(c) 三处分歧均已不成立。S003 决策 2「W001 中 S003 之后立即接 S171」的表述由 W001 §13 提议 2 交 S003 owner 修订，S063 不再跟进。
 3. 不建议拆分 S063（决策 1）。
 
 （旧版中「D043 需补挂 S065」的提议已删除：按 ADR-118 决策 9，Workflow 自己锁定 Skill 版本，拥有该 Workflow 的 Agent 不需要挂载这些 Skill。）
@@ -370,4 +364,3 @@ ResearchSynthesis = {
 - **S169 边界**：依赖 S169 作者化的结论（§13）。
 - **WX-S010 的定位**：WX-S010 interview-synthesis 是否退化为 `qualitative-corpus` 的前置步骤（先产出账本，再由 S063 做跨研究合成），由 Skill 目录 owner 决定。
 - **能力分类登记**：`knowledge.read`、`sandbox.exec` 在 ADR-120 分类目录中的登记，由目录 owner 负责。
-- **W001 裁定**：S171 在 S063 之前、之后，还是前后各一次，由 W001 作者裁定（§14 提议 2）。S063 的契约不受影响。

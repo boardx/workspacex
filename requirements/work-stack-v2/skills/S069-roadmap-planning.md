@@ -28,7 +28,7 @@ S069 **不做**的事（各有唯一归属）：
 |---|---|---|---|
 | W032 Roadmap Review（Product） | 第 38 行 | S069, S068, S072, S009, S008, S155 | 以 `mode = "revise"` 产出新版 `RoadmapPlan` 与 `changeLog`；S155 的 `roadmap-outcome` 复盘结论、S008 的 implication、S072 的指标结论、S009 的客户证据都只作为 S069 的**引用输入**，S068 的排序作为 S069 的**排序输入** |
 
-矩阵只给 Skill 集合，不给阶段顺序。S069 在 W032 中的阶段位置由 W032 作者决定；S069 的契约只要求 S068 排序结果在它之前可得（缺失时见 §5.4 `RANKING_MISSING`）。
+矩阵只给 Skill 集合，不给阶段顺序。阶段顺序由已定稿（PASS）的 W032 决策 1 固定：S072（阶段 2）→ S155（3）→ S009（4）→ S008（5）→ S068（6）→ S069（7，replan）；S068 排序因此在 S069 之前可得（缺失时仍按 §5.4 `RANKING_MISSING` 处理）。
 
 ### 2.2 DigitalHuman（`DIGITALHUMAN-COMPOSITION-MATRIX.md`）
 | DigitalHuman | 矩阵行 | 该行 Workflow | 该行 Skill 列 | gaps 列 |
@@ -91,7 +91,7 @@ RoadmapPlanningInput = {
   outcomes: Array<{ outcomeId: string; statement: string; metricRef: string; targetValue?: number }>;  // 1–10
   initiatives: Array<{
     initiativeId: string; title: string;            // ≤60 字
-    kind: "bet" | "incremental" | "foundation";
+    kind: "bet" | "incremental" | "foundation";    // 与 S068 候选 bucket 的映射见 §12（W032 阶段 6）
     bucket: "feature" | "health";
     estimate: { personWeeks: number; confidence: "high" | "medium" | "low" } | { appetiteWeeks: number };
     outcomeId?: string; requestedBy?: string[];     // principalId
@@ -154,7 +154,7 @@ RoadmapPlan = {
 3. `capacityLedger.nowLoad ≤ 1.0`；`buffer` 桶未被任何 item 占用。
 4. 依赖图无环；任何 item 的 `dependsOn` 项视野不晚于它自己。
 5. 有 `hardDeadline` 的举措要么在对应视野内，要么在 `notDoing`/降级项中且 `changeLog` 或 `adjustments` 显式记录冲突，不允许静默错过。
-6. `rank` 与 S068 排序逐项一致；次序违反排序的 item 必有 `rankOverride`。
+6. `rank` 与 S068 排序一致：S068 只交付名次带 `handoff.S069.bandOrder: string[][]`（S068 D2，带内无序），`rank` 取该 initiative 所在带的序号（从 1 起，同带同值，不在任何带中为 `null`），一致性按带比较（与 W032 X1 以 bandOrder 核对同口径）；次序违反带序（低带项排在高带项之前）的 item 必有 `rankOverride`，同带内次序不构成违反。
 7. `external-safe` 视图不含 `announced = false` 的项、不含 `evidenceRefs` 指向 S008 的内容。
 8. 每条 `changeLog` 有 `trigger`；`evidenceRefs = []` ⇒ `trigger = strategy` 且 `decidedBy` 为人类 principal。
 9. 输出中无打分字段（`score`、`rice`、`ice`）。
@@ -179,7 +179,7 @@ RoadmapPlan = {
 | `previousPlanRef` / `rankingRef` / `evidenceRefs` | 给 id | 按调用者身份与组织读取对应版本；**不接受**调用方内联的上一版正文或排序值。 |
 | `capacity.headcount` | 可声明 | 不核实真伪（无 HR 数据接线，**proposed-unwired**）；输出 `capacityLedger` 标 `source = "caller-declared"`，W032 人工门时展示。 |
 | `decidedBy` | 不可声明 | 取自会话认证主体；Agent 自身不能成为 `decidedBy`。 |
-| `status` | 不可声明 | 恒为 `draft`；转 `approved` 只能经 W032 的人工门（W032 文档未作者化，门的形态 **UNVERIFIED**）。 |
+| `status` | 不可声明 | 恒为 `draft`；转 `approved` 只能经 W032 的人工门：W032 §5 阶段 9 的 G2 是唯一 draft→approved 转换点（W032 决策 5，含 multi-gate 条件）。 |
 | `announced` | 可声明 | 不核实；为 false 时一律不进外部视图，错报只会让外部视图变少。 |
 
 ## 7. 依赖（能力分类，ADR-120）
@@ -239,6 +239,7 @@ RoadmapPlan = {
 - **机检脚本：** `scripts/check-plan.mjs` 在 `apps/skill-sandbox` 执行，**proposed-unwired**。
 - **路线图持久化：** 在 baseline 的 `apps/`、`packages/` TypeScript 源码中按关键词 `roadmap` 检索，只命中 web 端 mock/survey 文件，未发现路线图领域模型。`RoadmapPlan` 的存储（作为 Artifact 版本还是专用表）**proposed-unwired**，由 W032 作者决定。
 - **与 S155 的衔接：** `items[].expectedOutcome` 映射为 S155 输入的 `commitments[kind = roadmap-outcome]`；映射规则（S155 已 PASS，按其 §5.1 定稿）：`commitmentId = <planId>:<itemId>`；`kind = "roadmap-outcome"`；`metricRef`、`definitionVersion`、`targetValue`、`targetSetAt` 原样传递；`direction up → polarity higher-is-better`，`down → lower-is-better`；`ownerPrincipalId` 取该项负责人；`reviewAfter` 仅用于选择 S155 的 `period`，不进 commitment。映射适配器本身 **proposed-unwired**（W032 内执行）。
+- **与 S068 的 kind/bucket 映射：** S069 `initiatives[].kind` 与 S068 候选 `bucket`（big-bet / incremental / table-stakes / unclassified）不一一对应；按 W032 阶段 6（W032 §13 提议 4）：`bet → big-bet`，`incremental → incremental`，`foundation` 不传。S069 的 `kind` 仍是本技能的组合比例口径（C4），不回写 S068 的 `bucket`。映射适配器 **proposed-unwired**（W032 内执行）。
 
 ## 13. Graph change proposals（只提议，不改矩阵，不假定采纳）
 1. **W030 Sprint Planning 类 Workflow（D003、D015 都拥有 W030）：** 若 W030 需要读取 Now 段承诺作为冲刺输入，可考虑让 W030 引用 S069 产物而非固定 S069；是否需要边由 W030 作者判断。
@@ -246,7 +247,7 @@ RoadmapPlan = {
 3. **W053 Weekly PMO Review：** 其 Skill 列含 S144 容量；若 S144 定稿后与 S069 C1 的净容量口径不同，应让 S069 引用 S144 的容量产物而不是自算，避免两个容量事实源。
 
 ## 14. 未决问题
-- W032 的阶段顺序与人工门形态未作者化（UNVERIFIED），S069 的 `status = draft` 转 `approved` 依赖它。
-- S068 排序产物字段未定稿，`rankingRef` 的解析适配待 S068 PASS 后补齐。
+- S069 的 `status = draft` 转 `approved` 依赖 W032 §5 阶段 9 的 G2 人工门（W032 决策 5，含 multi-gate 条件）；W032 已定稿，此项不再 UNVERIFIED，门的运行时实现仍以 W032 文档为准。
+- S068 已 PASS：交给 S069 的只有 `handoff.S069.bandOrder: string[][]`（S068 D2），W032 阶段 7 映射为 `rankingRef = {skill: "S068", rankingId: proposalId}`；`items[].rank` 由 bandOrder 按带序导出（见 §5.3 不变量 6）。解析适配器本身 **proposed-unwired**（W032 内执行）。
 - CN/US 节假日表的数据源与年度更新责任未定。
 - `knowledge.read`、`sandbox.exec` 是否已在 ADR-120 目录登记（UNVERIFIED）。

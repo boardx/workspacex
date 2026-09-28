@@ -15,8 +15,8 @@ S072 对**一组已经定义好的产品指标**做一次周期性（或事件�
 S072 **不做**（各有唯一归属）：
 | 不做 | 归谁 |
 |---|---|
-| 设计 KPI 树、定目标值与护栏 | S162 KPI Design（S072 只读取 S162 的 `kpiId`/`thresholds`/`target`） |
-| 写指标的精确 SQL 口径 | S166 Metric Definition（S072 只核对口径**版本**是否在复盘窗口内变过） |
+| 设计 KPI 树、定目标值与护栏 | S162 KPI Design（S072 只读取 S162 的 `kpiId`/`thresholds`/`target`；`target` 在 S162 是对象，S072 取其 `target.value`） |
+| 写指标的精确 SQL 口径 | S166 Metric Definition（S072 只核对口径**版本**是否在复盘窗口内变过；work-stack-v2 无 S166 FINAL 文档，其产物形状 UNVERIFIED） |
 | 定义「激活」 | S074 User Activation（S072 引用 `ActivationDefinition.definitionId`，见 S074 §「S072」） |
 | 实验的假设检验与效应估计 | S161 Statistical Analysis；实验设计归 S071 |
 | 开放式探索、找新规律 | S157 Data Exploration |
@@ -24,7 +24,7 @@ S072 **不做**（各有唯一归属）：
 
 ## 2. 图上的消费者（逐条从矩阵读出，不推导）
 ### 2.1 Workflow（WORKFLOW-SKILL-MATRIX.md）
-| Workflow | 矩阵行 | 矩阵 Skill 集合（原样） | S072 在其中的职责（本文对接口的期望，阶段顺序由 Workflow 作者定） |
+| Workflow | 矩阵行 | 矩阵 Skill 集合（原样） | S072 在其中的职责（本文对接口的期望；W031 顺序已由 W031 决策 1 确定：S074 → S072 → S071 → … → S157） |
 |---|---|---|---|
 | W031 Experiment Loop（Product） | 第 37 行 | `S071, S072, S157, S161, S074` | `mode="experiment-metric-audit"`：对 S071 将要引用的主指标 / 护栏指标核对口径与基线，产出可被 S071 `metricRef`、`baselineRef`（`{ skill: "S072"; reportId }`，见 S071 §5/§7）引用的报告 |
 | W032 Roadmap Review（Product） | 第 38 行 | `S069, S068, S072, S009, S008, S155` | `mode="outcome-review"`：检查已上线路线图条目声明要推动的指标是否动了，结论供 S069 `evidenceRefs`（`{ skill: "S072"; artifactId; itemId }`，见 S069 §5）和 S155 `driverAnalyses` 引用 |
@@ -47,7 +47,7 @@ S072 **不做**（各有唯一归属）：
 
 ## 4. 专业方法（S072 专属步骤）
 ### A. 可信度门（先判「能不能信」，再看趋势）
-- **A1 口径锚定。** 每个指标必须带 `definitionRef`（S166 口径 id + 版本）或 `activationDefinitionRef`（S074）。只有名字没有口径的指标 → `verdict="untrusted"`，`reasons=["no-definition"]`，不参与后续步骤。口径来源为 `caller-declared` 时允许继续，但该指标任何结论的 `confidence` 上限为 `low`。
+- **A1 口径锚定。** 每个指标必须带 `definitionRef`（S166 口径 id + 版本；S166 形状 UNVERIFIED）或 `activationDefinitionRef`（S074）。只有名字没有口径的指标 → `verdict="untrusted"`，`reasons=["no-definition"]`，不参与后续步骤。口径来源为 `caller-declared` 时允许继续，但该指标任何结论的 `confidence` 上限为 `low`。
 - **A2 口径漂移。** 服务端读到的口径版本若在 `window.current` 或 `window.comparison` 内有变更（`definitionChangedAt ∈` 任一窗口），则两期不可比：`verdict="incomparable"`，`reasons=["definition-changed"]`，并附变更时间点。**不**尝试在两种口径之间换算——换算属于 S166 的回溯重算。
 - **A3 新鲜度与完整性。** 当前窗口最后一个完整数据日早于 `window.current.end − freshnessSlaHours` → `stale`；当前窗口日数据点缺失率 > 10%（或调用方给的 `maxMissingRatio`）→ `incomplete`。二者都把 `verdict` 设为 `untrusted`，并列出缺失日期。
 - **A4 最小样本。** 比率类指标的分母 < `minDenominator`（默认 200；S162 `thresholds.minSampleSize` 若存在则以它为准）→ 该指标（或该分群）只报数值，`movement="insufficient-sample"`。
@@ -80,9 +80,9 @@ MetricsReviewInput = {
             comparison?: { start: string; end: string } };      // 缺省 = 紧邻的上一个等长窗口
   metrics: Array<{                                              // 1–25
     metricId: string;
-    kpiRef?: { skill: "S162"; designId: string; kpiId: string };        // 提供 level/direction/thresholds/target
-    definitionRef?: { skill: "S166"; definitionId: string; version: number };
-    activationDefinitionRef?: { skill: "S074"; definitionId: string };
+    kpiRef?: { skill: "S162"; kpiId: string };                          // = S162 KpiTreeDesign.nodes[].kpiId（S162 无 designId 字段）；提供 level/direction/thresholds/target（target 取 target.value）
+    definitionRef?: { skill: "S166"; definitionId: string; version: number };   // UNVERIFIED：无 S166 FINAL 文档；S162 metricDefinitions[].definitionRef 为纯字符串，按 definitionId 承接
+    activationDefinitionRef?: { skill: "S074"; definitionId: string };  // S074 输入与 W031 trigger 为纯字符串（= ActivationDefinition.definitionId），调用方（W031）须包装为 { skill:"S074", definitionId: <该字符串> }
     aggregation: "ratio" | "mean" | "count" | "cumulative";
     series?: Array<{ periodStart: string; value: number; numerator?: number; denominator?: number;
                      segment?: Record<string, string> }>;             // 仅无 dataSourceRef 时由调用方提供
@@ -95,7 +95,7 @@ MetricsReviewInput = {
                      scope?: Record<string, string>; sourceRef?: string }>;
   roadmapItems?: Array<{ itemId: string; roadmapRef?: { skill: "S069"; artifactId: string };
                          expectedMetricId: string; expectedDirection: "up" | "down"; launchedAt: string;
-                         experimentResultRef?: { skill: "S161"; resultId: string } }>;
+                         experimentResultRef?: { skill: "S161"; reportId: string } }>;   // = S161 输出主键 reportId
   params?: { baselinePeriods?: number; k?: number; minDenominator?: number; maxMissingRatio?: number;
              freshnessSlaHours?: number; eventWindowDays?: number };
   locale: "zh-CN" | "en-US"; market?: "CN" | "US" | "global";
@@ -119,7 +119,7 @@ MetricsReviewReport = {
                            result: "moved-as-expected" | "no-detectable-change" | "moved-opposite" | "not-measurable";
                            basis: "noise-band" | "experiment-result"; experimentResultRef?: string }>;
   experimentReadiness?: Array<{ metricId: string; role: "primary" | "guardrail"; experimentReady: boolean;
-                                baseline: number | null; sd?: number; baselineSource: "server-data" | "caller-declared";
+                                baseline: number | null; sd?: number; baselineSource: "server-data" | "caller-declared";   // 注意：S071 inputsUsed.baselineSource 取值为 "server-report" | "caller-declared"，且取回 S072 报告后一律写 "server-report"
                                 unitMismatch?: { metricUnit: string; randomizationUnit: string };
                                 blockers: string[] }>;
   openQuestions: Array<{ id: string; metricId: string; question: string }>;
@@ -134,7 +134,7 @@ MetricVerdict = {
   verdict: "healthy" | "watch" | "concern" | "incomparable" | "untrusted";
   reasons: Array<"no-definition" | "definition-changed" | "stale" | "incomplete" | "out-of-band-bad" |
                  "out-of-band-good" | "wow-yoy-conflict" | "below-threshold" | "simpson" | "vanity-risk">;
-  current: number | null; comparisonWoW: number | null; comparisonYoY: number | null; target: number | null;
+  current: number | null; comparisonWoW: number | null; comparisonYoY: number | null; target: number | null;   // = S162 target.value（S162 target 为 { value; unit; byDate?; basis }）
   movement: "up" | "down" | "flat" | "no-baseline" | "insufficient-sample" | "not-evaluated";
   noiseBand?: { low: number; high: number; periods: number; k: number };
   decomposition?: { dimension: string; primaryDriver: "rate" | "mix-shift" | "mixed";
@@ -166,7 +166,7 @@ MetricVerdict = {
 
 ## 7. 依赖（能力分类，ADR-120）
 - **required**：`sandbox.exec`，运行 `noise-band.mjs` 与 `check-report.mjs`。沙箱入口 `apps/skill-sandbox/src/execute-script.ts` 已核实存在；API 侧 `apps/api/src/application/agent-run/run-skill-script.ts` 已核实存在，调用细节 UNVERIFIED。两个脚本均 proposed-unwired；纯 JS 实现（中位数、MAD、线性分解），不依赖 scipy。
-- **conditional**：`data.read`（`dataSourceRef` 取数）与 `knowledge.read`（读 S162/S166/S074/S069/S161 产物）。两者是否已在 ADR-120 目录登记：**UNVERIFIED**（S071 §7 同样标为待登记）。
+- **conditional**：`data.read`（`dataSourceRef` 取数）与 `knowledge.read`（读 S162/S166/S074/S069/S161 产物）。两者是否已在 ADR-120 目录登记：**UNVERIFIED**（S071 §7 同样标为待登记）。命名不一致：W031 阶段 4 把 S072 取数写作 `analytics.read`、阶段 5 取回 S072 报告写作 `report.read`，W032 阶段 2 写作 `metrics.read`；同一取数能力三个名字，本文沿用 `data.read`/`knowledge.read`，统一名待 ADR-120 目录登记时确定。
 - 在 baseline 的 `apps/`、`packages/` `*.ts` 中检索 `semantic.layer|metricDefinition|metric_definition` 结果为 0：WorkspaceX **没有**指标口径注册表或语义层，因此 A1/A2 的「服务端读口径版本」整体为 **proposed-unwired**，在其落地前 `definition.source` 只能是 `caller-declared`，所有结论 `confidence=low`。
 - 无外部写副作用（不改仪表盘、不发告警），riskClass=low；报告版本的持久化由调用它的 Workflow 运行时或对话 Artifact 负责（W031/W032 运行态存储 proposed-unwired，ADR-118）。
 
@@ -174,7 +174,7 @@ MetricVerdict = {
 | 项 | 调用方可声明 | 服务端必须核实 |
 |---|---|---|
 | 是否允许调用 | — | 对话直调：当前 Agent 已发布版本在 `agent_versions.skill_version_ids` 固定了 S072（字段注释见 `packages/contracts/src/identity.ts:363,431`，写入路径 `apps/api/src/application/agent-skill-pins/set-agent-skill-pins.ts`，均已核实文件存在；运行时拦截位置 UNVERIFIED）。Workflow 内：由 W031/W032 固定版本授权（ADR-118 决策 9）。 |
-| `series` 数值 | 可以直接给 | 不核实真伪；一律 `dataSource="caller-declared"`、`confidence="low"`，且 S071 读取时看到 `baselineSource="caller-declared"`。 |
+| `series` 数值 | 可以直接给 | 不核实真伪；一律 `dataSource="caller-declared"`、`confidence="low"`，S072 报告中 `experimentReadiness[].baselineSource="caller-declared"`；但 S071 契约取回 S072 报告后一律记为 `"server-report"`，该低置信在 S071 中不保留，W031 另以 `baselineConfidence="low"` 承接。 |
 | `dataSourceRef` | 给 id | 按调用者身份与组织取数；取不到或无权 → `REF_NOT_FOUND` / `DATA_ACCESS_DENIED`。调用方同时附带的 `series` 被忽略（不变式「恰有其一」在前）。 |
 | 口径版本与 `definitionChangedAt` | 不可声明 | 只认服务端从 S166 产物读到的版本历史；调用方写「口径没变过」无效。 |
 | `kpiRef` 中的 `direction` / `thresholds` / `target` | 不可覆盖 | 从 S162 产物读取；调用方若另给 target，只作为 `notes` 展示，不参与 `below-threshold` 判定。 |
@@ -185,7 +185,7 @@ MetricVerdict = {
 - **节假日对齐。** CN 的春节、国庆为浮动或长假且伴随调休工作日，B1 的「同星期几对齐」在这些周失效：`market="CN"` 时服务端节假日表（proposed-unwired）把春节前后各 2 周、国庆周标为 `holiday` 事件，同比改为**农历对齐**的去年同期。US 对应黑五/网一、感恩节、圣诞到新年，按公历周对齐即可。未提供节假日表时，这些周自动 `wow-yoy-conflict` → 最高 `watch`。
 - **活跃口径惯例。** CN 业务常以 DAU/MAU 与「小程序打开」计活跃，B3 会更频繁触发 `vanity-risk`；US SaaS 常以 WAU/席位活跃计。差异只影响提示频率，不改判定规则。
 - **分群维度的合规。** 按地区/年龄/性别等维度拆解（C1）时：CN 下涉及未成年人的分群、以及基于个人信息的精细分群，受《个人信息保护法》最小必要原则约束；US 下对受保护特征（种族等）的分群在就业/信贷/住房类产品上有歧视风险。S072 在 `segmentDimensions` 含这类维度时只附 `complianceNote`，并把最小分群阈值提高到 `minDenominator×5`，不构成法律意见。
-- **财务口径。** CN 收入类指标常含税（增值税），US 多为不含 sales tax；同一报告混用会造成伪变化。收入类指标若两期 `definition.version` 的含税标记不同，按 A2 判 `incomparable`（依赖 S166 口径字段，UNVERIFIED）。
+- **财务口径。** CN 收入类指标常含税（增值税），US 多为不含 sales tax；同一报告混用会造成伪变化。收入类指标若两期 `definition.version` 的含税标记不同，按 A2 判 `incomparable`（依赖 S166 口径字段；S166 整体形状 UNVERIFIED）。
 
 ## 10. 失败模式（S072 特有）
 | # | 失败 | 检测 | 处置 |
@@ -221,23 +221,23 @@ MetricVerdict = {
 
 ## 12. WorkspaceX 落位
 - **Skill 包：** `skills/standard-methods/metrics-review/SKILL.md`，元数据按 ADR-117 写 frontmatter；`scripts/noise-band.mjs`、`scripts/check-report.mjs`、`references/upstream.md`。`skills/standard-methods/` 目录已存在（S066 §12 已核实）；本包 **proposed-unwired**。
-- **与相邻文档的接口：** S071 读取 `experimentReadiness[].baseline/sd/baselineSource` 与 `reportId`；S069 以 `{skill:"S072", artifactId: reportId, itemId}` 引用 `outcomeReviews`；S155 以 `producedBySkill="S072"` 引用 `verdicts[].explanation`。这三处字段名以本文 §6 为准，适配器待各文档 PASS 后核对（S071、S069、S155 当前均未 PASS，UNVERIFIED）。
+- **与相邻文档的接口：** S071 读取 `experimentReadiness[].baseline/sd/baselineSource` 与 `reportId`；S069 以 `{skill:"S072", artifactId: reportId, itemId}` 引用 `outcomeReviews`；S155 以 `producedBySkill="S072"` 引用 `verdicts[].explanation`。这三份现均已 PASS，核对结果：S071 `baselineSource` 取值为 `"server-report" | "caller-declared"`，与本文 `"server-data"` 名称不同，且 S071 取回报告后一律写 `"server-report"`，本文标 caller-declared 的基线在 S071 中不再可见（W031 以 `baselineConfidence="low"` 补上）；S071 预注册凭据为 `preregistrationDigest = hypothesesDigest`；S161 主键为 `reportId`（本文 `experimentResultRef` 已对齐）。
 - **口径注册 / 语义层、节假日表、Workflow 运行态存储：** 均不存在于 baseline（§7 检索），proposed-unwired。
 
 ## 13. 决策
 - **决策 1：先判可信，再判变化。** A 组门（口径、新鲜度、完整性、样本）不通过的指标不进入趋势分析和 headline。上游流程是「收数 → 看趋势」，但指标复盘最常见的事故是口径变更或数据延迟被当成业务下跌；把可信度做成前置硬门，比在报告末尾写 caveat 更可检验（E1、E2）。
-- **决策 2：调用方粘贴的数可以复盘，但永远是低置信。** 不拒绝无数据源的用户（D003 对话里很常见），但 `caller-declared` 在 schema 中可见、在下游（S071 `baselineSource`）传递，防止粘贴数字经由 S072 被「洗」成服务端事实。
+- **决策 2：调用方粘贴的数可以复盘，但永远是低置信。** 不拒绝无数据源的用户（D003 对话里很常见），但 `caller-declared` 在 S072 schema 中可见；但 S071 契约取回后一律写 `"server-report"`，低置信在 S071 未落实，下游传递实际由 W031 的 `baselineConfidence="low"` 承担。目的是防止粘贴数字经由 S072 被「洗」成服务端事实。
 - **决策 3：「动了没有」用该指标自己的历史噪声带判定，不用固定百分比阈值。** ±5% 对日活是大事、对小分群转化率是噪声。噪声带基于中位数/MAD，对单个异常周稳健；参数可调但有上下界（k∈[2,5]，周期 ≥6）。S162 的 `thresholds` 另作 `below-threshold` 判定，两者不互相替代。
 - **决策 4：只给解释与待查项，不给决策与评分。** 原因只能是「时间上相关的已登记事件」，禁止因果措辞；路线图复盘只有四值结果。因果推断归 S161/S071，产品决策归 D003 和 W032 的人类闸门。
-- **决策 5：S072 不是 W031 的预注册凭据。** 与 S071 决策 1 一致：S072 审的是指标口径和基线，冻结假设与分配的是 S071 的 `designDigest`。本文因此不产出任何「预注册」字段，并在 §14 呼应对 S161 §7 的修正提议。
+- **决策 5：S072 不是 W031 的预注册凭据。** 与 S071 决策 1 一致：S072 审的是指标口径和基线，预注册凭据是 S071 的 `preregistrationDigest = hypothesesDigest`（S071 决策 1 明确不用 `designDigest`）。本文因此不产出任何「预注册」字段，并在 §14 呼应对 S161 §7 的修正提议。
 
 ## 14. Graph change proposals（只提议，不改矩阵，不假定采纳）
-1. **S074 → S072 的定义依赖：** S074 文档建议在 W031 中把 S074 `define` 放在 S072 之前；本文以可选输入 `activationDefinitionRef` 承接，不需要改图。W032 若复盘激活类指标，是否需要 S074 进入 W032 集合，由 W032 作者判断。
+1. **S074 → S072 的定义依赖：** S074 文档建议在 W031 中把 S074 `define` 放在 S072 之前，已被 W031 决策 1 采纳；本文以可选输入 `activationDefinitionRef` 承接，不需要改图。W032 §13 第 5 条已答复 S074 不进入 W032。
 2. **S162 / S166 与 S072：** W031、W032 均不含 S162、S166，S072 读其产物只能依赖已存在的产物引用。若 W032 作者发现复盘时经常缺口径，建议评估加入 S166。
-3. **S161 §7 预注册核对来源：** 支持 S071 §13 的提议——由「W031 运行记录中 S072 阶段产物」改为 S071 `designDigest`（接口修正，非改边）。
+3. **S161 §7 预注册核对来源：** 支持 S071 §13 的提议——由「W031 运行记录中 S072 阶段产物」改为 S071 `preregistrationDigest = hypothesesDigest`（接口修正，非改边；W031 §13 第 4 条同样采用 hypothesesDigest）。
 
 ## 15. 未决问题
 - `data.read`、`knowledge.read`、`sandbox.exec` 是否已在 ADR-120 登记（UNVERIFIED）。
 - 无指标口径注册表时，A2 口径漂移只能依赖调用方的 `definition-change` 事件；口径注册表归属哪个 feature 尚未确定。
 - CN 农历对齐的节假日表的维护方与数据来源未定。
-- W031 中 S072 与 S157 的先后（S157 §「未决」第 2 条）由 W031 作者定；本文 D1 不依赖顺序，但若护栏由 S072 确认，S157 预检的 `blindedMetrics` 应包含之。
+- W031 中 S072 与 S157 的先后（S157 §「未决」第 2 条）已由 W031 决策 1 定为 S074(define/diagnose) → S072 → S071 → … → S157，并确认 S072 确认的护栏进入 S157 预检的 `blindedMetrics`；已结。

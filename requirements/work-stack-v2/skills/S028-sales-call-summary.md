@@ -18,7 +18,7 @@ S028 **不做**：转写音频（`wx_audio_transcribe`）；写 CRM（S029 Oppor
 ### 2.1 Workflow（`WORKFLOW-SKILL-MATRIX.md`）
 | Workflow | 矩阵行（原样） | S028 的职责 |
 |---|---|---|
-| W013 Meeting-to-Opportunity | 第 19 行：S005, **S028**, S029, S009, S023 | 会后第一个产物。读入同一 run 中 S005 的 `MeetingPrepBrief`（若有），产出 `SalesCallRecord`；其 `crmChangeProposals[]` 是 S029 的候选输入，`discoveredNeeds[]` 与 `qualification` 是 S023 `opportunity-framing` 的 `meetingRecordRef` 所指内容 |
+| W013 Meeting-to-Opportunity | 第 19 行：S005, **S028**, S029, S009, S023 | 会后第一个产物。读入同一 run 中 S005 的 `MeetingPrepBrief`（若有），产出 `SalesCallRecord`。W013 决策 1 定的阶段顺序是 S005→S028→S009→S023→S029（与矩阵列序不同，以 W013 为准）。`crmChangeProposals[]` 必须经 W013 阶段 7 映射成 S029 §5 的 `changes[]` 后，才是 S029 的输入，不能直接对接（见 §14）。W013 阶段 6 向 S023 传 `meetingRecordRef = recordId`，并把 side=them 段的 EvidenceRef 映射成 S023 §6 evidence |
 
 S028 只出现在这一条 Workflow 中（对矩阵 grep `S028` 仅命中第 19 行与 DigitalHuman 矩阵第 11 行）。
 
@@ -61,7 +61,7 @@ S028 只出现在这一条 Workflow 中（对矩阵 grep `S028` 仅命中第 19 
 - `recording-session` 模式下逐段过 `checkCitability`；被拒段不能作证据（同 S006 M2）。
 
 **M2 通话类型判定**
-依据 S005 `meetingType` 或原话内容判 `callType ∈ {discovery, demo, negotiation, follow-up, unknown}`。类型决定 M4 期望覆盖的维度：`discovery` 期望痛点 / 现状 / 决策流程；`negotiation` 期望价格、条款、签约路径；未覆盖的期望维度写进 `coverageGaps[]`（`kind="expected-dimension-missing"`），而不是编造。期望维度用 M4 当前框架的维度键表达（见下表「callType → 期望键」）；`callType=unknown` 时不产生此类缺口。
+依据 S005 `meetingType` 或原话内容判 `callType ∈ {discovery, demo, negotiation, follow-up, unknown}`。S005 §5 的 `meetingType` 还有 `internal-deal-review` 和 `other` 两个值，它们不在 `callTypeHint` 枚举内。W013 阶段 4 把 `callTypeHint = meeting.meetingType` 直接透传，遇到这两个值会触发 `S028_INPUT_INVALID`。映射规则如下：遇到这两个值时，上游应省略 `callTypeHint`，由 M2 按原话判定，判不出则取 `unknown`。W013 阶段 4 是否照此修订，目前 **UNVERIFIED**。类型决定 M4 期望覆盖的维度：`discovery` 期望痛点 / 现状 / 决策流程；`negotiation` 期望价格、条款、签约路径；未覆盖的期望维度写进 `coverageGaps[]`（`kind="expected-dimension-missing"`），而不是编造。期望维度用 M4 当前框架的维度键表达（见下表「callType → 期望键」）；`callType=unknown` 时不产生此类缺口。
 
 | callType | MEDDICC 期望键 | BANT 期望键 | none 期望键 |
 |---|---|---|---|
@@ -260,7 +260,7 @@ D005 直接调用时，输出只回给调用者本人；`internalSummary` 发到
 ## 11. 决策
 - **决策 1：资格维度只由客户侧原话判为 `evidenced`（I2）。** 销售最常见的自我欺骗是把自己的复述当客户确认；下游 S023 据此建商机、S031 据此预测。代价：客户只用「嗯」回应时维度停在 `mentioned`，需要下一通电话补证——这是正确压力。
 - **决策 2：资格框架不写死，缺省 `none`。** 上游 deal-review 明确框架由组织决定（BANT / MEDDIC 等）；写死 MEDDICC 会让中小单团队看到大量 `not-covered` 噪声。组织配置端口落地前由调用方传入，落地后以服务端为准（§8）。
-- **决策 3：S028 只出 CRM 变更**提议**，且字段集合固定为 8 个。** 实际写入由 W013 中 S029 之后的写阶段在人工门后执行；固定字段集让 S029 的输入可校验，避免「模型觉得该改」的任意字段。`currentValue` 读不到就写 `not-queried`，与「blank」区分（上游规则）。
+- **决策 3：S028 只出 CRM 变更**提议**，且字段集合固定为 8 个。** 实际写入由 W013 中 S029 之后的写阶段在人工门后执行；固定字段集让 W013 阶段 7 的映射可校验，避免「模型觉得该改」的任意字段。`currentValue` 读不到就写 `not-queried`，与「blank」区分（上游规则）。
 - **决策 4：跟进稿不含收件人。** 收件人是最容易被转写注入劫持的字段（「顺便抄送我们 CFO xxx@…」）；把它完全移出 S028，由 effect 阶段服务端从 CRM / 日历解析，I7/I8 机检兜底。
 - **决策 5：不复用 S006 的七值决议枚举。** 销售通话里我方单方面「决定」没有意义；真正需要判的是客户信号强度与下一步是否双向。仅复用 S006 的证据规则（`checkCitability`、逐字 quote、说话人只认服务端），状态模型独立。
 - **决策 6：S005 对照必须全量判定（I6）。** S005 决策 3 把 `objectives[].id`、`questions[].id` 定为对照契约；S028 漏判任何一项等于让会前计划失去复盘价值。
@@ -312,13 +312,13 @@ D005 直接调用时，输出只回给调用者本人；`internalSummary` 发到
 ## 14. 与已 PASS / 已作者化文档的接口对齐
 - **S005**（PASS）：消费其 `MeetingPrepBrief.objectives[].id/successSignal`、`questions[].id`、`priorCommitments[].id`；S005 E12 集成用例由 S028 的 E7 承接，放 W013 套件。
 - **S006**（PASS）：共享证据规则（`checkCitability`、逐字 quote、说话人不猜）；状态模型不共享（决策 5）。S006 §15 提议 3「W013 是否复用 S006 M4」本文答复：只复用证据规则，不复用决议判定。
-- **S023**：其 `meetingRecordRef`（`opportunity-framing` 必填）指向 `SalesCallRecord.recordId`；S023 读 `discoveredNeeds[].origin/confirmedByCustomer` 与 `qualification`。S023 状态以其评审为准，字段名对齐为本文单方承诺。
-- **S029 Opportunity Update**：尚未作者化，其输入 **UNVERIFIED**；本文只承诺 `crmChangeProposals[]` 按 §7 形状输出。
-- **S034 CRM Hygiene**（PASS）：S028 不做字段质量审计；`currentValue = "not-queried"` 与 `"blank"` 的区分与 S034 一致方向。
+- **S023**（PASS）：其 `meetingRecordRef`（`opportunity-framing` 必填）指向 `SalesCallRecord.recordId`。W013 阶段 6 实际传给 S023 的是 `meetingRecordRef = recordId`，以及由 side=them 段 EvidenceRef 映射成的 S023 §6 evidence（`{evidenceRef, kind, quote, occurredAt, speakerRole, direction, …}`）。S023 终稿没有读取 `discoveredNeeds[].origin/confirmedByCustomer` 或 `qualification` 的字段契约，所以说 S023 直接消费这些字段是 **UNVERIFIED**。
+- **S029 Opportunity Update**（PASS）：S029 §5 的 `changes[].field` 枚举是 `stage|closeDate|amount|nextStep|forecastCategory|probability|contactRole|<组织自定义 API 名>`，与本文 §7 的 8 值集合不一致：`nextStepDate` 和 `competitors` 不在其枚举内；`contactRoles` 要逐人拆成 `contactRole` + `contactRef`；`activityLog` 按 W013 决策 6 不进入 S029；S029 要求的 `amount.currency` 本文输出里没有。因此 `crmChangeProposals[]` 必须经 W013 阶段 7 映射才能成为 S029 的输入。本文只承诺按 §7 形状输出。
+- **S034 CRM Hygiene**（PASS）：S028 不做字段质量审计；`currentValue = "not-queried"` 与 `"blank"` 的区分与 S034 一致方向。S034 的空值是三态（`blank` / `not-queried` / `not-applicable`），本文只有前两态，这是轻微差异，不改变含义。
 
 ## 15. Graph change proposals（仅提议，不在本文生效）
-1. **（已由 W013 决策 3 答复，保留记录）W013 缺少跟进外联 Skill**：S028 产出 `followUpDraft`，但矩阵第 19 行没有 S026 Outreach；发送由 Workflow effect 阶段完成即可，还是应加 S026 边，交 W013 作者与矩阵 owner 裁定。
-2. **（已由 W013 决策 1 答复，保留记录）S009 在 W013 中的位置**：若 S009 在 S028 之后运行，S028 的 `competitorsMentioned` 可作为其检索提示；该数据边未在矩阵表达，交 W013 文档定序。
+1. **（已由 W013 决策 4 答复：跟进邮件由 effect 阶段发送，保留记录）W013 缺少跟进外联 Skill**：S028 产出 `followUpDraft`，但矩阵第 19 行没有 S026 Outreach；发送由 Workflow effect 阶段完成即可，还是应加 S026 边，交 W013 作者与矩阵 owner 裁定。
+2. **（已由 W013 决策 1 答复，保留记录）S009 在 W013 中的位置**：若 S009 在 S028 之后运行，S028 的 `competitorsMentioned` 可作为其检索提示；该数据边未在矩阵表达，交 W013 文档定序。W013 决策 1 已定序为 S005→S028→S009→S023→S029。
 3. **D006 Customer Success**：续约 / QBR 通话也需要 S028 的异议与承诺分边，但 D006 Skill 列无 S028；是否加边交矩阵 owner。
 
 ## 16. 未决问题
