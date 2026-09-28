@@ -82,6 +82,63 @@ describe("WF03 instance lifecycle API", () => {
     await settled(a.body.instanceId);
   }, 60_000);
 
+  it("A1 on the failure path: a rejected start (422/403) replays the same rejection for the same requestId; no receipt is left in flight", async () => {
+    const requestId = rid();
+    const bad = { agentId: AGENT, requestId, input: { topic: 42 } };
+    const first = await alice().post(START, bad);
+    expect(first.status).toBe(422);
+    expect(first.body.code).toBe("trigger_input_invalid");
+    const t0 = Date.now();
+    const [again, concurrent] = await Promise.all([alice().post(START, bad), alice().post(START, bad)]);
+    expect(Date.now() - t0).toBeLessThan(5_000); // 不再空转到 in-flight 超时
+    for (const r of [again, concurrent]) {
+      expect(r.status).toBe(422);
+      expect(r.body).toEqual(first.body);
+    }
+    const fixed = await alice().post(START, { ...bad, input: { topic: "修好了" } });
+    expect(fixed.status).toBe(409);
+    expect(fixed.body.code).toBe("idempotency_key_reused");
+
+    const forbiddenReq = { agentId: "agent-does-not-exist", requestId: rid(), input: { topic: "x" } };
+    const f1 = await alice().post(START, forbiddenReq);
+    const f2 = await alice().post(START, forbiddenReq);
+    expect([f1.status, f2.status]).toEqual([403, 403]);
+    expect(f2.body).toEqual(f1.body);
+    const count = await asApp(ORG, (x) => x.query<{ n: string }>("SELECT count(*) AS n FROM workflow_instances"));
+    expect(Number(count.rows[0]!.n)).toBe(0);
+  }, 60_000);
+
+  it("A1 for cancel/resume: same requestId (concurrent and repeated) replays the first response; a failed cancel replays its 409", async () => {
+    const started = await alice().post(START, { agentId: AGENT, requestId: rid(), input: { topic: "取消幂等", stageDelayMs: 500 } });
+    const id = started.body.instanceId as string;
+
+    const staleReq = { expectedStateVersion: 999, requestId: rid() };
+    const s1 = await alice().post(`/workflow-instances/${id}/cancel`, staleReq);
+    const s2 = await alice().post(`/workflow-instances/${id}/cancel`, staleReq);
+    expect([s1.status, s2.status]).toEqual([409, 409]);
+    expect(s2.body).toEqual(s1.body);
+
+    let ok: { status: number; body: any }[] | null = null;
+    for (let i = 0; i < 20 && !ok; i++) {
+      const cur = await alice().get(`/workflow-instances/${id}`);
+      const req = { expectedStateVersion: cur.body.stateVersion, requestId: rid() };
+      const pair = await Promise.all([alice().post(`/workflow-instances/${id}/cancel`, req), alice().post(`/workflow-instances/${id}/cancel`, req)]);
+      expect(pair[1].body).toEqual(pair[0].body); // 并发同 requestId：永远是同一个响应
+      if (pair[0].status === 200) ok = [...pair, await alice().post(`/workflow-instances/${id}/cancel`, req)];
+    }
+    expect(ok).not.toBeNull();
+    for (const r of ok!) expect(r).toMatchObject({ status: 200, body: ok![0]!.body });
+    const cancelEvents = (await eventSeqs(ORG, id)).filter((x) => x.type === "cancel_requested");
+    expect(cancelEvents).toHaveLength(1);
+
+    const final = await settled(id);
+    const resumeReq = { expectedStateVersion: final.body.stateVersion, requestId: rid() };
+    const r1 = await alice().post(`/workflow-instances/${id}/resume`, resumeReq);
+    const r2 = await alice().post(`/workflow-instances/${id}/resume`, resumeReq);
+    expect(r1.status).toBe(409);
+    expect(r2).toMatchObject({ status: r1.status, body: r1.body });
+  }, 60_000);
+
   it("E3: cancel with a stale expectedStateVersion → 409 state_version_conflict carrying the latest projection; a current one cancels at the next stage boundary", async () => {
     const started = await alice().post(START, { agentId: AGENT, requestId: rid(), input: { topic: "取消", stageDelayMs: 500 } });
     const id = started.body.instanceId as string;

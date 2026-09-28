@@ -151,6 +151,18 @@ export class PgWorkflowEventStore implements WorkflowEventStore {
     });
   }
 
+  hasStageEvent(orgId: string, instanceId: string, type: string, stageId: string, attempt: number): Promise<boolean> {
+    return this.db.withTenant(toOrgId(orgId), async (s) => {
+      const { rows } = await s.query(
+        `SELECT 1 FROM workflow_events
+          WHERE org_id = $1 AND instance_id = $2 AND type = $3 AND stage_id = $4 AND data->'attempt' = to_jsonb($5::int)
+          LIMIT 1`,
+        [orgId, instanceId, type, stageId, attempt],
+      );
+      return rows.length > 0;
+    });
+  }
+
   loadSnapshot(orgId: string, instanceId: string) {
     return this.db.withTenant(toOrgId(orgId), async (s) => {
       const row = await lockInstance(s, orgId, instanceId, "SHARE");

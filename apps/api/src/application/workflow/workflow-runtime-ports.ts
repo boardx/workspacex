@@ -52,6 +52,8 @@ export interface WorkflowEventStore {
   ): Promise<WorkflowAppendResult>;
   /** seq > afterSeq 的事件，按 seq 升序，至多 limit 条。 */
   listAfter(orgId: string, instanceId: string, afterSeq: number, limit: number): Promise<WorkflowStoredEvent[]>;
+  /** 是否已记过 (type, stageId, data.attempt) 这条阶段事件——按键点查，不扫全日志。 */
+  hasStageEvent(orgId: string, instanceId: string, type: WorkflowStoredEvent["type"], stageId: string, attempt: number): Promise<boolean>;
   /**
    * 一致快照：实例行（加共享锁，追加者需等本事务结束）、全部事件、全部阶段产出。
    * projection 只从这里构建，不读 checkpoint channel_values（I-8）。

@@ -77,9 +77,7 @@ export async function runInstance(deps: RunInstanceDeps, lease: WorkflowLease): 
   const allowFreshStart = !log.some((e) => e.type === "stage_started" && e.stageId !== firstStage);
 
   const logged = async (stageId: string, attempt: number, type: WorkflowEventType): Promise<boolean> =>
-    (await deps.events.listAfter(orgId, instanceId, 0, 100_000)).some(
-      (e) => e.type === type && e.stageId === stageId && e.data.attempt === attempt,
-    );
+    deps.events.hasStageEvent(orgId, instanceId, type, stageId, attempt);
   const append = async (event: WorkflowEventInput, opts?: Parameters<WorkflowEventStore["append"]>[3]) => {
     const r = await deps.events.append(orgId, instanceId, event, opts);
     if (!r.ok) throw new StopRun((await deps.instances.find(orgId, instanceId))?.status ?? "cancelled");
