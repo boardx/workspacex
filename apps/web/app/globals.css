@@ -635,6 +635,32 @@
   .chat-markdown hr {
     @apply my-3 border-border-subtle;
   }
+  /* The interview report is a document, not a compact chat bubble. Keep this
+     scoped so preview cards and assistant messages retain their own scale. */
+  .chat-markdown.interview-report-markdown > * + * {
+    @apply mt-4;
+  }
+  .chat-markdown.interview-report-markdown h1 {
+    @apply text-3xl font-bold leading-tight;
+  }
+  .chat-markdown.interview-report-markdown h2 {
+    @apply text-xl font-semibold leading-snug;
+  }
+  .chat-markdown.interview-report-markdown h3 {
+    @apply text-lg font-semibold;
+  }
+  .chat-markdown.interview-report-markdown p,
+  .chat-markdown.interview-report-markdown li,
+  .chat-markdown.interview-report-markdown blockquote {
+    @apply text-base leading-7;
+  }
+  .chat-markdown.interview-report-markdown ul,
+  .chat-markdown.interview-report-markdown ol {
+    @apply text-base;
+  }
+  .chat-markdown.interview-report-markdown table {
+    @apply text-sm;
+  }
 }
 
 /* IconRail 短视口滚动段：隐藏滚动条但保留滚动（见 components/shell/icon-rail.tsx） */
