@@ -341,3 +341,5 @@ flowchart LR
 截至 2026-09-28 09:30，候选 `1cc1220cea21979e88ba1327ba5517706a7bdadc` 已通过 Web/API/Core 类型检查、Contracts 1015/1015、Whiteboard Core 156/156、R8 存储与导入隔离 PostgreSQL、R9 协作/Undo、真实浏览器 Draw 与 Miro 导入。独立 review 发现 Drawing 在 move/resize/rotate 后继续绘制会混用历史绝对坐标并丢失 rotation；因此该 SHA 不发布，30 分钟会议室验收作废。修复、回归测试和二次独立 review 完成后，主 session 才会重跑最终浏览器验收并提交人测候选。
 
 截至 2026-09-28 11:18，最终候选 `10dba69b209dad25bac86f6f73146587580136d8` 已关闭 Drawing intrinsic 坐标与重连后投影 hydration 两个阻断，独立 review 为 Pass。主 session 真实浏览器 Draw + Miro 导入 2/2 通过；会议室验收在 clean exact SHA 上运行 36.2 分钟并通过，产出 360 个签名样本、1854 个收据、16 类生命周期事件，`observationErrors=[]`。该结论仅表示可提交人类测试候选；真实厂商账户文件、1k/5k/10k 性能、50 客户端、视觉评分、完整无障碍、安全矩阵与物理触控笔仍是正式 9/10 退出门。
+
+pre-push 随后发现 import-service 测试数据中的字面量被设计面完整度 lint 误判；未绕过门控，改为具名测试常量并通过隔离 import-service 12/12。最终可推送候选为 `994748046177647244a9452736a001fd0e2d8def`，同一 SHA 再次通过 36.2 分钟会议室用例：360 个签名样本、1862 个收据、16 类生命周期事件、`observationErrors=[]`，开始与结束 `runtimeDirty=false`。
