@@ -43,12 +43,7 @@ const config: Config = {
         "panel-alt": { DEFAULT: "hsl(var(--panel-alt))", foreground: "hsl(var(--panel-alt-foreground))" },
         inverse: { DEFAULT: "hsl(var(--inverse))", foreground: "hsl(var(--inverse-foreground))" },
         // 品牌色（取自官方 logo；取值与依据见 app/globals.css）
-        brand: {
-          DEFAULT: "hsl(var(--brand))",
-          foreground: "hsl(var(--brand-foreground))",
-          warm: "hsl(var(--brand-warm))",
-          "warm-foreground": "hsl(var(--brand-warm-foreground))",
-        },
+        brand: { DEFAULT: "hsl(var(--brand))", foreground: "hsl(var(--brand-foreground))", warm: "hsl(var(--brand-warm))", "warm-foreground": "hsl(var(--brand-warm-foreground))" },
       },
       borderRadius: {
         // 历史单值档位（F19 之前的唯一 --radius，7px）——仍有大量存量消费点未迁移，
