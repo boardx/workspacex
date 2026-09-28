@@ -1,0 +1,13 @@
+{
+  "org": "synthetic-org-acme",
+  "workflow": "W009",
+  "downstream": "S171",
+  "documents": [
+    {
+      "sourceId": "doc-w009",
+      "versionId": "v1",
+      "title": "季度评审材料",
+      "body": "Q3 交付延期两周。"
+    }
+  ]
+}

@@ -125,3 +125,10 @@ phases:
     status: not_started
     depends_on: []
     has_ui: true
+  - id: "20"
+    slug: work-stack-foundation
+    name: work-stack-foundation
+    goal: "Work Stack 第一阶段落地：D002/D003/D005/D011 四个角色 Agent 及其 19 个 Workflow、58 个 Skill 在系统中可用"
+    status: not_started
+    depends_on: []
+    has_ui: true

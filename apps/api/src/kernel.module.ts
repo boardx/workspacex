@@ -270,6 +270,11 @@ import {
 import { FileSkillStarterPackSource } from "./infrastructure/skill/file-skill-starter-pack-source";
 import { PgSkillStarterImportRepository } from "./infrastructure/skill/pg-skill-starter-import-repository";
 import { SkillStarterImportController } from "./interface/controllers/skill-starter-import.controller";
+import { WorkSkillCatalogController } from "./interface/controllers/work-skill-catalog.controller";
+import { PgWorkSkillCatalogRepository } from "./infrastructure/skill/pg-work-skill-catalog-repository";
+import { WORK_SKILL_CATALOG_REPOSITORY } from "./application/skill/work-skill-catalog";
+import { TOOL_GRANT_READER } from "./application/skill/work-skill-readiness";
+import { PgToolGrantReader } from "./infrastructure/skill/pg-tool-grant-reader";
 import { SkillUrlImportController } from "./interface/controllers/skill-url-import.controller";
 import {
   composeImportSkillFromUrlDeps,
@@ -1102,6 +1107,10 @@ import { EnvTranscriptionPolicyProvider } from "./infrastructure/recording/env-t
 import { ASR_PROVIDER, type AsrProviderPort } from "./application/recording/asr-ports";
 import { ConfiguredRealtimeAsrProvider } from "./infrastructure/recording/configured-realtime-asr-provider";
 import { RecordingController } from "./interface/controllers/recording.controller";
+import pgModule from "pg";
+import { WorkflowRuntimeController } from "./interface/controllers/workflow-runtime.controller";
+import { WORKFLOW_RUNTIME_SERVICE } from "./application/workflow/workflow-runtime-service";
+import { createProductionWorkflowRuntime } from "./infrastructure/workflow/create-workflow-runtime";
 import type { IdGenerator as RecordingIdGenerator } from "./application/recording/ports";
 import { PERSONAL_TRANSCRIPTION_REPOSITORY } from "./application/recording/personal-transcription-ports";
 import { PgPersonalTranscriptionRepository } from "./infrastructure/recording/pg-personal-transcription-repository";
@@ -1113,6 +1122,7 @@ const WHITEBOARD_OPERATION_AUDIT_REPOSITORY = Symbol('WhiteboardOperationAuditRe
 
 @Module({
   controllers: [
+    WorkflowRuntimeController,
     KnowledgeGraphController,
     KnowledgeShareController,
     PlatformExtractionSettingController,
@@ -1125,6 +1135,7 @@ const WHITEBOARD_OPERATION_AUDIT_REPOSITORY = Symbol('WhiteboardOperationAuditRe
     ProvenanceController,
     CapabilityController,
     SkillStarterImportController,
+    WorkSkillCatalogController,
     SkillUrlImportController,
     AgentUrlImportController,
     McpRemoteDiscoveryController,
@@ -1232,6 +1243,14 @@ const WHITEBOARD_OPERATION_AUDIT_REPOSITORY = Symbol('WhiteboardOperationAuditRe
     { provide: SURVEY_ATTACHMENT_SERVICE, inject: [DATABASE_PORT, OBJECT_STORE, PHYSICAL_PURGE_PORT], useFactory: (db: DatabasePort, store: ObjectStore, purge: PhysicalPurgePort) => new SurveyAttachmentService(new PgSurveyAttachmentRepository(db), store, purge) },
     { provide: SURVEY_REPOSITORY, inject: [DATABASE_PORT], useFactory: (db: DatabasePort) => new PgSurveyRepository(db) },
     { provide: DATABASE_PORT, useFactory: () => new PgDatabase(appConfig()) },
+    // WF03：Workflow 运行时（start/cancel/resume/SSE + 进程内 worker）；checkpoint 走唯一工厂与独立共享池。
+    {
+      provide: WORKFLOW_RUNTIME_SERVICE, inject: [DATABASE_PORT, LOGGER_PORT],
+      useFactory: (db: DatabasePort, logger: LoggerPort) => createProductionWorkflowRuntime(db, () => new pgModule.Pool({ ...appConfig(), max: 3 }), {
+        onRunError: (instanceId, err) => logger.error("workflow.run_failed", { traceId: `workflow:${instanceId}`, instanceId, err }),
+        replayWindow: Number(process.env.KERNEL_WORKFLOW_SSE_REPLAY_WINDOW ?? "1000"),
+      }),
+    },
     // `app_diag_ro` -- a genuinely separate credential from `app_rw` (see `pg-config.ts`'s
     // and `pg-error-log-writer.ts`'s headers). Only `PgErrorLogWriter.list()` ever touches
     // this pool.
@@ -1493,6 +1512,18 @@ const WHITEBOARD_OPERATION_AUDIT_REPOSITORY = Symbol('WhiteboardOperationAuditRe
     {
       provide: SKILL_STARTER_IMPORT_REPOSITORY,
       useFactory: (db: DatabasePort) => new PgSkillStarterImportRepository(db),
+      inject: [DATABASE_PORT],
+    },
+    // Phase 20 WS03：Work Skill 目录读写（列表/搜索/详情 + 通道/后继 + 审计）。
+    {
+      provide: WORK_SKILL_CATALOG_REPOSITORY,
+      useFactory: (db: DatabasePort) => new PgWorkSkillCatalogRepository(db),
+      inject: [DATABASE_PORT],
+    },
+    // Phase 20 WS04：就绪性输入——本组织工具 × 能力分类授权快照。
+    {
+      provide: TOOL_GRANT_READER,
+      useFactory: (db: DatabasePort) => new PgToolGrantReader(db),
       inject: [DATABASE_PORT],
     },
     /**

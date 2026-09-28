@@ -1660,6 +1660,10 @@
       "kind": "preview",
       "screen": "apps/web/app/preview/whiteboard/page.tsx"
     },
+    "/preview/work-stack": {
+      "kind": "preview",
+      "screen": "apps/web/app/preview/work-stack/page.tsx"
+    },
     "/profile": {
       "kind": "wired",
       "screen": "apps/web/app/profile/page.tsx",
@@ -2760,6 +2764,71 @@
     "/studio/survey/[surveyId]/template": {
       "kind": "wired",
       "screen": "apps/web/app/studio/survey/[surveyId]/template/page.tsx",
+      "adapters": [
+        "apps/web/lib/live-asr-draft.ts",
+        "apps/web/lib/live-chat.ts",
+        "apps/web/lib/live-feedback.ts",
+        "apps/web/lib/live-identity.ts",
+        "apps/web/lib/live-org-admin.ts",
+        "apps/web/lib/live-personal-transcriptions.ts",
+        "apps/web/lib/live-platform-access.ts",
+        "apps/web/lib/live-project-resources.ts",
+        "apps/web/lib/live-projects.ts",
+        "apps/web/lib/live-recording.ts"
+      ],
+      "contracts": [
+        "agent-defaults",
+        "artifact",
+        "chat",
+        "chat-file-upload",
+        "chat-knowledge-graph",
+        "design-workbench",
+        "feedback-loop",
+        "identity",
+        "org-admin",
+        "personal-realtime-transcription",
+        "plan-permissions",
+        "platform-members",
+        "project"
+      ],
+      "controllers": [
+        "AgentRunController",
+        "ArtifactBindingController",
+        "ArtifactReferenceController",
+        "CapabilityController",
+        "ChatAttachmentController",
+        "ChatController",
+        "ChatFollowUpSuggestionsController",
+        "CheckinBoardController",
+        "CopilotkitAguiController",
+        "DesignWorkbenchController",
+        "DeviceSessionController",
+        "DocumentGenerationAutoApproveController",
+        "EvidenceWithdrawalController",
+        "FeedbackController",
+        "IdentityController",
+        "KernelProbeController",
+        "KnowledgeConsolidationController",
+        "KnowledgeGraphController",
+        "KnowledgeShareController",
+        "LocalExportController",
+        "LocalOrgController",
+        "OrgAdminManagementController",
+        "OrgAdminScopeController",
+        "OrgInviteController",
+        "OrgInviteLinkController",
+        "PlatformAccessController",
+        "ProjectAiSettingsController",
+        "ProjectController",
+        "ProjectInviteController",
+        "PublicDesignShareController",
+        "RecordingController",
+        "ToolPermissionGrantController"
+      ]
+    },
+    "/studio/survey/new/import": {
+      "kind": "wired",
+      "screen": "apps/web/app/studio/survey/new/import/page.tsx",
       "adapters": [
         "apps/web/lib/live-asr-draft.ts",
         "apps/web/lib/live-chat.ts",

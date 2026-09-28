@@ -72,13 +72,15 @@ const compose = `docker compose -f ../api/docker-compose.dev.yml -p "${required(
  *
  * 2026-09-29（PR #4524）冷构建在 CI 的 240s 窗口内已完成编译与类型检查，
  * 但仍在 collecting build traces 时被 Playwright 终止；这说明当前生产构建本身
- * 已稳定贴近旧上限。默认值提高到 360s，给 `next start` 与健康探测保留与前两次
- * 调整相同量级的余量。
+ * 已稳定贴近旧上限。后续 PR #4567 的 CI 生产构建在 3m54s 完成编译、页面
+ * 生成和 trace 收集，但在 `next start` 绑定端口前命中 240s 上限，导致
+ * 真实浏览器用例一条都未执行。这次仍是可观测的冷构建基线增长，
+ * 因此把默认启动窗口调整为 600s；用例本身的超时、断言和失败信号不变。
  *
  * ⚠ `database-unavailable` 那条反证**不受它影响**：那一格要的就是「快速失败」，
  *   给它一个长窗口只会让反证等满。见下方 API 那格的三元。
  */
-const serverStartTimeoutMs = Number(process.env.FULLSTACK_E2E_SERVER_TIMEOUT_MS ?? 360_000);
+const serverStartTimeoutMs = Number(process.env.FULLSTACK_E2E_SERVER_TIMEOUT_MS ?? 600_000);
 const fixtureEnv = {
   FULLSTACK_E2E_FIXTURE: "1",
   FULLSTACK_E2E_EMAIL: FULLSTACK_E2E.email,
