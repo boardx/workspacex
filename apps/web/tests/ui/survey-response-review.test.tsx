@@ -34,3 +34,19 @@ it('exports visible answers as Markdown without synthetic metadata',()=>{
  fireEvent.click(screen.getByRole('button',{name:'导出 Markdown'}));
  expect(create).toHaveBeenCalledWith(expect.any(Blob));expect(click).toHaveBeenCalled();click.mockRestore();
 });
+it('searches real answer text and keeps the selected detail aligned with the filtered list',()=>{
+ const second={...answer,id:'second-answer',answers:[{questionId:'q1',value:'独特建议'}]};
+ render(<LiveResponseList responses={[answer,second]} questions={[question]} busy={false} onReview={vi.fn()}/>);
+ fireEvent.change(screen.getByRole('textbox',{name:'搜索答卷'}),{target:{value:'独特建议'}});
+ const list=screen.getByRole('region',{name:'答卷列表'});
+ expect(within(list).getAllByRole('button',{name:'查看完整答卷'})).toHaveLength(1);
+ fireEvent.click(within(list).getByRole('button',{name:'查看完整答卷'}));
+ expect(screen.getByRole('region',{name:'答卷详情'})).toHaveTextContent('独特建议');
+});
+it('selects visible response rows for Markdown export',()=>{
+ const second={...answer,id:'second-answer'};
+ render(<LiveResponseList responses={[answer,second]} questions={[question]} busy={false} onReview={vi.fn()}/>);
+ fireEvent.click(screen.getByRole('checkbox',{name:'选择答卷 included-answer'}));
+ expect(screen.getByText('已选择 1 项')).toBeInTheDocument();
+ expect(screen.getByRole('button',{name:'导出所选 Markdown'})).toBeEnabled();
+});

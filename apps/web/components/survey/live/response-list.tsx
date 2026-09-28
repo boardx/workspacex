@@ -26,22 +26,30 @@ export function LiveResponseList({
   const [quality, setQuality] = React.useState("all");
   const [page, setPage] = React.useState(0);
   const [selected, setSelected] = React.useState<string | null>(null);
+  const [selectedIds, setSelectedIds] = React.useState<string[]>([]);
   const [exclusionReason, setExclusionReason] = React.useState("");
   const excluded = responses.filter((r) => r.analysis === "excluded").length;
   const normal = responses.filter((r) => r.quality === "normal" && r.analysis !== "excluded").length;
   const review = responses.filter((r) => r.quality === "review" && r.analysis !== "excluded").length;
+  const searchTerm = query.trim().toLocaleLowerCase();
   const filtered = responses.filter(
     (r) =>
       (quality === "all" || (quality === "excluded" ? r.analysis === "excluded" : r.quality === quality && r.analysis !== "excluded")) &&
-      (r.id.includes(query) || (r.submitter ?? "").includes(query)),
+      (!searchTerm || r.id.toLocaleLowerCase().includes(searchTerm) || (r.submitter ?? "").toLocaleLowerCase().includes(searchTerm) ||
+        r.answers.some((answer) => {
+          const question = questions.find((item) => item.id === answer.questionId);
+          return question && formatSurveyAnswer(question, answer.value).toLocaleLowerCase().includes(searchTerm);
+        })),
   );
   const pages = Math.max(1, Math.ceil(filtered.length / 10));
   const actualPage = Math.min(page, pages - 1);
+  const visibleRows = filtered.slice(actualPage * 10, actualPage * 10 + 10);
+  const exportRows = selectedIds.length ? responses.filter((response) => selectedIds.includes(response.id)) : filtered;
   const item = filtered.find((r) => r.id === selected);
   const selectedIndex = filtered.findIndex((r) => r.id === selected);
   const selectResponse = (id: string) => { setExclusionReason(""); setSelected(id); };
   const exportMarkdown = () => {
-    const markdown = ['# 问卷答卷', ...filtered.map((response) => [
+    const markdown = ['# 问卷答卷', ...exportRows.map((response) => [
       `## 答卷 ${response.id}`, `提交时间：${response.submittedAt}`, `用时：${response.durationSeconds} 秒`,
       `分析状态：${response.analysis === 'excluded' ? '已排除' : '纳入分析'}`, ...questions.filter(q => !isSurveyPageElement(q)).map(q => {
         const answer = response.answers.find(a => a.questionId === q.id);
@@ -67,19 +75,23 @@ export function LiveResponseList({
       <div className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_auto]">
         <Input
           aria-label="搜索答卷"
-          placeholder="搜索答卷编号"
+          placeholder="搜索编号或回答关键词"
           value={query}
           onChange={(e) => {
             setQuery(e.target.value);
             setPage(0);
           }}
         />
-        <Button variant="outline" disabled={busy || filtered.length === 0} onClick={exportMarkdown}>导出 Markdown</Button>
+        <Button variant="outline" disabled={busy || exportRows.length === 0} onClick={exportMarkdown}>{selectedIds.length ? "导出所选 Markdown" : "导出 Markdown"}</Button>
       </div>
       <div className="overflow-auto">
         <table className="w-full text-left text-12">
           <thead>
             <tr className="border-b border-border">
+              <th className="p-3"><input type="checkbox" aria-label="选择本页答卷" checked={visibleRows.length > 0 && visibleRows.every((response) => selectedIds.includes(response.id))}
+                onChange={(event) => setSelectedIds((current) => event.target.checked
+                  ? [...new Set([...current, ...visibleRows.map((response) => response.id)])]
+                  : current.filter((id) => !visibleRows.some((response) => response.id === id)))} /></th>
               <th className="p-3">编号</th>
               <th>提交时间</th>
               <th>用时</th>
@@ -88,8 +100,9 @@ export function LiveResponseList({
             </tr>
           </thead>
           <tbody>
-            {filtered.slice(actualPage * 10, actualPage * 10 + 10).map((r) => (
+            {visibleRows.map((r) => (
               <tr key={r.id} className={`border-b border-border ${selected === r.id ? 'bg-muted' : ''}`}>
+                <td className="p-3"><input type="checkbox" aria-label={`选择答卷 ${r.id}`} checked={selectedIds.includes(r.id)} onChange={(event) => setSelectedIds((current) => event.target.checked ? [...new Set([...current, r.id])] : current.filter((id) => id !== r.id))} /></td>
                 <td className="p-3">{r.id.slice(0, 12)}</td>
                 <td>{new Date(r.submittedAt).toLocaleString("zh-CN")}</td>
                 <td>{r.durationSeconds} 秒</td>
@@ -113,7 +126,9 @@ export function LiveResponseList({
           没有符合条件的答卷。
         </p>
       )}
-      <div className="flex items-center justify-end gap-3">
+      <div className="flex items-center justify-between gap-3">
+        <p className="text-12 text-muted-foreground">已选择 {selectedIds.length} 项</p>
+        <div className="flex items-center gap-3">
         <Button
           variant="outline"
           disabled={actualPage === 0}
@@ -131,6 +146,7 @@ export function LiveResponseList({
         >
           下一页
         </Button>
+        </div>
       </div>
       </section>
       {item && (

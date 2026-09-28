@@ -71,7 +71,7 @@
       "title": "按原型呈现真实发布与回收",
       "spec_ref": "00-overview.md#R12",
       "user_visible_behavior": "用户在发布回收页配置并操作真实发布、截止、匿名限答、成功页和分享；统计与最近动态从真实持久化答卷读取，零数据如实显示。",
-      "status": "in_progress",
+      "status": "blocked",
       "sprint": "05",
       "owner": "coord-survey",
       "depends_on": [
@@ -83,7 +83,7 @@
         "pnpm exec tsx .harness/scripts/with-test-isolation.ts -- pnpm --filter api exec vitest run tests/survey/survey-source-lifecycle.test.ts"
       ],
       "evidence": "",
-      "notes": "新原型工作包。共享热点 apps/web/components/survey/live/survey-workspace.tsx；不得出现 mock 或面向用户的测试说明。"
+      "notes": "新原型工作包。共享热点 apps/web/components/survey/live/survey-workspace.tsx；不得出现 mock 或面向用户的测试说明。 PR #4565 submitted; awaits CI, review and merge; not passing."
     },
     {
       "id": "F12",
@@ -93,9 +93,9 @@
       "title": "按原型查看和处理真实答卷",
       "spec_ref": "00-overview.md#R13",
       "user_visible_behavior": "用户可搜索筛选分页答卷、直达详情、标记有效性并导出 Markdown；无答卷和接口错误显示真实状态。",
-      "status": "not_started",
-      "sprint": null,
-      "owner": null,
+      "status": "in_progress",
+      "sprint": "06",
+      "owner": "coord-survey",
       "depends_on": [
         "F11"
       ],
