@@ -1,0 +1,246 @@
+/**
+ * S4 (#4361, phase-18 round S4): manage memory in the conversation — 「你记得我什么」「我改主意了，改成 Y」「忘掉关于 X 的」.
+ * One journey, two users A (owner) and B (other) in one org and project, real browser against a real local stack.
+ *
+ * Model: the deterministic KG-eval loopback (`apps/api/scripts/loopback-kg-eval-model-provider.ts`, UNMODIFIED) fed
+ * `cases-s4.json` (three seed sentences, one claim each). The change-of-mind sentences are deliberately NOT in the corpus:
+ * the loopback extracts nothing from them, so any supersede / card comes from the S4 turn-time path, not from extraction.
+ * Everything else — executor, memory cards, R8 supersede, F07 cascade, undo, the read side — is the product path.
+ */
+import { mkdirSync, writeFileSync } from "node:fs";
+import path from "node:path";
+import { expect, test, type Browser, type Page } from "@playwright/test";
+import { KG_EVAL } from "../kg-experience-eval/fixture";
+import { apiGet, login, newThread, say, turnBlock, waitForMemories } from "../kg-experience-eval/eval-helpers";
+
+const OUT = path.resolve(__dirname, "../../../../evidence/phase-18/s4");
+mkdirSync(OUT, { recursive: true });
+const CONTACT = "客户A的对接人是王经理";
+const D211 = "我决定关注 211 高校";
+const TODO = "周五之前把报价单发给客户A";
+const record: Record<string, unknown> = {};
+const ids: Record<string, string> = {};
+const shot = (page: Page, name: string) => page.screenshot({ path: path.join(OUT, `${name}.png`), fullPage: false });
+const dump = () => writeFileSync(path.join(OUT, "journey.json"), `${JSON.stringify(record, null, 2)}\n`);
+
+interface Claim { id: string; statement: string; status: string }
+const threadClaims = async (page: Page, threadId: string) =>
+  ((await apiGet(page, `/knowledge-graph/threads/${threadId}`)).body as { claims: Claim[] }).claims.map((c) => c.statement);
+const personal = async (page: Page) =>
+  ((await apiGet(page, "/knowledge-graph/personal")).body as { claims: Claim[] }).claims.map((c) => c.statement);
+const turnMemory = async (page: Page, threadId: string, answerId: string) => apiGet(page, `/knowledge-graph/threads/${threadId}/messages/${answerId}/memory`);
+async function apiPost(page: Page, p: string, data: unknown): Promise<{ status: number; body: unknown }> {
+  const token = await page.evaluate(() => localStorage.getItem("wsx.sessionToken"));
+  const res = await page.request.post(`/__fullstack_api${p}`, { headers: { Authorization: `Bearer ${token}` }, data });
+  const text = await res.text();
+  let body: unknown = null;
+  try { body = text.length > 0 ? JSON.parse(text) : null; } catch { body = text; }
+  return { status: res.status(), body };
+}
+async function loggedIn(browser: Browser, account: typeof KG_EVAL.owner): Promise<Page> {
+  const p = await (await browser.newContext()).newPage();
+  await login(p, account);
+  return p;
+}
+async function personalThread(page: Page): Promise<string> {
+  await page.goto("/chat");
+  // `next dev` compiles on first hit and the box is loaded: give the list page time before the helper's 30 s wait
+  await expect(page.getByTestId("chat-thread-create")).toBeVisible({ timeout: 120_000 });
+  return newThread(page);
+}
+async function sharedProjectThread(page: Page, projectId: string, title: string): Promise<string> {
+  const r = await apiPost(page, "/chat/threads/mutate", {
+    op: "create", projectId, threadId: null, groupId: null, title, visibilityScope: "plenary", expectedVersion: null, reason: null,
+  });
+  expect(r.status, JSON.stringify(r.body)).toBe(200);
+  const threadId = (r.body as { threadId: string }).threadId;
+  await page.goto(`/chat/${encodeURIComponent(threadId)}?projectId=${encodeURIComponent(projectId)}`);
+  await expect(page.getByTestId("copilotkit-v2-input")).toBeVisible({ timeout: 60_000 });
+  return threadId;
+}
+
+test.describe.configure({ mode: "serial" });
+let a: Page;
+let b: Page;
+
+test.beforeAll(async ({ browser }) => {
+  record.ids = ids;
+  a = await loggedIn(browser, KG_EVAL.owner);
+});
+test.afterAll(() => dump());
+
+test("setup: A says three things in personal thread P1 (fact, decision, todo); the decision is auto-copied to long-term memory", async () => {
+  ids.P1 = await personalThread(a);
+  for (const s of [CONTACT, D211, TODO]) await say(a, s);
+  await waitForMemories(a, ids.P1, 3);
+  await expect.poll(() => personal(a), { timeout: 60_000, intervals: [500] }).toContain(D211);
+  record.setup = { p1: await threadClaims(a, ids.P1), personal: await personal(a) };
+});
+
+/* ───────────── 你记得我什么 ───────────── */
+
+test("overview: new thread P2 「你记得我什么？」 → a list grouped by kind, each with its source conversation", async () => {
+  ids.P2 = await personalThread(a);
+  const t = await say(a, "你记得我什么？");
+  ids.overviewAnswer = t.answerId;
+  const card = turnBlock(t.answer).getByTestId("kg-card-overview");
+  await expect(card).toBeVisible({ timeout: 30_000 });
+  const headings = await card.getByRole("heading").allInnerTexts();
+  expect(headings).toEqual(["决定", "事实", "待办"]);
+  await expect(card).toContainText(D211);
+  await expect(card).toContainText(CONTACT);
+  await expect(card).toContainText(TODO);
+  const links = card.getByTestId("kg-overview-source-link");
+  expect(await links.count()).toBeGreaterThanOrEqual(3);
+  for (const href of await links.evaluateAll((els) => els.map((e) => e.getAttribute("href")))) {
+    expect(href).toBe(`/chat/${ids.P1}?memory=1`);
+  }
+  await expect(card.getByRole("button")).toHaveCount(0);
+  const tm = await turnMemory(a, ids.P2, t.answerId);
+  record.overview = { answer: t.text, headings, turnMemory: tm.body };
+  await shot(a, "01-overview-grouped");
+  // the source link jumps to the conversation it came from, with the memory tab open
+  await links.first().click();
+  await a.waitForURL((u) => u.pathname === `/chat/${ids.P1}`);
+  await expect(a.getByTestId("kg-panel")).toBeVisible({ timeout: 30_000 });
+  await shot(a, "02-overview-source-link");
+});
+
+test("overview negative: 「你记得我昨天说的方案吗」 is an ordinary recall question — no list card", async () => {
+  ids.P2b = await personalThread(a);
+  const t = await say(a, "你记得我昨天说的方案吗");
+  await a.waitForTimeout(1_500);
+  await expect(turnBlock(t.answer).getByTestId("kg-card-overview")).toHaveCount(0);
+  const tm = await turnMemory(a, ids.P2b, t.answerId);
+  expect((tm.body as { prompt: unknown }).prompt).toBeNull();
+  record.overviewNegative = { answer: t.text, prompt: (tm.body as { prompt: unknown }).prompt };
+});
+
+/* ───────────── 我改主意了 ───────────── */
+
+test("change (explicit, high confidence): P3 「我改主意了，改成关注 985 高校」 → superseded in this turn, 「已用〈新〉取代〈旧〉 · 撤销」", async () => {
+  ids.P3 = await personalThread(a);
+  const t = await say(a, "我改主意了，改成关注 985 高校");
+  ids.changeAnswer = t.answerId;
+  const notice = turnBlock(t.answer).getByTestId("kg-supersede-notice");
+  await expect(notice).toBeVisible({ timeout: 30_000 });
+  await expect(notice).toContainText("改成关注 985 高校");
+  await expect(notice).toContainText(D211);
+  const p = await personal(a);
+  expect(p).toContain("改成关注 985 高校");
+  expect(p).not.toContain(D211);
+  record.changeAuto = { answer: t.text, notice: (await notice.innerText()).trim(), personal: p, turnMemory: (await turnMemory(a, ids.P3, t.answerId)).body };
+  await shot(a, "03-change-auto-superseded");
+});
+
+test("change (low confidence): P4 「我改主意了，改成关注 C9」 → a 「用〈新〉取代〈旧〉？」 card; both stay until the user picks", async () => {
+  ids.P4 = await personalThread(a);
+  const t = await say(a, "我改主意了，改成关注 C9");
+  const card = turnBlock(t.answer).getByTestId("kg-conflict-card");
+  await expect(card).toBeVisible({ timeout: 30_000 });
+  await expect(card).toHaveAttribute("data-kind", "possible_change");
+  await expect(card).toContainText("改成关注 C9");
+  await expect(card).toContainText("改成关注 985 高校");
+  const p = await personal(a);
+  expect(p).toEqual(expect.arrayContaining(["改成关注 985 高校", "改成关注 C9"]));
+  record.changeCard = { answer: t.text, card: (await card.innerText()).trim(), personal: p };
+  await shot(a, "04-change-card");
+  await card.getByTestId("kg-conflict-keep-both").click();
+  await expect(turnBlock(t.answer).getByTestId("kg-conflict-resolved")).toBeVisible();
+});
+
+test("change (opposition): 「改成关注北大，我反对」 → nothing: no notice, no card, long-term memory unchanged", async () => {
+  const before = await personal(a);
+  const t = await say(a, "改成关注北大，我反对");
+  await a.waitForTimeout(2_000);
+  await expect(turnBlock(t.answer).getByTestId("kg-supersede-notice")).toHaveCount(0);
+  await expect(turnBlock(t.answer).getByTestId("kg-conflict-card")).toHaveCount(0);
+  const tm = (await turnMemory(a, ids.P4, t.answerId)).body as { prompt: unknown; supersede: unknown };
+  expect(tm.prompt).toBeNull();
+  expect(tm.supersede).toBeNull();
+  expect(await personal(a)).toEqual(before);
+  record.changeNone = { answer: t.text, turnMemory: tm };
+  await shot(a, "05-change-opposition-nothing");
+});
+
+test("change undo: back in P3, 「撤销」 on the notice → 211 is live again", async () => {
+  await a.goto(`/chat/${ids.P3}`);
+  const undo = a.getByTestId("kg-supersede-undo");
+  await expect(undo).toBeVisible({ timeout: 60_000 });
+  await undo.click();
+  await expect(a.getByTestId("kg-supersede-undone")).toBeVisible({ timeout: 30_000 });
+  await expect.poll(() => personal(a), { timeout: 30_000 }).toContain(D211);
+  record.changeUndo = { personal: await personal(a) };
+  await shot(a, "06-change-undone");
+});
+
+/* ───────────── 忘掉关于 X 的 ───────────── */
+
+test("forget: P5 「忘掉关于王经理的」 lists the memory from P1; 「忘掉」 → gone from P1 too; 「撤销」 → back", async () => {
+  ids.P5 = await personalThread(a);
+  const t = await say(a, "忘掉关于王经理的");
+  const card = turnBlock(t.answer).getByTestId("kg-card-forget");
+  await expect(card).toBeVisible({ timeout: 30_000 });
+  await expect(card).toContainText(CONTACT);
+  ids.forgetAnswer = t.answerId;
+  const tm = (await turnMemory(a, ids.P5, t.answerId)).body as { prompt: { card: { cardId: string } } };
+  ids.forgetCard = tm.prompt.card.cardId;
+  await shot(a, "07-forget-card");
+  await card.getByTestId("kg-card-accept").click();
+  const done = turnBlock(t.answer).getByTestId("kg-card-done");
+  await expect(done).toContainText("已忘掉 1 条");
+  await expect.poll(() => threadClaims(a, ids.P1), { timeout: 30_000 }).not.toContain(CONTACT);
+  record.forgetDone = { p1: await threadClaims(a, ids.P1), card: (await done.innerText()).trim() };
+  await shot(a, "08-forget-done");
+  await done.getByTestId("kg-card-undo").click();
+  const undone = turnBlock(t.answer).getByTestId("kg-card-undone");
+  await expect(undone).toContainText("都恢复了");
+  await expect.poll(() => threadClaims(a, ids.P1), { timeout: 30_000 }).toContain(CONTACT);
+  record.forgetUndone = { p1: await threadClaims(a, ids.P1), card: (await undone.innerText()).trim() };
+  await shot(a, "09-forget-undone");
+});
+
+test("forget negatives: 「我们来聊聊遗忘曲线」「我忘了密码」 → no card, nothing forgotten", async () => {
+  const out: unknown[] = [];
+  for (const text of ["我们来聊聊遗忘曲线", "我忘了密码"]) {
+    const t = await say(a, text);
+    await a.waitForTimeout(1_500);
+    await expect(turnBlock(t.answer).getByTestId("kg-card-forget")).toHaveCount(0);
+    out.push({ text, answer: t.text, prompt: ((await turnMemory(a, ids.P5, t.answerId)).body as { prompt: unknown }).prompt });
+  }
+  expect(await threadClaims(a, ids.P1)).toContain(CONTACT);
+  record.forgetNegative = out;
+  await shot(a, "10-forget-negatives-no-card");
+});
+
+test("project thread: 「忘掉关于王经理的」 → no card (project memory is not touched from here)", async () => {
+  ids.T1 = await sharedProjectThread(a, KG_EVAL.projectId, "项目群聊 s4");
+  const t = await say(a, "忘掉关于王经理的");
+  await a.waitForTimeout(1_500);
+  await expect(turnBlock(t.answer).getByTestId("kg-card-forget")).toHaveCount(0);
+  record.projectForget = { answer: t.text, prompt: ((await turnMemory(a, ids.T1, t.answerId)).body as { prompt: unknown }).prompt };
+  await shot(a, "11-project-no-forget-card");
+});
+
+/* ───────────── 越权 ───────────── */
+
+test("privacy: B cannot undo A's card (same 404 as a card that does not exist) nor read A's overview turn; B's own overview is empty", async ({ browser }) => {
+  b = await loggedIn(browser, KG_EVAL.other);
+  const foreign = await apiPost(b, `/knowledge-graph/cards/${ids.forgetCard}/undo`, {});
+  const missing = await apiPost(b, "/knowledge-graph/cards/card-does-not-exist/undo", {});
+  expect(foreign.status).toBe(404);
+  expect(missing.status).toBe(404);
+  expect((foreign.body as { reasonCode: string }).reasonCode).toBe((missing.body as { reasonCode: string }).reasonCode);
+  const readA = await turnMemory(b, ids.P2, ids.overviewAnswer);
+  expect(readA.status).toBe(404);
+  ids.B1 = await personalThread(b);
+  const t = await say(b, "你记得我什么");
+  await b.waitForTimeout(1_500);
+  await expect(turnBlock(t.answer).getByTestId("kg-card-overview")).toHaveCount(0);
+  for (const s of [CONTACT, D211, TODO]) expect(await b.content()).not.toContain(s);
+  record.privacy = {
+    undoForeign: foreign, undoMissing: missing, readAOverview: readA,
+    bOverview: { answer: t.text, prompt: ((await turnMemory(b, ids.B1, t.answerId)).body as { prompt: unknown }).prompt },
+  };
+  await shot(b, "12-privacy-b-empty");
+});

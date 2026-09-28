@@ -1,4 +1,5 @@
 import { structuredErrorLog } from "../../application/ports/logger.port";
+import type { ChangeMindPorts } from "../../application/knowledge-graph/change-mind";
 import type { KnowledgeRecallPort, MemoryCardPort } from "../../application/knowledge-graph/ports";
 import type { PersistAssistantCitationsDeps } from "../../application/chat/persist-assistant-citations";
 import type { NativeOutputStaging } from "../../application/agent-run/native-output-staging";
@@ -182,6 +183,8 @@ export class AgentRunExecutor implements AgentRunExecutorPort {
     private readonly memoryCards?: MemoryCardPort,
     /** E3 —— 回答引用写入 + 价值时刻。可选，同上面每一个既有理由。 */
     private readonly citations?: PersistAssistantCitationsDeps,
+    /** #4361 ——「我改主意了」确定地走 R8 的改口取代。可选，同上面每一个既有理由；不注入 ⇒ 与 #4361 之前相同。 */
+    private readonly memoryChange?: ChangeMindPorts,
   ) {}
 
   /**
@@ -215,7 +218,7 @@ export class AgentRunExecutor implements AgentRunExecutorPort {
     }
     const executed = await executeQueuedRuns({
       runs: this.runs, model: this.model, clock: this.clock, log: this.log, usage: this.usage, edition: this.edition,
-      files: this.files, knowledge: this.knowledge, memoryCards: this.memoryCards, contextSnapshots: this.contextSnapshots, toolTrace: this.toolTrace,
+      files: this.files, knowledge: this.knowledge, memoryCards: this.memoryCards, memoryChange: this.memoryChange, contextSnapshots: this.contextSnapshots, toolTrace: this.toolTrace,
       canvasTemplates: this.canvasTemplates,
       runImages: this.runImages,
       sandbox: this.sandbox, objects: this.objects,
@@ -253,7 +256,7 @@ export class AgentRunExecutor implements AgentRunExecutorPort {
       if (carried > 0) {
         await executeQueuedRuns({
           runs: this.runs, model: this.model, clock: this.clock, log: this.log, usage: this.usage, edition: this.edition,
-          files: this.files, knowledge: this.knowledge, memoryCards: this.memoryCards, contextSnapshots: this.contextSnapshots, toolTrace: this.toolTrace,
+          files: this.files, knowledge: this.knowledge, memoryCards: this.memoryCards, memoryChange: this.memoryChange, contextSnapshots: this.contextSnapshots, toolTrace: this.toolTrace,
           canvasTemplates: this.canvasTemplates, runImages: this.runImages,
           sandbox: this.sandbox, objects: this.objects, planLedger: this.planLedger,
           events: this.events, toolPermissionGrants: this.toolPermissionGrants,

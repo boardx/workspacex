@@ -14,7 +14,7 @@ import { CHAT_REPOSITORY, type ChatRepository } from "../../application/chat/por
 import {
   DECISION_ID_FACTORY, IDENTITY_REPOSITORY, type DecisionIdFactory, type IdentityRepository,
 } from "../../application/identity/ports";
-import { actOnMemoryCard } from "../../application/knowledge-graph/act-on-memory-card";
+import { actOnMemoryCard, undoMemoryCard } from "../../application/knowledge-graph/act-on-memory-card";
 import { applyHumanAction, setTodoStatus } from "../../application/knowledge-graph/apply-human-action";
 import {
   CITATION_CORRECTION_PORT, CLAIM_EXPIRY_PORT, type CitationCorrectionPort, type ClaimExpiryPort,
@@ -26,9 +26,10 @@ import { promoteToOrg } from "../../application/knowledge-graph/promote-to-org";
 import { promoteToProject } from "../../application/knowledge-graph/promote-to-project";
 import { getOrgKnowledge } from "../../application/knowledge-graph/read-org-knowledge";
 import { getProjectKnowledge } from "../../application/knowledge-graph/read-project-knowledge";
+import { requestReindex } from "../../application/knowledge-graph/request-reindex";
 import {
-  HUMAN_ACTION_PORT, KG_AUTO_COPY_PORT, KG_DEPLOYMENT_EXTRACTION_SETTINGS_PORT, KG_EXTRACTION_MODEL_CONFIG, KG_ORG_EXTRACTION_SETTINGS_PORT, KNOWLEDGE_READ_PORT, KgHumanActionError, MEMORY_CARD_PORT, PROMOTION_PORT,
-  type HumanActionPort, type KgAutoCopyPort, type KgDeploymentExtractionSettingsPort, type KgExtractionModelConfig, type KgOrgExtractionSettingsPort, type KnowledgeReadPort, type MemoryCardPort, type PromotionPort,
+  HUMAN_ACTION_PORT, KG_AUTO_COPY_PORT, KG_REINDEX_PORT, KG_DEPLOYMENT_EXTRACTION_SETTINGS_PORT, KG_EXTRACTION_MODEL_CONFIG, KG_ORG_EXTRACTION_SETTINGS_PORT, KNOWLEDGE_READ_PORT, KgHumanActionError, MEMORY_CARD_PORT, PROMOTION_PORT,
+  type HumanActionPort, type KgAutoCopyPort, type KgReindexPort, type KgDeploymentExtractionSettingsPort, type KgExtractionModelConfig, type KgOrgExtractionSettingsPort, type KnowledgeReadPort, type MemoryCardPort, type PromotionPort,
 } from "../../application/knowledge-graph/ports";
 import { newKgId } from "../../application/knowledge-graph/ids";
 import { getBrainOverview, getPersonalKnowledge } from "../../application/knowledge-graph/read-personal-knowledge";
@@ -57,6 +58,8 @@ export class KnowledgeGraphController {
     @Inject(MEMORY_CARD_PORT) private readonly cards?: MemoryCardPort,
     /** issue #4283 撤销自动记进个人空间的决定。生产合成必定注入；只测别的接口的构造点可以不给（此时这条接口回 503）。 */
     @Inject(KG_AUTO_COPY_PORT) private readonly autoCopy?: KgAutoCopyPort,
+    /** UC-KG-4「整理本会话」（issue #4352）。生产合成必定注入；只测别的接口的构造点可以不给（此时这条接口回 503）。 */
+    @Inject(KG_REINDEX_PORT) private readonly reindex?: KgReindexPort,
     /** S7（#4364）引用纠正与纠正率。生产合成必定注入；只测别的接口的构造点可以不给（此时这两条接口回 503）。 */
     @Inject(CITATION_CORRECTION_PORT) private readonly citations?: CitationCorrectionPort,
     @Inject(CLAIM_EXPIRY_PORT) private readonly expiry?: ClaimExpiryPort,
@@ -81,7 +84,10 @@ export class KnowledgeGraphController {
         const body = { reasonCode: e.code };
         if (e.code === "KG_NOT_OWNER" || e.code === "KG_ACTOR_NOT_HUMAN" || e.code === "KG_SCOPE_NOT_PERSONAL" || e.code === "KG_SCOPE_NOT_PROJECT") throw new ForbiddenException(body);
         if (e.code === "KG_PROMOTE_BATCH_TOO_LARGE" || e.code === "KG_INVALID_REQUEST") throw new BadRequestException(body);
-        if (e.code === "KG_REVISION_CHANGED" || e.code === "KG_CONTESTED_NEEDS_RESOLUTION" || e.code === "KG_CARD_STALE") {
+        if (
+          e.code === "KG_REVISION_CHANGED" || e.code === "KG_CONTESTED_NEEDS_RESOLUTION" || e.code === "KG_CARD_STALE"
+          || e.code === "KG_REINDEX_ALREADY_RUNNING"
+        ) {
           throw new ConflictException(body);
         }
         throw new NotFoundException(body);
@@ -187,6 +193,20 @@ export class KnowledgeGraphController {
     ));
   }
 
+  /** UC-KG-4 requestReindex（issue #4352）——「整理本会话」/「失败 · 重试」：重新排队本会话的消息 */
+  @Post("/knowledge-graph/threads/:threadId/reindex")
+  @HttpCode(200)
+  reindexThread(@CurrentPrincipal() principal: Principal, @Param("threadId") threadId: string, @Body() body: unknown) {
+    const parsed = KG.knowledgeGraph.requestReindex.in.safeParse({ ...((body ?? {}) as object), threadId });
+    if (!parsed.success) throw new BadRequestException({ reasonCode: "KG_INVALID_REQUEST" });
+    const reindex = this.reindex;
+    if (reindex === undefined) throw new ServiceUnavailableException("reindex_unavailable");
+    return this.run(principal, (v) => requestReindex(
+      { ...this.deps, reindex, extractionConfigured: this.extractionModelConfig.enabled },
+      { ...v, threadId, ...(parsed.data.sourceRefs !== undefined ? { sourceRefs: parsed.data.sourceRefs } : {}) },
+    ));
+  }
+
   /** B2-S4 getOrgKnowledge —— 组织大脑只读（任何组织成员；非成员 KG_NOT_VISIBLE 403） */
   @Get("/knowledge-graph/org")
   orgKnowledge(@CurrentPrincipal() principal: Principal) {
@@ -284,6 +304,17 @@ export class KnowledgeGraphController {
       { ...this.deps, cards, newId: newKgId },
       { ...v, actorKind: "human", cardId, decision, ...(claimIds !== undefined ? { claimIds } : {}), ...(editedStatement !== undefined ? { editedStatement } : {}) },
     ));
+  }
+
+  /** UC-KG-12b undoMemoryCard（issue #4361）—— 已生效的「忘掉」卡上的「撤销」（人的动作） */
+  @Post("/knowledge-graph/cards/:cardId/undo")
+  @HttpCode(200)
+  undoCard(@CurrentPrincipal() principal: Principal, @Param("cardId") cardId: string) {
+    const parsed = KG.knowledgeGraph.undoMemoryCard.in.safeParse({ cardId });
+    if (!parsed.success) throw new BadRequestException({ reasonCode: "KG_INVALID_REQUEST" });
+    const cards = this.cards;
+    if (cards === undefined) throw new ServiceUnavailableException("memory_cards_unavailable");
+    return this.run(principal, (v) => undoMemoryCard({ ...this.deps, cards, newId: newKgId }, { ...v, actorKind: "human", cardId: parsed.data.cardId }));
   }
 
   /**

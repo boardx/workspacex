@@ -110,7 +110,7 @@ export function extractionDeps(db: DatabasePort, model: ModelCallPort, onlyOrg: 
     enable: () => pg.enable(),
     pendingOrgs: async () => (await pg.pendingOrgs()).filter((o) => o === onlyOrg),
     claim: (o, n) => pg.claim(o, n),
-    complete: (o, m, a) => pg.complete(o, m, a),
+    complete: (o, m, a, out) => pg.complete(o, m, a, out),
     fail: (o, m, e, a) => pg.fail(o, m, e, a),
   };
   return {
