@@ -15,8 +15,9 @@ function questionLines(markdown: string, start: number, end: number) {
     const prefix = match[1] ?? "";
     const raw = match[2] ?? "";
     const question = raw.replace(/^\*{1,2}/u, "").replace(/\*{1,2}$/u, "").trim();
-    const ordered = /\d+\./u.test(prefix);
-    if (/^(?:目的|背景|说明|目标|追问目的)[：:]/u.test(question) || (!ordered && !/[？?]/u.test(question))) return null;
+    const direct = /[？?]$/u.test(question) || /(?:谁|什么|哪(?:里|个|些)?|是否|如何|为何|为什么|吗|呢|几|多少)/u.test(question)
+      || /^请(?:介绍|描述|分享|回忆|举例|谈谈)/u.test(question);
+    if (/^(?:目的|背景|说明|目标|追问目的)[：:]/u.test(question) || !direct) return null;
     return { start: lineStart, end: lineStart + match[0].length, textStart: lineStart + prefix.length,
       textEnd: lineStart + prefix.length + raw.length, text: question };
   }).filter((question): question is NonNullable<typeof question> => question !== null);
@@ -28,7 +29,7 @@ function expertRole(expertId: string, directory: readonly DigitalExpertCatalogRo
   const block = expertsDocument && interviewMarkdown.parseInterviewMarkdown(expertsDocument).blocks.find((candidate) =>
     candidate.links.some((link) => link.url === `#expert-${expertId}`));
   const body = block ? expertsDocument!.markdown.slice(block.contentStart, block.end) : "";
-  return body.match(/(?:^|\n)(?:专业角色|职业)[：:]\s*([^\r\n]+)/u)?.[1]?.trim() || "未设置职业";
+  return body.match(/(?:^|\n)(?:#{1,6}\s*)?(?:专业角色|职业)(?:[：:]\s*|\s*\r?\n+)([^\r\n#]+)/u)?.[1]?.trim() || "未设置职业";
 }
 
 export function InterviewOutlineStep({ document, directory = [], expertsDocument, avatarContext, pending, onChange, onSave, onConfirm, onGenerate }: {

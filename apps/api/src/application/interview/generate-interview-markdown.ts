@@ -27,6 +27,33 @@ const instructions = {
   report: "包含执行摘要、研究背景与方法、访谈对象、核心发现、关键引述、建议行动、局限性及附录。仅使用输入已有事实和引用，不编造来源，不把模拟内容宣称为真人证据。",
 } as const;
 
+const expertHeading = /^## \[([^\]\r\n]+)\]\(#expert-([^\s)#]+)\)\s*$/gmu;
+const directQuestion = /[？?]$/u;
+
+/** Converts untrusted model output into the only outline shape accepted by the editor. */
+export function normalizeGeneratedOutline(markdown: string, expertsMarkdown: string): string | null {
+  const experts = Array.from(expertsMarkdown.matchAll(expertHeading), (match) => ({ name: match[1]!.trim(), id: match[2]!.trim() }));
+  if (!experts.length || new Set(experts.map(({ id }) => id)).size !== experts.length) return null;
+  const generated = Array.from(markdown.matchAll(expertHeading));
+  const sections = new Map<string, { name: string; body: string }>();
+  generated.forEach((match, index) => {
+    const id = match[2]!.trim();
+    if (sections.has(id)) return;
+    const start = (match.index ?? 0) + match[0].length;
+    const end = generated[index + 1]?.index ?? markdown.length;
+    sections.set(id, { name: match[1]!.trim(), body: markdown.slice(start, end) });
+  });
+  const normalized = experts.map((expert) => {
+    const section = sections.get(expert.id);
+    if (!section) return null;
+    const questions = Array.from(section.body.matchAll(/^\s*\d+\.\s+([^\r\n]+)/gmu), (match) => match[1]!.replace(/^\*{1,2}|\*{1,2}$/gu, "").trim())
+      .filter((question) => directQuestion.test(question));
+    if (!questions.length) return null;
+    return `## [${expert.name}](#expert-${expert.id})\n\n${questions.map((question, index) => `${index + 1}. ${question}`).join("\n")}`;
+  });
+  return normalized.some((section) => section === null) ? null : normalized.join("\n\n");
+}
+
 /** Read-only model proposal. The selected expert is written only after explicit user review and draft save. */
 export async function previewVirtualExpertMarkdown(
   deps: GetDigitalInterviewDeps & { reader: InterviewMarkdownReader; model: ModelCallPort; modelProvider: string; modelId: string },
@@ -78,7 +105,9 @@ export async function generateInterviewMarkdown(
   if (!sources.some(({ document }) => document.step === requiredSource[input.step])) throw new DigitalInterviewWorkflowError("DIGITAL_INTERVIEW_STEP_INVALID");
   if (!deps.modelProvider || !deps.modelId) throw new DigitalInterviewWorkflowError("AI_GENERATION_UNAVAILABLE");
   // Recovery text is not a confirmed source and cannot grant evidence or authority.
-  const retry = targetStatus === "failed" ? target : undefined;
+  // An outline is regenerated as a complete expert-indexed document; appending an old
+  // fragment could reintroduce the legacy background/purpose format.
+  const retry = targetStatus === "failed" && input.step !== "outline" ? target : undefined;
   const context = buildInterviewMarkdownModelContext({ operation: `generate_${input.step}`, sources });
   const references=sources.map(({document},index)=>({anchor:`source-${index+1}`,documentId:document.documentId,version:document.version}));
   const recoveryContext = retry ? [
@@ -111,6 +140,12 @@ export async function generateInterviewMarkdown(
     } catch { /* Normal Markdown is not JSON. Preserve it verbatim. */ }
     if (isJson) throw new DigitalInterviewWorkflowError("AI_GENERATION_UNAVAILABLE");
     markdown = (retry?.markdown ?? "") + response.text;
+    if (input.step === "outline") {
+      const experts = sources.find(({ document }) => document.step === "experts")?.document.markdown;
+      const normalized = experts && normalizeGeneratedOutline(markdown, experts);
+      if (!normalized) throw new DigitalInterviewWorkflowError("AI_GENERATION_UNAVAILABLE");
+      markdown = normalized;
+    }
   } catch (error) {
     if (error instanceof ModelCallError) throw new DigitalInterviewWorkflowError("AI_GENERATION_UNAVAILABLE");
     throw error;

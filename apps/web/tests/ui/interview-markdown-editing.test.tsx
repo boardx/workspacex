@@ -195,13 +195,14 @@ it("renders ordered Markdown questions as editable rows without changing neighbo
 });
 it("shows expert identity cards and only direct questions in the outline workspace", () => {
   const expert = MOCK_DIGITAL_EXPERTS[0]!;
-  const raw = `# 访谈问题\n\n## [${expert.displayName}](#expert-${expert.expertId})\n\n### 背景\n\n用于了解受访者的基本情况。\n\n- **你是谁？**\n  - **目的：**确认受访者身份。\n\n### 核心问题\n\n1. 你的爱好是什么？\n2. 你住在哪里？\n`;
-  render(<InterviewOutlineStep document={{ ...source, step: "outline", markdown: raw }} directory={[expert]} pending={false} onChange={vi.fn()} onSave={vi.fn()} onConfirm={vi.fn()} onGenerate={vi.fn()} />);
+  const raw = `# 访谈问题\n\n## [${expert.displayName}](#expert-${expert.expertId})\n\n### 背景\n\n用于了解受访者的基本情况。\n\n- **你是谁？**\n  - **目的：**确认受访者身份。\n\n### 核心问题\n\n1. 你的爱好是什么？\n2. 你住在哪里？\n3. 用于了解受访者基本情况\n`;
+  const expertsDocument = { ...source, step: "experts" as const, markdown: `## [${expert.displayName}](#expert-${expert.expertId})\n\n### 专业角色\n护士长\n` };
+  render(<InterviewOutlineStep document={{ ...source, step: "outline", markdown: raw }} directory={[]} expertsDocument={expertsDocument} pending={false} onChange={vi.fn()} onSave={vi.fn()} onConfirm={vi.fn()} onGenerate={vi.fn()} />);
 
   const expertCard = screen.getByRole("button", { name: new RegExp(expert.displayName) });
   expect(within(expertCard).getByRole("img", { name: `${expert.displayName}的插画头像` })).toBeVisible();
   expect(within(expertCard).getByText(expert.displayName)).toBeVisible();
-  expect(within(expertCard).getByText(expert.occupation)).toBeVisible();
+  expect(within(expertCard).getByText("护士长")).toBeVisible();
   expect(screen.queryByRole("button", { name: "背景" })).not.toBeInTheDocument();
   expect(screen.queryByRole("button", { name: "核心问题" })).not.toBeInTheDocument();
 
@@ -212,6 +213,7 @@ it("shows expert identity cards and only direct questions in the outline workspa
   expect(within(questions).getByDisplayValue("你住在哪里？")).toBeVisible();
   expect(screen.queryByText("用于了解受访者的基本情况。", { exact: false })).not.toBeInTheDocument();
   expect(screen.queryByText("确认受访者身份。", { exact: false })).not.toBeInTheDocument();
+  expect(screen.queryByDisplayValue("用于了解受访者基本情况")).not.toBeInTheDocument();
   expect(screen.queryByText("编辑本组 Markdown 原文")).not.toBeInTheDocument();
 });
 it("generation cannot silently discard an unsaved expert Markdown edit", async () => {
