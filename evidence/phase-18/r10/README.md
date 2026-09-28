@@ -144,6 +144,24 @@ unless noted.
 - [ ] **#4290 rules** (§「待签核确认（issue #4181…）」 item 5, L195–208). Explicit change only, same author only. Auto
   applies only to the allowlisted `explicit` and aligned `same_kind` tiers, `frame_only` gives a card, and
   retraction, question and verdict give nothing. Only the thread creator can undo in project threads.
+- [ ] **S8 #4365 contract additions (treated as approved, sign off later)**. `chat-knowledge-graph.ts` gains six
+  operations and two error codes: `getPlatformExtractionSlo`, `get/setPlatformConsolidationSetting`,
+  `runPlatformConsolidation` (platform operators), `listMyConsolidationRuns` and `undoConsolidationRun` (owner only), plus
+  `KG_CONSOLIDATION_RUN_NOT_FOUND` / `KG_CONSOLIDATION_DISABLED`. Open decisions for the human: (a) the deployment
+  consolidation switch ships **off** and stays off until a human turns it on; (b) the 「值得记」 gate skips greetings, short
+  acknowledgements and pure questions before the extraction model (goal / preference / decision / memory-instruction
+  messages are never skipped); (c) a consolidation conflict is surfaced as an F16 card on the newer statement's own
+  personal-thread turn, and a pair whose newer side has no such source is only counted (`conflictsUnsurfaced`).
+  Evidence: [`../s8/`](../s8/).
+- [ ] **S7 #4364 signed-contract additions (treated as approved, sign off later)** — `packages/contracts/src/chat-knowledge-graph.ts`:
+  `KgTurnMemory.cited` (optional: the server-reconciled citation ids, always a subset of `recalled`),
+  `KgTurnMemory.canCorrect` (optional, review F6: viewer is owner AND this turn's requester), `KgCitationCorrectionKind`,
+  and two new operations `correctCitation` (POST
+  `/knowledge-graph/threads/:threadId/messages/:messageId/citations/:claimId/correction`, owner who is also the turn's
+  requester; 「这条不对」 = forget, or supersede with `replacement`; 「已过时」 = `expireClaim`, which until #4363 lands
+  is the existing revoke with reason `user_citation_expired`) and `getCitationMetrics` (GET
+  `/knowledge-graph/me/citation-metrics`, correction rate = corrections / cited uses over 30 days). Migration
+  `20260928190000_kg_s7_citation_corrections.sql`. Evidence: [`../s7/README.md`](../s7/README.md).
 - [ ] **Eval rubric amendments R1–R3**
   ([`rubric-lock.json`](../../kg-experience-eval/rubric-lock.json) `amendments`,
   [`README.md`](../../kg-experience-eval/README.md) round table). R1: E4 「原话」 accepts any corpus sentence, and
