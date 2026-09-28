@@ -1,5 +1,5 @@
 import * as React from "react";
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import { afterEach, expect, it, vi } from "vitest";
 import { InterviewExpertsStep } from "@/components/itv/interview-experts-step";
 import { InterviewOutlineStep } from "@/components/itv/interview-outline-step";
@@ -76,6 +76,8 @@ it("virtual expert requires a Markdown preview and explicit review before adding
   fireEvent.click(screen.getByRole("button", { name: "添加虚拟专家" }));
   fireEvent.change(screen.getByRole("textbox", { name: "专家名称" }), { target: { value: "夜班护理角色" } });
   fireEvent.change(screen.getByRole("textbox", { name: "专家画像 Markdown" }), { target: { value: "擅长交接班；不代表真实受访者。" } });
+  expect(screen.getByTestId("itv-virtual-expert-preview-card")).toHaveTextContent("夜班护理角色");
+  expect(screen.getByTestId("itv-virtual-expert-preview-card")).toHaveTextContent("擅长交接班；不代表真实受访者。");
   expect(screen.getByRole("button", { name: "保存并添加专家" })).toBeDisabled();
   fireEvent.click(screen.getByRole("checkbox", { name: "已审阅画像及模拟边界" }));
   fireEvent.click(screen.getByRole("button", { name: "保存并添加专家" }));
@@ -91,6 +93,17 @@ it("question edit preserves stable heading references and unrelated raw Markdown
   expect(edited).toContain("## [背景](#question-q-7)\r\n");
   expect(edited.endsWith("## [反例](#question-q-8)\r\n\r\n保留 **原文**。\r\n")).toBe(true);
   expect(edited.startsWith("前言\r\n\r\n")).toBe(true);
+});
+it("renders ordered Markdown questions as editable rows without changing neighboring expert groups", () => {
+  const raw = "## [采购](#expert-purchase)\n\n1. 谁提出采购？\n2. 谁最终否决？\n\n## [财务](#expert-finance)\n\n1. 预算谁批准？\n";
+  const change = vi.fn();
+  render(<InterviewOutlineStep document={{ ...source, step: "outline", markdown: raw }} pending={false} onChange={change} onSave={vi.fn()} onConfirm={vi.fn()} onGenerate={vi.fn()} />);
+  const questions = screen.getByRole("list", { name: "采购访谈问题" });
+  expect(questions).toBeVisible();
+  fireEvent.change(within(questions).getByRole("textbox", { name: "编辑问题 2" }), { target: { value: "谁拥有最终否决权？" } });
+  expect(change).toHaveBeenCalledWith(raw.replace("2. 谁最终否决？", "2. 谁拥有最终否决权？"));
+  fireEvent.click(within(questions).getByRole("button", { name: "删除问题 1" }));
+  expect(change).toHaveBeenCalledWith(raw.replace("1. 谁提出采购？\n", ""));
 });
 it("generation cannot silently discard an unsaved expert Markdown edit", async () => {
   vi.stubEnv("NEXT_PUBLIC_API_URL", "http://localhost:4100"); vi.stubEnv("NEXT_PUBLIC_API_PATH_PREFIX", "");

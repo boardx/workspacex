@@ -213,3 +213,104 @@ test("a completed report separates the decision brief and replaces an empty evid
   await expect(page.getByTestId("itv-evidence-review").getByTestId("itv-evidence-review-blocked")).toBeVisible();
   await expect(page.getByRole("table")).toHaveCount(0);
 });
+
+test("prototype journey keeps the list shell separate from all six full-screen stages", async ({ page }, testInfo) => {
+  const expert = { ...MOCK_DIGITAL_EXPERTS[0]!, expertId: "expert-audit" };
+  const samples = [
+    { step: "intake", markdown: "# 采购研究需求\n\n## 研究目标\n识别最终采购否决权。\n\n## 目标用户\n中型企业采购负责人。" },
+    { step: "analysis", markdown: "# 采购研究分析\n\n## 研究目标\n识别最终采购否决权及决策角色。\n\n## 建议访谈方向\n讨论采购评审、预算和否决流程。" },
+    { step: "experts", markdown: `# 专家选择\n\n## [${expert.displayName}](#expert-${expert.expertId})\n\n专业角色：${expert.role}\n\n访谈采购决策链路。` },
+    { step: "outline", markdown: `# 访谈问题\n\n## [${expert.displayName}](#expert-${expert.expertId})\n\n1. 谁最终决定采购？\n2. 上次否决发生在什么环节？` },
+    { step: "runs", markdown: `# 模拟访谈摘要\n\n## [${expert.displayName}](#expert-${expert.expertId})\n\n采购流程中存在跨部门复核。` },
+    { step: "report", markdown: "# 采购决策研究报告\n\n## 执行摘要\n本报告来自 AI 模拟访谈，不代表真实用户证据。\n\n## 核心发现\n采购否决权仍需真人访谈验证。\n\n## 建议行动\n访谈真实采购负责人。" },
+  ] as const;
+  const auditSource = interviewMarkdown.InterviewMarkdownEnvelope.parse({
+    interviewId: view.interviewId, revisionId: view.revisionId, version: 18,
+    documents: samples.map(({ step, markdown }, index) => ({ documentId: `audit-${step}`, step,
+      version: 1, markdown, contentHash: createHash("sha256").update(markdown).digest("hex"),
+      evidenceMode: "simulated", references: [] })),
+    states: samples.map(({ step }) => ({ documentId: `audit-${step}`,
+      status: ["intake", "analysis"].includes(step) ? "confirmed" : "draft", failure: null })),
+    execution: { status: "paused", tasks: [{ expertId: expert.expertId, status: "completed", errorCode: null }] },
+    review: null,
+  });
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  await page.addInitScript(() => {
+    localStorage.setItem("wsx.sessionToken", "e2e-token");
+    localStorage.setItem("wsx.session", JSON.stringify({ version: 1, userId: "user-e2e", orgs: ["org-e2e"],
+      currentOrgId: "org-e2e", expiresAt: "2099-01-01T00:00:00.000Z" }));
+  });
+  await page.route("**/identity/me**", (route) => route.fulfill({ status: 200, contentType: "application/json",
+    body: JSON.stringify({ org: { id: "org-e2e", name: "E2E", kind: "organization", team: null, modelPolicy: "any" },
+      orgRole: "lead", teamId: null, projectRole: null, groupId: null, displayName: "E2E User", avatarUrl: null }) }));
+  await page.route("**/interviews/digital", (route) => route.fulfill({ status: 200, contentType: "application/json",
+    body: JSON.stringify({ items: [{ interviewId: view.interviewId, kind: "batch", name: view.name,
+      tags: view.tags, topic: "采购决策研究", status: "questions_pending", expertCount: 1,
+      completedExpertCount: 0, primaryAction: "confirm_questions", sourceStep: "intake",
+      updatedAt: "2026-09-25T00:00:00.000Z" }] }) }));
+  await page.route("**/interviews/digital/experts", (route) => route.fulfill({ status: 200,
+    contentType: "application/json", body: JSON.stringify({ items: [toDigitalExpertCatalogRow(expert)] }) }));
+  await page.route("**/interviews/digital/itv-quality-e2e", (route) => route.fulfill({ status: 200,
+    contentType: "application/json", body: JSON.stringify({ ...view, version: auditSource.version,
+      status: "questions_pending", currentStep: "questions", topic: "仅元数据，研究正文来自 Markdown" }) }));
+  await page.route("**/interviews/digital/itv-quality-e2e/markdown", (route) => route.fulfill({ status: 200,
+    contentType: "application/json", body: JSON.stringify(auditSource) }));
+
+  await page.goto("/itv");
+  await expect(page.getByTestId("shell-rail")).toBeVisible();
+  await expect(page.getByTestId(`itv-history-card-${view.interviewId}`)).toBeVisible();
+  const listHeadingSize = await page.getByTestId("itv-home-page").getByRole("heading", { name: "用户访谈" })
+    .evaluate((node) => Number.parseFloat(getComputedStyle(node).fontSize));
+  expect(listHeadingSize, "list title should be the primary visual anchor").toBeGreaterThanOrEqual(36);
+  const searchBounds = await page.getByTestId("itv-history-search").boundingBox();
+  expect(searchBounds?.width, "the list search should be a primary full-row control").toBeGreaterThanOrEqual(500);
+  await page.screenshot({ path: testInfo.outputPath("00-list.png"), fullPage: true });
+  await page.getByTestId(`itv-history-card-${view.interviewId}`).getByRole("link", { name: /继续访谈/u }).click();
+  await expect(page).toHaveURL(/\/itv\/itv-quality-e2e\/intake$/u);
+  await expect(page.getByTestId("shell-rail")).toHaveCount(0);
+  await expect(page.getByTestId("itv-workbench-timeline")).toBeVisible();
+
+  await page.goto("/itv/new");
+  await expect(page.getByTestId("itv-markdown-intake")).toBeVisible();
+  await page.screenshot({ path: testInfo.outputPath("01-create.png"), fullPage: true });
+
+  for (const [index, step] of ["intake", "analysis", "experts", "outline", "runs", "report"].entries()) {
+    await page.goto(`/itv/${view.interviewId}/${step}`);
+    await expect(page.getByTestId("itv-markdown-workbench")).toBeVisible();
+    const headerBounds = await page.getByTestId("itv-workbench-header").boundingBox();
+    expect(headerBounds?.height, "shared stage header must not push primary content below the fold").toBeLessThan(220);
+    await expect(page.getByTestId(`itv-workbench-step-${step}`)).toHaveAttribute("aria-current", "step");
+    await expect(page.getByTestId("shell-rail")).toHaveCount(0);
+    await expect(page.getByTestId(step === "analysis" ? "itv-analysis-workbench" :
+      step === "experts" ? "itv-markdown-experts" : step === "outline" ? "itv-markdown-outline" :
+        step === "runs" ? "itv-source-runs" : step === "report" ? "itv-source-report" : "itv-markdown-intake")).toBeVisible();
+    if (step !== "intake") {
+      const headingSize = await page.getByTestId(step === "analysis" ? "itv-analysis-workbench" :
+        step === "experts" ? "itv-markdown-experts" : step === "outline" ? "itv-markdown-outline" :
+          step === "runs" ? "itv-source-runs" : "itv-source-report").getByRole("heading", { level: 2 }).first()
+        .evaluate((node) => Number.parseFloat(getComputedStyle(node).fontSize));
+      expect(headingSize, `${step} heading should retain the prototype's page hierarchy`).toBeGreaterThanOrEqual(30);
+    }
+    await page.screenshot({ path: testInfo.outputPath(`${index + 2}-${step}.png`), fullPage: true });
+    if (step === "experts") {
+      await page.getByRole("button", { name: "添加虚拟专家" }).click();
+      await expect(page.getByRole("dialog", { name: "添加虚拟专家" })).toBeVisible();
+      await expect(page.getByTestId("itv-virtual-expert-preview-card")).toBeVisible();
+      await page.screenshot({ path: testInfo.outputPath("04-virtual-expert.png"), fullPage: true });
+      await page.getByRole("dialog", { name: "添加虚拟专家" }).press("Escape");
+    }
+    if (step === "outline") {
+      await expect(page.getByRole("list", { name: `${expert.displayName}访谈问题` })).toBeVisible();
+      await expect(page.getByRole("textbox", { name: "编辑问题 1" })).toHaveValue("谁最终决定采购？");
+    }
+  }
+  await page.getByTestId("itv-return-history").click();
+  await expect(page).toHaveURL(/\/itv\?tab=history$/u);
+  await expect(page.getByTestId("shell-rail")).toBeVisible();
+
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto(`/itv/${view.interviewId}/report`);
+  await expect(page.getByTestId("itv-source-report")).toBeVisible();
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
+  await page.screenshot({ path: testInfo.outputPath("09-report-mobile.png"), fullPage: true });
+});

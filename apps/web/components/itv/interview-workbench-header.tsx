@@ -43,25 +43,26 @@ export function InterviewWorkbenchHeader({
   readonly onOpenSkill?: () => void;
   readonly completedSteps?: readonly string[];
 }) {
-  return <header data-testid="itv-workbench-header" className="sticky top-0 z-20 rounded-2xl border border-border bg-card p-5 shadow-sm lg:p-6">
-    <div className="flex flex-wrap items-start justify-between gap-4">
-      <div>
-        <p className="flex items-center gap-2 text-xs font-medium text-primary"><Sparkles className="size-4" aria-hidden />AI 模拟访谈工作台</p>
-        <h1 className="mt-2 text-3xl font-semibold tracking-tight">{name}</h1>
-        <p className="mt-2 max-w-3xl text-sm leading-6 text-muted-foreground">将需求、分析、专家意见和访谈证据收敛为可审阅的 Markdown 研究资产。</p>
-        <div className="mt-3 flex flex-wrap gap-2">{tags.map((tag) => <span key={tag} className="rounded-full bg-muted px-3 py-1 text-xs text-muted-foreground">{tag}</span>)}</div>
+  return <header data-testid="itv-workbench-header" className="sticky top-0 z-20 rounded-2xl border border-border bg-card/95 px-4 py-3 shadow-sm backdrop-blur lg:px-6">
+    <div className="flex flex-wrap items-center justify-between gap-3">
+      <div className="min-w-0">
+        <p className="flex items-center gap-2 text-xs font-medium text-muted-foreground"><Sparkles className="size-4" aria-hidden />AI 模拟访谈工作台</p>
+        <h1 className="mt-1 truncate text-xl font-semibold tracking-tight lg:text-2xl">{name}</h1>
       </div>
-      <div className="flex flex-wrap justify-end gap-2">
+      <div className="flex flex-wrap items-center justify-end gap-2">
+        <span data-testid="itv-workflow-status" className="hidden rounded-full bg-muted px-2.5 py-1 text-xs text-muted-foreground md:inline-flex">状态：{status}</span>
+        <span data-testid="itv-workflow-version" className="hidden text-xs text-muted-foreground md:inline">版本 {version}</span>
+        {topic && <span data-testid="itv-persisted-topic" className="sr-only">已确认主题：{topic}</span>}
+        {tags.map((tag) => <span key={tag} className="hidden rounded-full bg-muted px-2.5 py-1 text-xs text-muted-foreground lg:inline-flex">{tag}</span>)}
         {onOpenSkill && <Button data-testid="itv-skill-drawer-trigger" type="button" variant="outline" onClick={onOpenSkill}><MessageSquareText className="size-4" aria-hidden />访谈助手</Button>}
         <Button data-testid="itv-return-history" type="button" variant="outline" onClick={onReturnToList}><ArrowLeft className="size-4" aria-hidden />返回访谈列表</Button>
       </div>
     </div>
-    <div className="mt-5 flex flex-wrap gap-3 border-t border-border pt-4 text-xs text-muted-foreground"><span data-testid="itv-workflow-status">状态：{status}</span><span data-testid="itv-workflow-version">版本 {version}</span>{topic && <span data-testid="itv-persisted-topic">已确认主题：{topic}</span>}</div>
-    <nav aria-label="访谈步骤" data-testid="itv-workbench-navigation" className="mt-6 overflow-x-auto pb-2">
-      <ol data-testid="itv-workbench-timeline" className="flex min-w-max items-start lg:min-w-0">{steps.map((step, index) => <li key={step.id} className="relative min-w-36 flex-1 lg:min-w-0">
-        {index < steps.length - 1 && <span aria-hidden className="absolute left-1/2 right-[-50%] top-6 h-px bg-border" />}
-        <button data-testid={`itv-workbench-step-${step.id}`} type="button" aria-current={activeStep === step.id ? "step" : undefined} onClick={() => onStepChange(step.id)} className="relative flex w-full flex-col items-center gap-3 rounded-lg px-3 py-1 text-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
-          <span className={`grid size-11 place-items-center rounded-full border text-lg font-semibold ${activeStep === step.id ? "border-foreground bg-foreground text-background ring-4 ring-muted" : "border-border bg-card text-muted-foreground"}`}>{completedSteps.includes(step.id) && activeStep !== step.id ? <><Check aria-hidden className="size-5" /><span className="sr-only">已完成</span></> : index + 1}</span>
+    <nav aria-label="访谈步骤" data-testid="itv-workbench-navigation" className="mt-3 overflow-x-auto border-t border-border pt-2">
+      <ol data-testid="itv-workbench-timeline" className="flex min-w-max items-start lg:min-w-0">{steps.map((step, index) => <li key={step.id} className="relative min-w-32 flex-1 lg:min-w-0">
+        {index < steps.length - 1 && <span aria-hidden className="absolute left-1/2 right-[-50%] top-5 h-px bg-border" />}
+        <button data-testid={`itv-workbench-step-${step.id}`} type="button" aria-current={activeStep === step.id ? "step" : undefined} onClick={() => onStepChange(step.id)} className="relative flex w-full flex-col items-center gap-1.5 rounded-lg px-2 py-1 text-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+          <span className={`grid size-9 place-items-center rounded-full border text-base font-semibold ${activeStep === step.id ? "border-primary bg-primary text-primary-foreground ring-4 ring-primary/20" : "border-border bg-card text-muted-foreground"}`}>{completedSteps.includes(step.id) && activeStep !== step.id ? <><Check aria-hidden className="size-4" /><span className="sr-only">已完成</span></> : index + 1}</span>
           <span className={activeStep === step.id ? "text-sm font-semibold text-foreground" : "text-sm text-muted-foreground"}>{step.label}</span>
           <span className="sr-only">{step.detail}</span>
         </button>
