@@ -478,3 +478,48 @@ test("prototype journey keeps the list shell separate from all six full-screen s
     }
   }
 });
+
+test("saved execution metadata and Markdown insights survive the direct route and reload", async ({ page }, testInfo) => {
+  test.setTimeout(120_000);
+  const markdown = "# 模拟访谈摘要\n\n## [采购角色](#expert-purchase)\n\n### 关键观点\n\n- [采购审批经过两级](#question-q1)\n\n### 争议点与风险\n\n- 否决权人仍需真人核实。\n\n## [技术角色](#expert-tech)\n\n### 核心发现\n\n- 安全评审尚未完成。";
+  const saved = interviewMarkdown.InterviewMarkdownEnvelope.parse({
+    interviewId: view.interviewId, revisionId: view.revisionId, version: 7,
+    documents: [
+      { documentId: "runs-experts", step: "experts", version: 1,
+        markdown: "# 专家\n\n## [采购角色](#expert-purchase)\n\n## [技术角色](#expert-tech)",
+        contentHash: "a".repeat(64), evidenceMode: "simulated", references: [] },
+      { documentId: "runs-saved", step: "runs", version: 2, markdown,
+        contentHash: createHash("sha256").update(markdown).digest("hex"), evidenceMode: "simulated", references: [] },
+    ],
+    states: [{ documentId: "runs-experts", status: "confirmed", failure: null },
+      { documentId: "runs-saved", status: "draft", failure: null }],
+    execution: { status: "paused", tasks: [
+      { expertId: "purchase", status: "completed", errorCode: null },
+      { expertId: "tech", status: "pending", errorCode: null },
+    ] }, review: null,
+  });
+  await page.addInitScript(() => {
+    localStorage.setItem("wsx.sessionToken", "e2e-token");
+    localStorage.setItem("wsx.session", JSON.stringify({ version: 1, userId: "user-e2e", orgs: ["org-e2e"], currentOrgId: "org-e2e", expiresAt: "2099-01-01T00:00:00.000Z" }));
+  });
+  await page.route("**/identity/me**", (route) => route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ org: { id: "org-e2e", name: "E2E", kind: "organization", team: null, modelPolicy: "any" }, orgRole: "lead", teamId: null, projectRole: null, groupId: null, displayName: "E2E User", avatarUrl: null }) }));
+  await page.route("**/interviews/digital/itv-quality-e2e", (route) => route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ ...view, version: saved.version, status: "running", currentStep: "interview" }) }));
+  await page.route("**/interviews/digital/itv-quality-e2e/markdown", (route) => route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(saved) }));
+  await page.route("**/interviews/digital/itv-quality-e2e/markdown/initialize", (route) => route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(saved) }));
+  await page.goto(`/itv/${view.interviewId}/runs`);
+  await expect(page.getByTestId("itv-source-runs")).toBeVisible();
+  await expect(page.getByText(/^已完成专家 1\/2/u)).toBeVisible();
+  await expect(page.getByRole("heading", { name: "关键观点（1）" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "争议点与风险（1）" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "核心发现（1）" })).toBeVisible();
+  await page.getByRole("tab", { name: "采购角色" }).click();
+  await expect(page.getByRole("heading", { name: "核心发现（1）" })).toHaveCount(0);
+  await expect(page.getByRole("link", { name: "采购审批经过两级" }).first()).toHaveAttribute("href", "#question-q1");
+  await page.reload();
+  await expect(page.getByText(/^已完成专家 1\/2/u)).toBeVisible();
+  await expect(page.getByRole("heading", { name: "核心发现（1）" })).toBeVisible();
+  await page.screenshot({ path: testInfo.outputPath("saved-runs-desktop.png"), fullPage: true });
+  await page.setViewportSize({ width: 390, height: 844 });
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
+  await page.screenshot({ path: testInfo.outputPath("saved-runs-mobile.png"), fullPage: true });
+});
