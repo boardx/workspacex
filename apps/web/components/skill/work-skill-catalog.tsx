@@ -565,7 +565,15 @@ function DetailBody({
         </p>
       )}
 
-      {detail.canManageChannel && <AdminActions detail={detail} onChanged={onChanged} />}
+      {detail.canManageChannel && (
+        // key 绑当前通道/后继：PATCH 成功后详情重载，控件本地态（目标通道/证据/后继）随之重置，
+        // 避免拿旧 target 与新 expectedChannel 组出不合法的转移。
+        <AdminActions
+          key={`${detail.skillId}:${detail.channel}:${detail.successorSkillId ?? ""}`}
+          detail={detail}
+          onChanged={onChanged}
+        />
+      )}
     </>
   );
 }

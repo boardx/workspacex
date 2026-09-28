@@ -92,23 +92,30 @@ interface Opts {
 
 let listCalls: URLSearchParams[] = [];
 let patchCalls: string[] = [];
+let patchBodies: Record<string, unknown>[] = [];
+let currentChannel = "candidate";
 
 function install(opts: Opts = {}) {
   listCalls = [];
   patchCalls = [];
+  patchBodies = [];
+  currentChannel = "candidate";
   vi.stubGlobal("fetch", vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
     const url = new URL(typeof input === "string" ? input : input.toString(), "http://localhost");
     if (init?.method === "PATCH") {
       patchCalls.push(url.pathname);
-      return json(item());
+      const body = JSON.parse(String(init.body)) as Record<string, unknown>;
+      patchBodies.push(body);
+      if (typeof body.channel === "string") currentChannel = body.channel;
+      return json({ ...item(), channel: currentChannel });
     }
     if (url.pathname.endsWith("/skills/catalog")) {
       listCalls.push(url.searchParams);
-      return opts.list ? opts.list(url.searchParams) : json({ items: [item()], nextCursor: null });
+      return opts.list ? opts.list(url.searchParams) : json({ items: [{ ...item(), channel: currentChannel }], nextCursor: null });
     }
     if (url.pathname.endsWith(`/skills/catalog/${SKILL_ID}/readiness`))
       return json(readiness(opts.readinessOverall ?? "not_ready"));
-    if (url.pathname.endsWith(`/skills/catalog/${SKILL_ID}`)) return json(detail(opts.admin ?? false));
+    if (url.pathname.endsWith(`/skills/catalog/${SKILL_ID}`)) return json({ ...detail(opts.admin ?? false), channel: currentChannel });
     if (url.pathname.endsWith(`/skills/catalog/${SUCC_ID}`))
       return json({ ...detail(false), skillId: SUCC_ID, name: "竞品情报简报 v2", stableId: "S103", successor: null, successorSkillId: null });
     return json({ reasonCode: "NOT_FOUND" }, 404);
@@ -303,5 +310,32 @@ describe("WS05 Work Skill 目录屏", () => {
     expect(btn).not.toBeDisabled();
     fireEvent.click(btn);
     await waitFor(() => expect(patchCalls).toHaveLength(1));
+  });
+
+  it("连续两次转移：PATCH 成功后详情/列表刷新、管理控件按新通道重置", async () => {
+    install({ admin: true });
+    render(<WorkSkillCatalog />);
+    fireEvent.click(await screen.findByTestId("work-catalog-row-S003"));
+    fireEvent.change(await screen.findByTestId("work-skill-gate-evidence"), { target: { value: "eval-run://1" } });
+    const listBefore = listCalls.length;
+    fireEvent.click(screen.getByTestId("work-skill-change-channel"));
+    await waitFor(() => expect(patchCalls).toHaveLength(1));
+    expect(patchBodies[0]).toMatchObject({ expectedChannel: "candidate", channel: "verified", gateEvidenceRef: "eval-run://1" });
+    // 刷新：列表重拉，控件按 verified 的合法转移重置（只剩 deprecated）
+    await waitFor(() => expect(listCalls.length).toBeGreaterThan(listBefore));
+    await waitFor(() => {
+      const select = screen.getByLabelText("目标通道") as HTMLSelectElement;
+      expect(Array.from(select.options).map((o) => o.value)).toEqual(["deprecated"]);
+      expect(select.value).toBe("deprecated");
+    });
+    expect(screen.queryByTestId("work-skill-gate-evidence-required")).toBeNull();
+    const btn = screen.getByTestId("work-skill-change-channel");
+    expect(btn).not.toBeDisabled();
+    fireEvent.click(btn);
+    await waitFor(() => expect(patchCalls).toHaveLength(2));
+    expect(patchBodies[1]).toMatchObject({ expectedChannel: "verified", channel: "deprecated" });
+    expect(patchBodies[1]).not.toHaveProperty("gateEvidenceRef");
+    // deprecated 无出边：通道选择器消失
+    await waitFor(() => expect(screen.queryByLabelText("目标通道")).toBeNull());
   });
 });
