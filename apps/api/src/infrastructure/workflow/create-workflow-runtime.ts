@@ -87,6 +87,9 @@ export function createWorkflowRuntime(db: DatabasePort, pool: pg.Pool, opts: Wor
     replayWindow: opts.replayWindow ?? 1000,
     hooks: opts.hooks,
     onRunError: opts.onRunError,
+    // WF04（review #2）：runInstance 崩溃恢复路径靠这个字段接住 EffectInFlightError 并 reconcile()——
+    // 不再是只有单测直接 `new EffectGateway(...)` 才会调用到的孤立代码。
+    effectGateway,
   });
   return { service, registry, effectGateway };
 }

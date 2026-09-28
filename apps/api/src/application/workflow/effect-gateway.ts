@@ -2,12 +2,22 @@
  * WF04 —— effect-gateway：外部副作用统一执行入口（requirements 02 R3 第 5、10 步；R4 E1/E2/E4/
  * 取消；ADR-118 第 6 条；domain I-13/I-14；UC-WR-I2/I3）。
  *
- * 顺序纪律（R3-5）：assertLease → 重查权限 → receipt.begin → 取消检查 → 调用工具 → receipt.finalize
- * （带 provenance）。任一步失败都不得调用工具——UC-WR-I2 表里 `execute()` 的三种阻断结果都在这里：
+ * 顺序纪律（R3-5，2026-09-28 修订）：assertLease → 重查权限 → 取消检查 → receipt.begin →
+ * assertLease 复断言 → 取消检查（窄窗口复检）→ 调用工具 → receipt.finalize（带 provenance）。
+ * 任一步失败都不得调用工具——UC-WR-I2 表里 `execute()` 的三种阻断结果都在这里：
  *   - lease 已丢失 → `WorkflowLeaseLostError`（E2），连权限重查都不做。
  *   - 权限重查失败 → 阶段 `blocked_permission` 带 `reasonCode`（E4），不 begin receipt、不调用工具。
  *   - 实例已 `cancelling`/已终态 → `EffectCancelledError`（R3-10）：`cancelling` 就地落成 `cancelled`；
  *     receipt 已是 `replay`/`in_flight` → 直接返回首次响应 / 抛错，永不二次调用工具（I-14）。
+ *
+ * 取消检查为什么挪到 begin 之前（原设计的教训，见 review #1/#3）：`cancelling`/已终态是「取消期间
+ * 副作用被拦下」这条路径里最常见的命中——不是崩溃，是正常的 R3-10 场景。若先 begin 再检查取消，
+ * 每一次这种正常取消都会新开一条 `begun` receipt，随后 `EffectCancelledError` 直接把它撇下：没有
+ * 任何后续代码路径把这条 receipt 迁到 `reconciled`/`unresolved`（I-14 只认这两个终态），它就永久
+ * 停在 `begun`，此后同一 `effectKey` 的任何调用都会撞 `EffectInFlightError`。把检查挪到 begin 之前
+ * 从根上消掉这一类孤儿 receipt；begin 之后、调用工具之前仍留一次窄窗口复检（lease 之外唯一还可能
+ * 让取消挤进来的间隙），命中时该 receipt 已经 begin 过，用 `resolveBegun(..., "unresolved")` 显式
+ * 收尾，不让它停留在非终态。
  *
  * 已知限制（与 pg-workflow-lease-store.ts 头注一致的纪律）：`assertLease` 与取消检查都是
  * check-then-act，不是数据库级 fencing token；本文件在 begin 前后各断言一次、调用工具前再读一次
@@ -73,7 +83,13 @@ export class EffectPermissionBlockedError extends Error {
 
 /** begin 命中 `in_flight`（已 begin 未 finalize）：不得二次调用工具；恢复路径应改走 `reconcile`（E1）。 */
 export class EffectInFlightError extends Error {
-  constructor(readonly instanceId: string, readonly stageId: string, readonly effectKey: string) {
+  constructor(
+    readonly instanceId: string,
+    readonly stageId: string,
+    readonly effectKey: string,
+    /** 对账要按能力分类分派到正确的 `EffectReconcilePort` 实现，生产恢复路径靠这个字段就地重查。 */
+    readonly capabilityCategory: string,
+  ) {
     super(`workflow effect ${instanceId}/${stageId}/${effectKey} is begun but not finalized; call reconcile(), do not retry`);
     this.name = "EffectInFlightError";
   }
@@ -187,6 +203,11 @@ export class EffectGateway {
       throw new EffectPermissionBlockedError(permission.reasonCode, cmd.instanceId, cmd.stageId, cmd.effectKey);
     }
 
+    // R3-10：取消检查在 begin 之前做（见文件头注 2026-09-28 修订）——`cancelling`/已终态是这里最常见
+    // 命中的正常路径，不是崩溃；先检查再 begin，就不会为一次正常取消新开一条永远等不到 finalize 的
+    // `begun` receipt（I-14 孤儿态，review #1）。
+    await this.assertNotCancelled(cmd);
+
     const key: WorkflowReceiptKey = { orgId: cmd.orgId, scope: "effect", requestKey: requestKeyOf(cmd), fingerprint: cmd.fingerprint };
     const begin = await this.deps.receipts.begin(key);
     if (begin.kind === "replay") {
@@ -198,14 +219,22 @@ export class EffectGateway {
     }
     if (begin.kind === "in_flight") {
       // 崩溃/并发恢复路径命中未 finalize 的 begin：绝不重放调用（E1/I-14）；调用方应改走 reconcile()。
-      throw new EffectInFlightError(cmd.instanceId, cmd.stageId, cmd.effectKey);
+      throw new EffectInFlightError(cmd.instanceId, cmd.stageId, cmd.effectKey, cmd.capabilityCategory);
     }
 
     await this.deps.leases.assertLease(lease); // 调用工具、写 receipt 前再断言一次，缩小 check-then-act 窗口
-    // R3-10：cancel 可能落在「lease/权限重查已过」与「即将调用工具」之间的这个窗口——调用 work() 前
-    // 必须重新读一次实例状态，`cancelling`/已终态都必须拦下，不能只靠下面 append 的 instance_terminal
-    // 冲突兜底（`cancelling` 尚非终态，append 不会因它失败，只有显式检查能拦住）。
-    await this.assertNotCancelled(cmd);
+    // 窄窗口复检：上面的取消检查与这里的 begin 之间仍有极小的间隙可能被取消挤进来。此时 receipt 已经
+    // begin 过——不能像上面那次检查一样直接让 EffectCancelledError 把它撇下（否则同样落成 I-14 孤儿
+    // 态）,命中时必须先 resolveBegun("unresolved") 显式收尾（work() 从未被调用，谈不上"已对账确认
+    // 完成"，只能标记为查不到结论的终态），再把原始的取消错误照常抛出给调用方。
+    try {
+      await this.assertNotCancelled(cmd);
+    } catch (err) {
+      if (err instanceof EffectCancelledError || err instanceof EffectInstanceUnavailableError) {
+        await this.deps.receipts.resolveBegun(cmd.orgId, "effect", requestKeyOf(cmd), "unresolved");
+      }
+      throw err;
+    }
     await this.appendOrThrow(cmd, {
       type: "effect_begun",
       stageId: cmd.stageId,

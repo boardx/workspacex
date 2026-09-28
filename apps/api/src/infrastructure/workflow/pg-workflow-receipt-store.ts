@@ -46,7 +46,11 @@ export class PgWorkflowReceiptStore implements WorkflowReceiptStore {
       );
       if (inserted.rows.length === 1) return { kind: "begun" };
       const row = await readRow(s, k);
-      return row.status === "finalized"
+      // `reconciled` 与 `finalized` 对调用方是同一件事——已确认完成、不得二次调用工具——所以按
+      // 同一支 replay 分支回；`reconciled` 的 stable_response 通常是 null（对账只读确认，没有工具
+      // 返回值可存），调用方（EffectGateway.execute）已经把 null 归一成 `{}`（WF04 review #2：这是
+      // 生产恢复路径「reconcile 之后不再无限撞 in_flight」的关键一环）。
+      return row.status === "finalized" || row.status === "reconciled"
         ? { kind: "replay", stableResponse: row.stable_response, checkpointId: row.checkpoint_id, instanceId: row.instance_id }
         : { kind: "in_flight", instanceId: row.instance_id };
     });

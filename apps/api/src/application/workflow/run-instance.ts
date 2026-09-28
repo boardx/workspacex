@@ -10,6 +10,7 @@
  * 取消在阶段边界生效：cancelling → cancelled（reasonCode cancel_requested）。
  */
 import type { PinnedSkillVersion, WorkflowInstanceStatus } from "@repo/contracts/workflow-runtime";
+import { EffectInFlightError, type EffectGateway } from "./effect-gateway";
 import { isTerminal } from "./instance-projection";
 import type { PinnedWorkflowInstance, WorkflowDefinitionRepository, WorkflowInstanceRepository, WorkflowLease, WorkflowLeaseStore } from "./workflow-ports";
 import type { WorkflowEventInput, WorkflowEventStore, WorkflowEventType, WorkflowStageOutputStore } from "./workflow-runtime-ports";
@@ -53,6 +54,13 @@ export interface RunInstanceDeps {
   hooks?: RunHooks;
   /** lease TTL：每个 checkpoint 边界与后台心跳都按它续租（epoch 保持的 CAS），长阶段不会因固定 TTL 失去 lease。 */
   leaseTtlMs?: number;
+  /**
+   * WF04（review #2）：崩溃恢复的生产入口。某个阶段的 `work()` 内部调用 effect-gateway 时，若命中
+   * 未 finalize 的 begin（`EffectInFlightError`），这里统一调用 `reconcile()`——不留给具体某个阶段
+   * 的实现各自记得接，也不只在单测里被直接调用。未接（未传本字段）时按原样把 `EffectInFlightError`
+   * 冒泡给 `onRunError`，lease 不释放，行为与其他未知错误一致（不是本次修复引入的新退化）。
+   */
+  effectGateway?: EffectGateway;
 }
 
 /** 实例已被取消/进入终态：停止推进（不是错误）。 */
@@ -154,6 +162,23 @@ export async function runInstance(deps: RunInstanceDeps, lease: WorkflowLease): 
       );
     }
   } catch (e) {
+    if (e instanceof EffectInFlightError && deps.effectGateway) {
+      // 生产恢复路径（review #2）：不重放调用，统一走 reconcile()（E1）。`reconciled` → receipt 迁
+      // 终态，之后接管者重进该 stage 时 begin() 按 replay 处理（见 pg-workflow-receipt-store.ts），
+      // 不会再撞同一个 EffectInFlightError；`unresolved`/无 reconciler → reconcile() 内部已经把实例
+      // 落成 needs_attention（WORKFLOW_TERMINAL_STATUSES 之一），过期扫描器的查询条件天然不再挑中
+      // 它，接管循环到此为止，不会无限重试（不是本次之前那种「每次都从头撞同一个错误」）。
+      // lease 有意不释放：`needs_attention`/维持 `running` 都要交给下一次接管者（或人工「从该阶段
+      // 重试」）续跑，而不是释放后连 `wf_expired_lease_instances` 都不会再挑到它。
+      await deps.effectGateway.reconcile({
+        orgId,
+        instanceId,
+        stageId: e.stageId,
+        effectKey: e.effectKey,
+        capabilityCategory: e.capabilityCategory,
+      });
+      return (await deps.instances.find(orgId, instanceId))?.status ?? "running";
+    }
     if (!(e instanceof StopRun)) throw e; // 崩溃/意外错误：不释放 lease，由过期后的接管者恢复
   } finally {
     if (heartbeat) clearInterval(heartbeat);
