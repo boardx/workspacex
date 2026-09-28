@@ -178,13 +178,21 @@ Results: API 28/28, web 31/31. Fail-without-fix: [`fail-without-fix-delta.txt`](
 ## F4 follow-up — 「已过时」 now sets `valid_to` instead of revoking (after S6 #4492 reached main)
 
 - **New migration `20260928220000_kg_s7_f4_expire_valid_to.sql`** (sorts after main's newest, `20260928200000`). It
-  replaces only `kg_correct_citation`; the already-applied `20260928190000` has had only its `TODO(#4363)` comments
-  updated to point here.
+  replaces only `kg_correct_citation`. The already-applied `20260928190000` is **byte-identical to main**; its
+  `TODO(#4363)` comments stay. `data-readiness.ts` compares each migration's sha256 with `_kernel_migrations.checksum`,
+  so editing an applied file would leave every existing DB "schema not current". The new migration's header explains
+  this (review B1).
   - **「已过时」 no longer revokes.** It sets `valid_to = now()` on the cited claim's whole family, the same family
     「这条不对」 uses. The claims are not revoked and their edges are untouched.
   - An already-expired claim ⇒ `KG_CLAIM_NOT_FOUND`, so no duplicate correction event is recorded.
-  - If `valid_from` is in the future, `valid_to` is set to `valid_from` plus 1 µs so the `valid_from < valid_to`
-    check still holds.
+  - If `valid_from` is in the future, it is pulled back to `now() - 1µs` and `valid_to = now()`, so the claim really
+    expires now (review M1; the first version set `valid_to = valid_from + 1µs`, which kept it recalled and let
+    repeated clicks through).
+  - S10 project copies expire too (review M2; human decision 2026-09-28). The predicate is the one
+    `kg_cascade_personal_share` uses: the copy has a `derived_from` edge into the family and no other live
+    `derived_from` source. Project members stop recalling it.
+  - The audit `payload.claims` lists only the claims this call actually expired, captured with `RETURNING`
+    (review L1).
   - Audit `action_type = expireClaim`.
   - The next turn no longer recalls it (S6 `claimExpired` in recall), and `/brain` still lists it marked `expired`
     (「已过期」).
@@ -205,6 +213,19 @@ Results: API 28/28, web 31/31. Fail-without-fix: [`fail-without-fix-delta.txt`](
   fresh DB without the new migration, 2 tests fail (the expire test and the family-expire test); restored, 29/29.
   The inherit-time test passes either way, as expected, because S6 already provides that behaviour; it is a regression
   guard only.
+- **Review round of PR #4507** (d1c18454e → REVISE): B1, M1, M2, L1 and L2 are fixed.
+  - New DB tests:
+    - M1: a claim with a future validity window is expired by one click and not recalled on the next turn; a second
+      click is rejected and records no extra correction row.
+    - M2: after expiring the personal claim, a project member no longer recalls the S10 copy; the copy is expired,
+      not revoked.
+    - L1: an audit row covers only the claims this call newly expired, including the project scope.
+    - L2: when the personal copy is the anchor, the replacement inherits `valid_to` / `due_at` / `todo_state`.
+  - Fail-without-fix: [`fail-without-fix-f4-review.txt`](fail-without-fix-f4-review.txt). With the F4 migration as at
+    d1c18454e, M1 and M2 fail (2 tests); restored, 18/18.
+  - Also run: `share-personal-to-project` 13/13, `time-dimension` 8/8, `citation-reconcile` 14/14, api `tsc` and
+    `pnpm lint` clean.
+  - M3 (S8 consolidation ignores `valid_to`) is a separate issue.
 - Environment note: after the host rebooted, the shared dev Postgres on 55432 (`/var/tmp/pgpurge/data`) was down.
   It was restarted through a manual-start `pg_ctlcluster` registration (`/etc/postgresql/16/pgpurge`, same data dir
   and options). The temporary DBs `s7f4` and `s7f4nomig` were dropped.

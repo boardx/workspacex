@@ -17,7 +17,7 @@
  *    - wrong 且给了新说法 ⇒ 取代：新说法只落一份——家里有本人长期记忆那份就落个人空间，否则落被点那条的作用域；
  *      supersedes 连同作用域那条（anchor，同 reviseClaim 转 superseded），家里其余的撤掉。
  *      不带 derived_from 边（review F2）；证据**保留**（去重后挂上，理由见函数内注释）；
- *    - expired ⇒ 已过时。（本迁移里的版本整家按撤回执行；已被 20260928220000 取代为 valid_to = now()，F4）
+ *    - expired ⇒ 已过时。TODO(#4363)：S6 落地后改成 valid_to = now()；在那之前整家按撤回执行
  *      （revocation_reason = user_citation_expired），应用层的 `expireClaim` 端口就是替换点。
  *    项目 / 组织记忆（L2 / L3）与别人的结论不在「一家」里，递归也不经过它们（delta review L1）：那不是一个人在对话的引用上能改的。
  *    家里彼此之间的 derived_from 边先收掉再动结论（delta review L4），anchor 因此只是 superseded，不被 F07 顺带撤掉。
@@ -153,7 +153,7 @@ BEGIN
     v_new := v_id || '-c';
     v_akind := v_anchor.scope_kind;
     v_ascope := v_anchor.scope_id;
-    -- 时间字段由 S6 的 kg_revise_inherits_time_trg 从 anchor 照抄（见 20260928220000，F4）。
+    -- TODO(#4363)：S6 落地后这里一并带上 valid_to / due_at / todo_status（review F4）。
     INSERT INTO claims (id, org_id, statement, status, tsv, claim_kind, confidence, created_by, reviewed_by,
                         supersedes_claim_id, scope_kind, scope_id, valid_from)
     VALUES (v_new, v_org, v_repl, 'accepted', to_tsvector('simple', v_repl), v_anchor.claim_kind, 1, 'human', v_user,
@@ -181,7 +181,7 @@ BEGIN
      WHERE org_id = v_org AND id = ANY(v_family) AND id <> v_anchor.id;
     v_outcome := 'superseded';
   ELSE
-    -- 本版按撤回执行（整家一起）；20260928220000 改为 valid_to = now()（F4）。
+    -- TODO(#4363)：S6 落地后「已过时」改成 valid_to = now()（不撤）；在那之前按撤回执行。整家一起。
     UPDATE claims SET status = 'superseded', revoked_at = now(),
                       revocation_reason = CASE WHEN v_kind = 'expired' THEN 'user_citation_expired' ELSE 'user_citation_wrong' END,
                       updated_at = now()

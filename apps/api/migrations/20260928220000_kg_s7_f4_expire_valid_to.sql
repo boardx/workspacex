@@ -8,7 +8,12 @@
  *     已经过期的再点 ⇒ KG_CLAIM_NOT_FOUND（不重复记纠正事件）；审计 action_type = expireClaim。
  *   - 「这条不对」+ 新说法：新行的 valid_to / due_at / todo_state 由 S6 的 kg_revise_inherits_time_trg 从 anchor 照抄
  *     （新行带 supersedes_claim_id、自己没写时间字段），这里不另写一份。
- *   - 其余逐字同 20260928190000（该迁移已在 main 上执行过，不改它）。纠正事件表 kg_citation_corrections 不变。
+ *   - 「已过时」也让 S10 分享到项目的副本一起到期（同 kg_cascade_personal_share 的判据；人类决定 2026-09-28）；
+ *     有效期窗口还没开始的，窗口起点收到此刻之前（否则到期不了）；审计只列这一次真的到期的。
+ *   - 其余逐字同 20260928190000。
+ * 20260928190000 里还留着 TODO(#4363) 注释：那份文件**一个字节都不能改**——已执行过的迁移文件的 sha256 要与
+ * `_kernel_migrations.checksum` 一致（apps/api/scripts/data-readiness.ts 核对，云上 provision 的就绪检查跑它；改了就永远
+ * 「schema not current」）。那几处 TODO 说的事就在本文件做完了，以本文件为准。纠正事件表 kg_citation_corrections 不变。
  */
 CREATE OR REPLACE FUNCTION kg_correct_citation(p jsonb) RETURNS jsonb
 LANGUAGE plpgsql SECURITY DEFINER SET search_path = pg_catalog, public, pg_temp
@@ -32,6 +37,8 @@ DECLARE
   v_s       record;
   v_n       int;
   v_family  text[];
+  v_touched text[];
+  v_shared  text[];
 BEGIN
   IF v_org IS NULL OR v_org = '' THEN RAISE EXCEPTION 'KG_NO_TENANT' USING ERRCODE = '42501'; END IF;
   IF NOT public.kernel_org_is_writable(v_org) THEN
@@ -149,25 +156,57 @@ BEGIN
     -- F4（S6 #4363 已在 main）：「已过时」= 整家 valid_to = now()（左闭右开：此刻起不再成立），**不撤**。
     -- 行、边、证据都在：/brain 与记忆面板照旧列出它，标「已过期」（claim-time.ts claimExpired 一处判定）；召回不再用它。
     -- 已经过期的不算再过期一次（不重复记纠正事件）：被点的那条已过期 ⇒ 同「不在了」。
-    -- valid_from 在此刻之后（尚未生效的窗口）⇒ valid_to 取 valid_from 之后一瞬，守住 claims_validity_chk（valid_from < valid_to）。
+    -- 有效期窗口还没开始（valid_from 在此刻之后）⇒ 窗口起点收到此刻之前一瞬（PR #4507 review M1）：否则 valid_to 只能落在
+    -- valid_from 之后（claims_validity_chk），这条到那时之前既照样被召回、也不算过期，再点仍会被接受、重复计数。
     IF v_c.valid_to IS NOT NULL AND v_c.valid_to <= now() THEN
       RAISE EXCEPTION 'KG_CLAIM_NOT_FOUND: claim % already expired', v_claim USING ERRCODE = '23503';
     END IF;
-    UPDATE claims
-       SET valid_to = CASE WHEN valid_from IS NOT NULL AND valid_from >= now() THEN valid_from + interval '1 microsecond' ELSE now() END,
-           updated_at = now()
-     WHERE org_id = v_org AND id = ANY(v_family) AND (valid_to IS NULL OR valid_to > now());
+    WITH u AS (
+      UPDATE claims
+         SET valid_to = now(),
+             valid_from = CASE WHEN valid_from IS NULL THEN NULL ELSE LEAST(valid_from, now() - interval '1 microsecond') END,
+             updated_at = now()
+       WHERE org_id = v_org AND id = ANY(v_family) AND (valid_to IS NULL OR valid_to > now())
+      RETURNING id)
+    SELECT coalesce(array_agg(id ORDER BY id), '{}') INTO v_touched FROM u;
+    -- S10 分享到项目的副本（PR #4507 review M2，人类决定 2026-09-28：主人不再认这条，项目里的那份也不再算）：
+    -- 同 kg_cascade_personal_share 撤回时的判据——有指向这一家的 derived_from 边、且没有指向家外的活 derived_from 来源——
+    -- 一起到期（不撤，同上）。项目作用域排在会话 / 个人之后加锁。
+    PERFORM pg_advisory_xact_lock(hashtext('kg_scope:' || v_org || '|project|' || x.scope_id))
+       FROM (SELECT DISTINCT pc.scope_id FROM claims pc
+              WHERE pc.org_id = v_org AND pc.scope_kind = 'project'
+                AND EXISTS (SELECT 1 FROM ontology_edges d WHERE d.org_id = pc.org_id AND d.src_kind = 'claim' AND d.src_id = pc.id
+                              AND d.relation = 'derived_from' AND d.dst_kind = 'claim' AND d.dst_id = ANY(v_touched))
+              ORDER BY 1) x;
+    WITH u AS (
+      UPDATE claims pc
+         SET valid_to = now(),
+             valid_from = CASE WHEN pc.valid_from IS NULL THEN NULL ELSE LEAST(pc.valid_from, now() - interval '1 microsecond') END,
+             updated_at = now()
+       WHERE pc.org_id = v_org AND pc.scope_kind = 'project' AND pc.revoked_at IS NULL AND pc.status <> 'superseded'
+         AND (pc.valid_to IS NULL OR pc.valid_to > now())
+         AND EXISTS (SELECT 1 FROM ontology_edges d
+                      WHERE d.org_id = pc.org_id AND d.src_kind = 'claim' AND d.src_id = pc.id AND d.relation = 'derived_from'
+                        AND d.dst_kind = 'claim' AND d.dst_id = ANY(v_touched))
+         AND NOT EXISTS (SELECT 1 FROM ontology_edges o
+                          WHERE o.org_id = pc.org_id AND o.src_kind = 'claim' AND o.src_id = pc.id AND o.relation = 'derived_from'
+                            AND o.dst_kind = 'claim' AND NOT (o.dst_id = ANY(v_touched)) AND o.status = 'active')
+      RETURNING pc.id)
+    SELECT coalesce(array_agg(id ORDER BY id), '{}') INTO v_shared FROM u;
+    -- 审计只列这一次真的到期的（PR #4507 review L1）。
+    v_touched := v_touched || v_shared;
     v_outcome := 'expired';
   ELSE
     UPDATE claims SET status = 'superseded', revoked_at = now(), revocation_reason = 'user_citation_wrong', updated_at = now()
      WHERE org_id = v_org AND id = ANY(v_family);
     v_outcome := 'forgotten';
   END IF;
+  IF v_kind = 'wrong' THEN v_touched := v_family; END IF;
 
   -- 审计：每个被动到的作用域各一条（会话的审计不带个人空间的 id，个人空间那条记在个人空间，同 F17）。
   v_n := 0;
-  FOR v_s IN SELECT DISTINCT c.scope_kind = 'personal' AS is_personal, c.scope_kind, c.scope_id
-               FROM claims c WHERE c.org_id = v_org AND c.id = ANY(v_family) ORDER BY 1, 3 LOOP
+  FOR v_s IN SELECT DISTINCT c.scope_kind = 'project' AS is_project, c.scope_kind = 'personal' AS is_personal, c.scope_kind, c.scope_id
+               FROM claims c WHERE c.org_id = v_org AND c.id = ANY(v_touched) ORDER BY 1, 2, 4 LOOP
     INSERT INTO ontology_actions (id, org_id, scope_kind, scope_id, actor_kind, actor_id, action_type, payload, source_ref, outcome)
     VALUES (CASE WHEN v_n = 0 THEN v_id ELSE v_id || '-' || v_n END, v_org, v_s.scope_kind, v_s.scope_id, 'human', v_user,
             CASE v_outcome WHEN 'superseded' THEN 'reviseClaim' WHEN 'expired' THEN 'expireClaim' ELSE 'revokeClaim' END,
@@ -176,7 +215,7 @@ BEGIN
                                'message_id', CASE WHEN v_s.scope_kind = 'chat_session' AND v_s.scope_id = v_thread THEN v_message END,
                                'objects', '[]'::jsonb,
                                'claims', (SELECT jsonb_agg(jsonb_build_object('id', x.id) ORDER BY x.id) FROM (
-                                           SELECT c.id FROM claims c WHERE c.org_id = v_org AND c.id = ANY(v_family)
+                                           SELECT c.id FROM claims c WHERE c.org_id = v_org AND c.id = ANY(v_touched)
                                               AND c.scope_kind = v_s.scope_kind AND c.scope_id = v_s.scope_id
                                            UNION ALL
                                            SELECT v_new WHERE v_new IS NOT NULL AND v_akind = v_s.scope_kind AND v_ascope = v_s.scope_id) x)),
