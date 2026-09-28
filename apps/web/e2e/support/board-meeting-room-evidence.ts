@@ -70,7 +70,7 @@ export async function readRoomViewport(page: Page): Promise<Viewport> {
   return {x: Number(values[0]), y: Number(values[1]), zoom: Number(values[2])};
 }
 
-export type RoomReceipt = ReturnType<typeof roomClock> & {id: string; clientId: string; status: number; method: string; command?: {type: string; actorId: string; expectedRevision: number}; state?: RoomState};
+export type RoomReceipt = ReturnType<typeof roomClock> & {id: string; clientId: string; status: number; method: string; command?: {type: string; actorId: string; expectedRevision: number; toActorId?:string}; state?: RoomState};
 export type RoomRuntime = {sha: string; buildSha: string; dirty: boolean; method: string; deploymentMarker: string; runStartedAt: string; buildCreatedAt: string; buildId: string; chunks: Array<{url: string; sha256: string; localSha256: string}>};
 export type RoomArtifact = {version: 1; kind: 'board-meeting-room'; ledger: RoomLedger; runtimeBefore: RoomRuntime; runtimeAfter: RoomRuntime; receipts: RoomReceipt[]; identities: Array<{userId: string; actorId: string}>; observationErrors: string[]};
 /** A signed ledger still requires independent raw response/projection/build cross-checks. */
@@ -94,6 +94,7 @@ export function validateRoomArtifact(report: RoomArtifact, sha: string, key: str
     if (receipts.size !== report.receipts.length) failures.push('DUPLICATE_RECEIPT');
     for (const receipt of report.receipts) {
       if (!Number.isFinite(receipt.monotonicMs) || !Number.isFinite(Date.parse(receipt.at)) || !identities.some(identity => identity.userId === receipt.clientId)) failures.push('RECEIPT_CONTEXT');
+      failures.push(...validateRoomReceiptIdentity(receipt, identities));
       if (receipt.method === 'POST' && receipt.status >= 200 && receipt.status < 300 && receipt.command && (!receipt.state || receipt.state.revision !== receipt.command.expectedRevision + 1)) failures.push('RECEIPT_REVISION');
     }
     const consumed = new Set<string>();
@@ -104,8 +105,74 @@ export function validateRoomArtifact(report: RoomArtifact, sha: string, key: str
       consumed.add(sample.receiptId);
       if (!report.receipts.some(raw => raw.method === 'POST' && raw.status >= 200 && raw.status < 300 && raw.command?.type === 'viewport' && raw.command.actorId === report.ledger.presenterId && raw.state?.revision === sample.state.revision && roomCanonical(raw.state.viewport) === roomCanonical(sample.state.viewport))) failures.push('MISSING_BROWSER_VIEWPORT_WRITE');
     }
-    if (!report.receipts.some(receipt => receipt.status === 409 && receipt.command?.type === 'handoff')) failures.push('MISSING_CAS_RESPONSE');
-    for (const method of ['GET','POST']) if (!report.receipts.some(receipt => receipt.method === method && [403,404].includes(receipt.status))) failures.push('MISSING_REVOKED_RESPONSE');
+    failures.push(...validateRoomHandoffProof(report));
+    failures.push(...validateRoomRevocationProof(report));
   } catch {failures.push('ARTIFACT_MALFORMED');}
   return [...new Set(failures)];
+}
+
+export function validateRoomReceiptIdentity(receipt:RoomReceipt,identities:RoomArtifact["identities"]):string[]{
+  const failures:string[]=[];
+      if (receipt.command && !identities.some(identity => identity.userId === receipt.clientId && identity.actorId === receipt.command?.actorId)) failures.push('RECEIPT_ACTOR');
+      if (receipt.command?.type === 'handoff' && (!receipt.command.toActorId || receipt.command.toActorId===receipt.command.actorId || !identities.some(identity=>identity.actorId===receipt.command?.toActorId) || (receipt.status>=200 && receipt.status<300 && receipt.state?.presenterId!==receipt.command.toActorId))) failures.push('HANDOFF_IDENTITY');
+  return failures;
+}
+
+/** Bind lifecycle claims to the actual competing responses and subsequent server reads.
+ * A signed summary alone cannot replace a missing successful handoff observation. */
+export function validateRoomHandoffProof(report: RoomArtifact): string[] {
+  const {ledger, receipts} = report;
+  const casEvent = ledger.events.find(event => event.type === 'cas-conflict');
+  const handoffEvent = ledger.events.find(event => event.type === 'handoff');
+  if (!casEvent || !handoffEvent) return ['HANDOFF_EVENTS_MISSING'];
+  const failures: string[] = [];
+  const inBoard = (state?: RoomState) => Boolean(state && state.boardId === ledger.boardId && state.roomId === ledger.roomId);
+  const observedBefore = (receipt: RoomReceipt, event: RoomEvent) => receipt.monotonicMs <= event.monotonicMs
+    && event.monotonicMs - receipt.monotonicMs <= ROOM_REQUIREMENTS.maxGapMs
+    && Math.abs(Date.parse(receipt.at) - Date.parse(event.at) - (receipt.monotonicMs - event.monotonicMs)) <= 2000;
+  const successful = receipts.filter(receipt => receipt.method === 'POST' && receipt.status === 201 && receipt.command?.type === 'handoff'
+    && inBoard(receipt.state) && receipt.state!.presenterId === receipt.command.toActorId
+    && receipt.state!.revision === receipt.command.expectedRevision + 1);
+  const winner = successful.find(receipt => receipt.command!.actorId === ledger.presenterId
+    && receipt.state!.revision === casEvent.before && casEvent.after === casEvent.before && observedBefore(receipt, casEvent));
+  if (!winner) failures.push('MISSING_CAS_SUCCESS');
+  const loser = winner && receipts.find(receipt => receipt.method === 'POST' && receipt.status === 409 && receipt.command?.type === 'handoff'
+    && receipt.clientId === winner.clientId && receipt.command.actorId === winner.command!.actorId
+    && receipt.command.expectedRevision === winner.command!.expectedRevision
+    && receipt.command.toActorId !== winner.command!.toActorId && observedBefore(receipt, casEvent));
+  if (!loser) failures.push('MISSING_MATCHED_CAS_CONFLICT');
+  const statuses = (casEvent.detail as {statuses?: unknown})?.statuses;
+  if (!Array.isArray(statuses) || roomCanonical([...statuses].sort()) !== roomCanonical([201,409])) failures.push('CAS_EVENT_RESPONSE_MISMATCH');
+  const matchingRead = (write: RoomReceipt, event: RoomEvent) => receipts.some(receipt => receipt.method === 'GET' && receipt.status === 200
+    && inBoard(receipt.state) && roomCanonical(receipt.state) === roomCanonical(write.state)
+    && receipt.monotonicMs >= write.monotonicMs && observedBefore(receipt, event));
+  if (winner && !matchingRead(winner, casEvent)) failures.push('MISSING_CAS_WINNER_READ');
+  const finalHandoff = successful.find(receipt => roomCanonical(receipt.state) === roomCanonical(handoffEvent.detail)
+    && receipt.state!.revision === handoffEvent.after && observedBefore(receipt, handoffEvent));
+  if (!finalHandoff || !winner || handoffEvent.before !== winner.command!.expectedRevision
+    || (finalHandoff.id !== winner.id && (finalHandoff.command!.actorId !== winner.command!.toActorId
+      || finalHandoff.command!.expectedRevision < winner.state!.revision))) failures.push('HANDOFF_EVENT_RESPONSE_MISMATCH');
+  if (finalHandoff && ledger.finalState.revision <= finalHandoff.state!.revision) failures.push('RELEASE_BEFORE_HANDOFF');
+  if (finalHandoff && !matchingRead(finalHandoff, handoffEvent)) failures.push('MISSING_HANDOFF_READ');
+  return failures;
+}
+
+/** A denial for another user or earlier unrelated request does not prove revocation. */
+export function validateRoomRevocationProof(report: RoomArtifact): string[] {
+  const revoked = report.ledger.events.find(event => event.type === 'revoke');
+  const actorId = (revoked?.detail as {actorId?: string} | undefined)?.actorId;
+  const identity = report.identities.find(item => item.actorId === actorId);
+  if (!revoked || !identity || !report.ledger.followerIds.includes(actorId!)) return ['REVOKED_IDENTITY_MISSING'];
+  const failures: string[] = [];
+  for (const [method, type] of [['GET','revoked-read'],['POST','revoked-write']] as const) {
+    const event = report.ledger.events.find(item => item.type === type);
+    const receipt = event && report.receipts.find(item => item.method === method && item.clientId === identity.userId
+      && [403,404].includes(item.status) && item.status === event.status && item.state === undefined
+      && item.monotonicMs >= revoked.monotonicMs && item.monotonicMs <= event.monotonicMs
+      && event.monotonicMs - item.monotonicMs <= ROOM_REQUIREMENTS.maxGapMs
+      && Math.abs(Date.parse(item.at) - Date.parse(event.at) - (item.monotonicMs - event.monotonicMs)) <= 2000
+      && (method === 'GET' || (item.command !== undefined && item.command.actorId === actorId && item.command.type === 'claim-presenter' && item.command.expectedRevision === event.before)));
+    if (!event || !receipt || event.before !== event.after || event.before !== revoked.after) failures.push(`MISSING_BOUND_REVOKED_${method}`);
+  }
+  return failures;
 }

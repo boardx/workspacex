@@ -70,9 +70,11 @@ it("creates twenty 24px-spaced stickies by typing and pressing Tab without openi
 
 it("guards shortcuts inside inputs and creates from N/T only when canvas context owns the key", () => {
   const doc = editor();
+  fireEvent.pointerDown(screen.getByTestId("board-title-menu"),{button:0,ctrlKey:false});
   const title = screen.getByLabelText("白板名称");
   fireEvent.keyDown(title, { key: "n" });
   expect(readObjects(doc)).toHaveLength(0);
+  fireEvent.keyDown(title,{key:"Escape"});
   act(() => window.dispatchEvent(new KeyboardEvent("keydown", { key: "n", bubbles: true })));
   expect(readObjects(doc)).toHaveLength(1);
   fireEvent.keyDown(screen.getByLabelText("对象文字"), { key: "t" });
@@ -142,16 +144,17 @@ it("edits sticky appearance through canonical commands while preserving future e
   editor(false, doc);
   fireEvent.click(screen.getByTestId("mock-object-double"));
   expect(screen.getByRole("complementary", { name: "便利贴快捷工具" })).toBeVisible();
-  fireEvent.click(screen.getByTestId("board-inspector-sticky"));
-  fireEvent.click(screen.getByTestId("sticky-color-blue"));
+  fireEvent.click(screen.getByTestId("sticky-quick-color-blue"));
   fireEvent.click(screen.getByTestId("context-sticky-circle"));
+  fireEvent.click(screen.getByTestId("board-inspector-expand"));
+  fireEvent.click(screen.getByTestId("board-widget-advanced-format").querySelector("summary")!);
   fireEvent.change(screen.getByTestId("sticky-sizing"), { target: { value: "fixed" } });
   const updated = readObjects(doc)[0]!;
   expect(updated.geometry).toMatchObject({ width: 180, height: 180 });
-  expect(updated.style.fill).toBe("#BBDDF8");
+  expect(updated.style.fill).toBe("#C6DDFF");
   expect(updated.extensionData).toMatchObject({
     plugin: { keep: true },
-    thinkingInput: { future: "root", sticky: { future: "sticky", variant: "circle", sizing: "fixed", color: "#BBDDF8" } },
+    thinkingInput: { future: "root", sticky: { future: "sticky", variant: "circle", sizing: "fixed", color: "#C6DDFF" } },
   });
   doc.destroy();
 });
@@ -161,6 +164,8 @@ it("persists tags, per-person reactions and a safe link preview without losing u
   executeCommands(doc, [{ type: "create", object: object("sticky", { objectExperience: { future: { keep: true }, tags: ["已有"], reactions: { "👍": ["peer"], custom: ["future"] }, linkPreview: { url: "https://old.example", title: "旧链接", description: "旧描述", future: "preview" } } }) }], "seed");
   editor(false, doc);
   fireEvent.click(screen.getByTestId("mock-object-double"));
+  fireEvent.click(screen.getByTestId("board-inspector-expand"));
+  fireEvent.click(screen.getByTestId("board-widget-advanced-format").querySelector("summary")!);
   fireEvent.click(screen.getByTestId("board-inspector-metadata"));
   fireEvent.change(screen.getByLabelText("新标签"), { target: { value: "洞察" } });
   fireEvent.click(screen.getByLabelText("添加标签"));
@@ -184,6 +189,8 @@ it("applies all direct text controls and rejects a non-http link without mutatin
   executeCommands(doc, [{ type: "create", object: object("text", { plugin: { keep: true }, thinkingInput: { future: "root", text: { future: "text", preset: "body", fontFamily: "Noto Sans SC", fontSize: 18, bold: false, italic: false, underline: false, color: "#242424", alignment: "left", lineHeight: 1.4, list: "none", link: null } } }) }], "seed");
   editor(false, doc);
   fireEvent.click(screen.getByTestId("mock-object-double"));
+  fireEvent.click(screen.getByTestId("board-inspector-expand"));
+  fireEvent.click(screen.getByTestId("board-widget-advanced-format").querySelector("summary")!);
   fireEvent.click(screen.getByTestId("board-inspector-text"));
   fireEvent.change(screen.getByRole("combobox", { name: "文字样式" }), { target: { value: "title" } });
   fireEvent.change(screen.getByLabelText("字体"), { target: { value: "Noto Serif SC" } });
@@ -214,13 +221,19 @@ it("shows contextual data in read-only mode but disables every mutation control"
   const before = readObjects(doc);
   editor(true, doc);
   fireEvent.click(screen.getByTestId("mock-object-double"));
-  fireEvent.click(screen.getByTestId("board-inspector-sticky"));
+  expect(screen.getByRole("complementary", { name: "便利贴快捷工具" })).toBeVisible();
   expect(screen.getByTestId("context-sticky-circle")).toBeDisabled();
   fireEvent.click(screen.getByTestId("context-sticky-circle"));
+  fireEvent.click(screen.getByTestId("board-inspector-expand"));
+  fireEvent.click(screen.getByTestId("board-widget-advanced-format").querySelector("summary")!);
   fireEvent.click(screen.getByTestId("board-inspector-metadata"));
   expect(screen.getByText("只读", { exact: true })).toBeVisible();
   expect(screen.getByLabelText("新标签")).toBeDisabled();
   expect(screen.getByText("保存预览", { exact: true })).toBeDisabled();
   expect(readObjects(doc)).toEqual(before);
   doc.destroy();
+});
+
+it("keeps creation palette defaults separate from the selected sticky's canonical color",()=>{
+ const doc=editor();fireEvent.click(screen.getByTestId("board-add-sticky"));fireEvent.click(screen.getByTestId("board-sticky-default-blue"));expect(readObjects(doc)).toHaveLength(0);fireEvent.click(screen.getByTestId("mock-canvas-click"));const first=readObjects(doc)[0]!;const originalFill=first.style.fill;expect(originalFill).toBeTruthy();fireEvent.keyDown(screen.getByLabelText("对象文字"),{key:"Escape"});fireEvent.click(screen.getByTestId("board-add-sticky"));fireEvent.click(screen.getByTestId("board-sticky-default-pink"));expect(readObjects(doc)[0]!.style.fill).toBe(originalFill);fireEvent.click(screen.getByTestId("mock-canvas-click"));expect(readObjects(doc)).toHaveLength(2);expect(readObjects(doc).find(object=>object.id!==first.id)!.style.fill).not.toBe(originalFill);doc.destroy();
 });

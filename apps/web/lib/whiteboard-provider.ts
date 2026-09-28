@@ -238,7 +238,7 @@ export class WhiteboardProvider {
   }
   awareness(cursor: { x: number; y: number } | null, selected: string[], editingObjectId: string | null = null, collaboration?: {viewport:{centerX:number;centerY:number;zoom:number;revision:number};presenting:boolean;followingActorId:string|null}, pointer: Extract<WhiteboardClientMessage,{type:"awareness"}>["pointer"]=null) {
     if (!this.ready || this.stopped || (cursor && (!Number.isFinite(cursor.x) || !Number.isFinite(cursor.y)))) return;
-    this.latestPresence = { type: 'awareness', ...(pointer ? { pointer } : {}), cursor, selected: selected.slice(0,200), editingObjectId,viewport:collaboration?.viewport??null,presenting:collaboration?.presenting??false,followingActorId:collaboration?.followingActorId??null };
+    this.latestPresence = { type: 'awareness', pointer, cursor, selected: selected.slice(0,200), editingObjectId,viewport:collaboration?.viewport??null,presenting:collaboration?.presenting??false,followingActorId:collaboration?.followingActorId??null };
     this.schedulePresence();
   }
   retryNow() { if (this.stopped || this.state.phase === 'blocked') return; if (this.timer) clearTimeout(this.timer); this.retry = 0; this.socket?.close(); this.connect('MANUAL_RETRY'); }

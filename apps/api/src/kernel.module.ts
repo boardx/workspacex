@@ -1,3 +1,4 @@
+import {PgWhiteboardOperationUndoStore} from './infrastructure/whiteboard/pg-operation-undo-store';
 import {WHITEBOARD_ORGANIZE_SERVICE,WhiteboardOrganizeService} from './application/whiteboard/organize-service';
 import {PgBoardOrganizeActorDirectory} from './infrastructure/whiteboard/pg-organize-actor-directory';
 import { WhiteboardAssetsController } from './interface/controllers/whiteboard-assets.controller';
@@ -15,6 +16,9 @@ import { DUPLICATE_BOARD_SERVICE } from './application/whiteboard/ports';
 import { BOARD_CONTENT_COPY_PORT, type BoardContentCopyPort } from './application/whiteboard/board-content-copy-port';
 import { DuplicateBoard } from './application/whiteboard/duplicate-board';
 import { PgWhiteboardRepository } from './infrastructure/whiteboard/pg-whiteboard-repository';
+import { WhiteboardPortableController } from './interface/controllers/whiteboard-portable.controller';
+import { PortableBoardService,WHITEBOARD_PORTABLE_SERVICE } from './application/whiteboard/portable-board';
+import { PgPortableBoard } from './infrastructure/whiteboard/pg-portable-board';
 import { WhiteboardImportController } from './interface/controllers/whiteboard-import.controller';
 import { WHITEBOARD_IMPORT_SERVICE, WhiteboardImportService } from './application/whiteboard/import-service';
 import { WHITEBOARD_OBJECT_INVENTORY,type WhiteboardObjectInventory } from './application/whiteboard/object-retention';
@@ -121,6 +125,9 @@ import { StandardBrowserToolsController } from "./interface/controllers/standard
 import { STANDARD_MEMORY_PROOF } from "./application/agent-run/standard-memory-proof";
 import { PgStandardMemoryProof } from "./infrastructure/agent-run/pg-standard-memory-proof";
 import { StandardMemoryProofController } from "./interface/controllers/standard-memory-proof.controller";
+import { STANDARD_REMEMBER } from "./application/agent-run/standard-remember";
+import { PgStandardRemember } from "./infrastructure/agent-run/pg-standard-remember";
+import { StandardRememberController } from "./interface/controllers/standard-remember.controller";
 import { createStandardWebService } from "./infrastructure/agent-run/standard-web-service";
 import { StandardWebToolsController } from "./interface/controllers/standard-web-tools.controller";
 import { NATIVE_OUTPUT_STAGING, type NativeOutputStaging } from "./application/agent-run/native-output-staging";
@@ -366,6 +373,15 @@ import { PgInterviewScopeRepository } from "./infrastructure/interview/pg-interv
 import { PgInterviewAttachmentRepository } from "./infrastructure/interview/pg-interview-attachment-repository";
 import { InterviewScopeController } from "./interface/controllers/interview-scope.controller";
 import { DigitalInterviewController } from "./interface/controllers/digital-interview.controller";
+import { ExpertAvatarPreferenceController } from "./interface/controllers/expert-avatar-preference.controller";
+import { InterviewMarkdownReportReviewController } from "./interface/controllers/interview-markdown-report-review.controller";
+import { InterviewMarkdownAttachmentController } from "./interface/controllers/interview-markdown-attachment.controller";
+import { INTERVIEW_MARKDOWN_ATTACHMENTS } from "./application/interview/interview-markdown-attachment.port";
+import { PgInterviewMarkdownAttachmentRepository } from "./infrastructure/interview/pg-interview-markdown-attachment-repository";
+import { INTERVIEW_MARKDOWN_REPORT_REVIEW_REPOSITORY } from "./application/interview/interview-markdown-report-review.port";
+import { PgInterviewMarkdownReportReviewRepository } from "./infrastructure/interview/pg-interview-markdown-report-review-repository";
+import { EXPERT_AVATAR_PREFERENCE_REPOSITORY } from "./application/interview/expert-avatar-preference.port";
+import { PgExpertAvatarPreferenceRepository } from "./infrastructure/interview/pg-expert-avatar-preference-repository";
 // F01 (phase-06 · 06-itv insight sub-bundle): 洞察写路径持久化——extractQuotes /
 // generateCandidateInsights / confirmInsight 三个算子真正接线到 Postgres。
 import { InterviewInsightController } from "./interface/controllers/interview-insight.controller";
@@ -413,6 +429,12 @@ import {
   DIGITAL_INTERVIEW_RUNTIME,
 } from "./application/interview/workflow/digital-interview-runtime.port";
 import { PgDigitalInterviewRepository } from "./infrastructure/interview/pg-digital-interview-repository";
+import { PgInterviewMarkdownReader } from "./infrastructure/interview/pg-interview-markdown-reader";
+import { INTERVIEW_MARKDOWN_READER } from "./application/interview/read-interview-markdown";
+import { INTERVIEW_MARKDOWN_GENERATOR, generateInterviewMarkdown } from "./application/interview/generate-interview-markdown";
+import { INTERVIEW_MARKDOWN_EXECUTION, type MarkdownExecutionInput } from "./application/interview/interview-markdown-execution.port";
+import { executeInterviewMarkdown } from "./application/interview/execute-interview-markdown";
+import { PgInterviewMarkdownExecutionStore } from "./infrastructure/interview/pg-interview-markdown-execution-store";
 import { PgDigitalInterviewEffects } from "./infrastructure/interview/workflow/pg-digital-interview-effects";
 import { readDigitalInterviewModelConfig } from "./infrastructure/interview/workflow/digital-interview-model-config";
 import {
@@ -645,11 +667,25 @@ import {
 } from "./application/first-value/first-value-recorder";
 import { PgFirstValueFacts } from "./infrastructure/first-value/pg-first-value-facts";
 import { FirstValueController } from "./interface/controllers/first-value.controller";
-import { GRAPH_PROJECTION_PORT, KG_AUTO_COPY_PORT, KG_CONFLICT_PORT, KG_DEPLOYMENT_EXTRACTION_SETTINGS_PORT, KG_EXTRACTION_QUEUE_PORT, KG_EXTRACTION_SOURCE_PORT, KG_ORG_EXTRACTION_SETTINGS_PORT, HUMAN_ACTION_PORT, KNOWLEDGE_EXTRACTOR_PORT, KNOWLEDGE_READ_PORT, MEMORY_CARD_PORT, ONTOLOGY_STORE_PORT, PROMOTION_PORT } from "./application/knowledge-graph/ports";
+import { GRAPH_PROJECTION_PORT, KG_AUTO_COPY_PORT, KG_EMBEDDING_QUEUE_PORT, KG_CONFLICT_PORT, KG_DEPLOYMENT_EXTRACTION_SETTINGS_PORT, KG_EXTRACTION_QUEUE_PORT, KG_EXTRACTION_SOURCE_PORT, KG_ORG_EXTRACTION_SETTINGS_PORT, HUMAN_ACTION_PORT, KNOWLEDGE_EXTRACTOR_PORT, KNOWLEDGE_READ_PORT, MEMORY_CARD_PORT, type MemoryCardPort, ONTOLOGY_STORE_PORT, PROMOTION_PORT } from "./application/knowledge-graph/ports";
 import { PgPromotion } from "./infrastructure/knowledge-graph/pg-promotion";
 import { PgHumanAction } from "./infrastructure/knowledge-graph/pg-human-action";
 import { KnowledgeGraphController } from "./interface/controllers/knowledge-graph.controller";
+import { KnowledgeShareController } from "./interface/controllers/knowledge-share.controller";
+import { PROJECT_SHARE_PORT } from "./application/knowledge-graph/share-to-project";
+import { PgProjectShare } from "./infrastructure/knowledge-graph/pg-project-share";
 import { PlatformExtractionSettingController } from "./interface/controllers/platform-extraction-setting.controller";
+// S8（#4365）：记忆整合 + 「值得记」门控 + 抽取 SLO。
+import { PlatformMemoryOpsController } from "./interface/controllers/platform-memory-ops.controller";
+import { KnowledgeConsolidationController } from "./interface/controllers/knowledge-consolidation.controller";
+import { ExtractionSloRecorder, KG_EXTRACTION_SLO_RECORDER } from "./application/knowledge-graph/extraction-slo-recorder";
+import {
+  KG_CONSOLIDATION_PORT, KG_EXTRACTION_GATE_MODEL, KG_EXTRACTION_SLO_COUNTS_PORT, KG_EXTRACTION_SLO_THRESHOLDS,
+} from "./application/knowledge-graph/s8-ports";
+import { readExtractionSloThresholds } from "./domain/knowledge-graph/extraction-slo";
+import { PgKgConsolidation, PgKgExtractionSloCounts } from "./infrastructure/knowledge-graph/pg-kg-consolidation";
+import { KgConsolidationWorker } from "./infrastructure/knowledge-graph/kg-consolidation-worker";
+import { ModelWorthinessCheck, readKgExtractionGateModelEnabled } from "./infrastructure/knowledge-graph/model-worthiness-check";
 import { PgKnowledgeRead } from "./infrastructure/knowledge-graph/pg-knowledge-read";
 import { PgKgOrgExtractionSettings } from "./infrastructure/knowledge-graph/pg-kg-org-extraction-settings";
 import { PgKgDeploymentExtractionSettings } from "./infrastructure/knowledge-graph/pg-kg-deployment-extraction-settings";
@@ -660,7 +696,11 @@ import { PgKgExtraction } from "./infrastructure/knowledge-graph/pg-kg-extractio
 import { PgKgConflict } from "./infrastructure/knowledge-graph/pg-kg-conflict";
 import { PgKgAutoCopy } from "./infrastructure/knowledge-graph/pg-kg-auto-copy";
 import { PgMemoryCard } from "./infrastructure/knowledge-graph/pg-memory-card";
+import { PgCitationCorrection } from "./infrastructure/knowledge-graph/pg-citation-correction";
+import { CITATION_CORRECTION_PORT, CLAIM_EXPIRY_PORT } from "./application/knowledge-graph/citation-ports";
 import { KgProjectionWorker } from "./infrastructure/knowledge-graph/kg-projection-worker";
+import { KgEmbeddingWorker } from "./infrastructure/knowledge-graph/kg-embedding-worker";
+import { PgKgEmbeddingQueue } from "./infrastructure/knowledge-graph/pg-kg-embedding";
 import { PgGraphProjection } from "./infrastructure/knowledge-graph/pg-graph-projection";
 import { PgOntologyStore } from "./infrastructure/knowledge-graph/pg-ontology-store";
 import { PgKnowledgeRecall } from "./infrastructure/knowledge-graph/pg-knowledge-recall";
@@ -733,6 +773,10 @@ import { LIVE_SESSION_REPOSITORY } from "./application/auth/live-session-ports";
 import { PgLiveSessionRepository } from "./infrastructure/auth/pg-live-session-repository";
 import { newLiveSessionId } from "./domain/auth/live-session";
 import { CheckinBoardController } from "./interface/controllers/checkin-board.controller";
+// 项目中枢 R2：项目邀请链接（签发 / 撤销 / 被邀请者自助接受）。F15 用例与仓储早已实现，此前无路由。
+import { ProjectInviteController } from "./interface/controllers/project-invite.controller";
+import { INVITE_LINK_REPOSITORY } from "./application/auth/invite-link-ports";
+import { PgInviteLinkRepository } from "./infrastructure/auth/pg-invite-link-repository";
 // F11（phase-01 / UC-1.6 R10）：双人复核 + 配额硬阻断 + 成员移除。
 // ⚠ 建在 F10 的 org_invites 之上，不重开新地基：`ORG_INVITE_REPOSITORY` 复用同一个实例
 //   （`PgOrgInviteRepository` 新增了 `reviewAdminInvite` 方法，不是第二个仓储）。
@@ -845,6 +889,9 @@ import { PgProjectRepository } from "./infrastructure/project/pg-project-reposit
 import { PgProjectListRepository } from "./infrastructure/project/pg-project-list-repository";
 import { PgAgendaSegmentRepository } from "./infrastructure/project/pg-agenda-segment-repository";
 import { PgProjectOverviewRepository } from "./infrastructure/project/pg-project-overview-repository";
+// 项目中枢 B2-S1（#4425）：项目资源关联（`project_resource_links` + 四类聚合读）。
+import { PROJECT_RESOURCE_REPOSITORY } from "./application/project/project-resource-ports";
+import { PgProjectResourceRepository } from "./infrastructure/project/pg-project-resource-repository";
 import { PgProjectArchiveRepository } from "./infrastructure/project/pg-project-archive-repository";
 // BP-08（本次新增）：`BLUEPRINT_REFERENCE_REPOSITORY`——只读，独立 provider（`createProject`
 // 判 blueprintVersionId 合不合法时用）；见 `application/project/ports.ts` 与
@@ -860,6 +907,11 @@ import { PgInviteTokenMemberResolver } from "./infrastructure/project/pg-invite-
 import { TEMPORARY_GRANT_REPOSITORY } from "./application/identity/temporary-grant-ports";
 import { PgTemporaryGrantRepository } from "./infrastructure/identity/pg-temporary-grant-repository";
 import { ProjectController } from "./interface/controllers/project.controller";
+// B2-S5（#4429）：设置页「AI 权限」——侧表 `project_ai_settings`，独立 provider + 独立 controller，
+// 见 `application/project/project-ai-settings-ports.ts` 与 `pg-project-ai-settings-repository.ts` 文件头。
+import { PROJECT_AI_SETTINGS_REPOSITORY } from "./application/project/project-ai-settings-ports";
+import { PgProjectAiSettingsRepository } from "./infrastructure/project/pg-project-ai-settings-repository";
+import { ProjectAiSettingsController } from "./interface/controllers/project-ai-settings.controller";
 // F141 (asset-governance bundle): the asset directory's two READ routes (`GetAssetDirectory` /
 // `ReadAssetFile`). Scope is 2/6 AssetKinds (skill / agent, AG4) -- see the fixture repository's
 // header for why phase-1 has no persisted file store to back this yet.
@@ -1037,7 +1089,10 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
 @Module({
   controllers: [
     KnowledgeGraphController,
+    KnowledgeShareController,
     PlatformExtractionSettingController,
+    PlatformMemoryOpsController,
+    KnowledgeConsolidationController,
     SurveyController, PublicSurveyController, SurveyAttachmentController,
     HealthController,
     KernelProbeController,
@@ -1063,7 +1118,10 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
     EvidenceWithdrawalController,
     AuthOrgController,
     OrgAdminScopeController,
+    InterviewMarkdownAttachmentController,
     DigitalInterviewController,
+    ExpertAvatarPreferenceController,
+    InterviewMarkdownReportReviewController,
     GuidedResearchController,
     InterviewScopeController,
     InterviewInsightController,
@@ -1073,6 +1131,7 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
     OrgInviteController,
     OrgInviteLinkController,
     CheckinBoardController,
+    ProjectInviteController,
     OrgAdminManagementController,
     PlatformAccessController,
     PlatformMemberController,
@@ -1084,6 +1143,7 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
     FilesRetentionController,
     DeviceSessionController,
     ProjectController,
+    ProjectAiSettingsController,
     AssetDirectoryController,
     AssetGovernanceController,
     CanvasTemplateController,
@@ -1098,7 +1158,7 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
     ToolPermissionGrantController,
     DocumentGenerationAutoApproveController,
     StandardArtifactDownloadController, StandardRunStatusController, StandardRunCancelController,
-    ArtifactIndexingController, NativeFileDelegationController, ScheduleNotificationsController, StandardAudioController, StandardImageController, StandardScheduleController, SkillDraftController, SkillArtifactImportController, McpExecutionSnapshotController, NativeSessionController, NativeOutputStagingController, StandardWebToolsController, StandardBrowserToolsController, StandardMemoryProofController, StandardContextToolsController, StandardCanvasToolsController, StandardDocumentToolsController, StandardSubtaskToolsController, StandardSqlSourceController,
+    ArtifactIndexingController, NativeFileDelegationController, ScheduleNotificationsController, StandardAudioController, StandardImageController, StandardScheduleController, SkillDraftController, SkillArtifactImportController, McpExecutionSnapshotController, NativeSessionController, NativeOutputStagingController, StandardWebToolsController, StandardBrowserToolsController, StandardMemoryProofController, StandardRememberController, StandardContextToolsController, StandardCanvasToolsController, StandardDocumentToolsController, StandardSubtaskToolsController, StandardSqlSourceController,
     AgentArtifactController,
     ThreadMessageQueueController,
     NotificationsController,
@@ -1124,6 +1184,7 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
     WhiteboardController,
     WhiteboardOperationController,
     WhiteboardImportController,
+    WhiteboardPortableController,
     WhiteboardAssetsController,
     WhiteboardTagController,
     PublicDesignShareController,
@@ -1137,6 +1198,9 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
     ModelController,
   ],
   providers: [
+    { provide: EXPERT_AVATAR_PREFERENCE_REPOSITORY, useFactory: (db: DatabasePort) => new PgExpertAvatarPreferenceRepository(db), inject: [DATABASE_PORT] },
+    { provide: INTERVIEW_MARKDOWN_REPORT_REVIEW_REPOSITORY, useFactory: (db: DatabasePort) => new PgInterviewMarkdownReportReviewRepository(db), inject: [DATABASE_PORT] },
+    { provide: INTERVIEW_MARKDOWN_ATTACHMENTS, useFactory:(db:DatabasePort)=>new PgInterviewMarkdownAttachmentRepository(db),inject:[DATABASE_PORT] },
     { provide: SURVEY_TEMPLATE_REPOSITORY, useExisting: SURVEY_REPOSITORY },
     SurveySubmissionRateLimitGuard, SurveyUploadCapabilityGuard, SurveyAttachmentRateLimitGuard,
     { provide: SURVEY_ATTACHMENT_SERVICE, inject: [DATABASE_PORT, OBJECT_STORE, PHYSICAL_PURGE_PORT], useFactory: (db: DatabasePort, store: ObjectStore, purge: PhysicalPurgePort) => new SurveyAttachmentService(new PgSurveyAttachmentRepository(db), store, purge) },
@@ -2067,6 +2131,7 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
         interjections: InterjectionStore, artifactContinuations: ArtifactContinuationReader, nativeSessions: NativeSessionOwner | null, nativeOutputs: NativeOutputStaging | null,
         carryOver: InterjectionCarryOverDelivery,
         firstValue: FirstValueRecorder,
+        embeddings: EmbeddingPort | null,
       ) =>
         new AgentRunExecutor(
           runs, model, logger, process.env.KERNEL_AGENT_RUN_AUTOSTART !== "0", usage,
@@ -2113,7 +2178,8 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
           // 不是运行期的偶然。
           carryOver,
           // Phase 18 F08：会话知识召回（uc-18-2），同上面每一个一样由合成期决定。
-          new PgKnowledgeRecall(db),
+          // S9（#4366）：向量通道用部署已有的 EMBEDDING_PORT（F10 检索同一个）；没配置 ⇒ null，通道未启用。
+          new PgKnowledgeRecall(db, embeddings),
           // Phase 18 F17：对话里「记住 / 忘掉」只开确认卡（uc-18-6 A / B），同上。
           new PgMemoryCard(db),
           // E3：回答引用写进 `chat_citations`（走既有 PgChatRepository 的租户内写口）+ 价值时刻。
@@ -2124,7 +2190,7 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
         IDENTITY_REPOSITORY, CANVAS_TEMPLATE_REPOSITORY, DECISION_ID_FACTORY, OBJECT_STORE,
         SKILL_SANDBOX_PORT, RUN_EVENT_BUS, TOOL_PERMISSION_GRANT_STORE,
         INTERJECTION_STORE, ARTIFACT_CONTINUATION_READER, NATIVE_SESSION_OWNER, NATIVE_OUTPUT_STAGING,
-        INTERJECTION_CARRY_OVER_DELIVERY, FIRST_VALUE_RECORDER,
+        INTERJECTION_CARRY_OVER_DELIVERY, FIRST_VALUE_RECORDER, EMBEDDING_PORT,
       ],
     },
     // issue #3405 —— 带入投递的唯一实现。走 chat 受理的唯一入口 `acceptHumanMessage`，
@@ -2295,6 +2361,13 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
       inject: [DATABASE_PORT, TOOL_EXECUTION_AUTHORITY, IDENTITY_REPOSITORY, DECISION_ID_FACTORY, CHAT_REPOSITORY],
     },
     {
+      // issue #4344：agent 的记忆工具 `wx_remember` = 在这一轮上开 F17 的「记住」确认卡（同一个 MEMORY_CARD_PORT）。
+      provide: STANDARD_REMEMBER,
+      useFactory: (db: DatabasePort, authority: ToolExecutionAuthority, repo: IdentityRepository, ids: DecisionIdFactory, chat: ChatRepository, cards: MemoryCardPort, runs: AgentRunStore) =>
+        new PgStandardRemember(db, authority, { repo, ids, chat }, cards, runs),
+      inject: [DATABASE_PORT, TOOL_EXECUTION_AUTHORITY, IDENTITY_REPOSITORY, DECISION_ID_FACTORY, CHAT_REPOSITORY, MEMORY_CARD_PORT, AGENT_RUN_STORE],
+    },
+    {
       provide: NATIVE_OUTPUT_STAGING,
       useFactory: (db: DatabasePort, owner: NativeSessionOwner | null, objects: ObjectStore, authority: ToolExecutionAuthority) => {
         if (!owner) return null;
@@ -2372,6 +2445,42 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
       provide: DIGITAL_INTERVIEW_REPOSITORY,
       useFactory: (db: DatabasePort) => new PgDigitalInterviewRepository(db),
       inject: [DATABASE_PORT],
+    },
+    {
+      provide: INTERVIEW_MARKDOWN_READER,
+      useFactory: (db: DatabasePort) => new PgInterviewMarkdownReader(db),
+      inject: [DATABASE_PORT],
+    },
+    {
+      provide: INTERVIEW_MARKDOWN_GENERATOR,
+      useFactory: (
+        repo: import("./application/interview/digital-interview-ports").DigitalInterviewRepository,
+        scope: import("./application/interview/ports").InterviewScopeRepository,
+        decisions: import("./application/identity/ports").DecisionIdFactory,
+        reader: import("./application/interview/read-interview-markdown").InterviewMarkdownReader,
+        model: ModelCallPort,
+      ) => {
+        const config = readDigitalInterviewModelConfig();
+        return { generate: (input: import("./application/interview/generate-interview-markdown").GenerateMarkdownInput) =>
+          generateInterviewMarkdown({ repo, scope, decisions, reader, model, modelProvider: config.provider, modelId: config.modelId }, input) };
+      },
+      inject: [DIGITAL_INTERVIEW_REPOSITORY, INTERVIEW_SCOPE_REPOSITORY, DECISION_ID_FACTORY, INTERVIEW_MARKDOWN_READER, MODEL_CALL_PORT],
+    },
+    {
+      provide: INTERVIEW_MARKDOWN_EXECUTION,
+      useFactory: (
+        db: DatabasePort,
+        repo: import("./application/interview/digital-interview-ports").DigitalInterviewRepository,
+        scope: import("./application/interview/ports").InterviewScopeRepository,
+        decisions: import("./application/identity/ports").DecisionIdFactory,
+        reader: import("./application/interview/read-interview-markdown").InterviewMarkdownReader,
+        model: ModelCallPort,
+      ) => {
+        const config=readDigitalInterviewModelConfig();
+        const store=new PgInterviewMarkdownExecutionStore(db);
+        return {execute:(input:MarkdownExecutionInput)=>executeInterviewMarkdown({repo,scope,decisions,reader,store,model,modelProvider:config.provider,modelId:config.modelId},input)};
+      },
+      inject: [DATABASE_PORT,DIGITAL_INTERVIEW_REPOSITORY,INTERVIEW_SCOPE_REPOSITORY,DECISION_ID_FACTORY,INTERVIEW_MARKDOWN_READER,MODEL_CALL_PORT],
     },
     {
       provide: DIGITAL_INTERVIEW_EFFECTS,
@@ -2554,6 +2663,12 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
       useFactory: (db: DatabasePort) => new PgOrgInviteLinkRepository(db),
       inject: [DATABASE_PORT],
     },
+    // 项目中枢 R2：F15 `InviteLinkRepository` 的生产实现（`project-invite.controller.ts` 消费）。
+    {
+      provide: INVITE_LINK_REPOSITORY,
+      useFactory: (db: DatabasePort) => new PgInviteLinkRepository(db),
+      inject: [DATABASE_PORT],
+    },
     // F05（phase-10 group-checkin 束）：`LiveSessionRepository` 的生产实现——
     // `checkin-board.controller.ts` 消费的 `board()` 就是这里落的库。
     {
@@ -2641,6 +2756,12 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
       useFactory: (db: DatabasePort) => new PgProjectOverviewRepository(db),
       inject: [DATABASE_PORT],
     },
+    // 项目中枢 B2-S1（#4425）：`ProjectResourcePort` 的生产实现（`project.controller.ts` 消费）。
+    {
+      provide: PROJECT_RESOURCE_REPOSITORY,
+      useFactory: (db: DatabasePort) => new PgProjectResourceRepository(db),
+      inject: [DATABASE_PORT],
+    },
     // F141 → #785: `skill` now reads/writes real Postgres (`skills`/`skill_versions`/
     // `skill_version_files`, model A) via `PgAssetFileRepository`; every other kind (incl.
     // `agent`, AG4) still delegates to the fixture -- see `pg-asset-file-repository.ts`'s
@@ -2680,6 +2801,12 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
     {
       provide: PROJECT_TAGS_REPOSITORY,
       useFactory: (db: DatabasePort) => new PgProjectTagsRepository(db),
+      inject: [DATABASE_PORT],
+    },
+    // B2-S5（#4429）：独立 provider，见 `pg-project-ai-settings-repository.ts` 文件头。
+    {
+      provide: PROJECT_AI_SETTINGS_REPOSITORY,
+      useFactory: (db: DatabasePort) => new PgProjectAiSettingsRepository(db),
       inject: [DATABASE_PORT],
     },
     // #728 D4：独立 provider，见 `pg-project-name-lookup.ts` 文件头。
@@ -2968,12 +3095,22 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
     },
     {
       provide: WHITEBOARD_COMMENT_STORE,
-      useFactory: (db:DatabasePort,validator:WhiteboardUpdateValidator,collaboration:WhiteboardCollaborationStore)=>new PgWhiteboardCommentStore(db,validator,undefined,collaboration),
-      inject:[DATABASE_PORT,WHITEBOARD_UPDATE_VALIDATOR,WHITEBOARD_COLLABORATION_STORE],
+      useFactory: (db:DatabasePort,validator:WhiteboardUpdateValidator,collaboration:WhiteboardCollaborationStore,objects:ObjectStore)=>new PgWhiteboardCommentStore(db,validator,undefined,collaboration,objects),
+      inject:[DATABASE_PORT,WHITEBOARD_UPDATE_VALIDATOR,WHITEBOARD_COLLABORATION_STORE,OBJECT_STORE],
     },
     {
       provide: WHITEBOARD_RECOVERY_SERVICE,
       useFactory:(db:DatabasePort,collaboration:WhiteboardCollaborationStore,objects:ObjectStore)=>{const adapter=new PgWhiteboardRecoveryAdapter(db,collaboration,objects);return new WhiteboardRecoveryService(adapter,adapter,objects);},
+      inject:[DATABASE_PORT,WHITEBOARD_COLLABORATION_STORE,OBJECT_STORE],
+    },
+    {
+      provide: WHITEBOARD_COMMENT_STORE,
+      useFactory: (db:DatabasePort,validator:WhiteboardUpdateValidator)=>new PgWhiteboardCommentStore(db,validator),
+      inject:[DATABASE_PORT,WHITEBOARD_UPDATE_VALIDATOR],
+    },
+    {
+      provide: WHITEBOARD_RECOVERY_SERVICE,
+      useFactory:(db:DatabasePort,collaboration:WhiteboardCollaborationStore,objects:ObjectStore)=>{const adapter=new PgWhiteboardRecoveryAdapter(db,collaboration);return new WhiteboardRecoveryService(adapter,adapter,objects);},
       inject:[DATABASE_PORT,WHITEBOARD_COLLABORATION_STORE,OBJECT_STORE],
     },
     {
@@ -2985,6 +3122,11 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
       provide: WHITEBOARD_IMAGE_ASSETS,
       useFactory: (boards: PgWhiteboardRepository, db: DatabasePort, objects: ObjectStore) => new WhiteboardImageAssets(boards, new PgBoardImageAssets(db), objects, new SharpBoardImageVerifier()),
       inject: [WHITEBOARD_REPOSITORY, DATABASE_PORT, OBJECT_STORE],
+    },
+    {
+      provide: WHITEBOARD_PORTABLE_SERVICE,
+      useFactory:(boards:PgWhiteboardRepository,collaboration:PgWhiteboardCollaborationStore,validator:WhiteboardUpdateValidator,db:DatabasePort,objects:ObjectStore,images:WhiteboardImageAssets)=>new PortableBoardService(boards,collaboration,validator,images,new SharpBoardImageVerifier(),new PgPortableBoard(db,collaboration,objects,new PgBoardImageAssets(db))),
+      inject:[WHITEBOARD_REPOSITORY,WHITEBOARD_COLLABORATION_STORE,WHITEBOARD_UPDATE_VALIDATOR,DATABASE_PORT,OBJECT_STORE,WHITEBOARD_IMAGE_ASSETS],
     },
     {
       provide: WHITEBOARD_IMPORT_SERVICE,
@@ -3003,13 +3145,13 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
     },
     {
       provide: WHITEBOARD_OPERATION_SERVICE,
-      useFactory: (db: DatabasePort, collaboration: PgWhiteboardCollaborationStore,objects:ObjectStore,validator:WorkerWhiteboardUpdateValidator) => new WhiteboardOperationService(db, collaboration, new PgWhiteboardOperationRepository(),undefined,objects,validator),
+      useFactory: (db: DatabasePort, collaboration: PgWhiteboardCollaborationStore,objects:ObjectStore,validator:WorkerWhiteboardUpdateValidator) => new WhiteboardOperationService(db, collaboration, new PgWhiteboardOperationRepository(),undefined,objects,validator,new PgWhiteboardOperationUndoStore(collaboration,objects)),
       inject: [DATABASE_PORT, WHITEBOARD_COLLABORATION_STORE,OBJECT_STORE,WHITEBOARD_UPDATE_VALIDATOR],
     },
     {
       provide: WHITEBOARD_PROPOSAL_SERVICE,
-      useFactory: (db: DatabasePort, collaboration: PgWhiteboardCollaborationStore, operations: WhiteboardOperationService, agents:PublishedAgentReader) => new WhiteboardProposalService(db,collaboration,new PgWhiteboardOperationRepository(),new PgWhiteboardProposalRepository(),operations,undefined,agents),
-      inject: [DATABASE_PORT, WHITEBOARD_COLLABORATION_STORE, WHITEBOARD_OPERATION_SERVICE,PUBLISHED_AGENT_READER],
+      useFactory: (db: DatabasePort, collaboration: PgWhiteboardCollaborationStore, operations: WhiteboardOperationService, agents:PublishedAgentReader, objects:ObjectStore) => new WhiteboardProposalService(db,collaboration,new PgWhiteboardOperationRepository(),new PgWhiteboardProposalRepository(objects),operations,undefined,agents),
+      inject: [DATABASE_PORT, WHITEBOARD_COLLABORATION_STORE, WHITEBOARD_OPERATION_SERVICE,PUBLISHED_AGENT_READER,OBJECT_STORE],
     },
     {
       provide: WHITEBOARD_ORGANIZE_SERVICE,
@@ -3110,6 +3252,9 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
     { provide: ONTOLOGY_STORE_PORT, useFactory: (db: DatabasePort) => new PgOntologyStore(db), inject: [DATABASE_PORT] },
     { provide: GRAPH_PROJECTION_PORT, useFactory: (db: DatabasePort) => new PgGraphProjection(db), inject: [DATABASE_PORT] },
     KgProjectionWorker,
+    // S9（#4366）：结论 / 实体的嵌入流水线（outbox → EMBEDDING_PORT → object_embeddings）；没配置嵌入模型 ⇒ worker 不启动。
+    { provide: KG_EMBEDDING_QUEUE_PORT, useFactory: (db: DatabasePort) => new PgKgEmbeddingQueue(db), inject: [DATABASE_PORT] },
+    KgEmbeddingWorker,
     // F06：会话消息 → 知识抽取（模型只提出，经执行器落表）。
     { provide: KG_EXTRACTION_MODEL_CONFIG, useFactory: () => readKgExtractionModelConfig() },
     { provide: KG_EXTRACTION_QUEUE_PORT, useFactory: (db: DatabasePort) => new PgKgExtraction(db), inject: [DATABASE_PORT] },
@@ -3122,6 +3267,18 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
       useFactory: (model: ModelCallPort, config: KgExtractionModelConfig, logger: LoggerPort) => new ModelKnowledgeExtractor(model, config, logger),
       inject: [MODEL_CALL_PORT, KG_EXTRACTION_MODEL_CONFIG, LOGGER_PORT],
     },
+    // S8（#4365）：抽取 SLO（进程内窗口 + 全库队列现数 + 阈值）、可选的便宜模型门控（默认关）、记忆整合（默认关）。
+    { provide: KG_EXTRACTION_SLO_RECORDER, useValue: new ExtractionSloRecorder() },
+    { provide: KG_EXTRACTION_SLO_COUNTS_PORT, useFactory: (db: DatabasePort) => new PgKgExtractionSloCounts(db), inject: [DATABASE_PORT] },
+    { provide: KG_EXTRACTION_SLO_THRESHOLDS, useFactory: () => readExtractionSloThresholds() },
+    {
+      provide: KG_EXTRACTION_GATE_MODEL,
+      useFactory: (model: ModelCallPort, config: KgExtractionModelConfig) =>
+        (config.enabled && readKgExtractionGateModelEnabled() ? new ModelWorthinessCheck(model, config) : null),
+      inject: [MODEL_CALL_PORT, KG_EXTRACTION_MODEL_CONFIG],
+    },
+    { provide: KG_CONSOLIDATION_PORT, useFactory: (db: DatabasePort) => new PgKgConsolidation(db), inject: [DATABASE_PORT] },
+    KgConsolidationWorker,
     KgExtractionWorker,
     // F09：知识面板 / 来源抽屉 / 每轮记忆行的读口。传入的仍只是 provider 是否配置（启动参数，
     // 构造时定住）；部署开关的现值 `PgKnowledgeRead` 自己每次调用时现查（见该类头注——
@@ -3144,8 +3301,14 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
     { provide: HUMAN_ACTION_PORT, useFactory: (db: DatabasePort) => new PgHumanAction(db), inject: [DATABASE_PORT] },
     // F11：晋升到个人空间（只经 kg_promote_claim 落表）。
     { provide: PROMOTION_PORT, useFactory: (db: DatabasePort) => new PgPromotion(db), inject: [DATABASE_PORT] },
+    // S10（#4367）：「分享到项目…」（只经 kg_share_claim_to_project / kg_unshare_claim_from_project 落表）。
+    { provide: PROJECT_SHARE_PORT, useFactory: (db: DatabasePort) => new PgProjectShare(db), inject: [DATABASE_PORT] },
     // F17：「记住 / 忘掉」确认卡（只经 kg_open_memory_card / kg_act_on_memory_card 落表）。
     { provide: MEMORY_CARD_PORT, useFactory: (db: DatabasePort) => new PgMemoryCard(db), inject: [DATABASE_PORT] },
+    // S7（#4364）：引用 chip 上的「这条不对」/「已过时」（只经 kg_correct_citation 落表）与纠正率。
+    // CLAIM_EXPIRY_PORT（expireClaim）现在与纠正同一个实现；TODO(#4363) S6 的 valid_until 落地后换实现。
+    { provide: CITATION_CORRECTION_PORT, useFactory: (db: DatabasePort) => new PgCitationCorrection(db), inject: [DATABASE_PORT] },
+    { provide: CLAIM_EXPIRY_PORT, useExisting: CITATION_CORRECTION_PORT },
     {
       provide: SKILL_SECURITY_AUDIT,
       useFactory: (logger: LoggerPort) => new LoggingSkillSecurityAudit(logger),

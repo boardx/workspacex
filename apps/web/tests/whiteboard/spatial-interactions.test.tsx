@@ -30,7 +30,7 @@ class ResizeObserverMock { observe() {} disconnect() {} }
 globalThis.ResizeObserver = ResizeObserverMock as unknown as typeof ResizeObserver;
 afterEach(() => cleanup());
 
-function openActions() { const trigger = screen.getByTestId("board-inspector-actions"); if (trigger.getAttribute("aria-expanded") !== "true") fireEvent.click(trigger); const tab = screen.getByRole("button", { name: "操作" }); fireEvent.click(tab); }
+function openActions() { const properties = screen.queryByTestId("board-inspector-expand"); if (properties) fireEvent.click(properties); const trigger = screen.getByTestId("board-inspector-actions"); if (trigger.getAttribute("aria-expanded") !== "true") fireEvent.click(trigger); const tab = screen.getByRole("button", { name: "操作" }); fireEvent.click(tab); }
 function openProperties() { openActions(); fireEvent.click(screen.getByTestId("board-properties-open")); }
 
 function mount() {
@@ -40,8 +40,9 @@ function mount() {
 }
 
 function createPanelAndSticky() {
+  fireEvent.click(screen.getByTestId("board-add-more"));
   fireEvent.click(screen.getByTestId("board-add-panel"));
-  fireEvent.click(screen.getByTestId("board-add-sticky"));
+  fireEvent.keyDown(window,{key:"n"});
 }
 
 it("creates and edits a semantic Panel, highlights a drop target, and reparents through the spatial port", () => {
@@ -86,6 +87,12 @@ it("locks objects against transform and exposes both explicit Panel deletion out
   const port = new SpatialRelationshipCommandPort(doc), panel2 = "panel2";
   act(() => { port.dispatch({ boardId: "spatial-board", clientId: "fixture", gestureId: "p2", command: { type: "create-panel", id: panel2, geometry: { x: 0, y: 0, width: 400, height: 300, rotation: 0 }, panel: { version: 1, mode: "freeform", autoExpand: false, clipContent: false, padding: 24, gap: 24, columns: 3, flowDirection: "horizontal" } } }); port.dispatch({ boardId: "spatial-board", clientId: "fixture", gestureId: "r2", command: { type: "reparent", id: sticky.id, parentId: panel2 } }); });
   fireEvent.click(screen.getByTestId(`mock-select-${panel2}`));
+  openActions();
+  fireEvent.click(within(screen.getByTestId("board-spatial-toolbar")).getByText("锁定"));
+  expect(readObjects(doc).find((object) => object.id === panel2)?.locked).toBe(true);
+  openActions();
+  fireEvent.click(within(screen.getByTestId("board-spatial-toolbar")).getByText("解锁"));
+  expect(readObjects(doc).find((object) => object.id === panel2)?.locked).toBe(false);
   openActions();
   fireEvent.click(within(screen.getByTestId("board-spatial-toolbar")).getByText("删除"));
   fireEvent.click(screen.getByTestId("board-panel-delete-cascade"));
@@ -168,7 +175,9 @@ it("preflights multi-delete and commits preserve-free endpoints in one UI transa
   });
   fireEvent.click(screen.getByTestId("mock-select-stickies"));
   const before = readObjects(doc);
+  fireEvent.click(screen.getByLabelText("更多白板操作"));
   fireEvent.click(screen.getByRole("button", { name: "删除选中" }));
+  fireEvent.keyDown(document,{key:"Escape"});
   expect(readObjects(doc)).toEqual(before);
   act(() => port.dispatch({ boardId: "spatial-board", clientId: "fixture", gestureId: "unlock-edge", command: { type: "set-locked", objectIds: ["edge"], locked: false } }));
   const transactions: Y.Transaction[] = [];
@@ -179,4 +188,24 @@ it("preflights multi-delete and commits preserve-free endpoints in one UI transa
   expect(readObjects(doc)[0]).toMatchObject({ id: "edge", connector: { fromPoint: expect.any(Object), toPoint: expect.any(Object) } });
   expect(transactions).toHaveLength(1);
   doc.destroy();
+});
+
+it("keeps multi-selection quiet and restores handles for touch single-selection", () => {
+  const doc=mount();fireEvent.click(screen.getByTestId("mock-create-a"));
+  fireEvent.keyDown(screen.getByLabelText("对象文字"),{key:"Escape"});
+  fireEvent.click(screen.getByTestId("mock-create-b"));fireEvent.keyDown(screen.getByLabelText("对象文字"),{key:"Escape"});
+  fireEvent.click(screen.getByTestId("mock-select-stickies"));
+  expect(screen.queryAllByTestId(/^connector-handle-/)).toHaveLength(0);
+  const a=readObjects(doc)[0]!;fireEvent.click(screen.getByTestId(`mock-select-${a.id}`));
+  expect(screen.getAllByTestId(/^connector-handle-/)).toHaveLength(4);
+  const handle=screen.getByTestId(`connector-handle-${a.id}-right`);expect(handle).toHaveClass("h-11","w-11");
+  fireEvent.click(handle);const b=readObjects(doc).find(object=>object.id!==a.id)!;
+  fireEvent.click(screen.getByTestId(`mock-select-${b.id}`));fireEvent.click(screen.getByTestId(`connector-handle-${b.id}-left`));
+  expect(readObjects(doc).find(object=>object.kind==='connector')?.connector).toMatchObject({from:a.id,to:b.id});
+});
+
+it("keeps sync text on one line and keeps history in the header and view controls separate from the bottom dock",()=>{
+ mount();expect(screen.getByTestId('board-sync-status')).toHaveClass('whitespace-nowrap');
+ expect(screen.getByTestId('board-editor-header')).not.toContainElement(screen.getByTestId('board-zoom-fit-board'));
+ expect(screen.getByTestId('board-navigation-controls')).toContainElement(screen.getByTestId('board-zoom-fit-board'));
 });

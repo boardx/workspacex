@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
   commitWhiteboardOutboxRebind,
+  assertWhiteboardOutboxReauthorization,
+  whiteboardOutboxRevokedRows,
   whiteboardOutboxRecoveryView,
   whiteboardOutboxTokenRevoked,
   type CipherRow,
@@ -148,4 +150,21 @@ describe("encrypted outbox authentication rebind", () => {
       "new:b",
     ]);
   });
+});
+
+describe('fresh authorization generation CAS',()=>{
+ it('allows only one competing tab to advance a retired generation',()=>{
+  let current='retired';const retired=new Set(['retired']);
+  const advance=(expected:string,next:string)=>{assertWhiteboardOutboxReauthorization(current,expected,retired.has(expected),undefined);current=next;};
+  advance('retired','fresh-a');expect(()=>advance('retired','fresh-b')).toThrow('OUTBOX_GENERATION_CHANGED');expect(current).toBe('fresh-a');
+  expect(whiteboardOutboxTokenRevoked(null,retired.has('retired'),'retired')).toBe(true);
+ });
+ it('late old-tab revoke selects only its retired rows, never fresh pending',()=>{
+  const rows=[row('old','retired'),row('new','fresh')];expect(whiteboardOutboxRevokedRows(rows,'retired').map(value=>value.id)).toEqual(['old']);
+ });
+ it('cannot authorize a live generation or resurrect an unfinished rebind',()=>{
+  expect(()=>assertWhiteboardOutboxReauthorization('live','live',false,undefined)).toThrow();
+  expect(()=>assertWhiteboardOutboxReauthorization('old','old',true,{id:'board',boardId:'board',fromHash:'old',toHash:'new',createdAt:1})).toThrow();
+  expect(whiteboardOutboxTokenRevoked(null,true,'old')).toBe(true);
+ });
 });

@@ -1,12 +1,16 @@
-import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
-import { afterEach, expect, it, vi } from 'vitest';
+import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import type * as Y from 'yjs';
 import { BoardCommandPort, createWhiteboardDocument, executeCommands, readObjects, WhiteboardCommandOrigin, WhiteboardUndo } from '@repo/whiteboard-core';
 import { CollaborativeEditor } from '@/components/whiteboard/collaborative-editor';
 import { textSplice } from '@/components/whiteboard/use-whiteboard-document';
 import type { BoardFabricGeometry, BoardFabricObject, BoardViewport, BoardViewportSource } from '@/components/whiteboard/fabric/board-fabric-object';
+
+const commentHarness=vi.hoisted(()=>({threads:[] as unknown[],dispatch:vi.fn()}));
+vi.mock('@/components/whiteboard/board-comments',()=>({listBoardMentionableMembers:async()=>[{userId:"other",displayName:"李四"}],listBoardCommentThreads:async()=>commentHarness.threads,dispatchBoardCommentCommand:(...args:unknown[])=>commentHarness.dispatch(...args)}));
+beforeEach(()=>{commentHarness.threads=[];commentHarness.dispatch.mockReset().mockResolvedValue({operationId:'accepted',replayed:false,threads:[]});});
 vi.mock('@/components/whiteboard/fabric/board-fabric-surface', () => ({
-  BoardFabricSurface: ({ objects, onObjectTransform, onSelectionChange, onViewportChange, viewport }: { objects: readonly BoardFabricObject[]; viewport: BoardViewport; onViewportChange:(viewport:BoardViewport,source:BoardViewportSource)=>void; onObjectTransform: (id: string, geometry: BoardFabricGeometry) => boolean | Promise<boolean>; onSelectionChange: (ids: string[], source: 'canvas') => void }) => <div data-testid="board-fabric-surface"><canvas data-testid="board-fabric-canvas" /><output data-testid="mock-viewport">{JSON.stringify(viewport)}</output>{(["pan","wheel","controlled","fit"] as const).map(source=><button key={source} data-testid={`viewport-${source}`} onClick={()=>onViewportChange({...viewport,panX:99},source)}>{source}</button>)}{objects.map((object) => <span key={object.id} data-projected-id={object.id} />)}{objects[0] ? <button data-testid="fabric-transform-first" onClick={(event) => { const result = onObjectTransform(objects[0]!.id, { ...objects[0]!.geometry, x: 345 }); event.currentTarget.dataset.accepted = String(result); }}>transform</button> : null}<button data-testid="fabric-select-all" onClick={() => onSelectionChange(objects.map((object) => object.id), 'canvas')}>select all</button></div>,
+  BoardFabricSurface: ({ objects, selectedObjectIds, onCanvasClick, onObjectTransform, onSelectionChange, onViewportChange, viewport }: { selectedObjectIds:readonly string[]; onCanvasClick:(point:{x:number;y:number})=>void;objects: readonly BoardFabricObject[]; viewport: BoardViewport; onViewportChange:(viewport:BoardViewport,source:BoardViewportSource)=>void; onObjectTransform: (id: string, geometry: BoardFabricGeometry) => boolean | Promise<boolean>; onSelectionChange: (ids: string[], source: 'canvas') => void }) => <div data-testid="board-fabric-surface"><output data-testid="mock-selected">{JSON.stringify(selectedObjectIds)}</output><canvas data-testid="board-fabric-canvas" /><button data-testid="fabric-place" onClick={()=>onCanvasClick({x:400,y:300})}>place</button><output data-testid="mock-viewport">{JSON.stringify(viewport)}</output>{(["pan","wheel","controlled","fit"] as const).map(source=><button key={source} data-testid={`viewport-${source}`} onClick={()=>onViewportChange({...viewport,panX:99},source)}>{source}</button>)}{objects.map((object) => <span key={object.id} data-projected-id={object.id} />)}{objects[0] ? <button data-testid="fabric-transform-first" onClick={(event) => { const result = onObjectTransform(objects[0]!.id, { ...objects[0]!.geometry, x: 345 }); event.currentTarget.dataset.accepted = String(result); }}>transform</button> : null}<button data-testid="fabric-select-all" onClick={() => onSelectionChange(objects.map((object) => object.id), 'canvas')}>select all</button></div>,
 }));
 class ResizeObserverMock { observe() {} disconnect() {} }
 globalThis.ResizeObserver = ResizeObserverMock as unknown as typeof ResizeObserver;
@@ -21,7 +25,7 @@ it('routes a completed Fabric transform through one identifiable canonical trans
   expect(screen.getByTestId('board-fabric-surface')).toBeVisible();
   expect(screen.getByTestId('board-fabric-canvas')).toBeVisible();
   expect(document.querySelector('[data-testid^="whiteboard-object-"]')).toBeNull();
-  fireEvent.click(screen.getByTestId('board-add-sticky'));
+  fireEvent.click(screen.getByTestId('board-add-sticky')); fireEvent.click(screen.getByTestId('fabric-place'));
   const id = readObjects(doc)[0]!.id;
   expect(document.querySelector(`[data-projected-id="${id}"]`)).not.toBeNull();
   const commandTransactions: Y.Transaction[] = [];
@@ -63,15 +67,18 @@ it('read-only disables mutation controls and does not alter the document', () =>
   render(<CollaborativeEditor boardId="board-test" clientId="client-test" doc={doc} readOnly title="只读白板" status="已连接" />);
   expect(screen.getByTestId('board-add-sticky')).toBeDisabled();
   expect(screen.getByTestId('board-add-draw')).toBeDisabled();
+  fireEvent.click(screen.getByLabelText('更多白板操作'));
   expect(screen.getByRole('button', {name: '粘贴'})).toBeDisabled();
+  fireEvent.keyDown(document,{key:'Escape'});
+  fireEvent.pointerDown(screen.getByTestId('board-title-menu'),{button:0,ctrlKey:false});
   expect(screen.getByLabelText('白板名称')).toBeDisabled();
-  fireEvent.click(screen.getByTestId('board-add-sticky'));
+  fireEvent.click(screen.getByTestId('board-add-sticky')); fireEvent.click(screen.getByTestId('fabric-place'));
   expect(readObjects(doc)).toEqual([]); doc.destroy();
 });
 it('undoes and redoes object creation as one local operation', () => {
   const doc = createWhiteboardDocument();
   render(<CollaborativeEditor boardId="board-test" clientId="client-test" doc={doc} readOnly={false} title="白板" status="已连接" />);
-  fireEvent.click(screen.getByTestId('board-add-sticky')); fireEvent.click(screen.getByRole('button', {name: '撤销'}));
+  fireEvent.click(screen.getByTestId('board-add-sticky')); fireEvent.click(screen.getByTestId('fabric-place')); fireEvent.click(screen.getByRole('button', {name: '撤销'}));
   expect(readObjects(doc)).toHaveLength(0); expect(screen.getByText('撤销已在本地应用，正在等待服务器确认')).toBeVisible();
   fireEvent.click(screen.getByRole('button', {name: '重做'}));
   expect(readObjects(doc)).toHaveLength(1); expect(screen.getByText('重做已在本地应用，正在等待服务器确认')).toBeVisible(); doc.destroy();
@@ -79,8 +86,9 @@ it('undoes and redoes object creation as one local operation', () => {
 it('IME keeps remote text and preserves the uncommitted composition draft', () => {
   const doc = createWhiteboardDocument();
   render(<CollaborativeEditor boardId="board-test" clientId="client-test" doc={doc} readOnly={false} title="白板" status="已连接" />);
-  fireEvent.click(screen.getByTestId('board-add-sticky'));
+  fireEvent.click(screen.getByTestId('board-add-sticky')); fireEvent.click(screen.getByTestId('fabric-place'));
   const id = readObjects(doc)[0]!.id, input = screen.getByLabelText('对象文字');
+  fireEvent.change(input,{target:{value:'写下一个想法'}});
   fireEvent.compositionStart(input); fireEvent.change(input, { target: { value: '组合输入' } });
   act(() => executeCommands(doc, [{ type: 'text', id, index: 0, deleteCount: 0, insert: '远端' }], 'remote'));
   fireEvent.compositionEnd(input);
@@ -96,7 +104,8 @@ it('reports world coordinates after zoom and renders server peer cursors/selecti
   expect(screen.getByTestId('peer-cursor-other')).toHaveStyle({left:'30px',top:'40px'});
   expect(screen.getByTestId('peer-selection-other-peer-note')).toHaveStyle({left:'10px',top:'20px'});
   expect(screen.queryByTestId('peer-cursor-me')).not.toBeInTheDocument();
-  fireEvent.click(screen.getByRole('button', {name:'放大'}));
+  fireEvent.pointerDown(screen.getByTestId('board-zoom-menu'),{button:0,ctrlKey:false});
+  fireEvent.click(screen.getByTestId('board-zoom-in'));
   fireEvent(screen.getByTestId('board-live-surface'),new MouseEvent('pointermove',{bubbles:true,clientX:110,clientY:220}));
   expect(positions.at(-1)?.x).toBeCloseTo(100); expect(positions.at(-1)?.y).toBeCloseTo(200);
   doc.destroy();
@@ -133,8 +142,11 @@ it('smart layout preview is zero-write, cancelable, applicable and conflict guar
   expect(screen.getByTestId('board-layout-preview')).toBeVisible();
   expect(readObjects(doc)).toEqual(before);
   expect(screen.getByRole('button', {name: '撤销'})).toBeDisabled();
+  fireEvent.click(screen.getByLabelText('更多白板操作'));
   expect(screen.getByRole('button', {name: '删除选中'})).toBeDisabled();
+  fireEvent.keyDown(document,{key:'Escape'});
   expect(screen.getByTestId('board-add-sticky')).toBeDisabled();
+  fireEvent.click(screen.getByRole('button',{name:'布局'}));
   expect(screen.getByTestId('board-layout-grid')).toBeDisabled();
   fireEvent.click(screen.getByTestId('fabric-transform-first'));
   fireEvent.keyDown(window, { key: 'n' });
@@ -219,4 +231,59 @@ it('manual pan and wheel leave room follow; remote and fit projections do not', 
  expect(JSON.parse(screen.getByTestId('mock-viewport').textContent!)).toMatchObject({panX:99});
  fireEvent.click(screen.getByTestId('viewport-wheel'));expect(leave).toHaveBeenCalledTimes(2);
  view.unmount();doc.destroy();
+});
+
+it.each(['ctrlKey','metaKey'] as const)('selects Board objects from dock focus with %s without changing the document',modifier=>{
+ const doc=createWhiteboardDocument();
+ executeCommands(doc,[0,1,2].map(i=>({type:'create' as const,object:{id:`select-${i}`,schemaVersion:1 as const,kind:'sticky' as const,geometry:{x:i*200,y:0,width:180,height:140,rotation:0},text:`note ${i}`,style:{},parentId:null,orderKey:String(i)}})),'seed');
+ render(<CollaborativeEditor boardId="board-test" clientId="client-test" doc={doc} readOnly={false} title="白板" status="已连接"/>);
+ const updates=vi.fn();doc.on('update',updates);
+ const dock=screen.getByTestId('board-tool-select');dock.focus();
+ expect(fireEvent.keyDown(dock,{key:'a',[modifier]:true})).toBe(false);
+ expect(JSON.parse(screen.getByTestId('mock-selected').textContent!)).toEqual(['select-0','select-1','select-2']);
+ expect(updates).not.toHaveBeenCalled();doc.destroy();
+});
+it('preserves native editing select-all and respects an already-handled canvas event',()=>{
+ const doc=createWhiteboardDocument();executeCommands(doc,[{type:'create',object:{id:'note',schemaVersion:1,kind:'sticky',geometry:{x:0,y:0,width:100,height:100,rotation:0},text:'text',style:{},parentId:null,orderKey:'0'}}],'seed');
+ render(<CollaborativeEditor boardId="board-test" clientId="client-test" doc={doc} readOnly={false} title="白板" status="已连接"/>);
+ const editor=screen.getByTestId('collaborative-editor');
+ for(const element of [document.createElement('input'),document.createElement('textarea'),document.createElement('select')]){
+  editor.append(element);expect(fireEvent.keyDown(element,{key:'a',ctrlKey:true})).toBe(true);element.remove();
+ }
+ const editable=document.createElement('div'),child=document.createElement('span');editable.setAttribute('contenteditable','true');editable.append(child);editor.append(editable);
+ expect(fireEvent.keyDown(child,{key:'a',metaKey:true})).toBe(true);editable.remove();
+ expect(fireEvent.keyDown(document.body,{key:'a',ctrlKey:true})).toBe(true);
+ expect(fireEvent.keyDown(screen.getByTestId('board-tool-select'),{key:'a',ctrlKey:true,isComposing:true})).toBe(true);
+ expect(fireEvent.keyDown(screen.getByTestId('board-tool-select'),{key:'a',ctrlKey:true,shiftKey:true})).toBe(true);
+ const handled=new KeyboardEvent('keydown',{key:'a',ctrlKey:true,bubbles:true,cancelable:true});handled.preventDefault();fireEvent(screen.getByTestId('board-fabric-canvas'),handled);
+ expect(JSON.parse(screen.getByTestId('mock-selected').textContent!)).toEqual([]);
+ expect(fireEvent.keyDown(screen.getByTestId('board-fabric-canvas'),{key:'a',ctrlKey:true})).toBe(false);
+ expect(JSON.parse(screen.getByTestId('mock-selected').textContent!)).toEqual(['note']);doc.destroy();
+});
+
+it('commenter can start another discussion on an already commented object while object editing stays disabled',async()=>{
+ const doc=createWhiteboardDocument();executeCommands(doc,[{type:'create',object:{id:'commented-note',schemaVersion:1,kind:'sticky',geometry:{x:0,y:0,width:180,height:180,rotation:0},text:'Discuss',style:{},parentId:null,orderKey:''}}],{});
+ commentHarness.threads=[{id:'existing',objectId:'commented-note',status:'open',revision:1,comments:[{id:'c',authorId:'other',body:'Existing discussion',mentions:[],deletedAt:null}]}];
+ const props={boardId:'board-test',clientId:'commenter',doc,readOnly:true,role:'commenter' as const,title:'Board',status:'online'};
+ const view=render(<CollaborativeEditor {...props}/>);fireEvent.click(screen.getByTestId('fabric-select-all'));fireEvent.click(screen.getByRole('button',{name:'评论'}));
+ expect(screen.getByTestId('board-comments-panel')).toHaveClass('max-h-[calc(100%-7rem)]');
+ await screen.findByText(/Existing discussion/);fireEvent.change(screen.getByLabelText('评论内容'),{target:{value:'Another discussion'}});
+ const memberSearch=screen.getByRole('combobox',{name:'提及成员'});await waitFor(()=>expect(memberSearch).toBeEnabled());fireEvent.change(memberSearch,{target:{value:'李四'}});fireEvent.keyDown(memberSearch,{key:'Enter'});expect(screen.getByRole('button',{name:'移除提及 李四'})).toBeTruthy();
+ expect(screen.getByRole('button',{name:'发布评论'})).toBeEnabled();expect(screen.getByTestId('board-add-sticky')).toBeDisabled();
+ fireEvent.click(screen.getByRole('button',{name:'发布评论'}));await waitFor(()=>expect(commentHarness.dispatch).toHaveBeenCalledWith('board-test',expect.objectContaining({type:'create-comment',objectId:'commented-note',body:'Another discussion',mentions:[{userId:'other'}]})));
+ view.rerender(<CollaborativeEditor {...props} role="viewer"/>);fireEvent.change(screen.getByLabelText('评论内容'),{target:{value:'Forbidden'}});expect(screen.getByRole('button',{name:'发布评论'})).toBeDisabled();
+ view.rerender(<CollaborativeEditor {...props} commentsReadOnly/>);expect(screen.getByRole('button',{name:'发布评论'})).toBeDisabled();
+ expect(screen.getByTestId('collaborative-editor')).toHaveClass('relative','h-full');expect(screen.getByTestId('collaborative-editor')).not.toHaveClass('fixed');
+ view.unmount();doc.destroy();
+});
+
+it.each([744,680])('uses measured frame height %i for keyboard creation and viewport presence',height=>{
+ const bounds=vi.spyOn(HTMLElement.prototype,'getBoundingClientRect').mockReturnValue({width:1200,height,x:0,y:768-height,top:768-height,left:0,right:1200,bottom:768,toJSON(){}} as DOMRect);
+ const doc=createWhiteboardDocument(),awareness=vi.fn();
+ try{
+  render(<CollaborativeEditor boardId="board-test" clientId="client-test" doc={doc} readOnly={false} title="Board" status="online" onAwareness={awareness}/>);
+  expect(awareness.mock.calls.at(-1)?.[3].viewport).toMatchObject({centerX:600,centerY:height/2});
+  fireEvent.keyDown(window,{key:'n'});
+  const note=readObjects(doc)[0]!;expect(note.geometry.x+note.geometry.width/2).toBe(600);expect(note.geometry.y+note.geometry.height/2).toBe(height/2);
+ }finally{cleanup();doc.destroy();bounds.mockRestore();}
 });

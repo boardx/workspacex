@@ -63,7 +63,7 @@ it('throttles awareness and sends the latest world cursor without client identit
   socket.message({type:'sync',epoch:1,seq:0,update:bytesToBase64(Y.encodeStateAsUpdate(server)),role:'editor',archived:false});
   provider.awareness({x:10,y:20},['a']); provider.awareness({x:30,y:40},['b']);
   expect(socket.sent).toHaveLength(0);vi.advanceTimersByTime(50);
-  expect(JSON.parse(socket.sent[0]!)).toEqual({type:'awareness',cursor:{x:30,y:40},selected:['b'],editingObjectId:null,viewport:null,presenting:false,followingActorId:null});
+  expect(JSON.parse(socket.sent[0]!)).toEqual({type:'awareness',pointer:null,cursor:{x:30,y:40},selected:['b'],editingObjectId:null,viewport:null,presenting:false,followingActorId:null});
   provider.close();doc.destroy();server.destroy();
 });
 
@@ -223,7 +223,7 @@ it('holds latest awareness behind durable writes so presence cannot consume the 
     acknowledged.add(next.updateId);socket.message({type:'ack',updateId:next.updateId,gestureId:next.gestureId,seq:acknowledged.size});
   }
   vi.advanceTimersByTime(50);
-  expect(messages(socket).filter(message=>message.type==='awareness')).toEqual([{type:'awareness',cursor:{x:19,y:20},selected:['note-19'],editingObjectId:null,viewport:null,presenting:false,followingActorId:null}]);
+  expect(messages(socket).filter(message=>message.type==='awareness')).toEqual([{type:'awareness',pointer:null,cursor:{x:19,y:20},selected:['note-19'],editingObjectId:null,viewport:null,presenting:false,followingActorId:null}]);
   provider.close();doc.destroy();server.destroy();
 });
 

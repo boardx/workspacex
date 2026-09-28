@@ -6,7 +6,7 @@ import WebSocket, { type RawData } from 'ws';
 import * as Y from 'yjs';
 import { WHITEBOARD_SYNC, WhiteboardClientMessage, WhiteboardServerMessage, type WhiteboardServerMessage as ServerMessage } from '@repo/contracts/whiteboard-sync';
 import { createWhiteboardDocument, executeCommands, readObjects } from '@repo/whiteboard-core';
-import type { WhiteboardCollaborationStore } from '../../src/application/whiteboard/collaboration-ports';
+import { WhiteboardCollaborationError, type WhiteboardCollaborationStore } from '../../src/application/whiteboard/collaboration-ports';
 import type { WhiteboardRepository } from '../../src/application/whiteboard/ports';
 import { toOrgId } from '../../src/domain/org-id';
 import { attachWhiteboardGateway } from '../../src/interface/ws/whiteboard.gateway';
@@ -102,4 +102,31 @@ it('classifies resume safely and publishes bounded editing presence without pers
   ws.send(JSON.stringify({type:'awareness',cursor:{x:13,y:25},selected:['note'],viewport:{centerX:999,centerY:999,zoom:8,revision:1},presenting:false,followingActorId:'stale-target'}));
   await expect.poll(()=>messages.filter(message=>message.type==='presence').at(-1)).toMatchObject({type:'presence',peers:[{cursor:{x:13,y:25},viewport:{centerX:10,centerY:20,zoom:2,revision:2},presenting:true,followingActorId:null}]});
   expect(appendCalls).toBe(0);ws.close();doc.destroy();
+});
+
+
+it.each([
+  ['NOT_FOUND', 'ACCESS_REVOKED', false],
+  ['FORBIDDEN', 'FORBIDDEN', false],
+  ['ARCHIVED', 'BOARD_ARCHIVED', false],
+  ['DEPENDENCY_UNAVAILABLE', 'DEPENDENCY_UNAVAILABLE', true],
+] as const)('classifies monitor failure %s without leaving revoked clients retrying', async (failure, code, recoverable) => {
+  const boardId=randomUUID(), principal={orgId:toOrgId('gateway-monitor-test'),userId:'reader'}, doc=createWhiteboardDocument();
+  const store:WhiteboardCollaborationStore={
+    head:async()=>{throw failure==='DEPENDENCY_UNAVAILABLE'?new Error('store unavailable'):new WhiteboardCollaborationError(failure);},
+    load:async()=>({epoch:1,seq:0,role:'viewer',archived:false,update:Y.encodeStateAsUpdate(doc)}),
+    loadInTransaction:async()=>({epoch:1,seq:0,role:'viewer',archived:false,update:Y.encodeStateAsUpdate(doc)}),
+    append:async()=>{throw new Error('unused');},writeCommands:async()=>{throw new Error('unused');},writeCommandsInTransaction:async()=>{throw new Error('unused');},
+  };
+  const boards:WhiteboardRepository={mentionableMembers:async()=>[],get:async()=>({id:boardId,name:'monitor',ownerId:'owner',role:'viewer',archived:false,lifecycleRevision:0,tagIds:[],tagsRevision:0,createdAt:new Date().toISOString(),updatedAt:new Date().toISOString()}),list:async()=>({items:[],nextCursor:null}),permanentlyDelete:async()=>null,create:async()=>{throw new Error('unused');},update:async()=>null,members:async()=>null,putMember:async()=>false,removeMember:async()=>false};
+  const server=createServer();servers.push(server);attachWhiteboardGateway(server,{store,boards,principals:{resolve:async()=>principal}});
+  await new Promise<void>(resolve=>server.listen(0,'127.0.0.1',resolve));
+  const ws=new WebSocket(`ws://127.0.0.1:${(server.address() as AddressInfo).port}/whiteboards/${boardId}/sync`,[WHITEBOARD_SYNC.protocol,`${WHITEBOARD_SYNC.bearerSubprotocolPrefix}token`]);
+  const messages:ServerMessage[]=[];ws.on('message',(raw:RawData)=>messages.push(WhiteboardServerMessage.parse(JSON.parse(raw.toString()))));
+  try {
+    await new Promise<void>((resolve,reject)=>{ws.once('open',resolve);ws.once('error',reject);});
+    ws.send(JSON.stringify({type:'hello',stateVector:Buffer.from(Y.encodeStateVector(doc)).toString('base64')}));
+    await expect.poll(()=>messages.find(message=>message.type==='sync')).toBeTruthy();
+    await expect.poll(()=>messages.find(message=>message.type==='error'),{timeout:2500}).toMatchObject({type:'error',code,recoverable});
+  } finally { ws.close();doc.destroy(); }
 });
