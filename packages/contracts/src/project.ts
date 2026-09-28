@@ -175,6 +175,11 @@ export const ProjectReason = z.enum([
    * 2026-08-16（F185，delta）：`updateProjectTags` 指向一个不存在（或不在当前组织下）的容器 id。
    */
   "PROJECT_NOT_FOUND",
+  /**
+   * 项目中枢 B2-S1（2026-09-27，ad-hoc）：`linkProjectResource` 指向一个不存在、或不属于调用者的资源
+   * （问卷 / 深度研究 / 个人转写）。「不存在」与「不是你的」同一个出口，不泄露别人资源的存在性。
+   */
+  "RESOURCE_NOT_FOUND",
 ]);
 
 type ProjectReasonT = z.infer<typeof ProjectReason>;
@@ -284,6 +289,50 @@ export const ProjectListItem = z
      * 整体替换写入（不是增量 patch）。不是内容摘要，不触碰 D-18 边界。
      */
     tags: z.array(z.string()),
+  })
+  .strict();
+
+/* ─────────── 项目中枢 B2（2026-09-27，ad-hoc）：项目资源关联 + AI 权限 的形状 ─────────── */
+
+/** 能挂到项目上的资源类型。访谈不在这里：它自己的表已有 `project_id`，不走链接表。 */
+export const ProjectLinkableResourceKind = z.enum(["survey", "guided_research", "personal_transcription"]);
+/** 项目资源视图里出现的全部类型（= 可链接三类 + 访谈）。 */
+export const ProjectResourceKind = z.enum(["survey", "guided_research", "personal_transcription", "interview"]);
+export const PROJECT_RESOURCE_KIND_LABEL_ZH: Record<z.infer<typeof ProjectResourceKind>, string> = {
+  survey: "问卷",
+  guided_research: "深度研究",
+  personal_transcription: "录音转写",
+  interview: "用户访谈",
+};
+export const ProjectResourceItem = z
+  .object({
+    kind: ProjectResourceKind,
+    id: z.string(),
+    title: z.string(),
+    ownerUserId: z.string(),
+    /** 资源自己的状态字符串（各域各自的枚举，这里不统一），没有就 null。 */
+    status: z.string().nullable(),
+    updatedAt: z.string(),
+    /** 挂到项目的时间；访谈按其自身创建时间。 */
+    linkedAt: z.string(),
+  })
+  .strict();
+
+/** 允许进入项目大脑的来源。 */
+export const ProjectAiSourceKind = z.enum(["chat", "transcript", "survey", "interview", "research"]);
+export const PROJECT_AI_SOURCE_LABEL_ZH: Record<z.infer<typeof ProjectAiSourceKind>, string> = {
+  chat: "项目对话",
+  transcript: "录音转写",
+  survey: "问卷",
+  interview: "用户访谈",
+  research: "深度研究",
+};
+export const ProjectAiSettings = z
+  .object({
+    projectId: z.string(),
+    allowedSources: z.array(ProjectAiSourceKind),
+    updatedAt: z.string().nullable(),
+    updatedBy: z.string().nullable(),
   })
   .strict();
 
@@ -490,6 +539,60 @@ export const operations = {
       .strict(),
     out: z.object({ id: z.string(), tags: z.array(z.string()) }).strict(),
     err: ["ORG_ROLE_INSUFFICIENT", "AUTH_SERVICE_UNAVAILABLE", "PROJECT_NOT_FOUND"] as const,
+  },
+
+  /**
+   * 项目中枢 B2-S1（2026-09-27，ad-hoc，无 design-signoff）：**项目资源关联层**。
+   * 问卷 / 深度研究（guided research）/ 个人转写三类各自的表没有 `project_id`，用一张链接表
+   * `project_resource_links` 挂到项目；访谈（`interview_sessions.project_id`）已有归属，直接按它列出。
+   * 读：项目成员（含观察者）；写（挂 / 解挂）：资源**所有者**且是项目成员。
+   */
+  listProjectResources: {
+    method: "GET",
+    path: "/projects/:projectId/resources",
+    in: z.object({ projectId: z.string() }).strict(),
+    out: z
+      .object({
+        items: z.array(ProjectResourceItem),
+        /** 每类的条数（含 0），供子导航角标；与 `items` 同一次查询算出。 */
+        counts: z.record(ProjectResourceKind, z.number().int().nonnegative()),
+      })
+      .strict(),
+    err: ["NO_PROJECT_ROLE", "ADMIN_NOT_SUPERUSER", "AUTH_SERVICE_UNAVAILABLE"] as const,
+  },
+  linkProjectResource: {
+    method: "POST",
+    path: "/projects/:projectId/resources",
+    in: z.object({ projectId: z.string(), kind: ProjectLinkableResourceKind, resourceId: z.string() }).strict(),
+    out: z.object({ projectId: z.string(), kind: ProjectLinkableResourceKind, resourceId: z.string(), alreadyLinked: z.boolean() }).strict(),
+    err: ["NO_PROJECT_ROLE", "ADMIN_NOT_SUPERUSER", "RESOURCE_NOT_FOUND", "AUTH_SERVICE_UNAVAILABLE"] as const,
+  },
+  unlinkProjectResource: {
+    method: "DELETE",
+    path: "/projects/:projectId/resources/:kind/:resourceId",
+    in: z.object({ projectId: z.string(), kind: ProjectLinkableResourceKind, resourceId: z.string() }).strict(),
+    out: z.object({ removed: z.boolean() }).strict(),
+    err: ["NO_PROJECT_ROLE", "ADMIN_NOT_SUPERUSER", "RESOURCE_NOT_FOUND", "AUTH_SERVICE_UNAVAILABLE"] as const,
+  },
+
+  /**
+   * 项目中枢 B2-S5（2026-09-27，ad-hoc）：设置页「AI 权限」落库——哪些来源允许进入项目大脑。
+   * 侧表 `project_ai_settings`（不动 `projects` 列集，I-P33）。没有行 = 默认全部允许（`allowedSources` 回全集）。
+   * 读：项目成员；写：`authorizeManageMembers` 同一条线（引导师，或组织 lead / admin）。
+   */
+  getProjectAiSettings: {
+    method: "GET",
+    path: "/projects/:projectId/ai-settings",
+    in: z.object({ projectId: z.string() }).strict(),
+    out: ProjectAiSettings,
+    err: ["NO_PROJECT_ROLE", "ADMIN_NOT_SUPERUSER", "AUTH_SERVICE_UNAVAILABLE"] as const,
+  },
+  updateProjectAiSettings: {
+    method: "PUT",
+    path: "/projects/:projectId/ai-settings",
+    in: z.object({ projectId: z.string(), allowedSources: z.array(ProjectAiSourceKind) }).strict(),
+    out: ProjectAiSettings,
+    err: ["NO_PROJECT_ROLE", "PROJECT_ROLE_INSUFFICIENT", "ORG_ROLE_INSUFFICIENT", "AUTH_SERVICE_UNAVAILABLE"] as const,
   },
 
   /**

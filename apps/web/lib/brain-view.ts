@@ -7,6 +7,7 @@
  */
 import { KG_SCOPES_ENABLED_PHASE_18, type KgClaimKind, type KgScopeKind } from "@repo/contracts/chat-knowledge-graph";
 import type { BrainOverview, PersonalKnowledge } from "@/lib/knowledge-graph-api";
+import { KG_CLAIM_KIND_ORDER } from "@/lib/knowledge-graph-view";
 
 type Claim = PersonalKnowledge["claims"][number];
 export type PersonalClaimOrigin = BrainOverview["personalOrigins"][number];
@@ -72,8 +73,7 @@ export function forgetPlan(claim: Pick<Claim, "triState">, origins: readonly Per
 
 /** 按类型计数（只列有的类型，顺序同会话记忆面板）。 */
 export function countByKind(claims: readonly Claim[]): { kind: KgClaimKind; count: number }[] {
-  const order: KgClaimKind[] = ["decision", "fact", "todo", "risk", "hypothesis"];
-  return order.map((kind) => ({ kind, count: claims.filter((c) => c.kind === kind).length })).filter((x) => x.count > 0);
+  return KG_CLAIM_KIND_ORDER.map((kind) => ({ kind, count: claims.filter((c) => c.kind === kind).length })).filter((x) => x.count > 0);
 }
 
 /** 这一层记忆现在开放了没有——唯一依据是契约的 `KG_SCOPES_ENABLED_PHASE_18`，界面不另写一份。 */

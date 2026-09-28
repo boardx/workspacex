@@ -986,13 +986,26 @@ describe("issue #2752 ③：hover 卡片/行的快捷操作菜单", () => {
  * 迭代 24：明暗 / 强调色 / 设备收进了「外观」面板（`canvas-appearance.tsx`），
  * 所以要先把它点开才够得着——这几条用例断的是那些控件的**行为**，不是它们摆在哪。
  */
-const openAppearance = () => {
+const openAppearance = async (): Promise<void> => {
   if (screen.queryByTestId("design-detail-appearance-panel") === null) {
-    fireEvent.click(screen.getByTestId("design-detail-appearance"));
+    await clickMore("design-detail-appearance");
   }
 };
 
 /* ─────────────────────────── B4.5：PM 设计工作台真栈 ─────────────────────────── */
+
+/**
+ * design-delta `novice-progressive-disclosure`：批注、外观、方案、演示、重做、页管理、说明、导出、交给开发、
+ * 从对话导入、代码 从首屏收进详情页的「更多」菜单（Radix，pointerdown 打开）。菜单项沿用原来的 testid。
+ */
+async function openMore(): Promise<HTMLElement> {
+  fireEvent.pointerDown(await screen.findByTestId("design-detail-more"), { button: 0, ctrlKey: false });
+  return screen.findByTestId("design-detail-more-menu");
+}
+async function clickMore(testid: string): Promise<void> {
+  await openMore();
+  fireEvent.click(await screen.findByTestId(testid));
+}
 
 function project(over: Partial<DesignProject> = {}): DesignProject {
   return {
@@ -1592,7 +1605,7 @@ describe("⑨ PM 设计工作台首页：真栈 listMyProjects / createProject /
       expect(frame().getAttribute("data-chrome")).toBe("phone");
       expect(frame().style.width).toBe("393px");
 
-      openAppearance();
+      await openAppearance();
       fireEvent.change(screen.getByTestId("design-detail-device"), { target: { value: "laptop" } });
       expect(frame().getAttribute("data-device")).toBe("laptop");
       expect(frame().getAttribute("data-chrome")).toBe("browser");
@@ -1602,9 +1615,9 @@ describe("⑨ PM 设计工作台首页：真栈 listMyProjects / createProject /
 
     it("换镜头**不写库**——一次 PATCH 都不发", async () => {
       const bodies = await mount("mobile");
-      openAppearance();
+      await openAppearance();
       fireEvent.change(screen.getByTestId("design-detail-device"), { target: { value: "ipad" } });
-      openAppearance();
+      await openAppearance();
       fireEvent.click(screen.getByTestId("design-detail-rotate"));
       await waitFor(() => expect(screen.getByTestId("design-detail-phone").getAttribute("data-device")).toBe("ipad"));
       // ⭐ 反证：把镜头做成 DesignProject 的字段（像 theme 那样 PATCH）⇒ 这条红。
@@ -1616,14 +1629,14 @@ describe("⑨ PM 设计工作台首页：真栈 listMyProjects / createProject /
       await mount("mobile");
       const frame = () => screen.getByTestId("design-detail-phone");
       expect(frame().style.width).toBe("393px");
-      openAppearance();
+      await openAppearance();
       fireEvent.click(screen.getByTestId("design-detail-rotate"));
       expect(frame().style.width).toBe("852px");
       expect(frame().getAttribute("data-landscape")).toBe("true");
 
-      openAppearance();
+      await openAppearance();
       fireEvent.change(screen.getByTestId("design-detail-device"), { target: { value: "desktop" } });
-      openAppearance();
+      await openAppearance();
       expect((screen.getByTestId("design-detail-rotate") as HTMLButtonElement).disabled).toBe(true);
       // 不可旋转的镜头即便 landscape 状态还留着，也不该被转过来
       expect(frame().getAttribute("data-landscape")).toBe("false");
@@ -1639,12 +1652,12 @@ describe("⑨ PM 设计工作台首页：真栈 listMyProjects / createProject /
       expect(frame().querySelector('[data-chrome="browser"]')).toBeNull();
 
       // iPhone SE 是上下额头，不是灵动岛——两者靠形状区分，不是同一个东西
-      openAppearance();
+      await openAppearance();
       fireEvent.change(screen.getByTestId("design-detail-device"), { target: { value: "iphone-se" } });
       expect(frame().querySelector('[data-chrome="notch"]')).toBeTruthy();
       expect(frame().querySelector('[data-chrome="island"]')).toBeNull();
 
-      openAppearance();
+      await openAppearance();
       fireEvent.change(screen.getByTestId("design-detail-device"), { target: { value: "laptop" } });
       expect(frame().querySelector('[data-chrome="browser"]')).toBeTruthy();
       expect(frame().querySelector('[data-chrome="home"]')).toBeNull();
@@ -1687,8 +1700,26 @@ describe("⑨ PM 设计工作台首页：真栈 listMyProjects / createProject /
       render(<DesignDetailScreen projectId="p1" />);
       await screen.findByTestId("design-detail-phone-tree");
       fireEvent.click(screen.getByTestId("design-detail-view-single"));
+      // design-delta `novice-progressive-disclosure`：图层树要用才出现——这组用例测的是树本身，先主动打开。
+      fireEvent.click(screen.getByTestId("design-detail-side-toggle"));
       return posted;
     };
+
+    it("#4331 U2 默认不摊开图层树，只有一句怎么改的提示；在画布上选中一个元素，树才出现", async () => {
+      apiRequest.mockImplementation(async (path: string, opts?: { method?: string }) => {
+        if (path === "/pm-designs" && (opts?.method ?? "GET") === "GET") return { items: [treeProject()] };
+        throw new Error(`unexpected ${path} ${opts?.method}`);
+      });
+      render(<DesignDetailScreen projectId="p1" />);
+      await screen.findByTestId("design-detail-phone-tree");
+      fireEvent.click(screen.getByTestId("design-detail-view-single"));
+      // ⭐ 反证锚点：把图层树改回编辑态常驻 ⇒ 这两条红（首屏又是一整棵「纵向布局 / 卡片」）。
+      expect(screen.queryByTestId("design-layers")).toBeNull();
+      expect(screen.getByTestId("design-detail-side-hint")).toHaveTextContent("点画布上的任意一处");
+      fireEvent.click(within(screen.getByTestId("design-detail-phone")).getByText("甲"));
+      expect(await screen.findByTestId("design-layers")).toBeTruthy();
+      expect(screen.queryByTestId("design-detail-side-hint")).toBeNull();
+    });
 
     it("图层面板列出整棵树、按层级缩进，点一行就选中", async () => {
       await mount();
@@ -1808,7 +1839,7 @@ describe("⑨ PM 设计工作台首页：真栈 listMyProjects / createProject /
     it("加页：插在**当前页之后**，不是追加到末尾", async () => {
       const posted = await mount();
       fireEvent.click(screen.getByTestId("design-detail-frame-0"));  // 停在第 1 页
-      fireEvent.click(screen.getByTestId("design-detail-page-add"));
+      await clickMore("design-detail-page-add");
       await waitFor(() => expect(posted).toHaveLength(1));
       // ⭐ 反证：写成 at: frames.length（追加末尾）⇒ 这条红。在第 1 页点"加一页"，
       //   新页该出现在它旁边，而不是跑到最后。
@@ -1818,7 +1849,7 @@ describe("⑨ PM 设计工作台首页：真栈 listMyProjects / createProject /
     it("复制整页：带上这一页的树，且树里的 id **去掉**", async () => {
       const posted = await mount();
       fireEvent.click(screen.getByTestId("design-detail-frame-0"));
-      fireEvent.click(screen.getByTestId("design-detail-page-duplicate"));
+      await clickMore("design-detail-page-duplicate");
       await waitFor(() => expect(posted).toHaveLength(1));
       const op = posted[0]!.ops[0] as { op: string; at: number; frame: string; root: { id?: string; children: { id?: string }[] } };
       expect([op.op, op.at, op.frame]).toEqual(["addScreen", 1, "首页 副本"]);
@@ -1829,8 +1860,10 @@ describe("⑨ PM 设计工作台首页：真栈 listMyProjects / createProject /
 
     it("删页：只剩一页时禁用（契约也会拒，但不该让用户点了才知道）", async () => {
       const posted = await mount();
-      expect((screen.getByTestId("design-detail-page-remove") as HTMLButtonElement).disabled).toBe(false);
       fireEvent.click(screen.getByTestId("design-detail-frame-1"));
+      await openMore();
+      // 菜单项的禁用走 Radix 的 data-disabled（不是 button.disabled）。
+      expect(screen.getByTestId("design-detail-page-remove")).not.toHaveAttribute("data-disabled");
       fireEvent.click(screen.getByTestId("design-detail-page-remove"));
       await waitFor(() => expect(posted).toHaveLength(1));
       expect(posted[0]!.ops).toEqual([{ op: "removeScreen", screen: 1 }]);
@@ -1839,7 +1872,8 @@ describe("⑨ PM 设计工作台首页：真栈 listMyProjects / createProject /
     it("只有一页时删页按钮禁用", async () => {
       await mount(() => project({ id: "p1", frames: ["唯一一页"], frameLinks: [[]],
         prototype: [{ id: "r0", type: "stack", children: [] }] }));
-      expect((screen.getByTestId("design-detail-page-remove") as HTMLButtonElement).disabled).toBe(true);
+      await openMore();
+      expect(screen.getByTestId("design-detail-page-remove")).toHaveAttribute("data-disabled");
     });
 
     it("双击页签改名：发 renameScreen，只动一个字段", async () => {
@@ -1923,7 +1957,7 @@ describe("⑨ PM 设计工作台首页：真栈 listMyProjects / createProject /
     const phone = await screen.findByTestId("design-detail-phone");
     expect(phone.className).toContain("dark");
 
-    openAppearance();
+    await openAppearance();
     fireEvent.click(screen.getByTestId("design-detail-theme-light"));
     await waitFor(() => expect(screen.getByTestId("design-detail-phone").getAttribute("data-theme")).toBe("light"));
     // 画布拿到浅色作用域
@@ -2141,7 +2175,8 @@ describe("⑩ 设计详情页：真栈 listMyProjects / appendProjectChat / push
     expect(applied.textContent).toContain("画布页");
     expect(applied.textContent).not.toContain("背景");
     expect(screen.queryByTestId("design-detail-turn-fallback")).toBeNull();
-    expect(screen.getByTestId("design-detail-frame-1").textContent).toContain("导出页");
+    // design-delta `novice-progressive-disclosure`：画板视图不再有页签条，页名读画板上每一页的标记。
+    expect(screen.getByTestId("design-detail-board-frame-1").getAttribute("data-frame-label")).toBe("导出页");
   });
 
   it("B5.3 发消息：模型写回 prototype ⇒ 画布从占位块变成渲染的组件树，切页看到另一页；「已更新」列原型画布", async () => {
@@ -2294,7 +2329,7 @@ describe("⑩ 设计详情页：真栈 listMyProjects / appendProjectChat / push
     fireEvent.click(screen.getByTestId("design-history-preview-1"));
     await screen.findByTestId("design-detail-preview-banner");
     expect(screen.getByTestId("design-detail-phone-tree").textContent).toContain("旧的");
-    expect(screen.getByTestId("design-detail-frame-0").textContent).toBe("旧页名");
+    expect(screen.getByTestId("design-detail-board-frame-0").getAttribute("data-frame-label")).toBe("旧页名");
     // 预览态不可点选
     fireEvent.click(screen.getByTestId("design-detail-phone-tree").querySelector('[data-node-id="n1"]') as HTMLElement);
     expect(screen.queryByTestId("design-detail-focus")).toBeNull();
@@ -2321,12 +2356,13 @@ describe("⑩ 设计详情页：真栈 listMyProjects / appendProjectChat / push
     const board = screen.getByTestId("design-detail-board");
     expect(screen.getAllByTestId("design-detail-phone-tree")).toHaveLength(3);
     expect(screen.getByTestId("design-detail-board-frame-2").textContent).toContain("三");
-    // 聚焦第 2 页 ⇒ 标签条同步
+    // 聚焦第 2 页 ⇒ 画板上它被标成当前页（画板视图不再有页签条，见 design-delta `novice-progressive-disclosure`）
     fireEvent.click(within(screen.getByTestId("design-detail-board-frame-1")).getByRole("button", { name: /设置/ }));
-    expect(screen.getByTestId("design-detail-frame-1").className).toContain("bg-card");
+    expect(screen.getByTestId("design-detail-board-frame-1").getAttribute("aria-current")).toBe("page");
+    expect(screen.getByTestId("design-detail-board-frame-0").getAttribute("aria-current")).toBeNull();
     // 缩放按钮
     const level = () => screen.getByTestId("design-detail-zoom-level").textContent;
-    fireEvent.click(screen.getByTestId("design-detail-zoom-reset"));
+    fireEvent.click(screen.getByTestId("design-detail-zoom-level"));
     expect(level()).toBe("100%");
     fireEvent.click(screen.getByTestId("design-detail-zoom-in"));
     expect(level()).toBe("120%");
@@ -2482,7 +2518,7 @@ describe("⑩ 设计详情页：真栈 listMyProjects / appendProjectChat / push
 
       // ① 骨架回来：三页的标签当场出现在画布上（在这之前这几分钟画布是全空的）。
       await act(async () => { await vi.advanceTimersByTimeAsync(2600); });
-      await waitFor(() => expect(screen.getByTestId("design-detail-frame-2")).toBeTruthy());
+      await waitFor(() => expect(screen.getByTestId("design-detail-board-frame-2")).toBeTruthy());
       expect(screen.getByTestId("design-detail-generating").textContent).toContain("已完成 0 / 3 页");
       // 还没轮到的页说的是「正在画」，不是「没画出来」——后者会请用户为一件正在发生的事重新下单。
       fireEvent.click(screen.getByTestId("design-detail-view-single"));
@@ -2578,7 +2614,7 @@ describe("⑩ 设计详情页：真栈 listMyProjects / appendProjectChat / push
     });
     render(<DesignDetailScreen projectId="p1" />);
     await screen.findByTestId("design-detail");
-    fireEvent.click(screen.getByTestId("design-detail-export"));
+    await clickMore("design-detail-export");
     fireEvent.click(screen.getByTestId("design-detail-export-json"));
     // 文件名要等拼音字典按需加载完——下载因此是异步的。
     await waitFor(() => expect(click).toHaveBeenCalledTimes(1));
@@ -2588,19 +2624,19 @@ describe("⑩ 设计详情页：真栈 listMyProjects / appendProjectChat / push
     expect(spec.screens.map((s) => [s.frame, s.notes])).toEqual([["聊天", "首屏即可发消息"], ["设置", ""]]);
     expect(spec.screens[0]?.root).toEqual(tree);
     // 复制
-    fireEvent.click(screen.getByTestId("design-detail-export"));
+    await clickMore("design-detail-export");
     fireEvent.click(screen.getByTestId("design-detail-export-copy"));
     await waitFor(() => expect(writeText).toHaveBeenCalledTimes(1));
     expect(String(writeText.mock.calls[0]?.[0])).toContain("首屏即可发消息");
     expect((await screen.findByTestId("design-detail-export-copy")).textContent).toContain("已复制");
     // PNG：html2canvas 被 mock，抓的是 data-frame-index=当前页 的那块屏
-    fireEvent.click(screen.getByTestId("design-detail-frame-1"));
+    fireEvent.click(within(screen.getByTestId("design-detail-board-frame-1")).getByText(/^2 · /));
     fireEvent.click(screen.getByTestId("design-detail-export-png"));
     await waitFor(() => expect(html2canvasMock).toHaveBeenCalledTimes(1));
     expect((html2canvasMock.mock.calls[0] as unknown as [HTMLElement])[0].getAttribute("data-frame-index")).toBe("1");
     await waitFor(() => expect(click).toHaveBeenCalledTimes(2));
     // 说明页
-    fireEvent.click(screen.getByTestId("design-detail-tab-spec"));
+    await clickMore("design-detail-tab-spec");
     expect(screen.getByTestId("design-detail-notes").textContent).toContain("首屏即可发消息");
     expect(screen.queryByTestId("design-detail-note-1")).toBeNull(); // 空说明的页不列
     click.mockRestore();
@@ -2649,7 +2685,7 @@ describe("⑩ 设计详情页：真栈 listMyProjects / appendProjectChat / push
     });
     render(<DesignDetailScreen projectId="p1" />);
     await screen.findByTestId("design-detail");
-    fireEvent.click(screen.getByTestId("design-detail-export"));
+    await clickMore("design-detail-export");
     fireEvent.click(screen.getByTestId("design-detail-export-doc"));
     await waitFor(() => expect(click).toHaveBeenCalledTimes(1));
     expect(create).toHaveBeenCalledTimes(1);
@@ -2674,7 +2710,7 @@ describe("⑩ 设计详情页：真栈 listMyProjects / appendProjectChat / push
     });
     render(<DesignDetailScreen projectId="p1" onOpenInbox={onOpenInbox} />);
     await screen.findByTestId("design-detail");
-    fireEvent.click(screen.getByTestId("design-detail-push"));
+    await clickMore("design-detail-push");
     fireEvent.click(await screen.findByTestId("design-push-confirm-submit"));
     await screen.findByTestId("design-push-success");
     expect(screen.getByTestId("design-push-success").textContent).toContain("D-7");
@@ -3284,7 +3320,7 @@ describe("V58 从对话导入：不确认不写，写的是改后的文本", () 
   it("选中线程 ⇒ 出现可编辑的预览；不点确认 ⇒ 一次写入请求都没有", async () => {
     const bodies = stubImport();
     render(<DesignDetailScreen projectId="p1" />);
-    fireEvent.click(await screen.findByTestId("design-detail-import-thread"));
+    await clickMore("design-detail-import-thread");
     fireEvent.click(await screen.findByTestId("import-thread-item-th-1"));
 
     const preview = (await screen.findByTestId("import-thread-preview")) as HTMLTextAreaElement;
@@ -3302,14 +3338,14 @@ describe("V58 从对话导入：不确认不写，写的是改后的文本", () 
     expect(bodies[0]).toEqual({ threadId: "th-1" });
     expect(Object.keys(bodies[0]!)).not.toContain("problem");
     // 屏上的背景仍是用户自己写的那份。
-    fireEvent.click(screen.getByTestId("design-detail-tab-spec"));
+    await clickMore("design-detail-tab-spec");
     expect((await screen.findByTestId("design-detail-spec")).textContent).toContain("用户已经写好的背景");
   });
 
   it("改了预览再确认 ⇒ 写入的是**改后**的文本，且对话里出现系统留痕", async () => {
     const bodies = stubImport();
     render(<DesignDetailScreen projectId="p1" />);
-    fireEvent.click(await screen.findByTestId("design-detail-import-thread"));
+    await clickMore("design-detail-import-thread");
     fireEvent.click(await screen.findByTestId("import-thread-item-th-1"));
     const preview = await screen.findByTestId("import-thread-preview");
     fireEvent.change(preview, { target: { value: "我改过的背景：首屏直接下单" } });
@@ -3319,7 +3355,7 @@ describe("V58 从对话导入：不确认不写，写的是改后的文本", () 
     // ⭐ 反证锚点：确认时把服务端那份 summary 交回去（而不是编辑框里的值）⇒ 这条红。
     expect(bodies[1]).toEqual({ threadId: "th-1", problem: "我改过的背景：首屏直接下单" });
     await waitFor(() => expect(screen.queryByTestId("import-thread-dialog")).toBeNull());
-    fireEvent.click(screen.getByTestId("design-detail-tab-spec"));
+    await clickMore("design-detail-tab-spec");
     expect((await screen.findByTestId("design-detail-spec")).textContent).toContain("我改过的背景");
   });
 
@@ -3369,14 +3405,14 @@ describe("V58 从对话导入：不确认不写，写的是改后的文本", () 
     );
 
     // 切一档：乐观更新（不等往返），并真的发出 PATCH。
-    openAppearance();
+    await openAppearance();
     fireEvent.click(screen.getByTestId("design-detail-accent-rose"));
     await waitFor(() => expect(screen.getByTestId("design-detail-phone").getAttribute("data-accent")).toBe("rose"));
     await waitFor(() => expect(patches).toEqual([{ accent: "rose" }]));
 
     // 失败要回滚，不能让屏上停在一个库里没有的颜色上。
     failNext = true;
-    openAppearance();
+    await openAppearance();
     fireEvent.click(screen.getByTestId("design-detail-accent-green"));
     await screen.findByTestId("design-detail-chat-error");
     expect(screen.getByTestId("design-detail-phone").getAttribute("data-accent")).toBe("rose");
@@ -3793,7 +3829,7 @@ describe("V58 从对话导入：不确认不写，写的是改后的文本", () 
   it("迭代 16（#3773 R3）：同一段对话抽出的验收标准逐条可勾，确认时和背景一起写进项目", async () => {
     const bodies = stubImport(undefined, ["导出成功率 ≥ 99%", "历史会话可回看与继续", "首屏 2 秒内可下单"]);
     render(<DesignDetailScreen projectId="p1" />);
-    fireEvent.click(await screen.findByTestId("design-detail-import-thread"));
+    await clickMore("design-detail-import-thread");
     fireEvent.click(await screen.findByTestId("import-thread-item-th-1"));
     await screen.findByTestId("import-thread-preview");
 
@@ -3819,7 +3855,7 @@ describe("V58 从对话导入：不确认不写，写的是改后的文本", () 
   it("迭代 16（#3773 R3）：一条验收标准都没抽到 ⇒ 不显示那一块，也**不传** criteria（语义是「不动」，不是清空）", async () => {
     const bodies = stubImport();
     render(<DesignDetailScreen projectId="p1" />);
-    fireEvent.click(await screen.findByTestId("design-detail-import-thread"));
+    await clickMore("design-detail-import-thread");
     fireEvent.click(await screen.findByTestId("import-thread-item-th-1"));
     await screen.findByTestId("import-thread-preview");
     expect(screen.queryByTestId("import-thread-criteria")).toBeNull();
@@ -4063,8 +4099,7 @@ describe("界面不再把人指向一个空的地方", () => {
     });
     const prompt = vi.spyOn(window, "prompt").mockReturnValue("新名");
     render(<DesignDetailScreen projectId="p1" />);
-    await screen.findByTestId("design-detail-page-rename");
-    fireEvent.click(screen.getByTestId("design-detail-page-rename"));
+    await clickMore("design-detail-page-rename");
     await waitFor(() => expect(ops).toHaveLength(1));
     expect((ops[0] as { ops: { op: string; frame: string }[] }).ops[0]).toMatchObject({ op: "renameScreen", frame: "新名" });
     expect(prompt).toHaveBeenCalledWith("页面名字", "旧名");
@@ -4113,9 +4148,11 @@ describe("窄屏的默认值按手机来，不是按桌面来", () => {
      */
     const restore = await mount(1440);
     const share = screen.getByTestId("design-detail-share");
-    const push = screen.getByTestId("design-detail-push");
     expect(share.className).toContain("bg-primary");
-    expect(push.className).not.toContain("bg-primary");
+    // design-delta `novice-progressive-disclosure`：推送是内部流程，不再占顶栏——在「更多」里，改叫「交给开发排期」。
+    expect(screen.queryByTestId("design-detail-push")).toBeNull();
+    await openMore();
+    expect(screen.getByTestId("design-detail-push")).toHaveTextContent("交给开发排期");
     restore();
   });
 });
@@ -4297,7 +4334,7 @@ describe("迭代 29：导出失败不再是静默的", () => {
     });
     render(<DesignDetailScreen projectId="p1" />);
     await screen.findByTestId("design-detail");
-    fireEvent.click(screen.getByTestId("design-detail-export"));
+    await clickMore("design-detail-export");
     return screen.findByTestId("design-detail-export-menu");
   };
 
@@ -4611,6 +4648,7 @@ describe("迭代 32：画板上的手感——别把用户调好的视图冲掉�
     // ⭐ 反证锚点：改回「图层」⇒ 这条红。
     await openBoard(["一"]);
     fireEvent.click(screen.getByTestId("design-detail-view-single"));
+    fireEvent.click(screen.getByTestId("design-detail-side-toggle"));
     const title = await screen.findByTestId("design-layers-title");
     expect(title.textContent).toContain("页面结构");
     expect(title.textContent).toMatch(/\d+ 块/);
@@ -4963,7 +5001,7 @@ describe("UIUX 17：导出菜单剩下的那几处", () => {
     });
     render(<DesignDetailScreen projectId="p1" />);
     await screen.findByTestId("design-detail");
-    fireEvent.click(screen.getByTestId("design-detail-export"));
+    await clickMore("design-detail-export");
     return screen.findByTestId("design-detail-export-menu");
   };
 

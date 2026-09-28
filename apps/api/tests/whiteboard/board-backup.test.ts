@@ -55,7 +55,7 @@ it.each(['missing','tampered'] as const)('refuses %s source history before sourc
  const f=fixture(),ref=await withHistory(f);let checked=0;f.repo.withSourceRestore=async(_p,_m,publish)=>{checked++;await publish();};
  await f.service.backup(p,board,backup);f.primary.values.clear();
  const archiveKey=`board-backups/${backupTenant(p.orgId)}/${backup}/blobs/${ref.hash}`;
- if(mode==='missing')f.secondary.values.delete(archiveKey);else f.secondary.values.get(archiveKey)!.bytes[0]^=1;
+ if(mode==='missing')f.secondary.values.delete(archiveKey);else { const stored=f.secondary.values.get(archiveKey)!;stored.bytes[0]=(stored.bytes[0]??0)^1; }
  await expect(f.service.restoreSourceFiles(p,backup)).rejects.toThrow('BACKUP_INTEGRITY_FAILED');expect(checked).toBe(0);expect(f.primary.values.size).toBe(0);
 });
 it('does not restore source files if restored PG references changed',async()=>{

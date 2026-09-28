@@ -81,7 +81,12 @@ function walk(node: designPrototype.PrototypeNode, visit: (n: designPrototype.Pr
 
 /** M1 内容量：一页只有几个节点，渲染出来就是一张几乎空的板子。 */
 function substance(nodes: readonly designPrototype.PrototypeNode[]): QualityDeduction {
-  const n = nodes.length;
+  /*
+   * design-delta `prototype-board`：画布里的每张便签 / 每个形状也是内容。只数节点的话，一页
+   * 「导航栏 + 工具栏 + 一块摆了 15 张便签的画布」只算 4 个元素，被判「几乎是空的」打回重画，
+   * 模型就会往页上塞填充物——正好与「白板页的主角是画布」相反。
+   */
+  const n = nodes.length + nodes.reduce((sum, x) => sum + (x.type === "board" ? x.props.items.length : 0), 0);
   if (n >= 12) return { metric: "substance", score: 1, hint: "" };
   if (n >= 8) return { metric: "substance", score: 0.7, hint: `这一页只有 ${String(n)} 个元素，偏空。` };
   return {

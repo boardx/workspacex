@@ -21,6 +21,7 @@ export * as agentDefaults from "./agent-defaults";
 
 /* ── phase-01 契约束 ─────────────────────────────────────────────── */
 export * as interview from "./interview";
+export * as interviewMarkdown from "./interview-markdown";
 export * as recording from "./recording";
 export * as canvas from "./canvas";
 export * as chat from "./chat";

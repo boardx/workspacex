@@ -1,10 +1,18 @@
-import { createHash } from 'node:crypto';
-import { act, cleanup, createEvent, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, cleanup, createEvent, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { Buffer } from "node:buffer";
+import { createHash, webcrypto } from "node:crypto";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { createWhiteboardDocument, executeCommands, readObjects } from "@repo/whiteboard-core";
 import type { BoardFabricObject } from "@/components/whiteboard/fabric/board-fabric-object";
 
-vi.mock("@/components/whiteboard/board-comments",()=>({listBoardCommentThreads:async()=>[],dispatchBoardCommentCommand:vi.fn()}));
+// Keep comment/directory queries at their API boundary so the fetch spy exclusively
+// exercises image transport; never fulfill a member request with image bytes.
+vi.mock("@/components/whiteboard/board-comments", async (importOriginal) => ({
+  ...await importOriginal<typeof import("@/components/whiteboard/board-comments")>(),
+  dispatchBoardCommentCommand: vi.fn(),
+  listBoardMentionableMembers: vi.fn(async () => []),
+  listBoardCommentThreads: vi.fn(async () => []),
+}));
 vi.mock("@/components/whiteboard/fabric/board-fabric-surface", () => ({
   BoardFabricSurface: ({ objects, onSelectionChange, onDrawingComplete, onCanvasClick }: {
     objects: readonly BoardFabricObject[];
@@ -23,11 +31,20 @@ class ResizeObserverMock { observe() {} disconnect() {} }
 globalThis.ResizeObserver = ResizeObserverMock as unknown as typeof ResizeObserver;
 const objectUrls = new Map<string, Blob>();
 const revokeObjectUrl = vi.fn((url: string) => { objectUrls.delete(url); });
+const nativeDigest = webcrypto.subtle.digest.bind(webcrypto.subtle);
 async function readBlobBytes(blob: Blob): Promise<Uint8Array> {
   if (typeof blob.arrayBuffer === "function") return new Uint8Array(await blob.arrayBuffer());
   return new Promise((resolve, reject) => { const reader = new FileReader(); reader.onerror = reject; reader.onload = () => reader.result instanceof ArrayBuffer ? resolve(new Uint8Array(reader.result)) : reject(new Error("read")); reader.readAsArrayBuffer(blob); });
 }
 beforeEach(() => {
+  // jsdom byte buffers belong to another realm. Bridge only the bytes to Node;
+  // keep real WebCrypto hashing rather than replacing image-integrity checks.
+  vi.spyOn(crypto.subtle, "digest").mockImplementation((algorithm, data) => {
+    const bytes = ArrayBuffer.isView(data)
+      ? new Uint8Array(data.buffer, data.byteOffset, data.byteLength)
+      : new Uint8Array(data);
+    return nativeDigest(algorithm, Buffer.from(bytes));
+  });
   objectUrls.clear(); revokeObjectUrl.mockClear();
   localStorage.setItem('wsx.sessionToken','test-token');
   const persisted=new Map<string,Uint8Array>();
@@ -49,7 +66,7 @@ beforeEach(() => {
     const view = new DataView(bytes.buffer); return { width: view.getUint32(16), height: view.getUint32(20), close: vi.fn() };
   }));
 });
-afterEach(() => { cleanup(); vi.unstubAllGlobals(); });
+afterEach(() => { cleanup(); vi.restoreAllMocks(); vi.unstubAllGlobals(); });
 
 function png(width = 32, height = 24): Uint8Array {
   const bytes = new Uint8Array(32);
@@ -75,13 +92,22 @@ function webp(kind: "VP8" | "VP8L" | "VP8X", width: number, height: number): Uin
 }
 const byteBuffer = (bytes: Uint8Array): ArrayBuffer => new Uint8Array(bytes).buffer;
 
+it("computes the real SHA-256 of jsdom byte buffers", async () => {
+  const digest = new Uint8Array(await crypto.subtle.digest("SHA-256", new Uint8Array([97, 98, 99]).buffer));
+  expect([...digest].map(value => value.toString(16).padStart(2, "0")).join(""))
+    .toBe("ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad");
+});
+
 async function setupView() {
   const { CollaborativeEditor } = await import("@/components/whiteboard/collaborative-editor");
   const doc = createWhiteboardDocument();
   const view = render(<CollaborativeEditor boardId="content-board" clientId="content-client" doc={doc} readOnly={false} title="内容板" status="已连接" />);
   return { doc, ...view };
 }
-function openAppearance() { const trigger = screen.getByTestId("board-inspector-appearance"); if (trigger.getAttribute("aria-expanded") !== "true") fireEvent.click(trigger); }
+function openAppearance() {
+  const panel = screen.getByTestId("board-context-toolbar");
+  if (panel.getAttribute("data-expanded") !== "true") fireEvent.click(screen.getByTestId("board-inspector-expand"));
+}
 async function setup() { return (await setupView()).doc; }
 
 it("creates a real shape and structured Tile from the touch-first dock", async () => {
@@ -148,7 +174,7 @@ it("creates a verified durable image without writing bytes or blob/data URLs int
   expect(JSON.stringify(image)).not.toContain("blob:");
   expect(screen.getByText(/图片已持久化/)).toBeVisible();
   openAppearance();
-  expect(screen.getByRole("link", { name: "下载" })).toHaveAttribute("href", "blob:verified-1");
+  expect(screen.getByRole("link", { name: "下载原图" })).toHaveAttribute("href", "blob:verified-1");
   fireEvent.click(screen.getByRole("button", { name: "替换" }));
   await waitFor(() => expect(screen.getByText("替换图片")).toBeVisible());
   fireEvent.change(input, { target: { files: [new File([byteBuffer(png(64, 48))], "replacement.png", { type: "image/png" })] } });
@@ -157,17 +183,17 @@ it("creates a verified durable image without writing bytes or blob/data URLs int
   expect(readObjects(doc)[0]).toMatchObject({ id: image.id, extensionData: { contentObject: { replacementOf: image.id, intrinsicWidth: 64, intrinsicHeight: 48 } } });
   expect(revokeObjectUrl).not.toHaveBeenCalled();
   openAppearance();
-  expect(screen.getByRole("link", { name: "下载" })).toHaveAttribute("href", "blob:verified-2");
+  expect(screen.getByRole("link", { name: "下载原图" })).toHaveAttribute("href", "blob:verified-2");
   fireEvent.click(screen.getByRole("button", { name: "撤销" }));
   await waitFor(() => expect((readObjects(doc)[0]?.extensionData?.contentObject as { fileName?: string } | undefined)?.fileName).toBe("photo.png"));
   openAppearance();
-  expect(screen.getByRole("link", { name: "下载" })).toHaveAttribute("href", "blob:verified-1");
+  expect(screen.getByRole("link", { name: "下载原图" })).toHaveAttribute("href", "blob:verified-1");
   fireEvent.click(screen.getByRole("button", { name: "重做" }));
   await waitFor(() => expect((readObjects(doc)[0]?.extensionData?.contentObject as { fileName?: string } | undefined)?.fileName).toBe("replacement.png"));
   openAppearance();
-  expect(screen.getByRole("link", { name: "下载" })).toHaveAttribute("href", "blob:verified-2");
+  expect(screen.getByRole("link", { name: "下载原图" })).toHaveAttribute("href", "blob:verified-2");
   fireEvent.click(screen.getByTestId("board-inspector-actions"));
-  fireEvent.click(screen.getByRole("button", { name: "删除" }));
+  fireEvent.click(screen.getByRole("button", { name: "删除选中" }));
   expect(revokeObjectUrl).not.toHaveBeenCalled();
   unmount();
   expect(revokeObjectUrl).toHaveBeenCalledWith("blob:verified-1");
@@ -194,13 +220,13 @@ it("retains a shared image asset across duplicate deletion and remote bulk delet
   const { doc, unmount } = await setupView();
   fireEvent.change(screen.getByTestId("board-image-input"), { target: { files: [new File([byteBuffer(png())], "shared.png", { type: "image/png" })] } });
   await waitFor(() => expect(readObjects(doc)).toHaveLength(1));
-  fireEvent.click(screen.getByRole("button", { name: "复制对象" }));
+  fireEvent.click(screen.getAllByRole("button", { name: "复制对象" })[0]!);
   expect(readObjects(doc)).toHaveLength(2);
   const assetIds = readObjects(doc).map((object) => (object.extensionData?.contentObject as { assetId?: string }).assetId);
   expect(new Set(assetIds).size).toBe(1);
-  fireEvent.click(screen.getByTestId("board-inspector-actions"));
-  fireEvent.click(screen.getByRole("button", { name: "删除" }));
-  expect(readObjects(doc)).toHaveLength(1);
+  fireEvent.click(screen.getByTestId("board-inspector-expand"));
+  fireEvent.click(screen.getByRole("button", { name: "删除选中" }));
+  await waitFor(() => expect(readObjects(doc)).toHaveLength(1));
   expect(revokeObjectUrl).not.toHaveBeenCalled();
   act(() => executeCommands(doc, readObjects(doc).map((object) => ({ type: "delete" as const, id: object.id })), "remote-delete"));
   expect(readObjects(doc)).toEqual([]);
@@ -264,13 +290,14 @@ it("validates HTTPS image MIME, size, and magic bytes before storing a durable a
   await waitFor(() => expect(readObjects(doc)).toHaveLength(1));
   expect(readObjects(doc)[0]?.extensionData?.contentObject).toMatchObject({ type: "image", status: "ready", sourceUrl: null, assetId: expect.stringMatching(/^board-image-/), mimeType: "image/png", byteSize: bytes.length, intrinsicWidth: 48, intrinsicHeight: 36, contentDigest: expect.stringMatching(/^sha256:[a-f0-9]{64}$/), magicMimeType: "image/png", persistence: "durable" });
   openAppearance();
-  fireEvent.click(screen.getByRole("button", { name: "裁剪" }));
-  fireEvent.click(screen.getByRole("button", { name: "透明度" }));
-  fireEvent.click(screen.getByRole("button", { name: "边框" }));
-  fireEvent.click(screen.getByRole("button", { name: "圆角" }));
-  expect(readObjects(doc)[0]?.extensionData?.contentObject).toMatchObject({ crop: { x: .1, y: .1, width: .8, height: .8 }, opacity: .6, borderWidth: 2, cornerRadius: 20 });
+  fireEvent.change(screen.getByLabelText("图片裁剪宽度"), { target: { value: ".8" } });
+  fireEvent.change(screen.getByLabelText("图片裁剪高度"), { target: { value: ".8" } });
+  fireEvent.change(screen.getByLabelText("图片透明度"), { target: { value: ".6" } });
+  fireEvent.change(screen.getByLabelText("图片边框粗细"), { target: { value: "2" } });
+  fireEvent.change(screen.getByLabelText("图片圆角"), { target: { value: "20" } });
+  expect(readObjects(doc)[0]?.extensionData?.contentObject).toMatchObject({ crop: { x: 0, y: 0, width: .8, height: .8 }, opacity: .6, borderWidth: 2, cornerRadius: 20 });
   openAppearance();
-  expect(screen.getByRole("link", { name: "下载" })).toHaveAttribute("href", "blob:verified-1");
+  expect(screen.getByRole("link", { name: "下载原图" })).toHaveAttribute("href", "blob:verified-1");
   expect(fetch).toHaveBeenCalledTimes(3);
   expect(fetch).toHaveBeenCalledWith("https://assets.example.com/photo.png", expect.objectContaining({ credentials: "omit", redirect: "error", referrerPolicy: "no-referrer", headers: { Range: "bytes=0-26214399" } }));
   doc.destroy();
@@ -279,7 +306,8 @@ it("validates HTTPS image MIME, size, and magic bytes before storing a durable a
 it("aborts and discards a remote image fetch that completes after editor unmount", async () => {
   const bytes = png(48, 36);
   let resolveFetch!: (value: Response) => void;
-  const fetcher = vi.fn((_url: string, init?: RequestInit) => new Promise<Response>((resolve) => {
+  const fetcher = vi.fn((url: string, init?: RequestInit) => new Promise<Response>((resolve) => {
+    expect(url).toBe("https://assets.example.com/late.png");
     resolveFetch = resolve;
     expect(init?.signal).toBeInstanceOf(AbortSignal);
   }));
@@ -390,12 +418,12 @@ it("applies contextual color and duplicates with a 24px offset", async () => {
   fireEvent.click(screen.getByTestId("board-add-shape"));
   const source = readObjects(doc)[0]!;
   openAppearance();
-  fireEvent.click(screen.getByLabelText("填充色 #93C5FD"));
+  fireEvent.change(screen.getByLabelText("形状填充色"), { target: { value: "#93C5FD" } });
   expect(readObjects(doc).find((item) => item.id === source.id)?.extensionData?.contentObject).toMatchObject({ fill: "#93C5FD" });
-  fireEvent.click(screen.getByRole("button", { name: "边框样式" }));
-  fireEvent.click(screen.getByRole("button", { name: "文字对齐" }));
-  expect(readObjects(doc).find((item) => item.id === source.id)?.extensionData?.contentObject).toMatchObject({ borderStyle: "dashed", horizontalAlign: "left", verticalAlign: "top" });
-  fireEvent.click(screen.getByRole("button", { name: "复制对象" }));
+  fireEvent.change(screen.getByLabelText("形状边框样式"), { target: { value: "dashed" } });
+  fireEvent.change(screen.getByLabelText("形状边框粗细"), { target: { value: "3" } });
+  expect(readObjects(doc).find((item) => item.id === source.id)?.extensionData?.contentObject).toMatchObject({ borderStyle: "dashed", borderWidth: 3 });
+  fireEvent.click(within(screen.getByTestId("board-context-toolbar")).getByRole("button", { name: "复制" }));
   const records = readObjects(doc);
   expect(records).toHaveLength(2);
   const duplicate = records.find((record) => record.id !== source.id)!;

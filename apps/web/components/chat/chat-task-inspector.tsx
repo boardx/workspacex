@@ -11,6 +11,8 @@ import {
   ChatMaterialsDropOverlay, useFileDropSurface, type ChatMaterialsUploadPort,
 } from "@/components/chat/chat-composer-attachments";
 import { AgentPlanPanel, type PlanTodo } from "@/components/chat/agent-plan-panel";
+import { PlanStepActionList } from "@/components/chat/plan-step-action-list";
+import type { PlanStepAction } from "@/lib/chat-workbench/trace-plan";
 import { ThreadKnowledgeTab, useThreadKnowledge } from "@/components/chat/knowledge/thread-knowledge-tab";
 import { onOpenClaimSources, onOpenKnowledgePanel, requestOpenClaimSources } from "@/lib/knowledge-graph-events";
 import { readChatMemoryRequest } from "@/lib/chat-memory-link";
@@ -117,6 +119,10 @@ export interface ChatTaskInspectorProps {
   /** 正在上传、还没成功的材料条数——人类实测：从这个页签点「+」上传时，进度只出现在
    *  composer 里，「材料」这边在传完之前毫无反馈。默认 0（未接线时行为不变）。 */
   readonly uploadingMaterialsCount?: number;
+  /** 2026-09-27 计划显示统一 —— 最近一轮里每步计划下做过的动作（键 = 步骤文本）。
+   *  右栏「进度」页签是三处计划里讲**细节**的那一处：底部面板讲进行到哪、带控制，消息流讲
+   *  本轮结束时的快照，这里讲每一步具体做了什么。不传 = 只列步骤（此前行为）。 */
+  readonly planStepActions?: ReadonlyMap<string, readonly PlanStepAction[]>;
   /**
    * issue #3347 —— 「材料」页签的上传入口（点击 + 拖拽）。
    *
@@ -172,7 +178,7 @@ export function ChatTaskInspector(props: ChatTaskInspectorProps): JSX.Element {
   const {
     hasSelection, threadId, artifacts, materials, loading,
     artifactsError, materialsError, onRetry, onOpenArtifact, pendingMaterialsCount,
-    uploadingMaterialsCount = 0,
+    uploadingMaterialsCount = 0, planStepActions,
     planTodos, isRunning, runPhaseLabel, runStartedAt, roster,
     attachUploadPort = null, uploadDisabledReason = null, showKnowledge = false,
   } = props;
@@ -226,6 +232,10 @@ export function ChatTaskInspector(props: ChatTaskInspectorProps): JSX.Element {
    * 返回只是把列表铺回来，开着的那几份仍然开着，随时能切回去。
    */
   const [artifactListMode, setArtifactListMode] = React.useState(true);
+  // 「产物」页签统一外壳（见 `ChatArtifactsPanel` 的 `versions`）：版本面板把条数报上来，
+  // 外壳据此出总数与唯一的空态；统一刷新按钮同时触发两边重读。
+  const [versionsCount, setVersionsCount] = React.useState<number | null>(null);
+  const [versionsReload, setVersionsReload] = React.useState(0);
   /*
    * ⚠ 这里**故意没有**「关掉最后一份 ⇒ 回到列表」那条 effect。
    *
@@ -325,7 +335,8 @@ export function ChatTaskInspector(props: ChatTaskInspectorProps): JSX.Element {
    * phase-18 F09 —— 「记忆」页签的数据（`getThreadKnowledge`）。选中线程后在 effect 里取一次
    * （不阻塞首帧），角标显示 `claims.length`；每次点开页签再刷新一次，看到的是最新整理结果。
    */
-  const knowledge = useThreadKnowledge(showKnowledge ? threadId : null);
+  // issue #4350：「整理中」轮询只在「记忆」页签真的摆在前台时跑（页签切走 / 右栏收起 ⇒ 暂停；点回来 selectTab 会先重读一次）。
+  const knowledge = useThreadKnowledge(showKnowledge ? threadId : null, { active: activeTab === "memory" && !collapsed });
   // F15：记忆来源抽屉「跳到原消息」打开别的对话时带 `?focusMessage=`：消息加载出来后高亮它。
   useFocusMessageFromUrl(showKnowledge ? threadId : null);
   const knowledgeCount = knowledge.status === "ready" && knowledge.data !== null ? knowledge.data.claims.length : null;
@@ -542,6 +553,7 @@ export function ChatTaskInspector(props: ChatTaskInspectorProps): JSX.Element {
               isRunning={isRunning}
               runPhaseLabel={runPhaseLabel}
               runElapsedSeconds={runElapsedSeconds}
+              stepActions={planStepActions}
             />
           ) : activeTab === "materials" ? (
             <ChatMaterialsPanel
@@ -575,15 +587,6 @@ export function ChatTaskInspector(props: ChatTaskInspectorProps): JSX.Element {
                   : undefined}
               />
             ) : (
-            <>
-            {threadId && <AgentArtifactVersionsPanel
-              key={threadId}
-              threadId={threadId}
-              projectId={props.projectId}
-              canEdit={props.canEditArtifacts ?? false}
-              refreshKey={`${isRunning}:${artifactsCount}`}
-              onRunStarted={props.onRunStarted}
-            />}
             <ChatArtifactsPanel
               hasSelection={hasSelection}
               artifacts={artifacts}
@@ -591,8 +594,21 @@ export function ChatTaskInspector(props: ChatTaskInspectorProps): JSX.Element {
               error={artifactsError}
               onRetry={onRetry}
               onOpen={threadId ? openArtifactInPanel : onOpenArtifact}
+              versions={threadId ? (
+                <AgentArtifactVersionsPanel
+                  key={threadId}
+                  embedded
+                  threadId={threadId}
+                  projectId={props.projectId}
+                  canEdit={props.canEditArtifacts ?? false}
+                  refreshKey={`${isRunning}:${artifactsCount}:${versionsReload}`}
+                  onRunStarted={props.onRunStarted}
+                  onCountChange={setVersionsCount}
+                />
+              ) : null}
+              versionsCount={threadId ? versionsCount : 0}
+              onRefresh={() => { onRetry(); setVersionsReload((v) => v + 1); }}
             />
-            </>
             )}
             </>
           ) : activeTab === "roster" && roster !== undefined ? (
@@ -645,12 +661,13 @@ export function ChatTaskInspector(props: ChatTaskInspectorProps): JSX.Element {
  * 工具调用的在途态——人类 2026-08-10 已裁决不做那个）。
  */
 function ProgressTab({
-  planTodos, isRunning, runPhaseLabel, runElapsedSeconds,
+  planTodos, isRunning, runPhaseLabel, runElapsedSeconds, stepActions,
 }: {
   planTodos: readonly PlanTodo[] | null;
   isRunning: boolean;
   runPhaseLabel: string | null;
   runElapsedSeconds: number | null;
+  stepActions?: ReadonlyMap<string, readonly PlanStepAction[]>;
 }) {
   const todos = planTodos !== null && planTodos.length > 0 ? planTodos : null;
   if (todos === null && !isRunning) {
@@ -681,6 +698,7 @@ function ProgressTab({
             stateSnapshotTodos={[...todos]}
             panelTestId="chat-task-workbench-plan-panel"
             stepTestId="chat-task-workbench-plan-step"
+            renderStepDetail={stepActions === undefined ? undefined : (todo) => <PlanStepActionList todo={todo} actions={stepActions.get(todo.content.trim()) ?? []} />}
           />
         </>
       )}

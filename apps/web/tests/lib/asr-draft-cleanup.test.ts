@@ -19,13 +19,41 @@ class FakeSocket extends EventTarget {
   frame(value: unknown) { this.dispatchEvent(new MessageEvent("message", { data: JSON.stringify(value) })); }
 }
 beforeEach(() => vi.stubGlobal("WebSocket", FakeSocket));
-afterEach(() => vi.unstubAllGlobals());
+afterEach(() => { vi.unstubAllGlobals(); vi.useRealTimers(); });
 function fixture() {
   const stop = vi.fn(async () => undefined);
   const capture: CaptureHandle = { sourceSampleRate: 16000, onFrame: vi.fn(), stop };
   const handlers = { onPartial: vi.fn(), onFinal: vi.fn(), onError: vi.fn(), onFinished: vi.fn() };
   return { stop, capture, handlers };
 }
+
+it("bounds a missing terminal ACK at 20 seconds without erasing confirmed text or inventing completion", async () => {
+  vi.useFakeTimers();
+  const f = fixture();
+  const handle = await openAsrDraftStream(f.handlers, { sessionToken: "test", capture: async () => f.capture });
+  FakeSocket.current.frame({ type: "asr.final", text: "已有确认文字" });
+  const stopped = handle.stop();
+  await vi.advanceTimersByTimeAsync(20000);
+  expect(FakeSocket.current.readyState).toBe(3);
+  expect(f.handlers.onFinished).not.toHaveBeenCalled();
+  expect(f.handlers.onError).toHaveBeenCalledWith("ASR_PROVIDER_UNAVAILABLE");
+  expect(f.handlers.onFinal).toHaveBeenCalledWith("已有确认文字");
+  await stopped;
+});
+
+it("preserves an actual provider completion while bounding stalled capture cleanup", async () => {
+  vi.useFakeTimers();
+  const f = fixture();
+  f.stop.mockImplementation(() => new Promise<undefined>(() => undefined));
+  const handle = await openAsrDraftStream(f.handlers, { sessionToken: "test", capture: async () => f.capture });
+  const stopped = handle.stop();
+  FakeSocket.current.frame({ type: "asr.finished" });
+  await vi.advanceTimersByTimeAsync(20000);
+  await stopped;
+  expect(FakeSocket.current.readyState).toBe(3);
+  expect(f.handlers.onFinished).toHaveBeenCalledTimes(1);
+  expect(f.handlers.onError).not.toHaveBeenCalled();
+});
 
 it.each(["finished", "error", "close", "malformed"])("releases capture on server %s before UI discards its handle", async (kind) => {
   const f = fixture();

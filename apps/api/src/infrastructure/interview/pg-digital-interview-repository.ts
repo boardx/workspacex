@@ -28,6 +28,8 @@ import {
 
 import { DIGITAL_REPORT_STALE_SQL } from "./workflow/digital-report-lease";
 import { interview } from "@repo/contracts";
+import { readInterviewMarkdownDocuments } from "./interview-markdown-store";
+import { projectMarkdownHistory } from "./interview-markdown-history";
 
 /** Shared by history, status filtering and detail reads (session table alias: s). */
 const DIGITAL_INTERVIEW_READ_STATUS_SQL = `CASE
@@ -236,19 +238,17 @@ export class PgDigitalInterviewRepository implements DigitalInterviewRepository 
            FROM interview_sessions s
            LEFT JOIN digital_quick_interviews q ON q.org_id=s.org_id AND q.interview_id=s.id
           WHERE s.org_id = $1 AND s.digital_status IS NOT NULL AND s.archived=false
-            AND ($3::text IS NULL OR (${DIGITAL_INTERVIEW_READ_STATUS_SQL}) = $3)
             AND ${VISIBILITY_PREDICATE}
           ORDER BY s.updated_at DESC, s.id DESC`,
-        [input.orgId, input.viewerUserId, input.status ?? null],
+        [input.orgId, input.viewerUserId],
       );
-      return result.rows.map((row) => ({
-        item: guard({ kind: "interview", id: row.id }, toListItem(row)),
-        facts: {
-          projectId: row.project_id,
-          createdBy: row.created_by,
-          isExplicitCollaborator: row.is_collaborator,
-        },
-      }));
+      const projected=[];
+      for(const row of result.rows) {
+        const projection=await projectMarkdownHistory(session,input.orgId,toListItem(row));
+        if(input.status && projection.status!==input.status) continue;
+        projected.push({item:projection.item,facts:{projectId:row.project_id,createdBy:row.created_by,isExplicitCollaborator:row.is_collaborator}});
+      }
+      return projected;
     });
   }
 
@@ -567,6 +567,9 @@ export async function readDigitalInterviewWorkflow(
   ]);
 
   const reportRow = reports.rows[0];
+  // Marked sources are verified before any consumer sees their body. Legacy rows
+  // remain readable during the additive rollout without mutation in this GET.
+  await readInterviewMarkdownDocuments(session, orgId, interviewId, row.revision_id);
   const stale = reportRow?.stale ?? false;
   const status = row.digital_status as DigitalInterviewStatusName;
   const scope = row.project_id !== null

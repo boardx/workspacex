@@ -30,19 +30,33 @@ export function LiveResponseList({
   const excluded = responses.filter((r) => r.analysis === "excluded").length;
   const filtered = responses.filter(
     (r) =>
-      (quality === "all" || r.quality === quality) &&
+      (quality === "all" || (quality === "excluded" ? r.analysis === "excluded" : r.quality === quality && r.analysis !== "excluded")) &&
       (r.id.includes(query) || (r.submitter ?? "").includes(query)),
   );
   const pages = Math.max(1, Math.ceil(filtered.length / 10));
   const actualPage = Math.min(page, pages - 1);
   const item = responses.find((r) => r.id === selected);
+  const exportMarkdown = () => {
+    const markdown = ['# 问卷答卷', ...filtered.map((response) => [
+      `## 答卷 ${response.id}`, `提交时间：${response.submittedAt}`, `用时：${response.durationSeconds} 秒`,
+      `分析状态：${response.analysis === 'excluded' ? '已排除' : '纳入分析'}`, ...questions.filter(q => !isSurveyPageElement(q)).map(q => {
+        const answer = response.answers.find(a => a.questionId === q.id);
+        return `### ${q.title}\n\n${answer ? formatSurveyAnswer(q, answer.value) : '未填写'}`;
+      }),
+    ].join('\n\n'))].join('\n\n');
+    const url = URL.createObjectURL(new Blob([markdown], { type: 'text/markdown;charset=utf-8' }));
+    const anchor = document.createElement('a'); anchor.href = url; anchor.download = 'survey-responses.md';
+    document.body.appendChild(anchor);
+    try { anchor.click(); } finally { anchor.remove(); setTimeout(() => URL.revokeObjectURL(url), 1000); }
+  };
   return (
-    <div className="space-y-4 p-5">
+    <div data-testid="survey-response-review-layout" className="grid items-start gap-5 p-5 xl:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
+      <section aria-label="答卷列表" className="min-w-0 space-y-4 rounded-lg border border-border bg-card p-5">
       <div className="flex flex-wrap gap-4">
         <p className="text-18 font-semibold">{responses.length} 份答卷</p>
         <p className="text-12 text-muted-foreground">
-          有效 {responses.filter((r) => r.quality === "normal").length} · 待复核{" "}
-          {responses.filter((r) => r.quality === "review").length} · 已排除分析 {excluded}
+          有效 {responses.filter((r) => r.quality === "normal" && r.analysis !== "excluded").length} · 待复核{" "}
+          {responses.filter((r) => r.quality === "review" && r.analysis !== "excluded").length} · 已排除分析 {excluded}
         </p>
       </div>
       <div className="flex gap-2">
@@ -67,7 +81,9 @@ export function LiveResponseList({
           <option value="all">全部答卷</option>
           <option value="normal">有效答卷</option>
           <option value="review">待复核</option>
+          <option value="excluded">已排除分析</option>
         </select>
+        <Button variant="outline" disabled={busy || filtered.length === 0} onClick={exportMarkdown}>导出 Markdown</Button>
       </div>
       <div className="overflow-auto">
         <table className="w-full text-left text-12">
@@ -82,11 +98,11 @@ export function LiveResponseList({
           </thead>
           <tbody>
             {filtered.slice(actualPage * 10, actualPage * 10 + 10).map((r) => (
-              <tr key={r.id} className="border-b border-border">
+              <tr key={r.id} className={`border-b border-border ${selected === r.id ? 'bg-muted' : ''}`}>
                 <td className="p-3">{r.id.slice(0, 12)}</td>
                 <td>{new Date(r.submittedAt).toLocaleString("zh-CN")}</td>
                 <td>{r.durationSeconds} 秒</td>
-                <td>{r.quality === "normal" ? "有效" : "待复核"}</td>
+                <td>{r.analysis === "excluded" ? "已排除分析" : r.quality === "normal" ? "有效" : "待复核"}</td>
                 <td>
                   <Button
                     size="xs"
@@ -128,6 +144,7 @@ export function LiveResponseList({
           下一页
         </Button>
       </div>
+      </section>
       {item && (
         <section
           aria-label="答卷详情"
@@ -165,6 +182,7 @@ export function LiveResponseList({
               </Button>
             </div>
           </div>
+          <p className="mt-3 text-12 text-muted-foreground">{item.id} · {new Date(item.submittedAt).toLocaleString('zh-CN')} · 用时 {item.durationSeconds} 秒</p>
           {item.analysis === "excluded" ? (
             <p className="mt-3 text-12 text-warning">排除原因：{item.exclusionReason ?? "未填写"}</p>
           ) : onAnalysis ? (
@@ -221,6 +239,7 @@ export function LiveResponseList({
           </ol>
         </section>
       )}
+      {!item && <section aria-label="答卷详情" className="rounded-lg border border-border bg-card p-8 text-13 text-muted-foreground">选择一份答卷，查看真实回答和治理记录。</section>}
     </div>
   );
 }

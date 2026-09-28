@@ -39,6 +39,7 @@ const THREAD = "thr-kg-recall";
 function mem(overrides: Partial<KgRecalledMemory> & { claimId: string }): KgRecalledMemory {
   return {
     statement: `结论 ${overrides.claimId}`,
+    kind: "fact",
     triState: "confirmed",
     scope: "chat_session",
     saidAt: "2026-09-22T04:00:00Z",
@@ -109,6 +110,22 @@ describe("AnswerKnowledgeFooter：引用 chip", () => {
     expect(screen.getByTestId("kg-from-personal-p-custa")).toHaveTextContent(`来自你 ${localMonthDay(PERSONAL.saidAt!)} 的对话`);
     expect(screen.queryByTestId("kg-from-personal-c-decide")).not.toBeInTheDocument();
     expect(screen.getByTestId("kg-from-personal-p-nodate")).toHaveTextContent("来自你的长期记忆");
+  });
+});
+
+describe("AnswerKnowledgeFooter：引用 chip 标类型（issue #4343）", () => {
+  it("每个 chip 标出类型：目标 / 偏好 / 决定；title 仍是原文（不混进类型字）", () => {
+    const goal = mem({ claimId: "p-goal", statement: "我的目标是探索未来教育", kind: "goal", scope: "personal", channels: ["claim"] });
+    const pref = mem({ claimId: "p-pref", statement: "我更喜欢简洁的回答", kind: "preference", scope: "personal", channels: ["claim"] });
+    render(<AnswerKnowledgeFooter recalled={[goal, pref, { ...DECIDE, kind: "decision" }]} recallDegraded={false} onOpenSource={() => {}} />);
+    expect(screen.getByTestId("kg-cite-kind-p-goal")).toHaveTextContent("目标");
+    expect(screen.getByTestId("kg-cite-kind-p-pref")).toHaveTextContent("偏好");
+    expect(screen.getByTestId("kg-cite-kind-c-decide")).toHaveTextContent("决定");
+    // S7（#4364）：类型前面是「依据你的」（长期记忆的日期在「来自你 M/D 的对话」徽标上）
+    expect(screen.getByTestId("kg-citation-p-goal")).toHaveTextContent("[1]依据你的目标我的目标是探索未来教育");
+    expect(screen.getByTestId("kg-citation-p-goal")).toHaveAttribute("title", "我的目标是探索未来教育");
+    // 类型 span 不占 kg-citation- 前缀（那个前缀按 chip 计数）
+    expect(within(screen.getByTestId("kg-citation-chips")).getAllByRole("button")).toHaveLength(3);
   });
 });
 

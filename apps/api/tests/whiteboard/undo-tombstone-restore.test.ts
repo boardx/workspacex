@@ -2,6 +2,7 @@ import { describe,expect,it } from 'vitest';
 import { WhiteboardUndo,createWhiteboardDocument,executeCommands,readObjects } from '@repo/whiteboard-core';
 
 const note=(id:string)=>({id,schemaVersion:1 as const,kind:'sticky' as const,geometry:{x:0,y:0,width:10,height:10,rotation:0},text:id,style:{},parentId:null,orderKey:id});
+const memoryObjects=(seedKey?:string)=>{const blobs=new Map<string,Uint8Array>(seedKey?[[seedKey,new Uint8Array([0,0])]]:[]);return{putOnce:async(key:string,bytes:Uint8Array)=>{blobs.set(key,new Uint8Array(bytes));},get:async(key:string)=>blobs.get(key)??null,head:async(key:string)=>blobs.has(key)?{sizeBytes:blobs.get(key)!.byteLength,mime:'application/vnd.yjs-update'}:null};};
 
 describe('authenticated tombstone restore semantics',()=>{
   it('undoes deletion with the original id and keeps connector references continuous',()=>{
@@ -22,6 +23,8 @@ it('real validator worker restores only the exact authoritative deletion proof a
  const deletion=await validator.commands(Y.encodeStateAsUpdate(doc),[{type:'delete',id:'target'}]);
  expect(deletion.deletions?.map(p=>p.id).sort()).toEqual(['edge','target']);
  const restored=await validator.restoreDeletion(deletion.snapshot,deletion.deletions!);
+ expect(deletion.objectIds).toEqual(['peer']);
+ expect([...restored.objectIds].sort()).toEqual(['edge','peer','target']);
  const result=createWhiteboardDocument();Y.applyUpdate(result,restored.snapshot);expect(readObjects(result).map(o=>o.id).sort()).toEqual(['edge','peer','target']);
  const authority=createWhiteboardDocument();Y.applyUpdate(authority,deletion.snapshot);
  expect(()=>prepareWhiteboardUpdate(authority,restored.update)).toThrow('TOMBSTONE_CHANGED');
@@ -34,13 +37,14 @@ it('real validator worker restores only the exact authoritative deletion proof a
  changed.destroy();doc.destroy();result.destroy();authority.destroy();
 });
 
-import {randomUUID} from 'node:crypto';
+import {createHash,randomUUID} from 'node:crypto';
 import {PgWhiteboardCollaborationStore} from '../../src/infrastructure/whiteboard/pg-collaboration-store';
 import {toOrgId} from '../../src/domain/org-id';
 import type {DatabasePort,TenantSession} from '../../src/application/ports/database.port';
 import type {WhiteboardUpdateValidator} from '../../src/application/whiteboard/collaboration-ports';
 function restoreFixture(){
  const principal={orgId:toOrgId('undo-proof'),userId:'owner'},boardId=randomUUID(),input={epoch:1,updateId:randomUUID(),gestureId:'undo',deleteGestureId:'delete',objectIds:['note']};
+ const initialKey=`whiteboards/tenants/${createHash('sha256').update(principal.orgId).digest('hex').slice(0,32)}/boards/${boardId}/epochs/1/snapshots/0-initial.yjs`,initialHash=createHash('sha256').update(new Uint8Array([0,0])).digest('hex');
  const receipt={proof:[{id:'note',digest:'digest',tombstone:{client:1,clock:2}}],comments:[{id:randomUUID(),status:'resolved',revision:2}],restored_update_id:null as string|null};
  const state={owner:'owner',role:'viewer',archived:false,epoch:1,receipt:receipt as typeof receipt|null,commentRevision:3,commentStatus:'object-deleted',replay:null as null|{seq:string;request_hash:string;update:Buffer},committed:false};
  const writes:string[]=[];const params:unknown[][]=[];
@@ -49,7 +53,7 @@ function restoreFixture(){
   let rows:unknown[]=[];
   if(sql.startsWith('SELECT owner_id'))rows=[{owner_id:state.owner,archived:state.archived}];
   else if(sql.startsWith('SELECT role'))rows=[{role:state.role}];
-  else if(sql.startsWith('SELECT epoch'))rows=[{epoch:state.epoch,seq:'4',snapshot:Buffer.from([0,0])}];
+  else if(sql.startsWith('SELECT epoch'))rows=[{epoch:state.epoch,seq:'4',snapshot:null,object_key:initialKey,content_hash:initialHash,byte_size:'2'}];
   else if(sql.startsWith('SELECT proof')){expect(args).toEqual([principal.orgId,boardId,input.epoch,principal.userId,input.deleteGestureId]);rows=state.receipt?[state.receipt]:[];}
   else if(sql.startsWith('SELECT status,revision'))rows=[{status:state.commentStatus,revision:state.commentRevision}];
   else if(sql.startsWith('SELECT seq,request_hash'))rows=state.replay?[state.replay]:[];
@@ -57,9 +61,9 @@ function restoreFixture(){
   else if(sql.startsWith('INSERT INTO whiteboard_deletion_receipts'))rows=[{delete_update_id:args[5]}];
   return{rows:rows as R[]};
  }};
- const validator:WhiteboardUpdateValidator={objects:async()=>[],objectIds:async()=>['note'],diff:async s=>s,validate:async()=>{throw new Error('raw validator must not restore')},commands:async()=>{throw new Error('proof required')},restoreDeletion:async()=>({snapshot:new Uint8Array([0,0]),update:new Uint8Array([0,0])})};
+ const validator:WhiteboardUpdateValidator={objects:async()=>[],objectIds:async()=>['note'],diff:async s=>s,validate:async()=>{throw new Error('raw validator must not restore')},commands:async()=>{throw new Error('proof required')},restoreDeletion:async()=>({objectIds:['note'],snapshot:new Uint8Array([0,0]),update:new Uint8Array([0,0])})};
  const db:DatabasePort={withTenant:async(_org,run)=>{try{const result=await run(session);state.committed=true;return result;}catch(e){writes.length=0;throw e;}},withoutTenant:async()=>{throw new Error('tenant required')},close:async()=>{}};
- return{principal,boardId,input,receipt,state,writes,params,validator,store:new PgWhiteboardCollaborationStore(db,validator)};
+ return{principal,boardId,input,receipt,state,writes,params,validator,store:new PgWhiteboardCollaborationStore(db,validator,120,memoryObjects(initialKey))};
 }
 it('authorized receipt restore commits original-object update, prior comment status, audit and consumed marker atomically',async()=>{
  const f=restoreFixture(),result=await f.store.restoreDeletion(f.principal,f.boardId,f.input);
@@ -131,7 +135,7 @@ it('atomically compensates mixed deletion, text, parent and creation with before
 
 it('persists only actor-bound deletion integrity metadata in the same accepted update transaction',async()=>{
  const f=restoreFixture(),proof=f.receipt.proof;
- f.validator.validate=async()=>({snapshot:new Uint8Array([0,0]),update:new Uint8Array([0,0]),deletions:proof,deletionChanges:[{id:'note',before:'before-digest',after:null}]});
+ f.validator.validate=async()=>({objectIds:[],snapshot:new Uint8Array([0,0]),update:new Uint8Array([0,0]),deletions:proof,deletionChanges:[{id:'note',before:'before-digest',after:null}]});
  const ack=await f.store.append(f.principal,f.boardId,{epoch:1,updateId:f.input.updateId,gestureId:'delete-integrity',update:new Uint8Array([0,0])});
  expect(ack.seq).toBe(5);expect(f.state.committed).toBe(true);
  const metadata=f.params.find(args=>args[4]==='delete-integrity'&&args.length===10)!;

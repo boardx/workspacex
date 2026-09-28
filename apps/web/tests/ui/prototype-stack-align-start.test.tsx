@@ -42,8 +42,26 @@ describe("stack align:start", () => {
     expect(stackClass(stack("column"))).toContain("items-stretch");
   });
 
-  it("横向 + start 不变（仍是 items-start）；纵向 center 不变", () => {
+  it("横向 + start 不变（仍是 items-start）", () => {
     expect(stackClass(stack("row", "start")).split(/\s+/)).toContain("items-start");
-    expect(stackClass(stack("column", "center")).split(/\s+/)).toContain("items-center");
+  });
+
+  /*
+   * 2026-09-27 用户截图：「添加便签」一页整页缩成画面正中一小条、导航栏被挤到中间——纵向 `align:"center"`
+   * 当时映射成 `items-center justify-center`（交叉轴塌缩 + 主轴竖直居中）。
+   */
+  it("⭐ 纵向 + center：块级子项拉伸（不再 items-center 塌缩），行内子项居中", () => {
+    const cls = stackClass(stack("column", "center"));
+    expect(cls).toContain("items-stretch");
+    expect(cls.split(/\s+/)).not.toContain("items-center");
+    expect(cls).toContain("[&>[data-proto=button]]:self-center");
+  });
+
+  it("纵向 + center 里有导航栏 ⇒ 不竖直居中（否则导航栏被推到屏幕中间）；没有导航栏 ⇒ 竖直居中（空态、登录）", () => {
+    expect(stackClass(stack("column", "center")).split(/\s+/)).not.toContain("justify-center");
+    cleanup();
+    const plain: PrototypeNode = { id: "s", type: "stack", props: { direction: "column", align: "center" },
+      children: [{ id: "t", type: "text", props: { content: "还没有白板" } }, { id: "b", type: "button", props: { label: "新建白板" } }] };
+    expect(stackClass(plain).split(/\s+/)).toContain("justify-center");
   });
 });

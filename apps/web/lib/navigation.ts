@@ -348,7 +348,7 @@ export const NAV_SEGMENTS: NavSegment[] = [
           //   href 留在此数组只为满足 lint-nav-reachability 的文本扫描（这一条本身是去重后
           //   不再渲染的重复入口，不代表画布在产品里走不到）。
           //   ⚠ 2026-08-16（#978）：本节此前写着「工作台内部目前还没有一个真实按钮/tab 链
-          //   过去」——**实测这句话是错的**：`lib/mock/project.ts` 的 `PROJECT_SURFACES`
+          //   过去」——**实测这句话是错的**：`lib/mock/project.ts`（现 `lib/project-workbench.ts`）的 `PROJECT_SURFACES`
           //   （`key: "canvas"`）早在 a914548c（2026-08-02，先于本节这条注释写下的日期）
           //   就已经把「推演画布」列进「工作面」清单，`tab-overview.tsx` 把它渲染成一个真实
           //   `<a href="/projects/<id>/canvas">`（`data-testid="project-home-surface-canvas"`），

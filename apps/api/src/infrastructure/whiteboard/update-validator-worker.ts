@@ -59,7 +59,7 @@ try {
     const deletions=before.filter(object=>tombstones.get(object.id)===true).map(object=>{const item=tombstones._map.get(object.id)!;return{id:object.id,digest:digest(object),tombstone:{client:item.id.client,clock:item.id.clock}};});
     const afterById=new Map(readObjects(doc).map(object=>[object.id,object]));
     const deletionChanges=deletions.length?[...new Set([...beforeById.keys(),...afterById.keys()])].map(id=>({id,before:beforeById.has(id)?digest(beforeById.get(id)):null,after:afterById.has(id)?digest(afterById.get(id)):null})).filter(change=>change.before!==change.after):[];
-    parentPort?.postMessage({ result: { snapshot, update, deletions, deletionChanges } });
+    parentPort?.postMessage({ result: { snapshot, update, objectIds: [...afterById.keys()], deletions, deletionChanges } });
   }
 } catch { parentPort?.postMessage({ rejected: true }); }
 finally { doc.destroy(); }

@@ -5,7 +5,7 @@
  * 失败信封 → 错误码映射都是真代码在跑。登录态用 SessionProvider 的最小替身（只要当前组织 id）。
  *
  * 覆盖：长期记忆按类型分组 + 搜索 / 类型筛选 + 每条点回出自的对话；对话记忆的计数与「查看记忆」链接；
- * 项目 / 组织「尚未开放」；空态、加载态、依赖失败态（含重试）、无权限态；不渲染任何示例数字；
+ * 项目「已开放」（R7）/ 组织「已开放」（B2-S4）；空态、加载态、依赖失败态（含重试）、无权限态；不渲染任何示例数字；
  * 渲染出的文字不含内部术语。
  */
 import * as React from "react";
@@ -16,10 +16,10 @@ vi.mock("@/components/session/session-provider", () => ({
   useSession: () => ({ session: { currentOrgId: "org-brain" } }),
 }));
 
-import { knowledgeGraph, type KgClaim, type KgObject } from "@repo/contracts/chat-knowledge-graph";
+import { KgClaimKind, knowledgeGraph, type KgClaim, type KgObject } from "@repo/contracts/chat-knowledge-graph";
 import { SESSION_TOKEN_STORAGE_KEY } from "@/lib/api-client";
 import type { BrainOverview, PersonalKnowledge } from "@/lib/knowledge-graph-api";
-import { KG_BANNED_USER_FACING_WORDS } from "@/lib/knowledge-graph-view";
+import { KG_BANNED_USER_FACING_WORDS, KG_CLAIM_KIND_LABEL_ZH, KG_CLAIM_KIND_ORDER } from "@/lib/knowledge-graph-view";
 import { readChatMemoryRequest } from "@/lib/chat-memory-link";
 import { BrainScreen } from "@/components/brain/brain-screen";
 
@@ -76,7 +76,9 @@ function stubNetwork(route: (path: string, init?: RequestInit) => Response | Pro
 }
 const paths = () => fetchMock.mock.calls.map(([u]) => new URL(String(u), "http://localhost").pathname);
 const real = (personal: PersonalKnowledge, overview: BrainOverview) => (p: string) =>
-  p === "/knowledge-graph/personal" ? json(personal) : p === "/knowledge-graph/me/overview" ? json(overview) : undefined;
+  p === "/knowledge-graph/personal" ? json(personal) : p === "/knowledge-graph/me/overview" ? json(overview)
+    // S8（#4365）：「整理记录」自己取数；没有记录 ⇒ 整块不出现
+    : p === "/knowledge-graph/me/consolidations" ? json({ runs: [] }) : undefined;
 
 beforeEach(() => {
   window.localStorage.clear();
@@ -91,7 +93,9 @@ describe("大脑页：真实数据", () => {
     stubNetwork(real(PERSONAL, OVERVIEW));
     render(<BrainScreen />);
     await screen.findByTestId("brain-personal");
-    expect(paths().sort()).toEqual(["/knowledge-graph/me/overview", "/knowledge-graph/personal"]);
+    await waitFor(() => expect(paths()).toContain("/knowledge-graph/me/consolidations"));
+    expect(paths().sort()).toEqual(["/knowledge-graph/me/consolidations", "/knowledge-graph/me/overview", "/knowledge-graph/personal"]);
+    expect(screen.queryByTestId("brain-consolidation")).toBeNull();
     expect(screen.getByTestId("brain-tab-personal-count").textContent).toBe("3");
     expect(screen.getByTestId("brain-tab-sessions-count").textContent).toBe("2");
     expect(screen.getAllByTestId("brain-personal-item")).toHaveLength(3);
@@ -145,15 +149,17 @@ describe("大脑页：真实数据", () => {
     expect(screen.getByTestId("brain-sessions-summary").textContent).toBe("2 个对话共记下 6 条，其中 3 条等你确认，1 条有矛盾。");
   });
 
-  it("项目与组织两层：如实显示「尚未开放」，没有数字", async () => {
+  it("两层如实显示开放状态：项目「已开放」（R7）、组织「已开放」（B2-S4），各带怎么用的提示，没有数字", async () => {
     stubNetwork(real(PERSONAL, OVERVIEW));
     render(<BrainScreen />);
     await screen.findByTestId("brain-personal");
     fireEvent.mouseDown(screen.getByTestId("brain-tab-shared"));
     fireEvent.click(screen.getByTestId("brain-tab-shared"));
     await screen.findByTestId("brain-shared");
-    expect(screen.getByTestId("brain-layer-project-status").textContent).toBe("尚未开放");
-    expect(screen.getByTestId("brain-layer-org-status").textContent).toBe("尚未开放");
+    expect(screen.getByTestId("brain-layer-project-status").textContent).toBe("已开放");
+    expect(screen.getByTestId("brain-layer-project-hint")).toHaveTextContent("记到项目大脑");
+    expect(screen.getByTestId("brain-layer-org-status").textContent).toBe("已开放");
+    expect(screen.getByTestId("brain-layer-org-hint")).toHaveTextContent("记到组织记忆");
     expect(text(screen.getByTestId("brain-shared"))).not.toMatch(/\d/);
   });
 
@@ -206,6 +212,43 @@ describe("大脑页：真实数据", () => {
     await waitFor(() => expect(screen.getByTestId("brain-shared")).toBeTruthy());
     const copy = text(container);
     for (const w of KG_BANNED_USER_FACING_WORDS) expect(copy).not.toContain(w);
+  });
+});
+
+/* ── issue #4343：目标 / 偏好 ─────────────────── */
+
+describe("大脑页：本人的目标 / 偏好（issue #4343）", () => {
+  const GOAL = "我的目标是探索未来教育";
+  const PREF = "我更喜欢简洁的回答";
+  const WITH_GOALS: PersonalKnowledge = knowledgeGraph.getPersonalKnowledge.out.parse({
+    ...PERSONAL,
+    claims: [...PERSONAL.claims, claim("p-goal", "goal", GOAL, null), claim("p-pref", "preference", PREF, null)],
+  });
+
+  it("类型表与分组先后覆盖契约的每一种类型（漏一种 = 那一类永远不渲染）", () => {
+    expect([...KG_CLAIM_KIND_ORDER].sort()).toEqual([...KgClaimKind.options].sort());
+    for (const k of KgClaimKind.options) expect(KG_CLAIM_KIND_LABEL_ZH[k]).toBeTruthy();
+    expect(KG_CLAIM_KIND_LABEL_ZH.goal).toBe("目标");
+    expect(KG_CLAIM_KIND_LABEL_ZH.preference).toBe("偏好");
+  });
+
+  it("长期记忆里「目标 · 1」「偏好 · 1」各成一组（决定之后、事实之前），类型筛选有「目标 1」「偏好 1」", async () => {
+    stubNetwork(real(WITH_GOALS, OVERVIEW));
+    render(<BrainScreen />);
+    await screen.findByTestId("brain-personal");
+    const goal = screen.getByTestId("brain-personal-group-goal");
+    expect(goal.querySelector("h2")?.textContent).toBe("目标 · 1");
+    expect(within(goal).getByText(GOAL)).toBeTruthy();
+    expect(screen.getByTestId("brain-personal-group-preference").querySelector("h2")?.textContent).toBe("偏好 · 1");
+    const groups = [...screen.getByTestId("brain-personal").querySelectorAll("[data-testid^='brain-personal-group-']")]
+      .map((s) => s.getAttribute("data-testid"));
+    expect(groups).toEqual([
+      "brain-personal-group-decision", "brain-personal-group-goal", "brain-personal-group-preference",
+      "brain-personal-group-fact", "brain-personal-group-risk",
+    ]);
+    expect(screen.getByTestId("brain-kind-goal").textContent).toBe("目标 1");
+    fireEvent.click(screen.getByTestId("brain-kind-preference"));
+    expect(screen.getAllByTestId("brain-personal-item").map((li) => li.querySelector("p")?.textContent)).toEqual([PREF]);
   });
 });
 

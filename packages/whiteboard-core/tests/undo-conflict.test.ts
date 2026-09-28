@@ -55,6 +55,30 @@ it('round-trips a 100-object create batch as one history item', () => {
   expect(undo.redo()).toBe(true); expect(readObjects(doc)).toHaveLength(100);
 });
 
+it('redo of a created subgraph remaps tombstoned IDs while preserving content and connector identity links', () => {
+  const doc = createWhiteboardDocument(), undo = new WhiteboardUndo(doc);
+  const geometry = { x: 24, y: 36, width: 180, height: 180, rotation: 0 };
+  undo.execute([
+    { type: 'create', object: { id: 'idea-a', schemaVersion: 1, kind: 'sticky', geometry, text: 'Research', style: {}, parentId: null, orderKey: 'a' } },
+    { type: 'create', object: { id: 'idea-b', schemaVersion: 1, kind: 'sticky', geometry: { ...geometry, x: 228 }, text: 'Design', style: {}, parentId: null, orderKey: 'b' } },
+    { type: 'create', object: { id: 'edge', schemaVersion: 1, kind: 'connector', geometry: { x: 204, y: 108, width: 24, height: 1, rotation: 0 }, text: '', style: {}, parentId: null, orderKey: 'c', connector: { from: 'idea-a', to: 'idea-b', semanticRelation: 'leads_to' } } },
+  ]);
+
+  expect(undo.undo()).toBe('undone');
+  expect(readObjects(doc)).toEqual([]);
+  expect(undo.redo()).toBe(true);
+
+  const restored = readObjects(doc);
+  expect(restored.map(object => object.id).sort()).not.toEqual(['edge', 'idea-a', 'idea-b']);
+  expect(restored.map(object => object.restoredFrom).sort()).toEqual(['edge', 'idea-a', 'idea-b']);
+  const byOrigin = new Map(restored.map(object => [object.restoredFrom, object]));
+  expect(byOrigin.get('idea-a')).toMatchObject({ kind: 'sticky', text: 'Research', geometry });
+  expect(byOrigin.get('idea-b')).toMatchObject({ kind: 'sticky', text: 'Design', geometry: { ...geometry, x: 228 } });
+  expect(byOrigin.get('edge')?.connector).toEqual({ from: byOrigin.get('idea-a')?.id, to: byOrigin.get('idea-b')?.id, semanticRelation: 'leads_to' });
+  validateDocument(doc);
+  undo.destroy(); doc.destroy();
+});
+
 it('rejects mixed deletion compensation before changing local state or emitting a raw tombstone clear', () => {
   const doc = groups(false), undo = new WhiteboardUndo(doc);
   undo.execute([{ type: 'delete', id: 'a' }, { type: 'text', id: 'b', index: 0, deleteCount: 0, insert: 'mixed' }]);

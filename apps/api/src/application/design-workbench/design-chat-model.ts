@@ -352,6 +352,18 @@ function describeProject(ctx: DesignChatContext): string {
   return lines.join("\n");
 }
 
+/** 瞬时失败自动重试前等多久（见 `callModel` 头注）。导出给测试用假时钟推进。 */
+export const TRANSIENT_RETRY_DELAY_MS = 1500;
+
+/**
+ * 上游报的是不是**瞬时**失败。判据只看 provider 自己写的 detail 的**形状**（`configured-model-provider.ts`
+ * 抛出的那几种），不解析上游错误体。认不出 ⇒ 当作不是瞬时（不重试）。
+ */
+export function isTransientModelFailure(e: unknown): boolean {
+  if (!(e instanceof ModelCallError) || e.code !== "MODEL_CALL_FAILED") return false;
+  return /transport failure|HTTP (429|5\d\d)\b|response was not JSON|returned no content|no stream body/.test(e.detail);
+}
+
 /** 迭代 13：`intake-questions.ts` 也要解析模型的 JSON 输出，导出复用而不是抄第二份。 */
 export function extractJsonObject(text: string): unknown {
   const start = text.indexOf("{");
@@ -986,10 +998,34 @@ export class ModelDesignChatReplier implements DesignChatModel {
     return this.deps.model.supportsVision?.(this.deps.chatModel.provider, this.deps.chatModel.modelId) === true;
   }
 
+  /**
+   * 用户实测（2026-09-27）：新建项目**第一次生成就失败**——「调用 AI 模型失败（网络或鉴权）」，
+   * 发送与失败的时间戳同一分钟（不是超时），再发一次就好了。上游偶发的限流 / 5xx / 连接抖动
+   * 在这里原来**一次就判死**，于是用户第一眼看到的就是失败，还要自己去点「再试一次」。
+   *
+   * 瞬时错误自动再试**一次**（隔一小会儿）。只认明确是瞬时的：传输失败、HTTP 429、HTTP 5xx、
+   * 返回体坏了/空了。鉴权（401/403）、没配置、超时一律**不**重试——重试治不好它们，只会让人多等。
+   */
   private async callModel(
     user: string,
     timeoutMs: number,
     system: string = DESIGN_CHAT_SYSTEM_PROMPT,
+    images?: readonly { readonly filename: string; readonly mime: designWorkbench.ImageMime; readonly bytes: Uint8Array }[],
+  ): Promise<{ text: string; truncated: boolean }> {
+    try {
+      return await this.callModelOnce(user, timeoutMs, system, images);
+    } catch (e) {
+      if (!isTransientModelFailure(e)) throw e;
+      this.deps.log("design chat: transient model failure, retrying once", { detail: (e as ModelCallError).detail });
+      await new Promise((r) => setTimeout(r, TRANSIENT_RETRY_DELAY_MS));
+      return this.callModelOnce(user, timeoutMs, system, images);
+    }
+  }
+
+  private async callModelOnce(
+    user: string,
+    timeoutMs: number,
+    system: string,
     images?: readonly { readonly filename: string; readonly mime: designWorkbench.ImageMime; readonly bytes: Uint8Array }[],
   ): Promise<{ text: string; truncated: boolean }> {
     let timer: ReturnType<typeof setTimeout> | undefined;
