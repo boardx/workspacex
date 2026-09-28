@@ -460,6 +460,13 @@
         "knowledge-graph/read-thread-knowledge"
       ]
     },
+    "KnowledgeShareController": {
+      "useCases": [
+        "chat/resolve-visibility",
+        "knowledge-graph/ids",
+        "knowledge-graph/share-to-project"
+      ]
+    },
     "LocalExportController": {
       "useCases": [
         "identity/errors",
@@ -662,11 +669,15 @@
       ]
     },
     "WhiteboardController": {
-      "useCases": [],
+      "useCases": [
+        "whiteboard/recovery-service"
+      ],
       "note": "Resource metadata CRUD: direct typed repository port; tenant and owner/member predicates are enforced atomically in PgWhiteboardRepository, validated by real PostgreSQL and HTTP negative tests (#3926). Content collaboration is a separate use case."
     },
     "WhiteboardTagController": {
-      "useCases": [],
+      "useCases": [
+        "whiteboard/recovery-service"
+      ],
       "note": "白板标签的增删改查：直接调 WHITEBOARD_TAG_REPOSITORY（list/create/rename/delete），入参由 ZodBodyPipe 按 whiteboard 契约校验，没有跨聚合编排，没有独立用例模块。"
     }
   },
@@ -772,6 +783,7 @@
         "IdentityController",
         "KernelProbeController",
         "KnowledgeGraphController",
+        "KnowledgeShareController",
         "LocalExportController",
         "LocalOrgController",
         "OrgAdminManagementController",
@@ -866,6 +878,7 @@
         "IdentityController",
         "KernelProbeController",
         "KnowledgeGraphController",
+        "KnowledgeShareController",
         "LocalExportController",
         "LocalOrgController",
         "MessageRatingController",
@@ -952,6 +965,7 @@
         "IdentityController",
         "KernelProbeController",
         "KnowledgeGraphController",
+        "KnowledgeShareController",
         "LocalExportController",
         "LocalOrgController",
         "MessageRatingController",
@@ -1167,6 +1181,7 @@
         "IdentityController",
         "KernelProbeController",
         "KnowledgeGraphController",
+        "KnowledgeShareController",
         "LocalExportController",
         "LocalOrgController",
         "MessageRatingController",
@@ -1360,6 +1375,7 @@
         "InterviewScopeController",
         "KernelProbeController",
         "KnowledgeGraphController",
+        "KnowledgeShareController",
         "LocalExportController",
         "LocalOrgController",
         "OrgAdminManagementController",
@@ -1539,6 +1555,7 @@
         "IdentityController",
         "KernelProbeController",
         "KnowledgeGraphController",
+        "KnowledgeShareController",
         "LocalExportController",
         "LocalOrgController",
         "OrgAdminManagementController",
@@ -1729,6 +1746,7 @@
         "IdentityController",
         "KernelProbeController",
         "KnowledgeGraphController",
+        "KnowledgeShareController",
         "LocalExportController",
         "LocalOrgController",
         "OrgAdminManagementController",
@@ -1821,6 +1839,7 @@
         "IdentityController",
         "KernelProbeController",
         "KnowledgeGraphController",
+        "KnowledgeShareController",
         "LocalExportController",
         "LocalOrgController",
         "OrgAdminManagementController",
@@ -1907,6 +1926,7 @@
         "InterviewScopeController",
         "KernelProbeController",
         "KnowledgeGraphController",
+        "KnowledgeShareController",
         "LocalExportController",
         "LocalOrgController",
         "OrgAdminManagementController",
@@ -2065,6 +2085,7 @@
         "IdentityController",
         "KernelProbeController",
         "KnowledgeGraphController",
+        "KnowledgeShareController",
         "LocalExportController",
         "LocalOrgController",
         "OrgAdminManagementController",
@@ -2128,6 +2149,7 @@
         "IdentityController",
         "KernelProbeController",
         "KnowledgeGraphController",
+        "KnowledgeShareController",
         "LocalExportController",
         "LocalOrgController",
         "OrgAdminManagementController",
@@ -2195,6 +2217,7 @@
         "InboxController",
         "KernelProbeController",
         "KnowledgeGraphController",
+        "KnowledgeShareController",
         "LocalExportController",
         "LocalOrgController",
         "OrgAdminManagementController",
@@ -2281,6 +2304,7 @@
         "IdentityController",
         "KernelProbeController",
         "KnowledgeGraphController",
+        "KnowledgeShareController",
         "LocalExportController",
         "LocalOrgController",
         "OrgAdminManagementController",
@@ -2360,6 +2384,7 @@
         "IdentityController",
         "KernelProbeController",
         "KnowledgeGraphController",
+        "KnowledgeShareController",
         "LocalExportController",
         "LocalOrgController",
         "OrgAdminManagementController",
@@ -2420,6 +2445,7 @@
         "IdentityController",
         "KernelProbeController",
         "KnowledgeGraphController",
+        "KnowledgeShareController",
         "LocalExportController",
         "LocalOrgController",
         "OrgAdminManagementController",
@@ -2479,6 +2505,7 @@
         "IdentityController",
         "KernelProbeController",
         "KnowledgeGraphController",
+        "KnowledgeShareController",
         "LocalExportController",
         "LocalOrgController",
         "OrgAdminManagementController",
@@ -2538,6 +2565,7 @@
         "IdentityController",
         "KernelProbeController",
         "KnowledgeGraphController",
+        "KnowledgeShareController",
         "LocalExportController",
         "LocalOrgController",
         "OrgAdminManagementController",

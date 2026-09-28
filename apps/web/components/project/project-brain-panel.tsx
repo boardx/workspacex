@@ -5,12 +5,14 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { SectionTitle } from "./parts";
 import { getStoredSessionToken } from "@/lib/api-client";
-import { KG_TRI_STATE_LABEL_ZH, type KgClaimKind, type KgClaim } from "@repo/contracts/chat-knowledge-graph";
+import { KG_TRI_STATE_LABEL_ZH, type KgClaimKind, type KgClaim, type KgEvidenceAnchor } from "@repo/contracts/chat-knowledge-graph";
+import { PROJECT_EVIDENCE_SOURCE_LABEL_ZH, PROJECT_EVIDENCE_TO_AI_SOURCE, ProjectEvidenceSourceKind, type ProjectEvidenceSourceKind as EvidenceKind } from "@repo/contracts/project-evidence";
+import { getProjectAiSettings, type ProjectAiSourceKind } from "@/lib/live-project-ai-settings";
 import { KG_CLAIM_KIND_LABEL_ZH } from "@/lib/knowledge-graph-view";
 import { sharedFromPersonalLabelZh as sharedFromPersonalLabel } from "@repo/contracts/chat-knowledge-graph";
 import {
   fetchClaimSources, fetchProjectKnowledge, knowledgeGraphErrorCode, promoteToOrg,
-  type ProjectKnowledge, type PromotionChoice, type PromotionResults,
+  type ClaimSources, type ProjectKnowledge, type PromotionChoice, type PromotionResults,
 } from "@/lib/knowledge-graph-api";
 import { httpFailureText } from "@/lib/http-failure-text";
 import { ApiError } from "@/lib/api-client";
@@ -31,14 +33,42 @@ import { useClaimSourcesDrawer } from "@/components/chat/knowledge/knowledge-pan
  *
  * B2-S4（#4428）：服务端 `canPromoteToOrg`（组织 lead / admin）为 true 时，每条多一个「记到组织记忆」按钮
  * （`promoteToOrg`，L2 → L3）；逐条显示结果，相近时让人选合并 / 并存。旧响应没有这个字段 ⇒ 没有入口。
+ *
+ * B3-T2（#4496）：每条结论显示它的**证据来源类型**标签（六类，按锚点 `sourceKind` 去重，标签文案取契约
+ * `PROJECT_EVIDENCE_SOURCE_LABEL_ZH`）；来源在设置页「AI 权限」里被关掉的标灰、title「来源已关闭」——已入图的
+ * 结论不删，只标。关没关由 `getProjectAiSettings` 本地推导（`PROJECT_EVIDENCE_TO_AI_SOURCE` 反投影），
+ * `getProjectKnowledge` 契约不改。锚点不在 `getProjectKnowledge` 的结论里（只在 `getClaimSources`），
+ * 所以面板加载后逐条（顺序、上限 `SOURCE_KINDS_PREFETCH_LIMIT`）取来源填标签；分享自个人记忆的那些不取
+ * （R9 口径 404）。协调者若在 `getProjectKnowledge.out` 加每条结论的 sourceKinds，这里的预取就可以拿掉。
  */
 // S10（#4367）：成员可以把个人记忆里的目标 / 偏好分享进来，这两类也要列出来（否则分享了却看不见）。
 const KIND_ORDER: readonly KgClaimKind[] = ["decision", "fact", "hypothesis", "risk", "todo", "goal", "preference"];
+
+/** 面板加载后为了填来源标签逐条预取来源的上限：每条一次请求，再多就等用户点「来源」。 */
+export const SOURCE_KINDS_PREFETCH_LIMIT = 30;
+
+/**
+ * 设置页五个开关 → 被关掉的证据来源（六类）。映射只在契约 `PROJECT_EVIDENCE_TO_AI_SOURCE` 一份，这里只是反过来过滤。
+ * `allowed = null`（还没读到 / 读失败）⇒ 什么都不标：不知道就不乱标。
+ */
+export function closedEvidenceKinds(allowed: readonly ProjectAiSourceKind[] | null): ReadonlySet<EvidenceKind> {
+  if (allowed === null) return new Set();
+  const on = new Set<ProjectAiSourceKind>(allowed);
+  return new Set(ProjectEvidenceSourceKind.options.filter((k) => !on.has(PROJECT_EVIDENCE_TO_AI_SOURCE[k])));
+}
+
+/** 锚点 → 去重后的来源类型（按契约枚举顺序，稳定）。 */
+export function evidenceSourceKinds(evidence: readonly Pick<KgEvidenceAnchor, "sourceKind">[]): readonly EvidenceKind[] {
+  const seen = new Set(evidence.map((e) => e.sourceKind));
+  return ProjectEvidenceSourceKind.options.filter((k) => seen.has(k));
+}
 
 export function ProjectBrainPanel({ projectId }: { projectId: string }) {
   const [data, setData] = React.useState<ProjectKnowledge | null>(null);
   const [loading, setLoading] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
+  const aiAllowed = useProjectAiAllowed(projectId);
+  const closed = React.useMemo(() => closedEvidenceKinds(aiAllowed), [aiAllowed]);
 
   const load = React.useCallback(async () => {
     if (!getStoredSessionToken()) { setData(null); return; }
@@ -57,11 +87,15 @@ export function ProjectBrainPanel({ projectId }: { projectId: string }) {
     .map((kind) => ({ kind, claims: (data?.claims ?? []).filter((c) => c.kind === kind) }))
     .filter((g) => g.claims.length > 0);
   const reasoning = reasoningView(data?.claims ?? []);
-  const drawer = useClaimSourcesDrawer(loadSources);
-  const org = useOrgPromotion(projectId, data?.canPromoteToOrg === true);
   const sharedBy = React.useMemo(
     () => new Map((data?.sharedFromPersonal ?? []).map((x) => [x.claimId, x.sharedByName] as const)),
     [data?.sharedFromPersonal],
+  );
+  const kinds = useClaimSourceKinds(data?.claims ?? [], sharedBy);
+  const drawer = useClaimSourcesDrawer(kinds.load);
+  const org = useOrgPromotion(projectId, data?.canPromoteToOrg === true);
+  const row = (c: KgClaim) => (
+    <ClaimRow key={c.id} claim={c} sharedBy={sharedBy.get(c.id)} onOpenSources={drawer.open} org={org} sourceKinds={kinds.byClaim.get(c.id)} closed={closed} />
   );
 
   return (
@@ -93,7 +127,7 @@ export function ProjectBrainPanel({ projectId }: { projectId: string }) {
                   <div className="flex flex-col gap-1" data-testid="project-brain-conflicts">
                     <span className="text-10 text-muted-foreground">有矛盾——两边都有证据，还没人定</span>
                     <ul className="flex flex-col gap-1">
-                      {reasoning.conflicts.map((c) => <ClaimRow key={c.id} claim={c} sharedBy={sharedBy.get(c.id)} onOpenSources={drawer.open} org={org} />)}
+                      {reasoning.conflicts.map(row)}
                     </ul>
                   </div>
                 ) : null}
@@ -101,7 +135,7 @@ export function ProjectBrainPanel({ projectId }: { projectId: string }) {
                   <div className="flex flex-col gap-1" data-testid="project-brain-hypotheses">
                     <span className="text-10 text-muted-foreground">猜测——按证据强弱排，站得最不稳的在前</span>
                     <ul className="flex flex-col gap-1">
-                      {reasoning.hypotheses.map((c) => <ClaimRow key={c.id} claim={c} sharedBy={sharedBy.get(c.id)} onOpenSources={drawer.open} org={org} />)}
+                      {reasoning.hypotheses.map(row)}
                     </ul>
                   </div>
                 ) : null}
@@ -114,7 +148,7 @@ export function ProjectBrainPanel({ projectId }: { projectId: string }) {
                   <span className="font-mono text-10 text-muted-foreground">{g.claims.length}</span>
                 </div>
                 <ul className="flex flex-col gap-1">
-                  {g.claims.map((c) => <ClaimRow key={c.id} claim={c} sharedBy={sharedBy.get(c.id)} onOpenSources={drawer.open} org={org} />)}
+                  {g.claims.map(row)}
                 </ul>
               </div>
             ))}
@@ -133,8 +167,50 @@ export function ProjectBrainPanel({ projectId }: { projectId: string }) {
   );
 }
 
-function loadSources(claimId: string) {
-  return fetchClaimSources(claimId);
+/** 「AI 权限」现值（只读；读失败 ⇒ null，面板不标任何来源为已关闭）。 */
+function useProjectAiAllowed(projectId: string): readonly ProjectAiSourceKind[] | null {
+  const [allowed, setAllowed] = React.useState<readonly ProjectAiSourceKind[] | null>(null);
+  React.useEffect(() => {
+    let alive = true;
+    if (!getStoredSessionToken()) { setAllowed(null); return; }
+    getProjectAiSettings(projectId)
+      .then((s) => { if (alive) setAllowed(s.allowedSources); })
+      .catch(() => { if (alive) setAllowed(null); });
+    return () => { alive = false; };
+  }, [projectId]);
+  return allowed;
+}
+
+interface ClaimSourceKinds {
+  readonly byClaim: ReadonlyMap<string, readonly EvidenceKind[]>;
+  /** 来源抽屉的加载器：同一次请求顺手把标签也填上。 */
+  readonly load: (claimId: string) => Promise<ClaimSources>;
+}
+
+/**
+ * 每条结论的证据来源类型：面板加载后顺序预取（上限 `SOURCE_KINDS_PREFETCH_LIMIT`），抽屉打开时同一个加载器再填。
+ * 单条失败只是那条没有标签（来源抽屉自己会如实报错）；分享自个人记忆的不取。
+ */
+function useClaimSourceKinds(claims: readonly KgClaim[], sharedBy: ReadonlyMap<string, string>): ClaimSourceKinds {
+  const [byClaim, setByClaim] = React.useState<ReadonlyMap<string, readonly EvidenceKind[]>>(new Map());
+  const load = React.useCallback(async (claimId: string) => {
+    const sources = await fetchClaimSources(claimId);
+    const kinds = evidenceSourceKinds(sources.evidence);  // 在 setState 之外算：载荷不对在这里抛，预取的 try/catch 接得住
+    setByClaim((prev) => new Map(prev).set(claimId, kinds));
+    return sources;
+  }, []);
+  const ids = claims.filter((c) => !sharedBy.has(c.id)).slice(0, SOURCE_KINDS_PREFETCH_LIMIT).map((c) => c.id).join("\u0000");
+  React.useEffect(() => {
+    let alive = true;
+    void (async () => {
+      for (const id of ids === "" ? [] : ids.split("\u0000")) {
+        if (!alive) return;
+        try { await load(id); } catch { /* 那条没有标签；抽屉会如实报 */ }
+      }
+    })();
+    return () => { alive = false; };
+  }, [ids, load]);
+  return { byClaim, load };
 }
 
 /**
@@ -180,7 +256,10 @@ function useOrgPromotion(projectId: string, enabled: boolean): OrgPromotion {
   return { enabled, states, promote };
 }
 
-function ClaimRow({ claim, sharedBy, onOpenSources, org }: { claim: KgClaim; sharedBy?: string; onOpenSources: (claimId: string) => void; org: OrgPromotion }) {
+function ClaimRow({ claim, sharedBy, onOpenSources, org, sourceKinds, closed }: {
+  claim: KgClaim; sharedBy?: string; onOpenSources: (claimId: string) => void; org: OrgPromotion;
+  sourceKinds?: readonly EvidenceKind[]; closed: ReadonlySet<EvidenceKind>;
+}) {
   const tone = claim.triState === "confirmed" ? "success" : claim.triState === "conflict" ? "danger" : "warning";
   const state = org.states.get(claim.id);
   return (
@@ -190,6 +269,25 @@ function ClaimRow({ claim, sharedBy, onOpenSources, org }: { claim: KgClaim; sha
           <span>{claim.statement}</span>
           {sharedBy !== undefined ? (
             <span className="text-10 text-muted-foreground" data-testid={`project-brain-shared-by-${claim.id}`}>{sharedFromPersonalLabel(sharedBy)}</span>
+          ) : null}
+          {sourceKinds !== undefined && sourceKinds.length > 0 ? (
+            <span className="flex flex-wrap items-center gap-1" data-testid={`project-brain-source-kinds-${claim.id}`}>
+              {sourceKinds.map((k) => {
+                const off = closed.has(k);
+                return (
+                  <Badge
+                    key={k}
+                    tone="outline"
+                    className={off ? "opacity-50" : undefined}
+                    title={off ? "来源已关闭" : undefined}
+                    data-testid={`project-brain-source-kind-${claim.id}-${k}`}
+                    data-closed={off ? "true" : undefined}
+                  >
+                    {PROJECT_EVIDENCE_SOURCE_LABEL_ZH[k]}
+                  </Badge>
+                );
+              })}
+            </span>
           ) : null}
         </span>
         <Badge tone={tone === "success" ? "primary" : "outline"}>{KG_TRI_STATE_LABEL_ZH[claim.triState]}</Badge>

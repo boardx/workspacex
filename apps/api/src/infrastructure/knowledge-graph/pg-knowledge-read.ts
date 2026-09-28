@@ -18,6 +18,7 @@ import type { OrgId } from "../../domain/org-id";
 import { KG_EXTRACTION_LEASE_SECONDS, KG_EXTRACTION_MAX_ATTEMPTS } from "./pg-kg-extraction";
 
 type KgClaim = ThreadKnowledgeData["claims"][number];
+type KgEvidenceSourceKind = KG.KgEvidenceAnchor["sourceKind"];
 
 /** 与 chat 读消息同一个 guard ref（pg-chat-repository.ts findMessages）。 */
 const threadRef = (t: KnowledgeThreadRef) => ({ kind: "project" as const, id: t.projectId ?? `personal:${t.threadId}` });
@@ -38,9 +39,11 @@ const CLAIM_COLUMNS = `
   ARRAY(SELECT e.dst_id FROM ontology_edges e WHERE e.org_id = c.org_id AND e.src_kind = 'claim' AND e.src_id = c.id
      AND e.dst_kind = 'object' AND e.relation = 'about' AND e.status = 'active' ORDER BY e.dst_id) AS about_ids,
   (SELECT count(*) FROM claim_segments s WHERE s.claim_id = c.id AND s.stance = 'supporting')
-    + (SELECT count(*) FROM claim_message_evidence m WHERE m.claim_id = c.id AND m.stance = 'supporting') AS supporting,
+    + (SELECT count(*) FROM claim_message_evidence m WHERE m.claim_id = c.id AND m.stance = 'supporting')
+    + (SELECT count(*) FROM claim_project_evidence p WHERE p.claim_id = c.id AND p.stance = 'supporting') AS supporting,
   (SELECT count(*) FROM claim_segments s WHERE s.claim_id = c.id AND s.stance = 'contradicting')
-    + (SELECT count(*) FROM claim_message_evidence m WHERE m.claim_id = c.id AND m.stance = 'contradicting') AS contradicting`;
+    + (SELECT count(*) FROM claim_message_evidence m WHERE m.claim_id = c.id AND m.stance = 'contradicting')
+    + (SELECT count(*) FROM claim_project_evidence p WHERE p.claim_id = c.id AND p.stance = 'contradicting') AS contradicting`;
 
 interface ClaimRow {
   id: string; claim_kind: KgClaim["kind"] | null; statement: string; status: KgClaim["status"];
@@ -231,6 +234,11 @@ export class PgKnowledgeRead implements KnowledgeReadPort {
            LEFT JOIN segment_text st ON st.segment_id = cs.segment_id
           WHERE cs.org_id = $1 AND cs.claim_id = $2 AND $3::text[] IS NULL ORDER BY cs.stance DESC, cs.segment_id`, [orgId, claimId, onlyThreads ?? null],
       );
+      // B3-T2（#4496）：项目证据单元锚点（六类来源）。`onlyThreads`（F12 个人空间口径）给了就不带——它们不属于任何会话。
+      const units = await s.query<{ evidence_id: string; stance: "supporting" | "contradicting"; source_kind: KgEvidenceSourceKind; source_ref: string; excerpt: string }>(
+        `SELECT p.evidence_id, p.stance, p.source_kind, p.source_ref, p.excerpt FROM claim_project_evidence p
+          WHERE p.org_id = $1 AND p.claim_id = $2 AND $3::text[] IS NULL ORDER BY p.stance DESC, p.created_at, p.evidence_id`, [orgId, claimId, onlyThreads ?? null],
+      );
       const actions = await s.query<{ created_at: Date; actor_kind: "human" | "model" | "system"; actor_id: string; action_type: string; pipeline_version: string | null }>(
         `SELECT created_at, actor_kind, actor_id, action_type, pipeline_version FROM ontology_actions
           WHERE org_id = $1 AND outcome = 'accepted' AND payload->'claims' @> jsonb_build_array(jsonb_build_object('id', $2::text))
@@ -250,6 +258,10 @@ export class PgKnowledgeRead implements KnowledgeReadPort {
           ...segments.rows.map((g) => ({
             segmentId: g.segment_id, stance: g.stance, sourceKind: "attachment" as const, sourceRef: g.version_id,
             excerpt: (g.content ?? "").slice(0, 280), locator: page(g.page), revoked: false,
+          })),
+          ...units.rows.map((u) => ({
+            segmentId: u.evidence_id, stance: u.stance, sourceKind: u.source_kind, sourceRef: u.source_ref, evidenceId: u.evidence_id,
+            excerpt: u.excerpt, locator: null, revoked: false,
           })),
         ],
         // 模型 / 系统产生的动作对用户统一显示为「系统」（契约 actor.kind 只有 human | system）。

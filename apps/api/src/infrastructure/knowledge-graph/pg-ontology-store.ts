@@ -29,7 +29,10 @@ export function toBatchPayload(batch: OntologyBatch): Record<string, unknown> {
       id: c.id, claim_kind: c.claimKind, statement: c.statement, status: c.status, confidence: c.confidence,
       evidence: c.evidence.map((e) => ("messageId" in e
         ? { message_id: e.messageId, stance: e.stance, excerpt: e.excerpt }
-        : { segment_id: e.segmentId, stance: e.stance })),
+        // B3-T2：项目证据单元锚点（迁移 20260928210000 的 `claim_project_evidence`）
+        : "evidenceId" in e
+          ? { evidence_id: e.evidenceId, source_kind: e.sourceKind, source_ref: e.sourceRef, stance: e.stance, excerpt: e.excerpt }
+          : { segment_id: e.segmentId, stance: e.stance })),
     })),
     edges: batch.edges.map((e) => ({
       id: e.id, src_kind: e.srcKind, src_id: e.srcId, dst_kind: e.dstKind, dst_id: e.dstId, relation: e.relation,
