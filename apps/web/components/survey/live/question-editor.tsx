@@ -1,5 +1,6 @@
 "use client";
 import * as React from "react";
+import { CalendarDays, CircleDot, FileText, Grid2X2, Hash, ImageIcon, ListOrdered, Mail, MapPin, Phone, SquareCheck, Star, Upload } from "lucide-react";
 import {
   SURVEY_QUESTION_TYPES,
   createSurveyQuestion,
@@ -16,6 +17,26 @@ import { moveItem } from "@/lib/survey/report-template";
 import { SurveyQuestionSettings } from "./question-settings";
 import { SurveyQuestionRenderer } from "./question-renderer";
 import { ResponsiveDesignerPanel } from "./responsive-designer-panel";
+const questionTypeIcons: Partial<Record<SurveyQuestionType, typeof CircleDot>> = {
+  single: CircleDot,
+  multi: SquareCheck,
+  dropdown: ListOrdered,
+  image_single: ImageIcon,
+  image_multi: ImageIcon,
+  short: FileText,
+  open: FileText,
+  multiple_text: FileText,
+  number: Hash,
+  date: CalendarDays,
+  email: Mail,
+  phone: Phone,
+  address: MapPin,
+  rating: Star,
+  matrix_single: Grid2X2,
+  matrix_multi: Grid2X2,
+  ranking: ListOrdered,
+  file: Upload,
+};
 export function SurveyQuestionEditor({
   questions,
   onChange,
@@ -218,12 +239,15 @@ export function SurveyQuestionEditor({
             <div className="flex items-start justify-between gap-2"><div><h2 className="text-16 font-semibold">题型工具箱</h2><p className="mt-1 text-12 text-muted-foreground">选择题型，直接添加到问卷</p></div><Button type="button" size="sm" variant="outline" onClick={() => add("short")}>新增题目</Button></div>
             {Array.from(new Set(SURVEY_QUESTION_TYPES.map(item => item.category))).map(group => <div key={group}>
               <h3 className="mb-2 text-12 font-medium text-muted-foreground">{group}</h3>
-              <div className="grid grid-cols-2 gap-2">
-                {SURVEY_QUESTION_TYPES.filter(item => item.category === group).map(item => <button
-                  key={item.type} type="button" data-testid={`add-question-${item.type}`}
-                  onClick={() => add(item.type)}
-                  className="rounded-md border border-border bg-background px-2 py-3 text-left text-12 font-medium transition-colors hover:border-primary hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                >{item.label}</button>)}
+              <div className="grid grid-cols-3 gap-2">
+                {SURVEY_QUESTION_TYPES.filter(item => item.category === group).map(item => {
+                  const Icon = questionTypeIcons[item.type] ?? FileText;
+                  return <button
+                    key={item.type} type="button" data-testid={`add-question-${item.type}`}
+                    onClick={() => add(item.type)}
+                    className="flex min-h-20 flex-col items-center justify-center gap-2 rounded-md border border-border bg-background px-2 py-3 text-center text-12 font-medium transition-colors hover:border-primary hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  ><Icon aria-hidden="true" className="h-5 w-5" />{item.label}</button>;
+                })}
               </div>
             </div>)}
           </section>}
@@ -530,14 +554,25 @@ export function SurveyQuestionEditor({
             <div
               className={`mx-auto space-y-7 rounded-lg border border-border bg-card p-4 ${previewDevice === "mobile" ? "max-w-sm" : previewDevice === "tablet" ? "max-w-2xl" : "w-full"}`}
             >
-              {studioLayout && <section aria-label="问卷封面" className="rounded-lg border border-border bg-muted/30 p-5">
-                <p className="text-12 text-muted-foreground">问卷封面</p>
-                <h2 className="mt-2 text-20 font-semibold">{surveyTitle || "未命名问卷"}</h2>
+              {studioLayout && <section aria-label="问卷封面" className="grid gap-5 rounded-lg border border-border bg-card p-5 sm:grid-cols-[8rem_minmax(0,1fr)] sm:items-center">
+                <div className="flex aspect-[4/3] items-center justify-center rounded-md border border-dashed border-border bg-muted/50 text-muted-foreground" aria-label="尚未设置封面图">
+                  <ImageIcon className="h-8 w-8" aria-hidden />
+                </div>
+                <div className="min-w-0">
+                  <p className="text-12 font-medium text-muted-foreground">问卷封面</p>
+                  <h2 className="mt-2 text-20 font-semibold tracking-tight">{surveyTitle || "未命名问卷"}</h2>
+                  <p className="mt-2 text-12 leading-5 text-muted-foreground">封面与标题将作为答题页的开场信息，发布时随当前问卷版本一起固定。</p>
+                </div>
               </section>}
               {(studioLayout ? questions : visibleSurveyQuestions(questions, answers)).map((q, questionIndex) => (
                 <React.Fragment key={`${q.id}-${q.type}`}>
                   {studioLayout && (questionIndex === 0 || questions[questionIndex - 1]?.chapterId !== q.chapterId) &&
-                    <h3 className="border-b border-border pb-2 text-16 font-semibold">{q.chapterId || "未分组"}</h3>}
+                    <div className="flex items-center justify-between gap-3 rounded-md border border-border bg-muted/30 px-4 py-3">
+                      <h3 className="text-16 font-semibold">{q.chapterId || "未分组"}</h3>
+                      <span className="shrink-0 text-11 text-muted-foreground">
+                        {questions.filter((item) => item.chapterId === q.chapterId).length} 题
+                      </span>
+                    </div>}
                   <section className={studioLayout ? `rounded-lg border p-4 ${q.id === question?.id ? "border-primary" : "border-border"}` : ""}>
                     {studioLayout && <button type="button" aria-label={`编辑第 ${questionIndex + 1} 题：${q.title || "未命名题目"}`}
                       className="mb-3 w-full text-left text-12 font-medium text-muted-foreground transition-colors hover:text-foreground"
