@@ -151,3 +151,31 @@ it('ships standard-methods 1.3.0 content: the platform org actually receives the
   expect(body).toContain('模板: maau');
   expect(body).toContain('sequenceDiagram');
 }, 300000);
+
+/**
+ * issue #4578：standard-methods 1.4.0 的唯一实质差异是新增 `design-methods`（设计方法卡片库，
+ * WX-S023）。同上一条的纪律：钉**平台组织里生效版本的真实字节**等于仓库编辑源，不钉版本号——
+ * 「号升了、卡片没下发」或「只下发了 SKILL.md、卡片文件丢了」都会红在这里。
+ */
+const designMethodsBytes = (path: string): number =>
+  readFileSync(new URL(`../../../../skills/standard-methods/design-methods/${path}`, import.meta.url)).length;
+
+it('ships standard-methods 1.4.0 content: the platform org receives design-methods with its index and all four card files', async () => {
+  ensureDatabase(); await migrateOnce();
+  const seeded = await ensurePlatformSkillCatalogSeeded();
+  expect(seeded.ok).toBe(true);
+  if (!seeded.ok) throw seeded.error;
+  expect(seeded.report.standardPacks.filter(p => !p.ok)).toEqual([]);
+
+  const rows = await asApp(PLATFORM_ORG_ID, c => c.query<{ name: string; semantic_label: string; path: string; bytes: number }>(
+    `SELECT s.name, v.semantic_label, f.path, octet_length(f.content)::int AS bytes
+       FROM skills s
+       JOIN skill_versions v ON v.skill_id = s.id AND v.org_id = s.org_id
+       JOIN skill_version_files f ON f.version_id = v.id AND f.org_id = v.org_id
+      WHERE s.org_id = $1 AND s.stable_name = 'design-methods' AND v.published = true
+      ORDER BY f.path COLLATE "C"`, [PLATFORM_ORG_ID]));
+  expect(rows.rows.every(r => r.name === '设计方法卡片库' && r.semantic_label === '1.0.0')).toBe(true);
+  const paths = ['SKILL.md', 'references/cards-define.md', 'references/cards-deliver.md', 'references/cards-develop.md',
+    'references/cards-discover.md', 'references/method-index.md'];
+  expect(rows.rows.map(r => [r.path, r.bytes])).toEqual(paths.map(p => [p, designMethodsBytes(p)]));
+}, 300000);
