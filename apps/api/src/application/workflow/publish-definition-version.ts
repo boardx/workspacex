@@ -4,7 +4,7 @@
 import { WorkflowDefinitionVersionInput, type WorkflowDefinitionVersionView } from "@repo/contracts/workflow-runtime";
 import { deepFreeze, sameDefinitionContent, validateDefinitionForPublish } from "../../domain/workflow/definition-version";
 import { WorkflowUseCaseError } from "./workflow-errors";
-import type { SkillVersionResolverPort, WorkflowClock, WorkflowDefinitionRepository, WorkflowGraphCatalog } from "./workflow-ports";
+import type { SkillVersionResolverPort, WorkflowActor, WorkflowClock, WorkflowDefinitionRepository, WorkflowGraphCatalog } from "./workflow-ports";
 
 export interface PublishDefinitionDeps {
   definitions: WorkflowDefinitionRepository;
@@ -15,8 +15,13 @@ export interface PublishDefinitionDeps {
 
 export async function publishDefinitionVersion(
   deps: PublishDefinitionDeps,
-  cmd: { orgId: string; pathKey: string; body: unknown },
+  cmd: { orgId: string; actor: WorkflowActor; pathKey: string; body: unknown },
 ): Promise<WorkflowDefinitionVersionView> {
+  // UC-WR-1 pre：调用者为组织管理员。契约 err 只列 workflow_not_found | definition_invalid，
+  // 非管理员按「不可见」折成 workflow_not_found（与他组织/非成员同一个 404，不暴露 key 是否存在）。
+  if (cmd.actor.orgRole !== "admin") {
+    throw new WorkflowUseCaseError("workflow_not_found", "workflow not found");
+  }
   if (!(await deps.definitions.definitionExists(cmd.orgId, cmd.pathKey))) {
     throw new WorkflowUseCaseError("workflow_not_found", "workflow not found");
   }

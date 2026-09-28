@@ -1,5 +1,5 @@
 /**
- * Workflow Runtime 应用层端口（WF01）。实现由 infrastructure 提供（WF02 起落 PG）；
+ * Workflow Runtime 应用层端口（WF01）。实现由 infrastructure/workflow 提供（PG）；
  * 本文件只声明依赖形状，application 不 import infrastructure。
  */
 import type { PinnedSkillVersion, WorkflowDefinitionVersionView, WorkflowInstanceStatus } from "@repo/contracts/workflow-runtime";
@@ -41,6 +41,12 @@ export interface WorkflowInstanceRepository {
   /** 创建后 definitionVersion / pinnedSkills 不再改变（I-4）；实现不得提供修改它们的路径。 */
   create(instance: PinnedWorkflowInstance): Promise<void>;
   find(orgId: string, instanceId: string): Promise<PinnedWorkflowInstance | null>;
+}
+
+/** 调用者身份（由 interface 层从会话解析后传入；application 不自己读会话）。 */
+export interface WorkflowActor {
+  userId: string;
+  orgRole: "admin" | "member";
 }
 
 export interface WorkflowClock {
