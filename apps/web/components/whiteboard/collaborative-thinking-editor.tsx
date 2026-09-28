@@ -100,6 +100,7 @@ export function CollaborativeThinkingEditor({ organizeFitRequest, dockExtension,
   const handleViewportChange=(next:BoardViewport,source:BoardViewportSource)=>{if(source==='pan'||source==='wheel'){cancelOrganizeFit();setFollowingActorId(null);onManualViewportChange?.();}setViewport(next);};
   const [presenting,setPresenting]=useState(false),[followingActorId,setFollowingActorId]=useState<string|null>(null);const viewportRevision=useRef(0),followRevision=useRef(-1);
   const [notice, setNotice] = useState(""), [editing, setEditing] = useState<EditSession | null>(null), [conflictedDraft, setConflictedDraft] = useState<string | null>(null);
+  const pendingCreatedEdits = useRef(new Map<string, ReturnType<typeof setTimeout>>());
   const awaitingAck=useRef<{kind:"撤销"|"重做";gestureId:string}|null>(null);
   const [bulk, setBulk] = useState<string | null>(null), [pasteChoice, setPasteChoice] = useState<PasteChoice>(null);
   const [commentObjectId, setCommentObjectId] = useState<string | null>(null), [commentBody, setCommentBody] = useState(""), [mentionIds, setMentionIds] = useState<string[]>([]);
@@ -134,7 +135,12 @@ export function CollaborativeThinkingEditor({ organizeFitRequest, dockExtension,
   useEffect(()=>{const waiting=awaitingAck.current;if(waiting&&lastAckReceipt?.gestureId===waiting.gestureId){awaitingAck.current=null;setNotice(`${waiting.kind}已由服务器确认 · 序列 ${lastAckReceipt.seq}`);}},[lastAckReceipt]);
   useEffect(()=>{followRevision.current=-1;},[followingActorId]);
   useEffect(()=>{if(!followingActorId)return;const peer=peers.find(item=>item.actorId===followingActorId),remote=peer?.viewport;if(!remote||remote.revision<followRevision.current)return;followRevision.current=remote.revision;const next=followBoardFrame(frame.size,remote);setViewport(current=>current.zoom===next.zoom&&current.panX===next.panX&&current.panY===next.panY?current:{...current,...next});},[followingActorId,peers,frame.size]);
-  useEffect(() => { const ids = new Set(visibleObjectIdKey ? visibleObjectIdKey.split("\u0000") : []); setSelected((current) => current.filter((id) => ids.has(id))); setEditing((current) => current && ids.has(current.id) ? current : null); }, [visibleObjectIdKey]);
+  useEffect(() => {
+    const ids = new Set(visibleObjectIdKey ? visibleObjectIdKey.split("\u0000") : []);
+    setSelected((current) => current.filter((id) => ids.has(id) || pendingCreatedEdits.current.has(id)));
+    setEditing((current) => current && (ids.has(current.id) || pendingCreatedEdits.current.has(current.id)) ? current : null);
+  }, [visibleObjectIdKey]);
+  useEffect(() => () => { for (const timer of pendingCreatedEdits.current.values()) clearTimeout(timer); pendingCreatedEdits.current.clear(); }, []);
   useEffect(()=>{const controller=new AbortController();let active=true;const refresh=()=>void listBoardCommentThreads(boardId,controller.signal).then(items=>{if(active)setCommentThreads(items.filter(item=>item.status!=="object-deleted"));}).catch(()=>{});refresh();const timer=setInterval(refresh,1000);return()=>{active=false;controller.abort();clearInterval(timer);};},[boardId]);
   useEffect(() => {
     mounted.current = true;
@@ -205,19 +211,28 @@ export function CollaborativeThinkingEditor({ organizeFitRequest, dockExtension,
     catch { setNotice("无法生成智能布局预览：对象已变化。"); }
   }, [boardId, clientId, doc, layoutGap, layoutPort, model.objects, selected, selectionLayoutDisabled]);
   const beginEditing = useCallback((id: string) => { const object = readObjects(doc).find((candidate) => candidate.id === id); if (!object) return; setSelected([id]); setEditing({ id, initial: object.text }); }, [doc]);
+  const beginCreatedEditing = useCallback((id: string, initial: string) => {
+    const previous = pendingCreatedEdits.current.get(id); if (previous) clearTimeout(previous);
+    pendingCreatedEdits.current.set(id, setTimeout(() => {
+      pendingCreatedEdits.current.delete(id);
+      const exists = readObjects(doc).some((candidate) => candidate.id === id);
+      if (!exists) { setSelected((current) => current.filter((candidate) => candidate !== id)); setEditing((current) => current?.id === id ? null : current); }
+    }, 5_000));
+    setSelected([id]); setEditing({ id, initial });
+  }, [doc]);
 
   const createStickyAt = useCallback((point: Point, variant: StickyVariant = "square", text = "") => {
     if (readOnly) { setNotice("当前白板为只读，不能创建便利贴。"); return null; }
     const id = crypto.randomUUID(), size = stickySize(variant);
     const envelope = createStickyBatchEnvelope({ boardId, clientId, gestureId: crypto.randomUUID(), variant, color:{custom:stickyColor}, items: [{ id, text, geometry: topLeft(point, size.width, size.height) }] });
-    if (!dispatchEnvelope(envelope)) return null; setSelected([id]); setEditing({ id, initial: text }); return id;
-  }, [boardId, clientId, dispatchEnvelope, readOnly, stickyColor]);
+    if (!dispatchEnvelope(envelope)) return null; beginCreatedEditing(id, text); return id;
+  }, [beginCreatedEditing, boardId, clientId, dispatchEnvelope, readOnly, stickyColor]);
   const createTextAt = useCallback((point: Point, preset: TextStylePreset = "body", text = "") => {
     if (readOnly) { setNotice("当前白板为只读，不能创建文字。"); return null; }
     const id = crypto.randomUUID(), attributes = validateTextAttributes({ preset });
     const object: WhiteboardObject = { id, schemaVersion: 1, kind: "text", geometry: topLeft(point, preset === "title" ? 480 : 320, preset === "caption" ? 56 : 96), text, style: { color: attributes.color, fontSize: attributes.fontSize }, parentId: null, orderKey: "", extensionData: { thinkingInput: { text: attributes } } };
-    if (!execute([{ type: "create", object }])) return null; setSelected([id]); setEditing({ id, initial: text }); return id;
-  }, [execute, readOnly]);
+    if (!execute([{ type: "create", object }])) return null; beginCreatedEditing(id, text); return id;
+  }, [beginCreatedEditing, execute, readOnly]);
   const createContentAt = useCallback((point: Point, content: BoardContentData, text = "") => {
     const id = crypto.randomUUID();
     const isShape = content.type === "shape";

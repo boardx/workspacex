@@ -1,4 +1,4 @@
-import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, expect, it, vi } from "vitest";
 import { createWhiteboardDocument, executeCommands, readObjects, WhiteboardCommandOrigin, type WhiteboardObject } from "@repo/whiteboard-core";
 import { CollaborativeEditor } from "@/components/whiteboard/collaborative-editor";
@@ -41,11 +41,11 @@ const object = (kind: "sticky" | "text", extensionData: Record<string, unknown>)
   text: kind === "sticky" ? "保留想法" : "结构化标题", style: {}, parentId: null, orderKey: "", extensionData,
 });
 
-it("double-clicks blank Fabric space into an immediately focused, IME-safe sticky editor", () => {
+it("double-clicks blank Fabric space into an immediately focused, IME-safe sticky editor", async () => {
   const doc = editor();
   fireEvent.click(screen.getByTestId("mock-canvas-double"));
   const input = screen.getByLabelText("对象文字");
-  expect(input).toHaveFocus();
+  await waitFor(() => expect(input).toHaveFocus());
   fireEvent.compositionStart(input);
   fireEvent.change(input, { target: { value: "中文想法" } });
   expect(readObjects(doc)[0]?.text).toBe("");
@@ -53,6 +53,21 @@ it("double-clicks blank Fabric space into an immediately focused, IME-safe stick
   fireEvent.change(input, { target: { value: "中文想法" } });
   expect(readObjects(doc)[0]?.text).toBe("中文想法");
   expect(screen.queryByLabelText("未应用的输入草稿")).toBeNull();
+  doc.destroy();
+});
+
+it("keeps a newly created sticky in edit mode across a transient collaboration projection gap", async () => {
+  const doc = editor();
+  fireEvent.click(screen.getByTestId("board-add-sticky"));
+  fireEvent.click(screen.getByTestId("board-sticky-rectangle"));
+  fireEvent.click(screen.getByTestId("mock-canvas-click"));
+  const created = readObjects(doc)[0]!;
+  await waitFor(() => expect(screen.getByLabelText("对象文字")).toHaveFocus());
+
+  act(() => doc.getMap<boolean>("deletedObjects").set(created.id, true));
+  expect(screen.queryByLabelText("对象文字")).toBeNull();
+  act(() => doc.getMap<boolean>("deletedObjects").delete(created.id));
+  await waitFor(() => expect(screen.getByLabelText("对象文字")).toHaveFocus());
   doc.destroy();
 });
 

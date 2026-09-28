@@ -63,20 +63,28 @@ test("fabric surface viewport", async ({ page, request: api }) => {
   await expect(page.getByTestId("collaborative-editor")).toBeVisible({ timeout: 30_000 });
   await expect(page.getByText(/^已同步$/)).toBeVisible({ timeout: 30_000 });
 
-  // Iteration 03 replaces the legacy rectangle/ellipse quick-add buttons with
-  // the Sticky-first picker. Exercise the three canonical Sticky variants and
-  // Text through the production bottom dock.
-  await page.getByTestId("board-add-sticky").click();
-  await page.getByTestId("board-sticky-rectangle").click();
-  await page.getByTestId("board-add-sticky").click();
-  await page.getByTestId("board-sticky-circle").click();
-  await page.getByTestId("board-add-sticky").click();
-  await page.getByTestId("board-add-text").click();
-
   const surface = page.getByTestId("board-fabric-surface");
   const canvas = page.getByTestId("board-fabric-canvas");
   await expect(surface).toBeVisible();
   await expect(canvas).toBeVisible();
+  // Picking a Sticky shape arms the creation tool; the following canvas click
+  // is the user-visible create action. Wait for each canonical projection so a
+  // rapid tool sequence cannot hide a lost Yjs command behind a final count.
+  const createSticky = async (variant: "square" | "rectangle" | "circle", position: { x: number; y: number }, expected: number) => {
+    await page.getByTestId("board-add-sticky").click();
+    await page.getByTestId(`board-sticky-${variant}`).click();
+    await surface.click({ position });
+    await expect(page.getByTestId("board-thinking-editor")).toBeFocused();
+    await page.keyboard.press("Escape");
+    await expect(page.getByTestId("board-a11y-mirror").locator("li[data-object-id]")).toHaveCount(expected);
+  };
+  await createSticky("rectangle", { x: 360, y: 250 }, 1);
+  await createSticky("circle", { x: 640, y: 250 }, 2);
+  await createSticky("square", { x: 920, y: 250 }, 3);
+  await page.getByTestId("board-add-text").click();
+  await expect(page.getByTestId("board-thinking-editor")).toBeFocused();
+  await page.keyboard.press("Escape");
+  await expect(page.getByTestId("board-a11y-mirror").locator("li[data-object-id]")).toHaveCount(4);
   const assertViewportBounds = async () => {
     const bounds = await surface.boundingBox();
     expect(bounds).not.toBeNull();
@@ -127,18 +135,22 @@ test("fabric surface viewport", async ({ page, request: api }) => {
   });
   expect(paintedSamples).toBeGreaterThan(10);
 
-  for (let index = 0; index < 40; index += 1) await page.getByTestId("board-zoom-out").click();
+  const surfaceBounds = await surface.boundingBox();
+  expect(surfaceBounds).not.toBeNull();
+  await page.mouse.move(surfaceBounds!.x + surfaceBounds!.width - 96, surfaceBounds!.y + surfaceBounds!.height / 2);
+  await page.mouse.wheel(0, 100_000);
   await expect(page.getByTestId("board-zoom-value")).toHaveText("5%");
-  for (let index = 0; index < 80; index += 1) await page.getByTestId("board-zoom-in").click();
+  await page.mouse.wheel(0, -100_000);
   await expect(page.getByTestId("board-zoom-value")).toHaveText("800%");
 
-  const fitSelection = page.getByTestId("board-zoom-fit-selection");
   // The outline is intentionally screen-reader-only until keyboard focus enters
   // it. Exercise its real accessible interaction instead of clicking through the
   // Fabric upper canvas, which owns pointer input across the full viewport.
   await outlineButtons.first().focus();
   await page.keyboard.press("Enter");
   await expect(page.getByTestId("board-a11y-selection-announcement")).toHaveText("已选择 1 个对象");
+  await page.getByTestId("board-zoom-menu").click();
+  const fitSelection = page.getByTestId("board-zoom-fit-selection");
   await expect(fitSelection).toBeEnabled();
   await fitSelection.click();
   await page.getByTestId("board-zoom-fit-board").click();

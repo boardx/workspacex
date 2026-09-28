@@ -29,7 +29,17 @@ export function ThinkingInputEditor({ object, initialValue, viewport, readOnly, 
   const liveCommitTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const pendingLiveValueRef = useRef<string | null>(null);
   intentRef.current = intent;
-  useEffect(() => { inputRef.current?.focus(); inputRef.current?.select(); }, [object.id]);
+  useEffect(() => {
+    // Creation starts from Fabric's pointer-down callback. Focusing during that
+    // same pointer dispatch lets the browser/Fabric restore focus to the canvas
+    // afterwards, which immediately blurs and closes the editor. Enter editing
+    // on the next frame so the caret owns the final focus, like a paper note.
+    const frame = requestAnimationFrame(() => {
+      inputRef.current?.focus({ preventScroll: true });
+      inputRef.current?.select();
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [object.id]);
   useEffect(() => () => { if (liveCommitTimerRef.current) clearTimeout(liveCommitTimerRef.current); }, []);
   useEffect(() => {
     setIntent((current) => current.composition || current.draft === initialValue ? current : beginTextInput(initialValue));

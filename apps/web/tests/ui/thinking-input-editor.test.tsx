@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { ThinkingInputEditor } from "@/components/whiteboard/thinking-input-editor";
 import type { BoardFabricObject, BoardViewport } from "@/components/whiteboard/fabric/board-fabric-object";
@@ -15,11 +15,11 @@ function object(kind: "sticky" | "text"): BoardFabricObject {
 }
 
 describe("ThinkingInputEditor", () => {
-  it("edits a sticky in place without replacing its paper with form chrome", () => {
+  it("edits a sticky in place without replacing its paper with form chrome", async () => {
     const onCommit = vi.fn(() => true);
     render(<ThinkingInputEditor object={object("sticky")} initialValue="原位编辑" viewport={viewport} readOnly={false} onLiveCommit={vi.fn()} onCommit={onCommit} onCancel={vi.fn()} onContinue={vi.fn()} />);
     const input = screen.getByTestId("board-thinking-editor");
-    expect(input).toHaveFocus();
+    await waitFor(() => expect(input).toHaveFocus());
     expect(input).toHaveClass("appearance-none", "bg-transparent", "border-0", "outline-none", "resize-none", "p-0", "shadow-none");
     expect(input).toHaveStyle({ left: "160px", top: "200px", width: "270px", height: "270px", transform: "rotate(17deg)", color: "#123456" });
     expect(input.style.paddingLeft).toBe("36px");
