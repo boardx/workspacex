@@ -162,10 +162,13 @@ unless noted.
   `KgTurnMemory.canCorrect` (optional, review F6: viewer is owner AND this turn's requester), `KgCitationCorrectionKind`,
   and two new operations `correctCitation` (POST
   `/knowledge-graph/threads/:threadId/messages/:messageId/citations/:claimId/correction`, owner who is also the turn's
-  requester; 「这条不对」 = forget, or supersede with `replacement`; 「已过时」 = `expireClaim`, which until #4363 lands
-  is the existing revoke with reason `user_citation_expired`) and `getCitationMetrics` (GET
-  `/knowledge-graph/me/citation-metrics`, correction rate = corrections / cited uses over 30 days). Migration
-  `20260928190000_kg_s7_citation_corrections.sql`. Evidence: [`../s7/README.md`](../s7/README.md).
+  requester; 「这条不对」 = forget, or supersede with `replacement`; 「已过时」 = `expireClaim`, which sets the cited
+  claim's whole family to `valid_to = now()` since the F4 follow-up (migration `20260928220000`; before that it was a
+  revoke with reason `user_citation_expired`)) and `getCitationMetrics` (GET
+  `/knowledge-graph/me/citation-metrics`, correction rate = corrections / cited uses over 30 days), plus the constant
+  `CITATION_CORRECTABLE_SCOPES` (`chat_session`, `personal`: the only recalled-claim scopes the web offers corrections
+  for; delta review L5). Migrations `20260928190000_kg_s7_citation_corrections.sql` and
+  `20260928220000_kg_s7_f4_expire_valid_to.sql`. Evidence: [`../s7/README.md`](../s7/README.md).
 - [ ] **Eval rubric amendments R1–R3**
   ([`rubric-lock.json`](../../kg-experience-eval/rubric-lock.json) `amendments`,
   [`README.md`](../../kg-experience-eval/README.md) round table). R1: E4 「原话」 accepts any corpus sentence, and
