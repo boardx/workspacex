@@ -92,6 +92,12 @@ export function fetchProjectKnowledge(projectId: string, signal?: AbortSignal): 
   return getParsed(`/knowledge-graph/projects/${seg(projectId)}`, knowledgeGraph.getProjectKnowledge.out, signal);
 }
 
+/** B3-T3（#4497）：项目大脑的跨来源推理（冲突 / 缺口 / 推理链），可见性同 `fetchProjectKnowledge`；非成员 403 `KG_NOT_VISIBLE`。 */
+export type ProjectReasoning = z.infer<typeof knowledgeGraph.getProjectReasoning.out>;
+export function fetchProjectReasoning(projectId: string, signal?: AbortSignal): Promise<ProjectReasoning> {
+  return getParsed(`/knowledge-graph/projects/${seg(projectId)}/reasoning`, knowledgeGraph.getProjectReasoning.out, signal);
+}
+
 /** B2-S4：组织大脑（组织记忆 L3）。任何组织成员可读；外人 403 `KG_NOT_VISIBLE`。 */
 export type OrgKnowledge = z.infer<typeof knowledgeGraph.getOrgKnowledge.out>;
 export function fetchOrgKnowledge(signal?: AbortSignal): Promise<OrgKnowledge> {

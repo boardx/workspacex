@@ -22,6 +22,7 @@ import { promoteToOrg } from "../../application/knowledge-graph/promote-to-org";
 import { promoteToProject } from "../../application/knowledge-graph/promote-to-project";
 import { getOrgKnowledge } from "../../application/knowledge-graph/read-org-knowledge";
 import { getProjectKnowledge } from "../../application/knowledge-graph/read-project-knowledge";
+import { getProjectReasoning } from "../../application/knowledge-graph/read-project-reasoning";
 import {
   HUMAN_ACTION_PORT, KG_AUTO_COPY_PORT, KG_DEPLOYMENT_EXTRACTION_SETTINGS_PORT, KG_EXTRACTION_MODEL_CONFIG, KG_ORG_EXTRACTION_SETTINGS_PORT, KNOWLEDGE_READ_PORT, KgHumanActionError, MEMORY_CARD_PORT, PROMOTION_PORT,
   type HumanActionPort, type KgAutoCopyPort, type KgDeploymentExtractionSettingsPort, type KgExtractionModelConfig, type KgOrgExtractionSettingsPort, type KnowledgeReadPort, type MemoryCardPort, type PromotionPort,
@@ -162,6 +163,14 @@ export class KnowledgeGraphController {
     const parsed = KG.knowledgeGraph.getProjectKnowledge.in.safeParse({ projectId });
     if (!parsed.success) throw new BadRequestException({ reasonCode: "KG_INVALID_REQUEST" });
     return this.run(principal, (v) => getProjectKnowledge(this.deps, { ...v, projectId: parsed.data.projectId }));
+  }
+
+  /** B3-T3（#4497）getProjectReasoning —— 项目大脑的跨来源推理只读（可见性同 getProjectKnowledge；非成员 KG_NOT_VISIBLE 403） */
+  @Get("/knowledge-graph/projects/:projectId/reasoning")
+  projectReasoning(@CurrentPrincipal() principal: Principal, @Param("projectId") projectId: string) {
+    const parsed = KG.knowledgeGraph.getProjectReasoning.in.safeParse({ projectId });
+    if (!parsed.success) throw new BadRequestException({ reasonCode: "KG_INVALID_REQUEST" });
+    return this.run(principal, (v) => getProjectReasoning(this.deps, { ...v, projectId: parsed.data.projectId }));
   }
 
   /** 项目中枢 R7 promoteToProject —— 「记到项目大脑」（逐条部分成功；创建者或本项目引导师） */

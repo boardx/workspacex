@@ -21,10 +21,11 @@ interface Viewer {
   readonly orgId: OrgId;
 }
 
-export async function getProjectKnowledge(
-  deps: KnowledgeReadDeps,
-  input: Viewer & { readonly projectId: string },
-): Promise<z.infer<typeof KG.knowledgeGraph.getProjectKnowledge.out>> {
+/**
+ * 项目记忆的可见性判定，只此一份（`getProjectKnowledge` 与 B3-T3 `getProjectReasoning` 共用）：
+ * 两道门都过才返回可用于 disclose 的决策；任一不过 ⇒ `KG_NOT_VISIBLE`；判定依赖读不到 ⇒ `AuthzUnavailableError`（503）。
+ */
+export async function authorizeProjectViewer(deps: KnowledgeReadDeps, input: Viewer & { readonly projectId: string }): Promise<PermissionDecision> {
   // 项目记忆是给项目成员的：先看 `project_memberships`（观察者也是成员），不在 ⇒ 看不见。
   // 不只靠 `authorize(read.published)`——对一个没有 ACL 绑定的项目对象，它在组织层就放行了，
   // 那是「已发布内容对组织成员可读」的语义，不是「项目成员」的语义（单测反证抓出来的）。
@@ -35,9 +36,8 @@ export async function getProjectKnowledge(
     throw new AuthzUnavailableError();
   }
   if (membership === null) throw new KgReadError("KG_NOT_VISIBLE");
-  let base: PermissionDecision;
   try {
-    base = await authorize(
+    return await authorize(
       { repo: deps.repo, ids: deps.ids },
       { userId: input.userId, orgId: input.orgId, object: { kind: "project", id: input.projectId }, action: "read.published" },
     );
@@ -45,6 +45,13 @@ export async function getProjectKnowledge(
     // 判定依赖读不到 ⇒ 拒绝并报 503，不降级为放行（同 resolveVisibility）。
     throw new AuthzUnavailableError();
   }
+}
+
+export async function getProjectKnowledge(
+  deps: KnowledgeReadDeps,
+  input: Viewer & { readonly projectId: string },
+): Promise<z.infer<typeof KG.knowledgeGraph.getProjectKnowledge.out>> {
+  const base = await authorizeProjectViewer(deps, input);
   const guarded = await deps.knowledge.projectKnowledge(input.orgId, input.userId, input.projectId);
   const d = discloseDecided(guarded, base);
   if (!isDisclosed(d)) throw new KgReadError("KG_NOT_VISIBLE");

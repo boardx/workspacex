@@ -11,13 +11,14 @@ import { contextPack as CP, knowledgeGraph as KG } from "@repo/contracts";
 import type { DatabasePort, TenantSession } from "../../application/ports/database.port";
 import type {
   ClaimSourcesData, KnowledgeReadPort, KnowledgeThreadRef, MessageExtractionData, PersonalClaimOriginRow,
-  OrgKnowledgeData, PersonalKnowledgeData, ProjectKnowledgeData, ThreadKnowledgeCounts, ThreadKnowledgeData, TurnMemoryData,
+  OrgKnowledgeData, PersonalKnowledgeData, ProjectClaimEvidenceData, ProjectKnowledgeData, ThreadKnowledgeCounts, ThreadKnowledgeData, TurnMemoryData,
 } from "../../application/knowledge-graph/ports";
 import { guard, type Guarded } from "../../application/security/permission-filter";
 import type { OrgId } from "../../domain/org-id";
 import { KG_EXTRACTION_LEASE_SECONDS, KG_EXTRACTION_MAX_ATTEMPTS } from "./pg-kg-extraction";
 
 type KgClaim = ThreadKnowledgeData["claims"][number];
+type KgEvidenceAnchor = KG.KgEvidenceAnchor;
 
 /** 与 chat 读消息同一个 guard ref（pg-chat-repository.ts findMessages）。 */
 const threadRef = (t: KnowledgeThreadRef) => ({ kind: "project" as const, id: t.projectId ?? `personal:${t.threadId}` });
@@ -472,6 +473,47 @@ export class PgKnowledgeRead implements KnowledgeReadPort {
     // S10：`sharedFromPersonal` 只属于项目记忆（个人记忆只分享到项目，不直达组织），组织读模型不带它。
     const { revision, objects, claims, edges } = await this.sharedScopeKnowledge(orgId, userId, "org", orgId);
     return guard(orgSpaceRef(orgId), { revision, objects, claims, edges });
+  }
+
+  /**
+   * B3-T3（issue #4497）：项目记忆里活结论的证据锚点——与 `claimSources` 同两张表（消息证据 / 附件片段），一次取整个项目。
+   * `evidenceId`：B3-T1 的 `project_evidence` 回填落地后从这里带出（单一改点）；此前老数据没有，推理链以 claimId 兜底。
+   * `revoked` 同 `claimSources` 的口径（源删除走级联，剩下的都活着）。
+   */
+  async projectClaimEvidence(orgId: OrgId, userId: string, projectId: string): Promise<Guarded<ProjectClaimEvidenceData>> {
+    const data = await this.inTenant(orgId, userId, async (s): Promise<ProjectClaimEvidenceData> => {
+      const scope = [orgId, "project", projectId];
+      const messages = await s.query<{ claim_id: string; message_id: string; stance: "supporting" | "contradicting"; excerpt: string }>(
+        `SELECT m.claim_id, m.message_id, m.stance, m.excerpt FROM claim_message_evidence m
+           JOIN claims c ON c.id = m.claim_id AND c.org_id = m.org_id
+          WHERE m.org_id = $1 AND c.scope_kind = $2 AND c.scope_id = $3 AND ${LIVE_CLAIM}
+          ORDER BY m.claim_id, m.stance DESC, m.created_at, m.message_id`, scope,
+      );
+      const segments = await s.query<{ claim_id: string; segment_id: string; stance: "supporting" | "contradicting"; version_id: string; content: string | null; page: string | null }>(
+        `SELECT cs.claim_id, cs.segment_id, cs.stance, sg.artifact_version_id AS version_id, st.content,
+                (SELECT a.locator FROM anchors a WHERE a.segment_id = cs.segment_id AND a.kind = 'page' LIMIT 1) AS page
+           FROM claim_segments cs
+           JOIN claims c ON c.id = cs.claim_id AND c.org_id = cs.org_id
+           JOIN segments sg ON sg.id = cs.segment_id AND sg.org_id = cs.org_id
+           LEFT JOIN segment_text st ON st.segment_id = cs.segment_id
+          WHERE cs.org_id = $1 AND c.scope_kind = $2 AND c.scope_id = $3 AND ${LIVE_CLAIM}
+          ORDER BY cs.claim_id, cs.stance DESC, cs.segment_id`, scope,
+      );
+      const page = (p: string | null) => {
+        const n = p === null ? NaN : Number.parseInt(p, 10);
+        return Number.isInteger(n) && n > 0 ? { page: n } : null;
+      };
+      const out: Record<string, KgEvidenceAnchor[]> = {};
+      const push = (claimId: string, anchor: KgEvidenceAnchor) => { (out[claimId] ??= []).push(anchor); };
+      for (const m of messages.rows) {
+        push(m.claim_id, { segmentId: m.message_id, stance: m.stance, sourceKind: "chat_message", sourceRef: m.message_id, excerpt: m.excerpt, locator: null, revoked: false });
+      }
+      for (const g of segments.rows) {
+        push(g.claim_id, { segmentId: g.segment_id, stance: g.stance, sourceKind: "attachment", sourceRef: g.version_id, excerpt: (g.content ?? "").slice(0, 280), locator: page(g.page), revoked: false });
+      }
+      return out;
+    });
+    return guard({ kind: "project", id: projectId }, data);
   }
 
   /** 项目记忆 / 组织记忆共用的读：一个共享作用域里的活结论 / 有活结论引用的实体 / 两端都活着的边 / 版本号。 */

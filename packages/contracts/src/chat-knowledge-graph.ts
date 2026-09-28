@@ -478,6 +478,71 @@ export function sharedFromPersonalLabelZh(name: string): string {
 export const KgProjectSharedFrom = z.object({ claimId: z.string(), sharedByName: z.string() }).strict();
 export type KgProjectSharedFrom = z.infer<typeof KgProjectSharedFrom>;
 
+/* ────────────────────────────────────────────────────────────────────── *
+ * B3-T3（issue #4497）：项目大脑的跨来源推理（`getProjectReasoning`）——只读、确定性、不调模型。
+ * 三块都由 `apps/api/src/domain/knowledge-graph/project-reasoning.ts` 从项目记忆（结论 + 边 + 证据锚点）算出：
+ *   · 冲突：同一件事在两条记下的里说了不同的数（判定复用 F16 `conflict.ts` 的比对），
+ *     并按双方支持证据来自几类来源分成「跨来源」/「同来源」；
+ *   · 缺口：猜测 / 决定没有任何来源支持，或只有单一来源——附一句确定性模板建议；
+ *   · 推理链：猜测 / 决定 → 它的前提（derived_from / supported_by 的上游、直接证据）→ 它本身，每一步都带引用。
+ * 已撤回的证据（`KgEvidenceAnchor.revoked`）三块都不计。
+ * ────────────────────────────────────────────────────────────────────── */
+
+/**
+ * 冲突对。`claimIds` 固定两条（先记下的在前），`statementA/B` 与 `claimIds` 同序；
+ * `sourceKindsA/B` 是各自**未撤回的支持**证据的来源类型（去重、按枚举顺序），`evidenceIdsA/B` 是其中已归一的
+ * 证据单元 id（老数据可能为空数组，界面回退到来源抽屉）。
+ * `kind`：`cross_source` = 双方支持证据合起来来自 ≥ 2 类不同来源；否则 `same_source`（含双方都没证据）。
+ */
+export const KgReasoningConflict = z.object({
+  /** 确定性：`conflict:<claimIdA>:<claimIdB>` */
+  id: z.string().min(1),
+  claimIds: z.tuple([z.string(), z.string()]),
+  statementA: z.string(),
+  statementB: z.string(),
+  sourceKindsA: z.array(ProjectEvidenceSourceKind),
+  sourceKindsB: z.array(ProjectEvidenceSourceKind),
+  evidenceIdsA: z.array(z.string()),
+  evidenceIdsB: z.array(z.string()),
+  kind: z.enum(["cross_source", "same_source"]),
+}).strict();
+export type KgReasoningConflict = z.infer<typeof KgReasoningConflict>;
+
+/**
+ * 缺口：`no_evidence` = 这条（含它的前提）没有任何未撤回的支持证据；`single_source` = 只有一类来源。
+ * `sourceKinds` 是实际有的那些（`no_evidence` 时为空）；`suggestion` 是确定性模板（如「只有对话支持，建议用访谈或问卷验证」）。
+ */
+export const KgReasoningGap = z.object({
+  claimId: z.string(),
+  statement: z.string(),
+  kind: z.enum(["no_evidence", "single_source"]),
+  sourceKinds: z.array(ProjectEvidenceSourceKind),
+  suggestion: z.string().min(1),
+}).strict();
+export type KgReasoningGap = z.infer<typeof KgReasoningGap>;
+
+/**
+ * 推理链的一步。`premise` = 前提（上游记下的一条，或一条直接证据的摘录）；`inference` = 推论（这条本身）。
+ * 不变量：每一步 `evidenceIds` 非空或 `claimId` 有值（没有引用的步骤不许出现）——直接证据还没归一（无 `evidenceId`）时
+ * 用所属记下的一条的 `claimId` 兜底，界面据此回退到来源抽屉。
+ */
+export const KgReasoningStep = z.object({
+  kind: z.enum(["premise", "inference"]),
+  text: z.string().min(1),
+  evidenceIds: z.array(z.string()),
+  sourceKinds: z.array(ProjectEvidenceSourceKind),
+  claimId: z.string().optional(),
+}).strict();
+export type KgReasoningStep = z.infer<typeof KgReasoningStep>;
+
+/** 一条猜测 / 决定的推理链：前提在前、推论最后；没有任何前提的不出链（它会出现在缺口里）。 */
+export const KgReasoningChain = z.object({
+  claimId: z.string(),
+  statement: z.string(),
+  steps: z.array(KgReasoningStep).min(1),
+}).strict();
+export type KgReasoningChain = z.infer<typeof KgReasoningChain>;
+
 /** 大脑页最多列出的会话数（按最近活动倒序）。 */
 export const KG_BRAIN_THREADS_LIMIT = 50;
 
@@ -881,6 +946,24 @@ export const knowledgeGraph = {
       objects: z.array(KgObject),
       claims: z.array(KgClaim),
       edges: z.array(KgEdge),
+    }).strict(),
+    err: ["KG_NOT_VISIBLE"] as const,
+  },
+
+  /**
+   * B3-T3（issue #4497）：**项目大脑的跨来源推理**只读——对 `getProjectKnowledge` 同一份项目记忆做确定性推理：
+   * 跨来源冲突 / 缺口建议 / 带引用的推理链（形状见 `KgReasoningConflict` / `KgReasoningGap` / `KgReasoningChain`）。
+   * 可见性与 `getProjectKnowledge` 完全相同（项目成员含观察者；非成员 `KG_NOT_VISIBLE` 403）。
+   * 空项目 ⇒ 三个空数组，不是错误。`computedAt` 是服务端算出这份结果的时刻（ISO 8601）——结果不落库，每次现算。
+   */
+  getProjectReasoning: {
+    method: "GET", path: "/knowledge-graph/projects/:projectId/reasoning",
+    in: z.object({ projectId: z.string() }).strict(),
+    out: z.object({
+      conflicts: z.array(KgReasoningConflict),
+      gaps: z.array(KgReasoningGap),
+      chains: z.array(KgReasoningChain),
+      computedAt: z.string(),
     }).strict(),
     err: ["KG_NOT_VISIBLE"] as const,
   },

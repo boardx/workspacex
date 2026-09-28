@@ -9,9 +9,10 @@ import { KG_TRI_STATE_LABEL_ZH, type KgClaimKind, type KgClaim } from "@repo/con
 import { KG_CLAIM_KIND_LABEL_ZH } from "@/lib/knowledge-graph-view";
 import { sharedFromPersonalLabelZh as sharedFromPersonalLabel } from "@repo/contracts/chat-knowledge-graph";
 import {
-  fetchClaimSources, fetchProjectKnowledge, knowledgeGraphErrorCode, promoteToOrg,
-  type ProjectKnowledge, type PromotionChoice, type PromotionResults,
+  fetchClaimSources, fetchProjectKnowledge, fetchProjectReasoning, knowledgeGraphErrorCode, promoteToOrg,
+  type ProjectKnowledge, type ProjectReasoning, type PromotionChoice, type PromotionResults,
 } from "@/lib/knowledge-graph-api";
+import { PROJECT_EVIDENCE_SOURCE_LABEL_ZH, type ProjectEvidenceSourceKind } from "@repo/contracts/project-evidence";
 import { httpFailureText } from "@/lib/http-failure-text";
 import { ApiError } from "@/lib/api-client";
 import { ClaimSourceDrawer } from "@/components/chat/knowledge/claim-source-drawer";
@@ -31,6 +32,10 @@ import { useClaimSourcesDrawer } from "@/components/chat/knowledge/knowledge-pan
  *
  * B2-S4（#4428）：服务端 `canPromoteToOrg`（组织 lead / admin）为 true 时，每条多一个「记到组织记忆」按钮
  * （`promoteToOrg`，L2 → L3）；逐条显示结果，相近时让人选合并 / 并存。旧响应没有这个字段 ⇒ 没有入口。
+ *
+ * B3-T3（#4497）：再取 `getProjectReasoning(projectId)`（服务端确定性算出，不调模型），在分组之上多三区：
+ * 跨来源冲突 / 缺口与建议 / 推理链。每条引用可点：有 `evidenceId` 的链到「研究洞察 › 来源」并带 `evidence=` 参数
+ * （T1 的来源页读它定位到那条证据）；没有的（老数据）回退到既有的来源抽屉。推理接口单独失败不拖垮整个面板。
  */
 // S10（#4367）：成员可以把个人记忆里的目标 / 偏好分享进来，这两类也要列出来（否则分享了却看不见）。
 const KIND_ORDER: readonly KgClaimKind[] = ["decision", "fact", "hypothesis", "risk", "todo", "goal", "preference"];
@@ -39,10 +44,17 @@ export function ProjectBrainPanel({ projectId }: { projectId: string }) {
   const [data, setData] = React.useState<ProjectKnowledge | null>(null);
   const [loading, setLoading] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
+  const [crossReasoning, setCrossReasoning] = React.useState<ProjectReasoning | null>(null);
+  const [crossReasoningError, setCrossReasoningError] = React.useState<string | null>(null);
 
   const load = React.useCallback(async () => {
-    if (!getStoredSessionToken()) { setData(null); return; }
-    setLoading(true); setError(null);
+    if (!getStoredSessionToken()) { setData(null); setCrossReasoning(null); return; }
+    setLoading(true); setError(null); setCrossReasoningError(null);
+    // 两个请求并行；推理那一路失败只让它那一区显示失败，项目记忆本身照常显示。
+    const reasoningReq = fetchProjectReasoning(projectId).then(
+      (r) => { setCrossReasoning(r); },
+      (e: unknown) => { setCrossReasoning(null); setCrossReasoningError(describeFailure(e)); },
+    );
     try {
       setData(await fetchProjectKnowledge(projectId));
     } catch (e) {
@@ -50,6 +62,7 @@ export function ProjectBrainPanel({ projectId }: { projectId: string }) {
     } finally {
       setLoading(false);
     }
+    await reasoningReq;
   }, [projectId]);
   React.useEffect(() => { void load(); }, [load]);
 
@@ -107,6 +120,7 @@ export function ProjectBrainPanel({ projectId }: { projectId: string }) {
                 ) : null}
               </div>
             ) : null}
+            <CrossSourceReasoning projectId={projectId} reasoning={crossReasoning} error={crossReasoningError} onOpenSources={drawer.open} />
             {groups.map((g) => (
               <div key={g.kind} className="flex flex-col gap-1.5 p-3.5" data-testid={`project-brain-group-${g.kind}`}>
                 <div className="flex items-center gap-2">
@@ -147,6 +161,128 @@ export function reasoningView(claims: readonly KgClaim[]): { conflicts: KgClaim[
     .filter((c) => c.kind === "hypothesis" && c.triState !== "conflict")
     .sort((a, b) => (a.supportingCount - a.contradictingCount) - (b.supportingCount - b.contradictingCount));
   return conflicts.length === 0 && hypotheses.length === 0 ? null : { conflicts, hypotheses };
+}
+
+/** 来源页的深链：T1 的「研究洞察 › 来源」读 `evidence=` 参数定位到那条证据。这里只负责生成链接。 */
+export function evidenceHref(projectId: string, evidenceId: string): string {
+  return `/projects/${encodeURIComponent(projectId)}?tab=research&sub=sources&evidence=${encodeURIComponent(evidenceId)}`;
+}
+
+const sourceLabels = (kinds: readonly ProjectEvidenceSourceKind[]): string => kinds.map((k) => PROJECT_EVIDENCE_SOURCE_LABEL_ZH[k]).join(" / ");
+
+/**
+ * 一组引用：每个 `evidenceId` 一个链到来源页的链接；一个都没有而有 `claimId` 时，回退成打开既有来源抽屉的按钮。
+ * 两者都没有 ⇒ 什么都不画（契约保证推理链每一步至少有一个，冲突 / 缺口的条目本身总有 claimId）。
+ */
+function Citations({ projectId, evidenceIds, claimId, testid, onOpenSources }: {
+  projectId: string; evidenceIds: readonly string[]; claimId?: string; testid: string; onOpenSources: (claimId: string) => void;
+}) {
+  if (evidenceIds.length > 0) {
+    return (
+      <span className="flex flex-wrap gap-1" data-testid={testid}>
+        {evidenceIds.map((id, i) => (
+          <a key={id} href={evidenceHref(projectId, id)} className="text-10 text-primary underline-offset-2 hover:underline" data-testid={`${testid}-evidence-${id}`}>
+            出处 {i + 1}
+          </a>
+        ))}
+      </span>
+    );
+  }
+  if (claimId === undefined) return null;
+  return (
+    <Button size="xs" variant="ghost" onClick={() => onOpenSources(claimId)} data-testid={`${testid}-fallback`}>来源</Button>
+  );
+}
+
+/** B3-T3 三区：跨来源冲突 / 缺口与建议 / 推理链。三块都空 ⇒ 整节不画；推理接口失败 ⇒ 只在这里说明。 */
+function CrossSourceReasoning({ projectId, reasoning, error, onOpenSources }: {
+  projectId: string; reasoning: ProjectReasoning | null; error: string | null; onOpenSources: (claimId: string) => void;
+}) {
+  if (error !== null) {
+    return <p className="p-3.5 text-10 text-destructive" data-testid="project-brain-cross-error">推理没读出来：{error}</p>;
+  }
+  if (reasoning === null || (reasoning.conflicts.length === 0 && reasoning.gaps.length === 0 && reasoning.chains.length === 0)) return null;
+  return (
+    <div className="flex flex-col gap-3 bg-muted/20 p-3.5" data-testid="project-brain-cross-reasoning">
+      {reasoning.conflicts.length > 0 ? (
+        <div className="flex flex-col gap-1" data-testid="project-brain-cross-conflicts">
+          <div className="flex items-center gap-2">
+            <span className="text-12 font-medium">跨来源冲突</span>
+            <span className="font-mono text-10 text-muted-foreground">{reasoning.conflicts.length}</span>
+          </div>
+          <span className="text-10 text-muted-foreground">两处说法对不上——各自的出处列在下面，点开核对</span>
+          <ul className="flex flex-col gap-1.5">
+            {reasoning.conflicts.map((c) => (
+              <li key={c.id} className="flex flex-col gap-1 text-11" data-testid={`project-brain-cross-conflict-${c.id}`}>
+                <div className="flex items-center gap-2">
+                  <Badge tone={c.kind === "cross_source" ? "danger" : "outline"}>{c.kind === "cross_source" ? "不同来源" : "同一来源"}</Badge>
+                </div>
+                {([["A", c.claimIds[0], c.statementA, c.sourceKindsA, c.evidenceIdsA], ["B", c.claimIds[1], c.statementB, c.sourceKindsB, c.evidenceIdsB]] as const).map(([side, claimId, statement, kinds, ids]) => (
+                  <div key={side} className="flex items-start gap-2">
+                    <span className="min-w-0 flex-1 leading-relaxed">
+                      <span>{statement}</span>
+                      {kinds.length > 0 ? <span className="ml-1 text-10 text-muted-foreground">（{sourceLabels(kinds)}）</span> : <span className="ml-1 text-10 text-muted-foreground">（没有出处）</span>}
+                    </span>
+                    <Citations projectId={projectId} evidenceIds={ids} claimId={claimId} testid={`project-brain-cross-conflict-${c.id}-${side}`} onOpenSources={onOpenSources} />
+                  </div>
+                ))}
+              </li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
+      {reasoning.gaps.length > 0 ? (
+        <div className="flex flex-col gap-1" data-testid="project-brain-gaps">
+          <div className="flex items-center gap-2">
+            <span className="text-12 font-medium">缺口与建议</span>
+            <span className="font-mono text-10 text-muted-foreground">{reasoning.gaps.length}</span>
+          </div>
+          <span className="text-10 text-muted-foreground">还缺出处的猜测与决定</span>
+          <ul className="flex flex-col gap-1.5">
+            {reasoning.gaps.map((g) => (
+              <li key={g.claimId} className="flex items-start gap-2 text-11" data-testid={`project-brain-gap-${g.claimId}`}>
+                <span className="flex min-w-0 flex-1 flex-col gap-0.5 leading-relaxed">
+                  <span>{g.statement}</span>
+                  <span className="text-10 text-muted-foreground" data-testid={`project-brain-gap-${g.claimId}-suggestion`}>{g.suggestion}</span>
+                </span>
+                <Badge tone="outline">{g.kind === "no_evidence" ? "没有出处" : `只有${sourceLabels(g.sourceKinds)}`}</Badge>
+                {g.kind === "single_source" ? (
+                  <Button size="xs" variant="ghost" onClick={() => onOpenSources(g.claimId)} data-testid={`project-brain-gap-${g.claimId}-sources`}>来源</Button>
+                ) : null}
+              </li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
+      {reasoning.chains.length > 0 ? (
+        <div className="flex flex-col gap-1" data-testid="project-brain-chains">
+          <div className="flex items-center gap-2">
+            <span className="text-12 font-medium">推理链</span>
+            <span className="font-mono text-10 text-muted-foreground">{reasoning.chains.length}</span>
+          </div>
+          <span className="text-10 text-muted-foreground">从前提到推论，每一步都有出处</span>
+          <ul className="flex flex-col gap-2">
+            {reasoning.chains.map((chain) => (
+              <li key={chain.claimId} className="flex flex-col gap-1 text-11" data-testid={`project-brain-chain-${chain.claimId}`}>
+                <ol className="flex flex-col gap-0.5">
+                  {chain.steps.map((step, i) => (
+                    <li key={i} className="flex items-start gap-2" data-testid={`project-brain-chain-${chain.claimId}-step-${i}`}>
+                      <span className="shrink-0 font-mono text-10 text-muted-foreground">{step.kind === "premise" ? "前提" : "推论"}</span>
+                      <span className="min-w-0 flex-1 leading-relaxed">
+                        <span className={step.kind === "inference" ? "font-medium" : undefined}>{step.text}</span>
+                        {step.sourceKinds.length > 0 ? <span className="ml-1 text-10 text-muted-foreground">（{sourceLabels(step.sourceKinds)}）</span> : null}
+                      </span>
+                      <Citations projectId={projectId} evidenceIds={step.evidenceIds} claimId={step.claimId} testid={`project-brain-chain-${chain.claimId}-step-${i}-cite`} onOpenSources={onOpenSources} />
+                    </li>
+                  ))}
+                </ol>
+              </li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
+    </div>
+  );
 }
 
 type OrgPromotionState =
