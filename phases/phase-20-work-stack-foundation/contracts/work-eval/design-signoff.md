@@ -4,7 +4,7 @@ phase: "20"
 covers: [EV01, EV02, EV03, EV04, EV05]
 status: confirmed
 confirmed_by: "usamshen"
-confirmed_at: "2026-09-28T16:30:00Z"
+confirmed_at: "2026-09-27T16:30:00Z"
 confirmed_via: "人类在 GitHub 亲自签核"
 ---
 
