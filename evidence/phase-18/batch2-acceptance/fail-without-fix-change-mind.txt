@@ -1,0 +1,8 @@
+### S4 / #4509 change-of-mind slice on origin/main 3128eb21b (without #4511)
+   ✓ 第二批验收 · 北极星：新会话里不用重复已经说过的背景 > S4：「忘掉关于 X 的」⇒ 确认卡（HTTP）→ 下一轮不再提 X；撤销（HTTP）⇒ X 回来 316ms
+   × 第二批验收 · 北极星：新会话里不用重复已经说过的背景 > S4 / #4509：「我改主意了，改成先做 Y」⇒ 取代卡（HTTP）→ 点 [取代] ⇒ 之后的新会话用 Y、旧决定不再给模型 115ms
+     → null: expected undefined to be 'conflict' // Object.is equality
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+ FAIL  tests/knowledge-graph/batch2-north-star-acceptance.test.ts > 第二批验收 · 北极星：新会话里不用重复已经说过的背景 > S4 / #4509：「我改主意了，改成先做 Y」⇒ 取代卡（HTTP）→ 点 [取代] ⇒ 之后的新会话用 Y、旧决定不再给模型
+
+### with #4511 (06c3fed7b) merged locally: Tests 10 passed (10)
