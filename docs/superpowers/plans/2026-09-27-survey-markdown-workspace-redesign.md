@@ -321,3 +321,11 @@ Commit: `test(survey): verify markdown workspace migration flow`
 - **Interfaces:** Task 2 introduces the source-editor and stage-nav boundary used by Tasks 3–5; all mutations remain in existing runtime/source contracts.
 - **Review focus:** Each listed user-facing failure mode has an explicit owning task and failing-first test.
 - **Scope:** The plan intentionally avoids global app navigation changes, schema duplication, and a parallel visual-form persistence model.
+
+## Delivery continuation — 2026-09-28
+
+The original checklists above are retained as planning history, not a live completion source. Current GitHub state was inspected: home/navigation (#4383), Markdown correction/design (#4415), collection dashboard (#4417), response review/export (#4422), optional paper reports (#4424), integrated acceptance (#4432), autosave (#4435), named creation/tags (#4443), mobile panels (#4446), and independent published-survey drafts (#4449) are merged.
+
+Remaining increments are tracked by #4452 / PR #4475 (server-enforced same-browser limits and publication-frozen success Markdown) and #4451 (real-model Markdown proposals with explicit correction/application). Their implementation extends the existing survey stack. No new worktree, coordinator gateway, secondary navigation rail, mandatory template/report stage, home status filter, or top-right Markdown import is introduced.
+
+For #4451 execution evidence and explicit limitations, see [the final evidence record](2026-09-28-survey-ai-proposal-evidence.md). A separate user-authorized test baseline repair is #4478 / PR #4481. PR checks and review threads remain live delivery gates. No feature is marked passing here and no automatic merge is requested.

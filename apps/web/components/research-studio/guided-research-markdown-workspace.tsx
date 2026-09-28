@@ -16,6 +16,7 @@ export function GuidedResearchMarkdownWorkspace({
   parseError,
   provenance,
   readOnly = false,
+  onDirtyChange,
 }: {
   document: GuidedResearchMarkdownDocument;
   onSave: (markdown: string) => Promise<{ ok: boolean; message?: string }>;
@@ -23,6 +24,7 @@ export function GuidedResearchMarkdownWorkspace({
   parseError?: string | null;
   provenance?: React.ReactNode;
   readOnly?: boolean;
+  onDirtyChange?: (dirty: boolean) => void;
 }) {
   const [editing, setEditing] = React.useState(false);
   const [markdown, setMarkdown] = React.useState(document.markdown);
@@ -32,6 +34,8 @@ export function GuidedResearchMarkdownWorkspace({
   React.useEffect(() => { if (!editing) setMarkdown(document.markdown); }, [document.markdown, editing]);
   React.useEffect(() => setError(parseError ?? null), [parseError]);
   const dirty = markdown !== document.markdown;
+  React.useEffect(() => { onDirtyChange?.(dirty); }, [dirty, onDirtyChange]);
+  React.useEffect(() => () => { onDirtyChange?.(false); }, [onDirtyChange]);
   const pending = saving || localSaving;
   async function save() {
     if (!dirty || pending) return;

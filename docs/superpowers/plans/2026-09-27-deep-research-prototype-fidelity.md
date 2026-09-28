@@ -12,6 +12,25 @@
 
 ## Global Constraints
 
+### Latest approved execution scope (27 September, remaining batches)
+
+The seven monochrome individual screens supersede the earlier blue montage.
+Workflow routes are fullscreen; the Workspace rail is visible only on the list.
+Browser verification uses only the Codex in-app browser, not CLI Playwright.
+Deliver batches without waiting for previous merges. A stacked PR must name its
+base dependency; local passing tests do not imply remote CI success.
+
+- Intake/topic: single description entry, reference-sized controls and contextual tips (#4447).
+- List/plan: two-column media cards, readable filters, five research-plan cards.
+- Research/chapters: three-column live activity and chapter composition, real counts.
+- Report: compact cover, contents rail, export toolbar and readable document.
+- Final gate: seven-screen in-app visual comparison and runtime regression tests.
+
+Previously implemented route/header/navigation work is not to be repeated.
+The task descriptions below are historical; where they disagree with this
+section (three intake cards, preserving the rail inside a study, CLI browser),
+this latest user-approved scope takes precedence.
+
 - Preserve WorkspaceX's global product rail and do not introduce a second research navigation rail.
 - Use existing semantic design tokens and shadcn components; no hard-coded colors, arbitrary pixels, or bare form controls.
 - Preserve real runtime, Markdown persistence, evidence/citation, conflict, and route behavior.

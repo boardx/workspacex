@@ -20,6 +20,8 @@ import { PHYSICAL_PURGE_PORT, type PhysicalPurgePort } from "./application/files
 import { SURVEY_TEMPLATE_REPOSITORY } from "./application/survey/survey-template-service";
 import { SurveySubmissionRateLimitGuard } from "./interface/guards/survey-submission-rate-limit.guard";
 import { SurveyController, PublicSurveyController } from "./interface/controllers/survey.controller";
+import { SurveyMarkdownProposalController } from './interface/controllers/survey-markdown-proposal.controller';
+import { SURVEY_MARKDOWN_GENERATOR,generateSurveyMarkdownProposal } from './application/survey/generate-markdown-proposal';
 import { SURVEY_REPOSITORY } from "./application/survey/survey-service";
 import { PgSurveyRepository } from "./infrastructure/survey/pg-survey-repository";
 import type { ArtifactReadDeps } from "./application/artifacts-steering/read-artifact";
@@ -1084,7 +1086,7 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
     PlatformExtractionSettingController,
     PlatformMemoryOpsController,
     KnowledgeConsolidationController,
-    SurveyController, PublicSurveyController, SurveyAttachmentController,
+    SurveyMarkdownProposalController, SurveyController, PublicSurveyController, SurveyAttachmentController,
     HealthController,
     KernelProbeController,
     IdentityController,
@@ -2438,6 +2440,15 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
       provide: INTERVIEW_MARKDOWN_READER,
       useFactory: (db: DatabasePort) => new PgInterviewMarkdownReader(db),
       inject: [DATABASE_PORT],
+    },
+    {
+      provide: SURVEY_MARKDOWN_GENERATOR,
+      useFactory:(model:ModelCallPort)=>{
+        const provider=readModelProviderConfig().provider;
+        const modelId=(process.env.KERNEL_SURVEY_MODEL_ID??process.env.KERNEL_DEFAULT_AGENT_MODEL_ID??process.env.KERNEL_MODEL_ID??'').trim();
+        return {generate:(input:Parameters<typeof generateSurveyMarkdownProposal>[1])=>generateSurveyMarkdownProposal({model,provider,modelId},input)};
+      },
+      inject:[MODEL_CALL_PORT],
     },
     {
       provide: INTERVIEW_MARKDOWN_GENERATOR,

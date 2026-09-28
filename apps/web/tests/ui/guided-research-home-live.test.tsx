@@ -65,20 +65,16 @@ beforeEach(() => {
 });
 
 describe("F168 guided research home live data", () => {
-  it("asks for a name and optional tags before entering the research brief", () => {
+  it("enters intake directly without a metadata dialog or stale creation draft", () => {
     const onStepChange = vi.fn();
     render(<GuidedResearchFlow step="home" onStepChange={onStepChange} />);
 
+    sessionStorage.setItem("wsx.guidedResearch.createDraft", JSON.stringify({ title: "旧草稿", tags: ["旧标签"] }));
     fireEvent.click(screen.getByTestId("research-create"));
-    expect(screen.getByTestId("research-create-dialog")).toBeInTheDocument();
-    expect(screen.getByTestId("research-create-submit")).not.toBeDisabled();
-
-    fireEvent.change(screen.getByTestId("research-create-name"), { target: { value: "欧洲储能进入研究" } });
-    fireEvent.change(screen.getByTestId("research-create-tags"), { target: { value: "欧洲" } });
-    fireEvent.keyDown(screen.getByTestId("research-create-tags"), { key: "Enter" });
-    fireEvent.click(screen.getByTestId("research-create-submit"));
-
-    expect(onStepChange).toHaveBeenCalledWith("brief", undefined);
+    expect(screen.getByTestId("research-create")).toHaveAttribute("href", "/research/new");
+    expect(screen.queryByTestId("research-create-dialog")).not.toBeInTheDocument();
+    expect(sessionStorage.getItem("wsx.guidedResearch.createDraft")).toBeNull();
+    expect(onStepChange).not.toHaveBeenCalled();
   });
 
   it("renders server history and resumes from the server-authored stage", async () => {
@@ -283,7 +279,8 @@ describe("F168 guided research home live data", () => {
     fireEvent.change(screen.getByTestId("research-brief-goal"), { target: { value: "核对具体政策" } });
     fireEvent.click(screen.getByTestId("research-confirm-brief"));
     expect(screen.getByTestId("research-step-loading")).toHaveTextContent("正在生成研究方向");
-    expect(screen.getByRole("button", { name: /确认研究主题/ })).toHaveAttribute("aria-current", "step");
+    expect(screen.getByTestId("research-step-topic")).toHaveAttribute("aria-current", "step");
+    expect(screen.getByTestId("research-step-topic")).toHaveAttribute("aria-disabled", "true");
     await waitFor(() => expect(executeResearchRuntime).toHaveBeenCalledTimes(1));
     expect(executeResearchRuntime).toHaveBeenCalledWith(expect.objectContaining({
       sessionId: "grs-entry", node: "brief", action: "confirm", expectedVersion: 0,

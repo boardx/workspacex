@@ -12,10 +12,10 @@ export function ResearchHistoryCard({ testId, title, status, description, tags, 
       <Image src={`/research/${cover}-cover.png`} alt="" fill sizes="(min-width: 768px) 220px, 90vw" className="object-cover grayscale" />
     </div>
     <div className="flex min-w-0 flex-col gap-3">
-      <div className="flex items-start justify-between gap-2"><h2 className="break-words text-xl font-semibold">{title}</h2><span className="shrink-0">{status}</span></div>
-      <div className="line-clamp-3 text-sm leading-relaxed text-muted-foreground">{description}</div>
-      <div className="flex flex-wrap gap-2">{tags.map(tag => <Badge key={tag} tone="neutral">{tag}</Badge>)}</div>
-      <div className="mt-auto space-y-3 pt-3">{children}<div className="flex flex-wrap justify-between gap-2 text-xs text-muted-foreground">{metadata}</div><div className="flex items-center justify-between gap-2">{primaryAction}{management}</div></div>
+      <div className="flex items-start justify-between gap-2"><h2 className="break-words text-2xl font-semibold">{title}</h2><span className="shrink-0">{status}</span></div>
+      <div className="line-clamp-3 text-lg leading-relaxed text-muted-foreground">{description}</div>
+      <div className="flex flex-wrap gap-2">{tags.map(tag => <Badge key={tag} tone="neutral" className="px-3 py-1 text-base">{tag}</Badge>)}</div>
+      <div className="mt-auto space-y-3 pt-3">{children}<div className="flex flex-wrap justify-between gap-2 text-sm text-muted-foreground">{metadata}</div><div className="flex items-center justify-between gap-2">{primaryAction}{management}</div></div>
     </div>
   </article>;
 }
