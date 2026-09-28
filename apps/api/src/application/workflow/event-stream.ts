@@ -67,6 +67,7 @@ export async function openEventStream(
       if (!isTerminal(instance.status)) return { envelopes: out, done: false };
       // 终态：再补一次，确保终态事件本身已发出（状态与事件同事务，读到终态即事件已在库）。
       for (const e of await deps.events.listAfter(cmd.orgId, cmd.instanceId, cursor, BATCH)) {
+        if (e.seq !== cursor + 1) throw new Error(`workflow event log gap after seq ${cursor} (got ${e.seq})`);
         out.push(toDeltaEnvelope(cmd.instanceId, e));
         cursor = e.seq;
       }

@@ -104,6 +104,11 @@ export interface WorkflowLeaseStore {
   acquire(input: { orgId: string; instanceId: string; holder: string; ttlMs: number }): Promise<WorkflowLease>;
   /** 任何副作用前调用：epoch 已被推进、持有者已变或已过期 → 抛 WorkflowLeaseLostError，不产生外部调用。 */
   assertLease(lease: WorkflowLease): Promise<void>;
+  /**
+   * 续租（epoch 保持的 CAS：holder+epoch 相符且未过期才把 expires_at 推到 now()+ttl）。
+   * 失败（被接管/已过期）→ 抛 WorkflowLeaseLostError。续租同时即一次 assertLease。
+   */
+  renew(lease: WorkflowLease, ttlMs: number): Promise<void>;
   /** 持有者主动释放（人工门挂起等）；已失去 lease 时静默。 */
   release(lease: WorkflowLease): Promise<void>;
 }

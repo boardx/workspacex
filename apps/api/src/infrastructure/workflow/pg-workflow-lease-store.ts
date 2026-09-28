@@ -59,6 +59,25 @@ export class PgWorkflowLeaseStore implements WorkflowLeaseStore {
     });
   }
 
+  renew(lease: WorkflowLease, ttlMs: number): Promise<void> {
+    if (!Number.isInteger(ttlMs) || ttlMs <= 0) throw new Error("lease ttlMs must be a positive integer");
+    return this.db.withTenant(toOrgId(lease.orgId), async (s) => {
+      const { rows } = await s.query<{ epoch: string }>(
+        `UPDATE workflow_leases SET expires_at = now() + make_interval(secs => $5::double precision / 1000)
+          WHERE org_id = $1 AND instance_id = $2 AND epoch = $3 AND holder = $4 AND expires_at > now()
+         RETURNING epoch`,
+        [lease.orgId, lease.instanceId, lease.epoch, lease.holder, ttlMs],
+      );
+      if (rows.length === 0) {
+        const cur = await s.query<{ epoch: string }>(
+          "SELECT epoch FROM workflow_leases WHERE org_id = $1 AND instance_id = $2",
+          [lease.orgId, lease.instanceId],
+        );
+        throw new WorkflowLeaseLostError(lease.instanceId, lease.epoch, cur.rows[0] ? Number(cur.rows[0].epoch) : null);
+      }
+    });
+  }
+
   async release(lease: WorkflowLease): Promise<void> {
     await this.db.withTenant(toOrgId(lease.orgId), (s) =>
       s.query(

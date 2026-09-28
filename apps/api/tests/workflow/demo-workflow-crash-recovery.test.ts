@@ -62,14 +62,17 @@ describe("WF03 demo workflow crash recovery", () => {
     await publishDemoWorkflow(db, ORG);
   });
 
-  function worker(holder: string, opts: { crashAfterOutputOf?: string; workLog: string[]; errors: unknown[] }): WorkflowRuntimeService {
+  function worker(holder: string, opts: { crashAfterOutputOf?: string; slowStageMs?: number; workLog: string[]; errors: unknown[] }): WorkflowRuntimeService {
     let crashed = false;
     return createWorkflowRuntime(db, pool, {
       holder,
       leaseTtlMs: TTL,
       onRunError: (_id, e) => opts.errors.push(e),
       hooks: {
-        beforeStageWork: (stageId) => void opts.workLog.push(stageId),
+        beforeStageWork: async (stageId) => {
+          opts.workLog.push(stageId);
+          if (opts.slowStageMs) await sleep(opts.slowStageMs);
+        },
         afterStageOutput: (stageId) => {
           if (!crashed && stageId === opts.crashAfterOutputOf) {
             crashed = true;
@@ -89,6 +92,18 @@ describe("WF03 demo workflow crash recovery", () => {
     );
     return r.rows;
   }
+
+  it("renews its lease while running: a run far longer than the lease TTL still completes (no lease loss, no stuck 'running')", async () => {
+    const log: string[] = [];
+    const errors: unknown[] = [];
+    const w = worker("worker-slow", { slowStageMs: TTL * 2, workLog: log, errors });
+    const started = await w.start(ORG, USER, DEMO_WORKFLOW_KEY, { agentId: AGENT, requestId: "req-wf03-slow-1", input: { topic: "长阶段" } });
+    threads.push(started.instanceId);
+    await w.drain();
+    expect(errors).toEqual([]);
+    expect(log).toEqual(["collect", "draft", "finalize"]);
+    expect((await w.get(ORG, USER, started.instanceId)).status).toBe("succeeded");
+  }, 30_000);
 
   it("resumes from the last checkpoint after a crash between output write and checkpoint advance: no stage redone, no duplicate events", async () => {
     const aLog: string[] = [];

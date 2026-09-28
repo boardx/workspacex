@@ -51,6 +51,8 @@ export interface RunInstanceDeps {
   driver: WorkflowGraphDriver;
   newId(): string;
   hooks?: RunHooks;
+  /** lease TTL：每个 checkpoint 边界与后台心跳都按它续租（epoch 保持的 CAS），长阶段不会因固定 TTL 失去 lease。 */
+  leaseTtlMs?: number;
 }
 
 /** 实例已被取消/进入终态：停止推进（不是错误）。 */
@@ -83,8 +85,11 @@ export async function runInstance(deps: RunInstanceDeps, lease: WorkflowLease): 
     if (!r.ok) throw new StopRun((await deps.instances.find(orgId, instanceId))?.status ?? "cancelled");
     return r;
   };
+  const ttlMs = deps.leaseTtlMs;
+  /** 续租即断言：被接管/已过期 → WorkflowLeaseLostError。无 TTL 配置时退化为纯断言。 */
+  const holdLease = () => (ttlMs ? deps.leases.renew(lease, ttlMs) : deps.leases.assertLease(lease));
   const checkpointBoundary = async () => {
-    await deps.leases.assertLease(lease);
+    await holdLease();
     const current = await deps.instances.find(orgId, instanceId);
     if (!current || isTerminal(current.status)) throw new StopRun(current?.status ?? "cancelled");
     if (current.status === "cancelling") {
@@ -112,7 +117,7 @@ export async function runInstance(deps: RunInstanceDeps, lease: WorkflowLease): 
         input,
         pinnedSkills: instance.pinnedSkills.filter((p) => p.stageId === stageId).map((p) => ({ ...p })),
       });
-      await deps.leases.assertLease(lease); // 写业务行前再判一次 epoch
+      await holdLease(); // 写业务行前再判一次 epoch（并续租）
       row = (await deps.outputs.put(orgId, instanceId, { stageId, attempt, outputId: deps.newId(), ...result })).row;
     }
     if (!(await logged(stageId, attempt, "stage_output_written"))) {
@@ -125,10 +130,21 @@ export async function runInstance(deps: RunInstanceDeps, lease: WorkflowLease): 
     return { outputId: row.outputId };
   };
 
+  // 后台心跳：阶段内的长耗时工作（真实模型延迟）期间按 ttl/3 续租；续租失败即停，下一个边界的断言会抛出。
+  let heartbeat: ReturnType<typeof setInterval> | null = null;
+  if (ttlMs) {
+    heartbeat = setInterval(() => {
+      deps.leases.renew(lease, ttlMs).catch(() => {
+        if (heartbeat) clearInterval(heartbeat);
+        heartbeat = null;
+      });
+    }, Math.max(1, Math.floor(ttlMs / 3)));
+    heartbeat.unref?.();
+  }
   try {
     await checkpointBoundary();
     const outcome = await deps.driver.run({ instance, input, stage, allowFreshStart });
-    await deps.leases.assertLease(lease);
+    await holdLease();
     if (outcome === "completed") {
       await append({ type: "status_changed", stageId: null, reasonCode: null, data: { status: "succeeded" } }, { status: "succeeded", reasonCode: null });
     } else {
@@ -139,6 +155,8 @@ export async function runInstance(deps: RunInstanceDeps, lease: WorkflowLease): 
     }
   } catch (e) {
     if (!(e instanceof StopRun)) throw e; // 崩溃/意外错误：不释放 lease，由过期后的接管者恢复
+  } finally {
+    if (heartbeat) clearInterval(heartbeat);
   }
   await deps.leases.release(lease);
   return (await deps.instances.find(orgId, instanceId))?.status ?? "cancelled";

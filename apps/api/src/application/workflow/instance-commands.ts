@@ -355,7 +355,8 @@ export async function cancelInstance(
   const key: WorkflowReceiptKey = {
     orgId: cmd.orgId,
     scope: "command",
-    requestKey: `cancel:${body.instanceId}:${body.requestId}`,
+    // requestKey 按用户划分：别人的 requestId 不会让不可见用户看到 409 而非 404。
+    requestKey: `cancel:${cmd.userId}:${body.instanceId}:${body.requestId}`,
     fingerprint: fingerprint({
       op: "cancel",
       instanceId: body.instanceId,
@@ -411,7 +412,8 @@ export async function resumeInstance(
   const key: WorkflowReceiptKey = {
     orgId: cmd.orgId,
     scope: "command",
-    requestKey: `resume:${body.instanceId}:${body.requestId}`,
+    // requestKey 按用户划分：别人的 requestId 不会让不可见用户看到 409 而非 404。
+    requestKey: `resume:${cmd.userId}:${body.instanceId}:${body.requestId}`,
     fingerprint: fingerprint({
       op: "resume",
       instanceId: body.instanceId,

@@ -187,7 +187,7 @@
         "pnpm --filter api exec vitest run tests/workflow/demo-workflow-crash-recovery.test.ts"
       ],
       "evidence": "",
-      "notes": "R11 迭代3-3。演示 Workflow 作崩溃恢复测试载体。projection 不读 channel_values（R7）。A1/E3/E10 断言。"
+      "notes": "R11 迭代3-3。演示 Workflow 作崩溃恢复测试载体。projection 不读 channel_values（R7）。A1/E3/E10 断言。已知延期（iter3 review）：①E6 仅部分——pg-workflow-access 尚未校验 Agent 版本快照的 workflowAllowlist，「Agent 不在白名单→403」归 AG05（Workflow 白名单执行校验）落地；当前 403 断言只覆盖未发布/未启用 Agent。②R3「lease 过期由 worker 接管」的后台过期 lease 扫描器未实现：运行中的 worker 已按 ttl/3 心跳并在每个 checkpoint 边界以 holder+epoch CAS 续租（不会因长阶段失去 lease），但进程崩溃后的 running/cancelling 实例目前只能经 resume API 恢复；扫描器尚未排入任何 phase-20 feature，需另立 feature/issue。③A1 回放被拒的 cancel/resume 时返回首次拒绝时刻的 latestProjection（首个稳定响应），不是回放时刻的最新 projection。"
     },
     {
       "id": "WF04",
