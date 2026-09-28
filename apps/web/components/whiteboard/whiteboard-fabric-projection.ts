@@ -120,7 +120,7 @@ export function toBoardFabricObjects(objects: readonly WhiteboardObject[], image
       imageAssetUrl: content?.type === "image" ? (content.persistence === "local-session" ? getBoardSessionImageAsset(content.assetId)?.objectUrl : imageUrl?.(content.assetId)) : undefined,
       panel: object.kind === "frame" ? (() => {
         const panel = readPanelMetadata(object);
-        return panel ? { title: object.text, mode: panel.mode, autoExpand: panel.autoExpand, clipContent: panel.clipContent } : undefined;
+        return panel ? { title: object.text, mode: panel.mode, autoExpand: panel.autoExpand, clipContent: panel.clipContent, shape: panel.shape ?? "rectangle", template: panel.template ?? "blank" } : undefined;
       })() : undefined,
       connector: object.kind === "connector" && object.connector ? (() => {
         const from = object.connector!.from ? byId.get(object.connector!.from) : undefined;

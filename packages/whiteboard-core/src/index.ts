@@ -64,7 +64,7 @@ export {
   type SpatialEvent,
   type SpatialPrecondition,
 } from './spatial-relationships';
-export { parsePanelMetadata, readPanelMetadata, type FlowDirection, type PanelMetadata, type PanelMode } from './spatial-model';
+export { parsePanelMetadata, readPanelMetadata, type FlowDirection, type PanelMetadata, type PanelMode, type PanelShape, type PanelTemplate } from './spatial-model';
 export {
   DEFAULT_LAYOUT_GAP,
   SelectionLayoutCommandPort,

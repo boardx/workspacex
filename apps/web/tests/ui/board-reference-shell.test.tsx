@@ -33,6 +33,8 @@ it('keeps the FigJam tool order and exposes Frame as a first-class creation mode
  expect(creation).toHaveBeenLastCalledWith({kind:'panel',mode:'freeform'});
  expect(screen.queryByTestId('board-tool-picker')).toBeNull();
  expect(screen.getByTestId('board-add-frame')).toHaveAccessibleName('Frame，快捷键 F');
+ fireEvent.click(screen.getByTestId('board-add-more'));
+ expect(screen.queryByTestId('board-add-panel')).toBeNull();
 });
 it('keeps zoom, fit, and a keyboard-accessible overview action together at the lower-right entry',()=>{
  const fit=vi.fn();

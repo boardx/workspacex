@@ -1,6 +1,6 @@
 "use client";
 
-import { Circle, Columns2, Grid2X2, LayoutGrid, RectangleHorizontal, Rows3, Square, X } from "lucide-react";
+import { X } from "lucide-react";
 import { useState } from "react";
 import { cn } from "@/lib/utils";
 import type { PanelMode } from "@repo/whiteboard-core";
@@ -13,26 +13,33 @@ export const BOARD_FRAME_SIZES = {
 } as const;
 
 const common = [
-  {id:"rectangle",label:"Rectangle",icon:RectangleHorizontal,mode:"freeform"},
-  {id:"rounded",label:"Rounded",icon:Square,mode:"freeform"},
-  {id:"circle",label:"Circle",icon:Circle,mode:"freeform"},
-  {id:"layout",label:"Layout",icon:LayoutGrid,mode:"grid"},
+  {id:"rectangle",label:"Rectangle",mode:"freeform"},
+  {id:"rounded",label:"Rounded",mode:"freeform"},
+  {id:"circle",label:"Circle",mode:"freeform"},
+  {id:"layout",label:"Layout",mode:"grid"},
 ] as const;
 const templates = [
-  {id:"blank",label:"Blank",icon:Square,mode:"freeform"},
-  {id:"section",label:"Section",icon:Columns2,mode:"flow"},
-  {id:"grid",label:"Grid",icon:Grid2X2,mode:"grid"},
-  {id:"timeline",label:"Timeline",icon:Rows3,mode:"flow"},
+  {id:"blank",label:"Blank",mode:"freeform"},
+  {id:"section",label:"Section",mode:"grid"},
+  {id:"grid",label:"Grid",mode:"grid"},
+  {id:"timeline",label:"Timeline",mode:"flow"},
 ] as const;
 
+function FramePreview({choice}:{choice:BoardFrameChoice}) {
+  const shell=choice==="circle"?"rounded-full":choice==="rounded"?"rounded-lg":"rounded-sm";
+  if(choice==="layout"||choice==="grid") return <span aria-hidden className={cn("grid h-10 w-12 grid-cols-2 gap-1 border border-foreground/60 p-1",shell)}>{[0,1,2,3].map(cell=><i key={cell} className="border border-foreground/30"/>)}</span>;
+  if(choice==="section") return <span aria-hidden className="grid h-10 w-12 grid-cols-[1fr_1.6fr] gap-1 rounded-sm border border-foreground/60 p-1"><i className="border-r border-foreground/30"/><i className="border border-foreground/20"/></span>;
+  if(choice==="timeline") return <span aria-hidden className="relative h-10 w-12 rounded-sm border border-foreground/30"><i className="absolute left-1 right-1 top-1/2 h-px bg-foreground/60"/><i className="absolute left-2 top-[17px] h-1.5 w-1.5 rounded-full bg-foreground"/><i className="absolute right-2 top-[17px] h-1.5 w-1.5 rounded-full bg-foreground"/></span>;
+  return <span aria-hidden className={cn("h-10 w-12 border border-foreground/70",shell)}/>;
+}
+
 function FrameChoiceButton({item,selected,onChoose}:{item:(typeof common)[number]|(typeof templates)[number];selected:boolean;onChoose:(choice:BoardFrameChoice,mode:PanelMode)=>void}){
-  const Icon=item.icon;
-  return <button type="button" data-testid={`board-frame-${item.id}`} aria-pressed={selected} onClick={()=>onChoose(item.id,item.mode)} className={cn("group flex min-w-0 flex-col items-center gap-1.5 text-10 text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",selected&&"font-semibold text-foreground")}><span className={cn("grid h-14 w-full place-items-center rounded-lg border border-transparent bg-muted/50 group-hover:bg-accent",selected&&"border-primary bg-primary/5 ring-1 ring-primary")}><Icon className="h-7 w-7"/></span>{item.label}</button>;
+  return <button type="button" data-testid={`board-frame-${item.id}`} aria-pressed={selected} onClick={()=>onChoose(item.id,item.mode)} className={cn("group flex min-w-0 flex-col items-center gap-1.5 text-10 text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",selected&&"font-semibold text-foreground")}><span className={cn("grid h-16 w-full place-items-center rounded-lg border border-transparent bg-muted/50 transition-colors group-hover:bg-accent",selected&&"border-primary bg-primary/5 ring-1 ring-primary")}><FramePreview choice={item.id}/></span>{item.label}</button>;
 }
 
 export function BoardFrameToolPanel({choice,dimensions,readOnly,onChoiceChange,onDimensionsChange,onClose}:{choice:BoardFrameChoice;dimensions:BoardFrameDimensions;readOnly:boolean;onChoiceChange:(choice:BoardFrameChoice,mode:PanelMode)=>void;onDimensionsChange:(dimensions:BoardFrameDimensions)=>void;onClose:()=>void}){
   const [customOpen,setCustomOpen]=useState(dimensions.size==="custom");
-  return <section data-testid="board-frame-tool-panel" aria-label="Frame tools" className="absolute bottom-24 left-1/2 z-40 w-[min(24rem,calc(100vw-2rem))] -translate-x-1/2 rounded-2xl border border-border bg-card/98 p-4 shadow-2xl backdrop-blur max-sm:bottom-20 max-sm:max-h-[70vh] max-sm:overflow-y-auto max-sm:rounded-b-none">
+  return <section data-testid="board-frame-tool-panel" data-board-chrome="frame-panel" aria-label="Frame tools" className="absolute bottom-24 left-1/2 z-40 min-h-[21.25rem] w-[min(24rem,calc(100vw-2rem))] -translate-x-1/2 rounded-2xl border border-border bg-card/98 p-4 shadow-2xl backdrop-blur max-sm:bottom-20 max-sm:max-h-[70vh] max-sm:min-h-0 max-sm:overflow-y-auto max-sm:rounded-b-none">
     <header className="flex items-center justify-between border-b border-border-subtle pb-3"><h2 className="text-14 font-semibold">Frame</h2><button type="button" aria-label="Close frame tools" onClick={onClose} className="grid h-8 w-8 place-items-center rounded-lg transition-colors hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"><X className="h-4 w-4"/></button></header>
     <fieldset disabled={readOnly} className="mt-3"><legend className="mb-2 text-11 font-medium">Common</legend><div className="grid grid-cols-4 gap-2">{common.map(item=><FrameChoiceButton key={item.id} item={item} selected={choice===item.id} onChoose={onChoiceChange}/>)}</div></fieldset>
     <fieldset disabled={readOnly} className="mt-4"><legend className="mb-2 text-11 font-medium">Templates</legend><div className="grid grid-cols-4 gap-2">{templates.map(item=><FrameChoiceButton key={item.id} item={item} selected={choice===item.id} onChoose={onChoiceChange}/>)}</div></fieldset>

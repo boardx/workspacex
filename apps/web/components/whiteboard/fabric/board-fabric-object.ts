@@ -50,6 +50,8 @@ export interface BoardFabricPanelAppearance {
   mode: PanelMode;
   autoExpand: boolean;
   clipContent: boolean;
+  shape?: "rectangle" | "rounded" | "circle";
+  template?: "blank" | "section" | "grid" | "timeline";
 }
 
 export interface BoardFabricConnectorAppearance {

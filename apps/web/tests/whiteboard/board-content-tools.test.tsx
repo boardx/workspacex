@@ -1,7 +1,7 @@
 import { createHash } from 'node:crypto';
 import { act, cleanup, createEvent, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
-import { createWhiteboardDocument, executeCommands, readObjects } from "@repo/whiteboard-core";
+import { createWhiteboardDocument, executeCommands, readObjects, readPanelMetadata } from "@repo/whiteboard-core";
 import type { DrawingStroke } from "@repo/whiteboard-core";
 import type { BoardFabricObject } from "@/components/whiteboard/fabric/board-fabric-object";
 
@@ -136,6 +136,34 @@ it("stores pressure-aware drawing and eraser strokes as vector compositing objec
   fireEvent.click(screen.getByTestId("erase-stroke"));
   expect(readObjects(doc)).toHaveLength(1);
   expect(readObjects(doc)[0]?.extensionData?.contentObject).toMatchObject({ type: "drawing", strokes: [{ tool: "pen" }, { tool: "eraser", erases: [expect.any(String)] }] });
+  doc.destroy();
+});
+
+it("opens Frame from the F shortcut without creating twice and persists the chosen semantics", async () => {
+  const doc = await setup();
+  fireEvent.keyDown(window,{key:"f"});
+  expect(readObjects(doc)).toEqual([]);
+  expect(screen.getByTestId("board-frame-tool-panel")).toBeVisible();
+  fireEvent.click(screen.getByTestId("board-frame-circle"));
+  fireEvent.click(screen.getByTestId("board-frame-size-l"));
+  fireEvent.click(screen.getByTestId("canvas-click"));
+  const panel=readObjects(doc)[0]!;
+  expect(readObjects(doc)).toHaveLength(1);
+  expect(panel).toMatchObject({kind:"frame",text:"Circle",geometry:{width:1280,height:800}});
+  expect(readPanelMetadata(panel)).toMatchObject({mode:"freeform",shape:"circle",template:"blank"});
+  doc.destroy();
+});
+
+it("moves selected-object chrome out of the way while Draw is active", async () => {
+  const doc=await setup();
+  fireEvent.click(screen.getByTestId("board-add-shape"));
+  fireEvent.click(screen.getByTestId("board-shape-circle"));
+  expect(screen.getByTestId("board-context-toolbar")).toBeVisible();
+  fireEvent.click(screen.getByTestId("board-add-draw"));
+  expect(screen.getByTestId("board-draw-tool-panel")).toBeVisible();
+  expect(screen.queryByTestId("board-context-toolbar")).toBeNull();
+  fireEvent.click(screen.getByTestId("board-draw-select"));
+  expect(screen.getByTestId("board-context-toolbar")).toBeVisible();
   doc.destroy();
 });
 
