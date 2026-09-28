@@ -1,0 +1,24 @@
+{
+  "kind": "board-runtime-lock-pg",
+  "sha": "18dfb0e58216bb8bb4aedf2160eacd7f9c5b6f5c",
+  "observedAt": "2026-09-27T05:48:10.256Z",
+  "appRole": "app_rw",
+  "tenantRejected": true,
+  "delegatorRejected": true,
+  "registryUpdateRejected": true,
+  "zeroPersistentWrites": true,
+  "reports": [
+    {
+      "action": "publish",
+      "blockedByAppTransaction": true,
+      "completedAfterCommit": true,
+      "elapsedMs": 45.458417
+    },
+    {
+      "action": "disable",
+      "blockedByAppTransaction": true,
+      "completedAfterCommit": true,
+      "elapsedMs": 49.806375
+    }
+  ]
+}

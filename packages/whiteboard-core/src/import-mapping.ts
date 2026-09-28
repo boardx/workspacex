@@ -1,3 +1,4 @@
+import { WHITEBOARD_IMPORT_LIMITS } from '@repo/contracts/whiteboard-import';
 import type { WhiteboardAssetMetadata } from '@repo/contracts/whiteboard-asset';
 import type { WhiteboardCommand, WhiteboardObject } from '@repo/contracts/whiteboard-document';
 
@@ -8,6 +9,8 @@ export interface ImportedBoardItem {
   shape: string | null; parentSourceId: string | null; fromSourceId: string | null; toSourceId: string | null;
   zIndex: number; assetRef: string | null; metadata: Record<string, unknown>;
   assetMetadata?: WhiteboardAssetMetadata;
+  losses?: string[];
+  unsupportedReason?: string;
   assetMime: 'image/jpeg'|'image/png'|'image/webp'|'image/gif'|null;
 }
 export interface ImportMappingIssue { code: 'UNSUPPORTED_ITEM'|'INVALID_REFERENCE'|'OBJECT_LIMIT'|'ASSET_MISSING'|'VALUE_NORMALIZED'; sourceId: string|null; sourceType: string|null; detail: string; }
@@ -32,6 +35,7 @@ function shapeVariant(value:string|null,issues:ImportMappingIssue[],item:Importe
 }
 function importedObject(id:string,item:ImportedBoardItem,source:ImportSource,parentId:string|null,issues:ImportMappingIssue[]):WhiteboardObject|null {
   const base={id,schemaVersion:1 as const,geometry:geometry(item),text:item.text.slice(0,20_000),parentId,orderKey:item.sourceId.slice(0,128),zIndex:Math.trunc(finite(item.zIndex,0,-1_000_000,1_000_000))};
+  if(Object.entries(base.geometry).some(([key,value])=>value!==item[key as keyof ImportedBoardItem]))issues.push({code:'VALUE_NORMALIZED',sourceId:item.sourceId,sourceType:item.sourceType,detail:'Geometry was normalized to canonical coordinate and size bounds.'});
   const imported=provenance(source,item);
   if(item.type==='sticky') return {...base,kind:'sticky',style:{fill:color(item.color,'#FFF4A3',issues,item),color:'#111827'},extensionData:{import:imported}};
   if(item.type==='text') return {...base,kind:'text',style:{color:color(item.color,'#111827',issues,item)},extensionData:{import:imported}};
@@ -50,15 +54,18 @@ function importedObject(id:string,item:ImportedBoardItem,source:ImportSource,par
 }
 
 /** Pure importer: produces canonical commands; it never touches Fabric or Yjs directly. */
-export function mapImportedBoard(source:ImportSource, requestId:string, input:readonly ImportedBoardItem[], limit=200):ImportMappingResult {
+export function mapImportedBoard(source:ImportSource, requestId:string, input:readonly ImportedBoardItem[], limit:number=WHITEBOARD_IMPORT_LIMITS.objects):ImportMappingResult {
   const issues:ImportMappingIssue[]=[], commands:WhiteboardCommand[]=[], selected=input.slice(0,limit);
-  if(input.length>limit) issues.push({code:'OBJECT_LIMIT',sourceId:null,sourceType:null,detail:`Only the first ${limit} source items can be imported atomically`});
+  if(input.length>limit) return {commands:[],issues:[{code:'OBJECT_LIMIT',sourceId:null,sourceType:null,detail:`Import rejected: ${input.length} objects exceed the atomic limit of ${limit}; no objects were imported. Split the source board before retrying.`}],outcomes:[],discovered:input.length,accepted:0,unsupported:input.length,assets:0};
+  // One complete bounded entry per source object keeps dense style losses below
+  // the report budget without silently dropping individual loss descriptions.
+  for(const item of selected){const losses=item.type==='unsupported'?[]:item.losses??[];if(losses.length)issues.push({code:'VALUE_NORMALIZED',sourceId:item.sourceId,sourceType:item.sourceType,detail:losses.join(' ')});}
   const seenSourceIds=new Set<string>(),duplicates=new Set<ImportedBoardItem>();
   for(const item of selected){if(seenSourceIds.has(item.sourceId)){duplicates.add(item);issues.push({code:'INVALID_REFERENCE',sourceId:item.sourceId,sourceType:item.sourceType,detail:'Duplicate source id was skipped'});}else seenSourceIds.add(item.sourceId);}
   const emitted=new Map<string,{id:string;kind:WhiteboardObject['kind'];object:WhiteboardObject;item:ImportedBoardItem}>();
   for(const [index,item] of selected.entries()){
     if(duplicates.has(item))continue;
-    if(item.type==='unsupported'){issues.push({code:'UNSUPPORTED_ITEM',sourceId:item.sourceId,sourceType:item.sourceType,detail:`${item.sourceType} is not supported`});continue;}
+    if(item.type==='unsupported'){issues.push({code:'UNSUPPORTED_ITEM',sourceId:item.sourceId,sourceType:item.sourceType,detail:item.unsupportedReason??`${item.sourceType} is not supported`});continue;}
     if(item.type==='connector') continue;
     const id=`import_${requestId.replace(/-/g,'').slice(0,12)}_${index}`,object=importedObject(id,item,source,null,issues);
     if(object)emitted.set(item.sourceId,{id,kind:object.kind,object,item});
@@ -75,6 +82,6 @@ export function mapImportedBoard(source:ImportSource, requestId:string, input:re
     commands.push({type:'create',object:{id,schemaVersion:1,kind:'connector',geometry:geometry(item),text:item.text.slice(0,1000),style:{stroke:color(item.color,'#1F2937',issues,item)},parentId:null,orderKey:item.sourceId.slice(0,128),zIndex:Math.trunc(item.zIndex),connector:{from,to,type:'straight',startStyle:'none',endStyle:'arrow',lineStyle:'solid',label:item.text.slice(0,1000),semanticRelation:typeof item.metadata.semanticRelation==='string'?item.metadata.semanticRelation.slice(0,256):undefined},extensionData:{import:provenance(source,item)}}});
   }
   const acceptedIds=new Set(commands.flatMap(command=>command.type==='create'&&command.object.extensionData?.import&&typeof command.object.extensionData.import==='object'&&'sourceId' in command.object.extensionData.import?[String(command.object.extensionData.import.sourceId)]:[]));
-  const outcomes=selected.map(item=>{const itemIssues=issues.filter(issue=>issue.sourceId===item.sourceId),first=itemIssues[0];if(acceptedIds.has(item.sourceId)){const downgraded=itemIssues.some(issue=>issue.code==='VALUE_NORMALIZED');return{sourceId:item.sourceId,sourceType:item.sourceType,outcome:downgraded?'downgraded' as const:'success' as const,reasonCode:downgraded?'VALUE_NORMALIZED':null,detail:downgraded?first?.detail??null:null};}const skipped=item.type==='unsupported'||duplicates.has(item);return{sourceId:item.sourceId,sourceType:item.sourceType,outcome:skipped?'skipped' as const:'failed' as const,reasonCode:first?.code??'NOT_EMITTED',detail:first?.detail??'Source item could not be imported'};});
+  const outcomes=selected.map(item=>{const itemIssues=issues.filter(issue=>issue.sourceId===item.sourceId),first=duplicates.has(item)?itemIssues.find(issue=>issue.code==='INVALID_REFERENCE'):itemIssues.find(issue=>issue.code!=='VALUE_NORMALIZED')??itemIssues[0];if(!duplicates.has(item)&&acceptedIds.has(item.sourceId)){const downgraded=itemIssues.length>0;return{sourceId:item.sourceId,sourceType:item.sourceType,outcome:downgraded?'downgraded' as const:'success' as const,reasonCode:downgraded?first?.code??'VALUE_NORMALIZED':null,detail:downgraded?first?.detail??null:null};}const skipped=item.type==='unsupported'||duplicates.has(item);return{sourceId:item.sourceId,sourceType:item.sourceType,outcome:skipped?'skipped' as const:'failed' as const,reasonCode:first?.code??'NOT_EMITTED',detail:first?.detail??'Source item could not be imported'};});
   return {commands,issues,outcomes,discovered:input.length,accepted:commands.length,unsupported:input.length-commands.length,assets:selected.filter(item=>item.type==='image'&&item.assetRef).length};
 }

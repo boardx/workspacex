@@ -15,11 +15,12 @@ type Props = {
   onEditStructured: () => void;
   onDuplicate: () => void;
   onDelete: () => void;
+  imageDownloadUrl?: string;
   actions?: ReactNode;
 };
 
 /** Type-specific properties stay close to the selected object, with a compact common action footer. */
-export function BoardContentObjectInspector({ object, content, readOnly, onChange, onReplaceImage, onEditText, onEditStructured, onDuplicate, onDelete, actions }: Props) {
+export function BoardContentObjectInspector({ object, content, readOnly, onChange, onReplaceImage, onEditText, onEditStructured, onDuplicate, onDelete, imageDownloadUrl, actions }: Props) {
   const disabled = readOnly || object.locked === true;
   return <div className="space-y-4" data-testid="board-widget-content-actions">
     {content.type === "shape" ? <section data-testid="board-shape-properties" className="space-y-4">
@@ -48,7 +49,7 @@ export function BoardContentObjectInspector({ object, content, readOnly, onChang
       <label className="grid gap-2 text-12">透明度<span className="flex items-center gap-3"><input aria-label="图片透明度" type="range" min="0.1" max="1" step="0.05" disabled={disabled} value={content.opacity} onChange={(event) => onChange({ ...content, opacity: Number(event.target.value) })} className="min-w-0 flex-1" /><output>{Math.round(content.opacity * 100)}%</output></span></label>
       <div className="grid grid-cols-2 gap-3"><label className="grid gap-1.5 text-12">边框颜色<input aria-label="图片边框颜色" type="color" disabled={disabled} value={content.borderColor} onChange={(event) => onChange({ ...content, borderColor: event.target.value.toUpperCase() })} className="h-10 w-full rounded-control border border-input bg-card p-1" /></label><label className="grid gap-1.5 text-12">圆角<input aria-label="图片圆角" type="number" min="0" max="100" disabled={disabled} value={content.cornerRadius} onChange={(event) => onChange({ ...content, cornerRadius: Number(event.target.value) })} className="h-10 rounded-control border border-input bg-card px-2" /></label></div>
       <label className="grid gap-2 text-12">边框粗细<span className="flex items-center gap-3"><input aria-label="图片边框粗细" type="range" min="0" max="12" step="1" disabled={disabled} value={content.borderWidth} onChange={(event) => onChange({ ...content, borderWidth: Number(event.target.value) })} className="min-w-0 flex-1" /><output>{content.borderWidth}px</output></span></label>
-      {getBoardSessionImageAsset(content.assetId) ? <a className="inline-flex min-h-11 items-center rounded-control border border-border px-3 text-12 transition-colors hover:bg-accent" href={getBoardSessionImageAsset(content.assetId)!.objectUrl} download={content.fileName}>下载原图</a> : null}
+      {(imageDownloadUrl ?? getBoardSessionImageAsset(content.assetId)?.objectUrl) ? <a className="inline-flex min-h-11 items-center rounded-control border border-border px-3 text-12 transition-colors hover:bg-accent" href={imageDownloadUrl ?? getBoardSessionImageAsset(content.assetId)!.objectUrl} download={content.fileName}>下载</a> : null}
     </section> : null}
 
     {content.type === "drawing" ? <section data-testid="board-drawing-properties" className="space-y-4"><div><h3 className="text-13 font-semibold">矢量笔迹</h3><p className="mt-1 text-11 text-muted-foreground">{content.strokes.length} 条笔画 · 保持矢量可编辑</p></div><label className="grid gap-2 text-12">笔迹透明度<span className="flex items-center gap-3"><input aria-label="笔迹透明度" type="range" min="0.1" max="1" step="0.05" disabled={disabled} value={content.strokes.find((stroke) => stroke.tool !== "eraser")?.opacity ?? 1} onChange={(event) => onChange({ ...content, strokes: content.strokes.map((stroke) => stroke.tool === "eraser" ? stroke : { ...stroke, opacity: Number(event.target.value) }) })} className="min-w-0 flex-1" /></span></label></section> : null}

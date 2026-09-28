@@ -25,7 +25,7 @@ describe('thinking input appearance', () => {
   it('resolves all eight presets and canonicalizes safe custom colors', () => {
     expect(['yellow', 'pink', 'blue', 'green', 'purple', 'orange', 'gray', 'white'].map(preset =>
       resolveStickyColor({ preset: preset as 'yellow' }),
-    )).toEqual(['#F8D76E', '#F7B7CD', '#BBDDF8', '#BDE5C8', '#D9CDF7', '#F8C38D', '#D8D8D4', '#FFFFFF']);
+    )).toEqual(['#FFE99A', '#FBC9DF', '#C6DDFF', '#BDE5C8', '#D9CDF7', '#F8C38D', '#D8D8D4', '#FFFFFF']);
     expect(resolveStickyColor({ custom: '#ab12ef' })).toBe('#AB12EF');
     expect(() => resolveStickyColor({ custom: 'red' })).toThrow('STICKY_COLOR_INVALID');
     expect(() => resolveStickyColor({ preset: 'missing' as 'yellow' })).toThrow('STICKY_COLOR_INVALID');

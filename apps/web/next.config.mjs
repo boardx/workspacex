@@ -188,6 +188,8 @@ export default {
       // resource routes are needed; :path* does not cover the bare collection.
       { source: `${prefix}/whiteboards`, destination: `${apiOrigin}/whiteboards` },
       { source: `${prefix}/whiteboards/:path*`, destination: `${apiOrigin}/whiteboards/:path*` },
+      // Public operations, AI proposals and room APIs share the authenticated proxy.
+      { source: `${prefix}/v1/whiteboards/:path*`, destination: `${apiOrigin}/v1/whiteboards/:path*` },
       // Iteration 02 library uses the organization tag catalog through the same
       // authenticated proxy. Keep bare list/create and nested rename/delete routes.
       { source: `${prefix}/whiteboard-tags`, destination: `${apiOrigin}/whiteboard-tags` },

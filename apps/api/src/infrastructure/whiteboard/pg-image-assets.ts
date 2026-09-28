@@ -1,18 +1,21 @@
 import type { Principal } from '../../domain/principal';
-import type { DatabasePort } from '../../application/ports/database.port';
+import type { DatabasePort, TenantSession } from '../../application/ports/database.port';
 import type { BoardImageAssetRecord, BoardImageAssetRepository } from '../../application/whiteboard/image-assets';
 import { WhiteboardAssetMetadata } from '@repo/contracts/whiteboard-asset';
 export class PgBoardImageAssets implements BoardImageAssetRepository {
   constructor(private readonly db: DatabasePort) {}
   async save(p: Principal, boardId: string, record: BoardImageAssetRecord) {
-    await this.db.withTenant(p.orgId, async session => {
+    await this.db.withTenant(p.orgId,session=>this.saveInTransaction(session,p,boardId,record));
+  }
+  async saveInTransaction(session:TenantSession,p:Principal,boardId:string,record:BoardImageAssetRecord){
+
       await session.query(`INSERT INTO whiteboard_asset_refs(org_id,board_id,object_key,content_hash,byte_size,state,activated_at)
         VALUES($1,$2,$3,$4,$5,'active',now()) ON CONFLICT(org_id,board_id,object_key) DO UPDATE SET state='active',activated_at=now(),released_at=NULL,lease_expires_at=NULL`,
       [p.orgId, boardId, record.objectKey, record.metadata.contentDigest.slice(7), record.metadata.byteSize]);
       await session.query(`INSERT INTO whiteboard_image_assets(org_id,board_id,asset_id,object_key,metadata)
         VALUES($1,$2,$3,$4,$5::jsonb) ON CONFLICT(org_id,board_id,asset_id) DO NOTHING`,
       [p.orgId, boardId, record.metadata.assetId, record.objectKey, JSON.stringify(record.metadata)]);
-    });
+
   }
   async get(p: Principal, boardId: string, assetId: string): Promise<BoardImageAssetRecord | null> {
     return this.db.withTenant(p.orgId, async session => {

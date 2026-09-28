@@ -1,5 +1,6 @@
 import { act, createEvent, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { BOARD_FABRIC_VISUAL } from "@/components/whiteboard/fabric/board-fabric-visual";
 import type { BoardFabricObject, BoardViewport } from "@/components/whiteboard/fabric/board-fabric-object";
 
 interface MockProjectedObject {
@@ -115,6 +116,17 @@ function renderSurface(overrides: Partial<React.ComponentProps<typeof BoardFabri
 describe("BoardFabricSurface", () => {
   beforeEach(() => { probe.instances = 0; probe.objects.length = 0; probe.handlers.clear(); probe.active = null; probe.activeId = null; probe.emitSelectionOnSet = false; probe.zoom = 1; probe.clearCalls = 0; probe.renderCalls = 0; probe.moveCalls = 0; probe.primitiveKinds.length = 0; probe.imageSources.length = 0; probe.imageOptions.length = 0; });
 
+
+  it("renders sticky paper, blue corners and a world-anchored grid without changing persisted appearance", () => {
+    renderSurface({ objects: [{ ...OBJECTS[0]!, sticky: { variant: "square", sizingMode: "auto-height" } }], selectedObjectIds: ["s-1"] });
+    const sticky = probe.objects[0]!;
+    expect(sticky).toMatchObject(BOARD_FABRIC_VISUAL.selection);
+    expect(sticky.controls).toMatchObject({ tl: true, tr: true, bl: true, br: true, ml: false, mr: false });
+    expect(sticky.children![0]).toMatchObject({ fill: "#F8D76E", rx: 2, shadow: BOARD_FABRIC_VISUAL.sticky.shadow });
+    expect(sticky.children![1]).toMatchObject({ fontFamily: BOARD_FABRIC_VISUAL.fontFamily });
+    expect(screen.getByTestId("board-fabric-surface")).toHaveStyle({ backgroundSize: "24px 24px", backgroundPosition: "-12px -12px" });
+    expect(probe.objects).toHaveLength(1);
+  });
 
   it("orients connector tips from each final path tangent", () => {
     expect(connectorTipAngles("straight", -50, -30, 50, 30)).toEqual({ start: expect.any(Number), end: expect.any(Number) });
@@ -691,4 +703,19 @@ describe("BoardFabricSurface", () => {
     renderSurface({ selectedObjectIds: [], viewport: { ...VIEWPORT, fitRequest: 2, fitMode: "selection" }, onViewportChange });
     expect(onViewportChange).not.toHaveBeenCalled();
   });
+});
+
+it('focuses the real surface DOM from canvas pointerdown so keyboard all-selection reaches the editor',async()=>{
+ const {CollaborativeEditor}=await import('@/components/whiteboard/collaborative-editor');
+ const {createWhiteboardDocument,executeCommands}=await import('@repo/whiteboard-core');
+ const doc=createWhiteboardDocument();executeCommands(doc,[0,1].map(i=>({type:'create' as const,object:{id:`focus-${i}`,schemaVersion:1 as const,kind:'sticky' as const,geometry:{x:i*200,y:0,width:180,height:140,rotation:0},text:`focus ${i}`,style:{},parentId:null,orderKey:String(i)}})),'seed');
+ render(<CollaborativeEditor boardId="board-focus" clientId="client-focus" doc={doc} readOnly={false} title="白板" status="已连接"/>);
+ const surface=screen.getByTestId('board-fabric-surface'),canvas=screen.getByTestId('board-fabric-canvas');
+ (document.activeElement as HTMLElement).blur();expect(document.activeElement).toBe(document.body);
+ fireEvent.pointerDown(canvas,{button:0});expect(document.activeElement).toBe(surface);
+ expect(fireEvent.keyDown(document.activeElement!,{key:'a',ctrlKey:true})).toBe(false);
+ expect(screen.getByTestId('board-a11y-selection-announcement')).toHaveTextContent('已选择 2 个对象');
+ const upper=document.createElement('canvas');upper.className='upper-canvas';surface.append(upper);(document.activeElement as HTMLElement).blur();fireEvent.pointerDown(upper,{button:0});expect(document.activeElement).toBe(surface);upper.remove();
+ const input=document.createElement('textarea');surface.append(input);input.focus();fireEvent.pointerDown(input,{button:0});
+ expect(document.activeElement).toBe(input);expect(fireEvent.keyDown(document.activeElement!,{key:'a',ctrlKey:true})).toBe(true);input.remove();doc.destroy();
 });

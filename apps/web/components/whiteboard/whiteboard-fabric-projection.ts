@@ -1,4 +1,4 @@
-import { readPanelMetadata, rotatedAnchorPoint, validateTextAttributes, type WhiteboardObject } from "@repo/whiteboard-core";
+import { STICKY_COLOR_PRESETS, readPanelMetadata, rotatedAnchorPoint, validateTextAttributes, type WhiteboardObject } from "@repo/whiteboard-core";
 import type { BoardFabricObject, BoardFabricKind, BoardFabricStickyAppearance, BoardFabricStyle } from "./fabric/board-fabric-object";
 import { readBoardContent } from "./board-content-adapter";
 import { getBoardSessionImageAsset } from "./board-session-image-assets";
@@ -95,7 +95,7 @@ export function toBoardFabricObjects(objects: readonly WhiteboardObject[], image
       orderKey: object.orderKey || object.id,
       geometry: { ...object.geometry },
       style: supported ? {
-        fill: content?.type === "shape" ? content.fill : sticky?.fill ?? object.style.fill ?? (object.kind === "sticky" ? "#F8D76E" : object.kind === "frame" ? "rgba(248,250,252,0.76)" : ["group", "connector"].includes(object.kind) ? "transparent" : "#F4F4F5"),
+        fill: content?.type === "shape" ? content.fill : sticky?.fill ?? object.style.fill ?? (object.kind === "sticky" ? STICKY_COLOR_PRESETS.yellow : object.kind === "frame" ? "rgba(248,250,252,0.76)" : ["group", "connector"].includes(object.kind) ? "transparent" : "#F4F4F5"),
         textColor: content?.type === "shape" ? content.textColor : object.style.color ?? "#29261E",
         stroke: content?.type === "shape" ? content.borderColor : object.style.stroke,
         strokeWidth: content?.type === "shape" ? content.borderWidth : undefined,
@@ -126,8 +126,8 @@ export function toBoardFabricObjects(objects: readonly WhiteboardObject[], image
         const from = object.connector!.from ? byId.get(object.connector!.from) : undefined;
         const to = object.connector!.to ? byId.get(object.connector!.to) : undefined;
         const fromAnchor = object.connector!.fromAnchor ?? "right", toAnchor = object.connector!.toAnchor ?? "left";
-        const start = from ? rotatedAnchorPoint(from, fromAnchor) : object.connector!.fromPoint;
-        const end = to ? rotatedAnchorPoint(to, toAnchor) : object.connector!.toPoint;
+        const start = from ? rotatedAnchorPoint(from, fromAnchor, object.connector!.fromOffset) : object.connector!.fromPoint;
+        const end = to ? rotatedAnchorPoint(to, toAnchor, object.connector!.toOffset) : object.connector!.toPoint;
         if (!start || !end) return undefined;
         return {
           ...(from ? { from: from.id } : {}), ...(to ? { to: to.id } : {}), fromAnchor, toAnchor,

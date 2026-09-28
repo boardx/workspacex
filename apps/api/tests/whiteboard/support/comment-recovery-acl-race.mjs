@@ -7,7 +7,6 @@
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
 import { createRequire } from 'node:module';
-import { migrationConfig } from '../../../src/infrastructure/db/pg-config.ts';
 import { PgWhiteboardRecoveryAdapter } from '../../../src/infrastructure/whiteboard/pg-whiteboard-recovery.ts';
 const require=createRequire(new URL('../../../package.json',import.meta.url));
 const {Pool}=require('pg');
@@ -17,13 +16,10 @@ const api=required('BOARD_ACL_API_URL').replace(/\/$/,''),owner=required('BOARD_
 const orgId=required('BOARD_ACL_ORG_ID'),memberId=required('BOARD_ACL_MEMBER_ID');
 assert(process.env.WORKSPACEX_ISOLATION_ID && /^wsx_[a-f0-9]{20}$/.test(process.env.WORKSPACEX_DB ?? ''));
 assert.equal(process.env.PGDATABASE,process.env.WORKSPACEX_DB);
-const database= migrationConfig();
-assert.equal(database.database,process.env.WORKSPACEX_DB);
-assert.equal(String(database.port),required('PGPORT'));
-assert(['localhost','127.0.0.1','::1'].includes(database.host));
+assert(['localhost','127.0.0.1','::1'].includes(process.env.PGHOST));
 assert(['localhost','127.0.0.1','[::1]'].includes(new URL(api).hostname));
 assert(!process.env.WORKSPACEX_DEPLOY_PROFILE);
-const pool=new Pool({...database,max:5});let boardId;
+const pool=new Pool({max:5});let boardId;
 const call=async(token,method,path,body)=>{
  const response=await fetch(`${api}${path}`,{method,headers:{Authorization:`Bearer ${token}`,'Content-Type':'application/json'},...(body?{body:JSON.stringify(body)}:{})});
  const text=await response.text();return{status:response.status,text,json:()=>JSON.parse(text)};

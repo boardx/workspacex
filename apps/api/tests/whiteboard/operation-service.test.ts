@@ -1,3 +1,5 @@
+import {randomUUID} from 'node:crypto';
+import type {WhiteboardOperationUndoStore,StoredOperationUndo} from '../../src/application/whiteboard/operation-undo-ports';
 import { describe, expect, it } from 'vitest';
 import type { DatabasePort, TenantSession } from '../../src/application/ports/database.port';
 import type { WhiteboardCollaborationStore } from '../../src/application/whiteboard/collaboration-ports';
@@ -33,7 +35,11 @@ export function fixture(){const session=new Session();const db:DatabasePort={wit
     canRead:async()=>true,events:async()=>session.events as never[],
     resolveActor:async()=>({actorId:'agent-1',kind:'ai',delegatedBy:'user-1',scopes:['board:read','board:write'],model:'gpt',skill:'cluster'}),canReadArtifact:async()=>true,readArtifactSource:async()=>null,issueArtifactLayoutBinding:async()=>{},
   };
-  return{session,service:new WhiteboardOperationService(db,collaboration,audit,()=>new Date('2026-09-26T00:00:00.000Z'))};}
+  audit.lockRuntimeActor=async(s,p,id)=>{const actor=await audit.resolveActor(s,p,id);return actor?{actor,agentVersionId:'v1',model:actor.model!,skillVersionIds:[actor.skill!]}:null;};
+  const undoRecords=new Map<string,StoredOperationUndo>();
+  const undoStore:WhiteboardOperationUndoStore={capture:async()=>({epoch:1,seq:0,key:'before',hash:'digest',bytes:2,comments:[]}),record:async(_s,p,receipt,before)=>{undoRecords.set(receipt.operationId,{ownerUserId:p.userId,undoId:randomUUID(),receipt,before});},get:async(_s,_p,_b,id)=>undoRecords.get(id)??null,readBefore:async()=>new Uint8Array([0,0]),checkComments:async()=>{},restoreComments:async()=>{}};
+  collaboration.compensateInTransaction=async()=>({durability:'pending',epoch:1,seq:2,updateId:randomUUID(),gestureId:'undo',replayed:false,update:new Uint8Array([0,0])});
+  return{session,audit,collaboration,undoStore,undoRecords,service:new WhiteboardOperationService(db,collaboration,audit,()=>new Date('2026-09-26T00:00:00.000Z'),undefined,undefined,undoStore)};}
 
 describe('versioned Board operation API application service',()=>{
   it('ships tenant-forced append-only audit/event storage',()=>{const sql=readFileSync(new URL('../../migrations/20260926163000_whiteboard_operation_api.sql',import.meta.url),'utf8');expect(sql).toContain('FORCE ROW LEVEL SECURITY');expect(sql).toContain('GRANT SELECT,INSERT');expect(sql).not.toContain('GRANT SELECT, INSERT, UPDATE, DELETE');expect(sql).toContain('kernel_apply_org_freeze_policies');});

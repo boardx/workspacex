@@ -10,8 +10,9 @@ const layout={...body,layoutHash:computeRenderedLayoutHash(body)};
 
 function fixture(stored:Uint8Array=Buffer.from(JSON.stringify(layout)),revision='artifact-v1:7'){
   const issued:string[]=[];
-  const audit={lockHead:async()=>({epoch:1,seq:0,actorRole:'owner'}),readArtifactSource:async(_s:any,_p:any,_a:string,r:string)=>r===revision?{versionId:'v7',objectKey:'key',contentHash:createHash('sha256').update(stored).digest('hex')}:null,issueArtifactLayoutBinding:async(_s:any,_p:any,_a:string,_v:string,h:string)=>{issued.push(h)},canReadArtifact:async()=>issued.includes(layout.layoutHash),replay:async()=>null,append:async()=>{},resolveActor:async()=>null} as any;
-  const service=new WhiteboardOperationService({withTenant:async(_org:string,fn:any)=>fn({})} as any,{writeCommandsInTransaction:async()=>({epoch:1,seq:1})} as any,audit,()=>new Date('2026-09-27T00:00:00Z'),{get:async()=>stored});
+  const receipts=new Map<string,any>();
+  const audit={lockHead:async()=>({epoch:1,seq:0,actorRole:'owner'}),readArtifactSource:async(_s:any,_p:any,_a:string,r:string)=>r===revision?{versionId:'v7',objectKey:'key',contentHash:createHash('sha256').update(stored).digest('hex')}:null,issueArtifactLayoutBinding:async(_s:any,_p:any,_a:string,_v:string,h:string)=>{issued.push(h)},canReadArtifact:async(_s:any,_p:any,_a:string,_r:string,h:string)=>issued.includes(h),replay:async(_s:any,_p:any,_b:string,id:string)=>receipts.get(id)??null,append:async(_s:any,_p:any,input:any)=>{receipts.set(input.receipt.requestId,{requestHash:input.requestHash,receipt:input.receipt})},resolveActor:async()=>null} as any;
+  const service=new WhiteboardOperationService({withTenant:async(_org:string,fn:any)=>fn({})} as any,{writeCommandsInTransaction:async()=>({epoch:1,seq:1})} as any,audit,()=>new Date('2026-09-27T00:00:00Z'),{get:async()=>stored},undefined,{capture:async()=>({}),record:async()=>{}} as any);
   return{service,issued};
 }
 
@@ -28,6 +29,20 @@ describe('trusted artifact source verifier',()=>{
     const{service,issued}=fixture(markdown);
     await expect(service.handoff(principal,boardId,{requestId:'00000000-0000-4000-8000-000000000005',expectedRevision:{epoch:1,seq:0},layout,offset:{x:0,y:0}})).resolves.toMatchObject({revision:{seq:1}});
     expect(issued).toEqual([layout.layoutHash]);
+  });
+
+  it('verifies each layout independently for one source version and refuses logical edits',async()=>{
+    const markdown=Buffer.from('```mermaid\nflowchart TD\n    n["trusted"]\n```');
+    const {service,issued}=fixture(markdown);
+    const movedBody={...body,objects:[{...body.objects[0]!,geometry:{x:700,y:300,width:160,height:80,rotation:0}}]};
+    const moved={...movedBody,layoutHash:computeRenderedLayoutHash(movedBody)};
+    await service.handoff(principal,boardId,{requestId:'00000000-0000-4000-8000-000000000021',expectedRevision:{epoch:1,seq:0},layout,offset:{x:0,y:0}});
+    await service.handoff(principal,boardId,{requestId:'00000000-0000-4000-8000-000000000022',expectedRevision:{epoch:1,seq:0},layout:moved,offset:{x:0,y:0}});
+    expect(issued).toEqual([layout.layoutHash,moved.layoutHash]);
+    const forgedBody={...movedBody,objects:[{...movedBody.objects[0]!,text:'not the source'}]};
+    await expect(service.handoff(principal,boardId,{requestId:'00000000-0000-4000-8000-000000000023',expectedRevision:{epoch:1,seq:0},layout:{...forgedBody,layoutHash:computeRenderedLayoutHash(forgedBody)},offset:{x:0,y:0}})).rejects.toMatchObject({code:'FORBIDDEN'});
+    expect(issued).toHaveLength(2);
+    await expect(service.handoff(principal,boardId,{requestId:'00000000-0000-4000-8000-000000000021',expectedRevision:{epoch:1,seq:0},layout:moved,offset:{x:0,y:0}})).rejects.toMatchObject({code:'IDEMPOTENCY_CONFLICT'});
   });
 
   it('rejects changed source content, forged digest, and changed revision before mutation',async()=>{

@@ -96,7 +96,7 @@ export async function createApp(): Promise<NestExpressApplication> {
       next(error);
     }));
   const whiteboardImportParser=json({limit:Math.ceil(WHITEBOARD_IMPORT_LIMITS.uploadBytes*4/3)+16*1024});
-  app.getHttpAdapter().getInstance().post('/whiteboards/:boardId/imports',
+  app.getHttpAdapter().getInstance().post(['/whiteboards/:boardId/imports','/whiteboards/:boardId/portable/import'],
     (req:Request,res:Response,next:NextFunction)=>whiteboardImportParser(req,res,(error?:unknown)=>{
       if(typeof error==='object'&&error!==null&&'type' in error&&error.type==='entity.too.large'){next(new PayloadTooLargeException({reasonCode:'PAYLOAD_TOO_LARGE'}));return;}
       next(error);

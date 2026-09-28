@@ -1,4 +1,55 @@
 'use client';
-import*as React from'react';import type{DiagramModel}from'@repo/fabric-markdown';import{computeRenderedLayoutHash}from'@repo/whiteboard-core';import type{RenderedDiagramLayout}from'@repo/contracts/whiteboard-operation';import{Button}from'@/components/ui/button';import{Dialog,DialogContent,DialogDescription,DialogTitle}from'@/components/ui/dialog';import{Input}from'@/components/ui/input';import{listBoards}from'@/lib/live-whiteboard';import{insertRenderedArtifact,readBoardHead}from'@/lib/whiteboard-operation-client';
-export function renderedDiagramLayout(model:DiagramModel,artifactId:string,orgId:string,sourceRevision:string):RenderedDiagramLayout{const modelMetaJson=model.meta===undefined?undefined:JSON.stringify(model.meta);const objects:RenderedDiagramLayout['objects']=[...model.nodes.map(node=>({sourceId:node.id,kind:'node' as const,geometry:{x:node.x-node.width/2,y:node.y-node.height/2,width:Math.max(1,node.width),height:Math.max(1,node.height),rotation:0},text:node.label,style:{shape:node.shape,direction:model.direction,...(modelMetaJson===undefined?{}:{modelMetaJson}),...(node.data===undefined?{}:{dataJson:JSON.stringify(node.data)})},fromSourceId:null,toSourceId:null})),...model.edges.map((edge,index)=>({sourceId:edge.id||`edge-${index}`,kind:'edge' as const,geometry:{x:0,y:0,width:1,height:1,rotation:0},text:edge.label??'',style:{edgeKind:edge.kind,...(edge.order===undefined?{}:{order:edge.order}),...(edge.seqY===undefined?{}:{seqY:edge.seqY}),...(edge.data===undefined?{}:{dataJson:JSON.stringify(edge.data)})},fromSourceId:edge.source,toSourceId:edge.target}))];const body={schemaVersion:1 as const,artifactId,orgId,sourceRevision,diagramKind:model.kind==='sequence'?'sequence' as const:model.meta?.templateKey==='persona'?'persona' as const:'flowchart' as const,objects,selectedSourceIds:[]};return{...body,layoutHash:computeRenderedLayoutHash(body)};}
-export function ChatDiagramBoardHandoff({model,artifactId,sourceRevision,orgId}:{model:DiagramModel|null;artifactId?:string;sourceRevision?:string;orgId?:string}){const[open,setOpen]=React.useState(false),[boards,setBoards]=React.useState<{id:string;name:string}[]>([]),[boardId,setBoardId]=React.useState(''),[x,setX]=React.useState('0'),[y,setY]=React.useState('0'),[busy,setBusy]=React.useState(false),[notice,setNotice]=React.useState('');const enabled=Boolean(model&&artifactId&&sourceRevision&&orgId);const begin=async()=>{setOpen(true);const values=await listBoards();setBoards(values.items);setBoardId(values.items[0]?.id??'');};const submit=async()=>{if(!model||!artifactId||!sourceRevision||!orgId||!boardId)return;setBusy(true);try{const head=await readBoardHead(boardId);await insertRenderedArtifact({layout:renderedDiagramLayout(model,artifactId,orgId,sourceRevision),boardId,epoch:head.epoch,seq:head.seq,requestId:crypto.randomUUID(),offset:{x:Number(x)||0,y:Number(y)||0}});setNotice('已插入目标白板');setOpen(false);}catch{setNotice('插入失败，请确认白板权限和图形版本。');}finally{setBusy(false);}};return<><Button type="button" size="sm" variant="outline" disabled={!enabled} onClick={()=>void begin()} data-testid="chat-diagram-insert-board">插入 Board</Button><Dialog open={open} onOpenChange={setOpen}><DialogContent><DialogTitle>插入到 Board</DialogTitle><DialogDescription>选择目标白板和世界坐标；插入保持当前 Fabric 布局。</DialogDescription><label>目标白板<select data-testid="chat-board-target" value={boardId} onChange={event=>setBoardId(event.target.value)}>{boards.map(board=><option key={board.id} value={board.id}>{board.name}</option>)}</select></label><div className="grid grid-cols-2 gap-2"><Input aria-label="X 坐标" value={x} onChange={e=>setX(e.target.value)}/><Input aria-label="Y 坐标" value={y} onChange={e=>setY(e.target.value)}/></div><Button data-testid="chat-board-handoff-confirm" disabled={busy||!boardId} onClick={()=>void submit()}>{busy?'插入中…':'确认插入'}</Button></DialogContent></Dialog>{notice?<span role="status">{notice}</span>:null}</>}
+import * as React from 'react';
+import type { DiagramModel } from '@repo/fabric-markdown/model';
+import { Button } from '@/components/ui/button';
+import { Dialog, DialogContent, DialogDescription, DialogTitle } from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import { listBoards } from '@/lib/live-whiteboard';
+import { insertRenderedArtifact, readBoardHead } from '@/lib/whiteboard-operation-client';
+import { renderedDiagramLayout } from '@/lib/chat-board-diagram-layout';
+export { renderedDiagramLayout } from '@/lib/chat-board-diagram-layout';
+
+type Attempt = Parameters<typeof insertRenderedArtifact>[0];
+export function ChatDiagramBoardHandoff({ model, artifactId, sourceRevision, orgId }: { model: DiagramModel | null; artifactId?: string; sourceRevision?: string; orgId?: string }) {
+  const [open, setOpen] = React.useState(false), [boards, setBoards] = React.useState<{id:string;name:string}[]>([]);
+  const [boardId, setBoardId] = React.useState(''), [x, setX] = React.useState('0'), [y, setY] = React.useState('0');
+  const [busy, setBusy] = React.useState(false), [notice, setNotice] = React.useState('');
+  const attempt = React.useRef<{key:string;request:Attempt} | null>(null);
+  const enabled = Boolean(model && artifactId && sourceRevision && orgId);
+  const begin = async () => {
+    setOpen(true);
+    try { const values = await listBoards(); setBoards(values.items); setBoardId(values.items[0]?.id ?? ''); }
+    catch { setNotice('无法读取白板列表，请重试。'); }
+  };
+  const submit = async () => {
+    if (!model || !artifactId || !sourceRevision || !orgId || !boardId || busy) return;
+    if (!x.trim() || !y.trim() || !Number.isFinite(Number(x)) || !Number.isFinite(Number(y))) { setNotice('请输入有效的世界坐标。'); return; }
+    setBusy(true);
+    try {
+      const layout = renderedDiagramLayout(model, artifactId, orgId, sourceRevision);
+      const offset = {x:Number(x),y:Number(y)};
+      const key = JSON.stringify({boardId,layoutHash:layout.layoutHash,offset});
+      if (attempt.current?.key !== key) {
+        const head = await readBoardHead(boardId);
+        attempt.current = {key,request:{layout,boardId,epoch:head.epoch,seq:head.seq,requestId:crypto.randomUUID(),offset}};
+      }
+      await insertRenderedArtifact(attempt.current.request);
+      attempt.current = null; setNotice('已插入目标白板'); setOpen(false);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : '';
+      if (message === 'BOARD_OPERATION_CONFLICT') { attempt.current = null; setNotice('白板已变化，请重新确认插入。'); }
+      else if (message.includes('UNSUPPORTED')) setNotice('此图含暂不支持的类型或背景图片，尚未插入任何对象。');
+      else setNotice('插入失败，请确认权限后重试；重试保留本次请求身份。');
+    } finally { setBusy(false); }
+  };
+  return <>
+    <Button type="button" size="sm" variant="outline" disabled={!enabled} onClick={() => void begin()} data-testid="chat-diagram-insert-board">插入 Board</Button>
+    <Dialog open={open} onOpenChange={setOpen}><DialogContent>
+      <DialogTitle>插入到 Board</DialogTitle><DialogDescription>选择目标白板和世界坐标；插入保持当前 Fabric 布局。</DialogDescription>
+      <label>目标白板<select data-testid="chat-board-target" disabled={busy} value={boardId} onChange={event => setBoardId(event.target.value)}>{boards.map(board => <option key={board.id} value={board.id}>{board.name}</option>)}</select></label>
+      <div className="grid grid-cols-2 gap-2"><Input aria-label="X 坐标" disabled={busy} value={x} onChange={event => setX(event.target.value)}/><Input aria-label="Y 坐标" disabled={busy} value={y} onChange={event => setY(event.target.value)}/></div>
+      <Button data-testid="chat-board-handoff-confirm" disabled={busy || !boardId} onClick={() => void submit()}>{busy ? '插入中…' : '确认插入'}</Button>
+    </DialogContent></Dialog>
+    {notice ? <span role="status">{notice}</span> : null}
+  </>;
+}

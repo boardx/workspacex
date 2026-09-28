@@ -255,7 +255,7 @@ export function ChatDiagramFabric({
     } catch (failure) {
       setQuickSaveState({ status: "error", message: describeMessageFailure(failure, "保存") });
     }
-  }, [canQuickSave, quickSaveState.status, threadId, messageId, bearer, previewCode, savedSource]);
+  }, [canQuickSave, quickSaveState.status, threadId, messageId, projectId, bearer, previewCode, savedSource]);
 
   /**
    * 挂载即读回（design-delta chat-diagram-artifact-reference，issue #1668）：此前

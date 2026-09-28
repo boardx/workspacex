@@ -45,6 +45,8 @@ export interface BrowserArtifactSpec {
   readonly creator?: { kind: "user"; id: string } | { kind: "agent"; id: string; runId: string };
   /** Head-version size. A version is always created: F04 I-5 says a version with no bytes is not one. */
   readonly sizeBytes?: number;
+  /** Verified body digest when a fixture writes actual object-store bytes. */
+  readonly contentHash?: string;
   /**
    * Head-version MIME (F32). Defaults to `application/octet-stream` -- which is not a neutral
    * choice and is the right default: it is the type F32's preview mapping answers
@@ -93,7 +95,7 @@ export async function addBrowserArtifact(spec: BrowserArtifactSpec): Promise<voi
         `${spec.orgId}/artifacts/${spec.id}/v1/${versionId}`,
         // A syntactically valid SHA-256 -- the column constrains its shape, and "deadbeef"
         // would fail for a reason unrelated to what any of these tests assert.
-        "0".repeat(64),
+        spec.contentHash ?? "0".repeat(64),
         spec.sizeBytes ?? 1024,
         creator.id,
         spec.mime ?? "application/octet-stream",

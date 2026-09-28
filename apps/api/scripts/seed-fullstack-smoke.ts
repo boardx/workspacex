@@ -554,6 +554,7 @@ await addBrowserArtifact({
   orgId, id: boardArtifactId, projectId, source: "ai-generated", title: "Chat Mermaid Board fixture",
   ingestionStatus: "READY", creator: { kind: "user", id: userId },
   text: "Chat Mermaid node", sizeBytes: boardSource.byteLength, mime: "text/markdown",
+  contentHash: createHash("sha256").update(boardSource).digest("hex"),
 });
 const boardObjectKey = `${orgId}/artifacts/${boardArtifactId}/v1/${boardArtifactId}-v1`;
 const boardObjects = new FsObjectStore(objectStoreRoot());
@@ -564,10 +565,6 @@ try {
   const existing = await boardObjects.get(boardObjectKey);
   if (!existing || !Buffer.from(existing).equals(Buffer.from(boardSource))) throw error;
 }
-await asApp(orgId, client => client.query(
-  `UPDATE artifact_versions SET content_hash=$1 WHERE org_id=$2 AND artifact_id=$3 AND version_number=1`,
-  [createHash("sha256").update(boardSource).digest("hex"), orgId, boardArtifactId],
-));
 // Board AI operation E2E uses a pre-registered immutable runtime identity. Product callers
 // have no write grant on this registry; only the controlled fixture owner seeds it.
 await asOwner(client=>client.query(`INSERT INTO whiteboard_actor_identities(org_id,actor_id,kind,delegated_by,scopes,model_snapshot,skill_snapshot,enabled) VALUES($1,$2,'ai',$3,$4,'loopback/e2e','board-cluster-e2e',true) ON CONFLICT(org_id,actor_id) DO UPDATE SET delegated_by=EXCLUDED.delegated_by,scopes=EXCLUDED.scopes,model_snapshot=EXCLUDED.model_snapshot,skill_snapshot=EXCLUDED.skill_snapshot,enabled=true`,[orgId,agentId,userId,['board:read','board:write','artifact:read','board:present']]));

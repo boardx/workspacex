@@ -49,6 +49,7 @@ export class WhiteboardImportService {
     try { parsed=await parseWhiteboardImport(bytes,record.mimeType,record.source); }
     catch(error) { if(error instanceof UnsafeWhiteboardImport)throw new WhiteboardImportError(error.code);throw error; }
     const assetRefs:Array<{objectKey:string;contentHash:string;byteSize:number}>=[];
+    if(parsed.items.length>C.WHITEBOARD_IMPORT_LIMITS.objects){const mapped=mapImportedBoard(record.source,record.importId,parsed.items,C.WHITEBOARD_IMPORT_LIMITS.objects);return {mapped,assetRefs,report:this.report(record,mapped,parsed.skipped)};}
     for (const asset of parsed.assets) {
       if (!this.images) throw new WhiteboardImportError('DEPENDENCY_UNAVAILABLE');
       const matching = parsed.items.filter(item => item.assetRef === asset.path);

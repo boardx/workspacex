@@ -64,7 +64,7 @@ export type WhiteboardOperationRequest = z.infer<typeof WhiteboardOperationReque
 
 export const WhiteboardEventType = z.enum([
   'ObjectCreated', 'ObjectMoved', 'ObjectResized', 'ObjectUpdated', 'ObjectDeleted',
-  'ObjectsGrouped', 'ObjectsArranged', 'ConnectorCreated', 'PanelCreated', 'AIOrganized',
+  'ObjectsGrouped', 'ObjectsArranged', 'ConnectorCreated', 'PanelCreated', 'AIOrganized', 'OperationUndone',
 ]);
 export const WhiteboardOperationEvent = z.object({
   eventId: z.string().uuid(), operationId: z.string().uuid(), requestId: z.string().uuid(),
@@ -78,6 +78,7 @@ export const WhiteboardOperationReceipt = z.object({
   revision: Revision, replayed: z.boolean(), events: z.array(WhiteboardOperationEvent).max(WHITEBOARD_OPERATION_LIMITS.events),
 }).strict();
 export type WhiteboardOperationReceipt = z.infer<typeof WhiteboardOperationReceipt>;
+export const WhiteboardOperationUndoRequest=z.object({expectedRevision:Revision}).strict();
 export const WhiteboardUndoReceipt = z.object({
   undoId:z.string().uuid(),operationId:z.string().uuid(),boardId:BoardId,expectedRevision:Revision,
   commands:z.array(WhiteboardCommand).min(1).max(WHITEBOARD_OPERATION_LIMITS.commands),createdAt:z.string().datetime(),
@@ -86,11 +87,14 @@ export type WhiteboardUndoReceipt=z.infer<typeof WhiteboardUndoReceipt>;
 export const WhiteboardAIConfirmReceipt=WhiteboardOperationReceipt.extend({undoReceipt:WhiteboardUndoReceipt});
 
 export const WhiteboardEventCursor = z.object({
+  actorId: ActorId.optional(),
+  afterEpoch: z.number().int().positive().default(1),
   afterSeq: z.number().int().nonnegative().default(0),
   limit: z.number().int().positive().max(WHITEBOARD_OPERATION_LIMITS.eventPage).default(100),
 }).strict();
 export const WhiteboardEventPage = z.object({
   boardId: BoardId, events: z.array(WhiteboardOperationEvent).max(WHITEBOARD_OPERATION_LIMITS.eventPage),
+  nextEpoch: z.number().int().positive(),
   nextSeq: z.number().int().nonnegative(),
 }).strict();
 
@@ -188,6 +192,7 @@ export type WhiteboardPointerCapability = z.infer<typeof WhiteboardPointerCapabi
 export const whiteboardOperationOperations = {
   readObjects: { method: 'GET', path: '/v1/whiteboards/:boardId/objects', input: WhiteboardObjectsQuery, output: WhiteboardObjectsSnapshot },
   execute: { method: 'POST', path: '/v1/whiteboards/:boardId/operations', input: WhiteboardOperationRequest, output: WhiteboardOperationReceipt },
+  undoOperation: {method:'POST',path:'/v1/whiteboards/:boardId/operations/:operationId/undo',input:WhiteboardOperationUndoRequest,output:WhiteboardOperationReceipt},
   events: { method: 'GET', path: '/v1/whiteboards/:boardId/events', input: WhiteboardEventCursor, output: WhiteboardEventPage },
   createProposal: { method: 'POST', path: '/v1/whiteboards/:boardId/ai-proposals', input: WhiteboardAIProposalCreate, output: WhiteboardAIProposal },
   cancelProposal: { method: 'POST', path: '/v1/whiteboards/:boardId/ai-proposals/:proposalId/cancel', input: WhiteboardAIProposalDecision, output: WhiteboardAIProposal },

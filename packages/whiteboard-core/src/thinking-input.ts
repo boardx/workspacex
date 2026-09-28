@@ -5,9 +5,9 @@ import {
 import type { BoardCommandEnvelope } from './command-port';
 
 export const STICKY_COLOR_PRESETS = {
-  yellow: '#F8D76E',
-  pink: '#F7B7CD',
-  blue: '#BBDDF8',
+  yellow: '#FFE99A',
+  pink: '#FBC9DF',
+  blue: '#C6DDFF',
   green: '#BDE5C8',
   purple: '#D9CDF7',
   orange: '#F8C38D',

@@ -48,7 +48,9 @@ function fixture() {
     const copy = createWhiteboardDocument();
     try { Y.applyUpdate(copy, bytes); validateDocument(copy); return readObjects(copy); } finally { copy.destroy(); }
   });
-  const validator = { objects: decode } as unknown as WhiteboardUpdateValidator;
+  const validator = { objects: decode, diff: async (bytes:Uint8Array,vector?:Uint8Array) => {
+    const copy=createWhiteboardDocument();try{Y.applyUpdate(copy,bytes);return Y.encodeStateAsUpdate(copy,vector);}finally{copy.destroy();}
+  } } as unknown as WhiteboardUpdateValidator;
   const store = new PgWhiteboardCollaborationStore(db, validator, 120, objects);
   const service = new WhiteboardOperationService(db, store, new PgWhiteboardOperationRepository(), undefined, undefined, validator);
   return { service, state, calls, objects, decode, transactions };
