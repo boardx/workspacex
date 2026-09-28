@@ -57,3 +57,19 @@ v3 URL 参数可直接复现各状态：`?run=1`、`?menu=1`、`?k=1`、`?insp=1
 按根 `AGENTS.md`，改生产 UI 需先走契约束 `design-signoff.md` 签核。建议拆成独立 feature：
 ① 执行摘要折叠组件（改 `chat-task-inspector` / 执行过程渲染）；② Artifact 卡片 + 下一步；③ Inspector Tab 化；
 ④ 左栏对象化导航；⑤ ⌘K 命令面板；⑥ Composer 上下文胶囊与 `/ @ #`；⑦ 响应式与深色。
+
+## 落地到 `/chat`：第一步只改样式
+
+2026-09-28 人类指令：「不要改变业务逻辑，只是改变 UIUX；composer 功能与其他功能入口都保留」。
+只改 Tailwind className，全部用既有 token（lint-design 通过）；不改数据流、状态、事件、`data-testid`、文案，不删任何入口。
+
+| 部位 | 文件 | 变化 |
+|---|---|---|
+| 执行过程摘要 | `components/chat/workbench/run-trace-panel.tsx` | 裸文字行 → 安静卡片（`bg-card shadow-sm`），整行可点、箭头靠右；默认仍折叠 |
+| 产出物卡片 | `components/chat/produced-file-inline-card.tsx` | 浮起卡片（`rounded-container shadow-md`），文件名加粗加大 |
+| 线程标题栏 | `components/chat/copilotkit-v2-shell.tsx` | 标题 16px semibold，可见性标签去边框 |
+| Composer | `components/chat/copilotkit-v2-panel-body.tsx` | 白底 + `shadow-lg` 浮起指令栏；全部按钮与功能原样 |
+| 右侧 Inspector | `components/chat/chat-task-inspector.tsx` | 背景退为 `bg-panel-alt`，选中页签白底分段样式 |
+| 跟进建议 / 工具组 | `components/chat/copilotkit-v2-assistant-message.tsx` | 卡片化、边框减弱 |
+
+前后对比：`shots/app-before-run-trace-artifact.png` → `shots/app-after-run-trace-artifact.png`。
