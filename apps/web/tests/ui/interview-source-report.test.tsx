@@ -42,6 +42,7 @@ it("labels unstructured or partial report metrics without inventing entries", ()
   render(<InterviewReportStep document={{ documentId: "report-3", step: "report", version: 1, contentHash: "c".repeat(64), evidenceMode: "simulated", references: [], markdown: "# 未完成报告\n\n## 核心发现\n\n暂无明确发现。\n\n## 建议行动\n\n| 优先级 | 动作 |\n| --- | --- |\n| P0 | 待验证 |" }} reportStatus="failed" />);
   expect(screen.getByTestId("itv-report-metric-findings")).toHaveTextContent("0");
   expect(screen.getByTestId("itv-report-metric-actions")).toHaveTextContent("0");
+  expect(screen.getByTestId("itv-report-metric-completed")).toHaveTextContent("—");
   expect(screen.getByTestId("itv-report-metrics")).toHaveTextContent("未完成");
   expect(screen.getByTestId("itv-report-metrics")).toHaveTextContent("正文或表格未计入条目数");
 });
