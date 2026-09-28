@@ -856,6 +856,10 @@ import { PgProjectOverviewRepository } from "./infrastructure/project/pg-project
 // 项目中枢 B2-S1（#4425）：项目资源关联（`project_resource_links` + 四类聚合读）。
 import { PROJECT_RESOURCE_REPOSITORY } from "./application/project/project-resource-ports";
 import { PgProjectResourceRepository } from "./infrastructure/project/pg-project-resource-repository";
+import { PROJECT_EVIDENCE_REPOSITORY } from "./application/project/project-evidence-ports";
+import { PgProjectEvidenceRepository } from "./infrastructure/project/pg-project-evidence-repository";
+import { EVIDENCE_SOURCE_REPOSITORY } from "./application/project/collect-evidence/ports";
+import { PgEvidenceSources } from "./infrastructure/project/pg-evidence-sources";
 import { PgProjectArchiveRepository } from "./infrastructure/project/pg-project-archive-repository";
 // BP-08（本次新增）：`BLUEPRINT_REFERENCE_REPOSITORY`——只读，独立 provider（`createProject`
 // 判 blueprintVersionId 合不合法时用）；见 `application/project/ports.ts` 与
@@ -2717,6 +2721,17 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
     {
       provide: PROJECT_RESOURCE_REPOSITORY,
       useFactory: (db: DatabasePort) => new PgProjectResourceRepository(db),
+      inject: [DATABASE_PORT],
+    },
+    // 项目中枢 B3-T1（#4495）：证据单元仓储 + 采集器的只读来源（`project.controller.ts` 与 `KgExtractionWorker` 消费）。
+    {
+      provide: PROJECT_EVIDENCE_REPOSITORY,
+      useFactory: (db: DatabasePort) => new PgProjectEvidenceRepository(db),
+      inject: [DATABASE_PORT],
+    },
+    {
+      provide: EVIDENCE_SOURCE_REPOSITORY,
+      useFactory: (db: DatabasePort) => new PgEvidenceSources(db),
       inject: [DATABASE_PORT],
     },
     // F141 → #785: `skill` now reads/writes real Postgres (`skills`/`skill_versions`/
