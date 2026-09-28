@@ -1,7 +1,10 @@
 ---
 phase: "20"
 covers_bundles: [work-skill-meta, workflow-runtime, agent-role, work-eval, work-content]
-status: pending
+status: confirmed
+confirmed_by: "usamshen"
+confirmed_at: "2026-09-28T16:30:00Z"
+confirmed_via: "人类在 GitHub 亲自签核"
 ---
 
 # Phase 20 阶段一致性复核
