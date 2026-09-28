@@ -6,7 +6,7 @@ const api=vi.hoisted(()=>({undo:vi.fn().mockResolvedValue({}),actors:vi.fn().moc
 vi.mock('@/lib/whiteboard-operation-client',()=>({boardOrganizeActors:api.actors,undoAIProposal:api.undo,organizeBoard:vi.fn()}));
 it('keeps AI options mounted through portaled touch and Escape and dispatches undo',async()=>{
  const undone=vi.fn();
- render(<BoardBottomDock activeTool="select" creationTool={{kind:'content',contentType:'tile'}} readOnly={false} onToolChange={vi.fn()} onCreationToolChange={vi.fn()} onQuickCreate={vi.fn()} onBulkSticky={vi.fn()} onImageRequest={vi.fn()} extension={<BoardOrganizeControls boardId="board" selectedIds={[]} readOnly={false} onProposal={vi.fn()} undo={{proposal:{proposalId:'proposal'} as never,revision:{epoch:1,seq:2}}} onUndone={undone}/>}/>);
+ render(<BoardBottomDock activeTool="select" creationTool={{kind:'content',contentType:'tile'}} readOnly={false} onToolChange={vi.fn()} onCreationToolChange={vi.fn()} onQuickCreate={vi.fn()} onBulkSticky={vi.fn()} onImageRequest={vi.fn()} extension={<BoardOrganizeControls boardId="board" selectedIds={[]} readOnly={false} onProposal={vi.fn()} undo={{boardId:'board',proposalId:'00000000-0000-4000-8000-000000000001',operationId:'00000000-0000-4000-8000-000000000002',expectedRevision:{epoch:1,seq:2},createdAt:'2026-09-26T00:00:00.000Z'}} onUndone={undone}/>}/>);
  fireEvent.click(screen.getByTestId('board-add-more'));
  const trigger=screen.getByRole('button',{name:'AI 整理选项和状态'});fireEvent.click(trigger);
  const undo=await screen.findByTestId('board-ai-undo');

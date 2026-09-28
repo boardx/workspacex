@@ -3,7 +3,7 @@ import { fireEvent, render, screen } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { BoardAIProposalPanel } from '../../components/whiteboard/board-ai-proposal-panel';
 import { BoardPresentationControls } from '../../components/whiteboard/board-presentation-controls';
-import { executeBoardOperation,recordBoardUndoReceipt } from '../../lib/whiteboard-operation-client';
+import { clearBoardUndoReceipt, executeBoardOperation, readBoardUndoReceipt, recordBoardUndoReceipt } from '../../lib/whiteboard-operation-client';
 
 const actor={kind:'ai' as const,actorId:'agent-1',orgId:'org-1',role:'editor' as const,scopes:['board:read' as const,'board:write' as const],delegatedBy:'user-1'};
 const boardId='00000000-0000-4000-8000-000000000001',requestId='00000000-0000-4000-8000-000000000002';
@@ -17,5 +17,10 @@ describe('Board AI/API and room controls',()=>{
   it('calls the versioned operation route and validates the receipt',async()=>{const receipt={operationId:'00000000-0000-4000-8000-000000000010',requestId,boardId,revision:{epoch:1,seq:3},replayed:false,events:[]};vi.stubGlobal('fetch',vi.fn().mockResolvedValue(new Response(JSON.stringify(receipt),{status:200,headers:{'content-type':'application/json'}})));
     expect((await executeBoardOperation({apiVersion:'2026-09-01',requestId,boardId,expectedRevision:{epoch:1,seq:2},actor,commands:proposal.action.commands,provenance:proposal.provenance})).revision.seq).toBe(3);
     expect(fetch).toHaveBeenCalledWith(expect.stringContaining(`/v1/whiteboards/${boardId}/operations`),expect.objectContaining({method:'POST',credentials:'include'}));});
-  it('records one executable undo receipt for an AI confirmation replay',()=>{const operationId='00000000-0000-4000-8000-000000000010',value={operationId,requestId,boardId,revision:{epoch:1,seq:3},replayed:false,events:[],undoReceipt:{undoId:'00000000-0000-4000-8000-000000000011',operationId,boardId,expectedRevision:{epoch:1,seq:3},commands:[{type:'geometry' as const,id:'n1',geometry:{x:1,y:2,width:100,height:100,rotation:0}}],createdAt:'2026-09-26T00:00:00.000Z'}};recordBoardUndoReceipt(value);recordBoardUndoReceipt({...value,replayed:true});expect(JSON.parse(sessionStorage.getItem(`board-undo-receipts:${boardId}`)!)).toEqual([value.undoReceipt]);});
+  it('restores one minimal server-authorized AI undo target after reload and clears it after success',()=>{const operationId='00000000-0000-4000-8000-000000000010',value={operationId,requestId,boardId,revision:{epoch:1,seq:3},replayed:false,events:[],undoReceipt:{undoId:'00000000-0000-4000-8000-000000000011',operationId,boardId,expectedRevision:{epoch:1,seq:3},commands:[{type:'geometry' as const,id:'n1',geometry:{x:1,y:2,width:100,height:100,rotation:0}}],createdAt:'2026-09-26T00:00:00.000Z'}};
+    recordBoardUndoReceipt(proposal,value);recordBoardUndoReceipt(proposal,{...value,replayed:true});
+    expect(readBoardUndoReceipt(boardId)).toEqual({boardId,proposalId:proposal.proposalId,operationId,expectedRevision:{epoch:1,seq:3},createdAt:'2026-09-26T00:00:00.000Z'});
+    expect(sessionStorage.getItem(`board-undo-receipt:${boardId}`)).not.toContain('commands');
+    clearBoardUndoReceipt(boardId,operationId);expect(readBoardUndoReceipt(boardId)).toBeNull();
+  });
 });
