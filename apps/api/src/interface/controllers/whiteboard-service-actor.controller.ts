@@ -9,6 +9,7 @@ import {
   Header,
   Headers,
   HttpCode,
+  HttpException,
   Inject,
   NotFoundException,
   Param,
@@ -152,14 +153,18 @@ export class WhiteboardServiceActorController {
 
   private rethrow(error: unknown): never {
     if (error instanceof WhiteboardOperationError) {
-      if (error.code === 'UNAUTHENTICATED') throw new UnauthorizedException();
-      if (error.code === 'FORBIDDEN') throw new ForbiddenException();
-      if (error.code === 'NOT_FOUND') throw new NotFoundException();
-      if (error.code === 'DEPENDENCY_UNAVAILABLE') throw new ServiceUnavailableException();
+      // These public, bounded codes are the complete error contract. Never pass
+      // exception messages from dependencies or schema issue details to callers.
+      if (error.code === 'UNAUTHENTICATED') throw new UnauthorizedException(error.code);
+      if (error.code === 'FORBIDDEN') throw new ForbiddenException(error.code);
+      if (error.code === 'NOT_FOUND') throw new NotFoundException(error.code);
+      if (error.code === 'DEPENDENCY_UNAVAILABLE') throw new ServiceUnavailableException(error.code);
       if (error.code === 'ARCHIVED') throw new ConflictException(error.code);
-      throw new BadRequestException();
+      if (error.code === 'STALE_REVISION' || error.code === 'IDEMPOTENCY_CONFLICT') throw new ConflictException(error.code);
+      if (error.code === 'RATE_LIMITED') throw new HttpException({ statusCode: 429, message: error.code }, 429);
+      throw new BadRequestException(error.code);
     }
-    if (error instanceof Error && error.name === 'ZodError') throw new BadRequestException();
+    if (error instanceof Error && error.name === 'ZodError') throw new BadRequestException('VALIDATION_FAILED');
     throw error;
   }
 }

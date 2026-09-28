@@ -211,10 +211,19 @@ describe('Board service actor HTTP adapter contract', () => {
     expect(actors.execute).toHaveBeenCalledWith(principal, boardId, credential, operationBody);
   });
 
-  it('maps an invalid, expired or revoked credential to the same 401 boundary', async () => {
-    const actors = { execute: vi.fn(async () => { throw new WhiteboardOperationError('UNAUTHENTICATED'); }) };
-    const controller = new WhiteboardServiceActorController(actors as never);
-    await expect(controller.execute(principal, boardId, credential, operationBody)).rejects.toMatchObject({ status: 401 });
+  it('maps the complete operation error contract to stable HTTP status and code pairs', async () => {
+    const statuses = {
+      UNAUTHENTICATED: 401, FORBIDDEN: 403, NOT_FOUND: 404, DEPENDENCY_UNAVAILABLE: 503,
+      ARCHIVED: 409, STALE_REVISION: 409, IDEMPOTENCY_CONFLICT: 409, RATE_LIMITED: 429, VALIDATION_FAILED: 400,
+    } as const;
+    for (const [code, status] of Object.entries(statuses)) {
+      const actors = { execute: vi.fn(async () => { throw new WhiteboardOperationError(code as keyof typeof statuses); }) };
+      const controller = new WhiteboardServiceActorController(actors as never);
+      await expect(controller.execute(principal, boardId, credential, operationBody)).rejects.toMatchObject({
+        status,
+        response: expect.objectContaining({ message: code }),
+      });
+    }
   });
 });
 

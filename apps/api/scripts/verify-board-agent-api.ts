@@ -3,7 +3,7 @@ import {createHash,randomUUID} from 'node:crypto';
 import {execFileSync} from 'node:child_process';
 import {access,writeFile} from 'node:fs/promises';
 import {WhiteboardEventPage,WhiteboardObjectsSnapshot,WhiteboardOperationReceipt,type WhiteboardOperationEvent} from '@repo/contracts/whiteboard-operation';
-import {WhiteboardServiceActorCreated} from '@repo/contracts/whiteboard-actor';
+import {WhiteboardServiceActorCreated,WhiteboardServiceOperationRequest} from '@repo/contracts/whiteboard-actor';
 import type {WhiteboardCommand,WhiteboardObject} from '@repo/contracts/whiteboard-document';
 import {FULLSTACK_E2E as F} from '../../web/e2e/fullstack-smoke-fixture';
 import {assertIsolatedDatabase} from '../../../.harness/scripts/lib/test-isolation';
@@ -18,7 +18,15 @@ export function assertAgentApiTarget(env:NodeJS.ProcessEnv){
 const hash=(value:unknown)=>createHash('sha256').update(JSON.stringify(value)).digest('hex');
 const geometry=(x:number,y=0)=>({x,y,width:180,height:140,rotation:0});
 const note=(id:string,x=0)=>({id,schemaVersion:1 as const,kind:'sticky' as const,geometry:geometry(x),text:id,style:{fill:'#FFF2A8'},parentId:null,orderKey:id});
-let diagnostic:{stage:string;method?:string;path?:string;status?:number}={stage:'target-validation'};
+const publicErrorCodes=new Set(['UNAUTHENTICATED','FORBIDDEN','STALE_REVISION','IDEMPOTENCY_CONFLICT','NOT_FOUND','VALIDATION_FAILED','ARCHIVED','RATE_LIMITED','DEPENDENCY_UNAVAILABLE']);
+export function safeResponseErrorCode(body:unknown):string|undefined{
+ if(!body||typeof body!=='object')return undefined;
+ const value=body as {code?:unknown;message?:unknown};
+ for(const candidate of [value.code,value.message])if(typeof candidate==='string'&&publicErrorCodes.has(candidate))return candidate;
+ return undefined;
+}
+type Diagnostic={stage:string;method?:string;path?:string;status?:number;errorCode?:string};
+let diagnostic:Diagnostic={stage:'target-validation'};
 export async function runAgentApiAcceptance(){
  const origin=assertAgentApiTarget(process.env),output=process.env.BOARD_AGENT_API_EVIDENCE!;
  await assert.rejects(access(output),{code:'ENOENT'});
@@ -39,8 +47,9 @@ export async function runAgentApiAcceptance(){
    ...(data===undefined?{ }:{body:JSON.stringify(data)}),
    signal:AbortSignal.timeout(15000),
   });
-  diagnostic={...diagnostic,stage:'http-response',status:response.status};
-  const body=await response.json();assert.ok((Array.isArray(status)?status:[status]).includes(response.status),`${method} ${path}: unexpected HTTP ${response.status}`);
+  const body=await response.json(),errorCode=safeResponseErrorCode(body);
+  diagnostic={...diagnostic,stage:'http-response',status:response.status,...(errorCode?{errorCode}:{})};
+  assert.ok((Array.isArray(status)?status:[status]).includes(response.status),`${method} ${path}: unexpected HTTP ${response.status}${errorCode?` (${errorCode})`:''}`);
   if(!path.includes('/auth/'))calls.push({method,path,status:response.status,responseHash:hash(body)});
   return body;
  }
@@ -50,7 +59,7 @@ export async function runAgentApiAcceptance(){
  const {asOwner}=await import('../tests/support/db');
  const suffix=randomUUID();let actorId:string|undefined,actorCredential:string|undefined,readActor:string|undefined,readCredential:string|undefined;
  let boardId:string|undefined;const ownedBoards:string[]=[];const createdActors:Array<{boardId:string;actorId:string}>=[];
- const steps:unknown[]=[];let evidence:unknown;
+ const steps:unknown[]=[];let evidence:unknown,primaryFailure:Diagnostic|undefined;
  try{
   const board=await call(owner,'POST','/whiteboards',{requestId:randomUUID(),name:`Agent API acceptance ${suffix}`},201);boardId=board.id;assert.equal(typeof boardId,'string');ownedBoards.push(boardId!);
   const prefix=`/v1/whiteboards/${boardId}`;
@@ -60,7 +69,7 @@ export async function runAgentApiAcceptance(){
   readActor=createdReadActor.actor.actorId;readCredential=createdReadActor.credential;createdActors.push({boardId:boardId!,actorId:createdReadActor.actor.actorId});
   const read=async(token=owner,credential=actorCredential)=>WhiteboardObjectsSnapshot.parse(await call(token,'GET',`${prefix}/service/objects`,undefined,200,credential));
   const stored=async()=>asOwner(async c=>(await c.query('SELECT (SELECT count(*)::int FROM whiteboard_operations WHERE org_id=$1 AND board_id=$2) AS operations,(SELECT count(*)::int FROM whiteboard_operation_events WHERE org_id=$1 AND board_id=$2) AS events',[F.orgId,boardId])).rows[0]);
-  const request=async(commands:WhiteboardCommand[])=>({apiVersion:'2026-09-01' as const,requestId:randomUUID(),expectedRevision:(await read()).revision,commands,provenance:{source:'public-api' as const,model:null,skill:null,sourceArtifactId:null,sourceRevision:null,layoutHash:null,inputObjectIds:[]}});
+  const request=async(commands:WhiteboardCommand[])=>WhiteboardServiceOperationRequest.parse({apiVersion:'2026-09-01',requestId:randomUUID(),expectedRevision:(await read()).revision,commands,provenance:{source:'public-api',model:null,skill:null,sourceArtifactId:null,sourceRevision:null,layoutHash:null,inputObjectIds:[]}});
   async function execute(name:string,commands:WhiteboardCommand[]){const input=await request(commands),receipt=WhiteboardOperationReceipt.parse(await call(owner,'POST',`${prefix}/service/operations`,input,201,actorCredential)),snapshot=await read();assert.deepEqual(snapshot.revision,receipt.revision);assert.equal(receipt.events[0]?.actor.actorId,actorId);steps.push({name,operationId:receipt.operationId,revision:receipt.revision,canonicalHash:hash(snapshot.objects)});return{input,receipt,snapshot};}
   async function reject(name:string,token:string,path:string,data:unknown,status:number|number[],method='POST',credential=actorCredential){
    const before=await read(),counts=await stored();await call(token,method,path,data,status,credential);assert.deepEqual(await read(),before);assert.deepEqual(await stored(),counts);steps.push({name,zeroWrites:true});
@@ -127,11 +136,11 @@ export async function runAgentApiAcceptance(){
   }
   const final=await read();assert.equal((await call(null,'GET','/healthz')).deploymentMarker,marker);assert.equal(git('rev-parse','HEAD'),sha);assert.equal(git('status','--porcelain','--untracked-files=all'),'');
   evidence={kind:'board-agent-api',sha,startedAt,finishedAt:new Date().toISOString(),runtime:{deploymentMarker:marker,method:'fresh-api-marker'},boardId,steps,eventCount:(await stored()).events,finalRevision:final.revision,calls,notCovered:['real model generation','browser projection']};
- }catch(error){console.error('Board API primary failure',JSON.stringify(diagnostic));throw error;}finally{
+ }catch(error){primaryFailure={...diagnostic};console.error('Board API primary failure',JSON.stringify(primaryFailure));throw error;}finally{
   try{
    for(const actor of createdActors){await call(owner,'DELETE',`/v1/whiteboards/${actor.boardId}/actors/service/${actor.actorId}`,undefined,[200,404]);}
    for(const id of ownedBoards){const current=await call(owner,'GET',`/whiteboards/${id}`);if(!current.archived)await call(owner,'PATCH',`/whiteboards/${id}`,{archived:true,expectedLifecycleRevision:current.lifecycleRevision});}
-  } finally { /* lifecycle endpoints own actor cleanup; no privileged DB mutation */ }
+  } finally { if(primaryFailure)diagnostic=primaryFailure; /* lifecycle endpoints own actor cleanup; no privileged DB mutation */ }
  }
  await writeFile(output,JSON.stringify(evidence,null,2),{flag:'wx',mode:0o600});
 }
