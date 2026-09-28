@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { GuidedResearchEntryPanel } from "@/components/research-studio/guided-research-entry-panel";
 import { GuidedResearchTopicPanel } from "@/components/research-studio/guided-research-topic-panel";
@@ -6,6 +6,7 @@ import { GuidedResearchPlanPanel } from "@/components/research-studio/guided-res
 import { GuidedResearchSourceWorkspace } from "@/components/research-studio/guided-research-source-workspace";
 import { GuidedResearchReportWorkspace } from "@/components/research-studio/guided-research-report-workspace";
 import { GuidedResearchSixStepShell } from "@/components/research-studio/guided-research-six-step-shell";
+import { runtimeFixture } from "../guided-runtime-fixture";
 
 describe("guided research reference layout", () => {
   it("renders unavailable steps as circular indicators, not disabled button tiles", () => {
@@ -103,15 +104,27 @@ describe("guided research reference layout", () => {
     expect(screen.getByRole("button", { name: "开始研究" })).toBeDisabled();
   });
 
-  it("keeps live task activity, source evidence, and risk states in named research regions", () => {
-    render(<GuidedResearchSourceWorkspace progress={<div>2 / 4</div>} activity={<div>正在检索政策资料</div>} evidence={<div>来源证据</div>} insights={<div>发现：市场增长</div>} risk={<div>1 项检索失败</div>} actions={<button>重试失败任务</button>} />);
+  it("shows next-step chapters and only relevant search URLs without a middle activity column", () => {
+    const state = runtimeFixture("research");
+    state.outline.push({ ...state.outline[0]!, id: "o2", title: "未启用章节", enabled: false, order: 1 });
+    state.sources.push(
+      { ...state.sources[0]!, id: "manual", title: "手动来源", url: "https://example.org/manual", addedByUser: true },
+      { ...state.sources[0]!, id: "excluded", title: "已排除来源", url: "https://example.org/excluded", decision: "excluded" },
+      { ...state.sources[0]!, id: "internal", title: "内部资料", url: "https://internal.workspacex.local/artifacts/1" },
+    );
+    render(<GuidedResearchSourceWorkspace state={state} actions={<button>重试失败任务</button>} />);
 
-    expect(screen.getByTestId("guided-research-source-workspace")).toBeInTheDocument();
-    expect(screen.getByTestId("guided-research-source-workspace")).toHaveAttribute("data-reference-layout", "research-operations");
-    expect(screen.getByTestId("guided-research-source-progress")).toHaveTextContent("2 / 4");
-    expect(screen.getByTestId("guided-research-source-activity")).toHaveTextContent("正在检索政策资料");
-    expect(screen.getByTestId("guided-research-source-evidence")).toHaveTextContent("来源证据");
-    expect(screen.getByTestId("guided-research-source-risks")).toHaveTextContent("1 项检索失败");
+    const workspace = screen.getByTestId("guided-research-source-workspace");
+    expect(workspace).toHaveAttribute("data-reference-layout", "research-sources");
+    expect(within(screen.getByTestId("guided-research-source-chapters")).getByRole("list", { name: "报告章节" })).toHaveTextContent("政策章节");
+    expect(screen.queryByText("未启用章节")).not.toBeInTheDocument();
+    expect(screen.queryByText(/个任务|已完成|检索失败/)).not.toBeInTheDocument();
+    expect(within(screen.getByTestId("guided-research-source-evidence")).getAllByRole("link")).toHaveLength(1);
+    expect(screen.getByRole("link", { name: "https://example.org/policy" })).toHaveAttribute("href", "https://example.org/policy");
+    expect(screen.queryByRole("heading", { name: "实时动态" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "研究洞察" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "潜在冲突 / 风险提示" })).not.toBeInTheDocument();
+    expect(screen.getByTestId("guided-research-source-actions")).toContainElement(screen.getByRole("button", { name: "重试失败任务" }));
   });
 
   it("frames the report with contents, quality metrics, and an evidence limitation", () => {
