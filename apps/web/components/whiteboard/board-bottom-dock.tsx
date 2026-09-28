@@ -100,7 +100,7 @@ export function BoardBottomDock({ stickyColor=STICKY_COLOR_PRESETS.yellow,onStic
         <DockButton testId="board-add-draw" label="绘制" shortcut="P" pressed={drawOpen} disabled={readOnly} onClick={() => { setPickerOpen(false); onCreationToolChange(null); onToolChange("draw-pen"); }}><Brush className="h-5 w-5" /></DockButton>
         <DockButton testId="board-add-image" label="图片" shortcut="I" pressed={false} disabled={readOnly} onClick={onImageRequest}><ImagePlus className="h-5 w-5" /></DockButton>
         <DockButton testId="board-add-frame" label="Frame" shortcut="F" pressed={panelOpen} disabled={readOnly} onClick={() => { setPickerOpen(false); onToolChange("select"); onCreationToolChange({kind:"panel",mode:panelOpen?creationTool.mode:"freeform"}); }}><Frame className="h-5 w-5" /></DockButton>
-        <DockButton testId="board-add-more" label="更多" shortcut="" pressed={contentOpen} disabled={readOnly} onClick={() => { setPickerOpen(true); const next = { kind: "content", contentType: contentOpen ? creationTool.contentType : "tile" } as const; onToolChange("select"); onCreationToolChange(next); }}><span className="relative"><MoreHorizontal className="h-6 w-6" /><ChevronUp className="absolute -right-2 -top-2 h-3 w-3" /></span></DockButton>
+        <DockButton testId="board-add-more" label="更多" shortcut="" pressed={contentOpen} disabled={readOnly} onClick={() => { setPickerOpen(true); const next = { kind: "content", contentType: contentOpen ? creationTool.contentType : "tile" } as const; onToolChange("select"); onCreationToolChange(next); }}><span className="relative" style={{width:24,height:24}}><MoreHorizontal style={{width:24,height:24}} /><ChevronUp className="absolute -right-2 -top-2" style={{width:12,height:12}} /></span></DockButton>
 
       </div>
     </nav>
@@ -109,6 +109,6 @@ export function BoardBottomDock({ stickyColor=STICKY_COLOR_PRESETS.yellow,onStic
 
 function DockButton({ testId, label, shortcut, pressed, disabled, onClick, children }: { testId?: string; label: string; shortcut: string; pressed: boolean; disabled?: boolean; onClick: () => void; children: React.ReactNode }) {
   return <button type="button" data-testid={testId} title={shortcut ? `${label} (${shortcut})` : label} aria-label={shortcut ? `${label}，快捷键 ${shortcut}` : label} aria-pressed={pressed} disabled={disabled} onClick={onClick} style={{minHeight:56,minWidth:56,paddingInline:8}} className={cn("group flex shrink-0 flex-col items-center justify-center gap-1 rounded-xl text-11 transition-colors duration-fast hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:bg-disabled disabled:text-disabled-foreground", pressed && "bg-primary text-primary-foreground shadow-md hover:bg-primary-hover hover:text-primary-foreground")}>
-    <span className="transition-transform motion-safe:group-hover:scale-110">{children}</span><span className="leading-none max-sm:sr-only">{label}</span>
+    <span style={{width:24,height:24}} className="grid shrink-0 place-items-center transition-transform motion-safe:group-hover:scale-110 [&>span]:!h-full [&>span]:!w-full [&>svg]:!h-full [&>svg]:!w-full">{children}</span><span className="leading-none max-sm:sr-only">{label}</span>
   </button>;
 }
