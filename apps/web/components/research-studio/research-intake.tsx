@@ -173,11 +173,11 @@ export function ResearchIntake({ sessionId, session, workflow, onSession, onWork
     >
       {submitting ? <ResearchLoading node="directions" /> : <div className="flex min-w-0 flex-col gap-4" data-density="compact-step">
       {sessionId && <p className="rounded-md border border-warning/30 bg-warning/5 p-3 text-12 text-warning-foreground">重新确认后，后续演示结果将重新生成。</p>}
-      <div className="grid gap-4 lg:grid-cols-[minmax(0,2.05fr)_minmax(19rem,1fr)]">
-        <Card className="rounded-xl"><CardContent className="space-y-3 p-5">
+      <div className="grid items-stretch gap-4 lg:min-h-[calc(100dvh-17rem)] lg:grid-cols-[minmax(0,2.05fr)_minmax(19rem,1fr)]">
+        <Card className="flex rounded-xl"><CardContent className="flex w-full flex-col gap-3 p-5">
           <h2 className="text-xl font-bold">告诉 AI 你想研究什么</h2>
-          <div className="rounded-lg border border-border p-4">
-            <Textarea value={brief.goal} maxLength={2000} onChange={(event) => patch("goal", event.target.value)} data-testid="research-brief-goal" aria-label="研究目标" className="min-h-48 resize-y border-0 p-0 text-sm leading-relaxed shadow-none focus-visible:ring-2" placeholder={"请描述你的研究需求，例如：\n\n• 研究目标：你希望解决什么问题？\n• 研究区域 / 对象：研究的行业、地区、人群或具体对象是？\n• 时间范围：关注的时间段是什么？\n• 重点关注：你最关心哪些方面？\n• 关键问题：你希望从研究中获得哪些核心结论或答案？\n\n你也可以直接粘贴相关文档内容。"} />
+          <div className="flex min-h-56 flex-1 flex-col rounded-lg border border-border p-4">
+            <Textarea value={brief.goal} maxLength={2000} onChange={(event) => patch("goal", event.target.value)} data-testid="research-brief-goal" aria-label="研究目标" className="min-h-48 flex-1 resize-y border-0 p-0 text-sm leading-relaxed shadow-none focus-visible:ring-2" placeholder={"请描述你的研究需求，例如：\n\n• 研究目标：你希望解决什么问题？\n• 研究区域 / 对象：研究的行业、地区、人群或具体对象是？\n• 时间范围：关注的时间段是什么？\n• 重点关注：你最关心哪些方面？\n• 关键问题：你希望从研究中获得哪些核心结论或答案？\n\n你也可以直接粘贴相关文档内容。"} />
             <div className="mt-3 flex flex-wrap items-center gap-2"><Button variant="outline" className="h-9 px-4 text-sm" disabled title="当前环境尚未配置实时录音"><Mic className="mr-2 size-4" />录音</Button><Button variant="outline" className="h-9 px-4 text-sm" disabled title="当前环境尚未配置文件导入"><Upload className="mr-2 size-4" />上传文件</Button><span className="ml-auto text-xs text-muted-foreground">{brief.goal.length} / 2000</span></div>
           </div>
           <details className="text-sm"><summary className="cursor-pointer text-muted-foreground">完善研究信息</summary><div className="mt-4 space-y-4">
@@ -186,7 +186,7 @@ export function ResearchIntake({ sessionId, session, workflow, onSession, onWork
           <Field label="重点关注"><Textarea value={brief.focus} onChange={(event) => patch("focus", event.target.value)} data-testid="research-brief-focus" aria-label="重点关注" /></Field>
           </div></details>
           {submitFailed && <p className="text-11 text-destructive" role="alert">研究创建失败，请重试。再次提交不会重复创建。</p>}
-          <div className="flex justify-end"><Button variant="primary" className="h-9 px-5 text-sm" disabled={submitting || !brief.goal.trim() || Boolean(sessionId && !brief.topic.trim())} onClick={() => void confirm()} data-testid="research-confirm-brief">{submitting ? "正在创建…" : "下一步：确认研究主题"}<ArrowRight className="size-4" aria-hidden /></Button></div>
+          <div className="mt-auto flex justify-end"><Button variant="primary" className="h-9 px-5 text-sm" disabled={submitting || !brief.goal.trim() || Boolean(sessionId && !brief.topic.trim())} onClick={() => void confirm()} data-testid="research-confirm-brief">{submitting ? "正在创建…" : "下一步：确认研究主题"}<ArrowRight className="size-4" aria-hidden /></Button></div>
         </CardContent></Card>
         <ResearchPrototypeTips />
       </div>
