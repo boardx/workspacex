@@ -26,6 +26,7 @@ it('keeps the FigJam tool order and exposes Frame as a first-class creation mode
  const creation=vi.fn();
  render(<BoardBottomDock activeTool="select" creationTool={null} readOnly={false} onToolChange={vi.fn()} onCreationToolChange={creation} onQuickCreate={vi.fn()} onBulkSticky={vi.fn()} onImageRequest={vi.fn()}/>);
  const dock=screen.getByTestId('board-creation-dock');
+ expect(dock.lastElementChild).toHaveClass('gap-0.5','p-1','xl:gap-1','xl:p-1.5');
  const ordered=['board-tool-select','board-tool-hand','board-add-sticky','board-add-text','board-add-shape','board-add-connector','board-add-draw','board-add-image','board-add-frame','board-add-more'];
  const positions=ordered.map(id=>Array.from(dock.querySelectorAll('button')).indexOf(screen.getByTestId(id)));
  expect(positions).toEqual([...positions].sort((a,b)=>a-b));

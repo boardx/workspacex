@@ -89,7 +89,7 @@ export function BoardBottomDock({ stickyColor=STICKY_COLOR_PRESETS.yellow,onStic
 
         </div>
       )}
-      <div className="flex items-end gap-1 overflow-x-auto rounded-2xl border border-border bg-card p-1.5 shadow-xl">
+      <div className="flex items-end gap-0.5 overflow-x-auto rounded-2xl border border-border bg-card p-1 shadow-xl xl:gap-1 xl:p-1.5">
         <DockButton testId="board-tool-select" label="选择" shortcut="V" pressed={activeTool === "select" && !creationTool} onClick={() => { onCreationToolChange(null); onToolChange("select"); }}><MousePointer2 className="h-5 w-5" /></DockButton>
         <DockButton testId="board-tool-hand" label="移动画布" shortcut="H" pressed={activeTool === "hand"} onClick={() => { onCreationToolChange(null); onToolChange("hand"); }}><Hand className="h-5 w-5" /></DockButton>
         <span aria-hidden="true" className="mx-1 h-10 w-px bg-border" />
