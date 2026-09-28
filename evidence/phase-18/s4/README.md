@@ -65,10 +65,18 @@ from extraction. Chat answers only echo the memory material the executor handed 
 
 ## Follow-up #4509 — 「我改主意了，改成先做 Y」 (adverb before the frame verb)
 
-Parsing-symmetry fix in `decision-supersede.ts` (`frameAtStart` skips 先 / 就 / 也 / 还是 / 直接 when a frame verb follows);
-R8 tiers and the auto allowlist are unchanged. Evidence in [`i4509/`](i4509/):
+Parsing-symmetry fix in `decision-supersede.ts`: `frameAtStart` skips 先 / 就 / 也 / 直接 when a frame verb follows
+(还是 is not in the list: after a change word it hits `OBJECT_STOP`'s 是 and the clause is dropped anyway; on the
+「算了，还是…」 path `STILL_LEAD` strips it first). R8 tiers and the auto allowlist are unchanged, plus one cap that can
+only lower a result: when the skipped adverb contains 先 and the old decision has no 先 before its frame verb, the pair
+is at most a card (「改成先 X」 may be a reorder, not a replacement). Side effect (review M1): adverb-led change
+sentences on the old side now parse too, so a second matching old decision can turn an auto supersede into nothing.
+Evidence in [`i4509/`](i4509/):
 
 - `fwf-unit.txt` — new unit cases on the base code: 8 positive cases fail (frame read as `{verb:null, object:"先做…"}`),
   every negative (additive / negated / question / hypothetical / retraction, each with the adverb) already empty.
 - `fwf-db.txt` — the new `memory-manage-in-chat` case on the base code: the turn writes nothing (`note` is null).
-- `after-fix.txt` — `decision-supersede` + `decision-claim` 390/390, `memory-manage-in-chat` 18/18, all `decision-*` 421/421.
+- `fwf-cap.txt` — the 先-cap cases on the first revision (adverb skip without the cap): all 7 reach AUTO instead of CARD.
+- `review-pairs-main-vs-fix.txt` — the reviewer's pair list, origin/main vs this fix; 4 pairs go from nothing to AUTO,
+  all of them 就 / 直接.
+- `after-fix.txt` — `decision-supersede` + `decision-claim` 398/398, `memory-manage-in-chat` 18/18, all `decision-*` 429/429.
