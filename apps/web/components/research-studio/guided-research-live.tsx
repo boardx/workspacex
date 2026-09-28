@@ -16,7 +16,7 @@ import { GuidedResearchReportHistory, GuidedResearchEvidenceWarning } from "./gu
 import { GuidedResearchQualityDraft } from "./guided-research-quality-draft";
 import { GuidedResearchReportPreview } from "./guided-research-report-preview";
 import { researchReportPreview } from "@/lib/research-report-preview";
-import { ResearchDesignPreview } from "./guided-research-design-editor";
+import { ResearchDirectionsEditor, ResearchDesignPreview } from "./guided-research-design-editor";
 import { GuidedResearchRuntimeProgress } from "./guided-research-runtime-progress";
 import { GuidedResearchReadiness, researchCompletionLabel, researchLimitations } from "./guided-research-readiness";
 import { GuidedResearchStepLayout } from "./guided-research-step-layout";
@@ -364,6 +364,7 @@ return <GuidedResearchSixStepShell hasUnsavedChanges={Boolean(message.trim()) ||
         {draft?.node === "directions" && <GuidedResearchTopicPanel assistant={conversation} actions={<div className="flex flex-wrap items-center justify-between gap-3"><Button variant="primary" className="h-9 px-4 text-sm" disabled={busy} onClick={() => navigateVisual("import")}>上一步</Button><Button variant="primary" className="h-9 px-4 text-sm" disabled={busy || Boolean(proposal) || !validDraft} onClick={() => void run("confirm", { draft })}>下一步：研究计划</Button></div>} workspace={<>
           <h2 className="text-lg font-bold">完善研究信息</h2>
           <ResearchTopicInformation brief={state.brief} disabled={busy || Boolean(proposal)} onDirtyChange={setTopicInformationDirty} onSave={(value) => void run("save", { node: "brief", draft: { node: "brief", value } })} />
+          <details><summary className="cursor-pointer text-sm font-medium">研究方向（可选调整）</summary><div className="mt-3 space-y-3"><ResearchDirectionsEditor draft={draft} disabled={busy} onChange={setDraft} /><div className="flex justify-end gap-2"><Button variant="outline" disabled={busy || !validDraft} onClick={() => void run("generate", { draft })}>重新生成本步骤</Button><Button variant="outline" disabled={busy || Boolean(proposal) || !validDraft} onClick={() => void run("save", { draft })}>保存草稿</Button></div></div></details>
         </>} />}
         {draft?.node === "outline" && <GuidedResearchPlanPanel onBack={() => navigateVisual("topic")} disabled={busy || Boolean(proposal) || !validDraft || markdownDirty} onConfirm={() => void run("confirm", { draft })}
           plan={<><div className="rounded-lg border bg-muted/20 p-3"><p className="text-xs text-muted-foreground">研究主题</p><h3 className="mt-1 text-sm font-bold">{state.brief.topic}</h3><p className="mt-1 text-xs leading-relaxed text-muted-foreground">{state.brief.goal}</p></div><div className="space-y-2">{outlineDocument && <GuidedResearchMarkdownWorkspace editOnDoubleClick confirmChanges onDirtyChange={setMarkdownDirty} document={outlineDocument} saving={busy} onSave={async (markdown) => {
