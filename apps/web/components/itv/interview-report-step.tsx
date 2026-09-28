@@ -24,7 +24,7 @@ export function InterviewReportStep({ document, shareUrl }: { readonly document:
   const report = { title: projection.headings[0]?.text ?? "研究报告", executiveSummary: projection.sections[0]?.text ?? "", markdown: document.markdown };
   return <div data-testid="itv-source-report">
     <div className="mb-5 flex flex-wrap items-center justify-between gap-3 print:hidden">
-      <div><h2 className="text-xl font-semibold">研究报告</h2><p className="mt-1 text-sm text-muted-foreground">文档版本 {document.version} · {document.evidenceMode === "simulated" ? "模拟访谈，需真人证据验证" : "证据资格以服务端审核为准"}</p></div>
+      <div><h2 className="text-3xl font-semibold tracking-tight lg:text-4xl">研究报告</h2><p className="mt-1 text-base leading-7 text-muted-foreground">文档版本 {document.version} · {document.evidenceMode === "simulated" ? "模拟访谈，需真人证据验证" : "证据资格以服务端审核为准"}</p></div>
       <div className="flex flex-wrap gap-2"><Button disabled={exporting} variant="outline" onClick={() => void runExport(() => exportInterviewReportWord(report, { evidenceMode: document.evidenceMode, review: { eligibility: "blocked_outdated_report", message: "该文档版本尚未关联审批记录，不代表已批准结论。", action: "完成当前版本的证据复核" } }))}>导出 Word</Button><Button disabled={exporting} variant="outline" onClick={() => void runExport(() => exportInterviewReportPdf("itv-source-report-print"))}>导出 PDF</Button>{shareUrl && <Button variant="outline" onClick={() => void share()}>分享报告</Button>}</div>
     </div>
     {exportError && <p role="alert" className="mb-4 text-sm text-destructive print:hidden">{exportError}</p>}
