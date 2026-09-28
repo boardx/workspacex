@@ -156,7 +156,8 @@ export async function runExtractionTick(deps: ExtractionDeps, abandoned: () => b
         if (outcome === "written") written += 1;
         else if (outcome === "empty") empty += 1;
         else skipped += 1;
-        await deps.queue.complete(orgId, job.messageId, job.attempts);
+        // S8 的「值得记」门控跳过的（gated）在 #4352 的逐条结果里记成 skipped（没调抽取模型，与 round 7 不抽同一类）
+        await deps.queue.complete(orgId, job.messageId, job.attempts, outcome === "gated" ? "skipped" : outcome);
         // 没调抽取模型的（门控跳过 / round 7 不抽）不进失败率的分母
         deps.slo?.recordJob(Date.now() - startedAt, outcome === "gated" ? "skipped" : outcome, outcome === "gated" || outcome === "skipped");
       } catch (err) {

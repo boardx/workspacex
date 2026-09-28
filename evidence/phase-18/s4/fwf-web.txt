@@ -1,0 +1,1553 @@
+The CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.
+
+ RUN  v2.1.9 /home/user/workspacex/.claude/worktrees/agent-a7be6603ba4a208b9/apps/web
+
+ ❯ tests/ui/kg-memory-manage.test.tsx (8 tests | 8 failed) 3117ms
+   × MemoryCard：忘掉之后可以撤销 > 已忘掉 N 条 · 撤销 ⇒ 交给 onUndoForget，服务端回 undone ⇒「都恢复了」、不再给撤销 38ms
+     → Unable to find an element by: [data-testid="kg-card-undo"]
+
+Ignored nodes: comments, script, style
+<div
+  class="mt-2 flex flex-col gap-1"
+  data-testid="kg-card-done"
+>
+  <p
+    class="flex items-center gap-1.5 text-10 text-muted-foreground"
+  >
+    <svg
+      aria-hidden="true"
+      class="lucide lucide-check h-3 w-3 text-success"
+      fill="none"
+      height="24"
+      stroke="currentColor"
+      stroke-linecap="round"
+      stroke-linejoin="round"
+      stroke-width="2"
+      viewBox="0 0 24 24"
+      width="24"
+      xmlns="http://www.w3.org/2000/svg"
+    >
+      <path
+        d="M20 6 9 17l-5-5"
+      />
+    </svg>
+    已忘掉 3 条，之后的对话不再用到
+  </p>
+</div>
+   × MemoryCard：忘掉之后可以撤销 > 不是对话创建者 / 没接撤销：只说「已忘掉」，没有撤销（对照：所有者 + 接了撤销 ⇒ 有） 7ms
+     → Unable to find an element by: [data-testid="kg-card-undo"]
+
+Ignored nodes: comments, script, style
+<body>
+  <div>
+    <div
+      class="mt-2 flex flex-col gap-1"
+      data-testid="kg-card-done"
+    >
+      <p
+        class="flex items-center gap-1.5 text-10 text-muted-foreground"
+      >
+        <svg
+          aria-hidden="true"
+          class="lucide lucide-check h-3 w-3 text-success"
+          fill="none"
+          height="24"
+          stroke="currentColor"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+          stroke-width="2"
+          viewBox="0 0 24 24"
+          width="24"
+          xmlns="http://www.w3.org/2000/svg"
+        >
+          <path
+            d="M20 6 9 17l-5-5"
+          />
+        </svg>
+        已忘掉 3 条，之后的对话不再用到
+      </p>
+    </div>
+  </div>
+</body>
+   × MemoryCard：忘掉之后可以撤销 > 撤销失败 ⇒ 卡上一句人话，撤销按钮还在可以再试 5ms
+     → Unable to find an element by: [data-testid="kg-card-undo"]
+
+Ignored nodes: comments, script, style
+<body>
+  <div>
+    <div
+      class="mt-2 flex flex-col gap-1"
+      data-testid="kg-card-done"
+    >
+      <p
+        class="flex items-center gap-1.5 text-10 text-muted-foreground"
+      >
+        <svg
+          aria-hidden="true"
+          class="lucide lucide-check h-3 w-3 text-success"
+          fill="none"
+          height="24"
+          stroke="currentColor"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+          stroke-width="2"
+          viewBox="0 0 24 24"
+          width="24"
+          xmlns="http://www.w3.org/2000/svg"
+        >
+          <path
+            d="M20 6 9 17l-5-5"
+          />
+        </svg>
+        已忘掉 3 条，之后的对话不再用到
+      </p>
+    </div>
+  </div>
+</body>
+   × MemoryCard：忘掉之后可以撤销 > 服务端读回 undone 的卡（刷新之后）⇒ 直接显示「都恢复了」 29ms
+     → Unable to find an element by: [data-testid="kg-card-undone"]
+
+Ignored nodes: comments, script, style
+<body>
+  <div>
+    <div
+      class="mt-2 flex flex-col gap-2 rounded-lg border border-ai-tint bg-ai-tint/40 p-3"
+      data-testid="kg-card-forget"
+    >
+      <div
+        class="flex items-center gap-1.5"
+      >
+        <svg
+          aria-hidden="true"
+          class="lucide lucide-trash2 h-4 w-4 text-destructive"
+          fill="none"
+          height="24"
+          stroke="currentColor"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+          stroke-width="2"
+          viewBox="0 0 24 24"
+          width="24"
+          xmlns="http://www.w3.org/2000/svg"
+        >
+          <path
+            d="M3 6h18"
+          />
+          <path
+            d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"
+          />
+          <path
+            d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"
+          />
+          <line
+            x1="10"
+            x2="10"
+            y1="11"
+            y2="17"
+          />
+          <line
+            x1="14"
+            x2="14"
+            y1="11"
+            y2="17"
+          />
+        </svg>
+        <span
+          class="text-11 font-medium text-ai-tint-foreground"
+        >
+          要忘掉这些吗？忘掉后我就不再提了
+        </span>
+      </div>
+      <ul
+        class="flex flex-col gap-1"
+      >
+        <li
+          class="flex items-start gap-2"
+          data-testid="kg-card-forget-item-c-1"
+        >
+          <div
+            class="flex items-start gap-2 mt-0.5"
+          >
+            <span
+              class="relative mt-0.5 inline-flex h-4 w-4 shrink-0"
+            >
+              <input
+                aria-label="忘掉 王经理负责审批合同"
+                checked=""
+                class="peer h-4 w-4 cursor-pointer appearance-none rounded-control border border-input bg-card transition-all duration-200 checked:border-primary checked:bg-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 disabled:cursor-not-allowed disabled:bg-disabled"
+                data-testid="kg-card-forget-check-c-1"
+                id=":r0:"
+                type="checkbox"
+              />
+              <svg
+                aria-hidden="true"
+                class="lucide lucide-check pointer-events-none absolute left-0.5 top-0.5 h-3 w-3 text-primary-foreground opacity-0 transition-opacity duration-200 peer-checked:opacity-100"
+                fill="none"
+                height="24"
+                stroke="currentColor"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="2"
+                viewBox="0 0 24 24"
+                width="24"
+                xmlns="http://www.w3.org/2000/svg"
+              >
+                <path
+                  d="M20 6 9 17l-5-5"
+                />
+              </svg>
+            </span>
+          </div>
+          <span
+            class="text-11 text-background-foreground"
+          >
+            王经理负责审批合同
+          </span>
+        </li>
+        <li
+          class="flex items-start gap-2"
+          data-testid="kg-card-forget-item-c-2"
+        >
+          <div
+            class="flex items-start gap-2 mt-0.5"
+          >
+            <span
+              class="relative mt-0.5 inline-flex h-4 w-4 shrink-0"
+            >
+              <input
+                aria-label="忘掉 客户A的对接人是王经理"
+                checked=""
+                class="peer h-4 w-4 cursor-pointer appearance-none rounded-control border border-input bg-card transition-all duration-200 checked:border-primary checked:bg-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 disabled:cursor-not-allowed disabled:bg-disabled"
+                data-testid="kg-card-forget-check-c-2"
+                id=":r1:"
+                type="checkbox"
+              />
+              <svg
+                aria-hidden="true"
+                class="lucide lucide-check pointer-events-none absolute left-0.5 top-0.5 h-3 w-3 text-primary-foreground opacity-0 transition-opacity duration-200 peer-checked:opacity-100"
+                fill="none"
+                height="24"
+                stroke="currentColor"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="2"
+                viewBox="0 0 24 24"
+                width="24"
+                xmlns="http://www.w3.org/2000/svg"
+              >
+                <path
+                  d="M20 6 9 17l-5-5"
+                />
+              </svg>
+            </span>
+          </div>
+          <span
+            class="text-11 text-background-foreground"
+          >
+            客户A的对接人是王经理
+          </span>
+        </li>
+        <li
+          class="flex items-start gap-2"
+          data-testid="kg-card-forget-item-c-3"
+        >
+          <div
+            class="flex items-start gap-2 mt-0.5"
+          >
+            <span
+              class="relative mt-0.5 inline-flex h-4 w-4 shrink-0"
+            >
+              <input
+                aria-label="忘掉 王经理下周休假"
+                checked=""
+                class="peer h-4 w-4 cursor-pointer appearance-none rounded-control border border-input bg-card transition-all duration-200 checked:border-primary checked:bg-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 disabled:cursor-not-allowed disabled:bg-disabled"
+                data-testid="kg-card-forget-check-c-3"
+                id=":r2:"
+                type="checkbox"
+              />
+              <svg
+                aria-hidden="true"
+                class="lucide lucide-check pointer-events-none absolute left-0.5 top-0.5 h-3 w-3 text-primary-foreground opacity-0 transition-opacity duration-200 peer-checked:opacity-100"
+                fill="none"
+                height="24"
+                stroke="currentColor"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="2"
+                viewBox="0 0 24 24"
+                width="24"
+                xmlns="http://www.w3.org/2000/svg"
+              >
+                <path
+                  d="M20 6 9 17l-5-5"
+                />
+              </svg>
+            </span>
+          </div>
+          <span
+            class="text-11 text-background-foreground"
+          >
+            王经理下周休假
+          </span>
+        </li>
+      </ul>
+      <div
+        class="flex items-center gap-1.5"
+      >
+        <button
+          class="inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-all duration-200 ease-in-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent bg-destructive text-destructive-foreground hover:bg-destructive/90 active:scale-[0.98] h-6 px-2 text-11"
+          data-testid="kg-card-accept"
+        >
+          忘掉（3）
+        </button>
+        <button
+          class="inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-all duration-200 ease-in-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent text-muted-foreground hover:bg-muted hover:text-background-foreground h-6 px-2 text-11"
+          data-testid="kg-card-dismiss"
+        >
+          不用了
+        </button>
+      </div>
+    </div>
+  </div>
+</body>
+   × MemoryCard：「你记得我什么」清单 > 按种类分组（决定 → 事实 → 待办），每条带来源对话链接，没有来源的写「长期记忆」；没有任何按钮 10ms
+     → Unable to find an element by: [data-testid="kg-card-overview"]
+
+Ignored nodes: comments, script, style
+<body>
+  <div>
+    <div
+      class="mt-2 flex flex-col gap-2 rounded-lg border border-ai-tint bg-ai-tint/40 p-3"
+      data-testid="kg-card-forget"
+    >
+      <div
+        class="flex items-center gap-1.5"
+      >
+        <svg
+          aria-hidden="true"
+          class="lucide lucide-trash2 h-4 w-4 text-destructive"
+          fill="none"
+          height="24"
+          stroke="currentColor"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+          stroke-width="2"
+          viewBox="0 0 24 24"
+          width="24"
+          xmlns="http://www.w3.org/2000/svg"
+        >
+          <path
+            d="M3 6h18"
+          />
+          <path
+            d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"
+          />
+          <path
+            d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"
+          />
+          <line
+            x1="10"
+            x2="10"
+            y1="11"
+            y2="17"
+          />
+          <line
+            x1="14"
+            x2="14"
+            y1="11"
+            y2="17"
+          />
+        </svg>
+        <span
+          class="text-11 font-medium text-ai-tint-foreground"
+        >
+          要忘掉这些吗？忘掉后我就不再提了
+        </span>
+      </div>
+      <ul
+        class="flex flex-col gap-1"
+      >
+        <li
+          class="flex items-start gap-2"
+          data-testid="kg-card-forget-item-t-1"
+        >
+          <div
+            class="flex items-start gap-2 mt-0.5"
+          >
+            <span
+              class="relative mt-0.5 inline-flex h-4 w-4 shrink-0"
+            >
+              <input
+                aria-label="忘掉 周五之前把报价单发给客户A"
+                checked=""
+                class="peer h-4 w-4 cursor-pointer appearance-none rounded-control border border-input bg-card transition-all duration-200 checked:border-primary checked:bg-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 disabled:cursor-not-allowed disabled:bg-disabled"
+                data-testid="kg-card-forget-check-t-1"
+                id=":r3:"
+                type="checkbox"
+              />
+              <svg
+                aria-hidden="true"
+                class="lucide lucide-check pointer-events-none absolute left-0.5 top-0.5 h-3 w-3 text-primary-foreground opacity-0 transition-opacity duration-200 peer-checked:opacity-100"
+                fill="none"
+                height="24"
+                stroke="currentColor"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="2"
+                viewBox="0 0 24 24"
+                width="24"
+                xmlns="http://www.w3.org/2000/svg"
+              >
+                <path
+                  d="M20 6 9 17l-5-5"
+                />
+              </svg>
+            </span>
+          </div>
+          <span
+            class="text-11 text-background-foreground"
+          >
+            周五之前把报价单发给客户A
+          </span>
+        </li>
+        <li
+          class="flex items-start gap-2"
+          data-testid="kg-card-forget-item-d-1"
+        >
+          <div
+            class="flex items-start gap-2 mt-0.5"
+          >
+            <span
+              class="relative mt-0.5 inline-flex h-4 w-4 shrink-0"
+            >
+              <input
+                aria-label="忘掉 改成关注985高校"
+                checked=""
+                class="peer h-4 w-4 cursor-pointer appearance-none rounded-control border border-input bg-card transition-all duration-200 checked:border-primary checked:bg-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 disabled:cursor-not-allowed disabled:bg-disabled"
+                data-testid="kg-card-forget-check-d-1"
+                id=":r4:"
+                type="checkbox"
+              />
+              <svg
+                aria-hidden="true"
+                class="lucide lucide-check pointer-events-none absolute left-0.5 top-0.5 h-3 w-3 text-primary-foreground opacity-0 transition-opacity duration-200 peer-checked:opacity-100"
+                fill="none"
+                height="24"
+                stroke="currentColor"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="2"
+                viewBox="0 0 24 24"
+                width="24"
+                xmlns="http://www.w3.org/2000/svg"
+              >
+                <path
+                  d="M20 6 9 17l-5-5"
+                />
+              </svg>
+            </span>
+          </div>
+          <span
+            class="text-11 text-background-foreground"
+          >
+            改成关注985高校
+          </span>
+        </li>
+        <li
+          class="flex items-start gap-2"
+          data-testid="kg-card-forget-item-f-1"
+        >
+          <div
+            class="flex items-start gap-2 mt-0.5"
+          >
+            <span
+              class="relative mt-0.5 inline-flex h-4 w-4 shrink-0"
+            >
+              <input
+                aria-label="忘掉 客户A的对接人是王经理"
+                checked=""
+                class="peer h-4 w-4 cursor-pointer appearance-none rounded-control border border-input bg-card transition-all duration-200 checked:border-primary checked:bg-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 disabled:cursor-not-allowed disabled:bg-disabled"
+                data-testid="kg-card-forget-check-f-1"
+                id=":r5:"
+                type="checkbox"
+              />
+              <svg
+                aria-hidden="true"
+                class="lucide lucide-check pointer-events-none absolute left-0.5 top-0.5 h-3 w-3 text-primary-foreground opacity-0 transition-opacity duration-200 peer-checked:opacity-100"
+                fill="none"
+                height="24"
+                stroke="currentColor"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="2"
+                viewBox="0 0 24 24"
+                width="24"
+                xmlns="http://www.w3.org/2000/svg"
+              >
+                <path
+                  d="M20 6 9 17l-5-5"
+                />
+              </svg>
+            </span>
+          </div>
+          <span
+            class="text-11 text-background-foreground"
+          >
+            客户A的对接人是王经理
+          </span>
+        </li>
+      </ul>
+      <div
+        class="flex items-center gap-1.5"
+      >
+        <button
+          class="inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-all duration-200 ease-in-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent bg-destructive text-destructive-foreground hover:bg-destructive/90 active:scale-[0.98] h-6 px-2 text-11"
+          data-testid="kg-card-accept"
+        >
+          忘掉（3）
+        </button>
+        <button
+          class="inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-all duration-200 ease-in-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent text-muted-foreground hover:bg-muted hover:text-background-foreground h-6 px-2 text-11"
+          data-testid="kg-card-dismiss"
+        >
+          不用了
+        </button>
+      </div>
+    </div>
+  </div>
+</body>
+   × TurnMemoryLine：忘掉卡的撤销 > 点「撤销」⇒ POST /knowledge-graph/cards/card-f1/undo；成功后「都恢复了」、记忆面板重读 1012ms
+     → Unable to find an element by: [data-testid="kg-card-undo"]
+
+Ignored nodes: comments, script, style
+<body>
+  <div>
+    <div
+      class="mt-2 flex flex-col gap-1"
+      data-testid="kg-card-done"
+    >
+      <p
+        class="flex items-center gap-1.5 text-10 text-muted-foreground"
+      >
+        <svg
+          aria-hidden="true"
+          class="lucide lucide-check h-3 w-3 text-success"
+          fill="none"
+          height="24"
+          stroke="currentColor"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+          stroke-width="2"
+          viewBox="0 0 24 24"
+          width="24"
+          xmlns="http://www.w3.org/2000/svg"
+        >
+          <path
+            d="M20 6 9 17l-5-5"
+          />
+        </svg>
+        已忘掉 3 条，之后的对话不再用到
+      </p>
+    </div>
+  </div>
+</body>
+
+Ignored nodes: comments, script, style
+<body>
+  <div>
+    <div
+      class="mt-2 flex flex-col gap-1"
+      data-testid="kg-card-done"
+    >
+      <p
+        class="flex items-center gap-1.5 text-10 text-muted-foreground"
+      >
+        <svg
+          aria-hidden="true"
+          class="lucide lucide-check h-3 w-3 text-success"
+          fill="none"
+          height="24"
+          stroke="currentColor"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+          stroke-width="2"
+          viewBox="0 0 24 24"
+          width="24"
+          xmlns="http://www.w3.org/2000/svg"
+        >
+          <path
+            d="M20 6 9 17l-5-5"
+          />
+        </svg>
+        已忘掉 3 条，之后的对话不再用到
+      </p>
+    </div>
+  </div>
+</body>
+   × TurnMemoryLine：忘掉卡的撤销 > 卡已经撤过（KG_CARD_STALE）⇒ 人话，重读这一轮后按服务端现在的样子显示 1009ms
+     → Unable to find an element by: [data-testid="kg-card-undo"]
+
+Ignored nodes: comments, script, style
+<body>
+  <div>
+    <div
+      class="mt-2 flex flex-col gap-1"
+      data-testid="kg-card-done"
+    >
+      <p
+        class="flex items-center gap-1.5 text-10 text-muted-foreground"
+      >
+        <svg
+          aria-hidden="true"
+          class="lucide lucide-check h-3 w-3 text-success"
+          fill="none"
+          height="24"
+          stroke="currentColor"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+          stroke-width="2"
+          viewBox="0 0 24 24"
+          width="24"
+          xmlns="http://www.w3.org/2000/svg"
+        >
+          <path
+            d="M20 6 9 17l-5-5"
+          />
+        </svg>
+        已忘掉 3 条，之后的对话不再用到
+      </p>
+    </div>
+  </div>
+</body>
+
+Ignored nodes: comments, script, style
+<body>
+  <div>
+    <div
+      class="mt-2 flex flex-col gap-1"
+      data-testid="kg-card-done"
+    >
+      <p
+        class="flex items-center gap-1.5 text-10 text-muted-foreground"
+      >
+        <svg
+          aria-hidden="true"
+          class="lucide lucide-check h-3 w-3 text-success"
+          fill="none"
+          height="24"
+          stroke="currentColor"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+          stroke-width="2"
+          viewBox="0 0 24 24"
+          width="24"
+          xmlns="http://www.w3.org/2000/svg"
+        >
+          <path
+            d="M20 6 9 17l-5-5"
+          />
+        </svg>
+        已忘掉 3 条，之后的对话不再用到
+      </p>
+    </div>
+  </div>
+</body>
+   × TurnMemoryLine：忘掉卡的撤销 > 非所有者：没有撤销、不发写请求（对照：所有者看得到撤销） 1005ms
+     → Unable to find an element by: [data-testid="kg-card-undo"]
+
+Ignored nodes: comments, script, style
+<body>
+  <div>
+    <div
+      class="mt-2 flex flex-col gap-1"
+      data-testid="kg-card-done"
+    >
+      <p
+        class="flex items-center gap-1.5 text-10 text-muted-foreground"
+      >
+        <svg
+          aria-hidden="true"
+          class="lucide lucide-check h-3 w-3 text-success"
+          fill="none"
+          height="24"
+          stroke="currentColor"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+          stroke-width="2"
+          viewBox="0 0 24 24"
+          width="24"
+          xmlns="http://www.w3.org/2000/svg"
+        >
+          <path
+            d="M20 6 9 17l-5-5"
+          />
+        </svg>
+        已忘掉 3 条，之后的对话不再用到
+      </p>
+    </div>
+  </div>
+</body>
+
+Ignored nodes: comments, script, style
+<body>
+  <div>
+    <div
+      class="mt-2 flex flex-col gap-1"
+      data-testid="kg-card-done"
+    >
+      <p
+        class="flex items-center gap-1.5 text-10 text-muted-foreground"
+      >
+        <svg
+          aria-hidden="true"
+          class="lucide lucide-check h-3 w-3 text-success"
+          fill="none"
+          height="24"
+          stroke="currentColor"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+          stroke-width="2"
+          viewBox="0 0 24 24"
+          width="24"
+          xmlns="http://www.w3.org/2000/svg"
+        >
+          <path
+            d="M20 6 9 17l-5-5"
+          />
+        </svg>
+        已忘掉 3 条，之后的对话不再用到
+      </p>
+    </div>
+  </div>
+</body>
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 8 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/ui/kg-memory-manage.test.tsx > MemoryCard：忘掉之后可以撤销 > 已忘掉 N 条 · 撤销 ⇒ 交给 onUndoForget，服务端回 undone ⇒「都恢复了」、不再给撤销
+TestingLibraryElementError: Unable to find an element by: [data-testid="kg-card-undo"]
+
+Ignored nodes: comments, script, style
+<div
+  class="mt-2 flex flex-col gap-1"
+  data-testid="kg-card-done"
+>
+  <p
+    class="flex items-center gap-1.5 text-10 text-muted-foreground"
+  >
+    <svg
+      aria-hidden="true"
+      class="lucide lucide-check h-3 w-3 text-success"
+      fill="none"
+      height="24"
+      stroke="currentColor"
+      stroke-linecap="round"
+      stroke-linejoin="round"
+      stroke-width="2"
+      viewBox="0 0 24 24"
+      width="24"
+      xmlns="http://www.w3.org/2000/svg"
+    >
+      <path
+        d="M20 6 9 17l-5-5"
+      />
+    </svg>
+    已忘掉 3 条，之后的对话不再用到
+  </p>
+</div>
+ ❯ Object.getElementError ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/config.js:37:19
+ ❯ ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/query-helpers.js:76:38
+ ❯ ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/query-helpers.js:52:17
+ ❯ ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/query-helpers.js:95:19
+ ❯ tests/ui/kg-memory-manage.test.tsx:43:34
+     41|     const done = screen.getByTestId("kg-card-done");
+     42|     expect(done).toHaveTextContent("已忘掉 3 条");
+     43|     fireEvent.click(within(done).getByTestId("kg-card-undo"));
+       |                                  ^
+     44|     expect(await screen.findByTestId("kg-card-undone")).toHaveTextCont…
+     45|     expect(onUndoForget).toHaveBeenCalledTimes(1);
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/8]⎯
+
+ FAIL  tests/ui/kg-memory-manage.test.tsx > MemoryCard：忘掉之后可以撤销 > 不是对话创建者 / 没接撤销：只说「已忘掉」，没有撤销（对照：所有者 + 接了撤销 ⇒ 有）
+TestingLibraryElementError: Unable to find an element by: [data-testid="kg-card-undo"]
+
+Ignored nodes: comments, script, style
+<body>
+  <div>
+    <div
+      class="mt-2 flex flex-col gap-1"
+      data-testid="kg-card-done"
+    >
+      <p
+        class="flex items-center gap-1.5 text-10 text-muted-foreground"
+      >
+        <svg
+          aria-hidden="true"
+          class="lucide lucide-check h-3 w-3 text-success"
+          fill="none"
+          height="24"
+          stroke="currentColor"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+          stroke-width="2"
+          viewBox="0 0 24 24"
+          width="24"
+          xmlns="http://www.w3.org/2000/svg"
+        >
+          <path
+            d="M20 6 9 17l-5-5"
+          />
+        </svg>
+        已忘掉 3 条，之后的对话不再用到
+      </p>
+    </div>
+  </div>
+</body>
+ ❯ Object.getElementError ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/config.js:37:19
+ ❯ ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/query-helpers.js:76:38
+ ❯ ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/query-helpers.js:52:17
+ ❯ ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/query-helpers.js:95:19
+ ❯ tests/ui/kg-memory-manage.test.tsx:51:19
+     49|   it("不是对话创建者 / 没接撤销：只说「已忘掉」，没有撤销（对照：所有…
+     50|     const { rerender } = render(<MemoryCard card={{ ...FORGET, state: …
+     51|     expect(screen.getByTestId("kg-card-undo")).toBeInTheDocument();
+       |                   ^
+     52|     rerender(<MemoryCard card={{ ...FORGET, state: "done" }} canAct={f…
+     53|     expect(screen.queryByTestId("kg-card-undo")).toBeNull();
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/8]⎯
+
+ FAIL  tests/ui/kg-memory-manage.test.tsx > MemoryCard：忘掉之后可以撤销 > 撤销失败 ⇒ 卡上一句人话，撤销按钮还在可以再试
+TestingLibraryElementError: Unable to find an element by: [data-testid="kg-card-undo"]
+
+Ignored nodes: comments, script, style
+<body>
+  <div>
+    <div
+      class="mt-2 flex flex-col gap-1"
+      data-testid="kg-card-done"
+    >
+      <p
+        class="flex items-center gap-1.5 text-10 text-muted-foreground"
+      >
+        <svg
+          aria-hidden="true"
+          class="lucide lucide-check h-3 w-3 text-success"
+          fill="none"
+          height="24"
+          stroke="currentColor"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+          stroke-width="2"
+          viewBox="0 0 24 24"
+          width="24"
+          xmlns="http://www.w3.org/2000/svg"
+        >
+          <path
+            d="M20 6 9 17l-5-5"
+          />
+        </svg>
+        已忘掉 3 条，之后的对话不再用到
+      </p>
+    </div>
+  </div>
+</body>
+ ❯ Object.getElementError ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/config.js:37:19
+ ❯ ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/query-helpers.js:76:38
+ ❯ ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/query-helpers.js:52:17
+ ❯ ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/query-helpers.js:95:19
+ ❯ tests/ui/kg-memory-manage.test.tsx:61:28
+     59|     const onUndoForget = vi.fn(async () => { throw new Error("这张卡上…
+     60|     render(<MemoryCard card={{ ...FORGET, state: "done" }} canAct onAc…
+     61|     fireEvent.click(screen.getByTestId("kg-card-undo"));
+       |                            ^
+     62|     expect(await screen.findByTestId("kg-card-error")).toHaveTextConte…
+     63|     expect(screen.getByTestId("kg-card-undo")).toBeEnabled();
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/8]⎯
+
+ FAIL  tests/ui/kg-memory-manage.test.tsx > MemoryCard：忘掉之后可以撤销 > 服务端读回 undone 的卡（刷新之后）⇒ 直接显示「都恢复了」
+TestingLibraryElementError: Unable to find an element by: [data-testid="kg-card-undone"]
+
+Ignored nodes: comments, script, style
+<body>
+  <div>
+    <div
+      class="mt-2 flex flex-col gap-2 rounded-lg border border-ai-tint bg-ai-tint/40 p-3"
+      data-testid="kg-card-forget"
+    >
+      <div
+        class="flex items-center gap-1.5"
+      >
+        <svg
+          aria-hidden="true"
+          class="lucide lucide-trash2 h-4 w-4 text-destructive"
+          fill="none"
+          height="24"
+          stroke="currentColor"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+          stroke-width="2"
+          viewBox="0 0 24 24"
+          width="24"
+          xmlns="http://www.w3.org/2000/svg"
+        >
+          <path
+            d="M3 6h18"
+          />
+          <path
+            d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"
+          />
+          <path
+            d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"
+          />
+          <line
+            x1="10"
+            x2="10"
+            y1="11"
+            y2="17"
+          />
+          <line
+            x1="14"
+            x2="14"
+            y1="11"
+            y2="17"
+          />
+        </svg>
+        <span
+          class="text-11 font-medium text-ai-tint-foreground"
+        >
+          要忘掉这些吗？忘掉后我就不再提了
+        </span>
+      </div>
+      <ul
+        class="flex flex-col gap-1"
+      >
+        <li
+          class="flex items-start gap-2"
+          data-testid="kg-card-forget-item-c-1"
+        >
+          <div
+            class="flex items-start gap-2 mt-0.5"
+          >
+            <span
+              class="relative mt-0.5 inline-flex h-4 w-4 shrink-0"
+            >
+              <input
+                aria-label="忘掉 王经理负责审批合同"
+                checked=""
+                class="peer h-4 w-4 cursor-pointer appearance-none rounded-control border border-input bg-card transition-all duration-200 checked:border-primary checked:bg-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 disabled:cursor-not-allowed disabled:bg-disabled"
+                data-testid="kg-card-forget-check-c-1"
+                id=":r0:"
+                type="checkbox"
+              />
+              <svg
+                aria-hidden="true"
+                class="lucide lucide-check pointer-events-none absolute left-0.5 top-0.5 h-3 w-3 text-primary-foreground opacity-0 transition-opacity duration-200 peer-checked:opacity-100"
+                fill="none"
+                height="24"
+                stroke="currentColor"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="2"
+                viewBox="0 0 24 24"
+                width="24"
+                xmlns="http://www.w3.org/2000/svg"
+              >
+                <path
+                  d="M20 6 9 17l-5-5"
+                />
+              </svg>
+            </span>
+          </div>
+          <span
+            class="text-11 text-background-foreground"
+          >
+            王经理负责审批合同
+          </span>
+        </li>
+        <li
+          class="flex items-start gap-2"
+          data-testid="kg-card-forget-item-c-2"
+        >
+          <div
+            class="flex items-start gap-2 mt-0.5"
+          >
+            <span
+              class="relative mt-0.5 inline-flex h-4 w-4 shrink-0"
+            >
+              <input
+                aria-label="忘掉 客户A的对接人是王经理"
+                checked=""
+                class="peer h-4 w-4 cursor-pointer appearance-none rounded-control border border-input bg-card transition-all duration-200 checked:border-primary checked:bg-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 disabled:cursor-not-allowed disabled:bg-disabled"
+                data-testid="kg-card-forget-check-c-2"
+                id=":r1:"
+                type="checkbox"
+              />
+              <svg
+                aria-hidden="true"
+                class="lucide lucide-check pointer-events-none absolute left-0.5 top-0.5 h-3 w-3 text-primary-foreground opacity-0 transition-opacity duration-200 peer-checked:opacity-100"
+                fill="none"
+                height="24"
+                stroke="currentColor"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="2"
+                viewBox="0 0 24 24"
+                width="24"
+                xmlns="http://www.w3.org/2000/svg"
+              >
+                <path
+                  d="M20 6 9 17l-5-5"
+                />
+              </svg>
+            </span>
+          </div>
+          <span
+            class="text-11 text-background-foreground"
+          >
+            客户A的对接人是王经理
+          </span>
+        </li>
+        <li
+          class="flex items-start gap-2"
+          data-testid="kg-card-forget-item-c-3"
+        >
+          <div
+            class="flex items-start gap-2 mt-0.5"
+          >
+            <span
+              class="relative mt-0.5 inline-flex h-4 w-4 shrink-0"
+            >
+              <input
+                aria-label="忘掉 王经理下周休假"
+                checked=""
+                class="peer h-4 w-4 cursor-pointer appearance-none rounded-control border border-input bg-card transition-all duration-200 checked:border-primary checked:bg-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 disabled:cursor-not-allowed disabled:bg-disabled"
+                data-testid="kg-card-forget-check-c-3"
+                id=":r2:"
+                type="checkbox"
+              />
+              <svg
+                aria-hidden="true"
+                class="lucide lucide-check pointer-events-none absolute left-0.5 top-0.5 h-3 w-3 text-primary-foreground opacity-0 transition-opacity duration-200 peer-checked:opacity-100"
+                fill="none"
+                height="24"
+                stroke="currentColor"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="2"
+                viewBox="0 0 24 24"
+                width="24"
+                xmlns="http://www.w3.org/2000/svg"
+              >
+                <path
+                  d="M20 6 9 17l-5-5"
+                />
+              </svg>
+            </span>
+          </div>
+          <span
+            class="text-11 text-background-foreground"
+          >
+            王经理下周休假
+          </span>
+        </li>
+      </ul>
+      <div
+        class="flex items-center gap-1.5"
+      >
+        <button
+          class="inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-all duration-200 ease-in-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent bg-destructive text-destructive-foreground hover:bg-destructive/90 active:scale-[0.98] h-6 px-2 text-11"
+          data-testid="kg-card-accept"
+        >
+          忘掉（3）
+        </button>
+        <button
+          class="inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-all duration-200 ease-in-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent text-muted-foreground hover:bg-muted hover:text-background-foreground h-6 px-2 text-11"
+          data-testid="kg-card-dismiss"
+        >
+          不用了
+        </button>
+      </div>
+    </div>
+  </div>
+</body>
+ ❯ Object.getElementError ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/config.js:37:19
+ ❯ ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/query-helpers.js:76:38
+ ❯ ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/query-helpers.js:52:17
+ ❯ ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/query-helpers.js:95:19
+ ❯ tests/ui/kg-memory-manage.test.tsx:68:19
+     66|   it("服务端读回 undone 的卡（刷新之后）⇒ 直接显示「都恢复了」", () =>…
+     67|     render(<MemoryCard card={{ ...FORGET, state: "undone" }} canAct on…
+     68|     expect(screen.getByTestId("kg-card-undone")).toHaveTextContent("都…
+       |                   ^
+     69|   });
+     70| });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/8]⎯
+
+ FAIL  tests/ui/kg-memory-manage.test.tsx > MemoryCard：「你记得我什么」清单 > 按种类分组（决定 → 事实 → 待办），每条带来源对话链接，没有来源的写「长期记忆」；没有任何按钮
+TestingLibraryElementError: Unable to find an element by: [data-testid="kg-card-overview"]
+
+Ignored nodes: comments, script, style
+<body>
+  <div>
+    <div
+      class="mt-2 flex flex-col gap-2 rounded-lg border border-ai-tint bg-ai-tint/40 p-3"
+      data-testid="kg-card-forget"
+    >
+      <div
+        class="flex items-center gap-1.5"
+      >
+        <svg
+          aria-hidden="true"
+          class="lucide lucide-trash2 h-4 w-4 text-destructive"
+          fill="none"
+          height="24"
+          stroke="currentColor"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+          stroke-width="2"
+          viewBox="0 0 24 24"
+          width="24"
+          xmlns="http://www.w3.org/2000/svg"
+        >
+          <path
+            d="M3 6h18"
+          />
+          <path
+            d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"
+          />
+          <path
+            d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"
+          />
+          <line
+            x1="10"
+            x2="10"
+            y1="11"
+            y2="17"
+          />
+          <line
+            x1="14"
+            x2="14"
+            y1="11"
+            y2="17"
+          />
+        </svg>
+        <span
+          class="text-11 font-medium text-ai-tint-foreground"
+        >
+          要忘掉这些吗？忘掉后我就不再提了
+        </span>
+      </div>
+      <ul
+        class="flex flex-col gap-1"
+      >
+        <li
+          class="flex items-start gap-2"
+          data-testid="kg-card-forget-item-t-1"
+        >
+          <div
+            class="flex items-start gap-2 mt-0.5"
+          >
+            <span
+              class="relative mt-0.5 inline-flex h-4 w-4 shrink-0"
+            >
+              <input
+                aria-label="忘掉 周五之前把报价单发给客户A"
+                checked=""
+                class="peer h-4 w-4 cursor-pointer appearance-none rounded-control border border-input bg-card transition-all duration-200 checked:border-primary checked:bg-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 disabled:cursor-not-allowed disabled:bg-disabled"
+                data-testid="kg-card-forget-check-t-1"
+                id=":r3:"
+                type="checkbox"
+              />
+              <svg
+                aria-hidden="true"
+                class="lucide lucide-check pointer-events-none absolute left-0.5 top-0.5 h-3 w-3 text-primary-foreground opacity-0 transition-opacity duration-200 peer-checked:opacity-100"
+                fill="none"
+                height="24"
+                stroke="currentColor"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="2"
+                viewBox="0 0 24 24"
+                width="24"
+                xmlns="http://www.w3.org/2000/svg"
+              >
+                <path
+                  d="M20 6 9 17l-5-5"
+                />
+              </svg>
+            </span>
+          </div>
+          <span
+            class="text-11 text-background-foreground"
+          >
+            周五之前把报价单发给客户A
+          </span>
+        </li>
+        <li
+          class="flex items-start gap-2"
+          data-testid="kg-card-forget-item-d-1"
+        >
+          <div
+            class="flex items-start gap-2 mt-0.5"
+          >
+            <span
+              class="relative mt-0.5 inline-flex h-4 w-4 shrink-0"
+            >
+              <input
+                aria-label="忘掉 改成关注985高校"
+                checked=""
+                class="peer h-4 w-4 cursor-pointer appearance-none rounded-control border border-input bg-card transition-all duration-200 checked:border-primary checked:bg-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 disabled:cursor-not-allowed disabled:bg-disabled"
+                data-testid="kg-card-forget-check-d-1"
+                id=":r4:"
+                type="checkbox"
+              />
+              <svg
+                aria-hidden="true"
+                class="lucide lucide-check pointer-events-none absolute left-0.5 top-0.5 h-3 w-3 text-primary-foreground opacity-0 transition-opacity duration-200 peer-checked:opacity-100"
+                fill="none"
+                height="24"
+                stroke="currentColor"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="2"
+                viewBox="0 0 24 24"
+                width="24"
+                xmlns="http://www.w3.org/2000/svg"
+              >
+                <path
+                  d="M20 6 9 17l-5-5"
+                />
+              </svg>
+            </span>
+          </div>
+          <span
+            class="text-11 text-background-foreground"
+          >
+            改成关注985高校
+          </span>
+        </li>
+        <li
+          class="flex items-start gap-2"
+          data-testid="kg-card-forget-item-f-1"
+        >
+          <div
+            class="flex items-start gap-2 mt-0.5"
+          >
+            <span
+              class="relative mt-0.5 inline-flex h-4 w-4 shrink-0"
+            >
+              <input
+                aria-label="忘掉 客户A的对接人是王经理"
+                checked=""
+                class="peer h-4 w-4 cursor-pointer appearance-none rounded-control border border-input bg-card transition-all duration-200 checked:border-primary checked:bg-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 disabled:cursor-not-allowed disabled:bg-disabled"
+                data-testid="kg-card-forget-check-f-1"
+                id=":r5:"
+                type="checkbox"
+              />
+              <svg
+                aria-hidden="true"
+                class="lucide lucide-check pointer-events-none absolute left-0.5 top-0.5 h-3 w-3 text-primary-foreground opacity-0 transition-opacity duration-200 peer-checked:opacity-100"
+                fill="none"
+                height="24"
+                stroke="currentColor"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="2"
+                viewBox="0 0 24 24"
+                width="24"
+                xmlns="http://www.w3.org/2000/svg"
+              >
+                <path
+                  d="M20 6 9 17l-5-5"
+                />
+              </svg>
+            </span>
+          </div>
+          <span
+            class="text-11 text-background-foreground"
+          >
+            客户A的对接人是王经理
+          </span>
+        </li>
+      </ul>
+      <div
+        class="flex items-center gap-1.5"
+      >
+        <button
+          class="inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-all duration-200 ease-in-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent bg-destructive text-destructive-foreground hover:bg-destructive/90 active:scale-[0.98] h-6 px-2 text-11"
+          data-testid="kg-card-accept"
+        >
+          忘掉（3）
+        </button>
+        <button
+          class="inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-all duration-200 ease-in-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent text-muted-foreground hover:bg-muted hover:text-background-foreground h-6 px-2 text-11"
+          data-testid="kg-card-dismiss"
+        >
+          不用了
+        </button>
+      </div>
+    </div>
+  </div>
+</body>
+ ❯ Object.getElementError ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/config.js:37:19
+ ❯ ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/query-helpers.js:76:38
+ ❯ ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/query-helpers.js:52:17
+ ❯ ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/query-helpers.js:95:19
+ ❯ tests/ui/kg-memory-manage.test.tsx:75:25
+     73|   it("按种类分组（决定 → 事实 → 待办），每条带来源对话链接，没有来源的…
+     74|     render(<MemoryCard card={OVERVIEW} canAct onAct={vi.fn()} />);
+     75|     const card = screen.getByTestId("kg-card-overview");
+       |                         ^
+     76|     const groups = within(card).getAllByRole("heading").map((h) => h.t…
+     77|     expect(groups).toEqual(["决定", "事实", "待办"]);
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[5/8]⎯
+
+ FAIL  tests/ui/kg-memory-manage.test.tsx > TurnMemoryLine：忘掉卡的撤销 > 点「撤销」⇒ POST /knowledge-graph/cards/card-f1/undo；成功后「都恢复了」、记忆面板重读
+TestingLibraryElementError: Unable to find an element by: [data-testid="kg-card-undo"]
+
+Ignored nodes: comments, script, style
+<body>
+  <div>
+    <div
+      class="mt-2 flex flex-col gap-1"
+      data-testid="kg-card-done"
+    >
+      <p
+        class="flex items-center gap-1.5 text-10 text-muted-foreground"
+      >
+        <svg
+          aria-hidden="true"
+          class="lucide lucide-check h-3 w-3 text-success"
+          fill="none"
+          height="24"
+          stroke="currentColor"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+          stroke-width="2"
+          viewBox="0 0 24 24"
+          width="24"
+          xmlns="http://www.w3.org/2000/svg"
+        >
+          <path
+            d="M20 6 9 17l-5-5"
+          />
+        </svg>
+        已忘掉 3 条，之后的对话不再用到
+      </p>
+    </div>
+  </div>
+</body>
+
+Ignored nodes: comments, script, style
+<body>
+  <div>
+    <div
+      class="mt-2 flex flex-col gap-1"
+      data-testid="kg-card-done"
+    >
+      <p
+        class="flex items-center gap-1.5 text-10 text-muted-foreground"
+      >
+        <svg
+          aria-hidden="true"
+          class="lucide lucide-check h-3 w-3 text-success"
+          fill="none"
+          height="24"
+          stroke="currentColor"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+          stroke-width="2"
+          viewBox="0 0 24 24"
+          width="24"
+          xmlns="http://www.w3.org/2000/svg"
+        >
+          <path
+            d="M20 6 9 17l-5-5"
+          />
+        </svg>
+        已忘掉 3 条，之后的对话不再用到
+      </p>
+    </div>
+  </div>
+</body>
+ ❯ waitForWrapper ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/wait-for.js:163:27
+ ❯ ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/query-helpers.js:86:33
+ ❯ tests/ui/kg-memory-manage.test.tsx:138:34
+    136|     const off = onKnowledgeReload((t) => reloads.push(t));
+    137|     render(<TurnMemoryLine threadId={THREAD} messageId="msg-9" />);
+    138|     fireEvent.click(await screen.findByTestId("kg-card-undo"));
+       |                                  ^
+    139|     expect(await screen.findByTestId("kg-card-undone")).toHaveTextCont…
+    140|     expect(server.undoCalls).toEqual([{ path: "/knowledge-graph/cards/…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[6/8]⎯
+
+ FAIL  tests/ui/kg-memory-manage.test.tsx > TurnMemoryLine：忘掉卡的撤销 > 卡已经撤过（KG_CARD_STALE）⇒ 人话，重读这一轮后按服务端现在的样子显示
+TestingLibraryElementError: Unable to find an element by: [data-testid="kg-card-undo"]
+
+Ignored nodes: comments, script, style
+<body>
+  <div>
+    <div
+      class="mt-2 flex flex-col gap-1"
+      data-testid="kg-card-done"
+    >
+      <p
+        class="flex items-center gap-1.5 text-10 text-muted-foreground"
+      >
+        <svg
+          aria-hidden="true"
+          class="lucide lucide-check h-3 w-3 text-success"
+          fill="none"
+          height="24"
+          stroke="currentColor"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+          stroke-width="2"
+          viewBox="0 0 24 24"
+          width="24"
+          xmlns="http://www.w3.org/2000/svg"
+        >
+          <path
+            d="M20 6 9 17l-5-5"
+          />
+        </svg>
+        已忘掉 3 条，之后的对话不再用到
+      </p>
+    </div>
+  </div>
+</body>
+
+Ignored nodes: comments, script, style
+<body>
+  <div>
+    <div
+      class="mt-2 flex flex-col gap-1"
+      data-testid="kg-card-done"
+    >
+      <p
+        class="flex items-center gap-1.5 text-10 text-muted-foreground"
+      >
+        <svg
+          aria-hidden="true"
+          class="lucide lucide-check h-3 w-3 text-success"
+          fill="none"
+          height="24"
+          stroke="currentColor"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+          stroke-width="2"
+          viewBox="0 0 24 24"
+          width="24"
+          xmlns="http://www.w3.org/2000/svg"
+        >
+          <path
+            d="M20 6 9 17l-5-5"
+          />
+        </svg>
+        已忘掉 3 条，之后的对话不再用到
+      </p>
+    </div>
+  </div>
+</body>
+ ❯ waitForWrapper ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/wait-for.js:163:27
+ ❯ ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/query-helpers.js:86:33
+ ❯ tests/ui/kg-memory-manage.test.tsx:149:34
+    147|     server.undoFails = true;
+    148|     render(<TurnMemoryLine threadId={THREAD} messageId="msg-9" />);
+    149|     fireEvent.click(await screen.findByTestId("kg-card-undo"));
+       |                                  ^
+    150|     expect(await screen.findByTestId("kg-card-undone")).toBeInTheDocum…
+    151|     expect(server.turnReads).toBe(2);
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[7/8]⎯
+
+ FAIL  tests/ui/kg-memory-manage.test.tsx > TurnMemoryLine：忘掉卡的撤销 > 非所有者：没有撤销、不发写请求（对照：所有者看得到撤销）
+TestingLibraryElementError: Unable to find an element by: [data-testid="kg-card-undo"]
+
+Ignored nodes: comments, script, style
+<body>
+  <div>
+    <div
+      class="mt-2 flex flex-col gap-1"
+      data-testid="kg-card-done"
+    >
+      <p
+        class="flex items-center gap-1.5 text-10 text-muted-foreground"
+      >
+        <svg
+          aria-hidden="true"
+          class="lucide lucide-check h-3 w-3 text-success"
+          fill="none"
+          height="24"
+          stroke="currentColor"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+          stroke-width="2"
+          viewBox="0 0 24 24"
+          width="24"
+          xmlns="http://www.w3.org/2000/svg"
+        >
+          <path
+            d="M20 6 9 17l-5-5"
+          />
+        </svg>
+        已忘掉 3 条，之后的对话不再用到
+      </p>
+    </div>
+  </div>
+</body>
+
+Ignored nodes: comments, script, style
+<body>
+  <div>
+    <div
+      class="mt-2 flex flex-col gap-1"
+      data-testid="kg-card-done"
+    >
+      <p
+        class="flex items-center gap-1.5 text-10 text-muted-foreground"
+      >
+        <svg
+          aria-hidden="true"
+          class="lucide lucide-check h-3 w-3 text-success"
+          fill="none"
+          height="24"
+          stroke="currentColor"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+          stroke-width="2"
+          viewBox="0 0 24 24"
+          width="24"
+          xmlns="http://www.w3.org/2000/svg"
+        >
+          <path
+            d="M20 6 9 17l-5-5"
+          />
+        </svg>
+        已忘掉 3 条，之后的对话不再用到
+      </p>
+    </div>
+  </div>
+</body>
+ ❯ waitForWrapper ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/wait-for.js:163:27
+ ❯ ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/query-helpers.js:86:33
+ ❯ tests/ui/kg-memory-manage.test.tsx:158:25
+    156|     publishKnowledgeSnapshot({ threadId: THREAD, canEdit: true, revisi…
+    157|     const first = render(<TurnMemoryLine threadId={THREAD} messageId="…
+    158|     expect(await screen.findByTestId("kg-card-undo")).toBeInTheDocumen…
+       |                         ^
+    159|     first.unmount();
+    160|     publishKnowledgeSnapshot({ threadId: THREAD, canEdit: false, revis…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[8/8]⎯
+
+ Test Files  1 failed (1)
+      Tests  8 failed (8)
+   Start at  10:48:48
+   Duration  5.37s (transform 346ms, setup 167ms, collect 590ms, tests 3.12s, environment 839ms, prepare 64ms)
+

@@ -1,5 +1,6 @@
 /**
- * Phase 18 F17 —— `MemoryCardPort` 的 Postgres 实现：只调三个数据库函数，不写一行表名 SQL。
+ * Phase 18 F17 —— `MemoryCardPort` 的 Postgres 实现：只调数据库函数，不写一行表名 SQL。
+ * #4361 加了撤销忘掉卡（`kg_undo_memory_card`）与「改主意」的范围闸门（`kg_memory_manage_ok`）。
  *
  * 开卡的复核在 `kg_open_memory_card`，人的决定在 `kg_act_on_memory_card`（迁移 20260924300000）；
  * 这里只把它抛出的 `KG_*` 翻成契约错误码，其余错误原样抛出，不伪装成「被拒」。
@@ -44,16 +45,34 @@ export class PgMemoryCard implements MemoryCardPort {
     return r.rows[0]?.t ?? null;
   }
 
+  async personalTurn(orgId: OrgId, input: Parameters<MemoryCardPort["personalTurn"]>[1]): Promise<boolean> {
+    const r = await this.db.withTenant(orgId, (s) => s.query<{ ok: boolean }>(
+      "SELECT kg_memory_manage_ok($1, $2, $3) AS ok", [input.threadId, input.messageId, input.requesterUserId],
+    ));
+    return r.rows[0]?.ok === true;
+  }
+
+  async undo(orgId: OrgId, userId: string, input: Parameters<MemoryCardPort["undo"]>[2]) {
+    return this.call(orgId, userId, "SELECT kg_undo_memory_card($1::jsonb) AS r", {
+      action_id: input.actionId, card_id: input.cardId, actor_kind: input.actorKind,
+    });
+  }
+
   async act(orgId: OrgId, userId: string, input: Parameters<MemoryCardPort["act"]>[2]) {
+    return this.call(orgId, userId, "SELECT kg_act_on_memory_card($1::jsonb) AS r", {
+      action_id: input.actionId, card_id: input.cardId, decision: input.decision, actor_kind: input.actorKind,
+      ...(input.claimIds !== undefined ? { claim_ids: input.claimIds } : {}),
+      ...(input.editedStatement !== undefined ? { edited_statement: input.editedStatement } : {}),
+    });
+  }
+
+  /** 人的动作（act / undo）共用：本人身份、死锁重来一次、`KG_*` 翻成契约错误码。 */
+  private async call(orgId: OrgId, userId: string, sql: string, payload: Record<string, unknown>) {
     try {
       // F16 同一条纵深防御：死锁（40P01）时整个事务重来一次。
       return await retryOnceOnDeadlock(() => this.db.withTenant(orgId, async (s) => {
         await s.query("SELECT set_config('app.current_user_id', $1, true)", [userId]);
-        const r = await s.query<{ r: { card: unknown; action_ids: string[] } }>("SELECT kg_act_on_memory_card($1::jsonb) AS r", [JSON.stringify({
-          action_id: input.actionId, card_id: input.cardId, decision: input.decision, actor_kind: input.actorKind,
-          ...(input.claimIds !== undefined ? { claim_ids: input.claimIds } : {}),
-          ...(input.editedStatement !== undefined ? { edited_statement: input.editedStatement } : {}),
-        })]);
+        const r = await s.query<{ r: { card: unknown; action_ids: string[] } }>(sql, [JSON.stringify(payload)]);
         const row = r.rows[0]!.r;
         // 形状只有契约一份：数据库回来的卡片过一遍 KgMemoryCard，对不上就是实现错了，照样抛。
         return { card: KG.KgMemoryCard.parse(row.card), actionIds: row.action_ids };

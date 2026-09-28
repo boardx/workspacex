@@ -123,7 +123,11 @@ function V2UserMessageRenderer({
         <MessageAttachments attachments={attachments.items} threadId={attachments.threadId} />
       ) : null}
       {extraction !== null ? (
-        <ExtractionFeedbackChip threadId={extraction.threadId} messageId={extraction.messageId} />
+        <ExtractionFeedbackChip
+          threadId={extraction.threadId}
+          messageId={extraction.messageId}
+          {...(typeof content === "string" ? { statement: content } : {})}
+        />
       ) : null}
     </div>
   );
