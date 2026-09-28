@@ -43,3 +43,5 @@ CREATE POLICY skill_catalog_entries_tenant ON skill_catalog_entries
 
 REVOKE ALL ON skill_catalog_entries FROM app_rw;
 GRANT SELECT, INSERT, UPDATE ON skill_catalog_entries TO app_rw;
+
+SELECT kernel_apply_org_freeze_policies();
