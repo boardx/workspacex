@@ -58,7 +58,7 @@ beforeAll(async () => {
 afterAll(async () => { await db.close(); });
 
 const owner = { userId: "u-owner", orgId: ORG_ID };
-const unusedActions = { apply: async () => { throw new Error("unused"); } };
+const unusedActions = { apply: async () => { throw new Error("unused"); }, setTodoStatus: async () => { throw new Error("unused"); } };
 
 describe("F09: getThreadKnowledge", () => {
   it("所有者读个人线程：实体、结论（三态 = AI 记下的）、边、可编辑、仅你可见", async () => {
@@ -87,7 +87,7 @@ describe("F09: getThreadKnowledge", () => {
       .rejects.toMatchObject({ code: "KG_THREAD_NOT_FOUND" });
     await expect(getThreadKnowledge(deps, { ...owner, threadId: "thr-does-not-exist" }))
       .rejects.toBeInstanceOf(KgReadError);
-    const ctl = new KnowledgeGraphController(deps.repo, deps.ids, deps.chat, deps.knowledge, { apply: async () => { throw new Error("unused"); } }, {} as never, {} as never, {} as never, {} as never);
+    const ctl = new KnowledgeGraphController(deps.repo, deps.ids, deps.chat, deps.knowledge, { apply: async () => { throw new Error("unused"); }, setTodoStatus: async () => { throw new Error("unused"); } }, {} as never, {} as never, {} as never, {} as never);
     const principal = { userId: "u-member", orgId: ORG } as never;
     await expect(ctl.threadKnowledge(principal, PERSONAL)).rejects.toBeInstanceOf(NotFoundException);
   });

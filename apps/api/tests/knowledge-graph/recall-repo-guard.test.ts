@@ -169,7 +169,8 @@ describe("F08 会话记忆召回读取的豁免前提", () => {
     expect(code).toMatch(/const \[claimIds, q\] = await Promise\.all\(\[candidateIds, this\.embeddings\.embed\(query\)\]\);\s*if \(claimIds\.length === 0\) return \[\];/);
     // recall-knowledge.ts 交进来的候选 id 就是同一轮 candidates 的结果
     const rk = strip(readFileSync(join(API, "src/application/knowledge-graph/recall-knowledge.ts"), "utf8"));
-    expect(rk).toMatch(/const candidates = port\.candidates\(input\.orgId, input\.userId, input\.threadId\);\s*const ids = candidates\.then\(\(c\) => c\.claims\.map\(\(x\) => x\.id\)\);/);
+    // issue #4363（S6）：只可能再**收窄**（过期 / 不做了的不交给向量通道），不能换成别的来源
+    expect(rk).toMatch(/const candidates = port\.candidates\(input\.orgId, input\.userId, input\.threadId\);\s*const now = new Date\(\);\s*const ids = candidates\.then\(\(c\) => c\.claims\.filter\(\(x\) => recallable\(x, now\)\)\.map\(\(x\) => x\.id\)\);/);
   });
 
   it("(f) kg_turn_recalls 只写不读：一条 INSERT … ON CONFLICT (run_id)，写的是调用方给的这一个 run", () => {

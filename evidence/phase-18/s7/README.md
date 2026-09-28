@@ -140,7 +140,7 @@ after main's newest (`20260928150000`).
   - Regression tests cover all four reported pairs (date, amount, name, negation in both directions), the both-used
     case, the no-sibling number and negation cases, and the single-character case.
 - **F4 (interim) — 「已过时」 now asks for confirmation** (「确认这条已经过时？」 then 确认 / 取消). Rewriting it as
-  `valid_to = now()`, and copying `valid_to` / `due_at` / `todo_status` on supersede, waits for S6 (#4492) to reach
+  `valid_to = now()`, and copying `valid_to` / `due_at` / `todo_state` on supersede, waits for S6 (#4492) to reach
   main. `TODO(#4363)` markers are at both places in the migration.
 - **F6 — buttons only for people the server will accept.** `getTurnMemory.canCorrect` (optional, part of the
   sign-off-later contract list) is true only when the viewer owns the thread **and** asked this turn, which is the

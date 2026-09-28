@@ -15,7 +15,7 @@ import {
   DECISION_ID_FACTORY, IDENTITY_REPOSITORY, type DecisionIdFactory, type IdentityRepository,
 } from "../../application/identity/ports";
 import { actOnMemoryCard, undoMemoryCard } from "../../application/knowledge-graph/act-on-memory-card";
-import { applyHumanAction } from "../../application/knowledge-graph/apply-human-action";
+import { applyHumanAction, setTodoStatus } from "../../application/knowledge-graph/apply-human-action";
 import {
   CITATION_CORRECTION_PORT, CLAIM_EXPIRY_PORT, type CitationCorrectionPort, type ClaimExpiryPort,
 } from "../../application/knowledge-graph/citation-ports";
@@ -246,6 +246,18 @@ export class KnowledgeGraphController {
     return this.run(principal, (v) => undoAutoPersonalCopy(
       { ...this.deps, autoCopy, newId: newKgId },
       { ...v, actorKind: "human", threadId: parsed.data.threadId, claimId: parsed.data.claimId },
+    ));
+  }
+
+  /** issue #4363（S6）setTodoStatus —— 改一条待办的状态（人的动作；只有所有者，数据库判定） */
+  @Post("/knowledge-graph/claims/:claimId/todo-status")
+  @HttpCode(200)
+  todoStatus(@CurrentPrincipal() principal: Principal, @Param("claimId") claimId: string, @Body() body: unknown) {
+    const parsed = KG.knowledgeGraph.setTodoStatus.in.safeParse({ ...(body as object), claimId });
+    if (!parsed.success) throw new BadRequestException({ reasonCode: "KG_INVALID_REQUEST" });
+    return this.run(principal, (v) => setTodoStatus(
+      { actions: this.actions, newId: newKgId },
+      { ...v, actorKind: "human", claimId: parsed.data.claimId, status: parsed.data.status },
     ));
   }
 

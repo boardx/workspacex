@@ -74,7 +74,7 @@ export async function changeOfMindFor(
 
   const batch = buildExtractionBatch({
     threadId: input.threadId, messageId: input.messageId, messageBody: input.text, known: [], newId: ports.newId,
-    result: { entities: [], claims: [{ statement: input.statement, kind: "decision", confidence: 1, about: [], decidedBy: null, quote: input.statement }] },
+    result: { entities: [], claims: [{ statement: input.statement, kind: "decision", confidence: 1, about: [], decidedBy: null, quote: input.statement, timeExpr: null }] },
   });
   if (batch === null) return null;
   const applied = await applyOntologyBatch(ports.store, input.orgId, null, batch);

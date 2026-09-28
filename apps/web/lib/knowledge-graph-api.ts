@@ -141,6 +141,22 @@ export function undoAutoPersonalCopy(threadId: string, claimId: string): Promise
   );
 }
 
+export type SetTodoStatusResult = z.infer<typeof knowledgeGraph.setTodoStatus.out>;
+
+/**
+ * issue #4363（S6）：改一条待办的状态（open / done / dropped）。只有所有者；同一件待办在会话与长期记忆里的两份一起改。
+ * 不存在 / 不是所有者 ⇒ `KG_CLAIM_NOT_FOUND`。
+ */
+export function setTodoStatus(claimId: string, status: SetTodoStatusResult["status"]): Promise<SetTodoStatusResult> {
+  const input = knowledgeGraph.setTodoStatus.in.parse({ claimId, status });
+  return getParsed(
+    `/knowledge-graph/claims/${seg(input.claimId)}/todo-status`,
+    knowledgeGraph.setTodoStatus.out,
+    undefined,
+    { method: "POST", body: { status: input.status } },
+  );
+}
+
 export type HumanActionResult = z.infer<typeof knowledgeGraph.applyHumanAction.out>;
 
 /**
