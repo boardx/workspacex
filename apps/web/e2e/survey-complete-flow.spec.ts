@@ -166,6 +166,11 @@ test("用户可从模板完整走通创建、发布、答题、查看答卷和�
   await expect(page.getByRole("button", { name: "导出 Word" })).toBeDisabled();
   await expect(page.getByRole("button", { name: "导出 PDF" })).toBeDisabled();
 
+  await page.getByRole("button", { name: "3. 查看答卷" }).click();
+  await expect(page.getByText("2 份答卷", { exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: "查看完整答卷" })).toHaveCount(2);
+  await page.screenshot({ path: testInfo.outputPath("response-workspace-multiple.png"), fullPage: true });
+
   await page.getByRole("button", { name: "← 返回列表" }).click();
   await expect(page).toHaveURL(/\/studio\/survey$/);
   const persistedSurvey = page.locator("article").filter({
