@@ -31,6 +31,9 @@ const HUMAN_ACTION_FAILURE_ZH: Record<KnowledgeGraphErrorCode, string> = {
   // issue #4178：`setKnowledgeExtractionSetting` 专属码，人的编辑动作（applyHumanAction 等）从不
   // 返回它——这里只是让 Record<KgErrorCode, string> 保持穷举（漏配一个编译就不过）。
   KG_NOT_ORG_ADMIN: "只有组织管理员可以修改这项设置。",
+  // S8（#4365）：记忆整合的两个码，人的编辑动作从不返回它们——同上，只为穷举。
+  KG_CONSOLIDATION_RUN_NOT_FOUND: "这次整理已经撤销过了（或已不存在）。",
+  KG_CONSOLIDATION_DISABLED: "记忆整合开关关着，先打开再整合。",
   // S10（#4367）「分享到项目…」专属码（同上：保持 Record<KgErrorCode, string> 穷举）。
   KG_PROJECT_NOT_FOUND: "你不在这个项目里（或项目已不存在），没法分享到这里。",
   KG_PROJECT_READ_ONLY: "你在这个项目里只能查看（或项目已归档），没法分享进去。",

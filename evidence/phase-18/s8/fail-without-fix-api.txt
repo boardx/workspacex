@@ -1,0 +1,52 @@
+### M1 gate not wired into extractJob
+file: apps/api/src/application/knowledge-graph/extract-message-knowledge.ts
+test: apps/api/tests/knowledge-graph/worth-remembering-gate.test.ts
+FAILED as expected
+   × #4365 抽取一轮里的接线：跳过的不调抽取模型，任务照常完成 > 寒暄 / 应答 / 纯提问 ⇒ 不调抽取模型、出队、计 skipped；目标 ⇒ 调模型 30ms
+      Tests  1 failed | 117 passed (118)
+### M2 protection removed (goal/preference/decision no longer protected)
+file: apps/api/src/domain/knowledge-graph/worth-remembering.ts
+test: apps/api/tests/knowledge-graph/worth-remembering-gate.test.ts
+FAILED as expected
+   × #4365 黄金集：目标 / 偏好 / 决定永远不跳过 > 「我的目标是什么？」⇒ 不跳过 40ms
+   × #4365 黄金集：目标 / 偏好 / 决定永远不跳过 > 「这个方向确定了吗？」⇒ 不跳过 1ms
+   × #4365 黄金集：目标 / 偏好 / 决定永远不跳过 > 「范围定为三个城市了吗」⇒ 不跳过 1ms
+   × #4365 黄金集：目标 / 偏好 / 决定永远不跳过 > 「聚焦哪个方向确定了呢」⇒ 不跳过 13ms
+   × #4365 黄金集：目标 / 偏好 / 决定永远不跳过 > 「我的目标是探索未来教育」受保护（self_intent）：看起来像寒暄 / 应答 / 问句也放行 18ms
+   × #4365 黄金集：目标 / 偏好 / 决定永远不跳过 > 「我更喜欢简洁的回答」受保护（self_intent）：看起来像寒暄 / 应答 / 问句也放行 1ms
+   × #4365 黄金集：目标 / 偏好 / 决定永远不跳过 > 「好的，我决定下周上线」受保护（decision）：看起来像寒暄 / 应答 / 问句也放行 0ms
+   × #4365 黄金集：目标 / 偏好 / 决定永远不跳过 > 「预算定为 500 万吗？」受保护（decision）：看起来像寒暄 / 应答 / 问句也放行 0ms
+   × #4365 黄金集：目标 / 偏好 / 决定永远不跳过 > 「谢谢，记住我不吃辣」受保护（memory_instruction）：看起来像寒暄 / 应答 / 问句也放行 0ms
+   × #4365 黄金集：目标 / 偏好 / 决定永远不跳过 > 「hi, I prefer short answers」受保护（self_intent）：看起来像寒暄 / 应答 / 问句也放行 0ms
+   × #4365 黄金集：目标 / 偏好 / 决定永远不跳过 > 「ok, we decided to ship on Friday」受保护（decision）：看起来像寒暄 / 应答 / 问句也放行 0ms
+   × #4365 应用层门控：可选的便宜模型 > 目标 / 偏好 / 决定（按 S3 selfIntentLike 与 decisionLike 自己的判定，外加所有提到目标 / 偏好的句子）永远不问模型——模型说 NO 
+### M3 negation / number guard removed from duplicate detection
+file: apps/api/src/domain/knowledge-graph/consolidation.ts
+test: apps/api/tests/knowledge-graph/consolidation-plan.test.ts
+FAILED as expected
+   × #4365 结论去重的门 > 否定极性不同不合：「我喜欢咖啡」≠「我不喜欢咖啡」 22ms
+      Tests  1 failed | 11 passed (12)
+### M4 stuck-lease metric not evaluated
+file: apps/api/src/domain/knowledge-graph/extraction-slo.ts
+test: apps/api/tests/knowledge-graph/extraction-slo.test.ts
+FAILED as expected
+   × #4365 指标计算 > 判定：三个指标各自超阈值才报；失败率样本太少不报 10ms
+   × #4365 worker 告警：进入超标记 error（一次）、恢复记 info > 卡住的租约 > 阈值 ⇒ 一条 error（带指标、值、阈值、错误码）；同样的超标不重复记；恢复 ⇒ info 3ms
+      Tests  2 failed | 4 passed (6)
+### M5 conflicts never opened by consolidation (only merges)
+file: apps/api/src/application/knowledge-graph/consolidate-memory.ts
+test: apps/api/tests/knowledge-graph/consolidation-db.test.ts
+FAILED as expected
+   × #4365 整合一次 + 撤销 > 合并同义偏好（来源全保留）、实体合一、矛盾开卡（不裁决） 182ms
+   × #4365 整合一次 + 撤销 > 本人的整合记录：一条运行、三处改动、两边的文字；别人看不到 38ms
+   × #4365 整合一次 + 撤销 > 撤销：偏好恢复成两条（各自的来源各归各）、实体拆回、卡撤回、状态复原；审计留人的动作 15ms
+   × #4365 整合一次 + 撤销 > 再整合一次，人先在卡上选了「两条都留」再撤销 ⇒ 卡那一处 undo_skipped（写明原因），其余照常还原 18ms
+      Tests  4 failed | 7 passed (11)
+### M6 undo does not restore the merged claim (DB side bypassed: undo port no-op)
+file: apps/api/src/infrastructure/knowledge-graph/pg-kg-consolidation.ts
+test: apps/api/tests/knowledge-graph/consolidation-db.test.ts
+FAILED as expected
+   × #4365 整合一次 + 撤销 > 撤销：偏好恢复成两条（各自的来源各归各）、实体拆回、卡撤回、状态复原；审计留人的动作 53ms
+   × #4365 整合一次 + 撤销 > 撤销过的再撤 ⇒ NOT_FOUND，什么都不变 16ms
+   × #4365 整合一次 + 撤销 > 再整合一次，人先在卡上选了「两条都留」再撤销 ⇒ 卡那一处 undo_skipped（写明原因），其余照常还原 17ms
+      Tests  3 failed | 8 passed (11)

@@ -7,12 +7,14 @@
  *   S3 #4343  A 在一个会话里说出目标 / 偏好 / 决定 ⇒ 之后**两个互不相关的新会话**都自动带上这三条（不用 A 重说）；
  *   S1 #4350  模型回了解析不出的东西 ⇒ 不再静默当「没有可记的」：重试 3 次后，会话记忆面板的读接口报「失败」；
  *   S9 #4366  别的账号碰 A 的个人记忆 ⇒ 404，且与「不存在」逐字节一致（人类决定 2026-09-27），B 的轮次也不带 A 的背景。
+ *   S10 #4367 A 把那条决定「分享到项目…」⇒ 同项目的 B 在项目会话里提问时用得上，且标明由 A 分享；A 撤回分享 ⇒ B 的下一轮不再有。
+ *             B 自己的个人空间始终没有 A 的东西（分享的是项目里的派生副本，不是把 A 的个人记忆开放给 B）。
  */
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import type { knowledgeGraph as KG } from "@repo/contracts";
 import { runExtractionTick } from "../../src/application/knowledge-graph/extract-message-knowledge";
 import { addChatMessage, addChatThread } from "../support/chat-db";
-import { addOrgMember, asOwner, resetOrgs, seedOrg } from "../support/db";
+import { addCredential, addOrgMember, addProjectMember, asOwner, resetOrgs, seedOrg } from "../support/db";
 import {
   client, memoryPath, projectGraph, publishAgent, startApp, turn,
   type Client, type E2eApp, type TurnMemoryBody,
@@ -29,6 +31,8 @@ const A_NEW1 = "thr-b2-a-new1";
 const A_NEW2 = "thr-b2-a-new2";
 const A_BROKEN = "thr-b2-a-broken";
 const B_OWN = "thr-b2-b-own";
+const PROJECT_T = "thr-b2-project";
+const A_NAME = "王老师";
 
 const GOAL = "我的目标是探索未来教育";
 const PREF = "我更喜欢简洁的回答";
@@ -68,10 +72,15 @@ beforeAll(async () => {
   await enableExtraction(ORG);
   await addOrgMember(ORG, USER_A, "consultant", null);
   await addOrgMember(ORG, USER_B, "consultant", null);
+  await asOwner((c) => c.query("DELETE FROM credentials WHERE user_id LIKE 'u-b2-%'"));
+  await addCredential(USER_A, `${USER_A}@b2.test`, A_NAME);
+  await addProjectMember(ORG, PROJECT, USER_A, "member", null);
+  await addProjectMember(ORG, PROJECT, USER_B, "member", null);
   await publishAgent(ORG, AGENT, USER_A);
   for (const id of [A_SAY, A_NEW1, A_NEW2, A_BROKEN]) {
     await addChatThread({ orgId: ORG, id, projectId: null, visibilityScope: "private", createdBy: USER_A, title: id });
   }
+  await addChatThread({ orgId: ORG, id: PROJECT_T, projectId: PROJECT, visibilityScope: "plenary", createdBy: USER_B, title: PROJECT_T });
   await addChatThread({ orgId: ORG, id: B_OWN, projectId: null, visibilityScope: "private", createdBy: USER_B, title: B_OWN });
   a = client(e, USER_A, ORG);
   b = client(e, USER_B, ORG);
@@ -145,4 +154,44 @@ describe("第二批验收 · 北极星：新会话里不用重复已经说过的
     expect(k.status).toBe(200);
     expect(k.body.ingestion).toMatchObject({ failed: 1, running: 0 });
   }, 120_000);
+
+  it("S10：A 把决定分享到项目 ⇒ B 在项目会话里用得上并标明由 A 分享；A 撤回分享 ⇒ B 下一轮不再有；B 的个人空间始终没有", async () => {
+    const [row] = await asOwner(async (c) => (await c.query<{ id: string }>(
+      "SELECT id FROM claims WHERE org_id = $1 AND scope_kind = 'personal' AND scope_id = $2 AND statement = $3",
+      [ORG, USER_A, DECISION])).rows);
+    expect(row, "A 的决定应在个人空间里").toBeDefined();
+    const personalPath = `/knowledge-graph/personal/claims/${row!.id}`;
+
+    // B 不能替 A 分享（A 的个人结论对 B 就是不存在）
+    expect((await b.get(`${personalPath}/share-targets`)).status).toBe(404);
+    expect((await b.post(`${personalPath}/share`, { projectId: PROJECT })).status).toBe(404);
+
+    const targets = await a.get<{ targets: Array<{ projectId: string; sharedClaimId: string | null }> }>(`${personalPath}/share-targets`);
+    expect(targets.status, JSON.stringify(targets.body)).toBe(200);
+    expect(targets.body.targets.map((t) => t.projectId)).toContain(PROJECT);
+    const shared = await a.post<{ projectClaimId: string; outcome: string }>(`${personalPath}/share`, { projectId: PROJECT });
+    expect(shared.status, JSON.stringify(shared.body)).toBe(200);
+    expect(shared.body.outcome).toBe("shared");
+
+    const ask = "小学数学的试点要准备些什么？";
+    const t1 = await turn(e, b, ORG, PROJECT_T, ask, AGENT);
+    expect(t1.memory, "B 在项目会话里应用得上 A 分享的决定").toContain(DECISION);
+    expect(t1.memory).toContain(`由 ${A_NAME} 分享自个人记忆`);
+    const mem = await b.get<{ recalled: Array<{ claimId: string; statement: string; scope: string; sharedByName?: string | null }> }>(
+      memoryPath(PROJECT_T, t1.answerId));
+    expect(mem.status).toBe(200);
+    expect(mem.body.recalled.find((m) => m.statement === DECISION))
+      .toMatchObject({ claimId: shared.body.projectClaimId, scope: "project", sharedByName: A_NAME });
+    // 分享的是项目副本：B 的个人空间、B 自己的个人会话都不因此多出 A 的东西
+    expect((await personalStatements(b)).map((c) => c.statement)).not.toContain(DECISION);
+    const own = await turn(e, b, ORG, B_OWN, ask, AGENT);
+    expect(own.memory ?? "").not.toContain(DECISION);
+
+    const un = await a.post(`${personalPath}/unshare`, { projectId: PROJECT });
+    expect(un.status, JSON.stringify(un.body)).toBe(200);
+    const t2 = await turn(e, b, ORG, PROJECT_T, ask, AGENT);
+    expect(t2.memory ?? "", "撤回分享后 B 的下一轮不应再带上").not.toContain(DECISION);
+    // A 的个人原件不受分享 / 撤回影响
+    expect((await personalStatements(a)).map((c) => c.statement)).toContain(DECISION);
+  }, 180_000);
 });

@@ -30,6 +30,7 @@ const MINE = "thr-kg-i4352-mine";
 const SHARED = "thr-kg-i4352-shared";
 const OFF = "thr-kg-i4352-off";
 const FENCE = "thr-kg-i4352-fence";
+const GATE = "thr-kg-i4352-gate";
 let db: PgDatabase;
 let readDeps: KnowledgeReadDeps;
 let reindexDeps: RequestReindexDeps;
@@ -57,6 +58,7 @@ beforeAll(async () => {
   await addChatThread({ orgId: ORG, id: SHARED, projectId: `${ORG}-p`, visibilityScope: "plenary", createdBy: "u-owner" });
   await addChatThread({ orgId: ORG, id: OFF, projectId: null, visibilityScope: "private", createdBy: "u-owner" });
   await addChatThread({ orgId: ORG, id: FENCE, projectId: null, visibilityScope: "private", createdBy: "u-owner" });
+  await addChatThread({ orgId: ORG, id: GATE, projectId: null, visibilityScope: "private", createdBy: "u-owner" });
   db = new PgDatabase(appConfig());
   readDeps = { repo: new PgIdentityRepository(db), ids: new CountingDecisionIdFactory(), chat: new PgChatRepository(db), knowledge: new PgKnowledgeRead(db, true) };
   reindexDeps = { ...readDeps, reindex: new PgKgReindex(db), extractionConfigured: true };
@@ -66,7 +68,7 @@ afterAll(async () => { await db.close(); });
 describe("issue #4352: getMessageExtraction.status", () => {
   it("排队中 ⇒ pending；抽出了东西 ⇒ written；合法的「没有可记的」⇒ empty；从没排进抽取 ⇒ none", async () => {
     await addChatMessage({ orgId: ORG, id: "m-4352-zhang", threadId: MINE, body: "那就这样，张三决定下周一上线 v2。", authorId: "u-owner" });
-    await addChatMessage({ orgId: ORG, id: "m-4352-hello", threadId: MINE, body: "你好呀，辛苦了！", authorId: "u-owner" });
+    await addChatMessage({ orgId: ORG, id: "m-4352-plain", threadId: MINE, body: "下午的周会改到三楼的会议室开。", authorId: "u-owner" });
     await addChatMessage({ orgId: ORG, id: "m-4352-raw", threadId: MINE, body: "转录片段", authorId: "u-owner", rawTranscript: true });
     expect(await status(MINE, "m-4352-zhang")).toBe("pending");
     await tick();
@@ -74,9 +76,15 @@ describe("issue #4352: getMessageExtraction.status", () => {
     expect(zhang.status).toBe("written");
     expect(zhang.claims.length).toBeGreaterThan(0);
     expect(KG.knowledgeGraph.getMessageExtraction.out.safeParse(zhang).success).toBe(true);
-    expect(await getMessageExtraction(readDeps, { ...owner, threadId: MINE, messageId: "m-4352-hello" })).toEqual({ claims: [], status: "empty" });
+    expect(await getMessageExtraction(readDeps, { ...owner, threadId: MINE, messageId: "m-4352-plain" })).toEqual({ claims: [], status: "empty" });
     expect(await status(MINE, "m-4352-raw")).toBe("none");
     expect(await status(MINE, "m-does-not-exist")).toBe("none");
+  });
+
+  it("S8（#4365）「值得记」门控跳过的寒暄 ⇒ skipped（没调抽取模型），不是 empty", async () => {
+    await addChatMessage({ orgId: ORG, id: "m-4352-greet", threadId: GATE, body: "你好呀，辛苦了！", authorId: "u-owner" });
+    await tick();
+    expect(await getMessageExtraction(readDeps, { ...owner, threadId: GATE, messageId: "m-4352-greet" })).toEqual({ claims: [], status: "skipped" });
   });
 
   it("解析不出 ⇒ 重试期间 pending，三次用完 ⇒ failed", async () => {
@@ -129,7 +137,7 @@ describe("issue #4352: requestReindex（UC-KG-4）", () => {
     // 能抽的三条（张三 / 寒暄 / 乱码）；原始转录不排
     expect(out).toEqual({ queued: 3 });
     expect(await queueRows(MINE)).toEqual([
-      { message_id: "m-4352-garbage", attempts: 0 }, { message_id: "m-4352-hello", attempts: 0 }, { message_id: "m-4352-zhang", attempts: 0 },
+      { message_id: "m-4352-garbage", attempts: 0 }, { message_id: "m-4352-plain", attempts: 0 }, { message_id: "m-4352-zhang", attempts: 0 },
     ]);
     const after = await getThreadKnowledge(readDeps, { ...owner, threadId: MINE });
     expect(after.ingestion).toMatchObject({ queued: 3, running: 0, failed: 0 });
@@ -150,7 +158,7 @@ describe("issue #4352: requestReindex（UC-KG-4）", () => {
     await tick();
     expect((await getThreadKnowledge(readDeps, { ...owner, threadId: MINE })).claims).toHaveLength(claimsBefore);
     expect(await status(MINE, "m-4352-zhang")).toBe("written");
-    expect(await status(MINE, "m-4352-hello")).toBe("empty");
+    expect(await status(MINE, "m-4352-plain")).toBe("empty");
     // 乱码那条又开始新的三次机会
     expect((await queueRows(MINE)).map((r) => [r.message_id, r.attempts])).toEqual([["m-4352-garbage", 1]]);
     await asOwner((c) => c.query("DELETE FROM kg_extraction_queue WHERE thread_id = $1", [MINE]));
@@ -159,9 +167,9 @@ describe("issue #4352: requestReindex（UC-KG-4）", () => {
   it("sourceRefs：只重排给出的、属于本会话的消息", async () => {
     await addChatMessage({ orgId: ORG, id: "m-4352-shared", threadId: SHARED, body: "项目会话里的一句", authorId: "u-owner" });
     await tick();
-    const out = await requestReindex(reindexDeps, { ...owner, threadId: MINE, sourceRefs: ["m-4352-hello", "m-4352-shared"] });
+    const out = await requestReindex(reindexDeps, { ...owner, threadId: MINE, sourceRefs: ["m-4352-plain", "m-4352-shared"] });
     expect(out).toEqual({ queued: 1 });
-    expect((await queueRows(MINE)).map((r) => r.message_id)).toEqual(["m-4352-hello"]);
+    expect((await queueRows(MINE)).map((r) => r.message_id)).toEqual(["m-4352-plain"]);
     expect(await queueRows(SHARED)).toEqual([]);
     await tick();
   });
