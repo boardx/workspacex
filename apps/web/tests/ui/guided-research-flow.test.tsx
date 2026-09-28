@@ -11,6 +11,48 @@ vi.mock("@/lib/guided-research-api", async (original) => ({
 beforeEach(() => { vi.resetAllMocks(); localStorage.clear(); vi.mocked(listGuidedResearchSessions).mockResolvedValue({ items: [] }); });
 // Replaces the retired browser-demo journey: session URLs now use server runtime commands.
 describe("guided research session routing and lifecycle", () => {
+  it("shows plan cards before scope confirmation and opens scope only from edit", async () => {
+    const runtime = runtimeFixture("outline");
+    vi.mocked(getResearchRuntime).mockResolvedValue({ ...runtime, intent: undefined });
+    render(<GuidedResearchFlow step="outline" sessionId="grs-live" />);
+    await screen.findByTestId("guided-research-plan-panel");
+    expect(screen.queryByRole("heading", { name: "确认研究边界" })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "开始研究" })).toBeDisabled();
+    fireEvent.click(screen.getByRole("button", { name: "编辑成功标准" }));
+    expect(screen.getByRole("dialog")).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "确认研究边界" })).toBeInTheDocument();
+  });
+  it("preserves an unsent assistant message when leaving is cancelled", async () => {
+    vi.mocked(getResearchRuntime).mockResolvedValue(runtimeFixture("report"));
+    render(<GuidedResearchFlow step="report" sessionId="grs-live" />);
+    await screen.findByTestId("guided-research-report-workspace");
+    fireEvent.click(screen.getByRole("button", { name: "AI 助手" }));
+    fireEvent.change(screen.getByRole("textbox", { name: "研究对话" }), { target: { value: "尚未发送的研究问题" } });
+    fireEvent.click(screen.getByRole("button", { name: "返回研究列表" }));
+    expect(screen.getByRole("dialog")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "继续编辑" }));
+    expect(screen.getByRole("textbox", { name: "研究对话" })).toHaveValue("尚未发送的研究问题");
+  });
+  it("guards browser history navigation while an assistant message is unsent", async () => {
+    vi.mocked(getResearchRuntime).mockResolvedValue(runtimeFixture("report"));
+    window.history.replaceState({}, "", "/research/grs-live/report");
+    render(<GuidedResearchFlow step="report" sessionId="grs-live" />);
+    await screen.findByTestId("guided-research-report-workspace");
+    fireEvent.click(screen.getByRole("button", { name: "AI 助手" }));
+    fireEvent.change(screen.getByRole("textbox", { name: "研究对话" }), { target: { value: "尚未发送的研究问题" } });
+    window.history.replaceState({}, "", "/research/grs-live/plan");
+    fireEvent.popState(window);
+    expect(screen.getByRole("dialog", { name: "研究内容尚未保存" })).toBeInTheDocument();
+    expect(window.location.pathname).toBe("/research/grs-live/report");
+    fireEvent.click(screen.getByRole("button", { name: "继续编辑" }));
+    expect(screen.getByRole("textbox", { name: "研究对话" })).toHaveValue("尚未发送的研究问题");
+    expect(screen.getByTestId("guided-research-report-workspace")).toBeInTheDocument();
+    window.history.replaceState({}, "", "/research/grs-live/plan");
+    fireEvent.popState(window);
+    fireEvent.click(screen.getByRole("button", { name: "放弃修改并离开" }));
+    await screen.findByTestId("guided-research-plan-panel");
+    expect(window.location.pathname).toBe("/research/grs-live/plan");
+  });
   it("opens the report rather than retaining chapters after returning to the list", async () => {
     const runtime = runtimeFixture("report");
     vi.mocked(getResearchRuntime).mockResolvedValue(runtime);
@@ -43,7 +85,7 @@ describe("guided research session routing and lifecycle", () => {
     expect(screen.queryByTestId("research-report")).not.toBeInTheDocument();
     resolve(runtimeFixture("directions"));
     expect(await screen.findByDisplayValue("政策方向")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /生成报告$/ })).toBeDisabled();
+    expect(screen.getByTestId("research-step-report")).toHaveAttribute("aria-disabled", "true");
   });
   it("hides a previous session immediately when the replacement is loading or unavailable", async () => {
     vi.mocked(getResearchRuntime).mockResolvedValueOnce(runtimeFixture("brief"));
@@ -72,7 +114,7 @@ describe("guided research session routing and lifecycle", () => {
     fireEvent.change(await screen.findByDisplayValue("储能研究"), { target: { value: "新的政策研究" } });
     fireEvent.click(screen.getByRole("button", { name: "保存草稿" }));
     await waitFor(() => expect(executeResearchRuntime).toHaveBeenCalledWith(expect.objectContaining({ sessionId: "grs-live", node: "brief", action: "save", expectedVersion: 4, draft: { node: "brief", value: expect.objectContaining({ topic: "新的政策研究" }) } })));
-    await waitFor(() => expect(screen.getByRole("button", { name: /生成报告$/ })).toBeDisabled());
+    await waitFor(() => expect(screen.getByTestId("research-step-report")).toHaveAttribute("aria-disabled", "true"));
   });
   it.each(["directions", "outline"] as const)("keeps generated %s editable before confirmation", async (node) => {
     vi.mocked(getResearchRuntime).mockResolvedValue(runtimeFixture(node));

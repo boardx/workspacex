@@ -103,7 +103,7 @@ describe("F180 signed guided-research visual contract", () => {
 
     expect(progress).toHaveAttribute("aria-label", "研究步骤");
     expect(screen.queryByTestId("research-progress-shell")).not.toBeInTheDocument();
-    expect(within(progress).getAllByRole("button")).toHaveLength(6);
+    expect(within(progress).getAllByRole("listitem")).toHaveLength(6);
   });
 
   it("keeps one work canvas and a collapsible assistant on guided steps", async () => {
@@ -146,7 +146,7 @@ describe("F180 signed guided-research visual contract", () => {
     const directions = render(<GuidedResearchFlow step="directions" sessionId="grs-visual" />);
     await screen.findByTestId("research-flow-directions");
     for (const futureStep of ["研究计划", "资料研究", "生成报告"]) {
-      expect(within(screen.getByRole("navigation", { name: "研究步骤" })).getByRole("button", { name: new RegExp(futureStep) })).toBeDisabled();
+      expect(within(screen.getByRole("navigation", { name: "研究步骤" })).getByText(futureStep, { exact: true }).closest("[aria-disabled]")).toHaveAttribute("aria-disabled", "true");
     }
     directions.unmount();
 
