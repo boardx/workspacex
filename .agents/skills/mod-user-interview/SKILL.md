@@ -37,6 +37,8 @@ description: 用户访谈流程与数字访谈能力；修改访谈主题、专�
 - 2026-09-28：报告 Word 导出必须标明当前 canonical Markdown 文档版本与内容哈希；浏览器回归先保存旧版再保存新版，核对下载的 OOXML 与 PDF 打印根节点只引用新版，且保留模拟证据和未批准提示（issue #4564，`digital-interview-report-export-live`）。
 - 2026-09-28：全栈 Chromium 默认开启假麦克风与自动授权，权限查询即使为 denied 仍可能成功采音；验收拒绝路径需在页面的 `getUserMedia` 边界注入 `NotAllowedError`，并明确标注为故障注入。真实登录、上传、canonical Markdown API/DB 存取与刷新恢复保持不模拟（issue #4557，`digital-interview-intake-failure-live.spec.ts`）。
 - 2026-09-28：专家检索空态需合并已发布目录与维护画像两组结果判断；生成失败的部分 Markdown 即使解析出专家 heading，也仍要展示完整只读恢复上下文，不能用已解析专家数推断草稿完整（issue #4540 / PR #4543，`interview-markdown-editing` 回归）。
+- 2026-09-28：虚拟专家 AI 仅返回未保存的 Markdown 提案；结构化字段编辑会撤销人工审阅状态。选入 canonical 专家文档时，字段标题必须嵌套为 `###`，不可把提案的 `#` / `##` 直接拼入专家 `## [名称](#expert-id)` 块，否则会破坏稳定专家锚点的解析与后续问题关联（issue #4576）。
+- 2026-09-28：模型返回的虚拟画像提案即使非空也可能过短/过长；输出契约校验失败须转换成可重试的 `AI_GENERATION_UNAVAILABLE`，不能让 ZodError 越过 controller 成为 HTTP 500（PR #4580 review，隔离 API/DB 回归）。
 - 2026-09-28：运行摘要的“观点/发现/风险/追问”仅由明确的 Markdown 章节标题投影；问题标题包含“风险”不等于风险洞察。章节计数仅数解析出的列表条目，正文或表格不推断为一条（PR #4575 review，`interview-source-runs` 回归）。
 - 2026-09-28：执行页的已完成专家数必须来自 durable execution.tasks，而非把 1/1 的占位任务单位称作真实问题数；观点/发现/风险/追问卡片只投影已保存 runs Markdown 对应章节及其条目，保留原文与专家锚点，不填充示例统计（issue #4571，`interview-source-runs`）。
 

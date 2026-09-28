@@ -100,6 +100,11 @@ export const SaveInterviewMarkdownDraft = z.object({
 
 export const InterviewMarkdownGenerationStep = z.enum(["analysis", "experts", "outline", "report"]);
 export const GenerateInterviewMarkdown = SaveInterviewMarkdownDraft.omit({ markdown: true });
+export const PreviewVirtualExpertMarkdown = z.object({
+  description: z.string().trim().min(20).max(1000),
+  expectedVersion: z.number().int().positive(),
+}).strict();
+export const VirtualExpertMarkdownProposal = z.object({ markdown: z.string().min(20).max(8000) }).strict();
 export const InitializeInterviewMarkdown = GenerateInterviewMarkdown.omit({ expectedDocumentVersion: true });
 export const ConfirmInterviewMarkdown = GenerateInterviewMarkdown.extend({
   expectedDocumentVersion: z.number().int().positive(),

@@ -230,6 +230,41 @@ test("the six-stage workbench restores a direct stage route and updates it from 
   await expect(page.getByTestId("itv-workbench-step-experts")).toHaveAttribute("aria-current", "step");
 });
 
+test("virtual-expert model proposal stays unsaved until structured human review", async ({ page }) => {
+  test.slow(); // Cold Next route compilation on the isolated browser server can exceed the default navigation budget.
+  await page.addInitScript(() => {
+    localStorage.setItem("wsx.sessionToken", "e2e-token");
+    localStorage.setItem("wsx.session", JSON.stringify({ version: 1, userId: "user-e2e", orgs: ["org-e2e"],
+      currentOrgId: "org-e2e", expiresAt: "2099-01-01T00:00:00.000Z" }));
+  });
+  await page.route("**/identity/me**", (route) => route.fulfill({ status: 200, contentType: "application/json",
+    body: JSON.stringify({ org: { id: "org-e2e", name: "E2E", kind: "organization", team: null, modelPolicy: "any" },
+      orgRole: "lead", teamId: null, projectRole: null, groupId: null, displayName: "E2E User", avatarUrl: null }) }));
+  await page.route("**/interviews/digital/itv-quality-e2e", (route) => route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(view) }));
+  await mockCanonicalSource(page);
+  let proposals = 0;
+  let writes = 0;
+  await page.route("**/interviews/digital/itv-quality-e2e/markdown/virtual-expert/preview", (route) => {
+    proposals++;
+    expect(route.request().postDataJSON()).toMatchObject({ expectedVersion: 4 });
+    return route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ markdown:
+      "# 夜班护理顾问\n\n## 专业角色\n护理顾问\n\n## 专业领域\n护理管理\n\n## 研究关注\n交接流程\n\n## 观点风格\n审慎\n\n## 简介\n只基于已知材料模拟\n\n## 局限与材料边界\n不代表真人受访者" }) });
+  });
+  await page.route("**/interviews/digital/itv-quality-e2e/markdown/experts", (route) => { writes++; return route.abort(); });
+  await page.goto("/itv/itv-quality-e2e/experts", { waitUntil: "domcontentloaded" });
+  await page.getByRole("button", { name: "添加虚拟专家" }).click();
+  const dialog = page.getByRole("dialog", { name: "添加虚拟专家" });
+  await dialog.getByRole("textbox", { name: "想添加怎样的专家" }).fill("请按已知材料设计一位关注夜班护理交接流程的模拟顾问，不声称真人访谈。");
+  await dialog.getByRole("button", { name: "AI 生成专家画像" }).click();
+  await expect(dialog.getByRole("textbox", { name: "专家名称" })).toHaveValue("夜班护理顾问");
+  await expect(dialog.getByRole("button", { name: "保存并添加专家" })).toBeDisabled();
+  expect(proposals).toBe(1); expect(writes).toBe(0);
+  await dialog.getByRole("checkbox", { name: "已审阅画像及模拟边界" }).check();
+  await dialog.getByRole("button", { name: "保存并添加专家" }).click();
+  await expect(page.getByRole("button", { name: "移除专家 夜班护理顾问" })).toBeVisible();
+  expect(writes).toBe(0);
+});
+
 test("a failed report keeps its partial content and exposes retry in a real browser", async ({ page }) => {
   const failed = { ...view, status: "report_pending", currentStep: "report", topic: "采购决策链路",
     version: 12, reportGeneration: { reportId: "report-failed", requestId: "request-failed", status: "failed",
