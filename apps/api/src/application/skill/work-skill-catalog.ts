@@ -89,11 +89,15 @@ export class WorkSkillCatalogNotFoundError extends Error {}
 export class WorkSkillCatalogAdminRequiredError extends Error {}
 export class WorkSkillCatalogIdempotencyConflictError extends Error {}
 export class WorkSkillChannelTransitionInvalidError extends Error {
-  constructor(readonly allowed: readonly WorkSkillChannel[], reason: string) {
+  constructor(readonly allowed: readonly WorkSkillChannel[], readonly reason: string) {
     super(reason);
   }
 }
-export class WorkSkillSuccessorInvalidError extends Error {}
+export class WorkSkillSuccessorInvalidError extends Error {
+  constructor(readonly reason: string) {
+    super(reason);
+  }
+}
 
 /** 就绪性由 WS04 计算；此处不伪造 ready（I-11）。 */
 const READINESS_NOT_COMPUTED = { overall: "unknown", missingRequired: null } as const;
