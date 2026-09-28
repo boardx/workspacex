@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input";
 import { ProjectBreadcrumb, withProjectId } from "@/components/project/project-breadcrumb";
 import { linkProjectResource } from "@/lib/live-project-resources";
 import { CreateSurveyDialog } from "./create-survey-dialog";
+import { hasPendingAiImport, markPendingAiImport } from "@/lib/survey/pending-ai-import";
 /**
  * `projectId`（项目中枢 B2-S2）：从项目「研究洞察 › 问卷」带 `?projectId=` 进来时，顶部挂「返回项目」
  * 面包屑；新建弹窗建成后先把问卷挂回该项目，再带 `projectId` 进工作台。
@@ -53,7 +54,8 @@ export function LiveSurveyLibrary({ projectId = null }: { projectId?: string | n
     }
   };
   const open = (item: SurveyRuntime) => {
-    router.push(`/studio/survey/${item.id}?step=design`);
+    const pendingImport = !item.publication && hasPendingAiImport(item.id);
+    router.push(withProjectId(`/studio/survey/${item.id}?step=${pendingImport ? "import&mode=ai" : "design"}`, projectId));
   };
   return (
     <main className="mx-auto max-w-7xl space-y-6 p-6 lg:p-8">
@@ -90,7 +92,7 @@ export function LiveSurveyLibrary({ projectId = null }: { projectId?: string | n
               key={item.id}
               className="rounded-xl border border-border bg-card p-5 shadow-sm"
             >
-              <div className="flex items-start justify-between gap-3"><Link className="text-18 font-semibold leading-snug transition-colors hover:underline" href={`/studio/survey/${item.id}`}>{item.title}</Link><span className="shrink-0 rounded-full bg-muted px-2.5 py-1 text-12" data-testid={`survey-status-${item.id}`}>{item.publication?.status === "collecting"
+              <div className="flex items-start justify-between gap-3"><Link className="text-18 font-semibold leading-snug transition-colors hover:underline" href={withProjectId(`/studio/survey/${item.id}`, projectId)} onClick={event=>{event.preventDefault();open(item);}}>{item.title}</Link><span className="shrink-0 rounded-full bg-muted px-2.5 py-1 text-12" data-testid={`survey-status-${item.id}`}>{item.publication?.status === "collecting"
                   ? "回收中"
                   : item.publication
                     ? "已关闭"
@@ -104,7 +106,7 @@ export function LiveSurveyLibrary({ projectId = null }: { projectId?: string | n
               </div>
               <p className="mt-5 text-12 text-muted-foreground">最近更新：{new Date(item.updatedAt).toLocaleString("zh-CN")}</p>
               <div className="mt-5 flex flex-wrap items-center justify-end gap-2">
-                <Button variant="outline" size="xs" onClick={() => router.push(`/studio/survey/${item.id}?step=responses`)}>查看答卷</Button>
+                <Button variant="outline" size="xs" onClick={() => router.push(withProjectId(`/studio/survey/${item.id}?step=responses`, projectId))}>查看答卷</Button>
                 <Button size="xs" onClick={() => open(item)}>{item.status === "collecting" || item.status === "closed" ? "继续编辑" : "继续设计"}</Button>
                 <details className="relative group"><summary aria-label={`更多操作：${item.title}`} className="cursor-pointer list-none rounded-control border border-border px-3 py-1 text-16 transition-colors hover:bg-muted">⋯</summary><div className="absolute right-0 z-10 mt-1 rounded-control border border-border bg-card p-1 shadow-lg"><Button variant="ghost" size="xs" disabled={busy} onClick={() => void remove(item)}>删除问卷</Button></div></details>
               </div>
@@ -122,10 +124,11 @@ export function LiveSurveyLibrary({ projectId = null }: { projectId?: string | n
         <div className="space-y-4 py-16 text-center"><h2 className="text-18 font-semibold">还没有问卷</h2><p className="text-muted-foreground">从空白问卷或现有模板开始，三步完成设计、回收与答卷查看。</p><Button onClick={() => setCreating(true)}>新建问卷</Button></div>
       )}
       </div></div>
-      <CreateSurveyDialog open={creating} onOpenChange={setCreating} onCreated={async (id) => {
+      <CreateSurveyDialog open={creating} onOpenChange={setCreating} onCreated={async (id,mode) => {
+        if (mode === "ai") markPendingAiImport(id);
         // 挂失败不回滚问卷（问卷已存在），项目页可用「关联已有问卷」补挂。
         if (projectId) { try { await linkProjectResource({ projectId, kind: "survey", resourceId: id }); } catch { /* 项目页可补挂 */ } }
-        router.push(withProjectId(`/studio/survey/${id}?step=design`, projectId));
+        router.push(withProjectId(`/studio/survey/${id}?step=${mode === "ai" ? "import&mode=ai" : "design"}`, projectId));
       }} />
     </main>
   );

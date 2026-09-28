@@ -40,11 +40,13 @@ import { SurveyCollectionSettingsEditor } from './collection-settings';
 import { SurveyTemplateActions } from "../library/template-actions";
 import { LiveResponseList } from "./response-list";
 import { assessPublishReadiness } from "@/lib/survey/publish-readiness";
+import { clearPendingAiImport } from "@/lib/survey/pending-ai-import";
 const STEPS = [
   ["design", "设计问卷"],
   ["publish", "发布回收"],
   ["responses", "查看答卷"],
 ] as const;
+const IMPORT_STEPS = [["import", "导入内容"], ...STEPS] as const;
 const BLOCKER_MESSAGES: Record<SurveyPublishBlocker["code"], string> = {
   QUESTIONS_EMPTY: "问卷至少需要一道题",
   QUESTION_OPTIONS_EMPTY: "选项题必须包含有效选项",
@@ -62,10 +64,12 @@ function emptyDraft(): SurveyDraftInput {
 export function LiveSurveyWorkspace({
   surveyId,
   initialStep = "design",
+  creationMode,
   projectId = null,
 }: {
   surveyId: string;
   initialStep?: string;
+  creationMode?: "ai";
   /**
    * 项目中枢 B2-S2：带 `?projectId=` 进来的新建问卷，首次 `POST /surveys` 成功后立即
    * `linkProjectResource` 挂到该项目；挂失败不回滚问卷（问卷已经存在），只提示。
@@ -82,7 +86,6 @@ export function LiveSurveyWorkspace({
   const [blockers, setBlockers] = React.useState<SurveyPublishBlocker[]>([]);
   const [notice, setNotice] = React.useState("");
   const [step, setStep] = React.useState(initialStep);
-  const [sourceToolsOpen, setSourceToolsOpen] = React.useState(surveyId === "new");
   const [repairQuestionId, setRepairQuestionId] = React.useState<string | null>(null);
   const [expires, setExpires] = React.useState("");
   const [markdown, setMarkdown] = React.useState("");
@@ -185,7 +188,7 @@ export function LiveSurveyWorkspace({
     // A retry must update that draft rather than POST a duplicate survey.
     if (!runtime) {
       setRuntime(next);
-      router.replace(`/studio/survey/${next.id}?step=${step}`);
+      router.replace(`/studio/survey/${next.id}?step=${step}${creationMode === "ai" ? "&mode=ai" : ""}`);
     }
     if (next.publication) {
       const persisted = await surveyRequest(`/surveys/${next.id}`, { method: "PUT", body: { ...parsed.data, expectedVersion: next.version } }, SurveyRuntimeSchema);
@@ -208,7 +211,7 @@ export function LiveSurveyWorkspace({
           setNotice("问卷已创建，但挂到项目失败——可回到项目页用「关联已有问卷」补挂");
         }
       }
-      router.replace(withProjectId(`/studio/survey/${next.id}?step=${step}`, projectId));
+      router.replace(withProjectId(`/studio/survey/${next.id}?step=${step}${creationMode === "ai" ? "&mode=ai" : ""}`, projectId));
     }
     return persisted;
   };
@@ -252,6 +255,8 @@ export function LiveSurveyWorkspace({
   const reportShareBlockedReason = runtime?.report
     ? surveyReportShareBlockedReason(runtime.report)
     : undefined;
+  const hasImportStep = creationMode === "ai" || initialStep === "import";
+  const workflowSteps = hasImportStep ? IMPORT_STEPS : STEPS;
   const collectionExpired = !!runtime?.publication && new Date(runtime.publication.expiresAt).getTime() <= Date.now();
   const collectionLabel = runtime?.publication?.status === "closed"
     ? "已停止回收"
@@ -259,7 +264,10 @@ export function LiveSurveyWorkspace({
   const selectStep = (next: string, targetQuestionId?: string) => {
     setStep(next);
     setRepairQuestionId(targetQuestionId ?? null);
-    window.history.replaceState(null, "", `?step=${next}`);
+    const url = new URL(window.location.href);
+    url.searchParams.set("step", next);
+    if (hasImportStep) url.searchParams.set("mode", "ai");
+    window.history.replaceState(null, "", url);
   };
   const projectedInSync = !!draft && !markdownNeedsApply;
   const autosaveEligible = !!runtime && !runtime.publication && step === "design" && dirty &&
@@ -325,7 +333,7 @@ export function LiveSurveyWorkspace({
         {step === "design" && <Button disabled={!draft || busy} onClick={() => selectStep("publish")}>前往发布回收</Button>}
       </div>
       <nav aria-label="问卷工作流" className="mx-auto flex max-w-4xl items-center gap-2 overflow-auto px-5 py-2">
-        {STEPS.map(([id, label], i) => (
+        {workflowSteps.map(([id, label], i) => (
           <button
             type="button"
             key={id}
@@ -384,27 +392,28 @@ export function LiveSurveyWorkspace({
       {!draft && !error && <p className="p-8">正在加载问卷…</p>}
       {draft && (
         <fieldset disabled={busy} className="min-w-0">
-          {step === "design" && (<>
-            <div className="mx-5 mb-3 rounded-lg border border-border bg-card">
-              <details className="group" data-testid="survey-source-tools" open={sourceToolsOpen} onToggle={event => setSourceToolsOpen(event.currentTarget.open)}>
-                <summary className="cursor-pointer px-5 py-3 text-14 font-medium">AI 生成与 Markdown 源文档 <span className="ml-2 text-12 font-normal text-muted-foreground">按需展开，校对后应用到问卷</span></summary>
-                <div className="space-y-4 border-t border-border p-4">
+          {step === "import" && (<section className="mx-auto max-w-6xl space-y-5 p-5" aria-label="导入内容步骤">
+            <div><h1 className="text-24 font-semibold">导入内容</h1><p className="mt-1 text-13 text-muted-foreground">描述需求，或上传文件、选择已保存的录音。先校对 AI 生成的 Markdown，再应用到问卷设计。</p></div>
             <SurveyAiProposal locked={!!runtime?.publication} onApply={text=>{
               const result=parseSurveyDesignMarkdown(text);if(!result.ok)return;
               const canonical=result.draft.tags===undefined&&draft.tags?.length
                 ? serializeSurveyDesignMarkdown({...result.draft,tags:draft.tags}) : text;
               setMarkdown(canonical);setMarkdownNeedsApply(false);setError('');
               setDraft({...draft,title:result.draft.title,tags:result.draft.tags??draft.tags,questions:result.draft.questions});
+              clearPendingAiImport(surveyId);
+              selectStep("design");
             }}/>
-            <MarkdownSurveyEditor value={markdown} locked={!!runtime?.publication} onChange={(text) => { setMarkdown(text); setMarkdownNeedsApply(true); }} onPreview={() => {
+            <details className="rounded-lg border border-border bg-card p-4"><summary className="cursor-pointer text-13 font-medium">直接编辑 Markdown（可选）</summary>
+              <div className="mt-4"><MarkdownSurveyEditor value={markdown} locked={!!runtime?.publication} onChange={(text) => { setMarkdown(text); setMarkdownNeedsApply(true); }} onPreview={() => {
                 const result = parseSurveyDesignMarkdown(markdown);
                 if (!result.ok) { setError(result.diagnostics.map((entry) => `第 ${entry.line} 行：${entry.message}`).join("；")); return; }
                 setError(""); setDraft({ ...draft, title: result.draft.title, tags: result.draft.tags, questions: result.draft.questions });
-                setMarkdownNeedsApply(false);
-              }} />
-                </div>
-              </details>
-            </div>
+                setMarkdownNeedsApply(false);clearPendingAiImport(surveyId);selectStep("design");
+              }} /></div>
+            </details>
+            <div className="flex justify-end"><Button variant="outline" onClick={() => {clearPendingAiImport(surveyId);selectStep("design");}}>跳过导入，空白设计</Button></div>
+          </section>)}
+          {step === "design" && (<>
             <fieldset disabled={!projectedInSync}>
             {!projectedInSync && <p className="px-5 text-12 text-muted-foreground">请先预览并应用 Markdown，再编辑题目或应用模板，避免覆盖未应用内容。</p>}
             <SurveyTemplateActions kind="question" draft={draft} onApply={(next) => { setDraft(next); setMarkdown(serializeSurveyDesignMarkdown(next)); }} locked={!!runtime?.publication} disabled={busy} />
