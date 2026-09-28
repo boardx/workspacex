@@ -1,7 +1,7 @@
 import { Body, ConflictException, Controller, ForbiddenException, HttpStatus, Inject, NotFoundException, Post, Res, UnprocessableEntityException } from "@nestjs/common";
 import type { Response } from "express";
-import { wave2Runtime as C } from "@repo/contracts";
-import { importAgentStarterPack, AgentStarterImportAdminRequiredError, AgentStarterImportIdempotencyConflictError, AgentStarterPackConflictError, AgentStarterPackInvalidError, AgentStarterPackNotFoundError, AgentStarterSkillVersionMismatchError, AgentStarterSkillVersionMissingError } from "../../application/agent-import/import-agent-starter-pack";
+import { agentRole as R, wave2Runtime as C } from "@repo/contracts";
+import { importAgentStarterPack, AgentStarterImportAdminRequiredError, AgentStarterImportIdempotencyConflictError, AgentStarterPackConflictError, AgentStarterPackInvalidError, AgentStarterPackNotFoundError, AgentStarterSkillVersionMismatchError, AgentStarterSkillVersionMissingError, AgentStarterToolPolicyInvalidError } from "../../application/agent-import/import-agent-starter-pack";
 import { AGENT_STARTER_IMPORT_REPOSITORY, AGENT_STARTER_PACK_SOURCE, type AgentStarterImportRepository, type AgentStarterPackSource } from "../../application/agent-import/ports";
 import { IDENTITY_REPOSITORY, type IdentityRepository } from "../../application/identity/ports";
 import type { Principal } from "../../domain/principal";
@@ -26,6 +26,12 @@ export class AgentStarterImportController {
     } catch (error) {
       if (error instanceof AgentStarterImportAdminRequiredError) throw new ForbiddenException({ reasonCode: "AGENT_STARTER_IMPORT_ADMIN_REQUIRED" });
       if (error instanceof AgentStarterPackNotFoundError) throw new NotFoundException({ reasonCode: "AGENT_STARTER_PACK_NOT_FOUND" });
+      if (error instanceof AgentStarterToolPolicyInvalidError) {
+        const code = R.AgentRoleImportError.enum.AGENT_STARTER_TOOL_POLICY_INVALID;
+        throw new UnprocessableEntityException(error.violation
+          ? { reasonCode: code, detail: R.AgentRoleImportFailureDetail.parse({ code, ...error.violation }) }
+          : { reasonCode: code });
+      }
       if (error instanceof AgentStarterPackInvalidError) throw new UnprocessableEntityException({ reasonCode: "AGENT_STARTER_PACK_INVALID" });
       if (error instanceof AgentStarterSkillVersionMissingError) throw new UnprocessableEntityException({ reasonCode: "AGENT_STARTER_SKILL_VERSION_MISSING" });
       if (error instanceof AgentStarterSkillVersionMismatchError) throw new UnprocessableEntityException({ reasonCode: "AGENT_STARTER_SKILL_VERSION_MISMATCH" });

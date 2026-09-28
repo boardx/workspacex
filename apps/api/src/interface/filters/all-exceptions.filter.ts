@@ -13,6 +13,7 @@
  * message -- using messages as codes turns internal strings into a public contract.
  */
 import { SkillFileEditError, SkillFileEditConflict } from "@repo/contracts/skill-file-edit";
+import { AgentRoleImportError, AgentRoleImportFailureDetail } from "@repo/contracts/agent-role";
 import { InterviewMarkdownReportReviewErrorCode } from "@repo/contracts/interview-markdown-report-review";
 import {
   type ArgumentsHost,
@@ -118,7 +119,7 @@ const CODE_BY_STATUS: Readonly<Record<number, string>> = {
  * no matter what an exception carries. Adding a third enum here should be a deliberate act;
  * adding a free string must never be one.
  */
-function permissionReasonOf(exception: HttpException): { reasonCode?: string; currentVersionId?: string } {
+function permissionReasonOf(exception: HttpException): { reasonCode?: string; currentVersionId?: string; detail?: unknown } {
   const body = exception.getResponse();
   if (typeof body !== "object" || body === null) return {};
   const raw = (body as { reasonCode?: unknown }).reasonCode;
@@ -291,6 +292,17 @@ function permissionReasonOf(exception: HttpException): { reasonCode?: string; cu
 
   const skillStarterImport = wave2Runtime.SkillStarterImportError.safeParse(raw);
   if (skillStarterImport.success) return { reasonCode: skillStarterImport.data };
+
+  /**
+   * AG02 UC-2 E1：`AgentRoleImportError` 可附 `AgentRoleImportFailureDetail`（stableName + 字段路径）。
+   * 只投影经契约 parse 过、code 与 reasonCode 一致的 detail；其它任何字段仍被丢弃。
+   */
+  const agentRoleImport = AgentRoleImportError.safeParse(raw);
+  if (agentRoleImport.success) {
+    const detail = AgentRoleImportFailureDetail.safeParse((body as { detail?: unknown }).detail);
+    if (detail.success && detail.data.code === agentRoleImport.data) return { reasonCode: agentRoleImport.data, detail: detail.data };
+    return { reasonCode: agentRoleImport.data };
+  }
 
   const agentStarterImport = wave2Runtime.AgentStarterImportError.safeParse(raw);
   if (agentStarterImport.success) return { reasonCode: agentStarterImport.data };

@@ -370,12 +370,60 @@ describe("explicit Skills-first Agent import", () => {
   });
 });
 
+describe("AG02 starter-pack toolPolicy capability categories (UC-2)", () => {
+  const grantTotals = () => asOwner(async (client) => {
+    const result = await client.query<{ grants: string; bindings: string }>(
+      "SELECT (SELECT count(*) FROM tool_permission_grants)::text AS grants, (SELECT count(*) FROM acl_bindings)::text AS bindings",
+    );
+    return result.rows[0]!;
+  });
+
+  it("imports a category toolPolicy end to end, persists it, and grants nothing (ADR-120 #2)", async () => {
+    const skill = await importPrerequisiteSkill();
+    writeAgentPack({ skillVersions: [skill], toolPolicy: ["knowledge.search", "doc.write"] });
+    const before = await grantTotals();
+    const response = await postImport("agents", ADMIN, {
+      packId: AGENT_PACK_ID,
+      packVersion: PACK_VERSION,
+      idempotencyKey: randomUUID(),
+    });
+    expect(response.status).toBe(201);
+    const result = await response.json() as AgentImportResult;
+    const stored = await asApp(ORG, async (client) => (await client.query<{ tool_policy: unknown }>(
+      "SELECT tool_policy FROM agent_versions WHERE id = $1 AND org_id = $2",
+      [result.versionIds[0], ORG],
+    )).rows[0]!.tool_policy);
+    expect(stored).toEqual(["knowledge.search", "doc.write"]);
+    // 分类不授权：导入不产生任何工具授权或 ACL 绑定（写权限不继承）。
+    expect(await grantTotals()).toEqual(before);
+  });
+
+  it.each([
+    { name: "credential object", toolPolicy: [{ token: "x" }], path: "agents[0].toolPolicy[0]" },
+    { name: "vendor id", toolPolicy: ["knowledge.search", "OpenAI"], path: "agents[0].toolPolicy[1]" },
+    { name: "URL", toolPolicy: ["https://api.example.com"], path: "agents[0].toolPolicy[0]" },
+  ])("rejects a non-category $name with E1 code, stableName and field path", async ({ toolPolicy, path }) => {
+    const skill = await importPrerequisiteSkill();
+    writeAgentPack({ skillVersions: [skill], toolPolicy });
+    const idempotencyKey = randomUUID();
+    const request = { packId: AGENT_PACK_ID, packVersion: PACK_VERSION, idempotencyKey };
+    const response = await postImport("agents", ADMIN, request);
+    expect(response.status).toBe(422);
+    expect(await response.json()).toMatchObject({
+      reasonCode: "AGENT_STARTER_TOOL_POLICY_INVALID",
+      detail: { code: "AGENT_STARTER_TOOL_POLICY_INVALID", stableName: "facilitation-agent", path, missingIds: [] },
+    });
+    expect(await counts()).toEqual({ agents: 0, agent_versions: 0, agent_starter_pack_imports: 1 });
+    const replay = await postImport("agents", ADMIN, request);
+    expect(replay.status).toBe(422);
+    expect(await replay.json()).toMatchObject({ reasonCode: "AGENT_STARTER_TOOL_POLICY_INVALID" });
+  });
+});
+
 describe("verification, conflicts, replay, immutability, and tenant isolation", () => {
   it.each([
     { name: "instruction digest", changes: { instructionDigestOverride: "0".repeat(64) } },
     { name: "pack digest", changes: { packDigestOverride: "f".repeat(64) } },
-    { name: "non-category tool policy (AG02: credential object)", changes: { toolPolicy: [{ token: "x" }] } },
-    { name: "non-category tool policy (AG02: vendor id)", changes: { toolPolicy: ["OpenAI"] } },
   ])("rejects an invalid $name without partial Agent/version rows", async ({ changes }) => {
     const skill = await importPrerequisiteSkill();
     writeAgentPack({ skillVersions: [skill], ...changes });
