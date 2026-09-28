@@ -73,7 +73,12 @@ const SUBTASK_BOUNDARIES = new Set([
 const WF01_WORKFLOW_REASON =
   "WF01 (Phase 20 workflow-runtime, UC-WR-1/UC-WR-3): workflow definitions, versions and instances have no `ObjectRef` kind, and pushing them through `authorize` would fall back to DEFAULT_SCOPE and ALLOW EVERY MEMBER. That is the same argument as the model-pool entry. Who may publish is an ORG-ADMIN question, decided in `publish-definition-version.ts` from `cmd.actor.orgRole` before this repository is reached. Instance visibility (initiator / designated approver / org admin, UC-WR-4) belongs to the WF03 HTTP surface, which does not exist yet. The exemption is valid ONLY while tests/workflow/pg-workflow-repo-guard.test.ts holds: (a) these files name no tenant table other than workflow_definitions / workflow_definition_versions / workflow_instances, (b) they never call `withoutTenant`, and (c) nothing under src/interface/ imports them. When a controller is added, (c) goes red and whoever adds it must attach the visibility decision there. If that test is deleted, these entries must go with it.";
 
+const WF02_WORKFLOW_REASON =
+  "WF02 (Phase 20 workflow-runtime, R3-2d/R3-5a, R4-E2): workflow_receipts and workflow_leases are runtime bookkeeping (idempotency receipts and epoch-CAS leases), not user content; they have no `ObjectRef` kind and routing them through `authorize` would fall back to DEFAULT_SCOPE and ALLOW EVERY MEMBER. They carry no payload a member could read except the stable response the same caller already received. Callers are the workflow runtime/use cases, which decide visibility before reaching them (WF03 HTTP surface). The exemption is valid ONLY while tests/workflow/pg-workflow-repo-guard.test.ts holds: (a) these files name no tenant table other than workflow_receipts / workflow_leases, (b) they never call `withoutTenant`, and (c) nothing under src/interface/ imports them. If that test is deleted, these entries must go with it.";
+
 const ALLOWLIST = new Map([
+  ["src/infrastructure/workflow/pg-workflow-receipt-store.ts", WF02_WORKFLOW_REASON],
+  ["src/infrastructure/workflow/pg-workflow-lease-store.ts", WF02_WORKFLOW_REASON],
   ["src/infrastructure/workflow/pg-workflow-definition-repository.ts", WF01_WORKFLOW_REASON],
   ["src/infrastructure/workflow/pg-workflow-instance-repository.ts", WF01_WORKFLOW_REASON],
   [

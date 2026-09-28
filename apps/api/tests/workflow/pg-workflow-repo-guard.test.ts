@@ -1,6 +1,6 @@
 /**
- * WF01 —— pins the conditions under which lint-permission-paths.mjs exempts the workflow PG repositories
- * (see WF01_WORKFLOW_REASON there). If this file is deleted, those allowlist entries must go too.
+ * WF01/WF02 —— pins the conditions under which lint-permission-paths.mjs exempts the workflow PG repositories
+ * (see WF01_WORKFLOW_REASON / WF02_WORKFLOW_REASON there). If this file is deleted, those allowlist entries must go too.
  */
 import { readFileSync, readdirSync, statSync } from "node:fs";
 import { join } from "node:path";
@@ -11,8 +11,13 @@ const API = fileURLToPath(new URL("../..", import.meta.url));
 const FILES = [
   "src/infrastructure/workflow/pg-workflow-definition-repository.ts",
   "src/infrastructure/workflow/pg-workflow-instance-repository.ts",
+  "src/infrastructure/workflow/pg-workflow-receipt-store.ts",
+  "src/infrastructure/workflow/pg-workflow-lease-store.ts",
 ];
-const ALLOWED_TABLES = new Set(["workflow_definitions", "workflow_definition_versions", "workflow_instances"]);
+const ALLOWED_TABLES = new Set([
+  "workflow_definitions", "workflow_definition_versions", "workflow_instances", // WF01
+  "workflow_receipts", "workflow_leases", // WF02
+]);
 
 function walk(dir: string): string[] {
   return readdirSync(dir).flatMap((n) => {
