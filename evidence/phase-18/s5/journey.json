@@ -1,0 +1,127 @@
+{
+  "golden": [
+    "G001",
+    "G002"
+  ],
+  "ids": {
+    "threadB": "thr-68c4962d-f9fb-4006-b4da-b77b960f06af",
+    "threadC": "thr-1e6c9885-79f0-4d99-b9af-09b57631a0d1",
+    "threadD": "thr-9d29a44a-aa84-4e72-968e-a182ae41208c",
+    "threadE": "thr-9cf6f6ec-e12d-4277-9ed8-2799e8aa94f8"
+  },
+  "s3_aboutMe": "关于我\n2\n\n开新对话时我会先想起这些，不用你再交代一遍。\n\n目标 · 1\n\n我的目标是探索未来教育\n\nAI 记下的\n来自你 9/27 的对话\n我的目标是探索未来教育\n点开看原话\n改写\n忘掉这条\n\n为这个目标在做的事 · 1\n\n决定\n\n我决定先调研三所实验学校\n\nAI 记下的\n来自你 9/27 的对话\n我的目标是探索未来教育\n点开看原话\n为了\n我的目标是探索未来教育\n改写\n忘掉这条\n偏好 · 0\n\n暂无\n\n约束与身份 · 0\n\n暂无\n\n在做的事 · 0\n\n暂无",
+  "s4_briefing": {
+    "dismissed": false,
+    "items": [
+      {
+        "itemId": "recent:act_00460dc1e8ba47b396874f00c64f31e1-p",
+        "section": "recent",
+        "kind": "decision",
+        "cardKind": null,
+        "statement": "我决定先调研三所实验学校",
+        "counterpart": null,
+        "goal": {
+          "claimId": "act_69f4aeb79eef44ccbe4788d868ee0e5a-p",
+          "statement": "我的目标是探索未来教育"
+        },
+        "saidAt": "2026-09-27T14:32:46.023Z",
+        "cite": {
+          "claimId": "act_00460dc1e8ba47b396874f00c64f31e1-p",
+          "scope": "personal",
+          "threadId": "thr-468b0e27-85ed-4650-ae10-5e8b927779f8"
+        },
+        "resumePrompt": "之前定下的：「我决定先调研三所实验学校」。接下来怎么推进？"
+      },
+      {
+        "itemId": "recent:act_69f4aeb79eef44ccbe4788d868ee0e5a-p",
+        "section": "recent",
+        "kind": "goal",
+        "cardKind": null,
+        "statement": "我的目标是探索未来教育",
+        "counterpart": null,
+        "goal": null,
+        "saidAt": "2026-09-27T14:32:42.974Z",
+        "cite": {
+          "claimId": "act_69f4aeb79eef44ccbe4788d868ee0e5a-p",
+          "scope": "personal",
+          "threadId": "thr-468b0e27-85ed-4650-ae10-5e8b927779f8"
+        },
+        "resumePrompt": "接着聊我的目标：「我的目标是探索未来教育」。帮我规划下一步。"
+      },
+      {
+        "itemId": "open_todos:clm_e7849e7769aa4e6cbe3c1b044f7b28dc",
+        "section": "open_todos",
+        "kind": "todo",
+        "cardKind": null,
+        "statement": "下周约王老师聊课程设计",
+        "counterpart": null,
+        "goal": null,
+        "saidAt": "2026-09-27T14:32:49.208Z",
+        "cite": {
+          "claimId": "clm_e7849e7769aa4e6cbe3c1b044f7b28dc",
+          "scope": "chat_session",
+          "threadId": "thr-468b0e27-85ed-4650-ae10-5e8b927779f8"
+        },
+        "resumePrompt": "继续这件待办：「下周约王老师聊课程设计」。现在该做哪一步？"
+      }
+    ]
+  },
+  "s4_text": "接着上次\n上次在做的事\n决定\n\n我决定先调研三所实验学校\n\n为了：我的目标是探索未来教育\n\n来自你 9/27 的对话\n看原话\n续上\n目标\n\n我的目标是探索未来教育\n\n来自你 9/27 的对话\n看原话\n续上\n没做完的待办\n待办\n\n下周约王老师聊课程设计\n\n来自你 9/27 的对话\n看原话\n续上",
+  "s5_answer": "根据之前的对话：下周约王老师聊课程设计（来自个人空间知识，最早见于你 09/27 的对话）；我决定先调研三所实验学校（来自个人空间知识，最早见于你 09/27 的对话）；我的目标是探索未来教育（来自个人空间知识，最早见于你 09/27 的对话）。",
+  "s5_recalled": [
+    {
+      "claimId": "clm_e7849e7769aa4e6cbe3c1b044f7b28dc",
+      "statement": "下周约王老师聊课程设计",
+      "kind": "todo",
+      "triState": "pending",
+      "scope": "personal",
+      "saidAt": "2026-09-27T14:32:49.208Z",
+      "channels": [
+        "fts"
+      ],
+      "retrievalReasons": [
+        "recall"
+      ],
+      "score": 0.01639344262295082,
+      "graphPath": null
+    },
+    {
+      "claimId": "act_00460dc1e8ba47b396874f00c64f31e1-p",
+      "statement": "我决定先调研三所实验学校",
+      "kind": "decision",
+      "triState": "pending",
+      "scope": "personal",
+      "saidAt": "2026-09-27T14:32:46.023Z",
+      "channels": [
+        "claim"
+      ],
+      "retrievalReasons": [
+        "recall"
+      ],
+      "score": 0,
+      "graphPath": null
+    },
+    {
+      "claimId": "act_69f4aeb79eef44ccbe4788d868ee0e5a-p",
+      "statement": "我的目标是探索未来教育",
+      "kind": "goal",
+      "triState": "pending",
+      "scope": "personal",
+      "saidAt": "2026-09-27T14:32:42.974Z",
+      "channels": [
+        "claim"
+      ],
+      "retrievalReasons": [
+        "recall"
+      ],
+      "score": 0,
+      "graphPath": null
+    }
+  ],
+  "s5_chip": "[1]\n待办\n下周约王老师聊课程设计\nAI 记下的\n来自你 9/27 的对话",
+  "s6_answer": "根据之前的对话：我决定先调研三所实验学校（来自个人空间知识，最早见于你 09/27 的对话）；我的目标是探索未来教育（来自个人空间知识，最早见于你 09/27 的对话）。",
+  "privacy_briefing": {
+    "dismissed": false,
+    "items": []
+  }
+}

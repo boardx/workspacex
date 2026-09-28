@@ -11,6 +11,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { correctCitation, getCitationMetrics, type CitationCorrectionDeps } from "../../src/application/knowledge-graph/correct-citation";
 import { newKgId } from "../../src/application/knowledge-graph/ids";
 import { KgHumanActionError } from "../../src/application/knowledge-graph/ports";
+import { getPersonalKnowledge } from "../../src/application/knowledge-graph/read-personal-knowledge";
 import { getTurnMemory, KgReadError } from "../../src/application/knowledge-graph/read-thread-knowledge";
 import { knowledgeMemoryFor } from "../../src/application/knowledge-graph/recall-knowledge";
 import { toOrgId } from "../../src/domain/org-id";
@@ -182,15 +183,44 @@ describe("S7：纠正之后下一轮不再用它", () => {
     expect(neu).toEqual({ supersedes_claim_id: "clm-s7-lang", scope_kind: "chat_session", scope_id: fx.B });
   });
 
-  it("「已过时」⇒ expireClaim（#4363 前按撤回执行）：下一轮不再用它", async () => {
+  it("「已过时」⇒ expireClaim = valid_to 到此刻（F4，S6 #4363）：不撤；下一轮不再用它；/brain 标「已过期」；再点一次不重复记", async () => {
     const q = "客户 A 对例会有什么要求？";
     expect(await recallText(fx.B, q, "run-s7-meet-pre")).toContain(MEETING);
     const answer = await turnWith(fx.B, "run-s7-meet", ["clm-s7-meeting"], `你说过：${MEETING}。`);
     const out = await correctCitation(deps, { userId: "u-owner", orgId: ORG_ID, threadId: fx.B, messageId: answer, claimId: "clm-s7-meeting", kind: "expired" });
     expect(out).toEqual({ outcome: "expired", newClaimId: null });
     expect(await recallText(fx.B, q, "run-s7-meet-next")).not.toContain(MEETING);
-    const [row] = await sqlRows<{ revocation_reason: string }>("SELECT revocation_reason FROM claims WHERE id = 'clm-s7-meeting'");
-    expect(row!.revocation_reason).toBe("user_citation_expired");
+    const [row] = await sqlRows<{ revocation_reason: string | null; revoked: boolean; status: string; expired: boolean }>(
+      `SELECT revocation_reason, revoked_at IS NOT NULL AS revoked, status, valid_to IS NOT NULL AND valid_to <= now() AS expired
+         FROM claims WHERE id = 'clm-s7-meeting'`);
+    expect(row).toEqual({ revocation_reason: null, revoked: false, status: "accepted", expired: true });
+    // /brain（本人长期记忆）：照旧列出，标「已过期」——不是被撤掉
+    const brain = await getPersonalKnowledge(fx.readDeps, { userId: "u-owner", orgId: ORG_ID });
+    expect(brain.claims.find((c) => c.id === "clm-s7-meeting")).toMatchObject({ statement: MEETING, expired: true });
+    // 已经过期的再点「已过时」：同「不在了」，不再记一条纠正事件
+    const before = (await sqlRows<{ n: string }>("SELECT count(*) AS n FROM kg_citation_corrections WHERE claim_id = 'clm-s7-meeting'"))[0]!.n;
+    expect(await rejected(correctCitation(deps, { userId: "u-owner", orgId: ORG_ID, threadId: fx.B, messageId: answer, claimId: "clm-s7-meeting", kind: "expired" })))
+      .toBe("KG_CLAIM_NOT_FOUND");
+    expect((await sqlRows<{ n: string }>("SELECT count(*) AS n FROM kg_citation_corrections WHERE claim_id = 'clm-s7-meeting'"))[0]!.n).toBe(before);
+  });
+
+  it("F4：「这条不对」+ 新说法 ⇒ 新说法带上旧条的 valid_to / due_at / todo_state（S6 kg_revise_inherits_time）", async () => {
+    await asOwner((c) => c.query(
+      `INSERT INTO claims (id, org_id, statement, status, tsv, claim_kind, confidence, created_by, reviewed_by, scope_kind, scope_id,
+                           valid_from, valid_to, due_at, todo_state)
+       VALUES ('clm-s7-todo', $1, '周三前把报价单发给客户 A', 'accepted', to_tsvector('simple', '周三前把报价单发给客户 A'), 'todo', 1,
+               'human', 'u-owner', 'chat_session', $2, now() - interval '1 day', now() + interval '30 days', now() + interval '2 days', 'done')`,
+      [ORG, fx.B]));
+    const answer = await turnWith(fx.B, "run-s7-todo", ["clm-s7-todo"], "你说过：周三前把报价单发给客户 A。");
+    const out = await correctCitation(deps, {
+      userId: "u-owner", orgId: ORG_ID, threadId: fx.B, messageId: answer, claimId: "clm-s7-todo", kind: "wrong", replacement: "周四前把报价单发给客户 A",
+    });
+    const rows = await sqlRows<{ id: string; valid_to: Date; due_at: Date; todo_state: string }>(
+      "SELECT id, valid_to, due_at, todo_state FROM claims WHERE id = ANY($1::text[]) ORDER BY id = 'clm-s7-todo' DESC", [["clm-s7-todo", out.newClaimId]]);
+    const [old, neu] = rows;
+    expect(neu!.todo_state).toBe("done");
+    expect(neu!.valid_to.toISOString()).toBe(old!.valid_to.toISOString());
+    expect(neu!.due_at.toISOString()).toBe(old!.due_at.toISOString());
   });
 });
 
@@ -278,7 +308,7 @@ describe("S7 review F1：纠正落在整家（会话原说法 ⇄ 长期记忆�
     expect(next!.split(NEW).length - 1).toBe(1);
   });
 
-  it("「这条不对」不带新说法 / 「已过时」纠正长期记忆那份 ⇒ 原对话里那条一起失效（反过来同样）", async () => {
+  it("「这条不对」不带新说法纠正长期记忆那份 ⇒ 原对话里那条一起失效；「已过时」纠正会话那条 ⇒ 整家到期（不撤）", async () => {
     const f1 = await family("c", "客户 A 要求周报用英文");
     const a1 = await turnWith(fx.B, "run-s7-fc", [f1.personal], "你说过：客户 A 要求周报用英文。");
     await correctCitation(deps, { userId: "u-owner", orgId: ORG_ID, threadId: fx.B, messageId: a1, claimId: f1.personal, kind: "wrong" });
@@ -286,8 +316,136 @@ describe("S7 review F1：纠正落在整家（会话原说法 ⇄ 长期记忆�
     const f2 = await family("d", "客户 A 要求月报抄送财务");
     const a2 = await turnWith(fx.A, "run-s7-fd", [f2.session], "你说过：客户 A 要求月报抄送财务。");
     await correctCitation(deps, { userId: "u-owner", orgId: ORG_ID, threadId: fx.A, messageId: a2, claimId: f2.session, kind: "expired" });
-    expect(await live("客户 A 要求月报抄送财务")).toEqual([]);
+    // F4：整家（会话那条 + 长期记忆副本）有效期到此刻、都不撤；家里的 derived_from 边不动
+    const fam = await sqlRows<{ id: string; revoked: boolean; expired: boolean }>(
+      `SELECT id, revoked_at IS NOT NULL AS revoked, valid_to IS NOT NULL AND valid_to <= now() AS expired
+         FROM claims WHERE id = ANY($1::text[]) ORDER BY id`, [[f2.personal, f2.session]]);
+    expect(fam).toEqual([
+      { id: f2.personal, revoked: false, expired: true },
+      { id: f2.session, revoked: false, expired: true },
+    ]);
+    expect((await sqlRows<{ status: string }>("SELECT status FROM ontology_edges WHERE id = 'edge-s7-fam-d'"))[0]!.status).toBe("active");
     expect(await recallText(fx.B, "客户 A 对月报有什么要求？", "run-s7-fd-b")).not.toContain("客户 A 要求月报抄送财务");
+  });
+});
+
+const corrRows = async (claimId: string) =>
+  (await sqlRows<{ n: string }>("SELECT count(*) AS n FROM kg_citation_corrections WHERE claim_id = $1", [claimId]))[0]!.n;
+
+describe("F4 review（PR #4507）：窗口未开始的也能到期（M1）、S10 项目副本一起到期（M2）、审计只列真到期的（L1）、长期记忆 anchor 继承时间（L2）", () => {
+  it("M1：有效期窗口还没开始的一条，点一次「已过时」就不再被召回；再点被拒、不多记一条纠正", async () => {
+    const S = "客户 A 要求下季度起合同走电子签";
+    await asOwner((c) => c.query(
+      `INSERT INTO claims (id, org_id, statement, status, tsv, claim_kind, confidence, created_by, reviewed_by, scope_kind, scope_id, valid_from)
+       VALUES ('clm-s7-future', $1, $2, 'accepted', to_tsvector('simple', $2), 'fact', 1, 'human', 'u-owner', 'personal', 'u-owner', now() + interval '10 days')`,
+      [ORG, S]));
+    const q = "客户 A 对合同签署有什么要求？";
+    expect(await recallText(fx.B, q, "run-s7-fut-pre")).toContain(S);
+    const answer = await turnWith(fx.B, "run-s7-fut", ["clm-s7-future"], `你说过：${S}。`);
+    await correctCitation(deps, { userId: "u-owner", orgId: ORG_ID, threadId: fx.B, messageId: answer, claimId: "clm-s7-future", kind: "expired" });
+    expect(await recallText(fx.B, q, "run-s7-fut-next")).not.toContain(S);
+    const [row] = await sqlRows<{ expired: boolean; ordered: boolean }>(
+      "SELECT valid_to <= now() AS expired, valid_from < valid_to AS ordered FROM claims WHERE id = 'clm-s7-future'");
+    expect(row).toEqual({ expired: true, ordered: true });
+    expect(await corrRows("clm-s7-future")).toBe("1");
+    expect(await rejected(correctCitation(deps, { userId: "u-owner", orgId: ORG_ID, threadId: fx.B, messageId: answer, claimId: "clm-s7-future", kind: "expired" })))
+      .toBe("KG_CLAIM_NOT_FOUND");
+    expect(await corrRows("clm-s7-future")).toBe("1");
+  });
+
+  it("M2：长期记忆那条「已过时」⇒ S10 分享到项目的副本一起到期，项目成员下一轮不再召回；审计只列这一次真到期的（L1）", async () => {
+    const S = "客户 A 要求验收报告用模板 B";
+    await insertClaim("clm-s7-shared-p", S, { kind: "personal", id: "u-owner" });
+    await insertClaim("clm-s7-shared-proj", S, { kind: "project", id: `${ORG}-p` });
+    // 家里另一条早就过期了：这一次不该再算到它头上（L1）
+    await insertClaim("clm-s7-shared-old", S, { kind: "chat_session", id: fx.A });
+    await asOwner(async (c) => {
+      await c.query(
+        `INSERT INTO ontology_edges (id, org_id, src_kind, src_id, dst_kind, dst_id, relation, created_by, scope_kind, scope_id)
+         VALUES ('edge-s7-share', $1, 'claim', 'clm-s7-shared-proj', 'claim', 'clm-s7-shared-p', 'derived_from', 'human', 'project', $2),
+                ('edge-s7-share-old', $1, 'claim', 'clm-s7-shared-p', 'claim', 'clm-s7-shared-old', 'derived_from', 'model', 'personal', 'u-owner')`,
+        [ORG, `${ORG}-p`]);
+      // 边建好之后再让它过期（建边时 S6 kg_copy_inherits_time 会把来源的有效期抄到副本上）
+      await c.query("UPDATE claims SET valid_from = now() - interval '2 days', valid_to = now() - interval '1 day' WHERE id = 'clm-s7-shared-old'");
+    });
+    const q = "客户 A 对验收报告有什么要求？";
+    const memberRecall = (runId: string) =>
+      knowledgeMemoryFor(port, { orgId: ORG_ID, userId: "u-member", threadId: fx.S, query: q, runId }, log);
+    expect(await memberRecall("run-s7-share-pre")).toContain(S);
+    const answer = await turnWith(fx.B, "run-s7-share", ["clm-s7-shared-p"], `你说过：${S}。`);
+    await correctCitation(deps, { userId: "u-owner", orgId: ORG_ID, threadId: fx.B, messageId: answer, claimId: "clm-s7-shared-p", kind: "expired" });
+    expect(await memberRecall("run-s7-share-next")).not.toContain(S);
+    const [proj] = await sqlRows<{ revoked: boolean; expired: boolean }>(
+      "SELECT revoked_at IS NOT NULL AS revoked, valid_to <= now() AS expired FROM claims WHERE id = 'clm-s7-shared-proj'");
+    expect(proj).toEqual({ revoked: false, expired: true });
+    const audits = await sqlRows<{ scope_kind: string; claims: { id: string }[] }>(
+      `SELECT scope_kind, payload->'claims' AS claims FROM ontology_actions
+        WHERE org_id = $1 AND action_type = 'expireClaim' AND payload->>'via' = 'citation'
+          AND (payload->'claims' @> '[{"id":"clm-s7-shared-p"}]'::jsonb OR payload->'claims' @> '[{"id":"clm-s7-shared-proj"}]'::jsonb)
+        ORDER BY scope_kind`, [ORG]);
+    expect(audits).toEqual([
+      { scope_kind: "personal", claims: [{ id: "clm-s7-shared-p" }] },
+      { scope_kind: "project", claims: [{ id: "clm-s7-shared-proj" }] },
+    ]);
+  });
+
+  it("N1：项目对话里的会话结论「已过时」⇒ R7 记到项目大脑的副本、以及合并进去的同事的项目结论都不动，也不写项目作用域的审计", async () => {
+    const S = "客户 A 要求周会纪要当天发出";
+    await insertClaim("clm-s7-n1-s", S, { kind: "chat_session", id: fx.S });
+    await insertClaim("clm-s7-n1-r7", S, { kind: "project", id: `${ORG}-p` });
+    await insertClaim("clm-s7-n1-colleague", S, { kind: "project", id: `${ORG}-p` });
+    await asOwner(async (c) => {
+      await c.query("UPDATE claims SET reviewed_by = 'u-member' WHERE id = 'clm-s7-n1-colleague'");
+      await c.query(
+        `INSERT INTO ontology_edges (id, org_id, src_kind, src_id, dst_kind, dst_id, relation, created_by, scope_kind, scope_id)
+         VALUES ('edge-s7-n1-r7', $1, 'claim', 'clm-s7-n1-r7', 'claim', 'clm-s7-n1-s', 'derived_from', 'human', 'project', $2),
+                ('edge-s7-n1-merge', $1, 'claim', 'clm-s7-n1-colleague', 'claim', 'clm-s7-n1-s', 'derived_from', 'human', 'project', $2)`,
+        [ORG, `${ORG}-p`]);
+    });
+    const answer = await turnWith(fx.S, "run-s7-n1", ["clm-s7-n1-s"], `你说过：${S}。`);
+    const out = await correctCitation(deps, { userId: "u-owner", orgId: ORG_ID, threadId: fx.S, messageId: answer, claimId: "clm-s7-n1-s", kind: "expired" });
+    expect(out.outcome).toBe("expired");
+    const rows = await sqlRows<{ id: string; expired: boolean; revoked: boolean }>(
+      `SELECT id, coalesce(valid_to <= now(), false) AS expired, revoked_at IS NOT NULL AS revoked FROM claims
+        WHERE id = ANY($1::text[]) ORDER BY id`, [["clm-s7-n1-s", "clm-s7-n1-r7", "clm-s7-n1-colleague"]]);
+    expect(Object.fromEntries(rows.map((r) => [r.id, [r.expired, r.revoked]]))).toEqual({
+      "clm-s7-n1-s": [true, false],
+      "clm-s7-n1-r7": [false, false],
+      "clm-s7-n1-colleague": [false, false],
+    });
+    const projectAudits = await sqlRows<{ n: string }>(
+      `SELECT count(*) AS n FROM ontology_actions WHERE org_id = $1 AND scope_kind = 'project' AND action_type = 'expireClaim'
+          AND payload->>'via' = 'citation' AND payload->'claims' @> ANY(ARRAY['[{"id":"clm-s7-n1-r7"}]'::jsonb, '[{"id":"clm-s7-n1-colleague"}]'::jsonb])`,
+      [ORG]);
+    expect(projectAudits[0]!.n).toBe("0");
+  });
+
+  it("L2：长期记忆那份是 anchor 时，「这条不对」的新说法同样带上 valid_to / due_at / todo_state", async () => {
+    const OLD = "周五前把验收清单发给客户 A";
+    await asOwner(async (c) => {
+      await c.query(
+        `INSERT INTO claims (id, org_id, statement, status, tsv, claim_kind, confidence, created_by, reviewed_by, scope_kind, scope_id,
+                             valid_from, valid_to, due_at, todo_state)
+         VALUES ('clm-s7-l2-s', $1, $2, 'accepted', to_tsvector('simple', $2), 'todo', 1, 'human', 'u-owner', 'chat_session', $3,
+                 now() - interval '1 day', now() + interval '20 days', now() + interval '3 days', 'done'),
+                ('clm-s7-l2-p', $1, $2, 'accepted', to_tsvector('simple', $2), 'todo', 1, 'human', 'u-owner', 'personal', 'u-owner',
+                 now() - interval '1 day', now() + interval '20 days', now() + interval '3 days', 'done')`,
+        [ORG, OLD, fx.A]);
+      await c.query(
+        `INSERT INTO ontology_edges (id, org_id, src_kind, src_id, dst_kind, dst_id, relation, created_by, scope_kind, scope_id)
+         VALUES ('edge-s7-l2', $1, 'claim', 'clm-s7-l2-p', 'claim', 'clm-s7-l2-s', 'derived_from', 'model', 'personal', 'u-owner')`, [ORG]);
+    });
+    const answer = await turnWith(fx.A, "run-s7-l2", ["clm-s7-l2-s"], `你说过：${OLD}。`);
+    const out = await correctCitation(deps, {
+      userId: "u-owner", orgId: ORG_ID, threadId: fx.A, messageId: answer, claimId: "clm-s7-l2-s", kind: "wrong", replacement: "下周一前把验收清单发给客户 A",
+    });
+    const rows = await sqlRows<{ id: string; scope_kind: string; supersedes_claim_id: string | null; valid_to: Date; due_at: Date; todo_state: string }>(
+      "SELECT id, scope_kind, supersedes_claim_id, valid_to, due_at, todo_state FROM claims WHERE id = ANY($1::text[])", [["clm-s7-l2-p", out.newClaimId]]);
+    const anchor = rows.find((r) => r.id === "clm-s7-l2-p")!;
+    const neu = rows.find((r) => r.id === out.newClaimId)!;
+    expect(neu).toMatchObject({ scope_kind: "personal", supersedes_claim_id: "clm-s7-l2-p", todo_state: "done" });
+    expect(neu.valid_to.toISOString()).toBe(anchor.valid_to.toISOString());
+    expect(neu.due_at.toISOString()).toBe(anchor.due_at.toISOString());
   });
 });
 
@@ -332,13 +490,13 @@ describe("S7：纠正率 = 纠正 / 被引用", () => {
   it("按同一个对账判据复算被引用次数；纠正按种类计数；只算本人的", async () => {
     const citedRuns = await sqlRows<{ n: string }>(
       "SELECT count(*) AS n FROM kg_citation_corrections WHERE org_id = $1 AND user_id = 'u-owner'", [ORG]);
-    expect(citedRuns[0]!.n).toBe("8");
+    expect(citedRuns[0]!.n).toBe("13");
     const m = await getCitationMetrics(deps, { userId: "u-owner", orgId: ORG_ID });
-    // 本人提问的回答里被引用过的：recon + authz + notcited + badreq + inv + lang + meet（7）+ 一家的五轮 fa/fb/fc/fd/fe（5）= 12；
+    // 本人提问的回答里被引用过的：recon + authz + notcited + badreq + inv + lang + meet（7）+ 一家的五轮 fa/fb/fc/fd/fe（5）+ F4 待办（1）+ F4 review 三轮 fut/share/l2（3）+ N1（1）= 17；
     // none 那一轮 0。纠正过的那条现在已失效，但它当时被引用过，照样算在分母里。
-    expect(m.citedUses).toBe(12);
-    expect(m.corrections).toEqual({ wrong: 6, expired: 2 });
-    expect(m.correctionRate).toBeCloseTo(8 / 12, 4);
+    expect(m.citedUses).toBe(17);
+    expect(m.corrections).toEqual({ wrong: 8, expired: 5 });
+    expect(m.correctionRate).toBeCloseTo(13 / 17, 4);
     expect(m.windowDays).toBe(30);
     // 别人：没有纠正、没有被引用（u-member 那一轮的引用不算到 u-owner 头上，反之亦然）
     const other = await getCitationMetrics(deps, { userId: "u-member", orgId: ORG_ID });

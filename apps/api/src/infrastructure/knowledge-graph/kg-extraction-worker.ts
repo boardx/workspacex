@@ -44,6 +44,7 @@ import {
   type KgAutoCopyPort, type KgConflictPort, type KgExtractionQueuePort, type KgExtractionSourcePort, type KnowledgeExtractorPort, type OntologyStorePort,
 } from "../../application/knowledge-graph/ports";
 import { LOGGER_PORT, type LoggerPort } from "../../application/ports/logger.port";
+import { KG_GOAL_LINK_PORT, KG_GOAL_LINK_PROPOSER_PORT, type GoalLinkPort, type GoalLinkProposerPort } from "../../application/knowledge-graph/profile-ports";
 import { KG_EXTRACTION_MODEL_CONFIG, type KgExtractionModelConfig } from "./kg-extraction-model-config";
 import { KG_EXTRACTION_LEASE_SECONDS } from "./pg-kg-extraction";
 
@@ -95,6 +96,9 @@ export class KgExtractionWorker implements OnModuleInit, OnModuleDestroy {
     @Optional() @Inject(KG_EXTRACTION_SLO_COUNTS_PORT) private readonly sloCounts?: KgExtractionSloCountsPort,
     @Optional() @Inject(KG_EXTRACTION_SLO_THRESHOLDS) private readonly sloThresholds?: ExtractionSloThresholds,
     @Optional() @Inject(KG_EXTRACTION_GATE_MODEL) private readonly gateModel?: WorthinessModelPort | null,
+    /** issue #4360：新记下的决定 / 待办挂到本人目标下（模型提议、高把握才挂）。生产合成必定注入。 */
+    @Optional() @Inject(KG_GOAL_LINK_PORT) private readonly goalLinks?: GoalLinkPort,
+    @Optional() @Inject(KG_GOAL_LINK_PROPOSER_PORT) private readonly goalProposer?: GoalLinkProposerPort,
   ) {
     this.watchdogMs = watchdogMs ?? kgExtractionWatchdogMs();
   }
@@ -137,6 +141,7 @@ export class KgExtractionWorker implements OnModuleInit, OnModuleDestroy {
         conflicts: this.conflicts, autoCopy: this.autoCopy, logger: this.logger, newId: newKgId,
         ...(this.slo !== undefined ? { slo: this.slo } : {}),
         ...(this.gateModel !== undefined && this.gateModel !== null ? { gateModel: this.gateModel } : {}),
+        ...(this.goalLinks !== undefined && this.goalProposer !== undefined ? { goalLinks: { goalLinks: this.goalLinks, proposer: this.goalProposer } } : {}),
       }, () => abandoned);
       // issue #4343：有处理过消息的一轮留一条计数，「跑了但一条没记下」（empty）与「没跑」（没有这行）分得开。
       if (tick.processed > 0) this.logger.info("kg extraction tick", { traceId: "kg-extraction", ...tick });

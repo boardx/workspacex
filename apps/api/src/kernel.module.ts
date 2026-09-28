@@ -674,6 +674,10 @@ import { PgKgExtraction } from "./infrastructure/knowledge-graph/pg-kg-extractio
 import { newKgId } from "./application/knowledge-graph/ids";
 import { PgKgConflict } from "./infrastructure/knowledge-graph/pg-kg-conflict";
 import { PgKgAutoCopy } from "./infrastructure/knowledge-graph/pg-kg-auto-copy";
+import { PgKgProfile } from "./infrastructure/knowledge-graph/pg-kg-profile";
+import { PgSessionBriefing } from "./infrastructure/knowledge-graph/pg-session-briefing";
+import { ModelGoalLinker } from "./infrastructure/knowledge-graph/model-goal-linker";
+import { KG_GOAL_LINK_PORT, KG_GOAL_LINK_PROPOSER_PORT, KG_SESSION_BRIEFING_PORT } from "./application/knowledge-graph/profile-ports";
 import { PgMemoryCard } from "./infrastructure/knowledge-graph/pg-memory-card";
 import { PgCitationCorrection } from "./infrastructure/knowledge-graph/pg-citation-correction";
 import { CITATION_CORRECTION_PORT, CLAIM_EXPIRY_PORT } from "./application/knowledge-graph/citation-ports";
@@ -3200,6 +3204,14 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
       useFactory: (model: ModelCallPort, config: KgExtractionModelConfig, logger: LoggerPort) => new ModelKnowledgeExtractor(model, config, logger),
       inject: [MODEL_CALL_PORT, KG_EXTRACTION_MODEL_CONFIG, LOGGER_PORT],
     },
+    // issue #4360 / #4362（S5）：「关于我」挂目标 / 改写（只调数据库函数）、模型提议挂哪个目标、开场简报（只读本人个人空间）。
+    { provide: KG_GOAL_LINK_PORT, useFactory: (db: DatabasePort) => new PgKgProfile(db), inject: [DATABASE_PORT] },
+    {
+      provide: KG_GOAL_LINK_PROPOSER_PORT,
+      useFactory: (model: ModelCallPort, config: KgExtractionModelConfig, logger: LoggerPort) => new ModelGoalLinker(model, config, logger),
+      inject: [MODEL_CALL_PORT, KG_EXTRACTION_MODEL_CONFIG, LOGGER_PORT],
+    },
+    { provide: KG_SESSION_BRIEFING_PORT, useFactory: (db: DatabasePort) => new PgSessionBriefing(db), inject: [DATABASE_PORT] },
     // S8（#4365）：抽取 SLO（进程内窗口 + 全库队列现数 + 阈值）、可选的便宜模型门控（默认关）、记忆整合（默认关）。
     { provide: KG_EXTRACTION_SLO_RECORDER, useValue: new ExtractionSloRecorder() },
     { provide: KG_EXTRACTION_SLO_COUNTS_PORT, useFactory: (db: DatabasePort) => new PgKgExtractionSloCounts(db), inject: [DATABASE_PORT] },
@@ -3239,7 +3251,7 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
     // F17：「记住 / 忘掉」确认卡（只经 kg_open_memory_card / kg_act_on_memory_card 落表）。
     { provide: MEMORY_CARD_PORT, useFactory: (db: DatabasePort) => new PgMemoryCard(db), inject: [DATABASE_PORT] },
     // S7（#4364）：引用 chip 上的「这条不对」/「已过时」（只经 kg_correct_citation 落表）与纠正率。
-    // CLAIM_EXPIRY_PORT（expireClaim）现在与纠正同一个实现；TODO(#4363) S6 的 valid_until 落地后换实现。
+    // CLAIM_EXPIRY_PORT（expireClaim）与纠正同一个实现：整家 valid_to = now()（S6 有效期，迁移 20260928220000）。
     { provide: CITATION_CORRECTION_PORT, useFactory: (db: DatabasePort) => new PgCitationCorrection(db), inject: [DATABASE_PORT] },
     { provide: CLAIM_EXPIRY_PORT, useExisting: CITATION_CORRECTION_PORT },
     {

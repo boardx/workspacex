@@ -105,6 +105,9 @@
  * **框架**（`decisionFrame`，也用来读 O）：有带新框架的改口分句 ⇒ 取第一个；否则取第一个不是改口分句的分句里第一个框架动词
  * （`FRAME_VERBS`，同一位置取最长的：采用 > 用；单字的 用 / 做 / 选 在词里——费用、用户、做法、选项、不用……——不算），
  * 它后面到分句末、去掉句末语气词的部分是「对象」；对象末尾连续汉字的最后两个字是「类别词」（「211高校」→「高校」，「985」没有）。
+ * 改口分句从改口词后面读新框架，框架动词前的副词（先 / 就 / 也 / 直接，`FRAME_ADVERB`）跳过——与旧决定一侧读法对称
+ * （issue #4509：「我决定先做X」对「改成先做Y」）；分档与白名单不变，另加一道只降不升的上限：跳过的副词里有「先」、旧决定
+ * 框架动词前却没有「先」⇒ 这一对最多到卡（「改成先 X」可能只是调顺序）。
  *
  * **一条新决定取代哪几条**：取最强的非空一档；这一档里的旧决定按归一文本分组——只有**一组**（同一句话可能在
  * 会话里和个人空间里各有一条）才算；多于一组 ⇒ 说不清改的是哪一条，既不取代也不弹卡。
@@ -255,12 +258,36 @@ function makeFrame(verb: string | null, rawObject: string): DecisionFrame {
   return { verb, object, kind: han.length >= 2 ? han.slice(-2) : null };
 }
 
-/** 从 text 开头读「框架动词 + 对象」；开头不是框架动词 ⇒ verbOptional 时整段当对象（动词为 null），否则 null。 */
-function frameAtStart(text: string, verbOptional: boolean): DecisionFrame | null {
+/**
+ * Issue #4509：改口分句里框架动词前的副词（「改成**先**做 Y」「改成**就**用 React」）。旧决定那边（`frameSite`）找的是分句里
+ * 第一个框架动词，「我决定先做 X」本来就读成「做 + X」；改口分句从改口词后面紧接着读，不跳过这些副词就对不齐。
+ * 只跳过后面**紧跟框架动词**的这几个；「也」照样被整句的 ADDITIVE 否决。单独的「还 / 再」不在这里：它们在这个位置读作
+ * 「另外 / 再加」（ADDITIVE 的 还要 / 还想 / 再加），宁可漏。「还是」也不在这里：改口词后面的「还是」撞上 OBJECT_STOP 的「是」、
+ * 整个分句本来就丢掉；「算了，还是…」那条路由 STILL_LEAD 先剥掉「还是」。
+ * 「先」另有一道上限（`firstOnlyNew`）：跳过的副词里有「先」、旧决定框架动词前却没有 ⇒ 「改成先 X」可能只是调顺序
+ * （先做 X），不是换掉旧的 ⇒ 这一对最多到卡（和修之前「先」留在对象里、被 HAN_NOT_NOUN 降到卡是同一个意思）。
+ */
+const FRAME_ADVERB = /^(?:先|就|也|直接)+/;
+/** 旧决定框架动词前面紧挨着的副词串（`frameSite` 的 prefix 结尾）。 */
+const FRAME_ADVERB_TAIL = /(?:先|就|也|直接)+$/;
+
+/** 读出的框架 + 跳过的副词里有没有「先」。 */
+interface ReadFrame {
+  readonly frame: DecisionFrame;
+  readonly first: boolean;
+}
+
+/** 从 text 开头读「框架动词 + 对象」（可跳过 `FRAME_ADVERB`）；开头不是框架动词 ⇒ verbOptional 时整段当对象（动词为 null），否则 null。 */
+function frameAtStart(text: string, verbOptional: boolean): ReadFrame | null {
   const rest = text.replace(/^了/, "");
-  const verb = frameVerbAt(rest, 0);
-  if (verb !== null) return makeFrame(verb, rest.slice(verb.length).replace(/^(?:了|在)/, ""));
-  return verbOptional && rest !== "" ? makeFrame(null, rest) : null;
+  const adverb = FRAME_ADVERB.exec(rest)?.[0] ?? "";
+  for (const at of adverb !== "" ? [0, adverb.length] : [0]) {
+    const verb = frameVerbAt(rest, at, false);
+    if (verb !== null) {
+      return { frame: makeFrame(verb, rest.slice(at + verb.length).replace(/^(?:了|在)/, "")), first: at > 0 && adverb.includes("先") };
+    }
+  }
+  return verbOptional && rest !== "" ? { frame: makeFrame(null, rest), first: false } : null;
 }
 
 /** 分句：按标点与连接词切开，去掉决定动词（决定 / 确定……），丢掉空分句；同时记下哪些分句是原因分句（因为 / 由于 / 毕竟）。 */
@@ -284,6 +311,8 @@ export interface ChangeClause {
   readonly namedOld: string | null;
   /** 改口词前面剥掉虚词后剩下的主语（「后端改用 Rust」的「后端」）；非空时旧决定原文必须包含它。 */
   readonly subject: string;
+  /** #4509：新框架是跳过含「先」的副词读出来的（「改成先做 Y」）；没有新框架 / 没跳 ⇒ 不带这个字段。 */
+  readonly first?: boolean;
 }
 
 const lead = (s: string): string => s.replace(LEAD_FILLERS, "");
@@ -326,10 +355,12 @@ function clauseChanges(clause: string): ChangeClause[] {
       else judged = true;
     }
     if (!judged) {
-      const frame = cw[0] === "改用" || cw[0] === "换用"
-        ? frameAtStart(rest, false) ?? (rest === "" ? null : makeFrame("用", rest))
+      const read = cw[0] === "改用" || cw[0] === "换用"
+        ? frameAtStart(rest, false) ?? (rest === "" ? null : { frame: makeFrame("用", rest), first: false })
         : frameAtStart(rest, true);
-      if (frame !== null) out.unshift({ frame, namedOld: ba ? nonEmpty(subject.replace(TAIL_PARTICLES, "")) : null, subject });
+      if (read !== null) {
+        out.unshift({ frame: read.frame, namedOld: ba ? nonEmpty(subject.replace(TAIL_PARTICLES, "")) : null, subject, ...(read.first ? { first: true } : {}) });
+      }
     }
   }
   return out;
@@ -385,11 +416,11 @@ function rawChangeClauses(text: string): RawChanges {
       return;
     }
     const still = STILL_LEAD.exec(next);
-    const frame = still === null ? null : frameAtStart(next.slice(still[0].length), false);
-    if (frame === null) return;
+    const read = still === null ? null : frameAtStart(next.slice(still[0].length), false);
+    if (read === null) return;
     changed.add(k + 1);
-    objectAt.set(k + 1, frame.object);
-    per[k]!.push({ frame, namedOld: old, subject: "" });
+    objectAt.set(k + 1, read.frame.object);
+    per[k]!.push({ frame: read.frame, namedOld: old, subject: "", ...(read.first ? { first: true } : {}) });
   });
   // 紧跟着的评判分句否掉它前面那个改口分句（「改成用React，我觉得不行」）
   clauses.forEach((c, k) => { if (k > 0 && VERDICT.test(c)) { per[k - 1] = []; objectAt.delete(k - 1); } });
@@ -440,20 +471,24 @@ interface FrameSite {
   readonly frame: DecisionFrame;
   readonly prefix: string;
   readonly frameClauses: number;
+  /** #4509：框架动词前紧挨着的副词里有「先」（「我决定先做 X」「改成先做 X」）。 */
+  readonly first: boolean;
 }
+
+type Site = { frame: DecisionFrame; prefix: string; first: boolean };
 
 function frameSite(statement: string): FrameSite {
   const { clauses, per, changed } = rawChangeClauses(normalizeStatement(statement));
-  let fromChange: { frame: DecisionFrame; prefix: string } | null = null;
+  let fromChange: Site | null = null;
   let frameClauses = 0;
   // 改口分句带的新框架优先（旧决定本身就是一句改口：「后端改用Rust」的主语「后端」）
   for (const cs of per) {
     const c = cs.find((x) => x.frame !== null);
     if (c === undefined || c.frame === null) continue;
     frameClauses += 1;
-    fromChange ??= { frame: c.frame, prefix: c.subject };
+    fromChange ??= { frame: c.frame, prefix: c.subject, first: c.first === true };
   }
-  let fromPlain: { frame: DecisionFrame; prefix: string } | null = null;
+  let fromPlain: Site | null = null;
   for (let k = 0; k < clauses.length; k += 1) {
     if (changed.has(k)) continue;
     const clause = clauses[k]!;
@@ -461,12 +496,17 @@ function frameSite(statement: string): FrameSite {
       const verb = frameVerbAt(clause, i);
       if (verb === null) continue;
       frameClauses += 1;
-      fromPlain ??= { frame: makeFrame(verb, clause.slice(i + verb.length).replace(/^(?:了|在)/, "")), prefix: clause.slice(0, i) };
+      const prefix = clause.slice(0, i);
+      fromPlain ??= {
+        frame: makeFrame(verb, clause.slice(i + verb.length).replace(/^(?:了|在)/, "")),
+        prefix,
+        first: FRAME_ADVERB_TAIL.exec(prefix)?.[0].includes("先") === true,
+      };
       break;
     }
   }
   const site = fromChange ?? fromPlain;
-  return site === null ? { frame: NO_FRAME, prefix: "", frameClauses } : { ...site, frameClauses };
+  return site === null ? { frame: NO_FRAME, prefix: "", frameClauses, first: false } : { ...site, frameClauses };
 }
 
 /** 重说：两个对象相等、或一个包含另一个（React 对 React做前端、Vue 对 Vue写原型）。 */
@@ -660,6 +700,8 @@ export function supersedeMatch(fresh: SupersedeFresh, older: LiveDecision): Topi
   // 整句门：明确收回 ⇒ 什么都不做；句子里还有说不准的分句 ⇒ 最多弹卡
   const certainty = sentenceCertainty(raw, o, site.prefix);
   if (certainty === "rejected") return null;
+  // #4509：「先」只在新句这边（「改成先做 Y」对「做 X」）⇒ 可能只是调顺序，不是换掉 ⇒ 最多到卡
+  if (!site.first && changes.some((c) => c.first === true)) return "frame_only";
   if (certainty !== "clean") return "frame_only";
   // 复合的旧决定（不止一个非空话分句、不止一个带框架的分句，或并列主语「前端和后端都用…」）说的不止一件事 ⇒ 永远不自动，最多弹卡
   const compound = !singleClause(older.statement) || site.frameClauses > 1 || COORDINATED.test(site.prefix)
