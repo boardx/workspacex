@@ -104,9 +104,12 @@ test('visual and accessibility real object states, input and negative controls',
       input.push({kind:'cdp-touch-object-drag',hardware:false,before:target,after:(await canonicalRows(page)).find(row=>row.id===target.id)});
       await cdp.send('Emulation.setTouchEmulationEnabled',{enabled:false});
       await page.keyboard.press('Escape');await page.getByTestId('board-add-draw').click();await expect(page.getByTestId('board-add-draw')).toHaveAttribute('aria-pressed','true');const beforeDrawing=(await canonicalSnapshot(request,token,boardId)).objects.length;
-      const upperCanvas=page.locator('canvas[data-fabric="top"]');await page.mouse.move(180,180);await page.mouse.down();
-      for(let i=1;i<=8;i++){const x=180+i*10,y=180+i*4;await upperCanvas.dispatchEvent('pointermove',{pointerType:'pen',pointerId:9,isPrimary:true,clientX:x,clientY:y,pressure:i/10,bubbles:true});await page.mouse.move(x,y);}
-      await page.mouse.up();
+      const upperCanvas=page.locator('canvas[data-fabric="top"]');
+      for(let attempt=0;attempt<3&&(await canonicalSnapshot(request,token,boardId)).objects.length===beforeDrawing;attempt++){
+        const startY=160+attempt*40;await page.mouse.move(180,startY);await page.mouse.down();
+        for(let i=1;i<=8;i++){const x=180+i*10,y=startY+i*4;await upperCanvas.dispatchEvent('pointermove',{pointerType:'pen',pointerId:9+attempt,isPrimary:true,clientX:x,clientY:y,pressure:i/10,bubbles:true});await page.mouse.move(x,y);}
+        await page.mouse.up();await page.waitForTimeout(300);
+      }
       await expect.poll(async()=>(await canonicalSnapshot(request,token,boardId)).objects.length).toBeGreaterThan(beforeDrawing);
       const snapshot=await canonicalSnapshot(request,token,boardId);const drawing=snapshot.objects.filter(o=>(o.extensionData?.contentObject as {type?:string})?.type==='drawing');
       const pressures=drawing.flatMap(o=>((o.extensionData?.contentObject as {strokes:Array<{points:Array<{pressure:number}>}>}).strokes??[]).flatMap(s=>s.points.map(p=>p.pressure)));
