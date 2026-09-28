@@ -74,7 +74,7 @@ test("发布门控展示全部阻断，修复后显式进入回收且匿名方�
   });
   expect(created.status).toBe(201);
 
-  await page.goto(`/studio/survey/${created.data.id}?step=publish`);
+  await page.goto(`/studio/survey/${created.data.id}/publish`);
   await page.getByRole("button", { name: "检查发布条件" }).click();
   await expect(page.getByText("发现 4 项发布阻断")).toBeVisible();
   await expect(page.getByText(/题目措辞可能带有诱导性/)).toBeVisible();
@@ -127,7 +127,7 @@ test("管理员可在真实答卷页排除测试答卷且保留审计理由", as
   });
   expect(submitted.status).toBe(201);
 
-  await page.goto(`/studio/survey/${created.data.id}?step=responses`);
+  await page.goto(`/studio/survey/${created.data.id}/responses`);
   await page.getByRole("button", { name: "查看完整答卷" }).click();
   await page.getByLabel("排除分析原因").fill("浏览器验收中的测试答卷");
   await page.getByRole("button", { name: "排除分析", exact: true }).click();
@@ -148,7 +148,7 @@ test("管理员可在真实答卷页排除测试答卷且保留审计理由", as
     answers: [{ questionId: "q-leading", value: "愿意" }],
   });
   expect(included.status).toBe(201);
-  await page.goto(`/studio/survey/${created.data.id}?step=report`);
+  await page.goto(`/studio/survey/${created.data.id}/report`);
   await page.getByRole("button", { name: "生成报告" }).click();
   await expect(page.getByTestId("survey-report-sample-summary")).toHaveText(/总答卷 2 · 待复核 0 · 已排除 1 · 纳入分析 1/);
   await expect(page.getByTestId("survey-report-block-sample-recommendation-distribution")).toHaveText(/实际样本量 1/);
