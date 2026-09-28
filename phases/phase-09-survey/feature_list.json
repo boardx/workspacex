@@ -9,7 +9,7 @@
       "title": "按新原型重构问卷首页、创建和独立路由",
       "spec_ref": "00-overview.md#R9",
       "user_visible_behavior": "用户在问卷首页查看真实卡片、标签和三个二级入口；空白或模板创建后直接进入独立设计路由，旧 step 链接保留项目上下文跳转。",
-      "status": "in_progress",
+      "status": "blocked",
       "sprint": "02",
       "owner": "coord-survey",
       "depends_on": [],
