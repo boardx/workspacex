@@ -241,6 +241,9 @@ import {
 import { FileSkillStarterPackSource } from "./infrastructure/skill/file-skill-starter-pack-source";
 import { PgSkillStarterImportRepository } from "./infrastructure/skill/pg-skill-starter-import-repository";
 import { SkillStarterImportController } from "./interface/controllers/skill-starter-import.controller";
+import { WorkSkillCatalogController } from "./interface/controllers/work-skill-catalog.controller";
+import { PgWorkSkillCatalogRepository } from "./infrastructure/skill/pg-work-skill-catalog-repository";
+import { WORK_SKILL_CATALOG_REPOSITORY } from "./application/skill/work-skill-catalog";
 import { SkillUrlImportController } from "./interface/controllers/skill-url-import.controller";
 import {
   composeImportSkillFromUrlDeps,
@@ -1093,6 +1096,7 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
     ProvenanceController,
     CapabilityController,
     SkillStarterImportController,
+    WorkSkillCatalogController,
     SkillUrlImportController,
     AgentUrlImportController,
     McpRemoteDiscoveryController,
@@ -1456,6 +1460,12 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
     {
       provide: SKILL_STARTER_IMPORT_REPOSITORY,
       useFactory: (db: DatabasePort) => new PgSkillStarterImportRepository(db),
+      inject: [DATABASE_PORT],
+    },
+    // Phase 20 WS03：Work Skill 目录读写（列表/搜索/详情 + 通道/后继 + 审计）。
+    {
+      provide: WORK_SKILL_CATALOG_REPOSITORY,
+      useFactory: (db: DatabasePort) => new PgWorkSkillCatalogRepository(db),
       inject: [DATABASE_PORT],
     },
     /**
