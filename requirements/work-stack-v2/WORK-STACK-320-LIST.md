@@ -2,11 +2,11 @@
 
 > 自动生成（`scratchpad` 同步脚本），请勿手改。阶段划分：每个阶段 = 该阶段数字人的组合闭包，去掉前面阶段已包含的实体；组合关系以两张矩阵为准。
 > 「✅ 通过」= 独立作者化 + 独立评审 Verdict: PASS，文档与评审链接可直接打开。基线 `main@30c1c433`。
-**总进度：62 / 320 通过**
+**总进度：69 / 320 通过**
 
 
 ## 第一阶段（进行中）：D002 研究员 / D003 产品经理 / D005 销售 / D011 设计思维
-共 81 个（数字人 4 / Workflow 19 / Skill 58），已通过 **60**
+共 81 个（数字人 4 / Workflow 19 / Skill 58），已通过 **67**
 
 | 状态 | ID | 类型 | 名称 | 文档 | 评审 |
 |---|---|---|---|---|---|
@@ -15,9 +15,9 @@
 | ✅ 通过 | D005 | 数字人 | Sales Representative | [文档](https://github.com/boardx/workspacex/blob/claude/tender-maxwell-dh21fg/requirements/work-stack-v2/digital-humans/D005-sales-representative.md) | [评审](https://github.com/boardx/workspacex/blob/claude/tender-maxwell-dh21fg/requirements/work-stack-v2/reviews/D005.review.md) |
 | ✅ 通过 | D011 | 数字人 | Design Thinking Expert | [文档](https://github.com/boardx/workspacex/blob/claude/tender-maxwell-dh21fg/requirements/work-stack-v2/digital-humans/D011-design-thinking-expert.md) | [评审](https://github.com/boardx/workspacex/blob/claude/tender-maxwell-dh21fg/requirements/work-stack-v2/reviews/D011.review.md) |
 | ✅ 通过 | W001 | Workflow | Research-to-Brief | [文档](https://github.com/boardx/workspacex/blob/claude/tender-maxwell-dh21fg/requirements/work-stack-v2/workflows/W001-research-to-brief.md) | [评审](https://github.com/boardx/workspacex/blob/claude/tender-maxwell-dh21fg/requirements/work-stack-v2/reviews/W001.review.md) |
-| ⬜ | W002 | Workflow | Meeting-to-Actions |  |  |
+| ✅ 通过 | W002 | Workflow | Meeting-to-Actions | [文档](https://github.com/boardx/workspacex/blob/claude/tender-maxwell-dh21fg/requirements/work-stack-v2/workflows/W002-meeting-to-actions.md) | [评审](https://github.com/boardx/workspacex/blob/claude/tender-maxwell-dh21fg/requirements/work-stack-v2/reviews/W002.review.md) |
 | ⬜ | W006 | Workflow | Knowledge Capture Loop |  |  |
-| ⬜ | W009 | Workflow | Evidence-to-Recommendation |  |  |
+| ✅ 通过 | W009 | Workflow | Evidence-to-Recommendation | [文档](https://github.com/boardx/workspacex/blob/claude/tender-maxwell-dh21fg/requirements/work-stack-v2/workflows/W009-evidence-to-recommendation.md) | [评审](https://github.com/boardx/workspacex/blob/claude/tender-maxwell-dh21fg/requirements/work-stack-v2/reviews/W009.review.md) |
 | ✅ 通过 | W011 | Workflow | Lead-to-Qualified | [文档](https://github.com/boardx/workspacex/blob/claude/tender-maxwell-dh21fg/requirements/work-stack-v2/workflows/W011-lead-to-qualified.md) | [评审](https://github.com/boardx/workspacex/blob/claude/tender-maxwell-dh21fg/requirements/work-stack-v2/reviews/W011.review.md) |
 | ✅ 通过 | W012 | Workflow | Prospect-to-Meeting | [文档](https://github.com/boardx/workspacex/blob/claude/tender-maxwell-dh21fg/requirements/work-stack-v2/workflows/W012-prospect-to-meeting.md) | [评审](https://github.com/boardx/workspacex/blob/claude/tender-maxwell-dh21fg/requirements/work-stack-v2/reviews/W012.review.md) |
 | ✅ 通过 | W013 | Workflow | Meeting-to-Opportunity | [文档](https://github.com/boardx/workspacex/blob/claude/tender-maxwell-dh21fg/requirements/work-stack-v2/workflows/W013-meeting-to-opportunity.md) | [评审](https://github.com/boardx/workspacex/blob/claude/tender-maxwell-dh21fg/requirements/work-stack-v2/reviews/W013.review.md) |
@@ -25,11 +25,11 @@
 | ✅ 通过 | W015 | Workflow | Weekly Pipeline Review | [文档](https://github.com/boardx/workspacex/blob/claude/tender-maxwell-dh21fg/requirements/work-stack-v2/workflows/W015-weekly-pipeline-review.md) | [评审](https://github.com/boardx/workspacex/blob/claude/tender-maxwell-dh21fg/requirements/work-stack-v2/reviews/W015.review.md) |
 | ✅ 通过 | W016 | Workflow | Forecast Review | [文档](https://github.com/boardx/workspacex/blob/claude/tender-maxwell-dh21fg/requirements/work-stack-v2/workflows/W016-forecast-review.md) | [评审](https://github.com/boardx/workspacex/blob/claude/tender-maxwell-dh21fg/requirements/work-stack-v2/reviews/W016.review.md) |
 | ✅ 通过 | W018 | Workflow | Account Expansion | [文档](https://github.com/boardx/workspacex/blob/claude/tender-maxwell-dh21fg/requirements/work-stack-v2/workflows/W018-account-expansion.md) | [评审](https://github.com/boardx/workspacex/blob/claude/tender-maxwell-dh21fg/requirements/work-stack-v2/reviews/W018.review.md) |
-| ⬜ | W027 | Workflow | Discovery-to-Opportunity |  |  |
-| ⬜ | W028 | Workflow | Research-to-Insight |  |  |
-| ⬜ | W029 | Workflow | Problem-to-PRD |  |  |
-| ⬜ | W030 | Workflow | PRD-to-Sprint |  |  |
-| ⬜ | W031 | Workflow | Experiment Loop |  |  |
+| ✅ 通过 | W027 | Workflow | Discovery-to-Opportunity | [文档](https://github.com/boardx/workspacex/blob/claude/tender-maxwell-dh21fg/requirements/work-stack-v2/workflows/W027-discovery-to-opportunity.md) | [评审](https://github.com/boardx/workspacex/blob/claude/tender-maxwell-dh21fg/requirements/work-stack-v2/reviews/W027.review.md) |
+| ✅ 通过 | W028 | Workflow | Research-to-Insight | [文档](https://github.com/boardx/workspacex/blob/claude/tender-maxwell-dh21fg/requirements/work-stack-v2/workflows/W028-research-to-insight.md) | [评审](https://github.com/boardx/workspacex/blob/claude/tender-maxwell-dh21fg/requirements/work-stack-v2/reviews/W028.review.md) |
+| ✅ 通过 | W029 | Workflow | Problem-to-PRD | [文档](https://github.com/boardx/workspacex/blob/claude/tender-maxwell-dh21fg/requirements/work-stack-v2/workflows/W029-problem-to-prd.md) | [评审](https://github.com/boardx/workspacex/blob/claude/tender-maxwell-dh21fg/requirements/work-stack-v2/reviews/W029.review.md) |
+| ✅ 通过 | W030 | Workflow | PRD-to-Sprint | [文档](https://github.com/boardx/workspacex/blob/claude/tender-maxwell-dh21fg/requirements/work-stack-v2/workflows/W030-prd-to-sprint.md) | [评审](https://github.com/boardx/workspacex/blob/claude/tender-maxwell-dh21fg/requirements/work-stack-v2/reviews/W030.review.md) |
+| ✅ 通过 | W031 | Workflow | Experiment Loop | [文档](https://github.com/boardx/workspacex/blob/claude/tender-maxwell-dh21fg/requirements/work-stack-v2/workflows/W031-experiment-loop.md) | [评审](https://github.com/boardx/workspacex/blob/claude/tender-maxwell-dh21fg/requirements/work-stack-v2/reviews/W031.review.md) |
 | ✅ 通过 | W032 | Workflow | Roadmap Review | [文档](https://github.com/boardx/workspacex/blob/claude/tender-maxwell-dh21fg/requirements/work-stack-v2/workflows/W032-roadmap-review.md) | [评审](https://github.com/boardx/workspacex/blob/claude/tender-maxwell-dh21fg/requirements/work-stack-v2/reviews/W032.review.md) |
 | ✅ 通过 | W057 | Workflow | Question-to-Analysis | [文档](https://github.com/boardx/workspacex/blob/claude/tender-maxwell-dh21fg/requirements/work-stack-v2/workflows/W057-question-to-analysis.md) | [评审](https://github.com/boardx/workspacex/blob/claude/tender-maxwell-dh21fg/requirements/work-stack-v2/reviews/W057.review.md) |
 | ✅ 通过 | W060 | Workflow | Research-to-Evidence | [文档](https://github.com/boardx/workspacex/blob/claude/tender-maxwell-dh21fg/requirements/work-stack-v2/workflows/W060-research-to-evidence.md) | [评审](https://github.com/boardx/workspacex/blob/claude/tender-maxwell-dh21fg/requirements/work-stack-v2/reviews/W060.review.md) |
