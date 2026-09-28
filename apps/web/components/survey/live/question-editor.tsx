@@ -208,13 +208,25 @@ export function SurveyQuestionEditor({
         </div>
       </div>
       <div
-        className={`grid min-w-0 gap-6 ${preview ? "xl:grid-cols-[14rem_minmax(0,1fr)_minmax(0,1fr)]" : "lg:grid-cols-[16rem_minmax(0,1fr)]"}`}
+        className={`grid min-w-0 gap-4 ${studioLayout && preview ? "xl:grid-cols-[19rem_minmax(0,1fr)_22rem]" : preview ? "xl:grid-cols-[16rem_minmax(0,1fr)_minmax(0,1fr)]" : "lg:grid-cols-[16rem_minmax(0,1fr)]"}`}
       >
         <ResponsiveDesignerPanel title="题目大纲" enabled={studioLayout} disabled={disabled}>
-        <aside className="min-w-0">
-          <h2 className="mb-3 text-14 font-semibold">
-            题目目录 · {questions.length}
-          </h2>
+        <aside className="min-w-0 space-y-5 rounded-lg border border-border bg-card p-4">
+          {studioLayout && !locked && <section aria-label="题型工具箱" className="space-y-3">
+            <div className="flex items-start justify-between gap-2"><div><h2 className="text-16 font-semibold">题型工具箱</h2><p className="mt-1 text-12 text-muted-foreground">选择题型，直接添加到问卷</p></div><Button type="button" size="sm" variant="outline" onClick={() => add("short")}>新增题目</Button></div>
+            {Array.from(new Set(SURVEY_QUESTION_TYPES.map(item => item.category))).map(group => <div key={group}>
+              <h3 className="mb-2 text-12 font-medium text-muted-foreground">{group}</h3>
+              <div className="grid grid-cols-2 gap-2">
+                {SURVEY_QUESTION_TYPES.filter(item => item.category === group).map(item => <button
+                  key={item.type} type="button" data-testid={`add-question-${item.type}`}
+                  onClick={() => add(item.type)}
+                  className="rounded-md border border-border bg-background px-2 py-3 text-left text-12 font-medium transition-colors hover:border-primary hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                >{item.label}</button>)}
+              </div>
+            </div>)}
+          </section>}
+          <h2 className="text-14 font-semibold">题目大纲</h2>
+          <p className="text-12 text-muted-foreground">题目目录 · {questions.length}</p>
           <ol className="space-y-1">
             {questions.map((q) => (
               <li key={q.id}>
@@ -233,7 +245,7 @@ export function SurveyQuestionEditor({
               </li>
             ))}
           </ol>
-          {!locked && (
+          {!locked && !studioLayout && (
             <div className="mt-4 flex flex-wrap gap-2">
               <Button type="button" onClick={() => setPicking(!picking)}>
                 新增题目
@@ -274,7 +286,7 @@ export function SurveyQuestionEditor({
               已发布的题目已锁定，以保证答卷与题目一致。仍可调整报告模板。
             </p>
           )}
-          {picking && !locked && (
+          {picking && !locked && !studioLayout && (
             <div
               className="space-y-3 rounded-lg border border-border p-4"
               aria-label="题型选择器"
@@ -499,7 +511,9 @@ export function SurveyQuestionEditor({
         </section>
         </ResponsiveDesignerPanel>
         {preview && !overviewFirst && (
-          <aside aria-label="实时预览" className={`min-w-0 space-y-4 ${studioLayout ? 'xl:order-2' : ''}`}>
+          <aside aria-label="实时预览" className={`min-w-0 space-y-4 rounded-lg border border-border bg-card p-4 ${studioLayout ? 'xl:order-2' : ''}`}>
+            <div role="region" aria-label="问卷设计画布" className="space-y-4">
+            {studioLayout && <div className="border-b border-border pb-3"><h2 className="text-16 font-semibold">问卷设计画布</h2><p className="mt-1 text-12 text-muted-foreground">选择左侧题目，在右侧调整设置；下方可试填预览。</p></div>}
             <div className="flex gap-2">
               <Button type="button" variant={previewDevice === "desktop" ? "primary" : "outline"} aria-pressed={previewDevice === "desktop"} onClick={() => setPreviewDevice("desktop")}>
                 桌面预览
@@ -524,6 +538,7 @@ export function SurveyQuestionEditor({
                   }
                 />
               ))}
+            </div>
             </div>
           </aside>
         )}

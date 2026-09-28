@@ -82,6 +82,7 @@ export function LiveSurveyWorkspace({
   const [blockers, setBlockers] = React.useState<SurveyPublishBlocker[]>([]);
   const [notice, setNotice] = React.useState("");
   const [step, setStep] = React.useState(initialStep);
+  const [sourceToolsOpen, setSourceToolsOpen] = React.useState(surveyId === "new");
   const [repairQuestionId, setRepairQuestionId] = React.useState<string | null>(null);
   const [expires, setExpires] = React.useState("");
   const [markdown, setMarkdown] = React.useState("");
@@ -263,7 +264,7 @@ export function LiveSurveyWorkspace({
     () => execute(async () => { await save(); }));
   return (
     <main className="min-w-0 bg-background">
-      <header className="flex flex-wrap items-center gap-3 border-b border-border bg-card p-4">
+      <header className="flex flex-wrap items-center gap-3 border-b border-border bg-card px-5 py-3">
         <Button
           variant="ghost"
           onClick={() => {
@@ -276,6 +277,7 @@ export function LiveSurveyWorkspace({
         <div className="min-w-48 flex-1">
           <Input
             aria-label="问卷名称"
+            className="max-w-xl border-transparent bg-transparent text-18 font-semibold shadow-none focus-visible:border-border"
             disabled={busy || !draft}
             value={draft?.title ?? ""}
             onChange={(e) =>
@@ -314,20 +316,21 @@ export function LiveSurveyWorkspace({
           {busy ? "处理中…" : "保存修改"}
         </Button>
       </header>
-      {step === 'design' && <div className="flex justify-end border-b border-border px-5 py-3"><Button disabled={!draft || busy} onClick={() => selectStep('publish')}>前往发布回收</Button></div>}
-      {step === "design" && <p role="status" className="px-5 py-2 text-12 text-muted-foreground">{busy ? "正在保存或处理…" : error ? "保存失败，请检查并重试" : autosaveEligible ? "等待自动保存…" : dirty ? "有未保存修改；未应用内容请先校对" : "所有修改已保存"}</p>}
-      <nav
-        aria-label="问卷工作流"
-        className="flex overflow-auto border-b border-border bg-card"
-      >
+      <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-end gap-3 px-5 py-1">
+        {step === "design" && <p role="status" className="mr-auto text-12 text-muted-foreground">{busy ? "正在保存或处理…" : error ? "保存失败，请检查并重试" : autosaveEligible ? "等待自动保存…" : dirty ? "有未保存修改；未应用内容请先校对" : "所有修改已保存"}</p>}
+        {step === "design" && <Button disabled={!draft || busy} onClick={() => selectStep("publish")}>前往发布回收</Button>}
+      </div>
+      <nav aria-label="问卷工作流" className="mx-auto flex max-w-4xl items-center gap-2 overflow-auto px-5 py-2">
         {STEPS.map(([id, label], i) => (
           <button
             type="button"
             key={id}
+            aria-label={`${i + 1}. ${label}`}
             onClick={() => selectStep(id)}
-            className={`min-w-28 flex-1 border-b-2 px-4 py-4 text-12 ${step === id ? "border-primary bg-accent font-semibold" : "border-transparent"}`}
+            className={`flex min-w-28 flex-1 items-center justify-center gap-2 rounded-md px-3 py-2 text-13 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${step === id ? "bg-accent font-semibold text-primary" : "text-muted-foreground hover:bg-muted"}`}
           >
-            {i + 1}. {label}
+            <span className={`flex size-7 shrink-0 items-center justify-center rounded-full ${step === id ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"}`}>{i + 1}</span>
+            {label}
           </button>
         ))}
       </nav>
@@ -378,6 +381,10 @@ export function LiveSurveyWorkspace({
       {draft && (
         <fieldset disabled={busy} className="min-w-0">
           {step === "design" && (<>
+            <div className="mx-5 mb-3 rounded-lg border border-border bg-card">
+              <details className="group" data-testid="survey-source-tools" open={sourceToolsOpen} onToggle={event => setSourceToolsOpen(event.currentTarget.open)}>
+                <summary className="cursor-pointer px-5 py-3 text-14 font-medium">AI 生成与 Markdown 源文档 <span className="ml-2 text-12 font-normal text-muted-foreground">按需展开，校对后应用到问卷</span></summary>
+                <div className="space-y-4 border-t border-border p-4">
             <SurveyAiProposal locked={!!runtime?.publication} onApply={text=>{
               const result=parseSurveyDesignMarkdown(text);if(!result.ok)return;
               const canonical=result.draft.tags===undefined&&draft.tags?.length
@@ -391,6 +398,9 @@ export function LiveSurveyWorkspace({
                 setError(""); setDraft({ ...draft, title: result.draft.title, tags: result.draft.tags, questions: result.draft.questions });
                 setMarkdownNeedsApply(false);
               }} />
+                </div>
+              </details>
+            </div>
             <fieldset disabled={!projectedInSync}>
             {!projectedInSync && <p className="px-5 text-12 text-muted-foreground">请先预览并应用 Markdown，再编辑题目或应用模板，避免覆盖未应用内容。</p>}
             <SurveyTemplateActions kind="question" draft={draft} onApply={(next) => { setDraft(next); setMarkdown(serializeSurveyDesignMarkdown(next)); }} locked={!!runtime?.publication} disabled={busy} />
@@ -422,12 +432,17 @@ export function LiveSurveyWorkspace({
             />
           </>)}
           {step === "publish" && (
-            <section className="mx-auto max-w-6xl space-y-5 p-6">
-              <h1 className="text-20 font-semibold">发布与回收</h1>
-              <SurveyCollectionSettingsEditor markdown={publicationMarkdown} locked={busy || !!runtime?.publication} onChange={setPublicationMarkdown}/>
-              <p className="text-12 text-muted-foreground">
-                先检查设计质量，再明确开始回收。开始回收后题目与匿名方式固定，报告模板仍可继续编辑。
-              </p>
+            <section className="mx-auto max-w-7xl space-y-5 p-5">
+              <div><h1 className="text-20 font-semibold">发布与回收</h1><p className="mt-1 text-12 text-muted-foreground">检查问卷、设置回收方式，发布后分享链接并查看真实答卷。</p></div>
+              <div className="grid items-start gap-5 lg:grid-cols-[minmax(0,1.8fr)_minmax(18rem,1fr)]">
+              <div className="space-y-5">
+              <section aria-label="问卷回收状态" className="rounded-lg border border-border bg-card p-6">
+                <p className="text-12 font-medium text-muted-foreground">{runtime?.publication ? "问卷回收状态" : "发布准备"}</p>
+                <h2 className="mt-3 text-24 font-semibold">{runtime?.publication ? runtime.publication.status === "collecting" ? "问卷正在回收中" : "问卷已停止回收" : runtime?.status === "ready" ? "已准备好发布" : "完成发布检查后开始回收"}</h2>
+                <p className="mt-2 text-13 text-muted-foreground">{runtime?.publication ? "受访者可通过链接或二维码填写；答卷与发布版本对应。" : "先检查设计质量，再明确开始回收。开始回收后题目与匿名方式固定。"}</p>
+                {runtime?.publication && <p className="mt-4 text-12 text-muted-foreground">发布版本 v{runtime.publication.version}</p>}
+                {runtime?.publication && <p className="mt-2 text-13 font-medium">{runtime.publication.status === "collecting" ? "正在回收" : "已停止回收"} · {runtime.responses.length} 份答卷</p>}
+              </section>
               {runtime?.status === "draft" ? (
                 <>
                   <Button
@@ -508,24 +523,15 @@ export function LiveSurveyWorkspace({
               ) : runtime?.publication ? (
                 <>
                   <CollectionOverview runtime={runtime} />
-                  <p className="text-14">
-                    {runtime.publication.status === "closed"
-                      ? "已停止回收"
-                      : new Date(runtime.publication.expiresAt).getTime() <
-                          Date.now()
-                        ? "已到截止时间"
-                        : "正在回收"}{" "}
-                    · {runtime.responses.length} 份答卷
-                  </p>
-                  <p className="text-12 text-muted-foreground">
-                    截止{" "}
-                    {new Date(runtime.publication.expiresAt).toLocaleString(
-                      "zh-CN",
-                    )}
-                  </p>
-                  <Input aria-label="答题链接" readOnly value={link} />
-                  <SurveyShareCode link={link} />
-                  <div className="flex flex-wrap gap-2">
+                  <section aria-label="分享问卷" className="space-y-4 rounded-lg border border-border bg-card p-5">
+                    <div>
+                      <h2 className="text-16 font-semibold">分享问卷</h2>
+                      <p className="mt-1 text-12 text-muted-foreground">通过链接或二维码邀请受访者填写。截止 {new Date(runtime.publication.expiresAt).toLocaleString("zh-CN")}。</p>
+                    </div>
+                    <Input aria-label="答题链接" readOnly value={link} />
+                    <div className="flex flex-wrap items-center gap-4">
+                      <SurveyShareCode link={link} />
+                      <div className="flex flex-wrap gap-2">
                     <Button
                       variant="outline"
                       onClick={() =>
@@ -545,7 +551,10 @@ export function LiveSurveyWorkspace({
                     >
                       打开答题页
                     </a>
-                    {runtime.publication.status === "collecting" && (
+                      </div>
+                    </div>
+                  </section>
+                  {runtime.publication.status === "collecting" && (
                       <Button
                         variant="outline"
                         onClick={() => {
@@ -560,11 +569,16 @@ export function LiveSurveyWorkspace({
                         停止回收
                       </Button>
                     )}
-                  </div>
                 </>
               ) : (
                 <p className="text-12 text-muted-foreground">正在同步发布状态，请刷新后重试。</p>
               )}
+              </div>
+              <aside className="space-y-4" aria-label="回收设置面板">
+                <SurveyCollectionSettingsEditor markdown={publicationMarkdown} locked={busy || !!runtime?.publication} onChange={setPublicationMarkdown}/>
+                {runtime?.publication && <div className="rounded-lg border border-border bg-card p-5 text-13"><h2 className="font-semibold">已发布设置</h2><p className="mt-3">截止时间：{new Date(runtime.publication.expiresAt).toLocaleString("zh-CN")}</p><p className="mt-2">匿名填写：{runtime.anonymity === "anonymous" ? "开启" : "关闭"}</p><p className="mt-2 text-12 text-muted-foreground">这些设置随发布版本冻结，历史答卷不会被修改。</p></div>}
+              </aside>
+              </div>
             </section>
           )}
           {step === "responses" && (<>
