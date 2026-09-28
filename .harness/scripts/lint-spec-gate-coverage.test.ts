@@ -238,6 +238,20 @@ describe("真实仓库", () => {
     expect(invoked.get("apps/web/playwright.chat-read.config.ts")?.unconditional).toBe(true);
   });
 
+  it("合成导入报告无条件运行，真实厂商样本仍由独立 captured 门禁负责", () => {
+    const { rows } = auditSpecGateCoverage() as { rows: Row[] };
+    const synthetic = rows.find((row) => row.spec === "apps/web/e2e/board-import-report.spec.ts");
+    const captured = rows.find((row) => row.spec === "apps/web/e2e/board-vendor-captured-migration.spec.ts");
+    expect(synthetic).toMatchObject({
+      verdict: "covered",
+      unconditionalBy: ["apps/web/e2e/support/board-import-report-fullstack.config.ts"],
+    });
+    expect(captured).toMatchObject({
+      verdict: "covered",
+      unconditionalBy: ["apps/web/e2e/support/board-vendor-captured-fullstack.config.ts"],
+    });
+  });
+
   it("门控脚本本身以 0 退出", () => {
     expect(() => execFileSync("node", [GATE], { encoding: "utf8" })).not.toThrow();
   });

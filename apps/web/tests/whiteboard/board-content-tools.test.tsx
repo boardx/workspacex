@@ -146,9 +146,14 @@ it("opens Frame from the F shortcut without creating twice and persists the chos
   expect(screen.getByTestId("board-frame-tool-panel")).toBeVisible();
   fireEvent.click(screen.getByTestId("board-frame-circle"));
   fireEvent.click(screen.getByTestId("board-frame-size-l"));
-  fireEvent.click(screen.getByTestId("canvas-click"));
-  const panel=readObjects(doc)[0]!;
-  expect(readObjects(doc)).toHaveLength(1);
+  for (let index = 0; index < 8; index += 1) {
+    fireEvent.click(screen.getByTestId("canvas-click"));
+    expect(readObjects(doc), `Frame gesture ${index + 1} should add one object`).toHaveLength(index + 1);
+  }
+  const panels=readObjects(doc);
+  const panel=panels[0]!;
+  expect(new Set(panels.map((object) => object.id))).toHaveLength(8);
+  expect(panels.every((object) => object.kind === "frame")).toBe(true);
   expect(panel).toMatchObject({kind:"frame",text:"Circle",geometry:{width:1280,height:800}});
   expect(readPanelMetadata(panel)).toMatchObject({mode:"freeform",shape:"circle",template:"blank"});
   doc.destroy();

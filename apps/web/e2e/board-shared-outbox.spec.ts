@@ -26,7 +26,8 @@ test('same-browser tabs drain a shared durable outbox without duplicate commits'
  const call=async(method:string,path:string,data?:unknown)=>{const safePath=new URL(path,'http://diagnostic.invalid').pathname,index=http.push({method,path:safePath,status:0})-1;const response=await request.fetch(`${api}${path}`,{method,data,timeout:15_000,headers:{Authorization:`Bearer ${token}`}});const status=response.status();http[index]!.status=status;
   // Record only routing metadata, never credentials, request/response bodies or query strings.
   expect(response.ok(),`Board fixture HTTP ${method} ${safePath}: ${status}`).toBe(true);return response.json();};
- const rows=(tab:Page)=>tab.locator('[data-testid="board-a11y-mirror"] li').evaluateAll(elements=>elements.map(element=>{const item=element as HTMLElement;return{id:item.dataset.objectId,kind:item.dataset.objectKind,geometry:item.dataset.geometry,parentId:item.dataset.parentId,zIndex:item.dataset.zIndex,text:item.querySelector('button')?.textContent};}).sort((a,b)=>String(a.id).localeCompare(String(b.id))));
+ const objectRows=(tab:Page)=>tab.locator('[data-testid="board-a11y-mirror"] li[data-object-id]');
+ const rows=(tab:Page)=>objectRows(tab).evaluateAll(elements=>elements.map(element=>{const item=element as HTMLElement;return{id:item.dataset.objectId,kind:item.dataset.objectKind,geometry:item.dataset.geometry,parentId:item.dataset.parentId,zIndex:item.dataset.zIndex,text:item.querySelector('button')?.textContent};}).sort((a,b)=>String(a.id).localeCompare(String(b.id))));
  const synced=(tab:Page)=>tab.getByText(/^已同步(?: · 序列 \d+)?$/);
  try{
   await page.goto('/login');await page.getByTestId('login-email').fill(F.adminEmail);await page.getByTestId('login-password').fill(F.adminPassword);await page.getByTestId('login-submit').click();await expect(page).toHaveURL(/\/projects$/);mark('authenticated');
@@ -38,15 +39,21 @@ test('same-browser tabs drain a shared durable outbox without duplicate commits'
   await surface.hover();await page.mouse.wheel(0,100_000);await expect(page.getByTestId('board-zoom-value')).toHaveText('5%');
   await page.getByTestId('board-add-frame').click();
   await expect(page.getByTestId('board-frame-tool-panel')).toBeVisible();
-  for(let index=0;index<8;index++)await surface.click({position:{x:120+(index%4)*80,y:100+Math.floor(index/4)*80}});
+  const createdIds:string[]=[];
+  for(let index=0;index<8;index++){
+   await surface.click({position:{x:120+(index%4)*80,y:100+Math.floor(index/4)*80}});
+   await expect(objectRows(page),`Frame gesture ${index+1} must create exactly one object`).toHaveCount(index+1);
+   const created=await rows(page);expect(created).toHaveLength(index+1);expect(created.every(row=>row.kind==='panel')).toBe(true);
+   const ids=created.map(row=>row.id);expect(new Set(ids).size).toBe(index+1);createdIds.splice(0,createdIds.length,...ids.filter((id):id is string=>Boolean(id)));
+  }
   await page.getByRole('button',{name:'Close frame tools'}).click();
-  await expect(page.getByTestId('board-a11y-mirror').getByRole('button')).toHaveCount(8);
+  await expect(objectRows(page)).toHaveCount(8);
   mark('panels-created');
   await page.getByTestId('board-inspector-expand').click();
-  const title=page.getByRole('textbox',{name:'区域标题',exact:true});await title.press('End');await title.pressSequentially('shared-tab-proof');
+  const title=page.getByRole('textbox',{name:'区域标题',exact:true});await title.fill(`${await title.inputValue()}shared-tab-proof`);
   const pending=page.getByText(/^\d+ 项修改等待服务器确认$/);await expect(pending).toBeVisible();evidence.pendingBeforePeer=await pending.textContent();
   mark('local-updates-queued');
-  const expected=await rows(page);expect(new Set(expected.map(row=>row.id)).size).toBe(8);expect(expected.some(row=>row.text?.includes('shared-tab-proof'))).toBe(true);
+  const expected=await rows(page);expect(expected).toHaveLength(8);expect(expected.every(row=>row.kind==='panel')).toBe(true);expect(expected.map(row=>row.id)).toEqual(createdIds);expect(expected.some(row=>row.text?.includes('shared-tab-proof'))).toBe(true);
   const started=performance.now(),deadline=started+DRAIN_SLA_MS;
   const testPeer=await page.context().newPage();peer=testPeer;testPeer.setDefaultTimeout(15_000);testPeer.setDefaultNavigationTimeout(15_000);metadata.observe(testPeer,'peer');await testPeer.goto(`/studio/board/${boardId}`);mark('peer-opened');
   const remaining=()=>Math.max(1,deadline-performance.now());
