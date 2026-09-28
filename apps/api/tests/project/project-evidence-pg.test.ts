@@ -240,8 +240,12 @@ describe("采集器对真实来源表", () => {
     const again = await collectProjectEvidence({ sources, evidence: repo }, { orgId: ORG_ID, projectId: P_A, decision });
     expect(again.total).toEqual({ scanned: 5, created: 0, refreshed: 5 });
 
-    const page = await listProjectEvidence(deps, { ...asUser(OBSERVER), limit: 50 });
+    // 内容断言按负责人读（观察者视角会抹掉说话人，见 evidence-redaction.ts；下面单独核一次）。
+    const page = await listProjectEvidence(deps, { ...asUser(OWNER), limit: 50 });
     const byRef = Object.fromEntries(page.items.map((x) => [x.sourceRef, x]));
+    const observerPage = await listProjectEvidence(deps, { ...asUser(OBSERVER), limit: 50 });
+    expect(observerPage.items.map((x) => x.sourceRef).sort()).toEqual(page.items.map((x) => x.sourceRef).sort());
+    expect(observerPage.items.every((x) => x.speakerLabel === null)).toBe(true);
     expect(byRef["r1:q1"]).toMatchObject({ sourceKind: "survey_response", resourceId: "s1", excerpt: "最大痛点：审批太慢", speakerLabel: null, resourceTitle: "并网问卷", locator: { ordinal: 1 } });
     expect(byRef["rs-t1-seg1"]).toMatchObject({ sourceKind: "transcript_segment", resourceId: "t1", excerpt: "我们下周上线", speakerLabel: "ch-1", locator: { ordinal: 1, startMs: 0, endMs: 1500 }, resourceTitle: "周会录音" });
     expect(byRef["rs-i1-seg1"]).toMatchObject({ sourceKind: "interview_segment", resourceId: "i1", excerpt: "价格是关键", resourceTitle: "采购访谈" });

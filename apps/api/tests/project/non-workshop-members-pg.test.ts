@@ -13,7 +13,7 @@
  *   · 归档容器：add ⇒ PROJECT_ARCHIVED（F124 RESTRICTIVE 策略 + 用例预读）；
  *   · 空 owner 时组织 lead 能加第一位，之后被收回；
  *   · 工作坊容器 ⇒ ProjectKindMismatchError；
- *   · 跨租户：另一组织同 id 的容器看不到（RLS + org_id 谓词）⇒ NO_PROJECT_ROLE。
+ *   · 跨租户：另一组织容器上的成员行不算数（RLS + org_id 谓词）⇒ NO_PROJECT_ROLE。
  */
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { listNonWorkshopMembers } from "../../src/application/project/list-non-workshop-member";
@@ -36,6 +36,8 @@ const ORG_ID = toOrgId(ORG);
 const RESEARCH = `${ORG}-research`;
 const INSIGHT = `${ORG}-insight`;
 const WORKSHOP = `${ORG}-workshop`;
+// projects.id 是全局主键：另一租户不能复用同一个 id，给它自己的容器。
+const OTHER_RESEARCH = `${OTHER}-research`;
 const OWNER = "u-b3t5-owner";
 const COLLAB = "u-b3t5-collab";
 const COLLEAGUE = "u-b3t5-colleague";
@@ -70,8 +72,8 @@ beforeEach(async () => {
   for (const u of [OWNER, COLLAB, COLLEAGUE]) await addOrgMember(ORG, u, "consultant", null);
   await addOrgMember(ORG, LEAD, "lead", null);
   await addCredential(OWNER, `${OWNER}@x.test`, "负责人甲");
-  // 另一租户：同 id 的容器，用来证明 org_id 谓词 + RLS 生效。
-  await seedOrg({ orgId: OTHER, projectId: RESEARCH, projectKind: "research_project", groupNames: [] });
+  // 另一租户：它自己的容器，用来证明 org_id 谓词 + RLS 生效。
+  await seedOrg({ orgId: OTHER, projectId: OTHER_RESEARCH, projectKind: "research_project", groupNames: [] });
   provenance = new FakeProvenanceWriter();
   deps = { identity: new PgIdentityRepository(db), ids: new CountingDecisionIdFactory(), members: repo, provenance };
 }, HOOK_TIMEOUT_MS);
@@ -156,13 +158,14 @@ describe("PgNonWorkshopMemberRepository（真实 PG）", () => {
     await expect(addNonWorkshopMember(deps, { ...asUser(LEAD, WORKSHOP), userId: LEAD, role: "owner" })).rejects.toBeInstanceOf(ProjectKindMismatchError);
   });
 
-  it("跨租户：另一组织同 id 的容器与成员不可见（RLS + org_id 谓词）", async () => {
-    // 另一租户里同 id 的容器有自己的 owner 行。
+  it("跨租户：另一组织的容器与成员不可见（RLS + org_id 谓词）", async () => {
+    // 另一租户的容器里 OWNER 是 owner。
     await asApp(OTHER, (c) =>
-      c.query("INSERT INTO research_project_members (user_id, project_id, org_id, role) VALUES ($1, $2, $3, 'owner')", [OWNER, RESEARCH, OTHER]),
+      c.query("INSERT INTO research_project_members (user_id, project_id, org_id, role) VALUES ($1, $2, $3, 'owner')", [OWNER, OTHER_RESEARCH, OTHER]),
     );
-    // 本租户：OWNER 在本租户的这个容器里没有行 ⇒ 读不到名单，另一租户那行不算数。
+    // 本租户：OWNER 在本租户的容器里没有行 ⇒ 读不到名单；拿另一租户的容器 id 来读 ⇒ 同样看不见。
     await expect(listNonWorkshopMembers(deps, asUser(OWNER))).rejects.toMatchObject({ reasonCode: "NO_PROJECT_ROLE" });
+    await expect(listNonWorkshopMembers(deps, asUser(OWNER, OTHER_RESEARCH))).rejects.toMatchObject({ reasonCode: "NO_PROJECT_ROLE" });
     // lead 加第一位后名单只有本租户这一行。
     await addNonWorkshopMember(deps, { ...asUser(LEAD), userId: COLLAB, role: "owner" });
     const out = await listNonWorkshopMembers(deps, asUser(COLLAB));
