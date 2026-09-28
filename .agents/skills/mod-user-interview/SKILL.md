@@ -35,6 +35,7 @@ description: 用户访谈流程与数字访谈能力；修改访谈主题、专�
 - 2026-09-28：canonical 报告复核绑定 revision/document/version/hash，独立元数据表而非伪造旧 reportId；模拟报告不可批准，缺乏可信质量投影时失败关闭。导出保留证据边界；版本绑定权限内分享不等于公开发布。附件先鉴权再消费 multipart，原件与提取 Markdown 引用持久化，保存草稿不自动确认（issue #4483）。
 - 2026-09-28：导入页隐藏手动保存草稿入口后，「下一步」仍先持久化 canonical Markdown、再确认并生成分析；文件上传仍独立持久化而不自动确认（issue #4539，`interview-markdown-create` / `interview-markdown-intake` 回归）。
 - 2026-09-28：专家检索空态需合并已发布目录与维护画像两组结果判断；生成失败的部分 Markdown 即使解析出专家 heading，也仍要展示完整只读恢复上下文，不能用已解析专家数推断草稿完整（issue #4540 / PR #4543，`interview-markdown-editing` 回归）。
+- 2026-09-28：运行摘要的“观点/发现/风险/追问”仅由明确的 Markdown 章节标题投影；问题标题包含“风险”不等于风险洞察。章节计数仅数解析出的列表条目，正文或表格不推断为一条（PR #4575 review，`interview-source-runs` 回归）。
 - 2026-09-28：执行页的已完成专家数必须来自 durable execution.tasks，而非把 1/1 的占位任务单位称作真实问题数；观点/发现/风险/追问卡片只投影已保存 runs Markdown 对应章节及其条目，保留原文与专家锚点，不填充示例统计（issue #4571，`interview-source-runs`）。
 
 ## 知识回流规则

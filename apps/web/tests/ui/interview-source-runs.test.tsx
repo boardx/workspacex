@@ -57,3 +57,12 @@ it("only projects saved Markdown insight sections and preserves source attributi
   expect(screen.getByRole("heading", { name: "关键观点（1）" })).toBeVisible();
   expect(screen.queryByRole("heading", { name: "核心发现（1）" })).not.toBeInTheDocument();
 });
+it("does not mistake a question about risk for an insight heading or invent list entries", () => {
+  const markdown = "## [采购专家](#expert-purchase)\n\n### 如何降低采购风险？\n\n这是普通回答。\n\n### 关键观点\n\n暂无明确观点。\n\n### 争议点与风险：\n\n- 否决角色待核实。";
+  render(<InterviewRunsStep runs={[{ expertId: "purchase", displayName: "采购专家", status: "completed", completedQuestions: 1, totalQuestions: 1 }]}
+    document={{ documentId: "runs-risk", step: "runs", version: 1, contentHash: "d".repeat(64), evidenceMode: "simulated", references: [], markdown }} pending={false} onGenerateReport={vi.fn()} />);
+  expect(screen.getByRole("heading", { name: "关键观点（0）" })).toBeVisible();
+  expect(screen.getByRole("heading", { name: "争议点与风险（1）" })).toBeVisible();
+  expect(screen.getAllByRole("heading", { name: "争议点与风险（1）" })).toHaveLength(1);
+  expect(screen.getByText("这是普通回答。")).toBeVisible();
+});

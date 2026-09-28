@@ -8,11 +8,13 @@ type RunMetadata = Readonly<{ expertId: string; displayName: string; status: "pe
 type InsightKind = "观点" | "发现" | "风险" | "追问";
 const insightTitles: Record<InsightKind, string> = { 观点: "关键观点", 发现: "核心发现", 风险: "争议点与风险", 追问: "后续追问方向" };
 function insightKind(title: string): InsightKind | null {
-  if (/关键观点|主要观点/u.test(title)) return "观点";
-  if (/核心发现|关键发现/u.test(title)) return "发现";
-  if (/争议|风险/u.test(title)) return "风险";
-  if (/后续追问|追问方向/u.test(title)) return "追问";
-  return null;
+  const normalized = title.trim().replace(/[：:]$/u, "").replace(/\s+/gu, "");
+  const headings: Record<string, InsightKind> = {
+    关键观点: "观点", 主要观点: "观点", 核心发现: "发现", 关键发现: "发现",
+    争议点与风险: "风险", 争议点: "风险", 风险: "风险",
+    后续追问方向: "追问", 后续追问: "追问", 追问方向: "追问",
+  };
+  return headings[normalized] ?? null;
 }
 /** UI-only projection from the saved document; no generated or duplicate research content. */
 function savedInsights(document: interviewMarkdown.InterviewMarkdownDocument, projection: interviewMarkdown.InterviewMarkdownProjection) {
@@ -28,7 +30,7 @@ function savedInsights(document: interviewMarkdown.InterviewMarkdownDocument, pr
     const markdown = document.markdown.slice(block.contentStart, block.end).trim();
     if (!markdown) continue;
     const entries = projection.entries.filter((entry) => entry.headingId === block.headingId).length;
-    insights.push({ kind, headingId: block.headingId, markdown, count: entries || 1, expertId: activeExpert });
+    insights.push({ kind, headingId: block.headingId, markdown, count: entries, expertId: activeExpert });
   }
   return insights;
 }
