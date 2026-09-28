@@ -476,6 +476,28 @@ export function sharedFromPersonalLabelZh(name: string): string {
 
 /** S10（#4367）：项目记忆里一条由成员从个人记忆分享来的结论 ⇒ 分享人显示名（没有显示名为空串）。 */
 export const KgProjectSharedFrom = z.object({ claimId: z.string(), sharedByName: z.string() }).strict();
+
+/** 项目决策理由上限（B3-T4 `adoptProjectDecision.rationale`）。 */
+export const KG_ADOPT_RATIONALE_MAX = 500;
+/** B3-T4：能被采纳为项目决策的来源类型（其余类型的条目没有「采纳」入口；数据库函数按同一张表复核）。 */
+export const KG_ADOPTABLE_CLAIM_KINDS = ["fact", "hypothesis"] as const satisfies readonly KgClaimKind[];
+export function isAdoptableClaimKind(kind: KgClaimKind | null | undefined): boolean {
+  return kind != null && (KG_ADOPTABLE_CLAIM_KINDS as readonly KgClaimKind[]).includes(kind);
+}
+/**
+ * B3-T4（issue #4498）：一条由成员「采纳为项目决策」产生的决策记录——`decisionClaimId` 是项目记忆里新建的 decision
+ * 类条目，`sourceClaimId` 是它采纳自的那条（fact / hypothesis，derived_from 连回）。只从 `ontology_actions` 读，
+ * 不另存一张表；`adoptedBy` 是采纳人的显示名（没有显示名时为其 user id）。
+ */
+export const KgAdoptedDecision = z.object({
+  decisionClaimId: z.string(),
+  sourceClaimId: z.string(),
+  rationale: z.string().min(1).max(KG_ADOPT_RATIONALE_MAX),
+  adoptedBy: z.string(),
+  /** ISO 8601 */
+  adoptedAt: z.string(),
+}).strict();
+export type KgAdoptedDecision = z.infer<typeof KgAdoptedDecision>;
 export type KgProjectSharedFrom = z.infer<typeof KgProjectSharedFrom>;
 
 /** 大脑页最多列出的会话数（按最近活动倒序）。 */
@@ -864,8 +886,31 @@ export const knowledgeGraph = {
       canPromoteToOrg: z.boolean().optional(),
       /** S10（#4367）：`claims` 里由成员从个人记忆分享来的那些 ⇒ 分享人（界面标「由 X 分享自个人记忆」）；缺省 = 没有（旧响应） */
       sharedFromPersonal: z.array(KgProjectSharedFrom).optional(),
+      /** B3-T4（#4498）：由成员采纳为项目决策的记录（决策条目 → 采纳自哪条 + 理由）；缺省 = 没有（旧响应） */
+      adoptedDecisions: z.array(KgAdoptedDecision).optional(),
     }).strict(),
     err: ["KG_NOT_VISIBLE"] as const,
+  },
+
+  /**
+   * B3-T4（issue #4498）：把项目记忆里的一条 fact / hypothesis **采纳为项目决策**——新建一条 `decision` 类条目
+   * （陈述照抄、证据锚点全部复制、derived_from 连回来源），并在 `ontology_actions` 记一笔带理由的
+   * `adoptProjectDecision`（`getProjectKnowledge.adoptedDecisions` 从它读）。
+   * 谁能做：项目成员且不是观察者（观察者只有 read.published ⇒ `KG_NOT_OWNER`，沿用现有码不新增）；非成员 `KG_NOT_VISIBLE`。
+   * 来源必须是本项目项目作用域里活着的 fact / hypothesis（其余类型 / 不在项目记忆里 ⇒ `KG_CLAIM_NOT_FOUND`），
+   * 且没有未解的矛盾（`KG_CONTESTED_NEEDS_RESOLUTION`）。人的动作：Agent 身份 `KG_ACTOR_NOT_HUMAN`。
+   */
+  adoptProjectDecision: {
+    method: "POST", path: "/knowledge-graph/projects/:projectId/decisions",
+    in: z.object({
+      projectId: z.string(),
+      claimId: z.string(),
+      rationale: z.string().min(1).max(KG_ADOPT_RATIONALE_MAX),
+    }).strict(),
+    out: z.object({ decisionClaimId: z.string(), actionId: z.string() }).strict(),
+    err: [
+      "KG_NOT_VISIBLE", "KG_NOT_OWNER", "KG_ACTOR_NOT_HUMAN", "KG_CLAIM_NOT_FOUND", "KG_CONTESTED_NEEDS_RESOLUTION",
+    ] as const,
   },
 
   /**

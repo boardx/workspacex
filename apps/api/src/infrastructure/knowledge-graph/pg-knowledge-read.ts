@@ -49,6 +49,9 @@ interface ClaimRow {
   derived_from: string | null; about_ids: string[]; supporting: string; contradicting: string;
 }
 
+/** B3-T4：一笔 adoptProjectDecision 审计行（`adopted_by` 已在 SQL 里回退为 actor_id）。 */
+interface AdoptedRow { decision_claim_id: string; source_claim_id: string; rationale: string; adopted_by: string; created_at: Date }
+
 function toClaim(r: ClaimRow): KgClaim | null {
   const triState = KG.claimTriState(r.status);
   if (triState === null) return null;  // superseded 不下发（契约 KgClaim.triState 注释）
@@ -517,9 +520,26 @@ export class PgKnowledgeRead implements KnowledgeReadPort {
           WHERE c.org_id = $1 AND c.scope_kind = $2 AND c.scope_id = $3 AND ${LIVE_CLAIM}
           ORDER BY c.created_at, c.id`, scope,
       );
+      // B3-T4（#4498）：「采纳为项目决策」的记录只从 ontology_actions 读（决策条目仍活着的才算）；组织作用域恒为空。
+      const adopted = scopeKind !== "project" ? { rows: [] as AdoptedRow[] } : await s.query<AdoptedRow>(
+        `SELECT a.payload->>'decision_claim_id' AS decision_claim_id, a.payload->>'source_claim_id' AS source_claim_id,
+                a.payload->>'rationale' AS rationale, coalesce(nullif(cr.display_name, ''), a.actor_id) AS adopted_by, a.created_at
+           FROM ontology_actions a
+           JOIN claims dc ON dc.org_id = a.org_id AND dc.id = a.payload->>'decision_claim_id'
+           LEFT JOIN credentials cr ON cr.user_id = a.actor_id
+          WHERE a.org_id = $1 AND a.scope_kind = $2 AND a.scope_id = $3 AND a.action_type = 'adoptProjectDecision'
+            AND a.outcome = 'accepted' AND dc.revoked_at IS NULL AND dc.status <> 'superseded'
+          ORDER BY a.created_at, a.id`, scope,
+      );
       return {
         revision: Number(revision.rows[0]!.n),
         sharedFromPersonal: shared.rows.flatMap((r) => (r.shared_by === null ? [] : [{ claimId: r.id, sharedByName: r.shared_by }])),
+        ...(scopeKind === "project" ? {
+          adoptedDecisions: adopted.rows.map((r) => ({
+            decisionClaimId: r.decision_claim_id, sourceClaimId: r.source_claim_id, rationale: r.rationale,
+            adoptedBy: r.adopted_by, adoptedAt: r.created_at.toISOString(),
+          })),
+        } : {}),
         objects: liveObjects.map((o) => ({
           id: o.id, scope: { kind: scopeKind, id: scopeId }, kind: o.object_kind, name: o.name,
           aliases: o.aliases, createdBy: o.created_by, claimCount: Number(o.claim_count),

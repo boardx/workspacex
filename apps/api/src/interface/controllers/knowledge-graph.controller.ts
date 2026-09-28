@@ -18,6 +18,7 @@ import { actOnMemoryCard } from "../../application/knowledge-graph/act-on-memory
 import { applyHumanAction } from "../../application/knowledge-graph/apply-human-action";
 import { undoAutoPersonalCopy } from "../../application/knowledge-graph/auto-copy-decisions";
 import { listPromotionNominations, promoteToPersonal } from "../../application/knowledge-graph/promote-to-personal";
+import { adoptProjectDecision } from "../../application/knowledge-graph/adopt-project-decision";
 import { promoteToOrg } from "../../application/knowledge-graph/promote-to-org";
 import { promoteToProject } from "../../application/knowledge-graph/promote-to-project";
 import { getOrgKnowledge } from "../../application/knowledge-graph/read-org-knowledge";
@@ -72,7 +73,7 @@ export class KnowledgeGraphController {
       }
       if (e instanceof KgHumanActionError) {
         const body = { reasonCode: e.code };
-        if (e.code === "KG_NOT_OWNER" || e.code === "KG_ACTOR_NOT_HUMAN" || e.code === "KG_SCOPE_NOT_PERSONAL" || e.code === "KG_SCOPE_NOT_PROJECT") throw new ForbiddenException(body);
+        if (e.code === "KG_NOT_OWNER" || e.code === "KG_ACTOR_NOT_HUMAN" || e.code === "KG_SCOPE_NOT_PERSONAL" || e.code === "KG_SCOPE_NOT_PROJECT" || e.code === "KG_NOT_VISIBLE") throw new ForbiddenException(body);
         if (e.code === "KG_PROMOTE_BATCH_TOO_LARGE" || e.code === "KG_INVALID_REQUEST") throw new BadRequestException(body);
         if (e.code === "KG_REVISION_CHANGED" || e.code === "KG_CONTESTED_NEEDS_RESOLUTION" || e.code === "KG_CARD_STALE") {
           throw new ConflictException(body);
@@ -199,6 +200,18 @@ export class KnowledgeGraphController {
     return this.run(principal, (v) => promoteToOrg(
       { ...this.deps, promotion: this.promotion, newId: newKgId },
       { ...v, projectId: parsed.data.projectId, claimIds: parsed.data.claimIds, ...(parsed.data.choices ? { choices: parsed.data.choices } : {}) },
+    ));
+  }
+
+  /** B3-T4 adoptProjectDecision —— 「采纳为项目决策」（项目成员且非观察者；非成员 KG_NOT_VISIBLE 403、观察者 KG_NOT_OWNER 403） */
+  @Post("/knowledge-graph/projects/:projectId/decisions")
+  @HttpCode(200)
+  adoptDecision(@CurrentPrincipal() principal: Principal, @Param("projectId") projectId: string, @Body() body: unknown) {
+    const parsed = KG.knowledgeGraph.adoptProjectDecision.in.safeParse({ ...(body as object), projectId });
+    if (!parsed.success) throw new BadRequestException({ reasonCode: "KG_INVALID_REQUEST" });
+    return this.run(principal, (v) => adoptProjectDecision(
+      { ...this.deps, promotion: this.promotion, newId: newKgId },
+      { ...v, projectId: parsed.data.projectId, claimId: parsed.data.claimId, rationale: parsed.data.rationale },
     ));
   }
 
