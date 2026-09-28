@@ -29,7 +29,7 @@ test('visual and accessibility real object states, input and negative controls',
     // The outline is a local Yjs projection. Wait for the server acknowledgement
     // before reading head and issuing a CAS operation, otherwise an in-flight
     // browser update can advance the revision between those two API requests.
-    await expect(page.getByText(BOARD_SYNCED_STATUS)).toBeVisible();
+    await expect(page.getByTestId('board-sync-status')).toHaveAttribute('aria-label',BOARD_SYNCED_STATUS);
     input.push({kind:'keyboard-continuous-creation',count:2,objects:await canonicalRows(page)});
     const values=[object('visual-text','text',100,400,'研究标题与说明',280,96),object('visual-shape','rectangle',460,400,'Shape',200,140),
       {...object('visual-panel','frame',800,120,'Panel',400,420),extensionData:{spatial:{version:1,mode:'freeform',autoExpand:true,clipContent:false,padding:24,gap:24,columns:3,flowDirection:'horizontal'}}},
