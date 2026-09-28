@@ -21,7 +21,7 @@ export async function validateBoardObservationArtifact(report,lane,sha,context,k
   pending=['physical-meeting-room-hardware'];
  }else{
   if(report?.version!==1||report.kind!=='board-visual-accessibility-bundle'||report.reports?.length!==3||new Set(report.reports.map(r=>r.browserName)).size!==3||report.reports.some(r=>!['chromium','firefox','webkit'].includes(r.browserName)))throw new Error('VISUAL_BROWSER_SET');
-  const {visualViewports,validateVisualMeasurement}=await tsImport(new URL('../e2e/support/board-visual-measurements.ts',import.meta.url).href,{parentURL:import.meta.url});
+  const {visualViewports,validateVisualMeasurement}=await tsImport(new URL('../e2e/support/board-visual-policy.ts',import.meta.url).href,{parentURL:import.meta.url});
   for(const r of report.reports){
    if(r.kind!=='board-visual-accessibility'||r.version!==1||r.sha!==sha||r.status!=='engineering-observations-pending-human'||r.approved!==false||r.score!==null||!r.boardId)failures.push('VISUAL_SCHEMA');
    failures.push(...validateRuntimeBinding(r.runtimeIdentity,sha,context));await image(r.browse);
