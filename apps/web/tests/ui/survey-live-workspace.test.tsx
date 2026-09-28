@@ -175,6 +175,15 @@ describe('live survey workspace persistence',()=>{
   expect(screen.queryByRole('heading',{name:'AI 智能生成问卷'})).not.toBeInTheDocument();
   expect(request).toHaveBeenCalledTimes(1);
  });
+ it('shows optional report-template and latest-report readiness without blocking responses',async()=>{
+  request.mockResolvedValueOnce(runtime());
+  render(<LiveSurveyWorkspace surveyId="saved-survey" initialStep="responses"/>);
+  const readiness=await screen.findByRole('region',{name:'报告准备状态'});
+  expect(readiness).toHaveTextContent('未设置（可选）');
+  expect(readiness).toHaveTextContent('未生成');
+  expect(screen.getByRole('region',{name:'答卷列表'})).toBeInTheDocument();
+  expect(screen.getByRole('button',{name:'设计报告模板'})).toBeInTheDocument();
+ });
  it('uses a four-step AI import flow and enters a clean designer after applying Markdown',async()=>{
   request.mockResolvedValueOnce(runtime()).mockResolvedValueOnce({markdown:'# AI 草稿\n\n## feedback [open]\n请描述体验\n',execution:{id:'85f6e172-8b43-4a75-a917-0e91742d1e8c',provider:'test',modelId:'model',generatedAt:'2026-09-28T00:00:00.000Z'},source:{kind:'text',sha256:'a'.repeat(64)}});
   render(<LiveSurveyWorkspace surveyId="saved-survey" initialStep="import" creationMode="ai"/>);

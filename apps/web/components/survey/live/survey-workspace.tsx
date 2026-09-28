@@ -614,11 +614,18 @@ export function LiveSurveyWorkspace({
             </section>
           )}
           {step === "responses" && (<>
-            <section aria-label="报告准备状态" className="mx-5 mt-5 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border bg-card p-4">
-              <div><h2 className="text-16 font-semibold">分析报告（可选）</h2><p className="mt-1 text-12 text-muted-foreground">{runtime?.report
+            <section aria-label="报告准备状态" className="mx-5 mt-5 space-y-4 rounded-lg border border-border bg-card p-4">
+              <h2 className="text-16 font-semibold">分析报告（可选）</h2>
+              <p className="text-12 text-muted-foreground">先设计报告模板，再生成报告；跳过模板时使用默认样式。两者均不影响发布和查看答卷。</p>
+              <p className="text-12 text-muted-foreground">{runtime?.report
                 ? reportIsStale ? "模板或答卷已有更新，可重新生成报告" : `已基于 ${runtime.responses.filter(response => response.analysis !== 'excluded').length} 份纳入分析的答卷生成`
-                : "尚未生成；不影响问卷发布和答卷回收"}</p></div>
-              <Button variant="outline" onClick={() => selectStep('report')}>{runtime?.report ? "查看分析报告" : "生成分析报告"}</Button>
+                : "尚未生成；不影响问卷发布和答卷回收"}</p>
+              <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] md:items-center">
+                <div className="rounded-md bg-muted/40 p-3 text-12"><p className="text-muted-foreground">模板状态</p><p className="mt-1 font-semibold">{draft.template.sections.length ? "已设置" : "未设置（可选）"}</p></div>
+                <span aria-hidden="true" className="hidden text-center text-18 md:block">→</span>
+                <div className="rounded-md bg-muted/40 p-3 text-12"><p className="text-muted-foreground">最近生成</p><p className="mt-1 font-semibold">{runtime?.report ? reportIsStale ? "已有旧报告，待更新" : "已生成" : "未生成"}</p></div>
+              </div>
+              <div className="flex flex-wrap gap-2"><Button variant="outline" onClick={() => selectStep('template')}>设计报告模板</Button><Button variant="outline" onClick={() => selectStep('report')}>{runtime?.report ? "查看分析报告" : "生成分析报告"}</Button></div>
             </section>
             <LiveResponseList
               surveyId={runtime?.id}
