@@ -19,6 +19,13 @@ describe("guided research reference layout", () => {
     fireEvent.change(screen.getByRole("textbox", { name: "其它" }), { target: { value: "第一行\n" } });
     expect(screen.getByRole("textbox", { name: "其它" })).toHaveValue("第一行\n");
   });
+  it("explains when preset focus choices make the combined focus exceed the contract limit", () => {
+    render(<ResearchTopicInformation brief={runtimeFixture().brief} disabled={false} onSave={vi.fn()} />);
+    fireEvent.change(screen.getByRole("textbox", { name: "其它" }), { target: { value: "甲".repeat(2000) } });
+    fireEvent.click(screen.getByRole("checkbox", { name: "市场增长质量" }));
+    expect(screen.getByRole("alert")).toHaveTextContent("重点关注总长度不能超过 2000 字");
+    expect(screen.getByRole("button", { name: "保存研究信息" })).toBeDisabled();
+  });
   it("lists report chapters with their subsections", () => {
     const state = runtimeFixture("report");
     state.outline[0]!.subsections = [{ id: "sub1", title: "准入政策", questions: ["有哪些要求？"] }];
