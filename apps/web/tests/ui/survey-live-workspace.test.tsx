@@ -29,7 +29,7 @@ describe('live survey workspace persistence',()=>{
   request.mockResolvedValueOnce(runtime());
   render(<LiveSurveyWorkspace surveyId="saved-survey" initialStep="import" creationMode="ai" projectId="project-1"/>);
   fireEvent.click(await screen.findByRole('button',{name:'跳过导入，空白设计'}));
-  expect(window.location.search).toContain('step=design');
+  expect(window.location.pathname).toBe('/studio/survey/saved-survey/design');
   expect(window.location.search).toContain('projectId=project-1');
  });
  it('saves repeat policy and success Markdown through canonical publication source',async()=>{
@@ -143,7 +143,7 @@ describe('live survey workspace persistence',()=>{
   render(<LiveSurveyWorkspace surveyId="new"/>);
   fireEvent.click(await screen.findByRole('button',{name:'保存修改'}));
   await screen.findByRole('alert');
-  expect(router.replace).toHaveBeenCalledWith('/studio/survey/created-draft?step=design');
+  expect(router.replace).toHaveBeenCalledWith('/studio/survey/created-draft/design');
   request.mockResolvedValueOnce(runtime({id:'created-draft',version:2,title:'未命名问卷'}));
   fireEvent.click(screen.getByRole('button',{name:'保存修改'}));
   await screen.findByText('修改已保存');

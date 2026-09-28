@@ -41,6 +41,7 @@ import { SurveyTemplateActions } from "../library/template-actions";
 import { LiveResponseList } from "./response-list";
 import { assessPublishReadiness } from "@/lib/survey/publish-readiness";
 import { clearPendingAiImport } from "@/lib/survey/pending-ai-import";
+import { surveyPath, type SurveyDestination } from "@/lib/survey/paths";
 const STEPS = [
   ["design", "设计问卷"],
   ["publish", "发布回收"],
@@ -188,7 +189,7 @@ export function LiveSurveyWorkspace({
     // A retry must update that draft rather than POST a duplicate survey.
     if (!runtime) {
       setRuntime(next);
-      router.replace(`/studio/survey/${next.id}?step=${step}${creationMode === "ai" ? "&mode=ai" : ""}`);
+      router.replace(withProjectId(surveyPath(next.id, step as SurveyDestination), projectId));
     }
     if (next.publication) {
       const persisted = await surveyRequest(`/surveys/${next.id}`, { method: "PUT", body: { ...parsed.data, expectedVersion: next.version } }, SurveyRuntimeSchema);
@@ -211,7 +212,7 @@ export function LiveSurveyWorkspace({
           setNotice("问卷已创建，但挂到项目失败——可回到项目页用「关联已有问卷」补挂");
         }
       }
-      router.replace(withProjectId(`/studio/survey/${next.id}?step=${step}${creationMode === "ai" ? "&mode=ai" : ""}`, projectId));
+      router.replace(withProjectId(surveyPath(next.id, step as SurveyDestination), projectId));
     }
     return persisted;
   };
@@ -264,10 +265,7 @@ export function LiveSurveyWorkspace({
   const selectStep = (next: string, targetQuestionId?: string) => {
     setStep(next);
     setRepairQuestionId(targetQuestionId ?? null);
-    const url = new URL(window.location.href);
-    url.searchParams.set("step", next);
-    if (hasImportStep) url.searchParams.set("mode", "ai");
-    window.history.replaceState(null, "", url);
+    if (surveyId !== "new") window.history.pushState(null, "", withProjectId(surveyPath(surveyId, next as SurveyDestination), projectId));
   };
   const projectedInSync = !!draft && !markdownNeedsApply;
   const autosaveEligible = !!runtime && !runtime.publication && step === "design" && dirty &&
@@ -309,7 +307,7 @@ export function LiveSurveyWorkspace({
           onClick={() => selectStep("template")}
         >设计报告模板（可选）</Button>
         {runtime && <Button variant="outline" onClick={() => selectStep("report")}>分析报告（可选）</Button>}
-        {runtime?.publication && <SurveyDraftCopy runtime={runtime} disabled={busy} onCreated={id => router.push(`/studio/survey/${id}?step=design`)} />}
+        {runtime?.publication && <SurveyDraftCopy runtime={runtime} disabled={busy} onCreated={id => router.push(surveyPath(id, "design"))} />}
         <Button
           variant="outline"
           disabled={busy || !runtime}
