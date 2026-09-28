@@ -2,9 +2,9 @@ import assert from 'node:assert/strict';
 import {createHash,randomUUID} from 'node:crypto';
 import {execFileSync} from 'node:child_process';
 import {access,writeFile} from 'node:fs/promises';
-import {WhiteboardEventPage,WhiteboardObjectsSnapshot,WhiteboardOperationReceipt} from '@repo/contracts/whiteboard-operation';
+import {WhiteboardEventPage,WhiteboardObjectsSnapshot,WhiteboardOperationReceipt,type WhiteboardOperationEvent} from '@repo/contracts/whiteboard-operation';
 import {WhiteboardServiceActorCreated} from '@repo/contracts/whiteboard-actor';
-import type {WhiteboardCommand} from '@repo/contracts/whiteboard-document';
+import type {WhiteboardCommand,WhiteboardObject} from '@repo/contracts/whiteboard-document';
 import {FULLSTACK_E2E as F} from '../../web/e2e/fullstack-smoke-fixture';
 import {assertIsolatedDatabase} from '../../../.harness/scripts/lib/test-isolation';
 
@@ -55,9 +55,9 @@ export async function runAgentApiAcceptance(){
   const board=await call(owner,'POST','/whiteboards',{requestId:randomUUID(),name:`Agent API acceptance ${suffix}`},201);boardId=board.id;assert.equal(typeof boardId,'string');ownedBoards.push(boardId!);
   const prefix=`/v1/whiteboards/${boardId}`;
   const createdActor=WhiteboardServiceActorCreated.parse(await call(owner,'POST',`${prefix}/actors/service`,{label:'Agent API acceptance',scopes:['board:read','board:write'],expiresInDays:1},201));
-  actorId=createdActor.actor.actorId;actorCredential=createdActor.credential;createdActors.push({boardId:boardId!,actorId});
+  actorId=createdActor.actor.actorId;actorCredential=createdActor.credential;createdActors.push({boardId:boardId!,actorId:createdActor.actor.actorId});
   const createdReadActor=WhiteboardServiceActorCreated.parse(await call(owner,'POST',`${prefix}/actors/service`,{label:'Read-only acceptance',scopes:['board:read'],expiresInDays:1},201));
-  readActor=createdReadActor.actor.actorId;readCredential=createdReadActor.credential;createdActors.push({boardId:boardId!,actorId:readActor});
+  readActor=createdReadActor.actor.actorId;readCredential=createdReadActor.credential;createdActors.push({boardId:boardId!,actorId:createdReadActor.actor.actorId});
   const read=async(token=owner,credential=actorCredential)=>WhiteboardObjectsSnapshot.parse(await call(token,'GET',`${prefix}/service/objects`,undefined,200,credential));
   const stored=async()=>asOwner(async c=>(await c.query('SELECT (SELECT count(*)::int FROM whiteboard_operations WHERE org_id=$1 AND board_id=$2) AS operations,(SELECT count(*)::int FROM whiteboard_operation_events WHERE org_id=$1 AND board_id=$2) AS events',[F.orgId,boardId])).rows[0]);
   const request=async(commands:WhiteboardCommand[])=>({apiVersion:'2026-09-01' as const,requestId:randomUUID(),expectedRevision:(await read()).revision,commands,provenance:{source:'public-api' as const,model:null,skill:null,sourceArtifactId:null,sourceRevision:null,layoutHash:null,inputObjectIds:[]}});
@@ -65,17 +65,17 @@ export async function runAgentApiAcceptance(){
   async function reject(name:string,token:string,path:string,data:unknown,status:number|number[],method='POST',credential=actorCredential){
    const before=await read(),counts=await stored();await call(token,method,path,data,status,credential);assert.deepEqual(await read(),before);assert.deepEqual(await stored(),counts);steps.push({name,zeroWrites:true});
   }
-  const created=await execute('Create',[{type:'create',object:note('a')},{type:'create',object:note('b',230)}]);assert.deepEqual(created.snapshot.objects.map(o=>o.id),['a','b']);
+  const created=await execute('Create',[{type:'create',object:note('a')},{type:'create',object:note('b',230)}]);assert.deepEqual(created.snapshot.objects.map((o:WhiteboardObject)=>o.id),['a','b']);
   const beforeReplay=await stored(),replayed=WhiteboardOperationReceipt.parse(await call(owner,'POST',`${prefix}/service/operations`,created.input,201,actorCredential));assert.equal(replayed.replayed,true);assert.equal(replayed.operationId,created.receipt.operationId);assert.deepEqual(await stored(),beforeReplay);
   await reject('Idempotency conflict',owner,`${prefix}/service/operations`,{...created.input,commands:[{type:'create',object:note('forged')}]},409);
-  const updated=await execute('Update',[{type:'text',id:'a',index:0,deleteCount:1,insert:'API thought'}]);assert.equal(updated.snapshot.objects.find(o=>o.id==='a')?.text,'API thought');
-  const moved=await execute('Move',[{type:'geometry',id:'a',geometry:geometry(350,200)}]);assert.equal(moved.snapshot.objects.find(o=>o.id==='a')?.geometry.x,350);
-  const arranged=await execute('Arrange',[{type:'geometry',id:'a',geometry:geometry(0,300)},{type:'geometry',id:'b',geometry:geometry(204,300)}]);assert.equal(arranged.receipt.events[0]?.type,'ObjectsArranged');assert.deepEqual(arranged.snapshot.objects.map(o=>[o.geometry.x,o.geometry.y]),[[0,300],[204,300]]);
-  const connected=await execute('Connect',[{type:'create',object:{...note('edge'),kind:'connector',connector:{from:'a',to:'b',semanticRelation:'depends_on'}}}]);assert.deepEqual(connected.snapshot.objects.find(o=>o.id==='edge')?.connector?.from,'a');
-  const movedEndpoint=await execute('Move connected endpoint',[{type:'geometry',id:'b',geometry:geometry(500,500)}]);assert.equal(movedEndpoint.snapshot.objects.find(o=>o.id==='edge')?.connector?.to,'b');
+  const updated=await execute('Update',[{type:'text',id:'a',index:0,deleteCount:1,insert:'API thought'}]);assert.equal(updated.snapshot.objects.find((o:WhiteboardObject)=>o.id==='a')?.text,'API thought');
+  const moved=await execute('Move',[{type:'geometry',id:'a',geometry:geometry(350,200)}]);assert.equal(moved.snapshot.objects.find((o:WhiteboardObject)=>o.id==='a')?.geometry.x,350);
+  const arranged=await execute('Arrange',[{type:'geometry',id:'a',geometry:geometry(0,300)},{type:'geometry',id:'b',geometry:geometry(204,300)}]);assert.equal(arranged.receipt.events[0]?.type,'ObjectsArranged');assert.deepEqual(arranged.snapshot.objects.map((o:WhiteboardObject)=>[o.geometry.x,o.geometry.y]),[[0,300],[204,300]]);
+  const connected=await execute('Connect',[{type:'create',object:{...note('edge'),kind:'connector',connector:{from:'a',to:'b',semanticRelation:'depends_on'}}}]);assert.deepEqual(connected.snapshot.objects.find((o:WhiteboardObject)=>o.id==='edge')?.connector?.from,'a');
+  const movedEndpoint=await execute('Move connected endpoint',[{type:'geometry',id:'b',geometry:geometry(500,500)}]);assert.equal(movedEndpoint.snapshot.objects.find((o:WhiteboardObject)=>o.id==='edge')?.connector?.to,'b');
   const commentId=randomUUID(),threadId=randomUUID();
   await call(owner,'POST',`/whiteboards/${boardId}/comments/commands`,{type:'create-comment',requestId:randomUUID(),threadId,commentId,objectId:'a',body:'Keep this original comment binding',mentions:[],expectedRevision:0},201);
-  const deleted=await execute('Delete',[{type:'delete',id:'a'}]);assert.deepEqual(deleted.snapshot.objects.map(o=>o.id),['b']);
+  const deleted=await execute('Delete',[{type:'delete',id:'a'}]);assert.deepEqual(deleted.snapshot.objects.map((o:WhiteboardObject)=>o.id),['b']);
   const undo=async(receipt:WhiteboardOperationReceipt)=>WhiteboardOperationReceipt.parse(await call(owner,'POST',`${prefix}/service/operations/${receipt.operationId}/undo`,{expectedRevision:receipt.revision},201,actorCredential));
   const restored=await undo(deleted.receipt);assert.equal(restored.events[0]?.type,'OperationUndone');assert.deepEqual((await read()).objects,movedEndpoint.snapshot.objects);
   const restoredThread=(await call(owner,'GET',`/whiteboards/${boardId}/comments`)).items.find((thread:any)=>thread.id===threadId);assert.ok(restoredThread);assert.equal(restoredThread.objectId,'a');assert.notEqual(restoredThread.status,'object-deleted');assert.equal(restoredThread.comments[0].id,commentId);assert.equal(restoredThread.comments[0].body,'Keep this original comment binding');
@@ -93,12 +93,12 @@ export async function runAgentApiAcceptance(){
   await reject('Cross-delegator viewer denied',viewer,`${prefix}/service/operations`,forbidden,401);
   // Poll with the returned pair, checking actual persisted audit events and no duplicates.
   let cursor={afterEpoch:1,afterSeq:0};const seen:string[]=[];
-  for(let page=0;page<20;page++){const result=WhiteboardEventPage.parse(await call(owner,'GET',`${prefix}/service/events?afterEpoch=${cursor.afterEpoch}&afterSeq=${cursor.afterSeq}&limit=2`,undefined,200,actorCredential));seen.push(...result.events.map(e=>e.eventId));cursor={afterEpoch:result.nextEpoch,afterSeq:result.nextSeq};if(!result.events.length)break;}
+  for(let page=0;page<20;page++){const result=WhiteboardEventPage.parse(await call(owner,'GET',`${prefix}/service/events?afterEpoch=${cursor.afterEpoch}&afterSeq=${cursor.afterSeq}&limit=2`,undefined,200,actorCredential));seen.push(...result.events.map((e:WhiteboardOperationEvent)=>e.eventId));cursor={afterEpoch:result.nextEpoch,afterSeq:result.nextSeq};if(!result.events.length)break;}
   assert.equal(new Set(seen).size,seen.length);assert.equal(seen.length,(await stored()).events);
   const checkpoint=await call(owner,'POST',`/whiteboards/${boardId}/checkpoints`,{requestId:randomUUID()},201),prior=(await read()).revision;
   await call(owner,'POST',`/whiteboards/${boardId}/checkpoints/${checkpoint.manifest.checkpointId}/restore`,{requestId:randomUUID(),expectedEpoch:prior.epoch,expectedSeq:prior.seq},201);
   const afterRecovery=await execute('Post-recovery event',[{type:'text',id:'b',index:0,deleteCount:0,insert:'recovered '}]);
-  const resumed=WhiteboardEventPage.parse(await call(owner,'GET',`${prefix}/service/events?afterEpoch=${cursor.afterEpoch}&afterSeq=${cursor.afterSeq}&limit=2`,undefined,200,actorCredential));assert.deepEqual(resumed.events.map(e=>e.operationId),[afterRecovery.receipt.operationId]);assert.deepEqual({epoch:resumed.nextEpoch,seq:resumed.nextSeq},afterRecovery.receipt.revision);
+  const resumed=WhiteboardEventPage.parse(await call(owner,'GET',`${prefix}/service/events?afterEpoch=${cursor.afterEpoch}&afterSeq=${cursor.afterSeq}&limit=2`,undefined,200,actorCredential));assert.deepEqual(resumed.events.map((e:WhiteboardOperationEvent)=>e.operationId),[afterRecovery.receipt.operationId]);assert.deepEqual({epoch:resumed.nextEpoch,seq:resumed.nextSeq},afterRecovery.receipt.revision);
   await call(owner,'DELETE',`/whiteboards/${boardId}/members/${F.memberUserId}`,undefined,200);
   await reject('Removed viewer cannot use owner delegation',viewer,`${prefix}/service/objects`,undefined,401,'GET');
   await call(owner,'DELETE',`${prefix}/actors/service/${readActor}`,undefined,200);

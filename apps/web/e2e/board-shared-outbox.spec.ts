@@ -34,7 +34,10 @@ test('same-browser tabs drain a shared durable outbox without duplicate commits'
   const board=await call('POST','/whiteboards',CreateBoard.parse({requestId:randomUUID(),name:'Same-browser durable outbox'}));boardId=board.id;mark('board-created');
   await page.goto(`/studio/board/${boardId}`);await expect(synced(page)).toBeVisible();mark('board-opened');
   const initial=await call('POST',`/whiteboards/${boardId}/checkpoints`,{requestId:randomUUID()});expect(initial.manifest.seq).toBe(0);mark('initial-checkpoint');
-  for(let index=0;index<8;index++)await page.getByTestId('board-add-panel').click();
+  for(let index=0;index<8;index++){
+   await page.getByTestId('board-add-more').click();
+   await page.getByTestId('board-add-panel').click();
+  }
   await expect(page.getByTestId('board-a11y-mirror').getByRole('button')).toHaveCount(8);
   mark('panels-created');
   await page.getByTestId('board-inspector-expand').click();

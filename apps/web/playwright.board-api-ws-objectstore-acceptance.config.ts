@@ -4,7 +4,7 @@ import base from './playwright.fullstack-smoke.config';
 
 const marker=process.env.BOARD_ACCEPTANCE_RUNTIME_MARKER??randomUUID();
 process.env.BOARD_API_RUNTIME_MARKER=marker;
-const servers=(Array.isArray(base.webServer)?base.webServer:[base.webServer]).filter(Boolean).map(server=>({...server!,reuseExistingServer:false,env:{...server!.env,WORKSPACEX_DEPLOYMENT_MARKER:marker,BOARD_API_RUNTIME_MARKER:marker}}));
+const servers=(Array.isArray(base.webServer)?base.webServer:[base.webServer]).filter(Boolean).map(server=>({...server!,reuseExistingServer:false,env:{...server!.env,WORKSPACEX_DEPLOYMENT_MARKER:marker,BOARD_API_RUNTIME_MARKER:marker,BOARD_AGENT_API_ACCEPTANCE:'1'}}));
 
 export default defineConfig({...base,
  testDir:'./e2e',

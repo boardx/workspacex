@@ -30,10 +30,9 @@ import { CurrentPrincipal } from '../current-principal.decorator';
 /**
  * Controller contract for owner-managed, board-bound service actors.
  *
- * This controller intentionally remains outside KernelModule until the reviewed
- * digest-only PostgreSQL adapter and tenant RLS migration are explicitly
- * approved. Keeping the HTTP surface here lets contract/unit tests review the
- * boundary without exposing an endpoint backed by incomplete persistence.
+ * KernelModule exposes this controller only in the isolated Board API
+ * acceptance process. Production registration remains blocked until the
+ * digest-only PostgreSQL adapter and tenant RLS migration are reviewed.
  */
 @Controller('v1/whiteboards/:boardId')
 export class WhiteboardServiceActorController {

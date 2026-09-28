@@ -29,6 +29,9 @@ import { PgWhiteboardImportRepository } from './infrastructure/whiteboard/pg-imp
 import { WhiteboardRecoveryService } from './application/whiteboard/recovery-service';
 import { WHITEBOARD_OPERATION_SERVICE, WhiteboardOperationService } from './application/whiteboard/operation-service';
 import { WhiteboardOperationController } from './interface/controllers/whiteboard-operation.controller';
+import { WhiteboardServiceActorController } from './interface/controllers/whiteboard-service-actor.controller';
+import { WHITEBOARD_ACTOR_SERVICE, WhiteboardActorService } from './application/whiteboard/actor-service';
+import { AcceptanceWhiteboardActorRepository, boardAgentApiAcceptanceEnabled } from './infrastructure/whiteboard/acceptance-whiteboard-actor-repository';
 import { PgWhiteboardOperationRepository } from './infrastructure/whiteboard/pg-operation-repository';
 import { WHITEBOARD_PROPOSAL_SERVICE, WhiteboardProposalService } from './application/whiteboard/proposal-service';
 import { PgWhiteboardProposalRepository } from './infrastructure/whiteboard/pg-proposal-repository';
@@ -1105,6 +1108,9 @@ import { PgPersonalTranscriptionRepository } from "./infrastructure/recording/pg
 import { ASR_USAGE_METER, REALTIME_ASR_TICKET_STORE } from "./application/recording/personal-realtime-asr";
 import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/recording/pg-realtime-asr-repository";
 
+const BOARD_AGENT_API_ACCEPTANCE = boardAgentApiAcceptanceEnabled();
+const WHITEBOARD_OPERATION_AUDIT_REPOSITORY = Symbol('WhiteboardOperationAuditRepository');
+
 @Module({
   controllers: [
     KnowledgeGraphController,
@@ -1202,6 +1208,7 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
     DesignWorkbenchController,
     WhiteboardController,
     WhiteboardOperationController,
+    ...(BOARD_AGENT_API_ACCEPTANCE ? [WhiteboardServiceActorController] : []),
     WhiteboardImportController,
     WhiteboardPortableController,
     WhiteboardAssetsController,
@@ -3186,10 +3193,19 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
       inject: [DATABASE_PORT, WHITEBOARD_COLLABORATION_STORE, OBJECT_STORE],
     },
     {
-      provide: WHITEBOARD_OPERATION_SERVICE,
-      useFactory: (db: DatabasePort, collaboration: PgWhiteboardCollaborationStore,objects:ObjectStore,validator:WorkerWhiteboardUpdateValidator) => new WhiteboardOperationService(db, collaboration, new PgWhiteboardOperationRepository(),undefined,objects,validator,new PgWhiteboardOperationUndoStore(collaboration,objects)),
-      inject: [DATABASE_PORT, WHITEBOARD_COLLABORATION_STORE,OBJECT_STORE,WHITEBOARD_UPDATE_VALIDATOR],
+      provide: WHITEBOARD_OPERATION_AUDIT_REPOSITORY,
+      useFactory: () => BOARD_AGENT_API_ACCEPTANCE ? new AcceptanceWhiteboardActorRepository() : new PgWhiteboardOperationRepository(),
     },
+    {
+      provide: WHITEBOARD_OPERATION_SERVICE,
+      useFactory: (db: DatabasePort, collaboration: PgWhiteboardCollaborationStore,objects:ObjectStore,validator:WorkerWhiteboardUpdateValidator,audit:PgWhiteboardOperationRepository) => new WhiteboardOperationService(db, collaboration, audit,undefined,objects,validator,new PgWhiteboardOperationUndoStore(collaboration,objects)),
+      inject: [DATABASE_PORT, WHITEBOARD_COLLABORATION_STORE,OBJECT_STORE,WHITEBOARD_UPDATE_VALIDATOR,WHITEBOARD_OPERATION_AUDIT_REPOSITORY],
+    },
+    ...(BOARD_AGENT_API_ACCEPTANCE ? [{
+      provide: WHITEBOARD_ACTOR_SERVICE,
+      useFactory: (db: DatabasePort, audit: AcceptanceWhiteboardActorRepository, operations: WhiteboardOperationService) => new WhiteboardActorService(db, audit, audit, operations),
+      inject: [DATABASE_PORT, WHITEBOARD_OPERATION_AUDIT_REPOSITORY, WHITEBOARD_OPERATION_SERVICE],
+    }] : []),
     {
       provide: WHITEBOARD_PROPOSAL_SERVICE,
       useFactory: (db: DatabasePort, collaboration: PgWhiteboardCollaborationStore, operations: WhiteboardOperationService, agents:PublishedAgentReader, objects:ObjectStore) => new WhiteboardProposalService(db,collaboration,new PgWhiteboardOperationRepository(),new PgWhiteboardProposalRepository(objects),operations,undefined,agents),

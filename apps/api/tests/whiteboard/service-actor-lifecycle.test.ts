@@ -12,6 +12,7 @@ import type { WhiteboardOperationAuditRepository } from '../../src/application/w
 import { WhiteboardOperationError } from '../../src/application/whiteboard/operation-service';
 import { toOrgId } from '../../src/domain/org-id';
 import { WhiteboardServiceActorController } from '../../src/interface/controllers/whiteboard-service-actor.controller';
+import { AcceptanceWhiteboardActorRepository, boardAgentApiAcceptanceEnabled } from '../../src/infrastructure/whiteboard/acceptance-whiteboard-actor-repository';
 
 const boardId = '00000000-0000-4000-8000-000000000001';
 const actorId = '00000000-0000-4000-8000-000000000002';
@@ -214,5 +215,39 @@ describe('Board service actor HTTP adapter contract', () => {
     const actors = { execute: vi.fn(async () => { throw new WhiteboardOperationError('UNAUTHENTICATED'); }) };
     const controller = new WhiteboardServiceActorController(actors as never);
     await expect(controller.execute(principal, boardId, credential, operationBody)).rejects.toMatchObject({ status: 401 });
+  });
+});
+
+describe('isolated acceptance actor registry', () => {
+  it('cannot be composed into a remote, shared or deploy-profile API process', () => {
+    const isolated = { BOARD_AGENT_API_ACCEPTANCE: '1', WORKSPACEX_ISOLATION_ID: 'lane', PGDATABASE: `wsx_${'a'.repeat(20)}`, PGHOST: '127.0.0.1' };
+    expect(boardAgentApiAcceptanceEnabled(isolated)).toBe(true);
+    expect(boardAgentApiAcceptanceEnabled({ ...isolated, PGDATABASE: 'workspacex' })).toBe(false);
+    expect(boardAgentApiAcceptanceEnabled({ ...isolated, PGHOST: 'database.internal' })).toBe(false);
+    expect(boardAgentApiAcceptanceEnabled({ ...isolated, WORKSPACEX_DEPLOY_PROFILE: 'production' })).toBe(false);
+    expect(boardAgentApiAcceptanceEnabled({ ...isolated, BOARD_AGENT_API_ACCEPTANCE: '0' })).toBe(false);
+  });
+
+  it('resolves only the digest-bound active credential and fails closed after revocation', async () => {
+    const repository = new AcceptanceWhiteboardActorRepository();
+    const input: CreateWhiteboardServiceActorRecord = {
+      actorId, boardId, label: 'acceptance actor', delegatedBy: principal.userId,
+      scopes: ['board:read', 'board:write'], credentialPrefix: credential.slice(0, 13),
+      credentialDigest: createHash('sha256').update(credential).digest('hex'),
+      createdAt: now, expiresAt: new Date('2099-01-01T00:00:00.000Z'), eventId,
+    };
+    await repository.create(session, principal, input);
+
+    await expect(repository.resolveCredential(session, principal, boardId, input.credentialDigest))
+      .resolves.toMatchObject({ boardId, actorId, delegatedBy: principal.userId });
+    await expect(repository.resolveCredential(session, principal, boardId, createHash('sha256').update(`${credential}wrong`).digest('hex')))
+      .resolves.toBeNull();
+    await expect(repository.resolveActor(session, principal, boardId, actorId))
+      .resolves.toMatchObject({ kind: 'service', actorId, scopes: ['board:read', 'board:write'] });
+
+    await repository.revoke(session, principal, { boardId, actorId, eventId, revokedAt: now });
+    await expect(repository.resolveCredential(session, principal, boardId, input.credentialDigest)).resolves.toBeNull();
+    await expect(repository.resolveActor(session, principal, boardId, actorId)).resolves.toBeNull();
+    expect(JSON.stringify(repository)).not.toContain(credential);
   });
 });
