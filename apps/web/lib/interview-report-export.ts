@@ -3,6 +3,11 @@ import type { DigitalInterviewWorkflowView } from "./interview-api";
 type Report = Pick<NonNullable<DigitalInterviewWorkflowView["report"]>, "title" | "executiveSummary" | "markdown">;
 type EvidenceMode = DigitalInterviewWorkflowView["studyEvidenceMode"];
 type ReportEvidenceEligibility = DigitalInterviewWorkflowView["reportEvidenceEligibility"];
+type ReportBoundary = {
+  readonly evidenceMode: EvidenceMode;
+  readonly review: ReportEvidenceEligibility;
+  readonly source?: { readonly version: number; readonly contentHash: string };
+};
 
 /** Same label mapping the report UI shows — single source so an export can't drift from the screen. */
 export function evidenceModeLabel(mode: EvidenceMode): string {
@@ -44,11 +49,12 @@ function markdownParagraphs(markdown: string): Array<{ readonly text: string; re
 /** Produces a real OOXML .docx rather than an HTML file renamed to .doc. */
 export async function buildInterviewReportWordBlob(
   report: Report,
-  boundary: { readonly evidenceMode: EvidenceMode; readonly review: ReportEvidenceEligibility },
+  boundary: ReportBoundary,
 ): Promise<Blob> {
   const { AlignmentType, Document, Footer, HeadingLevel, Packer, PageNumber, Paragraph, TextRun } = await import("docx");
   const children = [
     new Paragraph({ heading: HeadingLevel.TITLE, children: [new TextRun({ text: report.title, bold: true })] }),
+    ...(boundary.source ? [new Paragraph({ children: [new TextRun({ text: `文档版本 ${boundary.source.version} · 内容哈希 ${boundary.source.contentHash}` })] })] : []),
     new Paragraph({ children: [new TextRun({ text: evidenceModeLabel(boundary.evidenceMode), bold: true })] }),
     new Paragraph({ heading: HeadingLevel.HEADING_2, children: [new TextRun({ text: "决策摘要" })] }),
     new Paragraph({ children: [new TextRun({ text: boundary.review.message })] }),
@@ -81,7 +87,7 @@ export async function buildInterviewReportWordBlob(
 
 export async function exportInterviewReportWord(
   report: Report,
-  boundary: { readonly evidenceMode: EvidenceMode; readonly review: ReportEvidenceEligibility },
+  boundary: ReportBoundary,
 ): Promise<void> {
   const blob = await buildInterviewReportWordBlob(report, boundary);
   download(blob, `${safeFilename(report.title)}.docx`);

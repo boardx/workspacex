@@ -25,11 +25,13 @@ describe("editable research design depth", () => {
     const state = runtimeFixture("outline"); state.outline[0] = { ...state.outline[0]!, objective: "验证市场机会", analysisApproach: "交叉核验", expectedOutput: "进入建议", subsections: [{ id: "sub1", title: "市场规模", questions: ["规模是多少？"] }] };
     vi.mocked(getResearchRuntime).mockResolvedValue(state); vi.mocked(executeResearchRuntime).mockResolvedValue({ ...state, version: 5 });
     render(<GuidedResearchLive sessionId={state.sessionId} onBack={vi.fn()} />);
+    fireEvent.doubleClick(await screen.findByTestId("guided-research-markdown-preview"));
     const markdown = await screen.findByTestId("guided-research-markdown-editor");
     fireEvent.change(markdown, { target: { value: String((markdown as HTMLTextAreaElement).value)
       .replace("### 分析方法\n交叉核验", "### 分析方法\n跨国对比与反证分析")
       .replace("市场规模：规模是多少？", "市场规模与增速：规模是多少？；口径是否一致？") } });
     fireEvent.click(screen.getByRole("button", { name: "保存 Markdown" }));
+    fireEvent.click(screen.getByRole("button", { name: "确认保存" }));
     await waitFor(() => expect(executeResearchRuntime).toHaveBeenCalled());
     expect(vi.mocked(executeResearchRuntime).mock.calls[0]?.[0].draft).toEqual({ node: "outline", value: [{ ...state.outline[0], analysisApproach: "跨国对比与反证分析", subsections: [{ id: "sub1", title: "市场规模与增速", questions: ["规模是多少？", "口径是否一致？"] }] }] });
   });

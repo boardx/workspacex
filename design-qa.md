@@ -31,6 +31,7 @@ The eight user-provided grayscale screenshots, beginning with `/var/folders/l8/7
 4. Two CI browser cases retained obsolete legacy fixtures for canonical routes. Fixtures and assertions are updated while preserving avatar persistence/reset, responsive checks, six-step navigation and legacy Skill coverage; the isolated six-case browser regression now passes.
 5. Real browser comparison exposed oversized stage chrome, invisible active-step contrast, undersized headings and a cramped list search. A RED-first browser assertion reproduced each mismatch, and the corrected list/workbench layouts pass.
 6. The question screen was only a raw Markdown textarea. A RED-first UI test now covers per-question editing and order; the screen projects question rows from Markdown and writes all edits back to the same Markdown document. The virtual-expert dialog now has an adjacent live Markdown preview and explicit simulation-boundary review.
+7. Issue #4571 projects the execution screen's completed/pending/running/failed counts from durable task metadata and its insight cards only from saved runs Markdown headings. UI tests went RED→GREEN, a Chromium direct-route/reload case passed at desktop/mobile widths with deterministic source fixtures, and the existing real PostgreSQL execution tests passed 8/8. The fullstack browser attempt did not reach assertions because the Next production build exceeded its 480-second server startup limit under machine load; this is not evidence of an integrated model-run browser pass.
 
 ## Verification boundary on this iteration
 
@@ -41,7 +42,7 @@ The eight user-provided grayscale screenshots, beginning with `/var/folders/l8/7
 
 - Verify report Word/PDF exports against the same saved version and validate live execution-state grouping; the no-mock persistence journey now proves saved Markdown and reload, but not those two downstream consumers.
 - Verify upload and voice failure recovery in an authenticated real browser; the six passing cases do not exercise these error states.
-- The prototype's AI-generated virtual-expert fields and rich live-report statistics are not established by the current modal/report browser evidence. Preserve the simulated-versus-real evidence boundary while implementing or explicitly accepting these differences.
+- The prototype's AI-generated virtual-expert fields and richer live-report statistics are not fully established. The execution screen now groups only explicitly saved Markdown insight sections; it does not invent category counts for unstructured model output or claim real participant evidence. Preserve the simulated-versus-real evidence boundary while implementing or explicitly accepting remaining differences.
 - Re-run current-head browser CI and resolve every genuine failure/review before claiming prototype acceptance or merge readiness.
 
 No assertion of complete one-to-one reconstruction or merge readiness is made.

@@ -53,7 +53,7 @@ describe("compact research sources", () => {
     vi.mocked(getResearchRuntime).mockResolvedValue(state);
     vi.mocked(executeResearchRuntime).mockResolvedValue({ ...state, version: state.version + 1 });
     render(<GuidedResearchLive sessionId={state.sessionId} onBack={vi.fn()} />);
-    expect(await screen.findByRole("link", { name: source.url })).toHaveAttribute("href", source.url);
+    expect(await screen.findByTestId(`research-source-description-${source.id}`)).toHaveAttribute("href", source.url);
     expect(screen.queryByRole("button", { name: "添加来源" })).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "确认并继续" }));
     await waitFor(() => expect(vi.mocked(executeResearchRuntime).mock.calls.at(-1)?.[0]).toEqual(expect.objectContaining({ action: "complete", expectedVersion: state.version, draft: { node: "research", value: [{ id: source.id, decision: "accepted" }] } })));
