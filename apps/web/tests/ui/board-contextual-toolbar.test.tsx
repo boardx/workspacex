@@ -9,9 +9,11 @@ import { BoardContentObjectInspector } from "@/components/whiteboard/board-conte
 import type { BoardFabricObject } from "@/components/whiteboard/fabric/board-fabric-object";
 
 vi.mock("@/components/whiteboard/fabric/board-fabric-surface", () => ({
-  BoardFabricSurface: ({ objects, onSelectionChange }: { objects: readonly BoardFabricObject[]; onSelectionChange: (ids: readonly string[], source: "canvas") => void }) => <div>
+  BoardFabricSurface: ({ objects, onSelectionChange }: { objects: readonly BoardFabricObject[]; onSelectionChange: (ids: readonly string[], source: "canvas" | "outline") => void }) => <div>
     <button data-testid="select-one" onClick={() => onSelectionChange(objects.slice(0, 1).map((object) => object.id), "canvas")}>one</button>
     <button data-testid="select-two" onClick={() => onSelectionChange(objects.slice(0, 2).map((object) => object.id), "canvas")}>two</button>
+    <button data-testid="outline-first" onClick={() => objects[0] && onSelectionChange([objects[0].id], "outline")}>outline first</button>
+    <button data-testid="outline-second" onClick={() => objects[1] && onSelectionChange([objects[1].id], "outline")}>outline second</button>
   </div>,
 }));
 class ResizeObserverMock { observe() {} disconnect() {} }
@@ -45,6 +47,7 @@ it("provides adjustable inspector size, compact geometry disclosure and grouped 
   const panel = screen.getByTestId("board-context-toolbar");
   expect(panel).toHaveAttribute("aria-label", "便利贴快捷工具");
   expect(panel).toHaveAttribute("data-expanded", "false");
+  expect(panel).toHaveClass("w-fit", "max-w-[calc(100vw-2rem)]");
   fireEvent.click(screen.getByTestId("board-inspector-expand"));
   expect(screen.getByTestId("board-inspector-scroll-content")).toBeVisible();
   const width = screen.getByTestId("board-inspector-resize");
@@ -72,6 +75,19 @@ it("provides adjustable inspector size, compact geometry disclosure and grouped 
   fireEvent.change(x, { target: { value: "88" } });
   fireEvent.blur(x);
   expect(onGeometryChange).toHaveBeenCalledWith(expect.objectContaining({ x: 88, y: 80, width: 180, height: 180, rotation: 0 }));
+});
+
+it("starts text editing from the outline only for explicitly text-editable objects", () => {
+  const doc = createWhiteboardDocument();
+  const image: WhiteboardObject = { ...sticky, id: "image", kind: "image", orderKey: "a", text: "Evidence", extensionData: { contentObject: { version: 1, type: "image", status: "ready", assetId: "asset_image_1", sourceUrl: null, mimeType: "image/png", intrinsicWidth: 64, intrinsicHeight: 48, crop: { x: 0, y: 0, width: 1, height: 1 }, opacity: 1, borderColor: "#FFFFFF", borderWidth: 0, cornerRadius: 0, fileName: "evidence.png", replacementOf: null, failureCode: null, byteSize: 3, contentDigest: `sha256:${"a".repeat(64)}`, magicMimeType: "image/png", retryCount: 0 } } };
+  executeCommands(doc, [{ type: "create", object: image }, { type: "create", object: { ...sticky, id: "note", orderKey: "b" } }], "seed");
+  render(<CollaborativeThinkingEditor boardId="board" clientId="web" doc={doc} readOnly={false} title="Board" status="已连接" />);
+
+  fireEvent.click(screen.getByTestId("outline-first"));
+  expect(screen.queryByTestId("board-thinking-editor")).toBeNull();
+  fireEvent.click(screen.getByTestId("outline-second"));
+  expect(screen.getByTestId("board-thinking-editor")).toBeVisible();
+  doc.destroy();
 });
 
 it("limits the adjustable inspector to the editor container on a narrow viewport", () => {

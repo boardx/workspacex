@@ -178,6 +178,7 @@ it.each([
 it("keeps an unsupported image file recoverable without creating a broken object", async () => {
   const doc = await setup();
   const input = screen.getByTestId("board-image-input");
+  expect(input).toHaveAccessibleName("上传图片");
   fireEvent.change(input, { target: { files: [new File(["plain"], "notes.txt", { type: "text/plain" })] } });
   expect(screen.getByText(/请选择 JPG、PNG、WEBP、GIF 或 SVG/)).toBeVisible();
   expect(readObjects(doc)).toEqual([]);

@@ -21,7 +21,7 @@ beforeEach(() => { const undo={boardId:'00000000-0000-4000-8000-000000000007',pr
 it("makes pending, retry and duplicate ACK recovery state visible and actionable", async () => {
   render(<LiveBoard boardId="00000000-0000-4000-8000-000000000007" />);
   await waitFor(() => expect(harness.state).not.toBeNull());
-  expect(screen.getByTestId("board-sync-banner")).toHaveClass("shrink-0","relative");
+  expect(screen.getByTestId("board-sync-banner")).toHaveClass("shrink-0","relative","max-h-[30vh]","overflow-y-auto");
   expect(screen.getByTestId("board-editor-region")).toHaveClass("relative","overflow-hidden");
   expect(screen.getByTestId("board-sync-banner")).toHaveTextContent("加密保存在此浏览器");
   harness.state?.({ ...online, phase: "offline", pending: 3, reason: "CONNECTION_LOST", retryAttempt: 2, duplicateAcks: 1 });
