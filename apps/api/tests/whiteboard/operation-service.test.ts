@@ -35,7 +35,7 @@ export function fixture(){const session=new Session();const db:DatabasePort={wit
     canRead:async()=>true,events:async()=>session.events as never[],
     resolveActor:async()=>({actorId:'agent-1',kind:'ai',delegatedBy:'user-1',scopes:['board:read','board:write'],model:'gpt',skill:'cluster'}),canReadArtifact:async()=>true,readArtifactSource:async()=>null,issueArtifactLayoutBinding:async()=>{},
   };
-  audit.lockRuntimeActor=async(s,p,id)=>{const actor=await audit.resolveActor(s,p,id);return actor?{actor,agentVersionId:'v1',model:actor.model!,skillVersionIds:[actor.skill!]}:null;};
+  audit.lockRuntimeActor=async(s,p,id)=>{const actor=await audit.resolveActor(s,p,boardId,id);return actor?{actor,agentVersionId:'v1',model:actor.model!,skillVersionIds:[actor.skill!]}:null;};
   const undoRecords=new Map<string,StoredOperationUndo>();
   const undoStore:WhiteboardOperationUndoStore={capture:async()=>({epoch:1,seq:0,key:'before',hash:'digest',bytes:2,comments:[]}),record:async(_s,p,receipt,before)=>{undoRecords.set(receipt.operationId,{ownerUserId:p.userId,undoId:randomUUID(),receipt,before});},get:async(_s,_p,_b,id)=>undoRecords.get(id)??null,readBefore:async()=>new Uint8Array([0,0]),checkComments:async()=>{},restoreComments:async()=>{}};
   collaboration.compensateInTransaction=async()=>({durability:'pending',epoch:1,seq:2,updateId:randomUUID(),gestureId:'undo',replayed:false,update:new Uint8Array([0,0])});

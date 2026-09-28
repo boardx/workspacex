@@ -126,5 +126,6 @@ export * as whiteboardCollaboration from "./whiteboard-collaboration";
 export * as whiteboardAsset from "./whiteboard-asset";
 export * as whiteboardImport from "./whiteboard-import";
 export * as whiteboardOperation from "./whiteboard-operation";
+export * as whiteboardActor from "./whiteboard-actor";
 
 export * as whiteboardOrganize from "./whiteboard-organize";

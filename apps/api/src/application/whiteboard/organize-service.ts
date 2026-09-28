@@ -29,8 +29,8 @@ export function clusterCommands(objects:readonly WhiteboardObject[],untrusted:un
 }
 export class WhiteboardOrganizeService {
   constructor(private db:DatabasePort,private audit:WhiteboardOperationAuditRepository,private collaboration:WhiteboardCollaborationStore,private proposals:WhiteboardProposalService,private agents:PublishedAgentReader,private skills:Pick<AgentRunStore,'readPinnedSkills'>,private model:ModelCallPort,private directory:BoardOrganizeActorDirectory){}
-  private async runtime(principal:Principal,actorId:string){
-    const registered=await this.db.withTenant(principal.orgId,s=>this.audit.resolveActor(s,principal,actorId));
+  private async runtime(principal:Principal,boardId:string,actorId:string){
+    const registered=await this.db.withTenant(principal.orgId,s=>this.audit.resolveActor(s,principal,boardId,actorId));
     if(!registered||registered.kind!=='ai'||!registered.scopes.includes('board:read')||!registered.scopes.includes('board:write')||!registered.model||!registered.skill)throw new WhiteboardOperationError('FORBIDDEN');
     const snapshot=await this.agents.resolvePublished(principal.orgId,actorId);
     if(!snapshot||`${snapshot.modelProvider}/${snapshot.modelId}`!==registered.model||!snapshot.skillVersionIds.includes(registered.skill))throw new WhiteboardOperationError('DEPENDENCY_UNAVAILABLE');
@@ -38,14 +38,14 @@ export class WhiteboardOrganizeService {
   }
   async actors(principal:Principal,boardId:string){
     await this.authorize(principal,boardId);
-    const result=[];for(const id of await this.directory.list(principal)){try{const {registered}=await this.runtime(principal,id);result.push({actorId:id,model:registered.model!,skill:registered.skill!});}catch(error){if(!(error instanceof WhiteboardOperationError))throw error;}}
+    const result=[];for(const id of await this.directory.list(principal)){try{const {registered}=await this.runtime(principal,boardId,id);result.push({actorId:id,model:registered.model!,skill:registered.skill!});}catch(error){if(!(error instanceof WhiteboardOperationError))throw error;}}
     return result;
   }
   private async authorize(principal:Principal,boardId:string){return this.db.withTenant(principal.orgId,async session=>{const head=await this.audit.lockHead(session,principal,boardId);if(!head)throw new WhiteboardOperationError('NOT_FOUND');if(!['owner','editor'].includes(head.actorRole))throw new WhiteboardOperationError('FORBIDDEN');return head;});}
   async organize(principal:Principal,boardId:string,untrusted:unknown){
     const input=BoardOrganizeRequest.parse(untrusted),head=await this.authorize(principal,boardId);
     if(head.epoch!==input.expectedRevision.epoch||head.seq!==input.expectedRevision.seq)throw new WhiteboardOperationError('STALE_REVISION');
-    const {registered,snapshot}=await this.runtime(principal,input.actorId);
+    const {registered,snapshot}=await this.runtime(principal,boardId,input.actorId);
     const state=await this.collaboration.load(principal,boardId);
     if(state.epoch!==head.epoch||state.seq!==head.seq)throw new WhiteboardOperationError('STALE_REVISION');
     const doc=new Y.Doc();let objects:WhiteboardObject[];try{Y.applyUpdate(doc,state.update);objects=readObjects(doc).filter(object=>input.objectIds.includes(object.id));}finally{doc.destroy();}
@@ -63,7 +63,7 @@ export class WhiteboardOrganizeService {
       if(completion.cancelled||completion.paused||completion.interrupted)throw new WhiteboardOperationError('DEPENDENCY_UNAVAILABLE');text=completion.text;
     }catch{throw new WhiteboardOperationError('DEPENDENCY_UNAVAILABLE');}finally{if(timer)clearTimeout(timer);}
     let generated:ReturnType<typeof clusterCommands>;try{generated=clusterCommands(objects,JSON.parse(text));}catch{throw new WhiteboardOperationError('VALIDATION_FAILED');}
-    const latest=await this.runtime(principal,input.actorId);if(latest.snapshot.agentVersionId!==snapshot.agentVersionId||latest.registered.model!==registered.model||latest.registered.skill!==registered.skill)throw new WhiteboardOperationError('STALE_REVISION');
+    const latest=await this.runtime(principal,boardId,input.actorId);if(latest.snapshot.agentVersionId!==snapshot.agentVersionId||latest.registered.model!==registered.model||latest.registered.skill!==registered.skill)throw new WhiteboardOperationError('STALE_REVISION');
     await this.authorize(principal,boardId);
     return this.proposals.create(principal,boardId,{proposalId:input.requestId,actorId:input.actorId,baseRevision:input.expectedRevision,
       action:{type:'cluster',objectIds:input.objectIds,...generated},provenance:{source:'ai-proposal',model:registered.model,skill:registered.skill,sourceArtifactId:null,sourceRevision:null,layoutHash:null,inputObjectIds:input.objectIds}},{model:registered.model!,skill:registered.skill!,agentVersionId:snapshot.agentVersionId});

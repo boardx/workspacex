@@ -17,7 +17,7 @@ import {renderedLayoutToCommands} from '@repo/whiteboard-core';
 
 export const WHITEBOARD_OPERATION_SERVICE = Symbol('WhiteboardOperationService');
 export class WhiteboardOperationError extends Error {
-  constructor(readonly code: 'FORBIDDEN'|'STALE_REVISION'|'IDEMPOTENCY_CONFLICT'|'NOT_FOUND'|'VALIDATION_FAILED'|'ARCHIVED'|'RATE_LIMITED'|'DEPENDENCY_UNAVAILABLE') { super(code); }
+  constructor(readonly code: 'UNAUTHENTICATED'|'FORBIDDEN'|'STALE_REVISION'|'IDEMPOTENCY_CONFLICT'|'NOT_FOUND'|'VALIDATION_FAILED'|'ARCHIVED'|'RATE_LIMITED'|'DEPENDENCY_UNAVAILABLE') { super(code); }
 }
 export type WhiteboardRateLimitedEntry='operation'|'artifact-handoff'|'events'|'objects'|'head'|'proposal-create'|'proposal-read'|'proposal-cancel'|'proposal-confirm'|'room-join'|'presentation-read'|'presentation-command';
 function collaborationError(error:unknown):never{
@@ -65,7 +65,7 @@ export class WhiteboardOperationService {
           const binding=await this.audit.lockRuntimeActor(session,principal,requested.actor.actorId);
           if(!binding||binding.agentVersionId!==expectedRuntime.agentVersionId||binding.model!==expectedRuntime.model||!binding.skillVersionIds.includes(expectedRuntime.skill))throw new WhiteboardOperationError('STALE_REVISION');
           registered=binding.actor;
-        }else registered=await this.audit.resolveActor(session,principal,requested.actor.actorId);
+        }else registered=await this.audit.resolveActor(session,principal,boardId,requested.actor.actorId);
         if(!registered||registered.kind!==requested.actor.kind||!registered.scopes.includes('board:write'))throw new WhiteboardOperationError('FORBIDDEN');
         actor={kind:registered.kind,actorId:registered.actorId,orgId:principal.orgId,role:head.actorRole,scopes:registered.scopes,delegatedBy:registered.delegatedBy};
       }
@@ -104,7 +104,7 @@ export class WhiteboardOperationService {
         if(actor.actorId!==principal.userId)throw new WhiteboardOperationError('FORBIDDEN');
         actor={...actor,role:head.actorRole};
       }else{
-        const registered=await this.audit.resolveActor(session,principal,actor.actorId);
+        const registered=await this.audit.resolveActor(session,principal,boardId,actor.actorId);
         if(!registered||registered.kind!==actor.kind||registered.delegatedBy!==principal.userId||!registered.scopes.includes('board:write'))throw new WhiteboardOperationError('FORBIDDEN');
         actor={...actor,role:head.actorRole,scopes:registered.scopes,delegatedBy:registered.delegatedBy};
       }
@@ -129,7 +129,7 @@ export class WhiteboardOperationService {
     const cursor=WhiteboardEventCursor.parse(untrusted);
     return this.db.withTenant(principal.orgId,async session=>{
       if(cursor.actorId){
-        const actor=await this.audit.resolveActor(session,principal,cursor.actorId);
+        const actor=await this.audit.resolveActor(session,principal,boardId,cursor.actorId);
         if(!actor||actor.delegatedBy!==principal.userId||!actor.scopes.includes('board:read'))throw new WhiteboardOperationError('FORBIDDEN');
       }
       if(!await this.audit.canRead(session,principal,boardId))throw new WhiteboardOperationError('NOT_FOUND');
@@ -140,7 +140,7 @@ export class WhiteboardOperationService {
   async readObjects(principal:Principal,boardId:string,untrusted:unknown):Promise<WhiteboardObjectsSnapshot> {
     const query = WhiteboardObjectsQuery.parse(untrusted);
     return this.db.withTenant(principal.orgId, async session => {
-      const actor = await this.audit.resolveActor(session, principal, query.actorId);
+      const actor = await this.audit.resolveActor(session, principal, boardId, query.actorId);
       if (!actor || actor.delegatedBy !== principal.userId || !actor.scopes.includes('board:read')) {
         throw new WhiteboardOperationError('FORBIDDEN');
       }
