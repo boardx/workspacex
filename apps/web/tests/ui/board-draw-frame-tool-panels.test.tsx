@@ -20,6 +20,7 @@ function FrameHarness({onChoice=vi.fn()}:{onChoice?:(choice:BoardFrameChoice,mod
 it("offers all drawing instruments and keeps stroke appearance controls stateful",()=>{
   const onChoice=vi.fn();
   render(<DrawHarness onChoice={onChoice}/>);
+  expect(screen.getByTestId("board-draw-tool-panel")).toHaveClass("min-h-[17rem]","w-[min(47.5rem,calc(100vw-2rem))]");
   for(const name of ["Pen","Marker","Pencil","Highlighter","Eraser"]) expect(screen.getByRole("button",{name})).toBeVisible();
   fireEvent.click(screen.getByTestId("board-draw-pencil"));
   expect(onChoice).toHaveBeenCalledWith("pencil");
