@@ -558,7 +558,13 @@ export function LiveSurveyWorkspace({
               )}
             </section>
           )}
-          {step === "responses" && (
+          {step === "responses" && (<>
+            <section aria-label="报告准备状态" className="mx-5 mt-5 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border bg-card p-4">
+              <div><h2 className="text-16 font-semibold">分析报告（可选）</h2><p className="mt-1 text-12 text-muted-foreground">{runtime?.report
+                ? runtime.reportBasisAnswerRevision === runtime.answerRevision ? `已基于 ${runtime.responses.filter(response => response.analysis !== 'excluded').length} 份纳入分析的答卷生成` : "答卷已更新，可重新生成报告"
+                : "尚未生成；不影响问卷发布和答卷回收"}</p></div>
+              <Button variant="outline" onClick={() => selectStep('report')}>{runtime?.report ? "查看分析报告" : "生成分析报告"}</Button>
+            </section>
             <LiveResponseList
               surveyId={runtime?.id}
               responses={runtime?.responses ?? []}
@@ -603,7 +609,7 @@ export function LiveSurveyWorkspace({
                 })
               }
             />
-          )}
+          </>)}
           {step === "report" && (
             <section className="mx-auto max-w-5xl space-y-5 p-5">
               <div className="flex flex-wrap items-center gap-2">

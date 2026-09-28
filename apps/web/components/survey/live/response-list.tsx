@@ -28,6 +28,8 @@ export function LiveResponseList({
   const [selected, setSelected] = React.useState<string | null>(null);
   const [exclusionReason, setExclusionReason] = React.useState("");
   const excluded = responses.filter((r) => r.analysis === "excluded").length;
+  const normal = responses.filter((r) => r.quality === "normal" && r.analysis !== "excluded").length;
+  const review = responses.filter((r) => r.quality === "review" && r.analysis !== "excluded").length;
   const filtered = responses.filter(
     (r) =>
       (quality === "all" || (quality === "excluded" ? r.analysis === "excluded" : r.quality === quality && r.analysis !== "excluded")) &&
@@ -35,7 +37,9 @@ export function LiveResponseList({
   );
   const pages = Math.max(1, Math.ceil(filtered.length / 10));
   const actualPage = Math.min(page, pages - 1);
-  const item = responses.find((r) => r.id === selected);
+  const item = filtered.find((r) => r.id === selected);
+  const selectedIndex = filtered.findIndex((r) => r.id === selected);
+  const selectResponse = (id: string) => { setExclusionReason(""); setSelected(id); };
   const exportMarkdown = () => {
     const markdown = ['# 问卷答卷', ...filtered.map((response) => [
       `## 答卷 ${response.id}`, `提交时间：${response.submittedAt}`, `用时：${response.durationSeconds} 秒`,
@@ -54,12 +58,13 @@ export function LiveResponseList({
       <section aria-label="答卷列表" className="min-w-0 space-y-4 rounded-lg border border-border bg-card p-5">
       <div className="flex flex-wrap gap-4">
         <p className="text-18 font-semibold">{responses.length} 份答卷</p>
-        <p className="text-12 text-muted-foreground">
-          有效 {responses.filter((r) => r.quality === "normal" && r.analysis !== "excluded").length} · 待复核{" "}
-          {responses.filter((r) => r.quality === "review" && r.analysis !== "excluded").length} · 已排除分析 {excluded}
-        </p>
       </div>
-      <div className="flex gap-2">
+      <div aria-label="答卷分类" className="flex flex-wrap gap-2">
+        {([['all', `全部 ${responses.length}`], ['normal', `有效 ${normal}`], ['review', `待复核 ${review}`], ['excluded', `已排除分析 ${excluded}`]] as const).map(([value, label]) =>
+          <Button key={value} size="sm" variant={quality === value ? 'primary' : 'outline'} aria-pressed={quality === value} onClick={() => { setQuality(value); setPage(0); }}>{label}</Button>
+        )}
+      </div>
+      <div className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_auto]">
         <Input
           aria-label="搜索答卷"
           placeholder="搜索答卷编号"
@@ -69,20 +74,6 @@ export function LiveResponseList({
             setPage(0);
           }}
         />
-        <select
-          aria-label="质量筛选"
-          className="rounded-md border border-border bg-card p-2 text-12"
-          value={quality}
-          onChange={(e) => {
-            setQuality(e.target.value);
-            setPage(0);
-          }}
-        >
-          <option value="all">全部答卷</option>
-          <option value="normal">有效答卷</option>
-          <option value="review">待复核</option>
-          <option value="excluded">已排除分析</option>
-        </select>
         <Button variant="outline" disabled={busy || filtered.length === 0} onClick={exportMarkdown}>导出 Markdown</Button>
       </div>
       <div className="overflow-auto">
@@ -107,10 +98,7 @@ export function LiveResponseList({
                   <Button
                     size="xs"
                     variant="outline"
-                    onClick={() => {
-                      setExclusionReason("");
-                      setSelected(r.id);
-                    }}
+                    onClick={() => selectResponse(r.id)}
                   >
                     查看完整答卷
                   </Button>
@@ -151,7 +139,13 @@ export function LiveResponseList({
           className="rounded-lg border border-border bg-card p-5"
         >
           <div className="flex flex-wrap justify-between gap-2">
-            <h2 className="text-16 font-semibold">完整答卷</h2>
+            <h2 className="text-16 font-semibold">答卷详情</h2>
+            <div className="flex gap-2">
+              <Button size="xs" variant="outline" aria-label="上一条答卷" disabled={selectedIndex <= 0} onClick={() => selectResponse(filtered[selectedIndex - 1]!.id)}>上一条</Button>
+              <Button size="xs" variant="outline" aria-label="下一条答卷" disabled={selectedIndex < 0 || selectedIndex >= filtered.length - 1} onClick={() => selectResponse(filtered[selectedIndex + 1]!.id)}>下一条</Button>
+            </div>
+          </div>
+          <div className="mt-3 flex flex-wrap justify-end gap-2">
             <div className="flex gap-2">
               <Button
                 disabled={busy}

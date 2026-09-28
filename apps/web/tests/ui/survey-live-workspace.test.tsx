@@ -209,6 +209,7 @@ describe('live survey workspace persistence',()=>{
   const response={id:'answer-1',analysis:'included' as const,quality:'normal' as const,role:'未填写',companySize:'未填写',submittedAt:'2026-09-20T11:00:00.000Z',durationSeconds:20,answers:[{questionId:'q1',value:'甲'}]};
   request.mockResolvedValueOnce(runtime({status:'closed',responses:[response]})).mockResolvedValueOnce(runtime({status:'closed',version:5,responses:[{...response,analysis:'excluded',exclusionReason:'重复测试提交'}]}));
   render(<LiveSurveyWorkspace surveyId="saved-survey" initialStep="responses"/>);
+  expect(await screen.findByRole('region',{name:'报告准备状态'})).toHaveTextContent('尚未生成；不影响问卷发布和答卷回收');
   fireEvent.click(await screen.findByRole('button',{name:'查看完整答卷'}));
   fireEvent.change(screen.getByLabelText('排除分析原因'),{target:{value:'重复测试提交'}});
   fireEvent.click(screen.getByRole('button',{name:'排除分析'}));
