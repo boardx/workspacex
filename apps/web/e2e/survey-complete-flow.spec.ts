@@ -10,7 +10,11 @@ test('AI 提案先校对再应用并保存为 Markdown',async({page},testInfo)=>
  await page.getByLabel('标签',{exact:true}).fill('客户调研');await page.getByLabel('标签',{exact:true}).press('Enter');
  await page.getByRole('radio',{name:/AI 导入创建/}).check();
  await page.getByRole('button',{name:'下一步',exact:true}).click();
- await expect(page).toHaveURL(/\/studio\/survey\/new\/import\?draft=/);
+ await expect(page).toHaveURL(/step=import&mode=ai/);
+ await page.getByRole('button',{name:'← 返回列表'}).click();
+ const unfinished=page.locator('article').filter({has:page.getByRole('link',{name:'AI 校对验收'})});
+ await unfinished.getByRole('button',{name:'继续设计'}).click();
+ await expect(page).toHaveURL(/step=import&mode=ai/);
  await page.screenshot({path:testInfo.outputPath('survey-ai-import-step.png'),fullPage:true});
  await page.getByLabel('问卷需求').fill('调查客户最近一次使用体验');
  await page.getByLabel('上传问卷文件').setInputFiles({name:'研究目标.md',mimeType:'text/markdown',buffer:Buffer.from('研究软件用户近期的真实产品体验')});
