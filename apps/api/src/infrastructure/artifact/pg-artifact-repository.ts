@@ -137,6 +137,10 @@ export class PgArtifactRepository implements ArtifactRepository {
             AND v.pipeline_version = $3
             AND v.parser_version = $4
             AND a.project_id IS NOT DISTINCT FROM $5
+            -- FF-105: a deleted artifact is not a duplicate of anything. Matching it made a
+            -- re-upload after deletion answer duplicate=true pointing at an entry the browser
+            -- no longer shows (and whose bytes the physical purge may already have removed).
+            AND a.deleted_at IS NULL
           ORDER BY v.pinned_at ASC
           LIMIT 1`,
         [orgId, contentHash, pipelineVersion, parserVersion, projectId],

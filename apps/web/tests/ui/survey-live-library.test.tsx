@@ -25,7 +25,7 @@ describe("LiveSurveyLibrary", () => {
     fireEvent.change(screen.getByLabelText('问卷名称'),{target:{value:'产品调研'}});
     fireEvent.change(screen.getByLabelText('标签'),{target:{value:'产品'}});
     fireEvent.click(screen.getByRole('button',{name:'下一步'}));
-    await waitFor(()=>expect(push).toHaveBeenCalledWith('/studio/survey/created?step=design'));
+    await waitFor(()=>expect(push).toHaveBeenCalledWith('/studio/survey/created/design'));
     expect(request).toHaveBeenLastCalledWith('/surveys',expect.objectContaining({method:'POST',body:expect.objectContaining({title:'产品调研',tags:['产品'],questions:[]})}),expect.anything());
   });
   it("routes AI import to its own step while blank creation enters design", async () => {
@@ -66,7 +66,7 @@ describe("LiveSurveyLibrary", () => {
     expect(await screen.findByRole("heading", { name: "问卷" })).toBeInTheDocument();
     expect(screen.getByTestId("survey-status-survey-1")).toHaveTextContent("回收中");
     fireEvent.click(screen.getByRole("button", { name: "查看答卷" }));
-    expect(push).toHaveBeenCalledWith("/studio/survey/survey-1?step=responses");
+    expect(push).toHaveBeenCalledWith("/studio/survey/survey-1/responses");
   });
 
   it("distinguishes a failed list request from an empty survey list", async () => {

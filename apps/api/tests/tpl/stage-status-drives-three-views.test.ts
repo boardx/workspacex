@@ -26,7 +26,7 @@ import type {
   ProjectOverviewRepository,
   ProjectSnapshotRow,
 } from "../../src/application/project/ports";
-import type { IdentityRepository, OrgMembershipRow, ProjectMembershipRow, BindingRow, DecisionIdFactory } from "../../src/application/identity/ports";
+import type { IdentityRepository, OrgMembershipRow, ProjectMembershipRow, BindingRow, DecisionIdFactory, NonWorkshopStandingRow } from "../../src/application/identity/ports";
 import type { AclObjectRef } from "../../src/application/identity/ports";
 import type { ProvenanceWriter, ProvenanceAppendInput } from "../../src/application/provenance/ports";
 import type { TemporaryGrantRepository } from "../../src/application/identity/temporary-grant-ports";
@@ -53,6 +53,10 @@ class FakeIdentityRepository implements IdentityRepository {
   }
   async findProjectMembership(userId: string, projectId: string): Promise<ProjectMembershipRow | null> {
     return this.projectMemberships.get(`${userId}/${projectId}`) ?? null;
+  }
+  /** #4584：本 fake 只装工作坊身份——非工作坊容器的两档身份一律「不是这类容器」。 */
+  async findNonWorkshopStanding(): Promise<NonWorkshopStandingRow | null> {
+    return null;
   }
   async findBindings(_orgId: string, _objects: readonly AclObjectRef[]): Promise<Map<string, BindingRow>> {
     return new Map(); // 空 = org-wide 默认（见 authorize.ts DEFAULT_SCOPE）

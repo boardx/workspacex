@@ -137,9 +137,12 @@ export async function getThreadMessagesFile(
 
   // ⭐ 与 `getThread` 同一条观察者过滤：观察者下载到的文件里**不存在**那些行，
   //   不是「下载了完整文件但界面不显示」。文件一旦落地就脱离了界面的管辖。
-  const rows = disclosed.payload.filter((m) =>
-    outcome.actor.projectRole === "observer" ? observerMayReadMessage(m, outcome.thread) : true,
-  );
+  //
+  // FF-103：这里**对所有请求者**都套观察者过滤，不按本次请求者的角色分岔。文件每线程只物化
+  //   一次（主键见文件头），之后所有人拿到的都是这一份——按「第一个取的人」的角色决定内容，
+  //   成员先取就等于把原始转写 / 私聊行交给之后的每一个观察者。共享的那一份只能是每个
+  //   能取它的人都有权读的交集。代价（原样上报）：成员下载到的文件同样不含原始转写行。
+  const rows = disclosed.payload.filter((m) => observerMayReadMessage(m, outcome.thread));
 
   const bytes = messagesToJsonl(rows);
   if (bytes.byteLength === 0) {
