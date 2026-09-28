@@ -53,7 +53,7 @@ export function BoardA11yMirror({ objects, selectedObjectIds, onSelect, readOnly
             data-world-width={object.geometry.width}
             data-world-height={object.geometry.height}
             data-world-rotation={object.geometry.rotation}
-            key={object.id} data-object-id={object.id} data-object-kind={object.kind} data-geometry={JSON.stringify(object.geometry)} data-parent-id={object.parentId ?? ""} data-z-index={object.zIndex ?? 0}
+            key={object.id} data-object-id={object.id} data-object-kind={object.kind} data-object-text={object.content.text} data-geometry={JSON.stringify(object.geometry)} data-parent-id={object.parentId ?? ""} data-z-index={object.zIndex ?? 0}
             data-x={object.geometry.x} data-y={object.geometry.y} data-width={object.geometry.width} data-height={object.geometry.height} data-rotation={object.geometry.rotation}
             data-clip-parent-id={object.parentId && byId.get(object.parentId)?.panel?.clipContent ? object.parentId : undefined}
             data-connector-from={object.connector?.from ?? ""} data-connector-to={object.connector?.to ?? ""}

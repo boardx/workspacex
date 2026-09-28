@@ -21,13 +21,32 @@ export function ThinkingInputEditor({ objectId, initialValue, geometry, viewport
   const intentRef = useRef(intent);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const suppressCompositionChangeRef = useRef<string | null>(null);
+  const liveCommitTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const pendingLiveValueRef = useRef<string | null>(null);
   intentRef.current = intent;
   useEffect(() => { inputRef.current?.focus(); inputRef.current?.select(); }, [objectId]);
+  useEffect(() => () => { if (liveCommitTimerRef.current) clearTimeout(liveCommitTimerRef.current); }, []);
   useEffect(() => {
     setIntent((current) => current.composition || current.draft === initialValue ? current : beginTextInput(initialValue));
   }, [initialValue]);
+  const cancelScheduledLiveCommit = () => {
+    if (liveCommitTimerRef.current) clearTimeout(liveCommitTimerRef.current);
+    liveCommitTimerRef.current = null;
+    pendingLiveValueRef.current = null;
+  };
+  const flushScheduledLiveCommit = () => {
+    const value = pendingLiveValueRef.current;
+    cancelScheduledLiveCommit();
+    if (value !== null) onLiveCommit(value);
+  };
+  const scheduleLiveCommit = (value: string) => {
+    if (liveCommitTimerRef.current) clearTimeout(liveCommitTimerRef.current);
+    pendingLiveValueRef.current = value;
+    liveCommitTimerRef.current = setTimeout(flushScheduledLiveCommit, 100);
+  };
   const finish = (reason: "blur" | "enter" | "tab") => {
     if (intentRef.current.composition) return false;
+    cancelScheduledLiveCommit();
     return onCommit(intentRef.current.draft, reason);
   };
   return <textarea
@@ -41,21 +60,22 @@ export function ThinkingInputEditor({ objectId, initialValue, geometry, viewport
       intentRef.current = next;
       setIntent(next);
       if (suppressCompositionChangeRef.current === next.draft) suppressCompositionChangeRef.current = null;
-      else if (!next.composition) onLiveCommit(next.draft);
+      else if (!next.composition) scheduleLiveCommit(next.draft);
     }}
-    onCompositionStart={() => { suppressCompositionChangeRef.current = null; const next = beginComposition(intentRef.current); intentRef.current = next; setIntent(next); }}
+    onCompositionStart={() => { flushScheduledLiveCommit(); suppressCompositionChangeRef.current = null; const next = beginComposition(intentRef.current); intentRef.current = next; setIntent(next); }}
     onCompositionEnd={(event) => {
       const value = event.currentTarget.value;
       const next = commitComposition(updateTextInput(intentRef.current, value), value);
       intentRef.current = next;
       setIntent(next);
       suppressCompositionChangeRef.current = next.draft;
+      cancelScheduledLiveCommit();
       onLiveCommit(next.draft);
     }}
     onBlur={() => { if (!intentRef.current.composition) finish("blur"); }}
     onKeyDown={(event) => {
       if (event.nativeEvent.isComposing || intentRef.current.composition) return;
-      if (event.key === "Escape") { event.preventDefault(); onCancel(); return; }
+      if (event.key === "Escape") { event.preventDefault(); cancelScheduledLiveCommit(); onCancel(); return; }
       if (event.key === "Tab") { event.preventDefault(); if (finish("tab")) onContinue(intentRef.current.draft); return; }
       if (event.key === "Enter" && (event.metaKey || event.ctrlKey)) { event.preventDefault(); finish("enter"); }
     }}

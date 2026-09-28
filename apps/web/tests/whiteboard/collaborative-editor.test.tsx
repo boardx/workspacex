@@ -19,7 +19,7 @@ it('text diff only replaces the changed span', () => {
   expect(textSplice('早上好世界', '早上美好世界')).toEqual({ index: 2, deleteCount: 0, insert: '美' });
   expect(textSplice('abc', 'ac')).toEqual({ index: 1, deleteCount: 1, insert: '' });
 });
-it('routes a completed Fabric transform through one identifiable canonical transaction', () => {
+it('routes a completed Fabric transform through one identifiable canonical transaction', async () => {
   const doc = createWhiteboardDocument();
   render(<CollaborativeEditor boardId="board-test" clientId="client-test" doc={doc} readOnly={false} title="白板" status="已连接" />);
   expect(screen.getByTestId('board-fabric-surface')).toBeVisible();
@@ -39,7 +39,7 @@ it('routes a completed Fabric transform through one identifiable canonical trans
     boardId: 'board-test', clientId: 'client-test', gestureId: expect.any(String),
   });
   fireEvent.change(screen.getByLabelText('对象文字'), { target: { value: '协作文字' } });
-  expect(readObjects(doc)[0]!.text).toBe('协作文字');
+  await waitFor(() => expect(readObjects(doc)[0]!.text).toBe('协作文字'));
   act(() => executeCommands(doc, [{ type: 'text', id, index: 4, deleteCount: 0, insert: '远端' }], 'remote'));
   expect(screen.getByLabelText('对象文字')).toHaveValue('协作文字远端');
   fireEvent.click(screen.getByRole('button', {name: '撤销'}));

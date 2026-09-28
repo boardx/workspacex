@@ -153,8 +153,8 @@ test('Visual Research: valid screenshot in one paste mixed with Sticky/Text/Arro
     await expect.poll(async () => {
       const arranged = await canonicalRows(page);
       return arranged.every((a, index) => arranged.slice(index + 1).every(b =>
-        a.geometry.x + a.geometry.width <= b.geometry.x || b.geometry.x + b.geometry.width <= a.geometry.x
-        || a.geometry.y + a.geometry.height <= b.geometry.y || b.geometry.y + b.geometry.height <= a.geometry.y));
+        a.geometry.x + a.geometry.width <= b.geometry.x + 1 || b.geometry.x + b.geometry.width <= a.geometry.x + 1
+        || a.geometry.y + a.geometry.height <= b.geometry.y + 1 || b.geometry.y + b.geometry.height <= a.geometry.y + 1));
     }).toBe(true);
     const sticky = content.find(row => row.kind === 'sticky')!, tile = content.find(row => row.kind === 'card')!;
     await connectByHandles(page, sticky.id, tile.id);

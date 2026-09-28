@@ -77,7 +77,7 @@ export type CanonicalRow = {id: string; kind: string; text: string; geometry: Ge
 export async function canonicalRows(page: Page): Promise<CanonicalRow[]> {
   return page.getByTestId('board-a11y-mirror').locator('li[data-object-id]').evaluateAll(rows => rows.map(element => {
     const row = element as HTMLElement;
-    return {id: row.dataset.objectId!, kind: row.dataset.objectKind!, text: row.querySelector('button')?.textContent ?? '',
+    return {id: row.dataset.objectId!, kind: row.dataset.objectKind!, text: row.dataset.objectText ?? '',
       geometry: JSON.parse(row.dataset.geometry!), parentId: row.dataset.parentId ?? '',
       from: row.dataset.connectorFrom ?? '', to: row.dataset.connectorTo ?? '',
       start: row.dataset.connectorStart ? JSON.parse(row.dataset.connectorStart) : null,

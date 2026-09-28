@@ -68,6 +68,25 @@ it("creates twenty 24px-spaced stickies by typing and pressing Tab without openi
   doc.destroy();
 });
 
+it("coalesces rapid text input into one durable command before the user pauses", () => {
+  vi.useFakeTimers();
+  try {
+    const doc = editor();
+    fireEvent.click(screen.getByTestId("mock-canvas-double"));
+    const origins: WhiteboardCommandOrigin[] = [];
+    doc.on("afterTransaction", (transaction) => { if (transaction.origin instanceof WhiteboardCommandOrigin) origins.push(transaction.origin); });
+    const input = screen.getByLabelText("对象文字");
+    fireEvent.change(input, { target: { value: "I" } });
+    fireEvent.change(input, { target: { value: "Idea" } });
+    fireEvent.change(input, { target: { value: "Idea 01" } });
+    expect(readObjects(doc)[0]?.text).toBe("");
+    act(() => vi.advanceTimersByTime(100));
+    expect(readObjects(doc)[0]?.text).toBe("Idea 01");
+    expect(origins).toHaveLength(1);
+    doc.destroy();
+  } finally { vi.useRealTimers(); }
+});
+
 it("guards shortcuts inside inputs and creates from N/T only when canvas context owns the key", () => {
   const doc = editor();
   fireEvent.pointerDown(screen.getByTestId("board-title-menu"),{button:0,ctrlKey:false});

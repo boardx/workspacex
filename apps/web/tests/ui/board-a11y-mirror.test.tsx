@@ -71,6 +71,7 @@ describe("Board accessibility object mirror", () => {
 
     const button = screen.getByRole("button", { name: "图形：椭圆" });
     expect(button).toHaveAccessibleDescription("对象类型：椭圆");
+    expect(button.closest("li")).toHaveAttribute("data-object-text", "");
   });
 
   it("announces when a persisted image needs session verification", () => {
