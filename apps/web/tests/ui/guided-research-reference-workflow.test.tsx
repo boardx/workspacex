@@ -34,33 +34,15 @@ describe("reference research workflow", () => {
     fireEvent.click(screen.getByRole("button", { name: "继续编辑" }));
     expect(screen.getByLabelText("章节标题")).toHaveValue("未保存章节");
   });
-  it("does not overwrite unsaved chapter edits when opening scope editing", async () => {
+  it("shows the research plan editor by default without the old scope cards", async () => {
     const initial = runtimeFixture("outline");
     vi.mocked(getResearchRuntime).mockResolvedValue(initial);
     render(<GuidedResearchLive sessionId={initial.sessionId} onBack={vi.fn()} />);
-    fireEvent.click(await screen.findByText("编辑研究计划 Markdown 与章节结构"));
-    fireEvent.change(screen.getAllByRole("textbox", { name: "章节标题" })[0]!, { target: { value: "尚未保存的章节" } });
-    fireEvent.click(screen.getByRole("button", { name: "编辑成功标准" }));
-    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
-    expect(screen.getAllByRole("textbox", { name: "章节标题" })[0]).toHaveValue("尚未保存的章节");
-    expect(screen.getByText("请先保存研究计划中的章节修改，再编辑成功标准或来源范围。" )).toBeInTheDocument();
+    await screen.findByTestId("guided-research-plan-panel");
+    expect(screen.getByTestId("guided-research-markdown-editor")).toBeVisible();
+    expect(within(screen.getByTestId("guided-research-plan-panel")).getAllByRole("heading", { name: "研究计划" }).length).toBeGreaterThan(0);
+    expect(screen.queryByRole("button", { name: "编辑成功标准" })).not.toBeInTheDocument();
     expect(executeResearchRuntime).not.toHaveBeenCalled();
-  });
-  it("edits plan criteria through the real scope command without discarding internal sources", async () => {
-    const initial = runtimeFixture("outline");
-    initial.sourcePolicy!.internalSourceIds = ["internal-source-1"];
-    vi.mocked(getResearchRuntime).mockResolvedValue(initial);
-    vi.mocked(executeResearchRuntime).mockResolvedValue({ ...initial, version: initial.version + 1 });
-    render(<GuidedResearchLive sessionId={initial.sessionId} onBack={vi.fn()} />);
-    fireEvent.click(await screen.findByRole("button", { name: "编辑成功标准" }));
-    const editor = within(screen.getByRole("dialog"));
-    fireEvent.change(editor.getByLabelText("成功标准"), { target: { value: "每项结论都有可定位原文" } });
-    fireEvent.click(editor.getByRole("button", { name: "确认研究边界" }));
-    await waitFor(() => expect(executeResearchRuntime).toHaveBeenCalledWith(expect.objectContaining({
-      action: "refine_scope", expectedRevision: initial.planRevision,
-      intent: expect.objectContaining({ successCriteria: ["每项结论都有可定位原文"] }),
-      sourcePolicy: expect.objectContaining({ internalSourceIds: ["internal-source-1"] }),
-    })));
   });
   it("blocks topic confirmation until edited research information is saved", async () => {
     const initial = runtimeFixture("directions");

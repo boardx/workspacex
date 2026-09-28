@@ -143,6 +143,8 @@ export function CopilotKitV2PanelBody({
   agentOptions,
   selectedAgentId = null,
   onSelectAgent,
+  realtimeContext = null,
+  onAssistantText,
 }: {
   chatThreadId?: string | null;
   observedRunId?: string | null;
@@ -162,6 +164,8 @@ export function CopilotKitV2PanelBody({
   selectedAgentId?: string | null;
   /** `null` = 回到自动匹配（服务端默认 agent）。 */
   onSelectAgent: (agentId: string | null) => void;
+  realtimeContext?: { readonly boardId: string; readonly selectedObjectIds: readonly string[] } | null;
+  onAssistantText?: (text: string) => void;
   onThreadResolved?: (threadId: string) => void;
   /** issue #2046（CK-P1）—— 见外层 `CopilotKitV2Panel` 同名 prop。 */
   onMessageSent?: () => void;
@@ -228,6 +232,18 @@ export function CopilotKitV2PanelBody({
   // while merely checking readiness.
   const isRegisteredAgentReady = isReady && copilotkit.agents[threadId] === agent;
   const runTrace = useRunTrace(agent, initialChatThreadId);
+  const wasRealtimeRunActive = React.useRef(false);
+  React.useEffect(() => {
+    if (agent.isRunning) {
+      wasRealtimeRunActive.current = true;
+      return;
+    }
+    if (!wasRealtimeRunActive.current || !onAssistantText) return;
+    wasRealtimeRunActive.current = false;
+    const latest = [...agent.messages].reverse().find((message) => message.role === "assistant");
+    const content = latest && typeof latest.content === "string" ? latest.content.trim() : "";
+    if (content) onAssistantText(content);
+  }, [agent.isRunning, agent.messages, onAssistantText]);
   const hydrateRunTrace = runTrace.hydrate;
   const acceptedRunEpoch = runTrace.acceptedRunEpoch;
   const draftSession = useSession().session;
@@ -1582,9 +1598,11 @@ export function CopilotKitV2PanelBody({
         // callback's own `opts` doc + `lastSentRef`'s head comment for why).
         const forwardedProps: {
           chatThreadId?: string; attachmentIds?: readonly string[]; clientMessageId: string;
+          realtimeContext?: { readonly boardId: string; readonly selectedObjectIds: readonly string[] };
         } = { clientMessageId };
         if (chatThreadId !== null) forwardedProps.chatThreadId = chatThreadId;
         if (attachmentIds.length > 0) forwardedProps.attachmentIds = attachmentIds;
+        if (realtimeContext) forwardedProps.realtimeContext = realtimeContext;
         await copilotkit.runAgent({ agent, forwardedProps });
         // issue #2046（CK-P1）—— run settle 后通知外壳刷新右栏「材料」/「产物」
         // （消息与附件此时都已真实落库；与旧轨道 `onMessageSent` 同语义）。
@@ -1625,7 +1643,7 @@ export function CopilotKitV2PanelBody({
         return acceptedRunEpoch.current > acceptedBefore;
       }
     },
-    [agent, copilotkit, inputDraft, setInputDraft, runIsRunning, attach, attachmentThreadId, onMessageSent, acceptedRunEpoch, canWrite, archived, projectId, resolveAttachmentThreadId],
+    [agent, copilotkit, inputDraft, setInputDraft, runIsRunning, attach, attachmentThreadId, onMessageSent, acceptedRunEpoch, canWrite, archived, projectId, resolveAttachmentThreadId, realtimeContext],
   );
 
   /**

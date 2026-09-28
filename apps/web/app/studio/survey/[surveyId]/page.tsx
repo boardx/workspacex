@@ -7,7 +7,7 @@ export default function SurveyWorkflowPage({ params, searchParams }: {
   params: { surveyId: string };
   searchParams: { step?: string; state?: string; readonly?: string; mode?: string; draft?: string; preview?: string; projectId?: string };
 }) {
-  if (searchParams.preview !== "1") return <LiveSurveyWorkspace key={params.surveyId} surveyId={params.surveyId} initialStep={searchParams.step} projectId={searchParams.projectId ?? null} />;
+  if (searchParams.preview !== "1") return <LiveSurveyWorkspace key={params.surveyId} surveyId={params.surveyId} initialStep={searchParams.step} creationMode={searchParams.mode === "ai" ? searchParams.mode : undefined} projectId={searchParams.projectId ?? null} />;
   const parsedStep = survey.SurveyWorkflowStepSchema.safeParse(searchParams.step);
   const state = (["loading", "empty", "error"] as const).includes(searchParams.state as "loading" | "empty" | "error")
     ? searchParams.state as SurveyPrototypeState

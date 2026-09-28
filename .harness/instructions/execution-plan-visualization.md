@@ -8,6 +8,8 @@
 > `.harness/scripts/execution-plan.mjs` 的 `PLAN_STATUSES` 定义一次；本文、模板、各计划文件
 > 里出现的 `classDef` 副本都由 `pnpm run lint:execution-plan` 逐字核对。
 > skill 入口：`.agents/skills/execution-plan/SKILL.md`（只引用本文，不复述）。
+> 给人类程序员的操作手册（怎么派活、怎么读图、命令行、CI 报错怎么修、怎么改这套机制）：
+> `.harness/instructions/execution-plan-developer-guide.md`。
 
 ## 为什么
 

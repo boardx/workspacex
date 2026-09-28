@@ -13,7 +13,7 @@ describe('live survey workspace persistence',()=>{
  it('preserves existing tags in canonical Markdown when applying an AI proposal without tags',async()=>{
   const original=runtime({tags:['客户调研']});
   request.mockResolvedValueOnce(original).mockResolvedValueOnce({markdown:'# AI 客户反馈\n\n## feedback [open]\n请描述体验\n',execution:{id:'85f6e172-8b43-4a75-a917-0e91742d1e8c',provider:'test',modelId:'model',generatedAt:'2026-09-28T00:00:00.000Z'},source:{kind:'text',sha256:'a'.repeat(64)}}).mockResolvedValueOnce(runtime({title:'AI 客户反馈',tags:['客户调研'],version:5}));
-  render(<LiveSurveyWorkspace surveyId="saved-survey"/>);
+  render(<LiveSurveyWorkspace surveyId="saved-survey" initialStep="import"/>);
   fireEvent.change(await screen.findByLabelText('问卷需求'),{target:{value:'客户体验'}});
   fireEvent.click(screen.getByRole('button',{name:'生成问卷'}));
   await screen.findByLabelText('AI 提案 Markdown');
@@ -23,6 +23,14 @@ describe('live survey workspace persistence',()=>{
   const persisted=parseSurveyDesignMarkdown(request.mock.calls.at(-1)![1].body.documents.design);
   expect(persisted.ok).toBe(true);
   if(persisted.ok){expect(persisted.draft.tags).toEqual(['客户调研']);expect(persisted.draft.questions[0]!.title).toBe('请描述体验');}
+ });
+ it('keeps project context when leaving the AI import step',async()=>{
+  window.history.replaceState(null,'','/studio/survey/saved-survey?step=import&mode=ai&projectId=project-1');
+  request.mockResolvedValueOnce(runtime());
+  render(<LiveSurveyWorkspace surveyId="saved-survey" initialStep="import" creationMode="ai" projectId="project-1"/>);
+  fireEvent.click(await screen.findByRole('button',{name:'跳过导入，空白设计'}));
+  expect(window.location.search).toContain('step=design');
+  expect(window.location.search).toContain('projectId=project-1');
  });
  it('saves repeat policy and success Markdown through canonical publication source',async()=>{
   request.mockResolvedValueOnce(runtime()).mockResolvedValueOnce(runtime({version:5}));
@@ -59,13 +67,13 @@ describe('live survey workspace persistence',()=>{
   } finally {vi.useRealTimers();}
  });
  it('does not manually save or publish valid Markdown before explicit application',async()=>{
-  request.mockResolvedValueOnce(runtime());render(<LiveSurveyWorkspace surveyId="saved-survey"/>);
+  request.mockResolvedValueOnce(runtime());render(<LiveSurveyWorkspace surveyId="saved-survey" initialStep="import"/>);
   const source=await screen.findByLabelText('问卷 Markdown');
   fireEvent.change(source,{target:{value:'# 待校对\n\n## q2 [open]\n未确认的问题\n'}});
   fireEvent.click(screen.getByRole('button',{name:'保存修改'}));
   expect(await screen.findByRole('alert')).toHaveTextContent('请先校对并应用 Markdown');
   expect(request).toHaveBeenCalledTimes(1);
-  fireEvent.click(screen.getByRole('button',{name:'前往发布回收'}));
+  fireEvent.click(screen.getByRole('button',{name:'3. 发布回收'}));
   fireEvent.click(screen.getByRole('button',{name:'检查发布条件'}));
   expect(await screen.findByRole('alert')).toHaveTextContent('请先校对并应用 Markdown');
   expect(request).toHaveBeenCalledTimes(1);
@@ -82,8 +90,13 @@ describe('live survey workspace persistence',()=>{
   request.mockResolvedValueOnce(runtime());render(<LiveSurveyWorkspace surveyId="saved-survey"/>);
   expect(await screen.findByRole('complementary',{name:'实时预览'})).toBeInTheDocument();
   expect(screen.getByRole('region',{name:'题目设置'})).toBeInTheDocument();
+  expect(screen.queryByRole('heading',{name:'AI 智能生成问卷'})).not.toBeInTheDocument();
+  expect(screen.queryByLabelText('问卷 Markdown')).not.toBeInTheDocument();
+  expect(screen.getByRole('heading',{name:'题型工具箱'})).toBeInTheDocument();
   fireEvent.click(screen.getByRole('button',{name:'前往发布回收'}));
   expect(screen.getByRole('button',{name:'检查发布条件'})).toBeInTheDocument();
+  expect(screen.getByRole('region',{name:'问卷回收状态'})).toBeInTheDocument();
+  expect(screen.getByRole('complementary',{name:'回收设置面板'})).toBeInTheDocument();
  });
  it('accepts a successful published template save without a second GET',async()=>{
   const original=runtime({publication:{token:'token',status:'collecting',version:4,expiresAt:'2026-10-20T10:00:00.000Z',questions:runtime().questions}});
@@ -96,10 +109,10 @@ describe('live survey workspace persistence',()=>{
  });
  it('locks projected question edits until changed Markdown is applied',async()=>{
   request.mockResolvedValueOnce(runtime());
-  render(<LiveSurveyWorkspace surveyId="saved-survey"/>);
+  render(<LiveSurveyWorkspace surveyId="saved-survey" initialStep="import"/>);
   const source=await screen.findByLabelText('问卷 Markdown');
   fireEvent.change(source,{target:{value:'# 导入内容\n\n## q2 [open]\n新问题\n'}});
-  expect(screen.getByRole('button',{name:'新增题目'})).toBeDisabled();
+  expect(screen.queryByRole('button',{name:'新增题目'})).not.toBeInTheDocument();
   expect(source).toHaveValue('# 导入内容\n\n## q2 [open]\n新问题\n');
   await new Promise(resolve=>setTimeout(resolve,1700));
   expect(request).toHaveBeenCalledTimes(1);
@@ -109,7 +122,7 @@ describe('live survey workspace persistence',()=>{
   const remote=runtime({version:5,template:{id:'remote',title:'远端报告模板',sections:[]}});
   request.mockResolvedValueOnce(runtime()).mockRejectedValueOnce(new SurveyConflictError(null)).mockResolvedValueOnce(remote).mockResolvedValueOnce({...remote,version:6});
   render(<LiveSurveyWorkspace surveyId="saved-survey"/>);
-  await screen.findByLabelText('问卷 Markdown');
+  await screen.findByLabelText('问卷名称');
   fireEvent.change(screen.getByLabelText('问卷名称'),{target:{value:'本地设计'}});
   fireEvent.click(screen.getByRole('button',{name:'保存修改'}));
   await screen.findByRole('alert');
@@ -122,7 +135,8 @@ describe('live survey workspace persistence',()=>{
  it('inserts replacement tokens in survey names literally',async()=>{
   request.mockResolvedValueOnce(runtime());render(<LiveSurveyWorkspace surveyId="saved-survey"/>);
   fireEvent.change(await screen.findByLabelText('问卷名称'),{target:{value:'标题 $& 测试'}});
-  expect((screen.getByLabelText('问卷 Markdown') as HTMLTextAreaElement).value).toContain('# 标题 $& 测试');
+  expect(request).toHaveBeenCalledTimes(1);
+  expect(screen.getByLabelText('问卷名称')).toHaveValue('标题 $& 测试');
  });
  it('reuses the created draft when saving its source fails',async()=>{
   request.mockResolvedValueOnce(runtime({id:'created-draft',version:1,title:'未命名问卷'})).mockRejectedValueOnce(new Error('源文档暂时保存失败'));
@@ -145,23 +159,34 @@ describe('live survey workspace persistence',()=>{
   await screen.findByRole('alert');
   fireEvent.click(screen.getByRole('button',{name:'读取最新版本并保留我的修改'}));
   expect((await screen.findByLabelText('远端 Markdown') as HTMLTextAreaElement).value).toContain('# 其他人的修改');
-  expect((screen.getByLabelText('问卷 Markdown') as HTMLTextAreaElement).value).toContain('# 我的修改');
+  expect(screen.getByLabelText('问卷名称')).toHaveValue('我的修改');
   expect(screen.getByRole('button',{name:'确认保留本地版本'})).toBeEnabled();
  });
- it('keeps only the three primary steps and rejects invalid Markdown without saving',async()=>{
+ it('keeps only the three primary steps for ordinary design',async()=>{
   request.mockResolvedValueOnce(runtime());
   render(<LiveSurveyWorkspace surveyId="saved-survey"/>);
   await screen.findByDisplayValue('已保存问卷');
   const workflow=screen.getByRole('navigation',{name:'问卷工作流'});
   expect(workflow.querySelectorAll('button')).toHaveLength(3);
-  expect(workflow).toHaveTextContent('1. 设计问卷');
-  expect(workflow).toHaveTextContent('2. 发布回收');
-  expect(workflow).toHaveTextContent('3. 查看答卷');
-  fireEvent.change(screen.getByLabelText('问卷 Markdown'),{target:{value:'没有标题的无效文档'}});
-  fireEvent.click(screen.getByRole('button',{name:'保存修改'}));
-  expect(await screen.findByRole('alert')).toHaveTextContent('第');
+  expect(screen.getByRole('button',{name:'1. 设计问卷'})).toBeInTheDocument();
+  expect(screen.getByRole('button',{name:'2. 发布回收'})).toBeInTheDocument();
+  expect(screen.getByRole('button',{name:'3. 查看答卷'})).toBeInTheDocument();
+  expect(screen.queryByLabelText('问卷 Markdown')).not.toBeInTheDocument();
+  expect(screen.queryByRole('heading',{name:'AI 智能生成问卷'})).not.toBeInTheDocument();
   expect(request).toHaveBeenCalledTimes(1);
-  expect(screen.getByLabelText('问卷 Markdown')).toHaveValue('没有标题的无效文档');
+ });
+ it('uses a four-step AI import flow and enters a clean designer after applying Markdown',async()=>{
+  request.mockResolvedValueOnce(runtime()).mockResolvedValueOnce({markdown:'# AI 草稿\n\n## feedback [open]\n请描述体验\n',execution:{id:'85f6e172-8b43-4a75-a917-0e91742d1e8c',provider:'test',modelId:'model',generatedAt:'2026-09-28T00:00:00.000Z'},source:{kind:'text',sha256:'a'.repeat(64)}});
+  render(<LiveSurveyWorkspace surveyId="saved-survey" initialStep="import" creationMode="ai"/>);
+  expect(await screen.findByRole('region',{name:'导入内容步骤'})).toBeInTheDocument();
+  expect(screen.getByRole('navigation',{name:'问卷工作流'}).querySelectorAll('button')).toHaveLength(4);
+  fireEvent.change(screen.getByLabelText('问卷需求'),{target:{value:'客户体验'}});
+  fireEvent.click(screen.getByRole('button',{name:'生成问卷'}));
+  await screen.findByLabelText('AI 提案 Markdown');
+  fireEvent.click(screen.getByRole('button',{name:'应用到问卷'}));
+  expect(screen.getByRole('region',{name:'问卷设计画布'})).toBeInTheDocument();
+  expect(screen.queryByRole('heading',{name:'AI 智能生成问卷'})).not.toBeInTheDocument();
+  expect(screen.queryByLabelText('问卷 Markdown')).not.toBeInTheDocument();
  });
  it('retains unsaved inputs when saving fails and never shows a success notice',async()=>{
   request.mockResolvedValueOnce(runtime()).mockRejectedValueOnce(new Error('版本冲突，请刷新后重试'));
@@ -221,8 +246,14 @@ describe('live survey workspace persistence',()=>{
   expect(await screen.findByLabelText('答题链接')).toHaveValue('http://localhost:3000/surveys/collecting-link');
   expect(screen.getByRole('button',{name:'复制答题链接'})).toBeEnabled();
   expect(screen.getByRole('region',{name:'回收数据'})).toHaveTextContent('已收到答卷');
-  expect(screen.getByRole('region',{name:'回收设置'})).toHaveTextContent('发布版本 v4');
+  expect(screen.getByRole('complementary',{name:'回收设置面板'})).toHaveTextContent('截止时间');
   expect(screen.getByRole('region',{name:'最近回收动态'})).toHaveTextContent('暂无答卷');
+ });
+ it('does not advertise an expired collection as accepting new answers',async()=>{
+  request.mockResolvedValueOnce(runtime({status:'collecting',publication:{token:'expired-link',status:'collecting',version:4,expiresAt:'2020-01-01T00:00:00.000Z',questions:[{id:'q1',title:'真实问题',type:'single',chapterId:'general',order:1,required:true,options:['甲','乙']}]}}));
+  render(<LiveSurveyWorkspace surveyId="saved-survey" initialStep="publish"/>);
+  expect(await screen.findByRole('heading',{name:'问卷已到截止时间'})).toBeInTheDocument();
+  expect(screen.getByRole('region',{name:'问卷回收状态'})).toHaveTextContent('当前链接不再接受新答卷');
  });
  it('does not replace a failed load with prototype questions',async()=>{
   request.mockRejectedValueOnce(new Error('问卷不存在或无访问权限'));

@@ -1,6 +1,7 @@
-import { AppShell } from "@/components/shell/app-shell";
-import { InterviewCreatePage } from "@/components/itv/interview-create-page";
+import { redirect } from "next/navigation";
 
 export default function Page({ searchParams }: { searchParams: { projectId?: string } }) {
-  return <AppShell previewRole={null} fullscreen><InterviewCreatePage projectId={searchParams.projectId ?? null} /></AppShell>;
+  const query = new URLSearchParams({ create: "1" });
+  if (searchParams.projectId) query.set("projectId", searchParams.projectId);
+  redirect(`/itv?${query.toString()}`);
 }

@@ -10,12 +10,12 @@ import { surveyRequest } from "@/lib/survey/runtime-client";
 import { getBuiltinSurveyTemplates } from "@/lib/survey/builtin-templates";
 
 export function CreateSurveyDialog({open,onOpenChange,onCreated}: {
-  open:boolean;onOpenChange:(open:boolean)=>void;onCreated:(id:string)=>void;
+  open:boolean;onOpenChange:(open:boolean)=>void;onCreated:(id:string,mode:"blank"|"ai"|"template")=>void;
 }) {
   const [name,setName]=React.useState("");
   const [tags,setTags]=React.useState<string[]>([]);
   const [pendingTag,setPendingTag]=React.useState("");
-  const [mode,setMode]=React.useState("blank");
+  const [mode,setMode]=React.useState<"blank"|"ai"|"template">("blank");
   const [selected,setSelected]=React.useState("");
   const [templates,setTemplates]=React.useState<SurveyLibraryTemplate[]>([]);
   const [error,setError]=React.useState("");
@@ -46,7 +46,7 @@ export function CreateSurveyDialog({open,onOpenChange,onCreated}: {
     });
     if(!parsed.success){setError("请填写有效的问卷名称和标签。");return;}
     lock.current=true;setBusy(true);
-    try{const created=await surveyRequest("/surveys",{method:"POST",body:parsed.data},SurveyRuntimeSchema);onOpenChange(false);onCreated(created.id);}
+    try{const created=await surveyRequest("/surveys",{method:"POST",body:parsed.data},SurveyRuntimeSchema);onOpenChange(false);onCreated(created.id,mode);}
     catch(e){setError(e instanceof Error?e.message:"创建失败，请重试");}
     finally{lock.current=false;setBusy(false);}
   }
@@ -59,7 +59,7 @@ export function CreateSurveyDialog({open,onOpenChange,onCreated}: {
         <Input id="survey-new-tags" value={pendingTag} disabled={busy} placeholder="输入标签后回车" onChange={event=>setPendingTag(event.target.value)} onKeyDown={event=>{if(event.key==="Enter"&&!event.nativeEvent.isComposing){event.preventDefault();addTag();}}} className="min-w-32 flex-1 border-0" />
       </div></div>
       <fieldset disabled={busy} className="space-y-3"><legend className="mb-2 text-13 font-medium">选择创建方式</legend><div className="grid gap-3 sm:grid-cols-3">
-        {[["blank","空白创建","直接进入手工设计问卷"],["markdown","Markdown 导入创建","进入设计区粘贴或上传 Markdown，校对后应用"],["template","从模板创建","使用现有问卷模板快速开始"]].map(([value,title,description])=><label key={value} className={`rounded-lg border p-4 ${mode===value?"border-primary bg-accent":"border-border"}`}><input type="radio" name="survey-create-mode" value={value} checked={mode===value} onChange={()=>{setMode(value!);setError("");}} /><span className="ml-2 font-medium">{title}</span><p className="mt-2 text-12 text-muted-foreground">{description}</p></label>)}
+        {([ ["blank","空白创建","直接进入设计问卷"],["ai","AI 导入创建","先导入内容并校对 Markdown，再进入设计"],["template","从模板创建","使用现有问卷模板，直接进入设计"] ] as const).map(([value,title,description])=><label key={value} className={`rounded-lg border p-4 ${mode===value?"border-primary bg-accent":"border-border"}`}><input type="radio" name="survey-create-mode" value={value} checked={mode===value} onChange={()=>{setMode(value);setError("");}} /><span className="ml-2 font-medium">{title}</span><p className="mt-2 text-12 text-muted-foreground">{description}</p></label>)}
       </div></fieldset>
       {mode==="template"&&<label className="block text-13">问卷模板<select aria-label="选择问卷模板" disabled={busy||loading} value={selected} onChange={event=>setSelected(event.target.value)} className="mt-2 w-full rounded-md border border-border bg-card p-2"><option value="">{loading?"正在加载模板…":"请选择问卷模板"}</option>{[...builtins,...templates].map(row=><option key={row.id} value={row.id}>{row.title}</option>)}</select></label>}
       {error&&<p role="alert" className="text-13 text-destructive">{error}</p>}

@@ -17,7 +17,7 @@ describe("confirm and generate the next research step", () => {
     vi.mocked(getResearchRuntime).mockResolvedValue(before);
     vi.mocked(executeResearchRuntime).mockImplementationOnce(() => new Promise(resolve => { confirm = resolve; }));
     render(<GuidedResearchLive sessionId={before.sessionId} onBack={vi.fn()} />);
-    fireEvent.click(await screen.findByRole("button", { name: from === "directions" ? "下一步：研究计划" : "确认并继续" }));
+    fireEvent.click(await screen.findByRole("button", { name: from === "directions" ? "下一步：研究计划" : from === "outline" ? "开始研究" : "确认并继续" }));
     expect(screen.getByTestId("research-step-loading")).toBeInTheDocument();
     expect(executeResearchRuntime).toHaveBeenCalledTimes(1);
     expect(vi.mocked(executeResearchRuntime).mock.calls[0]?.[0]).toEqual(expect.objectContaining({ node: from, action: from === "research" ? "complete" : "confirm" }));
@@ -117,7 +117,7 @@ it.each(["brief", "directions", "outline"] as const)("reconfirms an available hi
   let finish!: (value: GuidedResearchRuntime) => void;
   vi.mocked(executeResearchRuntime).mockImplementationOnce(() => new Promise(resolve => { finish = resolve; }));
   render(<GuidedResearchLive sessionId={current.sessionId} initialNode={node} onBack={vi.fn()} />);
-  const confirm = await screen.findByRole("button", { name: node === "directions" ? "下一步：研究计划" : "确认并继续" });
+  const confirm = await screen.findByRole("button", { name: node === "directions" ? "下一步：研究计划" : node === "outline" ? "开始研究" : "确认并继续" });
   expect(confirm).toBeEnabled();
   fireEvent.click(confirm);
   expect(screen.getByTestId("research-step-loading")).toBeInTheDocument();

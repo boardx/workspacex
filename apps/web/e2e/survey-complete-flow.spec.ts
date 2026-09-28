@@ -3,12 +3,19 @@ import { FULLSTACK_E2E } from "./fullstack-smoke-fixture";
 
 const TEMPLATE_TITLE = "会议反馈调查";
 
-test('AI 提案先校对再应用并保存为 Markdown',async({page})=>{
+test('AI 提案先校对再应用并保存为 Markdown',async({page},testInfo)=>{
  test.setTimeout(120000);await loginAsAdmin(page);await page.goto('/studio/survey');
  await page.getByRole('button',{name:'新建问卷',exact:true}).click();
  await page.getByLabel('问卷名称').fill('AI 校对验收');
  await page.getByLabel('标签',{exact:true}).fill('客户调研');await page.getByLabel('标签',{exact:true}).press('Enter');
+ await page.getByRole('radio',{name:/AI 导入创建/}).check();
  await page.getByRole('button',{name:'下一步',exact:true}).click();
+ await expect(page).toHaveURL(/step=import&mode=ai/);
+ await page.getByRole('button',{name:'← 返回列表'}).click();
+ const unfinished=page.locator('article').filter({has:page.getByRole('link',{name:'AI 校对验收'})});
+ await unfinished.getByRole('button',{name:'继续设计'}).click();
+ await expect(page).toHaveURL(/step=import&mode=ai/);
+ await page.screenshot({path:testInfo.outputPath('survey-ai-import-step.png'),fullPage:true});
  await page.getByLabel('问卷需求').fill('调查客户最近一次使用体验');
  await page.getByLabel('上传问卷文件').setInputFiles({name:'研究目标.md',mimeType:'text/markdown',buffer:Buffer.from('研究软件用户近期的真实产品体验')});
  await expect(page.getByText(/研究目标.md/)).toBeVisible();
@@ -18,10 +25,11 @@ test('AI 提案先校对再应用并保存为 Markdown',async({page})=>{
  await expect(dialog.getByLabel('AI 提案 Markdown')).toHaveValue(/#/);
  await dialog.getByLabel('AI 提案 Markdown').fill('# AI 校对验收\n\n## feedback [open]\n请描述具体建议\n');
  await dialog.getByRole('button',{name:'应用到问卷',exact:true}).click();
- await expect(page.getByLabel('问卷 Markdown',{exact:true})).toHaveValue(/具体建议/);
+ await expect(page.getByRole('region',{name:'问卷设计画布'})).toContainText('请描述具体建议');
+ await expect(page.getByLabel('问卷 Markdown',{exact:true})).toHaveCount(0);
+ await page.screenshot({path:testInfo.outputPath('survey-ai-applied-designer.png'),fullPage:true});
  await expect(page.getByRole('status').filter({hasText:'所有修改已保存'})).toBeVisible();
- await page.reload();await expect(page.getByLabel('问卷 Markdown',{exact:true})).toHaveValue(/具体建议/);
- await expect(page.getByLabel('问卷 Markdown',{exact:true})).toHaveValue(/客户调研/);
+ await page.reload();await expect(page.getByRole('region',{name:'问卷设计画布'})).toContainText('请描述具体建议');
 });
 
 async function loginAsAdmin(page: Page) {
@@ -86,17 +94,10 @@ test("用户可从模板完整走通创建、发布、答题、查看答卷和�
   await expect(page.getByText("1. 会议名称", { exact: true })).toBeVisible();
   await expect(page.getByText("2. 会议日期", { exact: true })).toBeVisible();
   await expect(page.getByText("8. 下次会议最值得改进的地方是什么？", { exact: true })).toBeVisible();
+  await page.screenshot({path:testInfo.outputPath("survey-designer-desktop.png"),fullPage:true});
 
-  const source = await page.getByLabel("问卷 Markdown", { exact: true }).inputValue();
-  await page.getByLabel("上传 Markdown 文件").setInputFiles({
-    name: "survey.md", mimeType: "text/markdown", buffer: Buffer.from(source),
-  });
-  await expect(page.getByLabel("问卷 Markdown", { exact: true })).toHaveValue(source);
-  await page.getByRole("button", { name: "校对并预览题目" }).click();
-  const correction = page.getByRole("dialog", { name: "Markdown 预览与校对" });
-  await expect(correction.getByRole("region", { name: "问卷渲染预览" })).toContainText("共 8 道题");
-  await correction.getByRole("button", { name: "应用到问卷" }).click();
-  await expect(correction).not.toBeVisible();
+  await expect(page.getByRole('heading',{name:'AI 智能生成问卷'})).toHaveCount(0);
+  await expect(page.getByLabel('问卷 Markdown',{exact:true})).toHaveCount(0);
 
   await page.getByRole("button", { name: "设计报告模板（可选）" }).click();
   await expect(page.getByText("报告章节 · 4")).toBeVisible();
@@ -108,6 +109,7 @@ test("用户可从模板完整走通创建、发布、答题、查看答卷和�
   await expect(page.getByText("发布准备已完成")).toBeVisible();
   await page.getByRole("button", { name: "开始回收" }).click();
   await expect(page.getByText(/正在回收 · 0 份答卷/)).toBeVisible();
+  await page.screenshot({path:testInfo.outputPath("survey-publish-desktop.png"),fullPage:true});
   const publicUrl = await page.getByLabel("答题链接").inputValue();
   await page.getByRole('button',{name:'生成二维码'}).click();
   await expect(page.getByRole('img',{name:'问卷分享二维码'})).toBeVisible();
@@ -182,26 +184,28 @@ test("用户可从模板完整走通创建、发布、答题、查看答卷和�
   await page.screenshot({path:testInfo.outputPath("survey-home-populated-mobile.png"),fullPage:true});
 });
 
-test('空白 Markdown 问卷无需报告模板即可发布并生成默认报告',async({page,browser})=>{
+test('AI 导入 Markdown 问卷无需报告模板即可发布并生成默认报告',async({page,browser})=>{
   test.setTimeout(120_000);await loginAsAdmin(page);
   await page.goto('/studio/survey');
   await page.getByRole('button',{name:'新建问卷',exact:true}).first().click();
   const creation=page.getByRole('dialog');
   await creation.getByLabel('问卷名称',{exact:true}).fill('简明反馈调查');
   await creation.getByLabel('标签',{exact:true}).fill('体验');
+  await creation.getByRole('radio',{name:/AI 导入创建/}).check();
   await creation.screenshot({path:test.info().outputPath('creation-dialog.png')});
   await creation.getByRole('button',{name:'下一步'}).click();
-  await expect(page).toHaveURL(/\/studio\/survey\/[0-9a-f-]+\?step=design$/);
+  await expect(page).toHaveURL(/\/studio\/survey\/[0-9a-f-]+\?step=import&mode=ai$/);
+  await page.getByText('直接编辑 Markdown（可选）').click();
   const initialMarkdown=await page.getByLabel('问卷 Markdown',{exact:true}).inputValue();
   expect(initialMarkdown).toContain('"体验"');
   await page.getByLabel('问卷 Markdown',{exact:true}).fill(`${initialMarkdown}\n## feedback [open]\n请留下建议\n\n## satisfaction [single]\n整体感受\n- 满意\n- 一般\n`);
   await page.getByRole('button',{name:'保存修改'}).click();
   await expect(page.getByRole('alert').filter({hasText:'请先校对并应用 Markdown'})).toBeVisible();
-  await expect(page).toHaveURL(/\/studio\/survey\/[0-9a-f-]+\?step=design$/);
+  await expect(page).toHaveURL(/\/studio\/survey\/[0-9a-f-]+\?step=import&mode=ai$/);
   await page.getByRole('button',{name:'校对并预览题目'}).click();
   await page.getByRole('dialog').getByRole('button',{name:'应用到问卷'}).click();
   await page.getByRole('button',{name:'保存修改'}).click();
-  await expect(page).toHaveURL(/\/studio\/survey\/[0-9a-f-]+\?step=design$/);
+  await expect(page).toHaveURL(/step=design&mode=ai/);
   await page.setViewportSize({width:390,height:844});
   await expect(page.getByLabel('问题内容',{exact:true})).not.toBeVisible();
   await page.getByRole('button',{name:'打开题目大纲'}).click();
@@ -218,8 +222,8 @@ test('空白 Markdown 问卷无需报告模板即可发布并生成默认报告'
   await expect(page.getByLabel('问题内容',{exact:true})).toHaveValue('请留下具体建议');
   await page.getByRole('button',{name:'关闭',exact:true}).click();
   await page.setViewportSize({width:1440,height:900});
-  await expect(page.getByLabel('问卷 Markdown',{exact:true})).toHaveValue(/"体验"/);
-  await page.getByRole('button',{name:'前往发布回收'}).click();
+  await expect(page.getByLabel('问卷 Markdown',{exact:true})).toHaveCount(0);
+  await page.getByRole('button',{name:'3. 发布回收'}).click();
   await page.getByRole('checkbox',{name:'同一浏览器限答一次'}).check();
   await page.getByLabel('成功页 Markdown',{exact:true}).fill('# 提交成功\n\n**感谢您的具体建议**');
   await page.getByRole('button',{name:'检查发布条件'}).click();
@@ -237,7 +241,7 @@ test('空白 Markdown 问卷无需报告模板即可发布并生成默认报告'
   await respondent.screenshot({path:test.info().outputPath('frozen-success-markdown.png')});
   await context.close();
   await page.getByRole('button',{name:'刷新',exact:true}).click();
-  await page.getByRole('button',{name:'3. 查看答卷'}).click();
+  await page.getByRole('button',{name:'4. 查看答卷'}).click();
   await page.getByRole('button',{name:'查看完整答卷'}).click();
   await expect(page.getByRole('region',{name:'答卷详情'})).toContainText('保持流程简单');
   await page.getByRole('button',{name:'分析报告（可选）'}).click();await page.getByRole('button',{name:'生成报告',exact:true}).click();
@@ -248,7 +252,7 @@ test('空白 Markdown 问卷无需报告模板即可发布并生成默认报告'
   await page.getByRole('button',{name:'确认创建新草稿'}).click();
   await expect(page.getByLabel('问卷名称')).toHaveValue('简明反馈调查（新草稿）');
   expect(page.url().split('?')[0]).not.toBe(originalUrl);
-  await expect(page.getByLabel('问卷 Markdown')).toHaveValue(/"体验"/);
+  await expect(page.getByLabel('问卷 Markdown')).toHaveCount(0);
   await page.getByLabel('问题内容',{exact:true}).fill('新版本建议');
   await expect(page.getByRole('button',{name:'保存修改'})).toBeDisabled();
   await page.getByRole('button',{name:'前往发布回收'}).click();

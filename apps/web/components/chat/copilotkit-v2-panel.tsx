@@ -311,6 +311,8 @@ export function CopilotKitV2Panel({
   canWrite = true,
   canDecide = true,
   canGeneratePersona = false,
+  realtimeContext = null,
+  onAssistantText,
 }: {
   /**
    * issue #2021 —— 持久化的后端 `chat_threads.id`（不是 CopilotKit 本地
@@ -389,6 +391,8 @@ export function CopilotKitV2Panel({
    * 同一条 landAsArtifact 写权门，没有这个能力摆按钮就是一枚必 403 的假按钮。
    */
   canGeneratePersona?: boolean;
+  realtimeContext?: { readonly boardId: string; readonly selectedObjectIds: readonly string[] } | null;
+  onAssistantText?: (text: string) => void;
 } = {}): JSX.Element {
   const { session } = useSession();
   const orgId = session?.currentOrgId ?? null;
@@ -498,10 +502,11 @@ export function CopilotKitV2Panel({
           agentOptions={agentOptions}
           selectedAgentId={selectedAgentId}
           onSelectAgent={setSelectedAgentId}
+          realtimeContext={realtimeContext}
+          onAssistantText={onAssistantText}
         />
       </div>
       </ChatPopoverCoordinatorProvider>
     </div>
   );
 }
-

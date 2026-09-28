@@ -199,6 +199,16 @@ function parseForwardedClientMessageId(value: unknown): string | undefined {
   return UUID_PATTERN.test(trimmed) ? trimmed : undefined;
 }
 
+function parseRealtimeContext(value: unknown): { readonly boardId: string; readonly selectedObjectIds: readonly string[] } | undefined {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) return undefined;
+  const input = value as Record<string, unknown>;
+  if (typeof input.boardId !== "string" || !UUID_PATTERN.test(input.boardId.trim())) return undefined;
+  const selectedObjectIds = Array.isArray(input.selectedObjectIds)
+    ? input.selectedObjectIds.filter((id): id is string => typeof id === "string" && UUID_PATTERN.test(id.trim())).slice(0, 50)
+    : [];
+  return { boardId: input.boardId.trim(), selectedObjectIds };
+}
+
 /** The minimal slice of AG-UI's `RunAgentInput` this bridge reads. Everything else in a
  * real `RunAgentInput` (tools, context, state) is ignored -- Phase 1b is single-turn text
  * only (see file head). `forwardedProps` is the one exception, and only its
@@ -243,6 +253,7 @@ interface AguiRunInput {
     readonly attachmentIds?: unknown;
     readonly toolChoice?: { readonly function?: { readonly name?: string } };
     readonly clientMessageId?: unknown;
+    readonly realtimeContext?: unknown;
   };
 }
 
@@ -809,6 +820,7 @@ export class CopilotkitAguiController {
     const requestedAttachmentIds = parseForwardedAttachmentIds(body.forwardedProps?.attachmentIds);
     // issue #2321 round 2 -- see `parseForwardedClientMessageId`'s own doc.
     const requestedClientMessageId = parseForwardedClientMessageId(body.forwardedProps?.clientMessageId);
+    const realtimeContext = parseRealtimeContext(body.forwardedProps?.realtimeContext);
     // DA-19a -- captured by `onThreadResolved` (fires before `onStarted`, see
     // `agui-bridge.ts`'s own doc), but NOT written to the wire there: a real `@ag-ui/client`
     // `HttpAgent` enforces "first event must be RUN_STARTED" (`verify.ts`'s own check, hit
@@ -917,7 +929,10 @@ export class CopilotkitAguiController {
             ...sharedCallbacks,
           }))
         : await runAguiBridgeTurn(this.deps, {
-          userId: principal.userId, orgId: toOrgId(principal.orgId), agentId, text: text!,
+          userId: principal.userId, orgId: toOrgId(principal.orgId), agentId,
+          text: realtimeContext
+            ? `${text!}\n\n[当前白板上下文]\nboardId: ${realtimeContext.boardId}\nselectedObjectIds: ${realtimeContext.selectedObjectIds.join(", ") || "none"}`
+            : text!,
           // issue #2321 round 2 -- reuse the caller's stable id when it sent one (a retry
           // of the SAME turn) so `acceptHumanMessage`'s idempotency guard can recognise it
           // and hand back the ALREADY-RUNNING run instead of creating a duplicate. Falls

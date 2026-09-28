@@ -2,7 +2,6 @@
 
 import * as React from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { ArrowRight, CalendarDays, Plus, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ExpertAvatarEditor } from "./expert-avatar";
@@ -58,11 +57,7 @@ export function InterviewStudioHome({
   /** 项目中枢 B2-S2：从项目「研究洞察 › 用户洞察」带 `?projectId=` 进来，新建访谈直接带项目 scope。 */
   projectId?: string | null;
 }) {
-  const router = useRouter();
-  const createInterview = () => {
-    if (projectId) router.push(`/itv/new?projectId=${encodeURIComponent(projectId)}`);
-    else router.push("/itv/new");
-  };
+  const createInterview = () => setCreateOpen(true);
   const [query, setQuery] = React.useState("");
   const [sort, setSort] = React.useState<HistorySort>("recent");
   const [notice, setNotice] = React.useState("");
