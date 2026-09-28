@@ -311,14 +311,6 @@
         {
           "claimId": "s4",
           "kind": "no_evidence"
-        },
-        {
-          "claimId": "s3",
-          "kind": "single_source"
-        },
-        {
-          "claimId": "s2",
-          "kind": "single_source"
         }
       ]
     },
@@ -621,14 +613,6 @@
         {
           "claimId": "e4",
           "kind": "no_evidence"
-        },
-        {
-          "claimId": "e2",
-          "kind": "single_source"
-        },
-        {
-          "claimId": "e5",
-          "kind": "single_source"
         }
       ]
     },
@@ -943,14 +927,6 @@
         {
           "claimId": "h4",
           "kind": "no_evidence"
-        },
-        {
-          "claimId": "h2",
-          "kind": "single_source"
-        },
-        {
-          "claimId": "h6",
-          "kind": "single_source"
         }
       ]
     }

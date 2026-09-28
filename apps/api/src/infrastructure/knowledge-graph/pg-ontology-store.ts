@@ -28,11 +28,12 @@ export function toBatchPayload(batch: OntologyBatch): Record<string, unknown> {
     claims: batch.claims.map((c) => ({
       id: c.id, claim_kind: c.claimKind, statement: c.statement, status: c.status, confidence: c.confidence,
       evidence: c.evidence.map((e) => ("messageId" in e
-        ? { message_id: e.messageId, stance: e.stance, excerpt: e.excerpt }
-        // B3-T2：项目证据单元锚点（迁移 20260928210000 的 `claim_project_evidence`）
-        : "evidenceId" in e
-          ? { evidence_id: e.evidenceId, source_kind: e.sourceKind, source_ref: e.sourceRef, stance: e.stance, excerpt: e.excerpt }
-          : { segment_id: e.segmentId, stance: e.stance })),
+        // B3-T1：证据单元回链（迁移 20260928100000 的 `kg_insert_claim_evidence` 读 `evidence_id`）；没有就不带键。
+        ? { message_id: e.messageId, stance: e.stance, excerpt: e.excerpt, ...(e.evidenceId !== undefined ? { evidence_id: e.evidenceId } : {}) }
+        : "segmentId" in e
+          ? { segment_id: e.segmentId, stance: e.stance, ...(e.evidenceId !== undefined ? { evidence_id: e.evidenceId } : {}) }
+          // B3-T2：项目证据单元锚点（迁移 20260928210000 的 `claim_project_evidence`）
+          : { evidence_id: e.evidenceId, source_kind: e.sourceKind, source_ref: e.sourceRef, stance: e.stance, excerpt: e.excerpt })),
     })),
     edges: batch.edges.map((e) => ({
       id: e.id, src_kind: e.srcKind, src_id: e.srcId, dst_kind: e.dstKind, dst_id: e.dstId, relation: e.relation,

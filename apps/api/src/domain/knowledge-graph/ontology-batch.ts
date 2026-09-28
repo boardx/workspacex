@@ -30,13 +30,15 @@ export interface OntologyObjectInput {
  * （`project_evidence`，六类归一来源）。三种都算 I-5 的「证据」。
  * 消息 / 证据单元的证据带一句可读摘录（≤ 280 字），面板直接展示原话。
  *
- * 证据单元变体只给项目作用域的入图批次用（`kg_insert_claim_evidence` 对非 project 作用域拒收）：
- * `evidenceId` 指向证据单元，`sourceKind` / `sourceRef` 冗余存下来是为了锚点（`KgEvidenceAnchor`）
+ * `evidenceId`（B3-T1，#4495）在片段 / 消息变体上可选：归一后的证据单元 `project_evidence.id`——项目作用域线程的
+ * 消息锚点在写入前由 `collect-evidence/chat.ts` 回填；没有（个人线程 / 旧数据）就不带，执行器落 NULL。
+ * 证据单元变体（B3-T2，#4496）只给项目作用域的入图批次用（`kg_insert_claim_evidence` 对非 project 作用域拒收）：
+ * `evidenceId` 必填指向证据单元，`sourceKind` / `sourceRef` 冗余存下来是为了锚点（`KgEvidenceAnchor`）
  * 不必回表就能渲染；来源枚举与契约 `ProjectEvidenceSourceKind` 同一份。
  */
 export type OntologyEvidenceInput =
-  | { readonly segmentId: string; readonly stance: "supporting" | "contradicting" }
-  | { readonly messageId: string; readonly stance: "supporting" | "contradicting"; readonly excerpt: string }
+  | { readonly segmentId: string; readonly stance: "supporting" | "contradicting"; readonly evidenceId?: string }
+  | { readonly messageId: string; readonly stance: "supporting" | "contradicting"; readonly excerpt: string; readonly evidenceId?: string }
   | {
       readonly evidenceId: string;
       readonly sourceKind: PE.ProjectEvidenceSourceKind;

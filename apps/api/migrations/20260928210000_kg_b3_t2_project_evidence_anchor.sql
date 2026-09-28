@@ -47,19 +47,24 @@ CREATE OR REPLACE FUNCTION kg_insert_claim_evidence(p_org text, p_scope_kind tex
 RETURNS void
 LANGUAGE plpgsql SECURITY DEFINER SET search_path = pg_catalog, public, pg_temp
 AS $$
+-- B3 集成后的合体（T1 20260928100000 + T2 本迁移；本文件按文件名后应用，函数体以此为准）：
+--   · {message_id, stance, excerpt, evidence_id?}  → claim_message_evidence（T1：evidence_id 可空回链）
+--   · {segment_id, stance, evidence_id?}            → claim_segments（同上）
+--   · {evidence_id, source_kind, source_ref, stance, excerpt} → claim_project_evidence（T2：只收 project 作用域）
+-- 三种都先核对 evidence_id 指向本 org 的 project_evidence：消息 / 片段指不到 ⇒ 落 NULL 不拒批；
+-- 证据单元变体指不到 ⇒ 拒（它没有别的锚可落）。
 DECLARE
-  v_body    text;
-  v_excerpt text;
+  v_body     text;
+  v_excerpt  text;
+  v_evidence text := ev->>'evidence_id';
 BEGIN
-  IF ev ? 'evidence_id' THEN
-    -- B3-T2：证据单元只挂在项目作用域的结论上。
-    IF p_scope_kind IS DISTINCT FROM 'project' THEN
-      RAISE EXCEPTION 'KG_EVIDENCE_NOT_FOUND: project evidence % cannot anchor a % claim', ev->>'evidence_id', p_scope_kind USING ERRCODE = '23503';
+  IF v_evidence IS NOT NULL AND NOT EXISTS (
+    SELECT 1 FROM project_evidence pe WHERE pe.id = v_evidence AND pe.org_id = p_org
+  ) THEN
+    IF ev ? 'source_kind' THEN
+      RAISE EXCEPTION 'KG_EVIDENCE_NOT_FOUND: project evidence %', v_evidence USING ERRCODE = '23503';
     END IF;
-    INSERT INTO claim_project_evidence (claim_id, org_id, evidence_id, source_kind, source_ref, stance, excerpt)
-    VALUES (p_claim_id, p_org, ev->>'evidence_id', ev->>'source_kind', ev->>'source_ref', ev->>'stance', left(coalesce(ev->>'excerpt', ''), 280))
-    ON CONFLICT DO NOTHING;
-    RETURN;
+    v_evidence := NULL;
   END IF;
   IF ev ? 'message_id' THEN
     -- 会话作用域：消息必须来自这个会话。个人空间：消息必须来自**本人创建**的会话——否则可以把别人
@@ -74,16 +79,27 @@ BEGIN
     -- 摘录由服务端核对：必须是原话的一段；不是就用消息开头。面板上标着「原话」的，一定是原话。
     v_excerpt := coalesce(ev->>'excerpt', '');
     IF v_excerpt = '' OR strpos(v_body, v_excerpt) = 0 THEN v_excerpt := left(v_body, 280); END IF;
-    INSERT INTO claim_message_evidence (claim_id, org_id, message_id, stance, excerpt)
-    VALUES (p_claim_id, p_org, ev->>'message_id', ev->>'stance', left(v_excerpt, 280))
+    INSERT INTO claim_message_evidence (claim_id, org_id, message_id, stance, excerpt, evidence_id)
+    VALUES (p_claim_id, p_org, ev->>'message_id', ev->>'stance', left(v_excerpt, 280), v_evidence)
+    ON CONFLICT (claim_id, message_id, stance) DO UPDATE
+      SET evidence_id = coalesce(claim_message_evidence.evidence_id, EXCLUDED.evidence_id);
+    RETURN;
+  END IF;
+  IF ev ? 'segment_id' THEN
+    IF NOT EXISTS (SELECT 1 FROM segments s WHERE s.id = ev->>'segment_id' AND s.org_id = p_org) THEN
+      RAISE EXCEPTION 'KG_EVIDENCE_NOT_FOUND: segment %', ev->>'segment_id' USING ERRCODE = '23503';
+    END IF;
+    INSERT INTO claim_segments (claim_id, org_id, segment_id, stance, evidence_id)
+    VALUES (p_claim_id, p_org, ev->>'segment_id', ev->>'stance', v_evidence)
     ON CONFLICT DO NOTHING;
     RETURN;
   END IF;
-  IF NOT EXISTS (SELECT 1 FROM segments s WHERE s.id = ev->>'segment_id' AND s.org_id = p_org) THEN
-    RAISE EXCEPTION 'KG_EVIDENCE_NOT_FOUND: segment %', ev->>'segment_id' USING ERRCODE = '23503';
+  -- B3-T2：证据单元只挂在项目作用域的结论上。
+  IF p_scope_kind IS DISTINCT FROM 'project' THEN
+    RAISE EXCEPTION 'KG_EVIDENCE_NOT_FOUND: project evidence % cannot anchor a % claim', ev->>'evidence_id', p_scope_kind USING ERRCODE = '23503';
   END IF;
-  INSERT INTO claim_segments (claim_id, org_id, segment_id, stance)
-  VALUES (p_claim_id, p_org, ev->>'segment_id', ev->>'stance')
+  INSERT INTO claim_project_evidence (claim_id, org_id, evidence_id, source_kind, source_ref, stance, excerpt)
+  VALUES (p_claim_id, p_org, v_evidence, ev->>'source_kind', ev->>'source_ref', ev->>'stance', left(coalesce(ev->>'excerpt', ''), 280))
   ON CONFLICT DO NOTHING;
 END
 $$;
@@ -104,3 +120,11 @@ BEGIN
   END IF;
 END
 $$;
+
+-- B3 集成：T1 的 `project_evidence` 表在本文件之前（20260928100000）已建，锚点回链补外键。
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'claim_project_evidence_evidence_fkey' AND conrelid = 'claim_project_evidence'::regclass) THEN
+    ALTER TABLE claim_project_evidence ADD CONSTRAINT claim_project_evidence_evidence_fkey
+      FOREIGN KEY (evidence_id) REFERENCES project_evidence (id) ON DELETE CASCADE;
+  END IF;
+END $$;

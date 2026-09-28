@@ -52,7 +52,7 @@ import {
   ServiceUnavailableException,
   UnprocessableEntityException,
 } from "@nestjs/common";
-import { project as C, orgAdmin as OA } from "@repo/contracts";
+import { project as C, orgAdmin as OA, projectEvidence as CE } from "@repo/contracts";
 import type { z } from "zod";
 import { createProject } from "../../application/project/create-project";
 import { listProjects } from "../../application/project/list-projects";
@@ -83,6 +83,12 @@ import {
 import { listProjectResources } from "../../application/project/list-project-resources";
 import { linkProjectResource } from "../../application/project/link-project-resource";
 import { unlinkProjectResource } from "../../application/project/unlink-project-resource";
+import { listProjectEvidence } from "../../application/project/list-project-evidence";
+import { getProjectEvidence } from "../../application/project/get-project-evidence";
+import { ProjectEvidenceError } from "../../application/project/evidence-errors";
+import { PROJECT_EVIDENCE_REPOSITORY, type ProjectEvidencePort } from "../../application/project/project-evidence-ports";
+import { EVIDENCE_SOURCE_REPOSITORY, type ProjectEvidenceSourcePort } from "../../application/project/collect-evidence/ports";
+import { LOGGER_PORT, type LoggerPort } from "../../application/ports/logger.port";
 import {
   PROJECT_RESOURCE_REPOSITORY,
   type ProjectResourcePort,
@@ -185,6 +191,8 @@ export const REMOVE_PROJECT_MEMBER_SCHEMA = C.operations.removeProjectMember.in;
 export const LIST_PROJECT_RESOURCES_SCHEMA = C.operations.listProjectResources.in;
 export const LINK_PROJECT_RESOURCE_SCHEMA = C.operations.linkProjectResource.in;
 export const UNLINK_PROJECT_RESOURCE_SCHEMA = C.operations.unlinkProjectResource.in;
+export const LIST_PROJECT_EVIDENCE_SCHEMA = CE.operations.listProjectEvidence.in;
+export const GET_PROJECT_EVIDENCE_SCHEMA = CE.operations.getProjectEvidence.in;
 type LinkResourceBody = z.infer<typeof C.operations.linkProjectResource.in>;
 
 /** 项目中枢 B3-T5（#4499）：非工作坊两类容器的协作者三条。 */
@@ -226,6 +234,9 @@ export class ProjectController {
     @Inject(BLUEPRINT_REFERENCE_REPOSITORY) private readonly blueprintReference: BlueprintReferenceRepository,
     @Inject(PROJECT_RESOURCE_REPOSITORY) private readonly projectResources: ProjectResourcePort,
     @Inject(NON_WORKSHOP_MEMBER_REPOSITORY) private readonly nonWorkshopMembers: NonWorkshopMemberRepository,
+    @Inject(PROJECT_EVIDENCE_REPOSITORY) private readonly projectEvidence: ProjectEvidencePort,
+    @Inject(EVIDENCE_SOURCE_REPOSITORY) private readonly evidenceSources: ProjectEvidenceSourcePort,
+    @Inject(LOGGER_PORT) private readonly logger: LoggerPort,
   ) {}
 
   /**
@@ -944,7 +955,13 @@ export class ProjectController {
    * （「不存在」与「不是你的」同一个出口）；其余 → 403。`orgId` 取自 `principal.orgId`。
    */
   private get resourceDeps() {
-    return { auth: { repo: this.identity, ids: this.decisions }, resources: this.projectResources };
+    return {
+      auth: { repo: this.identity, ids: this.decisions },
+      resources: this.projectResources,
+      // B3-T1（#4495）：挂载成功后顺带采证据；失败只记日志（见 `link-project-resource.ts`）。
+      evidence: { sources: this.evidenceSources, evidence: this.projectEvidence },
+      logger: this.logger,
+    };
   }
 
   private static rethrowResourceError(e: unknown): never {
@@ -1024,6 +1041,81 @@ export class ProjectController {
       return C.operations.unlinkProjectResource.out.parse(result);
     } catch (e) {
       ProjectController.rethrowResourceError(e);
+    }
+  }
+
+  /**
+   * 项目中枢 B3-T1（#4495）：项目证据库两条读（契约 `projectEvidence.operations.*`，路径取契约符号）。
+   * 拒绝面：`AUTH_SERVICE_UNAVAILABLE` → 503；`EVIDENCE_NOT_FOUND` → 404；`NO_PROJECT_ROLE` → 403。
+   * 查询串是字符串：`includeRevoked` 只认 "true"，`limit` 转数字后一起过契约 `in` schema（越界 400）。
+   */
+  private get evidenceDeps() {
+    return { auth: { repo: this.identity, ids: this.decisions }, evidence: this.projectEvidence };
+  }
+
+  private static rethrowEvidenceError(e: unknown): never {
+    if (e instanceof ProjectEvidenceError) {
+      if (e.reasonCode === "AUTH_SERVICE_UNAVAILABLE") {
+        throw new ServiceUnavailableException({ reasonCode: e.reasonCode });
+      }
+      if (e.reasonCode === "EVIDENCE_NOT_FOUND") {
+        throw new NotFoundException({ reasonCode: e.reasonCode });
+      }
+      throw new ForbiddenException({ reasonCode: e.reasonCode });
+    }
+    throw e;
+  }
+
+  @Get(CE.operations.listProjectEvidence.path)
+  async listEvidence(
+    @CurrentPrincipal() principal: Principal,
+    @Param("projectId") projectId: string,
+    @Query("sourceKind") sourceKind: string | undefined,
+    @Query("includeRevoked") includeRevoked: string | undefined,
+    @Query("limit") limit: string | undefined,
+    @Query("cursor") cursor: string | undefined,
+  ) {
+    assertPrincipal(principal);
+    const rawLimit = limit === undefined || limit === "" ? undefined : Number(limit);
+    const input = new ZodBodyPipe(LIST_PROJECT_EVIDENCE_SCHEMA).transform({
+      projectId,
+      ...(sourceKind !== undefined && sourceKind !== "" ? { sourceKind } : {}),
+      ...(includeRevoked !== undefined ? { includeRevoked: includeRevoked === "true" } : {}),
+      ...(rawLimit !== undefined ? { limit: rawLimit } : {}),
+      ...(cursor !== undefined && cursor !== "" ? { cursor } : {}),
+    }) as z.infer<typeof LIST_PROJECT_EVIDENCE_SCHEMA>;
+    try {
+      const result = await listProjectEvidence(this.evidenceDeps, {
+        userId: principal.userId,
+        orgId: principal.orgId,
+        ...input,
+      });
+      return CE.operations.listProjectEvidence.out.parse(result);
+    } catch (e) {
+      ProjectController.rethrowEvidenceError(e);
+    }
+  }
+
+  @Get(CE.operations.getProjectEvidence.path)
+  async getEvidence(
+    @CurrentPrincipal() principal: Principal,
+    @Param("projectId") projectId: string,
+    @Param("evidenceId") evidenceId: string,
+  ) {
+    assertPrincipal(principal);
+    const input = new ZodBodyPipe(GET_PROJECT_EVIDENCE_SCHEMA).transform({ projectId, evidenceId }) as z.infer<
+      typeof GET_PROJECT_EVIDENCE_SCHEMA
+    >;
+    try {
+      const result = await getProjectEvidence(this.evidenceDeps, {
+        userId: principal.userId,
+        orgId: principal.orgId,
+        projectId: input.projectId,
+        evidenceId: input.evidenceId,
+      });
+      return CE.operations.getProjectEvidence.out.parse(result);
+    } catch (e) {
+      ProjectController.rethrowEvidenceError(e);
     }
   }
 }

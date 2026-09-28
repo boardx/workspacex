@@ -40,6 +40,7 @@ import {
 } from "../../application/knowledge-graph/ports";
 import { LOGGER_PORT, type LoggerPort } from "../../application/ports/logger.port";
 import { PROJECT_AI_SETTINGS_REPOSITORY, type ProjectAiSettingsRepository } from "../../application/project/project-ai-settings-ports";
+import { EVIDENCE_SOURCE_REPOSITORY, type ProjectEvidenceSourcePort } from "../../application/project/collect-evidence/ports";
 import { PROJECT_EVIDENCE_REPOSITORY, type ProjectEvidencePort } from "../../application/project/project-evidence-ports";
 import { KG_EXTRACTION_MODEL_CONFIG, type KgExtractionModelConfig } from "./kg-extraction-model-config";
 import { KG_EXTRACTION_LEASE_SECONDS } from "./pg-kg-extraction";
@@ -87,10 +88,12 @@ export class KgExtractionWorker implements OnModuleInit, OnModuleDestroy {
     @Inject(KG_CONFLICT_PORT) private readonly conflicts: KgConflictPort,
     @Inject(KG_AUTO_COPY_PORT) private readonly autoCopy: KgAutoCopyPort,
     @Inject(LOGGER_PORT) private readonly logger: LoggerPort,
+    // B3-T1（#4495）：项目线程的消息锚点回填成证据单元（`collect-evidence/chat.ts`）。
+    @Inject(PROJECT_EVIDENCE_REPOSITORY) private readonly projectEvidence: ProjectEvidencePort,
+    @Inject(EVIDENCE_SOURCE_REPOSITORY) private readonly evidenceSources: ProjectEvidenceSourcePort,
     @Optional() @Inject(KG_EXTRACTION_WATCHDOG_MS) watchdogMs?: number,
-    // B3-T2：三个都在才跑项目证据入图。`PROJECT_EVIDENCE_REPOSITORY` 由 T1 提供（并行切片）——没接上时这一轮静默不跑，
-    // 消息抽取照常；接上即生效，不需要改这里。
-    @Optional() @Inject(PROJECT_EVIDENCE_REPOSITORY) private readonly projectEvidence?: ProjectEvidencePort,
+    // B3-T2：`projectEvidence`（上面 T1 注入的同一个仓储）+ 下面两个齐了才跑项目证据入图；缺任一这一轮静默不跑，
+    // 消息抽取照常。
     @Optional() @Inject(PROJECT_AI_SETTINGS_REPOSITORY) private readonly projectAiSettings?: ProjectAiSettingsRepository,
     @Optional() @Inject(KG_PROJECT_INGESTION_PORT) private readonly projectIngestion?: KgProjectIngestionPort,
   ) {
@@ -156,6 +159,7 @@ export class KgExtractionWorker implements OnModuleInit, OnModuleDestroy {
       const tick = await runExtractionTick({
         queue: this.queue, source: this.source, extractor: this.extractor, store: this.store,
         conflicts: this.conflicts, autoCopy: this.autoCopy, logger: this.logger, newId: newKgId,
+        chatEvidence: { sources: this.evidenceSources, evidence: this.projectEvidence },
       }, () => abandoned);
       // issue #4343：有处理过消息的一轮留一条计数，「跑了但一条没记下」（empty）与「没跑」（没有这行）分得开。
       if (tick.processed > 0) this.logger.info("kg extraction tick", { traceId: "kg-extraction", ...tick });
