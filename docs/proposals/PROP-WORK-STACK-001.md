@@ -6,6 +6,26 @@
 
 ---
 
+## ⚠ 修订 R1（2026-09-28，人类批准后 main 合入 #4523）
+
+批准后 main 合入了 Work Stack v2（`requirements/work-stack-v2/`），人类随后确认了以下调整。**本节优先于正文中与之冲突的内容。**
+
+| 原方案 | 修订后 |
+|---|---|
+| D1：需求权威 = main #4502（v1，SK-/WF-/DH-） | **需求权威 = `requirements/work-stack-v2`（S/W/D 编号）**。v1（#4502 的 `phases/requirements/work-stack-v1/`）标记为 superseded，不再作为输入 |
+| P3：新建 `composition.yaml` 当组合图 | v2 已有 `WORKFLOW-SKILL-MATRIX.md` 和 `DIGITALHUMAN-COMPOSITION-MATRIX.md`，**以它们为唯一组合图**，不另建副本；新增 lint 检查引用闭合、`skillGaps` 显式登记 |
+| P4 / §7：实现时顺带作者化内容 | 按 v2 `AUTHORING-PROTOCOL.md`：**每个实体单独作者化 + 独立评审**，只有 PASS 的实体才能进入实现。作者化由多 agent 工作流分批执行（每批作者 + 评审，人类抽查） |
+| 平台是否等作者化完成 | **并行**：v2 明确架构不变，平台底座（6a–6d）先开工；每个实体的内容实现，等它那份文档评审 PASS 后再做 |
+| 实时数字人 | 新增**独立轨道**（单独 phase）：按 v2 `realtime-digital-human/IMPLEMENTATION-PLAN.md` 执行，依赖 Agent 扩展（6c），试点角色与 Stage 1 一致（D002 / D003 / D005） |
+| 头像（D5） | 未定出图方式，先用插画 key 集占位 |
+
+作者化产出约定（v2 未规定，Phase 0 补上）：
+- 实体文档：`requirements/work-stack-v2/{skills,workflows,digital-humans}/<ID>-<slug>.md`
+- 评审结论：`requirements/work-stack-v2/reviews/<ID>.review.md`（PASS / REWRITE / SPLIT / MERGE / DELETE + 六项评分）
+- 进度：以 `AUTHORING-TASK-MANIFEST.json` 为清单，由脚本从 reviews 目录汇总，不另存状态
+
+---
+
 ## 0. 一页结论
 
 1. **需求有两份，必须先收敛成一份。** main 上已有 #4502（`phases/requirements/work-stack-v1/`，SK-/WF-/DH- 编号，Stage 1 = 50/20/10），分支又加了一份（`requirements/work-stack-v1/`，S/W/D 编号，Phase 1 = 60/15/10）。两份的范围、编号、交付物都不同，违反「同一事实不得声明在两处」。**建议以 main #4502 为权威**，分支只吸收它独有的内容（AVATAR-SYSTEM、MANIFEST），分支本身不合入。
