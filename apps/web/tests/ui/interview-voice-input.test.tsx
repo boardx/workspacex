@@ -113,6 +113,24 @@ it("shows recoverable confirmed speech in the editor without persisting interim 
   await waitFor(() => expect(input).toHaveValue("已有需求\n\n已确认文字。"));
   expect(change).toHaveBeenCalledTimes(1);
 });
+it("keeps confirmed speech recoverable when the provider fails while stopping", async () => {
+  const change = vi.fn();
+  function Intake() {
+    const [markdown, setMarkdown] = React.useState("已有需求");
+    return <InterviewIntakeStep markdown={markdown} onChange={(value) => { change(value); setMarkdown(value); }} onConfirm={vi.fn()} pending={false} voiceSessionToken="voice-session" />;
+  }
+  render(<Intake />);
+  fireEvent.click(screen.getByRole("button", { name: "语音输入" }));
+  await screen.findByRole("button", { name: "停止并追加文字" });
+  act(() => { handlers.onFinal("收尾前已确认。"); });
+  fireEvent.click(screen.getByRole("button", { name: "停止并追加文字" }));
+  act(() => { handlers.onError("ASR_PROVIDER_UNAVAILABLE"); });
+  expect(screen.getByRole("textbox", { name: "研究需求 Markdown" })).toHaveValue("已有需求\n\n收尾前已确认。");
+  expect(screen.getByRole("button", { name: "保留已确认转录" })).toBeEnabled();
+  expect(change).not.toHaveBeenCalled();
+  fireEvent.click(screen.getByRole("button", { name: "保留已确认转录" }));
+  await waitFor(() => expect(change).toHaveBeenCalledWith("已有需求\n\n收尾前已确认。"));
+});
 it("a provider ending capture before the user clicks stop still offers confirmed text for explicit review", async () => {
   const append = vi.fn();
   render(<InterviewVoiceInput sessionToken="voice-session" onAppend={append} />);

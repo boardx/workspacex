@@ -23,7 +23,7 @@ export function InterviewVoiceInput({ sessionToken, onAppend, onPreview, onBusyC
   const intent = React.useRef<"finish" | "cancel" | null>(null);
   const finalText = appendTranscript(speech.baseText, speech.committedText);
   const active = ["connecting", "listening", "stopping", "paused"].includes(voice.phase);
-  const recoverable = !recovered && (speech.status === "error" || voice.phase === "done") && Boolean(finalText.trim()) && intent.current !== "finish";
+  const recoverable = !recovered && (speech.status === "error" || (voice.phase === "done" && intent.current !== "finish")) && Boolean(finalText.trim());
   const preview = active ? appendTranscript(finalText, speech.partialText) : recoverable ? finalText : "";
   const busyCallback = React.useRef(onBusyChange); busyCallback.current = onBusyChange;
   const previewCallback = React.useRef(onPreview); previewCallback.current = onPreview;
