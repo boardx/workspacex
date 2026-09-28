@@ -419,7 +419,7 @@ return <GuidedResearchSixStepShell hasUnsavedChanges={Boolean(message.trim()) ||
           <div className="flex flex-wrap justify-end gap-2"><Button variant="outline" disabled={busy || !validDraft} onClick={() => void run("generate", { draft })}>重新生成本步骤</Button><Button variant="outline" disabled={busy || Boolean(proposal) || !validDraft} onClick={() => void run("save", { draft })}>保存草稿</Button></div>
           </div></details>
         </>} />}
-        {draft?.node === "outline" && <GuidedResearchPlanPanel onBack={() => navigateVisual("topic")} disabled={busy || Boolean(proposal) || !validDraft} onConfirm={() => void run("confirm", { draft })}
+        {draft?.node === "outline" && <GuidedResearchPlanPanel onBack={() => navigateVisual("topic")} disabled={busy || Boolean(proposal) || !validDraft || markdownDirty} onConfirm={() => void run("confirm", { draft })}
           plan={<><div className="rounded-lg border bg-muted/20 p-3"><p className="text-xs text-muted-foreground">研究主题</p><h3 className="mt-1 text-sm font-bold">{state.brief.topic}</h3><p className="mt-1 text-xs leading-relaxed text-muted-foreground">{state.brief.goal}</p></div><div className="space-y-2">{outlineDocument && <GuidedResearchMarkdownWorkspace initiallyEditing onDirtyChange={setMarkdownDirty} document={outlineDocument} saving={busy} onSave={async (markdown) => {
             const parsed = parseGuidedResearchMarkdown({ document: outlineDocument, markdown });
             if (!parsed.ok) return { ok: false, message: parsed.errors.map((item) => item.message).join("；") };

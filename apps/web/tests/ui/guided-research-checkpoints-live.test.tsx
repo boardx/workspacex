@@ -30,8 +30,10 @@ describe("human confirmation in the durable model-backed workflow", () => {
     render(<GuidedResearchLive sessionId="grs-live" onBack={vi.fn()} />);
     const markdown = await screen.findByTestId("guided-research-markdown-editor");
     fireEvent.change(markdown, { target: { value: String((markdown as HTMLTextAreaElement).value).replace("政策章节", "人工编辑章节") } });
+    expect(screen.getByRole("button", { name: "开始研究" })).toBeDisabled();
     fireEvent.click(screen.getByRole("button", { name: "保存 Markdown" }));
     await waitFor(() => expect(executeResearchRuntime).toHaveBeenCalledWith(expect.objectContaining({ node: "outline", action: "save", draft: { node: "outline", value: [expect.objectContaining({ title: "人工编辑章节" })] } })));
+    await waitFor(() => expect(screen.getByRole("button", { name: "开始研究" })).toBeEnabled());
     fireEvent.click(screen.getByRole("button", { name: "开始研究" }));
     await waitFor(() => expect(executeResearchRuntime).toHaveBeenCalledWith(expect.objectContaining({ node: "outline", action: "confirm", draft: { node: "outline", value: [expect.objectContaining({ title: "人工编辑章节" })] } })));
     expect(await screen.findByRole("button", { name: /搜索资料|继续搜索|更新资料/ })).toBeInTheDocument();
