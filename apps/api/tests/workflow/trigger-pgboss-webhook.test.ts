@@ -118,6 +118,20 @@ describe("WF06 pg-boss generalization + webhook trigger", () => {
     expect(await instanceCount()).toBe(1);
   }, 30_000);
 
+  it("the same Idempotency-Key value reused across two different webhook triggers does not collide: each starts its own instance", async () => {
+    const triggerA = await seedWebhookTrigger({ orgId: ORG, workflowKey: DEMO_WORKFLOW_KEY, ownerUserId: WF03_ADMIN, agentId: AGENT });
+    const triggerB = await seedWebhookTrigger({ orgId: ORG, workflowKey: DEMO_WORKFLOW_KEY, ownerUserId: WF03_ADMIN, agentId: AGENT });
+    const sharedIdempotencyKey = `wh-shared-${randomUUID()}`;
+
+    const a = await postWebhook(e, triggerA.triggerId, { secret: triggerA.secret, idempotencyKey: sharedIdempotencyKey, payload: { topic: "triggerA 的请求" } });
+    const b = await postWebhook(e, triggerB.triggerId, { secret: triggerB.secret, idempotencyKey: sharedIdempotencyKey, payload: { topic: "triggerB 的请求" } });
+
+    expect(a.status).toBe(200);
+    expect(b.status).toBe(200);
+    expect(b.body.instanceId).not.toBe(a.body.instanceId);
+    expect(await instanceCount()).toBe(2);
+  }, 30_000);
+
   it("an unknown triggerId, or a trigger that is not a webhook kind, is workflow_not_found", async () => {
     const missing = await postWebhook(e, `wt-${randomUUID()}`, { secret: "whatever" });
     expect(missing.status).toBe(404);

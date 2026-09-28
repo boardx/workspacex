@@ -84,7 +84,10 @@ export async function triggerWebhook(deps: TriggerWebhookDeps, cmd: TriggerWebho
     agentId: trigger.agentId,
     input: cmd.payload,
     triggerKind: "webhook",
-    requestKey: cmd.idempotencyKey,
+    // I-6 修复：requestKey 必须按 triggerId 域隔离——调用方自带的 Idempotency-Key 只在单个触发器内保证
+    // 唯一,两个不同 webhook 触发器（不同 triggerId）恰好收到相同 Idempotency-Key 时,若不带 triggerId
+    // 会在 receipt key 上撞车,第二个调用被误判为「同一请求重放」而拿到 409（而不是各自建各自的实例）。
+    requestKey: `${cmd.triggerId}:${cmd.idempotencyKey}`,
   });
   return { instanceId: response.instanceId, status: response.status };
 }

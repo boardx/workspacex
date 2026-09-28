@@ -41,6 +41,8 @@ export async function deliverScheduledWorkflowTrigger(deps: DeliverScheduledTrig
     agentId: trigger.agentId,
     input: trigger.defaultInput,
     triggerKind: "schedule",
-    requestKey: job.id,
+    // pg-boss 作业 id 本身全局唯一，理论上无需再按 triggerId 域隔离；仍然加上 triggerId 前缀与
+    // webhook 路径保持一致（同一套隔离方式），成本可忽略。
+    requestKey: `${parsed.data.triggerId}:${job.id}`,
   });
 }
