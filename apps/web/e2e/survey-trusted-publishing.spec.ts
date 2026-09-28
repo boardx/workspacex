@@ -130,7 +130,7 @@ test("管理员可在真实答卷页排除测试答卷且保留审计理由", as
   await page.goto(`/studio/survey/${created.data.id}?step=responses`);
   await page.getByRole("button", { name: "查看完整答卷" }).click();
   await page.getByLabel("排除分析原因").fill("浏览器验收中的测试答卷");
-  await page.getByRole("button", { name: "排除分析" }).click();
+  await page.getByRole("button", { name: "排除分析", exact: true }).click();
   await expect(page.getByText("排除原因：浏览器验收中的测试答卷")).toBeVisible();
   await expect(page.getByText(/已排除分析 1/)).toBeVisible();
   await page.screenshot({ path: test.info().outputPath("response-governance-excluded.png"), fullPage: true });

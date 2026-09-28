@@ -68,7 +68,7 @@ test("用户可从模板完整走通创建、发布、答题、查看答卷和�
   await loginAsAdmin(page);
 
   await page.goto("/studio/survey");
-  await expect(page.getByRole("heading", { name: "问卷" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "问卷", exact: true })).toBeVisible();
   await expect(page.getByRole("navigation", { name: "问卷二级导航" })).toBeVisible();
   await page.screenshot({path:testInfo.outputPath("survey-home-desktop.png"),fullPage:true});
   await page.getByRole("link", { name: "问卷模板", exact: true }).click();
