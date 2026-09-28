@@ -216,6 +216,17 @@ it("shows expert identity cards and only direct questions in the outline workspa
   expect(screen.queryByDisplayValue("用于了解受访者基本情况")).not.toBeInTheDocument();
   expect(screen.queryByText("编辑本组 Markdown 原文")).not.toBeInTheDocument();
 });
+it("keeps a newly added or partially edited numbered question visible", () => {
+  function EditableOutline() {
+    const [markdown, setMarkdown] = React.useState("## [采购](#expert-purchase)\n\n1. 你是谁？\n");
+    return <InterviewOutlineStep document={{ ...source, step: "outline", markdown }} pending={false} onChange={setMarkdown} onSave={vi.fn()} onConfirm={vi.fn()} onGenerate={vi.fn()} />;
+  }
+  render(<EditableOutline />);
+  fireEvent.click(screen.getByRole("button", { name: "添加问题" }));
+  expect(screen.getByRole("textbox", { name: "编辑问题 2" })).toHaveValue("新问题？");
+  fireEvent.change(screen.getByRole("textbox", { name: "编辑问题 2" }), { target: { value: "正在输入" } });
+  expect(screen.getByRole("textbox", { name: "编辑问题 2" })).toHaveValue("正在输入");
+});
 it("generation cannot silently discard an unsaved expert Markdown edit", async () => {
   vi.stubEnv("NEXT_PUBLIC_API_URL", "http://localhost:4100"); vi.stubEnv("NEXT_PUBLIC_API_PATH_PREFIX", "");
   const posts: string[] = [];

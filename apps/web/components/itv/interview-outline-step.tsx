@@ -15,9 +15,11 @@ function questionLines(markdown: string, start: number, end: number) {
     const prefix = match[1] ?? "";
     const raw = match[2] ?? "";
     const question = raw.replace(/^\*{1,2}/u, "").replace(/\*{1,2}$/u, "").trim();
-    const direct = /[？?]$/u.test(question) || /(?:谁|什么|哪(?:里|个|些)?|是否|如何|为何|为什么|吗|呢|几|多少)/u.test(question)
+    const ordered = /\d+\./u.test(prefix);
+    const explanatory = /^(?:(?:目的|背景|说明|目标|追问目的)(?:[：:]|\s|为什么)|用于|访谈说明)/u.test(question);
+    const direct = (ordered && !explanatory) || /[？?]$/u.test(question) || /(?:谁|什么|哪(?:里|个|些)?|是否|如何|为何|为什么|吗|呢|几|多少)/u.test(question)
       || /^请(?:介绍|描述|分享|回忆|举例|谈谈)/u.test(question);
-    if (/^(?:目的|背景|说明|目标|追问目的)[：:]/u.test(question) || !direct) return null;
+    if (explanatory || !direct) return null;
     return { start: lineStart, end: lineStart + match[0].length, textStart: lineStart + prefix.length,
       textEnd: lineStart + prefix.length + raw.length, text: question };
   }).filter((question): question is NonNullable<typeof question> => question !== null);
@@ -70,7 +72,7 @@ export function InterviewOutlineStep({ document, directory = [], expertsDocument
           {questions.length === 0 && <p className="mt-6 rounded-xl border border-dashed border-border px-4 py-10 text-center text-sm text-muted-foreground">还没有访谈问题。</p>}
           <Button className="mt-3 w-full" variant="outline" disabled={pending} onClick={() => {
             const newline = document.markdown.includes("\r\n") ? "\r\n" : "\n";
-            onChange(document.markdown.slice(0, chosen.end) + `${newline}${questions.length + 1}. 新问题${newline}` + document.markdown.slice(chosen.end));
+            onChange(document.markdown.slice(0, chosen.end) + `${newline}${questions.length + 1}. 新问题？${newline}` + document.markdown.slice(chosen.end));
           }}>添加问题</Button>
           <Button className="mt-4" variant="outline" disabled={pending} onClick={() => onChange(document.markdown.slice(0, chosen.start) + document.markdown.slice(chosen.end))}>删除该专家问题</Button>
         </article>;
