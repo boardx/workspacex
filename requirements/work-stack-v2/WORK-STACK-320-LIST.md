@@ -2,11 +2,11 @@
 
 > 自动生成（`scratchpad` 同步脚本），请勿手改。阶段划分：每个阶段 = 该阶段数字人的组合闭包，去掉前面阶段已包含的实体；组合关系以两张矩阵为准。
 > 「✅ 通过」= 独立作者化 + 独立评审 Verdict: PASS，文档与评审链接可直接打开。基线 `main@30c1c433`。
-**总进度：34 / 320 通过**
+**总进度：30 / 320 通过**
 
 
 ## 第一阶段（进行中）：D002 研究员 / D003 产品经理 / D005 销售 / D011 设计思维
-共 81 个（数字人 4 / Workflow 19 / Skill 58），已通过 **34**
+共 81 个（数字人 4 / Workflow 19 / Skill 58），已通过 **30**
 
 | 状态 | ID | 类型 | 名称 | 文档 | 评审 |
 |---|---|---|---|---|---|
@@ -14,7 +14,7 @@
 | ⬜ | D003 | 数字人 | Product Manager |  |  |
 | ⬜ | D005 | 数字人 | Sales Representative |  |  |
 | ⬜ | D011 | 数字人 | Design Thinking Expert |  |  |
-| ✅ 通过 | W001 | Workflow | Research-to-Brief | [文档](https://github.com/boardx/workspacex/blob/claude/tender-maxwell-dh21fg/requirements/work-stack-v2/workflows/W001-research-to-brief.md) | [评审](https://github.com/boardx/workspacex/blob/claude/tender-maxwell-dh21fg/requirements/work-stack-v2/reviews/W001.review.md) |
+| ⬜ | W001 | Workflow | Research-to-Brief |  |  |
 | ⬜ | W002 | Workflow | Meeting-to-Actions |  |  |
 | ⬜ | W006 | Workflow | Knowledge Capture Loop |  |  |
 | ⬜ | W009 | Workflow | Evidence-to-Recommendation |  |  |
@@ -33,7 +33,7 @@
 | ⬜ | W032 | Workflow | Roadmap Review |  |  |
 | ⬜ | W057 | Workflow | Question-to-Analysis |  |  |
 | ⬜ | W060 | Workflow | Research-to-Evidence |  |  |
-| ✅ 通过 | S003 | Skill | Enterprise Search | [文档](https://github.com/boardx/workspacex/blob/claude/tender-maxwell-dh21fg/requirements/work-stack-v2/skills/S003-enterprise-search.md) | [评审](https://github.com/boardx/workspacex/blob/claude/tender-maxwell-dh21fg/requirements/work-stack-v2/reviews/S003.review.md) |
+| ⬜ | S003 | Skill | Enterprise Search |  |  |
 | ✅ 通过 | S005 | Skill | Meeting Prep | [文档](https://github.com/boardx/workspacex/blob/claude/tender-maxwell-dh21fg/requirements/work-stack-v2/skills/S005-meeting-prep.md) | [评审](https://github.com/boardx/workspacex/blob/claude/tender-maxwell-dh21fg/requirements/work-stack-v2/reviews/S005.review.md) |
 | ✅ 通过 | S006 | Skill | Meeting Summary | [文档](https://github.com/boardx/workspacex/blob/claude/tender-maxwell-dh21fg/requirements/work-stack-v2/skills/S006-meeting-summary.md) | [评审](https://github.com/boardx/workspacex/blob/claude/tender-maxwell-dh21fg/requirements/work-stack-v2/reviews/S006.review.md) |
 | ⬜ | S007 | Skill | Status Update |  |  |
@@ -63,7 +63,7 @@
 | ✅ 通过 | S036 | Skill | Proposal Builder | [文档](https://github.com/boardx/workspacex/blob/claude/tender-maxwell-dh21fg/requirements/work-stack-v2/skills/S036-proposal-builder.md) | [评审](https://github.com/boardx/workspacex/blob/claude/tender-maxwell-dh21fg/requirements/work-stack-v2/reviews/S036.review.md) |
 | ⬜ | S061 | Skill | Product Discovery |  |  |
 | ✅ 通过 | S062 | Skill | User Interview Planning | [文档](https://github.com/boardx/workspacex/blob/claude/tender-maxwell-dh21fg/requirements/work-stack-v2/skills/S062-user-interview-planning.md) | [评审](https://github.com/boardx/workspacex/blob/claude/tender-maxwell-dh21fg/requirements/work-stack-v2/reviews/S062.review.md) |
-| ✅ 通过 | S063 | Skill | Research Synthesis | [文档](https://github.com/boardx/workspacex/blob/claude/tender-maxwell-dh21fg/requirements/work-stack-v2/skills/S063-research-synthesis.md) | [评审](https://github.com/boardx/workspacex/blob/claude/tender-maxwell-dh21fg/requirements/work-stack-v2/reviews/S063.review.md) |
+| ⬜ | S063 | Skill | Research Synthesis |  |  |
 | ✅ 通过 | S064 | Skill | Problem Framing | [文档](https://github.com/boardx/workspacex/blob/claude/tender-maxwell-dh21fg/requirements/work-stack-v2/skills/S064-problem-framing.md) | [评审](https://github.com/boardx/workspacex/blob/claude/tender-maxwell-dh21fg/requirements/work-stack-v2/reviews/S064.review.md) |
 | ✅ 通过 | S065 | Skill | Opportunity Mapping | [文档](https://github.com/boardx/workspacex/blob/claude/tender-maxwell-dh21fg/requirements/work-stack-v2/skills/S065-opportunity-mapping.md) | [评审](https://github.com/boardx/workspacex/blob/claude/tender-maxwell-dh21fg/requirements/work-stack-v2/reviews/S065.review.md) |
 | ✅ 通过 | S066 | Skill | Product Brainstorming | [文档](https://github.com/boardx/workspacex/blob/claude/tender-maxwell-dh21fg/requirements/work-stack-v2/skills/S066-product-brainstorming.md) | [评审](https://github.com/boardx/workspacex/blob/claude/tender-maxwell-dh21fg/requirements/work-stack-v2/reviews/S066.review.md) |
@@ -89,7 +89,7 @@
 | ✅ 通过 | S168 | Skill | Trend Analysis | [文档](https://github.com/boardx/workspacex/blob/claude/tender-maxwell-dh21fg/requirements/work-stack-v2/skills/S168-trend-analysis.md) | [评审](https://github.com/boardx/workspacex/blob/claude/tender-maxwell-dh21fg/requirements/work-stack-v2/reviews/S168.review.md) |
 | ✅ 通过 | S169 | Skill | Knowledge Synthesis | [文档](https://github.com/boardx/workspacex/blob/claude/tender-maxwell-dh21fg/requirements/work-stack-v2/skills/S169-knowledge-synthesis.md) | [评审](https://github.com/boardx/workspacex/blob/claude/tender-maxwell-dh21fg/requirements/work-stack-v2/reviews/S169.review.md) |
 | ✅ 通过 | S170 | Skill | Scientific Research Planning | [文档](https://github.com/boardx/workspacex/blob/claude/tender-maxwell-dh21fg/requirements/work-stack-v2/skills/S170-scientific-research-planning.md) | [评审](https://github.com/boardx/workspacex/blob/claude/tender-maxwell-dh21fg/requirements/work-stack-v2/reviews/S170.review.md) |
-| ✅ 通过 | S171 | Skill | Evidence Review | [文档](https://github.com/boardx/workspacex/blob/claude/tender-maxwell-dh21fg/requirements/work-stack-v2/skills/S171-evidence-review.md) | [评审](https://github.com/boardx/workspacex/blob/claude/tender-maxwell-dh21fg/requirements/work-stack-v2/reviews/S171.review.md) |
+| ⬜ | S171 | Skill | Evidence Review |  |  |
 | ✅ 通过 | S172 | Skill | Data Storytelling | [文档](https://github.com/boardx/workspacex/blob/claude/tender-maxwell-dh21fg/requirements/work-stack-v2/skills/S172-data-storytelling.md) | [评审](https://github.com/boardx/workspacex/blob/claude/tender-maxwell-dh21fg/requirements/work-stack-v2/reviews/S172.review.md) |
 
 ## 第二阶段：其余 7 个通用角色 D001 / D004 / D006–D010
