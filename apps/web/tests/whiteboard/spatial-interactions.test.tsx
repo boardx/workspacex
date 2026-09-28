@@ -40,8 +40,8 @@ function mount() {
 }
 
 function createPanelAndSticky() {
-  fireEvent.click(screen.getByTestId("board-add-more"));
-  fireEvent.click(screen.getByTestId("board-add-panel"));
+  fireEvent.click(screen.getByTestId("board-add-frame"));
+  fireEvent.click(screen.getByTestId("mock-canvas-click"));
   fireEvent.keyDown(window,{key:"n"});
 }
 
