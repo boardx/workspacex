@@ -2,12 +2,12 @@
 
 import { useEffect, useRef, useState } from "react";
 import { beginComposition, beginTextInput, commitComposition, updateTextInput, type TextInputIntent } from "@repo/whiteboard-core";
-import type { BoardViewport } from "./fabric/board-fabric-object";
+import { BOARD_FABRIC_VISUAL } from "./fabric/board-fabric-visual";
+import type { BoardFabricObject, BoardViewport } from "./fabric/board-fabric-object";
 
 interface ThinkingInputEditorProps {
-  objectId: string;
+  object: Pick<BoardFabricObject, "id" | "kind" | "geometry" | "style">;
   initialValue: string;
-  geometry: { x: number; y: number; width: number; height: number };
   viewport: BoardViewport;
   readOnly: boolean;
   onLiveCommit: (value: string) => boolean;
@@ -16,7 +16,12 @@ interface ThinkingInputEditorProps {
   onContinue: (value: string) => void;
 }
 
-export function ThinkingInputEditor({ objectId, initialValue, geometry, viewport, readOnly, onLiveCommit, onCommit, onCancel, onContinue }: ThinkingInputEditorProps) {
+function estimatedLineCount(value: string, contentWidth: number, fontSize: number): number {
+  const columns = Math.max(1, Math.floor(contentWidth / (fontSize * .72)));
+  return Math.max(1, value.split("\n").reduce((total, line) => total + Math.max(1, Math.ceil([...line].length / columns)), 0));
+}
+
+export function ThinkingInputEditor({ object, initialValue, viewport, readOnly, onLiveCommit, onCommit, onCancel, onContinue }: ThinkingInputEditorProps) {
   const [intent, setIntent] = useState<TextInputIntent>(() => beginTextInput(initialValue));
   const intentRef = useRef(intent);
   const inputRef = useRef<HTMLTextAreaElement>(null);
@@ -24,7 +29,7 @@ export function ThinkingInputEditor({ objectId, initialValue, geometry, viewport
   const liveCommitTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const pendingLiveValueRef = useRef<string | null>(null);
   intentRef.current = intent;
-  useEffect(() => { inputRef.current?.focus(); inputRef.current?.select(); }, [objectId]);
+  useEffect(() => { inputRef.current?.focus(); inputRef.current?.select(); }, [object.id]);
   useEffect(() => () => { if (liveCommitTimerRef.current) clearTimeout(liveCommitTimerRef.current); }, []);
   useEffect(() => {
     setIntent((current) => current.composition || current.draft === initialValue ? current : beginTextInput(initialValue));
@@ -49,6 +54,17 @@ export function ThinkingInputEditor({ objectId, initialValue, geometry, viewport
     cancelScheduledLiveCommit();
     return onCommit(intentRef.current.draft, reason);
   };
+  const { geometry, style } = object;
+  const zoom = viewport.zoom;
+  const sticky = object.kind === "sticky";
+  const inset = sticky ? BOARD_FABRIC_VISUAL.sticky.padding : object.kind === "text" ? 0 : 16;
+  const fontSize = style.fontSize ?? (object.kind === "text" ? 24 : 20);
+  const lineHeight = style.lineHeight ?? 1.3;
+  const contentWidth = Math.max(fontSize, geometry.width - inset * 2);
+  const textHeight = estimatedLineCount(intent.draft, contentWidth, fontSize) * fontSize * lineHeight;
+  const verticalAlignment = object.kind === "text" ? "top" : style.verticalAlignment ?? "middle";
+  const verticalSpace = Math.max(inset, geometry.height - textHeight - inset);
+  const paddingTop = verticalAlignment === "bottom" ? verticalSpace : verticalAlignment === "middle" ? Math.max(inset, (geometry.height - textHeight) / 2) : inset;
   return <textarea
     ref={inputRef}
     data-testid="board-thinking-editor"
@@ -79,13 +95,30 @@ export function ThinkingInputEditor({ objectId, initialValue, geometry, viewport
       if (event.key === "Tab") { event.preventDefault(); if (finish("tab")) onContinue(intentRef.current.draft); return; }
       if (event.key === "Enter" && (event.metaKey || event.ctrlKey)) { event.preventDefault(); finish("enter"); }
     }}
-    className="absolute z-40 resize-none rounded-md border-2 border-primary bg-card/95 p-3 text-center text-18 text-foreground shadow-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+    className="absolute z-40 m-0 appearance-none resize-none border-0 bg-transparent p-0 shadow-none outline-none focus-visible:outline-none focus-visible:ring-0"
     style={{
-      left: geometry.x * viewport.zoom + viewport.panX,
-      top: geometry.y * viewport.zoom + viewport.panY,
-      width: Math.max(96, geometry.width * viewport.zoom),
-      height: Math.max(64, geometry.height * viewport.zoom),
-      transform: `rotate(${0}deg)`,
+      boxSizing: "border-box",
+      left: geometry.x * zoom + viewport.panX,
+      top: geometry.y * zoom + viewport.panY,
+      width: Math.max(1, geometry.width * zoom),
+      height: Math.max(1, geometry.height * zoom),
+      transform: `rotate(${geometry.rotation}deg)`,
+      transformOrigin: "center center",
+      borderRadius: sticky ? BOARD_FABRIC_VISUAL.sticky.radius * zoom : 0,
+      paddingLeft: inset * zoom,
+      paddingRight: inset * zoom,
+      paddingTop: paddingTop * zoom,
+      paddingBottom: inset * zoom,
+      overflow: "hidden",
+      fontFamily: style.fontFamily ?? BOARD_FABRIC_VISUAL.fontFamily,
+      fontSize: fontSize * zoom,
+      fontWeight: style.bold ? 700 : 400,
+      fontStyle: style.italic ? "italic" : "normal",
+      textDecoration: style.underline ? "underline" : "none",
+      textAlign: style.alignment ?? (sticky ? "center" : "left"),
+      lineHeight,
+      color: style.textColor,
+      caretColor: style.textColor,
     }}
   />;
 }

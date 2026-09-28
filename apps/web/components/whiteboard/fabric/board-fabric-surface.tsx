@@ -62,6 +62,8 @@ export interface BoardFabricSurfaceProps {
   onObjectDoubleClick?: (objectId: string) => void;
   onToolDrop?: (point: { x: number; y: number }, payload: string) => void;
   drawingAppearance?: BoardDrawingToolStyle;
+  /** Keeps the selected object chrome visible while the DOM editor owns its glyphs. */
+  editingObjectId?: string | null;
   onDrawingComplete?: (input: { tool: "pen" | "marker" | "highlighter" | "eraser"; appearance: BoardDrawingToolStyle; points: Array<{ x: number; y: number; pressure: number }> }) => void;
   onPanelHoverChange?: (panelId: string | null) => void;
   onObjectReparent?: (objectId: string, panelId: string | null) => void;
@@ -327,6 +329,15 @@ export function applyCanonicalObject(projected: TaggedFabricObject, object: Boar
   withCanonicalProjectionBatch([projected], () => applyCanonicalObjectInScene(projected, object, readOnly));
 }
 
+export function setProjectedTextEditingVisibility(projected: TaggedFabricObject, object: BoardFabricObject, editing: boolean): void {
+  const label = object.kind === "text"
+    ? projected
+    : ["sticky", "shape", "ellipse", "rectangle"].includes(object.kind) && projected instanceof Group
+      ? projected.getObjects()[1]
+      : undefined;
+  label?.set({ opacity: editing ? 0 : 1 });
+}
+
 function applyCanonicalObjectInScene(projected: TaggedFabricObject, object: BoardFabricObject, readOnly: boolean): void {
   const richText = textOptionsFor(object, { fontSize: object.kind === "text" ? 24 : 20, alignment: object.kind === "text" ? "left" : "center" });
   if (object.kind === "text") {
@@ -461,7 +472,7 @@ export function geometryFromFabricSceneTransform(projected: TaggedFabricObject):
   return { x: canonicalTransformNumber(x), y: canonicalTransformNumber(y), width: canonicalTransformNumber(width), height: canonicalTransformNumber(height), rotation: canonicalTransformNumber(rotation) };
 }
 
-export function BoardFabricSurface({ objects, selectedObjectIds, readOnly, tool, viewport, drawingAppearance, onSelectionChange, onObjectTransform, onObjectsTransform, onViewportChange, onCanvasClick, onCanvasDoubleClick, onObjectDoubleClick, onToolDrop, onDrawingComplete, onPanelHoverChange, onObjectReparent, onObjectHoverChange, fitInsets, className }: BoardFabricSurfaceProps) {
+export function BoardFabricSurface({ objects, selectedObjectIds, readOnly, tool, viewport, drawingAppearance, editingObjectId, onSelectionChange, onObjectTransform, onObjectsTransform, onViewportChange, onCanvasClick, onCanvasDoubleClick, onObjectDoubleClick, onToolDrop, onDrawingComplete, onPanelHoverChange, onObjectReparent, onObjectHoverChange, fitInsets, className }: BoardFabricSurfaceProps) {
   const hostRef = React.useRef<HTMLDivElement>(null);
   const canvasElementRef = React.useRef<HTMLCanvasElement>(null);
   const canvasRef = React.useRef<Canvas | null>(null);
@@ -963,6 +974,7 @@ export function BoardFabricSurface({ objects, selectedObjectIds, readOnly, tool,
       orderedObjects.forEach((object, index) => {
         const projected = registryRef.current.get(object.id);
         if (projected) {
+          setProjectedTextEditingVisibility(projected, object, object.id === editingObjectId);
           // Fabric's moveObjectTo removes and reinserts in its backing array.
           // Repeating it for every object turns a geometry-only patch into an
           // O(n²) projection and stalls real 1k+ boards. Canonical stacking can
@@ -981,7 +993,7 @@ export function BoardFabricSurface({ objects, selectedObjectIds, readOnly, tool,
     });
     setObjectScenes([...registryRef.current].map(([id, projected]) => ({ id, ...projected.getBoundingRect() })));
     scheduleRender();
-  }, [objects, readOnly, scheduleRender]);
+  }, [editingObjectId, objects, readOnly, scheduleRender]);
 
   React.useEffect(() => {
     const canvas = canvasRef.current;
