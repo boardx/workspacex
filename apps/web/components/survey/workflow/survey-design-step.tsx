@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import { useRouter } from "next/navigation";
-import { GripVertical, Plus, Settings2, Trash2 } from "lucide-react";
+import { GripVertical, Plus, Sparkles, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -16,6 +16,7 @@ import { useSectionNavigation } from "./use-section-navigation";
 
 export function SurveyDesignStep({ model, setModel, readonly, editorKind }: { model: survey.SurveyWorkflowModel; setModel: React.Dispatch<React.SetStateAction<survey.SurveyWorkflowModel>>; readonly: boolean; editorKind: "survey" | "module" }) {
   const router = useRouter();
+  const [prompt, setPrompt] = React.useState("");
   const [showModuleChoices, setShowModuleChoices] = React.useState(false);
   const isModuleEditor = editorKind === "module";
   const emptyTitle = isModuleEditor ? "当前模块还没有题目" : "当前问卷还没有题目";
@@ -81,13 +82,12 @@ export function SurveyDesignStep({ model, setModel, readonly, editorKind }: { mo
       {model.questions.map((question) => <QuestionEditor key={question.id} question={question} readonly={readonly} active={activeId === question.id} onUpdate={(patch) => updateQuestion(question.id, patch)} />)}
     </section>
 
-    <aside className="border-t border-border bg-card p-5 xl:sticky xl:top-0 xl:self-start xl:border-l xl:border-t-0" data-testid="survey-design-question-settings">
-      <SectionTitle icon={<Settings2 className="h-5 w-5 text-primary" aria-hidden />} title="题目设置" description={activeQuestion ? `当前题目：${activeQuestion.id}` : "选择题目进行设置"} />
-      {activeQuestion && <div className="space-y-4">
-        <div><Label htmlFor="survey-selected-question-title">题目内容</Label><Textarea id="survey-selected-question-title" className="mt-2" value={activeQuestion.title} disabled={readonly} onChange={(event) => updateQuestion(activeQuestion.id, { title: event.target.value })} data-testid="survey-design-setting-title" /></div>
-        <div><Label htmlFor="survey-selected-question-chapter">所属章节</Label><Input id="survey-selected-question-chapter" className="mt-2" value={activeQuestion.chapterId} disabled={readonly} onChange={(event) => updateQuestion(activeQuestion.id, { chapterId: event.target.value })} data-testid="survey-design-setting-chapter" /></div>
-        <div className="flex items-center justify-between rounded-md border border-border p-3"><span className="text-12">是否必答</span><Toggle checked={activeQuestion.required} onCheckedChange={(required) => updateQuestion(activeQuestion.id, { required })} label={`${activeQuestion.id} 是否必答`} disabled={readonly} /></div>
-      </div>}
+    <aside className="border-t border-border bg-card p-5 xl:sticky xl:top-0 xl:self-start xl:border-l xl:border-t-0" data-testid="survey-design-ai-assistant">
+      <SectionTitle icon={<Sparkles className="h-5 w-5 text-primary" aria-hidden />} title="AI 助手" description={activeQuestion ? `当前问题：${activeQuestion.id}` : undefined} />
+      <div className="rounded-lg bg-ai-tint p-4 text-12"><p className="font-medium">我是您的问卷设计助手</p><p className="mt-2 text-muted-foreground">我会基于行业实践提供可预览、可确认的优化建议，不会自动覆盖题目。</p></div>
+      <p className="mt-5 text-12 font-medium">您可以尝试</p><div className="mt-2 space-y-2">{["优化当前问题表述", "检查问卷逻辑与结构", "补充缺失的关键问题"].map((label) => <Button key={label} className="w-full justify-start" variant="outline" size="sm">{label}</Button>)}</div>
+      <div className="mt-5"><Label htmlFor="ai-prompt">告诉我您想优化的内容</Label><Textarea id="ai-prompt" className="mt-2" rows={7} placeholder="例如：请优化本章节的结构与问题顺序…" value={prompt} disabled={readonly} onChange={(event) => setPrompt(event.target.value)} /></div>
+      {!readonly && <div className="mt-3 grid grid-cols-2 gap-2"><Button variant="outline" size="sm">重新生成章节</Button><Button variant="primary" size="sm">生成变更预览</Button></div>}
     </aside>
   </div>;
 }

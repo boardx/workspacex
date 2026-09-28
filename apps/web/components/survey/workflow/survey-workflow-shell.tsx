@@ -18,8 +18,10 @@ export type SurveyPrototypeState = "default" | "loading" | "empty" | "error";
 
 const STEPS: { id: survey.SurveyWorkflowStep; label: string; note: string }[] = [
   { id: "design", label: "设计问卷", note: "构建内容与结构" },
+  { id: "template", label: "报告模板", note: "配置报告结构与展示" },
   { id: "publish", label: "发布回收", note: "发布设置与回收管理" },
-  { id: "responses", label: "查看答卷", note: "答卷列表与详情" },
+  { id: "responses", label: "查看答题", note: "监控进度与质量" },
+  { id: "report", label: "分析报告", note: "生成洞察与改进建议" },
 ];
 
 export function SurveyWorkflowShell({ surveyId, initialStep, uiState, readonly, moduleEditor = false, creationDraft }: {
@@ -57,9 +59,7 @@ export function SurveyWorkflowShell({ surveyId, initialStep, uiState, readonly, 
               <p className="text-10 text-muted-foreground">问卷 ID {model.survey.id} · 最近保存 18:00</p>
           </div>
           <div className="flex flex-wrap gap-2">
-            <Button variant="outline" size="sm" data-testid="survey-workflow-preview"><Eye className="h-3.5 w-3.5" aria-hidden />预览答题</Button>
-            {!moduleEditor && <Button variant="outline" size="sm" data-testid="survey-workflow-report-template" onClick={() => navigate("template")}>设计报告模板（可选）</Button>}
-            {!moduleEditor && <Button variant="outline" size="sm" data-testid="survey-workflow-report" onClick={() => navigate("report")}>分析报告（可选）</Button>}
+            <Button variant="outline" size="sm"><Eye className="h-3.5 w-3.5" aria-hidden />预览答题</Button>
             {!readonly && <Button variant="primary" size="sm" data-testid="survey-workflow-save" onClick={() => setSaved(true)}><Save className="h-3.5 w-3.5" aria-hidden />保存修改</Button>}
             <Button variant="outline" size="sm" data-testid="survey-workflow-back-to-list" onClick={() => router.push(moduleEditor ? "/studio/survey?tab=modules" : "/studio/survey")}><ArrowLeft className="h-3.5 w-3.5" aria-hidden />返回列表</Button>
           </div>

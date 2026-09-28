@@ -75,7 +75,7 @@ describe("SurveyWorkflowShell", () => {
 
     expect(screen.getByRole("heading", { name: "战略与协作" })).toBeInTheDocument();
     expect(screen.getByTestId("survey-workflow-steps")).toBeInTheDocument();
-    fireEvent.click(screen.getByTestId("survey-workflow-step-publish"));
+    fireEvent.click(screen.getByTestId("survey-workflow-step-template"));
     const target = replace.mock.calls[0]?.[0] as string;
     const params = new URL(target, "https://boardx.test").searchParams;
     expect(params.getAll("draft")).toHaveLength(1);
@@ -180,19 +180,15 @@ describe("SurveyWorkflowShell", () => {
     expect(screen.queryByTestId("survey-workflow-steps")).not.toBeInTheDocument();
   });
 
-  it("只呈现三步主流程，报告入口独立且设计页没有 AI 助手", () => {
+  it("只呈现新的五步导航并用 URL 切步", () => {
     render(<SurveyWorkflowShell surveyId="sv-1" initialStep="design" uiState="default" readonly={false} />);
 
     expect(screen.getByTestId("survey-workflow-shell")).toBeInTheDocument();
     expect(screen.getByTestId("survey-design-question-list")).toBeInTheDocument();
     expect(screen.queryByTestId("survey-tab-vote")).not.toBeInTheDocument();
 
-    expect(screen.queryByTestId("survey-workflow-step-template")).not.toBeInTheDocument();
-    expect(screen.queryByTestId("survey-workflow-step-report")).not.toBeInTheDocument();
-    expect(screen.queryByTestId("survey-design-ai-assistant")).not.toBeInTheDocument();
-    expect(screen.getByTestId("survey-design-question-settings")).toBeInTheDocument();
-    fireEvent.click(screen.getByTestId("survey-workflow-step-publish"));
-    expect(replace).toHaveBeenCalledWith("/studio/survey/sv-1?step=publish");
+    fireEvent.click(screen.getByTestId("survey-workflow-step-template"));
+    expect(replace).toHaveBeenCalledWith("/studio/survey/sv-1?step=template");
   });
 
   it.each([
