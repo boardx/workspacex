@@ -7,7 +7,7 @@
  */
 import { createHash, randomBytes } from "node:crypto";
 import { existsSync, mkdirSync, readdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
-import { join, relative } from "node:path";
+import { join, relative, sep } from "node:path";
 import { pathToFileURL } from "node:url";
 import { WorkEvalCliExit, validateWorkEvalSuiteBundle, type WorkEvalReport } from "@repo/contracts/work-eval";
 import { formatSummary, reportFailed, runLoopbackEval, type EvalGrader } from "../../application/work-eval/eval-runner";
@@ -23,6 +23,11 @@ export interface EvalCommandOptions {
   evalsRoot?: string;
   baseline?: boolean;
   cases?: string[];
+  /**
+   * `--version <digest>`（UC-2）：钉住被测版本。回环 lane 只能评测工作区当前内容，所以只接受等于当前
+   * content digest 的值；不等 → SUITE_INVALID（不会静默改评别的版本）。
+   */
+  version?: string;
   runId?: string;
   out?: (line: string) => void;
   err?: (line: string) => void;
@@ -92,7 +97,8 @@ export async function runEvalCommand(opts: EvalCommandOptions): Promise<EvalComm
     return none(EXIT.SUITE_INVALID);
   }
   const fixturesDir = join(suiteDir, "fixtures");
-  const fixtureFiles = existsSync(fixturesDir) ? readdirSync(fixturesDir).filter(f => statSync(join(fixturesDir, f)).isFile()).sort() : [];
+  // 递归收集（子目录夹具同样进 E11 扫描与 fixturesDigest），名字用相对 fixtures/ 的 posix 路径，与 fixtureRefs 同形。
+  const fixtureFiles = walk(fixturesDir).map(p => relative(fixturesDir, p).split(sep).join("/")).sort();
   let suiteJson: unknown;
   try {
     suiteJson = JSON.parse(readFileSync(join(suiteDir, "suite.json"), "utf8"));
@@ -104,6 +110,8 @@ export async function runEvalCommand(opts: EvalCommandOptions): Promise<EvalComm
     dirName: opts.entity,
     suiteJson,
     casesJsonl: existsSync(join(suiteDir, "cases.jsonl")) ? readFileSync(join(suiteDir, "cases.jsonl"), "utf8") : "",
+    // 注意：这里刻意屏蔽了 EV01 的「夹具缺失」校验（validate-work-eval-suite 仍会对缺失夹具失败，
+    // 见 tests/work-eval/eval-runner.test.ts 的 EV01 钉子测试）；
     // 缺失的夹具引用按 E2 降级为该 case error，而不是整套件无效——这里把全部引用视作存在，运行时再判。
     fixtureFiles: [...fixtureFiles, ...readReferencedFixtures(suiteDir)],
     hasGrader: existsSync(join(suiteDir, "grader.ts")),
@@ -117,6 +125,7 @@ export async function runEvalCommand(opts: EvalCommandOptions): Promise<EvalComm
   // E11：先扫夹具，命中疑似真实个人数据就拒绝运行，不产生报告。
   const fixtures = new Map<string, unknown>();
   const texts: string[] = [];
+  const invalidFixtures = new Set<string>();
   const findings = [];
   for (const f of fixtureFiles) {
     const text = readFileSync(join(fixturesDir, f), "utf8");
@@ -125,7 +134,7 @@ export async function runEvalCommand(opts: EvalCommandOptions): Promise<EvalComm
     try {
       fixtures.set(f, JSON.parse(text));
     } catch {
-      /* 解析失败的夹具不入表 → 引用它的 case 记 error */
+      invalidFixtures.add(f); // 引用它的 case 记 error，原因为 invalid JSON（不是 not found）
     }
   }
   if (findings.length > 0) {
@@ -142,6 +151,10 @@ export async function runEvalCommand(opts: EvalCommandOptions): Promise<EvalComm
   const version = resolveSubjectVersion(opts.repoRoot, opts.entity);
   if (!version) {
     err(`SUITE_INVALID ${opts.entity}: cannot locate a pinned subject version (no SKILL.md / entity doc)`);
+    return none(EXIT.SUITE_INVALID);
+  }
+  if (opts.version !== undefined && opts.version !== version.digest) {
+    err(`SUITE_INVALID --version ${opts.version}: loopback eval can only run the current working-tree version (${version.digest}, ${version.label})`);
     return none(EXIT.SUITE_INVALID);
   }
   if (opts.baseline && !bundle.suite.baseline) {
@@ -164,11 +177,14 @@ export async function runEvalCommand(opts: EvalCommandOptions): Promise<EvalComm
       suite: bundle.suite,
       cases: bundle.cases,
       fixtures,
+      invalidFixtures,
       grader: { version: graderMod.GRADER_VERSION, grade: graderMod.grade },
       subject,
       baseline: opts.baseline ? genericAgentBaselineLoopback : null,
       subjectVersionDigest: version.digest,
-      subjectVersionLabel: version.label,
+      // digest 只覆盖 Skill 包/实体文档；回环行为由 policyVersion 决定（ADR-118 #9 的已知限制：内容改了、
+      // 回环策略没改时 digest 变而行为不变）。把 policyVersion 写进 label，让报告可追溯到实际跑的策略。
+      subjectVersionLabel: `${version.label}|lb:${subject.policyVersion}`.slice(0, 64),
       fixturesDigest: sha256(texts),
       caseFilter: opts.cases,
       runId: opts.runId ?? newRunId(opts.entity),
@@ -202,14 +218,26 @@ function readReferencedFixtures(suiteDir: string): string[] {
   return [...refs];
 }
 
-export function parseEvalArgs(argv: readonly string[]): { entity?: string; baseline: boolean; cases: string[]; evalsRoot?: string } {
-  const r = { entity: undefined as string | undefined, baseline: false, cases: [] as string[], evalsRoot: undefined as string | undefined };
+export interface ParsedEvalArgs {
+  entity?: string;
+  baseline: boolean;
+  cases: string[];
+  evalsRoot?: string;
+  version?: string;
+  /** 不认识的参数；调用方须以 SUITE_INVALID 拒绝，而不是静默忽略。 */
+  unknown: string[];
+}
+
+export function parseEvalArgs(argv: readonly string[]): ParsedEvalArgs {
+  const r: ParsedEvalArgs = { baseline: false, cases: [], unknown: [] };
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
     if (a === "--entity") r.entity = argv[++i];
     else if (a === "--baseline") r.baseline = true;
     else if (a === "--case") r.cases.push(...(argv[++i] ?? "").split(",").filter(Boolean));
     else if (a === "--evals-root") r.evalsRoot = argv[++i];
+    else if (a === "--version") r.version = argv[++i] ?? "";
+    else r.unknown.push(a ?? "");
   }
   return r;
 }

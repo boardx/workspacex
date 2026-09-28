@@ -9,6 +9,7 @@
  *
  * 真实模型链路不在此处：只走 real-model-e2e lane（lane=real-model，不参与 G4/G5）。
  */
+import { z } from "zod";
 import type { FixtureDocument, FixtureToolbox } from "./fixture-tools";
 
 export interface LoopbackCaseInput {
@@ -22,6 +23,11 @@ export interface LoopbackCaseInput {
 export interface LoopbackAgent {
   /** 回环策略版本；与被测内容 digest 一起决定报告可复现性。 */
   readonly policyVersion: string;
+  /**
+   * 被测实体的 inputSchema（S003 实体文档 §5；WorkSkillManifest 尚为 proposed-unwired，故在此镜像）。
+   * case.input 不满足 → 该 case 为 error（04-eval-gates R4 E2）。
+   */
+  readonly inputSchema?: z.ZodType<unknown>;
   run(input: LoopbackCaseInput, tools: FixtureToolbox): Promise<Record<string, unknown>>;
 }
 
@@ -66,7 +72,22 @@ function aliasTerms(question: string, docs: readonly FixtureDocument[]): string[
 }
 
 /** S003 企业检索（回环）。 */
+/** S003 实体文档 §5 输入契约的镜像。 */
+export const S003InputSchema = z
+  .object({
+    question: z.string().min(1),
+    mode: z.enum(["evidence", "dedupe"]),
+    queryType: z.enum(["decision", "status", "locate", "who-knows", "policy", "timeline", "exists"]).optional(),
+    projectIds: z.array(z.string()).optional(),
+    scopes: z.array(z.enum(["current-files", "organization-index", "organization-hybrid"])).optional(),
+    timeWindow: z.object({ from: z.string().optional(), to: z.string().optional() }).strict().optional(),
+    researchPlanItemRef: z.string().optional(),
+    maxHitsPerItem: z.number().int().min(1).max(10).optional(),
+  })
+  .strict();
+
 export const s003EnterpriseSearchLoopback: LoopbackAgent = {
+  inputSchema: S003InputSchema,
   policyVersion: "s003-loopback-1.0.0",
   async run(input, tools) {
     const question = input.question;

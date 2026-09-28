@@ -3,13 +3,13 @@
  * 每条用例都在套件的临时副本上跑，报告写进临时目录，不污染仓库。
  */
 import { spawnSync } from "node:child_process";
-import { cpSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { cpSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { afterAll, describe, expect, it } from "vitest";
 import { WorkEvalReport } from "@repo/contracts/work-eval";
 import { scanFixtureForPersonalData } from "../../src/application/work-eval/fixture-privacy";
-import { EXIT, runEvalCommand } from "../../src/infrastructure/work-eval/fs-eval-suite";
+import { EXIT, parseEvalArgs, resolveSubjectVersion, runEvalCommand } from "../../src/infrastructure/work-eval/fs-eval-suite";
 
 const repoRoot = resolve(__dirname, "../../../..");
 const tmpRoots: string[] = [];
@@ -129,6 +129,72 @@ export async function grade(...a: Parameters<typeof gradeNow>) { await new Promi
     expect(bad.exitCode).toBe(EXIT.SUITE_INVALID);
     expect(errs.join("\n")).toContain("suite.json graderVersion");
     expect(bad.report).toBeNull();
+  });
+
+  it("E2: case input violating the subject inputSchema → that case is error", async () => {
+    const root = copySuite();
+    const casesPath = join(root, "S003/cases.jsonl");
+    writeFileSync(casesPath, readFileSync(casesPath, "utf8").replace('"input": {"question": "P2 的预算结论是什么", "mode": "evidence"}', '"input": {"question": "P2 的预算结论是什么", "mode": "summarize"}'));
+    const r = await S003(root);
+    expect(r.exitCode).toBe(EXIT.CASE_FAILED_OR_ERROR);
+    const bad = r.report!.subject.results.filter(c => c.outcome !== "pass");
+    expect(bad).toHaveLength(1);
+    expect(bad[0]).toMatchObject({ outcome: "error" });
+    expect(bad[0]!.reason).toMatch(/inputSchema: mode/);
+  });
+
+  it("E2: a fixture that exists but is invalid JSON → error says 'invalid JSON', not 'not found'", async () => {
+    const root = copySuite();
+    writeFileSync(join(root, "S003/fixtures/galaxy-aliases.json"), "{ not json");
+    const r = await S003(root);
+    expect(r.exitCode).toBe(EXIT.CASE_FAILED_OR_ERROR);
+    const e5 = r.report!.subject.results.find(c => c.caseId === "E5")!;
+    expect(e5).toMatchObject({ outcome: "error" });
+    expect(e5.reason).toContain("fixture invalid JSON: fixtures/galaxy-aliases.json");
+    expect(e5.reason).not.toContain("not found");
+  });
+
+  it("nested fixtures are scanned by E11 and included in fixturesDigest", async () => {
+    const root = copySuite();
+    const before = (await S003(root, { cases: ["E1"] })).report!.fixturesDigest;
+    mkdirSync(join(root, "S003/fixtures/sub"));
+    writeFileSync(join(root, "S003/fixtures/sub/extra.json"), '{"note":"synthetic"}');
+    const after = (await S003(root, { cases: ["E1"] })).report!.fixturesDigest;
+    expect(after).not.toBe(before);
+    writeFileSync(join(root, "S003/fixtures/sub/extra.json"), '{"note":"lin.wei@corp-mail.cn"}');
+    const errs: string[] = [];
+    const r = await S003(root, { err: l => errs.push(l) });
+    expect(r.exitCode).toBe(EXIT.FIXTURE_REAL_DATA_SUSPECTED);
+    expect(errs.join("\n")).toContain("fixtures/sub/extra.json");
+  });
+
+  it("EV01 validate-work-eval-suite still fails on a missing fixture (eval's E2 downgrade does not hide it)", () => {
+    const root = copySuite();
+    rmSync(join(root, "S003/fixtures/galaxy-aliases.json"));
+    const tsx = join(repoRoot, "apps/api/node_modules/.bin/tsx");
+    const cli = join(repoRoot, "packages/contracts/scripts/validate-work-eval-suite.ts");
+    const r = spawnSync(tsx, [cli, join(root, "S003")], { cwd: repoRoot, encoding: "utf8" });
+    expect(r.status, r.stdout + r.stderr).not.toBe(0);
+    expect(r.stdout + r.stderr).toContain("galaxy-aliases.json");
+  });
+
+  it("UC-2 --version: current digest runs; any other digest → SUITE_INVALID; unknown flags are reported", async () => {
+    const root = copySuite();
+    const current = resolveSubjectVersion(repoRoot, "S003")!.digest;
+    const ok = await S003(root, { version: current, cases: ["E1"] });
+    expect(ok.exitCode).toBe(EXIT.OK);
+    expect(ok.report!.subjectVersionDigest).toBe(current);
+    expect(ok.report!.subjectVersionLabel).toContain("lb:s003-loopback-");
+    const errs: string[] = [];
+    const bad = await S003(root, { version: `sha256:${"0".repeat(64)}`, err: l => errs.push(l) });
+    expect(bad.exitCode).toBe(EXIT.SUITE_INVALID);
+    expect(bad.report).toBeNull();
+    expect(errs.join("\n")).toContain("--version");
+    expect(parseEvalArgs(["--entity", "S003", "--version", "v1", "--bogus"])).toMatchObject({ version: "v1", unknown: ["--bogus"] });
+    const tsx = join(repoRoot, "apps/api/node_modules/.bin/tsx");
+    const cli = spawnSync(tsx, [join(repoRoot, ".harness/scripts/cli.ts"), "eval", "--entity", "S003", "--evals-root", root, "--bogus"], { cwd: repoRoot, encoding: "utf8" });
+    expect(cli.status).toBe(EXIT.SUITE_INVALID);
+    expect(cli.stderr).toContain("unknown argument(s): --bogus");
   });
 
   it("E11: fixtures with real-looking email/phone → refused (exit 3), no report written", async () => {

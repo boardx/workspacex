@@ -4,7 +4,7 @@
  *
  * 语义：
  * - 逐 case 用回环 Agent + 夹具工具桩跑被测「固定版本」，grader 给 pass/fail；
- * - grader 抛异常、Agent 抛异常、超时（suite.caseTimeoutMs）、夹具缺失 → `error`，永不计作 pass（E2/E3）；
+ * - grader 抛异常、Agent 抛异常、超时（suite.caseTimeoutMs）、夹具缺失/非法 JSON、case.input 不满足被测 inputSchema → `error`，永不计作 pass（E2/E3）；
  * - `--baseline`：同一批 case 用通用 Agent + suite.baseline.tools 再跑一遍，并列写进报告；
  * - `--case`：只跑指定 case，报告 `partial=true`（A2，不能作 G4/G5 证据）。
  */
@@ -37,6 +37,8 @@ export interface EvalRunInput {
   cases: readonly WorkEvalCase[];
   /** fixture 文件名 → 已解析 JSON；缺失的引用 → 该 case error（E2）。 */
   fixtures: ReadonlyMap<string, unknown>;
+  /** 文件存在但不是合法 JSON 的夹具名 → 引用它的 case error，原因写明 invalid JSON（不是 not found）。 */
+  invalidFixtures?: ReadonlySet<string>;
   grader: EvalGrader;
   subject: LoopbackAgent;
   baseline: LoopbackAgent | null;
@@ -66,7 +68,17 @@ async function runCase(c: WorkEvalCase, input: EvalRunInput, agent: LoopbackAgen
     reason: reason === null ? null : truncate(reason),
     durationMs: Math.max(0, Date.now() - started),
   });
+  const inputSchema = input.subject.inputSchema;
+  if (inputSchema) {
+    const parsed = inputSchema.safeParse(c.input);
+    if (!parsed.success) {
+      const detail = parsed.error.issues.map(i => `${i.path.join(".") || "(root)"}: ${i.message}`).join("; ");
+      return done("error", `input does not satisfy inputSchema: ${detail}`);
+    }
+  }
   const missing = c.fixtureRefs.filter(ref => !input.fixtures.has(ref));
+  const invalid = missing.filter(ref => input.invalidFixtures?.has(ref));
+  if (invalid.length > 0) return done("error", `fixture invalid JSON: ${invalid.map(m => `fixtures/${m}`).join(", ")}`);
   if (missing.length > 0) return done("error", `fixture not found: ${missing.map(m => `fixtures/${m}`).join(", ")}`);
   try {
     const toolbox = new FixtureToolbox(mergeFixtures(c.fixtureRefs.map(ref => input.fixtures.get(ref))), tools);
