@@ -22,7 +22,7 @@ The existing production implementation, API, published snapshots, and canonical 
 
 Questionnaire and report template libraries may retain their existing separate routes. Their navigation labels and presentation must follow the prototype, without inserting templates into the three-step progress indicator.
 
-An existing `/studio/survey/[surveyId]?step=design|publish|responses` URL redirects to the corresponding canonical route, preserving `projectId` and other explicitly supported context. Unknown steps land on design. The existing `?preview=1` prototype entry remains available during migration, then may be removed only in a separately reviewed cleanup.
+An existing `/studio/survey/[surveyId]?step=design|publish|responses` URL redirects to the corresponding canonical route, preserving `projectId` and other explicitly supported context. Unknown steps land on design. New user-facing work must use real survey APIs and persisted data; do not add mock-only routes or simulated proposal flows. The existing `?preview=1` legacy entry is outside this implementation scope and may be removed only in a separately reviewed cleanup.
 
 ## State and data boundaries
 
