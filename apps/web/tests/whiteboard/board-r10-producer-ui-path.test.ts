@@ -16,3 +16,10 @@ it('uses real warmup placement before the timer without reducing the measured si
  expect(helper.indexOf('await page.mouse.click(point!.x,point!.y)')).toBeLessThan(helper.indexOf('await editor.fill(label)'));
  expect(helper).toContain('await expect(editor).toBeFocused()');expect(helper).not.toMatch(/api\.post|route\(|dispatchEvent|\.evaluate\([^]*getMap/);
 });
+it('keeps acceptance pointer gestures in bounds and reserves a measured startup window for the heavy performance producer',()=>{
+ const journey=read('board-final-acceptance.spec.ts'),performance=read('board-performance-acceptance.config.ts');
+ expect(journey).toContain("{name: 'C', dx: -24}");
+ expect(journey).not.toContain("for (const name of ['A', 'B', 'C'])");
+ expect(performance).toContain('BOARD_PERFORMANCE_SERVER_TIMEOUT_MS ?? 360_000');
+ expect(performance).toContain('server?.timeout === 30_000 ? server.timeout');
+});

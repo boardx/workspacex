@@ -70,10 +70,15 @@ const compose = `docker compose -f ../api/docker-compose.dev.yml -p "${required(
  * 就显式覆盖 `FULLSTACK_E2E_SERVER_TIMEOUT_MS`。这次改的是默认值本身对应的真实
  * 依赖重量，不是绕过信号。
  *
+ * 2026-09-29（PR #4524）冷构建在 CI 的 240s 窗口内已完成编译与类型检查，
+ * 但仍在 collecting build traces 时被 Playwright 终止；这说明当前生产构建本身
+ * 已稳定贴近旧上限。默认值提高到 360s，给 `next start` 与健康探测保留与前两次
+ * 调整相同量级的余量。
+ *
  * ⚠ `database-unavailable` 那条反证**不受它影响**：那一格要的就是「快速失败」，
  *   给它一个长窗口只会让反证等满。见下方 API 那格的三元。
  */
-const serverStartTimeoutMs = Number(process.env.FULLSTACK_E2E_SERVER_TIMEOUT_MS ?? 240_000);
+const serverStartTimeoutMs = Number(process.env.FULLSTACK_E2E_SERVER_TIMEOUT_MS ?? 360_000);
 const fixtureEnv = {
   FULLSTACK_E2E_FIXTURE: "1",
   FULLSTACK_E2E_EMAIL: FULLSTACK_E2E.email,
@@ -720,7 +725,7 @@ export default defineConfig({
       command: `rm -rf .next-fullstack-e2e && next build && next start -p ${webPort}`,
       url: `http://127.0.0.1:${webPort}/login`,
       stdout: "pipe",
-      // 默认仍是 120s；只有显式设了 `FULLSTACK_E2E_SERVER_TIMEOUT_MS` 才不同。见上方定义。
+      // 默认 360s；显式设置 `FULLSTACK_E2E_SERVER_TIMEOUT_MS` 时使用车道覆盖值。见上方定义。
       timeout: serverStartTimeoutMs,
       reuseExistingServer: false,
       env: {

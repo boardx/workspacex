@@ -31,7 +31,7 @@ function typeOf(raw: string): ImportedBoardItem['type'] {
   if (['card', 'tile'].includes(value)) return 'tile';
   return 'unsupported';
 }
-function plainText(value:string):string {
+function richTextToText(value:string):string {
   return value.replace(/<br\s*\/?>(?:\r?\n)?/gi,'\n').replace(/<\/(?:p|div|li)>/gi,'\n').replace(/<[^>]*>/g,'').replace(/&(?:amp|lt|gt|quot|apos|nbsp);|&#(?:x[0-9a-f]+|[0-9]+);/gi,entity=>{
     const named:Record<string,string>={'&amp;':'&','&lt;':'<','&gt;':'>','&quot;':'"','&apos;':"'",'&nbsp;':' '};
     if(named[entity.toLowerCase()])return named[entity.toLowerCase()]!;
@@ -56,7 +56,7 @@ function normalize(raw: unknown, index: number, source: WhiteboardImportSource, 
   if(context.muralRest&&color&&/^#[0-9a-f]{8}$/i.test(color)){if(!/ff$/i.test(color))losses.push('Color alpha was normalized to opaque.');color=color.slice(0,7);}
   if(!Number.isFinite(num(NaN,value.width,size.width,geometry.width))||!Number.isFinite(num(NaN,value.height,size.height,geometry.height)))losses.push('Missing source dimensions were replaced with default container dimensions.');
   if(richText&&/<[^>]+>/.test(rawText)) losses.push('Rich text formatting was converted to plain text.');
-  const normalizedText=richText?plainText(rawText):rawText;
+  const normalizedText=richText?richTextToText(rawText):rawText;
   if(normalizedText.length>20_000) losses.push('Text was truncated to 20000 characters.');
   if(type==='connector'&&normalizedText.length>1000)losses.push('Connector label was truncated to 1000 characters.');
   if(context.muralRest&&type==='image'&&(value.mask||value.border||value.caption||value.description))losses.push('Image crop, border, caption and description are not preserved.');

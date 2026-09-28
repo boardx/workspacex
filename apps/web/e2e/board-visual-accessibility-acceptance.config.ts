@@ -12,13 +12,13 @@ process.env.BOARD_ACCEPTANCE_RUNTIME_STARTED_AT??=new Date().toISOString();
 // which should inherit Chromium launch arguments or a microphone grant for a
 // visual-only journey.
 const {permissions: _permissions, launchOptions: _launchOptions, ...browserNeutralUse}=base.use ?? {};
-export default {...base,testDir:'.',testMatch:/board-visual-accessibility-acceptance\.spec\.ts/,timeout:10*60_000,workers:1,retries:0,fullyParallel:false,
+export default {...base,testDir:'.',timeout:10*60_000,workers:1,retries:0,fullyParallel:false,
   outputDir:'../test-results/board-visual-accessibility',use:{...browserNeutralUse,trace:'off' as const,video:'off' as const},
   projects:[
-    {name:'chromium',use:{...devices['Desktop Chrome'],hasTouch:true,
+    {name:'chromium',testMatch:/(?:board-visual-accessibility-acceptance|board-compact-chrome-acceptance)\.spec\.ts/,use:{...devices['Desktop Chrome'],hasTouch:true,
       permissions:['microphone'],launchOptions:{args:['--use-fake-device-for-media-stream','--use-fake-ui-for-media-stream']}}},
-    {name:'firefox',use:{...devices['Desktop Firefox']}},
-    {name:'webkit',use:{...devices['Desktop Safari']}},
+    {name:'firefox',testMatch:/board-visual-accessibility-acceptance\.spec\.ts/,use:{...devices['Desktop Firefox']}},
+    {name:'webkit',testMatch:/board-visual-accessibility-acceptance\.spec\.ts/,use:{...devices['Desktop Safari']}},
   ],
   webServer:(Array.isArray(base.webServer)?base.webServer:[base.webServer]).map(server=>({...server!,cwd:resolve(webDirectory,server?.cwd??'.'),reuseExistingServer:false,env:{...server?.env,WORKSPACEX_DEPLOYMENT_MARKER:marker}})),
 };

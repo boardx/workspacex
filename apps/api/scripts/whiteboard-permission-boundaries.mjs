@@ -5,6 +5,41 @@ import {whiteboardStoragePermissionBoundaries,verifyWhiteboardStoragePermissionB
  * while the production lint can prove the actor, tenant, locking and replay invariants.
  */
 export const whiteboardPermissionBoundaries = new Map([
+  ['src/infrastructure/whiteboard/pg-operation-undo-store.ts', {
+    tables: ['whiteboard_operation_undo','whiteboard_operations','whiteboard_documents','whiteboard_comment_threads','whiteboard_asset_refs'],
+    reason: 'Board Undo stays inside the already-authorized operation transaction and binds every receipt, document, comment restoration and asset reference to the same tenant and Board; the operation guard tests pin authorization before compensation.',
+    checks: [/WHERE u\.org_id=\$1 AND u\.board_id=\$2 AND u\.operation_id=\$3/],
+  }],
+  ['src/infrastructure/whiteboard/pg-import-repository.ts', {
+    tables: ['whiteboard_imports','whiteboard_asset_refs'],
+    reason: 'Board imports are authorized by WhiteboardImportService before repository access; every record and leased asset transition remains scoped by organization, Board, import identity and actor-bound replay metadata.',
+    checks: [/WHERE org_id=\$1 AND board_id=\$2 AND id=\$3 FOR UPDATE/],
+  }],
+  ['src/infrastructure/whiteboard/pg-export-repository.ts', {
+    tables: ['whiteboard_exports'],
+    reason: 'Board exports are authorized before repository access and this adapter exposes only immutable object-store pointer metadata scoped by organization, Board and export identity, never package bytes.',
+    checks: [/WHERE org_id=\$1 AND board_id=\$2 AND id=\$3/],
+  }],
+  ['src/infrastructure/whiteboard/pg-recovery-metadata.ts', {
+    tables: ['whiteboards','whiteboard_members','whiteboard_documents','whiteboard_checkpoints','whiteboard_updates','whiteboard_recovery_events','whiteboard_restore_receipts'],
+    reason: 'Checkpoint and recovery metadata use a locked owner/member lookup before reads, require the owner for restore, and compare-and-swap the exact document head before publishing a new epoch.',
+    checks: [/SELECT owner_id,archived FROM whiteboards WHERE org_id=\$1 AND id=\$2/],
+  }],
+  ['src/infrastructure/whiteboard/pg-operation-repository.ts', {
+    tables: ['whiteboards','whiteboard_members','whiteboard_documents','whiteboard_operations','whiteboard_operation_events','whiteboard_actor_identities','artifacts','artifact_versions','acl_bindings','whiteboard_artifact_layout_bindings'],
+    reason: 'Board operation receipts and events require a locked current owner/member decision; delegated actors remain bound to the authenticated user, while artifact reads require the exact immutable version and issued layout binding.',
+    checks: [/SELECT owner_id,archived FROM whiteboards WHERE org_id=\$1 AND id=\$2 FOR UPDATE/],
+  }],
+  ['src/infrastructure/whiteboard/pg-proposal-repository.ts', {
+    tables: ['whiteboard_ai_proposals','whiteboard_asset_refs'],
+    reason: 'Durable Board proposals are reached only after the Board operation authority lock and bind each body pointer and replay transition to organization, Board, proposal and original actor metadata.',
+    checks: [/WHERE org_id=\$1 AND board_id=\$2 AND proposal_id=\$3 FOR UPDATE/],
+  }],
+  ['src/infrastructure/whiteboard/pg-presentation-repository.ts', {
+    tables: ['whiteboards','whiteboard_members','whiteboard_presentation_sessions','whiteboard_room_identities'],
+    reason: 'Presentation state inherits current private Board membership; room identities bind reconnect tokens to their owner, and handoff targets must be a Board owner, member or registered room identity.',
+    checks: [/SELECT 1 FROM whiteboards w WHERE w\.org_id=\$1 AND w\.id=\$2/],
+  }],
   ['src/infrastructure/whiteboard/chat-artifact-access.ts', {
     tables: ['chat_artifact_landings','chat_threads','provenance_events'],
     reason: '#4256 ids-only Chat artifact locator returns only a policy boolean; content authority is the existing Chat resolveVisibility and draft-source policy, using the operation tenant transaction.',

@@ -13,6 +13,7 @@ export default defineConfig({ resolve:{alias:{
   '@repo/contracts/whiteboard-sync':resolve(__dirname,'../../packages/contracts/src/whiteboard-sync.ts'),
   '@repo/contracts/whiteboard-collaboration':resolve(__dirname,'../../packages/contracts/src/whiteboard-collaboration.ts'),
   '@repo/contracts/whiteboard-operation':resolve(__dirname,'../../packages/contracts/src/whiteboard-operation.ts'),
+  '@repo/contracts/whiteboard-storage':resolve(__dirname,'../../packages/contracts/src/whiteboard-storage.ts'),
   '@repo/contracts/interview-markdown-report-review':resolve(__dirname,'../../packages/contracts/src/interview-markdown-report-review.ts'),
   '@repo/contracts':resolve(__dirname,'../../packages/contracts/src/index.ts'),
   '@repo/whiteboard-core':resolve(__dirname,'../../packages/whiteboard-core/src/index.ts'),

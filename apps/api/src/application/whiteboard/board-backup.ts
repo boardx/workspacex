@@ -2,26 +2,17 @@ import { createHash } from 'node:crypto';
 import { z } from 'zod';
 import * as Y from 'yjs';
 import { createWhiteboardDocument, readObjects, readContentObject, validateDocument } from '@repo/whiteboard-core';
-import { WhiteboardAssetMetadata } from '@repo/contracts/whiteboard-asset';
-import { CommentBackupDescriptorSchema, type CommentBackupDescriptor } from './comment-backup-contract';
+import { BackupBlob, BoardBackupManifest, type CommentBackupDescriptor } from '@repo/contracts/whiteboard-storage';
+import type { WhiteboardAssetMetadata } from '@repo/contracts/whiteboard-asset';
 import type { Principal } from '../../domain/principal';
 import { ObjectExistsError, type ObjectStore } from '../artifact/ports';
 
 export const backupHash=(bytes:Uint8Array|string)=>createHash('sha256').update(bytes).digest('hex');
 export const backupTenant=(org:string)=>backupHash(org).slice(0,32);
-const Id=z.string().uuid(), Hash=z.string().regex(/^[a-f0-9]{64}$/);
-export const BackupBlob=z.object({key:z.string().min(1).max(1024),hash:Hash,bytes:z.number().int().positive().max(33554432),mime:z.string().min(1).max(128)}).strict();
-export const BoardBackupManifest=z.object({version:z.literal(1),backupId:Id,orgId:z.string().min(1),capturedAt:z.string().datetime(),
-  board:z.object({id:Id,name:z.string().trim().min(1).max(200),ownerId:z.string().min(1),createdAt:z.string().datetime(),updatedAt:z.string().datetime(),archived:z.boolean(),lifecycleRevision:z.number().int().nonnegative(),tagsRevision:z.number().int().nonnegative(),members:z.array(z.object({userId:z.string().min(1),role:z.enum(['editor','commenter','viewer'])}).strict()).max(10000),tags:z.array(z.object({id:Id,name:z.string(),revision:z.number().int().positive()}).strict()).max(1000)}).strict(),
-  revision:z.object({epoch:z.number().int().positive(),seq:z.number().int().nonnegative().max(Number.MAX_SAFE_INTEGER)}).strict(),snapshot:BackupBlob,
-  images:z.array(z.object({blob:BackupBlob,metadata:WhiteboardAssetMetadata}).strict()).max(5000),comments:z.array(CommentBackupDescriptorSchema).max(10000),
-  // Optional, not defaulted: preserve the exact hash of already-issued v1 manifests.
-  sourceHistory:z.array(BackupBlob).max(20000).optional(),
-}).strict();
-export type BoardBackupManifest=z.infer<typeof BoardBackupManifest>;
-export type BackupBlob=z.infer<typeof BackupBlob>;
+const Id=z.string().uuid();
+export { BackupBlob, BoardBackupManifest };
 export interface BackupRecord {manifest:BoardBackupManifest;status:'preparing'|'verified'|'failed_pending_cleanup';manifestHash:string|null;}
-export interface RestoreRefs {snapshot:BackupBlob;images:Array<{blob:BackupBlob;metadata:z.infer<typeof WhiteboardAssetMetadata>}>;comments:CommentBackupDescriptor[];}
+export interface RestoreRefs {snapshot:BackupBlob;images:Array<{blob:BackupBlob;metadata:WhiteboardAssetMetadata}>;comments:CommentBackupDescriptor[];}
 /** PG contains only bounded metadata/immutable pointers. No document/image bytes enter this port. */
 export interface BoardBackupRepository {
   capture(p:Principal,boardId:string,backupId:string):Promise<BackupRecord>;

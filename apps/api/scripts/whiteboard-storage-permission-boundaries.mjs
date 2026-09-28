@@ -9,13 +9,13 @@ const transaction='this.db.withTenant(p.orgId,';
  */
 export const whiteboardStoragePermissionBoundaries=new Map([
  [path('pg-organize-actor-directory'),{
-  tables:['whiteboard_actor_identities'],checks:[],
+  tables:['whiteboard_actor_identities'],checks:[/assertPrincipal\(p\)/],
   reason:'#4256 ids-only directory exposes only enabled AI identities delegated to the authenticated tenant user; OrganizeService separately authorizes the board and verifies published runtime/scopes. Exact AST method admission rejects additional reads or weakened predicates.',
   required:["import {assertPrincipal,type Principal} from '../../domain/principal'"],
   methods:{list:{...method(1),exactSource:"async list(p:Principal){assertPrincipal(p);return this.db.withTenant(p.orgId,async (s)=>(await s.query<{actor_id:string;}>(`SELECT actor_id FROM whiteboard_actor_identities WHERE org_id=$1 AND delegated_by=$2 AND enabled=true AND kind='ai' ORDER BY actor_id LIMIT 50`,[p.orgId,p.userId])).rows.map(row=>row.actor_id));}"}},
  }],
  [path('storage-maintenance-access'),{
-  tables:['org_memberships','whiteboards'],checks:[],
+  tables:['org_memberships','whiteboards'],checks:[/FROM org_memberships WHERE org_id=\$1 AND user_id=\$2 FOR SHARE/],
   reason:'#4255 operator maintenance uses the identity-domain administrator policy or current board ownership, with membership and board locks; storage-permission-boundary.test.ts mutation checks enforce the scope.',
   required:["from '../../domain/auth/org-lifecycle'"],
   methods:{
@@ -24,7 +24,7 @@ export const whiteboardStoragePermissionBoundaries=new Map([
   },
  }],
  [path('pg-storage-backfill'),{
-  tables:['whiteboard_documents','whiteboard_updates','whiteboard_comment_threads','whiteboard_comment_requests','whiteboards'],checks:[],
+  tables:['whiteboard_documents','whiteboard_updates','whiteboard_comment_threads','whiteboard_comment_requests','whiteboards'],checks:[/await lockBoardStorageMaintenance\(s,p/],
   reason:'#4255 metadata-only legacy backfill uses the locked storage operator boundary before counts, enumeration or in-transaction pointer migration; no content bytes escape this port.',
   required:["from './storage-maintenance-access'"],
   methods:{
@@ -35,7 +35,7 @@ export const whiteboardStoragePermissionBoundaries=new Map([
   },
  }],
  [path('pg-backup-maintenance'),{
-  tables:['whiteboard_backups','whiteboards','whiteboard_backup_pins','whiteboard_backup_restores','whiteboard_backup_maintenance_receipts','whiteboard_documents'],checks:[],
+  tables:['whiteboard_backups','whiteboards','whiteboard_backup_pins','whiteboard_backup_restores','whiteboard_backup_maintenance_receipts','whiteboard_documents'],checks:[/await lockStorageOperatorMembership\(s,p\)/],
   reason:'#4255 retention/recovery requires locked organization membership plus current source-board ownership (or administrator), actor-bound receipts and current manifest CAS, before disclosing captures or changing roots.',
   required:["from './storage-maintenance-access'"],
   methods:{
@@ -62,12 +62,12 @@ export const whiteboardStoragePermissionBoundaries=new Map([
   },
  }],
  [path('pg-portable-board'),{
-  tables:['whiteboards','whiteboard_members','whiteboard_portable_imports'],checks:[],
+  tables:['whiteboards','whiteboard_members','whiteboard_portable_imports'],checks:[/SELECT owner_id,archived FROM whiteboards WHERE org_id=\$1 AND id=\$2 FOR UPDATE/],
   reason:'#4255 portable publication locks the destination before fresh membership, checks write/archive before replay, verifies tenant-board media keys/readback and publishes canonical commands plus asset roots atomically.',
   methods:{publish:method(4,[transaction,'SELECT owner_id,archived FROM whiteboards WHERE org_id=$1 AND id=$2 FOR UPDATE','[p.orgId,boardId]','SELECT role FROM whiteboard_members WHERE org_id=$1 AND board_id=$2 AND user_id=$3','[p.orgId,boardId,p.userId]',"if(!C.BoardRole.safeParse(role).success)throw new Fault('NOT_FOUND')","if(!['owner','editor'].includes(role!))throw new Fault('FORBIDDEN')","if(board.archived)throw new Fault('ARCHIVED')",'WHERE org_id=$1 AND board_id=$2 AND actor_id=$3 AND request_id=$4','[p.orgId,boardId,p.userId,input.requestId]',"if(row.request_hash!==input.requestHash)throw new Fault('IDEMPOTENCY_CONFLICT')",'whiteboards/tenants/${portableHash(p.orgId).slice(0,32)}/boards/${boardId}/assets/${image.metadata.contentDigest.slice(7)}','`sha256:${portableHash(bytes)}`!==image.metadata.contentDigest','this.collaboration.writeCommandsInTransaction(session,p,boardId,','this.assets.saveInTransaction(session,p,boardId,record)','[p.orgId,boardId,p.userId,input.requestId,input.requestHash,input.expectedEpoch,seq,input.commands.length,input.images.length]'],['SELECT owner_id,archived','SELECT role FROM whiteboard_members',"if(!['owner','editor']",'SELECT request_hash,epoch','this.objects.putOnce','this.objects.get(key)','this.collaboration.writeCommandsInTransaction','this.assets.saveInTransaction','INSERT INTO whiteboard_portable_imports','return{epoch:input.expectedEpoch'])},
  }],
  [path('pg-image-assets'),{
-  tables:['whiteboard_image_assets','whiteboard_asset_refs'],checks:[],
+  tables:['whiteboard_image_assets','whiteboard_asset_refs'],checks:[/r\.state='active' AND r\.released_at IS NULL/],
   reason:'#4255 internal image metadata port is admitted together with WhiteboardImageAssets.read pre/post-blob ACL and digest verification; portable writes use the locked publisher above. No raw storage path is returned by the HTTP service.',
   methods:{
    save:method(0,['this.db.withTenant(p.orgId,session=>this.saveInTransaction(session,p,boardId,record))']),

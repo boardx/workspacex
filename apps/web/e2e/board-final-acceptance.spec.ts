@@ -113,9 +113,12 @@ test('Diagram: A->B->C via two-click connections remain attached after each shap
     expect(clicks.every(count => count <= 2)).toBe(true);
     let rows = await canonicalRows(page);
     expect(rows.filter(row => row.kind === 'connector')).toHaveLength(2); expect(connectorsBound(rows)).toBe(true);
-    for (const name of ['A', 'B', 'C']) {
+    // Fit-to-board places the outer shapes against opposite viewport edges. Drag
+    // each one toward the canvas centre so the real pointer path stays inside
+    // the Fabric surface for the full requested scene-space delta.
+    for (const {name, dx} of [{name: 'A', dx: 24}, {name: 'B', dx: 24}, {name: 'C', dx: -24}]) {
       const before = rows.filter(row => row.kind === 'connector');
-      await dragObject(page, name, 24, 90);
+      await dragObject(page, name, dx, 90);
       rows = await canonicalRows(page); expect(connectorsBound(rows)).toBe(true);
       expect(rows.filter(row => row.kind === 'connector')).not.toEqual(before);
       expect(rows.filter(row => row.kind === 'connector').map(row => [row.from, row.to]).sort()).toEqual([['A', 'B'], ['B', 'C']]);

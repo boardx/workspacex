@@ -34,10 +34,12 @@ test('same-browser tabs drain a shared durable outbox without duplicate commits'
   const board=await call('POST','/whiteboards',CreateBoard.parse({requestId:randomUUID(),name:'Same-browser durable outbox'}));boardId=board.id;mark('board-created');
   await page.goto(`/studio/board/${boardId}`);await expect(synced(page)).toBeVisible();mark('board-opened');
   const initial=await call('POST',`/whiteboards/${boardId}/checkpoints`,{requestId:randomUUID()});expect(initial.manifest.seq).toBe(0);mark('initial-checkpoint');
-  for(let index=0;index<8;index++){
-   await page.getByTestId('board-add-more').click();
-   await page.getByTestId('board-add-panel').click();
-  }
+  const surface=page.getByTestId('board-fabric-surface');
+  await surface.hover();await page.mouse.wheel(0,100_000);await expect(page.getByTestId('board-zoom-value')).toHaveText('5%');
+  await page.getByTestId('board-add-frame').click();
+  await expect(page.getByTestId('board-frame-tool-panel')).toBeVisible();
+  for(let index=0;index<8;index++)await surface.click({position:{x:120+(index%4)*80,y:100+Math.floor(index/4)*80}});
+  await page.getByRole('button',{name:'Close frame tools'}).click();
   await expect(page.getByTestId('board-a11y-mirror').getByRole('button')).toHaveCount(8);
   mark('panels-created');
   await page.getByTestId('board-inspector-expand').click();

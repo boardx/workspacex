@@ -8,7 +8,7 @@ const servers=(Array.isArray(base.webServer)?base.webServer:[base.webServer]).fi
 
 export default defineConfig({...base,
  testDir:'./e2e',
- testMatch:['board-agent-public-api.spec.ts','board-shared-outbox.spec.ts','board-portable-real.spec.ts'],
+ testMatch:['board-agent-public-api.spec.ts','board-ai-api.spec.ts','board-shared-outbox.spec.ts','board-portable-real.spec.ts'],
  projects:[{name:'board-api-ws-objectstore',use:{...devices['Desktop Chrome']}}],
  webServer:servers,use:{...base.use,trace:'off',video:'off'},workers:1,fullyParallel:false,retries:0,timeout:240_000,
 });
