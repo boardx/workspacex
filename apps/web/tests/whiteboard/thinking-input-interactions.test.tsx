@@ -185,6 +185,7 @@ it("edits sticky appearance through canonical commands while preserving future e
   editor(false, doc);
   fireEvent.click(screen.getByTestId("mock-object-double"));
   expect(screen.getByRole("complementary", { name: "便利贴快捷工具" })).toBeVisible();
+  fireEvent.click(screen.getByTestId("board-sticky-style-open"));
   fireEvent.click(screen.getByTestId("sticky-quick-color-blue"));
   fireEvent.click(screen.getByTestId("context-sticky-circle"));
   fireEvent.click(screen.getByTestId("board-inspector-expand"));
@@ -263,6 +264,7 @@ it("shows contextual data in read-only mode but disables every mutation control"
   editor(true, doc);
   fireEvent.click(screen.getByTestId("mock-object-double"));
   expect(screen.getByRole("complementary", { name: "便利贴快捷工具" })).toBeVisible();
+  fireEvent.click(screen.getByTestId("board-sticky-style-open"));
   expect(screen.getByTestId("context-sticky-circle")).toBeDisabled();
   fireEvent.click(screen.getByTestId("context-sticky-circle"));
   fireEvent.click(screen.getByTestId("board-inspector-expand"));

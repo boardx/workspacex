@@ -27,6 +27,8 @@ it("shows Sticky-only direct controls and makes every mutating control unavailab
   const props = { object: sticky, readOnly: false, actorId: "me", onStickyChange, onTextChange: vi.fn(), onExperienceChange, onGeometryChange: vi.fn(), onClose: vi.fn(), onFutureAction: vi.fn() };
   const { rerender } = render(<ObjectContextToolbar {...props} />);
   expect(screen.queryByLabelText("新标签")).toBeNull();
+  expect(screen.queryByTestId("sticky-quick-color-yellow")).toBeNull();
+  fireEvent.click(screen.getByTestId("board-sticky-style-open"));
   expect(screen.getByTestId("sticky-quick-color-yellow")).toBeEnabled();
   expect(screen.getByTestId("context-sticky-circle")).toBeEnabled();
   expect(screen.queryByLabelText("字号")).toBeNull();
@@ -47,7 +49,7 @@ it("provides adjustable inspector size, compact geometry disclosure and grouped 
   const panel = screen.getByTestId("board-context-toolbar");
   expect(panel).toHaveAttribute("aria-label", "便利贴快捷工具");
   expect(panel).toHaveAttribute("data-expanded", "false");
-  expect(panel).toHaveClass("w-fit", "max-w-80", "xl:max-w-[min(27rem,calc(100vw-2rem))]");
+  expect(panel).toHaveClass("w-fit", "max-w-[min(27rem,calc(100vw-2rem))]");
   fireEvent.click(screen.getByTestId("board-inspector-expand"));
   expect(screen.getByTestId("board-inspector-scroll-content")).toBeVisible();
   const width = screen.getByTestId("board-inspector-resize");
@@ -111,11 +113,23 @@ it("limits the adjustable inspector to the editor container on a narrow viewport
 });
 
 it("groups the selected widget's frequent actions separately from detailed properties", () => {
-  render(<ObjectContextToolbar object={sticky} readOnly={false} actorId="me" onStickyChange={vi.fn()} onTextChange={vi.fn()} onExperienceChange={vi.fn()} onGeometryChange={vi.fn()} onClose={vi.fn()} onFutureAction={vi.fn()} onDuplicate={vi.fn()} onDelete={vi.fn()} />);
+  const onTextChange=vi.fn();
+  render(<ObjectContextToolbar object={sticky} readOnly={false} actorId="me" onStickyChange={vi.fn()} onTextChange={onTextChange} onExperienceChange={vi.fn()} onGeometryChange={vi.fn()} onClose={vi.fn()} onFutureAction={vi.fn()} onDuplicate={vi.fn()} onDelete={vi.fn()} />);
   expect(screen.getByTestId("board-object-quick-actions")).toHaveAccessibleName("对象快捷操作");
-  expect(screen.getByTestId("board-sticky-inspector-style")).toBeVisible();
   expect(screen.getByTestId("board-widget-quick-format")).toBeVisible();
+  expect(screen.getByTestId("board-sticky-style-open")).toHaveClass("h-11","w-11");
+  expect(screen.getByTestId("board-sticky-text-open")).toHaveClass("h-11","w-11");
+  expect(screen.getByTestId("board-inspector-expand")).toHaveClass("min-h-11","min-w-11");
+  expect(screen.queryByTestId("sticky-quick-color-yellow")).toBeNull();
+  fireEvent.click(screen.getByTestId("board-sticky-style-open"));
+  expect(screen.getByTestId("board-sticky-inspector-style")).toBeVisible();
   expect(screen.getByTestId("sticky-quick-color-yellow")).toBeVisible();
+  expect(screen.getByTestId("sticky-quick-color-yellow")).toHaveClass("h-11","w-11");
+  fireEvent.click(screen.getByTestId("board-sticky-style-open"));
+  fireEvent.click(screen.getByTestId("board-sticky-text-open"));
+  fireEvent.click(screen.getByRole("button",{name:"切换粗体"}));
+  expect(onTextChange).toHaveBeenCalledWith({preset:"body",bold:true});
+  fireEvent.click(screen.getByTestId("board-sticky-text-open"));
   fireEvent.click(screen.getByTestId("board-inspector-expand"));
   expect(screen.getByTestId("board-widget-advanced-format")).not.toHaveAttribute("open");
   expect(screen.getByTestId("board-inspector-geometry")).not.toHaveAttribute("open");
