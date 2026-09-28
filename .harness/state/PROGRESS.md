@@ -22,5 +22,6 @@
 | 15 | ai-capability-studio | not_started | 0 | 0 | 0 | 0 |
 | 18 | org-brain-knowledge-graph | not_started | 17 | 0 | 0 | 0 |
 | 19 | board-visual-workspace | not_started | 31 | 1 | 0 | 0 |
+| 20 | work-stack-foundation | not_started | 36 | 0 | 0 | 0 |
 
-_最近聚合:2026-09-26T01:02:31.741Z_
+_最近聚合:2026-09-28T12:36:07.140Z_

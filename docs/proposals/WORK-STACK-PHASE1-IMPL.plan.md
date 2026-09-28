@@ -39,7 +39,7 @@ flowchart TD
   classDef blocked fill:#fecaca,stroke:#dc2626,color:#111827
 
   class G doing
-  class I1 doing
+  class I1 done
   class I2 todo
   class I3 todo
   class I4 todo
@@ -71,3 +71,4 @@ flowchart TD
 | 时间 | 节点 | 状态变化 | 依据（命令 / 证据 / 堵塞原因） |
 |---|---|---|---|
 | 2026-09-28 | G, I1 | todo → doing | 接到目标：第一阶段按 10 轮迭代落地，每轮验收 |
+| 2026-09-28 | I1 | doing → done | phase-20 建立：5 份需求、36 个 feature（189 点，validate-fl 通过）、5 个契约束 + zod 契约、界面原型与截图；门控除签核外全绿；设计签核与一致性复核待人类补签（已授权先行开发） |
