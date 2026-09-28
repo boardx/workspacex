@@ -25,6 +25,18 @@ function questionLines(markdown: string, start: number, end: number) {
   }).filter((question): question is NonNullable<typeof question> => question !== null);
 }
 
+export function normalizeOutlineForPersistence(document: InterviewMarkdownDocument) {
+  const newline = document.markdown.includes("\r\n") ? "\r\n" : "\n";
+  const blocks = interviewMarkdown.parseInterviewMarkdown(document).blocks;
+  return blocks.flatMap((block) => {
+    const expertLink = block.links.find((item) => /^#expert-[^\s#]+$/u.test(item.url));
+    if (!expertLink) return [];
+    const heading = document.markdown.slice(block.start, block.contentStart).trimEnd();
+    const questions = questionLines(document.markdown, block.contentStart, block.end);
+    return [`${heading}${newline}${newline}${questions.map((question, index) => `${index + 1}. ${question.text}`).join(newline)}`];
+  }).join(`${newline}${newline}`).trimEnd() + newline;
+}
+
 function expertRole(expertId: string, directory: readonly DigitalExpertCatalogRow[], expertsDocument?: InterviewMarkdownDocument) {
   const catalogExpert = directory.find((expert) => expert.expertId === expertId);
   if (catalogExpert) return catalogExpert.occupation;

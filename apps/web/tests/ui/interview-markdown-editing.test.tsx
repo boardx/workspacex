@@ -2,7 +2,7 @@ import * as React from "react";
 import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import { afterEach, expect, it, vi } from "vitest";
 import { InterviewExpertsStep } from "@/components/itv/interview-experts-step";
-import { InterviewOutlineStep } from "@/components/itv/interview-outline-step";
+import { InterviewOutlineStep, normalizeOutlineForPersistence } from "@/components/itv/interview-outline-step";
 import { InterviewMarkdownEditingStep } from "@/components/itv/interview-markdown-editing-step";
 import { EXPERT_SPECIALTY_ICON_CATEGORIES } from "@/components/itv/expert-specialty-icon";
 import { INTERVIEW_PERSONA_CATEGORIES, INTERVIEW_PERSONAS } from "@/lib/interview-personas/persona-library";
@@ -226,6 +226,12 @@ it("keeps a newly added or partially edited numbered question visible", () => {
   expect(screen.getByRole("textbox", { name: "编辑问题 2" })).toHaveValue("新问题？");
   fireEvent.change(screen.getByRole("textbox", { name: "编辑问题 2" }), { target: { value: "正在输入" } });
   expect(screen.getByRole("textbox", { name: "编辑问题 2" })).toHaveValue("正在输入");
+});
+it("persists exactly the expert questions visible to the reviewer", () => {
+  const raw = "# 访谈问题\n\n## [采购](#expert-purchase)\n\n### 背景\n\n用于了解采购流程。\n\n1. 谁提出采购？\n2. 目的：确认审批人\n\n## [财务](#expert-finance)\n\n- 谁批准预算？\n  - 说明：追问预算背景\n";
+  expect(normalizeOutlineForPersistence({ ...source, step: "outline", markdown: raw })).toBe(
+    "## [采购](#expert-purchase)\n\n1. 谁提出采购？\n\n## [财务](#expert-finance)\n\n1. 谁批准预算？\n",
+  );
 });
 it("generation cannot silently discard an unsaved expert Markdown edit", async () => {
   vi.stubEnv("NEXT_PUBLIC_API_URL", "http://localhost:4100"); vi.stubEnv("NEXT_PUBLIC_API_PATH_PREFIX", "");

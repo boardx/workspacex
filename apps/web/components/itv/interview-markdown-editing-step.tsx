@@ -7,7 +7,7 @@ import { initializeInterviewMarkdown, loadInterviewMarkdown, saveInterviewMarkdo
 import { ApiError } from "@/lib/api-client";
 import { Button } from "@/components/ui/button";
 import { InterviewExpertsStep } from "./interview-experts-step";
-import { InterviewOutlineStep } from "./interview-outline-step";
+import { InterviewOutlineStep, normalizeOutlineForPersistence } from "./interview-outline-step";
 
 export function InterviewMarkdownEditingStep({ interviewId, step, onVersionChange, onDirtyChange, onContinue }: {
   interviewId: string; step: "experts" | "outline"; onVersionChange: (version: number) => void;
@@ -55,8 +55,10 @@ export function InterviewMarkdownEditingStep({ interviewId, step, onVersionChang
   }
   async function save(current: InterviewMarkdownEnvelope) {
     const doc = current.documents.find((item) => item.step === step);
-    if (doc?.markdown === markdown) return current;
-    const next = receive(await saveInterviewMarkdown(interviewId, step, { markdown, expectedVersion: current.version, expectedDocumentVersion: doc?.version ?? 0 }));
+    const persistedMarkdown = step === "outline" ? normalizeOutlineForPersistence({ ...(doc ?? document), markdown }) : markdown;
+    if (doc?.markdown === persistedMarkdown) return current;
+    const next = receive(await saveInterviewMarkdown(interviewId, step, { markdown: persistedMarkdown, expectedVersion: current.version, expectedDocumentVersion: doc?.version ?? 0 }));
+    setMarkdown(persistedMarkdown);
     dirty.current = false; callbacks.current.onDirtyChange(false); return next;
   }
   async function confirm() {
