@@ -24,7 +24,7 @@ function setup(opts: { state?: AgentRoleDraftState | null; saveResult?: { versio
       ({ orgRole: userId === "u-admin" ? "admin" : "member" }),
   } as unknown as IdentityRepository;
   const state: AgentRoleDraftState | null = opts.state === undefined
-    ? { draft: structuredClone(R.AGENT_ROLE_FIELD_DEFAULTS), published: null, version: 0 }
+    ? { draft: structuredClone(R.AGENT_ROLE_FIELD_DEFAULTS), published: null, version: 0, toolPolicy: [] }
     : opts.state;
   const repository: AgentRoleDraftRepository = {
     async find() { calls.find++; return state; },
@@ -62,7 +62,7 @@ describe("AG01 AgentRoleController HTTP mapping", () => {
 
   it("official agent → 403 OFFICIAL_ROLE_FIELDS_LOCKED", async () => {
     const { controller } = setup({
-      state: { draft: { ...structuredClone(R.AGENT_ROLE_FIELD_DEFAULTS), catalogSource: "official" }, published: null, version: 0 },
+      state: { draft: { ...structuredClone(R.AGENT_ROLE_FIELD_DEFAULTS), catalogSource: "official" }, published: null, version: 0, toolPolicy: [] },
     });
     await expect(statusOf(controller.updateRoleDraft(ADMIN, "agent-1", body())))
       .resolves.toEqual({ status: 403, reasonCode: "OFFICIAL_ROLE_FIELDS_LOCKED" });
@@ -113,5 +113,48 @@ describe("AG01 AgentRoleController HTTP mapping", () => {
   it("route requires authentication: controller is not marked public", () => {
     const keys = Reflect.getMetadataKeys(AgentRoleController.prototype.updateRoleDraft) as unknown[];
     expect(keys.map(String).some((k) => /public/i.test(k))).toBe(false);
+  });
+});
+
+describe("AG04 AgentRoleController.getRoleAdmin HTTP mapping", () => {
+  it("admin → 200 with contract-shaped view, toolPolicy/capabilityReadiness derived", async () => {
+    const { controller } = setup({
+      state: {
+        draft: structuredClone(R.AGENT_ROLE_FIELD_DEFAULTS), published: null, version: 0,
+        toolPolicy: ["knowledge.search", "crm.read"],
+      },
+    });
+    const out = await controller.getRoleAdmin(ADMIN, "agent-1");
+    const parsed = R.operations.getAgentRoleAdmin.out.parse(out);
+    expect(parsed).toMatchObject({ version: 0, editable: true, toolPolicy: ["knowledge.search", "crm.read"] });
+    expect(parsed.capabilityReadiness).toEqual([
+      { category: "knowledge.search", status: "unknown", grantedToolNames: [], isWrite: false },
+      { category: "crm.read", status: "unknown", grantedToolNames: [], isWrite: false },
+    ]);
+  });
+
+  it("non-admin → 403 ROLE_INSUFFICIENT", async () => {
+    const { controller } = setup();
+    const e = await controller.getRoleAdmin(MEMBER, "agent-1").catch((x: unknown) => x);
+    expect(e).toBeInstanceOf(ForbiddenException);
+    expect((e as HttpException).getResponse()).toMatchObject({ reasonCode: "ROLE_INSUFFICIENT" });
+  });
+
+  it("unknown agent → 404 AGENT_NOT_FOUND", async () => {
+    const { controller } = setup({ state: null });
+    const e = await controller.getRoleAdmin(ADMIN, "agent-1").catch((x: unknown) => x);
+    expect(e).toBeInstanceOf(NotFoundException);
+    expect((e as HttpException).getResponse()).toMatchObject({ reasonCode: "AGENT_NOT_FOUND" });
+  });
+
+  it("official agent → editable:false, no lock error (GET is read-only)", async () => {
+    const { controller } = setup({
+      state: {
+        draft: { ...structuredClone(R.AGENT_ROLE_FIELD_DEFAULTS), catalogSource: "official" },
+        published: null, version: 0, toolPolicy: [],
+      },
+    });
+    const out = await controller.getRoleAdmin(ADMIN, "agent-1");
+    expect(R.operations.getAgentRoleAdmin.out.parse(out)).toMatchObject({ editable: false });
   });
 });

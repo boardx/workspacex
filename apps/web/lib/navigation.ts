@@ -207,6 +207,10 @@ export const NAV_SEGMENTS: NavSegment[] = [
       // phase-18 的 UC 直接放在 requirements/ 下（没有 NN-模块 子目录），故以阶段目录名作前缀。
       { key: "brain", label: "大脑", href: "/brain", icon: Brain, ucRefs: ["phase-18-org-brain-knowledge-graph/uc-18-4", "phase-18-org-brain-knowledge-graph/uc-18-3"] },
       { key: "tasks", label: "任务", href: "/tasks", icon: ListTodo, ucRefs: ["11-board/uc-11-1"] },
+      // 束: agent-role（AG04，phase-20 work-stack-foundation）—— 成员 Agent 目录顶层路由
+      // `/agent`（与 `/skill` 平行，见 ui.md「成员目录作为新顶层路由 /agent」）。此前只有
+      // 页面本体、没有导航入口——普通成员没有可发现的方式到达（review #AG04 指出）。
+      { key: "agent-directory", label: "Agent 目录", href: "/agent", icon: Bot, ucRefs: ["phase-20-work-stack-foundation/03-agent-role"] },
     ],
   },
   {

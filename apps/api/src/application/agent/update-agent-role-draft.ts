@@ -37,6 +37,8 @@ export interface AgentRoleDraftState {
   readonly draft: AgentRoleFieldsT;
   readonly published: AgentRoleFieldsT | null;
   readonly version: number;
+  /** 已发布版本的 `tool_policy`（AG04 管理详情角色区块用）；无已发布版本 ⇒ `[]`。 */
+  readonly toolPolicy: readonly string[];
 }
 
 export interface AgentRoleDraftRepository {

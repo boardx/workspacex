@@ -4,7 +4,7 @@
  * `agent.controller.ts` 分属两份契约，错误码表也不同（多了 409 / 官方锁）。
  */
 import {
-  Body, ConflictException, Controller, ForbiddenException, Inject, NotFoundException, Param, Patch,
+  Body, ConflictException, Controller, ForbiddenException, Get, Inject, NotFoundException, Param, Patch,
   UnprocessableEntityException,
 } from "@nestjs/common";
 import { agentRole as R } from "@repo/contracts";
@@ -20,6 +20,11 @@ import {
   type AgentRoleDraftRepository,
   type UpdateAgentRoleDraftErrorCode,
 } from "../../application/agent/update-agent-role-draft";
+import {
+  getAgentRoleAdmin,
+  GetAgentRoleAdminError,
+  type GetAgentRoleAdminErrorCode,
+} from "../../application/agent/get-agent-role-admin";
 
 type UpdateRoleBody = ReturnType<typeof R.operations.updateAgentRoleDraft.in.parse>;
 
@@ -37,12 +42,39 @@ function toHttp(code: UpdateAgentRoleDraftErrorCode) {
   }
 }
 
+function toGetHttp(code: GetAgentRoleAdminErrorCode) {
+  switch (code) {
+    case "ROLE_INSUFFICIENT":
+      return new ForbiddenException({ reasonCode: code });
+    case "AGENT_NOT_FOUND":
+      return new NotFoundException({ reasonCode: code });
+  }
+}
+
 @Controller()
 export class AgentRoleController {
   constructor(
     @Inject(IDENTITY_REPOSITORY) private readonly identities: IdentityRepository,
     @Inject(AGENT_ROLE_DRAFT_REPOSITORY) private readonly repository: AgentRoleDraftRepository,
   ) {}
+
+  @Get(R.operations.getAgentRoleAdmin.path)
+  async getRoleAdmin(
+    @CurrentPrincipal() principal: Principal,
+    @Param("agentId") agentId: string,
+  ) {
+    assertPrincipal(principal);
+    try {
+      const view = await getAgentRoleAdmin(
+        { orgId: principal.orgId, actorId: principal.userId, agentId },
+        { identities: this.identities, repository: this.repository },
+      );
+      return R.operations.getAgentRoleAdmin.out.parse(view);
+    } catch (error) {
+      if (error instanceof GetAgentRoleAdminError) throw toGetHttp(error.code);
+      throw error;
+    }
+  }
 
   @Patch(R.operations.updateAgentRoleDraft.path)
   async updateRoleDraft(

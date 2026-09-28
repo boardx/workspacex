@@ -29,7 +29,7 @@ export class PgAgentRoleDraftRepository implements AgentRoleDraftRepository {
   async find(orgId: string, agentId: string): Promise<AgentRoleDraftState | null> {
     return this.db.withTenant(toOrgId(orgId), async (session) => {
       const found = await session.query<Record<string, unknown>>(
-        `SELECT a.role_draft_version, v.id AS published_id, ${cols("a", "d_")}, ${cols("v", "p_")}
+        `SELECT a.role_draft_version, v.id AS published_id, v.tool_policy, ${cols("a", "d_")}, ${cols("v", "p_")}
            FROM agents a
            LEFT JOIN agent_versions v
              ON v.id = a.published_version_id AND v.agent_id = a.id AND v.org_id = a.org_id
@@ -42,6 +42,8 @@ export class PgAgentRoleDraftRepository implements AgentRoleDraftRepository {
         draft: toRoleFieldsTolerant(pick(row, "d_"), agentId),
         published: row.published_id === null ? null : toRoleFieldsTolerant(pick(row, "p_"), agentId),
         version: Number(row.role_draft_version),
+        // `tool_policy` 在导入时冻结进已发布版本；草稿编辑不改它（AG04 管理详情角色区块用）。
+        toolPolicy: Array.isArray(row.tool_policy) ? (row.tool_policy as readonly string[]) : [],
       };
     });
   }
