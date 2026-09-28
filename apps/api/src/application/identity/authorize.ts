@@ -14,6 +14,7 @@ import {
 } from "../../domain/identity/permission-decision";
 import type { OrgId } from "../../domain/org-id";
 import type { AclObjectRef, DecisionIdFactory, IdentityRepository } from "./ports";
+import { resolveProjectLayer } from "./project-layer";
 
 export interface AuthorizeDeps {
   readonly repo: IdentityRepository;
@@ -76,8 +77,14 @@ export async function authorizeBatch(
   const { userId, orgId, projectId, objects, action } = input;
 
   const orgMembership = await repo.findOrgMembership(userId, orgId);
-  const projectMembership =
-    projectId === undefined ? null : await repo.findProjectMembership(userId, projectId, orgId);
+  // undefined projectId => no project context at all => projectLayer is null (I-11).
+  // Present projectId with no membership => context exists, role is null. The
+  // difference matters: the first is "not a project screen", the second is "denied".
+  // #4584：项目层经 `resolveProjectLayer` 组装——工作坊行，或研究项目 / 用户洞察的两档身份。
+  const project =
+    projectId === undefined
+      ? null
+      : await resolveProjectLayer(repo, { userId, projectId, orgId, orgRole: orgMembership?.orgRole ?? null });
 
   const bindings = await repo.findBindings(orgId, objects);
 
@@ -86,17 +93,7 @@ export async function authorizeBatch(
       decisionId: ids.next(),
       action,
       org: { role: orgMembership?.orgRole ?? null, teamId: orgMembership?.teamId ?? null },
-      // undefined projectId => no project context at all => projectLayer is null (I-11).
-      // Present projectId with no membership => context exists, role is null. The
-      // difference matters: the first is "not a project screen", the second is "denied".
-      project:
-        projectId === undefined
-          ? null
-          : {
-              role: projectMembership?.projectRole ?? null,
-              groupId: projectMembership?.groupId ?? null,
-              isHost: projectMembership?.isHost ?? false,
-            },
+      project,
       scope: bindings.get(keyOf(object)) ?? DEFAULT_SCOPE,
     }),
   );
@@ -114,10 +111,15 @@ export async function authorizeDerived(
 ): Promise<PermissionDecision> {
   const { repo, ids } = deps;
   const orgMembership = await repo.findOrgMembership(input.userId, input.orgId);
-  const projectMembership =
+  const project =
     input.projectId === undefined
       ? null
-      : await repo.findProjectMembership(input.userId, input.projectId, input.orgId);
+      : await resolveProjectLayer(repo, {
+          userId: input.userId,
+          projectId: input.projectId,
+          orgId: input.orgId,
+          orgRole: orgMembership?.orgRole ?? null,
+        });
   const bindings = await repo.findBindings(input.orgId, input.sources);
   const scopes = input.sources.map((s) => bindings.get(keyOf(s)) ?? DEFAULT_SCOPE);
 
@@ -125,14 +127,7 @@ export async function authorizeDerived(
     decisionId: ids.next(),
     action: input.action,
     org: { role: orgMembership?.orgRole ?? null, teamId: orgMembership?.teamId ?? null },
-    project:
-      input.projectId === undefined
-        ? null
-        : {
-            role: projectMembership?.projectRole ?? null,
-            groupId: projectMembership?.groupId ?? null,
-            isHost: projectMembership?.isHost ?? false,
-          },
+    project,
     scope: strictestScope(scopes),
   });
 }

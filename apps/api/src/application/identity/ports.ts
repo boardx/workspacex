@@ -10,6 +10,10 @@ import { identity } from "@repo/contracts";
 import type { z } from "zod";
 import type { OrgRole, ProjectRole, VisibilityScope } from "../../domain/identity/roles";
 import type { OrgId } from "../../domain/org-id";
+import type {
+  NonWorkshopContainerKind,
+  NonWorkshopMemberRole,
+} from "../../domain/project/non-workshop-member-access";
 
 export interface OrgMembershipRow {
   readonly orgRole: OrgRole;
@@ -20,6 +24,17 @@ export interface ProjectMembershipRow {
   readonly projectRole: ProjectRole;
   readonly groupId: string | null;
   readonly isHost: boolean;
+}
+
+/**
+ * #4584：研究项目 / 用户洞察两类容器里，调用者的身份（`research_project_members` /
+ * `user_insight_members`，两档）。与 `ProjectMembershipRow` 同一性质——判定**据以做出**的
+ * 身份数据，不是内容。`containerKind` 显式带出，项目层据此收窄到非工作坊白名单。
+ */
+export interface NonWorkshopStandingRow {
+  readonly containerKind: NonWorkshopContainerKind;
+  /** `null` = 容器存在、但调用者不在名单上。 */
+  readonly memberRole: NonWorkshopMemberRole | null;
 }
 
 /**
@@ -133,7 +148,18 @@ export type OrganizationRow = z.infer<typeof identity.Organization>;
 export interface IdentityRepository {
   findOrganization(orgId: OrgId): Promise<OrganizationRow | null>;
   findOrgMembership(userId: string, orgId: OrgId): Promise<OrgMembershipRow | null>;
+  /**
+   * 工作坊四角色身份（`project_memberships`）。⚠ 只有工作坊有这张表的行（F128 复合外键）；
+   * 工作坊专属机制（议程、分组、看板、邀请、录音……）直接读它，所以它对两类非工作坊容器
+   * 继续答 `null`——那正是它们对两类容器保持关闭的方式。要问「这个人在这个项目里站在哪一层」
+   * 用 `authorize()`（`application/identity/project-layer.ts`），不要各自拼。
+   */
   findProjectMembership(userId: string, projectId: string, orgId: OrgId): Promise<ProjectMembershipRow | null>;
+  /**
+   * #4584：该项目若是研究项目 / 用户洞察容器，返回调用者在其名单上的档位；工作坊或不存在 ⇒ `null`。
+   * 只由 `application/identity/project-layer.ts` 调用（`authorize()` 的项目层单一来源）。
+   */
+  findNonWorkshopStanding(userId: string, projectId: string, orgId: OrgId): Promise<NonWorkshopStandingRow | null>;
   /**
    * Bindings for many objects in ONE round trip. Returns a map keyed by `kind:id`;
    * objects with no binding are simply absent.
