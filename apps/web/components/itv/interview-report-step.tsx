@@ -7,22 +7,30 @@ import { exportInterviewReportPdf, exportInterviewReportWord } from "@/lib/inter
 import type { InterviewMarkdownEnvelope } from "@/lib/interview-markdown-api";
 
 /** The document is the sole body source; evidence remains server-controlled metadata. */
-export function InterviewReportStep({ document, expertsDocument, execution, reportStatus, shareUrl }: {
+export function InterviewReportStep({ document, expertsDocument, execution, legacySelectedExpertIds, legacyRuns, reportStatus, shareUrl }: {
   readonly document: interviewMarkdown.InterviewMarkdownDocument;
   readonly expertsDocument?: interviewMarkdown.InterviewMarkdownDocument;
   readonly execution?: InterviewMarkdownEnvelope["execution"];
+  readonly legacySelectedExpertIds?: readonly string[];
+  readonly legacyRuns?: readonly Readonly<{ expertId: string; status: string }>[];
   readonly reportStatus?: InterviewMarkdownEnvelope["states"][number]["status"];
   readonly shareUrl?: string;
 }) {
   const projection = interviewMarkdown.parseInterviewMarkdown(document);
   const selectedExperts = expertsDocument ? interviewMarkdown.projectInterviewMarkdownExperts(expertsDocument) : [];
   const selectedIds = new Set(selectedExperts.map((expert) => expert.expertId));
-  const completedTasks = execution?.tasks.filter((task) => selectedIds.has(task.expertId) && task.status === "completed").length ?? 0;
+  const isLegacyExperts = expertsDocument?.markdown.startsWith("# 专家画像\n") ?? false;
+  const expertCount = isLegacyExperts ? (legacySelectedExpertIds?.length ?? "—") : expertsDocument ? selectedExperts.length : "—";
+  const completedTasks = execution
+    ? execution.tasks.filter((task) => selectedIds.has(task.expertId) && task.status === "completed").length
+    : legacyRuns && legacySelectedExpertIds
+      ? legacyRuns.filter((run) => legacySelectedExpertIds.includes(run.expertId) && run.status === "completed").length
+      : "—";
   const countEntries = (titles: readonly string[]) => projection.blocks.reduce((count, block) => {
     const title = block.title.trim().replace(/[：:]$/u, "").replace(/\s+/gu, "");
     if (block.depth !== 2 || !titles.includes(title)) return count;
     const section = { ...document, markdown: document.markdown.slice(block.contentStart, block.end) };
-    return count + interviewMarkdown.parseInterviewMarkdown(section).entries.length;
+    return count + interviewMarkdown.parseInterviewMarkdown(section).entries.filter((entry) => entry.listDepth === 1).length;
   }, 0);
   const findings = countEntries(["核心发现", "关键发现"]);
   const actions = countEntries(["建议行动"]);
@@ -56,10 +64,10 @@ export function InterviewReportStep({ document, expertsDocument, execution, repo
           <p>当前 Markdown 文档尚未关联批准记录；导出仅供研究审阅，不代表已批准结论。</p>
         </div>
         <section data-testid="itv-report-metrics" aria-label="已保存研究材料统计" className="mb-6">
-          <div className="mb-3 text-xs leading-5 text-muted-foreground">{incomplete ? "报告未完成，以下仅为已保存部分的统计。" : "以下仅统计当前已保存版本。"}模拟任务，不代表真人样本；正文或表格未计入条目数。页面统计不改写报告 Markdown。</div>
+          <div className="mb-3 text-xs leading-5 text-muted-foreground">{incomplete ? "报告未完成，以下仅为已保存部分的统计。" : "以下仅统计当前已保存版本。"}模拟任务，不代表真人样本；正文或表格未计入条目数；“—”表示缺少可核实的历史记录。页面统计不改写报告 Markdown。</div>
           <dl className="grid grid-cols-2 gap-3 sm:grid-cols-4">
             {([
-              ["experts", "已选专家角色", selectedExperts.length],
+              ["experts", "已选专家角色", expertCount],
               ["completed", "已完成模拟访谈", completedTasks],
               ["findings", "列出的核心发现", findings],
               ["actions", "列出的建议行动", actions],
