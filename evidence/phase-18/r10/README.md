@@ -183,7 +183,7 @@ unless noted.
   [`../s10/`](../s10/).
 - [ ] Also open in the same file:
   - F17 card-state semantics (L105–110);
-  - the F15 cross-session recall scope and the **E9 403 vs I-3 404** conflict (L181–184), which is the E9.c2 red;
+  - the F15 cross-session recall scope and the **E9 403 vs I-3 404** conflict (L181–184) — resolved 2026-09-27: the human ruled 404; 06-user-experience.md E9 and the eval (amendment R5) now say 404, and E9.c2 is green in R5;
   - #4181 items 1–4: decision budget, keyword list, manual undo entry, and L1 forced recall (L186–193).
 
 ### 3.3 Known open issues
