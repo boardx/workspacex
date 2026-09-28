@@ -122,10 +122,10 @@ export function LiveSurveyLibrary({ projectId = null }: { projectId?: string | n
         <div className="space-y-4 py-16 text-center"><h2 className="text-18 font-semibold">还没有问卷</h2><p className="text-muted-foreground">从空白问卷或现有模板开始，三步完成设计、回收与答卷查看。</p><Button onClick={() => setCreating(true)}>新建问卷</Button></div>
       )}
       </div></div>
-      <CreateSurveyDialog open={creating} onOpenChange={setCreating} onCreated={async (id) => {
+      <CreateSurveyDialog open={creating} onOpenChange={setCreating} onCreated={async (id,mode) => {
         // 挂失败不回滚问卷（问卷已存在），项目页可用「关联已有问卷」补挂。
         if (projectId) { try { await linkProjectResource({ projectId, kind: "survey", resourceId: id }); } catch { /* 项目页可补挂 */ } }
-        router.push(withProjectId(`/studio/survey/${id}?step=design`, projectId));
+        router.push(withProjectId(`/studio/survey/${id}?step=${mode === "ai" ? "import&mode=ai" : "design"}`, projectId));
       }} />
     </main>
   );
