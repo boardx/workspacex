@@ -602,6 +602,7 @@ export class PgKnowledgeRead implements KnowledgeReadPort {
  *     提示所在对话是查看者本人的个人对话、且那次改口的新决定本身还活着 ⇒ 给出撤销（同对话里那一行「撤销」：
  *     applyHumanAction{undoSupersede}）；新决定已被忘掉 / 撤回 ⇒ 不给撤销（#4302 review：不引向一次注定落空的撤销）。
  *   - F16 矛盾卡「以新的为准」（conflict_keep_new）：挂靠的是 supersedes_claim_id 指向它的那条活记忆；没有撤销动作 ⇒ 只显示。
+ *   - issue #4360「关于我」里直接改写（user_revised，kg_revise_personal_claim）：同上，挂在改写出的新一条下，只显示。
  *
  * 忘掉 / 撤回 / 原话被删（user_forgot、user_revoked、source_deleted……）不在这里：人类决定「撤销的不显示」。
  * 取代它的那条也已经不在了 ⇒ 没有可挂靠的，不显示。只按 scope_id = 查看者读（RLS 同样只放本人的个人空间行，I-14）。
@@ -610,7 +611,7 @@ export class PgKnowledgeRead implements KnowledgeReadPort {
  * 沿链走到活记忆、排好先后在 domain/knowledge-graph/supersede-chain.ts。successor 的找法：
  *   - decision_changed：新决定本身在查看者个人空间里 ⇒ 就是它；否则是它在查看者个人空间里的副本（derived_from——边可能已经
  *     随副本被再次取代而由 F07 级联失效，所以不要求边活着，活边优先）；被忘掉的副本不算（链到这里断了，不显示）。
- *   - conflict_keep_new：supersedes_claim_id 指向它的那条（活的优先）。
+ *   - conflict_keep_new / user_revised（#4360 改写）：supersedes_claim_id 指向它的那条（活的优先）。
  */
 async function readPersonalReplaced(
   s: TenantSession, orgId: OrgId, viewer: string, live: ReadonlyMap<string, string>,
@@ -639,8 +640,8 @@ async function readPersonalReplaced(
        LEFT JOIN chat_threads t ON t.org_id = x.org_id AND t.id = x.thread_id AND t.created_by = $2 AND t.project_id IS NULL
       WHERE o.org_id = $1 AND o.scope_kind = 'personal' AND o.scope_id = $2
         AND o.revoked_at IS NOT NULL AND o.status = 'superseded'
-        AND o.revocation_reason IN ('decision_changed', 'conflict_keep_new')
-        AND (x.id IS NOT NULL OR o.revocation_reason = 'conflict_keep_new')
+        AND o.revocation_reason IN ('decision_changed', 'conflict_keep_new', 'user_revised')
+        AND (x.id IS NOT NULL OR o.revocation_reason IN ('conflict_keep_new', 'user_revised'))
       ORDER BY o.id, x.created_at DESC`,
     [orgId, viewer],
   );

@@ -12,6 +12,7 @@ import { detectMemoryIntent, forgetMatches, MEMORY_CARD_MAX_ITEMS } from "../../
 import {
   buildKnowledgeContextMessage, fuseRecall, graphSeeds, recallable, recallDegraded, VECTOR_RECALL_TOP_K, type KnowledgeRecall, type RecallClaim, type VectorHit,
 } from "../../domain/knowledge-graph/recall";
+import { withProfileSummary } from "../../domain/knowledge-graph/profile";
 import { changeOfMindFor, type ChangeMindPorts } from "./change-mind";
 import { newKgId } from "./ids";
 import type { KnowledgeRecallPort, MemoryCardPort } from "./ports";
@@ -21,7 +22,11 @@ export const KG_RECALL_LIMIT = 8;
 
 export async function recallThreadKnowledge(
   port: KnowledgeRecallPort,
-  input: { readonly orgId: OrgId; readonly userId: string; readonly threadId: string; readonly query: string },
+  input: {
+    readonly orgId: OrgId; readonly userId: string; readonly threadId: string; readonly query: string;
+    /** issue #4360：这一轮在发起人本人的个人对话里 ⇒ 另带画像摘要（有界，见 domain/knowledge-graph/profile.ts）。 */
+    readonly personalThread?: boolean;
+  },
   log: (message: string, detail: Record<string, unknown>) => void,
 ): Promise<KnowledgeRecall> {
   // S9（#4366）：候选集一开始读，向量通道就开始嵌入问题（两者并行）；SQL 仍只在候选 id 里找。
@@ -49,7 +54,9 @@ export async function recallThreadKnowledge(
   };
   // S9（#4366）：两路并行，一轮的等待是较慢的那一路，不是两路相加。
   const [graph, vector] = await Promise.all([graphChannel(), vectorP]);
-  return fuseRecall({ query: input.query, claims, objects, graph, ...(vector === undefined ? {} : { vector }), limit: KG_RECALL_LIMIT, now });
+  const recall = fuseRecall({ query: input.query, claims, objects, graph, ...(vector === undefined ? {} : { vector }), limit: KG_RECALL_LIMIT, now });
+  // issue #4360 / S6：画像摘要同样只看「这一轮还算数」的（没过期、不是不做了的待办）——与召回候选同一个 recallable 判定。
+  return input.personalThread === true ? withProfileSummary(recall, claims.filter((c) => recallable(c, now))) : recall;
 }
 
 /**
@@ -104,7 +111,7 @@ async function vectorChannel(
  */
 export async function knowledgeMemoryFor(
   port: KnowledgeRecallPort,
-  input: { readonly orgId: OrgId; readonly userId: string; readonly threadId: string; readonly query: string; readonly runId: string },
+  input: { readonly orgId: OrgId; readonly userId: string; readonly threadId: string; readonly query: string; readonly runId: string; readonly personalThread?: boolean },
   log: (message: string, detail: Record<string, unknown>) => void,
 ): Promise<string | null> {
   try {
@@ -300,6 +307,8 @@ export async function turnKnowledgeContext(
     readonly run: {
       readonly requesterUserId: string; readonly threadId: string; readonly inputText: string;
       readonly runId: string; readonly inputMessageId: string;
+      /** 个人对话 ⇒ null（或空串，同 execute-run.ts 的判法）；issue #4360 的画像摘要只进个人对话。 */
+      readonly projectId?: string | null;
     };
   },
   log: (message: string, detail: Record<string, unknown>) => void,
@@ -310,6 +319,7 @@ export async function turnKnowledgeContext(
   const card = cards === undefined ? null : await memoryCardFor(knowledge, cards, {
     orgId, userId: run.requesterUserId, threadId: run.threadId, runId: run.runId, messageId: run.inputMessageId, text: run.inputText,
   }, log, change);
-  const memory = await knowledgeMemoryFor(knowledge, { orgId, userId: run.requesterUserId, threadId: run.threadId, query: run.inputText, runId: run.runId }, log);
+  // issue #4360：画像摘要只进个人对话（run.projectId 为空，同 execute-run.ts 的判法）；这个判断同样只取自 run。
+  const memory = await knowledgeMemoryFor(knowledge, { orgId, userId: run.requesterUserId, threadId: run.threadId, query: run.inputText, runId: run.runId, personalThread: run.projectId === null || run.projectId === "" }, log);
   return [card, memory].filter((x): x is string => x !== null);
 }

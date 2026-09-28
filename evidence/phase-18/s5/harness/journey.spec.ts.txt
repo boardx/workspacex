@@ -1,0 +1,183 @@
+/**
+ * Round S5 (#4360 「关于我」 + #4362 开场简报 / 续上) on a real local stack, and the golden-set runner for
+ * evidence/golden/cases.json (G001, G002).
+ *
+ * Model: the deterministic KG-eval loopback (`apps/api/scripts/loopback-kg-eval-model-provider.ts`, unmodified) fed
+ * `evidence/golden/cases.json` (`says`), behind `apps/api/scripts/loopback-golden-model-provider.ts`, which only answers the
+ * goal-link question (`goalLinks`) and forwards everything else. Everything else — extraction worker, #4283 auto copy,
+ * goal link (system identity, high confidence only), briefing, forced / profile recall, citations, /brain — is the product path.
+ * Copied to apps/web/e2e/s5/ for the run and removed after.
+ */
+import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import path from "node:path";
+import { expect, test, type Page } from "@playwright/test";
+import { KG_EVAL } from "../kg-experience-eval/fixture";
+import { apiGet, login, newThread, say } from "../kg-experience-eval/eval-helpers";
+
+const OUT = path.resolve(__dirname, "../../../../evidence/phase-18/s5");
+const GOLDEN = JSON.parse(readFileSync(path.resolve(__dirname, "../../../../evidence/golden/cases.json"), "utf8")) as {
+  cases: Array<{ id: string; turns: Array<Record<string, unknown>> }>;
+};
+mkdirSync(OUT, { recursive: true });
+const GOAL = "我的目标是探索未来教育";
+const DECISION = "我决定先调研三所实验学校";
+const TODO_SAY = "下周要约王老师聊一下课程设计";
+const TODO = "下周约王老师聊课程设计";
+const record: Record<string, unknown> = { golden: GOLDEN.cases.map((c) => c.id) };
+const ids: Record<string, string> = {};
+const shot = (page: Page, name: string) => page.screenshot({ path: path.join(OUT, `${name}.png`), fullPage: true });
+const dump = () => writeFileSync(path.join(OUT, "journey.json"), `${JSON.stringify(record, null, 2)}\n`);
+
+interface Briefing { dismissed: boolean; items: Array<{ itemId: string; section: string; kind: string; statement: string; resumePrompt: string; cite: { claimId: string; scope: string; threadId: string | null }; goal: { statement: string } | null }> }
+interface Personal { claims: Array<{ id: string; statement: string; kind: string }>; edges: Array<{ relation: string; src: { id: string }; dst: { id: string }; createdBy: string }> }
+const briefing = async (page: Page) => (await apiGet(page, "/knowledge-graph/briefing")).body as Briefing;
+const personal = async (page: Page) => (await apiGet(page, "/knowledge-graph/personal")).body as Personal;
+
+/**
+ * Log in without compiling the post-login landing page (/projects). Harness-only: under the round's memory pressure
+ * (shared 14 GB cgroup, `next dev` killed by the OOM killer several times) every extra route compiled risks the dev server.
+ * The landing request is answered with a stub page; the session itself is the real one the login form stored.
+ */
+async function loginNoLanding(page: Page, account: typeof KG_EVAL.owner): Promise<void> {
+  const landing = /\/projects(\?|$)/;
+  await page.route(landing, (r) => r.fulfill({ status: 200, contentType: "text/html", body: "<html><body>landing skipped</body></html>" }));
+  await login(page, account);
+  await page.unroute(landing);
+}
+
+async function sayAndWaitRecorded(page: Page, text: string, recorded: string): Promise<void> {
+  await say(page, text);
+  const chip = page.locator("[data-testid^='kg-extraction-line-']").filter({ hasText: recorded });
+  await expect(chip).toBeVisible({ timeout: 60_000 });
+}
+
+test.describe.configure({ mode: "serial" });
+let owner: Page;
+
+test.beforeAll(async ({ browser }) => {
+  record.ids = ids;
+  owner = await (await browser.newContext()).newPage();
+  await loginNoLanding(owner, KG_EVAL.owner);
+});
+test.afterAll(() => dump());
+
+test("1: before any memory, a new personal thread shows no briefing (templates as before)", async () => {
+  ids.thread0 = await newThread(owner);
+  await expect(owner.getByTestId("copilotkit-v2-empty")).toBeVisible();
+  await expect(owner.getByTestId("session-briefing-loading")).toHaveCount(0, { timeout: 30_000 });
+  await expect(owner.getByTestId("session-briefing")).toHaveCount(0);
+  record.s1_briefing = await briefing(owner);
+  expect((record.s1_briefing as Briefing).items).toEqual([]);
+  await shot(owner, "1-new-thread-without-briefing");
+});
+
+test("2: G001/G002 first thread — goal, decision (auto-linked to the goal, high confidence), todo", async () => {
+  ids.threadA = await newThread(owner);
+  await sayAndWaitRecorded(owner, GOAL, GOAL);
+  await sayAndWaitRecorded(owner, DECISION, DECISION);
+  await sayAndWaitRecorded(owner, TODO_SAY, TODO);
+  await expect.poll(async () => {
+    const p = await personal(owner);
+    const goal = p.claims.find((c) => c.statement === GOAL);
+    const decision = p.claims.find((c) => c.statement === DECISION);
+    return goal && decision ? p.edges.some((e) => e.relation === "serves_goal" && e.src.id === decision.id && e.dst.id === goal.id && e.createdBy === "model") : false;
+  }, { timeout: 60_000 }).toBe(true);
+  record.s2_personal = await personal(owner);
+  await shot(owner, "2-first-thread-recorded");
+});
+
+test("3: /brain 「关于我」 — goal with the decision nested under it; every item editable / forgettable / links to its source", async () => {
+  await owner.goto("/brain");
+  const about = owner.getByTestId("about-me");
+  await expect(about).toBeVisible({ timeout: 60_000 });
+  const goals = owner.getByTestId("about-me-group-goals");
+  await expect(goals.getByTestId("about-me-statement").first()).toHaveText(GOAL);
+  await expect(goals.getByTestId("about-me-goal-children")).toContainText(DECISION);
+  await expect(about.getByTestId("about-me-edit").first()).toBeVisible();
+  await expect(about.getByTestId("about-me-forget").first()).toBeVisible();
+  const link = goals.getByTestId("brain-origin-link").first();
+  // threadA is known when step 2 ran in the same process; a resumed run (steps 3..8) only checks the shape.
+  await expect(link).toHaveAttribute("href", new RegExp(`^/chat/${ids.threadA ?? "[^?/]+"}\\?memory=`));
+  record.s3_aboutMe = await about.innerText();
+  await shot(owner, "3-brain-about-me");
+});
+
+test("4: new personal thread — briefing: recent goal + decision (为了：goal) and the open todo; server-generated, personal only", async () => {
+  ids.threadB = await newThread(owner);
+  const b = owner.getByTestId("session-briefing");
+  await expect(b).toBeVisible({ timeout: 30_000 });
+  await expect(owner.getByTestId("session-briefing-section-recent")).toContainText(GOAL);
+  await expect(owner.getByTestId("session-briefing-section-recent")).toContainText(DECISION);
+  await expect(owner.getByTestId("session-briefing-goal").first()).toHaveText(`为了：${GOAL}`);
+  await expect(owner.getByTestId("session-briefing-section-open_todos")).toContainText(TODO);
+  await expect(owner.getByTestId("copilotkit-v2-input")).toBeEnabled();
+  record.s4_briefing = await briefing(owner);
+  record.s4_text = await b.innerText();
+  await shot(owner, "4-new-thread-with-briefing");
+});
+
+test("5: 续上 the todo — prefilled first message with a citation; the answer uses the memory and cites the same claim", async () => {
+  const brief = await briefing(owner);
+  const todo = brief.items.find((i) => i.section === "open_todos" && i.statement === TODO)!;
+  const item = owner.locator(`[data-testid='session-briefing-item'][data-item-id='${todo.itemId}']`);
+  await item.getByTestId("session-briefing-resume").click();
+  await expect(owner.getByTestId("copilotkit-v2-input")).toHaveValue(todo.resumePrompt);
+  await expect(owner.getByTestId("session-briefing-cited")).toHaveAttribute("data-claim-id", todo.cite.claimId);
+  await shot(owner, "5a-resume-prefilled-with-citation");
+  const turn = await say(owner, todo.resumePrompt);
+  record.s5_answer = turn.text;
+  expect(turn.text).toContain(TODO);
+  const mem = (await apiGet(owner, `/knowledge-graph/threads/${ids.threadB}/messages/${turn.answerId}/memory`)).body as { recalled: Array<{ claimId: string; statement: string; scope: string; channels: string[] }> };
+  record.s5_recalled = mem.recalled;
+  expect(mem.recalled.map((m) => m.claimId)).toContain(todo.cite.claimId);
+  const block = turn.answer.locator("xpath=..");
+  await expect(block.getByTestId("kg-answer-footer")).toBeVisible({ timeout: 30_000 });
+  await expect(block.getByTestId(`kg-citation-${todo.cite.claimId}`)).toBeVisible();
+  record.s5_chip = await block.getByTestId(`kg-citation-${todo.cite.claimId}`).innerText();
+  await shot(owner, "5b-resume-answer-uses-memory");
+});
+
+test("6: G001 — a new thread 「帮我规划」 answer uses the goal without re-stating it", async () => {
+  ids.threadC = await newThread(owner);
+  const turn = await say(owner, "帮我规划");
+  record.s6_answer = turn.text;
+  expect(turn.text).toContain(GOAL);
+  const mem = (await apiGet(owner, `/knowledge-graph/threads/${ids.threadC}/messages/${turn.answerId}/memory`)).body as { recalled: Array<{ statement: string; kind: string; scope: string }> };
+  expect(mem.recalled.find((m) => m.statement === GOAL)).toMatchObject({ kind: "goal", scope: "personal" });
+  await shot(owner, "6-golden-g001-plan-uses-goal");
+});
+
+test("7: dismiss persists (server-side) and never blocks the composer; /brain can turn it back on", async () => {
+  ids.threadD = await newThread(owner);
+  await expect(owner.getByTestId("session-briefing")).toBeVisible({ timeout: 30_000 });
+  await owner.getByTestId("session-briefing-dismiss").click();
+  await expect(owner.getByTestId("session-briefing")).toHaveCount(0);
+  await expect.poll(async () => (await briefing(owner)).dismissed, { timeout: 15_000 }).toBe(true);
+  ids.threadE = await newThread(owner);
+  await expect(owner.getByTestId("copilotkit-v2-empty")).toBeVisible();
+  await expect(owner.getByTestId("session-briefing-loading")).toHaveCount(0, { timeout: 30_000 });
+  await expect(owner.getByTestId("session-briefing")).toHaveCount(0);
+  await shot(owner, "7a-dismissed-persists-new-thread");
+  await owner.goto("/brain");
+  await expect(owner.getByTestId("about-me-briefing-off")).toBeVisible({ timeout: 60_000 });
+  await shot(owner, "7b-brain-briefing-off");
+  await owner.getByTestId("about-me-briefing-reopen").click();
+  await expect(owner.getByTestId("about-me-briefing-off")).toHaveCount(0);
+  expect((await briefing(owner)).dismissed).toBe(false);
+});
+
+test("privacy: another member of the same org — no briefing, 关于我 empty, nothing of the owner's", async ({ browser }) => {
+  const other = await (await browser.newContext()).newPage();
+  await loginNoLanding(other, KG_EVAL.other);
+  const b = await briefing(other);
+  record.privacy_briefing = b;
+  expect(b.items).toEqual([]);
+  for (const s of [GOAL, DECISION, TODO]) expect(JSON.stringify(b)).not.toContain(s);
+  await newThread(other);
+  await expect(other.getByTestId("session-briefing-loading")).toHaveCount(0, { timeout: 30_000 });
+  await expect(other.getByTestId("session-briefing")).toHaveCount(0);
+  await shot(other, "8a-other-member-no-briefing");
+  await other.goto("/brain");
+  await expect(other.getByTestId("about-me-empty")).toBeVisible({ timeout: 60_000 });
+  await shot(other, "8b-other-member-about-me-empty");
+});

@@ -47,6 +47,7 @@ export const KG_RELATION_LABEL_ZH: Record<KgRelation, string> = {
   blocks: "阻碍",
   hard_constraint: "硬约束",
   candidate_for: "候选",
+  serves_goal: "为了",
 };
 
 /** 引用 chip 上的文字上限（超出截断加省略号；完整内容在「为什么用到它」与来源抽屉里）。 */

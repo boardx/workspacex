@@ -144,6 +144,21 @@ unless noted.
 - [ ] **#4290 rules** (§「待签核确认（issue #4181…）」 item 5, L195–208). Explicit change only, same author only. Auto
   applies only to the allowlisted `explicit` and aligned `same_kind` tiers, `frame_only` gives a card, and
   retraction, question and verdict give nothing. Only the thread creator can undo in project threads.
+- [ ] **S5 contract additions for #4360 / #4362** (`packages/contracts/src/chat-knowledge-graph.ts`; human said treat as
+  approved, sign off later). New structural relation `serves_goal` (personal decision / todo → own goal, model-proposed
+  and auto-attached only at confidence ≥ 0.8); `kgProfileSection` (目标 / 偏好 / 约束与身份 / 在做的事); ops
+  `setGoalLink`, `revisePersonalClaim` (new claim `accepted`, old one `superseded` with reason `user_revised`, edges move
+  with it), `getSessionBriefing` / `setSessionBriefingPreference` / `recordSessionBriefingEvent`; migration
+  `20260928210000`. Evidence: [`evidence/phase-18/s5/`](../s5/README.md).
+  Interactions recorded in the `revisePersonalClaim` contract comment (#4494 review, no behaviour change):
+  - **M2 × S10, decided by the human 2026-09-28**: revising a personal claim that was shared to a project withdraws
+    the project copy (`personal_source_revoked`); the copy does **not** follow the revision — the owner re-shares if
+    colleagues should see the new wording. Pinned by `s5-profile-briefing.test.ts` («M2»).
+  - **M3 × S7**: `revisePersonalClaim` carries `derived_from` over to the new claim (same memory, reworded; forgetting
+    the source statement later takes the revision with it via F07), while S7 `correctCitation` with a replacement drops
+    `derived_from` (it asserts the old statement was wrong). Both rules stand; do not merge them.
+  - With S6: the briefing and goal-link candidates only use claims that still count (not past `valid_to`, todos only
+    when `todo_state = 'open'`); a revision keeps the old claim's `todo_state`.
 - [ ] **#4352 contract field: per-message extraction status** (`KgMessageExtraction.status` in
   `packages/contracts/src/chat-knowledge-graph.ts`: `pending | written | empty | skipped | failed | none`). The human
   decided on 2026-09-27 (option A, relayed by the coordinator) to implement it first and sign it off later. It backs

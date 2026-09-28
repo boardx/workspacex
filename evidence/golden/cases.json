@@ -1,0 +1,66 @@
+{
+  "version": 1,
+  "about": "Golden set for the phase-18 north star (issue #4360): in a new chat the user never has to re-state known background. Each case is a user journey on the real product path. `says` and `goalLinks` are the loopback stand-in model replies (read by apps/api/scripts/loopback-kg-eval-model-provider.ts and apps/api/scripts/loopback-golden-model-provider.ts); on devapp the real model replaces them and the same journeys are the acceptance checks.",
+  "says": {
+    "G001-GOAL": {
+      "say": "我的目标是探索未来教育",
+      "extract": {
+        "entities": [],
+        "claims": [{ "statement": "我的目标是探索未来教育", "kind": "goal", "confidence": 0.9, "about": [], "decidedBy": null, "quote": "我的目标是探索未来教育" }]
+      }
+    },
+    "G002-DECISION": {
+      "say": "我决定先调研三所实验学校",
+      "extract": {
+        "entities": [],
+        "claims": [{ "statement": "我决定先调研三所实验学校", "kind": "decision", "confidence": 0.9, "about": [], "decidedBy": null, "quote": "我决定先调研三所实验学校" }]
+      }
+    },
+    "G002-TODO": {
+      "say": "下周要约王老师聊一下课程设计",
+      "extract": {
+        "entities": [],
+        "claims": [{ "statement": "下周约王老师聊课程设计", "kind": "todo", "confidence": 0.9, "about": [], "decidedBy": null, "quote": "下周要约王老师聊一下课程设计" }]
+      }
+    }
+  },
+  "goalLinks": [
+    { "item": "我决定先调研三所实验学校", "goal": "我的目标是探索未来教育", "confidence": 0.9 }
+  ],
+  "cases": [
+    {
+      "id": "G001",
+      "issue": "#4360",
+      "title": "说过的目标，新会话里「帮我规划」时直接用上，不用再说一遍",
+      "turns": [
+        { "thread": "first", "say": "我的目标是探索未来教育", "expectMemory": [{ "kind": "goal", "statement": "我的目标是探索未来教育", "personal": true }] },
+        {
+          "thread": "new",
+          "say": "帮我规划",
+          "expectAnswerContains": ["我的目标是探索未来教育"],
+          "expectRecalled": [{ "kind": "goal", "scope": "personal", "statement": "我的目标是探索未来教育" }],
+          "northStar": { "restated": false }
+        }
+      ]
+    },
+    {
+      "id": "G002",
+      "issue": "#4362",
+      "title": "新会话开场简报列出上次的目标、决定（挂在目标下）与待办；「续上」待办后回答用上了它",
+      "turns": [
+        { "thread": "first", "say": "我决定先调研三所实验学校", "expectMemory": [{ "kind": "decision", "statement": "我决定先调研三所实验学校", "personal": true, "servesGoal": "我的目标是探索未来教育" }] },
+        { "thread": "first", "say": "下周要约王老师聊一下课程设计", "expectMemory": [{ "kind": "todo", "statement": "下周约王老师聊课程设计", "personal": false }] },
+        {
+          "thread": "new",
+          "briefing": {
+            "expectSections": ["recent", "open_todos"],
+            "expectItems": ["我的目标是探索未来教育", "我决定先调研三所实验学校", "下周约王老师聊课程设计"],
+            "resume": "下周约王老师聊课程设计"
+          },
+          "expectAnswerContains": ["下周约王老师聊课程设计"],
+          "expectRecalledCite": true
+        }
+      ]
+    }
+  ]
+}

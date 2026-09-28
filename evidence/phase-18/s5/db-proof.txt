@@ -1,0 +1,45 @@
+== personal claims (owner)
+ claim_kind |  status  | created_by |        statement         
+------------+----------+------------+--------------------------
+ goal       | proposed | model      | 我的目标是探索未来教育
+ decision   | proposed | model      | 我决定先调研三所实验学校
+(2 rows)
+
+== serves_goal edges
+ status | created_by | scope_kind | src_kind |           src            | dst_kind |          dst           
+--------+------------+------------+----------+--------------------------+----------+------------------------
+ active | model      | personal   | decision | 我决定先调研三所实验学校 | goal     | 我的目标是探索未来教育
+(1 row)
+
+== goal-link audit
+ actor_kind |   actor_id   | action_type | confidence | outcome  
+------------+--------------+-------------+------------+----------
+ system     | kg-goal-link | setGoalLink | 0.9        | accepted
+(1 row)
+
+== briefing preference / events (ids only, no text)
+      user_id       | dismissed 
+--------------------+-----------
+ user-kg-eval-owner | f
+(1 row)
+
+      user_id       |   event   |                                                                       item_ids                                                                        
+--------------------+-----------+-------------------------------------------------------------------------------------------------------------------------------------------------------
+ user-kg-eval-owner | shown     | ["recent:act_00460dc1e8ba47b396874f00c64f31e1-p", "recent:act_69f4aeb79eef44ccbe4788d868ee0e5a-p", "open_todos:clm_e7849e7769aa4e6cbe3c1b044f7b28dc"]
+ user-kg-eval-owner | shown     | ["recent:act_00460dc1e8ba47b396874f00c64f31e1-p", "recent:act_69f4aeb79eef44ccbe4788d868ee0e5a-p", "open_todos:clm_e7849e7769aa4e6cbe3c1b044f7b28dc"]
+ user-kg-eval-owner | shown     | ["recent:act_00460dc1e8ba47b396874f00c64f31e1-p", "recent:act_69f4aeb79eef44ccbe4788d868ee0e5a-p", "open_todos:clm_e7849e7769aa4e6cbe3c1b044f7b28dc"]
+ user-kg-eval-owner | accepted  | ["open_todos:clm_e7849e7769aa4e6cbe3c1b044f7b28dc"]
+ user-kg-eval-owner | shown     | ["recent:act_00460dc1e8ba47b396874f00c64f31e1-p", "recent:act_69f4aeb79eef44ccbe4788d868ee0e5a-p", "open_todos:clm_e7849e7769aa4e6cbe3c1b044f7b28dc"]
+ user-kg-eval-owner | shown     | ["recent:act_00460dc1e8ba47b396874f00c64f31e1-p", "recent:act_69f4aeb79eef44ccbe4788d868ee0e5a-p", "open_todos:clm_e7849e7769aa4e6cbe3c1b044f7b28dc"]
+ user-kg-eval-owner | dismissed | ["recent:act_00460dc1e8ba47b396874f00c64f31e1-p", "recent:act_69f4aeb79eef44ccbe4788d868ee0e5a-p", "open_todos:clm_e7849e7769aa4e6cbe3c1b044f7b28dc"]
+(7 rows)
+
+== turn recall rows (channels only)
+                thread_id                 |            channels             
+------------------------------------------+---------------------------------
+ thr-468b0e27-85ed-4650-ae10-5e8b927779f8 | [["claim"]]
+ thr-468b0e27-85ed-4650-ae10-5e8b927779f8 | [["claim"], ["claim"]]
+ thr-68c4962d-f9fb-4006-b4da-b77b960f06af | [["fts"], ["claim"], ["claim"]]
+ thr-1e6c9885-79f0-4d99-b9af-09b57631a0d1 | [["claim"], ["claim"]]
+(4 rows)
+
