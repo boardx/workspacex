@@ -12,6 +12,8 @@
  */
 import {
   claimTriState,
+  KG_CLAIM_KIND_DISPLAY_ORDER,
+  KG_CLAIM_KIND_LABEL_ZH,
   KG_GRAPH_VIEW_MAX_NODES,
   KG_TRI_STATE_LABEL_ZH,
   type KgClaim,
@@ -21,23 +23,15 @@ import {
 } from "@repo/contracts/chat-knowledge-graph";
 import type { ThreadKnowledge } from "@/lib/knowledge-graph-api";
 
-/* ── 「记下的一条」按类型显示（用词表：结论 → 事实 / 猜测 / 决定 / 待办 / 风险 / 目标 / 偏好） ──── */
-export const KG_CLAIM_KIND_LABEL_ZH: Record<KgClaimKind, string> = {
-  fact: "事实",
-  hypothesis: "猜测",
-  decision: "决定",
-  todo: "待办",
-  risk: "风险",
-  // issue #4343：本人说的目标 / 意图、偏好
-  goal: "目标",
-  preference: "偏好",
-};
+/* ── 「记下的一条」按类型显示：文案只在契约里一份（#4361 起后端给模型的记忆清单也用它；#4343 的目标 / 偏好在那里） ──── */
+export { KG_CLAIM_KIND_LABEL_ZH };
 
 /**
- * 按类型分组 / 计数的先后（会话记忆面板与 /brain 共用这一份）：决定最先，其次本人的目标、偏好，再是事实……
- * 漏排一个类型 = 那一类永远不渲染（#4343 之前的五值表就会这样吞掉目标）；单测拿契约枚举逐项核对。
+ * 按类型分组 / 计数的先后（会话记忆面板、/brain 与「你记得我什么」共用这一份）：决定最先，其次本人的目标、偏好，
+ * 再是事实……漏排一个类型 = 那一类永远不渲染（#4343 之前的五值表就会这样吞掉目标）；单测拿契约枚举逐项核对。
+ * 定义在契约 `KG_CLAIM_KIND_DISPLAY_ORDER`（#4361 起单源），这里只是别名。
  */
-export const KG_CLAIM_KIND_ORDER: readonly KgClaimKind[] = ["decision", "goal", "preference", "fact", "todo", "risk", "hypothesis"];
+export const KG_CLAIM_KIND_ORDER: readonly KgClaimKind[] = KG_CLAIM_KIND_DISPLAY_ORDER;
 
 /* ── 「人和事」按类型显示（用词表：实体 → 人物 / 公司 / 项目 / …），界面不出现「实体」字样 ── */
 export const KG_OBJECT_KIND_LABEL_ZH: Record<KgObjectKind, string> = {

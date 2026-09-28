@@ -27,6 +27,10 @@ describe("F06 抽取流水线读取的豁免前提", () => {
     tables.delete("chat_messages");
     tables.delete("ontology_objects");
     tables.delete("picked");  // 认领用的物化 CTE，不是表
+    // issue #4352：每条消息的抽取结果码。只写（INSERT … ON CONFLICT），从不读——不带任何正文，不扩大读取面。
+    expect(code).not.toMatch(/\b(?:FROM|JOIN|UPDATE)\s+kg_message_extraction_outcomes\b/i);
+    tables.delete("kg_message_extraction_outcomes");
+    tables.delete("set");  // 上面那条 upsert 的 `DO UPDATE SET` 关键字，不是表
     // round 7（#4284 收口）：这三张只出现在 projectAnswerOutsideRecallCount 那一条 SQL 里（下面 (h) 钉住它只回一个计数）
     const gate = /`SELECT count\(\*\)::int AS n[\s\S]*?`/.exec(code)?.[0] ?? "";
     for (const t of ["chat_threads", "kg_turn_recalls", "claims", "jsonb_array_elements"]) {
@@ -51,7 +55,8 @@ describe("F06 抽取流水线读取的豁免前提", () => {
 
   it("(d) loadMessage / knownObjects / projectAnswerOutsideRecallCount 的唯一调用方是抽取用例", () => {
     const callers = walk(join(API, "src"))
-      .filter((f) => /\.(loadMessage|knownObjects|projectAnswerOutsideRecallCount)\(/.test(readFileSync(f, "utf8")))
+      // B3-T2：`KgProjectIngestionPort.knownObjects`（项目作用域、回 Guarded）是另一个端口的同名方法，不在本条豁免里。
+      .filter((f) => /\.(loadMessage|knownObjects|projectAnswerOutsideRecallCount)\(/.test(readFileSync(f, "utf8").replaceAll("deps.ingestion.knownObjects(", "")))
       .map((f) => relative(API, f));
     expect(callers).toEqual(["src/application/knowledge-graph/extract-message-knowledge.ts"]);
   });

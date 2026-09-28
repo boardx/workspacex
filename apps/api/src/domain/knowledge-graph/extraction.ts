@@ -11,11 +11,13 @@
  * 枚举与长度的最终裁决仍在执行器与数据库 CHECK（两层都挡）。
  */
 import { knowledgeGraph as KG, type projectEvidence as PE } from "@repo/contracts";
+import { resolveTimeExpression } from "./claim-time";
 import type { OntologyBatch, OntologyClaimInput, OntologyEdgeInput, OntologyEvidenceInput, OntologyObjectInput } from "./ontology-batch";
 
 /** 幂等键的一半（I-7）。抽取逻辑（prompt / 解析 / 实体解析）改了就升版本：同一消息会按新版本重跑一次。 */
 /** kg-extract@2（issue #4343）：prompt 与 schema 加了 goal / preference 两类。 */
-export const KG_EXTRACTION_PIPELINE_VERSION = "kg-extract@2";
+/** kg-extract@3（issue #4363 S6）：结论带时间说法（timeExpr）⇒ 有效期（待办则是截止日期）。 */
+export const KG_EXTRACTION_PIPELINE_VERSION = "kg-extract@3";
 
 export interface ExtractedEntity {
   readonly name: string;
@@ -33,6 +35,11 @@ export interface ExtractedClaim {
   readonly decidedBy: string | null;
   /** 支撑它的原话（消息里的一段）；缺省用消息开头。 */
   readonly quote: string;
+  /**
+   * issue #4363（S6）：原话里限定这条结论**成立时段**（待办则是截止）的时间说法，原样摘录（「这周」「到年底」「下个月之前」）；
+   * 没有 ⇒ null。换算成绝对时间在 claim-time.ts（按消息时间），不让模型算日期。
+   */
+  readonly timeExpr: string | null;
 }
 
 export interface ExtractionResult {
@@ -47,6 +54,7 @@ const MAX_CLAIMS = 10;
 const MAX_NAME = 200;
 const MAX_STATEMENT = 500;
 const MAX_EXCERPT = 280;
+const MAX_TIME_EXPR = 40;
 
 const str = (v: unknown): string => (typeof v === "string" ? v.trim() : "");
 /**
@@ -78,9 +86,11 @@ export function parseExtraction(raw: unknown): ExtractionResult {
     if (statement.length === 0 || statement.length > MAX_STATEMENT || !kind.success) continue;
     const conf = typeof o.confidence === "number" && Number.isFinite(o.confidence) ? Math.min(1, Math.max(0, o.confidence)) : 0.5;
     const decidedBy = str(o.decidedBy ?? o.decided_by);
+    const timeExpr = str(o.timeExpr ?? o.time_expr);
     claims.push({
       statement, kind: kind.data, confidence: conf, about: strs(o.about),
       decidedBy: decidedBy.length > 0 ? decidedBy : null, quote: str(o.quote),
+      timeExpr: timeExpr.length > 0 && timeExpr.length <= MAX_TIME_EXPR ? timeExpr : null,
     });
     if (claims.length >= MAX_CLAIMS) break;
   }
@@ -113,10 +123,25 @@ export interface BuildExtractionBatchInput {
   readonly threadId: string;
   readonly messageId: string;
   readonly messageBody: string;
+  /** issue #4363（S6）：这条消息的时间（ISO）——「这周」「到年底」按它换算。缺省 ⇒ 不带有效期。 */
+  readonly messageAt?: string;
   readonly result: ExtractionResult;
   readonly known: readonly KnownObject[];
   /** 新 id 的来源（测试可注入确定序列）。 */
   readonly newId: (prefix: "obj" | "clm" | "edg" | "act") => string;
+}
+
+/**
+ * issue #4363（S6）：时间说法 → 这条结论的时间字段。待办的时间说法是**截止日期**（过了截止更该提醒，不能当成过期不召回）；
+ * 其余类别是**有效期**（「这周我在上海」过了这周就不再成立）。认不出的说法、没有消息时间 ⇒ 什么都不带（长期有效）。
+ */
+export function claimTime(
+  c: Pick<ExtractedClaim, "kind" | "timeExpr">, messageAt: string | undefined,
+): Pick<OntologyClaimInput, "validFrom" | "validUntil" | "dueAt"> {
+  if (c.timeExpr === null || messageAt === undefined) return {};
+  const range = resolveTimeExpression(c.timeExpr, new Date(messageAt));
+  if (range === null) return {};
+  return c.kind === "todo" ? { dueAt: range.until } : { validFrom: range.from, validUntil: range.until };
 }
 
 /**
@@ -136,6 +161,8 @@ export interface BuildCandidateBatchInput {
   readonly result: ExtractionResult;
   readonly known: readonly KnownObject[];
   readonly newId: (prefix: "obj" | "clm" | "edg" | "act") => string;
+  /** issue #4363（S6）：原文的时间（ISO），时间说法按它换算；缺省 ⇒ 不带有效期 / 截止。 */
+  readonly sourceAt?: string;
 }
 
 /** 没有任何结论也没有实体 ⇒ null（寒暄消息：什么都不写，也不报错）。 */
@@ -170,6 +197,7 @@ export function buildCandidateBatch(input: BuildCandidateBatchInput): OntologyBa
     claims.push({
       id, claimKind: c.kind, statement: c.statement, status: "proposed", confidence: c.confidence,
       evidence: [input.evidenceFor(quote)],
+      ...claimTime(c, input.sourceAt),
     });
     const linked = new Set<string>();
     for (const name of c.about) {
@@ -211,6 +239,7 @@ export function buildExtractionBatch(input: BuildExtractionBatchInput): Ontology
     result: input.result,
     known: input.known,
     newId: input.newId,
+    ...(input.messageAt === undefined ? {} : { sourceAt: input.messageAt }),
   });
 }
 

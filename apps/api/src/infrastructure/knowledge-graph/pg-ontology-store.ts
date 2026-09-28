@@ -34,6 +34,10 @@ export function toBatchPayload(batch: OntologyBatch): Record<string, unknown> {
           ? { segment_id: e.segmentId, stance: e.stance, ...(e.evidenceId !== undefined ? { evidence_id: e.evidenceId } : {}) }
           // B3-T2：项目证据单元锚点（迁移 20260928210000 的 `claim_project_evidence`）
           : { evidence_id: e.evidenceId, source_kind: e.sourceKind, source_ref: e.sourceRef, stance: e.stance, excerpt: e.excerpt })),
+      // issue #4363（S6）：只在有值时带上（kg_apply_batch 缺省 valid_from = now()、其余为空）
+      ...(c.validFrom === undefined ? {} : { valid_from: c.validFrom }),
+      ...(c.validUntil === undefined ? {} : { valid_until: c.validUntil }),
+      ...(c.dueAt === undefined ? {} : { due_at: c.dueAt }),
     })),
     edges: batch.edges.map((e) => ({
       id: e.id, src_kind: e.srcKind, src_id: e.srcId, dst_kind: e.dstKind, dst_id: e.dstId, relation: e.relation,

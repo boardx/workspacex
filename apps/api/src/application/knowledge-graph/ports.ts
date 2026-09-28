@@ -92,6 +92,9 @@ export interface KgExtractionJob {
   readonly attempts: number;
 }
 
+/** issue #4352：一条消息抽取完成时的结果（`failed` 由 `fail` 在次数用完时记，不经 complete）。 */
+export type KgExtractionOutcome = "written" | "empty" | "skipped" | "failed";
+
 /** 抽取队列（消息落库时由触发器排队，见迁移 20260924210000）。 */
 export interface KgExtractionQueuePort {
   /** 抽取在这个库上开着：从此新消息才排队（关着时不排，免得永远没人消费的行无限增长）。 */
@@ -104,7 +107,8 @@ export interface KgExtractionQueuePort {
    * 只有这一行仍停在这次认领上时才生效——被 watchdog 放弃、租约过期后又被重新认领的旧任务，迟到的
    * complete / fail 不会删掉 / 解锁新认领正在处理的那一行。不给 ⇒ 不围栏。
    */
-  complete(orgId: OrgId, messageId: string, attempts?: number): Promise<void>;
+  /** issue #4352：`outcome` ⇒ 同一事务里记下这条消息的抽取结果（`getMessageExtraction.status` 的信号源）。 */
+  complete(orgId: OrgId, messageId: string, attempts?: number, outcome?: KgExtractionOutcome): Promise<void>;
   fail(orgId: OrgId, messageId: string, error: string, attempts?: number): Promise<void>;
 }
 
@@ -113,6 +117,8 @@ export interface KgMessage {
   readonly threadId: string;
   readonly body: string;
   readonly authorKind: "human" | "agent";
+  /** issue #4363（S6）：消息时间（ISO）。抽取时换算「这周」「到年底」用；上文消息可省略。 */
+  readonly createdAt?: string;
 }
 
 export interface KgExtractionSourcePort {
@@ -325,7 +331,9 @@ export type KgHumanActionErrorCode =
   // B3-T4 adoptProjectDecision.err：非成员（数据库函数也复核，同一个码）
   | "KG_NOT_VISIBLE"
   // F17 确认卡（actOnMemoryCard.err）；KG_INVALID_REQUEST 不是契约码——请求本身不成立（改完的字全是空白），接口回 400
-  | "KG_CARD_NOT_FOUND" | "KG_CARD_STALE" | "KG_INVALID_REQUEST";
+  | "KG_CARD_NOT_FOUND" | "KG_CARD_STALE" | "KG_INVALID_REQUEST"
+  // UC-KG-4 requestReindex（issue #4352）
+  | "KG_REINDEX_ALREADY_RUNNING";
 
 export interface HumanActionPort {
   /** 数据库复核所有者 / 版本 / 作用域后执行；被拒时抛 `KgHumanActionError`。 */
@@ -335,6 +343,15 @@ export interface HumanActionPort {
     readonly basedOnRevision: number;
     readonly action: KgHumanAction;
   }): Promise<{ readonly revision: number; readonly actionId: string }>;
+  /**
+   * issue #4363（S6）：改一条待办的状态（`kg_set_todo_state`）。只有所有者；同一件待办的会话 / 个人空间两份一起改。
+   * 被拒（不存在 / 不是待办 / 不是所有者）一律 `KG_CLAIM_NOT_FOUND`。
+   */
+  setTodoStatus(orgId: OrgId, userId: string, input: {
+    readonly actionId: string;
+    readonly claimId: string;
+    readonly status: KG.KgTodoStatus;
+  }): Promise<{ readonly claimId: string; readonly status: KG.KgTodoStatus; readonly claimIds: readonly string[] }>;
 }
 
 export class KgHumanActionError extends Error {
@@ -510,7 +527,8 @@ export interface MemoryCardPort {
     readonly runId: string;
     readonly messageId: string;
     readonly requesterUserId: string;
-    readonly kind: "remember" | "forget";
+    /** #4361：overview =「你记得我什么」的清单卡（claimIds 按显示顺序；没有动作）。 */
+    readonly kind: "remember" | "forget" | "overview";
     /**
      * 谁提的卡上的字（issue #4344，缺省 user_message）：user_message = 用户消息以「记住：…」开头，数据库核对字出自这条消息；
      * agent_tool = agent 的 `wx_remember` 工具，只开记住卡，字由用户在卡上确认 / 改字（迁移 20260927300000）。
@@ -537,6 +555,20 @@ export interface MemoryCardPort {
     readonly claimIds?: readonly string[];
     readonly editedStatement?: string;
   }): Promise<{ readonly card: MemoryCardData; readonly actionIds: readonly string[] }>;
+  /**
+   * #4361：撤销一张已生效的忘掉卡（人的动作；`kg_undo_memory_card`）。被拒时抛 `KgHumanActionError`
+   * （已撤销 / 没生效 / 不是忘掉卡 ⇒ KG_CARD_STALE）。
+   */
+  undo(orgId: OrgId, userId: string, input: {
+    readonly actionId: string;
+    readonly cardId: string;
+    readonly actorKind: "human" | "agent";
+  }): Promise<{ readonly card: MemoryCardData; readonly actionIds: readonly string[] }>;
+  /**
+   * #4361「改主意」的范围闸门（`kg_memory_manage_ok`）：这条消息是不是个人线程的所有者本人在这个线程里说的。
+   * 不是 ⇒ 改口这条路什么都不做（不碰项目层 / 别人的记忆）。
+   */
+  personalTurn(orgId: OrgId, input: { readonly threadId: string; readonly messageId: string; readonly requesterUserId: string }): Promise<boolean>;
 }
 
 export const MEMORY_CARD_PORT = Symbol("MemoryCardPort");
@@ -625,3 +657,16 @@ export interface KgProjectIngestionPort {
 }
 
 export const KG_PROJECT_INGESTION_PORT = Symbol("KgProjectIngestionPort");
+
+// ─────────────────────────────── UC-KG-4 整理本会话（issue #4352） ───────────────────────────────
+
+/**
+ * 把一个会话的消息重新排进抽取队列（`kg_extraction_requeue_thread`，迁移 20260928160000）。调用方已判过
+ * 会话可见性与所有者。返回排进去的条数；本会话还有在整理中的行 ⇒ `"already_running"`。部署开关或组织开关
+ * 关着 ⇒ 0（关闭期间不整理，打开之后再补）。`sourceRefs` 给了 ⇒ 只重排这些消息（仍限定在本会话里）。
+ */
+export interface KgReindexPort {
+  requeueThread(orgId: OrgId, threadId: string, sourceRefs: readonly string[] | null): Promise<number | "already_running">;
+}
+
+export const KG_REINDEX_PORT = Symbol("KgReindexPort");

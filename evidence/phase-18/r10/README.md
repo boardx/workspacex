@@ -144,11 +144,54 @@ unless noted.
 - [ ] **#4290 rules** (§「待签核确认（issue #4181…）」 item 5, L195–208). Explicit change only, same author only. Auto
   applies only to the allowlisted `explicit` and aligned `same_kind` tiers, `frame_only` gives a card, and
   retraction, question and verdict give nothing. Only the thread creator can undo in project threads.
+- [ ] **#4352 contract field: per-message extraction status** (`KgMessageExtraction.status` in
+  `packages/contracts/src/chat-knowledge-graph.ts`: `pending | written | empty | skipped | failed | none`). The human
+  decided on 2026-09-27 (option A, relayed by the coordinator) to implement it first and sign it off later. It backs
+  「这句没有需要记的 · 记一条」 and is stored in `kg_message_extraction_outcomes` (migration `20260928160000`).
+- [ ] **S8 #4365 contract additions (treated as approved, sign off later)**. `chat-knowledge-graph.ts` gains six
+  operations and two error codes: `getPlatformExtractionSlo`, `get/setPlatformConsolidationSetting`,
+  `runPlatformConsolidation` (platform operators), `listMyConsolidationRuns` and `undoConsolidationRun` (owner only), plus
+  `KG_CONSOLIDATION_RUN_NOT_FOUND` / `KG_CONSOLIDATION_DISABLED`. Open decisions for the human: (a) the deployment
+  consolidation switch ships **off** and stays off until a human turns it on; (b) the 「值得记」 gate skips greetings, short
+  acknowledgements and pure questions before the extraction model (goal / preference / decision / memory-instruction
+  messages are never skipped); (c) a consolidation conflict is surfaced as an F16 card on the newer statement's own
+  personal-thread turn, and a pair whose newer side has no such source is only counted (`conflictsUnsurfaced`).
+  Evidence: [`../s8/`](../s8/).
+- [ ] **S7 #4364 signed-contract additions (treated as approved, sign off later)** — `packages/contracts/src/chat-knowledge-graph.ts`:
+  `KgTurnMemory.cited` (optional: the server-reconciled citation ids, always a subset of `recalled`),
+  `KgTurnMemory.canCorrect` (optional, review F6: viewer is owner AND this turn's requester), `KgCitationCorrectionKind`,
+  and two new operations `correctCitation` (POST
+  `/knowledge-graph/threads/:threadId/messages/:messageId/citations/:claimId/correction`, owner who is also the turn's
+  requester; 「这条不对」 = forget, or supersede with `replacement`; 「已过时」 = `expireClaim`, which until #4363 lands
+  is the existing revoke with reason `user_citation_expired`) and `getCitationMetrics` (GET
+  `/knowledge-graph/me/citation-metrics`, correction rate = corrections / cited uses over 30 days). Migration
+  `20260928190000_kg_s7_citation_corrections.sql`. Evidence: [`../s7/README.md`](../s7/README.md).
 - [ ] **Eval rubric amendments R1–R3**
   ([`rubric-lock.json`](../../kg-experience-eval/rubric-lock.json) `amendments`,
   [`README.md`](../../kg-experience-eval/README.md) round table). R1: E4 「原话」 accepts any corpus sentence, and
   `say()` waits for 「发送」. R2: tightening only (non-empty excerpt, same claim). R3: the seed re-enables extraction,
   authorised 2026-09-26. R4 added no amendment.
+- [ ] **#4361 (S4) manage memory in the conversation — signed-contract changes, treated as approved, sign off later**
+  ([`../s4/README.md`](../s4/README.md)). Contract `chat-knowledge-graph.ts`: `KgMemoryCard.kind` gains `overview`
+  (「你记得我什么」, a no-action list grouped by kind; items carry `claimKind` + `source`), `KgMemoryCard.state` gains
+  `undone`, new op `undoMemoryCard` (POST `/knowledge-graph/cards/:cardId/undo`), and `KG_CLAIM_KIND_LABEL_ZH` /
+  `KG_CLAIM_KIND_DISPLAY_ORDER` move into the contract (single source for the panel, the list card and the model
+  prompt). Behaviour changes to F17 (UC-KG-12, uc-18-6 B): the forget card now **only opens in the requester's own
+  personal threads** (a project thread gets no card and a plain explanation; F17 used to list the project thread's
+  claims); its candidates are the whole personal space (long-term memory + all own personal threads, the F15 scope),
+  not only this thread + long-term memory; forgetting a long-term item also forgets its live `derived_from` sources in
+  the requester's own personal threads; a done forget card is undoable. 「我改主意了，改成 Y」 runs the #4290 rules at
+  turn time (no dependency on the extraction model), including the automatic tier.
+  - [x] **Decided (human, 2026-09-27): 「选 A」** — 「我改主意了」 keeps writing (supersede, auto copy) even when
+    extraction is switched off at the org or deployment level (PR #4493 review M1). Code unchanged.
+- [ ] **S6 #4363 time dimension (treated as approved, sign off later).** Signed contract `chat-knowledge-graph.ts`
+  gained: optional `KgClaim.validUntil / expired / todoStatus / dueAt`, `KgTodoStatus` + `KG_TODO_STATUS_LABEL_ZH`,
+  optional `KgPersonalReplacedClaim.step / replacedBy` (chained supersede history), and a new op `setTodoStatus`
+  (`POST /knowledge-graph/claims/:claimId/todo-status`, owner-only, errors `KG_CLAIM_NOT_FOUND` / `KG_ACTOR_NOT_HUMAN`).
+  Behaviour to confirm: expired claims and `dropped` todos are excluded from recall (incl. forced decision / goal
+  recall) but still listed on /brain marked 「已过期」; a todo's time expression is its due date, not an expiry; a
+  personal copy inherits its first source's validity and todo status; `valid_until` reuses the F02 `valid_to` column.
+  Evidence: [`../s6/README.md`](../s6/README.md).
 - [ ] **S10 #4367 「分享到项目…」 (UC-KG-15)**, treated as approved, sign off later. New contract ops
   `listProjectShareTargets` / `shareToProject` / `unshareFromProject`, new error codes `KG_PROJECT_NOT_FOUND` (404) and
   `KG_PROJECT_READ_ONLY` (403), `getProjectKnowledge.sharedFromPersonal`, and `KgRecalledMemory.scope` now includes
@@ -157,7 +200,7 @@ unless noted.
   [`../s10/`](../s10/).
 - [ ] Also open in the same file:
   - F17 card-state semantics (L105–110);
-  - the F15 cross-session recall scope and the **E9 403 vs I-3 404** conflict (L181–184), which is the E9.c2 red;
+  - the F15 cross-session recall scope and the **E9 403 vs I-3 404** conflict (L181–184) — resolved 2026-09-27: the human ruled 404; 06-user-experience.md E9 and the eval (amendment R5) now say 404, and E9.c2 is green in R5;
   - #4181 items 1–4: decision budget, keyword list, manual undo entry, and L1 forced recall (L186–193).
 
 ### 3.3 Known open issues

@@ -54,6 +54,11 @@ export interface OntologyClaimInput {
   readonly status: z.infer<typeof CP.ClaimStatus>;
   readonly confidence: number | null;
   readonly evidence: readonly OntologyEvidenceInput[];
+  /** issue #4363（S6）：有效期（ISO，左闭右开；落在 claims.valid_from / valid_to）。省略 ⇒ 从写入时起长期有效。 */
+  readonly validFrom?: string;
+  readonly validUntil?: string;
+  /** issue #4363（S6）：待办的截止日期（ISO；claims.due_at）。 */
+  readonly dueAt?: string;
 }
 
 export type OntologyEndpointKind = "object" | "claim" | "segment" | "chat_message";
@@ -129,6 +134,12 @@ export function validateOntologyBatch(batch: OntologyBatch, currentUserId: strin
     }
     if (c.confidence !== null && (c.confidence < 0 || c.confidence > 1)) {
       return reject("KG_INVALID_BATCH", `claim ${c.id} confidence out of [0,1]`);
+    }
+    // issue #4363（S6）：有效期左闭右开（与 claims_validity_chk 同一条）；时间要能解析
+    const t = (s: string | undefined) => (s === undefined ? null : Date.parse(s));
+    const [from, until, due] = [t(c.validFrom), t(c.validUntil), t(c.dueAt)];
+    if ([from, until, due].some((x) => x !== null && !Number.isFinite(x)) || (from !== null && until !== null && from >= until)) {
+      return reject("KG_INVALID_BATCH", `claim ${c.id} has an invalid validity window`);
     }
     // I-4：模型 / 系统只能提出，确认是人的动作
     if (batch.actor.kind !== "human" && c.status !== "proposed") {

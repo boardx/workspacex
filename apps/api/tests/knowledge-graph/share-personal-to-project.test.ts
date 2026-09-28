@@ -243,7 +243,7 @@ describe("S10 分享到项目：个人结论显式提升到项目层", () => {
   });
 
   // 跨轮次交互（S4 #4361 忘掉 / 撤销卡、S8 #4491 整合 / 整合撤销、S6 #4492 时间继承）：那些分支还没合入 main，这里按它们的
-  // 落库形状直接改行来模拟（原因码是普通文本）。S6 的 kg_copy_inherits_time 会往副本上抄 valid_to / due_at / todo_status，
+  // 落库形状直接改行来模拟（原因码是普通文本）。S6 的 kg_copy_inherits_time 会往副本上抄 valid_to / due_at / todo_state，
   // 所以本文件不对副本的这几列做「必须为空」的断言。TODO(#4491 / S4 claude/s4-memory-manage)：合入后改走真函数再跑一遍。
   const liveCopy = async (id: string) => (await sql<{ live: boolean; reason: string | null }>(
     "SELECT (revoked_at IS NULL AND status <> 'superseded') AS live, revocation_reason AS reason FROM claims WHERE id = $1", [id]))[0];

@@ -644,14 +644,26 @@ import {
 } from "./application/first-value/first-value-recorder";
 import { PgFirstValueFacts } from "./infrastructure/first-value/pg-first-value-facts";
 import { FirstValueController } from "./interface/controllers/first-value.controller";
-import { GRAPH_PROJECTION_PORT, KG_AUTO_COPY_PORT, KG_EMBEDDING_QUEUE_PORT, KG_CONFLICT_PORT, KG_DEPLOYMENT_EXTRACTION_SETTINGS_PORT, KG_EXTRACTION_QUEUE_PORT, KG_EXTRACTION_SOURCE_PORT, KG_ORG_EXTRACTION_SETTINGS_PORT, KG_PROJECT_INGESTION_PORT, HUMAN_ACTION_PORT, KNOWLEDGE_EXTRACTOR_PORT, KNOWLEDGE_READ_PORT, MEMORY_CARD_PORT, type MemoryCardPort, ONTOLOGY_STORE_PORT, PROMOTION_PORT } from "./application/knowledge-graph/ports";
+import { GRAPH_PROJECTION_PORT, KG_AUTO_COPY_PORT, KG_EMBEDDING_QUEUE_PORT, KG_CONFLICT_PORT, KG_DEPLOYMENT_EXTRACTION_SETTINGS_PORT, KG_EXTRACTION_QUEUE_PORT, KG_EXTRACTION_SOURCE_PORT, KG_ORG_EXTRACTION_SETTINGS_PORT, KG_PROJECT_INGESTION_PORT, KG_REINDEX_PORT, HUMAN_ACTION_PORT, KNOWLEDGE_EXTRACTOR_PORT, KNOWLEDGE_READ_PORT, MEMORY_CARD_PORT, type MemoryCardPort, ONTOLOGY_STORE_PORT, PROMOTION_PORT } from "./application/knowledge-graph/ports";
 import { PgPromotion } from "./infrastructure/knowledge-graph/pg-promotion";
 import { PgHumanAction } from "./infrastructure/knowledge-graph/pg-human-action";
 import { KnowledgeGraphController } from "./interface/controllers/knowledge-graph.controller";
+import { PgKgReindex } from "./infrastructure/knowledge-graph/pg-kg-reindex";
 import { KnowledgeShareController } from "./interface/controllers/knowledge-share.controller";
 import { PROJECT_SHARE_PORT } from "./application/knowledge-graph/share-to-project";
 import { PgProjectShare } from "./infrastructure/knowledge-graph/pg-project-share";
 import { PlatformExtractionSettingController } from "./interface/controllers/platform-extraction-setting.controller";
+// S8（#4365）：记忆整合 + 「值得记」门控 + 抽取 SLO。
+import { PlatformMemoryOpsController } from "./interface/controllers/platform-memory-ops.controller";
+import { KnowledgeConsolidationController } from "./interface/controllers/knowledge-consolidation.controller";
+import { ExtractionSloRecorder, KG_EXTRACTION_SLO_RECORDER } from "./application/knowledge-graph/extraction-slo-recorder";
+import {
+  KG_CONSOLIDATION_PORT, KG_EXTRACTION_GATE_MODEL, KG_EXTRACTION_SLO_COUNTS_PORT, KG_EXTRACTION_SLO_THRESHOLDS,
+} from "./application/knowledge-graph/s8-ports";
+import { readExtractionSloThresholds } from "./domain/knowledge-graph/extraction-slo";
+import { PgKgConsolidation, PgKgExtractionSloCounts } from "./infrastructure/knowledge-graph/pg-kg-consolidation";
+import { KgConsolidationWorker } from "./infrastructure/knowledge-graph/kg-consolidation-worker";
+import { ModelWorthinessCheck, readKgExtractionGateModelEnabled } from "./infrastructure/knowledge-graph/model-worthiness-check";
 import { PgKnowledgeRead } from "./infrastructure/knowledge-graph/pg-knowledge-read";
 import { PgKgOrgExtractionSettings } from "./infrastructure/knowledge-graph/pg-kg-org-extraction-settings";
 import { PgKgDeploymentExtractionSettings } from "./infrastructure/knowledge-graph/pg-kg-deployment-extraction-settings";
@@ -660,9 +672,12 @@ import { KG_EXTRACTION_MODEL_CONFIG, readKgExtractionModelConfig, type KgExtract
 import { ModelKnowledgeExtractor } from "./infrastructure/knowledge-graph/model-knowledge-extractor";
 import { PgKgExtraction } from "./infrastructure/knowledge-graph/pg-kg-extraction";
 import { PgKgProjectIngestion } from "./infrastructure/knowledge-graph/pg-kg-project-ingestion";
+import { newKgId } from "./application/knowledge-graph/ids";
 import { PgKgConflict } from "./infrastructure/knowledge-graph/pg-kg-conflict";
 import { PgKgAutoCopy } from "./infrastructure/knowledge-graph/pg-kg-auto-copy";
 import { PgMemoryCard } from "./infrastructure/knowledge-graph/pg-memory-card";
+import { PgCitationCorrection } from "./infrastructure/knowledge-graph/pg-citation-correction";
+import { CITATION_CORRECTION_PORT, CLAIM_EXPIRY_PORT } from "./application/knowledge-graph/citation-ports";
 import { KgProjectionWorker } from "./infrastructure/knowledge-graph/kg-projection-worker";
 import { KgEmbeddingWorker } from "./infrastructure/knowledge-graph/kg-embedding-worker";
 import { PgKgEmbeddingQueue } from "./infrastructure/knowledge-graph/pg-kg-embedding";
@@ -1063,6 +1078,8 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
     KnowledgeGraphController,
     KnowledgeShareController,
     PlatformExtractionSettingController,
+    PlatformMemoryOpsController,
+    KnowledgeConsolidationController,
     SurveyController, PublicSurveyController, SurveyAttachmentController,
     HealthController,
     KernelProbeController,
@@ -2149,6 +2166,8 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
           new PgMemoryCard(db),
           // E3：回答引用写进 `chat_citations`（走既有 PgChatRepository 的租户内写口）+ 价值时刻。
           { citations: new PgChatRepository(db), firstValue },
+          // #4361：「我改主意了，改成 Y」这一轮确定地走 R8 的改口取代——同抽取任务用的三个端口（执行器 / 取代 / 自动记入）。
+          { store: new PgOntologyStore(db), conflicts: new PgKgConflict(db), autoCopy: new PgKgAutoCopy(db), newId: newKgId },
         ),
       inject: [
         AGENT_RUN_STORE, MODEL_CALL_PORT, LOGGER_PORT, TOKEN_USAGE_METER, DATABASE_PORT,
@@ -3196,6 +3215,8 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
     { provide: KG_EXTRACTION_MODEL_CONFIG, useFactory: () => readKgExtractionModelConfig() },
     { provide: KG_EXTRACTION_QUEUE_PORT, useFactory: (db: DatabasePort) => new PgKgExtraction(db), inject: [DATABASE_PORT] },
     { provide: KG_EXTRACTION_SOURCE_PORT, useExisting: KG_EXTRACTION_QUEUE_PORT },
+    // issue #4352：UC-KG-4「整理本会话」——只经 SECURITY DEFINER 函数重新排队。
+    { provide: KG_REINDEX_PORT, useFactory: (db: DatabasePort) => new PgKgReindex(db), inject: [DATABASE_PORT] },
     { provide: KG_CONFLICT_PORT, useFactory: (db: DatabasePort) => new PgKgConflict(db), inject: [DATABASE_PORT] },
     // issue #4283：本人说的决定自动记进本人个人空间（系统写，目标空间由数据库按证据作者推出）+ 本人撤销。
     { provide: KG_AUTO_COPY_PORT, useFactory: (db: DatabasePort) => new PgKgAutoCopy(db), inject: [DATABASE_PORT] },
@@ -3207,6 +3228,18 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
     // B3-T2（#4496）：项目证据入图的留痕 / 项目实体 / 待处理项目读口；证据本身的仓储（PROJECT_EVIDENCE_REPOSITORY）由 T1 提供，
     // worker 对它 @Optional——没接上时项目入图这一轮静默不跑，消息抽取不受影响。
     { provide: KG_PROJECT_INGESTION_PORT, useFactory: (db: DatabasePort) => new PgKgProjectIngestion(db), inject: [DATABASE_PORT] },
+    // S8（#4365）：抽取 SLO（进程内窗口 + 全库队列现数 + 阈值）、可选的便宜模型门控（默认关）、记忆整合（默认关）。
+    { provide: KG_EXTRACTION_SLO_RECORDER, useValue: new ExtractionSloRecorder() },
+    { provide: KG_EXTRACTION_SLO_COUNTS_PORT, useFactory: (db: DatabasePort) => new PgKgExtractionSloCounts(db), inject: [DATABASE_PORT] },
+    { provide: KG_EXTRACTION_SLO_THRESHOLDS, useFactory: () => readExtractionSloThresholds() },
+    {
+      provide: KG_EXTRACTION_GATE_MODEL,
+      useFactory: (model: ModelCallPort, config: KgExtractionModelConfig) =>
+        (config.enabled && readKgExtractionGateModelEnabled() ? new ModelWorthinessCheck(model, config) : null),
+      inject: [MODEL_CALL_PORT, KG_EXTRACTION_MODEL_CONFIG],
+    },
+    { provide: KG_CONSOLIDATION_PORT, useFactory: (db: DatabasePort) => new PgKgConsolidation(db), inject: [DATABASE_PORT] },
+    KgConsolidationWorker,
     KgExtractionWorker,
     // F09：知识面板 / 来源抽屉 / 每轮记忆行的读口。传入的仍只是 provider 是否配置（启动参数，
     // 构造时定住）；部署开关的现值 `PgKnowledgeRead` 自己每次调用时现查（见该类头注——
@@ -3233,6 +3266,10 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
     { provide: PROJECT_SHARE_PORT, useFactory: (db: DatabasePort) => new PgProjectShare(db), inject: [DATABASE_PORT] },
     // F17：「记住 / 忘掉」确认卡（只经 kg_open_memory_card / kg_act_on_memory_card 落表）。
     { provide: MEMORY_CARD_PORT, useFactory: (db: DatabasePort) => new PgMemoryCard(db), inject: [DATABASE_PORT] },
+    // S7（#4364）：引用 chip 上的「这条不对」/「已过时」（只经 kg_correct_citation 落表）与纠正率。
+    // CLAIM_EXPIRY_PORT（expireClaim）现在与纠正同一个实现；TODO(#4363) S6 的 valid_until 落地后换实现。
+    { provide: CITATION_CORRECTION_PORT, useFactory: (db: DatabasePort) => new PgCitationCorrection(db), inject: [DATABASE_PORT] },
+    { provide: CLAIM_EXPIRY_PORT, useExisting: CITATION_CORRECTION_PORT },
     {
       provide: SKILL_SECURITY_AUDIT,
       useFactory: (logger: LoggerPort) => new LoggingSkillSecurityAudit(logger),

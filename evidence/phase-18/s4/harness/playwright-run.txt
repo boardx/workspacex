@@ -1,0 +1,16 @@
+
+Running 11 tests using 1 worker
+
+  ✓   1 e2e/s4/journey.spec.ts:72:5 › setup: A says three things in personal thread P1 (fact, decision, todo); the decision is auto-copied to long-term memory (7.1s)
+  ✓   2 e2e/s4/journey.spec.ts:82:5 › overview: new thread P2 「你记得我什么？」 → a list grouped by kind, each with its source conversation (3.0s)
+  ✓   3 e2e/s4/journey.spec.ts:109:5 › overview negative: 「你记得我昨天说的方案吗」 is an ordinary recall question — no list card (3.5s)
+  ✓   4 e2e/s4/journey.spec.ts:121:5 › change (explicit, high confidence): P3 「我改主意了，改成关注 985 高校」 → superseded in this turn, 「已用〈新〉取代〈旧〉 · 撤销」 (2.0s)
+  ✓   5 e2e/s4/journey.spec.ts:136:5 › change (low confidence): P4 「我改主意了，改成关注 C9」 → a 「用〈新〉取代〈旧〉？」 card; both stay until the user picks (2.0s)
+  ✓   6 e2e/s4/journey.spec.ts:152:5 › change (opposition): 「改成关注北大，我反对」 → nothing: no notice, no card, long-term memory unchanged (2.9s)
+  ✓   7 e2e/s4/journey.spec.ts:166:5 › change undo: back in P3, 「撤销」 on the notice → 211 is live again (1.0s)
+  ✓   8 e2e/s4/journey.spec.ts:179:5 › forget: P5 「忘掉关于王经理的」 lists the memory from P1; 「忘掉」 → gone from P1 too; 「撤销」 → back (2.8s)
+  ✓   9 e2e/s4/journey.spec.ts:203:5 › forget negatives: 「我们来聊聊遗忘曲线」「我忘了密码」 → no card, nothing forgotten (5.1s)
+  ✓  10 e2e/s4/journey.spec.ts:216:5 › project thread: 「忘掉关于王经理的」 → no card (project memory is not touched from here) (3.2s)
+  ✓  11 e2e/s4/journey.spec.ts:227:5 › privacy: B cannot undo A's card (same 404 as a card that does not exist) nor read A's overview turn; B's own overview is empty (6.4s)
+
+  11 passed (42.3s)

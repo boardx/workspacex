@@ -34,6 +34,12 @@ import { newKgId } from "../../application/knowledge-graph/ids";
 import { drainConflictCloses } from "../../application/knowledge-graph/detect-conflicts";
 import { runExtractionTick, type ExtractionTickResult } from "../../application/knowledge-graph/extract-message-knowledge";
 import { runProjectIngestionTick } from "../../application/knowledge-graph/ingest-project-evidence";
+import type { WorthinessModelPort } from "../../application/knowledge-graph/extraction-gate";
+import { KG_EXTRACTION_SLO_RECORDER, type ExtractionSloRecorder } from "../../application/knowledge-graph/extraction-slo-recorder";
+import {
+  KG_EXTRACTION_GATE_MODEL, KG_EXTRACTION_SLO_COUNTS_PORT, KG_EXTRACTION_SLO_THRESHOLDS, type KgExtractionSloCountsPort,
+} from "../../application/knowledge-graph/s8-ports";
+import { EXTRACTION_SLO_DEFAULTS, type ExtractionSloThresholds } from "../../domain/knowledge-graph/extraction-slo";
 import {
   KG_AUTO_COPY_PORT, KG_CONFLICT_PORT, KG_EXTRACTION_QUEUE_PORT, KG_EXTRACTION_SOURCE_PORT, KG_PROJECT_INGESTION_PORT, KNOWLEDGE_EXTRACTOR_PORT, ONTOLOGY_STORE_PORT,
   type KgAutoCopyPort, type KgConflictPort, type KgExtractionQueuePort, type KgExtractionSourcePort, type KgProjectIngestionPort, type KnowledgeExtractorPort, type OntologyStorePort,
@@ -57,6 +63,8 @@ export const KG_PROJECT_INGESTION_INTERVAL_MS = 30_000;
 export const KG_EXTRACTION_WATCHDOG_MS = Symbol("KgExtractionWatchdogMs");
 /** 模型超时之外再留的余量：认领、读消息、落执行器、判矛盾这些库操作。 */
 export const KG_EXTRACTION_WATCHDOG_MARGIN_MS = 60_000;
+/** S8（#4365）：SLO 判定的最小间隔（每次要数一次全库卡住的租约）。 */
+export const KG_EXTRACTION_SLO_CHECK_INTERVAL_MS = 60_000;
 
 /**
  * issue #4350 —— 一轮 tick 最多等多久就放弃它、让下一轮能开始。
@@ -78,6 +86,9 @@ export class KgExtractionWorker implements OnModuleInit, OnModuleDestroy {
   private timer: ReturnType<typeof setInterval> | null = null;
   private running = false;
   private readonly watchdogMs: number;
+  private lastSloCheck = 0;
+  /** 上一次判定超标的指标集合（按名字排序拼接）；只在集合变化时记日志，不每分钟刷屏。 */
+  private sloBreach = "";
 
   constructor(
     @Inject(KG_EXTRACTION_MODEL_CONFIG) private readonly config: KgExtractionModelConfig,
@@ -96,6 +107,11 @@ export class KgExtractionWorker implements OnModuleInit, OnModuleDestroy {
     // 消息抽取照常。
     @Optional() @Inject(PROJECT_AI_SETTINGS_REPOSITORY) private readonly projectAiSettings?: ProjectAiSettingsRepository,
     @Optional() @Inject(KG_PROJECT_INGESTION_PORT) private readonly projectIngestion?: KgProjectIngestionPort,
+    /** S8：以下四个生产合成必注入；只测 watchdog 的构造点可以不给（那时不计数、不判 SLO，门控规则照常生效）。 */
+    @Optional() @Inject(KG_EXTRACTION_SLO_RECORDER) private readonly slo?: ExtractionSloRecorder,
+    @Optional() @Inject(KG_EXTRACTION_SLO_COUNTS_PORT) private readonly sloCounts?: KgExtractionSloCountsPort,
+    @Optional() @Inject(KG_EXTRACTION_SLO_THRESHOLDS) private readonly sloThresholds?: ExtractionSloThresholds,
+    @Optional() @Inject(KG_EXTRACTION_GATE_MODEL) private readonly gateModel?: WorthinessModelPort | null,
   ) {
     this.watchdogMs = watchdogMs ?? kgExtractionWatchdogMs();
   }
@@ -160,6 +176,8 @@ export class KgExtractionWorker implements OnModuleInit, OnModuleDestroy {
         queue: this.queue, source: this.source, extractor: this.extractor, store: this.store,
         conflicts: this.conflicts, autoCopy: this.autoCopy, logger: this.logger, newId: newKgId,
         chatEvidence: { sources: this.evidenceSources, evidence: this.projectEvidence },
+        ...(this.slo !== undefined ? { slo: this.slo } : {}),
+        ...(this.gateModel !== undefined && this.gateModel !== null ? { gateModel: this.gateModel } : {}),
       }, () => abandoned);
       // issue #4343：有处理过消息的一轮留一条计数，「跑了但一条没记下」（empty）与「没跑」（没有这行）分得开。
       if (tick.processed > 0) this.logger.info("kg extraction tick", { traceId: "kg-extraction", ...tick });
@@ -192,11 +210,40 @@ export class KgExtractionWorker implements OnModuleInit, OnModuleDestroy {
     }
   }
 
+  /**
+   * S8（#4365）：SLO 判定。超标的指标集合**变化**时记一条：进入 / 变化 ⇒ error（「kg extraction slo breached」，带
+   * 指标、值、阈值），恢复 ⇒ info。管理页的横幅读同一个判定（PlatformMemoryOpsController）。`force` 给测试用。
+   */
+  async checkSlo(force = false): Promise<void> {
+    if (this.slo === undefined || this.sloCounts === undefined) return;
+    const now = Date.now();
+    if (!force && now - this.lastSloCheck < KG_EXTRACTION_SLO_CHECK_INTERVAL_MS) return;
+    this.lastSloCheck = now;
+    const { stuckLeases } = await this.sloCounts.counts();
+    const alerts = this.slo.evaluate(stuckLeases, this.sloThresholds ?? EXTRACTION_SLO_DEFAULTS);
+    const key = alerts.map((a) => a.metric).sort().join(",");
+    if (key === this.sloBreach) return;
+    this.sloBreach = key;
+    if (alerts.length > 0) {
+      this.logger.error("kg extraction slo breached", {
+        traceId: "kg-extraction-slo", code: "KG_EXTRACTION_SLO_BREACHED", alerts,
+        err: new Error(`kg_extraction_slo_breached (${key})`),
+      });
+    } else {
+      this.logger.info("kg extraction slo recovered", { traceId: "kg-extraction-slo" });
+    }
+  }
+
   private async poll(): Promise<void> {
     try {
       await this.runOnce();
     } catch (err) {
       this.logger.error("kg extraction poll failed", { traceId: "kg-extraction", err });
+    }
+    try {
+      await this.checkSlo();
+    } catch (err) {
+      this.logger.error("kg extraction slo check failed", { traceId: "kg-extraction-slo", err });
     }
   }
 }

@@ -147,6 +147,22 @@ export function undoAutoPersonalCopy(threadId: string, claimId: string): Promise
   );
 }
 
+export type SetTodoStatusResult = z.infer<typeof knowledgeGraph.setTodoStatus.out>;
+
+/**
+ * issue #4363（S6）：改一条待办的状态（open / done / dropped）。只有所有者；同一件待办在会话与长期记忆里的两份一起改。
+ * 不存在 / 不是所有者 ⇒ `KG_CLAIM_NOT_FOUND`。
+ */
+export function setTodoStatus(claimId: string, status: SetTodoStatusResult["status"]): Promise<SetTodoStatusResult> {
+  const input = knowledgeGraph.setTodoStatus.in.parse({ claimId, status });
+  return getParsed(
+    `/knowledge-graph/claims/${seg(input.claimId)}/todo-status`,
+    knowledgeGraph.setTodoStatus.out,
+    undefined,
+    { method: "POST", body: { status: input.status } },
+  );
+}
+
 export type HumanActionResult = z.infer<typeof knowledgeGraph.applyHumanAction.out>;
 
 /**
@@ -173,6 +189,24 @@ export function applyHumanAction(
  * 未确认的条目由服务端在同一动作里先以本人确认（U-3）。`choices` 只在回答 `needs_choice` 时带。
  * 请求体先过契约 `in` schema（1..50 条）——超批在本地就抛，不发出去。
  */
+export type ReindexResult = z.infer<typeof knowledgeGraph.requestReindex.out>;
+
+/**
+ * UC-KG-4 requestReindex（issue #4352）：「整理本会话」/「失败 · 重试」——把本会话的消息重新排进抽取队列。
+ * 只有会话所有者可以（否则 `KG_NOT_OWNER`）；本会话还在整理 ⇒ `KG_REINDEX_ALREADY_RUNNING`。
+ */
+export function requestReindex(threadId: string, sourceRefs?: readonly string[]): Promise<ReindexResult> {
+  const input = knowledgeGraph.requestReindex.in.parse({
+    threadId, ...(sourceRefs !== undefined ? { sourceRefs: [...sourceRefs] } : {}),
+  });
+  return getParsed(
+    `/knowledge-graph/threads/${seg(input.threadId)}/reindex`,
+    knowledgeGraph.requestReindex.out,
+    undefined,
+    { method: "POST", body: input.sourceRefs !== undefined ? { sourceRefs: input.sourceRefs } : {} },
+  );
+}
+
 export function promoteToPersonal(
   threadId: string,
   claimIds: readonly string[],
@@ -288,6 +322,18 @@ export function actOnMemoryCard(
   });
 }
 
+/**
+ * UC-KG-12b（issue #4361）：撤销一张已生效的「忘掉」卡——这张卡忘掉的记忆恢复（连同长期记忆里的副本）。
+ * 执行身份是点击的人；别人的卡 / 不存在的卡同一个 404（KG_CARD_NOT_FOUND）。
+ */
+export function undoMemoryCard(cardId: string): Promise<MemoryCardResult> {
+  const input = knowledgeGraph.undoMemoryCard.in.parse({ cardId });
+  return getParsed(`/knowledge-graph/cards/${seg(input.cardId)}/undo`, knowledgeGraph.undoMemoryCard.out, undefined, {
+    method: "POST",
+    body: {},
+  });
+}
+
 /* ── 大脑页（/brain）：本人的长期记忆 + 各对话的记忆概况 ───────────────────────── */
 
 export type PersonalKnowledge = z.infer<typeof knowledgeGraph.getPersonalKnowledge.out>;
@@ -301,4 +347,37 @@ export function fetchPersonalKnowledge(signal?: AbortSignal): Promise<PersonalKn
 /** 大脑页概况：本人记下了东西的对话（每个一行计数）+ 长期记忆里每条来自哪个对话。 */
 export function fetchBrainOverview(signal?: AbortSignal): Promise<BrainOverview> {
   return getParsed("/knowledge-graph/me/overview", knowledgeGraph.getBrainOverview.out, signal);
+}
+
+/* ── S7（#4364）：回答下引用 chip 上的当场纠正 + 纠正率 ───────────────────────── */
+
+export type CitationCorrection = z.infer<typeof knowledgeGraph.correctCitation.out>;
+export type CitationCorrectionKind = z.infer<typeof knowledgeGraph.correctCitation.in>["kind"];
+export type CitationMetrics = z.infer<typeof knowledgeGraph.getCitationMetrics.out>;
+
+/**
+ * 「这条不对」（`wrong`，可带新说法 ⇒ 取代）/「已过时」（`expired`）。只有对话所有者、且是这一轮的提问人能做；
+ * 不是这一轮的引用 ⇒ `KG_CLAIM_NOT_FOUND`。
+ */
+export function correctCitation(
+  threadId: string,
+  messageId: string,
+  claimId: string,
+  kind: CitationCorrectionKind,
+  replacement?: string,
+): Promise<CitationCorrection> {
+  const input = knowledgeGraph.correctCitation.in.parse({
+    threadId, messageId, claimId, kind, ...(replacement !== undefined ? { replacement } : {}),
+  });
+  return getParsed(
+    `/knowledge-graph/threads/${seg(input.threadId)}/messages/${seg(input.messageId)}/citations/${seg(input.claimId)}/correction`,
+    knowledgeGraph.correctCitation.out,
+    undefined,
+    { method: "POST", body: { kind: input.kind, ...(input.replacement !== undefined ? { replacement: input.replacement } : {}) } },
+  );
+}
+
+/** 本人的引用纠正率（质量信号）。 */
+export function fetchCitationMetrics(signal?: AbortSignal): Promise<CitationMetrics> {
+  return getParsed("/knowledge-graph/me/citation-metrics", knowledgeGraph.getCitationMetrics.out, signal);
 }

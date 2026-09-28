@@ -29,7 +29,7 @@ const evidence = (id: string, sourceKind: ProjectEvidenceSourceKind, excerpt: st
 
 const NON_EMPTY: ExtractionResult = {
   entities: [{ name: "王五", kind: "person", aliases: [] }],
-  claims: [{ statement: "王五决定先做德国", kind: "decision", confidence: 0.9, about: ["王五"], decidedBy: "王五", quote: "先做德国" }],
+  claims: [{ statement: "王五决定先做德国", kind: "decision", confidence: 0.9, about: ["王五"], decidedBy: "王五", quote: "先做德国", timeExpr: null }],
 };
 
 /** 内存执行器存储：按 (sourceRef, pipelineVersion) 去重（I-7），记下每个送来的批次。 */
