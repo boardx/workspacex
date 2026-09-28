@@ -77,3 +77,4 @@ flowchart TD
 | 2026-09-28 | P0 | doing → done | ADR-116~121、v1 superseded、AUTHORING-OUTPUT.md、lint:work-stack-graph（7 个反证测试通过）已写；等 PR CI 绿再转紫 |
 | 2026-09-28 | AU | todo → doing | 作者化试点批次启动：W001 / S003 / S063 / S171（作者 + 独立评审）|
 | 2026-09-28 | AU | doing | 试点批次完成：S003、S171 PASS；W001、S063 REWRITE（S063↔S171 契约枚举不一致、W001 阶段 1 职责与 S003 不符、权限重查点不全）。发现跨实体规则待人类裁决：Workflow 固定 Skill 版本时，负责它的 Agent 是否还需挂载这些 Skill |
+| 2026-09-28 | AU | doing | 试点第二轮：W001、S063 重写后复审 PASS；试点 4/4 PASS |
