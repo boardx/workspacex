@@ -160,9 +160,12 @@ test("the six-stage workbench restores a direct stage route and updates it from 
   await expect(page).toHaveURL(/\/itv\/itv-quality-e2e\/experts$/);
   await expect(page.getByTestId("itv-markdown-experts")).toBeVisible();
   await expect(page.getByTestId("itv-workbench-step-experts")).toHaveAttribute("aria-current", "step");
-  await page.getByText("审阅与编辑专家画像 Markdown", { exact: true }).click();
-  await expect(page.getByRole("textbox", { name: "专家文档 Markdown" })).toHaveValue(source.documents[2]!.markdown);
-  await expect(page.getByTestId("itv-expert-document-preview")).toContainText("从已授权专家库选择采购决策顾问。");
+  await expect(page.getByText("97 位模拟画像")).toBeVisible();
+  await expect(page.getByTestId("itv-persona-card-persona-68ecb1289191bb24396f9bd4")).toContainText("张浩宇");
+  await expect(page.getByRole("textbox", { name: "专家文档 Markdown" })).toHaveCount(0);
+  await page.getByRole("button", { name: "添加虚拟专家" }).click();
+  await expect(page.getByRole("dialog", { name: "添加虚拟专家" })).toBeVisible();
+  await page.getByRole("button", { name: "取消" }).click();
   await page.reload();
   await expect(page.getByTestId("itv-markdown-experts")).toBeVisible();
   await expect(page.getByTestId("itv-workbench-step-experts")).toHaveAttribute("aria-current", "step");
