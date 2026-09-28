@@ -14,11 +14,12 @@ import { PgDatabase } from "../../src/infrastructure/db/pg-database";
 import { PgEffectCapabilityAuthority } from "../../src/infrastructure/workflow/pg-effect-capability-authority";
 import { PgWorkflowAccess } from "../../src/infrastructure/workflow/pg-workflow-access";
 import { PgWorkflowEventStore } from "../../src/infrastructure/workflow/pg-workflow-event-store";
+import { PgWorkflowInstanceRepository } from "../../src/infrastructure/workflow/pg-workflow-instance-repository";
 import { PgWorkflowLeaseStore } from "../../src/infrastructure/workflow/pg-workflow-lease-store";
 import { PgWorkflowReceiptStore } from "../../src/infrastructure/workflow/pg-workflow-receipt-store";
 import { ensureDatabase, migrateOnce, resetOrgs } from "../support/db";
 import { seedWorkflowOrg } from "./wf03-fixtures";
-import { instanceRow, seedWf04Instance } from "./wf04-fixtures";
+import { instanceRow, seedWf04Instance, setCapabilityGrant } from "./wf04-fixtures";
 
 const ORG = "org-wf04-noreplay";
 const INITIATOR = "u-wf04-noreplay";
@@ -48,11 +49,14 @@ describe("WF04 effect-gateway: crash-recovery reconciliation, no replay (E1)", (
     await resetOrgs(ORG);
     await seedWorkflowOrg(ORG, [{ userId: INITIATOR }], AGENT);
     await seedWf04Instance(ORG, INSTANCE, { initiatorUserId: INITIATOR, agentId: AGENT, agentVersionId: AGENT_VERSION });
+    // 本文件测的是 receipt/replay 语义，不是能力分类默认值（那部分见 effect-gateway-recheck.test.ts）；
+    // 显式配 external_send，避免 ADR-120 决策 #2 的「默认只读」把 cmdFor 的 external_send 挡在权限重查。
+    await setCapabilityGrant(ORG, CATEGORY, { sideEffectCap: "external_send" });
     receipts = new PgWorkflowReceiptStore(db);
     leaseStore = new PgWorkflowLeaseStore(db);
     events = new PgWorkflowEventStore(db);
     const permission = new ComposedEffectPermissionRecheck(new PgWorkflowAccess(db), new PgEffectCapabilityAuthority(db));
-    gateway = new EffectGateway({ leases: leaseStore, receipts, events, permission });
+    gateway = new EffectGateway({ leases: leaseStore, receipts, events, instances: new PgWorkflowInstanceRepository(db), permission });
   });
 
   function cmdFor(effectKey: string, fingerprint: string, args: Record<string, unknown> = {}): ExecuteEffectCommand {

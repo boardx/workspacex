@@ -8,7 +8,9 @@
  * ② workflow_capability_grants：执行前权限重查的「ToolExecutionAuthority ∩ MCP sideEffect 封顶」
  *    半条腿（发起人成员资格 / Agent 可运行版本那半条腿复用既有 WorkflowAccessPort，见
  *    effect-permission-recheck.ts 头注）。按 (org, capabilityCategory) 存：是否仍授权、允许的
- *    副作用等级上限。没有配置行 = 未收紧，默认放行（新能力分类不因为漏配置被误判 blocked）。
+ *    副作用等级上限。没有配置行 = 组织管理员没配置过 → 保守判，默认只读（`read` 封顶），不继承写
+ *    权限（ADR-120 决策 #2）——新能力分类既不因漏配置被误判 blocked，也不会绕过管理员直接拿到写/
+ *    外部发送能力。列默认值与 `pg-effect-capability-authority.ts` 的代码默认必须保持一致。
  */
 ALTER TABLE workflow_receipts DROP CONSTRAINT IF EXISTS workflow_receipts_status_check;
 ALTER TABLE workflow_receipts ADD CONSTRAINT workflow_receipts_status_check
@@ -40,7 +42,7 @@ CREATE TABLE IF NOT EXISTS workflow_capability_grants (
   org_id               text NOT NULL REFERENCES organizations (id) ON DELETE CASCADE,
   capability_category  text NOT NULL CHECK (length(capability_category) > 0),
   authorized           boolean NOT NULL DEFAULT true,
-  side_effect_cap      text NOT NULL DEFAULT 'external_send'
+  side_effect_cap      text NOT NULL DEFAULT 'read'
                          CHECK (side_effect_cap IN ('none', 'read', 'write', 'external_send')),
   updated_at           timestamptz NOT NULL DEFAULT now(),
   PRIMARY KEY (org_id, capability_category)

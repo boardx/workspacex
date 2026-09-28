@@ -1,22 +1,27 @@
 /**
- * WF04 —— effect-gateway：外部副作用统一执行入口（requirements 02 R3 第 5 步；R4 E1/E2/E4；
- * ADR-118 第 6 条；domain I-13/I-14；UC-WR-I2/I3）。
+ * WF04 —— effect-gateway：外部副作用统一执行入口（requirements 02 R3 第 5、10 步；R4 E1/E2/E4/
+ * 取消；ADR-118 第 6 条；domain I-13/I-14；UC-WR-I2/I3）。
  *
- * 顺序纪律（R3-5）：assertLease → 重查权限 → receipt.begin → 调用工具 → receipt.finalize（带
- * provenance）。任一步失败都不得调用工具：
+ * 顺序纪律（R3-5）：assertLease → 重查权限 → receipt.begin → 取消检查 → 调用工具 → receipt.finalize
+ * （带 provenance）。任一步失败都不得调用工具——UC-WR-I2 表里 `execute()` 的三种阻断结果都在这里：
  *   - lease 已丢失 → `WorkflowLeaseLostError`（E2），连权限重查都不做。
  *   - 权限重查失败 → 阶段 `blocked_permission` 带 `reasonCode`（E4），不 begin receipt、不调用工具。
- *   - receipt 已是 `replay`/`in_flight` → 直接返回首次响应 / 抛错，永不二次调用工具（I-14）。
+ *   - 实例已 `cancelling`/已终态 → `EffectCancelledError`（R3-10）：`cancelling` 就地落成 `cancelled`；
+ *     receipt 已是 `replay`/`in_flight` → 直接返回首次响应 / 抛错，永不二次调用工具（I-14）。
  *
- * 已知限制（与 pg-workflow-lease-store.ts 头注一致的纪律）：`assertLease` 是 check-then-act，
- * 不是数据库级 fencing token；本文件在 begin 前后各断言一次以缩小窗口，与 run-instance.ts 的
- * `holdLease()` 用法同一立场，不假装完全消除竞态。
+ * 已知限制（与 pg-workflow-lease-store.ts 头注一致的纪律）：`assertLease` 与取消检查都是
+ * check-then-act，不是数据库级 fencing token；本文件在 begin 前后各断言一次、调用工具前再读一次
+ * 实例状态以缩小窗口，与 run-instance.ts 的 `holdLease()`/`checkpointBoundary()` 用法同一立场，
+ * 不假装完全消除竞态——run-instance.ts 的 `checkpointBoundary()` 只在阶段边界处拦截取消，本文件
+ * 补的是同一阶段内、边界之间即将调用副作用前的那一次。
  */
 import type { WorkflowReasonCode } from "@repo/contracts/workflow-runtime";
 import { WorkflowSideEffectClass as WorkflowSideEffectClassSchema } from "@repo/contracts/workflow-runtime";
 import type { z } from "zod";
+import { isTerminal } from "./instance-projection";
 import type { WorkflowLease, WorkflowLeaseStore, WorkflowReceiptKey, WorkflowReceiptScope, WorkflowReceiptStore } from "./workflow-ports";
-import type { WorkflowEventStore } from "./workflow-runtime-ports";
+import type { WorkflowInstanceRepository } from "./workflow-ports";
+import type { WorkflowAppendResult, WorkflowEventStore } from "./workflow-runtime-ports";
 
 export type WorkflowSideEffectClass = z.infer<typeof WorkflowSideEffectClassSchema>;
 
@@ -74,6 +79,26 @@ export class EffectInFlightError extends Error {
   }
 }
 
+/**
+ * UC-WR-I2 第三种阻断结果（R3-10；R4 E-list「取消」）：实例已 `cancelling`/已终态时，下一个副作用
+ * 被本网关拦下，不调用 `work()`。`cancelling` 命中时本次调用顺带把实例落成 `cancelled`（与
+ * run-instance.ts 的 `checkpointBoundary` 同一落点，但这里覆盖的是阶段内、边界之间才发生的取消）。
+ */
+export class EffectCancelledError extends Error {
+  constructor(readonly instanceId: string, readonly stageId: string, readonly effectKey: string) {
+    super(`workflow effect ${instanceId}/${stageId}/${effectKey} blocked: cancel_requested`);
+    this.name = "EffectCancelledError";
+  }
+}
+
+/** append 因 `instance_terminal`/`state_version_conflict` 落空：调用方必须视为「未发生」，不得继续。 */
+export class EffectInstanceUnavailableError extends Error {
+  constructor(readonly instanceId: string, readonly conflict: Extract<WorkflowAppendResult, { ok: false }>["conflict"]) {
+    super(`workflow instance ${instanceId} rejected effect-gateway event append: ${conflict}`);
+    this.name = "EffectInstanceUnavailableError";
+  }
+}
+
 export interface ExecuteEffectCommand {
   orgId: string;
   instanceId: string;
@@ -112,6 +137,8 @@ export interface EffectGatewayDeps {
   receipts: WorkflowReceiptStore;
   permission: EffectPermissionRecheckPort;
   events: WorkflowEventStore;
+  /** R3-10 的取消检查读这里的 `status`；同一份 WF01 仓储，与 WorkflowRuntimeService 共用一个实例即可。 */
+  instances: WorkflowInstanceRepository;
   reconcile?: EffectReconcilePort;
 }
 
@@ -131,6 +158,9 @@ function provenanceOf(cmd: Pick<ExecuteEffectCommand, "initiatorUserId" | "agent
 function isProvenance(v: unknown): v is EffectProvenance {
   return typeof v === "object" && v !== null && "initiatorUserId" in v;
 }
+
+type EventAppendOpts = Parameters<WorkflowEventStore["append"]>[3];
+type EffectStageCmd = Pick<ExecuteEffectCommand, "orgId" | "instanceId" | "stageId" | "effectKey" | "capabilityCategory">;
 
 export class EffectGateway {
   constructor(private readonly deps: EffectGatewayDeps) {}
@@ -172,7 +202,11 @@ export class EffectGateway {
     }
 
     await this.deps.leases.assertLease(lease); // 调用工具、写 receipt 前再断言一次，缩小 check-then-act 窗口
-    await this.deps.events.append(cmd.orgId, cmd.instanceId, {
+    // R3-10：cancel 可能落在「lease/权限重查已过」与「即将调用工具」之间的这个窗口——调用 work() 前
+    // 必须重新读一次实例状态，`cancelling`/已终态都必须拦下，不能只靠下面 append 的 instance_terminal
+    // 冲突兜底（`cancelling` 尚非终态，append 不会因它失败，只有显式检查能拦住）。
+    await this.assertNotCancelled(cmd);
+    await this.appendOrThrow(cmd, {
       type: "effect_begun",
       stageId: cmd.stageId,
       reasonCode: null,
@@ -182,6 +216,8 @@ export class EffectGateway {
     const result = await work(cmd.args);
     const provenance = provenanceOf(cmd);
     await this.deps.receipts.finalize(key, { stableResponse: { result, provenance }, checkpointId: null, instanceId: cmd.instanceId });
+    // work() 已经执行且 receipt 已 finalize（不可逆、不会重放）：即使这条审计事件因实例并发转终态而
+    // 追加失败，副作用本身依然是「已执行」，不能把它报成失败——只记下这条落空，不重新抛错掩盖结果。
     await this.deps.events.append(cmd.orgId, cmd.instanceId, {
       type: "effect_finalized",
       stageId: cmd.stageId,
@@ -189,6 +225,33 @@ export class EffectGateway {
       data: { effectKey: cmd.effectKey, capabilityCategory: cmd.capabilityCategory },
     });
     return { kind: "executed", result, provenance };
+  }
+
+  /** R3-10/UC-WR-I2 第三种阻断：`cancelling` 就地落成 `cancelled` 并拦下；已终态（含已 `cancelled`）直接拦下。 */
+  private async assertNotCancelled(cmd: EffectStageCmd): Promise<void> {
+    const instance = await this.deps.instances.find(cmd.orgId, cmd.instanceId);
+    if (!instance) return; // 找不到实例：不是本方法的职责，交给后续的 receipt/append 去暴露真实原因
+    if (instance.status === "cancelling") {
+      await this.appendOrThrow(
+        cmd,
+        { type: "status_changed", stageId: cmd.stageId, reasonCode: "cancel_requested", data: { status: "cancelled" } },
+        { status: "cancelled", reasonCode: "cancel_requested" },
+      );
+      throw new EffectCancelledError(cmd.instanceId, cmd.stageId, cmd.effectKey);
+    }
+    if (instance.status === "cancelled") {
+      throw new EffectCancelledError(cmd.instanceId, cmd.stageId, cmd.effectKey);
+    }
+    if (isTerminal(instance.status)) {
+      throw new EffectInstanceUnavailableError(cmd.instanceId, "instance_terminal");
+    }
+  }
+
+  /** run-instance.ts 的 `append` 同款纪律：`!ok` 一律当作「这次副作用没资格发生」抛出，不静默吞掉。 */
+  private async appendOrThrow(cmd: Pick<EffectStageCmd, "orgId" | "instanceId">, event: Parameters<WorkflowEventStore["append"]>[2], opts?: EventAppendOpts) {
+    const r = await this.deps.events.append(cmd.orgId, cmd.instanceId, event, opts);
+    if (!r.ok) throw new EffectInstanceUnavailableError(cmd.instanceId, r.conflict);
+    return r;
   }
 
   /**

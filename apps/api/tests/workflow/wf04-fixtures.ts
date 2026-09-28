@@ -40,6 +40,21 @@ export async function setCapabilityGrant(
   );
 }
 
+/**
+ * 直接改实例状态，模拟 cancelInstance 已落的 `cancelling`，或绕过它直接落终态做竞态复现。
+ * `wf_instance_state_machine` 触发器要求 status 变化必须伴随 state_version +1（I-12），所以这里
+ * 一并推进它，而不是单独 UPDATE status。
+ */
+export async function setInstanceStatus(orgId: string, instanceId: string, status: string): Promise<void> {
+  await asOwner((c) =>
+    c.query("UPDATE workflow_instances SET status = $1, state_version = state_version + 1 WHERE org_id = $2 AND id = $3", [
+      status,
+      orgId,
+      instanceId,
+    ]),
+  );
+}
+
 export async function instanceRow(orgId: string, instanceId: string): Promise<{ status: string; reason_code: string | null } | null> {
   const r = await asApp(orgId, (c) =>
     c.query<{ status: string; reason_code: string | null }>("SELECT status, reason_code FROM workflow_instances WHERE id = $1", [instanceId]),

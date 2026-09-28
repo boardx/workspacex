@@ -61,16 +61,18 @@ export function createWorkflowRuntime(db: DatabasePort, pool: pg.Pool, opts: Wor
   const receipts = new PgWorkflowReceiptStore(db);
   const leases = new PgWorkflowLeaseStore(db);
   const events = new PgWorkflowEventStore(db);
+  const instances = new PgWorkflowInstanceRepository(db);
   const effectGateway = new EffectGateway({
     leases,
     receipts,
     events,
+    instances,
     permission: new ComposedEffectPermissionRecheck(access, new PgEffectCapabilityAuthority(db)),
     reconcile: opts.effectReconcilers ? new DispatchingEffectReconciler(opts.effectReconcilers) : undefined,
   });
   const service = new WorkflowRuntimeService({
     definitions: new PgWorkflowDefinitionRepository(db),
-    instances: new PgWorkflowInstanceRepository(db),
+    instances,
     skills: opts.skills ?? UNRESOLVED_SKILL_VERSIONS,
     receipts,
     leases,

@@ -21,7 +21,10 @@ export interface CapabilityAuthorityCheck {
 
 /** MCP `sideEffect` 封顶与工具授权撤销的读端口（ToolExecutionAuthority 概念在 workflow 侧的落点）。 */
 export interface EffectCapabilityAuthorityPort {
-  /** 找不到该分类的配置行 = 未收紧，默认放行（`{authorized:true, sideEffectCap:"external_send"}`）。 */
+  /**
+   * 找不到该分类的配置行 = 组织管理员从未就它做过决定 → 保守判，默认只读
+   * （`{authorized:true, sideEffectCap:"read"}`，ADR-120 决策 #2：默认只读、不继承写权限）。
+   */
   checkCapability(orgId: string, capabilityCategory: string): Promise<CapabilityAuthorityCheck>;
 }
 
