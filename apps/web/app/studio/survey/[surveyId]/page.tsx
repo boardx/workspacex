@@ -4,7 +4,7 @@ import { SurveyWorkflowShell, type SurveyPrototypeState } from "@/components/sur
 import { decodeSurveyCreationDraft } from "@/lib/survey/creation-draft";
 import { redirect } from "next/navigation";
 import { surveyPath, type SurveyDestination } from "@/lib/survey/paths";
-import { withProjectId } from "@/components/project/project-breadcrumb";
+import { withProjectId } from "@/components/project/project-links";
 
 export default function SurveyWorkflowPage({ params, searchParams }: {
   params: { surveyId: string };
