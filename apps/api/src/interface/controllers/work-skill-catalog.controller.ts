@@ -94,11 +94,11 @@ function mapError(error: unknown): never {
   }
   if (error instanceof WorkSkillChannelTransitionInvalidError) {
     throw workSkillError(ConflictException, {
-      code: "WORK_SKILL_CHANNEL_TRANSITION_INVALID", message: error.message, allowedTransitions: [...error.allowed],
+      code: "WORK_SKILL_CHANNEL_TRANSITION_INVALID", message: error.reason, allowedTransitions: [...error.allowed],
     });
   }
   if (error instanceof WorkSkillSuccessorInvalidError) {
-    throw workSkillError(UnprocessableEntityException, { code: "WORK_SKILL_SUCCESSOR_INVALID", message: error.message });
+    throw workSkillError(UnprocessableEntityException, { code: "WORK_SKILL_SUCCESSOR_INVALID", message: error.reason });
   }
   if (error instanceof WorkSkillCatalogIdempotencyConflictError) {
     throw workSkillError(ConflictException, {

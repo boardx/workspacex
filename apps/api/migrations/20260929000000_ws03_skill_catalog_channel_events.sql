@@ -35,3 +35,5 @@ CREATE POLICY skill_catalog_channel_events_tenant ON skill_catalog_channel_event
 
 REVOKE ALL ON skill_catalog_channel_events FROM app_rw;
 GRANT SELECT, INSERT ON skill_catalog_channel_events TO app_rw;
+
+SELECT kernel_apply_org_freeze_policies();

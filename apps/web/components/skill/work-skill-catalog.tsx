@@ -7,7 +7,9 @@ import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import type { z } from "zod";
 import { ApiError } from "@/lib/api-client";
+import { workSkillMeta } from "@repo/contracts";
 import {
   WORK_SKILL_CHANNEL_TRANSITIONS,
   getWorkSkillCatalogEntry,
@@ -62,9 +64,33 @@ function hashSkillId(): string | null {
   return h ? h : null;
 }
 
+/**
+ * WS05 错误码 → 人话（单源；契约闭集 `WorkSkillImportError` | `WorkSkillCatalogError`）。
+ * 漏一个编译不过——不落回原始 reasonCode 上屏，见 .harness/scripts/lint-user-facing-error-text.mjs。
+ */
+type WorkSkillErrorCode =
+  | z.infer<typeof workSkillMeta.WorkSkillImportError>
+  | z.infer<typeof workSkillMeta.WorkSkillCatalogError>;
+const WORK_SKILL_ERROR_TEXT: Record<WorkSkillErrorCode, string> = {
+  WORK_SKILL_MANIFEST_INVALID: "这个包的元数据格式不对",
+  WORK_SKILL_CAPABILITY_UNREGISTERED: "用到了一个尚未登记的能力分类",
+  WORK_SKILL_PROVENANCE_LICENSE_MISSING: "缺少来源与许可证信息",
+  WORK_SKILL_STABLE_ID_CONFLICT: "这个 Skill 编号已经存在",
+  UNAUTHENTICATED: "登录已过期，请重新登录",
+  WORK_SKILL_NOT_FOUND: "这个 Skill 找不到了，可能已被删除",
+  WORK_SKILL_ADMIN_REQUIRED: "只有组织管理员能做这个操作",
+  WORK_SKILL_CHANNEL_TRANSITION_INVALID: "当前状态不允许这次通道变更",
+  WORK_SKILL_SUCCESSOR_INVALID: "指定的后继 Skill 无效",
+  WORK_SKILL_IDEMPOTENCY_CONFLICT: "这次操作已经处理过一次，结果不一致",
+  VALIDATION_FAILED: "提交的内容没有通过校验",
+};
+
 function errorText(e: unknown): string {
-  if (e instanceof ApiError) return `${e.reasonCode ?? "请求失败"}（HTTP ${e.status}）`;
-  return e instanceof Error ? e.message : String(e);
+  if (e instanceof ApiError) {
+    const known = e.reasonCode ? WORK_SKILL_ERROR_TEXT[e.reasonCode as WorkSkillErrorCode] : undefined;
+    return known ?? `请求失败（HTTP ${e.status}）`;
+  }
+  return e instanceof Error ? e.message : "发生未知错误";
 }
 
 function ReadinessBadge({ readiness }: { readiness: WorkSkillCatalogItem["readiness"] }) {
@@ -387,7 +413,10 @@ function SkillDetailDrawer({
     void loadReadiness();
     return () => {
       // 卸载 / 切换 skill 后作废在途请求，避免旧结果写回。
+      // 这里只做单调自增、不读取"当前"值做判断，ref 在 effect 触发时是否已变化不影响正确性。
+      // eslint-disable-next-line react-hooks/exhaustive-deps
       detailGen.current++;
+      // eslint-disable-next-line react-hooks/exhaustive-deps
       readinessGen.current++;
     };
   }, [loadDetail, loadReadiness]);

@@ -30,3 +30,5 @@ CREATE POLICY org_tool_capability_grants_tenant ON org_tool_capability_grants
 
 REVOKE ALL ON org_tool_capability_grants FROM app_rw;
 GRANT SELECT, INSERT, UPDATE, DELETE ON org_tool_capability_grants TO app_rw;
+
+SELECT kernel_apply_org_freeze_policies();
