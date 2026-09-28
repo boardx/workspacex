@@ -117,3 +117,7 @@ REVOKE ALL ON FUNCTION kg_insert_claim_evidence(text, text, text, text, jsonb) F
 
 -- 组织冻结的写限制在首次 apply 时也装上（同 `project_resource_links` 迁移）。
 SELECT kernel_apply_org_freeze_policies();
+
+-- 项目归档冻结（F124 / issue #342）：project_evidence 挂在 projects 下，归档后证据单元只读；
+-- 安装函数不会自动重跑，新表建完必须显式调一次（verify-rls.sh 的 coverage-gaps 门控核对）。
+SELECT kernel_apply_project_archive_policies();
