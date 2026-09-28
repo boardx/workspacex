@@ -1,0 +1,669 @@
+# Phase 1: 214 份实体文档 Checklist
+
+**完成标准：**每个实体须完成独立作者化，并由另一位作者独立 Review 通过。方框只在两项都通过后勾选。
+
+**可打开链接：**每个实体通过独立 Review 后，将条目名称链接到对应的最终文档；全清单完成时，214 项均可点击打开。
+
+**当前进度：**4/214 已通过独立 Review；16 项已启动（4 项通过、12 项仍在返修或待审）；198 项尚未启动。
+
+范围：D001–D010 及其角色核心 Skill 与所选 Workflow 的精确关系闭包。依据 `PHASE-1-AUTHORING-MANIFEST.json`；不创建 GitHub Issues。
+
+## Skills
+
+- [ ] **S003 — Enterprise Search**（作者已规定 route 集成门；复审仍要求验证调用方可见性）
+  - [x] 独立作者化 / 按意见修订
+  - [ ] 独立 Review 通过
+- [x] [**S005 — Meeting Prep**](https://github.com/boardx/workspacex/blob/requirements/work-stack-320-v2-authored/requirements/work-stack-v2/skills/S005-meeting-prep.md)（作者完成；独立 Review PASS）
+  - [x] 独立作者化
+  - [x] 独立 Review 通过
+- [x] [**S006 — Meeting Summary**](https://github.com/boardx/workspacex/blob/requirements/work-stack-320-v2-authored/requirements/work-stack-v2/skills/S006-meeting-summary.md)（作者完成；独立 Review PASS）
+  - [x] 独立作者化
+  - [x] 独立 Review 通过
+- [ ] **S007 — Status Update**（Review 要求返修）
+  - [ ] 作者返修完成
+  - [ ] 独立 Review 通过
+- [ ] **S008 — Competitive Analysis**（作者已补齐并运行 E9 harness；待整体复审）
+  - [x] 作者返修完成
+  - [ ] 独立 Review 通过
+- [ ] **S009 — Customer Research**（作者已返修；待独立复审）
+  - [x] 作者返修完成
+  - [ ] 独立 Review 通过
+- [ ] **S010 — Risk Assessment**（Review 发现 input/output evidenceUnavailable 等值规则待补）
+  - [ ] 作者返修完成
+  - [ ] 独立 Review 通过
+- [ ] **S011 — Root Cause Analysis**（作者已返修；待独立复审）
+  - [x] 作者返修完成
+  - [ ] 独立 Review 通过
+- [ ] **S012 — Decision Brief**（作者已返修；待独立复审）
+  - [x] 作者返修完成
+  - [ ] 独立 Review 通过
+- [ ] **S013 — Scenario Analysis**（作者化进行中）
+  - [ ] 独立作者化
+  - [ ] 独立 Review 通过
+- [ ] **S014 — Document Review**（作者化进行中）
+  - [ ] 独立作者化
+  - [ ] 独立 Review 通过
+- [ ] **S015 — Response Drafting**（作者化进行中）
+  - [ ] 独立作者化
+  - [ ] 独立 Review 通过
+- [ ] **S016 — Knowledge Capture**（作者化进行中）
+  - [ ] 独立作者化
+  - [ ] 独立 Review 通过
+- [ ] **S017 — Task Extraction**（未开始）
+  - [ ] 独立作者化
+  - [ ] 独立 Review 通过
+- [ ] **S018 — Process Mapping**（未开始）
+  - [ ] 独立作者化
+  - [ ] 独立 Review 通过
+- [ ] **S019 — SOP Authoring**（未开始）
+  - [ ] 独立作者化
+  - [ ] 独立 Review 通过
+- [ ] **S020 — Executive Briefing**（未开始）
+  - [ ] 独立作者化
+  - [ ] 独立 Review 通过
+- [ ] **S021 — Customer Intelligence**（未开始）
+  - [ ] 独立作者化
+  - [ ] 独立 Review 通过
+- [ ] **S022 — Account Tiering**（未开始）
+  - [ ] 独立作者化
+  - [ ] 独立 Review 通过
+- [ ] **S023 — Account Planning**（未开始）
+  - [ ] 独立作者化
+  - [ ] 独立 Review 通过
+- [ ] **S024 — Prospecting**（未开始）
+  - [ ] 独立作者化
+  - [ ] 独立 Review 通过
+- [ ] **S025 — Lead Triage**（未开始）
+  - [ ] 独立作者化
+  - [ ] 独立 Review 通过
+- [ ] **S026 — Outreach**（未开始）
+  - [ ] 独立作者化
+  - [ ] 独立 Review 通过
+- [ ] **S027 — Meeting Scheduling**（未开始）
+  - [ ] 独立作者化
+  - [ ] 独立 Review 通过
+- [ ] **S028 — Sales Call Summary**（未开始）
+  - [ ] 独立作者化
+  - [ ] 独立 Review 通过
+- [ ] **S029 — Opportunity Update**（未开始）
+  - [ ] 独立作者化
+  - [ ] 独立 Review 通过
+- [ ] **S030 — Pipeline Review**（未开始）
+  - [ ] 独立作者化
+  - [ ] 独立 Review 通过
+- [ ] **S031 — Forecasting**（未开始）
+  - [ ] 独立作者化
+  - [ ] 独立 Review 通过
+- [ ] **S032 — Close Plan**（未开始）
+  - [ ] 独立作者化
+  - [ ] 独立 Review 通过
+- [ ] **S033 — Renewal Radar**（未开始）
+  - [ ] 独立作者化
+  - [ ] 独立 Review 通过
+- [ ] **S034 — CRM Hygiene**（未开始）
+  - [ ] 独立作者化
+  - [ ] 独立 Review 通过
+- [ ] **S035 — Customer Health**（未开始）
+  - [ ] 独立作者化
+  - [ ] 独立 Review 通过
+- [ ] **S036 — Proposal Builder**（未开始）
+  - [ ] 独立作者化
+  - [ ] 独立 Review 通过
+- [ ] **S037 — Sales Enablement**（未开始）
+  - [ ] 独立作者化
+  - [ ] 独立 Review 通过
+- [ ] **S039 — Marketing Plan**（未开始）
+  - [ ] 独立作者化
+  - [ ] 独立 Review 通过
+- [ ] **S040 — GTM Positioning**（未开始）
+  - [ ] 独立作者化
+  - [ ] 独立 Review 通过
+- [ ] **S041 — Campaign Planning**（未开始）
+  - [ ] 独立作者化
+  - [ ] 独立 Review 通过
+- [ ] **S042 — Content Strategy**（未开始）
+  - [ ] 独立作者化
+  - [ ] 独立 Review 通过
+- [ ] **S043 — Content Creation**（未开始）
+  - [ ] 独立作者化
+  - [ ] 独立 Review 通过
+- [ ] **S044 — Copywriting**（未开始）
+  - [ ] 独立作者化
+  - [ ] 独立 Review 通过
+- [ ] **S045 — Brand Review**（未开始）
+  - [ ] 独立作者化
+  - [ ] 独立 Review 通过
+- [ ] **S047 — SEO Audit**（未开始）
+  - [ ] 独立作者化
+  - [ ] 独立 Review 通过
+- [ ] **S048 — AI Search Optimization**（未开始）
+  - [ ] 独立作者化
+  - [ ] 独立 Review 通过
+- [ ] **S050 — Schema Optimization**（未开始）
+  - [ ] 独立作者化
+  - [ ] 独立 Review 通过
+- [ ] **S051 — Sitemap Optimization**（未开始）
+  - [ ] 独立作者化
+  - [ ] 独立 Review 通过
+- [ ] **S052 — Image SEO**（未开始）
+  - [ ] 独立作者化
+  - [ ] 独立 Review 通过
+- [ ] **S053 — Social Content**（未开始）
+  - [ ] 独立作者化
+  - [ ] 独立 Review 通过
+- [ ] **S054 — Social Distribution**（未开始）
+  - [ ] 独立作者化
+  - [ ] 独立 Review 通过
+- [ ] **S055 — Lifecycle Email**（未开始）
+  - [ ] 独立作者化
+  - [ ] 独立 Review 通过
+- [ ] **S056 — Paid Ads**（未开始）
+  - [ ] 独立作者化
+  - [ ] 独立 Review 通过
+- [ ] **S057 — Ad Creative**（未开始）
+  - [ ] 独立作者化
+  - [ ] 独立 Review 通过
+- [ ] **S058 — Attribution**（未开始）
+  - [ ] 独立作者化
+  - [ ] 独立 Review 通过
+- [ ] **S059 — Analytics Tracking**（未开始）
+  - [ ] 独立作者化
+  - [ ] 独立 Review 通过
+- [ ] **S061 — Product Discovery**（未开始）
+  - [ ] 独立作者化
+  - [ ] 独立 Review 通过
+- [ ] **S062 — User Interview Planning**（未开始）
+  - [ ] 独立作者化
+  - [ ] 独立 Review 通过
+- [ ] **S063 — Research Synthesis**（未开始）
+  - [ ] 独立作者化
+  - [ ] 独立 Review 通过
+- [ ] **S064 — Problem Framing**（未开始）
+  - [ ] 独立作者化
+  - [ ] 独立 Review 通过
+- [ ] **S065 — Opportunity Mapping**（未开始）
+  - [ ] 独立作者化
+  - [ ] 独立 Review 通过
+- [ ] **S067 — PRD / Spec Writing**（未开始）
+  - [ ] 独立作者化
+  - [ ] 独立 Review 通过
+- [ ] **S068 — Prioritization**（未开始）
+  - [ ] 独立作者化
+  - [ ] 独立 Review 通过
+- [ ] **S069 — Roadmap Planning**（未开始）
+  - [ ] 独立作者化
+  - [ ] 独立 Review 通过
+- [ ] **S070 — Sprint Planning**（未开始）
+  - [ ] 独立作者化
+  - [ ] 独立 Review 通过
+- [ ] **S071 — Experiment Design**（未开始）
+  - [ ] 独立作者化
+  - [ ] 独立 Review 通过
+- [ ] **S072 — Metrics Review**（未开始）
+  - [ ] 独立作者化
+  - [ ] 独立 Review 通过
+- [ ] **S073 — Product Launch**（未开始）
+  - [ ] 独立作者化
+  - [ ] 独立 Review 通过
+- [ ] **S074 — User Activation**（未开始）
+  - [ ] 独立作者化
+  - [ ] 独立 Review 通过
+- [ ] **S075 — Design Critique**（未开始）
+  - [ ] 独立作者化
+  - [ ] 独立 Review 通过
+- [ ] **S076 — Design Handoff**（未开始）
+  - [ ] 独立作者化
+  - [ ] 独立 Review 通过
+- [ ] **S079 — FP&A Forecast**（未开始）
+  - [ ] 独立作者化
+  - [ ] 独立 Review 通过
+- [ ] **S080 — Budget Planning**（未开始）
+  - [ ] 独立作者化
+  - [ ] 独立 Review 通过
+- [ ] **S081 — Cash Flow Forecast**（未开始）
+  - [ ] 独立作者化
+  - [ ] 独立 Review 通过
+- [ ] **S082 — Journal Entry**（未开始）
+  - [ ] 独立作者化
+  - [ ] 独立 Review 通过
+- [ ] **S083 — Reconciliation**（未开始）
+  - [ ] 独立作者化
+  - [ ] 独立 Review 通过
+- [ ] **S084 — Month-end Close**（未开始）
+  - [ ] 独立作者化
+  - [ ] 独立 Review 通过
+- [ ] **S085 — Variance Analysis**（未开始）
+  - [ ] 独立作者化
+  - [ ] 独立 Review 通过
+- [ ] **S086 — Audit Support**（未开始）
+  - [ ] 独立作者化
+  - [ ] 独立 Review 通过
+- [ ] **S090 — Model Audit**（未开始）
+  - [ ] 独立作者化
+  - [ ] 独立 Review 通过
+- [ ] **S091 — Board Finance Pack**（未开始）
+  - [ ] 独立作者化
+  - [ ] 独立 Review 通过
+- [ ] **S092 — Treasury Planning**（未开始）
+  - [ ] 独立作者化
+  - [ ] 独立 Review 通过
+- [ ] **S102 — Data Pack Builder**（未开始）
+  - [ ] 独立作者化
+  - [ ] 独立 Review 通过
+- [ ] **S103 — Contract Review**（未开始）
+  - [ ] 独立作者化
+  - [ ] 独立 Review 通过
+- [ ] **S104 — NDA Review**（未开始）
+  - [ ] 独立作者化
+  - [ ] 独立 Review 通过
+- [ ] **S106 — DPA Review**（未开始）
+  - [ ] 独立作者化
+  - [ ] 独立 Review 通过
+- [ ] **S107 — Legal Research**（未开始）
+  - [ ] 独立作者化
+  - [ ] 独立 Review 通过
+- [ ] **S108 — Regulatory Monitoring**（未开始）
+  - [ ] 独立作者化
+  - [ ] 独立 Review 通过
+- [ ] **S109 — Regulatory Gap Analysis**（未开始）
+  - [ ] 独立作者化
+  - [ ] 独立 Review 通过
+- [ ] **S110 — Policy Monitoring**（未开始）
+  - [ ] 独立作者化
+  - [ ] 独立 Review 通过
+- [ ] **S111 — Policy Drafting**（未开始）
+  - [ ] 独立作者化
+  - [ ] 独立 Review 通过
+- [ ] **S112 — Compliance Check**（未开始）
+  - [ ] 独立作者化
+  - [ ] 独立 Review 通过
+- [ ] **S113 — Matter Management**（未开始）
+  - [ ] 独立作者化
+  - [ ] 独立 Review 通过
+- [ ] **S114 — Matter Intake**（未开始）
+  - [ ] 独立作者化
+  - [ ] 独立 Review 通过
+- [ ] **S115 — Matter Update**（未开始）
+  - [ ] 独立作者化
+  - [ ] 独立 Review 通过
+- [ ] **S116 — Renewal Tracking**（未开始）
+  - [ ] 独立作者化
+  - [ ] 独立 Review 通过
+- [ ] **S117 — Escalation Routing**（未开始）
+  - [ ] 独立作者化
+  - [ ] 独立 Review 通过
+- [ ] **S118 — Internal Investigation**（未开始）
+  - [ ] 独立作者化
+  - [ ] 独立 Review 通过
+- [ ] **S119 — Legal Chronology**（未开始）
+  - [ ] 独立作者化
+  - [ ] 独立 Review 通过
+- [ ] **S124 — Privacy Impact Assessment**（未开始）
+  - [ ] 独立作者化
+  - [ ] 独立 Review 通过
+- [ ] **S125 — AI Impact Assessment**（未开始）
+  - [ ] 独立作者化
+  - [ ] 独立 Review 通过
+- [ ] **S126 — AI Vendor Review**（未开始）
+  - [ ] 独立作者化
+  - [ ] 独立 Review 通过
+- [ ] **S127 — Policy Q&A**（未开始）
+  - [ ] 独立作者化
+  - [ ] 独立 Review 通过
+- [ ] **S128 — Job Description Builder**（未开始）
+  - [ ] 独立作者化
+  - [ ] 独立 Review 通过
+- [ ] **S129 — Resume Screening**（未开始）
+  - [ ] 独立作者化
+  - [ ] 独立 Review 通过
+- [ ] **S130 — Interview Prep**（未开始）
+  - [ ] 独立作者化
+  - [ ] 独立 Review 通过
+- [ ] **S131 — Recruiting Pipeline**（未开始）
+  - [ ] 独立作者化
+  - [ ] 独立 Review 通过
+- [ ] **S132 — Offer Drafting**（未开始）
+  - [ ] 独立作者化
+  - [ ] 独立 Review 通过
+- [ ] **S133 — Onboarding**（未开始）
+  - [ ] 独立作者化
+  - [ ] 独立 Review 通过
+- [ ] **S134 — Performance Review**（未开始）
+  - [ ] 独立作者化
+  - [ ] 独立 Review 通过
+- [ ] **S135 — Compensation Analysis**（未开始）
+  - [ ] 独立作者化
+  - [ ] 独立 Review 通过
+- [ ] **S136 — People Analytics**（未开始）
+  - [ ] 独立作者化
+  - [ ] 独立 Review 通过
+- [ ] **S137 — Workforce Planning**（未开始）
+  - [ ] 独立作者化
+  - [ ] 独立 Review 通过
+- [ ] **S138 — Workforce Economics**（未开始）
+  - [ ] 独立作者化
+  - [ ] 独立 Review 通过
+- [ ] **S139 — Org Planning**（未开始）
+  - [ ] 独立作者化
+  - [ ] 独立 Review 通过
+- [ ] **S140 — AI Adoption Enablement**（未开始）
+  - [ ] 独立作者化
+  - [ ] 独立 Review 通过
+- [ ] **S141 — Project Planning**（未开始）
+  - [ ] 独立作者化
+  - [ ] 独立 Review 通过
+- [ ] **S142 — Work Item Management**（未开始）
+  - [ ] 独立作者化
+  - [ ] 独立 Review 通过
+- [ ] **S143 — Status Reporting**（未开始）
+  - [ ] 独立作者化
+  - [ ] 独立 Review 通过
+- [ ] **S144 — Capacity Planning**（未开始）
+  - [ ] 独立作者化
+  - [ ] 独立 Review 通过
+- [ ] **S145 — Change Request**（未开始）
+  - [ ] 独立作者化
+  - [ ] 独立 Review 通过
+- [ ] **S146 — Vendor Review**（未开始）
+  - [ ] 独立作者化
+  - [ ] 独立 Review 通过
+- [ ] **S148 — Process Documentation**（未开始）
+  - [ ] 独立作者化
+  - [ ] 独立 Review 通过
+- [ ] **S153 — Meeting Facilitation**（未开始）
+  - [ ] 独立作者化
+  - [ ] 独立 Review 通过
+- [ ] **S154 — Execution Plan**（未开始）
+  - [ ] 独立作者化
+  - [ ] 独立 Review 通过
+- [ ] **S155 — Business Review**（未开始）
+  - [ ] 独立作者化
+  - [ ] 独立 Review 通过
+- [ ] **S156 — Continuous Improvement**（未开始）
+  - [ ] 独立作者化
+  - [ ] 独立 Review 通过
+- [ ] **S157 — Data Exploration**（未开始）
+  - [ ] 独立作者化
+  - [ ] 独立 Review 通过
+- [ ] **S158 — Data Validation**（未开始）
+  - [ ] 独立作者化
+  - [ ] 独立 Review 通过
+- [ ] **S160 — SQL Query**（未开始）
+  - [ ] 独立作者化
+  - [ ] 独立 Review 通过
+- [ ] **S161 — Statistical Analysis**（未开始）
+  - [ ] 独立作者化
+  - [ ] 独立 Review 通过
+- [ ] **S162 — KPI Design**（未开始）
+  - [ ] 独立作者化
+  - [ ] 独立 Review 通过
+- [ ] **S164 — Data Visualization**（未开始）
+  - [ ] 独立作者化
+  - [ ] 独立 Review 通过
+- [ ] **S167 — Market Sizing**（未开始）
+  - [ ] 独立作者化
+  - [ ] 独立 Review 通过
+- [ ] **S168 — Trend Analysis**（未开始）
+  - [ ] 独立作者化
+  - [ ] 独立 Review 通过
+- [ ] **S169 — Knowledge Synthesis**（未开始）
+  - [ ] 独立作者化
+  - [ ] 独立 Review 通过
+- [ ] **S170 — Scientific Research Planning**（未开始）
+  - [ ] 独立作者化
+  - [ ] 独立 Review 通过
+- [ ] **S171 — Evidence Review**（未开始）
+  - [ ] 独立作者化
+  - [ ] 独立 Review 通过
+- [ ] **S172 — Data Storytelling**（未开始）
+  - [ ] 独立作者化
+  - [ ] 独立 Review 通过
+- [ ] **S177 — Incident Response**（未开始）
+  - [ ] 独立作者化
+  - [ ] 独立 Review 通过
+- [ ] **S179 — Technical Documentation**（未开始）
+  - [ ] 独立作者化
+  - [ ] 独立 Review 通过
+- [ ] **S187 — Support Triage**（未开始）
+  - [ ] 独立作者化
+  - [ ] 独立 Review 通过
+- [ ] **S188 — Draft Support Response**（未开始）
+  - [ ] 独立作者化
+  - [ ] 独立 Review 通过
+- [ ] **S189 — Customer Escalation**（未开始）
+  - [ ] 独立作者化
+  - [ ] 独立 Review 通过
+- [ ] **S190 — Knowledge Base Article**（未开始）
+  - [ ] 独立作者化
+  - [ ] 独立 Review 通过
+- [ ] **S191 — QBR Preparation**（未开始）
+  - [ ] 独立作者化
+  - [ ] 独立 Review 通过
+- [ ] **S192 — Renewal Risk**（未开始）
+  - [ ] 独立作者化
+  - [ ] 独立 Review 通过
+- [ ] **S193 — Voice of Customer**（未开始）
+  - [ ] 独立作者化
+  - [ ] 独立 Review 通过
+- [ ] **S194 — Support Operations**（未开始）
+  - [ ] 独立作者化
+  - [ ] 独立 Review 通过
+- [ ] **S195 — Strategy Review**（未开始）
+  - [ ] 独立作者化
+  - [ ] 独立 Review 通过
+- [ ] **S196 — Board Meeting Preparation**（未开始）
+  - [ ] 独立作者化
+  - [ ] 独立 Review 通过
+- [ ] **S197 — Decision Logging**（未开始）
+  - [ ] 独立作者化
+  - [ ] 独立 Review 通过
+- [ ] **S198 — OKR Alignment**（未开始）
+  - [ ] 独立作者化
+  - [ ] 独立 Review 通过
+- [ ] **S199 — Business Model Analysis**（未开始）
+  - [ ] 独立作者化
+  - [ ] 独立 Review 通过
+
+## Workflows
+
+- [x] [**W001 — Research-to-Brief**](https://github.com/boardx/workspacex/blob/requirements/work-stack-320-v2-authored/requirements/work-stack-v2/workflows/W001-research-to-brief.md)（作者完成；独立 Review PASS）
+  - [x] 独立作者化
+  - [x] 独立 Review 通过
+- [ ] **W002 — Meeting-to-Actions**（未开始）
+  - [ ] 独立作者化
+  - [ ] 独立 Review 通过
+- [ ] **W003 — Decision-to-Execution**（Review 要求补 plan_only 双向状态及授权 option 绑定）
+  - [x] 独立作者化 / 按意见修订
+  - [ ] 独立 Review 通过
+- [ ] **W004 — Weekly Executive Digest**（未开始）
+  - [ ] 独立作者化
+  - [ ] 独立 Review 通过
+- [ ] **W006 — Knowledge Capture Loop**（未开始）
+  - [ ] 独立作者化
+  - [ ] 独立 Review 通过
+- [ ] **W007 — Issue-to-Resolution**（未开始）
+  - [ ] 独立作者化
+  - [ ] 独立 Review 通过
+- [ ] **W009 — Evidence-to-Recommendation**（未开始）
+  - [ ] 独立作者化
+  - [ ] 独立 Review 通过
+- [ ] **W011 — Lead-to-Qualified**（未开始）
+  - [ ] 独立作者化
+  - [ ] 独立 Review 通过
+- [ ] **W012 — Prospect-to-Meeting**（未开始）
+  - [ ] 独立作者化
+  - [ ] 独立 Review 通过
+- [ ] **W013 — Meeting-to-Opportunity**（未开始）
+  - [ ] 独立作者化
+  - [ ] 独立 Review 通过
+- [ ] **W014 — Opportunity-to-Close**（未开始）
+  - [ ] 独立作者化
+  - [ ] 独立 Review 通过
+- [ ] **W015 — Weekly Pipeline Review**（未开始）
+  - [ ] 独立作者化
+  - [ ] 独立 Review 通过
+- [ ] **W016 — Forecast Review**（未开始）
+  - [ ] 独立作者化
+  - [ ] 独立 Review 通过
+- [ ] **W017 — Renewal Risk Review**（未开始）
+  - [ ] 独立作者化
+  - [ ] 独立 Review 通过
+- [ ] **W018 — Account Expansion**（未开始）
+  - [ ] 独立作者化
+  - [ ] 独立 Review 通过
+- [ ] **W019 — Campaign Brief-to-Launch**（未开始）
+  - [ ] 独立作者化
+  - [ ] 独立 Review 通过
+- [ ] **W020 — Content Idea-to-Publish**（未开始）
+  - [ ] 独立作者化
+  - [ ] 独立 Review 通过
+- [ ] **W021 — SEO Audit-to-Fix**（未开始）
+  - [ ] 独立作者化
+  - [ ] 独立 Review 通过
+- [ ] **W022 — Social Content-to-Distribution**（未开始）
+  - [ ] 独立作者化
+  - [ ] 独立 Review 通过
+- [ ] **W023 — Paid Campaign Optimization**（未开始）
+  - [ ] 独立作者化
+  - [ ] 独立 Review 通过
+- [ ] **W024 — Lifecycle Email Loop**（未开始）
+  - [ ] 独立作者化
+  - [ ] 独立 Review 通过
+- [ ] **W025 — Marketing Weekly Review**（未开始）
+  - [ ] 独立作者化
+  - [ ] 独立 Review 通过
+- [ ] **W026 — Launch Campaign**（未开始）
+  - [ ] 独立作者化
+  - [ ] 独立 Review 通过
+- [ ] **W027 — Discovery-to-Opportunity**（未开始）
+  - [ ] 独立作者化
+  - [ ] 独立 Review 通过
+- [ ] **W028 — Research-to-Insight**（未开始）
+  - [ ] 独立作者化
+  - [ ] 独立 Review 通过
+- [ ] **W029 — Problem-to-PRD**（未开始）
+  - [ ] 独立作者化
+  - [ ] 独立 Review 通过
+- [ ] **W030 — PRD-to-Sprint**（未开始）
+  - [ ] 独立作者化
+  - [ ] 独立 Review 通过
+- [ ] **W031 — Experiment Loop**（未开始）
+  - [ ] 独立作者化
+  - [ ] 独立 Review 通过
+- [ ] **W032 — Roadmap Review**（未开始）
+  - [ ] 独立作者化
+  - [ ] 独立 Review 通过
+- [ ] **W033 — Month-End Close**（未开始）
+  - [ ] 独立作者化
+  - [ ] 独立 Review 通过
+- [ ] **W034 — Budget-to-Forecast**（未开始）
+  - [ ] 独立作者化
+  - [ ] 独立 Review 通过
+- [ ] **W035 — Variance Review**（未开始）
+  - [ ] 独立作者化
+  - [ ] 独立 Review 通过
+- [ ] **W036 — Cash Forecast**（未开始）
+  - [ ] 独立作者化
+  - [ ] 独立 Review 通过
+- [ ] **W038 — Audit Support**（未开始）
+  - [ ] 独立作者化
+  - [ ] 独立 Review 通过
+- [ ] **W039 — Board Finance Pack**（未开始）
+  - [ ] 独立作者化
+  - [ ] 独立 Review 通过
+- [ ] **W040 — Contract Intake-to-Review**（未开始）
+  - [ ] 独立作者化
+  - [ ] 独立 Review 通过
+- [ ] **W041 — NDA Triage**（未开始）
+  - [ ] 独立作者化
+  - [ ] 独立 Review 通过
+- [ ] **W042 — Regulatory Change-to-Action**（未开始）
+  - [ ] 独立作者化
+  - [ ] 独立 Review 通过
+- [ ] **W043 — Matter Intake-to-Closure**（未开始）
+  - [ ] 独立作者化
+  - [ ] 独立 Review 通过
+- [ ] **W044 — Policy Change Workflow**（未开始）
+  - [ ] 独立作者化
+  - [ ] 独立 Review 通过
+- [ ] **W045 — Investigation Workflow**（未开始）
+  - [ ] 独立作者化
+  - [ ] 独立 Review 通过
+- [ ] **W046 — AI Vendor Review**（未开始）
+  - [ ] 独立作者化
+  - [ ] 独立 Review 通过
+- [ ] **W047 — Job-to-Hire**（未开始）
+  - [ ] 独立作者化
+  - [ ] 独立 Review 通过
+- [ ] **W048 — Candidate Screening**（未开始）
+  - [ ] 独立作者化
+  - [ ] 独立 Review 通过
+- [ ] **W049 — New Hire Onboarding**（未开始）
+  - [ ] 独立作者化
+  - [ ] 独立 Review 通过
+- [ ] **W050 — Performance Cycle**（未开始）
+  - [ ] 独立作者化
+  - [ ] 独立 Review 通过
+- [ ] **W051 — Workforce Planning**（未开始）
+  - [ ] 独立作者化
+  - [ ] 独立 Review 通过
+- [ ] **W052 — Request-to-Project**（未开始）
+  - [ ] 独立作者化
+  - [ ] 独立 Review 通过
+- [ ] **W053 — Weekly PMO Review**（未开始）
+  - [ ] 独立作者化
+  - [ ] 独立 Review 通过
+- [ ] **W055 — Process Improvement**（未开始）
+  - [ ] 独立作者化
+  - [ ] 独立 Review 通过
+- [ ] **W056 — Incident-to-Postmortem**（未开始）
+  - [ ] 独立作者化
+  - [ ] 独立 Review 通过
+- [ ] **W057 — Question-to-Analysis**（未开始）
+  - [ ] 独立作者化
+  - [ ] 独立 Review 通过
+- [ ] **W060 — Research-to-Evidence**（未开始）
+  - [ ] 独立作者化
+  - [ ] 独立 Review 通过
+
+## DigitalHumans
+
+- [x] [**D001 — Executive / Strategy Partner**](https://github.com/boardx/workspacex/blob/requirements/work-stack-320-v2-authored/requirements/work-stack-v2/digital-humans/D001-executive-strategy-partner.md)（作者完成；独立 Review PASS）
+  - [x] 独立作者化
+  - [x] 独立 Review 通过
+- [ ] **D002 — Research & Knowledge Analyst**（未开始）
+  - [ ] 独立作者化
+  - [ ] 独立 Review 通过
+- [ ] **D003 — Product Manager**（未开始）
+  - [ ] 独立作者化
+  - [ ] 独立 Review 通过
+- [ ] **D004 — Marketing & Growth Manager**（未开始）
+  - [ ] 独立作者化
+  - [ ] 独立 Review 通过
+- [ ] **D005 — Sales Representative**（未开始）
+  - [ ] 独立作者化
+  - [ ] 独立 Review 通过
+- [ ] **D006 — Customer Success Specialist**（未开始）
+  - [ ] 独立作者化
+  - [ ] 独立 Review 通过
+- [ ] **D007 — Project / Operations Manager**（未开始）
+  - [ ] 独立作者化
+  - [ ] 独立 Review 通过
+- [ ] **D008 — Finance Analyst**（未开始）
+  - [ ] 独立作者化
+  - [ ] 独立 Review 通过
+- [ ] **D009 — Legal & Compliance Analyst**（未开始）
+  - [ ] 独立作者化
+  - [ ] 独立 Review 通过
+- [ ] **D010 — HR & Talent Specialist**（未开始）
+  - [ ] 独立作者化
+  - [ ] 独立 Review 通过
+
+## 阶段门
+
+- [x] 以 main `30c1c4332025151610502988b0379b95ff7298c7` 的远端 manifest 与矩阵计算前十个 DigitalHuman 精确闭包；提交前仍需对届时 main 重核。
+- [x] 定义 Workflow→Skill 条件继承闭包与权限边界；标记为 proposed/unwired，不宣称运行时已实现。
+- [ ] 214 个实体文档全部独立作者化且独立 Review 通过。
+- [ ] 集成前重新核对 main 的提交与文件哈希。
+- [ ] 阶段一致性检查与验证。
+- [ ] 214 项全部通过作者化和独立 Review 后，基于届时最新 main 提交新的 follow-up PR（PR #4523 已合并）。
