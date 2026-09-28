@@ -89,3 +89,18 @@ v3 初版左上角放的是品牌 logo，与 2026-08-11 信息架构裁决（左
 参数：`v3.html?orgmenu=1`、`v3.html?org=hr`。
 
 未覆盖：手机宽度（≤860）下左栏隐藏，组织切换入口暂缺，需在移动端导航抽屉里补。
+
+## 真实整栈截图（2026-09-28，第二轮）
+
+本会话把 postgres-age 镜像改成本地组装（apache/age 官方镜像 + pgvector 二进制拼接），绕开了容器内
+`deb.debian.org` 被代理策略拒绝的问题（仅本地验证用，未提交到仓库），从而跑通了 `shots:chat-main`
+的整栈（postgres + redis + API + web）。截图证明本 PR 的样式改动在真实 `/chat`（CopilotKit v2 壳）
+上按预期渲染：`shots/app-real-chat-personal-empty.png`（个人对话空态 + composer + 目标建议卡片）、
+`shots/app-real-chat-project-list.png`（项目对话 + 线程列表）。
+
+**顺带发现一个与本次改动无关的既有 bug**：`e2e/chat-main-shots.spec.ts` 用来定位"已加载"的锚点
+`chat-read-thread-list` 只存在于 `chat-read-screen.tsx` / `personal-chat-screen.tsx`（旧屏），但
+`/chat` 自 2026-09-02 起已经整体切到 `CopilotKitV2Shell`（`app/chat/(v2)/layout.tsx` 头注），新壳
+从未渲染过这个 testid——`shots:chat-main` 因此对任何改动都会超时失败，不是本 PR 引入的。已按
+AGENTS.md「同一事实不得声明在两处 / 没有脚本的规范条目视为未落地」的精神开 issue 跟踪，不在本 PR
+顺手修（超出"只改 UIUX"的范围）。
