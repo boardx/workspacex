@@ -126,10 +126,13 @@ it("makes all fifteen canonical shape variants reachable from the dock", async (
 it("stores pressure-aware drawing and eraser strokes as vector compositing objects", async () => {
   const doc = await setup();
   fireEvent.click(screen.getByTestId("board-add-draw"));
+  fireEvent.click(screen.getByTestId("board-draw-stroke-8"));
+  fireEvent.click(screen.getByTestId("board-draw-opacity-55"));
+  fireEvent.click(screen.getByTestId("board-draw-color-2563eb"));
   fireEvent.click(screen.getByTestId("draw-stroke"));
   const drawing = readObjects(doc)[0]!;
   expect(drawing.kind).toBe("drawing");
-  expect(drawing.extensionData?.contentObject).toMatchObject({ type: "drawing", strokes: [{ tool: "pen", points: [{ pressure: .2 }, { pressure: .9 }] }] });
+  expect(drawing.extensionData?.contentObject).toMatchObject({ type: "drawing", strokes: [{ tool: "pen", width:8, opacity:.55, color:"#2563EB", points: [{ pressure: .2 }, { pressure: .9 }] }] });
   fireEvent.click(screen.getByTestId("erase-stroke"));
   expect(readObjects(doc)).toHaveLength(1);
   expect(readObjects(doc)[0]?.extensionData?.contentObject).toMatchObject({ type: "drawing", strokes: [{ tool: "pen" }, { tool: "eraser", erases: [expect.any(String)] }] });
