@@ -266,7 +266,7 @@ function Citations({ projectId, evidenceIds, claimId, testid, onOpenSources }: {
     return (
       <span className="flex flex-wrap gap-1" data-testid={testid}>
         {evidenceIds.map((id, i) => (
-          <a key={id} href={evidenceHref(projectId, id)} className="text-10 text-primary underline-offset-2 hover:underline" data-testid={`${testid}-evidence-${id}`}>
+          <a key={id} href={evidenceHref(projectId, id)} className="text-10 text-primary underline-offset-2 transition-colors duration-base hover:underline" data-testid={`${testid}-evidence-${id}`}>
             出处 {i + 1}
           </a>
         ))}
