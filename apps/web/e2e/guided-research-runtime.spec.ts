@@ -85,6 +85,7 @@ test("research persists all five model-backed steps through the real UI, API and
   await expect(sourceLink).toBeVisible();
   await expect(sourceLink).toHaveAttribute("href", /\/research-evidence$/);
   await expect(page.getByRole("link", { name: /vehicle-inventory$/ })).toHaveCount(0);
+  // testid-gate: absent 资料研究页按原型移除了中间实时动态面板。
   await expect(page.getByTestId("guided-research-source-activity")).toHaveCount(0);
   await expect(page.getByTestId("research-search-summary")).toHaveCount(0);
   await expect(page.getByRole("button", { name: "添加来源" })).toHaveCount(0);
