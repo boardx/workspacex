@@ -9,10 +9,19 @@
  *   S9 #4366  别的账号碰 A 的个人记忆 ⇒ 404，且与「不存在」逐字节一致（人类决定 2026-09-27），B 的轮次也不带 A 的背景。
  *   S10 #4367 A 把那条决定「分享到项目…」⇒ 同项目的 B 在项目会话里提问时用得上，且标明由 A 分享；A 撤回分享 ⇒ B 的下一轮不再有。
  *             B 自己的个人空间始终没有 A 的东西（分享的是项目里的派生副本，不是把 A 的个人记忆开放给 B）。
+ *   S4 #4361  「忘掉关于 X 的」⇒ 确认卡 → 下一轮不再提 X；撤销 ⇒ X 回来（全程走 HTTP 与生产同款执行器端口）。
+ *             （「我改主意了，改成 Y」这一段等 #4509 修好改口分句的副词之后补上。）
+ *   S6 #4363  A 说过的待办：标「不做了」⇒ 新会话不再提；标「已完成」⇒ 照常给模型但标明已完成（不再被当成没做的事）。
+ *   S8 #4365  寒暄不调抽取模型：逐条抽取状态读作 skipped（不是 empty）。
  */
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import type { knowledgeGraph as KG } from "@repo/contracts";
 import { runExtractionTick } from "../../src/application/knowledge-graph/extract-message-knowledge";
+import { newKgId } from "../../src/application/knowledge-graph/ids";
+import { PgKgAutoCopy } from "../../src/infrastructure/knowledge-graph/pg-kg-auto-copy";
+import { PgKgConflict } from "../../src/infrastructure/knowledge-graph/pg-kg-conflict";
+import { PgMemoryCard } from "../../src/infrastructure/knowledge-graph/pg-memory-card";
+import { PgOntologyStore } from "../../src/infrastructure/knowledge-graph/pg-ontology-store";
 import { addChatMessage, addChatThread } from "../support/chat-db";
 import { addCredential, addOrgMember, addProjectMember, asOwner, resetOrgs, seedOrg } from "../support/db";
 import {
@@ -30,6 +39,9 @@ const A_SAY = "thr-b2-a-say";
 const A_NEW1 = "thr-b2-a-new1";
 const A_NEW2 = "thr-b2-a-new2";
 const A_BROKEN = "thr-b2-a-broken";
+const A_NEW3 = "thr-b2-a-new3";
+const A_NEW4 = "thr-b2-a-new4";
+const A_NEW5 = "thr-b2-a-new5";
 const B_OWN = "thr-b2-b-own";
 const PROJECT_T = "thr-b2-project";
 const A_NAME = "王老师";
@@ -38,6 +50,8 @@ const GOAL = "我的目标是探索未来教育";
 const PREF = "我更喜欢简洁的回答";
 const DECISION = "我决定先做小学数学的试点";
 const GARBAGE_TRIGGER = "这句话会让抽取模型回一段不是 JSON 的东西";
+const TODO = "我要把试点方案发给王老师";
+const GREETING = "你好呀，辛苦了！";
 
 const claim = (statement: string, kind: KG.KgClaimKind) =>
   ({ statement, kind, confidence: 0.9, about: [], decidedBy: null, quote: statement });
@@ -52,6 +66,7 @@ async function drain(): Promise<void> {
     [GOAL, reply(claim(GOAL, "goal"))],
     [PREF, reply(claim(PREF, "preference"))],
     [DECISION, reply(claim(DECISION, "decision"))],
+    [TODO, reply(claim(TODO, "todo"))],
     [GARBAGE_TRIGGER, "好的，我看了一下，这里没什么需要特别记录的。"],
   ]);
   const deps = { ...extractionDeps(e.db, model, ORG), logger: { info: () => undefined, error: () => undefined } };
@@ -77,7 +92,7 @@ beforeAll(async () => {
   await addProjectMember(ORG, PROJECT, USER_A, "member", null);
   await addProjectMember(ORG, PROJECT, USER_B, "member", null);
   await publishAgent(ORG, AGENT, USER_A);
-  for (const id of [A_SAY, A_NEW1, A_NEW2, A_BROKEN]) {
+  for (const id of [A_SAY, A_NEW1, A_NEW2, A_BROKEN, A_NEW3, A_NEW4, A_NEW5]) {
     await addChatThread({ orgId: ORG, id, projectId: null, visibilityScope: "private", createdBy: USER_A, title: id });
   }
   await addChatThread({ orgId: ORG, id: PROJECT_T, projectId: PROJECT, visibilityScope: "plenary", createdBy: USER_B, title: PROJECT_T });
@@ -194,4 +209,63 @@ describe("第二批验收 · 北极星：新会话里不用重复已经说过的
     // A 的个人原件不受分享 / 撤回影响
     expect((await personalStatements(a)).map((c) => c.statement)).toContain(DECISION);
   }, 180_000);
+
+  /** 生产合成（kernel.module.ts）注入执行器的同一组记忆端口：确认卡 + 改口。 */
+  const memoryPorts = () => ({
+    memoryCards: new PgMemoryCard(e.db),
+    memoryChange: { store: new PgOntologyStore(e.db), conflicts: new PgKgConflict(e.db), autoCopy: new PgKgAutoCopy(e.db), newId: newKgId },
+  });
+  type TurnPrompt = { prompt?: { type: string; card?: { cardId: string; kind: string; state: string } } | null };
+
+  it("S4：「忘掉关于 X 的」⇒ 确认卡（HTTP）→ 下一轮不再提 X；撤销（HTTP）⇒ X 回来", async () => {
+    const t = await turn(e, a, ORG, A_NEW3, "忘掉关于未来教育的", AGENT, memoryPorts());
+    const mem = await a.get<TurnPrompt>(memoryPath(A_NEW3, t.answerId));
+    expect(mem.status).toBe(200);
+    const card = mem.body.prompt?.card;
+    expect(card, JSON.stringify(mem.body.prompt)).toMatchObject({ kind: "forget", state: "open" });
+    // B 碰不到 A 的卡
+    expect((await b.post(`/knowledge-graph/cards/${card!.cardId}`, { decision: "accept" })).status).toBe(404);
+    const done = await a.post<{ card: { state: string } }>(`/knowledge-graph/cards/${card!.cardId}`, { decision: "accept" });
+    expect(done.status, JSON.stringify(done.body)).toBe(200);
+    expect(done.body.card.state).toBe("done");
+    const gone = await turn(e, a, ORG, A_NEW5, "帮我规划一下下周要做的事", AGENT);
+    expect(gone.memory ?? "", "忘掉之后下一轮不应再提").not.toContain(GOAL);
+
+    const undone = await a.post<{ card: { state: string } }>(`/knowledge-graph/cards/${card!.cardId}/undo`, {});
+    expect(undone.status, JSON.stringify(undone.body)).toBe(200);
+    expect(undone.body.card.state).toBe("undone");
+    const back = await turn(e, a, ORG, A_NEW5, "帮我规划一下下周要做的事", AGENT);
+    expect(back.memory ?? "", "撤销之后应照常记起").toContain(GOAL);
+  }, 240_000);
+
+  it("S6：待办标「不做了」⇒ 新会话不再提；标「已完成」⇒ 照常给模型但标明已完成", async () => {
+    await addChatMessage({ orgId: ORG, id: "m-b2-todo", threadId: A_SAY, body: `${TODO}。`, authorId: USER_A });
+    await drain();
+    const [todo] = await asOwner(async (c) => (await c.query<{ id: string; todo_state: string }>(
+      "SELECT id, todo_state FROM claims WHERE org_id = $1 AND scope_kind = 'chat_session' AND scope_id = $2 AND statement = $3",
+      [ORG, A_SAY, TODO])).rows);
+    expect(todo, "待办应被记下").toMatchObject({ todo_state: "open" });
+    const ask = "试点方案要发给王老师吗？";
+    expect((await turn(e, a, ORG, A_NEW4, ask, AGENT)).memory ?? "").toContain(TODO);
+
+    // B 不能改 A 的待办（与不存在同一个出口）
+    expect((await b.post(`/knowledge-graph/claims/${todo!.id}/todo-status`, { status: "done" })).status).toBe(404);
+    const dropped = await a.post(`/knowledge-graph/claims/${todo!.id}/todo-status`, { status: "dropped" });
+    expect(dropped.status, JSON.stringify(dropped.body)).toBe(200);
+    expect((await turn(e, a, ORG, A_NEW4, ask, AGENT)).memory ?? "", "不做了的待办不再给模型").not.toContain(TODO);
+
+    const doneRes = await a.post(`/knowledge-graph/claims/${todo!.id}/todo-status`, { status: "done" });
+    expect(doneRes.status, JSON.stringify(doneRes.body)).toBe(200);
+    const after = (await turn(e, a, ORG, A_NEW4, ask, AGENT)).memory ?? "";
+    expect(after).toContain(TODO);
+    expect(after).toContain("（待办·已完成）");
+  }, 240_000);
+
+  it("S8：寒暄在抽取模型之前就被「值得记」门控跳过 ⇒ 逐条抽取状态是 skipped，不是 empty", async () => {
+    await addChatMessage({ orgId: ORG, id: "m-b2-greet", threadId: A_SAY, body: GREETING, authorId: USER_A });
+    await drain();
+    const r = await a.get<{ status: string; claims: unknown[] }>(`/knowledge-graph/threads/${A_SAY}/messages/m-b2-greet/extraction`);
+    expect(r.status, JSON.stringify(r.body)).toBe(200);
+    expect(r.body).toMatchObject({ status: "skipped", claims: [] });
+  }, 120_000);
 });
