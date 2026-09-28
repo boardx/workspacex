@@ -8,6 +8,7 @@ import { ChildCancellationStatus } from "./run-control";
  */
 import { z } from "zod";
 import { RestorableInterrupt } from "./agent-interrupts";
+import { StarterPackToolPolicy } from "./agent-role";
 
 const Sha256 = z.string().regex(/^[a-f0-9]{64}$/);
 const PackCoordinate = z.string().min(1).max(128).regex(/^[A-Za-z0-9][A-Za-z0-9._-]*$/);
@@ -233,7 +234,8 @@ export const AgentStarterPackEntry = z.object({
   skillVersions: z.array(AgentSkillVersionReference),
   modelProvider: z.string().min(1).max(128),
   modelId: z.string().min(1).max(255),
-  toolPolicy: z.array(z.never()).max(0),
+  /** AG02 / ADR-120 #2：能力分类字符串数组（形状单源在 `./agent-role` 的 `StarterPackToolPolicy`），不携带授权。 */
+  toolPolicy: StarterPackToolPolicy,
 }).strict();
 
 export const UnsignedAgentStarterPack = z.object({

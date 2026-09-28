@@ -119,7 +119,7 @@ function writeAgentPack(input: {
   readonly skillVersions: readonly SkillReference[];
   readonly instructionDigestOverride?: string;
   readonly packDigestOverride?: string;
-  readonly toolPolicy?: readonly string[];
+  readonly toolPolicy?: readonly unknown[];
 }): void {
   const packId = input.packId ?? AGENT_PACK_ID;
   const packVersion = input.packVersion ?? PACK_VERSION;
@@ -374,7 +374,8 @@ describe("verification, conflicts, replay, immutability, and tenant isolation", 
   it.each([
     { name: "instruction digest", changes: { instructionDigestOverride: "0".repeat(64) } },
     { name: "pack digest", changes: { packDigestOverride: "f".repeat(64) } },
-    { name: "non-empty Wave 2 tool policy", changes: { toolPolicy: ["web.search"] } },
+    { name: "non-category tool policy (AG02: credential object)", changes: { toolPolicy: [{ token: "x" }] } },
+    { name: "non-category tool policy (AG02: vendor id)", changes: { toolPolicy: ["OpenAI"] } },
   ])("rejects an invalid $name without partial Agent/version rows", async ({ changes }) => {
     const skill = await importPrerequisiteSkill();
     writeAgentPack({ skillVersions: [skill], ...changes });
