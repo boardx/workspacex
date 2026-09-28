@@ -354,6 +354,21 @@ type ReadinessState =
 
 const DEP_STATE_LABEL = { satisfied: "已满足", missing: "缺失", denied: "已拒绝", unknown: "未知" } as const;
 
+// 就绪原因码 → 用户可读文案。原始机读码（如 NO_ENABLED_TOOL）不得直接展示给终端用户，
+// 只能收进下方折叠的“详情”里。closed set 与 packages/contracts/src/work-skill-meta.ts 的
+// reasonCode 枚举保持一致。
+const READINESS_REASON_LABEL: Record<string, string> = {
+  OK: "已就绪",
+  CATEGORY_UNREGISTERED: "该能力未在系统中注册",
+  NO_ENABLED_TOOL: "未配置可用工具",
+  GRANT_DENIED: "授权已被拒绝",
+  GRANT_LOOKUP_FAILED: "授权状态查询失败",
+};
+
+function readinessReasonLabel(reasonCode: string): string {
+  return READINESS_REASON_LABEL[reasonCode] ?? "暂不可用";
+}
+
 function SkillDetailDrawer({
   skillId, onClose, onChanged, onOpenSkill,
 }: { skillId: string; onClose: () => void; onChanged: () => void; onOpenSkill: (skillId: string) => void }) {
@@ -387,7 +402,10 @@ function SkillDetailDrawer({
     void loadReadiness();
     return () => {
       // 卸载 / 切换 skill 后作废在途请求，避免旧结果写回。
+      // 这里只做单调自增、不读取"当前"值做判断，ref 在 effect 触发时是否已变化不影响正确性。
+      // eslint-disable-next-line react-hooks/exhaustive-deps
       detailGen.current++;
+      // eslint-disable-next-line react-hooks/exhaustive-deps
       readinessGen.current++;
     };
   }, [loadDetail, loadReadiness]);
@@ -438,13 +456,19 @@ function DepList({
             <div>
               <p>{c}</p>
               {item && item.reasonCode !== "OK" && (
-                <p className="text-11 text-muted-foreground">
-                  {optional && st !== "satisfied" ? "可选，未授权，功能降级 · " : ""}
-                  {item.reasonCode}
-                  {item.grantHref && (
-                    <a className="ml-1 underline" href={item.grantHref}>去授权</a>
-                  )}
-                </p>
+                <div className="text-11 text-muted-foreground">
+                  <p>
+                    {optional && st !== "satisfied" ? "可选，未授权，功能降级 · " : ""}
+                    {readinessReasonLabel(item.reasonCode)}
+                    {item.grantHref && (
+                      <a className="ml-1 underline" href={item.grantHref}>去授权</a>
+                    )}
+                  </p>
+                  <details className="mt-0.5">
+                    <summary className="cursor-pointer select-none">详情</summary>
+                    <span className="ml-1">{item.reasonCode}</span>
+                  </details>
+                </div>
               )}
             </div>
             <Badge tone={st === "satisfied" ? "success" : st === "unknown" ? "outline" : "warning"}>
