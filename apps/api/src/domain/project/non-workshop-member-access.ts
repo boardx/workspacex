@@ -25,11 +25,27 @@
  *
  * `projectLayer` 置 `null`：该字段的 `role` 是工作坊四角色的闭集，两档塞不进去；
  * 「不在项目上下文」与 whiteboard 决策的处置相同。
+ *
+ * ## #4584：容器内其余读写怎么判——`nonWorkshopProjectLayer`
+ *
+ * 名单的读 / 增删仍由上面的 `decideNonWorkshopMemberAccess` 判。容器里的其余东西（概览、来源、
+ * 资源挂载、AI 权限、项目大脑）走的是 `authorize()`，它的项目层此前只认 `project_memberships`，
+ * 于是两类容器对所有人都是 NO_PROJECT_ROLE（#4584）。现在 `application/identity/project-layer.ts`
+ * 在工作坊行缺席时读两档身份，交给本文件的 `nonWorkshopProjectLayer` 映射成项目层输入：
+ *
+ *   owner                         → facilitator 那一行（能读全部、能管配置）
+ *   collaborator                  → member 那一行（读 + 参与，不能管）
+ *   不在名单上、组织 lead / admin  → observer 那一行（只有 read.published——与上表 read 行
+ *                                   「组织 lead / admin 可读」同一条判据，且只读）
+ *   其余                          → 无项目角色（NO_PROJECT_ROLE / ADMIN_NOT_SUPERUSER，同工作坊）
+ *
+ * 映射只借「读写到什么深度」；工作坊专属机制由 `containerKind` + `project-role-matrix.ts` 的
+ * `NON_WORKSHOP_CONTAINER_ACTIONS` 白名单统一挡住，不靠这里。
  */
 import { identity, project } from "@repo/contracts";
 import type { z } from "zod";
-import type { OrgRole } from "../identity/roles";
-import type { PermissionDecision } from "../identity/permission-decision";
+import type { OrgRole, ProjectRole } from "../identity/roles";
+import type { PermissionDecision, ProjectLayerInput } from "../identity/permission-decision";
 
 export type NonWorkshopMemberRole = z.infer<typeof project.NonWorkshopMemberRole>;
 export type NonWorkshopMemberAction = "read" | "manage";
@@ -82,4 +98,32 @@ export function decideNonWorkshopMemberAccess(input: NonWorkshopMemberAccessInpu
     decisionId: input.decisionId,
   });
   return { decision, reason };
+}
+
+export type NonWorkshopContainerKind = Exclude<z.infer<typeof project.ProjectKind>, "workshop">;
+
+/** 两档 → 四角色矩阵里借用的那一行。闭合映射，是「两档读写到什么深度」的唯一形式。 */
+export const NON_WORKSHOP_TIER_PROJECT_ROLE: Readonly<Record<NonWorkshopMemberRole, ProjectRole>> = {
+  owner: "facilitator",
+  collaborator: "member",
+};
+
+/** 不在名单上的组织 lead / admin 借用的那一行：只读已发布内容（见文件头 #4584 一节）。 */
+export const NON_WORKSHOP_ORG_READER_PROJECT_ROLE: ProjectRole = "observer";
+
+export interface NonWorkshopProjectLayerInput {
+  readonly containerKind: NonWorkshopContainerKind;
+  /** 调用者在这个容器名单上的档位；`null` = 不在名单上。 */
+  readonly memberRole: NonWorkshopMemberRole | null;
+  /** 调用者在本组织的角色；`null` = 不是组织成员。 */
+  readonly orgRole: OrgRole | null;
+}
+
+/** 两类容器的身份 → `decide()` 的项目层输入。纯函数，映射规则见文件头。 */
+export function nonWorkshopProjectLayer(input: NonWorkshopProjectLayerInput): ProjectLayerInput {
+  let role: ProjectRole | null = null;
+  if (input.memberRole !== null) role = NON_WORKSHOP_TIER_PROJECT_ROLE[input.memberRole];
+  else if (input.orgRole !== null && ORG_MANAGERS.includes(input.orgRole)) role = NON_WORKSHOP_ORG_READER_PROJECT_ROLE;
+  // 两类容器没有分组、没有 host（F128：两档、无 host、无分组）。
+  return { role, groupId: null, isHost: false, containerKind: input.containerKind };
 }

@@ -13,7 +13,7 @@
 | 06 | 深度研究 | not_started | 6 | 0 | 0 | 0 |
 | 07 | 用户访谈 | not_started | 5 | 0 | 0 | 0 |
 | 08 | 转录 | not_started | 4 | 0 | 0 | 0 |
-| 09 | 问卷 | not_started | 1 | 1 | 5 | 0 |
+| 09 | 问卷 | in_progress | 1 | 2 | 4 | 0 |
 | 10 | 现场协作编排 | in_progress | 6 | 0 | 0 | 4 |
 | 11 | research-insight-backend | in_progress | 0 | 4 | 0 | 1 |
 | 12 | uiux-foundation | in_progress | 5 | 0 | 0 | 17 |

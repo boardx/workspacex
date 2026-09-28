@@ -24,6 +24,7 @@ import type {
   AclObjectRef,
   BindingRow,
   IdentityRepository,
+  NonWorkshopStandingRow,
   OrgMembershipRow,
   ProjectMembershipRow,
 } from "../../src/application/identity/ports";
@@ -102,7 +103,8 @@ export class FakeChatThreadSource implements Partial<ChatRepository> {
 }
 
 /**
- * 组织成员目录的内存 fake。`authorize` 只用到三个方法（见 `authorize.ts` 的 `authorizeBatch`）。
+ * 组织成员目录的内存 fake。`authorize` 只用到这四个方法（见 `authorize.ts` 的 `authorizeBatch` 与
+ * `project-layer.ts`；#4584 起项目层在工作坊行缺席时还会问 `findNonWorkshopStanding`）。
  * 没有绑定行 ⇒ 走 `DEFAULT_SCOPE`（org-wide），与真实部署里"没人给这个对象设过范围"一致。
  */
 export class FakeIdentityDirectory implements Partial<IdentityRepository> {
@@ -113,6 +115,10 @@ export class FakeIdentityDirectory implements Partial<IdentityRepository> {
   }
 
   async findProjectMembership(_u: string, _p: string, _o: OrgId): Promise<ProjectMembershipRow | null> {
+    return null;
+  }
+
+  async findNonWorkshopStanding(_u: string, _p: string, _o: OrgId): Promise<NonWorkshopStandingRow | null> {
     return null;
   }
 

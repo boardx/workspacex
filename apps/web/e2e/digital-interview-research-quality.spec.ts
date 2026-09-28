@@ -230,6 +230,41 @@ test("the six-stage workbench restores a direct stage route and updates it from 
   await expect(page.getByTestId("itv-workbench-step-experts")).toHaveAttribute("aria-current", "step");
 });
 
+test("virtual-expert model proposal stays unsaved until structured human review", async ({ page }) => {
+  test.slow(); // Cold Next route compilation on the isolated browser server can exceed the default navigation budget.
+  await page.addInitScript(() => {
+    localStorage.setItem("wsx.sessionToken", "e2e-token");
+    localStorage.setItem("wsx.session", JSON.stringify({ version: 1, userId: "user-e2e", orgs: ["org-e2e"],
+      currentOrgId: "org-e2e", expiresAt: "2099-01-01T00:00:00.000Z" }));
+  });
+  await page.route("**/identity/me**", (route) => route.fulfill({ status: 200, contentType: "application/json",
+    body: JSON.stringify({ org: { id: "org-e2e", name: "E2E", kind: "organization", team: null, modelPolicy: "any" },
+      orgRole: "lead", teamId: null, projectRole: null, groupId: null, displayName: "E2E User", avatarUrl: null }) }));
+  await page.route("**/interviews/digital/itv-quality-e2e", (route) => route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(view) }));
+  await mockCanonicalSource(page);
+  let proposals = 0;
+  let writes = 0;
+  await page.route("**/interviews/digital/itv-quality-e2e/markdown/virtual-expert/preview", (route) => {
+    proposals++;
+    expect(route.request().postDataJSON()).toMatchObject({ expectedVersion: 4 });
+    return route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ markdown:
+      "# 夜班护理顾问\n\n## 专业角色\n护理顾问\n\n## 专业领域\n护理管理\n\n## 研究关注\n交接流程\n\n## 观点风格\n审慎\n\n## 简介\n只基于已知材料模拟\n\n## 局限与材料边界\n不代表真人受访者" }) });
+  });
+  await page.route("**/interviews/digital/itv-quality-e2e/markdown/experts", (route) => { writes++; return route.abort(); });
+  await page.goto("/itv/itv-quality-e2e/experts", { waitUntil: "domcontentloaded" });
+  await page.getByRole("button", { name: "添加虚拟专家" }).click();
+  const dialog = page.getByRole("dialog", { name: "添加虚拟专家" });
+  await dialog.getByRole("textbox", { name: "想添加怎样的专家" }).fill("请按已知材料设计一位关注夜班护理交接流程的模拟顾问，不声称真人访谈。");
+  await dialog.getByRole("button", { name: "AI 生成专家画像" }).click();
+  await expect(dialog.getByRole("textbox", { name: "专家名称" })).toHaveValue("夜班护理顾问");
+  await expect(dialog.getByRole("button", { name: "保存并添加专家" })).toBeDisabled();
+  expect(proposals).toBe(1); expect(writes).toBe(0);
+  await dialog.getByRole("checkbox", { name: "已审阅画像及模拟边界" }).check();
+  await dialog.getByRole("button", { name: "保存并添加专家" }).click();
+  await expect(page.getByRole("button", { name: "移除专家 夜班护理顾问" })).toBeVisible();
+  expect(writes).toBe(0);
+});
+
 test("a failed report keeps its partial content and exposes retry in a real browser", async ({ page }) => {
   const failed = { ...view, status: "report_pending", currentStep: "report", topic: "采购决策链路",
     version: 12, reportGeneration: { reportId: "report-failed", requestId: "request-failed", status: "failed",
@@ -274,6 +309,38 @@ test("a completed report separates the decision brief and replaces an empty evid
   await expect(page.getByTestId("itv-report-decision-brief")).toContainText("先验证采购否决权");
   await expect(page.getByTestId("itv-evidence-review").getByTestId("itv-evidence-review-blocked")).toBeVisible();
   await expect(page.getByRole("table")).toHaveCount(0);
+});
+
+test("report summary cards count only saved Markdown items and simulated completed tasks", async ({ page }) => {
+  test.slow(); // An isolated Next dev server may compile this direct route on first request.
+  const markdown = "# 采购研究报告\n\n## 核心发现\n\n- 否决角色待核实。\n- 审批记录待复核。\n\n## 建议行动\n\n正文建议未列为条目。";
+  const report = { documentId: "report-metric-e2e", step: "report" as const, version: 2, markdown,
+    contentHash: createHash("sha256").update(markdown).digest("hex"), evidenceMode: "simulated" as const, references: [] };
+  const experts = { ...source.documents.find((item) => item.step === "experts")!, markdown: "## [采购顾问](#expert-purchase)\n\n模拟画像。\n\n## [财务顾问](#expert-finance)\n\n模拟画像。" };
+  experts.contentHash = createHash("sha256").update(experts.markdown).digest("hex");
+  const reportSource = interviewMarkdown.InterviewMarkdownEnvelope.parse({ ...source,
+    documents: [...source.documents.filter((item) => item.step !== "experts"), experts, report],
+    states: [...source.states, { documentId: report.documentId, status: "completed", failure: null }],
+    execution: { status: "completed", tasks: [{ expertId: "purchase", status: "completed", errorCode: null }, { expertId: "finance", status: "failed", errorCode: "MODEL_UNAVAILABLE" }] },
+  });
+  await page.addInitScript(() => {
+    localStorage.setItem("wsx.sessionToken", "e2e-token");
+    localStorage.setItem("wsx.session", JSON.stringify({ version: 1, userId: "user-e2e", orgs: ["org-e2e"],
+      currentOrgId: "org-e2e", expiresAt: "2099-01-01T00:00:00.000Z" }));
+  });
+  await page.route("**/identity/me**", (route) => route.fulfill({ status: 200, contentType: "application/json",
+    body: JSON.stringify({ org: { id: "org-e2e", name: "E2E", kind: "organization", team: null, modelPolicy: "any" },
+      orgRole: "lead", teamId: null, projectRole: null, groupId: null, displayName: "E2E User", avatarUrl: null }) }));
+  await page.route("**/interviews/digital/itv-quality-e2e", (route) => route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ ...view, status: "completed", currentStep: "report" }) }));
+  await page.route("**/interviews/digital/itv-quality-e2e/markdown", (route) => route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(reportSource) }));
+  await page.goto("/itv/itv-quality-e2e/report", { waitUntil: "domcontentloaded" });
+  await expect(page.getByTestId("itv-report-metric-experts")).toContainText("2");
+  await expect(page.getByTestId("itv-report-metric-completed")).toContainText("1");
+  await expect(page.getByTestId("itv-report-metric-findings")).toContainText("2");
+  await expect(page.getByTestId("itv-report-metric-actions")).toContainText("0");
+  await page.setViewportSize({ width: 390, height: 844 });
+  await expect(page.getByTestId("itv-report-metrics")).toBeVisible();
+  expect(await page.evaluate(() => document.documentElement.scrollWidth > document.documentElement.clientWidth)).toBe(false);
 });
 
 test("prototype journey keeps the list shell separate from all six full-screen stages", async ({ page }, testInfo) => {
@@ -393,6 +460,11 @@ test("prototype journey keeps the list shell separate from all six full-screen s
     if (step === "runs") await expect(page.getByTestId("itv-source-runs").getByRole("tab")).toHaveCount(6);
     if (step === "report") {
       await expect(page.getByRole("navigation", { name: "报告目录" }).getByRole("link")).toHaveCount(8);
+      await expect(page.getByTestId("itv-report-metric-experts")).toContainText("5");
+      await expect(page.getByTestId("itv-report-metric-completed")).toContainText("2");
+      await expect(page.getByTestId("itv-report-metric-findings")).toContainText("3");
+      await expect(page.getByTestId("itv-report-metric-actions")).toContainText("0");
+      await expect(page.getByTestId("itv-report-metrics")).toContainText("不代表真人样本");
       const reportBodySize = await page.getByTestId("itv-source-report-markdown").getByText("本报告来自 AI 模拟访谈，不代表真实用户证据。")
         .evaluate((node) => Number.parseFloat(getComputedStyle(node).fontSize));
       expect(reportBodySize, "long-form report body must use the prototype's readable document type size").toBeGreaterThanOrEqual(16);
