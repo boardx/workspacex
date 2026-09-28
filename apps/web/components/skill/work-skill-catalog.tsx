@@ -43,7 +43,24 @@ type ChannelFilter = "candidate" | "verified" | null;
 type ListState =
   | { status: "loading" }
   | { status: "error"; message: string }
-  | { status: "ready"; items: readonly WorkSkillCatalogItem[] };
+  | {
+      status: "ready";
+      items: readonly WorkSkillCatalogItem[];
+      nextCursor: string | null;
+      loadingMore: boolean;
+      moreError: string | null;
+    };
+
+/** 搜索框防抖（毫秒）：避免每个按键都打一次全文检索端点。 */
+export const WORK_CATALOG_SEARCH_DEBOUNCE_MS = 250;
+/** 领域选项种子最多翻页数（防服务端 cursor 异常时死循环）。 */
+const DOMAIN_SEED_MAX_PAGES = 20;
+
+function hashSkillId(): string | null {
+  if (typeof window === "undefined") return null;
+  const h = decodeURIComponent(window.location.hash.replace(/^#/, "")).trim();
+  return h ? h : null;
+}
 
 function errorText(e: unknown): string {
   if (e instanceof ApiError) return `${e.reasonCode ?? "请求失败"}（HTTP ${e.status}）`;
@@ -89,39 +106,112 @@ function CatalogScreen() {
   const [channel, setChannel] = React.useState<ChannelFilter>(null);
   const [includeDeprecated, setIncludeDeprecated] = React.useState(false);
   const [q, setQ] = React.useState("");
+  const [debouncedQ, setDebouncedQ] = React.useState("");
   const [state, setState] = React.useState<ListState>({ status: "loading" });
   const [domains, setDomains] = React.useState<readonly string[]>([]);
-  const [selected, setSelected] = React.useState<string | null>(null);
+  const [selected, setSelected] = React.useState<string | null>(() => hashSkillId());
   const generation = React.useRef(0);
+
+  const mergeDomains = React.useCallback((items: readonly WorkSkillCatalogItem[]) => {
+    setDomains((prev) => {
+      const next = Array.from(new Set([...prev, ...items.map((i) => i.domain)])).sort();
+      return next.length === prev.length ? prev : next;
+    });
+  }, []);
+
+  React.useEffect(() => {
+    const t = setTimeout(() => setDebouncedQ(q), WORK_CATALOG_SEARCH_DEBOUNCE_MS);
+    return () => clearTimeout(t);
+  }, [q]);
+
+  // 后继链接 / 外部深链以 `#<skillId>` 指向某个 Skill：hash 变化即打开对应抽屉。
+  React.useEffect(() => {
+    const onHash = () => {
+      const id = hashSkillId();
+      if (id) setSelected(id);
+    };
+    window.addEventListener("hashchange", onHash);
+    return () => window.removeEventListener("hashchange", onHash);
+  }, []);
+
+  const openSkill = React.useCallback((skillId: string) => {
+    setSelected(skillId);
+    if (typeof window !== "undefined" && window.history?.replaceState) {
+      window.history.replaceState(null, "", `#${encodeURIComponent(skillId)}`);
+    }
+  }, []);
+
+  const query = React.useMemo(
+    () => ({ domain: domain || undefined, channel: channel ?? undefined, q: debouncedQ, includeDeprecated }),
+    [domain, channel, debouncedQ, includeDeprecated],
+  );
 
   const load = React.useCallback(async () => {
     const request = ++generation.current;
     setState({ status: "loading" });
     try {
-      const out = await listWorkSkillCatalog({
-        domain: domain || undefined,
-        channel: channel ?? undefined,
-        q,
-        includeDeprecated,
-      });
+      const out = await listWorkSkillCatalog(query);
       if (request !== generation.current) return;
-      setState({ status: "ready", items: out.items });
-      setDomains((prev) => Array.from(new Set([...prev, ...out.items.map((i) => i.domain)])).sort());
+      setState({ status: "ready", items: out.items, nextCursor: out.nextCursor, loadingMore: false, moreError: null });
+      mergeDomains(out.items);
     } catch (e) {
       if (request !== generation.current) return;
       setState({ status: "error", message: errorText(e) });
     }
-  }, [domain, channel, q, includeDeprecated]);
+  }, [query, mergeDomains]);
+
+  const loadMore = React.useCallback(async () => {
+    if (state.status !== "ready" || !state.nextCursor || state.loadingMore) return;
+    const request = generation.current;
+    const cursor = state.nextCursor;
+    setState({ ...state, loadingMore: true, moreError: null });
+    try {
+      const out = await listWorkSkillCatalog({ ...query, cursor });
+      if (request !== generation.current) return;
+      setState((prev) =>
+        prev.status === "ready"
+          ? { status: "ready", items: [...prev.items, ...out.items], nextCursor: out.nextCursor, loadingMore: false, moreError: null }
+          : prev,
+      );
+      mergeDomains(out.items);
+    } catch (e) {
+      if (request !== generation.current) return;
+      setState((prev) => (prev.status === "ready" ? { ...prev, loadingMore: false, moreError: errorText(e) } : prev));
+    }
+  }, [state, query, mergeDomains]);
 
   React.useEffect(() => {
     void load();
   }, [load]);
+
+  // 领域选项来自不带筛选的全量翻页（含已废弃），而非当前筛选后的第一页。
+  React.useEffect(() => {
+    let alive = true;
+    void (async () => {
+      let cursor: string | undefined;
+      for (let page = 0; page < DOMAIN_SEED_MAX_PAGES && alive; page++) {
+        try {
+          const out = await listWorkSkillCatalog({ includeDeprecated: true, cursor });
+          if (!alive) return;
+          mergeDomains(out.items);
+          if (!out.nextCursor) return;
+          cursor = out.nextCursor;
+        } catch {
+          return; // 种子失败不影响主列表；选项仍会随已加载页累积。
+        }
+      }
+    })();
+    return () => {
+      alive = false;
+    };
+  }, [mergeDomains]);
 
   const clearFilters = () => {
     setDomain("");
     setChannel(null);
     setIncludeDeprecated(false);
     setQ("");
+    setDebouncedQ("");
   };
 
   return (
@@ -203,7 +293,7 @@ function CatalogScreen() {
                 <button
                   type="button"
                   data-testid={`work-catalog-row-${item.stableId}`}
-                  onClick={() => setSelected(item.skillId)}
+                  onClick={() => openSkill(item.skillId)}
                   className="flex w-full flex-wrap items-center gap-2 rounded-control border border-border px-3 py-2 text-left text-12 transition-colors duration-fast hover:bg-muted"
                 >
                   <span className="font-medium">{item.name}</span>
@@ -219,6 +309,24 @@ function CatalogScreen() {
             ))}
           </ul>
         )}
+        {state.status === "ready" && state.nextCursor && (
+          <div className="flex items-center gap-2">
+            <Button
+              size="sm"
+              variant="outline"
+              data-testid="work-catalog-load-more"
+              disabled={state.loadingMore}
+              onClick={() => void loadMore()}
+            >
+              {state.loadingMore ? "加载中…" : "加载更多"}
+            </Button>
+            {state.moreError && (
+              <span data-testid="work-catalog-load-more-error" className="text-12 text-destructive">
+                加载更多失败：{state.moreError}
+              </span>
+            )}
+          </div>
+        )}
       </section>
 
       {selected && (
@@ -227,6 +335,7 @@ function CatalogScreen() {
           skillId={selected}
           onClose={() => setSelected(null)}
           onChanged={() => void load()}
+          onOpenSkill={openSkill}
         />
       )}
     </div>
@@ -246,26 +355,42 @@ type ReadinessState =
 const DEP_STATE_LABEL = { satisfied: "已满足", missing: "缺失", denied: "已拒绝", unknown: "未知" } as const;
 
 function SkillDetailDrawer({
-  skillId, onClose, onChanged,
-}: { skillId: string; onClose: () => void; onChanged: () => void }) {
+  skillId, onClose, onChanged, onOpenSkill,
+}: { skillId: string; onClose: () => void; onChanged: () => void; onOpenSkill: (skillId: string) => void }) {
   const [detail, setDetail] = React.useState<DetailState>({ status: "loading" });
   const [readiness, setReadiness] = React.useState<ReadinessState>({ status: "loading" });
+  const detailGen = React.useRef(0);
+  const readinessGen = React.useRef(0);
 
   const loadDetail = React.useCallback(async () => {
+    const request = ++detailGen.current;
     try {
-      setDetail({ status: "ready", detail: await getWorkSkillCatalogEntry(skillId) });
+      const d = await getWorkSkillCatalogEntry(skillId);
+      if (request === detailGen.current) setDetail({ status: "ready", detail: d });
     } catch (e) {
-      setDetail({ status: "error", message: errorText(e) });
+      if (request === detailGen.current) setDetail({ status: "error", message: errorText(e) });
+    }
+  }, [skillId]);
+
+  const loadReadiness = React.useCallback(async () => {
+    const request = ++readinessGen.current;
+    try {
+      const r = await getWorkSkillReadiness(skillId);
+      if (request === readinessGen.current) setReadiness({ status: "ready", readiness: r });
+    } catch (e) {
+      if (request === readinessGen.current) setReadiness({ status: "error", message: errorText(e) });
     }
   }, [skillId]);
 
   React.useEffect(() => {
     void loadDetail();
-    getWorkSkillReadiness(skillId).then(
-      (r) => setReadiness({ status: "ready", readiness: r }),
-      (e: unknown) => setReadiness({ status: "error", message: errorText(e) }),
-    );
-  }, [skillId, loadDetail]);
+    void loadReadiness();
+    return () => {
+      // 卸载 / 切换 skill 后作废在途请求，避免旧结果写回。
+      detailGen.current++;
+      readinessGen.current++;
+    };
+  }, [loadDetail, loadReadiness]);
 
   return (
     <aside
@@ -281,8 +406,10 @@ function SkillDetailDrawer({
         <DetailBody
           detail={detail.detail}
           readiness={readiness}
+          onOpenSkill={onOpenSkill}
           onChanged={() => {
             void loadDetail();
+            void loadReadiness();
             onChanged();
           }}
         />
@@ -331,8 +458,13 @@ function DepList({
 }
 
 function DetailBody({
-  detail, readiness, onChanged,
-}: { detail: WorkSkillCatalogDetail; readiness: ReadinessState; onChanged: () => void }) {
+  detail, readiness, onChanged, onOpenSkill,
+}: {
+  detail: WorkSkillCatalogDetail;
+  readiness: ReadinessState;
+  onChanged: () => void;
+  onOpenSkill: (skillId: string) => void;
+}) {
   const m = detail.manifest;
   const readinessUnknown =
     readiness.status === "error" || (readiness.status === "ready" && readiness.readiness.overall === "unknown");
@@ -350,7 +482,7 @@ function DetailBody({
       </header>
 
       {readinessUnknown && (
-        <p data-testid="work-catalog-readiness-unknown" className="rounded-control bg-muted px-2 py-1 text-muted-foreground">
+        <p data-testid="work-skill-detail-readiness-unknown" className="rounded-control bg-muted px-2 py-1 text-muted-foreground">
           就绪性未知：工具授权查询失败，暂不能判断是否可运行（不视为可运行）。
         </p>
       )}
@@ -419,7 +551,15 @@ function DetailBody({
       {detail.successor && (
         <p data-testid="work-skill-successor">
           后继：
-          <a className="underline" href={`?screen=work-catalog#${detail.successor.skillId}`}>
+          <a
+            className="underline"
+            data-testid="work-skill-successor-link"
+            href={`?screen=work-catalog#${encodeURIComponent(detail.successor.skillId)}`}
+            onClick={(e) => {
+              e.preventDefault();
+              if (detail.successor) onOpenSkill(detail.successor.skillId);
+            }}
+          >
             {detail.successor.name}（{detail.successor.stableId}）
           </a>
         </p>
@@ -436,6 +576,8 @@ function AdminActions({ detail, onChanged }: { detail: WorkSkillCatalogDetail; o
   const [evidence, setEvidence] = React.useState("");
   const [successor, setSuccessor] = React.useState(detail.successorSkillId ?? "");
   const [message, setMessage] = React.useState<string | null>(null);
+  // R3 步 9：门判定上线前，转 verified 必须带 gateEvidenceRef —— 提交前就拦下，而不是等服务端 409。
+  const evidenceMissing = target === "verified" && evidence.trim() === "";
 
   async function submit(change: { channel?: WorkSkillChannel; successorSkillId?: string | null }) {
     setMessage(null);
@@ -469,13 +611,24 @@ function AdminActions({ detail, onChanged }: { detail: WorkSkillCatalogDetail; o
             ))}
           </select>
           {target === "verified" && (
-            <Input placeholder="门证据引用" value={evidence} onChange={(e) => setEvidence(e.target.value)} />
+            <Input
+              data-testid="work-skill-gate-evidence"
+              placeholder="门证据引用（必填）"
+              aria-required
+              value={evidence}
+              onChange={(e) => setEvidence(e.target.value)}
+            />
+          )}
+          {evidenceMissing && (
+            <span data-testid="work-skill-gate-evidence-required" className="text-11 text-destructive">
+              转为已验证需填写门证据引用
+            </span>
           )}
           <Button
             size="sm"
             data-testid="work-skill-change-channel"
-            disabled={target === ""}
-            onClick={() => target !== "" && void submit({ channel: target })}
+            disabled={target === "" || evidenceMissing}
+            onClick={() => target !== "" && !evidenceMissing && void submit({ channel: target })}
           >
             变更通道
           </Button>

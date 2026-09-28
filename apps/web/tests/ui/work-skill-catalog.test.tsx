@@ -91,11 +91,17 @@ interface Opts {
 }
 
 let listCalls: URLSearchParams[] = [];
+let patchCalls: string[] = [];
 
 function install(opts: Opts = {}) {
   listCalls = [];
-  vi.stubGlobal("fetch", vi.fn(async (input: RequestInfo | URL) => {
+  patchCalls = [];
+  vi.stubGlobal("fetch", vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
     const url = new URL(typeof input === "string" ? input : input.toString(), "http://localhost");
+    if (init?.method === "PATCH") {
+      patchCalls.push(url.pathname);
+      return json(item());
+    }
     if (url.pathname.endsWith("/skills/catalog")) {
       listCalls.push(url.searchParams);
       return opts.list ? opts.list(url.searchParams) : json({ items: [item()], nextCursor: null });
@@ -103,12 +109,16 @@ function install(opts: Opts = {}) {
     if (url.pathname.endsWith(`/skills/catalog/${SKILL_ID}/readiness`))
       return json(readiness(opts.readinessOverall ?? "not_ready"));
     if (url.pathname.endsWith(`/skills/catalog/${SKILL_ID}`)) return json(detail(opts.admin ?? false));
+    if (url.pathname.endsWith(`/skills/catalog/${SUCC_ID}`))
+      return json({ ...detail(false), skillId: SUCC_ID, name: "竞品情报简报 v2", stableId: "S103", successor: null, successorSkillId: null });
     return json({ reasonCode: "NOT_FOUND" }, 404);
   }));
 }
 
 afterEach(() => {
   vi.unstubAllGlobals();
+  vi.useRealTimers();
+  window.history.replaceState(null, "", "/");
 });
 
 describe("WS05 Work Skill 目录屏", () => {
@@ -127,6 +137,7 @@ describe("WS05 Work Skill 目录屏", () => {
     expect(within(row).getByTestId("work-catalog-channel-badge")).toHaveTextContent("候选");
     expect(within(row).getByTestId("work-catalog-readiness-badge")).toHaveTextContent("缺 1 项");
     expect(listCalls[0]?.get("includeDeprecated")).toBe("false");
+    expect(listCalls[0]?.has("cursor")).toBe(false);
   });
 
   it("领域筛选、通道切换、显示已废弃、搜索都进入请求参数", async () => {
@@ -204,7 +215,8 @@ describe("WS05 Work Skill 目录屏", () => {
     expect(screen.queryByTestId("work-catalog-state-error")).toBeNull();
     fireEvent.click(row);
     const drawer = await screen.findByTestId("work-skill-detail");
-    expect(await within(drawer).findByTestId("work-catalog-readiness-unknown")).toBeInTheDocument();
+    expect(await within(drawer).findByTestId("work-skill-detail-readiness-unknown")).toBeInTheDocument();
+    expect(within(drawer).queryByTestId("work-catalog-readiness-unknown")).toBeNull();
   });
 
   it("列表接口失败：错误态回显错误码，可重试", async () => {
@@ -218,5 +230,78 @@ describe("WS05 Work Skill 目录屏", () => {
     fail = false;
     fireEvent.click(within(err).getByRole("button", { name: "重试" }));
     expect(await screen.findByTestId("work-catalog-row-S003")).toBeInTheDocument();
+  });
+
+  it("R3 步 5：nextCursor 不被丢弃——加载更多带 cursor 并追加第二页", async () => {
+    const second = { ...item(), skillId: SUCC_ID, stableId: "S058", name: "第 58 个", domain: "Legal" };
+    install({
+      list: (sp) =>
+        sp.get("cursor") === "page-2"
+          ? json({ items: [second], nextCursor: null })
+          : json({ items: [item()], nextCursor: "page-2" }),
+    });
+    render(<WorkSkillCatalog />);
+    await screen.findByTestId("work-catalog-row-S003");
+    fireEvent.click(await screen.findByTestId("work-catalog-load-more"));
+    expect(await screen.findByTestId("work-catalog-row-S058")).toBeInTheDocument();
+    expect(screen.getByTestId("work-catalog-row-S003")).toBeInTheDocument();
+    expect(listCalls.some((c) => c.get("cursor") === "page-2")).toBe(true);
+    expect(screen.queryByTestId("work-catalog-load-more")).toBeNull();
+  });
+
+  it("领域选项来自不带筛选的全量翻页，不受当前筛选/第一页限制", async () => {
+    install({
+      list: (sp) => {
+        if (sp.get("q")) return json({ items: [], nextCursor: null });
+        if (sp.get("cursor") === "p2") return json({ items: [{ ...item(), domain: "Legal", stableId: "S050" }], nextCursor: null });
+        return json({ items: [item()], nextCursor: "p2" });
+      },
+    });
+    render(<WorkSkillCatalog />);
+    const select = screen.getByTestId("work-catalog-domain-filter");
+    await waitFor(() => expect(within(select).getByRole("option", { name: "Legal" })).toBeInTheDocument());
+    expect(within(select).getByRole("option", { name: "Research" })).toBeInTheDocument();
+  });
+
+  it("搜索框防抖：连续输入只发一次带 q 的请求", async () => {
+    install();
+    render(<WorkSkillCatalog />);
+    await screen.findByTestId("work-catalog-row-S003");
+    const input = screen.getByTestId("work-catalog-search");
+    for (const v of ["竞", "竞品", "竞品情", "竞品情报"]) fireEvent.change(input, { target: { value: v } });
+    await waitFor(() => expect(listCalls.at(-1)?.get("q")).toBe("竞品情报"));
+    expect(listCalls.filter((c) => c.has("q"))).toHaveLength(1);
+  });
+
+  it("R3 步 10：后继链接打开后继 Skill 的详情抽屉", async () => {
+    install();
+    render(<WorkSkillCatalog />);
+    fireEvent.click(await screen.findByTestId("work-catalog-row-S003"));
+    const link = await screen.findByTestId("work-skill-successor-link");
+    fireEvent.click(link);
+    await waitFor(() => expect(screen.getByTestId("work-skill-detail")).toHaveTextContent("S103"));
+    expect(window.location.hash).toBe(`#${SUCC_ID}`);
+  });
+
+  it("深链 #<skillId> 直接打开对应抽屉", async () => {
+    window.history.replaceState(null, "", `/#${SUCC_ID}`);
+    install();
+    render(<WorkSkillCatalog />);
+    await waitFor(() => expect(screen.getByTestId("work-skill-detail")).toHaveTextContent("竞品情报简报 v2"));
+  });
+
+  it("R3 步 9：转 verified 未填门证据时禁止提交，填写后才发 PATCH", async () => {
+    install({ admin: true });
+    render(<WorkSkillCatalog />);
+    fireEvent.click(await screen.findByTestId("work-catalog-row-S003"));
+    const btn = await screen.findByTestId("work-skill-change-channel");
+    expect(btn).toBeDisabled();
+    expect(screen.getByTestId("work-skill-gate-evidence-required")).toBeInTheDocument();
+    fireEvent.click(btn);
+    expect(patchCalls).toHaveLength(0);
+    fireEvent.change(screen.getByTestId("work-skill-gate-evidence"), { target: { value: "eval-run://1" } });
+    expect(btn).not.toBeDisabled();
+    fireEvent.click(btn);
+    await waitFor(() => expect(patchCalls).toHaveLength(1));
   });
 });
