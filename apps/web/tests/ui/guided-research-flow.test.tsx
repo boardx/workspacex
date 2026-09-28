@@ -11,16 +11,15 @@ vi.mock("@/lib/guided-research-api", async (original) => ({
 beforeEach(() => { vi.resetAllMocks(); localStorage.clear(); vi.mocked(listGuidedResearchSessions).mockResolvedValue({ items: [] }); });
 // Replaces the retired browser-demo journey: session URLs now use server runtime commands.
 describe("guided research session routing and lifecycle", () => {
-  it("shows plan cards before scope confirmation and opens scope only from edit", async () => {
+  it("shows the research plan without the removed scope cards", async () => {
     const runtime = runtimeFixture("outline");
     vi.mocked(getResearchRuntime).mockResolvedValue({ ...runtime, intent: undefined });
     render(<GuidedResearchFlow step="outline" sessionId="grs-live" />);
     await screen.findByTestId("guided-research-plan-panel");
     expect(screen.queryByRole("heading", { name: "确认研究边界" })).not.toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "开始研究" })).toBeDisabled();
-    fireEvent.click(screen.getByRole("button", { name: "编辑成功标准" }));
-    expect(screen.getByRole("dialog")).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "确认研究边界" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "开始研究" })).toBeEnabled();
+    expect(screen.getAllByRole("heading", { name: "研究计划" }).length).toBeGreaterThan(0);
+    expect(screen.queryByRole("button", { name: "编辑成功标准" })).not.toBeInTheDocument();
   });
   it("preserves an unsent assistant message when leaving is cancelled", async () => {
     vi.mocked(getResearchRuntime).mockResolvedValue(runtimeFixture("report"));
@@ -119,9 +118,15 @@ describe("guided research session routing and lifecycle", () => {
   it.each(["directions", "outline"] as const)("keeps generated %s editable before confirmation", async (node) => {
     vi.mocked(getResearchRuntime).mockResolvedValue(runtimeFixture(node));
     render(<GuidedResearchFlow step={node} sessionId="grs-live" />);
-    const field = await screen.findByDisplayValue(node === "directions" ? "政策方向" : "政策章节");
-    fireEvent.change(field, { target: { value: "人工修订" } });
-    expect(screen.getByDisplayValue("人工修订")).toBeInTheDocument();
+    if (node === "outline") {
+      const field = await screen.findByTestId("guided-research-markdown-editor");
+      fireEvent.change(field, { target: { value: `${(field as HTMLTextAreaElement).value}\n人工修订` } });
+      expect((field as HTMLTextAreaElement).value).toContain("人工修订");
+    } else {
+      const field = await screen.findByDisplayValue("政策方向");
+      fireEvent.change(field, { target: { value: "人工修订" } });
+      expect(screen.getByDisplayValue("人工修订")).toBeInTheDocument();
+    }
     expect(executeResearchRuntime).not.toHaveBeenCalled();
   });
   it("retains the current node on a failed confirmation and displays the saved error", async () => {

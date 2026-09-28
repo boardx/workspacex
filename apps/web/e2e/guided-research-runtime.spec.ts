@@ -50,40 +50,23 @@ test("research persists all five model-backed steps through the real UI, API and
     await expect(page.getByRole("heading", { name: expectedTitle === "研究方向" ? "确认研究主题" : "研究计划", exact: true })).toBeVisible();
     await expect(page.getByTestId(expectedTitle === "研究方向" ? "guided-research-topic-panel" : "guided-research-plan-panel")).toHaveAttribute(
       "data-reference-layout",
-      expectedTitle === "研究方向" ? "topic-workspace" : "plan-cards",
+      expectedTitle === "研究方向" ? "topic-workspace" : "plan-workspace",
     );
     if (expectedTitle !== "报告大纲") await expect(page.getByRole("button", { name: "下一步：研究计划", exact: true })).toBeEnabled();
     if (expectedTitle === "报告大纲") {
       await expect(page).toHaveURL(/\/research\/[^/]+\/plan$/);
-      await page.getByText("编辑研究计划 Markdown 与章节结构", { exact: true }).click();
-      const chapter = page.getByRole("region", { name: "报告章节 1", exact: true });
-      await chapter.locator("summary").click();
-      await chapter.getByLabel("章节目标", { exact: true }).fill("核实政策适用范围与实施约束");
-      await chapter.getByRole("button", { name: "添加小节", exact: true }).click();
-      await expect(chapter.getByLabel("小节标题", { exact: true })).toHaveCount(4);
-      await chapter.getByRole("button", { name: "删除小节", exact: true }).last().click();
-      await expect(chapter.getByLabel("小节标题", { exact: true })).toHaveCount(3);
+      const editor = page.getByTestId("guided-research-markdown-editor");
+      await expect(editor).toBeVisible();
+      await editor.fill((await editor.inputValue()).replace(/目标：[^\n]+/, "目标：核实政策适用范围与实施约束"));
       const savedDraft = page.waitForResponse(response => response.url().endsWith("/runtime/commands")
         && response.request().method() === "POST" && response.request().postDataJSON()?.action === "save");
-      await page.getByRole("button", { name: "保存草稿", exact: true }).click();
+      await page.getByRole("button", { name: "保存 Markdown", exact: true }).click();
       expect((await savedDraft).ok()).toBe(true);
       await page.reload();
       await expect(page).toHaveURL(/\/research\/[^/]+\/plan$/);
-      await page.getByText("编辑研究计划 Markdown 与章节结构", { exact: true }).click();
-      await chapter.locator("summary").click();
-      await expect(chapter.getByLabel("章节目标", { exact: true })).toHaveValue("核实政策适用范围与实施约束");
-      await page.screenshot({ path: testInfo.outputPath("research-outline-details.png"), fullPage: true });
-      await page.getByRole("button", { name: "编辑成功标准", exact: true }).click();
-      await expect(page.getByRole("dialog", { name: "编辑成功标准与来源范围" })).toBeVisible();
-      await page.getByLabel("决策对象").fill("决定储能市场进入策略");
-      await page.getByLabel("目标受众").fill("投资委员会");
-      await page.getByRole("textbox", { name: "成功标准", exact: true }).fill("每个核心问题都有可定位原文\n严重冲突必须解决");
-      await page.getByLabel("时间范围起点").fill("2024-01-01");
-      await page.getByLabel("时间范围终点").fill("2026-09-30");
-      await page.getByText("仅限指定站点", { exact: true }).click();
-      await page.getByRole("textbox", { name: "指定站点" }).fill("127.0.0.1");
-      await page.getByRole("button", { name: "确认研究边界" }).click();
+      await expect(page.getByTestId("guided-research-markdown-editor")).toHaveValue(/核实政策适用范围与实施约束/);
       await expect(page.getByTestId("research-intent-card")).toHaveCount(0);
+      await page.screenshot({ path: testInfo.outputPath("research-plan-markdown.png"), fullPage: true });
       await expect(page.getByRole("button", { name: "开始研究", exact: true })).toBeEnabled();
     }
     if (expectedTitle === "研究方向") {
@@ -168,8 +151,8 @@ test("research persists all five model-backed steps through the real UI, API and
   expect(runtime.modelCalls.filter((call: { node: string; status: string }) => call.node === "report" && call.status === "failed")).toHaveLength(1);
   expect(runtime.errorCode).toBeNull();
   expect(runtime.reportEvidenceWarnings).toEqual([]);
-  expect(runtime.intent).toMatchObject({ decision: "决定储能市场进入策略", timeframe: { from: "2024-01-01", to: "2026-09-30" } });
-  expect(runtime.sourcePolicy).toMatchObject({ mode: "restrict", domains: ["127.0.0.1"] });
+  expect(runtime.intent).toBeFalsy();
+  expect(runtime.sourcePolicy).toBeFalsy();
   expect(runtime.questionEvidence.length).toBeGreaterThan(0);
   expect(runtime.coverage.every((item: { status: string }) => item.status === "answered")).toBe(true);
   expect(runtime.claimEvidence.length).toBeGreaterThan(0);

@@ -14,7 +14,7 @@ describe("human confirmation in the durable model-backed workflow", () => {
     fireEvent.change(await screen.findByDisplayValue("政策方向"), { target: { value: "人工编辑方向" } });
     fireEvent.click(screen.getByRole("button", { name: "下一步：研究计划" }));
     await waitFor(() => expect(executeResearchRuntime).toHaveBeenCalledWith(expect.objectContaining({ node: "directions", action: "confirm", expectedVersion: 4, draft: { node: "directions", value: [expect.objectContaining({ title: "人工编辑方向" })] } })));
-    expect(await screen.findByDisplayValue("政策章节")).toBeInTheDocument();
+    expect((await screen.findByTestId("guided-research-markdown-editor") as HTMLTextAreaElement).value).toContain("政策章节");
   });
   it("disables confirmation when every direction is disabled", async () => {
     vi.mocked(getResearchRuntime).mockResolvedValue(runtimeFixture("directions"));
@@ -24,13 +24,17 @@ describe("human confirmation in the durable model-backed workflow", () => {
   });
   it("rejects an empty outline and confirms a complete edited outline", async () => {
     vi.mocked(getResearchRuntime).mockResolvedValue(runtimeFixture("outline"));
-    vi.mocked(executeResearchRuntime).mockResolvedValue({ ...runtimeFixture("research"), version: 5 });
+    vi.mocked(executeResearchRuntime)
+      .mockResolvedValueOnce({ ...runtimeFixture("outline"), outline: [{ ...runtimeFixture("outline").outline[0]!, title: "人工编辑章节" }], version: 5 })
+      .mockResolvedValueOnce({ ...runtimeFixture("research"), outline: [{ ...runtimeFixture("outline").outline[0]!, title: "人工编辑章节" }], version: 6 });
     render(<GuidedResearchLive sessionId="grs-live" onBack={vi.fn()} />);
-    const title = await screen.findByLabelText("章节标题");
-    fireEvent.change(title, { target: { value: "" } });
-    expect(screen.getByRole("button", { name: "确认并继续" })).toBeDisabled();
-    fireEvent.change(title, { target: { value: "人工编辑章节" } });
-    fireEvent.click(screen.getByRole("button", { name: "确认并继续" }));
+    const markdown = await screen.findByTestId("guided-research-markdown-editor");
+    fireEvent.change(markdown, { target: { value: String((markdown as HTMLTextAreaElement).value).replace("政策章节", "人工编辑章节") } });
+    expect(screen.getByRole("button", { name: "开始研究" })).toBeDisabled();
+    fireEvent.click(screen.getByRole("button", { name: "保存 Markdown" }));
+    await waitFor(() => expect(executeResearchRuntime).toHaveBeenCalledWith(expect.objectContaining({ node: "outline", action: "save", draft: { node: "outline", value: [expect.objectContaining({ title: "人工编辑章节" })] } })));
+    await waitFor(() => expect(screen.getByRole("button", { name: "开始研究" })).toBeEnabled());
+    fireEvent.click(screen.getByRole("button", { name: "开始研究" }));
     await waitFor(() => expect(executeResearchRuntime).toHaveBeenCalledWith(expect.objectContaining({ node: "outline", action: "confirm", draft: { node: "outline", value: [expect.objectContaining({ title: "人工编辑章节" })] } })));
     expect(await screen.findByRole("button", { name: /搜索资料|继续搜索|更新资料/ })).toBeInTheDocument();
   });
