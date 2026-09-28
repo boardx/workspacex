@@ -18,6 +18,7 @@ import type { z } from "zod";
 import { decisionLike, DECISION_RECALL_LIMIT } from "./decision-claim";
 import { selfIntentLike, SELF_INTENT_RECALL_LIMIT } from "./self-intent-claim";
 import { normalizeName } from "./extraction";
+import { claimExpired } from "./claim-time";
 
 export type RecallChannel = z.infer<typeof CP.RetrievalChannel>;
 type FilterAction = z.infer<typeof CP.FilterAction>;
@@ -42,6 +43,10 @@ export interface RecallClaim {
   readonly scope: "chat_session" | "personal" | "project";
   /** 记在本人另一个个人对话里（不是本会话、也不是长期记忆）⇒ 那个对话的 id；其余 ⇒ 省略。 */
   readonly originThreadId?: string;
+  /** issue #4363（S6）：有效期终点（ISO，左闭右开）；null / 省略 = 长期有效。过期的不召回（claimExpired）。 */
+  readonly validUntil?: string | null;
+  /** issue #4363（S6）：待办状态（只有待办有）。「不做了」的不召回；「已完成」的照常召回但标明，模型不会再当成没做。 */
+  readonly todoStatus?: KG.KgTodoStatus | null;
   /** S10（#4367）：项目记忆里由成员从个人记忆分享来的 ⇒ 分享人显示名（没有显示名为空串）；其余 ⇒ 省略。 */
   readonly sharedByName?: string;
 }
@@ -162,6 +167,16 @@ export interface FuseInput {
   readonly minLexical?: number;
   /** 相似度低于它的不算向量命中（默认 VECTOR_MIN_SIMILARITY）。 */
   readonly minSimilarity?: number;
+  /** issue #4363（S6）：判「过期了没有」的时刻（测试注入；缺省 = 现在）。 */
+  readonly now?: Date;
+}
+
+/**
+ * issue #4363（S6）：这条记忆这一轮还算数吗——没过期（claimExpired，唯一判定）、不是「不做了」的待办。
+ * 不算数的直接不进候选：三路打分、决定 / 目标的强制召回都看不到它（大脑页与面板照样列出，标「已过期」/「不做了」）。
+ */
+export function recallable(c: RecallClaim, now: Date): boolean {
+  return !claimExpired(c.validUntil, now) && c.todoStatus !== "dropped";
 }
 
 /**
@@ -191,9 +206,12 @@ export function fuseRecall(input: FuseInput): KnowledgeRecall {
   const minLexical = input.minLexical ?? 0.2;
   const seeds = graphSeeds(input.query, input.objects);
   const qTokens = lexicalTokens(input.query);
-  const byId = new Map(input.claims.map((c) => [c.id, c]));
+  // issue #4363（S6）：过期的、「不做了」的待办不进候选（三路打分与强制召回都从这里取）
+  const now = input.now ?? new Date();
+  const claims = input.claims.filter((c) => recallable(c, now));
+  const byId = new Map(claims.map((c) => [c.id, c]));
 
-  const lexical = input.claims
+  const lexical = claims
     .map((c) => ({ c, s: lexicalScore(qTokens, c.statement) }))
     .filter((x) => x.s >= minLexical)
     .sort((a, b) => b.s - a.s || a.c.id.localeCompare(b.c.id));
@@ -256,8 +274,14 @@ export function fuseRecall(input: FuseInput): KnowledgeRecall {
     // 给其余几十条都加了图路分，字面最贴切的那条反被挤出前 8）。
     // S9（#4366）：「直接命中」= 字面或向量（问题与这条本身说的是一件事）；直接命中之间按贴切度（字面分 / 相似度取大），
     // 再按融合分（RRF）。图路仍然只加分。
+    // issue #4363（S6）：同一主题（贴切度与融合名次都相同——三路给不出先后）之间，问题本身的意图（「谁定的」⇒ 决定优先）
+    // 仍然先说话；意图也分不出时**新的优先**（saidAt 晚的在前，没有时间的最后），然后才轮到三态。
+    // S9 的融合（三路名次、贴切度、RRF）一个字不变。
     .sort((a, b) => Number(direct(b.channels)) - Number(direct(a.channels))
       || relevance(b.claim.id) - relevance(a.claim.id)
+      || (score.get(b.claim.id) ?? 0) - (score.get(a.claim.id) ?? 0)
+      || intentBonus(input.query, b.claim.kind) - intentBonus(input.query, a.claim.kind)
+      || (b.claim.saidAt ?? "").localeCompare(a.claim.saidAt ?? "")
       || b.score - a.score || a.claim.id.localeCompare(b.claim.id))
     .slice(0, input.limit);
 
@@ -285,14 +309,15 @@ export function fuseRecall(input: FuseInput): KnowledgeRecall {
   //      「来自个人空间知识」、在 turn memory（F13）里 scope = "personal"，与打分进来的 L1 条目同一个标签。
   const forcedIds = new Set(items.map((i) => i.claim.id));
   const newestFirst = (a: RecallClaim, b: RecallClaim) => (b.saidAt ?? "").localeCompare(a.saidAt ?? "") || a.id.localeCompare(b.id);
-  const decisionPicked = input.claims
+  // issue #4363（S6）：强制召回同样只在「还算数的」里挑——过期的决定（「这周先关注 211」）到了下周不再每轮带上。
+  const decisionPicked = claims
     .filter((c) => !forcedIds.has(c.id) && forcedDecisionScope(c) && decisionLike(c.statement))
     .sort(newestFirst)
     .slice(0, DECISION_RECALL_LIMIT);
   // issue #4343：本人的目标 / 偏好同样每一轮带上（同一来源边界 `forcedDecisionScope`），名额 `SELF_INTENT_RECALL_LIMIT`
   // 另计、不与决定类抢（理由见 self-intent-claim.ts）；一条既像决定又是目标的，已经按决定带上就不再算一次。
   const decisionIds = new Set(decisionPicked.map((c) => c.id));
-  const selfIntentPicked = input.claims
+  const selfIntentPicked = claims
     .filter((c) => !forcedIds.has(c.id) && !decisionIds.has(c.id) && forcedDecisionScope(c) && selfIntentLike(c.kind, c.statement))
     .sort(newestFirst)
     .slice(0, SELF_INTENT_RECALL_LIMIT);
@@ -366,7 +391,9 @@ export function buildKnowledgeContextMessage(recall: KnowledgeRecall): string | 
         ? `（来自项目记忆${day === null ? "" : `，最早见于 ${day} 的项目对话`}）`
         : day === null ? "" : `（本会话 ${day} 的对话）`;
     // 结论原文进上下文前压成一行：原文里的换行不能伪造出材料里的其他行（降级说明、「系统：」之类）。
-    return `- [${TRI_LABEL[i.claim.triState]}] ${oneLine(i.claim.statement)}${when}`;
+    // issue #4363（S6）：做完了的待办照样给模型（是背景），但标明已完成——不再被当成还没做的事去提醒。
+    const done = i.claim.todoStatus === "done" ? "（待办·已完成）" : "";
+    return `- [${TRI_LABEL[i.claim.triState]}] ${oneLine(i.claim.statement)}${done}${when}`;
   });
   return [
     "【记忆】以下是之前对话里记下的、与本轮问题相关的内容。「AI 记下的」尚未经用户确认，引用时要说明；「有矛盾」的两条都要提到；标了「来自个人空间知识」的，引用时也照样标出；标了「由 X 分享自个人记忆」的，引用时说明是 X 分享的。",

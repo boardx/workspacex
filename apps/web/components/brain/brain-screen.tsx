@@ -7,6 +7,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { sessionTotals } from "@/lib/brain-view";
 import type { PersonalKnowledge } from "@/lib/knowledge-graph-api";
 import { AboutMe } from "./about-me";
+import { ConsolidationHistory } from "./consolidation-history";
 import { PersonalMemory } from "./personal-memory";
 import { SessionMemory } from "./session-memory";
 import { SharedLayers } from "./shared-layers";
@@ -93,6 +94,8 @@ export function BrainView({ state, reload, refresh }: { state: BrainData; reload
               onShowSessions={() => setTab("sessions")}
               onChanged={refresh}
             />
+            {/* S8（#4365）：后台记忆整合的记录与撤销；没有记录时不出现。 */}
+            <ConsolidationHistory onChanged={refresh} />
           </TabsContent>
           <TabsContent value="sessions">
             <SessionMemory threads={state.overview.threads} />

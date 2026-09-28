@@ -15,7 +15,7 @@ import {
   DECISION_ID_FACTORY, IDENTITY_REPOSITORY, type DecisionIdFactory, type IdentityRepository,
 } from "../../application/identity/ports";
 import { actOnMemoryCard } from "../../application/knowledge-graph/act-on-memory-card";
-import { applyHumanAction } from "../../application/knowledge-graph/apply-human-action";
+import { applyHumanAction, setTodoStatus } from "../../application/knowledge-graph/apply-human-action";
 import {
   CITATION_CORRECTION_PORT, CLAIM_EXPIRY_PORT, type CitationCorrectionPort, type ClaimExpiryPort,
 } from "../../application/knowledge-graph/citation-ports";
@@ -90,7 +90,8 @@ export class KnowledgeGraphController {
       }
       if (e instanceof KgHumanActionError) {
         const body = { reasonCode: e.code };
-        if (e.code === "KG_NOT_OWNER" || e.code === "KG_ACTOR_NOT_HUMAN" || e.code === "KG_SCOPE_NOT_PERSONAL" || e.code === "KG_SCOPE_NOT_PROJECT") throw new ForbiddenException(body);
+        if (e.code === "KG_NOT_OWNER" || e.code === "KG_ACTOR_NOT_HUMAN" || e.code === "KG_SCOPE_NOT_PERSONAL" || e.code === "KG_SCOPE_NOT_PROJECT"
+          || e.code === "KG_SCOPE_NOT_ENABLED" || e.code === "KG_ORG_FROZEN") throw new ForbiddenException(body);
         if (e.code === "KG_PROMOTE_BATCH_TOO_LARGE" || e.code === "KG_INVALID_REQUEST") throw new BadRequestException(body);
         if (e.code === "KG_REVISION_CHANGED" || e.code === "KG_CONTESTED_NEEDS_RESOLUTION" || e.code === "KG_CARD_STALE") {
           throw new ConflictException(body);
@@ -237,6 +238,18 @@ export class KnowledgeGraphController {
     return this.run(principal, (v) => undoAutoPersonalCopy(
       { ...this.deps, autoCopy, newId: newKgId },
       { ...v, actorKind: "human", threadId: parsed.data.threadId, claimId: parsed.data.claimId },
+    ));
+  }
+
+  /** issue #4363（S6）setTodoStatus —— 改一条待办的状态（人的动作；只有所有者，数据库判定） */
+  @Post("/knowledge-graph/claims/:claimId/todo-status")
+  @HttpCode(200)
+  todoStatus(@CurrentPrincipal() principal: Principal, @Param("claimId") claimId: string, @Body() body: unknown) {
+    const parsed = KG.knowledgeGraph.setTodoStatus.in.safeParse({ ...(body as object), claimId });
+    if (!parsed.success) throw new BadRequestException({ reasonCode: "KG_INVALID_REQUEST" });
+    return this.run(principal, (v) => setTodoStatus(
+      { actions: this.actions, newId: newKgId },
+      { ...v, actorKind: "human", claimId: parsed.data.claimId, status: parsed.data.status },
     ));
   }
 

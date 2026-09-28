@@ -1,0 +1,25 @@
+#!/bin/bash
+# S8 (#4365) evidence stack: usage stack.sh createdb|migrate|accounts|seed|redis|api|web|pw|dropdb
+WT=/home/user/workspacex/.claude/worktrees/agent-a1c38f775f37370ff
+S=/tmp/claude-0/-home-user-workspacex/0c400fb8-dfbe-5051-bf5c-eba2226be75a/scratchpad/s8e
+export PGHOST=127.0.0.1 PGPORT=55488 PGUSER=postgres PGPASSWORD=postgres_dev PGDATABASE=wsx_s8e
+export REDIS_HOST=127.0.0.1 REDIS_PORT=59088
+API_PORT=59081 WEB_PORT=59082
+case "$1" in
+  createdb) exec psql -h /var/run/postgresql -d postgres -c "CREATE DATABASE wsx_s8e" ;;
+  dropdb) exec psql -h /var/run/postgresql -d postgres -c "DROP DATABASE IF EXISTS wsx_s8e WITH (FORCE)" ;;
+  migrate) cd $WT/apps/api && exec pnpm -s run migrate ;;
+  accounts) cd $WT/apps/api && WORKSPACEX_DEV_MODE=1 exec npx tsx scripts/seed-dev-mode-accounts.ts ;;
+  seed) cp $S/s8-evidence-seed.ts $WT/apps/api/scripts/s8-evidence-seed.ts && cd $WT/apps/api && WORKSPACEX_DEV_MODE=1 npx tsx scripts/s8-evidence-seed.ts; rc=$?; rm -f $WT/apps/api/scripts/s8-evidence-seed.ts; exit $rc ;;
+  redis) exec redis-server --port $REDIS_PORT --save "" --appendonly no ;;
+  api) cd $WT/apps/api && PORT=$API_PORT MODEL_CREDENTIAL_KEY=s8-evidence-credential-key-not-a-secret \
+      PLATFORM_SUPERUSER_EMAILS=dev-mode-admin@workspacex.test KG_CONSOLIDATION_WORKER=0 KERNEL_AGENT_RUN_AUTOSTART=0 \
+      exec npx tsx src/main.ts ;;
+  web) cd $WT/apps/web && NEXT_PUBLIC_API_URL=http://127.0.0.1:$WEB_PORT NEXT_PUBLIC_API_PATH_PREFIX=/__fullstack_api \
+      NEXT_PUBLIC_API_WS_URL=http://127.0.0.1:$API_PORT FULLSTACK_E2E_API_ORIGIN=http://127.0.0.1:$API_PORT \
+      NEXT_DIST_DIR=.next-s8 NEXT_FONT_GOOGLE_MOCKED_RESPONSES=$WT/apps/web/e2e/support/google-fonts-mock.cjs \
+      exec npx next dev -p $WEB_PORT ;;
+  pw) cp $S/s8-evidence.spec.ts $WT/apps/web/e2e/s8-evidence.spec.ts && cp $S/playwright.s8.config.ts $WT/apps/web/playwright.s8.config.ts && \
+      cd $WT/apps/web && PW_EXECUTABLE=/opt/pw-browsers/chromium-1194/chrome-linux/chrome S8_BASE=http://127.0.0.1:$WEB_PORT npx playwright test -c playwright.s8.config.ts; rc=$?; \
+      rm -f $WT/apps/web/e2e/s8-evidence.spec.ts $WT/apps/web/playwright.s8.config.ts; exit $rc ;;
+esac

@@ -12,6 +12,8 @@ import type { GoalLinkPort } from "../../src/application/knowledge-graph/profile
 import { BRIEFING_SECTION_LIMIT, composeBriefing, resumePrompt, type BriefingSources } from "../../src/domain/knowledge-graph/briefing";
 import { GOAL_LINK_MIN_CONFIDENCE, PROFILE_SUMMARY_LIMIT, PROFILE_SUMMARY_MAX_CHARS, withProfileSummary } from "../../src/domain/knowledge-graph/profile";
 import { fuseRecall, type RecallClaim } from "../../src/domain/knowledge-graph/recall";
+import { recallThreadKnowledge } from "../../src/application/knowledge-graph/recall-knowledge";
+import type { KnowledgeRecallPort } from "../../src/application/knowledge-graph/ports";
 import { northStar, restatedBackground } from "../../src/domain/knowledge-graph/north-star";
 import { toOrgId } from "../../src/domain/org-id";
 import { ModelGoalLinker, goalLinkUserText, parseGoalLinkText } from "../../src/infrastructure/knowledge-graph/model-goal-linker";
@@ -93,6 +95,39 @@ describe("#4360 画像摘要（每轮带上，有界）", () => {
     const claims = [claim("i1", long, "fact", { saidAt: "2026-09-26T00:00:00Z" }), claim("i2", "我是一名中学语文老师", "fact", { saidAt: "2026-09-01T00:00:00Z" })];
     const r = withProfileSummary(base(claims), claims);
     expect(r.items.map((i) => i.claim.id)).toEqual([]);
+  });
+});
+
+describe("#4494 review B2：画像摘要只带「这一轮还算数」的（S6 recallable）", () => {
+  const port = (claims: RecallClaim[]): KnowledgeRecallPort => ({
+    candidates: async () => ({ claims, objects: [] }),
+    graphNeighbors: async () => [],
+    recordTurn: async () => undefined,
+  });
+  const recall = (claims: RecallClaim[]) => recallThreadKnowledge(
+    port(claims), { orgId: toOrgId("org-b2"), userId: "u1", threadId: "thr-b2", query: "今天天气如何", personalThread: true }, () => undefined,
+  );
+
+  it("已过期的身份 / 不做了的待办不进画像摘要；还算数的照带，done 的待办照带（S6：done 仍召回）", async () => {
+    const r = await recall([
+      claim("i1", "我是一名中学语文老师", "fact"),
+      claim("x1", "我是一名小学数学老师", "fact", { validUntil: "2020-01-01T00:00:00Z" }),
+      claim("t1", "下周约王老师聊课程设计", "todo", { todoStatus: "dropped" }),
+      claim("t2", "整理实验学校的名单", "todo", { todoStatus: "done" }),
+    ]);
+    const ids = r.items.map((i) => i.claim.id);
+    expect(ids).toContain("i1");
+    expect(ids).toContain("t2");
+    expect(ids).not.toContain("x1");
+    expect(ids).not.toContain("t1");
+  });
+
+  it("项目 / 别人的对话（personalThread 不为 true）不带画像摘要", async () => {
+    const r = await recallThreadKnowledge(
+      port([claim("i1", "我是一名中学语文老师", "fact")]),
+      { orgId: toOrgId("org-b2"), userId: "u1", threadId: "thr-b2", query: "今天天气如何" }, () => undefined,
+    );
+    expect(r.items).toEqual([]);
   });
 });
 

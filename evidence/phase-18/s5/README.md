@@ -80,3 +80,14 @@ below). The briefing was shown 5 times, accepted once and dismissed once.
 - Todos are not auto-copied into the personal space, so model goal-linking only covers auto-copied decisions. Todos can be
   linked by hand after promotion. Todos from own threads appear in the briefing but not in 关于我.
 - The contract additions await human signoff (listed in `evidence/phase-18/r10/README.md` §3.2).
+
+## #4494 review (after S6 #4492 landed)
+
+- B1: the briefing (`pg-session-briefing.ts`) and goal linking (`kg_goal_link_candidates`, `kg_set_goal_link`) use only claims
+  that still count — not past `valid_to`, todos only while `todo_state = 'open'`; both claims of a card are filtered the same way.
+- B2: the per-turn profile summary gets the same `recallable()` filter as recall itself.
+- M1: `kg_revise_personal_claim` keeps the old claim's `todo_state` (S6's `kg_copy_inherits_time` no longer flips done → open).
+- M2 (decided by the human 2026-09-28) and M3 are documented in the `revisePersonalClaim` contract comment and r10 §3.2;
+  M2 is pinned by a DB test.
+- Fail-without-fix for B1 / B2 / M1: [`fail-without-fix-review-4494.txt`](fail-without-fix-review-4494.txt).
+

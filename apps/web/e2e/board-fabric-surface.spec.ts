@@ -154,3 +154,93 @@ test("fabric surface viewport", async ({ page, request: api }) => {
   const afterPan = await canvas.screenshot();
   expect(afterPan.equals(beforePan)).toBe(false);
 });
+
+test("selected object inspector adapts to each widget and a narrow editor", async ({ page, request: api }, testInfo) => {
+  await page.setViewportSize({ width: 1280, height: 800 });
+  const token = await login(page);
+  const created = await apiRequest(api, token, "POST", "/whiteboards", { requestId: randomUUID(), name: `Selected inspector ${randomUUID()}` });
+  const board = await created.json() as { id: string; lifecycleRevision: number };
+  boardToArchive = { id: board.id, token, lifecycleRevision: board.lifecycleRevision };
+  await page.goto(`/studio/board/${board.id}`);
+  await expect(page.getByText(/^已同步$/)).toBeVisible({ timeout: 30_000 });
+
+  const editor = page.getByTestId("collaborative-editor");
+  const inspector = page.getByTestId("board-context-toolbar");
+  const capture = async (name: string) => page.screenshot({ path: testInfo.outputPath(`${name}.png`), fullPage: false });
+  const latestObject = () => page.locator('[data-testid="board-a11y-mirror"] li[data-object-id]').last();
+  const selectLatestAndExpand = async () => {
+    const object = latestObject();
+    await object.getByRole("button").focus();
+    await page.keyboard.press("Enter");
+    await expect(inspector).toBeVisible();
+    if (await page.getByTestId("board-inspector-expand").count()) await page.getByTestId("board-inspector-expand").click();
+    await expect(inspector).toHaveAttribute("data-expanded", "true");
+    return object;
+  };
+
+  await page.getByTestId("board-add-sticky").click();
+  await selectLatestAndExpand();
+  await expect(inspector).toContainText("便利贴");
+  await expect(page.getByTestId("board-sticky-size-presets")).toBeVisible();
+  await capture("selected-sticky-inspector");
+  await page.getByTestId("board-inspector-close").click();
+
+  await page.getByTestId("board-add-shape").click();
+  await selectLatestAndExpand();
+  await expect(inspector).toContainText("形状");
+  await expect(page.getByTestId("board-shape-properties")).toBeVisible();
+  await expect(page.getByLabel("形状填充色")).toBeVisible();
+  await capture("selected-shape-inspector");
+  await page.getByTestId("board-inspector-close").click();
+
+  await page.getByTestId("board-add-text").click();
+  await page.keyboard.press("Escape");
+  await selectLatestAndExpand();
+  await expect(inspector).toContainText("文字");
+  await expect(page.getByTestId("board-widget-content-actions")).toBeVisible();
+  await expect(page.getByRole("button", { name: "编辑文字" })).toBeVisible();
+  await capture("selected-text-inspector");
+  await page.getByTestId("board-inspector-close").click();
+
+  await page.getByTestId("board-add-image").click();
+  const png = await page.screenshot({ clip: { x: 0, y: 0, width: 32, height: 32 } });
+  await page.getByTestId("board-image-input").setInputFiles({ name: "inspector.png", mimeType: "image/png", buffer: png });
+  await expect(page.getByText(/图片已在当前浏览器会话中验证并显示/)).toBeVisible({ timeout: 15_000 });
+  await selectLatestAndExpand();
+  await expect(inspector).toContainText("图片");
+  await expect(page.getByTestId("board-image-properties")).toBeVisible();
+  await expect(page.getByLabel("图片裁剪宽度")).toBeVisible();
+  await capture("selected-image-inspector");
+  await page.getByTestId("board-inspector-close").click();
+
+  await page.getByTestId("board-add-panel").click();
+  await expect(inspector).toBeVisible();
+  if (await page.getByTestId("board-inspector-expand").count()) {
+    await page.getByTestId("board-inspector-expand").click();
+  }
+  await expect(page.getByTestId("board-frame-size-presets")).toBeVisible();
+  await capture("selected-frame-inspector");
+
+  await page.setViewportSize({ width: 390, height: 844 });
+  await expect(inspector).toHaveAttribute("data-expanded", "true");
+  const editorBox = await editor.boundingBox();
+  const panelBox = await inspector.boundingBox();
+  expect(editorBox).not.toBeNull();
+  expect(panelBox).not.toBeNull();
+  expect(panelBox!.x).toBeGreaterThanOrEqual(editorBox!.x);
+  expect(panelBox!.y).toBeGreaterThanOrEqual(editorBox!.y);
+  expect(panelBox!.x + panelBox!.width).toBeLessThanOrEqual(editorBox!.x + editorBox!.width + 1);
+  expect(panelBox!.y + panelBox!.height).toBeLessThanOrEqual(editorBox!.y + editorBox!.height + 1);
+  const widthResizer = page.getByTestId("board-inspector-resize");
+  const heightResizer = page.getByTestId("board-inspector-resize-height");
+  const previousWidth = Number(await widthResizer.getAttribute("aria-valuenow"));
+  await widthResizer.focus();
+  await page.keyboard.press("ArrowLeft");
+  await expect(widthResizer).toHaveAttribute("aria-valuenow", String(previousWidth - 24));
+  const previousHeight = Number(await heightResizer.getAttribute("aria-valuenow"));
+  await heightResizer.focus();
+  await page.keyboard.press("ArrowDown");
+  await expect(heightResizer).toHaveAttribute("aria-valuenow", String(previousHeight - 24));
+  await expect(page.getByTestId("board-inspector-scroll-content")).toBeVisible();
+  await capture("selected-inspector-narrow");
+});

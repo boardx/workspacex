@@ -6,6 +6,7 @@
  *   - 本人个人对话（`chat_threads.project_id IS NULL AND created_by = 本人 AND NOT archived`）里记下、还没进过长期记忆的待办；
  *   - 同样只在本人个人对话里、还开着的矛盾 / 可能改口卡（`kg_conflict_prompts.status = 'open'`，两条都还活着）；
  *   - 本人空间里活的 `serves_goal` 挂接。
+ * 以上结论一律只取「还算数」的（S6：没过期、待办仍是 open；见 STILL_OPEN）——做完 / 不做了 / 过期的不是「未了事项」。
  * 项目会话、别人的个人对话一概不读（SQL 条件 + RLS：个人空间行只放给 app.current_user_id，I-14）。
  * 读之前设 `statement_timeout`：简报是开场的一眼，查慢了宁可这次不显示（调用方的界面不等它），也不拖住页面。
  *
@@ -21,7 +22,13 @@ import { personalSpaceRef } from "./pg-knowledge-read";
 
 /** 简报查询的超时（毫秒）：超时即这次不显示简报（调用方把失败当作「没有简报」），不阻塞输入框。 */
 export const BRIEFING_STATEMENT_TIMEOUT_MS = 2000;
-const LIVE = "c.revoked_at IS NULL AND c.status <> 'superseded'";
+/**
+ * S6（#4363）× #4494 review B1：简报里只出「这一轮还算数」的——没过期（valid_to 还没到）、待办还开着（done / dropped 不算
+ * 「未了事项」）。与召回的 recallable 同一个口径，外加 done（简报说的是还没做完的事）。claim_kind 可能为空 ⇒ IS DISTINCT FROM。
+ */
+const STILL_OPEN = (a: string) =>
+  `(${a}.valid_to IS NULL OR ${a}.valid_to > now()) AND (${a}.claim_kind IS DISTINCT FROM 'todo' OR ${a}.todo_state = 'open')`;
+const LIVE = `c.revoked_at IS NULL AND c.status <> 'superseded' AND ${STILL_OPEN("c")}`;
 const OWN_PERSONAL_THREAD = "t.project_id IS NULL AND t.created_by = $2 AND NOT t.archived";
 const SAID_AT = `(SELECT min(m.created_at) FROM claim_message_evidence e JOIN chat_messages m ON m.id = e.message_id AND m.org_id = e.org_id
     WHERE e.claim_id = c.id AND e.org_id = c.org_id AND e.stance = 'supporting') AS said_at`;
@@ -82,6 +89,7 @@ export class PgSessionBriefing implements SessionBriefingPort {
           WHERE p.org_id = $1 AND p.status = 'open' AND ${OWN_PERSONAL_THREAD}
             AND n.scope_kind = 'chat_session' AND n.scope_id = p.thread_id AND n.revoked_at IS NULL AND n.status <> 'superseded'
             AND o.revoked_at IS NULL AND o.status <> 'superseded'
+            AND ${STILL_OPEN("n")} AND ${STILL_OPEN("o")}
             AND ((o.scope_kind = 'chat_session' AND o.scope_id = p.thread_id) OR (o.scope_kind = 'personal' AND o.scope_id = $2))
           ORDER BY p.created_at DESC, p.id LIMIT 5`, scope,
       );

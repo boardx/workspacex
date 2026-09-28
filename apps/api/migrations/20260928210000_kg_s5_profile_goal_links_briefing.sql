@@ -48,6 +48,8 @@ BEGIN
                 FROM public.claims p
                WHERE p.org_id = v_org AND p.scope_kind = 'personal' AND p.scope_id = v_author
                  AND p.claim_kind IN ('decision', 'todo') AND p.revoked_at IS NULL AND p.status <> 'superseded'
+                 -- S6（#4363）× #4494 review B1：过期的、做完 / 不做了的待办不再提议挂目标。
+                 AND (p.valid_to IS NULL OR p.valid_to > now()) AND (p.claim_kind <> 'todo' OR p.todo_state = 'open')
                  AND EXISTS (SELECT 1 FROM public.ontology_edges d
                                JOIN public.claims s ON s.id = d.dst_id AND s.org_id = d.org_id
                                JOIN public.claim_message_evidence e ON e.claim_id = s.id AND e.org_id = s.org_id
@@ -61,6 +63,7 @@ BEGIN
                 FROM (SELECT g.id, g.statement, g.created_at FROM public.claims g
                        WHERE g.org_id = v_org AND g.scope_kind = 'personal' AND g.scope_id = v_author AND g.claim_kind = 'goal'
                          AND g.revoked_at IS NULL AND g.status <> 'superseded'
+                         AND (g.valid_to IS NULL OR g.valid_to > now())
                        ORDER BY g.created_at DESC, g.id LIMIT 20) x));
 END
 $$;
@@ -114,7 +117,9 @@ BEGIN
   IF NOT FOUND THEN RAISE EXCEPTION 'KG_CLAIM_NOT_FOUND' USING ERRCODE = '23503'; END IF;
   IF v_goal IS NOT NULL AND NOT EXISTS (
     SELECT 1 FROM claims g WHERE g.org_id = v_org AND g.id = v_goal AND g.scope_kind = 'personal' AND g.scope_id = v_owner
-      AND g.claim_kind = 'goal' AND g.revoked_at IS NULL AND g.status <> 'superseded') THEN
+      AND g.claim_kind = 'goal' AND g.revoked_at IS NULL AND g.status <> 'superseded'
+      -- S6 × #4494 review B1：过期的目标不能再挂（系统、人一样）。
+      AND (g.valid_to IS NULL OR g.valid_to > now())) THEN
     RAISE EXCEPTION 'KG_CLAIM_NOT_FOUND: goal' USING ERRCODE = '23503';
   END IF;
 
@@ -203,6 +208,12 @@ BEGIN
     SELECT v_new || '-' || e.id, e.org_id, 'claim', v_new, e.dst_kind, e.dst_id, e.relation, e.created_by, 'personal', v_user
       FROM ontology_edges e
      WHERE e.org_id = v_org AND e.src_kind = 'claim' AND e.src_id = v_old.id AND e.status = 'active';
+  -- S6（#4363）× #4494 review M1：上面复制 derived_from 会触发 kg_copy_inherits_time，把新一条的 todo_state 覆盖成来源
+  -- （会话里那条）的状态——本人在个人空间标了「做完了」、会话那条还是 open 时，改个说法就把它变回 open。
+  -- 改写只改说法：状态以旧的那条为准（kg_revise_inherits_time 插入时已抄过一次，这里在复制边之后再定一次）。
+  UPDATE claims SET todo_state = v_old.todo_state, updated_at = now()
+   WHERE org_id = v_org AND id = v_new AND claim_kind = 'todo' AND v_old.claim_kind = 'todo'
+     AND todo_state IS DISTINCT FROM v_old.todo_state;
   -- 入边里的挂接（别的决定 / 待办挂在这个目标下）转到新的一条：改一个目标，它下面的跟着走。
   INSERT INTO ontology_edges (id, org_id, src_kind, src_id, dst_kind, dst_id, relation, created_by, scope_kind, scope_id)
     SELECT v_new || '-in-' || e.id, e.org_id, e.src_kind, e.src_id, 'claim', v_new, e.relation, e.created_by, 'personal', v_user

@@ -9,6 +9,7 @@
  * - #4290：判完矛盾再判明确改口的取代（同一文件 detectSupersedes）——任务完成之前取代提示已经开好。
  * - issue #4283：判完取代，作者本人说的「决定」复制进作者本人的个人空间（auto-copy-decisions.ts）。
  * - round 7（#4284 收口）：项目会话里用过个人记忆的那一轮的 agent 回答不抽（见 extractJob）。
+ * - S8（#4365）：调抽取模型之前过「值得记」门控（extraction-gate.ts）；每个任务的耗时与结果记进 SLO 记录器。
  */
 import type { LoggerPort } from "../ports/logger.port";
 import { buildExtractionBatch, KG_EXTRACTION_PIPELINE_VERSION } from "../../domain/knowledge-graph/extraction";
@@ -16,6 +17,8 @@ import { applyOntologyBatch } from "./apply-ontology-batch";
 import { copyAuthorDecisions } from "./auto-copy-decisions";
 import { proposeGoalLinks, type GoalLinkDeps } from "./profile";
 import { detectConflicts, detectSupersedes } from "./detect-conflicts";
+import { gateExtraction, type WorthinessModelPort } from "./extraction-gate";
+import type { ExtractionSloRecorder } from "./extraction-slo-recorder";
 import type {
   KgAutoCopyPort, KgConflictPort, KgExtractionJob, KgExtractionQueuePort, KgExtractionSourcePort, KnowledgeExtractorPort, OntologyStorePort,
 } from "./ports";
@@ -40,6 +43,10 @@ export interface ExtractionDeps {
   readonly goalLinks?: Pick<GoalLinkDeps, "goalLinks" | "proposer">;
   readonly logger: LoggerPort;
   readonly newId: (prefix: "obj" | "clm" | "edg" | "act") => string;
+  /** S8：SLO 记录器（生产合成必注入；只测抽取本身的夹具可以不给——那时只是不计数，门控规则照常生效）。 */
+  readonly slo?: ExtractionSloRecorder;
+  /** S8：可选的便宜模型门控（`KG_EXTRACTION_GATE_MODEL=1` 才注入，默认没有）。 */
+  readonly gateModel?: WorthinessModelPort;
 }
 
 export interface ExtractionTickResult {
@@ -47,12 +54,12 @@ export interface ExtractionTickResult {
   readonly written: number;
   /** issue #4343：跑完了但没有可记的（含消息已删、执行器拒收）。processed = written + empty + skipped + failed。 */
   readonly empty: number;
-  /** 按规则不抽的（round 7：项目会话里用了个人记忆的那一轮回答）。 */
+  /** 按规则不抽的（round 7：项目会话里用了个人记忆的那一轮回答；S8：「值得记」门控跳过的，原因见日志）。 */
   readonly skipped: number;
   readonly failed: number;
 }
 
-export async function extractJob(deps: ExtractionDeps, job: KgExtractionJob): Promise<"written" | "empty" | "skipped"> {
+export async function extractJob(deps: ExtractionDeps, job: KgExtractionJob): Promise<"written" | "empty" | "skipped" | "gated"> {
   const loaded = await deps.source.loadMessage(job.orgId, job.messageId, KG_EXTRACTION_CONTEXT_TURNS);
   if (loaded === null) {  // 消息已被删：没有东西可抽
     deps.logger.info("kg extraction empty", {
@@ -72,10 +79,15 @@ export async function extractJob(deps: ExtractionDeps, job: KgExtractionJob): Pr
       return "skipped";
     }
   }
+  // S8：寒暄 / 应答 / 纯提问不调抽取模型；目标 / 偏好 / 决定永远放行（extraction-gate.ts）。
+  if ((await gateExtraction(deps, job, loaded)).gate === "skip") return "gated";
+  deps.slo?.recordModelCall();
   const result = await deps.extractor.extract(loaded);
   const known = await deps.source.knownObjects(job.orgId, job.threadId);
   const batch = buildExtractionBatch({
     threadId: job.threadId, messageId: job.messageId, messageBody: loaded.message.body,
+    // issue #4363（S6）：「这周」「到年底」按说这句话的时间换算（不是按抽取任务跑的时间）
+    ...(loaded.message.createdAt === undefined ? {} : { messageAt: loaded.message.createdAt }),
     result, known, newId: deps.newId,
   });
   if (batch === null) {
@@ -138,14 +150,18 @@ export async function runExtractionTick(deps: ExtractionDeps, abandoned: () => b
     }
     for (const job of jobs) {
       processed += 1;
+      const startedAt = Date.now();
       try {
         const outcome = await extractJob(deps, job);
         if (outcome === "written") written += 1;
         else if (outcome === "empty") empty += 1;
         else skipped += 1;
         await deps.queue.complete(orgId, job.messageId, job.attempts);
+        // 没调抽取模型的（门控跳过 / round 7 不抽）不进失败率的分母
+        deps.slo?.recordJob(Date.now() - startedAt, outcome === "gated" ? "skipped" : outcome, outcome === "gated" || outcome === "skipped");
       } catch (err) {
         failed += 1;
+        deps.slo?.recordJob(Date.now() - startedAt, "failed");
         const message = err instanceof Error ? err.message : String(err);
         deps.logger.error("kg extraction failed", { traceId: "kg-extraction", orgId, messageId: job.messageId, attempts: job.attempts, err });
         await deps.queue.fail(orgId, job.messageId, message, job.attempts).catch(() => undefined);

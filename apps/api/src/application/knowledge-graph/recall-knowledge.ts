@@ -9,7 +9,7 @@
 import type { OrgId } from "../../domain/org-id";
 import { detectMemoryIntent, forgetMatches } from "../../domain/knowledge-graph/memory-intent";
 import {
-  buildKnowledgeContextMessage, fuseRecall, graphSeeds, recallDegraded, VECTOR_RECALL_TOP_K, type KnowledgeRecall, type VectorHit,
+  buildKnowledgeContextMessage, fuseRecall, graphSeeds, recallable, recallDegraded, VECTOR_RECALL_TOP_K, type KnowledgeRecall, type VectorHit,
 } from "../../domain/knowledge-graph/recall";
 import { withProfileSummary } from "../../domain/knowledge-graph/profile";
 import { newKgId } from "./ids";
@@ -29,7 +29,9 @@ export async function recallThreadKnowledge(
 ): Promise<KnowledgeRecall> {
   // S9（#4366）：候选集一开始读，向量通道就开始嵌入问题（两者并行）；SQL 仍只在候选 id 里找。
   const candidates = port.candidates(input.orgId, input.userId, input.threadId);
-  const ids = candidates.then((c) => c.claims.map((x) => x.id));
+  // issue #4363（S6）：过期 / 不做了的不交给向量通道——否则它们会占掉 top-k 的名额，把还算数的挤出去。
+  const now = new Date();
+  const ids = candidates.then((c) => c.claims.filter((x) => recallable(x, now)).map((x) => x.id));
   const vectorP = vectorChannel(port, input, ids, log);
   // 候选集读失败时这两个派生的 Promise 也会失败：它们的结果不再有人等，吞掉以免成为未处理的拒绝
   //（召回整体失败由 await candidates 抛出、调用方降级）。
@@ -50,8 +52,9 @@ export async function recallThreadKnowledge(
   };
   // S9（#4366）：两路并行，一轮的等待是较慢的那一路，不是两路相加。
   const [graph, vector] = await Promise.all([graphChannel(), vectorP]);
-  const recall = fuseRecall({ query: input.query, claims, objects, graph, ...(vector === undefined ? {} : { vector }), limit: KG_RECALL_LIMIT });
-  return input.personalThread === true ? withProfileSummary(recall, claims) : recall;
+  const recall = fuseRecall({ query: input.query, claims, objects, graph, ...(vector === undefined ? {} : { vector }), limit: KG_RECALL_LIMIT, now });
+  // issue #4360 / S6：画像摘要同样只看「这一轮还算数」的（没过期、不是不做了的待办）——与召回候选同一个 recallable 判定。
+  return input.personalThread === true ? withProfileSummary(recall, claims.filter((c) => recallable(c, now))) : recall;
 }
 
 /**

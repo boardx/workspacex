@@ -113,6 +113,8 @@ export interface KgMessage {
   readonly threadId: string;
   readonly body: string;
   readonly authorKind: "human" | "agent";
+  /** issue #4363（S6）：消息时间（ISO）。抽取时换算「这周」「到年底」用；上文消息可省略。 */
+  readonly createdAt?: string;
 }
 
 export interface KgExtractionSourcePort {
@@ -316,7 +318,10 @@ export type KgHumanActionErrorCode =
   | "KG_OBJECT_NOT_FOUND" | "KG_CONTESTED_NEEDS_RESOLUTION" | "KG_PROMPT_NOT_FOUND"
   | "KG_SCOPE_NOT_PERSONAL" | "KG_SCOPE_NOT_PROJECT" | "KG_EVIDENCE_REVOKED" | "KG_PROMOTE_BATCH_TOO_LARGE"
   // F17 确认卡（actOnMemoryCard.err）；KG_INVALID_REQUEST 不是契约码——请求本身不成立（改完的字全是空白），接口回 400
-  | "KG_CARD_NOT_FOUND" | "KG_CARD_STALE" | "KG_INVALID_REQUEST";
+  | "KG_CARD_NOT_FOUND" | "KG_CARD_STALE" | "KG_INVALID_REQUEST"
+  // #4494 review L1：数据库函数的两道闸（「关于我」挂目标 / 改写）。KG_SCOPE_NOT_ENABLED 是契约码；KG_ORG_FROZEN 不是契约码——
+  // 组织已冻结（只读）时 HTTP 层通常先拦下，这里是数据库那道兜底被触发时的结构化出口（403），不再当成 500 往外抛。
+  | "KG_SCOPE_NOT_ENABLED" | "KG_ORG_FROZEN";
 
 export interface HumanActionPort {
   /** 数据库复核所有者 / 版本 / 作用域后执行；被拒时抛 `KgHumanActionError`。 */
@@ -326,6 +331,15 @@ export interface HumanActionPort {
     readonly basedOnRevision: number;
     readonly action: KgHumanAction;
   }): Promise<{ readonly revision: number; readonly actionId: string }>;
+  /**
+   * issue #4363（S6）：改一条待办的状态（`kg_set_todo_state`）。只有所有者；同一件待办的会话 / 个人空间两份一起改。
+   * 被拒（不存在 / 不是待办 / 不是所有者）一律 `KG_CLAIM_NOT_FOUND`。
+   */
+  setTodoStatus(orgId: OrgId, userId: string, input: {
+    readonly actionId: string;
+    readonly claimId: string;
+    readonly status: KG.KgTodoStatus;
+  }): Promise<{ readonly claimId: string; readonly status: KG.KgTodoStatus; readonly claimIds: readonly string[] }>;
 }
 
 export class KgHumanActionError extends Error {

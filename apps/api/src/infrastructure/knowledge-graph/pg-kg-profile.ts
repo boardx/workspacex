@@ -14,6 +14,8 @@ import { retryOnceOnDeadlock } from "./kg-deadlock-retry";
 
 const CODES: readonly KgHumanActionErrorCode[] = [
   "KG_ACTOR_NOT_HUMAN", "KG_CLAIM_NOT_FOUND", "KG_CONTESTED_NEEDS_RESOLUTION", "KG_NOT_OWNER",
+  // #4494 review L1：kg_set_goal_link / kg_revise_personal_claim 的两道闸，翻成结构化拒绝（403），不当成 500。
+  "KG_SCOPE_NOT_ENABLED", "KG_ORG_FROZEN",
 ];
 const messageOf = (e: unknown): string => (e instanceof Error ? e.message : "");
 function translate(e: unknown): never {

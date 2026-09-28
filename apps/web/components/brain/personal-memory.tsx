@@ -2,7 +2,8 @@
 import * as React from "react";
 import Link from "next/link";
 import { History, Lock, MessageSquare, Search } from "lucide-react";
-import type { KgClaimKind } from "@repo/contracts/chat-knowledge-graph";
+import { KG_TODO_STATUS_LABEL_ZH, KgTodoStatus as KgTodoStatusEnum, type KgClaimKind, type KgTodoStatus } from "@repo/contracts/chat-knowledge-graph";
+import { ClaimTimeBadges } from "@/components/chat/knowledge/claim-time-badges";
 import { ClaimTriStateBadge } from "@/components/chat/knowledge/claim-tri-state-badge";
 import { StateShell } from "@/components/state/state-shell";
 import { ShareToProject } from "@/components/brain/share-to-project";
@@ -17,13 +18,16 @@ import {
 import { chatMemoryHref } from "@/lib/chat-memory-link";
 import type { PersonalKnowledge } from "@/lib/knowledge-graph-api";
 import { BRAIN_FORGET_STILL_LIVE_ZH, KG_RELOAD_ON_FAILURE, describeBrainActionFailure } from "@/lib/knowledge-graph-failure";
-import { knowledgeGraphErrorCode } from "@/lib/knowledge-graph-api";
+import { knowledgeGraphErrorCode, setTodoStatus } from "@/lib/knowledge-graph-api";
 import { personalOriginLabel } from "@/lib/knowledge-graph-recall";
 import { KG_CLAIM_KIND_LABEL_ZH, KG_OBJECT_KIND_LABEL_ZH, groupClaimsByKind } from "@/lib/knowledge-graph-view";
 
 type Claim = PersonalKnowledge["claims"][number];
 /** 正在进行 / 刚失败的那一个动作：忘掉某条，或撤销某条旧记忆的取代。 */
-type Pending = { readonly kind: "forget"; readonly claimId: string } | { readonly kind: "undo"; readonly oldClaimId: string };
+type Pending =
+  | { readonly kind: "forget"; readonly claimId: string }
+  | { readonly kind: "undo"; readonly oldClaimId: string }
+  | { readonly kind: "todo"; readonly claimId: string };
 interface ActionError { readonly claimId: string; readonly message: string }
 
 /**
@@ -88,6 +92,11 @@ export function PersonalMemory({
       { kind: "forget", claimId: c.id }, c.id, (p) => forgetFromBrain(steps, p),
       (fresh) => (fresh.claims.some((x) => x.id === c.id) ? BRAIN_FORGET_STILL_LIVE_ZH : null),
     );
+  };
+  // issue #4363（S6）：待办状态（只有所有者能改——长期记忆本来就只有本人看得到）；成功后重读，同一件待办在对话里那份一起变
+  const setTodo = (c: Claim, status: KgTodoStatus) => {
+    if (c.todoStatus === status) return;
+    void run({ kind: "todo", claimId: c.id }, c.id, async () => { await setTodoStatus(c.id, status); });
   };
   const undoSupersede = (by: Claim, r: PersonalReplaced) => {
     if (r.undo === null) return;
@@ -166,6 +175,15 @@ export function PersonalMemory({
                             <p className="min-w-0 flex-1 text-13">{c.statement}</p>
                             <ClaimTriStateBadge status={c.status} />
                           </div>
+                          <ClaimTimeBadges claim={c} />
+                          {c.todoStatus ? (
+                            <TodoStatusControl
+                              claimId={c.id}
+                              status={c.todoStatus}
+                              disabled={pending !== null}
+                              onSet={(s) => setTodo(c, s)}
+                            />
+                          ) : null}
                           <OriginLinks origins={from} />
                           {folded.map((r) => (
                             <div
@@ -174,7 +192,10 @@ export function PersonalMemory({
                               data-testid="brain-replaced"
                             >
                               <History aria-hidden className="h-3 w-3 shrink-0" />
-                              <span className="min-w-0 flex-1" data-testid="brain-replaced-text">取代了：{r.replaces.statement}</span>
+                              {/* issue #4363（S6）：链式历史，从新到旧；step ≥ 2 是被「取代了它的那条」再取代的更早一环 */}
+                              <span className="min-w-0 flex-1" data-testid="brain-replaced-text" data-step={r.step ?? 1}>
+                                {(r.step ?? 1) > 1 ? "更早是：" : "取代了："}{r.replaces.statement}
+                              </span>
                               {r.undo !== null ? (
                                 <Button
                                   size="xs"
@@ -239,6 +260,29 @@ function KindChip({ active, onClick, testId, children }: { active: boolean; onCl
     <Button size="xs" variant={active ? "primary" : "ghost"} aria-pressed={active} onClick={onClick} data-testid={testId}>
       {children}
     </Button>
+  );
+}
+
+/** issue #4363（S6）：待办的三个状态，当前那个按下（aria-pressed）；文案取契约单源。 */
+function TodoStatusControl({ claimId, status, disabled, onSet }: {
+  claimId: string; status: KgTodoStatus; disabled: boolean; onSet: (s: KgTodoStatus) => void;
+}) {
+  return (
+    <div className="flex flex-wrap items-center gap-1" role="group" aria-label="待办状态" data-testid={`brain-todo-status-${claimId}`}>
+      {KgTodoStatusEnum.options.map((s) => (
+        <Button
+          key={s}
+          size="xs"
+          variant={s === status ? "primary" : "ghost"}
+          aria-pressed={s === status}
+          disabled={disabled}
+          onClick={() => onSet(s)}
+          data-testid={`brain-todo-set-${s}`}
+        >
+          {KG_TODO_STATUS_LABEL_ZH[s]}
+        </Button>
+      ))}
+    </div>
   );
 }
 
