@@ -38,7 +38,8 @@ test('meeting room real 30 minute presentation, recovery, CAS and revocation lif
     const go = async (page: Page, url: string) => {await page.goto(url); await expect(page.getByTestId('collaborative-editor')).toBeVisible({timeout: 30_000}); await roomControls(page);const close=page.getByRole('button',{name:'关闭白板操作',exact:true});if(await close.isVisible())await close.click(); await expect(page.getByTestId('board-fabric-surface').locator('canvas.upper-canvas')).toBeVisible();};
     await Promise.all([go(owner!, route), go(display!, `${route}&device=meeting-room-display`), go(follower!, route)]);
     for (const page of [owner!, display!, follower!]) await expect(page.getByTestId('board-a11y-object-meeting-anchor')).toHaveAccessibleName('图形：会议室持续内容验证');
-    const contentHash = roomHash(await canonicalRows(owner!));
+    const canonicalContent = await canonicalRows(owner!);
+    const contentHash = roomHash(canonicalContent);
     const runtimeBefore = await verifyRuntimeIdentity(api, sha, await chunks());
     const roomToken = () => display!.evaluate(key => sessionStorage.getItem(key), `board-room:${boardId}:${roomId}:meeting-room-display`);
     await expect.poll(async () => Boolean(await roomToken())).toBe(true);
@@ -65,8 +66,18 @@ test('meeting room real 30 minute presentation, recovery, CAS and revocation lif
       current = await state(); expect(current.presenterId).toBe(F.adminUserId);
       if (disconnectThisRound) {
         await expect.poll(() => readRoomViewport(display!)).not.toEqual(current.viewport);
-        await contexts[1]!.setOffline(false); await display!.reload(); await expect(display!.getByTestId('collaborative-editor')).toBeVisible({timeout:30_000});await roomControls(display!);
+        await contexts[1]!.setOffline(false);
+        await display!.reload();
+        await expect(display!.getByTestId('collaborative-editor')).toBeVisible({timeout: 30_000});
+        await roomControls(display!);
         await expect.poll(async () => {const token = await roomToken(); return Boolean(token && token !== tokenBeforeReconnect);}).toBe(true);
+        // The editor and rotated room token can become ready before the Yjs projection is
+        // hydrated. Do not admit a reconnect sample until its canonical content converges.
+        await expect.poll(() => canonicalRows(display!), {
+          timeout: 30_000,
+          intervals: [100, 250, 500, 1_000],
+          message: 'meeting display canonical content must recover before reconnect sampling',
+        }).toEqual(canonicalContent);
         record('reconnect', before.revision, current.revision, {actorId: displayActor, previousTokenHash: roomHash(tokenBeforeReconnect), nextTokenHash: roomHash(await roomToken())}); disconnected = true;
       }
       for (const page of [display!, follower!]) await expect.poll(() => readRoomViewport(page), {timeout: 20_000}).toEqual(current.viewport);
