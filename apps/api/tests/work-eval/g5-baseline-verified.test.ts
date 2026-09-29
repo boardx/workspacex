@@ -186,7 +186,7 @@ describe("EV05 official Agent binding requires a verified Skill (ADR-119 #4, I-8
       modelProvider: a.modelProvider, modelId: a.modelId, toolPolicy: a.toolPolicy, roleRef: a.roleRef, roleLabel: a.roleLabel,
       role: {
         avatar: a.role.avatar, roleCategory: a.role.roleCategory, workflowAllowlist: a.role.workflowAllowlist,
-        delegationPolicy: a.role.delegationPolicy, escalationPolicy: a.role.escalationPolicy, kpi: a.role.kpi,
+        delegationPolicy: a.role.delegationPolicy, escalationPolicy: a.role.escalationPolicy, kpi: a.role.kpi, tags: a.role.tags,
       },
     };
     const unsigned = { schemaVersion: 1 as const, packId, packVersion: "1.0.0", agents: [agent] };
