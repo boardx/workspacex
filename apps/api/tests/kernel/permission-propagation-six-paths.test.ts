@@ -1402,7 +1402,11 @@ describe("lint-permission-paths: counter-proof", () => {
     // tests/home/home-config-authorization.test.ts. Remove this increment with that test.
     // 2026-09-29 merge of main (CT06 squash 20317fc7d, ceiling 117) into CT10: union =
     // main's 117 + CT10 pg-board-run-source.ts = 118 (measured).
-    expect(total - boundaryAudit.rules.length).toBeLessThanOrEqual(118);
+    // 2026-09-29 merge of main (CT10 squash #4662, ceiling 118) into home-config (#4660/#4661,
+    // ceiling 118): union = main's 118 (includes CT10's pg-board-run-source.ts) + home-config's
+    // own pg-home-config-repository.ts (already counted above, this branch's ceiling was 118
+    // pre-merge) = 119 (measured: allowlisted=129, boundary rules=10, 129-10=119).
+    expect(total - boundaryAudit.rules.length).toBeLessThanOrEqual(119);
 
     const src = readFileSync(
       fileURLToPath(new URL("../../scripts/lint-permission-paths.mjs", import.meta.url)),
