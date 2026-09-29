@@ -78,18 +78,49 @@ function loopbackOutput(call: LoopbackCall): Record<string, unknown> {
   }
 }
 
+/**
+ * 非本文件 Workflow 阶段的请求（例如同进程 `KgExtractionWorker` 的抽取/过滤调用：它按生产合成读同一组
+ * `KERNEL_MODEL_*`，会从共享库的抽取队列里取到别的测试文件留下的消息）不是 Skill 回环输入。
+ * 它们合法但与本文件断言无关：记下来、回 400 明确标注，绝不在 handler 里抛（抛在 'end' 回调里会变成
+ * 进程级未捕获异常，打挂整个 vitest 分片）。
+ */
+const strayRequests: { reason: string; lastUserContent: string }[] = [];
+const STRAY_MARKER = "ct06-loopback: not a workflow stage request";
+
+function parseStageCall(raw: string): { model: string; call: LoopbackCall } | { stray: string; lastUserContent: string } {
+  let body: { model?: unknown; messages?: { role: string; content: unknown }[] };
+  try { body = JSON.parse(raw); } catch { return { stray: "body is not JSON", lastUserContent: raw.slice(0, 200) }; }
+  const last = Array.isArray(body.messages) ? body.messages.at(-1) : undefined;
+  const content = typeof last?.content === "string" ? last.content : "";
+  let user: Partial<LoopbackCall>;
+  try { user = JSON.parse(content); } catch { return { stray: "last message is not loopback JSON", lastUserContent: content.slice(0, 200) }; }
+  if (typeof user?.stageId !== "string" || typeof user.skill !== "string") return { stray: "missing stageId/skill", lastUserContent: content.slice(0, 200) };
+  return { model: String(body.model ?? ""), call: { stageId: user.stageId, skill: user.skill, input: user.input ?? {}, prior: user.prior ?? {} } };
+}
+
 function startLoopbackModel(): Promise<Server> {
   const server = createServer((req, res) => {
     let raw = "";
     req.on("data", (c) => (raw += c));
     req.on("end", () => {
-      const body = JSON.parse(raw) as { model: string; messages: { role: string; content: string }[] };
-      const user = JSON.parse(body.messages.at(-1)!.content) as LoopbackCall;
-      const call = { stageId: user.stageId, skill: user.skill, input: user.input, prior: user.prior };
-      modelCalls.push(call);
-      const content = "```json\n" + JSON.stringify(loopbackOutput(call)) + "\n```";
-      res.writeHead(200, { "content-type": "application/json" });
-      res.end(JSON.stringify({ id: randomUUID(), object: "chat.completion", model: body.model, choices: [{ index: 0, message: { role: "assistant", content }, finish_reason: "stop" }] }));
+      try {
+        const parsed = parseStageCall(raw);
+        if ("stray" in parsed) {
+          strayRequests.push({ reason: parsed.stray, lastUserContent: parsed.lastUserContent });
+          res.writeHead(400, { "content-type": "application/json" });
+          res.end(JSON.stringify({ error: { type: "invalid_request_error", message: `${STRAY_MARKER} (${parsed.stray})` } }));
+          return;
+        }
+        modelCalls.push(parsed.call);
+        const content = "```json\n" + JSON.stringify(loopbackOutput(parsed.call)) + "\n```";
+        res.writeHead(200, { "content-type": "application/json" });
+        res.end(JSON.stringify({ id: randomUUID(), object: "chat.completion", model: parsed.model, choices: [{ index: 0, message: { role: "assistant", content }, finish_reason: "stop" }] }));
+      } catch (err) {
+        // loopbackOutput 遇到未知 Skill 等：以 500 回给调用方（阶段会失败、断言会红），不打挂进程。
+        strayRequests.push({ reason: `handler error: ${(err as Error).message}`, lastUserContent: raw.slice(0, 200) });
+        if (!res.headersSent) res.writeHead(500, { "content-type": "application/json" });
+        res.end(JSON.stringify({ error: { type: "server_error", message: `${STRAY_MARKER} (${(err as Error).message})` } }));
+      }
     });
   });
   return new Promise((ok) => server.listen(0, "127.0.0.1", () => ok(server)));
@@ -197,6 +228,8 @@ describe("CT06 · 产品线端到端（生产合成 + HTTP）：问题到 PRD（
       "revise:S067@1.0.0",
     ]);
     expect(Object.keys(modelCalls.at(-1)!.prior)).toEqual(["frame", "map", "solutions_fill", "prioritize", "draft", "kpi"]);
+    // 回环 handler 自身出错（未知 Skill 等）必须为零；其余非阶段请求（KG 抽取等）只记录不计入 modelCalls。
+    expect(strayRequests.filter((r) => r.reason.startsWith("handler error"))).toEqual([]);
 
     // 恰好一次发布 + 一次通知，均经 effect-gateway（receipt finalized，provenance 为发起人/Agent）。
     const receipts = await asApp(ORG, (c) =>
@@ -252,5 +285,7 @@ describe("CT06 · 产品线端到端（生产合成 + HTTP）：问题到 PRD（
     const c = await pm().post(C.cancelInstance.path.replace(":instanceId", ok.body.instanceId), { expectedStateVersion: p.stateVersion, requestId: rid() });
     expect(c.status).toBe(200);
     await settled(ok.body.instanceId);
+    // 回环 handler 自身出错（未知 Skill 等）必须为零；其余非阶段请求（KG 抽取等）只记录不计入 modelCalls。
+    expect(strayRequests.filter((r) => r.reason.startsWith("handler error"))).toEqual([]);
   }, 120_000);
 });
