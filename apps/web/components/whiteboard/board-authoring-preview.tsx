@@ -115,7 +115,7 @@ export function BoardAuthoringPreview() {
     const created = bulkLines.map((text, index): Note => ({ id: nextId.current++, text, color: palette[index % palette.length] ?? palette[0], x: 13 + (index % 5) * 17, y: 12 + Math.floor(index / 5) * 18, shape: 'square' }));
     commit([...notes, ...created]); setSelectedId(created[0]?.id ?? null); setPanel(null);
   }
-  return <main className="fixed inset-0 overflow-hidden bg-background text-foreground" data-testid="board-authoring-preview">
+  return <main className="wx-light fixed inset-0 overflow-hidden bg-background text-background-foreground" data-testid="board-authoring-preview">
     <style>{`.authoring-grid{background-image:radial-gradient(hsl(var(--border)) 0.7px,transparent 0.7px);background-size:24px 24px}.authoring-note{transition:transform .18s ease,box-shadow .18s ease}.authoring-note:hover{transform:translateY(-3px)}@media(prefers-reduced-motion:reduce){.authoring-note{transition:none}.authoring-note:hover{transform:none}}`}</style>
     <header className="absolute inset-x-0 top-0 z-30 flex h-16 items-center justify-between border-b bg-background/95 px-4 shadow-sm" data-testid="board-authoring-header">
       <div className="flex items-center gap-3"><button type="button" aria-label="返回白板列表" className="rounded-lg p-2 transition-colors hover:bg-accent" data-testid="board-authoring-back"><ArrowLeft size={20} /></button><span className="font-bold tracking-tight">WorkspaceX</span><span className="hidden border-l pl-3 text-sm text-muted-foreground sm:inline">团队脑暴</span><ChevronDown size={15} className="hidden sm:block" /><span className="hidden items-center gap-1 text-xs text-muted-foreground md:flex"><Check size={14} /> 设计预览 · 不保存</span></div>
