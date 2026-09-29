@@ -29,7 +29,7 @@ describe('live survey workspace persistence',()=>{
   request.mockResolvedValueOnce(runtime());
   render(<LiveSurveyWorkspace surveyId="saved-survey" initialStep="import" creationMode="ai" projectId="project-1"/>);
   fireEvent.click(await screen.findByRole('button',{name:'跳过导入，空白设计'}));
-  expect(window.location.search).toContain('step=design');
+  expect(window.location.pathname).toBe('/studio/survey/saved-survey/design');
   expect(window.location.search).toContain('projectId=project-1');
  });
  it('saves repeat policy and success Markdown through canonical publication source',async()=>{
@@ -98,6 +98,16 @@ describe('live survey workspace persistence',()=>{
   expect(screen.getByRole('region',{name:'问卷回收状态'})).toBeInTheDocument();
   expect(screen.getByRole('complementary',{name:'回收设置面板'})).toBeInTheDocument();
  });
+ it('restores the visible workflow step when browser history changes',async()=>{
+  window.history.replaceState(null,'','/studio/survey/saved-survey/design');
+  request.mockResolvedValueOnce(runtime());
+  render(<LiveSurveyWorkspace surveyId="saved-survey" initialStep="design"/>);
+  fireEvent.click(await screen.findByRole('button',{name:'前往发布回收'}));
+  expect(screen.getByRole('region',{name:'问卷回收状态'})).toBeInTheDocument();
+  window.history.replaceState(null,'','/studio/survey/saved-survey/design');
+  fireEvent(window,new PopStateEvent('popstate'));
+  expect(screen.getByRole('region',{name:'问卷设计画布'})).toBeInTheDocument();
+ });
  it('accepts a successful published template save without a second GET',async()=>{
   const original=runtime({publication:{token:'token',status:'collecting',version:4,expiresAt:'2026-10-20T10:00:00.000Z',questions:runtime().questions}});
   request.mockResolvedValueOnce(original).mockResolvedValueOnce({...original,version:5,template:{...original.template,title:'更新报告'}});
@@ -143,7 +153,7 @@ describe('live survey workspace persistence',()=>{
   render(<LiveSurveyWorkspace surveyId="new"/>);
   fireEvent.click(await screen.findByRole('button',{name:'保存修改'}));
   await screen.findByRole('alert');
-  expect(router.replace).toHaveBeenCalledWith('/studio/survey/created-draft?step=design');
+  expect(router.replace).toHaveBeenCalledWith('/studio/survey/created-draft/design');
   request.mockResolvedValueOnce(runtime({id:'created-draft',version:2,title:'未命名问卷'}));
   fireEvent.click(screen.getByRole('button',{name:'保存修改'}));
   await screen.findByText('修改已保存');
@@ -174,6 +184,15 @@ describe('live survey workspace persistence',()=>{
   expect(screen.queryByLabelText('问卷 Markdown')).not.toBeInTheDocument();
   expect(screen.queryByRole('heading',{name:'AI 智能生成问卷'})).not.toBeInTheDocument();
   expect(request).toHaveBeenCalledTimes(1);
+ });
+ it('shows optional report-template and latest-report readiness without blocking responses',async()=>{
+  request.mockResolvedValueOnce(runtime());
+  render(<LiveSurveyWorkspace surveyId="saved-survey" initialStep="responses"/>);
+  const readiness=await screen.findByRole('region',{name:'报告准备状态'});
+  expect(readiness).toHaveTextContent('未设置（可选）');
+  expect(readiness).toHaveTextContent('未生成');
+  expect(screen.getByRole('region',{name:'答卷列表'})).toBeInTheDocument();
+  expect(screen.getByRole('button',{name:'设计报告模板'})).toBeInTheDocument();
  });
  it('uses a four-step AI import flow and enters a clean designer after applying Markdown',async()=>{
   request.mockResolvedValueOnce(runtime()).mockResolvedValueOnce({markdown:'# AI 草稿\n\n## feedback [open]\n请描述体验\n',execution:{id:'85f6e172-8b43-4a75-a917-0e91742d1e8c',provider:'test',modelId:'model',generatedAt:'2026-09-28T00:00:00.000Z'},source:{kind:'text',sha256:'a'.repeat(64)}});

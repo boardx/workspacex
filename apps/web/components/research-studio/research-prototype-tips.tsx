@@ -1,11 +1,9 @@
-import { FileText, Users, Clock3, Target, CircleHelp, Lightbulb, CalendarDays, MapPin, LayoutGrid } from "lucide-react";
+import { FileText, Users, Clock3, Target, CircleHelp, Lightbulb, LayoutGrid } from "lucide-react";
 
 export function ResearchPrototypeTips({ topic = false }: { topic?: boolean }) {
   const rows = topic ? [
     [FileText, "研究主题", "建议明确行业、区域、对象和核心问题"],
     [Target, "研究目标", "说明你希望通过本研究解决什么问题"],
-    [CalendarDays, "时间范围", "选择合适的时间范围，便于聚焦分析"],
-    [MapPin, "研究区域", "可以是国家、地区或全球范围"],
     [LayoutGrid, "重点关注", "选择你最关心的维度（可多选），帮助我们更精准地规划研究内容"],
   ] as const : [
     [FileText, "研究目标", "希望解决的问题、预期的研究成果"],

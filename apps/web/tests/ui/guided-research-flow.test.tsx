@@ -119,6 +119,7 @@ describe("guided research session routing and lifecycle", () => {
     vi.mocked(getResearchRuntime).mockResolvedValue(runtimeFixture(node));
     render(<GuidedResearchFlow step={node} sessionId="grs-live" />);
     if (node === "outline") {
+      fireEvent.doubleClick(await screen.findByTestId("guided-research-markdown-preview"));
       const field = await screen.findByTestId("guided-research-markdown-editor");
       fireEvent.change(field, { target: { value: `${(field as HTMLTextAreaElement).value}\n人工修订` } });
       expect((field as HTMLTextAreaElement).value).toContain("人工修订");
@@ -145,7 +146,7 @@ describe("guided research session routing and lifecycle", () => {
     render(<GuidedResearchFlow step="search" sessionId="grs-live" />);
     fireEvent.click(await screen.findByRole("button", { name: "重试失败任务" }));
     await waitFor(() => expect(executeResearchRuntime).toHaveBeenCalledWith(expect.objectContaining({ action: "retry", node: "research", expectedVersion: 4 })));
-    expect(await screen.findByRole("link", { name: "https://example.org/policy" })).toBeInTheDocument();
+    expect(await screen.findByTestId("research-source-description-source1")).toHaveAttribute("href", "https://example.org/policy");
     expect(screen.queryByRole("button", { name: "重试失败任务" })).not.toBeInTheDocument();
   });
   it("renders report content and links from persisted sources, then explicitly completes", async () => {

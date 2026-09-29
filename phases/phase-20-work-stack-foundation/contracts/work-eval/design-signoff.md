@@ -2,7 +2,10 @@
 bundle: work-eval
 phase: "20"
 covers: [EV01, EV02, EV03, EV04, EV05]
-status: pending
+status: confirmed
+confirmed_by: "usamshen"
+confirmed_at: "2026-09-27T16:30:00Z"
+confirmed_via: "人类在 GitHub 亲自签核"
 ---
 
 # 契约束 `work-eval` 设计签核

@@ -21,7 +21,7 @@ import { sanitizeReturnTo } from "@/lib/return-to";
 /**
  * 登录表单（UC-1.1 R3/R8）——七态一律经 StateShell。
  *
- * - D-02：三个第三方按钮**保留视觉位但 disabled 并标 later**，旁注「phase-1 暂不开放」。
+ * - D-02：三个第三方按钮**保留视觉位但 disabled 并标 later**，旁注「即将开放」。
  * - 防枚举：`INVALID_CREDENTIAL` 只给一条「邮箱或密码不正确」，不区分邮箱不存在 / 密码错误。
  *   `EMAIL_NOT_VERIFIED` / `ACCOUNT_LOCKED` 不受此约束（`lib/auth.ts` 对应 helper 的注释解释了
  *   为什么），会展开成各自的具体文案；真正未识别的失败才落进「服务暂时不可用」兜底。
@@ -78,8 +78,8 @@ export function LoginForm({ state, next }: { state: UiState; next?: string }) {
         </button>
         <div className="flex flex-col gap-1">
           <h2 className="text-18 font-semibold">找回密码</h2>
-          <p className="text-12 text-muted-foreground">
-            输入工作邮箱，我们发一封一次性重置链接（{AUTH_POLICY.resetLinkHours} 小时内有效）。
+          <p className="text-13 text-muted-foreground">
+            输入工作邮箱，我们将发送一次性重置链接（{AUTH_POLICY.resetLinkHours} 小时内有效）。
           </p>
         </div>
         {resetSent ? (
@@ -90,7 +90,7 @@ export function LoginForm({ state, next }: { state: UiState; next?: string }) {
           >
             <p className="text-13 font-medium">若该邮箱已注册，重置邮件已发出。</p>
             <p className="text-12 text-muted-foreground">
-              为防止账号被探测，无论邮箱是否注册都显示同一句话。重置成功后旧密码与全部既有会话将失效。
+              重置成功后，旧密码与所有已登录设备将失效。
             </p>
           </div>
         ) : (
@@ -165,7 +165,7 @@ export function LoginForm({ state, next }: { state: UiState; next?: string }) {
             type="button"
             onClick={() => setForgot(true)}
             data-testid="login-forgot-link"
-            className="text-11 text-muted-foreground transition-colors duration-200 hover:text-background-foreground"
+            className="text-12 text-primary underline-offset-4 transition-colors duration-base hover:underline"
           >
             忘记密码？
           </button>
@@ -177,7 +177,7 @@ export function LoginForm({ state, next }: { state: UiState; next?: string }) {
             placeholder="至少 12 位"
             value={password}
             onChange={(e) => setPassword(e.currentTarget.value)}
-            className="pr-14"
+            className="pr-10"
             disabled={!hydrated || submitting}
             data-testid="login-password"
           />
@@ -185,11 +185,11 @@ export function LoginForm({ state, next }: { state: UiState; next?: string }) {
             type="button"
             onClick={() => setShowPwd((v) => !v)}
             aria-pressed={showPwd}
+            aria-label={showPwd ? "隐藏密码" : "显示密码"}
             data-testid="login-password-toggle"
-            className="absolute inset-y-0 right-0 inline-flex items-center gap-1 pr-2.5 text-11 text-muted-foreground transition-colors duration-200 hover:text-background-foreground"
+            className="absolute inset-y-0 right-0 inline-flex items-center px-3 text-muted-foreground transition-colors duration-base hover:text-background-foreground"
           >
-            {showPwd ? <EyeOff aria-hidden className="h-3.5 w-3.5" /> : <Eye aria-hidden className="h-3.5 w-3.5" />}
-            {showPwd ? "隐藏" : "显示"}
+            {showPwd ? <EyeOff aria-hidden className="h-4 w-4" /> : <Eye aria-hidden className="h-4 w-4" />}
           </button>
         </div>
       </div>
@@ -240,29 +240,24 @@ export function LoginForm({ state, next }: { state: UiState; next?: string }) {
         </p>
       ) : null}
 
-      {/* ── 分隔 · 第三方（D-02：保留视觉位但 disabled 标 later）───────── */}
-      <div className="flex items-center gap-3 py-0.5">
+      {/* ── 分隔 · 第三方（D-02：保留视觉位但 disabled，phase-1 只走邮箱 + 密码）── */}
+      <div className="flex items-center gap-3 py-1">
         <Separator className="flex-1" />
-        <span className="text-11 text-muted-foreground">或</span>
+        <span className="text-11 text-muted-foreground">其他登录方式 · 即将开放</span>
         <Separator className="flex-1" />
       </div>
-      <div className="flex flex-col gap-2" data-testid="login-providers">
-        <div className="grid grid-cols-3 gap-2">
-          {AUTH_PROVIDERS_LATER.map((p) => (
-            <Button
-              key={p.id}
-              variant="outline"
-              disabled
-              data-testid={`login-provider-${p.id}`}
-            >
-              {p.label}
-            </Button>
-          ))}
-        </div>
-        <p className="text-11 text-muted-foreground">
-          社交登录与企业 SSO <strong className="font-medium">phase-1 暂不开放</strong>（later）。
-          本阶段正式成员仅走邮箱 + 密码。
-        </p>
+      <div className="grid grid-cols-3 gap-2" data-testid="login-providers">
+        {AUTH_PROVIDERS_LATER.map((p) => (
+          <Button
+            key={p.id}
+            variant="outline"
+            disabled
+            title="即将开放"
+            data-testid={`login-provider-${p.id}`}
+          >
+            {p.label}
+          </Button>
+        ))}
       </div>
 
       {/*
@@ -274,10 +269,12 @@ export function LoginForm({ state, next }: { state: UiState; next?: string }) {
         ⚠ 刻意不写「7 天」：链接时效的事实源在 `ORG_INVITE_LINK_VALIDITY_MS`，
         这里再抄一份就是第三处副本（mock/org-admin.ts 的 linkValidDays 已是第二处）。
       */}
-      <div className="flex flex-col gap-1.5" data-testid="login-signup-paths">
-        <p className="text-12 text-muted-foreground">还没有账号？看你属于哪一种：</p>
-        <p className="text-12 text-muted-foreground">
-          · 我要<strong className="font-medium">开一个新组织</strong>（首位管理员）{" "}
+      <div
+        className="flex flex-col gap-2 border-t border-border-subtle pt-4"
+        data-testid="login-signup-paths"
+      >
+        <p className="text-13 text-muted-foreground">
+          还没有账号？开一个新组织，成为首位管理员 ·{" "}
           <button
             type="button"
             onClick={() => window.location.assign("/auth/register")}
@@ -288,10 +285,8 @@ export function LoginForm({ state, next }: { state: UiState; next?: string }) {
           </button>
         </p>
         <p className="text-12 text-muted-foreground" data-testid="login-invited-hint">
-          · 我<strong className="font-medium">被邀请加入已有组织</strong>：请直接打开管理员发给你的
-          <strong className="font-medium">激活链接</strong>
-          ，在那里设置密码即可入场；本页不需要、也无法自行注册加入某个组织。
-          没收到链接或链接已失效，请联系该组织的管理员重发。
+          被邀请加入已有组织？请打开管理员发给你的激活链接设置密码，本页无法自行注册加入组织；
+          链接失效请联系管理员重发。
         </p>
       </div>
     </div>

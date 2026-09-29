@@ -39,12 +39,13 @@ flowchart TD
   classDef blocked fill:#fecaca,stroke:#dc2626,color:#111827
 
   class G doing
-  class I1 done
-  class I2 todo
-  class I3 todo
+  class I1 tested
+  %% evidence I1: validate-fl/lint 全绿；人类在 GitHub 签核 5 束 + 一致性复核；harness doctor --phase 20 = 0 FAIL
+  class I2 doing
+  class I3 doing
   class I4 todo
-  class I5 todo
-  class I6 todo
+  class I5 doing
+  class I6 doing
   class I7 todo
   class I8 todo
   class I9 todo
@@ -72,3 +73,7 @@ flowchart TD
 |---|---|---|---|
 | 2026-09-28 | G, I1 | todo → doing | 接到目标：第一阶段按 10 轮迭代落地，每轮验收 |
 | 2026-09-28 | I1 | doing → done | phase-20 建立：5 份需求、36 个 feature（189 点，validate-fl 通过）、5 个契约束 + zod 契约、界面原型与截图；门控除签核外全绿；设计签核与一致性复核待人类补签（已授权先行开发） |
+| 2026-09-28 | I2, I3, I5, I6 | todo → doing | 人类允许每轮独立分支；并行开工：第 2 轮 WS01–WS05、第 3 轮 WF01–WF03、第 5 轮 AG01–AG02、第 6 轮 EV01–EV03（各自 worktree，无依赖冲突） |
+| 2026-09-28 | I1 | done → tested | 人类签核完成，doctor 0 FAIL；PR #4577 待 CI 绿后合入 |
+| 2026-09-28 | I2 | doing | WS01–WS05 开发与评审完成，真实旅程验收进行中 |
+| 2026-09-28 | I6 | doing | EV01–EV03 验收 ACCEPT，PR #4601；EV04 待 WS03 合入后做 |

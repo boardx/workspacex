@@ -211,6 +211,16 @@ export const NAV_SEGMENTS: NavSegment[] = [
       // `/agent`（与 `/skill` 平行，见 ui.md「成员目录作为新顶层路由 /agent」）。此前只有
       // 页面本体、没有导航入口——普通成员没有可发现的方式到达（review #AG04 指出）。
       { key: "agent-directory", label: "Agent 目录", href: "/agent", icon: Bot, ucRefs: ["phase-20-work-stack-foundation/03-agent-role"] },
+      // 束: work-skill-catalog（WS05，phase-20 Work Stack v2）—— e2e-acceptance 复核 M1：
+      // 该屏此前只能靠敲 URL `/skill?screen=work-catalog` 进入，非管理员角色（如 consultant）
+      // 完全无路可达（后台「Skill 库与市场」挂在「组织后台」children 下，只对 orgRole===admin
+      // 可见，且指向的是旧目录屏 `?screen=catalog`，不是本束）。这里加一条面向全体成员的
+      // 一级入口，与「大脑/任务」同组、同样不做角色裁剪——WorkSkillCatalog 本身按查看者角色
+      // 渲染就绪性与通道操作（无权限不展示通道按钮，见组件内 canManageChannel 判断），菜单只
+      // 负责「找得到」，不负责授权。
+      // ucRefs 如实留空：本阶段（phase-20-work-stack-foundation）requirements 未编 uc-X-Y 号，
+      // 判据单一事实源是 `phases/phase-20-work-stack-foundation/requirements/01-skill-catalog.md#R8`。
+      { key: "work-skill-catalog", label: "Skill 库", href: "/skill?screen=work-catalog", icon: Puzzle, ucRefs: [] },
     ],
   },
   {

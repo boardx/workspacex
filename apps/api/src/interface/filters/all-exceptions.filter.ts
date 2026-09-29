@@ -14,6 +14,7 @@
  */
 import { SkillFileEditError, SkillFileEditConflict } from "@repo/contracts/skill-file-edit";
 import { AgentRoleImportError, AgentRoleImportFailureDetail } from "@repo/contracts/agent-role";
+import { WorkSkillErrorBody } from "@repo/contracts/work-skill-meta";
 import { InterviewMarkdownReportReviewErrorCode } from "@repo/contracts/interview-markdown-report-review";
 import {
   type ArgumentsHost,
@@ -50,6 +51,7 @@ import {
   wave2Runtime,
   whiteboard,
 } from "@repo/contracts";
+import type { z } from "zod";
 import type { Response } from "express";
 import { errorDetailOf, LOGGER_PORT, type LoggerPort } from "../../application/ports/logger.port";
 import { ERROR_LOG_PORT, type ErrorLogPort } from "../../application/ports/error-log.port";
@@ -674,6 +676,7 @@ export class AllExceptionsFilter implements ExceptionFilter {
         ...researchConflictDetailOf(exception),
         ...artifactErrorOf(exception),
         ...prototypePatchRejectionOf(exception),
+        ...workSkillErrorOf(exception),
       });
       return;
     }
@@ -705,4 +708,16 @@ function surveyErrorOf(exception: HttpException): {
   return blockers.success
     ? { reasonCode: reason.data, blockers: blockers.data }
     : { reasonCode: reason.data };
+}
+
+/**
+ * Phase 20 WS02：`work-skill-meta` 的错误体（契约 `WorkSkillErrorBody`：code / message / issues[]）。
+ * 同其他结构化字段：只放通过契约闭集 parse 的值（code 是封闭枚举，issues 是 file/fieldPath/message），
+ * 不合契约的形状整体丢弃。E1 的 `issues[]` 是契约面的一部分（作者要据此改 frontmatter），不是内部细节。
+ */
+function workSkillErrorOf(exception: HttpException): Partial<z.infer<typeof WorkSkillErrorBody>> {
+  const body = exception.getResponse();
+  if (typeof body !== "object" || body === null) return {};
+  const parsed = WorkSkillErrorBody.safeParse((body as { workSkillError?: unknown }).workSkillError);
+  return parsed.success ? parsed.data : {};
 }

@@ -29,7 +29,7 @@
 import { identity } from "@repo/contracts";
 import type { z } from "zod";
 import type { OrgRole, PermissionReason, ProjectRole, VisibilityScope } from "./roles";
-import { isKnownAction, roleAllows } from "./project-role-matrix";
+import { containerAllows, isKnownAction, roleAllows, type ContainerKind } from "./project-role-matrix";
 
 export interface OrgLayerInput {
   /** null = not a member of this organization */
@@ -44,6 +44,15 @@ export interface ProjectLayerInput {
   readonly groupId: string | null;
   /** One facilitator instance among several may hold final say (O-03) */
   readonly isHost?: boolean;
+  /**
+   * #4584：这个项目层身份来自哪一类容器。省略 = `workshop`（本字段出现之前的全部调用方）。
+   *
+   * 研究项目 / 用户洞察的两档身份被映射到四角色里的某一行（`role`），但**只**在
+   * `NON_WORKSHOP_CONTAINER_ACTIONS` 白名单之内生效——议程、分组、现场参与、工作坊名单
+   * 对它们恒关（`project-role-matrix.ts` 的 `containerAllows`）。容器种类写在输入上、在
+   * 这里统一判，就不必在每个用例里写 `kind === "research_project"` 分叉。
+   */
+  readonly containerKind?: ContainerKind;
 }
 
 export interface ScopeInput {
@@ -107,7 +116,7 @@ export function decide(input: DecisionInput): PermissionDecision {
       : {
           role: project.role,
           groupId: project.groupId,
-          passed: project.role !== null && isKnownAction(action) && roleAllows(project.role, action),
+          passed: projectLayerAllows(project, action),
         };
 
   const deny = (reasonCode: PermissionReason): PermissionDecision => ({
@@ -133,6 +142,20 @@ export function decide(input: DecisionInput): PermissionDecision {
   }
 
   return { allowed: true, orgLayer, projectLayer, scopeLayer, reasonCode: null, decisionId };
+}
+
+/**
+ * 项目层「这个身份能不能做这个动作」的唯一表达：有角色 ∧ 动作已声明 ∧ 角色矩阵允许 ∧
+ * 容器种类允许（#4584）。`decide()` 用它；不经 `decide()` 的两层 OR 门
+ * （`application/project/member-authorization.ts`）也用它，而不是自己再拼一遍 `roleAllows`。
+ */
+export function projectLayerAllows(project: ProjectLayerInput, action: string): boolean {
+  return (
+    project.role !== null &&
+    isKnownAction(action) &&
+    roleAllows(project.role, action) &&
+    containerAllows(project.containerKind ?? "workshop", action)
+  );
 }
 
 /**

@@ -12,6 +12,7 @@ import type {
   BindingRow,
   IdentityRepository,
   AclObjectRef,
+  NonWorkshopStandingRow,
   OrgMembershipRow,
   OrganizationRow,
   ProjectMembershipRow,
@@ -90,6 +91,44 @@ export class PgIdentityRepository implements IdentityRepository {
             isHost: row.is_host,
           }
         : null;
+    });
+  }
+
+  /**
+   * #4584：研究项目 / 用户洞察两类容器里调用者的档位——`authorize()` 项目层的另一半来源
+   * （`application/identity/project-layer.ts`）。与上面的 `findProjectMembership` 同一性质：
+   * 判定**据以做出**的身份数据，所以同样不 guard（本文件的 lint-permission-paths 豁免理由逐字适用）。
+   *
+   * 一次查询：`projects.kind` 决定去哪张成员表（F128 迁移 `20260801190000`），闭合的 CASE，
+   * 不拼接表名。工作坊或不存在 ⇒ `null`（调用方回落到「无项目角色」，与此前行为相同）。
+   * 两张成员表都带 `org_id` 谓词：`projects.id` 是全局主键，但成员行的归属仍按租户判。
+   */
+  async findNonWorkshopStanding(
+    userId: string,
+    projectId: string,
+    orgId: OrgId,
+  ): Promise<NonWorkshopStandingRow | null> {
+    return this.db.withTenant(orgId, async (s) => {
+      const r = await s.query<{ kind: string; member_role: string | null }>(
+        `SELECT p.kind,
+                CASE p.kind
+                  WHEN 'research_project' THEN
+                    (SELECT rm.role FROM research_project_members rm
+                      WHERE rm.project_id = p.id AND rm.org_id = p.org_id AND rm.user_id = $1)
+                  WHEN 'user_insight' THEN
+                    (SELECT um.role FROM user_insight_members um
+                      WHERE um.project_id = p.id AND um.org_id = p.org_id AND um.user_id = $1)
+                END AS member_role
+           FROM projects p
+          WHERE p.id = $2 AND p.org_id = $3`,
+        [userId, projectId, orgId],
+      );
+      const row = r.rows[0];
+      if (!row || (row.kind !== "research_project" && row.kind !== "user_insight")) return null;
+      return {
+        containerKind: row.kind,
+        memberRole: (row.member_role as NonWorkshopStandingRow["memberRole"]) ?? null,
+      };
     });
   }
 

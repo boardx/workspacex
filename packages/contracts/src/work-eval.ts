@@ -90,6 +90,91 @@ export function suiteCoverageGaps(cases: readonly WorkEvalCase[]): ("permission-
   return (["permission-denial", "prompt-injection"] as const).filter(t => !tags.has(t));
 }
 
+/** 套件校验问题：`file` 为套件内相对文件，`path` 为字段路径（如 `baseline.tools`、`cases.jsonl:3.id`）。 */
+export interface WorkEvalSuiteIssue {
+  file: string;
+  path: string;
+  message: string;
+}
+
+function zodIssues(file: string, prefix: string, error: z.ZodError): WorkEvalSuiteIssue[] {
+  return error.issues.map(i => ({
+    file,
+    path: [prefix, ...i.path.map(String)].filter(Boolean).join(".") || "(root)",
+    message: i.message,
+  }));
+}
+
+/**
+ * 纯函数校验一个套件目录的内容（EV01，R3.1–3.2 / E1）。文件读取由调用方负责，本函数不碰 IO。
+ * - suite.json 过 `WorkEvalSuite`；`stableId` = 目录名；给了 manifest 的 `evalSuiteId` 时也必须相等；
+ * - cases.jsonl 每行过 `WorkEvalCase`，id 唯一；`mustPassCaseIds` 必须指向存在的 case；
+ * - fixtureRefs 必须在 `fixtureFiles` 中存在；
+ * - `llmJudge` 声明时必须有校准样本目录（E8 的前置）。
+ */
+export function validateWorkEvalSuiteBundle(input: {
+  dirName: string;
+  suiteJson: unknown;
+  casesJsonl: string;
+  fixtureFiles: readonly string[];
+  hasGrader: boolean;
+  hasCalibrationDir?: boolean;
+  manifestEvalSuiteId?: string | null;
+}): { ok: true; suite: WorkEvalSuite; cases: WorkEvalCase[] } | { ok: false; issues: WorkEvalSuiteIssue[] } {
+  const issues: WorkEvalSuiteIssue[] = [];
+  const parsedSuite = WorkEvalSuite.safeParse(input.suiteJson);
+  if (!parsedSuite.success) issues.push(...zodIssues("suite.json", "", parsedSuite.error));
+  const suite = parsedSuite.success ? parsedSuite.data : null;
+  if (suite && suite.stableId !== input.dirName) {
+    issues.push({ file: "suite.json", path: "stableId", message: `stableId ${suite.stableId} must equal directory name ${input.dirName}` });
+  }
+  if (suite && input.manifestEvalSuiteId != null && suite.stableId !== input.manifestEvalSuiteId) {
+    issues.push({ file: "suite.json", path: "stableId", message: `stableId ${suite.stableId} must equal manifest.evalSuiteId ${input.manifestEvalSuiteId}` });
+  }
+  if (suite?.llmJudge && !input.hasCalibrationDir) {
+    issues.push({ file: "suite.json", path: "llmJudge.calibrationDir", message: "llmJudge requires calibration samples" });
+  }
+  if (!input.hasGrader) issues.push({ file: "grader.ts", path: "(file)", message: "grader.ts is required" });
+
+  const cases: WorkEvalCase[] = [];
+  const fixtures = new Set(input.fixtureFiles);
+  const lines = input.casesJsonl.split("\n");
+  lines.forEach((raw, idx) => {
+    const line = raw.trim();
+    if (!line) return;
+    const prefix = `cases.jsonl:${idx + 1}`;
+    let json: unknown;
+    try {
+      json = JSON.parse(line);
+    } catch {
+      issues.push({ file: "cases.jsonl", path: prefix, message: "invalid JSON" });
+      return;
+    }
+    const parsed = WorkEvalCase.safeParse(json);
+    if (!parsed.success) {
+      issues.push(...zodIssues("cases.jsonl", prefix, parsed.error));
+      return;
+    }
+    if (cases.some(c => c.id === parsed.data.id)) {
+      issues.push({ file: "cases.jsonl", path: `${prefix}.id`, message: `duplicate case id ${parsed.data.id}` });
+    }
+    parsed.data.fixtureRefs.forEach((ref, i) => {
+      if (!fixtures.has(ref)) issues.push({ file: "cases.jsonl", path: `${prefix}.fixtureRefs.${i}`, message: `fixture not found: fixtures/${ref}` });
+    });
+    cases.push(parsed.data);
+  });
+  if (cases.length === 0 && !issues.some(i => i.file === "cases.jsonl")) {
+    issues.push({ file: "cases.jsonl", path: "(file)", message: "at least one case is required" });
+  }
+  if (suite) {
+    suite.mustPassCaseIds.forEach((id, i) => {
+      if (!cases.some(c => c.id === id)) issues.push({ file: "suite.json", path: `mustPassCaseIds.${i}`, message: `unknown case id ${id}` });
+    });
+  }
+  if (issues.length > 0 || !suite) return { ok: false, issues };
+  return { ok: true, suite, cases };
+}
+
 /* ── 报告（EV02；evals/work-stack/<ID>/reports/<runId>.json） ──────────── */
 
 export const WorkEvalCaseResult = z

@@ -70,10 +70,15 @@ const compose = `docker compose -f ../api/docker-compose.dev.yml -p "${required(
  * 就显式覆盖 `FULLSTACK_E2E_SERVER_TIMEOUT_MS`。这次改的是默认值本身对应的真实
  * 依赖重量，不是绕过信号。
  *
+ * 2026-09-28（PR #4567）—— CI 的生产构建已在 3m54s 完成编译、页面
+ * 生成和 trace 收集，但在 `next start` 绑定端口前命中 240s 上限，导致
+ * 真实浏览器用例一条都未执行。这次仍是可观测的冷构建基线增长，
+ * 因此把默认启动窗口调整为 600s；用例本身的超时、断言和失败信号不变。
+ *
  * ⚠ `database-unavailable` 那条反证**不受它影响**：那一格要的就是「快速失败」，
  *   给它一个长窗口只会让反证等满。见下方 API 那格的三元。
  */
-const serverStartTimeoutMs = Number(process.env.FULLSTACK_E2E_SERVER_TIMEOUT_MS ?? 240_000);
+const serverStartTimeoutMs = Number(process.env.FULLSTACK_E2E_SERVER_TIMEOUT_MS ?? 600_000);
 const fixtureEnv = {
   FULLSTACK_E2E_FIXTURE: "1",
   FULLSTACK_E2E_EMAIL: FULLSTACK_E2E.email,
@@ -268,8 +273,13 @@ export default defineConfig({
         // prevents the browser acceptance contract from silently becoming local-only.
         "guided-research-trust-console.spec.ts",
         "digital-interview-research-quality.spec.ts",
+        "digital-interview-report-export-live.spec.ts",
+        "digital-interview-intake-failure-live.spec.ts",
+        "digital-interview-density-live.spec.ts",
         "survey-complete-flow.spec.ts",
         "survey-trusted-publishing.spec.ts",
+        // #4582：项目中枢第三批真栈走查（问卷答卷入证据 / 大脑空态 / AI 权限关来源 / 观察者脱敏）。
+        "project-hub-b3-walkthrough.spec.ts",
         // #2490：controller 路由 ↔ rewrite 成对的**运行时**反证（静态 lint 之外的那一半）。
         "rewrite-coverage-live-smoke.spec.ts",
         "capability-mutate-smoke.spec.ts",
