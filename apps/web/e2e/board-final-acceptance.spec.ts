@@ -118,7 +118,7 @@ test('Diagram: A->B->C via two-click connections remain attached after each shap
     // the Fabric surface for the full requested scene-space delta.
     for (const {name, dx} of [{name: 'A', dx: 24}, {name: 'B', dx: 24}, {name: 'C', dx: -24}]) {
       const before = rows.filter(row => row.kind === 'connector');
-      await dragObject(page, name, dx, 90);
+      await dragObject(page, name, dx, 90, false, undefined, 32);
       rows = await canonicalRows(page); expect(connectorsBound(rows)).toBe(true);
       expect(rows.filter(row => row.kind === 'connector')).not.toEqual(before);
       expect(rows.filter(row => row.kind === 'connector').map(row => [row.from, row.to]).sort()).toEqual([['A', 'B'], ['B', 'C']]);

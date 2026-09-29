@@ -97,8 +97,10 @@ test('visual and accessibility real object states, input and negative controls',
       input.push({kind:'cdp-touch-pinch',hardware:false,before:zoomBefore,after:Number(await surface.getAttribute('data-viewport-zoom'))});
       await page.getByTestId('board-tool-select').click();await page.getByTestId('board-zoom-fit-board').click();
       const target=(await canonicalRows(page)).filter(row=>row.kind==='sticky').sort((a,b)=>a.text.length-b.text.length)[0]!,point=await objectPoint(page,target.id);
+      await page.mouse.click(point.x,point.y);
+      await expect(page.getByTestId(`board-a11y-object-${target.id}`)).toHaveAttribute('aria-pressed','true');
       await cdp.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[{x:point.x,y:point.y}]});
-      for(let step=1;step<=8;step++)await cdp.send('Input.dispatchTouchEvent',{type:'touchMove',touchPoints:[{x:point.x+step*5,y:point.y+step*3}]});
+      for(let step=1;step<=8;step++)await cdp.send('Input.dispatchTouchEvent',{type:'touchMove',touchPoints:[{x:point.x+step*12,y:point.y+step*7}]});
       await cdp.send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});
       await expect.poll(async()=>(await canonicalRows(page)).find(row=>row.id===target.id)?.geometry.x).not.toBe(target.geometry.x);
       input.push({kind:'cdp-touch-object-drag',hardware:false,before:target,after:(await canonicalRows(page)).find(row=>row.id===target.id)});
