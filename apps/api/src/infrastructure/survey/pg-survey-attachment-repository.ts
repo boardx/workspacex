@@ -115,15 +115,15 @@ export class PgSurveyAttachmentRepository implements AttachmentRepository {
         [orgId, surveyId],
       );
       const model = row.rows[0]?.document.model;
-      const publication = model?.collectionBatches?.find((batch) =>
+      const publication = (model?.publication && timingSafeEqual(
+        Buffer.from(capabilityHash(model.publication.token), "hex"),
+        Buffer.from(capabilityHash(token), "hex"),
+      ) ? model.publication : undefined) ?? model?.collectionBatches?.find((batch) =>
         timingSafeEqual(
           Buffer.from(capabilityHash(batch.token), "hex"),
           Buffer.from(capabilityHash(token), "hex"),
         ),
-      ) ?? (model?.publication && timingSafeEqual(
-        Buffer.from(capabilityHash(model.publication.token), "hex"),
-        Buffer.from(capabilityHash(token), "hex"),
-      ) ? model.publication : undefined);
+      );
       if (
         !publication
       )
