@@ -13,7 +13,9 @@ import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { NestExpressApplication } from "@nestjs/platform-express";
-import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
+import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
+import { WORK_GATE_OFFICIAL_ORG, type WorkGateOfficialOrg } from "../../src/application/work-eval/work-gate-status";
+import type { OrgId } from "../../src/domain/org-id";
 import { addCredential, addOrgMember, asApp, ensureDatabase, migrateOnce, resetOrgs, seedOrg } from "../support/db";
 import { CONTRACT, importWorkPack, MEETING, RESEARCH, writeWorkPack } from "../work-skill/support/catalog-fixture";
 
@@ -100,12 +102,11 @@ beforeAll(async () => {
   base = `http://127.0.0.1:${typeof address === "object" && address ? address.port : 0}`;
   await addCredential(OPS, OPS_EMAIL, "EV04 Ops");
   process.env.PLATFORM_SUPERUSER_EMAILS = OPS_EMAIL;
-  // I-10：隔离测试把一次性 ORG 当作官方平台组织目录（生产 = PLATFORM_ORG_ID）。
-  process.env.WORK_GATE_OFFICIAL_ORG_ID = ORG;
+  // I-10：隔离测试对官方组织 provider 打桩，把一次性 ORG 当作官方目录（生产 = PLATFORM_ORG_ID）。
+  vi.spyOn(app.get<WorkGateOfficialOrg>(WORK_GATE_OFFICIAL_ORG), "orgId").mockReturnValue(ORG as OrgId);
 }, 180_000);
 
 afterAll(async () => {
-  delete process.env.WORK_GATE_OFFICIAL_ORG_ID;
   if (ORIGINAL_WHITELIST === undefined) delete process.env.PLATFORM_SUPERUSER_EMAILS;
   else process.env.PLATFORM_SUPERUSER_EMAILS = ORIGINAL_WHITELIST;
   await app?.close();
@@ -166,6 +167,14 @@ describe("EV04 platform operator write-back", () => {
     expect((await post(S3, { status: passing, idempotencyKey: randomUUID() })).status).toBe(200);
     expect((await get(S3, "", OPS)).body.canMarkVerified).toBe(true);
     expect((await get(S3)).body.canMarkVerified).toBe(false);
+  });
+
+  it("concurrent requests with the same idempotency key → all 200, exactly one event (no 500)", async () => {
+    const digest = await versionDigest(S3V1);
+    const key = randomUUID();
+    const results = await Promise.all(Array.from({ length: 4 }, () => post(S3, { status: status(digest), idempotencyKey: key })));
+    expect(results.map((r) => r.status)).toEqual([200, 200, 200, 200]);
+    expect(await events()).toHaveLength(1);
   });
 
   it("idempotent replay returns 200 without a second event; same key with a different body → 409", async () => {

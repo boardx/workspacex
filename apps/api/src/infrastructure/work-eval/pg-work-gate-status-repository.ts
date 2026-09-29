@@ -22,6 +22,11 @@ export class PgWorkGateStatusRepository implements WorkGateStatusRepository {
 
   async writeBack(input: Parameters<WorkGateStatusRepository["writeBack"]>[0]): Promise<GateWriteOutcome> {
     return this.db.withTenant(input.orgId, async (session): Promise<GateWriteOutcome> => {
+      // 先按 (org, idempotencyKey) 取事务级咨询锁再查重放：并发同键请求串行化，
+      // 后到者必然看到先到者已提交的事件行（重放 200 / 冲突 409），不会撞 UNIQUE 变 500。
+      await session.query("SELECT pg_advisory_xact_lock(hashtextextended($1, 0))", [
+        `skill-gate-writeback:${input.orgId}:${input.idempotencyKey}`,
+      ]);
       const prior = await session.query<{ skill_id: string; skill_version_id: string; request_digest: string }>(
         `SELECT skill_id, skill_version_id, request_digest FROM skill_gate_writeback_events
           WHERE org_id = $1 AND idempotency_key = $2`,

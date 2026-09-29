@@ -54,6 +54,23 @@ export interface WorkGateStatusDeps {
 
 export class WorkGateSkillNotFoundError extends Error {}
 export class WorkGatePlatformAdminRequiredError extends Error {}
+
+/**
+ * I-10 官方平台组织目录的注入口（生产 = `PLATFORM_ORG_ID`，见 kernel.module）。
+ * 以 DI 提供而非读环境变量——授权判定路径上不允许存在环境开关；测试对该 provider 打桩。
+ */
+export const WORK_GATE_OFFICIAL_ORG = Symbol("WorkGateOfficialOrg");
+export interface WorkGateOfficialOrg {
+  orgId(): OrgId;
+}
+
+/**
+ * I-10 / E9 回写授权规则的唯一实现：仅平台运营、且仅官方平台组织目录。
+ * 控制器在校验请求体之前调用它（E9：鉴权先于校验），`writeBackWorkGateStatus` 内再调用同一函数兜底。
+ */
+export function assertGateWriter(input: { readonly isPlatformOperator: boolean; readonly orgId: OrgId; readonly officialOrgId: OrgId }): void {
+  if (!input.isPlatformOperator || input.orgId !== input.officialOrgId) throw new WorkGatePlatformAdminRequiredError();
+}
 export class WorkGateDigestMismatchError extends Error {}
 export class WorkGateStableIdMismatchError extends Error {}
 export class WorkGateIdempotencyConflictError extends Error {}
@@ -100,7 +117,7 @@ export async function writeBackWorkGateStatus(
     readonly requestDigest: string;
   },
 ): Promise<GateView> {
-  if (!input.isPlatformOperator || input.orgId !== input.officialOrgId) throw new WorkGatePlatformAdminRequiredError();
+  assertGateWriter(input);
   const outcome = await deps.gateStatus.writeBack({
     orgId: input.orgId,
     actorId: input.actorId,

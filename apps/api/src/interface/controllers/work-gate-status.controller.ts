@@ -23,13 +23,15 @@ import {
   UnprocessableEntityException,
 } from "@nestjs/common";
 import { z } from "zod";
-import { PLATFORM_ORG_ID, type OrgId } from "../../domain/org-id";
 import { WorkEvalErrorBody, WriteBackWorkGateStatus } from "@repo/contracts/work-eval";
 import { CREDENTIAL_REPOSITORY, type CredentialRepository } from "../../application/auth/ports";
 import { IDENTITY_REPOSITORY, type IdentityRepository } from "../../application/identity/ports";
 import { PLATFORM_ADMIN_REPOSITORY, type PlatformAdminRepository } from "../../application/system/platform-admin-ports";
 import {
+  assertGateWriter,
   getWorkGateStatus,
+  WORK_GATE_OFFICIAL_ORG,
+  type WorkGateOfficialOrg,
   WORK_GATE_STATUS_REPOSITORY,
   WorkGateDigestMismatchError,
   WorkGateIdempotencyConflictError,
@@ -77,14 +79,6 @@ function mapError(error: unknown): never {
   throw error;
 }
 
-/**
- * I-10 官方平台组织 = `PLATFORM_ORG_ID`。`WORK_GATE_OFFICIAL_ORG_ID` 仅供隔离测试把一个一次性 org
- * 当作官方目录（不能 reset 全局共享的 org-platform）；生产不设。
- */
-function officialGateOrgId(): OrgId {
-  return (process.env.WORK_GATE_OFFICIAL_ORG_ID || PLATFORM_ORG_ID) as OrgId;
-}
-
 @Controller()
 export class WorkGateStatusController {
   constructor(
@@ -92,6 +86,7 @@ export class WorkGateStatusController {
     @Inject(WORK_GATE_STATUS_REPOSITORY) private readonly gateStatus: WorkGateStatusRepository,
     @Inject(CREDENTIAL_REPOSITORY) private readonly credentials: CredentialRepository,
     @Inject(PLATFORM_ADMIN_REPOSITORY) private readonly platformAdmins: PlatformAdminRepository,
+    @Inject(WORK_GATE_OFFICIAL_ORG) private readonly officialOrg: WorkGateOfficialOrg,
   ) {}
 
   private async operator(userId: string): Promise<boolean> {
@@ -107,9 +102,13 @@ export class WorkGateStatusController {
     assertPrincipal(principal);
     // 鉴权先于校验与任何仓储调用（E9）。
     const isOperator = await this.operator(principal.userId);
-    const officialOrgId = officialGateOrgId();
-    // I-10：仅平台运营、且仅官方平台组织目录（非官方组织的回写一律 403，不触达仓储）。
-    if (!isOperator || principal.orgId !== officialOrgId) return mapError(new WorkGatePlatformAdminRequiredError());
+    const officialOrgId = this.officialOrg.orgId();
+    // I-10：规则单源在应用层 assertGateWriter；此处提前调用只为满足「鉴权先于校验」。
+    try {
+      assertGateWriter({ isPlatformOperator: isOperator, orgId: principal.orgId, officialOrgId });
+    } catch (error) {
+      return mapError(error);
+    }
     const parsed = WriteBody.safeParse(raw);
     if (!TextId.safeParse(skillId).success) throw validationFailed("invalid skillId");
     if (!parsed.success) {
