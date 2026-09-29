@@ -430,7 +430,7 @@ export function ChatTaskInspector(props: ChatTaskInspectorProps): JSX.Element {
       {...dragHandlers}
       style={sizable ? { width: `${String(width)}px` } : undefined}
       className={cn(
-        "relative flex shrink-0 flex-col border-l border-border bg-card",
+        "relative flex shrink-0 flex-col border-l border-border-subtle bg-panel-alt",
         mobile ? "min-h-0 flex-1 w-full border-l-0" : collapsed ? "w-10" : undefined,
       )}
       data-testid="chat-task-workbench-inspector"
@@ -494,8 +494,8 @@ export function ChatTaskInspector(props: ChatTaskInspectorProps): JSX.Element {
                 "focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-ring/40",
                 collapsed || !selected ? "w-8 px-0" : "px-3",
                 selected
-                  ? "bg-muted font-medium text-card-foreground"
-                  : "text-muted-foreground hover:bg-muted hover:text-card-foreground",
+                  ? "bg-card font-medium text-card-foreground shadow-sm"
+                  : "text-muted-foreground hover:bg-card hover:text-card-foreground",
               )}
             >
               <Icon aria-hidden className="h-4 w-4 shrink-0" />

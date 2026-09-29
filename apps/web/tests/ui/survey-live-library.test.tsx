@@ -59,16 +59,33 @@ describe("LiveSurveyLibrary", () => {
       {id:"r3",quality:"normal",analysis:"excluded"},
     ]})]);
     render(<LiveSurveyLibrary />);
-    const label = await screen.findByText("纳入分析");
-    expect(label.parentElement).toHaveTextContent("2纳入分析");
+    const label = await screen.findByText("有效答卷");
+    expect(label.parentElement).toHaveTextContent("2有效答卷");
   });
   it("shows real survey status and routes collecting surveys to response review", async () => {
     request.mockResolvedValueOnce([survey()]);
     render(<LiveSurveyLibrary />);
     expect(await screen.findByRole("heading", { name: "问卷" })).toBeInTheDocument();
-    expect(screen.getByTestId("survey-status-survey-1")).toHaveTextContent("回收中");
+    expect(screen.getByTestId("survey-status-survey-1")).toHaveTextContent("发布中");
     fireEvent.click(screen.getByRole("button", { name: "查看答卷" }));
     expect(push).toHaveBeenCalledWith("/studio/survey/survey-1/responses");
+  });
+
+  it("presents the approved library hierarchy with a neutral visual cover", async () => {
+    request.mockResolvedValueOnce([survey({ tags: ["客户调研", "满意度"] })]);
+    render(<LiveSurveyLibrary />);
+
+    expect(await screen.findByTestId("survey-card-cover-survey-1")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "导入 Markdown" })).not.toBeInTheDocument();
+    expect(screen.getByRole("navigation", { name: "问卷二级导航" })).toHaveClass("survey-library-nav");
+    expect(screen.getByTestId("survey-status-survey-1")).toHaveTextContent("发布中");
+  });
+
+  it("uses a structured loading skeleton while the real survey list is pending", () => {
+    request.mockReturnValueOnce(new Promise(() => undefined));
+    render(<LiveSurveyLibrary />);
+    expect(screen.getByTestId("survey-library-loading")).toBeInTheDocument();
+    expect(screen.getByRole("status", { name: "正在加载问卷" })).toBeInTheDocument();
   });
 
   it("distinguishes a failed list request from an empty survey list", async () => {
@@ -94,5 +111,15 @@ describe("LiveSurveyLibrary", () => {
     expect(screen.getByRole('link',{name:'客户满意度'})).toBeInTheDocument();
     expect(screen.queryByRole('link',{name:'员工体验'})).not.toBeInTheDocument();
     expect(screen.getByRole('link',{name:'报告模板'})).toBeInTheDocument();
+  });
+  it("expands persisted tags beyond the first seven and keeps them selectable", async () => {
+    const tags = Array.from({ length: 8 }, (_, index) => `标签${index + 1}`);
+    request.mockResolvedValueOnce([survey({ tags })]);
+    render(<LiveSurveyLibrary />);
+    await screen.findByRole("link", { name: "客户满意度" });
+    expect(screen.queryByRole("button", { name: "标签8" })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: /更多标签/ }));
+    fireEvent.click(screen.getByRole("button", { name: "标签8" }));
+    expect(screen.getByRole("link", { name: "客户满意度" })).toBeInTheDocument();
   });
 });
