@@ -46,6 +46,7 @@
  * 是同一种取证纪律：制造的是「一定会经过的中间态」，不是伪造内容本身。
  */
 import { guidedResearchReply } from "./loopback-guided-research";
+import { contentSkillReply, isContentSkillRequest } from "./loopback-content-skill";
 import { createServer } from "node:http";
 import {
   FILE_CONTEXT_MESSAGE_HEADER_PREFIX,
@@ -629,7 +630,9 @@ const server = createServer((req, res) => {
      *
      * 影响面：正文里不带那个哨兵的请求，走到的分支与改动前逐字节相同。
      */
-    const fullText = surveyReply ?? researchReply ?? (isKgExtractionRequest(parsed.messages)
+    // 内容线 Skill 阶段（W029 等）：runner 只收单个 JSON 对象，回显前缀会让阶段必然失败。
+    const contentReply = isContentSkillRequest(researchSystem) ? contentSkillReply(echoed) : null;
+    const fullText = contentReply ?? surveyReply ?? researchReply ?? (isKgExtractionRequest(parsed.messages)
       ? EMPTY_KG_EXTRACTION_REPLY
       : isFollowUpSuggestionsRequest(parsed.messages)
       ? followUpSuggestionsReply(parsed.messages)

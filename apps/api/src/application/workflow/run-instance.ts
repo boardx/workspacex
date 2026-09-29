@@ -76,6 +76,35 @@ export interface RunInstanceDeps {
    * 冒泡给 `onRunError`，lease 不释放，行为与其他未知错误一致（不是本次修复引入的新退化）。
    */
   effectGateway?: EffectGateway;
+  /**
+   * 阶段业务失败的观测出口（每次 stage_retried / stage_failed 各调一次）。只带错误的 name / code /
+   * reason 等机读字段——不带 message（可能夹带模型原文 / 用户内容），见 observability.md。
+   */
+  onStageFailure?(info: StageFailureInfo): void;
+}
+
+export interface StageFailureInfo {
+  instanceId: string;
+  stageId: string;
+  attempt: number;
+  failureKind: StageFailureKind;
+  /** true = 已记 stage_failed、实例落终态；false = 记了 stage_retried。 */
+  final: boolean;
+  error: StageErrorSummary;
+}
+
+export interface StageErrorSummary {
+  name: string;
+  code: string | null;
+  reason: string | null;
+}
+
+/** 从错误对象里只摘机读字段（name / code / reason），不读 message。 */
+export function stageErrorSummary(e: unknown): StageErrorSummary {
+  if (!e || typeof e !== "object") return { name: typeof e, code: null, reason: null };
+  const o = e as { name?: unknown; code?: unknown; reason?: unknown };
+  const name = typeof o.name === "string" ? o.name : (e as object).constructor?.name ?? "object";
+  return { name, code: typeof o.code === "string" ? o.code : null, reason: typeof o.reason === "string" ? o.reason : null };
 }
 
 /** 实例已被取消/进入终态：停止推进（不是错误）。 */
@@ -198,6 +227,13 @@ export async function runInstance(deps: RunInstanceDeps, lease: WorkflowLease): 
    * `failed`（reasonCode `stage_attempts_exhausted`），然后停止推进——不再无限接管、界面不再永远「运行中」。
    * 运行时控制流错误（取消/门/权限拦截/对账/lease 丢失）不是阶段失败，不计数。
    */
+  const reportStageFailure = (stageId: string, attempt: number, failureKind: StageFailureKind, final: boolean, e: unknown): void => {
+    try {
+      deps.onStageFailure?.({ instanceId, stageId, attempt, failureKind, final, error: stageErrorSummary(e) });
+    } catch {
+      /* 观测出口不得影响阶段推进 */
+    }
+  };
   const recordStageFailure = async (stageId: string, e: unknown): Promise<void> => {
     if (isControlFlowError(e)) return;
     const maxAttempts = definition.stages.find((s) => s.stageId === stageId)?.maxAttempts ?? 1;
@@ -206,10 +242,12 @@ export async function runInstance(deps: RunInstanceDeps, lease: WorkflowLease): 
     const failureKind = failureKindOf(e);
     if (failures < maxAttempts && failureKind !== "provider_not_configured") {
       await append({ type: "stage_retried", stageId, reasonCode: null, data: { attempt: failures + 1, failures, failureKind } });
+      reportStageFailure(stageId, failures, failureKind, false, e);
       return;
     }
     await holdLease();
     await append({ type: "stage_failed", stageId, reasonCode: "stage_attempts_exhausted", data: { attempt: failures, failures, failureKind } });
+    reportStageFailure(stageId, failures, failureKind, true, e);
     await append(
       { type: "status_changed", stageId: null, reasonCode: "stage_attempts_exhausted", data: { status: "failed" } },
       { status: "failed", reasonCode: "stage_attempts_exhausted" },
@@ -278,13 +316,15 @@ function isControlFlowError(e: unknown): boolean {
 }
 
 /** 失败分类（写进事件 data，给界面挑友好文案）；只看错误码，不读 message。 */
-export type StageFailureKind = "provider_not_configured" | "model_call_failed" | "unknown";
+export type StageFailureKind = "provider_not_configured" | "model_call_failed" | "skill_output_invalid" | "unknown";
 
 export function failureKindOf(e: unknown): StageFailureKind {
   let cur: unknown = e;
   for (let depth = 0; depth < 5 && cur && typeof cur === "object"; depth++) {
     const code = (cur as { code?: unknown }).code;
     if (code === "MODEL_PROVIDER_NOT_CONFIGURED") return "provider_not_configured";
+    // 内容线 Skill 阶段：模型回了东西，但不是约定的单个 JSON 对象（ContentSkillRunError）。
+    if (code === "CONTENT_SKILL_OUTPUT_NOT_JSON_OBJECT") return "skill_output_invalid";
     if (typeof code === "string" && code.startsWith("MODEL_")) return "model_call_failed";
     cur = (cur as { cause?: unknown }).cause;
   }

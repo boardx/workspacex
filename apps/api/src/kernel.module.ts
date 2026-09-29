@@ -1300,6 +1300,11 @@ const WHITEBOARD_OPERATION_AUDIT_REPOSITORY = Symbol('WhiteboardOperationAuditRe
         skills: new PgSkillCatalogVersionResolver(db),
         content: { skills: new ModelContentSkillRunner(model, new PgWorkflowAccess(db)), notifications },
         onRunError: (instanceId, err) => logger.error("workflow.run_failed", { traceId: `workflow:${instanceId}`, instanceId, err }),
+        // 阶段业务失败（含重试）落日志：只带 name/code/reason 与 failureKind，不带 message / 模型原文。
+        onStageFailure: (f) => logger.error(f.final ? "workflow.stage_failed" : "workflow.stage_retried", {
+          traceId: `workflow:${f.instanceId}`, instanceId: f.instanceId, stageId: f.stageId, attempt: f.attempt, failureKind: f.failureKind,
+          err: { ...f.error, stageId: f.stageId, attempt: f.attempt, failureKind: f.failureKind },
+        }),
         replayWindow: Number(process.env.KERNEL_WORKFLOW_SSE_REPLAY_WINDOW ?? "1000"),
       }),
     },
