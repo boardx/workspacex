@@ -58,7 +58,11 @@ import { TemplateError } from "./templates";
  *
  * ⚠ 成员逐个等于 DB CHECK（`projects.kind`）与三张子表的 `kind` 常量 CHECK。
  */
-export const ProjectKind = z.enum(["workshop", "research_project", "user_insight"]);
+/*
+ * #4615（PROP-PROJECT-WORKSPACE-001，2026-09-29 人类裁决推翻 Q-12）：「项目」泛化为通用工作空间。
+ * `general` = 通用项目（原研究项目 / 用户洞察两类并入，未上线、不迁数据）；`workshop` 是一种可选形态。
+ */
+export const ProjectKind = z.enum(["workshop", "general"]);
 
 /**
  * 生命周期。**恰好两态**（Q-5 裁 B）：`archived` = 只读，**归档不删除任何内容**。
@@ -298,15 +302,22 @@ export const ProjectListItem = z
 
 /* ─────────── 项目中枢 B2（2026-09-27，ad-hoc）：项目资源关联 + AI 权限 的形状 ─────────── */
 
-/** 能挂到项目上的资源类型。访谈不在这里：它自己的表已有 `project_id`，不走链接表。 */
-export const ProjectLinkableResourceKind = z.enum(["survey", "guided_research", "personal_transcription"]);
-/** 项目资源视图里出现的全部类型（= 可链接三类 + 访谈）。 */
-export const ProjectResourceKind = z.enum(["survey", "guided_research", "personal_transcription", "interview"]);
+/**
+ * 能挂到项目上的资源类型（#4615 起访谈 / 白板 / 设计也走链接表；对话走 `chat_threads.project_id`，
+ * 文件走 `artifacts.project_id`，不在这里）。
+ */
+export const ProjectLinkableResourceKind = z.enum([
+  "survey", "guided_research", "personal_transcription", "interview", "whiteboard", "design",
+]);
+/** 项目资源视图里出现的全部类型（= 可链接的全部类型）。 */
+export const ProjectResourceKind = ProjectLinkableResourceKind;
 export const PROJECT_RESOURCE_KIND_LABEL_ZH: Record<z.infer<typeof ProjectResourceKind>, string> = {
   survey: "问卷",
   guided_research: "深度研究",
   personal_transcription: "录音转写",
   interview: "用户访谈",
+  whiteboard: "白板",
+  design: "设计",
 };
 export const ProjectResourceItem = z
   .object({
@@ -323,9 +334,10 @@ export const ProjectResourceItem = z
   .strict();
 
 /** 允许进入项目大脑的来源。 */
-export const ProjectAiSourceKind = z.enum(["chat", "transcript", "survey", "interview", "research"]);
+export const ProjectAiSourceKind = z.enum(["chat", "whiteboard", "transcript", "survey", "interview", "research"]);
 export const PROJECT_AI_SOURCE_LABEL_ZH: Record<z.infer<typeof ProjectAiSourceKind>, string> = {
   chat: "项目对话",
+  whiteboard: "白板",
   transcript: "录音转写",
   survey: "问卷",
   interview: "用户访谈",
