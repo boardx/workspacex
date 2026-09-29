@@ -10,8 +10,10 @@ import { EffectGateway, type EffectReconcilePort } from "../../application/workf
 import type { RunHooks } from "../../application/workflow/run-instance";
 import type { SkillVersionResolverPort } from "../../application/workflow/workflow-ports";
 import { WorkflowRuntimeService } from "../../application/workflow/workflow-runtime-service";
+import { demoApprovalWorkflowGraph } from "./demo-approval-workflow-graph";
 import { demoWorkflowGraph } from "./demo-workflow-graph";
 import { PgEffectCapabilityAuthority } from "./pg-effect-capability-authority";
+import { productWorkflowGraphs } from "./product-workflow-graphs";
 import { PgWorkflowAccess } from "./pg-workflow-access";
 import { PgWorkflowDefinitionRepository } from "./pg-workflow-definition-repository";
 import { PgWorkflowExpiredLeaseScanner } from "./pg-workflow-expired-lease-scanner";
@@ -39,7 +41,7 @@ import {
 export const UNRESOLVED_SKILL_VERSIONS: SkillVersionResolverPort = { resolve: async () => null };
 
 export function defaultWorkflowGraphs(): LinearWorkflowGraph[] {
-  return [demoWorkflowGraph()];
+  return [demoWorkflowGraph(), demoApprovalWorkflowGraph(), ...productWorkflowGraphs()];
 }
 
 /** WF07：迁入通用运行时的命令驱动图（引导式研究 = `guided-research:1`）。 */

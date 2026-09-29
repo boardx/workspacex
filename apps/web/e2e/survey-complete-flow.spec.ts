@@ -10,11 +10,7 @@ test('AI 提案先校对再应用并保存为 Markdown',async({page},testInfo)=>
  await page.getByLabel('标签',{exact:true}).fill('客户调研');await page.getByLabel('标签',{exact:true}).press('Enter');
  await page.getByRole('radio',{name:/AI 导入创建/}).check();
  await page.getByRole('button',{name:'下一步',exact:true}).click();
- await expect(page).toHaveURL(/step=import&mode=ai/);
- await page.getByRole('button',{name:'← 返回列表'}).click();
- const unfinished=page.locator('article').filter({has:page.getByRole('link',{name:'AI 校对验收'})});
- await unfinished.getByRole('button',{name:'继续设计'}).click();
- await expect(page).toHaveURL(/step=import&mode=ai/);
+ await expect(page).toHaveURL(/\/studio\/survey\/new\/import\?draft=/);
  await page.screenshot({path:testInfo.outputPath('survey-ai-import-step.png'),fullPage:true});
  await page.getByLabel('问卷需求').fill('调查客户最近一次使用体验');
  await page.getByLabel('上传问卷文件').setInputFiles({name:'研究目标.md',mimeType:'text/markdown',buffer:Buffer.from('研究软件用户近期的真实产品体验')});
@@ -74,6 +70,7 @@ test("用户可从模板完整走通创建、发布、答题、查看答卷和�
 },testInfo) => {
   test.setTimeout(120_000);
   await loginAsAdmin(page);
+  await page.setViewportSize({ width: 1586, height: 992 });
 
   await page.goto("/studio/survey");
   await expect(page.getByRole("heading", { name: "问卷", exact: true })).toBeVisible();
@@ -169,12 +166,17 @@ test("用户可从模板完整走通创建、发布、答题、查看答卷和�
   await expect(page.getByRole("button", { name: "导出 Word" })).toBeDisabled();
   await expect(page.getByRole("button", { name: "导出 PDF" })).toBeDisabled();
 
+  await page.getByRole("button", { name: "3. 查看答卷" }).click();
+  await expect(page.getByText("2 份答卷", { exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: "查看完整答卷" })).toHaveCount(2);
+  await page.screenshot({ path: testInfo.outputPath("response-workspace-multiple.png"), fullPage: true });
+
   await page.getByRole("button", { name: "← 返回列表" }).click();
   await expect(page).toHaveURL(/\/studio\/survey$/);
   const persistedSurvey = page.locator("article").filter({
     has: page.getByRole("link", { name: TEMPLATE_TITLE, exact: true }),
   });
-  await expect(persistedSurvey).toContainText("回收中");
+  await expect(persistedSurvey).toContainText("发布中");
   await expect(persistedSurvey).toContainText("8题目数");
   await expect(persistedSurvey).toContainText("2答卷数");
   await page.screenshot({path:testInfo.outputPath("survey-home-populated-desktop.png"),fullPage:true});

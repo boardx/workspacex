@@ -1,0 +1,12 @@
+{
+  "org": "synthetic-org-acme",
+  "documents": [
+    {
+      "sourceId": "doc-p1-db",
+      "versionId": "v1",
+      "projectId": "P1",
+      "title": "P1 技术栈",
+      "body": "P1 用 PostgreSQL 14。"
+    }
+  ]
+}

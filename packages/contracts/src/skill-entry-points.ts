@@ -49,7 +49,7 @@ export const SKILL_ENTRY_POINTS: readonly SkillEntryPoint[] = [
   },
 ];
 
-export type HiddenSkillReason = "auto-triggered" | "admin-area";
+export type HiddenSkillReason = "auto-triggered" | "admin-area" | "work-stack-catalog";
 
 export interface HiddenPlatformSkill {
   readonly slug: string;
@@ -65,6 +65,76 @@ export const HIDDEN_PLATFORM_SKILLS: readonly HiddenPlatformSkill[] = [
   { slug: "diagram-and-canvas", reason: "auto-triggered", note: "需要画图 / 画布时自动调用" },
   { slug: "data-visualization", reason: "auto-triggered", note: "分析结果需要图表时自动调用" },
   { slug: "skill-authoring", reason: "admin-area", note: "在「我的 skill」/ 管理区使用" },
+  // Phase 20 CT01 —— D002 研究线 Work Skill 内容包（`skills/work-research/`，均带
+  // `metadata.work`）。这些不是本表管的「三入口」消费级 skill 库条目：它们经
+  // Work Stack v2 目录（`/skill?screen=work-catalog`，WS01-05）单独浏览/导入/管理，
+  // 有自己的通道（candidate/verified/deprecated）与就绪性面板。归到这里只是让本文件的
+  // 门控（「skills/ 下每个 SKILL.md 必须恰好分配一次」）通过，不代表它们被下线。
+  { slug: "data-exploration", reason: "work-stack-catalog", note: "Work Stack 目录浏览，见 /skill?screen=work-catalog" },
+  { slug: "data-storytelling", reason: "work-stack-catalog", note: "Work Stack 目录浏览，见 /skill?screen=work-catalog" },
+  { slug: "data-validation", reason: "work-stack-catalog", note: "Work Stack 目录浏览，见 /skill?screen=work-catalog" },
+  { slug: "data-visualization-report", reason: "work-stack-catalog", note: "Work Stack 目录浏览，见 /skill?screen=work-catalog" },
+  { slug: "decision-brief", reason: "work-stack-catalog", note: "Work Stack 目录浏览，见 /skill?screen=work-catalog" },
+  { slug: "enterprise-search", reason: "work-stack-catalog", note: "Work Stack 目录浏览，见 /skill?screen=work-catalog" },
+  { slug: "evidence-review", reason: "work-stack-catalog", note: "Work Stack 目录浏览，见 /skill?screen=work-catalog" },
+  { slug: "executive-briefing", reason: "work-stack-catalog", note: "Work Stack 目录浏览，见 /skill?screen=work-catalog" },
+  { slug: "knowledge-capture", reason: "work-stack-catalog", note: "Work Stack 目录浏览，见 /skill?screen=work-catalog" },
+  { slug: "knowledge-synthesis-review", reason: "work-stack-catalog", note: "Work Stack 目录浏览，见 /skill?screen=work-catalog" },
+  { slug: "market-sizing", reason: "work-stack-catalog", note: "Work Stack 目录浏览，见 /skill?screen=work-catalog" },
+  { slug: "research-synthesis", reason: "work-stack-catalog", note: "Work Stack 目录浏览，见 /skill?screen=work-catalog" },
+  { slug: "risk-assessment", reason: "work-stack-catalog", note: "Work Stack 目录浏览，见 /skill?screen=work-catalog" },
+  { slug: "scientific-research-planning", reason: "work-stack-catalog", note: "Work Stack 目录浏览，见 /skill?screen=work-catalog" },
+  { slug: "sql-query", reason: "work-stack-catalog", note: "Work Stack 目录浏览，见 /skill?screen=work-catalog" },
+  { slug: "statistical-analysis", reason: "work-stack-catalog", note: "Work Stack 目录浏览，见 /skill?screen=work-catalog" },
+  { slug: "task-extraction", reason: "work-stack-catalog", note: "Work Stack 目录浏览，见 /skill?screen=work-catalog" },
+  { slug: "trend-analysis", reason: "work-stack-catalog", note: "Work Stack 目录浏览，见 /skill?screen=work-catalog" },
+  // Phase 20 CT07 —— D005 销售线 Work Skill 内容包（`skills/work-sales/`，均带
+  // `metadata.work`）。同 CT01 理由：经 Work Stack v2 目录单独浏览/导入/管理，不进三入口。
+  // `risk-assessment`（S010）已由 CT01 登记（同 slug，是另一条内容线独立分发的 pack 副本），
+  // 本表按 slug 去重，不重复登记同一 slug 两次。
+  { slug: "customer-intelligence", reason: "work-stack-catalog", note: "Work Stack 目录浏览，见 /skill?screen=work-catalog" },
+  { slug: "account-tiering", reason: "work-stack-catalog", note: "Work Stack 目录浏览，见 /skill?screen=work-catalog" },
+  { slug: "account-planning", reason: "work-stack-catalog", note: "Work Stack 目录浏览，见 /skill?screen=work-catalog" },
+  { slug: "prospecting", reason: "work-stack-catalog", note: "Work Stack 目录浏览，见 /skill?screen=work-catalog" },
+  { slug: "lead-triage", reason: "work-stack-catalog", note: "Work Stack 目录浏览，见 /skill?screen=work-catalog" },
+  { slug: "outreach", reason: "work-stack-catalog", note: "Work Stack 目录浏览，见 /skill?screen=work-catalog" },
+  { slug: "sales-call-summary", reason: "work-stack-catalog", note: "Work Stack 目录浏览，见 /skill?screen=work-catalog" },
+  { slug: "opportunity-update", reason: "work-stack-catalog", note: "Work Stack 目录浏览，见 /skill?screen=work-catalog" },
+  { slug: "pipeline-review", reason: "work-stack-catalog", note: "Work Stack 目录浏览，见 /skill?screen=work-catalog" },
+  { slug: "forecasting", reason: "work-stack-catalog", note: "Work Stack 目录浏览，见 /skill?screen=work-catalog" },
+  { slug: "close-plan", reason: "work-stack-catalog", note: "Work Stack 目录浏览，见 /skill?screen=work-catalog" },
+  { slug: "crm-hygiene", reason: "work-stack-catalog", note: "Work Stack 目录浏览，见 /skill?screen=work-catalog" },
+  { slug: "proposal-builder", reason: "work-stack-catalog", note: "Work Stack 目录浏览，见 /skill?screen=work-catalog" },
+  { slug: "customer-health", reason: "work-stack-catalog", note: "Work Stack 目录浏览，见 /skill?screen=work-catalog" },
+  { slug: "renewal-radar", reason: "work-stack-catalog", note: "Work Stack 目录浏览，见 /skill?screen=work-catalog" },
+  { slug: "customer-research", reason: "work-stack-catalog", note: "Work Stack 目录浏览，见 /skill?screen=work-catalog" },
+  { slug: "meeting-prep", reason: "work-stack-catalog", note: "Work Stack 目录浏览，见 /skill?screen=work-catalog" },
+  // Phase 20 CT04 —— 产品线 Work Skill 内容包（`skills/work-product/`）。2026-09-29 补登：
+  // PR #4621 合入时未登记这 22 个 slug；同 CT01/CT07 理由走 Work Stack 目录，不进三入口。
+  // customer-research / data-exploration / research-synthesis / statistical-analysis /
+  // task-extraction 已由 CT01/CT07 登记，按 slug 去重不重复。
+  { slug: "business-review", reason: "work-stack-catalog", note: "Work Stack 目录浏览，见 /skill?screen=work-catalog" },
+  { slug: "competitive-analysis", reason: "work-stack-catalog", note: "Work Stack 目录浏览，见 /skill?screen=work-catalog" },
+  { slug: "design-critique", reason: "work-stack-catalog", note: "Work Stack 目录浏览，见 /skill?screen=work-catalog" },
+  { slug: "design-handoff", reason: "work-stack-catalog", note: "Work Stack 目录浏览，见 /skill?screen=work-catalog" },
+  { slug: "experiment-design", reason: "work-stack-catalog", note: "Work Stack 目录浏览，见 /skill?screen=work-catalog" },
+  { slug: "kpi-design", reason: "work-stack-catalog", note: "Work Stack 目录浏览，见 /skill?screen=work-catalog" },
+  { slug: "meeting-summary", reason: "work-stack-catalog", note: "Work Stack 目录浏览，见 /skill?screen=work-catalog" },
+  { slug: "metrics-review", reason: "work-stack-catalog", note: "Work Stack 目录浏览，见 /skill?screen=work-catalog" },
+  { slug: "opportunity-mapping", reason: "work-stack-catalog", note: "Work Stack 目录浏览，见 /skill?screen=work-catalog" },
+  { slug: "prd-spec-writing", reason: "work-stack-catalog", note: "Work Stack 目录浏览，见 /skill?screen=work-catalog" },
+  { slug: "prioritization", reason: "work-stack-catalog", note: "Work Stack 目录浏览，见 /skill?screen=work-catalog" },
+  { slug: "problem-framing", reason: "work-stack-catalog", note: "Work Stack 目录浏览，见 /skill?screen=work-catalog" },
+  { slug: "process-mapping", reason: "work-stack-catalog", note: "Work Stack 目录浏览，见 /skill?screen=work-catalog" },
+  { slug: "product-brainstorming", reason: "work-stack-catalog", note: "Work Stack 目录浏览，见 /skill?screen=work-catalog" },
+  { slug: "product-discovery", reason: "work-stack-catalog", note: "Work Stack 目录浏览，见 /skill?screen=work-catalog" },
+  { slug: "product-launch", reason: "work-stack-catalog", note: "Work Stack 目录浏览，见 /skill?screen=work-catalog" },
+  { slug: "roadmap-planning", reason: "work-stack-catalog", note: "Work Stack 目录浏览，见 /skill?screen=work-catalog" },
+  { slug: "sprint-planning", reason: "work-stack-catalog", note: "Work Stack 目录浏览，见 /skill?screen=work-catalog" },
+  { slug: "status-update", reason: "work-stack-catalog", note: "Work Stack 目录浏览，见 /skill?screen=work-catalog" },
+  { slug: "user-activation", reason: "work-stack-catalog", note: "Work Stack 目录浏览，见 /skill?screen=work-catalog" },
+  { slug: "user-interview-planning", reason: "work-stack-catalog", note: "Work Stack 目录浏览，见 /skill?screen=work-catalog" },
+  { slug: "work-item-management", reason: "work-stack-catalog", note: "Work Stack 目录浏览，见 /skill?screen=work-catalog" },
 ];
 
 /** slug → 所属入口 id；隐藏的返回 "hidden"；不在表里的返回 null（非平台 skill）。 */

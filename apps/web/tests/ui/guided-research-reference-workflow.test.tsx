@@ -115,7 +115,7 @@ describe("reference research workflow", () => {
     const initial = runtimeFixture("research");
     vi.mocked(getResearchRuntime).mockResolvedValue({ ...initial, busy: true, leaseUntil: "2099-01-01T00:00:00.000Z", progress: { stage: "searching", completed: 2, total: 5 }, researchPlan: { overview: "先对比政策，再核查进入门槛", optimizedQuestion: "哪些市场值得优先进入？" }, tasks: [{ ...initial.tasks[0]!, status: "succeeded", title: "政策与准入核查", objective: "核实补贴和并网要求", deliverables: ["政策对比表", "准入风险清单"] }, ...Array.from({ length: 4 }, (_, index) => ({ ...initial.tasks[0]!, id: `extra-${index}`, status: index === 0 ? "succeeded" as const : "pending" as const }))] });
     render(<GuidedResearchLive sessionId={initial.sessionId} onBack={vi.fn()} />);
-    expect(await screen.findByRole("list", { name: "搜索得到的相关网址" })).toBeInTheDocument();
+    expect(await screen.findByRole("list", { name: "已获取的研究资料" })).toBeInTheDocument();
     expect(screen.queryByRole("list", { name: "报告章节" })).not.toBeInTheDocument();
     expect(screen.getByTestId("research-source-description-source1")).toHaveAttribute("href", "https://example.org/policy");
     expect(screen.queryByTestId("research-runtime-progress")).not.toBeInTheDocument();

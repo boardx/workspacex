@@ -34,8 +34,8 @@ export function ProducedFileInlineCard({ file, threadId }: { file: ActiveFile; t
       <div
         data-testid="chat-produced-file-inline-card"
         className={cn(
-          "flex w-fit max-w-full gap-2 rounded-lg border border-border bg-card p-2",
-          canPreviewImage ? "flex-col" : "items-center px-3",
+          "flex w-fit max-w-full gap-3 rounded-container border border-border-subtle bg-card p-3 shadow-md",
+          canPreviewImage ? "flex-col" : "items-center px-4",
         )}
       >
         {canPreviewImage ? (
@@ -63,13 +63,13 @@ export function ProducedFileInlineCard({ file, threadId }: { file: ActiveFile; t
         <div className="flex min-w-0 items-center gap-2">
           <div className="min-w-0 flex-1">
             <div className="flex min-w-0 items-center gap-1.5">
-              <p className="truncate text-12 font-medium text-card-foreground">{file.name}</p>
+              <p className="truncate text-13 font-semibold text-card-foreground">{file.name}</p>
               {isSkillDraft ? (
                 <Badge className="shrink-0" tone="outline" data-testid="chat-produced-file-skill-draft-badge">技能草稿</Badge>
               ) : null}
             </div>
             {file.bytes !== null ? (
-              <p className="text-10 text-muted-foreground">{formatBytes(file.bytes)}</p>
+              <p className="text-11 text-muted-foreground">{formatBytes(file.bytes)}</p>
             ) : null}
           </div>
           {failed ? (

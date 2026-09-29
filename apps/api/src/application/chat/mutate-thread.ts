@@ -53,7 +53,8 @@ import type { ProvenanceWriter } from "../provenance/ports";
 import type { ProvenanceEventKind } from "../provenance/ports";
 import type { IdFactory } from "../artifact/ports";
 import type { ChatRepository } from "./ports";
-import { resolveVisibility, type ResolveVisibilityDeps } from "./resolve-visibility";
+import { resolveChatProjectLayer, resolveVisibility, type ResolveVisibilityDeps } from "./resolve-visibility";
+import { NON_WORKSHOP_CHAT_SCOPES, nonWorkshopChatScope, type ChatVisibilityScope as ThreadVisibilityScope } from "../../domain/chat/thread-visibility";
 import { ThreadNotVisibleError } from "./get-thread";
 
 /**
@@ -194,26 +195,30 @@ async function createThread(
 
   // 观察者恒无写权。**接口拒绝**，不只是按钮不渲染（R7 / 服务端判权）——
   // 而且拒绝也留痕（V8），否则反复试探是零成本的。
-  const membership = await deps.repo.findProjectMembership(input.userId, projectId, input.orgId);
-  const role = membership?.projectRole ?? null;
+  // #4615：项目层身份经 `resolveChatProjectLayer`（= `resolveProjectLayer`）——通用项目负责人 / 协作者可建。
+  const layer = await resolveChatProjectLayer(deps.repo, input.userId, projectId, input.orgId);
+  const role = layer.role;
   if (role === null || role === "observer") {
     await auditRefusal(deps, input, projectId, "NO_WRITE_ROLE");
     throw new NoWriteRoleError();
   }
+  const workshop = (layer.containerKind ?? "workshop") === "workshop";
 
   const threadId = deps.artifactIds.next("thr");
   await deps.chat.createThread({
     orgId: input.orgId,
     threadId,
     projectId,
-    groupId: input.groupId,
+    // 非工作坊容器没有分组：请求体里的 groupId 不采信（同个人线程的处置）。
+    groupId: workshop ? input.groupId : null,
     title,
     // 项目线程的标题是用户在创建时**必填**的（`normalizeTitle` 拒绝空标题）——
     // 它从第一刻起就归用户，自动命名不该有机会碰它。
     titleSource: "user",
     // 五值封闭由数据库 CHECK 兜（迁移 0021 的 `chat_threads_visibility_scope`）——
     // 这里不再抄一份枚举：抄一份就是第二处声明。
-    visibilityScope: input.visibilityScope ?? "group-shared",
+    // 非工作坊容器只有「仅自己 / 项目内共享」两档（`nonWorkshopChatScope`，缺省 = 项目内共享）。
+    visibilityScope: workshop ? input.visibilityScope ?? "group-shared" : nonWorkshopChatScope(input.visibilityScope),
     createdBy: input.userId,
   });
 
@@ -332,8 +337,13 @@ async function mutateExisting(
   if (input.op === "setVisibility") {
     // 项目中枢 R5：分享 = 改可见范围。只对项目线程；个人线程的 `private` 是它的定义，不是一个可改的档。
     if (realProjectId === null) throw new VisibilityScopeInvalidError();
-    const scope = input.visibilityScope;
-    if (scope !== "member-private" && scope !== "group-shared" && scope !== "plenary") {
+    const scope = input.visibilityScope as ThreadVisibilityScope | null;
+    // #4615：非工作坊容器只允许「仅自己」(private) / 「项目内共享」(plenary) 两档。
+    const nonWorkshop = (outcome.actor.containerKind ?? "workshop") !== "workshop";
+    const allowedScopes: readonly (string | null)[] = nonWorkshop
+      ? NON_WORKSHOP_CHAT_SCOPES
+      : ["member-private", "group-shared", "plenary"];
+    if (!allowedScopes.includes(scope) || scope === null) {
       throw new VisibilityScopeInvalidError();
     }
     // 谁能改：创建者本人，或本项目引导师。别人「看得见」不等于「能把它分享给更多人」——

@@ -29,7 +29,8 @@ const CAPABILITY_TABLES = new Set(["workflow_capability_grants"]);
 /** WF06：触发器两步读——withoutTenant 只能碰 workflow_trigger_lookup（无 org_id，非租户表）。 */
 const TRIGGER_FILE = "src/infrastructure/workflow/pg-workflow-trigger-store.ts";
 const TRIGGER_TENANT_TABLES = new Set(["workflow_triggers"]);
-const TRIGGER_NO_TENANT_TABLES = new Set(["workflow_trigger_lookup"]);
+// workflow_trigger_webhook_secrets(id)：只读 workflow_trigger_lookup 密钥列的 SECURITY DEFINER 函数（迁移 20260929060000）。
+const TRIGGER_NO_TENANT_TABLES = new Set(["workflow_trigger_lookup", "workflow_trigger_webhook_secrets"]);
 
 function walk(dir: string): string[] {
   return readdirSync(dir).flatMap((n) => {
@@ -73,7 +74,7 @@ describe("WF01 workflow repository permission boundary", () => {
     const withoutTenantBlocks = [...src.matchAll(/withoutTenant\([\s\S]*?\n\s*\);/g)].map((m) => m[0]);
     expect(withoutTenantBlocks.length).toBeGreaterThan(0);
     for (const block of withoutTenantBlocks) {
-      expect(block).toMatch(/workflow_trigger_lookup/);
+      expect(block).toMatch(/workflow_trigger_lookup|workflow_trigger_webhook_secrets/);
       expect(block).not.toMatch(/\bworkflow_triggers\b/);
     }
   });

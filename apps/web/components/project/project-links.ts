@@ -1,4 +1,8 @@
-export type ProjectResearchSub = "survey" | "itv" | "research" | "transcript";
+/**
+ * 项目内资源子页键（研究洞察子导航 / 通用项目「内容」的类型筛选共用）。
+ * #4615：加白板 / 设计（通用项目才有入口；工作坊的研究洞察子导航不变）。
+ */
+export type ProjectResearchSub = "survey" | "itv" | "research" | "transcript" | "whiteboard" | "design";
 
 export function projectResearchHref(projectId: string, sub: ProjectResearchSub): string {
   return `/projects/${encodeURIComponent(projectId)}?tab=research&sub=${sub}`;

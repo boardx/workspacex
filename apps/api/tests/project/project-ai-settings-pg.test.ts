@@ -60,7 +60,7 @@ describe("PgProjectAiSettingsRepository", () => {
   it("没有行 ⇒ 默认全开、updatedAt/updatedBy 为 null", async () => {
     await expect(readAs(MEMBER)).resolves.toEqual({
       projectId: PROJECT,
-      allowedSources: ["chat", "transcript", "survey", "interview", "research"],
+      allowedSources: ["chat", "whiteboard", "transcript", "survey", "interview", "research"],
       updatedAt: null,
       updatedBy: null,
     });

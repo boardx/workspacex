@@ -1,0 +1,21 @@
+{
+  "org": "synthetic-org-acme",
+  "documents": [
+    {
+      "sourceId": "doc-travel",
+      "versionId": "v3",
+      "effective": true,
+      "sourceTimestamp": "2026-01-01",
+      "title": "差旅报销标准 v3",
+      "body": "一线城市住宿上限 600 元/晚。"
+    },
+    {
+      "sourceId": "doc-travel",
+      "versionId": "v4",
+      "effective": false,
+      "draft": true,
+      "title": "差旅报销标准 v4 草稿",
+      "body": "一线城市住宿上限 800 元/晚（草稿）。"
+    }
+  ]
+}

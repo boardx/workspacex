@@ -11,7 +11,7 @@
  * Pure: no clock, no I/O, no storage. Everything in `domain/agent/*` is a total function of
  * its arguments, which is what lets F55's three invariants be asserted without Postgres.
  */
-import { agentRuntime as A } from "@repo/contracts";
+import { agentRuntime as A, agentRole as R } from "@repo/contracts";
 import type { z } from "zod";
 
 export type AgentPublishStateName = z.infer<typeof A.AgentPublishState>;
@@ -19,6 +19,11 @@ export type AgentPublishStateName = z.infer<typeof A.AgentPublishState>;
 export type AgentVisibility = z.infer<typeof A.AgentRow>["visibility"];
 export type ToolWhitelistEntryT = z.infer<typeof A.ToolWhitelistEntry>;
 export type SkillMountT = z.infer<typeof A.SkillMount>;
+/**
+ * AG01（Phase 20，契约束 agent-role，ADR-116 #3）—— 角色冻结字段：头像/角色分类/目录来源/
+ * Workflow 白名单/转交策略/升级策略/KPI。形状与回填默认值只在 `@repo/contracts` agent-role 声明。
+ */
+export type AgentRoleFieldsT = z.infer<typeof R.AgentRoleFields>;
 export type DegradePolicyName = z.infer<typeof A.DegradePolicy>;
 export type AgentSource = z.infer<typeof A.operations.createAgent.in>["source"];
 
@@ -67,6 +72,14 @@ export interface AgentDefinition {
   readonly toolWhitelist: readonly ToolWhitelistEntryT[];
   readonly concurrencyLimit: number;
   readonly degradePolicy: DegradePolicyName;
+  /** AG01 —— 角色冻结字段，见 `AgentRoleFieldsT`。全部进入 `SNAPSHOT_FROZEN_FIELDS`。 */
+  readonly avatar: AgentRoleFieldsT["avatar"];
+  readonly roleCategory: AgentRoleFieldsT["roleCategory"];
+  readonly catalogSource: AgentRoleFieldsT["catalogSource"];
+  readonly workflowAllowlist: readonly string[];
+  readonly delegationPolicy: AgentRoleFieldsT["delegationPolicy"];
+  readonly escalationPolicy: AgentRoleFieldsT["escalationPolicy"];
+  readonly kpi: AgentRoleFieldsT["kpi"];
 }
 
 /**

@@ -68,7 +68,7 @@ export interface StateResponse {
   stateVersion: number;
 }
 
-function fingerprint(value: unknown): string {
+export function fingerprint(value: unknown): string {
   return createHash("sha256").update(stableJson(value)).digest("hex");
 }
 
@@ -118,7 +118,7 @@ function isStoredRejection(v: unknown): v is StoredRejection {
 /** 重放 409 时重新读取最新投影（对当前用户可见性照常校验）。 */
 type RejectionRefresher = () => ReturnType<typeof loadVisibleProjection>;
 
-function latestProjectionFor(
+export function latestProjectionFor(
   deps: InstanceCommandDeps,
   cmd: { orgId: string; userId: string; instanceId: string },
 ): RejectionRefresher {
@@ -140,7 +140,7 @@ function replayed<T>(stable: unknown): T {
  * A1 幂等外壳：begin（in_flight 等待后重放）→ 执行 → finalize。业务拒绝（WorkflowUseCaseError）也 finalize
  * 成稳定响应，否则 receipt 永远停在 begun，重试会空转成 500。非业务异常（DB 断连等）不落定，保持 begun。
  */
-async function idempotent<T>(
+export async function idempotent<T>(
   deps: InstanceCommandDeps,
   key: WorkflowReceiptKey,
   run: () => Promise<{ response: T; instanceId: string | null }>,

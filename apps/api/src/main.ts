@@ -7,9 +7,10 @@ import { PgWhiteboardPresenceIdentity } from './infrastructure/whiteboard/pg-whi
  * `kernel.module.ts` about why the composition root belongs to no layer.
  */
 import "reflect-metadata";
-import { json, type Request, type Response, type NextFunction } from "express";
+import { json, raw, type Request, type Response, type NextFunction } from "express";
 import { PayloadTooLargeException } from "@nestjs/common";
 import { operations as skillFileEdit, SKILL_FILE_EDIT_BODY_MAX_BYTES } from "@repo/contracts/skill-file-edit";
+import { workflowRuntime as workflowRuntimeOps } from "@repo/contracts/workflow-runtime";
 import { SURVEY_PROPOSAL_BODY_MAX_BYTES } from '@repo/contracts/survey-markdown-proposal';
 import { realpathSync } from "node:fs";
 import { fileURLToPath } from "node:url";
@@ -23,6 +24,7 @@ import type { DebugRecorder } from "./application/diagnostics/debug-recorder";
 import { sweepDebugEvents } from "./infrastructure/diagnostics/pg-debug-event-store";
 import { attachAsrGateway } from "./interface/ws/asr-stream.gateway";
 import { attachAsrDraftGateway } from "./interface/ws/asr-draft.gateway";
+import { attachRealtimeDigitalHumanGateway } from "./interface/ws/realtime-digital-human.gateway";
 import { attachPersonalRealtimeAsrGateway } from "./interface/ws/personal-realtime-asr.gateway";
 import { attachAgentRunEventsGateway, checkRunVisibleViaReadAgentRun } from "./interface/ws/agent-run-events.gateway";
 import { ASR_PROVIDER } from "./application/recording/asr-ports";
@@ -101,6 +103,17 @@ export async function createApp(): Promise<NestExpressApplication> {
     (req:Request,res:Response,next:NextFunction)=>surveyProposalParser(req,res,(error?:unknown)=>{
       if(typeof error==='object'&&error!==null&&'type' in error&&error.type==='entity.too.large'){
         next(new PayloadTooLargeException());return;
+      }
+      next(error);
+    }));
+
+  // WF06 UC-WR-13: the webhook HMAC covers the raw request bytes (trigger-webhook.ts header), so this
+  // one route gets the unparsed Buffer; Nest's default JSON parser then sees req._body and skips it.
+  const webhookRawParser = raw({ type: () => true, limit: "1mb" });
+  app.getHttpAdapter().getInstance().post(workflowRuntimeOps.triggerWebhook.path,
+    (req: Request, res: Response, next: NextFunction) => webhookRawParser(req, res, (error?: unknown) => {
+      if (typeof error === "object" && error !== null && "type" in error && error.type === "entity.too.large") {
+        next(new PayloadTooLargeException()); return;
       }
       next(error);
     }));
@@ -190,6 +203,9 @@ export function attachStreamingSurfaces(app: NestExpressApplication): void {
   attachAsrDraftGateway(app.getHttpServer(), {
     principals: app.get(PRINCIPAL_RESOLVER_PORT),
     asr: app.get(ASR_PROVIDER),
+  });
+  attachRealtimeDigitalHumanGateway(app.getHttpServer(), {
+    principals: app.get(PRINCIPAL_RESOLVER_PORT),
   });
   attachPersonalRealtimeAsrGateway(app.getHttpServer(), {
     tickets: app.get(REALTIME_ASR_TICKET_STORE),

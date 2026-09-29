@@ -47,3 +47,18 @@ it("shows the prototype's question toolbox in the desktop designer", () => {
   expect(screen.getByRole("heading", { name: "题目大纲" })).toBeInTheDocument();
   expect(screen.getByRole("region", { name: "问卷设计画布" })).toBeInTheDocument();
 });
+
+it("shows a cover and selectable chapter/question cards in the center canvas", () => {
+  vi.stubGlobal("matchMedia", vi.fn(() => ({ matches: false, addEventListener: vi.fn(), removeEventListener: vi.fn() })));
+  const questions = [
+    { ...createSurveyQuestion("single", "q1", 1), title: "所属行业", chapterId: "基本信息", options: ["制造业", "服务业"] },
+    { ...createSurveyQuestion("short", "q2", 2), title: "其他建议", chapterId: "反馈" },
+  ];
+  render(<SurveyQuestionEditor studioLayout surveyTitle="客户调研" questions={questions} onChange={vi.fn()} />);
+  const canvas = screen.getByRole("region", { name: "问卷设计画布" });
+  expect(within(canvas).getByRole("heading", { name: "客户调研" })).toBeInTheDocument();
+  expect(within(canvas).getByRole("heading", { name: "基本信息" })).toBeInTheDocument();
+  expect(within(canvas).getByRole("heading", { name: "反馈" })).toBeInTheDocument();
+  fireEvent.click(within(canvas).getByRole("button", { name: "编辑第 2 题：其他建议" }));
+  expect(screen.getByRole("textbox", { name: "问题内容" })).toHaveValue("其他建议");
+});

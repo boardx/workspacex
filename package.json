@@ -13,6 +13,7 @@
     "lint:ui-prototyper-single-source": "node .harness/scripts/lint-ui-prototyper-single-source.mjs",
     "lint:execution-plan": "node .harness/scripts/execution-plan.mjs check",
     "lint:work-stack-graph": "node .harness/scripts/lint-work-stack-graph.mjs",
+    "lint:work-stack-gates": "node .harness/scripts/lint-work-stack-gates.mjs",
     "lint:self-host-compose": "node .harness/scripts/lint-self-host-compose.mjs && node --test .harness/scripts/lint-self-host-compose.selftest.mjs",
     "selfhost:upgrade": "bash scripts/upgrade.sh",
     "lint:root-router": "pnpm exec tsx .harness/scripts/lint-root-router.mjs",

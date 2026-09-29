@@ -18,7 +18,7 @@
  * 它进审计与内部判定记录，不进对外响应（契约 `resolveVisibility` 注释逐字如此）。
  */
 import type { OrgId } from "../../domain/org-id";
-import type { PermissionDecision } from "../../domain/identity/permission-decision";
+import type { PermissionDecision, ProjectLayerInput } from "../../domain/identity/permission-decision";
 import {
   chatReadAction,
   decidePersonalThreadRead,
@@ -28,6 +28,7 @@ import {
   type ThreadFacts,
 } from "../../domain/chat/thread-visibility";
 import { authorize, type AuthorizeDeps } from "../identity/authorize";
+import { resolveProjectLayer } from "../identity/project-layer";
 import type { ChatRepository } from "./ports";
 
 /** 判定依赖不可用。**拒绝**，不是放行，也不是空决定。 */
@@ -87,6 +88,23 @@ export type VisibilityOutcome =
       readonly base: PermissionDecision;
     };
 
+/**
+ * #4615（PROP-PROJECT-WORKSPACE-001 §3.3）：对话的项目层身份走 `resolveProjectLayer`——与 `authorize()` 同一个判据。
+ * 此前这里直读 `findProjectMembership`（只认工作坊行），通用项目的负责人 / 协作者因此看不到、也建不了项目对话。
+ * 工作坊行照旧是热路径（有行时不问两档身份），外部行为对工作坊逐字不变。
+ * 导出给同束的 `list-threads.ts` / `mutate-thread.ts` 用，不在三处各写一遍组装。
+ */
+export async function resolveChatProjectLayer(
+  repo: ResolveVisibilityDeps["repo"],
+  userId: string,
+  projectId: string,
+  orgId: OrgId,
+): Promise<ProjectLayerInput> {
+  const org = await repo.findOrgMembership(userId, orgId);
+  const layer = await resolveProjectLayer(repo, { userId, projectId, orgId, orgRole: org?.orgRole ?? null });
+  return { ...layer, containerKind: layer.containerKind ?? "workshop" };
+}
+
 export async function resolveVisibility(
   deps: ResolveVisibilityDeps,
   input: ResolveVisibilityInput,
@@ -97,11 +115,11 @@ export async function resolveVisibility(
   if (projectId === null) return resolvePersonalVisibility(deps, { userId, orgId, threadId });
 
   let thread: ThreadFacts | null;
-  let membership: Awaited<ReturnType<typeof repo.findProjectMembership>>;
+  let layer: ProjectLayerInput;
   try {
-    [thread, membership] = await Promise.all([
+    [thread, layer] = await Promise.all([
       chat.findThreadFacts(orgId, threadId),
-      repo.findProjectMembership(userId, projectId, orgId),
+      resolveChatProjectLayer(repo, userId, projectId, orgId),
     ]);
   } catch {
     // 不吞：吞掉就把「判定挂了」变成了「判定说不允许」，两者在运维上是完全不同的事。
@@ -122,8 +140,9 @@ export async function resolveVisibility(
 
   const actor: ActorFacts = {
     userId,
-    projectRole: membership?.projectRole ?? null,
-    groupId: membership?.groupId ?? null,
+    projectRole: layer.role,
+    groupId: layer.groupId,
+    containerKind: layer.containerKind ?? "workshop",
   };
 
   let base;

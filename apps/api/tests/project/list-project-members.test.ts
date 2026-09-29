@@ -9,7 +9,7 @@
  * ## 本文件钉的是什么（每一条都写明「不做会怎样」）
  *
  *   ① **kind 不是 workshop ⇒ 不返回名单**（#609 的核心收窄，本文件的主反证）。
- *      不做：`research_project` / `user_insight` 的 tab 会拿到一个**空数组**，
+ *      不做：`general`（#4615 前的 `research_project` / `user_insight`）的 tab 会拿到一个**空数组**，
  *      于是「这一类容器的名单还没被设计」这个缺口被渲染成「这个项目还没有人」——
  *      一个正常的空态，没有任何东西会报警。#609 逐字要求这两类显式显示
  *      「尚未建（设计缺口）」，不假装空列表。
@@ -64,7 +64,7 @@ const ROSTER: Record<string, readonly ProjectMemberRosterEntry[]> = {
 
 const KINDS: Record<string, ProjectKind> = {
   [WORKSHOP]: "workshop",
-  [RESEARCH]: "research_project",
+  [RESEARCH]: "general",
   [OTHER_WORKSHOP]: "workshop",
 };
 
@@ -104,7 +104,7 @@ function makeDeps(roster: ProjectMemberRosterRepository = new FakeRosterReposito
 }
 
 describe("① 反证（本 issue 的核心收窄）：kind 不是 workshop 时不返回名单", () => {
-  it("research_project ⇒ members 为 null，而不是空数组", async () => {
+  it("general ⇒ members 为 null，而不是空数组", async () => {
     const roster = new FakeRosterRepository();
     const out = await listProjectMembers(makeDeps(roster), {
       userId: "u-facilitator",

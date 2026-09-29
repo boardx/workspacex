@@ -22,8 +22,8 @@
  * 等等一概没有代码）。`trialRunAgent` 恰好是其中可以在**不**建那整套基础设施的前提下诚实
  * 落地的一角，原因是它读写的 Agent 实体其实是 wave2 delta（#417/#414）已经建好的
  * `agents`/`agent_versions`，而不是 agent-runtime.ts 自己描述的、还没有任何存储的那个
- * 版本——`agent_versions.tool_policy` 的 DB CHECK 强制 `jsonb_array_length = 0`
- * 就是这条对应关系的证据：**这一阶段的 Agent 结构上不可能挂任何工具**，所以
+ * 版本——`agent_versions.tool_policy` 只声明能力分类（AG02 起 CHECK 放宽为分类字符串数组），
+ * 分类**不产生任何授权**（ADR-120 #2），试跑路径不执行工具，所以
  * `trialRunAgent.out.toolCalls` 恒为 `[]`、`dataRead` 恒为 `[]`，不是偷懒不填，
  * 是这两个字段在当前阶段没有东西可以产生。
  *
@@ -78,7 +78,7 @@ export interface TrialRunAgentStep {
 
 export interface TrialRunAgentResult {
   readonly steps: readonly TrialRunAgentStep[];
-  /** Structurally always `[]` -- see file header (`tool_policy` CHECK). */
+  /** Always `[]` -- tool_policy categories grant nothing; see file header. */
   readonly toolCalls: readonly never[];
   /** Structurally always `[]` -- no data-scope concept exists on `agent_versions` yet. */
   readonly dataRead: readonly never[];

@@ -293,10 +293,10 @@ export async function seedOrg(opts: {
   ownerUserId?: string;
   teamNames?: string[];
   projectId: string;
-  /** F116: which of the three container kinds. Defaults to `workshop` -- the only kind
+  /** F116 / #4615: which container kind. Defaults to `workshop` -- the only kind
    *  that has groups and the four project roles, which is what every existing fixture
-   *  relies on. A test about the other two kinds says so at the call site. */
-  projectKind?: "workshop" | "research_project" | "user_insight";
+   *  relies on. A test about `general` says so at the call site. */
+  projectKind?: "workshop" | "general";
   groupNames?: string[];
   /**
    * F11: `organizations.seat_quota` (migration 20260731085758) defaulted to 0 in
@@ -360,12 +360,7 @@ export async function seedOrg(opts: {
     // without this row, seeding a segment for a `seedOrg`-created container fails with
     // `agenda_segments_workshop_org_fkey`, not because agenda_segments is wrong, but
     // because the container it points at was never actually a real workshop.
-    const subtypeTable =
-      projectKind === "workshop"
-        ? "workshops"
-        : projectKind === "research_project"
-          ? "research_projects"
-          : "user_insights";
+    const subtypeTable = projectKind === "workshop" ? "workshops" : "general_projects";
     await c.query(`INSERT INTO ${subtypeTable} (id, org_id) VALUES ($1, $2)`, [projectId, orgId]);
     for (const g of groupNames) {
       const id = `${projectId}-${g}`;

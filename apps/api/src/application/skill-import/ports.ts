@@ -2,6 +2,7 @@ import type { z } from "zod";
 import type { wave2Runtime } from "@repo/contracts";
 import type { OrgId } from "../../domain/org-id";
 import type { SkillStarterPack } from "../../domain/skill/starter-pack";
+import type { WorkSkillManifest } from "@repo/contracts/work-skill-meta";
 
 export type SkillStarterImportResult = z.infer<typeof wave2Runtime.SkillStarterImportResult>;
 
@@ -23,6 +24,8 @@ export type PersistVerifiedImportOutcome =
    */
   | { readonly kind: "version-label-reused"; readonly stableName: string; readonly semanticVersion: string }
   | { readonly kind: "idempotency-conflict" }
+  /** WS02（E2）：manifest 的 stableId 已属于本组织另一个 Skill 的目录行。整包回滚。 */
+  | { readonly kind: "stable-id-conflict"; readonly stableId: string; readonly conflictingSkillId: string }
   | { readonly kind: "previous-failure"; readonly failureCode: string };
 
 export type ExistingImportOutcome =
@@ -44,6 +47,12 @@ export interface SkillStarterImportRepository {
     readonly idempotencyKey: string;
     readonly payloadDigest: string;
     readonly pack: SkillStarterPack;
+    /**
+     * WS02：已校验的 `metadata.work`，按 stableName 索引（无该键的普通 Skill 不在表内）。
+     * 与 skill 行、版本行**同一事务**写入 `skill_versions.manifest.work` 并 upsert
+     * `skill_catalog_entries`（新行 channel=candidate；已有行只刷新检索字段，不回退通道）。
+     */
+    readonly workManifests?: ReadonlyMap<string, WorkSkillManifest>;
   }): Promise<PersistVerifiedImportOutcome>;
 
   /**

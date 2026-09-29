@@ -16,6 +16,8 @@ export async function seedWebhookTrigger(args: {
   ownerUserId: string;
   agentId: string;
   version?: number;
+  /** R9 轮换槽（上一把密钥）。 */
+  previousSecret?: string;
 }): Promise<TriggerFixture> {
   const triggerId = `wt-${randomUUID()}`;
   const secret = randomUUID();
@@ -27,7 +29,7 @@ export async function seedWebhookTrigger(args: {
     ),
   );
   await asApp(null, (c) =>
-    c.query(`INSERT INTO workflow_trigger_lookup (id, org_id_hint, secret_ref) VALUES ($1, $2, $3)`, [triggerId, args.orgId, secret]),
+    c.query(`INSERT INTO workflow_trigger_lookup (id, org_id_hint, webhook_secret, webhook_secret_previous) VALUES ($1, $2, $3, $4)`, [triggerId, args.orgId, secret, args.previousSecret ?? null]),
   );
   return { triggerId, secret };
 }
@@ -49,7 +51,7 @@ export async function seedScheduleTrigger(args: {
     ),
   );
   await asApp(null, (c) =>
-    c.query(`INSERT INTO workflow_trigger_lookup (id, org_id_hint, secret_ref) VALUES ($1, $2, NULL)`, [triggerId, args.orgId]),
+    c.query(`INSERT INTO workflow_trigger_lookup (id, org_id_hint) VALUES ($1, $2)`, [triggerId, args.orgId]),
   );
   return { triggerId };
 }

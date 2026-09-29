@@ -9,6 +9,7 @@ import type { WorkflowTriggerStore } from "./workflow-trigger-ports";
 import type { EffectGateway } from "./effect-gateway";
 import { openEventStream, type WorkflowEventCursor } from "./event-stream";
 import { cancelInstance, resumeInstance, startInstance, type InstanceCommandDeps, type StartInstanceResponse, type StateResponse } from "./instance-commands";
+import { approveGate, denyGate, type GateDecisionResponse } from "./gate-commands";
 import { getInstanceProjection } from "./instance-projection";
 import { runInstance, type RunHooks, type WorkflowGraphDriver } from "./run-instance";
 import type { WorkflowLease } from "./workflow-ports";
@@ -67,6 +68,16 @@ export class WorkflowRuntimeService {
 
   resume(orgId: string, userId: string, instanceId: string, body: unknown): Promise<StateResponse> {
     return resumeInstance(this.commandDeps, { orgId, userId, instanceId, body });
+  }
+
+  /** WF05 UC-WR-11。 */
+  approveGate(orgId: string, userId: string, instanceId: string, gateId: string, body: unknown): Promise<GateDecisionResponse> {
+    return approveGate(this.commandDeps, { orgId, userId, instanceId, gateId, body });
+  }
+
+  /** WF05 UC-WR-12。 */
+  denyGate(orgId: string, userId: string, instanceId: string, gateId: string, body: unknown): Promise<GateDecisionResponse> {
+    return denyGate(this.commandDeps, { orgId, userId, instanceId, gateId, body });
   }
 
   get(orgId: string, userId: string, instanceId: string): Promise<WorkflowInstanceProjection> {

@@ -1,5 +1,5 @@
 /**
- * 项目中枢 B2-S1（#4425）`listProjectResources` —— 一个项目的四类资源聚合视图。
+ * 项目中枢 B2-S1（#4425）`listProjectResources` —— 一个项目的资源聚合视图（#4615 起六类）。
  *
  * 判定同 `get-project-overview.ts`：`authorize(read.published)` 对着项目对象本身；拒绝按
  * `decision.reasonCode` 分层透传（ADMIN_NOT_SUPERUSER / NO_PROJECT_ROLE），判定服务不可用
@@ -7,6 +7,7 @@
  *
  * 内容经 `discloseDecided()` 出来——仓储只交 `Guarded<T>`，忘了判定是类型错误不是疏漏。
  */
+import { project as C } from "@repo/contracts";
 import { authorize, type AuthorizeDeps } from "../identity/authorize";
 import type { OrgId } from "../../domain/org-id";
 import type { LoggerPort } from "../ports/logger.port";
@@ -19,13 +20,11 @@ import type { ProjectResourceKind, ProjectResourcePort, ProjectResourceRow } fro
 /** 与 `OVERVIEW_READ_ACTION` 同一个字面量，刻意同名：问的是同一个问题（你能不能看这个项目）。 */
 export const PROJECT_RESOURCE_READ_ACTION = "read.published";
 
-/** 四类全列，含 0——角标要的是「这一类有几个」，没有那一类不等于没有这个键。 */
-export const PROJECT_RESOURCE_KINDS: readonly ProjectResourceKind[] = [
-  "survey",
-  "guided_research",
-  "personal_transcription",
-  "interview",
-];
+/**
+ * 全部类型全列，含 0——角标要的是「这一类有几个」，没有那一类不等于没有这个键。
+ * 取值来自契约（#4615 起六类），这里不重列。
+ */
+export const PROJECT_RESOURCE_KINDS: readonly ProjectResourceKind[] = C.ProjectResourceKind.options;
 
 export interface ProjectResourceDeps {
   readonly auth: AuthorizeDeps;

@@ -8,9 +8,10 @@ import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { surveyRequest } from "@/lib/survey/runtime-client";
 import { getBuiltinSurveyTemplates } from "@/lib/survey/builtin-templates";
+import type { SurveyCreationDraft } from "@/lib/survey/creation-draft";
 
 export function CreateSurveyDialog({open,onOpenChange,onCreated}: {
-  open:boolean;onOpenChange:(open:boolean)=>void;onCreated:(id:string,mode:"blank"|"ai"|"template")=>void;
+  open:boolean;onOpenChange:(open:boolean)=>void;onCreated:(id:string|null,mode:"blank"|"ai"|"template",draft?:SurveyCreationDraft)=>void;
 }) {
   const [name,setName]=React.useState("");
   const [tags,setTags]=React.useState<string[]>([]);
@@ -45,6 +46,11 @@ export function CreateSurveyDialog({open,onOpenChange,onCreated}: {
       template:mode==="template" && source ? structuredClone(source.template) : {id:crypto.randomUUID(),title:`${name.trim()}分析报告`,sections:[]},
     });
     if(!parsed.success){setError("请填写有效的问卷名称和标签。");return;}
+    if(mode==="ai"){
+      onOpenChange(false);
+      onCreated(null,"ai",{name:parsed.data.title,tags:parsed.data.tags??[]});
+      return;
+    }
     lock.current=true;setBusy(true);
     try{const created=await surveyRequest("/surveys",{method:"POST",body:parsed.data},SurveyRuntimeSchema);onOpenChange(false);onCreated(created.id,mode);}
     catch(e){setError(e instanceof Error?e.message:"创建失败，请重试");}
