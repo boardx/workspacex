@@ -88,9 +88,8 @@ test("fabric surface viewport", async ({ page, request: api }) => {
   const assertViewportBounds = async () => {
     const bounds = await surface.boundingBox();
     expect(bounds).not.toBeNull();
-    // Fullscreen belongs to the Board shell, including its visible sync/recovery
-    // status. Fabric fills the remaining editor region, not the status banner.
-    // Measure every boundary; a hardcoded banner allowance could hide app chrome.
+    // Fabric fills the editor region below a pending-sync banner, or the whole
+    // shell once the server acknowledgement hides that banner.
     const region = page.getByTestId("board-editor-region");
     const shellBounds = await region.locator("..").boundingBox();
     const regionBounds = await region.boundingBox();
@@ -98,19 +97,21 @@ test("fabric surface viewport", async ({ page, request: api }) => {
     const viewport = page.viewportSize()!;
     expect(shellBounds).not.toBeNull();
     expect(regionBounds).not.toBeNull();
-    expect(bannerBounds).not.toBeNull();
+    const bannerHeight = bannerBounds?.height ?? 0;
     for (const [actual, expected] of [
       [shellBounds!.x, 0], [shellBounds!.y, 0],
       [shellBounds!.width, viewport.width], [shellBounds!.height, viewport.height],
-      [bannerBounds!.x, 0], [bannerBounds!.y, 0], [bannerBounds!.width, viewport.width],
       [regionBounds!.x, 0], [regionBounds!.width, viewport.width],
-      [regionBounds!.y, bannerBounds!.y + bannerBounds!.height],
+      [regionBounds!.y, bannerHeight],
       [regionBounds!.y + regionBounds!.height, viewport.height],
       [bounds!.x, regionBounds!.x], [bounds!.y, regionBounds!.y],
       [bounds!.width, regionBounds!.width], [bounds!.height, regionBounds!.height],
     ]) expect(Math.abs(actual! - expected!)).toBeLessThanOrEqual(1);
     expect(regionBounds!.height).toBeGreaterThan(0);
-    expect(bannerBounds!.height).toBeGreaterThan(0);
+    if (bannerBounds) {
+      expect(bannerBounds).toMatchObject({ x: 0, y: 0, width: viewport.width });
+      expect(bannerBounds.height).toBeGreaterThan(0);
+    }
   };
   await expect(assertViewportBounds).toPass({timeout: 5000});
   await page.setViewportSize({width: 1024, height: 768});
@@ -135,13 +136,21 @@ test("fabric surface viewport", async ({ page, request: api }) => {
   });
   expect(paintedSamples).toBeGreaterThan(10);
 
-  const surfaceBounds = await surface.boundingBox();
-  expect(surfaceBounds).not.toBeNull();
-  // Stay on bare canvas: a selected object's floating toolbar can intercept wheel events.
-  await page.mouse.move(surfaceBounds!.x + 80, surfaceBounds!.y + 120);
   const zoomValue = page.getByTestId("board-zoom-value");
   const wheelToClamp = async (deltaY: number, expected: "5%" | "800%") => {
     for (let step = 0; step < 12 && await zoomValue.textContent() !== expected; step += 1) {
+      // Wheel input can scroll the page or move an object under the cursor at
+      // extreme zoom. Pick an uncovered Fabric pixel before every gesture.
+      const point = await surface.evaluate((element) => {
+        const rect = element.getBoundingClientRect();
+        for (const [fx, fy] of [[0.1, 0.2], [0.9, 0.2], [0.1, 0.8], [0.9, 0.8], [0.5, 0.85]] as const) {
+          const x = rect.x + rect.width * fx, y = rect.y + rect.height * fy;
+          const hit = document.elementFromPoint(x, y);
+          if (hit instanceof HTMLCanvasElement && element.contains(hit)) return { x, y };
+        }
+        throw new Error("No exposed Fabric canvas point for wheel zoom");
+      });
+      await page.mouse.move(point.x, point.y);
       await page.mouse.wheel(0, deltaY);
       await page.waitForTimeout(75);
       await page.evaluate(() => new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve()))));
